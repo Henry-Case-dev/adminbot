@@ -8,7 +8,7 @@ slavik_router = Router()
 
 
 # Handler 1: F4 — KUCHA words → "ДАЛБАЕБ"
-@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID), KuchaWordFilter())
+@slavik_router.message(KuchaWordFilter())
 async def kucha_handler(message: types.Message):
     await message.reply("ДАЛБАЕБ")
 
