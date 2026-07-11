@@ -32,16 +32,30 @@ class Settings:
     # Kostik reply probability — 0.0 (never) to 1.0 (always, legacy default)
     KOSTIK_REPLY_PROBABILITY: float = _env_float("KOSTIK_REPLY_PROBABILITY", 1.0)
 
-    # Scheduler
-    MORNING_HOUR: int = _env_int("MORNING_HOUR", 10)
-    EVENING_HOUR: int = _env_int("EVENING_HOUR", 20)
-    POLL_INTERVAL: int = _env_int("POLL_INTERVAL", 60)
+    # Dead Page V2 — Repost-triggered
+    DEAD_PAGE_SOURCE_CHANNEL_USERNAME: str = os.getenv("DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "d_pages")
+    DEAD_PAGE_SOURCE_CHANNEL_ID: int = _env_int("DEAD_PAGE_SOURCE_CHANNEL_ID", 0)
+
+    # Relay channel (private bot channel for forwarding)
+    DEAD_PAGE_RELAY_CHANNEL_ID: int = _env_int("DEAD_PAGE_RELAY_CHANNEL_ID", 4228645624)
+
+    # Max caption characters for fallback sendPhoto (channel limit 4096)
+    DEAD_PAGE_CAPTION_MAX_CHARS: int = _env_int("DEAD_PAGE_CAPTION_MAX_CHARS", 1024)
+
+    # Anti-spam: minimum seconds between dead pages in same chat
+    DEAD_PAGE_COOLDOWN_SECONDS: int = _env_int("DEAD_PAGE_COOLDOWN_SECONDS", 10)
+
+    # Keep join trigger?
+    DEAD_PAGE_POST_ON_JOIN: bool = os.getenv("DEAD_PAGE_POST_ON_JOIN", "True").lower() in ("true", "1", "yes")
+
+    # Max retries for random post picking
+    DEAD_PAGE_MAX_FORWARD_RETRIES: int = _env_int("DEAD_PAGE_MAX_FORWARD_RETRIES", 5)
 
     # GIF counter
     GIF_INTERVAL: int = _env_int("GIF_INTERVAL", 5)
     GIF_PATH: str = os.getenv("GIF_PATH", "media/slavic_chlen.mp4")
 
-    # Dead page
+    # Dead page media directory
     DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
 
 

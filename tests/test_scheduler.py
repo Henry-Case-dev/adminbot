@@ -1,150 +1,53 @@
-import asyncio
-import datetime
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from services.scheduler import SchedulerService
+from config.settings import settings
 
 
-class TestSchedulerService:
-    @pytest.mark.asyncio
-    async def test_send_dead_page_sends_photo_and_records(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        
-        scheduler.media.pick_random = AsyncMock(
-            return_value=("path/to/photo.jpg", "Some text content")
-        )
-        
-        await scheduler._send_dead_page(-100123, "morning")
-        
-        mock_bot.send_photo.assert_called_once()
-        mock_db.record_post.assert_called_once_with(-100123, "morning")
+class TestSchedulerServiceV2:
+    """Tests for simplified SchedulerService (Dead Page V2)."""
+
+    @pytest.fixture
+    def mock_relay(self):
+        """Mock DeadPageRelay."""
+        relay = MagicMock()
+        relay.send_dead_page = AsyncMock()
+        return relay
+
+    @pytest.fixture
+    def scheduler(self, mock_relay):
+        return SchedulerService(relay=mock_relay, target_user_id=settings.SLAVIK_USER_ID)
 
     @pytest.mark.asyncio
-    async def test_send_dead_page_long_text_split(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        
-        long_text = "A" * 2000
-        
-        scheduler.media.pick_random = AsyncMock(
-            return_value=("path/to/photo.jpg", long_text)
-        )
-        
-        await scheduler._send_dead_page(-100123, "morning")
-        
-        call_args = mock_bot.send_photo.call_args
-        assert len(call_args[1]["caption"]) == 1024
-        
-        mock_bot.send_message.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_send_dead_page_handles_missing_media(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        scheduler.media.pick_random = AsyncMock(
-            side_effect=FileNotFoundError("No .jpg files")
-        )
-        
-        await scheduler._send_dead_page(-100123, "morning")
-        
-        mock_bot.send_photo.assert_not_called()
-        mock_db.record_post.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_signal_immediate_post_dedup(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        scheduler._send_dead_page = AsyncMock()
-        
+    async def test_signal_immediate_post_calls_relay(self, scheduler, mock_relay):
+        """Join trigger should delegate to DeadPageRelay."""
         chat_id = -100123
-        
         await scheduler.signal_immediate_post(chat_id)
-        scheduler._send_dead_page.assert_called_once_with(chat_id, 'join')
-        
-        scheduler._send_dead_page.reset_mock()
+        mock_relay.send_dead_page.assert_called_once_with(chat_id, slot="join")
+
+    @pytest.mark.asyncio
+    async def test_signal_immediate_post_dedup(self, scheduler, mock_relay):
+        """Second call within DEDUP_WINDOW should be ignored."""
+        chat_id = -100123
         await scheduler.signal_immediate_post(chat_id)
-        scheduler._send_dead_page.assert_not_called()
+        await scheduler.signal_immediate_post(chat_id)
+        assert mock_relay.send_dead_page.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_tick_posts_morning_slot(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        mock_db.get_present_chats = AsyncMock(return_value=[-100123])
-        mock_db.has_post_today = AsyncMock(return_value=False)
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        scheduler._send_dead_page = AsyncMock()
-        
-        with patch('services.scheduler.datetime') as mock_datetime:
-            mock_now = MagicMock()
-            mock_now.hour = 10
-            mock_datetime.datetime.now.return_value = mock_now
-            
-            await scheduler._tick()
-            
-            scheduler._send_dead_page.assert_called_once_with(-100123, 'morning')
+    async def test_signal_immediate_post_no_relay(self):
+        """Without relay, should log error but not crash."""
+        scheduler = SchedulerService(relay=None)
+        await scheduler.signal_immediate_post(-100123)
 
     @pytest.mark.asyncio
-    async def test_tick_skips_already_posted(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        mock_db.get_present_chats = AsyncMock(return_value=[-100123])
-        mock_db.has_post_today = AsyncMock(return_value=True)
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        scheduler._send_dead_page = AsyncMock()
-        
-        with patch('services.scheduler.datetime') as mock_datetime:
-            mock_now = MagicMock()
-            mock_now.hour = 10
-            mock_datetime.datetime.now.return_value = mock_now
-            
-            await scheduler._tick()
-            
-            scheduler._send_dead_page.assert_not_called()
+    async def test_scheduler_has_no_tick_method(self, scheduler):
+        """V2 scheduler should not have _tick or _send_dead_page."""
+        assert not hasattr(scheduler, '_tick')
+        assert not hasattr(scheduler, '_send_dead_page')
 
     @pytest.mark.asyncio
-    async def test_tick_no_present_chats(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        mock_db.get_present_chats = AsyncMock(return_value=[])
-        mock_db.has_post_today = AsyncMock(return_value=False)
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        scheduler._send_dead_page = AsyncMock()
-        
-        with patch('services.scheduler.datetime') as mock_datetime:
-            mock_now = MagicMock()
-            mock_now.hour = 10
-            mock_datetime.datetime.now.return_value = mock_now
-            
-            await scheduler._tick()
-            
-            scheduler._send_dead_page.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_tick_outside_posting_window(self):
-        mock_bot = AsyncMock()
-        mock_db = AsyncMock()
-        mock_db.get_present_chats = AsyncMock(return_value=[-100123])
-        
-        scheduler = SchedulerService(mock_bot, mock_db)
-        scheduler._send_dead_page = AsyncMock()
-        
-        with patch('services.scheduler.datetime') as mock_datetime:
-            mock_now = MagicMock()
-            mock_now.hour = 3
-            mock_datetime.datetime.now.return_value = mock_now
-            
-            await scheduler._tick()
-            
-            scheduler._send_dead_page.assert_not_called()
+    async def test_signal_immediate_post_respects_join_config(self, mock_relay):
+        """When DEAD_PAGE_POST_ON_JOIN=False, should skip."""
+        scheduler = SchedulerService(relay=mock_relay, post_on_join=False)
+        await scheduler.signal_immediate_post(-100123)
+        mock_relay.send_dead_page.assert_not_called()

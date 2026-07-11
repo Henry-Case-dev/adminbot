@@ -8,6 +8,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config.settings import settings
 from services.database import DatabaseService
 from services.scheduler import SchedulerService
+from services.media_picker import MediaService
+from services.dead_page_relay import DeadPageRelay
 from services.message_counter import MessageCounterMiddleware
 
 # Handlers
@@ -16,6 +18,7 @@ from handlers.alan import alan_router, setup_alan
 from handlers.slavik import slavik_router
 from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
+from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,13 +36,14 @@ async def on_startup():
     await db.initialize()
     logger.info("Database initialized")
 
-    scheduler = SchedulerService(bot, db, target_user_id=settings.SLAVIK_USER_ID)
-    logger.info("Scheduler created")
+    # Create relay and scheduler
+    relay = DeadPageRelay(bot, db, MediaService(media_base=settings.DEAD_PAGE_DIR))
+    scheduler = SchedulerService(relay=relay, target_user_id=settings.SLAVIK_USER_ID)
+    logger.info("DeadPageRelay and Scheduler created")
 
-    # Inject dependencies into slava_presence module
+    # Inject dependencies
     setup_presence(db, scheduler)
-    
-    # Inject DB into alan reply engine
+    setup_dead_page(relay, db)
     setup_alan(db)
     
     # Attach GIF counter middleware to slavik router
@@ -62,13 +66,16 @@ async def on_startup():
     # 3. Alan router — user ID 138811255 (F6: reply engine, every 10 msgs)
     dp.include_router(alan_router)
 
-    # 4. Slava router — user ID 479167456 (F3, F4, F5 + catch-all)
+    # 4. Dead Page trigger — reposts from @d_pages (NEW in V2)
+    dp.include_router(dead_page_router)
+
+    # 5. Slava router — user ID 479167456 (F3, F4, F5 + catch-all)
     dp.include_router(slavik_router)
 
-    # 5. Vasya router — text filters, no user restriction
+    # 6. Vasya router — text filters, no user restriction
     dp.include_router(vasya_router)
 
-    logger.info("All routers registered")
+    logger.info("All routers registered (v2.0.0)")
 
 
 async def on_shutdown():

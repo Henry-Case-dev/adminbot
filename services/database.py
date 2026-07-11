@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import time
 import aiosqlite
 from pathlib import Path
 
@@ -23,10 +24,16 @@ class DatabaseService:
         );
         
         CREATE TABLE IF NOT EXISTS dead_page_posts (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER NOT NULL,
-            slot    TEXT    NOT NULL,
-            date    TEXT    NOT NULL
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id   INTEGER NOT NULL,
+            slot      TEXT    NOT NULL,
+            date      TEXT    NOT NULL,
+            timestamp INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS channel_state (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );
     """
     
@@ -42,6 +49,13 @@ class DatabaseService:
         await self.db.execute("PRAGMA journal_mode=WAL")
         await self.db.executescript(self._SCHEMA_SQL)
         await self.db.commit()
+
+        # Migration: add timestamp column if missing (Dead Page V2)
+        try:
+            await self.db.execute("ALTER TABLE dead_page_posts ADD COLUMN timestamp INTEGER")
+            await self.db.commit()
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
     
     async def close(self) -> None:
         if self.db:
@@ -100,22 +114,45 @@ class DatabaseService:
         return row["count"] if row else 0
     
     # ── Dead Page Posts ─────────────────────────────────
-    
-    async def has_post_today(self, chat_id: int, slot: str) -> bool:
-        """Check if a post of given slot has been made today."""
-        today = datetime.date.today().isoformat()
+
+    async def was_dead_page_recently(self, chat_id: int, cooldown_seconds: int) -> bool:
+        """Check if a dead page was posted in this chat within the last N seconds."""
+        cutoff = int(time.time()) - cooldown_seconds
         cursor = await self.db.execute(
-            "SELECT 1 FROM dead_page_posts WHERE chat_id = ? AND slot = ? AND date = ?",
-            (chat_id, slot, today)
+            "SELECT 1 FROM dead_page_posts WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?",
+            (chat_id, cutoff)
         )
         row = await cursor.fetchone()
         return row is not None
-    
-    async def record_post(self, chat_id: int, slot: str) -> None:
-        """Record that a post was made."""
+
+    async def record_dead_page_post(self, chat_id: int, slot: str) -> None:
+        """Record that a dead page post was made."""
         today = datetime.date.today().isoformat()
+        now_ts = int(time.time())
         await self.db.execute(
-            "INSERT INTO dead_page_posts (chat_id, slot, date) VALUES (?, ?, ?)",
-            (chat_id, slot, today)
+            "INSERT INTO dead_page_posts (chat_id, slot, date, timestamp) VALUES (?, ?, ?, ?)",
+            (chat_id, slot, today, now_ts)
+        )
+        await self.db.commit()
+
+    # ── Channel State ───────────────────────────────────
+
+    async def get_last_known_message_id(self, channel_id: int = 0) -> int | None:
+        """Get the last known message_id in the relay channel."""
+        key = f"last_msg_id:{channel_id}" if channel_id else "last_known_message_id"
+        cursor = await self.db.execute(
+            "SELECT value FROM channel_state WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            return int(row["value"])
+        return None
+
+    async def update_last_known_message_id(self, msg_id: int, channel_id: int = 0) -> None:
+        """Update the last known message_id in the relay channel."""
+        key = f"last_msg_id:{channel_id}" if channel_id else "last_known_message_id"
+        await self.db.execute(
+            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+            (key, str(msg_id))
         )
         await self.db.commit()

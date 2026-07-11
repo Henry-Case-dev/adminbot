@@ -15,10 +15,6 @@
 - [x] T-010 (slavik): На военные слова (летит, дрон, вспышка, прилет, укрытие, бункер, ракета + синонимы) → "трясло ебаное" с цитированием (ТОЛЬКО для Славы)
 - [x] T-011 (alan): Каждые 10 сообщений от @Alan_Z (id 138811255) → reply random-фразой про тренировки/лонгковид/фьючерсы/нейросети/жим дьявола
 
-## Epic 5: Багфиксы и рефакторинг (2026-07-07)
-- [x] T-016 (kostik): Рефакторинг — probability-based reply + extensible reply pool
-- [x] T-017 (kucha): Fix KuchaWordFilter regex — удалён ложный «ек» из опциональной группы
-
 ## Epic 3: Тестирование и CI
 - [x] T-012: Написать модульные тесты на ВСЕ хендлеры
 - [x] T-013: Написать тесты на все корнер-кейсы (пустой текст, нецелевой пользователь, границы счётчиков)
@@ -27,7 +23,40 @@
 ## Epic 4: Документация
 - [x] T-015: README.md с ироничной документацией (установка, запуск, описание функций)
 
+## Epic 5: Багфиксы и рефакторинг (2026-07-07)
+- [x] T-016 (kostik): Рефакторинг — probability-based reply + extensible reply pool
+- [x] T-017 (kucha): Fix KuchaWordFilter regex — удалён ложный «ек» из опциональной группы
+
 ---
 
-**Status: DONE** — T-011 (Alan) + T-016 (Kostik refactor) + T-017 (Kucha fix). 115+ tests pass.
-**Date: 2026-07-07**
+## Epic 6: Dead Page V2 — Event-driven reposts (2026-07-11)
+
+> **Цель:** Перевести dead-page с time-based расписания (morning/evening) на event-driven:
+> репост из @d_pages → forward случайного поста из приватного канала 4228645624
+> (бот — админ), с fallback на локальный `media/dead_page/`.
+
+### Конфигурация и планирование
+- [ ] T-018: Обновить `config/settings.py` + `.env.example` — добавить новые параметры (DEAD_PAGE_CHANNEL_ID, DEAD_PAGE_SOURCE_USERNAME, DEAD_PAGE_POST_ON_JOIN, DEAD_PAGE_COOLDOWN_SECONDS, DEAD_PAGE_MAX_FORWARD_RETRIES, DEAD_PAGE_CAPTION_MAX_CHARS), удалить MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL
+- [ ] T-019: Обновить план `DEAD_PAGE_V2_PLAN.md` — синхронизировать с user feedback (forward вместо create+copy, канал 4228645624, fallback)
+
+### Новые модули
+- [ ] T-020: Создать `services/dead_page_relay.py` — DeadPageRelay: forward случайного поста из канала + fallback на локальные медиа
+- [ ] T-021: Создать `handlers/dead_page_trigger.py` — Router + handler: ловит forward_origin типа MessageOriginChannel с username="d_pages", вызывает DeadPageRelay
+
+### Рефакторинг существующего кода
+- [ ] T-022: Упростить `services/scheduler.py` — убрать `while True` loop, `_tick`, morning/evening логику. Оставить только `signal_immediate_post` с проверкой `DEAD_PAGE_POST_ON_JOIN`
+- [ ] T-023: Добавить миграцию БД — новая таблица `channel_state`, колонка `timestamp` в `dead_page_posts`, новые методы `was_dead_page_recently`, `record_dead_page_post`, `get_last_known_message_id`, `update_last_known_message_id`
+
+### Интеграция
+- [ ] T-024: Обновить `bot.py` — зарегистрировать `dead_page_router` (позиция 4 между alan и slavik), инициализировать `DeadPageRelay`, подключить relay к `slava_presence`
+- [ ] T-025: Добавить comprehensive logging во все dead_page модули (relay, trigger, scheduler, database)
+
+### Документация и тесты
+- [ ] T-026: Обновить `MEMORY.md` и `ARCHITECTURE.md` — отразить новую архитектуру, слоты БД, router order, F2 v2
+- [ ] T-027: Написать/переписать тесты — `test_dead_page_relay.py`, `test_dead_page_trigger.py`, удалить/переписать `test_scheduler.py`, обновить `test_database.py`
+- [ ] T-028: Прогнать все тесты, убедиться что 100% новых функций покрыто, старые тесты не сломаны
+
+---
+
+**Status: Epic 6 in planning.** Epics 1-5 DONE (T-001 – T-017, 115+ tests pass).
+**Date: 2026-07-11**
