@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import time
 import pytest
 from services.database import DatabaseService
 
@@ -27,6 +28,7 @@ class TestDatabaseService:
         assert "user_presence" in tables
         assert "message_counters" in tables
         assert "dead_page_posts" in tables
+        assert "channel_state" in tables
 
     @pytest.mark.asyncio
     async def test_set_and_check_presence(self, db):
@@ -80,22 +82,33 @@ class TestDatabaseService:
         assert await db.get_count(-1002, 479167456) == 1
 
     @pytest.mark.asyncio
-    async def test_has_post_today(self, db):
-        today = datetime.date.today().isoformat()
+    async def test_was_dead_page_recently(self, db):
+        """was_dead_page_recently returns True for posts within cooldown."""
         chat_id = -100123
-        
-        assert await db.has_post_today(chat_id, "morning") is False
-        
-        await db.record_post(chat_id, "morning")
-        assert await db.has_post_today(chat_id, "morning") is True
-        assert await db.has_post_today(chat_id, "evening") is False
+        assert not await db.was_dead_page_recently(chat_id, 3600)
+        await db.record_dead_page_post(chat_id, "repost")
+        assert await db.was_dead_page_recently(chat_id, 3600)
 
     @pytest.mark.asyncio
-    async def test_separate_chats_posts(self, db):
-        await db.record_post(-1001, "morning")
-        await db.record_post(-1002, "evening")
-        
-        assert await db.has_post_today(-1001, "morning") is True
-        assert await db.has_post_today(-1001, "evening") is False
-        assert await db.has_post_today(-1002, "morning") is False
-        assert await db.has_post_today(-1002, "evening") is True
+    async def test_record_dead_page_post_separate_chats(self, db):
+        """Posts in different chats are independent."""
+        chat_1 = -100123
+        chat_2 = -100456
+        await db.record_dead_page_post(chat_1, "repost")
+        assert await db.was_dead_page_recently(chat_1, 3600)
+        assert not await db.was_dead_page_recently(chat_2, 3600)
+
+    @pytest.mark.asyncio
+    async def test_channel_state_get_set(self, db):
+        """get_last_known_message_id and update_last_known_message_id roundtrip."""
+        assert await db.get_last_known_message_id() is None
+        await db.update_last_known_message_id(42)
+        assert await db.get_last_known_message_id() == 42
+
+    @pytest.mark.asyncio
+    async def test_channel_state_scoped_by_channel(self, db):
+        """Different channels have independent state."""
+        await db.update_last_known_message_id(42, channel_id=100)
+        await db.update_last_known_message_id(99, channel_id=200)
+        assert await db.get_last_known_message_id(channel_id=100) == 42
+        assert await db.get_last_known_message_id(channel_id=200) == 99

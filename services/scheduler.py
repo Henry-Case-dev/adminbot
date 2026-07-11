@@ -1,99 +1,61 @@
 import asyncio
-import datetime
 import logging
-from aiogram import Bot
-from aiogram.types import FSInputFile
-from services.database import DatabaseService
-from services.media_picker import MediaService
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
 class SchedulerService:
     """
-    Background scheduler for dead-page posts (F2).
+    Simplified scheduler for Dead Page V2.
     
-    Runs an infinite loop:
-      - Every POLL_INTERVAL seconds, checks if it's time to post.
-      - Two slots: morning (MORNING_HOUR) and evening (EVENING_HOUR).
-      - Only posts if Slava is_present in the chat.
+    Time-based scheduling (morning/evening) has been REMOVED.
+    Now only handles the immediate join trigger (F1).
+    
+    Delegates actual dead page sending to DeadPageRelay.
     """
     
-    MORNING_HOUR = 10
-    EVENING_HOUR = 20
-    POLL_INTERVAL = 60
     DEDUP_WINDOW = 10  # seconds — prevent duplicate join posts
     
-    def __init__(self, bot: Bot, db: DatabaseService, target_user_id: int = 479167456):
-        self.bot = bot
-        self.db = db
-        self.target_user_id = target_user_id
-        self.media = MediaService()
+    def __init__(self, relay=None, target_user_id: int = None, post_on_join: bool = None):
+        """
+        Args:
+            relay: DeadPageRelay instance (injected by bot.py)
+            target_user_id: Slava's user ID
+            post_on_join: Override DEAD_PAGE_POST_ON_JOIN (default: from settings)
+        """
+        self.relay = relay
+        self.target_user_id = target_user_id or settings.SLAVIK_USER_ID
+        self.post_on_join = post_on_join if post_on_join is not None else settings.DEAD_PAGE_POST_ON_JOIN
         self._last_join_post: float = 0
     
     async def run(self) -> None:
-        """Main scheduler loop. Never returns unless cancelled."""
-        logger.info("Scheduler started")
+        """
+        No-op loop for backward compatibility.
+        Kept as a placeholder — does nothing, never returns unless cancelled.
+        """
+        logger.info("Scheduler running (no-op, join-trigger only)")
         while True:
-            try:
-                await self._tick()
-            except Exception as e:
-                logger.error(f"Scheduler tick error: {e}")
-            await asyncio.sleep(self.POLL_INTERVAL)
-    
-    async def _tick(self) -> None:
-        """Check and post for all present chats."""
-        now = datetime.datetime.now()
-        current_hour = now.hour
-        
-        slot = None
-        if self.MORNING_HOUR <= current_hour < self.MORNING_HOUR + 1:
-            slot = 'morning'
-        elif self.EVENING_HOUR <= current_hour < self.EVENING_HOUR + 1:
-            slot = 'evening'
-        
-        if slot is None:
-            return
-        
-        chats = await self.db.get_present_chats(self.target_user_id)
-        
-        for chat_id in chats:
-            already_posted = await self.db.has_post_today(chat_id, slot)
-            if not already_posted:
-                await self._send_dead_page(chat_id, slot)
+            await asyncio.sleep(3600)  # Sleep for an hour, just to exist
     
     async def signal_immediate_post(self, chat_id: int) -> None:
-        """Called by F1 handler when Slava joins."""
-        loop = asyncio.get_event_loop()
-        now = loop.time()
+        """
+        Called by F1 handler when Slava joins.
+        Sends a dead page if DEAD_PAGE_POST_ON_JOIN is enabled.
+        """
+        if not self.post_on_join:
+            logger.debug(f"Join trigger disabled, skipping dead page for chat {chat_id}")
+            return
+        
+        now = asyncio.get_running_loop().time()
         if now - self._last_join_post < self.DEDUP_WINDOW:
+            logger.debug(f"Join trigger dedup: skipping for chat {chat_id}")
             return
         self._last_join_post = now
-        await self._send_dead_page(chat_id, 'join')
-    
-    async def _send_dead_page(self, chat_id: int, slot: str) -> None:
-        """Pick random media and post to chat."""
-        try:
-            photo_path, text = await self.media.pick_random()
-        except FileNotFoundError as e:
-            logger.error(f"Dead page media missing: {e}")
+        
+        if self.relay is None:
+            logger.error("DeadPageRelay not injected — cannot send dead page on join")
             return
         
-        caption = text[:1024]
-        
-        try:
-            await self.bot.send_photo(
-                chat_id=chat_id,
-                photo=FSInputFile(photo_path),
-                caption=caption
-            )
-            if len(text) > 1024:
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text=text[1024:]
-                )
-        except Exception as e:
-            logger.error(f"Failed to send dead page: {e}")
-            return
-        
-        await self.db.record_post(chat_id, slot)
+        logger.info(f"Join trigger: sending dead page to chat {chat_id}")
+        await self.relay.send_dead_page(chat_id, slot="join")

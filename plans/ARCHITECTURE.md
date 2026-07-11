@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v1.0.0
-> **Дата:** 2026-07-07
+> **Версия:** v2.0.0
+> **Дата:** 2026-07-11
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -34,13 +34,15 @@ C:\Code\Python\adminbot\
 │   ├── slavik.py                   # Slava router: middleware(F3) + F4 + F5 + catch-all
 │   ├── vasya.py                    # Vasya/Admin filters + handlers
 │   ├── alan.py                      # Alan_Z reply engine: every 10 msgs → random reply (F6)
+│   ├── dead_page_trigger.py        # Repost detector: catches forwards from @d_pages (F2)
 │   └── slava_presence.py           # ChatMemberUpdated handler (F1) + new_chat_members fallback
 │
 ├── services/
 │   ├── __init__.py
 │   ├── database.py                 # DatabaseService — aiosqlite query executor
 │   ├── media_picker.py             # MediaService — random jpg + random txt from dead_page/
-│   ├── scheduler.py                # SchedulerService — asyncio background loop (F2)
+│   ├── scheduler.py                # SchedulerService — simplified, join trigger only (F2)
+│   ├── dead_page_relay.py          # DeadPageRelay — channel forward + fallback service (F2)
 │   └── message_counter.py          # MessageCounterMiddleware — aiogram inner middleware (F3)
 │
 ├── tests/
@@ -52,7 +54,9 @@ C:\Code\Python\adminbot\
 │   ├── test_edge_cases.py          # Cross-component edge cases
 │   ├── test_message_counter.py     # F3: GIF counter middleware
 │   ├── test_slava_presence.py      # F1: Slava join/leave detection
-│   ├── test_scheduler.py           # F2: scheduler loop logic
+│   ├── test_scheduler.py           # F2: scheduler loop logic (simplified)
+│   ├── test_dead_page_relay.py     # F2: DeadPageRelay forward + fallback tests
+│   ├── test_dead_page_trigger.py   # F2: repost detector handler tests
 │   ├── test_media_picker.py        # F2: media file picker
 │   ├── test_alan.py                # F6
 │   ├── test_vasya.py
@@ -100,7 +104,14 @@ C:\Code\Python\adminbot\
 │  │     └─ imports handlers/alan.py                               │   │
 │  │        └─ imports filters/user_id.py               │   │
 │  │                                                   │   │
-│  │  4. slavik_router  (user_id=479167456)            │   │
+│  │  4. dead_page_router  (F2 repost trigger)          │   │
+│  │     └─ imports handlers/dead_page_trigger.py      │   │
+│  │        └─ imports services/dead_page_relay.py     │   │
+│  │           ├─ imports services/database.py         │   │
+│  │           ├─ imports services/media_picker.py     │   │
+│  │           └─ imports config/settings.py           │   │
+│  │                                                   │   │
+│  │  5. slavik_router  (user_id=479167456)            │   │
 │  │     └─ imports handlers/slavik.py                 │   │
 │  │        ├─ middleware: MessageCounterMiddleware    │   │
 │  │        │  └─ imports services/message_counter.py  │   │
@@ -112,19 +123,18 @@ C:\Code\Python\adminbot\
 │  │        └─ catch-all handler                       │   │
 │  │           └─ imports filters/user_id.py           │   │
 │  │                                                   │   │
-│  │  5. vasya_router  (text filters, no user restrict)│   │
+│  │  6. vasya_router  (text filters, no user restrict)│   │
 │  │     └─ imports handlers/vasya.py                  │   │
 │  │        ├─ VasyaFilter → "АДМИН"                   │   │
 │  │        │  └─ imports filters/vasya_name.py        │   │
 │  │        └─ StrictAdminFilter → "ВАСЯ"              │   │
 │  │           └─ imports filters/admin_word.py        │   │
 │  │                                                   │   │
-│  │  BACKGROUND TASKS (started in bot.py main()):      │   │
+│  │  SIMPLIFIED SCHEDULER (started in bot.py main()):  │   │
 │  │  ┌─────────────────────────────────────────────┐  │   │
-│  │  │ scheduler_task (F2)                          │  │   │
+│  │  │ scheduler (F2 join trigger only)             │  │   │
 │  │  │  └─ imports services/scheduler.py            │  │   │
-│  │  │     ├─ imports services/database.py          │  │   │
-│  │  │     └─ imports services/media_picker.py      │  │   │
+│  │  │     └─ imports DeadPageRelay                 │  │   │
 │  │  └─────────────────────────────────────────────┘  │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
@@ -135,9 +145,10 @@ SHARED DEPENDENCIES (imported by many):
 │ (Settings dataclass)  │    │ (aiosqlite wrapper)   │
 └─────────┬────────────┘    └──────────┬────────────┘
           │                            │
-    bot.py, scheduler.py          scheduler.py,
-                                  message_counter.py,
-                                  slava_presence.py
+    bot.py, scheduler.py          dead_page_relay.py,
+    dead_page_relay.py            message_counter.py,
+                                  slava_presence.py,
+                                  scheduler.py
 ```
 
 **Import rules:**
@@ -191,86 +202,97 @@ LEAVE detection (sets presence=False, pauses scheduler):
 ```
 ── POST TRIGGERS ───────────────────────────────────
 
-ON JOIN (immediate):
+REPOST (event-driven, primary trigger):
+  Telegram API → any user forwards a message from @d_pages into the chat
+    → Dispatcher.message handler
+    → dead_page_trigger.py::on_forward(message: Message)
+    → Check: message.forward_origin is MessageOriginChannel
+      AND origin.chat.username == 'd_pages'
+    → Check: anti-spam cooldown (DB: was_dead_page_recently?)
+    → Check: Slava presence (DB: is_present? — future-proofing)
+    → DeadPageRelay.send_dead_page(chat_id)
+      → DB insert: dead_page_posts(chat_id, slot='repost', date=today, timestamp=now)
+
+ON JOIN (parameterized, optional):
   F1 handler → SchedulerService.signal_immediate_post(chat_id)
-    → scheduler checks DB: has this chat been posted in last 10 seconds?
-    → if NO: MediaService.pick_random() → send_photo + send_message(text)
-    → DB insert: dead_page_posts(chat_id, slot='join', date=today, timestamp=now)
+    → Check: DEAD_PAGE_POST_ON_JOIN=True?
+    → DeadPageRelay.send_dead_page(chat_id)
+      → DB insert: dead_page_posts(chat_id, slot='join', date=today, timestamp=now)
 
-SCHEDULED (twice daily, only when Slava is_present=True):
-  SchedulerService._loop() runs every 60 seconds:
-    1. Query DB: is_slava_present(chat_id) for all tracked chats
-    2. For each chat where is_present=True:
-       a. Get current time → determine slot: 'morning' (10:00-10:59) or 'evening' (20:00-20:59)
-       b. Query DB: has this (chat_id, slot, date=today) been posted?
-       c. If NO and current time is within the slot window:
-          → MediaService.pick_random() → send_photo + send_message(text)
-          → DB insert: dead_page_posts(chat_id, slot, date=today)
-    3. asyncio.sleep(60)
+SCHEDULED (time-based): REMOVED in v2 — no morning/evening slots
 
-── MEDIA PICKING ────────────────────────────────────
+── CHANNEL POST PICKING STRATEGY ────────────────────
 
-MediaService.pick_random():
-  INPUT:  base_path = "media/dead_page/"
-  OUTPUT: tuple[str_path_to_jpg, str_text_content]
+DeadPageRelay.get_last_known_message_id(channel_id=4228645624):
+  → DB query: SELECT value FROM channel_state WHERE key='last_msg_id:4228645624'
+  → Returns int (0 if no known messages)
 
+DeadPageRelay._forward_random_post(target_chat_id):
+  INPUT: target_chat_id, channel_id=4228645624, max_retries=10
+  
   Algorithm:
-    jpgs = sorted(glob.glob(f"{base_path}/*.jpg"))   # → ["media/dead_page/slavic_ava.jpg"]
-    txts = sorted(glob.glob(f"{base_path}/*.txt"))   # → ["media/dead_page/page_1.txt"]
-    photo_path = random.choice(jpgs)
-    text_path = random.choice(txts)
-    with open(text_path, 'r', encoding='utf-8') as f:
-        text_content = f.read()
-    return (photo_path, text_content)
+    1. last_id = await db.get_last_known_message_id(channel_id)
+    2. if last_id < 1: return False (no known messages)
+    3. tried = set()
+    4. For attempt in range(max_retries):
+         msg_id = random.randint(1, last_id)
+         if msg_id not in tried:
+           tried.add(msg_id)
+           try:
+             await bot.forward_message(
+               chat_id=target_chat_id,
+               from_chat_id=channel_id,
+               message_id=msg_id
+             )
+             await db.update_last_known_message_id(channel_id, max(msg_id, last_id))
+             return True
+           except TelegramBadRequest if "message to forward not found":
+             continue  # retry with different msg_id
+           except: raise
+    5. return False (all retries exhausted)
+
+── FALLBACK ─────────────────────────────────────────
+
+DeadPageRelay._send_local_dead_page(chat_id):
+  → Only used if channel forward fails or is unavailable
+  → MediaService.pick_random() → send_photo + send_message(text)
+  → Uses local media/dead_page/ directory (old method)
 
 ── SENDING ──────────────────────────────────────────
 
-SchedulerService.send_dead_page(chat_id, bot):
-    photo_path, text = await MediaService.pick_random()
-    
-    # Send photo with caption
-    await bot.send_photo(
-        chat_id=chat_id,
-        photo=FSInputFile(photo_path),
-        caption=text[:1024]  # Telegram caption limit
-    )
-    
-    # If text exceeds 1024 chars, send remainder as separate message
-    if len(text) > 1024:
-        await bot.send_message(chat_id=chat_id, text=text[1024:])
+DeadPageRelay.send_dead_page(chat_id):
+    try:
+        success = await self._forward_random_post(chat_id)
+        if not success:
+            raise RuntimeError("All forward retries exhausted")
+    except Exception:
+        logger.warning("Channel forward failed. Falling back to local media.")
+        await self._send_local_dead_page(chat_id)
+        # Fallback format:
+        photo_path, text = await self.media.pick_random()
+        caption = text[:DEAD_PAGE_CAPTION_MAX_CHARS]
+        await bot.send_photo(chat_id, FSInputFile(photo_path), caption=caption)
+        if len(text) > DEAD_PAGE_CAPTION_MAX_CHARS:
+            await bot.send_message(chat_id, text=text[DEAD_PAGE_CAPTION_MAX_CHARS:])
 ```
 
-**Scheduler state machine:**
-```
-                    ┌──────────────────┐
-                    │  IDLE (no task)   │
-                    └───────┬──────────┘
-                            │ bot.startup
-                            ▼
-                    ┌──────────────────┐
-            ┌──────►│   RUNNING_LOOP   │◄─────────┐
-            │       │  (sleep 60s)     │          │
-            │       └───────┬──────────┘          │
-            │               │ check time + presence │
-            │               ▼                      │
-            │       ┌──────────────────┐          │
-            │       │  SENDING_POST    │          │
-            │       └───────┬──────────┘          │
-            │               │ done                 │
-            │               └──────────────────────┘
-            │
-            │       ┌──────────────────────┐
-            └───────│  IMMEDIATE_TRIGGER   │
-                    │  (from F1 handler)   │
-                    └──────────────────────┘
-```
-
-**Time slot configuration (hardcoded constants in SchedulerService):**
+**Anti-spam cooldown:**
 ```python
-MORNING_START = 10  # hour
-MORNING_END = 11    # exclusive
-EVENING_START = 20  # hour
-EVENING_END = 21    # exclusive
+DEAD_PAGE_COOLDOWN_SECONDS = 10  # min interval between reposts in same chat
+
+# DB check:
+SELECT 1 FROM dead_page_posts
+WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?
+```
+
+**Channel configuration:**
+```python
+DEAD_PAGE_SOURCE_CHANNEL_USERNAME = "d_pages"       # forward_origin match
+DEAD_PAGE_SOURCE_CHANNEL_ID = 4228645624            # private channel with posts
+DEAD_PAGE_POST_ON_JOIN = True                       # enable join trigger
+DEAD_PAGE_COOLDOWN_SECONDS = 10                     # anti-spam
+DEAD_PAGE_CAPTION_MAX_CHARS = 1024                  # fallback caption limit
+DEAD_PAGE_MAX_FORWARD_RETRIES = 10                  # pick random post attempts
 ```
 
 ### F3 — Slava GIF Counter
@@ -516,10 +538,11 @@ async def increment_message_count(self, chat_id: int, user_id: int) -> int:
 
 ```sql
 CREATE TABLE IF NOT EXISTS dead_page_posts (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    chat_id INTEGER NOT NULL,
-    slot    TEXT    NOT NULL,
-    date    TEXT    NOT NULL
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id   INTEGER NOT NULL,
+    slot      TEXT    NOT NULL,
+    date      TEXT    NOT NULL,
+    timestamp INTEGER
 );
 ```
 
@@ -527,28 +550,58 @@ CREATE TABLE IF NOT EXISTS dead_page_posts (
 |--------|------|-------------|
 | id | INTEGER | Auto-increment PK |
 | chat_id | INTEGER | Telegram chat ID |
-| slot | TEXT | One of: 'morning', 'evening', 'join' |
+| slot | TEXT | One of: 'repost', 'join' |
 | date | TEXT | ISO date string YYYY-MM-DD |
+| timestamp | INTEGER | Unix time (seconds) for anti-spam cooldown |
+
+**Slot types (v2):** 'morning' and 'evening' removed. Only 'repost' and 'join' remain.
+Old morning/evening records stay in DB as history; new code does not create or query them.
 
 **Queries:**
 ```sql
--- Check if morning slot already posted today
+-- Check if repost in cooldown window (anti-spam)
 SELECT 1 FROM dead_page_posts
-WHERE chat_id = ? AND slot = 'morning' AND date = ?;
+WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?;
 
--- Check if evening slot already posted today
-SELECT 1 FROM dead_page_posts
-WHERE chat_id = ? AND slot = 'evening' AND date = ?;
-
--- Check if any post in last N seconds (dedup for immediate join posts)
+-- Check if join post already made today
 SELECT 1 FROM dead_page_posts
 WHERE chat_id = ? AND slot = 'join' AND date = ?;
 
--- Insert post record
-INSERT INTO dead_page_posts (chat_id, slot, date) VALUES (?, ?, ?);
+-- Insert post record (with timestamp for anti-spam)
+INSERT INTO dead_page_posts (chat_id, slot, date, timestamp)
+VALUES (?, ?, ?, ?);
 ```
 
-The `date` column stores `datetime.date.today().isoformat()` (e.g., "2026-07-07").
+The `date` column stores `datetime.date.today().isoformat()` (e.g., "2026-07-11").
+The `timestamp` column stores `int(time.time())` — Unix epoch seconds.
+
+### Table: `channel_state`
+
+```sql
+CREATE TABLE IF NOT EXISTS channel_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| key | TEXT | State key (e.g., "last_msg_id:4228645624") |
+| value | TEXT | State value (string representation) |
+
+**Queries:**
+```sql
+-- Get last known message ID for a channel
+SELECT value FROM channel_state WHERE key = 'last_msg_id:4228645624';
+
+-- Update last known message ID (upsert)
+INSERT OR REPLACE INTO channel_state (key, value)
+VALUES ('last_msg_id:4228645624', '150');
+```
+
+This key-value table tracks per-channel metadata. Initially used for storing the
+`last_known_message_id` for the dead-page source channel, enabling the
+`random.randint(1, last_id)` forward strategy. Extensible for future channel tracking.
 
 ---
 
@@ -566,10 +619,13 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config.settings import settings
 from services.database import DatabaseService
 from services.scheduler import SchedulerService
+from services.dead_page_relay import DeadPageRelay
+from services.media_picker import MediaService
 
 # Routers
 from handlers.kostik import kostik_router
 from handlers.alan import alan_router
+from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 from handlers.slavik import slavik_router
 from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router
@@ -596,14 +652,20 @@ dp.include_router(kostik_router)
 #    Periodic: EVERY 10th message → random reply (F6)
 dp.include_router(alan_router)
 
-# 4. Slava router — user ID 479167456
+# 4. Dead Page router — repost trigger (F2)
+#    Catches forward_origin from @d_pages, fires DeadPageRelay
+#    BEFORE slavik_router to ensure reposts are handled independently
+setup_dead_page(dead_page_relay, db)
+dp.include_router(dead_page_router)
+
+# 5. Slava router — user ID 479167456
 #    Middleware: MessageCounterMiddleware (F3: GIF every 5 msgs)
 #    Handler 1: KuchaWordFilter → "ДАЛБАЕБ" (F4)
 #    Handler 2: WarWordFilter → "трясло ебаное" (F5)
 #    Handler 3: Catch-all → "пошёл нахуй"
 dp.include_router(slavik_router)
 
-# 5. Vasya router — text filters, NO user restriction
+# 6. Vasya router — text filters, NO user restriction
 #    Handler 1: VasyaFilter → "АДМИН"
 #    Handler 2: StrictAdminFilter → "ВАСЯ"
 dp.include_router(vasya_router)
@@ -611,10 +673,19 @@ dp.include_router(vasya_router)
 # ═══════════════════════════════════════════════════════════
 
 async def on_startup():
-    """Initialize DB schema and start scheduler."""
+    """Initialize DB schema, create services, start scheduler."""
     db = DatabaseService("local_database.db")
     await db.initialize()
-    scheduler = SchedulerService(bot, db)
+    media = MediaService(settings.DEAD_PAGE_DIR)
+    dead_page_relay = DeadPageRelay(
+        bot=bot, db=db, media=media,
+        channel_id=settings.DEAD_PAGE_SOURCE_CHANNEL_ID,
+        max_retries=settings.DEAD_PAGE_MAX_FORWARD_RETRIES
+    )
+    scheduler = SchedulerService(bot, db, dead_page_relay)
+    # Inject dependencies into handlers
+    setup_dead_page(dead_page_relay, db)
+    # Schedule on_startup injects relay into scheduler
     asyncio.create_task(scheduler.run())
 
 async def main():
@@ -629,9 +700,13 @@ if __name__ == '__main__':
 **Why this order matters:**
 1. User-ID-based routers (kostik, alan, slavik) come BEFORE text-based routers (vasya).
    - If vasya_router were first, Slava saying "вася" would trigger "АДМИН" instead of "пошёл нахуй".
-2. Within Slava's router, F4 and F5 (text-specific) come before catch-all — but they all fire. Order within the router just determines handler index, not exclusivity.
-3. ChatMemberUpdated handler is separate from message handlers (different update type).
-4. Alan comes before Slava — different users, but clean ordering.
+2. dead_page_router (position 4) is inserted between alan_router and slavik_router.
+   - It filters on `forward_origin` (not user ID), so it doesn't conflict with user-ID routers.
+   - Being before vasya_router prevents Vasya's text filters from intercepting forward messages.
+3. Within Slava's router, F4 and F5 (text-specific) come before catch-all — but they all fire.
+4. ChatMemberUpdated handler is separate from message handlers (different update type).
+5. The simplified scheduler only handles the join trigger (signal_immediate_post);
+   DeadPageRelay handles the actual posting logic for both repost and join triggers.
 
 ---
 
@@ -855,10 +930,16 @@ class DatabaseService:
         );
         
         CREATE TABLE IF NOT EXISTS dead_page_posts (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER NOT NULL,
-            slot    TEXT    NOT NULL,
-            date    TEXT    NOT NULL
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id   INTEGER NOT NULL,
+            slot      TEXT    NOT NULL,
+            date      TEXT    NOT NULL,
+            timestamp INTEGER
+        );
+        
+        CREATE TABLE IF NOT EXISTS channel_state (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );
     """
     
@@ -941,22 +1022,45 @@ class DatabaseService:
     
     # ── Dead Page Posts ─────────────────────────────────
     
-    async def has_post_today(self, chat_id: int, slot: str) -> bool:
-        """Check if a post of given slot has been made today."""
-        today = datetime.date.today().isoformat()
+    async def was_dead_page_recently(self, chat_id: int, cooldown_seconds: int) -> bool:
+        """Check if a repost was made in this chat within cooldown window."""
+        import time
+        threshold = int(time.time()) - cooldown_seconds
         cursor = await self.db.execute(
-            "SELECT 1 FROM dead_page_posts WHERE chat_id = ? AND slot = ? AND date = ?",
-            (chat_id, slot, today)
+            "SELECT 1 FROM dead_page_posts WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?",
+            (chat_id, threshold)
         )
         row = await cursor.fetchone()
         return row is not None
     
-    async def record_post(self, chat_id: int, slot: str) -> None:
-        """Record that a post was made."""
+    async def record_dead_page_post(self, chat_id: int, slot: str) -> None:
+        """Record a dead page post with date and timestamp."""
+        import time
+        import datetime
         today = datetime.date.today().isoformat()
+        now = int(time.time())
         await self.db.execute(
-            "INSERT INTO dead_page_posts (chat_id, slot, date) VALUES (?, ?, ?)",
-            (chat_id, slot, today)
+            "INSERT INTO dead_page_posts (chat_id, slot, date, timestamp) VALUES (?, ?, ?, ?)",
+            (chat_id, slot, today, now)
+        )
+        await self.db.commit()
+    
+    # ── Channel State ───────────────────────────────────
+    
+    async def get_last_known_message_id(self, channel_id: int) -> int:
+        """Get the last known message ID for a channel."""
+        cursor = await self.db.execute(
+            "SELECT value FROM channel_state WHERE key = ?",
+            (f"last_msg_id:{channel_id}",)
+        )
+        row = await cursor.fetchone()
+        return int(row["value"]) if row else 0
+    
+    async def update_last_known_message_id(self, channel_id: int, msg_id: int) -> None:
+        """Update the last known message ID for a channel."""
+        await self.db.execute(
+            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+            (f"last_msg_id:{channel_id}", str(msg_id))
         )
         await self.db.commit()
 ```
@@ -1069,22 +1173,20 @@ class MessageCounterMiddleware(BaseMiddleware):
 
 ```python
 import asyncio
-import datetime
+import logging
 from aiogram import Bot
-from aiogram.types import FSInputFile
+from config.settings import settings
 from services.database import DatabaseService
-from services.media_picker import MediaService
+
+logger = logging.getLogger(__name__)
 
 
 class SchedulerService:
     """
-    Background scheduler for dead-page posts (F2).
+    Simplified scheduler for dead-page posts (F2 v2).
     
-    Runs an infinite loop:
-      - Every 60 seconds, checks if it's time to post.
-      - Two slots: morning (10:00) and evening (20:00).
-      - Only posts if Slava is_present in the chat.
-      - Also accepts immediate triggers from F1 (join detection).
+    Handles ONLY the join trigger. Time-based scheduler (morning/evening)
+    removed in v2 — replaced by event-driven repost trigger via dead_page_router.
     
     Lifecycle:
       - Created in bot.py on_startup().
@@ -1092,202 +1194,248 @@ class SchedulerService:
       - Runs until bot shutdown (task cancelled).
     """
     
-    MORNING_HOUR = 10
-    EVENING_HOUR = 20
-    POLL_INTERVAL = 60  # seconds
-    DEDUP_WINDOW = 10   # seconds — prevent duplicate join posts
+    DEDUP_WINDOW = 10  # seconds — prevent duplicate join posts
     
-    def __init__(self, bot: Bot, db: DatabaseService, target_user_id: int = 479167456):
+    def __init__(self, bot: Bot, db: DatabaseService, relay, target_user_id: int = 479167456):
         self.bot = bot
         self.db = db
+        self.relay = relay  # DeadPageRelay instance
         self.target_user_id = target_user_id
-        self.media = MediaService()
-        self._last_join_post: float = 0  # monotonic timestamp for dedup
-        self._immediate_queue: asyncio.Queue[int] | None = None
+        self._last_join_post: float = 0
     
     async def run(self) -> None:
-        """Main loop. Never returns unless cancelled."""
-        self._immediate_queue = asyncio.Queue()
+        """No-op loop. Join trigger is synchronous, repost is event-driven."""
         while True:
-            try:
-                await self._tick()
-            except Exception as e:
-                logging.error(f"Scheduler tick error: {e}")
-            try:
-                # Wait but also handle immediate triggers
-                await asyncio.wait_for(
-                    self._immediate_queue.get(),
-                    timeout=self.POLL_INTERVAL
-                )
-                # Immediate trigger received
-                chat_id = self._immediate_queue.get_nowait()  # not quite right — need to drain
-            except asyncio.TimeoutError:
-                pass  # Normal — just the poll interval elapsed
-    
-    async def _tick(self) -> None:
-        """Check and post for all present chats."""
-        now = datetime.datetime.now()
-        current_hour = now.hour
-        
-        # Determine active slot
-        slot = None
-        if self.MORNING_HOUR <= current_hour < self.MORNING_HOUR + 1:
-            slot = 'morning'
-        elif self.EVENING_HOUR <= current_hour < self.EVENING_HOUR + 1:
-            slot = 'evening'
-        
-        if slot is None:
-            return  # Not a posting window
-        
-        # Get all chats where Slava is present
-        chats = await self.db.get_present_chats(self.target_user_id)
-        
-        for chat_id in chats:
-            already_posted = await self.db.has_post_today(chat_id, slot)
-            if not already_posted:
-                await self._send_dead_page(chat_id, slot)
+            await asyncio.sleep(3600)  # Keep task alive, no polling needed
     
     async def signal_immediate_post(self, chat_id: int) -> None:
-        """Called by F1 handler when Slava joins."""
+        """Called by F1 handler when Slava joins. Delegates to DeadPageRelay."""
+        if not settings.DEAD_PAGE_POST_ON_JOIN:
+            logger.debug(f"Join trigger disabled, skipping chat {chat_id}")
+            return
+        
         now = asyncio.get_event_loop().time()
         if now - self._last_join_post < self.DEDUP_WINDOW:
             return  # Dedup: already posted on join recently
         self._last_join_post = now
-        await self._send_dead_page(chat_id, 'join')
-        if self._immediate_queue:
-            await self._immediate_queue.put(chat_id)
+        
+        logger.info(f"Join trigger fired for chat {chat_id}")
+        await self.relay.send_dead_page(chat_id)
+        await self.db.record_dead_page_post(chat_id, 'join')
+```
+
+**Key change from v1:** The `while True` loop no longer polls for time slots.
+The only purpose of `run()` is to keep the async task alive so that
+`signal_immediate_post` remains callable from the F1 handler. The loop
+sleeps for 1 hour — a no-op placeholder. Join posting is synchronous
+(inline call from F1), repost is event-driven (dead_page_router fires
+`relay.send_dead_page` directly).
+
+### 7.5 DeadPageRelay (`services/dead_page_relay.py`)
+
+```python
+import random
+import logging
+from aiogram import Bot
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import FSInputFile
+from config.settings import settings
+from services.database import DatabaseService
+from services.media_picker import MediaService
+
+logger = logging.getLogger(__name__)
+
+
+class DeadPageRelay:
+    """
+    Dead page post relay service (F2 v2).
     
-    async def _send_dead_page(self, chat_id: int, slot: str) -> None:
-        """Pick random media and post to chat."""
+    Tries to forward a random post from the private channel.
+    Falls back to local media/dead_page/ if channel is unavailable.
+    
+    Does NOT generate new content — only forwards existing channel posts.
+    """
+    
+    def __init__(self, bot: Bot, db: DatabaseService, media: MediaService,
+                 channel_id: int, max_retries: int = 10):
+        self.bot = bot
+        self.db = db
+        self.media = media
+        self.channel_id = channel_id
+        self.max_retries = max_retries
+    
+    async def send_dead_page(self, target_chat_id: int) -> None:
+        """Main entry: try channel forward, fallback to local media."""
+        logger.info(f"Sending dead page to chat {target_chat_id}")
+        try:
+            success = await self._forward_random_post(target_chat_id)
+            if not success:
+                raise RuntimeError("All forward retries exhausted")
+            logger.info(f"Successfully forwarded channel post to chat {target_chat_id}")
+        except Exception as e:
+            logger.warning(f"Channel forward failed: {e}. Falling back to local media.")
+            await self._send_local_dead_page(target_chat_id)
+    
+    async def _forward_random_post(self, target_chat_id: int) -> bool:
+        """Try to forward a random post from the channel. Returns True on success."""
+        last_id = await self.db.get_last_known_message_id(self.channel_id)
+        if last_id < 1:
+            logger.warning(f"No known message IDs for channel {self.channel_id}")
+            return False
+        
+        tried = set()
+        for attempt in range(self.max_retries):
+            msg_id = random.randint(1, last_id)
+            if msg_id in tried:
+                continue
+            tried.add(msg_id)
+            
+            try:
+                logger.debug(f"Attempt {attempt+1}: forwarding msg_id={msg_id}")
+                await self.bot.forward_message(
+                    chat_id=target_chat_id,
+                    from_chat_id=self.channel_id,
+                    message_id=msg_id,
+                )
+                await self.db.update_last_known_message_id(
+                    self.channel_id, max(msg_id, last_id)
+                )
+                return True
+            except TelegramBadRequest as e:
+                if "message to forward not found" in str(e).lower():
+                    logger.debug(f"Message {msg_id} not found, retrying")
+                    continue
+                logger.error(f"Unexpected forward error for msg_id={msg_id}: {e}")
+                raise
+            except Exception as e:
+                logger.error(f"Forward attempt {attempt+1} failed: {e}")
+                raise
+        
+        logger.warning(f"All {self.max_retries} forward attempts exhausted")
+        return False
+    
+    async def _send_local_dead_page(self, chat_id: int) -> None:
+        """Fallback: pick random from local media/dead_page/ (old method)."""
+        logger.info(f"Using local media fallback for chat {chat_id}")
         try:
             photo_path, text = await self.media.pick_random()
         except FileNotFoundError as e:
-            logging.error(f"Dead page media missing: {e}")
+            logger.error(f"Local dead page media missing: {e}")
             return
         
-        caption = text[:1024]  # Telegram caption limit
+        caption = text[:settings.DEAD_PAGE_CAPTION_MAX_CHARS]
+        if len(text) > settings.DEAD_PAGE_CAPTION_MAX_CHARS:
+            logger.warning(f"Text truncated: {len(text)} -> {len(caption)} chars")
         
-        try:
-            await self.bot.send_photo(
+        await self.bot.send_photo(
+            chat_id=chat_id,
+            photo=FSInputFile(photo_path),
+            caption=caption,
+        )
+        if len(text) > settings.DEAD_PAGE_CAPTION_MAX_CHARS:
+            await self.bot.send_message(
                 chat_id=chat_id,
-                photo=FSInputFile(photo_path),
-                caption=caption
+                text=text[settings.DEAD_PAGE_CAPTION_MAX_CHARS:]
             )
-            if len(text) > 1024:
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text=text[1024:]
-                )
-        except Exception as e:
-            logging.error(f"Failed to send dead page: {e}")
-            return  # Don't record the post if sending failed
-        
-        await self.db.record_post(chat_id, slot)
 ```
-
-**Wait, there's a problem with the immediate queue draining. Let me redesign the `run()` method:**
-
-```python
-async def run(self) -> None:
-    """Main loop. Processes ticks and immediate triggers."""
-    self._immediate_queue = asyncio.Queue()
-    while True:
-        try:
-            # Process any pending immediate triggers
-            while not self._immediate_queue.empty():
-                chat_id = self._immediate_queue.get_nowait()
-                await self._send_dead_page(chat_id, 'join')
-            
-            await self._tick()
-        except Exception as e:
-            logging.error(f"Scheduler error: {e}")
-        
-        # Wait for next tick or immediate signal
-        try:
-            await asyncio.wait_for(
-                self._immediate_queue.get(),
-                timeout=self.POLL_INTERVAL
-            )
-        except asyncio.TimeoutError:
-            pass
-```
-
-Actually even simpler — just use a simple sleep loop and check both conditions:
-
-```python
-async def run(self) -> None:
-    """Main scheduler loop."""
-    while True:
-        try:
-            await self._tick()
-        except Exception as e:
-            logging.error(f"Scheduler tick error: {e}")
-        await asyncio.sleep(self.POLL_INTERVAL)
-```
-
-And `signal_immediate_post` just calls `_send_dead_page` directly. The scheduler loop handles timed posts. Join posts are handled synchronously in the event handler. This is cleaner.
 
 ---
 
-## 8. Scheduler Design for Dead Page Posts (F2)
+## 8. Dead Page Relay Design (F2 v2)
 
 ### Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                      bot.py main()                        │
-│                                                          │
-│  1. Create DatabaseService                               │
-│  2. db.initialize() — creates tables                     │
-│  3. Create SchedulerService(bot, db)                     │
-│  4. asyncio.create_task(scheduler.run())                 │
-│  5. dp.start_polling(bot)                                │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ SchedulerService.run()                           │    │
-│  │                                                  │    │
-│  │  while True:                                     │    │
-│  │    await self._tick()                            │    │
-│  │    await asyncio.sleep(60)                       │    │
-│  │                                                  │    │
-│  │  _tick():                                        │    │
-│  │    now = datetime.now()                          │    │
-│  │    slot = determine_slot(now.hour)  # or None    │    │
-│  │    if slot is None: return                       │    │
-│  │    chats = await db.get_present_chats(slava_id)  │    │
-│  │    for chat_id in chats:                         │    │
-│  │      if not await db.has_post_today(chat, slot): │    │
-│  │        await self._send_dead_page(chat, slot)    │    │
-│  └─────────────────────────────────────────────────┘    │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ F1 Handler (join detection)                      │    │
-│  │   scheduler.signal_immediate_post(chat_id)       │    │
-│  │   └─> _send_dead_page(chat_id, slot='join')      │    │
-│  │       (dedup via 10-sec window)                  │    │
-│  └─────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         bot.py main()                                │
+│                                                                     │
+│  1. Create DatabaseService                                          │
+│  2. db.initialize() — creates 4 tables (incl. channel_state)         │
+│  3. Create MediaService(DEAD_PAGE_DIR)                              │
+│  4. Create DeadPageRelay(bot, db, media, channel_id, max_retries)   │
+│  5. Create SchedulerService(bot, db, relay)  — simplified           │
+│  6. setup_dead_page(relay, db) — inject into handler                │
+│  7. Register all routers                                            │
+│  8. asyncio.create_task(scheduler.run())                            │
+│  9. dp.start_polling(bot)                                           │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────┐      │
+│  │ REPOST TRIGGER (event-driven, via dead_page_router)       │      │
+│  │                                                          │      │
+│  │  User forwards @d_pages post into chat                   │      │
+│  │    → dead_page_trigger.on_forward()                      │      │
+│  │    → Check: forward_origin is MessageOriginChannel       │      │
+│  │    → Check: origin.chat.username == "d_pages"            │      │
+│  │    → Check: anti-spam cooldown (was_dead_page_recently)  │      │
+│  │    → Check: Slava presence (is_present — optional)       │      │
+│  │    → relay.send_dead_page(chat_id)                       │      │
+│  │      ├─ _forward_random_post(chat_id)                    │      │
+│  │      │  └─ random.randint(1, last_known_msg_id)          │      │
+│  │      │  └─ bot.forward_message()                         │      │
+│  │      │  └─ update_last_known_message_id()                │      │
+│  │      └─ (if all retries fail) _send_local_dead_page()    │      │
+│  │    → db.record_dead_page_post(chat_id, slot='repost')    │      │
+│  └──────────────────────────────────────────────────────────┘      │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────┐      │
+│  │ JOIN TRIGGER (synchronous, via F1 + SchedulerService)     │      │
+│  │                                                          │      │
+│  │  Slava joins chat                                        │      │
+│  │    → F1: on_slava_chat_member()                          │      │
+│  │    → scheduler.signal_immediate_post(chat_id)            │      │
+│  │      → Check: DEAD_PAGE_POST_ON_JOIN == True?            │      │
+│  │      → Check: dedup window (10 sec)                      │      │
+│  │      → relay.send_dead_page(chat_id)                     │      │
+│  │    → db.record_dead_page_post(chat_id, slot='join')      │      │
+│  └──────────────────────────────────────────────────────────┘      │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────┐      │
+│  │ SchedulerService.run()  (simplified — no time-based logic) │      │
+│  │                                                          │      │
+│  │  while True:                                             │      │
+│  │    await asyncio.sleep(3600)  # keep task alive          │      │
+│  │  (signal_immediate_post is called synchronously by F1)   │      │
+│  └──────────────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Posting Windows
+### Forward-from-Channel Strategy
 
-| Slot | Start Hour | End Hour | Description |
-|------|-----------|----------|-------------|
-| morning | 10 | 11 (exclusive) | Morning dead-page post |
-| evening | 20 | 21 (exclusive) | Evening dead-page post |
-| join | N/A | N/A | Immediate post on Slava join |
+1. **Channel ID**: `DEAD_PAGE_SOURCE_CHANNEL_ID = 4228645624` (private channel)
+2. **Message tracking**: `channel_state` table stores `last_known_message_id` per channel.
+   Updated on each successful forward: `max(forwarded_id, last_id)`.
+3. **Random pick**: `random.randint(1, last_known_message_id)` — picks any message_id
+   in the range, even deleted ones (handled via retry).
+4. **Retries**: Up to `DEAD_PAGE_MAX_FORWARD_RETRIES` (default 10) attempts with
+   different random `message_id` values. Skips already-tried IDs.
+5. **Error handling**: `TelegramBadRequest` with "message to forward not found"
+   triggers retry. All other errors raise immediately (channel unavailable, bot
+   not admin, etc.) — triggering the fallback.
 
-### Deduplication
+### Fallback Mechanism
 
-1. **Scheduled posts**: `has_post_today(chat_id, slot)` checks DB. If the slot was already posted today, skip. This prevents double-posting if the scheduler ticks twice within the same hour window.
-2. **Join posts**: `signal_immediate_post` tracks `_last_join_post` monotonic time. If called within 10 seconds of the last join post, it's a duplicate Telegram event and gets skipped. Also records to DB with slot='join' and today's date, so subsequent ticks within the same hour won't double-post.
+If `_forward_random_post` returns `False` or raises any exception:
+- Falls back to `_send_local_dead_page(chat_id)` which uses `MediaService.pick_random()`
+  from `media/dead_page/` directory (same as v1 sending logic).
+- Uses `send_photo` with caption + optional `send_message` for overflow text.
+- Caption limit: `DEAD_PAGE_CAPTION_MAX_CHARS` (default 1024).
+
+### Anti-Spam Cooldown
+
+- **Cooldown**: `DEAD_PAGE_COOLDOWN_SECONDS` (default 10) between reposts in same chat.
+- **Check**: `was_dead_page_recently(chat_id, cooldown_seconds)` queries
+  `dead_page_posts` where `slot='repost' AND timestamp > threshold`.
+- **Scope**: Repost trigger only. Join trigger uses its own 10-second dedup window
+  in SchedulerService (monotonic time, no DB query).
 
 ### Graceful Shutdown
 
-The scheduler task runs forever. On bot shutdown (SIGINT/Ctrl+C):
+The scheduler task runs forever (sleep loop). On bot shutdown:
 - `dp.start_polling()` raises `CancelledError`.
-- The `asyncio.create_task(scheduler.run())` task is automatically cancelled when the event loop closes.
-- No explicit cleanup needed for the scheduler itself; DB connection closing is handled by `DatabaseService.close()` if needed.
+- The `asyncio.create_task(scheduler.run())` task is automatically cancelled
+  when the event loop closes.
+- No explicit cleanup needed. DB connection closing is handled by
+  `DatabaseService.close()` if needed.
 
 ---
 
@@ -1317,17 +1465,20 @@ class Settings:
     ALAN_USER_ID: int = int(os.getenv("ALAN_USER_ID", "138811255"))
     ALAN_REPLY_INTERVAL: int = int(os.getenv("ALAN_REPLY_INTERVAL", "10"))
     
-    # Scheduler
-    SCHEDULER_MORNING_HOUR: int = int(os.getenv("SCHEDULER_MORNING_HOUR", "10"))
-    SCHEDULER_EVENING_HOUR: int = int(os.getenv("SCHEDULER_EVENING_HOUR", "20"))
-    SCHEDULER_POLL_INTERVAL: int = int(os.getenv("SCHEDULER_POLL_INTERVAL", "60"))
+    # Dead Page Relay (F2 v2)
+    DEAD_PAGE_SOURCE_CHANNEL_USERNAME: str = os.getenv("DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "d_pages")
+    DEAD_PAGE_SOURCE_CHANNEL_ID: int = int(os.getenv("DEAD_PAGE_SOURCE_CHANNEL_ID", "4228645624"))
+    DEAD_PAGE_RELAY_CHANNEL_ID: int = int(os.getenv("DEAD_PAGE_RELAY_CHANNEL_ID", "4228645624"))
+    DEAD_PAGE_CAPTION_MAX_CHARS: int = int(os.getenv("DEAD_PAGE_CAPTION_MAX_CHARS", "1024"))
+    DEAD_PAGE_COOLDOWN_SECONDS: int = int(os.getenv("DEAD_PAGE_COOLDOWN_SECONDS", "10"))
+    DEAD_PAGE_POST_ON_JOIN: bool = os.getenv("DEAD_PAGE_POST_ON_JOIN", "True").lower() in ("true", "1", "yes")
+    DEAD_PAGE_MAX_FORWARD_RETRIES: int = int(os.getenv("DEAD_PAGE_MAX_FORWARD_RETRIES", "10"))
+    DEAD_PAGE_CHANNEL_LAST_MSG_ID: int = int(os.getenv("DEAD_PAGE_CHANNEL_LAST_MSG_ID", "0"))
+    DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
     
     # GIF counter
     GIF_INTERVAL: int = int(os.getenv("GIF_INTERVAL", "5"))
     GIF_PATH: str = os.getenv("GIF_PATH", "media/slavic_chlen.mp4")
-    
-    # Dead page media
-    DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
     
     # Debug
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
@@ -1455,7 +1606,7 @@ def make_chat_member_updated(
 
 | Test File | What It Tests |
 |-----------|---------------|
-| `test_database.py` | `initialize()` creates 3 tables. `increment_and_get_count()` returns 1,2,3... `set_presence`/`is_present` roundtrip. `has_post_today`/`record_post` roundtrip. Concurrent `increment_and_get_count` serialization. |
+| `test_database.py` | `initialize()` creates 4 tables (including channel_state). `increment_and_get_count()` returns 1,2,3... `set_presence`/`is_present` roundtrip. `was_dead_page_recently`/`record_dead_page_post` roundtrip. `get_last_known_message_id`/`update_last_known_message_id` roundtrip. Concurrent `increment_and_get_count` serialization. |
 
 #### D. Edge Cases
 
@@ -1468,7 +1619,7 @@ Every test file includes edge case tests:
 | Slava in multiple chats | DB composite key `(chat_id, user_id)` isolates counters |
 | Bot restarts | Counters survive (DB persistence); presence state survives |
 | Duplicate join events | Scheduler dedup window prevents double immediate post |
-| Midnight boundary | `has_post_today` uses date string; new day = new slots |
+| Midnight boundary | `record_dead_page_post` stores date string; new day = new slots |
 | Scheduler running with no chats | `get_present_chats` returns `[]` — no-op |
 | Missing media files | `MediaService.pick_random()` raises `FileNotFoundError`; scheduler catches and logs |
 | Very long dead-page text | Split at 1024 chars; caption + follow-up message |
@@ -1680,19 +1831,20 @@ async def on_slava_chat_member(update: ChatMemberUpdated) -> None:
 
 **Registration:** `dp.include_router(slava_presence_router)` — position 1 in bot.py.
 
-**DB integration:** The `on_slava_chat_member` handler also calls `DatabaseService.set_presence()` and `SchedulerService.signal_immediate_post()`. This coupling is handled in bot.py by passing `db` and `scheduler` as extra data or through a callback.
+**DB integration:** The `on_slava_chat_member` handler also calls `DatabaseService.set_presence()` and `SchedulerService.signal_immediate_post()` (which delegates to `DeadPageRelay.send_dead_page()`). This coupling is handled in bot.py by passing `db`, `scheduler`, and `relay` as extra data or through dependency injection.
 
 **Refined approach — use dependency injection via aiogram's `data` dict or a simpler pattern:**
 
 In bot.py, we store services on the bot instance or pass them through the dispatcher's workflow data:
 
 ```python
-# bot.py — passing DB and scheduler to handlers
+# bot.py — passing DB, relay, and scheduler to handlers
 from aiogram import Dispatcher
 
 # Store services on dispatcher's workflow data (accessible in handlers)
 dp["db"] = DatabaseService("local_database.db")
-dp["scheduler"] = SchedulerService(bot, dp["db"])
+dp["relay"] = DeadPageRelay(bot, db, media, channel_id=...)
+dp["scheduler"] = SchedulerService(bot, db, dp["relay"])
 ```
 
 Then in `slava_presence.py`:
@@ -1702,7 +1854,7 @@ async def on_slava_chat_member(update: ChatMemberUpdated, db: DatabaseService, s
     # ... same logic ...
     if was_absent and is_present:
         await db.set_presence(user.id, update.chat.id, True)
-        await update.bot.send_message(...)
+        await update.bot.send_message(chat_id=update.chat.id, text="ДОЛБОЕБ ВЕРНУЛСЯ")
         await scheduler.signal_immediate_post(update.chat.id)
     elif new_status in ('left', 'kicked'):
         await db.set_presence(user.id, update.chat.id, False)
@@ -1735,7 +1887,8 @@ Given a message from user 479167456 (Slava) in chat -100123 with text "куча 
 1. ChatMemberUpdated router: NOT triggered (this is a message, not chat_member update)
 2. kostik_router: UserIdFilter checks — user is 479167456, not 350803143 → SKIP
 3. alan_router: UserIdFilter checks — user is 479167456, not 138811255 → SKIP
-4. slavik_router:
+4. dead_page_router: forward_origin filter checks — no forward_origin present → SKIP
+5. slavik_router:
    ├── Middleware: MessageCounterMiddleware fires
    │   ├── DB: increment_and_get_count(-100123, 479167456) → returns e.g. 25
    │   ├── 25 % 5 == 0 → TRUE
@@ -1755,7 +1908,7 @@ Given a message from user 479167456 (Slava) in chat -100123 with text "куча 
        ├── UserIdFilter: TRUE
        └── message.reply("пошёл нахуй")  [пошёл нахуй SENT]
 
-5. vasya_router:
+6. vasya_router:
    ├── VasyaFilter: "куча дрон летит" → no "вас" stem → SKIP
    └── StrictAdminFilter: "куча дрон летит" → no "админ" → SKIP
 
@@ -1772,12 +1925,14 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | D2 | F4/F5 fire alongside catch-all | Requirements say these are ADDITIONAL responses, not replacements |
 | D3 | DatabaseService uses asyncio.Lock for counter increments | Prevents race condition in read-modify-write cycle |
 | D4 | UserIdFilter is a class, not a lambda | Reusable, testable, follows existing BaseFilter pattern from vasya_module.py |
-| D5 | Scheduler polls every 60s, not event-driven | Simpler than precise scheduling; 60s granularity is fine for "twice a day" |
-| D6 | Dead page text uses Telegram caption (1024 char limit) + fallback message | Standard approach for long text with photos |
-| D7 | ChatMemberUpdated is PRIMARY for presence detection; new_chat_members is fallback | ChatMemberUpdated covers all status changes; new_chat_members only catches ADD events |
-| D8 | DB path is configurable via .env | Allows switching DB files (e.g., for testing) |
-| D9 | Each module handles its own imports | No circular dependencies; handlers depend on filters and services, never vice versa |
-| D10 | bot.py wires everything together | Single composition root; no scattered configuration |
+| D5 | Dead page posts use forwardMessage from channel, not local media | Event-driven (repost trigger); no time-based scheduler; random post from channel via random.randint strategy |
+| D6 | Dead page has mandatory fallback to local media/dead_page/ | If channel is unavailable or all forward retries fail, old send_photo mechanism kicks in |
+| D7 | channel_state table is a key-value store | Extensible pattern for per-channel metadata; initially tracks last_known_message_id for random forward strategy |
+| D8 | Anti-spam cooldown via timestamp column | Prevents rapid repost spam; 10-second default; separate dedup for join trigger (monotonic time) |
+| D9 | ChatMemberUpdated is PRIMARY for presence detection; new_chat_members is fallback | ChatMemberUpdated covers all status changes; new_chat_members only catches ADD events |
+| D10 | DB path is configurable via .env | Allows switching DB files (e.g., for testing) |
+| D11 | Each module handles its own imports | No circular dependencies; handlers depend on filters and services, never vice versa |
+| D12 | bot.py wires everything together | Single composition root; no scattered configuration |
 
 ---
 
@@ -1802,11 +1957,13 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `handlers/alan.py` | Alan_Z reply engine (F6) |
 | `handlers/slavik.py` | Slava handlers + setup (migrated + F3+F4+F5) |
 | `handlers/vasya.py` | Vasya handlers (migrated) |
+| `handlers/dead_page_trigger.py` | Repost detector: catches forwards from @d_pages (F2) |
 | `handlers/slava_presence.py` | Slava return/leave detection (F1) |
 | `services/__init__.py` | Empty init |
-| `services/database.py` | DatabaseService (aiosqlite wrapper) |
-| `services/media_picker.py` | MediaService (dead page file picker) |
-| `services/scheduler.py` | SchedulerService (F2 background loop) |
+| `services/database.py` | DatabaseService (aiosqlite wrapper + channel_state) |
+| `services/media_picker.py` | MediaService (dead page file picker, fallback) |
+| `services/scheduler.py` | SchedulerService (F2 simplified, join trigger only) |
+| `services/dead_page_relay.py` | DeadPageRelay (channel forward + fallback, F2) |
 | `services/message_counter.py` | MessageCounterMiddleware (F3) |
 | `tests/__init__.py` | Empty init |
 | `tests/conftest.py` | Shared test fixtures |
@@ -1817,7 +1974,9 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `tests/test_message_counter.py` | F3: GIF counter middleware tests |
 | `tests/test_slava_presence.py` | F1: Slava join/leave detection tests |
 | `tests/test_media_picker.py` | F2: MediaService tests |
-| `tests/test_scheduler.py` | Scheduler logic tests |
+| `tests/test_scheduler.py` | Scheduler logic tests (simplified) |
+| `tests/test_dead_page_relay.py` | F2: DeadPageRelay forward + fallback tests |
+| `tests/test_dead_page_trigger.py` | F2: repost detector handler tests |
 | `tests/test_alan.py` | F6 tests |
 | `tests/test_vasya.py` | Vasya/Admin tests |
 | `tests/test_database.py` | DB service tests |
@@ -1836,9 +1995,9 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | File | Reason |
 |------|--------|
 | `media/slavic_chlen.mp4` | Used by F3 |
-| `media/dead_page/slavic_ava.jpg` | Used by F2 |
-| `media/dead_page/page_1.txt` | Used by F2 |
-| `local_database.db` | Kept as-is; schema applied on init |
+| `media/dead_page/slavic_ava.jpg` | Used by F2 (fallback) |
+| `media/dead_page/page_1.txt` | Used by F2 (fallback) |
+| `local_database.db` | Kept as-is; schema applied on init; new tables added |
 | `plans/MEMORY.md` | Project memory |
 | `plans/board.md` | Kanban board |
 | `plans/backlog.md` | Backlog |
@@ -1847,5 +2006,13 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 
 | File | Modifications |
 |------|--------------|
-| `bot.py` | Complete rewrite: use config, DB init, scheduler start, new router registration order |
+| `bot.py` | Complete rewrite: use config, DB init, DeadPageRelay, scheduler, new router registration order (v2) |
 | `.env` | Add API_TOKEN value (from bot.py hardcode) |
+| `.env.example` | Add DEAD_PAGE_* env vars |
+| `config/settings.py` | Add DEAD_PAGE_* fields; remove SCHEDULER_* fields |
+| `services/database.py` | Add channel_state table; update dead_page_posts schema; add was_dead_page_recently, record_dead_page_post, channel_state methods |
+| `services/scheduler.py` | Simplify: remove time-based loop; keep only join trigger via DeadPageRelay |
+| `services/media_picker.py` | Downgrade to fallback-only role; no API changes |
+| `handlers/slava_presence.py` | Update signal_immediate_post to use DeadPageRelay |
+| `plans/ARCHITECTURE.md` | Updated to v2.0.0 reflecting Dead Page V2 changes |
+| `plans/MEMORY.md` | Update architecture, slots, DB schema for v2 |

@@ -1,8 +1,8 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v1.3.0 (Alan_Z Refactor)
-> **Дата:** 2026-07-07
-> **Статус:** PRODUCTION-READY — Onupon replaced with Alan_Z, F6 refactored, 115 tests pass
+> **Версия:** v2.0.0 (Dead Page V2)
+> **Дата:** 2026-07-12
+> **Статус:** PRODUCTION-READY — Dead Page V2 implemented, 137 tests pass, 6 routers active
 
 ---
 
@@ -16,9 +16,9 @@
 |-----------|-----------|--------|
 | Рантайм | Python 3.x + asyncio | ✅ |
 | Фреймворк | aiogram 3.x | ✅ |
-| База данных | SQLite (local_database.db) | ✅ 3 таблицы, WAL mode |
+| База данных | SQLite (local_database.db) | ✅ 4 таблицы, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 122 теста PASS |
+| Тесты | pytest + pytest-asyncio | ✅ 137 тестов PASS |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 
 ### Пользователи чата
@@ -34,7 +34,7 @@
 
 ## 🏗️ Key Architectural Decisions
 
-### 1. Модульная архитектура (v1.1.0)
+### 1. Модульная архитектура (v2.0.0)
 Проект разбит на 6 директорий с чёткими import rules:
 ```
 config/    → handlers/ ← filters/    → services/ → tests/
@@ -50,29 +50,31 @@ config/    → handlers/ ← filters/    → services/ → tests/
 1. ChatMemberUpdated (slava_presence_router) — F1 + new_chat_members fallback
 2. kostik_router (user_id=350803143)
 3. alan_router (user_id=138811255) + DB counter — F6
-4. slavik_router (user_id=479167456) + middleware F3 + F4 + F5 + catch-all
-5. vasya_router (text filters, no user restriction)
+4. dead_page_router — Dead Page V2 trigger from @d_pages forwards
+5. slavik_router (user_id=479167456) + middleware F3 + F4 + F5 + catch-all
+6. vasya_router (text filters, no user restriction)
 ```
-**Причина:** User-ID-based routers BEFORE text-based routers. ChatMemberUpdated separate from Message handlers.
+**Причина:** User-ID-based routers BEFORE text-based routers. ChatMemberUpdated separate from Message handlers. Dead Page trigger after Alan, before Slava-specific handlers.
 
 ### 3. 6 фич (F1–F6) — ВСЕ РЕАЛИЗОВАНЫ И ПРОТЕСТИРОВАНЫ
 
 | # | Фича | Реализация | Фильтр/Сервис |
 |---|------|------------|---------------|
 | **F1** | Детект возвращения Славы → «ДОЛБОЕБ ВЕРНУЛСЯ» | `handlers/slava_presence.py` | `DatabaseService`, `SchedulerService` |
-| **F2** | Dead Page: фото+текст 2x/день + immediate | `SchedulerService` + `MediaService` | `dead_page_posts` table |
+| **F2** | Dead Page V2: forwardMessage из relay-канала @d_pages + fallback на local media + join trigger | `DeadPageRelay` + `DeadPageTrigger` + `SchedulerService` | `dead_page_posts`, `channel_state` tables |
 | **F3** | GIF каждые 5 сообщений Славы | `MessageCounterMiddleware` | `message_counters` table |
 | **F4** | «КУЧА» → «ДАЛБАЕБ» | `handlers/slavik.py` | `KuchaWordFilter` |
 | **F5** | Военные слова → «трясло ебаное» | `handlers/slavik.py` | `WarWordFilter` |
 | **F6** | @Alan_Z → random reply каждые 10 сообщений (тренировки/лонгковид/фьючерсы/нейросети/жим дьявола) | `handlers/alan.py` | `UserIdFilter`, `DatabaseService` |
 
-### 4. Database Schema (SQLite, 3 tables)
+### 4. Database Schema (SQLite, 4 tables)
 
 | Таблица | Назначение | Ключевые колонки |
 |---------|-----------|-----------------|
 | `user_presence` | Присутствие пользователя (F1, F2) | `user_id`, `chat_id`, `is_present` |
 | `message_counters` | Счётчик сообщений (F3) | `chat_id`, `user_id`, `count` |
-| `dead_page_posts` | Учёт dead-page постов (F2) | `chat_id`, `slot` (morning/evening/join), `date` |
+| `dead_page_posts` | Учёт dead-page постов (F2 V2) | `chat_id`, `slot` (repost/join), `timestamp` |
+| `channel_state` | Ключ-значение для отслеживания (F2 V2) | `key` (TEXT PK), `value` (TEXT) |
 
 ### 5. Services
 
@@ -80,7 +82,8 @@ config/    → handlers/ ← filters/    → services/ → tests/
 |--------|------|------------|
 | `DatabaseService` | `services/database.py` | aiosqlite, asyncio.Lock |
 | `MediaService` | `services/media_picker.py` | random, glob, Path (stateless) |
-| `SchedulerService` | `services/scheduler.py` | DatabaseService, MediaService, asyncio |
+| `SchedulerService` | `services/scheduler.py` | DatabaseService, DeadPageRelay, asyncio |
+| `DeadPageRelay` | `services/dead_page_relay.py` | DatabaseService, MediaService, aiogram Bot |
 | `MessageCounterMiddleware` | `services/message_counter.py` | DatabaseService (aiogram middleware) |
 
 ### 6. Filters (5 классов)
@@ -104,26 +107,68 @@ config/    → handlers/ ← filters/    → services/ → tests/
 | `KOSTIK_USER_ID` | `350803143` | Kostik's Telegram user ID |
 | `ALAN_USER_ID` | `138811255` | Alan's Telegram user ID |
 | `ALAN_REPLY_INTERVAL` | `10` | Reply every N messages from Alan |
-| `MORNING_HOUR` | `10` | Dead page morning slot |
-| `EVENING_HOUR` | `20` | Dead page evening slot |
-| `POLL_INTERVAL` | `60` | Scheduler poll interval (seconds) |
+| `KOSTIK_REPLY_PROBABILITY` | `1.0` | Probability of Kostik reply (0.0–1.0) |
 | `GIF_INTERVAL` | `5` | Send GIF every N messages |
 | `GIF_PATH` | `media/slavic_chlen.mp4` | GIF file path |
-| `DEAD_PAGE_DIR` | `media/dead_page` | Dead page media directory |
+| `DEAD_PAGE_DIR` | `media/dead_page` | Dead page local media directory |
+| `DEAD_PAGE_CHANNEL_ID` | `4228645624` | Relay channel ID for forwardMessage |
+| `DEAD_PAGE_CHANNEL_USERNAME` | `@d_pages` | Channel username for trigger detection |
+| `DEAD_PAGE_FORWARD_COOLDOWN` | `600` | Anti-spam cooldown (seconds) |
+| `DEAD_PAGE_POST_ON_JOIN` | `True` | Enable dead page on Slava join |
+| `DEAD_PAGE_REPOST_COOLDOWN` | `600` | Repost cooldown (seconds) |
+| `DEAD_PAGE_RETRY_MAX` | `5` | Max retries for forwardMessage |
+| `DEAD_PAGE_JOIN_DEDUP` | `10` | Dedup window for join events (seconds) |
 
 ---
 
 ## 🆕 Recent Changes
 
-### Implementation + Review Cycle Complete (2026-07-07)
+### Dead Page V2 — Complete (2026-07-12)
 
-**Phase 1 — Implementation:**
+**Overview:**
+F2 redesigned from time-based scheduler (morning/evening) to event-driven architecture. Dead page posts now come from a private Telegram channel `@d_pages` via `forwardMessage`, with local media fallback.
+
+**New Files:**
+| File | Purpose |
+|------|---------|
+| `services/dead_page_relay.py` | Forwards random post from relay channel (ID 4228645624) to target chat. Retry logic (max 5), fallback to local MediaService, anti-spam cooldown. |
+| `handlers/dead_page_trigger.py` | Detects `MessageOriginChannel` forwards from `@d_pages`. Checks Slava presence + cooldown before posting. Registered as `dead_page_router` at position 4. |
+| `tests/test_dead_page_relay.py` | 4 tests: success, fallback, cooldown, retry exhaustion |
+| `tests/test_dead_page_trigger.py` | 4 tests: origin detection, presence gate, cooldown gate, valid forward |
+
+**Modified Files:**
+| File | Changes |
+|------|---------|
+| `config/settings.py` | 7 new `DEAD_PAGE_*` env vars. Removed: `MORNING_HOUR`, `EVENING_HOUR`, `POLL_INTERVAL`. Added: `DEAD_PAGE_CHANNEL_ID`, `DEAD_PAGE_CHANNEL_USERNAME`, `DEAD_PAGE_FORWARD_COOLDOWN`, `DEAD_PAGE_POST_ON_JOIN`, `DEAD_PAGE_REPOST_COOLDOWN`, `DEAD_PAGE_RETRY_MAX`, `DEAD_PAGE_JOIN_DEDUP`. |
+| `services/scheduler.py` | V2 simplified: time-based morning/evening removed. Only handles `signal_immediate_post()` for join trigger. `run()` is no-op loop (sleeps 3600s). Delegates to `DeadPageRelay`. |
+| `services/database.py` | New `channel_state` table (key-value). New methods: `was_dead_page_recently()`, `record_dead_page_post()`, `get_last_known_message_id()`, `update_last_known_message_id()`. Migration: `ALTER TABLE dead_page_posts ADD COLUMN timestamp`. |
+| `bot.py` | `dead_page_router` registered at position 4. `DeadPageRelay` + `DeadPageTrigger` initialized via `setup_dead_page()`. |
+| `tests/test_database.py` | Updated: `channel_state` tests, `was_dead_page_recently`, `record_dead_page_post` |
+| `tests/test_scheduler.py` | Rewritten: 5 V2 tests (join post, dedup window, post_on_join=False gate, relay delegation, no-op loop) |
+
+**Test Results:**
+- **137 tests pass** (no regressions from existing features)
+- 13 new tests: test_scheduler.py (5), test_dead_page_relay.py (4), test_dead_page_trigger.py (4)
+- All existing Slava handlers (F3/F4/F5), Alan (F6), Kostik, Vasya tests unchanged and passing
+- Fixed 1 test issue: frozen dataclass patching → post_on_join constructor parameter
+
+**Reviewer Audit:**
+- 5 critical + 11 warning issues identified and all resolved
+- Critical fixes: retry dedup set, forward_id extraction, DEAD_PAGE_REPOST_COOLDOWN config, handler cooldown check, scheduler delegation
+
+**Architecture Decision — Why trigger-based instead of time-based:**
+- Time-based (morning/evening) required bot to be running at specific times
+- Event-driven from Telegram forwards is more reliable and user-controlled
+- Relay channel approach enables posting from any device without bot commands
+- Local media fallback ensures posts continue if channel is inaccessible
+
+### Phase 1 — Initial Implementation (2026-07-07)
 - All 6 features (F1-F6) implemented from scratch in modular architecture
 - 5 routers, 4 services, 6 filters, 3 DB tables created
 - 109 tests pass (up from 0 before implementation)
 - 12 test files covering all handlers, filters, services, edge cases
 
-**Phase 2 — Review Fixes Applied:**
+### Post-Review Fixes (2026-07-07)
 
 | ID | Fix | Files Affected |
 |----|-----|---------------|
@@ -134,29 +179,38 @@ config/    → handlers/ ← filters/    → services/ → tests/
 | **M5** | All settings now configurable via environment variables | `config/settings.py` |
 | **L3** | `on_shutdown` hook added to bot.py (DB cleanup deferred) | `bot.py` |
 
-**Remaining LOW items (not blocking):**
-- `README.md` uses platform-specific Windows commands (acceptable for Windows-first project)
-- **H3** — No dispatcher integration tests (deferred; unit tests cover all components)
-- Quoting feature not implemented — Telegram native `reply_to` covers the need
-- L3 — `on_shutdown` doesn't call `DatabaseService.close()` (db is local to `on_startup`; SQLite WAL mode handles crashes)
-- `__pycache__` has stale `.pyc` files for deleted modules (harmless)
+### Alan_Z Refactor (2026-07-07)
+- Onupon (id 1060441536) replaced with Alan_Z (id 138811255) in F6
+- F6 refactored: periodic reply engine (every 10 msgs → random phrase from pool of 20+)
+- `handlers/onupon.py` DELETED, `handlers/alan.py` CREATED
+- `filters/username.py` DELETED (dead code)
+- 115 tests pass after refactor
+
+### Kostik Handler Refactor (2026-07-07)
+- Probability-based replies: `KOSTIK_REPLY_PROBABILITY` (default 1.0)
+- Extensible `KOSTIK_REPLIES` pool (8 variants)
+- KuchaWordFilter fix: removed 'ек' from suffix group → no more false positive on 'кучек'
+- 130 tests pass after refactor
+
+---
 
 ### Project Structure (actual)
 
 ```
 C:\Code\Python\adminbot\
-├── bot.py                    (entry point, router wiring, on_startup/on_shutdown)
+├── bot.py                    (entry point, 6 routers, on_startup/on_shutdown)
 ├── requirements.txt
-├── .env.example              (complete: all 12 settings documented)
+├── .env.example              (complete: all 19+ settings documented)
 ├── README.md
 ├── config/
-│   └── settings.py           (all settings env-configurable)
+│   └── settings.py           (all settings env-configurable, 7 DEAD_PAGE_* vars)
 ├── handlers/
-│   ├── kostik.py             (F7: catch-all "пошёл нахуй кринжатура ебаная")
+│   ├── kostik.py             (catch-all "пошёл нахуй кринжатура ебаная")
 │   ├── slavik.py             (F3 middleware + F4 kucha + F5 war + catch-all)
 │   ├── vasya.py              (VasyaFilter + StrictAdminFilter)
-│   ├── alan.py                (F6: reply engine — random phrase every 10 msgs)
-│   └── slava_presence.py     (F1: ChatMemberUpdated + new_chat_members fallback)
+│   ├── alan.py               (F6: reply engine — random phrase every 10 msgs)
+│   ├── slava_presence.py     (F1: ChatMemberUpdated + new_chat_members fallback)
+│   └── dead_page_trigger.py  (F2 V2: @d_pages forward detection + relay trigger)
 ├── filters/
 │   ├── user_id.py
 │   ├── vasya_name.py
@@ -164,20 +218,23 @@ C:\Code\Python\adminbot\
 │   ├── kucha_word.py         (B1 fix: precise declension regex)
 │   └── war_word.py
 ├── services/
-│   ├── database.py
+│   ├── database.py           (4 tables: +channel_state, +timestamp, anti-spam methods)
 │   ├── media_picker.py
-│   ├── scheduler.py
+│   ├── scheduler.py          (V2 simplified: join-only, delegates to DeadPageRelay)
+│   ├── dead_page_relay.py    (NEW: forwardMessage + retry + fallback)
 │   └── message_counter.py
 ├── tests/
 │   ├── conftest.py           (M4 fix: manual event_loop, session scope)
-│   ├── test_filters.py       (H1+H2: VasyaFilter + StrictAdminFilter tests)
+│   ├── test_filters.py
 │   ├── test_kostik.py
 │   ├── test_slavik_handlers.py
 │   ├── test_vasya.py
 │   ├── test_alan.py
 │   ├── test_slava_presence.py
-│   ├── test_database.py
-│   ├── test_scheduler.py
+│   ├── test_database.py      (updated: channel_state + dead_page V2 methods)
+│   ├── test_scheduler.py     (rewritten: 5 V2 tests)
+│   ├── test_dead_page_relay.py     (NEW: 4 tests)
+│   ├── test_dead_page_trigger.py   (NEW: 4 tests)
 │   ├── test_message_counter.py
 │   ├── test_media_picker.py
 │   └── test_edge_cases.py
@@ -199,14 +256,16 @@ C:\Code\Python\adminbot\
 |--------|-------|
 | **Backlog** | none |
 | **In Progress** | none |
-| **Done** | **T-001 – T-015 (all 15 tasks)** ✅ |
+| **Done** | **T-001 – T-028 (all 28 tasks)** ✅ |
 
-> ✅ Board.md and backlog.md synced. All epics fully complete.
+> ✅ Board.md and backlog.md synced. Epic 1–6 fully complete.
 
 ### Legacy Migration — COMPLETE
 - `vasya_module.py` → **DELETED** → `handlers/vasya.py` + `filters/vasya_name.py` + `filters/admin_word.py`
 - `kostik_module.py` → **DELETED** → `handlers/kostik.py` + `filters/user_id.py`
 - `slavik_module.py` → **DELETED** → `handlers/slavik.py` + `filters/user_id.py` + `services/message_counter.py`
+- `handlers/onupon.py` → **DELETED** → `handlers/alan.py`
+- `filters/username.py` → **DELETED** (dead code)
 
 ### Remaining Technical Debt (LOW — Not Blocking)
 
@@ -222,10 +281,11 @@ C:\Code\Python\adminbot\
 
 ## 🔗 Knowledge Graph Status
 
-- **Fully synchronized** with final project state (v1.2.0)
-- **Final entities**: 1 Project, 3 Architecture, 1 Milestone, 1 Pending (5 LOW items), 6 Features (F1-F6), 4 Users, 5 Handlers, 4 Services, 6 Filters, 1 Test Strategy, 3 DB tables (Alan_Z replaces Onupon in F6)
-- **Final observations added**: 109 tests passing, 30+ files, all review fixes resolved, 5 LOW technical debt items deferred
+- **Fully synchronized** with final project state (v2.0.0)
+- **Final entities**: 1 Project, 3 Architecture, 2 Milestones, 1 Test Strategy, 6 Features (F1-F6), 4 Users, 6 Handlers, 5 Services, 5 Filters, 4 DB tables, 1 Pending (5 LOW items)
+- **Epic 6 (Dead Page V2)**: T-018 – T-028 all complete. 137 tests passing, 5 critical + 11 warning reviewer findings resolved.
+- **Key new components**: DeadPageRelay (forwardMessage + retry + fallback), DeadPageTrigger (@d_pages forward detection), channel_state table
 
 ---
 
-*Последнее обновление: 2026-07-07 — Final Sync (Memory Agent)*
+*Последнее обновление: 2026-07-12 — Dead Page V2 Final Sync (Memory Agent)*

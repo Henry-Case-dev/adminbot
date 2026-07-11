@@ -2,7 +2,22 @@
 
 ## 📋 Backlog
 
+### Epic 6: Dead Page V2 — Event-driven reposts
+- [ ] T-019: Update plan DEAD_PAGE_V2_PLAN.md with user feedback (forward + channel 4228645624 + fallback)
+
 ## 🔧 In Progress
+
+### Epic 6: Dead Page V2 — Event-driven reposts
+- [ ] T-018: Update config/settings.py + .env.example (new params, remove MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL)
+- [ ] T-020: Create services/dead_page_relay.py (channel forward + fallback)
+- [ ] T-021: Create handlers/dead_page_trigger.py (repost detector, forward_origin filter)
+- [ ] T-022: Simplify services/scheduler.py (remove loop, keep join trigger only)
+- [ ] T-023: DB migration (channel_state table, timestamp column, new methods)
+- [ ] T-024: Update bot.py (register dead_page_router #4, init DeadPageRelay, wire to slava_presence)
+- [ ] T-025: Add comprehensive logging to dead_page module (relay, trigger, scheduler, DB)
+- [ ] T-026: Update MEMORY.md and ARCHITECTURE.md (new F2 architecture, router order, DB schema)
+- [ ] T-027: Write/rewrite tests (test_dead_page_relay.py, test_dead_page_trigger.py, drop old scheduler tests, update test_database.py)
+- [ ] T-028: Run all tests and verify coverage (all new functions covered, no regressions)
 
 ## ✅ Done
 
@@ -29,8 +44,6 @@
 ### Epic 4: Документация
 - [x] T-015: README.md с ироничной документацией
 
-### Post-Review Fixes (7/7 applied)
-
 ### Epic 5: Багфиксы
 - [x] T-016 (Kostik): Probability-based reply engine + extensible pool (KOSTIK_REPLY_PROBABILITY)
 - [x] T-017 (Kucha): Fix KuchaWordFilter regex — remove "ек" from optional group
@@ -48,3 +61,7 @@
 - [ ] L2: Quoting in response text (reply_to covers)
 - [ ] L4: MediaService cache invalidation
 - [ ] L5: VasyaFilter translit order edge case
+
+---
+
+**Updated:** 2026-07-11 — Epic 6 added, Epics 1-5 archived to Done.
