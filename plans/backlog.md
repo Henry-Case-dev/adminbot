@@ -82,5 +82,44 @@
 
 ---
 
-**Status: Epic 6 DONE. Epic 7 in planning — tasks T-029 through T-037 ready.**
-**Date: 2026-07-12**
+## Epic 8: Alan Greeting Video (F7) — 2026-07-13
+
+> **Цель:** Когда пользователь Alan (ID 138811255, @Alan_Z) заходит в чат, бот отправляет
+> случайное видео из `media/leha_greeting/` с тегом @Alan_Z в подписи.
+
+### Конфигурация
+- [ ] T-038: Добавить `ALAN_USERNAME`, `ALAN_USER_ID` и `ALAN_GREETING_DIR` в `config/settings.py` + `.env.example`
+
+### Хендлер
+- [ ] T-039: Создать `handlers/alan_greeting.py` — `alan_greeting_router`:
+  - `ChatMemberUpdatedFilter` (IS_NOT_MEMBER → IS_MEMBER) + `new_chat_members` fallback
+  - Рандомное видео из `media/leha_greeting/` → `send_video` (не animation/GIF, не document)
+  - Caption: `@Alan_Z`
+  - Comprehensive logging (info: join detected, sent; warning: no videos; error: failure)
+
+### Интеграция
+- [ ] T-040: Зарегистрировать `alan_greeting_router` в `bot.py` (позиция 1, рядом с `slava_presence_router`)
+
+### Тестирование
+- [ ] T-041: Написать `tests/test_alan_greeting.py` (7-8 тестов):
+  - Alan join → video sent with caption
+  - Non-Alan join → ignored
+  - Alan leave → ignored
+  - `new_chat_members` fallback
+  - Random selection (multiple videos)
+  - Caption contains @Alan_Z
+  - Empty `media/leha_greeting/` → graceful handling
+  - Error during send → logged
+
+### Документация
+- [ ] T-042: Обновить `ARCHITECTURE.md` (F7 data flow, router order, directory listing)
+- [ ] T-043: Обновить `MEMORY.md` (project state, features table)
+
+### QA
+- [ ] T-044: Прогнать все тесты, убедиться в отсутствии регрессий
+- [ ] T-045: Code review и QA
+
+---
+
+**Status: Epic 6 DONE. Epic 7 in planning — tasks T-029 through T-037 ready. Epic 8 ready for development.**
+**Date: 2026-07-13**

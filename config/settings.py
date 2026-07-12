@@ -58,5 +58,10 @@ class Settings:
     # Dead page media directory
     DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
 
+    # Alan greeting video (F7)
+    ALAN_USERNAME: str = os.getenv("ALAN_USERNAME", "@Alan_Z")
+    ALAN_GREETING_DIR: str = os.getenv("ALAN_GREETING_DIR", "media/leha_greeting")
+    ALAN_GREETING_COOLDOWN: int = _env_int("ALAN_GREETING_COOLDOWN", 10)
+
 
 settings = Settings()
