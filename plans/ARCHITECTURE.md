@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.1.0
-> **Дата:** 2026-07-11
+> **Версия:** v2.2.0
+> **Дата:** 2026-07-13
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -34,6 +34,7 @@ C:\Code\Python\adminbot\
 │   ├── slavik.py                   # Slava router: middleware(F3) + F4 + F5 + catch-all
 │   ├── vasya.py                    # Vasya/Admin filters + handlers
 │   ├── alan.py                      # Alan_Z reply engine: every 10 msgs → random reply (F6)
+│   ├── alan_greeting.py             # Alan greeting video on join: ChatMemberUpdated + new_chat_members (F7)
 │   ├── dead_page_trigger.py        # Repost detector: catches forwards from @d_pages (F2)
 │   └── slava_presence.py           # ChatMemberUpdated handler (F1) + new_chat_members fallback
 │
@@ -57,6 +58,7 @@ C:\Code\Python\adminbot\
 │   ├── test_scheduler.py           # F2: scheduler loop logic (simplified)
 │   ├── test_dead_page_relay.py     # F2: DeadPageRelay forward + fallback tests
 │   ├── test_dead_page_trigger.py   # F2: repost detector handler tests
+│   ├── test_alan_greeting.py        # F7: Alan greeting video tests
 │   ├── test_media_picker.py        # F2: media file picker
 │   ├── test_alan.py                # F6
 │   ├── test_vasya.py
@@ -64,6 +66,9 @@ C:\Code\Python\adminbot\
 │
 ├── media/
 │   ├── slavic_chlen.mp4            # 1.1MB mp4 for F3 GIF
+│   ├── leha_greeting/
+│   │   ├── leha_greeting_01.MP4     # Greeting video 1 (F7)
+│   │   └── leha_greeting_02.MP4     # Greeting video 2 (F7)
 │   └── dead_page/
 │       ├── page_1.txt              # Obituary text (19 lines, UTF-8)
 │       └── slavic_ava.jpg          # Photo (35KB)
@@ -93,8 +98,11 @@ C:\Code\Python\adminbot\
 │  │                                                   │   │
 │  │  REGISTRATION ORDER (TOP → BOTTOM = FIRST CHECK): │   │
 │  │                                                   │   │
-│  │  1. ChatMemberUpdated handler  (F1)               │   │
-│  │     └─ imports handlers/slava_presence.py         │   │
+│  │  1. ChatMemberUpdated handlers                    │   │
+│  │     ├─ slava_presence_router (F1)                 │   │
+│  │     │  └─ imports handlers/slava_presence.py      │   │
+│  │     └─ alan_greeting_router (F7)                  │   │
+│  │        └─ imports handlers/alan_greeting.py        │   │
 │  │                                                   │   │
 │  │  2. kostik_router  (user_id=350803143)            │   │
 │  │     └─ imports handlers/kostik.py                 │   │
@@ -438,6 +446,58 @@ ALAN_REPLY_INTERVAL=10 (configurable via settings/env).
 
 **Design rationale:** Unlike the old F6 (Onupon catch-all "пес пидор"), the new F6 is a periodic reply engine. Every 10 messages from Alan triggers a random reply from a curated pool showing extreme interest in his favorite topics. The reply is NOT a catch-all on every message — it only fires every 10th message. Uses `UserIdFilter` (not `UsernameFilter`) for reliable ID-based matching.
 
+### F7 — Alan Greeting Video
+
+```
+TRIGGER: Alan (user ID 138811255, @Alan_Z) joins the chat
+
+ChatMemberUpdated flow:
+  Telegram API
+    → Dispatcher.chat_member handler
+    → alan_greeting.py::on_alan_join(update: ChatMemberUpdated)
+    → Check: update.new_chat_member.user.id == ALAN_USER_ID (138811255)
+    → Check: dedup cooldown — dict-based, 10 seconds per chat_id
+    → pick_random_video(ALAN_GREETING_DIR) → random Path from directory
+    → update.bot.send_video(chat_id, video=FSInputFile(path), caption="@Alan_Z")
+    → Record timestamp in _last_greeting[chat_id] for dedup
+
+Message.new_chat_members fallback:
+  Telegram API
+    → Dispatcher.message handler (via alan_greeting_router)
+    → alan_greeting.py::on_alan_new_chat_members(message: Message)
+    → Check: any(u.id == ALAN_USER_ID for u in message.new_chat_members)
+    → Same dedup check + video pick + send_video flow as above
+    → Same caption "@Alan_Z"
+
+VIDEO PICKING:
+  alan_greeting.py::_pick_random_video(directory: Path) → Path | None
+    INPUT: Path to media/leha_greeting/
+    
+    Algorithm:
+      1. Scan directory for files with extensions in VIDEO_EXTENSIONS
+         VIDEO_EXTENSIONS = {'.mp4', '.MP4', '.avi', '.AVI', '.mov', '.MOV', '.webm', '.WEBM'}
+      2. If no videos found → log warning, return None
+      3. random.choice(videos) → return Path
+    
+    Returns None on empty directory (handler logs warning, no video sent).
+```
+
+**Edge cases:**
+- Duplicate join events (Telegram may send both ChatMemberUpdated + new_chat_members): dedup via `_last_greeting` dict — 10-second cooldown per chat_id prevents double-posting.
+- Alan leaves and rejoins quickly: if rejoin is within 10 seconds, video is suppressed. After cooldown expires, video resends.
+- Alan in multiple chats: `_last_greeting` keyed by `chat_id`, so dedup is per-chat.
+- Empty greeting directory: `_pick_random_video` returns `None` → handler logs warning and returns silently (no crash).
+- Missing video file at send time: `send_video` raises exception → caught by try/except, logged as error.
+- Bot restart: `_last_greeting` dict is in-memory only, resets on restart. No DB storage needed.
+
+**Configuration (settings):**
+- `ALAN_USER_ID` (int, default 138811255): Alan's Telegram user ID
+- `ALAN_USERNAME` (str, default "@Alan_Z"): caption text for the video
+- `ALAN_GREETING_DIR` (str, default "media/leha_greeting"): directory with greeting videos
+- `ALAN_GREETING_COOLDOWN` (int, default 10): dedup cooldown in seconds
+
+**Design rationale:** Follows the same ChatMemberUpdated + new_chat_members pattern as F1 (slava_presence.py) for reliable join detection. Uses dict-based dedup (not DB) since greeting cooldown is transient and doesn't need persistence. Video selection is random for variety.
+
 ---
 
 ## 4. Database Schema
@@ -625,6 +685,7 @@ from services.media_picker import MediaService
 # Routers
 from handlers.kostik import kostik_router
 from handlers.alan import alan_router
+from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 from handlers.slavik import slavik_router
 from handlers.vasya import vasya_router
@@ -643,6 +704,10 @@ dp = Dispatcher(storage=MemoryStorage())
 #    This handles chat_member updates which are NOT message updates.
 #    Registered directly on dispatcher for chat_member type.
 dp.include_router(slava_presence_router)
+
+# 1b. ChatMemberUpdated handler (F7: Alan greeting video)
+#    Same update type, different user ID. No conflict with F1.
+dp.include_router(alan_greeting_router)
 
 # 2. Kostik router — user ID 350803143
 #    Catch-all: ANY message type → "пошёл нахуй кринжатура ебаная"
@@ -704,7 +769,9 @@ if __name__ == '__main__':
    - It filters on `forward_origin` (not user ID), so it doesn't conflict with user-ID routers.
    - Being before vasya_router prevents Vasya's text filters from intercepting forward messages.
 3. Within Slava's router, F4 and F5 (text-specific) come before catch-all — but they all fire.
-4. ChatMemberUpdated handler is separate from message handlers (different update type).
+4. ChatMemberUpdated handlers (F1, F7) are separate from message handlers (different update type).
+   - alan_greeting_router (F7) and slava_presence_router (F1) both handle chat_member updates.
+   - They check different user IDs (Alan=138811255 vs Slava=479167456), so no conflict.
 5. The simplified scheduler only handles the join trigger (signal_immediate_post);
    DeadPageRelay handles the actual posting logic for both repost and join triggers.
 
@@ -1559,7 +1626,7 @@ The startup sequence in `bot.py` is structured to ensure monitoring is active **
 2. sentry_sdk.init(...)   → Activate error tracking BEFORE anything else
 3. Root logger setup      → Configure StreamHandler + LogtailHandler
 4. Bot/Dispatcher creation → Bot(token=settings.API_TOKEN)
-5. Router registration     → dp.include_router(...) × 6
+5. Router registration     → dp.include_router(...) × 7
 6. on_startup()            → DB init, media service, DeadPageRelay, scheduler
 7. dp.start_polling(bot)   → Begin polling
 ```
@@ -1599,9 +1666,9 @@ This order guarantees:
 │  ┌───────────────────────┼───────────────────────────────────────┐ │
 │  │              APPLICATION LAYER                                 │ │
 │  │                                                               │ │
-│  │  bot.py ──► Router Registration ──► 6 Routers                 │ │
+│  │  bot.py ──► Router Registration ──► 7 Routers                 │ │
 │  │    │                                                          │ │
-│  │    ├──► handlers/ (6 modules)                                 │ │
+│  │    ├──► handlers/ (7 modules)                                 │ │
 │  │    ├──► filters/  (5 classes)                                 │ │
 │  │    └──► services/ (5 classes)                                 │ │
 │  │                                                               │ │
@@ -1658,6 +1725,11 @@ class Settings:
     DEAD_PAGE_MAX_FORWARD_RETRIES: int = int(os.getenv("DEAD_PAGE_MAX_FORWARD_RETRIES", "10"))
     DEAD_PAGE_CHANNEL_LAST_MSG_ID: int = int(os.getenv("DEAD_PAGE_CHANNEL_LAST_MSG_ID", "0"))
     DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
+    
+    # Alan Greeting (F7)
+    ALAN_USERNAME: str = os.getenv("ALAN_USERNAME", "@Alan_Z")
+    ALAN_GREETING_DIR: str = os.getenv("ALAN_GREETING_DIR", "media/leha_greeting")
+    ALAN_GREETING_COOLDOWN: int = int(os.getenv("ALAN_GREETING_COOLDOWN", "10"))
     
     # GIF counter
     GIF_INTERVAL: int = int(os.getenv("GIF_INTERVAL", "5"))
@@ -1785,6 +1857,7 @@ def make_chat_member_updated(
 | `test_scheduler.py` | F2: Scheduler tick logic, dedup, posting windows | Mock DB, advance time, verify posts at correct hours |
 | `test_media_picker.py` | F2: MediaService random file picker | Mock filesystem, test selection logic |
 | `test_alan.py` | F6: reply fires every 10 msgs, random selection, configurable interval | Feed messages, mock DB counter, assert reply timing |
+| `test_alan_greeting.py` | F7: Alan join → video sent; non-Alan join ignored; leave ignored; new_chat_members fallback; caption; random selection; empty dir | Feed ChatMemberUpdated + Message events, assert send_video called/not called |
 | `test_vasya.py` | Vasya/Admin handlers | Feed "вася"/"админ" text, assert "АДМИН"/"ВАСЯ" replies |
 
 #### C. Database Unit Tests
@@ -1969,7 +2042,7 @@ async def reply_to_admin(message: types.Message) -> None:
     await message.reply("ВАСЯ")
 ```
 
-**Registration:** `dp.include_router(vasya_router)` — position 5 (LAST) in bot.py.
+**Registration:** `dp.include_router(vasya_router)` — position 6 (LAST) in bot.py.
 
 ### 11.5 `handlers/slava_presence.py`
 
@@ -2047,6 +2120,131 @@ async def on_slava_chat_member(update: ChatMemberUpdated, db: DatabaseService, s
 
 This uses aiogram's dependency injection (it resolves parameters from the dispatcher's `workflow_data` dict). Or we can use `**kwargs` pattern.
 
+### 11.6 `handlers/alan_greeting.py`
+
+```python
+import logging
+import random
+import time
+from pathlib import Path
+from aiogram import F, Router, types
+from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
+from aiogram.types import FSInputFile
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+alan_greeting_router = Router()
+
+# Dedup cooldown — dict-based per chat_id, resets on bot restart
+_last_greeting: dict[int, float] = {}
+
+VIDEO_EXTENSIONS = {'.mp4', '.MP4', '.avi', '.AVI', '.mov', '.MOV', '.webm', '.WEBM'}
+
+
+def _pick_random_video(directory: Path) -> Path | None:
+    """Pick a random video file from the greeting directory."""
+    videos = [
+        p for p in directory.iterdir()
+        if p.is_file() and p.suffix in VIDEO_EXTENSIONS
+    ]
+    if not videos:
+        logger.warning("No video files found in %s", directory)
+        return None
+    return random.choice(videos)
+
+
+@alan_greeting_router.chat_member(
+    ChatMemberUpdatedFilter(
+        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
+    )
+)
+async def on_alan_join(event: types.ChatMemberUpdated):
+    """F7: Send random greeting video when Alan joins the chat."""
+    user = event.new_chat_member.user
+    
+    if user.id != settings.ALAN_USER_ID:
+        return
+    
+    chat_id = event.chat.id
+    now = time.time()
+    
+    # Dedup cooldown check
+    if chat_id in _last_greeting:
+        if now - _last_greeting[chat_id] < settings.ALAN_GREETING_COOLDOWN:
+            logger.debug("Greeting cooldown active for chat %d, skipping", chat_id)
+            return
+    
+    logger.info("Alan joined chat %d, sending greeting video", chat_id)
+    
+    video_dir = Path(settings.ALAN_GREETING_DIR)
+    video_path = _pick_random_video(video_dir)
+    
+    if video_path is None:
+        logger.warning("No greeting videos available in %s", video_dir)
+        return
+    
+    try:
+        await event.bot.send_video(
+            chat_id=chat_id,
+            video=FSInputFile(str(video_path)),
+            caption=settings.ALAN_USERNAME,
+        )
+        _last_greeting[chat_id] = now
+        logger.info("Greeting video sent for Alan in chat %d: %s", chat_id, video_path.name)
+    except Exception as e:
+        logger.error("Failed to send greeting video for Alan in chat %d: %s", chat_id, e)
+
+
+@alan_greeting_router.message(F.new_chat_members)
+async def on_alan_new_chat_members(message: types.Message):
+    """Fallback: detect Alan join via new_chat_members field."""
+    if not message.new_chat_members:
+        return
+    
+    alan_joined = any(u.id == settings.ALAN_USER_ID for u in message.new_chat_members)
+    if not alan_joined:
+        return
+    
+    chat_id = message.chat.id
+    now = time.time()
+    
+    if chat_id in _last_greeting:
+        if now - _last_greeting[chat_id] < settings.ALAN_GREETING_COOLDOWN:
+            logger.debug("Greeting cooldown active for chat %d (fallback), skipping", chat_id)
+            return
+    
+    logger.info("Alan joined chat %d (via new_chat_members), sending greeting video", chat_id)
+    
+    video_dir = Path(settings.ALAN_GREETING_DIR)
+    video_path = _pick_random_video(video_dir)
+    
+    if video_path is None:
+        logger.warning("No greeting videos available in %s", video_dir)
+        return
+    
+    try:
+        await message.bot.send_video(
+            chat_id=chat_id,
+            video=FSInputFile(str(video_path)),
+            caption=settings.ALAN_USERNAME,
+        )
+        _last_greeting[chat_id] = now
+        logger.info("Greeting video sent for Alan in chat %d (fallback): %s", chat_id, video_path.name)
+    except Exception as e:
+        logger.error("Failed to send greeting video for Alan in chat %d (fallback): %s", chat_id, e)
+```
+
+**Registration:** `dp.include_router(alan_greeting_router)` — position 1b in bot.py (alongside slava_presence_router).
+
+**No setup function needed:** Unlike F1 (slava_presence.py), F7 does not depend on DB or scheduler services. All logic is self-contained: video picking uses `pathlib` glob, dedup uses in-memory `_last_greeting` dict. The router is stateless on import.
+
+**Key design decisions:**
+- Dict-based dedup (not DB): Greeting cooldown is transient. A 10-second dict TTL per chat prevents double-posting from ChatMemberUpdated + new_chat_members arriving together. No persistence needed — if bot restarts, fresh start is acceptable.
+- Video extensions whitelist: Only `.mp4, .MP4, .avi, .AVI, .mov, .MOV, .webm, .WEBM` are picked. Other files in the directory are silently ignored.
+- No leave handler: Unlike F1 which tracks presence, F7 only reacts to joins. Alan leaving has no effect.
+- Caption is constant: The caption `@Alan_Z` is hardcoded (configurable via `ALAN_USERNAME` env var). No dynamic text needed.
+
 ---
 
 ## 13. Dependency Summary
@@ -2069,7 +2267,9 @@ logtail-python==0.4.0
 Given a message from user 479167456 (Slava) in chat -100123 with text "куча дрон летит", here's the complete execution flow:
 
 ```
-1. ChatMemberUpdated router: NOT triggered (this is a message, not chat_member update)
+1. ChatMemberUpdated routers:
+   ├── slava_presence_router: user is 479167456 → NO (this is message, not chat_member)
+   └── alan_greeting_router: user is 479167456 → NO (this is message, not chat_member)
 2. kostik_router: UserIdFilter checks — user is 479167456, not 350803143 → SKIP
 3. alan_router: UserIdFilter checks — user is 479167456, not 138811255 → SKIP
 4. dead_page_router: forward_origin filter checks — no forward_origin present → SKIP
@@ -2118,6 +2318,9 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | D10 | DB path is configurable via .env | Allows switching DB files (e.g., for testing) |
 | D11 | Each module handles its own imports | No circular dependencies; handlers depend on filters and services, never vice versa |
 | D12 | bot.py wires everything together | Single composition root; no scattered configuration |
+| D13 | F7 uses dict-based dedup, not DB | Greeting cooldown is transient (10 sec); no persistence needed; dict resets on bot restart which is acceptable |
+| D14 | F7 follows same join detection pattern as F1 | ChatMemberUpdatedFilter + new_chat_members fallback is proven reliable; consistency across features |
+| D15 | F7 uses random.choice for video selection | Picks from filesystem on each join; no in-memory cache needed for 2 videos; extensible to larger libraries by adding files |
 
 ---
 
@@ -2140,6 +2343,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `handlers/__init__.py` | Empty init |
 | `handlers/kostik.py` | Kostik handler (migrated) |
 | `handlers/alan.py` | Alan_Z reply engine (F6) |
+| `handlers/alan_greeting.py` | Alan greeting video on join (F7) |
 | `handlers/slavik.py` | Slava handlers + setup (migrated + F3+F4+F5) |
 | `handlers/vasya.py` | Vasya handlers (migrated) |
 | `handlers/dead_page_trigger.py` | Repost detector: catches forwards from @d_pages (F2) |
@@ -2163,6 +2367,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `tests/test_dead_page_relay.py` | F2: DeadPageRelay forward + fallback tests |
 | `tests/test_dead_page_trigger.py` | F2: repost detector handler tests |
 | `tests/test_alan.py` | F6 tests |
+| `tests/test_alan_greeting.py` | F7: Alan greeting video tests |
 | `tests/test_vasya.py` | Vasya/Admin tests |
 | `tests/test_database.py` | DB service tests |
 | `README.md` | Ironic documentation (F8) |
@@ -2191,10 +2396,9 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 
 | File | Modifications |
 |------|--------------|
-| `bot.py` | Complete rewrite: use config, DB init, DeadPageRelay, scheduler, new router registration order (v2) |
-| `.env` | Add API_TOKEN value (from bot.py hardcode) |
-| `.env.example` | Add DEAD_PAGE_* env vars |
-| `config/settings.py` | Add DEAD_PAGE_* fields; remove SCHEDULER_* fields |
+| `bot.py` | Complete rewrite: use config, DB init, DeadPageRelay, scheduler, new router registration order (v2); add F7 router |
+| `.env` | Add API_TOKEN value (from bot.py hardcode); add ALAN_GREETING_* vars |
+| `config/settings.py` | Add DEAD_PAGE_* fields; remove SCHEDULER_* fields; add ALAN_* fields (F7) |
 | `services/database.py` | Add channel_state table; update dead_page_posts schema; add was_dead_page_recently, record_dead_page_post, channel_state methods |
 | `services/scheduler.py` | Simplify: remove time-based loop; keep only join trigger via DeadPageRelay |
 | `services/media_picker.py` | Downgrade to fallback-only role; no API changes |

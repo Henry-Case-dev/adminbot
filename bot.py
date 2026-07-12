@@ -28,6 +28,7 @@ from handlers.alan import alan_router, setup_alan
 from handlers.slavik import slavik_router
 from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
+from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -77,6 +78,9 @@ async def on_startup():
 
     # 1. ChatMemberUpdated handler (F1: Slava return detection)
     dp.include_router(slava_presence_router)
+
+    # 1b. ChatMemberUpdated handler (F7: Alan greeting video)
+    dp.include_router(alan_greeting_router)
 
     # 2. Kostik router — user ID 350803143
     dp.include_router(kostik_router)

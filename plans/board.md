@@ -2,6 +2,16 @@
 
 ## 📋 Backlog
 
+### Epic 8: Alan Greeting Video (F7) — 2026-07-13
+- [ ] T-038: Add ALAN_USERNAME, ALAN_USER_ID and ALAN_GREETING_DIR to config/settings.py + .env.example
+- [ ] T-039: Create handlers/alan_greeting.py (ChatMemberUpdated join + new_chat_members fallback + random video send_video + @Alan_Z caption + logging)
+- [ ] T-040: Register alan_greeting_router in bot.py (position 1, alongside slava_presence_router)
+- [ ] T-041: Write tests/test_alan_greeting.py (7-8 tests: join, non-Alan, leave, fallback, random, caption, empty dir, error)
+- [ ] T-042: Update ARCHITECTURE.md (F7 data flow, router order, directory listing)
+- [ ] T-043: Update MEMORY.md (project state, features table)
+- [ ] T-044: Run all tests — verify no regressions
+- [ ] T-045: Code review and QA
+
 ### Epic 7: Better Stack Monitoring Integration
 - [ ] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt
 - [ ] T-030: Install sentry-sdk and logtail-python into project venv
@@ -75,4 +85,4 @@
 
 ---
 
-**Updated:** 2026-07-12 — Epic 6 archived to Done, Epic 7 added.
+**Updated:** 2026-07-13 — Epic 8 (F7 Alan Greeting Video) added to Backlog. Epic 7 pending.
