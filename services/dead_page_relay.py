@@ -8,80 +8,109 @@ from services.media_picker import MediaService
 
 logger = logging.getLogger(__name__)
 
+# ── Search ranges: (lo, hi) — tried in order until a valid post is found ──
+# Narrow ranges first (fast for small channels), then expand.
+_DISCOVERY_RANGES: list[tuple[int, int]] = [
+    (1, 10),    # Tiny channel:  1 post  → ~50%/attempt → ~97% in 5 retries
+    (1, 50),    # Small channel
+    (1, 200),   # Medium channel
+    (1, 500),   # Large channel
+    (1, 2000),  # Very large
+]
+
 
 class DeadPageRelay:
     """
     Dead Page V2 relay service.
-    
+
     Primary flow:
-      - Pick a random existing post from the relay channel
-      - Forward that post to the target chat via forwardMessage
-    
-    Fallback flow (if channel unavailable):
+      - Discover valid posts in the relay channel via progressive range probing
+      - Pick and forward a random post to the target chat via forwardMessage
+
+    Fallback flow (if channel unavailable or no posts found):
       - Pick random image + text from local media/dead_page/
       - Send via sendPhoto + optional sendMessage for overflow
     """
-    
+
     def __init__(self, bot: Bot, db: DatabaseService, media: MediaService):
         self.bot = bot
         self.db = db
         self.media = media
         self.relay_channel_id = settings.DEAD_PAGE_RELAY_CHANNEL_ID
         self.max_retries = settings.DEAD_PAGE_MAX_FORWARD_RETRIES
-    
+
+    # ── Public API ──────────────────────────────────────────────
+
     async def send_dead_page(self, chat_id: int, slot: str = "repost") -> None:
         """
         Main entry point. Attempts to forward a random channel post.
-        Falls back to local media if channel is unavailable.
+        Falls back to local media if channel is unavailable or empty.
         """
-        # Anti-spam check
+        logger.info(f"[dead_page] === Triggered for chat {chat_id}, slot={slot} ===")
+
         if await self.db.was_dead_page_recently(
             chat_id, settings.DEAD_PAGE_COOLDOWN_SECONDS
         ):
             logger.info(
-                f"Dead page skipped for chat {chat_id}: cooldown active "
+                f"[dead_page] SKIP chat {chat_id}: cooldown active "
                 f"({settings.DEAD_PAGE_COOLDOWN_SECONDS}s)"
             )
             return
-        
-        # Try primary: forward from relay channel
+
         success = await self._try_forward_from_channel(chat_id)
-        
+
         if not success:
-            # Fallback: local media
             logger.warning(
-                f"Channel forward failed for chat {chat_id}, using local fallback"
+                f"[dead_page] FALLBACK: channel forward failed for chat {chat_id}, "
+                f"using local media"
             )
             await self._fallback_local_send(chat_id)
-        
-        # Record the post
+
         await self.db.record_dead_page_post(chat_id, slot)
-        logger.info(f"Dead page sent to chat {chat_id}, slot={slot}")
-    
+        logger.info(f"[dead_page] === Done for chat {chat_id}, slot={slot} ===")
+
+    # ── Channel forward ─────────────────────────────────────────
+
     async def _try_forward_from_channel(self, chat_id: int) -> bool:
         """
-        Try to forward a random post from the relay channel.
-        Returns True on success, False on failure.
+        Discover valid posts and forward a random one to chat_id.
+
+        Strategy:
+          1. If last_msg_id is known from DB, try that exact ID first (fast path).
+          2. Try progressively wider random ranges.
+          3. On first success → update DB ceiling and return True.
+          4. If all ranges exhausted → return False (trigger fallback).
+          5. If a non-"not found" error occurs → return False immediately (channel issue).
         """
-        try:
-            # Get the last known message_id from DB
-            last_msg_id = await self.db.get_last_known_message_id()
-            
-            if last_msg_id is None or last_msg_id < 1:
-                logger.warning("No known message_id in relay channel, trying to discover...")
-                # Try chat info to discover — but we can't easily get message count
-                # Fall back to trying message_id from 1 to 100
-                last_msg_id = 100
-                await self.db.update_last_known_message_id(last_msg_id)
-            
-            # Pick random message_id with retries
+        logger.info(
+            f"[dead_page] Forward attempt: chat={chat_id}, "
+            f"relay_channel={self.relay_channel_id}"
+        )
+
+        last_msg_id = await self.db.get_last_known_message_id()
+        logger.info(f"[dead_page] DB last_known_message_id = {last_msg_id}")
+
+        ranges = self._build_search_ranges(last_msg_id)
+        logger.info(f"[dead_page] Search plan: {len(ranges)} range(s)")
+
+        for range_idx, (lo, hi) in enumerate(ranges):
+            logger.info(
+                f"[dead_page] Range {range_idx + 1}/{len(ranges)}: "
+                f"ID ∈ [{lo}, {hi}]"
+            )
             tried: set[int] = set()
+
             for attempt in range(self.max_retries):
-                msg_id = random.randint(1, last_msg_id)
+                msg_id = random.randint(lo, hi)
                 if msg_id in tried:
                     continue
                 tried.add(msg_id)
-                
+
+                logger.debug(
+                    f"[dead_page]   Try msg_id={msg_id} "
+                    f"(range [{lo},{hi}], attempt {attempt + 1}/{self.max_retries})"
+                )
+
                 try:
                     await self.bot.forward_message(
                         chat_id=chat_id,
@@ -90,69 +119,106 @@ class DeadPageRelay:
                         disable_notification=False,
                     )
                     logger.info(
-                        f"Forwarded channel post msg_id={msg_id} "
-                        f"to chat {chat_id} (attempt {attempt + 1})"
+                        f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
+                        f"(range [{lo},{hi}], attempt {attempt + 1})"
                     )
+                    # Raise the ceiling if we hit a higher ID than known
+                    if not last_msg_id or msg_id > last_msg_id:
+                        await self.db.update_last_known_message_id(msg_id)
+                        logger.info(f"[dead_page]   DB updated: last_known_message_id → {msg_id}")
                     return True
-                    
+
                 except Exception as e:
-                    error_msg = str(e)
-                    if "message to forward not found" in error_msg.lower() or \
-                       "message not found" in error_msg.lower() or \
-                       "bad request" in error_msg.lower():
+                    error_msg = str(e).lower()
+                    if "not found" in error_msg or "bad request" in error_msg:
                         logger.debug(
-                            f"msg_id={msg_id} not found in relay channel "
-                            f"(attempt {attempt + 1}/{self.max_retries})"
+                            f"[dead_page]   NOT FOUND: msg_id={msg_id} "
+                            f"(attempt {attempt + 1})"
                         )
                         continue
                     else:
-                        # Different error — channel might be inaccessible
                         logger.error(
-                            f"Failed to forward msg_id={msg_id}: {e}"
+                            f"[dead_page]   CHANNEL ERROR: msg_id={msg_id} → {e}",
+                            exc_info=True,
                         )
                         return False
-            
-            logger.error(
-                f"All {self.max_retries} forward attempts failed for chat {chat_id}"
+
+            logger.warning(
+                f"[dead_page] Range [{lo},{hi}] exhausted "
+                f"({self.max_retries} misses)"
             )
-            return False
-            
-        except Exception as e:
-            logger.error(f"Channel forward failed for chat {chat_id}: {e}")
-            return False
-    
+
+        logger.error(
+            f"[dead_page] ALL RANGES EXHAUSTED for chat {chat_id}: "
+            f"no valid posts found in channel {self.relay_channel_id}. "
+            f"DB last_msg_id={last_msg_id}. "
+            f"Possible causes: channel is empty, all posts deleted, "
+            f"or last_known_message_id is way off."
+        )
+        return False
+
+    def _build_search_ranges(
+        self, last_msg_id: int | None
+    ) -> list[tuple[int, int]]:
+        """
+        Build search ranges. If we know the last valid ID, anchor around it.
+        Otherwise use the predefined discovery ranges.
+        """
+        if last_msg_id and last_msg_id > 0:
+            # Known ID: try the known range, then expand 2x
+            return [
+                (1, last_msg_id),
+                (1, max(last_msg_id * 2, 100)),
+            ]
+        # Unknown: use progressive discovery
+        return list(_DISCOVERY_RANGES)
+
+    # ── Fallback: local media ───────────────────────────────────
+
     async def _fallback_local_send(self, chat_id: int) -> None:
         """
         Fallback: send dead page from local media/dead_page/ directory.
-        Uses the old pattern: sendPhoto + optional sendMessage for overflow.
+        Uses sendPhoto (caption ≤ 1024) + optional sendMessage for overflow.
         """
+        logger.info(f"[dead_page] Fallback: picking local media for chat {chat_id}")
+
         try:
             photo_path, text = await self.media.pick_random()
-        except FileNotFoundError as e:
-            logger.error(f"Local dead page media missing: {e}")
-            return
-        
-        caption = text[:settings.DEAD_PAGE_CAPTION_MAX_CHARS]
-        if len(text) > settings.DEAD_PAGE_CAPTION_MAX_CHARS:
-            logger.warning(
-                f"Dead page text truncated for fallback: "
-                f"{len(text)} → {len(caption)} chars"
+            logger.info(
+                f"[dead_page] Fallback media: photo={photo_path}, "
+                f"text_len={len(text)}"
             )
-        
+        except FileNotFoundError as e:
+            logger.error(f"[dead_page] Fallback FAILED: no local media — {e}")
+            return
+
+        max_chars = settings.DEAD_PAGE_CAPTION_MAX_CHARS
+        caption = text[:max_chars]
+        overflow = text[max_chars:] if len(text) > max_chars else ""
+
+        if overflow:
+            logger.info(
+                f"[dead_page] Fallback: text {len(text)} chars → "
+                f"caption {len(caption)} + overflow {len(overflow)}"
+            )
+
         try:
             await self.bot.send_photo(
                 chat_id=chat_id,
                 photo=FSInputFile(photo_path),
                 caption=caption,
             )
-            logger.info(f"Fallback photo sent to chat {chat_id}")
-            
-            if len(text) > settings.DEAD_PAGE_CAPTION_MAX_CHARS:
+            logger.info(f"[dead_page] Fallback: photo sent to chat {chat_id}")
+
+            if overflow:
                 await self.bot.send_message(
                     chat_id=chat_id,
-                    text=text[settings.DEAD_PAGE_CAPTION_MAX_CHARS:],
+                    text=overflow,
                 )
-                logger.info(f"Fallback text overflow sent to chat {chat_id}")
-                
+                logger.info(f"[dead_page] Fallback: overflow text sent to chat {chat_id}")
+
         except Exception as e:
-            logger.error(f"Fallback send failed for chat {chat_id}: {e}")
+            logger.error(
+                f"[dead_page] Fallback SEND FAILED for chat {chat_id}: {e}",
+                exc_info=True,
+            )
