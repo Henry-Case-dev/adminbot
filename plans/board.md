@@ -2,24 +2,32 @@
 
 ## 📋 Backlog
 
-### Epic 6: Dead Page V2 — Event-driven reposts
-- [ ] T-019: Update plan DEAD_PAGE_V2_PLAN.md with user feedback (forward + channel 4228645624 + fallback)
+### Epic 7: Better Stack Monitoring Integration
+- [ ] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt
+- [ ] T-030: Install sentry-sdk and logtail-python into project venv
+- [ ] T-031: Add SENTRY_DSN and LOGTAIL_SOURCE_TOKEN to .env.example
+- [ ] T-032: Add SENTRY_DSN and LOGTAIL_SOURCE_TOKEN to .env (create from .env.example if missing)
+- [ ] T-033: Initialize Sentry SDK in bot.py (after load_dotenv, traces_sample_rate=1.0)
+- [ ] T-034: Configure LogtailHandler on root logger alongside StreamHandler
+- [ ] T-035: Write and run smoke test script — test log + test error to verify cloud delivery
+- [ ] T-036: Run pytest — verify no regressions
 
 ## 🔧 In Progress
 
-### Epic 6: Dead Page V2 — Event-driven reposts
-- [ ] T-018: Update config/settings.py + .env.example (new params, remove MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL)
-- [ ] T-020: Create services/dead_page_relay.py (channel forward + fallback)
-- [ ] T-021: Create handlers/dead_page_trigger.py (repost detector, forward_origin filter)
-- [ ] T-022: Simplify services/scheduler.py (remove loop, keep join trigger only)
-- [ ] T-023: DB migration (channel_state table, timestamp column, new methods)
-- [ ] T-024: Update bot.py (register dead_page_router #4, init DeadPageRelay, wire to slava_presence)
-- [ ] T-025: Add comprehensive logging to dead_page module (relay, trigger, scheduler, DB)
-- [ ] T-026: Update MEMORY.md and ARCHITECTURE.md (new F2 architecture, router order, DB schema)
-- [ ] T-027: Write/rewrite tests (test_dead_page_relay.py, test_dead_page_trigger.py, drop old scheduler tests, update test_database.py)
-- [ ] T-028: Run all tests and verify coverage (all new functions covered, no regressions)
-
 ## ✅ Done
+
+### Epic 6: Dead Page V2 — Event-driven reposts
+- [x] T-018: Update config/settings.py + .env.example (new params, remove MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL)
+- [x] T-019: Update plan DEAD_PAGE_V2_PLAN.md with user feedback (forward + channel 4228645624 + fallback)
+- [x] T-020: Create services/dead_page_relay.py (channel forward + fallback)
+- [x] T-021: Create handlers/dead_page_trigger.py (repost detector, forward_origin filter)
+- [x] T-022: Simplify services/scheduler.py (remove loop, keep join trigger only)
+- [x] T-023: DB migration (channel_state table, timestamp column, new methods)
+- [x] T-024: Update bot.py (register dead_page_router #4, init DeadPageRelay, wire to slava_presence)
+- [x] T-025: Add comprehensive logging to dead_page module (relay, trigger, scheduler, DB)
+- [x] T-026: Update MEMORY.md and ARCHITECTURE.md (new F2 architecture, router order, DB schema)
+- [x] T-027: Write/rewrite tests (test_dead_page_relay.py, test_dead_page_trigger.py, drop old scheduler tests, update test_database.py)
+- [x] T-028: Run all tests and verify coverage (all new functions covered, no regressions)
 
 ### Epic 1: Рефакторинг
 - [x] T-001: Вынести API_TOKEN в .env / конфигурацию
@@ -62,6 +70,9 @@
 - [ ] L4: MediaService cache invalidation
 - [ ] L5: VasyaFilter translit order edge case
 
+## 👤 Architect
+- [ ] T-037: Update ARCHITECTURE.md with monitoring section (@Architect)
+
 ---
 
-**Updated:** 2026-07-11 — Epic 6 added, Epics 1-5 archived to Done.
+**Updated:** 2026-07-12 — Epic 6 archived to Done, Epic 7 added.

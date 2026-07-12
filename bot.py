@@ -1,11 +1,21 @@
 import asyncio
 import logging
-import sys
+import os
 
+import sentry_sdk
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+from logtail import LogtailHandler
 
 from config.settings import settings
+
+# Initialize Sentry error tracking (Better Stack)
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        traces_sample_rate=1.0,
+    )
 from services.database import DatabaseService
 from services.scheduler import SchedulerService
 from services.media_picker import MediaService
@@ -20,10 +30,18 @@ from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+formatter = logging.Formatter(log_format)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
+logtail_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
+handlers = [console_handler]
+if logtail_token:
+    handlers.append(LogtailHandler(source_token=logtail_token))
+
+logging.basicConfig(level=logging.INFO, handlers=handlers)
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=settings.API_TOKEN)
