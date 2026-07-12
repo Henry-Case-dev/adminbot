@@ -18,6 +18,9 @@ build/
 htmlcov/
 .coverage
 
+# Deploy
+deploy_commands.txt
+
 # OS
 .DS_Store
 Thumbs.db
