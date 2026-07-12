@@ -36,27 +36,51 @@
 > (бот — админ), с fallback на локальный `media/dead_page/`.
 
 ### Конфигурация и планирование
-- [ ] T-018: Обновить `config/settings.py` + `.env.example` — добавить новые параметры (DEAD_PAGE_CHANNEL_ID, DEAD_PAGE_SOURCE_USERNAME, DEAD_PAGE_POST_ON_JOIN, DEAD_PAGE_COOLDOWN_SECONDS, DEAD_PAGE_MAX_FORWARD_RETRIES, DEAD_PAGE_CAPTION_MAX_CHARS), удалить MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL
-- [ ] T-019: Обновить план `DEAD_PAGE_V2_PLAN.md` — синхронизировать с user feedback (forward вместо create+copy, канал 4228645624, fallback)
+- [x] T-018: Обновить `config/settings.py` + `.env.example` — добавить новые параметры (DEAD_PAGE_CHANNEL_ID, DEAD_PAGE_SOURCE_USERNAME, DEAD_PAGE_POST_ON_JOIN, DEAD_PAGE_COOLDOWN_SECONDS, DEAD_PAGE_MAX_FORWARD_RETRIES, DEAD_PAGE_CAPTION_MAX_CHARS), удалить MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL
+- [x] T-019: Обновить план `DEAD_PAGE_V2_PLAN.md` — синхронизировать с user feedback (forward вместо create+copy, канал 4228645624, fallback)
 
 ### Новые модули
-- [ ] T-020: Создать `services/dead_page_relay.py` — DeadPageRelay: forward случайного поста из канала + fallback на локальные медиа
-- [ ] T-021: Создать `handlers/dead_page_trigger.py` — Router + handler: ловит forward_origin типа MessageOriginChannel с username="d_pages", вызывает DeadPageRelay
+- [x] T-020: Создать `services/dead_page_relay.py` — DeadPageRelay: forward случайного поста из канала + fallback на локальные медиа
+- [x] T-021: Создать `handlers/dead_page_trigger.py` — Router + handler: ловит forward_origin типа MessageOriginChannel с username="d_pages", вызывает DeadPageRelay
 
 ### Рефакторинг существующего кода
-- [ ] T-022: Упростить `services/scheduler.py` — убрать `while True` loop, `_tick`, morning/evening логику. Оставить только `signal_immediate_post` с проверкой `DEAD_PAGE_POST_ON_JOIN`
-- [ ] T-023: Добавить миграцию БД — новая таблица `channel_state`, колонка `timestamp` в `dead_page_posts`, новые методы `was_dead_page_recently`, `record_dead_page_post`, `get_last_known_message_id`, `update_last_known_message_id`
+- [x] T-022: Упростить `services/scheduler.py` — убрать `while True` loop, `_tick`, morning/evening логику. Оставить только `signal_immediate_post` с проверкой `DEAD_PAGE_POST_ON_JOIN`
+- [x] T-023: Добавить миграцию БД — новая таблица `channel_state`, колонка `timestamp` в `dead_page_posts`, новые методы `was_dead_page_recently`, `record_dead_page_post`, `get_last_known_message_id`, `update_last_known_message_id`
 
 ### Интеграция
-- [ ] T-024: Обновить `bot.py` — зарегистрировать `dead_page_router` (позиция 4 между alan и slavik), инициализировать `DeadPageRelay`, подключить relay к `slava_presence`
-- [ ] T-025: Добавить comprehensive logging во все dead_page модули (relay, trigger, scheduler, database)
+- [x] T-024: Обновить `bot.py` — зарегистрировать `dead_page_router` (позиция 4 между alan и slavik), инициализировать `DeadPageRelay`, подключить relay к `slava_presence`
+- [x] T-025: Добавить comprehensive logging во все dead_page модули (relay, trigger, scheduler, database)
 
 ### Документация и тесты
-- [ ] T-026: Обновить `MEMORY.md` и `ARCHITECTURE.md` — отразить новую архитектуру, слоты БД, router order, F2 v2
-- [ ] T-027: Написать/переписать тесты — `test_dead_page_relay.py`, `test_dead_page_trigger.py`, удалить/переписать `test_scheduler.py`, обновить `test_database.py`
-- [ ] T-028: Прогнать все тесты, убедиться что 100% новых функций покрыто, старые тесты не сломаны
+- [x] T-026: Обновить `MEMORY.md` и `ARCHITECTURE.md` — отразить новую архитектуру, слоты БД, router order, F2 v2
+- [x] T-027: Написать/переписать тесты — `test_dead_page_relay.py`, `test_dead_page_trigger.py`, удалить/переписать `test_scheduler.py`, обновить `test_database.py`
+- [x] T-028: Прогнать все тесты, убедиться что 100% новых функций покрыто, старые тесты не сломаны
 
 ---
 
-**Status: Epic 6 in planning.** Epics 1-5 DONE (T-001 – T-017, 115+ tests pass).
-**Date: 2026-07-11**
+## Epic 7: Better Stack Monitoring Integration (2026-07-12)
+
+> **Цель:** Интегрировать Sentry (error tracking) и Logtail (log aggregation) от Better Stack
+> для production-grade мониторинга бота.
+
+### Подготовка окружения
+- [ ] T-029: Добавить sentry-sdk и logtail-python в requirements.txt с закреплёнными версиями (sentry-sdk==2.64.0, logtail-python==0.4.0)
+- [ ] T-030: Установить sentry-sdk и logtail-python в venv проекта
+- [ ] T-031: Добавить SENTRY_DSN и LOGTAIL_SOURCE_TOKEN в .env.example
+- [ ] T-032: Добавить SENTRY_DSN и LOGTAIL_SOURCE_TOKEN в .env (создать по шаблону .env.example, если отсутствует)
+
+### Интеграция в код
+- [ ] T-033: Инициализировать Sentry SDK в bot.py (импорт после load_dotenv, traces_sample_rate=1.0)
+- [ ] T-034: Настроить Logtail logging handler (LogtailHandler на root logger рядом с StreamHandler, source token из LOGTAIL_SOURCE_TOKEN)
+
+### Верификация
+- [ ] T-035: Написать и запустить smoke test — отправить тестовый лог + тестовую ошибку в облако
+- [ ] T-036: Запустить существующий тестовый suite (pytest), убедиться что ничего не сломалось
+
+### Документация
+- [ ] T-037: Обновить ARCHITECTURE.md — добавить секцию мониторинга (@Architect)
+
+---
+
+**Status: Epic 6 DONE. Epic 7 in planning — tasks T-029 through T-037 ready.**
+**Date: 2026-07-12**

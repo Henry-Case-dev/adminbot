@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.0.0
+> **Версия:** v2.1.0
 > **Дата:** 2026-07-11
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
@@ -1439,7 +1439,190 @@ The scheduler task runs forever (sleep loop). On bot shutdown:
 
 ---
 
-## 9. Configuration Module Design (`config/settings.py`)
+## 9. Monitoring (Better Stack)
+
+### 9.1 Overview
+
+The monitoring layer integrates AdminBot with Better Stack — a unified observability platform. It provides:
+
+- **Error Tracking (Sentry)**: Automatic capture of all unhandled exceptions with full stack traces, request context, and Telegram event data.
+- **Structured Logging (Logtail)**: All `logger.info(...)`, `logger.warning(...)`, and `logger.error(...)` calls across all modules are streamed to the cloud in real time.
+- **Zero-Instrumentation Design**: Sentry auto-instruments aiogram 3.x. No code changes in handlers or services are required — monitoring is added purely at the entry point (`bot.py`).
+
+The architecture follows a **dual-output logging model**: structured logs go to both the console (`StreamHandler`) for local debugging and to Better Stack (`LogtailHandler`) for cloud observability.
+
+### 9.2 Error Tracking (Sentry)
+
+Sentry captures **all unhandled exceptions** automatically. This includes:
+- Unexpected aiogram exceptions (API errors, network timeouts)
+- Python runtime errors (AttributeError, ValueError, etc.)
+- Database connection failures (aiosqlite errors)
+- Any exception that propagates out of a handler without being caught
+
+**Initialization** (in `bot.py`, immediately after `load_dotenv()`):
+
+```python
+import os
+import sentry_sdk
+from dotenv import load_dotenv
+
+load_dotenv()
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1.0,
+)
+```
+
+Key behaviors:
+- `sentry_sdk.init()` is called **before** the logging setup and **before** the Bot/Dispatcher creation. This ensures errors during initialization are captured.
+- `traces_sample_rate=1.0` means 100% of events are sent (suitable for low-traffic bots; lower for production at scale).
+- Sentry auto-instruments aiogram via its integrations registry — no `aiogram`-specific integration import is needed.
+- Errors are sent to the Better Stack backend at the URL provided by `SENTRY_DSN`.
+
+### 9.3 Structured Logging (Logtail)
+
+Logtail captures **all structured log output** from every module. Since the project uses a single root logger with `logging.getLogger(__name__)` instances, a single `LogtailHandler` on the root logger captures everything.
+
+**Dual-Output Architecture:**
+
+```
+                    ┌─────────────────┐
+                    │   Root Logger   │
+                    │  (level=INFO)   │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+    ┌─────────────────┐  ┌──────────┐  ┌──────────────┐
+    │  StreamHandler   │  │ Logtail  │  │  (future      │
+    │  (console)       │  │ Handler  │  │   handlers)   │
+    │  level: INFO     │  │ level:   │  │               │
+    │                  │  │ INFO     │  │               │
+    └────────┬────────┘  └────┬─────┘  └──────────────┘
+             │                │
+             ▼                ▼
+        Local Console    Better Stack
+        (docker logs,    (Logtail cloud
+         systemd, etc.)   dashboard)
+```
+
+**Initialization** (in `bot.py`, after Sentry init):
+
+```python
+import logging
+from logtail import LogtailHandler
+
+# Formatter (same format as existing StreamHandler)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Root logger — base level
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+root_logger.addHandler(console_handler)
+
+# Logtail handler — cloud logging
+logtail_handler = LogtailHandler(
+    source_token=os.getenv("LOGTAIL_SOURCE_TOKEN")
+)
+logtail_handler.setLevel(logging.INFO)
+logtail_handler.setFormatter(formatter)
+root_logger.addHandler(logtail_handler)
+```
+
+All existing `logger.info(...)`, `logger.warning(...)`, and `logger.error(...)` calls across 7 modules (bot.py, 5 services, slava_presence.py) automatically flow to both outputs.
+
+### 9.4 Environment Variables
+
+Two new environment variables are added to `.env`:
+
+| Variable | Purpose | Provider |
+|----------|---------|----------|
+| `SENTRY_DSN` | Data Source Name for Sentry error tracking | Better Stack (Sentry-compatible endpoint) |
+| `LOGTAIL_SOURCE_TOKEN` | Ingest token for Logtail structured logging | Better Stack (Logtail source) |
+
+Both are optional — the bot runs without them if not set, but monitoring will be inactive. No defaults are provided; if absent, monitoring is simply not initialized.
+
+### 9.5 Initialization Flow
+
+The startup sequence in `bot.py` is structured to ensure monitoring is active **before** any bot operations:
+
+```
+1. load_dotenv()          → Load .env file (already in config/settings.py)
+2. sentry_sdk.init(...)   → Activate error tracking BEFORE anything else
+3. Root logger setup      → Configure StreamHandler + LogtailHandler
+4. Bot/Dispatcher creation → Bot(token=settings.API_TOKEN)
+5. Router registration     → dp.include_router(...) × 6
+6. on_startup()            → DB init, media service, DeadPageRelay, scheduler
+7. dp.start_polling(bot)   → Begin polling
+```
+
+This order guarantees:
+- Errors during **import** of any module are captured by Sentry.
+- Errors during **initialization** (DB connection failure, etc.) are captured.
+- Log output from all subsequent steps flows to both console and Better Stack.
+- If any monitoring service fails to initialize, the bot still starts gracefully.
+
+### 9.6 Architecture Diagram Addition
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        AdminBot System Layers                        │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                    MONITORING LAYER (NEW)                      │ │
+│  │                                                               │ │
+│  │  ┌─────────────────┐         ┌──────────────────┐            │ │
+│  │  │  Sentry SDK     │         │  Logtail Handler  │            │ │
+│  │  │  (Error Track.) │         │  (Structured Logs)│            │ │
+│  │  │                 │         │                    │            │ │
+│  │  │ Auto-captures:  │         │ Captures from:     │            │ │
+│  │  │ • Unhandled exc │         │ • bot.py           │            │ │
+│  │  │ • API errors    │         │ • all handlers/    │            │ │
+│  │  │ • DB failures   │         │ • all services/    │            │ │
+│  │  │ • Runtime errs  │         │ • all filters/     │            │ │
+│  │  └────────┬────────┘         └────────┬─────────┘            │ │
+│  │           │                           │                      │ │
+│  │           └───────────┬───────────────┘                      │ │
+│  │                       │                                      │ │
+│  │                 Better Stack                                  │ │
+│  │                 (Cloud Dashboard)                             │ │
+│  └───────────────────────┬───────────────────────────────────────┘ │
+│                          │                                         │
+│  ┌───────────────────────┼───────────────────────────────────────┐ │
+│  │              APPLICATION LAYER                                 │ │
+│  │                                                               │ │
+│  │  bot.py ──► Router Registration ──► 6 Routers                 │ │
+│  │    │                                                          │ │
+│  │    ├──► handlers/ (6 modules)                                 │ │
+│  │    ├──► filters/  (5 classes)                                 │ │
+│  │    └──► services/ (5 classes)                                 │ │
+│  │                                                               │ │
+│  │            ┌──────────────────────┐                           │ │
+│  │            │   Database Layer     │                           │ │
+│  │            │   (SQLite/aiosqlite) │                           │ │
+│  │            └──────────────────────┘                           │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                  INFRASTRUCTURE                                 │ │
+│  │  • Telegram Bot API  • .env Configuration  • Python 3.12       │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+The monitoring layer sits **above** the application layer — it observes everything below without modifying it. Sentry intercepts exceptions at the runtime level; Logtail intercepts log records at the logging framework level. Neither touches application code.
+
+---
+
+## 10. Configuration Module Design (`config/settings.py`)
 
 ```python
 import os
@@ -1488,11 +1671,13 @@ class Settings:
 settings = Settings()
 ```
 
+> **Monitoring env vars:** `SENTRY_DSN` and `LOGTAIL_SOURCE_TOKEN` are consumed directly in `bot.py` via `os.getenv()` (not routed through the `Settings` dataclass). Their initialization and usage are documented in **Section 9 (Monitoring)**.
+
 **Import pattern:** Every module imports `settings` — never creates its own Settings instance.
 
 ---
 
-## 10. Test Strategy
+## 11. Test Strategy
 
 ### Test Framework
 
@@ -1642,7 +1827,7 @@ pytest tests/ -v --cov=. --cov-report=term-missing
 
 ---
 
-## 11. Handler Module Specifications
+## 12. Handler Module Specifications
 
 ### 11.1 `handlers/kostik.py`
 
@@ -1864,22 +2049,22 @@ This uses aiogram's dependency injection (it resolves parameters from the dispat
 
 ---
 
-## 12. Dependency Summary
+## 13. Dependency Summary
 
 ```python
 # requirements.txt
-aiogram>=3.0.0,<4.0.0
+aiogram>=3.7.0,<4.0.0
 python-dotenv>=1.0.0
 aiosqlite>=0.20.0
 pytest>=8.0.0
-pytest-asyncio>=0.24.0
-pytest-mock>=3.12.0
-pytest-cov>=5.0.0
+pytest-asyncio>=0.23.0
+sentry-sdk==2.64.0
+logtail-python==0.4.0
 ```
 
 ---
 
-## 13. Handler Fire Order — Complete Example
+## 14. Handler Fire Order — Complete Example
 
 Given a message from user 479167456 (Slava) in chat -100123 with text "куча дрон летит", here's the complete execution flow:
 
@@ -1917,7 +2102,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 
 ---
 
-## 14. Key Design Decisions Log
+## 15. Key Design Decisions Log
 
 | # | Decision | Rationale |
 |---|----------|-----------|
@@ -1936,7 +2121,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 
 ---
 
-## 15. File Creation / Removal Checklist
+## 16. File Creation / Removal Checklist
 
 ### Files to CREATE:
 
