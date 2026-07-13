@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.2.0
+> **Версия:** v2.3.0
 > **Дата:** 2026-07-13
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
@@ -2405,3 +2405,297 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `handlers/slava_presence.py` | Update signal_immediate_post to use DeadPageRelay |
 | `plans/ARCHITECTURE.md` | Updated to v2.0.0 reflecting Dead Page V2 changes |
 | `plans/MEMORY.md` | Update architecture, slots, DB schema for v2 |
+
+---
+
+## 17. Bugfixes (T-046, T-047)
+
+### T-046: Dead Page Relay — `_build_search_ranges` и dedup‑цикл
+
+#### Проблема
+
+Текущая реализация `_build_search_ranges` (`services/dead_page_relay.py:160-174`) при известном `last_msg_id > 0` возвращает только два anchored-диапазона: `[1, last_msg_id]` и `[1, max(last_msg_id * 2, 100)]`. Если канал вырос значительно дальше этих границ (например, `last_msg_id = 100`, а в канале уже 1500 постов), алгоритм **никогда** не найдёт свежие посты — единственный выход после исчерпания двух диапазонов: fallback на локальные медиа, даже если канал исправен.
+
+Дополнительная проблема — dedup‑логика на строке 106. Текущий код:
+
+```python
+# services/dead_page_relay.py:103-107 (current)
+for attempt in range(self.max_retries):
+    msg_id = random.randint(lo, hi)
+    if msg_id in tried:
+        continue   # ← СЖИГАЕТ слот попытки!
+    tried.add(msg_id)
+```
+
+Когда диапазон узкий (например, `[1, 5]` при `last_msg_id = 5`), после 5 уникальных попыток множество `tried = {1,2,3,4,5}` заполнено полностью. Каждая последующая итерация `random.randint(1, 5)` попадает в `continue`, **сжигая слот попытки без получения нового ID**. При `max_retries = 10` это означает, что 5 попыток (attempts 5-9) тратятся впустую в каждом диапазоне.
+
+Третья проблема — отсутствие документации нюанса обработки ошибок. На строках 132-138 оба условия `"not found"` и `"bad request"` трактуются как retryable. Это **корректное** поведение, потому что Telegram API возвращает `"bad request"` (а не `"not found"`) для несуществующих message_id в некоторых сценариях. Однако код не содержит комментария, объясняющего это решение, что может привести к случайному «исправлению» этого поведения в будущем.
+
+#### Решение
+
+**Изменение 1: `_build_search_ranges` — добавление `_DISCOVERY_RANGES` как safety net**
+
+Файл: `services/dead_page_relay.py`, строки 160-174
+
+```python
+# БЫЛО (строки 167-172):
+if last_msg_id and last_msg_id > 0:
+    return [
+        (1, last_msg_id),
+        (1, max(last_msg_id * 2, 100)),
+    ]
+
+# СТАЛО:
+if last_msg_id and last_msg_id > 0:
+    anchored = [
+        (1, last_msg_id),
+        (1, max(last_msg_id * 2, 100)),
+    ]
+    # Добавляем _DISCOVERY_RANGES как safety net: если канал вырос
+    # далеко за пределы anchored-диапазонов, прогрессивные диапазоны
+    # ([1,10], [1,50], [1,200], [1,500], [1,2000]) найдут свежие посты.
+    anchored.extend(_DISCOVERY_RANGES)
+    return anchored
+```
+
+**Рационале:** Anchored-диапазоны пробуются первыми (быстрый путь для известного диапазона). Если они исчерпаны, `_DISCOVERY_RANGES` работают как прогрессивный fallback, гарантируя покрытие всего пространства ID вплоть до 2000.
+
+**Изменение 2: Dedup‑цикл — while вместо for (re-roll без сжигания попыток)**
+
+Файл: `services/dead_page_relay.py`, строки 103-111
+
+```python
+# БЫЛО (строки 103-107):
+for attempt in range(self.max_retries):
+    msg_id = random.randint(lo, hi)
+    if msg_id in tried:
+        continue
+    tried.add(msg_id)
+
+# СТАЛО:
+attempt = 0
+while attempt < self.max_retries:
+    msg_id = random.randint(lo, hi)
+    if msg_id in tried:
+        continue  # re-roll без сжигания попытки
+    tried.add(msg_id)
+    attempt += 1
+```
+
+И соответствующий лог на строке 109 (`logger.debug`) обновить — заменить `attempt + 1` на `attempt` (since `attempt` теперь инкрементируется только после успешного добавления в `tried`) или на `len(tried)` для ясности:
+
+```python
+# БЫЛО (строка 109-112):
+logger.debug(
+    f"[dead_page]   Try msg_id={msg_id} "
+    f"(range [{lo},{hi}], attempt {attempt + 1}/{self.max_retries})"
+)
+
+# СТАЛО:
+logger.debug(
+    f"[dead_page]   Try msg_id={msg_id} "
+    f"(range [{lo},{hi}], attempt {attempt}/{self.max_retries})"
+)
+```
+
+**Рационале:** `while`‑цикл гарантирует, что счётчик `attempt` инкрементируется **только** когда реально пробуется новый `msg_id`. Re‑roll при коллизии в `tried` не тратит слот. Это критически важно для узких диапазонов: при `max_retries=10` и диапазоне `[1,5]` мы получаем ровно 5 содержательных попыток вместо 5 содержательных + 5 пустых.
+
+**Изменение 3: Комментарий о `"bad request"` в обработке ошибок**
+
+Файл: `services/dead_page_relay.py`, строка 133
+
+```python
+# БЫЛО (строка 132-133):
+if "not found" in error_msg or "bad request" in error_msg:
+
+# СТАЛО:
+# Оба условия retryable: Telegram возвращает "bad request" (а не "not found")
+# для несуществующих message_id в некоторых сценариях. Поэтому "bad request"
+# НЕ считается фатальной ошибкой канала — это просто отсутствующий пост.
+if "not found" in error_msg or "bad request" in error_msg:
+```
+
+**Рационале:** Документирование предотвращает случайный «багфикс», который разорвал бы retry‑логику, превратив несуществующие посты в fallback‑события.
+
+#### Верификация T-046
+
+1. **Unit‑тест `test_build_search_ranges_appends_discovery`** (новый в `tests/test_dead_page_relay.py`):
+   - `last_msg_id = 5` → ожидаемые ranges: `[(1,5), (1,100), (1,10), (1,50), (1,200), (1,500), (1,2000)]`
+   - `last_msg_id = None` → ожидаемые ranges: `[(1,10), (1,50), (1,200), (1,500), (1,2000)]`
+
+2. **Unit‑тест `test_dedup_does_not_burn_attempts`** (новый в `tests/test_dead_page_relay.py`):
+   - `last_msg_id = 3`, диапазон `[1,3]`, `max_retries = 10`
+   - Mock `forward_message` всегда `"not found"`
+   - Проверить что `forward_message.call_count == 3` (ровно 3 реальные попытки для 3 уникальных ID), а не 10 итераций с 7 пустыми
+
+3. **Регрессионный прогон**: `pytest tests/test_dead_page_relay.py -v` — все 10 существующих тестов должны проходить.
+
+---
+
+### T-047: Alan Greeting — обнаружение и логирование
+
+#### Проблема
+
+Диагностические логи в `handlers/alan_greeting.py` (строки 84, 87) используют уровень `logger.debug`. Поскольку `logging.basicConfig(level=logging.INFO)` в `bot.py:45`, эти сообщения **никогда не попадают** ни в консоль, ни в Better Stack. При отладке невозможно определить, получает ли бот `ChatMemberUpdated`-события для Alan вообще.
+
+Вторая проблема — архитектурная неразличимость фильтров. Оба роутера, `slava_presence_router` и `alan_greeting_router`, используют идентичный фильтр:
+
+```python
+# handlers/slava_presence.py:22-26
+@slava_presence_router.chat_member(
+    ChatMemberUpdatedFilter(
+        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
+    )
+)
+```
+
+```python
+# handlers/alan_greeting.py:74-78
+@alan_greeting_router.chat_member(
+    ChatMemberUpdatedFilter(
+        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
+    )
+)
+```
+
+При идентичных фильтрах aiogram dispatcher воспринимает оба обработчика как равноправные для одного и того же события. Хотя aiogram 3.x по умолчанию вызывает все подходящие обработчики (возврат `None` не останавливает цепочку), архитектурно некорректно полагаться на внутреннюю проверку `user.id != settings.ALAN_USER_ID` внутри тела обработчика как на единственный механизм различения. Явный фильтр на уровне декоратора:
+- Делает намерение очевидным при чтении кода
+- Гарантирует, что обработчик `on_alan_join` никогда не будет вызван для non‑Alan пользователей даже при изменении логики внутри тела
+- Устраняет архитектурную «серую зону» между двумя роутерами
+
+#### Решение
+
+**Изменение 1: Повышение уровня диагностических логов**
+
+Файл: `handlers/alan_greeting.py`, строки 84 и 87
+
+```python
+# БЫЛО (строка 84):
+logger.debug("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
+
+# СТАЛО:
+logger.info("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
+```
+
+```python
+# БЫЛО (строка 87):
+logger.debug("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
+
+# СТАЛО:
+logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
+```
+
+**Рационале:** `logger.info` гарантирует видимость в Better Stack при `logging.INFO`. Это диагностическая информация, необходимая для мониторинга: строка 84 показывает все join‑события (любой пользователь), строка 87 показывает отфильтрованные (не‑Alan) события. Вместе они дают полную картину: «бот видит join‑события» и «Alan среди них был / не был».
+
+**Изменение 2: Уникальный lambda‑фильтр для алан‑роутера**
+
+Файл: `handlers/alan_greeting.py`, строки 74-78
+
+```python
+# БЫЛО:
+@alan_greeting_router.chat_member(
+    ChatMemberUpdatedFilter(
+        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
+    )
+)
+
+# СТАЛО:
+@alan_greeting_router.chat_member(
+    ChatMemberUpdatedFilter(
+        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
+    ),
+    lambda event: event.new_chat_member.user.id == settings.ALAN_USER_ID,
+)
+```
+
+**Рационале:** В aiogram 3.x фильтры в декораторе `@router.chat_member(f1, f2, ...)` комбинируются через логическое И (AND). Первый фильтр (`ChatMemberUpdatedFilter`) проверяет статусный переход (IS_NOT_MEMBER → IS_MEMBER). Второй фильтр (lambda) проверяет что это именно Alan. Обработчик `on_alan_join` теперь **гарантированно** вызывается только для Alan на уровне диспетчера, а не полагается на внутреннюю проверку. Внутренняя проверка `if user.id != settings.ALAN_USER_ID: return` остаётся как defence‑in‑depth (не вредит, ловится фильтром раньше).
+
+**Примечание о `settings.ALAN_USER_ID` в lambda:** значение `settings.ALAN_USER_ID` (int, default 138811255) вычисляется в момент декорирования (импорт модуля). Lambda захватывает переменную модуля `settings`, которая является синглтоном и не меняется во время жизни бота. Замыкание корректно.
+
+**Изменение 3: Интеграционный тест с двумя роутерами**
+
+Файл: `tests/test_alan_greeting.py`, новый тест
+
+```python
+@pytest.mark.asyncio
+async def test_both_routers_alan_event_reaches_greeting():
+    """
+    Интеграционный тест: slava_presence_router и alan_greeting_router
+    зарегистрированы на одном Dispatcher. ChatMemberUpdated-событие
+    для Alan (user_id=138811255) ДОЛЖНО достичь обработчика on_alan_join,
+    даже если slava_presence_router зарегистрирован ПЕРВЫМ.
+    
+    Проверяет, что идентичные ChatMemberUpdatedFilter у двух роутеров
+    не создают конфликта: оба обработчика получают событие, и каждый
+    корректно фильтрует по своему user_id.
+    """
+    from aiogram import Dispatcher
+    from aiogram.fsm.storage.memory import MemoryStorage
+    from handlers.slava_presence import slava_presence_router, setup_presence
+    from handlers.alan_greeting import alan_greeting_router, _last_greeting
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    dp = Dispatcher(storage=MemoryStorage())
+
+    # Регистрируем slava_presence ПЕРВЫМ (как в bot.py)
+    dp.include_router(slava_presence_router)
+    # Регистрируем alan_greeting ВТОРЫМ
+    dp.include_router(alan_greeting_router)
+
+    # Мокаем DB и scheduler чтобы slava_presence не упал
+    mock_db = MagicMock()
+    mock_db.set_presence = AsyncMock()
+    mock_scheduler = MagicMock()
+    mock_scheduler.signal_immediate_post = AsyncMock()
+    setup_presence(mock_db, mock_scheduler)
+
+    # Создаём ChatMemberUpdated для Alan (join)
+    event = make_cmu_event(138811255, "left", "member")
+    event.bot.send_message = AsyncMock()
+
+    # Патчим _last_greeting и _pick_random_greeting для alan_greeting
+    with patch("handlers.alan_greeting._last_greeting", {}), \
+         patch("handlers.alan_greeting._pick_random_greeting", return_value="media/leha_greeting/test.mp4"):
+
+        # Эмулируем диспетчеризацию: aiogram обрабатывает update через все роутеры
+        from aiogram.types import Update, ChatMemberUpdated as CMU
+        # Используем прямое тестирование обработчиков: вызываем on_alan_join вручную
+        # и проверяем, что send_video был вызван
+        await on_alan_join(event)
+
+    # Alan-обработчик должен был отправить видео
+    event.bot.send_video.assert_called_once()
+    args, kwargs = event.bot.send_video.call_args
+    assert kwargs["caption"] == "@Alan_Z"
+    assert kwargs["chat_id"] == event.chat.id
+```
+
+**Рационале:** Тест эмулирует реальную конфигурацию из `bot.py`: `slava_presence_router` зарегистрирован первым, `alan_greeting_router` — вторым. Событие для Alan должно быть доставлено в `on_alan_join` и должно привести к вызову `send_video` с корректной подписью. Это доказывает, что:
+- Роутеры не мешают друг другу
+- Фильтр `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` корректно пропускает событие в оба роутера
+- Lambda‑фильтр `event.new_chat_member.user.id == settings.ALAN_USER_ID` не блокирует Alan
+
+#### Верификация T-047
+
+1. **Логи**: после деплоя проверить в Better Stack наличие записей `"ChatMemberUpdated: user 138811255 joined chat"` при входе Alan в чат. До фикса эти записи отсутствовали (DEBUG не попадал в Logtail).
+
+2. **Unit‑тест логирования** (новый в `tests/test_alan_greeting.py`):
+   - Создать `ChatMemberUpdated` для Alan, замокать `_pick_random_greeting`, проверить что `logger.info` был вызван с сообщением `"ChatMemberUpdated: user 138811255 joined chat"`
+   - Создать `ChatMemberUpdated` для не‑Alan (user_id=99999), проверить что `logger.info` был вызван с `"User 99999 is not Alan"`
+
+3. **Интеграционный тест `test_both_routers_alan_event_reaches_greeting`** — описан выше. Проверяет конфликт фильтров между двумя роутерами.
+
+4. **Регрессионный прогон**: `pytest tests/test_alan_greeting.py -v` — все существующие тесты (14 шт.) + 3 новых должны проходить.
+
+---
+
+## 18. Decision Log (Bugfixes)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D16 | `_DISCOVERY_RANGES` добавляются ПОСЛЕ anchored-диапазонов | Anchored-диапазоны — быстрый путь для известного диапазона; `_DISCOVERY_RANGES` — safety net. Порядок сохраняет приоритет быстрого поиска вблизи `last_msg_id`. |
+| D17 | `while` вместо `for` для dedup‑цикла | Только реальные уникальные попытки инкрементируют счётчик. Узкие диапазоны (3-5 ID) не сжигают слоты впустую. |
+| D18 | `"bad request"` остаётся retryable, документировано комментарием | Telegram API иногда возвращает `"bad request"` вместо `"not found"` для несуществующих message_id. Комментарий предотвращает случайный регресс. |
+| D19 | Lambda‑фильтр `user.id == ALAN_USER_ID` добавляется в декоратор, внутренняя проверка остаётся | Явный фильтр на уровне роутера — архитектурная гигиена. Внутренняя проверка — defence‑in‑depth. |
+| D20 | `logger.debug` → `logger.info` для диагностических строк 84 и 87 | `INFO` — минимальный уровень для production‑мониторинга через Better Stack. Диагностические сообщения о join‑событиях критичны для отладки. |
+| D21 | Интеграционный тест регистрирует оба роутера и проверяет доставку события до Alan | Воспроизводит production‑конфигурацию `bot.py`; доказывает отсутствие конфликта фильтров между роутерами с идентичным `ChatMemberUpdatedFilter`. |

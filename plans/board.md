@@ -12,6 +12,10 @@
 - [ ] T-044: Run all tests — verify no regressions
 - [ ] T-045: Code review and QA
 
+### Bugfixes (Critical/High)
+- [ ] T-046: Dead Page Relay — ALL RANGES EXHAUSTED. Fix `_build_search_ranges()` fallback to `_DISCOVERY_RANGES`; fix dedup `continue` burning attempt slots.
+- [ ] T-047: Alan Greeting Video — service never fires. Raise logs DEBUG→INFO; add unique lambda filter `user.id == ALAN_USER_ID`; integration test with both routers.
+
 ### Epic 7: Better Stack Monitoring Integration
 - [ ] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt
 - [ ] T-030: Install sentry-sdk and logtail-python into project venv
@@ -85,4 +89,4 @@
 
 ---
 
-**Updated:** 2026-07-13 — Epic 8 (F7 Alan Greeting Video) added to Backlog. Epic 7 pending.
+**Updated:** 2026-07-13 — Epic 8 (F7 Alan Greeting Video) added to Backlog. Bugfix T-046/T-047 added. Epic 7 pending.

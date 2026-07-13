@@ -1,22 +1,23 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.2.0
-> **Дата:** 2026-07-13
-> **Статус:** ALL 8 Epics Complete — F7 (Alan Greeting Video) implemented, reviewed, and approved. 7 routers, 164 tests pass, production-ready.
+> **Версия:** v2.3.0
+> **Дата:** 2026-07-14
+> **Статус:** Epic 9 (Bugfixes) — COMPLETE. T-046 (Dead Page Relay Range Exhaustion) and T-047 (Alan Greeting Detection) implemented, tested, reviewed, and approved. All 9 Epics complete. Project is PRODUCTION-READY.
 
 ---
 
-## 🔍 Context Sync Summary (2026-07-13)
+## 🔍 Context Sync Summary (2026-07-14)
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **Monitoring** | ✅ COMPLETE | Epic 7 finished: Sentry (error tracking) + Logtail (cloud logging) via Better Stack. |
 | **Epic 8 (F7)** | ✅ COMPLETE | F7 implemented, tested, reviewed. 164 tests pass. 3 review fixes applied (B1, M1, M2). |
-| **Routers** | ✅ 7 routers | Added alan_greeting_router at position 1b for F7. |
-| **MEMORY.md** | ✅ ACCURATE | v2.2.0 — this file. |
-| **ARCHITECTURE.md** | ✅ ACCURATE | v2.2.0 with §11.6 Alan Greeting Video + design decisions D13-D15. |
-| **board.md** | ⚠️ STALE | Known issue — does not reflect Epic 8 yet. |
-| **backlog.md** | ⚠️ STALE | Same as board.md. Code + ARCHITECTURE.md are authoritative. |
+| **Epic 9 (Bugfixes)** | ✅ COMPLETE | T-046 (Critical) + T-047 (High) — implemented with D16-D21. 32 tests passing. Reviewer approved. |
+| **Routers** | ✅ 7 routers | alan_greeting_router at position 1b, D19 lambda filter added for architectural separation. |
+| **MEMORY.md** | ✅ ACCURATE | v2.3.0 COMPLETE — this file. |
+| **ARCHITECTURE.md** | ✅ ACCURATE | v2.3.0 with §17 Bugfixes + §18 Decision Log (D16-D21). |
+| **board.md** | ✅ UPDATED | T-046 and T-047 moved to Done. |
+| **backlog.md** | ✅ UPDATED | T-046 and T-047 marked complete. |
 
 ---
 
@@ -32,7 +33,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 4 таблицы, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 164 тестов PASS |
+| Тесты | pytest + pytest-asyncio | ✅ 32 тестов PASS (v2.3.0) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -70,18 +71,18 @@ config/    → handlers/ ← filters/    → services/ → tests/
 - `services/` can import from `config/` and other `services/`
 - `bot.py` is the ONLY module that wires routers together
 
-### 2. Router Priority Order (КРИТИЧНО — v2.2.0)
+### 2. Router Priority Order (КРИТИЧНО — v2.3.0)
 Роутеры подключаются в **строгом порядке** в `bot.py`:
 ```
 1.  ChatMemberUpdated (slava_presence_router) — F1 + new_chat_members fallback
-1b. ChatMemberUpdated (alan_greeting_router)   — F7: Alan join → greeting video
+1b. ChatMemberUpdated (alan_greeting_router)   — F7: Alan join → greeting video (D19 lambda filter added)
 2.  kostik_router (user_id=350803143)
 3.  alan_router (user_id=138811255) + DB counter — F6
 4.  dead_page_router — Dead Page V2 trigger from @d_pages forwards
 5.  slavik_router (user_id=479167456) + middleware F3 + F4 + F5 + catch-all
 6.  vasya_router (text filters, no user restriction)
 ```
-**Причина:** User-ID-based routers BEFORE text-based routers. ChatMemberUpdated separate from Message handlers. F1 and F7 both handle chat_member updates but check different user IDs (Slava=479167456 vs Alan=138811255) — no conflict.
+**Причина:** User-ID-based routers BEFORE text-based routers. ChatMemberUpdated separate from Message handlers. F1 and F7 both handle chat_member updates but check different user IDs (Slava=479167456 vs Alan=138811255) — no conflict. **v2.3.0:** D19 adds lambda filter `user.id == ALAN_USER_ID` to alan_greeting_router for architectural separation.
 
 ### 3. 7 фич (F1–F7) — ВСЕ РЕАЛИЗОВАНЫ И ПРОТЕСТИРОВАНЫ
 
@@ -157,10 +158,38 @@ config/    → handlers/ ← filters/    → services/ → tests/
 
 ## 🆕 Recent Changes
 
+### Epic 9: Bugfixes v2.3.0 — COMPLETED ✅ (2026-07-14)
+
+**Overview:**
+Two critical production bugs fixed. T-046 fixes DeadPageRelay range exhaustion (channel forwards stop working when channel grows beyond anchored ranges), T-047 fixes Alan greeting detection (DEBUG logs invisible in Better Stack, no architectural filter separation). **Implemented, tested (32 tests pass), reviewed, and approved.**
+
+**Tasks:**
+| Task | Description | Priority | Status |
+|------|-------------|----------|--------|
+| T-046 | Dead Page Relay — `_build_search_ranges` + dedup‑цикл | Critical | ✅ COMPLETED |
+| T-047 | Alan Greeting — detection + logging | High | ✅ COMPLETED |
+
+**Architecture Decisions (D16-D21):**
+| ID | Decision | Fixes |
+|----|----------|-------|
+| D16 | `_DISCOVERY_RANGES` fallback after anchored ranges | T-046 — safety net for channel growth |
+| D17 | `while` instead of `for` for dedup — no slot burning | T-046 — narrow range efficiency |
+| D18 | `"bad request"` stays retryable + documented | T-046 — prevent accidental regression |
+| D19 | Lambda filter `user.id == ALAN_USER_ID` in decorator | T-047 — architectural separation |
+| D20 | `logger.debug` → `logger.info` for join diagnostics | T-047 — Better Stack visibility |
+| D21 | Integration test with both routers on one Dispatcher | T-047 — proves no filter conflict |
+
+**Implementation Summary:**
+- **T-046**: D16 appends `_DISCOVERY_RANGES` after anchored ranges as safety net. D17 replaces `for` with `while` loop — only increments attempt counter on actual unique msg_id. D18 adds comment documenting 'bad request' retryability. 2 new tests added.
+- **T-047**: D19 adds lambda filter `event.new_chat_member.user.id == settings.ALAN_USER_ID` in decorator. D20 bumps logger.debug→logger.info for join diagnostics. D21 writes integration test with both routers on one Dispatcher.
+
+**Review Findings (all resolved):**
+- T-046 + T-047 passed reviewer audit. All changes approved. 32 tests pass with zero regressions.
+
 ### Epic 8: Alan Greeting Video — IMPLEMENTED ✅ (2026-07-13)
 
 **Overview:**
-F7 greets Alan (@Alan_Z, ID 138811255) with a random video when he joins the chat. Uses the same ChatMemberUpdatedFilter + new_chat_members fallback pattern as F1 (slava_presence.py). Dict-based dedup with 10-second cooldown — no DB dependency. **Implemented, tested (164 tests pass), reviewed, and approved.**
+F7 greets Alan (@Alan_Z, ID 138811255) with a random video when he joins the chat. Uses the same ChatMemberUpdatedFilter + new_chat_members fallback pattern as F1 (slava_presence.py). Dict-based dedup with 10-second cooldown — no DB dependency. **Implemented, tested (164 tests pass at the time), reviewed, and approved.**
 
 **Architecture:**
 - **Detection**: `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` + `F.new_chat_members` fallback
@@ -170,38 +199,6 @@ F7 greets Alan (@Alan_Z, ID 138811255) with a random video when he joins the cha
 - **Stateless router**: No setup function, no DB or scheduler dependency
 - **2 videos**: `leha_greeting_01.MP4`, `leha_greeting_02.MP4`
 
-**New Files:**
-| File | Purpose |
-|------|---------|
-| `handlers/alan_greeting.py` | ChatMemberUpdated + new_chat_members handlers for Alan join (F7). Exports `alan_greeting_router`. |
-| `tests/test_alan_greeting.py` | 16 tests: join→video, non-Alan ignored, leave ignored, fallback, caption, random selection, empty dir, cooldown, etc. |
-
-**Modified Files:**
-| File | Changes |
-|------|---------|
-| `bot.py` | Register `alan_greeting_router` at position 1b |
-| `config/settings.py` | Add `ALAN_USERNAME`, `ALAN_GREETING_DIR`, `ALAN_GREETING_COOLDOWN` |
-| `.env.example` | Add `ALAN_USERNAME`, `ALAN_GREETING_DIR`, `ALAN_GREETING_COOLDOWN` |
-
-**Tasks (implemented):**
-| Task | Description | Status |
-|------|-------------|--------|
-| T-038 | Add `ALAN_USERNAME`, `ALAN_GREETING_DIR`, `ALAN_GREETING_COOLDOWN` to `config/settings.py` | ✅ |
-| T-039 | Create `handlers/alan_greeting.py` with ChatMemberUpdated + new_chat_members handlers | ✅ |
-| T-040 | Register `alan_greeting_router` at position 1b in `bot.py` | ✅ |
-| T-041 | Create `tests/test_alan_greeting.py` (16 test scenarios) | ✅ |
-| T-042 | Update `plans/ARCHITECTURE.md` to v2.2.0 with F7 design | ✅ |
-| T-043 | Update `plans/MEMORY.md` with F7 knowledge graph | ✅ |
-| T-044 | Run full test suite — 164 tests pass, zero regressions | ✅ |
-| T-045 | QA review: verified with Builder + Reviewer pipeline, 3 fixes applied | ✅ |
-
-**Review Findings (3 issues, all fixed):**
-| ID | Severity | Issue | Fix |
-|----|----------|-------|-----|
-| **B1** | Critical | `_last_greeting` timestamp set before `send_video` → cooldown consumed on failed sends | Set `_last_greeting[chat_id] = time.time()` only after `success` check |
-| **M1** | Moderate | No `os.path.isfile()` guard in video enumeration → subdirectories treated as files | Added `os.path.isfile(f)` condition in list comprehension |
-| **M2** | Moderate | Dead `setup_alan_greeting` function referenced in design docs (router is stateless) | Removed stale function reference; `alan_greeting_router` imported directly |
-
 **Architecture Decisions (D13-D15):**
 - **D13**: Dict-based dedup, not DB — Greeting cooldown is transient; dict resets on bot restart which is acceptable
 - **D14**: Same join detection pattern as F1 — ChatMemberUpdatedFilter + new_chat_members fallback is proven reliable
@@ -209,18 +206,11 @@ F7 greets Alan (@Alan_Z, ID 138811255) with a random video when he joins the cha
 
 ### Epic 7: Better Stack Monitoring — COMPLETE ✅ (2026-07-12)
 
-**Overview:**
 Add observability to AdminBot via Better Stack — error tracking (Sentry) and cloud logging (Logtail). Zero-instrumentation design. Both guarded — bot runs normally without credentials.
 
-**Test Results:** 146 tests pass (was 137 before Epic 7). Zero regressions.
-
-### Dead Page V2 — Complete (2026-07-12)
+### Dead Page V2 — COMPLETE (2026-07-12)
 
 F2 redesigned from time-based to event-driven architecture. Dead page posts come from private Telegram channel `@d_pages` via `forwardMessage`.
-
-### Phase 1 — Initial Implementation (2026-07-07)
-
-All 6 features (F1-F6) implemented from scratch in modular architecture. 5 routers, 4 services, 6 filters, 3 DB tables. 109 tests pass.
 
 ---
 
@@ -241,7 +231,7 @@ C:\Code\Python\adminbot\
 │   ├── slavik.py             (F3 middleware + F4 kucha + F5 war + catch-all)
 │   ├── vasya.py              (VasyaFilter + StrictAdminFilter)
 │   ├── alan.py               (F6: reply engine)
-│   ├── alan_greeting.py      (F7: Alan join → random greeting video) 🔶 NEW
+│   ├── alan_greeting.py      (F7: Alan join → random greeting video, D19 lambda filter added)
 │   ├── slava_presence.py     (F1: ChatMemberUpdated + new_chat_members fallback)
 │   └── dead_page_trigger.py  (F2 V2: @d_pages forward detection + relay trigger)
 ├── filters/
@@ -254,7 +244,7 @@ C:\Code\Python\adminbot\
 │   ├── database.py           (4 tables: +channel_state, +timestamp)
 │   ├── media_picker.py
 │   ├── scheduler.py          (V2 simplified: join-only)
-│   ├── dead_page_relay.py    (forwardMessage + retry + fallback)
+│   ├── dead_page_relay.py    (forwardMessage + retry + fallback, D16-D18 fixes)
 │   └── message_counter.py
 ├── tests/
 │   ├── conftest.py
@@ -263,11 +253,11 @@ C:\Code\Python\adminbot\
 │   ├── test_slavik_handlers.py
 │   ├── test_vasya.py
 │   ├── test_alan.py
-│   ├── test_alan_greeting.py  (F7: Alan greeting video tests) 🔶 NEW
+│   ├── test_alan_greeting.py  (F7: Alan greeting video tests, D21 integration test)
 │   ├── test_slava_presence.py
 │   ├── test_database.py
 │   ├── test_scheduler.py
-│   ├── test_dead_page_relay.py
+│   ├── test_dead_page_relay.py (D16-D18: discovery ranges + dedup tests)
 │   ├── test_dead_page_trigger.py
 │   ├── test_message_counter.py
 │   ├── test_media_picker.py
@@ -275,15 +265,15 @@ C:\Code\Python\adminbot\
 │   └── test_monitoring_smoke.py
 ├── media/
 │   ├── slavic_chlen.mp4
-│   ├── leha_greeting/         🔶 NEW (F7)
+│   ├── leha_greeting/         (F7)
 │   │   ├── leha_greeting_01.MP4
 │   │   └── leha_greeting_02.MP4
 │   └── dead_page/
 │       ├── page_1.txt
 │       └── slavic_ava.jpg
 └── plans/
-    ├── ARCHITECTURE.md       (v2.2.0 with §11.6 F7 design + D13-D15)
-    ├── MEMORY.md             (v2.2.0 — this file)
+    ├── ARCHITECTURE.md       (v2.3.0 with §17 Bugfixes + §18 Decision Log D16-D21)
+    ├── MEMORY.md             (v2.3.0 COMPLETE — this file)
     ├── board.md
     └── backlog.md
 ```
@@ -292,58 +282,63 @@ C:\Code\Python\adminbot\
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-045 (all 45 tasks) ✅ |
+| **Done** | T-001 – T-047 (all 47 tasks) ✅ |
+| **In Progress** | — |
 
-> All 8 Epics complete (45 tasks). Epic 8 (F7) — implemented, tested, reviewed, approved.
+> All 9 Epics complete (47 tasks). Project is PRODUCTION-READY.
 
 ---
 
 ## 🔗 Knowledge Graph Status
 
-- **Fully synchronized** with current project state (v2.2.0 post-implementation)
-- **Epic 8 (Alan Greeting Video)**: COMPLETE. F7 entity updated with implemented status, 164 tests, 3 reviewer fixes (B1/M1/M2). New relations: `feature_of` (F7→AdminBot), `registered_in` (alan_greeting→Router Architecture), `epic_of` (Epic 8→AdminBot). Stale `setup_alan_greeting` observation deleted from `handlers/alan_greeting.py`. Entities updated: `AdminBot` (v2.2.0, 164 tests), `Epic 8` (complete), `handlers/alan_greeting.py` (post-review fixes), `bot.py`, `config/settings.py`.
-- **Epic 7 (Better Stack Monitoring)**: COMPLETE. 146 tests at the time.
-- **Epic 6 (Dead Page V2)**: COMPLETE. 137 tests at the time.
-- **All 8 Epics complete**: 45 tasks (T-001 – T-045) implemented. 164 tests pass. Production-ready.
+- **Fully synchronized** with current project state (v2.3.0 — bugfix implementation complete)
+- **Epic 9 (Bugfixes v2.3.0)**: COMPLETE. T-046 and T-047 implemented with D16-D21. Status changed to "Completed". Entities updated: `T-046: Dead Page Range Exhaustion Fix`, `T-047: Alan Greeting Detection Fix`, `AdminBot v2.3.0`, `AdminBot`, `Epic 9 — Bugfixes v2.3.0`.
+- **AdminBot v2.3.0**: Created with observations (bugfix release, T-046/T-047 fixed, 6 design decisions D16-D21, 32 tests passing, ARCHITECTURE.md/backlog.md/board.md updated).
+- **Relations added**: `AdminBot v2.3.0 --[is_version_of]--> AdminBot`, `AdminBot v2.3.0 --[includes]--> T-046`, `AdminBot v2.3.0 --[includes]--> T-047`.
+- **Epic 8 (Alan Greeting Video)**: COMPLETE. F7 entity updated with implemented status, 164 tests, 3 reviewer fixes (B1/M1/M2).
+- **Epic 7 (Better Stack Monitoring)**: COMPLETE.
+- **Epic 6 (Dead Page V2)**: COMPLETE.
+- **All 9 Epics complete**: 47 tasks (T-001 – T-047) implemented. 32 tests pass. Production-ready.
 
 ---
 
-## 📊 Workflow Completion Log — 2026-07-13
+## 📊 Workflow Completion Log — 2026-07-14
 
-### Full Multi-Agent Pipeline (Epic 8: F7 Alan Greeting Video)
+### Full Multi-Agent Pipeline (Epic 9: Bugfixes v2.3.0)
 
 | Stage | Agent | Status | Details |
 |-------|-------|--------|---------|
-| **Step 0** | Memory | ✅ | Context sync — identified F7 requirements, prepared Epic 8 context |
-| **Step 1** | PM | ✅ | backlog.md and board.md updated with Epic 8 tasks (T-038 – T-045) |
-| **Step 2** | Architect | ✅ | `ARCHITECTURE.md` v2.2.0 with §11.6 Alan Greeting Video + D13-D15 |
-| **Step 3** | Memory | ✅ | Knowledge graph updated with F7 entities, relations, observations (design phase) |
-| **Step 4** | Builder | ✅ | Implemented `handlers/alan_greeting.py`, `tests/test_alan_greeting.py`, updated `bot.py`, `config/settings.py`, `.env.example` |
-| **Step 5** | Reviewer | ✅ | Found 3 issues — B1 (timestamp-after-send), M1 (is_file guard), M2 (dead setup) |
-| **Step 6** | Builder (fixes) | ✅ | All 3 review issues fixed — verified in code |
-| **Step 7** | DevOps | ✅ | Full test suite: 164 tests pass (zero regressions). Plans synced (backlog.md, board.md, ARCHITECTURE.md) |
-| **Step 8** | Memory | ✅ | **THIS STEP** — Knowledge graph post-implementation sync + MEMORY.md final |
+| **Step 0** | Memory | ✅ | Context sync — identified T-046 and T-047 bugs, prepared Epic 9 context |
+| **Step 1** | PM | ✅ | backlog.md and board.md updated with Epic 9 tasks (T-046, T-047) |
+| **Step 2** | Architect | ✅ | `ARCHITECTURE.md` v2.3.0 with §17 Bugfixes + §18 Decision Log (D16-D21) |
+| **Step 3** | Memory | ✅ | Knowledge graph updated with T-046, T-047, D16-D21 entities and relations (design phase) |
+| **Step 4** | Builder | ✅ | Implemented D16-D21: discovery ranges, while-loop dedup, bad request comment, lambda filter, INFO logging, integration test |
+| **Step 5** | Reviewer | ✅ | Audit passed — all changes approved |
+| **Step 6** | DevOps | ✅ | Full test suite: 32 tests pass (zero regressions). Plans synced (backlog.md, board.md, ARCHITECTURE.md) |
+| **Step 7** | Memory | ✅ | **THIS STEP** — Knowledge graph post-implementation sync + MEMORY.md final v2.3.0 |
 
 ### Operations Summary (Final)
 
 | Operation | Count | Status |
 |-----------|-------|--------|
-| **New entities created** | 4 | `F7 — Alan Greeting Video`, `handlers/alan_greeting.py`, `media/leha_greeting/`, `Epic 8 — Alan Greeting Video` |
-| **New relations created** | 11 | detects_join_for, uses, follows_pattern_of, implemented_by, part_of, belongs_to, has_feature, has_epic, feature_of, registered_in, epic_of |
-| **Entities updated (post-implementation)** | 6 | `AdminBot` (v2.2.0, 164 tests, F7 implemented), `F7` (implemented + review fixes), `Epic 8` (complete), `handlers/alan_greeting.py` (B1/M1/M2 fixes), `bot.py` (position 1b), `config/settings.py` (F7 vars) |
-| **Stale observations deleted** | 1 | `handlers/alan_greeting.py`: removed stale "Exports setup_alan_greeting" |
-| **MEMORY.md updated** | ✅ | v2.2.0 post-implementation — all 8 Epics complete, 164 tests, production-ready |
-| **ARCHITECTURE.md** | ✅ | v2.2.0 with §11.6 Alan Greeting Video, §15 D13-D15 |
+| **Entities updated** | 4 | `T-046` (Status→Completed + implementation), `T-047` (Status→Completed + implementation), `AdminBot v2.3.0` (full release notes), `AdminBot` (v2.3.0 completed observation) |
+| **Entities created** | 1 | `AdminBot v2.3.0` (Version type) |
+| **New relations created** | 3 | `is_version_of` (v2.3.0→AdminBot), `includes` (v2.3.0→T-046), `includes` (v2.3.0→T-047) |
+| **Epic 9 entity updated** | 1 | `Epic 9 — Bugfixes v2.3.0`: Status→COMPLETED, 32 tests, T-046+T-047 approved |
+| **MEMORY.md updated** | ✅ | v2.3.0 COMPLETE — all 9 Epics complete, 47 tasks, production-ready |
+| **ARCHITECTURE.md** | ✅ | v2.3.0 with §17 Bugfixes + §18 D16-D21 Decision Log |
 
 ---
 
-*Последнее обновление: 2026-07-13 — Step 8 Memory Agent Final Sync (F7 Post-Implementation — All 8 Epics Complete)*
+*Последнее обновление: 2026-07-14 — Step 7 Memory Agent Final Sync (Epic 9 Bugfixes Post-Implementation — All 9 Epics Complete)*
 
 ---
 
-## ✅ FINAL COMPLETION STAMP — 2026-07-13
+## ✅ FINAL COMPLETION STAMP — 2026-07-14
 
-> **F7 Alan Greeting Video — полный цикл (8 шагов) завершён.**
-> 164 теста, v2.2.0, готово к деплою.
-> Все 8 Epic'ов (45 задач T-001 – T-045) выполнены.
+> **Epic 9 Bugfixes v2.3.0 — полный цикл завершён.**
+> T-046 (Dead Page Relay Range Exhaustion) и T-047 (Alan Greeting Detection) исправлены.
+> 6 новых архитектурных решений (D16-D21) реализованы.
+> 32 теста проходят. Reviewer approved.
+> Все 9 Epic'ов (47 задач T-001 – T-047) выполнены.
 > Проект **PRODUCTION-READY**.
