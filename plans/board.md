@@ -2,6 +2,12 @@
 
 ## 📋 Backlog
 
+### Epic 9: Admin Test Commands (2026-07-14)
+- [ ] T-048: `/deadpage` — ручной вызов DeadPageRelay.send_dead_page(). DM: всем. Группа: админу. Сообщение команды удаляется. Новый handlers/admin_commands.py + config ADMIN_USER_ID=5885953495 + регистрация router #0 в bot.py.
+- [ ] T-049: `/alangreet` — ручной вызов _send_greeting() с @Alan_Z видео. DM: всем. Группа: админу. Сообщение удаляется. В том же admin_commands.py.
+- [ ] T-050: Прогнать pytest — убедиться в отсутствии регрессий
+- [ ] T-051: Написать тесты на admin_commands (6 тестов: DM deadpage, DM alangreet, группа админ, группа не-админ, DM delete error, группа delete error)
+
 ### Epic 8: Alan Greeting Video (F7) — 2026-07-13
 - [ ] T-038: Add ALAN_USERNAME, ALAN_USER_ID and ALAN_GREETING_DIR to config/settings.py + .env.example
 - [ ] T-039: Create handlers/alan_greeting.py (ChatMemberUpdated join + new_chat_members fallback + random video send_video + @Alan_Z caption + logging)
@@ -89,4 +95,4 @@
 
 ---
 
-**Updated:** 2026-07-13 — Epic 8 (F7 Alan Greeting Video) added to Backlog. Bugfix T-046/T-047 added. Epic 7 pending.
+**Updated:** 2026-07-14 — Epic 9 (Admin Test Commands) added to Backlog (T-048–T-051). First command handlers + message deletion in project.

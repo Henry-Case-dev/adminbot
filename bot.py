@@ -30,6 +30,7 @@ from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
+from handlers.admin_commands import admin_commands_router, setup_admin_commands
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -64,6 +65,7 @@ async def on_startup():
     setup_presence(db, scheduler)
     setup_dead_page(relay, db)
     setup_alan(db)
+    setup_admin_commands(relay)
     
     # Attach GIF counter middleware to slavik router
     slavik_router.message.middleware(MessageCounterMiddleware(db))
@@ -75,6 +77,9 @@ async def on_startup():
     # ═══════════════════════════════════════════════════════════
     # REGISTRATION ORDER (CRITICAL — DO NOT CHANGE)
     # ═══════════════════════════════════════════════════════════
+
+    # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
+    dp.include_router(admin_commands_router)
 
     # 1. ChatMemberUpdated handler (F1: Slava return detection)
     dp.include_router(slava_presence_router)
@@ -97,7 +102,7 @@ async def on_startup():
     # 6. Vasya router — text filters, no user restriction
     dp.include_router(vasya_router)
 
-    logger.info("All routers registered (v2.0.0)")
+    logger.info("All routers registered (v2.4.0)")
 
 
 async def on_shutdown():

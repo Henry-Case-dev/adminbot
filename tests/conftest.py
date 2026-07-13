@@ -65,3 +65,21 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+def make_admin_message():
+    """Factory for admin_commands test messages with configurable chat.type and user_id."""
+    def _make(chat_type: str = "private", user_id: int = 5885953495, chat_id: int = -100123):
+        msg = MagicMock()
+        msg.chat = MagicMock()
+        msg.chat.id = chat_id
+        msg.chat.type = chat_type
+        msg.from_user = MagicMock()
+        msg.from_user.id = user_id
+        msg.message_id = 12345
+        msg.delete = AsyncMock()
+        msg.answer = AsyncMock()
+        msg.bot = AsyncMock()
+        return msg
+    return _make
