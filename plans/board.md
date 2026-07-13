@@ -21,6 +21,7 @@
 ### Bugfixes (Critical/High)
 - [ ] T-046: Dead Page Relay — ALL RANGES EXHAUSTED. Fix `_build_search_ranges()` fallback to `_DISCOVERY_RANGES`; fix dedup `continue` burning attempt slots.
 - [ ] T-047: Alan Greeting Video — service never fires. Raise logs DEBUG→INFO; add unique lambda filter `user.id == ALAN_USER_ID`; integration test with both routers.
+- [ ] T-052: Dead Page Relay — sequential scanning for sparse channels. Add linear scan for narrow ranges (≤ 50 ID) in `_probe_range()` to guarantee hit on sparse channels (1 post out of 2000 IDs). Switch from random probing to sequential forward_messages() when `hi - lo ≤ 50`.
 
 ### Epic 7: Better Stack Monitoring Integration
 - [ ] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt

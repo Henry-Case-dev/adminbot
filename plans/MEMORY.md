@@ -1,8 +1,8 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.3.0
+> **Версия:** v2.5.0
 > **Дата:** 2026-07-14
-> **Статус:** Epic 9 (Bugfixes) — COMPLETE. T-046 (Dead Page Relay Range Exhaustion) and T-047 (Alan Greeting Detection) implemented, tested, reviewed, and approved. All 9 Epics complete. Project is PRODUCTION-READY.
+> **Статус:** Epic 11 COMPLETE — T-052 sequential scanning fix implemented, reviewed, and approved. 185 tests pass. Project PRODUCTION-READY.
 
 ---
 
@@ -13,11 +13,13 @@
 | **Monitoring** | ✅ COMPLETE | Epic 7 finished: Sentry (error tracking) + Logtail (cloud logging) via Better Stack. |
 | **Epic 8 (F7)** | ✅ COMPLETE | F7 implemented, tested, reviewed. 164 tests pass. 3 review fixes applied (B1, M1, M2). |
 | **Epic 9 (Bugfixes)** | ✅ COMPLETE | T-046 (Critical) + T-047 (High) — implemented with D16-D21. 32 tests passing. Reviewer approved. |
-| **Routers** | ✅ 7 routers | alan_greeting_router at position 1b, D19 lambda filter added for architectural separation. |
-| **MEMORY.md** | ✅ ACCURATE | v2.3.0 COMPLETE — this file. |
-| **ARCHITECTURE.md** | ✅ ACCURATE | v2.3.0 with §17 Bugfixes + §18 Decision Log (D16-D21). |
-| **board.md** | ✅ UPDATED | T-046 and T-047 moved to Done. |
-| **backlog.md** | ✅ UPDATED | T-046 and T-047 marked complete. |
+| **Epic 10 (Admin Commands)** | ✅ COMPLETE | `/deadpage` and `/alangreet` — first Command() filter usage, first message.delete() usage. 181 tests passing. |
+| **Epic 11 (Bugfix T-052)** | ✅ COMPLETE | Sequential scanning fix for DeadPageRelay sparse channels. D28-D30 implemented. 185 tests pass. Reviewer approved. |
+| **Routers** | ✅ 8 routers | admin_commands_router added at position 0 (Command filters) + 7 existing routers. |
+| **MEMORY.md** | ✅ ACCURATE | v2.5.0 — this file (T-052 completed). |
+| **ARCHITECTURE.md** | ✅ ACCURATE | v2.5.0 with T-052 design decisions D28-D30 fully implemented. |
+| **board.md** | ✅ UPDATED | T-048 and T-049 moved to Done. |
+| **backlog.md** | ✅ UPDATED | T-048 and T-049 marked complete. |
 
 ---
 
@@ -33,7 +35,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 4 таблицы, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 32 тестов PASS (v2.3.0) |
+| Тесты | pytest + pytest-asyncio | ✅ 185 тестов PASS (v2.5.0) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -56,6 +58,7 @@
 | **Костик (Kostik)** | `350803143` | — | `handlers/kostik.py` |
 | **Вася (Vasya)** | no ID | — | `handlers/vasya.py` |
 | **@Alan_Z** | `138811255` | — | `handlers/alan.py` (F6) + `handlers/alan_greeting.py` (F7) |
+| **Admin** | `5885953495` | — | `handlers/admin_commands.py` (Epic 10) |
 
 ---
 
@@ -71,9 +74,10 @@ config/    → handlers/ ← filters/    → services/ → tests/
 - `services/` can import from `config/` and other `services/`
 - `bot.py` is the ONLY module that wires routers together
 
-### 2. Router Priority Order (КРИТИЧНО — v2.3.0)
+### 2. Router Priority Order (КРИТИЧНО — v2.4.0)
 Роутеры подключаются в **строгом порядке** в `bot.py`:
 ```
+0.  admin_commands_router (Command filters) — /deadpage, /alangreet (Epic 10)
 1.  ChatMemberUpdated (slava_presence_router) — F1 + new_chat_members fallback
 1b. ChatMemberUpdated (alan_greeting_router)   — F7: Alan join → greeting video (D19 lambda filter added)
 2.  kostik_router (user_id=350803143)
@@ -82,9 +86,9 @@ config/    → handlers/ ← filters/    → services/ → tests/
 5.  slavik_router (user_id=479167456) + middleware F3 + F4 + F5 + catch-all
 6.  vasya_router (text filters, no user restriction)
 ```
-**Причина:** User-ID-based routers BEFORE text-based routers. ChatMemberUpdated separate from Message handlers. F1 and F7 both handle chat_member updates but check different user IDs (Slava=479167456 vs Alan=138811255) — no conflict. **v2.3.0:** D19 adds lambda filter `user.id == ALAN_USER_ID` to alan_greeting_router for architectural separation.
+**Причина:** Command routers registered FIRST to intercept /commands before text-based handlers. Admin commands use `Command()` filter and are restricted to `ADMIN_USER_ID=5885953495`. User-ID-based routers BEFORE text-based routers. ChatMemberUpdated separate from Message handlers.
 
-### 3. 7 фич (F1–F7) — ВСЕ РЕАЛИЗОВАНЫ И ПРОТЕСТИРОВАНЫ
+### 3. 8 фич (F1–F7 + Epic 10) — ВСЕ РЕАЛИЗОВАНЫ И ПРОТЕСТИРОВАНЫ
 
 | # | Фича | Реализация | Фильтр/Сервис | Статус |
 |---|------|------------|---------------|--------|
@@ -95,6 +99,7 @@ config/    → handlers/ ← filters/    → services/ → tests/
 | **F5** | Военные слова → «трясло ебаное» | `handlers/slavik.py` | `WarWordFilter` | ✅ |
 | **F6** | @Alan_Z → random reply каждые 10 сообщений | `handlers/alan.py` | `UserIdFilter`, `DatabaseService` | ✅ |
 | **F7** | Alan join → random greeting video из media/leha_greeting/ | `handlers/alan_greeting.py` | `ChatMemberUpdatedFilter`, `FSInputFile` | ✅ |
+| **E10** | Admin test commands: /deadpage, /alangreet | `handlers/admin_commands.py` | `Command()`, `message.delete()`, `ADMIN_USER_ID` | ✅ |
 
 ### 4. Database Schema (SQLite, 4 tables)
 
@@ -133,6 +138,7 @@ config/    → handlers/ ← filters/    → services/ → tests/
 | `API_TOKEN` | (required) | Telegram Bot Token |
 | `DB_PATH` | `local_database.db` | SQLite database path |
 | `MEDIA_BASE` | `media` | Media files directory |
+| `ADMIN_USER_ID` | `5885953495` | Admin user ID (Epic 10) |
 | `SLAVIK_USER_ID` | `479167456` | Slava's Telegram user ID |
 | `KOSTIK_USER_ID` | `350803143` | Kostik's Telegram user ID |
 | `ALAN_USER_ID` | `138811255` | Alan's Telegram user ID |
@@ -158,59 +164,76 @@ config/    → handlers/ ← filters/    → services/ → tests/
 
 ## 🆕 Recent Changes
 
-### Epic 9: Bugfixes v2.3.0 — COMPLETED ✅ (2026-07-14)
+### T-052: Sequential Scan for Sparse Channels — COMPLETED ✅ (2026-07-14)
 
 **Overview:**
-Two critical production bugs fixed. T-046 fixes DeadPageRelay range exhaustion (channel forwards stop working when channel grows beyond anchored ranges), T-047 fixes Alan greeting detection (DEBUG logs invisible in Better Stack, no architectural filter separation). **Implemented, tested (32 tests pass), reviewed, and approved.**
+Bugfix for `DeadPageRelay._try_forward_from_channel`. Root cause: random probing fails on sparse channels where only 1 post exists across 2000 message IDs. The random strategy (`random.randint`) has low probability of hitting the single valid ID. **Fix**: sequential scanning for ranges with <= 50 IDs, guaranteeing post discovery regardless of channel density. **Implemented, tested (185 tests pass), reviewed, and approved.**
+
+**Architecture Decisions (D28-D30):**
+
+| ID | Decision | Description | Status |
+|----|----------|-------------|--------|
+| D28 | Sequential Threshold 50 | Ranges with <= 50 IDs get sequential scan instead of random probing. Guarantees post discovery. | ✅ Implemented |
+| D29 | Sequential Error Handling | Sequential scan reuses same error logic as random: 'not found'/'bad request' → continue; other errors → return False. | ✅ Implemented |
+| D30 | Sequential DB Ceiling Update | `update_last_known_message_id` called on sequential success, same as random path. | ✅ Implemented |
+
+**Implementation Summary:**
+- Modified `_try_forward_from_channel()` in `services/dead_page_relay.py`: added sequential scan path for ranges where `range_size <= 50`
+- Sequential scan iterates from `last_known_id + 1` through `max_known_id`, attempting `forwardMessage` for each ID
+- Reuses existing error handling: `MESSAGE_ID_INVALID`, `MESSAGE_NOT_FOUND`, `BAD_REQUEST: message to forward not found` → `continue`; all other errors → return `False`
+- On first successful forward: updates `last_known_message_id` via `update_last_known_message_id`, returns the forwarded message
+- **4 new tests** added: `test_sequential_scan_small_range`, `test_random_probe_large_range`, `test_sequential_scan_updates_last_id`, `test_sequential_scan_error_handling`
+- **185 tests total passing** (was 181), zero regressions
+
+**Review Findings (all resolved):**
+- Epic 11 passed reviewer audit. All changes approved. 185 tests pass with zero regressions.
+
+### Epic 10: Admin Test Commands v2.4.0 — COMPLETED ✅ (2026-07-14)
+
+**Overview:**
+Two admin-only slash commands for manual testing: `/deadpage` triggers DeadPageRelay immediately, `/alangreet` posts a random greeting video. First-time use of aiogram's `Command()` filter and `message.delete()` in this project. Restricted to `ADMIN_USER_ID=5885953495`. **Implemented, tested (181 tests pass), reviewed, and approved.**
 
 **Tasks:**
 | Task | Description | Priority | Status |
 |------|-------------|----------|--------|
-| T-046 | Dead Page Relay — `_build_search_ranges` + dedup‑цикл | Critical | ✅ COMPLETED |
-| T-047 | Alan Greeting — detection + logging | High | ✅ COMPLETED |
+| T-048 | `/deadpage` — trigger DeadPageRelay immediately | Standard | ✅ COMPLETED |
+| T-049 | `/alangreet` — post random Alan greeting video | Standard | ✅ COMPLETED |
 
-**Architecture Decisions (D16-D21):**
-| ID | Decision | Fixes |
-|----|----------|-------|
-| D16 | `_DISCOVERY_RANGES` fallback after anchored ranges | T-046 — safety net for channel growth |
-| D17 | `while` instead of `for` for dedup — no slot burning | T-046 — narrow range efficiency |
-| D18 | `"bad request"` stays retryable + documented | T-046 — prevent accidental regression |
-| D19 | Lambda filter `user.id == ALAN_USER_ID` in decorator | T-047 — architectural separation |
-| D20 | `logger.debug` → `logger.info` for join diagnostics | T-047 — Better Stack visibility |
-| D21 | Integration test with both routers on one Dispatcher | T-047 — proves no filter conflict |
+**Architecture Decisions (D22-D25):**
+| ID | Decision | Description |
+|----|----------|-------------|
+| D22 | `Command()` filter at position 0 | Admin commands intercepted before text handlers |
+| D23 | `ADMIN_USER_ID` guard via inline check | Only admin can execute commands; others silently ignored |
+| D24 | `message.delete()` for command cleanup | Keeps chat clean — command messages deleted after 1.5s delay |
+| D25 | Constants for magic numbers | `COMMAND_DELETE_DELAY=1.5s`, `GREETING_MISSING_REPLY` — no hardcoded values |
 
 **Implementation Summary:**
-- **T-046**: D16 appends `_DISCOVERY_RANGES` after anchored ranges as safety net. D17 replaces `for` with `while` loop — only increments attempt counter on actual unique msg_id. D18 adds comment documenting 'bad request' retryability. 2 new tests added.
-- **T-047**: D19 adds lambda filter `event.new_chat_member.user.id == settings.ALAN_USER_ID` in decorator. D20 bumps logger.debug→logger.info for join diagnostics. D21 writes integration test with both routers on one Dispatcher.
+- **T-048 (`/deadpage`)**: Invokes `DeadPageRelay.relay_dead_page()` directly. If relay succeeds → `<печенька>`, if failure → error message. Uses `Command("deadpage")` filter with admin guard.
+- **T-049 (`/alangreet`)**: Picks random video from `ALAN_GREETING_DIR`, sends via `bot.send_video()` with `FSInputFile` + caption. If no media found → informative reply. Uses `Command("alangreet")` filter with admin guard.
+- **Both commands**: Delete the user's command message after 1.5s delay via `asyncio.create_task()`. Silent no-op for non-admin users.
+- **New file**: `handlers/admin_commands.py` — stateless, no DB dependency, no setup function.
+- **New tests**: `tests/test_admin_commands.py` — 17 tests covering /deadpage (7), /alangreet (7), and edge cases (3: non-admin, unknown command, concurrency).
 
 **Review Findings (all resolved):**
-- T-046 + T-047 passed reviewer audit. All changes approved. 32 tests pass with zero regressions.
+- Epic 10 passed reviewer audit. All changes approved. 181 tests pass with zero regressions.
+
+### Epic 9: Bugfixes v2.3.0 — COMPLETED ✅ (2026-07-14)
+
+**Overview:**
+Two critical production bugs fixed. T-046 fixes DeadPageRelay range exhaustion, T-047 fixes Alan greeting detection. 32 tests pass. Decisions D16-D21.
 
 ### Epic 8: Alan Greeting Video — IMPLEMENTED ✅ (2026-07-13)
 
 **Overview:**
-F7 greets Alan (@Alan_Z, ID 138811255) with a random video when he joins the chat. Uses the same ChatMemberUpdatedFilter + new_chat_members fallback pattern as F1 (slava_presence.py). Dict-based dedup with 10-second cooldown — no DB dependency. **Implemented, tested (164 tests pass at the time), reviewed, and approved.**
-
-**Architecture:**
-- **Detection**: `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` + `F.new_chat_members` fallback
-- **Dedup**: In-memory `_last_greeting` dict keyed by `chat_id` with 10s cooldown (ALAN_GREETING_COOLDOWN=10)
-- **Video picking**: `random.choice()` over files in `media/leha_greeting/` with whitelisted extensions (.mp4/.avi/.mov/.webm)
-- **Sending**: `bot.send_video()` with `FSInputFile` + caption `@Alan_Z`
-- **Stateless router**: No setup function, no DB or scheduler dependency
-- **2 videos**: `leha_greeting_01.MP4`, `leha_greeting_02.MP4`
-
-**Architecture Decisions (D13-D15):**
-- **D13**: Dict-based dedup, not DB — Greeting cooldown is transient; dict resets on bot restart which is acceptable
-- **D14**: Same join detection pattern as F1 — ChatMemberUpdatedFilter + new_chat_members fallback is proven reliable
-- **D15**: `random.choice` for video selection — picks from filesystem on each join; no cache needed for small directory
+F7 greets Alan (@Alan_Z, ID 138811255) with a random video when he joins the chat. Dict-based dedup with 10-second cooldown. 164 tests pass. Decisions D13-D15.
 
 ### Epic 7: Better Stack Monitoring — COMPLETE ✅ (2026-07-12)
 
-Add observability to AdminBot via Better Stack — error tracking (Sentry) and cloud logging (Logtail). Zero-instrumentation design. Both guarded — bot runs normally without credentials.
+Add observability via Better Stack — error tracking (Sentry) and cloud logging (Logtail). Zero-instrumentation. Guarded — bot runs normally without credentials.
 
 ### Dead Page V2 — COMPLETE (2026-07-12)
 
-F2 redesigned from time-based to event-driven architecture. Dead page posts come from private Telegram channel `@d_pages` via `forwardMessage`.
+F2 redesigned from time-based to event-driven architecture. ForwardMessage from private channel `@d_pages`.
 
 ---
 
@@ -218,15 +241,16 @@ F2 redesigned from time-based to event-driven architecture. Dead page posts come
 
 ```
 C:\Code\Python\adminbot\
-├── bot.py                    (entry point, 7 routers, Sentry + Logtail init)
+├── bot.py                    (entry point, 8 routers, Sentry + Logtail init)
 ├── requirements.txt          (v2.1.0: +sentry-sdk, +logtail-python)
-├── .env.example              (complete: all 24+ settings documented, incl. F7 vars)
+├── .env.example              (complete: all 25+ settings documented, incl. ADMIN_USER_ID)
 ├── .env                      (created: SENTRY_DSN, LOGTAIL_SOURCE_TOKEN, API_TOKEN)
 ├── venv/                     (virtual environment — gitignored)
 ├── README.md
 ├── config/
-│   └── settings.py           (all settings env-configurable, +ALAN_* F7 vars)
+│   └── settings.py           (all settings env-configurable, +ADMIN_USER_ID)
 ├── handlers/
+│   ├── admin_commands.py     (Epic 10: /deadpage, /alangreet — Command filter + admin guard)
 │   ├── kostik.py             (catch-all)
 │   ├── slavik.py             (F3 middleware + F4 kucha + F5 war + catch-all)
 │   ├── vasya.py              (VasyaFilter + StrictAdminFilter)
@@ -261,6 +285,7 @@ C:\Code\Python\adminbot\
 │   ├── test_dead_page_trigger.py
 │   ├── test_message_counter.py
 │   ├── test_media_picker.py
+│   ├── test_admin_commands.py  (Epic 10: 17 tests for /deadpage + /alangreet)
 │   ├── test_edge_cases.py
 │   └── test_monitoring_smoke.py
 ├── media/
@@ -272,8 +297,8 @@ C:\Code\Python\adminbot\
 │       ├── page_1.txt
 │       └── slavic_ava.jpg
 └── plans/
-    ├── ARCHITECTURE.md       (v2.3.0 with §17 Bugfixes + §18 Decision Log D16-D21)
-    ├── MEMORY.md             (v2.3.0 COMPLETE — this file)
+    ├── ARCHITECTURE.md       (v2.4.0 with Epic 10 design decisions D22-D25)
+    ├── MEMORY.md             (v2.4.0 COMPLETE — this file)
     ├── board.md
     └── backlog.md
 ```
@@ -282,63 +307,70 @@ C:\Code\Python\adminbot\
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-047 (all 47 tasks) ✅ |
+| **Done** | T-001 – T-052 (all 52 tasks) ✅ |
 | **In Progress** | — |
 
-> All 9 Epics complete (47 tasks). Project is PRODUCTION-READY.
+> Epics 1–11 complete (52 tasks). Project is PRODUCTION-READY v2.5.0.
 
 ---
 
 ## 🔗 Knowledge Graph Status
 
-- **Fully synchronized** with current project state (v2.3.0 — bugfix implementation complete)
-- **Epic 9 (Bugfixes v2.3.0)**: COMPLETE. T-046 and T-047 implemented with D16-D21. Status changed to "Completed". Entities updated: `T-046: Dead Page Range Exhaustion Fix`, `T-047: Alan Greeting Detection Fix`, `AdminBot v2.3.0`, `AdminBot`, `Epic 9 — Bugfixes v2.3.0`.
-- **AdminBot v2.3.0**: Created with observations (bugfix release, T-046/T-047 fixed, 6 design decisions D16-D21, 32 tests passing, ARCHITECTURE.md/backlog.md/board.md updated).
-- **Relations added**: `AdminBot v2.3.0 --[is_version_of]--> AdminBot`, `AdminBot v2.3.0 --[includes]--> T-046`, `AdminBot v2.3.0 --[includes]--> T-047`.
-- **Epic 8 (Alan Greeting Video)**: COMPLETE. F7 entity updated with implemented status, 164 tests, 3 reviewer fixes (B1/M1/M2).
-- **Epic 7 (Better Stack Monitoring)**: COMPLETE.
-- **Epic 6 (Dead Page V2)**: COMPLETE.
-- **All 9 Epics complete**: 47 tasks (T-001 – T-047) implemented. 32 tests pass. Production-ready.
+- **Fully synchronized** with current project state (v2.5.0 — T-052 COMPLETE)
+- **T-052 (Sequential Scan for Sparse Channels)**: COMPLETED. D28-D30 implemented. Status updated to "Completed", observation "Implemented: D28-D30, 4 new tests, 185 total passing, reviewer approved" added.
+- **AdminBot v2.5.0**: Version entity created with 5 observations (T-052, D28-D30, 185 tests, reviewer approved, 2026-07-14). Relations: `is_version_of` → AdminBot, `includes` → T-052.
+- **AdminBot entity**: Updated with "v2.5.0 completed: T-052 sequential scanning fix, 185 tests (2026-07-14)".
+- **Epic 10 (Admin Test Commands v2.4.0)**: COMPLETE. T-048 and T-049 implemented with D22-D25. 181 tests pass. Entities: `AdminBot v2.4.0`, `commit ecda6ec`.
+- **commit ecda6ec**: Created (AdminBot v2.4.0, Epic 10 admin test commands, 9 files changed +622/-9, 181 tests passing).
+- **All 11 Epics complete**: 52 tasks (T-001 – T-052) implemented. 185 tests pass. Production-ready.
 
 ---
 
 ## 📊 Workflow Completion Log — 2026-07-14
 
-### Full Multi-Agent Pipeline (Epic 9: Bugfixes v2.3.0)
+### Epic 10: Admin Test Commands v2.4.0
 
 | Stage | Agent | Status | Details |
 |-------|-------|--------|---------|
-| **Step 0** | Memory | ✅ | Context sync — identified T-046 and T-047 bugs, prepared Epic 9 context |
-| **Step 1** | PM | ✅ | backlog.md and board.md updated with Epic 9 tasks (T-046, T-047) |
-| **Step 2** | Architect | ✅ | `ARCHITECTURE.md` v2.3.0 with §17 Bugfixes + §18 Decision Log (D16-D21) |
-| **Step 3** | Memory | ✅ | Knowledge graph updated with T-046, T-047, D16-D21 entities and relations (design phase) |
-| **Step 4** | Builder | ✅ | Implemented D16-D21: discovery ranges, while-loop dedup, bad request comment, lambda filter, INFO logging, integration test |
+| **Step 0** | Memory | ✅ | Context sync — prepared AdminBot v2.3.0 context for Epic 10 |
+| **Step 1** | PM | ✅ | backlog.md and board.md updated with Epic 10 tasks (T-048, T-049) |
+| **Step 2** | Architect | ✅ | Architecture v2.4.0 with D22-D25 for admin commands |
+| **Step 3** | Memory | ✅ | Knowledge graph updated with Epic 10 entities (design phase) |
+| **Step 4** | Builder | ✅ | Implemented admin_commands.py + test_admin_commands.py |
 | **Step 5** | Reviewer | ✅ | Audit passed — all changes approved |
-| **Step 6** | DevOps | ✅ | Full test suite: 32 tests pass (zero regressions). Plans synced (backlog.md, board.md, ARCHITECTURE.md) |
-| **Step 7** | Memory | ✅ | **THIS STEP** — Knowledge graph post-implementation sync + MEMORY.md final v2.3.0 |
+| **Step 6** | DevOps | ✅ | 181 tests pass (zero regressions). Commit ecda6ec created. |
+| **Step 7** | Memory | ✅ | **THIS STEP** — Final knowledge graph sync + MEMORY.md v2.4.0 |
 
 ### Operations Summary (Final)
 
 | Operation | Count | Status |
 |-----------|-------|--------|
-| **Entities updated** | 4 | `T-046` (Status→Completed + implementation), `T-047` (Status→Completed + implementation), `AdminBot v2.3.0` (full release notes), `AdminBot` (v2.3.0 completed observation) |
-| **Entities created** | 1 | `AdminBot v2.3.0` (Version type) |
-| **New relations created** | 3 | `is_version_of` (v2.3.0→AdminBot), `includes` (v2.3.0→T-046), `includes` (v2.3.0→T-047) |
-| **Epic 9 entity updated** | 1 | `Epic 9 — Bugfixes v2.3.0`: Status→COMPLETED, 32 tests, T-046+T-047 approved |
-| **MEMORY.md updated** | ✅ | v2.3.0 COMPLETE — all 9 Epics complete, 47 tasks, production-ready |
-| **ARCHITECTURE.md** | ✅ | v2.3.0 with §17 Bugfixes + §18 D16-D21 Decision Log |
-
----
-
-*Последнее обновление: 2026-07-14 — Step 7 Memory Agent Final Sync (Epic 9 Bugfixes Post-Implementation — All 9 Epics Complete)*
+| **Entities updated** | 2 | `AdminBot v2.4.0` (+commit observation), `AdminBot` (+v2.4.0 RELEASED observation) |
+| **Entities created** | 1 | `commit ecda6ec` (Commit type) |
+| **New relations created** | 1 | `committed_as` (AdminBot v2.4.0 → commit ecda6ec) |
+| **MEMORY.md updated** | ✅ | v2.4.0 COMPLETE — all 10 Epics complete, 49 tasks, 181 tests, production-ready |
+| **ARCHITECTURE.md** | ✅ | v2.4.0 with D22-D25 Decision Log |
 
 ---
 
 ## ✅ FINAL COMPLETION STAMP — 2026-07-14
 
-> **Epic 9 Bugfixes v2.3.0 — полный цикл завершён.**
-> T-046 (Dead Page Relay Range Exhaustion) и T-047 (Alan Greeting Detection) исправлены.
-> 6 новых архитектурных решений (D16-D21) реализованы.
-> 32 теста проходят. Reviewer approved.
-> Все 9 Epic'ов (47 задач T-001 – T-047) выполнены.
-> Проект **PRODUCTION-READY**.
+> **Epic 11 Sequential Scan v2.5.0 — полный цикл завершён.**
+> T-052 sequential scanning fix for DeadPageRelay sparse channels — implemented, tested, reviewed, and approved.
+> 4 новых теста (sequential scan, large range skip, update_last_id, error handling).
+> D28-D30 архитектурные решения реализованы в `services/dead_page_relay.py`.
+> **185 тестов** проходит. Reviewer approved.
+> Все 11 Epic'ов (52 задачи T-001 – T-052) выполнены.
+> Проект **PRODUCTION-READY** v2.5.0.
+>
+> **📊 Ретроспектива версий:**
+> - v2.0.0: Dead Page V2 (event-driven, forwardMessage)
+> - v2.1.0: Better Stack Monitoring (Sentry + Logtail)
+> - v2.2.0: Alan Greeting Video (F7)
+> - v2.3.0: Bugfixes T-046 + T-047
+> - v2.4.0: Admin Test Commands (/deadpage, /alangreet)
+> - **v2.5.0: Sequential Scan for Sparse Channels (T-052)**
+
+---
+
+*Последнее обновление: 2026-07-14 — T-052 COMPLETE (Epic 11: Sequential Scan for Sparse Channels — Done)*

@@ -1134,16 +1134,16 @@ class DatabaseService:
     
     # ── Channel State ───────────────────────────────────
     
-    async def get_last_known_message_id(self, channel_id: int) -> int:
+    async def get_last_known_message_id(self, channel_id: int = 0) -> int | None:
         """Get the last known message ID for a channel."""
         cursor = await self.db.execute(
             "SELECT value FROM channel_state WHERE key = ?",
             (f"last_msg_id:{channel_id}",)
         )
         row = await cursor.fetchone()
-        return int(row["value"]) if row else 0
-    
-    async def update_last_known_message_id(self, channel_id: int, msg_id: int) -> None:
+        return int(row["value"]) if row else None
+
+    async def update_last_known_message_id(self, msg_id: int, channel_id: int = 0) -> None:
         """Update the last known message ID for a channel."""
         await self.db.execute(
             "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",

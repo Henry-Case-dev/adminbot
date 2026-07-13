@@ -237,13 +237,86 @@ class TestDeadPageRelay:
 
     @pytest.mark.asyncio
     async def test_dedup_does_not_burn_attempts(self, relay, mock_bot, mock_db):
-        """D17: In narrow range [1,3] with max_retries=10, exactly 3 unique IDs tried."""
+        """D17: Sequential scan of [1,3] tries 3 IDs exactly, then random mode finds post."""
         mock_db.get_last_known_message_id.return_value = 3
-        relay.max_retries = 10
-        mock_bot.forward_message.side_effect = _make_valid_ids(set())
+        relay.max_retries = 5
+        mock_bot.forward_message.side_effect = _make_valid_ids({77})
 
-        with patch("random.randint", side_effect=[1, 1, 1, 2, 2, 3, 1, 2, 3, 1, 2, 3]):
+        with patch("random.randint", return_value=77):
             await relay.send_dead_page(-100123)
 
-        # Only 3 unique IDs in [1,3] range — no empty slot-burning
+        # Sequential (1,3): 3 calls (1,2,3 all fail) + 1 random hit at 77
+        assert mock_bot.forward_message.call_count == 4
+
+    # ── Sequential scan (D28/D29) ───────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_sequential_scan_finds_only_post(self, relay, mock_bot, mock_db):
+        """D28: Channel with 1 post at ID=3 — sequential (1,10) finds it in 3 calls."""
+        mock_db.get_last_known_message_id.return_value = 5  # stale DB value
+        relay.max_retries = 5
+        # All IDs except 3 return "not found"
+        mock_bot.forward_message.side_effect = _make_valid_ids({3})
+
+        await relay.send_dead_page(-100123)
+
+        # Sequential scan should find ID=3: calls for 1, 2, 3
         assert mock_bot.forward_message.call_count == 3
+        mock_db.record_dead_page_post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_sequential_scan_exhausted_moves_to_next(self, relay, mock_bot, mock_db):
+        """D28: (1,10) sequential exhausts all 10 — moves to next range, finds at ID=150."""
+        mock_db.get_last_known_message_id.return_value = 5
+        relay.max_retries = 5
+        # (1,10): all "not found" → exhausted → next range (1,100): random finds 150
+        mock_bot.forward_message.side_effect = _make_valid_ids({150})
+
+        await relay.send_dead_page(-100123)
+
+        # With post at ID=150 and last_msg_id=5:
+        # Ranges: (1,5)→5 rand, (1,100)→5 rand, (1,10)→10 seq, (1,50)→50 seq, then random in (1,200) until hit
+        # Total ≈ 70+: 5+5+10+50+N
+        call_count = mock_bot.forward_message.call_count
+        assert call_count >= 70
+        mock_db.record_dead_page_post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_large_range_uses_random(self, relay, mock_bot, mock_db):
+        """D28: Large range (1,200) uses random, not sequential."""
+        mock_db.get_last_known_message_id.return_value = None  # force discovery ranges
+        relay.max_retries = 5
+        mock_bot.forward_message.side_effect = _make_valid_ids({199})
+
+        with patch("random.randint", return_value=199) as random_mock:
+            await relay.send_dead_page(-100123)
+
+        # First range (1,10) sequential → 10 calls (all fail)
+        # Second range (1,50) sequential → 50 calls (all fail)
+        # Third range (1,200) random → 1 call (hits 199)
+        call_count = mock_bot.forward_message.call_count
+        assert call_count >= 61  # 10 + 50 + 1
+        mock_db.record_dead_page_post.assert_called_once()
+        random_mock.assert_called()  # Verify random was called
+
+    @pytest.mark.asyncio
+    async def test_sequential_scan_channel_error_stops(self, relay, mock_bot, mock_db):
+        """D29: Sequential scan stops on channel error (not 'not found')."""
+        mock_db.get_last_known_message_id.return_value = 5
+        relay.max_retries = 5
+
+        call_count = 0
+        async def side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 3:
+                raise Exception("Forbidden: bot is not an administrator")
+            raise Exception("not found")
+
+        mock_bot.forward_message.side_effect = side_effect
+
+        result = await relay._try_forward_from_channel(-100123)
+
+        assert result is False
+        # Only 3 calls: 1→not found, 2→not found, 3→Forbidden (stops)
+        assert call_count == 3

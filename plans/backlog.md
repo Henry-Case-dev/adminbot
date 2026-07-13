@@ -124,10 +124,15 @@
   - Исправить `_build_search_ranges()` в `services/dead_page_relay.py`: добавить `_DISCOVERY_RANGES` как fallback после anchored ranges, чтобы при росте канала >200 сообщений алгоритм не ограничивался узким окном [1,200].
   - Исправить `continue` на строке ~106 — dedup при `last_msg_id=100` не должен сжигать 2 из 10 слотов попыток.
   - Добавить WARNING-лог при входе в fallback `_DISCOVERY_RANGES`.
-- [ ] T-047: БАГФИКС: Alan Greeting Video — сервис никогда не срабатывает (High)
+  - [ ] T-047: БАГФИКС: Alan Greeting Video — сервис никогда не срабатывает (High)
   - Поднять diagnostic-логи c DEBUG до INFO уровня в `handlers/alan_greeting.py` (строки 84, 87), чтобы join-события были видны в Better Stack.
   - Добавить уникальный lambda-фильтр `event.new_chat_member.user.id == settings.ALAN_USER_ID` в `alan_greeting_router` для архитектурного разделения с `slava_presence_router` (у обоих `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)`).
   - Написать интеграционный тест с обоими роутерами на одном dispatcher — проверка отсутствия конфликтов фильтров.
+- [ ] T-052: БАГФИКС: Dead Page Relay — sequential scanning для sparse channels (Critical)
+  - Проблема: текущий алгоритм (random probing, 5 retries/range, 35 total attempts) работает для DENSE каналов, но проваливается на SPARSE каналах (1 пост из 2000 ID — вероятность попадания ~2%). Production log: chat_id=5885953495, DB last_msg_id=100, все 7 ranges exhausted, fallback на локальные медиа.
+  - Решение: добавить sequential scanning для narrow ranges (≤ 50 ID). При обнаружении narrow range (`hi - lo <= 50`) переключаться с random probing на линейное сканирование ID от lo до hi включительно. Range (1,10) гарантированно найдёт пост с message_id=3.
+  - Изменения: модифицировать `_probe_range()` в `services/dead_page_relay.py` — перед random retries проверить `if hi - lo + 1 <= 50`, затем перебор ID последовательно через `bot.forward_messages()` с проверкой исключений.
+  - Логирование: INFO при входе в sequential mode ("Narrow range [lo,hi]: switching to sequential scan"), INFO при успешном нахождении ("Sequential scan hit: message_id=X at attempt Y").
 
 ---
 
