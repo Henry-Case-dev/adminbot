@@ -131,5 +131,49 @@
 
 ---
 
-**Status: Epic 6 DONE. Epic 7 in planning — tasks T-029 through T-037 ready. Epic 8 in development — tasks T-038 through T-045 ready. Bugfix T-046/T-047 added 2026-07-13.**
-**Date: 2026-07-13**
+## Epic 9: Admin Test Commands (2026-07-14)
+
+> **Цель:** Добавить команды Telegram для ручного тестирования фич админом.
+> Первый в проекте command handler и первый опыт удаления сообщений ботом.
+> 
+> **Контекст:** На данным момент в кодовой базе нет ни одного command handler'а
+> (Message.filter(F.text.startswith("/"))), ни одного вызова delete_message.
+> Оба механизма реализуются с нуля. Команды регистрируются в общем роутере
+> `handlers/admin_commands.py` на позиции 0 в `bot.py` (перед всеми существующими).
+
+### Конфигурация
+- [ ] T-048: Admin test command для dead_page_relay (`/deadpage`)
+  - `config/settings.py` + `.env.example`: добавить `ADMIN_USER_ID=5885953495`
+  - Создать `handlers/admin_commands.py` — `admin_router: Router`
+  - `Message.filter(F.text.startswith("/deadpage"))`
+  - DM (private chat): работает для любого пользователя
+  - Группы: работает только для админа (`message.from_user.id == settings.ADMIN_USER_ID`), не-админам — игнорировать (молча)
+  - После успешной обработки: `await message.delete()` — удаление команды из чата
+  - Основная логика: `await relay.send_dead_page(chat_id, slot="manual")` — отправка dead-page (channel forward или local fallback), бот автоматически отвечает постом в чат
+  - Comprehensive logging (info: команда получена, dead page отправлен; warning: не-админ в группе; error: delete_message failure)
+  - Регистрация в `bot.py`: позиция 0 (перед `slava_presence_router`), инжект relay через `setup_admin_commands(relay)` или замыкание
+
+- [ ] T-049: Admin test command для alan_greeting (`/alangreet`)
+  - Добавить handler в `handlers/admin_commands.py` (тот же роутер, что T-048)
+  - `Message.filter(F.text.startswith("/alangreet"))`
+  - DM: работает для любого пользователя
+  - Группы: админ только (`ADMIN_USER_ID`)
+  - `await message.delete()` — удаление команды из чата
+  - Логика: импортировать `_send_greeting` из `handlers.alan_greeting` → `await _send_greeting(message.bot, chat_id)` — отправка greeting-видео с caption `@Alan_Z`
+  - Comprehensive logging: команда получена, greeting отправлен/не отправлен
+  - Регистрация: тот же `admin_router`, уже зарегистрированный в T-048
+
+### Верификация
+- [ ] T-050: Запустить тест-сьют pytest, убедиться в отсутствии регрессий
+- [ ] T-051: Написать тесты на admin_commands (минимум 6 тестов):
+  - DM: /deadpage → relay.send_dead_page вызван с slot="manual", сообщение удалено
+  - DM: /alangreet → _send_greeting вызван, сообщение удалено
+  - Группа: админ (5885953495) → команда срабатывает
+  - Группа: не-админ → команда игнорируется
+  - DM: delete_message error → logged but not fatal
+  - Группа: delete_message error → logged but not fatal
+
+---
+
+**Status: Epic 1–8 DONE (Epic 7 in planning). Epic 9: Admin Test Commands — T-048 through T-051 ready for development.**
+**Date: 2026-07-14**

@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.3.0
-> **Дата:** 2026-07-13
+> **Версия:** v2.4.0
+> **Дата:** 2026-07-14
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -30,6 +30,7 @@ C:\Code\Python\adminbot\
 │
 ├── handlers/
 │   ├── __init__.py
+│   ├── admin_commands.py            # Admin test commands: /deadpage, /alangreet (Epic 10)
 │   ├── kostik.py                   # Kostik catch-all: "пошёл нахуй кринжатура ебаная"
 │   ├── slavik.py                   # Slava router: middleware(F3) + F4 + F5 + catch-all
 │   ├── vasya.py                    # Vasya/Admin filters + handlers
@@ -49,6 +50,7 @@ C:\Code\Python\adminbot\
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py                 # Shared fixtures: mock bot, mock message, in-memory DB, event loop
+│   ├── test_admin_commands.py      # Admin test commands: /deadpage, /alangreet (Epic 10)
 │   ├── test_kostik.py
 │   ├── test_slavik_handlers.py     # Slava handlers (F4 + F5 + catch-all)
 │   ├── test_filters.py             # All 6 filter unit tests
@@ -97,6 +99,12 @@ C:\Code\Python\adminbot\
 │  │  Dispatcher                                       │   │
 │  │                                                   │   │
 │  │  REGISTRATION ORDER (TOP → BOTTOM = FIRST CHECK): │   │
+│  │                                                   │   │
+│  │  0. admin_commands_router  (Epic 10: /deadpage, /alangreet) │
+│  │     └─ imports handlers/admin_commands.py          │   │
+│  │        ├─ imports services/dead_page_relay.py     │   │
+│  │        └─ imports handlers/alan_greeting.py        │   │
+│  │           (_send_greeting, local import)           │   │
 │  │                                                   │   │
 │  │  1. ChatMemberUpdated handlers                    │   │
 │  │     ├─ slava_presence_router (F1)                 │   │
@@ -683,6 +691,7 @@ from services.dead_page_relay import DeadPageRelay
 from services.media_picker import MediaService
 
 # Routers
+from handlers.admin_commands import admin_commands_router, setup_admin_commands
 from handlers.kostik import kostik_router
 from handlers.alan import alan_router
 from handlers.alan_greeting import alan_greeting_router
@@ -699,6 +708,11 @@ dp = Dispatcher(storage=MemoryStorage())
 # ═══════════════════════════════════════════════════════════
 # REGISTRATION ORDER (CRITICAL — DO NOT CHANGE)
 # ═══════════════════════════════════════════════════════════
+
+# 0. Admin test commands (Epic 10: /deadpage, /alangreet)
+#    Command() filter — registered FIRST for highest priority.
+#    DM: any user. Groups: admin only (ADMIN_USER_ID=5885953495).
+dp.include_router(admin_commands_router)
 
 # 1. ChatMemberUpdated handler (F1: Slava return detection)
 #    This handles chat_member updates which are NOT message updates.
@@ -749,6 +763,7 @@ async def on_startup():
     )
     scheduler = SchedulerService(bot, db, dead_page_relay)
     # Inject dependencies into handlers
+    setup_admin_commands(dead_page_relay)
     setup_dead_page(dead_page_relay, db)
     # Schedule on_startup injects relay into scheduler
     asyncio.create_task(scheduler.run())
@@ -763,6 +778,11 @@ if __name__ == '__main__':
 ```
 
 **Why this order matters:**
+0. admin_commands_router (position 0 — NEW in Epic 10) comes BEFORE ALL other routers.
+   - Command() filters on /deadpage and /alangreet must take priority over any catch-all handlers.
+   - If a user-ID router (e.g., kostik) were registered before admin_commands, a message like
+     "/deadpage test" from Kostik would trigger the catch-all instead of the admin command.
+   - DM vs group authorization is handled by F.chat.type == "private" / F.chat.type != "private" within the router.
 1. User-ID-based routers (kostik, alan, slavik) come BEFORE text-based routers (vasya).
    - If vasya_router were first, Slava saying "вася" would trigger "АДМИН" instead of "пошёл нахуй".
 2. dead_page_router (position 4) is inserted between alan_router and slavik_router.
@@ -1713,6 +1733,7 @@ class Settings:
     KOSTIK_USER_ID: int = int(os.getenv("KOSTIK_USER_ID", "350803143"))
     SLAVIK_USER_ID: int = int(os.getenv("SLAVIK_USER_ID", "479167456"))
     ALAN_USER_ID: int = int(os.getenv("ALAN_USER_ID", "138811255"))
+    ADMIN_USER_ID: int = int(os.getenv("ADMIN_USER_ID", "5885953495"))
     ALAN_REPLY_INTERVAL: int = int(os.getenv("ALAN_REPLY_INTERVAL", "10"))
     
     # Dead Page Relay (F2 v2)
@@ -1858,6 +1879,7 @@ def make_chat_member_updated(
 | `test_media_picker.py` | F2: MediaService random file picker | Mock filesystem, test selection logic |
 | `test_alan.py` | F6: reply fires every 10 msgs, random selection, configurable interval | Feed messages, mock DB counter, assert reply timing |
 | `test_alan_greeting.py` | F7: Alan join → video sent; non-Alan join ignored; leave ignored; new_chat_members fallback; caption; random selection; empty dir | Feed ChatMemberUpdated + Message events, assert send_video called/not called |
+| `test_admin_commands.py` | Epic 10: /deadpage triggers relay; /alangreet triggers greeting; admin/non-admin group access; delete message; error handling | Feed command messages with mocked relay & _send_greeting, assert delete + answer + relay calls |
 | `test_vasya.py` | Vasya/Admin handlers | Feed "вася"/"админ" text, assert "АДМИН"/"ВАСЯ" replies |
 
 #### C. Database Unit Tests
@@ -2267,6 +2289,9 @@ logtail-python==0.4.0
 Given a message from user 479167456 (Slava) in chat -100123 with text "куча дрон летит", here's the complete execution flow:
 
 ```
+0. admin_commands_router: Command() filter checks:
+   ├── /deadpage handler: message.text does not start with /deadpage → SKIP
+   └── /alangreet handler: message.text does not start with /alangreet → SKIP
 1. ChatMemberUpdated routers:
    ├── slava_presence_router: user is 479167456 → NO (this is message, not chat_member)
    └── alan_greeting_router: user is 479167456 → NO (this is message, not chat_member)
@@ -2341,6 +2366,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `filters/kucha_word.py` | KuchaWordFilter class (F4) |
 | `filters/war_word.py` | WarWordFilter class (F5) |
 | `handlers/__init__.py` | Empty init |
+| `handlers/admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
 | `handlers/kostik.py` | Kostik handler (migrated) |
 | `handlers/alan.py` | Alan_Z reply engine (F6) |
 | `handlers/alan_greeting.py` | Alan greeting video on join (F7) |
@@ -2356,6 +2382,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `services/message_counter.py` | MessageCounterMiddleware (F3) |
 | `tests/__init__.py` | Empty init |
 | `tests/conftest.py` | Shared test fixtures |
+| `tests/test_admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
 | `tests/test_kostik.py` | Kostik tests |
 | `tests/test_slavik_handlers.py` | Slava handlers (F4 + F5 + catch-all) |
 | `tests/test_filters.py` | All filter unit tests |
@@ -2396,9 +2423,11 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 
 | File | Modifications |
 |------|--------------|
-| `bot.py` | Complete rewrite: use config, DB init, DeadPageRelay, scheduler, new router registration order (v2); add F7 router |
-| `.env` | Add API_TOKEN value (from bot.py hardcode); add ALAN_GREETING_* vars |
-| `config/settings.py` | Add DEAD_PAGE_* fields; remove SCHEDULER_* fields; add ALAN_* fields (F7) |
+| `bot.py` | Complete rewrite: use config, DB init, DeadPageRelay, scheduler, new router registration order (v2); add F7 router. v2.4: add admin_commands_router at pos 0 |
+| `.env` | Add API_TOKEN value (from bot.py hardcode); add ALAN_GREETING_* vars; add ADMIN_USER_ID |
+| `.env.example` | Add ADMIN_USER_ID=5885953495 |
+| `config/settings.py` | Add DEAD_PAGE_* fields; remove SCHEDULER_* fields; add ALAN_* fields (F7); add ADMIN_USER_ID |
+| `tests/conftest.py` | Add make_admin_message factory fixture |
 | `services/database.py` | Add channel_state table; update dead_page_posts schema; add was_dead_page_recently, record_dead_page_post, channel_state methods |
 | `services/scheduler.py` | Simplify: remove time-based loop; keep only join trigger via DeadPageRelay |
 | `services/media_picker.py` | Downgrade to fallback-only role; no API changes |
@@ -2699,3 +2728,288 @@ async def test_both_routers_alan_event_reaches_greeting():
 | D19 | Lambda‑фильтр `user.id == ALAN_USER_ID` добавляется в декоратор, внутренняя проверка остаётся | Явный фильтр на уровне роутера — архитектурная гигиена. Внутренняя проверка — defence‑in‑depth. |
 | D20 | `logger.debug` → `logger.info` для диагностических строк 84 и 87 | `INFO` — минимальный уровень для production‑мониторинга через Better Stack. Диагностические сообщения о join‑событиях критичны для отладки. |
 | D21 | Интеграционный тест регистрирует оба роутера и проверяет доставку события до Alan | Воспроизводит production‑конфигурацию `bot.py`; доказывает отсутствие конфликта фильтров между роутерами с идентичным `ChatMemberUpdatedFilter`. |
+
+---
+
+## 19. Epic 10: Admin Test Commands (T-048, T-049)
+
+> **Версия:** v2.4.0
+> **Дата:** 2026-07-14
+> **Назначение:** Ручные тестовые команды для администратора бота. Первое использование `Command()`-фильтра и первый вызов `message.delete()` в проекте.
+
+### 19.1 Обзор
+
+Две команды, регистрируемые в едином роутере `admin_commands_router` (`handlers/admin_commands.py`) на позиции **0** в `bot.py` — перед всеми существующими роутерами. Роутер обрабатывает только сообщения, начинающиеся с `/deadpage` или `/alangreet`.
+
+**Правила доступа:**
+- **DM (private chat):** команда работает для любого пользователя
+- **Группы (group/supergroup):** команда работает только для админа (`ADMIN_USER_ID = 5885953495`); не-админы игнорируются молча (без удаления сообщения, без ответа)
+- **Удаление сообщения:** после успешной обработки команды сообщение пользователя удаляется во ВСЕХ случаях (и DM, и группа) через `await message.delete()`
+
+### 19.2 Новый файл: `handlers/admin_commands.py`
+
+```python
+import logging
+from aiogram import F, Router, types
+from aiogram.filters import Command
+
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+admin_commands_router = Router()
+
+_relay = None
+
+
+def setup_admin_commands(relay):
+    """Внедрение зависимости DeadPageRelay — глобальный паттерн (как в dead_page_trigger.py)."""
+    global _relay
+    _relay = relay
+
+
+# ═══════════════════════════════════════════════════════════════
+# /deadpage — DM (private chat)
+# ═══════════════════════════════════════════════════════════════
+
+@admin_commands_router.message(Command("deadpage"), F.chat.type == "private")
+async def deadpage_dm(message: types.Message):
+    """DM: любой пользователь может вызвать /deadpage."""
+    chat_id = message.chat.id
+    logger.info("Admin command /deadpage (DM) received for chat %d", chat_id)
+
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.warning("Failed to delete /deadpage command message in DM: %s", e)
+
+    if _relay is None:
+        logger.error("DeadPageRelay not initialized — cannot send dead page")
+        await message.answer("dead_page relay not initialized")
+        return
+
+    await _relay.send_dead_page(chat_id, slot="manual")
+    await message.answer(f"dead_page triggered in chat {chat_id}")
+    logger.info("Admin command /deadpage (DM) executed for chat %d", chat_id)
+
+
+# ═══════════════════════════════════════════════════════════════
+# /deadpage — группа (group/supergroup)
+# ═══════════════════════════════════════════════════════════════
+
+@admin_commands_router.message(Command("deadpage"), F.chat.type != "private")
+async def deadpage_group(message: types.Message):
+    """Группа: только админ может вызвать /deadpage. Не-админ — молча игнорируется."""
+    if message.from_user is None or message.from_user.id != settings.ADMIN_USER_ID:
+        uid = message.from_user.id if message.from_user else "unknown"
+        logger.info(
+            "Non-admin user %s attempted /deadpage in group %d — ignored",
+            uid, message.chat.id
+        )
+        return
+
+    chat_id = message.chat.id
+    logger.info("Admin command /deadpage (group) received for chat %d", chat_id)
+
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.warning("Failed to delete /deadpage command message in group: %s", e)
+
+    if _relay is None:
+        logger.error("DeadPageRelay not initialized — cannot send dead page")
+        await message.answer("dead_page relay not initialized")
+        return
+
+    await _relay.send_dead_page(chat_id, slot="manual")
+    await message.answer(f"dead_page triggered in chat {chat_id}")
+    logger.info("Admin command /deadpage (group) executed for chat %d", chat_id)
+
+
+# ═══════════════════════════════════════════════════════════════
+# /alangreet — DM (private chat)
+# ═══════════════════════════════════════════════════════════════
+
+@admin_commands_router.message(Command("alangreet"), F.chat.type == "private")
+async def alangreet_dm(message: types.Message):
+    """DM: любой пользователь может вызвать /alangreet."""
+    from handlers.alan_greeting import _send_greeting
+
+    chat_id = message.chat.id
+    logger.info("Admin command /alangreet (DM) received for chat %d", chat_id)
+
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.warning("Failed to delete /alangreet command message in DM: %s", e)
+
+    success = await _send_greeting(message.bot, chat_id)
+    if success:
+        await message.answer(f"Alan greeting triggered in chat {chat_id}")
+        logger.info("Admin command /alangreet (DM) executed for chat %d", chat_id)
+    else:
+        logger.warning("Admin command /alangreet (DM) — greeting send failed for chat %d", chat_id)
+        await message.answer(f"Alan greeting failed — no videos available")
+
+
+# ═══════════════════════════════════════════════════════════════
+# /alangreet — группа (group/supergroup)
+# ═══════════════════════════════════════════════════════════════
+
+@admin_commands_router.message(Command("alangreet"), F.chat.type != "private")
+async def alangreet_group(message: types.Message):
+    """Группа: только админ может вызвать /alangreet. Не-админ — молча игнорируется."""
+    from handlers.alan_greeting import _send_greeting
+
+    if message.from_user is None or message.from_user.id != settings.ADMIN_USER_ID:
+        uid = message.from_user.id if message.from_user else "unknown"
+        logger.info(
+            "Non-admin user %s attempted /alangreet in group %d — ignored",
+            uid, message.chat.id
+        )
+        return
+
+    chat_id = message.chat.id
+    logger.info("Admin command /alangreet (group) received for chat %d", chat_id)
+
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.warning("Failed to delete /alangreet command message in group: %s", e)
+
+    success = await _send_greeting(message.bot, chat_id)
+    if success:
+        await message.answer(f"Alan greeting triggered in chat {chat_id}")
+        logger.info("Admin command /alangreet (group) executed for chat %d", chat_id)
+    else:
+        logger.warning("Admin command /alangreet (group) — greeting send failed for chat %d", chat_id)
+        await message.answer(f"Alan greeting failed — no videos available")
+```
+
+**Ключевые архитектурные решения:**
+- Импорт `_send_greeting` — локальный (внутри функций `alangreet_dm` и `alangreet_group`), чтобы избежать циклических зависимостей при холодном старте модуля
+- `slot="manual"` — новый тип слота для dead_page_posts, отличающий ручной вызов от `"repost"` и `"join"`
+- `admin_commands_router` регистрируется на `F.chat.type == "private"` и `F.chat.type != "private"` раздельно — у каждого хендлера своя сигнатура фильтра
+- `message.delete()` в блоке `try/except` — неудачное удаление не должно прерывать основную логику команды
+
+### 19.3 Изменения в `config/settings.py`
+
+Добавить поле `ADMIN_USER_ID` после существующих User ID:
+
+```python
+# config/settings.py — добавить строку после ALAN_USER_ID:
+ADMIN_USER_ID: int = _env_int("ADMIN_USER_ID", 5885953495)
+```
+
+### 19.4 Изменения в `bot.py`
+
+**Импорты (добавить):**
+```python
+from handlers.admin_commands import admin_commands_router, setup_admin_commands
+```
+
+**В `on_startup()` — инжект зависимости (после `setup_dead_page`):**
+```python
+setup_admin_commands(relay)
+```
+
+**Регистрация роутера — позиция 0 (ПЕРЕД `slava_presence_router`):**
+```python
+# 0. Admin test commands — command handlers, registered FIRST
+dp.include_router(admin_commands_router)
+
+# 1. ChatMemberUpdated handler (F1: Slava return detection)
+dp.include_router(slava_presence_router)
+# ... остальные роутеры без изменений ...
+```
+
+**Итоговый порядок регистрации (v2.4.0):**
+```
+0. admin_commands_router      ← NEW (position 0)
+1. slava_presence_router      (F1)
+1b. alan_greeting_router      (F7)
+2. kostik_router
+3. alan_router                (F6)
+4. dead_page_router           (F2)
+5. slavik_router              (F3, F4, F5)
+6. vasya_router
+```
+
+### 19.5 Изменения в `.env.example`
+
+```env
+# Admin user ID — can use admin test commands in groups (optional, default: 5885953495)
+ADMIN_USER_ID=5885953495
+```
+
+### 19.6 Тестовый дизайн: `tests/test_admin_commands.py`
+
+**Файл:** `tests/test_admin_commands.py`
+
+**Структура тестов (класс `TestAdminCommands`):**
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_deadpage_dm_triggers_relay` | DM: `/deadpage` → relay.send_dead_page вызван | `send_dead_page` вызван с `chat_id=-100`, `slot="manual"`; `message.answer` с инфо-сообщением |
+| 2 | `test_deadpage_dm_deletes_message` | DM: `/deadpage` → message.delete() вызван | `message.delete` вызван, затем relay и answer |
+| 3 | `test_alangreet_dm_triggers_greeting` | DM: `/alangreet` → _send_greeting вызван | `_send_greeting` вызван с `(bot, chat_id)`; `message.answer` с инфо-сообщением |
+| 4 | `test_alangreet_dm_deletes_message` | DM: `/alangreet` → message.delete() вызван | `message.delete` вызван, затем _send_greeting и answer |
+| 5 | `test_admin_group_deadpage_accepted` | Группа, админ (5885953495) → команда работает | `send_dead_page` вызван, `delete` вызван, `answer` с инфо |
+| 6 | `test_non_admin_group_deadpage_rejected` | Группа, не-админ (99999) → игнорируется | `send_dead_page` НЕ вызван, `delete` НЕ вызван, `answer` НЕ вызван |
+| 7 | `test_non_admin_group_alangreet_rejected` | Группа, не-админ (99999) → игнорируется | `_send_greeting` НЕ вызван, `delete` НЕ вызван, `answer` НЕ вызван |
+| 8 | `test_delete_error_not_fatal_deadpage` | DM, `message.delete()` бросает исключение → команда продолжается | `send_dead_page` всё равно вызван, `answer` всё равно вызван |
+| 9 | `test_delete_error_not_fatal_alangreet` | DM, `message.delete()` бросает исключение → команда продолжается | `_send_greeting` всё равно вызван, `answer` всё равно вызван |
+| 10 | `test_relay_not_initialized` | `_relay is None` → error log + ответ пользователю | `send_dead_page` НЕ вызван, `message.answer("dead_page relay not initialized")` |
+| 11 | `test_alangreet_no_videos` | `_send_greeting` возвращает `False` → warning + ответ | `message.answer` с `"Alan greeting failed"` |
+| 12 | `test_alangreet_send_error` | `_send_greeting` бросает исключение → logged | Ошибка не крашит хендлер, logged через logger.error |
+
+**Mock-стратегия:**
+- `message` — `MagicMock` с полями: `chat.id`, `from_user.id`, `chat.type`, `delete = AsyncMock()`, `answer = AsyncMock()`, `bot = AsyncMock()`
+- `_relay` — `MagicMock` с `send_dead_page = AsyncMock()`
+- `_send_greeting` — патчится через `patch("handlers.admin_commands._send_greeting")` или через мок-импорт
+- `settings.ADMIN_USER_ID` — 5885953495 (значение по умолчанию)
+
+**Factory-фикстуры (в `tests/conftest.py`):**
+```python
+@pytest.fixture
+def make_admin_message():
+    """Factory для сообщений admin_commands: настраиваемые chat.type, from_user.id."""
+    def _make(chat_type: str = "private", user_id: int = 5885953495, chat_id: int = -100123):
+        msg = MagicMock()
+        msg.chat = MagicMock()
+        msg.chat.id = chat_id
+        msg.chat.type = chat_type
+        msg.from_user = MagicMock()
+        msg.from_user.id = user_id
+        msg.delete = AsyncMock()
+        msg.answer = AsyncMock()
+        msg.bot = AsyncMock()
+        return msg
+    return _make
+```
+
+### 19.7 Влияние на существующую кодовую базу
+
+| Модуль | Тип изменения | Детали |
+|--------|--------------|--------|
+| `handlers/admin_commands.py` | **CREATE** | Новый роутер с 4 хендлерами + `setup_admin_commands()` |
+| `config/settings.py` | **MODIFY** | +1 поле: `ADMIN_USER_ID` |
+| `bot.py` | **MODIFY** | +1 import, +1 `setup_admin_commands(relay)`, +1 `dp.include_router` (позиция 0) |
+| `.env.example` | **MODIFY** | +1 переменная: `ADMIN_USER_ID=5885953495` |
+| `tests/test_admin_commands.py` | **CREATE** | ~12 тестов |
+| `tests/conftest.py` | **MODIFY** | +1 fixture: `make_admin_message` |
+
+**Нарушения инвариантов:** НЕТ
+- `handlers/admin_commands.py` импортирует `handlers.alan_greeting._send_greeting` локально (внутри функции) — это единственное исключение из правила «handlers/ NEVER import from other handlers/», оправданное необходимостью ручного вызова существующей функции без дублирования кода
+- Импорт локальный (lazy), что предотвращает циклические зависимости на уровне модуля
+
+### 19.8 Decision Log (Epic 10)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D22 | `Command("deadpage")` / `Command("alangreet")` — первый `Command()`-фильтр в проекте | До этого все хендлеры использовали text-фильтры или кастомные BaseFilter. Command-фильтр нативно парсит Telegram bot-команды (с учётом `/command@bot_username`). |
+| D23 | Разделение на DM-хендлеры (`F.chat.type == "private"`) и group-хендлеры (`F.chat.type != "private"`) | Разная логика авторизации: DM — любой пользователь, группа — только админ. Отдельные хендлеры чище, чем один хендлер с ветвлением. |
+| D24 | `await message.delete()` в `try/except` — первое удаление сообщений в проекте | Бот должен скрывать команды из чата. Ошибка удаления (нет прав, сообщение уже удалено) не должна прерывать основную логику. |
+| D25 | `setup_admin_commands(relay)` — dependency injection через глобальную переменную (паттерн `dead_page_trigger.py`) | Единообразие с существующим кодом (`setup_dead_page`, `setup_presence`, `setup_alan`). Relay — синглтон в рантайме. |
+| D26 | Регистрация `admin_commands_router` на позиции 0 | Команды админа должны иметь высший приоритет. Если `/deadpage` совпадёт с другим фильтром (например, текстовым), команда должна быть обработана admin_router, а не catch-all. |
+| D27 | Локальный импорт `_send_greeting` внутри функций `alangreet_dm`/`alangreet_group` | Избегает циклических зависимостей на уровне модуля (`handlers.admin_commands` → `handlers.alan_greeting`). Lazy import при первом вызове команды. |
