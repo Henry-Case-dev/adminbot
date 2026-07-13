@@ -18,6 +18,8 @@ _DISCOVERY_RANGES: list[tuple[int, int]] = [
     (1, 2000),  # Very large
 ]
 
+_SEQUENTIAL_THRESHOLD: int = 50
+
 
 class DeadPageRelay:
     """
@@ -98,62 +100,96 @@ class DeadPageRelay:
                 f"[dead_page] Range {range_idx + 1}/{len(ranges)}: "
                 f"ID ∈ [{lo}, {hi}]"
             )
-            tried: set[int] = set()
 
-            attempts = 0
-            while attempts < self.max_retries:
-                try:
-                    msg_id = random.randint(lo, hi)
-                except StopIteration:
-                    break
-                if msg_id in tried:
-                    continue
-                tried.add(msg_id)
-                attempts += 1
+            range_size = hi - lo + 1
 
-                logger.debug(
-                    f"[dead_page]   Try msg_id={msg_id} "
-                    f"(range [{lo},{hi}], attempt {attempts}/{self.max_retries})"
+            if range_size <= _SEQUENTIAL_THRESHOLD:
+                # D28: Sequential scan for narrow ranges — guaranteed coverage for sparse channels
+                logger.info(
+                    f"[dead_page] Range [{lo},{hi}] → sequential scan ({range_size} IDs)"
                 )
-
-                try:
-                    await self.bot.forward_message(
-                        chat_id=chat_id,
-                        from_chat_id=self.relay_channel_id,
-                        message_id=msg_id,
-                        disable_notification=False,
-                    )
-                    logger.info(
-                        f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
-                        f"(range [{lo},{hi}], attempt {attempts})"
-                    )
-                    # Raise the ceiling if we hit a higher ID than known
-                    if not last_msg_id or msg_id > last_msg_id:
-                        await self.db.update_last_known_message_id(msg_id)
-                        logger.info(f"[dead_page]   DB updated: last_known_message_id → {msg_id}")
-                    return True
-
-                except Exception as e:
-                    error_msg = str(e).lower()
-                    # Telegram returns "bad request" for non-existent message IDs,
-                    # so both "not found" and "bad request" mean the message doesn't exist.
-                    if "not found" in error_msg or "bad request" in error_msg:
-                        logger.debug(
-                            f"[dead_page]   NOT FOUND: msg_id={msg_id} "
-                            f"(attempt {attempts})"
+                for msg_id in range(lo, hi + 1):
+                    try:
+                        await self.bot.forward_message(
+                            chat_id=chat_id,
+                            from_chat_id=self.relay_channel_id,
+                            message_id=msg_id,
+                            disable_notification=False,
                         )
-                        continue
-                    else:
-                        logger.error(
-                            f"[dead_page]   CHANNEL ERROR: msg_id={msg_id} → {e}",
-                            exc_info=True,
+                        logger.info(
+                            f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
+                            f"(sequential scan, range [{lo},{hi}])"
                         )
-                        return False
+                        if not last_msg_id or msg_id > last_msg_id:
+                            await self.db.update_last_known_message_id(msg_id)
+                            logger.info(f"[dead_page]   DB updated: last_known_message_id → {msg_id}")
+                        return True
+                    except Exception as e:
+                        error_msg = str(e).lower()
+                        if "not found" in error_msg or "bad request" in error_msg:
+                            continue
+                        else:
+                            logger.error(
+                                f"[dead_page]   CHANNEL ERROR: msg_id={msg_id} → {e}",
+                                exc_info=True,
+                            )
+                            return False
 
-            logger.warning(
-                f"[dead_page] Range [{lo},{hi}] exhausted "
-                f"({self.max_retries} misses)"
-            )
+                logger.warning(
+                    f"[dead_page] Range [{lo},{hi}] exhausted "
+                    f"(sequential, {range_size} IDs)"
+                )
+            else:
+                # Random probing for large ranges
+                tried: set[int] = set()
+                attempts = 0
+                while attempts < self.max_retries:
+                    msg_id = random.randint(lo, hi)
+                    if msg_id in tried:
+                        continue  # D17: re-roll without burning attempt
+                    tried.add(msg_id)
+                    attempts += 1
+
+                    logger.debug(
+                        f"[dead_page]   Try msg_id={msg_id} "
+                        f"(range [{lo},{hi}], attempt {attempts}/{self.max_retries})"
+                    )
+
+                    try:
+                        await self.bot.forward_message(
+                            chat_id=chat_id,
+                            from_chat_id=self.relay_channel_id,
+                            message_id=msg_id,
+                            disable_notification=False,
+                        )
+                        logger.info(
+                            f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
+                            f"(range [{lo},{hi}], attempt {attempts})"
+                        )
+                        if not last_msg_id or msg_id > last_msg_id:
+                            await self.db.update_last_known_message_id(msg_id)
+                            logger.info(f"[dead_page]   DB updated: last_known_message_id → {msg_id}")
+                        return True
+
+                    except Exception as e:
+                        error_msg = str(e).lower()
+                        if "not found" in error_msg or "bad request" in error_msg:
+                            logger.debug(
+                                f"[dead_page]   NOT FOUND: msg_id={msg_id} "
+                                f"(attempt {attempts})"
+                            )
+                            continue
+                        else:
+                            logger.error(
+                                f"[dead_page]   CHANNEL ERROR: msg_id={msg_id} → {e}",
+                                exc_info=True,
+                            )
+                            return False
+
+                logger.warning(
+                    f"[dead_page] Range [{lo},{hi}] exhausted "
+                    f"({self.max_retries} misses)"
+                )
 
         logger.error(
             f"[dead_page] ALL RANGES EXHAUSTED for chat {chat_id}: "
