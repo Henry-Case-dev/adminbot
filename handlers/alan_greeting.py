@@ -74,17 +74,18 @@ async def _send_greeting(bot, chat_id: int) -> bool:
 @alan_greeting_router.chat_member(
     ChatMemberUpdatedFilter(
         member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
-    )
+    ),
+    lambda event: event.new_chat_member.user.id == settings.ALAN_USER_ID,
 )
 async def on_alan_join(event: types.ChatMemberUpdated):
     """F7: Detect when Alan joins the chat and send greeting video."""
     user = event.new_chat_member.user
     chat_id = event.chat.id
 
-    logger.debug("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
+    logger.info("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
 
     if user.id != settings.ALAN_USER_ID:
-        logger.debug("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
+        logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
         return
 
     logger.info("Alan (id=%d) joined chat %d — detected via ChatMemberUpdated", user.id, chat_id)

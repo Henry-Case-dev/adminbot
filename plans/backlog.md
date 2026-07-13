@@ -119,7 +119,17 @@
 - [ ] T-044: Прогнать все тесты, убедиться в отсутствии регрессий
 - [ ] T-045: Code review и QA
 
+### Багфиксы (2026-07-13)
+- [ ] T-046: БАГФИКС: Dead Page Relay — ALL RANGES EXHAUSTED (Critical)
+  - Исправить `_build_search_ranges()` в `services/dead_page_relay.py`: добавить `_DISCOVERY_RANGES` как fallback после anchored ranges, чтобы при росте канала >200 сообщений алгоритм не ограничивался узким окном [1,200].
+  - Исправить `continue` на строке ~106 — dedup при `last_msg_id=100` не должен сжигать 2 из 10 слотов попыток.
+  - Добавить WARNING-лог при входе в fallback `_DISCOVERY_RANGES`.
+- [ ] T-047: БАГФИКС: Alan Greeting Video — сервис никогда не срабатывает (High)
+  - Поднять diagnostic-логи c DEBUG до INFO уровня в `handlers/alan_greeting.py` (строки 84, 87), чтобы join-события были видны в Better Stack.
+  - Добавить уникальный lambda-фильтр `event.new_chat_member.user.id == settings.ALAN_USER_ID` в `alan_greeting_router` для архитектурного разделения с `slava_presence_router` (у обоих `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)`).
+  - Написать интеграционный тест с обоими роутерами на одном dispatcher — проверка отсутствия конфликтов фильтров.
+
 ---
 
-**Status: Epic 6 DONE. Epic 7 in planning — tasks T-029 through T-037 ready. Epic 8 ready for development.**
+**Status: Epic 6 DONE. Epic 7 in planning — tasks T-029 through T-037 ready. Epic 8 in development — tasks T-038 through T-045 ready. Bugfix T-046/T-047 added 2026-07-13.**
 **Date: 2026-07-13**

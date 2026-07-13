@@ -241,3 +241,47 @@ class TestAlanGreeting:
     @pytest.mark.asyncio
     async def test_router_has_message_handler(self):
         assert len(alan_greeting_router.message.handlers) >= 1
+
+    @pytest.mark.asyncio
+    async def test_both_routers_dispatch_correctly(self):
+        """D21: Integration test verifying both routers coexist on one Dispatcher."""
+        from aiogram import Dispatcher
+        from aiogram.fsm.storage.memory import MemoryStorage
+        from handlers.slava_presence import slava_presence_router, setup_presence
+
+        dp = Dispatcher(storage=MemoryStorage())
+        dp.include_router(slava_presence_router)
+        dp.include_router(alan_greeting_router)
+
+        assert len(slava_presence_router.chat_member.handlers) >= 1
+        assert len(alan_greeting_router.chat_member.handlers) >= 1
+
+        slava_handlers = slava_presence_router.chat_member.handlers
+        alan_handlers = alan_greeting_router.chat_member.handlers
+
+        for slava_h in slava_handlers:
+            assert slava_h.callback is not on_alan_join
+        for alan_h in alan_handlers:
+            assert alan_h.callback is on_alan_join
+
+        alan_filters = alan_handlers[0].filters if alan_handlers else []
+        slava_filters = slava_handlers[0].filters if slava_handlers else []
+        assert alan_filters != slava_filters
+
+        mock_db = MagicMock()
+        mock_db.set_presence = AsyncMock()
+        mock_scheduler = MagicMock()
+        mock_scheduler.signal_immediate_post = AsyncMock()
+        setup_presence(mock_db, mock_scheduler)
+
+        event = make_cmu_event(138811255, "left", "member")
+
+        with patch("handlers.alan_greeting._last_greeting", {}), \
+             patch("handlers.alan_greeting._pick_random_greeting", return_value="media/leha_greeting/test.mp4"), \
+             patch.object(event.bot, "send_message", AsyncMock()):
+            await on_alan_join(event)
+
+        event.bot.send_video.assert_called_once()
+        args, kwargs = event.bot.send_video.call_args
+        assert kwargs["caption"] == "@Alan_Z"
+        assert kwargs["chat_id"] == event.chat.id

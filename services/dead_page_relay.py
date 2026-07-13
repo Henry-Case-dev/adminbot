@@ -100,15 +100,20 @@ class DeadPageRelay:
             )
             tried: set[int] = set()
 
-            for attempt in range(self.max_retries):
-                msg_id = random.randint(lo, hi)
+            attempts = 0
+            while attempts < self.max_retries:
+                try:
+                    msg_id = random.randint(lo, hi)
+                except StopIteration:
+                    break
                 if msg_id in tried:
                     continue
                 tried.add(msg_id)
+                attempts += 1
 
                 logger.debug(
                     f"[dead_page]   Try msg_id={msg_id} "
-                    f"(range [{lo},{hi}], attempt {attempt + 1}/{self.max_retries})"
+                    f"(range [{lo},{hi}], attempt {attempts}/{self.max_retries})"
                 )
 
                 try:
@@ -120,7 +125,7 @@ class DeadPageRelay:
                     )
                     logger.info(
                         f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
-                        f"(range [{lo},{hi}], attempt {attempt + 1})"
+                        f"(range [{lo},{hi}], attempt {attempts})"
                     )
                     # Raise the ceiling if we hit a higher ID than known
                     if not last_msg_id or msg_id > last_msg_id:
@@ -130,10 +135,12 @@ class DeadPageRelay:
 
                 except Exception as e:
                     error_msg = str(e).lower()
+                    # Telegram returns "bad request" for non-existent message IDs,
+                    # so both "not found" and "bad request" mean the message doesn't exist.
                     if "not found" in error_msg or "bad request" in error_msg:
                         logger.debug(
                             f"[dead_page]   NOT FOUND: msg_id={msg_id} "
-                            f"(attempt {attempt + 1})"
+                            f"(attempt {attempts})"
                         )
                         continue
                     else:
@@ -165,12 +172,15 @@ class DeadPageRelay:
         Otherwise use the predefined discovery ranges.
         """
         if last_msg_id and last_msg_id > 0:
-            # Known ID: try the known range, then expand 2x
-            return [
+            anchored = [
                 (1, last_msg_id),
                 (1, max(last_msg_id * 2, 100)),
             ]
-        # Unknown: use progressive discovery
+            # Добавляем _DISCOVERY_RANGES как safety net: если канал вырос
+            # далеко за пределы anchored-диапазонов, прогрессивные диапазоны
+            # ([1,10], [1,50], [1,200], [1,500], [1,2000]) найдут свежие посты.
+            anchored.extend(_DISCOVERY_RANGES)
+            return anchored
         return list(_DISCOVERY_RANGES)
 
     # ── Fallback: local media ───────────────────────────────────

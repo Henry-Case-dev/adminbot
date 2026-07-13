@@ -212,3 +212,38 @@ class TestDeadPageRelay:
         await relay.send_dead_page(-100123, slot="join")
 
         mock_db.record_dead_page_post.assert_called_once_with(-100123, "join")
+
+    def test_build_search_ranges_appends_discovery(self, relay):
+        """D16: Verify anchored ranges come first, then _DISCOVERY_RANGES as safety net."""
+        # Known ID path
+        ranges = relay._build_search_ranges(5)
+        assert ranges == [
+            (1, 5),
+            (1, 100),   # max(5*2, 100)
+            (1, 10),    # _DISCOVERY_RANGES[0]
+            (1, 50),    # _DISCOVERY_RANGES[1]
+            (1, 200),   # _DISCOVERY_RANGES[2]
+            (1, 500),   # _DISCOVERY_RANGES[3]
+            (1, 2000),  # _DISCOVERY_RANGES[4]
+        ]
+
+        # Unknown ID path
+        ranges = relay._build_search_ranges(None)
+        assert ranges == [(1, 10), (1, 50), (1, 200), (1, 500), (1, 2000)]
+
+        # Zero last_msg_id treated as unknown
+        ranges = relay._build_search_ranges(0)
+        assert ranges == [(1, 10), (1, 50), (1, 200), (1, 500), (1, 2000)]
+
+    @pytest.mark.asyncio
+    async def test_dedup_does_not_burn_attempts(self, relay, mock_bot, mock_db):
+        """D17: In narrow range [1,3] with max_retries=10, exactly 3 unique IDs tried."""
+        mock_db.get_last_known_message_id.return_value = 3
+        relay.max_retries = 10
+        mock_bot.forward_message.side_effect = _make_valid_ids(set())
+
+        with patch("random.randint", side_effect=[1, 1, 1, 2, 2, 3, 1, 2, 3, 1, 2, 3]):
+            await relay.send_dead_page(-100123)
+
+        # Only 3 unique IDs in [1,3] range — no empty slot-burning
+        assert mock_bot.forward_message.call_count == 3
