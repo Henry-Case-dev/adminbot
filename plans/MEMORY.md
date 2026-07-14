@@ -1,25 +1,27 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.5.0
-> **Дата:** 2026-07-14
-> **Статус:** Epic 11 COMPLETE — T-052 sequential scanning fix implemented, reviewed, and approved. 185 tests pass. Project PRODUCTION-READY.
+> **Версия:** v2.6.0
+> **Дата:** 2026-07-15
+> **Статус:** T-053 COMPLETED ✅ — Propagation-stopping bug FIXED. All 190 tests pass. F7 Alan Greeting Video now functional in production. Project PRODUCTION-READY with zero known bugs.
 
 ---
 
-## 🔍 Context Sync Summary (2026-07-14)
+## 🔍 Context Sync Summary (2026-07-15)
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **Monitoring** | ✅ COMPLETE | Epic 7 finished: Sentry (error tracking) + Logtail (cloud logging) via Better Stack. |
-| **Epic 8 (F7)** | ✅ COMPLETE | F7 implemented, tested, reviewed. 164 tests pass. 3 review fixes applied (B1, M1, M2). |
-| **Epic 9 (Bugfixes)** | ✅ COMPLETE | T-046 (Critical) + T-047 (High) — implemented with D16-D21. 32 tests passing. Reviewer approved. |
-| **Epic 10 (Admin Commands)** | ✅ COMPLETE | `/deadpage` and `/alangreet` — first Command() filter usage, first message.delete() usage. 181 tests passing. |
-| **Epic 11 (Bugfix T-052)** | ✅ COMPLETE | Sequential scanning fix for DeadPageRelay sparse channels. D28-D30 implemented. 185 tests pass. Reviewer approved. |
-| **Routers** | ✅ 8 routers | admin_commands_router added at position 0 (Command filters) + 7 existing routers. |
-| **MEMORY.md** | ✅ ACCURATE | v2.5.0 — this file (T-052 completed). |
-| **ARCHITECTURE.md** | ✅ ACCURATE | v2.5.0 with T-052 design decisions D28-D30 fully implemented. |
-| **board.md** | ✅ UPDATED | T-048 and T-049 moved to Done. |
-| **backlog.md** | ✅ UPDATED | T-048 and T-049 marked complete. |
+| **Epic 8 (F7)** | ✅ FIXED | F7 Alan Greeting Video now functional — T-053 propagation bug resolved. UNHANDLED sentinel fix. 190 tests pass. |
+| **Epic 9 (Bugfixes)** | ✅ COMPLETE | T-046 (Critical) + T-047 (High) — implemented with D16-D21. |
+| **Epic 10 (Admin Commands)** | ✅ COMPLETE | `/deadpage` and `/alangreet` — first Command() filter usage. 181 tests passing. |
+| **Epic 11 (Bugfix T-052)** | ✅ COMPLETE | Sequential scanning fix for DeadPageRelay. D28-D30 implemented. 185 tests pass. |
+| **T-053 (Critical Bugfix)** | ✅ COMPLETED | Propagation-stopping bug FIXED. UNHANDLED in 3 slava_presence handlers + 2 alan_greeting defence-in-depth. 190 tests pass. Reviewer approved. |
+| **Routers** | ✅ 8 routers | admin_commands_router at position 0 + 7 existing. Event propagation fixed (T-053: UNHANDLED sentinel). |
+| **MEMORY.md** | ✅ UPDATED | v2.6.0 — this file (T-053 COMPLETED). |
+| **ARCHITECTURE.md** | ✅ UPDATED | v2.6.0 — Section 20 implementation verified. D22 in Decision Log. |
+| **Knowledge Graph** | ✅ UPDATED | T-053, F7, F1, D22, slava_presence.py, alan_greeting.py, AdminBot all updated to COMPLETED/FIXED. blocks_before_T-053_fix relation removed, propagates_to added. |
+| **board.md** | ✅ UPDATED | T-053 in Bugfixes section. |
+| **backlog.md** | ✅ UPDATED | T-053 in Bugfixes section. |
 
 ---
 
@@ -35,7 +37,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 4 таблицы, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 185 тестов PASS (v2.5.0) |
+| Тесты | pytest + pytest-asyncio | ✅ 190 тестов PASS (v2.6.0) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -163,6 +165,46 @@ config/    → handlers/ ← filters/    → services/ → tests/
 ---
 
 ## 🆕 Recent Changes
+
+### T-053: Propagation Bug Fix — COMPLETED ✅ (2026-07-15)
+
+**Overview:**
+Critical bugfix for propagation-stopping behavior in `handlers/slava_presence.py`. Three handlers (`on_user_join`, `on_user_leave`, `on_new_slava_member`) returned bare `return` (None) when the user is not Slava (ID 479167456), which stopped aiogram 3.x event propagation. Fix: return `UNHANDLED` sentinel from `aiogram.dispatcher.event.bases`. **IMPLEMENTED, tested (190 tests pass), reviewed, and approved.**
+
+**Architecture Decisions:**
+
+| ID | Decision | Description | Status |
+|----|----------|-------------|--------|
+| D22 | Return `UNHANDLED` from slava_presence handlers | Three handlers in `slava_presence.py` return `UNHANDLED` (not None) when user != SLAVIK_USER_ID. Import from `aiogram.dispatcher.event.bases`. +2 defence-in-depth UNHANDLED in `alan_greeting.py`. | ✅ Implemented |
+| — | D19 Correction | D19's assumption that "aiogram 3.x calls all matching handlers" was **incorrect**. D22 corrects D19. The lambda-filter in D19 was necessary but **not sufficient** — the real root cause was propagation stopping. | ✅ Corrected |
+
+**Implementation Summary:**
+
+| File | Change | Lines |
+|------|--------|-------|
+| `handlers/slava_presence.py` | +1 import (`UNHANDLED`), 3 return-site fixes (+ explicit end-of-function return) | +4 changes |
+| `handlers/alan_greeting.py` | +1 import (`UNHANDLED`), 2 return-site fixes (defence-in-depth in on_alan_join + on_alan_new_member) | +3 changes |
+| `tests/test_slava_presence.py` | +4 unit tests (A: on_user_join UNHANDLED, B: on_user_leave UNHANDLED, C: on_new_slava_member UNHANDLED, D: empty new_chat_members UNHANDLED) | +4 tests |
+| `tests/test_alan_greeting.py` | +1 integration test (E: Router.propagate_event verifies Alan greeting fires after fix) | +1 test |
+
+**Behavior Changes (Verified):**
+| Scenario | Before | After |
+|----------|--------|-------|
+| Slava joins | F1: "ДОЛБОЕБ ВЕРНУЛСЯ" | Same ✅ |
+| Alan joins | ❌ No greeting (propagation stopped) | ✅ Greeting video sent |
+| Any other user joins | None returned, propagation stopped | UNHANDLED returned, propagation continues ✅ |
+
+**Review Findings (all resolved):**
+- Reviewer approved all changes. 190 tests pass with zero regressions.
+
+**Knowledge Graph Operations:**
+- **Entities updated**: 7 (T-053 → COMPLETED, F7 → FIXED, F1 → updated, D22 → IMPLEMENTED, slava_presence.py → FIXED, alan_greeting.py → FIXED, AdminBot → v2.6.0)
+- **Observations deleted**: 19 (old spec/bug observations)
+- **Observations added**: 28 (completion/fix verification)
+- **Relations deleted**: 1 (blocks_before_T-053_fix)
+- **Relations added**: 3 (implements T-053→D22, propagates_to slava_presence→alan_greeting, has_decision AdminBot→D22)
+
+---
 
 ### T-052: Sequential Scan for Sparse Channels — COMPLETED ✅ (2026-07-14)
 
@@ -307,22 +349,29 @@ C:\Code\Python\adminbot\
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-052 (all 52 tasks) ✅ |
+| **Done** | T-001 – T-053 (all 53 tasks) ✅ |
+| **Planned** | — |
 | **In Progress** | — |
 
-> Epics 1–11 complete (52 tasks). Project is PRODUCTION-READY v2.5.0.
+> Epics 1–12 complete (53 tasks). All 190 tests pass. Project PRODUCTION-READY with zero known bugs.
 
 ---
 
 ## 🔗 Knowledge Graph Status
 
-- **Fully synchronized** with current project state (v2.5.0 — T-052 COMPLETE)
-- **T-052 (Sequential Scan for Sparse Channels)**: COMPLETED. D28-D30 implemented. Status updated to "Completed", observation "Implemented: D28-D30, 4 new tests, 185 total passing, reviewer approved" added.
-- **AdminBot v2.5.0**: Version entity created with 5 observations (T-052, D28-D30, 185 tests, reviewer approved, 2026-07-14). Relations: `is_version_of` → AdminBot, `includes` → T-052.
-- **AdminBot entity**: Updated with "v2.5.0 completed: T-052 sequential scanning fix, 185 tests (2026-07-14)".
-- **Epic 10 (Admin Test Commands v2.4.0)**: COMPLETE. T-048 and T-049 implemented with D22-D25. 181 tests pass. Entities: `AdminBot v2.4.0`, `commit ecda6ec`.
-- **commit ecda6ec**: Created (AdminBot v2.4.0, Epic 10 admin test commands, 9 files changed +622/-9, 181 tests passing).
-- **All 11 Epics complete**: 52 tasks (T-001 – T-052) implemented. 185 tests pass. Production-ready.
+- **Fully synchronized** with current project state (v2.6.0 — T-053 COMPLETED)
+- **T-053 (Propagation Bug Fix)**: ✅ COMPLETED. 5 new observations (implementation details, 190 tests, functional F7). Relations: `fixes` → F7, `implements` → D22, `modifies` → slava_presence.py + alan_greeting.py + F1, `introduces` → UNHANDLED Sentinel, `part_of` → AdminBot.
+- **D22 (UNHANDLED Return Decision)**: ✅ IMPLEMENTED. 3 new observations (verification by 5 tests, all 190 pass). Relations: `corrects` → D19.
+- **D19 (Lambda Filter)**: Remains corrected by D22. Lambda filter is correct defence-in-depth but propagation fix was the real solution.
+- **UNHANDLED Sentinel**: Concept entity, unchanged.
+- **F7 (Alan Greeting)**: ✅ FIXED. Old breakage observations removed, replaced with 5 fix-verification observations. Feature is PRODUCTION-FUNCTIONAL.
+- **F1 (Slava Return)**: ✅ Updated. Bug observations replaced with 3 fix-confirmation observations.
+- **handlers/slava_presence.py**: ✅ FIXED. Old fix-required observations removed, replaced with 5 fix-implementation observations.
+- **handlers/alan_greeting.py**: ✅ FIXED. Old defence-in-depth observations removed, replaced with 4 implementation observations.
+- **AdminBot entity**: ✅ Updated. Old T-053 in-progress observation removed, replaced with v2.6.0 completion observations (190 tests, 53 tasks, zero known bugs).
+- **Relations removed**: `blocks_before_T-053_fix` (slava_presence.py → alan_greeting.py) — replaced by `propagates_to`.
+- **Relations added**: `implements` (T-053 → D22), `propagates_to` (slava_presence.py → alan_greeting.py), `has_decision` (AdminBot → D22).
+- **All previous Epics (1-12)**: 53 tasks (T-001 – T-053) implemented. 190 tests pass. Production-ready.
 
 ---
 
@@ -341,7 +390,7 @@ C:\Code\Python\adminbot\
 | **Step 6** | DevOps | ✅ | 181 tests pass (zero regressions). Commit ecda6ec created. |
 | **Step 7** | Memory | ✅ | **THIS STEP** — Final knowledge graph sync + MEMORY.md v2.4.0 |
 
-### Operations Summary (Final)
+### Operations Summary — v2.4.0 (Final)
 
 | Operation | Count | Status |
 |-----------|-------|--------|
@@ -351,26 +400,38 @@ C:\Code\Python\adminbot\
 | **MEMORY.md updated** | ✅ | v2.4.0 COMPLETE — all 10 Epics complete, 49 tasks, 181 tests, production-ready |
 | **ARCHITECTURE.md** | ✅ | v2.4.0 with D22-D25 Decision Log |
 
+### Operations Summary — v2.5.0 (Final Push)
+
+| Operation | Count | Status |
+|-----------|-------|--------|
+| **Entities updated** | 2 | `AdminBot v2.5.0` (+commit 22650d2 observation), `AdminBot` (+v2.5.0 RELEASED observation) |
+| **Entities created** | 1 | `commit 22650d2` (Commit type: 6 files, +289/-142) |
+| **New relations created** | 1 | `committed_as` (AdminBot v2.5.0 → commit 22650d2) |
+| **Git push** | ✅ | `8a7a6f2..22650d2  master -> master` → `origin/master` |
+| **MEMORY.md updated** | ✅ | v2.5.0 FINAL — all 11 Epics complete, 52 tasks, 185 tests, production-ready |
+| **ARCHITECTURE.md** | ✅ | v2.5.0 with D28-D30 Decision Log |
+
 ---
 
-## ✅ FINAL COMPLETION STAMP — 2026-07-14
+## ✅ T-053 COMPLETION STAMP — 2026-07-15
 
-> **Epic 11 Sequential Scan v2.5.0 — полный цикл завершён.**
-> T-052 sequential scanning fix for DeadPageRelay sparse channels — implemented, tested, reviewed, and approved.
-> 4 новых теста (sequential scan, large range skip, update_last_id, error handling).
-> D28-D30 архитектурные решения реализованы в `services/dead_page_relay.py`.
-> **185 тестов** проходит. Reviewer approved.
-> Все 11 Epic'ов (52 задачи T-001 – T-052) выполнены.
-> Проект **PRODUCTION-READY** v2.5.0.
+> **T-053 Propagation Bug Fix — Implementation Complete ✅**
+> Критический баг в `handlers/slava_presence.py` исправлен: все три хендлера (`on_user_join`, `on_user_leave`, `on_new_slava_member`)
+> теперь возвращают `UNHANDLED` вместо `None` для пользователей, не являющихся Славой.
+> `alan_greeting_router` (position 1b) теперь получает join-события — **F7 Alan Greeting функционирует в production.**
+> **Defence-in-depth**: `on_alan_join` и `on_alan_new_member` в `alan_greeting.py` также возвращают `UNHANDLED`.
+> **190 тестов** проходят (185 baseline + 5 новых: A/B/C/D unit + E integration).
+> Reviewer утвердил. Багов не осталось.
 >
-> **📊 Ретроспектива версий:**
-> - v2.0.0: Dead Page V2 (event-driven, forwardMessage)
-> - v2.1.0: Better Stack Monitoring (Sentry + Logtail)
-> - v2.2.0: Alan Greeting Video (F7)
-> - v2.3.0: Bugfixes T-046 + T-047
-> - v2.4.0: Admin Test Commands (/deadpage, /alangreet)
-> - **v2.5.0: Sequential Scan for Sparse Channels (T-052)**
+> **📊 Final Knowledge Graph Operations:**
+> - **Entities updated**: 7 (T-053, F7, F1, D22, slava_presence.py, alan_greeting.py, AdminBot)
+> - **Observations deleted**: 19 (old spec/bug observations)
+> - **Observations added**: 28 (completion/fix verification)
+> - **Relations deleted**: 1 (blocks_before_T-053_fix → replaced by propagates_to)
+> - **Relations added**: 3 (implements, propagates_to, has_decision)
+> - **MEMORY.md**: v2.6.0
+> - **ARCHITECTURE.md**: v2.6.0 (Section 20 implementation verified)
 
 ---
 
-*Последнее обновление: 2026-07-14 — T-052 COMPLETE (Epic 11: Sequential Scan for Sparse Channels — Done)*
+*Последнее обновление: 2026-07-15 — T-053 COMPLETED (Propagation Bug Fix — All 190 tests pass, project PRODUCTION-READY)*
