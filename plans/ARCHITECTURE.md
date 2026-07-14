@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.4.0
-> **Дата:** 2026-07-14
+> **Версия:** v2.5.0
+> **Дата:** 2026-07-15
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -2639,6 +2639,8 @@ logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALA
 
 **Рационале:** В aiogram 3.x фильтры в декораторе `@router.chat_member(f1, f2, ...)` комбинируются через логическое И (AND). Первый фильтр (`ChatMemberUpdatedFilter`) проверяет статусный переход (IS_NOT_MEMBER → IS_MEMBER). Второй фильтр (lambda) проверяет что это именно Alan. Обработчик `on_alan_join` теперь **гарантированно** вызывается только для Alan на уровне диспетчера, а не полагается на внутреннюю проверку. Внутренняя проверка `if user.id != settings.ALAN_USER_ID: return` остаётся как defence‑in‑depth (не вредит, ловится фильтром раньше).
 
+**⚠️ КОРРЕКЦИЯ D19 от 2026-07-15 (T-053):** Предыдущая предпосылка — «возврат `None` не останавливает цепочку» — оказалась НЕВЕРНОЙ. В aiogram 3.x возврат `None` из обработчика ОСТАНАВЛИВАЕТ propagation. Это означает, что даже с lambda-фильтром в `alan_greeting_router`, событие НИКОГДА не доходит до него, потому что `slava_presence_router` (зарегистрированный ПЕРВЫМ) перехватывает ВСЕ join-события и его хендлер `on_user_join` возвращает `None` (bare `return`) для не-Slava пользователей. Решение: хендлеры `slava_presence.py` должны возвращать `UNHANDLED` вместо `None`. См. D22 в Decision Log.
+
 **Примечание о `settings.ALAN_USER_ID` в lambda:** значение `settings.ALAN_USER_ID` (int, default 138811255) вычисляется в момент декорирования (импорт модуля). Lambda захватывает переменную модуля `settings`, которая является синглтоном и не меняется во время жизни бота. Замыкание корректно.
 
 **Изменение 3: Интеграционный тест с двумя роутерами**
@@ -2728,6 +2730,7 @@ async def test_both_routers_alan_event_reaches_greeting():
 | D19 | Lambda‑фильтр `user.id == ALAN_USER_ID` добавляется в декоратор, внутренняя проверка остаётся | Явный фильтр на уровне роутера — архитектурная гигиена. Внутренняя проверка — defence‑in‑depth. |
 | D20 | `logger.debug` → `logger.info` для диагностических строк 84 и 87 | `INFO` — минимальный уровень для production‑мониторинга через Better Stack. Диагностические сообщения о join‑событиях критичны для отладки. |
 | D21 | Интеграционный тест регистрирует оба роутера и проверяет доставку события до Alan | Воспроизводит production‑конфигурацию `bot.py`; доказывает отсутствие конфликта фильтров между роутерами с идентичным `ChatMemberUpdatedFilter`. |
+| D22 | Хендлеры `slava_presence.py` должны возвращать `UNHANDLED`, а не `None`, когда пользователь не Slava | **Корректировка D19:** предыдущее решение D19 предполагало, что aiogram 3.x по умолчанию вызывает все подходящие обработчики и возврат `None` не останавливает цепочку. Это ошибка: в aiogram 3.x возврат `None` из обработчика останавливает propagation. Поскольку `slava_presence_router` зарегистрирован перед `alan_greeting_router`, хендлер `on_user_join` перехватывает все join-события (фильтр `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` совпадает для ЛЮБОГО пользователя), и bare `return` (None) при `user.id != SLAVIK_USER_ID` блокирует дальнейшую диспетчеризацию — Alan's greeting handler никогда не получает событие. Решение: импортировать `UNHANDLED` из aiogram и возвращать его вместо `None`. Signal `UNHANDLED` говорит диспетчеру продолжить propagation к следующему зарегистрированному обработчику. Это охватывает три handler'а: `on_user_join` (строка 33), `on_user_leave` (строка 63), `on_new_slava_member` (строка 75). |
 
 ---
 
@@ -3013,3 +3016,355 @@ def make_admin_message():
 | D25 | `setup_admin_commands(relay)` — dependency injection через глобальную переменную (паттерн `dead_page_trigger.py`) | Единообразие с существующим кодом (`setup_dead_page`, `setup_presence`, `setup_alan`). Relay — синглтон в рантайме. |
 | D26 | Регистрация `admin_commands_router` на позиции 0 | Команды админа должны иметь высший приоритет. Если `/deadpage` совпадёт с другим фильтром (например, текстовым), команда должна быть обработана admin_router, а не catch-all. |
 | D27 | Локальный импорт `_send_greeting` внутри функций `alangreet_dm`/`alangreet_group` | Избегает циклических зависимостей на уровне модуля (`handlers.admin_commands` → `handlers.alan_greeting`). Lazy import при первом вызове команды. |
+
+---
+
+## 20. T-053: Propagation Bug Fix — Implementation Spec
+
+> **Версия:** v2.5.1
+> **Дата:** 2026-07-15
+> **Связанные решения:** D22 (Decision Log §18)
+
+### 20.1 Root Cause Analysis
+
+В aiogram 3.x, `Router._propagate_event()` (`router.py:168-197`) управляет цепочкой вызовов (propagation) между sub‑routers внутри Dispatcher:
+
+```python
+# aiogram/dispatcher/router.py:185-197
+response = await observer.trigger(event, **kwargs)
+if response is REJECTED:
+    return UNHANDLED
+if response is not UNHANDLED:
+    return response           # ← ОСТАНАВЛИВАЕТ propagation!
+
+for router in self.sub_routers:
+    response = await router.propagate_event(...)
+    if response is not UNHANDLED:
+        break                  # ← ОСТАНАВЛИВАЕТ итерацию sub‑routers
+
+return response
+```
+
+Когда обработчик `on_user_join` выполняет bare `return` (строка 33 в `slava_presence.py`), возвращается `None` (Python implicit). `observer.trigger()` возвращает это `None` вызывающему коду. На строке 189: `response is not UNHANDLED` → `None is not UNHANDLED` → **True**. Dispatcher возвращает `None` наверх — и НЕ переходит к следующему sub‑router (`alan_greeting_router`).
+
+**Результат:** `slava_presence_router` (position 1) перехватывает ВСЕ join-события (фильтр `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` совпадает для любого пользователя). Для non‑Slava пользователей bare `return` прерывает propagation → `alan_greeting_router` (position 1b) никогда не получает событие → greeting video для Alan не отправляется.
+
+### 20.2 UNHANDLED Import Specification
+
+`UNHANDLED` — это sentinel‑объект из `unittest.mock.sentinel`:
+
+- **Файл:** `aiogram/dispatcher/event/bases.py`, строка 21
+- **Объявление:** `UNHANDLED = sentinel.UNHANDLED`
+- **Импорт** (два допустимых варианта):
+
+```python
+# Вариант A: прямой импорт из модуля определения (рекомендуется)
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+# Вариант B: импорт из router (используется в aiogram internals)
+from aiogram.dispatcher.router import UNHANDLED
+```
+
+**Вариант A рекомендуется** — это канонический источник (где UNHANDLED определён). Вариант B работает потому что `router.py` делает `from .event.bases import UNHANDLED`, но это re‑export и нестабильно.
+
+**НЕВЕРНЫЕ пути (не существуют):**
+```python
+from aiogram import UNHANDLED           # ❌ не экспортируется в __init__.py
+from aiogram.enums import Unhandled     # ❌ не существует
+```
+
+### 20.3 Fix 1: `handlers/slava_presence.py` — 4 изменения (1 import + 3 return)
+
+#### Change 1a: Add UNHANDLED import (after line 2)
+
+```python
+# БЫЛО (строка 2):
+from aiogram import F, Router, types
+
+# СТАЛО (строка 2‑3):
+from aiogram import F, Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
+```
+
+#### Change 1b: `on_user_join` — non-Slava early return (строка 33)
+
+```python
+# БЫЛО (строки 32-33):
+    if user.id != settings.SLAVIK_USER_ID:
+        return
+
+# СТАЛО:
+    if user.id != settings.SLAVIK_USER_ID:
+        return UNHANDLED
+```
+
+#### Change 1c: `on_user_leave` — non-Slava early return (строка 63)
+
+```python
+# БЫЛО (строки 62-63):
+    if user.id != settings.SLAVIK_USER_ID:
+        return
+
+# СТАЛО:
+    if user.id != settings.SLAVIK_USER_ID:
+        return UNHANDLED
+```
+
+#### Change 1d: `on_new_slava_member` — empty new_chat_members + non-Slava fallthrough (строки 74-75, конец функции)
+
+```python
+# БЫЛО (строки 74-75):
+    if not message.new_chat_members:
+        return
+    # ... (if any ... Slava handling) ...
+    # implicit return None в конце для non-Slava
+
+# СТАЛО:
+    if not message.new_chat_members:
+        return UNHANDLED
+
+    if any(u.id == settings.SLAVIK_USER_ID for u in message.new_chat_members):
+        chat_id = message.chat.id
+        user_id = settings.SLAVIK_USER_ID
+        logger.info(f"Slava joined chat {chat_id} (via new_chat_members)")
+        if _db:
+            await _db.set_presence(user_id, chat_id, True)
+        await message.reply("ДОЛБОЕБ ВЕРНУЛСЯ")
+        if _scheduler:
+            await _scheduler.signal_immediate_post(chat_id)
+
+    return UNHANDLED  # ← явный возврат в конце для non-Slava пользователей
+```
+
+**Rationale:** функция `on_new_slava_member` имеет две точки выхода:
+1. Пустой `new_chat_members` (строка 74‑75) — возвращает `UNHANDLED`
+2. В конце функции (после блока `if any(...)`), когда пользователь не Slava — возвращает `UNHANDLED` явно
+3. Когда пользователь Slava, блок `if` отрабатывает, но НЕ делает return внутри блока — функция продолжается до `return UNHANDLED` в конце. Это корректно: возврат `UNHANDLED` ПОСЛЕ обработки Slava не прерывает propagation.
+
+### 20.4 Fix 2: `handlers/alan_greeting.py` — defence-in-depth cleanup (опциональный)
+
+В `on_alan_join` (строка 87‑89) есть избыточная проверка `user.id != settings.ALAN_USER_ID` с возвратом `None`. После T-047 (добавление lambda‑фильтра в декоратор) эта проверка не нужна, НО оставляется как defence‑in‑depth. Меняем bare `return` на `return UNHANDLED` для семантической корректности — даже если этот код никогда не выполнится (lambda‑фильтр гарантирует вызов только для Alan), sentinel корректнее None.
+
+#### Change 2a: Add UNHANDLED import (после строки 13)
+
+```python
+# БЫЛО (строка 13):
+from aiogram import F, Router, types
+
+# СТАЛО:
+from aiogram import F, Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
+```
+
+#### Change 2b: `on_alan_join` — defence-in-depth return (строка 89)
+
+```python
+# БЫЛО (строки 87-89):
+    if user.id != settings.ALAN_USER_ID:
+        logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
+        return
+
+# СТАЛО:
+    if user.id != settings.ALAN_USER_ID:
+        logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
+        return UNHANDLED
+```
+
+### 20.5 Fix 3: Integration Tests
+
+#### Test A: `test_slava_returns_unhandled_for_non_slava` (в `tests/test_slava_presence.py`)
+
+```python
+@pytest.mark.asyncio
+async def test_on_user_join_returns_unhandled_for_non_slava(self, make_chat_member_updated):
+    """T-053: on_user_join must return UNHANDLED (not None) for non-Slava users."""
+    from aiogram.dispatcher.event.bases import UNHANDLED
+
+    event = make_chat_member_updated(99999, "left", "member")
+    with patch("handlers.slava_presence._db", new=AsyncMock()), \
+         patch("handlers.slava_presence._scheduler", new=AsyncMock()):
+        result = await on_user_join(event)
+
+    assert result is UNHANDLED
+    assert result is not None
+```
+
+#### Test B: `test_on_user_leave_returns_unhandled_for_non_slava` (в `tests/test_slava_presence.py`)
+
+```python
+@pytest.mark.asyncio
+async def test_on_user_leave_returns_unhandled_for_non_slava(self, make_chat_member_updated):
+    """T-053: on_user_leave must return UNHANDLED (not None) for non-Slava users."""
+    from aiogram.dispatcher.event.bases import UNHANDLED
+
+    event = make_chat_member_updated(99999, "member", "left")
+    mock_db = AsyncMock()
+    with patch("handlers.slava_presence._db", new=mock_db), \
+         patch("handlers.slava_presence._scheduler", new=AsyncMock()):
+        result = await on_user_leave(event)
+
+    assert result is UNHANDLED
+    mock_db.set_presence.assert_not_called()
+```
+
+#### Test C: `test_on_new_slava_member_returns_unhandled_for_non_slava` (в `tests/test_slava_presence.py`)
+
+```python
+@pytest.mark.asyncio
+async def test_on_new_slava_member_returns_unhandled_for_non_slava(self):
+    """T-053: Fallback message handler returns UNHANDLED for non-Slava users."""
+    from aiogram.dispatcher.event.bases import UNHANDLED
+    from handlers.slava_presence import on_new_slava_member
+
+    msg = MagicMock()
+    other_user = MagicMock()
+    other_user.id = 99999
+    msg.new_chat_members = [other_user]
+    msg.chat = MagicMock()
+    msg.chat.id = -100
+    msg.bot = AsyncMock()
+    msg.reply = AsyncMock()
+
+    with patch("handlers.slava_presence._db", new=AsyncMock()), \
+         patch("handlers.slava_presence._scheduler", new=AsyncMock()):
+        result = await on_new_slava_member(msg)
+
+    assert result is UNHANDLED
+    msg.reply.assert_not_called()
+```
+
+#### Test D: `test_on_new_slava_member_returns_unhandled_for_empty` (в `tests/test_slava_presence.py`)
+
+```python
+@pytest.mark.asyncio
+async def test_on_new_slava_member_returns_unhandled_when_empty(self):
+    """T-053: Handler returns UNHANDLED when new_chat_members is empty/None."""
+    from aiogram.dispatcher.event.bases import UNHANDLED
+    from handlers.slava_presence import on_new_slava_member
+
+    msg = MagicMock()
+    msg.new_chat_members = None  # или []
+
+    result = await on_new_slava_member(msg)
+
+    assert result is UNHANDLED
+```
+
+#### Test E: Интеграционный тест propagation через Dispatcher (НОВЫЙ — в `tests/test_alan_greeting.py`)
+
+Этот тест верифицирует реальную propagation через aiogram Dispatcher. В отличие от `test_both_routers_dispatch_correctly` (который вызывает хендлеры напрямую, обходя dispatcher), этот тест использует `dp.feed_update()` или эмулирует propagation цепочку.
+
+**Подход: Router‑level propagation test**
+
+Наиболее надёжный способ протестировать propagation в aiogram 3.x без реального Telegram‑update — вызвать `router.propagate_event()` напрямую на Dispatcher (который является Router):
+
+```python
+@pytest.mark.asyncio
+async def test_slava_router_does_not_block_alan_router_in_dispatcher(self):
+    """
+    T-053 Integration: After registering both routers on a Dispatcher,
+    a ChatMemberUpdated event for ALAN must reach the alan_greeting_router
+    and trigger send_video. The slava_presence_router (registered FIRST)
+    must return UNHANDLED to allow propagation to continue.
+
+    This test uses Router.propagate_event() to simulate the dispatcher
+    chain without needing a real Telegram Update dict.
+    """
+    import time
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from aiogram.fsm.storage.memory import MemoryStorage
+    from aiogram.types import ChatMemberUpdated, Chat, User, ChatMember
+    from handlers.slava_presence import slava_presence_router, setup_presence
+    from handlers.alan_greeting import alan_greeting_router, on_alan_join
+
+    # Build a parent Router (simulating Dispatcher) with both routers as sub-routers
+    parent = Router(name="test_dispatcher")
+
+    # Register slava_presence FIRST (as in bot.py: position 1)
+    parent.include_router(slava_presence_router)
+
+    # Register alan_greeting SECOND (as in bot.py: position 1b)
+    parent.include_router(alan_greeting_router)
+
+    # Inject dependencies (slava_presence needs _db and _scheduler)
+    mock_db = MagicMock()
+    mock_db.set_presence = AsyncMock()
+    mock_scheduler = MagicMock()
+    mock_scheduler.signal_immediate_post = AsyncMock()
+    setup_presence(mock_db, mock_scheduler)
+
+    # Build a real ChatMemberUpdated object for Alan (user_id=138811255)
+    alan_user = User(id=138811255, is_bot=False, first_name="Alan")
+    chat = Chat(id=-1001234567890, type="group")
+    old_cm = ChatMember(user=alan_user, status="left")
+    new_cm = ChatMember(user=alan_user, status="member")
+    event = ChatMemberUpdated(
+        update_id=12345,
+        chat=chat,
+        from_user=alan_user,
+        date=0,
+        old_chat_member=old_cm,
+        new_chat_member=new_cm,
+    )
+
+    # Mock bot.send_video to track calls
+    bot_mock = AsyncMock()
+    bot_mock.send_video = AsyncMock()
+    bot_mock.send_message = AsyncMock()
+
+    with patch("handlers.alan_greeting._last_greeting", {}), \
+         patch("handlers.alan_greeting.time.time", return_value=time.time()), \
+         patch("handlers.alan_greeting._pick_random_greeting", return_value="media/leha_greeting/test.mp4"):
+        # Propagate through the parent router
+        result = await parent.propagate_event(
+            update_type="chat_member",
+            event=event,
+            bot=bot_mock,
+        )
+
+    # Verify Alan's greeting was sent (propagation reached alan_greeting_router)
+    bot_mock.send_video.assert_called_once()
+    args, kwargs = bot_mock.send_video.call_args
+    assert kwargs["caption"] == "@Alan_Z"
+    assert kwargs["chat_id"] == -1001234567890
+
+    # Verify slava_presence did NOT act on Alan (non-Slava user)
+    bot_mock.send_message.assert_not_called()
+```
+
+**Важные замечания к Test E:**
+- `Router.propagate_event()` использует `update_type="chat_member"` для диспетчеризации в `chat_member.trigger()`
+- Bot передаётся через keyword‑аргумент `bot=bot_mock`, который подставляется в aiogram‑обработчики
+- `ChatMemberUpdated` — реальный aiogram‑объект, созданный конструктором (не MagicMock), чтобы фильтры `ChatMemberUpdatedFilter` корректно обработали поля `old_chat_member.status`, `new_chat_member.status`
+- После Fix 1 (UNHANDLED), `slava_presence_router` возвращает `UNHANDLED` → parent продолжает к `alan_greeting_router` → `on_alan_join` вызывается
+- `assert bot_mock.send_message.assert_not_called()` — валидирует что slava_presence не отправил "ДОЛБОЕБ ВЕРНУЛСЯ" для Alan
+
+### 20.6 Expected Behavior Changes
+
+| Сценарий | До фикса | После фикса |
+|----------|---------|-------------|
+| Славик (479167456) заходит в чат | F1: "ДОЛБОЕБ ВЕРНУЛСЯ" | **Без изменений** — тот же результат |
+| Славик (479167456) выходит из чата | F1: обновляет presence | **Без изменений** — тот же результат |
+| Alan (138811255) заходит в чат | ❌ F7: greeting video НЕ отправляется (slava_presence остановил propagation) | ✅ F7: greeting video отправляется (UNHANDLED позволяет propagation) |
+| Костик (350803143) заходит в чат | Ничего (оба хендлера фильтруют по user_id) | **Без изменений** — но теперь slava_presence возвращает UNHANDLED вместо None |
+| Любой другой пользователь заходит | Ничего | **Семантически корректнее** — propagation продолжается корректно |
+| `on_new_slava_member` для non‑Slava | ❌ Возвращает `None`, блокирует propagation для Message‑типа событий | ✅ Возвращает `UNHANDLED` |
+| `on_new_slava_member` с пустым `new_chat_members` | ❌ Возвращает `None` | ✅ Возвращает `UNHANDLED` |
+
+### 20.7 Files Changed
+
+| Файл | Изменение | Строки |
+|------|-----------|--------|
+| `handlers/slava_presence.py` | +1 import (`UNHANDLED`), 3 return‑site fixes | 2, 33, 63, 74‑75, конец функции |
+| `handlers/alan_greeting.py` | +1 import (`UNHANDLED`), 1 return‑site fix (defence‑in‑depth) | 13, 89 |
+| `tests/test_slava_presence.py` | +4 теста: Test A, B, C, D | Новые методы |
+| `tests/test_alan_greeting.py` | +1 интеграционный тест (Test E) | Новый метод |
+| `plans/ARCHITECTURE.md` | +Section 20 (this spec) | Конец файла |
+
+### 20.8 Verification Checklist
+
+1. **Unit tests**: `pytest tests/test_slava_presence.py -v` — все 4 новых теста проходят
+2. **Integration test**: `pytest tests/test_alan_greeting.py::TestAlanGreeting::test_slava_router_does_not_block_alan_router_in_dispatcher -v` — проходит
+3. **Regression**: `pytest tests/ -v` — все существующие тесты проходят без изменений
+4. **Production smoke**: после деплоя Alan заходит в чат → greeting video отправляется; Better Stack показывает логи из `on_alan_join` (log level INFO, T-047)
+5. **Manual propagation test** (опционально): запустить bot, попросить Alan выйти и зайти в чат → проверить отправку видео

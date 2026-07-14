@@ -285,3 +285,60 @@ class TestAlanGreeting:
         args, kwargs = event.bot.send_video.call_args
         assert kwargs["caption"] == "@Alan_Z"
         assert kwargs["chat_id"] == event.chat.id
+
+    @pytest.mark.asyncio
+    async def test_slava_router_does_not_block_alan_router_in_dispatcher(self):
+        """T-053 Integration: After registering both routers on a Dispatcher,
+        a ChatMemberUpdated event for ALAN must reach the alan_greeting_router
+        and trigger send_video. The slava_presence_router (registered FIRST)
+        must return UNHANDLED to allow propagation to continue."""
+        import time
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from aiogram import Router
+        from aiogram.types import ChatMemberUpdated, Chat, User, ChatMemberLeft, ChatMemberMember
+        from handlers.slava_presence import slava_presence_router, setup_presence
+        from handlers.alan_greeting import alan_greeting_router
+
+        slava_presence_router._parent_router = None
+        alan_greeting_router._parent_router = None
+
+        parent = Router(name="test_dispatcher")
+        parent.include_router(slava_presence_router)
+        parent.include_router(alan_greeting_router)
+
+        mock_db = MagicMock()
+        mock_db.set_presence = AsyncMock()
+        mock_scheduler = MagicMock()
+        mock_scheduler.signal_immediate_post = AsyncMock()
+        setup_presence(mock_db, mock_scheduler)
+
+        alan_user = User(id=138811255, is_bot=False, first_name="Alan")
+        chat = Chat(id=-1001234567890, type="group")
+        old_cm = ChatMemberLeft(user=alan_user, status="left")
+        new_cm = ChatMemberMember(user=alan_user, status="member")
+
+        bot_mock = AsyncMock()
+        bot_mock.send_video = AsyncMock()
+        bot_mock.send_message = AsyncMock()
+
+        event = ChatMemberUpdated(
+            update_id=12345, chat=chat, from_user=alan_user,
+            date=0, old_chat_member=old_cm, new_chat_member=new_cm,
+        )
+        event._bot = bot_mock
+
+        with patch("handlers.alan_greeting._last_greeting", {}), \
+             patch("handlers.alan_greeting.time.time", return_value=time.time()), \
+             patch("handlers.alan_greeting._pick_random_greeting", return_value="media/leha_greeting/test.mp4"):
+            result = await parent.propagate_event(
+                update_type="chat_member", event=event, bot=bot_mock,
+            )
+
+        bot_mock.send_video.assert_called_once()
+        args, kwargs = bot_mock.send_video.call_args
+        assert kwargs["caption"] == "@Alan_Z"
+        assert kwargs["chat_id"] == -1001234567890
+        bot_mock.send_message.assert_not_called()
+
+        slava_presence_router._parent_router = None
+        alan_greeting_router._parent_router = None

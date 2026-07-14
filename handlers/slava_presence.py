@@ -1,5 +1,6 @@
 import logging
 from aiogram import F, Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
 from config.settings import settings
 
@@ -30,21 +31,18 @@ async def on_user_join(event: types.ChatMemberUpdated):
     chat_id = event.chat.id
     
     if user.id != settings.SLAVIK_USER_ID:
-        return
+        return UNHANDLED
     
     logger.info(f"Slava joined chat {chat_id}")
     
-    # Update presence
     if _db:
         await _db.set_presence(user.id, chat_id, True)
     
-    # Send welcome message
     await event.bot.send_message(
         chat_id=chat_id,
         text="ДОЛБОЕБ ВЕРНУЛСЯ"
     )
     
-    # Trigger immediate dead page post
     if _scheduler:
         await _scheduler.signal_immediate_post(chat_id)
 
@@ -60,7 +58,7 @@ async def on_user_leave(event: types.ChatMemberUpdated):
     chat_id = event.chat.id
     
     if user.id != settings.SLAVIK_USER_ID:
-        return
+        return UNHANDLED
     
     logger.info(f"Slava left chat {chat_id}")
     
@@ -72,7 +70,7 @@ async def on_user_leave(event: types.ChatMemberUpdated):
 async def on_new_slava_member(message: types.Message):
     """Fallback: detect Slava join via new_chat_members field."""
     if not message.new_chat_members:
-        return
+        return UNHANDLED
     
     if any(u.id == settings.SLAVIK_USER_ID for u in message.new_chat_members):
         chat_id = message.chat.id
@@ -87,3 +85,5 @@ async def on_new_slava_member(message: types.Message):
         
         if _scheduler:
             await _scheduler.signal_immediate_post(chat_id)
+
+    return UNHANDLED

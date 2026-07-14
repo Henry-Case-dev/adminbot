@@ -134,6 +134,23 @@
   - Изменения: модифицировать `_probe_range()` в `services/dead_page_relay.py` — перед random retries проверить `if hi - lo + 1 <= 50`, затем перебор ID последовательно через `bot.forward_messages()` с проверкой исключений.
   - Логирование: INFO при входе в sequential mode ("Narrow range [lo,hi]: switching to sequential scan"), INFO при успешном нахождении ("Sequential scan hit: message_id=X at attempt Y").
 
+- [ ] T-053: БАГФИКС: Propagation-stopping bug в slava_presence.py — F7 Alan greeting полностью сломана в production (Critical)
+  - Проблема: три хендлера в `handlers/slava_presence.py` (`on_user_join`, `on_user_leave`, `on_new_slava_member`) возвращают `None` (bare `return`) когда пользователь не Slava. В aiogram 3.x возврат `None` из обработчика останавливает propagation события. Поскольку `slava_presence_router` зарегистрирован ПЕРЕД `alan_greeting_router`, он перехватывает ВСЕ join-события, и Alan's router никогда их не получает. F7 сломана полностью.
+  - Fix 1 (PRIMARY, @Builder): Возвращать `UNHANDLED` из хендлеров slava_presence.py
+    - Файл: `handlers/slava_presence.py`
+    - Импортировать `UNHANDLED` из aiogram
+    - В `on_user_join` (строка ~33): `return` → `return UNHANDLED` когда `user.id != SLAVIK_USER_ID`
+    - В `on_user_leave` (строка ~63): `return` → `return UNHANDLED` когда `user.id != SLAVIK_USER_ID`
+    - В `on_new_slava_member` (строка ~75): `return` → `return UNHANDLED` когда `not message.new_chat_members`
+  - Fix 2 (DEFENCE-IN-DEPTH, @Builder): Убрать или конвертировать избыточную проверку user ID в alan_greeting.py
+    - Файл: `handlers/alan_greeting.py`
+    - В `on_alan_join` (строки ~87-89): проверка `if user.id != settings.ALAN_USER_ID: return` избыточна, поскольку lambda-фильтр в декораторе уже гарантирует вызов только для Alan. Убрать или конвертировать в `return UNHANDLED`.
+  - Fix 3 (TESTS, @Builder): Добавить интеграционный тест с реальной диспетчеризацией
+    - Текущий `test_both_routers_dispatch_correctly` вызывает `on_alan_join()` напрямую — в обход диспетчера
+    - Новый тест: создать Dispatcher, зарегистрировать оба роутера, скормить `ChatMemberUpdated` update, проверить что Alan's greeting срабатывает (send_video вызван)
+    - Новый тест: проверить что когда slava_presence возвращает `UNHANDLED`, propagation продолжается к следующему роутеру
+  - Fix 4: НЕ РЕАЛИЗОВАНО (UserIdFilter на уровне декоратора для Slava — не нужен если Fix 1 работает)
+
 ---
 
 ## Epic 9: Admin Test Commands (2026-07-14)
@@ -180,5 +197,5 @@
 
 ---
 
-**Status: Epic 1–8 DONE (Epic 7 in planning). Epic 9: Admin Test Commands — T-048 through T-051 ready for development.**
-**Date: 2026-07-14**
+**Status: Epic 1–8 DONE (Epic 7 in planning). Epic 9: Admin Test Commands — T-048 through T-051 ready for development. T-053 (Critical bugfix — F7 Alan greeting broken) added.**
+**Date: 2026-07-15**

@@ -22,6 +22,11 @@
 - [ ] T-046: Dead Page Relay — ALL RANGES EXHAUSTED. Fix `_build_search_ranges()` fallback to `_DISCOVERY_RANGES`; fix dedup `continue` burning attempt slots.
 - [ ] T-047: Alan Greeting Video — service never fires. Raise logs DEBUG→INFO; add unique lambda filter `user.id == ALAN_USER_ID`; integration test with both routers.
 - [ ] T-052: Dead Page Relay — sequential scanning for sparse channels. Add linear scan for narrow ranges (≤ 50 ID) in `_probe_range()` to guarantee hit on sparse channels (1 post out of 2000 IDs). Switch from random probing to sequential forward_messages() when `hi - lo ≤ 50`.
+- [ ] T-053: Propagation-stopping bug in slava_presence.py — F7 Alan greeting completely broken in production (Critical)
+  - Fix 1 (@Builder): Return `UNHANDLED` from slava_presence.py handlers (on_user_join, on_user_leave, on_new_slava_member) when user is not Slava. File: `handlers/slava_presence.py`. Import `UNHANDLED` from aiogram.
+  - Fix 2 (@Builder): Remove or convert redundant user ID check in `handlers/alan_greeting.py` (`on_alan_join` lines ~87-89) — lambda filter in decorator already guarantees Alan-only dispatch. Defence-in-depth.
+  - Fix 3 (@Builder): Add integration test with real Dispatcher routing. Current `test_both_routers_dispatch_correctly` bypasses dispatcher. New test: register both routers on Dispatcher, feed `ChatMemberUpdated` update, verify Alan's greeting fires. Also test that UNHANDLED propagation works.
+  - Fix 4: NOT IMPLEMENTED (UserIdFilter at decorator level for Slava — unnecessary if Fix 1 works).
 
 ### Epic 7: Better Stack Monitoring Integration
 - [ ] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt
@@ -96,4 +101,4 @@
 
 ---
 
-**Updated:** 2026-07-14 — Epic 9 (Admin Test Commands) added to Backlog (T-048–T-051). First command handlers + message deletion in project.
+**Updated:** 2026-07-15 — Epic 9 (Admin Test Commands) added to Backlog (T-048–T-051). T-053 (Critical — F7 propagation bug) added to Bugfixes. First command handlers + message deletion in project.

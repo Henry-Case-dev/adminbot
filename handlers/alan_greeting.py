@@ -11,6 +11,7 @@ import random
 import time
 
 from aiogram import F, Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
 from aiogram.types import FSInputFile
 
@@ -86,7 +87,7 @@ async def on_alan_join(event: types.ChatMemberUpdated):
 
     if user.id != settings.ALAN_USER_ID:
         logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
-        return
+        return UNHANDLED
 
     logger.info("Alan (id=%d) joined chat %d — detected via ChatMemberUpdated", user.id, chat_id)
 
@@ -107,7 +108,7 @@ async def on_alan_join(event: types.ChatMemberUpdated):
 async def on_alan_new_member(message: types.Message):
     """Fallback: detect Alan join via new_chat_members field."""
     if not message.new_chat_members:
-        return
+        return UNHANDLED
 
     chat_id = message.chat.id
 
@@ -121,8 +122,10 @@ async def on_alan_new_member(message: types.Message):
             if elapsed < settings.ALAN_GREETING_COOLDOWN:
                 logger.info("Greeting for chat %d suppressed via new_chat_members (cooldown: %.1fs remaining)",
                            chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
-                return
+                return UNHANDLED
 
         success = await _send_greeting(message.bot, chat_id)
         if success:
             _last_greeting[chat_id] = time.time()
+
+    return UNHANDLED
