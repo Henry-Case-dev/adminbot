@@ -30,6 +30,7 @@ from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
+from handlers.war_alert import war_alert_router, setup_war_alert
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -66,6 +67,7 @@ async def on_startup():
     setup_dead_page(relay, db)
     setup_alan(db)
     setup_admin_commands(relay)
+    setup_war_alert()
     
     # Attach GIF counter middleware to slavik router
     slavik_router.message.middleware(MessageCounterMiddleware(db))
@@ -96,7 +98,10 @@ async def on_startup():
     # 4. Dead Page trigger — reposts from @d_pages (NEW in V2)
     dp.include_router(dead_page_router)
 
-    # 5. Slava router — user ID 479167456 (F3, F4, F5 + catch-all)
+    # 4b. War Words Alert (F5v2) — keyword + channel repost alerts (Epic 10)
+    dp.include_router(war_alert_router)
+
+    # 5. Slava router — user ID 479167456 (F3, F4 + catch-all; F5 moved to 4b)
     dp.include_router(slavik_router)
 
     # 6. Vasya router — text filters, no user restriction

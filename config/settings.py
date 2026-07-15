@@ -66,5 +66,16 @@ class Settings:
     # Admin test commands (Epic 10)
     ADMIN_USER_ID: int = _env_int("ADMIN_USER_ID", 5885953495)
 
+    # ── War Words Alert (F5v2 / Epic 10) ──
+    # Comma-separated channel IDs for repost detection
+    # Default: "1654872411" (ЧП Пермь / Радар по всей России | БПЛА)
+    WAR_CHANNEL_IDS: str = os.getenv("WAR_CHANNEL_IDS", "1654872411")
+
+    # Comma-separated channel usernames (without @) for repost detection
+    WAR_CHANNEL_USERNAMES: str = os.getenv("WAR_CHANNEL_USERNAMES", "")
+
+    # Comma-separated reply phrases (random choice). Empty = use built-in defaults.
+    WAR_REPLIES: str = os.getenv("WAR_REPLIES", "")
+
 
 settings = Settings()

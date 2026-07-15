@@ -197,5 +197,141 @@
 
 ---
 
-**Status: Epic 1–8 DONE (Epic 7 in planning). Epic 9: Admin Test Commands — T-048 through T-051 ready for development. T-053 (Critical bugfix — F7 Alan greeting broken) added.**
-**Date: 2026-07-15**
+## Epic 10: War Words Redesign (F5) — 2026-07-16
+
+> **Цель:** Переработать F5 (War Words) — исправить баг с caption (фильтр пропускает
+> текст в подписях к медиа/форвардам), расширить словарь ключевых слов, добавить
+> детекцию репостов из военных Telegram-каналов, заменить одиночный хардкод-ответ
+> на рандомный пул фраз, обеспечить детальное Better Stack логирование и 100% тестовое
+> покрытие.
+>
+> **Контекст:** Текущий WarWordFilter проверяет только `message.text`, пропуская
+> `message.caption` (форварды с медиа несут текст в caption). Ключевых слов всего 27 форм
+> в 8 корнях. Ответ один: "трясло ебаное". Нет детекции репостов из каналов.
+> В проекте уже есть паттерны для решения: dead_page_trigger.py (forward_origin + channel ID)
+> и alan.py (рандомный пул reply + random.choice).
+
+### Bugfix: Caption support + keyword expansion
+- [ ] T-054: Fix WarWordFilter — caption support + expand keywords
+  - **Bug:** `__call__` проверяет только `message.text`, пропускает `message.caption`
+  - **Fix:** Проверять `message.text or message.caption` (оба поля)
+  - **Keyword expansion:** Добавить слова и словоформы (существующие 27 форм + новые):
+    - `опасность`, `опасности`, `опасность` — danger
+    - `БПЛА` — UAV (Russian acronym; case-insensitive match)
+    - `ракета`, `ракеты`, `ракет`, `ракете`, `ракетная`, `ракетной`, `ракетную`, `ракетные` — missile
+    - `укрытие`, `укрытия`, `укрытии`, `укрытий` — shelter
+    - `убежище`, `убежища`, `убежищу`, `убежищем` — refuge
+    - `бункер`, `бункера`, `бункере`, `бункеров` — bunker
+    - `внимание` — attention/alert
+    - `беспилотной`, `беспилотная`, `беспилотные`, `беспилотник`, `беспилотники` — UAV/drone
+    - `оповещение`, `оповещения`, `оповещении` — notification/alert
+  - **Architecture:** Добавить слова в `WAR_WORDS` list, паттерны пересобираются автоматически
+  - **Backward compatibility:** Существующие 27 keyword форм сохраняются. Формат списка не меняется — легко добавлять новые слова
+  - **File:** `filters/war_word.py`
+
+### Channel repost detection
+- [ ] T-055: Add channel repost detection handler for military channels
+  - **Pattern:** Использовать существующий шаблон из `handlers/dead_page_trigger.py`:
+    `F.forward_origin` → `isinstance(origin, MessageOriginChannel)` → check `origin.chat.id`
+  - **Target channels:**
+    - Channel ID 1654872411 ("ЧП Пермь")
+    - "Радар по всей России | БПЛА" (ID TBD, match by username)
+  - **Detection:** И по ID, и по username (как dead_page_trigger делает двойную проверку)
+  - **Filter:** `UserIdFilter(settings.SLAVIK_USER_ID)` — только сообщения Славы
+  - **Reply:** Случайная фраза из пула (T-056) через `message.reply()`
+  - **Handler priority:** Router зарегистрирован перед slavik_router (T-060), чтобы репост-детекция срабатывала до catch-all
+  - **File:** `handlers/war_words_trigger.py` — новый файл
+
+### Random reply pool
+- [ ] T-056: Create random reply pool + `random.choice()` logic
+  - **Current:** Одиночный хардкод `"трясло ебаное"` в `war_word_handler` (handlers/slavik.py:19)
+  - **New:** Extensible reply pool в виде списка строк
+  - **Initial pool (5 phrases):**
+    1. `"потрясись"`
+    2. `"повизжи"`
+    3. `"прячься под шконку быстрее"`
+    4. `"закрой ушки и считай до десяти"`
+    5. `"поплачь"`
+  - **Selection:** `random.choice(WAR_REPLIES)` — как в `ALAN_REPLIES` в handlers/alan.py:93
+  - **Extensibility:** Добавление новой фразы = новая строка в списке. Опционально: env-конфигурируемый пул (`WAR_WORDS_REPLY_POOL`) из T-059
+  - **Backward compatibility:** Старый `"трясло ебаное"` убран; новый пул используется и в war_word_handler (keyword match), и в war_words_trigger (channel repost)
+  - **Reply mechanism:** `await message.reply(reply_text)` — reply_to mechanism (уже используется)
+
+### Logging
+- [ ] T-057: Add comprehensive Better Stack logging
+  - **Levels:**
+    - `INFO`: keyword matched (какое слово, chat_id, user_id), channel repost detected, reply sent
+    - `WARNING`: filter miss (caption empty, origin not channel)
+    - `ERROR`: handler failures
+  - **Context per log:** chat_id, user_id, matched keyword, channel source, chosen reply text
+  - **Files to instrument:** `filters/war_word.py`, `handlers/slavik.py` (war_word_handler), `handlers/war_words_trigger.py`
+  - **Consistency:** Использовать тот же стиль логов, что в dead_page_trigger.py и alan.py
+
+### Testing
+- [ ] T-058: Create/extend tests — filter, handler, integration
+  - **Filter tests** (`tests/test_war_word_filter.py` — новый файл, ~12 tests):
+    - text-only match (existing keywords)
+    - caption match (новые keywords)
+    - empty text + empty caption → no match
+    - caption-only match → match
+    - text present but no war word → no match
+    - caption present but no war word → no match
+    - all new keyword forms (опасность, БПЛА, ракетная, etc.)
+    - case insensitivity (бпла, БПЛА, Бпла)
+    - word boundary test — "внимание" matches, "внимательный" doesn't
+    - non-Slava user with war word — filter passes, handler ignores (проверка UserIdFilter)
+  - **Handler tests** (`tests/test_slavik_handlers.py` — обновить, ~6 tests):
+    - war word keyword → random reply from pool (verify reply in WAR_REPLIES)
+    - verify `message.reply()` called (reply_to mechanism)
+    - verify randomness (run 10x, assert at least 2 different replies)
+    - no war word + Slava → catch-all "пошёл нахуй"
+    - no war word + non-Slava → no reply
+  - **Channel repost handler tests** (`tests/test_war_words_trigger.py` — новый файл, ~10 tests):
+    - forward from target channel ID → reply triggered
+    - forward from target channel username → reply triggered
+    - forward from non-target channel → no reply
+    - forward from user (not channel) → no reply
+    - non-forward message → no reply
+    - non-Slava forward from target → no reply
+    - verify `message.reply()` called with reply from pool
+    - empty caption → still triggers (channel match, not keyword match)
+    - multiple channels in list — ID match works for any
+  - **Integration tests** (`tests/test_slavik_handlers.py` — обновить):
+    - full pipeline: handler registered on dispatcher → message → reply
+
+### Configuration
+- [ ] T-059: Update `config/settings.py` with new env vars + `.env.example`
+  - `WAR_WORDS_CHANNEL_IDS`: list[int] — ID военных каналов для репост-детекции (default: [1654872411])
+  - `WAR_WORDS_CHANNEL_USERNAMES`: list[str] — usernames военных каналов (default: [])
+  - `WAR_WORDS_REPLY_POOL`: list[str] — опциональный env-переопределяемый пул ответов (default: пустой — используется хардкод-пуль в коде из T-056)
+  - Формат в .env: comma-separated (напр. `WAR_WORDS_CHANNEL_IDS=1654872411,123456789`)
+
+### Integration
+- [ ] T-060: Register `war_words_trigger_router` in `bot.py`
+  - **Position:** Между dead_page_router (#4) и slavik_router (#5)
+  - **Rationale:** Репост-детекция должна срабатывать до slavik catch-all, но после dead_page_trigger
+  - **Actual position:** 4b в router order
+  - **Wire-up:** `setup_war_words_trigger()` — аналог `setup_dead_page()`, если нужны зависимости
+
+### Documentation
+- [ ] T-061: Update README — document F5 v2
+  - Expanded keyword list (categories: дроны, ракеты, опасность, убежища, оповещение)
+  - Channel repost detection (список каналов)
+  - Random reply pool (5 phrases, extensible)
+  - Caption support (bugfix)
+  - Link to new env vars in .env.example
+
+### QA & Deploy
+- [ ] T-062: Run full pytest suite — verify no regressions, all new functions covered
+  - Target: ~28 новых тестов (12 filter + 6 handler + 10 trigger)
+  - Verify: существующие 190 тестов не сломаны
+  - Coverage: 100% новых функций
+- [ ] T-063: Deploy to server
+  - Git pull, restart bot
+  - Smoke test: send war keyword → random reply; forward from target channel → random reply
+  - Verify Better Stack logs appear
+
+---
+
+**Status: Epic 1–8 DONE. Epic 9: Admin Test Commands — T-048 through T-051 ready. T-053 (Critical — F7 propagation bug) in Bugfixes. Epic 10: War Words Redesign — T-054 through T-063 in planning.**
+**Date: 2026-07-16**

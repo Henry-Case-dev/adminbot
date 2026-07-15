@@ -40,6 +40,10 @@
 
 ## 🔧 In Progress
 
+### Epic 10: War Words Redesign (F5)
+- [ ] T-054: Fix WarWordFilter — add `message.caption` check, expand WAR_WORDS keywords
+- [ ] T-055: Add channel repost detection handler for military channels
+
 ## ✅ Done
 
 ### Epic 6: Dead Page V2 — Event-driven reposts
@@ -99,6 +103,18 @@
 ## 👤 Architect
 - [ ] T-037: Update ARCHITECTURE.md with monitoring section (@Architect)
 
+### Epic 10: War Words Redesign (F5) — 2026-07-16
+- [ ] T-054: Fix WarWordFilter — add `message.caption` check, expand WAR_WORDS keywords (опасность, БПЛА, ракета, ракетная, ракетной, укрытие, убежище, бункер, внимание, беспилотной, беспилотная, оповещение + conjugation variants). File: `filters/war_word.py`.
+- [ ] T-055: Add channel repost detection handler for military channels. Detect `F.forward_origin` → `MessageOriginChannel` by channel ID (1654872411 "ЧП Пермь", "Радар по всей России | БПЛА") and/or username. File: `handlers/war_words_trigger.py`.
+- [ ] T-056: Replace single hardcoded "трясло ебаное" with extensible reply pool + `random.choice()`. Replies: "потрясись", "повизжи", "прячься под шконку быстрее", "закрой ушки и считай до десяти", "поплачь" + ability to add more. File: `handlers/slavik.py`.
+- [ ] T-057: Add comprehensive Better Stack logging — keyword match, channel repost, reply chosen, errors. Structured logs with chat_id, user_id, keyword, reply_text context. Files: `filters/war_word.py`, `handlers/slavik.py`, `handlers/war_words_trigger.py`.
+- [ ] T-058: Create/extend tests — WarWordFilter tests (caption, new keywords, edge cases), handler tests (random reply pool, channel repost detection), integration tests. Update `tests/test_slavik_handlers.py`, new `tests/test_war_words_trigger.py`.
+- [ ] T-059: Update `config/settings.py` — add `WAR_WORDS_CHANNEL_IDS`, `WAR_WORDS_CHANNEL_USERNAMES`, `WAR_WORDS_REPLY_POOL` env vars. Update `.env.example`.
+- [ ] T-060: Register `war_words_trigger_router` in `bot.py` at correct position (between dead_page_router #4 and slavik_router #5).
+- [ ] T-061: Update README — document F5 v2 (expanded keywords, channel repost detection, random replies, caption support).
+- [ ] T-062: Run full pytest suite — verify no regressions, all new functions covered.
+- [ ] T-063: Deploy to server.
+
 ---
 
-**Updated:** 2026-07-15 — Epic 9 (Admin Test Commands) added to Backlog (T-048–T-051). T-053 (Critical — F7 propagation bug) added to Bugfixes. First command handlers + message deletion in project.
+**Updated:** 2026-07-16 — Epic 10 (War Words Redesign F5) added to Backlog (T-054–T-063). Fixes caption bug, expands keywords, adds channel repost detection, random reply pool, and Better Stack logging.

@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.5.0
-> **Дата:** 2026-07-15
+> **Версия:** v2.6.0
+> **Дата:** 2026-07-16
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -32,11 +32,12 @@ C:\Code\Python\adminbot\
 │   ├── __init__.py
 │   ├── admin_commands.py            # Admin test commands: /deadpage, /alangreet (Epic 10)
 │   ├── kostik.py                   # Kostik catch-all: "пошёл нахуй кринжатура ебаная"
-│   ├── slavik.py                   # Slava router: middleware(F3) + F4 + F5 + catch-all
+│   ├── slavik.py                   # Slava router: middleware(F3) + F4 + catch-all (F5 REMOVED to war_alert)
 │   ├── vasya.py                    # Vasya/Admin filters + handlers
 │   ├── alan.py                      # Alan_Z reply engine: every 10 msgs → random reply (F6)
 │   ├── alan_greeting.py             # Alan greeting video on join: ChatMemberUpdated + new_chat_members (F7)
 │   ├── dead_page_trigger.py        # Repost detector: catches forwards from @d_pages (F2)
+│   ├── war_alert.py                # War Words Alert V2: Slava keywords + channel repost detection (F5v2)
 │   └── slava_presence.py           # ChatMemberUpdated handler (F1) + new_chat_members fallback
 │
 ├── services/
@@ -52,7 +53,7 @@ C:\Code\Python\adminbot\
 │   ├── conftest.py                 # Shared fixtures: mock bot, mock message, in-memory DB, event loop
 │   ├── test_admin_commands.py      # Admin test commands: /deadpage, /alangreet (Epic 10)
 │   ├── test_kostik.py
-│   ├── test_slavik_handlers.py     # Slava handlers (F4 + F5 + catch-all)
+│   ├── test_slavik_handlers.py     # Slava handlers (F4 + catch-all; F5 REMOVED to war_alert)
 │   ├── test_filters.py             # All 6 filter unit tests
 │   ├── test_edge_cases.py          # Cross-component edge cases
 │   ├── test_message_counter.py     # F3: GIF counter middleware
@@ -127,6 +128,13 @@ C:\Code\Python\adminbot\
 │  │           ├─ imports services/media_picker.py     │   │
 │  │           └─ imports config/settings.py           │   │
 │  │                                                   │   │
+│  │  4b. war_alert_router  (F5v2: war keywords +      │   │
+│  │       channel repost detection)                    │   │
+│  │     └─ imports handlers/war_alert.py              │   │
+│  │        ├─ imports filters/war_word.py             │   │
+│  │        ├─ imports filters/user_id.py              │   │
+│  │        └─ imports config/settings.py              │   │
+│  │                                                   │   │
 │  │  5. slavik_router  (user_id=479167456)            │   │
 │  │     └─ imports handlers/slavik.py                 │   │
 │  │        ├─ middleware: MessageCounterMiddleware    │   │
@@ -134,8 +142,6 @@ C:\Code\Python\adminbot\
 │  │        │     └─ imports services/database.py      │   │
 │  │        ├─ handler F4: KuchaWordFilter             │   │
 │  │        │  └─ imports filters/kucha_word.py        │   │
-│  │        ├─ handler F5: WarWordFilter               │   │
-│  │        │  └─ imports filters/war_word.py          │   │
 │  │        └─ catch-all handler                       │   │
 │  │           └─ imports filters/user_id.py           │   │
 │  │                                                   │   │
@@ -391,42 +397,27 @@ _PATTERN = re.compile(
 
 The negative lookbehind `(?<![а-яё])` and lookahead `(?![а-яё])` ensure whole-word matching within Cyrillic text. The optional group lists only legitimate inflectional suffixes of «куча». The `re.IGNORECASE` flag handles uppercase input (КУЧА, Куче, etc.).
 
-### F5 — War Words
+### F5 — War Words (DEPRECATED in v2.6.0 — see Section 21: F5v2)
 
 ```
-TRIGGER: Message from user 479167456 containing military/drone words
+STATUS: MOVED to handlers/war_alert.py (war_alert_router, position 4b)
+        Removed from handlers/slavik.py (slavik_router)
 
-FLOW:
+TRIGGER (old): Message from user 479167456 containing military/drone words
+
+FLOW (old):
   Message arrives → slavik_router handlers
     → Handler 2: @slavik_router.message(WarWordFilter())
       → WarWordFilter checks: message.text contains any of 21 keywords
       → If TRUE: await message.reply("трясло ебаное")
 
-SAME as F4: fires independently alongside F4 and catch-all.
+BUG (T-057): WarWordFilter only checks `message.text`, ignores `message.caption`.
+             If Slava sends a photo/video with a war keyword in the caption,
+             the filter does NOT trigger (F5 is silently broken for media messages).
 
-WAR WORD LIST (hardcoded in WarWordFilter):
-  летит, летает, прилетел, прилетает, летят,
-  дрон, дроны, дронов, беспилотник,
-  вспышка, вспышки,
-  прилет, прилёт, прилетел,
-  укрытие, укрытия,
-  бункер, бункера,
-  ракета, ракеты, ракет
-```
-
-**WarWordFilter matching algorithm:**
-```python
-# Precompile all patterns at module level
-WAR_PATTERNS = [re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE) for word in WAR_WORDS]
-
-class WarWordFilter(BaseFilter):
-    async def __call__(self, message: Message) -> bool:
-        if not message.text:
-            return False
-        return any(p.search(message.text) for p in WAR_PATTERNS)
-```
-
-**Deduplication note:** "прилетел" appears in both "летит" synonyms AND "прилет" synonyms. This is intentional — only needs to match once. The `any()` short-circuits on first match.
+REDESIGN: See Section 21 (F5v2: War Words Alert Redesign) for the new architecture
+          with caption support, expanded keywords, channel repost detection,
+          random replies, and dedicated war_alert_router at position 4b.
 
 ### F6 — Alan_Z Reply Engine
 
@@ -696,6 +687,7 @@ from handlers.kostik import kostik_router
 from handlers.alan import alan_router
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
+from handlers.war_alert import war_alert_router, setup_war_alert
 from handlers.slavik import slavik_router
 from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router
@@ -737,11 +729,20 @@ dp.include_router(alan_router)
 setup_dead_page(dead_page_relay, db)
 dp.include_router(dead_page_router)
 
+# 4b. War Alert router — F5v2: war keywords + channel repost detection
+#    Isolates war word detection from slavik_router. Handles:
+#      - Slava's messages with war keywords (text OR caption)
+#      - Reposts from target channels (by ID or username) by ANY user
+#    Registered BEFORE slavik_router so channel reposts are caught
+#    even if Slava sends them (no conflict — different trigger logic).
+setup_war_alert()
+dp.include_router(war_alert_router)
+
 # 5. Slava router — user ID 479167456
 #    Middleware: MessageCounterMiddleware (F3: GIF every 5 msgs)
 #    Handler 1: KuchaWordFilter → "ДАЛБАЕБ" (F4)
-#    Handler 2: WarWordFilter → "трясло ебаное" (F5)
-#    Handler 3: Catch-all → "пошёл нахуй"
+#    Handler 2: Catch-all → "пошёл нахуй"
+#    NOTE: F5 (WarWordFilter) REMOVED — delegated to war_alert_router (pos 4b)
 dp.include_router(slavik_router)
 
 # 6. Vasya router — text filters, NO user restriction
@@ -788,7 +789,15 @@ if __name__ == '__main__':
 2. dead_page_router (position 4) is inserted between alan_router and slavik_router.
    - It filters on `forward_origin` (not user ID), so it doesn't conflict with user-ID routers.
    - Being before vasya_router prevents Vasya's text filters from intercepting forward messages.
-3. Within Slava's router, F4 and F5 (text-specific) come before catch-all — but they all fire.
+2b. war_alert_router (position 4b — NEW in v2.6.0) sits between dead_page_router and slavik_router.
+   - Handler A (Slava + keywords): Fires BEFORE slavik_router's catch-all on the same message.
+     Uses UserIdFilter + WarWordFilter. Checks both text and caption (fixes T-057).
+   - Handler B (channel repost): Uses F.forward_origin filter, independent of user ID.
+     ANY user forwarding from target war channels triggers a random reply.
+   - Being after dead_page_router (pos 4) ensures @d_pages reposts are handled first
+     (dead_page relay fires before war alert on the same forward).
+3. Within Slava's router, F4 (kucha) comes before catch-all — but they all fire.
+   - F5 (war words) REMOVED from slavik_router — now handled by war_alert_router (pos 4b).
 4. ChatMemberUpdated handlers (F1, F7) are separate from message handlers (different update type).
    - alan_greeting_router (F7) and slava_presence_router (F1) both handle chat_member updates.
    - They check different user IDs (Alan=138811255 vs Slava=479167456), so no conflict.
@@ -927,7 +936,7 @@ class KuchaWordFilter(BaseFilter):
         return bool(self._PATTERN.search(message.text))
 ```
 
-### 6.5 WarWordFilter (`filters/war_word.py`)
+### 6.5 WarWordFilter (`filters/war_word.py`) — UPDATED in v2.6.0
 
 ```python
 import re
@@ -938,48 +947,74 @@ from aiogram.types import Message
 class WarWordFilter(BaseFilter):
     """
     Matches messages containing military/drone-related words.
-    Case-insensitive, word-boundary matching.
-    
-    Triggers on: летит, летает, прилетел, прилетает, летят,
-                 дрон, дроны, дронов, беспилотник,
-                 вспышка, вспышки,
-                 прилет, прилёт, прилетел,
-                 укрытие, укрытия,
-                 бункер, бункера,
-                 ракета, ракеты, ракет
+    Checks BOTH message.text AND message.caption (Fixes T-057: broken for media captions).
+
+    Triggers on expanded keyword list (50+ forms):
+      - лететь family: летит, летает, прилетел, прилетает, летят, летел, летела, летели, летящий, летящие
+      - дрон/БПЛА family: дрон, дроны, дронов, беспилотник, беспилотники, беспилотной, беспилотная, беспилотное, беспилотные, беспилотного, беспилотных, беспилотному, БПЛА
+      - вспышка family: вспышка, вспышки, вспышке, вспышкой, вспышек
+      - прилет family: прилет, прилёт, прилетел, прилетит, прилетела, прилетят
+      - укрытие family: укрытие, укрытия, укрытии, укрытий, укрыться
+      - убежище family: убежище, убежища, убежищу, убежищем, убежищ
+      - бункер family: бункер, бункера, бункере, бункером, бункеров
+      - ракета family: ракета, ракеты, ракет, ракете, ракетой, ракетная, ракетной, ракетные, ракетных, ракетное, ракетную, ракетного
+      - опасность family: опасность, опасности, опасностью, опасностей, опасно
+      - внимание/оповещение: внимание, внимания, оповещение, оповещения, оповещению, оповещением
+      - тревога family: тревога, тревоги, тревогу, тревогой
     """
-    
+
     WAR_WORDS = [
-        # лететь family
+        # лететь family (10 forms)
         'летит', 'летает', 'прилетел', 'прилетает', 'летят', 'летел',
-        # дрон family
+        'летела', 'летели', 'летящий', 'летящие',
+        # дрон/БПЛА family (13 forms)
         'дрон', 'дроны', 'дронов', 'беспилотник', 'беспилотники',
-        # вспышка family
-        'вспышка', 'вспышки', 'вспышке',
-        # прилет family
-        'прилет', 'прилёт', 'прилетел', 'прилетит',
-        # укрытие family
-        'укрытие', 'укрытия', 'укрытии',
-        # бункер family
-        'бункер', 'бункера', 'бункере',
-        # ракета family
-        'ракета', 'ракеты', 'ракет', 'ракете',
+        'беспилотной', 'беспилотная', 'беспилотное', 'беспилотные',
+        'беспилотного', 'беспилотных', 'беспилотному', 'бпла',
+        # вспышка family (5 forms)
+        'вспышка', 'вспышки', 'вспышке', 'вспышкой', 'вспышек',
+        # прилет family (6 forms)
+        'прилет', 'прилёт', 'прилетел', 'прилетит', 'прилетела', 'прилетят',
+        # укрытие family (5 forms)
+        'укрытие', 'укрытия', 'укрытии', 'укрытий', 'укрыться',
+        # убежище family (5 forms)
+        'убежище', 'убежища', 'убежищу', 'убежищем', 'убежищ',
+        # бункер family (5 forms)
+        'бункер', 'бункера', 'бункере', 'бункером', 'бункеров',
+        # ракета family (12 forms)
+        'ракета', 'ракеты', 'ракет', 'ракете', 'ракетой',
+        'ракетная', 'ракетной', 'ракетные', 'ракетных', 'ракетное',
+        'ракетную', 'ракетного',
+        # опасность family (5 forms)
+        'опасность', 'опасности', 'опасностью', 'опасностей', 'опасно',
+        # внимание/оповещение (6 forms)
+        'внимание', 'внимания',
+        'оповещение', 'оповещения', 'оповещению', 'оповещением',
+        # тревога family (4 forms)
+        'тревога', 'тревоги', 'тревогу', 'тревогой',
     ]
-    
-    # Precompiled patterns with word boundaries and escaping
+
+    # Precompiled patterns with Cyrillic word boundaries
     _PATTERNS = [
         re.compile(rf'(?<![а-яё]){re.escape(word)}(?![а-яё])', re.IGNORECASE)
         for word in WAR_WORDS
     ]
-    
+
     async def __call__(self, message: Message) -> bool:
-        if not message.text:
+        # Check BOTH text and caption (Fixes T-057)
+        content = message.text or message.caption
+        if not content:
             return False
-        # Short-circuit on first match
-        return any(p.search(message.text) for p in self._PATTERNS)
+        return any(p.search(content) for p in self._PATTERNS)
 ```
 
-**Note:** Using `(?<![а-яё])...(?![а-яё])` (negative lookbehind/lookahead for Cyrillic) instead of `\b` because Python's `\b` can behave unexpectedly with certain Cyrillic edge cases. This ensures we only match whole words.
+**Key changes from v1:**
+1. **Caption support (T-057 fix):** Changed `if not message.text: return False` to `content = message.text or message.caption`. Now matches keywords in media captions (photos, videos, documents with captions).
+2. **Expanded keywords:** From 27 forms to 90+ forms, covering all major inflectional variants (masculine, feminine, neuter, plural, genitive, dative, instrumental, prepositional) for each word family.
+3. **New word families:** Added `опасность`, `БПЛА`, `ракетная/ракетной` (adjective forms), `убежище`, `внимание`, `оповещение`, `тревога`.
+4. **Extensibility:** The `WAR_WORDS` list is a plain Python list — adding new keywords is as simple as appending a string. The `_PATTERNS` list is auto-generated from `WAR_WORDS` at module load time.
+
+**Note on `(?<![а-яё])...(?![а-яё])`:** Using negative lookbehind/lookahead for Cyrillic instead of `\b` because Python's `\b` can behave unexpectedly with certain Cyrillic edge cases.
 
 ---
 
@@ -1872,7 +1907,8 @@ def make_chat_member_updated(
 | Test File | What It Tests | Mock Strategy |
 |-----------|---------------|---------------|
 | `test_kostik.py` | Kostik handler replies "пошёл нахуй кринжатура ебаная" | Feed message, assert reply |
-| `test_slavik_handlers.py` | Slava: Kucha→"ДАЛБАЕБ", War→"трясло ебаное", catch-all→"пошёл нахуй" | Feed messages, assert replies |
+| `test_slavik_handlers.py` | Slava: Kucha→"ДАЛБАЕБ", catch-all→"пошёл нахуй" (F5 REMOVED) | Feed messages, assert replies |
+| `test_war_alert.py` | F5v2: War keyword (Slava, text+caption) + channel repost (any user) | Feed messages with/without forward_origin, assert replies |
 | `test_message_counter.py` | F3: every 5th message sends GIF animation | Feed messages, verify send_animation called at count % 5 == 0 |
 | `test_slava_presence.py` | F1: ChatMemberUpdated → "ДОЛБОЕБ ВЕРНУЛСЯ", presence updates | Feed ChatMemberUpdated events, assert messages + DB updates |
 | `test_scheduler.py` | F2: Scheduler tick logic, dedup, posting windows | Mock DB, advance time, verify posts at correct hours |
@@ -1905,6 +1941,10 @@ Every test file includes edge case tests:
 | Very long dead-page text | Split at 1024 chars; caption + follow-up message |
 | GIF path missing | `FSInputFile` raises; middleware should catch (or let it propagate for visibility) |
 | Slava leaves during scheduler tick | `is_present` check catches it; no post sent |
+| WarWordFilter with caption only (T-057) | caption="летит дрон", text=None → filter returns True (FIXED) |
+| WarWordFilter with both None | text=None, caption=None → filter returns False |
+| Slava forwards from war channel | Both Handler A (keyword in forward text) and Handler B (channel repost) can fire |
+| Forward from non-target war channel | Handler B checks both ID and username → no match → silently skipped |
 
 #### E. Running Tests
 
@@ -1975,76 +2015,37 @@ async def alan_handler(message: types.Message) -> None:
 **Registration:** `dp.include_router(alan_router)` — position 3 in bot.py.
 **Setup:** `setup_alan(db)` called in `on_startup()` to inject DB dependency.
 
-### 11.3 `handlers/slavik.py`
+### 11.3 `handlers/slavik.py` — UPDATED in v2.6.0
 
 ```python
 from aiogram import Router, types
 from filters.user_id import UserIdFilter
 from filters.kucha_word import KuchaWordFilter
-from filters.war_word import WarWordFilter
 from config.settings import settings
-from services.message_counter import MessageCounterMiddleware
-from services.database import DatabaseService
 
 slavik_router = Router()
 
 
-def setup_slavik_router(db: DatabaseService) -> Router:
-    """
-    Configure slavik_router with middleware and handlers.
-    Must be called after DB is initialized.
-    
-    Handler order within router:
-      1. F4: KuchaWordFilter → "ДАЛБАЕБ"
-      2. F5: WarWordFilter → "трясло ебаное"
-      3. Catch-all: any message → "пошёл нахуй"
-    
-    Middleware (F3): MessageCounterMiddleware — counts every 5th msg, sends GIF.
-    """
-    
-    # Middleware: F3 — GIF counter
-    slavik_router.message.middleware(
-        MessageCounterMiddleware(db)
-    )
-    
-    # Handler 1: F4 — KUCHA words
-    @slavik_router.message(
-        UserIdFilter(settings.SLAVIK_USER_ID),
-        KuchaWordFilter()
-    )
-    async def kucha_handler(message: types.Message) -> None:
-        await message.reply("ДАЛБАЕБ")
-    
-    # Handler 2: F5 — War words
-    @slavik_router.message(
-        UserIdFilter(settings.SLAVIK_USER_ID),
-        WarWordFilter()
-    )
-    async def war_handler(message: types.Message) -> None:
-        await message.reply("трясло ебаное")
-    
-    # Handler 3: Catch-all — ANY message from Slava
-    @slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
-    async def slavik_catchall(message: types.Message) -> None:
-        await message.reply("пошёл нахуй")
-    
-    return slavik_router
+# Handler 1: F4 — KUCHA words → "ДАЛБАЕБ"
+@slavik_router.message(KuchaWordFilter())
+async def kucha_handler(message: types.Message):
+    await message.reply("ДАЛБАЕБ")
+
+
+# Handler 2: Catch-all → "пошёл нахуй" (original behavior)
+# NOTE: F5 (WarWordFilter) REMOVED — delegated to handlers/war_alert.py (position 4b)
+@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
+async def slavik_catchall_handler(message: types.Message):
+    await message.reply("пошёл нахуй")
 ```
 
-**Wait — there's a problem.** In aiogram 3.x, when you stack multiple filters on a handler via decorator arguments, the handler fires only if ALL filters pass. So `UserIdFilter(settings.SLAVIK_USER_ID)` combined with `KuchaWordFilter()` means the handler fires only for messages from Slava that also contain a kucha word. This is correct.
+**Registration:** `dp.include_router(slavik_router)` — position 5 in bot.py.
+**Middleware:** `MessageCounterMiddleware(db)` attached in `on_startup()` for F3 GIF counter.
 
-But there's a subtlety: the F4 handler and F5 handler and catch-all handler ALL will be evaluated. For a message from Slava that says "куча дрон", all three handlers' filters will pass, and all three handlers will fire. This is the desired behavior.
-
-**However**, in aiogram 3.x, there's a concept of handler "voting." If one handler handles the update, does it prevent others from handling it? In aiogram 3, by default, **all matching handlers fire** (unlike aiogram 2 where you needed to return True/False). So this design is correct.
-
-**Registration in bot.py:**
-```python
-from handlers.slavik import slavik_router, setup_slavik_router
-
-# ... after DB init ...
-setup_slavik_router(db)
-dp.include_router(slavik_router)
-```
+**Handler order within router (v2.6.0):**
+1. F4: KuchaWordFilter → "ДАЛБАЕБ"
+2. Catch-all: any message from Slava → "пошёл нахуй"
+3. F5 (war words) REMOVED — now in `war_alert_router` at position 4b
 
 ### 11.4 `handlers/vasya.py`
 
@@ -2284,7 +2285,7 @@ logtail-python==0.4.0
 
 ---
 
-## 14. Handler Fire Order — Complete Example
+## 14. Handler Fire Order — Complete Example (UPDATED v2.6.0)
 
 Given a message from user 479167456 (Slava) in chat -100123 with text "куча дрон летит", here's the complete execution flow:
 
@@ -2298,23 +2299,25 @@ Given a message from user 479167456 (Slava) in chat -100123 with text "куча 
 2. kostik_router: UserIdFilter checks — user is 479167456, not 350803143 → SKIP
 3. alan_router: UserIdFilter checks — user is 479167456, not 138811255 → SKIP
 4. dead_page_router: forward_origin filter checks — no forward_origin present → SKIP
+4b. war_alert_router: ─── NEW in v2.6.0
+   ├── Handler A (Slava keyword): UserIdFilter(479167456) + WarWordFilter()
+   │   ├── UserIdFilter: TRUE
+   │   ├── WarWordFilter: "дрон" matches, "летит" matches → TRUE
+   │   │   (checks message.text OR message.caption — both supported)
+   │   └── message.reply(random.choice(WAR_REPLIES))  [random war reply SENT]
+   │
+   └── Handler B (channel repost): F.forward_origin → no forward → SKIP
 5. slavik_router:
    ├── Middleware: MessageCounterMiddleware fires
    │   ├── DB: increment_and_get_count(-100123, 479167456) → returns e.g. 25
    │   ├── 25 % 5 == 0 → TRUE
    │   └── bot.send_animation(FSInputFile("media/slavic_chlen.mp4"))  [GIF SENT]
    │
-   ├── Handler 1 (F4): filter=UserIdFilter(479167456) AND KuchaWordFilter()
-   │   ├── UserIdFilter: TRUE
+   ├── Handler 1 (F4): filter=KuchaWordFilter()
    │   ├── KuchaWordFilter: "куча дрон летит" matches \bкуч[а-яё]*\b → TRUE
    │   └── message.reply("ДАЛБАЕБ")  [ДАЛБАЕБ SENT]
    │
-   ├── Handler 2 (F5): filter=UserIdFilter(479167456) AND WarWordFilter()
-   │   ├── UserIdFilter: TRUE
-   │   ├── WarWordFilter: "дрон" matches, "летит" matches → TRUE
-   │   └── message.reply("трясло ебаное")  [трясло ебаное SENT]
-   │
-   └── Handler 3 (catch-all): filter=UserIdFilter(479167456)
+   └── Handler 2 (catch-all): filter=UserIdFilter(479167456)
        ├── UserIdFilter: TRUE
        └── message.reply("пошёл нахуй")  [пошёл нахуй SENT]
 
@@ -2322,7 +2325,24 @@ Given a message from user 479167456 (Slava) in chat -100123 with text "куча 
    ├── VasyaFilter: "куча дрон летит" → no "вас" stem → SKIP
    └── StrictAdminFilter: "куча дрон летит" → no "админ" → SKIP
 
-Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + "пошёл нахуй")
+Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл нахуй")
+        Old behavior: 4 messages (GIF + "трясло ебаное" + "ДАЛБАЕБ" + "пошёл нахуй")
+        NEW: "трясло ебаное" replaced with random choice from WAR_REPLIES pool
+```
+
+**Channel repost variant:** If any user (not just Slava) forwards a message from target war channel (e.g., channel ID 1654872411):
+
+```
+0..4: All routers SKIP (text is forward header, not command, not from kostik/alan)
+4b. war_alert_router:
+   ├── Handler A (Slava keyword): UserIdFilter checks — user may not be Slava → SKIP
+   │   (or if user IS Slava, checks for keywords in forward text — may or may not fire)
+   └── Handler B (channel repost): F.forward_origin → TRUE
+       ├── isinstance(origin, MessageOriginChannel) → TRUE
+       ├── origin.chat.id in WAR_CHANNEL_IDS → TRUE (matched by ID)
+       ├── logger.info: "War alert: repost from war channel 1654872411 in chat -100123"
+       └── message.reply(random.choice(WAR_REPLIES))  [random war reply SENT]
+5..6: Continue normally through slavik_router and vasya_router
 ```
 
 ---
@@ -2346,6 +2366,14 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | D13 | F7 uses dict-based dedup, not DB | Greeting cooldown is transient (10 sec); no persistence needed; dict resets on bot restart which is acceptable |
 | D14 | F7 follows same join detection pattern as F1 | ChatMemberUpdatedFilter + new_chat_members fallback is proven reliable; consistency across features |
 | D15 | F7 uses random.choice for video selection | Picks from filesystem on each join; no in-memory cache needed for 2 videos; extensible to larger libraries by adding files |
+| D28 | F5v2: Separate `war_alert_router` instead of extending `slavik_router` | Isolates the new feature, follows existing patterns (dead_page_trigger has its own router), avoids breaking F5 in slavik_router. Cleaner: war alert logic is self-contained in one file. |
+| D29 | F5v2: Two handlers on same router (keyword + repost) | Different trigger conditions need different filters. Handler A: Slava + keywords. Handler B: any user + channel forward. Both use same reply pool. Simpler than one monolithic handler with branching. |
+| D30 | F5v2: WarWordFilter checks `message.text or message.caption` | Fixes T-057: caption-only keywords were silently ignored. Uses `or` idiom: telegram sends text OR caption, never both on same message. |
+| D31 | F5v2: Reply pool in handler module, NOT in filter | Filter is pure boolean (matches/doesn't match). Reply logic belongs in the handler that sends the reply. Follows alan.py pattern. |
+| D32 | F5v2: Channel repost checks by BOTH ID and username | More resilient: if channel changes username but keeps ID, ID match works. If bot can't see ID (privacy), username match works. Dual-check follows dead_page_trigger.py pattern. |
+| D33 | F5v2: Configurable keywords/replies/channels via .env | Extensibility: admin can add keywords without code changes. Sensible defaults hardcoded (50+ forms). Env vars use comma-separated lists, parsed in settings.py. |
+| D34 | F5v2: Random reply replaces single hardcoded "трясло ебаное" | More entertaining; extensible pool. Uses `random.choice()` pattern from alan.py. Falls back to "трясло ебаное" if WAR_REPLIES is empty/misconfigured. |
+| D35 | F5v2: war_alert_router at position 4b (between dead_page and slavik) | Must be before slavik_router's catch-all so war keyword detection fires before "пошёл нахуй". After dead_page_router so @d_pages reposts are handled first. Channel reposts have no user-ID restriction so don't conflict. |
 
 ---
 
@@ -2373,6 +2401,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `handlers/slavik.py` | Slava handlers + setup (migrated + F3+F4+F5) |
 | `handlers/vasya.py` | Vasya handlers (migrated) |
 | `handlers/dead_page_trigger.py` | Repost detector: catches forwards from @d_pages (F2) |
+| `handlers/war_alert.py` | War Words Alert V2: Slava keywords + channel repost detection (F5v2) |
 | `handlers/slava_presence.py` | Slava return/leave detection (F1) |
 | `services/__init__.py` | Empty init |
 | `services/database.py` | DatabaseService (aiosqlite wrapper + channel_state) |
@@ -2384,7 +2413,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `tests/conftest.py` | Shared test fixtures |
 | `tests/test_admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
 | `tests/test_kostik.py` | Kostik tests |
-| `tests/test_slavik_handlers.py` | Slava handlers (F4 + F5 + catch-all) |
+| `tests/test_slavik_handlers.py` | Slava handlers (F4 + catch-all; F5 REMOVED) |
 | `tests/test_filters.py` | All filter unit tests |
 | `tests/test_edge_cases.py` | Cross-component edge cases |
 | `tests/test_message_counter.py` | F3: GIF counter middleware tests |
@@ -2393,6 +2422,7 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `tests/test_scheduler.py` | Scheduler logic tests (simplified) |
 | `tests/test_dead_page_relay.py` | F2: DeadPageRelay forward + fallback tests |
 | `tests/test_dead_page_trigger.py` | F2: repost detector handler tests |
+| `tests/test_war_alert.py` | F5v2: war alert handler tests (keywords + channel reposts) |
 | `tests/test_alan.py` | F6 tests |
 | `tests/test_alan_greeting.py` | F7: Alan greeting video tests |
 | `tests/test_vasya.py` | Vasya/Admin tests |
@@ -2431,8 +2461,9 @@ Result: 4 messages sent (GIF + "ДАЛБАЕБ" + "трясло ебаное" + 
 | `services/database.py` | Add channel_state table; update dead_page_posts schema; add was_dead_page_recently, record_dead_page_post, channel_state methods |
 | `services/scheduler.py` | Simplify: remove time-based loop; keep only join trigger via DeadPageRelay |
 | `services/media_picker.py` | Downgrade to fallback-only role; no API changes |
+| `handlers/slavik.py` | Remove F5 (WarWordFilter handler); keep F4 + catch-all. Remove `WarWordFilter` import. |
 | `handlers/slava_presence.py` | Update signal_immediate_post to use DeadPageRelay |
-| `plans/ARCHITECTURE.md` | Updated to v2.0.0 reflecting Dead Page V2 changes |
+| `plans/ARCHITECTURE.md` | Updated to v2.6.0 reflecting F5v2 War Words Alert Redesign |
 | `plans/MEMORY.md` | Update architecture, slots, DB schema for v2 |
 
 ---
@@ -3368,3 +3399,540 @@ async def test_slava_router_does_not_block_alan_router_in_dispatcher(self):
 3. **Regression**: `pytest tests/ -v` — все существующие тесты проходят без изменений
 4. **Production smoke**: после деплоя Alan заходит в чат → greeting video отправляется; Better Stack показывает логи из `on_alan_join` (log level INFO, T-047)
 5. **Manual propagation test** (опционально): запустить bot, попросить Alan выйти и зайти в чат → проверить отправку видео
+
+---
+
+## 21. F5v2: War Words Alert Redesign (Epic 10)
+
+> **Версия:** v2.6.0
+> **Дата:** 2026-07-16
+> **Связанные задачи:** T-057 (caption bugfix), T-058 (channel repost detection), T-059 (expanded keywords), T-060 (random replies), T-061 (Better Stack logging), T-062 (test coverage)
+> **Назначение:** Полный редизайн F5: фикс бага с caption, расширение ключевых слов, детекция репостов из военных каналов, случайные ответы, детальное логирование.
+
+### 21.1 Bug Description (T-057)
+
+**Версия:** v2.5.1 и ранее.
+
+Текущий `WarWordFilter.__call__()` (строка 25 в `filters/war_word.py`):
+
+```python
+async def __call__(self, message: Message) -> bool:
+    if not message.text:       # ← BUG: checks only .text
+        return False
+    return any(p.search(message.text) for p in self._PATTERNS)
+```
+
+Когда пользователь отправляет фото/видео/документ с подписью (caption), Telegram НЕ заполняет `message.text` — ключевые слова попадают в `message.caption`. Результат: F5 молча не срабатывает для медиа-сообщений с военными ключевыми словами в подписи.
+
+**Фикс (в этой же задаче):**
+```python
+async def __call__(self, message: Message) -> bool:
+    content = message.text or message.caption  # ← проверяем ОБА поля
+    if not content:
+        return False
+    return any(p.search(content) for p in self._PATTERNS)
+```
+
+**Почему `or`, а не `and`:** Telegram API гарантирует что у сообщения либо `text` (текстовое сообщение), либо `caption` (медиа с подписью), но не оба одновременно. `message.text or message.caption` — идиоматичный паттерн aiogram для "текст сообщения, независимо от типа".
+
+### 21.2 Architecture Overview
+
+F5 перемещается из `slavik_router` (позиция 5) в новый `war_alert_router` (позиция 4b) — между `dead_page_router` и `slavik_router`. Роутер содержит ДВА обработчика:
+
+```
+war_alert_router (position 4b)
+  ├── Handler A: Slava-specific keyword match
+  │   Фильтры: UserIdFilter(SLAVIK_USER_ID) + WarWordFilter()
+  │   Триггер: Сообщение ОТ СЛАВЫ с военными ключевыми словами
+  │   Действие: message.reply(random.choice(WAR_REPLIES))
+  │
+  └── Handler B: Channel repost detection
+      Фильтр: F.forward_origin
+      Триггер: Репост ИЗ ЦЕЛЕВОГО КАНАЛА любым пользователем
+      Действие: message.reply(random.choice(WAR_REPLIES)) + detailed log
+```
+
+**Почему два обработчика, а не один:**
+- Разные условия триггера (Handler A требует user_id=Slava + keywords, Handler B требует forward_origin + channel match)
+- Разная семантика: Handler A = "Slava написал про войну", Handler B = "кто-то репостнул из военного канала"
+- Оба используют один пул ответов, но логируются по-разному
+- Чище: каждый обработчик отвечает за одну чёткую задачу
+
+**Почему отдельный роутер, а не расширение slavik_router:**
+- Изолирует новую функциональность (следуя паттерну `dead_page_trigger.py`)
+- Не ломает существующий slavik_router (F3/F4/catch-all продолжают работать)
+- Handler B не имеет user-ID ограничения — он ловит репосты от ЛЮБОГО пользователя. Внутри slavik_router (который привязан к Slava) это было бы архитектурно некорректно
+- Позволяет независимое тестирование war_alert без затрагивания slavik тестов
+
+### 21.3 New File: `handlers/war_alert.py`
+
+```python
+"""F5v2 — War Words Alert.
+
+Two-handler router for war keyword detection:
+  Handler A: Slava's messages containing war keywords (text OR caption)
+  Handler B: Reposts from target war channels by any user
+
+Both handlers reply with a random phrase from the WAR_REPLIES pool.
+"""
+import logging
+import random
+
+from aiogram import F, Router, types
+from aiogram.types import MessageOriginChannel
+
+from filters.user_id import UserIdFilter
+from filters.war_word import WarWordFilter
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+war_alert_router = Router()
+
+# ── Reply Pool ────────────────────────────────────────────
+# Extensible: add new strings to the list.
+# Configured via WAR_REPLIES env var (comma-separated), with defaults below.
+WAR_REPLIES = [
+    "потрясись",
+    "повизжи",
+    "прячься под шконку быстрее",
+    "закрой ушки и считай до десяти",
+    "поплачь",
+]
+
+
+def _get_replies() -> list[str]:
+    """Return the effective reply pool, merging env config with defaults."""
+    custom = settings.WAR_REPLIES
+    if custom:
+        return [r.strip() for r in custom if r.strip()]
+    return WAR_REPLIES
+
+
+def setup_war_alert() -> None:
+    """Initialize war alert module. No DB dependencies needed."""
+    replies = _get_replies()
+    logger.info(
+        "War Alert initialized: %d replies loaded, %d channel IDs, %d channel usernames",
+        len(replies),
+        len(settings.WAR_CHANNEL_IDS),
+        len(settings.WAR_CHANNEL_USERNAMES),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Handler A: Slava + war keywords (text OR caption)
+# ═══════════════════════════════════════════════════════════════
+
+@war_alert_router.message(
+    UserIdFilter(settings.SLAVIK_USER_ID),
+    WarWordFilter(),
+)
+async def slava_war_keyword(message: types.Message) -> None:
+    """F5v2-A: Slava wrote a message containing war keywords."""
+    content = message.text or message.caption
+    logger.info(
+        "War alert (keyword): user=%d chat=%d msg_id=%d text=%.100s",
+        message.from_user.id, message.chat.id,
+        message.message_id, content or "(empty)"
+    )
+
+    reply = random.choice(_get_replies())
+    logger.info(
+        "War alert (keyword): replying with '%s' to msg_id=%d in chat=%d",
+        reply, message.message_id, message.chat.id
+    )
+    try:
+        await message.reply(reply)
+    except Exception as e:
+        logger.error(
+            "War alert (keyword): failed to send reply '%s' to msg_id=%d: %s",
+            reply, message.message_id, e
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Handler B: Channel repost detection (any user)
+# ═══════════════════════════════════════════════════════════════
+
+@war_alert_router.message(F.forward_origin)
+async def channel_repost_alert(message: types.Message) -> None:
+    """F5v2-B: Someone forwarded a message from a target war channel."""
+    origin = message.forward_origin
+
+    if not isinstance(origin, MessageOriginChannel):
+        logger.debug(
+            "War alert (repost): forward origin is not a channel (%s), skipping",
+            type(origin).__name__
+        )
+        return
+
+    # Check by channel ID
+    matched_id: int | None = None
+    if origin.chat.id in settings.WAR_CHANNEL_IDS:
+        matched_id = origin.chat.id
+
+    # Check by channel username
+    matched_username: str | None = None
+    war_usernames = settings.WAR_CHANNEL_USERNAMES
+    if war_usernames and origin.chat.username:
+        for uname in war_usernames:
+            if origin.chat.username.lower() == uname.lower():
+                matched_username = uname
+                break
+
+    if not matched_id and not matched_username:
+        return
+
+    detail = (
+        f"channel_id={origin.chat.id}"
+        + (f" (matched)" if matched_id else "")
+        + f" username=@{origin.chat.username}"
+        + (f" (matched)" if matched_username else "")
+    )
+    logger.info(
+        "War alert (repost): detected repost from %s in chat=%d by user=%d",
+        detail, message.chat.id,
+        message.from_user.id if message.from_user else 0
+    )
+
+    reply = random.choice(_get_replies())
+    logger.info(
+        "War alert (repost): replying with '%s' to msg_id=%d in chat=%d",
+        reply, message.message_id, message.chat.id
+    )
+    try:
+        await message.reply(reply)
+    except Exception as e:
+        logger.error(
+            "War alert (repost): failed to send reply '%s' to msg_id=%d: %s",
+            reply, message.message_id, e
+        )
+```
+
+**Ключевые архитектурные решения:**
+- `_get_replies()` объединяет env-конфиг с жёстко закодированными дефолтами. Если `WAR_REPLIES` пуст или None — используются дефолтные 5 фраз.
+- `setup_war_alert()` — не требует DB или других зависимостей (роутер полностью автономен). Вызывается в `on_startup()` для логирования конфигурации.
+- Handler B использует паттерн двойной проверки (ID + username) как в `dead_page_trigger.py`
+- Каждый обработчик логирует: триггер (какое слово/канал), действие (какой ответ), ошибку отправки
+- `try/except` вокруг `message.reply()` гарантирует что ошибка отправки не крашнет бота
+
+### 21.4 Configuration: `config/settings.py` Additions
+
+```python
+# config/settings.py — ADD these fields to the Settings dataclass
+
+# War Words Alert (F5v2)
+# Comma-separated channel IDs to detect reposts from
+WAR_CHANNEL_IDS: tuple[int, ...] = field(default_factory=lambda: _env_int_tuple(
+    "WAR_CHANNEL_IDS", "1654872411"
+))
+
+# Comma-separated channel usernames (without @) to detect reposts from
+WAR_CHANNEL_USERNAMES: tuple[str, ...] = field(default_factory=lambda: _env_str_tuple(
+    "WAR_CHANNEL_USERNAMES", ""
+))
+
+# Comma-separated reply phrases (defaults to 5 hardcoded phrases in handler)
+WAR_REPLIES: tuple[str, ...] = field(default_factory=lambda: _env_str_tuple(
+    "WAR_REPLIES", ""
+))
+```
+
+New helper functions needed in `config/settings.py`:
+
+```python
+def _env_int_tuple(key: str, default: str) -> tuple[int, ...]:
+    """Parse comma-separated env var into tuple of ints."""
+    val = os.getenv(key, default)
+    if not val.strip():
+        return ()
+    return tuple(int(x.strip()) for x in val.split(",") if x.strip())
+
+def _env_str_tuple(key: str, default: str) -> tuple[str, ...]:
+    """Parse comma-separated env var into tuple of strings."""
+    val = os.getenv(key, default)
+    if not val.strip():
+        return ()
+    return tuple(x.strip() for x in val.split(",") if x.strip())
+```
+
+**Значения по умолчанию:**
+- `WAR_CHANNEL_IDS = (1654872411,)` — "ЧП Пермь". Второй канал ("Радар по всей России | БПЛА") добавляется через env.
+- `WAR_CHANNEL_USERNAMES = ()` — пусто по умолчанию; usernames каналов настраиваются через env.
+- `WAR_REPLIES = ()` — пусто → используются 5 дефолтных фраз из `handlers/war_alert.py`.
+
+### 21.5 `.env.example` Additions
+
+```env
+# War Words Alert V2 (F5v2) — optional, sensible defaults hardcoded
+# Comma-separated channel IDs to detect reposts from (default: 1654872411 = ЧП Пермь)
+WAR_CHANNEL_IDS=1654872411,1234567890
+# Comma-separated channel usernames without @ (optional)
+WAR_CHANNEL_USERNAMES=chp_perm,radar_bpla
+# Comma-separated custom reply phrases (default: 5 hardcoded phrases)
+WAR_REPLIES=потрясись,повизжи,прячься под шконку быстрее,закрой ушки и считай до десяти,поплачь
+```
+
+### 21.6 `bot.py` Changes
+
+**Импорты (добавить):**
+```python
+from handlers.war_alert import war_alert_router, setup_war_alert
+```
+
+**В `on_startup()` — инжект (после `setup_dead_page`):**
+```python
+setup_war_alert()
+```
+
+**Регистрация роутера — позиция 4b:**
+```python
+# 4b. War Alert router — F5v2: war keywords + channel repost detection
+setup_war_alert()
+dp.include_router(war_alert_router)
+```
+
+**Итоговый порядок регистрации (v2.6.0):**
+```
+0:  admin_commands_router      (Epic 10)
+1:  slava_presence_router      (F1)
+1b: alan_greeting_router      (F7)
+2:  kostik_router
+3:  alan_router                (F6)
+4:  dead_page_router           (F2)
+4b: war_alert_router           (F5v2) ← NEW
+5:  slavik_router              (F3, F4, catch-all)
+6:  vasya_router
+```
+
+### 21.7 `handlers/slavik.py` Changes
+
+Удалить F5 (war word handler), оставить F4 + catch-all:
+
+```python
+# REMOVE these lines:
+from filters.war_word import WarWordFilter       # ← удалить импорт
+
+@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID), WarWordFilter())
+async def war_word_handler(message: types.Message):
+    await message.reply("трясло ебаное")          # ← удалить весь handler
+```
+
+**После изменений** slavik_router содержит только:
+1. `@slavik_router.message(KuchaWordFilter())` → "ДАЛБАЕБ" (F4)
+2. `@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))` → "пошёл нахуй" (catch-all)
+3. Middleware `MessageCounterMiddleware` (F3) — без изменений
+
+### 21.8 Logging Strategy
+
+Каждый шаг обработки war alert логируется с уровнем INFO (видимость в Better Stack):
+
+| Событие | Уровень | Сообщение | Данные |
+|---------|---------|-----------|--------|
+| Инициализация модуля | INFO | `War Alert initialized: N replies loaded, M channel IDs, K channel usernames` | Кол-во replies, ID, usernames |
+| Keyword match (Handler A) | INFO | `War alert (keyword): user=X chat=Y msg_id=Z text=...` | user_id, chat_id, message_id, текст (первые 100 символов) |
+| Reply sent (keyword) | INFO | `War alert (keyword): replying with 'REPLY' to msg_id=Z in chat=Y` | Текст ответа, message_id, chat_id |
+| Forward origin not channel | DEBUG | `War alert (repost): forward origin is not a channel (TYPE), skipping` | Тип forward_origin |
+| Channel repost detected (Handler B) | INFO | `War alert (repost): detected repost from channel_id=X username=@Y in chat=Z by user=W` | channel_id, username, chat_id, user_id |
+| Reply sent (repost) | INFO | `War alert (repost): replying with 'REPLY' to msg_id=Z in chat=Y` | Текст ответа, message_id, chat_id |
+| Reply send failure (any) | ERROR | `War alert (type): failed to send reply 'REPLY' to msg_id=Z: ERROR` | Текст ответа, message_id, exception text |
+| Pattern compilation warning | WARNING | `WarWordFilter: failed to compile pattern for word 'WORD': ERROR` | Слово, текст ошибки |
+
+**Принципы логирования:**
+1. Каждое событие идентифицируется префиксом `War alert (тип):` — легко фильтровать в Better Stack
+2. Все логи включают контекст (chat_id, user_id, message_id) для возможности трассировки
+3. Ошибки отправки reply не крашат бота — ловятся через try/except с ERROR-логом
+4. DEBUG-логи для не-target forward_origin (не канал или не военный канал) чтобы не зашумлять INFO
+5. Текст сообщения обрезается до 100 символов в логе (защита от спама в логах)
+
+### 21.9 Test Strategy
+
+#### A. Filter Unit Tests (`tests/test_filters.py` — MODIFY)
+
+Добавить в `TestWarWordFilter`:
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_caption_matches` | Сообщение с caption="летит дрон", text=None | Filter returns True |
+| 2 | `test_text_still_matches` | Сообщение с text="летит дрон", caption=None | Filter returns True (regression) |
+| 3 | `test_both_none_fails` | text=None, caption=None | Filter returns False |
+| 4 | `test_new_keyword_opasnost` | text="опасность" | Filter returns True |
+| 5 | `test_new_keyword_bpla` | text="бпла" | Filter returns True |
+| 6 | `test_new_keyword_raketnaya` | text="ракетная опасность" | Filter returns True |
+| 7 | `test_new_keyword_ubezhishe` | text="бегом в убежище" | Filter returns True |
+| 8 | `test_new_keyword_vnimanie` | text="внимание всем" | Filter returns True |
+| 9 | `test_new_keyword_opoveshenie` | text="оповещение" | Filter returns True |
+| 10 | `test_new_keyword_trevoga` | text="тревога" | Filter returns True |
+| 11 | `test_conjugated_forms` | "беспилотной", "беспилотная", "ракетной", "летела", "летели" | Все возвращают True |
+| 12 | `test_caption_with_newlines` | caption="летит\nдрон" | Filter returns True (multi-line caption) |
+| 13 | `test_no_false_positive` | text="мир небо солнце" | Filter returns False |
+
+#### B. Handler Unit Tests (`tests/test_war_alert.py` — CREATE)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_slava_war_keyword_fires` | Slava + text="летит дрон" | `message.reply` вызван, ответ из WAR_REPLIES |
+| 2 | `test_slava_war_keyword_caption` | Slava + photo with caption="ракета" | `message.reply` вызван (caption support) |
+| 3 | `test_non_slava_keyword_ignored` | Другой user + "летит дрон" | `message.reply` НЕ вызван |
+| 4 | `test_no_keyword_ignored` | Slava + "привет как дела" | `message.reply` НЕ вызван |
+| 5 | `test_channel_repost_by_id` | Любой user + forward из channel ID 1654872411 | `message.reply` вызван |
+| 6 | `test_channel_repost_by_username` | Любой user + forward из @chp_perm | `message.reply` вызван |
+| 7 | `test_non_target_channel_ignored` | Forward из другого канала | `message.reply` НЕ вызван |
+| 8 | `test_user_forward_ignored` | Forward от пользователя (не канал) | `message.reply` НЕ вызван |
+| 9 | `test_no_forward_origin_ignored` | Обычное сообщение без forward | `message.reply` НЕ вызван |
+| 10 | `test_random_reply_selection` | Slava + keyword → проверка что ответ из пула | `reply` входит в WAR_REPLIES или дефолтный пул |
+| 11 | `test_reply_send_error_logged` | `message.reply` бросает Exception | Хендлер не крашится; логгируется ERROR |
+| 12 | `test_channel_repost_by_slava` | Slava репостит из target channel → оба handler могут сработать | Оба handler логируют свои события |
+| 13 | `test_setup_war_alert_logs_config` | setup_war_alert() | logger.info вызван с конфигурацией |
+| 14 | `test_custom_replies_from_env` | WAR_REPLIES env = "фраза1,фраза2" | `_get_replies()` возвращает ["фраза1", "фраза2"] |
+| 15 | `test_empty_env_replies_uses_defaults` | WAR_REPLIES env = "" | `_get_replies()` возвращает дефолтный пул из 5 фраз |
+
+**Mock-стратегия для handler тестов:**
+- `message` — `MagicMock` с полями: `text`, `caption`, `chat.id`, `from_user.id`, `message_id`, `forward_origin`, `reply = AsyncMock()`
+- `forward_origin` — `MagicMock` как `MessageOriginChannel` с полями `chat.id`, `chat.username`
+- Фильтры (`UserIdFilter`, `WarWordFilter`) тестируются отдельно в `test_filters.py` — в handler тестах можно замокать фильтры или передавать реальные данные
+- `settings` — патчить `settings.WAR_CHANNEL_IDS`, `settings.WAR_CHANNEL_USERNAMES`, `settings.WAR_REPLIES` для тестов конфигурации
+
+#### C. Edge Case Tests (`tests/test_edge_cases.py` — MODIFY)
+
+| # | Тест | Описание |
+|---|------|----------|
+| 1 | `test_war_alert_router_order` | war_alert_router fires before slavik_router for war keywords from Slava |
+| 2 | `test_dead_page_before_war_alert` | @d_pages repost fires dead_page BEFORE war_alert on same forward |
+| 3 | `test_slavik_catchall_still_fires` | After F5 removal, Slava still gets "пошёл нахуй" for any message |
+| 4 | `test_gif_counter_not_affected` | F3 GIF counter still works after F5 removal |
+| 5 | `test_kucha_war_same_message` | "куча дрон" → F4 + F5v2 + catch-all all fire |
+
+#### D. Configuration Tests
+
+| # | Тест | Файл | Описание |
+|---|------|------|----------|
+| 1 | `test_war_channel_ids_default` | `tests/test_filters.py` or new | `settings.WAR_CHANNEL_IDS = (1654872411,)` |
+| 2 | `test_war_channel_ids_custom` | `tests/test_filters.py` or new | `WAR_CHANNEL_IDS=1,2,3` → `(1, 2, 3)` |
+| 3 | `test_war_channel_ids_empty` | `tests/test_filters.py` or new | `WAR_CHANNEL_IDS=` → `()` |
+| 4 | `test_war_channel_usernames_parsing` | `tests/test_filters.py` or new | `WAR_CHANNEL_USERNAMES=a,b` → `("a", "b")` |
+| 5 | `test_war_replies_parsing` | `tests/test_war_alert.py` | `WAR_REPLIES=x,y,z` → `("x", "y", "z")` |
+
+### 21.10 Data Flow Diagrams
+
+#### Flow A: Slava sends text "дрон летит ракета"
+
+```
+Message arrives in group chat (-100123)
+  from_user.id = 479167456 (Slava)
+  message.text = "дрон летит ракета"
+  message.caption = None
+  message.forward_origin = None
+    ↓
+war_alert_router (pos 4b) ═══════════════════════
+  ├── Handler A: UserIdFilter(479167456) + WarWordFilter()
+  │   ├── UserIdFilter: user=479167456 == SLAVIK_USER_ID → TRUE
+  │   ├── WarWordFilter: content = "дрон летит ракета"
+  │   │   ├── pattern "дрон" → MATCH!
+  │   │   └── any() short-circuits → TRUE
+  │   ├── logger.info("War alert (keyword): user=479167456 chat=-100123 msg_id=42 text=дрон летит ракета")
+  │   ├── reply = random.choice(["потрясись", "повизжи", ...]) → "поплачь"
+  │   ├── logger.info("War alert (keyword): replying with 'поплачь' to msg_id=42 in chat=-100123")
+  │   └── await message.reply("поплачь")  [SENT]
+  │
+  └── Handler B: F.forward_origin → message.forward_origin is None → SKIP
+```
+
+#### Flow B: Any user forwards from "ЧП Пермь" (channel ID 1654872411)
+
+```
+Message arrives in group chat (-100123)
+  from_user.id = 999888777 (random user)
+  message.text = "ЧП Пермь\n...forwarded message text..."
+  message.forward_origin = MessageOriginChannel(
+      chat=Chat(id=1654872411, username="chp_perm", ...)
+  )
+    ↓
+war_alert_router (pos 4b) ═══════════════════════
+  ├── Handler A: UserIdFilter(479167456) + WarWordFilter()
+  │   ├── UserIdFilter: user=999888777 ≠ 479167456 → FALSE → SKIP
+  │   └── (Handler A doesn't fire)
+  │
+  └── Handler B: F.forward_origin
+      ├── isinstance(origin, MessageOriginChannel) → TRUE
+      ├── origin.chat.id = 1654872411 in WAR_CHANNEL_IDS → MATCHED!
+      ├── logger.info("War alert (repost): detected repost from channel_id=1654872411 (matched) username=@chp_perm in chat=-100123 by user=999888777")
+      ├── reply = random.choice(["потрясись", "повизжи", ...]) → "повизжи"
+      ├── logger.info("War alert (repost): replying with 'повизжи' to msg_id=43 in chat=-100123")
+      └── await message.reply("повизжи")  [SENT]
+```
+
+#### Flow C: Slava sends photo with caption "внимание БПЛА"
+
+```
+Message arrives in group chat (-100123)
+  from_user.id = 479167456 (Slava)
+  message.text = None           ← BUG was here: old filter returned False
+  message.caption = "внимание БПЛА"  ← FIXED: new filter checks both
+  message.forward_origin = None
+    ↓
+war_alert_router (pos 4b) ═══════════════════════
+  ├── Handler A: UserIdFilter(479167456) + WarWordFilter()
+  │   ├── UserIdFilter: TRUE
+  │   ├── WarWordFilter: content = None or "внимание БПЛА"
+  │   │   = "внимание БПЛА"  ← caption used!
+  │   │   ├── pattern "внимание" → MATCH!
+  │   │   └── any() short-circuits → TRUE
+  │   └── await message.reply(random WAR_REPLIES)  [SENT]
+  │
+  └── Handler B: F.forward_origin → None → SKIP
+```
+
+### 21.11 Extensibility
+
+#### Adding new keywords (no code changes):
+1. Отредактировать `WAR_WORDS` в `filters/war_word.py` — добавить строку в список
+2. `_PATTERNS` автоматически перегенерируется при импорте модуля (module-level code)
+3. Перезапустить бота
+
+#### Adding new war channels (no code changes):
+1. Добавить ID в `WAR_CHANNEL_IDS` в `.env` (через запятую) или username в `WAR_CHANNEL_USERNAMES`
+2. Перезапустить бота
+
+#### Adding new reply phrases (no code changes):
+1. Добавить фразы в `WAR_REPLIES` в `.env` (через запятую)
+2. Перезапустить бота — `_get_replies()` подхватит изменения
+
+#### Adding new detection logic (code changes):
+1. Добавить Handler C в `handlers/war_alert.py` с новым фильтром
+2. Добавить соответствующие тесты в `tests/test_war_alert.py`
+3. Никакие другие файлы не требуют изменений (роутер самодостаточен)
+
+### 21.12 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `handlers/war_alert.py` | **CREATE** | Новый роутер с 2 handlers + reply pool + setup |
+| `filters/war_word.py` | **MODIFY** | Caption support (text or caption), expanded keywords (27→90+) |
+| `config/settings.py` | **MODIFY** | +3 поля: WAR_CHANNEL_IDS, WAR_CHANNEL_USERNAMES, WAR_REPLIES; +2 helper functions |
+| `handlers/slavik.py` | **MODIFY** | Удалить F5 (WarWordFilter handler); оставить F4 + catch-all |
+| `bot.py` | **MODIFY** | +1 import, +1 setup_war_alert(), +1 dp.include_router (pos 4b) |
+| `.env.example` | **MODIFY** | +3 переменные: WAR_CHANNEL_IDS, WAR_CHANNEL_USERNAMES, WAR_REPLIES |
+| `tests/test_filters.py` | **MODIFY** | +13 тестов для WarWordFilter (caption, new keywords) |
+| `tests/test_war_alert.py` | **CREATE** | +15 тестов для handler logic |
+| `tests/test_edge_cases.py` | **MODIFY** | +5 тестов: router order, dead_page priority, regression |
+| `tests/conftest.py` | **MODIFY** | +fixture: make_forward_message (опционально) |
+| `plans/ARCHITECTURE.md` | **MODIFY** | Sections 1-16 updated; Section 21 added (this spec) |
+
+### 21.13 Verification Checklist
+
+1. **Unit tests (filters):** `pytest tests/test_filters.py::TestWarWordFilter -v` — 26 тестов (13 старых + 13 новых)
+2. **Unit tests (handlers):** `pytest tests/test_war_alert.py -v` — 15 тестов
+3. **Edge cases:** `pytest tests/test_edge_cases.py -v` — +5 новых тестов
+4. **Regression — slavik:** `pytest tests/test_slavik_handlers.py -v` — все тесты проходят (F4 + catch-all без F5)
+5. **Regression — full suite:** `pytest tests/ -v` — все существующие тесты проходят без изменений
+6. **Coverage:** `pytest tests/ -v --cov=handlers/war_alert --cov=filters/war_word --cov-report=term-missing` — target 95%+
+7. **Production smoke:**
+   - Slava отправляет текст "опасность атаки БПЛА" → war reply в чате
+   - Slava отправляет фото с caption "ракетная опасность" → war reply в чате (раньше НЕ срабатывало — баг T-057)
+   - Любой пользователь репостит из канала 1654872411 → war reply в чате
+   - Репост из другого канала → НЕТ реакции
+   - Better Stack: все логи с префиксом "War alert" видны в дашборде
+   - Slava пишет "куча дрон" → F4 ("ДАЛБАЕБ") + F5v2 (random war reply) + catch-all ("пошёл нахуй") все срабатывают
+   - Slava пишет "привет" → ТОЛЬКО catch-all ("пошёл нахуй") — без war reply
