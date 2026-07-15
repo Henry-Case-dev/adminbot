@@ -191,6 +191,153 @@ class TestWarWordFilter:
         for text, expected in test_words:
             assert await f(make_message(1, text)) == expected
 
+    # ── New v2 keywords (Epic 10) ──
+
+    @pytest.mark.asyncio
+    async def test_opasnost_matches(self, make_message):
+        """New keyword: опасность"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "опасность атаки")) is True
+
+    @pytest.mark.asyncio
+    async def test_bpla_matches(self, make_message):
+        """New keyword: БПЛА"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "БПЛА в небе")) is True
+
+    @pytest.mark.asyncio
+    async def test_raketnaya_matches(self, make_message):
+        """New keyword: ракетная"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "ракетная опасность")) is True
+
+    @pytest.mark.asyncio
+    async def test_ubezhishe_matches(self, make_message):
+        """New keyword: убежище"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "пройдите в убежище")) is True
+
+    @pytest.mark.asyncio
+    async def test_vnimanie_matches(self, make_message):
+        """New keyword: внимание"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "внимание всем")) is True
+
+    @pytest.mark.asyncio
+    async def test_bespilotnoy_matches(self, make_message):
+        """New keyword: беспилотной"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "беспилотной авиации")) is True
+
+    @pytest.mark.asyncio
+    async def test_bespilotnaya_matches(self, make_message):
+        """New keyword: беспилотная"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "беспилотная угроза")) is True
+
+    @pytest.mark.asyncio
+    async def test_opoveshenie_matches(self, make_message):
+        """New keyword: оповещение"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "срочное оповещение")) is True
+
+    @pytest.mark.asyncio
+    async def test_sirena_matches(self, make_message):
+        """New keyword: сирена"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "воет сирена")) is True
+
+    @pytest.mark.asyncio
+    async def test_ataka_matches(self, make_message):
+        """New keyword: атака"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "атака беспилотников")) is True
+
+    @pytest.mark.asyncio
+    async def test_obstrel_matches(self, make_message):
+        """New keyword: обстрел"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "обстрел города")) is True
+
+    @pytest.mark.asyncio
+    async def test_trevoga_matches(self, make_message):
+        """New keyword: тревога"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "воздушная тревога")) is True
+
+    @pytest.mark.asyncio
+    async def test_evakuatsiya_matches(self, make_message):
+        """New keyword: эвакуация"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "срочная эвакуация")) is True
+
+    @pytest.mark.asyncio
+    async def test_vzryv_matches(self, make_message):
+        """New keyword: взрыв"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "слышен взрыв")) is True
+
+    @pytest.mark.asyncio
+    async def test_otboy_matches(self, make_message):
+        """New keyword: отбой"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "отбой тревоги")) is True
+
+    @pytest.mark.asyncio
+    async def test_upal_matches(self, make_message):
+        """New keyword: упал"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "упал беспилотник")) is True
+
+    @pytest.mark.asyncio
+    async def test_sbit_matches(self, make_message):
+        """New keyword: сбит"""
+        f = WarWordFilter()
+        assert await f(make_message(1, "сбит дрон")) is True
+
+    # ── Caption support (T-057 fix) ──
+
+    @pytest.mark.asyncio
+    async def test_caption_matches_keyword(self, make_message):
+        """Filter should check message.caption when text is None."""
+        f = WarWordFilter()
+        msg = make_message(479167456, text=None)
+        msg.caption = "опасность атаки дронов"
+        assert await f(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_caption_none_and_text_none_fails(self, make_message):
+        """When both text and caption are None, filter returns False."""
+        f = WarWordFilter()
+        msg = make_message(479167456, text=None)
+        msg.caption = None
+        assert await f(msg) is False
+
+    @pytest.mark.asyncio
+    async def test_text_takes_priority_over_caption(self, make_message):
+        """When both text and caption exist, text should be checked (both are checked)."""
+        f = WarWordFilter()
+        msg = make_message(479167456, text="опасность")
+        msg.caption = "безопасный текст"
+        # 'опасность' in text matches
+        assert await f(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_caption_with_media_keyword(self, make_message):
+        """Forwarded photo with caption containing keywords."""
+        f = WarWordFilter()
+        msg = make_message(479167456, text=None)
+        msg.caption = "БПЛА замечен в районе"
+        assert await f(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_caption_empty_string(self, make_message):
+        """Empty caption should not match."""
+        f = WarWordFilter()
+        msg = make_message(479167456, text=None)
+        msg.caption = ""
+        assert await f(msg) is False
+
 
 @pytest.mark.asyncio
 class TestVasyaFilter:

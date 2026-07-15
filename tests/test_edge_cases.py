@@ -106,10 +106,31 @@ class TestEdgeCases:
     async def test_photo_message_filter_checks(self, make_message):
         msg = make_message(479167456, text=None)
         msg.from_user.id = 479167456
-        
+
         assert await KuchaWordFilter()(msg) is False
         assert await WarWordFilter()(msg) is False
         assert await UserIdFilter(479167456)(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_photo_with_caption_war_word(self, make_message):
+        """Photo with war keyword in caption should match WarWordFilter."""
+        msg = make_message(479167456, text=None)
+        msg.caption = "опасность атаки"
+        assert await WarWordFilter()(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_photo_with_caption_no_keyword(self, make_message):
+        """Photo with caption but no war keyword should not match."""
+        msg = make_message(479167456, text=None)
+        msg.caption = "красивый закат"
+        assert await WarWordFilter()(msg) is False
+
+    @pytest.mark.asyncio
+    async def test_caption_none_war_filter(self, make_message):
+        """Message with text=None and no caption should not match."""
+        msg = make_message(479167456, text=None)
+        msg.caption = None
+        assert await WarWordFilter()(msg) is False
 
     # ── Router priority simulation ──
 

@@ -20,6 +20,7 @@ def make_message():
               username: str | None = None, **kwargs):
         msg = MagicMock()
         msg.text = text
+        msg.caption = None
         msg.chat = MagicMock()
         msg.chat.id = chat_id
         msg.from_user = MagicMock()
