@@ -112,3 +112,43 @@ class TestDatabaseService:
         await db.update_last_known_message_id(99, channel_id=200)
         assert await db.get_last_known_message_id(channel_id=100) == 42
         assert await db.get_last_known_message_id(channel_id=200) == 99
+
+    # ── Alan Activity (F7v2 / Epic 11) ──────────────────
+
+    @pytest.mark.asyncio
+    async def test_get_alan_last_message_ts_none(self, db):
+        """When no record exists, return None."""
+        assert await db.get_alan_last_message_ts(-100123) is None
+
+    @pytest.mark.asyncio
+    async def test_set_and_get_alan_last_message_ts(self, db):
+        """Write and read back a timestamp."""
+        await db.set_alan_last_message_ts(-100123, 1721000000.0)
+        result = await db.get_alan_last_message_ts(-100123)
+        assert result == 1721000000.0
+
+    @pytest.mark.asyncio
+    async def test_set_alan_last_message_ts_overwrite(self, db):
+        """Overwrite an existing timestamp."""
+        await db.set_alan_last_message_ts(-100123, 100.0)
+        await db.set_alan_last_message_ts(-100123, 200.0)
+        assert await db.get_alan_last_message_ts(-100123) == 200.0
+
+    @pytest.mark.asyncio
+    async def test_get_alan_last_message_ts_multiple_chats(self, db):
+        """Different chats have independent timestamps."""
+        await db.set_alan_last_message_ts(-1001, 100.0)
+        await db.set_alan_last_message_ts(-1002, 200.0)
+        assert await db.get_alan_last_message_ts(-1001) == 100.0
+        assert await db.get_alan_last_message_ts(-1002) == 200.0
+
+    @pytest.mark.asyncio
+    async def test_get_alan_last_message_ts_corrupted_value(self, db):
+        """Corrupted value in DB returns None gracefully."""
+        import aiosqlite
+        await db.db.execute(
+            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+            ("alan_last_msg:-100123", "not_a_number")
+        )
+        await db.db.commit()
+        assert await db.get_alan_last_message_ts(-100123) is None

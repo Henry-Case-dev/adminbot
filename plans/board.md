@@ -40,6 +40,26 @@
 
 ## 🔧 In Progress
 
+### Epic 11: Alan Silence Greeting (F7 v2 — "Леха проснулся") — 2026-07-18
+> **Архитектурное решение (@Architect):** БД через `channel_state` (`alan_last_msg:{chat_id}`).
+> Silence-логика встраивается в существующий `alan_handler` (handlers/alan.py) — без нового роутера.
+> Общий anti-spam через `_last_greeting` dict (совместно с F7 join).
+> См. ARCHITECTURE.md Section 22.
+- [x] 👤 T-065 (@Architect): Решение о хранилище — БД через channel_state (Section 22.2)
+- [ ] T-064: Добавить `ALAN_SILENCE_GREETING_HOURS` в `config/settings.py` + `.env.example`, default=6.0, 0=выключено.
+- [ ] T-066: Реализовать `get_alan_last_message_ts` / `set_alan_last_message_ts` в DatabaseService
+- [ ] T-067: Встроить silence-логику в `alan_handler` (handlers/alan.py) — НЕ создавать новый handler/router
+- [ ] T-068: Логика детекта "молчал >= N часов → написал" → вызов `_send_greeting()`
+- [ ] T-069: Обновление таймера при КАЖДОМ сообщении Алана
+- [ ] T-070: Edge cases — baseline, N=0, несколько чатов, restart persistence, cooldown sharing
+- [ ] T-071: Детальное логирование каждого этапа (INFO/WARNING/ERROR)
+- [ ] T-072: Интеграция в `bot.py` — без изменения порядка роутеров (inlining в alan_handler)
+- [ ] T-073: Тесты (DB + handler + integration) — 16+ новых тестов
+- [ ] T-074: Обновить README.md
+- [ ] T-075: Прогнать полный pytest suite, без регрессий
+- [ ] T-076: Коммит на русском (conventional commits) в main, пуш
+- [ ] T-077: Деплой на сервер + `ALAN_SILENCE_GREETING_HOURS=2`
+
 ### Epic 10: War Words Redesign (F5)
 - [ ] T-054: Fix WarWordFilter — add `message.caption` check, expand WAR_WORDS keywords
 - [ ] T-055: Add channel repost detection handler for military channels
@@ -102,6 +122,7 @@
 
 ## 👤 Architect
 - [ ] T-037: Update ARCHITECTURE.md with monitoring section (@Architect)
+- [x] 👤 T-065 (@Architect, 2026-07-18): **Решено — БД через channel_state.** Хранить `last_message_timestamp` Алана в таблице `channel_state` с ключом `alan_last_msg:{chat_id}`. Два новых метода DatabaseService: `get_alan_last_message_ts(chat_id) -> float | None` и `set_alan_last_message_ts(chat_id, timestamp: float) -> None`. Решение документировано в ARCHITECTURE.md Section 22.2.
 
 ### Epic 10: War Words Redesign (F5) — 2026-07-16
 - [ ] T-054: Fix WarWordFilter — add `message.caption` check, expand WAR_WORDS keywords (опасность, БПЛА, ракета, ракетная, ракетной, укрытие, убежище, бункер, внимание, беспилотной, беспилотная, оповещение + conjugation variants). File: `filters/war_word.py`.
@@ -117,4 +138,4 @@
 
 ---
 
-**Updated:** 2026-07-16 — Epic 10 (War Words Redesign F5) added to Backlog (T-054–T-063). Fixes caption bug, expands keywords, adds channel repost detection, random reply pool, and Better Stack logging.
+**Updated:** 2026-07-18 — Epic 11 (Alan Silence Greeting F7v2) moved to In Progress. T-065 resolved by @Architect: DB via channel_state, inlining into alan_handler. ARCHITECTURE.md Section 22 added.

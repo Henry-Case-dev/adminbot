@@ -8,12 +8,14 @@ The pool covers topics Alan is passionate about: тренировки, лонг�
 """
 import logging
 import random
+import time
 
 from aiogram import Router, types
 
 from filters.user_id import UserIdFilter
 from config.settings import settings
 from services.database import DatabaseService
+from handlers.alan_greeting import _send_greeting, _last_greeting
 
 logger = logging.getLogger(__name__)
 
@@ -93,3 +95,72 @@ async def alan_handler(message: types.Message) -> None:
         reply_text = random.choice(ALAN_REPLIES)
         logger.debug("Alan reply #%d in chat %d: %s", count, message.chat.id, reply_text)
         await message.reply(reply_text)
+
+    # ── F7v2: Silence Greeting (Epic 11) ──
+    silence_hours = settings.ALAN_SILENCE_GREETING_HOURS
+    if silence_hours <= 0:
+        logger.debug(
+            "F7v2: ALAN_SILENCE_GREETING_HOURS=%.1f — silence greeting disabled",
+            silence_hours,
+        )
+    else:
+        try:
+            now = time.time()
+            last_ts = await alan_db.get_alan_last_message_ts(message.chat.id)
+            chat_id = message.chat.id
+
+            if last_ts is not None:
+                elapsed = now - last_ts
+                threshold = silence_hours * 3600
+                if elapsed >= threshold:
+                    # Check shared anti-spam cooldown with F7 join greeting
+                    cooldown_ok = True
+                    if chat_id in _last_greeting:
+                        since_last = now - _last_greeting[chat_id]
+                        if since_last < settings.ALAN_GREETING_COOLDOWN:
+                            cooldown_ok = False
+                            logger.info(
+                                "F7v2: silence greeting for chat %d suppressed by shared cooldown "
+                                "(%.1fs since last greeting, cooldown=%ds)",
+                                chat_id, since_last, settings.ALAN_GREETING_COOLDOWN,
+                            )
+
+                    if cooldown_ok:
+                        logger.info(
+                            "F7v2: silence greeting triggered | chat=%d | elapsed=%.1fh | threshold=%.1fh",
+                            chat_id, elapsed / 3600, silence_hours,
+                        )
+                        success = await _send_greeting(message.bot, chat_id)
+                        if success:
+                            _last_greeting[chat_id] = now
+                            logger.info(
+                                "F7v2: silence greeting sent | chat=%d | elapsed=%.1fh",
+                                chat_id, elapsed / 3600,
+                            )
+                        else:
+                            logger.warning(
+                                "F7v2: silence greeting send failed | chat=%d", chat_id,
+                            )
+                else:
+                    logger.info(
+                        "F7v2: silence threshold not reached | chat=%d | elapsed=%.1fh | threshold=%.1fh "
+                        "— timer reset without greeting",
+                        chat_id, elapsed / 3600, silence_hours,
+                    )
+            else:
+                logger.info(
+                    "F7v2: first message from Alan in chat %d — baseline recorded, no greeting",
+                    chat_id,
+                )
+
+            await alan_db.set_alan_last_message_ts(chat_id, now)
+            logger.debug(
+                "F7v2: updated last message timestamp for chat %d to %.0f",
+                chat_id, now,
+            )
+
+        except Exception:
+            logger.exception(
+                "F7v2: error in silence greeting logic | chat=%d",
+                message.chat.id,
+            )
