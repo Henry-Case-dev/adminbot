@@ -63,6 +63,9 @@ class Settings:
     ALAN_GREETING_DIR: str = os.getenv("ALAN_GREETING_DIR", "media/leha_greeting")
     ALAN_GREETING_COOLDOWN: int = _env_int("ALAN_GREETING_COOLDOWN", 10)
 
+    # Alan silence greeting — send greeting video when Alan was silent >= N hours (0.0 = disabled)
+    ALAN_SILENCE_GREETING_HOURS: float = _env_float("ALAN_SILENCE_GREETING_HOURS", 6.0)
+
     # Admin test commands (Epic 10)
     ADMIN_USER_ID: int = _env_int("ADMIN_USER_ID", 5885953495)
 

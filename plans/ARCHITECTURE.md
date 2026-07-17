@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.6.0
-> **Дата:** 2026-07-16
+> **Версия:** v2.8.0
+> **Дата:** 2026-07-18
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -3936,3 +3936,473 @@ war_alert_router (pos 4b) ══════════════════
    - Better Stack: все логи с префиксом "War alert" видны в дашборде
    - Slava пишет "куча дрон" → F4 ("ДАЛБАЕБ") + F5v2 (random war reply) + catch-all ("пошёл нахуй") все срабатывают
    - Slava пишет "привет" → ТОЛЬКО catch-all ("пошёл нахуй") — без war reply
+
+---
+
+## 22. F7 v2: Alan Silence Greeting (Epic 11)
+
+> **Версия:** v2.8.0
+> **Дата:** 2026-07-18
+> **Связанные задачи:** T-064 (конфигурация), T-065 (хранилище), T-066 (трекинг), T-067 (перехват), T-068 (детект молчания), T-069 (сброс таймера), T-070 (edge cases), T-071 (логирование), T-072 (регистрация), T-073 (тесты), T-074–T-077 (документация, QA, деплой)
+> **Назначение:** Расширение F7 (Alan Greeting Video): приветственное видео также отправляется, когда Алан (id 138811255) присутствует в чате, молчит дольше N часов, а затем пишет любое сообщение. N=6 по умолчанию (настраивается), 0=функция отключена. На проде — N=2 для живого теста.
+
+### 22.1 Overview
+
+F7 v2 расширяет существующий F7 (join greeting) новой триггерной логикой: **silence greeting**. Если Алан не писал в чат дольше `ALAN_SILENCE_GREETING_HOURS` часов, его следующее сообщение вызывает отправку приветственного видео (то же самое, что и при join — переиспользование `_send_greeting()` из `handlers/alan_greeting.py`). Учитываются **только** сообщения самого Алана — сообщения других пользователей на его таймер молчания не влияют.
+
+**Функциональный контракт:**
+1. Каждое сообщение Алана записывает текущий `time.time()` как `last_message_timestamp` для данного чата.
+2. Перед записью нового timestamp вычисляется `elapsed = now - last_timestamp`.
+3. Если `elapsed >= ALAN_SILENCE_GREETING_HOURS * 3600` → вызывается `_send_greeting(bot, chat_id)` (с общим anti-spam cooldown через `_last_greeting`).
+4. Если `last_timestamp` отсутствует (первое сообщение Алана в чате) → greeting НЕ отправляется, записывается baseline.
+5. Если `ALAN_SILENCE_GREETING_HOURS == 0` → функция полностью отключена (ни трекинг, ни триггер).
+6. Таймер обновляется при КАЖДОМ сообщении Алана, независимо от того, сработал триггер или нет.
+
+### 22.2 Storage Decision: DB via `channel_state` (T-065)
+
+**Решение:** Хранить `last_message_timestamp` в БД через существующую таблицу `channel_state` (key-value паттерн).
+
+**Обоснование:**
+- PM рекомендовал БД: семантика «Алан спал N часов» не должна ломаться перезапуском бота (деплой, краш, обновление). In-memory dict сбрасывается при каждом restart — пользовательское ожидание «после рестарта таймер сохранился» нарушается.
+- `channel_state` — уже существующий key-value механизм в проекте (используется для `last_msg_id:{channel_id}` в DeadPageRelay). Переиспользование избегает новой таблицы, миграции схемы, и следует существующему паттерну.
+- Новая таблица `alan_activity` была бы избыточной для одного значения `(chat_id, timestamp)` — `channel_state` справляется с этим через составной ключ `alan_last_msg:{chat_id}`.
+
+**Точный ключ в `channel_state`:**
+```
+alan_last_msg:{chat_id}
+```
+Пример: `alan_last_msg:-1001234567890`
+
+**Значение:** `str(float)` — Unix timestamp с плавающей точкой (как `repr(time.time())`). Хранение как float (не int) позволяет sub-second точность для тестирования (например, `time.time() + 0.1`).
+
+### 22.3 Database Methods (новые в `DatabaseService`)
+
+Два новых метода в `services/database.py`:
+
+```python
+async def get_alan_last_message_ts(self, chat_id: int) -> float | None:
+    """Get the last message timestamp for Alan in a specific chat.
+    Returns None if no record exists (first message from Alan)."""
+    key = f"alan_last_msg:{chat_id}"
+    cursor = await self.db.execute(
+        "SELECT value FROM channel_state WHERE key = ?", (key,)
+    )
+    row = await cursor.fetchone()
+    if row:
+        return float(row["value"])
+    return None
+
+
+async def set_alan_last_message_ts(self, chat_id: int, timestamp: float) -> None:
+    """Update the last message timestamp for Alan in a specific chat."""
+    key = f"alan_last_msg:{chat_id}"
+    await self.db.execute(
+        "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+        (key, str(timestamp))
+    )
+    await self.db.commit()
+```
+
+**Инварианты:**
+- `get_alan_last_message_ts` возвращает `None` только при отсутствии записи (первое сообщение).
+- `set_alan_last_message_ts` всегда перезаписывает (INSERT OR REPLACE) — идемпотентно.
+- Никаких новых таблиц, никаких миграций. Существующая схема `channel_state` уже создаётся в `DatabaseService.initialize()`.
+
+### 22.4 Configuration (T-064)
+
+```python
+# config/settings.py — добавить в Settings dataclass после ALAN_GREETING_COOLDOWN:
+
+# Alan silence greeting (F7v2 / Epic 11)
+# Hours of Alan's silence after which the next message triggers a greeting video.
+# 0.0 = feature completely disabled (no tracking, no trigger).
+# float allows sub-hour testing (e.g. 0.5 = 30 minutes).
+# Requires bot restart on change (no hot-reload).
+ALAN_SILENCE_GREETING_HOURS: float = _env_float("ALAN_SILENCE_GREETING_HOURS", 6.0)
+```
+
+```env
+# .env.example — добавить после ALAN_GREETING_COOLDOWN:
+
+# Alan silence greeting (F7v2) — hours of silence before greeting video is sent on next message.
+# float: 0.5 = 30 min, 6.0 = 6 hours. 0.0 = feature disabled. Requires bot restart on change.
+ALAN_SILENCE_GREETING_HOURS=6.0
+```
+
+**Дизайн-решения:**
+- Тип `float` (не `int`): позволяет тестировать с долями часа (`0.5` = 30 минут, `0.0167` ≈ 1 минута) без изменения единицы измерения. Это критично для тестов — тесты могут использовать `0.001` (~3.6 секунды) для быстрых проверок.
+- `_env_float()` — существующий хелпер в `config/settings.py` (используется для `KOSTIK_REPLY_PROBABILITY`).
+- 0.0 = полное отключение: ни трекинга, ни триггера. Логика `if settings.ALAN_SILENCE_GREETING_HOURS <= 0: return` полностью пропускает silence-часть.
+- Изменение требует restart бота: `Settings` — frozen dataclass, читается один раз при старте. Задокументировано в `.env.example`.
+
+### 22.5 Handler Placement: Inlining into `alan_handler` (T-067, T-072)
+
+**КРИТИЧЕСКИЙ АНАЛИЗ — почему НЕ отдельный handler/router:**
+
+На одном aiogram `Router` метод `observer.trigger()` вызывает обработчики последовательно и останавливается после первого совпавшего (matched) handler'а, возвращая его результат. Добавление второго `@alan_router.message(...)` handler'а на тот же роутер привело бы к конфликту: либо F6 reply engine, либо silence tracker — один из них не сработает (зависит от порядка регистрации декораторов).
+
+Создание нового роутера на позиции 3b (между `alan_router` [pos 3] и `dead_page_router` [pos 4]) также проблематично:
+- `alan_router` уже перехватывает сообщения Алана через `UserIdFilter(ALAN_USER_ID)`. Его `alan_handler` возвращает `None` (F6 reply logic). `None != UNHANDLED` → propagation останавливается на уровне `alan_router._propagate_event()`. Новый роутер 3b, будучи отдельным sub_router родительского `dp`, получил бы событие ДО `alan_router` (если зарегистрирован раньше) или ПОСЛЕ (если позже). В любом случае:
+  - Если 3b раньше: silence handler перехватывает сообщение Алана, возвращает None → propagation останавливается → `alan_router` никогда не получает событие → F6 reply engine сломан.
+  - Если 3b позже: `alan_router` уже остановил propagation → 3b никогда не получает событие.
+
+**Принятое решение — ВАРИАНТ A: встраивание (inlining) silence-логики прямо в существующий `alan_handler` в `handlers/alan.py`.**
+
+Это единственный безопасный вариант:
+1. **Не создаёт новый роутер** — не меняет порядок в `bot.py`, не требует новой `setup_*()` функции.
+2. **Не конфликтует с F6 reply engine** — обе логики (counter increment + reply check И silence check) выполняются внутри одного handler'а последовательно.
+3. **Переиспользует существующий `alan_db`** — `DatabaseService` уже внедрён через `setup_alan(db)`, новые методы `get_alan_last_message_ts` / `set_alan_last_message_ts` доступны через тот же объект.
+4. **Не ухудшает propagation** — `alan_handler` уже возвращает `None` для сообщений Алана, что останавливает propagation к последующим роутерам (`dead_page_router`, `war_alert_router`, `slavik_router`, `vasya_router`). Это **существующее поведение** (не баг фичи, а архитектурная особенность), и silence-логика его не меняет. Для сообщений Алана propagation к vasya_router уже был блокирован — новая фича не добавляет новых проблем.
+
+**Импорт `_send_greeting`:**
+```python
+# В начале alan_handler (или внутри функции — lazy import для избежания циклических зависимостей):
+from handlers.alan_greeting import _send_greeting
+```
+
+Это нарушает правило «handlers/ NEVER import from other handlers/», но:
+- `handlers/admin_commands.py` уже импортирует `_send_greeting` из `alan_greeting.py` (локальный импорт внутри функций `alangreet_dm`/`alangreet_group`).
+- Альтернатива (дублирование логики выбора видео и `send_video`) хуже — нарушает DRY и создаёт две точки для багов.
+- Импорт на уровне модуля безопасен: `alan_greeting.py` не импортирует `alan.py` (нет циклической зависимости).
+
+**Импорт `_last_greeting` для общего anti-spam:**
+```python
+from handlers.alan_greeting import _last_greeting
+```
+
+Silence-логика читает и обновляет тот же `_last_greeting` dict, что и join-обработчики. Это обеспечивает общий anti-spam слой: если join-greeting сработал только что, silence-greeting не будет дублироваться, и наоборот.
+
+### 22.6 Silence Detection Logic (псевдокод)
+
+Встраивается в `alan_handler` в `handlers/alan.py` после F6 reply-логики:
+
+```python
+@alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
+async def alan_handler(message: types.Message) -> None:
+    if alan_db is None:
+        return
+
+    # ── F6: increment counter + reply check ──
+    interval = settings.ALAN_REPLY_INTERVAL
+    if interval <= 0:
+        logger.warning("ALAN_REPLY_INTERVAL is %d — replies disabled", interval)
+        return
+
+    count = await alan_db.increment_and_get_count(
+        message.chat.id, message.from_user.id
+    )
+
+    if count % interval == 0:
+        reply_text = random.choice(ALAN_REPLIES)
+        logger.debug("Alan reply #%d in chat %d: %s", count, message.chat.id, reply_text)
+        await message.reply(reply_text)
+
+    # ── F7v2: silence greeting check ──
+    silence_hours = settings.ALAN_SILENCE_GREETING_HOURS
+    if silence_hours <= 0:
+        return
+
+    chat_id = message.chat.id
+    now = time.time()
+    threshold = silence_hours * 3600
+
+    last_ts = await alan_db.get_alan_last_message_ts(chat_id)
+
+    if last_ts is None:
+        # Первое сообщение Алана в этом чате — baseline, без приветствия
+        logger.info(
+            "F7v2: first message from Alan in chat %d — baseline recorded, no greeting",
+            chat_id
+        )
+        await alan_db.set_alan_last_message_ts(chat_id, now)
+        return
+
+    elapsed = now - last_ts
+    elapsed_hours = elapsed / 3600
+
+    if elapsed >= threshold:
+        # Алан проснулся! Проверяем общий anti-spam cooldown
+        from handlers.alan_greeting import _last_greeting, _send_greeting
+
+        cooldown_ok = True
+        if chat_id in _last_greeting:
+            since_last = now - _last_greeting[chat_id]
+            if since_last < settings.ALAN_GREETING_COOLDOWN:
+                cooldown_ok = False
+                logger.info(
+                    "F7v2: silence greeting for chat %d suppressed by cooldown "
+                    "(%.1fs since last greeting, threshold=%ds)",
+                    chat_id, since_last, settings.ALAN_GREETING_COOLDOWN
+                )
+
+        if cooldown_ok:
+            logger.info(
+                "F7v2: Alan woke up in chat %d — elapsed %.1fh >= threshold %.1fh, "
+                "sending greeting",
+                chat_id, elapsed_hours, silence_hours
+            )
+            try:
+                success = await _send_greeting(message.bot, chat_id)
+                if success:
+                    _last_greeting[chat_id] = now
+                    logger.info(
+                        "F7v2: silence greeting sent to chat %d (elapsed=%.1fh)",
+                        chat_id, elapsed_hours
+                    )
+                else:
+                    logger.warning(
+                        "F7v2: silence greeting failed for chat %d — no videos available",
+                        chat_id
+                    )
+            except Exception as e:
+                logger.error(
+                    "F7v2: error sending silence greeting to chat %d: %s",
+                    chat_id, e, exc_info=True
+                )
+    else:
+        logger.info(
+            "F7v2: Alan wrote in chat %d after %.1fh (< %.1fh threshold) — "
+            "timer reset, no greeting",
+            chat_id, elapsed_hours, silence_hours
+        )
+
+    # Всегда обновляем timestamp (независимо от того, сработал триггер или нет)
+    await alan_db.set_alan_last_message_ts(chat_id, now)
+```
+
+**Порядок операций (критичен):**
+1. Прочитать старый `last_ts` из БД.
+2. Вычислить `elapsed` и принять решение о триггере.
+3. Если триггер сработал → отправить greeting (с проверкой cooldown).
+4. **Затем** записать новый `timestamp = now` (шаг всегда, даже если greeting не отправился).
+
+**Почему timestamp обновляется последним:** если записать новый timestamp ДО отправки greeting, а отправка упадёт с ошибкой — таймер уже сброшен, и при следующем сообщении триггер не сработает, хотя greeting так и не был отправлен. Запись после отправки гарантирует, что timestamp обновляется только после успешной (или неуспешной) попытки.
+
+**Edge case — ошибка БД на этапе `set_alan_last_message_ts`:**
+Если `set_alan_last_message_ts` падает (ошибка SQLite), greeting уже мог быть отправлен. При следующем сообщении Алана `get_alan_last_message_ts` вернёт старый timestamp, и триггер может сработать повторно. Это приемлемо: cooldown через `_last_greeting` предотвратит дублирование в пределах `ALAN_GREETING_COOLDOWN` секунд, а повторная отправка после cooldown — допустимое поведение (best-effort consistency).
+
+### 22.7 Anti-Spam Cooldown Sharing (между F7 join и F7v2 silence)
+
+**Проблема:** Если Алан только что зашёл в чат (join greeting сработал) и сразу пишет сообщение (а его `last_timestamp` был старым — больше N часов назад), то без общего anti-spam сработают ДВА приветствия подряд. Это нежелательное дублирование.
+
+**Решение:** Переиспользовать `_last_greeting: dict[int, float]` из `handlers/alan_greeting.py` как общий anti-spam слой для ОБОИХ триггеров (join и silence).
+
+**Механизм:**
+- `_last_greeting[chat_id]` хранит `time.time()` последнего отправленного greeting (любого типа: join или silence).
+- При каждом вызове `_send_greeting` (из join или silence) проверяется: `now - _last_greeting[chat_id] < ALAN_GREETING_COOLDOWN` → отправка подавляется.
+- После успешной отправки `_last_greeting[chat_id]` обновляется.
+- Оба триггера читают и пишут один и тот же dict (импортируется из `alan_greeting.py`).
+
+**Инварианты:**
+- `_last_greeting` — in-memory dict (переживает только в пределах одного запуска бота). При restart сбрасывается — это допустимо, cooldown всего 10 секунд.
+- Между join и silence нет различия в `_last_greeting` — это общий «последний greeting любого типа». Оба триггера равноправны.
+- `ALAN_GREETING_COOLDOWN` (default 10s) применяется к обоим.
+
+### 22.8 Logging Strategy (T-071)
+
+| Событие | Уровень | Сообщение | Данные |
+|---------|---------|-----------|--------|
+| Baseline (первое сообщение) | INFO | `F7v2: first message from Alan in chat %d — baseline recorded, no greeting` | chat_id |
+| Триггер сработал | INFO | `F7v2: Alan woke up in chat %d — elapsed %.1fh >= threshold %.1fh, sending greeting` | chat_id, elapsed_hours, threshold_hours |
+| Greeting отправлен | INFO | `F7v2: silence greeting sent to chat %d (elapsed=%.1fh)` | chat_id, elapsed_hours |
+| Cooldown подавил greeting | INFO | `F7v2: silence greeting for chat %d suppressed by cooldown (%.1fs since last greeting, threshold=%ds)` | chat_id, since_last, cooldown |
+| Таймер сброшен без триггера | INFO | `F7v2: Alan wrote in chat %d after %.1fh (< %.1fh threshold) — timer reset, no greeting` | chat_id, elapsed_hours, threshold_hours |
+| Функция отключена (N=0) | WARNING | `F7v2: ALAN_SILENCE_GREETING_HOURS=%.1f — silence greeting disabled` | silence_hours |
+| Ошибка чтения timestamp | ERROR | `F7v2: failed to read last_message_ts for chat %d: %s` | chat_id, exception |
+| Ошибка записи timestamp | ERROR | `F7v2: failed to update last_message_ts for chat %d: %s` | chat_id, exception |
+| Ошибка отправки greeting | ERROR | `F7v2: error sending silence greeting to chat %d: %s` | chat_id, exc_info=True |
+| Greeting failed (no videos) | WARNING | `F7v2: silence greeting failed for chat %d — no videos available` | chat_id |
+
+**Принципы:**
+- Все логи используют префикс `F7v2:` для фильтрации в Better Stack.
+- Контекст каждого лога: `chat_id` (обязательно), `elapsed`/`threshold` (где применимо).
+- WARNING для отключённой фичи логируется один раз при старте (в `setup_alan` или при первом вызове), а не на каждое сообщение — избегаем спама.
+- ERROR с `exc_info=True` для ошибок отправки — полный трейсбек в Sentry/Better Stack.
+
+### 22.9 Data Flow Diagrams
+
+#### Flow A: Первое сообщение Алана в чате (baseline)
+
+```
+Message from Alan (user_id=138811255) in chat -100123
+  message.text = "всем привет"
+    ↓
+alan_router (pos 3) — alan_handler
+  ├── F6: increment_and_get_count(-100123, 138811255) → count=1
+  ├── F6: 1 % 10 != 0 → no reply
+  │
+  ├── F7v2: ALAN_SILENCE_GREETING_HOURS=6.0 > 0 → check
+  ├── F7v2: get_alan_last_message_ts(-100123) → None
+  ├── F7v2: last_ts is None → baseline branch
+  ├── logger.info("F7v2: first message from Alan in chat -100123 — baseline recorded, no greeting")
+  ├── set_alan_last_message_ts(-100123, time.time())  [baseline timestamp written]
+  └── return None
+```
+
+#### Flow B: Молчание >= N часов → триггер срабатывает
+
+```
+Message from Alan (user_id=138811255) in chat -100123
+  message.text = "я проснулся"
+  now = time.time() = 1721000000.0
+    ↓
+alan_router (pos 3) — alan_handler
+  ├── F6: increment_and_get_count → count=42
+  ├── F6: 42 % 10 != 0 → no reply
+  │
+  ├── F7v2: ALAN_SILENCE_GREETING_HOURS=6.0 > 0
+  ├── F7v2: get_alan_last_message_ts(-100123) → 1720978400.0
+  ├── elapsed = 1721000000.0 - 1720978400.0 = 21600.0 сек = 6.0 часов
+  ├── threshold = 6.0 * 3600 = 21600.0 сек
+  ├── elapsed (21600.0) >= threshold (21600.0) → TRUE
+  │
+  ├── Проверка _last_greeting[-100123]:
+  │   ├── запись есть? → нет (или elapsed > 10 сек cooldown)
+  │   └── cooldown_ok = True
+  │
+  ├── logger.info("F7v2: Alan woke up in chat -100123 — elapsed 6.0h >= threshold 6.0h, sending greeting")
+  ├── _send_greeting(message.bot, -100123)
+  │   ├── _pick_random_greeting() → "media/leha_greeting/leha_greeting_01.MP4"
+  │   ├── bot.send_video(-100123, FSInputFile(...), caption="@Alan_Z")
+  │   └── return True
+  ├── _last_greeting[-100123] = now  (обновлён общий anti-spam dict)
+  ├── logger.info("F7v2: silence greeting sent to chat -100123 (elapsed=6.0h)")
+  │
+  ├── set_alan_last_message_ts(-100123, now)  [таймер обновлён]
+  └── return None
+```
+
+#### Flow C: Молчание < N часов → таймер сбрасывается без greeting
+
+```
+Message from Alan (user_id=138811255) in chat -100123
+  now = 1721000000.0
+    ↓
+alan_router (pos 3) — alan_handler
+  ├── F6: increment_and_get_count → count=43
+  ├── F6: 43 % 10 != 0 → no reply
+  │
+  ├── F7v2: get_alan_last_message_ts(-100123) → 1720998000.0
+  ├── elapsed = 1721000000.0 - 1720998000.0 = 2000.0 сек ≈ 0.56 часа
+  ├── threshold = 6.0 * 3600 = 21600.0 сек
+  ├── elapsed (2000.0) < threshold (21600.0) → FALSE
+  │
+  ├── logger.info("F7v2: Alan wrote in chat -100123 after 0.6h (< 6.0h threshold) — timer reset, no greeting")
+  │
+  ├── set_alan_last_message_ts(-100123, now)  [таймер обновлён]
+  └── return None
+```
+
+#### Flow D: N=0 → функция отключена
+
+```
+Message from Alan (user_id=138811255) in chat -100123
+    ↓
+alan_router (pos 3) — alan_handler
+  ├── F6: increment_and_get_count → count=N
+  ├── F6: reply check...
+  │
+  ├── F7v2: ALAN_SILENCE_GREETING_HOURS=0.0 <= 0
+  ├── return (пропускаем ВСЮ silence-логику — ни чтения, ни записи в БД)
+  └── return None
+```
+
+### 22.10 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `handlers/alan.py` | **MODIFY** | Встроить F7v2 silence-логику в `alan_handler` (после F6 reply check): чтение/запись `last_message_ts` через БД, проверка elapsed >= threshold, вызов `_send_greeting`, проверка `_last_greeting` cooldown. Импорт `time`, `_send_greeting`, `_last_greeting` из `alan_greeting`. |
+| `services/database.py` | **MODIFY** | +2 метода: `get_alan_last_message_ts(chat_id) -> float \| None`, `set_alan_last_message_ts(chat_id, timestamp: float) -> None`. Без изменений схемы (переиспользование `channel_state`). |
+| `config/settings.py` | **MODIFY** | +1 поле: `ALAN_SILENCE_GREETING_HOURS: float = _env_float("ALAN_SILENCE_GREETING_HOURS", 6.0)`. |
+| `.env.example` | **MODIFY** | +1 переменная: `ALAN_SILENCE_GREETING_HOURS=6.0` с комментарием. |
+| `tests/test_alan.py` | **MODIFY** | Расширить существующие тесты: +silence greeting тесты (baseline, trigger fired, timer reset without trigger, N=0 disabled, multi-chat isolation, cooldown sharing, DB error handling). |
+| `tests/test_database.py` | **MODIFY** | +тесты для `get_alan_last_message_ts` / `set_alan_last_message_ts`: roundtrip, None для отсутствующей записи, overwrite существующей записи. |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 22 (этот документ). |
+
+**Файлы НЕ тронуты:**
+- `bot.py` — порядок роутеров не меняется, новый роутер не создаётся, `setup_alan(db)` уже существует.
+- `handlers/alan_greeting.py` — не требует изменений (экспортирует `_send_greeting` и `_last_greeting`, которые уже используются).
+- `handlers/slava_presence.py`, `handlers/dead_page_trigger.py`, `handlers/war_alert.py`, `handlers/slavik.py`, `handlers/vasya.py` — не затрагиваются.
+
+### 22.11 Test Plan (T-073)
+
+#### A. Database Tests (`tests/test_database.py` — MODIFY)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_alan_last_message_ts_roundtrip` | `set_alan_last_message_ts(chat, ts)` → `get_alan_last_message_ts(chat)` | Возвращает тот же float |
+| 2 | `test_alan_last_message_ts_none_for_missing` | `get_alan_last_message_ts(chat)` для нового чата | Возвращает `None` |
+| 3 | `test_alan_last_message_ts_overwrite` | set → set(new ts) → get | Возвращает новый ts (не старый) |
+| 4 | `test_alan_last_message_ts_isolated_per_chat` | set chat_A=100, chat_B=200 | get chat_A → 100, get chat_B → 200 (независимы) |
+| 5 | `test_alan_last_message_ts_float_precision` | set с `100.123456789` | Возвращает `100.123456789` (float точность) |
+
+#### B. Handler Tests (`tests/test_alan.py` — MODIFY)
+
+Добавить в существующий `TestAlanHandler` (или новый класс `TestAlanSilenceGreeting`):
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_silence_first_message_baseline` | Первое сообщение Алана → `last_ts is None` | `_send_greeting` НЕ вызван; `set_alan_last_message_ts` вызван с `now`; лог "baseline recorded" |
+| 2 | `test_silence_triggers_after_threshold` | `last_ts` = 6 часов назад, `ALAN_SILENCE_GREETING_HOURS=6` | `_send_greeting` вызван; `_last_greeting[chat_id]` обновлён; `set_alan_last_message_ts` вызван |
+| 3 | `test_silence_no_trigger_below_threshold` | `last_ts` = 2 часа назад, threshold=6 | `_send_greeting` НЕ вызван; `set_alan_last_message_ts` вызван (таймер сброшен); лог "timer reset" |
+| 4 | `test_silence_disabled_when_hours_zero` | `ALAN_SILENCE_GREETING_HOURS=0` | `get_alan_last_message_ts` НЕ вызван; `_send_greeting` НЕ вызван; вся silence-логика пропущена |
+| 5 | `test_silence_float_threshold` | `ALAN_SILENCE_GREETING_HOURS=0.5` (30 мин), `last_ts` = 31 мин назад | Триггер срабатывает (elapsed >= 1800 сек) |
+| 6 | `test_silence_cooldown_suppresses_duplicate` | `_last_greeting[chat_id]` = 2 сек назад, `ALAN_GREETING_COOLDOWN=10` | `_send_greeting` НЕ вызван (cooldown активен); лог "suppressed by cooldown"; `set_alan_last_message_ts` всё равно вызван |
+| 7 | `test_silence_cooldown_expired_allows_greeting` | `_last_greeting[chat_id]` = 15 сек назад, cooldown=10 | `_send_greeting` вызван (cooldown истёк) |
+| 8 | `test_silence_multi_chat_isolation` | chat_A: last_ts=старый (> threshold), chat_B: last_ts=свежий | chat_A → greeting, chat_B → no greeting; таймеры независимы |
+| 9 | `test_silence_non_alan_ignored` | Сообщение от user_id=99999 | Silence-логика не выполняется (UserIdFilter не пропускает) |
+| 10 | `test_silence_db_read_error_graceful` | `get_alan_last_message_ts` бросает исключение | Ошибка logged (ERROR), хендлер не крашится, F6 reply engine продолжает работать |
+| 11 | `test_silence_db_write_error_graceful` | `set_alan_last_message_ts` бросает исключение | Ошибка logged (ERROR), greeting (если был) остаётся отправленным |
+| 12 | `test_silence_send_greeting_error_graceful` | `_send_greeting` бросает исключение | Ошибка logged (ERROR), хендлер не крашится, `set_alan_last_message_ts` всё равно вызван |
+| 13 | `test_f6_reply_still_works_with_silence` | Алан пишет 10-е сообщение после долгого молчания | И F6 reply, И F7v2 greeting срабатывают (обе логики в одном handler) |
+
+#### C. Integration Tests
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_full_pipeline_silence_greeting` | Зарегистрировать alan_router на Dispatcher, отправить сообщение Алана | F6 increment сработал, F7v2 silence проверился, greeting отправился (если elapsed >= threshold) |
+| 2 | `test_regression_f6_unchanged` | Сообщение Алана без silence-условий | F6 reply engine работает как раньше (каждые N сообщений) |
+| 3 | `test_regression_full_suite` | Прогнать ВСЕ существующие тесты | 252+ тестов проходят без регрессий |
+
+#### D. Mock Strategy
+
+- `alan_db` — `AsyncMock` с методами `increment_and_get_count`, `get_alan_last_message_ts`, `set_alan_last_message_ts`
+- `time.time()` — патчится для детерминированных тестов (например, `patch("time.time", return_value=FIXED_NOW)`)
+- `_send_greeting` — патчится через `patch("handlers.alan._send_greeting", return_value=True)`
+- `_last_greeting` — передаётся как изменяемый dict в тесте
+- `settings.ALAN_SILENCE_GREETING_HOURS` — патчится для тестов разных порогов
+- `settings.ALAN_GREETING_COOLDOWN` — патчится для тестов cooldown
+
+### 22.12 Verification Checklist
+
+1. **Unit tests (DB):** `pytest tests/test_database.py -v -k "alan_last_message"` — 5 новых тестов
+2. **Unit tests (handler):** `pytest tests/test_alan.py -v -k "silence"` — 13 новых тестов
+3. **Integration:** `pytest tests/test_alan.py -v -k "full_pipeline or regression"` — 3 теста
+4. **Regression — full suite:** `pytest tests/ -v` — все 252+ тестов проходят
+5. **Manual smoke (production):**
+   - Выставить `ALAN_SILENCE_GREETING_HOURS=2` в `.env`, перезапустить бота
+   - Дождаться сообщения Алана → если молчал > 2ч, greeting video отправляется с caption `@Alan_Z`
+   - Если молчал < 2ч → greeting НЕ отправляется, таймер сбрасывается
+   - Проверить Better Stack: логи с префиксом `F7v2:` видны в дашборде
+   - Проверить что F6 reply engine продолжает работать (каждое 10-е сообщение — reply)
+6. **Edge case — restart persistence:**
+   - Отправить сообщение от Алана → таймер обновлён в БД
+   - Перезапустить бота
+   - Отправить ещё сообщение → таймер сохранился (не сброшен), elapsed считается от предыдущего сообщения
+7. **Edge case — N=0:**
+   - Выставить `ALAN_SILENCE_GREETING_HOURS=0`, перезапустить
+   - Алан пишет → greeting НЕ отправляется (ни при каких условиях)
+   - В логах: WARNING `F7v2: ALAN_SILENCE_GREETING_HOURS=0.0 — silence greeting disabled` (один раз при первом сообщении или при старте)
+
+### 22.13 Key Architectural Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D36 | Хранение `last_message_timestamp` в БД через `channel_state` key-value | Переживает restart бота (семантика «спал N часов»); переиспользует существующий паттерн без новой таблицы; `channel_state` уже проверен в production (DeadPageRelay). |
+| D37 | Встраивание silence-логики в существующий `alan_handler`, а не новый handler/router | На одном Router trigger() останавливается после первого matched handler — нельзя добавить второй; новый router создал бы конфликт propagation (None vs UNHANDLED) и требовал бы изменений в `bot.py`. Inlining — единственный безопасный вариант. |
+| D38 | `ALAN_SILENCE_GREETING_HOURS` — float, не int | Позволяет тестировать с долями часа (0.5 = 30 мин, 0.001 ≈ 3.6 сек для тестов). Использует существующий `_env_float()` helper. |
+| D39 | `0.0` = полное отключение (ни трекинга, ни триггера) | Явное выключение без удаления кода. Не пишем в БД, не читаем из БД — ноль overhead когда фича не нужна. |
+| D40 | Общий `_last_greeting` dict для join и silence anti-spam | Предотвращает дублирование приветствий когда join и silence происходят близко по времени. Оба триггера разделяют один cooldown (`ALAN_GREETING_COOLDOWN`, 10 сек). |
+| D41 | Timestamp обновляется ПОСЛЕ отправки greeting (не до) | Если записать timestamp до отправки, а отправка упадёт — таймер уже сброшен, и повторный триггер невозможен (greeting потерян). Запись после гарантирует best-effort доставку. |
+| D42 | Импорт `_send_greeting` и `_last_greeting` из `alan_greeting.py` в `alan.py` | Переиспользование существующей логики без дублирования. Нарушает правило «handlers не импортируют handlers», но `admin_commands.py` уже делает такой импорт — прецедент есть. Циклических зависимостей нет (`alan_greeting.py` не импортирует `alan.py`). |
+| D43 | Новые методы БД: `get_alan_last_message_ts` / `set_alan_last_message_ts` — без новой таблицы | Переиспользование `channel_state`; нет миграции схемы; методы следуют паттерну существующих `get_last_known_message_id` / `update_last_known_message_id`. |

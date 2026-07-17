@@ -135,6 +135,31 @@ class DatabaseService:
         )
         await self.db.commit()
 
+    # ── Alan Activity ──────────────────────────────────
+
+    async def get_alan_last_message_ts(self, chat_id: int) -> float | None:
+        """Get the timestamp of Alan's last message in a chat."""
+        key = f"alan_last_msg:{chat_id}"
+        cursor = await self.db.execute(
+            "SELECT value FROM channel_state WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            try:
+                return float(row["value"])
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    async def set_alan_last_message_ts(self, chat_id: int, timestamp: float) -> None:
+        """Record the timestamp of Alan's last message in a chat."""
+        key = f"alan_last_msg:{chat_id}"
+        await self.db.execute(
+            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+            (key, str(timestamp))
+        )
+        await self.db.commit()
+
     # ── Channel State ───────────────────────────────────
 
     async def get_last_known_message_id(self, channel_id: int = 0) -> int | None:
