@@ -16,7 +16,6 @@ from aiogram.types import Message, Chat, User, MessageOriginChannel
 
 from handlers.war_alert import (
     war_keyword_handler,
-    war_keyword_forward_handler,
     war_channel_repost_handler,
     war_alert_router,
     WAR_REPLIES,
@@ -380,8 +379,8 @@ class TestWarAlertRouter:
         msg.reply.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_slava_forward_skipped_by_handler2(self):
-        """Handler 2 should skip Slava's forwarded messages (delegated to Handler 1b)."""
+    async def test_slava_forward_handled_by_handler2(self):
+        """Handler 2 should handle Slava's forwarded messages from target channels."""
         origin = make_channel_origin(channel_id=1654872411)
         msg = make_war_message(
             text="любое сообщение",
@@ -390,151 +389,4 @@ class TestWarAlertRouter:
         )
         with patch("handlers.war_alert._is_target_channel", return_value=True):
             await war_channel_repost_handler(msg)
-        msg.reply.assert_not_called()
-
-
-# ── Handler: Forwarded Keyword (T-078 bugfix) ──
-
-class TestWarKeywordForwardHandler:
-    """Tests for war_keyword_forward_handler — Slava's forwarded messages with keywords."""
-
-    @pytest.mark.asyncio
-    async def test_replies_to_forwarded_user_message(self):
-        """Should reply when Slava forwards a message from another user with war words."""
-        from aiogram.types import MessageOriginUser
-        origin = MessageOriginUser(
-            type="user",
-            date=1730000000,
-            sender_user=User(id=111, is_bot=False, first_name="Test"),
-        )
-        msg = make_war_message(
-            text="бпла летит",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        with patch("handlers.war_alert.random.choice", return_value="потрясись"):
-            await war_keyword_forward_handler(msg)
-        msg.reply.assert_called_once_with("потрясись")
-
-    @pytest.mark.asyncio
-    async def test_replies_to_forwarded_channel_message(self):
-        """Should reply when Slava forwards a message from a channel with war words."""
-        origin = make_channel_origin(channel_id=999999, username="random_channel")
-        msg = make_war_message(
-            text="ракетная опасность",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        await war_keyword_forward_handler(msg)
-        msg.reply.assert_called_once()
-        reply_text = msg.reply.call_args[0][0]
-        assert reply_text in WAR_REPLIES
-
-    @pytest.mark.asyncio
-    async def test_replies_to_forwarded_with_caption(self):
-        """Should match war words in caption of forwarded media."""
-        from aiogram.types import MessageOriginUser
-        origin = MessageOriginUser(
-            type="user",
-            date=1730000000,
-            sender_user=User(id=111, is_bot=False, first_name="Test"),
-        )
-        msg = make_war_message(
-            text=None,
-            caption="внимание бпла в небе",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        await war_keyword_forward_handler(msg)
-        msg.reply.assert_called_once()
-        reply_text = msg.reply.call_args[0][0]
-        assert reply_text in WAR_REPLIES
-
-    @pytest.mark.asyncio
-    async def test_reply_is_random(self):
-        """Forwarded keyword replies should be random."""
-        from aiogram.types import MessageOriginUser
-        origin = MessageOriginUser(
-            type="user",
-            date=1730000000,
-            sender_user=User(id=111, is_bot=False, first_name="Test"),
-        )
-        msg = make_war_message(
-            text="ракетная угроза",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        replies_seen = set()
-        for _ in range(20):
-            msg.reply.reset_mock()
-            await war_keyword_forward_handler(msg)
-            replies_seen.add(msg.reply.call_args[0][0])
-        assert len(replies_seen) >= 2
-
-    @pytest.mark.asyncio
-    async def test_handles_reply_error(self):
-        """Should not crash on reply failure for forwarded messages."""
-        from aiogram.types import MessageOriginUser
-        origin = MessageOriginUser(
-            type="user",
-            date=1730000000,
-            sender_user=User(id=111, is_bot=False, first_name="Test"),
-        )
-        msg = make_war_message(
-            text="тревога",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        msg.reply.side_effect = Exception("API error")
-        await war_keyword_forward_handler(msg)
-
-    @pytest.mark.asyncio
-    async def test_forwarded_from_hidden_user(self):
-        """Should work with forwarded messages from hidden users."""
-        from aiogram.types import MessageOriginHiddenUser
-        origin = MessageOriginHiddenUser(
-            type="hidden_user",
-            date=1730000000,
-            sender_user_name="Hidden User",
-        )
-        msg = make_war_message(
-            text="опасность атака",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        await war_keyword_forward_handler(msg)
-        msg.reply.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_forwarded_from_chat(self):
-        """Should work with forwarded messages from a group chat."""
-        from aiogram.types import MessageOriginChat
-        origin = MessageOriginChat(
-            type="chat",
-            date=1730000000,
-            sender_chat=Chat(id=-100123, type="group", title="Test Group"),
-        )
-        msg = make_war_message(
-            text="сирена воздушная тревога",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        await war_keyword_forward_handler(msg)
-        msg.reply.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_keyword_case_insensitive_forwarded(self):
-        """Keywords in forwarded messages should match regardless of case."""
-        from aiogram.types import MessageOriginUser
-        origin = MessageOriginUser(
-            type="user",
-            date=1730000000,
-            sender_user=User(id=111, is_bot=False, first_name="Test"),
-        )
-        msg = make_war_message(
-            text="ВНИМАНИЕ БПЛА",
-            from_id=479167456,
-            forward_origin=origin,
-        )
-        await war_keyword_forward_handler(msg)
         msg.reply.assert_called_once()
