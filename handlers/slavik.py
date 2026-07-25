@@ -32,12 +32,28 @@ async def kucha_handler(message: types.Message):
 @slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
 async def slavik_catchall_handler(message: types.Message):
     """Reply to Slava. Every N replies, send photo instead of text."""
+    logger.debug(
+        "Slavic catchall: processing msg_id=%d from user_id=%d",
+        message.message_id,
+        message.from_user.id if message.from_user else 0,
+    )
     # Check if it's time for the photo
     if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
+        logger.debug(
+            "Slavic photo logic: _db=%s SLAVIC_PHOTO_INTERVAL=%d",
+            type(_db).__name__ if _db is not None else "None",
+            settings.SLAVIC_PHOTO_INTERVAL,
+        )
         try:
             chat_id = message.chat.id
             should_send_photo = await _db.slavic_photo_count_tick(
                 chat_id, settings.SLAVIC_PHOTO_INTERVAL
+            )
+            logger.debug(
+                "Slavic photo: tick result=%s | chat_id=%d | interval=%d",
+                should_send_photo,
+                chat_id,
+                settings.SLAVIC_PHOTO_INTERVAL,
             )
             if should_send_photo:
                 logger.info(

@@ -1,8 +1,11 @@
 import asyncio
 import datetime
+import logging
 import time
 import aiosqlite
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseService:
@@ -191,15 +194,18 @@ class DatabaseService:
         Uses channel_state key: slavic_photo:{chat_id}
         """
         key = f"slavic_photo:{chat_id}"
+        logger.debug("slavic_photo_count_tick: key=%s interval=%d", key, interval)
         async with self._lock:
             cursor = await self.db.execute(
                 "SELECT value FROM channel_state WHERE key = ?", (key,)
             )
             row = await cursor.fetchone()
             current = int(row["value"]) if row else 0
+            logger.debug("slavic_photo_count_tick: current=%d", current)
             new_count = current + 1
+            logger.debug("slavic_photo_count_tick: new_count=%d", new_count)
             if new_count >= interval:
-                # Reset counter
+                logger.debug("slavic_photo_count_tick: interval reached, resetting counter")
                 await self.db.execute(
                     "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
                     (key, "0"),
@@ -207,6 +213,7 @@ class DatabaseService:
                 await self.db.commit()
                 return True
             else:
+                logger.debug("slavic_photo_count_tick: incrementing counter to %d", new_count)
                 await self.db.execute(
                     "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
                     (key, str(new_count)),
