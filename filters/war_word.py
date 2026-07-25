@@ -93,6 +93,19 @@ class WarWordFilter(BaseFilter):
     _PATTERNS = _build_patterns(WAR_WORDS)
 
     async def __call__(self, message: Message) -> bool:
+        # Diagnostic log for forwarded message debugging
+        if message.forward_origin is not None:
+            logger.info(
+                "WarWordFilter DIAG: msg_id=%s | text=%r | caption=%r | "
+                "forward_origin_type=%s | content_type=%s | raw_text_len=%d | raw_caption_len=%d",
+                message.message_id,
+                (message.text[:100] if message.text else None),
+                (message.caption[:100] if message.caption else None),
+                type(message.forward_origin).__name__,
+                message.content_type,
+                len(message.text) if message.text else 0,
+                len(message.caption) if message.caption else 0,
+            )
         content = message.text or message.caption
         # Guard: ensure we have an actual string (not MagicMock, not None, not empty)
         if not content or not isinstance(content, str):

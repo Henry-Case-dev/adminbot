@@ -145,6 +145,19 @@ def _is_target_channel(origin: MessageOriginChannel) -> bool:
 )
 async def war_keyword_handler(message: types.Message):
     """Any message from Slava (regular or forwarded) with a military keyword → random reply."""
+    # Diagnostic: log whether this is a forwarded message
+    if message.forward_origin is not None:
+        logger.info(
+            "War Alert DIAG: handler1 matched FORWARDED msg | msg_id=%s | text=%r | caption=%r",
+            message.message_id,
+            (message.text[:80] if message.text else None),
+            (message.caption[:80] if message.caption else None),
+        )
+    else:
+        logger.debug(
+            "War Alert DIAG: handler1 matched regular msg | msg_id=%s",
+            message.message_id,
+        )
     reply_text = random.choice(WAR_REPLIES)
     content_preview = (message.text or message.caption or "")[:80]
     logger.info(
