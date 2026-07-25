@@ -181,3 +181,35 @@ class DatabaseService:
             (key, str(msg_id))
         )
         await self.db.commit()
+
+    # ── Slavic Photo Counter (Epic 12) ──
+
+    async def slavic_photo_count_tick(self, chat_id: int, interval: int) -> bool:
+        """Increment Slava's photo counter. Returns True if photo should be sent.
+
+        Counter auto-resets after reaching the configured interval.
+        Uses channel_state key: slavic_photo:{chat_id}
+        """
+        key = f"slavic_photo:{chat_id}"
+        async with self._lock:
+            cursor = await self.db.execute(
+                "SELECT value FROM channel_state WHERE key = ?", (key,)
+            )
+            row = await cursor.fetchone()
+            current = int(row["value"]) if row else 0
+            new_count = current + 1
+            if new_count >= interval:
+                # Reset counter
+                await self.db.execute(
+                    "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+                    (key, "0"),
+                )
+                await self.db.commit()
+                return True
+            else:
+                await self.db.execute(
+                    "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+                    (key, str(new_count)),
+                )
+                await self.db.commit()
+                return False

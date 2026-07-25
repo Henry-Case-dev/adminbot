@@ -25,7 +25,7 @@ from services.message_counter import MessageCounterMiddleware
 # Handlers
 from handlers.kostik import kostik_router
 from handlers.alan import alan_router, setup_alan
-from handlers.slavik import slavik_router
+from handlers.slavik import slavik_router, setup_slavik
 from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.alan_greeting import alan_greeting_router
@@ -68,6 +68,7 @@ async def on_startup():
     setup_alan(db)
     setup_admin_commands(relay)
     setup_war_alert()
+    setup_slavik(db)  # F6: Slavic photo counter (Epic 12)
     
     # Attach GIF counter middleware to slavik router
     slavik_router.message.middleware(MessageCounterMiddleware(db))

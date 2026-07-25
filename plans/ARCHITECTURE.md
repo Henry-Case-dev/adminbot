@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.8.0
-> **Дата:** 2026-07-18
+> **Версия:** v2.9.0
+> **Дата:** 2026-07-26
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -4406,3 +4406,301 @@ alan_router (pos 3) — alan_handler
 | D41 | Timestamp обновляется ПОСЛЕ отправки greeting (не до) | Если записать timestamp до отправки, а отправка упадёт — таймер уже сброшен, и повторный триггер невозможен (greeting потерян). Запись после гарантирует best-effort доставку. |
 | D42 | Импорт `_send_greeting` и `_last_greeting` из `alan_greeting.py` в `alan.py` | Переиспользование существующей логики без дублирования. Нарушает правило «handlers не импортируют handlers», но `admin_commands.py` уже делает такой импорт — прецедент есть. Циклических зависимостей нет (`alan_greeting.py` не импортирует `alan.py`). |
 | D43 | Новые методы БД: `get_alan_last_message_ts` / `set_alan_last_message_ts` — без новой таблицы | Переиспользование `channel_state`; нет миграции схемы; методы следуют паттерну существующих `get_last_known_message_id` / `update_last_known_message_id`. |
+
+---
+
+## 23. Epic 12: Bugfix Forward Reposts + Slavic Photo (Epic 12)
+
+> **Версия:** v2.9.0
+> **Дата:** 2026-07-26
+> **Связанные задачи:** T-078 (war_alert forward bugfix), T-079 (slavic_na_litso.jpg feature)
+> **Назначение:** (A) Исправить баг: war_alert не ловит forwarded-сообщения Славы с военными словами. (B) Новая фича: каждый N-й ответ "пошёл нахуй" заменяется картинкой `slavic_na_litso.jpg`.
+
+### 23.1 Bug Analysis: War Alert Forward Gap (T-078)
+
+#### 23.1.1 Корень проблемы
+
+Исходный код `war_alert.py` (до фикса) имел два хендлера:
+
+| # | Handler | Filters | Назначение |
+|---|---------|---------|------------|
+| 1 | `war_keyword_handler` | `UserIdFilter(SLAVIK_USER_ID)` + `lambda msg: msg.forward_origin is None` + `WarWordFilter()` | Сообщения Славы с военными словами |
+| 2 | `war_channel_repost_handler` | `F.forward_origin` | Репосты из целевых военных каналов |
+
+**Баг:** Когда Слава пересылает сообщение с военными словами из НЕ-целевого канала (или личного чата):
+
+1. **Handler 1** — `forward_origin is None` → **FALSE** (сообщение пересланное → `forward_origin` не `None`). Хендлер пропускает.
+2. **Handler 2** — `F.forward_origin` → TRUE, но `_is_target_channel()` → **FALSE** (канал не в списке WAR_CHANNEL_IDS/USERNAMES). Хендлер возвращается без reply.
+
+**Результат:** forwarded-сообщение Славы с военными словами не получает военного reply вообще. Только catch-all `"пошёл нахуй"` из `slavik_router`.
+
+#### 23.1.2 Почему `WarWordFilter` работает корректно
+
+`WarWordFilter.__call__()` проверяет `message.text or message.caption` (строка 96 `war_word.py`). Для forwarded-сообщений:
+- **Текст:** `message.text` содержит текст пересланного сообщения → фильтр находит военные слова.
+- **Медиа с caption:** `message.caption` содержит caption → фильтр находит военные слова.
+- **Медиа без caption:** `message.text` и `message.caption` оба `None` → фильтр возвращает `False` (корректно).
+
+Фильтр не является причиной бага. Причина — исключительно лямбда `forward_origin is None` в Handler 1.
+
+#### 23.1.3 Поведение aiogram 3.x: все хендлеры вызываются
+
+В aiogram 3.x внутри одного роутера **все совпадающие хендлеры вызываются последовательно** (в порядке регистрации). Propagation контролируется через callback-тип (`Any`, `None`, `UNHANDLED`), но ни один из хендлеров `war_alert.py` не блокирует propagation (все возвращают `None`).
+
+Это означает, что для forwarded-сообщения Славы из целевого канала **оба Handler 1b и Handler 2 сработают** — возможен двойной reply. Этот edge case описан в 23.1.5.
+
+#### 23.1.4 `UserIdFilter` для forwarded-сообщений
+
+`UserIdFilter` проверяет `message.from_user.id`. Для forwarded-сообщений `message.from_user` — это **отправитель в текущем чате** (тот, кто сделал forward), а не автор оригинального сообщения. Поэтому для forwarded-сообщений от Славы `UserIdFilter(SLAVIK_USER_ID)` возвращает `True` корректно.
+
+### 23.2 Архитектура фикса (T-078)
+
+#### 23.2.1 Решение: Handler 1b — forwarded keywords
+
+Добавить третий хендлер между Handler 1 и Handler 2:
+
+```python
+@war_alert_router.message(
+    UserIdFilter(settings.SLAVIK_USER_ID),
+    lambda msg: msg.forward_origin is not None,
+    WarWordFilter(),
+)
+async def war_keyword_forward_handler(message: types.Message):
+    """Slava forwarded a message with military keywords → random reply."""
+    reply_text = random.choice(WAR_REPLIES)
+    # ... logging + message.reply(reply_text) ...
+```
+
+**Логика:** Handler 1b ловит forwarded-сообщения Славы с военными словами **независимо от источника** (канал, личный чат, пользователь). Это закрывает gap: даже если канал-источник не в списке целевых, военный reply отправляется.
+
+#### 23.2.2 Матрица покрытия хендлеров (после фикса)
+
+| Сценарий | forward_origin | User=SLAVIK | WarWord | Handler 1 | Handler 1b | Handler 2 |
+|----------|:---:|:---:|:---:|:---:|:---:|:---:|
+| Слава пишет текст "дрон" | None | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Слава пишет "привет" | None | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Слава репостит "дрон" из НЕ-целевого канала | Channel(non-target) | ✓ | ✓ | ✗ | ✓ | ✗ (returns early) |
+| Слава репостит "дрон" из ЦЕЛЕВОГО канала | Channel(target) | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Юзер N репостит из целевого канала | Channel(target) | ✗ | — | ✗ | ✗ | ✓ |
+| Юзер N репостит из НЕ-целевого | Channel(non-target) | ✗ | — | ✗ | ✗ | ✗ (returns early) |
+
+#### 23.2.3 Edge Case: двойной reply для целевого канала
+
+Когда Слава репостит из целевого канала (например, "ЧП Пермь") с военными словами:
+- Handler 1b: `forward_origin is not None` + WarWord → TRUE → reply #1
+- Handler 2: `F.forward_origin` → TRUE → `_is_target_channel` → TRUE → reply #2
+
+**Оценка:** Это редкий edge case (Слава редко репостит из военных каналов с военными словами одновременно). Двойной reply не является критическим багом — оба сообщения релевантны (военный reply + военный reply). **Решение:** оставить как есть, задокументировать. Если потребуется подавление — добавить `if message.from_user.id == settings.SLAVIK_USER_ID: return` в начало Handler 2.
+
+### 23.3 Архитектура Slavic Photo (T-079)
+
+#### 23.3.1 Overview
+
+Каждый N-й ответ "пошёл нахуй" Славе заменяется на картинку `media/slavic_na_litso.jpg`. Счётчик ведётся в БД (per-chat), сбрасывается после отправки картинки. Интервал настраивается через `.env` (`SLAVIC_PHOTO_INTERVAL`, по умолчанию 10).
+
+**Функциональный контракт:**
+1. На каждое сообщение Славы (catch-all) бот отправляет "пошёл нахуй".
+2. Каждый N-й раз вместо текста отправляется `slavic_na_litso.jpg` через `answer_photo`.
+3. Счётчик инкрементируется ДО проверки интервала; после отправки фото сбрасывается в 0.
+4. При ошибке отправки фото — fallback на текст "пошёл нахуй".
+5. Счётчик не зависит от F3 (GIF-counter в MessageCounterMiddleware) и F4 (KUCHA).
+
+#### 23.3.2 Storage Decision: `channel_state` key-value
+
+**Решение:** Использовать существующую таблицу `channel_state` с ключом `slavic_photo:{chat_id}`.
+
+**Обоснование:**
+- Переживает restart бота (счётчик не сбрасывается при деплое).
+- Переиспользует существующий key-value паттерн (`channel_state` уже используется для `alan_last_msg`, `last_msg_id`, `last_known_message_id`).
+- Новая таблица избыточна для одного счётчика на чат.
+- `message_counters` не подходит — это общий счётчик для F3 (GIF-counter), смешивание логик нарушит single responsibility.
+
+**Альтернативы и почему отвергнуты:**
+| Вариант | Почему нет |
+|---------|------------|
+| Новая таблица `slavic_photo_counters` | Избыточно для одного поля; требует миграции схемы |
+| In-memory dict | Сбрасывается при restart — счётчик теряется |
+| `message_counters` (та же таблица) | Смешивает две разные сущности (GIF-counter vs photo-counter); сложнее отладка |
+
+#### 23.3.3 Database Method: `slavic_photo_count_tick`
+
+Новый метод в `services/database.py`:
+
+```python
+async def slavic_photo_count_tick(self, chat_id: int, user_id: int, interval: int) -> bool:
+    """Increment Slava's photo counter. Returns True if photo should be sent.
+    
+    Counter auto-resets after reaching the configured interval.
+    Uses channel_state key: slavic_photo:{chat_id}
+    """
+    key = f"slavic_photo:{chat_id}"
+    async with self._lock:
+        cursor = await self.db.execute(
+            "SELECT value FROM channel_state WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        current = int(row["value"]) if row else 0
+        new_count = current + 1
+        if new_count >= interval:
+            await self.db.execute(
+                "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+                (key, "0"),
+            )
+            await self.db.commit()
+            return True
+        else:
+            await self.db.execute(
+                "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+                (key, str(new_count)),
+            )
+            await self.db.commit()
+            return False
+```
+
+**Атомарность:** `self._lock` (asyncio.Lock) гарантирует, что инкремент и проверка происходят атомарно — невозможен race condition при одновременных сообщениях Славы.
+
+**Параметр `user_id`:** Передаётся для будущей расширяемости (per-user счётчик), но в текущей реализации ключ — `slavic_photo:{chat_id}` (per-chat). Это упрощает логику: Слава один на весь чат.
+
+#### 23.3.4 Handler Logic (в `slavik_catchall_handler`)
+
+Логика встроена в существующий catch-all handler в `handlers/slavik.py`:
+
+```python
+@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
+async def slavik_catchall_handler(message: types.Message):
+    if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
+        try:
+            chat_id = message.chat.id
+            user_id = message.from_user.id
+            should_send_photo = await _db.slavic_photo_count_tick(
+                chat_id, user_id, settings.SLAVIC_PHOTO_INTERVAL
+            )
+            if should_send_photo:
+                await message.answer_photo(
+                    photo=FSInputFile(settings.SLAVIC_PHOTO_PATH)
+                )
+                return
+        except Exception:
+            logger.exception("Slavic Photo: failed, falling back to text")
+    await message.reply("пошёл нахуй")
+```
+
+**Порядок выполнения (всегда):**
+1. Проверка `_db is not None` — guard против неинициализированной БД.
+2. Проверка `SLAVIC_PHOTO_INTERVAL > 0` — если 0, фича отключена (пропускаем БД).
+3. `slavic_photo_count_tick()` — атомарный инкремент + проверка.
+4. Если `True` → `answer_photo(FSInputFile(...))` → return.
+5. Если `False` → fall through → `message.reply("пошёл нахуй")`.
+6. При любом исключении в блоке photo → logged → fall through к тексту.
+
+#### 23.3.5 Взаимодействие с MessageCounterMiddleware (F3)
+
+`MessageCounterMiddleware` (F3) — **inner middleware** на `slavik_router`, который инкрементирует `message_counters` и отправляет GIF каждые 5 сообщений. Он работает **независимо** от фото-счётчика:
+
+```
+Message arrives from Slava
+  ↓
+MessageCounterMiddleware.__call__()
+  ├── increment_and_get_count(chat_id, user_id) → count
+  ├── if count % 5 == 0 → send GIF
+  └── await handler(event, data)  # pass to router
+      ↓
+  slavik_router checks handlers:
+      ├── kucha_handler (F4): KuchaWordFilter → maybe "ДАЛБАЕБ"
+      └── slavik_catchall_handler:
+          ├── slavic_photo_count_tick() → separate counter
+          ├── if tick → send photo (answer_photo)
+          └── else → send "пошёл нахуй" (reply)
+```
+
+**Два счётчика, две таблицы:**
+| Счётчик | Таблица | Ключ | Назначение |
+|---------|---------|------|------------|
+| F3 (GIF) | `message_counters` | `(chat_id, user_id)` | Каждые 5 сообщений → GIF |
+| F6 (Photo) | `channel_state` | `slavic_photo:{chat_id}` | Каждые N ответов → фото |
+
+**Почему не объединить:** Разные интервалы (5 vs 10), разные действия (GIF vs фото), разная логика сброса. Middleware (F3) не должен знать о фото-логике (F6) — нарушение single responsibility.
+
+#### 23.3.6 Dependency Injection
+
+`setup_slavik(db)` вызывается в `bot.py:on_startup()` (строка 71) и устанавливает модульную переменную `_db`. Паттерн повторяет существующие `setup_alan(db)`, `setup_presence(db, scheduler)`, `setup_dead_page(relay, db)`.
+
+**Почему не middleware для передачи DB:** Middleware не нужен — DB используется только в одном catch-all handler. Простой DI через `setup_*` функцию достаточен и следует конвенции проекта.
+
+#### 23.3.7 Configuration (`.env`)
+
+```bash
+# Slavic Photo — every N replies, send slavic_na_litso.jpg instead of text
+SLAVIC_PHOTO_INTERVAL=10
+SLAVIC_PHOTO_PATH=media/slavic_na_litso.jpg
+```
+
+`SLAVIC_PHOTO_INTERVAL=0` полностью отключает фичу (ни счётчик, ни фото).
+
+### 23.4 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `handlers/war_alert.py` | **MODIFY** | Добавить Handler 1b (`war_keyword_forward_handler`) между Handler 1 и Handler 2: ловит forwarded-сообщения Славы с военными словами. |
+| `handlers/slavik.py` | **MODIFY** | Встроить фото-логику в `slavik_catchall_handler`: вызов `_db.slavic_photo_count_tick()`, отправка `answer_photo` при достижении интервала, fallback на текст при ошибке. |
+| `services/database.py` | **MODIFY** | +1 метод: `slavic_photo_count_tick(chat_id, user_id, interval) -> bool`. Использует `channel_state` key `slavic_photo:{chat_id}`. Атомарный инкремент под `self._lock`. |
+| `config/settings.py` | **MODIFY** | +2 поля: `SLAVIC_PHOTO_INTERVAL: int` (default 10), `SLAVIC_PHOTO_PATH: str` (default "media/slavic_na_litso.jpg"). |
+| `bot.py` | **MODIFY** | `setup_slavik(db)` уже вызывается (строка 71) — без изменений. |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 23 (этот документ). |
+
+**Файлы НЕ тронуты:**
+- `filters/war_word.py` — фильтр уже корректно обрабатывает forwarded-сообщения (проверяет `text or caption`).
+- `filters/user_id.py` — `UserIdFilter` уже корректно работает с forwarded-сообщениями (`from_user` — отправитель в чате).
+- `services/message_counter.py` — F3 middleware не зависит от фото-счётчика.
+- `handlers/kostik.py`, `handlers/alan.py`, `handlers/vasya.py`, `handlers/slava_presence.py`, `handlers/alan_greeting.py`, `handlers/dead_page_trigger.py` — не затрагиваются.
+
+### 23.5 Test Plan
+
+#### A. Bugfix Tests (T-078)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_war_forward_from_slavik_with_keywords` | Slava репостит "дрон летит" из НЕ-целевого канала | Handler 1b срабатывает, war reply отправлен |
+| 2 | `test_war_forward_from_slavik_no_keywords` | Slava репостит "привет" из любого канала | Ни один war handler не срабатывает (только catch-all) |
+| 3 | `test_war_forward_from_slavik_target_channel` | Slava репостит из целевого канала с военными словами | Handler 1b + Handler 2 оба срабатывают (двойной reply — ожидаемое поведение) |
+| 4 | `test_war_forward_from_other_user` | Другой юзер репостит "дрон" из НЕ-целевого канала | Ни один war handler не срабатывает |
+| 5 | `test_war_own_message_still_works` | Slava пишет "ракета" сам (не forward) | Handler 1 срабатывает (регрессия) |
+| 6 | `test_war_forward_media_with_caption` | Slava репостит фото с caption "внимание БПЛА" | Handler 1b срабатывает (WarWordFilter проверяет caption) |
+| 7 | `test_war_forward_media_no_caption` | Slava репостит фото без caption | Ни один war handler не срабатывает |
+
+#### B. Slavic Photo Tests (T-079)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_photo_sent_on_interval` | N сообщений Славы, `INTERVAL=3` | Сообщения 1,2 → текст; сообщение 3 → фото; счётчик сброшен |
+| 2 | `test_photo_counter_resets_after_send` | Сообщение 3 → фото, затем сообщение 4 → текст | После фото счётчик = 0, следующее сообщение = 1 (текст) |
+| 3 | `test_photo_disabled_when_interval_zero` | `SLAVIC_PHOTO_INTERVAL=0` | Всегда текст, `slavic_photo_count_tick` не вызывается |
+| 4 | `test_photo_fallback_on_error` | `answer_photo` бросает исключение | Fallback на текст "пошёл нахуй", ошибка залогирована |
+| 5 | `test_photo_counter_per_chat_isolation` | Chat A: interval=3, Chat B: interval=3 | Счётчики независимы (разные ключи в channel_state) |
+| 6 | `test_photo_default_interval` | Без `SLAVIC_PHOTO_INTERVAL` в .env | Используется default=10 |
+| 7 | `test_f3_gif_counter_not_affected` | Сообщения Славы с фото-интервалом | F3 GIF всё ещё отправляется каждые 5 сообщений |
+| 8 | `test_f4_kucha_not_affected` | "куча" + фото-интервал | "ДАЛБАЕБ" + фото/текст отправляются независимо |
+| 9 | `test_photo_db_atomicity` | Одновременные сообщения в разных чатах | `asyncio.Lock` предотвращает race condition |
+
+#### C. DB Tests
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_slavic_photo_count_tick_first_call` | Первый вызов с interval=3 | Возвращает `False`, значение в БД = "1" |
+| 2 | `test_slavic_photo_count_tick_reaches_interval` | Третий вызов с interval=3 | Возвращает `True`, значение в БД = "0" (сброшено) |
+| 3 | `test_slavic_photo_count_tick_overflow` | interval=3, делаем 5 вызовов | 3-й → True, 4-й → False (count=1), 5-й → False (count=2) |
+| 4 | `test_slavic_photo_count_tick_interval_one` | interval=1 | Каждый вызов возвращает `True` (всегда сброс) |
+
+### 23.6 Key Architectural Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D44 | Handler 1b — отдельный хендлер для forwarded-сообщений Славы с war words | Нельзя модифицировать Handler 1 (убрать `forward_origin is None`) — тогда все репосты (включая от других юзеров) попадали бы в Handler 1, и WarWordFilter проверял бы их текст. Это изменило бы семантику: Handler 1 должен реагировать только на сообщения Славы, а Handler 2 — на репосты из целевых каналов от любого пользователя. Разделение на три хендлера сохраняет чёткие границы ответственности. |
+| D45 | Хранение фото-счётчика в `channel_state` (не в `message_counters`) | `message_counters` управляется F3 middleware (GIF-counter) — инкрементируется на каждое сообщение через middleware. Фото-счётчик инкрементируется только в catch-all handler (после F4 KUCHA). Разные источники инкремента, разные интервалы, разные ключи — смешивание в одной таблице нарушило бы single responsibility. |
+| D46 | Фото-счётчик per-chat (не per-user) | Слава — уникальный пользователь в чате (один Slava на чат). Per-chat счётчик проще и исключает необходимость параметра `user_id` в ключе. Метод принимает `user_id` для будущей расширяемости, но ключ `slavic_photo:{chat_id}`. |
+| D47 | `SLAVIC_PHOTO_INTERVAL=0` отключает фичу полностью | Явное выключение без удаления кода. При `interval=0` handler не вызывает `slavic_photo_count_tick()` — ноль overhead. |
+| D48 | Fallback на текст при ошибке отправки фото | `try/except` вокруг `answer_photo` с fallback на `message.reply("пошёл нахуй")`. Пользователь всегда получает ответ, даже если файл отсутствует или Telegram API недоступен. Ошибка logged для отладки. |
+| D49 | Фото отправляется через `answer_photo` (не `reply_photo`) | `answer_photo` отправляет фото в чат без привязки reply к конкретному сообщению. Это визуально отличается от текстового `reply` и делает фото более заметным. Консистентно с F3 GIF (`answer_animation`). |
+| D50 | Dependency injection через `setup_slavik(db)` — существующий паттерн | Повторяет `setup_alan(db)`, `setup_presence(db, scheduler)`, `setup_dead_page(relay, db)`. Единый подход ко всем модулям, требующим DB. |
+| D51 | Двойной reply для целевого канала — accepted edge case | Когда Слава репостит из целевого канала с военными словами, Handler 1b и Handler 2 оба срабатывают → два reply. Это редкий сценарий (Слава редко репостит из военных каналов), и оба reply релевантны. Не требует немедленного fix. |
+| D52 | Atomicity через `self._lock` (asyncio.Lock) | Инкремент + проверка + запись в БД происходят под локом. Предотвращает race condition при одновременных сообщениях Славы в разных чатах (общий `DatabaseService`). Использует существующий `self._lock` из `DatabaseService` (уже используется в `increment_and_get_count`). |
