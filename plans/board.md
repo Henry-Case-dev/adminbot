@@ -2,116 +2,131 @@
 
 ## 📋 Backlog
 
-### Epic 9: Admin Test Commands (2026-07-14)
-- [ ] T-048: `/deadpage` — ручной вызов DeadPageRelay.send_dead_page(). DM: всем. Группа: админу. Сообщение команды удаляется. Новый handlers/admin_commands.py + config ADMIN_USER_ID=5885953495 + регистрация router #0 в bot.py.
-- [ ] T-049: `/alangreet` — ручной вызов _send_greeting() с @Alan_Z видео. DM: всем. Группа: админу. Сообщение удаляется. В том же admin_commands.py.
-- [ ] T-050: Прогнать pytest — убедиться в отсутствии регрессий
-- [ ] T-051: Написать тесты на admin_commands (6 тестов: DM deadpage, DM alangreet, группа админ, группа не-админ, DM delete error, группа delete error)
+### Epic 12: Багфикс репостов + slavic_na_litso.jpg (2026-07-25) 🔵 NEW
+- [ ] T-078: Расследование и исправление бага с репостами Славы (war_alert не ловит forwarded messages)
+  - [ ] T-078-A: Расследование — diagnostic-логи, проверка гипотез (UserIdFilter для forwarded, message.text/caption, порядок хендлеров, propagation)
+  - [ ] T-078-B: Исправление бага (зависит от результатов расследования)
+  - [ ] T-078-C: Comprehensive logging для forwarded-сообщений
+- [ ] T-079: Реализация фичи — slavic_na_litso.jpg каждый N-й ответ "пошёл нахуй"
+  - [ ] T-079-A: Добавить `SLIVIC_NA_LITSO_INTERVAL` в config/settings.py + .env.example
+  - [ ] T-079-B: Добавить счётчик в DatabaseService
+  - [ ] T-079-C: Модифицировать slavik_catchall_handler в handlers/slavik.py
+  - [ ] T-079-D: Comprehensive logging
+- [ ] T-080: Тесты для багфикса репостов (test_war_alert.py — 6 тестов)
+- [ ] T-081: Тесты для фичи slavic_na_litso.jpg (test_slavik_handlers.py — 8 тестов)
+- [ ] T-082: Обновление README + ARCHITECTURE.md + MEMORY.md, коммит, пуш
+- [ ] T-083: Деплой на сервер + smoke tests
 
-### Epic 8: Alan Greeting Video (F7) — 2026-07-13
-- [ ] T-038: Add ALAN_USERNAME, ALAN_USER_ID and ALAN_GREETING_DIR to config/settings.py + .env.example
-- [ ] T-039: Create handlers/alan_greeting.py (ChatMemberUpdated join + new_chat_members fallback + random video send_video + @Alan_Z caption + logging)
-- [ ] T-040: Register alan_greeting_router in bot.py (position 1, alongside slava_presence_router)
-- [ ] T-041: Write tests/test_alan_greeting.py (7-8 tests: join, non-Alan, leave, fallback, random, caption, empty dir, error)
-- [ ] T-042: Update ARCHITECTURE.md (F7 data flow, router order, directory listing)
-- [ ] T-043: Update MEMORY.md (project state, features table)
-- [ ] T-044: Run all tests — verify no regressions
-- [ ] T-045: Code review and QA
+### Epic 10: War Words Redesign (F5v2) — 2026-07-16 🔵 PLANNING
+- [ ] T-054: Fix WarWordFilter — caption support + expand WAR_WORDS keywords (90+ форм)
+- [ ] T-055: Add channel repost detection handler for military channels (war_words_trigger.py)
+- [ ] T-056: Replace single hardcoded reply with extensible pool + random.choice()
+- [ ] T-057: Add comprehensive Better Stack logging
+- [ ] T-058: Create/extend tests — filter, handler, integration (~28 tests)
+- [ ] T-059: Update config/settings.py — WAR_CHANNEL_IDS, WAR_CHANNEL_USERNAMES, WAR_REPLIES
+- [ ] T-060: Register war_alert_router in bot.py (position 4b)
+- [ ] T-061: Update README — document F5v2
+- [ ] T-062: Run full pytest suite — verify no regressions (~299 tests)
+- [ ] T-063: Deploy to server
 
-### Bugfixes (Critical/High)
-- [ ] T-046: Dead Page Relay — ALL RANGES EXHAUSTED. Fix `_build_search_ranges()` fallback to `_DISCOVERY_RANGES`; fix dedup `continue` burning attempt slots.
-- [ ] T-047: Alan Greeting Video — service never fires. Raise logs DEBUG→INFO; add unique lambda filter `user.id == ALAN_USER_ID`; integration test with both routers.
-- [ ] T-052: Dead Page Relay — sequential scanning for sparse channels. Add linear scan for narrow ranges (≤ 50 ID) in `_probe_range()` to guarantee hit on sparse channels (1 post out of 2000 IDs). Switch from random probing to sequential forward_messages() when `hi - lo ≤ 50`.
-- [ ] T-053: Propagation-stopping bug in slava_presence.py — F7 Alan greeting completely broken in production (Critical)
-  - Fix 1 (@Builder): Return `UNHANDLED` from slava_presence.py handlers (on_user_join, on_user_leave, on_new_slava_member) when user is not Slava. File: `handlers/slava_presence.py`. Import `UNHANDLED` from aiogram.
-  - Fix 2 (@Builder): Remove or convert redundant user ID check in `handlers/alan_greeting.py` (`on_alan_join` lines ~87-89) — lambda filter in decorator already guarantees Alan-only dispatch. Defence-in-depth.
-  - Fix 3 (@Builder): Add integration test with real Dispatcher routing. Current `test_both_routers_dispatch_correctly` bypasses dispatcher. New test: register both routers on Dispatcher, feed `ChatMemberUpdated` update, verify Alan's greeting fires. Also test that UNHANDLED propagation works.
-  - Fix 4: NOT IMPLEMENTED (UserIdFilter at decorator level for Slava — unnecessary if Fix 1 works).
-
-### Epic 7: Better Stack Monitoring Integration
-- [ ] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt
-- [ ] T-030: Install sentry-sdk and logtail-python into project venv
-- [ ] T-031: Add SENTRY_DSN and LOGTAIL_SOURCE_TOKEN to .env.example
-- [ ] T-032: Add SENTRY_DSN and LOGTAIL_SOURCE_TOKEN to .env (create from .env.example if missing)
-- [ ] T-033: Initialize Sentry SDK in bot.py (after load_dotenv, traces_sample_rate=1.0)
-- [ ] T-034: Configure LogtailHandler on root logger alongside StreamHandler
-- [ ] T-035: Write and run smoke test script — test log + test error to verify cloud delivery
-- [ ] T-036: Run pytest — verify no regressions
+---
 
 ## 🔧 In Progress
 
-### Epic 11: Alan Silence Greeting (F7 v2 — "Леха проснулся") — 2026-07-18
-> **Архитектурное решение (@Architect):** БД через `channel_state` (`alan_last_msg:{chat_id}`).
-> Silence-логика встраивается в существующий `alan_handler` (handlers/alan.py) — без нового роутера.
-> Общий anti-spam через `_last_greeting` dict (совместно с F7 join).
-> См. ARCHITECTURE.md Section 22.
-- [x] 👤 T-065 (@Architect): Решение о хранилище — БД через channel_state (Section 22.2)
-- [ ] T-064: Добавить `ALAN_SILENCE_GREETING_HOURS` в `config/settings.py` + `.env.example`, default=6.0, 0=выключено.
-- [ ] T-066: Реализовать `get_alan_last_message_ts` / `set_alan_last_message_ts` в DatabaseService
-- [ ] T-067: Встроить silence-логику в `alan_handler` (handlers/alan.py) — НЕ создавать новый handler/router
-- [ ] T-068: Логика детекта "молчал >= N часов → написал" → вызов `_send_greeting()`
-- [ ] T-069: Обновление таймера при КАЖДОМ сообщении Алана
-- [ ] T-070: Edge cases — baseline, N=0, несколько чатов, restart persistence, cooldown sharing
-- [ ] T-071: Детальное логирование каждого этапа (INFO/WARNING/ERROR)
-- [ ] T-072: Интеграция в `bot.py` — без изменения порядка роутеров (inlining в alan_handler)
-- [ ] T-073: Тесты (DB + handler + integration) — 16+ новых тестов
-- [ ] T-074: Обновить README.md
-- [ ] T-075: Прогнать полный pytest suite, без регрессий
-- [ ] T-076: Коммит на русском (conventional commits) в main, пуш
-- [ ] T-077: Деплой на сервер + `ALAN_SILENCE_GREETING_HOURS=2`
+*(нет активных задач)*
 
-### Epic 10: War Words Redesign (F5)
-- [ ] T-054: Fix WarWordFilter — add `message.caption` check, expand WAR_WORDS keywords
-- [ ] T-055: Add channel repost detection handler for military channels
+---
 
 ## ✅ Done
 
+### Epic 11: Alan Silence Greeting (F7v2 — "Леха проснулся") — 2026-07-18
+- [x] T-064: Добавить ALAN_SILENCE_GREETING_HOURS в config/settings.py + .env.example
+- [x] 👤 T-065 (@Architect): Решение о хранилище — БД через channel_state
+- [x] T-066: Реализовать get/set_alan_last_message_ts в DatabaseService
+- [x] T-067: Встроить silence-логику в alan_handler (handlers/alan.py)
+- [x] T-068: Логика детекта "молчал >= N часов → написал" → _send_greeting()
+- [x] T-069: Обновление таймера при КАЖДОМ сообщении Алана
+- [x] T-070: Edge cases — baseline, N=0, несколько чатов, restart persistence, cooldown
+- [x] T-071: Детальное логирование каждого этапа
+- [x] T-072: Интеграция в bot.py — без изменения порядка роутеров
+- [x] T-073: Тесты — 19 новых тестов
+- [x] T-074: Обновить README.md
+- [x] T-075: Прогнать полный pytest suite — 271 тест, без регрессий
+- [x] T-076: Коммит на русском в main, пуш
+- [x] T-077: Деплой на сервер + ALAN_SILENCE_GREETING_HOURS=2
+
+### Epic 9: Admin Test Commands (2026-07-14)
+- [x] T-048: /deadpage — ручной вызов DeadPageRelay.send_dead_page()
+- [x] T-049: /alangreet — ручной вызов _send_greeting()
+- [x] T-050: Прогнать pytest — без регрессий
+- [x] T-051: Тесты на admin_commands (6 тестов)
+
+### Epic 8: Alan Greeting Video (F7) — 2026-07-13
+- [x] T-038: Add ALAN_USERNAME, ALAN_USER_ID, ALAN_GREETING_DIR to config
+- [x] T-039: Create handlers/alan_greeting.py (join + fallback + video + caption)
+- [x] T-040: Register alan_greeting_router in bot.py (position 1b)
+- [x] T-041: Write tests/test_alan_greeting.py (7-8 tests)
+- [x] T-042: Update ARCHITECTURE.md
+- [x] T-043: Update MEMORY.md
+- [x] T-044: Run all tests — no regressions
+- [x] T-045: Code review and QA
+
+### Epic 7: Better Stack Monitoring Integration (2026-07-12)
+- [x] T-029: Add sentry-sdk==2.64.0 and logtail-python==0.4.0 to requirements.txt
+- [x] T-030: Install sentry-sdk and logtail-python into venv
+- [x] T-031: Add SENTRY_DSN and LOGTAIL_SOURCE_TOKEN to .env.example
+- [x] T-032: Add SENTRY_DSN and LOGTAIL_SOURCE_TOKEN to .env
+- [x] T-033: Initialize Sentry SDK in bot.py
+- [x] T-034: Configure LogtailHandler on root logger
+- [x] T-035: Write and run smoke test
+- [x] T-036: Run pytest — no regressions
+- [x] T-037: Update ARCHITECTURE.md with monitoring section
+
 ### Epic 6: Dead Page V2 — Event-driven reposts
-- [x] T-018: Update config/settings.py + .env.example (new params, remove MORNING_HOUR/EVENING_HOUR/POLL_INTERVAL)
-- [x] T-019: Update plan DEAD_PAGE_V2_PLAN.md with user feedback (forward + channel 4228645624 + fallback)
-- [x] T-020: Create services/dead_page_relay.py (channel forward + fallback)
-- [x] T-021: Create handlers/dead_page_trigger.py (repost detector, forward_origin filter)
-- [x] T-022: Simplify services/scheduler.py (remove loop, keep join trigger only)
-- [x] T-023: DB migration (channel_state table, timestamp column, new methods)
-- [x] T-024: Update bot.py (register dead_page_router #4, init DeadPageRelay, wire to slava_presence)
-- [x] T-025: Add comprehensive logging to dead_page module (relay, trigger, scheduler, DB)
-- [x] T-026: Update MEMORY.md and ARCHITECTURE.md (new F2 architecture, router order, DB schema)
-- [x] T-027: Write/rewrite tests (test_dead_page_relay.py, test_dead_page_trigger.py, drop old scheduler tests, update test_database.py)
-- [x] T-028: Run all tests and verify coverage (all new functions covered, no regressions)
+- [x] T-018: Update config/settings.py + .env.example
+- [x] T-019: Update DEAD_PAGE_V2_PLAN.md
+- [x] T-020: Create services/dead_page_relay.py
+- [x] T-021: Create handlers/dead_page_trigger.py
+- [x] T-022: Simplify services/scheduler.py
+- [x] T-023: DB migration (channel_state, timestamp, new methods)
+- [x] T-024: Update bot.py (register dead_page_router #4, init DeadPageRelay)
+- [x] T-025: Add comprehensive logging to dead_page modules
+- [x] T-026: Update MEMORY.md and ARCHITECTURE.md
+- [x] T-027: Write/rewrite tests
+- [x] T-028: Run all tests and verify coverage
 
 ### Epic 1: Рефакторинг
 - [x] T-001: Вынести API_TOKEN в .env / конфигурацию
 - [x] T-002: Создать requirements.txt с закреплёнными версиями
-- [x] T-003: Создать единую структуру проекта (config/, handlers/, filters/, services/, tests/)
+- [x] T-003: Создать единую структуру проекта
 - [x] T-004: Унифицировать обработку ошибок и логирование
 - [x] T-005: Создать общий базовый класс для фильтров
 
 ### Epic 2: Новые функции
-- [x] T-006 (F1): При возвращении Славы в чат → «ДОЛБОЕБ ВЕРНУЛСЯ» + new_chat_members fallback
-- [x] T-007 (F2): Dead-page посты — рандомное фото + текст 2x/день + при входе
+- [x] T-006 (F1): При возвращении Славы в чат → «ДОЛБОЕБ ВЕРНУЛСЯ»
+- [x] T-007 (F2): Dead-page посты — рандомное фото + текст
 - [x] T-008 (F3): Каждые 5 сообщений → GIF через MessageCounterMiddleware
-- [x] T-009 (F4): «КУЧА» → «ДАЛБАЕБ» с KuchaWordFilter (precise regex)
-- [x] T-010 (F5): Военные слова → «трясло ебаное» для Славы (WarWordFilter)
-- [x] T-011 (F6): Каждые 10 сообщений @Alan_Z (id 138811255) → reply random-фразой (UserIdFilter + DB counter)
+- [x] T-009 (F4): «КУЧА» → «ДАЛБАЕБ» с KuchaWordFilter
+- [x] T-010 (F5): Военные слова → «трясло ебаное» (DEPRECATED — заменено на F5v2)
+- [x] T-011 (F6): Каждые 10 сообщений @Alan_Z → reply random-фразой
 
 ### Epic 3: Тестирование и CI
-- [x] T-012: Модульные тесты на все хендлеры (109 тестов, 12 файлов)
-- [x] T-013: Тесты на все корнер-кейсы (пустой текст, нецелевой пользователь, границы)
-- [x] T-014: Интеграционные тесты (unit tests покрывают все компоненты; H3 deferred)
+- [x] T-012: Модульные тесты на все хендлеры
+- [x] T-013: Тесты на все корнер-кейсы
+- [x] T-014: Интеграционные тесты
 
 ### Epic 4: Документация
 - [x] T-015: README.md с ироничной документацией
 
 ### Epic 5: Багфиксы
-- [x] T-016 (Kostik): Probability-based reply engine + extensible pool (KOSTIK_REPLY_PROBABILITY)
-- [x] T-017 (Kucha): Fix KuchaWordFilter regex — remove "ек" from optional group
-- [x] B1: KuchaWordFilter — precise declension matching regex
-- [x] H1: Filter-level tests for VasyaFilter, StrictAdminFilter
-- [x] H2: Legacy modules deleted (kostik, slavik, vasya)
-- [x] M1: new_chat_members fallback for F1
-- [x] M4: DB fixture stable (manual event loop)
-- [x] M5: All settings env-configurable via settings.py
-- [x] L3: on_shutdown cleanup hook in bot.py
+- [x] T-016 (Kostik): Probability-based reply engine + extensible pool
+- [x] T-017 (Kucha): Fix KuchaWordFilter regex
+
+### Bugfixes (Critical/High) — 2026-07-13 to 2026-07-15
+- [x] T-046: Dead Page Relay — ALL RANGES EXHAUSTED (Critical)
+- [x] T-047: Alan Greeting Video — service never fires (High)
+- [x] T-052: Dead Page Relay — sequential scanning for sparse channels (Critical)
+- [x] T-053: Propagation-stopping bug in slava_presence.py — F7 completely broken (Critical)
 
 ### Remaining LOW (not blocking)
 - [ ] H3: Dispatcher integration tests — deferred
@@ -120,22 +135,6 @@
 - [ ] L4: MediaService cache invalidation
 - [ ] L5: VasyaFilter translit order edge case
 
-## 👤 Architect
-- [ ] T-037: Update ARCHITECTURE.md with monitoring section (@Architect)
-- [x] 👤 T-065 (@Architect, 2026-07-18): **Решено — БД через channel_state.** Хранить `last_message_timestamp` Алана в таблице `channel_state` с ключом `alan_last_msg:{chat_id}`. Два новых метода DatabaseService: `get_alan_last_message_ts(chat_id) -> float | None` и `set_alan_last_message_ts(chat_id, timestamp: float) -> None`. Решение документировано в ARCHITECTURE.md Section 22.2.
-
-### Epic 10: War Words Redesign (F5) — 2026-07-16
-- [ ] T-054: Fix WarWordFilter — add `message.caption` check, expand WAR_WORDS keywords (опасность, БПЛА, ракета, ракетная, ракетной, укрытие, убежище, бункер, внимание, беспилотной, беспилотная, оповещение + conjugation variants). File: `filters/war_word.py`.
-- [ ] T-055: Add channel repost detection handler for military channels. Detect `F.forward_origin` → `MessageOriginChannel` by channel ID (1654872411 "ЧП Пермь", "Радар по всей России | БПЛА") and/or username. File: `handlers/war_words_trigger.py`.
-- [ ] T-056: Replace single hardcoded "трясло ебаное" with extensible reply pool + `random.choice()`. Replies: "потрясись", "повизжи", "прячься под шконку быстрее", "закрой ушки и считай до десяти", "поплачь" + ability to add more. File: `handlers/slavik.py`.
-- [ ] T-057: Add comprehensive Better Stack logging — keyword match, channel repost, reply chosen, errors. Structured logs with chat_id, user_id, keyword, reply_text context. Files: `filters/war_word.py`, `handlers/slavik.py`, `handlers/war_words_trigger.py`.
-- [ ] T-058: Create/extend tests — WarWordFilter tests (caption, new keywords, edge cases), handler tests (random reply pool, channel repost detection), integration tests. Update `tests/test_slavik_handlers.py`, new `tests/test_war_words_trigger.py`.
-- [ ] T-059: Update `config/settings.py` — add `WAR_WORDS_CHANNEL_IDS`, `WAR_WORDS_CHANNEL_USERNAMES`, `WAR_WORDS_REPLY_POOL` env vars. Update `.env.example`.
-- [ ] T-060: Register `war_words_trigger_router` in `bot.py` at correct position (between dead_page_router #4 and slavik_router #5).
-- [ ] T-061: Update README — document F5 v2 (expanded keywords, channel repost detection, random replies, caption support).
-- [ ] T-062: Run full pytest suite — verify no regressions, all new functions covered.
-- [ ] T-063: Deploy to server.
-
 ---
 
-**Updated:** 2026-07-18 — Epic 11 (Alan Silence Greeting F7v2) moved to In Progress. T-065 resolved by @Architect: DB via channel_state, inlining into alan_handler. ARCHITECTURE.md Section 22 added.
+**Updated:** 2026-07-25 — Epic 12 (Bugfix Reposts + slavic_na_litso.jpg) added to Backlog. Epic 11 moved to Done. Epics 7-9 and bugfixes T-046–T-053 moved to Done. Epic 10 (War Words Redesign) stays in Backlog/Planning.

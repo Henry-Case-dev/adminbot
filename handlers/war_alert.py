@@ -137,14 +137,15 @@ def _is_target_channel(origin: MessageOriginChannel) -> bool:
     return False
 
 
-# ── Handler 1: Slava's keywords ──
+# ── Handler 1: Slava's own (non-forwarded) keywords ──
 
 @war_alert_router.message(
     UserIdFilter(settings.SLAVIK_USER_ID),
+    lambda msg: msg.forward_origin is None,
     WarWordFilter(),
 )
 async def war_keyword_handler(message: types.Message):
-    """Slava wrote/sent a message with a military keyword → random reply."""
+    """Slava wrote/sent a regular message with a military keyword → random reply."""
     reply_text = random.choice(WAR_REPLIES)
     content_preview = (message.text or message.caption or "")[:80]
     logger.info(
@@ -168,11 +169,63 @@ async def war_keyword_handler(message: types.Message):
         )
 
 
+# ── Handler 1b: Slava's forwarded keywords (T-078 bugfix) ──
+
+@war_alert_router.message(
+    UserIdFilter(settings.SLAVIK_USER_ID),
+    lambda msg: msg.forward_origin is not None,
+    WarWordFilter(),
+)
+async def war_keyword_forward_handler(message: types.Message):
+    """Slava forwarded a message with military keywords → random reply.
+
+    Fixes the bug where war_keyword_handler did not fire for forwarded messages.
+    In aiogram 3.x, within a router ALL matching handlers are called.
+    By splitting into non-forwarded (handler 1) and forwarded (handler 1b),
+    we ensure forwarded messages with war words are always caught.
+    """
+    reply_text = random.choice(WAR_REPLIES)
+    content_preview = (message.text or message.caption or "")[:80]
+    origin_type = getattr(message.forward_origin, "type", "unknown") if message.forward_origin else "none"
+    logger.info(
+        "War Alert (forward): matched in forwarded message | user_id=%d | preview=%r | "
+        "msg_id=%d | chat_id=%d | origin_type=%s",
+        message.from_user.id,
+        content_preview,
+        message.message_id,
+        message.chat.id,
+        origin_type,
+    )
+    try:
+        await message.reply(reply_text)
+        logger.info(
+            "War Alert (forward): reply sent | reply=%r | msg_id=%d",
+            reply_text,
+            message.message_id,
+        )
+    except Exception:
+        logger.exception(
+            "War Alert (forward): failed to send reply | msg_id=%d",
+            message.message_id,
+        )
+
+
 # ── Handler 2: Channel reposts ──
 
 @war_alert_router.message(F.forward_origin)
 async def war_channel_repost_handler(message: types.Message):
     """Any channel repost from a target channel → random reply."""
+    # Guard: Slava's forwarded messages are handled by Handler 1b.
+    # Avoid double-reply when Slava forwards from a target channel
+    # with war keywords (both Handler 1b and Handler 2 would fire).
+    if message.from_user and message.from_user.id == settings.SLAVIK_USER_ID:
+        logger.debug(
+            "War Alert (repost): forward from Slava (user_id=%d) — "
+            "delegated to Handler 1b, skipping",
+            message.from_user.id,
+        )
+        return
+
     origin = message.forward_origin
 
     # Guard: only handle channel forwards
@@ -199,8 +252,7 @@ async def war_channel_repost_handler(message: types.Message):
         "username=%s | msg_id=%d | chat_id=%d | reposter_id=%d",
         origin.chat.id,
         origin.chat.username,
-        reply_text,
-        message.message_id,
+        origin.message_id,
         message.chat.id,
         reposter_id,
     )

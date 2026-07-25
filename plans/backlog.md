@@ -58,146 +58,116 @@
 
 ---
 
-## Epic 7: Better Stack Monitoring Integration (2026-07-12)
+## Epic 7: Better Stack Monitoring Integration (2026-07-12) ✅ DONE
 
 > **Цель:** Интегрировать Sentry (error tracking) и Logtail (log aggregation) от Better Stack
 > для production-grade мониторинга бота.
 
 ### Подготовка окружения
-- [ ] T-029: Добавить sentry-sdk и logtail-python в requirements.txt с закреплёнными версиями (sentry-sdk==2.64.0, logtail-python==0.4.0)
-- [ ] T-030: Установить sentry-sdk и logtail-python в venv проекта
-- [ ] T-031: Добавить SENTRY_DSN и LOGTAIL_SOURCE_TOKEN в .env.example
-- [ ] T-032: Добавить SENTRY_DSN и LOGTAIL_SOURCE_TOKEN в .env (создать по шаблону .env.example, если отсутствует)
+- [x] T-029: Добавить sentry-sdk==2.64.0 и logtail-python==0.4.0 в requirements.txt
+- [x] T-030: Установить sentry-sdk и logtail-python в venv проекта
+- [x] T-031: Добавить SENTRY_DSN и LOGTAIL_SOURCE_TOKEN в .env.example
+- [x] T-032: Добавить SENTRY_DSN и LOGTAIL_SOURCE_TOKEN в .env
 
 ### Интеграция в код
-- [ ] T-033: Инициализировать Sentry SDK в bot.py (импорт после load_dotenv, traces_sample_rate=1.0)
-- [ ] T-034: Настроить Logtail logging handler (LogtailHandler на root logger рядом с StreamHandler, source token из LOGTAIL_SOURCE_TOKEN)
+- [x] T-033: Инициализировать Sentry SDK в bot.py (traces_sample_rate=1.0)
+- [x] T-034: Настроить LogtailHandler на root logger (dual-output: консоль + облако)
 
 ### Верификация
-- [ ] T-035: Написать и запустить smoke test — отправить тестовый лог + тестовую ошибку в облако
-- [ ] T-036: Запустить существующий тестовый suite (pytest), убедиться что ничего не сломалось
+- [x] T-035: Написать и запустить smoke test — тестовый лог + тестовая ошибка в облако
+- [x] T-036: Запустить существующий тестовый suite (pytest), убедиться что ничего не сломалось
 
 ### Документация
-- [ ] T-037: Обновить ARCHITECTURE.md — добавить секцию мониторинга (@Architect)
+- [x] T-037: Обновить ARCHITECTURE.md — добавить секцию мониторинга (@Architect)
 
 ---
 
-## Epic 8: Alan Greeting Video (F7) — 2026-07-13
+## Epic 8: Alan Greeting Video (F7) — 2026-07-13 ✅ DONE
 
 > **Цель:** Когда пользователь Alan (ID 138811255, @Alan_Z) заходит в чат, бот отправляет
 > случайное видео из `media/leha_greeting/` с тегом @Alan_Z в подписи.
 
 ### Конфигурация
-- [ ] T-038: Добавить `ALAN_USERNAME`, `ALAN_USER_ID` и `ALAN_GREETING_DIR` в `config/settings.py` + `.env.example`
+- [x] T-038: Добавить `ALAN_USERNAME`, `ALAN_USER_ID` и `ALAN_GREETING_DIR` в `config/settings.py` + `.env.example`
 
 ### Хендлер
-- [ ] T-039: Создать `handlers/alan_greeting.py` — `alan_greeting_router`:
+- [x] T-039: Создать `handlers/alan_greeting.py` — `alan_greeting_router`:
   - `ChatMemberUpdatedFilter` (IS_NOT_MEMBER → IS_MEMBER) + `new_chat_members` fallback
-  - Рандомное видео из `media/leha_greeting/` → `send_video` (не animation/GIF, не document)
+  - Рандомное видео из `media/leha_greeting/` → `send_video`
   - Caption: `@Alan_Z`
-  - Comprehensive logging (info: join detected, sent; warning: no videos; error: failure)
+  - Comprehensive logging
 
 ### Интеграция
-- [ ] T-040: Зарегистрировать `alan_greeting_router` в `bot.py` (позиция 1, рядом с `slava_presence_router`)
+- [x] T-040: Зарегистрировать `alan_greeting_router` в `bot.py` (позиция 1b, рядом с `slava_presence_router`)
 
 ### Тестирование
-- [ ] T-041: Написать `tests/test_alan_greeting.py` (7-8 тестов):
-  - Alan join → video sent with caption
-  - Non-Alan join → ignored
-  - Alan leave → ignored
-  - `new_chat_members` fallback
-  - Random selection (multiple videos)
-  - Caption contains @Alan_Z
-  - Empty `media/leha_greeting/` → graceful handling
-  - Error during send → logged
+- [x] T-041: Написать `tests/test_alan_greeting.py` (7-8 тестов)
 
 ### Документация
-- [ ] T-042: Обновить `ARCHITECTURE.md` (F7 data flow, router order, directory listing)
-- [ ] T-043: Обновить `MEMORY.md` (project state, features table)
+- [x] T-042: Обновить `ARCHITECTURE.md` (F7 data flow, router order, directory listing)
+- [x] T-043: Обновить `MEMORY.md` (project state, features table)
 
 ### QA
-- [ ] T-044: Прогнать все тесты, убедиться в отсутствии регрессий
-- [ ] T-045: Code review и QA
-
-### Багфиксы (2026-07-13)
-- [ ] T-046: БАГФИКС: Dead Page Relay — ALL RANGES EXHAUSTED (Critical)
-  - Исправить `_build_search_ranges()` в `services/dead_page_relay.py`: добавить `_DISCOVERY_RANGES` как fallback после anchored ranges, чтобы при росте канала >200 сообщений алгоритм не ограничивался узким окном [1,200].
-  - Исправить `continue` на строке ~106 — dedup при `last_msg_id=100` не должен сжигать 2 из 10 слотов попыток.
-  - Добавить WARNING-лог при входе в fallback `_DISCOVERY_RANGES`.
-  - [ ] T-047: БАГФИКС: Alan Greeting Video — сервис никогда не срабатывает (High)
-  - Поднять diagnostic-логи c DEBUG до INFO уровня в `handlers/alan_greeting.py` (строки 84, 87), чтобы join-события были видны в Better Stack.
-  - Добавить уникальный lambda-фильтр `event.new_chat_member.user.id == settings.ALAN_USER_ID` в `alan_greeting_router` для архитектурного разделения с `slava_presence_router` (у обоих `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)`).
-  - Написать интеграционный тест с обоими роутерами на одном dispatcher — проверка отсутствия конфликтов фильтров.
-- [ ] T-052: БАГФИКС: Dead Page Relay — sequential scanning для sparse channels (Critical)
-  - Проблема: текущий алгоритм (random probing, 5 retries/range, 35 total attempts) работает для DENSE каналов, но проваливается на SPARSE каналах (1 пост из 2000 ID — вероятность попадания ~2%). Production log: chat_id=5885953495, DB last_msg_id=100, все 7 ranges exhausted, fallback на локальные медиа.
-  - Решение: добавить sequential scanning для narrow ranges (≤ 50 ID). При обнаружении narrow range (`hi - lo <= 50`) переключаться с random probing на линейное сканирование ID от lo до hi включительно. Range (1,10) гарантированно найдёт пост с message_id=3.
-  - Изменения: модифицировать `_probe_range()` в `services/dead_page_relay.py` — перед random retries проверить `if hi - lo + 1 <= 50`, затем перебор ID последовательно через `bot.forward_messages()` с проверкой исключений.
-  - Логирование: INFO при входе в sequential mode ("Narrow range [lo,hi]: switching to sequential scan"), INFO при успешном нахождении ("Sequential scan hit: message_id=X at attempt Y").
-
-- [ ] T-053: БАГФИКС: Propagation-stopping bug в slava_presence.py — F7 Alan greeting полностью сломана в production (Critical)
-  - Проблема: три хендлера в `handlers/slava_presence.py` (`on_user_join`, `on_user_leave`, `on_new_slava_member`) возвращают `None` (bare `return`) когда пользователь не Slava. В aiogram 3.x возврат `None` из обработчика останавливает propagation события. Поскольку `slava_presence_router` зарегистрирован ПЕРЕД `alan_greeting_router`, он перехватывает ВСЕ join-события, и Alan's router никогда их не получает. F7 сломана полностью.
-  - Fix 1 (PRIMARY, @Builder): Возвращать `UNHANDLED` из хендлеров slava_presence.py
-    - Файл: `handlers/slava_presence.py`
-    - Импортировать `UNHANDLED` из aiogram
-    - В `on_user_join` (строка ~33): `return` → `return UNHANDLED` когда `user.id != SLAVIK_USER_ID`
-    - В `on_user_leave` (строка ~63): `return` → `return UNHANDLED` когда `user.id != SLAVIK_USER_ID`
-    - В `on_new_slava_member` (строка ~75): `return` → `return UNHANDLED` когда `not message.new_chat_members`
-  - Fix 2 (DEFENCE-IN-DEPTH, @Builder): Убрать или конвертировать избыточную проверку user ID в alan_greeting.py
-    - Файл: `handlers/alan_greeting.py`
-    - В `on_alan_join` (строки ~87-89): проверка `if user.id != settings.ALAN_USER_ID: return` избыточна, поскольку lambda-фильтр в декораторе уже гарантирует вызов только для Alan. Убрать или конвертировать в `return UNHANDLED`.
-  - Fix 3 (TESTS, @Builder): Добавить интеграционный тест с реальной диспетчеризацией
-    - Текущий `test_both_routers_dispatch_correctly` вызывает `on_alan_join()` напрямую — в обход диспетчера
-    - Новый тест: создать Dispatcher, зарегистрировать оба роутера, скормить `ChatMemberUpdated` update, проверить что Alan's greeting срабатывает (send_video вызван)
-    - Новый тест: проверить что когда slava_presence возвращает `UNHANDLED`, propagation продолжается к следующему роутеру
-  - Fix 4: НЕ РЕАЛИЗОВАНО (UserIdFilter на уровне декоратора для Slava — не нужен если Fix 1 работает)
+- [x] T-044: Прогнать все тесты, убедиться в отсутствии регрессий
+- [x] T-045: Code review и QA
 
 ---
 
-## Epic 9: Admin Test Commands (2026-07-14)
+## Багфиксы (2026-07-13 – 2026-07-15) ✅ DONE
+
+- [x] T-046: БАГФИКС: Dead Page Relay — ALL RANGES EXHAUSTED (Critical)
+  - Исправлен `_build_search_ranges()` в `services/dead_page_relay.py`: добавлен `_DISCOVERY_RANGES` как fallback.
+  - Исправлен `continue` dedup — не сжигает слоты попыток.
+  - Добавлен WARNING-лог при входе в fallback `_DISCOVERY_RANGES`.
+
+- [x] T-047: БАГФИКС: Alan Greeting Video — сервис никогда не срабатывает (High)
+  - Подняты diagnostic-логи c DEBUG до INFO уровня в `handlers/alan_greeting.py`.
+  - Добавлен уникальный lambda-фильтр `event.new_chat_member.user.id == settings.ALAN_USER_ID`.
+  - Написан интеграционный тест с обоими роутерами на одном dispatcher.
+
+- [x] T-052: БАГФИКС: Dead Page Relay — sequential scanning для sparse channels (Critical)
+  - Добавлен sequential scanning для narrow ranges (≤ 50 ID).
+  - При `hi - lo <= 50` переключается на линейное сканирование ID.
+  - Логирование: INFO при sequential mode, INFO при hit.
+
+- [x] T-053: БАГФИКС: Propagation-stopping bug в slava_presence.py — F7 Alan greeting полностью сломана в production (Critical)
+  - Fix 1: Возврат `UNHANDLED` из хендлеров slava_presence.py (on_user_join, on_user_leave, on_new_slava_member).
+  - Fix 2: Убрана избыточная проверка user ID в alan_greeting.py.
+  - Fix 3: Интеграционный тест с реальной диспетчеризацией через Dispatcher.
+  - Fix 4: НЕ РЕАЛИЗОВАН (UserIdFilter на уровне декоратора — не нужен, Fix 1 работает).
+
+---
+
+## Epic 9: Admin Test Commands (2026-07-14) ✅ DONE
 
 > **Цель:** Добавить команды Telegram для ручного тестирования фич админом.
 > Первый в проекте command handler и первый опыт удаления сообщений ботом.
-> 
-> **Контекст:** На данным момент в кодовой базе нет ни одного command handler'а
-> (Message.filter(F.text.startswith("/"))), ни одного вызова delete_message.
-> Оба механизма реализуются с нуля. Команды регистрируются в общем роутере
-> `handlers/admin_commands.py` на позиции 0 в `bot.py` (перед всеми существующими).
 
 ### Конфигурация
-- [ ] T-048: Admin test command для dead_page_relay (`/deadpage`)
-  - `config/settings.py` + `.env.example`: добавить `ADMIN_USER_ID=5885953495`
-  - Создать `handlers/admin_commands.py` — `admin_router: Router`
-  - `Message.filter(F.text.startswith("/deadpage"))`
-  - DM (private chat): работает для любого пользователя
-  - Группы: работает только для админа (`message.from_user.id == settings.ADMIN_USER_ID`), не-админам — игнорировать (молча)
-  - После успешной обработки: `await message.delete()` — удаление команды из чата
-  - Основная логика: `await relay.send_dead_page(chat_id, slot="manual")` — отправка dead-page (channel forward или local fallback), бот автоматически отвечает постом в чат
-  - Comprehensive logging (info: команда получена, dead page отправлен; warning: не-админ в группе; error: delete_message failure)
-  - Регистрация в `bot.py`: позиция 0 (перед `slava_presence_router`), инжект relay через `setup_admin_commands(relay)` или замыкание
-
-- [ ] T-049: Admin test command для alan_greeting (`/alangreet`)
-  - Добавить handler в `handlers/admin_commands.py` (тот же роутер, что T-048)
-  - `Message.filter(F.text.startswith("/alangreet"))`
+- [x] T-048: Admin test command для dead_page_relay (`/deadpage`)
+  - `config/settings.py` + `.env.example`: `ADMIN_USER_ID=5885953495`
+  - Создан `handlers/admin_commands.py` — `admin_router: Router`
+  - `Command("deadpage")` filter
   - DM: работает для любого пользователя
-  - Группы: админ только (`ADMIN_USER_ID`)
+  - Группы: только админ (`ADMIN_USER_ID`)
   - `await message.delete()` — удаление команды из чата
-  - Логика: импортировать `_send_greeting` из `handlers.alan_greeting` → `await _send_greeting(message.bot, chat_id)` — отправка greeting-видео с caption `@Alan_Z`
-  - Comprehensive logging: команда получена, greeting отправлен/не отправлен
-  - Регистрация: тот же `admin_router`, уже зарегистрированный в T-048
+  - Основная логика: `await relay.send_dead_page(chat_id, slot="manual")`
+  - Comprehensive logging
+
+- [x] T-049: Admin test command для alan_greeting (`/alangreet`)
+  - Добавлен handler в `handlers/admin_commands.py` (тот же роутер)
+  - `Command("alangreet")` filter
+  - DM: любой пользователь. Группы: админ только.
+  - `await message.delete()`
+  - Логика: `_send_greeting` из `handlers.alan_greeting`
 
 ### Верификация
-- [ ] T-050: Запустить тест-сьют pytest, убедиться в отсутствии регрессий
-- [ ] T-051: Написать тесты на admin_commands (минимум 6 тестов):
-  - DM: /deadpage → relay.send_dead_page вызван с slot="manual", сообщение удалено
-  - DM: /alangreet → _send_greeting вызван, сообщение удалено
-  - Группа: админ (5885953495) → команда срабатывает
-  - Группа: не-админ → команда игнорируется
-  - DM: delete_message error → logged but not fatal
-  - Группа: delete_message error → logged but not fatal
+- [x] T-050: Прогнать тест-сьют pytest, убедиться в отсутствии регрессий
+- [x] T-051: Написать тесты на admin_commands (6 тестов: DM deadpage, DM alangreet, группа админ, группа не-админ, DM delete error, группа delete error)
 
 ---
 
-## Epic 10: War Words Redesign (F5) — 2026-07-16
+## Epic 10: War Words Redesign (F5v2) — 2026-07-16 🔵 PLANNING
 
 > **Цель:** Переработать F5 (War Words) — исправить баг с caption (фильтр пропускает
 > текст в подписях к медиа/форвардам), расширить словарь ключевых слов, добавить
@@ -226,7 +196,6 @@
     - `беспилотной`, `беспилотная`, `беспилотные`, `беспилотник`, `беспилотники` — UAV/drone
     - `оповещение`, `оповещения`, `оповещении` — notification/alert
   - **Architecture:** Добавить слова в `WAR_WORDS` list, паттерны пересобираются автоматически
-  - **Backward compatibility:** Существующие 27 keyword форм сохраняются. Формат списка не меняется — легко добавлять новые слова
   - **File:** `filters/war_word.py`
 
 ### Channel repost detection
@@ -244,7 +213,7 @@
 
 ### Random reply pool
 - [ ] T-056: Create random reply pool + `random.choice()` logic
-  - **Current:** Одиночный хардкод `"трясло ебаное"` в `war_word_handler` (handlers/slavik.py:19)
+  - **Current:** Одиночный хардкод `"трясло ебаное"` в `war_word_handler`
   - **New:** Extensible reply pool в виде списка строк
   - **Initial pool (5 phrases):**
     1. `"потрясись"`
@@ -252,38 +221,29 @@
     3. `"прячься под шконку быстрее"`
     4. `"закрой ушки и считай до десяти"`
     5. `"поплачь"`
-  - **Selection:** `random.choice(WAR_REPLIES)` — как в `ALAN_REPLIES` в handlers/alan.py:93
-  - **Extensibility:** Добавление новой фразы = новая строка в списке. Опционально: env-конфигурируемый пул (`WAR_WORDS_REPLY_POOL`) из T-059
-  - **Backward compatibility:** Старый `"трясло ебаное"` убран; новый пул используется и в war_word_handler (keyword match), и в war_words_trigger (channel repost)
-  - **Reply mechanism:** `await message.reply(reply_text)` — reply_to mechanism (уже используется)
+  - **Selection:** `random.choice(WAR_REPLIES)` — как в `ALAN_REPLIES` в handlers/alan.py
+  - **Extensibility:** Добавление новой фразы = новая строка в списке
+  - **Backward compatibility:** Старый `"трясло ебаное"` убран
+  - **Reply mechanism:** `await message.reply(reply_text)` — reply_to mechanism
 
 ### Logging
 - [ ] T-057: Add comprehensive Better Stack logging
   - **Levels:**
-    - `INFO`: keyword matched (какое слово, chat_id, user_id), channel repost detected, reply sent
+    - `INFO`: keyword matched, channel repost detected, reply sent
     - `WARNING`: filter miss (caption empty, origin not channel)
     - `ERROR`: handler failures
   - **Context per log:** chat_id, user_id, matched keyword, channel source, chosen reply text
-  - **Files to instrument:** `filters/war_word.py`, `handlers/slavik.py` (war_word_handler), `handlers/war_words_trigger.py`
-  - **Consistency:** Использовать тот же стиль логов, что в dead_page_trigger.py и alan.py
+  - **Files to instrument:** `filters/war_word.py`, `handlers/war_alert.py`
 
 ### Testing
 - [ ] T-058: Create/extend tests — filter, handler, integration
   - **Filter tests** (`tests/test_war_word_filter.py` — новый файл, ~12 tests):
-    - text-only match (existing keywords)
-    - caption match (новые keywords)
-    - empty text + empty caption → no match
-    - caption-only match → match
-    - text present but no war word → no match
-    - caption present but no war word → no match
-    - all new keyword forms (опасность, БПЛА, ракетная, etc.)
-    - case insensitivity (бпла, БПЛА, Бпла)
-    - word boundary test — "внимание" matches, "внимательный" doesn't
-    - non-Slava user with war word — filter passes, handler ignores (проверка UserIdFilter)
-  - **Handler tests** (`tests/test_slavik_handlers.py` — обновить, ~6 tests):
-    - war word keyword → random reply from pool (verify reply in WAR_REPLIES)
-    - verify `message.reply()` called (reply_to mechanism)
-    - verify randomness (run 10x, assert at least 2 different replies)
+    - text-only match, caption match, empty text + empty caption, caption-only match
+    - all new keyword forms, case insensitivity, word boundary test
+    - non-Slava user with war word
+  - **Handler tests** (`tests/test_war_alert.py` — обновить, ~6 tests):
+    - war word keyword → random reply from pool
+    - verify `message.reply()` called, verify randomness (10x)
     - no war word + Slava → catch-all "пошёл нахуй"
     - no war word + non-Slava → no reply
   - **Channel repost handler tests** (`tests/test_war_words_trigger.py` — новый файл, ~10 tests):
@@ -295,23 +255,18 @@
     - non-Slava forward from target → no reply
     - verify `message.reply()` called with reply from pool
     - empty caption → still triggers (channel match, not keyword match)
-    - multiple channels in list — ID match works for any
-  - **Integration tests** (`tests/test_slavik_handlers.py` — обновить):
-    - full pipeline: handler registered on dispatcher → message → reply
 
 ### Configuration
 - [ ] T-059: Update `config/settings.py` with new env vars + `.env.example`
-  - `WAR_WORDS_CHANNEL_IDS`: list[int] — ID военных каналов для репост-детекции (default: [1654872411])
-  - `WAR_WORDS_CHANNEL_USERNAMES`: list[str] — usernames военных каналов (default: [])
-  - `WAR_WORDS_REPLY_POOL`: list[str] — опциональный env-переопределяемый пул ответов (default: пустой — используется хардкод-пуль в коде из T-056)
-  - Формат в .env: comma-separated (напр. `WAR_WORDS_CHANNEL_IDS=1654872411,123456789`)
+  - `WAR_CHANNEL_IDS`: list[int] — ID военных каналов (default: [1654872411])
+  - `WAR_CHANNEL_USERNAMES`: list[str] — usernames военных каналов (default: [])
+  - `WAR_REPLIES`: list[str] — опциональный env-переопределяемый пул ответов (default: пустой — используется хардкод-пуль)
 
 ### Integration
-- [ ] T-060: Register `war_words_trigger_router` in `bot.py`
+- [ ] T-060: Register `war_alert_router` in `bot.py`
   - **Position:** Между dead_page_router (#4) и slavik_router (#5)
-  - **Rationale:** Репост-детекция должна срабатывать до slavik catch-all, но после dead_page_trigger
   - **Actual position:** 4b в router order
-  - **Wire-up:** `setup_war_words_trigger()` — аналог `setup_dead_page()`, если нужны зависимости
+  - **Wire-up:** `setup_war_alert()` — аналог `setup_dead_page()`
 
 ### Documentation
 - [ ] T-061: Update README — document F5 v2
@@ -319,13 +274,11 @@
   - Channel repost detection (список каналов)
   - Random reply pool (5 phrases, extensible)
   - Caption support (bugfix)
-  - Link to new env vars in .env.example
 
 ### QA & Deploy
 - [ ] T-062: Run full pytest suite — verify no regressions, all new functions covered
   - Target: ~28 новых тестов (12 filter + 6 handler + 10 trigger)
-  - Verify: существующие 190 тестов не сломаны
-  - Coverage: 100% новых функций
+  - Verify: существующие 271 тест не сломаны
 - [ ] T-063: Deploy to server
   - Git pull, restart bot
   - Smoke test: send war keyword → random reply; forward from target channel → random reply
@@ -333,180 +286,142 @@
 
 ---
 
-## Epic 11: Alan Silence Greeting (F7 v2 — "Леха проснулся") — 2026-07-18
+## Epic 11: Alan Silence Greeting (F7 v2 — "Леха проснулся") — 2026-07-18 ✅ DONE
 
 > **Цель:** Расширить F7 (Alan Greeting Video). Кроме приветствия при join-событии,
-> бот должен отправлять то же самое приветственное видео, когда Алан (id 138811255,
-> @Alan_Z) присутствует в чате, молчит дольше N часов, а затем пишет любое сообщение.
-> Если Алан пишет раньше, чем истекли N часов — таймер молчания сбрасывается без
-> отправки приветствия. N по умолчанию = 6 часов (эмуляция "сна"), настраивается
-> через .env, значение 0 = функция отключена. После реализации и тестов — выставить
-> N=2 часа на проде для живого теста.
+> бот должен отправлять то же самое приветственное видео, когда Алан (id 138811255)
+> присутствует в чате, молчит дольше N часов, а затем пишет любое сообщение.
+> N по умолчанию = 6 часов, настраивается через .env, значение 0 = функция отключена.
+> На проде: N=2 часа для живого теста.
 >
-> **Контекст:** Учитываются ТОЛЬКО сообщения самого Алана (id 138811255) — сообщения
-> других пользователей не влияют на его таймер молчания. Приветствие переиспользует
-> существующую `_send_greeting(bot, chat_id)` из `handlers/alan_greeting.py` (F7,
-> случайное видео из `media/leha_greeting/`). Фича должна работать независимо от
-> join-cooldown F7 (`_last_greeting` / `ALAN_GREETING_COOLDOWN`) — это разные триггеры
-> (join vs "проснулся после сообщения"), но нужно явно проверить и протестировать
-> отсутствие конфликтов между ними.
->
-> **ВАЖНО — изоляция:** Фича не должна трогать порядок роутеров, F1-F6/F8, Epic10
-> (war_alert), admin_commands. Новая логика трекинга сообщений Алана должна
-> ОБЯЗАТЕЛЬНО возвращать `UNHANDLED` (см. баг T-053), чтобы не блокировать
-> propagation к другим роутерам, которые тоже реагируют на сообщения Алана
-> (F6 alan reply engine — каждое 10-е сообщение, F3 GIF-счётчик и т.д.).
+> **Архитектурное решение:** БД через `channel_state` (`alan_last_msg:{chat_id}`).
+> Silence-логика встроена в существующий `alan_handler` (handlers/alan.py) — без нового роутера.
+> Общий anti-spam через `_last_greeting` dict (совместно с F7 join).
 
-### Архитектурное решение (требуется от @Architect)
-- [ ] T-065: **Принять решение о хранилище `last_message_timestamp` Алана** — в памяти
-  (dict `{chat_id: float}`, по аналогии с `_last_greeting` в alan_greeting.py) или в БД
-  (новая таблица/колонка в `services/database.py`, переживает restart бота).
-  - **Рекомендация PM: БД предпочтительнее.** Семантика фичи ("Алан спал N часов") по
-    смыслу пользователя не должна ломаться перезапуском бота (деплой, краш, обновление
-    зависимостей) — иначе после каждого restart таймер обнуляется и придётся ждать
-    заново N часов, что не соответствует ожиданиям пользователя и не эмулирует "сон".
-  - In-memory вариант проще и быстрее в реализации, но менее устойчив (см. edge case
-    "перезапуск бота" в T-070).
-  - **Финальное решение — на @Architect.** Если выбрана БД — учесть миграцию схемы
-    (аналогично `channel_state` из Epic 6) и решить, где хранить: новая таблица
-    `alan_activity` (chat_id, last_message_ts) или переиспользование `channel_state`
-    с составным ключом `alan_last_msg:{chat_id}`.
-
-### Конфигурация
-- [ ] T-064: Добавить env-параметр в `config/settings.py` + `.env.example`
-  - Предлагаемое имя: `ALAN_SILENCE_GREETING_HOURS` (float или int, часы) — финальное
-    имя на усмотрение @Architect/@Builder, если конфликтует со стилем проекта
-  - Default: `6` (часов)
-  - `0` = функция полностью отключена (без трекинга или с трекингом, но без триггера
-    — решить при реализации, см. T-070)
-  - Документировать в `.env.example` рядом с существующими `ALAN_*` параметрами (F7)
-  - Учесть, что изменение через `.env` требует **перезапуска бота** (dataclass
-    `Settings` читается один раз при старте) — задокументировать это явно в комментарии
-    к переменной и в README
-
-### Трекинг активности Алана
-- [ ] T-066: Реализовать хранение/обновление `last_message_timestamp` для Алана
-  (per-chat, независимо в разных чатах) — конкретная реализация (dict или БД-таблица/
-  методы `DatabaseService`) зависит от решения T-065
-  - Учитывать ТОЛЬКО сообщения от `user.id == settings.ALAN_USER_ID`
-  - Обновлять запись при КАЖДОМ сообщении Алана — независимо от того, сработало
-    приветствие или нет (см. T-069)
-- [ ] T-067: Реализовать перехват сообщений Алана без нарушения propagation
-  - Новый handler/роутер ИЛИ встраивание в существующий `alan_router`
-    (`handlers/alan.py`) — решение архитектуры/позиции роутера за @Architect/@Builder
-  - **Обязательно** возвращать `UNHANDLED`, никогда не блокировать propagation к
-    другим роутерам (F6 reply engine, F3 GIF-счётчик и др. также реагируют на
-    сообщения Алана) — прямая защита от повторения бага T-053
-  - Не менять порядок регистрации существующих роутеров в `bot.py`
-
-### Детект "молчал > N часов → написал"
-- [ ] T-068: Реализовать логику сравнения текущего времени сообщения с сохранённым
-  `last_message_timestamp`
-  - Если `ALAN_SILENCE_GREETING_HOURS == 0` → функция отключена, пропустить проверку
-    (но не ломать трекинг обновления таймера, если он всё равно нужен для будущего
-    включения фичи без потери истории — решить при реализации)
-  - Если разница `now - last_message_timestamp >= ALAN_SILENCE_GREETING_HOURS * 3600`
-    → считать, что Алан "проснулся", вызвать `_send_greeting(bot, chat_id)` из
-    `handlers/alan_greeting.py` (переиспользование, не дублировать логику выбора видео)
-  - Если разница меньше порога → НЕ отправлять приветствие, но таймер всё равно
-    обновляется (см. T-069)
-- [ ] T-069: Обновление/сброс таймера при КАЖДОМ сообщении Алана
-  - Порядок операций: сначала прочитать старый `last_message_timestamp` и вычислить
-    разницу/принять решение о триггере, ЗАТЕМ записать новый timestamp = текущее время
-  - Обновление происходит независимо от результата триггера (сработало приветствие
-    или нет) — это обычное поведение "любое сообщение Алана = новая точка отсчёта сна"
-
-### Edge cases
-- [ ] T-070: Покрыть и явно обработать следующие edge cases:
-  - **Первое сообщение от Алана вообще** (нет записи `last_message_timestamp` для
-    этого чата) — приветствие НЕ отправляется (нет базы для сравнения), просто
-    записывается baseline timestamp. Залогировать отдельно ("first message from Alan
-    in chat X, baseline recorded, no greeting").
-  - **N=0 (отключено)** — проверить, что фича не срабатывает никогда, независимо от
-    того, сколько реально прошло времени
-  - **N меняется через .env "на лету"** — задокументировать, что изменение требует
-    restart бота (см. T-064); никакого hot-reload не реализовывать (не входит в scope)
-  - **Несколько чатов независимо** — таймер молчания у Алана в чате A не влияет на
-    таймер в чате B; отдельный тест на 2+ чата одновременно
-  - **Перезапуск бота** — поведение зависит от решения T-065:
-    - если БД: таймер переживает restart (ожидаемое поведение по рекомендации PM)
-    - если in-memory: таймер сбрасывается при restart (баг или "as designed" — явно
-      задокументировать в README/ARCHITECTURE выбранное поведение, чтобы не считалось
-      багом при следующем ревью)
-  - **Конфликт/пересечение с F7 join-cooldown** (`_last_greeting` dict, 
-    `ALAN_GREETING_COOLDOWN`) — это ДРУГОЙ, независимый триггер и cooldown. Явно
-    протестировать сценарий: Алан заходит в чат (join greeting срабатывает) → сразу
-    пишет сообщение, но молчал >N часов до этого (по старому timestamp) → нужно
-    решить и задокументировать, срабатывает ли второе приветствие подряд, или это
-    нежелательное дублирование, которое нужно гасить общим cooldown-ом. Рекомендация
-    PM: избегать двух приветствий за короткий промежуток — либо переиспользовать тот
-    же `_last_greeting` dict/cooldown как общий "анти-спам" слой для обоих триггеров,
-    либо ввести отдельный небольшой cooldown между двумя типами приветствий. Финальное
-    решение — на @Architect.
-
-### Логирование (Better Stack)
-- [ ] T-071: Добавить детальное логирование каждого этапа
-  - `INFO`: сообщение от Алана обработано трекером — chat_id, user_id, elapsed since
-    last message (в секундах/часах), сработал ли триггер
-  - `INFO`: приветствие после молчания отправлено — chat_id, elapsed_hours, threshold_hours
-  - `INFO`: таймер обновлён/сброшен без отправки (молчание короче порога) — chat_id,
-    elapsed_hours, threshold_hours
-  - `INFO`: первое сообщение от Алана в чате (baseline записан, без приветствия)
-  - `WARNING`: функция отключена (N=0), сообщение получено но проверка пропущена
-    (логировать один раз на старте бота, не на каждое сообщение — избежать спама логов)
-  - `ERROR`: ошибка при чтении/записи timestamp (БД insert/update failure) или ошибка
-    при вызове `_send_greeting`
-  - Контекст в каждом логе: `chat_id`, `user_id` (всегда `ALAN_USER_ID`), elapsed time,
-    threshold value
-  - Стиль логов — консистентный с существующими модулями (`alan_greeting.py`,
-    `dead_page_trigger.py`)
-
-### Интеграция
-- [ ] T-072: Зарегистрировать новую логику в `bot.py` в корректной позиции
-  - Не менять порядок существующих роутеров (0, 1, 1b, 2, 3, 4, 4b, 5, 6)
-  - Если реализовано как отдельный роутер — определить позицию (вероятно рядом с
-    `alan_router`, позиция 3 или 3b) — решение @Architect/@Builder
-  - Если встроено в существующий `alan_router`/`alan_greeting.py` — не нарушать их
-    текущую логику (F6 reply-каждые-10-сообщений, F7 join-greeting)
-  - Явно инициализировать зависимости (DB-соединение, если выбрано БД-хранилище) через
-    `setup_*()` паттерн, как в остальных модулях
-
-### Тестирование
-- [ ] T-073: Написать тесты, максимальное покрытие
-  - Первое сообщение Алана в чате → baseline записан, приветствие НЕ отправлено
-  - Молчание >= N часов, затем сообщение Алана → приветствие отправлено
-    (`_send_greeting` вызван), таймер сброшен
-  - Молчание < N часов → приветствие НЕ отправлено, таймер всё равно обновлён на
-    текущее время
-  - Сообщение не от Алана (любой другой user_id) → таймер Алана не меняется, никакой
-    реакции
-  - `ALAN_SILENCE_GREETING_HOURS=0` → приветствие никогда не отправляется, независимо
-    от длительности молчания
-  - Несколько чатов одновременно — независимые таймеры (2+ чата в одном тесте)
-  - Перезапуск/пересоздание сервиса — поведение согласно решению T-065 (тест на
-    сохранение состояния если БД, либо явный тест на сброс если in-memory)
-  - Тест на отсутствие конфликта с F7 join-cooldown (сценарий из T-070)
-  - Интеграционный тест с реальным `Dispatcher`: зарегистрировать все роутеры,
-    отправить сообщение от Алана, убедиться что: (а) новая логика сработала,
-    (б) `UNHANDLED` дошло до `alan_router` (F6 reply engine не сломан), (в) остальные
-    фичи (F3 GIF-счётчик и т.д.) продолжают получать событие
-  - Прогнать полный существующий тестовый suite (252+ тестов) — убедиться в отсутствии
-    регрессий
-
-### Документация
-- [ ] T-074: Переделать README.md — сохранить ироничный стиль, добавить секцию про
-  новую фичу (F7 v2 / "Леха проснулся"), обновить таблицу функций/фич, задокументировать
-  новый env-параметр из T-064 и его семантику (0 = выключено, требует restart)
-
-### QA & Deploy
-- [ ] T-075: Прогнать полный pytest suite — убедиться в отсутствии регрессий по всем
-  8 роутерам и остальным Epic (1-10), проверить покрытие новых функций
-- [ ] T-076: Коммит на русском по conventional commits в `main`, пуш
-- [ ] T-077: Деплой на сервер + выставить `ALAN_SILENCE_GREETING_HOURS=2` в
-  production `.env` для живого теста (вместо дефолтных 6 часов) — согласно
-  требованию пользователя
+- [x] T-064: Добавить `ALAN_SILENCE_GREETING_HOURS` в `config/settings.py` + `.env.example`, default=6.0, 0=выключено
+- [x] 👤 T-065 (@Architect): Решение о хранилище — БД через channel_state (Section 22.2)
+- [x] T-066: Реализовать `get_alan_last_message_ts` / `set_alan_last_message_ts` в DatabaseService
+- [x] T-067: Встроить silence-логику в `alan_handler` (handlers/alan.py) — НЕ создавать новый handler/router
+- [x] T-068: Логика детекта "молчал >= N часов → написал" → вызов `_send_greeting()`
+- [x] T-069: Обновление таймера при КАЖДОМ сообщении Алана
+- [x] T-070: Edge cases — baseline, N=0, несколько чатов, restart persistence, cooldown sharing
+- [x] T-071: Детальное логирование каждого этапа (INFO/WARNING/ERROR)
+- [x] T-072: Интеграция в `bot.py` — без изменения порядка роутеров (inlining в alan_handler)
+- [x] T-073: Тесты (DB + handler + integration) — 19 новых тестов
+- [x] T-074: Обновить README.md
+- [x] T-075: Прогнать полный pytest suite — 271 тест, без регрессий
+- [x] T-076: Коммит на русском (conventional commits) в main, пуш
+- [x] T-077: Деплой на сервер + `ALAN_SILENCE_GREETING_HOURS=2`
 
 ---
 
-**Status: Epic 1–8 DONE. Epic 9: Admin Test Commands — T-048 through T-051 ready. T-053 (Critical — F7 propagation bug) in Bugfixes. Epic 10: War Words Redesign — T-054 through T-063 in planning. Epic 11: Alan Silence Greeting (F7 v2) — T-064 through T-077 in planning, requires @Architect decision (T-065) before implementation.**
-**Date: 2026-07-18**
+## Epic 12: Багфикс репостов + slavic_na_litso.jpg (2026-07-25) 🔵 NEW
+
+> **Цель:** (A) Исправить баг — war_alert не ловит forwarded-сообщения Славы с военными
+> словами. (B) Добавить фичу — каждый N-й ответ "пошёл нахуй" заменять на картинку
+> `slavic_na_litso.jpg` со сбросом счётчика.
+>
+> **Контекст:** Файл `media/slavic_na_litso.jpg` уже существует. Счётчик ответов
+> "пошёл нахуй" должен быть независим от F3 GIF-счётчика (MessageCounterMiddleware).
+> N настраивается через .env (по умолчанию 10).
+
+### T-078: Расследование и исправление бага с репостами Славы (war_alert)
+
+**Проблема:** Бот перехватывает фразы о "бпла" и "ракетах", которые пишет сам Слава,
+но НЕ перехватывает его репосты (forwarded messages) и текст в этих репостах.
+
+**Текущий код:**
+- `handlers/war_alert.py` — два хендлера на одном роутере:
+  1. `war_keyword_handler`: `UserIdFilter(settings.SLAVIK_USER_ID)` + `WarWordFilter()` — ловит сообщения Славы с военными словами
+  2. `war_channel_repost_handler`: `F.forward_origin` — ловит репосты из целевых каналов
+- `filters/war_word.py` — `WarWordFilter` проверяет `message.text or message.caption`
+- `filters/user_id.py` — `UserIdFilter` проверяет `message.from_user.id`
+
+**Гипотезы для расследования:**
+1. Срабатывает ли `UserIdFilter` для forwarded-сообщений? В aiogram `message.from_user` для forwarded — это тот, кто переслал (т.е. Slava). Проверить.
+2. Доступен ли `message.text` / `message.caption` для forwarded-сообщений? Проверить структуру Message в aiogram 3.x для forwarded messages.
+3. Порядок вызова хендлеров: оба хендлера на одном роутере. `war_channel_repost_handler` (F.forward_origin) может совпадать для forwarded-сообщений Славы и "перехватывать" их до `war_keyword_handler`. Проверить propagation и порядок.
+4. Возможно ли, что `F.forward_origin` фильтр в Handler 2 останавливает обработку до Handler 1? Проверить флаг `propagation` в aiogram.
+
+**Что нужно сделать:**
+- [ ] T-078-A: Провести расследование — написать diagnostic-логи, проверить гипотезы 1-4
+- [ ] T-078-B: Исправить баг (конкретный фикс зависит от результатов расследования)
+- [ ] T-078-C: Добавить comprehensive logging для диагностики forwarded-сообщений
+
+**Файлы:** `handlers/war_alert.py`, `filters/war_word.py`, `filters/user_id.py`
+
+### T-079: Реализация фичи — картинка slavic_na_litso.jpg каждый N-й ответ "пошёл нахуй"
+
+**Требование:**
+- В папке `media/` уже есть файл `slavic_na_litso.jpg`
+- Бот по сервису slavic отправляет "пошёл нахуй" в ответ на каждое сообщение Славы
+- Отсчитывать, сколько раз ответ "пошёл нахуй" был отправлен
+- На N-й раз (по умолчанию 10) вместо текста отправлять картинку `slavic_na_litso.jpg`
+- После отправки картинки счётчик сбрасывается, и дальше идут обычные "пошёл нахуй"
+- Счётчик должен удобно настраиваться через конфиг (env)
+- Существующая логика не должна пострадать (частота ответов та же, F3 GIF-счётчик работает независимо)
+
+**Текущий код:**
+- `handlers/slavik.py` — catch-all хендлер: `@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))` → `"пошёл нахуй"`
+- `services/message_counter.py` — `MessageCounterMiddleware` на `slavik_router`, считает сообщения и отправляет GIF каждые 5
+- `config/settings.py` — `GIF_INTERVAL: int = 5`
+
+**Реализация:**
+- [ ] T-079-A: Добавить `SLIVIC_NA_LITSO_INTERVAL: int = 10` в `config/settings.py` + `.env.example`
+- [ ] T-079-B: Добавить метод `increment_and_get_slavic_reply_count` в `DatabaseService` (или переиспользовать `message_counters` с отдельным user_id/key)
+- [ ] T-079-C: Модифицировать `slavik_catchall_handler` в `handlers/slavik.py`:
+  - После инкремента счётчика: если `count % INTERVAL == 0` → `send_photo(slavic_na_litso.jpg)` вместо `reply("пошёл нахуй")`
+  - После отправки фото счётчик сбрасывается (или продолжает считать по модулю)
+- [ ] T-079-D: Comprehensive logging (INFO: photo sent, counter reset)
+
+**ВАЖНО — изоляция:**
+- Не трогать `MessageCounterMiddleware` (F3 GIF-счётчик) — он считает ВСЕ сообщения Славы
+- Новый счётчик считает только ответы "пошёл нахуй" (независимый счётчик)
+- F4 (KuchaWordFilter) и F5v2 (war_alert) продолжают работать независимо
+
+**Файлы:** `handlers/slavik.py`, `config/settings.py`, `.env.example`, `services/database.py`
+
+### T-080: Тесты для багфикса репостов (T-078)
+
+- [ ] T-080-A: Тест: forwarded message от Славы с war keywords в text → war_keyword_handler срабатывает
+- [ ] T-080-B: Тест: forwarded message от Славы с war keywords в caption → war_keyword_handler срабатывает
+- [ ] T-080-C: Тест: forwarded message от Славы БЕЗ war keywords → war_keyword_handler НЕ срабатывает
+- [ ] T-080-D: Тест: forwarded message от НЕ-Славы с war keywords → war_keyword_handler НЕ срабатывает
+- [ ] T-080-E: Тест: оба хендлера (keyword + repost) не конфликтуют на одном роутере
+- [ ] T-080-F: Интеграционный тест с Dispatcher: forwarded message → правильный handler fired
+
+**Файлы:** `tests/test_war_alert.py` (обновить)
+
+### T-081: Тесты для фичи slavic_na_litso.jpg (T-079)
+
+- [ ] T-081-A: Тест: N-1 обычных ответов "пошёл нахуй" → reply с текстом
+- [ ] T-081-B: Тест: N-й ответ → send_photo с slavic_na_litso.jpg вместо текста
+- [ ] T-081-C: Тест: после фото счётчик сбрасывается → следующий N-1 ответов снова текстом
+- [ ] T-081-D: Тест: F3 GIF-счётчик не зависит от нового счётчика (разные счётчики)
+- [ ] T-081-E: Тест: F4 (KuchaWordFilter) не ломает счётчик "пошёл нахуй"
+- [ ] T-081-F: Тест: конфигурация через .env — `SLIVIC_NA_LITSO_INTERVAL` меняет N
+- [ ] T-081-G: Тест: `SLIVIC_NA_LITSO_INTERVAL=0` → фича отключена, всегда текст
+- [ ] T-081-H: Тест: несколько чатов — независимые счётчики
+
+**Файлы:** `tests/test_slavik_handlers.py` (обновить)
+
+### T-082: Обновление README, коммит, пуш
+
+- [ ] T-082-A: Обновить README.md — добавить секцию F5v2 bugfix (forwarded messages) и F8 (slavic_na_litso.jpg)
+- [ ] T-082-B: Обновить ARCHITECTURE.md — добавить секцию про новый счётчик и forwarded-сообщения
+- [ ] T-082-C: Обновить MEMORY.md — отразить изменения
+- [ ] T-082-D: Коммит на русском (conventional commits) в main, пуш
+
+### T-083: Деплой на сервер
+
+- [ ] T-083-A: Git pull на сервере nik@198.46.175.136:/var/www/admin_bot
+- [ ] T-083-B: Обновить .env на сервере (если нужны новые переменные)
+- [ ] T-083-C: Restart бота
+- [ ] T-083-D: Smoke test: Слава делает forward с "бпла" → war_alert срабатывает
+- [ ] T-083-E: Smoke test: проверить, что slavic_na_litso.jpg отправляется каждый N-й раз
+- [ ] T-083-F: Verify Better Stack логи
+
+---
+
+**Status: Epics 1–9, 11 DONE ✅. Epic 10 (War Words Redesign): T-054–T-063 — PLANNING 🔵. Epic 12 (Bugfix Reposts + slavic_na_litso.jpg): T-078–T-083 — NEW 🔵.**
+**Date: 2026-07-25**

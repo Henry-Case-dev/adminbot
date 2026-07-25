@@ -80,5 +80,10 @@ class Settings:
     # Comma-separated reply phrases (random choice). Empty = use built-in defaults.
     WAR_REPLIES: str = os.getenv("WAR_REPLIES", "")
 
+    # ── Slavic Photo (Epic 12) ──
+    # Every N "пошёл нахуй" replies → send slavic_na_litso.jpg instead of text
+    SLAVIC_PHOTO_INTERVAL: int = _env_int("SLAVIC_PHOTO_INTERVAL", 10)
+    SLAVIC_PHOTO_PATH: str = os.getenv("SLAVIC_PHOTO_PATH", "media/slavic_na_litso.jpg")
+
 
 settings = Settings()
