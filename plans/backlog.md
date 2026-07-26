@@ -29,7 +29,7 @@
 
 ---
 
-## Epic 6: Dead Page V2 — Event-driven reposts (2026-07-11)
+## Epic 6: Dead Page V2 — Event-driven reposts (2026-07-11) ✅ DONE
 
 > **Цель:** Перевести dead-page с time-based расписания (morning/evening) на event-driven:
 > репост из @d_pages → forward случайного поста из приватного канала 4228645624
@@ -167,7 +167,7 @@
 
 ---
 
-## Epic 10: War Words Redesign (F5v2) — 2026-07-16 🔵 PLANNING
+## Epic 10: War Words Redesign (F5v2) — 2026-07-16 ✅ DONE
 
 > **Цель:** Переработать F5 (War Words) — исправить баг с caption (фильтр пропускает
 > текст в подписях к медиа/форвардам), расширить словарь ключевых слов, добавить
@@ -182,7 +182,7 @@
 > и alan.py (рандомный пул reply + random.choice).
 
 ### Bugfix: Caption support + keyword expansion
-- [ ] T-054: Fix WarWordFilter — caption support + expand keywords
+- [x] T-054: Fix WarWordFilter — caption support + expand keywords
   - **Bug:** `__call__` проверяет только `message.text`, пропускает `message.caption`
   - **Fix:** Проверять `message.text or message.caption` (оба поля)
   - **Keyword expansion:** Добавить слова и словоформы (существующие 27 форм + новые):
@@ -199,90 +199,47 @@
   - **File:** `filters/war_word.py`
 
 ### Channel repost detection
-- [ ] T-055: Add channel repost detection handler for military channels
-  - **Pattern:** Использовать существующий шаблон из `handlers/dead_page_trigger.py`:
-    `F.forward_origin` → `isinstance(origin, MessageOriginChannel)` → check `origin.chat.id`
-  - **Target channels:**
-    - Channel ID 1654872411 ("ЧП Пермь")
-    - "Радар по всей России | БПЛА" (ID TBD, match by username)
+- [x] T-055: Add channel repost detection handler for military channels
+  - **Pattern:** Использовать существующий шаблон из `handlers/dead_page_trigger.py`
+  - **Target channels:** Channel ID 1654872411 ("ЧП Пермь") + username-based matching
   - **Detection:** И по ID, и по username (как dead_page_trigger делает двойную проверку)
   - **Filter:** `UserIdFilter(settings.SLAVIK_USER_ID)` — только сообщения Славы
   - **Reply:** Случайная фраза из пула (T-056) через `message.reply()`
-  - **Handler priority:** Router зарегистрирован перед slavik_router (T-060), чтобы репост-детекция срабатывала до catch-all
+  - **Handler priority:** Router зарегистрирован перед slavik_router (T-060)
   - **File:** `handlers/war_words_trigger.py` — новый файл
 
 ### Random reply pool
-- [ ] T-056: Create random reply pool + `random.choice()` logic
+- [x] T-056: Create random reply pool + `random.choice()` logic
   - **Current:** Одиночный хардкод `"трясло ебаное"` в `war_word_handler`
-  - **New:** Extensible reply pool в виде списка строк
-  - **Initial pool (5 phrases):**
-    1. `"потрясись"`
-    2. `"повизжи"`
-    3. `"прячься под шконку быстрее"`
-    4. `"закрой ушки и считай до десяти"`
-    5. `"поплачь"`
-  - **Selection:** `random.choice(WAR_REPLIES)` — как в `ALAN_REPLIES` в handlers/alan.py
+  - **New:** Extensible reply pool (5 phrases) + `random.choice(WAR_REPLIES)`
   - **Extensibility:** Добавление новой фразы = новая строка в списке
-  - **Backward compatibility:** Старый `"трясло ебаное"` убран
   - **Reply mechanism:** `await message.reply(reply_text)` — reply_to mechanism
 
 ### Logging
-- [ ] T-057: Add comprehensive Better Stack logging
-  - **Levels:**
-    - `INFO`: keyword matched, channel repost detected, reply sent
-    - `WARNING`: filter miss (caption empty, origin not channel)
-    - `ERROR`: handler failures
-  - **Context per log:** chat_id, user_id, matched keyword, channel source, chosen reply text
-  - **Files to instrument:** `filters/war_word.py`, `handlers/war_alert.py`
+- [x] T-057: Add comprehensive Better Stack logging
+  - INFO: keyword matched, channel repost detected, reply sent
+  - WARNING: filter miss (caption empty, origin not channel)
+  - ERROR: handler failures
+  - Context per log: chat_id, user_id, matched keyword, channel source, chosen reply text
 
 ### Testing
-- [ ] T-058: Create/extend tests — filter, handler, integration
-  - **Filter tests** (`tests/test_war_word_filter.py` — новый файл, ~12 tests):
-    - text-only match, caption match, empty text + empty caption, caption-only match
-    - all new keyword forms, case insensitivity, word boundary test
-    - non-Slava user with war word
-  - **Handler tests** (`tests/test_war_alert.py` — обновить, ~6 tests):
-    - war word keyword → random reply from pool
-    - verify `message.reply()` called, verify randomness (10x)
-    - no war word + Slava → catch-all "пошёл нахуй"
-    - no war word + non-Slava → no reply
-  - **Channel repost handler tests** (`tests/test_war_words_trigger.py` — новый файл, ~10 tests):
-    - forward from target channel ID → reply triggered
-    - forward from target channel username → reply triggered
-    - forward from non-target channel → no reply
-    - forward from user (not channel) → no reply
-    - non-forward message → no reply
-    - non-Slava forward from target → no reply
-    - verify `message.reply()` called with reply from pool
-    - empty caption → still triggers (channel match, not keyword match)
+- [x] T-058: Create/extend tests — filter, handler, integration (~28 tests)
+  - Filter tests: text-only, caption, empty, caption-only, case insensitivity, word boundary
+  - Handler tests: keyword → random reply, verify message.reply(), verify randomness
+  - Channel repost handler tests: target channel ID/username, non-target, user forward, non-forward
 
 ### Configuration
-- [ ] T-059: Update `config/settings.py` with new env vars + `.env.example`
-  - `WAR_CHANNEL_IDS`: list[int] — ID военных каналов (default: [1654872411])
-  - `WAR_CHANNEL_USERNAMES`: list[str] — usernames военных каналов (default: [])
-  - `WAR_REPLIES`: list[str] — опциональный env-переопределяемый пул ответов (default: пустой — используется хардкод-пуль)
+- [x] T-059: Update `config/settings.py` with `WAR_CHANNEL_IDS`, `WAR_CHANNEL_USERNAMES`, `WAR_REPLIES`
 
 ### Integration
-- [ ] T-060: Register `war_alert_router` in `bot.py`
-  - **Position:** Между dead_page_router (#4) и slavik_router (#5)
-  - **Actual position:** 4b в router order
-  - **Wire-up:** `setup_war_alert()` — аналог `setup_dead_page()`
+- [x] T-060: Register `war_alert_router` in `bot.py` (position 4b между dead_page_router и slavik_router)
 
 ### Documentation
-- [ ] T-061: Update README — document F5 v2
-  - Expanded keyword list (categories: дроны, ракеты, опасность, убежища, оповещение)
-  - Channel repost detection (список каналов)
-  - Random reply pool (5 phrases, extensible)
-  - Caption support (bugfix)
+- [x] T-061: Update README — document F5 v2 (expanded keywords, channel repost detection, random reply pool, caption support)
 
 ### QA & Deploy
-- [ ] T-062: Run full pytest suite — verify no regressions, all new functions covered
-  - Target: ~28 новых тестов (12 filter + 6 handler + 10 trigger)
-  - Verify: существующие 271 тест не сломаны
-- [ ] T-063: Deploy to server
-  - Git pull, restart bot
-  - Smoke test: send war keyword → random reply; forward from target channel → random reply
-  - Verify Better Stack logs appear
+- [x] T-062: Run full pytest suite — verify no regressions, ~280 tests
+- [x] T-063: Deploy to server — git pull, restart, smoke test, Verify Better Stack
 
 ---
 
@@ -315,7 +272,7 @@
 
 ---
 
-## Epic 12: Багфикс репостов + slavic_na_litso.jpg (2026-07-25) 🔵 NEW
+## Epic 12: Багфикс репостов + slavic_na_litso.jpg (2026-07-25) ✅ DONE
 
 > **Цель:** (A) Исправить баг — war_alert не ловит forwarded-сообщения Славы с военными
 > словами. (B) Добавить фичу — каждый N-й ответ "пошёл нахуй" заменять на картинку
@@ -330,98 +287,117 @@
 **Проблема:** Бот перехватывает фразы о "бпла" и "ракетах", которые пишет сам Слава,
 но НЕ перехватывает его репосты (forwarded messages) и текст в этих репостах.
 
-**Текущий код:**
-- `handlers/war_alert.py` — два хендлера на одном роутере:
-  1. `war_keyword_handler`: `UserIdFilter(settings.SLAVIK_USER_ID)` + `WarWordFilter()` — ловит сообщения Славы с военными словами
-  2. `war_channel_repost_handler`: `F.forward_origin` — ловит репосты из целевых каналов
-- `filters/war_word.py` — `WarWordFilter` проверяет `message.text or message.caption`
-- `filters/user_id.py` — `UserIdFilter` проверяет `message.from_user.id`
+**Итог:** Баг исправлен в v2.9.1 (убран конфликт lambda-фильтров в war_alert).
+Дополнительные debug-логи для forwarded-сообщений добавлены в v2.9.2.
 
-**Гипотезы для расследования:**
-1. Срабатывает ли `UserIdFilter` для forwarded-сообщений? В aiogram `message.from_user` для forwarded — это тот, кто переслал (т.е. Slava). Проверить.
-2. Доступен ли `message.text` / `message.caption` для forwarded-сообщений? Проверить структуру Message в aiogram 3.x для forwarded messages.
-3. Порядок вызова хендлеров: оба хендлера на одном роутере. `war_channel_repost_handler` (F.forward_origin) может совпадать для forwarded-сообщений Славы и "перехватывать" их до `war_keyword_handler`. Проверить propagation и порядок.
-4. Возможно ли, что `F.forward_origin` фильтр в Handler 2 останавливает обработку до Handler 1? Проверить флаг `propagation` в aiogram.
-
-**Что нужно сделать:**
-- [ ] T-078-A: Провести расследование — написать diagnostic-логи, проверить гипотезы 1-4
-- [ ] T-078-B: Исправить баг (конкретный фикс зависит от результатов расследования)
-- [ ] T-078-C: Добавить comprehensive logging для диагностики forwarded-сообщений
+- [x] T-078-A: Провести расследование — diagnostic-логи, проверить гипотезы 1-4
+- [x] T-078-B: Исправить баг (убраны lambda-фильтры, мешавшие WarWordFilter)
+- [x] T-078-C: Добавить comprehensive logging для диагностики forwarded-сообщений
 
 **Файлы:** `handlers/war_alert.py`, `filters/war_word.py`, `filters/user_id.py`
 
 ### T-079: Реализация фичи — картинка slavic_na_litso.jpg каждый N-й ответ "пошёл нахуй"
 
-**Требование:**
-- В папке `media/` уже есть файл `slavic_na_litso.jpg`
-- Бот по сервису slavic отправляет "пошёл нахуй" в ответ на каждое сообщение Славы
-- Отсчитывать, сколько раз ответ "пошёл нахуй" был отправлен
-- На N-й раз (по умолчанию 10) вместо текста отправлять картинку `slavic_na_litso.jpg`
-- После отправки картинки счётчик сбрасывается, и дальше идут обычные "пошёл нахуй"
-- Счётчик должен удобно настраиваться через конфиг (env)
-- Существующая логика не должна пострадать (частота ответов та же, F3 GIF-счётчик работает независимо)
-
-**Текущий код:**
-- `handlers/slavik.py` — catch-all хендлер: `@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))` → `"пошёл нахуй"`
-- `services/message_counter.py` — `MessageCounterMiddleware` на `slavik_router`, считает сообщения и отправляет GIF каждые 5
-- `config/settings.py` — `GIF_INTERVAL: int = 5`
-
-**Реализация:**
-- [ ] T-079-A: Добавить `SLIVIC_NA_LITSO_INTERVAL: int = 10` в `config/settings.py` + `.env.example`
-- [ ] T-079-B: Добавить метод `increment_and_get_slavic_reply_count` в `DatabaseService` (или переиспользовать `message_counters` с отдельным user_id/key)
-- [ ] T-079-C: Модифицировать `slavik_catchall_handler` в `handlers/slavik.py`:
-  - После инкремента счётчика: если `count % INTERVAL == 0` → `send_photo(slavic_na_litso.jpg)` вместо `reply("пошёл нахуй")`
-  - После отправки фото счётчик сбрасывается (или продолжает считать по модулю)
-- [ ] T-079-D: Comprehensive logging (INFO: photo sent, counter reset)
-
-**ВАЖНО — изоляция:**
-- Не трогать `MessageCounterMiddleware` (F3 GIF-счётчик) — он считает ВСЕ сообщения Славы
-- Новый счётчик считает только ответы "пошёл нахуй" (независимый счётчик)
-- F4 (KuchaWordFilter) и F5v2 (war_alert) продолжают работать независимо
-
-**Файлы:** `handlers/slavik.py`, `config/settings.py`, `.env.example`, `services/database.py`
+- [x] T-079-A: Добавить `SLIVIC_NA_LITSO_INTERVAL: int = 10` в `config/settings.py` + `.env.example`
+- [x] T-079-B: Добавить метод `increment_and_get_slavic_reply_count` в `DatabaseService`
+- [x] T-079-C: Модифицировать `slavik_catchall_handler` в `handlers/slavik.py` — каждый N-й ответ = фото вместо текста
+- [x] T-079-D: Comprehensive logging (INFO: photo sent, counter reset)
 
 ### T-080: Тесты для багфикса репостов (T-078)
-
-- [ ] T-080-A: Тест: forwarded message от Славы с war keywords в text → war_keyword_handler срабатывает
-- [ ] T-080-B: Тест: forwarded message от Славы с war keywords в caption → war_keyword_handler срабатывает
-- [ ] T-080-C: Тест: forwarded message от Славы БЕЗ war keywords → war_keyword_handler НЕ срабатывает
-- [ ] T-080-D: Тест: forwarded message от НЕ-Славы с war keywords → war_keyword_handler НЕ срабатывает
-- [ ] T-080-E: Тест: оба хендлера (keyword + repost) не конфликтуют на одном роутере
-- [ ] T-080-F: Интеграционный тест с Dispatcher: forwarded message → правильный handler fired
-
-**Файлы:** `tests/test_war_alert.py` (обновить)
+- [x] T-080-A–F: 6 тестов — forwarded message с war keywords, без, от не-Славы, оба хендлера, интеграционный тест
 
 ### T-081: Тесты для фичи slavic_na_litso.jpg (T-079)
-
-- [ ] T-081-A: Тест: N-1 обычных ответов "пошёл нахуй" → reply с текстом
-- [ ] T-081-B: Тест: N-й ответ → send_photo с slavic_na_litso.jpg вместо текста
-- [ ] T-081-C: Тест: после фото счётчик сбрасывается → следующий N-1 ответов снова текстом
-- [ ] T-081-D: Тест: F3 GIF-счётчик не зависит от нового счётчика (разные счётчики)
-- [ ] T-081-E: Тест: F4 (KuchaWordFilter) не ломает счётчик "пошёл нахуй"
-- [ ] T-081-F: Тест: конфигурация через .env — `SLIVIC_NA_LITSO_INTERVAL` меняет N
-- [ ] T-081-G: Тест: `SLIVIC_NA_LITSO_INTERVAL=0` → фича отключена, всегда текст
-- [ ] T-081-H: Тест: несколько чатов — независимые счётчики
-
-**Файлы:** `tests/test_slavik_handlers.py` (обновить)
+- [x] T-081-A–H: 8 тестов — N-1 текстовых, N-й фото, сброс, F3 независимость, F4 независимость, конфиг, 0=выключено, несколько чатов
 
 ### T-082: Обновление README, коммит, пуш
-
-- [ ] T-082-A: Обновить README.md — добавить секцию F5v2 bugfix (forwarded messages) и F8 (slavic_na_litso.jpg)
-- [ ] T-082-B: Обновить ARCHITECTURE.md — добавить секцию про новый счётчик и forwarded-сообщения
-- [ ] T-082-C: Обновить MEMORY.md — отразить изменения
-- [ ] T-082-D: Коммит на русском (conventional commits) в main, пуш
+- [x] T-082-A–D: README, ARCHITECTURE, MEMORY обновлены, коммит на русском в main
 
 ### T-083: Деплой на сервер
-
-- [ ] T-083-A: Git pull на сервере nik@198.46.175.136:/var/www/admin_bot
-- [ ] T-083-B: Обновить .env на сервере (если нужны новые переменные)
-- [ ] T-083-C: Restart бота
-- [ ] T-083-D: Smoke test: Слава делает forward с "бпла" → war_alert срабатывает
-- [ ] T-083-E: Smoke test: проверить, что slavic_na_litso.jpg отправляется каждый N-й раз
-- [ ] T-083-F: Verify Better Stack логи
+- [x] T-083-A–F: Git pull, .env, restart, smoke tests (forward + photo), Better Stack verified
 
 ---
 
-**Status: Epics 1–9, 11 DONE ✅. Epic 10 (War Words Redesign): T-054–T-063 — PLANNING 🔵. Epic 12 (Bugfix Reposts + slavic_na_litso.jpg): T-078–T-083 — NEW 🔵.**
-**Date: 2026-07-25**
+## Epic 13: Otboy Service (F9) — 2026-07-26 🔵 NEW
+
+> **Цель:** Создать standalone scalable сервис, который работает для ВСЕХ пользователей чата
+> (не user-specific). При обнаружении слова "отбой" в сообщениях, репостах или подписях
+> к медиа — бот отвечает картинкой `media/otboy.jpg` с нативным цитированием слова "отбой"
+> через Telegram quote API.
+>
+> **Архитектурное требование:** Изоляция — сервис не должен влиять на другие фичи бота.
+> Архитектура должна быть отревьюена sub-agent'ом ДО начала реализации.
+>
+> **Cooldown:** Настраиваемый через settings, default=0 (без ограничений).
+
+### Архитектурное проектирование и ревью
+- [ ] T-084: Спроектировать архитектуру сервиса + sub-agent review
+  - [ ] T-084-A: Спроектировать архитектуру — модули, изоляция, поток данных (OtboyWordFilter → otboy_router → OtboyRelay)
+  - [ ] T-084-B: Sub-agent ревью архитектуры — проверить изоляцию, масштабируемость, отсутствие влияния на другие фичи
+  - [ ] T-084-C: Согласовать финальный дизайн с PM
+
+### Фильтр
+- [ ] T-085: Создать `filters/otboy_word.py` — OtboyWordFilter
+  - [ ] T-085-A: Реализовать фильтр — проверка `message.text`, `message.caption`, и текста forwarded-сообщений
+  - [ ] T-085-B: Детект слова "отбой" (регистронезависимый, word-boundary \bотбой\b)
+  - [ ] T-085-C: Логирование срабатывания фильтра (INFO: chat_id, user_id, source field — text/caption/forward)
+
+### Сервис
+- [ ] T-086: Создать `services/otboy_relay.py` — OtboyRelay (standalone scalable service)
+  - [ ] T-086-A: Реализовать инкапсулированный сервис без глобального состояния
+  - [ ] T-086-B: Метод `send_otboy(chat_id, reply_to_message_id, quote_text)` — отправка `media/otboy.jpg`
+  - [ ] T-086-C: Cooldown-логика — проверка `OTBOY_COOLDOWN_SECONDS`, thread-safe per-chat
+  - [ ] T-086-D: Comprehensive logging (INFO: photo sent, cooldown active, cooldown expired)
+
+### Хендлер
+- [ ] T-087: Создать `handlers/otboy.py` — otboy_router + handler
+  - [ ] T-087-A: Handler: OtboyWordFilter → OtboyRelay.send_otboy()
+  - [ ] T-087-B: Reply с `reply_to_message_id` (Telegram native reply-to)
+  - [ ] T-087-C: Цитирование ТОЛЬКО слова "отбой" через Telegram quote API (native citation)
+  - [ ] T-087-D: Обработка ошибок (файл не найден, Telegram API error, permission denied)
+
+### Конфигурация
+- [ ] T-088: Добавить `OTBOY_COOLDOWN_SECONDS` в `config/settings.py` + `.env.example`
+  - [ ] T-088-A: `OTBOY_COOLDOWN_SECONDS: int = 0` (0 = no cooldown, отправка на каждое "отбой")
+  - [ ] T-088-B: Обновить `.env.example` с описанием параметра и дефолтным значением
+
+### Интеграция
+- [ ] T-089: Зарегистрировать `otboy_router` в `bot.py`
+  - [ ] T-089-A: Определить правильную позицию — перед user-specific роутерами (slavik, alan)
+  - [ ] T-089-B: Зарегистрировать `dp.include_router(otboy_router)`
+  - [ ] T-089-C: Инициализировать OtboyRelay при старте бота
+  - [ ] T-089-D: Убедиться, что propagation не блокирует другие хендлеры
+
+### Тестирование
+- [ ] T-090: Написать тесты для Otboy Service (~10 тестов)
+  - [ ] T-090-A: Фильтр — текст с "отбой" → срабатывает
+  - [ ] T-090-B: Фильтр — caption с "отбой" → срабатывает
+  - [ ] T-090-C: Фильтр — forwarded message text с "отбой" → срабатывает
+  - [ ] T-090-D: Фильтр — текст без "отбой" → не срабатывает
+  - [ ] T-090-E: Фильтр — регистронезависимость ("Отбой", "ОТБОЙ", "ОтБой")
+  - [ ] T-090-F: Хендлер — `reply_to_message_id` совпадает с исходным `message_id`
+  - [ ] T-090-G: Хендлер — quote захватывает только слово "отбой" (не всё сообщение)
+  - [ ] T-090-H: Cooldown — второй вызов в пределах cooldown не отправляет фото
+  - [ ] T-090-I: Cooldown — после истечения cooldown фото отправляется снова
+  - [ ] T-090-J: Интеграционный тест — propagation (не блокирует другие хендлеры на том же сообщении)
+
+### Документация
+- [ ] T-091: Обновить документацию
+  - [ ] T-091-A: `README.md` — добавить секцию F9 (Otboy Service), описание, настройки
+  - [ ] T-091-B: `ARCHITECTURE.md` — router order, data flow диаграмма, секция OtboyRelay
+  - [ ] T-091-C: `MEMORY.md` — project state, features table, version bump v2.10.0
+
+### Деплой
+- [ ] T-092: Деплой на сервер + smoke tests
+  - [ ] T-092-A: Git pull на сервер nik@198.46.175.136:/var/www/admin_bot
+  - [ ] T-092-B: Обновить .env (если переопределён OTBOY_COOLDOWN_SECONDS)
+  - [ ] T-092-C: Restart бота
+  - [ ] T-092-D: Smoke test: сообщение с "отбой" → reply с otboy.jpg + quote "отбой"
+  - [ ] T-092-E: Smoke test: forwarded-сообщение с "отбой" → reply с otboy.jpg
+  - [ ] T-092-F: Smoke test: caption на фото с "отбой" → reply с otboy.jpg
+  - [ ] T-092-G: Проверить, что другие фичи не сломаны (прогнать полный тест-сьют)
+  - [ ] T-092-H: Verify Better Stack логи (INFO: otboy detected, photo sent)
+
+---
+
+**Status: Epics 1–12 DONE ✅. Epic 13 (Otboy Service F9): T-084–T-092 — NEW 🔵.**
+**Date: 2026-07-26 | v2.9.2 (280 tests) → v2.10.0 (Epic 13 target)**

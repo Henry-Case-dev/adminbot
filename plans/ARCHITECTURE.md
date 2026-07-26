@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.9.0
+> **Версия:** v2.10.0
 > **Дата:** 2026-07-26
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
@@ -26,7 +26,8 @@ C:\Code\Python\adminbot\
 │   ├── vasya_name.py              # VasyaFilter(BaseFilter) — regex "вас[иеёяю]"
 │   ├── admin_word.py              # StrictAdminFilter(BaseFilter) — exact word "админ"
 │   ├── kucha_word.py              # KuchaWordFilter(BaseFilter) — "куч[аиеуюйе]" (F4)
-│   └── war_word.py                # WarWordFilter(BaseFilter) — 21 war word + synonym (F5)
+│   ├── war_word.py                # WarWordFilter(BaseFilter) — 21 war word + synonym (F5)
+│   └── otboy_word.py              # OtboyWordFilter(BaseFilter) — word "отбой" in text/caption/forward (F9)
 │
 ├── handlers/
 │   ├── __init__.py
@@ -38,6 +39,7 @@ C:\Code\Python\adminbot\
 │   ├── alan_greeting.py             # Alan greeting video on join: ChatMemberUpdated + new_chat_members (F7)
 │   ├── dead_page_trigger.py        # Repost detector: catches forwards from @d_pages (F2)
 │   ├── war_alert.py                # War Words Alert V2: Slava keywords + channel repost detection (F5v2)
+│   ├── otboy.py                    # Otboy Service: word "отбой" → otboy.jpg with native quote (F9)
 │   └── slava_presence.py           # ChatMemberUpdated handler (F1) + new_chat_members fallback
 │
 ├── services/
@@ -46,7 +48,8 @@ C:\Code\Python\adminbot\
 │   ├── media_picker.py             # MediaService — random jpg + random txt from dead_page/
 │   ├── scheduler.py                # SchedulerService — simplified, join trigger only (F2)
 │   ├── dead_page_relay.py          # DeadPageRelay — channel forward + fallback service (F2)
-│   └── message_counter.py          # MessageCounterMiddleware — aiogram inner middleware (F3)
+│   ├── message_counter.py          # MessageCounterMiddleware — aiogram inner middleware (F3)
+│   └── otboy_relay.py              # OtboyRelay — sends otboy.jpg with per-chat cooldown + native quote (F9)
 │
 ├── tests/
 │   ├── __init__.py
@@ -65,9 +68,11 @@ C:\Code\Python\adminbot\
 │   ├── test_media_picker.py        # F2: media file picker
 │   ├── test_alan.py                # F6
 │   ├── test_vasya.py
+│   ├── test_otboy.py               # F9: OtboyWordFilter + handler + relay + cooldown
 │   └── test_database.py            # DB service unit tests
 │
 ├── media/
+│   ├── otboy.jpg                   # F9: "отбой" response image
 │   ├── slavic_chlen.mp4            # 1.1MB mp4 for F3 GIF
 │   ├── leha_greeting/
 │   │   ├── leha_greeting_01.MP4     # Greeting video 1 (F7)
@@ -134,6 +139,12 @@ C:\Code\Python\adminbot\
 │  │        ├─ imports filters/war_word.py             │   │
 │  │        ├─ imports filters/user_id.py              │   │
 │  │        └─ imports config/settings.py              │   │
+│  │                                                   │   │
+│  │  4c. otboy_router  (F9: "отбой" → otboy.jpg)      │   │
+│  │     └─ imports handlers/otboy.py                  │   │
+│  │        ├─ imports filters/otboy_word.py           │   │
+│  │        └─ imports services/otboy_relay.py         │   │
+│  │           └─ imports config/settings.py           │   │
 │  │                                                   │   │
 │  │  5. slavik_router  (user_id=479167456)            │   │
 │  │     └─ imports handlers/slavik.py                 │   │
@@ -419,6 +430,53 @@ REDESIGN: See Section 21 (F5v2: War Words Alert Redesign) for the new architectu
           with caption support, expanded keywords, channel repost detection,
           random replies, and dedicated war_alert_router at position 4b.
 
+### F9 — Otboy Service
+
+```
+TRIGGER: Any message from ANY user containing the word "отбой"
+         in text, caption, or forwarded message text/caption.
+
+DATA FLOW:
+  Message arrives → otboy_router (position 4c)
+    → OtboyWordFilter checks: (message.text or message.caption)
+    → Regex: (?<![а-яё])отбой(?![а-яё]) — case-insensitive
+    → If match found:
+      → OtboyRelay.send_otboy(chat_id, message_id, matched_word)
+        → Check per-chat cooldown (OTBOY_COOLDOWN_SECONDS, default 0 = disabled)
+        → bot.send_photo(chat_id, FSInputFile("media/otboy.jpg"),
+            reply_parameters=ReplyParameters(
+                message_id=message_id, quote=matched_word))
+        → Native Telegram quote: highlights only the word "отбой" in reply
+    → Handler does NOT return UNHANDLED — does NOT block other handlers
+
+RESULT: Otboy.jpg sent as a reply with a green quote bar pointing at "отбой".
+        Other handlers continue to fire normally (no propagation block).
+```
+
+**Cooldown mechanism (`OTBOY_COOLDOWN_SECONDS`):**
+```python
+# In-memory per-chat cooldown dict (no DB, follows alan_greeting.py pattern):
+_cooldowns: dict[int, float] = {}  # chat_id → time.time() of last send
+
+# Default: 0 = no cooldown (every "отбой" gets a photo)
+# Configurable via .env (OTBOY_COOLDOWN_SECONDS=0)
+
+# Check logic:
+if cooldown > 0:
+    now = time.time()
+    last = _cooldowns.get(chat_id, 0)
+    if now - last < cooldown:
+        return  # skip — still in cooldown
+    _cooldowns[chat_id] = now
+```
+
+**Design decisions:**
+- No DB dependency: in-memory cooldown is sufficient. If bot restarts, cooldown resets — acceptable for this use case.
+- Not user-specific: works for ALL users (no UserIdFilter).
+- Does not block propagation: handler returns None (not UNHANDLED) → other routers continue.
+- Overlap with WarWordFilter: "отбой" is also in WAR_WORDS (F5v2). For Slava, BOTH fire (war reply text + otboy photo).
+  This is by design — two separate features, two separate responses. For non-Slava, only otboy fires.
+
 ### F6 — Alan_Z Reply Engine
 
 ```
@@ -688,6 +746,7 @@ from handlers.alan import alan_router
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 from handlers.war_alert import war_alert_router, setup_war_alert
+from handlers.otboy import otboy_router, setup_otboy
 from handlers.slavik import slavik_router
 from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router
@@ -738,6 +797,14 @@ dp.include_router(dead_page_router)
 setup_war_alert()
 dp.include_router(war_alert_router)
 
+# 4c. Otboy router — F9: "отбой" detection (ALL users) → otboy.jpg with native quote
+#    Works for ALL chat participants (no UserIdFilter).
+#    Uses native Telegram quote via ReplyParameters to highlight "отбой" word.
+#    Registered BEFORE slavik_router to avoid catch-all interception.
+#    Overlaps with war_alert: "отбой" is in WAR_WORDS — both fire for Slava.
+setup_otboy(otboy_relay)
+dp.include_router(otboy_router)
+
 # 5. Slava router — user ID 479167456
 #    Middleware: MessageCounterMiddleware (F3: GIF every 5 msgs)
 #    Handler 1: KuchaWordFilter → "ДАЛБАЕБ" (F4)
@@ -763,9 +830,15 @@ async def on_startup():
         max_retries=settings.DEAD_PAGE_MAX_FORWARD_RETRIES
     )
     scheduler = SchedulerService(bot, db, dead_page_relay)
+    
+    # Otboy Service (F9)
+    from services.otboy_relay import OtboyRelay
+    otboy_relay = OtboyRelay(bot, settings.OTBOY_COOLDOWN_SECONDS)
+    
     # Inject dependencies into handlers
     setup_admin_commands(dead_page_relay)
     setup_dead_page(dead_page_relay, db)
+    setup_otboy(otboy_relay)
     # Schedule on_startup injects relay into scheduler
     asyncio.create_task(scheduler.run())
 
@@ -796,6 +869,12 @@ if __name__ == '__main__':
      ANY user forwarding from target war channels triggers a random reply.
    - Being after dead_page_router (pos 4) ensures @d_pages reposts are handled first
      (dead_page relay fires before war alert on the same forward).
+2c. otboy_router (position 4c — NEW in v2.10.0 / Epic 13) sits between war_alert_router and slavik_router.
+   - Works for ALL users (no UserIdFilter). Detects "отбой" in text/caption/forward.
+   - Being before slavik_router's catch-all is critical: otherwise Slava's "отбой" would only trigger
+     "пошёл нахуй" without the otboy photo.
+   - Overlaps with war_alert: "отбой" is in WAR_WORDS. For Slava's messages containing "отбой",
+     BOTH handlers fire (war reply text + otboy photo). By design.
 3. Within Slava's router, F4 (kucha) comes before catch-all — but they all fire.
    - F5 (war words) REMOVED from slavik_router — now handled by war_alert_router (pos 4b).
 4. ChatMemberUpdated handlers (F1, F7) are separate from message handlers (different update type).
@@ -1015,6 +1094,59 @@ class WarWordFilter(BaseFilter):
 4. **Extensibility:** The `WAR_WORDS` list is a plain Python list — adding new keywords is as simple as appending a string. The `_PATTERNS` list is auto-generated from `WAR_WORDS` at module load time.
 
 **Note on `(?<![а-яё])...(?![а-яё])`:** Using negative lookbehind/lookahead for Cyrillic instead of `\b` because Python's `\b` can behave unexpectedly with certain Cyrillic edge cases.
+
+### 6.6 OtboyWordFilter (`filters/otboy_word.py`)
+
+```python
+import re
+import logging
+from aiogram.filters import BaseFilter
+from aiogram.types import Message
+
+logger = logging.getLogger(__name__)
+
+
+class OtboyWordFilter(BaseFilter):
+    """
+    Matches messages containing the word 'отбой'.
+    Checks message.text and message.caption — handles forwarded
+    messages and media captions transparently.
+    
+    Uses Cyrillic word boundaries to avoid partial matches
+    (e.g. "отбойный" would NOT match).
+    """
+
+    _PATTERN = re.compile(
+        r'(?<![а-яё])отбой(?![а-яё])',
+        re.IGNORECASE
+    )
+
+    async def __call__(self, message: Message) -> bool:
+        content = message.text or message.caption
+        if not content or not isinstance(content, str):
+            return False
+        match = self._PATTERN.search(content)
+        if match:
+            logger.info(
+                "OtboyWordFilter matched | word=%r | msg_id=%s | chat_id=%s",
+                match.group(),
+                message.message_id,
+                message.chat.id,
+            )
+            return True
+        return False
+```
+
+**Key design decisions:**
+1. **Single word, single pattern:** Only "отбой" (not declensions like "отбоя", "отбою"). The word is used as a standalone signal.
+2. **Same text/caption pattern as WarWordFilter:** `content = message.text or message.caption` covers ALL cases:
+   - Regular text messages → `message.text`
+   - Media with caption → `message.caption`
+   - Forwarded text → `message.text` (Telegram puts forwarded text there)
+   - Forwarded media with caption → `message.caption`
+3. **Cyrillic word boundaries:** `(?<![а-яё])...(?![а-яё])` prevents matching "отбойный", "отбойник", etc.
+4. **Case-insensitive:** `re.IGNORECASE` matches "отбой", "Отбой", "ОТБОЙ".
+5. **Guard clause:** `isinstance(content, str)` protects against mock objects during testing.
 
 ---
 
@@ -1460,6 +1592,107 @@ class DeadPageRelay:
                 text=text[settings.DEAD_PAGE_CAPTION_MAX_CHARS:]
             )
 ```
+
+### 7.6 OtboyRelay (`services/otboy_relay.py`)
+
+```python
+import logging
+import time
+from aiogram import Bot
+from aiogram.types import FSInputFile, ReplyParameters
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+class OtboyRelay:
+    """
+    Sends otboy.jpg in reply to messages containing 'отбой'.
+
+    Features:
+      - Native Telegram quote via ReplyParameters(quote=matched_word)
+      - Per-chat in-memory cooldown (dict[int, float])
+      - No DB dependency — cooldown is transient (resets on restart)
+      - Cooldown = 0 means no cooldown (every 'отбой' gets a photo)
+
+    Usage:
+        relay = OtboyRelay(bot)
+        await relay.send_otboy(chat_id, message_id, "Отбой")
+    """
+
+    def __init__(self, bot: Bot):
+        self.bot = bot
+        self._cooldowns: dict[int, float] = {}
+
+    async def send_otboy(
+        self,
+        chat_id: int,
+        message_id: int,
+        matched_word: str,
+    ) -> None:
+        cooldown = settings.OTBOY_COOLDOWN_SECONDS
+
+        if cooldown > 0:
+            now = time.time()
+            last = self._cooldowns.get(chat_id, 0)
+            if now - last < cooldown:
+                logger.debug(
+                    "Otboy cooldown active for chat %d (%.1fs < %ds), skipping",
+                    chat_id, now - last, cooldown,
+                )
+                return
+            self._cooldowns[chat_id] = now
+
+        logger.info(
+            "Otboy: sending photo to chat %d | msg_id=%d | word=%r",
+            chat_id, message_id, matched_word,
+        )
+
+        try:
+            await self.bot.send_photo(
+                chat_id=chat_id,
+                photo=FSInputFile(settings.OTBOY_PHOTO_PATH),
+                reply_parameters=ReplyParameters(
+                    message_id=message_id,
+                    quote=matched_word,
+                ),
+            )
+            logger.info("Otboy photo sent to chat %d", chat_id)
+        except Exception:
+            logger.exception(
+                "Otboy: failed to send photo | chat_id=%d | msg_id=%d",
+                chat_id, message_id,
+            )
+```
+
+**Quote mechanism — `ReplyParameters(quote=...)`:**
+
+Telegram's native quote feature highlights a specific text snippet in the
+replied message with a green bar. `ReplyParameters.quote` must be the **exact**
+text as it appears in the original message (case-sensitive match on Telegram's
+side). The handler extracts the matched word from a regex search (preserving
+original case) and passes it to `send_otboy()`.
+
+```
+Example:
+  User sends: "Внимание всем! Отбой тревоги!"
+  → Regex matches "Отбой" (original case)
+  → send_photo(..., reply_parameters=ReplyParameters(
+        message_id=42, quote="Отбой"))
+  → Telegram highlights "Отбой" with green quote bar
+```
+
+**Why not `quote_entities`:** `quote_entities` requires exact offset and length
+in UTF-16 code units, which is fragile with multi-byte Cyrillic characters.
+`quote` (the string itself) is simpler and Telegram matches it correctly.
+
+**Cooldown design (in-memory dict, no DB):**
+
+Follows the same pattern as `_last_greeting` in `handlers/alan_greeting.py`:
+- `dict[int, float]` keyed by `chat_id`, stores `time.time()` of last send
+- `OTBOY_COOLDOWN_SECONDS=0` disables cooldown entirely (no dict check)
+- Resets on bot restart — acceptable for a "spam-prevention" cooldown
+- Per-chat isolation: each chat tracks its own cooldown independently
 
 ---
 
@@ -2268,6 +2501,74 @@ async def on_alan_new_chat_members(message: types.Message):
 - No leave handler: Unlike F1 which tracks presence, F7 only reacts to joins. Alan leaving has no effect.
 - Caption is constant: The caption `@Alan_Z` is hardcoded (configurable via `ALAN_USERNAME` env var). No dynamic text needed.
 
+### 11.7 `handlers/otboy.py`
+
+```python
+"""
+F9 — Otboy Service (Epic 13).
+
+Handler: any message from ANY user containing "отбой" → otboy.jpg with native quote.
+
+Architecture:
+  OtboyWordFilter (filter) → otboy_router (handler) → OtboyRelay (service)
+  
+Router registered at position 4c between war_alert_router and slavik_router.
+Not user-specific — works for all chat participants.
+"""
+import logging
+import re
+from aiogram import Router, types
+from filters.otboy_word import OtboyWordFilter
+
+logger = logging.getLogger(__name__)
+
+otboy_router = Router(name="otboy")
+_relay = None
+
+# Re-compile pattern to extract matched word for quote (preserves original case)
+_OTBOY_PATTERN = re.compile(r'(?<![а-яё])отбой(?![а-яё])', re.IGNORECASE)
+
+
+def setup_otboy(relay) -> None:
+    """Inject OtboyRelay dependency. Called from bot.on_startup()."""
+    global _relay
+    _relay = relay
+
+
+@otboy_router.message(OtboyWordFilter())
+async def otboy_handler(message: types.Message) -> None:
+    """F9: Detect "отбой" → send otboy.jpg with native quote. All users."""
+    if _relay is None:
+        logger.warning("OtboyRelay not initialized — skipping otboy handler")
+        return
+
+    # Extract matched word preserving original case for quote
+    content = message.text or message.caption
+    match = _OTBOY_PATTERN.search(content) if content else None
+    matched_word = match.group() if match else "отбой"
+
+    logger.info(
+        "Otboy handler triggered | msg_id=%s | chat_id=%s | matched=%r",
+        message.message_id, message.chat.id, matched_word,
+    )
+
+    await _relay.send_otboy(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        matched_word=matched_word,
+    )
+```
+
+**Registration:** `dp.include_router(otboy_router)` — position 4c in bot.py (between war_alert_router and slavik_router).
+
+**Setup:** `setup_otboy(relay)` called in `on_startup()` to inject OtboyRelay dependency. Follows `setup_war_alert()`, `setup_dead_page(relay, db)` pattern.
+
+**Key design decisions:**
+- **Global `_relay` variable for DI:** Same pattern as `handlers/admin_commands.py::_relay` and `handlers/dead_page_trigger.py::_relay`. Simpler than middleware-based DI for a single-dependency handler.
+- **Regex re-search in handler:** The filter returns True/False; the handler re-searches to extract the matched word for the quote. Performance cost is negligible (single word, single pattern).
+- **Does NOT return UNHANDLED:** Returns None (implicit) → propagation continues to other routers (slavik, vasya). Other handlers fire normally.
+- **Overlap with war_alert:** "отбой" is in WAR_WORDS. For Slava's messages, BOTH fire (war reply text + otboy photo). By design — two separate features.
+
 ---
 
 ## 13. Dependency Summary
@@ -2285,7 +2586,7 @@ logtail-python==0.4.0
 
 ---
 
-## 14. Handler Fire Order — Complete Example (UPDATED v2.6.0)
+## 14. Handler Fire Order — Complete Example (UPDATED v2.10.0)
 
 Given a message from user 479167456 (Slava) in chat -100123 with text "куча дрон летит", here's the complete execution flow:
 
@@ -2307,6 +2608,11 @@ Given a message from user 479167456 (Slava) in chat -100123 with text "куча 
    │   └── message.reply(random.choice(WAR_REPLIES))  [random war reply SENT]
    │
    └── Handler B (channel repost): F.forward_origin → no forward → SKIP
+
+4c. otboy_router: ─── NEW in v2.10.0 (Epic 13)
+   └── OtboyWordFilter() checks content = "куча дрон летит"
+       └── No "отбой" found → SKIP
+
 5. slavik_router:
    ├── Middleware: MessageCounterMiddleware fires
    │   ├── DB: increment_and_get_count(-100123, 479167456) → returns e.g. 25
@@ -2374,6 +2680,10 @@ Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл
 | D33 | F5v2: Configurable keywords/replies/channels via .env | Extensibility: admin can add keywords without code changes. Sensible defaults hardcoded (50+ forms). Env vars use comma-separated lists, parsed in settings.py. |
 | D34 | F5v2: Random reply replaces single hardcoded "трясло ебаное" | More entertaining; extensible pool. Uses `random.choice()` pattern from alan.py. Falls back to "трясло ебаное" if WAR_REPLIES is empty/misconfigured. |
 | D35 | F5v2: war_alert_router at position 4b (between dead_page and slavik) | Must be before slavik_router's catch-all so war keyword detection fires before "пошёл нахуй". After dead_page_router so @d_pages reposts are handled first. Channel reposts have no user-ID restriction so don't conflict. |
+| D53 | F9: OtboyRelay uses in-memory cooldown dict (not DB) | Follows alan_greeting.py pattern. Cooldown is transient spam-prevention — no persistence needed. Resetting on restart is acceptable. `OTBOY_COOLDOWN_SECONDS=0` (default) disables cooldown entirely. |
+| D54 | F9: Quote via `ReplyParameters(quote=matched_word)` not `quote_entities` | `quote_entities` requires UTF-16 offset calculations, fragile with multi-byte Cyrillic. `quote` (the string) is simple and Telegram correctly highlights it. Handler re-searches to preserve original case. |
+| D55 | F9: otboy_router at position 4c (between war_alert and slavik) | Must be before slavik_router's catch-all to fire for Slava's messages. After war_alert_router so war reply fires before otboy photo. Overlap with "отбой" in WAR_WORDS is by design — both fire for Slava. |
+| D56 | F9: Handler returns None (not UNHANDLED) | Unlike slava_presence handlers, otboy_handler should NOT block propagation. Other routers (slavik, vasya) must continue to fire. Same as war_alert handlers — both return None. |
 
 ---
 
@@ -2393,6 +2703,7 @@ Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл
 | `filters/admin_word.py` | StrictAdminFilter class (migrated) |
 | `filters/kucha_word.py` | KuchaWordFilter class (F4) |
 | `filters/war_word.py` | WarWordFilter class (F5) |
+| `filters/otboy_word.py` | OtboyWordFilter class (F9) |
 | `handlers/__init__.py` | Empty init |
 | `handlers/admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
 | `handlers/kostik.py` | Kostik handler (migrated) |
@@ -2402,6 +2713,7 @@ Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл
 | `handlers/vasya.py` | Vasya handlers (migrated) |
 | `handlers/dead_page_trigger.py` | Repost detector: catches forwards from @d_pages (F2) |
 | `handlers/war_alert.py` | War Words Alert V2: Slava keywords + channel repost detection (F5v2) |
+| `handlers/otboy.py` | Otboy Service: word "отбой" → otboy.jpg with native quote (F9) |
 | `handlers/slava_presence.py` | Slava return/leave detection (F1) |
 | `services/__init__.py` | Empty init |
 | `services/database.py` | DatabaseService (aiosqlite wrapper + channel_state) |
@@ -2409,6 +2721,7 @@ Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл
 | `services/scheduler.py` | SchedulerService (F2 simplified, join trigger only) |
 | `services/dead_page_relay.py` | DeadPageRelay (channel forward + fallback, F2) |
 | `services/message_counter.py` | MessageCounterMiddleware (F3) |
+| `services/otboy_relay.py` | OtboyRelay — sends otboy.jpg with per-chat cooldown + native quote (F9) |
 | `tests/__init__.py` | Empty init |
 | `tests/conftest.py` | Shared test fixtures |
 | `tests/test_admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
@@ -2423,6 +2736,7 @@ Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл
 | `tests/test_dead_page_relay.py` | F2: DeadPageRelay forward + fallback tests |
 | `tests/test_dead_page_trigger.py` | F2: repost detector handler tests |
 | `tests/test_war_alert.py` | F5v2: war alert handler tests (keywords + channel reposts) |
+| `tests/test_otboy.py` | F9: OtboyWordFilter + handler + relay + cooldown + propagation tests |
 | `tests/test_alan.py` | F6 tests |
 | `tests/test_alan_greeting.py` | F7: Alan greeting video tests |
 | `tests/test_vasya.py` | Vasya/Admin tests |
@@ -4704,3 +5018,288 @@ SLAVIC_PHOTO_PATH=media/slavic_na_litso.jpg
 | D50 | Dependency injection через `setup_slavik(db)` — существующий паттерн | Повторяет `setup_alan(db)`, `setup_presence(db, scheduler)`, `setup_dead_page(relay, db)`. Единый подход ко всем модулям, требующим DB. |
 | D51 | Двойной reply для целевого канала — accepted edge case | Когда Слава репостит из целевого канала с военными словами, Handler 1b и Handler 2 оба срабатывают → два reply. Это редкий сценарий (Слава редко репостит из военных каналов), и оба reply релевантны. Не требует немедленного fix. |
 | D52 | Atomicity через `self._lock` (asyncio.Lock) | Инкремент + проверка + запись в БД происходят под локом. Предотвращает race condition при одновременных сообщениях Славы в разных чатах (общий `DatabaseService`). Использует существующий `self._lock` из `DatabaseService` (уже используется в `increment_and_get_count`). |
+
+---
+
+## 24. F9: Otboy Service (Epic 13)
+
+> **Версия:** v2.10.0
+> **Дата:** 2026-07-26
+> **Связанные задачи:** T-084 (архитектура), T-085 (OtboyWordFilter), T-086 (OtboyRelay), T-087 (otboy_router), T-088 (конфигурация), T-089 (регистрация), T-090 (тесты), T-091 (документация), T-092 (деплой)
+> **Назначение:** Новый standalone масштабируемый сервис, который отлавливает слово "отбой" в сообщениях всех пользователей и отвечает картинкой `media/otboy.jpg` с нативным quote (цитированием) конкретного слова.
+
+### 24.1 Обзор
+
+Otboy Service — отдельный не-user-specific сервис, который работает для ВСЕХ участников чата. При обнаружении слова "отбой" в тексте сообщения, подписи к медиа (caption), или в тексте/caption пересланного (forward) сообщения, бот отправляет картинку `media/otboy.jpg` как reply с нативным цитированием (зелёная полоса Telegram, указывающая на слово "отбой").
+
+**Функциональный контракт:**
+1. Проверка `message.text`, `message.caption` (включая forwarded-сообщения) на наличие слова "отбой".
+2. При совпадении → отправка `media/otboy.jpg` через `send_photo` с `reply_parameters=ReplyParameters(quote=matched_word)`.
+3. Настраиваемый per-chat кулдаун (по умолчанию 0 — без кулдауна).
+4. Не затрагивает другие функции бота — propagation не блокируется (возврат None, не UNHANDLED).
+5. Не использует БД — кулдаун in-memory (dict[int, float]), как `_last_greeting` в `alan_greeting.py`.
+
+### 24.2 Architecture
+
+```
+┌───────────────────────────────────────────────────────────┐
+│                    Otboy Service (F9)                      │
+│                                                           │
+│  OtboyWordFilter (filter)                                 │
+│    ╤═ filters/otboy_word.py                               │
+│    ║   re.compile(r'(?<![а-яё])отбой(?![а-яё])')         │
+│    ║   checks: message.text or message.caption            │
+│    ╚══ TRUE/FALSE                                         │
+│          ↓                                                │
+│  otboy_router (handler)                                   │
+│    ╤═ handlers/otboy.py (position 4c)                     │
+│    ║   @otboy_router.message(OtboyWordFilter())           │
+│    ║   Re-matches to extract word with original case      │
+│    ║   Calls relay.send_otboy(chat_id, msg_id, word)     │
+│    ╚══ returns None (does NOT block propagation)          │
+│          ↓                                                │
+│  OtboyRelay (service)                                     │
+│    ╤═ services/otboy_relay.py                             │
+│    ║   Per-chat cooldown: dict[int, float]                │
+│    ║   OTBOY_COOLDOWN_SECONDS from .env (default 0)       │
+│    ║   bot.send_photo(chat_id, FSInputFile("media/otboy.jpg"), │
+│    ║     reply_parameters=ReplyParameters(               │
+│    ║       message_id=msg_id, quote=matched_word))       │
+│    ╚══ Native Telegram quote with green bar               │
+└───────────────────────────────────────────────────────────┘
+```
+
+### 24.3 Configuration (`config/settings.py`)
+
+Добавить в `Settings` dataclass:
+
+```python
+# ── Otboy Service (F9 / Epic 13) ──
+# Cooldown between otboy.jpg sends per chat, in seconds.
+# 0 = no cooldown (every "отбой" triggers a photo).
+OTBOY_COOLDOWN_SECONDS: int = _env_int("OTBOY_COOLDOWN_SECONDS", 0)
+
+# Path to the otboy response image
+OTBOY_PHOTO_PATH: str = os.getenv("OTBOY_PHOTO_PATH", "media/otboy.jpg")
+```
+
+`.env.example` additions:
+
+```env
+# Otboy Service (F9) — "отбой" detection for ALL users
+# Cooldown between photo sends in seconds (0 = no cooldown, default)
+OTBOY_COOLDOWN_SECONDS=0
+# Path to otboy response image
+OTBOY_PHOTO_PATH=media/otboy.jpg
+```
+
+### 24.4 Module Specifications
+
+#### 24.4.1 `filters/otboy_word.py` — OtboyWordFilter
+
+- **Наследование:** `BaseFilter`
+- **Проверяемые поля:** `message.text` или `message.caption` (паттерн `or` — как в WarWordFilter)
+- **Регулярное выражение:** `(?<![а-яё])отбой(?![а-яё])`, `re.IGNORECASE`
+  - `(?<![а-яё])` — негативный lookbehind, гарантирует что перед "отбой" нет кириллической буквы
+  - `(?![а-яё])` — негативный lookahead, гарантирует что после "отбой" нет кириллической буквы
+  - Результат: "отбой" матчится, "отбойный", "отбойник", "проотбой" — нет
+- **Логирование:** При совпадении — `logger.info` с `word`, `msg_id`, `chat_id`
+- **Guard:** `isinstance(content, str)` — защита от MagicMock в тестах
+
+#### 24.4.2 `services/otboy_relay.py` — OtboyRelay
+
+- **Конструктор:** `__init__(self, bot: Bot)` — только Bot (без БД)
+- **Публичный метод:** `async send_otboy(chat_id, message_id, matched_word) -> None`
+- **Кулдаун:**
+  - `_cooldowns: dict[int, float]` — key: chat_id, value: `time.time()` последней отправки
+  - Если `OTBOY_COOLDOWN_SECONDS > 0` и `now - last < cooldown` → return (пропуск)
+  - Если `OTBOY_COOLDOWN_SECONDS == 0` → всегда отправка
+- **Отправка:**
+  - `bot.send_photo(chat_id, FSInputFile(settings.OTBOY_PHOTO_PATH), reply_parameters=ReplyParameters(message_id=message_id, quote=matched_word))`
+  - `quote=matched_word` — строка как в оригинальном сообщении (с учётом регистра)
+- **Обработка ошибок:** `try/except` с `logger.exception`
+
+#### 24.4.3 `handlers/otboy.py` — otboy_router
+
+- **Роутер:** `Router(name="otboy")`
+- **DI:** `setup_otboy(relay)` — глобальная переменная `_relay` (паттерн `dead_page_trigger.py`)
+- **Хендлер:** `@otboy_router.message(OtboyWordFilter())`
+- **Извлечение matched_word:** повторный поиск regex для получения слова с оригинальным регистром
+- **Возврат:** `None` (implicit) — НЕ `UNHANDLED` (propagation продолжается)
+
+### 24.5 Data Flow
+
+#### Flow A: User sends "Отбой!" (text message)
+
+```
+Message arrives in group chat (-100123)
+  from_user.id = ANY
+  message.text = "Отбой!"
+  message.caption = None
+  message.forward_origin = None
+    ↓
+otboy_router (pos 4c) ══════════════════════════
+  OtboyWordFilter:
+    content = "Отбой!" or None = "Отбой!"
+    regex search → MATCH ("Отбой")
+    logger.info: "OtboyWordFilter matched | word='Отбой' | msg_id=42 | chat_id=-100123"
+    return True
+        ↓
+  otboy_handler:
+    content = "Отбой!"
+    regex search → "Отбой" (preserved case)
+    logger.info: "Otboy handler triggered | msg_id=42 | chat_id=-100123 | matched='Отбой'"
+    relay.send_otboy(-100123, 42, "Отбой")
+        ↓
+    OtboyRelay.send_otboy:
+      cooldown check: 0 → skip
+      bot.send_photo(
+        chat_id=-100123,
+        photo=FSInputFile("media/otboy.jpg"),
+        reply_parameters=ReplyParameters(
+          message_id=42,
+          quote="Отбой"
+        )
+      )
+    [Photo sent with green quote bar highlighting "Отбой"]
+    return None  ← propagation continues
+```
+
+#### Flow B: User sends photo with caption "отбой тревоги"
+
+```
+Message arrives in group chat (-100123)
+  message.text = None
+  message.caption = "отбой тревоги"
+    ↓
+otboy_router (pos 4c) ══════════════════════════
+  OtboyWordFilter:
+    content = None or "отбой тревоги" = "отбой тревоги"
+    regex search → MATCH ("отбой")
+    return True
+        ↓
+  otboy_handler → relay.send_otboy(-100123, 42, "отбой")
+    → send_photo with quote="отбой"
+```
+
+#### Flow C: User forwards a message containing "ОТБОЙ"
+
+```
+Message arrives in group chat (-100123)
+  message.text = "Внимание! ОТБОЙ!"  (forwarded text)
+  message.forward_origin = MessageOriginChannel(...)
+    ↓
+otboy_router (pos 4c) ══════════════════════════
+  OtboyWordFilter:
+    content = "Внимание! ОТБОЙ!" or None = "Внимание! ОТБОЙ!"
+    regex search → MATCH ("ОТБОЙ", case preserved)
+    return True
+        ↓
+  otboy_handler → relay.send_otboy(-100123, 42, "ОТБОЙ")
+    → send_photo with quote="ОТБОЙ"
+```
+
+### 24.6 Edge Cases & Overlap
+
+#### Overlap with war_alert (F5v2)
+
+"отбой" присутствует в `WAR_WORDS` (filters/war_word.py:89-90). Для Славы (user_id=479167456):
+
+| Сценарий | war_alert (pos 4b) | otboy (pos 4c) | Результат |
+|----------|:---:|:---:|------|
+| Слава пишет "отбой" | Handler A → random war reply | ✓ → otboy.jpg | 2 сообщения (war reply + фото) |
+| Слава пишет "отбой" (forward) | Handler 1b → random war reply | ✓ → otboy.jpg | 2 сообщения |
+| Другой юзер пишет "отбой" | ✗ (UserIdFilter blocks) | ✓ → otboy.jpg | Только фото |
+
+**Решение:** Перекрытие является ожидаемым поведением (by design). Две независимые фичи — два независимых ответа.
+
+#### Edge cases
+
+| # | Случай | Поведение |
+|---|--------|-----------|
+| 1 | "отбойный" (производное слово) | Фильтр НЕ матчит (word boundary) |
+| 2 | "отбой" внутри URL | Матчит (regex внутри URL) — edge case, не критично |
+| 3 | Несколько "отбой" в одном сообщении | Матчит первый, quote — первое вхождение |
+| 4 | Media без caption с "отбой" | Фильтр возвращает False (негде искать) |
+| 5 | Cooldown активен | Фото не отправляется, handler всё равно возвращает None |
+| 6 | Файл `media/otboy.jpg` отсутствует | `send_photo` бросает исключение → caught в OtboyRelay |
+| 7 | Message from bot | Фильтр не проверяет `from_user.is_bot` — если бот напишет "отбой", тоже сработает (не критично) |
+
+### 24.7 Test Plan (T-090)
+
+#### A. Filter Unit Tests
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_otboy_word_matches_in_text` | message.text = "отбой" | Фильтр возвращает True |
+| 2 | `test_otboy_word_matches_in_caption` | message.caption = "отбой", text=None | Фильтр возвращает True |
+| 3 | `test_otboy_word_case_insensitive` | "Отбой", "ОТБОЙ", "ОтБой" | Все возвращают True |
+| 4 | `test_otboy_word_in_sentence` | "внимание отбой тревоги" | Фильтр возвращает True |
+| 5 | `test_otboy_word_no_false_positive` | "отбойный", "отбойник" | Фильтр возвращает False |
+| 6 | `test_otboy_word_missing_word` | "привет мир" | Фильтр возвращает False |
+| 7 | `test_otboy_word_both_none` | text=None, caption=None | Фильтр возвращает False |
+| 8 | `test_otboy_word_forwarded_text` | forward_origin + text="отбой" | Фильтр возвращает True |
+| 9 | `test_otboy_word_forwarded_caption` | forward_origin + caption="отбой", text=None | Фильтр возвращает True |
+
+#### B. Handler Tests
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_otboy_handler_calls_relay` | Сообщение с "отбой" | `relay.send_otboy` вызван с корректными параметрами |
+| 2 | `test_otboy_handler_no_relay_guard` | `_relay is None` | Handler возвращается без вызова relay |
+| 3 | `test_otboy_handler_returns_none` | Любое сообщение | Handler возвращает None (не блокирует propagation) |
+| 4 | `test_otboy_handler_logs_trigger` | Сообщение с "отбой" | `logger.info` вызван с msg_id, chat_id, matched_word |
+
+#### C. Relay/Cooldown Tests
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_otboy_relay_sends_photo` | `send_otboy(chat_id, msg_id, "отбой")` | `bot.send_photo` вызван с FSInputFile и ReplyParameters |
+| 2 | `test_otboy_relay_quote_preserves_case` | `send_otboy(..., "Отбой")` | `quote="Отбой"` в ReplyParameters |
+| 3 | `test_otboy_relay_cooldown_blocks` | cooldown=60, два вызова подряд | Первый — send_photo вызван. Второй — send_photo НЕ вызван |
+| 4 | `test_otboy_relay_cooldown_disabled` | cooldown=0 | Каждый вызов отправляет фото (без проверки cooldown) |
+| 5 | `test_otboy_relay_cooldown_per_chat` | chat_A отправка, chat_B сразу после | Оба отправляются (разные chat_id) |
+| 6 | `test_otboy_relay_send_error_graceful` | `send_photo` бросает исключение | Ошибка logged, исключение не пробрасывается |
+
+#### D. Integration/Propagation Tests
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_otboy_does_not_block_slavik` | Slava пишет "отбой" | otboy_handler + slavik_catchall_handler оба срабатывают |
+| 2 | `test_otboy_and_war_alert_both_fire` | Slava пишет "отбой" | war_alert Handler A + otboy_handler оба срабатывают |
+| 3 | `test_otboy_non_slava_only_otboy` | Другой юзер пишет "отбой" | Только otboy_handler срабатывает |
+
+### 24.8 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `filters/otboy_word.py` | **CREATE** | OtboyWordFilter: word-boundary "отбой" detection in text/caption |
+| `services/otboy_relay.py` | **CREATE** | OtboyRelay: send photo with native quote + in-memory cooldown |
+| `handlers/otboy.py` | **CREATE** | otboy_router: handler + setup_otboy() DI pattern |
+| `config/settings.py` | **MODIFY** | +2 поля: `OTBOY_COOLDOWN_SECONDS`, `OTBOY_PHOTO_PATH` |
+| `bot.py` | **MODIFY** | +1 import, +1 OtboyRelay creation, +1 setup_otboy(), +1 dp.include_router (pos 4c) |
+| `.env.example` | **MODIFY** | +2 переменные: `OTBOY_COOLDOWN_SECONDS`, `OTBOY_PHOTO_PATH` |
+| `tests/test_otboy.py` | **CREATE** | ~17 тестов: filter, handler, relay, cooldown, propagation |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 24 (this spec); updated Sections 1-7, 12, 14-16 |
+
+**Файлы НЕ тронуты:**
+- Все существующие handlers, filters, services — без изменений.
+- `filters/war_word.py` — "отбой" остаётся в `WAR_WORDS` (overlap by design).
+- `handlers/slavik.py`, `handlers/war_alert.py`, `handlers/vasya.py` — propagation не нарушена.
+
+### 24.9 Verification Checklist
+
+1. **Unit tests (filter):** `pytest tests/test_otboy.py -v -k "otboy_word"` — 9 тестов
+2. **Unit tests (handler):** `pytest tests/test_otboy.py -v -k "handler"` — 4 теста
+3. **Unit tests (relay/cooldown):** `pytest tests/test_otboy.py -v -k "relay"` — 6 тестов
+4. **Integration tests:** `pytest tests/test_otboy.py -v -k "integration or propagation"` — 3 теста
+5. **Regression — full suite:** `pytest tests/ -v` — все ~300 тестов проходят
+6. **Manual smoke (production):**
+   - Любой пользователь пишет "отбой" → otboy.jpg отправлен с зелёным quote на слово "отбой"
+   - Любой пользователь пишет "Отбой!" (другой регистр) → otboy.jpg с quote "Отбой!"
+   - Слава пишет "отбой" → war reply + otboy.jpg (два сообщения)
+   - Фото с caption "отбой" → otboy.jpg (caption support)
+   - "отбойный" → НЕТ реакции (word boundary)
+   - Better Stack: логи с "Otboy" видны в дашборде
+
+---
