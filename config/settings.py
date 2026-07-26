@@ -85,5 +85,11 @@ class Settings:
     SLAVIC_PHOTO_INTERVAL: int = _env_int("SLAVIC_PHOTO_INTERVAL", 10)
     SLAVIC_PHOTO_PATH: str = os.getenv("SLAVIC_PHOTO_PATH", "media/slavic_na_litso.jpg")
 
+    # ── Otboy Service (F9 / Epic 13) ──
+    # Cooldown between otboy.jpg sends in the same chat (0 = no cooldown)
+    OTBOY_COOLDOWN_SECONDS: int = _env_int("OTBOY_COOLDOWN_SECONDS", 0)
+    # Path to the otboy response image
+    OTBOY_PHOTO_PATH: str = os.getenv("OTBOY_PHOTO_PATH", "media/otboy.jpg")
+
 
 settings = Settings()
