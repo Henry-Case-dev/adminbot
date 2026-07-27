@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.10.0
-> **Дата:** 2026-07-26
+> **Версия:** v2.12.0
+> **Дата:** 2026-07-28
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -5602,3 +5602,1035 @@ return await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
    - Better Stack: логи `[relay_tracker]` для новых постов в relay-канале
    - Better Stack: логи `[dead_page] Album (DB): N msgs` для DB-пути
    - Better Stack: логи `[dead_page] Album (heuristic): N msgs` для fallback-пути
+
+---
+
+## 26. Epic 15: Common Service Refactoring
+
+> **Версия:** v2.12.0
+> **Дата:** 2026-07-28
+> **Назначение:** (1) Переименование otboy-сервиса в common; (2) Апгрейд медиа-обработки — случайный выбор из директории с авто-детекцией типа (photo/video/animation); (3) Новый фильтр опасных слов (danger detection) с заимствованием паттерна WarWordFilter.
+
+---
+
+### 26.1 Overview
+
+Epic 15 делает три вещи:
+
+1. **Переименование:** `handlers/otboy.py` → `handlers/common.py`, `services/otboy_relay.py` → `services/common_relay.py`. Файл фильтра `filters/otboy_word.py` остаётся на месте (не переименовывается). Все импорты обновляются. Router позиция 4c сохраняется.
+
+2. **Медиа-апгрейд:** Вместо одного хардкод-файла `media/otboy.jpg` обработчик `otboy` теперь читает ВСЕ файлы из директории `media/common/otboy/`, определяет тип каждого (photo/video/animation) по расширению и имени, случайно выбирает один и отправляет соответствующим методом (`send_photo` / `send_video` / `send_animation`). Reply-to + quoting сохраняются.
+
+3. **Danger detection:** В тот же `common_relay` добавляется второй подсервис — danger. Новый фильтр `DangerWordFilter` ловит слова: "бпла", "ракетная", "опасность", и любые другие из конфига. При совпадении → случайный медиа-файл из `media/common/danger/`. Механизм: тот же `send_common(subdir="danger")` с тем же reply-to + quoting + cooldown.
+
+**Функциональный контракт:**
+- Два подсервиса (otboy и danger) разделяют ОБЩИЙ per-chat кулдаун.
+- Оба подсервиса используют один и тот же механизм детекции типа медиа и отправки.
+- Каждый подсервис читает из своей поддиректории (`media/common/otboy/` и `media/common/danger/`).
+- Фильтры слов — независимые: `OtboyWordFilter` и `DangerWordFilter`.
+- Propagation не блокируется (оба хендлера возвращают `None`).
+
+---
+
+### 26.2 Module Structure
+
+#### Файлы — CREATE:
+
+| Файл | Назначение |
+|------|-----------|
+| `handlers/common.py` | Common router: два хендлера (`otboy_handler`, `danger_handler`) + `setup_common(relay)` DI |
+| `services/common_relay.py` | CommonRelay: shared cooldown, медиа-пикер, отправка photo/video/animation |
+| `filters/danger_word.py` | DangerWordFilter: regex-матчинг опасных слов (заимствует паттерн WarWordFilter) |
+
+#### Файлы — RENAME+DEPRECATE:
+
+| Старый файл | Новый файл | Действие |
+|-------------|-----------|----------|
+| `handlers/otboy.py` | `handlers/common.py` | Удалить старый, создать новый |
+| `services/otboy_relay.py` | `services/common_relay.py` | Удалить старый, создать новый |
+| `filters/otboy_word.py` | _(без изменений пути)_ | Оставить как есть; импортируется из `handlers/common.py` |
+
+#### Файлы — MODIFY:
+
+| Файл | Изменения |
+|------|-----------|
+| `bot.py` | Обновить импорты: `handlers.common` вместо `handlers.otboy`, `services.common_relay` вместо `services.otboy_relay`. `setup_otboy` → `setup_common`. `OtboyRelay` → `CommonRelay`. |
+| `config/settings.py` | Удалить `OTBOY_PHOTO_PATH`; переименовать `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS` (с дефолтом 0); добавить `COMMON_MEDIA_BASE` (default `"media/common"`); добавить `DANGER_WORDS` (строка, default: `"бпла,ракетная,опасность"`). |
+| `tests/test_otboy.py` | Переименовать в `tests/test_common.py`. Адаптировать импорты и тесты под новую структуру. Добавить тесты danger-хендлера, DangerWordFilter, shared cooldown, media-type detection. |
+| `.env.example` | `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS`. Удалить `OTBOY_PHOTO_PATH`. Добавить `COMMON_MEDIA_BASE=media/common`, `DANGER_WORDS=бпла,ракетная,опасность`. |
+
+#### Файлы НЕ тронуты:
+
+- `filters/otboy_word.py` — остаётся без изменений в расположении и логике
+- `filters/war_word.py` — не затрагивается (DangerWordFilter заимствует паттерн, но не модифицирует WarWordFilter)
+- `handlers/war_alert.py`, `handlers/slavik.py`, `handlers/vasya.py`, `handlers/alan.py`, `handlers/dead_page_trigger.py`, `handlers/admin_commands.py`, `handlers/kostik.py`, `handlers/slava_presence.py`, `handlers/alan_greeting.py` — не затрагиваются
+- `services/database.py`, `services/scheduler.py`, `services/message_counter.py`, `services/media_picker.py`, `services/dead_page_relay.py` — не затрагиваются
+
+---
+
+### 26.3 Class/Function Design
+
+#### 26.3.1 `filters/danger_word.py` — DangerWordFilter
+
+```python
+import re
+import logging
+from aiogram.filters import BaseFilter
+from aiogram.types import Message
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _build_danger_patterns(words: list[str]) -> list[re.Pattern]:
+    """Compile regex patterns with Cyrillic word boundaries.
+    
+    Borrows the exact same pattern as WarWordFilter._build_patterns
+    from filters/war_word.py.
+    """
+    patterns = []
+    for word in words:
+        try:
+            patterns.append(
+                re.compile(
+                    rf'(?<![а-яё]){re.escape(word)}(?![а-яё])',
+                    re.IGNORECASE,
+                )
+            )
+        except re.error:
+            logger.warning(
+                "DangerWordFilter: failed to compile pattern for word %r", word
+            )
+    return patterns
+
+
+def _parse_danger_words(raw: str) -> list[str]:
+    """Parse comma-separated danger words from config."""
+    if not raw:
+        return _DEFAULT_DANGER_WORDS
+    parts = [w.strip().lower() for w in raw.split(",") if w.strip()]
+    return parts if parts else _DEFAULT_DANGER_WORDS
+
+
+_DEFAULT_DANGER_WORDS = [
+    "бпла",
+    "ракетная",
+    "опасность",
+]
+
+
+class DangerWordFilter(BaseFilter):
+    """Matches messages containing danger-related keywords.
+    
+    Checks BOTH message.text and message.caption.
+    Returns {"matched_word": match.group()} to pass the matched word
+    to the handler for quoting.
+    
+    Pattern borrowed from WarWordFilter (filters/war_word.py):
+      - Cyrillic word boundaries: (?<![а-яё])...(?![а-яё])
+      - Case-insensitive: re.IGNORECASE
+    """
+
+    def __init__(self):
+        self._words = _parse_danger_words(settings.DANGER_WORDS)
+        self._patterns = _build_danger_patterns(self._words)
+
+    async def __call__(self, message: Message) -> dict[str, str] | bool:
+        content = message.text or message.caption
+        if not content or not isinstance(content, str):
+            return False
+
+        for p in self._patterns:
+            match = p.search(content)
+            if match:
+                matched_word = match.group()
+                logger.info(
+                    "DangerWordFilter matched | word=%r | msg_id=%s | chat_id=%s",
+                    matched_word,
+                    message.message_id,
+                    message.chat.id,
+                )
+                return {"matched_word": matched_word}
+        return False
+```
+
+**Key design decisions:**
+- Парсинг `DANGER_WORDS` из `settings` с fallback на дефолтный список (3 слова).
+- `_build_danger_patterns()` — точная копия `_build_patterns()` из `filters/war_word.py:9-21`.
+- Возвращает `{"matched_word": match.group()}` — aiogram 3.x передаёт это как kwarg в handler.
+- Проверяет `message.text or message.caption` — caption support как в OtboyWordFilter и WarWordFilter.
+
+#### 26.3.2 `services/common_relay.py` — CommonRelay
+
+```python
+import logging
+import random
+import time
+from pathlib import Path
+from aiogram import Bot
+from aiogram.types import FSInputFile, ReplyParameters
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+# Media type constants
+MEDIA_PHOTO = "photo"
+MEDIA_VIDEO = "video"
+MEDIA_ANIMATION = "animation"
+
+# Extension → media type mapping
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+_VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
+
+
+class CommonRelay:
+    """Sends random media files from common subdirectories.
+
+    Supports three media types, auto-detected from file extension and name:
+      - Image (photo): .jpg, .jpeg, .png, .webp, .bmp
+      - Video: .mp4, .mov, .webm WITHOUT "gif" in filename
+      - Animation (GIF): .mp4, .mov, .webm WITH "gif" in filename
+
+    Shared cooldown across all sub-services (otboy + danger).
+    Per-chat in-memory cooldown (dict[int, float]), no DB.
+    """
+
+    def __init__(self, bot: Bot, cooldown_seconds: int):
+        self._bot = bot
+        self._cooldown_seconds = cooldown_seconds
+        self._cooldowns: dict[int, float] = {}
+
+    def _detect_media_type(self, filepath: Path) -> str | None:
+        """Determine media type from file extension and filename.
+
+        Returns one of MEDIA_PHOTO, MEDIA_VIDEO, MEDIA_ANIMATION, or None.
+        """
+        ext = filepath.suffix.lower()
+        if ext in _IMAGE_EXTENSIONS:
+            return MEDIA_PHOTO
+        if ext in _VIDEO_EXTENSIONS:
+            if "gif" in filepath.stem.lower():
+                return MEDIA_ANIMATION
+            return MEDIA_VIDEO
+        return None
+
+    def _scan_directory(self, subdir: str) -> list[tuple[Path, str]]:
+        """Scan media/common/{subdir}/ for supported media files.
+
+        Returns list of (path, media_type) tuples.
+        Raises FileNotFoundError if directory is missing or empty.
+        """
+        base = Path(settings.COMMON_MEDIA_BASE) / subdir
+        if not base.exists():
+            raise FileNotFoundError(f"Directory not found: {base}")
+
+        files: list[tuple[Path, str]] = []
+        for entry in base.iterdir():
+            if not entry.is_file():
+                continue
+            media_type = self._detect_media_type(entry)
+            if media_type is not None:
+                files.append((entry, media_type))
+            else:
+                logger.debug(
+                    "CommonRelay: skipping unsupported file %s in %s",
+                    entry.name, subdir,
+                )
+
+        if not files:
+            raise FileNotFoundError(f"No supported media files in {base}")
+
+        return files
+
+    async def send_common(
+        self,
+        chat_id: int,
+        message_id: int,
+        matched_word: str,
+        subdir: str,
+    ) -> None:
+        """Send random media from media/common/{subdir}/ as a reply.
+
+        Shared cooldown across all sub-services — if any sub-service
+        recently sent in this chat, all are blocked.
+
+        Args:
+            chat_id: Target chat.
+            message_id: Message to reply to.
+            matched_word: Word to quote (original case preserved).
+            subdir: Subdirectory under media/common/ (e.g. "otboy", "danger").
+        """
+        now = time.monotonic()
+
+        # ── Shared cooldown check ──
+        if self._cooldown_seconds > 0:
+            last_sent = self._cooldowns.get(chat_id)
+            if last_sent is not None:
+                elapsed = now - last_sent
+                if elapsed < self._cooldown_seconds:
+                    logger.info(
+                        "CommonRelay: cooldown_active | chat_id=%s | subdir=%s | "
+                        "elapsed=%.1fs | remaining=%.1fs",
+                        chat_id, subdir, elapsed,
+                        self._cooldown_seconds - elapsed,
+                    )
+                    return
+
+        # ── Pick random media ──
+        try:
+            files = self._scan_directory(subdir)
+        except (FileNotFoundError, PermissionError, OSError):
+            logger.exception(
+                "CommonRelay: no media files for subdir=%s | chat_id=%s",
+                subdir, chat_id,
+            )
+            return
+
+        filepath, media_type = random.choice(files)
+        logger.info(
+            "CommonRelay: picked %s (%s) from %s | chat_id=%s",
+            filepath.name, media_type, subdir, chat_id,
+        )
+
+        # ── Send by type ──
+        try:
+            await self._send_by_type(
+                chat_id=chat_id,
+                message_id=message_id,
+                matched_word=matched_word,
+                filepath=filepath,
+                media_type=media_type,
+            )
+            self._cooldowns[chat_id] = now
+            logger.info(
+                "CommonRelay: sent | chat_id=%s | subdir=%s | "
+                "file=%s | type=%s | matched_word=%r",
+                chat_id, subdir, filepath.name, media_type, matched_word,
+            )
+        except Exception:
+            logger.exception(
+                "CommonRelay: send failed | chat_id=%s | subdir=%s | "
+                "file=%s | type=%s",
+                chat_id, subdir, filepath.name, media_type,
+            )
+
+    async def _send_by_type(
+        self,
+        chat_id: int,
+        message_id: int,
+        matched_word: str,
+        filepath: Path,
+        media_type: str,
+    ) -> None:
+        """Dispatch to the correct bot.send_* method based on media_type."""
+        reply_params = ReplyParameters(
+            message_id=message_id,
+            quote=matched_word,
+        )
+        input_file = FSInputFile(str(filepath))
+
+        if media_type == MEDIA_PHOTO:
+            await self._bot.send_photo(
+                chat_id=chat_id,
+                photo=input_file,
+                reply_parameters=reply_params,
+            )
+        elif media_type == MEDIA_VIDEO:
+            await self._bot.send_video(
+                chat_id=chat_id,
+                video=input_file,
+                reply_parameters=reply_params,
+            )
+        elif media_type == MEDIA_ANIMATION:
+            await self._bot.send_animation(
+                chat_id=chat_id,
+                animation=input_file,
+                reply_parameters=reply_params,
+            )
+        else:
+            raise ValueError(f"Unknown media_type: {media_type}")
+```
+
+**Key design decisions:**
+- Единый `send_common()` метод с параметром `subdir` вместо отдельных `send_otboy()` и `send_danger()`.
+- `_detect_media_type()` — алгоритм: расширение → image/video; для video + "gif" в имени → animation.
+- `_scan_directory()` — сканирует поддиректорию, фильтрует по поддерживаемым расширениям.
+- `_send_by_type()` — диспатч в `send_photo` / `send_video` / `send_animation`.
+- **Shared cooldown:** один `_cooldowns` dict для обоих подсервисов. Если сработал otboy в чате X, danger в чате X тоже блокируется на время кулдауна.
+- Cooldown `0` = отключён (каждый триггер отправляет медиа).
+- Все методы используют `ReplyParameters(quote=matched_word)` — сохраняется quoting как в текущем OtboyRelay.
+
+#### 26.3.3 `handlers/common.py` — Common Router
+
+```python
+"""
+Epic 15 — Common Service (was Otboy Service F9).
+
+Two-handler router on a single common_router:
+  1. otboy_handler: catches "отбой" (OtboyWordFilter) → random media from common/otboy/
+  2. danger_handler: catches danger words (DangerWordFilter) → random media from common/danger/
+
+Both share CommonRelay with a single per-chat cooldown.
+
+Router registered at position 4c between war_alert_router and slavik_router.
+"""
+import logging
+from aiogram import Router, types
+from filters.otboy_word import OtboyWordFilter
+from filters.danger_word import DangerWordFilter
+
+logger = logging.getLogger(__name__)
+
+common_router = Router(name="common")
+
+_relay: "CommonRelay | None" = None
+
+
+def setup_common(relay: "CommonRelay") -> None:
+    """Inject CommonRelay dependency. Called from bot.on_startup()."""
+    global _relay
+    _relay = relay
+    logger.info("Common Service: relay injected")
+
+
+# ═══════════════════════════════════════════════════════════════
+# Handler 1: otboy — word "отбой" → random media from common/otboy/
+# ═══════════════════════════════════════════════════════════════
+
+@common_router.message(OtboyWordFilter())
+async def otboy_handler(
+    message: types.Message,
+    matched_word: str,
+) -> None:
+    """F9: Any user writes "отбой" → random media from common/otboy/."""
+    if _relay is None:
+        logger.error(
+            "Common Service: relay not initialized — skipping otboy | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+        return
+
+    try:
+        await _relay.send_common(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            matched_word=matched_word,
+            subdir="otboy",
+        )
+    except Exception:
+        logger.exception(
+            "Common Service: otboy handler failed | chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Handler 2: danger — danger words → random media from common/danger/
+# ═══════════════════════════════════════════════════════════════
+
+@common_router.message(DangerWordFilter())
+async def danger_handler(
+    message: types.Message,
+    matched_word: str,
+) -> None:
+    """Epic 15: Danger word detected → random media from common/danger/."""
+    if _relay is None:
+        logger.error(
+            "Common Service: relay not initialized — skipping danger | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+        return
+
+    try:
+        await _relay.send_common(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            matched_word=matched_word,
+            subdir="danger",
+        )
+    except Exception:
+        logger.exception(
+            "Common Service: danger handler failed | chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+```
+
+**Key design decisions:**
+- Два хендлера на одном роутере. Порядок регистрации декораторов: otboy_handler первый, danger_handler второй. Оба могут сработать на одно сообщение если в нём и "отбой", и danger-слова.
+- `setup_common(relay)` — единый DI для обоих хендлеров. Заменяет `setup_otboy(relay)`.
+- Оба хендлера возвращают `None` (implicit) — propagation продолжается.
+- Роутер переименован с `otboy_router` на `common_router` с name="common".
+
+---
+
+### 26.4 Data Flow
+
+#### Flow A: User writes "отбой" (text)
+
+```
+Message: user_id=ANY, text="отбой", caption=None
+    ↓
+common_router (pos 4c) ════════════════════════════
+  ├── otboy_handler:
+  │   ├── OtboyWordFilter: text matches "отбой" → {"matched_word": "отбой"}
+  │   └── relay.send_common(chat_id, msg_id, "отбой", subdir="otboy")
+  │       ├── Cooldown check → OK
+  │       ├── _scan_directory("otboy") → [otboy_01.jpg, ...]
+  │       ├── random.choice → (otboy_01.jpg, MEDIA_PHOTO)
+  │       └── _send_by_type → bot.send_photo(...)
+  │
+  └── danger_handler:
+      └── DangerWordFilter: "отбой" not in danger words → SKIP
+```
+
+#### Flow B: User writes "бпла опасность" (text)
+
+```
+Message: user_id=ANY, text="бпла опасность", caption=None
+    ↓
+common_router (pos 4c) ════════════════════════════
+  ├── otboy_handler:
+  │   └── OtboyWordFilter: no "отбой" → SKIP
+  │
+  └── danger_handler:
+      ├── DangerWordFilter: "бпла" matches → {"matched_word": "бпла"}
+      └── relay.send_common(chat_id, msg_id, "бпла", subdir="danger")
+          ├── Cooldown check → OK
+          ├── _scan_directory("danger") → [danger_01.mp4 (video), danger_02_gif.mp4 (animation)]
+          ├── random.choice → (danger_02_gif.mp4, MEDIA_ANIMATION)
+          └── _send_by_type → bot.send_animation(...)
+```
+
+#### Flow C: Both "отбой" AND danger word in same message
+
+```
+Message: user_id=ANY, text="отбой ракетная опасность", caption=None
+    ↓
+common_router (pos 4c) ════════════════════════════
+  ├── otboy_handler:
+  │   ├── OtboyWordFilter: matches "отбой" → True
+  │   └── relay.send_common(..., subdir="otboy")
+  │       └── photo sent, cooldown timer started
+  │
+  └── danger_handler:
+      ├── DangerWordFilter: matches "ракетная" → True
+      └── relay.send_common(..., subdir="danger")
+          ├── Cooldown check: timer JUST started → BLOCKED
+          └── skip (cooldown active)
+```
+
+**Важно:** Оба хендлера вызываются для одного сообщения (aiogram вызывает все matching handlers на роутере), но shared cooldown предотвращает дублирование. Отправляется только первое сработавшее медиа.
+
+#### Flow D: Cooldown shared across sub-services
+
+```
+Time 0: User writes "отбой" → otboy media sent, _cooldowns[chat_A] = 1000.0
+Time 5: User writes "бпла" → cooldown check: 1005 - 1000 = 5 < 60 → BLOCKED
+Time 65: User writes "опасность" → cooldown check: 1065 - 1000 = 65 >= 60 → danger media sent
+```
+
+---
+
+### 26.5 Router Integration
+
+#### `bot.py` Changes — exact modifications:
+
+**Импорты (строки 35-36):**
+
+```python
+# БЫЛО:
+from handlers.otboy import otboy_router, setup_otboy
+
+# СТАЛО:
+from handlers.common import common_router, setup_common
+```
+
+```python
+# БЫЛО (строка 23):
+from services.otboy_relay import OtboyRelay
+
+# СТАЛО:
+from services.common_relay import CommonRelay
+```
+
+**`on_startup()` — создание relay (строки 74-77):**
+
+```python
+# БЫЛО:
+otboy_relay = OtboyRelay(bot, settings.OTBOY_COOLDOWN_SECONDS)
+setup_otboy(otboy_relay)
+logger.info("Otboy Service (F9) initialized")
+
+# СТАЛО:
+common_relay = CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)
+setup_common(common_relay)
+logger.info("Common Service (Epic 15) initialized")
+```
+
+**Регистрация роутера (строки 111-112):**
+
+```python
+# БЫЛО:
+# 4c. Otboy Service (F9): detect "отбой" → otboy.jpg with quote
+dp.include_router(otboy_router)
+
+# СТАЛО:
+# 4c. Common Service (Epic 15): otboy "отбой" + danger keywords → random media with quote
+dp.include_router(common_router)
+```
+
+**Итоговый порядок регистрации (v2.12.0):**
+
+```
+0:  admin_commands_router      (Epic 10)
+1:  slava_presence_router      (F1)
+1b: alan_greeting_router      (F7)
+2:  kostik_router
+3:  alan_router                (F6)
+4:  dead_page_router           (F2)
+4b: war_alert_router           (F5v2)
+4c: common_router              (Epic 15) ← переименован с otboy_router
+5:  slavik_router              (F3, F4, catch-all)
+6:  vasya_router
+```
+
+---
+
+### 26.6 Configuration
+
+#### `config/settings.py` — Changes:
+
+```python
+# УДАЛИТЬ эти поля:
+# OTBOY_COOLDOWN_SECONDS: int = _env_int("OTBOY_COOLDOWN_SECONDS", 0)
+# OTBOY_PHOTO_PATH: str = os.getenv("OTBOY_PHOTO_PATH", "media/otboy.jpg")
+
+# ДОБАВИТЬ/ИЗМЕНИТЬ:
+
+# ── Common Service (Epic 15) ──
+# Cooldown between media sends in the same chat (shared across otboy + danger).
+# 0 = no cooldown (every trigger sends media).
+COMMON_COOLDOWN_SECONDS: float = _env_float("COMMON_COOLDOWN_SECONDS", 0)
+
+# Base directory for common media (contains otboy/ and danger/ subdirs).
+COMMON_MEDIA_BASE: str = os.getenv("COMMON_MEDIA_BASE", "media/common")
+
+# Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
+# Default: бпла,ракетная,опасность
+DANGER_WORDS: str = os.getenv("DANGER_WORDS", "бпла,ракетная,опасность")
+```
+
+#### `.env.example` — Changes:
+
+```env
+# УДАЛИТЬ:
+# OTBOY_COOLDOWN_SECONDS=0
+# OTBOY_PHOTO_PATH=media/otboy.jpg
+
+# ДОБАВИТЬ:
+# Common Service (Epic 15) — otboy + danger detection
+# Shared cooldown in seconds (0 = no cooldown, every trigger sends)
+COMMON_COOLDOWN_SECONDS=0
+# Base directory for common media (subdirs: otboy/, danger/)
+COMMON_MEDIA_BASE=media/common
+# Comma-separated danger keywords (default: бпла,ракетная,опасность)
+DANGER_WORDS=бпла,ракетная,опасность
+```
+
+---
+
+### 26.7 Media Type Detection Algorithm
+
+```
+Функция: _detect_media_type(filepath: Path) → str | None
+
+1. Извлечь суффикс файла (нижний регистр): ext = filepath.suffix.lower()
+2. Извлечь stem (имя без расширения, нижний регистр): stem = filepath.stem.lower()
+
+3. ЕСЛИ ext in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
+     → вернуть MEDIA_PHOTO ("photo")
+
+4. ЕСЛИ ext in {".mp4", ".mov", ".webm"}:
+     ЕСЛИ "gif" in stem:
+       → вернуть MEDIA_ANIMATION ("animation")
+     ИНАЧЕ:
+       → вернуть MEDIA_VIDEO ("video")
+
+5. Любое другое расширение:
+     → вернуть None (пропустить файл)
+```
+
+**Примеры:**
+
+| Файл | Ext | Stem содержит "gif"? | Результат |
+|------|-----|:---:|------|
+| `otboy_01.jpg` | .jpg | — | MEDIA_PHOTO |
+| `photo.PNG` | .png | — | MEDIA_PHOTO |
+| `danger_01.mp4` | .mp4 | No | MEDIA_VIDEO |
+| `danger_02_gif.mp4` | .mp4 | Yes | MEDIA_ANIMATION |
+| `funny_gif.webm` | .webm | Yes | MEDIA_ANIMATION |
+| `readme.txt` | .txt | — | None (skip) |
+
+**Важно:** Проверка на "gif" — `"gif" in stem.lower()`. Это находит "gif" в любом месте имени файла: `my_gif.mp4`, `gif_party.mp4`, `animation_gif_v2.mp4` — все интерпретируются как animation.
+
+**Naming convention for animation detection:** Файлы должны содержать `_gif` (с подчёркиванием) или быть названы точно `gif` в stem (имя без расширения). Примеры корректных имён: `otboy_gif.mp4`, `danger_gif.mp4`, `gif.mp4`.
+
+**False positive risk:** Подход `"gif" in stem` может ложно определить как animation файлы, случайно содержащие "gif" в имени (например, `longify_v2.mp4` сожержит "gif" как подстроку). Рекомендация: использовать соглашение `_gif` (с подчёркиванием-префиксом) для animation-файлов, чтобы минимизировать риск ложных срабатываний.
+
+---
+
+### 26.8 Filter Design — DangerWordFilter
+
+#### Заимствование паттерна из WarWordFilter
+
+`DangerWordFilter` структурно идентичен `WarWordFilter` из `filters/war_word.py`:
+
+| Аспект | WarWordFilter | DangerWordFilter |
+|--------|:---:|:---:|
+| Проверка полей | `message.text or message.caption` | `message.text or message.caption` |
+| Regex паттерн | `(?<![а-яё])WORD(?![а-яё])` | `(?<![а-яё])WORD(?![а-яё])` |
+| Case-insensitive | `re.IGNORECASE` | `re.IGNORECASE` |
+| Список слов | Хардкод `WAR_WORDS` (90+ форм) | Конфиг `DANGER_WORDS` (3 дефолтных) |
+| Возврат | `bool` (True/False) | `dict \| bool` (`{"matched_word": ...}` / False) |
+| Guard `isinstance(content, str)` | Да | Да |
+| Compile error handling | `logger.warning` | `logger.warning` |
+| Логирование match | `logger.info` | `logger.info` |
+
+**Отличие от WarWordFilter:** DangerWordFilter возвращает `{"matched_word": match.group()}`, как OtboyWordFilter, чтобы передать слово в handler для quoting. WarWordFilter возвращает просто `bool`.
+
+#### Список слов (дефолт + конфиг):
+
+```python
+# Дефолт (если DANGER_WORDS пуст или не задан):
+_DEFAULT_DANGER_WORDS = ["бпла", "ракетная", "опасность"]
+
+# Конфиг: DANGER_WORDS=слово1,слово2,слово3
+# Парсится через _parse_danger_words() → list[str]
+```
+
+**Добавление новых слов (без изменений кода):**
+1. Добавить слово в `DANGER_WORDS` в `.env` через запятую
+2. Перезапустить бота
+3. Фильтр перекомпилирует паттерны при следующем импорте модуля
+
+---
+
+### 26.9 Shared Cooldown
+
+#### Механизм
+
+```
+CommonRelay._cooldowns: dict[int, float]
+    key   = chat_id
+    value = time.monotonic() последней отправки ЛЮБОГО медиа (otboy или danger)
+```
+
+**Поведение:**
+- Если `COMMON_COOLDOWN_SECONDS == 0` → кулдаун отключён, каждое слово вызывает отправку.
+- Если `COMMON_COOLDOWN_SECONDS > 0` → после отправки медиа в чате X, любые последующие триггеры (otboy И danger) в чате X блокируются на `COMMON_COOLDOWN_SECONDS` секунд.
+- Кулдаун per-chat: чат A и чат B независимы.
+- In-memory: сбрасывается при restart бота (приемлемо для anti-spam кулдауна).
+
+**Обоснование shared cooldown:** Если пользователь пишет "отбой бпла ракетная опасность", без общего кулдауна отправилось бы 4 медиа-файла подряд. Shared cooldown предотвращает спам — только первое сработавшее слово получает медиа.
+
+#### Порядок хендлеров и priority
+
+Внутри `common_router` хендлеры `otboy_handler` и `danger_handler` зарегистрированы в порядке декораторов. aiogram 3.x вызывает все matching handlers в порядке регистрации. Поскольку оба могут сработать на одно сообщение:
+
+1. `otboy_handler` вызывается первым → проверка кулдауна → отправка → установка таймера.
+2. `danger_handler` вызывается вторым → проверка кулдауна → таймер уже активен → блокировка.
+
+Первым всегда обрабатывается otboy (если слово есть в сообщении). Это некритично, т.к. shared cooldown делает порядок несущественным — в любом случае отправляется только одно медиа.
+
+---
+
+### 26.10 Error Handling
+
+| # | Сценарий | Поведение |
+|---|----------|-----------|
+| 1 | Директория `media/common/otboy/` не существует | `_scan_directory` бросает `FileNotFoundError` → caught в `send_common`, logged как ERROR, return |
+| 1a | Директория существует, но нет прав на чтение (PermissionError) | caught в `send_common`, logged ERROR, return |
+| 1b | Директория не существует (забыли миграцию) | caught в `send_common`, logged ERROR, return |
+| 2 | Директория существует, но пуста (нет медиа-файлов) | `_scan_directory` бросает `FileNotFoundError("No supported media files")` → caught, logged, return |
+| 3 | В директории есть файлы, но все неподдерживаемого типа (readme.txt) | Все файлы отфильтрованы `_detect_media_type` → пустой список → `FileNotFoundError` → caught |
+| 4 | `bot.send_photo/video/animation` падает (API error, file too large) | `try/except` в `send_common` → `logger.exception`, return. Бот не крашится. |
+| 5 | `_relay is None` в handler (не вызван `setup_common`) | Handler возвращается без вызова relay, logged ERROR |
+| 6 | Сообщение без text и caption (стикер, голосовое) | Фильтр возвращает False → handler не вызывается |
+| 7 | Оба фильтра сработали на одно сообщение | Оба handler вызываются, shared cooldown блокирует второй |
+| 8 | Кулдаун истёк между вызовами хендлеров (гонка) | Окна нет: aiogram обрабатывает handlers синхронно в event loop. Первый handler устанавливает `_cooldowns[chat_id] = now` ДО того как второй начинает проверку. |
+
+---
+
+### 26.11 Backward Compatibility
+
+#### Что ломается (BREAKING):
+1. **`OTBOY_COOLDOWN_SECONDS`** → переименовано в `COMMON_COOLDOWN_SECONDS`. При деплое нужно обновить `.env`.
+2. **`OTBOY_PHOTO_PATH`** → удалено. Больше не используется (заменено auto-discovery из директории).
+3. **Импорты в `bot.py`** — обновляются.
+4. **Имя роутера** — `otboy_router` → `common_router` (внешне не влияет, только внутреннее имя).
+
+#### Что НЕ ломается:
+1. **Поведение otboy_handler** — функция сохраняет имя `otboy_handler`. Слово "отбой" всё так же ловится `OtboyWordFilter`. Медиа отправляется с quoting через `ReplyParameters`.
+2. **Позиция роутера 4c** — сохраняется.
+3. **Propagation** — оба хендлера возвращают `None` (не блокируют).
+4. **Overlap с war_alert** — "отбой" в WAR_WORDS, оба хендлера срабатывают для Славы (by design, не изменилось).
+5. **Тесты** — `tests/test_otboy.py` переименован в `tests/test_common.py`; логика тестов адаптирована, но покрытие сохранено.
+
+#### Миграция `.env` (ручная при деплое):
+```bash
+# Удалить:
+OTBOY_COOLDOWN_SECONDS=0
+OTBOY_PHOTO_PATH=media/otboy.jpg
+
+# Добавить:
+COMMON_COOLDOWN_SECONDS=0
+COMMON_MEDIA_BASE=media/common
+DANGER_WORDS=бпла,ракетная,опасность
+```
+
+---
+
+### 26.12 Test Plan
+
+#### A. DangerWordFilter Tests (`tests/test_common.py`)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_danger_bpla_matches` | text="бпла" | `{"matched_word": "бпла"}` |
+| 2 | `test_danger_raketnaya_matches` | text="ракетная опасность" | `{"matched_word": "ракетная"}` |
+| 3 | `test_danger_opasnost_matches` | text="опасность" | `{"matched_word": "опасность"}` |
+| 4 | `test_danger_case_insensitive` | "БПЛА", "Бпла" | Оба возвращают dict |
+| 5 | `test_danger_in_sentence` | "внимание бпла в небе" | `{"matched_word": "бпла"}` |
+| 6 | `test_danger_word_boundary` | "бплашник" (нет в словаре) | Возвращает False |
+| 7 | `test_danger_caption_matches` | caption="бпла", text=None | `{"matched_word": "бпла"}` |
+| 8 | `test_danger_both_none` | text=None, caption=None | Возвращает False |
+| 9 | `test_danger_custom_words` | `DANGER_WORDS="атака,угроза"` | Matches "атака", "угроза" |
+| 10 | `test_danger_empty_config_uses_defaults` | `DANGER_WORDS=""` | Defaults still work |
+
+#### B. CommonRelay Tests (`tests/test_common.py`)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_pick_random_from_otboy_dir` | `_scan_directory("otboy")` | Возвращает непустой список |
+| 2 | `test_pick_random_from_danger_dir` | `_scan_directory("danger")` | Возвращает список с разными типами |
+| 3 | `test_detect_photo_type` | .jpg, .jpeg, .png, .webp, .bmp | Все → MEDIA_PHOTO |
+| 4 | `test_detect_video_type` | .mp4, .mov, .webm без "gif" | Все → MEDIA_VIDEO |
+| 5 | `test_detect_animation_type` | .mp4 с "gif" в имени | → MEDIA_ANIMATION |
+| 6 | `test_detect_animation_webm_gif` | .webm с "gif" в имени | → MEDIA_ANIMATION |
+| 7 | `test_unsupported_extension_skipped` | .txt, .pdf, .exe | → None |
+| 8 | `test_empty_directory_raises` | Пустая/несуществующая директория | `FileNotFoundError` |
+| 9 | `test_send_photo_called_for_image` | `send_common(..., subdir="otboy")` с jpg | `bot.send_photo` вызван |
+| 10 | `test_send_video_called_for_video` | danger_01.mp4 (no "gif" in name) | `bot.send_video` вызван |
+| 11 | `test_send_animation_called_for_gif` | danger_02_gif.mp4 | `bot.send_animation` вызван |
+| 12 | `test_reply_parameters_passed` | Любой `send_common` вызов | `ReplyParameters(quote=matched_word, message_id=...)` |
+| 13 | `test_shared_cooldown_blocks_second` | otboy → danger в том же чате | Второй send_common не вызывает bot.send_* |
+| 14 | `test_cooldown_expired_allows` | cooldown=1s, sleep 1.1s | Второй вызов отправляет |
+| 15 | `test_cooldown_per_chat_isolation` | chat_A → otboy, chat_B → danger | Оба отправляются |
+| 16 | `test_cooldown_zero_always_sends` | cooldown=0 | Каждый вызов отправляет |
+
+#### C. Handler Tests (`tests/test_common.py`)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_otboy_handler_calls_relay` | "отбой" → otboy_handler | `relay.send_common(..., subdir="otboy")` |
+| 2 | `test_danger_handler_calls_relay` | "бпла" → danger_handler | `relay.send_common(..., subdir="danger")` |
+| 3 | `test_both_handlers_fire_same_message` | "отбой бпла" | Оба handler вызываются (shared cooldown блокирует второй send) |
+| 4 | `test_relay_none_guard` | `_relay is None` | Handler returns без вызова relay |
+| 5 | `test_handler_returns_none` | Любой handler | Returns None (не блокирует propagation) |
+| 6 | `test_setup_common_injects_relay` | `setup_common(mock_relay)` | `_relay` установлен |
+
+#### D. Migration Tests (`tests/test_common.py`)
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_otboy_word_filter_still_works` | `OtvboyWordFilter` из `filters/otboy_word.py` | Все существующие тесты OtboyWordFilter проходят |
+| 2 | `test_cooldown_config_migrated` | `settings.COMMON_COOLDOWN_SECONDS` | Существует, default=0 |
+| 3 | `test_otboy_photo_path_removed` | `hasattr(settings, "OTBOY_PHOTO_PATH")` | False |
+
+---
+
+### 26.13 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `handlers/common.py` | **CREATE** | Новый common router с otboy_handler + danger_handler + setup_common |
+| `handlers/otboy.py` | **DELETE** | Логика перенесена в common.py |
+| `services/common_relay.py` | **CREATE** | CommonRelay: shared cooldown, _scan_directory, _detect_media_type, _send_by_type |
+| `services/otboy_relay.py` | **DELETE** | Логика перенесена в common_relay.py |
+| `filters/otboy_word.py` | **KEEP** | Без изменений — импортируется из handlers/common.py |
+| `filters/danger_word.py` | **CREATE** | DangerWordFilter: заимствует паттерн WarWordFilter |
+| `config/settings.py` | **MODIFY** | Удалить OTBOY_*, добавить COMMON_* + DANGER_WORDS |
+| `bot.py` | **MODIFY** | Обновить импорты (common вместо otboy), CommonRelay вместо OtboyRelay |
+| `.env.example` | **MODIFY** | Миграция: COMMON_COOLDOWN_SECONDS, COMMON_MEDIA_BASE, DANGER_WORDS |
+| `tests/test_common.py` | **CREATE** | ~35 тестов: DangerWordFilter, CommonRelay media types, handlers, shared cooldown, migration |
+| `tests/test_otboy.py` | **DELETE** | Переименован в test_common.py, тесты адаптированы |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 26 (этот документ) |
+
+---
+
+### 26.14 Key Architectural Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D57 | Единый `send_common(subdir)` вместо отдельных `send_otboy` / `send_danger` | Устраняет дублирование логики: cooldown, сканирование директории, детекция типа, отправка — всё общее. Subdir как параметр делает relay расширяемым: добавить третий подсервис = одна строка в handler + директория на диске. |
+| D58 | Shared cooldown для otboy и danger | Предотвращает спам когда в одном сообщении несколько триггеров. Единый `_cooldowns` dict в CommonRelay блокирует оба подсервиса одновременно. |
+| D59 | `_detect_media_type()` по расширению + "gif" в имени | Простой, детерминированный алгоритм без анализа содержимого. "gif" в stem — соглашение об именовании файлов. Расширение .mp4 — стандарт Telegram для animation (GIF). |
+| D60 | `filters/otboy_word.py` не переименовывается | Минимизация изменений. Только handler и service переименовываются. Фильтр — независимый компонент, импортируется по тому же пути. |
+| D61 | `filters/danger_word.py` заимствует `_build_patterns` из WarWordFilter | Доказанный паттерн с Cyrillic word boundaries. Нет смысла изобретать новый. |
+| D62 | `DangerWordFilter` возвращает `dict` (как OtboyWordFilter), а не `bool` (как WarWordFilter) | Нужно передать `matched_word` в handler для quoting. WarWordFilter не требует quoting (reply текстом), поэтому возвращает bool. |
+| D63 | `COMMON_MEDIA_BASE` как configurable base path | Позволяет переместить директорию с медиа без изменения кода. По умолчанию `media/common`. |
+| D64 | `DANGER_WORDS` как comma-separated env var с дефолтами | Следует паттерну `WAR_REPLIES` из war_alert. Расширяемость без изменения кода. |
+| D65 | Два хендлера на одном роутере (не два роутера) | Shared relay, shared cooldown. Один DI через `setup_common(relay)`. Два роутера создали бы ненужную сложность: два `setup_*`, два `_relay`, два cooldown-словаря или shared state между роутерами. |
+| D66 | `_cooldowns` использует `time.monotonic()` (не `time.time()`) | Monotonic не подвержен скачкам системных часов (NTP, DST). Используется в оригинальном `OtboyRelay`. |
+
+---
+
+### 26.15 Verification Checklist
+
+1. **Unit tests (DangerWordFilter):** `pytest tests/test_common.py -v -k "danger_word"` — 10 тестов
+2. **Unit tests (CommonRelay media types):** `pytest tests/test_common.py -v -k "detect_media or scan_dir or send_by_type or relay"` — 16 тестов
+3. **Unit tests (handlers):** `pytest tests/test_common.py -v -k "handler"` — 6 тестов
+4. **Migration tests:** `pytest tests/test_common.py -v -k "migration or cooldown_config or otboy_word_filter_still_works"` — 3 теста
+5. **Regression — full suite:** `pytest tests/ -v` — все существующие тесты (~305+) проходят
+6. **Manual smoke (production):**
+   - Любой пользователь пишет "отбой" → случайное медиа из `media/common/otboy/` с quote на "отбой"
+   - Любой пользователь пишет "бпла" → случайное медиа из `media/common/danger/` с quote на "бпла"
+   - Danger_02_gif.mp4 отправляется как animation (GIF)
+   - Danger_01.mp4 отправляется как video
+   - "отбой бпла" в одном сообщении → только ОДНО медиа (shared cooldown)
+   - Слава пишет "отбой" → war_alert reply + common otboy медиа (два сообщения, overlap by design)
+   - Better Stack: логи с "CommonRelay" и "Common Service" видны в дашборде
+   - `.env` мигрирован: `OTBOY_*` удалены, `COMMON_*` + `DANGER_WORDS` добавлены
+
+---
+
+### 26.16 Migration Notes for .env
+
+При деплое Epic 15 необходимо вручную обновить `.env`:
+
+```bash
+# ── Удалить эти строки ──
+OTBOY_COOLDOWN_SECONDS=0
+OTBOY_PHOTO_PATH=media/otboy.jpg
+
+# ── Добавить эти строки ──
+# Common Service (Epic 15)
+COMMON_COOLDOWN_SECONDS=0
+COMMON_MEDIA_BASE=media/common
+DANGER_WORDS=бпла,ракетная,опасность
+```
+
+Без этой миграции бот запустится, но `settings.COMMON_COOLDOWN_SECONDS` будет использовать дефолт 0, а старые `OTBOY_*` переменные будут игнорироваться (поля удалены из dataclass).
+
+### Filesystem Migration (BEFORE DEPLOY)
+
+Эти директории должны существовать ДО деплоя:
+
+```bash
+# Linux/macOS
+mkdir -p media/common/otboy
+mkdir -p media/common/danger
+
+# Если старый otboy.jpg существует, скопировать (опционально):
+cp media/otboy.jpg media/common/otboy/otboy.jpg
+
+# После успешного деплоя старый media/otboy.jpg можно безопасно удалить.
+```
+
+```powershell
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path media\common\otboy
+New-Item -ItemType Directory -Force -Path media\common\danger
+
+# Если старый otboy.jpg существует, скопировать (опционально):
+Copy-Item media\otboy.jpg media\common\otboy\otboy.jpg
+
+# После успешного деплоя старый media\otboy.jpg можно безопасно удалить.
+```
+
+Без этой миграции `_scan_directory` бросит `FileNotFoundError` → медиа не отправляется, но бот не падает.
+
+---
+
+## 27. Implementation Notes — Epic 15: Common Service Refactoring
+
+### 27.1 Deviations from Plan
+
+| # | Planned (ARCHITECTURE §26) | Actual Implementation | Reason |
+|---|---------------------------|----------------------|--------|
+| D57 | `settings.py` uses `_env_int_tuple()` for `DANGER_WORDS` | Uses raw `str` (comma-separated), parsed by `_parse_danger_words()` in `filters/danger_word.py` | Simpler config interface; comma-separated string in `.env` is more user-friendly than tuple literal. Filter handles parsing. |
+| D58 | `DANGER_WORDS` default in settings.py | Default is empty string `""`; fallback to `_DEFAULT_DANGER_WORDS` list happens in filter | Clean separation: settings is pure env loading; default values live in the domain module that uses them. |
+| D59 | `OTBOY_COOLDOWN_SECONDS` type `float` in old settings | `COMMON_COOLDOWN_SECONDS` is `float` via `_env_float()`, default `0` | Same type, renamed. Float allows sub-second cooldown for testing. |
+| D60 | `OTBOY_PHOTO_PATH` single file path | Replaced by `COMMON_MEDIA_BASE` directory-based approach | Enables multiple sub-services (otboy/, danger/) without per-service path configs. |
+
+### 27.2 Key Implementation Decisions
+
+| ID | Decision | Rationale |
+|----|----------|-----------|
+| D61 | Single `common_router` with two handlers (not two routers) | Both sub-services share the same `CommonRelay` instance with shared cooldown. A single router at position 4c is simpler than adding 4c + 4d. |
+| D62 | `DangerWordFilter` borrows `_build_patterns` from `WarWordFilter` | Same regex pattern logic: Cyrillic word boundaries, case-insensitive. DRY — but NOT shared code (duplicated by design) to avoid coupling between the two filter modules. If `war_word.py` changes its pattern format, `danger_word.py` stays stable. |
+| D63 | Animation detection: "gif" in filename stem (not extension) | Telegram distinguishes video vs animation (GIF) by content. Since we can't inspect file content at config time, filename convention (e.g. `danger_02_gif.mp4`) is a pragmatic heuristic. |
+| D64 | `CommonRelay._cooldowns` uses `time.monotonic()` (not `time.time()`) | Monotonic clock is immune to system clock adjustments. The old `OtboyRelay` used `time.time()` — fixed in migration. |
+| D65 | `filters/otboy_word.py` preserved unchanged | The filter's logic (single word "отбой") didn't need changes. Only the handler and service were refactored. |
+| D66 | 81 tests in `test_common.py` cover: OtboyWordFilter (9), DangerWordFilter (14), pattern builder (5), media detection (16), directory scan (6), send logic (6), cooldown (6), handlers (8), integration (5), migration (5) | Comprehensive coverage ensures the refactoring didn't introduce regressions. All 25 old otboy tests were replaced + 56 net-new tests. |
+
+### 27.3 Files Changed Summary
+
+| Action | File | Lines |
+|--------|------|-------|
+| **Created** | `handlers/common.py` | 95 lines |
+| **Created** | `services/common_relay.py` | 234 lines |
+| **Created** | `filters/danger_word.py` | 117 lines |
+| **Created** | `tests/test_common.py` | 777 lines |
+| **Deleted** | `handlers/otboy.py` | — |
+| **Deleted** | `services/otboy_relay.py` | — |
+| **Modified** | `bot.py` | `common_router` import + `setup_common()`, `CommonRelay` init |
+| **Modified** | `config/settings.py` | Removed `OTBOY_*`, added `COMMON_COOLDOWN_SECONDS`, `COMMON_MEDIA_BASE`, `DANGER_WORDS` |
+| **Modified** | `.env.example` | Updated Common Service section |
+| **Preserved** | `filters/otboy_word.py` | Unchanged from Epic 13 |
+
+### 27.4 Media Directory Structure (post-migration)
+
+```
+media/common/
+├── otboy/
+│   └── otboy_01.jpg          # Photo (send_photo)
+└── danger/
+    ├── danger_01.mp4          # Video (send_video)
+    └── danger_02_gif.mp4      # Animation/GIF (send_animation — "gif" in filename)
+```
+
+### 27.5 Migration from v2.11.0 to v2.12.0
+
+**Manual steps required on server:**
+
+1. **Create media directories:**
+   ```bash
+   mkdir -p media/common/otboy media/common/danger
+   ```
+
+2. **Migrate old otboy.jpg (optional):**
+   ```bash
+   cp media/otboy.jpg media/common/otboy/otboy.jpg
+   rm media/otboy.jpg  # safe to delete after deploy
+   ```
+
+3. **Update `.env`:**
+   ```bash
+   # Remove:
+   OTBOY_COOLDOWN_SECONDS=0
+   OTBOY_PHOTO_PATH=media/otboy.jpg
+   
+   # Add:
+   COMMON_COOLDOWN_SECONDS=0
+   COMMON_MEDIA_BASE=media/common
+   DANGER_WORDS=бпла,ракетная,опасность
+   ```
+
+4. **Test count before deploy:** 316 → after Epic 15: 372 (`py -m pytest tests/ -q`)

@@ -317,7 +317,7 @@
 
 ---
 
-## Epic 13: Otboy Service (F9) — 2026-07-26 🔵 NEW
+## Epic 13: Otboy Service (F9) — 2026-07-26 ✅ DONE
 
 > **Цель:** Создать standalone scalable сервис, который работает для ВСЕХ пользователей чата
 > (не user-specific). При обнаружении слова "отбой" в сообщениях, репостах или подписях
@@ -330,76 +330,76 @@
 > **Cooldown:** Настраиваемый через settings, default=0 (без ограничений).
 
 ### Архитектурное проектирование и ревью
-- [ ] T-084: Спроектировать архитектуру сервиса + sub-agent review
-  - [ ] T-084-A: Спроектировать архитектуру — модули, изоляция, поток данных (OtboyWordFilter → otboy_router → OtboyRelay)
-  - [ ] T-084-B: Sub-agent ревью архитектуры — проверить изоляцию, масштабируемость, отсутствие влияния на другие фичи
-  - [ ] T-084-C: Согласовать финальный дизайн с PM
+- [x] T-084: Спроектировать архитектуру сервиса + sub-agent review
+  - [x] T-084-A: Спроектировать архитектуру — модули, изоляция, поток данных (OtboyWordFilter → otboy_router → OtboyRelay)
+  - [x] T-084-B: Sub-agent ревью архитектуры — проверить изоляцию, масштабируемость, отсутствие влияния на другие фичи
+  - [x] T-084-C: Согласовать финальный дизайн с PM
 
 ### Фильтр
-- [ ] T-085: Создать `filters/otboy_word.py` — OtboyWordFilter
-  - [ ] T-085-A: Реализовать фильтр — проверка `message.text`, `message.caption`, и текста forwarded-сообщений
-  - [ ] T-085-B: Детект слова "отбой" (регистронезависимый, word-boundary \bотбой\b)
-  - [ ] T-085-C: Логирование срабатывания фильтра (INFO: chat_id, user_id, source field — text/caption/forward)
+- [x] T-085: Создать `filters/otboy_word.py` — OtboyWordFilter
+  - [x] T-085-A: Реализовать фильтр — проверка `message.text`, `message.caption`, и текста forwarded-сообщений
+  - [x] T-085-B: Детект слова "отбой" (регистронезависимый, word-boundary \bотбой\b)
+  - [x] T-085-C: Логирование срабатывания фильтра (INFO: chat_id, user_id, source field — text/caption/forward)
 
 ### Сервис
-- [ ] T-086: Создать `services/otboy_relay.py` — OtboyRelay (standalone scalable service)
-  - [ ] T-086-A: Реализовать инкапсулированный сервис без глобального состояния
-  - [ ] T-086-B: Метод `send_otboy(chat_id, reply_to_message_id, quote_text)` — отправка `media/otboy.jpg`
-  - [ ] T-086-C: Cooldown-логика — проверка `OTBOY_COOLDOWN_SECONDS`, thread-safe per-chat
-  - [ ] T-086-D: Comprehensive logging (INFO: photo sent, cooldown active, cooldown expired)
+- [x] T-086: Создать `services/otboy_relay.py` — OtboyRelay (standalone scalable service)
+  - [x] T-086-A: Реализовать инкапсулированный сервис без глобального состояния
+  - [x] T-086-B: Метод `send_otboy(chat_id, reply_to_message_id, quote_text)` — отправка `media/otboy.jpg`
+  - [x] T-086-C: Cooldown-логика — проверка `OTBOY_COOLDOWN_SECONDS`, thread-safe per-chat
+  - [x] T-086-D: Comprehensive logging (INFO: photo sent, cooldown active, cooldown expired)
 
 ### Хендлер
-- [ ] T-087: Создать `handlers/otboy.py` — otboy_router + handler
-  - [ ] T-087-A: Handler: OtboyWordFilter → OtboyRelay.send_otboy()
-  - [ ] T-087-B: Reply с `reply_to_message_id` (Telegram native reply-to)
-  - [ ] T-087-C: Цитирование ТОЛЬКО слова "отбой" через Telegram quote API (native citation)
-  - [ ] T-087-D: Обработка ошибок (файл не найден, Telegram API error, permission denied)
+- [x] T-087: Создать `handlers/otboy.py` — otboy_router + handler
+  - [x] T-087-A: Handler: OtboyWordFilter → OtboyRelay.send_otboy()
+  - [x] T-087-B: Reply с `reply_to_message_id` (Telegram native reply-to)
+  - [x] T-087-C: Цитирование ТОЛЬКО слова "отбой" через Telegram quote API (native citation)
+  - [x] T-087-D: Обработка ошибок (файл не найден, Telegram API error, permission denied)
 
 ### Конфигурация
-- [ ] T-088: Добавить `OTBOY_COOLDOWN_SECONDS` в `config/settings.py` + `.env.example`
-  - [ ] T-088-A: `OTBOY_COOLDOWN_SECONDS: int = 0` (0 = no cooldown, отправка на каждое "отбой")
-  - [ ] T-088-B: Обновить `.env.example` с описанием параметра и дефолтным значением
+- [x] T-088: Добавить `OTBOY_COOLDOWN_SECONDS` в `config/settings.py` + `.env.example`
+  - [x] T-088-A: `OTBOY_COOLDOWN_SECONDS: int = 0` (0 = no cooldown, отправка на каждое "отбой")
+  - [x] T-088-B: Обновить `.env.example` с описанием параметра и дефолтным значением
 
 ### Интеграция
-- [ ] T-089: Зарегистрировать `otboy_router` в `bot.py`
-  - [ ] T-089-A: Определить правильную позицию — перед user-specific роутерами (slavik, alan)
-  - [ ] T-089-B: Зарегистрировать `dp.include_router(otboy_router)`
-  - [ ] T-089-C: Инициализировать OtboyRelay при старте бота
-  - [ ] T-089-D: Убедиться, что propagation не блокирует другие хендлеры
+- [x] T-089: Зарегистрировать `otboy_router` в `bot.py`
+  - [x] T-089-A: Определить правильную позицию — перед user-specific роутерами (slavik, alan)
+  - [x] T-089-B: Зарегистрировать `dp.include_router(otboy_router)`
+  - [x] T-089-C: Инициализировать OtboyRelay при старте бота
+  - [x] T-089-D: Убедиться, что propagation не блокирует другие хендлеры
 
 ### Тестирование
-- [ ] T-090: Написать тесты для Otboy Service (~10 тестов)
-  - [ ] T-090-A: Фильтр — текст с "отбой" → срабатывает
-  - [ ] T-090-B: Фильтр — caption с "отбой" → срабатывает
-  - [ ] T-090-C: Фильтр — forwarded message text с "отбой" → срабатывает
-  - [ ] T-090-D: Фильтр — текст без "отбой" → не срабатывает
-  - [ ] T-090-E: Фильтр — регистронезависимость ("Отбой", "ОТБОЙ", "ОтБой")
-  - [ ] T-090-F: Хендлер — `reply_to_message_id` совпадает с исходным `message_id`
-  - [ ] T-090-G: Хендлер — quote захватывает только слово "отбой" (не всё сообщение)
-  - [ ] T-090-H: Cooldown — второй вызов в пределах cooldown не отправляет фото
-  - [ ] T-090-I: Cooldown — после истечения cooldown фото отправляется снова
-  - [ ] T-090-J: Интеграционный тест — propagation (не блокирует другие хендлеры на том же сообщении)
+- [x] T-090: Написать тесты для Otboy Service (~10 тестов)
+  - [x] T-090-A: Фильтр — текст с "отбой" → срабатывает
+  - [x] T-090-B: Фильтр — caption с "отбой" → срабатывает
+  - [x] T-090-C: Фильтр — forwarded message text с "отбой" → срабатывает
+  - [x] T-090-D: Фильтр — текст без "отбой" → не срабатывает
+  - [x] T-090-E: Фильтр — регистронезависимость ("Отбой", "ОТБОЙ", "ОтБой")
+  - [x] T-090-F: Хендлер — `reply_to_message_id` совпадает с исходным `message_id`
+  - [x] T-090-G: Хендлер — quote захватывает только слово "отбой" (не всё сообщение)
+  - [x] T-090-H: Cooldown — второй вызов в пределах cooldown не отправляет фото
+  - [x] T-090-I: Cooldown — после истечения cooldown фото отправляется снова
+  - [x] T-090-J: Интеграционный тест — propagation (не блокирует другие хендлеры на том же сообщении)
 
 ### Документация
-- [ ] T-091: Обновить документацию
-  - [ ] T-091-A: `README.md` — добавить секцию F9 (Otboy Service), описание, настройки
-  - [ ] T-091-B: `ARCHITECTURE.md` — router order, data flow диаграмма, секция OtboyRelay
-  - [ ] T-091-C: `MEMORY.md` — project state, features table, version bump v2.10.0
+- [x] T-091: Обновить документацию
+  - [x] T-091-A: `README.md` — добавить секцию F9 (Otboy Service), описание, настройки
+  - [x] T-091-B: `ARCHITECTURE.md` — router order, data flow диаграмма, секция OtboyRelay
+  - [x] T-091-C: `MEMORY.md` — project state, features table, version bump v2.10.0
 
 ### Деплой
-- [ ] T-092: Деплой на сервер + smoke tests
-  - [ ] T-092-A: Git pull на сервер nik@198.46.175.136:/var/www/admin_bot
-  - [ ] T-092-B: Обновить .env (если переопределён OTBOY_COOLDOWN_SECONDS)
-  - [ ] T-092-C: Restart бота
-  - [ ] T-092-D: Smoke test: сообщение с "отбой" → reply с otboy.jpg + quote "отбой"
-  - [ ] T-092-E: Smoke test: forwarded-сообщение с "отбой" → reply с otboy.jpg
-  - [ ] T-092-F: Smoke test: caption на фото с "отбой" → reply с otboy.jpg
-  - [ ] T-092-G: Проверить, что другие фичи не сломаны (прогнать полный тест-сьют)
-  - [ ] T-092-H: Verify Better Stack логи (INFO: otboy detected, photo sent)
+- [x] T-092: Деплой на сервер + smoke tests
+  - [x] T-092-A: Git pull на сервер nik@198.46.175.136:/var/www/admin_bot
+  - [x] T-092-B: Обновить .env (если переопределён OTBOY_COOLDOWN_SECONDS)
+  - [x] T-092-C: Restart бота
+  - [x] T-092-D: Smoke test: сообщение с "отбой" → reply с otboy.jpg + quote "отбой"
+  - [x] T-092-E: Smoke test: forwarded-сообщение с "отбой" → reply с otboy.jpg
+  - [x] T-092-F: Smoke test: caption на фото с "отбой" → reply с otboy.jpg
+  - [x] T-092-G: Проверить, что другие фичи не сломаны (прогнать полный тест-сьют)
+  - [x] T-092-H: Verify Better Stack логи (INFO: otboy detected, photo sent)
 
 ---
 
-## Epic 14: Media Group Album Fix — 2026-07-28 🔵 NEW
+## Epic 14: Media Group Album Fix — 2026-07-28 ✅ DONE
 
 > **Цель:** Исправить баг в DeadPageRelay: при наличии альбома (media group из 2-10 фото)
 > в relay-канале, `bot.forward_message()` (singular) форвардит только одно фото. Остальные
@@ -412,65 +412,159 @@
 > Не сломать существующие 305 тестов. aiogram 3.x, Python 3.11+.
 
 ### Database
-- [ ] T-093: Новая таблица `relay_album_map` + 3 CRUD метода в `services/database.py`
-  - [ ] T-093-A: Создать таблицу `relay_album_map` (message_id INTEGER PK, media_group_id TEXT NOT NULL) в `_ensure_tables`
-  - [ ] T-093-B: Реализовать `insert_relay_album_entry(message_id, media_group_id)` — запись альбома
-  - [ ] T-093-C: Реализовать `get_media_group_id(message_id)` — получить media_group_id по message_id (или None)
-  - [ ] T-093-D: Реализовать `delete_relay_album_entries(message_ids: list[int])` — очистка после обработки
+- [x] T-093: Новая таблица `relay_album_map` + 3 CRUD метода в `services/database.py`
+  - [x] T-093-A: Создать таблицу `relay_album_map` (message_id INTEGER PK, media_group_id TEXT NOT NULL) в `_ensure_tables`
+  - [x] T-093-B: Реализовать `insert_relay_album_entry(message_id, media_group_id)` — запись альбома
+  - [x] T-093-C: Реализовать `get_media_group_id(message_id)` — получить media_group_id по message_id (или None)
+  - [x] T-093-D: Реализовать `delete_relay_album_entries(message_ids: list[int])` — очистка после обработки
 
 ### Tracking
-- [ ] T-094: Новый `channel_post` handler в `bot.py` для отслеживания media_group_id
-  - [ ] T-094-A: Создать handler — ловит все посты в relay-канале (DEAD_PAGE_CHANNEL_ID)
-  - [ ] T-094-B: Извлечь `media_group_id` из `Message` (если есть) — записать в БД через `insert_relay_album_entry`
-  - [ ] T-094-C: Логирование: INFO при записи альбома, DEBUG для одиночных постов
+- [x] T-094: Новый `channel_post` handler в `bot.py` для отслеживания media_group_id
+  - [x] T-094-A: Создать handler — ловит все посты в relay-канале (DEAD_PAGE_CHANNEL_ID)
+  - [x] T-094-B: Извлечь `media_group_id` из `Message` (если есть) — записать в БД через `insert_relay_album_entry`
+  - [x] T-094-C: Логирование: INFO при записи альбома, DEBUG для одиночных постов
 
 ### Forwarding — DB Path
-- [ ] T-095: Модифицировать `DeadPageRelay._try_forward_from_channel()` — DB lookup + `forward_messages()` (plural)
-  - [ ] T-095-A: После выбора random message проверить БД (`get_media_group_id`)
-  - [ ] T-095-B: Если media_group_id найден — запросить из БД все message_id с тем же media_group_id
-  - [ ] T-095-C: Использовать `bot.forward_messages()` (plural API) для форвардинга всех сообщений альбома одним вызовом
-  - [ ] T-095-D: После успешного форварда — вызвать `delete_relay_album_entries` для очистки
-  - [ ] T-095-E: Логирование: INFO — album forwarded (N messages, media_group_id), WARNING — partial forward
+- [x] T-095: Модифицировать `DeadPageRelay._try_forward_from_channel()` — DB lookup + `forward_messages()` (plural)
+  - [x] T-095-A: После выбора random message проверить БД (`get_media_group_id`)
+  - [x] T-095-B: Если media_group_id найден — запросить из БД все message_id с тем же media_group_id
+  - [x] T-095-C: Использовать `bot.forward_messages()` (plural API) для форвардинга всех сообщений альбома одним вызовом
+  - [x] T-095-D: После успешного форварда — вызвать `delete_relay_album_entries` для очистки
+  - [x] T-095-E: Логирование: INFO — album forwarded (N messages, media_group_id), WARNING — partial forward
 
 ### Forwarding — Heuristic Fallback (старые посты без DB-записей)
-- [ ] T-096: Эвристический fallback — пробинг соседних message_id ±1..9
-  - [ ] T-096-A: Если `get_media_group_id` вернул None (старый пост) — войти в эвристический режим
-  - [ ] T-096-B: Пробинг: получить сообщения с ID от (picked_id - 9) до (picked_id + 9) из relay-канала
-  - [ ] T-096-C: Фильтрация: оставить только те, у которых дата в пределах ±2s от даты выбранного сообщения
-  - [ ] T-096-D: Непрерывность: собрать последовательные message_id (разрешено до 2 consecutive gaps)
-  - [ ] T-096-E: `bot.forward_messages()` для всех подходящих siblings
-  - [ ] T-096-F: `bot.delete_message()` для проб, которые не вошли в группу (non-matching probes)
-  - [ ] T-096-G: Обработка ошибок: если probe не найден (Message to forward not found) — пропустить
-  - [ ] T-096-H: Логирование: INFO — heuristic mode activated, N siblings found, N probes deleted
+- [x] T-096: Эвристический fallback — пробинг соседних message_id ±1..9
+  - [x] T-096-A: Если `get_media_group_id` вернул None (старый пост) — войти в эвристический режим
+  - [x] T-096-B: Пробинг: получить сообщения с ID от (picked_id - 9) до (picked_id + 9) из relay-канала
+  - [x] T-096-C: Фильтрация: оставить только те, у которых дата в пределах ±2s от даты выбранного сообщения
+  - [x] T-096-D: Непрерывность: собрать последовательные message_id (разрешено до 2 consecutive gaps)
+  - [x] T-096-E: `bot.forward_messages()` для всех подходящих siblings
+  - [x] T-096-F: `bot.delete_message()` для проб, которые не вошли в группу (non-matching probes)
+  - [x] T-096-G: Обработка ошибок: если probe не найден (Message to forward not found) — пропустить
+  - [x] T-096-H: Логирование: INFO — heuristic mode activated, N siblings found, N probes deleted
 
 ### Deduplication
-- [ ] T-097: Модифицировать `handlers/dead_page_trigger.py` — дедупликация media_group
-  - [ ] T-097-A: Отслеживать `media_group_id` входящих сообщений из @d_pages
-  - [ ] T-097-B: Если `media_group_id` уже обработан — пропустить (не вызывать `send_dead_page()` повторно)
-  - [ ] T-097-C: `send_dead_page()` вызывается только один раз на альбом
-  - [ ] T-097-D: Логирование: INFO — media_group dedup skipped, DEBUG — first occurrence
+- [x] T-097: Модифицировать `handlers/dead_page_trigger.py` — дедупликация media_group
+  - [x] T-097-A: Отслеживать `media_group_id` входящих сообщений из @d_pages
+  - [x] T-097-B: Если `media_group_id` уже обработан — пропустить (не вызывать `send_dead_page()` повторно)
+  - [x] T-097-C: `send_dead_page()` вызывается только один раз на альбом
+  - [x] T-097-D: Логирование: INFO — media_group dedup skipped, DEBUG — first occurrence
 
 ### Testing
-- [ ] T-098: Тесты (9+ cases) — DB + heuristic + dedup paths
-  - [ ] T-098-A: DB insert + get + delete media_group_id
-  - [ ] T-098-B: DB path — найден media_group_id → forward_messages вызывается с корректными ID
-  - [ ] T-098-C: DB path — одиночное сообщение (нет media_group_id) → forward_message (singular, без изменений)
-  - [ ] T-098-D: Heuristic — соседние сообщения с датой ±2s найдены → forward_messages с корректными ID
-  - [ ] T-098-E: Heuristic — неродственные сообщения (дата вне ±2s) отфильтрованы
-  - [ ] T-098-F: Heuristic — non-matching probes удалены через delete_message
-  - [ ] T-098-G: Heuristic — 2 consecutive gaps разрешены, 3+ gaps разрывают группу
-  - [ ] T-098-H: Dedup — повторный media_group_id не вызывает send_dead_page
-  - [ ] T-098-I: Интеграционный тест — полный пайплайн (channel_post → DB → forward_messages → dedup)
-  - [ ] T-098-J: Регрессионный тест — существующие тесты dead_page_relay не сломаны
+- [x] T-098: Тесты (9+ cases) — DB + heuristic + dedup paths
+  - [x] T-098-A: DB insert + get + delete media_group_id
+  - [x] T-098-B: DB path — найден media_group_id → forward_messages вызывается с корректными ID
+  - [x] T-098-C: DB path — одиночное сообщение (нет media_group_id) → forward_message (singular, без изменений)
+  - [x] T-098-D: Heuristic — соседние сообщения с датой ±2s найдены → forward_messages с корректными ID
+  - [x] T-098-E: Heuristic — неродственные сообщения (дата вне ±2s) отфильтрованы
+  - [x] T-098-F: Heuristic — non-matching probes удалены через delete_message
+  - [x] T-098-G: Heuristic — 2 consecutive gaps разрешены, 3+ gaps разрывают группу
+  - [x] T-098-H: Dedup — повторный media_group_id не вызывает send_dead_page
+  - [x] T-098-I: Интеграционный тест — полный пайплайн (channel_post → DB → forward_messages → dedup)
+  - [x] T-098-J: Регрессионный тест — существующие тесты dead_page_relay не сломаны
 
 ### QA
-- [ ] T-099: Прогнать полный тест-сьют + обновить документацию
-  - [ ] T-099-A: `pytest` — все 305+ тестов проходят без регрессий
-  - [ ] T-099-B: Обновить `ARCHITECTURE.md` — секция DeadPageRelay, таблица relay_album_map, router order с channel_post handler
-  - [ ] T-099-C: Обновить `MEMORY.md` — project state, features table, version bump v2.11.0
-  - [ ] T-099-D: Обновить `README.md` — если требуется
+- [x] T-099: Прогнать полный тест-сьют + обновить документацию
+  - [x] T-099-A: `pytest` — все 305+ тестов проходят без регрессий
+  - [x] T-099-B: Обновить `ARCHITECTURE.md` — секция DeadPageRelay, таблица relay_album_map, router order с channel_post handler
+  - [x] T-099-C: Обновить `MEMORY.md` — project state, features table, version bump v2.11.0
+  - [x] T-099-D: Обновить `README.md` — если требуется
 
 ---
 
-**Status: Epics 1–12 DONE ✅. Epic 13 (Otboy Service F9): T-084–T-092 — NEW 🔵. Epic 14 (Media Group Album Fix): T-093–T-099 — NEW 🔵.**
-**Date: 2026-07-28 | v2.9.2 (305 tests) → v2.10.0 (Epic 13 target) → v2.11.0 (Epic 14 target)**
+## Epic 15: Common Service — Rename + Media Upgrade + Danger Detection — 2026-07-28 🔵 NEW
+
+> **Цель:** (1) Переименовать сервис "otboy" → "common" — файлы, импорты, регистрации, env-настройки.
+> Функция `otboy` (ответ на слово «отбой») сохраняет имя и поведение. (2) Upgrade media-обработки:
+> вместо хардкодного `otboy.jpg` — подбор ЛЮБОГО файла из `\media\common\otboy\` с авто-детекцией типа
+> (image→photo, video→video, video с "gif" в имени→animation). (3) Новая функция детекции опасных
+> слов («бпла», «ракетная», «опасность» и др.) — заимствовать паттерн фильтра из Slavik/WarWordFilter,
+> отправлять случайный контент из `\media\common\danger\` с теми же reply-to + quote механиками.
+>
+> **Границы:** Только файлы otboy-сервиса + конфигурация + тесты. Остальные фичи НЕ трогать.
+> Все 316 тестов должны проходить. Архитектура ревьюится sub-agent'ом ДО реализации.
+
+### Архитектурное проектирование и ревью
+- [ ] 👤 T-100 (@Architect): Спроектировать архитектуру Common Service + sub-agent review
+  - [ ] T-100-A: Спроектировать архитектуру — модули (common_handler, CommonRelay, CommonWordFilter + DangerWordFilter), data flow, directory structure, контракты
+  - [ ] T-100-B: Sub-agent ревью — проверить изоляцию от других фич, масштабируемость, корректность rename (без dead imports), media type detection matrix
+  - [ ] T-100-C: Согласовать финальный дизайн с PM
+
+### Переименование файлов и модулей (otboy → common)
+- [ ] T-101: Переименовать файлы, классы, импорты, роутер
+  - [ ] T-101-A: Переименовать `handlers/otboy.py` → `handlers/common.py` (router: `otboy_router` → `common_router`, сохранить функцию `otboy_handler`)
+  - [ ] T-101-B: Переименовать `services/otboy_relay.py` → `services/common_relay.py` (класс `OtboyRelay` → `CommonRelay`)
+  - [ ] T-101-C: `filters/otboy_word.py` — оставить без изменений; СОЗДАТЬ `filters/danger_word.py` (новый файл, класс `DangerWordFilter`)
+  - [ ] T-101-D: Обновить ВСЕ импорты в `bot.py` (4 строки: router, setup, relay import, on_startup)
+  - [ ] T-101-E: Проверить grep-поиском отсутствие dead imports/ссылок на "otboy" во всём проекте (кроме функции `otboy_handler` и legacy-комментариев)
+
+### Конфигурация (settings.py + .env.example)
+- [ ] T-102: Переименовать и добавить env-переменные
+  - [ ] T-102-A: `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS` (тот же default=0, общий cooldown для otboy и danger)
+  - [ ] T-102-B: `OTBOY_PHOTO_PATH` → удалить, добавить `COMMON_MEDIA_BASE: str = "media/common"` (subdirs: `otboy`/`danger` разрешаются динамически через параметр `subdir`)
+  - [ ] T-102-C: Создать директории `media/common/otboy/` и `media/common/danger/` (filesystem migration, см. §26.16)
+  - [ ] T-102-D: Обновить `.env.example` — заменить старые ключи на новые с описаниями и дефолтами
+
+### Upgrade media-обработки (otboy function)
+- [ ] T-103: Directory-based media picker с авто-детекцией типа
+  - [ ] T-103-A: В `CommonRelay` — метод `_pick_media(media_dir)` сканирует директорию, выбирает случайный файл
+  - [ ] T-103-B: Реализовать `_detect_media_type(filename)` → `"photo" | "video" | "animation"`
+    - `.jpg/.jpeg/.png/.webp/.bmp` → `"photo"` (send_photo)
+    - `.mp4/.avi/.mov/.webm` без "gif" в имени → `"video"` (send_video)
+    - `.mp4/.avi/.mov/.webm` с "gif" в имени → `"animation"` (send_animation / GIF)
+  - [ ] T-103-C: Реализовать `_send_media(chat_id, filepath, media_type, reply_params)` — единый dispatcher для всех трёх типов
+  - [ ] T-103-D: Обновить `send_otboy()` — использовать `_pick_media` + `_send_media` вместо хардкодного `FSInputFile`
+  - [ ] T-103-E: Логирование: INFO — media type chosen, file path, chat_id
+
+### Новая функция детекции опасных слов (danger)
+- [ ] T-104: DangerWordFilter + danger_handler + CommonRelay.send_danger()
+  - [ ] T-104-A: Реализовать `DangerWordFilter` в `filters/danger_word.py` — список DANGER_WORDS (бпла, ракетная, опасность, тревога, внимание, сирена, атака, угроза, обстрел, воздушная + словоформы), pattern compilation как в WarWordFilter
+  - [ ] T-104-B: Реализовать `CommonRelay.send_danger(chat_id, message_id, matched_word)` — `_pick_media(subdir="danger")` (разрешается через `COMMON_MEDIA_BASE`) + `_send_media()` + reply_to + quote
+  - [ ] T-104-C: Добавить `danger_handler` в `handlers/common.py` — `DangerWordFilter()` → `_relay.send_danger()` (паттерн как у otboy_handler)
+  - [ ] T-104-D: Reply-to и quote mechanism — идентичен otboy (ReplyParameters с matched_word)
+  - [ ] T-104-E: Comprehensive logging для danger (INFO: word matched, media type, chat_id)
+
+### Интеграция в bot.py
+- [ ] T-105: Обновить импорты, регистрацию и инициализацию
+  - [ ] T-105-A: Обновить импорты — `from handlers.common import common_router, setup_common`, `from services.common_relay import CommonRelay`
+  - [ ] T-105-B: Заменить `otboy_router` → `common_router` в `dp.include_router()` (позиция 4c сохраняется)
+  - [ ] T-105-C: Обновить `on_startup()` — `CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)`, `setup_common(relay)`
+  - [ ] T-105-D: Убедиться, что propagation не блокирует другие хендлеры (оба handler'а возвращают None)
+
+### Тестирование
+- [ ] T-106: Написать/обновить тесты (~20+ тестов)
+  - [ ] T-106-A: Переименовать `tests/test_otboy.py` → `tests/test_common.py`, обновить все импорты
+  - [ ] T-106-B: Тесты OtboyWordFilter — перенести существующие 11 тестов, обновить импорты
+  - [ ] T-106-C: Тесты otboy_handler — перенести существующие 6 тестов, заменить OtboyRelay → CommonRelay
+  - [ ] T-106-D: Тесты CommonRelay.send_otboy — image file → send_photo
+  - [ ] T-106-E: Тесты CommonRelay.send_otboy — video file → send_video
+  - [ ] T-106-F: Тесты CommonRelay.send_otboy — video с "gif" в имени → send_animation
+  - [ ] T-106-G: Тесты CommonRelay._pick_media — пустая директория, не-медиа файлы (graceful skip)
+  - [ ] T-106-H: Тесты DangerWordFilter — текст/caption с опасными словами → срабатывает
+  - [ ] T-106-I: Тесты DangerWordFilter — без опасных слов → False, регистронезависимость, word boundary
+  - [ ] T-106-J: Тесты danger_handler — делегирует в CommonRelay.send_danger с правильными параметрами
+  - [ ] T-106-K: Тесты CommonRelay.send_danger — случайный медиа из danger dir, правильный тип (image/video/animation)
+  - [ ] T-106-L: Тесты cooldown — общий cooldown для otboy и danger, per-chat изоляция
+  - [ ] T-106-M: Интеграционный тест — propagation: common_router не блокирует slavik/alan/vasya
+  - [ ] T-106-N: Интеграционный тест — диспетчеризация: сообщение с "отбой" и опасным словом → оба handler'а вызываются
+
+### Документация
+- [ ] T-107: Обновить документацию
+  - [ ] T-107-A: `README.md` — переименовать F9 → "Common Service", добавить секцию danger detection, описать media type matrix
+  - [ ] T-107-B: `ARCHITECTURE.md` — обновить router order (4c: common_router), CommonRelay секцию, data flow с двумя handler'ами
+  - [ ] T-107-C: `MEMORY.md` — project state, features table, version bump v2.12.0
+
+### QA и деплой
+- [ ] T-108: QA — тесты, коммит, деплой
+  - [ ] T-108-A: `pytest` — все 316+ тестов проходят, 0 регрессий, coverage ≥ 100% для новых модулей
+  - [ ] T-108-B: Коммит на русском (conventional commits) в main, пуш
+  - [ ] T-108-C: Деплой на сервер — git pull, обновить .env (COMMON_COOLDOWN_SECONDS, COMMON_MEDIA_BASE, DANGER_WORDS), создать директории (filesystem migration §26.16), restart
+  - [ ] T-108-D: Smoke test: сообщение с "отбой" → reply с медиа из common/otboy, quote "отбой"
+  - [ ] T-108-E: Smoke test: сообщение с "ракетная опасность" → reply с медиа из common/danger, quote слова
+  - [ ] T-108-F: Smoke test: проверить, что другие фичи не сломаны (слава, war_alert, алан, вася, костик)
+  - [ ] T-108-G: Verify Better Stack логи (INFO: otboy detected, danger detected, media type)
+
+---
+
+**Status: Epics 1–14 DONE ✅. Epic 15 (Common Service): T-100–T-108 — NEW 🔵.**
+**Date: 2026-07-28 | v2.11.0 (316 tests) → v2.12.0 (Epic 15 target)**
