@@ -5303,3 +5303,302 @@ otboy_router (pos 4c) ═══════════════════�
    - Better Stack: логи с "Otboy" видны в дашборде
 
 ---
+
+## 25. Epic 14: Media Group Album Fix (D44-D48)
+
+> **Версия:** v2.11.0
+> **Дата:** 2026-07-28
+> **Связанные задачи:** T-093 (архитектура), T-094 (DB + channel_post tracker), T-095 (album forwarding with forward_messages), T-096 (heuristic fallback), T-097 (trigger deduplication), T-098 (caller-side changes), T-099 (тесты)
+> **Назначение:** Исправить баг: при пересылке альбома (media group) из relay-канала DeadPageRelay пересылает только одно фото вместо всего альбома. Решение: DB-трекинг media_group_id через `channel_post` handler + heuristic fallback для старых постов + `forward_messages()` для сохранения визуальной группировки.
+
+### 25.1 Overview
+
+Когда пользователь репостит альбом из @d_pages, Telegram отправляет N отдельных `Message` updates (по одному на каждое фото). DeadPageRelay выбирает случайный `message_id` и вызывает `forward_message()` (ед. число), что пересылает только одно фото. Для сохранения альбомной группировки необходимо:
+
+1. **Отслеживать** `media_group_id` в relay-канале при добавлении новых постов (`channel_post` handler).
+2. **Хранить** маппинг `message_id → media_group_id` в БД.
+3. **Пересылать** весь альбом через `forward_messages()` (мн. число, Bot API 7.0+), что сохраняет визуальную группировку.
+4. **Fallback** на heuristic probing (сравнение дат соседних сообщений) для старых постов без DB-записей.
+5. **Дедуплицировать** триггеры от нескольких фото одного альбома на входе.
+
+---
+
+### 25.2 Design Decision D44: `relay_album_map` Database Table
+
+**Context**: Need to track which messages in the relay channel belong to the same media group (album).
+
+**Schema**:
+```sql
+CREATE TABLE IF NOT EXISTS relay_album_map (
+    message_id INTEGER PRIMARY KEY,
+    media_group_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_relay_album_media_group ON relay_album_map(media_group_id);
+```
+
+**Migration**: Add to `DatabaseService._SCHEMA_SQL`. No data migration needed — old posts without entries will use heuristic fallback.
+
+**CRUD Methods** (in `DatabaseService`):
+
+```python
+async def save_relay_album_map(message_id: int, media_group_id: str) -> None:
+    """INSERT OR REPLACE relay_album_map entry."""
+    await self.db.execute(
+        "INSERT OR REPLACE INTO relay_album_map (message_id, media_group_id) VALUES (?, ?)",
+        (message_id, media_group_id)
+    )
+    await self.db.commit()
+
+
+async def get_relay_media_group_id(message_id: int) -> str | None:
+    """SELECT media_group_id WHERE message_id=?."""
+    cursor = await self.db.execute(
+        "SELECT media_group_id FROM relay_album_map WHERE message_id = ?",
+        (message_id,)
+    )
+    row = await cursor.fetchone()
+    return row["media_group_id"] if row else None
+
+
+async def get_relay_album_message_ids(media_group_id: str) -> list[int]:
+    """SELECT message_id WHERE media_group_id=? ORDER BY message_id."""
+    cursor = await self.db.execute(
+        "SELECT message_id FROM relay_album_map WHERE media_group_id = ? ORDER BY message_id",
+        (media_group_id,)
+    )
+    rows = await cursor.fetchall()
+    return [row["message_id"] for row in rows]
+```
+
+**Rationale**: Simple key-value mapping. No need for timestamp/tracking — albums are immutable once posted. Using PRIMARY KEY on message_id ensures idempotency.
+
+---
+
+### 25.3 Design Decision D45: `channel_post` Handler for Media Group Tracking
+
+**Context**: When new posts are added to the relay channel, the bot (as admin) receives `channel_post` updates. We intercept these to index media groups.
+
+**Implementation** (in `bot.py`, within `on_startup()`):
+
+```python
+@dp.channel_post(F.chat.id == settings.DEAD_PAGE_RELAY_CHANNEL_ID)
+async def track_relay_post(message: types.Message, db: DatabaseService = None):
+    if message.media_group_id:
+        await db.save_relay_album_map(message.message_id, message.media_group_id)
+        logger.debug(f"[relay_tracker] Indexed msg_id={message.message_id} media_group_id={message.media_group_id}")
+```
+
+**Dependency Injection**: The handler needs access to `db`. Pass `db` via aiogram's middleware or use a closure. Recommended: use closure (capture db from `on_startup()` scope).
+
+**Registration**: Must be registered AFTER `on_startup()` creates `db`, but BEFORE `dp.start_polling()`. Place inside `on_startup()` using the `dp` object.
+
+**Edge case**: The relay channel may have existing messages. The handler only indexes NEW posts. Old posts use heuristic fallback (D47).
+
+---
+
+### 25.4 Design Decision D46: DB-Path Forwarding with `forward_messages()`
+
+**Context**: When a candidate message_id has a known `media_group_id` in the DB, we can forward the entire album using `bot.forward_messages()` (plural, Bot API 7.0+), which preserves visual album grouping.
+
+**Implementation** (in `DeadPageRelay._forward_with_album_detection()`):
+
+```python
+async def _forward_with_album_detection(self, chat_id: int, msg_id: int, last_msg_id: int | None) -> bool:
+    # PATH 1: DB lookup
+    media_group_id = await self.db.get_relay_media_group_id(msg_id)
+    if media_group_id:
+        album_ids = await self.db.get_relay_album_message_ids(media_group_id)
+        album_ids.sort()
+        logger.info(f"[dead_page] Album (DB): {len(album_ids)} msgs, IDs={album_ids}")
+        await self.bot.forward_messages(
+            chat_id=chat_id,
+            from_chat_id=self.relay_channel_id,
+            message_ids=album_ids,
+            disable_notification=False,
+        )
+        max_id = max(album_ids)
+        if not last_msg_id or max_id > last_msg_id:
+            await self.db.update_last_known_message_id(max_id)
+        return True
+    
+    # PATH 2: Heuristic fallback (see D47)
+    return await self._forward_with_heuristic(chat_id, msg_id, last_msg_id)
+```
+
+**Rationale**: `forward_messages()` preserves album grouping visually. Single API call. No probing needed when DB has the data.
+
+**Error handling**: If `forward_messages` fails with any error, propagate to trigger fallback.
+
+---
+
+### 25.5 Design Decision D47: Heuristic Fallback for Unindexed Posts
+
+**Context**: Old posts in the relay channel (before D45 was deployed) have no DB entries. We use heuristic probing: forward adjacent message_ids, compare dates, delete non-matching probes.
+
+**Algorithm** (`DeadPageRelay._forward_with_heuristic()`):
+
+```
+1. Forward primary msg_id (with notification) → get base_date
+2. Probe forward (msg_id+1, +2, ..., +9):
+   a. forward_message(candidate, disable_notification=True) → get sibling_date
+   b. If |sibling_date - base_date| ≤ 2 seconds: keep (part of album)
+   c. If |sibling_date - base_date| > 2 seconds: delete_message() and BREAK
+   d. If "not found" / "bad request": consecutive_gaps++, BREAK if gaps > 2
+3. Probe backward (msg_id-1, -2, ..., -9): same logic
+4. Update DB last_known_message_id = max(all_forwarded_ids)
+```
+
+**Date normalization** (D47.1): Both `base_date` and `sibling_date` may have different tzinfo. Always normalize:
+
+```python
+def _normalize_date(dt):
+    return dt.replace(tzinfo=None) if dt.tzinfo else dt
+```
+
+**Gap tolerance** (D47.2): Up to 2 consecutive "not found" gaps allowed (deleted messages within album). 3+ consecutive gaps = probably end of channel region → stop.
+
+**Non-matching probe cleanup** (D47.3): Messages with different dates were already forwarded (with `disable_notification=True`). Delete them via `bot.delete_message()`. If delete fails (no permission), log warning but continue — the message stays as an extraneous post. Better than crashing.
+
+**Order**: Forward-probe first (messages appear in chronological order after primary), then backward-probe. Primary is always first. The order within backward-siblings is reverse-chronological (earliest sibling appears last). Accepted tradeoff for simplicity.
+
+**Performance**: Up to 20 API calls (primary + 9 forward + 9 backward probes). At ~300ms each = ~6s worst case. Acceptable for infrequent Dead Page triggers.
+
+---
+
+### 25.6 Design Decision D48: Trigger Deduplication for Incoming Media Groups
+
+**Context**: When a user forwards an album from @d_pages, Telegram sends N separate `Message` updates (one per photo). Without dedup, `send_dead_page()` would fire N times (mitigated by cooldown, but wasteful).
+
+**Implementation** (in `handlers/dead_page_trigger.py`):
+
+```python
+import time
+from collections import OrderedDict
+
+_seen_media_groups: OrderedDict[str, float] = OrderedDict()
+_MEDIA_GROUP_DEDUP_TTL = 5  # seconds
+_MAX_DEDUP_ENTRIES = 100
+
+def _cleanup_expired_media_groups():
+    """Remove expired entries to prevent memory leak."""
+    now = time.monotonic()
+    expired = [k for k, v in _seen_media_groups.items() if now - v > _MEDIA_GROUP_DEDUP_TTL]
+    for k in expired:
+        del _seen_media_groups[k]
+
+# Inside on_forward(), after channel match, before relay:
+if message.media_group_id:
+    _cleanup_expired_media_groups()
+    now = time.monotonic()
+    if message.media_group_id in _seen_media_groups:
+        logger.debug(f"[dead_page] Dedup skip: {message.media_group_id}")
+        return
+    _seen_media_groups[message.media_group_id] = now
+    if len(_seen_media_groups) > _MAX_DEDUP_ENTRIES:
+        _seen_media_groups.popitem(last=False)  # LRU eviction
+```
+
+**Rationale**: `OrderedDict` provides LRU eviction. Periodic cleanup prevents unbounded growth. TTL of 5s is generous (media groups arrive within ~100ms of each other).
+
+---
+
+### 25.7 Caller-Side Changes
+
+**In `_try_forward_from_channel()`**: Replace the two `forward_message()` call sites with `_forward_with_album_detection()`. Remove the now-redundant `update_last_known_message_id()` calls (the helper handles it).
+
+Sequential scan:
+
+```python
+# Before:
+await self.bot.forward_message(chat_id=chat_id, ...)
+if not last_msg_id or msg_id > last_msg_id:
+    await self.db.update_last_known_message_id(msg_id)
+return True
+
+# After:
+return await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
+```
+
+Random probe:
+
+```python
+# Before:
+await self.bot.forward_message(chat_id=chat_id, ...)
+if not last_msg_id or msg_id > last_msg_id:
+    await self.db.update_last_known_message_id(msg_id)
+return True
+
+# After:
+return await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
+```
+
+---
+
+### 25.8 Test Plan (D48.1)
+
+| # | Test | Path | Scenario |
+|---|------|------|----------|
+| 1 | `test_db_album_path_forwards_all` | DB | msg in relay_album_map with 3 siblings → forward_messages called with 3 IDs |
+| 2 | `test_db_album_updates_last_known_id` | DB | max sibling ID > last_msg_id → DB updated |
+| 3 | `test_heuristic_album_forwards_all` | Heuristic | 3 consecutive msgs with same date → all forwarded |
+| 4 | `test_heuristic_date_boundary_stops_probe` | Heuristic | msg+1 has different date → deleted, probe stops |
+| 5 | `test_heuristic_gap_allows_skip` | Heuristic | 1 missing msg → skipped, next msg found |
+| 6 | `test_heuristic_triple_gap_stops` | Heuristic | 3 consecutive "not found" → probe stops |
+| 7 | `test_heuristic_at_channel_start` | Heuristic | msg_id=1 → backward probe skipped gracefully |
+| 8 | `test_heuristic_date_tz_normalized` | Heuristic | Different tzinfo on dates → normalized, compared correctly |
+| 9 | `test_trigger_media_group_dedup_skips` | Trigger | Second msg with same media_group_id → skipped |
+| 10 | `test_trigger_media_group_dedup_allows_first` | Trigger | First msg with media_group_id → NOT skipped |
+| 11 | `test_trigger_dedup_cleanup` | Trigger | Expired entries removed from cache |
+| 12 | `test_single_post_no_probe` | Heuristic | No adjacent msgs → only primary forwarded |
+
+---
+
+### 25.9 Key Architectural Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D44 | `relay_album_map` table with composite index on `media_group_id` | Simple key-value mapping. PRIMARY KEY on message_id ensures idempotency. Albums immutable once posted — no timestamp/tracking needed. |
+| D45 | `channel_post` handler registered inside `on_startup()` via closure | Intercepts new relay channel posts as admin. Closure captures `db` reference from `on_startup()` scope — simpler than middleware. Only indexes NEW posts; old posts use heuristic fallback. |
+| D46 | DB-path uses `forward_messages()` (plural, Bot API 7.0+) for known albums | Preserves visual album grouping. Single API call — no probing needed when data is in DB. If `forward_messages` fails, error propagates to trigger heuristic fallback. |
+| D47 | Heuristic fallback: probe adjacent msg_ids, compare dates, delete non-matching | Old posts (pre-D45) have no DB entries. 2-second date tolerance catches same-album messages. Up to 2 consecutive gaps allowed (deleted messages). Non-matching probes deleted with `disable_notification=True`. |
+| D47.1 | Date normalization via `dt.replace(tzinfo=None)` | Dates from probed messages may have different tzinfo. Normalizing to naive datetime ensures correct comparison regardless of tzinfo differences. |
+| D47.2 | Gap tolerance: up to 2 consecutive "not found" before stopping | Deleted messages within an album should not break the probe. 3+ consecutive gaps = likely end of channel region. |
+| D47.3 | Non-matching probe delete via `bot.delete_message()` with warning on failure | Extraneous forwarded posts should be cleaned up. If delete fails (no permission), log warning — better than crashing or leaving probe logic broken. |
+| D48 | `OrderedDict` with LRU eviction + periodic `_cleanup_expired_media_groups()` for trigger dedup | `OrderedDict` provides cheap LRU eviction. 5-second TTL is generous (media groups arrive within ~100ms). Periodic cleanup prevents unbounded memory growth. Max 100 entries. |
+
+---
+
+### 25.10 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `services/database.py` | **MODIFY** | +1 table `relay_album_map` in `_SCHEMA_SQL`; +3 methods: `save_relay_album_map`, `get_relay_media_group_id`, `get_relay_album_message_ids` |
+| `bot.py` | **MODIFY** | +1 `channel_post` handler (`track_relay_post`) registered inside `on_startup()` for relay channel media group indexing |
+| `services/dead_page_relay.py` | **MODIFY** | Replace `forward_message()` calls with `_forward_with_album_detection()`; +2 new methods: `_forward_with_album_detection()` (DB path + heuristic dispatch), `_forward_with_heuristic()` (probe loop + date comparison + cleanup); +1 helper: `_normalize_date()` |
+| `handlers/dead_page_trigger.py` | **MODIFY** | +dedup logic: `OrderedDict` `_seen_media_groups`, `_cleanup_expired_media_groups()`, LRU eviction; guard before `relay.send_dead_page()` |
+| `config/settings.py` | **MODIFY** | +1 поле: `DEAD_PAGE_RELAY_CHANNEL_ID` (reuse existing, ensure it matches relay channel for `channel_post` filter) |
+| `tests/test_database.py` | **MODIFY** | +тесты для `save_relay_album_map`, `get_relay_media_group_id`, `get_relay_album_message_ids` (roundtrip, None for missing, multiple siblings) |
+| `tests/test_dead_page_relay.py` | **MODIFY** | +12 тестов: DB album path, heuristic path, date boundaries, gap tolerance, date normalization, single post no probe |
+| `tests/test_dead_page_trigger.py` | **MODIFY** | +3 теста: dedup skips, dedup allows first, dedup cleanup of expired entries |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 25 (this spec) |
+
+**Файлы НЕ тронуты:**
+- `handlers/slavik.py`, `handlers/war_alert.py`, `handlers/otboy.py`, `handlers/alan.py`, `handlers/vasya.py`, `handlers/admin_commands.py` — не затрагиваются.
+- `filters/` — без изменений.
+- `services/scheduler.py`, `services/message_counter.py`, `services/otboy_relay.py` — без изменений.
+
+---
+
+### 25.11 Verification Checklist
+
+1. **Unit tests (DB):** `pytest tests/test_database.py -v -k "relay_album"` — roundtrip, None for missing, multiple siblings
+2. **Unit tests (relay — DB path):** `pytest tests/test_dead_page_relay.py -v -k "db_album"` — forwards all siblings, updates last_known_id
+3. **Unit tests (relay — heuristic):** `pytest tests/test_dead_page_relay.py -v -k "heuristic"` — forwards all, date boundary stops, gap tolerates, triple gap stops, channel start edge, tz normalization, single post no probe
+4. **Unit tests (trigger dedup):** `pytest tests/test_dead_page_trigger.py -v -k "media_group"` — dedup skips, allows first, cleanup
+5. **Regression — full suite:** `pytest tests/ -v` — все существующие тесты (~305) проходят без регрессий
+6. **Manual smoke (production):**
+   - Репостнуть альбом из @d_pages → DeadPageRelay пересылает ВЕСЬ альбом (все фото) из relay-канала
+   - Проверить визуально: альбом в чате отображается с группировкой (без отдельных сообщений)
+   - Better Stack: логи `[relay_tracker]` для новых постов в relay-канале
+   - Better Stack: логи `[dead_page] Album (DB): N msgs` для DB-пути
+   - Better Stack: логи `[dead_page] Album (heuristic): N msgs` для fallback-пути

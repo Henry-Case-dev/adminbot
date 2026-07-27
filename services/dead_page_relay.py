@@ -1,3 +1,4 @@
+import datetime
 import logging
 import random
 from aiogram import Bot
@@ -7,6 +8,11 @@ from services.database import DatabaseService
 from services.media_picker import MediaService
 
 logger = logging.getLogger(__name__)
+
+# ── Epic 14: Album detection constants ──
+_ALBUM_PROBE_RANGE: int = 9          # max siblings to probe in each direction
+_ALBUM_DATE_TOLERANCE_S: int = 2     # seconds between post dates to consider same album
+_MAX_CONSECUTIVE_GAPS: int = 2       # max deleted messages to skip before stopping probe
 
 # ── Search ranges: (lo, hi) — tried in order until a valid post is found ──
 # Narrow ranges first (fast for small channels), then expand.
@@ -110,20 +116,14 @@ class DeadPageRelay:
                 )
                 for msg_id in range(lo, hi + 1):
                     try:
-                        await self.bot.forward_message(
-                            chat_id=chat_id,
-                            from_chat_id=self.relay_channel_id,
-                            message_id=msg_id,
-                            disable_notification=False,
+                        result = await self._forward_with_album_detection(
+                            chat_id, msg_id, last_msg_id
                         )
                         logger.info(
                             f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
                             f"(sequential scan, range [{lo},{hi}])"
                         )
-                        if not last_msg_id or msg_id > last_msg_id:
-                            await self.db.update_last_known_message_id(msg_id)
-                            logger.info(f"[dead_page]   DB updated: last_known_message_id → {msg_id}")
-                        return True
+                        return result
                     except Exception as e:
                         error_msg = str(e).lower()
                         if "not found" in error_msg or "bad request" in error_msg:
@@ -156,20 +156,14 @@ class DeadPageRelay:
                     )
 
                     try:
-                        await self.bot.forward_message(
-                            chat_id=chat_id,
-                            from_chat_id=self.relay_channel_id,
-                            message_id=msg_id,
-                            disable_notification=False,
+                        result = await self._forward_with_album_detection(
+                            chat_id, msg_id, last_msg_id
                         )
                         logger.info(
                             f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
                             f"(range [{lo},{hi}], attempt {attempts})"
                         )
-                        if not last_msg_id or msg_id > last_msg_id:
-                            await self.db.update_last_known_message_id(msg_id)
-                            logger.info(f"[dead_page]   DB updated: last_known_message_id → {msg_id}")
-                        return True
+                        return result
 
                     except Exception as e:
                         error_msg = str(e).lower()
@@ -218,6 +212,154 @@ class DeadPageRelay:
             anchored.extend(_DISCOVERY_RANGES)
             return anchored
         return list(_DISCOVERY_RANGES)
+
+    # ── Album-aware forwarding (Epic 14) ──────────────────────
+
+    @staticmethod
+    def _normalize_date(dt: datetime.datetime) -> datetime.datetime:
+        """Strip timezone info to ensure safe datetime comparison."""
+        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
+    async def _safe_delete(self, chat_id: int, message_id: int) -> None:
+        """Try to delete a probe message; log warning on failure (no permission)."""
+        try:
+            await self.bot.delete_message(chat_id=chat_id, message_id=message_id)
+            logger.debug(f"[dead_page] Deleted non-album probe msg_id={message_id}")
+        except Exception as e:
+            logger.warning(
+                f"[dead_page] Failed to delete probe msg_id={message_id}: {e}"
+            )
+
+    async def _forward_with_album_detection(
+        self, chat_id: int, msg_id: int, last_msg_id: int | None
+    ) -> bool:
+        """
+        Forward msg_id to chat_id. If msg_id belongs to an album (media group),
+        forward all siblings too.
+
+        Path 1 (DB): media_group_id known → forward_messages() for entire album.
+        Path 2 (Heuristic): no DB entry → probe adjacent IDs with date matching.
+
+        Returns True on success. Raises exceptions for primary forward failures
+        (caller handles "not found" and channel errors).
+        """
+        # PATH 1: DB lookup — known album
+        media_group_id = await self.db.get_relay_media_group_id(msg_id)
+        if media_group_id:
+            album_ids = await self.db.get_relay_album_message_ids(media_group_id)
+            # SQL ORDER BY already sorts; no need for .sort()
+            logger.info(
+                f"[dead_page]   Album (DB lookup): {len(album_ids)} messages, "
+                f"IDs={album_ids}"
+            )
+            await self.bot.forward_messages(
+                chat_id=chat_id,
+                from_chat_id=self.relay_channel_id,
+                message_ids=album_ids,
+                disable_notification=False,
+            )
+            if album_ids:
+                max_id = max(album_ids)
+                if not last_msg_id or max_id > last_msg_id:
+                    await self.db.update_last_known_message_id(max_id)
+                    logger.info(
+                        f"[dead_page]   DB updated: last_known_message_id → {max_id}"
+                    )
+            return True
+
+        # PATH 2: Heuristic fallback — probe adjacent IDs
+        return await self._forward_with_heuristic(chat_id, msg_id, last_msg_id)
+
+    async def _forward_with_heuristic(
+        self, chat_id: int, msg_id: int, last_msg_id: int | None
+    ) -> bool:
+        """
+        Heuristic album detection: forward primary message, then probe adjacent
+        message_ids. Use date proximity (±2s) to detect album boundaries.
+        Delete non-matching probes. Tolerate up to 2 consecutive gaps.
+        """
+        # Step 1: Forward primary message (may raise — caller handles)
+        sent = await self.bot.forward_message(
+            chat_id=chat_id,
+            from_chat_id=self.relay_channel_id,
+            message_id=msg_id,
+            disable_notification=False,
+        )
+        base_date = self._normalize_date(sent.date)
+        all_ids = [msg_id]
+
+        # Step 2: Probe forward (msg_id+1, +2, ..., +_ALBUM_PROBE_RANGE)
+        consecutive_gaps = 0
+        for offset in range(1, _ALBUM_PROBE_RANGE + 1):
+            candidate = msg_id + offset
+            try:
+                sibling = await self.bot.forward_message(
+                    chat_id=chat_id,
+                    from_chat_id=self.relay_channel_id,
+                    message_id=candidate,
+                    disable_notification=True,
+                )
+                sibling_date = self._normalize_date(sibling.date)
+                if abs((sibling_date - base_date).total_seconds()) <= _ALBUM_DATE_TOLERANCE_S:
+                    all_ids.append(candidate)
+                    consecutive_gaps = 0
+                else:
+                    # Different post — delete the probe and stop this direction
+                    await self._safe_delete(chat_id, sibling.message_id)
+                    break
+            except Exception as e:
+                err = str(e).lower()
+                if "not found" in err or "bad request" in err:
+                    consecutive_gaps += 1
+                    if consecutive_gaps > _MAX_CONSECUTIVE_GAPS:
+                        break  # too many gaps — end of channel region
+                    continue  # skip gap, try next
+                raise  # real error — propagate
+
+        # Step 3: Probe backward (msg_id-1, -2, ..., -_ALBUM_PROBE_RANGE)
+        consecutive_gaps = 0
+        for offset in range(1, _ALBUM_PROBE_RANGE + 1):
+            candidate = msg_id - offset
+            if candidate < 1:
+                break
+            try:
+                sibling = await self.bot.forward_message(
+                    chat_id=chat_id,
+                    from_chat_id=self.relay_channel_id,
+                    message_id=candidate,
+                    disable_notification=True,
+                )
+                sibling_date = self._normalize_date(sibling.date)
+                if abs((sibling_date - base_date).total_seconds()) <= _ALBUM_DATE_TOLERANCE_S:
+                    all_ids.append(candidate)
+                    consecutive_gaps = 0
+                else:
+                    await self._safe_delete(chat_id, sibling.message_id)
+                    break
+            except Exception as e:
+                err = str(e).lower()
+                if "not found" in err or "bad request" in err:
+                    consecutive_gaps += 1
+                    if consecutive_gaps > _MAX_CONSECUTIVE_GAPS:
+                        break
+                    continue
+                raise
+
+        # Step 4: Update DB with max forwarded ID
+        max_id = max(all_ids)
+        if not last_msg_id or max_id > last_msg_id:
+            await self.db.update_last_known_message_id(max_id)
+            logger.info(
+                f"[dead_page]   DB updated: last_known_message_id → {max_id}"
+            )
+
+        if len(all_ids) > 1:
+            logger.info(
+                f"[dead_page]   Album (heuristic): {len(all_ids)} messages, "
+                f"IDs={sorted(all_ids)}"
+            )
+
+        return True
 
     # ── Fallback: local media ───────────────────────────────────
 
