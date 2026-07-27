@@ -85,11 +85,17 @@ class Settings:
     SLAVIC_PHOTO_INTERVAL: int = _env_int("SLAVIC_PHOTO_INTERVAL", 10)
     SLAVIC_PHOTO_PATH: str = os.getenv("SLAVIC_PHOTO_PATH", "media/slavic_na_litso.jpg")
 
-    # ── Otboy Service (F9 / Epic 13) ──
-    # Cooldown between otboy.jpg sends in the same chat (0 = no cooldown)
-    OTBOY_COOLDOWN_SECONDS: int = _env_int("OTBOY_COOLDOWN_SECONDS", 0)
-    # Path to the otboy response image
-    OTBOY_PHOTO_PATH: str = os.getenv("OTBOY_PHOTO_PATH", "media/otboy.jpg")
+    # ── Common Service (Epic 15) ──
+    # Cooldown between media sends in the same chat (shared across otboy + danger).
+    # 0 = no cooldown (every trigger sends media).
+    COMMON_COOLDOWN_SECONDS: float = _env_float("COMMON_COOLDOWN_SECONDS", 0)
+
+    # Base directory for common media (contains otboy/ and danger/ subdirs).
+    COMMON_MEDIA_BASE: str = os.getenv("COMMON_MEDIA_BASE", "media/common")
+
+    # Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
+    # Leave empty to use built-in defaults (22 words).
+    DANGER_WORDS: str = os.getenv("DANGER_WORDS", "")
 
 
 settings = Settings()

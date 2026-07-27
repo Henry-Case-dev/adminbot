@@ -20,7 +20,7 @@ from services.database import DatabaseService
 from services.scheduler import SchedulerService
 from services.media_picker import MediaService
 from services.dead_page_relay import DeadPageRelay
-from services.otboy_relay import OtboyRelay
+from services.common_relay import CommonRelay
 from services.message_counter import MessageCounterMiddleware
 
 # Handlers
@@ -32,7 +32,7 @@ from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 from handlers.war_alert import war_alert_router, setup_war_alert
-from handlers.otboy import otboy_router, setup_otboy
+from handlers.common import common_router, setup_common
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -72,9 +72,9 @@ async def on_startup():
     setup_war_alert()
     setup_slavik(db)  # F6: Slavic photo counter (Epic 12)
     
-    otboy_relay = OtboyRelay(bot, settings.OTBOY_COOLDOWN_SECONDS)
-    setup_otboy(otboy_relay)
-    logger.info("Otboy Service (F9) initialized")
+    common_relay = CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)
+    setup_common(common_relay)
+    logger.info("Common Service (Epic 15) initialized")
     
     # Attach GIF counter middleware to slavik router
     slavik_router.message.middleware(MessageCounterMiddleware(db))
@@ -108,8 +108,8 @@ async def on_startup():
     # 4b. War Words Alert (F5v2) — keyword + channel repost alerts (Epic 10)
     dp.include_router(war_alert_router)
 
-    # 4c. Otboy Service (F9): detect "отбой" → otboy.jpg with quote
-    dp.include_router(otboy_router)
+    # 4c. Common Service (Epic 15): otboy "отбой" + danger keywords → random media with quote
+    dp.include_router(common_router)
 
     # 5. Slava router — user ID 479167456 (F3, F4 + catch-all; F5 moved to 4b)
     dp.include_router(slavik_router)
