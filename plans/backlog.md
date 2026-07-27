@@ -399,5 +399,78 @@
 
 ---
 
-**Status: Epics 1–12 DONE ✅. Epic 13 (Otboy Service F9): T-084–T-092 — NEW 🔵.**
-**Date: 2026-07-26 | v2.9.2 (280 tests) → v2.10.0 (Epic 13 target)**
+## Epic 14: Media Group Album Fix — 2026-07-28 🔵 NEW
+
+> **Цель:** Исправить баг в DeadPageRelay: при наличии альбома (media group из 2-10 фото)
+> в relay-канале, `bot.forward_message()` (singular) форвардит только одно фото. Остальные
+> теряются. Решение: DB-трекинг `media_group_id` через новую таблицу `relay_album_map`,
+> использование `bot.forward_messages()` (plural) для сохранения группировки альбома,
+> и эвристический fallback для старых постов без DB-записей.
+>
+> **Ограничения:** Все остальные функции бота не должны быть затронуты. Новые env vars
+> не требуются (пороги хардкодед: ±2s окно дат, ±9 диапазон проб, до 2 consecutive gaps).
+> Не сломать существующие 305 тестов. aiogram 3.x, Python 3.11+.
+
+### Database
+- [ ] T-093: Новая таблица `relay_album_map` + 3 CRUD метода в `services/database.py`
+  - [ ] T-093-A: Создать таблицу `relay_album_map` (message_id INTEGER PK, media_group_id TEXT NOT NULL) в `_ensure_tables`
+  - [ ] T-093-B: Реализовать `insert_relay_album_entry(message_id, media_group_id)` — запись альбома
+  - [ ] T-093-C: Реализовать `get_media_group_id(message_id)` — получить media_group_id по message_id (или None)
+  - [ ] T-093-D: Реализовать `delete_relay_album_entries(message_ids: list[int])` — очистка после обработки
+
+### Tracking
+- [ ] T-094: Новый `channel_post` handler в `bot.py` для отслеживания media_group_id
+  - [ ] T-094-A: Создать handler — ловит все посты в relay-канале (DEAD_PAGE_CHANNEL_ID)
+  - [ ] T-094-B: Извлечь `media_group_id` из `Message` (если есть) — записать в БД через `insert_relay_album_entry`
+  - [ ] T-094-C: Логирование: INFO при записи альбома, DEBUG для одиночных постов
+
+### Forwarding — DB Path
+- [ ] T-095: Модифицировать `DeadPageRelay._try_forward_from_channel()` — DB lookup + `forward_messages()` (plural)
+  - [ ] T-095-A: После выбора random message проверить БД (`get_media_group_id`)
+  - [ ] T-095-B: Если media_group_id найден — запросить из БД все message_id с тем же media_group_id
+  - [ ] T-095-C: Использовать `bot.forward_messages()` (plural API) для форвардинга всех сообщений альбома одним вызовом
+  - [ ] T-095-D: После успешного форварда — вызвать `delete_relay_album_entries` для очистки
+  - [ ] T-095-E: Логирование: INFO — album forwarded (N messages, media_group_id), WARNING — partial forward
+
+### Forwarding — Heuristic Fallback (старые посты без DB-записей)
+- [ ] T-096: Эвристический fallback — пробинг соседних message_id ±1..9
+  - [ ] T-096-A: Если `get_media_group_id` вернул None (старый пост) — войти в эвристический режим
+  - [ ] T-096-B: Пробинг: получить сообщения с ID от (picked_id - 9) до (picked_id + 9) из relay-канала
+  - [ ] T-096-C: Фильтрация: оставить только те, у которых дата в пределах ±2s от даты выбранного сообщения
+  - [ ] T-096-D: Непрерывность: собрать последовательные message_id (разрешено до 2 consecutive gaps)
+  - [ ] T-096-E: `bot.forward_messages()` для всех подходящих siblings
+  - [ ] T-096-F: `bot.delete_message()` для проб, которые не вошли в группу (non-matching probes)
+  - [ ] T-096-G: Обработка ошибок: если probe не найден (Message to forward not found) — пропустить
+  - [ ] T-096-H: Логирование: INFO — heuristic mode activated, N siblings found, N probes deleted
+
+### Deduplication
+- [ ] T-097: Модифицировать `handlers/dead_page_trigger.py` — дедупликация media_group
+  - [ ] T-097-A: Отслеживать `media_group_id` входящих сообщений из @d_pages
+  - [ ] T-097-B: Если `media_group_id` уже обработан — пропустить (не вызывать `send_dead_page()` повторно)
+  - [ ] T-097-C: `send_dead_page()` вызывается только один раз на альбом
+  - [ ] T-097-D: Логирование: INFO — media_group dedup skipped, DEBUG — first occurrence
+
+### Testing
+- [ ] T-098: Тесты (9+ cases) — DB + heuristic + dedup paths
+  - [ ] T-098-A: DB insert + get + delete media_group_id
+  - [ ] T-098-B: DB path — найден media_group_id → forward_messages вызывается с корректными ID
+  - [ ] T-098-C: DB path — одиночное сообщение (нет media_group_id) → forward_message (singular, без изменений)
+  - [ ] T-098-D: Heuristic — соседние сообщения с датой ±2s найдены → forward_messages с корректными ID
+  - [ ] T-098-E: Heuristic — неродственные сообщения (дата вне ±2s) отфильтрованы
+  - [ ] T-098-F: Heuristic — non-matching probes удалены через delete_message
+  - [ ] T-098-G: Heuristic — 2 consecutive gaps разрешены, 3+ gaps разрывают группу
+  - [ ] T-098-H: Dedup — повторный media_group_id не вызывает send_dead_page
+  - [ ] T-098-I: Интеграционный тест — полный пайплайн (channel_post → DB → forward_messages → dedup)
+  - [ ] T-098-J: Регрессионный тест — существующие тесты dead_page_relay не сломаны
+
+### QA
+- [ ] T-099: Прогнать полный тест-сьют + обновить документацию
+  - [ ] T-099-A: `pytest` — все 305+ тестов проходят без регрессий
+  - [ ] T-099-B: Обновить `ARCHITECTURE.md` — секция DeadPageRelay, таблица relay_album_map, router order с channel_post handler
+  - [ ] T-099-C: Обновить `MEMORY.md` — project state, features table, version bump v2.11.0
+  - [ ] T-099-D: Обновить `README.md` — если требуется
+
+---
+
+**Status: Epics 1–12 DONE ✅. Epic 13 (Otboy Service F9): T-084–T-092 — NEW 🔵. Epic 14 (Media Group Album Fix): T-093–T-099 — NEW 🔵.**
+**Date: 2026-07-28 | v2.9.2 (305 tests) → v2.10.0 (Epic 13 target) → v2.11.0 (Epic 14 target)**

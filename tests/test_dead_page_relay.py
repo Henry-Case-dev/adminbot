@@ -1,4 +1,5 @@
 """Tests for DeadPageRelay: progressive range search + fallback."""
+import datetime
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,13 +9,22 @@ from services.media_picker import MediaService
 
 # ── Helpers ────────────────────────────────────────────────────
 
+def _make_msg_mock(**kwargs):
+    """Create a MagicMock that mimics a forwarded Message with a date."""
+    msg = MagicMock()
+    msg.message_id = kwargs.get("message_id", 0)
+    # Use naive datetime (tzinfo=None) so _normalize_date works
+    msg.date = kwargs.get("date", datetime.datetime(2026, 7, 28, 12, 0, 0))
+    return msg
+
+
 def _make_valid_ids(valid: set[int]):
     """Return a forward_message side_effect that only succeeds for given IDs."""
 
     async def forward(**kwargs):
         msg_id = kwargs["message_id"]
         if msg_id in valid:
-            return MagicMock()
+            return _make_msg_mock(message_id=msg_id)
         raise Exception("message to forward not found")
 
     return forward
@@ -39,8 +49,10 @@ class TestDeadPageRelay:
     def mock_bot(self):
         bot = MagicMock()
         bot.forward_message = AsyncMock()
+        bot.forward_messages = AsyncMock()
         bot.send_photo = AsyncMock()
         bot.send_message = AsyncMock()
+        bot.delete_message = AsyncMock()
         return bot
 
     @pytest.fixture
@@ -50,6 +62,10 @@ class TestDeadPageRelay:
         db.get_last_known_message_id = AsyncMock(return_value=None)
         db.update_last_known_message_id = AsyncMock()
         db.record_dead_page_post = AsyncMock()
+        # Epic 14: Album-aware forwarding
+        db.get_relay_media_group_id = AsyncMock(return_value=None)
+        db.get_relay_album_message_ids = AsyncMock(return_value=[])
+        db.save_relay_album_map = AsyncMock()
         return db
 
     @pytest.fixture
@@ -237,7 +253,8 @@ class TestDeadPageRelay:
 
     @pytest.mark.asyncio
     async def test_dedup_does_not_burn_attempts(self, relay, mock_bot, mock_db):
-        """D17: Sequential scan of [1,3] tries 3 IDs exactly, then random mode finds post."""
+        """D17: Sequential scan of [1,3] tries 3 IDs exactly, then random mode finds post.
+        Epic 14: probing adds ±3 calls per direction (gap tolerance), total ~10."""
         mock_db.get_last_known_message_id.return_value = 3
         relay.max_retries = 5
         mock_bot.forward_message.side_effect = _make_valid_ids({77})
@@ -245,14 +262,17 @@ class TestDeadPageRelay:
         with patch("random.randint", return_value=77):
             await relay.send_dead_page(-100123)
 
-        # Sequential (1,3): 3 calls (1,2,3 all fail) + 1 random hit at 77
-        assert mock_bot.forward_message.call_count == 4
+        # Sequential (1,3): 3 calls fail, random 77 hits:
+        # primary=1 + forward_probe(78,79,80→gap)=3 + backward_probe(76,75,74→gap)=3
+        assert mock_bot.forward_message.call_count == 10
 
     # ── Sequential scan (D28/D29) ───────────────────────────────
 
     @pytest.mark.asyncio
     async def test_sequential_scan_finds_only_post(self, relay, mock_bot, mock_db):
-        """D28: Channel with 1 post at ID=3 — sequential (1,10) finds it in 3 calls."""
+        """D28: Channel with 1 post at ID=3 — sequential (1,10) finds it in 3 calls.
+        Epic 14: probing adds forward/backward calls (album detection).
+        Total: 2 fails (1,2) + 1 hit (3) + 3 forward probe (4,5,6 gaps) + 2 backward probe (2,1 gaps) = 8."""
         mock_db.get_last_known_message_id.return_value = 5  # stale DB value
         relay.max_retries = 5
         # All IDs except 3 return "not found"
@@ -260,8 +280,8 @@ class TestDeadPageRelay:
 
         await relay.send_dead_page(-100123)
 
-        # Sequential scan should find ID=3: calls for 1, 2, 3
-        assert mock_bot.forward_message.call_count == 3
+        # Sequential scan finds ID=3, plus probing calls
+        assert mock_bot.forward_message.call_count == 8
         mock_db.record_dead_page_post.assert_called_once()
 
     @pytest.mark.asyncio
@@ -320,3 +340,177 @@ class TestDeadPageRelay:
         assert result is False
         # Only 3 calls: 1→not found, 2→not found, 3→Forbidden (stops)
         assert call_count == 3
+
+
+class TestAlbumForwarding:
+    """Epic 14: Album-aware forwarding tests (DB path + heuristic)."""
+
+    @pytest.fixture
+    def mock_bot(self):
+        bot = MagicMock()
+        bot.forward_message = AsyncMock()
+        bot.forward_messages = AsyncMock()
+        bot.delete_message = AsyncMock()
+        bot.send_photo = AsyncMock()
+        bot.send_message = AsyncMock()
+        return bot
+
+    @pytest.fixture
+    def mock_db(self):
+        db = MagicMock()
+        db.was_dead_page_recently = AsyncMock(return_value=False)
+        db.get_last_known_message_id = AsyncMock(return_value=None)
+        db.update_last_known_message_id = AsyncMock()
+        db.record_dead_page_post = AsyncMock()
+        db.get_relay_media_group_id = AsyncMock(return_value=None)
+        db.get_relay_album_message_ids = AsyncMock(return_value=[])
+        db.save_relay_album_map = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def mock_media(self):
+        media = MagicMock(spec=MediaService)
+        media.pick_random = AsyncMock(return_value=("test.jpg", "hello"))
+        return media
+
+    @pytest.fixture
+    def relay(self, mock_bot, mock_db, mock_media):
+        return DeadPageRelay(mock_bot, mock_db, mock_media)
+
+    @pytest.mark.asyncio
+    async def test_db_album_path_forwards_all(self, relay, mock_bot, mock_db):
+        """D46: DB has album info → forward_messages() called with all IDs."""
+        mock_db.get_relay_media_group_id.return_value = "mg123"
+        mock_db.get_relay_album_message_ids.return_value = [10, 11, 12]
+
+        result = await relay._forward_with_album_detection(-100123, 11, None)
+
+        assert result is True
+        mock_bot.forward_messages.assert_called_once_with(
+            chat_id=-100123,
+            from_chat_id=relay.relay_channel_id,
+            message_ids=[10, 11, 12],
+            disable_notification=False,
+        )
+        mock_bot.forward_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_db_album_updates_last_known_id(self, relay, mock_bot, mock_db):
+        """D46: max album ID > last_msg_id → DB updated."""
+        mock_db.get_relay_media_group_id.return_value = "mg456"
+        mock_db.get_relay_album_message_ids.return_value = [100, 101, 102]
+
+        await relay._forward_with_album_detection(-100123, 100, 50)
+
+        mock_db.update_last_known_message_id.assert_called_once_with(102)
+
+    @pytest.mark.asyncio
+    async def test_heuristic_album_forwards_all(self, relay, mock_bot, mock_db):
+        """D47: 3 consecutive msgs with same date → all forwarded."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        call_count = 0
+        async def forward_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            msg = MagicMock()
+            msg.date = base_dt
+            msg.message_id = kwargs["message_id"]
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        result = await relay._forward_with_heuristic(-100123, 11, None)
+
+        assert result is True
+        assert mock_bot.forward_message.call_count == 19
+
+    @pytest.mark.asyncio
+    async def test_heuristic_date_boundary_stops_probe(self, relay, mock_bot, mock_db):
+        """D47: msg+1 has different date → deleted, probe stops."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+        other_dt = datetime.datetime(2026, 7, 28, 13, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg = MagicMock()
+            msg_id = kwargs["message_id"]
+            msg.message_id = msg_id
+            if msg_id == 11:
+                msg.date = base_dt
+            else:
+                msg.date = other_dt
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        result = await relay._forward_with_heuristic(-100123, 11, None)
+
+        assert result is True
+        assert mock_bot.forward_message.call_count == 3
+        assert mock_bot.delete_message.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_heuristic_gap_allows_skip(self, relay, mock_bot, mock_db):
+        """D47.2: 1 missing msg → skipped, next msg found."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg_id = kwargs["message_id"]
+            if msg_id == 12:
+                raise Exception("message to forward not found")
+            msg = MagicMock()
+            msg.date = base_dt
+            msg.message_id = msg_id
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        result = await relay._forward_with_heuristic(-100123, 11, None)
+
+        assert result is True
+        assert mock_bot.forward_message.call_count == 19
+
+    @pytest.mark.asyncio
+    async def test_heuristic_channel_error_in_probe_propagates(self, relay, mock_bot, mock_db):
+        """D47: Real error during sibling probe → raises."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        call_count = 0
+        async def forward_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            msg_id = kwargs["message_id"]
+            if msg_id == 12:
+                raise Exception("Forbidden: bot is not an administrator")
+            msg = MagicMock()
+            msg.date = base_dt
+            msg.message_id = msg_id
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        with pytest.raises(Exception, match="Forbidden"):
+            await relay._forward_with_heuristic(-100123, 11, None)
+
+    @pytest.mark.asyncio
+    async def test_heuristic_at_channel_start(self, relay, mock_bot, mock_db):
+        """D47: msg_id=1 → backward probe skipped (candidate < 1)."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg = MagicMock()
+            msg.date = base_dt
+            msg.message_id = kwargs["message_id"]
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        result = await relay._forward_with_heuristic(-100123, 1, None)
+
+        assert result is True
+        assert mock_bot.forward_message.call_count == 10

@@ -71,3 +71,61 @@ class TestDeadPageTrigger:
         setup_dead_page(None, mock_db)
         msg = self.make_forward_message(username="d_pages")
         await on_forward(msg)
+
+    @pytest.mark.asyncio
+    async def test_media_group_dedup_skips_duplicates(self, mock_relay, mock_db):
+        """D48: Second msg with same media_group_id within 5s → skipped."""
+        setup_dead_page(mock_relay, mock_db)
+
+        msg1 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg1, "media_group_id", "mg_test_123")
+
+        msg2 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg2, "media_group_id", "mg_test_123")
+
+        await on_forward(msg1)
+        mock_relay.send_dead_page.assert_called_once_with(-100123, slot="repost")
+
+        mock_relay.send_dead_page.reset_mock()
+
+        await on_forward(msg2)
+        mock_relay.send_dead_page.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_media_group_dedup_allows_first(self, mock_relay, mock_db):
+        """D48: First msg with media_group_id is NOT skipped."""
+        setup_dead_page(mock_relay, mock_db)
+
+        msg = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg, "media_group_id", "mg_first_456")
+
+        await on_forward(msg)
+        mock_relay.send_dead_page.assert_called_once_with(-100123, slot="repost")
+
+    @pytest.mark.asyncio
+    async def test_media_group_dedup_different_groups(self, mock_relay, mock_db):
+        """D48: Different media_group_ids → both trigger."""
+        setup_dead_page(mock_relay, mock_db)
+
+        msg1 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg1, "media_group_id", "mg_aaa")
+
+        msg2 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg2, "media_group_id", "mg_bbb")
+
+        await on_forward(msg1)
+        assert mock_relay.send_dead_page.call_count == 1
+
+        await on_forward(msg2)
+        assert mock_relay.send_dead_page.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_no_media_group_id_still_triggers(self, mock_relay, mock_db):
+        """Non-album forwards (no media_group_id) should still work normally."""
+        setup_dead_page(mock_relay, mock_db)
+
+        msg = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg, "media_group_id", None)
+
+        await on_forward(msg)
+        mock_relay.send_dead_page.assert_called_once_with(-100123, slot="repost")

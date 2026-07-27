@@ -3,7 +3,7 @@ import logging
 import os
 
 import sentry_sdk
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from logtail import LogtailHandler
 
@@ -118,6 +118,18 @@ async def on_startup():
     dp.include_router(vasya_router)
 
     logger.info("All routers registered (v2.4.0)")
+
+    # ── Epic 14: Relay channel media group tracker ──
+    @dp.channel_post(F.chat.id == settings.DEAD_PAGE_RELAY_CHANNEL_ID)
+    async def track_relay_post(message: types.Message):
+        """Track media_group_id for relay channel posts to enable album-aware forwarding."""
+        if message.media_group_id:
+            await db.save_relay_album_map(message.message_id, message.media_group_id)
+            logger.debug(
+                f"[relay_tracker] Indexed msg_id={message.message_id} "
+                f"media_group_id={message.media_group_id}"
+            )
+    logger.info("Relay channel media group tracker registered (Epic 14)")
 
 
 async def on_shutdown():

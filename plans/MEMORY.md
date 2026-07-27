@@ -1,8 +1,20 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.10.0
-> **Дата:** 2026-07-26
-> **Статус:** Epics 10, 11, 12, 13 DEPLOYED ✅. 305 тестов. Бот активен (сервер nik@198.46.175.136).
+> **Версия:** v2.11.0
+> **Дата:** 2026-07-28
+> **Статус:** Epics 1-14 IMPLEMENTED ✅. 316 тестов. Бот активен.
+> **Commit:** Epic 14 — Media Group Album Forwarding Fix (T-093–T-099).
+
+---
+
+## 🔍 Context Sync Summary (2026-07-28) — IMPLEMENTED
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Epics 1-13** | ✅ COMPLETE | 92 tasks deployed. Bot active on server. |
+| **🐛 Media Group Bug** | ✅ FIXED | DeadPageRelay now forwards ALL photos from albums via forward_messages() + heuristic. |
+| **Epic 14** | ✅ IMPLEMENTED | 7 tasks T-093–T-099 DONE. 316 tests pass (305 + 11). |
+| **MEMORY.md** | ✅ UPDATED | v2.11.0 — this file. |
 
 ---
 
@@ -15,7 +27,7 @@
 | **Epic 10 (F5v2)** | ✅ DEPLOYED | War Words Redesign — T-054–T-063 выполнены. Commit 40afe97. |
 | **Epic 11 (F7v2)** | ✅ DEPLOYED | Alan Silence Greeting в production. Commit 7f09dba. ALAN_SILENCE_GREETING_HOURS=2. |
 | **Epic 12 (F8)** | ✅ DEPLOYED | Багфикс репостов war_alert + фича slavic_na_litso.jpg. Commit 27654ac (v2.9.2). |
-| **Epic 13 (F9)** | ✅ DEPLOYED | Otboy Service — T-084–T-092 выполнены. Все 9 задач + 4 дефекта ревью исправлены. |
+| **Epic 13 (F9)** | ✅ DEPLOYED | Otboy Service — T-084–T-092 выполнены. Commit 251acef. Бот на сервере: active since 08:01 UTC. |
 | **Routers** | ✅ 10 routers | 0:admin → 1:slava_presence → 1b:alan_greeting → 2:kostik → 3:alan → 4:dead_page → 4b:war_alert → 4c:otboy → 5:slavik → 6:vasya. |
 | **MEMORY.md** | ✅ UPDATED | v2.10.0 — this file. |
 | **ARCHITECTURE.md** | ✅ UPDATED | v2.10.0 — F9 Otboy Service полностью задокументирован (секции 3/F9, 6.6, 7.6, 5/Registration Order). |
@@ -34,9 +46,9 @@
 |-----------|-----------|--------|
 | Рантайм | Python 3.x + asyncio | ✅ |
 | Фреймворк | aiogram 3.7+ | ✅ |
-| База данных | SQLite (local_database.db) | ✅ 4 таблицы, WAL mode |
+| База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 305 тестов PASS (v2.10.0) |
+| Тесты | pytest + pytest-asyncio | ✅ 316 тестов PASS (v2.11.0) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -82,9 +94,9 @@
 | **F7v2** | Alan silence greeting — "Леха проснулся" | `handlers/alan.py` (inlined) | ✅ |
 | **F8** | slavic_na_litso.jpg — каждый N-й ответ "пошёл нахуй" → фото (DEPLOYED v2.9.2) | `handlers/slavik.py` | ✅ |
 | **E9** | Admin test commands: /deadpage, /alangreet | `handlers/admin_commands.py` | ✅ |
-| **F9** | Otboy Service — детект "отбой" (все пользователи) → otboy.jpg с quote | `handlers/otboy.py` + `OtboyRelay` | ✅ DONE |
+| **F9** | Otboy Service — детект "отбой" (все пользователи) → otboy.jpg с quote | `handlers/otboy.py` + `OtboyRelay` | ✅ DEPLOYED |
 
-### 3. Database Schema (SQLite, 4 tables)
+### 3. Database Schema (SQLite, 5 tables)
 
 | Таблица | Назначение | Ключевые колонки |
 |---------|-----------|-----------------|
@@ -92,6 +104,7 @@
 | `message_counters` | Счётчик сообщений (F3, F6) | `chat_id`, `user_id`, `count` |
 | `dead_page_posts` | Учёт dead-page постов (F2 V2) | `chat_id`, `slot`, `timestamp` |
 | `channel_state` | Ключ-значение (F2 V2, F7v2) | `key` (TEXT PK), `value` (TEXT) |
+| `relay_album_map` | Трекинг media_group_id для альбомов (Epic 14) | `message_id` (INTEGER PK), `media_group_id` (TEXT, INDEXED) |
 
 ### 4. Config (env-configurable via settings.py)
 
@@ -114,7 +127,7 @@
 
 ---
 
-## ✅ Epic 13: Otboy Service (F9) — 2026-07-26 DONE
+## ✅ Epic 13: Otboy Service (F9) — 2026-07-26 DEPLOYED (commit 251acef)
 
 > **Цель:** Создать standalone scalable сервис для детекта слова "отбой" и ответа
 > картинкой `media/otboy.jpg` с нативным цитированием через Telegram quote API.
@@ -142,6 +155,11 @@
 ### T-090: Тесты (25 тестов: filter, handler, cooldown, propagation) ✅ DONE
 ### T-091: Документация (ARCHITECTURE, MEMORY) ✅ DONE
 ### T-092: Деплой на сервер + smoke tests ✅ DONE
+- Commit: `251acef` (feat: Epic 13 — Otboy Service F9), пуш в origin/master
+- Сервер: `nik@198.46.175.136:/var/www/admin_bot`
+- `git pull` → `systemctl restart adminbot`
+- Статус после перезапуска: `active (running)` since Sun 2026-07-26 08:01:04 UTC
+- Smoke tests: бот отвечает на «отбой» → otboy.jpg с quote ✅
 
 **Review Defects Fixed:**
 - D-1: guard `_relay is None` в хендлере ✅
@@ -172,6 +190,80 @@
 | **v2.9.0** | **2026-07-25** | **Epic 12 (F8)** | **T-078–T-083** | **271 (baseline)** |
 | **v2.9.2** | **2026-07-26** | **Epic 12 bugfix** | **T-078-C debug logs** | **280** |
 | **v2.10.0** | **2026-07-26** | **Epic 13 (F9 Otboy)** | **T-084–T-092** | **305** |
+| **v2.11.0** | **2026-07-28** | **Epic 14 (Album Fix)** | **T-093–T-099** | **316** |
+
+---
+
+## ✅ Epic 14: Media Group Album Forwarding Fix — 2026-07-28 IMPLEMENTED
+
+> **Цель:** Исправить баг — DeadPageRelay пересылает только одно фото из альбома (media group) вместо всего поста.
+> **Результат:** v2.11.0. 316 тестов. 4 файла изменено. 5-я таблица БД добавлена.
+
+### Причина
+`services/dead_page_relay.py:_try_forward_from_channel()` использовал `bot.forward_message(msg_id=X)` — Telegram API для пересылки **одного** сообщения. Когда пост в релейном канале является альбомом, теряются остальные фото.
+
+### Решение (4 части имплементированы)
+| # | Часть | Описание | Файлы | Статус |
+|---|-------|----------|-------|--------|
+| 1 | **channel_post handler** | `track_relay_post()` в `bot.py` — отслеживает `media_group_id` и сохраняет в `relay_album_map`. | `bot.py`, `services/database.py` | ✅ |
+| 2 | **DB lookup + forward_messages()** | `_forward_with_album_detection()` — Path 1: DB lookup → `forward_messages()` мн. число для ВСЕХ фото альбома. | `services/dead_page_relay.py` | ✅ |
+| 3 | **Эвристический fallback** | `_forward_with_heuristic()` — Path 2: probe ±9 adjacent ID, date proximity ±2s, delete non-matching probes, gap tolerance 2. | `services/dead_page_relay.py` | ✅ |
+| 4 | **Дедупликация trigger** | `_seen_media_groups` OrderedDict LRU cache в `dead_page_trigger.py` — 5s TTL, max 100 entries. | `handlers/dead_page_trigger.py` | ✅ |
+
+### Новая таблица БД
+```sql
+CREATE TABLE IF NOT EXISTS relay_album_map (
+    message_id     INTEGER PRIMARY KEY,
+    media_group_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_relay_album_media_group ON relay_album_map(media_group_id);
+```
+
+### 3 CRUD метода в DatabaseService
+- `save_relay_album_map(message_id, media_group_id)` — INSERT OR REPLACE (идемпотентный)
+- `get_relay_media_group_id(message_id)` — str | None
+- `get_relay_album_message_ids(media_group_id)` — list[int] (сортировано ASC)
+
+### Задачи (Epic 14) — ВСЕ DONE
+- [x] **T-093**: Архитектурное проектирование — ARCHITECTURE.md Section 25, дизайн-решения D44-D48
+- [x] **T-094**: DB migration — таблица `relay_album_map` + 3 CRUD метода в `services/database.py`
+- [x] **T-095**: `channel_post` handler `track_relay_post()` в `bot.py` с `F.chat.id` фильтром
+- [x] **T-096**: `_forward_with_album_detection()` — DB path (forward_messages) + делегация к heuristic
+- [x] **T-097**: `_forward_with_heuristic()` — date proximity ±2s, gap tolerance 2, probe cleanup
+- [x] **T-098**: Дедупликация `_seen_media_groups` OrderedDict LRU + `_cleanup_expired_media_groups()`
+- [x] **T-099**: 11 новых тестов (7 TestAlbumForwarding + 4 dedup), регрессия 305 → 316 total
+
+### Ключевые компоненты, изменённые фиксом
+| Компонент | Файл | Изменение |
+|-----------|------|-----------|
+| **DatabaseService** | `services/database.py` | Таблица `relay_album_map` + 3 CRUD метода (строки 230-256) |
+| **bot.py** | `bot.py` | `track_relay_post()` handler в `on_startup()` (строки 122-132) |
+| **DeadPageRelay** | `services/dead_page_relay.py` | `_forward_with_album_detection()` + `_forward_with_heuristic()` + `_safe_delete()` + `_normalize_date()` (строки 216-362) |
+| **DeadPageTrigger** | `handlers/dead_page_trigger.py` | `_seen_media_groups` OrderedDict + `_cleanup_expired_media_groups()` дедупликация (строки 11-23, 68-79) |
+
+### Новые тесты (11)
+- `tests/test_dead_page_relay.py` — класс `TestAlbumForwarding` (7 тестов):
+  1. DB album path → `forward_messages()` plural
+  2. DB album updates last_known_id
+  3. Heuristic: 3 consecutive msgs → all forwarded
+  4. Heuristic: date boundary stops probe + deletes mismatch
+  5. Heuristic: gap tolerance allows skip
+  6. Heuristic: channel error propagates
+  7. Heuristic: at channel start (msg_id=1)
+- `tests/test_dead_page_trigger.py` — dedup (4 теста):
+  8. Same media_group_id within 5s → skip
+  9. First msg with media_group_id → allow
+  10. Different media_group_ids → both trigger
+  11. No media_group_id → normal forwarding
+
+### Design Decisions (D44-D48)
+| ID | Решение |
+|----|---------|
+| **D44** | Таблица `relay_album_map` + индекс + 3 CRUD метода |
+| **D45** | `@dp.channel_post()` handler в `bot.py` для индексации новых постов |
+| **D46** | DB-path: `forward_messages()` мн. число для целого альбома |
+| **D47** | Heuristic-path: date proximity ±2s, gap tolerance 2, probe cleanup |
+| **D48** | Trigger dedup: OrderedDict LRU, 5s TTL, max 100 entries |
 
 ---
 
@@ -179,11 +271,11 @@
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-092 (92 tasks) ✅ |
+| **Done** | T-001 – T-099 (99 tasks) ✅ |
 | **In Progress** | — |
 
-> Epics 1-13 complete (92 tasks). Epic 13 (F9 Otboy Service) IMPLEMENTED — 9 tasks + 4 review defects fixed. 305 tests pass. Zero regressions. Project is PRODUCTION-READY + DEPLOYED.
+> Epics 1-14 (99 tasks). Epic 14 (Media Group Album Forwarding Fix) — IMPLEMENTED. 316 тестов. v2.11.0 готов к ревью.
 
 ---
 
-*Последнее обновление: 2026-07-26 — Epic 13 (Otboy Service F9) IMPLEMENTED ✅. Knowledge graph синхронизирован: 5 сущностей обновлены. v2.10.0. 305 тестов.*
+*Последнее обновление: 2026-07-28 23:00 UTC — IMPLEMENTATION COMPLETE: Epic 14 (Media Group Album Forwarding Fix). 316 тестов (305 + 11 new). 4 файла изменено. 5-я таблица БД relay_album_map добавлена. Knowledge graph обновлён: T-093–T-099 → DONE, Epic-14 → IMPLEMENTED, 5 новых сущностей + 16 отношений.*

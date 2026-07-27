@@ -1,9 +1,26 @@
 import logging
+import time
+from collections import OrderedDict
+
 from aiogram import F, Router, types
 from aiogram.types import MessageOriginChannel
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+# ── Media group deduplication (Epic 14) ──
+_seen_media_groups: OrderedDict[str, float] = OrderedDict()
+_MEDIA_GROUP_DEDUP_TTL = 5  # seconds
+_MAX_DEDUP_ENTRIES = 100
+
+
+def _cleanup_expired_media_groups():
+    """Remove expired entries to prevent unbounded memory growth."""
+    now = time.monotonic()
+    expired = [k for k, v in _seen_media_groups.items() if now - v > _MEDIA_GROUP_DEDUP_TTL]
+    for k in expired:
+        del _seen_media_groups[k]
+
 
 dead_page_router = Router()
 
@@ -46,7 +63,21 @@ async def on_forward(message: types.Message):
     
     if not is_target:
         return
-    
+
+    # ── Epic 14: Deduplicate media group forwards ──
+    _cleanup_expired_media_groups()
+    if message.media_group_id:
+        now = time.monotonic()
+        if message.media_group_id in _seen_media_groups:
+            logger.debug(
+                f"[dead_page] Dedup skip: media_group_id={message.media_group_id}"
+            )
+            return
+        _seen_media_groups[message.media_group_id] = now
+        # LRU eviction: remove oldest if over limit
+        if len(_seen_media_groups) > _MAX_DEDUP_ENTRIES:
+            _seen_media_groups.popitem(last=False)
+
     # Check if Slava is present (configurable, for future scaling)
     if _db is not None:
         is_present = await _db.is_present(settings.SLAVIK_USER_ID, message.chat.id)

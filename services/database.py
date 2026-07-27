@@ -38,6 +38,12 @@ class DatabaseService:
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS relay_album_map (
+            message_id INTEGER PRIMARY KEY,
+            media_group_id TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_relay_album_media_group ON relay_album_map(media_group_id);
     """
     
     def __init__(self, db_path: str):
@@ -220,3 +226,31 @@ class DatabaseService:
                 )
                 await self.db.commit()
                 return False
+
+    # ── Relay Album Map (Epic 14) ──────────────────────
+
+    async def save_relay_album_map(self, message_id: int, media_group_id: str) -> None:
+        """Save media_group_id for a relay channel message. Idempotent."""
+        await self.db.execute(
+            "INSERT OR REPLACE INTO relay_album_map (message_id, media_group_id) VALUES (?, ?)",
+            (message_id, media_group_id),
+        )
+        await self.db.commit()
+
+    async def get_relay_media_group_id(self, message_id: int) -> str | None:
+        """Get media_group_id for a relay channel message. Returns None if not found."""
+        cursor = await self.db.execute(
+            "SELECT media_group_id FROM relay_album_map WHERE message_id = ?",
+            (message_id,),
+        )
+        row = await cursor.fetchone()
+        return row["media_group_id"] if row else None
+
+    async def get_relay_album_message_ids(self, media_group_id: str) -> list[int]:
+        """Get all message_ids belonging to the same media group, sorted ascending."""
+        cursor = await self.db.execute(
+            "SELECT message_id FROM relay_album_map WHERE media_group_id = ? ORDER BY message_id ASC",
+            (media_group_id,),
+        )
+        rows = await cursor.fetchall()
+        return [row["message_id"] for row in rows]
