@@ -19,12 +19,12 @@ from handlers.war_alert import (
     war_channel_repost_handler,
     war_alert_router,
     WAR_REPLIES,
-    _is_target_channel,
     _parse_int_list,
     _parse_str_list,
     _load_replies,
     setup_war_alert,
 )
+from filters.target_channel import TargetChannelFilter
 from config.settings import settings
 
 
@@ -113,56 +113,6 @@ class TestLoadReplies:
         assert WAR_REPLIES == ["фраза1", "фраза2"]
 
 
-# ── Channel Target Detection ──
-
-class TestIsTargetChannel:
-    """Test _is_target_channel logic by directly patching the cached lists."""
-
-    def test_match_by_id(self, monkeypatch):
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [1654872411])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", [])
-        origin = make_channel_origin(channel_id=1654872411, username="whatever")
-        assert _is_target_channel(origin) is True
-
-    def test_match_by_username(self, monkeypatch):
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", ["chp_perm"])
-        origin = make_channel_origin(channel_id=-100999, username="chp_perm")
-        assert _is_target_channel(origin) is True
-
-    def test_match_by_username_case_insensitive(self, monkeypatch):
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", ["chp_perm"])
-        origin = make_channel_origin(channel_id=-100999, username="CHP_Perm")
-        assert _is_target_channel(origin) is True
-
-    def test_no_match_different_id(self, monkeypatch):
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [1654872411])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", [])
-        origin = make_channel_origin(channel_id=999999999, username="other")
-        assert _is_target_channel(origin) is False
-
-    def test_no_match_different_username(self, monkeypatch):
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", ["chp_perm"])
-        origin = make_channel_origin(channel_id=-100999, username="other_channel")
-        assert _is_target_channel(origin) is False
-
-    def test_no_match_none_username(self, monkeypatch):
-        """Channel without username should not match when filtering by username."""
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", ["chp_perm"])
-        origin = make_channel_origin(channel_id=-100999, username=None)
-        # make_channel_origin creates Chat with username=None; no need to reassign
-        assert _is_target_channel(origin) is False
-
-    def test_no_ids_or_usernames_configured(self, monkeypatch):
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", [])
-        origin = make_channel_origin()
-        assert _is_target_channel(origin) is False
-
-
 # ── Handler: Keyword (Slava + war word) ──
 
 class TestWarKeywordHandler:
@@ -242,14 +192,13 @@ class TestWarChannelRepostHandler:
             from_id=999999999,
             forward_origin=origin,
         )
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            with patch("handlers.war_alert.random.choice", return_value="повизжи"):
-                await war_channel_repost_handler(msg)
+        with patch("handlers.war_alert.random.choice", return_value="повизжи"):
+            await war_channel_repost_handler(msg)
         msg.reply.assert_called_once_with("повизжи")
 
     @pytest.mark.asyncio
-    async def test_ignores_non_channel_forward(self):
-        """Should not reply to user-to-user forwards (not channel)."""
+    async def test_ignores_non_channel_forward_via_filter(self):
+        """Filter blocks MessageOriginUser → handler should never be called."""
         from aiogram.types import MessageOriginUser
         origin = MessageOriginUser(
             type="user",
@@ -261,20 +210,22 @@ class TestWarChannelRepostHandler:
             from_id=479167456,
             forward_origin=origin,
         )
-        await war_channel_repost_handler(msg)
-        msg.reply.assert_not_called()
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        result = await f(msg)
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_ignores_non_target_channel(self):
-        """Should not reply for reposts from non-target channels."""
+    async def test_ignores_non_target_channel_via_filter(self):
+        """Filter blocks non-target channels → handler should never be called."""
         origin = make_channel_origin(channel_id=-999999, username="random_channel")
         msg = make_war_message(
             text="репост из другого канала",
             from_id=479167456,
             forward_origin=origin,
         )
-        await war_channel_repost_handler(msg)
-        msg.reply.assert_not_called()
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        result = await f(msg)
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_reply_is_random_for_channel(self):
@@ -286,12 +237,11 @@ class TestWarChannelRepostHandler:
             forward_origin=origin,
         )
         replies_seen = set()
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            for _ in range(20):
-                msg.reply.reset_mock()
-                await war_channel_repost_handler(msg)
-                if msg.reply.call_count > 0:
-                    replies_seen.add(msg.reply.call_args[0][0])
+        for _ in range(20):
+            msg.reply.reset_mock()
+            await war_channel_repost_handler(msg)
+            if msg.reply.call_count > 0:
+                replies_seen.add(msg.reply.call_args[0][0])
         assert len(replies_seen) >= 2
 
     @pytest.mark.asyncio
@@ -304,8 +254,7 @@ class TestWarChannelRepostHandler:
             forward_origin=origin,
         )
         msg.reply.side_effect = Exception("API error")
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            await war_channel_repost_handler(msg)  # Should not raise
+        await war_channel_repost_handler(msg)  # Should not raise
 
     @pytest.mark.asyncio
     async def test_any_user_can_trigger_channel_repost(self):
@@ -316,18 +265,16 @@ class TestWarChannelRepostHandler:
             from_id=999999999,  # Not Slava
             forward_origin=origin,
         )
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            await war_channel_repost_handler(msg)
+        await war_channel_repost_handler(msg)
         msg.reply.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_no_forward_origin_skipped(self):
-        """Messages without forward_origin are not processed by channel handler."""
+    async def test_no_forward_origin_skipped_via_filter(self):
+        """Messages without forward_origin → filter returns False."""
         msg = make_war_message(text="обычное сообщение", from_id=479167456)
-        # The router filter F.forward_origin prevents this from being called,
-        # but test direct handler call for sanity
-        await war_channel_repost_handler(msg)
-        msg.reply.assert_not_called()
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        result = await f(msg)
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_channel_handler_none_from_user(self):
@@ -339,9 +286,7 @@ class TestWarChannelRepostHandler:
             forward_origin=origin,
         )
         msg.from_user = None
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            # Should NOT raise AttributeError
-            await war_channel_repost_handler(msg)
+        await war_channel_repost_handler(msg)
         msg.reply.assert_called_once()
 
 
@@ -352,8 +297,8 @@ class TestWarAlertRouter:
 
     def test_setup_war_alert_does_not_crash(self, monkeypatch):
         """setup_war_alert() should initialize without errors."""
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_IDS", [1654872411])
-        monkeypatch.setattr("handlers.war_alert._TARGET_CHANNEL_USERNAMES", [])
+        monkeypatch.setattr("handlers.war_alert._target_channel_ids_set", {1654872411})
+        monkeypatch.setattr("handlers.war_alert._target_channel_usernames_set", set())
         # Should not raise
         setup_war_alert()
 
@@ -367,15 +312,14 @@ class TestWarAlertRouter:
 
     @pytest.mark.asyncio
     async def test_channel_handler_works_without_keywords(self):
-        """Channel repost doesn't require keywords — just target channel match."""
+        """Channel repost doesn't require keywords — just target channel match (via filter)."""
         origin = make_channel_origin(channel_id=1654872411)
         msg = make_war_message(
             text="любое сообщение без ключевых слов",
             from_id=999999999,  # Not Slava — Slava's forwards handled by Handler 1b
             forward_origin=origin,
         )
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            await war_channel_repost_handler(msg)
+        await war_channel_repost_handler(msg)
         msg.reply.assert_called_once()
 
     @pytest.mark.asyncio
@@ -387,6 +331,71 @@ class TestWarAlertRouter:
             from_id=479167456,  # Slava
             forward_origin=origin,
         )
-        with patch("handlers.war_alert._is_target_channel", return_value=True):
-            await war_channel_repost_handler(msg)
+        await war_channel_repost_handler(msg)
         msg.reply.assert_called_once()
+
+
+# ── TargetChannelFilter (T-114) ──
+
+
+class TestTargetChannelFilter:
+    """Tests for TargetChannelFilter (filters/target_channel.py)."""
+
+    @pytest.mark.asyncio
+    async def test_target_channel_id_match(self):
+        """Filter returns True when channel ID matches."""
+        f = TargetChannelFilter({1654872411, 123456789}, set())
+        origin = make_channel_origin(channel_id=1654872411, username="whatever")
+        msg = make_war_message(text="пост", forward_origin=origin)
+        assert await f(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_target_channel_username_match(self):
+        """Filter returns True when channel username matches (case-insensitive)."""
+        f = TargetChannelFilter(set(), {"chp_perm", "radar_bpla"})
+        origin = make_channel_origin(channel_id=-100999, username="CHP_Perm")
+        msg = make_war_message(text="пост", forward_origin=origin)
+        assert await f(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_non_target_channel_returns_false(self):
+        """Filter returns False for channels not in target list."""
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        origin = make_channel_origin(channel_id=-888888, username="other_channel")
+        msg = make_war_message(text="пост", forward_origin=origin)
+        assert await f(msg) is False
+
+    @pytest.mark.asyncio
+    async def test_not_forwarded_message_returns_false(self):
+        """Filter returns False for messages without forward_origin."""
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        msg = make_war_message(text="обычное сообщение")
+        assert await f(msg) is False
+
+    @pytest.mark.asyncio
+    async def test_empty_forward_origin_returns_false(self):
+        """Filter returns False when forward_origin is None."""
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        msg = make_war_message(text="сообщение", forward_origin=None)
+        assert await f(msg) is False
+
+    @pytest.mark.asyncio
+    async def test_forwarded_from_user_returns_false(self):
+        """Filter returns False for messages forwarded from a user (MessageOriginUser)."""
+        from aiogram.types import MessageOriginUser
+        origin = MessageOriginUser(
+            type="user",
+            date=1730000000,
+            sender_user=User(id=111, is_bot=False, first_name="Test"),
+        )
+        msg = make_war_message(text="пересланное", forward_origin=origin)
+        f = TargetChannelFilter({1654872411}, {"chp_perm"})
+        assert await f(msg) is False
+
+    @pytest.mark.asyncio
+    async def test_empty_sets_no_match(self):
+        """Filter returns False when no target IDs or usernames configured."""
+        f = TargetChannelFilter(set(), set())
+        origin = make_channel_origin(channel_id=1654872411, username="chp_perm")
+        msg = make_war_message(text="пост", forward_origin=origin)
+        assert await f(msg) is False

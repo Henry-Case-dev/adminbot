@@ -215,11 +215,13 @@ class TestDangerWordFilter:
         assert result == {"matched_word": "\u0442\u0440\u0435\u0432\u043e\u0433\u0430"}
 
     @pytest.mark.asyncio
-    async def test_vnimanie_vsem_matches(self):
+    async def test_vnimanie_vsem_matches_via_vnimanie(self):
+        """'внимание всем' matches via standalone 'внимание' (T-109 expanded list)."""
         f = DangerWordFilter()
         msg = make_message(text="\u0432\u043d\u0438\u043c\u0430\u043d\u0438\u0435 \u0432\u0441\u0435\u043c")
         result = await f(msg)
-        assert result == {"matched_word": "\u0432\u043d\u0438\u043c\u0430\u043d\u0438\u0435 \u0432\u0441\u0435\u043c"}
+        assert result is not False
+        assert "внимание" in result["matched_word"].lower()
 
     @pytest.mark.asyncio
     async def test_sirena_matches(self):
@@ -242,6 +244,97 @@ class TestDangerWordFilter:
         msg.text = 12345
         result = await f(msg)
         assert result is False
+
+
+class TestDangerWordFilterExpanded:
+    """Tests for new danger words from expanded WAR_WORDS list (T-109)."""
+
+    @pytest.mark.asyncio
+    async def test_raketa_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u0440\u0430\u043a\u0435\u0442\u0430")
+        result = await f(msg)
+        assert result is not False
+        assert "ракета" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_bpla_uppercase_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u0411\u041f\u041b\u0410 \u0432 \u043d\u0435\u0431\u0435")
+        result = await f(msg)
+        assert result is not False
+        assert result["matched_word"].lower() == "бпла"
+
+    @pytest.mark.asyncio
+    async def test_dron_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u0434\u0440\u043e\u043d")
+        result = await f(msg)
+        assert result is not False
+        assert "дрон" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_ukrytie_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u0432\u0441\u0435 \u0432 \u0443\u043a\u0440\u044b\u0442\u0438\u0435")
+        result = await f(msg)
+        assert result is not False
+        assert "укрытие" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_bunker_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u0437\u0430\u0445\u043e\u0434\u0438 \u0432 \u0431\u0443\u043d\u043a\u0435\u0440")
+        result = await f(msg)
+        assert result is not False
+        assert "бункер" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_ordinary_word_does_not_match(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u043f\u0440\u0438\u0432\u0435\u0442 \u043a\u0430\u043a \u0434\u0435\u043b\u0430")
+        result = await f(msg)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_caption_with_danger_word_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text=None, caption="\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c \u0430\u0442\u0430\u043a\u0438")
+        result = await f(msg)
+        assert result is not False
+        assert "опасность" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_forwarded_caption_with_danger_word_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text=None, caption="\u0432\u043d\u0438\u043c\u0430\u043d\u0438\u0435 \u0440\u0430\u043a\u0435\u0442\u043d\u0430\u044f \u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c")
+        # simulates a forwarded message with caption
+        result = await f(msg)
+        assert result is not False
+
+    @pytest.mark.asyncio
+    async def test_evakuatsiya_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0430 \u044d\u0432\u0430\u043a\u0443\u0430\u0446\u0438\u044f")
+        result = await f(msg)
+        assert result is not False
+        assert "эвакуация" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_sbit_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u0431\u043f\u043b\u0430 \u0441\u0431\u0438\u0442")
+        result = await f(msg)
+        assert result is not False
+        assert "бпла" in result["matched_word"].lower()
+
+    @pytest.mark.asyncio
+    async def test_vzryv_matches(self):
+        f = DangerWordFilter()
+        msg = make_message(text="\u043f\u0440\u043e\u0438\u0437\u043e\u0448\u0451\u043b \u0432\u0437\u0440\u044b\u0432")
+        result = await f(msg)
+        assert result is not False
+        assert "взрыв" in result["matched_word"].lower()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -272,14 +365,18 @@ class TestDangerPatternBuilder:
 
     def test_parse_danger_words_empty_returns_defaults(self):
         result = _parse_danger_words("")
+        # Expanded WAR_WORDS list from filters/war_word.py (T-109)
         assert "\u0431\u043f\u043b\u0430" in result
-        assert "\u0440\u0430\u043a\u0435\u0442\u043d\u0430\u044f" in result
+        assert "\u0434\u0440\u043e\u043d" in result
+        assert "\u0440\u0430\u043a\u0435\u0442\u0430" in result
         assert "\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c" in result
-        assert len(result) == 22
+        assert "\u0432\u0437\u0440\u044b\u0432" in result
+        assert len(result) > 100
 
     def test_parse_danger_words_default_list_length(self):
         result = _parse_danger_words("")
-        assert len(result) == 22
+        # Expanded WAR_WORDS list from filters/war_word.py (T-109)
+        assert len(result) > 100
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -14,12 +14,12 @@ Architecture:
 """
 import logging
 import random
-from typing import Optional
 
-from aiogram import F, Router, types
+from aiogram import Router, types
 from aiogram.types import MessageOriginChannel
 
 from config.settings import settings
+from filters.target_channel import TargetChannelFilter
 from filters.user_id import UserIdFilter
 from filters.war_word import WarWordFilter
 
@@ -55,15 +55,13 @@ WAR_REPLIES: list[str] = _load_replies()
 
 def setup_war_alert() -> None:
     """Initialize war alert module. Called from bot.on_startup()."""
-    target_ids = _get_target_channel_ids()
-    target_usernames = _get_target_channel_usernames()
     logger.info(
         "War Alert initialized: %d replies, %d channel IDs (%s), %d channel usernames (%s)",
         len(WAR_REPLIES),
-        len(target_ids),
-        target_ids,
-        len(target_usernames),
-        target_usernames,
+        len(_target_channel_ids_set),
+        _target_channel_ids_set,
+        len(_target_channel_usernames_set),
+        _target_channel_usernames_set,
     )
 
 
@@ -91,50 +89,9 @@ def _parse_str_list(raw: str) -> list[str]:
     return [s.strip().lower() for s in raw.split(",") if s.strip()]
 
 
-# Lazy-loaded target channels (parsed once at first access)
-_TARGET_CHANNEL_IDS: Optional[list[int]] = None
-_TARGET_CHANNEL_USERNAMES: Optional[list[str]] = None
-
-
-def _get_target_channel_ids() -> list[int]:
-    global _TARGET_CHANNEL_IDS
-    if _TARGET_CHANNEL_IDS is None:
-        _TARGET_CHANNEL_IDS = _parse_int_list(settings.WAR_CHANNEL_IDS)
-    return _TARGET_CHANNEL_IDS
-
-
-def _get_target_channel_usernames() -> list[str]:
-    global _TARGET_CHANNEL_USERNAMES
-    if _TARGET_CHANNEL_USERNAMES is None:
-        _TARGET_CHANNEL_USERNAMES = _parse_str_list(settings.WAR_CHANNEL_USERNAMES)
-    return _TARGET_CHANNEL_USERNAMES
-
-
-def _is_target_channel(origin: MessageOriginChannel) -> bool:
-    """Check if the forward origin matches a target channel by ID or username."""
-    target_ids = _get_target_channel_ids()
-    target_usernames = _get_target_channel_usernames()
-
-    # Check by channel ID (most reliable)
-    if target_ids and origin.chat.id in target_ids:
-        logger.info(
-            "War Alert (repost): matched channel by ID=%d (msg_id=%d)",
-            origin.chat.id,
-            origin.message_id,
-        )
-        return True
-
-    # Check by channel username (case-insensitive)
-    if target_usernames and origin.chat.username:
-        if origin.chat.username.lower() in target_usernames:
-            logger.info(
-                "War Alert (repost): matched channel by username=@%s (msg_id=%d)",
-                origin.chat.username,
-                origin.message_id,
-            )
-            return True
-
-    return False
+# Module-level target channel sets for TargetChannelFilter
+_target_channel_ids_set: set[int] = set(_parse_int_list(settings.WAR_CHANNEL_IDS))
+_target_channel_usernames_set: set[str] = set(_parse_str_list(settings.WAR_CHANNEL_USERNAMES))
 
 
 # ── Handler 1: Slava's own (non-forwarded) keywords ──
@@ -183,26 +140,18 @@ async def war_keyword_handler(message: types.Message):
 
 # ── Handler 2: Channel reposts ──
 
-@war_alert_router.message(F.forward_origin)
+@war_alert_router.message(
+    TargetChannelFilter(_target_channel_ids_set, _target_channel_usernames_set),
+)
 async def war_channel_repost_handler(message: types.Message):
-    """Any channel repost from a target channel → random reply."""
+    """Any channel repost from a target channel → random reply.
+
+    TargetChannelFilter guarantees origin is a MessageOriginChannel
+    from one of the configured target channels.
+    """
     origin = message.forward_origin
-
-    # Guard: only handle channel forwards
     if not isinstance(origin, MessageOriginChannel):
-        logger.debug(
-            "War Alert (repost): forward origin is not a channel (type=%s), skipping",
-            getattr(origin, "type", "unknown"),
-        )
-        return
-
-    # Check if this is a target channel
-    if not _is_target_channel(origin):
-        logger.debug(
-            "War Alert (repost): non-target channel id=%d username=%s, skipping",
-            origin.chat.id,
-            origin.chat.username,
-        )
+        logger.error("War Alert (repost): unexpected origin type %s", type(origin))
         return
 
     reply_text = random.choice(WAR_REPLIES)

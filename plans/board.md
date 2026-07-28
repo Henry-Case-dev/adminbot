@@ -2,76 +2,104 @@
 
 ## 📋 Backlog
 
-### Epic 15: Common Service — Rename + Media Upgrade + Danger — 2026-07-28 🔵 NEW
-- [ ] 👤 T-100 (@Architect): Архитектурное проектирование Common Service + sub-agent review
-  - [ ] T-100-A: Спроектировать архитектуру — модули, data flow, directory structure, контракты
-  - [ ] T-100-B: Sub-agent ревью — изоляция, масштабируемость, корректность rename, media type detection
-  - [ ] T-100-C: Согласовать финальный дизайн с PM
-- [ ] T-101: Переименование файлов и модулей (otboy → common)
-  - [ ] T-101-A: `handlers/otboy.py` → `handlers/common.py` (router: common_router, сохранить otboy_handler)
-  - [ ] T-101-B: `services/otboy_relay.py` → `services/common_relay.py` (OtboyRelay → CommonRelay)
-  - [ ] T-101-C: `filters/otboy_word.py` — оставить как есть; СОЗДАТЬ `filters/danger_word.py` (DangerWordFilter)
-  - [ ] T-101-D: Обновить все импорты в bot.py (4 строки)
-  - [ ] T-101-E: Grep-проверка: нет dead imports/ссылок на "otboy" (кроме otboy_handler)
-- [ ] T-102: Конфигурация — переименовать и добавить env-переменные
-  - [ ] T-102-A: OTBOY_COOLDOWN_SECONDS → COMMON_COOLDOWN_SECONDS
-  - [ ] T-102-B: `OTBOY_PHOTO_PATH` → удалить, добавить `COMMON_MEDIA_BASE = "media/common"` (subdirs: `otboy`/`danger` разрешаются динамически через параметр `subdir`)
-  - [ ] T-102-C: Создать директории `media/common/otboy/` и `media/common/danger/` (filesystem migration, см. ARCHITECTURE.md §26.16)
-  - [ ] T-102-D: Обновить .env.example (новые ключи с описаниями)
-- [ ] T-103: Upgrade media-обработки — directory-based picker с авто-детекцией типа
-  - [ ] T-103-A: CommonRelay._pick_media(media_dir) — сканирует директорию, случайный файл
-  - [ ] T-103-B: _detect_media_type(filename) → photo/video/animation (jpg/mp4/mp4 с "gif")
-  - [ ] T-103-C: _send_media(chat_id, filepath, media_type, reply_params) — dispatcher
-  - [ ] T-103-D: send_otboy() — использовать _pick_media + _send_media вместо хардкода
-  - [ ] T-103-E: Логирование media type chosen
-- [ ] T-104: Новая функция детекции опасных слов (danger)
-  - [ ] T-104-A: DangerWordFilter в filters/danger_word.py — DANGER_WORDS + pattern compilation
-  - [ ] T-104-B: CommonRelay.send_danger() — _pick_media(DANGER_DIR) + _send_media + reply_to + quote
-  - [ ] T-104-C: danger_handler в common.py — DangerWordFilter → relay.send_danger()
-  - [ ] T-104-D: Reply-to + quote mechanism — идентичен otboy (ReplyParameters с matched_word)
-  - [ ] T-104-E: Comprehensive logging для danger
-- [ ] T-105: Интеграция в bot.py — импорты, регистрация, инициализация
-  - [ ] T-105-A: Импорты: common_router, setup_common, CommonRelay
-  - [ ] T-105-B: dp.include_router(common_router) — позиция 4c сохраняется
-  - [ ] T-105-C: on_startup(): CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS), setup_common(relay)
-  - [ ] T-105-D: Проверить propagation (оба handler'а возвращают None)
-- [ ] T-106: Тесты (~20+ тестов)
-  - [ ] T-106-A: Переименовать test_otboy.py → test_common.py, обновить импорты
-  - [ ] T-106-B: Перенести 11 тестов OtboyWordFilter (обновить импорты)
-  - [ ] T-106-C: Перенести 6 тестов otboy_handler (OtboyRelay → CommonRelay)
-  - [ ] T-106-D: CommonRelay.send_otboy — image → send_photo
-  - [ ] T-106-E: CommonRelay.send_otboy — video → send_video
-  - [ ] T-106-F: CommonRelay.send_otboy — video с "gif" → send_animation
-  - [ ] T-106-G: _pick_media — пустая директория, не-медиа файлы
-  - [ ] T-106-H: DangerWordFilter — текст/caption с опасными словами → срабатывает
-  - [ ] T-106-I: DangerWordFilter — без слов → False, регистр, word boundary
-  - [ ] T-106-J: danger_handler — делегирует в relay.send_danger
-  - [ ] T-106-K: CommonRelay.send_danger — случайный медиа, правильный тип
-  - [ ] T-106-L: Cooldown — общий для otboy+danger, per-chat изоляция
-  - [ ] T-106-M: Интеграция — propagation: common_router не блокирует другие
-  - [ ] T-106-N: Интеграция — сообщение с "отбой" и опасным словом → оба handler'а
-- [ ] T-107: Обновление документации — README, ARCHITECTURE, MEMORY
-  - [ ] T-107-A: README.md — F9 → "Common Service", danger detection, media type matrix
-  - [ ] T-107-B: ARCHITECTURE.md — router order 4c: common_router, CommonRelay, data flow
-  - [ ] T-107-C: MEMORY.md — project state, features table, v2.12.0
-- [ ] T-108: QA — тесты, коммит, деплой
-  - [ ] T-108-A: pytest — 316+ тестов, 0 регрессий, coverage ≥ 100% новых модулей
-  - [ ] T-108-B: Коммит на русском (conventional commits) в main, пуш
-  - [ ] T-108-C: Деплой — git pull, обновить .env, restart
-  - [ ] T-108-D: Smoke test: "отбой" → reply с медиа из common/otboy, quote "отбой"
-  - [ ] T-108-E: Smoke test: "ракетная опасность" → reply с медиа из common/danger, quote
-  - [ ] T-108-F: Smoke test: другие фичи не сломаны (слава, war_alert, алан, вася, костик)
-  - [ ] T-108-G: Verify Better Stack логи
+### Epic 16: Bug Fixes Sprint — 2026-07-29 🔵 IN PROGRESS
+
+**Bug 1: Репост — группировка альбомов (DeadPageRelay)**
+- [ ] T-110: Fix `_forward_with_heuristic()` — переписать на коллективный forward_messages()
+  - [ ] T-110-A: Собрать sibling ID → один `forward_messages()` вместо отдельных `forward_message()`
+  - [ ] T-110-B: Ужесточить критерий «тот же альбом» (media_group_id match > date proximity)
+  - [ ] T-110-C: Если переписывание >2ч — откатить heuristic к версии до Epic 14
+  - [ ] T-110-D: Comprehensive logging (album size, IDs, grouping reason)
+
+**Bug 2: Common Service danger_handler не работает**
+- [ ] T-109: Fix DangerWordFilter — скопировать ВСЕ слова из `filters/war_word.py`
+  - [ ] T-109-A: `_DEFAULT_DANGER_WORDS`: 22 → 91+ слов (как `WarWordFilter.WAR_WORDS`)
+  - [ ] T-109-B: Проверить word-boundary regex для всех слов
+  - [ ] T-109-C: Проверить регистронезависимость: БПЛА, Ракета, РАКЕТА
+- [ ] T-114: Fix `war_channel_repost_handler` — propagation stopper блокирует common_router
+  - [ ] T-114-A: Заменить `F.forward_origin` на `TargetChannelFilter` (только target каналы)
+  - [ ] T-114-B: Проверить: forwarded из non-target → доходит до common_router
+  - [ ] T-114-C: Проверить: handler 1 (war_keyword_handler) не сломан
+
+**Тестирование**
+- [ ] T-111: Новые тесты + полный прогон
+  - [ ] T-111-C1–C6: Альбомы — heuristic + DB path (6 тестов)
+  - [ ] T-111-A1–A6: DangerWordFilter — 91+ слов, caption, forward, no regression (6 тестов)
+  - [ ] T-111-D1–D4: Propagation — war_alert + common_router interaction (4 теста)
+  - [ ] T-111-E: `pytest` — полный suite, 0 регрессий
+
+**Конфигурация**
+- [ ] T-113: Проверить DEAD_PAGE_RELAY_CHANNEL_ID (знак int, .env vs код)
+
+**Документация**
+- [ ] T-112: Синхронизировать board.md, backlog.md, ARCHITECTURE.md, README.md
 
 ---
 
 ## 🔧 In Progress
 
-*(нет активных задач)*
+- [ ] T-109: Fix DangerWordFilter — скопировать слова из war_word.py (91+ слов)
+- [ ] T-110: Fix `_forward_with_heuristic()` — коллективный forward_messages()
+- [ ] T-114: Fix `war_channel_repost_handler` — propagation stopper
+- [ ] T-111: Тесты (16 новых + полный прогон)
+- [ ] T-113: Проверить DEAD_PAGE_RELAY_CHANNEL_ID
+- [ ] T-112: Документация
 
 ---
 
 ## ✅ Done
+
+### Epic 15: Common Service — Rename + Media Upgrade + Danger — 2026-07-28
+- [x] 👤 T-100 (@Architect): Архитектурное проектирование Common Service + sub-agent review
+  - [x] T-100-A: Спроектировать архитектуру — модули, data flow, directory structure, контракты
+  - [x] T-100-B: Sub-agent ревью — изоляция, масштабируемость, корректность rename, media type detection
+  - [x] T-100-C: Согласовать финальный дизайн с PM
+- [x] T-101: Переименование файлов и модулей (otboy → common)
+  - [x] T-101-A: handlers/otboy.py → handlers/common.py
+  - [x] T-101-B: services/otboy_relay.py → services/common_relay.py
+  - [x] T-101-C: filters/otboy_word.py оставлен; СОЗДАН filters/danger_word.py (DangerWordFilter)
+  - [x] T-101-D: Обновлены все импорты в bot.py
+  - [x] T-101-E: Grep-проверка — нет dead imports
+- [x] T-102: Конфигурация — переименованы и добавлены env-переменные
+  - [x] T-102-A: OTBOY_COOLDOWN_SECONDS → COMMON_COOLDOWN_SECONDS
+  - [x] T-102-B: OTBOY_PHOTO_PATH удалён, добавлен COMMON_MEDIA_BASE
+  - [x] T-102-C: Созданы директории media/common/otboy/ и media/common/danger/
+  - [x] T-102-D: Обновлён .env.example
+- [x] T-103: Upgrade media-обработки — directory-based picker с авто-детекцией типа
+  - [x] T-103-A: CommonRelay._pick_media(media_dir)
+  - [x] T-103-B: _detect_media_type(filename) → photo/video/animation
+  - [x] T-103-C: _send_media(chat_id, filepath, media_type, reply_params)
+  - [x] T-103-D: send_otboy() использует _pick_media + _send_media
+  - [x] T-103-E: Логирование media type
+- [x] T-104: Новая функция детекции опасных слов (danger)
+  - [x] T-104-A: DangerWordFilter — DANGER_WORDS + pattern compilation
+  - [x] T-104-B: CommonRelay.send_danger() — _pick_media + _send_media + reply_to + quote
+  - [x] T-104-C: danger_handler в common.py
+  - [x] T-104-D: Reply-to + quote mechanism (ReplyParameters)
+  - [x] T-104-E: Comprehensive logging для danger
+- [x] T-105: Интеграция в bot.py
+  - [x] T-105-A: Импорты: common_router, setup_common, CommonRelay
+  - [x] T-105-B: dp.include_router(common_router) — позиция 4c
+  - [x] T-105-C: on_startup(): CommonRelay, setup_common(relay)
+  - [x] T-105-D: Propagation проверен (оба handler'а возвращают None)
+- [x] T-106: Тесты (~20+ тестов)
+  - [x] T-106-A: test_otboy.py → test_common.py
+  - [x] T-106-B: 11 тестов OtboyWordFilter перенесены
+  - [x] T-106-C: 6 тестов otboy_handler перенесены (OtboyRelay → CommonRelay)
+  - [x] T-106-D–G: Media type detection, _pick_media edge cases
+  - [x] T-106-H–I: DangerWordFilter тесты (срабатывает/не срабатывает/регистр/word boundary)
+  - [x] T-106-J–K: danger_handler + CommonRelay.send_danger тесты
+  - [x] T-106-L: Cooldown тесты (общий для otboy+danger, per-chat)
+  - [x] T-106-M–N: Интеграция — propagation + диспетчеризация
+- [x] T-107: Документация — README, ARCHITECTURE, MEMORY обновлены, v2.12.0
+- [x] T-108: QA — тесты, коммит, деплой
+  - [x] T-108-A: pytest — 316+ тестов, 0 регрессий
+  - [x] T-108-B: Коммит на русском (conventional commits) в main, пуш
+  - [x] T-108-C: Деплой на сервер — git pull, .env, restart
+  - [x] T-108-D: Smoke test: «отбой» → медиа из common/otboy
+  - [x] T-108-E: Smoke test: «ракетная опасность» → медиа из common/danger
+  - [x] T-108-F: Smoke test: другие фичи не сломаны
+  - [x] T-108-G: Better Stack логи verified
 
 ### Epic 14: Media Group Album Fix — 2026-07-28
 - [x] T-093: Новая таблица relay_album_map + 3 CRUD метода в database.py
@@ -218,6 +246,4 @@
 
 ---
 
-**Updated:** 2026-07-28 — Epics 13 & 14 archived to Done. Epic 15 (Common Service) added to Backlog. v2.11.0 — 316 tests baseline, v2.12.0 target.
-
-(End of file)
+**Updated:** 2026-07-29 — Epic 15 (Common Service) archived to Done. Epic 16 (Bug Fixes Sprint) added to Backlog + In Progress. v2.12.0 deployed, v2.12.1 target.

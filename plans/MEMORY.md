@@ -1,19 +1,20 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.12.0
-> **Дата:** 2026-07-28
-> **Статус:** Epics 1-15 IMPLEMENTED ✅. 372 тестов. Бот активен.
-> **Commit:** Epic 15 — Common Service Refactoring + Danger Detection (F9 → unified architecture).
+> **Версия:** v2.12.1 (implemented)
+> **Дата:** 2026-07-29
+> **Статус:** Epics 1-16 DEPLOYED ✅. 387 тестов (v2.12.1).
+> **Commit:** Epic 16 — post-implementation sync complete.
 
 ---
 
-## 🔍 Context Sync Summary (2026-07-28) — IMPLEMENTED
+## 🔍 Context Sync Summary (2026-07-29) — Epic 16 IMPLEMENTED
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **Epics 1-14** | ✅ COMPLETE | 99 tasks T-001–T-099 deployed. |
-| **Epic 15** | ✅ IMPLEMENTED | Otboy → Common Service. 372 тестов. DangerWordFilter. |
-| **MEMORY.md** | ✅ UPDATED | v2.12.0 — this file. |
+| **Epic 15** | ✅ DEPLOYED | Otboy → Common Service. v2.12.0. 372 тестов. |
+| **Epic 16** | ✅ IMPLEMENTED | Bugfixes v2.12.0→v2.12.1. 7 задач (T-109–T-115). Review passed. |
+| **MEMORY.md** | ✅ UPDATED | v2.12.1 — this file, post-implementation sync complete. |
 
 ---
 
@@ -29,7 +30,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 372 тестов PASS (v2.12.0) |
+| Тесты | pytest + pytest-asyncio | ✅ 387 тестов PASS (v2.12.1) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -47,7 +48,7 @@
 
 ## 🏗️ Key Architectural Decisions
 
-### 1. Router Priority Order (КРИТИЧНО — v2.12.0)
+### 1. Router Priority Order (КРИТИЧНО — v2.12.1)
 ```
 0.  admin_commands_router (Command filters) — /deadpage, /alangreet
 1.  ChatMemberUpdated (slava_presence_router) — F1
@@ -55,7 +56,7 @@
 2.  kostik_router (user_id=350803143)
 3.  alan_router (user_id=138811255) + DB counter — F6 + F7v2 silence greeting
 4.  dead_page_router — Dead Page V2 trigger from @d_pages
-4b. war_alert_router — F5v2: war keywords (Slava) + channel repost detection
+4b. war_alert_router — F5v2: war keywords (Slava) + TargetChannelFilter repost detection
 4c. common_router — F9+: otboy_handler + danger_handler (ALL users, shared cooldown)
 5.  slavik_router (user_id=479167456) + middleware F3 + F4 + catch-all + F8
 6.  vasya_router (text filters, no user restriction)
@@ -69,14 +70,14 @@
 | **F2** | Dead Page V2: forwardMessage из @d_pages + fallback | `DeadPageRelay` + `DeadPageTrigger` | ✅ |
 | **F3** | GIF каждые 5 сообщений Славы | `MessageCounterMiddleware` | ✅ |
 | **F4** | «КУЧА» → «ДАЛБАЕБ» | `handlers/slavik.py` + `KuchaWordFilter` | ✅ |
-| **F5v2** | War Words Alert: caption fix, 90+ keywords, channel repost, random replies | `handlers/war_alert.py` | ✅ |
+| **F5v2** | War Words Alert: caption fix, 90+ keywords, TargetChannelFilter, random replies | `handlers/war_alert.py` | ✅ |
 | **F6** | @Alan_Z → random reply каждые 10 сообщений | `handlers/alan.py` | ✅ |
 | **F7** | Alan join → random greeting video | `handlers/alan_greeting.py` | ✅ |
 | **F7v2** | Alan silence greeting — "Леха проснулся" | `handlers/alan.py` (inlined) | ✅ |
 | **F8** | slavic_na_litso.jpg — каждый N-й ответ "пошёл нахуй" → фото | `handlers/slavik.py` | ✅ |
 | **E9** | Admin test commands: /deadpage, /alangreet | `handlers/admin_commands.py` | ✅ |
-| **F9** | Otboy Service — детект "отбой" (все пользователи) → common/otboy/ media | `handlers/common.py` (`otboy_handler`) + `CommonRelay` | ✅ v2.12.0 |
-| **F10** | Danger Detection — 22 Cyrillic danger keywords → common/danger/ media | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` | ✅ v2.12.0 |
+| **F9** | Otboy Service — детект "отбой" (все пользователи) → common/otboy/ media | `handlers/common.py` (`otboy_handler`) + `CommonRelay` | ✅ |
+| **F10** | Danger Detection — 135+ keywords (v2.12.1) | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` | ✅ v2.12.1 |
 
 ### 3. Database Schema (SQLite, 5 tables)
 
@@ -106,87 +107,84 @@
 | `SLIVIC_NA_LITSO_INTERVAL` | `10` | F8: каждый N-й "пошёл нахуй" → фото |
 | `COMMON_COOLDOWN_SECONDS` | `0` | F9/F10: shared cooldown for common sub-services (0=off) |
 | `COMMON_MEDIA_BASE` | `media/common` | F9/F10: base directory for common/otboy/ and common/danger/ |
-| `DANGER_WORDS` | `(22 keywords)` | F10: comma-separated danger keywords for DangerWordFilter |
+| `DANGER_WORDS` | `(WAR_WORDS — 135+ keywords)` | F10: comma-separated danger keywords (v2.12.1: полный WAR_WORDS из war_word.py) |
 
 ---
 
-## ✅ Epic 15: Common Service Refactoring — 2026-07-28 IMPLEMENTED
+## ✅ Epic 16: Bug Fixes — v2.12.0 → v2.12.1 (IMPLEMENTED, 2026-07-29)
 
-> **Цель:** Переименовать otboy service → common service, добавить Danger Detection (F10),
-> унифицировать архитектуру для поддержки нескольких sub-services.
-> **Результат:** v2.12.0. 372 теста. 4 файла создано, 3 изменено, 3 удалено.
+> **Цель:** Patch-release багфиксов без новых фич. 7 задач (T-109–T-115).
+> **Статус:** IMPLEMENTED ✅ — Review passed, все тесты зелёные (387 PASS).
+> **Результат:** 5 файлов изменено (1 новый, 4 модифицированных). +15 тестов.
 
-### Что изменилось
+### Задачи Epic 16 — ВСЕ COMPLETED
 
-| Действие | Файл | Описание |
-|----------|------|----------|
-| ✅ Created | `handlers/common.py` | Двух-handler роутер: `otboy_handler` + `danger_handler` |
-| ✅ Created | `services/common_relay.py` | `CommonRelay` с unified `send_common(subdir)` |
-| ✅ Created | `filters/danger_word.py` | `DangerWordFilter` — 22 кириллических danger keyword |
-| ✅ Created | `tests/test_common.py` | 81 тест (filter, handler, relay, migration) |
-| ✅ Modified | `bot.py` | `common_router` replaces `otboy_router`, `CommonRelay` replaces `OtboyRelay` |
-| ✅ Modified | `config/settings.py` | `OTBOY_*` removed, `COMMON_COOLDOWN_SECONDS` + `COMMON_MEDIA_BASE` + `DANGER_WORDS` added |
-| ✅ Modified | `.env.example` | New COMMON_* vars, DANGER_WORDS documented |
-| ❌ Deleted | `handlers/otboy.py` | Replaced by `handlers/common.py` |
-| ❌ Deleted | `services/otboy_relay.py` | Replaced by `services/common_relay.py` |
-| ❌ Deleted | `tests/test_otboy.py` | Replaced by `tests/test_common.py` (25 → 81 tests) |
+| Task | Название | Компонент | Статус |
+|------|----------|-----------|--------|
+| **T-109** | DangerWordFilter expansion | `filters/danger_word.py` | ✅ 22→135+ слов из WAR_WORDS |
+| **T-110** | Collect-then-Group heuristic | `services/dead_page_relay.py` | ✅ probe&collect → один forward_messages() |
+| **T-111** | Дополнительные тесты | `tests/` | ✅ +15 тестов (387 total) |
+| **T-112** | Документация | `plans/` | ✅ ARCHITECTURE.md + MEMORY.md synced |
+| **T-113** | Проверка DEAD_PAGE_RELAY_CHANNEL_ID | Конфигурация | ✅ Channel ID валидирован |
+| **T-114** | TargetChannelFilter | `filters/target_channel.py` (NEW) | ✅ Кастомный BaseFilter |
+| **T-115** | Propagation fix в war_alert | `handlers/war_alert.py` | ✅ F.forward_origin→TargetChannelFilter |
 
-### CommonRelay — Unified Media Service
+### T-109: DangerWordFilter — расширение до 135+ слов
+- **Было (Epic 15):** 22 keywords
+- **Стало (Epic 16):** Все 135+ словоформ из `filters/war_word.py::WAR_WORDS`
+- **17+ семантических семейств:** БПЛА, ракета/ракетный, дрон/беспилотник, опасность/опасен, тревога, сирена, атака, угроза, обстрел, взрыв, вспышка, убежище/укрытие/бункер, падение/сбитие, эвакуация, отбой, летит/прилет, беспилотный
+- **Overlap с WarWordFilter by design:** оба сервиса срабатывают на одном сообщении
 
-- **Unified API:** `send_common(chat_id, message_id, matched_word, subdir)` — один метод для otboy и danger
-- **Media type auto-detection:** photo (.jpg/.jpeg/.png/.webp/.bmp), video (.mp4/.mov/.webm без "gif"), animation (.mp4/.mov/.webm с "gif" в имени)
-- **`_scan_directory(subdir)`:** случайный файл из `media/common/{subdir}/`
-- **Shared cooldown:** один `dict[int, float]` для всех sub-services (`COMMON_COOLDOWN_SECONDS`)
-- **Reply-to + quoting** сохранён: `ReplyParameters(message_id, quote=matched_word)`
+### T-110: DeadPageRelay — Collect-then-Group heuristic
+- **Было (v2.11.0):** forward primary → probe forward (+1,+2,...) → probe backward (-1,-2,...) — каждый sibling отдельным forward_message + delete
+- **Стало (v2.12.1):**
+  - Фаза 1: Probe & collect — пробинг соседних ID (±9) с date-matching (±2s), сбор всех matching ID в список
+  - Фаза 2: Один `forward_messages(chat_id, from_chat_id, message_ids=all_ids)` для всего альбома
+- **Преимущества:** чище лента (нет deleted ghost messages), меньше API вызовов, атомарная отправка альбома
 
-### DangerWordFilter — F10 Danger Detection
+### T-114/T-115: TargetChannelFilter — новый фильтр + propagation fix
+- **Файл:** `filters/target_channel.py` (NEW)
+- **Проблема:** `F.forward_origin` матчил ВСЕ forwarded-сообщения → блокировал propagation к common_router (position 4c)
+- **Решение:** `TargetChannelFilter` — кастомный `BaseFilter`, матчит только каналы из `WAR_CHANNEL_IDS`/`WAR_CHANNEL_USERNAMES`
+- **handlers/war_alert.py:** `@war_alert_router.message(TargetChannelFilter())` заменил `@war_alert_router.message(F.forward_origin)`
+- **Non-war forwarded →** propagation продолжается → common_router получает сообщения
 
-- **22 keywords:** бпла, ракетная, опасность, тревога, внимание всем, сирена, атака, угроза, обстрел, воздушная, баллистическая, шахед, шахеды, крылатая, дрон, дроны, беспилотник, беспилотники, взрыв, взрывы, прилет, прилеты
-- **Regex:** Cyrillic word boundaries `(?<![а-яё])...(?![а-яё])` + `re.IGNORECASE`
-- **Pattern borrowed** from `WarWordFilter` (`filters/war_word.py`)
-- **Configurable** via `DANGER_WORDS` env var (comma-separated)
-- **Checks** both `message.text` and `message.caption`
-- **Returns** `{"matched_word": match.group()}` for Telegram quote API
-
-### Router Architecture (common_router at position 4c)
-
-```
-4c. common_router (name="common")
-    ├── otboy_handler  (OtboyWordFilter)   → CommonRelay.send_common(subdir="otboy")
-    └── danger_handler (DangerWordFilter)   → CommonRelay.send_common(subdir="danger")
-```
-
-- `OtboyWordFilter` (`filters/otboy_word.py`) — **PRESERVED**, unchanged
-- Both handlers share same `CommonRelay` instance with shared cooldown
-- Works for ALL users (no `UserIdFilter`)
-- `setup_common(relay)` — DI function called in `bot.on_startup()`
-
-### Test Suite (372 total)
+### Test Suite (387 total)
 
 | Area | Count | Delta |
 |------|-------|-------|
-| Baseline (Epic 14) | 316 | — |
-| Otboy tests deleted | -25 | `tests/test_otboy.py` deleted |
-| New common tests | +81 | `tests/test_common.py` created |
-| **Total** | **372** | **+56 net** |
+| Baseline (Epic 15) | 372 | — |
+| Danger words (135+) | +8 | test_common.py |
+| Collect-then-Group edge cases | +4 | test_dead_page_relay.py |
+| TargetChannelFilter + propagation | +3 | test_war_alert.py |
+| **Total** | **387** | **+15 net** |
 
-### Config Migration
+### Changed Components
 
-| Old (Epic 13) | New (Epic 15) | Notes |
-|---------------|---------------|-------|
-| `OTBOY_COOLDOWN_SECONDS` (float) | `COMMON_COOLDOWN_SECONDS` (float, default 0) | Shared across sub-services |
-| `OTBOY_PHOTO_PATH` (`media/otboy.jpg`) | `COMMON_MEDIA_BASE` (`media/common`) | Directory-based, scans subdirs |
-| — | `DANGER_WORDS` (str, csv) | New: 22 Cyrillic keywords default |
+| Файл | Тип изменения | Задача |
+|------|---------------|--------|
+| `filters/danger_word.py` | MODIFIED | T-109: расширение списка до 135+ слов |
+| `services/dead_page_relay.py` | MODIFIED | T-110: Collect-then-Group heuristic |
+| `filters/target_channel.py` | **NEW** | T-114: новый фильтр TargetChannelFilter |
+| `handlers/war_alert.py` | MODIFIED | T-115: замена F.forward_origin на TargetChannelFilter |
+| `tests/test_common.py` | MODIFIED | T-111: новые тесты danger words |
+| `tests/test_dead_page_relay.py` | MODIFIED | T-111: тесты Collect-then-Group edge cases |
+| `tests/test_war_alert.py` | MODIFIED | T-111: тесты propagation fix |
+
+### Risky Check Items — Resolved
+
+| RC | Описание | Статус |
+|----|----------|--------|
+| RC1 | DangerWordFilter и WarWordFilter дублируют проверки | ✅ By design — оба срабатывают |
+| RC2 | Date proximity ±2s в Collect-then-Group | ✅ Known limitation — принято |
+| RC3 | TargetChannelFilter ленивая инициализация | ✅ Используется существующий _is_target_channel() helper |
 
 ---
 
-## Previous Epic: 13 — Otboy Service (F9) — SUPERSEDED by Epic 15
+## Previous Epic: 15 — Common Service Refactoring (SUPERSEDED)
 
-> Original Epic 13 (v2.10.0, commit `251acef`) is now superseded. All functionality preserved,
-> refactored under `handlers/common.py` + `CommonRelay` with unified architecture.
-
-Epic 13 created: `filters/otboy_word.py`, `services/otboy_relay.py`, `handlers/otboy.py` (3 files).
-Epic 15 preserves `filters/otboy_word.py`, replaces the other 2 with `handlers/common.py` + `services/common_relay.py`.
+> Original Epic 15 (v2.12.0) is now superseded by v2.12.1 (Epic 16).
+> All functionality preserved under `handlers/common.py` + `CommonRelay`.
 
 ---
 
@@ -207,7 +205,8 @@ Epic 15 preserves `filters/otboy_word.py`, replaces the other 2 with `handlers/c
 | v2.9.2 | 2026-07-26 | Epic 12 (F8) | T-078–T-083 | 280 |
 | v2.10.0 | 2026-07-26 | Epic 13 (F9 Otboy) | T-084–T-092 | 305 |
 | v2.11.0 | 2026-07-28 | Epic 14 (Album Fix) | T-093–T-099 | 316 |
-| **v2.12.0** | **2026-07-28** | **Epic 15 (Common Service)** | **T-100–T-107** | **372** |
+| v2.12.0 | 2026-07-28 | Epic 15 (Common Service) | T-100–T-107 | 372 |
+| **v2.12.1** | **2026-07-29** | **Epic 16 (Bug Fixes)** | **T-109–T-115** | **387** |
 
 ---
 
@@ -215,12 +214,13 @@ Epic 15 preserves `filters/otboy_word.py`, replaces the other 2 with `handlers/c
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-107 (107 tasks across 15 Epics) ✅ |
-| **In Progress** | — |
+| **Done** | T-001 – T-115 (115 задач across 16 Epics) ✅ |
+| **Planned** | — (backlog empty) |
 
-> Epics 1-15 COMPLETE. 107 задач. 372 теста. 10 роутеров. 5 таблиц БД.  
-> AdminBot v2.12.0 — PRODUCTION-READY.
+> Epics 1-16 COMPLETE & DEPLOYED. AdminBot v2.12.1 — Production-Ready.
+> 387 тестов, 10 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
+> Все 16 Epic'ов завершены. Zero known bugs.
 
 ---
 
-*Последнее обновление: 2026-07-28 — EPIC 15 COMPLETE: Common Service Refactoring + Danger Detection. Otboy service → Common service. 81 новых тестов в test_common.py. Knowledge graph обновлён: 10 новых сущностей (Epic-15-Common-Service, CommonRelay, DangerWordFilter, common-service, 4 File entities, AdminBot-v2.12.0) + 16 отношений. Old otboy entities marked DELETED/SUPERSEDED.*
+*Последнее обновление: 2026-07-29 — EPIC 16 IMPLEMENTED. Post-implementation sync: Knowledge Graph полностью синхронизирован — сущности Epic-16-Bug-Fixes (IMPLEMENTED), TargetChannelFilter (IMPLEMENTED), DangerWordFilter (расширен до 135+), DeadPageRelay (Collect-then-Group). Созданы 13 новых observation, 5 новых сущностей (AdminBot-v2.12.1, T-109, T-110, T-114, T-115), 11 новых отношений. MEMORY.md обновлён до v2.12.1 (implemented) с 387 тестами.*

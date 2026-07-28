@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.12.0
-> **Дата:** 2026-07-28
+> **Версия:** v2.12.1
+> **Дата:** 2026-07-29
 > **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
 
 ---
@@ -26,8 +26,10 @@ C:\Code\Python\adminbot\
 │   ├── vasya_name.py              # VasyaFilter(BaseFilter) — regex "вас[иеёяю]"
 │   ├── admin_word.py              # StrictAdminFilter(BaseFilter) — exact word "админ"
 │   ├── kucha_word.py              # KuchaWordFilter(BaseFilter) — "куч[аиеуюйе]" (F4)
-│   ├── war_word.py                # WarWordFilter(BaseFilter) — 21 war word + synonym (F5)
-│   └── otboy_word.py              # OtboyWordFilter(BaseFilter) — word "отбой" in text/caption/forward (F9)
+│   ├── war_word.py                # WarWordFilter(BaseFilter) — 135+ military/drone/alert keywords (F5v2)
+│   ├── otboy_word.py              # OtboyWordFilter(BaseFilter) — word "отбой" in text/caption/forward (F9)
+│   ├── danger_word.py             # DangerWordFilter(BaseFilter) — 135+ danger keywords from WAR_WORDS (Epic 15/16)
+│   └── target_channel.py          # TargetChannelFilter(BaseFilter) — matches forwarded ONLY from target war channels (Epic 16)
 │
 ├── handlers/
 │   ├── __init__.py
@@ -791,9 +793,11 @@ dp.include_router(dead_page_router)
 # 4b. War Alert router — F5v2: war keywords + channel repost detection
 #    Isolates war word detection from slavik_router. Handles:
 #      - Slava's messages with war keywords (text OR caption)
-#      - Reposts from target channels (by ID or username) by ANY user
+#      - Reposts from target war channels (by ID or username) via TargetChannelFilter
 #    Registered BEFORE slavik_router so channel reposts are caught
 #    even if Slava sends them (no conflict — different trigger logic).
+#    TargetChannelFilter ensures non-war forwarded messages pass through
+#    to common_router (position 4c) for danger/otboy detection.
 setup_war_alert()
 dp.include_router(war_alert_router)
 
@@ -1147,6 +1151,95 @@ class OtboyWordFilter(BaseFilter):
 3. **Cyrillic word boundaries:** `(?<![а-яё])...(?![а-яё])` prevents matching "отбойный", "отбойник", etc.
 4. **Case-insensitive:** `re.IGNORECASE` matches "отбой", "Отбой", "ОТБОЙ".
 5. **Guard clause:** `isinstance(content, str)` protects against mock objects during testing.
+
+### 6.7 TargetChannelFilter (`filters/target_channel.py`) — NEW in v2.12.1 (Epic 16)
+
+```python
+import logging
+from aiogram.filters import BaseFilter
+from aiogram.types import Message, MessageOriginChannel
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_int_list(raw: str) -> list[int]:
+    if not raw:
+        return []
+    result: list[int] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            try:
+                result.append(int(part))
+            except ValueError:
+                logger.warning("TargetChannelFilter: invalid channel ID: %r", part)
+    return result
+
+
+def _parse_str_list(raw: str) -> list[str]:
+    if not raw:
+        return []
+    return [s.strip().lower() for s in raw.split(",") if s.strip()]
+
+
+class TargetChannelFilter(BaseFilter):
+    """
+    Matches messages forwarded ONLY from configured target war channels.
+
+    Checks forward_origin.chat.id against WAR_CHANNEL_IDS
+    and forward_origin.chat.username against WAR_CHANNEL_USERNAMES.
+    Non-forwarded messages and non-target channel forwards do NOT match.
+
+    Replaces F.forward_origin + manual _is_target_channel() checks
+    in war_channel_repost_handler (handlers/war_alert.py, line 186).
+
+    Design rationale (D72):
+      - F.forward_origin matches ALL forwarded messages → handler fires
+        even for non-target channels → bare return (None) stops propagation
+        → common_router (position 4c) never receives forwarded messages.
+      - TargetChannelFilter only matches target war channels → non-war
+        forwards pass through → common_router receives them correctly.
+
+    Usage:
+        @router.message(TargetChannelFilter())
+        async def handler(message: Message): ...
+    """
+
+    async def __call__(self, message: Message) -> bool:
+        origin = message.forward_origin
+
+        if not isinstance(origin, MessageOriginChannel):
+            return False
+
+        target_ids = _parse_int_list(settings.WAR_CHANNEL_IDS)
+        target_usernames = _parse_str_list(settings.WAR_CHANNEL_USERNAMES)
+
+        if target_ids and origin.chat.id in target_ids:
+            logger.debug(
+                "TargetChannelFilter matched by ID=%d (msg_id=%d)",
+                origin.chat.id,
+                origin.message_id,
+            )
+            return True
+
+        if target_usernames and origin.chat.username:
+            if origin.chat.username.lower() in target_usernames:
+                logger.debug(
+                    "TargetChannelFilter matched by username=@%s (msg_id=%d)",
+                    origin.chat.username,
+                    origin.message_id,
+                )
+                return True
+
+        return False
+```
+
+**Key design decisions:**
+1. **Dual match (ID + username):** As in `dead_page_trigger.py` and the original `_is_target_channel()` — more resilient: if channel changes username but keeps ID, ID match still works.
+2. **Replaces F.forward_origin + manual checks:** The filter absorbs the `isinstance(MessageOriginChannel)` and `_is_target_channel()` logic. Handler 2 in `war_alert.py` becomes simpler — it receives only matched messages.
+3. **Does NOT block propagation for non-matches:** When filter returns `False`, aiogram skips the handler → router returns `UNHANDLED` → dispatcher continues to next sub-router (`common_router` at position 4c).
+4. **Self-contained parsing:** `_parse_int_list` / `_parse_str_list` duplicated from `war_alert.py` helper functions. Acceptable: filters must not import from handlers. Could be refactored to `config/settings.py` in future.
 
 ---
 
@@ -2684,6 +2777,10 @@ Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл
 | D54 | F9: Quote via `ReplyParameters(quote=matched_word)` not `quote_entities` | `quote_entities` requires UTF-16 offset calculations, fragile with multi-byte Cyrillic. `quote` (the string) is simple and Telegram correctly highlights it. Handler re-searches to preserve original case. |
 | D55 | F9: otboy_router at position 4c (between war_alert and slavik) | Must be before slavik_router's catch-all to fire for Slava's messages. After war_alert_router so war reply fires before otboy photo. Overlap with "отбой" in WAR_WORDS is by design — both fire for Slava. |
 | D56 | F9: Handler returns None (not UNHANDLED) | Unlike slava_presence handlers, otboy_handler should NOT block propagation. Other routers (slavik, vasya) must continue to fire. Same as war_alert handlers — both return None. |
+| D57 | v2.12.1: Двухфазная стратегия Collect-then-Group в `_forward_with_heuristic()` | RC1 fix: Фаза 1 пробинга собирает ID; Фаза 2 удаляет индивидуальные forward и переотправляет группой через `forward_messages()`. Delete-and-re-forward «мигание» — acceptable для infrequent heuristic path. |
+| D58 | v2.12.1: `_DEFAULT_DANGER_WORDS` расширен до полного WAR_WORDS (135+ словоформ) | Cyrillic word boundary `(?![а-яё])` гарантирует безопасность. Единый источник истины для danger/otboy фильтров. T-109 fix. |
+| D59 | v2.12.1: `TargetChannelFilter` заменяет `F.forward_origin` в war_channel_repost_handler | T-114 fix: `F.forward_origin` матчил ВСЕ forwarded, handler возвращал None для non-target → propagation останавливался → common_router не получал forwarded. `TargetChannelFilter` матчит ТОЛЬКО target war-каналы → non-war forwards проходят в common_router. |
+| D60 | v2.12.1: Удаление `_is_target_channel()` и ручных проверок из war_alert.py | Логика полностью перенесена в `TargetChannelFilter`. Handler 2 упрощён: получает только уже отфильтрованные target-channel сообщения. |
 
 ---
 
@@ -6182,6 +6279,9 @@ dp.include_router(otboy_router)
 
 # СТАЛО:
 # 4c. Common Service (Epic 15): otboy "отбой" + danger keywords → random media with quote
+#    Registered BEFORE slavik_router to avoid catch-all interception.
+#    Receives forwarded messages from NON-war channels since v2.12.1
+#    (TargetChannelFilter in war_alert_router no longer blocks them).
 dp.include_router(common_router)
 ```
 
@@ -6634,3 +6734,501 @@ media/common/
    ```
 
 4. **Test count before deploy:** 316 → after Epic 15: 372 (`py -m pytest tests/ -q`)
+
+---
+
+## 28. v2.12.1 Bug Fixes (Epic 16)
+
+> **Версия:** v2.12.1
+> **Дата:** 2026-07-29
+> **Назначение:** Исправление трёх багов: (1) DeadPageRelay разрушает группировку альбомов при heuristic-пересылке (RC1); (2) DangerWordFilter не содержит 91+ словоформ из WarWordFilter (T-109); (3) Forwarded-сообщения из НЕ-военных каналов не доходят до common_router/danger_handler (T-114, CRITICAL).
+
+---
+
+### 28.1 Bug 1: DeadPageRelay — разрушение группировки альбомов (heuristic path)
+
+#### 28.1.1 Текущее состояние
+
+Файл: `services/dead_page_relay.py`
+
+Метод `_forward_with_album_detection()` (строка 233) имеет два пути:
+
+```
+Path 1 (DB):  media_group_id найден в relay_album_map
+              → get_relay_album_message_ids()
+              → bot.forward_messages(all_ids)  ← plural, группа сохраняется ✅
+
+Path 2 (Heuristic): media_group_id НЕ найден
+              → _forward_with_heuristic()
+              → bot.forward_message() для primary      ← singular ❌
+              → probe forward: bot.forward_message() x9 ← singular ❌
+              → probe backward: bot.forward_message() x9 ← singular ❌
+              Каждое сообщение пересылается ОТДЕЛЬНО — альбом разрушен
+```
+
+Path 1 (DB) работает корректно: использует `forward_messages()` (множественное число), что сохраняет визуальную группировку альбома в целевом чате.
+
+Path 2 (heuristic) — **багнутый**: каждое фото альбома пересылается индивидуальным вызовом `forward_message()` (единственное число), что разрушает медиа-группу. В целевом чате альбом отображается как набор разрозненных сообщений.
+
+#### 28.1.2 Анализ корневых причин (Root Cause Analysis)
+
+Файл: `services/dead_page_relay.py`, строки 273–362.
+
+**RC1 — Individual `forward_message()` разрушает альбом:**
+Каждый sibling форвардится отдельным вызовом `forward_message()` (singular), а не одним `forward_messages()` (plural). К моменту когда все sibling'и собраны в `all_ids`, они уже отправлены в чат как разрозненные сообщения. В отличие от Path 1 (DB), где `forward_messages(all_ids)` сохраняет группировку.
+
+**RC2 — Date-proximity ±2 сек не различает «тот же альбом» и «соседний пост»:**
+Эвристика date-proximity (±2 сек, `_ALBUM_DATE_TOLERANCE_S`) может склеивать соседние независимые посты, если админ опубликовал их с интервалом <2 секунд. Gap tolerance (до 2 пропусков) частично защищает: если между постами есть удалённое сообщение, probe остановится.
+
+**RC3 — Heuristic Path всегда срабатывает для старых постов:**
+Старые посты (до деплоя Epic 14) не имеют записей в `relay_album_map` (DB-трекер добавлен только в Epic 14 и индексирует только новые посты). Любой старый пост проходит через Path 2 (heuristic), даже если он не является альбомом — для одиночных постов это overhead из ~20 API вызовов.
+
+Текущий алгоритм `_forward_with_heuristic()`:
+
+1. **Шаг 1:** `bot.forward_message(primary)` → сообщение УЖЕ в целевом чате как individual
+2. **Шаг 2–3:** Пробинг соседних `message_id` через `bot.forward_message(candidate, disable_notification=True)`:
+   - При совпадении даты (±2 сек) — sibling остаётся в чате как individual
+   - При несовпадении — удаляется через `_safe_delete()`
+   - При "not found" — пропускается (gap tolerance до 2)
+
+Фундаментальная проблема (RC1): каждое сообщение пересылается **до** того, как становится известно, является ли оно частью альбома.
+
+#### 28.1.3 Архитектурное решение
+
+**Стратегия: Collect-then-Group (двухфазная пересылка)**
+
+Модифицировать `_forward_with_heuristic()` на двухфазный подход:
+
+```
+Фаза 1 (Probe & Collect):
+  1. forward_message(primary) → сохранить sent_primary.message_id (в целевом чате)
+  2. Пробинг forward/backward как сейчас → собирать:
+     - all_ids: список message_id в relay-канале (для итоговой группы)
+     - sent_ids: список message_id в целевом чате (для последующего удаления)
+  3. При несовпадении даты → _safe_delete() + break (как сейчас)
+
+Фаза 2 (Delete & Re-send as Group):
+  ЕСЛИ len(all_ids) > 1 (обнаружен альбом):
+    a. Удалить все sent_ids из целевого чата через delete_message()
+    b. Переслать группу: bot.forward_messages(
+         chat_id=chat_id,
+         from_chat_id=self.relay_channel_id,
+         message_ids=sorted(all_ids),  ← plural — сохраняет группировку
+         disable_notification=False,
+       )
+  ИНАЧЕ (одиночное сообщение):
+    Оставить primary как есть — уже отправлен в Фазе 1
+```
+
+**Конкретные изменения в `services/dead_page_relay.py`:**
+
+1. **Модифицировать `_forward_with_heuristic()`** (строки 273–362):
+   - Добавить список `sent_ids: list[int]` — отслеживает `message.message_id` в целевом чате для каждого успешного forward
+   - После primary forward: `sent_ids.append(sent_primary.message_id)`
+   - Для каждого sibling forward: `sent_ids.append(sibling.message_id)`; при non‑match `_safe_delete(sibling.message_id)` — НЕ добавлять в `sent_ids`
+   - После завершения пробинга: если `len(all_ids) > 1`:
+     - `for mid in sent_ids: await _safe_delete(chat_id, mid)`
+     - `await self.bot.forward_messages(chat_id=chat_id, from_chat_id=self.relay_channel_id, message_ids=sorted(all_ids))`
+     - Обновить лог: `"Album (heuristic): N messages, IDs=..."` (уже есть на строке 357–360)
+   - `_safe_delete()` уже существует (строка 223) — переиспользовать
+
+2. **Побочный эффект — «мигание» сообщений:**
+   - При альбоме сообщения появляются в чате на ~200–500 мс как individual, затем удаляются и переотправляются группой
+   - Sibling'и отправлены с `disable_notification=True` — пользователи не получают уведомлений о них
+   - Primary отправлен с `disable_notification=False` — одно уведомление, затем сообщение удаляется и заменяется группой (пользователь видит уведомление об альбоме после замены)
+   - **Acceptable tradeoff:** срабатывает только для старых постов без DB-записей; новые посты идут через Path 1 (DB) без мигания
+
+3. **Caption в альбоме:**
+   - `forward_messages()` Telegram обрабатывает caption первого сообщения в группе как общий caption альбома
+   - Остальные caption'ы в sibling-сообщениях игнорируются — стандартное поведение Telegram для альбомов
+   - Специальной обработки не требуется
+
+**Почему НЕ отдельный метод `_forward_album_group()`:**
+- Текущий `_forward_with_heuristic()` уже содержит всю логику обнаружения альбома (пробинг, date comparison, gap tolerance)
+- Добавление отдельного метода дублировало бы эту логику
+- Модификация существующего метода с добавлением Фазы 2 — минимальное изменение, сохраняющее всю существующую логику нетронутой
+
+**Эвристика date-proximity — известное ограничение:**
+- ±2 сек tolerance может склеить два разных поста, если админ опубликовал их с интервалом <2 сек и без удалённых сообщений между ними
+- Gap tolerance (до 2 пропусков) частично защищает: если между постами есть удалённое сообщение, probe остановится
+- **Не исправляется в v2.12.1** — требует DB-индексации старых постов (backfill `relay_album_map` для всей истории канала). Может быть добавлено в будущем эпике
+- На практике такой сценарий крайне маловероятен (постить одиночное фото и через <2 сек альбом — нетипичное поведение)
+
+#### 28.1.4 `.env` channel ID — не баг
+
+`.env` содержит `DEAD_PAGE_RELAY_CHANNEL_ID=-1004228645624` — отрицательный ID с префиксом `-100`. Это **корректный** формат Telegram supergroup/channel ID. Значение по умолчанию в `config/settings.py` (`4228645624`) — это «сырой» ID без префикса; `.env` переопределяет его. Telegram Bot API принимает оба формата, но `-100...` — канонический.
+
+DB-ключ `last_known_message_id` в `channel_state` не зависит от channel_id (использует fallback-ключ `"last_known_message_id"` при `channel_id=0`). **Исправлений не требуется.**
+
+#### 28.1.5 Верификация Bug 1
+
+1. **Unit-тест `test_heuristic_album_forwards_as_group`** (новый в `tests/test_dead_page_relay.py`):
+   - Mock: 3 сообщения с одинаковой датой в relay-канале, media_group_id отсутствует в БД
+   - Ожидание: `bot.forward_messages()` вызван с `message_ids=[id1, id2, id3]`; индивидуальные forward'ы удалены из чата
+
+2. **Unit-тест `test_heuristic_single_post_no_regroup`** (новый):
+   - Mock: только primary сообщение, соседние не найдены
+   - Ожидание: `forward_messages()` НЕ вызван; primary остаётся в чате (не удаляется)
+
+3. **Регрессионный прогон:** `pytest tests/test_dead_page_relay.py -v` — все существующие тесты проходят
+
+---
+
+### 28.2 Bug 2: DangerWordFilter — отсутствуют 91+ словоформ из WarWordFilter (T-109)
+
+#### 28.2.1 Текущее состояние
+
+Файл: `filters/danger_word.py`, строка 18–41.
+
+`_DEFAULT_DANGER_WORDS`: 22 слова против 135+ в `filters/war_word.py::WAR_WORDS`. Нет «ракета», «укрытие», «бункер», «взрыв», «сбит», «эвакуация», «упал» и многих других критичных существительных/глаголов. Только прилагательные «ракетная», «баллистическая», «крылатая» — сообщение «летит ракета» не детектируется.
+
+#### 28.2.2 Архитектурное решение: полный список WAR_WORDS
+
+Взять ВСЕ слова из `filters/war_word.py::WAR_WORDS` (135+ словоформ), сгруппированных по семействам, с сохранением word-boundary безопасности.
+
+**Regex-безопасность:** Все словоформы проходят `(?<![а-яё])...(?![а-яё])` — Cyrillic word boundary гарантирует:
+- `«ракет»` НЕ матчит внутри `«ракетная»` (после «т» идёт «н» = Cyrillic → blocked lookahead)
+- `«сбит»` НЕ матчит внутри `«сбитый»` (аналогично)
+- `«упал»` НЕ матчит внутри `«упала»` — но матчит отдельно `«упал»` и `«упала»` (оба в списке)
+
+**Полный `_DEFAULT_DANGER_WORDS` (135+ словоформ):**
+
+```python
+_DEFAULT_DANGER_WORDS: list[str] = [
+    # ── БПЛА / дроны (21 форма) ──
+    "бпла",
+    "дрон", "дроны", "дронов", "дрону", "дроном", "дроне",
+    "дронам", "дронами", "дронах",
+    "беспилотник", "беспилотники", "беспилотника", "беспилотнику",
+    "беспилотником", "беспилотнике", "беспилотников", "беспилотникам",
+    "беспилотниками", "беспилотниках",
+    # ── Shahed (2 формы) ──
+    "шахед", "шахеды",
+    # ── Ракета: существительные (10 форм) ──
+    "ракета", "ракеты", "ракет", "ракете", "ракету", "ракетой",
+    "ракетою", "ракетам", "ракетами", "ракетах",
+    # ── Ракета: прилагательные (11 форм) ──
+    "ракетная", "ракетной", "ракетную", "ракетною",
+    "ракетные", "ракетных", "ракетным", "ракетными",
+    "ракетный", "ракетного", "ракетному",
+    # ── Баллистическая / крылатая ──
+    "баллистическая", "крылатая",
+    # ── Полёт / прилёт (9 форм) ──
+    "летит", "летает", "прилетел", "прилетает", "летят", "летел",
+    "прилет", "прилёт", "прилетит",
+    # ── Вспышка (9 форм) ──
+    "вспышка", "вспышки", "вспышке", "вспышку", "вспышкой",
+    "вспышек", "вспышкам", "вспышками", "вспышках",
+    # ── Взрыв (10 форм) ──
+    "взрыв", "взрыва", "взрыву", "взрывом", "взрыве",
+    "взрывы", "взрывов", "взрывам", "взрывами", "взрывах",
+    # ── Укрытие (9 форм) ──
+    "укрытие", "укрытия", "укрытию", "укрытием", "укрытии",
+    "укрытий", "укрытиям", "укрытиями", "укрытиях",
+    # ── Убежище (8 форм) ──
+    "убежище", "убежища", "убежищу", "убежищем",
+    "убежищ", "убежищам", "убежищами", "убежищах",
+    # ── Бункер (9 форм) ──
+    "бункер", "бункера", "бункеру", "бункером", "бункере",
+    "бункеров", "бункерам", "бункерами", "бункерах",
+    # ── Опасность (8 форм) ──
+    "опасность", "опасности", "опасностью", "опасностей",
+    "опасен", "опасна", "опасно", "опасны",
+    # ── Тревога (5 форм) ──
+    "тревога", "тревоги", "тревоге", "тревогу", "тревогой",
+    # ── Внимание / оповещение (8 форм) ──
+    "внимание", "внимания",
+    "оповещение", "оповещения", "оповещению", "оповещением",
+    "оповещении", "оповещений",
+    # ── Сирена (9 форм) ──
+    "сирена", "сирены", "сирену", "сиреной", "сирене",
+    "сирен", "сиренам", "сиренами", "сиренах",
+    # ── Воздушная (3 формы) ──
+    "воздушная", "воздушной", "воздушную",
+    # ── Беспилотные (прилагательные, 8 форм) ──
+    "беспилотной", "беспилотная", "беспилотное", "беспилотные",
+    "беспилотного", "беспилотному", "беспилотным", "беспилотных",
+    # ── Атака (9 форм) ──
+    "атака", "атаки", "атаке", "атаку", "атакой",
+    "атак", "атакам", "атаками", "атаках",
+    # ── Угроза (8 форм) ──
+    "угроза", "угрозы", "угрозе", "угрозу", "угрозой",
+    "угроз", "угрозам", "угрозами", "угрозах",
+    # ── Обстрел (10 форм) ──
+    "обстрел", "обстрела", "обстрелу", "обстрелом", "обстреле",
+    "обстрелы", "обстрелов", "обстрелам", "обстрелами", "обстрелах",
+    # ── Сбит / падение (9 форм) ──
+    "сбит", "сбита", "сбито", "сбиты",
+    "падение", "падения", "падению", "падением", "падении",
+    "упал", "упала", "упало", "упали",
+    # ── Эвакуация (5 форм) ──
+    "эвакуация", "эвакуации", "эвакуацию", "эвакуацией",
+    "эвакуироваться",
+    # ── Отбой (5 форм) ──
+    "отбой", "отбоя", "отбою", "отбоем", "отбое",
+]
+```
+
+**Что НЕ меняется в `filters/danger_word.py`:**
+- `_build_danger_patterns()` — без изменений (автоматически компилирует все слова в regex)
+- `DangerWordFilter.__call__()` — без изменений (проверяет `text or caption`)
+- `_parse_danger_words()` — без изменений (пользовательские списки через `DANGER_WORDS` `.env` не затрагиваются)
+- Совместимость с WarWordFilter: оба фильтра используют одинаковые слова, одинаковый regex-формат
+
+**Overlap с otboy_handler:** «отбой» и его словоформы матчат ОБА фильтра (OtboyWordFilter + DangerWordFilter). `CommonRelay` shared cooldown предотвращает дублирование медиа — сработает только один `send_common()`.
+
+#### 28.2.3 Верификация Bug 2 (T-109)
+
+1. **Unit-тест `test_danger_full_war_words`** (новый в `tests/test_common.py`):
+   - «летит ракета» → `{"matched_word": "ракета"}`
+   - «бегом в бункер» → `{"matched_word": "бункер"}`
+   - «сирена воздушная тревога» → `{"matched_word": "сирена"}`
+   - «сбили беспилотник» → `{"matched_word": "беспилотник"}`
+   - «эвакуация» → `{"matched_word": "эвакуация"}`
+   - «ракетная опасность» → `{"matched_word": "ракетная"}` (не «ракет»!)
+
+2. **Регрессионный прогон:** `pytest tests/test_common.py -v -k "danger_word"` — все 10+ существующих тестов проходят
+
+---
+
+### 28.3 Bug 3: Forwarded-сообщения не доходят до common_router (T-114, CRITICAL)
+
+#### 28.3.1 Root Cause A: `F.forward_origin` перехватывает ВСЕ forwarded-сообщения
+
+Файл: `handlers/war_alert.py`, строка 186.
+
+```python
+@war_alert_router.message(F.forward_origin)         # ← матчит ВСЕ forwarded
+async def war_channel_repost_handler(message: types.Message):
+    if not isinstance(origin, MessageOriginChannel):
+        return                                       # ← None → propagation STOP
+    if not _is_target_channel(origin):
+        return                                       # ← None → propagation STOP
+```
+
+**Механизм бага:**
+1. `F.forward_origin` матчит ЛЮБОЕ forwarded-сообщение → handler вызывается
+2. Для non-target каналов handler делает `return` (None)
+3. В aiogram 3.x, `None != UNHANDLED` → propagation останавливается
+4. `common_router` (позиция 4c) НИКОГДА не получает forwarded-сообщения
+5. `danger_handler` в common_router не срабатывает на forwarded danger words
+
+**Затронутые сценарии:**
+- Юзер форвардит «ракетная опасность» из любого НЕ-военного канала → danger_handler пропущен
+- Юзер форвардит «отбой» из НЕ-военного канала → otboy_handler пропущен (если cooldown позволяет)
+- Любое forwarded-сообщение с danger keywords из не-целевого канала → молча игнорируется
+
+#### 28.3.2 Архитектурное решение: `TargetChannelFilter` (Вариант A)
+
+**Новый файл:** `filters/target_channel.py`
+
+```python
+"""TargetChannelFilter — matches forwarded messages ONLY from target war channels.
+
+Uses WAR_CHANNEL_IDS and WAR_CHANNEL_USERNAMES from config (same config as
+the existing _is_target_channel() helper in handlers/war_alert.py).
+
+Non-forwarded messages and non-target channel forwards do NOT match →
+propagation continues to common_router (position 4c).
+"""
+import logging
+from aiogram.filters import BaseFilter
+from aiogram.types import Message, MessageOriginChannel
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_int_list(raw: str) -> list[int]:
+    if not raw:
+        return []
+    result: list[int] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            try:
+                result.append(int(part))
+            except ValueError:
+                logger.warning("TargetChannelFilter: invalid channel ID: %r", part)
+    return result
+
+
+def _parse_str_list(raw: str) -> list[str]:
+    if not raw:
+        return []
+    return [s.strip().lower() for s in raw.split(",") if s.strip()]
+
+
+class TargetChannelFilter(BaseFilter):
+    """Matches messages forwarded ONLY from configured target war channels.
+
+    Checks forward_origin.chat.id against WAR_CHANNEL_IDS
+    and forward_origin.chat.username against WAR_CHANNEL_USERNAMES.
+
+    Usage:
+        @router.message(TargetChannelFilter())
+        async def handler(message: Message): ...
+    """
+
+    async def __call__(self, message: Message) -> bool:
+        origin = message.forward_origin
+
+        if not isinstance(origin, MessageOriginChannel):
+            return False
+
+        target_ids = _parse_int_list(settings.WAR_CHANNEL_IDS)
+        target_usernames = _parse_str_list(settings.WAR_CHANNEL_USERNAMES)
+
+        if target_ids and origin.chat.id in target_ids:
+            logger.debug(
+                "TargetChannelFilter matched by ID=%d (msg_id=%d)",
+                origin.chat.id,
+                origin.message_id,
+            )
+            return True
+
+        if target_usernames and origin.chat.username:
+            if origin.chat.username.lower() in target_usernames:
+                logger.debug(
+                    "TargetChannelFilter matched by username=@%s (msg_id=%d)",
+                    origin.chat.username,
+                    origin.message_id,
+                )
+                return True
+
+        return False
+```
+
+**Изменения в `handlers/war_alert.py`:**
+
+```python
+# БЫЛО (строка 186):
+@war_alert_router.message(F.forward_origin)
+
+# СТАЛО:
+@war_alert_router.message(TargetChannelFilter())
+```
+
+И добавить import в начало файла:
+```python
+from filters.target_channel import TargetChannelFilter
+```
+
+**Удалить из Handler 2 (строки 189–206):**
+- Проверку `isinstance(origin, MessageOriginChannel)` — фильтр уже проверил
+- Вызов `_is_target_channel(origin)` — фильтр уже проверил
+- Ручной лог "not a channel" — больше не нужен (не-target forwarded не доходят)
+
+**Упрощённый Handler 2 после фикса:**
+```python
+@war_alert_router.message(TargetChannelFilter())
+async def war_channel_repost_handler(message: types.Message):
+    """Any channel repost from a TARGET war channel → random reply."""
+    origin = message.forward_origin
+    # origin гарантированно MessageOriginChannel из target канала
+    reply_text = random.choice(WAR_REPLIES)
+    reposter_id = message.from_user.id if message.from_user else 0
+    logger.info(
+        "War Alert (repost): target channel repost detected | channel_id=%d | "
+        "username=%s | msg_id=%d | chat_id=%d | reposter_id=%d",
+        origin.chat.id,
+        origin.chat.username,
+        origin.message_id,
+        message.chat.id,
+        reposter_id,
+    )
+    try:
+        await message.reply(reply_text)
+    except Exception:
+        logger.exception(
+            "War Alert (repost): failed to send reply | msg_id=%d | channel_id=%d",
+            message.message_id,
+            origin.chat.id,
+        )
+```
+
+#### 28.3.3 Анализ регрессий — handler-overlap матрица (после фикса)
+
+| Сценарий | forward_origin | User=Slava | WarWord | Handler 1 | Handler 2 | common_router |
+|----------|:---:|:---:|:---:|:---:|:---:|:---:|
+| Слава пишет «дрон» | None | ✓ | ✓ | ✓ | ✗ (TargetChannelFilter) | ✓ |
+| Слава репостит из НЕ-целевого канала «ракета» | Channel(non-target) | ✓ | ✓ | ✓ | ✗ (TargetChannelFilter) | ✗ (Handler 1 вернул None) |
+| Слава репостит из ЦЕЛЕВОГО канала «дрон» | Channel(target) | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Юзер N репостит из НЕ-целевого канала «ракетная опасность» | Channel(non-target) | ✗ | — | ✗ | ✗ (TargetChannelFilter) | ✅ danger_handler ✓ |
+| Юзер N репостит «отбой» из НЕ-целевого | Channel(non-target) | ✗ | — | ✗ | ✗ | ✅ otboy_handler ✓ |
+| Юзер N репостит из целевого канала | Channel(target) | ✗ | — | ✗ | ✓ | ✗ (Handler 2 вернул None) |
+
+**Примечание к строке 2:** Слава репостит из НЕ-целевого канала с war word → Handler 1 матчит (UserId + WarWord) → возвращает None → propagation stops. `common_router` не получает сообщение. Это **ожидаемое поведение**: для Славы war reply от Handler 1 приоритетнее danger media от common_router. Если нужно чтобы оба срабатывали — Handler 1 должен возвращать UNHANDLED. Но это edge case (Слава редко репостит военные новости), и двойной ответ (war reply + danger media) избыточен.
+
+#### 28.3.4 Проверка конфликтов
+
+| Проверка | Статус |
+|----------|:---:|
+| Порядок роутеров: dead_page (4) → war_alert (4b) → common (4c) → slavik (5) | ✅ Без изменений |
+| `war_keyword_handler` (Handler 1) НЕ сломан — UserIdFilter + WarWordFilter без изменений | ✅ |
+| Non-Slava forwarded из НЕ-военных каналов достигают common_router | ✅ TargetChannelFilter не матчит |
+| `dead_page_router` (позиция 4) получает forwarded из @d_pages до war_alert | ✅ Порядок роутеров |
+| `otboy_handler` получает forwarded «отбой» из не-военных каналов | ✅ |
+| Функция `_is_target_channel()` удаляется из war_alert.py | ✅ Логика в фильтре |
+| Вспомогательные `_parse_int_list`, `_parse_str_list` дублируются между filter и handler | ⚠️ Допустимо: filter не импортирует handler. При рефакторинге — вынести в `config/settings.py` как `_env_int_tuple`/`_env_str_tuple` |
+
+---
+
+### 28.4 Files Changed Summary
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `services/dead_page_relay.py` | **MODIFY** | `_forward_with_heuristic()`: двухфазная стратегия (collect-then-group) с `sent_ids` tracking и переотправкой через `forward_messages()` (RC1 fix) |
+| `filters/danger_word.py` | **MODIFY** | `_DEFAULT_DANGER_WORDS`: расширен с 22 до 135+ словоформ (все слова из `WAR_WORDS` + «шахед», «баллистическая», «крылатая») (T-109) |
+| `filters/target_channel.py` | **CREATE** | `TargetChannelFilter(BaseFilter)`: матчит forwarded ТОЛЬКО из target war-каналов (по ID/username) (T-114) |
+| `handlers/war_alert.py` | **MODIFY** | Handler 2: заменить `F.forward_origin` на `TargetChannelFilter()`; удалить ручные проверки `isinstance` и `_is_target_channel()`; удалить `_is_target_channel()` helper (T-114) |
+| `tests/test_dead_page_relay.py` | **MODIFY** | +2 теста: `test_heuristic_album_forwards_as_group`, `test_heuristic_single_post_no_regroup` |
+| `tests/test_common.py` | **MODIFY** | +2 теста: `test_danger_full_war_words`, `test_danger_raketa_forms` + регрессия |
+| `tests/test_war_alert.py` | **MODIFY** | +3 теста: `test_target_channel_filter_matches_war_channel`, `test_target_channel_filter_ignores_non_war`, `test_non_war_forward_reaches_common_router` |
+| `tests/test_filters.py` | **MODIFY** | +2 теста для `TargetChannelFilter`: ID match, username match, non-channel forward ignored |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 28 (этот документ); version bump to v2.12.1; updated Sections 1, 5, 6 |
+
+**Файлы НЕ тронуты:**
+- `bot.py` — без изменений (порядок роутеров тот же)
+- `config/settings.py` — без изменений (`.env` channel ID корректен)
+- `services/database.py` — без изменений
+- `handlers/common.py` — без изменений (получает forwarded автоматически после фикса)
+- `services/common_relay.py` — без изменений
+- `filters/otboy_word.py`, `filters/war_word.py` — без изменений
+
+---
+
+### 28.5 Key Architectural Decisions (Epic 16)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D67 | Двухфазная стратегия Collect-then-Group в `_forward_with_heuristic()` | Фаза 1 пробинга собирает ID без изменения логики обнаружения; Фаза 2 переотправляет группой через `forward_messages()`. Минимальная модификация существующего кода. Delete-and-re-forward создаёт краткое «мигание» — acceptable для infrequent heuristic path. |
+| D68 | НЕ создавать отдельный метод `_forward_album_group()` | Вся логика обнаружения альбома (пробинг, date comparison, gap tolerance) уже существует в `_forward_with_heuristic()`. Вынос в отдельный метод дублировал бы эту логику. |
+| D69 | Date-proximity clumping (RC2) НЕ исправляется в v2.12.1 | Требует backfill `relay_album_map` для всей истории канала — отдельная задача. Gap tolerance до 2 пропусков уже защищает от большинства сценариев склеивания. |
+| D70 | `sent_ids` tracking через `message.message_id` возвращаемого объекта | `bot.forward_message()` возвращает `Message` с `.message_id` в ЦЕЛЕВОМ чате — это ID для последующего удаления. Не требует дополнительных API-вызовов. |
+| D71 | `_DEFAULT_DANGER_WORDS` расширен до полного списка `WAR_WORDS` (135+ словоформ) | Cyrillic word boundary `(?![а-яё])` гарантирует отсутствие ложных срабатываний для всех форм. Единый источник истины: danger_word = war_word. Пользовательские списки через `.env` не затрагиваются. |
+| D72 | `TargetChannelFilter` заменяет `F.forward_origin` + ручные проверки в handler | Фильтр не матчит non-war forwards → handler не вызывается → propagation продолжается → common_router получает forwarded. Чище, чем возврат UNHANDLED из handler'а. Логика `_is_target_channel()` перенесена в фильтр. |
+| D73 | `_is_target_channel()` и `_parse_*_list()` удалены из `war_alert.py` | Логика полностью в фильтре. Вспомогательные парсеры вынесены в `filters/target_channel.py` (допустимое дублирование с `war_alert.py::_parse_int_list` — фильтры не импортируют handlers). |
+| D74 | Handler 1 (`war_keyword_handler`) НЕ меняется | UserIdFilter + WarWordFilter без изменений. Для Славы forwarded из НЕ-целевого канала с war words → Handler 1 матчит → common_router блокирован. Это expected: war reply от Handler 1 приоритетнее danger media. |
+
+---
+
+### 28.6 Verification Checklist
+
+1. **Bug 1 — Album group (RC1):**
+   - `pytest tests/test_dead_page_relay.py -v -k "heuristic_album"` — 2 новых теста
+   - `pytest tests/test_dead_page_relay.py -v` — все ~14 существующих тестов проходят (регрессия)
+   - Manual: репостнуть альбом из @d_pages → в relay-канале нет DB-записи → heuristic path → альбом в целевом чате отображается С ГРУППИРОВКОЙ
+
+2. **Bug 2 — Danger words (T-109):**
+   - `pytest tests/test_common.py -v -k "danger_full_war_words"` — 1 новый тест (проверяет все 135+ словоформ)
+   - `pytest tests/test_common.py -v -k "danger_word"` — все ~14 существующих тестов проходят (регрессия)
+   - Manual: написать «летит ракета», «бегом в бункер», «воздушная тревога», «эвакуация» → danger handler срабатывает
+
+3. **Bug 3 — TargetChannelFilter (T-114):**
+   - `pytest tests/test_filters.py -v -k "target_channel"` — 2 новых теста (ID match, username match)
+   - `pytest tests/test_war_alert.py -v -k "target_channel"` — 3 новых теста (handler integration)
+   - Manual: форварднуть сообщение из НЕ-военного канала с danger words → common_router получает → danger_handler срабатывает
+   - Manual: форварднуть сообщение из ЦЕЛЕВОГО канала → war_channel_repost_handler срабатывает → war reply
+
+4. **Full regression:** `pytest tests/ -v` — все ~380 тестов проходят
