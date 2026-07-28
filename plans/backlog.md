@@ -472,7 +472,7 @@
 
 ---
 
-## Epic 15: Common Service — Rename + Media Upgrade + Danger Detection — 2026-07-28 🔵 NEW
+## Epic 15: Common Service — Rename + Media Upgrade + Danger Detection — 2026-07-28 ✅ DONE
 
 > **Цель:** (1) Переименовать сервис "otboy" → "common" — файлы, импорты, регистрации, env-настройки.
 > Функция `otboy` (ответ на слово «отбой») сохраняет имя и поведение. (2) Upgrade media-обработки:
@@ -485,86 +485,264 @@
 > Все 316 тестов должны проходить. Архитектура ревьюится sub-agent'ом ДО реализации.
 
 ### Архитектурное проектирование и ревью
-- [ ] 👤 T-100 (@Architect): Спроектировать архитектуру Common Service + sub-agent review
-  - [ ] T-100-A: Спроектировать архитектуру — модули (common_handler, CommonRelay, CommonWordFilter + DangerWordFilter), data flow, directory structure, контракты
-  - [ ] T-100-B: Sub-agent ревью — проверить изоляцию от других фич, масштабируемость, корректность rename (без dead imports), media type detection matrix
-  - [ ] T-100-C: Согласовать финальный дизайн с PM
+- [x] 👤 T-100 (@Architect): Спроектировать архитектуру Common Service + sub-agent review
+  - [x] T-100-A: Спроектировать архитектуру — модули (common_handler, CommonRelay, CommonWordFilter + DangerWordFilter), data flow, directory structure, контракты
+  - [x] T-100-B: Sub-agent ревью — проверить изоляцию от других фич, масштабируемость, корректность rename (без dead imports), media type detection matrix
+  - [x] T-100-C: Согласовать финальный дизайн с PM
 
 ### Переименование файлов и модулей (otboy → common)
-- [ ] T-101: Переименовать файлы, классы, импорты, роутер
-  - [ ] T-101-A: Переименовать `handlers/otboy.py` → `handlers/common.py` (router: `otboy_router` → `common_router`, сохранить функцию `otboy_handler`)
-  - [ ] T-101-B: Переименовать `services/otboy_relay.py` → `services/common_relay.py` (класс `OtboyRelay` → `CommonRelay`)
-  - [ ] T-101-C: `filters/otboy_word.py` — оставить без изменений; СОЗДАТЬ `filters/danger_word.py` (новый файл, класс `DangerWordFilter`)
-  - [ ] T-101-D: Обновить ВСЕ импорты в `bot.py` (4 строки: router, setup, relay import, on_startup)
-  - [ ] T-101-E: Проверить grep-поиском отсутствие dead imports/ссылок на "otboy" во всём проекте (кроме функции `otboy_handler` и legacy-комментариев)
+- [x] T-101: Переименовать файлы, классы, импорты, роутер
+  - [x] T-101-A: Переименовать `handlers/otboy.py` → `handlers/common.py` (router: `otboy_router` → `common_router`, сохранить функцию `otboy_handler`)
+  - [x] T-101-B: Переименовать `services/otboy_relay.py` → `services/common_relay.py` (класс `OtboyRelay` → `CommonRelay`)
+  - [x] T-101-C: `filters/otboy_word.py` — оставить без изменений; СОЗДАТЬ `filters/danger_word.py` (новый файл, класс `DangerWordFilter`)
+  - [x] T-101-D: Обновить ВСЕ импорты в `bot.py` (4 строки: router, setup, relay import, on_startup)
+  - [x] T-101-E: Проверить grep-поиском отсутствие dead imports/ссылок на "otboy" во всём проекте (кроме функции `otboy_handler` и legacy-комментариев)
 
 ### Конфигурация (settings.py + .env.example)
-- [ ] T-102: Переименовать и добавить env-переменные
-  - [ ] T-102-A: `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS` (тот же default=0, общий cooldown для otboy и danger)
-  - [ ] T-102-B: `OTBOY_PHOTO_PATH` → удалить, добавить `COMMON_MEDIA_BASE: str = "media/common"` (subdirs: `otboy`/`danger` разрешаются динамически через параметр `subdir`)
-  - [ ] T-102-C: Создать директории `media/common/otboy/` и `media/common/danger/` (filesystem migration, см. §26.16)
-  - [ ] T-102-D: Обновить `.env.example` — заменить старые ключи на новые с описаниями и дефолтами
+- [x] T-102: Переименовать и добавить env-переменные
+  - [x] T-102-A: `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS` (тот же default=0, общий cooldown для otboy и danger)
+  - [x] T-102-B: `OTBOY_PHOTO_PATH` → удалить, добавить `COMMON_MEDIA_BASE: str = "media/common"` (subdirs: `otboy`/`danger` разрешаются динамически через параметр `subdir`)
+  - [x] T-102-C: Создать директории `media/common/otboy/` и `media/common/danger/` (filesystem migration, см. §26.16)
+  - [x] T-102-D: Обновить `.env.example` — заменить старые ключи на новые с описаниями и дефолтами
 
 ### Upgrade media-обработки (otboy function)
-- [ ] T-103: Directory-based media picker с авто-детекцией типа
-  - [ ] T-103-A: В `CommonRelay` — метод `_pick_media(media_dir)` сканирует директорию, выбирает случайный файл
-  - [ ] T-103-B: Реализовать `_detect_media_type(filename)` → `"photo" | "video" | "animation"`
+- [x] T-103: Directory-based media picker с авто-детекцией типа
+  - [x] T-103-A: В `CommonRelay` — метод `_pick_media(media_dir)` сканирует директорию, выбирает случайный файл
+  - [x] T-103-B: Реализовать `_detect_media_type(filename)` → `"photo" | "video" | "animation"`
     - `.jpg/.jpeg/.png/.webp/.bmp` → `"photo"` (send_photo)
     - `.mp4/.avi/.mov/.webm` без "gif" в имени → `"video"` (send_video)
     - `.mp4/.avi/.mov/.webm` с "gif" в имени → `"animation"` (send_animation / GIF)
-  - [ ] T-103-C: Реализовать `_send_media(chat_id, filepath, media_type, reply_params)` — единый dispatcher для всех трёх типов
-  - [ ] T-103-D: Обновить `send_otboy()` — использовать `_pick_media` + `_send_media` вместо хардкодного `FSInputFile`
-  - [ ] T-103-E: Логирование: INFO — media type chosen, file path, chat_id
+  - [x] T-103-C: Реализовать `_send_media(chat_id, filepath, media_type, reply_params)` — единый dispatcher для всех трёх типов
+  - [x] T-103-D: Обновить `send_otboy()` — использовать `_pick_media` + `_send_media` вместо хардкодного `FSInputFile`
+  - [x] T-103-E: Логирование: INFO — media type chosen, file path, chat_id
 
 ### Новая функция детекции опасных слов (danger)
-- [ ] T-104: DangerWordFilter + danger_handler + CommonRelay.send_danger()
-  - [ ] T-104-A: Реализовать `DangerWordFilter` в `filters/danger_word.py` — список DANGER_WORDS (бпла, ракетная, опасность, тревога, внимание, сирена, атака, угроза, обстрел, воздушная + словоформы), pattern compilation как в WarWordFilter
-  - [ ] T-104-B: Реализовать `CommonRelay.send_danger(chat_id, message_id, matched_word)` — `_pick_media(subdir="danger")` (разрешается через `COMMON_MEDIA_BASE`) + `_send_media()` + reply_to + quote
-  - [ ] T-104-C: Добавить `danger_handler` в `handlers/common.py` — `DangerWordFilter()` → `_relay.send_danger()` (паттерн как у otboy_handler)
-  - [ ] T-104-D: Reply-to и quote mechanism — идентичен otboy (ReplyParameters с matched_word)
-  - [ ] T-104-E: Comprehensive logging для danger (INFO: word matched, media type, chat_id)
+- [x] T-104: DangerWordFilter + danger_handler + CommonRelay.send_danger()
+  - [x] T-104-A: Реализовать `DangerWordFilter` в `filters/danger_word.py` — список DANGER_WORDS (бпла, ракетная, опасность, тревога, внимание, сирена, атака, угроза, обстрел, воздушная + словоформы), pattern compilation как в WarWordFilter
+  - [x] T-104-B: Реализовать `CommonRelay.send_danger(chat_id, message_id, matched_word)` — `_pick_media(subdir="danger")` (разрешается через `COMMON_MEDIA_BASE`) + `_send_media()` + reply_to + quote
+  - [x] T-104-C: Добавить `danger_handler` в `handlers/common.py` — `DangerWordFilter()` → `_relay.send_danger()` (паттерн как у otboy_handler)
+  - [x] T-104-D: Reply-to и quote mechanism — идентичен otboy (ReplyParameters с matched_word)
+  - [x] T-104-E: Comprehensive logging для danger (INFO: word matched, media type, chat_id)
 
 ### Интеграция в bot.py
-- [ ] T-105: Обновить импорты, регистрацию и инициализацию
-  - [ ] T-105-A: Обновить импорты — `from handlers.common import common_router, setup_common`, `from services.common_relay import CommonRelay`
-  - [ ] T-105-B: Заменить `otboy_router` → `common_router` в `dp.include_router()` (позиция 4c сохраняется)
-  - [ ] T-105-C: Обновить `on_startup()` — `CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)`, `setup_common(relay)`
-  - [ ] T-105-D: Убедиться, что propagation не блокирует другие хендлеры (оба handler'а возвращают None)
+- [x] T-105: Обновить импорты, регистрацию и инициализацию
+  - [x] T-105-A: Обновить импорты — `from handlers.common import common_router, setup_common`, `from services.common_relay import CommonRelay`
+  - [x] T-105-B: Заменить `otboy_router` → `common_router` в `dp.include_router()` (позиция 4c сохраняется)
+  - [x] T-105-C: Обновить `on_startup()` — `CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)`, `setup_common(relay)`
+  - [x] T-105-D: Убедиться, что propagation не блокирует другие хендлеры (оба handler'а возвращают None)
 
 ### Тестирование
-- [ ] T-106: Написать/обновить тесты (~20+ тестов)
-  - [ ] T-106-A: Переименовать `tests/test_otboy.py` → `tests/test_common.py`, обновить все импорты
-  - [ ] T-106-B: Тесты OtboyWordFilter — перенести существующие 11 тестов, обновить импорты
-  - [ ] T-106-C: Тесты otboy_handler — перенести существующие 6 тестов, заменить OtboyRelay → CommonRelay
-  - [ ] T-106-D: Тесты CommonRelay.send_otboy — image file → send_photo
-  - [ ] T-106-E: Тесты CommonRelay.send_otboy — video file → send_video
-  - [ ] T-106-F: Тесты CommonRelay.send_otboy — video с "gif" в имени → send_animation
-  - [ ] T-106-G: Тесты CommonRelay._pick_media — пустая директория, не-медиа файлы (graceful skip)
-  - [ ] T-106-H: Тесты DangerWordFilter — текст/caption с опасными словами → срабатывает
-  - [ ] T-106-I: Тесты DangerWordFilter — без опасных слов → False, регистронезависимость, word boundary
-  - [ ] T-106-J: Тесты danger_handler — делегирует в CommonRelay.send_danger с правильными параметрами
-  - [ ] T-106-K: Тесты CommonRelay.send_danger — случайный медиа из danger dir, правильный тип (image/video/animation)
-  - [ ] T-106-L: Тесты cooldown — общий cooldown для otboy и danger, per-chat изоляция
-  - [ ] T-106-M: Интеграционный тест — propagation: common_router не блокирует slavik/alan/vasya
-  - [ ] T-106-N: Интеграционный тест — диспетчеризация: сообщение с "отбой" и опасным словом → оба handler'а вызываются
+- [x] T-106: Написать/обновить тесты (~20+ тестов)
+  - [x] T-106-A: Переименовать `tests/test_otboy.py` → `tests/test_common.py`, обновить все импорты
+  - [x] T-106-B: Тесты OtboyWordFilter — перенести существующие 11 тестов, обновить импорты
+  - [x] T-106-C: Тесты otboy_handler — перенести существующие 6 тестов, заменить OtboyRelay → CommonRelay
+  - [x] T-106-D: Тесты CommonRelay.send_otboy — image file → send_photo
+  - [x] T-106-E: Тесты CommonRelay.send_otboy — video file → send_video
+  - [x] T-106-F: Тесты CommonRelay.send_otboy — video с "gif" в имени → send_animation
+  - [x] T-106-G: Тесты CommonRelay._pick_media — пустая директория, не-медиа файлы (graceful skip)
+  - [x] T-106-H: Тесты DangerWordFilter — текст/caption с опасными словами → срабатывает
+  - [x] T-106-I: Тесты DangerWordFilter — без опасных слов → False, регистронезависимость, word boundary
+  - [x] T-106-J: Тесты danger_handler — делегирует в CommonRelay.send_danger с правильными параметрами
+  - [x] T-106-K: Тесты CommonRelay.send_danger — случайный медиа из danger dir, правильный тип (image/video/animation)
+  - [x] T-106-L: Тесты cooldown — общий cooldown для otboy и danger, per-chat изоляция
+  - [x] T-106-M: Интеграционный тест — propagation: common_router не блокирует slavik/alan/vasya
+  - [x] T-106-N: Интеграционный тест — диспетчеризация: сообщение с "отбой" и опасным словом → оба handler'а вызываются
 
 ### Документация
-- [ ] T-107: Обновить документацию
-  - [ ] T-107-A: `README.md` — переименовать F9 → "Common Service", добавить секцию danger detection, описать media type matrix
-  - [ ] T-107-B: `ARCHITECTURE.md` — обновить router order (4c: common_router), CommonRelay секцию, data flow с двумя handler'ами
-  - [ ] T-107-C: `MEMORY.md` — project state, features table, version bump v2.12.0
+- [x] T-107: Обновить документацию
+  - [x] T-107-A: `README.md` — переименовать F9 → "Common Service", добавить секцию danger detection, описать media type matrix
+  - [x] T-107-B: `ARCHITECTURE.md` — обновить router order (4c: common_router), CommonRelay секцию, data flow с двумя handler'ами
+  - [x] T-107-C: `MEMORY.md` — project state, features table, version bump v2.12.0
 
 ### QA и деплой
-- [ ] T-108: QA — тесты, коммит, деплой
-  - [ ] T-108-A: `pytest` — все 316+ тестов проходят, 0 регрессий, coverage ≥ 100% для новых модулей
-  - [ ] T-108-B: Коммит на русском (conventional commits) в main, пуш
-  - [ ] T-108-C: Деплой на сервер — git pull, обновить .env (COMMON_COOLDOWN_SECONDS, COMMON_MEDIA_BASE, DANGER_WORDS), создать директории (filesystem migration §26.16), restart
-  - [ ] T-108-D: Smoke test: сообщение с "отбой" → reply с медиа из common/otboy, quote "отбой"
-  - [ ] T-108-E: Smoke test: сообщение с "ракетная опасность" → reply с медиа из common/danger, quote слова
-  - [ ] T-108-F: Smoke test: проверить, что другие фичи не сломаны (слава, war_alert, алан, вася, костик)
-  - [ ] T-108-G: Verify Better Stack логи (INFO: otboy detected, danger detected, media type)
+- [x] T-108: QA — тесты, коммит, деплой
+  - [x] T-108-A: `pytest` — все 316+ тестов проходят, 0 регрессий, coverage ≥ 100% для новых модулей
+  - [x] T-108-B: Коммит на русском (conventional commits) в main, пуш
+  - [x] T-108-C: Деплой на сервер — git pull, обновить .env (COMMON_COOLDOWN_SECONDS, COMMON_MEDIA_BASE, DANGER_WORDS), создать директории (filesystem migration §26.16), restart
+  - [x] T-108-D: Smoke test: сообщение с "отбой" → reply с медиа из common/otboy, quote "отбой"
+  - [x] T-108-E: Smoke test: сообщение с "ракетная опасность" → reply с медиа из common/danger, quote слова
+  - [x] T-108-F: Smoke test: проверить, что другие фичи не сломаны (слава, war_alert, алан, вася, костик)
+  - [x] T-108-G: Verify Better Stack логи (INFO: otboy detected, danger detected, media type)
 
 ---
 
-**Status: Epics 1–14 DONE ✅. Epic 15 (Common Service): T-100–T-108 — NEW 🔵.**
-**Date: 2026-07-28 | v2.11.0 (316 tests) → v2.12.0 (Epic 15 target)**
+## Epic 16: Bug Fixes Sprint — 2026-07-29 🔵 IN PROGRESS
+
+> **Цель:** Исправить критические баги, обнаруженные после деплоя Epic 14 (Album Fix) и Epic 15 (Common Service).
+>
+> ### Сводка багов
+>
+> **Баг 1 — Репост из канала ломает группировку альбомов (DeadPageRelay):**
+> Пользователь репостит из @d_pages. В relay-канале всего 2 поста: (A) обычный пост
+> с картинкой, (B) альбом из 3 фото + caption. Алгоритм `_forward_with_heuristic()`
+> форвардит каждое фото отдельным `forward_message()` — группировка разрушается.
+> Эвристика data proximity (±2 сек) склеивает пост A + пост B в одну группу.
+>
+> **Баг 2 — Danger handler в Common Service не работает:**
+> `danger_handler` не отвечает на слова «БПЛА», «ракета» и т.д.
+> Два root cause: (A) `war_channel_repost_handler` (war_alert_router, позиция 4b)
+> перехватывает ВСЕ forwarded-сообщения через `F.forward_origin` и блокирует
+> propagation к common_router (позиция 4c). (B) `_DEFAULT_DANGER_WORDS` содержит
+> всего 22 слова — нет «ракета», «укрытие», «бункер» и др. (в war_word.py 91+ слов).
+>
+> ---
+
+### Bug 1: Репост из канала — исправление группировки альбомов
+
+**Root Cause Analysis (подробно):**
+
+Файл `services/dead_page_relay.py`, метод `_forward_with_heuristic()` (строки 273–362):
+- **RC1:** Каждый sibling форвардится отдельным `forward_message()` (строки 282, 296, 326).
+  Вместо этого нужно собрать все message_id в список и вызвать `forward_messages()` (plural)
+  один раз — как это уже сделано в DB Path (строки 249–260).
+- **RC2:** Эвристика `_ALBUM_DATE_TOLERANCE_S = 2 сек` (строки 303, 333) не различает
+  «соседний пост того же альбома» и «соседний НЕЗАВИСИМЫЙ пост с близкой датой».
+  Если пост A (картинка, msg_id=N) и пост B (альбом, msg_id=N+1) имеют даты в пределах
+  ±2 сек, эвристика считает их одним альбомом → склеивает.
+- **RC3:** Heuristic Path вызывается для старых постов, у которых нет записи в
+  `relay_album_map` (БД-трекер добавлен только в Epic 14 и индексирует только новые посты).
+
+**План исправления (приоритет: RC1 → RC2 → fallback-откат):**
+
+- [ ] T-110: Fix `_forward_with_heuristic()` — переписать на коллективный forward
+  - [ ] T-110-A: **(RC1 fix)** Переписать логику: сначала собрать все sibling message_id
+    в список (probe → проверить дату → добавить в список БЕЗ немедленного forward),
+    затем ОДИН вызов `bot.forward_messages(chat_id, from_chat_id, message_ids=sorted_ids)`.
+    Удаление non-matching probes больше не нужно (ничего не форвардилось раньше времени).
+  - [ ] T-110-B: **(RC2 fix)** Ужесточить критерий «тот же альбом»:
+    - Если пробный пост имеет `media_group_id` — он часть альбома по определению.
+    - Если у primary поста тоже есть `media_group_id` — сравнивать `media_group_id`;
+      разные group_id = разные альбомы.
+    - Date proximity использовать ТОЛЬКО как fallback, когда `media_group_id` отсутствует
+      у обоих постов (старые одиночные посты без альбома).
+  - [ ] T-110-C: **(Safety net)** Если переписывание heuristic занимает >2 часов —
+    откатить метод `_forward_with_heuristic()` к версии до Epic 14 (простой
+    `forward_message()` без probing). DB Path (Path 1) остаётся и покрывает новые посты.
+  - [ ] T-110-D: **(Логирование)** Добавить INFO-лог при heuristic album forward:
+    количество сообщений, IDs, `media_group_id` (если есть), причина группировки
+    (media_group_id match vs date proximity).
+
+- [ ] T-111-C: Тесты для альбомного forward
+  - [ ] T-111-C1: Heuristic: альбом из 3 фото → один вызов `forward_messages()` с 3 ID
+  - [ ] T-111-C2: Heuristic: обычный пост + соседний альбом НЕ склеиваются (разные media_group_id)
+  - [ ] T-111-C3: Heuristic: два поста без media_group_id, даты >2 сек → не склеиваются
+  - [ ] T-111-C4: Heuristic: два поста без media_group_id, даты ≤2 сек → склеиваются
+  - [ ] T-111-C5: DB Path: альбом с записью в relay_album_map → `forward_messages()` (без изменений, no regression)
+  - [ ] T-111-C6: Интеграционный: полный пайплайн trigger → relay → forward_messages
+
+**Файлы для изменения:**
+- `services/dead_page_relay.py` — `_forward_with_heuristic()` (строки 273–362)
+- `tests/test_dead_page_relay.py` — добавить/обновить тесты
+
+---
+
+### Bug 2: Common Service danger_handler не работает
+
+**Root Cause Analysis (подробно):**
+
+**RC-A (Критический — блокирует forwarded-сообщения):**
+`handlers/war_alert.py`, `war_channel_repost_handler` (строки 186–231):
+- Фильтр `F.forward_origin` матчит ЛЮБОЕ forwarded-сообщение из любого канала.
+- Для non-target каналов handler возвращает `None` (ранний return, строка 206).
+- В aiogram 3.x: если handler был вызван (фильтр сматчил) — роутер считает update
+  обработанным и НЕ передаёт его следующим роутерам.
+- **Результат:** `common_router` (позиция 4c) НИКОГДА не видит forwarded-сообщения,
+  потому что `war_alert_router` (позиция 4b) уже «съел» их через handler 2.
+- **Затронутые сценарии:** Любой репост с текстом «бпла», «ракета» и т.д. → danger_handler молчит.
+
+**RC-B (Существенный — узкий список слов):**
+`filters/danger_word.py`, `_DEFAULT_DANGER_WORDS` (строки 18–41):
+- Всего 22 слова. Отсутствуют: «ракета» и все словоформы (есть только «ракетная»),
+  «укрытие», «бункер», «вспышка», «взрыв», «прилет», «отбой» и др.
+- Для сравнения: `filters/war_word.py` → `WAR_WORDS` содержит 91+ словоформ.
+- **Результат:** Даже для обычных (не-forwarded) сообщений, слова «ракета», «бпла»
+  и другие military keywords не матчатся, если их нет в `_DEFAULT_DANGER_WORDS`.
+
+**RC-C (Подтверждено — НЕ проблема):**
+- `media/common/danger/` содержит файлы (`danger_01.mp4`, `danger_02_gif.mp4`) — ок.
+- `war_keyword_handler` использует `UserIdFilter(SLAVIK)` — не блокирует non-Slava сообщения.
+- `CommonRelay` инициализируется корректно в `bot.py:75-76`.
+
+**План исправления:**
+
+- [ ] T-114: Fix propagation stopper — `war_channel_repost_handler` блокирует common_router
+  - [ ] T-114-A: Заменить фильтр `F.forward_origin` на кастомный фильтр, который
+    матчит ТОЛЬКО target channels (по ID или username). Варианты реализации:
+    - **Вариант A (рекомендуемый):** Вынести логику `_is_target_channel()` в отдельный
+      `TargetChannelFilter(BaseFilter)` и использовать `@war_alert_router.message(TargetChannelFilter())`.
+    - **Вариант B:** Оставить `F.forward_origin` но в начале handler'а сделать проверку —
+      если non-target → НЕ возвращать None, а использовать механизм aiogram для
+      передачи управления дальше (флаги или middleware).
+  - [ ] T-114-B: Убедиться, что handler 2 (`war_channel_repost_handler`) больше
+    НЕ срабатывает на forwarded из нецелевых каналов.
+  - [ ] T-114-C: Проверить, что handler 1 (`war_keyword_handler`) по-прежнему работает
+    для Славы (UserIdFilter + WarWordFilter) и не блокирует propagation.
+
+- [ ] T-109: Fix DangerWordFilter — расширить список слов (из war_word.py)
+  - [ ] T-109-A: Скопировать ВСЕ слова из `filters/war_word.py::WarWordFilter.WAR_WORDS`
+    в `filters/danger_word.py::_DEFAULT_DANGER_WORDS`. Это ~91 словоформа (12 категорий:
+    flight, drone/UAV, rocket/missile, shelter, bunker, flash/explosion, danger/alert,
+    siren, attack/threat, fall/crash, evacuation, retreat).
+  - [ ] T-109-B: Убедиться, что `_build_danger_patterns()` корректно компилирует
+    word-boundary regex для всех слов (функция уже оттестирована — паттерн как в war_word.py).
+  - [ ] T-109-C: Проверить регистронезависимость и word boundary:
+    - «БПЛА» → матчит (уже в lowercase «бпла»)
+    - «Ракета» / «РАКЕТА» → матчит
+    - «ракетная» → матчит (уже было, no regression)
+    - «подракетная» → НЕ матчит (word boundary)
+
+- [ ] T-111-A: Тесты DangerWordFilter — расширенный список
+  - [ ] T-111-A1: Все 91+ слов матчатся (параметризованный тест)
+  - [ ] T-111-A2: Регистронезависимость: «БПЛА», «Ракета», «РАКЕТА»
+  - [ ] T-111-A3: Word boundary: «ракета» матчит, «подракетная» нет
+  - [ ] T-111-A4: Caption support: caption с danger word → матчит
+  - [ ] T-111-A5: Forwarded message text с danger word → матчит
+  - [ ] T-111-A6: No regression: все старые тесты OtboyWordFilter проходят
+
+- [ ] T-111-D: Тесты propagation (интеграционные)
+  - [ ] T-111-D1: Forwarded из non-target канала с danger word → common_router получает
+    (проверка, что T-114 fix работает)
+  - [ ] T-111-D2: Forwarded из target канала → war_alert_router обрабатывает,
+    common_router ТОЖЕ может обработать (или блокируется — уточнить у PM)
+  - [ ] T-111-D3: Обычное (не-forwarded) сообщение от non-Slava с «ракета» →
+    danger_handler срабатывает, war_alert молчит
+  - [ ] T-111-D4: Сообщение от Славы с «ракета» → war_keyword_handler срабатывает,
+    danger_handler тоже срабатывает (два ответа на одно сообщение — ожидаемо?)
+
+**Файлы для изменения:**
+- `handlers/war_alert.py` — `war_channel_repost_handler` (строки 186–231)
+- `filters/danger_word.py` — `_DEFAULT_DANGER_WORDS` (строки 18–41)
+- `tests/test_common.py` — добавить тесты на расширенный DangerWordFilter
+- `tests/test_war_alert.py` — добавить тест на propagation
+- (опционально) `filters/target_channel.py` — новый фильтр для T-114-A
+
+---
+
+### Конфигурационный баг (T-113 — без изменений)
+
+- [ ] T-113: Проверить DEAD_PAGE_RELAY_CHANNEL_ID на соответствие в .env и коде
+  - [ ] T-113-A: Проверить знак значения (отрицательное vs положительное) в .env на сервере и локально
+  - [ ] T-113-B: Проверить, как значение используется в коде (int vs str, сравнение с отрицательным числом)
+  - [ ] T-113-C: При несоответствии — исправить и задокументировать в .env.example
+
+---
+
+### Тестирование (общее)
+
+- [ ] T-111: Полный тестовый прогон
+  - [ ] T-111-E: `pytest` — все существующие 316+ тестов проходят, 0 регрессий
+  - [ ] T-111-F: Новые тесты T-111-C (альбомы, 6 шт.) + T-111-A (danger words, 6 шт.) + T-111-D (propagation, 4 шт.) → итого ~16 новых тестов
+
+### Документация
+
+- [ ] T-112: Синхронизировать документацию
+  - [ ] T-112-A: Обновить board.md — отразить актуальное состояние Epic 16
+  - [ ] T-112-B: Обновить backlog.md — этот файл
+  - [ ] T-112-C: Обновить ARCHITECTURE.md — router order rationale (почему common_router после war_alert, propagation concern)
+  - [ ] T-112-D: README.md — version bump v2.12.0 → v2.12.1, changelog
+
+---
+
+**Status: Epics 1–15 DONE ✅. Epic 16 (Bug Fixes Sprint): T-109–T-114 — IN PROGRESS 🔵.**
+**Date: 2026-07-29 | v2.12.0 (deployed) → v2.12.1 (Epic 16 target)**
+**PM Analysis completed. Ready for @Architect review, then @Builder implementation.**

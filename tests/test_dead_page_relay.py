@@ -406,7 +406,7 @@ class TestAlbumForwarding:
 
     @pytest.mark.asyncio
     async def test_heuristic_album_forwards_all(self, relay, mock_bot, mock_db):
-        """D47: 3 consecutive msgs with same date → all forwarded."""
+        """D47+T-110: All consecutive msgs with same date → collected then group-forwarded."""
         import datetime
         base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
 
@@ -424,7 +424,15 @@ class TestAlbumForwarding:
         result = await relay._forward_with_heuristic(-100123, 11, None)
 
         assert result is True
-        assert mock_bot.forward_message.call_count == 19
+        assert mock_bot.forward_message.call_count == 19  # probing unchanged
+        # T-110: must use forward_messages for group forward
+        mock_bot.forward_messages.assert_called_once()
+        call_args = mock_bot.forward_messages.call_args
+        assert call_args.kwargs["chat_id"] == -100123
+        assert call_args.kwargs["from_chat_id"] == relay.relay_channel_id
+        # IDs should be sorted
+        forwarded_ids = call_args.kwargs["message_ids"]
+        assert forwarded_ids == sorted(forwarded_ids)
 
     @pytest.mark.asyncio
     async def test_heuristic_date_boundary_stops_probe(self, relay, mock_bot, mock_db):
@@ -514,3 +522,128 @@ class TestAlbumForwarding:
 
         assert result is True
         assert mock_bot.forward_message.call_count == 10
+
+
+class TestCollectThenGroup:
+    """T-110: Collect-then-Group strategy for _forward_with_heuristic."""
+
+    @pytest.fixture
+    def mock_bot(self):
+        bot = MagicMock()
+        bot.forward_message = AsyncMock()
+        bot.forward_messages = AsyncMock()
+        bot.delete_message = AsyncMock()
+        return bot
+
+    @pytest.fixture
+    def mock_db(self):
+        db = MagicMock()
+        db.update_last_known_message_id = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def mock_media(self):
+        media = MagicMock(spec=MediaService)
+        return media
+
+    @pytest.fixture
+    def relay(self, mock_bot, mock_db, mock_media):
+        return DeadPageRelay(mock_bot, mock_db, mock_media)
+
+    @pytest.mark.asyncio
+    async def test_single_post_no_siblings(self, relay, mock_bot, mock_db):
+        """T-110: Single post with no siblings → one forward_message, no forward_messages."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+        other_dt = datetime.datetime(2026, 7, 28, 13, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg = MagicMock()
+            msg_id = kwargs["message_id"]
+            msg.message_id = msg_id
+            if msg_id == 11:
+                msg.date = base_dt
+            else:
+                msg.date = other_dt  # siblings have different date → boundary
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        result = await relay._forward_with_heuristic(-100123, 11, None)
+
+        assert result is True
+        # Primary forwarded (1 call), then forward probe (1 call → no match → break),
+        # backward probe (1 call → no match → break) = 3 forward_message calls
+        assert mock_bot.forward_message.call_count == 3
+        # No siblings → no group forward
+        mock_bot.forward_messages.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_album_with_siblings_group_forwards(self, relay, mock_bot, mock_db):
+        """T-110: Album (2+ siblings) → one forward_messages with all sorted IDs."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg = MagicMock()
+            msg_id = kwargs["message_id"]
+            msg.message_id = msg_id
+            if 9 <= msg_id <= 13:
+                msg.date = base_dt  # IDs 9-13 form an album
+            else:
+                msg.date = datetime.datetime(2026, 7, 28, 14, 0, 0)
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        result = await relay._forward_with_heuristic(-100123, 11, None)
+
+        assert result is True
+        # forward_messages called once with sorted IDs
+        mock_bot.forward_messages.assert_called_once()
+        call_args = mock_bot.forward_messages.call_args
+        forwarded_ids = call_args.kwargs["message_ids"]
+        assert forwarded_ids == sorted(forwarded_ids)
+        assert len(forwarded_ids) >= 3  # album of 11 and at least 2 siblings
+
+    @pytest.mark.asyncio
+    async def test_forward_messages_error_returns_false(self, relay, mock_bot, mock_db):
+        """T-110: forward_messages error → graceful handling, returns False."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg = MagicMock()
+            msg.message_id = kwargs["message_id"]
+            msg.date = base_dt  # all same date → album
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+        mock_bot.forward_messages.side_effect = Exception("message to forward not found")
+
+        result = await relay._forward_with_heuristic(-100123, 11, None)
+
+        assert result is False  # group forward failed
+
+    @pytest.mark.asyncio
+    async def test_group_forward_ids_are_sorted(self, relay, mock_bot, mock_db):
+        """T-110: forward_messages receives message_ids in ascending order."""
+        import datetime
+        base_dt = datetime.datetime(2026, 7, 28, 12, 0, 0)
+
+        async def forward_side_effect(**kwargs):
+            msg = MagicMock()
+            msg.message_id = kwargs["message_id"]
+            msg.date = base_dt
+            return msg
+
+        mock_bot.forward_message.side_effect = forward_side_effect
+
+        # msg_id=11: forward probes 12-14, backward probes 10-8
+        await relay._forward_with_heuristic(-100123, 11, None)
+
+        mock_bot.forward_messages.assert_called_once()
+        forwarded_ids = mock_bot.forward_messages.call_args.kwargs["message_ids"]
+        assert forwarded_ids == sorted(forwarded_ids)
+        # Verify it contains the full range
+        assert min(forwarded_ids) <= 11 <= max(forwarded_ids)

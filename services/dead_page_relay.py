@@ -274,11 +274,19 @@ class DeadPageRelay:
         self, chat_id: int, msg_id: int, last_msg_id: int | None
     ) -> bool:
         """
-        Heuristic album detection: forward primary message, then probe adjacent
-        message_ids. Use date proximity (±2s) to detect album boundaries.
-        Delete non-matching probes. Tolerate up to 2 consecutive gaps.
+        Heuristic album detection using Collect-then-Group strategy.
+
+        Phase 1 — Probe & Collect: forward each candidate to determine date,
+        collect matching IDs instead of keeping each forward as a separate message.
+
+        Phase 2 — Group Forward: if siblings were found, delete the individually
+        forwarded messages and re-forward everything as a single forward_messages
+        call to preserve album grouping.
         """
-        # Step 1: Forward primary message (may raise — caller handles)
+        collected_ids: list[int] = [msg_id]
+        probe_forwarded_ids: list[int] = []  # track probe msgs for deletion
+
+        # Phase 1: Forward primary to get base date
         sent = await self.bot.forward_message(
             chat_id=chat_id,
             from_chat_id=self.relay_channel_id,
@@ -286,9 +294,9 @@ class DeadPageRelay:
             disable_notification=False,
         )
         base_date = self._normalize_date(sent.date)
-        all_ids = [msg_id]
+        primary_sent_msg_id = sent.message_id
 
-        # Step 2: Probe forward (msg_id+1, +2, ..., +_ALBUM_PROBE_RANGE)
+        # Phase 2a: Probe forward (msg_id+1, +2, ..., +_ALBUM_PROBE_RANGE)
         consecutive_gaps = 0
         for offset in range(1, _ALBUM_PROBE_RANGE + 1):
             candidate = msg_id + offset
@@ -301,10 +309,10 @@ class DeadPageRelay:
                 )
                 sibling_date = self._normalize_date(sibling.date)
                 if abs((sibling_date - base_date).total_seconds()) <= _ALBUM_DATE_TOLERANCE_S:
-                    all_ids.append(candidate)
+                    collected_ids.append(candidate)
+                    probe_forwarded_ids.append(sibling.message_id)
                     consecutive_gaps = 0
                 else:
-                    # Different post — delete the probe and stop this direction
                     await self._safe_delete(chat_id, sibling.message_id)
                     break
             except Exception as e:
@@ -312,11 +320,11 @@ class DeadPageRelay:
                 if "not found" in err or "bad request" in err:
                     consecutive_gaps += 1
                     if consecutive_gaps > _MAX_CONSECUTIVE_GAPS:
-                        break  # too many gaps — end of channel region
-                    continue  # skip gap, try next
-                raise  # real error — propagate
+                        break
+                    continue
+                raise
 
-        # Step 3: Probe backward (msg_id-1, -2, ..., -_ALBUM_PROBE_RANGE)
+        # Phase 2b: Probe backward (msg_id-1, -2, ..., -_ALBUM_PROBE_RANGE)
         consecutive_gaps = 0
         for offset in range(1, _ALBUM_PROBE_RANGE + 1):
             candidate = msg_id - offset
@@ -331,7 +339,8 @@ class DeadPageRelay:
                 )
                 sibling_date = self._normalize_date(sibling.date)
                 if abs((sibling_date - base_date).total_seconds()) <= _ALBUM_DATE_TOLERANCE_S:
-                    all_ids.append(candidate)
+                    collected_ids.append(candidate)
+                    probe_forwarded_ids.append(sibling.message_id)
                     consecutive_gaps = 0
                 else:
                     await self._safe_delete(chat_id, sibling.message_id)
@@ -345,18 +354,38 @@ class DeadPageRelay:
                     continue
                 raise
 
-        # Step 4: Update DB with max forwarded ID
-        max_id = max(all_ids)
+        # Phase 3: Group forward if siblings found
+        if len(collected_ids) > 1:
+            sorted_ids = sorted(collected_ids)
+            # Delete primary and all matching probes before group forward
+            await self._safe_delete(chat_id, primary_sent_msg_id)
+            for probe_id in probe_forwarded_ids:
+                await self._safe_delete(chat_id, probe_id)
+            try:
+                await self.bot.forward_messages(
+                    chat_id=chat_id,
+                    from_chat_id=self.relay_channel_id,
+                    message_ids=sorted_ids,
+                    disable_notification=False,
+                )
+            except Exception:
+                logger.exception(
+                    "[dead_page]   forward_messages failed for album IDs=%s",
+                    sorted_ids,
+                )
+                return False
+            logger.info(
+                "[dead_page]   Album (heuristic): %d messages, IDs=%s",
+                len(sorted_ids),
+                sorted_ids,
+            )
+
+        # Phase 4: Update DB with max forwarded ID
+        max_id = max(collected_ids)
         if not last_msg_id or max_id > last_msg_id:
             await self.db.update_last_known_message_id(max_id)
             logger.info(
-                f"[dead_page]   DB updated: last_known_message_id → {max_id}"
-            )
-
-        if len(all_ids) > 1:
-            logger.info(
-                f"[dead_page]   Album (heuristic): {len(all_ids)} messages, "
-                f"IDs={sorted(all_ids)}"
+                "[dead_page]   DB updated: last_known_message_id → %d", max_id
             )
 
         return True
