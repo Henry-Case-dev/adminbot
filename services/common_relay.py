@@ -1,10 +1,12 @@
 """CommonRelay — unified media service for otboy + danger sub-services.
 
 Sends random media files from media/common/{subdir}/ directories.
-Supports three media types, auto-detected from file extension and name:
+Supports five media types, auto-detected from file extension and name:
   - photo:  .jpg, .jpeg, .png, .webp, .bmp
   - video:  .mp4, .mov, .webm WITHOUT "gif" in filename
   - animation: .mp4, .mov, .webm WITH "gif" in filename
+  - audio:  .mp3
+  - voice:  .ogg
 
 Shared cooldown across all sub-services (otboy + danger).
 Per-chat in-memory cooldown (dict[int, float]), no DB.
@@ -24,9 +26,13 @@ logger = logging.getLogger(__name__)
 MEDIA_PHOTO = "photo"
 MEDIA_VIDEO = "video"
 MEDIA_ANIMATION = "animation"
+MEDIA_AUDIO = "audio"
+MEDIA_VOICE = "voice"
 
 _IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 _VIDEO_EXTENSIONS: set[str] = {".mp4", ".mov", ".webm"}
+_AUDIO_EXTENSIONS: set[str] = {".mp3"}
+_VOICE_EXTENSIONS: set[str] = {".ogg"}
 
 
 class CommonRelay:
@@ -60,8 +66,8 @@ class CommonRelay:
     def _detect_media_type(self, filepath: Path) -> str | None:
         """Determine media type from file extension and filename.
 
-        Returns one of MEDIA_PHOTO, MEDIA_VIDEO, MEDIA_ANIMATION, or None
-        for unsupported file types.
+        Returns one of MEDIA_PHOTO, MEDIA_VIDEO, MEDIA_ANIMATION,
+        MEDIA_AUDIO, MEDIA_VOICE, or None for unsupported file types.
         """
         ext = filepath.suffix.lower()
         if ext in _IMAGE_EXTENSIONS:
@@ -70,6 +76,10 @@ class CommonRelay:
             if "gif" in filepath.stem.lower():
                 return MEDIA_ANIMATION
             return MEDIA_VIDEO
+        if ext in _AUDIO_EXTENSIONS:
+            return MEDIA_AUDIO
+        if ext in _VOICE_EXTENSIONS:
+            return MEDIA_VOICE
         return None
 
     def _scan_directory(self, subdir: str) -> list[tuple[Path, str]]:
@@ -79,14 +89,16 @@ class CommonRelay:
             subdir: Subdirectory name (e.g. "otboy", "danger").
 
         Returns:
-            List of (path, media_type) tuples.
-
-        Raises:
-            FileNotFoundError: If directory is missing or empty.
+            List of (path, media_type) tuples. Empty list if directory
+            is missing or has no supported files (graceful degradation).
         """
         base = Path(self._media_base) / subdir
         if not base.exists():
-            raise FileNotFoundError(f"Directory not found: {base}")
+            logger.warning(
+                "CommonRelay: directory not found %s — skipping",
+                base,
+            )
+            return []
 
         files: list[tuple[Path, str]] = []
         for entry in base.iterdir():
@@ -103,7 +115,11 @@ class CommonRelay:
                 )
 
         if not files:
-            raise FileNotFoundError(f"No supported media files in {base}")
+            logger.warning(
+                "CommonRelay: no supported media files in %s",
+                base,
+            )
+            return []
 
         return files
 
@@ -122,7 +138,8 @@ class CommonRelay:
             message_id: Original message to reply to.
             matched_word: Word to quote in the reply.
             filepath: Path to the media file.
-            media_type: One of MEDIA_PHOTO, MEDIA_VIDEO, MEDIA_ANIMATION.
+            media_type: One of MEDIA_PHOTO, MEDIA_VIDEO, MEDIA_ANIMATION,
+                        MEDIA_AUDIO, MEDIA_VOICE.
         """
         reply_params = ReplyParameters(
             message_id=message_id,
@@ -146,6 +163,18 @@ class CommonRelay:
             await self._bot.send_animation(
                 chat_id=chat_id,
                 animation=input_file,
+                reply_parameters=reply_params,
+            )
+        elif media_type == MEDIA_AUDIO:
+            await self._bot.send_audio(
+                chat_id=chat_id,
+                audio=input_file,
+                reply_parameters=reply_params,
+            )
+        elif media_type == MEDIA_VOICE:
+            await self._bot.send_voice(
+                chat_id=chat_id,
+                voice=input_file,
                 reply_parameters=reply_params,
             )
         else:
@@ -188,12 +217,15 @@ class CommonRelay:
 
         try:
             files = self._scan_directory(subdir)
-        except (FileNotFoundError, PermissionError, OSError):
+        except (PermissionError, OSError):
             logger.exception(
-                "CommonRelay: no media files for subdir=%s | chat_id=%s",
+                "CommonRelay: scan error for subdir=%s | chat_id=%s",
                 subdir,
                 chat_id,
             )
+            return
+
+        if not files:
             return
 
         filepath, media_type = random.choice(files)

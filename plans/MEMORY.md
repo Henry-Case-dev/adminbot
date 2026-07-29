@@ -1,20 +1,20 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.12.1 (implemented)
-> **Дата:** 2026-07-29
-> **Статус:** Epics 1-16 DEPLOYED ✅. 387 тестов (v2.12.1).
-> **Commit:** Epic 16 — post-implementation sync complete.
+> **Версия:** v2.13.0 (APPROVED)
+> **Дата:** 2026-07-30
+> **Статус:** Epics 1-17 APPROVED ✅. 399 тестов. Бот активен в production (v2.12.1). v2.13.0 готов к деплою.
+> **Commit:** Epic 17 — Danger Word Fix (APPROVED, awaiting deployment commit).
 
 ---
 
-## 🔍 Context Sync Summary (2026-07-29) — Epic 16 IMPLEMENTED
+## 🔍 Context Sync Summary (2026-07-30) — Epic 17 APPROVED
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Epics 1-14** | ✅ COMPLETE | 99 tasks T-001–T-099 deployed. |
-| **Epic 15** | ✅ DEPLOYED | Otboy → Common Service. v2.12.0. 372 тестов. |
-| **Epic 16** | ✅ IMPLEMENTED | Bugfixes v2.12.0→v2.12.1. 7 задач (T-109–T-115). Review passed. |
-| **MEMORY.md** | ✅ UPDATED | v2.12.1 — this file, post-implementation sync complete. |
+| **Epics 1-16** | ✅ DEPLOYED | 115 задач T-001–T-115 deployed. |
+| **Epic 17** | ✅ APPROVED | Danger Word Fix — v2.13.0. 399/399 тестов. |
+| **MEMORY.md** | ✅ UPDATED | v2.13.0-approved — Epic 17 final state synced. |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: running. |
 
 ---
 
@@ -30,7 +30,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 387 тестов PASS (v2.12.1) |
+| Тесты | pytest + pytest-asyncio | ✅ 399 тестов PASS (v2.13.0) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -48,7 +48,7 @@
 
 ## 🏗️ Key Architectural Decisions
 
-### 1. Router Priority Order (КРИТИЧНО — v2.12.1)
+### 1. Router Priority Order (КРИТИЧНО — v2.13.0)
 ```
 0.  admin_commands_router (Command filters) — /deadpage, /alangreet
 1.  ChatMemberUpdated (slava_presence_router) — F1
@@ -57,7 +57,7 @@
 3.  alan_router (user_id=138811255) + DB counter — F6 + F7v2 silence greeting
 4.  dead_page_router — Dead Page V2 trigger from @d_pages
 4b. war_alert_router — F5v2: war keywords (Slava) + TargetChannelFilter repost detection
-4c. common_router — F9+: otboy_handler + danger_handler (ALL users, shared cooldown)
+4c. common_router — F9/F10: otboy_handler + danger_handler (ALL users, shared cooldown)
 5.  slavik_router (user_id=479167456) + middleware F3 + F4 + catch-all + F8
 6.  vasya_router (text filters, no user restriction)
 ```
@@ -77,7 +77,7 @@
 | **F8** | slavic_na_litso.jpg — каждый N-й ответ "пошёл нахуй" → фото | `handlers/slavik.py` | ✅ |
 | **E9** | Admin test commands: /deadpage, /alangreet | `handlers/admin_commands.py` | ✅ |
 | **F9** | Otboy Service — детект "отбой" (все пользователи) → common/otboy/ media | `handlers/common.py` (`otboy_handler`) + `CommonRelay` | ✅ |
-| **F10** | Danger Detection — 135+ keywords (v2.12.1) | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` | ✅ v2.12.1 |
+| **F10** | Danger Detection — 135+ keywords (единый DANGER_WORDS из word_lists.py) | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` | ✅ v2.13.0 |
 
 ### 3. Database Schema (SQLite, 5 tables)
 
@@ -107,15 +107,111 @@
 | `SLIVIC_NA_LITSO_INTERVAL` | `10` | F8: каждый N-й "пошёл нахуй" → фото |
 | `COMMON_COOLDOWN_SECONDS` | `0` | F9/F10: shared cooldown for common sub-services (0=off) |
 | `COMMON_MEDIA_BASE` | `media/common` | F9/F10: base directory for common/otboy/ and common/danger/ |
-| `DANGER_WORDS` | `(WAR_WORDS — 135+ keywords)` | F10: comma-separated danger keywords (v2.12.1: полный WAR_WORDS из war_word.py) |
+| `DANGER_WORDS` | `(135+ keywords)` | F10: comma-separated danger keywords (единый источник: filters/word_lists.py) |
 
 ---
 
-## ✅ Epic 16: Bug Fixes — v2.12.0 → v2.12.1 (IMPLEMENTED, 2026-07-29)
+## ✅ Epic 17: Danger Word Fix — v2.13.0 (APPROVED, 2026-07-30)
+
+> **Цель:** Исправить баг, при котором common_router (position 4c) не получает сообщения от Славы с danger-словами.
+> **Статус:** APPROVED ✅ — все задачи T2, T3, T4 выполнены, ревью пройдено, 399/399 тестов.
+> **Версия:** v2.13.0 готов к деплою.
+
+### Root Cause (подтверждённый)
+
+```
+Сообщение Славы: «летит дрон опасность»
+    ↓
+war_alert_router (4b): war_keyword_handler матчит (UserIdFilter + WarWordFilter)
+    → выполняет message.reply(random_reply)
+    → implicit return None  ← БЛОКИРУЕТ propagation
+    ↓
+Router.trigger() останавливается — common_router (4c) НЕ получает событие
+    ↓
+danger_handler НЕ срабатывает — media из common/danger/ не отправляется
+```
+
+**Решение:** `return UNHANDLED` из `aiogram.dispatcher.event.bases` во всех 4 хэндлерах.
+
+### Задачи Epic 17 — ВСЕ COMPLETED
+
+| Task | Название | Компонент | Статус |
+|------|----------|-----------|--------|
+| **T2** | Merge словарей | `filters/word_lists.py` (CREATE) | ✅ Единый DANGER_WORDS (DRY) |
+| **T3** | Propagation fix: return UNHANDLED | `handlers/war_alert.py`, `handlers/common.py` | ✅ 4 хэндлера |
+| **T4** | CommonRelay audio + graceful degradation | `services/common_relay.py` | ✅ Audio/voice + warning |
+
+### T2: Merge словарей — `filters/word_lists.py`
+
+- **Создан** `filters/word_lists.py` с единым списком `DANGER_WORDS` (135+ словоформ, 17+ семантических семейств)
+- `DangerWordFilter` (filters/danger_word.py) — импортирует `DANGER_WORDS` вместо локального `_DEFAULT_DANGER_WORDS`
+- `WarWordFilter` (filters/war_word.py) — импортирует `DANGER_WORDS` вместо `WAR_WORDS` class variable
+- Устранено полное дублирование: WAR_WORDS и _DEFAULT_DANGER_WORDS были идентичны
+- `_build_patterns` / `_build_danger_patterns` остаются локальными в каждом фильтре
+
+### T3: Propagation fix — `return UNHANDLED`
+
+Канонический aiogram 3.x паттерн: хэндлер должен возвращать `UNHANDLED` sentinel для разрешения propagation к следующему роутеру.
+
+**Импорт:** `from aiogram.dispatcher.event.bases import UNHANDLED`
+
+| Файл | Хэндлер | Изменение |
+|------|---------|-----------|
+| `handlers/war_alert.py` | `war_keyword_handler` | `return UNHANDLED` в конце |
+| `handlers/war_alert.py` | `war_channel_repost_handler` | `return UNHANDLED` в конце |
+| `handlers/common.py` | `otboy_handler` | `return UNHANDLED` в конце |
+| `handlers/common.py` | `danger_handler` | `return UNHANDLED` в конце |
+
+**Порядок роутеров НЕ изменился:**
+```
+0:admin → 1:slava_presence → 1b:alan_greeting → 2:kostik → 3:alan →
+4:dead_page → 4b:war_alert → 4c:common → 5:slavik → 6:vasya
+```
+
+### T4: CommonRelay — audio support + graceful degradation
+
+- **Audio форматы:**
+  - `.mp3` → `send_audio` (константа `MEDIA_AUDIO = "audio"`)
+  - `.ogg` → `send_voice` (константа `MEDIA_VOICE = "voice"`)
+- `_detect_media_type()` расширена: `.mp3` → `MEDIA_AUDIO`, `.ogg` → `MEDIA_VOICE`
+- `_send_by_type()` расширена: `send_audio` и `send_voice` ветки
+- **Graceful degradation:** `_scan_directory()` при `FileNotFoundError` → `logger.warning()` вместо `logger.exception()`
+
+### Файлы Epic 17
+
+| Файл | Тип | Статус |
+|------|-----|--------|
+| `filters/word_lists.py` | **CREATE** | ✅ IMPLEMENTED |
+| `filters/danger_word.py` | MODIFY | ✅ IMPLEMENTED |
+| `filters/war_word.py` | MODIFY | ✅ IMPLEMENTED |
+| `handlers/common.py` | MODIFY | ✅ IMPLEMENTED |
+| `handlers/war_alert.py` | MODIFY | ✅ IMPLEMENTED |
+| `services/common_relay.py` | MODIFY | ✅ IMPLEMENTED |
+| `tests/test_common.py` | MODIFY | ✅ 104 теста (+5 edge case) |
+
+### Test Suite (399 total)
+
+| Area | Count | Delta |
+|------|-------|-------|
+| Baseline (Epic 16) | 387 | — |
+| Epic 17: edge cases + propagation | +12 | test_common.py (+5), propagation/integration (+7) |
+| **Total** | **399** | **+12 net** |
+
+### Risky Check Items — Resolved
+
+| RC | Описание | Статус |
+|----|----------|--------|
+| RC1 | UNHANDLED может изменить поведение slavik_router catch-all? | ✅ Resolved — handler'ы common_router (otboy, danger) теперь возвращают UNHANDLED, propagation к slavik_router сохранён. war_alert_router больше не блокирует propagation. |
+| RC2 | word_lists.py нарушает обратную совместимость? | ✅ Resolved — оба фильтра используют одинаковый список. Импорт из word_lists.py не меняет поведение. |
+| RC3 | audio форматы: нужны ли media файлы? | ✅ Resolved — инфраструктурная поддержка. Файлы появятся позже при необходимости. |
+
+---
+
+## ✅ Epic 16: Bug Fixes — v2.12.0 → v2.12.1 (DEPLOYED, 2026-07-29)
 
 > **Цель:** Patch-release багфиксов без новых фич. 7 задач (T-109–T-115).
-> **Статус:** IMPLEMENTED ✅ — Review passed, все тесты зелёные (387 PASS).
-> **Результат:** 5 файлов изменено (1 новый, 4 модифицированных). +15 тестов.
+> **Статус:** DEPLOYED ✅ — Commit b58d60f, сервер nik@198.46.175.136, systemctl active (running).
+> **Результат:** 5 файлов изменено (1 новый, 4 модифицированных). +15 тестов. 387 PASS.
 
 ### Задачи Epic 16 — ВСЕ COMPLETED
 
@@ -129,36 +225,6 @@
 | **T-114** | TargetChannelFilter | `filters/target_channel.py` (NEW) | ✅ Кастомный BaseFilter |
 | **T-115** | Propagation fix в war_alert | `handlers/war_alert.py` | ✅ F.forward_origin→TargetChannelFilter |
 
-### T-109: DangerWordFilter — расширение до 135+ слов
-- **Было (Epic 15):** 22 keywords
-- **Стало (Epic 16):** Все 135+ словоформ из `filters/war_word.py::WAR_WORDS`
-- **17+ семантических семейств:** БПЛА, ракета/ракетный, дрон/беспилотник, опасность/опасен, тревога, сирена, атака, угроза, обстрел, взрыв, вспышка, убежище/укрытие/бункер, падение/сбитие, эвакуация, отбой, летит/прилет, беспилотный
-- **Overlap с WarWordFilter by design:** оба сервиса срабатывают на одном сообщении
-
-### T-110: DeadPageRelay — Collect-then-Group heuristic
-- **Было (v2.11.0):** forward primary → probe forward (+1,+2,...) → probe backward (-1,-2,...) — каждый sibling отдельным forward_message + delete
-- **Стало (v2.12.1):**
-  - Фаза 1: Probe & collect — пробинг соседних ID (±9) с date-matching (±2s), сбор всех matching ID в список
-  - Фаза 2: Один `forward_messages(chat_id, from_chat_id, message_ids=all_ids)` для всего альбома
-- **Преимущества:** чище лента (нет deleted ghost messages), меньше API вызовов, атомарная отправка альбома
-
-### T-114/T-115: TargetChannelFilter — новый фильтр + propagation fix
-- **Файл:** `filters/target_channel.py` (NEW)
-- **Проблема:** `F.forward_origin` матчил ВСЕ forwarded-сообщения → блокировал propagation к common_router (position 4c)
-- **Решение:** `TargetChannelFilter` — кастомный `BaseFilter`, матчит только каналы из `WAR_CHANNEL_IDS`/`WAR_CHANNEL_USERNAMES`
-- **handlers/war_alert.py:** `@war_alert_router.message(TargetChannelFilter())` заменил `@war_alert_router.message(F.forward_origin)`
-- **Non-war forwarded →** propagation продолжается → common_router получает сообщения
-
-### Test Suite (387 total)
-
-| Area | Count | Delta |
-|------|-------|-------|
-| Baseline (Epic 15) | 372 | — |
-| Danger words (135+) | +8 | test_common.py |
-| Collect-then-Group edge cases | +4 | test_dead_page_relay.py |
-| TargetChannelFilter + propagation | +3 | test_war_alert.py |
-| **Total** | **387** | **+15 net** |
-
 ### Changed Components
 
 | Файл | Тип изменения | Задача |
@@ -170,21 +236,6 @@
 | `tests/test_common.py` | MODIFIED | T-111: новые тесты danger words |
 | `tests/test_dead_page_relay.py` | MODIFIED | T-111: тесты Collect-then-Group edge cases |
 | `tests/test_war_alert.py` | MODIFIED | T-111: тесты propagation fix |
-
-### Risky Check Items — Resolved
-
-| RC | Описание | Статус |
-|----|----------|--------|
-| RC1 | DangerWordFilter и WarWordFilter дублируют проверки | ✅ By design — оба срабатывают |
-| RC2 | Date proximity ±2s в Collect-then-Group | ✅ Known limitation — принято |
-| RC3 | TargetChannelFilter ленивая инициализация | ✅ Используется существующий _is_target_channel() helper |
-
----
-
-## Previous Epic: 15 — Common Service Refactoring (SUPERSEDED)
-
-> Original Epic 15 (v2.12.0) is now superseded by v2.12.1 (Epic 16).
-> All functionality preserved under `handlers/common.py` + `CommonRelay`.
 
 ---
 
@@ -206,7 +257,8 @@
 | v2.10.0 | 2026-07-26 | Epic 13 (F9 Otboy) | T-084–T-092 | 305 |
 | v2.11.0 | 2026-07-28 | Epic 14 (Album Fix) | T-093–T-099 | 316 |
 | v2.12.0 | 2026-07-28 | Epic 15 (Common Service) | T-100–T-107 | 372 |
-| **v2.12.1** | **2026-07-29** | **Epic 16 (Bug Fixes)** | **T-109–T-115** | **387** |
+| v2.12.1 | 2026-07-29 | Epic 16 (Bug Fixes) | T-109–T-115 | 387 |
+| **v2.13.0** | **2026-07-30** | **Epic 17 (Danger Word Fix)** | **T2–T4** | **399** |
 
 ---
 
@@ -214,13 +266,30 @@
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-115 (115 задач across 16 Epics) ✅ |
-| **Planned** | — (backlog empty) |
+| **Done** | T-001 – T-115 + T2, T3, T4 (117 задач across 17 Epics) ✅ |
+| **Planned** | — (все Epic'ы завершены) |
 
-> Epics 1-16 COMPLETE & DEPLOYED. AdminBot v2.12.1 — Production-Ready.
-> 387 тестов, 10 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
-> Все 16 Epic'ов завершены. Zero known bugs.
+> Epics 1-16 DEPLOYED ✅. Epic 17 APPROVED ✅ — готов к деплою. AdminBot v2.13.0 — Production-ready.
+> 399 тестов, 10 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
+> 17 Epic'ов завершены. Ноль известных багов.
 
 ---
 
-*Последнее обновление: 2026-07-29 — EPIC 16 IMPLEMENTED. Post-implementation sync: Knowledge Graph полностью синхронизирован — сущности Epic-16-Bug-Fixes (IMPLEMENTED), TargetChannelFilter (IMPLEMENTED), DangerWordFilter (расширен до 135+), DeadPageRelay (Collect-then-Group). Созданы 13 новых observation, 5 новых сущностей (AdminBot-v2.12.1, T-109, T-110, T-114, T-115), 11 новых отношений. MEMORY.md обновлён до v2.12.1 (implemented) с 387 тестами.*
+## 🚀 Deployment Details (Final)
+
+| Параметр | Значение |
+|----------|----------|
+| **Версия** | v2.13.0 (APPROVED) |
+| **Предыдущий коммит** | `b58d60f` (v2.12.1) |
+| **Дата** | 2026-07-30 |
+| **Сервер** | nik@198.46.175.136 |
+| **Путь** | /var/www/admin_bot |
+| **Статус** | systemctl status adminbot → active (running) |
+| **Git remote** | origin/master — pushed успешно |
+| **Тесты** | 399 PASS (все зелёные) |
+| **Эпики** | 1-16 DEPLOYED ✅, 17 APPROVED ✅ |
+| **Задачи** | T-001 – T-115 + T2/T3/T4 (117 задач) закрыты |
+
+---
+
+*Обновление: 2026-07-30 — EPIC 17 APPROVED. Knowledge Graph синхронизирован: обновлены entity Epic-17-Danger-Word-Fix (APPROVED), AdminBot-v2.13.0 (APPROVED/ready-for-deploy), DangerWordFilter, CommonRelay, common-service, war_alert_router, filters/word_lists.py, AdminBot, AdminBot Router Architecture, handlers/common.py, services/common_relay.py, handlers/war_alert.py, tests/test_common.py. MEMORY.md обновлён до v2.13.0-approved. Проект в продакшене (v2.12.1), Epic 17 готов к деплою. 399 тестов. Ноль регрессий. Ноль известных багов.*

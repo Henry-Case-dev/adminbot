@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.12.1 | **Тестов:** 387 | **Эпиков:** 19 (112 задач)
+**Версия:** v2.13.0 | **Тестов:** 399 | **Эпиков:** 20 (117 задач)
 
 ---
 
@@ -285,7 +285,7 @@ await message.reply("ВАСЯ")   # «админ»
 ## 🧪 Тестирование
 
 ```bash
-# Все 387 тестов
+# Все 399 тестов
 py -m pytest tests/ -v
 
 # Только Alan
@@ -344,6 +344,30 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 - 6 тестов на DangerWordFilter (caption, forward, no regression)
 - 3 теста на propagation (war_alert + common_router interaction)
 - Полный прогон: 387 тестов, 0 регрессий
+
+---
+
+## 🐛 Исправлено в v2.13.0 (Epic 17)
+
+### Epic 17: Danger Word Fix — восстановление реакции на danger-слова
+
+**Root Cause:** `war_alert_router` (позиция 4b) блокировал propagation сообщений от Славы, не давая `common_router` (позиция 4c) обработать danger-слова. `DangerWordFilter` и `WarWordFilter` содержат одинаковый словарь из 135+ слов — когда Слава пишет danger-слово, `war_alert_router` перехватывает сообщение и останавливает цепочку, не доходя до `common_router`.
+
+**Исправления:**
+
+1. **Propagation fix (T3):** Все 4 хэндлера (`war_keyword_handler`, `war_channel_repost_handler`, `otboy_handler`, `danger_handler`) теперь возвращают `UNHANDLED` из `aiogram.dispatcher.event.bases` — канонический паттерн aiogram 3.x для продолжения propagation. Теперь сообщения Славы обрабатываются обоими роутерами: war_alert отвечает текстом, common — медиа.
+
+2. **Merge словарей (T2):** Создан единый модуль `filters/word_lists.py` с объединённым списком `DANGER_WORDS` (DRY). Оба фильтра — `DangerWordFilter` и `WarWordFilter` — импортируют из одного источника. Устранена ручная синхронизация.
+
+3. **CommonRelay: audio/voice + graceful degradation (T4):**
+   - Добавлена поддержка `.mp3` → `send_audio` и `.ogg` → `send_voice`
+   - `_scan_directory` больше не падает с `FileNotFoundError` при отсутствии папки — возвращает пустой список с `logger.warning`
+   - 5 медиа-типов: photo (jpg/png/webp), video (mp4/mov/webm), animation (mp4/mov/webm с "gif" в имени), audio (mp3), voice (ogg)
+
+**Тесты: 387 → 399 (+12)**
+- 5 новых edge case тестов: оба слова в одном сообщении, повреждённый файл, неподдерживаемый формат, PermissionError, cooldown при ошибке
+- 7 тестов на propagation с `UNHANDLED`
+- Полный прогон: 399 тестов, 0 регрессий
 
 ---
 

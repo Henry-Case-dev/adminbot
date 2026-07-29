@@ -566,9 +566,10 @@
 
 ---
 
-## Epic 16: Bug Fixes Sprint — 2026-07-29 🔵 IN PROGRESS
+## Epic 16: Bug Fixes Sprint — 2026-07-29 ✅ ARCHIVED (→ Epic 17)
 
 > **Цель:** Исправить критические баги, обнаруженные после деплоя Epic 14 (Album Fix) и Epic 15 (Common Service).
+> **Архивирован 2026-07-30.** Danger_word fix выделен в Epic 17. DeadPageRelay album fix отложен.
 >
 > ### Сводка багов
 >
@@ -743,6 +744,92 @@
 
 ---
 
-**Status: Epics 1–15 DONE ✅. Epic 16 (Bug Fixes Sprint): T-109–T-114 — IN PROGRESS 🔵.**
-**Date: 2026-07-29 | v2.12.0 (deployed) → v2.12.1 (Epic 16 target)**
-**PM Analysis completed. Ready for @Architect review, then @Builder implementation.**
+**Status: Epics 1–16 ARCHIVED ✅. Epic 17 (Danger Word Fix) — IN PROGRESS 🔵.**
+**Date: 2026-07-30 | v2.12.1 (target)**
+
+---
+
+## Epic 17: Danger Word Fix — 2026-07-30 🔵 IN PROGRESS
+
+> **Цель:** Исправить баг — фича danger_word в common сервисе не работает. Бот не реагирует
+> на danger-слова («бпла», «ракета», «опасность» и др.) ни в личных, ни в групповых чатах.
+>
+> **Гипотезы бага:**
+> - **H3 (наиболее вероятная):** Медиа-файлы `media/common/danger/` не задеплоены на сервер →
+>   `_scan_directory` → `FileNotFoundError` → `send_common` молча падает.
+> - **H1:** `war_alert_router` (позиция 4b) перехватывает сообщения до `common_router` (4c).
+>   Фильтр `F.forward_origin` в `war_channel_repost_handler` матчит ЛЮБОЕ forwarded-сообщение,
+>   блокируя propagation к common_router.
+> - **H4:** Баг в `_build_danger_patterns` — некорректный regex.
+> - **H5:** `otboy_handler` блокирует `danger_handler` (только для слова «отбой»).
+>
+> **Что работает:** `otboy` (тот же роутер, тот же relay, тот же код) — работает идеально ✅.
+
+### T-115 (T1): Проверить наличие медиа-файлов danger/ на сервере
+- [ ] T-115-A: Подключиться к серверу nik@198.46.175.136:/var/www/admin_bot
+- [ ] T-115-B: Проверить наличие директории `media/common/danger/`
+- [ ] T-115-C: Проверить наличие файлов `danger_01.mp4`, `danger_02_gif.mp4` (или любых медиа)
+- [ ] T-115-D: Если файлы отсутствуют — скопировать/создать, проверить права (chmod 644)
+- [ ] T-115-E: Сравнить локальную `media/common/danger/` с серверной (diff)
+
+### T-116 (T2): Проверить и исправить DangerWordFilter (паттерны, инициализация)
+- [ ] T-116-A: Проверить `_DEFAULT_DANGER_WORDS` — список слов (22 слова → нужно 91+ из war_word.py)
+- [ ] T-116-B: Проверить `_build_danger_patterns()` — корректность word-boundary regex
+- [ ] T-116-C: Проверить регистронезависимость: «БПЛА», «Ракета», «РАКЕТА», «бпла»
+- [ ] T-116-D: Проверить word boundary: «ракета» матчит, «подракетная» нет
+- [ ] T-116-E: Проверить `__call__` — проверка `message.text` и `message.caption`
+- [ ] T-116-F: Скопировать ВСЕ слова из `filters/war_word.py::WAR_WORDS` в `_DEFAULT_DANGER_WORDS`
+- [ ] T-116-G: Comprehensive logging: INFO при срабатывании фильтра (chat_id, user_id, matched_word, source field)
+
+### T-117 (T3): Проверить взаимодействие war_alert_router и common_router
+- [ ] T-117-A: Проверить порядок роутеров в `bot.py` (war_alert_router=4b, common_router=4c)
+- [ ] T-117-B: Проверить `war_channel_repost_handler` — фильтр `F.forward_origin` матчит ВСЕ forwarded
+- [ ] T-117-C: Проверить propagation: возвращает ли handler `None` для non-target каналов
+- [ ] T-117-D: Заменить `F.forward_origin` на `TargetChannelFilter` (только target каналы)
+  - Вариант A: Вынести `_is_target_channel()` в отдельный `TargetChannelFilter(BaseFilter)`
+  - Вариант B: Оставить `F.forward_origin` + middleware для передачи управления дальше
+- [ ] T-117-E: Проверить: forwarded из non-target канала → доходит до common_router
+- [ ] T-117-F: Проверить: handler 1 (`war_keyword_handler`) не сломан
+
+### T-118 (T4): Проверить и исправить CommonRelay.send_common (механизм отправки)
+- [ ] T-118-A: Проверить `_scan_directory` — обрабатывает ли ошибки (FileNotFoundError, пустая папка)
+- [ ] T-118-B: Проверить `_pick_media` — fallback при пустой директории, не-медиа файлы
+- [ ] T-118-C: Проверить `_detect_media_type` — корректность для всех расширений
+- [ ] T-118-D: Проверить `send_danger()` — параметры вызова `_pick_media(subdir="danger")`
+- [ ] T-118-E: Проверить `_send_media()` — dispatch по типам (photo/video/animation)
+- [ ] T-118-F: Добавить ERROR-лог при `FileNotFoundError` в `_scan_directory` (сейчас молча падает?)
+- [ ] T-118-G: Добавить WARNING-лог при пустой директории danger/
+
+### T-119 (T5): Добавить/исправить тесты для danger_word
+- [ ] T-119-A: DangerWordFilter — все 91+ слов матчатся (параметризованный тест)
+- [ ] T-119-B: DangerWordFilter — регистронезависимость («БПЛА», «Ракета», «РАКЕТА»)
+- [ ] T-119-C: DangerWordFilter — word boundary («ракета» ✓, «подракетная» ✗)
+- [ ] T-119-D: DangerWordFilter — caption и forwarded text support
+- [ ] T-119-E: danger_handler — делегирует в CommonRelay.send_danger с правильными параметрами
+- [ ] T-119-F: CommonRelay.send_danger — случайный медиа из danger dir, правильный тип
+- [ ] T-119-G: CommonRelay — пустая директория danger/ (graceful handling)
+- [ ] T-119-H: Интеграционный тест: propagation — war_alert + common_router interaction
+- [ ] T-119-I: `pytest` — полный suite, 0 регрессий
+
+### T-120 (T6): Обновить README
+- [ ] T-120-A: Обновить секцию Common Service — описать danger_word fix
+- [ ] T-120-B: Version bump: v2.12.1 → v2.12.2
+- [ ] T-120-C: Добавить changelog entry
+
+### T-121 (T7): Деплой на сервер
+- [ ] T-121-A: Git pull на сервер nik@198.46.175.136:/var/www/admin_bot
+- [ ] T-121-B: Проверить/создать директорию `media/common/danger/` с файлами
+- [ ] T-121-C: Обновить .env (если требуется)
+- [ ] T-121-D: Restart бота
+- [ ] T-121-E: Smoke test: сообщение с «ракета» → reply с danger-медиа
+- [ ] T-121-F: Smoke test: forwarded с «бпла» → reply с danger-медиа
+- [ ] T-121-G: Smoke test: другие фичи не сломаны (слава, war_alert, алан, вася, костик)
+- [ ] T-121-H: Verify Better Stack логи (INFO: danger detected, media type, FileNotFoundError resolved)
+
+**Файлы для изменения:**
+- `filters/danger_word.py` — расширить `_DEFAULT_DANGER_WORDS`, добавить логирование
+- `handlers/war_alert.py` — `war_channel_repost_handler` (строки 186–231), заменить `F.forward_origin`
+- `services/common_relay.py` — `_scan_directory`, `send_danger`, error handling
+- `tests/test_common.py` — добавить тесты на расширенный DangerWordFilter, propagation
+- `tests/test_war_alert.py` — propagation тесты
+- `README.md` — changelog, version bump
