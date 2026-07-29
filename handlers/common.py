@@ -14,6 +14,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from aiogram import Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 
 from filters.danger_word import DangerWordFilter
 from filters.otboy_word import OtboyWordFilter
@@ -63,6 +64,7 @@ async def otboy_handler(
             message.chat.id,
             message.message_id,
         )
+    return UNHANDLED
 
 
 @common_router.message(DangerWordFilter())
@@ -93,3 +95,4 @@ async def danger_handler(
             message.chat.id,
             message.message_id,
         )
+    return UNHANDLED

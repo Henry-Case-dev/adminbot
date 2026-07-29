@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiogram.types import FSInputFile, ReplyParameters
+from aiogram.dispatcher.event.bases import UNHANDLED
+from aiogram.exceptions import TelegramBadRequest
 
 from config.settings import settings
 from filters.danger_word import DangerWordFilter, _build_danger_patterns, _parse_danger_words
@@ -19,8 +21,10 @@ from filters.otboy_word import OtboyWordFilter
 from handlers.common import danger_handler, otboy_handler, setup_common
 from services.common_relay import (
     MEDIA_ANIMATION,
+    MEDIA_AUDIO,
     MEDIA_PHOTO,
     MEDIA_VIDEO,
+    MEDIA_VOICE,
     CommonRelay,
 )
 
@@ -437,6 +441,18 @@ class TestCommonRelayDetectMediaType:
     def test_gif_in_stem_case_insensitive(self, relay):
         assert relay._detect_media_type(Path("MY_GIF.mp4")) == MEDIA_ANIMATION
 
+    def test_detect_audio_mp3(self, relay):
+        assert relay._detect_media_type(Path("alert.mp3")) == MEDIA_AUDIO
+
+    def test_detect_voice_ogg(self, relay):
+        assert relay._detect_media_type(Path("message.ogg")) == MEDIA_VOICE
+
+    def test_detect_audio_mp3_uppercase(self, relay):
+        assert relay._detect_media_type(Path("ALERT.MP3")) == MEDIA_AUDIO
+
+    def test_detect_voice_ogg_uppercase(self, relay):
+        assert relay._detect_media_type(Path("VOICE.OGG")) == MEDIA_VOICE
+
 
 # ═══════════════════════════════════════════════════════════════════
 # E. CommonRelay — Scan Directory
@@ -486,21 +502,21 @@ class TestCommonRelayScanDirectory:
         (subdir / "notes.md").write_text("fake")
 
         relay._media_base = str(tmp_path)
-        with pytest.raises(FileNotFoundError, match="No supported media files"):
-            relay._scan_directory("test")
+        files = relay._scan_directory("test")
+        assert files == []
 
-    def test_scan_missing_directory_raises(self, relay, tmp_path):
+    def test_scan_missing_directory_returns_empty(self, relay, tmp_path):
         relay._media_base = str(tmp_path)
-        with pytest.raises(FileNotFoundError, match="Directory not found"):
-            relay._scan_directory("nonexistent")
+        files = relay._scan_directory("nonexistent")
+        assert files == []
 
-    def test_scan_empty_directory_raises(self, relay, tmp_path):
+    def test_scan_empty_directory_returns_empty(self, relay, tmp_path):
         subdir = tmp_path / "empty"
         subdir.mkdir()
 
         relay._media_base = str(tmp_path)
-        with pytest.raises(FileNotFoundError, match="No supported media files"):
-            relay._scan_directory("empty")
+        files = relay._scan_directory("empty")
+        assert files == []
 
     def test_scan_skips_subdirectories(self, relay, tmp_path):
         subdir = tmp_path / "test"
@@ -512,6 +528,28 @@ class TestCommonRelayScanDirectory:
         files = relay._scan_directory("test")
         assert len(files) == 1
         assert files[0][0].name == "photo.jpg"
+
+    def test_scan_with_permission_error(self, relay, tmp_path):
+        subdir = tmp_path / "locked"
+        subdir.mkdir()
+        relay._media_base = str(tmp_path)
+        with patch.object(Path, "iterdir", side_effect=PermissionError("access denied")):
+            with pytest.raises(PermissionError):
+                relay._scan_directory("locked")
+
+    def test_scan_with_audio_and_voice(self, relay, tmp_path):
+        subdir = tmp_path / "audio_test"
+        subdir.mkdir()
+        (subdir / "siren.mp3").write_text("fake")
+        (subdir / "voice.ogg").write_text("fake")
+        (subdir / "readme.txt").write_text("fake")
+
+        relay._media_base = str(tmp_path)
+        files = relay._scan_directory("audio_test")
+        assert len(files) == 2
+        types = {mt for _, mt in files}
+        assert MEDIA_AUDIO in types
+        assert MEDIA_VOICE in types
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -528,6 +566,8 @@ class TestCommonRelaySendCommon:
         bot.send_photo = AsyncMock()
         bot.send_video = AsyncMock()
         bot.send_animation = AsyncMock()
+        bot.send_audio = AsyncMock()
+        bot.send_voice = AsyncMock()
         return bot
 
     @pytest.fixture
@@ -566,6 +606,27 @@ class TestCommonRelaySendCommon:
         mock_bot.send_video.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_send_audio_called_for_mp3(self, mock_bot):
+        relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
+        mock_files = [(Path("/fake/alert.mp3"), MEDIA_AUDIO)]
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            await relay.send_common(chat_id=42, message_id=99, matched_word="\u0441\u0438\u0440\u0435\u043d\u0430", subdir="danger")
+
+        mock_bot.send_audio.assert_called_once()
+        mock_bot.send_photo.assert_not_called()
+        mock_bot.send_video.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_voice_called_for_ogg(self, mock_bot):
+        relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
+        mock_files = [(Path("/fake/msg.ogg"), MEDIA_VOICE)]
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            await relay.send_common(chat_id=42, message_id=99, matched_word="\u043e\u0442\u0431\u043e\u0439", subdir="otboy")
+
+        mock_bot.send_voice.assert_called_once()
+        mock_bot.send_photo.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_reply_parameters_passed(self, mock_bot):
         relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
         mock_files = [(Path("/fake/photo.jpg"), MEDIA_PHOTO)]
@@ -582,11 +643,36 @@ class TestCommonRelaySendCommon:
     @pytest.mark.asyncio
     async def test_scan_error_returns_none(self, mock_bot):
         relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
-        with patch.object(relay, "_scan_directory", side_effect=FileNotFoundError("missing")):
+        with patch.object(relay, "_scan_directory", return_value=[]):
             result = await relay.send_common(chat_id=1, message_id=10, matched_word="x", subdir="otboy")
 
         assert result is None
         mock_bot.send_photo.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_damaged_media_file_raises_telegram_bad_request(self, mock_bot):
+        relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
+        mock_files = [(Path("/fake/corrupt.jpg"), MEDIA_PHOTO)]
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            mock_bot.send_photo.side_effect = TelegramBadRequest(
+                method="sendPhoto",
+                message="Bad Request: wrong file identifier"
+            )
+            await relay.send_common(chat_id=42, message_id=99, matched_word="\u043e\u0442\u0431\u043e\u0439", subdir="otboy")
+
+        mock_bot.send_photo.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unsupported_format_in_send_by_type(self, mock_bot):
+        relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
+        with pytest.raises(ValueError, match="Unknown media_type"):
+            await relay._send_by_type(
+                chat_id=42,
+                message_id=99,
+                matched_word="test",
+                filepath=Path("/fake/test.xyz"),
+                media_type="document",
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -683,6 +769,21 @@ class TestCommonRelayCooldown:
             with patch("services.common_relay.time.monotonic", return_value=fake_now):
                 await relay.send_common(chat_id=1, message_id=10, matched_word="otboy", subdir="otboy")
             assert mock_bot.send_photo.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_cooldown_not_activated_on_send_error(self, mock_bot, mock_scan_files):
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, media_base="/fake/media")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_scan_files):
+            mock_bot.send_photo.side_effect = TelegramBadRequest(
+                method="sendPhoto",
+                message="Bad Request: failed to send"
+            )
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(chat_id=1, message_id=10, matched_word="otboy", subdir="otboy")
+
+            assert 1 not in relay._cooldowns
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -806,7 +907,7 @@ class TestCommonIntegration:
 
         msg = make_message(text="\u043e\u0442\u0431\u043e\u0439")
         result = await otboy_handler(msg, matched_word="\u043e\u0442\u0431\u043e\u0439")
-        assert result is None
+        assert result is UNHANDLED
 
     @pytest.mark.asyncio
     async def test_danger_handler_does_not_block_propagation(self):
@@ -816,7 +917,7 @@ class TestCommonIntegration:
 
         msg = make_message(text="\u0431\u043f\u043b\u0430")
         result = await danger_handler(msg, matched_word="\u0431\u043f\u043b\u0430")
-        assert result is None
+        assert result is UNHANDLED
 
     @pytest.mark.asyncio
     async def test_otboy_filter_independent_of_user_id(self):
@@ -844,6 +945,17 @@ class TestCommonIntegration:
         r2 = await f_danger(msg)
         assert r1 == {"matched_word": "\u043e\u0442\u0431\u043e\u0439"}
         assert r2 == {"matched_word": "\u0431\u043f\u043b\u0430"}
+
+    @pytest.mark.asyncio
+    async def test_message_with_both_otboy_and_danger_words(self):
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+
+        msg = make_message(text="\u043e\u0442\u0431\u043e\u0439 \u0431\u043f\u043b\u0430 \u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c")
+        await otboy_handler(msg, matched_word="\u043e\u0442\u0431\u043e\u0439")
+        await danger_handler(msg, matched_word="\u0431\u043f\u043b\u0430")
+        assert mock_relay.send_common.call_count == 2
 
 
 # ═══════════════════════════════════════════════════════════════════

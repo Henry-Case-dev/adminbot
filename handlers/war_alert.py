@@ -16,6 +16,7 @@ import logging
 import random
 
 from aiogram import Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 
 from config.settings import settings
@@ -136,6 +137,7 @@ async def war_keyword_handler(message: types.Message):
             "War Alert (keyword): failed to send reply | msg_id=%d",
             message.message_id,
         )
+    return UNHANDLED
 
 
 # ── Handler 2: Channel reposts ──
@@ -178,3 +180,4 @@ async def war_channel_repost_handler(message: types.Message):
             message.message_id,
             origin.chat.id,
         )
+    return UNHANDLED

@@ -7232,3 +7232,445 @@ async def war_channel_repost_handler(message: types.Message):
    - Manual: форварднуть сообщение из ЦЕЛЕВОГО канала → war_channel_repost_handler срабатывает → war reply
 
 4. **Full regression:** `pytest tests/ -v` — все ~380 тестов проходят
+
+---
+
+## 29. Epic 17: Danger Word Fix — Architectural Design
+
+> **Версия:** v2.13.0
+> **Дата:** 2026-07-30
+> **Назначение:** Исправление неработающей фичи danger_word. Три гипотезы: H1 (war_alert перехватывает propagation), H3 (медиа не задеплоены), H4 (баг в паттернах). Три задачи: T2 (merge словарей), T3 (propagation fix), T4 (CommonRelay error handling + audio/voice).
+
+---
+
+### 29.1 Root Cause Analysis
+
+#### 29.1.1 H1: war_alert перехватывает propagation (ОСНОВНАЯ ПРИЧИНА)
+
+**Механизм бага:**
+
+В aiogram 3.x, `return None` из handler'а останавливает propagation между sub-routers (тот же баг что и T-053, задокументированный в Section 20). `war_keyword_handler` (handlers/war_alert.py:103) возвращает `None` (implicit return) → `war_alert_router` (pos 4b) возвращает `None` → Dispatcher НЕ продолжает к `common_router` (pos 4c) → `danger_handler` не вызывается.
+
+```
+Слава пишет "дрон летит":
+  war_alert_router (4b):
+    Handler 1: UserIdFilter=True, WarWordFilter=True → reply → return None → СТОП
+  common_router (4c): НЕ ПОЛУЧАЕТ → danger_handler НЕ вызывается ❌
+```
+
+**Для не-Славы danger работает:**
+```
+Не-Слава пишет "дрон летит":
+  war_alert_router (4b):
+    Handler 1: UserIdFilter=False → skip
+    Handler 2: TargetChannelFilter=False → skip
+    → router возвращает UNHANDLED → propagation продолжается
+  common_router (4c): DangerWordFilter=True → danger_handler вызывается ✅
+```
+
+**Почему otboy «работает»:** Пользователь тестировал otboy на НЕ-Славе. Для Славы otboy ТОЖЕ не работает (та же причина — war_alert перехватывает "отбой" через WarWordFilter).
+
+#### 29.1.2 H3: Медиа не задеплоены — НЕ ПОДТВЕРЖДЕНО
+
+`media/common/danger/` содержит `danger_01.mp4` и `danger_02_gif.mp4` — файлы на месте. `_scan_directory()` корректно их находит. Эта гипотеза исключена.
+
+#### 29.1.3 H4: Баг в паттернах — НЕ ПОДТВЕРЖДЕНО
+
+`DangerWordFilter._build_danger_patterns()` использует тот же regex-формат что и `WarWordFilter._build_patterns()`: `(?<![а-яё])WORD(?![а-яё])` с `re.IGNORECASE`. Паттерны корректны. Эта гипотеза исключена.
+
+---
+
+### 29.2 T2: Merge словарей WarWordFilter и DangerWordFilter
+
+#### 29.2.1 Текущее состояние
+
+| Аспект | `filters/war_word.py` | `filters/danger_word.py` |
+|--------|----------------------|--------------------------|
+| Список слов | `WAR_WORDS` (135+ форм) | `_DEFAULT_DANGER_WORDS` (135+ форм) |
+| Синхронизация | Ручная (Epic 16, D71) | Ручная (Epic 16, D71) |
+| Различия | `'БПЛА'` (uppercase) | `'воздушная'`, `'воздушной'`, `'воздушную'` |
+| Regex | `_build_patterns()` | `_build_danger_patterns()` (идентичная логика) |
+
+Оба списка практически идентичны (синхронизированы в Epic 16, D71). Различия минимальны:
+- `war_word.py`: `'БПЛА'` (строка 41) — uppercase вариант
+- `danger_word.py`: `'воздушная'`, `'воздушной'`, `'воздушную'` (строки 58-59) — отсутствуют в war_word.py
+
+#### 29.2.2 Решение: Единый модуль `filters/word_lists.py`
+
+**Создать** `filters/word_lists.py` — единый источник истины для всех danger/war слов:
+
+```python
+"""Shared word lists for WarWordFilter and DangerWordFilter.
+
+Single source of truth — both filters import from here.
+Adding a word here updates both filters automatically.
+"""
+DANGER_WORDS: list[str] = [
+    # ── Flight / arrival ──
+    'летит', 'летает', 'прилетел', 'прилетает', 'летят', 'летел',
+    'прилет', 'прилёт', 'прилетит',
+    # ── Drone / UAV ──
+    'дрон', 'дроны', 'дронов', 'дрону', 'дроном', 'дроне',
+    'дронам', 'дронами', 'дронах',
+    'беспилотник', 'беспилотники', 'беспилотника', 'беспилотнику',
+    'беспилотником', 'беспилотнике', 'беспилотников', 'беспилотникам',
+    'беспилотниками', 'беспилотниках',
+    'бпла', 'БПЛА',
+    # ── Rocket / missile ──
+    'ракета', 'ракеты', 'ракет', 'ракете', 'ракету', 'ракетой',
+    'ракетою', 'ракетам', 'ракетами', 'ракетах',
+    'ракетная', 'ракетной', 'ракетную', 'ракетною',
+    'ракетные', 'ракетных', 'ракетным', 'ракетными',
+    'ракетный', 'ракетного', 'ракетному',
+    # ── Shelter / bunker ──
+    'укрытие', 'укрытия', 'укрытию', 'укрытием', 'укрытии',
+    'укрытий', 'укрытиям', 'укрытиями', 'укрытиях',
+    'убежище', 'убежища', 'убежищу', 'убежищем',
+    'убежищ', 'убежищам', 'убежищами', 'убежищах',
+    'бункер', 'бункера', 'бункеру', 'бункером', 'бункере',
+    'бункеров', 'бункерам', 'бункерами', 'бункерах',
+    # ── Flash / explosion ──
+    'вспышка', 'вспышки', 'вспышке', 'вспышку', 'вспышкой',
+    'вспышек', 'вспышкам', 'вспышками', 'вспышках',
+    'взрыв', 'взрыва', 'взрыву', 'взрывом', 'взрыве',
+    'взрывы', 'взрывов', 'взрывам', 'взрывами', 'взрывах',
+    # ── Danger / alert ──
+    'опасность', 'опасности', 'опасностью', 'опасностей',
+    'опасен', 'опасна', 'опасно', 'опасны',
+    'тревога', 'тревоги', 'тревоге', 'тревогу', 'тревогой',
+    'внимание',
+    'оповещение', 'оповещения', 'оповещению', 'оповещением',
+    'оповещении', 'оповещений',
+    # ── Сирена / воздушная тревога ──
+    'сирена', 'сирены', 'сирену', 'сиреной', 'сирене',
+    'сирен', 'сиренам', 'сиренами', 'сиренах',
+    'воздушная', 'воздушной', 'воздушную',
+    # ── Беспилотные (adjectives) ──
+    'беспилотной', 'беспилотная', 'беспилотное', 'беспилотные',
+    'беспилотного', 'беспилотному', 'беспилотным',
+    'беспилотных',
+    # ── Атака / угроза ──
+    'атака', 'атаки', 'атаке', 'атаку', 'атакой',
+    'атак', 'атакам', 'атаками', 'атаках',
+    'угроза', 'угрозы', 'угрозе', 'угрозу', 'угрозой',
+    'угроз', 'угрозам', 'угрозами', 'угрозах',
+    'обстрел', 'обстрела', 'обстрелу', 'обстрелом', 'обстреле',
+    'обстрелы', 'обстрелов', 'обстрелам', 'обстрелами', 'обстрелах',
+    # ── Падение / сбитие ──
+    'сбит', 'сбита', 'сбито', 'сбиты',
+    'падение', 'падения', 'падению', 'падением', 'падении',
+    'упал', 'упала', 'упало', 'упали',
+    # ── Эвакуация ──
+    'эвакуация', 'эвакуации', 'эвакуацию', 'эвакуацией',
+    'эвакуироваться',
+    # ── Отбой ──
+    'отбой', 'отбоя', 'отбою', 'отбоем', 'отбое',
+]
+```
+
+**Изменения в `filters/war_word.py`:**
+- Удалить `WAR_WORDS` class attribute
+- Импортировать `DANGER_WORDS` из `filters.word_lists`
+- `_PATTERNS = _build_patterns(DANGER_WORDS)` (module-level)
+
+**Изменения в `filters/danger_word.py`:**
+- Удалить `_DEFAULT_DANGER_WORDS`
+- Импортировать `DANGER_WORDS` из `filters.word_lists`
+- `_parse_danger_words()` fallback: `return list(DANGER_WORDS)`
+
+**Обоснование:**
+- D58/D71 уже объявили «единый источник истины» — завершаем архитектурно
+- Ручная синхронизация — источник багов (уже были расхождения)
+- DRY: одно место для добавления новых слов
+- Обратная совместимость: `DANGER_WORDS` env var всё ещё переопределяет список для danger_word (но не для war_word — war_word всегда использует полный список)
+
+---
+
+### 29.3 T3: Propagation Fix — return UNHANDLED
+
+#### 29.3.1 Проблема
+
+Три handler'а возвращают `None` (implicit return), что останавливает propagation между sub-routers:
+
+| Handler | Файл | Возврат | Эффект |
+|---------|------|:---:|--------|
+| `war_keyword_handler` | `handlers/war_alert.py:103` | `None` | Блокирует common_router для Славы |
+| `war_channel_repost_handler` | `handlers/war_alert.py:146` | `None` | Блокирует common_router для target-channel репостов |
+| `otboy_handler` | `handlers/common.py:38` | `None` | Блокирует slavik_router для "отбой" |
+| `danger_handler` | `handlers/common.py:68` | `None` | Блокирует slavik_router для danger-слов |
+
+#### 29.3.2 Решение: Вариант D — return UNHANDLED
+
+**Вариант A (TargetChannelFilter):** Уже сделан в Epic 16. Решает только Handler 2 (channel reposts). Не решает Handler 1 (keywords).
+
+**Вариант B (перестановка роутеров):** Если common_router (4c) поставить ПЕРЕД war_alert_router (4b), то common_router handler'ы тоже возвращают None → propagation стоп → war_alert_router не получает → war reply для Славы ломается. ❌
+
+**Вариант C (middleware):** Избыточно. Middleware не решает проблему возврата None из handler'а.
+
+**Вариант D (return UNHANDLED) — РЕКОМЕНДУЕТСЯ:**
+
+Добавить `return UNHANDLED` во все 4 handler'а:
+
+**`handlers/war_alert.py`:**
+```python
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+@war_alert_router.message(UserIdFilter(...), WarWordFilter())
+async def war_keyword_handler(message: types.Message):
+    # ... existing logic ...
+    await message.reply(reply_text)
+    return UNHANDLED  # ← propagation continues to common_router
+
+@war_alert_router.message(TargetChannelFilter(...))
+async def war_channel_repost_handler(message: types.Message):
+    # ... existing logic ...
+    await message.reply(reply_text)
+    return UNHANDLED  # ← propagation continues to common_router
+```
+
+**`handlers/common.py`:**
+```python
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+@common_router.message(OtboyWordFilter())
+async def otboy_handler(message: types.Message, matched_word: str):
+    # ... existing logic ...
+    await _relay.send_common(...)
+    return UNHANDLED  # ← propagation continues to slavik_router
+
+@common_router.message(DangerWordFilter())
+async def danger_handler(message: types.Message, matched_word: str):
+    # ... existing logic ...
+    await _relay.send_common(...)
+    return UNHANDLED  # ← propagation continues to slavik_router
+```
+
+#### 29.3.3 Матрица propagation после фикса
+
+| Сценарий | war_alert (4b) | common (4c) | slavik (5) | vasya (6) |
+|----------|:---:|:---:|:---:|:---:|
+| Слава пишет "дрон летит" | ✅ war reply | ✅ danger media | ✅ "пошёл нахуй" | ✗ |
+| Слава пишет "отбой" | ✅ war reply | ✅ otboy media | ✅ "пошёл нахуй" | ✗ |
+| Слава пишет "привет" | ✗ | ✗ | ✅ "пошёл нахуй" | ✗ |
+| Не-Слава пишет "дрон" | ✗ | ✅ danger media | ✗ | ✗ |
+| Не-Слава пишет "отбой" | ✗ | ✅ otboy media | ✗ | ✗ |
+| Не-Слава пишет "вася" | ✗ | ✗ | ✗ | ✅ "АДМИН" |
+| Слава репостит из target-канала | ✅ war reply | ✅ (если danger words) | ✅ "пошёл нахуй" | ✗ |
+
+**Важно:** После фикса для Славы ВСЕ 4 роутера (war_alert → common → slavik → vasya) получают сообщение. Это может привести к множественным ответам на одно сообщение. Например, "дрон летит" от Славы вызовет: war reply + danger media + "пошёл нахуй" (3 ответа). Это ожидаемое поведение — каждый роутер независим.
+
+#### 29.3.4 Обоснование выбора Варианта D
+
+| Критерий | A (TargetChannelFilter) | B (перестановка) | C (middleware) | D (UNHANDLED) |
+|----------|:---:|:---:|:---:|:---:|
+| Решает Handler 1 propagation | ❌ | ❌ | ❌ | ✅ |
+| Решает Handler 2 propagation | ✅ | ❌ | ❌ | ✅ |
+| Не ломает war_alert | ✅ | ❌ | ✅ | ✅ |
+| Не ломает common_router | ✅ | ✅ | ✅ | ✅ |
+| Канонический aiogram 3.x паттерн | — | — | — | ✅ (T-053) |
+| Минимальные изменения | — | — | — | ✅ (4 строки) |
+
+---
+
+### 29.4 T4: CommonRelay Error Handling + Audio/Voice Support
+
+#### 29.4.1 Текущее состояние
+
+`services/common_relay.py` уже имеет graceful error handling:
+- `_scan_directory()` — `FileNotFoundError` ловится в `send_common()` через `try/except (FileNotFoundError, PermissionError, OSError)` (строка 191)
+- `_send_by_type()` — ошибки отправки ловятся в `send_common()` через `try/except Exception` (строка 226)
+- Поддерживаемые типы: photo, video, animation
+
+**Отсутствует:** поддержка audio (.mp3) и voice (.ogg).
+
+#### 29.4.2 Решение: Добавить audio/voice типы
+
+**Добавить константы и расширения:**
+```python
+MEDIA_AUDIO = "audio"
+MEDIA_VOICE = "voice"
+
+_AUDIO_EXTENSIONS: set[str] = {".mp3"}
+_VOICE_EXTENSIONS: set[str] = {".ogg"}
+```
+
+**Обновить `_detect_media_type()`:**
+```python
+def _detect_media_type(self, filepath: Path) -> str | None:
+    ext = filepath.suffix.lower()
+    if ext in _IMAGE_EXTENSIONS:
+        return MEDIA_PHOTO
+    if ext in _VIDEO_EXTENSIONS:
+        if "gif" in filepath.stem.lower():
+            return MEDIA_ANIMATION
+        return MEDIA_VIDEO
+    if ext in _AUDIO_EXTENSIONS:
+        return MEDIA_AUDIO
+    if ext in _VOICE_EXTENSIONS:
+        return MEDIA_VOICE
+    return None
+```
+
+**Обновить `_send_by_type()`:**
+```python
+elif media_type == MEDIA_AUDIO:
+    await self._bot.send_audio(
+        chat_id=chat_id,
+        audio=input_file,
+        reply_parameters=reply_params,
+    )
+elif media_type == MEDIA_VOICE:
+    await self._bot.send_voice(
+        chat_id=chat_id,
+        voice=input_file,
+        reply_parameters=reply_params,
+    )
+```
+
+**Важное предупреждение о `.ogg` как voice:**
+Telegram требует что voice-сообщения были в формате OPUS с определёнными параметрами (моно, 48000 Hz). Простое переименование `.ogg` → `send_voice` может не сработать если файл не в формате OPUS. Рекомендуется:
+- `.mp3` → `send_audio` (музыка/аудио-файлы)
+- `.ogg` → `send_voice` (голосовые сообщения, должны быть в OPUS)
+- Документировать форматные требования в README/ARCHITECTURE
+
+#### 29.4.3 Graceful degradation (уже реализовано)
+
+Текущий код уже обрабатывает все ошибки gracefully:
+- `FileNotFoundError` / `PermissionError` / `OSError` в `_scan_directory()` → caught в `send_common()`, logged, return
+- Ошибки `send_photo`/`send_video`/`send_animation` → caught в `send_common()`, logged, return
+- `_relay is None` → handler возвращается без вызова relay, logged ERROR
+
+**Дополнительное улучшение:** Добавить `logger.warning` при пустой директории (сейчас `FileNotFoundError` логируется через `logger.exception` — это избыточно для ожидаемой ситуации):
+
+```python
+except FileNotFoundError:
+    logger.warning(
+        "CommonRelay: no media files for subdir=%s | chat_id=%s",
+        subdir, chat_id,
+    )
+    return
+except (PermissionError, OSError):
+    logger.exception(
+        "CommonRelay: cannot access media dir subdir=%s | chat_id=%s",
+        subdir, chat_id,
+    )
+    return
+```
+
+---
+
+### 29.5 Рекомендованный порядок действий
+
+| # | Задача | Приоритет | Файлы | Риск |
+|---|--------|:---:|------|:---:|
+| 1 | **T2: Merge словарей** | Средний | CREATE `filters/word_lists.py`, MODIFY `filters/war_word.py`, MODIFY `filters/danger_word.py` | Низкий — только импорты, поведение идентично |
+| 2 | **T3: UNHANDLED fix** | КРИТИЧЕСКИЙ | MODIFY `handlers/war_alert.py`, MODIFY `handlers/common.py` | Средний — меняет propagation, нужны интеграционные тесты |
+| 3 | **T4: Audio/voice + graceful** | Низкий | MODIFY `services/common_relay.py` | Низкий — добавление новых типов, существующие не затронуты |
+
+**Почему T3 перед T2:** T3 — непосредственная причина бага (danger не работает для Славы). T2 — архитектурная гигиена, не влияет на функциональность. T4 — расширение возможностей.
+
+---
+
+### 29.6 Файлы, которые нужно изменить
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `filters/word_lists.py` | **CREATE** | Единый список `DANGER_WORDS` (140+ словоформ) |
+| `filters/war_word.py` | **MODIFY** | Импорт `DANGER_WORDS` из `word_lists` вместо локального `WAR_WORDS` |
+| `filters/danger_word.py` | **MODIFY** | Импорт `DANGER_WORDS` из `word_lists` вместо локального `_DEFAULT_DANGER_WORDS` |
+| `handlers/war_alert.py` | **MODIFY** | +import `UNHANDLED`, +`return UNHANDLED` в обоих handler'ах |
+| `handlers/common.py` | **MODIFY** | +import `UNHANDLED`, +`return UNHANDLED` в обоих handler'ах |
+| `services/common_relay.py` | **MODIFY** | +audio/voice типы, +graceful degradation для `FileNotFoundError` |
+| `tests/test_common.py` | **MODIFY** | +тесты: propagation, audio/voice типы |
+| `tests/test_war_alert.py` | **MODIFY** | +тесты: UNHANDLED propagation |
+| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 29 (этот документ) |
+
+**Файлы НЕ тронуты:**
+- `bot.py` — порядок роутеров не меняется
+- `config/settings.py` — без изменений
+- `filters/otboy_word.py` — без изменений
+- `filters/target_channel.py` — без изменений (уже решает Handler 2 propagation для non-target forwards)
+
+---
+
+### 29.7 Потенциальные риски
+
+| # | Риск | Вероятность | Влияние | Митигация |
+|---|------|:---:|:---:|------|
+| R1 | T3: Множественные ответы на одно сообщение Славы | Высокая | Среднее | Задокументировать как expected behavior. При необходимости — добавить флаг подавления в будущем. |
+| R2 | T3: UNHANDLED ломает propagation для ChatMemberUpdated | Низкая | Высокое | UNHANDLED добавляется только в message handler'ы. ChatMemberUpdated handler'ы не затрагиваются. |
+| R3 | T2: Потеря слов при merge | Низкая | Среднее | Использовать set union для верификации. Написать тест: `set(DANGER_WORDS) == set(old_war_words) | set(old_danger_words)`. |
+| R4 | T4: `.ogg` не в формате OPUS → `send_voice` падает | Средняя | Низкое | Задокументировать форматные требования. Ошибка `send_voice` ловится в `send_common()`. |
+| R5 | T3: Изменение поведения для существующих сценариев | Средняя | Среднее | Интеграционные тесты для всей цепочки propagation. Регрессионный прогон всех тестов. |
+
+---
+
+### 29.8 Test Plan
+
+#### A. T2: Merge словарей
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_word_lists_union_complete` | `set(DANGER_WORDS)` содержит все слова из старых списков | Ни одно слово не потеряно |
+| 2 | `test_war_word_filter_still_works` | WarWordFilter с новым импортом | Все существующие тесты проходят |
+| 3 | `test_danger_word_filter_still_works` | DangerWordFilter с новым импортом | Все существующие тесты проходят |
+
+#### B. T3: UNHANDLED propagation
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_war_keyword_handler_returns_unhandled` | Handler 1 возвращает UNHANDLED | `result is UNHANDLED` |
+| 2 | `test_war_channel_repost_handler_returns_unhandled` | Handler 2 возвращает UNHANDLED | `result is UNHANDLED` |
+| 3 | `test_otboy_handler_returns_unhandled` | otboy_handler возвращает UNHANDLED | `result is UNHANDLED` |
+| 4 | `test_danger_handler_returns_unhandled` | danger_handler возвращает UNHANDLED | `result is UNHANDLED` |
+| 5 | `test_full_propagation_slava_war_word` | Слава пишет "дрон" → все 4 роутера получают | war_alert + common + slavik + vasya |
+| 6 | `test_full_propagation_non_slava_danger` | Не-Слава пишет "дрон" → common + vasya получают | common (danger) + vasya |
+
+#### C. T4: Audio/voice + graceful
+
+| # | Тест | Описание | Проверки |
+|---|------|----------|----------|
+| 1 | `test_detect_audio_type` | .mp3 файл | `_detect_media_type` → MEDIA_AUDIO |
+| 2 | `test_detect_voice_type` | .ogg файл | `_detect_media_type` → MEDIA_VOICE |
+| 3 | `test_send_audio_called` | `send_common` с .mp3 | `bot.send_audio` вызван |
+| 4 | `test_send_voice_called` | `send_common` с .ogg | `bot.send_voice` вызван |
+| 5 | `test_empty_dir_warning_not_exception` | Пустая директория | `logger.warning` вызван, не `logger.exception` |
+
+---
+
+### 29.9 Key Architectural Decisions (Epic 17)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D75 | Единый модуль `filters/word_lists.py` для DANGER_WORDS | Завершает D58/D71: единый источник истины. Устраняет ручную синхронизацию. DRY. |
+| D76 | `return UNHANDLED` во всех 4 handler'ах (не только в war_alert) | Канонический паттерн aiogram 3.x (T-053). Гарантирует propagation через ВСЕ роутеры. Семантически корректно: handler не «потребил» событие. |
+| D77 | Порядок роутеров НЕ меняется | Перестановка создаёт новые проблемы (common_router блокирует war_alert). UNHANDLED решает проблему без изменения порядка. |
+| D78 | Audio/voice через расширение файла (не через имя) | `.mp3` → audio, `.ogg` → voice. В отличие от video/animation (где "gif" в имени), audio/voice различаются по расширению — это стандартный подход. |
+| D79 | `FileNotFoundError` → `logger.warning` (не `logger.exception`) | Пустая директория — ожидаемая ситуация (не баг). `logger.exception` включает traceback, избыточный для expected condition. |
+
+---
+
+### 29.10 Verification Checklist
+
+1. **T2 — Merge словарей:**
+   - `pytest tests/test_filters.py -v -k "war_word"` — все тесты WarWordFilter проходят
+   - `pytest tests/test_common.py -v -k "danger_word"` — все тесты DangerWordFilter проходят
+   - `pytest tests/ -v -k "word_lists"` — тест union completeness
+
+2. **T3 — UNHANDLED propagation:**
+   - `pytest tests/test_war_alert.py -v -k "unhandled"` — 2 теста
+   - `pytest tests/test_common.py -v -k "unhandled"` — 2 теста
+   - `pytest tests/ -v -k "propagation"` — интеграционные тесты цепочки
+
+3. **T4 — Audio/voice:**
+   - `pytest tests/test_common.py -v -k "audio or voice"` — 5 тестов
+
+4. **Full regression:**
+   - `pytest tests/ -v` — все ~400 тестов проходят
+
+5. **Manual smoke (production):**
+   - Слава пишет "дрон летит" → war reply + danger media + "пошёл нахуй" (3 ответа)
+   - Слава пишет "отбой" → war reply + otboy media + "пошёл нахуй" (3 ответа)
+   - Не-Слава пишет "ракетная опасность" → danger media
+   - Не-Слава пишет "отбой" → otboy media
+   - Better Stack: все логи видны, propagation не блокируется

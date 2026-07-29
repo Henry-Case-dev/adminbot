@@ -2,52 +2,87 @@
 
 ## 📋 Backlog
 
-### Epic 16: Bug Fixes Sprint — 2026-07-29 🔵 IN PROGRESS
+### Epic 17: Danger Word Fix — 2026-07-30 🔵 IN PROGRESS
 
-**Bug 1: Репост — группировка альбомов (DeadPageRelay)**
-- [ ] T-110: Fix `_forward_with_heuristic()` — переписать на коллективный forward_messages()
-  - [ ] T-110-A: Собрать sibling ID → один `forward_messages()` вместо отдельных `forward_message()`
-  - [ ] T-110-B: Ужесточить критерий «тот же альбом» (media_group_id match > date proximity)
-  - [ ] T-110-C: Если переписывание >2ч — откатить heuristic к версии до Epic 14
-  - [ ] T-110-D: Comprehensive logging (album size, IDs, grouping reason)
+**T-115 (T1): Проверить наличие медиа-файлов danger/ на сервере**
+- [ ] T-115-A: SSH → сервер, проверить `media/common/danger/`
+- [ ] T-115-B: Проверить наличие `danger_01.mp4`, `danger_02_gif.mp4`
+- [ ] T-115-C: Если отсутствуют — скопировать, chmod 644
+- [ ] T-115-D: Сравнить локальную и серверную директории (diff)
 
-**Bug 2: Common Service danger_handler не работает**
-- [ ] T-109: Fix DangerWordFilter — скопировать ВСЕ слова из `filters/war_word.py`
-  - [ ] T-109-A: `_DEFAULT_DANGER_WORDS`: 22 → 91+ слов (как `WarWordFilter.WAR_WORDS`)
-  - [ ] T-109-B: Проверить word-boundary regex для всех слов
-  - [ ] T-109-C: Проверить регистронезависимость: БПЛА, Ракета, РАКЕТА
-- [ ] T-114: Fix `war_channel_repost_handler` — propagation stopper блокирует common_router
-  - [ ] T-114-A: Заменить `F.forward_origin` на `TargetChannelFilter` (только target каналы)
-  - [ ] T-114-B: Проверить: forwarded из non-target → доходит до common_router
-  - [ ] T-114-C: Проверить: handler 1 (war_keyword_handler) не сломан
+**T-116 (T2): Проверить и исправить DangerWordFilter**
+- [ ] T-116-A: `_DEFAULT_DANGER_WORDS`: 22 → 91+ слов (из war_word.py)
+- [ ] T-116-B: Проверить `_build_danger_patterns()` — word-boundary regex
+- [ ] T-116-C: Проверить регистронезависимость: БПЛА, Ракета, РАКЕТА
+- [ ] T-116-D: Word boundary: «ракета» ✓, «подракетная» ✗
+- [ ] T-116-E: Проверить `__call__` — text + caption
+- [ ] T-116-F: INFO-лог при срабатывании фильтра
 
-**Тестирование**
-- [ ] T-111: Новые тесты + полный прогон
-  - [ ] T-111-C1–C6: Альбомы — heuristic + DB path (6 тестов)
-  - [ ] T-111-A1–A6: DangerWordFilter — 91+ слов, caption, forward, no regression (6 тестов)
-  - [ ] T-111-D1–D4: Propagation — war_alert + common_router interaction (4 теста)
-  - [ ] T-111-E: `pytest` — полный suite, 0 регрессий
+**T-117 (T3): Проверить взаимодействие war_alert_router и common_router**
+- [ ] T-117-A: Проверить порядок роутеров (4b → 4c)
+- [ ] T-117-B: `F.forward_origin` матчит ВСЕ forwarded → заменить на TargetChannelFilter
+- [ ] T-117-C: Проверить propagation: non-target channel → common_router получает
+- [ ] T-117-D: Проверить: `war_keyword_handler` не сломан
 
-**Конфигурация**
-- [ ] T-113: Проверить DEAD_PAGE_RELAY_CHANNEL_ID (знак int, .env vs код)
+**T-118 (T4): Проверить и исправить CommonRelay.send_common**
+- [ ] T-118-A: `_scan_directory` — error handling (FileNotFoundError)
+- [ ] T-118-B: `_pick_media` — fallback при пустой/не-медиа директории
+- [ ] T-118-C: `_detect_media_type` — все расширения
+- [ ] T-118-D: `send_danger()` — параметры, subdir="danger"
+- [ ] T-118-E: `_send_media()` — dispatch photo/video/animation
+- [ ] T-118-F: ERROR-лог при FileNotFoundError (сейчас молча?)
+- [ ] T-118-G: WARNING-лог при пустой директории
 
-**Документация**
-- [ ] T-112: Синхронизировать board.md, backlog.md, ARCHITECTURE.md, README.md
+**T-119 (T5): Добавить/исправить тесты для danger_word**
+- [ ] T-119-A: 91+ слов матчатся (параметризованный)
+- [ ] T-119-B: Регистронезависимость
+- [ ] T-119-C: Word boundary
+- [ ] T-119-D: Caption + forwarded text
+- [ ] T-119-E: danger_handler → CommonRelay.send_danger
+- [ ] T-119-F: send_danger — случайный медиа, правильный тип
+- [ ] T-119-G: Пустая директория (graceful)
+- [ ] T-119-H: Интеграция: propagation war_alert + common_router
+- [ ] T-119-I: `pytest` — полный suite, 0 регрессий
+
+**T-120 (T6): Обновить README**
+- [ ] T-120-A: Common Service — danger_word fix
+- [ ] T-120-B: Version bump v2.12.2
+- [ ] T-120-C: Changelog
+
+**T-121 (T7): Деплой на сервер**
+- [ ] T-121-A: Git pull
+- [ ] T-121-B: Проверить/создать `media/common/danger/`
+- [ ] T-121-C: Обновить .env
+- [ ] T-121-D: Restart
+- [ ] T-121-E: Smoke: «ракета» → danger-медиа
+- [ ] T-121-F: Smoke: forwarded «бпла» → danger-медиа
+- [ ] T-121-G: Smoke: другие фичи не сломаны
+- [ ] T-121-H: Better Stack логи verified
 
 ---
 
 ## 🔧 In Progress
 
-- [ ] T-109: Fix DangerWordFilter — скопировать слова из war_word.py (91+ слов)
-- [ ] T-110: Fix `_forward_with_heuristic()` — коллективный forward_messages()
-- [ ] T-114: Fix `war_channel_repost_handler` — propagation stopper
-- [ ] T-111: Тесты (16 новых + полный прогон)
-- [ ] T-113: Проверить DEAD_PAGE_RELAY_CHANNEL_ID
-- [ ] T-112: Документация
+- [ ] T-115: Проверить медиа-файлы danger/ на сервере
+- [ ] T-116: Проверить и исправить DangerWordFilter
+- [ ] T-117: Проверить war_alert_router ↔ common_router interaction
+- [ ] T-118: Проверить и исправить CommonRelay.send_common
+- [ ] T-119: Тесты для danger_word
+- [ ] T-120: README
+- [ ] T-121: Деплой
 
 ---
 
 ## ✅ Done
+
+### Epic 16: Bug Fixes Sprint — 2026-07-29 ✅ ARCHIVED (→ Epic 17)
+- [x] Epic 16 archived 2026-07-30. Danger_word fix → Epic 17. DeadPageRelay album fix → deferred.
+- [x] T-109: DangerWordFilter — RCA completed (22 слова → нужно 91+)
+- [x] T-114: war_channel_repost_handler — RCA completed (F.forward_origin блокирует)
+- [x] T-113: DEAD_PAGE_RELAY_CHANNEL_ID — RCA completed
+- [ ] T-110: DeadPageRelay album fix — DEFERRED
+- [ ] T-111: Тесты — DEFERRED
+- [ ] T-112: Документация — DEFERRED
 
 ### Epic 15: Common Service — Rename + Media Upgrade + Danger — 2026-07-28
 - [x] 👤 T-100 (@Architect): Архитектурное проектирование Common Service + sub-agent review
@@ -246,4 +281,4 @@
 
 ---
 
-**Updated:** 2026-07-29 — Epic 15 (Common Service) archived to Done. Epic 16 (Bug Fixes Sprint) added to Backlog + In Progress. v2.12.0 deployed, v2.12.1 target.
+**Updated:** 2026-07-30 — Epic 16 archived. Epic 17 (Danger Word Fix) created. v2.12.2 target.
