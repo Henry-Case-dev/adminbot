@@ -74,8 +74,8 @@ class TestAdminCommands:
         msg.delete.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_router_has_four_handlers(self):
-        assert len(admin_commands_router.message.handlers) == 4
+    async def test_router_has_six_handlers(self):
+        assert len(admin_commands_router.message.handlers) == 6
 
     @pytest.mark.asyncio
     async def test_setup_injects_relay(self):

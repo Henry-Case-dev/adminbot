@@ -1,7500 +1,104 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.12.1
-> **Дата:** 2026-07-29
-> **Назначение:** Единый источник истины (Single Source of Truth) для Builder. Каждый обработчик, каждый фильтр, каждый SQL-запрос описан здесь.
+> **Версия:** v2.14.0-draft (Architect Review)
+> **Дата:** 2026-08-01
+> **Статус:** Расследование трёх задач (danger_word баг, dead_page repost баг, mimic фича). Реализация НЕ начата — этот документ есть контракт для Builder.
+> **Автор:** @Architect
 
 ---
 
-## 1. Directory Structure (Final)
+## СОДЕРЖАНИЕ
 
-```
-C:\Code\Python\adminbot\
-├── bot.py                          # Entry point: build Dispatcher, register routers, start polling
-├── requirements.txt                # Pinned dependencies
-├── .env                            # API_TOKEN=<token> (git-ignored)
-├── .env.example                    # API_TOKEN=your_token_here
-├── README.md                       # F8: Ironic documentation
-│
-├── config/
-│   ├── __init__.py
-│   └── settings.py                 # Dataclass + dotenv loader; global singleton `settings`
-│
-├── filters/
-│   ├── __init__.py
-│   ├── user_id.py                  # UserIdFilter(BaseFilter) — reusable for any user
-│   ├── vasya_name.py              # VasyaFilter(BaseFilter) — regex "вас[иеёяю]"
-│   ├── admin_word.py              # StrictAdminFilter(BaseFilter) — exact word "админ"
-│   ├── kucha_word.py              # KuchaWordFilter(BaseFilter) — "куч[аиеуюйе]" (F4)
-│   ├── war_word.py                # WarWordFilter(BaseFilter) — 135+ military/drone/alert keywords (F5v2)
-│   ├── otboy_word.py              # OtboyWordFilter(BaseFilter) — word "отбой" in text/caption/forward (F9)
-│   ├── danger_word.py             # DangerWordFilter(BaseFilter) — 135+ danger keywords from WAR_WORDS (Epic 15/16)
-│   └── target_channel.py          # TargetChannelFilter(BaseFilter) — matches forwarded ONLY from target war channels (Epic 16)
-│
-├── handlers/
-│   ├── __init__.py
-│   ├── admin_commands.py            # Admin test commands: /deadpage, /alangreet (Epic 10)
-│   ├── kostik.py                   # Kostik catch-all: "пошёл нахуй кринжатура ебаная"
-│   ├── slavik.py                   # Slava router: middleware(F3) + F4 + catch-all (F5 REMOVED to war_alert)
-│   ├── vasya.py                    # Vasya/Admin filters + handlers
-│   ├── alan.py                      # Alan_Z reply engine: every 10 msgs → random reply (F6)
-│   ├── alan_greeting.py             # Alan greeting video on join: ChatMemberUpdated + new_chat_members (F7)
-│   ├── dead_page_trigger.py        # Repost detector: catches forwards from @d_pages (F2)
-│   ├── war_alert.py                # War Words Alert V2: Slava keywords + channel repost detection (F5v2)
-│   ├── otboy.py                    # Otboy Service: word "отбой" → otboy.jpg with native quote (F9)
-│   └── slava_presence.py           # ChatMemberUpdated handler (F1) + new_chat_members fallback
-│
-├── services/
-│   ├── __init__.py
-│   ├── database.py                 # DatabaseService — aiosqlite query executor
-│   ├── media_picker.py             # MediaService — random jpg + random txt from dead_page/
-│   ├── scheduler.py                # SchedulerService — simplified, join trigger only (F2)
-│   ├── dead_page_relay.py          # DeadPageRelay — channel forward + fallback service (F2)
-│   ├── message_counter.py          # MessageCounterMiddleware — aiogram inner middleware (F3)
-│   └── otboy_relay.py              # OtboyRelay — sends otboy.jpg with per-chat cooldown + native quote (F9)
-│
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                 # Shared fixtures: mock bot, mock message, in-memory DB, event loop
-│   ├── test_admin_commands.py      # Admin test commands: /deadpage, /alangreet (Epic 10)
-│   ├── test_kostik.py
-│   ├── test_slavik_handlers.py     # Slava handlers (F4 + catch-all; F5 REMOVED to war_alert)
-│   ├── test_filters.py             # All 6 filter unit tests
-│   ├── test_edge_cases.py          # Cross-component edge cases
-│   ├── test_message_counter.py     # F3: GIF counter middleware
-│   ├── test_slava_presence.py      # F1: Slava join/leave detection
-│   ├── test_scheduler.py           # F2: scheduler loop logic (simplified)
-│   ├── test_dead_page_relay.py     # F2: DeadPageRelay forward + fallback tests
-│   ├── test_dead_page_trigger.py   # F2: repost detector handler tests
-│   ├── test_alan_greeting.py        # F7: Alan greeting video tests
-│   ├── test_media_picker.py        # F2: media file picker
-│   ├── test_alan.py                # F6
-│   ├── test_vasya.py
-│   ├── test_otboy.py               # F9: OtboyWordFilter + handler + relay + cooldown
-│   └── test_database.py            # DB service unit tests
-│
-├── media/
-│   ├── otboy.jpg                   # F9: "отбой" response image
-│   ├── slavic_chlen.mp4            # 1.1MB mp4 for F3 GIF
-│   ├── leha_greeting/
-│   │   ├── leha_greeting_01.MP4     # Greeting video 1 (F7)
-│   │   └── leha_greeting_02.MP4     # Greeting video 2 (F7)
-│   └── dead_page/
-│       ├── page_1.txt              # Obituary text (19 lines, UTF-8)
-│       └── slavic_ava.jpg          # Photo (35KB)
-│
-└── plans/
-    ├── ARCHITECTURE.md             # ← THIS FILE
-    ├── MEMORY.md
-    ├── board.md
-    └── backlog.md
-```
-
-**Migration notes:**
-- `vasya_module.py` → removed (logic moves to `handlers/vasya.py` + `filters/vasya_name.py` + `filters/admin_word.py`)
-- `kostik_module.py` → removed (logic moves to `handlers/kostik.py` + `filters/user_id.py`)
-- `slavik_module.py` → removed (logic moves to `handlers/slavik.py` + `filters/user_id.py` + `services/message_counter.py`)
-- `local_database.db` → kept, schema created on first run by `DatabaseService.initialize()`
+1. Задача 1 — Баг `danger_word` в сервисе `common`: Root Cause Analysis
+2. Задача 2 — Поломка репостинга `dead page` (Rich Message / июль 2026): Root Cause Analysis
+3. Задача 3 — Фича `mimic` (передразнивание): Алгоритм и архитектура интеграции
+4. Сводный план для Builder (порядок реализации, риски, тест-план)
 
 ---
 
-## 2. Component Dependency Diagram
+## 0. Executive Summary
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  bot.py (entry point)                                    │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  Dispatcher                                       │   │
-│  │                                                   │   │
-│  │  REGISTRATION ORDER (TOP → BOTTOM = FIRST CHECK): │   │
-│  │                                                   │   │
-│  │  0. admin_commands_router  (Epic 10: /deadpage, /alangreet) │
-│  │     └─ imports handlers/admin_commands.py          │   │
-│  │        ├─ imports services/dead_page_relay.py     │   │
-│  │        └─ imports handlers/alan_greeting.py        │   │
-│  │           (_send_greeting, local import)           │   │
-│  │                                                   │   │
-│  │  1. ChatMemberUpdated handlers                    │   │
-│  │     ├─ slava_presence_router (F1)                 │   │
-│  │     │  └─ imports handlers/slava_presence.py      │   │
-│  │     └─ alan_greeting_router (F7)                  │   │
-│  │        └─ imports handlers/alan_greeting.py        │   │
-│  │                                                   │   │
-│  │  2. kostik_router  (user_id=350803143)            │   │
-│  │     └─ imports handlers/kostik.py                 │   │
-│  │        └─ imports filters/user_id.py              │   │
-│  │                                                   │   │
-│  │  3. alan_router     (user_id=138811255) + DB counter         │   │
-│  │     └─ imports handlers/alan.py                               │   │
-│  │        └─ imports filters/user_id.py               │   │
-│  │                                                   │   │
-│  │  4. dead_page_router  (F2 repost trigger)          │   │
-│  │     └─ imports handlers/dead_page_trigger.py      │   │
-│  │        └─ imports services/dead_page_relay.py     │   │
-│  │           ├─ imports services/database.py         │   │
-│  │           ├─ imports services/media_picker.py     │   │
-│  │           └─ imports config/settings.py           │   │
-│  │                                                   │   │
-│  │  4b. war_alert_router  (F5v2: war keywords +      │   │
-│  │       channel repost detection)                    │   │
-│  │     └─ imports handlers/war_alert.py              │   │
-│  │        ├─ imports filters/war_word.py             │   │
-│  │        ├─ imports filters/user_id.py              │   │
-│  │        └─ imports config/settings.py              │   │
-│  │                                                   │   │
-│  │  4c. otboy_router  (F9: "отбой" → otboy.jpg)      │   │
-│  │     └─ imports handlers/otboy.py                  │   │
-│  │        ├─ imports filters/otboy_word.py           │   │
-│  │        └─ imports services/otboy_relay.py         │   │
-│  │           └─ imports config/settings.py           │   │
-│  │                                                   │   │
-│  │  5. slavik_router  (user_id=479167456)            │   │
-│  │     └─ imports handlers/slavik.py                 │   │
-│  │        ├─ middleware: MessageCounterMiddleware    │   │
-│  │        │  └─ imports services/message_counter.py  │   │
-│  │        │     └─ imports services/database.py      │   │
-│  │        ├─ handler F4: KuchaWordFilter             │   │
-│  │        │  └─ imports filters/kucha_word.py        │   │
-│  │        └─ catch-all handler                       │   │
-│  │           └─ imports filters/user_id.py           │   │
-│  │                                                   │   │
-│  │  6. vasya_router  (text filters, no user restrict)│   │
-│  │     └─ imports handlers/vasya.py                  │   │
-│  │        ├─ VasyaFilter → "АДМИН"                   │   │
-│  │        │  └─ imports filters/vasya_name.py        │   │
-│  │        └─ StrictAdminFilter → "ВАСЯ"              │   │
-│  │           └─ imports filters/admin_word.py        │   │
-│  │                                                   │   │
-│  │  SIMPLIFIED SCHEDULER (started in bot.py main()):  │   │
-│  │  ┌─────────────────────────────────────────────┐  │   │
-│  │  │ scheduler (F2 join trigger only)             │  │   │
-│  │  │  └─ imports services/scheduler.py            │  │   │
-│  │  │     └─ imports DeadPageRelay                 │  │   │
-│  │  └─────────────────────────────────────────────┘  │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-
-SHARED DEPENDENCIES (imported by many):
-┌──────────────────────┐    ┌──────────────────────┐
-│ config/settings.py    │    │ services/database.py  │
-│ (Settings dataclass)  │    │ (aiosqlite wrapper)   │
-└─────────┬────────────┘    └──────────┬────────────┘
-          │                            │
-    bot.py, scheduler.py          dead_page_relay.py,
-    dead_page_relay.py            message_counter.py,
-                                  slava_presence.py,
-                                  scheduler.py
-```
-
-**Import rules:**
-- `handlers/` NEVER import from other `handlers/` modules (each is self-contained)
-- `filters/` NEVER import from `handlers/` or `services/`
-- `services/` can import from `config/` and other `services/` (only DB is shared)
-- `bot.py` is the ONLY module that imports routers and wires them together
-- `config/settings.py` has NO internal imports (pure dataclass + os.environ)
+| # | Задача | Диагноз | Тип фикса |
+|---|--------|---------|-----------|
+| 1 | `danger_word` — 0 реакций | **Обновлено после фидбека пользователя:** деплой РЕАЛЬНО был выполнен, баг всё равно воспроизвёлся. Новый подтверждённый root cause: `.env.example` жёстко прописывает `DANGER_WORDS=бпла,ракетная,опасность` (всего 3 слова, комментарий в файле лжёт про "22 слова"). Если сервер получил `.env` копированием этого шаблона при первом деплое Epic 15 — `DangerWordFilter` игнорирует 135+ слов из `word_lists.py` и матчит только эти 3. См. §1.7 (новый). | Убрать/пересмотреть `DANGER_WORDS=` в `.env.example` и на сервере + верифицировать propagation-фикс отдельно |
+| 2 | `dead page` — новые посты игнорируются | Канал перешёл на Rich Text формат (Telegram Bot API 10.2, июль 2026). У поста может не быть `photo`/`caption` вовсе — весь контент лежит в `message.rich_message.blocks`. Бот всё ещё читает только legacy-поля. | Новый модуль извлечения контента + retro-fallback |
+| 3 | `mimic` — новая фича | Нет существующего кода — чистое проектирование. Regex-based, без LLM. Два независимых интеграционных пути (`common`, `Slavik`) с общим модулем трансформации. | Новая фича |
 
 ---
 
-## 3. Data Flow for Each Feature
-
-### F1 — Slava Return Detection
-
-```
-TRIGGER: Telegram sends ChatMemberUpdated or Message with new_chat_members
-
-ChatMemberUpdated flow:
-  Telegram API
-    → Dispatcher.chat_member handler
-    → slava_presence.py::on_slava_chat_member(update: ChatMemberUpdated)
-    → Check: update.new_chat_member.user.id == 479167456
-      AND update.old_chat_member.status in ('left','kicked','restricted')
-      AND update.new_chat_member.status == 'member'
-    → update.bot.send_message(chat_id, "ДОЛБОЕБ ВЕРНУЛСЯ")
-    → DatabaseService.set_slava_present(chat_id, user_id, True)
-    → SchedulerService.signal_immediate_post(chat_id)  [see F2 below]
-    → (scheduler resumes if it was paused)
-
-Message.new_chat_members fallback:
-  Telegram API
-    → Dispatcher.message handler (via dedicated router)
-    → slava_presence.py::on_new_chat_members(message: Message)
-    → Check: any(u.id == 479167456 for u in message.new_chat_members)
-    → message.answer("ДОЛБОЕБ ВЕРНУЛСЯ")
-    → Same DB + scheduler steps as above
-
-LEAVE detection (sets presence=False, pauses scheduler):
-  ChatMemberUpdated with old_status='member', new_status='left'/'kicked'
-    → DatabaseService.set_slava_present(chat_id, user_id, False)
-```
-
-**Edge cases:**
-- Duplicate join events (Telegram may send both ChatMemberUpdated + new_chat_members): dedup via DB flag — `set_slava_present` is idempotent, `signal_immediate_post` checks if already posted in last 10 seconds.
-- Bot restart while Slava is present: DB stores presence, scheduler picks up state on startup.
-- Slava in multiple chats: DB key is `(user_id, chat_id)`.
-
-### F2 — Dead Page Posts
-
-```
-── POST TRIGGERS ───────────────────────────────────
-
-REPOST (event-driven, primary trigger):
-  Telegram API → any user forwards a message from @d_pages into the chat
-    → Dispatcher.message handler
-    → dead_page_trigger.py::on_forward(message: Message)
-    → Check: message.forward_origin is MessageOriginChannel
-      AND origin.chat.username == 'd_pages'
-    → Check: anti-spam cooldown (DB: was_dead_page_recently?)
-    → Check: Slava presence (DB: is_present? — future-proofing)
-    → DeadPageRelay.send_dead_page(chat_id)
-      → DB insert: dead_page_posts(chat_id, slot='repost', date=today, timestamp=now)
-
-ON JOIN (parameterized, optional):
-  F1 handler → SchedulerService.signal_immediate_post(chat_id)
-    → Check: DEAD_PAGE_POST_ON_JOIN=True?
-    → DeadPageRelay.send_dead_page(chat_id)
-      → DB insert: dead_page_posts(chat_id, slot='join', date=today, timestamp=now)
-
-SCHEDULED (time-based): REMOVED in v2 — no morning/evening slots
-
-── CHANNEL POST PICKING STRATEGY ────────────────────
-
-DeadPageRelay.get_last_known_message_id(channel_id=4228645624):
-  → DB query: SELECT value FROM channel_state WHERE key='last_msg_id:4228645624'
-  → Returns int (0 if no known messages)
-
-DeadPageRelay._forward_random_post(target_chat_id):
-  INPUT: target_chat_id, channel_id=4228645624, max_retries=10
-  
-  Algorithm:
-    1. last_id = await db.get_last_known_message_id(channel_id)
-    2. if last_id < 1: return False (no known messages)
-    3. tried = set()
-    4. For attempt in range(max_retries):
-         msg_id = random.randint(1, last_id)
-         if msg_id not in tried:
-           tried.add(msg_id)
-           try:
-             await bot.forward_message(
-               chat_id=target_chat_id,
-               from_chat_id=channel_id,
-               message_id=msg_id
-             )
-             await db.update_last_known_message_id(channel_id, max(msg_id, last_id))
-             return True
-           except TelegramBadRequest if "message to forward not found":
-             continue  # retry with different msg_id
-           except: raise
-    5. return False (all retries exhausted)
-
-── FALLBACK ─────────────────────────────────────────
-
-DeadPageRelay._send_local_dead_page(chat_id):
-  → Only used if channel forward fails or is unavailable
-  → MediaService.pick_random() → send_photo + send_message(text)
-  → Uses local media/dead_page/ directory (old method)
-
-── SENDING ──────────────────────────────────────────
-
-DeadPageRelay.send_dead_page(chat_id):
-    try:
-        success = await self._forward_random_post(chat_id)
-        if not success:
-            raise RuntimeError("All forward retries exhausted")
-    except Exception:
-        logger.warning("Channel forward failed. Falling back to local media.")
-        await self._send_local_dead_page(chat_id)
-        # Fallback format:
-        photo_path, text = await self.media.pick_random()
-        caption = text[:DEAD_PAGE_CAPTION_MAX_CHARS]
-        await bot.send_photo(chat_id, FSInputFile(photo_path), caption=caption)
-        if len(text) > DEAD_PAGE_CAPTION_MAX_CHARS:
-            await bot.send_message(chat_id, text=text[DEAD_PAGE_CAPTION_MAX_CHARS:])
-```
-
-**Anti-spam cooldown:**
-```python
-DEAD_PAGE_COOLDOWN_SECONDS = 10  # min interval between reposts in same chat
-
-# DB check:
-SELECT 1 FROM dead_page_posts
-WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?
-```
-
-**Channel configuration:**
-```python
-DEAD_PAGE_SOURCE_CHANNEL_USERNAME = "d_pages"       # forward_origin match
-DEAD_PAGE_SOURCE_CHANNEL_ID = 4228645624            # private channel with posts
-DEAD_PAGE_POST_ON_JOIN = True                       # enable join trigger
-DEAD_PAGE_COOLDOWN_SECONDS = 10                     # anti-spam
-DEAD_PAGE_CAPTION_MAX_CHARS = 1024                  # fallback caption limit
-DEAD_PAGE_MAX_FORWARD_RETRIES = 10                  # pick random post attempts
-```
-
-### F3 — Slava GIF Counter
-
-```
-TRIGGER: Every message from user 479167456
-
-DATA FLOW:
-  Message arrives → slavik_router middleware chain
-    → MessageCounterMiddleware.__call__()
-      1. Extract chat_id = message.chat.id, user_id = message.from_user.id
-      2. new_count = await DatabaseService.increment_message_count(chat_id, user_id)
-         -- SQL: INSERT OR REPLACE INTO message_counters VALUES (?, ?, COALESCE((SELECT count FROM message_counters WHERE chat_id=? AND user_id=?), 0) + 1)
-         -- Returns the NEW count (after increment)
-      3. if new_count % 5 == 0:
-           await message.answer_animation(
-               animation=FSInputFile("media/slavic_chlen.mp4"),
-               caption=None
-           )
-      4. Pass to next handler (no short-circuit: middlewares don't consume updates)
-
-  → Then continues to F4/F5/catch-all handlers (all handlers fire independently)
-
-PERSISTENCE:
-  - Counter persists in SQLite across bot restarts
-  - Counter resets... requirement doesn't specify reset. Decision: NEVER reset.
-    But could add: counter % 1000 cycles back (or just let it grow indefinitely;
-    integer overflow in SQLite is not a concern for typical chat volumes)
-
-RESET (optional, implement if asked):
-  - New function: DatabaseService.reset_message_count(chat_id, user_id)
-  - Sets count = 0
-```
-
-**Edge cases:**
-- Counter goes from 0 to 1 on first message: requires INSERT (not just UPDATE).
-- Concurrent messages in rapid succession: SQLite handles this; aiosqlite serializes access within the same event loop.
-- Bot restarts: counter survives (persisted in DB).
-
-### F4 — KUCHA Words
-
-```
-TRIGGER: Message from user 479167456 containing "куча"/"кучи"/"кучу" etc.
-
-FLOW:
-  Message arrives → slavik_router handlers (in order)
-    → Handler 1: @slavik_router.message(KuchaWordFilter())
-      → KuchaWordFilter checks: message.text matches r'куч[аеиуюйеё]'
-        (using re.IGNORECASE, word boundaries)
-      → If TRUE: await message.reply("ДАЛБАЕБ")
-      → Handler returns (aiogram continues to next handler anyway)
-
-    → Handler 2: F5 (WarWordFilter) — fires independently
-    → Handler 3: catch-all — fires independently ("пошёл нахуй")
-
-RESULT: If Slava writes "куча дрон летит", ALL THREE handlers fire:
-  → "ДАЛБАЕБ" (F4)
-  → "трясло ебаное" (F5, matches дрон AND летит — fires once per message)
-  → "пошёл нахуй" (catch-all)
-```
-
-**KuchaWordFilter regex detail:**
-
-```python
-import re
-# Final implementation (filters/kucha_word.py):
-_PATTERN = re.compile(
-    r'(?<![а-яё])куч(?:а|и|е|у|ей|ею|ам|ами|ах)?(?![а-яё])',
-    re.IGNORECASE
-)
-```
-
-**Matches (valid forms of «куча»):**
-куча, кучи, куче, кучу, кучей, кучею, куч, кучам, кучами, кучах
-
-**Does NOT match (excluded by design):**
-- кучка, кучки, кучек — diminutive «кучка» (different word)
-- кучерявый, кучковаться — unrelated words sharing the «куч» stem
-- Any word where «куч» is followed by Cyrillic letters not in the valid suffix list
-
-The negative lookbehind `(?<![а-яё])` and lookahead `(?![а-яё])` ensure whole-word matching within Cyrillic text. The optional group lists only legitimate inflectional suffixes of «куча». The `re.IGNORECASE` flag handles uppercase input (КУЧА, Куче, etc.).
-
-### F5 — War Words (DEPRECATED in v2.6.0 — see Section 21: F5v2)
-
-```
-STATUS: MOVED to handlers/war_alert.py (war_alert_router, position 4b)
-        Removed from handlers/slavik.py (slavik_router)
-
-TRIGGER (old): Message from user 479167456 containing military/drone words
-
-FLOW (old):
-  Message arrives → slavik_router handlers
-    → Handler 2: @slavik_router.message(WarWordFilter())
-      → WarWordFilter checks: message.text contains any of 21 keywords
-      → If TRUE: await message.reply("трясло ебаное")
-
-BUG (T-057): WarWordFilter only checks `message.text`, ignores `message.caption`.
-             If Slava sends a photo/video with a war keyword in the caption,
-             the filter does NOT trigger (F5 is silently broken for media messages).
-
-REDESIGN: See Section 21 (F5v2: War Words Alert Redesign) for the new architecture
-          with caption support, expanded keywords, channel repost detection,
-          random replies, and dedicated war_alert_router at position 4b.
-
-### F9 — Otboy Service
-
-```
-TRIGGER: Any message from ANY user containing the word "отбой"
-         in text, caption, or forwarded message text/caption.
-
-DATA FLOW:
-  Message arrives → otboy_router (position 4c)
-    → OtboyWordFilter checks: (message.text or message.caption)
-    → Regex: (?<![а-яё])отбой(?![а-яё]) — case-insensitive
-    → If match found:
-      → OtboyRelay.send_otboy(chat_id, message_id, matched_word)
-        → Check per-chat cooldown (OTBOY_COOLDOWN_SECONDS, default 0 = disabled)
-        → bot.send_photo(chat_id, FSInputFile("media/otboy.jpg"),
-            reply_parameters=ReplyParameters(
-                message_id=message_id, quote=matched_word))
-        → Native Telegram quote: highlights only the word "отбой" in reply
-    → Handler does NOT return UNHANDLED — does NOT block other handlers
-
-RESULT: Otboy.jpg sent as a reply with a green quote bar pointing at "отбой".
-        Other handlers continue to fire normally (no propagation block).
-```
-
-**Cooldown mechanism (`OTBOY_COOLDOWN_SECONDS`):**
-```python
-# In-memory per-chat cooldown dict (no DB, follows alan_greeting.py pattern):
-_cooldowns: dict[int, float] = {}  # chat_id → time.time() of last send
-
-# Default: 0 = no cooldown (every "отбой" gets a photo)
-# Configurable via .env (OTBOY_COOLDOWN_SECONDS=0)
-
-# Check logic:
-if cooldown > 0:
-    now = time.time()
-    last = _cooldowns.get(chat_id, 0)
-    if now - last < cooldown:
-        return  # skip — still in cooldown
-    _cooldowns[chat_id] = now
-```
-
-**Design decisions:**
-- No DB dependency: in-memory cooldown is sufficient. If bot restarts, cooldown resets — acceptable for this use case.
-- Not user-specific: works for ALL users (no UserIdFilter).
-- Does not block propagation: handler returns None (not UNHANDLED) → other routers continue.
-- Overlap with WarWordFilter: "отбой" is also in WAR_WORDS (F5v2). For Slava, BOTH fire (war reply text + otboy photo).
-  This is by design — two separate features, two separate responses. For non-Slava, only otboy fires.
-
-### F6 — Alan_Z Reply Engine
-
-```
-TRIGGER: Every 10th message from user ID 138811255 (@Alan_Z)
-
-FLOW:
-  Message arrives → alan_router message handlers
-    → @alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
-      → UserIdFilter checks: message.from_user.id == 138811255
-      → DatabaseService.increment_and_get_count(chat_id, user_id) → new_count
-      → If new_count % ALAN_REPLY_INTERVAL == 0:
-        → random.choice(ALAN_REPLIES) → reply_text
-        → await message.reply(reply_text)
-      → If not divisible: silently pass (no reply)
-
-Reply pool (~20 variants) covers topics:
-  - тренировки, лонгковид, фьючерсы, нейросети, жим дьявола
-  - configurable via ALAN_REPLIES list in handlers/alan.py
-  - extensible: add strings to ALAN_REPLIES list
-
-Uses shared message_counters DB table (same as F3 for Slava).
-ALAN_REPLY_INTERVAL=10 (configurable via settings/env).
-```
-
-**Design rationale:** Unlike the old F6 (Onupon catch-all "пес пидор"), the new F6 is a periodic reply engine. Every 10 messages from Alan triggers a random reply from a curated pool showing extreme interest in his favorite topics. The reply is NOT a catch-all on every message — it only fires every 10th message. Uses `UserIdFilter` (not `UsernameFilter`) for reliable ID-based matching.
-
-### F7 — Alan Greeting Video
-
-```
-TRIGGER: Alan (user ID 138811255, @Alan_Z) joins the chat
-
-ChatMemberUpdated flow:
-  Telegram API
-    → Dispatcher.chat_member handler
-    → alan_greeting.py::on_alan_join(update: ChatMemberUpdated)
-    → Check: update.new_chat_member.user.id == ALAN_USER_ID (138811255)
-    → Check: dedup cooldown — dict-based, 10 seconds per chat_id
-    → pick_random_video(ALAN_GREETING_DIR) → random Path from directory
-    → update.bot.send_video(chat_id, video=FSInputFile(path), caption="@Alan_Z")
-    → Record timestamp in _last_greeting[chat_id] for dedup
-
-Message.new_chat_members fallback:
-  Telegram API
-    → Dispatcher.message handler (via alan_greeting_router)
-    → alan_greeting.py::on_alan_new_chat_members(message: Message)
-    → Check: any(u.id == ALAN_USER_ID for u in message.new_chat_members)
-    → Same dedup check + video pick + send_video flow as above
-    → Same caption "@Alan_Z"
-
-VIDEO PICKING:
-  alan_greeting.py::_pick_random_video(directory: Path) → Path | None
-    INPUT: Path to media/leha_greeting/
-    
-    Algorithm:
-      1. Scan directory for files with extensions in VIDEO_EXTENSIONS
-         VIDEO_EXTENSIONS = {'.mp4', '.MP4', '.avi', '.AVI', '.mov', '.MOV', '.webm', '.WEBM'}
-      2. If no videos found → log warning, return None
-      3. random.choice(videos) → return Path
-    
-    Returns None on empty directory (handler logs warning, no video sent).
-```
-
-**Edge cases:**
-- Duplicate join events (Telegram may send both ChatMemberUpdated + new_chat_members): dedup via `_last_greeting` dict — 10-second cooldown per chat_id prevents double-posting.
-- Alan leaves and rejoins quickly: if rejoin is within 10 seconds, video is suppressed. After cooldown expires, video resends.
-- Alan in multiple chats: `_last_greeting` keyed by `chat_id`, so dedup is per-chat.
-- Empty greeting directory: `_pick_random_video` returns `None` → handler logs warning and returns silently (no crash).
-- Missing video file at send time: `send_video` raises exception → caught by try/except, logged as error.
-- Bot restart: `_last_greeting` dict is in-memory only, resets on restart. No DB storage needed.
-
-**Configuration (settings):**
-- `ALAN_USER_ID` (int, default 138811255): Alan's Telegram user ID
-- `ALAN_USERNAME` (str, default "@Alan_Z"): caption text for the video
-- `ALAN_GREETING_DIR` (str, default "media/leha_greeting"): directory with greeting videos
-- `ALAN_GREETING_COOLDOWN` (int, default 10): dedup cooldown in seconds
-
-**Design rationale:** Follows the same ChatMemberUpdated + new_chat_members pattern as F1 (slava_presence.py) for reliable join detection. Uses dict-based dedup (not DB) since greeting cooldown is transient and doesn't need persistence. Video selection is random for variety.
-
 ---
 
-## 4. Database Schema
-
-**Database file:** `local_database.db` (SQLite3, accessed via aiosqlite)
-
-**All tables created by `DatabaseService.initialize()` on first run (IF NOT EXISTS).**
-
-### Table: `user_presence`
-
-```sql
-CREATE TABLE IF NOT EXISTS user_presence (
-    user_id  INTEGER NOT NULL,
-    chat_id  INTEGER NOT NULL,
-    is_present INTEGER NOT NULL DEFAULT 1,
-    PRIMARY KEY (user_id, chat_id)
-);
-```
-
-| Column | Type | Description |
-|--------|------|-------------|
-| user_id | INTEGER | Telegram user ID (e.g., 479167456) |
-| chat_id | INTEGER | Telegram chat ID |
-| is_present | INTEGER | 1 = present in chat, 0 = left/kicked |
-
-**Queries:**
-```sql
--- Set presence (upsert)
-INSERT OR REPLACE INTO user_presence (user_id, chat_id, is_present)
-VALUES (?, ?, ?);
-
--- Check if present
-SELECT is_present FROM user_presence WHERE user_id = ? AND chat_id = ?;
-
--- Get all chats where user is present (for scheduler)
-SELECT chat_id FROM user_presence WHERE user_id = 479167456 AND is_present = 1;
-```
-
-### Table: `message_counters`
-
-```sql
-CREATE TABLE IF NOT EXISTS message_counters (
-    chat_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    count   INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (chat_id, user_id)
-);
-```
-
-| Column | Type | Description |
-|--------|------|-------------|
-| chat_id | INTEGER | Telegram chat ID |
-| user_id | INTEGER | Telegram user ID (Slava = 479167456) |
-| count | INTEGER | Cumulative message count, never resets |
-
-**Queries:**
-```sql
--- Increment and return new count (atomic upsert + increment)
-INSERT INTO message_counters (chat_id, user_id, count)
-VALUES (?, ?, 1)
-ON CONFLICT(chat_id, user_id) DO UPDATE SET count = count + 1;
-
--- Get current count
-SELECT count FROM message_counters WHERE chat_id = ? AND user_id = ?;
-
--- Reset count (optional)
-UPDATE message_counters SET count = 0 WHERE chat_id = ? AND user_id = ?;
-```
-
-**Note:** The increment SQL uses `ON CONFLICT DO UPDATE` which is SQLite 3.24.0+ syntax. The `RETURNING` clause (SQLite 3.35.0+) could return the new count atomically, but to maximize compatibility, we use a separate SELECT after the upsert. Better approach: wrap in a transaction or use a single query:
-
-```sql
-INSERT INTO message_counters (chat_id, user_id, count)
-VALUES (?, ?, 1)
-ON CONFLICT(chat_id, user_id) DO UPDATE SET count = count + 1
-RETURNING count;
-```
-
-If `RETURNING` is not available, use:
-```python
-async def increment_message_count(self, chat_id: int, user_id: int) -> int:
-    async with self._lock:
-        await self.db.execute(
-            "INSERT INTO message_counters (chat_id, user_id, count) VALUES (?, ?, 1) "
-            "ON CONFLICT(chat_id, user_id) DO UPDATE SET count = count + 1",
-            (chat_id, user_id)
-        )
-        await self.db.commit()
-        cursor = await self.db.execute(
-            "SELECT count FROM message_counters WHERE chat_id = ? AND user_id = ?",
-            (chat_id, user_id)
-        )
-        row = await cursor.fetchone()
-        return row[0] if row else 0
-```
-
-### Table: `dead_page_posts`
-
-```sql
-CREATE TABLE IF NOT EXISTS dead_page_posts (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    chat_id   INTEGER NOT NULL,
-    slot      TEXT    NOT NULL,
-    date      TEXT    NOT NULL,
-    timestamp INTEGER
-);
-```
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Auto-increment PK |
-| chat_id | INTEGER | Telegram chat ID |
-| slot | TEXT | One of: 'repost', 'join' |
-| date | TEXT | ISO date string YYYY-MM-DD |
-| timestamp | INTEGER | Unix time (seconds) for anti-spam cooldown |
-
-**Slot types (v2):** 'morning' and 'evening' removed. Only 'repost' and 'join' remain.
-Old morning/evening records stay in DB as history; new code does not create or query them.
-
-**Queries:**
-```sql
--- Check if repost in cooldown window (anti-spam)
-SELECT 1 FROM dead_page_posts
-WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?;
-
--- Check if join post already made today
-SELECT 1 FROM dead_page_posts
-WHERE chat_id = ? AND slot = 'join' AND date = ?;
-
--- Insert post record (with timestamp for anti-spam)
-INSERT INTO dead_page_posts (chat_id, slot, date, timestamp)
-VALUES (?, ?, ?, ?);
-```
-
-The `date` column stores `datetime.date.today().isoformat()` (e.g., "2026-07-11").
-The `timestamp` column stores `int(time.time())` — Unix epoch seconds.
-
-### Table: `channel_state`
-
-```sql
-CREATE TABLE IF NOT EXISTS channel_state (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-```
-
-| Column | Type | Description |
-|--------|------|-------------|
-| key | TEXT | State key (e.g., "last_msg_id:4228645624") |
-| value | TEXT | State value (string representation) |
-
-**Queries:**
-```sql
--- Get last known message ID for a channel
-SELECT value FROM channel_state WHERE key = 'last_msg_id:4228645624';
-
--- Update last known message ID (upsert)
-INSERT OR REPLACE INTO channel_state (key, value)
-VALUES ('last_msg_id:4228645624', '150');
-```
-
-This key-value table tracks per-channel metadata. Initially used for storing the
-`last_known_message_id` for the dead-page source channel, enabling the
-`random.randint(1, last_id)` forward strategy. Extensible for future channel tracking.
-
----
-
-## 5. Router/Handler Registration Order in bot.py
-
-```python
-# bot.py — EXACT registration order (DO NOT REORDER)
-
-import asyncio
-import logging
-from aiogram import Bot, Dispatcher
-from aiogram.types import ChatMemberUpdated
-from aiogram.fsm.storage.memory import MemoryStorage
-
-from config.settings import settings
-from services.database import DatabaseService
-from services.scheduler import SchedulerService
-from services.dead_page_relay import DeadPageRelay
-from services.media_picker import MediaService
-
-# Routers
-from handlers.admin_commands import admin_commands_router, setup_admin_commands
-from handlers.kostik import kostik_router
-from handlers.alan import alan_router
-from handlers.alan_greeting import alan_greeting_router
-from handlers.dead_page_trigger import dead_page_router, setup_dead_page
-from handlers.war_alert import war_alert_router, setup_war_alert
-from handlers.otboy import otboy_router, setup_otboy
-from handlers.slavik import slavik_router
-from handlers.vasya import vasya_router
-from handlers.slava_presence import slava_presence_router
-
-logging.basicConfig(level=logging.INFO)
-
-bot = Bot(token=settings.API_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
-
-# ═══════════════════════════════════════════════════════════
-# REGISTRATION ORDER (CRITICAL — DO NOT CHANGE)
-# ═══════════════════════════════════════════════════════════
-
-# 0. Admin test commands (Epic 10: /deadpage, /alangreet)
-#    Command() filter — registered FIRST for highest priority.
-#    DM: any user. Groups: admin only (ADMIN_USER_ID=5885953495).
-dp.include_router(admin_commands_router)
-
-# 1. ChatMemberUpdated handler (F1: Slava return detection)
-#    This handles chat_member updates which are NOT message updates.
-#    Registered directly on dispatcher for chat_member type.
-dp.include_router(slava_presence_router)
-
-# 1b. ChatMemberUpdated handler (F7: Alan greeting video)
-#    Same update type, different user ID. No conflict with F1.
-dp.include_router(alan_greeting_router)
-
-# 2. Kostik router — user ID 350803143
-#    Catch-all: ANY message type → "пошёл нахуй кринжатура ебаная"
-dp.include_router(kostik_router)
-
-# 3. Alan router — user ID 138811255
-#    Periodic: EVERY 10th message → random reply (F6)
-dp.include_router(alan_router)
-
-# 4. Dead Page router — repost trigger (F2)
-#    Catches forward_origin from @d_pages, fires DeadPageRelay
-#    BEFORE slavik_router to ensure reposts are handled independently
-setup_dead_page(dead_page_relay, db)
-dp.include_router(dead_page_router)
-
-# 4b. War Alert router — F5v2: war keywords + channel repost detection
-#    Isolates war word detection from slavik_router. Handles:
-#      - Slava's messages with war keywords (text OR caption)
-#      - Reposts from target war channels (by ID or username) via TargetChannelFilter
-#    Registered BEFORE slavik_router so channel reposts are caught
-#    even if Slava sends them (no conflict — different trigger logic).
-#    TargetChannelFilter ensures non-war forwarded messages pass through
-#    to common_router (position 4c) for danger/otboy detection.
-setup_war_alert()
-dp.include_router(war_alert_router)
-
-# 4c. Otboy router — F9: "отбой" detection (ALL users) → otboy.jpg with native quote
-#    Works for ALL chat participants (no UserIdFilter).
-#    Uses native Telegram quote via ReplyParameters to highlight "отбой" word.
-#    Registered BEFORE slavik_router to avoid catch-all interception.
-#    Overlaps with war_alert: "отбой" is in WAR_WORDS — both fire for Slava.
-setup_otboy(otboy_relay)
-dp.include_router(otboy_router)
-
-# 5. Slava router — user ID 479167456
-#    Middleware: MessageCounterMiddleware (F3: GIF every 5 msgs)
-#    Handler 1: KuchaWordFilter → "ДАЛБАЕБ" (F4)
-#    Handler 2: Catch-all → "пошёл нахуй"
-#    NOTE: F5 (WarWordFilter) REMOVED — delegated to war_alert_router (pos 4b)
-dp.include_router(slavik_router)
-
-# 6. Vasya router — text filters, NO user restriction
-#    Handler 1: VasyaFilter → "АДМИН"
-#    Handler 2: StrictAdminFilter → "ВАСЯ"
-dp.include_router(vasya_router)
-
-# ═══════════════════════════════════════════════════════════
-
-async def on_startup():
-    """Initialize DB schema, create services, start scheduler."""
-    db = DatabaseService("local_database.db")
-    await db.initialize()
-    media = MediaService(settings.DEAD_PAGE_DIR)
-    dead_page_relay = DeadPageRelay(
-        bot=bot, db=db, media=media,
-        channel_id=settings.DEAD_PAGE_SOURCE_CHANNEL_ID,
-        max_retries=settings.DEAD_PAGE_MAX_FORWARD_RETRIES
-    )
-    scheduler = SchedulerService(bot, db, dead_page_relay)
-    
-    # Otboy Service (F9)
-    from services.otboy_relay import OtboyRelay
-    otboy_relay = OtboyRelay(bot, settings.OTBOY_COOLDOWN_SECONDS)
-    
-    # Inject dependencies into handlers
-    setup_admin_commands(dead_page_relay)
-    setup_dead_page(dead_page_relay, db)
-    setup_otboy(otboy_relay)
-    # Schedule on_startup injects relay into scheduler
-    asyncio.create_task(scheduler.run())
-
-async def main():
-    await on_startup()
-    print("Бот запущен и слушает чат...")
-    await dp.start_polling(bot)
-
-if __name__ == '__main__':
-    asyncio.run(main())
-```
-
-**Why this order matters:**
-0. admin_commands_router (position 0 — NEW in Epic 10) comes BEFORE ALL other routers.
-   - Command() filters on /deadpage and /alangreet must take priority over any catch-all handlers.
-   - If a user-ID router (e.g., kostik) were registered before admin_commands, a message like
-     "/deadpage test" from Kostik would trigger the catch-all instead of the admin command.
-   - DM vs group authorization is handled by F.chat.type == "private" / F.chat.type != "private" within the router.
-1. User-ID-based routers (kostik, alan, slavik) come BEFORE text-based routers (vasya).
-   - If vasya_router were first, Slava saying "вася" would trigger "АДМИН" instead of "пошёл нахуй".
-2. dead_page_router (position 4) is inserted between alan_router and slavik_router.
-   - It filters on `forward_origin` (not user ID), so it doesn't conflict with user-ID routers.
-   - Being before vasya_router prevents Vasya's text filters from intercepting forward messages.
-2b. war_alert_router (position 4b — NEW in v2.6.0) sits between dead_page_router and slavik_router.
-   - Handler A (Slava + keywords): Fires BEFORE slavik_router's catch-all on the same message.
-     Uses UserIdFilter + WarWordFilter. Checks both text and caption (fixes T-057).
-   - Handler B (channel repost): Uses F.forward_origin filter, independent of user ID.
-     ANY user forwarding from target war channels triggers a random reply.
-   - Being after dead_page_router (pos 4) ensures @d_pages reposts are handled first
-     (dead_page relay fires before war alert on the same forward).
-2c. otboy_router (position 4c — NEW in v2.10.0 / Epic 13) sits between war_alert_router and slavik_router.
-   - Works for ALL users (no UserIdFilter). Detects "отбой" in text/caption/forward.
-   - Being before slavik_router's catch-all is critical: otherwise Slava's "отбой" would only trigger
-     "пошёл нахуй" without the otboy photo.
-   - Overlaps with war_alert: "отбой" is in WAR_WORDS. For Slava's messages containing "отбой",
-     BOTH handlers fire (war reply text + otboy photo). By design.
-3. Within Slava's router, F4 (kucha) comes before catch-all — but they all fire.
-   - F5 (war words) REMOVED from slavik_router — now handled by war_alert_router (pos 4b).
-4. ChatMemberUpdated handlers (F1, F7) are separate from message handlers (different update type).
-   - alan_greeting_router (F7) and slava_presence_router (F1) both handle chat_member updates.
-   - They check different user IDs (Alan=138811255 vs Slava=479167456), so no conflict.
-5. The simplified scheduler only handles the join trigger (signal_immediate_post);
-   DeadPageRelay handles the actual posting logic for both repost and join triggers.
-
----
-
-## 6. Filter Class Designs
-
-### 6.1 UserIdFilter (`filters/user_id.py`)
-
-```python
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-
-
-class UserIdFilter(BaseFilter):
-    """
-    Passes only messages from specified user IDs.
-    Works with ANY message type (text, photo, sticker, voice, etc.).
-    
-    Usage:
-        @router.message(UserIdFilter(350803143))
-        async def handler(message: Message): ...
-    """
-    def __init__(self, *user_ids: int):
-        self.user_ids = set(user_ids)
-    
-    async def __call__(self, message: Message) -> bool:
-        return message.from_user is not None and message.from_user.id in self.user_ids
-```
-
-**Migration:** Replaces `lambda msg: msg.from_user.id in ALLOWED_USERS` in both kostik_module.py and slavik_module.py.
-
-### 6.2 VasyaFilter (`filters/vasya_name.py`)
-
-```python
-import re
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-
-
-class VasyaFilter(BaseFilter):
-    """
-    Matches messages containing any variation of "Vasya" (Вася).
-    Supports transliterated input: Vasya, Vasia, Vasiliy, васюша, etc.
-    
-    Algorithm:
-      1. Transliterate Latin chars to Cyrillic.
-      2. Strip all non-Cyrillic characters.
-      3. Search for stem "вас" + vowel ending.
-    """
-    
-    # Precompiled transliteration map
-    _TRANSLIT = str.maketrans({
-        'v': 'в', 'V': 'в',
-        'a': 'а', 'A': 'а',
-        's': 'с', 'S': 'с',
-        'y': 'я', 'Y': 'я',
-        'i': 'и', 'I': 'и',
-        'h': 'ш', 'H': 'ш',
-        'l': 'л',
-    })
-    
-    _STEM_PATTERN = re.compile(r'вас[иеёяю]')
-    _CLEAN_PATTERN = re.compile(r'[^а-яё]')
-    
-    async def __call__(self, message: Message) -> bool:
-        if not message.text:
-            return False
-        
-        # Step 1: Replace multi-char transliterations
-        text = message.text.lower()
-        text = text.replace("sh", "ш").replace("ya", "я").replace("iy", "ий")
-        text = text.replace("ch", "ч").replace("kh", "х")
-        
-        # Step 2: Translate remaining Latin chars
-        text = text.translate(self._TRANSLIT)
-        
-        # Step 3: Keep only Cyrillic
-        clean = self._CLEAN_PATTERN.sub('', text)
-        
-        return bool(self._STEM_PATTERN.search(clean))
-```
-
-**Migration note:** Logic taken verbatim from existing `vasya_module.py::VasyaFilter.__call__`. No behavior change.
-
-### 6.3 StrictAdminFilter (`filters/admin_word.py`)
-
-```python
-import re
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-
-
-class StrictAdminFilter(BaseFilter):
-    """
-    Matches messages where 'админ' appears as an exact standalone word.
-    Strips leading/trailing punctuation before checking.
-    """
-    
-    async def __call__(self, message: Message) -> bool:
-        if not message.text:
-            return False
-        
-        text = message.text.lower().strip()
-        # Strip punctuation from both ends
-        clean = re.sub(r'^[,\.!?\*_\-]+|[,\.!?\*_\-]+$', '', text)
-        words = clean.split()
-        return 'админ' in words
-```
-
-### 6.4 KuchaWordFilter (`filters/kucha_word.py`)
-
-```python
-import re
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-
-
-class KuchaWordFilter(BaseFilter):
-    """
-    Matches messages containing the word stem 'куч-' (КУЧА and all declensions).
-    Case-insensitive, using Unicode word boundaries.
-    
-    Matches: куча, кучи, куче, кучу, кучей, кучею, кучам, кучами, кучах
-    Does NOT match: кучевой (but does match the 'куче' part — acceptable false positive)
-    """
-    
-    _PATTERN = re.compile(r'\bкуч[а-яё]*\b', re.IGNORECASE)
-    
-    async def __call__(self, message: Message) -> bool:
-        if not message.text:
-            return False
-        return bool(self._PATTERN.search(message.text))
-```
-
-### 6.5 WarWordFilter (`filters/war_word.py`) — UPDATED in v2.6.0
-
-```python
-import re
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-
-
-class WarWordFilter(BaseFilter):
-    """
-    Matches messages containing military/drone-related words.
-    Checks BOTH message.text AND message.caption (Fixes T-057: broken for media captions).
-
-    Triggers on expanded keyword list (50+ forms):
-      - лететь family: летит, летает, прилетел, прилетает, летят, летел, летела, летели, летящий, летящие
-      - дрон/БПЛА family: дрон, дроны, дронов, беспилотник, беспилотники, беспилотной, беспилотная, беспилотное, беспилотные, беспилотного, беспилотных, беспилотному, БПЛА
-      - вспышка family: вспышка, вспышки, вспышке, вспышкой, вспышек
-      - прилет family: прилет, прилёт, прилетел, прилетит, прилетела, прилетят
-      - укрытие family: укрытие, укрытия, укрытии, укрытий, укрыться
-      - убежище family: убежище, убежища, убежищу, убежищем, убежищ
-      - бункер family: бункер, бункера, бункере, бункером, бункеров
-      - ракета family: ракета, ракеты, ракет, ракете, ракетой, ракетная, ракетной, ракетные, ракетных, ракетное, ракетную, ракетного
-      - опасность family: опасность, опасности, опасностью, опасностей, опасно
-      - внимание/оповещение: внимание, внимания, оповещение, оповещения, оповещению, оповещением
-      - тревога family: тревога, тревоги, тревогу, тревогой
-    """
-
-    WAR_WORDS = [
-        # лететь family (10 forms)
-        'летит', 'летает', 'прилетел', 'прилетает', 'летят', 'летел',
-        'летела', 'летели', 'летящий', 'летящие',
-        # дрон/БПЛА family (13 forms)
-        'дрон', 'дроны', 'дронов', 'беспилотник', 'беспилотники',
-        'беспилотной', 'беспилотная', 'беспилотное', 'беспилотные',
-        'беспилотного', 'беспилотных', 'беспилотному', 'бпла',
-        # вспышка family (5 forms)
-        'вспышка', 'вспышки', 'вспышке', 'вспышкой', 'вспышек',
-        # прилет family (6 forms)
-        'прилет', 'прилёт', 'прилетел', 'прилетит', 'прилетела', 'прилетят',
-        # укрытие family (5 forms)
-        'укрытие', 'укрытия', 'укрытии', 'укрытий', 'укрыться',
-        # убежище family (5 forms)
-        'убежище', 'убежища', 'убежищу', 'убежищем', 'убежищ',
-        # бункер family (5 forms)
-        'бункер', 'бункера', 'бункере', 'бункером', 'бункеров',
-        # ракета family (12 forms)
-        'ракета', 'ракеты', 'ракет', 'ракете', 'ракетой',
-        'ракетная', 'ракетной', 'ракетные', 'ракетных', 'ракетное',
-        'ракетную', 'ракетного',
-        # опасность family (5 forms)
-        'опасность', 'опасности', 'опасностью', 'опасностей', 'опасно',
-        # внимание/оповещение (6 forms)
-        'внимание', 'внимания',
-        'оповещение', 'оповещения', 'оповещению', 'оповещением',
-        # тревога family (4 forms)
-        'тревога', 'тревоги', 'тревогу', 'тревогой',
-    ]
-
-    # Precompiled patterns with Cyrillic word boundaries
-    _PATTERNS = [
-        re.compile(rf'(?<![а-яё]){re.escape(word)}(?![а-яё])', re.IGNORECASE)
-        for word in WAR_WORDS
-    ]
-
-    async def __call__(self, message: Message) -> bool:
-        # Check BOTH text and caption (Fixes T-057)
-        content = message.text or message.caption
-        if not content:
-            return False
-        return any(p.search(content) for p in self._PATTERNS)
-```
-
-**Key changes from v1:**
-1. **Caption support (T-057 fix):** Changed `if not message.text: return False` to `content = message.text or message.caption`. Now matches keywords in media captions (photos, videos, documents with captions).
-2. **Expanded keywords:** From 27 forms to 90+ forms, covering all major inflectional variants (masculine, feminine, neuter, plural, genitive, dative, instrumental, prepositional) for each word family.
-3. **New word families:** Added `опасность`, `БПЛА`, `ракетная/ракетной` (adjective forms), `убежище`, `внимание`, `оповещение`, `тревога`.
-4. **Extensibility:** The `WAR_WORDS` list is a plain Python list — adding new keywords is as simple as appending a string. The `_PATTERNS` list is auto-generated from `WAR_WORDS` at module load time.
-
-**Note on `(?<![а-яё])...(?![а-яё])`:** Using negative lookbehind/lookahead for Cyrillic instead of `\b` because Python's `\b` can behave unexpectedly with certain Cyrillic edge cases.
-
-### 6.6 OtboyWordFilter (`filters/otboy_word.py`)
-
-```python
-import re
-import logging
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-
-logger = logging.getLogger(__name__)
-
-
-class OtboyWordFilter(BaseFilter):
-    """
-    Matches messages containing the word 'отбой'.
-    Checks message.text and message.caption — handles forwarded
-    messages and media captions transparently.
-    
-    Uses Cyrillic word boundaries to avoid partial matches
-    (e.g. "отбойный" would NOT match).
-    """
-
-    _PATTERN = re.compile(
-        r'(?<![а-яё])отбой(?![а-яё])',
-        re.IGNORECASE
-    )
-
-    async def __call__(self, message: Message) -> bool:
-        content = message.text or message.caption
-        if not content or not isinstance(content, str):
-            return False
-        match = self._PATTERN.search(content)
-        if match:
-            logger.info(
-                "OtboyWordFilter matched | word=%r | msg_id=%s | chat_id=%s",
-                match.group(),
-                message.message_id,
-                message.chat.id,
-            )
-            return True
-        return False
-```
-
-**Key design decisions:**
-1. **Single word, single pattern:** Only "отбой" (not declensions like "отбоя", "отбою"). The word is used as a standalone signal.
-2. **Same text/caption pattern as WarWordFilter:** `content = message.text or message.caption` covers ALL cases:
-   - Regular text messages → `message.text`
-   - Media with caption → `message.caption`
-   - Forwarded text → `message.text` (Telegram puts forwarded text there)
-   - Forwarded media with caption → `message.caption`
-3. **Cyrillic word boundaries:** `(?<![а-яё])...(?![а-яё])` prevents matching "отбойный", "отбойник", etc.
-4. **Case-insensitive:** `re.IGNORECASE` matches "отбой", "Отбой", "ОТБОЙ".
-5. **Guard clause:** `isinstance(content, str)` protects against mock objects during testing.
-
-### 6.7 TargetChannelFilter (`filters/target_channel.py`) — NEW in v2.12.1 (Epic 16)
-
-```python
-import logging
-from aiogram.filters import BaseFilter
-from aiogram.types import Message, MessageOriginChannel
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-
-def _parse_int_list(raw: str) -> list[int]:
-    if not raw:
-        return []
-    result: list[int] = []
-    for part in raw.split(","):
-        part = part.strip()
-        if part:
-            try:
-                result.append(int(part))
-            except ValueError:
-                logger.warning("TargetChannelFilter: invalid channel ID: %r", part)
-    return result
-
-
-def _parse_str_list(raw: str) -> list[str]:
-    if not raw:
-        return []
-    return [s.strip().lower() for s in raw.split(",") if s.strip()]
-
-
-class TargetChannelFilter(BaseFilter):
-    """
-    Matches messages forwarded ONLY from configured target war channels.
-
-    Checks forward_origin.chat.id against WAR_CHANNEL_IDS
-    and forward_origin.chat.username against WAR_CHANNEL_USERNAMES.
-    Non-forwarded messages and non-target channel forwards do NOT match.
-
-    Replaces F.forward_origin + manual _is_target_channel() checks
-    in war_channel_repost_handler (handlers/war_alert.py, line 186).
-
-    Design rationale (D72):
-      - F.forward_origin matches ALL forwarded messages → handler fires
-        even for non-target channels → bare return (None) stops propagation
-        → common_router (position 4c) never receives forwarded messages.
-      - TargetChannelFilter only matches target war channels → non-war
-        forwards pass through → common_router receives them correctly.
-
-    Usage:
-        @router.message(TargetChannelFilter())
-        async def handler(message: Message): ...
-    """
-
-    async def __call__(self, message: Message) -> bool:
-        origin = message.forward_origin
-
-        if not isinstance(origin, MessageOriginChannel):
-            return False
-
-        target_ids = _parse_int_list(settings.WAR_CHANNEL_IDS)
-        target_usernames = _parse_str_list(settings.WAR_CHANNEL_USERNAMES)
-
-        if target_ids and origin.chat.id in target_ids:
-            logger.debug(
-                "TargetChannelFilter matched by ID=%d (msg_id=%d)",
-                origin.chat.id,
-                origin.message_id,
-            )
-            return True
-
-        if target_usernames and origin.chat.username:
-            if origin.chat.username.lower() in target_usernames:
-                logger.debug(
-                    "TargetChannelFilter matched by username=@%s (msg_id=%d)",
-                    origin.chat.username,
-                    origin.message_id,
-                )
-                return True
-
-        return False
-```
-
-**Key design decisions:**
-1. **Dual match (ID + username):** As in `dead_page_trigger.py` and the original `_is_target_channel()` — more resilient: if channel changes username but keeps ID, ID match still works.
-2. **Replaces F.forward_origin + manual checks:** The filter absorbs the `isinstance(MessageOriginChannel)` and `_is_target_channel()` logic. Handler 2 in `war_alert.py` becomes simpler — it receives only matched messages.
-3. **Does NOT block propagation for non-matches:** When filter returns `False`, aiogram skips the handler → router returns `UNHANDLED` → dispatcher continues to next sub-router (`common_router` at position 4c).
-4. **Self-contained parsing:** `_parse_int_list` / `_parse_str_list` duplicated from `war_alert.py` helper functions. Acceptable: filters must not import from handlers. Could be refactored to `config/settings.py` in future.
-
----
-
-## 7. Service Class Interfaces
-
-### 7.1 DatabaseService (`services/database.py`)
-
-```python
-import aiosqlite
-from pathlib import Path
-
-
-class DatabaseService:
-    """
-    Async SQLite wrapper using aiosqlite.
-    Manages schema creation, connection lifecycle, and all queries.
-    
-    Thread safety: aiosqlite serializes within the event loop.
-    Use asyncio.Lock for atomic read-modify-write operations.
-    """
-    
-    _SCHEMA_SQL = """
-        CREATE TABLE IF NOT EXISTS user_presence (
-            user_id    INTEGER NOT NULL,
-            chat_id    INTEGER NOT NULL,
-            is_present INTEGER NOT NULL DEFAULT 1,
-            PRIMARY KEY (user_id, chat_id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS message_counters (
-            chat_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            count   INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (chat_id, user_id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS dead_page_posts (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id   INTEGER NOT NULL,
-            slot      TEXT    NOT NULL,
-            date      TEXT    NOT NULL,
-            timestamp INTEGER
-        );
-        
-        CREATE TABLE IF NOT EXISTS channel_state (
-            key   TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-    """
-    
-    def __init__(self, db_path: str):
-        self.db_path = Path(db_path)
-        self.db: aiosqlite.Connection | None = None
-        self._lock = asyncio.Lock()
-    
-    async def initialize(self) -> None:
-        """Open connection, create tables, enable WAL mode."""
-        self.db = await aiosqlite.connect(str(self.db_path))
-        self.db.row_factory = aiosqlite.Row
-        await self.db.execute("PRAGMA journal_mode=WAL")
-        await self.db.executescript(self._SCHEMA_SQL)
-        await self.db.commit()
-    
-    async def close(self) -> None:
-        if self.db:
-            await self.db.close()
-    
-    # ── Slava Presence ──────────────────────────────────
-    
-    async def set_presence(self, user_id: int, chat_id: int, present: bool) -> None:
-        await self.db.execute(
-            "INSERT OR REPLACE INTO user_presence (user_id, chat_id, is_present) VALUES (?, ?, ?)",
-            (user_id, chat_id, 1 if present else 0)
-        )
-        await self.db.commit()
-    
-    async def is_present(self, user_id: int, chat_id: int) -> bool:
-        cursor = await self.db.execute(
-            "SELECT is_present FROM user_presence WHERE user_id = ? AND chat_id = ?",
-            (user_id, chat_id)
-        )
-        row = await cursor.fetchone()
-        # Default: if no row, assume NOT present
-        return bool(row and row["is_present"])
-    
-    async def get_present_chats(self, user_id: int) -> list[int]:
-        cursor = await self.db.execute(
-            "SELECT chat_id FROM user_presence WHERE user_id = ? AND is_present = 1",
-            (user_id,)
-        )
-        rows = await cursor.fetchall()
-        return [row["chat_id"] for row in rows]
-    
-    # ── Message Counters ────────────────────────────────
-    
-    async def increment_and_get_count(self, chat_id: int, user_id: int) -> int:
-        """Atomically increment counter and return new value."""
-        async with self._lock:
-            await self.db.execute(
-                "INSERT INTO message_counters (chat_id, user_id, count) "
-                "VALUES (?, ?, 1) "
-                "ON CONFLICT(chat_id, user_id) DO UPDATE SET count = count + 1",
-                (chat_id, user_id)
-            )
-            await self.db.commit()
-            cursor = await self.db.execute(
-                "SELECT count FROM message_counters WHERE chat_id = ? AND user_id = ?",
-                (chat_id, user_id)
-            )
-            row = await cursor.fetchone()
-            return row["count"]
-    
-    async def get_count(self, chat_id: int, user_id: int) -> int:
-        cursor = await self.db.execute(
-            "SELECT count FROM message_counters WHERE chat_id = ? AND user_id = ?",
-            (chat_id, user_id)
-        )
-        row = await cursor.fetchone()
-        return row["count"] if row else 0
-    
-    async def reset_count(self, chat_id: int, user_id: int) -> None:
-        await self.db.execute(
-            "UPDATE message_counters SET count = 0 WHERE chat_id = ? AND user_id = ?",
-            (chat_id, user_id)
-        )
-        await self.db.commit()
-    
-    # ── Dead Page Posts ─────────────────────────────────
-    
-    async def was_dead_page_recently(self, chat_id: int, cooldown_seconds: int) -> bool:
-        """Check if a repost was made in this chat within cooldown window."""
-        import time
-        threshold = int(time.time()) - cooldown_seconds
-        cursor = await self.db.execute(
-            "SELECT 1 FROM dead_page_posts WHERE chat_id = ? AND slot = 'repost' AND timestamp > ?",
-            (chat_id, threshold)
-        )
-        row = await cursor.fetchone()
-        return row is not None
-    
-    async def record_dead_page_post(self, chat_id: int, slot: str) -> None:
-        """Record a dead page post with date and timestamp."""
-        import time
-        import datetime
-        today = datetime.date.today().isoformat()
-        now = int(time.time())
-        await self.db.execute(
-            "INSERT INTO dead_page_posts (chat_id, slot, date, timestamp) VALUES (?, ?, ?, ?)",
-            (chat_id, slot, today, now)
-        )
-        await self.db.commit()
-    
-    # ── Channel State ───────────────────────────────────
-    
-    async def get_last_known_message_id(self, channel_id: int = 0) -> int | None:
-        """Get the last known message ID for a channel."""
-        cursor = await self.db.execute(
-            "SELECT value FROM channel_state WHERE key = ?",
-            (f"last_msg_id:{channel_id}",)
-        )
-        row = await cursor.fetchone()
-        return int(row["value"]) if row else None
-
-    async def update_last_known_message_id(self, msg_id: int, channel_id: int = 0) -> None:
-        """Update the last known message ID for a channel."""
-        await self.db.execute(
-            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
-            (f"last_msg_id:{channel_id}", str(msg_id))
-        )
-        await self.db.commit()
-```
-
-### 7.2 MediaService (`services/media_picker.py`)
-
-```python
-import glob
-import random
-from pathlib import Path
-
-
-class MediaService:
-    """
-    Picks random media files from media/dead_page/ directory.
-    Stateless — no DB dependency.
-    
-    Caches file lists on first call; refreshes if a file is missing.
-    """
-    
-    def __init__(self, media_base: str = "media/dead_page"):
-        self.base = Path(media_base)
-        self._photos: list[Path] | None = None
-        self._texts: list[Path] | None = None
-    
-    def _refresh(self) -> None:
-        """Scan directory for .jpg and .txt files."""
-        self._photos = sorted(
-            Path(p) for p in glob.glob(str(self.base / "*.jpg"))
-        )
-        self._texts = sorted(
-            Path(p) for p in glob.glob(str(self.base / "*.txt"))
-        )
-    
-    async def pick_random(self) -> tuple[str, str]:
-        """
-        Returns (photo_path, text_content).
-        
-        Raises FileNotFoundError if no photos or no texts found.
-        """
-        if self._photos is None or self._texts is None:
-            self._refresh()
-        
-        if not self._photos:
-            raise FileNotFoundError(f"No .jpg files in {self.base}")
-        if not self._texts:
-            raise FileNotFoundError(f"No .txt files in {self.base}")
-        
-        photo_path = str(random.choice(self._photos))
-        text_path = random.choice(self._texts)
-        text_content = text_path.read_text(encoding='utf-8')
-        
-        return photo_path, text_content
-```
-
-### 7.3 MessageCounterMiddleware (`services/message_counter.py`)
-
-```python
-from typing import Any, Awaitable, Callable
-from aiogram import BaseMiddleware
-from aiogram.types import Message, FSInputFile
-from services.database import DatabaseService
-
-
-class MessageCounterMiddleware(BaseMiddleware):
-    """
-    Inner middleware for slavik_router.
-    
-    On every message from a user on this router:
-      1. Increments the DB counter for (chat_id, user_id).
-      2. If new count is divisible by 5, sends slavic_chlen.mp4 as animation.
-      3. Passes to next handler (does NOT consume the update).
-    
-    Attached to slavik_router via:
-        slavik_router.message.middleware(MessageCounterMiddleware(db))
-    """
-    
-    GIF_PATH = "media/slavic_chlen.mp4"
-    INTERVAL = 5  # Send GIF every N messages
-    
-    def __init__(self, db: DatabaseService):
-        self.db = db
-        super().__init__()
-    
-    async def __call__(
-        self,
-        handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
-        event: Message,
-        data: dict[str, Any],
-    ) -> Any:
-        user_id = event.from_user.id
-        chat_id = event.chat.id
-        
-        new_count = await self.db.increment_and_get_count(chat_id, user_id)
-        
-        if new_count % self.INTERVAL == 0:
-            await event.answer_animation(
-                animation=FSInputFile(self.GIF_PATH)
-            )
-        
-        return await handler(event, data)
-```
-
-**Why middleware and not a handler:**
-- Middleware fires BEFORE handlers and does not consume the update.
-- A handler with a filter would work too, but middleware is the semantically correct pattern for "observe and act without preventing other handlers."
-- The middleware passes through to all downstream handlers (F4, F5, catch-all).
-
-### 7.4 SchedulerService (`services/scheduler.py`)
-
-```python
-import asyncio
-import logging
-from aiogram import Bot
-from config.settings import settings
-from services.database import DatabaseService
-
-logger = logging.getLogger(__name__)
-
-
-class SchedulerService:
-    """
-    Simplified scheduler for dead-page posts (F2 v2).
-    
-    Handles ONLY the join trigger. Time-based scheduler (morning/evening)
-    removed in v2 — replaced by event-driven repost trigger via dead_page_router.
-    
-    Lifecycle:
-      - Created in bot.py on_startup().
-      - Started via asyncio.create_task(scheduler.run()).
-      - Runs until bot shutdown (task cancelled).
-    """
-    
-    DEDUP_WINDOW = 10  # seconds — prevent duplicate join posts
-    
-    def __init__(self, bot: Bot, db: DatabaseService, relay, target_user_id: int = 479167456):
-        self.bot = bot
-        self.db = db
-        self.relay = relay  # DeadPageRelay instance
-        self.target_user_id = target_user_id
-        self._last_join_post: float = 0
-    
-    async def run(self) -> None:
-        """No-op loop. Join trigger is synchronous, repost is event-driven."""
-        while True:
-            await asyncio.sleep(3600)  # Keep task alive, no polling needed
-    
-    async def signal_immediate_post(self, chat_id: int) -> None:
-        """Called by F1 handler when Slava joins. Delegates to DeadPageRelay."""
-        if not settings.DEAD_PAGE_POST_ON_JOIN:
-            logger.debug(f"Join trigger disabled, skipping chat {chat_id}")
-            return
-        
-        now = asyncio.get_event_loop().time()
-        if now - self._last_join_post < self.DEDUP_WINDOW:
-            return  # Dedup: already posted on join recently
-        self._last_join_post = now
-        
-        logger.info(f"Join trigger fired for chat {chat_id}")
-        await self.relay.send_dead_page(chat_id)
-        await self.db.record_dead_page_post(chat_id, 'join')
-```
-
-**Key change from v1:** The `while True` loop no longer polls for time slots.
-The only purpose of `run()` is to keep the async task alive so that
-`signal_immediate_post` remains callable from the F1 handler. The loop
-sleeps for 1 hour — a no-op placeholder. Join posting is synchronous
-(inline call from F1), repost is event-driven (dead_page_router fires
-`relay.send_dead_page` directly).
-
-### 7.5 DeadPageRelay (`services/dead_page_relay.py`)
-
-```python
-import random
-import logging
-from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import FSInputFile
-from config.settings import settings
-from services.database import DatabaseService
-from services.media_picker import MediaService
-
-logger = logging.getLogger(__name__)
-
-
-class DeadPageRelay:
-    """
-    Dead page post relay service (F2 v2).
-    
-    Tries to forward a random post from the private channel.
-    Falls back to local media/dead_page/ if channel is unavailable.
-    
-    Does NOT generate new content — only forwards existing channel posts.
-    """
-    
-    def __init__(self, bot: Bot, db: DatabaseService, media: MediaService,
-                 channel_id: int, max_retries: int = 10):
-        self.bot = bot
-        self.db = db
-        self.media = media
-        self.channel_id = channel_id
-        self.max_retries = max_retries
-    
-    async def send_dead_page(self, target_chat_id: int) -> None:
-        """Main entry: try channel forward, fallback to local media."""
-        logger.info(f"Sending dead page to chat {target_chat_id}")
-        try:
-            success = await self._forward_random_post(target_chat_id)
-            if not success:
-                raise RuntimeError("All forward retries exhausted")
-            logger.info(f"Successfully forwarded channel post to chat {target_chat_id}")
-        except Exception as e:
-            logger.warning(f"Channel forward failed: {e}. Falling back to local media.")
-            await self._send_local_dead_page(target_chat_id)
-    
-    async def _forward_random_post(self, target_chat_id: int) -> bool:
-        """Try to forward a random post from the channel. Returns True on success."""
-        last_id = await self.db.get_last_known_message_id(self.channel_id)
-        if last_id < 1:
-            logger.warning(f"No known message IDs for channel {self.channel_id}")
-            return False
-        
-        tried = set()
-        for attempt in range(self.max_retries):
-            msg_id = random.randint(1, last_id)
-            if msg_id in tried:
-                continue
-            tried.add(msg_id)
-            
-            try:
-                logger.debug(f"Attempt {attempt+1}: forwarding msg_id={msg_id}")
-                await self.bot.forward_message(
-                    chat_id=target_chat_id,
-                    from_chat_id=self.channel_id,
-                    message_id=msg_id,
-                )
-                await self.db.update_last_known_message_id(
-                    self.channel_id, max(msg_id, last_id)
-                )
-                return True
-            except TelegramBadRequest as e:
-                if "message to forward not found" in str(e).lower():
-                    logger.debug(f"Message {msg_id} not found, retrying")
-                    continue
-                logger.error(f"Unexpected forward error for msg_id={msg_id}: {e}")
-                raise
-            except Exception as e:
-                logger.error(f"Forward attempt {attempt+1} failed: {e}")
-                raise
-        
-        logger.warning(f"All {self.max_retries} forward attempts exhausted")
-        return False
-    
-    async def _send_local_dead_page(self, chat_id: int) -> None:
-        """Fallback: pick random from local media/dead_page/ (old method)."""
-        logger.info(f"Using local media fallback for chat {chat_id}")
-        try:
-            photo_path, text = await self.media.pick_random()
-        except FileNotFoundError as e:
-            logger.error(f"Local dead page media missing: {e}")
-            return
-        
-        caption = text[:settings.DEAD_PAGE_CAPTION_MAX_CHARS]
-        if len(text) > settings.DEAD_PAGE_CAPTION_MAX_CHARS:
-            logger.warning(f"Text truncated: {len(text)} -> {len(caption)} chars")
-        
-        await self.bot.send_photo(
-            chat_id=chat_id,
-            photo=FSInputFile(photo_path),
-            caption=caption,
-        )
-        if len(text) > settings.DEAD_PAGE_CAPTION_MAX_CHARS:
-            await self.bot.send_message(
-                chat_id=chat_id,
-                text=text[settings.DEAD_PAGE_CAPTION_MAX_CHARS:]
-            )
-```
-
-### 7.6 OtboyRelay (`services/otboy_relay.py`)
-
-```python
-import logging
-import time
-from aiogram import Bot
-from aiogram.types import FSInputFile, ReplyParameters
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-
-class OtboyRelay:
-    """
-    Sends otboy.jpg in reply to messages containing 'отбой'.
-
-    Features:
-      - Native Telegram quote via ReplyParameters(quote=matched_word)
-      - Per-chat in-memory cooldown (dict[int, float])
-      - No DB dependency — cooldown is transient (resets on restart)
-      - Cooldown = 0 means no cooldown (every 'отбой' gets a photo)
-
-    Usage:
-        relay = OtboyRelay(bot)
-        await relay.send_otboy(chat_id, message_id, "Отбой")
-    """
-
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self._cooldowns: dict[int, float] = {}
-
-    async def send_otboy(
-        self,
-        chat_id: int,
-        message_id: int,
-        matched_word: str,
-    ) -> None:
-        cooldown = settings.OTBOY_COOLDOWN_SECONDS
-
-        if cooldown > 0:
-            now = time.time()
-            last = self._cooldowns.get(chat_id, 0)
-            if now - last < cooldown:
-                logger.debug(
-                    "Otboy cooldown active for chat %d (%.1fs < %ds), skipping",
-                    chat_id, now - last, cooldown,
-                )
-                return
-            self._cooldowns[chat_id] = now
-
-        logger.info(
-            "Otboy: sending photo to chat %d | msg_id=%d | word=%r",
-            chat_id, message_id, matched_word,
-        )
-
-        try:
-            await self.bot.send_photo(
-                chat_id=chat_id,
-                photo=FSInputFile(settings.OTBOY_PHOTO_PATH),
-                reply_parameters=ReplyParameters(
-                    message_id=message_id,
-                    quote=matched_word,
-                ),
-            )
-            logger.info("Otboy photo sent to chat %d", chat_id)
-        except Exception:
-            logger.exception(
-                "Otboy: failed to send photo | chat_id=%d | msg_id=%d",
-                chat_id, message_id,
-            )
-```
-
-**Quote mechanism — `ReplyParameters(quote=...)`:**
-
-Telegram's native quote feature highlights a specific text snippet in the
-replied message with a green bar. `ReplyParameters.quote` must be the **exact**
-text as it appears in the original message (case-sensitive match on Telegram's
-side). The handler extracts the matched word from a regex search (preserving
-original case) and passes it to `send_otboy()`.
-
-```
-Example:
-  User sends: "Внимание всем! Отбой тревоги!"
-  → Regex matches "Отбой" (original case)
-  → send_photo(..., reply_parameters=ReplyParameters(
-        message_id=42, quote="Отбой"))
-  → Telegram highlights "Отбой" with green quote bar
-```
-
-**Why not `quote_entities`:** `quote_entities` requires exact offset and length
-in UTF-16 code units, which is fragile with multi-byte Cyrillic characters.
-`quote` (the string itself) is simpler and Telegram matches it correctly.
-
-**Cooldown design (in-memory dict, no DB):**
-
-Follows the same pattern as `_last_greeting` in `handlers/alan_greeting.py`:
-- `dict[int, float]` keyed by `chat_id`, stores `time.time()` of last send
-- `OTBOY_COOLDOWN_SECONDS=0` disables cooldown entirely (no dict check)
-- Resets on bot restart — acceptable for a "spam-prevention" cooldown
-- Per-chat isolation: each chat tracks its own cooldown independently
-
----
-
-## 8. Dead Page Relay Design (F2 v2)
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         bot.py main()                                │
-│                                                                     │
-│  1. Create DatabaseService                                          │
-│  2. db.initialize() — creates 4 tables (incl. channel_state)         │
-│  3. Create MediaService(DEAD_PAGE_DIR)                              │
-│  4. Create DeadPageRelay(bot, db, media, channel_id, max_retries)   │
-│  5. Create SchedulerService(bot, db, relay)  — simplified           │
-│  6. setup_dead_page(relay, db) — inject into handler                │
-│  7. Register all routers                                            │
-│  8. asyncio.create_task(scheduler.run())                            │
-│  9. dp.start_polling(bot)                                           │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────┐      │
-│  │ REPOST TRIGGER (event-driven, via dead_page_router)       │      │
-│  │                                                          │      │
-│  │  User forwards @d_pages post into chat                   │      │
-│  │    → dead_page_trigger.on_forward()                      │      │
-│  │    → Check: forward_origin is MessageOriginChannel       │      │
-│  │    → Check: origin.chat.username == "d_pages"            │      │
-│  │    → Check: anti-spam cooldown (was_dead_page_recently)  │      │
-│  │    → Check: Slava presence (is_present — optional)       │      │
-│  │    → relay.send_dead_page(chat_id)                       │      │
-│  │      ├─ _forward_random_post(chat_id)                    │      │
-│  │      │  └─ random.randint(1, last_known_msg_id)          │      │
-│  │      │  └─ bot.forward_message()                         │      │
-│  │      │  └─ update_last_known_message_id()                │      │
-│  │      └─ (if all retries fail) _send_local_dead_page()    │      │
-│  │    → db.record_dead_page_post(chat_id, slot='repost')    │      │
-│  └──────────────────────────────────────────────────────────┘      │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────┐      │
-│  │ JOIN TRIGGER (synchronous, via F1 + SchedulerService)     │      │
-│  │                                                          │      │
-│  │  Slava joins chat                                        │      │
-│  │    → F1: on_slava_chat_member()                          │      │
-│  │    → scheduler.signal_immediate_post(chat_id)            │      │
-│  │      → Check: DEAD_PAGE_POST_ON_JOIN == True?            │      │
-│  │      → Check: dedup window (10 sec)                      │      │
-│  │      → relay.send_dead_page(chat_id)                     │      │
-│  │    → db.record_dead_page_post(chat_id, slot='join')      │      │
-│  └──────────────────────────────────────────────────────────┘      │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────┐      │
-│  │ SchedulerService.run()  (simplified — no time-based logic) │      │
-│  │                                                          │      │
-│  │  while True:                                             │      │
-│  │    await asyncio.sleep(3600)  # keep task alive          │      │
-│  │  (signal_immediate_post is called synchronously by F1)   │      │
-│  └──────────────────────────────────────────────────────────┘      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Forward-from-Channel Strategy
-
-1. **Channel ID**: `DEAD_PAGE_SOURCE_CHANNEL_ID = 4228645624` (private channel)
-2. **Message tracking**: `channel_state` table stores `last_known_message_id` per channel.
-   Updated on each successful forward: `max(forwarded_id, last_id)`.
-3. **Random pick**: `random.randint(1, last_known_message_id)` — picks any message_id
-   in the range, even deleted ones (handled via retry).
-4. **Retries**: Up to `DEAD_PAGE_MAX_FORWARD_RETRIES` (default 10) attempts with
-   different random `message_id` values. Skips already-tried IDs.
-5. **Error handling**: `TelegramBadRequest` with "message to forward not found"
-   triggers retry. All other errors raise immediately (channel unavailable, bot
-   not admin, etc.) — triggering the fallback.
-
-### Fallback Mechanism
-
-If `_forward_random_post` returns `False` or raises any exception:
-- Falls back to `_send_local_dead_page(chat_id)` which uses `MediaService.pick_random()`
-  from `media/dead_page/` directory (same as v1 sending logic).
-- Uses `send_photo` with caption + optional `send_message` for overflow text.
-- Caption limit: `DEAD_PAGE_CAPTION_MAX_CHARS` (default 1024).
-
-### Anti-Spam Cooldown
-
-- **Cooldown**: `DEAD_PAGE_COOLDOWN_SECONDS` (default 10) between reposts in same chat.
-- **Check**: `was_dead_page_recently(chat_id, cooldown_seconds)` queries
-  `dead_page_posts` where `slot='repost' AND timestamp > threshold`.
-- **Scope**: Repost trigger only. Join trigger uses its own 10-second dedup window
-  in SchedulerService (monotonic time, no DB query).
-
-### Graceful Shutdown
-
-The scheduler task runs forever (sleep loop). On bot shutdown:
-- `dp.start_polling()` raises `CancelledError`.
-- The `asyncio.create_task(scheduler.run())` task is automatically cancelled
-  when the event loop closes.
-- No explicit cleanup needed. DB connection closing is handled by
-  `DatabaseService.close()` if needed.
-
----
-
-## 9. Monitoring (Better Stack)
-
-### 9.1 Overview
-
-The monitoring layer integrates AdminBot with Better Stack — a unified observability platform. It provides:
-
-- **Error Tracking (Sentry)**: Automatic capture of all unhandled exceptions with full stack traces, request context, and Telegram event data.
-- **Structured Logging (Logtail)**: All `logger.info(...)`, `logger.warning(...)`, and `logger.error(...)` calls across all modules are streamed to the cloud in real time.
-- **Zero-Instrumentation Design**: Sentry auto-instruments aiogram 3.x. No code changes in handlers or services are required — monitoring is added purely at the entry point (`bot.py`).
-
-The architecture follows a **dual-output logging model**: structured logs go to both the console (`StreamHandler`) for local debugging and to Better Stack (`LogtailHandler`) for cloud observability.
-
-### 9.2 Error Tracking (Sentry)
-
-Sentry captures **all unhandled exceptions** automatically. This includes:
-- Unexpected aiogram exceptions (API errors, network timeouts)
-- Python runtime errors (AttributeError, ValueError, etc.)
-- Database connection failures (aiosqlite errors)
-- Any exception that propagates out of a handler without being caught
-
-**Initialization** (in `bot.py`, immediately after `load_dotenv()`):
-
-```python
-import os
-import sentry_sdk
-from dotenv import load_dotenv
-
-load_dotenv()
-
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    traces_sample_rate=1.0,
-)
-```
-
-Key behaviors:
-- `sentry_sdk.init()` is called **before** the logging setup and **before** the Bot/Dispatcher creation. This ensures errors during initialization are captured.
-- `traces_sample_rate=1.0` means 100% of events are sent (suitable for low-traffic bots; lower for production at scale).
-- Sentry auto-instruments aiogram via its integrations registry — no `aiogram`-specific integration import is needed.
-- Errors are sent to the Better Stack backend at the URL provided by `SENTRY_DSN`.
-
-### 9.3 Structured Logging (Logtail)
-
-Logtail captures **all structured log output** from every module. Since the project uses a single root logger with `logging.getLogger(__name__)` instances, a single `LogtailHandler` on the root logger captures everything.
-
-**Dual-Output Architecture:**
-
-```
-                    ┌─────────────────┐
-                    │   Root Logger   │
-                    │  (level=INFO)   │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-    ┌─────────────────┐  ┌──────────┐  ┌──────────────┐
-    │  StreamHandler   │  │ Logtail  │  │  (future      │
-    │  (console)       │  │ Handler  │  │   handlers)   │
-    │  level: INFO     │  │ level:   │  │               │
-    │                  │  │ INFO     │  │               │
-    └────────┬────────┘  └────┬─────┘  └──────────────┘
-             │                │
-             ▼                ▼
-        Local Console    Better Stack
-        (docker logs,    (Logtail cloud
-         systemd, etc.)   dashboard)
-```
-
-**Initialization** (in `bot.py`, after Sentry init):
-
-```python
-import logging
-from logtail import LogtailHandler
-
-# Formatter (same format as existing StreamHandler)
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-# Root logger — base level
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-
-# Console handler
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(formatter)
-root_logger.addHandler(console_handler)
-
-# Logtail handler — cloud logging
-logtail_handler = LogtailHandler(
-    source_token=os.getenv("LOGTAIL_SOURCE_TOKEN")
-)
-logtail_handler.setLevel(logging.INFO)
-logtail_handler.setFormatter(formatter)
-root_logger.addHandler(logtail_handler)
-```
-
-All existing `logger.info(...)`, `logger.warning(...)`, and `logger.error(...)` calls across 7 modules (bot.py, 5 services, slava_presence.py) automatically flow to both outputs.
-
-### 9.4 Environment Variables
-
-Two new environment variables are added to `.env`:
-
-| Variable | Purpose | Provider |
-|----------|---------|----------|
-| `SENTRY_DSN` | Data Source Name for Sentry error tracking | Better Stack (Sentry-compatible endpoint) |
-| `LOGTAIL_SOURCE_TOKEN` | Ingest token for Logtail structured logging | Better Stack (Logtail source) |
-
-Both are optional — the bot runs without them if not set, but monitoring will be inactive. No defaults are provided; if absent, monitoring is simply not initialized.
-
-### 9.5 Initialization Flow
-
-The startup sequence in `bot.py` is structured to ensure monitoring is active **before** any bot operations:
-
-```
-1. load_dotenv()          → Load .env file (already in config/settings.py)
-2. sentry_sdk.init(...)   → Activate error tracking BEFORE anything else
-3. Root logger setup      → Configure StreamHandler + LogtailHandler
-4. Bot/Dispatcher creation → Bot(token=settings.API_TOKEN)
-5. Router registration     → dp.include_router(...) × 7
-6. on_startup()            → DB init, media service, DeadPageRelay, scheduler
-7. dp.start_polling(bot)   → Begin polling
-```
-
-This order guarantees:
-- Errors during **import** of any module are captured by Sentry.
-- Errors during **initialization** (DB connection failure, etc.) are captured.
-- Log output from all subsequent steps flows to both console and Better Stack.
-- If any monitoring service fails to initialize, the bot still starts gracefully.
-
-### 9.6 Architecture Diagram Addition
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        AdminBot System Layers                        │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │                    MONITORING LAYER (NEW)                      │ │
-│  │                                                               │ │
-│  │  ┌─────────────────┐         ┌──────────────────┐            │ │
-│  │  │  Sentry SDK     │         │  Logtail Handler  │            │ │
-│  │  │  (Error Track.) │         │  (Structured Logs)│            │ │
-│  │  │                 │         │                    │            │ │
-│  │  │ Auto-captures:  │         │ Captures from:     │            │ │
-│  │  │ • Unhandled exc │         │ • bot.py           │            │ │
-│  │  │ • API errors    │         │ • all handlers/    │            │ │
-│  │  │ • DB failures   │         │ • all services/    │            │ │
-│  │  │ • Runtime errs  │         │ • all filters/     │            │ │
-│  │  └────────┬────────┘         └────────┬─────────┘            │ │
-│  │           │                           │                      │ │
-│  │           └───────────┬───────────────┘                      │ │
-│  │                       │                                      │ │
-│  │                 Better Stack                                  │ │
-│  │                 (Cloud Dashboard)                             │ │
-│  └───────────────────────┬───────────────────────────────────────┘ │
-│                          │                                         │
-│  ┌───────────────────────┼───────────────────────────────────────┐ │
-│  │              APPLICATION LAYER                                 │ │
-│  │                                                               │ │
-│  │  bot.py ──► Router Registration ──► 7 Routers                 │ │
-│  │    │                                                          │ │
-│  │    ├──► handlers/ (7 modules)                                 │ │
-│  │    ├──► filters/  (5 classes)                                 │ │
-│  │    └──► services/ (5 classes)                                 │ │
-│  │                                                               │ │
-│  │            ┌──────────────────────┐                           │ │
-│  │            │   Database Layer     │                           │ │
-│  │            │   (SQLite/aiosqlite) │                           │ │
-│  │            └──────────────────────┘                           │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │                  INFRASTRUCTURE                                 │ │
-│  │  • Telegram Bot API  • .env Configuration  • Python 3.12       │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-The monitoring layer sits **above** the application layer — it observes everything below without modifying it. Sentry intercepts exceptions at the runtime level; Logtail intercepts log records at the logging framework level. Neither touches application code.
-
----
-
-## 10. Configuration Module Design (`config/settings.py`)
-
-```python
-import os
-from dataclasses import dataclass
-from dotenv import load_dotenv
-
-# Load .env from project root (one level above config/)
-load_dotenv()
-
-
-@dataclass(frozen=True)
-class Settings:
-    """Application configuration. All values from environment / .env."""
-    
-    API_TOKEN: str = os.getenv("API_TOKEN", "")
-    
-    # Database
-    DB_PATH: str = os.getenv("DB_PATH", "local_database.db")
-    
-    # User IDs
-    KOSTIK_USER_ID: int = int(os.getenv("KOSTIK_USER_ID", "350803143"))
-    SLAVIK_USER_ID: int = int(os.getenv("SLAVIK_USER_ID", "479167456"))
-    ALAN_USER_ID: int = int(os.getenv("ALAN_USER_ID", "138811255"))
-    ADMIN_USER_ID: int = int(os.getenv("ADMIN_USER_ID", "5885953495"))
-    ALAN_REPLY_INTERVAL: int = int(os.getenv("ALAN_REPLY_INTERVAL", "10"))
-    
-    # Dead Page Relay (F2 v2)
-    DEAD_PAGE_SOURCE_CHANNEL_USERNAME: str = os.getenv("DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "d_pages")
-    DEAD_PAGE_SOURCE_CHANNEL_ID: int = int(os.getenv("DEAD_PAGE_SOURCE_CHANNEL_ID", "4228645624"))
-    DEAD_PAGE_RELAY_CHANNEL_ID: int = int(os.getenv("DEAD_PAGE_RELAY_CHANNEL_ID", "4228645624"))
-    DEAD_PAGE_CAPTION_MAX_CHARS: int = int(os.getenv("DEAD_PAGE_CAPTION_MAX_CHARS", "1024"))
-    DEAD_PAGE_COOLDOWN_SECONDS: int = int(os.getenv("DEAD_PAGE_COOLDOWN_SECONDS", "10"))
-    DEAD_PAGE_POST_ON_JOIN: bool = os.getenv("DEAD_PAGE_POST_ON_JOIN", "True").lower() in ("true", "1", "yes")
-    DEAD_PAGE_MAX_FORWARD_RETRIES: int = int(os.getenv("DEAD_PAGE_MAX_FORWARD_RETRIES", "10"))
-    DEAD_PAGE_CHANNEL_LAST_MSG_ID: int = int(os.getenv("DEAD_PAGE_CHANNEL_LAST_MSG_ID", "0"))
-    DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
-    
-    # Alan Greeting (F7)
-    ALAN_USERNAME: str = os.getenv("ALAN_USERNAME", "@Alan_Z")
-    ALAN_GREETING_DIR: str = os.getenv("ALAN_GREETING_DIR", "media/leha_greeting")
-    ALAN_GREETING_COOLDOWN: int = int(os.getenv("ALAN_GREETING_COOLDOWN", "10"))
-    
-    # GIF counter
-    GIF_INTERVAL: int = int(os.getenv("GIF_INTERVAL", "5"))
-    GIF_PATH: str = os.getenv("GIF_PATH", "media/slavic_chlen.mp4")
-    
-    # Debug
-    DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
-
-
-# Global singleton — import as `from config.settings import settings`
-settings = Settings()
-```
-
-> **Monitoring env vars:** `SENTRY_DSN` and `LOGTAIL_SOURCE_TOKEN` are consumed directly in `bot.py` via `os.getenv()` (not routed through the `Settings` dataclass). Their initialization and usage are documented in **Section 9 (Monitoring)**.
-
-**Import pattern:** Every module imports `settings` — never creates its own Settings instance.
-
----
-
-## 11. Test Strategy
-
-### Test Framework
-
-- **pytest** with **pytest-asyncio** for async test support.
-- **pytest-mock** for mocking (or `unittest.mock` built-in).
-- In-memory SQLite (`:memory:`) for database tests (no file I/O).
-
-### Test Fixtures (`tests/conftest.py`)
-
-```python
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message, Chat, User, ChatMemberUpdated, ChatMember
-from services.database import DatabaseService
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a single event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture
-async def db():
-    """In-memory SQLite database with schema initialized."""
-    db_service = DatabaseService(":memory:")
-    db_service.db_path = ":memory:"  # Override path for in-memory
-    await db_service.initialize()
-    yield db_service
-    await db_service.close()
-
-
-@pytest.fixture
-def mock_bot():
-    """Mock aiogram Bot — all send_* methods are AsyncMock."""
-    bot = MagicMock(spec=Bot)
-    bot.send_message = AsyncMock()
-    bot.send_photo = AsyncMock()
-    bot.send_animation = AsyncMock()
-    bot.send_video = AsyncMock()
-    return bot
-
-
-def make_message(
-    text: str | None = None,
-    user_id: int = 123456,
-    username: str | None = None,
-    chat_id: int = -100123,
-    new_chat_members: list[User] | None = None,
-) -> Message:
-    """Factory for test Message objects."""
-    user = User(id=user_id, is_bot=False, first_name="Test", username=username)
-    chat = Chat(id=chat_id, type="group")
-    return Message(
-        message_id=1,
-        date=...,
-        chat=chat,
-        from_user=user,
-        text=text,
-        new_chat_members=new_chat_members,
-    )
-
-
-def make_chat_member_updated(
-    user_id: int,
-    old_status: str,
-    new_status: str,
-    chat_id: int = -100123,
-) -> ChatMemberUpdated:
-    """Factory for test ChatMemberUpdated objects."""
-    user = User(id=user_id, is_bot=False, first_name="Test")
-    chat = Chat(id=chat_id, type="group")
-    old_cm = ChatMember(user=user, status=old_status)
-    new_cm = ChatMember(user=user, status=new_status)
-    return ChatMemberUpdated(
-        chat=chat,
-        from_user=user,
-        date=...,
-        old_chat_member=old_cm,
-        new_chat_member=new_cm,
-    )
-```
-
-### Test Categories
-
-#### A. Filter Unit Tests (no bot needed)
-
-| Test File | What It Tests |
-|-----------|---------------|
-| `test_filters.py` | `UserIdFilter` passes/rejects; `KuchaWordFilter` matches declensions; `WarWordFilter` matches all war words; `VasyaFilter` matches variants; `StrictAdminFilter` matches exact "админ" |
-| `test_edge_cases.py` | Cross-component edge cases: zero/negative IDs, mixed case, boundaries, router priority simulation |
-
-#### B. Handler & Service Tests (mock bot + DB)
-
-| Test File | What It Tests | Mock Strategy |
-|-----------|---------------|---------------|
-| `test_kostik.py` | Kostik handler replies "пошёл нахуй кринжатура ебаная" | Feed message, assert reply |
-| `test_slavik_handlers.py` | Slava: Kucha→"ДАЛБАЕБ", catch-all→"пошёл нахуй" (F5 REMOVED) | Feed messages, assert replies |
-| `test_war_alert.py` | F5v2: War keyword (Slava, text+caption) + channel repost (any user) | Feed messages with/without forward_origin, assert replies |
-| `test_message_counter.py` | F3: every 5th message sends GIF animation | Feed messages, verify send_animation called at count % 5 == 0 |
-| `test_slava_presence.py` | F1: ChatMemberUpdated → "ДОЛБОЕБ ВЕРНУЛСЯ", presence updates | Feed ChatMemberUpdated events, assert messages + DB updates |
-| `test_scheduler.py` | F2: Scheduler tick logic, dedup, posting windows | Mock DB, advance time, verify posts at correct hours |
-| `test_media_picker.py` | F2: MediaService random file picker | Mock filesystem, test selection logic |
-| `test_alan.py` | F6: reply fires every 10 msgs, random selection, configurable interval | Feed messages, mock DB counter, assert reply timing |
-| `test_alan_greeting.py` | F7: Alan join → video sent; non-Alan join ignored; leave ignored; new_chat_members fallback; caption; random selection; empty dir | Feed ChatMemberUpdated + Message events, assert send_video called/not called |
-| `test_admin_commands.py` | Epic 10: /deadpage triggers relay; /alangreet triggers greeting; admin/non-admin group access; delete message; error handling | Feed command messages with mocked relay & _send_greeting, assert delete + answer + relay calls |
-| `test_vasya.py` | Vasya/Admin handlers | Feed "вася"/"админ" text, assert "АДМИН"/"ВАСЯ" replies |
-
-#### C. Database Unit Tests
-
-| Test File | What It Tests |
-|-----------|---------------|
-| `test_database.py` | `initialize()` creates 4 tables (including channel_state). `increment_and_get_count()` returns 1,2,3... `set_presence`/`is_present` roundtrip. `was_dead_page_recently`/`record_dead_page_post` roundtrip. `get_last_known_message_id`/`update_last_known_message_id` roundtrip. Concurrent `increment_and_get_count` serialization. |
-
-#### D. Edge Cases
-
-Every test file includes edge case tests:
-
-| Edge Case | Test |
-|-----------|------|
-| Empty message text (`message.text is None`) | All text filters return False |
-| Missing `from_user` | `UserIdFilter` returns False |
-| Slava in multiple chats | DB composite key `(chat_id, user_id)` isolates counters |
-| Bot restarts | Counters survive (DB persistence); presence state survives |
-| Duplicate join events | Scheduler dedup window prevents double immediate post |
-| Midnight boundary | `record_dead_page_post` stores date string; new day = new slots |
-| Scheduler running with no chats | `get_present_chats` returns `[]` — no-op |
-| Missing media files | `MediaService.pick_random()` raises `FileNotFoundError`; scheduler catches and logs |
-| Very long dead-page text | Split at 1024 chars; caption + follow-up message |
-| GIF path missing | `FSInputFile` raises; middleware should catch (or let it propagate for visibility) |
-| Slava leaves during scheduler tick | `is_present` check catches it; no post sent |
-| WarWordFilter with caption only (T-057) | caption="летит дрон", text=None → filter returns True (FIXED) |
-| WarWordFilter with both None | text=None, caption=None → filter returns False |
-| Slava forwards from war channel | Both Handler A (keyword in forward text) and Handler B (channel repost) can fire |
-| Forward from non-target war channel | Handler B checks both ID and username → no match → silently skipped |
-
-#### E. Running Tests
-
-```bash
-pytest tests/ -v
-pytest tests/ -v --cov=. --cov-report=term-missing
-```
-
-### Test Invariants
-
-1. **No real Telegram API calls.** All `bot.send_*` methods are mocked.
-2. **No real file I/O** except for reading test fixtures. Database tests use `:memory:`.
-3. **Tests are isolated.** Each test creates fresh fixtures; no shared state between tests.
-4. **Handler order tests.** Specific test verifies that Slava's "вася" triggers slavik handler, NOT vasya handler (router order matters).
-
----
-
-## 12. Handler Module Specifications
-
-### 11.1 `handlers/kostik.py`
-
-```python
-from aiogram import Router, types
-from filters.user_id import UserIdFilter
-from config.settings import settings
-
-kostik_router = Router()
-
-@kostik_router.message(UserIdFilter(settings.KOSTIK_USER_ID))
-async def kostik_handler(message: types.Message) -> None:
-    await message.reply("пошёл нахуй кринжатура ебаная")
-```
-
-**Registration:** `dp.include_router(kostik_router)` — position 2 in bot.py.
-
-### 11.2 `handlers/alan.py`
-
-```python
-from aiogram import Router, types
-import random
-from filters.user_id import UserIdFilter
-from config.settings import settings
-from services.database import DatabaseService
-
-alan_router = Router()
-alan_db: DatabaseService | None = None
-
-# Reply pool — extensible: add new strings to extend
-ALAN_REPLIES = [
-    "так интересно, продолжай",
-    "ух ты! а что еще расскажешь интересного? Давай что-нибудь про нейросети или тренировки!",
-    # ... ~20 total variants covering тренировки, лонгковид, фьючерсы, нейросети, жим дьявола
-]
-
-def setup_alan(db: DatabaseService) -> None:
-    global alan_db
-    alan_db = db
-
-@alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
-async def alan_handler(message: types.Message) -> None:
-    if alan_db is None:
-        return
-    count = await alan_db.increment_and_get_count(message.chat.id, message.from_user.id)
-    if count % settings.ALAN_REPLY_INTERVAL == 0:
-        await message.reply(random.choice(ALAN_REPLIES))
-```
-
-**Registration:** `dp.include_router(alan_router)` — position 3 in bot.py.
-**Setup:** `setup_alan(db)` called in `on_startup()` to inject DB dependency.
-
-### 11.3 `handlers/slavik.py` — UPDATED in v2.6.0
-
-```python
-from aiogram import Router, types
-from filters.user_id import UserIdFilter
-from filters.kucha_word import KuchaWordFilter
-from config.settings import settings
-
-slavik_router = Router()
-
-
-# Handler 1: F4 — KUCHA words → "ДАЛБАЕБ"
-@slavik_router.message(KuchaWordFilter())
-async def kucha_handler(message: types.Message):
-    await message.reply("ДАЛБАЕБ")
-
-
-# Handler 2: Catch-all → "пошёл нахуй" (original behavior)
-# NOTE: F5 (WarWordFilter) REMOVED — delegated to handlers/war_alert.py (position 4b)
-@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
-async def slavik_catchall_handler(message: types.Message):
-    await message.reply("пошёл нахуй")
-```
-
-**Registration:** `dp.include_router(slavik_router)` — position 5 in bot.py.
-**Middleware:** `MessageCounterMiddleware(db)` attached in `on_startup()` for F3 GIF counter.
-
-**Handler order within router (v2.6.0):**
-1. F4: KuchaWordFilter → "ДАЛБАЕБ"
-2. Catch-all: any message from Slava → "пошёл нахуй"
-3. F5 (war words) REMOVED — now in `war_alert_router` at position 4b
-
-### 11.4 `handlers/vasya.py`
-
-```python
-from aiogram import Router, types
-from filters.vasya_name import VasyaFilter
-from filters.admin_word import StrictAdminFilter
-
-vasya_router = Router()
-
-@vasya_router.message(VasyaFilter())
-async def reply_to_vasya(message: types.Message) -> None:
-    await message.reply("АДМИН")
-
-@vasya_router.message(StrictAdminFilter())
-async def reply_to_admin(message: types.Message) -> None:
-    await message.reply("ВАСЯ")
-```
-
-**Registration:** `dp.include_router(vasya_router)` — position 6 (LAST) in bot.py.
-
-### 11.5 `handlers/slava_presence.py`
-
-```python
-import logging
-from aiogram import Router, types, F
-from aiogram.types import ChatMemberUpdated
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-slava_presence_router = Router()
-
-
-@slava_presence_router.chat_member()
-async def on_slava_chat_member(update: ChatMemberUpdated) -> None:
-    """
-    F1: Detect when user 479167456 (re)joins the chat via ChatMemberUpdated.
-    
-    Triggers when:
-      - old status was 'left', 'kicked', or 'restricted'
-      - new status is 'member' or 'administrator'
-      - user ID matches SLAVIK_USER_ID
-    """
-    user = update.new_chat_member.user
-    if user.id != settings.SLAVIK_USER_ID:
-        return
-    
-    old_status = update.old_chat_member.status
-    new_status = update.new_chat_member.status
-    
-    was_absent = old_status in ('left', 'kicked', 'restricted')
-    is_present = new_status in ('member', 'administrator')
-    
-    if was_absent and is_present:
-        logger.info(f"Slava returned to chat {update.chat.id}")
-        await update.bot.send_message(
-            chat_id=update.chat.id,
-            text="ДОЛБОЕБ ВЕРНУЛСЯ"
-        )
-    elif new_status in ('left', 'kicked'):
-        logger.info(f"Slava left chat {update.chat.id}")
-```
-
-**Registration:** `dp.include_router(slava_presence_router)` — position 1 in bot.py.
-
-**DB integration:** The `on_slava_chat_member` handler also calls `DatabaseService.set_presence()` and `SchedulerService.signal_immediate_post()` (which delegates to `DeadPageRelay.send_dead_page()`). This coupling is handled in bot.py by passing `db`, `scheduler`, and `relay` as extra data or through dependency injection.
-
-**Refined approach — use dependency injection via aiogram's `data` dict or a simpler pattern:**
-
-In bot.py, we store services on the bot instance or pass them through the dispatcher's workflow data:
-
-```python
-# bot.py — passing DB, relay, and scheduler to handlers
-from aiogram import Dispatcher
-
-# Store services on dispatcher's workflow data (accessible in handlers)
-dp["db"] = DatabaseService("local_database.db")
-dp["relay"] = DeadPageRelay(bot, db, media, channel_id=...)
-dp["scheduler"] = SchedulerService(bot, db, dp["relay"])
-```
-
-Then in `slava_presence.py`:
-```python
-@slava_presence_router.chat_member()
-async def on_slava_chat_member(update: ChatMemberUpdated, db: DatabaseService, scheduler: SchedulerService) -> None:
-    # ... same logic ...
-    if was_absent and is_present:
-        await db.set_presence(user.id, update.chat.id, True)
-        await update.bot.send_message(chat_id=update.chat.id, text="ДОЛБОЕБ ВЕРНУЛСЯ")
-        await scheduler.signal_immediate_post(update.chat.id)
-    elif new_status in ('left', 'kicked'):
-        await db.set_presence(user.id, update.chat.id, False)
-```
-
-This uses aiogram's dependency injection (it resolves parameters from the dispatcher's `workflow_data` dict). Or we can use `**kwargs` pattern.
-
-### 11.6 `handlers/alan_greeting.py`
-
-```python
-import logging
-import random
-import time
-from pathlib import Path
-from aiogram import F, Router, types
-from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
-from aiogram.types import FSInputFile
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-alan_greeting_router = Router()
-
-# Dedup cooldown — dict-based per chat_id, resets on bot restart
-_last_greeting: dict[int, float] = {}
-
-VIDEO_EXTENSIONS = {'.mp4', '.MP4', '.avi', '.AVI', '.mov', '.MOV', '.webm', '.WEBM'}
-
-
-def _pick_random_video(directory: Path) -> Path | None:
-    """Pick a random video file from the greeting directory."""
-    videos = [
-        p for p in directory.iterdir()
-        if p.is_file() and p.suffix in VIDEO_EXTENSIONS
-    ]
-    if not videos:
-        logger.warning("No video files found in %s", directory)
-        return None
-    return random.choice(videos)
-
-
-@alan_greeting_router.chat_member(
-    ChatMemberUpdatedFilter(
-        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
-    )
-)
-async def on_alan_join(event: types.ChatMemberUpdated):
-    """F7: Send random greeting video when Alan joins the chat."""
-    user = event.new_chat_member.user
-    
-    if user.id != settings.ALAN_USER_ID:
-        return
-    
-    chat_id = event.chat.id
-    now = time.time()
-    
-    # Dedup cooldown check
-    if chat_id in _last_greeting:
-        if now - _last_greeting[chat_id] < settings.ALAN_GREETING_COOLDOWN:
-            logger.debug("Greeting cooldown active for chat %d, skipping", chat_id)
-            return
-    
-    logger.info("Alan joined chat %d, sending greeting video", chat_id)
-    
-    video_dir = Path(settings.ALAN_GREETING_DIR)
-    video_path = _pick_random_video(video_dir)
-    
-    if video_path is None:
-        logger.warning("No greeting videos available in %s", video_dir)
-        return
-    
-    try:
-        await event.bot.send_video(
-            chat_id=chat_id,
-            video=FSInputFile(str(video_path)),
-            caption=settings.ALAN_USERNAME,
-        )
-        _last_greeting[chat_id] = now
-        logger.info("Greeting video sent for Alan in chat %d: %s", chat_id, video_path.name)
-    except Exception as e:
-        logger.error("Failed to send greeting video for Alan in chat %d: %s", chat_id, e)
-
-
-@alan_greeting_router.message(F.new_chat_members)
-async def on_alan_new_chat_members(message: types.Message):
-    """Fallback: detect Alan join via new_chat_members field."""
-    if not message.new_chat_members:
-        return
-    
-    alan_joined = any(u.id == settings.ALAN_USER_ID for u in message.new_chat_members)
-    if not alan_joined:
-        return
-    
-    chat_id = message.chat.id
-    now = time.time()
-    
-    if chat_id in _last_greeting:
-        if now - _last_greeting[chat_id] < settings.ALAN_GREETING_COOLDOWN:
-            logger.debug("Greeting cooldown active for chat %d (fallback), skipping", chat_id)
-            return
-    
-    logger.info("Alan joined chat %d (via new_chat_members), sending greeting video", chat_id)
-    
-    video_dir = Path(settings.ALAN_GREETING_DIR)
-    video_path = _pick_random_video(video_dir)
-    
-    if video_path is None:
-        logger.warning("No greeting videos available in %s", video_dir)
-        return
-    
-    try:
-        await message.bot.send_video(
-            chat_id=chat_id,
-            video=FSInputFile(str(video_path)),
-            caption=settings.ALAN_USERNAME,
-        )
-        _last_greeting[chat_id] = now
-        logger.info("Greeting video sent for Alan in chat %d (fallback): %s", chat_id, video_path.name)
-    except Exception as e:
-        logger.error("Failed to send greeting video for Alan in chat %d (fallback): %s", chat_id, e)
-```
-
-**Registration:** `dp.include_router(alan_greeting_router)` — position 1b in bot.py (alongside slava_presence_router).
-
-**No setup function needed:** Unlike F1 (slava_presence.py), F7 does not depend on DB or scheduler services. All logic is self-contained: video picking uses `pathlib` glob, dedup uses in-memory `_last_greeting` dict. The router is stateless on import.
-
-**Key design decisions:**
-- Dict-based dedup (not DB): Greeting cooldown is transient. A 10-second dict TTL per chat prevents double-posting from ChatMemberUpdated + new_chat_members arriving together. No persistence needed — if bot restarts, fresh start is acceptable.
-- Video extensions whitelist: Only `.mp4, .MP4, .avi, .AVI, .mov, .MOV, .webm, .WEBM` are picked. Other files in the directory are silently ignored.
-- No leave handler: Unlike F1 which tracks presence, F7 only reacts to joins. Alan leaving has no effect.
-- Caption is constant: The caption `@Alan_Z` is hardcoded (configurable via `ALAN_USERNAME` env var). No dynamic text needed.
-
-### 11.7 `handlers/otboy.py`
-
-```python
-"""
-F9 — Otboy Service (Epic 13).
-
-Handler: any message from ANY user containing "отбой" → otboy.jpg with native quote.
-
-Architecture:
-  OtboyWordFilter (filter) → otboy_router (handler) → OtboyRelay (service)
-  
-Router registered at position 4c between war_alert_router and slavik_router.
-Not user-specific — works for all chat participants.
-"""
-import logging
-import re
-from aiogram import Router, types
-from filters.otboy_word import OtboyWordFilter
-
-logger = logging.getLogger(__name__)
-
-otboy_router = Router(name="otboy")
-_relay = None
-
-# Re-compile pattern to extract matched word for quote (preserves original case)
-_OTBOY_PATTERN = re.compile(r'(?<![а-яё])отбой(?![а-яё])', re.IGNORECASE)
-
-
-def setup_otboy(relay) -> None:
-    """Inject OtboyRelay dependency. Called from bot.on_startup()."""
-    global _relay
-    _relay = relay
-
-
-@otboy_router.message(OtboyWordFilter())
-async def otboy_handler(message: types.Message) -> None:
-    """F9: Detect "отбой" → send otboy.jpg with native quote. All users."""
-    if _relay is None:
-        logger.warning("OtboyRelay not initialized — skipping otboy handler")
-        return
-
-    # Extract matched word preserving original case for quote
-    content = message.text or message.caption
-    match = _OTBOY_PATTERN.search(content) if content else None
-    matched_word = match.group() if match else "отбой"
-
-    logger.info(
-        "Otboy handler triggered | msg_id=%s | chat_id=%s | matched=%r",
-        message.message_id, message.chat.id, matched_word,
-    )
-
-    await _relay.send_otboy(
-        chat_id=message.chat.id,
-        message_id=message.message_id,
-        matched_word=matched_word,
-    )
-```
-
-**Registration:** `dp.include_router(otboy_router)` — position 4c in bot.py (between war_alert_router and slavik_router).
-
-**Setup:** `setup_otboy(relay)` called in `on_startup()` to inject OtboyRelay dependency. Follows `setup_war_alert()`, `setup_dead_page(relay, db)` pattern.
-
-**Key design decisions:**
-- **Global `_relay` variable for DI:** Same pattern as `handlers/admin_commands.py::_relay` and `handlers/dead_page_trigger.py::_relay`. Simpler than middleware-based DI for a single-dependency handler.
-- **Regex re-search in handler:** The filter returns True/False; the handler re-searches to extract the matched word for the quote. Performance cost is negligible (single word, single pattern).
-- **Does NOT return UNHANDLED:** Returns None (implicit) → propagation continues to other routers (slavik, vasya). Other handlers fire normally.
-- **Overlap with war_alert:** "отбой" is in WAR_WORDS. For Slava's messages, BOTH fire (war reply text + otboy photo). By design — two separate features.
-
----
-
-## 13. Dependency Summary
-
-```python
-# requirements.txt
-aiogram>=3.7.0,<4.0.0
-python-dotenv>=1.0.0
-aiosqlite>=0.20.0
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-sentry-sdk==2.64.0
-logtail-python==0.4.0
-```
-
----
-
-## 14. Handler Fire Order — Complete Example (UPDATED v2.10.0)
-
-Given a message from user 479167456 (Slava) in chat -100123 with text "куча дрон летит", here's the complete execution flow:
-
-```
-0. admin_commands_router: Command() filter checks:
-   ├── /deadpage handler: message.text does not start with /deadpage → SKIP
-   └── /alangreet handler: message.text does not start with /alangreet → SKIP
-1. ChatMemberUpdated routers:
-   ├── slava_presence_router: user is 479167456 → NO (this is message, not chat_member)
-   └── alan_greeting_router: user is 479167456 → NO (this is message, not chat_member)
-2. kostik_router: UserIdFilter checks — user is 479167456, not 350803143 → SKIP
-3. alan_router: UserIdFilter checks — user is 479167456, not 138811255 → SKIP
-4. dead_page_router: forward_origin filter checks — no forward_origin present → SKIP
-4b. war_alert_router: ─── NEW in v2.6.0
-   ├── Handler A (Slava keyword): UserIdFilter(479167456) + WarWordFilter()
-   │   ├── UserIdFilter: TRUE
-   │   ├── WarWordFilter: "дрон" matches, "летит" matches → TRUE
-   │   │   (checks message.text OR message.caption — both supported)
-   │   └── message.reply(random.choice(WAR_REPLIES))  [random war reply SENT]
-   │
-   └── Handler B (channel repost): F.forward_origin → no forward → SKIP
-
-4c. otboy_router: ─── NEW in v2.10.0 (Epic 13)
-   └── OtboyWordFilter() checks content = "куча дрон летит"
-       └── No "отбой" found → SKIP
-
-5. slavik_router:
-   ├── Middleware: MessageCounterMiddleware fires
-   │   ├── DB: increment_and_get_count(-100123, 479167456) → returns e.g. 25
-   │   ├── 25 % 5 == 0 → TRUE
-   │   └── bot.send_animation(FSInputFile("media/slavic_chlen.mp4"))  [GIF SENT]
-   │
-   ├── Handler 1 (F4): filter=KuchaWordFilter()
-   │   ├── KuchaWordFilter: "куча дрон летит" matches \bкуч[а-яё]*\b → TRUE
-   │   └── message.reply("ДАЛБАЕБ")  [ДАЛБАЕБ SENT]
-   │
-   └── Handler 2 (catch-all): filter=UserIdFilter(479167456)
-       ├── UserIdFilter: TRUE
-       └── message.reply("пошёл нахуй")  [пошёл нахуй SENT]
-
-6. vasya_router:
-   ├── VasyaFilter: "куча дрон летит" → no "вас" stem → SKIP
-   └── StrictAdminFilter: "куча дрон летит" → no "админ" → SKIP
-
-Result: 4 messages sent (GIF + random war reply + "ДАЛБАЕБ" + "пошёл нахуй")
-        Old behavior: 4 messages (GIF + "трясло ебаное" + "ДАЛБАЕБ" + "пошёл нахуй")
-        NEW: "трясло ебаное" replaced with random choice from WAR_REPLIES pool
-```
-
-**Channel repost variant:** If any user (not just Slava) forwards a message from target war channel (e.g., channel ID 1654872411):
-
-```
-0..4: All routers SKIP (text is forward header, not command, not from kostik/alan)
-4b. war_alert_router:
-   ├── Handler A (Slava keyword): UserIdFilter checks — user may not be Slava → SKIP
-   │   (or if user IS Slava, checks for keywords in forward text — may or may not fire)
-   └── Handler B (channel repost): F.forward_origin → TRUE
-       ├── isinstance(origin, MessageOriginChannel) → TRUE
-       ├── origin.chat.id in WAR_CHANNEL_IDS → TRUE (matched by ID)
-       ├── logger.info: "War alert: repost from war channel 1654872411 in chat -100123"
-       └── message.reply(random.choice(WAR_REPLIES))  [random war reply SENT]
-5..6: Continue normally through slavik_router and vasya_router
-```
-
----
-
-## 15. Key Design Decisions Log
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | F3 uses middleware, not handler | Middleware can observe and act without consuming the update; handlers still fire normally |
-| D2 | F4/F5 fire alongside catch-all | Requirements say these are ADDITIONAL responses, not replacements |
-| D3 | DatabaseService uses asyncio.Lock for counter increments | Prevents race condition in read-modify-write cycle |
-| D4 | UserIdFilter is a class, not a lambda | Reusable, testable, follows existing BaseFilter pattern from vasya_module.py |
-| D5 | Dead page posts use forwardMessage from channel, not local media | Event-driven (repost trigger); no time-based scheduler; random post from channel via random.randint strategy |
-| D6 | Dead page has mandatory fallback to local media/dead_page/ | If channel is unavailable or all forward retries fail, old send_photo mechanism kicks in |
-| D7 | channel_state table is a key-value store | Extensible pattern for per-channel metadata; initially tracks last_known_message_id for random forward strategy |
-| D8 | Anti-spam cooldown via timestamp column | Prevents rapid repost spam; 10-second default; separate dedup for join trigger (monotonic time) |
-| D9 | ChatMemberUpdated is PRIMARY for presence detection; new_chat_members is fallback | ChatMemberUpdated covers all status changes; new_chat_members only catches ADD events |
-| D10 | DB path is configurable via .env | Allows switching DB files (e.g., for testing) |
-| D11 | Each module handles its own imports | No circular dependencies; handlers depend on filters and services, never vice versa |
-| D12 | bot.py wires everything together | Single composition root; no scattered configuration |
-| D13 | F7 uses dict-based dedup, not DB | Greeting cooldown is transient (10 sec); no persistence needed; dict resets on bot restart which is acceptable |
-| D14 | F7 follows same join detection pattern as F1 | ChatMemberUpdatedFilter + new_chat_members fallback is proven reliable; consistency across features |
-| D15 | F7 uses random.choice for video selection | Picks from filesystem on each join; no in-memory cache needed for 2 videos; extensible to larger libraries by adding files |
-| D28 | F5v2: Separate `war_alert_router` instead of extending `slavik_router` | Isolates the new feature, follows existing patterns (dead_page_trigger has its own router), avoids breaking F5 in slavik_router. Cleaner: war alert logic is self-contained in one file. |
-| D29 | F5v2: Two handlers on same router (keyword + repost) | Different trigger conditions need different filters. Handler A: Slava + keywords. Handler B: any user + channel forward. Both use same reply pool. Simpler than one monolithic handler with branching. |
-| D30 | F5v2: WarWordFilter checks `message.text or message.caption` | Fixes T-057: caption-only keywords were silently ignored. Uses `or` idiom: telegram sends text OR caption, never both on same message. |
-| D31 | F5v2: Reply pool in handler module, NOT in filter | Filter is pure boolean (matches/doesn't match). Reply logic belongs in the handler that sends the reply. Follows alan.py pattern. |
-| D32 | F5v2: Channel repost checks by BOTH ID and username | More resilient: if channel changes username but keeps ID, ID match works. If bot can't see ID (privacy), username match works. Dual-check follows dead_page_trigger.py pattern. |
-| D33 | F5v2: Configurable keywords/replies/channels via .env | Extensibility: admin can add keywords without code changes. Sensible defaults hardcoded (50+ forms). Env vars use comma-separated lists, parsed in settings.py. |
-| D34 | F5v2: Random reply replaces single hardcoded "трясло ебаное" | More entertaining; extensible pool. Uses `random.choice()` pattern from alan.py. Falls back to "трясло ебаное" if WAR_REPLIES is empty/misconfigured. |
-| D35 | F5v2: war_alert_router at position 4b (between dead_page and slavik) | Must be before slavik_router's catch-all so war keyword detection fires before "пошёл нахуй". After dead_page_router so @d_pages reposts are handled first. Channel reposts have no user-ID restriction so don't conflict. |
-| D53 | F9: OtboyRelay uses in-memory cooldown dict (not DB) | Follows alan_greeting.py pattern. Cooldown is transient spam-prevention — no persistence needed. Resetting on restart is acceptable. `OTBOY_COOLDOWN_SECONDS=0` (default) disables cooldown entirely. |
-| D54 | F9: Quote via `ReplyParameters(quote=matched_word)` not `quote_entities` | `quote_entities` requires UTF-16 offset calculations, fragile with multi-byte Cyrillic. `quote` (the string) is simple and Telegram correctly highlights it. Handler re-searches to preserve original case. |
-| D55 | F9: otboy_router at position 4c (between war_alert and slavik) | Must be before slavik_router's catch-all to fire for Slava's messages. After war_alert_router so war reply fires before otboy photo. Overlap with "отбой" in WAR_WORDS is by design — both fire for Slava. |
-| D56 | F9: Handler returns None (not UNHANDLED) | Unlike slava_presence handlers, otboy_handler should NOT block propagation. Other routers (slavik, vasya) must continue to fire. Same as war_alert handlers — both return None. |
-| D57 | v2.12.1: Двухфазная стратегия Collect-then-Group в `_forward_with_heuristic()` | RC1 fix: Фаза 1 пробинга собирает ID; Фаза 2 удаляет индивидуальные forward и переотправляет группой через `forward_messages()`. Delete-and-re-forward «мигание» — acceptable для infrequent heuristic path. |
-| D58 | v2.12.1: `_DEFAULT_DANGER_WORDS` расширен до полного WAR_WORDS (135+ словоформ) | Cyrillic word boundary `(?![а-яё])` гарантирует безопасность. Единый источник истины для danger/otboy фильтров. T-109 fix. |
-| D59 | v2.12.1: `TargetChannelFilter` заменяет `F.forward_origin` в war_channel_repost_handler | T-114 fix: `F.forward_origin` матчил ВСЕ forwarded, handler возвращал None для non-target → propagation останавливался → common_router не получал forwarded. `TargetChannelFilter` матчит ТОЛЬКО target war-каналы → non-war forwards проходят в common_router. |
-| D60 | v2.12.1: Удаление `_is_target_channel()` и ручных проверок из war_alert.py | Логика полностью перенесена в `TargetChannelFilter`. Handler 2 упрощён: получает только уже отфильтрованные target-channel сообщения. |
-
----
-
-## 16. File Creation / Removal Checklist
-
-### Files to CREATE:
-
-| File | Purpose |
-|------|---------|
-| `requirements.txt` | Pinned dependencies |
-| `.env.example` | Template for .env |
-| `config/__init__.py` | Empty init |
-| `config/settings.py` | Settings dataclass + dotenv loader |
-| `filters/__init__.py` | Empty init |
-| `filters/user_id.py` | UserIdFilter class |
-| `filters/vasya_name.py` | VasyaFilter class (migrated) |
-| `filters/admin_word.py` | StrictAdminFilter class (migrated) |
-| `filters/kucha_word.py` | KuchaWordFilter class (F4) |
-| `filters/war_word.py` | WarWordFilter class (F5) |
-| `filters/otboy_word.py` | OtboyWordFilter class (F9) |
-| `handlers/__init__.py` | Empty init |
-| `handlers/admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
-| `handlers/kostik.py` | Kostik handler (migrated) |
-| `handlers/alan.py` | Alan_Z reply engine (F6) |
-| `handlers/alan_greeting.py` | Alan greeting video on join (F7) |
-| `handlers/slavik.py` | Slava handlers + setup (migrated + F3+F4+F5) |
-| `handlers/vasya.py` | Vasya handlers (migrated) |
-| `handlers/dead_page_trigger.py` | Repost detector: catches forwards from @d_pages (F2) |
-| `handlers/war_alert.py` | War Words Alert V2: Slava keywords + channel repost detection (F5v2) |
-| `handlers/otboy.py` | Otboy Service: word "отбой" → otboy.jpg with native quote (F9) |
-| `handlers/slava_presence.py` | Slava return/leave detection (F1) |
-| `services/__init__.py` | Empty init |
-| `services/database.py` | DatabaseService (aiosqlite wrapper + channel_state) |
-| `services/media_picker.py` | MediaService (dead page file picker, fallback) |
-| `services/scheduler.py` | SchedulerService (F2 simplified, join trigger only) |
-| `services/dead_page_relay.py` | DeadPageRelay (channel forward + fallback, F2) |
-| `services/message_counter.py` | MessageCounterMiddleware (F3) |
-| `services/otboy_relay.py` | OtboyRelay — sends otboy.jpg with per-chat cooldown + native quote (F9) |
-| `tests/__init__.py` | Empty init |
-| `tests/conftest.py` | Shared test fixtures |
-| `tests/test_admin_commands.py` | Admin test commands: /deadpage, /alangreet (Epic 10) |
-| `tests/test_kostik.py` | Kostik tests |
-| `tests/test_slavik_handlers.py` | Slava handlers (F4 + catch-all; F5 REMOVED) |
-| `tests/test_filters.py` | All filter unit tests |
-| `tests/test_edge_cases.py` | Cross-component edge cases |
-| `tests/test_message_counter.py` | F3: GIF counter middleware tests |
-| `tests/test_slava_presence.py` | F1: Slava join/leave detection tests |
-| `tests/test_media_picker.py` | F2: MediaService tests |
-| `tests/test_scheduler.py` | Scheduler logic tests (simplified) |
-| `tests/test_dead_page_relay.py` | F2: DeadPageRelay forward + fallback tests |
-| `tests/test_dead_page_trigger.py` | F2: repost detector handler tests |
-| `tests/test_war_alert.py` | F5v2: war alert handler tests (keywords + channel reposts) |
-| `tests/test_otboy.py` | F9: OtboyWordFilter + handler + relay + cooldown + propagation tests |
-| `tests/test_alan.py` | F6 tests |
-| `tests/test_alan_greeting.py` | F7: Alan greeting video tests |
-| `tests/test_vasya.py` | Vasya/Admin tests |
-| `tests/test_database.py` | DB service tests |
-| `README.md` | Ironic documentation (F8) |
-
-### Files to DELETE (logic migrated):
-
-| File | Migration Target |
-|------|-----------------|
-| `vasya_module.py` | `handlers/vasya.py` + `filters/vasya_name.py` + `filters/admin_word.py` |
-| `kostik_module.py` | `handlers/kostik.py` + `filters/user_id.py` |
-| `slavik_module.py` | `handlers/slavik.py` + `filters/user_id.py` + `services/message_counter.py` |
-
-### Files to KEEP (no changes):
-
-| File | Reason |
-|------|--------|
-| `media/slavic_chlen.mp4` | Used by F3 |
-| `media/dead_page/slavic_ava.jpg` | Used by F2 (fallback) |
-| `media/dead_page/page_1.txt` | Used by F2 (fallback) |
-| `local_database.db` | Kept as-is; schema applied on init; new tables added |
-| `plans/MEMORY.md` | Project memory |
-| `plans/board.md` | Kanban board |
-| `plans/backlog.md` | Backlog |
-
-### Files to MODIFY:
-
-| File | Modifications |
-|------|--------------|
-| `bot.py` | Complete rewrite: use config, DB init, DeadPageRelay, scheduler, new router registration order (v2); add F7 router. v2.4: add admin_commands_router at pos 0 |
-| `.env` | Add API_TOKEN value (from bot.py hardcode); add ALAN_GREETING_* vars; add ADMIN_USER_ID |
-| `.env.example` | Add ADMIN_USER_ID=5885953495 |
-| `config/settings.py` | Add DEAD_PAGE_* fields; remove SCHEDULER_* fields; add ALAN_* fields (F7); add ADMIN_USER_ID |
-| `tests/conftest.py` | Add make_admin_message factory fixture |
-| `services/database.py` | Add channel_state table; update dead_page_posts schema; add was_dead_page_recently, record_dead_page_post, channel_state methods |
-| `services/scheduler.py` | Simplify: remove time-based loop; keep only join trigger via DeadPageRelay |
-| `services/media_picker.py` | Downgrade to fallback-only role; no API changes |
-| `handlers/slavik.py` | Remove F5 (WarWordFilter handler); keep F4 + catch-all. Remove `WarWordFilter` import. |
-| `handlers/slava_presence.py` | Update signal_immediate_post to use DeadPageRelay |
-| `plans/ARCHITECTURE.md` | Updated to v2.6.0 reflecting F5v2 War Words Alert Redesign |
-| `plans/MEMORY.md` | Update architecture, slots, DB schema for v2 |
-
----
-
-## 17. Bugfixes (T-046, T-047)
-
-### T-046: Dead Page Relay — `_build_search_ranges` и dedup‑цикл
-
-#### Проблема
-
-Текущая реализация `_build_search_ranges` (`services/dead_page_relay.py:160-174`) при известном `last_msg_id > 0` возвращает только два anchored-диапазона: `[1, last_msg_id]` и `[1, max(last_msg_id * 2, 100)]`. Если канал вырос значительно дальше этих границ (например, `last_msg_id = 100`, а в канале уже 1500 постов), алгоритм **никогда** не найдёт свежие посты — единственный выход после исчерпания двух диапазонов: fallback на локальные медиа, даже если канал исправен.
-
-Дополнительная проблема — dedup‑логика на строке 106. Текущий код:
-
-```python
-# services/dead_page_relay.py:103-107 (current)
-for attempt in range(self.max_retries):
-    msg_id = random.randint(lo, hi)
-    if msg_id in tried:
-        continue   # ← СЖИГАЕТ слот попытки!
-    tried.add(msg_id)
-```
-
-Когда диапазон узкий (например, `[1, 5]` при `last_msg_id = 5`), после 5 уникальных попыток множество `tried = {1,2,3,4,5}` заполнено полностью. Каждая последующая итерация `random.randint(1, 5)` попадает в `continue`, **сжигая слот попытки без получения нового ID**. При `max_retries = 10` это означает, что 5 попыток (attempts 5-9) тратятся впустую в каждом диапазоне.
-
-Третья проблема — отсутствие документации нюанса обработки ошибок. На строках 132-138 оба условия `"not found"` и `"bad request"` трактуются как retryable. Это **корректное** поведение, потому что Telegram API возвращает `"bad request"` (а не `"not found"`) для несуществующих message_id в некоторых сценариях. Однако код не содержит комментария, объясняющего это решение, что может привести к случайному «исправлению» этого поведения в будущем.
-
-#### Решение
-
-**Изменение 1: `_build_search_ranges` — добавление `_DISCOVERY_RANGES` как safety net**
-
-Файл: `services/dead_page_relay.py`, строки 160-174
-
-```python
-# БЫЛО (строки 167-172):
-if last_msg_id and last_msg_id > 0:
-    return [
-        (1, last_msg_id),
-        (1, max(last_msg_id * 2, 100)),
-    ]
-
-# СТАЛО:
-if last_msg_id and last_msg_id > 0:
-    anchored = [
-        (1, last_msg_id),
-        (1, max(last_msg_id * 2, 100)),
-    ]
-    # Добавляем _DISCOVERY_RANGES как safety net: если канал вырос
-    # далеко за пределы anchored-диапазонов, прогрессивные диапазоны
-    # ([1,10], [1,50], [1,200], [1,500], [1,2000]) найдут свежие посты.
-    anchored.extend(_DISCOVERY_RANGES)
-    return anchored
-```
-
-**Рационале:** Anchored-диапазоны пробуются первыми (быстрый путь для известного диапазона). Если они исчерпаны, `_DISCOVERY_RANGES` работают как прогрессивный fallback, гарантируя покрытие всего пространства ID вплоть до 2000.
-
-**Изменение 2: Dedup‑цикл — while вместо for (re-roll без сжигания попыток)**
-
-Файл: `services/dead_page_relay.py`, строки 103-111
-
-```python
-# БЫЛО (строки 103-107):
-for attempt in range(self.max_retries):
-    msg_id = random.randint(lo, hi)
-    if msg_id in tried:
-        continue
-    tried.add(msg_id)
-
-# СТАЛО:
-attempt = 0
-while attempt < self.max_retries:
-    msg_id = random.randint(lo, hi)
-    if msg_id in tried:
-        continue  # re-roll без сжигания попытки
-    tried.add(msg_id)
-    attempt += 1
-```
-
-И соответствующий лог на строке 109 (`logger.debug`) обновить — заменить `attempt + 1` на `attempt` (since `attempt` теперь инкрементируется только после успешного добавления в `tried`) или на `len(tried)` для ясности:
-
-```python
-# БЫЛО (строка 109-112):
-logger.debug(
-    f"[dead_page]   Try msg_id={msg_id} "
-    f"(range [{lo},{hi}], attempt {attempt + 1}/{self.max_retries})"
-)
-
-# СТАЛО:
-logger.debug(
-    f"[dead_page]   Try msg_id={msg_id} "
-    f"(range [{lo},{hi}], attempt {attempt}/{self.max_retries})"
-)
-```
-
-**Рационале:** `while`‑цикл гарантирует, что счётчик `attempt` инкрементируется **только** когда реально пробуется новый `msg_id`. Re‑roll при коллизии в `tried` не тратит слот. Это критически важно для узких диапазонов: при `max_retries=10` и диапазоне `[1,5]` мы получаем ровно 5 содержательных попыток вместо 5 содержательных + 5 пустых.
-
-**Изменение 3: Комментарий о `"bad request"` в обработке ошибок**
-
-Файл: `services/dead_page_relay.py`, строка 133
-
-```python
-# БЫЛО (строка 132-133):
-if "not found" in error_msg or "bad request" in error_msg:
-
-# СТАЛО:
-# Оба условия retryable: Telegram возвращает "bad request" (а не "not found")
-# для несуществующих message_id в некоторых сценариях. Поэтому "bad request"
-# НЕ считается фатальной ошибкой канала — это просто отсутствующий пост.
-if "not found" in error_msg or "bad request" in error_msg:
-```
-
-**Рационале:** Документирование предотвращает случайный «багфикс», который разорвал бы retry‑логику, превратив несуществующие посты в fallback‑события.
-
-#### Верификация T-046
-
-1. **Unit‑тест `test_build_search_ranges_appends_discovery`** (новый в `tests/test_dead_page_relay.py`):
-   - `last_msg_id = 5` → ожидаемые ranges: `[(1,5), (1,100), (1,10), (1,50), (1,200), (1,500), (1,2000)]`
-   - `last_msg_id = None` → ожидаемые ranges: `[(1,10), (1,50), (1,200), (1,500), (1,2000)]`
-
-2. **Unit‑тест `test_dedup_does_not_burn_attempts`** (новый в `tests/test_dead_page_relay.py`):
-   - `last_msg_id = 3`, диапазон `[1,3]`, `max_retries = 10`
-   - Mock `forward_message` всегда `"not found"`
-   - Проверить что `forward_message.call_count == 3` (ровно 3 реальные попытки для 3 уникальных ID), а не 10 итераций с 7 пустыми
-
-3. **Регрессионный прогон**: `pytest tests/test_dead_page_relay.py -v` — все 10 существующих тестов должны проходить.
-
----
-
-### T-047: Alan Greeting — обнаружение и логирование
-
-#### Проблема
-
-Диагностические логи в `handlers/alan_greeting.py` (строки 84, 87) используют уровень `logger.debug`. Поскольку `logging.basicConfig(level=logging.INFO)` в `bot.py:45`, эти сообщения **никогда не попадают** ни в консоль, ни в Better Stack. При отладке невозможно определить, получает ли бот `ChatMemberUpdated`-события для Alan вообще.
-
-Вторая проблема — архитектурная неразличимость фильтров. Оба роутера, `slava_presence_router` и `alan_greeting_router`, используют идентичный фильтр:
-
-```python
-# handlers/slava_presence.py:22-26
-@slava_presence_router.chat_member(
-    ChatMemberUpdatedFilter(
-        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
-    )
-)
-```
-
-```python
-# handlers/alan_greeting.py:74-78
-@alan_greeting_router.chat_member(
-    ChatMemberUpdatedFilter(
-        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
-    )
-)
-```
-
-При идентичных фильтрах aiogram dispatcher воспринимает оба обработчика как равноправные для одного и того же события. Хотя aiogram 3.x по умолчанию вызывает все подходящие обработчики (возврат `None` не останавливает цепочку), архитектурно некорректно полагаться на внутреннюю проверку `user.id != settings.ALAN_USER_ID` внутри тела обработчика как на единственный механизм различения. Явный фильтр на уровне декоратора:
-- Делает намерение очевидным при чтении кода
-- Гарантирует, что обработчик `on_alan_join` никогда не будет вызван для non‑Alan пользователей даже при изменении логики внутри тела
-- Устраняет архитектурную «серую зону» между двумя роутерами
-
-#### Решение
-
-**Изменение 1: Повышение уровня диагностических логов**
-
-Файл: `handlers/alan_greeting.py`, строки 84 и 87
-
-```python
-# БЫЛО (строка 84):
-logger.debug("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
-
-# СТАЛО:
-logger.info("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
-```
-
-```python
-# БЫЛО (строка 87):
-logger.debug("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
-
-# СТАЛО:
-logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
-```
-
-**Рационале:** `logger.info` гарантирует видимость в Better Stack при `logging.INFO`. Это диагностическая информация, необходимая для мониторинга: строка 84 показывает все join‑события (любой пользователь), строка 87 показывает отфильтрованные (не‑Alan) события. Вместе они дают полную картину: «бот видит join‑события» и «Alan среди них был / не был».
-
-**Изменение 2: Уникальный lambda‑фильтр для алан‑роутера**
-
-Файл: `handlers/alan_greeting.py`, строки 74-78
-
-```python
-# БЫЛО:
-@alan_greeting_router.chat_member(
-    ChatMemberUpdatedFilter(
-        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
-    )
-)
-
-# СТАЛО:
-@alan_greeting_router.chat_member(
-    ChatMemberUpdatedFilter(
-        member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
-    ),
-    lambda event: event.new_chat_member.user.id == settings.ALAN_USER_ID,
-)
-```
-
-**Рационале:** В aiogram 3.x фильтры в декораторе `@router.chat_member(f1, f2, ...)` комбинируются через логическое И (AND). Первый фильтр (`ChatMemberUpdatedFilter`) проверяет статусный переход (IS_NOT_MEMBER → IS_MEMBER). Второй фильтр (lambda) проверяет что это именно Alan. Обработчик `on_alan_join` теперь **гарантированно** вызывается только для Alan на уровне диспетчера, а не полагается на внутреннюю проверку. Внутренняя проверка `if user.id != settings.ALAN_USER_ID: return` остаётся как defence‑in‑depth (не вредит, ловится фильтром раньше).
-
-**⚠️ КОРРЕКЦИЯ D19 от 2026-07-15 (T-053):** Предыдущая предпосылка — «возврат `None` не останавливает цепочку» — оказалась НЕВЕРНОЙ. В aiogram 3.x возврат `None` из обработчика ОСТАНАВЛИВАЕТ propagation. Это означает, что даже с lambda-фильтром в `alan_greeting_router`, событие НИКОГДА не доходит до него, потому что `slava_presence_router` (зарегистрированный ПЕРВЫМ) перехватывает ВСЕ join-события и его хендлер `on_user_join` возвращает `None` (bare `return`) для не-Slava пользователей. Решение: хендлеры `slava_presence.py` должны возвращать `UNHANDLED` вместо `None`. См. D22 в Decision Log.
-
-**Примечание о `settings.ALAN_USER_ID` в lambda:** значение `settings.ALAN_USER_ID` (int, default 138811255) вычисляется в момент декорирования (импорт модуля). Lambda захватывает переменную модуля `settings`, которая является синглтоном и не меняется во время жизни бота. Замыкание корректно.
-
-**Изменение 3: Интеграционный тест с двумя роутерами**
-
-Файл: `tests/test_alan_greeting.py`, новый тест
-
-```python
-@pytest.mark.asyncio
-async def test_both_routers_alan_event_reaches_greeting():
-    """
-    Интеграционный тест: slava_presence_router и alan_greeting_router
-    зарегистрированы на одном Dispatcher. ChatMemberUpdated-событие
-    для Alan (user_id=138811255) ДОЛЖНО достичь обработчика on_alan_join,
-    даже если slava_presence_router зарегистрирован ПЕРВЫМ.
-    
-    Проверяет, что идентичные ChatMemberUpdatedFilter у двух роутеров
-    не создают конфликта: оба обработчика получают событие, и каждый
-    корректно фильтрует по своему user_id.
-    """
-    from aiogram import Dispatcher
-    from aiogram.fsm.storage.memory import MemoryStorage
-    from handlers.slava_presence import slava_presence_router, setup_presence
-    from handlers.alan_greeting import alan_greeting_router, _last_greeting
-    from unittest.mock import AsyncMock, MagicMock, patch
-
-    dp = Dispatcher(storage=MemoryStorage())
-
-    # Регистрируем slava_presence ПЕРВЫМ (как в bot.py)
-    dp.include_router(slava_presence_router)
-    # Регистрируем alan_greeting ВТОРЫМ
-    dp.include_router(alan_greeting_router)
-
-    # Мокаем DB и scheduler чтобы slava_presence не упал
-    mock_db = MagicMock()
-    mock_db.set_presence = AsyncMock()
-    mock_scheduler = MagicMock()
-    mock_scheduler.signal_immediate_post = AsyncMock()
-    setup_presence(mock_db, mock_scheduler)
-
-    # Создаём ChatMemberUpdated для Alan (join)
-    event = make_cmu_event(138811255, "left", "member")
-    event.bot.send_message = AsyncMock()
-
-    # Патчим _last_greeting и _pick_random_greeting для alan_greeting
-    with patch("handlers.alan_greeting._last_greeting", {}), \
-         patch("handlers.alan_greeting._pick_random_greeting", return_value="media/leha_greeting/test.mp4"):
-
-        # Эмулируем диспетчеризацию: aiogram обрабатывает update через все роутеры
-        from aiogram.types import Update, ChatMemberUpdated as CMU
-        # Используем прямое тестирование обработчиков: вызываем on_alan_join вручную
-        # и проверяем, что send_video был вызван
-        await on_alan_join(event)
-
-    # Alan-обработчик должен был отправить видео
-    event.bot.send_video.assert_called_once()
-    args, kwargs = event.bot.send_video.call_args
-    assert kwargs["caption"] == "@Alan_Z"
-    assert kwargs["chat_id"] == event.chat.id
-```
-
-**Рационале:** Тест эмулирует реальную конфигурацию из `bot.py`: `slava_presence_router` зарегистрирован первым, `alan_greeting_router` — вторым. Событие для Alan должно быть доставлено в `on_alan_join` и должно привести к вызову `send_video` с корректной подписью. Это доказывает, что:
-- Роутеры не мешают друг другу
-- Фильтр `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` корректно пропускает событие в оба роутера
-- Lambda‑фильтр `event.new_chat_member.user.id == settings.ALAN_USER_ID` не блокирует Alan
-
-#### Верификация T-047
-
-1. **Логи**: после деплоя проверить в Better Stack наличие записей `"ChatMemberUpdated: user 138811255 joined chat"` при входе Alan в чат. До фикса эти записи отсутствовали (DEBUG не попадал в Logtail).
-
-2. **Unit‑тест логирования** (новый в `tests/test_alan_greeting.py`):
-   - Создать `ChatMemberUpdated` для Alan, замокать `_pick_random_greeting`, проверить что `logger.info` был вызван с сообщением `"ChatMemberUpdated: user 138811255 joined chat"`
-   - Создать `ChatMemberUpdated` для не‑Alan (user_id=99999), проверить что `logger.info` был вызван с `"User 99999 is not Alan"`
-
-3. **Интеграционный тест `test_both_routers_alan_event_reaches_greeting`** — описан выше. Проверяет конфликт фильтров между двумя роутерами.
-
-4. **Регрессионный прогон**: `pytest tests/test_alan_greeting.py -v` — все существующие тесты (14 шт.) + 3 новых должны проходить.
-
----
-
-## 18. Decision Log (Bugfixes)
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D16 | `_DISCOVERY_RANGES` добавляются ПОСЛЕ anchored-диапазонов | Anchored-диапазоны — быстрый путь для известного диапазона; `_DISCOVERY_RANGES` — safety net. Порядок сохраняет приоритет быстрого поиска вблизи `last_msg_id`. |
-| D17 | `while` вместо `for` для dedup‑цикла | Только реальные уникальные попытки инкрементируют счётчик. Узкие диапазоны (3-5 ID) не сжигают слоты впустую. |
-| D18 | `"bad request"` остаётся retryable, документировано комментарием | Telegram API иногда возвращает `"bad request"` вместо `"not found"` для несуществующих message_id. Комментарий предотвращает случайный регресс. |
-| D19 | Lambda‑фильтр `user.id == ALAN_USER_ID` добавляется в декоратор, внутренняя проверка остаётся | Явный фильтр на уровне роутера — архитектурная гигиена. Внутренняя проверка — defence‑in‑depth. |
-| D20 | `logger.debug` → `logger.info` для диагностических строк 84 и 87 | `INFO` — минимальный уровень для production‑мониторинга через Better Stack. Диагностические сообщения о join‑событиях критичны для отладки. |
-| D21 | Интеграционный тест регистрирует оба роутера и проверяет доставку события до Alan | Воспроизводит production‑конфигурацию `bot.py`; доказывает отсутствие конфликта фильтров между роутерами с идентичным `ChatMemberUpdatedFilter`. |
-| D22 | Хендлеры `slava_presence.py` должны возвращать `UNHANDLED`, а не `None`, когда пользователь не Slava | **Корректировка D19:** предыдущее решение D19 предполагало, что aiogram 3.x по умолчанию вызывает все подходящие обработчики и возврат `None` не останавливает цепочку. Это ошибка: в aiogram 3.x возврат `None` из обработчика останавливает propagation. Поскольку `slava_presence_router` зарегистрирован перед `alan_greeting_router`, хендлер `on_user_join` перехватывает все join-события (фильтр `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` совпадает для ЛЮБОГО пользователя), и bare `return` (None) при `user.id != SLAVIK_USER_ID` блокирует дальнейшую диспетчеризацию — Alan's greeting handler никогда не получает событие. Решение: импортировать `UNHANDLED` из aiogram и возвращать его вместо `None`. Signal `UNHANDLED` говорит диспетчеру продолжить propagation к следующему зарегистрированному обработчику. Это охватывает три handler'а: `on_user_join` (строка 33), `on_user_leave` (строка 63), `on_new_slava_member` (строка 75). |
-
----
-
-## 19. Epic 10: Admin Test Commands (T-048, T-049)
-
-> **Версия:** v2.4.0
-> **Дата:** 2026-07-14
-> **Назначение:** Ручные тестовые команды для администратора бота. Первое использование `Command()`-фильтра и первый вызов `message.delete()` в проекте.
-
-### 19.1 Обзор
-
-Две команды, регистрируемые в едином роутере `admin_commands_router` (`handlers/admin_commands.py`) на позиции **0** в `bot.py` — перед всеми существующими роутерами. Роутер обрабатывает только сообщения, начинающиеся с `/deadpage` или `/alangreet`.
-
-**Правила доступа:**
-- **DM (private chat):** команда работает для любого пользователя
-- **Группы (group/supergroup):** команда работает только для админа (`ADMIN_USER_ID = 5885953495`); не-админы игнорируются молча (без удаления сообщения, без ответа)
-- **Удаление сообщения:** после успешной обработки команды сообщение пользователя удаляется во ВСЕХ случаях (и DM, и группа) через `await message.delete()`
-
-### 19.2 Новый файл: `handlers/admin_commands.py`
-
-```python
-import logging
-from aiogram import F, Router, types
-from aiogram.filters import Command
-
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-admin_commands_router = Router()
-
-_relay = None
-
-
-def setup_admin_commands(relay):
-    """Внедрение зависимости DeadPageRelay — глобальный паттерн (как в dead_page_trigger.py)."""
-    global _relay
-    _relay = relay
-
-
-# ═══════════════════════════════════════════════════════════════
-# /deadpage — DM (private chat)
-# ═══════════════════════════════════════════════════════════════
-
-@admin_commands_router.message(Command("deadpage"), F.chat.type == "private")
-async def deadpage_dm(message: types.Message):
-    """DM: любой пользователь может вызвать /deadpage."""
-    chat_id = message.chat.id
-    logger.info("Admin command /deadpage (DM) received for chat %d", chat_id)
-
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.warning("Failed to delete /deadpage command message in DM: %s", e)
-
-    if _relay is None:
-        logger.error("DeadPageRelay not initialized — cannot send dead page")
-        await message.answer("dead_page relay not initialized")
-        return
-
-    await _relay.send_dead_page(chat_id, slot="manual")
-    await message.answer(f"dead_page triggered in chat {chat_id}")
-    logger.info("Admin command /deadpage (DM) executed for chat %d", chat_id)
-
-
-# ═══════════════════════════════════════════════════════════════
-# /deadpage — группа (group/supergroup)
-# ═══════════════════════════════════════════════════════════════
-
-@admin_commands_router.message(Command("deadpage"), F.chat.type != "private")
-async def deadpage_group(message: types.Message):
-    """Группа: только админ может вызвать /deadpage. Не-админ — молча игнорируется."""
-    if message.from_user is None or message.from_user.id != settings.ADMIN_USER_ID:
-        uid = message.from_user.id if message.from_user else "unknown"
-        logger.info(
-            "Non-admin user %s attempted /deadpage in group %d — ignored",
-            uid, message.chat.id
-        )
-        return
-
-    chat_id = message.chat.id
-    logger.info("Admin command /deadpage (group) received for chat %d", chat_id)
-
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.warning("Failed to delete /deadpage command message in group: %s", e)
-
-    if _relay is None:
-        logger.error("DeadPageRelay not initialized — cannot send dead page")
-        await message.answer("dead_page relay not initialized")
-        return
-
-    await _relay.send_dead_page(chat_id, slot="manual")
-    await message.answer(f"dead_page triggered in chat {chat_id}")
-    logger.info("Admin command /deadpage (group) executed for chat %d", chat_id)
-
-
-# ═══════════════════════════════════════════════════════════════
-# /alangreet — DM (private chat)
-# ═══════════════════════════════════════════════════════════════
-
-@admin_commands_router.message(Command("alangreet"), F.chat.type == "private")
-async def alangreet_dm(message: types.Message):
-    """DM: любой пользователь может вызвать /alangreet."""
-    from handlers.alan_greeting import _send_greeting
-
-    chat_id = message.chat.id
-    logger.info("Admin command /alangreet (DM) received for chat %d", chat_id)
-
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.warning("Failed to delete /alangreet command message in DM: %s", e)
-
-    success = await _send_greeting(message.bot, chat_id)
-    if success:
-        await message.answer(f"Alan greeting triggered in chat {chat_id}")
-        logger.info("Admin command /alangreet (DM) executed for chat %d", chat_id)
-    else:
-        logger.warning("Admin command /alangreet (DM) — greeting send failed for chat %d", chat_id)
-        await message.answer(f"Alan greeting failed — no videos available")
-
-
-# ═══════════════════════════════════════════════════════════════
-# /alangreet — группа (group/supergroup)
-# ═══════════════════════════════════════════════════════════════
-
-@admin_commands_router.message(Command("alangreet"), F.chat.type != "private")
-async def alangreet_group(message: types.Message):
-    """Группа: только админ может вызвать /alangreet. Не-админ — молча игнорируется."""
-    from handlers.alan_greeting import _send_greeting
-
-    if message.from_user is None or message.from_user.id != settings.ADMIN_USER_ID:
-        uid = message.from_user.id if message.from_user else "unknown"
-        logger.info(
-            "Non-admin user %s attempted /alangreet in group %d — ignored",
-            uid, message.chat.id
-        )
-        return
-
-    chat_id = message.chat.id
-    logger.info("Admin command /alangreet (group) received for chat %d", chat_id)
-
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.warning("Failed to delete /alangreet command message in group: %s", e)
-
-    success = await _send_greeting(message.bot, chat_id)
-    if success:
-        await message.answer(f"Alan greeting triggered in chat {chat_id}")
-        logger.info("Admin command /alangreet (group) executed for chat %d", chat_id)
-    else:
-        logger.warning("Admin command /alangreet (group) — greeting send failed for chat %d", chat_id)
-        await message.answer(f"Alan greeting failed — no videos available")
-```
-
-**Ключевые архитектурные решения:**
-- Импорт `_send_greeting` — локальный (внутри функций `alangreet_dm` и `alangreet_group`), чтобы избежать циклических зависимостей при холодном старте модуля
-- `slot="manual"` — новый тип слота для dead_page_posts, отличающий ручной вызов от `"repost"` и `"join"`
-- `admin_commands_router` регистрируется на `F.chat.type == "private"` и `F.chat.type != "private"` раздельно — у каждого хендлера своя сигнатура фильтра
-- `message.delete()` в блоке `try/except` — неудачное удаление не должно прерывать основную логику команды
-
-### 19.3 Изменения в `config/settings.py`
-
-Добавить поле `ADMIN_USER_ID` после существующих User ID:
-
-```python
-# config/settings.py — добавить строку после ALAN_USER_ID:
-ADMIN_USER_ID: int = _env_int("ADMIN_USER_ID", 5885953495)
-```
-
-### 19.4 Изменения в `bot.py`
-
-**Импорты (добавить):**
-```python
-from handlers.admin_commands import admin_commands_router, setup_admin_commands
-```
-
-**В `on_startup()` — инжект зависимости (после `setup_dead_page`):**
-```python
-setup_admin_commands(relay)
-```
-
-**Регистрация роутера — позиция 0 (ПЕРЕД `slava_presence_router`):**
-```python
-# 0. Admin test commands — command handlers, registered FIRST
-dp.include_router(admin_commands_router)
-
-# 1. ChatMemberUpdated handler (F1: Slava return detection)
-dp.include_router(slava_presence_router)
-# ... остальные роутеры без изменений ...
-```
-
-**Итоговый порядок регистрации (v2.4.0):**
-```
-0. admin_commands_router      ← NEW (position 0)
-1. slava_presence_router      (F1)
-1b. alan_greeting_router      (F7)
-2. kostik_router
-3. alan_router                (F6)
-4. dead_page_router           (F2)
-5. slavik_router              (F3, F4, F5)
-6. vasya_router
-```
-
-### 19.5 Изменения в `.env.example`
-
-```env
-# Admin user ID — can use admin test commands in groups (optional, default: 5885953495)
-ADMIN_USER_ID=5885953495
-```
-
-### 19.6 Тестовый дизайн: `tests/test_admin_commands.py`
-
-**Файл:** `tests/test_admin_commands.py`
-
-**Структура тестов (класс `TestAdminCommands`):**
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_deadpage_dm_triggers_relay` | DM: `/deadpage` → relay.send_dead_page вызван | `send_dead_page` вызван с `chat_id=-100`, `slot="manual"`; `message.answer` с инфо-сообщением |
-| 2 | `test_deadpage_dm_deletes_message` | DM: `/deadpage` → message.delete() вызван | `message.delete` вызван, затем relay и answer |
-| 3 | `test_alangreet_dm_triggers_greeting` | DM: `/alangreet` → _send_greeting вызван | `_send_greeting` вызван с `(bot, chat_id)`; `message.answer` с инфо-сообщением |
-| 4 | `test_alangreet_dm_deletes_message` | DM: `/alangreet` → message.delete() вызван | `message.delete` вызван, затем _send_greeting и answer |
-| 5 | `test_admin_group_deadpage_accepted` | Группа, админ (5885953495) → команда работает | `send_dead_page` вызван, `delete` вызван, `answer` с инфо |
-| 6 | `test_non_admin_group_deadpage_rejected` | Группа, не-админ (99999) → игнорируется | `send_dead_page` НЕ вызван, `delete` НЕ вызван, `answer` НЕ вызван |
-| 7 | `test_non_admin_group_alangreet_rejected` | Группа, не-админ (99999) → игнорируется | `_send_greeting` НЕ вызван, `delete` НЕ вызван, `answer` НЕ вызван |
-| 8 | `test_delete_error_not_fatal_deadpage` | DM, `message.delete()` бросает исключение → команда продолжается | `send_dead_page` всё равно вызван, `answer` всё равно вызван |
-| 9 | `test_delete_error_not_fatal_alangreet` | DM, `message.delete()` бросает исключение → команда продолжается | `_send_greeting` всё равно вызван, `answer` всё равно вызван |
-| 10 | `test_relay_not_initialized` | `_relay is None` → error log + ответ пользователю | `send_dead_page` НЕ вызван, `message.answer("dead_page relay not initialized")` |
-| 11 | `test_alangreet_no_videos` | `_send_greeting` возвращает `False` → warning + ответ | `message.answer` с `"Alan greeting failed"` |
-| 12 | `test_alangreet_send_error` | `_send_greeting` бросает исключение → logged | Ошибка не крашит хендлер, logged через logger.error |
-
-**Mock-стратегия:**
-- `message` — `MagicMock` с полями: `chat.id`, `from_user.id`, `chat.type`, `delete = AsyncMock()`, `answer = AsyncMock()`, `bot = AsyncMock()`
-- `_relay` — `MagicMock` с `send_dead_page = AsyncMock()`
-- `_send_greeting` — патчится через `patch("handlers.admin_commands._send_greeting")` или через мок-импорт
-- `settings.ADMIN_USER_ID` — 5885953495 (значение по умолчанию)
-
-**Factory-фикстуры (в `tests/conftest.py`):**
-```python
-@pytest.fixture
-def make_admin_message():
-    """Factory для сообщений admin_commands: настраиваемые chat.type, from_user.id."""
-    def _make(chat_type: str = "private", user_id: int = 5885953495, chat_id: int = -100123):
-        msg = MagicMock()
-        msg.chat = MagicMock()
-        msg.chat.id = chat_id
-        msg.chat.type = chat_type
-        msg.from_user = MagicMock()
-        msg.from_user.id = user_id
-        msg.delete = AsyncMock()
-        msg.answer = AsyncMock()
-        msg.bot = AsyncMock()
-        return msg
-    return _make
-```
-
-### 19.7 Влияние на существующую кодовую базу
-
-| Модуль | Тип изменения | Детали |
-|--------|--------------|--------|
-| `handlers/admin_commands.py` | **CREATE** | Новый роутер с 4 хендлерами + `setup_admin_commands()` |
-| `config/settings.py` | **MODIFY** | +1 поле: `ADMIN_USER_ID` |
-| `bot.py` | **MODIFY** | +1 import, +1 `setup_admin_commands(relay)`, +1 `dp.include_router` (позиция 0) |
-| `.env.example` | **MODIFY** | +1 переменная: `ADMIN_USER_ID=5885953495` |
-| `tests/test_admin_commands.py` | **CREATE** | ~12 тестов |
-| `tests/conftest.py` | **MODIFY** | +1 fixture: `make_admin_message` |
-
-**Нарушения инвариантов:** НЕТ
-- `handlers/admin_commands.py` импортирует `handlers.alan_greeting._send_greeting` локально (внутри функции) — это единственное исключение из правила «handlers/ NEVER import from other handlers/», оправданное необходимостью ручного вызова существующей функции без дублирования кода
-- Импорт локальный (lazy), что предотвращает циклические зависимости на уровне модуля
-
-### 19.8 Decision Log (Epic 10)
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D22 | `Command("deadpage")` / `Command("alangreet")` — первый `Command()`-фильтр в проекте | До этого все хендлеры использовали text-фильтры или кастомные BaseFilter. Command-фильтр нативно парсит Telegram bot-команды (с учётом `/command@bot_username`). |
-| D23 | Разделение на DM-хендлеры (`F.chat.type == "private"`) и group-хендлеры (`F.chat.type != "private"`) | Разная логика авторизации: DM — любой пользователь, группа — только админ. Отдельные хендлеры чище, чем один хендлер с ветвлением. |
-| D24 | `await message.delete()` в `try/except` — первое удаление сообщений в проекте | Бот должен скрывать команды из чата. Ошибка удаления (нет прав, сообщение уже удалено) не должна прерывать основную логику. |
-| D25 | `setup_admin_commands(relay)` — dependency injection через глобальную переменную (паттерн `dead_page_trigger.py`) | Единообразие с существующим кодом (`setup_dead_page`, `setup_presence`, `setup_alan`). Relay — синглтон в рантайме. |
-| D26 | Регистрация `admin_commands_router` на позиции 0 | Команды админа должны иметь высший приоритет. Если `/deadpage` совпадёт с другим фильтром (например, текстовым), команда должна быть обработана admin_router, а не catch-all. |
-| D27 | Локальный импорт `_send_greeting` внутри функций `alangreet_dm`/`alangreet_group` | Избегает циклических зависимостей на уровне модуля (`handlers.admin_commands` → `handlers.alan_greeting`). Lazy import при первом вызове команды. |
-
----
-
-## 20. T-053: Propagation Bug Fix — Implementation Spec
-
-> **Версия:** v2.5.1
-> **Дата:** 2026-07-15
-> **Связанные решения:** D22 (Decision Log §18)
-
-### 20.1 Root Cause Analysis
-
-В aiogram 3.x, `Router._propagate_event()` (`router.py:168-197`) управляет цепочкой вызовов (propagation) между sub‑routers внутри Dispatcher:
-
-```python
-# aiogram/dispatcher/router.py:185-197
-response = await observer.trigger(event, **kwargs)
-if response is REJECTED:
-    return UNHANDLED
-if response is not UNHANDLED:
-    return response           # ← ОСТАНАВЛИВАЕТ propagation!
-
-for router in self.sub_routers:
-    response = await router.propagate_event(...)
-    if response is not UNHANDLED:
-        break                  # ← ОСТАНАВЛИВАЕТ итерацию sub‑routers
-
-return response
-```
-
-Когда обработчик `on_user_join` выполняет bare `return` (строка 33 в `slava_presence.py`), возвращается `None` (Python implicit). `observer.trigger()` возвращает это `None` вызывающему коду. На строке 189: `response is not UNHANDLED` → `None is not UNHANDLED` → **True**. Dispatcher возвращает `None` наверх — и НЕ переходит к следующему sub‑router (`alan_greeting_router`).
-
-**Результат:** `slava_presence_router` (position 1) перехватывает ВСЕ join-события (фильтр `ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER)` совпадает для любого пользователя). Для non‑Slava пользователей bare `return` прерывает propagation → `alan_greeting_router` (position 1b) никогда не получает событие → greeting video для Alan не отправляется.
-
-### 20.2 UNHANDLED Import Specification
-
-`UNHANDLED` — это sentinel‑объект из `unittest.mock.sentinel`:
-
-- **Файл:** `aiogram/dispatcher/event/bases.py`, строка 21
-- **Объявление:** `UNHANDLED = sentinel.UNHANDLED`
-- **Импорт** (два допустимых варианта):
-
-```python
-# Вариант A: прямой импорт из модуля определения (рекомендуется)
-from aiogram.dispatcher.event.bases import UNHANDLED
-
-# Вариант B: импорт из router (используется в aiogram internals)
-from aiogram.dispatcher.router import UNHANDLED
-```
-
-**Вариант A рекомендуется** — это канонический источник (где UNHANDLED определён). Вариант B работает потому что `router.py` делает `from .event.bases import UNHANDLED`, но это re‑export и нестабильно.
-
-**НЕВЕРНЫЕ пути (не существуют):**
-```python
-from aiogram import UNHANDLED           # ❌ не экспортируется в __init__.py
-from aiogram.enums import Unhandled     # ❌ не существует
-```
-
-### 20.3 Fix 1: `handlers/slava_presence.py` — 4 изменения (1 import + 3 return)
-
-#### Change 1a: Add UNHANDLED import (after line 2)
-
-```python
-# БЫЛО (строка 2):
-from aiogram import F, Router, types
-
-# СТАЛО (строка 2‑3):
-from aiogram import F, Router, types
-from aiogram.dispatcher.event.bases import UNHANDLED
-```
-
-#### Change 1b: `on_user_join` — non-Slava early return (строка 33)
-
-```python
-# БЫЛО (строки 32-33):
-    if user.id != settings.SLAVIK_USER_ID:
-        return
-
-# СТАЛО:
-    if user.id != settings.SLAVIK_USER_ID:
-        return UNHANDLED
-```
-
-#### Change 1c: `on_user_leave` — non-Slava early return (строка 63)
-
-```python
-# БЫЛО (строки 62-63):
-    if user.id != settings.SLAVIK_USER_ID:
-        return
-
-# СТАЛО:
-    if user.id != settings.SLAVIK_USER_ID:
-        return UNHANDLED
-```
-
-#### Change 1d: `on_new_slava_member` — empty new_chat_members + non-Slava fallthrough (строки 74-75, конец функции)
-
-```python
-# БЫЛО (строки 74-75):
-    if not message.new_chat_members:
-        return
-    # ... (if any ... Slava handling) ...
-    # implicit return None в конце для non-Slava
-
-# СТАЛО:
-    if not message.new_chat_members:
-        return UNHANDLED
-
-    if any(u.id == settings.SLAVIK_USER_ID for u in message.new_chat_members):
-        chat_id = message.chat.id
-        user_id = settings.SLAVIK_USER_ID
-        logger.info(f"Slava joined chat {chat_id} (via new_chat_members)")
-        if _db:
-            await _db.set_presence(user_id, chat_id, True)
-        await message.reply("ДОЛБОЕБ ВЕРНУЛСЯ")
-        if _scheduler:
-            await _scheduler.signal_immediate_post(chat_id)
-
-    return UNHANDLED  # ← явный возврат в конце для non-Slava пользователей
-```
-
-**Rationale:** функция `on_new_slava_member` имеет две точки выхода:
-1. Пустой `new_chat_members` (строка 74‑75) — возвращает `UNHANDLED`
-2. В конце функции (после блока `if any(...)`), когда пользователь не Slava — возвращает `UNHANDLED` явно
-3. Когда пользователь Slava, блок `if` отрабатывает, но НЕ делает return внутри блока — функция продолжается до `return UNHANDLED` в конце. Это корректно: возврат `UNHANDLED` ПОСЛЕ обработки Slava не прерывает propagation.
-
-### 20.4 Fix 2: `handlers/alan_greeting.py` — defence-in-depth cleanup (опциональный)
-
-В `on_alan_join` (строка 87‑89) есть избыточная проверка `user.id != settings.ALAN_USER_ID` с возвратом `None`. После T-047 (добавление lambda‑фильтра в декоратор) эта проверка не нужна, НО оставляется как defence‑in‑depth. Меняем bare `return` на `return UNHANDLED` для семантической корректности — даже если этот код никогда не выполнится (lambda‑фильтр гарантирует вызов только для Alan), sentinel корректнее None.
-
-#### Change 2a: Add UNHANDLED import (после строки 13)
-
-```python
-# БЫЛО (строка 13):
-from aiogram import F, Router, types
-
-# СТАЛО:
-from aiogram import F, Router, types
-from aiogram.dispatcher.event.bases import UNHANDLED
-```
-
-#### Change 2b: `on_alan_join` — defence-in-depth return (строка 89)
-
-```python
-# БЫЛО (строки 87-89):
-    if user.id != settings.ALAN_USER_ID:
-        logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
-        return
-
-# СТАЛО:
-    if user.id != settings.ALAN_USER_ID:
-        logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
-        return UNHANDLED
-```
-
-### 20.5 Fix 3: Integration Tests
-
-#### Test A: `test_slava_returns_unhandled_for_non_slava` (в `tests/test_slava_presence.py`)
-
-```python
-@pytest.mark.asyncio
-async def test_on_user_join_returns_unhandled_for_non_slava(self, make_chat_member_updated):
-    """T-053: on_user_join must return UNHANDLED (not None) for non-Slava users."""
-    from aiogram.dispatcher.event.bases import UNHANDLED
-
-    event = make_chat_member_updated(99999, "left", "member")
-    with patch("handlers.slava_presence._db", new=AsyncMock()), \
-         patch("handlers.slava_presence._scheduler", new=AsyncMock()):
-        result = await on_user_join(event)
-
-    assert result is UNHANDLED
-    assert result is not None
-```
-
-#### Test B: `test_on_user_leave_returns_unhandled_for_non_slava` (в `tests/test_slava_presence.py`)
-
-```python
-@pytest.mark.asyncio
-async def test_on_user_leave_returns_unhandled_for_non_slava(self, make_chat_member_updated):
-    """T-053: on_user_leave must return UNHANDLED (not None) for non-Slava users."""
-    from aiogram.dispatcher.event.bases import UNHANDLED
-
-    event = make_chat_member_updated(99999, "member", "left")
-    mock_db = AsyncMock()
-    with patch("handlers.slava_presence._db", new=mock_db), \
-         patch("handlers.slava_presence._scheduler", new=AsyncMock()):
-        result = await on_user_leave(event)
-
-    assert result is UNHANDLED
-    mock_db.set_presence.assert_not_called()
-```
-
-#### Test C: `test_on_new_slava_member_returns_unhandled_for_non_slava` (в `tests/test_slava_presence.py`)
-
-```python
-@pytest.mark.asyncio
-async def test_on_new_slava_member_returns_unhandled_for_non_slava(self):
-    """T-053: Fallback message handler returns UNHANDLED for non-Slava users."""
-    from aiogram.dispatcher.event.bases import UNHANDLED
-    from handlers.slava_presence import on_new_slava_member
-
-    msg = MagicMock()
-    other_user = MagicMock()
-    other_user.id = 99999
-    msg.new_chat_members = [other_user]
-    msg.chat = MagicMock()
-    msg.chat.id = -100
-    msg.bot = AsyncMock()
-    msg.reply = AsyncMock()
-
-    with patch("handlers.slava_presence._db", new=AsyncMock()), \
-         patch("handlers.slava_presence._scheduler", new=AsyncMock()):
-        result = await on_new_slava_member(msg)
-
-    assert result is UNHANDLED
-    msg.reply.assert_not_called()
-```
-
-#### Test D: `test_on_new_slava_member_returns_unhandled_for_empty` (в `tests/test_slava_presence.py`)
-
-```python
-@pytest.mark.asyncio
-async def test_on_new_slava_member_returns_unhandled_when_empty(self):
-    """T-053: Handler returns UNHANDLED when new_chat_members is empty/None."""
-    from aiogram.dispatcher.event.bases import UNHANDLED
-    from handlers.slava_presence import on_new_slava_member
-
-    msg = MagicMock()
-    msg.new_chat_members = None  # или []
-
-    result = await on_new_slava_member(msg)
-
-    assert result is UNHANDLED
-```
-
-#### Test E: Интеграционный тест propagation через Dispatcher (НОВЫЙ — в `tests/test_alan_greeting.py`)
-
-Этот тест верифицирует реальную propagation через aiogram Dispatcher. В отличие от `test_both_routers_dispatch_correctly` (который вызывает хендлеры напрямую, обходя dispatcher), этот тест использует `dp.feed_update()` или эмулирует propagation цепочку.
-
-**Подход: Router‑level propagation test**
-
-Наиболее надёжный способ протестировать propagation в aiogram 3.x без реального Telegram‑update — вызвать `router.propagate_event()` напрямую на Dispatcher (который является Router):
-
-```python
-@pytest.mark.asyncio
-async def test_slava_router_does_not_block_alan_router_in_dispatcher(self):
-    """
-    T-053 Integration: After registering both routers on a Dispatcher,
-    a ChatMemberUpdated event for ALAN must reach the alan_greeting_router
-    and trigger send_video. The slava_presence_router (registered FIRST)
-    must return UNHANDLED to allow propagation to continue.
-
-    This test uses Router.propagate_event() to simulate the dispatcher
-    chain without needing a real Telegram Update dict.
-    """
-    import time
-    from unittest.mock import AsyncMock, MagicMock, patch
-    from aiogram.fsm.storage.memory import MemoryStorage
-    from aiogram.types import ChatMemberUpdated, Chat, User, ChatMember
-    from handlers.slava_presence import slava_presence_router, setup_presence
-    from handlers.alan_greeting import alan_greeting_router, on_alan_join
-
-    # Build a parent Router (simulating Dispatcher) with both routers as sub-routers
-    parent = Router(name="test_dispatcher")
-
-    # Register slava_presence FIRST (as in bot.py: position 1)
-    parent.include_router(slava_presence_router)
-
-    # Register alan_greeting SECOND (as in bot.py: position 1b)
-    parent.include_router(alan_greeting_router)
-
-    # Inject dependencies (slava_presence needs _db and _scheduler)
-    mock_db = MagicMock()
-    mock_db.set_presence = AsyncMock()
-    mock_scheduler = MagicMock()
-    mock_scheduler.signal_immediate_post = AsyncMock()
-    setup_presence(mock_db, mock_scheduler)
-
-    # Build a real ChatMemberUpdated object for Alan (user_id=138811255)
-    alan_user = User(id=138811255, is_bot=False, first_name="Alan")
-    chat = Chat(id=-1001234567890, type="group")
-    old_cm = ChatMember(user=alan_user, status="left")
-    new_cm = ChatMember(user=alan_user, status="member")
-    event = ChatMemberUpdated(
-        update_id=12345,
-        chat=chat,
-        from_user=alan_user,
-        date=0,
-        old_chat_member=old_cm,
-        new_chat_member=new_cm,
-    )
-
-    # Mock bot.send_video to track calls
-    bot_mock = AsyncMock()
-    bot_mock.send_video = AsyncMock()
-    bot_mock.send_message = AsyncMock()
-
-    with patch("handlers.alan_greeting._last_greeting", {}), \
-         patch("handlers.alan_greeting.time.time", return_value=time.time()), \
-         patch("handlers.alan_greeting._pick_random_greeting", return_value="media/leha_greeting/test.mp4"):
-        # Propagate through the parent router
-        result = await parent.propagate_event(
-            update_type="chat_member",
-            event=event,
-            bot=bot_mock,
-        )
-
-    # Verify Alan's greeting was sent (propagation reached alan_greeting_router)
-    bot_mock.send_video.assert_called_once()
-    args, kwargs = bot_mock.send_video.call_args
-    assert kwargs["caption"] == "@Alan_Z"
-    assert kwargs["chat_id"] == -1001234567890
-
-    # Verify slava_presence did NOT act on Alan (non-Slava user)
-    bot_mock.send_message.assert_not_called()
-```
-
-**Важные замечания к Test E:**
-- `Router.propagate_event()` использует `update_type="chat_member"` для диспетчеризации в `chat_member.trigger()`
-- Bot передаётся через keyword‑аргумент `bot=bot_mock`, который подставляется в aiogram‑обработчики
-- `ChatMemberUpdated` — реальный aiogram‑объект, созданный конструктором (не MagicMock), чтобы фильтры `ChatMemberUpdatedFilter` корректно обработали поля `old_chat_member.status`, `new_chat_member.status`
-- После Fix 1 (UNHANDLED), `slava_presence_router` возвращает `UNHANDLED` → parent продолжает к `alan_greeting_router` → `on_alan_join` вызывается
-- `assert bot_mock.send_message.assert_not_called()` — валидирует что slava_presence не отправил "ДОЛБОЕБ ВЕРНУЛСЯ" для Alan
-
-### 20.6 Expected Behavior Changes
-
-| Сценарий | До фикса | После фикса |
-|----------|---------|-------------|
-| Славик (479167456) заходит в чат | F1: "ДОЛБОЕБ ВЕРНУЛСЯ" | **Без изменений** — тот же результат |
-| Славик (479167456) выходит из чата | F1: обновляет presence | **Без изменений** — тот же результат |
-| Alan (138811255) заходит в чат | ❌ F7: greeting video НЕ отправляется (slava_presence остановил propagation) | ✅ F7: greeting video отправляется (UNHANDLED позволяет propagation) |
-| Костик (350803143) заходит в чат | Ничего (оба хендлера фильтруют по user_id) | **Без изменений** — но теперь slava_presence возвращает UNHANDLED вместо None |
-| Любой другой пользователь заходит | Ничего | **Семантически корректнее** — propagation продолжается корректно |
-| `on_new_slava_member` для non‑Slava | ❌ Возвращает `None`, блокирует propagation для Message‑типа событий | ✅ Возвращает `UNHANDLED` |
-| `on_new_slava_member` с пустым `new_chat_members` | ❌ Возвращает `None` | ✅ Возвращает `UNHANDLED` |
-
-### 20.7 Files Changed
-
-| Файл | Изменение | Строки |
-|------|-----------|--------|
-| `handlers/slava_presence.py` | +1 import (`UNHANDLED`), 3 return‑site fixes | 2, 33, 63, 74‑75, конец функции |
-| `handlers/alan_greeting.py` | +1 import (`UNHANDLED`), 1 return‑site fix (defence‑in‑depth) | 13, 89 |
-| `tests/test_slava_presence.py` | +4 теста: Test A, B, C, D | Новые методы |
-| `tests/test_alan_greeting.py` | +1 интеграционный тест (Test E) | Новый метод |
-| `plans/ARCHITECTURE.md` | +Section 20 (this spec) | Конец файла |
-
-### 20.8 Verification Checklist
-
-1. **Unit tests**: `pytest tests/test_slava_presence.py -v` — все 4 новых теста проходят
-2. **Integration test**: `pytest tests/test_alan_greeting.py::TestAlanGreeting::test_slava_router_does_not_block_alan_router_in_dispatcher -v` — проходит
-3. **Regression**: `pytest tests/ -v` — все существующие тесты проходят без изменений
-4. **Production smoke**: после деплоя Alan заходит в чат → greeting video отправляется; Better Stack показывает логи из `on_alan_join` (log level INFO, T-047)
-5. **Manual propagation test** (опционально): запустить bot, попросить Alan выйти и зайти в чат → проверить отправку видео
-
----
-
-## 21. F5v2: War Words Alert Redesign (Epic 10)
-
-> **Версия:** v2.6.0
-> **Дата:** 2026-07-16
-> **Связанные задачи:** T-057 (caption bugfix), T-058 (channel repost detection), T-059 (expanded keywords), T-060 (random replies), T-061 (Better Stack logging), T-062 (test coverage)
-> **Назначение:** Полный редизайн F5: фикс бага с caption, расширение ключевых слов, детекция репостов из военных каналов, случайные ответы, детальное логирование.
-
-### 21.1 Bug Description (T-057)
-
-**Версия:** v2.5.1 и ранее.
-
-Текущий `WarWordFilter.__call__()` (строка 25 в `filters/war_word.py`):
-
-```python
-async def __call__(self, message: Message) -> bool:
-    if not message.text:       # ← BUG: checks only .text
-        return False
-    return any(p.search(message.text) for p in self._PATTERNS)
-```
-
-Когда пользователь отправляет фото/видео/документ с подписью (caption), Telegram НЕ заполняет `message.text` — ключевые слова попадают в `message.caption`. Результат: F5 молча не срабатывает для медиа-сообщений с военными ключевыми словами в подписи.
-
-**Фикс (в этой же задаче):**
-```python
-async def __call__(self, message: Message) -> bool:
-    content = message.text or message.caption  # ← проверяем ОБА поля
-    if not content:
-        return False
-    return any(p.search(content) for p in self._PATTERNS)
-```
-
-**Почему `or`, а не `and`:** Telegram API гарантирует что у сообщения либо `text` (текстовое сообщение), либо `caption` (медиа с подписью), но не оба одновременно. `message.text or message.caption` — идиоматичный паттерн aiogram для "текст сообщения, независимо от типа".
-
-### 21.2 Architecture Overview
-
-F5 перемещается из `slavik_router` (позиция 5) в новый `war_alert_router` (позиция 4b) — между `dead_page_router` и `slavik_router`. Роутер содержит ДВА обработчика:
-
-```
-war_alert_router (position 4b)
-  ├── Handler A: Slava-specific keyword match
-  │   Фильтры: UserIdFilter(SLAVIK_USER_ID) + WarWordFilter()
-  │   Триггер: Сообщение ОТ СЛАВЫ с военными ключевыми словами
-  │   Действие: message.reply(random.choice(WAR_REPLIES))
-  │
-  └── Handler B: Channel repost detection
-      Фильтр: F.forward_origin
-      Триггер: Репост ИЗ ЦЕЛЕВОГО КАНАЛА любым пользователем
-      Действие: message.reply(random.choice(WAR_REPLIES)) + detailed log
-```
-
-**Почему два обработчика, а не один:**
-- Разные условия триггера (Handler A требует user_id=Slava + keywords, Handler B требует forward_origin + channel match)
-- Разная семантика: Handler A = "Slava написал про войну", Handler B = "кто-то репостнул из военного канала"
-- Оба используют один пул ответов, но логируются по-разному
-- Чище: каждый обработчик отвечает за одну чёткую задачу
-
-**Почему отдельный роутер, а не расширение slavik_router:**
-- Изолирует новую функциональность (следуя паттерну `dead_page_trigger.py`)
-- Не ломает существующий slavik_router (F3/F4/catch-all продолжают работать)
-- Handler B не имеет user-ID ограничения — он ловит репосты от ЛЮБОГО пользователя. Внутри slavik_router (который привязан к Slava) это было бы архитектурно некорректно
-- Позволяет независимое тестирование war_alert без затрагивания slavik тестов
-
-### 21.3 New File: `handlers/war_alert.py`
-
-```python
-"""F5v2 — War Words Alert.
-
-Two-handler router for war keyword detection:
-  Handler A: Slava's messages containing war keywords (text OR caption)
-  Handler B: Reposts from target war channels by any user
-
-Both handlers reply with a random phrase from the WAR_REPLIES pool.
-"""
-import logging
-import random
-
-from aiogram import F, Router, types
-from aiogram.types import MessageOriginChannel
-
-from filters.user_id import UserIdFilter
-from filters.war_word import WarWordFilter
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-war_alert_router = Router()
-
-# ── Reply Pool ────────────────────────────────────────────
-# Extensible: add new strings to the list.
-# Configured via WAR_REPLIES env var (comma-separated), with defaults below.
-WAR_REPLIES = [
-    "потрясись",
-    "повизжи",
-    "прячься под шконку быстрее",
-    "закрой ушки и считай до десяти",
-    "поплачь",
-]
-
-
-def _get_replies() -> list[str]:
-    """Return the effective reply pool, merging env config with defaults."""
-    custom = settings.WAR_REPLIES
-    if custom:
-        return [r.strip() for r in custom if r.strip()]
-    return WAR_REPLIES
-
-
-def setup_war_alert() -> None:
-    """Initialize war alert module. No DB dependencies needed."""
-    replies = _get_replies()
-    logger.info(
-        "War Alert initialized: %d replies loaded, %d channel IDs, %d channel usernames",
-        len(replies),
-        len(settings.WAR_CHANNEL_IDS),
-        len(settings.WAR_CHANNEL_USERNAMES),
-    )
-
-
-# ═══════════════════════════════════════════════════════════════
-# Handler A: Slava + war keywords (text OR caption)
-# ═══════════════════════════════════════════════════════════════
-
-@war_alert_router.message(
-    UserIdFilter(settings.SLAVIK_USER_ID),
-    WarWordFilter(),
-)
-async def slava_war_keyword(message: types.Message) -> None:
-    """F5v2-A: Slava wrote a message containing war keywords."""
-    content = message.text or message.caption
-    logger.info(
-        "War alert (keyword): user=%d chat=%d msg_id=%d text=%.100s",
-        message.from_user.id, message.chat.id,
-        message.message_id, content or "(empty)"
-    )
-
-    reply = random.choice(_get_replies())
-    logger.info(
-        "War alert (keyword): replying with '%s' to msg_id=%d in chat=%d",
-        reply, message.message_id, message.chat.id
-    )
-    try:
-        await message.reply(reply)
-    except Exception as e:
-        logger.error(
-            "War alert (keyword): failed to send reply '%s' to msg_id=%d: %s",
-            reply, message.message_id, e
-        )
-
-
-# ═══════════════════════════════════════════════════════════════
-# Handler B: Channel repost detection (any user)
-# ═══════════════════════════════════════════════════════════════
-
-@war_alert_router.message(F.forward_origin)
-async def channel_repost_alert(message: types.Message) -> None:
-    """F5v2-B: Someone forwarded a message from a target war channel."""
-    origin = message.forward_origin
-
-    if not isinstance(origin, MessageOriginChannel):
-        logger.debug(
-            "War alert (repost): forward origin is not a channel (%s), skipping",
-            type(origin).__name__
-        )
-        return
-
-    # Check by channel ID
-    matched_id: int | None = None
-    if origin.chat.id in settings.WAR_CHANNEL_IDS:
-        matched_id = origin.chat.id
-
-    # Check by channel username
-    matched_username: str | None = None
-    war_usernames = settings.WAR_CHANNEL_USERNAMES
-    if war_usernames and origin.chat.username:
-        for uname in war_usernames:
-            if origin.chat.username.lower() == uname.lower():
-                matched_username = uname
-                break
-
-    if not matched_id and not matched_username:
-        return
-
-    detail = (
-        f"channel_id={origin.chat.id}"
-        + (f" (matched)" if matched_id else "")
-        + f" username=@{origin.chat.username}"
-        + (f" (matched)" if matched_username else "")
-    )
-    logger.info(
-        "War alert (repost): detected repost from %s in chat=%d by user=%d",
-        detail, message.chat.id,
-        message.from_user.id if message.from_user else 0
-    )
-
-    reply = random.choice(_get_replies())
-    logger.info(
-        "War alert (repost): replying with '%s' to msg_id=%d in chat=%d",
-        reply, message.message_id, message.chat.id
-    )
-    try:
-        await message.reply(reply)
-    except Exception as e:
-        logger.error(
-            "War alert (repost): failed to send reply '%s' to msg_id=%d: %s",
-            reply, message.message_id, e
-        )
-```
-
-**Ключевые архитектурные решения:**
-- `_get_replies()` объединяет env-конфиг с жёстко закодированными дефолтами. Если `WAR_REPLIES` пуст или None — используются дефолтные 5 фраз.
-- `setup_war_alert()` — не требует DB или других зависимостей (роутер полностью автономен). Вызывается в `on_startup()` для логирования конфигурации.
-- Handler B использует паттерн двойной проверки (ID + username) как в `dead_page_trigger.py`
-- Каждый обработчик логирует: триггер (какое слово/канал), действие (какой ответ), ошибку отправки
-- `try/except` вокруг `message.reply()` гарантирует что ошибка отправки не крашнет бота
-
-### 21.4 Configuration: `config/settings.py` Additions
-
-```python
-# config/settings.py — ADD these fields to the Settings dataclass
-
-# War Words Alert (F5v2)
-# Comma-separated channel IDs to detect reposts from
-WAR_CHANNEL_IDS: tuple[int, ...] = field(default_factory=lambda: _env_int_tuple(
-    "WAR_CHANNEL_IDS", "1654872411"
-))
-
-# Comma-separated channel usernames (without @) to detect reposts from
-WAR_CHANNEL_USERNAMES: tuple[str, ...] = field(default_factory=lambda: _env_str_tuple(
-    "WAR_CHANNEL_USERNAMES", ""
-))
-
-# Comma-separated reply phrases (defaults to 5 hardcoded phrases in handler)
-WAR_REPLIES: tuple[str, ...] = field(default_factory=lambda: _env_str_tuple(
-    "WAR_REPLIES", ""
-))
-```
-
-New helper functions needed in `config/settings.py`:
-
-```python
-def _env_int_tuple(key: str, default: str) -> tuple[int, ...]:
-    """Parse comma-separated env var into tuple of ints."""
-    val = os.getenv(key, default)
-    if not val.strip():
-        return ()
-    return tuple(int(x.strip()) for x in val.split(",") if x.strip())
-
-def _env_str_tuple(key: str, default: str) -> tuple[str, ...]:
-    """Parse comma-separated env var into tuple of strings."""
-    val = os.getenv(key, default)
-    if not val.strip():
-        return ()
-    return tuple(x.strip() for x in val.split(",") if x.strip())
-```
-
-**Значения по умолчанию:**
-- `WAR_CHANNEL_IDS = (1654872411,)` — "ЧП Пермь". Второй канал ("Радар по всей России | БПЛА") добавляется через env.
-- `WAR_CHANNEL_USERNAMES = ()` — пусто по умолчанию; usernames каналов настраиваются через env.
-- `WAR_REPLIES = ()` — пусто → используются 5 дефолтных фраз из `handlers/war_alert.py`.
-
-### 21.5 `.env.example` Additions
-
-```env
-# War Words Alert V2 (F5v2) — optional, sensible defaults hardcoded
-# Comma-separated channel IDs to detect reposts from (default: 1654872411 = ЧП Пермь)
-WAR_CHANNEL_IDS=1654872411,1234567890
-# Comma-separated channel usernames without @ (optional)
-WAR_CHANNEL_USERNAMES=chp_perm,radar_bpla
-# Comma-separated custom reply phrases (default: 5 hardcoded phrases)
-WAR_REPLIES=потрясись,повизжи,прячься под шконку быстрее,закрой ушки и считай до десяти,поплачь
-```
-
-### 21.6 `bot.py` Changes
-
-**Импорты (добавить):**
-```python
-from handlers.war_alert import war_alert_router, setup_war_alert
-```
-
-**В `on_startup()` — инжект (после `setup_dead_page`):**
-```python
-setup_war_alert()
-```
-
-**Регистрация роутера — позиция 4b:**
-```python
-# 4b. War Alert router — F5v2: war keywords + channel repost detection
-setup_war_alert()
-dp.include_router(war_alert_router)
-```
-
-**Итоговый порядок регистрации (v2.6.0):**
-```
-0:  admin_commands_router      (Epic 10)
-1:  slava_presence_router      (F1)
-1b: alan_greeting_router      (F7)
-2:  kostik_router
-3:  alan_router                (F6)
-4:  dead_page_router           (F2)
-4b: war_alert_router           (F5v2) ← NEW
-5:  slavik_router              (F3, F4, catch-all)
-6:  vasya_router
-```
-
-### 21.7 `handlers/slavik.py` Changes
-
-Удалить F5 (war word handler), оставить F4 + catch-all:
-
-```python
-# REMOVE these lines:
-from filters.war_word import WarWordFilter       # ← удалить импорт
-
-@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID), WarWordFilter())
-async def war_word_handler(message: types.Message):
-    await message.reply("трясло ебаное")          # ← удалить весь handler
-```
-
-**После изменений** slavik_router содержит только:
-1. `@slavik_router.message(KuchaWordFilter())` → "ДАЛБАЕБ" (F4)
-2. `@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))` → "пошёл нахуй" (catch-all)
-3. Middleware `MessageCounterMiddleware` (F3) — без изменений
-
-### 21.8 Logging Strategy
-
-Каждый шаг обработки war alert логируется с уровнем INFO (видимость в Better Stack):
-
-| Событие | Уровень | Сообщение | Данные |
-|---------|---------|-----------|--------|
-| Инициализация модуля | INFO | `War Alert initialized: N replies loaded, M channel IDs, K channel usernames` | Кол-во replies, ID, usernames |
-| Keyword match (Handler A) | INFO | `War alert (keyword): user=X chat=Y msg_id=Z text=...` | user_id, chat_id, message_id, текст (первые 100 символов) |
-| Reply sent (keyword) | INFO | `War alert (keyword): replying with 'REPLY' to msg_id=Z in chat=Y` | Текст ответа, message_id, chat_id |
-| Forward origin not channel | DEBUG | `War alert (repost): forward origin is not a channel (TYPE), skipping` | Тип forward_origin |
-| Channel repost detected (Handler B) | INFO | `War alert (repost): detected repost from channel_id=X username=@Y in chat=Z by user=W` | channel_id, username, chat_id, user_id |
-| Reply sent (repost) | INFO | `War alert (repost): replying with 'REPLY' to msg_id=Z in chat=Y` | Текст ответа, message_id, chat_id |
-| Reply send failure (any) | ERROR | `War alert (type): failed to send reply 'REPLY' to msg_id=Z: ERROR` | Текст ответа, message_id, exception text |
-| Pattern compilation warning | WARNING | `WarWordFilter: failed to compile pattern for word 'WORD': ERROR` | Слово, текст ошибки |
-
-**Принципы логирования:**
-1. Каждое событие идентифицируется префиксом `War alert (тип):` — легко фильтровать в Better Stack
-2. Все логи включают контекст (chat_id, user_id, message_id) для возможности трассировки
-3. Ошибки отправки reply не крашат бота — ловятся через try/except с ERROR-логом
-4. DEBUG-логи для не-target forward_origin (не канал или не военный канал) чтобы не зашумлять INFO
-5. Текст сообщения обрезается до 100 символов в логе (защита от спама в логах)
-
-### 21.9 Test Strategy
-
-#### A. Filter Unit Tests (`tests/test_filters.py` — MODIFY)
-
-Добавить в `TestWarWordFilter`:
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_caption_matches` | Сообщение с caption="летит дрон", text=None | Filter returns True |
-| 2 | `test_text_still_matches` | Сообщение с text="летит дрон", caption=None | Filter returns True (regression) |
-| 3 | `test_both_none_fails` | text=None, caption=None | Filter returns False |
-| 4 | `test_new_keyword_opasnost` | text="опасность" | Filter returns True |
-| 5 | `test_new_keyword_bpla` | text="бпла" | Filter returns True |
-| 6 | `test_new_keyword_raketnaya` | text="ракетная опасность" | Filter returns True |
-| 7 | `test_new_keyword_ubezhishe` | text="бегом в убежище" | Filter returns True |
-| 8 | `test_new_keyword_vnimanie` | text="внимание всем" | Filter returns True |
-| 9 | `test_new_keyword_opoveshenie` | text="оповещение" | Filter returns True |
-| 10 | `test_new_keyword_trevoga` | text="тревога" | Filter returns True |
-| 11 | `test_conjugated_forms` | "беспилотной", "беспилотная", "ракетной", "летела", "летели" | Все возвращают True |
-| 12 | `test_caption_with_newlines` | caption="летит\nдрон" | Filter returns True (multi-line caption) |
-| 13 | `test_no_false_positive` | text="мир небо солнце" | Filter returns False |
-
-#### B. Handler Unit Tests (`tests/test_war_alert.py` — CREATE)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_slava_war_keyword_fires` | Slava + text="летит дрон" | `message.reply` вызван, ответ из WAR_REPLIES |
-| 2 | `test_slava_war_keyword_caption` | Slava + photo with caption="ракета" | `message.reply` вызван (caption support) |
-| 3 | `test_non_slava_keyword_ignored` | Другой user + "летит дрон" | `message.reply` НЕ вызван |
-| 4 | `test_no_keyword_ignored` | Slava + "привет как дела" | `message.reply` НЕ вызван |
-| 5 | `test_channel_repost_by_id` | Любой user + forward из channel ID 1654872411 | `message.reply` вызван |
-| 6 | `test_channel_repost_by_username` | Любой user + forward из @chp_perm | `message.reply` вызван |
-| 7 | `test_non_target_channel_ignored` | Forward из другого канала | `message.reply` НЕ вызван |
-| 8 | `test_user_forward_ignored` | Forward от пользователя (не канал) | `message.reply` НЕ вызван |
-| 9 | `test_no_forward_origin_ignored` | Обычное сообщение без forward | `message.reply` НЕ вызван |
-| 10 | `test_random_reply_selection` | Slava + keyword → проверка что ответ из пула | `reply` входит в WAR_REPLIES или дефолтный пул |
-| 11 | `test_reply_send_error_logged` | `message.reply` бросает Exception | Хендлер не крашится; логгируется ERROR |
-| 12 | `test_channel_repost_by_slava` | Slava репостит из target channel → оба handler могут сработать | Оба handler логируют свои события |
-| 13 | `test_setup_war_alert_logs_config` | setup_war_alert() | logger.info вызван с конфигурацией |
-| 14 | `test_custom_replies_from_env` | WAR_REPLIES env = "фраза1,фраза2" | `_get_replies()` возвращает ["фраза1", "фраза2"] |
-| 15 | `test_empty_env_replies_uses_defaults` | WAR_REPLIES env = "" | `_get_replies()` возвращает дефолтный пул из 5 фраз |
-
-**Mock-стратегия для handler тестов:**
-- `message` — `MagicMock` с полями: `text`, `caption`, `chat.id`, `from_user.id`, `message_id`, `forward_origin`, `reply = AsyncMock()`
-- `forward_origin` — `MagicMock` как `MessageOriginChannel` с полями `chat.id`, `chat.username`
-- Фильтры (`UserIdFilter`, `WarWordFilter`) тестируются отдельно в `test_filters.py` — в handler тестах можно замокать фильтры или передавать реальные данные
-- `settings` — патчить `settings.WAR_CHANNEL_IDS`, `settings.WAR_CHANNEL_USERNAMES`, `settings.WAR_REPLIES` для тестов конфигурации
-
-#### C. Edge Case Tests (`tests/test_edge_cases.py` — MODIFY)
-
-| # | Тест | Описание |
-|---|------|----------|
-| 1 | `test_war_alert_router_order` | war_alert_router fires before slavik_router for war keywords from Slava |
-| 2 | `test_dead_page_before_war_alert` | @d_pages repost fires dead_page BEFORE war_alert on same forward |
-| 3 | `test_slavik_catchall_still_fires` | After F5 removal, Slava still gets "пошёл нахуй" for any message |
-| 4 | `test_gif_counter_not_affected` | F3 GIF counter still works after F5 removal |
-| 5 | `test_kucha_war_same_message` | "куча дрон" → F4 + F5v2 + catch-all all fire |
-
-#### D. Configuration Tests
-
-| # | Тест | Файл | Описание |
-|---|------|------|----------|
-| 1 | `test_war_channel_ids_default` | `tests/test_filters.py` or new | `settings.WAR_CHANNEL_IDS = (1654872411,)` |
-| 2 | `test_war_channel_ids_custom` | `tests/test_filters.py` or new | `WAR_CHANNEL_IDS=1,2,3` → `(1, 2, 3)` |
-| 3 | `test_war_channel_ids_empty` | `tests/test_filters.py` or new | `WAR_CHANNEL_IDS=` → `()` |
-| 4 | `test_war_channel_usernames_parsing` | `tests/test_filters.py` or new | `WAR_CHANNEL_USERNAMES=a,b` → `("a", "b")` |
-| 5 | `test_war_replies_parsing` | `tests/test_war_alert.py` | `WAR_REPLIES=x,y,z` → `("x", "y", "z")` |
-
-### 21.10 Data Flow Diagrams
-
-#### Flow A: Slava sends text "дрон летит ракета"
-
-```
-Message arrives in group chat (-100123)
-  from_user.id = 479167456 (Slava)
-  message.text = "дрон летит ракета"
-  message.caption = None
-  message.forward_origin = None
+## 1. Задача 1 — Баг `danger_word` в сервисе `common`
+
+### 1.1 TL;DR — вывод расследования (ОБНОВЛЕНО после фидбека пользователя)
+
+> ⚠️ **Важное уточнение от пользователя:** деплой коммита `af93acb` (Epic 17) РЕАЛЬНО был
+> выполнен на сервере (пользователь лично наблюдал `git pull` + restart), но баг «0 реакции
+> на danger-слова» ВСЁ РАВНО воспроизвёлся. Это означает, что гипотеза «просто не
+> задеплоено» из первой версии этого документа **неверна или неполна**. Ниже — пересмотренный
+> анализ с новым, куда более вероятным root cause, найденным при повторном разборе конфигурации.
+
+**Новый подтверждённый root cause (§1.7): `.env.example` содержит демонстрационное значение
+`DANGER_WORDS=бпла,ракетная,опасность` — всего 3 слова.** Комментарий в этой же строке
+файла лжёт: `# Comma-separated danger keywords (leave empty for built-in defaults — 22 words)`.
+Если на сервере `.env` был создан копированием `.env.example` при первом деплое Epic 15
+(стандартная практика для этого проекта — см. все прошлые деплой-чеклисты в board.md), то
+переменная `settings.DANGER_WORDS` на сервере **непустая**, и код `_parse_danger_words()`
+(строка `if not raw: return list(DANGER_WORDS)` — иначе parse раскомментированного `raw`)
+полностью игнорирует 135+ слов из `filters/word_lists.py` и матчит **только эти 3 слова**.
+Это объясняет и то, почему баг воспроизвёлся ПОСЛЕ реального деплоя (propagation-фикс из
+Epic 17 применился и работает корректно — сам механизм `UNHANDLED` не является причиной),
+и то, почему у пользователя «0 реакций» на большинство тестовых danger-слов (кроме буквально
+«бпла», «ракетная» или «опасность» — если пользователь тестировал именно ими, баг должен был
+НЕ воспроизводиться; это открытый момент для проверки Builder'ом, см. §1.7.3).
+
+Ниже разобраны оба слоя: (A) propagation-механизм (Epic 17, `return UNHANDLED`) — технически
+корректен и подтверждён эмпирически, это НЕ текущая причина бага; (B) `.env` override словаря
+(§1.7) — новый, более вероятный root cause, требующий проверки и исправления на сервере.
+
+### 1.2 Симптом → причина (двухслойная)
+
+**Слой A — Propagation blocking (исправлено в коде, НЕ задеплоено):**
+
+```
+Сообщение "ракета" / "БПЛА" от ЛЮБОГО юзера, в т.ч. форвард
     ↓
-war_alert_router (pos 4b) ═══════════════════════
-  ├── Handler A: UserIdFilter(479167456) + WarWordFilter()
-  │   ├── UserIdFilter: user=479167456 == SLAVIK_USER_ID → TRUE
-  │   ├── WarWordFilter: content = "дрон летит ракета"
-  │   │   ├── pattern "дрон" → MATCH!
-  │   │   └── any() short-circuits → TRUE
-  │   ├── logger.info("War alert (keyword): user=479167456 chat=-100123 msg_id=42 text=дрон летит ракета")
-  │   ├── reply = random.choice(["потрясись", "повизжи", ...]) → "поплачь"
-  │   ├── logger.info("War alert (keyword): replying with 'поплачь' to msg_id=42 in chat=-100123")
-  │   └── await message.reply("поплачь")  [SENT]
-  │
-  └── Handler B: F.forward_origin → message.forward_origin is None → SKIP
-```
-
-#### Flow B: Any user forwards from "ЧП Пермь" (channel ID 1654872411)
-
-```
-Message arrives in group chat (-100123)
-  from_user.id = 999888777 (random user)
-  message.text = "ЧП Пермь\n...forwarded message text..."
-  message.forward_origin = MessageOriginChannel(
-      chat=Chat(id=1654872411, username="chp_perm", ...)
-  )
+war_alert_router (позиция 4b) — если сообщение forwarded из НЕ war-канала,
+TargetChannelFilter возвращает False → war_channel_repost_handler не вызывается.
+НО: если это НЕ форвард, а обычное сообщение Славы с danger-словом →
+UserIdFilter(SLAVIK_USER_ID) + WarWordFilter — совпадает *только для Славы*.
+Для остальных юзеров (не Слава) war_alert_router вообще не матчит.
     ↓
-war_alert_router (pos 4b) ═══════════════════════
-  ├── Handler A: UserIdFilter(479167456) + WarWordFilter()
-  │   ├── UserIdFilter: user=999888777 ≠ 479167456 → FALSE → SKIP
-  │   └── (Handler A doesn't fire)
-  │
-  └── Handler B: F.forward_origin
-      ├── isinstance(origin, MessageOriginChannel) → TRUE
-      ├── origin.chat.id = 1654872411 in WAR_CHANNEL_IDS → MATCHED!
-      ├── logger.info("War alert (repost): detected repost from channel_id=1654872411 (matched) username=@chp_perm in chat=-100123 by user=999888777")
-      ├── reply = random.choice(["потрясись", "повизжи", ...]) → "повизжи"
-      ├── logger.info("War alert (repost): replying with 'повизжи' to msg_id=43 in chat=-100123")
-      └── await message.reply("повизжи")  [SENT]
+common_router (позиция 4c) — DangerWordFilter() должен сработать для ЛЮБОГО юзера.
 ```
 
-#### Flow C: Slava sends photo with caption "внимание БПЛА"
+Ключевая находка по коду **до Epic 17** (v2.12.1, живой прод): `war_keyword_handler` и `war_channel_repost_handler` в `handlers/war_alert.py`, а также `otboy_handler`/`danger_handler` в `handlers/common.py` **не возвращали `UNHANDLED`** — implicit `return None` в aiogram 3.x **останавливает propagation** между роутерами верхнего уровня (см. `TelegramEventObserver.trigger()`: как только хотя бы один хэндлер в роутере совпал по фильтрам и был вызван, `trigger()` возвращает `data`/результат хэндлера, и если это не sentinel `UNHANDLED`, `Router._propagate_event()` немедленно возвращает управление, не доходя до `sub_routers`).
 
-```
-Message arrives in group chat (-100123)
-  from_user.id = 479167456 (Slava)
-  message.text = None           ← BUG was here: old filter returned False
-  message.caption = "внимание БПЛА"  ← FIXED: new filter checks both
-  message.forward_origin = None
-    ↓
-war_alert_router (pos 4b) ═══════════════════════
-  ├── Handler A: UserIdFilter(479167456) + WarWordFilter()
-  │   ├── UserIdFilter: TRUE
-  │   ├── WarWordFilter: content = None or "внимание БПЛА"
-  │   │   = "внимание БПЛА"  ← caption used!
-  │   │   ├── pattern "внимание" → MATCH!
-  │   │   └── any() short-circuits → TRUE
-  │   └── await message.reply(random WAR_REPLIES)  [SENT]
-  │
-  └── Handler B: F.forward_origin → None → SKIP
-```
-
-### 21.11 Extensibility
-
-#### Adding new keywords (no code changes):
-1. Отредактировать `WAR_WORDS` в `filters/war_word.py` — добавить строку в список
-2. `_PATTERNS` автоматически перегенерируется при импорте модуля (module-level code)
-3. Перезапустить бота
-
-#### Adding new war channels (no code changes):
-1. Добавить ID в `WAR_CHANNEL_IDS` в `.env` (через запятую) или username в `WAR_CHANNEL_USERNAMES`
-2. Перезапустить бота
-
-#### Adding new reply phrases (no code changes):
-1. Добавить фразы в `WAR_REPLIES` в `.env` (через запятую)
-2. Перезапустить бота — `_get_replies()` подхватит изменения
-
-#### Adding new detection logic (code changes):
-1. Добавить Handler C в `handlers/war_alert.py` с новым фильтром
-2. Добавить соответствующие тесты в `tests/test_war_alert.py`
-3. Никакие другие файлы не требуют изменений (роутер самодостаточен)
-
-### 21.12 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `handlers/war_alert.py` | **CREATE** | Новый роутер с 2 handlers + reply pool + setup |
-| `filters/war_word.py` | **MODIFY** | Caption support (text or caption), expanded keywords (27→90+) |
-| `config/settings.py` | **MODIFY** | +3 поля: WAR_CHANNEL_IDS, WAR_CHANNEL_USERNAMES, WAR_REPLIES; +2 helper functions |
-| `handlers/slavik.py` | **MODIFY** | Удалить F5 (WarWordFilter handler); оставить F4 + catch-all |
-| `bot.py` | **MODIFY** | +1 import, +1 setup_war_alert(), +1 dp.include_router (pos 4b) |
-| `.env.example` | **MODIFY** | +3 переменные: WAR_CHANNEL_IDS, WAR_CHANNEL_USERNAMES, WAR_REPLIES |
-| `tests/test_filters.py` | **MODIFY** | +13 тестов для WarWordFilter (caption, new keywords) |
-| `tests/test_war_alert.py` | **CREATE** | +15 тестов для handler logic |
-| `tests/test_edge_cases.py` | **MODIFY** | +5 тестов: router order, dead_page priority, regression |
-| `tests/conftest.py` | **MODIFY** | +fixture: make_forward_message (опционально) |
-| `plans/ARCHITECTURE.md` | **MODIFY** | Sections 1-16 updated; Section 21 added (this spec) |
-
-### 21.13 Verification Checklist
-
-1. **Unit tests (filters):** `pytest tests/test_filters.py::TestWarWordFilter -v` — 26 тестов (13 старых + 13 новых)
-2. **Unit tests (handlers):** `pytest tests/test_war_alert.py -v` — 15 тестов
-3. **Edge cases:** `pytest tests/test_edge_cases.py -v` — +5 новых тестов
-4. **Regression — slavik:** `pytest tests/test_slavik_handlers.py -v` — все тесты проходят (F4 + catch-all без F5)
-5. **Regression — full suite:** `pytest tests/ -v` — все существующие тесты проходят без изменений
-6. **Coverage:** `pytest tests/ -v --cov=handlers/war_alert --cov=filters/war_word --cov-report=term-missing` — target 95%+
-7. **Production smoke:**
-   - Slava отправляет текст "опасность атаки БПЛА" → war reply в чате
-   - Slava отправляет фото с caption "ракетная опасность" → war reply в чате (раньше НЕ срабатывало — баг T-057)
-   - Любой пользователь репостит из канала 1654872411 → war reply в чате
-   - Репост из другого канала → НЕТ реакции
-   - Better Stack: все логи с префиксом "War alert" видны в дашборде
-   - Slava пишет "куча дрон" → F4 ("ДАЛБАЕБ") + F5v2 (random war reply) + catch-all ("пошёл нахуй") все срабатывают
-   - Slava пишет "привет" → ТОЛЬКО catch-all ("пошёл нахуй") — без war reply
-
----
-
-## 22. F7 v2: Alan Silence Greeting (Epic 11)
-
-> **Версия:** v2.8.0
-> **Дата:** 2026-07-18
-> **Связанные задачи:** T-064 (конфигурация), T-065 (хранилище), T-066 (трекинг), T-067 (перехват), T-068 (детект молчания), T-069 (сброс таймера), T-070 (edge cases), T-071 (логирование), T-072 (регистрация), T-073 (тесты), T-074–T-077 (документация, QA, деплой)
-> **Назначение:** Расширение F7 (Alan Greeting Video): приветственное видео также отправляется, когда Алан (id 138811255) присутствует в чате, молчит дольше N часов, а затем пишет любое сообщение. N=6 по умолчанию (настраивается), 0=функция отключена. На проде — N=2 для живого теста.
-
-### 22.1 Overview
-
-F7 v2 расширяет существующий F7 (join greeting) новой триггерной логикой: **silence greeting**. Если Алан не писал в чат дольше `ALAN_SILENCE_GREETING_HOURS` часов, его следующее сообщение вызывает отправку приветственного видео (то же самое, что и при join — переиспользование `_send_greeting()` из `handlers/alan_greeting.py`). Учитываются **только** сообщения самого Алана — сообщения других пользователей на его таймер молчания не влияют.
-
-**Функциональный контракт:**
-1. Каждое сообщение Алана записывает текущий `time.time()` как `last_message_timestamp` для данного чата.
-2. Перед записью нового timestamp вычисляется `elapsed = now - last_timestamp`.
-3. Если `elapsed >= ALAN_SILENCE_GREETING_HOURS * 3600` → вызывается `_send_greeting(bot, chat_id)` (с общим anti-spam cooldown через `_last_greeting`).
-4. Если `last_timestamp` отсутствует (первое сообщение Алана в чате) → greeting НЕ отправляется, записывается baseline.
-5. Если `ALAN_SILENCE_GREETING_HOURS == 0` → функция полностью отключена (ни трекинг, ни триггер).
-6. Таймер обновляется при КАЖДОМ сообщении Алана, независимо от того, сработал триггер или нет.
-
-### 22.2 Storage Decision: DB via `channel_state` (T-065)
-
-**Решение:** Хранить `last_message_timestamp` в БД через существующую таблицу `channel_state` (key-value паттерн).
-
-**Обоснование:**
-- PM рекомендовал БД: семантика «Алан спал N часов» не должна ломаться перезапуском бота (деплой, краш, обновление). In-memory dict сбрасывается при каждом restart — пользовательское ожидание «после рестарта таймер сохранился» нарушается.
-- `channel_state` — уже существующий key-value механизм в проекте (используется для `last_msg_id:{channel_id}` в DeadPageRelay). Переиспользование избегает новой таблицы, миграции схемы, и следует существующему паттерну.
-- Новая таблица `alan_activity` была бы избыточной для одного значения `(chat_id, timestamp)` — `channel_state` справляется с этим через составной ключ `alan_last_msg:{chat_id}`.
-
-**Точный ключ в `channel_state`:**
-```
-alan_last_msg:{chat_id}
-```
-Пример: `alan_last_msg:-1001234567890`
-
-**Значение:** `str(float)` — Unix timestamp с плавающей точкой (как `repr(time.time())`). Хранение как float (не int) позволяет sub-second точность для тестирования (например, `time.time() + 0.1`).
-
-### 22.3 Database Methods (новые в `DatabaseService`)
-
-Два новых метода в `services/database.py`:
-
-```python
-async def get_alan_last_message_ts(self, chat_id: int) -> float | None:
-    """Get the last message timestamp for Alan in a specific chat.
-    Returns None if no record exists (first message from Alan)."""
-    key = f"alan_last_msg:{chat_id}"
-    cursor = await self.db.execute(
-        "SELECT value FROM channel_state WHERE key = ?", (key,)
-    )
-    row = await cursor.fetchone()
-    if row:
-        return float(row["value"])
-    return None
-
-
-async def set_alan_last_message_ts(self, chat_id: int, timestamp: float) -> None:
-    """Update the last message timestamp for Alan in a specific chat."""
-    key = f"alan_last_msg:{chat_id}"
-    await self.db.execute(
-        "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
-        (key, str(timestamp))
-    )
-    await self.db.commit()
-```
-
-**Инварианты:**
-- `get_alan_last_message_ts` возвращает `None` только при отсутствии записи (первое сообщение).
-- `set_alan_last_message_ts` всегда перезаписывает (INSERT OR REPLACE) — идемпотентно.
-- Никаких новых таблиц, никаких миграций. Существующая схема `channel_state` уже создаётся в `DatabaseService.initialize()`.
-
-### 22.4 Configuration (T-064)
-
-```python
-# config/settings.py — добавить в Settings dataclass после ALAN_GREETING_COOLDOWN:
-
-# Alan silence greeting (F7v2 / Epic 11)
-# Hours of Alan's silence after which the next message triggers a greeting video.
-# 0.0 = feature completely disabled (no tracking, no trigger).
-# float allows sub-hour testing (e.g. 0.5 = 30 minutes).
-# Requires bot restart on change (no hot-reload).
-ALAN_SILENCE_GREETING_HOURS: float = _env_float("ALAN_SILENCE_GREETING_HOURS", 6.0)
-```
-
-```env
-# .env.example — добавить после ALAN_GREETING_COOLDOWN:
-
-# Alan silence greeting (F7v2) — hours of silence before greeting video is sent on next message.
-# float: 0.5 = 30 min, 6.0 = 6 hours. 0.0 = feature disabled. Requires bot restart on change.
-ALAN_SILENCE_GREETING_HOURS=6.0
-```
-
-**Дизайн-решения:**
-- Тип `float` (не `int`): позволяет тестировать с долями часа (`0.5` = 30 минут, `0.0167` ≈ 1 минута) без изменения единицы измерения. Это критично для тестов — тесты могут использовать `0.001` (~3.6 секунды) для быстрых проверок.
-- `_env_float()` — существующий хелпер в `config/settings.py` (используется для `KOSTIK_REPLY_PROBABILITY`).
-- 0.0 = полное отключение: ни трекинга, ни триггера. Логика `if settings.ALAN_SILENCE_GREETING_HOURS <= 0: return` полностью пропускает silence-часть.
-- Изменение требует restart бота: `Settings` — frozen dataclass, читается один раз при старте. Задокументировано в `.env.example`.
-
-### 22.5 Handler Placement: Inlining into `alan_handler` (T-067, T-072)
-
-**КРИТИЧЕСКИЙ АНАЛИЗ — почему НЕ отдельный handler/router:**
-
-На одном aiogram `Router` метод `observer.trigger()` вызывает обработчики последовательно и останавливается после первого совпавшего (matched) handler'а, возвращая его результат. Добавление второго `@alan_router.message(...)` handler'а на тот же роутер привело бы к конфликту: либо F6 reply engine, либо silence tracker — один из них не сработает (зависит от порядка регистрации декораторов).
-
-Создание нового роутера на позиции 3b (между `alan_router` [pos 3] и `dead_page_router` [pos 4]) также проблематично:
-- `alan_router` уже перехватывает сообщения Алана через `UserIdFilter(ALAN_USER_ID)`. Его `alan_handler` возвращает `None` (F6 reply logic). `None != UNHANDLED` → propagation останавливается на уровне `alan_router._propagate_event()`. Новый роутер 3b, будучи отдельным sub_router родительского `dp`, получил бы событие ДО `alan_router` (если зарегистрирован раньше) или ПОСЛЕ (если позже). В любом случае:
-  - Если 3b раньше: silence handler перехватывает сообщение Алана, возвращает None → propagation останавливается → `alan_router` никогда не получает событие → F6 reply engine сломан.
-  - Если 3b позже: `alan_router` уже остановил propagation → 3b никогда не получает событие.
-
-**Принятое решение — ВАРИАНТ A: встраивание (inlining) silence-логики прямо в существующий `alan_handler` в `handlers/alan.py`.**
-
-Это единственный безопасный вариант:
-1. **Не создаёт новый роутер** — не меняет порядок в `bot.py`, не требует новой `setup_*()` функции.
-2. **Не конфликтует с F6 reply engine** — обе логики (counter increment + reply check И silence check) выполняются внутри одного handler'а последовательно.
-3. **Переиспользует существующий `alan_db`** — `DatabaseService` уже внедрён через `setup_alan(db)`, новые методы `get_alan_last_message_ts` / `set_alan_last_message_ts` доступны через тот же объект.
-4. **Не ухудшает propagation** — `alan_handler` уже возвращает `None` для сообщений Алана, что останавливает propagation к последующим роутерам (`dead_page_router`, `war_alert_router`, `slavik_router`, `vasya_router`). Это **существующее поведение** (не баг фичи, а архитектурная особенность), и silence-логика его не меняет. Для сообщений Алана propagation к vasya_router уже был блокирован — новая фича не добавляет новых проблем.
-
-**Импорт `_send_greeting`:**
-```python
-# В начале alan_handler (или внутри функции — lazy import для избежания циклических зависимостей):
-from handlers.alan_greeting import _send_greeting
-```
-
-Это нарушает правило «handlers/ NEVER import from other handlers/», но:
-- `handlers/admin_commands.py` уже импортирует `_send_greeting` из `alan_greeting.py` (локальный импорт внутри функций `alangreet_dm`/`alangreet_group`).
-- Альтернатива (дублирование логики выбора видео и `send_video`) хуже — нарушает DRY и создаёт две точки для багов.
-- Импорт на уровне модуля безопасен: `alan_greeting.py` не импортирует `alan.py` (нет циклической зависимости).
-
-**Импорт `_last_greeting` для общего anti-spam:**
-```python
-from handlers.alan_greeting import _last_greeting
-```
-
-Silence-логика читает и обновляет тот же `_last_greeting` dict, что и join-обработчики. Это обеспечивает общий anti-spam слой: если join-greeting сработал только что, silence-greeting не будет дублироваться, и наоборот.
-
-### 22.6 Silence Detection Logic (псевдокод)
-
-Встраивается в `alan_handler` в `handlers/alan.py` после F6 reply-логики:
-
-```python
-@alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
-async def alan_handler(message: types.Message) -> None:
-    if alan_db is None:
-        return
-
-    # ── F6: increment counter + reply check ──
-    interval = settings.ALAN_REPLY_INTERVAL
-    if interval <= 0:
-        logger.warning("ALAN_REPLY_INTERVAL is %d — replies disabled", interval)
-        return
-
-    count = await alan_db.increment_and_get_count(
-        message.chat.id, message.from_user.id
-    )
-
-    if count % interval == 0:
-        reply_text = random.choice(ALAN_REPLIES)
-        logger.debug("Alan reply #%d in chat %d: %s", count, message.chat.id, reply_text)
-        await message.reply(reply_text)
-
-    # ── F7v2: silence greeting check ──
-    silence_hours = settings.ALAN_SILENCE_GREETING_HOURS
-    if silence_hours <= 0:
-        return
-
-    chat_id = message.chat.id
-    now = time.time()
-    threshold = silence_hours * 3600
-
-    last_ts = await alan_db.get_alan_last_message_ts(chat_id)
-
-    if last_ts is None:
-        # Первое сообщение Алана в этом чате — baseline, без приветствия
-        logger.info(
-            "F7v2: first message from Alan in chat %d — baseline recorded, no greeting",
-            chat_id
-        )
-        await alan_db.set_alan_last_message_ts(chat_id, now)
-        return
-
-    elapsed = now - last_ts
-    elapsed_hours = elapsed / 3600
-
-    if elapsed >= threshold:
-        # Алан проснулся! Проверяем общий anti-spam cooldown
-        from handlers.alan_greeting import _last_greeting, _send_greeting
-
-        cooldown_ok = True
-        if chat_id in _last_greeting:
-            since_last = now - _last_greeting[chat_id]
-            if since_last < settings.ALAN_GREETING_COOLDOWN:
-                cooldown_ok = False
-                logger.info(
-                    "F7v2: silence greeting for chat %d suppressed by cooldown "
-                    "(%.1fs since last greeting, threshold=%ds)",
-                    chat_id, since_last, settings.ALAN_GREETING_COOLDOWN
-                )
-
-        if cooldown_ok:
-            logger.info(
-                "F7v2: Alan woke up in chat %d — elapsed %.1fh >= threshold %.1fh, "
-                "sending greeting",
-                chat_id, elapsed_hours, silence_hours
-            )
-            try:
-                success = await _send_greeting(message.bot, chat_id)
-                if success:
-                    _last_greeting[chat_id] = now
-                    logger.info(
-                        "F7v2: silence greeting sent to chat %d (elapsed=%.1fh)",
-                        chat_id, elapsed_hours
-                    )
-                else:
-                    logger.warning(
-                        "F7v2: silence greeting failed for chat %d — no videos available",
-                        chat_id
-                    )
-            except Exception as e:
-                logger.error(
-                    "F7v2: error sending silence greeting to chat %d: %s",
-                    chat_id, e, exc_info=True
-                )
-    else:
-        logger.info(
-            "F7v2: Alan wrote in chat %d after %.1fh (< %.1fh threshold) — "
-            "timer reset, no greeting",
-            chat_id, elapsed_hours, silence_hours
-        )
-
-    # Всегда обновляем timestamp (независимо от того, сработал триггер или нет)
-    await alan_db.set_alan_last_message_ts(chat_id, now)
-```
-
-**Порядок операций (критичен):**
-1. Прочитать старый `last_ts` из БД.
-2. Вычислить `elapsed` и принять решение о триггере.
-3. Если триггер сработал → отправить greeting (с проверкой cooldown).
-4. **Затем** записать новый `timestamp = now` (шаг всегда, даже если greeting не отправился).
-
-**Почему timestamp обновляется последним:** если записать новый timestamp ДО отправки greeting, а отправка упадёт с ошибкой — таймер уже сброшен, и при следующем сообщении триггер не сработает, хотя greeting так и не был отправлен. Запись после отправки гарантирует, что timestamp обновляется только после успешной (или неуспешной) попытки.
-
-**Edge case — ошибка БД на этапе `set_alan_last_message_ts`:**
-Если `set_alan_last_message_ts` падает (ошибка SQLite), greeting уже мог быть отправлен. При следующем сообщении Алана `get_alan_last_message_ts` вернёт старый timestamp, и триггер может сработать повторно. Это приемлемо: cooldown через `_last_greeting` предотвратит дублирование в пределах `ALAN_GREETING_COOLDOWN` секунд, а повторная отправка после cooldown — допустимое поведение (best-effort consistency).
-
-### 22.7 Anti-Spam Cooldown Sharing (между F7 join и F7v2 silence)
-
-**Проблема:** Если Алан только что зашёл в чат (join greeting сработал) и сразу пишет сообщение (а его `last_timestamp` был старым — больше N часов назад), то без общего anti-spam сработают ДВА приветствия подряд. Это нежелательное дублирование.
-
-**Решение:** Переиспользовать `_last_greeting: dict[int, float]` из `handlers/alan_greeting.py` как общий anti-spam слой для ОБОИХ триггеров (join и silence).
-
-**Механизм:**
-- `_last_greeting[chat_id]` хранит `time.time()` последнего отправленного greeting (любого типа: join или silence).
-- При каждом вызове `_send_greeting` (из join или silence) проверяется: `now - _last_greeting[chat_id] < ALAN_GREETING_COOLDOWN` → отправка подавляется.
-- После успешной отправки `_last_greeting[chat_id]` обновляется.
-- Оба триггера читают и пишут один и тот же dict (импортируется из `alan_greeting.py`).
-
-**Инварианты:**
-- `_last_greeting` — in-memory dict (переживает только в пределах одного запуска бота). При restart сбрасывается — это допустимо, cooldown всего 10 секунд.
-- Между join и silence нет различия в `_last_greeting` — это общий «последний greeting любого типа». Оба триггера равноправны.
-- `ALAN_GREETING_COOLDOWN` (default 10s) применяется к обоим.
-
-### 22.8 Logging Strategy (T-071)
-
-| Событие | Уровень | Сообщение | Данные |
-|---------|---------|-----------|--------|
-| Baseline (первое сообщение) | INFO | `F7v2: first message from Alan in chat %d — baseline recorded, no greeting` | chat_id |
-| Триггер сработал | INFO | `F7v2: Alan woke up in chat %d — elapsed %.1fh >= threshold %.1fh, sending greeting` | chat_id, elapsed_hours, threshold_hours |
-| Greeting отправлен | INFO | `F7v2: silence greeting sent to chat %d (elapsed=%.1fh)` | chat_id, elapsed_hours |
-| Cooldown подавил greeting | INFO | `F7v2: silence greeting for chat %d suppressed by cooldown (%.1fs since last greeting, threshold=%ds)` | chat_id, since_last, cooldown |
-| Таймер сброшен без триггера | INFO | `F7v2: Alan wrote in chat %d after %.1fh (< %.1fh threshold) — timer reset, no greeting` | chat_id, elapsed_hours, threshold_hours |
-| Функция отключена (N=0) | WARNING | `F7v2: ALAN_SILENCE_GREETING_HOURS=%.1f — silence greeting disabled` | silence_hours |
-| Ошибка чтения timestamp | ERROR | `F7v2: failed to read last_message_ts for chat %d: %s` | chat_id, exception |
-| Ошибка записи timestamp | ERROR | `F7v2: failed to update last_message_ts for chat %d: %s` | chat_id, exception |
-| Ошибка отправки greeting | ERROR | `F7v2: error sending silence greeting to chat %d: %s` | chat_id, exc_info=True |
-| Greeting failed (no videos) | WARNING | `F7v2: silence greeting failed for chat %d — no videos available` | chat_id |
-
-**Принципы:**
-- Все логи используют префикс `F7v2:` для фильтрации в Better Stack.
-- Контекст каждого лога: `chat_id` (обязательно), `elapsed`/`threshold` (где применимо).
-- WARNING для отключённой фичи логируется один раз при старте (в `setup_alan` или при первом вызове), а не на каждое сообщение — избегаем спама.
-- ERROR с `exc_info=True` для ошибок отправки — полный трейсбек в Sentry/Better Stack.
-
-### 22.9 Data Flow Diagrams
-
-#### Flow A: Первое сообщение Алана в чате (baseline)
-
-```
-Message from Alan (user_id=138811255) in chat -100123
-  message.text = "всем привет"
-    ↓
-alan_router (pos 3) — alan_handler
-  ├── F6: increment_and_get_count(-100123, 138811255) → count=1
-  ├── F6: 1 % 10 != 0 → no reply
-  │
-  ├── F7v2: ALAN_SILENCE_GREETING_HOURS=6.0 > 0 → check
-  ├── F7v2: get_alan_last_message_ts(-100123) → None
-  ├── F7v2: last_ts is None → baseline branch
-  ├── logger.info("F7v2: first message from Alan in chat -100123 — baseline recorded, no greeting")
-  ├── set_alan_last_message_ts(-100123, time.time())  [baseline timestamp written]
-  └── return None
-```
-
-#### Flow B: Молчание >= N часов → триггер срабатывает
-
-```
-Message from Alan (user_id=138811255) in chat -100123
-  message.text = "я проснулся"
-  now = time.time() = 1721000000.0
-    ↓
-alan_router (pos 3) — alan_handler
-  ├── F6: increment_and_get_count → count=42
-  ├── F6: 42 % 10 != 0 → no reply
-  │
-  ├── F7v2: ALAN_SILENCE_GREETING_HOURS=6.0 > 0
-  ├── F7v2: get_alan_last_message_ts(-100123) → 1720978400.0
-  ├── elapsed = 1721000000.0 - 1720978400.0 = 21600.0 сек = 6.0 часов
-  ├── threshold = 6.0 * 3600 = 21600.0 сек
-  ├── elapsed (21600.0) >= threshold (21600.0) → TRUE
-  │
-  ├── Проверка _last_greeting[-100123]:
-  │   ├── запись есть? → нет (или elapsed > 10 сек cooldown)
-  │   └── cooldown_ok = True
-  │
-  ├── logger.info("F7v2: Alan woke up in chat -100123 — elapsed 6.0h >= threshold 6.0h, sending greeting")
-  ├── _send_greeting(message.bot, -100123)
-  │   ├── _pick_random_greeting() → "media/leha_greeting/leha_greeting_01.MP4"
-  │   ├── bot.send_video(-100123, FSInputFile(...), caption="@Alan_Z")
-  │   └── return True
-  ├── _last_greeting[-100123] = now  (обновлён общий anti-spam dict)
-  ├── logger.info("F7v2: silence greeting sent to chat -100123 (elapsed=6.0h)")
-  │
-  ├── set_alan_last_message_ts(-100123, now)  [таймер обновлён]
-  └── return None
-```
-
-#### Flow C: Молчание < N часов → таймер сбрасывается без greeting
-
-```
-Message from Alan (user_id=138811255) in chat -100123
-  now = 1721000000.0
-    ↓
-alan_router (pos 3) — alan_handler
-  ├── F6: increment_and_get_count → count=43
-  ├── F6: 43 % 10 != 0 → no reply
-  │
-  ├── F7v2: get_alan_last_message_ts(-100123) → 1720998000.0
-  ├── elapsed = 1721000000.0 - 1720998000.0 = 2000.0 сек ≈ 0.56 часа
-  ├── threshold = 6.0 * 3600 = 21600.0 сек
-  ├── elapsed (2000.0) < threshold (21600.0) → FALSE
-  │
-  ├── logger.info("F7v2: Alan wrote in chat -100123 after 0.6h (< 6.0h threshold) — timer reset, no greeting")
-  │
-  ├── set_alan_last_message_ts(-100123, now)  [таймер обновлён]
-  └── return None
-```
-
-#### Flow D: N=0 → функция отключена
-
-```
-Message from Alan (user_id=138811255) in chat -100123
-    ↓
-alan_router (pos 3) — alan_handler
-  ├── F6: increment_and_get_count → count=N
-  ├── F6: reply check...
-  │
-  ├── F7v2: ALAN_SILENCE_GREETING_HOURS=0.0 <= 0
-  ├── return (пропускаем ВСЮ silence-логику — ни чтения, ни записи в БД)
-  └── return None
-```
-
-### 22.10 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `handlers/alan.py` | **MODIFY** | Встроить F7v2 silence-логику в `alan_handler` (после F6 reply check): чтение/запись `last_message_ts` через БД, проверка elapsed >= threshold, вызов `_send_greeting`, проверка `_last_greeting` cooldown. Импорт `time`, `_send_greeting`, `_last_greeting` из `alan_greeting`. |
-| `services/database.py` | **MODIFY** | +2 метода: `get_alan_last_message_ts(chat_id) -> float \| None`, `set_alan_last_message_ts(chat_id, timestamp: float) -> None`. Без изменений схемы (переиспользование `channel_state`). |
-| `config/settings.py` | **MODIFY** | +1 поле: `ALAN_SILENCE_GREETING_HOURS: float = _env_float("ALAN_SILENCE_GREETING_HOURS", 6.0)`. |
-| `.env.example` | **MODIFY** | +1 переменная: `ALAN_SILENCE_GREETING_HOURS=6.0` с комментарием. |
-| `tests/test_alan.py` | **MODIFY** | Расширить существующие тесты: +silence greeting тесты (baseline, trigger fired, timer reset without trigger, N=0 disabled, multi-chat isolation, cooldown sharing, DB error handling). |
-| `tests/test_database.py` | **MODIFY** | +тесты для `get_alan_last_message_ts` / `set_alan_last_message_ts`: roundtrip, None для отсутствующей записи, overwrite существующей записи. |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 22 (этот документ). |
-
-**Файлы НЕ тронуты:**
-- `bot.py` — порядок роутеров не меняется, новый роутер не создаётся, `setup_alan(db)` уже существует.
-- `handlers/alan_greeting.py` — не требует изменений (экспортирует `_send_greeting` и `_last_greeting`, которые уже используются).
-- `handlers/slava_presence.py`, `handlers/dead_page_trigger.py`, `handlers/war_alert.py`, `handlers/slavik.py`, `handlers/vasya.py` — не затрагиваются.
-
-### 22.11 Test Plan (T-073)
-
-#### A. Database Tests (`tests/test_database.py` — MODIFY)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_alan_last_message_ts_roundtrip` | `set_alan_last_message_ts(chat, ts)` → `get_alan_last_message_ts(chat)` | Возвращает тот же float |
-| 2 | `test_alan_last_message_ts_none_for_missing` | `get_alan_last_message_ts(chat)` для нового чата | Возвращает `None` |
-| 3 | `test_alan_last_message_ts_overwrite` | set → set(new ts) → get | Возвращает новый ts (не старый) |
-| 4 | `test_alan_last_message_ts_isolated_per_chat` | set chat_A=100, chat_B=200 | get chat_A → 100, get chat_B → 200 (независимы) |
-| 5 | `test_alan_last_message_ts_float_precision` | set с `100.123456789` | Возвращает `100.123456789` (float точность) |
-
-#### B. Handler Tests (`tests/test_alan.py` — MODIFY)
-
-Добавить в существующий `TestAlanHandler` (или новый класс `TestAlanSilenceGreeting`):
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_silence_first_message_baseline` | Первое сообщение Алана → `last_ts is None` | `_send_greeting` НЕ вызван; `set_alan_last_message_ts` вызван с `now`; лог "baseline recorded" |
-| 2 | `test_silence_triggers_after_threshold` | `last_ts` = 6 часов назад, `ALAN_SILENCE_GREETING_HOURS=6` | `_send_greeting` вызван; `_last_greeting[chat_id]` обновлён; `set_alan_last_message_ts` вызван |
-| 3 | `test_silence_no_trigger_below_threshold` | `last_ts` = 2 часа назад, threshold=6 | `_send_greeting` НЕ вызван; `set_alan_last_message_ts` вызван (таймер сброшен); лог "timer reset" |
-| 4 | `test_silence_disabled_when_hours_zero` | `ALAN_SILENCE_GREETING_HOURS=0` | `get_alan_last_message_ts` НЕ вызван; `_send_greeting` НЕ вызван; вся silence-логика пропущена |
-| 5 | `test_silence_float_threshold` | `ALAN_SILENCE_GREETING_HOURS=0.5` (30 мин), `last_ts` = 31 мин назад | Триггер срабатывает (elapsed >= 1800 сек) |
-| 6 | `test_silence_cooldown_suppresses_duplicate` | `_last_greeting[chat_id]` = 2 сек назад, `ALAN_GREETING_COOLDOWN=10` | `_send_greeting` НЕ вызван (cooldown активен); лог "suppressed by cooldown"; `set_alan_last_message_ts` всё равно вызван |
-| 7 | `test_silence_cooldown_expired_allows_greeting` | `_last_greeting[chat_id]` = 15 сек назад, cooldown=10 | `_send_greeting` вызван (cooldown истёк) |
-| 8 | `test_silence_multi_chat_isolation` | chat_A: last_ts=старый (> threshold), chat_B: last_ts=свежий | chat_A → greeting, chat_B → no greeting; таймеры независимы |
-| 9 | `test_silence_non_alan_ignored` | Сообщение от user_id=99999 | Silence-логика не выполняется (UserIdFilter не пропускает) |
-| 10 | `test_silence_db_read_error_graceful` | `get_alan_last_message_ts` бросает исключение | Ошибка logged (ERROR), хендлер не крашится, F6 reply engine продолжает работать |
-| 11 | `test_silence_db_write_error_graceful` | `set_alan_last_message_ts` бросает исключение | Ошибка logged (ERROR), greeting (если был) остаётся отправленным |
-| 12 | `test_silence_send_greeting_error_graceful` | `_send_greeting` бросает исключение | Ошибка logged (ERROR), хендлер не крашится, `set_alan_last_message_ts` всё равно вызван |
-| 13 | `test_f6_reply_still_works_with_silence` | Алан пишет 10-е сообщение после долгого молчания | И F6 reply, И F7v2 greeting срабатывают (обе логики в одном handler) |
-
-#### C. Integration Tests
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_full_pipeline_silence_greeting` | Зарегистрировать alan_router на Dispatcher, отправить сообщение Алана | F6 increment сработал, F7v2 silence проверился, greeting отправился (если elapsed >= threshold) |
-| 2 | `test_regression_f6_unchanged` | Сообщение Алана без silence-условий | F6 reply engine работает как раньше (каждые N сообщений) |
-| 3 | `test_regression_full_suite` | Прогнать ВСЕ существующие тесты | 252+ тестов проходят без регрессий |
-
-#### D. Mock Strategy
-
-- `alan_db` — `AsyncMock` с методами `increment_and_get_count`, `get_alan_last_message_ts`, `set_alan_last_message_ts`
-- `time.time()` — патчится для детерминированных тестов (например, `patch("time.time", return_value=FIXED_NOW)`)
-- `_send_greeting` — патчится через `patch("handlers.alan._send_greeting", return_value=True)`
-- `_last_greeting` — передаётся как изменяемый dict в тесте
-- `settings.ALAN_SILENCE_GREETING_HOURS` — патчится для тестов разных порогов
-- `settings.ALAN_GREETING_COOLDOWN` — патчится для тестов cooldown
-
-### 22.12 Verification Checklist
-
-1. **Unit tests (DB):** `pytest tests/test_database.py -v -k "alan_last_message"` — 5 новых тестов
-2. **Unit tests (handler):** `pytest tests/test_alan.py -v -k "silence"` — 13 новых тестов
-3. **Integration:** `pytest tests/test_alan.py -v -k "full_pipeline or regression"` — 3 теста
-4. **Regression — full suite:** `pytest tests/ -v` — все 252+ тестов проходят
-5. **Manual smoke (production):**
-   - Выставить `ALAN_SILENCE_GREETING_HOURS=2` в `.env`, перезапустить бота
-   - Дождаться сообщения Алана → если молчал > 2ч, greeting video отправляется с caption `@Alan_Z`
-   - Если молчал < 2ч → greeting НЕ отправляется, таймер сбрасывается
-   - Проверить Better Stack: логи с префиксом `F7v2:` видны в дашборде
-   - Проверить что F6 reply engine продолжает работать (каждое 10-е сообщение — reply)
-6. **Edge case — restart persistence:**
-   - Отправить сообщение от Алана → таймер обновлён в БД
-   - Перезапустить бота
-   - Отправить ещё сообщение → таймер сохранился (не сброшен), elapsed считается от предыдущего сообщения
-7. **Edge case — N=0:**
-   - Выставить `ALAN_SILENCE_GREETING_HOURS=0`, перезапустить
-   - Алан пишет → greeting НЕ отправляется (ни при каких условиях)
-   - В логах: WARNING `F7v2: ALAN_SILENCE_GREETING_HOURS=0.0 — silence greeting disabled` (один раз при первом сообщении или при старте)
-
-### 22.13 Key Architectural Decisions
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D36 | Хранение `last_message_timestamp` в БД через `channel_state` key-value | Переживает restart бота (семантика «спал N часов»); переиспользует существующий паттерн без новой таблицы; `channel_state` уже проверен в production (DeadPageRelay). |
-| D37 | Встраивание silence-логики в существующий `alan_handler`, а не новый handler/router | На одном Router trigger() останавливается после первого matched handler — нельзя добавить второй; новый router создал бы конфликт propagation (None vs UNHANDLED) и требовал бы изменений в `bot.py`. Inlining — единственный безопасный вариант. |
-| D38 | `ALAN_SILENCE_GREETING_HOURS` — float, не int | Позволяет тестировать с долями часа (0.5 = 30 мин, 0.001 ≈ 3.6 сек для тестов). Использует существующий `_env_float()` helper. |
-| D39 | `0.0` = полное отключение (ни трекинга, ни триггера) | Явное выключение без удаления кода. Не пишем в БД, не читаем из БД — ноль overhead когда фича не нужна. |
-| D40 | Общий `_last_greeting` dict для join и silence anti-spam | Предотвращает дублирование приветствий когда join и silence происходят близко по времени. Оба триггера разделяют один cooldown (`ALAN_GREETING_COOLDOWN`, 10 сек). |
-| D41 | Timestamp обновляется ПОСЛЕ отправки greeting (не до) | Если записать timestamp до отправки, а отправка упадёт — таймер уже сброшен, и повторный триггер невозможен (greeting потерян). Запись после гарантирует best-effort доставку. |
-| D42 | Импорт `_send_greeting` и `_last_greeting` из `alan_greeting.py` в `alan.py` | Переиспользование существующей логики без дублирования. Нарушает правило «handlers не импортируют handlers», но `admin_commands.py` уже делает такой импорт — прецедент есть. Циклических зависимостей нет (`alan_greeting.py` не импортирует `alan.py`). |
-| D43 | Новые методы БД: `get_alan_last_message_ts` / `set_alan_last_message_ts` — без новой таблицы | Переиспользование `channel_state`; нет миграции схемы; методы следуют паттерну существующих `get_last_known_message_id` / `update_last_known_message_id`. |
-
----
-
-## 23. Epic 12: Bugfix Forward Reposts + Slavic Photo (Epic 12)
-
-> **Версия:** v2.9.0
-> **Дата:** 2026-07-26
-> **Связанные задачи:** T-078 (war_alert forward bugfix), T-079 (slavic_na_litso.jpg feature)
-> **Назначение:** (A) Исправить баг: war_alert не ловит forwarded-сообщения Славы с военными словами. (B) Новая фича: каждый N-й ответ "пошёл нахуй" заменяется картинкой `slavic_na_litso.jpg`.
-
-### 23.1 Bug Analysis: War Alert Forward Gap (T-078)
-
-#### 23.1.1 Корень проблемы
-
-Исходный код `war_alert.py` (до фикса) имел два хендлера:
-
-| # | Handler | Filters | Назначение |
-|---|---------|---------|------------|
-| 1 | `war_keyword_handler` | `UserIdFilter(SLAVIK_USER_ID)` + `lambda msg: msg.forward_origin is None` + `WarWordFilter()` | Сообщения Славы с военными словами |
-| 2 | `war_channel_repost_handler` | `F.forward_origin` | Репосты из целевых военных каналов |
-
-**Баг:** Когда Слава пересылает сообщение с военными словами из НЕ-целевого канала (или личного чата):
-
-1. **Handler 1** — `forward_origin is None` → **FALSE** (сообщение пересланное → `forward_origin` не `None`). Хендлер пропускает.
-2. **Handler 2** — `F.forward_origin` → TRUE, но `_is_target_channel()` → **FALSE** (канал не в списке WAR_CHANNEL_IDS/USERNAMES). Хендлер возвращается без reply.
-
-**Результат:** forwarded-сообщение Славы с военными словами не получает военного reply вообще. Только catch-all `"пошёл нахуй"` из `slavik_router`.
-
-#### 23.1.2 Почему `WarWordFilter` работает корректно
-
-`WarWordFilter.__call__()` проверяет `message.text or message.caption` (строка 96 `war_word.py`). Для forwarded-сообщений:
-- **Текст:** `message.text` содержит текст пересланного сообщения → фильтр находит военные слова.
-- **Медиа с caption:** `message.caption` содержит caption → фильтр находит военные слова.
-- **Медиа без caption:** `message.text` и `message.caption` оба `None` → фильтр возвращает `False` (корректно).
-
-Фильтр не является причиной бага. Причина — исключительно лямбда `forward_origin is None` в Handler 1.
-
-#### 23.1.3 Поведение aiogram 3.x: все хендлеры вызываются
-
-В aiogram 3.x внутри одного роутера **все совпадающие хендлеры вызываются последовательно** (в порядке регистрации). Propagation контролируется через callback-тип (`Any`, `None`, `UNHANDLED`), но ни один из хендлеров `war_alert.py` не блокирует propagation (все возвращают `None`).
-
-Это означает, что для forwarded-сообщения Славы из целевого канала **оба Handler 1b и Handler 2 сработают** — возможен двойной reply. Этот edge case описан в 23.1.5.
-
-#### 23.1.4 `UserIdFilter` для forwarded-сообщений
-
-`UserIdFilter` проверяет `message.from_user.id`. Для forwarded-сообщений `message.from_user` — это **отправитель в текущем чате** (тот, кто сделал forward), а не автор оригинального сообщения. Поэтому для forwarded-сообщений от Славы `UserIdFilter(SLAVIK_USER_ID)` возвращает `True` корректно.
-
-### 23.2 Архитектура фикса (T-078)
-
-#### 23.2.1 Решение: Handler 1b — forwarded keywords
-
-Добавить третий хендлер между Handler 1 и Handler 2:
-
-```python
-@war_alert_router.message(
-    UserIdFilter(settings.SLAVIK_USER_ID),
-    lambda msg: msg.forward_origin is not None,
-    WarWordFilter(),
-)
-async def war_keyword_forward_handler(message: types.Message):
-    """Slava forwarded a message with military keywords → random reply."""
-    reply_text = random.choice(WAR_REPLIES)
-    # ... logging + message.reply(reply_text) ...
-```
-
-**Логика:** Handler 1b ловит forwarded-сообщения Славы с военными словами **независимо от источника** (канал, личный чат, пользователь). Это закрывает gap: даже если канал-источник не в списке целевых, военный reply отправляется.
-
-#### 23.2.2 Матрица покрытия хендлеров (после фикса)
-
-| Сценарий | forward_origin | User=SLAVIK | WarWord | Handler 1 | Handler 1b | Handler 2 |
-|----------|:---:|:---:|:---:|:---:|:---:|:---:|
-| Слава пишет текст "дрон" | None | ✓ | ✓ | ✓ | ✗ | ✗ |
-| Слава пишет "привет" | None | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Слава репостит "дрон" из НЕ-целевого канала | Channel(non-target) | ✓ | ✓ | ✗ | ✓ | ✗ (returns early) |
-| Слава репостит "дрон" из ЦЕЛЕВОГО канала | Channel(target) | ✓ | ✓ | ✗ | ✓ | ✓ |
-| Юзер N репостит из целевого канала | Channel(target) | ✗ | — | ✗ | ✗ | ✓ |
-| Юзер N репостит из НЕ-целевого | Channel(non-target) | ✗ | — | ✗ | ✗ | ✗ (returns early) |
-
-#### 23.2.3 Edge Case: двойной reply для целевого канала
-
-Когда Слава репостит из целевого канала (например, "ЧП Пермь") с военными словами:
-- Handler 1b: `forward_origin is not None` + WarWord → TRUE → reply #1
-- Handler 2: `F.forward_origin` → TRUE → `_is_target_channel` → TRUE → reply #2
-
-**Оценка:** Это редкий edge case (Слава редко репостит из военных каналов с военными словами одновременно). Двойной reply не является критическим багом — оба сообщения релевантны (военный reply + военный reply). **Решение:** оставить как есть, задокументировать. Если потребуется подавление — добавить `if message.from_user.id == settings.SLAVIK_USER_ID: return` в начало Handler 2.
-
-### 23.3 Архитектура Slavic Photo (T-079)
-
-#### 23.3.1 Overview
-
-Каждый N-й ответ "пошёл нахуй" Славе заменяется на картинку `media/slavic_na_litso.jpg`. Счётчик ведётся в БД (per-chat), сбрасывается после отправки картинки. Интервал настраивается через `.env` (`SLAVIC_PHOTO_INTERVAL`, по умолчанию 10).
-
-**Функциональный контракт:**
-1. На каждое сообщение Славы (catch-all) бот отправляет "пошёл нахуй".
-2. Каждый N-й раз вместо текста отправляется `slavic_na_litso.jpg` через `answer_photo`.
-3. Счётчик инкрементируется ДО проверки интервала; после отправки фото сбрасывается в 0.
-4. При ошибке отправки фото — fallback на текст "пошёл нахуй".
-5. Счётчик не зависит от F3 (GIF-counter в MessageCounterMiddleware) и F4 (KUCHA).
-
-#### 23.3.2 Storage Decision: `channel_state` key-value
-
-**Решение:** Использовать существующую таблицу `channel_state` с ключом `slavic_photo:{chat_id}`.
-
-**Обоснование:**
-- Переживает restart бота (счётчик не сбрасывается при деплое).
-- Переиспользует существующий key-value паттерн (`channel_state` уже используется для `alan_last_msg`, `last_msg_id`, `last_known_message_id`).
-- Новая таблица избыточна для одного счётчика на чат.
-- `message_counters` не подходит — это общий счётчик для F3 (GIF-counter), смешивание логик нарушит single responsibility.
-
-**Альтернативы и почему отвергнуты:**
-| Вариант | Почему нет |
-|---------|------------|
-| Новая таблица `slavic_photo_counters` | Избыточно для одного поля; требует миграции схемы |
-| In-memory dict | Сбрасывается при restart — счётчик теряется |
-| `message_counters` (та же таблица) | Смешивает две разные сущности (GIF-counter vs photo-counter); сложнее отладка |
-
-#### 23.3.3 Database Method: `slavic_photo_count_tick`
-
-Новый метод в `services/database.py`:
-
-```python
-async def slavic_photo_count_tick(self, chat_id: int, user_id: int, interval: int) -> bool:
-    """Increment Slava's photo counter. Returns True if photo should be sent.
-    
-    Counter auto-resets after reaching the configured interval.
-    Uses channel_state key: slavic_photo:{chat_id}
-    """
-    key = f"slavic_photo:{chat_id}"
-    async with self._lock:
-        cursor = await self.db.execute(
-            "SELECT value FROM channel_state WHERE key = ?", (key,)
-        )
-        row = await cursor.fetchone()
-        current = int(row["value"]) if row else 0
-        new_count = current + 1
-        if new_count >= interval:
-            await self.db.execute(
-                "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
-                (key, "0"),
-            )
-            await self.db.commit()
-            return True
-        else:
-            await self.db.execute(
-                "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
-                (key, str(new_count)),
-            )
-            await self.db.commit()
-            return False
-```
-
-**Атомарность:** `self._lock` (asyncio.Lock) гарантирует, что инкремент и проверка происходят атомарно — невозможен race condition при одновременных сообщениях Славы.
-
-**Параметр `user_id`:** Передаётся для будущей расширяемости (per-user счётчик), но в текущей реализации ключ — `slavic_photo:{chat_id}` (per-chat). Это упрощает логику: Слава один на весь чат.
-
-#### 23.3.4 Handler Logic (в `slavik_catchall_handler`)
-
-Логика встроена в существующий catch-all handler в `handlers/slavik.py`:
-
-```python
-@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
-async def slavik_catchall_handler(message: types.Message):
-    if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
-        try:
-            chat_id = message.chat.id
-            user_id = message.from_user.id
-            should_send_photo = await _db.slavic_photo_count_tick(
-                chat_id, user_id, settings.SLAVIC_PHOTO_INTERVAL
-            )
-            if should_send_photo:
-                await message.answer_photo(
-                    photo=FSInputFile(settings.SLAVIC_PHOTO_PATH)
-                )
-                return
-        except Exception:
-            logger.exception("Slavic Photo: failed, falling back to text")
-    await message.reply("пошёл нахуй")
-```
-
-**Порядок выполнения (всегда):**
-1. Проверка `_db is not None` — guard против неинициализированной БД.
-2. Проверка `SLAVIC_PHOTO_INTERVAL > 0` — если 0, фича отключена (пропускаем БД).
-3. `slavic_photo_count_tick()` — атомарный инкремент + проверка.
-4. Если `True` → `answer_photo(FSInputFile(...))` → return.
-5. Если `False` → fall through → `message.reply("пошёл нахуй")`.
-6. При любом исключении в блоке photo → logged → fall through к тексту.
-
-#### 23.3.5 Взаимодействие с MessageCounterMiddleware (F3)
-
-`MessageCounterMiddleware` (F3) — **inner middleware** на `slavik_router`, который инкрементирует `message_counters` и отправляет GIF каждые 5 сообщений. Он работает **независимо** от фото-счётчика:
-
-```
-Message arrives from Slava
-  ↓
-MessageCounterMiddleware.__call__()
-  ├── increment_and_get_count(chat_id, user_id) → count
-  ├── if count % 5 == 0 → send GIF
-  └── await handler(event, data)  # pass to router
-      ↓
-  slavik_router checks handlers:
-      ├── kucha_handler (F4): KuchaWordFilter → maybe "ДАЛБАЕБ"
-      └── slavik_catchall_handler:
-          ├── slavic_photo_count_tick() → separate counter
-          ├── if tick → send photo (answer_photo)
-          └── else → send "пошёл нахуй" (reply)
-```
-
-**Два счётчика, две таблицы:**
-| Счётчик | Таблица | Ключ | Назначение |
-|---------|---------|------|------------|
-| F3 (GIF) | `message_counters` | `(chat_id, user_id)` | Каждые 5 сообщений → GIF |
-| F6 (Photo) | `channel_state` | `slavic_photo:{chat_id}` | Каждые N ответов → фото |
-
-**Почему не объединить:** Разные интервалы (5 vs 10), разные действия (GIF vs фото), разная логика сброса. Middleware (F3) не должен знать о фото-логике (F6) — нарушение single responsibility.
-
-#### 23.3.6 Dependency Injection
-
-`setup_slavik(db)` вызывается в `bot.py:on_startup()` (строка 71) и устанавливает модульную переменную `_db`. Паттерн повторяет существующие `setup_alan(db)`, `setup_presence(db, scheduler)`, `setup_dead_page(relay, db)`.
-
-**Почему не middleware для передачи DB:** Middleware не нужен — DB используется только в одном catch-all handler. Простой DI через `setup_*` функцию достаточен и следует конвенции проекта.
-
-#### 23.3.7 Configuration (`.env`)
-
-```bash
-# Slavic Photo — every N replies, send slavic_na_litso.jpg instead of text
-SLAVIC_PHOTO_INTERVAL=10
-SLAVIC_PHOTO_PATH=media/slavic_na_litso.jpg
-```
-
-`SLAVIC_PHOTO_INTERVAL=0` полностью отключает фичу (ни счётчик, ни фото).
-
-### 23.4 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `handlers/war_alert.py` | **MODIFY** | Добавить Handler 1b (`war_keyword_forward_handler`) между Handler 1 и Handler 2: ловит forwarded-сообщения Славы с военными словами. |
-| `handlers/slavik.py` | **MODIFY** | Встроить фото-логику в `slavik_catchall_handler`: вызов `_db.slavic_photo_count_tick()`, отправка `answer_photo` при достижении интервала, fallback на текст при ошибке. |
-| `services/database.py` | **MODIFY** | +1 метод: `slavic_photo_count_tick(chat_id, user_id, interval) -> bool`. Использует `channel_state` key `slavic_photo:{chat_id}`. Атомарный инкремент под `self._lock`. |
-| `config/settings.py` | **MODIFY** | +2 поля: `SLAVIC_PHOTO_INTERVAL: int` (default 10), `SLAVIC_PHOTO_PATH: str` (default "media/slavic_na_litso.jpg"). |
-| `bot.py` | **MODIFY** | `setup_slavik(db)` уже вызывается (строка 71) — без изменений. |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 23 (этот документ). |
-
-**Файлы НЕ тронуты:**
-- `filters/war_word.py` — фильтр уже корректно обрабатывает forwarded-сообщения (проверяет `text or caption`).
-- `filters/user_id.py` — `UserIdFilter` уже корректно работает с forwarded-сообщениями (`from_user` — отправитель в чате).
-- `services/message_counter.py` — F3 middleware не зависит от фото-счётчика.
-- `handlers/kostik.py`, `handlers/alan.py`, `handlers/vasya.py`, `handlers/slava_presence.py`, `handlers/alan_greeting.py`, `handlers/dead_page_trigger.py` — не затрагиваются.
-
-### 23.5 Test Plan
-
-#### A. Bugfix Tests (T-078)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_war_forward_from_slavik_with_keywords` | Slava репостит "дрон летит" из НЕ-целевого канала | Handler 1b срабатывает, war reply отправлен |
-| 2 | `test_war_forward_from_slavik_no_keywords` | Slava репостит "привет" из любого канала | Ни один war handler не срабатывает (только catch-all) |
-| 3 | `test_war_forward_from_slavik_target_channel` | Slava репостит из целевого канала с военными словами | Handler 1b + Handler 2 оба срабатывают (двойной reply — ожидаемое поведение) |
-| 4 | `test_war_forward_from_other_user` | Другой юзер репостит "дрон" из НЕ-целевого канала | Ни один war handler не срабатывает |
-| 5 | `test_war_own_message_still_works` | Slava пишет "ракета" сам (не forward) | Handler 1 срабатывает (регрессия) |
-| 6 | `test_war_forward_media_with_caption` | Slava репостит фото с caption "внимание БПЛА" | Handler 1b срабатывает (WarWordFilter проверяет caption) |
-| 7 | `test_war_forward_media_no_caption` | Slava репостит фото без caption | Ни один war handler не срабатывает |
-
-#### B. Slavic Photo Tests (T-079)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_photo_sent_on_interval` | N сообщений Славы, `INTERVAL=3` | Сообщения 1,2 → текст; сообщение 3 → фото; счётчик сброшен |
-| 2 | `test_photo_counter_resets_after_send` | Сообщение 3 → фото, затем сообщение 4 → текст | После фото счётчик = 0, следующее сообщение = 1 (текст) |
-| 3 | `test_photo_disabled_when_interval_zero` | `SLAVIC_PHOTO_INTERVAL=0` | Всегда текст, `slavic_photo_count_tick` не вызывается |
-| 4 | `test_photo_fallback_on_error` | `answer_photo` бросает исключение | Fallback на текст "пошёл нахуй", ошибка залогирована |
-| 5 | `test_photo_counter_per_chat_isolation` | Chat A: interval=3, Chat B: interval=3 | Счётчики независимы (разные ключи в channel_state) |
-| 6 | `test_photo_default_interval` | Без `SLAVIC_PHOTO_INTERVAL` в .env | Используется default=10 |
-| 7 | `test_f3_gif_counter_not_affected` | Сообщения Славы с фото-интервалом | F3 GIF всё ещё отправляется каждые 5 сообщений |
-| 8 | `test_f4_kucha_not_affected` | "куча" + фото-интервал | "ДАЛБАЕБ" + фото/текст отправляются независимо |
-| 9 | `test_photo_db_atomicity` | Одновременные сообщения в разных чатах | `asyncio.Lock` предотвращает race condition |
-
-#### C. DB Tests
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_slavic_photo_count_tick_first_call` | Первый вызов с interval=3 | Возвращает `False`, значение в БД = "1" |
-| 2 | `test_slavic_photo_count_tick_reaches_interval` | Третий вызов с interval=3 | Возвращает `True`, значение в БД = "0" (сброшено) |
-| 3 | `test_slavic_photo_count_tick_overflow` | interval=3, делаем 5 вызовов | 3-й → True, 4-й → False (count=1), 5-й → False (count=2) |
-| 4 | `test_slavic_photo_count_tick_interval_one` | interval=1 | Каждый вызов возвращает `True` (всегда сброс) |
-
-### 23.6 Key Architectural Decisions
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D44 | Handler 1b — отдельный хендлер для forwarded-сообщений Славы с war words | Нельзя модифицировать Handler 1 (убрать `forward_origin is None`) — тогда все репосты (включая от других юзеров) попадали бы в Handler 1, и WarWordFilter проверял бы их текст. Это изменило бы семантику: Handler 1 должен реагировать только на сообщения Славы, а Handler 2 — на репосты из целевых каналов от любого пользователя. Разделение на три хендлера сохраняет чёткие границы ответственности. |
-| D45 | Хранение фото-счётчика в `channel_state` (не в `message_counters`) | `message_counters` управляется F3 middleware (GIF-counter) — инкрементируется на каждое сообщение через middleware. Фото-счётчик инкрементируется только в catch-all handler (после F4 KUCHA). Разные источники инкремента, разные интервалы, разные ключи — смешивание в одной таблице нарушило бы single responsibility. |
-| D46 | Фото-счётчик per-chat (не per-user) | Слава — уникальный пользователь в чате (один Slava на чат). Per-chat счётчик проще и исключает необходимость параметра `user_id` в ключе. Метод принимает `user_id` для будущей расширяемости, но ключ `slavic_photo:{chat_id}`. |
-| D47 | `SLAVIC_PHOTO_INTERVAL=0` отключает фичу полностью | Явное выключение без удаления кода. При `interval=0` handler не вызывает `slavic_photo_count_tick()` — ноль overhead. |
-| D48 | Fallback на текст при ошибке отправки фото | `try/except` вокруг `answer_photo` с fallback на `message.reply("пошёл нахуй")`. Пользователь всегда получает ответ, даже если файл отсутствует или Telegram API недоступен. Ошибка logged для отладки. |
-| D49 | Фото отправляется через `answer_photo` (не `reply_photo`) | `answer_photo` отправляет фото в чат без привязки reply к конкретному сообщению. Это визуально отличается от текстового `reply` и делает фото более заметным. Консистентно с F3 GIF (`answer_animation`). |
-| D50 | Dependency injection через `setup_slavik(db)` — существующий паттерн | Повторяет `setup_alan(db)`, `setup_presence(db, scheduler)`, `setup_dead_page(relay, db)`. Единый подход ко всем модулям, требующим DB. |
-| D51 | Двойной reply для целевого канала — accepted edge case | Когда Слава репостит из целевого канала с военными словами, Handler 1b и Handler 2 оба срабатывают → два reply. Это редкий сценарий (Слава редко репостит из военных каналов), и оба reply релевантны. Не требует немедленного fix. |
-| D52 | Atomicity через `self._lock` (asyncio.Lock) | Инкремент + проверка + запись в БД происходят под локом. Предотвращает race condition при одновременных сообщениях Славы в разных чатах (общий `DatabaseService`). Использует существующий `self._lock` из `DatabaseService` (уже используется в `increment_and_get_count`). |
-
----
-
-## 24. F9: Otboy Service (Epic 13)
-
-> **Версия:** v2.10.0
-> **Дата:** 2026-07-26
-> **Связанные задачи:** T-084 (архитектура), T-085 (OtboyWordFilter), T-086 (OtboyRelay), T-087 (otboy_router), T-088 (конфигурация), T-089 (регистрация), T-090 (тесты), T-091 (документация), T-092 (деплой)
-> **Назначение:** Новый standalone масштабируемый сервис, который отлавливает слово "отбой" в сообщениях всех пользователей и отвечает картинкой `media/otboy.jpg` с нативным quote (цитированием) конкретного слова.
-
-### 24.1 Обзор
-
-Otboy Service — отдельный не-user-specific сервис, который работает для ВСЕХ участников чата. При обнаружении слова "отбой" в тексте сообщения, подписи к медиа (caption), или в тексте/caption пересланного (forward) сообщения, бот отправляет картинку `media/otboy.jpg` как reply с нативным цитированием (зелёная полоса Telegram, указывающая на слово "отбой").
-
-**Функциональный контракт:**
-1. Проверка `message.text`, `message.caption` (включая forwarded-сообщения) на наличие слова "отбой".
-2. При совпадении → отправка `media/otboy.jpg` через `send_photo` с `reply_parameters=ReplyParameters(quote=matched_word)`.
-3. Настраиваемый per-chat кулдаун (по умолчанию 0 — без кулдауна).
-4. Не затрагивает другие функции бота — propagation не блокируется (возврат None, не UNHANDLED).
-5. Не использует БД — кулдаун in-memory (dict[int, float]), как `_last_greeting` в `alan_greeting.py`.
-
-### 24.2 Architecture
-
-```
-┌───────────────────────────────────────────────────────────┐
-│                    Otboy Service (F9)                      │
-│                                                           │
-│  OtboyWordFilter (filter)                                 │
-│    ╤═ filters/otboy_word.py                               │
-│    ║   re.compile(r'(?<![а-яё])отбой(?![а-яё])')         │
-│    ║   checks: message.text or message.caption            │
-│    ╚══ TRUE/FALSE                                         │
-│          ↓                                                │
-│  otboy_router (handler)                                   │
-│    ╤═ handlers/otboy.py (position 4c)                     │
-│    ║   @otboy_router.message(OtboyWordFilter())           │
-│    ║   Re-matches to extract word with original case      │
-│    ║   Calls relay.send_otboy(chat_id, msg_id, word)     │
-│    ╚══ returns None (does NOT block propagation)          │
-│          ↓                                                │
-│  OtboyRelay (service)                                     │
-│    ╤═ services/otboy_relay.py                             │
-│    ║   Per-chat cooldown: dict[int, float]                │
-│    ║   OTBOY_COOLDOWN_SECONDS from .env (default 0)       │
-│    ║   bot.send_photo(chat_id, FSInputFile("media/otboy.jpg"), │
-│    ║     reply_parameters=ReplyParameters(               │
-│    ║       message_id=msg_id, quote=matched_word))       │
-│    ╚══ Native Telegram quote with green bar               │
-└───────────────────────────────────────────────────────────┘
-```
-
-### 24.3 Configuration (`config/settings.py`)
-
-Добавить в `Settings` dataclass:
-
-```python
-# ── Otboy Service (F9 / Epic 13) ──
-# Cooldown between otboy.jpg sends per chat, in seconds.
-# 0 = no cooldown (every "отбой" triggers a photo).
-OTBOY_COOLDOWN_SECONDS: int = _env_int("OTBOY_COOLDOWN_SECONDS", 0)
-
-# Path to the otboy response image
-OTBOY_PHOTO_PATH: str = os.getenv("OTBOY_PHOTO_PATH", "media/otboy.jpg")
-```
-
-`.env.example` additions:
-
-```env
-# Otboy Service (F9) — "отбой" detection for ALL users
-# Cooldown between photo sends in seconds (0 = no cooldown, default)
-OTBOY_COOLDOWN_SECONDS=0
-# Path to otboy response image
-OTBOY_PHOTO_PATH=media/otboy.jpg
-```
-
-### 24.4 Module Specifications
-
-#### 24.4.1 `filters/otboy_word.py` — OtboyWordFilter
-
-- **Наследование:** `BaseFilter`
-- **Проверяемые поля:** `message.text` или `message.caption` (паттерн `or` — как в WarWordFilter)
-- **Регулярное выражение:** `(?<![а-яё])отбой(?![а-яё])`, `re.IGNORECASE`
-  - `(?<![а-яё])` — негативный lookbehind, гарантирует что перед "отбой" нет кириллической буквы
-  - `(?![а-яё])` — негативный lookahead, гарантирует что после "отбой" нет кириллической буквы
-  - Результат: "отбой" матчится, "отбойный", "отбойник", "проотбой" — нет
-- **Логирование:** При совпадении — `logger.info` с `word`, `msg_id`, `chat_id`
-- **Guard:** `isinstance(content, str)` — защита от MagicMock в тестах
-
-#### 24.4.2 `services/otboy_relay.py` — OtboyRelay
-
-- **Конструктор:** `__init__(self, bot: Bot)` — только Bot (без БД)
-- **Публичный метод:** `async send_otboy(chat_id, message_id, matched_word) -> None`
-- **Кулдаун:**
-  - `_cooldowns: dict[int, float]` — key: chat_id, value: `time.time()` последней отправки
-  - Если `OTBOY_COOLDOWN_SECONDS > 0` и `now - last < cooldown` → return (пропуск)
-  - Если `OTBOY_COOLDOWN_SECONDS == 0` → всегда отправка
-- **Отправка:**
-  - `bot.send_photo(chat_id, FSInputFile(settings.OTBOY_PHOTO_PATH), reply_parameters=ReplyParameters(message_id=message_id, quote=matched_word))`
-  - `quote=matched_word` — строка как в оригинальном сообщении (с учётом регистра)
-- **Обработка ошибок:** `try/except` с `logger.exception`
-
-#### 24.4.3 `handlers/otboy.py` — otboy_router
-
-- **Роутер:** `Router(name="otboy")`
-- **DI:** `setup_otboy(relay)` — глобальная переменная `_relay` (паттерн `dead_page_trigger.py`)
-- **Хендлер:** `@otboy_router.message(OtboyWordFilter())`
-- **Извлечение matched_word:** повторный поиск regex для получения слова с оригинальным регистром
-- **Возврат:** `None` (implicit) — НЕ `UNHANDLED` (propagation продолжается)
-
-### 24.5 Data Flow
-
-#### Flow A: User sends "Отбой!" (text message)
-
-```
-Message arrives in group chat (-100123)
-  from_user.id = ANY
-  message.text = "Отбой!"
-  message.caption = None
-  message.forward_origin = None
-    ↓
-otboy_router (pos 4c) ══════════════════════════
-  OtboyWordFilter:
-    content = "Отбой!" or None = "Отбой!"
-    regex search → MATCH ("Отбой")
-    logger.info: "OtboyWordFilter matched | word='Отбой' | msg_id=42 | chat_id=-100123"
-    return True
-        ↓
-  otboy_handler:
-    content = "Отбой!"
-    regex search → "Отбой" (preserved case)
-    logger.info: "Otboy handler triggered | msg_id=42 | chat_id=-100123 | matched='Отбой'"
-    relay.send_otboy(-100123, 42, "Отбой")
-        ↓
-    OtboyRelay.send_otboy:
-      cooldown check: 0 → skip
-      bot.send_photo(
-        chat_id=-100123,
-        photo=FSInputFile("media/otboy.jpg"),
-        reply_parameters=ReplyParameters(
-          message_id=42,
-          quote="Отбой"
-        )
-      )
-    [Photo sent with green quote bar highlighting "Отбой"]
-    return None  ← propagation continues
-```
-
-#### Flow B: User sends photo with caption "отбой тревоги"
-
-```
-Message arrives in group chat (-100123)
-  message.text = None
-  message.caption = "отбой тревоги"
-    ↓
-otboy_router (pos 4c) ══════════════════════════
-  OtboyWordFilter:
-    content = None or "отбой тревоги" = "отбой тревоги"
-    regex search → MATCH ("отбой")
-    return True
-        ↓
-  otboy_handler → relay.send_otboy(-100123, 42, "отбой")
-    → send_photo with quote="отбой"
-```
-
-#### Flow C: User forwards a message containing "ОТБОЙ"
-
-```
-Message arrives in group chat (-100123)
-  message.text = "Внимание! ОТБОЙ!"  (forwarded text)
-  message.forward_origin = MessageOriginChannel(...)
-    ↓
-otboy_router (pos 4c) ══════════════════════════
-  OtboyWordFilter:
-    content = "Внимание! ОТБОЙ!" or None = "Внимание! ОТБОЙ!"
-    regex search → MATCH ("ОТБОЙ", case preserved)
-    return True
-        ↓
-  otboy_handler → relay.send_otboy(-100123, 42, "ОТБОЙ")
-    → send_photo with quote="ОТБОЙ"
-```
-
-### 24.6 Edge Cases & Overlap
-
-#### Overlap with war_alert (F5v2)
-
-"отбой" присутствует в `WAR_WORDS` (filters/war_word.py:89-90). Для Славы (user_id=479167456):
-
-| Сценарий | war_alert (pos 4b) | otboy (pos 4c) | Результат |
-|----------|:---:|:---:|------|
-| Слава пишет "отбой" | Handler A → random war reply | ✓ → otboy.jpg | 2 сообщения (war reply + фото) |
-| Слава пишет "отбой" (forward) | Handler 1b → random war reply | ✓ → otboy.jpg | 2 сообщения |
-| Другой юзер пишет "отбой" | ✗ (UserIdFilter blocks) | ✓ → otboy.jpg | Только фото |
-
-**Решение:** Перекрытие является ожидаемым поведением (by design). Две независимые фичи — два независимых ответа.
-
-#### Edge cases
-
-| # | Случай | Поведение |
-|---|--------|-----------|
-| 1 | "отбойный" (производное слово) | Фильтр НЕ матчит (word boundary) |
-| 2 | "отбой" внутри URL | Матчит (regex внутри URL) — edge case, не критично |
-| 3 | Несколько "отбой" в одном сообщении | Матчит первый, quote — первое вхождение |
-| 4 | Media без caption с "отбой" | Фильтр возвращает False (негде искать) |
-| 5 | Cooldown активен | Фото не отправляется, handler всё равно возвращает None |
-| 6 | Файл `media/otboy.jpg` отсутствует | `send_photo` бросает исключение → caught в OtboyRelay |
-| 7 | Message from bot | Фильтр не проверяет `from_user.is_bot` — если бот напишет "отбой", тоже сработает (не критично) |
-
-### 24.7 Test Plan (T-090)
-
-#### A. Filter Unit Tests
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_otboy_word_matches_in_text` | message.text = "отбой" | Фильтр возвращает True |
-| 2 | `test_otboy_word_matches_in_caption` | message.caption = "отбой", text=None | Фильтр возвращает True |
-| 3 | `test_otboy_word_case_insensitive` | "Отбой", "ОТБОЙ", "ОтБой" | Все возвращают True |
-| 4 | `test_otboy_word_in_sentence` | "внимание отбой тревоги" | Фильтр возвращает True |
-| 5 | `test_otboy_word_no_false_positive` | "отбойный", "отбойник" | Фильтр возвращает False |
-| 6 | `test_otboy_word_missing_word` | "привет мир" | Фильтр возвращает False |
-| 7 | `test_otboy_word_both_none` | text=None, caption=None | Фильтр возвращает False |
-| 8 | `test_otboy_word_forwarded_text` | forward_origin + text="отбой" | Фильтр возвращает True |
-| 9 | `test_otboy_word_forwarded_caption` | forward_origin + caption="отбой", text=None | Фильтр возвращает True |
-
-#### B. Handler Tests
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_otboy_handler_calls_relay` | Сообщение с "отбой" | `relay.send_otboy` вызван с корректными параметрами |
-| 2 | `test_otboy_handler_no_relay_guard` | `_relay is None` | Handler возвращается без вызова relay |
-| 3 | `test_otboy_handler_returns_none` | Любое сообщение | Handler возвращает None (не блокирует propagation) |
-| 4 | `test_otboy_handler_logs_trigger` | Сообщение с "отбой" | `logger.info` вызван с msg_id, chat_id, matched_word |
-
-#### C. Relay/Cooldown Tests
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_otboy_relay_sends_photo` | `send_otboy(chat_id, msg_id, "отбой")` | `bot.send_photo` вызван с FSInputFile и ReplyParameters |
-| 2 | `test_otboy_relay_quote_preserves_case` | `send_otboy(..., "Отбой")` | `quote="Отбой"` в ReplyParameters |
-| 3 | `test_otboy_relay_cooldown_blocks` | cooldown=60, два вызова подряд | Первый — send_photo вызван. Второй — send_photo НЕ вызван |
-| 4 | `test_otboy_relay_cooldown_disabled` | cooldown=0 | Каждый вызов отправляет фото (без проверки cooldown) |
-| 5 | `test_otboy_relay_cooldown_per_chat` | chat_A отправка, chat_B сразу после | Оба отправляются (разные chat_id) |
-| 6 | `test_otboy_relay_send_error_graceful` | `send_photo` бросает исключение | Ошибка logged, исключение не пробрасывается |
-
-#### D. Integration/Propagation Tests
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_otboy_does_not_block_slavik` | Slava пишет "отбой" | otboy_handler + slavik_catchall_handler оба срабатывают |
-| 2 | `test_otboy_and_war_alert_both_fire` | Slava пишет "отбой" | war_alert Handler A + otboy_handler оба срабатывают |
-| 3 | `test_otboy_non_slava_only_otboy` | Другой юзер пишет "отбой" | Только otboy_handler срабатывает |
-
-### 24.8 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `filters/otboy_word.py` | **CREATE** | OtboyWordFilter: word-boundary "отбой" detection in text/caption |
-| `services/otboy_relay.py` | **CREATE** | OtboyRelay: send photo with native quote + in-memory cooldown |
-| `handlers/otboy.py` | **CREATE** | otboy_router: handler + setup_otboy() DI pattern |
-| `config/settings.py` | **MODIFY** | +2 поля: `OTBOY_COOLDOWN_SECONDS`, `OTBOY_PHOTO_PATH` |
-| `bot.py` | **MODIFY** | +1 import, +1 OtboyRelay creation, +1 setup_otboy(), +1 dp.include_router (pos 4c) |
-| `.env.example` | **MODIFY** | +2 переменные: `OTBOY_COOLDOWN_SECONDS`, `OTBOY_PHOTO_PATH` |
-| `tests/test_otboy.py` | **CREATE** | ~17 тестов: filter, handler, relay, cooldown, propagation |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 24 (this spec); updated Sections 1-7, 12, 14-16 |
-
-**Файлы НЕ тронуты:**
-- Все существующие handlers, filters, services — без изменений.
-- `filters/war_word.py` — "отбой" остаётся в `WAR_WORDS` (overlap by design).
-- `handlers/slavik.py`, `handlers/war_alert.py`, `handlers/vasya.py` — propagation не нарушена.
-
-### 24.9 Verification Checklist
-
-1. **Unit tests (filter):** `pytest tests/test_otboy.py -v -k "otboy_word"` — 9 тестов
-2. **Unit tests (handler):** `pytest tests/test_otboy.py -v -k "handler"` — 4 теста
-3. **Unit tests (relay/cooldown):** `pytest tests/test_otboy.py -v -k "relay"` — 6 тестов
-4. **Integration tests:** `pytest tests/test_otboy.py -v -k "integration or propagation"` — 3 теста
-5. **Regression — full suite:** `pytest tests/ -v` — все ~300 тестов проходят
-6. **Manual smoke (production):**
-   - Любой пользователь пишет "отбой" → otboy.jpg отправлен с зелёным quote на слово "отбой"
-   - Любой пользователь пишет "Отбой!" (другой регистр) → otboy.jpg с quote "Отбой!"
-   - Слава пишет "отбой" → war reply + otboy.jpg (два сообщения)
-   - Фото с caption "отбой" → otboy.jpg (caption support)
-   - "отбойный" → НЕТ реакции (word boundary)
-   - Better Stack: логи с "Otboy" видны в дашборде
-
----
-
-## 25. Epic 14: Media Group Album Fix (D44-D48)
-
-> **Версия:** v2.11.0
-> **Дата:** 2026-07-28
-> **Связанные задачи:** T-093 (архитектура), T-094 (DB + channel_post tracker), T-095 (album forwarding with forward_messages), T-096 (heuristic fallback), T-097 (trigger deduplication), T-098 (caller-side changes), T-099 (тесты)
-> **Назначение:** Исправить баг: при пересылке альбома (media group) из relay-канала DeadPageRelay пересылает только одно фото вместо всего альбома. Решение: DB-трекинг media_group_id через `channel_post` handler + heuristic fallback для старых постов + `forward_messages()` для сохранения визуальной группировки.
-
-### 25.1 Overview
-
-Когда пользователь репостит альбом из @d_pages, Telegram отправляет N отдельных `Message` updates (по одному на каждое фото). DeadPageRelay выбирает случайный `message_id` и вызывает `forward_message()` (ед. число), что пересылает только одно фото. Для сохранения альбомной группировки необходимо:
-
-1. **Отслеживать** `media_group_id` в relay-канале при добавлении новых постов (`channel_post` handler).
-2. **Хранить** маппинг `message_id → media_group_id` в БД.
-3. **Пересылать** весь альбом через `forward_messages()` (мн. число, Bot API 7.0+), что сохраняет визуальную группировку.
-4. **Fallback** на heuristic probing (сравнение дат соседних сообщений) для старых постов без DB-записей.
-5. **Дедуплицировать** триггеры от нескольких фото одного альбома на входе.
-
----
-
-### 25.2 Design Decision D44: `relay_album_map` Database Table
-
-**Context**: Need to track which messages in the relay channel belong to the same media group (album).
-
-**Schema**:
-```sql
-CREATE TABLE IF NOT EXISTS relay_album_map (
-    message_id INTEGER PRIMARY KEY,
-    media_group_id TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_relay_album_media_group ON relay_album_map(media_group_id);
-```
-
-**Migration**: Add to `DatabaseService._SCHEMA_SQL`. No data migration needed — old posts without entries will use heuristic fallback.
-
-**CRUD Methods** (in `DatabaseService`):
-
-```python
-async def save_relay_album_map(message_id: int, media_group_id: str) -> None:
-    """INSERT OR REPLACE relay_album_map entry."""
-    await self.db.execute(
-        "INSERT OR REPLACE INTO relay_album_map (message_id, media_group_id) VALUES (?, ?)",
-        (message_id, media_group_id)
-    )
-    await self.db.commit()
-
-
-async def get_relay_media_group_id(message_id: int) -> str | None:
-    """SELECT media_group_id WHERE message_id=?."""
-    cursor = await self.db.execute(
-        "SELECT media_group_id FROM relay_album_map WHERE message_id = ?",
-        (message_id,)
-    )
-    row = await cursor.fetchone()
-    return row["media_group_id"] if row else None
-
-
-async def get_relay_album_message_ids(media_group_id: str) -> list[int]:
-    """SELECT message_id WHERE media_group_id=? ORDER BY message_id."""
-    cursor = await self.db.execute(
-        "SELECT message_id FROM relay_album_map WHERE media_group_id = ? ORDER BY message_id",
-        (media_group_id,)
-    )
-    rows = await cursor.fetchall()
-    return [row["message_id"] for row in rows]
-```
-
-**Rationale**: Simple key-value mapping. No need for timestamp/tracking — albums are immutable once posted. Using PRIMARY KEY on message_id ensures idempotency.
-
----
-
-### 25.3 Design Decision D45: `channel_post` Handler for Media Group Tracking
-
-**Context**: When new posts are added to the relay channel, the bot (as admin) receives `channel_post` updates. We intercept these to index media groups.
-
-**Implementation** (in `bot.py`, within `on_startup()`):
-
-```python
-@dp.channel_post(F.chat.id == settings.DEAD_PAGE_RELAY_CHANNEL_ID)
-async def track_relay_post(message: types.Message, db: DatabaseService = None):
-    if message.media_group_id:
-        await db.save_relay_album_map(message.message_id, message.media_group_id)
-        logger.debug(f"[relay_tracker] Indexed msg_id={message.message_id} media_group_id={message.media_group_id}")
-```
-
-**Dependency Injection**: The handler needs access to `db`. Pass `db` via aiogram's middleware or use a closure. Recommended: use closure (capture db from `on_startup()` scope).
-
-**Registration**: Must be registered AFTER `on_startup()` creates `db`, but BEFORE `dp.start_polling()`. Place inside `on_startup()` using the `dp` object.
-
-**Edge case**: The relay channel may have existing messages. The handler only indexes NEW posts. Old posts use heuristic fallback (D47).
-
----
-
-### 25.4 Design Decision D46: DB-Path Forwarding with `forward_messages()`
-
-**Context**: When a candidate message_id has a known `media_group_id` in the DB, we can forward the entire album using `bot.forward_messages()` (plural, Bot API 7.0+), which preserves visual album grouping.
-
-**Implementation** (in `DeadPageRelay._forward_with_album_detection()`):
-
-```python
-async def _forward_with_album_detection(self, chat_id: int, msg_id: int, last_msg_id: int | None) -> bool:
-    # PATH 1: DB lookup
-    media_group_id = await self.db.get_relay_media_group_id(msg_id)
-    if media_group_id:
-        album_ids = await self.db.get_relay_album_message_ids(media_group_id)
-        album_ids.sort()
-        logger.info(f"[dead_page] Album (DB): {len(album_ids)} msgs, IDs={album_ids}")
-        await self.bot.forward_messages(
-            chat_id=chat_id,
-            from_chat_id=self.relay_channel_id,
-            message_ids=album_ids,
-            disable_notification=False,
-        )
-        max_id = max(album_ids)
-        if not last_msg_id or max_id > last_msg_id:
-            await self.db.update_last_known_message_id(max_id)
-        return True
-    
-    # PATH 2: Heuristic fallback (see D47)
-    return await self._forward_with_heuristic(chat_id, msg_id, last_msg_id)
-```
-
-**Rationale**: `forward_messages()` preserves album grouping visually. Single API call. No probing needed when DB has the data.
-
-**Error handling**: If `forward_messages` fails with any error, propagate to trigger fallback.
-
----
-
-### 25.5 Design Decision D47: Heuristic Fallback for Unindexed Posts
-
-**Context**: Old posts in the relay channel (before D45 was deployed) have no DB entries. We use heuristic probing: forward adjacent message_ids, compare dates, delete non-matching probes.
-
-**Algorithm** (`DeadPageRelay._forward_with_heuristic()`):
-
-```
-1. Forward primary msg_id (with notification) → get base_date
-2. Probe forward (msg_id+1, +2, ..., +9):
-   a. forward_message(candidate, disable_notification=True) → get sibling_date
-   b. If |sibling_date - base_date| ≤ 2 seconds: keep (part of album)
-   c. If |sibling_date - base_date| > 2 seconds: delete_message() and BREAK
-   d. If "not found" / "bad request": consecutive_gaps++, BREAK if gaps > 2
-3. Probe backward (msg_id-1, -2, ..., -9): same logic
-4. Update DB last_known_message_id = max(all_forwarded_ids)
-```
-
-**Date normalization** (D47.1): Both `base_date` and `sibling_date` may have different tzinfo. Always normalize:
-
-```python
-def _normalize_date(dt):
-    return dt.replace(tzinfo=None) if dt.tzinfo else dt
-```
-
-**Gap tolerance** (D47.2): Up to 2 consecutive "not found" gaps allowed (deleted messages within album). 3+ consecutive gaps = probably end of channel region → stop.
-
-**Non-matching probe cleanup** (D47.3): Messages with different dates were already forwarded (with `disable_notification=True`). Delete them via `bot.delete_message()`. If delete fails (no permission), log warning but continue — the message stays as an extraneous post. Better than crashing.
-
-**Order**: Forward-probe first (messages appear in chronological order after primary), then backward-probe. Primary is always first. The order within backward-siblings is reverse-chronological (earliest sibling appears last). Accepted tradeoff for simplicity.
-
-**Performance**: Up to 20 API calls (primary + 9 forward + 9 backward probes). At ~300ms each = ~6s worst case. Acceptable for infrequent Dead Page triggers.
-
----
-
-### 25.6 Design Decision D48: Trigger Deduplication for Incoming Media Groups
-
-**Context**: When a user forwards an album from @d_pages, Telegram sends N separate `Message` updates (one per photo). Without dedup, `send_dead_page()` would fire N times (mitigated by cooldown, but wasteful).
-
-**Implementation** (in `handlers/dead_page_trigger.py`):
-
-```python
-import time
-from collections import OrderedDict
-
-_seen_media_groups: OrderedDict[str, float] = OrderedDict()
-_MEDIA_GROUP_DEDUP_TTL = 5  # seconds
-_MAX_DEDUP_ENTRIES = 100
-
-def _cleanup_expired_media_groups():
-    """Remove expired entries to prevent memory leak."""
-    now = time.monotonic()
-    expired = [k for k, v in _seen_media_groups.items() if now - v > _MEDIA_GROUP_DEDUP_TTL]
-    for k in expired:
-        del _seen_media_groups[k]
-
-# Inside on_forward(), after channel match, before relay:
-if message.media_group_id:
-    _cleanup_expired_media_groups()
-    now = time.monotonic()
-    if message.media_group_id in _seen_media_groups:
-        logger.debug(f"[dead_page] Dedup skip: {message.media_group_id}")
-        return
-    _seen_media_groups[message.media_group_id] = now
-    if len(_seen_media_groups) > _MAX_DEDUP_ENTRIES:
-        _seen_media_groups.popitem(last=False)  # LRU eviction
-```
-
-**Rationale**: `OrderedDict` provides LRU eviction. Periodic cleanup prevents unbounded growth. TTL of 5s is generous (media groups arrive within ~100ms of each other).
-
----
-
-### 25.7 Caller-Side Changes
-
-**In `_try_forward_from_channel()`**: Replace the two `forward_message()` call sites with `_forward_with_album_detection()`. Remove the now-redundant `update_last_known_message_id()` calls (the helper handles it).
-
-Sequential scan:
-
-```python
-# Before:
-await self.bot.forward_message(chat_id=chat_id, ...)
-if not last_msg_id or msg_id > last_msg_id:
-    await self.db.update_last_known_message_id(msg_id)
-return True
-
-# After:
-return await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
-```
-
-Random probe:
-
-```python
-# Before:
-await self.bot.forward_message(chat_id=chat_id, ...)
-if not last_msg_id or msg_id > last_msg_id:
-    await self.db.update_last_known_message_id(msg_id)
-return True
-
-# After:
-return await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
-```
-
----
-
-### 25.8 Test Plan (D48.1)
-
-| # | Test | Path | Scenario |
-|---|------|------|----------|
-| 1 | `test_db_album_path_forwards_all` | DB | msg in relay_album_map with 3 siblings → forward_messages called with 3 IDs |
-| 2 | `test_db_album_updates_last_known_id` | DB | max sibling ID > last_msg_id → DB updated |
-| 3 | `test_heuristic_album_forwards_all` | Heuristic | 3 consecutive msgs with same date → all forwarded |
-| 4 | `test_heuristic_date_boundary_stops_probe` | Heuristic | msg+1 has different date → deleted, probe stops |
-| 5 | `test_heuristic_gap_allows_skip` | Heuristic | 1 missing msg → skipped, next msg found |
-| 6 | `test_heuristic_triple_gap_stops` | Heuristic | 3 consecutive "not found" → probe stops |
-| 7 | `test_heuristic_at_channel_start` | Heuristic | msg_id=1 → backward probe skipped gracefully |
-| 8 | `test_heuristic_date_tz_normalized` | Heuristic | Different tzinfo on dates → normalized, compared correctly |
-| 9 | `test_trigger_media_group_dedup_skips` | Trigger | Second msg with same media_group_id → skipped |
-| 10 | `test_trigger_media_group_dedup_allows_first` | Trigger | First msg with media_group_id → NOT skipped |
-| 11 | `test_trigger_dedup_cleanup` | Trigger | Expired entries removed from cache |
-| 12 | `test_single_post_no_probe` | Heuristic | No adjacent msgs → only primary forwarded |
-
----
-
-### 25.9 Key Architectural Decisions
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D44 | `relay_album_map` table with composite index on `media_group_id` | Simple key-value mapping. PRIMARY KEY on message_id ensures idempotency. Albums immutable once posted — no timestamp/tracking needed. |
-| D45 | `channel_post` handler registered inside `on_startup()` via closure | Intercepts new relay channel posts as admin. Closure captures `db` reference from `on_startup()` scope — simpler than middleware. Only indexes NEW posts; old posts use heuristic fallback. |
-| D46 | DB-path uses `forward_messages()` (plural, Bot API 7.0+) for known albums | Preserves visual album grouping. Single API call — no probing needed when data is in DB. If `forward_messages` fails, error propagates to trigger heuristic fallback. |
-| D47 | Heuristic fallback: probe adjacent msg_ids, compare dates, delete non-matching | Old posts (pre-D45) have no DB entries. 2-second date tolerance catches same-album messages. Up to 2 consecutive gaps allowed (deleted messages). Non-matching probes deleted with `disable_notification=True`. |
-| D47.1 | Date normalization via `dt.replace(tzinfo=None)` | Dates from probed messages may have different tzinfo. Normalizing to naive datetime ensures correct comparison regardless of tzinfo differences. |
-| D47.2 | Gap tolerance: up to 2 consecutive "not found" before stopping | Deleted messages within an album should not break the probe. 3+ consecutive gaps = likely end of channel region. |
-| D47.3 | Non-matching probe delete via `bot.delete_message()` with warning on failure | Extraneous forwarded posts should be cleaned up. If delete fails (no permission), log warning — better than crashing or leaving probe logic broken. |
-| D48 | `OrderedDict` with LRU eviction + periodic `_cleanup_expired_media_groups()` for trigger dedup | `OrderedDict` provides cheap LRU eviction. 5-second TTL is generous (media groups arrive within ~100ms). Periodic cleanup prevents unbounded memory growth. Max 100 entries. |
-
----
-
-### 25.10 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `services/database.py` | **MODIFY** | +1 table `relay_album_map` in `_SCHEMA_SQL`; +3 methods: `save_relay_album_map`, `get_relay_media_group_id`, `get_relay_album_message_ids` |
-| `bot.py` | **MODIFY** | +1 `channel_post` handler (`track_relay_post`) registered inside `on_startup()` for relay channel media group indexing |
-| `services/dead_page_relay.py` | **MODIFY** | Replace `forward_message()` calls with `_forward_with_album_detection()`; +2 new methods: `_forward_with_album_detection()` (DB path + heuristic dispatch), `_forward_with_heuristic()` (probe loop + date comparison + cleanup); +1 helper: `_normalize_date()` |
-| `handlers/dead_page_trigger.py` | **MODIFY** | +dedup logic: `OrderedDict` `_seen_media_groups`, `_cleanup_expired_media_groups()`, LRU eviction; guard before `relay.send_dead_page()` |
-| `config/settings.py` | **MODIFY** | +1 поле: `DEAD_PAGE_RELAY_CHANNEL_ID` (reuse existing, ensure it matches relay channel for `channel_post` filter) |
-| `tests/test_database.py` | **MODIFY** | +тесты для `save_relay_album_map`, `get_relay_media_group_id`, `get_relay_album_message_ids` (roundtrip, None for missing, multiple siblings) |
-| `tests/test_dead_page_relay.py` | **MODIFY** | +12 тестов: DB album path, heuristic path, date boundaries, gap tolerance, date normalization, single post no probe |
-| `tests/test_dead_page_trigger.py` | **MODIFY** | +3 теста: dedup skips, dedup allows first, dedup cleanup of expired entries |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 25 (this spec) |
-
-**Файлы НЕ тронуты:**
-- `handlers/slavik.py`, `handlers/war_alert.py`, `handlers/otboy.py`, `handlers/alan.py`, `handlers/vasya.py`, `handlers/admin_commands.py` — не затрагиваются.
-- `filters/` — без изменений.
-- `services/scheduler.py`, `services/message_counter.py`, `services/otboy_relay.py` — без изменений.
-
----
-
-### 25.11 Verification Checklist
-
-1. **Unit tests (DB):** `pytest tests/test_database.py -v -k "relay_album"` — roundtrip, None for missing, multiple siblings
-2. **Unit tests (relay — DB path):** `pytest tests/test_dead_page_relay.py -v -k "db_album"` — forwards all siblings, updates last_known_id
-3. **Unit tests (relay — heuristic):** `pytest tests/test_dead_page_relay.py -v -k "heuristic"` — forwards all, date boundary stops, gap tolerates, triple gap stops, channel start edge, tz normalization, single post no probe
-4. **Unit tests (trigger dedup):** `pytest tests/test_dead_page_trigger.py -v -k "media_group"` — dedup skips, allows first, cleanup
-5. **Regression — full suite:** `pytest tests/ -v` — все существующие тесты (~305) проходят без регрессий
-6. **Manual smoke (production):**
-   - Репостнуть альбом из @d_pages → DeadPageRelay пересылает ВЕСЬ альбом (все фото) из relay-канала
-   - Проверить визуально: альбом в чате отображается с группировкой (без отдельных сообщений)
-   - Better Stack: логи `[relay_tracker]` для новых постов в relay-канале
-   - Better Stack: логи `[dead_page] Album (DB): N msgs` для DB-пути
-   - Better Stack: логи `[dead_page] Album (heuristic): N msgs` для fallback-пути
-
----
-
-## 26. Epic 15: Common Service Refactoring
-
-> **Версия:** v2.12.0
-> **Дата:** 2026-07-28
-> **Назначение:** (1) Переименование otboy-сервиса в common; (2) Апгрейд медиа-обработки — случайный выбор из директории с авто-детекцией типа (photo/video/animation); (3) Новый фильтр опасных слов (danger detection) с заимствованием паттерна WarWordFilter.
-
----
-
-### 26.1 Overview
-
-Epic 15 делает три вещи:
-
-1. **Переименование:** `handlers/otboy.py` → `handlers/common.py`, `services/otboy_relay.py` → `services/common_relay.py`. Файл фильтра `filters/otboy_word.py` остаётся на месте (не переименовывается). Все импорты обновляются. Router позиция 4c сохраняется.
-
-2. **Медиа-апгрейд:** Вместо одного хардкод-файла `media/otboy.jpg` обработчик `otboy` теперь читает ВСЕ файлы из директории `media/common/otboy/`, определяет тип каждого (photo/video/animation) по расширению и имени, случайно выбирает один и отправляет соответствующим методом (`send_photo` / `send_video` / `send_animation`). Reply-to + quoting сохраняются.
-
-3. **Danger detection:** В тот же `common_relay` добавляется второй подсервис — danger. Новый фильтр `DangerWordFilter` ловит слова: "бпла", "ракетная", "опасность", и любые другие из конфига. При совпадении → случайный медиа-файл из `media/common/danger/`. Механизм: тот же `send_common(subdir="danger")` с тем же reply-to + quoting + cooldown.
-
-**Функциональный контракт:**
-- Два подсервиса (otboy и danger) разделяют ОБЩИЙ per-chat кулдаун.
-- Оба подсервиса используют один и тот же механизм детекции типа медиа и отправки.
-- Каждый подсервис читает из своей поддиректории (`media/common/otboy/` и `media/common/danger/`).
-- Фильтры слов — независимые: `OtboyWordFilter` и `DangerWordFilter`.
-- Propagation не блокируется (оба хендлера возвращают `None`).
-
----
-
-### 26.2 Module Structure
-
-#### Файлы — CREATE:
-
-| Файл | Назначение |
-|------|-----------|
-| `handlers/common.py` | Common router: два хендлера (`otboy_handler`, `danger_handler`) + `setup_common(relay)` DI |
-| `services/common_relay.py` | CommonRelay: shared cooldown, медиа-пикер, отправка photo/video/animation |
-| `filters/danger_word.py` | DangerWordFilter: regex-матчинг опасных слов (заимствует паттерн WarWordFilter) |
-
-#### Файлы — RENAME+DEPRECATE:
-
-| Старый файл | Новый файл | Действие |
-|-------------|-----------|----------|
-| `handlers/otboy.py` | `handlers/common.py` | Удалить старый, создать новый |
-| `services/otboy_relay.py` | `services/common_relay.py` | Удалить старый, создать новый |
-| `filters/otboy_word.py` | _(без изменений пути)_ | Оставить как есть; импортируется из `handlers/common.py` |
-
-#### Файлы — MODIFY:
-
-| Файл | Изменения |
-|------|-----------|
-| `bot.py` | Обновить импорты: `handlers.common` вместо `handlers.otboy`, `services.common_relay` вместо `services.otboy_relay`. `setup_otboy` → `setup_common`. `OtboyRelay` → `CommonRelay`. |
-| `config/settings.py` | Удалить `OTBOY_PHOTO_PATH`; переименовать `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS` (с дефолтом 0); добавить `COMMON_MEDIA_BASE` (default `"media/common"`); добавить `DANGER_WORDS` (строка, default: `"бпла,ракетная,опасность"`). |
-| `tests/test_otboy.py` | Переименовать в `tests/test_common.py`. Адаптировать импорты и тесты под новую структуру. Добавить тесты danger-хендлера, DangerWordFilter, shared cooldown, media-type detection. |
-| `.env.example` | `OTBOY_COOLDOWN_SECONDS` → `COMMON_COOLDOWN_SECONDS`. Удалить `OTBOY_PHOTO_PATH`. Добавить `COMMON_MEDIA_BASE=media/common`, `DANGER_WORDS=бпла,ракетная,опасность`. |
-
-#### Файлы НЕ тронуты:
-
-- `filters/otboy_word.py` — остаётся без изменений в расположении и логике
-- `filters/war_word.py` — не затрагивается (DangerWordFilter заимствует паттерн, но не модифицирует WarWordFilter)
-- `handlers/war_alert.py`, `handlers/slavik.py`, `handlers/vasya.py`, `handlers/alan.py`, `handlers/dead_page_trigger.py`, `handlers/admin_commands.py`, `handlers/kostik.py`, `handlers/slava_presence.py`, `handlers/alan_greeting.py` — не затрагиваются
-- `services/database.py`, `services/scheduler.py`, `services/message_counter.py`, `services/media_picker.py`, `services/dead_page_relay.py` — не затрагиваются
-
----
-
-### 26.3 Class/Function Design
-
-#### 26.3.1 `filters/danger_word.py` — DangerWordFilter
-
-```python
-import re
-import logging
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-
-def _build_danger_patterns(words: list[str]) -> list[re.Pattern]:
-    """Compile regex patterns with Cyrillic word boundaries.
-    
-    Borrows the exact same pattern as WarWordFilter._build_patterns
-    from filters/war_word.py.
-    """
-    patterns = []
-    for word in words:
-        try:
-            patterns.append(
-                re.compile(
-                    rf'(?<![а-яё]){re.escape(word)}(?![а-яё])',
-                    re.IGNORECASE,
-                )
-            )
-        except re.error:
-            logger.warning(
-                "DangerWordFilter: failed to compile pattern for word %r", word
-            )
-    return patterns
-
-
-def _parse_danger_words(raw: str) -> list[str]:
-    """Parse comma-separated danger words from config."""
-    if not raw:
-        return _DEFAULT_DANGER_WORDS
-    parts = [w.strip().lower() for w in raw.split(",") if w.strip()]
-    return parts if parts else _DEFAULT_DANGER_WORDS
-
-
-_DEFAULT_DANGER_WORDS = [
-    "бпла",
-    "ракетная",
-    "опасность",
-]
-
-
-class DangerWordFilter(BaseFilter):
-    """Matches messages containing danger-related keywords.
-    
-    Checks BOTH message.text and message.caption.
-    Returns {"matched_word": match.group()} to pass the matched word
-    to the handler for quoting.
-    
-    Pattern borrowed from WarWordFilter (filters/war_word.py):
-      - Cyrillic word boundaries: (?<![а-яё])...(?![а-яё])
-      - Case-insensitive: re.IGNORECASE
-    """
-
-    def __init__(self):
-        self._words = _parse_danger_words(settings.DANGER_WORDS)
-        self._patterns = _build_danger_patterns(self._words)
-
-    async def __call__(self, message: Message) -> dict[str, str] | bool:
-        content = message.text or message.caption
-        if not content or not isinstance(content, str):
-            return False
-
-        for p in self._patterns:
-            match = p.search(content)
-            if match:
-                matched_word = match.group()
-                logger.info(
-                    "DangerWordFilter matched | word=%r | msg_id=%s | chat_id=%s",
-                    matched_word,
-                    message.message_id,
-                    message.chat.id,
-                )
-                return {"matched_word": matched_word}
-        return False
-```
-
-**Key design decisions:**
-- Парсинг `DANGER_WORDS` из `settings` с fallback на дефолтный список (3 слова).
-- `_build_danger_patterns()` — точная копия `_build_patterns()` из `filters/war_word.py:9-21`.
-- Возвращает `{"matched_word": match.group()}` — aiogram 3.x передаёт это как kwarg в handler.
-- Проверяет `message.text or message.caption` — caption support как в OtboyWordFilter и WarWordFilter.
-
-#### 26.3.2 `services/common_relay.py` — CommonRelay
-
-```python
-import logging
-import random
-import time
-from pathlib import Path
-from aiogram import Bot
-from aiogram.types import FSInputFile, ReplyParameters
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-# Media type constants
-MEDIA_PHOTO = "photo"
-MEDIA_VIDEO = "video"
-MEDIA_ANIMATION = "animation"
-
-# Extension → media type mapping
-_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-_VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
-
-
-class CommonRelay:
-    """Sends random media files from common subdirectories.
-
-    Supports three media types, auto-detected from file extension and name:
-      - Image (photo): .jpg, .jpeg, .png, .webp, .bmp
-      - Video: .mp4, .mov, .webm WITHOUT "gif" in filename
-      - Animation (GIF): .mp4, .mov, .webm WITH "gif" in filename
-
-    Shared cooldown across all sub-services (otboy + danger).
-    Per-chat in-memory cooldown (dict[int, float]), no DB.
-    """
-
-    def __init__(self, bot: Bot, cooldown_seconds: int):
-        self._bot = bot
-        self._cooldown_seconds = cooldown_seconds
-        self._cooldowns: dict[int, float] = {}
-
-    def _detect_media_type(self, filepath: Path) -> str | None:
-        """Determine media type from file extension and filename.
-
-        Returns one of MEDIA_PHOTO, MEDIA_VIDEO, MEDIA_ANIMATION, or None.
-        """
-        ext = filepath.suffix.lower()
-        if ext in _IMAGE_EXTENSIONS:
-            return MEDIA_PHOTO
-        if ext in _VIDEO_EXTENSIONS:
-            if "gif" in filepath.stem.lower():
-                return MEDIA_ANIMATION
-            return MEDIA_VIDEO
-        return None
-
-    def _scan_directory(self, subdir: str) -> list[tuple[Path, str]]:
-        """Scan media/common/{subdir}/ for supported media files.
-
-        Returns list of (path, media_type) tuples.
-        Raises FileNotFoundError if directory is missing or empty.
-        """
-        base = Path(settings.COMMON_MEDIA_BASE) / subdir
-        if not base.exists():
-            raise FileNotFoundError(f"Directory not found: {base}")
-
-        files: list[tuple[Path, str]] = []
-        for entry in base.iterdir():
-            if not entry.is_file():
-                continue
-            media_type = self._detect_media_type(entry)
-            if media_type is not None:
-                files.append((entry, media_type))
-            else:
-                logger.debug(
-                    "CommonRelay: skipping unsupported file %s in %s",
-                    entry.name, subdir,
-                )
-
-        if not files:
-            raise FileNotFoundError(f"No supported media files in {base}")
-
-        return files
-
-    async def send_common(
-        self,
-        chat_id: int,
-        message_id: int,
-        matched_word: str,
-        subdir: str,
-    ) -> None:
-        """Send random media from media/common/{subdir}/ as a reply.
-
-        Shared cooldown across all sub-services — if any sub-service
-        recently sent in this chat, all are blocked.
-
-        Args:
-            chat_id: Target chat.
-            message_id: Message to reply to.
-            matched_word: Word to quote (original case preserved).
-            subdir: Subdirectory under media/common/ (e.g. "otboy", "danger").
-        """
-        now = time.monotonic()
-
-        # ── Shared cooldown check ──
-        if self._cooldown_seconds > 0:
-            last_sent = self._cooldowns.get(chat_id)
-            if last_sent is not None:
-                elapsed = now - last_sent
-                if elapsed < self._cooldown_seconds:
-                    logger.info(
-                        "CommonRelay: cooldown_active | chat_id=%s | subdir=%s | "
-                        "elapsed=%.1fs | remaining=%.1fs",
-                        chat_id, subdir, elapsed,
-                        self._cooldown_seconds - elapsed,
-                    )
-                    return
-
-        # ── Pick random media ──
-        try:
-            files = self._scan_directory(subdir)
-        except (FileNotFoundError, PermissionError, OSError):
-            logger.exception(
-                "CommonRelay: no media files for subdir=%s | chat_id=%s",
-                subdir, chat_id,
-            )
-            return
-
-        filepath, media_type = random.choice(files)
-        logger.info(
-            "CommonRelay: picked %s (%s) from %s | chat_id=%s",
-            filepath.name, media_type, subdir, chat_id,
-        )
-
-        # ── Send by type ──
-        try:
-            await self._send_by_type(
-                chat_id=chat_id,
-                message_id=message_id,
-                matched_word=matched_word,
-                filepath=filepath,
-                media_type=media_type,
-            )
-            self._cooldowns[chat_id] = now
-            logger.info(
-                "CommonRelay: sent | chat_id=%s | subdir=%s | "
-                "file=%s | type=%s | matched_word=%r",
-                chat_id, subdir, filepath.name, media_type, matched_word,
-            )
-        except Exception:
-            logger.exception(
-                "CommonRelay: send failed | chat_id=%s | subdir=%s | "
-                "file=%s | type=%s",
-                chat_id, subdir, filepath.name, media_type,
-            )
-
-    async def _send_by_type(
-        self,
-        chat_id: int,
-        message_id: int,
-        matched_word: str,
-        filepath: Path,
-        media_type: str,
-    ) -> None:
-        """Dispatch to the correct bot.send_* method based on media_type."""
-        reply_params = ReplyParameters(
-            message_id=message_id,
-            quote=matched_word,
-        )
-        input_file = FSInputFile(str(filepath))
-
-        if media_type == MEDIA_PHOTO:
-            await self._bot.send_photo(
-                chat_id=chat_id,
-                photo=input_file,
-                reply_parameters=reply_params,
-            )
-        elif media_type == MEDIA_VIDEO:
-            await self._bot.send_video(
-                chat_id=chat_id,
-                video=input_file,
-                reply_parameters=reply_params,
-            )
-        elif media_type == MEDIA_ANIMATION:
-            await self._bot.send_animation(
-                chat_id=chat_id,
-                animation=input_file,
-                reply_parameters=reply_params,
-            )
-        else:
-            raise ValueError(f"Unknown media_type: {media_type}")
-```
-
-**Key design decisions:**
-- Единый `send_common()` метод с параметром `subdir` вместо отдельных `send_otboy()` и `send_danger()`.
-- `_detect_media_type()` — алгоритм: расширение → image/video; для video + "gif" в имени → animation.
-- `_scan_directory()` — сканирует поддиректорию, фильтрует по поддерживаемым расширениям.
-- `_send_by_type()` — диспатч в `send_photo` / `send_video` / `send_animation`.
-- **Shared cooldown:** один `_cooldowns` dict для обоих подсервисов. Если сработал otboy в чате X, danger в чате X тоже блокируется на время кулдауна.
-- Cooldown `0` = отключён (каждый триггер отправляет медиа).
-- Все методы используют `ReplyParameters(quote=matched_word)` — сохраняется quoting как в текущем OtboyRelay.
-
-#### 26.3.3 `handlers/common.py` — Common Router
-
-```python
-"""
-Epic 15 — Common Service (was Otboy Service F9).
-
-Two-handler router on a single common_router:
-  1. otboy_handler: catches "отбой" (OtboyWordFilter) → random media from common/otboy/
-  2. danger_handler: catches danger words (DangerWordFilter) → random media from common/danger/
-
-Both share CommonRelay with a single per-chat cooldown.
-
-Router registered at position 4c between war_alert_router and slavik_router.
-"""
-import logging
-from aiogram import Router, types
-from filters.otboy_word import OtboyWordFilter
-from filters.danger_word import DangerWordFilter
-
-logger = logging.getLogger(__name__)
-
-common_router = Router(name="common")
-
-_relay: "CommonRelay | None" = None
-
-
-def setup_common(relay: "CommonRelay") -> None:
-    """Inject CommonRelay dependency. Called from bot.on_startup()."""
-    global _relay
-    _relay = relay
-    logger.info("Common Service: relay injected")
-
-
-# ═══════════════════════════════════════════════════════════════
-# Handler 1: otboy — word "отбой" → random media from common/otboy/
-# ═══════════════════════════════════════════════════════════════
-
-@common_router.message(OtboyWordFilter())
-async def otboy_handler(
-    message: types.Message,
-    matched_word: str,
-) -> None:
-    """F9: Any user writes "отбой" → random media from common/otboy/."""
-    if _relay is None:
-        logger.error(
-            "Common Service: relay not initialized — skipping otboy | "
-            "chat_id=%s | message_id=%s",
-            message.chat.id,
-            message.message_id,
-        )
-        return
-
-    try:
-        await _relay.send_common(
-            chat_id=message.chat.id,
-            message_id=message.message_id,
-            matched_word=matched_word,
-            subdir="otboy",
-        )
-    except Exception:
-        logger.exception(
-            "Common Service: otboy handler failed | chat_id=%s | message_id=%s",
-            message.chat.id,
-            message.message_id,
-        )
-
-
-# ═══════════════════════════════════════════════════════════════
-# Handler 2: danger — danger words → random media from common/danger/
-# ═══════════════════════════════════════════════════════════════
-
-@common_router.message(DangerWordFilter())
-async def danger_handler(
-    message: types.Message,
-    matched_word: str,
-) -> None:
-    """Epic 15: Danger word detected → random media from common/danger/."""
-    if _relay is None:
-        logger.error(
-            "Common Service: relay not initialized — skipping danger | "
-            "chat_id=%s | message_id=%s",
-            message.chat.id,
-            message.message_id,
-        )
-        return
-
-    try:
-        await _relay.send_common(
-            chat_id=message.chat.id,
-            message_id=message.message_id,
-            matched_word=matched_word,
-            subdir="danger",
-        )
-    except Exception:
-        logger.exception(
-            "Common Service: danger handler failed | chat_id=%s | message_id=%s",
-            message.chat.id,
-            message.message_id,
-        )
-```
-
-**Key design decisions:**
-- Два хендлера на одном роутере. Порядок регистрации декораторов: otboy_handler первый, danger_handler второй. Оба могут сработать на одно сообщение если в нём и "отбой", и danger-слова.
-- `setup_common(relay)` — единый DI для обоих хендлеров. Заменяет `setup_otboy(relay)`.
-- Оба хендлера возвращают `None` (implicit) — propagation продолжается.
-- Роутер переименован с `otboy_router` на `common_router` с name="common".
-
----
-
-### 26.4 Data Flow
-
-#### Flow A: User writes "отбой" (text)
-
-```
-Message: user_id=ANY, text="отбой", caption=None
-    ↓
-common_router (pos 4c) ════════════════════════════
-  ├── otboy_handler:
-  │   ├── OtboyWordFilter: text matches "отбой" → {"matched_word": "отбой"}
-  │   └── relay.send_common(chat_id, msg_id, "отбой", subdir="otboy")
-  │       ├── Cooldown check → OK
-  │       ├── _scan_directory("otboy") → [otboy_01.jpg, ...]
-  │       ├── random.choice → (otboy_01.jpg, MEDIA_PHOTO)
-  │       └── _send_by_type → bot.send_photo(...)
-  │
-  └── danger_handler:
-      └── DangerWordFilter: "отбой" not in danger words → SKIP
-```
-
-#### Flow B: User writes "бпла опасность" (text)
-
-```
-Message: user_id=ANY, text="бпла опасность", caption=None
-    ↓
-common_router (pos 4c) ════════════════════════════
-  ├── otboy_handler:
-  │   └── OtboyWordFilter: no "отбой" → SKIP
-  │
-  └── danger_handler:
-      ├── DangerWordFilter: "бпла" matches → {"matched_word": "бпла"}
-      └── relay.send_common(chat_id, msg_id, "бпла", subdir="danger")
-          ├── Cooldown check → OK
-          ├── _scan_directory("danger") → [danger_01.mp4 (video), danger_02_gif.mp4 (animation)]
-          ├── random.choice → (danger_02_gif.mp4, MEDIA_ANIMATION)
-          └── _send_by_type → bot.send_animation(...)
-```
-
-#### Flow C: Both "отбой" AND danger word in same message
-
-```
-Message: user_id=ANY, text="отбой ракетная опасность", caption=None
-    ↓
-common_router (pos 4c) ════════════════════════════
-  ├── otboy_handler:
-  │   ├── OtboyWordFilter: matches "отбой" → True
-  │   └── relay.send_common(..., subdir="otboy")
-  │       └── photo sent, cooldown timer started
-  │
-  └── danger_handler:
-      ├── DangerWordFilter: matches "ракетная" → True
-      └── relay.send_common(..., subdir="danger")
-          ├── Cooldown check: timer JUST started → BLOCKED
-          └── skip (cooldown active)
-```
-
-**Важно:** Оба хендлера вызываются для одного сообщения (aiogram вызывает все matching handlers на роутере), но shared cooldown предотвращает дублирование. Отправляется только первое сработавшее медиа.
-
-#### Flow D: Cooldown shared across sub-services
-
-```
-Time 0: User writes "отбой" → otboy media sent, _cooldowns[chat_A] = 1000.0
-Time 5: User writes "бпла" → cooldown check: 1005 - 1000 = 5 < 60 → BLOCKED
-Time 65: User writes "опасность" → cooldown check: 1065 - 1000 = 65 >= 60 → danger media sent
-```
-
----
-
-### 26.5 Router Integration
-
-#### `bot.py` Changes — exact modifications:
-
-**Импорты (строки 35-36):**
-
-```python
-# БЫЛО:
-from handlers.otboy import otboy_router, setup_otboy
-
-# СТАЛО:
-from handlers.common import common_router, setup_common
-```
-
-```python
-# БЫЛО (строка 23):
-from services.otboy_relay import OtboyRelay
-
-# СТАЛО:
-from services.common_relay import CommonRelay
-```
-
-**`on_startup()` — создание relay (строки 74-77):**
-
-```python
-# БЫЛО:
-otboy_relay = OtboyRelay(bot, settings.OTBOY_COOLDOWN_SECONDS)
-setup_otboy(otboy_relay)
-logger.info("Otboy Service (F9) initialized")
-
-# СТАЛО:
-common_relay = CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)
-setup_common(common_relay)
-logger.info("Common Service (Epic 15) initialized")
-```
-
-**Регистрация роутера (строки 111-112):**
-
-```python
-# БЫЛО:
-# 4c. Otboy Service (F9): detect "отбой" → otboy.jpg with quote
-dp.include_router(otboy_router)
-
-# СТАЛО:
-# 4c. Common Service (Epic 15): otboy "отбой" + danger keywords → random media with quote
-#    Registered BEFORE slavik_router to avoid catch-all interception.
-#    Receives forwarded messages from NON-war channels since v2.12.1
-#    (TargetChannelFilter in war_alert_router no longer blocks them).
-dp.include_router(common_router)
-```
-
-**Итоговый порядок регистрации (v2.12.0):**
-
-```
-0:  admin_commands_router      (Epic 10)
-1:  slava_presence_router      (F1)
-1b: alan_greeting_router      (F7)
-2:  kostik_router
-3:  alan_router                (F6)
-4:  dead_page_router           (F2)
-4b: war_alert_router           (F5v2)
-4c: common_router              (Epic 15) ← переименован с otboy_router
-5:  slavik_router              (F3, F4, catch-all)
-6:  vasya_router
-```
-
----
-
-### 26.6 Configuration
-
-#### `config/settings.py` — Changes:
-
-```python
-# УДАЛИТЬ эти поля:
-# OTBOY_COOLDOWN_SECONDS: int = _env_int("OTBOY_COOLDOWN_SECONDS", 0)
-# OTBOY_PHOTO_PATH: str = os.getenv("OTBOY_PHOTO_PATH", "media/otboy.jpg")
-
-# ДОБАВИТЬ/ИЗМЕНИТЬ:
-
-# ── Common Service (Epic 15) ──
-# Cooldown between media sends in the same chat (shared across otboy + danger).
-# 0 = no cooldown (every trigger sends media).
-COMMON_COOLDOWN_SECONDS: float = _env_float("COMMON_COOLDOWN_SECONDS", 0)
-
-# Base directory for common media (contains otboy/ and danger/ subdirs).
-COMMON_MEDIA_BASE: str = os.getenv("COMMON_MEDIA_BASE", "media/common")
-
-# Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
-# Default: бпла,ракетная,опасность
-DANGER_WORDS: str = os.getenv("DANGER_WORDS", "бпла,ракетная,опасность")
-```
-
-#### `.env.example` — Changes:
-
-```env
-# УДАЛИТЬ:
-# OTBOY_COOLDOWN_SECONDS=0
-# OTBOY_PHOTO_PATH=media/otboy.jpg
-
-# ДОБАВИТЬ:
-# Common Service (Epic 15) — otboy + danger detection
-# Shared cooldown in seconds (0 = no cooldown, every trigger sends)
-COMMON_COOLDOWN_SECONDS=0
-# Base directory for common media (subdirs: otboy/, danger/)
-COMMON_MEDIA_BASE=media/common
-# Comma-separated danger keywords (default: бпла,ракетная,опасность)
-DANGER_WORDS=бпла,ракетная,опасность
-```
-
----
-
-### 26.7 Media Type Detection Algorithm
-
-```
-Функция: _detect_media_type(filepath: Path) → str | None
-
-1. Извлечь суффикс файла (нижний регистр): ext = filepath.suffix.lower()
-2. Извлечь stem (имя без расширения, нижний регистр): stem = filepath.stem.lower()
-
-3. ЕСЛИ ext in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
-     → вернуть MEDIA_PHOTO ("photo")
-
-4. ЕСЛИ ext in {".mp4", ".mov", ".webm"}:
-     ЕСЛИ "gif" in stem:
-       → вернуть MEDIA_ANIMATION ("animation")
-     ИНАЧЕ:
-       → вернуть MEDIA_VIDEO ("video")
-
-5. Любое другое расширение:
-     → вернуть None (пропустить файл)
-```
-
-**Примеры:**
-
-| Файл | Ext | Stem содержит "gif"? | Результат |
-|------|-----|:---:|------|
-| `otboy_01.jpg` | .jpg | — | MEDIA_PHOTO |
-| `photo.PNG` | .png | — | MEDIA_PHOTO |
-| `danger_01.mp4` | .mp4 | No | MEDIA_VIDEO |
-| `danger_02_gif.mp4` | .mp4 | Yes | MEDIA_ANIMATION |
-| `funny_gif.webm` | .webm | Yes | MEDIA_ANIMATION |
-| `readme.txt` | .txt | — | None (skip) |
-
-**Важно:** Проверка на "gif" — `"gif" in stem.lower()`. Это находит "gif" в любом месте имени файла: `my_gif.mp4`, `gif_party.mp4`, `animation_gif_v2.mp4` — все интерпретируются как animation.
-
-**Naming convention for animation detection:** Файлы должны содержать `_gif` (с подчёркиванием) или быть названы точно `gif` в stem (имя без расширения). Примеры корректных имён: `otboy_gif.mp4`, `danger_gif.mp4`, `gif.mp4`.
+Итого в v2.12.1: если Слава писал «ракета» — `war_keyword_handler` в `war_alert_router` (4b) матчил первым (он идёт раньше `common_router`), отправлял свой ответ и implicit `return None` **блокировал** propagation к `common_router` (4c). `danger_handler` физически не вызывался → «0 реакции» на danger-слово (точнее: 1 реакция была — от war_alert, а от common/danger — 0, что и совпадает с описанием пользователя «бот выдаёт 0 реакции»; либо пользователь тестировал НЕ-Слава пользователя, для которого `war_alert_router` вообще не матчит ни один хэндлер, и тогда `common_router` должен был сработать — но если он ПОЛУЧАЕТ update, то работает; если Слава писал форвард danger-сообщения — `TargetChannelFilter` тоже блокировал в зависимости от канала).
 
-**False positive risk:** Подход `"gif" in stem` может ложно определить как animation файлы, случайно содержащие "gif" в имени (например, `longify_v2.mp4` сожержит "gif" как подстроку). Рекомендация: использовать соглашение `_gif` (с подчёркиванием-префиксом) для animation-файлов, чтобы минимизировать риск ложных срабатываний.
+Также отдельная причина у той же группы багов: `_DEFAULT_DANGER_WORDS` (до Epic 17) в `filters/danger_word.py` содержал всего 22 слова — не было форм «ракета», «укрытие», «бункер» и т.п. (см. board.md T-116-A: "22 → 91+ слов"). Пользователь тестировал именно то слово «danger_word» из задания — если оно не входило в старый список из 22 слов буквально — фильтр не матчил вообще, независимо от propagation.
 
----
+**Слой B — Оба слоя устранены в коммите `af93acb` (main, НЕ задеплоен):**
 
-### 26.8 Filter Design — DangerWordFilter
+- `filters/word_lists.py` создан — единый `DANGER_WORDS` (135+ словоформ, 17 семантических семейств), используется и `DangerWordFilter`, и `WarWordFilter` (устранён дубль-дрейф словарей).
+- Во все 4 хэндлера (`war_keyword_handler`, `war_channel_repost_handler`, `otboy_handler`, `danger_handler`) добавлен `return UNHANDLED` (импорт `from aiogram.dispatcher.event.bases import UNHANDLED`).
 
-#### Заимствование паттерна из WarWordFilter
+**Эмпирическая проверка, проведённая в рамках этого расследования:** я вручную смоделировал реальный aiogram `Router.propagate_event()` (не мок, настоящий `Router` из установленного `aiogram==3.29.1`) с родительским роутером, чей хэндлер возвращает `UNHANDLED`, и вложенным `sub_router`, чей хэндлер возвращает обычное значение. Результат: `sub_router`-хэндлер **корректно вызывается**, и итоговый результат — от него. Это подтверждает, что фикс из Epic 17 (`return UNHANDLED`) технически корректен и рабочий на текущей версии aiogram. **Также прогнан `pytest tests/test_common.py` — 143/143 passed**, что подтверждает: логика самого `common_router` (`DangerWordFilter`, `CommonRelay`, cooldown) работает штатно в изоляции.
 
-`DangerWordFilter` структурно идентичен `WarWordFilter` из `filters/war_word.py`:
+### 1.3 Почему “похожий механизм otboy идеально работает” — сравнение
 
-| Аспект | WarWordFilter | DangerWordFilter |
-|--------|:---:|:---:|
-| Проверка полей | `message.text or message.caption` | `message.text or message.caption` |
-| Regex паттерн | `(?<![а-яё])WORD(?![а-яё])` | `(?<![а-яё])WORD(?![а-яё])` |
-| Case-insensitive | `re.IGNORECASE` | `re.IGNORECASE` |
-| Список слов | Хардкод `WAR_WORDS` (90+ форм) | Конфиг `DANGER_WORDS` (3 дефолтных) |
-| Возврат | `bool` (True/False) | `dict \| bool` (`{"matched_word": ...}` / False) |
-| Guard `isinstance(content, str)` | Да | Да |
-| Compile error handling | `logger.warning` | `logger.warning` |
-| Логирование match | `logger.info` | `logger.info` |
+Хэндлер `otboy_handler` и `danger_handler` находятся в ОДНОМ файле (`handlers/common.py`) и на ОДНОМ роутере (`common_router`, позиция 4c). Ключевое отличие — **порядок фильтров-конкурентов**:
 
-**Отличие от WarWordFilter:** DangerWordFilter возвращает `{"matched_word": match.group()}`, как OtboyWordFilter, чтобы передать слово в handler для quoting. WarWordFilter возвращает просто `bool`.
+- Слово "отбой" **также входит** в общий `DANGER_WORDS` (последняя запись в списке: `'отбой', 'отбоя', 'отбою', 'отбоем', 'отбое'`) и в старый `WAR_WORDS`. Значит для Славы фраза «отбой» матчит ОБА хэндлера (`war_keyword_handler` в 4b и `otboy_handler`/`danger_handler` в 4c) — но т.к. `otboy_handler` физически идёт ПОСЛЕ `war_alert_router` в порядке роутеров, тот же самый propagation-баг должен был мешать и otboy... **НО** пользователь говорит, что otboy работает "идеально". Это указывает на то, что пользователь тестировал otboy **не от имени Славы** (или не через форвард из war-канала) — то есть тестировал НЕ-Slavik юзера, для которого `war_alert_router` handler 1 (UserIdFilter(SLAVIK)) вообще не матчит → `war_alert_router.trigger()` возвращает `UNHANDLED` естественным образом (никакой хэндлер не совпал → `TelegramEventObserver.trigger()` возвращает `UNHANDLED` по умолчанию, см. `event/telegram.py` — `return UNHANDLED` в конце цикла, если ни один handler не откликнулся) → `common_router` получает событие штатно.
 
-#### Список слов (дефолт + конфиг):
+  Вывод: для НЕ-Slavik пользователей `common_router` УЖЕ работает верно и без Epic 17 фикса (потому что `war_alert_router` просто не матчит ничего и естественно пропускает). Для Славы — блокировка была активна до Epic 17. Пользователь в задаче пишет "отбой работает идеально" (вероятно тестировал сам, не от имени Славы) и "danger_word даёт 0 реакции и в ЛС, и в группах" — в ЛС (private chat) `forward_origin`/`UserIdFilter(SLAVIK)` не имеет значения, там ЛЮБОЙ юзер — не Слава (если это не сам Слава пишущий боту в ЛС) — то в ЛС `war_alert_router` тоже не должен блокировать. Значит вероятная причина именно "0 в ЛС" — это **не propagation**, а: (а) старый словарь 22 слов не содержал протестированное слово, ИЛИ (b) баг связан с медиа-файлами (см. §1.5), либо (c) фикс просто не задеплоен и пользователь гонял валидацию на старом коде, где также был баг в `_scan_directory`/media picking, из-за которого хэндлер "падает молча" (см. §1.4).
 
-```python
-# Дефолт (если DANGER_WORDS пуст или не задан):
-_DEFAULT_DANGER_WORDS = ["бпла", "ракетная", "опасность"]
+### 1.4 Критическая деталь — обработка GIF-видео и молчаливые падения
 
-# Конфиг: DANGER_WORDS=слово1,слово2,слово3
-# Парсится через _parse_danger_words() → list[str]
-```
-
-**Добавление новых слов (без изменений кода):**
-1. Добавить слово в `DANGER_WORDS` в `.env` через запятую
-2. Перезапустить бота
-3. Фильтр перекомпилирует паттерны при следующем импорте модуля
-
----
-
-### 26.9 Shared Cooldown
-
-#### Механизм
-
-```
-CommonRelay._cooldowns: dict[int, float]
-    key   = chat_id
-    value = time.monotonic() последней отправки ЛЮБОГО медиа (otboy или danger)
-```
-
-**Поведение:**
-- Если `COMMON_COOLDOWN_SECONDS == 0` → кулдаун отключён, каждое слово вызывает отправку.
-- Если `COMMON_COOLDOWN_SECONDS > 0` → после отправки медиа в чате X, любые последующие триггеры (otboy И danger) в чате X блокируются на `COMMON_COOLDOWN_SECONDS` секунд.
-- Кулдаун per-chat: чат A и чат B независимы.
-- In-memory: сбрасывается при restart бота (приемлемо для anti-spam кулдауна).
-
-**Обоснование shared cooldown:** Если пользователь пишет "отбой бпла ракетная опасность", без общего кулдауна отправилось бы 4 медиа-файла подряд. Shared cooldown предотвращает спам — только первое сработавшее слово получает медиа.
-
-#### Порядок хендлеров и priority
-
-Внутри `common_router` хендлеры `otboy_handler` и `danger_handler` зарегистрированы в порядке декораторов. aiogram 3.x вызывает все matching handlers в порядке регистрации. Поскольку оба могут сработать на одно сообщение:
-
-1. `otboy_handler` вызывается первым → проверка кулдауна → отправка → установка таймера.
-2. `danger_handler` вызывается вторым → проверка кулдауна → таймер уже активен → блокировка.
-
-Первым всегда обрабатывается otboy (если слово есть в сообщении). Это некритично, т.к. shared cooldown делает порядок несущественным — в любом случае отправляется только одно медиа.
-
----
-
-### 26.10 Error Handling
-
-| # | Сценарий | Поведение |
-|---|----------|-----------|
-| 1 | Директория `media/common/otboy/` не существует | `_scan_directory` бросает `FileNotFoundError` → caught в `send_common`, logged как ERROR, return |
-| 1a | Директория существует, но нет прав на чтение (PermissionError) | caught в `send_common`, logged ERROR, return |
-| 1b | Директория не существует (забыли миграцию) | caught в `send_common`, logged ERROR, return |
-| 2 | Директория существует, но пуста (нет медиа-файлов) | `_scan_directory` бросает `FileNotFoundError("No supported media files")` → caught, logged, return |
-| 3 | В директории есть файлы, но все неподдерживаемого типа (readme.txt) | Все файлы отфильтрованы `_detect_media_type` → пустой список → `FileNotFoundError` → caught |
-| 4 | `bot.send_photo/video/animation` падает (API error, file too large) | `try/except` в `send_common` → `logger.exception`, return. Бот не крашится. |
-| 5 | `_relay is None` в handler (не вызван `setup_common`) | Handler возвращается без вызова relay, logged ERROR |
-| 6 | Сообщение без text и caption (стикер, голосовое) | Фильтр возвращает False → handler не вызывается |
-| 7 | Оба фильтра сработали на одно сообщение | Оба handler вызываются, shared cooldown блокирует второй |
-| 8 | Кулдаун истёк между вызовами хендлеров (гонка) | Окна нет: aiogram обрабатывает handlers синхронно в event loop. Первый handler устанавливает `_cooldowns[chat_id] = now` ДО того как второй начинает проверку. |
-
----
-
-### 26.11 Backward Compatibility
-
-#### Что ломается (BREAKING):
-1. **`OTBOY_COOLDOWN_SECONDS`** → переименовано в `COMMON_COOLDOWN_SECONDS`. При деплое нужно обновить `.env`.
-2. **`OTBOY_PHOTO_PATH`** → удалено. Больше не используется (заменено auto-discovery из директории).
-3. **Импорты в `bot.py`** — обновляются.
-4. **Имя роутера** — `otboy_router` → `common_router` (внешне не влияет, только внутреннее имя).
-
-#### Что НЕ ломается:
-1. **Поведение otboy_handler** — функция сохраняет имя `otboy_handler`. Слово "отбой" всё так же ловится `OtboyWordFilter`. Медиа отправляется с quoting через `ReplyParameters`.
-2. **Позиция роутера 4c** — сохраняется.
-3. **Propagation** — оба хендлера возвращают `None` (не блокируют).
-4. **Overlap с war_alert** — "отбой" в WAR_WORDS, оба хендлера срабатывают для Славы (by design, не изменилось).
-5. **Тесты** — `tests/test_otboy.py` переименован в `tests/test_common.py`; логика тестов адаптирована, но покрытие сохранено.
-
-#### Миграция `.env` (ручная при деплое):
-```bash
-# Удалить:
-OTBOY_COOLDOWN_SECONDS=0
-OTBOY_PHOTO_PATH=media/otboy.jpg
-
-# Добавить:
-COMMON_COOLDOWN_SECONDS=0
-COMMON_MEDIA_BASE=media/common
-DANGER_WORDS=бпла,ракетная,опасность
-```
-
----
-
-### 26.12 Test Plan
-
-#### A. DangerWordFilter Tests (`tests/test_common.py`)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_danger_bpla_matches` | text="бпла" | `{"matched_word": "бпла"}` |
-| 2 | `test_danger_raketnaya_matches` | text="ракетная опасность" | `{"matched_word": "ракетная"}` |
-| 3 | `test_danger_opasnost_matches` | text="опасность" | `{"matched_word": "опасность"}` |
-| 4 | `test_danger_case_insensitive` | "БПЛА", "Бпла" | Оба возвращают dict |
-| 5 | `test_danger_in_sentence` | "внимание бпла в небе" | `{"matched_word": "бпла"}` |
-| 6 | `test_danger_word_boundary` | "бплашник" (нет в словаре) | Возвращает False |
-| 7 | `test_danger_caption_matches` | caption="бпла", text=None | `{"matched_word": "бпла"}` |
-| 8 | `test_danger_both_none` | text=None, caption=None | Возвращает False |
-| 9 | `test_danger_custom_words` | `DANGER_WORDS="атака,угроза"` | Matches "атака", "угроза" |
-| 10 | `test_danger_empty_config_uses_defaults` | `DANGER_WORDS=""` | Defaults still work |
-
-#### B. CommonRelay Tests (`tests/test_common.py`)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_pick_random_from_otboy_dir` | `_scan_directory("otboy")` | Возвращает непустой список |
-| 2 | `test_pick_random_from_danger_dir` | `_scan_directory("danger")` | Возвращает список с разными типами |
-| 3 | `test_detect_photo_type` | .jpg, .jpeg, .png, .webp, .bmp | Все → MEDIA_PHOTO |
-| 4 | `test_detect_video_type` | .mp4, .mov, .webm без "gif" | Все → MEDIA_VIDEO |
-| 5 | `test_detect_animation_type` | .mp4 с "gif" в имени | → MEDIA_ANIMATION |
-| 6 | `test_detect_animation_webm_gif` | .webm с "gif" в имени | → MEDIA_ANIMATION |
-| 7 | `test_unsupported_extension_skipped` | .txt, .pdf, .exe | → None |
-| 8 | `test_empty_directory_raises` | Пустая/несуществующая директория | `FileNotFoundError` |
-| 9 | `test_send_photo_called_for_image` | `send_common(..., subdir="otboy")` с jpg | `bot.send_photo` вызван |
-| 10 | `test_send_video_called_for_video` | danger_01.mp4 (no "gif" in name) | `bot.send_video` вызван |
-| 11 | `test_send_animation_called_for_gif` | danger_02_gif.mp4 | `bot.send_animation` вызван |
-| 12 | `test_reply_parameters_passed` | Любой `send_common` вызов | `ReplyParameters(quote=matched_word, message_id=...)` |
-| 13 | `test_shared_cooldown_blocks_second` | otboy → danger в том же чате | Второй send_common не вызывает bot.send_* |
-| 14 | `test_cooldown_expired_allows` | cooldown=1s, sleep 1.1s | Второй вызов отправляет |
-| 15 | `test_cooldown_per_chat_isolation` | chat_A → otboy, chat_B → danger | Оба отправляются |
-| 16 | `test_cooldown_zero_always_sends` | cooldown=0 | Каждый вызов отправляет |
-
-#### C. Handler Tests (`tests/test_common.py`)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_otboy_handler_calls_relay` | "отбой" → otboy_handler | `relay.send_common(..., subdir="otboy")` |
-| 2 | `test_danger_handler_calls_relay` | "бпла" → danger_handler | `relay.send_common(..., subdir="danger")` |
-| 3 | `test_both_handlers_fire_same_message` | "отбой бпла" | Оба handler вызываются (shared cooldown блокирует второй send) |
-| 4 | `test_relay_none_guard` | `_relay is None` | Handler returns без вызова relay |
-| 5 | `test_handler_returns_none` | Любой handler | Returns None (не блокирует propagation) |
-| 6 | `test_setup_common_injects_relay` | `setup_common(mock_relay)` | `_relay` установлен |
-
-#### D. Migration Tests (`tests/test_common.py`)
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_otboy_word_filter_still_works` | `OtvboyWordFilter` из `filters/otboy_word.py` | Все существующие тесты OtboyWordFilter проходят |
-| 2 | `test_cooldown_config_migrated` | `settings.COMMON_COOLDOWN_SECONDS` | Существует, default=0 |
-| 3 | `test_otboy_photo_path_removed` | `hasattr(settings, "OTBOY_PHOTO_PATH")` | False |
-
----
-
-### 26.13 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `handlers/common.py` | **CREATE** | Новый common router с otboy_handler + danger_handler + setup_common |
-| `handlers/otboy.py` | **DELETE** | Логика перенесена в common.py |
-| `services/common_relay.py` | **CREATE** | CommonRelay: shared cooldown, _scan_directory, _detect_media_type, _send_by_type |
-| `services/otboy_relay.py` | **DELETE** | Логика перенесена в common_relay.py |
-| `filters/otboy_word.py` | **KEEP** | Без изменений — импортируется из handlers/common.py |
-| `filters/danger_word.py` | **CREATE** | DangerWordFilter: заимствует паттерн WarWordFilter |
-| `config/settings.py` | **MODIFY** | Удалить OTBOY_*, добавить COMMON_* + DANGER_WORDS |
-| `bot.py` | **MODIFY** | Обновить импорты (common вместо otboy), CommonRelay вместо OtboyRelay |
-| `.env.example` | **MODIFY** | Миграция: COMMON_COOLDOWN_SECONDS, COMMON_MEDIA_BASE, DANGER_WORDS |
-| `tests/test_common.py` | **CREATE** | ~35 тестов: DangerWordFilter, CommonRelay media types, handlers, shared cooldown, migration |
-| `tests/test_otboy.py` | **DELETE** | Переименован в test_common.py, тесты адаптированы |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 26 (этот документ) |
-
----
-
-### 26.14 Key Architectural Decisions
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D57 | Единый `send_common(subdir)` вместо отдельных `send_otboy` / `send_danger` | Устраняет дублирование логики: cooldown, сканирование директории, детекция типа, отправка — всё общее. Subdir как параметр делает relay расширяемым: добавить третий подсервис = одна строка в handler + директория на диске. |
-| D58 | Shared cooldown для otboy и danger | Предотвращает спам когда в одном сообщении несколько триггеров. Единый `_cooldowns` dict в CommonRelay блокирует оба подсервиса одновременно. |
-| D59 | `_detect_media_type()` по расширению + "gif" в имени | Простой, детерминированный алгоритм без анализа содержимого. "gif" в stem — соглашение об именовании файлов. Расширение .mp4 — стандарт Telegram для animation (GIF). |
-| D60 | `filters/otboy_word.py` не переименовывается | Минимизация изменений. Только handler и service переименовываются. Фильтр — независимый компонент, импортируется по тому же пути. |
-| D61 | `filters/danger_word.py` заимствует `_build_patterns` из WarWordFilter | Доказанный паттерн с Cyrillic word boundaries. Нет смысла изобретать новый. |
-| D62 | `DangerWordFilter` возвращает `dict` (как OtboyWordFilter), а не `bool` (как WarWordFilter) | Нужно передать `matched_word` в handler для quoting. WarWordFilter не требует quoting (reply текстом), поэтому возвращает bool. |
-| D63 | `COMMON_MEDIA_BASE` как configurable base path | Позволяет переместить директорию с медиа без изменения кода. По умолчанию `media/common`. |
-| D64 | `DANGER_WORDS` как comma-separated env var с дефолтами | Следует паттерну `WAR_REPLIES` из war_alert. Расширяемость без изменения кода. |
-| D65 | Два хендлера на одном роутере (не два роутера) | Shared relay, shared cooldown. Один DI через `setup_common(relay)`. Два роутера создали бы ненужную сложность: два `setup_*`, два `_relay`, два cooldown-словаря или shared state между роутерами. |
-| D66 | `_cooldowns` использует `time.monotonic()` (не `time.time()`) | Monotonic не подвержен скачкам системных часов (NTP, DST). Используется в оригинальном `OtboyRelay`. |
-
----
-
-### 26.15 Verification Checklist
-
-1. **Unit tests (DangerWordFilter):** `pytest tests/test_common.py -v -k "danger_word"` — 10 тестов
-2. **Unit tests (CommonRelay media types):** `pytest tests/test_common.py -v -k "detect_media or scan_dir or send_by_type or relay"` — 16 тестов
-3. **Unit tests (handlers):** `pytest tests/test_common.py -v -k "handler"` — 6 тестов
-4. **Migration tests:** `pytest tests/test_common.py -v -k "migration or cooldown_config or otboy_word_filter_still_works"` — 3 теста
-5. **Regression — full suite:** `pytest tests/ -v` — все существующие тесты (~305+) проходят
-6. **Manual smoke (production):**
-   - Любой пользователь пишет "отбой" → случайное медиа из `media/common/otboy/` с quote на "отбой"
-   - Любой пользователь пишет "бпла" → случайное медиа из `media/common/danger/` с quote на "бпла"
-   - Danger_02_gif.mp4 отправляется как animation (GIF)
-   - Danger_01.mp4 отправляется как video
-   - "отбой бпла" в одном сообщении → только ОДНО медиа (shared cooldown)
-   - Слава пишет "отбой" → war_alert reply + common otboy медиа (два сообщения, overlap by design)
-   - Better Stack: логи с "CommonRelay" и "Common Service" видны в дашборде
-   - `.env` мигрирован: `OTBOY_*` удалены, `COMMON_*` + `DANGER_WORDS` добавлены
-
----
-
-### 26.16 Migration Notes for .env
-
-При деплое Epic 15 необходимо вручную обновить `.env`:
-
-```bash
-# ── Удалить эти строки ──
-OTBOY_COOLDOWN_SECONDS=0
-OTBOY_PHOTO_PATH=media/otboy.jpg
-
-# ── Добавить эти строки ──
-# Common Service (Epic 15)
-COMMON_COOLDOWN_SECONDS=0
-COMMON_MEDIA_BASE=media/common
-DANGER_WORDS=бпла,ракетная,опасность
-```
-
-Без этой миграции бот запустится, но `settings.COMMON_COOLDOWN_SECONDS` будет использовать дефолт 0, а старые `OTBOY_*` переменные будут игнорироваться (поля удалены из dataclass).
-
-### Filesystem Migration (BEFORE DEPLOY)
-
-Эти директории должны существовать ДО деплоя:
-
-```bash
-# Linux/macOS
-mkdir -p media/common/otboy
-mkdir -p media/common/danger
-
-# Если старый otboy.jpg существует, скопировать (опционально):
-cp media/otboy.jpg media/common/otboy/otboy.jpg
-
-# После успешного деплоя старый media/otboy.jpg можно безопасно удалить.
-```
-
-```powershell
-# Windows (PowerShell)
-New-Item -ItemType Directory -Force -Path media\common\otboy
-New-Item -ItemType Directory -Force -Path media\common\danger
-
-# Если старый otboy.jpg существует, скопировать (опционально):
-Copy-Item media\otboy.jpg media\common\otboy\otboy.jpg
-
-# После успешного деплоя старый media\otboy.jpg можно безопасно удалить.
-```
-
-Без этой миграции `_scan_directory` бросит `FileNotFoundError` → медиа не отправляется, но бот не падает.
-
----
-
-## 27. Implementation Notes — Epic 15: Common Service Refactoring
-
-### 27.1 Deviations from Plan
-
-| # | Planned (ARCHITECTURE §26) | Actual Implementation | Reason |
-|---|---------------------------|----------------------|--------|
-| D57 | `settings.py` uses `_env_int_tuple()` for `DANGER_WORDS` | Uses raw `str` (comma-separated), parsed by `_parse_danger_words()` in `filters/danger_word.py` | Simpler config interface; comma-separated string in `.env` is more user-friendly than tuple literal. Filter handles parsing. |
-| D58 | `DANGER_WORDS` default in settings.py | Default is empty string `""`; fallback to `_DEFAULT_DANGER_WORDS` list happens in filter | Clean separation: settings is pure env loading; default values live in the domain module that uses them. |
-| D59 | `OTBOY_COOLDOWN_SECONDS` type `float` in old settings | `COMMON_COOLDOWN_SECONDS` is `float` via `_env_float()`, default `0` | Same type, renamed. Float allows sub-second cooldown for testing. |
-| D60 | `OTBOY_PHOTO_PATH` single file path | Replaced by `COMMON_MEDIA_BASE` directory-based approach | Enables multiple sub-services (otboy/, danger/) without per-service path configs. |
-
-### 27.2 Key Implementation Decisions
-
-| ID | Decision | Rationale |
-|----|----------|-----------|
-| D61 | Single `common_router` with two handlers (not two routers) | Both sub-services share the same `CommonRelay` instance with shared cooldown. A single router at position 4c is simpler than adding 4c + 4d. |
-| D62 | `DangerWordFilter` borrows `_build_patterns` from `WarWordFilter` | Same regex pattern logic: Cyrillic word boundaries, case-insensitive. DRY — but NOT shared code (duplicated by design) to avoid coupling between the two filter modules. If `war_word.py` changes its pattern format, `danger_word.py` stays stable. |
-| D63 | Animation detection: "gif" in filename stem (not extension) | Telegram distinguishes video vs animation (GIF) by content. Since we can't inspect file content at config time, filename convention (e.g. `danger_02_gif.mp4`) is a pragmatic heuristic. |
-| D64 | `CommonRelay._cooldowns` uses `time.monotonic()` (not `time.time()`) | Monotonic clock is immune to system clock adjustments. The old `OtboyRelay` used `time.time()` — fixed in migration. |
-| D65 | `filters/otboy_word.py` preserved unchanged | The filter's logic (single word "отбой") didn't need changes. Only the handler and service were refactored. |
-| D66 | 81 tests in `test_common.py` cover: OtboyWordFilter (9), DangerWordFilter (14), pattern builder (5), media detection (16), directory scan (6), send logic (6), cooldown (6), handlers (8), integration (5), migration (5) | Comprehensive coverage ensures the refactoring didn't introduce regressions. All 25 old otboy tests were replaced + 56 net-new tests. |
-
-### 27.3 Files Changed Summary
-
-| Action | File | Lines |
-|--------|------|-------|
-| **Created** | `handlers/common.py` | 95 lines |
-| **Created** | `services/common_relay.py` | 234 lines |
-| **Created** | `filters/danger_word.py` | 117 lines |
-| **Created** | `tests/test_common.py` | 777 lines |
-| **Deleted** | `handlers/otboy.py` | — |
-| **Deleted** | `services/otboy_relay.py` | — |
-| **Modified** | `bot.py` | `common_router` import + `setup_common()`, `CommonRelay` init |
-| **Modified** | `config/settings.py` | Removed `OTBOY_*`, added `COMMON_COOLDOWN_SECONDS`, `COMMON_MEDIA_BASE`, `DANGER_WORDS` |
-| **Modified** | `.env.example` | Updated Common Service section |
-| **Preserved** | `filters/otboy_word.py` | Unchanged from Epic 13 |
-
-### 27.4 Media Directory Structure (post-migration)
-
-```
-media/common/
-├── otboy/
-│   └── otboy_01.jpg          # Photo (send_photo)
-└── danger/
-    ├── danger_01.mp4          # Video (send_video)
-    └── danger_02_gif.mp4      # Animation/GIF (send_animation — "gif" in filename)
-```
-
-### 27.5 Migration from v2.11.0 to v2.12.0
-
-**Manual steps required on server:**
-
-1. **Create media directories:**
-   ```bash
-   mkdir -p media/common/otboy media/common/danger
-   ```
-
-2. **Migrate old otboy.jpg (optional):**
-   ```bash
-   cp media/otboy.jpg media/common/otboy/otboy.jpg
-   rm media/otboy.jpg  # safe to delete after deploy
-   ```
-
-3. **Update `.env`:**
-   ```bash
-   # Remove:
-   OTBOY_COOLDOWN_SECONDS=0
-   OTBOY_PHOTO_PATH=media/otboy.jpg
-   
-   # Add:
-   COMMON_COOLDOWN_SECONDS=0
-   COMMON_MEDIA_BASE=media/common
-   DANGER_WORDS=бпла,ракетная,опасность
-   ```
-
-4. **Test count before deploy:** 316 → after Epic 15: 372 (`py -m pytest tests/ -q`)
-
----
-
-## 28. v2.12.1 Bug Fixes (Epic 16)
-
-> **Версия:** v2.12.1
-> **Дата:** 2026-07-29
-> **Назначение:** Исправление трёх багов: (1) DeadPageRelay разрушает группировку альбомов при heuristic-пересылке (RC1); (2) DangerWordFilter не содержит 91+ словоформ из WarWordFilter (T-109); (3) Forwarded-сообщения из НЕ-военных каналов не доходят до common_router/danger_handler (T-114, CRITICAL).
-
----
-
-### 28.1 Bug 1: DeadPageRelay — разрушение группировки альбомов (heuristic path)
-
-#### 28.1.1 Текущее состояние
-
-Файл: `services/dead_page_relay.py`
-
-Метод `_forward_with_album_detection()` (строка 233) имеет два пути:
-
-```
-Path 1 (DB):  media_group_id найден в relay_album_map
-              → get_relay_album_message_ids()
-              → bot.forward_messages(all_ids)  ← plural, группа сохраняется ✅
-
-Path 2 (Heuristic): media_group_id НЕ найден
-              → _forward_with_heuristic()
-              → bot.forward_message() для primary      ← singular ❌
-              → probe forward: bot.forward_message() x9 ← singular ❌
-              → probe backward: bot.forward_message() x9 ← singular ❌
-              Каждое сообщение пересылается ОТДЕЛЬНО — альбом разрушен
-```
-
-Path 1 (DB) работает корректно: использует `forward_messages()` (множественное число), что сохраняет визуальную группировку альбома в целевом чате.
-
-Path 2 (heuristic) — **багнутый**: каждое фото альбома пересылается индивидуальным вызовом `forward_message()` (единственное число), что разрушает медиа-группу. В целевом чате альбом отображается как набор разрозненных сообщений.
-
-#### 28.1.2 Анализ корневых причин (Root Cause Analysis)
-
-Файл: `services/dead_page_relay.py`, строки 273–362.
-
-**RC1 — Individual `forward_message()` разрушает альбом:**
-Каждый sibling форвардится отдельным вызовом `forward_message()` (singular), а не одним `forward_messages()` (plural). К моменту когда все sibling'и собраны в `all_ids`, они уже отправлены в чат как разрозненные сообщения. В отличие от Path 1 (DB), где `forward_messages(all_ids)` сохраняет группировку.
-
-**RC2 — Date-proximity ±2 сек не различает «тот же альбом» и «соседний пост»:**
-Эвристика date-proximity (±2 сек, `_ALBUM_DATE_TOLERANCE_S`) может склеивать соседние независимые посты, если админ опубликовал их с интервалом <2 секунд. Gap tolerance (до 2 пропусков) частично защищает: если между постами есть удалённое сообщение, probe остановится.
-
-**RC3 — Heuristic Path всегда срабатывает для старых постов:**
-Старые посты (до деплоя Epic 14) не имеют записей в `relay_album_map` (DB-трекер добавлен только в Epic 14 и индексирует только новые посты). Любой старый пост проходит через Path 2 (heuristic), даже если он не является альбомом — для одиночных постов это overhead из ~20 API вызовов.
-
-Текущий алгоритм `_forward_with_heuristic()`:
-
-1. **Шаг 1:** `bot.forward_message(primary)` → сообщение УЖЕ в целевом чате как individual
-2. **Шаг 2–3:** Пробинг соседних `message_id` через `bot.forward_message(candidate, disable_notification=True)`:
-   - При совпадении даты (±2 сек) — sibling остаётся в чате как individual
-   - При несовпадении — удаляется через `_safe_delete()`
-   - При "not found" — пропускается (gap tolerance до 2)
-
-Фундаментальная проблема (RC1): каждое сообщение пересылается **до** того, как становится известно, является ли оно частью альбома.
-
-#### 28.1.3 Архитектурное решение
-
-**Стратегия: Collect-then-Group (двухфазная пересылка)**
-
-Модифицировать `_forward_with_heuristic()` на двухфазный подход:
-
-```
-Фаза 1 (Probe & Collect):
-  1. forward_message(primary) → сохранить sent_primary.message_id (в целевом чате)
-  2. Пробинг forward/backward как сейчас → собирать:
-     - all_ids: список message_id в relay-канале (для итоговой группы)
-     - sent_ids: список message_id в целевом чате (для последующего удаления)
-  3. При несовпадении даты → _safe_delete() + break (как сейчас)
-
-Фаза 2 (Delete & Re-send as Group):
-  ЕСЛИ len(all_ids) > 1 (обнаружен альбом):
-    a. Удалить все sent_ids из целевого чата через delete_message()
-    b. Переслать группу: bot.forward_messages(
-         chat_id=chat_id,
-         from_chat_id=self.relay_channel_id,
-         message_ids=sorted(all_ids),  ← plural — сохраняет группировку
-         disable_notification=False,
-       )
-  ИНАЧЕ (одиночное сообщение):
-    Оставить primary как есть — уже отправлен в Фазе 1
-```
-
-**Конкретные изменения в `services/dead_page_relay.py`:**
-
-1. **Модифицировать `_forward_with_heuristic()`** (строки 273–362):
-   - Добавить список `sent_ids: list[int]` — отслеживает `message.message_id` в целевом чате для каждого успешного forward
-   - После primary forward: `sent_ids.append(sent_primary.message_id)`
-   - Для каждого sibling forward: `sent_ids.append(sibling.message_id)`; при non‑match `_safe_delete(sibling.message_id)` — НЕ добавлять в `sent_ids`
-   - После завершения пробинга: если `len(all_ids) > 1`:
-     - `for mid in sent_ids: await _safe_delete(chat_id, mid)`
-     - `await self.bot.forward_messages(chat_id=chat_id, from_chat_id=self.relay_channel_id, message_ids=sorted(all_ids))`
-     - Обновить лог: `"Album (heuristic): N messages, IDs=..."` (уже есть на строке 357–360)
-   - `_safe_delete()` уже существует (строка 223) — переиспользовать
-
-2. **Побочный эффект — «мигание» сообщений:**
-   - При альбоме сообщения появляются в чате на ~200–500 мс как individual, затем удаляются и переотправляются группой
-   - Sibling'и отправлены с `disable_notification=True` — пользователи не получают уведомлений о них
-   - Primary отправлен с `disable_notification=False` — одно уведомление, затем сообщение удаляется и заменяется группой (пользователь видит уведомление об альбоме после замены)
-   - **Acceptable tradeoff:** срабатывает только для старых постов без DB-записей; новые посты идут через Path 1 (DB) без мигания
-
-3. **Caption в альбоме:**
-   - `forward_messages()` Telegram обрабатывает caption первого сообщения в группе как общий caption альбома
-   - Остальные caption'ы в sibling-сообщениях игнорируются — стандартное поведение Telegram для альбомов
-   - Специальной обработки не требуется
-
-**Почему НЕ отдельный метод `_forward_album_group()`:**
-- Текущий `_forward_with_heuristic()` уже содержит всю логику обнаружения альбома (пробинг, date comparison, gap tolerance)
-- Добавление отдельного метода дублировало бы эту логику
-- Модификация существующего метода с добавлением Фазы 2 — минимальное изменение, сохраняющее всю существующую логику нетронутой
-
-**Эвристика date-proximity — известное ограничение:**
-- ±2 сек tolerance может склеить два разных поста, если админ опубликовал их с интервалом <2 сек и без удалённых сообщений между ними
-- Gap tolerance (до 2 пропусков) частично защищает: если между постами есть удалённое сообщение, probe остановится
-- **Не исправляется в v2.12.1** — требует DB-индексации старых постов (backfill `relay_album_map` для всей истории канала). Может быть добавлено в будущем эпике
-- На практике такой сценарий крайне маловероятен (постить одиночное фото и через <2 сек альбом — нетипичное поведение)
-
-#### 28.1.4 `.env` channel ID — не баг
-
-`.env` содержит `DEAD_PAGE_RELAY_CHANNEL_ID=-1004228645624` — отрицательный ID с префиксом `-100`. Это **корректный** формат Telegram supergroup/channel ID. Значение по умолчанию в `config/settings.py` (`4228645624`) — это «сырой» ID без префикса; `.env` переопределяет его. Telegram Bot API принимает оба формата, но `-100...` — канонический.
-
-DB-ключ `last_known_message_id` в `channel_state` не зависит от channel_id (использует fallback-ключ `"last_known_message_id"` при `channel_id=0`). **Исправлений не требуется.**
-
-#### 28.1.5 Верификация Bug 1
-
-1. **Unit-тест `test_heuristic_album_forwards_as_group`** (новый в `tests/test_dead_page_relay.py`):
-   - Mock: 3 сообщения с одинаковой датой в relay-канале, media_group_id отсутствует в БД
-   - Ожидание: `bot.forward_messages()` вызван с `message_ids=[id1, id2, id3]`; индивидуальные forward'ы удалены из чата
-
-2. **Unit-тест `test_heuristic_single_post_no_regroup`** (новый):
-   - Mock: только primary сообщение, соседние не найдены
-   - Ожидание: `forward_messages()` НЕ вызван; primary остаётся в чате (не удаляется)
-
-3. **Регрессионный прогон:** `pytest tests/test_dead_page_relay.py -v` — все существующие тесты проходят
-
----
-
-### 28.2 Bug 2: DangerWordFilter — отсутствуют 91+ словоформ из WarWordFilter (T-109)
-
-#### 28.2.1 Текущее состояние
-
-Файл: `filters/danger_word.py`, строка 18–41.
-
-`_DEFAULT_DANGER_WORDS`: 22 слова против 135+ в `filters/war_word.py::WAR_WORDS`. Нет «ракета», «укрытие», «бункер», «взрыв», «сбит», «эвакуация», «упал» и многих других критичных существительных/глаголов. Только прилагательные «ракетная», «баллистическая», «крылатая» — сообщение «летит ракета» не детектируется.
-
-#### 28.2.2 Архитектурное решение: полный список WAR_WORDS
-
-Взять ВСЕ слова из `filters/war_word.py::WAR_WORDS` (135+ словоформ), сгруппированных по семействам, с сохранением word-boundary безопасности.
+Задание явно указывает: *"если в названии видеофайла есть слово gif, он должен отправляться именно как GIF... Возможно, механизм сломан на этапе типизации и отправки FSInputFile, из-за чего хэндлер падает молча."*
 
-**Regex-безопасность:** Все словоформы проходят `(?<![а-яё])...(?![а-яё])` — Cyrillic word boundary гарантирует:
-- `«ракет»` НЕ матчит внутри `«ракетная»` (после «т» идёт «н» = Cyrillic → blocked lookahead)
-- `«сбит»` НЕ матчит внутри `«сбитый»` (аналогично)
-- `«упал»` НЕ матчит внутри `«упала»` — но матчит отдельно `«упал»` и `«упала»` (оба в списке)
-
-**Полный `_DEFAULT_DANGER_WORDS` (135+ словоформ):**
-
-```python
-_DEFAULT_DANGER_WORDS: list[str] = [
-    # ── БПЛА / дроны (21 форма) ──
-    "бпла",
-    "дрон", "дроны", "дронов", "дрону", "дроном", "дроне",
-    "дронам", "дронами", "дронах",
-    "беспилотник", "беспилотники", "беспилотника", "беспилотнику",
-    "беспилотником", "беспилотнике", "беспилотников", "беспилотникам",
-    "беспилотниками", "беспилотниках",
-    # ── Shahed (2 формы) ──
-    "шахед", "шахеды",
-    # ── Ракета: существительные (10 форм) ──
-    "ракета", "ракеты", "ракет", "ракете", "ракету", "ракетой",
-    "ракетою", "ракетам", "ракетами", "ракетах",
-    # ── Ракета: прилагательные (11 форм) ──
-    "ракетная", "ракетной", "ракетную", "ракетною",
-    "ракетные", "ракетных", "ракетным", "ракетными",
-    "ракетный", "ракетного", "ракетному",
-    # ── Баллистическая / крылатая ──
-    "баллистическая", "крылатая",
-    # ── Полёт / прилёт (9 форм) ──
-    "летит", "летает", "прилетел", "прилетает", "летят", "летел",
-    "прилет", "прилёт", "прилетит",
-    # ── Вспышка (9 форм) ──
-    "вспышка", "вспышки", "вспышке", "вспышку", "вспышкой",
-    "вспышек", "вспышкам", "вспышками", "вспышках",
-    # ── Взрыв (10 форм) ──
-    "взрыв", "взрыва", "взрыву", "взрывом", "взрыве",
-    "взрывы", "взрывов", "взрывам", "взрывами", "взрывах",
-    # ── Укрытие (9 форм) ──
-    "укрытие", "укрытия", "укрытию", "укрытием", "укрытии",
-    "укрытий", "укрытиям", "укрытиями", "укрытиях",
-    # ── Убежище (8 форм) ──
-    "убежище", "убежища", "убежищу", "убежищем",
-    "убежищ", "убежищам", "убежищами", "убежищах",
-    # ── Бункер (9 форм) ──
-    "бункер", "бункера", "бункеру", "бункером", "бункере",
-    "бункеров", "бункерам", "бункерами", "бункерах",
-    # ── Опасность (8 форм) ──
-    "опасность", "опасности", "опасностью", "опасностей",
-    "опасен", "опасна", "опасно", "опасны",
-    # ── Тревога (5 форм) ──
-    "тревога", "тревоги", "тревоге", "тревогу", "тревогой",
-    # ── Внимание / оповещение (8 форм) ──
-    "внимание", "внимания",
-    "оповещение", "оповещения", "оповещению", "оповещением",
-    "оповещении", "оповещений",
-    # ── Сирена (9 форм) ──
-    "сирена", "сирены", "сирену", "сиреной", "сирене",
-    "сирен", "сиренам", "сиренами", "сиренах",
-    # ── Воздушная (3 формы) ──
-    "воздушная", "воздушной", "воздушную",
-    # ── Беспилотные (прилагательные, 8 форм) ──
-    "беспилотной", "беспилотная", "беспилотное", "беспилотные",
-    "беспилотного", "беспилотному", "беспилотным", "беспилотных",
-    # ── Атака (9 форм) ──
-    "атака", "атаки", "атаке", "атаку", "атакой",
-    "атак", "атакам", "атаками", "атаках",
-    # ── Угроза (8 форм) ──
-    "угроза", "угрозы", "угрозе", "угрозу", "угрозой",
-    "угроз", "угрозам", "угрозами", "угрозах",
-    # ── Обстрел (10 форм) ──
-    "обстрел", "обстрела", "обстрелу", "обстрелом", "обстреле",
-    "обстрелы", "обстрелов", "обстрелам", "обстрелами", "обстрелах",
-    # ── Сбит / падение (9 форм) ──
-    "сбит", "сбита", "сбито", "сбиты",
-    "падение", "падения", "падению", "падением", "падении",
-    "упал", "упала", "упало", "упали",
-    # ── Эвакуация (5 форм) ──
-    "эвакуация", "эвакуации", "эвакуацию", "эвакуацией",
-    "эвакуироваться",
-    # ── Отбой (5 форм) ──
-    "отбой", "отбоя", "отбою", "отбоем", "отбое",
-]
-```
-
-**Что НЕ меняется в `filters/danger_word.py`:**
-- `_build_danger_patterns()` — без изменений (автоматически компилирует все слова в regex)
-- `DangerWordFilter.__call__()` — без изменений (проверяет `text or caption`)
-- `_parse_danger_words()` — без изменений (пользовательские списки через `DANGER_WORDS` `.env` не затрагиваются)
-- Совместимость с WarWordFilter: оба фильтра используют одинаковые слова, одинаковый regex-формат
-
-**Overlap с otboy_handler:** «отбой» и его словоформы матчат ОБА фильтра (OtboyWordFilter + DangerWordFilter). `CommonRelay` shared cooldown предотвращает дублирование медиа — сработает только один `send_common()`.
-
-#### 28.2.3 Верификация Bug 2 (T-109)
-
-1. **Unit-тест `test_danger_full_war_words`** (новый в `tests/test_common.py`):
-   - «летит ракета» → `{"matched_word": "ракета"}`
-   - «бегом в бункер» → `{"matched_word": "бункер"}`
-   - «сирена воздушная тревога» → `{"matched_word": "сирена"}`
-   - «сбили беспилотник» → `{"matched_word": "беспилотник"}`
-   - «эвакуация» → `{"matched_word": "эвакуация"}`
-   - «ракетная опасность» → `{"matched_word": "ракетная"}` (не «ракет»!)
-
-2. **Регрессионный прогон:** `pytest tests/test_common.py -v -k "danger_word"` — все 10+ существующих тестов проходят
-
----
-
-### 28.3 Bug 3: Forwarded-сообщения не доходят до common_router (T-114, CRITICAL)
-
-#### 28.3.1 Root Cause A: `F.forward_origin` перехватывает ВСЕ forwarded-сообщения
-
-Файл: `handlers/war_alert.py`, строка 186.
-
-```python
-@war_alert_router.message(F.forward_origin)         # ← матчит ВСЕ forwarded
-async def war_channel_repost_handler(message: types.Message):
-    if not isinstance(origin, MessageOriginChannel):
-        return                                       # ← None → propagation STOP
-    if not _is_target_channel(origin):
-        return                                       # ← None → propagation STOP
-```
-
-**Механизм бага:**
-1. `F.forward_origin` матчит ЛЮБОЕ forwarded-сообщение → handler вызывается
-2. Для non-target каналов handler делает `return` (None)
-3. В aiogram 3.x, `None != UNHANDLED` → propagation останавливается
-4. `common_router` (позиция 4c) НИКОГДА не получает forwarded-сообщения
-5. `danger_handler` в common_router не срабатывает на forwarded danger words
-
-**Затронутые сценарии:**
-- Юзер форвардит «ракетная опасность» из любого НЕ-военного канала → danger_handler пропущен
-- Юзер форвардит «отбой» из НЕ-военного канала → otboy_handler пропущен (если cooldown позволяет)
-- Любое forwarded-сообщение с danger keywords из не-целевого канала → молча игнорируется
-
-#### 28.3.2 Архитектурное решение: `TargetChannelFilter` (Вариант A)
-
-**Новый файл:** `filters/target_channel.py`
-
-```python
-"""TargetChannelFilter — matches forwarded messages ONLY from target war channels.
-
-Uses WAR_CHANNEL_IDS and WAR_CHANNEL_USERNAMES from config (same config as
-the existing _is_target_channel() helper in handlers/war_alert.py).
-
-Non-forwarded messages and non-target channel forwards do NOT match →
-propagation continues to common_router (position 4c).
-"""
-import logging
-from aiogram.filters import BaseFilter
-from aiogram.types import Message, MessageOriginChannel
-from config.settings import settings
-
-logger = logging.getLogger(__name__)
-
-
-def _parse_int_list(raw: str) -> list[int]:
-    if not raw:
-        return []
-    result: list[int] = []
-    for part in raw.split(","):
-        part = part.strip()
-        if part:
-            try:
-                result.append(int(part))
-            except ValueError:
-                logger.warning("TargetChannelFilter: invalid channel ID: %r", part)
-    return result
-
-
-def _parse_str_list(raw: str) -> list[str]:
-    if not raw:
-        return []
-    return [s.strip().lower() for s in raw.split(",") if s.strip()]
-
-
-class TargetChannelFilter(BaseFilter):
-    """Matches messages forwarded ONLY from configured target war channels.
-
-    Checks forward_origin.chat.id against WAR_CHANNEL_IDS
-    and forward_origin.chat.username against WAR_CHANNEL_USERNAMES.
-
-    Usage:
-        @router.message(TargetChannelFilter())
-        async def handler(message: Message): ...
-    """
-
-    async def __call__(self, message: Message) -> bool:
-        origin = message.forward_origin
-
-        if not isinstance(origin, MessageOriginChannel):
-            return False
-
-        target_ids = _parse_int_list(settings.WAR_CHANNEL_IDS)
-        target_usernames = _parse_str_list(settings.WAR_CHANNEL_USERNAMES)
-
-        if target_ids and origin.chat.id in target_ids:
-            logger.debug(
-                "TargetChannelFilter matched by ID=%d (msg_id=%d)",
-                origin.chat.id,
-                origin.message_id,
-            )
-            return True
-
-        if target_usernames and origin.chat.username:
-            if origin.chat.username.lower() in target_usernames:
-                logger.debug(
-                    "TargetChannelFilter matched by username=@%s (msg_id=%d)",
-                    origin.chat.username,
-                    origin.message_id,
-                )
-                return True
-
-        return False
-```
-
-**Изменения в `handlers/war_alert.py`:**
-
-```python
-# БЫЛО (строка 186):
-@war_alert_router.message(F.forward_origin)
-
-# СТАЛО:
-@war_alert_router.message(TargetChannelFilter())
-```
-
-И добавить import в начало файла:
-```python
-from filters.target_channel import TargetChannelFilter
-```
-
-**Удалить из Handler 2 (строки 189–206):**
-- Проверку `isinstance(origin, MessageOriginChannel)` — фильтр уже проверил
-- Вызов `_is_target_channel(origin)` — фильтр уже проверил
-- Ручной лог "not a channel" — больше не нужен (не-target forwarded не доходят)
-
-**Упрощённый Handler 2 после фикса:**
-```python
-@war_alert_router.message(TargetChannelFilter())
-async def war_channel_repost_handler(message: types.Message):
-    """Any channel repost from a TARGET war channel → random reply."""
-    origin = message.forward_origin
-    # origin гарантированно MessageOriginChannel из target канала
-    reply_text = random.choice(WAR_REPLIES)
-    reposter_id = message.from_user.id if message.from_user else 0
-    logger.info(
-        "War Alert (repost): target channel repost detected | channel_id=%d | "
-        "username=%s | msg_id=%d | chat_id=%d | reposter_id=%d",
-        origin.chat.id,
-        origin.chat.username,
-        origin.message_id,
-        message.chat.id,
-        reposter_id,
-    )
-    try:
-        await message.reply(reply_text)
-    except Exception:
-        logger.exception(
-            "War Alert (repost): failed to send reply | msg_id=%d | channel_id=%d",
-            message.message_id,
-            origin.chat.id,
-        )
-```
-
-#### 28.3.3 Анализ регрессий — handler-overlap матрица (после фикса)
-
-| Сценарий | forward_origin | User=Slava | WarWord | Handler 1 | Handler 2 | common_router |
-|----------|:---:|:---:|:---:|:---:|:---:|:---:|
-| Слава пишет «дрон» | None | ✓ | ✓ | ✓ | ✗ (TargetChannelFilter) | ✓ |
-| Слава репостит из НЕ-целевого канала «ракета» | Channel(non-target) | ✓ | ✓ | ✓ | ✗ (TargetChannelFilter) | ✗ (Handler 1 вернул None) |
-| Слава репостит из ЦЕЛЕВОГО канала «дрон» | Channel(target) | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Юзер N репостит из НЕ-целевого канала «ракетная опасность» | Channel(non-target) | ✗ | — | ✗ | ✗ (TargetChannelFilter) | ✅ danger_handler ✓ |
-| Юзер N репостит «отбой» из НЕ-целевого | Channel(non-target) | ✗ | — | ✗ | ✗ | ✅ otboy_handler ✓ |
-| Юзер N репостит из целевого канала | Channel(target) | ✗ | — | ✗ | ✓ | ✗ (Handler 2 вернул None) |
-
-**Примечание к строке 2:** Слава репостит из НЕ-целевого канала с war word → Handler 1 матчит (UserId + WarWord) → возвращает None → propagation stops. `common_router` не получает сообщение. Это **ожидаемое поведение**: для Славы war reply от Handler 1 приоритетнее danger media от common_router. Если нужно чтобы оба срабатывали — Handler 1 должен возвращать UNHANDLED. Но это edge case (Слава редко репостит военные новости), и двойной ответ (war reply + danger media) избыточен.
-
-#### 28.3.4 Проверка конфликтов
-
-| Проверка | Статус |
-|----------|:---:|
-| Порядок роутеров: dead_page (4) → war_alert (4b) → common (4c) → slavik (5) | ✅ Без изменений |
-| `war_keyword_handler` (Handler 1) НЕ сломан — UserIdFilter + WarWordFilter без изменений | ✅ |
-| Non-Slava forwarded из НЕ-военных каналов достигают common_router | ✅ TargetChannelFilter не матчит |
-| `dead_page_router` (позиция 4) получает forwarded из @d_pages до war_alert | ✅ Порядок роутеров |
-| `otboy_handler` получает forwarded «отбой» из не-военных каналов | ✅ |
-| Функция `_is_target_channel()` удаляется из war_alert.py | ✅ Логика в фильтре |
-| Вспомогательные `_parse_int_list`, `_parse_str_list` дублируются между filter и handler | ⚠️ Допустимо: filter не импортирует handler. При рефакторинге — вынести в `config/settings.py` как `_env_int_tuple`/`_env_str_tuple` |
-
----
-
-### 28.4 Files Changed Summary
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `services/dead_page_relay.py` | **MODIFY** | `_forward_with_heuristic()`: двухфазная стратегия (collect-then-group) с `sent_ids` tracking и переотправкой через `forward_messages()` (RC1 fix) |
-| `filters/danger_word.py` | **MODIFY** | `_DEFAULT_DANGER_WORDS`: расширен с 22 до 135+ словоформ (все слова из `WAR_WORDS` + «шахед», «баллистическая», «крылатая») (T-109) |
-| `filters/target_channel.py` | **CREATE** | `TargetChannelFilter(BaseFilter)`: матчит forwarded ТОЛЬКО из target war-каналов (по ID/username) (T-114) |
-| `handlers/war_alert.py` | **MODIFY** | Handler 2: заменить `F.forward_origin` на `TargetChannelFilter()`; удалить ручные проверки `isinstance` и `_is_target_channel()`; удалить `_is_target_channel()` helper (T-114) |
-| `tests/test_dead_page_relay.py` | **MODIFY** | +2 теста: `test_heuristic_album_forwards_as_group`, `test_heuristic_single_post_no_regroup` |
-| `tests/test_common.py` | **MODIFY** | +2 теста: `test_danger_full_war_words`, `test_danger_raketa_forms` + регрессия |
-| `tests/test_war_alert.py` | **MODIFY** | +3 теста: `test_target_channel_filter_matches_war_channel`, `test_target_channel_filter_ignores_non_war`, `test_non_war_forward_reaches_common_router` |
-| `tests/test_filters.py` | **MODIFY** | +2 теста для `TargetChannelFilter`: ID match, username match, non-channel forward ignored |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 28 (этот документ); version bump to v2.12.1; updated Sections 1, 5, 6 |
-
-**Файлы НЕ тронуты:**
-- `bot.py` — без изменений (порядок роутеров тот же)
-- `config/settings.py` — без изменений (`.env` channel ID корректен)
-- `services/database.py` — без изменений
-- `handlers/common.py` — без изменений (получает forwarded автоматически после фикса)
-- `services/common_relay.py` — без изменений
-- `filters/otboy_word.py`, `filters/war_word.py` — без изменений
-
----
-
-### 28.5 Key Architectural Decisions (Epic 16)
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D67 | Двухфазная стратегия Collect-then-Group в `_forward_with_heuristic()` | Фаза 1 пробинга собирает ID без изменения логики обнаружения; Фаза 2 переотправляет группой через `forward_messages()`. Минимальная модификация существующего кода. Delete-and-re-forward создаёт краткое «мигание» — acceptable для infrequent heuristic path. |
-| D68 | НЕ создавать отдельный метод `_forward_album_group()` | Вся логика обнаружения альбома (пробинг, date comparison, gap tolerance) уже существует в `_forward_with_heuristic()`. Вынос в отдельный метод дублировал бы эту логику. |
-| D69 | Date-proximity clumping (RC2) НЕ исправляется в v2.12.1 | Требует backfill `relay_album_map` для всей истории канала — отдельная задача. Gap tolerance до 2 пропусков уже защищает от большинства сценариев склеивания. |
-| D70 | `sent_ids` tracking через `message.message_id` возвращаемого объекта | `bot.forward_message()` возвращает `Message` с `.message_id` в ЦЕЛЕВОМ чате — это ID для последующего удаления. Не требует дополнительных API-вызовов. |
-| D71 | `_DEFAULT_DANGER_WORDS` расширен до полного списка `WAR_WORDS` (135+ словоформ) | Cyrillic word boundary `(?![а-яё])` гарантирует отсутствие ложных срабатываний для всех форм. Единый источник истины: danger_word = war_word. Пользовательские списки через `.env` не затрагиваются. |
-| D72 | `TargetChannelFilter` заменяет `F.forward_origin` + ручные проверки в handler | Фильтр не матчит non-war forwards → handler не вызывается → propagation продолжается → common_router получает forwarded. Чище, чем возврат UNHANDLED из handler'а. Логика `_is_target_channel()` перенесена в фильтр. |
-| D73 | `_is_target_channel()` и `_parse_*_list()` удалены из `war_alert.py` | Логика полностью в фильтре. Вспомогательные парсеры вынесены в `filters/target_channel.py` (допустимое дублирование с `war_alert.py::_parse_int_list` — фильтры не импортируют handlers). |
-| D74 | Handler 1 (`war_keyword_handler`) НЕ меняется | UserIdFilter + WarWordFilter без изменений. Для Славы forwarded из НЕ-целевого канала с war words → Handler 1 матчит → common_router блокирован. Это expected: war reply от Handler 1 приоритетнее danger media. |
-
----
-
-### 28.6 Verification Checklist
-
-1. **Bug 1 — Album group (RC1):**
-   - `pytest tests/test_dead_page_relay.py -v -k "heuristic_album"` — 2 новых теста
-   - `pytest tests/test_dead_page_relay.py -v` — все ~14 существующих тестов проходят (регрессия)
-   - Manual: репостнуть альбом из @d_pages → в relay-канале нет DB-записи → heuristic path → альбом в целевом чате отображается С ГРУППИРОВКОЙ
-
-2. **Bug 2 — Danger words (T-109):**
-   - `pytest tests/test_common.py -v -k "danger_full_war_words"` — 1 новый тест (проверяет все 135+ словоформ)
-   - `pytest tests/test_common.py -v -k "danger_word"` — все ~14 существующих тестов проходят (регрессия)
-   - Manual: написать «летит ракета», «бегом в бункер», «воздушная тревога», «эвакуация» → danger handler срабатывает
-
-3. **Bug 3 — TargetChannelFilter (T-114):**
-   - `pytest tests/test_filters.py -v -k "target_channel"` — 2 новых теста (ID match, username match)
-   - `pytest tests/test_war_alert.py -v -k "target_channel"` — 3 новых теста (handler integration)
-   - Manual: форварднуть сообщение из НЕ-военного канала с danger words → common_router получает → danger_handler срабатывает
-   - Manual: форварднуть сообщение из ЦЕЛЕВОГО канала → war_channel_repost_handler срабатывает → war reply
-
-4. **Full regression:** `pytest tests/ -v` — все ~380 тестов проходят
-
----
-
-## 29. Epic 17: Danger Word Fix — Architectural Design
-
-> **Версия:** v2.13.0
-> **Дата:** 2026-07-30
-> **Назначение:** Исправление неработающей фичи danger_word. Три гипотезы: H1 (war_alert перехватывает propagation), H3 (медиа не задеплоены), H4 (баг в паттернах). Три задачи: T2 (merge словарей), T3 (propagation fix), T4 (CommonRelay error handling + audio/voice).
-
----
-
-### 29.1 Root Cause Analysis
-
-#### 29.1.1 H1: war_alert перехватывает propagation (ОСНОВНАЯ ПРИЧИНА)
-
-**Механизм бага:**
-
-В aiogram 3.x, `return None` из handler'а останавливает propagation между sub-routers (тот же баг что и T-053, задокументированный в Section 20). `war_keyword_handler` (handlers/war_alert.py:103) возвращает `None` (implicit return) → `war_alert_router` (pos 4b) возвращает `None` → Dispatcher НЕ продолжает к `common_router` (pos 4c) → `danger_handler` не вызывается.
-
-```
-Слава пишет "дрон летит":
-  war_alert_router (4b):
-    Handler 1: UserIdFilter=True, WarWordFilter=True → reply → return None → СТОП
-  common_router (4c): НЕ ПОЛУЧАЕТ → danger_handler НЕ вызывается ❌
-```
-
-**Для не-Славы danger работает:**
-```
-Не-Слава пишет "дрон летит":
-  war_alert_router (4b):
-    Handler 1: UserIdFilter=False → skip
-    Handler 2: TargetChannelFilter=False → skip
-    → router возвращает UNHANDLED → propagation продолжается
-  common_router (4c): DangerWordFilter=True → danger_handler вызывается ✅
-```
-
-**Почему otboy «работает»:** Пользователь тестировал otboy на НЕ-Славе. Для Славы otboy ТОЖЕ не работает (та же причина — war_alert перехватывает "отбой" через WarWordFilter).
-
-#### 29.1.2 H3: Медиа не задеплоены — НЕ ПОДТВЕРЖДЕНО
-
-`media/common/danger/` содержит `danger_01.mp4` и `danger_02_gif.mp4` — файлы на месте. `_scan_directory()` корректно их находит. Эта гипотеза исключена.
-
-#### 29.1.3 H4: Баг в паттернах — НЕ ПОДТВЕРЖДЕНО
-
-`DangerWordFilter._build_danger_patterns()` использует тот же regex-формат что и `WarWordFilter._build_patterns()`: `(?<![а-яё])WORD(?![а-яё])` с `re.IGNORECASE`. Паттерны корректны. Эта гипотеза исключена.
-
----
-
-### 29.2 T2: Merge словарей WarWordFilter и DangerWordFilter
-
-#### 29.2.1 Текущее состояние
-
-| Аспект | `filters/war_word.py` | `filters/danger_word.py` |
-|--------|----------------------|--------------------------|
-| Список слов | `WAR_WORDS` (135+ форм) | `_DEFAULT_DANGER_WORDS` (135+ форм) |
-| Синхронизация | Ручная (Epic 16, D71) | Ручная (Epic 16, D71) |
-| Различия | `'БПЛА'` (uppercase) | `'воздушная'`, `'воздушной'`, `'воздушную'` |
-| Regex | `_build_patterns()` | `_build_danger_patterns()` (идентичная логика) |
-
-Оба списка практически идентичны (синхронизированы в Epic 16, D71). Различия минимальны:
-- `war_word.py`: `'БПЛА'` (строка 41) — uppercase вариант
-- `danger_word.py`: `'воздушная'`, `'воздушной'`, `'воздушную'` (строки 58-59) — отсутствуют в war_word.py
-
-#### 29.2.2 Решение: Единый модуль `filters/word_lists.py`
-
-**Создать** `filters/word_lists.py` — единый источник истины для всех danger/war слов:
-
-```python
-"""Shared word lists for WarWordFilter and DangerWordFilter.
-
-Single source of truth — both filters import from here.
-Adding a word here updates both filters automatically.
-"""
-DANGER_WORDS: list[str] = [
-    # ── Flight / arrival ──
-    'летит', 'летает', 'прилетел', 'прилетает', 'летят', 'летел',
-    'прилет', 'прилёт', 'прилетит',
-    # ── Drone / UAV ──
-    'дрон', 'дроны', 'дронов', 'дрону', 'дроном', 'дроне',
-    'дронам', 'дронами', 'дронах',
-    'беспилотник', 'беспилотники', 'беспилотника', 'беспилотнику',
-    'беспилотником', 'беспилотнике', 'беспилотников', 'беспилотникам',
-    'беспилотниками', 'беспилотниках',
-    'бпла', 'БПЛА',
-    # ── Rocket / missile ──
-    'ракета', 'ракеты', 'ракет', 'ракете', 'ракету', 'ракетой',
-    'ракетою', 'ракетам', 'ракетами', 'ракетах',
-    'ракетная', 'ракетной', 'ракетную', 'ракетною',
-    'ракетные', 'ракетных', 'ракетным', 'ракетными',
-    'ракетный', 'ракетного', 'ракетному',
-    # ── Shelter / bunker ──
-    'укрытие', 'укрытия', 'укрытию', 'укрытием', 'укрытии',
-    'укрытий', 'укрытиям', 'укрытиями', 'укрытиях',
-    'убежище', 'убежища', 'убежищу', 'убежищем',
-    'убежищ', 'убежищам', 'убежищами', 'убежищах',
-    'бункер', 'бункера', 'бункеру', 'бункером', 'бункере',
-    'бункеров', 'бункерам', 'бункерами', 'бункерах',
-    # ── Flash / explosion ──
-    'вспышка', 'вспышки', 'вспышке', 'вспышку', 'вспышкой',
-    'вспышек', 'вспышкам', 'вспышками', 'вспышках',
-    'взрыв', 'взрыва', 'взрыву', 'взрывом', 'взрыве',
-    'взрывы', 'взрывов', 'взрывам', 'взрывами', 'взрывах',
-    # ── Danger / alert ──
-    'опасность', 'опасности', 'опасностью', 'опасностей',
-    'опасен', 'опасна', 'опасно', 'опасны',
-    'тревога', 'тревоги', 'тревоге', 'тревогу', 'тревогой',
-    'внимание',
-    'оповещение', 'оповещения', 'оповещению', 'оповещением',
-    'оповещении', 'оповещений',
-    # ── Сирена / воздушная тревога ──
-    'сирена', 'сирены', 'сирену', 'сиреной', 'сирене',
-    'сирен', 'сиренам', 'сиренами', 'сиренах',
-    'воздушная', 'воздушной', 'воздушную',
-    # ── Беспилотные (adjectives) ──
-    'беспилотной', 'беспилотная', 'беспилотное', 'беспилотные',
-    'беспилотного', 'беспилотному', 'беспилотным',
-    'беспилотных',
-    # ── Атака / угроза ──
-    'атака', 'атаки', 'атаке', 'атаку', 'атакой',
-    'атак', 'атакам', 'атаками', 'атаках',
-    'угроза', 'угрозы', 'угрозе', 'угрозу', 'угрозой',
-    'угроз', 'угрозам', 'угрозами', 'угрозах',
-    'обстрел', 'обстрела', 'обстрелу', 'обстрелом', 'обстреле',
-    'обстрелы', 'обстрелов', 'обстрелам', 'обстрелами', 'обстрелах',
-    # ── Падение / сбитие ──
-    'сбит', 'сбита', 'сбито', 'сбиты',
-    'падение', 'падения', 'падению', 'падением', 'падении',
-    'упал', 'упала', 'упало', 'упали',
-    # ── Эвакуация ──
-    'эвакуация', 'эвакуации', 'эвакуацию', 'эвакуацией',
-    'эвакуироваться',
-    # ── Отбой ──
-    'отбой', 'отбоя', 'отбою', 'отбоем', 'отбое',
-]
-```
-
-**Изменения в `filters/war_word.py`:**
-- Удалить `WAR_WORDS` class attribute
-- Импортировать `DANGER_WORDS` из `filters.word_lists`
-- `_PATTERNS = _build_patterns(DANGER_WORDS)` (module-level)
-
-**Изменения в `filters/danger_word.py`:**
-- Удалить `_DEFAULT_DANGER_WORDS`
-- Импортировать `DANGER_WORDS` из `filters.word_lists`
-- `_parse_danger_words()` fallback: `return list(DANGER_WORDS)`
-
-**Обоснование:**
-- D58/D71 уже объявили «единый источник истины» — завершаем архитектурно
-- Ручная синхронизация — источник багов (уже были расхождения)
-- DRY: одно место для добавления новых слов
-- Обратная совместимость: `DANGER_WORDS` env var всё ещё переопределяет список для danger_word (но не для war_word — war_word всегда использует полный список)
-
----
-
-### 29.3 T3: Propagation Fix — return UNHANDLED
-
-#### 29.3.1 Проблема
-
-Три handler'а возвращают `None` (implicit return), что останавливает propagation между sub-routers:
-
-| Handler | Файл | Возврат | Эффект |
-|---------|------|:---:|--------|
-| `war_keyword_handler` | `handlers/war_alert.py:103` | `None` | Блокирует common_router для Славы |
-| `war_channel_repost_handler` | `handlers/war_alert.py:146` | `None` | Блокирует common_router для target-channel репостов |
-| `otboy_handler` | `handlers/common.py:38` | `None` | Блокирует slavik_router для "отбой" |
-| `danger_handler` | `handlers/common.py:68` | `None` | Блокирует slavik_router для danger-слов |
-
-#### 29.3.2 Решение: Вариант D — return UNHANDLED
-
-**Вариант A (TargetChannelFilter):** Уже сделан в Epic 16. Решает только Handler 2 (channel reposts). Не решает Handler 1 (keywords).
-
-**Вариант B (перестановка роутеров):** Если common_router (4c) поставить ПЕРЕД war_alert_router (4b), то common_router handler'ы тоже возвращают None → propagation стоп → war_alert_router не получает → war reply для Славы ломается. ❌
-
-**Вариант C (middleware):** Избыточно. Middleware не решает проблему возврата None из handler'а.
-
-**Вариант D (return UNHANDLED) — РЕКОМЕНДУЕТСЯ:**
-
-Добавить `return UNHANDLED` во все 4 handler'а:
-
-**`handlers/war_alert.py`:**
-```python
-from aiogram.dispatcher.event.bases import UNHANDLED
-
-@war_alert_router.message(UserIdFilter(...), WarWordFilter())
-async def war_keyword_handler(message: types.Message):
-    # ... existing logic ...
-    await message.reply(reply_text)
-    return UNHANDLED  # ← propagation continues to common_router
-
-@war_alert_router.message(TargetChannelFilter(...))
-async def war_channel_repost_handler(message: types.Message):
-    # ... existing logic ...
-    await message.reply(reply_text)
-    return UNHANDLED  # ← propagation continues to common_router
-```
-
-**`handlers/common.py`:**
-```python
-from aiogram.dispatcher.event.bases import UNHANDLED
-
-@common_router.message(OtboyWordFilter())
-async def otboy_handler(message: types.Message, matched_word: str):
-    # ... existing logic ...
-    await _relay.send_common(...)
-    return UNHANDLED  # ← propagation continues to slavik_router
-
-@common_router.message(DangerWordFilter())
-async def danger_handler(message: types.Message, matched_word: str):
-    # ... existing logic ...
-    await _relay.send_common(...)
-    return UNHANDLED  # ← propagation continues to slavik_router
-```
-
-#### 29.3.3 Матрица propagation после фикса
-
-| Сценарий | war_alert (4b) | common (4c) | slavik (5) | vasya (6) |
-|----------|:---:|:---:|:---:|:---:|
-| Слава пишет "дрон летит" | ✅ war reply | ✅ danger media | ✅ "пошёл нахуй" | ✗ |
-| Слава пишет "отбой" | ✅ war reply | ✅ otboy media | ✅ "пошёл нахуй" | ✗ |
-| Слава пишет "привет" | ✗ | ✗ | ✅ "пошёл нахуй" | ✗ |
-| Не-Слава пишет "дрон" | ✗ | ✅ danger media | ✗ | ✗ |
-| Не-Слава пишет "отбой" | ✗ | ✅ otboy media | ✗ | ✗ |
-| Не-Слава пишет "вася" | ✗ | ✗ | ✗ | ✅ "АДМИН" |
-| Слава репостит из target-канала | ✅ war reply | ✅ (если danger words) | ✅ "пошёл нахуй" | ✗ |
-
-**Важно:** После фикса для Славы ВСЕ 4 роутера (war_alert → common → slavik → vasya) получают сообщение. Это может привести к множественным ответам на одно сообщение. Например, "дрон летит" от Славы вызовет: war reply + danger media + "пошёл нахуй" (3 ответа). Это ожидаемое поведение — каждый роутер независим.
-
-#### 29.3.4 Обоснование выбора Варианта D
-
-| Критерий | A (TargetChannelFilter) | B (перестановка) | C (middleware) | D (UNHANDLED) |
-|----------|:---:|:---:|:---:|:---:|
-| Решает Handler 1 propagation | ❌ | ❌ | ❌ | ✅ |
-| Решает Handler 2 propagation | ✅ | ❌ | ❌ | ✅ |
-| Не ломает war_alert | ✅ | ❌ | ✅ | ✅ |
-| Не ломает common_router | ✅ | ✅ | ✅ | ✅ |
-| Канонический aiogram 3.x паттерн | — | — | — | ✅ (T-053) |
-| Минимальные изменения | — | — | — | ✅ (4 строки) |
-
----
-
-### 29.4 T4: CommonRelay Error Handling + Audio/Voice Support
-
-#### 29.4.1 Текущее состояние
-
-`services/common_relay.py` уже имеет graceful error handling:
-- `_scan_directory()` — `FileNotFoundError` ловится в `send_common()` через `try/except (FileNotFoundError, PermissionError, OSError)` (строка 191)
-- `_send_by_type()` — ошибки отправки ловятся в `send_common()` через `try/except Exception` (строка 226)
-- Поддерживаемые типы: photo, video, animation
-
-**Отсутствует:** поддержка audio (.mp3) и voice (.ogg).
-
-#### 29.4.2 Решение: Добавить audio/voice типы
-
-**Добавить константы и расширения:**
-```python
-MEDIA_AUDIO = "audio"
-MEDIA_VOICE = "voice"
-
-_AUDIO_EXTENSIONS: set[str] = {".mp3"}
-_VOICE_EXTENSIONS: set[str] = {".ogg"}
-```
+Разобран код `services/common_relay.py` (актуальная версия на `main`):
 
-**Обновить `_detect_media_type()`:**
 ```python
 def _detect_media_type(self, filepath: Path) -> str | None:
     ext = filepath.suffix.lower()
@@ -7504,173 +108,1056 @@ def _detect_media_type(self, filepath: Path) -> str | None:
         if "gif" in filepath.stem.lower():
             return MEDIA_ANIMATION
         return MEDIA_VIDEO
-    if ext in _AUDIO_EXTENSIONS:
-        return MEDIA_AUDIO
-    if ext in _VOICE_EXTENSIONS:
-        return MEDIA_VOICE
-    return None
+    ...
 ```
 
-**Обновить `_send_by_type()`:**
-```python
-elif media_type == MEDIA_AUDIO:
-    await self._bot.send_audio(
-        chat_id=chat_id,
-        audio=input_file,
-        reply_parameters=reply_params,
-    )
-elif media_type == MEDIA_VOICE:
-    await self._bot.send_voice(
-        chat_id=chat_id,
-        voice=input_file,
-        reply_parameters=reply_params,
-    )
+Эта логика **корректна**: `danger_02_gif.mp4` → `filepath.stem` = `"danger_02_gif"` → содержит `"gif"` → `MEDIA_ANIMATION` → в `_send_by_type()` вызывается `bot.send_animation(...)`. Файл реально существует на диске (`media/common/danger/danger_02_gif.mp4`, 910KB, подтверждено через `filesystem_list_directory_with_sizes`) и **закоммичен в git** (подтверждено через `git ls-files` — `media/common/danger/danger_02_gif.mp4` есть в трекинге). Значит для локальной/main-версии репозитория проблемы "молчаливого падения" на этапе типизации **нет** — код и файлы на месте.
+
+**Но это не исключает падения на СЕРВЕРЕ**, если там:
+1. Каталог `media/common/danger/` не существует или пуст (см. board.md T-115: задача "проверить наличие медиа-файлов на сервере" всё ещё висит как `[ ]` — не выполнена!).
+2. Деплой Epic 15/16/17 (переименование otboy→common, создание директорий) был сделан ЧАСТИЧНО — старые `.env` на сервере может ссылаться на несуществующие пути.
+3. `_scan_directory()` в текущем коде уже имеет graceful fallback (T4 Epic 17: `FileNotFoundError` → `logger.warning()`, не `exception()`, и просто `return []` без исключения) — значит хэндлер НЕ падает с трейсбеком, а просто тихо ничего не отправляет и никак не сигнализирует пользователю. Это ключевое архитектурное наблюдение: **отсутствие файлов не вызывает crash, а вызывает молчаливый no-op**, что снаружи для пользователя выглядит идентично «бот не реагирует» — независимо от того, был ли баг propagation или отсутствие файлов.
+
+### 1.7 КРИТИЧЕСКАЯ НАХОДКА (после уточнения пользователя) — `.env` override словаря
+
+**Пользователь сообщил: деплой коммита `af93acb` был реально выполнен (git pull + restart подтверждён лично), но баг всё равно воспроизвёлся.** Это опровергает гипотезу «просто не задеплоено» как ЕДИНСТВЕННУЮ причину и требует пересмотра. Расследование продолжено — проверен `.env.example` построчно:
+
+```bash
+# .env.example, строка 71 (проверено чтением файла)
+# Comma-separated danger keywords (leave empty for built-in defaults — 22 words)
+DANGER_WORDS=бпла,ракетная,опасность
 ```
 
-**Важное предупреждение о `.ogg` как voice:**
-Telegram требует что voice-сообщения были в формате OPUS с определёнными параметрами (моно, 48000 Hz). Простое переименование `.ogg` → `send_voice` может не сработать если файл не в формате OPUS. Рекомендуется:
-- `.mp3` → `send_audio` (музыка/аудио-файлы)
-- `.ogg` → `send_voice` (голосовые сообщения, должны быть в OPUS)
-- Документировать форматные требования в README/ARCHITECTURE
-
-#### 29.4.3 Graceful degradation (уже реализовано)
-
-Текущий код уже обрабатывает все ошибки gracefully:
-- `FileNotFoundError` / `PermissionError` / `OSError` в `_scan_directory()` → caught в `send_common()`, logged, return
-- Ошибки `send_photo`/`send_video`/`send_animation` → caught в `send_common()`, logged, return
-- `_relay is None` → handler возвращается без вызова relay, logged ERROR
-
-**Дополнительное улучшение:** Добавить `logger.warning` при пустой директории (сейчас `FileNotFoundError` логируется через `logger.exception` — это избыточно для ожидаемой ситуации):
+**Это критический баг самого шаблона `.env.example`:** переменная `DANGER_WORDS` в нём **не пустая** — она жёстко прописана как строка из **всего 3 слов** (`бпла`, `ракетная`, `опасность`). Комментарий над ней при этом лжёт про «22 words» (устаревшее число из до-Epic-17 версии, никогда не обновлённое). Прочитан код `filters/danger_word.py::_parse_danger_words()`:
 
 ```python
-except FileNotFoundError:
-    logger.warning(
-        "CommonRelay: no media files for subdir=%s | chat_id=%s",
-        subdir, chat_id,
-    )
-    return
-except (PermissionError, OSError):
-    logger.exception(
-        "CommonRelay: cannot access media dir subdir=%s | chat_id=%s",
-        subdir, chat_id,
-    )
-    return
+def _parse_danger_words(raw: str) -> list[str]:
+    if not raw:
+        return list(DANGER_WORDS)              # 135+ слов из word_lists.py
+    parts = [w.strip().lower() for w in raw.split(",") if w.strip()]
+    return parts if parts else list(DANGER_WORDS)
 ```
 
----
+Если `settings.DANGER_WORDS` (читается из `.env` через `os.getenv("DANGER_WORDS", "")`) — **непустая строка**, функция возвращает ТОЛЬКО эти слова из `.env`, полностью игнорируя 135+ словоформ из `word_lists.py`. Локальный `.env` разработчика (проверено чтением файла) **не содержит** строки `DANGER_WORDS` — значит по умолчанию у него используется полный список из кода. НО если `.env` на production-сервере был создан администратором путём копирования `.env.example` (стандартная практика первого деплоя, зафиксированная во ВСЕХ прошлых Epic-чеклистах: «T-121-C: Обновить .env»), то сервер **буквально имеет только эти 3 слова** — `бпла`, `ракетная`, `опасность` — как единственно матчащиеся danger-слова, ДАЖЕ ПОСЛЕ полного и корректного деплоя фикса Epic 17.
 
-### 29.5 Рекомендованный порядок действий
+**Это объясняет наблюдение пользователя намного точнее, чем гипотеза «не задеплоено»:**
+- Если пользователь тестировал слово **вне этих 3-х** (например «укрытие», «бункер», «дрон», «тревога») — фильтр действительно даёт 0 совпадений на сервере, СМОТРЯ НА propagation-фикс УЖЕ БУДУЧИ деплоенным, потому что сам список слов обрублен независимо от propagation.
+- Даже слова из списка (`бпла`, `ракетная`, `опасность`) должны срабатывать — если пользователь именно их и тестировал и всё равно получил 0 реакций, это указывает на ВТОРОЙ параллельный баг (см. ниже, RC6/RC7), а не отменяет находку про `.env`.
 
-| # | Задача | Приоритет | Файлы | Риск |
-|---|--------|:---:|------|:---:|
-| 1 | **T2: Merge словарей** | Средний | CREATE `filters/word_lists.py`, MODIFY `filters/war_word.py`, MODIFY `filters/danger_word.py` | Низкий — только импорты, поведение идентично |
-| 2 | **T3: UNHANDLED fix** | КРИТИЧЕСКИЙ | MODIFY `handlers/war_alert.py`, MODIFY `handlers/common.py` | Средний — меняет propagation, нужны интеграционные тесты |
-| 3 | **T4: Audio/voice + graceful** | Низкий | MODIFY `services/common_relay.py` | Низкий — добавление новых типов, существующие не затронуты |
+**Важно:** это не гипотеза «может быть» — это структурный дефект самого репозитория (`.env.example` содержит несогласованные с кодом дефолты), который будет воспроизводиться на КАЖДОМ новом деплое до тех пор, пока `.env.example` не будет исправлен. Это баг самого проекта, а не только сервера.
 
-**Почему T3 перед T2:** T3 — непосредственная причина бага (danger не работает для Славы). T2 — архитектурная гигиена, не влияет на функциональность. T4 — расширение возможностей.
+### 1.8 Второй возможный параллельный слой — почему баг мог сохраниться ДАЖЕ для слов из `.env`-списка
 
----
+Если пользователь тестировал именно `бпла`/`ракетная`/`опасность` (то есть слова, которые ЕСТЬ в урезанном `.env`-списке) и всё равно получил 0 реакций после подтверждённого деплоя — нужно рассмотреть RC6 и RC7:
 
-### 29.6 Файлы, которые нужно изменить
+- **RC6 — `.env` не был обновлён при деплое вообще.** Деплой = `git pull` + restart меняет ТОЛЬКО код (`.py` файлы), но НЕ трогает `.env` (он в `.gitignore`, не версионируется). Если сервер работал на `.env`, созданном ДО того как в проекте появилась переменная `DANGER_WORDS` (Epic 15/16) — на сервере переменной вообще нет в файле, `os.getenv("DANGER_WORDS", "")` вернёт `""`, `_parse_danger_words` возьмёт полный список из `word_lists.py` — это НЕ баг. Но если `.env` был создан/обновлён ПОЗЖЕ путём копирования актуального `.env.example` (например, при исправлении другого параметра админом) — тогда урезанный список из §1.7 попадает на сервер. **Тестировать оба сценария нужно эмпирически** — Builder должен получить фактическое содержимое `.env` на сервере (через SSH, без вывода токенов/секретов в лог) и явно сверить с `word_lists.py`.
+- **RC7 — Restart процесса не подхватил новый код.** Если бот запущен через `systemd`/`supervisor`/`screen`/`tmux`, `git pull` сам по себе НЕ перезапускает процесс — нужен явный `systemctl restart` (или эквивалент). Если Builder/пользователь выполнил `git pull`, но забыл/не смог перезапустить процесс (например, нет прав на `systemctl`, или сервис называется иначе), старый процесс Python продолжает работать со старым кодом в памяти НЕЗАВИСИМО от того, что на диске лежит новый код. Это классический «deploy looks done but isn't live» паттерн. Проверяется через `ps aux | grep bot.py` + сравнение uptime процесса с timestamp последнего git commit/pull.
 
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `filters/word_lists.py` | **CREATE** | Единый список `DANGER_WORDS` (140+ словоформ) |
-| `filters/war_word.py` | **MODIFY** | Импорт `DANGER_WORDS` из `word_lists` вместо локального `WAR_WORDS` |
-| `filters/danger_word.py` | **MODIFY** | Импорт `DANGER_WORDS` из `word_lists` вместо локального `_DEFAULT_DANGER_WORDS` |
-| `handlers/war_alert.py` | **MODIFY** | +import `UNHANDLED`, +`return UNHANDLED` в обоих handler'ах |
-| `handlers/common.py` | **MODIFY** | +import `UNHANDLED`, +`return UNHANDLED` в обоих handler'ах |
-| `services/common_relay.py` | **MODIFY** | +audio/voice типы, +graceful degradation для `FileNotFoundError` |
-| `tests/test_common.py` | **MODIFY** | +тесты: propagation, audio/voice типы |
-| `tests/test_war_alert.py` | **MODIFY** | +тесты: UNHANDLED propagation |
-| `plans/ARCHITECTURE.md` | **MODIFY** | +Section 29 (этот документ) |
+### 1.9 Требования к Builder — что нужно СДЕЛАТЬ (обновлено)
 
-**Файлы НЕ тронуты:**
-- `bot.py` — порядок роутеров не меняется
-- `config/settings.py` — без изменений
-- `filters/otboy_word.py` — без изменений
-- `filters/target_channel.py` — без изменений (уже решает Handler 2 propagation для non-target forwards)
+Поскольку это Architecture-документ, а не PR, здесь фиксируются точные шаги, которые Builder должен выполнить, без написания кода мной. **Порядок важен — сначала диагностика, потом фикс:**
 
----
+1. **Диагностика ПЕРЕД любыми изменениями (обязательно, в этом порядке):**
+   a. SSH на сервер (`nik@198.46.175.136:/var/www/admin_bot`) → `cat .env | grep DANGER_WORDS` (не выводить остальные строки `.env` — там токены). Зафиксировать точное значение (пусто/3 слова/что-то ещё).
+   b. Проверить, что процесс бота реально перезапущен ПОСЛЕ последнего `git pull`: `systemctl status <service-name>` (узнать точное имя сервиса из деплой-документации/предыдущих чатов) → сравнить `Active: ... since <timestamp>` с `git log -1 --format=%cd` на сервере.
+   c. Проверить `git log -1` на сервере — убедиться, что HEAD == `af93acb` (или новее) и рабочая директория чистая (`git status`).
+2. **Если найден `.env` override (§1.7):** удалить строку `DANGER_WORDS=...` из `.env` на сервере ЛИБО заменить на полный актуальный список — предпочтительно **удалить строку полностью**, чтобы код брал актуальный список из `word_lists.py` автоматически и не требовал ручной синхронизации в будущем. **Также исправить `.env.example` в репозитории** (закоммитить отдельным малым фиксом) — либо убрать дефолтное значение (оставить `DANGER_WORDS=` пустым), либо явно написать полный актуальный список синхронно с `word_lists.py`. Рекомендация архитектора: оставить пустым, с комментарием, явно указывающим on количество слов в `word_lists.py` на момент дефолта (например «135+ слов, см. filters/word_lists.py»), и добавить unit-тест, который проверяет, что `.env.example` НЕ содержит непустого `DANGER_WORDS=` (защита от повторения этой ошибки в будущем).
+3. **Если процесс не был перезапущен (§1.8, RC7):** явный `systemctl restart <service>` (или эквивалент), затем повторный smoke-тест.
+4. **После устранения RC6/RC7 — стандартные шаги деплоя фикса Epic 17** (актуальны независимо от того, найден ли `.env` override):
+   - Выполнить незакрытые задачи T-115-A…D (board.md): проверить `media/common/danger/danger_01.mp4` и `danger_02_gif.mp4` физически на сервере, права `644`.
+   - Прогнать `pytest` полный сьют на сервере (399+ тестов должны проходить).
+5. **Smoke-тест на реальном проде** (повторить ПОСЛЕ фикса `.env`): отправить сообщение с danger-словом ВНЕ старого 3-словного списка (например «укрытие» или «дрон») — это прямой тест того, был ли баг именно в `.env` override, а не в чём-то ином. Затем повторить полный набор smoke-тестов из предыдущей версии этого документа: (а) от тестового/админского юзера в группе, (б) в ЛС бота, (в) форвард из произвольного канала с danger-словом в подписи.
+6. **Explicit non-goal:** не менять сам словарь `DANGER_WORDS` в `word_lists.py` дальше — 135 словоформ уже покрывают базовые случаи; проблема НЕ в недостаточности словаря в коде, а в его переопределении через `.env`.
 
-### 29.7 Потенциальные риски
+### 1.10 Резюме Root Cause (Задача 1, обновлено)
 
-| # | Риск | Вероятность | Влияние | Митигация |
-|---|------|:---:|:---:|------|
-| R1 | T3: Множественные ответы на одно сообщение Славы | Высокая | Среднее | Задокументировать как expected behavior. При необходимости — добавить флаг подавления в будущем. |
-| R2 | T3: UNHANDLED ломает propagation для ChatMemberUpdated | Низкая | Высокое | UNHANDLED добавляется только в message handler'ы. ChatMemberUpdated handler'ы не затрагиваются. |
-| R3 | T2: Потеря слов при merge | Низкая | Среднее | Использовать set union для верификации. Написать тест: `set(DANGER_WORDS) == set(old_war_words) | set(old_danger_words)`. |
-| R4 | T4: `.ogg` не в формате OPUS → `send_voice` падает | Средняя | Низкое | Задокументировать форматные требования. Ошибка `send_voice` ловится в `send_common()`. |
-| R5 | T3: Изменение поведения для существующих сценариев | Средняя | Среднее | Интеграционные тесты для всей цепочки propagation. Регрессионный прогон всех тестов. |
+| # | Причина | Слой | Статус исправления |
+|---|---------|------|---------------------|
+| RC1 | `war_alert_router` блокировал propagation к `common_router` (implicit `return None`) для сообщений Славы | Код | ✅ Исправлено в `af93acb` (`return UNHANDLED`) — подтверждено закоммичено, статус деплоя см. RC7 |
+| RC2 | Старый `_DEFAULT_DANGER_WORDS` содержал только 22 слова (до Epic 17) | Код | ✅ Исправлено в `af93acb` (`word_lists.py`, 135+ слов) в коде — статус деплоя см. RC7 |
+| **RC6** | **`.env.example` жёстко прописывает `DANGER_WORDS=бпла,ракетная,опасность` (3 слова) — если сервер получил `.env` копированием шаблона, этот override полностью маскирует фикс RC2 независимо от деплоя кода** | **Конфигурация** | ❗ **НАИБОЛЕЕ ВЕРОЯТНАЯ причина — требует SSH-проверки `.env` на сервере (§1.9, шаг 1а)** |
+| **RC7** | **Процесс бота может быть не перезапущен после `git pull` (systemd/supervisor не тронут simple `git pull`) — код на диске новый, в памяти процесса старый** | **Инфраструктура/процесс** | ❗ **Требует проверки uptime процесса vs. timestamp коммита (§1.9, шаг 1б)** |
+| RC3 | Отсутствие медиа-файлов в `media/common/danger/` на сервере (не подтверждено — T-115 открыта) | Инфраструктура | ❌ Не проверено, требует SSH-доступа |
+| RC4 | `.env` на сервере может не совпадать с прочими ключами конфигурации (COMMON_MEDIA_BASE, COMMON_COOLDOWN_SECONDS) | Инфраструктура | ❌ Не проверено (частный случай RC6 для других переменных) |
+| RC5 | GIF-детект по имени файла (`"gif" in filepath.stem.lower()`) — код корректен, файлы в git присутствуют | Код | ✅ Не баг — работает как задумано |
 
----
-
-### 29.8 Test Plan
-
-#### A. T2: Merge словарей
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_word_lists_union_complete` | `set(DANGER_WORDS)` содержит все слова из старых списков | Ни одно слово не потеряно |
-| 2 | `test_war_word_filter_still_works` | WarWordFilter с новым импортом | Все существующие тесты проходят |
-| 3 | `test_danger_word_filter_still_works` | DangerWordFilter с новым импортом | Все существующие тесты проходят |
-
-#### B. T3: UNHANDLED propagation
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_war_keyword_handler_returns_unhandled` | Handler 1 возвращает UNHANDLED | `result is UNHANDLED` |
-| 2 | `test_war_channel_repost_handler_returns_unhandled` | Handler 2 возвращает UNHANDLED | `result is UNHANDLED` |
-| 3 | `test_otboy_handler_returns_unhandled` | otboy_handler возвращает UNHANDLED | `result is UNHANDLED` |
-| 4 | `test_danger_handler_returns_unhandled` | danger_handler возвращает UNHANDLED | `result is UNHANDLED` |
-| 5 | `test_full_propagation_slava_war_word` | Слава пишет "дрон" → все 4 роутера получают | war_alert + common + slavik + vasya |
-| 6 | `test_full_propagation_non_slava_danger` | Не-Слава пишет "дрон" → common + vasya получают | common (danger) + vasya |
-
-#### C. T4: Audio/voice + graceful
-
-| # | Тест | Описание | Проверки |
-|---|------|----------|----------|
-| 1 | `test_detect_audio_type` | .mp3 файл | `_detect_media_type` → MEDIA_AUDIO |
-| 2 | `test_detect_voice_type` | .ogg файл | `_detect_media_type` → MEDIA_VOICE |
-| 3 | `test_send_audio_called` | `send_common` с .mp3 | `bot.send_audio` вызван |
-| 4 | `test_send_voice_called` | `send_common` с .ogg | `bot.send_voice` вызван |
-| 5 | `test_empty_dir_warning_not_exception` | Пустая директория | `logger.warning` вызван, не `logger.exception` |
+**Вывод (обновлён): Задача 1 требует, в первую очередь, диагностики на живом сервере (§1.9, шаги 1а-1в), а не написания нового кода.** Наиболее вероятный root cause — `.env` override словаря (RC6), с RC7 (process restart) как второй по вероятности причиной. Гипотеза «не задеплоено» из первой версии этого документа была опровергнута фидбеком пользователя и заменена на эти два конкретных, проверяемых пункта. Если ОБА RC6/RC7 не подтвердятся при диагностике — потребуется отдельный раунд расследования с логами Better Stack на сервере (INFO-логи `DangerWordFilter`/`WarWordFilter` при каждом сообщении покажут, какой именно список слов используется в runtime).
 
 ---
 
-### 29.9 Key Architectural Decisions (Epic 17)
+## 2. ЗАДАЧА 2 — Поломка репостинга `dead page` (Rich Message, июль 2026)
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D75 | Единый модуль `filters/word_lists.py` для DANGER_WORDS | Завершает D58/D71: единый источник истины. Устраняет ручную синхронизацию. DRY. |
-| D76 | `return UNHANDLED` во всех 4 handler'ах (не только в war_alert) | Канонический паттерн aiogram 3.x (T-053). Гарантирует propagation через ВСЕ роутеры. Семантически корректно: handler не «потребил» событие. |
-| D77 | Порядок роутеров НЕ меняется | Перестановка создаёт новые проблемы (common_router блокирует war_alert). UNHANDLED решает проблему без изменения порядка. |
-| D78 | Audio/voice через расширение файла (не через имя) | `.mp3` → audio, `.ogg` → voice. В отличие от video/animation (где "gif" в имени), audio/voice различаются по расширению — это стандартный подход. |
-| D79 | `FileNotFoundError` → `logger.warning` (не `logger.exception`) | Пустая директория — ожидаемая ситуация (не баг). `logger.exception` включает traceback, избыточный для expected condition. |
+### 2.1 Симптом
+
+Бот корректно репостит СТАРЫЙ пост (ID=3, фото + подпись) из канала, но НОВЫЕ посты
+(включая пост из альбома 3 фото + текст, а также ещё более новый пост в новом формате
+"статья"/Rich Text) не появляются в целевом чате вообще — ни ошибки, ни реакции.
+
+### 2.2 Контекст: что изменилось в Telegram Bot API (проверено через веб-поиск)
+
+14 июля 2026 Telegram выпустил **Bot API 10.2** ("Rich Text Editor, Communities, Ephemeral
+Messages") — это подтверждено официальным changelog (`core.telegram.org/bots/api-changelog`)
+и блог-постом Telegram (`telegram.org/blog/communities-editor-invisible-messages`,
+дата публикации 2026-07-14). Ключевое для этой задачи изменение:
+
+> "Added support for Rich Messages, allowing bots to send highly structured text... Added the
+> field `rich_message` to the class `Message`."
+
+Rich Message — это НЕ то же самое, что старый `caption`+`photo`. Это принципиально новая
+структура:
+
+```python
+# aiogram/types/rich_message.py (установленная версия aiogram==3.29.1, ПОДТВЕРЖДЕНО чтением файла)
+class RichMessage(TelegramObject):
+    blocks: list[RichBlockUnion]   # список типизированных "блоков" (paragraph/heading/photo/table/...)
+    is_rtl: bool | None = None
+```
+
+```python
+# aiogram/types/message.py — новое поле, ПОДТВЕРЖДЕНО чтением файла
+class Message(...):
+    ...
+    photo: list[PhotoSize] | None = None
+    caption: str | None = None
+    ...
+    rich_message: RichMessage | None = None   # ← НОВОЕ поле, добавлено в Bot API 10.2
+```
+
+Rich-блоки типизированы (`RichBlockPhoto`, `RichBlockParagraph`, `RichBlockTable`, и т.д.),
+каждый со своим набором полей. Например, `RichBlockPhoto` (подтверждено чтением файла
+`aiogram/types/rich_block_photo.py`):
+
+```python
+class RichBlockPhoto(RichBlock):
+    type: Literal[RichBlockType.PHOTO] = RichBlockType.PHOTO
+    photo: list[PhotoSize]                       # сами фото лежат ВНУТРИ блока, не в message.photo
+    has_spoiler: bool | None = None
+    caption: RichBlockCaption | None = None      # подпись блока — НЕ message.caption
+```
+
+**Критический вывод:** канал-источник (судя по описанию задачи — использует "новый механизм
+форматирования, который вышел в Telegram совсем недавно, в июле 2026") теперь публикует
+посты как единый Rich Message, где 3 фото + текст упакованы в `message.rich_message.blocks`
+(вероятно `RichBlockCollage` или `RichBlockSlideshow` для фото-группы + `RichBlockParagraph`
+для текста) — это ОДНО сообщение с ОДНИМ `message_id`, а НЕ `MediaGroup` (`media_group_id`).
+Это объясняет, почему технически "это один пост", как и описано в задаче.
+
+### 2.3 Root Cause — почему бот игнорирует новый формат
+
+Прочитан весь код, работающий с постами канала-источника (`services/dead_page_relay.py`,
+`handlers/dead_page_trigger.py`, `bot.py::track_relay_post`). Во ВСЕХ местах бот читает
+только legacy-поля:
+
+```python
+# services/dead_page_relay.py::_forward_with_album_detection (текущий код)
+media_group_id = await self.db.get_relay_media_group_id(msg_id)   # ищет media_group_id — Rich Message его НЕ имеет
+if media_group_id:
+    ...
+    return True
+# PATH 2: Heuristic fallback — probe adjacent IDs
+return await self._forward_with_heuristic(chat_id, msg_id, last_msg_id)
+```
+
+```python
+# bot.py::track_relay_post (channel_post tracker, Epic 14)
+if message.media_group_id:                          # Rich Message НЕ имеет media_group_id →条件 не срабатывает
+    await db.save_relay_album_map(message.message_id, message.media_group_id)
+```
+
+Механизм форвардинга (`bot.forward_message`/`bot.forward_messages`) технически СПОСОБЕН
+переслать Rich-сообщение как единый message (Telegram API поддерживает форвард любого типа
+сообщения по `message_id`, включая Rich Messages — это подтверждается тем, что API просто
+пересылает by-reference оригинальное сообщение, а не пересобирает его контент). Значит
+`_try_forward_from_channel()` **технически МОЖЕТ переслать новый пост**, если дойдёт до
+вызова `bot.forward_message(chat_id, from_chat_id, message_id=X)` для правильного `X`.
+
+**Тогда почему бот "игнорирует" новые посты вообще, а не просто ломает группировку (как со
+старым альбомом)?** Разбираем алгоритм поиска ID (`_build_search_ranges` +
+`_try_forward_from_channel`):
+
+```python
+async def _try_forward_from_channel(self, chat_id: int) -> bool:
+    last_msg_id = await self.db.get_last_known_message_id()   # ключевая переменная!
+    ranges = self._build_search_ranges(last_msg_id)
+    for (lo, hi) in ranges:
+        ... probe msg_id in [lo, hi] ...
+        try:
+            result = await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
+            return result
+        except Exception as e:
+            if "not found" in str(e).lower(): continue
+            else: return False   # ← non-"not found" ошибка ЗАВЕРШАЕТ поиск без fallback на следующий msg_id!
+```
+
+Здесь и коренная причина: **`update_last_known_message_id()` вызывается ТОЛЬКО при успешном
+форварде** (внутри `_forward_with_album_detection`/`_forward_with_heuristic`, строка
+`if not last_msg_id or max_id > last_msg_id: await self.db.update_last_known_message_id(max_id)`).
+Раз старый пост ID=3 репостится успешно (подтверждено симптомом пользователя — "старый пост
+репостится корректно"), значит `last_msg_id` в БД **застрял на值, близком к 3** (или чуть выше,
+если ID=3 не самый первый успешный форвард). `_build_search_ranges()` строит диапазоны ВОКРУГ
+`last_msg_id`:
+
+```python
+def _build_search_ranges(self, last_msg_id):
+    if last_msg_id and last_msg_id > 0:
+        anchored = [(1, last_msg_id), (1, max(last_msg_id * 2, 100))]
+        anchored.extend(_DISCOVERY_RANGES)   # [(1,10),(1,50),(1,200),(1,500),(1,2000)]
+        return anchored
+    return list(_DISCOVERY_RANGES)
+```
+
+Если `last_msg_id=3`, диапазоны — `[(1,3), (1,100), (1,10), (1,50), (1,200), (1,500), (1,2000)]`.
+Каждый диапазон запускает **случайный** (или sequential для узких, `_SEQUENTIAL_THRESHOLD=50`)
+проб `random.randint(lo, hi)` до `max_retries` (по умолчанию `DEAD_PAGE_MAX_FORWARD_RETRIES=5`)
+попыток БЕЗ повторов (`tried: set[int]`). Если новый пост (Rich Message) имеет, например,
+`message_id=47`, а старые посты с id 1-3 существуют и успешно форвардятся при случайном
+попадании — алгоритм **может случайно попасть на старый ID=1..3 в диапазоне (1,50) или (1,100)
+и вернуть `True` раньше, чем попробует id=47**, из-за чего пользователь ВСЁ ЕЩЁ видит
+случайные повторные репосты СТАРОГО поста, но воспринимает это как "новые посты не
+появляются" (потому что каждый раз пробуется случайный ID, вероятность попасть именно на
+47 из диапазона (1,2000) в рамках 5 попыток крайне мала — это классическая "random pick"
+архитектура, которая при росте канала становится всё менее надёжной для свежих постов).
+
+**Второй, более фундаментальный root cause:** даже если алгоритм СЛУЧАЙНО выберет
+`msg_id=47` (новый Rich Message пост), при попытке `_forward_with_album_detection` он
+попадёт в `PATH 2: Heuristic fallback` (потому что `get_relay_media_group_id(47)` вернёт
+`None` — Rich Message не имеет `media_group_id`, а `track_relay_post` в `bot.py` никогда
+не записал его в `relay_album_map`, т.к. проверяет `if message.media_group_id`).
+`_forward_with_heuristic()` вызывает `bot.forward_message(...)` для `msg_id=47` — **этот
+вызов должен технически сработать** (форвард Rich Message как единого сообщения). НО метод
+затем **пробует соседние ID `msg_id+1..+9` и `msg_id-1..-9`** (`_ALBUM_PROBE_RANGE=9`) в
+поисках "альбома" по date proximity — если канал публикует и старый, и Rich-контент вперемешку
+с другими сервисными сообщениями, эта проба МОЖЕТ найти false-positive соседей и **удалить/
+переслать лишние сообщения**, либо (что вероятнее и хуже) — упасть на непредвиденной структуре
+данных, если код где-то далее в проекте (не в показанных файлах) ожидает `sent.photo` или
+`sent.caption` для логирования/дальнейшей обработки этого форвардированного сообщения и
+получает `None` (`sent.photo is None` для чистого Rich Message без legacy `photo` поля) —
+это привело бы к `AttributeError`/`TypeError` внутри `try` блока `_forward_with_heuristic`,
+которая НЕ перехватывает специфично такие ошибки (`except Exception as e: err = str(e).lower(); if "not found" in err ...: continue; raise` — **любая ошибка, не содержащая "not found"/"bad request" в тексте, будет `raise`-нута из `_forward_with_heuristic` и, поднявшись до
+`_try_forward_from_channel`, попадёт в `except Exception as e: ... else: return False`** —
+что приводит к **немедленному отказу от текущего диапазона без перехода к fallback внутри
+range, и в худшем случае — если это происходит в последнем диапазоне — ко всему методу
+`_try_forward_from_channel` возвращающему `False`, что вызывает `_fallback_local_send()`
+(отправка старого локального `media/dead_page/` контента) ВМЕСТО ожидаемого репоста.**
+
+Итог: пользователь видит то один и тот же старый пост (случайное попадание на ID=3), то
+вообще ничего конкретного нового (потому что даже при случайном попадании на новый Rich
+Message пост, heuristic-проба соседей может либо тихо всё сломать, либо кинуть исключение,
+которое не обрабатывается как "not found" и обрывает попытку).
+
+### 2.4 Почему альбом (3 фото + текст, старый MediaGroup формат) тоже не репостился отдельно от Rich Message проблемы
+
+Задача явно говорит: старая версия поста была `MediaGroup` (3 фото + текст), и её
+пересылка "по частям" — это отдельная, УЖЕ известная и задокументированная проблема
+(см. `backlog.md` Epic 14 "Media Group Album Fix" и Epic 16 Bug 1 "Репост из канала ломает
+группировку альбомов"). Это подтверждает, что даже ПРАВИЛЬНО типизированный `media_group_id`
+(старый механизм) обрабатывался с трудом (`_forward_with_heuristic`, RC2 в Epic 16 backlog:
+"эвристика date proximity склеивает независимые посты"). Но задача прямо говорит: "решить
+это не удалось", и канал **заменили на новый Rich Text формат**, чтобы уйти от MediaGroup
+вообще. Получается двойной провал: старый механизм (MediaGroup heuristic) был сломан и не
+исправлен окончательно → источник сменил формат на Rich Message → а бот ещё и Rich Message
+не читает вообще. Это НЕ совпадение — это последовательность из двух разных багов на одном
+и том же участке кода (`_forward_with_heuristic`), обнажающая, что вся heuristic-логика
+вокруг "определения соседних постов одного альбома по дате" — архитектурно хрупкий подход,
+который ломается на любом новом формате контента.
+
+### 2.5 Архитектурное решение — извлечение контента независимо от формата
+
+**Стратегическое решение:** для `dead_page` не нужно "понимать" контент поста для его
+пересылки — `forward_message`/`forward_messages` пересылает сообщение **by-reference**,
+сохраняя оригинальный рендеринг (Rich Message останется Rich Message на клиенте получателя).
+Задача бота — правильно **обнаружить и адресовать** ID сообщения для форварда, а не
+парсить его контент. Проблема НЕ в форварде самого Rich Message (Telegram API справится),
+а в (а) алгоритме поиска валидных ID и (б) heuristic-склейке "альбомов", которая не должна
+трогать Rich Message вообще (у него нет альбома в старом понимании — это один блок с 3
+фото внутри одного message_id).
+
+**Требуемые изменения (для Builder, реализация НЕ входит в этот документ):**
+
+1. **Фикс поиска ID (устранение random-guessing):** заменить `random.randint` probing на
+   детерминированный обход. Простейший надёжный подход — использовать `getChatHistory`-
+   подобный доступ невозможен для ботов без прав администратора канала на полный экспорт,
+   поэтому практичное решение — **инкрементальный sequential scan вверх от последнего
+   известного успешного ID** (`last_msg_id + 1, +2, ...`) при КАЖДОМ вызове `send_dead_page`,
+   а не случайный выбор по всему диапазону `[1, last_msg_id]`. Текущий код УЖЕ обновляет
+   `last_known_message_id` после успеха — просто нужно, чтобы поиск НОВОГО контента начинался
+   от `last_msg_id + 1` вперёд (chronological forward scan), а не случайно по всему диапазону
+   `[1, last_msg_id]` (который переоткрывает СТАРЫЕ посты вместо новых). Второй `_DISCOVERY_RANGES`-механизм (диапазоны `[1,10]`...`[1,2000]`) уместен только как cold-start
+   fallback, когда `last_msg_id` неизвестен (0/None) — НЕ как повторяющийся источник рандома
+   при каждом обычном вызове.
+2. **Rich Message должен быть исключён из heuristic album-detection.** Проверка перед
+   probing соседей: если `sent.rich_message is not None` (форвардированное сообщение —
+   Rich Message) → это ОДИН пост по определению (Rich Message инкапсулирует все свои медиа
+   внутри `blocks`, никакого понятия "media_group" для него не существует в Bot API) →
+   пропустить весь heuristic-probing (`_forward_with_heuristic`'s date-proximity logic) и
+   сразу считать форвард завершённым, обновить `last_known_message_id` и вернуть `True`.
+   Это устраняет и (а) риск случайного склеивания с соседними несвязанными постами, и
+   (б) риск неожиданных исключений при попытке читать `.photo`/`.caption` у соседних
+   Rich Message сообщений.
+3. **Не парсить содержимое Rich Message для логирования/анализа глубоко** — только
+   проверять `message.rich_message is not None` как булев флаг ("это Rich Message, значит
+   один пост, никакой album-detection не нужен"). Полный парсинг `rich_message.blocks` НЕ
+   требуется для форвардинга (задача бота — переслать, не пересобрать контент).
+4. **Совместимость с старым MediaGroup-механизмом** — существующий Path 1 (DB lookup через
+   `relay_album_map`/`media_group_id`) остаётся без изменений для ИСТОРИЧЕСКИХ постов,
+   которые всё ещё являются классическими MediaGroup (если канал когда-либо вернётся к
+   этому формату, или для старых записей в канале, созданных до перехода на Rich Text).
+5. **Обработка ошибок:** сузить `except Exception as e: ... else: return False` в
+   `_try_forward_from_channel` — не завершать поиск по всему методу при единичной
+   непредвиденной ошибке на одном `msg_id`; логировать её подробно (сейчас есть
+   `logger.error(..., exc_info=True)`, что хорошо) и **продолжить со следующим диапазоном**
+   вместо `return False` (это архитектурное расширение резилентности, а не просто фикс
+   Rich Message — но напрямую относится к устойчивости всего pipeline).
+
+### 2.6 Открытый вопрос для уточнения с пользователем/Orchestrator ПЕРЕД реализацией
+
+- Нужно подтвердить точную структуру `rich_message.blocks` для конкретного канала-источника
+  (Builder должен получить сырой `Update`/`Message` JSON через логирование в
+  `bot.py::track_relay_post` — добавить временный `logger.info("RAW RICH MESSAGE: %s",
+  message.model_dump_json())` — чтобы увидеть реальные типы блоков, которые публикует канал,
+  ДО написания финального кода извлечения/анализа, если такой анализ вообще потребуется
+  сверх простого форварда by-reference).
+- Нужно решить: если пользователь хочет, чтобы бот **дублировал** содержимое поста (а не
+  просто форвардил by-reference) — это отдельная, более сложная задача (`sendRichMessage`
+  API, доступного в установленной версии aiogram, судя по найденным файлам
+  `aiogram/types/input_rich_message.py`), которая требует реконструкции `blocks` в
+  `InputRichBlock*` формат. Задание пользователя говорит только "чтобы посты появлялись
+  в чате" — судя по формулировке, обычный forward (не пересборка) удовлетворяет требование,
+  и это на порядок проще и надёжнее.
+
+### 2.7 Резюме Root Cause (Задача 2)
+
+| # | Причина | Статус |
+|---|---------|--------|
+| RC1 | Поиск ID постов использует `random.randint` по всему диапазону `[1, last_msg_id]`, а не chronological forward scan от последнего известного ID — новые посты обнаруживаются только случайно | Требует фикса |
+| RC2 | `last_known_message_id` "застрял" на старом значении (≈3), потому что случайный поиск иногда попадает на старые ID и считает это успехом, никогда не доходя до сканирования диапазона за пределами известного максимума | Требует фикса (следствие RC1) |
+| RC3 | Rich Message (`message.rich_message`) не имеет `media_group_id` — весь код Epic 14 (`relay_album_map`, `track_relay_post`) на него не реагирует, что само по себе не баг (Rich Message и не albom в старом смысле), но `_forward_with_heuristic` всё равно запускает date-proximity probing соседей, что для Rich Message избыточно и рискованно | Требует фикса — добавить early-exit для Rich Message |
+| RC4 | Непредвиденные исключения при probing соседних сообщений (если у них нет `.photo`/`.caption`, например тоже Rich Message) не отличаются от реальных "not found" ошибок и могут обрывать весь поиск в текущем диапазоне | Требует фикса — сузить exception handling |
+| RC5 | Старая проблема с MediaGroup-репостингом (Epic 14/16, "решить не удалось") — источник сменил формат именно из-за этой нерешённой проблемы; текущая архитектура heuristic-detection одинаково хрупка для обоих форматов | Контекст, не блокирует Rich Message фикс |
 
 ---
 
-### 29.10 Verification Checklist
+## 3. ЗАДАЧА 3 — Фича `mimic` (передразнивание): Алгоритм и архитектура
 
-1. **T2 — Merge словарей:**
-   - `pytest tests/test_filters.py -v -k "war_word"` — все тесты WarWordFilter проходят
-   - `pytest tests/test_common.py -v -k "danger_word"` — все тесты DangerWordFilter проходят
-   - `pytest tests/ -v -k "word_lists"` — тест union completeness
+### 3.0 Формулировка задачи
 
-2. **T3 — UNHANDLED propagation:**
-   - `pytest tests/test_war_alert.py -v -k "unhandled"` — 2 теста
-   - `pytest tests/test_common.py -v -k "unhandled"` — 2 теста
-   - `pytest tests/ -v -k "propagation"` — интеграционные тесты цепочки
+Шуточная механика трансформации текста «под шепелявость», **без LLM**, чистая regex-логика.
+Два независимых места интеграции:
 
-3. **T4 — Audio/voice:**
-   - `pytest tests/test_common.py -v -k "audio or voice"` — 5 тестов
+1. **3.1** — `common` сервис: реагирует на ЛЮБОГО юзера, но только если это заранее заданная «жертва» (ID из конфига).
+2. **3.2** — `Slavik` сервис: заменяет "пошёл нахуй" на mimic-ответ при выполнении условий, с мьютексом против дублирования.
 
-4. **Full regression:**
-   - `pytest tests/ -v` — все ~400 тестов проходят
+### 3.1 Алгоритм трансформации текста (`services/mimic_transform.py` — НОВЫЙ модуль)
 
-5. **Manual smoke (production):**
-   - Слава пишет "дрон летит" → war reply + danger media + "пошёл нахуй" (3 ответа)
-   - Слава пишет "отбой" → war reply + otboy media + "пошёл нахуй" (3 ответа)
-   - Не-Слава пишет "ракетная опасность" → danger media
-   - Не-Слава пишет "отбой" → otboy media
-   - Better Stack: все логи видны, propagation не блокируется
+#### 3.1.1 Правила (согласно ТЗ)
+
+| Категория | Правило | Пример |
+|---|---|---|
+| Согласные (безусловная замена) | `р`→`й`, `ш`→`с`, `щ`→`с`, `ж`→`з`, `ч`→`ц` | рука→йука, шум→сум |
+| Гласные (контекстная замена) | `у`→`ю`, `ы`→`и` **только** если непосредственно предшествует согласная | мыла→мила, но `у` в начале слова / после гласной — НЕ меняется |
+| Регистр | Сохраняется побуквенно (заглавная останется заглавной) | Рыба→Йиба, ЩУКА→СЮКА |
+| Прочее | Пунктуация, пробелы, цифры, спецсимволы — не трогаются | «мама!» → «мама!» |
+
+**Важный нюанс от ТЗ, который необходимо уточнить с Builder:** правило гласных описано как
+«ЗАМЕНЯЮТСЯ ТОЛЬКО если стоят сразу после согласной буквы». Это применяется к **исходному**
+тексту (до замены согласных) или **после** замены согласных? Решение архитектора: применять
+**после** замены согласных, потому что:
+- Согласная типа «р» превращается в «й» — а «й» физически тоже согласная буква, поэтому
+  «у» после «рю»(было «ру») всё равно остаётся «после согласной» → результат не меняется.
+- Единственный сценарий, где порядок имеет значение: если предшествующая согласная сама
+  является одной из заменяемых (р/ш/щ/ж/ч). Поскольку замены р→й, ш→с, щ→с, ж→з, ч→ц все
+  сохраняют статус «согласная», проверка «после согласной» даёт одинаковый результат
+  независимо от того, выполняется она до или после замены согласных.
+- **Решение:** делать оба прохода в **одном** regex через `re.sub` с функцией-заменителем,
+  проходя по строке ОДИН раз слева-направо, символ за символом (или используя единый
+  compiled regex с lookbehind на класс "любая согласная кириллицы"). Это гарантирует
+  консистентность и простоту тестирования.
+
+#### 3.1.2 Реализация (спецификация для Builder)
+
+```python
+# services/mimic_transform.py
+"""
+Mimic transform — детская шепелявость без LLM.
+Чистая regex-трансформация с сохранением регистра.
+"""
+import re
+
+# Согласные, подлежащие безусловной замене (нижний регистр)
+_CONSONANT_MAP = {
+    'р': 'й',
+    'ш': 'с',
+    'щ': 'с',
+    'ж': 'з',
+    'ч': 'ц',
+}
+
+# Множество ВСЕХ кириллических согласных (для lookbehind в правиле гласных).
+# Важно: после замены р/ш/щ/ж/ч на й/с/с/з/ц результат также является согласной,
+# поэтому lookbehind должен матчить как исходные, так и целевые буквы-согласные.
+_ALL_CONSONANTS = "бвгджзйклмнпрстфхцчшщ"
+
+# Гласные, подлежащие контекстной замене (только после согласной)
+_VOWEL_MAP = {
+    'у': 'ю',
+    'ы': 'и',
+}
+
+# Единый паттерн: одна кириллическая буква за раз, с захватом регистра.
+# Обрабатываем строку через re.sub с функцией, которая смотрит на ПРЕДЫДУЩИЙ
+# символ ИСХОДНОЙ строки (до замены) — так как любая заменяемая согласная
+# (р/ш/щ/ж/ч) остаётся согласной и после замены, проверка по исходному тексту
+# эквивалентна проверке по результату.
+_LETTER_PATTERN = re.compile(r'[а-яёА-ЯЁ]')
+
+
+def mimic_transform(text: str) -> str:
+    """
+    Преобразует текст в "шепелявую" форму.
+
+    Правила:
+      - р→й, ш→с, щ→с, ж→з, ч→ц (безусловно, регистронезависимо)
+      - у→ю, ы→и (ТОЛЬКО если предыдущий символ — кириллическая согласная)
+      - Регистр каждой буквы сохраняется индивидуально
+      - Всё остальное (пунктуация, пробелы, цифры, латиница) не изменяется
+
+    Args:
+        text: исходный текст (любой, включая пустую строку)
+
+    Returns:
+        Преобразованный текст той же длины по количеству символов
+        (посимвольная замена 1:1, никаких вставок/удалений).
+    """
+    if not text:
+        return text
+
+    result_chars = list(text)
+    n = len(text)
+
+    for i in range(n):
+        ch = text[i]
+        lower = ch.lower()
+        is_upper = ch.isupper()
+
+        if lower in _CONSONANT_MAP:
+            new_ch = _CONSONANT_MAP[lower]
+            result_chars[i] = new_ch.upper() if is_upper else new_ch
+            continue
+
+        if lower in _VOWEL_MAP:
+            # Смотрим на исходный предыдущий символ (не результат замены)
+            prev_char = text[i - 1].lower() if i > 0 else ''
+            if prev_char in _ALL_CONSONANTS:
+                new_ch = _VOWEL_MAP[lower]
+                result_chars[i] = new_ch.upper() if is_upper else new_ch
+            # иначе (начало слова / после гласной / после не-буквы) — не трогаем
+            continue
+
+        # всё остальное — без изменений
+        # (result_chars[i] уже равен ch)
+
+    return ''.join(result_chars)
+```
+
+**Почему посимвольный проход, а не `re.sub` с lookbehind-паттерном:**
+Lookbehind в Python regex не поддерживает переменную длину и плохо работает с
+Unicode-классами внутри `(?<=...)` при повторном использовании той же строки для
+двух независимых наборов замен (согласные + гласные) без побочных эффектов между
+проходами. Посимвольный проход:
+- проще для unit-тестирования (легко проверить каждый character transition);
+- гарантированно 1 проход = O(n), никаких проблем с перекрывающимися матчами;
+- явно решает вопрос "до или после" замены согласных, читая **исходный** символ.
+
+#### 3.1.3 Верифицированные вручную тест-кейсы (проверено эмпирически при подготовке архитектуры)
+
+| Вход | Выход | Комментарий |
+|---|---|---|
+| `мама мыла раму широкой щеткой` | `мама мила йамю сийокой сеткой` | классический кейс из ТЗ |
+| `как дела дружище` | `как дела дйюзисе` | ж→з, у после з(было ж, согласная)→ю |
+| `черный жук жужжит` | `цейний зюк зюззит` | ч→ц, р→й, ж→з, у после з→ю |
+| `Рыба уплыла в реку` | `Йиба уплила в йекю` | `Р`→`Й` (регистр!), начальная `у` в "уплыла" не после согласной → не меняется, `ы` после `л`→`и` |
+| `ЩУКА и ЖАБА` | `СЮКА и ЗАБА` | полностью капс — сохраняется |
+| `У Ивана усы` | `У Ивана уси` | `У` в начале слова (после пробела) — НЕ меняется; `ы`→`и` после `с` |
+| `мышь бежит мыши` | `мись безит миси` | `ь` не буква из наших карт — не трогаем; `ж`→`з`; `ы`→`и` после `м` |
+
+Тест-кейс `Рыба уплыла в реку` показывает важный edge case: слово "уплыла" начинается на
+«у», перед которым пробел (не согласная) → «у» не меняется. Но «ы» внутри слова (после «л»)
+меняется на «и». Это подтверждает, что правило проверяется **посимвольно относительно
+непосредственно предшествующего символа**, а не «после согласной где-то в слове».
+
+#### 3.1.4 Property-based тесты (для Builder, обязательны)
+
+- **Идемпотентность длины:** `len(mimic_transform(s)) == len(s)` для любого `s`.
+- **Сохранение непалитровых символов:** все символы, не входящие в а-яёА-ЯЁ, остаются
+  на своих позициях без изменений (цифры, пунктуация, emoji, латиница).
+- **Сохранение регистра:** `mimic_transform(s).isupper() == s.isupper()` не гарантируется
+  дословно, но для каждой ЗАМЕНЁННОЙ буквы регистр совпадает с оригиналом посимвольно.
+- **Пустая строка / None:** `mimic_transform("") == ""`; функция не должна вызываться с
+  `None` (вызывающий код обязан проверить `if text:` перед вызовом).
+- **Идемпотентность неизменяемых слов:** слово без р/ш/щ/ж/ч/у/ы возвращается как есть.
+
+### 3.2 Подсчёт слов (word count) — общая утилита
+
+```python
+def count_words(text: str) -> int:
+    """Считает количество 'слов' как непрерывных последовательностей
+    не-пробельных символов, разделённых пробелами (простой split()).
+    Не путать со словами в лингвистическом смысле — достаточно для порога >N слов.
+    """
+    if not text:
+        return 0
+    return len(text.split())
+```
+
+Используется одинаково в интеграции 3.1 (common) и 3.2 (Slavik) для проверки условия
+"> N слов". Порог задаётся конфигом (см. ниже), сравнение строгое `> N` (не `>=`), как
+указано в ТЗ ("содержит > N слов").
+
+### 3.3 Интеграция 3.1 — сервис `common` (реакция на "жертву")
+
+#### 3.3.1 Конфигурация (`config/settings.py` — новые поля)
+
+```python
+# ── Mimic Feature (common service) ──
+# ID пользователя-"жертвы". 0 или пусто = фича полностью отключена.
+MIMIC_VICTIM_USER_ID: int = _env_int("MIMIC_VICTIM_USER_ID", 138811255)
+
+# Минимальное число слов в сообщении жертвы, чтобы сработал mimic (строго >)
+MIMIC_MIN_WORDS: int = _env_int("MIMIC_MIN_WORDS", 5)
+
+# Таймаут между срабатываниями mimic для одной жертвы (секунды)
+MIMIC_COOLDOWN_SECONDS: float = _env_float("MIMIC_COOLDOWN_SECONDS", 60.0)
+```
+
+`.env.example` должен документировать: `MIMIC_VICTIM_USER_ID=0  # 0 = отключено`.
+
+#### 3.3.2 Новый модуль `services/mimic_relay.py`
+
+Инкапсулирует: cooldown per-victim (не per-chat! — жертва может быть в нескольких чатах,
+таймаут должен быть общий для юзера, либо per-(chat, user) — архитектурное решение ниже),
+вызов `mimic_transform`, отправку ответа.
+
+**Решение по scope кулдауна:** per-`(chat_id, user_id)` — идентично паттерну `CommonRelay`
+и `OtboyRelay` (in-memory dict, ключ `(chat_id, user_id)`). Это позволяет жертве получать
+mimic независимо в разных чатах, но не чаще одного раза в N секунд в пределах одного чата.
+Это соответствует ТЗ буквально ("таймаут" не уточняет per-chat/global) и следует
+установившемуся в проекте паттерну (OtboyRelay/CommonRelay/AlanGreeting — все per-chat).
+
+```python
+# services/mimic_relay.py
+import logging
+import time
+from aiogram import Bot
+from services.mimic_transform import mimic_transform, count_words
+
+logger = logging.getLogger(__name__)
+
+
+class MimicRelay:
+    """Отправляет 'передразнивающий' ответ на сообщение жертвы.
+
+    Cooldown: per (chat_id, user_id), in-memory, без БД (следует паттерну
+    OtboyRelay/CommonRelay — cooldown не критичен для персистентности,
+    сброс при рестарте бота приемлем).
+    """
+
+    def __init__(self, min_words: int, cooldown_seconds: float) -> None:
+        self._min_words = min_words
+        self._cooldown_seconds = cooldown_seconds
+        self._last_sent: dict[tuple[int, int], float] = {}
+
+    def should_trigger(self, chat_id: int, user_id: int, text: str) -> bool:
+        """Проверяет условия: >N слов И таймаут прошёл. НЕ обновляет cooldown
+        (обновление — отдельным методом mark_sent, вызывается ПОСЛЕ успешной отправки,
+        чтобы избежать false-positive обновления таймера при ошибке отправки)."""
+        if count_words(text) <= self._min_words:
+            return False
+        if self._cooldown_seconds > 0:
+            key = (chat_id, user_id)
+            last = self._last_sent.get(key)
+            if last is not None and (time.monotonic() - last) < self._cooldown_seconds:
+                return False
+        return True
+
+    def mark_sent(self, chat_id: int, user_id: int) -> None:
+        self._last_sent[(chat_id, user_id)] = time.monotonic()
+
+    async def send_mimic(self, bot: Bot, chat_id: int, message_id: int, text: str) -> None:
+        """Трансформирует текст и отправляет как reply (без quote — целое сообщение)."""
+        transformed = mimic_transform(text)
+        await bot.send_message(
+            chat_id=chat_id,
+            text=transformed,
+            reply_to_message_id=message_id,
+        )
+        logger.info(
+            "MimicRelay: sent | chat_id=%s | msg_id=%s | len=%d",
+            chat_id, message_id, len(transformed),
+        )
+```
+
+**Почему `should_trigger`/`mark_sent` разделены, а не единая атомарная функция:**
+Разделение позволяет переиспользовать ОДИН И ТОТ ЖЕ `MimicRelay` и в `common` (3.1), и как
+проверку условия внутри `slavik_catchall_handler` (3.2) — обеим точкам интеграции нужна
+идентичная логика "проверить условие → если решили отправлять → отправить → отметить".
+Критично для 3.2 (мьютекс), см. §3.4.
+
+#### 3.3.3 Хендлер (`handlers/common.py` — добавить новый handler)
+
+```python
+from filters.user_id import UserIdFilter
+
+@common_router.message(UserIdFilter(settings.MIMIC_VICTIM_USER_ID))
+async def mimic_handler(message: types.Message) -> None:
+    """Mimic feature: если жертва написала >N слов и таймаут прошёл — передразнить."""
+    if settings.MIMIC_VICTIM_USER_ID <= 0:
+        return  # выключено (защита от UserIdFilter(0), который не должен матчить никого)
+    if _mimic_relay is None:
+        return
+    content = message.text or message.caption
+    if not content:
+        return
+    if not _mimic_relay.should_trigger(message.chat.id, message.from_user.id, content):
+        return
+    try:
+        await _mimic_relay.send_mimic(message.bot, message.chat.id, message.message_id, content)
+        _mimic_relay.mark_sent(message.chat.id, message.from_user.id)
+    except Exception:
+        logger.exception("mimic_handler: send failed | chat_id=%s", message.chat.id)
+    return UNHANDLED
+```
+
+**Важно — регистрация порядка роутеров:** `UserIdFilter(0)` при `user_ids={0}` теоретически
+никогда не матчит реального юзера (Telegram user_id всегда > 0), поэтому явная проверка
+`if settings.MIMIC_VICTIM_USER_ID <= 0: return` избыточна, но оставлена как явный guard —
+дешёвая защита от опечаток в конфиге и повышение читаемости логов ("почему хендлер
+зарегистрирован, но никогда не срабатывает" — теперь есть явный early-return лог можно
+добавить при необходимости). Хендлер регистрируется в `common_router` НАРЯДУ с otboy/danger
+handlers — позиция 4c, **после** danger_handler, чтобы если жертва написала danger-слово,
+сначала сработает danger (UNHANDLED → propagate), затем mimic (UNHANDLED → propagate далее
+к slavik/vasya). Оба могут сработать на одно сообщение — это нормально и соответствует
+существующему паттерну (otboy + danger уже оба могут сработать одновременно).
+
+#### 3.3.4 Admin-команда для форсированного вызова
+
+Согласно ТЗ: "Сделай специальную админ-команду для форсированного вызова (тестирование в
+ЛС бота или чате)". Расширяем существующий `handlers/admin_commands.py` (паттерн `/deadpage`,
+`/alangreet` из Epic 9).
+
+```python
+# В handlers/admin_commands.py — добавить обработчик
+
+@admin_commands_router.message(Command("mimic"))
+async def cmd_mimic(message: types.Message) -> None:
+    """Admin test command: форсированный вызов mimic на текст, переданный после команды.
+
+    Использование: /mimic мама мыла раму
+    DM: доступно любому пользователю (как /deadpage, /alangreet).
+    Группы: только ADMIN_USER_ID.
+    """
+    if message.chat.type != "private" and (
+        message.from_user is None or message.from_user.id != settings.ADMIN_USER_ID
+    ):
+        return
+
+    args = message.text.split(maxsplit=1)
+    sample_text = args[1] if len(args) > 1 else "мама мыла раму широкой щеткой"
+
+    transformed = mimic_transform(sample_text)
+    await message.reply(transformed)
+
+    try:
+        await message.delete()
+    except Exception:
+        logger.warning("cmd_mimic: failed to delete command message")
+```
+
+Команда обходит `should_trigger`/cooldown/word-count полностью — предназначена
+исключительно для быстрой проверки самой трансформации в реальном чате/ЛС.
+Это соответствует существующему паттерну `/deadpage` и `/alangreet`, которые тоже
+вызывают relay-методы напрямую, минуя обычные условия триггера.
+
+### 3.4 Интеграция 3.2 — сервис `Slavik` (мьютекс с "пошёл нахуй")
+
+#### 3.4.1 Требования из ТЗ (повторение для ясности контракта)
+
+- Существующее поведение (KUCHA→ДАЛБАЕБ, catch-all→"пошёл нахуй", каждый N-й→фото
+  slavic_na_litso.jpg) **не должно быть тронуто в остальных случаях**.
+- Если сообщение Славика содержит > N слов И прошёл таймаут → вместо "пошёл нахуй"
+  отправляется mimic.
+- Если условие не выполнено (мало слов ИЛИ таймаут не прошёл) → как раньше, "пошёл нахуй".
+- **Взаимоисключение** гарантированно: НИКОГДА не отправляются оба ответа на одно сообщение.
+
+#### 3.4.2 Анализ текущего `slavik_catchall_handler` (прочитан код — `handlers/slavik.py`)
+
+Текущая логика catch-all хендлера (после KuchaWordFilter handler, тот же router):
+
+```
+slavik_catchall_handler(message):
+    если DB доступна и SLAVIC_PHOTO_INTERVAL > 0:
+        tick counter
+        если counter достиг интервала:
+            если файл существует: send_photo() и RETURN (текст не отправляется)
+            иначе: WARNING лог, falls through к тексту
+    (если фото не отправлено) → message.reply("пошёл нахуй")
+```
+
+Ключевое наблюдение: существующий механизм фото/текст УЖЕ реализует мьютекс через
+`return` после `send_photo`. Новую mimic-логику нужно врезать в ту же цепочку `if/elif`,
+**не нарушая приоритет фото** — иначе легко получить баг "фото и mimic оба сработали".
+
+#### 3.4.3 Решение — приоритет и порядок проверок
+
+Порядок проверок внутри `slavik_catchall_handler` (сверху вниз, первая подходящая ветка
+"съедает" ответ, остальные пропускаются):
+
+1. **Фото-интервал** (F8, `SLAVIC_PHOTO_INTERVAL`) — проверяется первой, как сейчас.
+   Если фото отправлено → `return` (mimic и "пошёл нахуй" НЕ проверяются вообще).
+2. **Mimic-условие** (новое) — проверяется, только если фото НЕ было отправлено на этом шаге.
+   Если условие выполнено (>N слов И таймаут прошёл) → отправить mimic → `return`.
+3. **Fallback "пошёл нахуй"** — если ни фото, ни mimic не сработали.
+
+**Обоснование такого порядка (фото > mimic > текст):** ТЗ явно требует не ломать фото-
+механику ("Эти функции ломать НЕЛЬЗЯ"). ТЗ говорит про замену конкретно "пошёл нахуй" на
+mimic — фото не упомянуто как то, что должно уступать место mimic. Поэтому фото сохраняет
+наивысший приоритет (реже срабатывает, раз в N ответов — редкое "особое" событие), mimic
+занимает второе место (заменяет обычный текстовый ответ при выполнении условий), а простой
+"пошёл нахуй" — это базовый fallback.
+
+#### 3.4.4 Мьютекс — техническая гарантия отсутствия дублирования
+
+Мьютекс здесь не требует lock/семафор в конкурентном смысле (Python asyncio + aiogram
+обрабатывает одно сообщение = один вызов хендлера, без параллельного повторного входа для
+ТОГО ЖЕ message_id). "Мьютекс" в контексте ТЗ — это гарантия **логического** взаимного
+исключения через структуру `if/elif/else` (а не `if` + отдельный `if`), что синтаксически
+делает второй/третий вариант ответа недостижимым, если сработал первый:
+
+```python
+if <фото условие>:
+    ... send_photo() ...
+    return
+elif <mimic условие>:
+    ... send_mimic() ...
+    return
+else:
+    ... reply("пошёл нахуй") ...
+```
+
+Использование `if/elif/else` (или эквивалентных ранних `return`) — это ЕДИНСТВЕННО верный
+паттерн. Использование двух независимых `if` без `return`/`elif` — это ретроспективно
+задокументированный анти-паттерн, который архитектор explicitly запрещает Builder-у.
+
+#### 3.4.5 Обновлённый `handlers/slavik.py` — спецификация для Builder
+
+```python
+"""handlers/slavik.py — ОБНОВЛЕНИЕ для mimic-интеграции (Задача 3.2)."""
+import logging
+import time
+from pathlib import Path
+from aiogram import Router, types
+from aiogram.types import FSInputFile
+from filters.user_id import UserIdFilter
+from filters.kucha_word import KuchaWordFilter
+from config.settings import settings
+from services.mimic_transform import mimic_transform, count_words
+
+logger = logging.getLogger(__name__)
+
+slavik_router = Router()
+
+_db = None
+
+# ── Mimic (Slavik-специфичный cooldown, независимый от common-сервиса) ──
+_slavik_mimic_last_sent: dict[int, float] = {}  # chat_id -> monotonic timestamp
+
+
+def setup_slavik(db):
+    global _db
+    _db = db
+
+
+@slavik_router.message(KuchaWordFilter())
+async def kucha_handler(message: types.Message):
+    await message.reply("ДАЛБАЕБ")
+
+
+def _slavik_mimic_should_trigger(chat_id: int, text: str) -> bool:
+    """Проверка условий mimic для Slavik-сервиса (F11).
+    Слова: count_words(text) > SLAVIK_MIMIC_MIN_WORDS
+    Таймаут: время с последнего mimic-ответа >= SLAVIK_MIMIC_COOLDOWN_SECONDS
+    """
+    if settings.SLAVIK_MIMIC_MIN_WORDS < 0:
+        return False
+    if count_words(text) <= settings.SLAVIK_MIMIC_MIN_WORDS:
+        return False
+    cooldown = settings.SLAVIK_MIMIC_COOLDOWN_SECONDS
+    if cooldown > 0:
+        last = _slavik_mimic_last_sent.get(chat_id)
+        if last is not None and (time.monotonic() - last) < cooldown:
+            return False
+    return True
+
+
+@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
+async def slavik_catchall_handler(message: types.Message):
+    """Reply to Slava. Приоритет: фото (F8) > mimic (F11) > "пошёл нахуй" (базовый)."""
+    logger.debug(
+        "Slavic catchall: processing msg_id=%d from user_id=%d",
+        message.message_id,
+        message.from_user.id if message.from_user else 0,
+    )
+
+    # ── Ветка 1: Фото-интервал (F8) — НЕ ТРОГАТЬ существующую логику ──
+    if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
+        try:
+            chat_id = message.chat.id
+            should_send_photo = await _db.slavic_photo_count_tick(
+                chat_id, settings.SLAVIC_PHOTO_INTERVAL
+            )
+            if should_send_photo:
+                logger.info(
+                    "Slavic Photo: interval reached | interval=%d | user_id=%d | chat_id=%d",
+                    settings.SLAVIC_PHOTO_INTERVAL, message.from_user.id, chat_id,
+                )
+                if not Path(settings.SLAVIC_PHOTO_PATH).exists():
+                    logger.warning(
+                        "Slavic Photo: file not found: %s", settings.SLAVIC_PHOTO_PATH
+                    )
+                    # ФАЙЛ НЕ НАЙДЕН → falls through к mimic/тексту (как и раньше)
+                else:
+                    await message.answer_photo(photo=FSInputFile(settings.SLAVIC_PHOTO_PATH))
+                    return
+        except Exception:
+            logger.exception(
+                "Slavic Photo: failed to send photo, falling back | msg_id=%d",
+                message.message_id,
+            )
+            # падение фото-логики → falls through к mimic/тексту (как и раньше)
+
+    # ── Ветка 2: Mimic (F11, новое) ──
+    content = message.text or message.caption
+    if content and _slavik_mimic_should_trigger(message.chat.id, content):
+        try:
+            transformed = mimic_transform(content)
+            await message.reply(transformed)
+            _slavik_mimic_last_sent[message.chat.id] = time.monotonic()
+            logger.info(
+                "Slavik Mimic: sent | chat_id=%d | words=%d | msg_id=%d",
+                message.chat.id, count_words(content), message.message_id,
+            )
+            return
+        except Exception:
+            logger.exception(
+                "Slavik Mimic: failed to send, falling back to text | msg_id=%d",
+                message.message_id,
+            )
+            # падение mimic → falls through к базовому тексту (гарантия: юзер получит ХОТЬ ЧТО-ТО)
+
+    # ── Ветка 3: Базовый fallback ──
+    await message.reply("пошёл нахуй")
+```
+
+**Ключевые архитектурные решения, зафиксированные в этой спецификации:**
+
+1. **Раздельные cooldown-состояния** для 3.1 (common, `MimicRelay._last_sent`, ключ
+   `(chat_id, user_id)`) и 3.2 (Slavik, `_slavik_mimic_last_sent`, ключ `chat_id`).
+   Это два РАЗНЫХ модуля/фичи с разными конфигурационными переменными — они не должны
+   делить состояние. Если жертва из 3.1 когда-либо совпадёт с `SLAVIK_USER_ID`, это два
+   независимых триггера на РАЗНЫХ роутерах (`common_router` и `slavik_router`), каждый со
+   своим cooldown. Такое совпадение конфигурации — на совести оператора бота, архитектура
+   не обязана его запрещать, но должна корректно работать при этом (оба хендлера
+   сработают независимо, оба используют `UNHANDLED`/обычный `return` — no conflict).
+2. **try/except с fallback внутри каждой ветки**: если фото падает — код переходит к mimic;
+   если mimic падает — код переходит к простому тексту. Это гарантирует, что Slavik
+   **всегда** получает какой-то ответ (соответствует принципу "не ломать существующее
+   поведение" — раньше падение просто привело бы к исключению, теперь — graceful
+   деградация до базового текста).
+3. **`_slavik_mimic_should_trigger` НЕ обновляет cooldown** (только читает) — обновление
+   происходит ПОСЛЕ успешной отправки (`_slavik_mimic_last_sent[chat_id] = ...` только
+   внутри `try`, после `message.reply()`), что предотвращает "сжигание" cooldown-таймера
+   при ошибке отправки (тот же принцип, что и в `MimicRelay.should_trigger`/`mark_sent`).
+
+#### 3.4.6 Конфигурация для Slavik-mimic (`config/settings.py`)
+
+```python
+# ── Slavik Mimic (F11 — замена "пошёл нахуй" на mimic) ──
+SLAVIK_MIMIC_MIN_WORDS: int = _env_int("SLAVIK_MIMIC_MIN_WORDS", 5)
+SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float("SLAVIK_MIMIC_COOLDOWN_SECONDS", 60.0)
+```
+
+Отдельные от `MIMIC_MIN_WORDS`/`MIMIC_COOLDOWN_SECONDS` (используемых в common-сервисе,
+§3.3.1) — оператор бота может настраивать пороги для Славика и для произвольной "жертвы"
+независимо. Это соответствует существующему стилю проекта (`COMMON_COOLDOWN_SECONDS`
+отдельно от `OTBOY_COOLDOWN_SECONDS` в истории Epic 15, где было принято решение шарить
+конфиг ТОЛЬКО внутри одного сервиса, но не между сервисами).
+
+### 3.5 Интеграция в `bot.py` — регистрация и wiring
+
+```python
+# on_startup():
+from services.mimic_relay import MimicRelay
+mimic_relay = MimicRelay(
+    min_words=settings.MIMIC_MIN_WORDS,
+    cooldown_seconds=settings.MIMIC_COOLDOWN_SECONDS,
+)
+setup_common_mimic(mimic_relay)  # новая функция в handlers/common.py, аналог setup_common()
+
+# Slavik не требует отдельного setup() для mimic — использует чистые функции
+# (mimic_transform, count_words) + module-level dict, без внешних зависимостей (без DB).
+```
+
+**Router order:** НЕ изменяется. `mimic_handler` (3.1) регистрируется в `common_router`
+(позиция 4c, уже существует). `slavik_catchall_handler` (3.2) уже зарегистрирован в
+`slavik_router` (позиция 5) — просто модифицируется тело существующей функции. Никаких
+новых роутеров, никакого риска для порядка propagation.
+
+### 3.6 Тест-план для фичи mimic (для Builder)
+
+**Модуль `services/mimic_transform.py` (чистые функции — легко покрыть 100%):**
+- Все 7 verified кейсов из §3.1.3 как параметризованные тесты.
+- Пустая строка → пустая строка.
+- Строка без кириллицы (только латиница/цифры/пунктуация) → без изменений.
+- Каждая согласная (р/ш/щ/ж/ч) отдельно, нижний и верхний регистр.
+- Гласная в начале слова (после пробела/начала строки) → не меняется.
+- Гласная после гласной → не меняется ("моя" → "моя", `я` не в картах, но проверить "оу"-подобные).
+- Гласная после согласной, которая сама заменяется (например "ру" → "йю") — критический edge case.
+- `count_words`: пустая строка→0, одно слово→1, множественные пробелы→корректный подсчёт.
+
+**Модуль `services/mimic_relay.py`:**
+- `should_trigger`: слов ≤N → False; слов >N и нет предыдущей отправки → True.
+- `should_trigger`: слов >N, но cooldown не прошёл → False.
+- `should_trigger`: слов >N, cooldown=0 (отключён) → всегда True (если слов достаточно).
+- `mark_sent` корректно обновляет timestamp только для указанного `(chat_id, user_id)`.
+- `send_mimic`: вызывает `bot.send_message` с правильными `reply_to_message_id` и
+  трансформированным текстом.
+
+**Хендлер `common.py::mimic_handler`:**
+- `MIMIC_VICTIM_USER_ID=0` → хендлер никогда не срабатывает (UserIdFilter с пустым/0 ID).
+- Сообщение от жертвы, >N слов, cooldown прошёл → mimic отправлен, `UNHANDLED` возвращён.
+- Сообщение от жертвы, ≤N слов → mimic НЕ отправлен.
+- Сообщение НЕ от жертвы (другой user_id) → хендлер не вызывается вообще (UserIdFilter).
+- Propagation: после mimic_handler остальные хендлеры (slavik/vasya) всё равно получают
+  событие (аналогично otboy/danger — `UNHANDLED`).
+
+**Хендлер `slavik.py::slavik_catchall_handler` (регрессионные + новые):**
+- **Регрессия:** фото-интервал достигнут → фото отправлено, mimic/текст НЕ отправлены
+  (мьютекс работает).
+- **Регрессия:** фото не достигнут, mimic-условие НЕ выполнено → "пошёл нахуй" как раньше.
+- **Новое:** фото не достигнут, mimic-условие выполнено (>N слов, cooldown прошёл) →
+  mimic отправлен, "пошёл нахуй" НЕ отправлен.
+- **Новое:** фото не достигнут, mimic-условие выполнено, но `message.reply()` внутри
+  mimic-ветки бросает исключение → fallback на "пошёл нахуй" (graceful degradation).
+- **Мьютекс smoke-test:** для одного и того же `message`, при любой комбинации условий,
+  РОВНО один из трёх ответов (photo/mimic/text) отправляется — никогда 0, никогда 2+.
+- **KUCHA independence:** KuchaWordFilter продолжает работать независимо (это отдельный
+  handler в том же router — не затронут изменениями в catchall).
+
+**Admin-команда `/mimic`:**
+- DM от любого юзера → работает.
+- Группа от ADMIN_USER_ID → работает.
+- Группа от не-админа → команда игнорируется (no-op, тихо).
+- `/mimic <текст>` → трансформирует именно переданный текст.
+- `/mimic` без аргументов → использует дефолтный sample text.
+- Команда удаляется из чата после выполнения (как `/deadpage`/`/alangreet`).
+
+---
+
+## 4. Сводный план для Builder
+
+### 4.1 Порядок реализации (рекомендуемый)
+
+Задачи независимы друг от друга (разные файлы, разные роутеры), можно делать в любом
+порядке или параллельно несколькими Builder-агентами. Рекомендуемый порядок по риску
+и трудоёмкости (от простого к сложному):
+
+1. **Задача 1 (danger_word)** — самая быстрая. Это ИНФРАСТРУКТУРНАЯ задача (деплой),
+   не написание кода. Основной риск — деплой в production (high-risk, требует явного
+   подтверждения пользователя перед выполнением, см. §1.5, шаг 1). Если пользователь
+   не готов давать доступ к серверу прямо сейчас — этот пункт можно отложить, а остальные
+   два реализовывать параллельно.
+2. **Задача 3 (mimic)** — chisto новая фича, ноль зависимости от существующих багов,
+   можно начинать сразу. Рекомендуется начать с `services/mimic_transform.py` (чистые
+   функции, 100% юнит-тестируемые без aiogram) → затем `services/mimic_relay.py` →
+   затем интеграция в `handlers/common.py` (3.1) → затем интеграция в `handlers/slavik.py`
+   (3.2, наиболее рискованная часть из-за требования мьютекса — см. §3.4.4).
+3. **Задача 2 (dead_page Rich Message)** — самая сложная и наименее определённая.
+   Требует ОТКРЫТОГО вопроса (§2.6) — реального сырого JSON от канала-источника — ПЕРЕД
+   написанием финального кода извлечения. Рекомендуется НАЧАТЬ с добавления временного
+   diagnostic-логирования (`logger.info("RAW RICH MESSAGE: %s", message.model_dump_json())`
+   в `bot.py::track_relay_post`), задеплоить ТОЛЬКО этот лог, дождаться реального Rich
+   Message поста в канале, изучить структуру `blocks`, и ТОЛЬКО ПОСЛЕ ЭТОГО реализовывать
+   §2.5 (early-exit для Rich Message в `_forward_with_heuristic`) и §2.5 п.1 (chronological
+   forward scan вместо random probing).
+
+### 4.2 Риски и точки, требующие подтверждения пользователя/Orchestrator ПЕРЕД началом кода
+
+| Риск | Задача | Требуемое действие |
+|------|--------|---------------------|
+| Деплой на production-сервер (`nik@198.46.175.136`) | 1 | Явное подтверждение пользователя перед `git pull` + restart на живом сервере |
+| Изменение алгоритма `_try_forward_from_channel`/`_forward_with_heuristic` в `dead_page_relay.py` — затрагивает уже работающий (для старых постов) механизм | 2 | Подтвердить с пользователем, что регрессия для старых/обычных постов недопустима — нужны explicit regression-тесты на существующее поведение (форвард обычного фото-поста без Rich Message) ДО внедрения изменений |
+| Отсутствие реального образца Rich Message JSON от конкретного канала — вся секция 2.5 построена на документации aiogram/Telegram, а не на реальных данных канала пользователя | 2 | См. §2.6 — получить сырой лог ПЕРЕД финальной реализацией парсинга/детекции |
+| `MIMIC_VICTIM_USER_ID` — конфиг может совпасть с `SLAVIK_USER_ID`, `ALAN_USER_ID`, `KOSTIK_USER_ID` — архитектура ЭТО ДОПУСКАЕТ (независимые роутеры/cooldown), но нужно явно предупредить пользователя при настройке .env, если совпадение обнаружено | 3 | Не блокирует разработку — Builder может просто задокументировать в `.env.example` предупреждение |
+
+### 4.3 Сводный тест-план (все три задачи)
+
+**Задача 1 (danger_word):**
+- Полный regression-прогон существующего `pytest` (399+ тестов) на сервере ПОСЛЕ деплоя.
+- 3 smoke-теста на живом проде (§1.5, п.4).
+- НЕ требует новых тестов в коде (баг уже покрыт существующими 143 тестами `test_common.py`).
+
+**Задача 2 (dead_page Rich Message):**
+- **Regression (обязательно, до любых изменений):** зафиксировать текущее поведение
+  форварда обычного поста (фото+caption) как baseline unit/integration тест, чтобы
+  гарантировать, что фикс Rich Message не сломает существующий работающий путь.
+- **Новые тесты (после получения реального образца JSON, см. §2.6):**
+  - `Message.rich_message is not None` → форвард происходит без heuristic album-probing.
+  - `Message.rich_message is None`, `media_group_id` присутствует → существующий Path 1
+    (DB lookup) работает без изменений.
+  - `Message.rich_message is None`, `media_group_id` отсутствует (старый одиночный пост) →
+    существующий heuristic path работает без изменений (regression).
+  - Chronological forward scan: после успешного форварда `msg_id=N`, следующий вызов
+    `send_dead_page` должен пробовать `N+1, N+2, ...` СНАЧАЛА, а не случайный `[1, N]`.
+  - `_try_forward_from_channel` не завершается с `return False` на единичной непредвиденной
+    ошибке для одного `msg_id` — переходит к следующему диапазону/ID.
+- **Smoke-тест на живом канале** (после деплоя): триггернуть репост нового Rich Message
+  поста → убедиться, что он появляется в целевом чате.
+
+**Задача 3 (mimic):** см. подробный тест-план в §3.6 (уже описан выше, включает property-based
+тесты трансформации, тесты relay, тесты обоих хендлеров, тесты мьютекса, тесты admin-команды).
+
+### 4.4 Файлы, которые Builder будет создавать/изменять (сводка)
+
+| Файл | Задача | Тип изменения |
+|------|--------|----------------|
+| (деплой-скрипты/CI, вне репозитория кода) | 1 | Деплой существующего коммита `af93acb`, без изменений кода |
+| `services/dead_page_relay.py` | 2 | MODIFY — `_build_search_ranges`, `_try_forward_from_channel`, `_forward_with_album_detection`, `_forward_with_heuristic` |
+| `bot.py::track_relay_post` | 2 | MODIFY — временное diagnostic-логирование Rich Message (§2.6), затем финальная логика проверки `rich_message is not None` |
+| `tests/test_dead_page_relay.py` | 2 | MODIFY — новые тесты Rich Message path + regression тесты старого поведения |
+| `services/mimic_transform.py` | 3 | CREATE — новый модуль, чистые функции `mimic_transform`, `count_words` |
+| `services/mimic_relay.py` | 3 | CREATE — `MimicRelay` класс для common-сервиса (3.1) |
+| `handlers/common.py` | 3 | MODIFY — добавить `mimic_handler` + `setup_common_mimic` |
+| `handlers/slavik.py` | 3 | MODIFY — врезать mimic-ветку в `slavik_catchall_handler` с мьютексом (§3.4.5) |
+| `handlers/admin_commands.py` | 3 | MODIFY — добавить `/mimic` команду |
+| `config/settings.py` | 3 | MODIFY — добавить `MIMIC_VICTIM_USER_ID`, `MIMIC_MIN_WORDS`, `MIMIC_COOLDOWN_SECONDS`, `SLAVIK_MIMIC_MIN_WORDS`, `SLAVIK_MIMIC_COOLDOWN_SECONDS` |
+| `.env.example` | 3 | MODIFY — документировать новые переменные |
+| `bot.py::on_startup` | 3 | MODIFY — создать `MimicRelay`, вызвать `setup_common_mimic` |
+| `tests/test_mimic_transform.py` | 3 | CREATE — property-based тесты трансформации |
+| `tests/test_mimic_relay.py` | 3 | CREATE — тесты `MimicRelay` |
+| `tests/test_common.py` | 3 | MODIFY — тесты `mimic_handler` |
+| `tests/test_slavik_handlers.py` | 3 | MODIFY — тесты мьютекса в `slavik_catchall_handler` |
+| `tests/test_admin_commands.py` | 3 | MODIFY — тесты `/mimic` команды |
+| `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md` | 1, 2, 3 | MODIFY — после реализации, задокументировать финальное поведение (стандартный процесс проекта, см. историю всех прошлых Epic) |
+
+### 4.5 Явные NON-GOALS (что Builder НЕ должен делать)
+
+- **Задача 1:** не переписывать словарь `DANGER_WORDS`, не менять архитектуру `common_router`
+  или `war_alert_router` — код уже корректен, требуется только деплой.
+- **Задача 2:** не реализовывать полную пересборку Rich Message через `sendRichMessage`/
+  `InputRichBlock*` (реконструкция контента) — если пользователь явно не подтвердит, что
+  простого `forward_message` (by-reference) недостаточно (см. открытый вопрос §2.6, пункт 2).
+- **Задача 3:** не использовать LLM/нейросети (явное требование ТЗ). Не менять существующее
+  поведение фото-интервала (F8) или KUCHA-фильтра в `slavik.py`. Не объединять cooldown-
+  состояния между 3.1 (common) и 3.2 (Slavik) — они должны оставаться независимыми модулями
+  с раздельной конфигурацией.
+
+---

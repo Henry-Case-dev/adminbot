@@ -9,10 +9,28 @@ from services.media_picker import MediaService
 
 logger = logging.getLogger(__name__)
 
+# Safe Rich Message check — works with real aiogram Messages AND MagicMock test objects
+try:
+    from aiogram.types import RichMessage as _RichMessageType
+except ImportError:
+    _RichMessageType = None
+
+
+def _is_rich_message(sent) -> bool:
+    """Return True if the forwarded message is a Rich Message (Bot API 10.2+).
+
+    Uses isinstance check against aiogram's RichMessage type to be mock-safe
+    in tests (MagicMock is not an instance of RichMessage).
+    """
+    if _RichMessageType is None:
+        return False
+    return isinstance(getattr(sent, 'rich_message', None), _RichMessageType)
+
 # ── Epic 14: Album detection constants ──
 _ALBUM_PROBE_RANGE: int = 9          # max siblings to probe in each direction
 _ALBUM_DATE_TOLERANCE_S: int = 2     # seconds between post dates to consider same album
 _MAX_CONSECUTIVE_GAPS: int = 2       # max deleted messages to skip before stopping probe
+_FORWARD_SCAN_LIMIT: int = 20        # max IDs to scan forward from last_known_message_id
 
 # ── Search ranges: (lo, hi) — tried in order until a valid post is found ──
 # Narrow ranges first (fast for small channels), then expand.
@@ -84,11 +102,12 @@ class DeadPageRelay:
         Discover valid posts and forward a random one to chat_id.
 
         Strategy:
-          1. If last_msg_id is known from DB, try that exact ID first (fast path).
-          2. Try progressively wider random ranges.
+          1. Forward scan: if last_msg_id is known, try msg_ids just beyond it.
+          2. Try progressively wider random/sequential ranges.
           3. On first success → update DB ceiling and return True.
           4. If all ranges exhausted → return False (trigger fallback).
-          5. If a non-"not found" error occurs → return False immediately (channel issue).
+          5. Non-"not found" errors in the scan are logged but don't abort;
+             only channel-wide failures return False immediately.
         """
         logger.info(
             f"[dead_page] Forward attempt: chat={chat_id}, "
@@ -97,6 +116,34 @@ class DeadPageRelay:
 
         last_msg_id = await self.db.get_last_known_message_id()
         logger.info(f"[dead_page] DB last_known_message_id = {last_msg_id}")
+
+        # Forward scan: sequentially try IDs just beyond the last known
+        if last_msg_id and last_msg_id > 0:
+            logger.info(
+                f"[dead_page] Forward scan: probing IDs "
+                f"{last_msg_id + 1} → {last_msg_id + _FORWARD_SCAN_LIMIT}"
+            )
+            for probe_id in range(last_msg_id + 1, last_msg_id + _FORWARD_SCAN_LIMIT + 1):
+                try:
+                    result = await self._forward_single(chat_id, probe_id, last_msg_id)
+                    logger.info(
+                        f"[dead_page]   SUCCESS (forward scan): msg_id={probe_id} "
+                        f"forwarded to chat {chat_id}"
+                    )
+                    return result
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "not found" in error_msg or "bad request" in error_msg:
+                        logger.debug(
+                            f"[dead_page]   NOT FOUND (forward scan): msg_id={probe_id}"
+                        )
+                        continue
+                    else:
+                        logger.error(
+                            f"[dead_page]   FORWARD SCAN ERROR: msg_id={probe_id} → {e}",
+                            exc_info=True,
+                        )
+                        continue
 
         ranges = self._build_search_ranges(last_msg_id)
         logger.info(f"[dead_page] Search plan: {len(ranges)} range(s)")
@@ -133,7 +180,7 @@ class DeadPageRelay:
                                 f"[dead_page]   CHANNEL ERROR: msg_id={msg_id} → {e}",
                                 exc_info=True,
                             )
-                            return False
+                            continue
 
                 logger.warning(
                     f"[dead_page] Range [{lo},{hi}] exhausted "
@@ -178,7 +225,7 @@ class DeadPageRelay:
                                 f"[dead_page]   CHANNEL ERROR: msg_id={msg_id} → {e}",
                                 exc_info=True,
                             )
-                            return False
+                            continue
 
                 logger.warning(
                     f"[dead_page] Range [{lo},{hi}] exhausted "
@@ -203,8 +250,9 @@ class DeadPageRelay:
         """
         if last_msg_id and last_msg_id > 0:
             anchored = [
-                (1, last_msg_id),
+                (last_msg_id + 1, max(last_msg_id + 50, last_msg_id * 2, 100)),
                 (1, max(last_msg_id * 2, 100)),
+                (1, last_msg_id),
             ]
             # Добавляем _DISCOVERY_RANGES как safety net: если канал вырос
             # далеко за пределы anchored-диапазонов, прогрессивные диапазоны
@@ -229,6 +277,74 @@ class DeadPageRelay:
             logger.warning(
                 f"[dead_page] Failed to delete probe msg_id={message_id}: {e}"
             )
+
+    async def _forward_single(self, chat_id: int, msg_id: int, last_msg_id: int | None) -> bool:
+        """Forward a single message with Rich Message detection.
+
+        Forwards the message first, then checks if it's a Rich Message.
+        If Rich Message: return immediately (no album detection needed).
+        If regular message: the message was already forwarded above, so just
+        run album detection logic on the already-sent message.
+        """
+        sent = await self.bot.forward_message(
+            chat_id=chat_id,
+            from_chat_id=self.relay_channel_id,
+            message_id=msg_id,
+            disable_notification=False,
+        )
+        if _is_rich_message(sent):
+            logger.info(f"[dead_page] Rich Message forwarded: msg_id={msg_id}")
+            if not last_msg_id or msg_id > last_msg_id:
+                await self.db.update_last_known_message_id(msg_id)
+            return True
+
+        # Regular message was already forwarded; run album detection
+        # on the already-sent message (pass sent to avoid re-forwarding)
+        return await self._forward_album_post_send(chat_id, msg_id, last_msg_id, sent)
+
+    async def _forward_album_post_send(
+        self, chat_id: int, msg_id: int, last_msg_id: int | None, sent
+    ) -> bool:
+        """Album detection for an already-forwarded message.
+
+        Checks DB for media_group_id, then falls back to heuristic probing
+        using the already-known sent message date.
+        """
+        # PATH 1: DB lookup — known album
+        media_group_id = await self.db.get_relay_media_group_id(msg_id)
+        if media_group_id:
+            album_ids = await self.db.get_relay_album_message_ids(media_group_id)
+            logger.info(
+                f"[dead_page]   Album (DB lookup): {len(album_ids)} messages, "
+                f"IDs={album_ids}"
+            )
+            # Delete the individually-forwarded primary since we'll re-send as group
+            try:
+                await self.bot.delete_message(chat_id=chat_id, message_id=sent.message_id)
+            except Exception:
+                logger.warning("[dead_page] Failed to delete solo forward for album re-group")
+            await self.bot.forward_messages(
+                chat_id=chat_id,
+                from_chat_id=self.relay_channel_id,
+                message_ids=album_ids,
+                disable_notification=False,
+            )
+            if album_ids:
+                max_id = max(album_ids)
+                if not last_msg_id or max_id > last_msg_id:
+                    await self.db.update_last_known_message_id(max_id)
+                    logger.info(
+                        f"[dead_page]   DB updated: last_known_message_id → {max_id}"
+                    )
+            return True
+
+        # PATH 2: No album — single post, already forwarded. Just update DB.
+        if not last_msg_id or msg_id > last_msg_id:
+            await self.db.update_last_known_message_id(msg_id)
+            logger.info(
+                "[dead_page]   Single post: DB updated last_known_message_id → %d", msg_id
+            )
+        return True
 
     async def _forward_with_album_detection(
         self, chat_id: int, msg_id: int, last_msg_id: int | None
@@ -293,6 +409,12 @@ class DeadPageRelay:
             message_id=msg_id,
             disable_notification=False,
         )
+        if _is_rich_message(sent):
+            logger.info(f"[dead_page] Rich Message (heuristic path): msg_id={msg_id}")
+            if not last_msg_id or msg_id > last_msg_id:
+                await self.db.update_last_known_message_id(msg_id)
+            return True
+
         base_date = self._normalize_date(sent.date)
         primary_sent_msg_id = sent.message_id
 

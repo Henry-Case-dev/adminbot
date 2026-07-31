@@ -21,6 +21,7 @@ from services.scheduler import SchedulerService
 from services.media_picker import MediaService
 from services.dead_page_relay import DeadPageRelay
 from services.common_relay import CommonRelay
+from services.mimic_relay import MimicRelay
 from services.message_counter import MessageCounterMiddleware
 
 # Handlers
@@ -32,7 +33,7 @@ from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 from handlers.war_alert import war_alert_router, setup_war_alert
-from handlers.common import common_router, setup_common
+from handlers.common import common_router, setup_common, setup_common_mimic
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -75,6 +76,13 @@ async def on_startup():
     common_relay = CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)
     setup_common(common_relay)
     logger.info("Common Service (Epic 15) initialized")
+
+    mimic_relay = MimicRelay(
+        min_words=settings.MIMIC_MIN_WORDS,
+        cooldown_seconds=settings.MIMIC_COOLDOWN_SECONDS,
+    )
+    setup_common_mimic(mimic_relay)
+    logger.info("Mimic Service (Epic 18) initialized")
     
     # Attach GIF counter middleware to slavik router
     slavik_router.message.middleware(MessageCounterMiddleware(db))
@@ -129,6 +137,15 @@ async def on_startup():
                 f"[relay_tracker] Indexed msg_id={message.message_id} "
                 f"media_group_id={message.media_group_id}"
             )
+        # Track Rich Messages (Bot API 10.2+) — log for diagnostics
+        try:
+            rich = message.rich_message
+            if rich is not None:
+                logger.debug(
+                    f"[relay_tracker] Rich Message indexed: msg_id={message.message_id}"
+                )
+        except AttributeError:
+            pass
     logger.info("Relay channel media group tracker registered (Epic 14)")
 
 
