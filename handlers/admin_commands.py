@@ -69,7 +69,7 @@ async def cmd_deadpage_group(message: types.Message):
 
 # ── /mimic ────────────────────────────────────────────
 
-@admin_commands_router.message(Command("mimic"), F.chat.type == "private")
+@admin_commands_router.message(F.text.startswith("/mimic"), F.chat.type == "private")
 async def cmd_mimic_dm(message: types.Message):
     """DM: anyone can test mimic transform."""
     try:
@@ -83,7 +83,7 @@ async def cmd_mimic_dm(message: types.Message):
         logger.exception("[/mimic] DM handler failed | chat_id=%d", message.chat.id)
 
 
-@admin_commands_router.message(Command("mimic"), F.chat.type != "private")
+@admin_commands_router.message(F.text.startswith("/mimic"), F.chat.type != "private")
 async def cmd_mimic_group(message: types.Message):
     """Group: admin-only. Test mimic transform."""
     try:
