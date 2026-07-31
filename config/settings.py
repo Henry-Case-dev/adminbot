@@ -94,8 +94,27 @@ class Settings:
     COMMON_MEDIA_BASE: str = os.getenv("COMMON_MEDIA_BASE", "media/common")
 
     # Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
-    # Leave empty to use built-in defaults (22 words).
+    # Leave empty to use built-in defaults (135+ words from filters/word_lists.py).
     DANGER_WORDS: str = os.getenv("DANGER_WORDS", "")
+
+    # ── Mimic Feature (common service, §3.1) ──
+    # User ID of the "victim" whose messages will be mimicked.
+    # 0 or negative = feature disabled.
+    MIMIC_VICTIM_USER_ID: int = _env_int("MIMIC_VICTIM_USER_ID", 138811255)
+
+    # Minimum word count to trigger mimic (strict > N words).
+    MIMIC_MIN_WORDS: int = _env_int("MIMIC_MIN_WORDS", 5)
+
+    # Cooldown in seconds between mimic replies per (chat, user).
+    MIMIC_COOLDOWN_SECONDS: float = _env_float("MIMIC_COOLDOWN_SECONDS", 60.0)
+
+    # ── Slavik Mimic (§3.2 — replacement for "пошёл нахуй") ──
+    # Minimum word count in Slava's message to use mimic instead of default reply.
+    # Set to -1 to disable Slavik mimic entirely.
+    SLAVIK_MIMIC_MIN_WORDS: int = _env_int("SLAVIK_MIMIC_MIN_WORDS", 5)
+
+    # Cooldown in seconds between Slavik mimic replies (per chat).
+    SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float("SLAVIK_MIMIC_COOLDOWN_SECONDS", 60.0)
 
 
 settings = Settings()

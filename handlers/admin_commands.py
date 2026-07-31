@@ -65,6 +65,38 @@ async def cmd_deadpage_group(message: types.Message):
 
 # ── /alangreet ────────────────────────────────────────
 
+# ── /mimic ────────────────────────────────────────────
+
+@admin_commands_router.message(Command("mimic"), F.chat.type == "private")
+async def cmd_mimic_dm(message: types.Message):
+    """DM: anyone can test mimic transform."""
+    await _delete_command(message)
+    from services.mimic_transform import mimic_transform
+    args = message.text.split(maxsplit=1)
+    sample_text = args[1] if len(args) > 1 else "мама мыла раму широкой щеткой"
+    transformed = mimic_transform(sample_text)
+    await message.reply(transformed)
+    logger.info("[/mimic] DM test | chat_id=%d | input_len=%d", message.chat.id, len(sample_text))
+
+
+@admin_commands_router.message(Command("mimic"), F.chat.type != "private")
+async def cmd_mimic_group(message: types.Message):
+    """Group: admin-only. Test mimic transform."""
+    if message.from_user.id != settings.ADMIN_USER_ID:
+        logger.debug("[/mimic] Non-admin %d rejected in chat %d",
+                     message.from_user.id, message.chat.id)
+        return
+    await _delete_command(message)
+    from services.mimic_transform import mimic_transform
+    args = message.text.split(maxsplit=1)
+    sample_text = args[1] if len(args) > 1 else "мама мыла раму широкой щеткой"
+    transformed = mimic_transform(sample_text)
+    await message.reply(transformed)
+    logger.info("[/mimic] Admin test | chat_id=%d | input_len=%d", message.chat.id, len(sample_text))
+
+
+# ── /alangreet ────────────────────────────────────────
+
 @admin_commands_router.message(Command("alangreet"), F.chat.type == "private")
 async def cmd_alangreet_dm(message: types.Message):
     """DM: anyone can trigger Alan greeting video."""

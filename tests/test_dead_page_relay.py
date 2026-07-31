@@ -231,11 +231,12 @@ class TestDeadPageRelay:
 
     def test_build_search_ranges_appends_discovery(self, relay):
         """D16: Verify anchored ranges come first, then _DISCOVERY_RANGES as safety net."""
-        # Known ID path
+        # Known ID path — forward range first, then wide, then narrow, then discovery
         ranges = relay._build_search_ranges(5)
         assert ranges == [
-            (1, 5),
-            (1, 100),   # max(5*2, 100)
+            (6, 100),   # forward range: last_msg_id+1 to max(last_msg_id+50, last_msg_id*2, 100)
+            (1, 100),   # wide fallback: (1, max(last_msg_id*2, 100))
+            (1, 5),     # narrow fallback: (1, last_msg_id)
             (1, 10),    # _DISCOVERY_RANGES[0]
             (1, 50),    # _DISCOVERY_RANGES[1]
             (1, 200),   # _DISCOVERY_RANGES[2]
@@ -253,8 +254,10 @@ class TestDeadPageRelay:
 
     @pytest.mark.asyncio
     async def test_dedup_does_not_burn_attempts(self, relay, mock_bot, mock_db):
-        """D17: Sequential scan of [1,3] tries 3 IDs exactly, then random mode finds post.
-        Epic 14: probing adds ±3 calls per direction (gap tolerance), total ~10."""
+        """D17: Forward scan probes 20 IDs, then random range with heuristic probing finds post.
+        Forward scan: 20 calls (IDs 4-23, all fail).
+        Range (24,100): randint→77 (1 hit) + heuristic probes neighbors (3 fwd + 3 bwd gaps).
+        Total: 20 + 1 + 6 = 27."""
         mock_db.get_last_known_message_id.return_value = 3
         relay.max_retries = 5
         mock_bot.forward_message.side_effect = _make_valid_ids({77})
@@ -262,26 +265,23 @@ class TestDeadPageRelay:
         with patch("random.randint", return_value=77):
             await relay.send_dead_page(-100123)
 
-        # Sequential (1,3): 3 calls fail, random 77 hits:
-        # primary=1 + forward_probe(78,79,80→gap)=3 + backward_probe(76,75,74→gap)=3
-        assert mock_bot.forward_message.call_count == 10
+        assert mock_bot.forward_message.call_count == 27
 
     # ── Sequential scan (D28/D29) ───────────────────────────────
 
     @pytest.mark.asyncio
     async def test_sequential_scan_finds_only_post(self, relay, mock_bot, mock_db):
-        """D28: Channel with 1 post at ID=3 — sequential (1,10) finds it in 3 calls.
-        Epic 14: probing adds forward/backward calls (album detection).
-        Total: 2 fails (1,2) + 1 hit (3) + 3 forward probe (4,5,6 gaps) + 2 backward probe (2,1 gaps) = 8."""
+        """D28: Post at ID=3, DB last_msg_id=5 (stale). Forward scan IDs 6-25 (20 fail).
+        Ranges exhaust, then sequential (1,5) finds ID=3 + heuristic probes neighbors.
+        Total: 20 (fwd scan) + 5 (random 6,100) + 5 (random 1,100) + 2 (seq fails 1,2)
+        + 6 (hit ID=3 + probes) = 38."""
         mock_db.get_last_known_message_id.return_value = 5  # stale DB value
         relay.max_retries = 5
-        # All IDs except 3 return "not found"
         mock_bot.forward_message.side_effect = _make_valid_ids({3})
 
         await relay.send_dead_page(-100123)
 
-        # Sequential scan finds ID=3, plus probing calls
-        assert mock_bot.forward_message.call_count == 8
+        assert mock_bot.forward_message.call_count == 38
         mock_db.record_dead_page_post.assert_called_once()
 
     @pytest.mark.asyncio
@@ -320,8 +320,9 @@ class TestDeadPageRelay:
         random_mock.assert_called()  # Verify random was called
 
     @pytest.mark.asyncio
-    async def test_sequential_scan_channel_error_stops(self, relay, mock_bot, mock_db):
-        """D29: Sequential scan stops on channel error (not 'not found')."""
+    async def test_sequential_scan_channel_error_continues(self, relay, mock_bot, mock_db):
+        """D29v2: Channel errors no longer stop the search — they are logged and skipped.
+        Forward scan + all ranges exhaust → False with 110 total calls."""
         mock_db.get_last_known_message_id.return_value = 5
         relay.max_retries = 5
 
@@ -338,8 +339,8 @@ class TestDeadPageRelay:
         result = await relay._try_forward_from_channel(-100123)
 
         assert result is False
-        # Only 3 calls: 1→not found, 2→not found, 3→Forbidden (stops)
-        assert call_count == 3
+        # Forward scan (20) + ranges (5+5+5+10+50+5+5+5) = 110
+        assert call_count == 110
 
 
 class TestAlbumForwarding:
