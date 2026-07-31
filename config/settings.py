@@ -98,9 +98,9 @@ class Settings:
     DANGER_WORDS: str = os.getenv("DANGER_WORDS", "")
 
     # ── Mimic Feature (common service, §3.1) ──
-    # User ID of the "victim" whose messages will be mimicked.
-    # 0 or negative = feature disabled.
-    MIMIC_VICTIM_USER_ID: int = _env_int("MIMIC_VICTIM_USER_ID", 138811255)
+    # Comma-separated list of user IDs whose messages will be mimicked.
+    # Empty or "0" = feature disabled.
+    MIMIC_VICTIM_USER_IDS: str = os.getenv("MIMIC_VICTIM_USER_IDS", "138811255")
 
     # Minimum word count to trigger mimic (strict > N words).
     MIMIC_MIN_WORDS: int = _env_int("MIMIC_MIN_WORDS", 5)

@@ -3,7 +3,7 @@
 Three-handler router on a single common_router:
   1. otboy_handler: catches "отбой" (OtboyWordFilter) → random media from common/otboy/
   2. danger_handler: catches danger words (DangerWordFilter) → random media from common/danger/
-  3. mimic_handler: catches messages from MIMIC_VICTIM_USER_ID → mimic transform reply
+  3. mimic_handler: catches messages from MIMIC_VICTIM_USER_IDS → mimic transform reply
 
 otboy + danger share CommonRelay with a single per-chat cooldown.
 mimic uses MimicRelay with independent per-(chat, user) cooldown.
@@ -114,10 +114,37 @@ async def danger_handler(
 # ── Mimic handler (§3.1) ──────────────────────────────────
 
 
-@common_router.message(UserIdFilter(settings.MIMIC_VICTIM_USER_ID))
+def _parse_mimic_victim_ids() -> list[int]:
+    """Parse comma-separated MIMIC_VICTIM_USER_IDS into a list of ints.
+    Returns empty list if disabled (empty string or only 0).
+    """
+    raw = settings.MIMIC_VICTIM_USER_IDS.strip()
+    if not raw:
+        return []
+    ids = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            uid = int(part)
+        except ValueError:
+            logger.warning("Mimic: invalid user ID in MIMIC_VICTIM_USER_IDS: %r", part)
+            continue
+        if uid > 0:
+            ids.append(uid)
+    return ids
+
+
+_VICTIM_IDS = _parse_mimic_victim_ids()
+# If no valid IDs, register with a non-existent ID so handler never fires
+_MIMIC_USER_IDS = tuple(_VICTIM_IDS) if _VICTIM_IDS else (0,)
+
+
+@common_router.message(UserIdFilter(*_MIMIC_USER_IDS))
 async def mimic_handler(message: types.Message) -> None:
     """Mimic feature: if victim wrote >N words and cooldown elapsed → mimic reply."""
-    if settings.MIMIC_VICTIM_USER_ID <= 0:
+    if not _VICTIM_IDS:  # disabled
         return
     if _mimic_relay is None:
         logger.warning(
