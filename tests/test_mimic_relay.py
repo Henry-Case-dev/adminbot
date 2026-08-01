@@ -120,6 +120,6 @@ class TestSendMimic:
     async def test_send_mimic_uses_transform(self):
         bot = AsyncMock()
         relay = MimicRelay(min_words=3, cooldown_seconds=60.0)
-        await relay.send_mimic(bot, chat_id=1, message_id=1, text="черный жук")
+        await relay.send_mimic(bot, chat_id=1, message_id=1, text="привет мир")
         sent_text = bot.send_message.call_args.kwargs["text"]
-        assert sent_text == "цейний зюк"
+        assert sent_text == "пливет мил"

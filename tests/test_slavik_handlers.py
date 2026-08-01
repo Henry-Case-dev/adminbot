@@ -63,9 +63,10 @@ class TestSlavicPhotoHandler:
             monkeypatch.setattr(slavik_module, "settings", _make_mock_settings())
             with patch("handlers.slavik.Path.exists", return_value=True):
                 with patch("handlers.slavik.FSInputFile") as mock_fs:
-                    msg = make_message(479167456, text="любое сообщение")
-                    msg.answer_photo = AsyncMock()
-                    await slavik_catchall_handler(msg)
+                    with patch("handlers.slavik._pick_random_slavik_media", return_value=None):
+                        msg = make_message(479167456, text="любое сообщение")
+                        msg.answer_photo = AsyncMock()
+                        await slavik_catchall_handler(msg)
             msg.answer_photo.assert_called_once()
             msg.reply.assert_not_called()
         finally:
@@ -160,7 +161,7 @@ class TestSlavicPhotoHandler:
 
     @pytest.mark.asyncio
     async def test_photo_uses_correct_path(self, make_message, monkeypatch):
-        """Photo should be sent with FSInputFile using the configured path."""
+        """Photo should be sent with FSInputFile using the configured fallback path."""
         import handlers.slavik as slavik_module
         mock_db = AsyncMock()
         mock_db.slavic_photo_count_tick = AsyncMock(return_value=True)
@@ -170,9 +171,10 @@ class TestSlavicPhotoHandler:
             monkeypatch.setattr(slavik_module, "settings", _make_mock_settings())
             with patch("handlers.slavik.Path.exists", return_value=True):
                 with patch("handlers.slavik.FSInputFile") as mock_fs:
-                    msg = make_message(479167456, text="любое сообщение")
-                    msg.answer_photo = AsyncMock()
-                    await slavik_catchall_handler(msg)
+                    with patch("handlers.slavik._pick_random_slavik_media", return_value=None):
+                        msg = make_message(479167456, text="любое сообщение")
+                        msg.answer_photo = AsyncMock()
+                        await slavik_catchall_handler(msg)
             mock_fs.assert_called_once_with("media/slavic_na_litso.jpg")
         finally:
             slavik_module._db = original_db

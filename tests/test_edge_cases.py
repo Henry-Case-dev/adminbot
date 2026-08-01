@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from filters.user_id import UserIdFilter
 from filters.kucha_word import KuchaWordFilter
-from filters.war_word import WarWordFilter
+from filters.danger_word import DangerWordFilter
 
 
 class TestEdgeCases:
@@ -75,30 +75,30 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_empty_string(self, make_message):
-        f = WarWordFilter()
+        f = DangerWordFilter()
         assert await f(make_message(1, "")) is False
 
     @pytest.mark.asyncio
     async def test_only_whitespace(self, make_message):
-        f = WarWordFilter()
+        f = DangerWordFilter()
         assert await f(make_message(1, "   \n\t  ")) is False
 
     @pytest.mark.asyncio
     async def test_war_word_as_substring_not_matched(self, make_message):
         """'дроновый' should NOT match 'дрон' because lookahead blocks Cyrillic."""
-        f = WarWordFilter()
+        f = DangerWordFilter()
         result = await f(make_message(1, "дроновый аппарат"))
         assert result is False
 
     @pytest.mark.asyncio
     async def test_war_word_case_insensitive(self, make_message):
-        f = WarWordFilter()
-        assert await f(make_message(1, "ЛЕТИТ ДРОН")) is True
+        f = DangerWordFilter()
+        assert await f(make_message(1, "ЛЕТИТ ДРОН"))
 
     @pytest.mark.asyncio
     async def test_war_word_with_punctuation(self, make_message):
-        f = WarWordFilter()
-        assert await f(make_message(1, "!!!дрон!!!")) is True
+        f = DangerWordFilter()
+        assert await f(make_message(1, "!!!дрон!!!"))
 
     # ── Non-text messages ──
 
@@ -108,29 +108,29 @@ class TestEdgeCases:
         msg.from_user.id = 479167456
 
         assert await KuchaWordFilter()(msg) is False
-        assert await WarWordFilter()(msg) is False
+        assert await DangerWordFilter()(msg) is False
         assert await UserIdFilter(479167456)(msg) is True
 
     @pytest.mark.asyncio
     async def test_photo_with_caption_war_word(self, make_message):
-        """Photo with war keyword in caption should match WarWordFilter."""
+        """Photo with war keyword in caption should match DangerWordFilter."""
         msg = make_message(479167456, text=None)
         msg.caption = "опасность атаки"
-        assert await WarWordFilter()(msg) is True
+        assert await DangerWordFilter()(msg)
 
     @pytest.mark.asyncio
     async def test_photo_with_caption_no_keyword(self, make_message):
         """Photo with caption but no war keyword should not match."""
         msg = make_message(479167456, text=None)
         msg.caption = "красивый закат"
-        assert await WarWordFilter()(msg) is False
+        assert await DangerWordFilter()(msg) is False
 
     @pytest.mark.asyncio
     async def test_caption_none_war_filter(self, make_message):
         """Message with text=None and no caption should not match."""
         msg = make_message(479167456, text=None)
         msg.caption = None
-        assert await WarWordFilter()(msg) is False
+        assert await DangerWordFilter()(msg) is False
 
     # ── Router priority simulation ──
 
@@ -139,17 +139,17 @@ class TestEdgeCases:
         msg = make_message(479167456, text="куча дрон")
         
         kucha = await KuchaWordFilter()(msg)
-        war = await WarWordFilter()(msg)
+        war = await DangerWordFilter()(msg)
         
         assert kucha is True
-        assert war is True
+        assert war
 
     @pytest.mark.asyncio
     async def test_same_message_all_slavik_handlers(self, make_message):
         msg = make_message(479167456, text="куча дронов")
         
         assert await KuchaWordFilter()(msg) is True
-        assert await WarWordFilter()(msg) is True
+        assert await DangerWordFilter()(msg)
 
     @pytest.mark.asyncio
     async def test_slavik_catchall_always_true(self, make_message):

@@ -3,6 +3,7 @@ import time
 from collections import OrderedDict
 
 from aiogram import F, Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 from config.settings import settings
 
@@ -40,7 +41,7 @@ async def on_forward(message: types.Message):
     
     if not isinstance(origin, MessageOriginChannel):
         logger.debug(f"Forward origin is not a channel: {type(origin).__name__}")
-        return
+        return UNHANDLED
     
     source_username = settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME
     source_id = settings.DEAD_PAGE_SOURCE_CHANNEL_ID
@@ -62,7 +63,7 @@ async def on_forward(message: types.Message):
         )
     
     if not is_target:
-        return
+        return UNHANDLED
 
     # ── Epic 14: Deduplicate media group forwards ──
     _cleanup_expired_media_groups()

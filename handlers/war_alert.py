@@ -22,7 +22,7 @@ from aiogram.types import MessageOriginChannel
 from config.settings import settings
 from filters.target_channel import TargetChannelFilter
 from filters.user_id import UserIdFilter
-from filters.war_word import WarWordFilter
+from filters.danger_word import DangerWordFilter
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ _target_channel_usernames_set: set[str] = set(_parse_str_list(settings.WAR_CHANN
 
 @war_alert_router.message(
     UserIdFilter(settings.SLAVIK_USER_ID),
-    WarWordFilter(),
+    DangerWordFilter(),
 )
 async def war_keyword_handler(message: types.Message):
     """Any message from Slava (regular or forwarded) with a military keyword → random reply."""
