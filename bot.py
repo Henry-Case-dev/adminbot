@@ -141,7 +141,7 @@ async def on_startup():
         try:
             rich = message.rich_message
             if rich is not None:
-                logger.debug(
+                logger.info(
                     f"[relay_tracker] Rich Message indexed: msg_id={message.message_id}"
                 )
         except AttributeError:

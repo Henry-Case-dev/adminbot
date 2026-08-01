@@ -81,8 +81,10 @@ class Settings:
     WAR_REPLIES: str = os.getenv("WAR_REPLIES", "")
 
     # ── Slavic Photo (Epic 12) ──
-    # Every N "пошёл нахуй" replies → send slavic_na_litso.jpg instead of text
+    # Every N "пошёл нахуй" replies → send random media from SLAVIC_RANDOM_DIR
     SLAVIC_PHOTO_INTERVAL: int = _env_int("SLAVIC_PHOTO_INTERVAL", 10)
+    SLAVIC_RANDOM_DIR: str = os.getenv("SLAVIC_RANDOM_DIR", "media/slavik/slavik_random")
+    # Deprecated — kept for backward compatibility as fallback
     SLAVIC_PHOTO_PATH: str = os.getenv("SLAVIC_PHOTO_PATH", "media/slavic_na_litso.jpg")
 
     # ── Common Service (Epic 15) ──

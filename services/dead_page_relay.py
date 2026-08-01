@@ -30,7 +30,7 @@ def _is_rich_message(sent) -> bool:
 _ALBUM_PROBE_RANGE: int = 9          # max siblings to probe in each direction
 _ALBUM_DATE_TOLERANCE_S: int = 2     # seconds between post dates to consider same album
 _MAX_CONSECUTIVE_GAPS: int = 2       # max deleted messages to skip before stopping probe
-_FORWARD_SCAN_LIMIT: int = 20        # max IDs to scan forward from last_known_message_id
+_FORWARD_SCAN_LIMIT: int = 50        # max IDs to scan forward from last_known_message_id (increased from 20)
 
 # ── Search ranges: (lo, hi) — tried in order until a valid post is found ──
 # Narrow ranges first (fast for small channels), then expand.
@@ -298,6 +298,17 @@ class DeadPageRelay:
                 await self.db.update_last_known_message_id(msg_id)
             return True
 
+        # Diagnostika: proverka Rich Message dazhe kogda _is_rich_message ne srabotal
+        try:
+            if getattr(sent, 'rich_message', None) is not None:
+                logger.info(
+                    "[dead_page] Rich Message detected (raw attr): msg_id=%d | "
+                    "rich_message type=%s",
+                    msg_id, type(sent.rich_message).__name__,
+                )
+        except Exception:
+            pass
+
         # Regular message was already forwarded; run album detection
         # on the already-sent message (pass sent to avoid re-forwarding)
         return await self._forward_album_post_send(chat_id, msg_id, last_msg_id, sent)
@@ -414,6 +425,20 @@ class DeadPageRelay:
             if not last_msg_id or msg_id > last_msg_id:
                 await self.db.update_last_known_message_id(msg_id)
             return True
+
+        # Diagnostika: proverka Rich Message v heuristic path
+        try:
+            if getattr(sent, 'rich_message', None) is not None:
+                logger.info(
+                    "[dead_page] Rich Message detected (heuristic, raw attr): msg_id=%d | "
+                    "type=%s",
+                    msg_id, type(sent.rich_message).__name__,
+                )
+                if not last_msg_id or msg_id > last_msg_id:
+                    await self.db.update_last_known_message_id(msg_id)
+                return True
+        except Exception:
+            pass
 
         base_date = self._normalize_date(sent.date)
         primary_sent_msg_id = sent.message_id

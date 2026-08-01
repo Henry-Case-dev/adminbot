@@ -1,8 +1,9 @@
 """Tests for mimic_transform.py — pure text transformation functions.
 
 Covers:
-  - Consonant replacements (р→й, ш→с, щ→с, ж→з, ч→ц)
-  - Conditional vowel replacements (у→ю, ы→и only after consonants)
+  - WORD_MAP and SUBSTR_MAP replacements (whole-word and substring)
+  - Consonant replacements (р→л, ш→ф, щ→ф, ж→з, ч→т)
+  - Conditional vowel replacements (у→ю only after consonants)
   - Case preservation (upper/lower/title)
   - Non-Cyrillic passthrough (punctuation, digits, Latin, emoji)
   - Edge cases (empty string, word boundaries, consonant chain)
@@ -21,27 +22,27 @@ class TestMimicTransformVerified:
     """Tests matching the verified cases in ARCHITECTURE.md §3.1.3."""
 
     def test_classic_case(self):
-        assert mimic_transform("мама мыла раму широкой щеткой") == "мама мила йамю сийокой сеткой"
+        assert mimic_transform("мама мыла раму широкой щеткой") == "мама мыла ламю филокой феткой"
 
     def test_druzhishche(self):
-        assert mimic_transform("как дела дружище") == "как дела дйюзисе"
+        assert mimic_transform("как дела дружище") == "как дела длюзифе"
 
     def test_zhuk_zhuzhzhit(self):
-        assert mimic_transform("черный жук жужжит") == "цейний зюк зюззит"
+        assert mimic_transform("черный жук жужжит") == "телный зюк зюззит"
 
     def test_ryba_uplyla(self):
-        """Р→Й (case!), initial у unchanged, ы→и after л."""
-        assert mimic_transform("Рыба уплыла в реку") == "Йиба уплила в йекю"
+        """Р→Л (case!), initial у unchanged, ы unchanged (no ы→и in new algorithm)."""
+        assert mimic_transform("Рыба уплыла в реку") == "Лыба уплыла в лекю"
 
     def test_all_caps(self):
-        assert mimic_transform("ЩУКА и ЖАБА") == "СЮКА и ЗАБА"
+        assert mimic_transform("ЩУКА и ЖАБА") == "ФЮКА и ЗАБА"
 
     def test_initial_u_unchanged(self):
-        assert mimic_transform("У Ивана усы") == "У Ивана уси"
+        assert mimic_transform("У Ивана усы") == "У Ивана усы"
 
     def test_mysh(self):
-        """ь is not a consonant — vowel not changed after it."""
-        assert mimic_transform("мышь бежит мыши") == "мись безит миси"
+        """ь is not a consonant; SUBSTR_MAP шь→ф, vowel not changed after it."""
+        assert mimic_transform("мышь бежит мыши") == "мыф безит мыфи"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -52,22 +53,22 @@ class TestConsonantReplacements:
     """Each consonant replacement rule tested individually."""
 
     def test_r_to_y_lower(self):
-        assert mimic_transform("рука") == "йюка"
+        assert mimic_transform("рука") == "люка"
 
     def test_r_to_y_upper(self):
-        assert mimic_transform("Рука") == "Йюка"
+        assert mimic_transform("Рука") == "Люка"
 
     def test_sh_to_s_lower(self):
-        assert mimic_transform("шапка") == "сапка"
+        assert mimic_transform("шапка") == "фапка"
 
     def test_sh_to_s_upper(self):
-        assert mimic_transform("ШАПКА") == "САПКА"
+        assert mimic_transform("ШАПКА") == "ФАПКА"
 
     def test_shch_to_s_lower(self):
-        assert mimic_transform("щенок") == "сенок"
+        assert mimic_transform("щенок") == "фенок"
 
     def test_shch_to_s_upper(self):
-        assert mimic_transform("ЩЕНОК") == "СЕНОК"
+        assert mimic_transform("ЩЕНОК") == "ФЕНОК"
 
     def test_zh_to_z_lower(self):
         assert mimic_transform("жаба") == "заба"
@@ -76,10 +77,10 @@ class TestConsonantReplacements:
         assert mimic_transform("ЖАБА") == "ЗАБА"
 
     def test_ch_to_ts_lower(self):
-        assert mimic_transform("чай") == "цай"
+        assert mimic_transform("чай") == "тай"
 
     def test_ch_to_ts_upper(self):
-        assert mimic_transform("ЧАЙ") == "ЦАЙ"
+        assert mimic_transform("ЧАЙ") == "ТАЙ"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -93,7 +94,7 @@ class TestVowelReplacements:
         assert mimic_transform("тут") == "тют"
 
     def test_y_after_consonant(self):
-        assert mimic_transform("мыло") == "мило"
+        assert mimic_transform("мыло") == "мыло"
 
     def test_u_at_start_unchanged(self):
         """у at the very start of string is NOT after a consonant."""
@@ -101,12 +102,12 @@ class TestVowelReplacements:
 
     def test_u_after_space_unchanged(self):
         """у after space (not a consonant) — unchanged."""
-        assert mimic_transform("я ушел") == "я усел"
+        assert mimic_transform("я ушел") == "я уфел"
         # "я" not in any map → unchanged
         # " " unchanged
         # "у" at i=2, text[1]=' ' (space not in CYRILLIC_CONSONANTS) → unchanged
-        # "ш"→"с", "е" unchanged, "л" unchanged
-        # Result: "я усел" — у unchanged ✓
+        # "ш"→"ф", "е" unchanged, "л" unchanged
+        # Result: "я уфел" — у unchanged ✓
 
     def test_y_after_vowel_unchanged(self):
         """ы after a vowel — unchanged (а is not a consonant)."""
@@ -118,11 +119,11 @@ class TestVowelReplacements:
 
     def test_u_after_original_consonant_that_gets_replaced(self):
         """у after ш (which becomes с) — both ш and с are consonants."""
-        assert "ю" in mimic_transform("шуба")  # ш→с, у→ю after ш(consonant) → "сюба"
+        assert "ю" in mimic_transform("шуба")  # ш→ф, у→ю after ш(consonant) → "фюба"
 
     def test_y_after_replaced_consonant(self):
-        """ы after ж (which becomes з) — both are consonants."""
-        assert "и" in mimic_transform("жыр")  # ж→з, ы→и after ж(consonant) → "зий"
+        """ы after ж (which becomes з) — ы is not mapped in new algorithm, stays."""
+        assert mimic_transform("жыр") == "зыл"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -139,25 +140,24 @@ class TestEdgeCases:
         assert mimic_transform("hello 123 !@#") == "hello 123 !@#"
 
     def test_mixed_cyrillic_latin(self):
-        assert mimic_transform("hello привет world") == "hello пйивет world"
-        # п unchanged, р→й, и unchanged, в unchanged, е unchanged, т unchanged
-        # Result: "hello пйивет world"
-        # Wait: "привет" → п→п, р→й, и→и, в→в, е→е, т→т → "пйивет" ✓
+        assert mimic_transform("hello привет world") == "hello пливет world"
+        # п unchanged, р→л, и unchanged, в unchanged, е unchanged, т unchanged
+        # Result: "hello пливет world"
 
     def test_punctuation_preserved(self):
-        assert mimic_transform("«привет!»") == "«пйивет!»"
+        assert mimic_transform("«привет!»") == "«пливет!»"
 
     def test_digits_preserved(self):
-        assert mimic_transform("123 рыба 456") == "123 йиба 456"
+        assert mimic_transform("123 рыба 456") == "123 лыба 456"
 
     def test_emoji_preserved(self):
-        assert mimic_transform("привет 👋 рыба 🐟") == "пйивет 👋 йиба 🐟"
+        assert mimic_transform("привет 👋 рыба 🐟") == "пливет 👋 лыба 🐟"
 
     def test_multiple_spaces_preserved(self):
-        assert mimic_transform("мама   мыла") == "мама   мила"
+        assert mimic_transform("мама   мыла") == "мама   мыла"
 
     def test_newline_preserved(self):
-        assert mimic_transform("мама\nмыла") == "мама\nмила"
+        assert mimic_transform("мама\nмыла") == "мама\nмыла"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -195,8 +195,8 @@ class TestInvariants:
     def test_case_preserved_per_letter(self):
         """Each replaced letter keeps its case."""
         result = mimic_transform("РыБа")
-        # Р→Й (upper), ы→и after Р (upper stays? No, ы is lower, и is lower), Б unchanged, а unchanged
-        assert result == "ЙиБа"
+        # Р→Л (upper), ы unchanged (no ы→и), Б unchanged, а unchanged
+        assert result == "ЛыБа"
 
     def test_idempotent_for_unchanged(self):
         """Applying transform twice should not change result further

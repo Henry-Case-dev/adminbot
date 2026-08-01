@@ -15,6 +15,7 @@ def _make_msg_mock(**kwargs):
     msg.message_id = kwargs.get("message_id", 0)
     # Use naive datetime (tzinfo=None) so _normalize_date works
     msg.date = kwargs.get("date", datetime.datetime(2026, 7, 28, 12, 0, 0))
+    msg.rich_message = None
     return msg
 
 
@@ -254,10 +255,10 @@ class TestDeadPageRelay:
 
     @pytest.mark.asyncio
     async def test_dedup_does_not_burn_attempts(self, relay, mock_bot, mock_db):
-        """D17: Forward scan probes 20 IDs, then random range with heuristic probing finds post.
-        Forward scan: 20 calls (IDs 4-23, all fail).
-        Range (24,100): randint→77 (1 hit) + heuristic probes neighbors (3 fwd + 3 bwd gaps).
-        Total: 20 + 1 + 6 = 27."""
+        """D17: Forward scan probes 50 IDs, then random range with heuristic probing finds post.
+        Forward scan: 50 calls (IDs 4-53, all fail).
+        Range (4,100): randint→77 (1 hit) + heuristic probes neighbors (3 fwd + 3 bwd gaps).
+        Total: 50 + 1 + 6 = 57."""
         mock_db.get_last_known_message_id.return_value = 3
         relay.max_retries = 5
         mock_bot.forward_message.side_effect = _make_valid_ids({77})
@@ -265,23 +266,23 @@ class TestDeadPageRelay:
         with patch("random.randint", return_value=77):
             await relay.send_dead_page(-100123)
 
-        assert mock_bot.forward_message.call_count == 27
+        assert mock_bot.forward_message.call_count == 57
 
     # ── Sequential scan (D28/D29) ───────────────────────────────
 
     @pytest.mark.asyncio
     async def test_sequential_scan_finds_only_post(self, relay, mock_bot, mock_db):
-        """D28: Post at ID=3, DB last_msg_id=5 (stale). Forward scan IDs 6-25 (20 fail).
+        """D28: Post at ID=3, DB last_msg_id=5 (stale). Forward scan IDs 6-55 (50 fail).
         Ranges exhaust, then sequential (1,5) finds ID=3 + heuristic probes neighbors.
-        Total: 20 (fwd scan) + 5 (random 6,100) + 5 (random 1,100) + 2 (seq fails 1,2)
-        + 6 (hit ID=3 + probes) = 38."""
+        Total: 50 (fwd scan) + 5 (random 6,100) + 5 (random 1,100) + 2 (seq fails 1,2)
+        + 6 (hit ID=3 + probes) = 68."""
         mock_db.get_last_known_message_id.return_value = 5  # stale DB value
         relay.max_retries = 5
         mock_bot.forward_message.side_effect = _make_valid_ids({3})
 
         await relay.send_dead_page(-100123)
 
-        assert mock_bot.forward_message.call_count == 38
+        assert mock_bot.forward_message.call_count == 68
         mock_db.record_dead_page_post.assert_called_once()
 
     @pytest.mark.asyncio
@@ -322,7 +323,7 @@ class TestDeadPageRelay:
     @pytest.mark.asyncio
     async def test_sequential_scan_channel_error_continues(self, relay, mock_bot, mock_db):
         """D29v2: Channel errors no longer stop the search — they are logged and skipped.
-        Forward scan + all ranges exhaust → False with 110 total calls."""
+        Forward scan + all ranges exhaust → False with 140 total calls."""
         mock_db.get_last_known_message_id.return_value = 5
         relay.max_retries = 5
 
@@ -339,8 +340,8 @@ class TestDeadPageRelay:
         result = await relay._try_forward_from_channel(-100123)
 
         assert result is False
-        # Forward scan (20) + ranges (5+5+5+10+50+5+5+5) = 110
-        assert call_count == 110
+        # Forward scan (50) + ranges (5+5+5+10+50+5+5+5) = 140
+        assert call_count == 140
 
 
 class TestAlbumForwarding:
@@ -418,6 +419,7 @@ class TestAlbumForwarding:
             msg = MagicMock()
             msg.date = base_dt
             msg.message_id = kwargs["message_id"]
+            msg.rich_message = None
             return msg
 
         mock_bot.forward_message.side_effect = forward_side_effect
@@ -446,6 +448,7 @@ class TestAlbumForwarding:
             msg = MagicMock()
             msg_id = kwargs["message_id"]
             msg.message_id = msg_id
+            msg.rich_message = None
             if msg_id == 11:
                 msg.date = base_dt
             else:
@@ -473,6 +476,7 @@ class TestAlbumForwarding:
             msg = MagicMock()
             msg.date = base_dt
             msg.message_id = msg_id
+            msg.rich_message = None
             return msg
 
         mock_bot.forward_message.side_effect = forward_side_effect
@@ -498,6 +502,7 @@ class TestAlbumForwarding:
             msg = MagicMock()
             msg.date = base_dt
             msg.message_id = msg_id
+            msg.rich_message = None
             return msg
 
         mock_bot.forward_message.side_effect = forward_side_effect
@@ -515,6 +520,7 @@ class TestAlbumForwarding:
             msg = MagicMock()
             msg.date = base_dt
             msg.message_id = kwargs["message_id"]
+            msg.rich_message = None
             return msg
 
         mock_bot.forward_message.side_effect = forward_side_effect
@@ -562,6 +568,7 @@ class TestCollectThenGroup:
             msg = MagicMock()
             msg_id = kwargs["message_id"]
             msg.message_id = msg_id
+            msg.rich_message = None
             if msg_id == 11:
                 msg.date = base_dt
             else:
@@ -589,6 +596,7 @@ class TestCollectThenGroup:
             msg = MagicMock()
             msg_id = kwargs["message_id"]
             msg.message_id = msg_id
+            msg.rich_message = None
             if 9 <= msg_id <= 13:
                 msg.date = base_dt  # IDs 9-13 form an album
             else:
@@ -617,6 +625,7 @@ class TestCollectThenGroup:
             msg = MagicMock()
             msg.message_id = kwargs["message_id"]
             msg.date = base_dt  # all same date → album
+            msg.rich_message = None
             return msg
 
         mock_bot.forward_message.side_effect = forward_side_effect
@@ -636,6 +645,7 @@ class TestCollectThenGroup:
             msg = MagicMock()
             msg.message_id = kwargs["message_id"]
             msg.date = base_dt
+            msg.rich_message = None
             return msg
 
         mock_bot.forward_message.side_effect = forward_side_effect
