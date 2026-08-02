@@ -11,6 +11,7 @@ import random
 import time
 
 from aiogram import Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 
 from filters.user_id import UserIdFilter
 from config.settings import settings
@@ -80,12 +81,12 @@ def setup_alan(db: DatabaseService) -> None:
 async def alan_handler(message: types.Message) -> None:
     """Count Alan's messages and reply with random phrase every N messages."""
     if alan_db is None:
-        return
+        return UNHANDLED
 
     interval = settings.ALAN_REPLY_INTERVAL
     if interval <= 0:
         logger.warning("ALAN_REPLY_INTERVAL is %d — replies disabled", interval)
-        return
+        return UNHANDLED
 
     count = await alan_db.increment_and_get_count(
         message.chat.id, message.from_user.id
@@ -164,3 +165,5 @@ async def alan_handler(message: types.Message) -> None:
                 "F7v2: error in silence greeting logic | chat=%d",
                 message.chat.id,
             )
+
+    return UNHANDLED

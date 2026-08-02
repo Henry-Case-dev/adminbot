@@ -11,11 +11,13 @@ Tests cover:
   - Silence greeting: disabled, float threshold, cooldown suppression
   - Silence greeting: multi-chat isolation, error handling
   - F6 + F7v2 coexistence
+  - UNHANDLED return for propagation
 """
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from handlers.alan import alan_handler, setup_alan, ALAN_REPLIES, _last_greeting
+from aiogram.dispatcher.event.bases import UNHANDLED
 
 
 class TestAlanHandler:
@@ -520,3 +522,26 @@ class TestAlanSilenceGreeting:
         mock_send.assert_not_called()
         # DB should still record timestamp (baseline for non-Alan via this handler)
         mock_db.set_alan_last_message_ts.assert_called_once()
+
+
+class TestAlanHandlerPropagation:
+    """Test that alan_handler returns UNHANDLED for propagation."""
+
+    @pytest.mark.asyncio
+    async def test_alan_handler_returns_unhandled(self, make_message):
+        """alan_handler must return UNHANDLED so propagation continues."""
+        mock_db = AsyncMock()
+        mock_db.increment_and_get_count.return_value = 1
+        mock_db.get_alan_last_message_ts.return_value = None
+        setup_alan(mock_db)
+
+        with patch("handlers.alan._send_greeting", return_value=True):
+            with patch("handlers.alan._last_greeting", {}):
+                with patch("handlers.alan.settings") as mock_settings:
+                    mock_settings.ALAN_SILENCE_GREETING_HOURS = 6.0
+                    mock_settings.ALAN_REPLY_INTERVAL = 10
+                    mock_settings.ALAN_GREETING_COOLDOWN = 10
+                    msg = make_message(138811255, text="test propagation")
+                    result = await alan_handler(msg)
+
+        assert result is UNHANDLED, f"Expected UNHANDLED, got {result}"

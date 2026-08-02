@@ -2,11 +2,41 @@
 
 ## 📋 Backlog
 
-*No items in backlog. All Epics 1-20 implemented.*
+*No items in backlog.*
 
 ## 🔧 In Progress
 
-*No items in progress.*
+### Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 🔵
+
+- [ ] T-149: Fix MIMIC propagation — add `return UNHANDLED` in `handlers/alan.py`
+  - [ ] T-149-A: Root cause: alan_handler blocks propagation to common_router (mimic_handler)
+  - [ ] T-149-B: Fix: `from aiogram.dispatcher.event.bases import UNHANDLED` + `return UNHANDLED`
+  - [ ] T-149-C: Verify SLAVIK_MIMIC not affected (slavik_router, position 5)
+  - [ ] T-149-D: Verify Alan features not broken (greeting, silence, counting)
+  - [ ] T-149-E: Integration test: Alan message → MIMIC fires in common_router
+  - [ ] T-149-F: Integration test: Alan message → both alan_handler AND mimic fire
+- [ ] T-150: Create `parse_duration(value: str) -> float` + `_env_duration()` in `config/settings.py`
+  - [ ] T-150-A–F: Support 1s/1m/1h/1d, 0=disabled, edge cases, unit tests
+- [ ] T-151: Rename COOLDOWN_SECONDS → COOLDOWN in `config/settings.py`
+  - [ ] T-151-A: MIMIC_COOLDOWN_SECONDS → MIMIC_COOLDOWN (default "1h")
+  - [ ] T-151-B: SLAVIK_MIMIC_COOLDOWN_SECONDS → SLAVIK_MIMIC_COOLDOWN (default "60s")
+  - [ ] T-151-C: COMMON_COOLDOWN_SECONDS → COMMON_COOLDOWN (default "0")
+  - [ ] T-151-D: DEAD_PAGE_COOLDOWN_SECONDS → DEAD_PAGE_COOLDOWN (default "10s")
+  - [ ] T-151-E: DANGER_COOLDOWN_SECONDS → DANGER_COOLDOWN (default "60s") — optional
+  - [ ] T-151-F: OLYA_COOLDOWN_SECONDS → OLYA_COOLDOWN (default "60s") — optional
+- [ ] T-152: Update `bot.py` — all cooldown references
+- [ ] T-153: Update `handlers/slavik.py` — SLAVIK_MIMIC_COOLDOWN reference
+- [ ] T-154: Update `services/mimic_relay.py` — MIMIC_COOLDOWN reference
+- [ ] T-155: Update `services/common_relay.py` — COMMON_COOLDOWN + DANGER_COOLDOWN references
+- [ ] T-156: Update `services/dead_page_relay.py` — DEAD_PAGE_COOLDOWN reference
+- [ ] T-157: Update `.env.example` — rename all `*_COOLDOWN_SECONDS` → `*_COOLDOWN`
+- [ ] T-158: Update all test files for new cooldown names (mimic, slavik, common, dead_page, settings)
+- [ ] T-159: Maximum test coverage + run tests
+  - [ ] T-159-A–E: Unit tests (parse_duration, _env_duration), integration tests (MIMIC propagation), pytest all green
+- [ ] T-160: Update README.md with ironic tone (MIMIC fix, time-format cooldowns, v2.19.0)
+- [ ] T-161: Documentation sync — MEMORY.md, ARCHITECTURE.md (router order, cooldown system)
+- [ ] T-162: Commit + Push + Deploy
+  - [ ] T-162-A–I: Conventional commit (Russian), push, SSH deploy, .env update, restart, smoke tests, Better Stack
 
 ## ✅ Done
 
@@ -267,4 +297,4 @@
 
 ---
 
-**Updated:** 2026-08-02 — All Epics 1-20 IMPLEMENTED ✅. Epic 20 (Slavik Random Media Enhancement) approved, 570 tests pass, ready for deploy. v2.18.0.
+**Updated:** 2026-08-03 — All Epics 1-20 IMPLEMENTED ✅. Epic 21 (MIMIC Fix + Time Format Cooldowns) IN PROGRESS 🔵. v2.19.0 targeted.

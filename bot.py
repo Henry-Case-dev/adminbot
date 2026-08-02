@@ -77,15 +77,15 @@ async def on_startup():
     
     common_relay = CommonRelay(
         bot,
-        cooldown_seconds=settings.COMMON_COOLDOWN_SECONDS,
-        danger_cooldown_seconds=settings.DANGER_COOLDOWN_SECONDS,
+        cooldown_seconds=settings.COMMON_COOLDOWN,
+        danger_cooldown_seconds=settings.DANGER_COOLDOWN,
     )
     setup_common(common_relay)
     logger.info("Common Service (Epic 15) initialized")
 
     mimic_relay = MimicRelay(
         min_words=settings.MIMIC_MIN_WORDS,
-        cooldown_seconds=settings.MIMIC_COOLDOWN_SECONDS,
+        cooldown_seconds=settings.MIMIC_COOLDOWN,
     )
     setup_common_mimic(mimic_relay)
     logger.info("Mimic Service (Epic 18) initialized")
@@ -129,12 +129,12 @@ async def on_startup():
     if settings.OLYA_ENABLED:
         olya_relay = OlyaRelay(
             bot=bot,
-            cooldown_seconds=settings.OLYA_COOLDOWN_SECONDS,
+            cooldown_seconds=settings.OLYA_COOLDOWN,
             media_base=settings.OLYA_MEDIA_BASE,
         )
         setup_olya(olya_relay)
         dp.include_router(olya_router)
-        logger.info("Olya service enabled (cooldown=%.1fs)", settings.OLYA_COOLDOWN_SECONDS)
+        logger.info("Olya service enabled (cooldown=%.1fs)", settings.OLYA_COOLDOWN)
     else:
         logger.info("Olya service disabled (OLYA_ENABLED=False)")
 
