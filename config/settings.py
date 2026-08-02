@@ -95,6 +95,11 @@ class Settings:
     # Base directory for common media (contains otboy/ and danger/ subdirs).
     COMMON_MEDIA_BASE: str = os.getenv("COMMON_MEDIA_BASE", "media/common")
 
+    # Danger-specific cooldown (Epic 18). Additional restriction on top of shared.
+    # Danger sends are blocked if EITHER shared OR danger cooldown is active.
+    # 0 = no additional danger restriction (default: 60.0 = 1 minute).
+    DANGER_COOLDOWN_SECONDS: float = _env_float("DANGER_COOLDOWN_SECONDS", 60.0)
+
     # Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
     # Leave empty to use built-in defaults (135+ words from filters/word_lists.py).
     DANGER_WORDS: str = os.getenv("DANGER_WORDS", "")

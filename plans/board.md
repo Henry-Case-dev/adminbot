@@ -2,78 +2,138 @@
 
 ## 📋 Backlog
 
-### Epic 17: Danger Word Fix — 2026-07-30 🔵 IN PROGRESS
+### Epic 18: Danger Service Fixes — File Selection, GIF Detection, Cooldown — 2026-08-02 🔵 IN PROGRESS
 
-**T-115 (T1): Проверить наличие медиа-файлов danger/ на сервере**
-- [ ] T-115-A: SSH → сервер, проверить `media/common/danger/`
-- [ ] T-115-B: Проверить наличие `danger_01.mp4`, `danger_02_gif.mp4`
-- [ ] T-115-C: Если отсутствуют — скопировать, chmod 644
-- [ ] T-115-D: Сравнить локальную и серверную директории (diff)
+**T-122: Investigate and fix file scanning/selection in CommonRelay**
+- [ ] T-122-A: Проверить `_scan_directory` — error handling (FileNotFoundError, PermissionError)
+- [ ] T-122-B: Проверить `_pick_media` — random.choice на списке файлов
+- [ ] T-122-C: Убедиться: нет хардкодных индексов, имён, счётчиков
+- [ ] T-122-D: Фильтрация — только медиа-расширения (исключить .gitkeep, .DS_Store, Thumbs.db)
+- [ ] T-122-E: `send_common()` — вызов `_pick_media` с правильным subdir
+- [ ] T-122-F: `send_danger()` — subdir="danger" через `COMMON_MEDIA_BASE`
+- [ ] T-122-G: Comprehensive логирование: количество файлов, выбранный файл
+- [ ] T-122-H: Edge: пустая директория → WARNING, graceful return
+- [ ] T-122-I: Edge: 1 файл → всегда выбирается
+- [ ] T-122-J: Edge: 14+ файлов → все достижимы через random.choice
 
-**T-116 (T2): Проверить и исправить DangerWordFilter**
-- [ ] T-116-A: `_DEFAULT_DANGER_WORDS`: 22 → 91+ слов (из war_word.py)
-- [ ] T-116-B: Проверить `_build_danger_patterns()` — word-boundary regex
-- [ ] T-116-C: Проверить регистронезависимость: БПЛА, Ракета, РАКЕТА
-- [ ] T-116-D: Word boundary: «ракета» ✓, «подракетная» ✗
-- [ ] T-116-E: Проверить `__call__` — text + caption
-- [ ] T-116-F: INFO-лог при срабатывании фильтра
+**T-123: Fix and verify GIF detection in filename**
+- [ ] T-123-A: Проверить `_detect_media_type` — `"gif" in filepath.stem.lower()`
+- [ ] T-123-B: `Path.stem` возвращает имя без расширения (danger_02_gif из danger_02_gif.mp4)
+- [ ] T-123-C: Case-insensitive: gif, GIF, Gif, GiF → animation
+- [ ] T-123-D: Все позиции "gif": danger_02_gif.mp4, danger_gif_02.mp4, danger_nahryuck_gif.mp4, danger_zelelyot_gif_02.mp4, gif_danger_01.mp4
+- [ ] T-123-E: Без "gif" → video (не animation): danger_01.mp4, danger_03.mp4
+- [ ] T-123-F: .gif-файлы → photo (image), не animation
+- [ ] T-123-G: .webm с "gif" → animation, без "gif" → video
+- [ ] T-123-H: `_send_media()` dispatch: animation → send_animation, video → send_video, photo → send_photo
 
-**T-117 (T3): Проверить взаимодействие war_alert_router и common_router**
-- [ ] T-117-A: Проверить порядок роутеров (4b → 4c)
-- [ ] T-117-B: `F.forward_origin` матчит ВСЕ forwarded → заменить на TargetChannelFilter
-- [ ] T-117-C: Проверить propagation: non-target channel → common_router получает
-- [ ] T-117-D: Проверить: `war_keyword_handler` не сломан
+**T-124: Add DANGER_COOLDOWN_SECONDS config with independent cooldown tracking**
+- [ ] T-124-A: Поле `danger_cooldown: int = 60` в `CommonRelay.__init__`
+- [ ] T-124-B: `_last_danger_by_chat: dict[int, float]` — независимый трекинг
+- [ ] T-124-C: `send_otboy()` → COMMON_COOLDOWN_SECONDS + `_last_common_by_chat`
+- [ ] T-124-D: `send_danger()` → DANGER_COOLDOWN_SECONDS + `_last_danger_by_chat`
+- [ ] T-124-E: Per-chat изоляция для danger-cooldown
+- [ ] T-124-F: Thread-safety: словари `_last_otboy_by_chat` и `_last_danger_by_chat` независимы
+- [ ] T-124-G: DEBUG/INFO при cooldown active/expired для danger
+- [ ] T-124-H: Edge: `DANGER_COOLDOWN_SECONDS=0` → без ограничений
 
-**T-118 (T4): Проверить и исправить CommonRelay.send_common**
-- [ ] T-118-A: `_scan_directory` — error handling (FileNotFoundError)
-- [ ] T-118-B: `_pick_media` — fallback при пустой/не-медиа директории
-- [ ] T-118-C: `_detect_media_type` — все расширения
-- [ ] T-118-D: `send_danger()` — параметры, subdir="danger"
-- [ ] T-118-E: `_send_media()` — dispatch photo/video/animation
-- [ ] T-118-F: ERROR-лог при FileNotFoundError (сейчас молча?)
-- [ ] T-118-G: WARNING-лог при пустой директории
+**T-125: Update config/settings.py and .env.example**
+- [ ] T-125-A: `DANGER_COOLDOWN_SECONDS: int = 60` в settings.py
+- [ ] T-125-B: `DANGER_COOLDOWN_SECONDS=60` в .env.example
+- [ ] T-125-C: `COMMON_COOLDOWN_SECONDS` без изменений (default=0)
+- [ ] T-125-D: Параметр читается из os.getenv
+- [ ] T-125-E: Документировать разницу в описании параметров
 
-**T-119 (T5): Добавить/исправить тесты для danger_word**
-- [ ] T-119-A: 91+ слов матчатся (параметризованный)
-- [ ] T-119-B: Регистронезависимость
-- [ ] T-119-C: Word boundary
-- [ ] T-119-D: Caption + forwarded text
-- [ ] T-119-E: danger_handler → CommonRelay.send_danger
-- [ ] T-119-F: send_danger — случайный медиа, правильный тип
-- [ ] T-119-G: Пустая директория (graceful)
-- [ ] T-119-H: Интеграция: propagation war_alert + common_router
-- [ ] T-119-I: `pytest` — полный suite, 0 регрессий
+**T-126: Update bot.py for new CommonRelay initialization**
+- [ ] T-126-A: `on_startup()` → `CommonRelay(..., danger_cooldown=settings.DANGER_COOLDOWN_SECONDS)`
+- [ ] T-126-B: Импорты актуальны
+- [ ] T-126-C: Сигнатура `CommonRelay.__init__`: `cooldown_seconds` + `danger_cooldown`
+- [ ] T-126-D: `setup_common(relay)` передаёт relay в handler'ы
+- [ ] T-126-E: Propagation не сломан (handler'ы возвращают None)
 
-**T-120 (T6): Обновить README**
-- [ ] T-120-A: Common Service — danger_word fix
-- [ ] T-120-B: Version bump v2.12.2
-- [ ] T-120-C: Changelog
+**T-127: Comprehensive tests for all fixes**
+- [ ] T-127-A: `_scan_directory` — возвращает все медиа-файлы
+- [ ] T-127-B: `_scan_directory` — исключает не-медиа
+- [ ] T-127-C: `_scan_directory` — пустая директория → [], без исключений
+- [ ] T-127-D: `_pick_media` — random.choice равномерно распределён (100 выборок из 14)
+- [ ] T-127-E: `_pick_media` — 1 файл → всегда он
+- [ ] T-127-F: `_detect_media_type` — все позиции "gif" (5+ паттернов, параметризованный)
+- [ ] T-127-G: `_detect_media_type` — без "gif" → video
+- [ ] T-127-H: `_detect_media_type` — case-insensitive: GIF, Gif, gif
+- [ ] T-127-I: `_detect_media_type` — image-расширения → photo
+- [ ] T-127-J: `_detect_media_type` — не-медиа → None/exception
+- [ ] T-127-K: `send_danger()` — cooldown active → не отправляет
+- [ ] T-127-L: `send_danger()` — cooldown expired → отправляет
+- [ ] T-127-M: `send_danger()` — DANGER_COOLDOWN_SECONDS=0 → без ограничений
+- [ ] T-127-N: `send_otboy()` — COMMON_COOLDOWN_SECONDS (независимо от danger)
+- [ ] T-127-O: Интеграция: otboy cooldown не блокирует danger, danger cooldown не блокирует otboy
+- [ ] T-127-P: Интеграция: per-chat изоляция для обоих cooldown
+- [ ] T-127-Q: `send_common()` — полный пайплайн
+- [ ] T-127-R: Regression: существующие test_common.py тесты проходят
+- [ ] T-127-S: `pytest` — полный suite, 0 регрессий
 
-**T-121 (T7): Деплой на сервер**
-- [ ] T-121-A: Git pull
-- [ ] T-121-B: Проверить/создать `media/common/danger/`
-- [ ] T-121-C: Обновить .env
-- [ ] T-121-D: Restart
-- [ ] T-121-E: Smoke: «ракета» → danger-медиа
-- [ ] T-121-F: Smoke: forwarded «бпла» → danger-медиа
-- [ ] T-121-G: Smoke: другие фичи не сломаны
-- [ ] T-121-H: Better Stack логи verified
+**T-128: Update README.md with changes**
+- [ ] T-128-A: Common Service — 3 исправления (file selection, GIF detection, cooldown)
+- [ ] T-128-B: `DANGER_COOLDOWN_SECONDS` в таблице конфигурации
+- [ ] T-128-C: GIF detection logic: любая позиция "gif" → animation
+- [ ] T-128-D: Version bump v2.15.0 → v2.16.0
+- [ ] T-128-E: Changelog v2.16.0
+
+**T-129: Run full test suite, verify no regressions**
+- [ ] T-129-A: `pytest -v` — все тесты
+- [ ] T-129-B: Coverage `services/common_relay.py` ≥ 100%
+- [ ] T-129-C: 14 файлов danger/ доступны (после деплоя)
+- [ ] T-129-D: GIF detection для всех 14 реальных имён
+- [ ] T-129-E: Better Stack: нет ERROR/WARNING от danger
+
+**T-130: Deploy to server**
+- [ ] T-130-A: Git commit (conventional commits) в main
+- [ ] T-130-B: Git push
+- [ ] T-130-C: SSH → сервер → git pull
+- [ ] T-130-D: .env: DANGER_COOLDOWN_SECONDS=60
+- [ ] T-130-E: Проверить `media/common/danger/` — 14 файлов, chmod 644
+- [ ] T-130-F: Restart бота
+- [ ] T-130-G: Smoke: danger-слово → случайный danger-файл, правильный тип
+- [ ] T-130-H: Smoke: gif-файл → animation (не video)
+- [ ] T-130-I: Smoke: danger через 30 сек → cooldown active
+- [ ] T-130-J: Smoke: otboy → независим от danger-cooldown
+- [ ] T-130-K: Smoke: danger через 60+ сек → отправляет снова
+- [ ] T-130-L: Проверить другие фичи: слава, war_alert, алан, вася, костик, dead_page
+- [ ] T-130-M: Better Stack логи verified
 
 ---
 
 ## 🔧 In Progress
 
-- [ ] T-115: Проверить медиа-файлы danger/ на сервере
-- [ ] T-116: Проверить и исправить DangerWordFilter
-- [ ] T-117: Проверить war_alert_router ↔ common_router interaction
-- [ ] T-118: Проверить и исправить CommonRelay.send_common
-- [ ] T-119: Тесты для danger_word
-- [ ] T-120: README
-- [ ] T-121: Деплой
+### Epic 18: Danger Service Fixes — 2026-08-02 🔵
+
+- [ ] T-122: Investigate and fix file scanning/selection in CommonRelay
+- [ ] T-123: Fix and verify GIF detection in filename
+- [ ] T-124: Add DANGER_COOLDOWN_SECONDS config with independent cooldown tracking
+- [ ] T-125: Update config/settings.py and .env.example
+- [ ] T-126: Update bot.py for new CommonRelay initialization
+- [ ] T-127: Comprehensive tests for all fixes
+- [ ] T-128: Update README.md with changes
+- [ ] T-129: Run full test suite, verify no regressions
+- [ ] T-130: Deploy to server
 
 ---
 
 ## ✅ Done
+
+### Epic 17: Danger Word Fix — 2026-07-30
+- [x] T-115: Проверить медиа-файлы danger/ на сервере
+  - [x] T-115-A-E: SSH проверка, права, diff
+- [x] T-116: Проверить и исправить DangerWordFilter
+  - [x] T-116-A-G: 91+ слов, word-boundary, регистронезависимость, caption, логирование
+- [x] T-117: Проверить war_alert_router ↔ common_router interaction
+  - [x] T-117-A-F: порядок роутеров, F.forward_origin → TargetChannelFilter, propagation
+- [x] T-118: Проверить и исправить CommonRelay.send_common
+  - [x] T-118-A-G: _scan_directory, _pick_media, _detect_media_type, _send_media, error handling
+- [x] T-119: Тесты для danger_word
+  - [x] T-119-A-I: 91+ слов, регистр, word boundary, caption/forward, cooldown, integration, pytest
+- [x] T-120: README — changelog, v2.12.2 → v2.15.0
+- [x] T-121: Деплой на сервер
+  - [x] T-121-A-H: git pull, .env, restart, smoke tests, Better Stack
 
 ### Epic 16: Bug Fixes Sprint — 2026-07-29 ✅ ARCHIVED (→ Epic 17)
 - [x] Epic 16 archived 2026-07-30. Danger_word fix → Epic 17. DeadPageRelay album fix → deferred.
@@ -281,4 +341,4 @@
 
 ---
 
-**Updated:** 2026-07-30 — Epic 16 archived. Epic 17 (Danger Word Fix) created. v2.12.2 target.
+**Updated:** 2026-08-02 — Epic 17 archived (DONE). Epic 18 (Danger Service Fixes) created. v2.16.0 target.

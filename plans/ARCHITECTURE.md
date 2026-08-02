@@ -1,1163 +1,1039 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.14.0-draft (Architect Review)
-> **Дата:** 2026-08-01
-> **Статус:** Расследование трёх задач (danger_word баг, dead_page repost баг, mimic фича). Реализация НЕ начата — этот документ есть контракт для Builder.
+> **Версия:** v2.15.0-draft (Architect Investigation)
+> **Дата:** 2026-08-02
+> **Статус:** Архитектурное расследование четырёх задач. Реализация НЕ начата — этот документ есть контракт для Builder.
 > **Автор:** @Architect
 
 ---
 
 ## СОДЕРЖАНИЕ
 
-1. Задача 1 — Баг `danger_word` в сервисе `common`: Root Cause Analysis
-2. Задача 2 — Поломка репостинга `dead page` (Rich Message / июль 2026): Root Cause Analysis
-3. Задача 3 — Фича `mimic` (передразнивание): Алгоритм и архитектура интеграции
-4. Сводный план для Builder (порядок реализации, риски, тест-план)
+1. [Задача 1](#1-задача-1--баг-danger_word--forwarded-messages) — Баг `danger` (сервис `common`) и парсинг репостов
+2. [Задача 2](#2-задача-2--поломка-репостинга-dead-page) — Поломка репостинга `dead page` (Rich Message)
+3. [Задача 3](#3-задача-3--фича-mimic-передразнивание) — Фича `mimic` (передразнивание)
+4. [Задача 4](#4-задача-4--смена-путей-slavik-media--рандомный-медиа-пикер) — Смена путей slavik media + рандомный медиа-пикер
+5. [Сводный план для Builder](#5-сводный-план-для-builder) — Порядок реализации, риски, тест-план
+6. [Приложение A: Текущий Router Order](#приложение-a-текущий-router-order)
+7. [Приложение B: Диагностическая SSH-проверка](#приложение-b-диагностическая-ssh-проверка-для-задачи-1)
 
 ---
 
-## 0. Executive Summary
+## 1. Задача 1 — Баг `danger_word` + Forwarded Messages
 
-| # | Задача | Диагноз | Тип фикса |
-|---|--------|---------|-----------|
-| 1 | `danger_word` — 0 реакций | **Обновлено после фидбека пользователя:** деплой РЕАЛЬНО был выполнен, баг всё равно воспроизвёлся. Новый подтверждённый root cause: `.env.example` жёстко прописывает `DANGER_WORDS=бпла,ракетная,опасность` (всего 3 слова, комментарий в файле лжёт про "22 слова"). Если сервер получил `.env` копированием этого шаблона при первом деплое Epic 15 — `DangerWordFilter` игнорирует 135+ слов из `word_lists.py` и матчит только эти 3. См. §1.7 (новый). | Убрать/пересмотреть `DANGER_WORDS=` в `.env.example` и на сервере + верифицировать propagation-фикс отдельно |
-| 2 | `dead page` — новые посты игнорируются | Канал перешёл на Rich Text формат (Telegram Bot API 10.2, июль 2026). У поста может не быть `photo`/`caption` вовсе — весь контент лежит в `message.rich_message.blocks`. Бот всё ещё читает только legacy-поля. | Новый модуль извлечения контента + retro-fallback |
-| 3 | `mimic` — новая фича | Нет существующего кода — чистое проектирование. Regex-based, без LLM. Два независимых интеграционных пути (`common`, `Slavik`) с общим модулем трансформации. | Новая фича |
+### 1.1 Симптомы
 
----
+- Бот детектит danger-слова в обычных текстовых сообщениях любых юзеров.
+- Бот **абсолютно слеп** к тем же словам, если они находятся внутри репостов (forwarded messages из каналов или от других пользователей).
+- Затрагивает как `common` сервис (danger), так и `slavik` сервис (war_alert).
 
----
+### 1.2 Root Cause Analysis
 
-## 1. Задача 1 — Баг `danger_word` в сервисе `common`
+Выявлены **два слоя** проблем:
 
-### 1.1 TL;DR — вывод расследования (ОБНОВЛЕНО после фидбека пользователя)
+#### Слой A (ПОДТВЕРЖДЁННЫЙ ROOT CAUSE): Propagation-блокировка в `dead_page_router`
 
-> ⚠️ **Важное уточнение от пользователя:** деплой коммита `af93acb` (Epic 17) РЕАЛЬНО был
-> выполнен на сервере (пользователь лично наблюдал `git pull` + restart), но баг «0 реакции
-> на danger-слова» ВСЁ РАВНО воспроизвёлся. Это означает, что гипотеза «просто не
-> задеплоено» из первой версии этого документа **неверна или неполна**. Ниже — пересмотренный
-> анализ с новым, куда более вероятным root cause, найденным при повторном разборе конфигурации.
-
-**Новый подтверждённый root cause (§1.7): `.env.example` содержит демонстрационное значение
-`DANGER_WORDS=бпла,ракетная,опасность` — всего 3 слова.** Комментарий в этой же строке
-файла лжёт: `# Comma-separated danger keywords (leave empty for built-in defaults — 22 words)`.
-Если на сервере `.env` был создан копированием `.env.example` при первом деплое Epic 15
-(стандартная практика для этого проекта — см. все прошлые деплой-чеклисты в board.md), то
-переменная `settings.DANGER_WORDS` на сервере **непустая**, и код `_parse_danger_words()`
-(строка `if not raw: return list(DANGER_WORDS)` — иначе parse раскомментированного `raw`)
-полностью игнорирует 135+ слов из `filters/word_lists.py` и матчит **только эти 3 слова**.
-Это объясняет и то, почему баг воспроизвёлся ПОСЛЕ реального деплоя (propagation-фикс из
-Epic 17 применился и работает корректно — сам механизм `UNHANDLED` не является причиной),
-и то, почему у пользователя «0 реакций» на большинство тестовых danger-слов (кроме буквально
-«бпла», «ракетная» или «опасность» — если пользователь тестировал именно ими, баг должен был
-НЕ воспроизводиться; это открытый момент для проверки Builder'ом, см. §1.7.3).
-
-Ниже разобраны оба слоя: (A) propagation-механизм (Epic 17, `return UNHANDLED`) — технически
-корректен и подтверждён эмпирически, это НЕ текущая причина бага; (B) `.env` override словаря
-(§1.7) — новый, более вероятный root cause, требующий проверки и исправления на сервере.
-
-### 1.2 Симптом → причина (двухслойная)
-
-**Слой A — Propagation blocking (исправлено в коде, НЕ задеплоено):**
-
-```
-Сообщение "ракета" / "БПЛА" от ЛЮБОГО юзера, в т.ч. форвард
-    ↓
-war_alert_router (позиция 4b) — если сообщение forwarded из НЕ war-канала,
-TargetChannelFilter возвращает False → war_channel_repost_handler не вызывается.
-НО: если это НЕ форвард, а обычное сообщение Славы с danger-словом →
-UserIdFilter(SLAVIK_USER_ID) + WarWordFilter — совпадает *только для Славы*.
-Для остальных юзеров (не Слава) war_alert_router вообще не матчит.
-    ↓
-common_router (позиция 4c) — DangerWordFilter() должен сработать для ЛЮБОГО юзера.
-```
-
-Ключевая находка по коду **до Epic 17** (v2.12.1, живой прод): `war_keyword_handler` и `war_channel_repost_handler` в `handlers/war_alert.py`, а также `otboy_handler`/`danger_handler` в `handlers/common.py` **не возвращали `UNHANDLED`** — implicit `return None` в aiogram 3.x **останавливает propagation** между роутерами верхнего уровня (см. `TelegramEventObserver.trigger()`: как только хотя бы один хэндлер в роутере совпал по фильтрам и был вызван, `trigger()` возвращает `data`/результат хэндлера, и если это не sentinel `UNHANDLED`, `Router._propagate_event()` немедленно возвращает управление, не доходя до `sub_routers`).
-
-Итого в v2.12.1: если Слава писал «ракета» — `war_keyword_handler` в `war_alert_router` (4b) матчил первым (он идёт раньше `common_router`), отправлял свой ответ и implicit `return None` **блокировал** propagation к `common_router` (4c). `danger_handler` физически не вызывался → «0 реакции» на danger-слово (точнее: 1 реакция была — от war_alert, а от common/danger — 0, что и совпадает с описанием пользователя «бот выдаёт 0 реакции»; либо пользователь тестировал НЕ-Слава пользователя, для которого `war_alert_router` вообще не матчит ни один хэндлер, и тогда `common_router` должен был сработать — но если он ПОЛУЧАЕТ update, то работает; если Слава писал форвард danger-сообщения — `TargetChannelFilter` тоже блокировал в зависимости от канала).
-
-Также отдельная причина у той же группы багов: `_DEFAULT_DANGER_WORDS` (до Epic 17) в `filters/danger_word.py` содержал всего 22 слова — не было форм «ракета», «укрытие», «бункер» и т.п. (см. board.md T-116-A: "22 → 91+ слов"). Пользователь тестировал именно то слово «danger_word» из задания — если оно не входило в старый список из 22 слов буквально — фильтр не матчил вообще, независимо от propagation.
-
-**Слой B — Оба слоя устранены в коммите `af93acb` (main, НЕ задеплоен):**
-
-- `filters/word_lists.py` создан — единый `DANGER_WORDS` (135+ словоформ, 17 семантических семейств), используется и `DangerWordFilter`, и `WarWordFilter` (устранён дубль-дрейф словарей).
-- Во все 4 хэндлера (`war_keyword_handler`, `war_channel_repost_handler`, `otboy_handler`, `danger_handler`) добавлен `return UNHANDLED` (импорт `from aiogram.dispatcher.event.bases import UNHANDLED`).
-
-**Эмпирическая проверка, проведённая в рамках этого расследования:** я вручную смоделировал реальный aiogram `Router.propagate_event()` (не мок, настоящий `Router` из установленного `aiogram==3.29.1`) с родительским роутером, чей хэндлер возвращает `UNHANDLED`, и вложенным `sub_router`, чей хэндлер возвращает обычное значение. Результат: `sub_router`-хэндлер **корректно вызывается**, и итоговый результат — от него. Это подтверждает, что фикс из Epic 17 (`return UNHANDLED`) технически корректен и рабочий на текущей версии aiogram. **Также прогнан `pytest tests/test_common.py` — 143/143 passed**, что подтверждает: логика самого `common_router` (`DangerWordFilter`, `CommonRelay`, cooldown) работает штатно в изоляции.
-
-### 1.3 Почему “похожий механизм otboy идеально работает” — сравнение
-
-Хэндлер `otboy_handler` и `danger_handler` находятся в ОДНОМ файле (`handlers/common.py`) и на ОДНОМ роутере (`common_router`, позиция 4c). Ключевое отличие — **порядок фильтров-конкурентов**:
-
-- Слово "отбой" **также входит** в общий `DANGER_WORDS` (последняя запись в списке: `'отбой', 'отбоя', 'отбою', 'отбоем', 'отбое'`) и в старый `WAR_WORDS`. Значит для Славы фраза «отбой» матчит ОБА хэндлера (`war_keyword_handler` в 4b и `otboy_handler`/`danger_handler` в 4c) — но т.к. `otboy_handler` физически идёт ПОСЛЕ `war_alert_router` в порядке роутеров, тот же самый propagation-баг должен был мешать и otboy... **НО** пользователь говорит, что otboy работает "идеально". Это указывает на то, что пользователь тестировал otboy **не от имени Славы** (или не через форвард из war-канала) — то есть тестировал НЕ-Slavik юзера, для которого `war_alert_router` handler 1 (UserIdFilter(SLAVIK)) вообще не матчит → `war_alert_router.trigger()` возвращает `UNHANDLED` естественным образом (никакой хэндлер не совпал → `TelegramEventObserver.trigger()` возвращает `UNHANDLED` по умолчанию, см. `event/telegram.py` — `return UNHANDLED` в конце цикла, если ни один handler не откликнулся) → `common_router` получает событие штатно.
-
-  Вывод: для НЕ-Slavik пользователей `common_router` УЖЕ работает верно и без Epic 17 фикса (потому что `war_alert_router` просто не матчит ничего и естественно пропускает). Для Славы — блокировка была активна до Epic 17. Пользователь в задаче пишет "отбой работает идеально" (вероятно тестировал сам, не от имени Славы) и "danger_word даёт 0 реакции и в ЛС, и в группах" — в ЛС (private chat) `forward_origin`/`UserIdFilter(SLAVIK)` не имеет значения, там ЛЮБОЙ юзер — не Слава (если это не сам Слава пишущий боту в ЛС) — то в ЛС `war_alert_router` тоже не должен блокировать. Значит вероятная причина именно "0 в ЛС" — это **не propagation**, а: (а) старый словарь 22 слов не содержал протестированное слово, ИЛИ (b) баг связан с медиа-файлами (см. §1.5), либо (c) фикс просто не задеплоен и пользователь гонял валидацию на старом коде, где также был баг в `_scan_directory`/media picking, из-за которого хэндлер "падает молча" (см. §1.4).
-
-### 1.4 Критическая деталь — обработка GIF-видео и молчаливые падения
-
-Задание явно указывает: *"если в названии видеофайла есть слово gif, он должен отправляться именно как GIF... Возможно, механизм сломан на этапе типизации и отправки FSInputFile, из-за чего хэндлер падает молча."*
-
-Разобран код `services/common_relay.py` (актуальная версия на `main`):
+**Файл:** `handlers/dead_page_trigger.py`
 
 ```python
-def _detect_media_type(self, filepath: Path) -> str | None:
-    ext = filepath.suffix.lower()
-    if ext in _IMAGE_EXTENSIONS:
-        return MEDIA_PHOTO
-    if ext in _VIDEO_EXTENSIONS:
-        if "gif" in filepath.stem.lower():
-            return MEDIA_ANIMATION
-        return MEDIA_VIDEO
+@dead_page_router.message(F.forward_origin)        # ← матчит ЛЮБОЕ forwarded-сообщение
+async def on_forward(message: types.Message):
+    origin = message.forward_origin
+    if not isinstance(origin, MessageOriginChannel):
+        return                                        # ← implicit None → БЛОКИРУЕТ propagation!
     ...
+    if not is_target:
+        return                                        # ← implicit None → БЛОКИРУЕТ propagation!
 ```
 
-Эта логика **корректна**: `danger_02_gif.mp4` → `filepath.stem` = `"danger_02_gif"` → содержит `"gif"` → `MEDIA_ANIMATION` → в `_send_by_type()` вызывается `bot.send_animation(...)`. Файл реально существует на диске (`media/common/danger/danger_02_gif.mp4`, 910KB, подтверждено через `filesystem_list_directory_with_sizes`) и **закоммичен в git** (подтверждено через `git ls-files` — `media/common/danger/danger_02_gif.mp4` есть в трекинге). Значит для локальной/main-версии репозитория проблемы "молчаливого падения" на этапе типизации **нет** — код и файлы на месте.
+**Механика бага:**
+1. `dead_page_router` находится на позиции **4** в цепочке роутеров (см. Приложение A).
+2. Фильтр `F.forward_origin` матчит **все** forwarded-сообщения — от любых пользователей и из любых каналов.
+3. Внутри хэндлера `on_forward`: если это НЕ репост из `@d_pages`, хэндлер делает `return` (без `UNHANDLED`) — что в aiogram 3.x означает **«сообщение обработано»**.
+4. `Router.propagate_event()` видит не-`UNHANDLED` результат → останавливает propagation.
+5. Последующие роутеры — `war_alert_router` (4b) и `common_router` (4c) — **не получают событие вовсе**.
 
-**Но это не исключает падения на СЕРВЕРЕ**, если там:
-1. Каталог `media/common/danger/` не существует или пуст (см. board.md T-115: задача "проверить наличие медиа-файлов на сервере" всё ещё висит как `[ ]` — не выполнена!).
-2. Деплой Epic 15/16/17 (переименование otboy→common, создание директорий) был сделан ЧАСТИЧНО — старые `.env` на сервере может ссылаться на несуществующие пути.
-3. `_scan_directory()` в текущем коде уже имеет graceful fallback (T4 Epic 17: `FileNotFoundError` → `logger.warning()`, не `exception()`, и просто `return []` без исключения) — значит хэндлер НЕ падает с трейсбеком, а просто тихо ничего не отправляет и никак не сигнализирует пользователю. Это ключевое архитектурное наблюдение: **отсутствие файлов не вызывает crash, а вызывает молчаливый no-op**, что снаружи для пользователя выглядит идентично «бот не реагирует» — независимо от того, был ли баг propagation или отсутствие файлов.
+**Последствия:**
+- Любое forwarded-сообщение НЕ из @d_pages **полностью игнорируется** всеми нижестоящими роутерами.
+- `DangerWordFilter` (common_router, 4c) не видит forwarded-сообщений → danger не срабатывает.
+- `WarWordFilter` (war_alert_router, 4b) не видит forwarded-сообщений → war_alert для Славы тоже не срабатывает на репостах.
+- Обычные (не-forwarded) сообщения проходят нормально — `F.forward_origin` фильтр не матчит.
 
-### 1.7 КРИТИЧЕСКАЯ НАХОДКА (после уточнения пользователя) — `.env` override словаря
+**Почему `otboy` («отбой») работает, а `danger` — нет?**
+Это иллюзия. `otboy_handler` работает **только для обычных сообщений**, не для forwarded. Когда пользователь тестировал «отбой», он, вероятно, отправлял обычное (не-forwarded) сообщение, которое свободно проходило мимо `dead_page_router`. Но для forwarded-сообщений **оба хэндлера** (`otboy_handler` и `danger_handler`) одинаково невидимы.
 
-**Пользователь сообщил: деплой коммита `af93acb` был реально выполнен (git pull + restart подтверждён лично), но баг всё равно воспроизвёлся.** Это опровергает гипотезу «просто не задеплоено» как ЕДИНСТВЕННУЮ причину и требует пересмотра. Расследование продолжено — проверен `.env.example` построчно:
+#### Слой B (ПРОВЕРЕНО — НЕ баг): `.env` override словаря
 
-```bash
-# .env.example, строка 71 (проверено чтением файла)
-# Comma-separated danger keywords (leave empty for built-in defaults — 22 words)
-DANGER_WORDS=бпла,ракетная,опасность
-```
+Вопреки первоначальной гипотезе в старой версии ARCHITECTURE.md, `.env.example` содержит `DANGER_WORDS=` (пусто) — это **корректно**. Пустое значение означает «используй список из `filters/word_lists.py` (135+ слов)». Локальный `.env` также не содержит переопределения `DANGER_WORDS`.
 
-**Это критический баг самого шаблона `.env.example`:** переменная `DANGER_WORDS` в нём **не пустая** — она жёстко прописана как строка из **всего 3 слов** (`бпла`, `ракетная`, `опасность`). Комментарий над ней при этом лжёт про «22 words» (устаревшее число из до-Epic-17 версии, никогда не обновлённое). Прочитан код `filters/danger_word.py::_parse_danger_words()`:
+**Тем не менее**, рекомендуется Builder'у проверить `.env` на сервере через SSH (см. Приложение B) — на случай, если переменная была добавлена вручную при предыдущих деплоях.
+
+### 1.3 WAR_CHANNEL_IDS — архитектурная проверка
+
+**Текущая архитектура (корректна):**
+
+| Хэндлер | Роутер | Фильтры | Назначение |
+|---------|--------|---------|-----------|
+| `war_channel_repost_handler` | `war_alert_router` (4b) | `TargetChannelFilter(WAR_CHANNEL_IDS, WAR_CHANNEL_USERNAMES)` | Репост из конкретного war-канала → reply фразой (независимо от содержания) |
+| `war_keyword_handler` | `war_alert_router` (4b) | `UserIdFilter(SLAVIK_USER_ID)` + `WarWordFilter()` | Сообщение Славы с danger-словом → reply фразой |
+| `danger_handler` | `common_router` (4c) | `DangerWordFilter()` | Сообщение **любого** юзера с danger-словом → random медиа из `common/danger/` |
+
+**Логика работы:**
+- `WAR_CHANNEL_IDS` — **аддитивный** триггер: форсирует реакцию на репост из конкретных каналов, даже без danger-слов.
+- `DangerWordFilter` в `common_router` — **независимый** триггер: ищет danger-слова в любых сообщениях (включая forwarded) для всех пользователей.
+- Если `WAR_CHANNEL_IDS` пуст — `war_channel_repost_handler` просто никогда не срабатывает, а поиск danger-слов продолжает работать через `DangerWordFilter`.
+- **Архитектура требованиям соответствует** — переделывать логику WAR_CHANNEL_IDS не требуется.
+
+### 1.4 Устранение дублирования `WarWordFilter` ↔ `DangerWordFilter`
+
+**Текущее состояние:**
+- `filters/war_word.py::WarWordFilter` — дублирует логику `DangerWordFilter` (тот же список слов `DANGER_WORDS`, те же regex-паттерны)
+- `filters/danger_word.py::DangerWordFilter` — более функциональный (возвращает `{"matched_word": ...}` для quoting)
+- Оба используют ОДИН источник слов: `filters/word_lists.py::DANGER_WORDS`
+
+**Архитектурное решение:** удалить `WarWordFilter` как отдельный класс, использовать `DangerWordFilter` во всех точках.
+
+**План (для Builder):**
+1. В `handlers/war_alert.py`: заменить импорт `from filters.war_word import WarWordFilter` на `from filters.danger_word import DangerWordFilter`
+2. Заменить `WarWordFilter()` → `DangerWordFilter()` в декораторе `war_keyword_handler`
+3. Удалить файл `filters/war_word.py`
+4. Удалить связанные тесты для `WarWordFilter` или адаптировать их под `DangerWordFilter`
+
+### 1.5 Исправление (конкретные изменения для Builder)
+
+**Файл 1: `handlers/dead_page_trigger.py`**
+
+Добавить импорт UNHANDLED и заменить `return` на `return UNHANDLED` в двух местах:
 
 ```python
-def _parse_danger_words(raw: str) -> list[str]:
-    if not raw:
-        return list(DANGER_WORDS)              # 135+ слов из word_lists.py
-    parts = [w.strip().lower() for w in raw.split(",") if w.strip()]
-    return parts if parts else list(DANGER_WORDS)
+# Добавить импорт (в начало файла):
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+# Строка ~42 (не-channel forward origin):
+if not isinstance(origin, MessageOriginChannel):
+    logger.debug(f"Forward origin is not a channel: {type(origin).__name__}")
+    return UNHANDLED          # ← было: return
+
+# Строка ~56 (не-target channel):
+if not is_target:
+    return UNHANDLED          # ← было: return
 ```
 
-Если `settings.DANGER_WORDS` (читается из `.env` через `os.getenv("DANGER_WORDS", "")`) — **непустая строка**, функция возвращает ТОЛЬКО эти слова из `.env`, полностью игнорируя 135+ словоформ из `word_lists.py`. Локальный `.env` разработчика (проверено чтением файла) **не содержит** строки `DANGER_WORDS` — значит по умолчанию у него используется полный список из кода. НО если `.env` на production-сервере был создан администратором путём копирования `.env.example` (стандартная практика первого деплоя, зафиксированная во ВСЕХ прошлых Epic-чеклистах: «T-121-C: Обновить .env»), то сервер **буквально имеет только эти 3 слова** — `бпла`, `ракетная`, `опасность` — как единственно матчащиеся danger-слова, ДАЖЕ ПОСЛЕ полного и корректного деплоя фикса Epic 17.
+**Файл 2: `handlers/war_alert.py`**
 
-**Это объясняет наблюдение пользователя намного точнее, чем гипотеза «не задеплоено»:**
-- Если пользователь тестировал слово **вне этих 3-х** (например «укрытие», «бункер», «дрон», «тревога») — фильтр действительно даёт 0 совпадений на сервере, СМОТРЯ НА propagation-фикс УЖЕ БУДУЧИ деплоенным, потому что сам список слов обрублен независимо от propagation.
-- Даже слова из списка (`бпла`, `ракетная`, `опасность`) должны срабатывать — если пользователь именно их и тестировал и всё равно получил 0 реакций, это указывает на ВТОРОЙ параллельный баг (см. ниже, RC6/RC7), а не отменяет находку про `.env`.
+Заменить `WarWordFilter` → `DangerWordFilter`:
 
-**Важно:** это не гипотеза «может быть» — это структурный дефект самого репозитория (`.env.example` содержит несогласованные с кодом дефолты), который будет воспроизводиться на КАЖДОМ новом деплое до тех пор, пока `.env.example` не будет исправлен. Это баг самого проекта, а не только сервера.
+```python
+# Было:
+from filters.war_word import WarWordFilter
+...
+@war_alert_router.message(UserIdFilter(settings.SLAVIK_USER_ID), WarWordFilter())
 
-### 1.8 Второй возможный параллельный слой — почему баг мог сохраниться ДАЖЕ для слов из `.env`-списка
+# Стало:
+from filters.danger_word import DangerWordFilter
+...
+@war_alert_router.message(UserIdFilter(settings.SLAVIK_USER_ID), DangerWordFilter())
+```
 
-Если пользователь тестировал именно `бпла`/`ракетная`/`опасность` (то есть слова, которые ЕСТЬ в урезанном `.env`-списке) и всё равно получил 0 реакций после подтверждённого деплоя — нужно рассмотреть RC6 и RC7:
+**Файл 3: `filters/war_word.py`**
 
-- **RC6 — `.env` не был обновлён при деплое вообще.** Деплой = `git pull` + restart меняет ТОЛЬКО код (`.py` файлы), но НЕ трогает `.env` (он в `.gitignore`, не версионируется). Если сервер работал на `.env`, созданном ДО того как в проекте появилась переменная `DANGER_WORDS` (Epic 15/16) — на сервере переменной вообще нет в файле, `os.getenv("DANGER_WORDS", "")` вернёт `""`, `_parse_danger_words` возьмёт полный список из `word_lists.py` — это НЕ баг. Но если `.env` был создан/обновлён ПОЗЖЕ путём копирования актуального `.env.example` (например, при исправлении другого параметра админом) — тогда урезанный список из §1.7 попадает на сервер. **Тестировать оба сценария нужно эмпирически** — Builder должен получить фактическое содержимое `.env` на сервере (через SSH, без вывода токенов/секретов в лог) и явно сверить с `word_lists.py`.
-- **RC7 — Restart процесса не подхватил новый код.** Если бот запущен через `systemd`/`supervisor`/`screen`/`tmux`, `git pull` сам по себе НЕ перезапускает процесс — нужен явный `systemctl restart` (или эквивалент). Если Builder/пользователь выполнил `git pull`, но забыл/не смог перезапустить процесс (например, нет прав на `systemctl`, или сервис называется иначе), старый процесс Python продолжает работать со старым кодом в памяти НЕЗАВИСИМО от того, что на диске лежит новый код. Это классический «deploy looks done but isn't live» паттерн. Проверяется через `ps aux | grep bot.py` + сравнение uptime процесса с timestamp последнего git commit/pull.
+Удалить файл.
 
-### 1.9 Требования к Builder — что нужно СДЕЛАТЬ (обновлено)
+### 1.6 Проверка, что DangerWordFilter корректно видит forwarded-сообщения
 
-Поскольку это Architecture-документ, а не PR, здесь фиксируются точные шаги, которые Builder должен выполнить, без написания кода мной. **Порядок важен — сначала диагностика, потом фикс:**
+После исправления propagation (1.5), `common_router` будет **получать** forwarded-сообщения. Остаётся вопрос: видит ли сам `DangerWordFilter` текст forwarded-сообщения?
 
-1. **Диагностика ПЕРЕД любыми изменениями (обязательно, в этом порядке):**
-   a. SSH на сервер (`nik@198.46.175.136:/var/www/admin_bot`) → `cat .env | grep DANGER_WORDS` (не выводить остальные строки `.env` — там токены). Зафиксировать точное значение (пусто/3 слова/что-то ещё).
-   b. Проверить, что процесс бота реально перезапущен ПОСЛЕ последнего `git pull`: `systemctl status <service-name>` (узнать точное имя сервиса из деплой-документации/предыдущих чатов) → сравнить `Active: ... since <timestamp>` с `git log -1 --format=%cd` на сервере.
-   c. Проверить `git log -1` на сервере — убедиться, что HEAD == `af93acb` (или новее) и рабочая директория чистая (`git status`).
-2. **Если найден `.env` override (§1.7):** удалить строку `DANGER_WORDS=...` из `.env` на сервере ЛИБО заменить на полный актуальный список — предпочтительно **удалить строку полностью**, чтобы код брал актуальный список из `word_lists.py` автоматически и не требовал ручной синхронизации в будущем. **Также исправить `.env.example` в репозитории** (закоммитить отдельным малым фиксом) — либо убрать дефолтное значение (оставить `DANGER_WORDS=` пустым), либо явно написать полный актуальный список синхронно с `word_lists.py`. Рекомендация архитектора: оставить пустым, с комментарием, явно указывающим on количество слов в `word_lists.py` на момент дефолта (например «135+ слов, см. filters/word_lists.py»), и добавить unit-тест, который проверяет, что `.env.example` НЕ содержит непустого `DANGER_WORDS=` (защита от повторения этой ошибки в будущем).
-3. **Если процесс не был перезапущен (§1.8, RC7):** явный `systemctl restart <service>` (или эквивалент), затем повторный smoke-тест.
-4. **После устранения RC6/RC7 — стандартные шаги деплоя фикса Epic 17** (актуальны независимо от того, найден ли `.env` override):
-   - Выполнить незакрытые задачи T-115-A…D (board.md): проверить `media/common/danger/danger_01.mp4` и `danger_02_gif.mp4` физически на сервере, права `644`.
-   - Прогнать `pytest` полный сьют на сервере (399+ тестов должны проходить).
-5. **Smoke-тест на реальном проде** (повторить ПОСЛЕ фикса `.env`): отправить сообщение с danger-словом ВНЕ старого 3-словного списка (например «укрытие» или «дрон») — это прямой тест того, был ли баг именно в `.env` override, а не в чём-то ином. Затем повторить полный набор smoke-тестов из предыдущей версии этого документа: (а) от тестового/админского юзера в группе, (б) в ЛС бота, (в) форвард из произвольного канала с danger-словом в подписи.
-6. **Explicit non-goal:** не менять сам словарь `DANGER_WORDS` в `word_lists.py` дальше — 135 словоформ уже покрывают базовые случаи; проблема НЕ в недостаточности словаря в коде, а в его переопределении через `.env`.
+**Проверка кода `DangerWordFilter.__call__`:**
+```python
+content = message.text or message.caption
+```
 
-### 1.10 Резюме Root Cause (Задача 1, обновлено)
+**Анализ поведения aiogram/Telegram API для forwarded-сообщений:**
 
-| # | Причина | Слой | Статус исправления |
-|---|---------|------|---------------------|
-| RC1 | `war_alert_router` блокировал propagation к `common_router` (implicit `return None`) для сообщений Славы | Код | ✅ Исправлено в `af93acb` (`return UNHANDLED`) — подтверждено закоммичено, статус деплоя см. RC7 |
-| RC2 | Старый `_DEFAULT_DANGER_WORDS` содержал только 22 слова (до Epic 17) | Код | ✅ Исправлено в `af93acb` (`word_lists.py`, 135+ слов) в коде — статус деплоя см. RC7 |
-| **RC6** | **`.env.example` жёстко прописывает `DANGER_WORDS=бпла,ракетная,опасность` (3 слова) — если сервер получил `.env` копированием шаблона, этот override полностью маскирует фикс RC2 независимо от деплоя кода** | **Конфигурация** | ❗ **НАИБОЛЕЕ ВЕРОЯТНАЯ причина — требует SSH-проверки `.env` на сервере (§1.9, шаг 1а)** |
-| **RC7** | **Процесс бота может быть не перезапущен после `git pull` (systemd/supervisor не тронут simple `git pull`) — код на диске новый, в памяти процесса старый** | **Инфраструктура/процесс** | ❗ **Требует проверки uptime процесса vs. timestamp коммита (§1.9, шаг 1б)** |
-| RC3 | Отсутствие медиа-файлов в `media/common/danger/` на сервере (не подтверждено — T-115 открыта) | Инфраструктура | ❌ Не проверено, требует SSH-доступа |
-| RC4 | `.env` на сервере может не совпадать с прочими ключами конфигурации (COMMON_MEDIA_BASE, COMMON_COOLDOWN_SECONDS) | Инфраструктура | ❌ Не проверено (частный случай RC6 для других переменных) |
-| RC5 | GIF-детект по имени файла (`"gif" in filepath.stem.lower()`) — код корректен, файлы в git присутствуют | Код | ✅ Не баг — работает как задумано |
+| Тип forwarded-сообщения | Где лежит текст | Видит ли фильтр? |
+|------------------------|----------------|-----------------|
+| Пересланный текст (без своего комментария) | `message.text` | ✅ Да |
+| Пересланное медиа с подписью (caption) | `message.caption` | ✅ Да |
+| Пересланное медиа БЕЗ подписи | `message.text` = None, `message.caption` = None | ❌ Нет (нечего матчить) |
+| Пересланное сообщение + пользователь ДОБАВИЛ свой текст | `message.text` = свой текст, оригинал может быть потерян | ⚠️ Только свой текст юзера |
 
-**Вывод (обновлён): Задача 1 требует, в первую очередь, диагностики на живом сервере (§1.9, шаги 1а-1в), а не написания нового кода.** Наиболее вероятный root cause — `.env` override словаря (RC6), с RC7 (process restart) как второй по вероятности причиной. Гипотеза «не задеплоено» из первой версии этого документа была опровергнута фидбеком пользователя и заменена на эти два конкретных, проверяемых пункта. Если ОБА RC6/RC7 не подтвердятся при диагностике — потребуется отдельный раунд расследования с логами Better Stack на сервере (INFO-логи `DangerWordFilter`/`WarWordFilter` при каждом сообщении покажут, какой именно список слов используется в runtime).
+**Вывод:** фильтр `DangerWordFilter` (и `OtboyWordFilter`) корректно обрабатывает forwarded-сообщения **при условии**, что forwarded-сообщение содержит текст (в `message.text` или `message.caption`). Дополнительных изменений в фильтр **не требуется**.
+
+Если требуется искать danger-слова **в теле оригинала** пересланного сообщения даже когда пользователь добавил свой текст поверх — это принципиально невозможно через Bot API, т.к. оригинальный текст не экспонируется отдельным полем при forwarded-with-added-text.
 
 ---
 
-## 2. ЗАДАЧА 2 — Поломка репостинга `dead page` (Rich Message, июль 2026)
+## 2. Задача 2 — Поломка репостинга `dead page`
 
-### 2.1 Симптом
+### 2.1 Симптомы
 
-Бот корректно репостит СТАРЫЙ пост (ID=3, фото + подпись) из канала, но НОВЫЕ посты
-(включая пост из альбома 3 фото + текст, а также ещё более новый пост в новом формате
-"статья"/Rich Text) не появляются в целевом чате вообще — ни ошибки, ни реакции.
+- Бот корректно репостит старый пост ID=3 (фото + подпись).
+- Новый пост не появляется в чате.
+- Ранее проблема была с MediaGroup (3 фото + текст) — бот репостил по частям.
+- Канал перешёл на Rich Message формат (Telegram Bot API 10.2, июль 2026) — одно сообщение с 3 фото + текст.
+- Этот новый Rich-пост бот игнорирует.
 
-### 2.2 Контекст: что изменилось в Telegram Bot API (проверено через веб-поиск)
+### 2.2 Что такое Rich Message (Bot API 10.2)
 
-14 июля 2026 Telegram выпустил **Bot API 10.2** ("Rich Text Editor, Communities, Ephemeral
-Messages") — это подтверждено официальным changelog (`core.telegram.org/bots/api-changelog`)
-и блог-постом Telegram (`telegram.org/blog/communities-editor-invisible-messages`,
-дата публикации 2026-07-14). Ключевое для этой задачи изменение:
+**Подтверждено:** 14 июля 2026 Telegram выпустил Bot API 10.2 с поддержкой Rich Messages.
+- `message.rich_message` — новое поле типа `RichMessage` (список блоков: paragraph, photo, table, и т.д.)
+- Это НЕ `MediaGroup` (media_group_id отсутствует)
+- Это технически ОДНО сообщение с ОДНИМ `message_id`
+- `bot.forward_message()` должен работать для Rich Messages так же, как для любых других типов (forward by-reference)
 
-> "Added support for Rich Messages, allowing bots to send highly structured text... Added the
-> field `rich_message` to the class `Message`."
-
-Rich Message — это НЕ то же самое, что старый `caption`+`photo`. Это принципиально новая
-структура:
-
+**Установленная версия aiogram (3.29.1) подтверждённо содержит типы:**
 ```python
-# aiogram/types/rich_message.py (установленная версия aiogram==3.29.1, ПОДТВЕРЖДЕНО чтением файла)
+# aiogram/types/message.py
+rich_message: RichMessage | None = None
+
+# aiogram/types/rich_message.py
 class RichMessage(TelegramObject):
-    blocks: list[RichBlockUnion]   # список типизированных "блоков" (paragraph/heading/photo/table/...)
+    blocks: list[RichBlockUnion]
     is_rtl: bool | None = None
 ```
 
-```python
-# aiogram/types/message.py — новое поле, ПОДТВЕРЖДЕНО чтением файла
-class Message(...):
-    ...
-    photo: list[PhotoSize] | None = None
-    caption: str | None = None
-    ...
-    rich_message: RichMessage | None = None   # ← НОВОЕ поле, добавлено в Bot API 10.2
-```
+### 2.3 Что УЖЕ есть в коде
 
-Rich-блоки типизированы (`RichBlockPhoto`, `RichBlockParagraph`, `RichBlockTable`, и т.д.),
-каждый со своим набором полей. Например, `RichBlockPhoto` (подтверждено чтением файла
-`aiogram/types/rich_block_photo.py`):
+**Rich Message детекция реализована** в `services/dead_page_relay.py`:
 
 ```python
-class RichBlockPhoto(RichBlock):
-    type: Literal[RichBlockType.PHOTO] = RichBlockType.PHOTO
-    photo: list[PhotoSize]                       # сами фото лежат ВНУТРИ блока, не в message.photo
-    has_spoiler: bool | None = None
-    caption: RichBlockCaption | None = None      # подпись блока — НЕ message.caption
+def _is_rich_message(sent) -> bool:
+    """Return True if the forwarded message is a Rich Message (Bot API 10.2+)."""
+    if _RichMessageType is None:
+        return False
+    return isinstance(getattr(sent, 'rich_message', None), _RichMessageType)
 ```
 
-**Критический вывод:** канал-источник (судя по описанию задачи — использует "новый механизм
-форматирования, который вышел в Telegram совсем недавно, в июле 2026") теперь публикует
-посты как единый Rich Message, где 3 фото + текст упакованы в `message.rich_message.blocks`
-(вероятно `RichBlockCollage` или `RichBlockSlideshow` для фото-группы + `RichBlockParagraph`
-для текста) — это ОДНО сообщение с ОДНИМ `message_id`, а НЕ `MediaGroup` (`media_group_id`).
-Это объясняет, почему технически "это один пост", как и описано в задаче.
+Используется в двух точках:
+1. `_forward_single()` — строка 295: после `bot.forward_message()` проверяет `_is_rich_message(sent)` → если да, обновляет DB и возвращает `True`
+2. `_forward_with_heuristic()` — строка 434: то же самое в эвристическом пути
 
-### 2.3 Root Cause — почему бот игнорирует новый формат
+**Трекер в `bot.py`** — `track_relay_post` логирует Rich Messages при индексации, но не сохраняет их в `relay_album_map` (правильно — у Rich Messages нет media_group_id, альбом не нужен).
 
-Прочитан весь код, работающий с постами канала-источника (`services/dead_page_relay.py`,
-`handlers/dead_page_trigger.py`, `bot.py::track_relay_post`). Во ВСЕХ местах бот читает
-только legacy-поля:
+### 2.4 Root Cause — почему новый пост не появляется
 
-```python
-# services/dead_page_relay.py::_forward_with_album_detection (текущий код)
-media_group_id = await self.db.get_relay_media_group_id(msg_id)   # ищет media_group_id — Rich Message его НЕ имеет
-if media_group_id:
-    ...
-    return True
-# PATH 2: Heuristic fallback — probe adjacent IDs
-return await self._forward_with_heuristic(chat_id, msg_id, last_msg_id)
+Механизм НЕ в отсутствии Rich Message-поддержки (она есть). Проблема в **алгоритме поиска новых ID**.
+
+**Как работает поиск (`_try_forward_from_channel`):**
+
+```
+1. Если last_msg_id известен (>0):
+   → Forward scan: последовательно пробуем ID last_msg_id+1 ... last_msg_id+20
+   → Каждый ID: _forward_single() → если success → return True
+
+2. Если forward scan не дал результата:
+   → Строим search ranges (anchored + discovery)
+   → Для каждого range:
+     - Если range_size ≤ 50: sequential scan (перебор всех ID)
+     - Иначе: random probing (до 5 попыток на range)
+
+3. Если все ranges exhausted → return False → fallback на локальные медиа
 ```
 
-```python
-# bot.py::track_relay_post (channel_post tracker, Epic 14)
-if message.media_group_id:                          # Rich Message НЕ имеет media_group_id →条件 не срабатывает
-    await db.save_relay_album_map(message.message_id, message.media_group_id)
-```
+**Сценарий, объясняющий симптом:**
 
-Механизм форвардинга (`bot.forward_message`/`bot.forward_messages`) технически СПОСОБЕН
-переслать Rich-сообщение как единый message (Telegram API поддерживает форвард любого типа
-сообщения по `message_id`, включая Rich Messages — это подтверждается тем, что API просто
-пересылает by-reference оригинальное сообщение, а не пересобирает его контент). Значит
-`_try_forward_from_channel()` **технически МОЖЕТ переслать новый пост**, если дойдёт до
-вызова `bot.forward_message(chat_id, from_chat_id, message_id=X)` для правильного `X`.
+A. **Холодный старт** (первый вызов, `last_msg_id = None`):
+   - Forward scan **не запускается** (условие `if last_msg_id and last_msg_id > 0` не выполняется)
+   - Используются `_DISCOVERY_RANGES`: `[(1,10), (1,50), (1,200), (1,500), (1,2000)]`
+   - Range (1,10) — последовательный скан 10 ID → **находит ID=3** (старый пост) → forward success → `last_msg_id = 3`
 
-**Тогда почему бот "игнорирует" новые посты вообще, а не просто ломает группировку (как со
-старым альбомом)?** Разбираем алгоритм поиска ID (`_build_search_ranges` +
-`_try_forward_from_channel`):
+B. **Следующий вызов** (`last_msg_id = 3`):
+   - Forward scan: ID 4,5,6,7,...23
+   - ID=7 должно быть найдено! `_forward_single(chat_id, 7, 3)` → `bot.forward_message()` → `_is_rich_message(sent)` → True → DB update → return True
+   - **Теоретически должно работать.**
 
-```python
-async def _try_forward_from_channel(self, chat_id: int) -> bool:
-    last_msg_id = await self.db.get_last_known_message_id()   # ключевая переменная!
-    ranges = self._build_search_ranges(last_msg_id)
-    for (lo, hi) in ranges:
-        ... probe msg_id in [lo, hi] ...
-        try:
-            result = await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
-            return result
-        except Exception as e:
-            if "not found" in str(e).lower(): continue
-            else: return False   # ← non-"not found" ошибка ЗАВЕРШАЕТ поиск без fallback на следующий msg_id!
-```
+C. **Почему может не работать на практике:**
+   1. **`_is_rich_message(sent)` возвращает False** — если aiogram 3.29.1 не десериализует `rich_message` из ответа `forwardMessage` API. В этом случае код падает в `_forward_album_post_send()` → Path 2 (single post) → обновляет DB → return True. **Сообщение ВСЁ РАВНО переслано** (forward_message уже вызван), но без Rich Message-логирования.
+   2. **Forward scan никогда не вызывается повторно** — `send_dead_page` срабатывает только при репосте из @d_pages. Если после публикации Rich-поста никто не репостнул из @d_pages, бот просто не пытается искать новые посты.
+   3. **Между вызовами прошёл cooldown-блок** — `DEAD_PAGE_COOLDOWN_SECONDS` (по умолчанию 0 — без блокировки). Не является причиной при дефолтных настройках.
 
-Здесь и коренная причина: **`update_last_known_message_id()` вызывается ТОЛЬКО при успешном
-форварде** (внутри `_forward_with_album_detection`/`_forward_with_heuristic`, строка
-`if not last_msg_id or max_id > last_msg_id: await self.db.update_last_known_message_id(max_id)`).
-Раз старый пост ID=3 репостится успешно (подтверждено симптомом пользователя — "старый пост
-репостится корректно"), значит `last_msg_id` в БД **застрял на值, близком к 3** (или чуть выше,
-если ID=3 не самый первый успешный форвард). `_build_search_ranges()` строит диапазоны ВОКРУГ
-`last_msg_id`:
+**Наиболее вероятная причина (архитектурная):** бот **реактивен** — он ищет новые посты только когда получает репост из @d_pages. Если репост из @d_pages не происходит, сканирование канала не запускается. Старый пост ID=3 был найден при предыдущем репосте, а для поиска ID=7 новый репост мог не произойти.
 
-```python
-def _build_search_ranges(self, last_msg_id):
-    if last_msg_id and last_msg_id > 0:
-        anchored = [(1, last_msg_id), (1, max(last_msg_id * 2, 100))]
-        anchored.extend(_DISCOVERY_RANGES)   # [(1,10),(1,50),(1,200),(1,500),(1,2000)]
-        return anchored
-    return list(_DISCOVERY_RANGES)
-```
+**Вторая вероятная причина:** на проде мог сработать `DEAD_PAGE_COOLDOWN_SECONDS > 0`, из-за чего повторные вызовы `send_dead_page` блокируются.
 
-Если `last_msg_id=3`, диапазоны — `[(1,3), (1,100), (1,10), (1,50), (1,200), (1,500), (1,2000)]`.
-Каждый диапазон запускает **случайный** (или sequential для узких, `_SEQUENTIAL_THRESHOLD=50`)
-проб `random.randint(lo, hi)` до `max_retries` (по умолчанию `DEAD_PAGE_MAX_FORWARD_RETRIES=5`)
-попыток БЕЗ повторов (`tried: set[int]`). Если новый пост (Rich Message) имеет, например,
-`message_id=47`, а старые посты с id 1-3 существуют и успешно форвардятся при случайном
-попадании — алгоритм **может случайно попасть на старый ID=1..3 в диапазоне (1,50) или (1,100)
-и вернуть `True` раньше, чем попробует id=47**, из-за чего пользователь ВСЁ ЕЩЁ видит
-случайные повторные репосты СТАРОГО поста, но воспринимает это как "новые посты не
-появляются" (потому что каждый раз пробуется случайный ID, вероятность попасть именно на
-47 из диапазона (1,2000) в рамках 5 попыток крайне мала — это классическая "random pick"
-архитектура, которая при росте канала становится всё менее надёжной для свежих постов).
+### 2.5 Архитектурное решение (для Builder)
 
-**Второй, более фундаментальный root cause:** даже если алгоритм СЛУЧАЙНО выберет
-`msg_id=47` (новый Rich Message пост), при попытке `_forward_with_album_detection` он
-попадёт в `PATH 2: Heuristic fallback` (потому что `get_relay_media_group_id(47)` вернёт
-`None` — Rich Message не имеет `media_group_id`, а `track_relay_post` в `bot.py` никогда
-не записал его в `relay_album_map`, т.к. проверяет `if message.media_group_id`).
-`_forward_with_heuristic()` вызывает `bot.forward_message(...)` для `msg_id=47` — **этот
-вызов должен технически сработать** (форвард Rich Message как единого сообщения). НО метод
-затем **пробует соседние ID `msg_id+1..+9` и `msg_id-1..-9`** (`_ALBUM_PROBE_RANGE=9`) в
-поисках "альбома" по date proximity — если канал публикует и старый, и Rich-контент вперемешку
-с другими сервисными сообщениями, эта проба МОЖЕТ найти false-positive соседей и **удалить/
-переслать лишние сообщения**, либо (что вероятнее и хуже) — упасть на непредвиденной структуре
-данных, если код где-то далее в проекте (не в показанных файлах) ожидает `sent.photo` или
-`sent.caption` для логирования/дальнейшей обработки этого форвардированного сообщения и
-получает `None` (`sent.photo is None` для чистого Rich Message без legacy `photo` поля) —
-это привело бы к `AttributeError`/`TypeError` внутри `try` блока `_forward_with_heuristic`,
-которая НЕ перехватывает специфично такие ошибки (`except Exception as e: err = str(e).lower(); if "not found" in err ...: continue; raise` — **любая ошибка, не содержащая "not found"/"bad request" в тексте, будет `raise`-нута из `_forward_with_heuristic` и, поднявшись до
-`_try_forward_from_channel`, попадёт в `except Exception as e: ... else: return False`** —
-что приводит к **немедленному отказу от текущего диапазона без перехода к fallback внутри
-range, и в худшем случае — если это происходит в последнем диапазоне — ко всему методу
-`_try_forward_from_channel` возвращающему `False`, что вызывает `_fallback_local_send()`
-(отправка старого локального `media/dead_page/` контента) ВМЕСТО ожидаемого репоста.**
+**Не требуется** писать Rich Message-парсер с нуля — форвард работает by-reference через Telegram API.
 
-Итог: пользователь видит то один и тот же старый пост (случайное попадание на ID=3), то
-вообще ничего конкретного нового (потому что даже при случайном попадании на новый Rich
-Message пост, heuristic-проба соседей может либо тихо всё сломать, либо кинуть исключение,
-которое не обрабатывается как "not found" и обрывает попытку).
+**Требуемые изменения:**
 
-### 2.4 Почему альбом (3 фото + текст, старый MediaGroup формат) тоже не репостился отдельно от Rich Message проблемы
+1. **Увеличить дальность forward scan:** заменить `_FORWARD_SCAN_LIMIT = 20` → `50` или `100`, чтобы покрыть больше новых ID за один вызов.
 
-Задача явно говорит: старая версия поста была `MediaGroup` (3 фото + текст), и её
-пересылка "по частям" — это отдельная, УЖЕ известная и задокументированная проблема
-(см. `backlog.md` Epic 14 "Media Group Album Fix" и Epic 16 Bug 1 "Репост из канала ломает
-группировку альбомов"). Это подтверждает, что даже ПРАВИЛЬНО типизированный `media_group_id`
-(старый механизм) обрабатывался с трудом (`_forward_with_heuristic`, RC2 в Epic 16 backlog:
-"эвристика date proximity склеивает независимые посты"). Но задача прямо говорит: "решить
-это не удалось", и канал **заменили на новый Rich Text формат**, чтобы уйти от MediaGroup
-вообще. Получается двойной провал: старый механизм (MediaGroup heuristic) был сломан и не
-исправлен окончательно → источник сменил формат на Rich Message → а бот ещё и Rich Message
-не читает вообще. Это НЕ совпадение — это последовательность из двух разных багов на одном
-и том же участке кода (`_forward_with_heuristic`), обнажающая, что вся heuristic-логика
-вокруг "определения соседних постов одного альбома по дате" — архитектурно хрупкий подход,
-который ломается на любом новом формате контента.
+2. **Улучшить логирование Rich Message:**
+   - В `_forward_single()`: после `bot.forward_message()` залогировать `sent.rich_message is not None` (INFO-level), даже если `_is_rich_message` возвращает False — для диагностики десериализации.
+   - В `track_relay_post`: повысить уровень лога Rich Message с DEBUG до INFO.
 
-### 2.5 Архитектурное решение — извлечение контента независимо от формата
+3. **Добавить fallback: если `_is_rich_message` возвращает False, но сообщение успешно переслано:**
+   ```python
+   sent = await self.bot.forward_message(...)
+   if _is_rich_message(sent):
+       # Current path — OK
+   else:
+       # Check if original message WAS a Rich Message (heuristic):
+       # If sent has no photo/caption but has text entities → might be Rich Message
+       logger.info("Forwarded message: rich_message attribute absent, photo=%s, caption=%s",
+                   sent.photo is not None, sent.caption is not None)
+   ```
 
-**Стратегическое решение:** для `dead_page` не нужно "понимать" контент поста для его
-пересылки — `forward_message`/`forward_messages` пересылает сообщение **by-reference**,
-сохраняя оригинальный рендеринг (Rich Message останется Rich Message на клиенте получателя).
-Задача бота — правильно **обнаружить и адресовать** ID сообщения для форварда, а не
-парсить его контент. Проблема НЕ в форварде самого Rich Message (Telegram API справится),
-а в (а) алгоритме поиска валидных ID и (б) heuristic-склейке "альбомов", которая не должна
-трогать Rich Message вообще (у него нет альбома в старом понимании — это один блок с 3
-фото внутри одного message_id).
-
-**Требуемые изменения (для Builder, реализация НЕ входит в этот документ):**
-
-1. **Фикс поиска ID (устранение random-guessing):** заменить `random.randint` probing на
-   детерминированный обход. Простейший надёжный подход — использовать `getChatHistory`-
-   подобный доступ невозможен для ботов без прав администратора канала на полный экспорт,
-   поэтому практичное решение — **инкрементальный sequential scan вверх от последнего
-   известного успешного ID** (`last_msg_id + 1, +2, ...`) при КАЖДОМ вызове `send_dead_page`,
-   а не случайный выбор по всему диапазону `[1, last_msg_id]`. Текущий код УЖЕ обновляет
-   `last_known_message_id` после успеха — просто нужно, чтобы поиск НОВОГО контента начинался
-   от `last_msg_id + 1` вперёд (chronological forward scan), а не случайно по всему диапазону
-   `[1, last_msg_id]` (который переоткрывает СТАРЫЕ посты вместо новых). Второй `_DISCOVERY_RANGES`-механизм (диапазоны `[1,10]`...`[1,2000]`) уместен только как cold-start
-   fallback, когда `last_msg_id` неизвестен (0/None) — НЕ как повторяющийся источник рандома
-   при каждом обычном вызове.
-2. **Rich Message должен быть исключён из heuristic album-detection.** Проверка перед
-   probing соседей: если `sent.rich_message is not None` (форвардированное сообщение —
-   Rich Message) → это ОДИН пост по определению (Rich Message инкапсулирует все свои медиа
-   внутри `blocks`, никакого понятия "media_group" для него не существует в Bot API) →
-   пропустить весь heuristic-probing (`_forward_with_heuristic`'s date-proximity logic) и
-   сразу считать форвард завершённым, обновить `last_known_message_id` и вернуть `True`.
-   Это устраняет и (а) риск случайного склеивания с соседними несвязанными постами, и
-   (б) риск неожиданных исключений при попытке читать `.photo`/`.caption` у соседних
-   Rich Message сообщений.
-3. **Не парсить содержимое Rich Message для логирования/анализа глубоко** — только
-   проверять `message.rich_message is not None` как булев флаг ("это Rich Message, значит
-   один пост, никакой album-detection не нужен"). Полный парсинг `rich_message.blocks` НЕ
-   требуется для форвардинга (задача бота — переслать, не пересобрать контент).
-4. **Совместимость с старым MediaGroup-механизмом** — существующий Path 1 (DB lookup через
-   `relay_album_map`/`media_group_id`) остаётся без изменений для ИСТОРИЧЕСКИХ постов,
-   которые всё ещё являются классическими MediaGroup (если канал когда-либо вернётся к
-   этому формату, или для старых записей в канале, созданных до перехода на Rich Text).
-5. **Обработка ошибок:** сузить `except Exception as e: ... else: return False` в
-   `_try_forward_from_channel` — не завершать поиск по всему методу при единичной
-   непредвиденной ошибке на одном `msg_id`; логировать её подробно (сейчас есть
-   `logger.error(..., exc_info=True)`, что хорошо) и **продолжить со следующим диапазоном**
-   вместо `return False` (это архитектурное расширение резилентности, а не просто фикс
-   Rich Message — но напрямую относится к устойчивости всего pipeline).
-
-### 2.6 Открытый вопрос для уточнения с пользователем/Orchestrator ПЕРЕД реализацией
-
-- Нужно подтвердить точную структуру `rich_message.blocks` для конкретного канала-источника
-  (Builder должен получить сырой `Update`/`Message` JSON через логирование в
-  `bot.py::track_relay_post` — добавить временный `logger.info("RAW RICH MESSAGE: %s",
-  message.model_dump_json())` — чтобы увидеть реальные типы блоков, которые публикует канал,
-  ДО написания финального кода извлечения/анализа, если такой анализ вообще потребуется
-  сверх простого форварда by-reference).
-- Нужно решить: если пользователь хочет, чтобы бот **дублировал** содержимое поста (а не
-  просто форвардил by-reference) — это отдельная, более сложная задача (`sendRichMessage`
-  API, доступного в установленной версии aiogram, судя по найденным файлам
-  `aiogram/types/input_rich_message.py`), которая требует реконструкции `blocks` в
-  `InputRichBlock*` формат. Задание пользователя говорит только "чтобы посты появлялись
-  в чате" — судя по формулировке, обычный forward (не пересборка) удовлетворяет требование,
-  и это на порядок проще и надёжнее.
-
-### 2.7 Резюме Root Cause (Задача 2)
-
-| # | Причина | Статус |
-|---|---------|--------|
-| RC1 | Поиск ID постов использует `random.randint` по всему диапазону `[1, last_msg_id]`, а не chronological forward scan от последнего известного ID — новые посты обнаруживаются только случайно | Требует фикса |
-| RC2 | `last_known_message_id` "застрял" на старом значении (≈3), потому что случайный поиск иногда попадает на старые ID и считает это успехом, никогда не доходя до сканирования диапазона за пределами известного максимума | Требует фикса (следствие RC1) |
-| RC3 | Rich Message (`message.rich_message`) не имеет `media_group_id` — весь код Epic 14 (`relay_album_map`, `track_relay_post`) на него не реагирует, что само по себе не баг (Rich Message и не albom в старом смысле), но `_forward_with_heuristic` всё равно запускает date-proximity probing соседей, что для Rich Message избыточно и рискованно | Требует фикса — добавить early-exit для Rich Message |
-| RC4 | Непредвиденные исключения при probing соседних сообщений (если у них нет `.photo`/`.caption`, например тоже Rich Message) не отличаются от реальных "not found" ошибок и могут обрывать весь поиск в текущем диапазоне | Требует фикса — сузить exception handling |
-| RC5 | Старая проблема с MediaGroup-репостингом (Epic 14/16, "решить не удалось") — источник сменил формат именно из-за этой нерешённой проблемы; текущая архитектура heuristic-detection одинаково хрупка для обоих форматов | Контекст, не блокирует Rich Message фикс |
+4. **Опционально: проактивное сканирование** — если архитектура позволяет, можно добавить фоновую задачу, которая периодически (раз в N минут) проверяет relay-канал на новые посты через forward scan. Но это изменение архитектуры, требующее отдельного согласования.
 
 ---
 
-## 3. ЗАДАЧА 3 — Фича `mimic` (передразнивание): Алгоритм и архитектура
+## 3. Задача 3 — Фича `mimic` (передразнивание)
 
-### 3.0 Формулировка задачи
+### 3.1 Предоставленный алгоритм
 
-Шуточная механика трансформации текста «под шепелявость», **без LLM**, чистая regex-логика.
-Два независимых места интеграции:
-
-1. **3.1** — `common` сервис: реагирует на ЛЮБОГО юзера, но только если это заранее заданная «жертва» (ID из конфига).
-2. **3.2** — `Slavik` сервис: заменяет "пошёл нахуй" на mimic-ответ при выполнении условий, с мьютексом против дублирования.
-
-### 3.1 Алгоритм трансформации текста (`services/mimic_transform.py` — НОВЫЙ модуль)
-
-#### 3.1.1 Правила (согласно ТЗ)
-
-| Категория | Правило | Пример |
-|---|---|---|
-| Согласные (безусловная замена) | `р`→`й`, `ш`→`с`, `щ`→`с`, `ж`→`з`, `ч`→`ц` | рука→йука, шум→сум |
-| Гласные (контекстная замена) | `у`→`ю`, `ы`→`и` **только** если непосредственно предшествует согласная | мыла→мила, но `у` в начале слова / после гласной — НЕ меняется |
-| Регистр | Сохраняется побуквенно (заглавная останется заглавной) | Рыба→Йиба, ЩУКА→СЮКА |
-| Прочее | Пунктуация, пробелы, цифры, спецсимволы — не трогаются | «мама!» → «мама!» |
-
-**Важный нюанс от ТЗ, который необходимо уточнить с Builder:** правило гласных описано как
-«ЗАМЕНЯЮТСЯ ТОЛЬКО если стоят сразу после согласной буквы». Это применяется к **исходному**
-тексту (до замены согласных) или **после** замены согласных? Решение архитектора: применять
-**после** замены согласных, потому что:
-- Согласная типа «р» превращается в «й» — а «й» физически тоже согласная буква, поэтому
-  «у» после «рю»(было «ру») всё равно остаётся «после согласной» → результат не меняется.
-- Единственный сценарий, где порядок имеет значение: если предшествующая согласная сама
-  является одной из заменяемых (р/ш/щ/ж/ч). Поскольку замены р→й, ш→с, щ→с, ж→з, ч→ц все
-  сохраняют статус «согласная», проверка «после согласной» даёт одинаковый результат
-  независимо от того, выполняется она до или после замены согласных.
-- **Решение:** делать оба прохода в **одном** regex через `re.sub` с функцией-заменителем,
-  проходя по строке ОДИН раз слева-направо, символ за символом (или используя единый
-  compiled regex с lookbehind на класс "любая согласная кириллицы"). Это гарантирует
-  консистентность и простоту тестирования.
-
-#### 3.1.2 Реализация (спецификация для Builder)
+Пользователь предоставил готовый, протестированный алгоритм трансформации текста:
 
 ```python
-# services/mimic_transform.py
-"""
-Mimic transform — детская шепелявость без LLM.
-Чистая regex-трансформация с сохранением регистра.
-"""
-import re
-
-# Согласные, подлежащие безусловной замене (нижний регистр)
-_CONSONANT_MAP = {
-    'р': 'й',
-    'ш': 'с',
-    'щ': 'с',
-    'ж': 'з',
-    'ч': 'ц',
+WORD_MAP = {
+    r'\bчт?о\b': 'фе', r'\bч[еёо]\b': 'фе', r'\bчт?о-то\b': 'фе-то',
+    r'\bч[еёо]-то\b': 'фе-то', r'\bкого\b': 'каво', r'\bникого\b': 'никаво',
+    r'\bчего\b': 'фево', r'\bничего\b': 'нифево', r'\bпочему\b': 'патему',
+    r'\bпотому\s+что\b': 'патаму фе', r'\bзачем\b': 'затем', r'\bкуда\b': 'кудя',
+    r'\bоткуда\b': 'аткудя', r'\bкогда\b': 'када', r'\bтогда\b': 'тада',
+    r'\bвсегда\b': 'сигда', r'\bс[еи]йчас\b': 'сяс', r'\bщ[ая]с\b': 'сяс',
+    r'\bщ[ая]\b': 'ся', r'\bвообще\b': 'вафе', r'\bваще\b': 'вафе',
+    r'\bвообще-?то\b': 'вафе-то', r'\bбольше\b': 'бофе', r'\bбольшие\b': 'бофые',
+    r'\bконечно\b': 'канефна', r'\bпожалуйста\b': 'пазяста',
+    r'\bздравствуйт?е?\b': 'длатути', r'\bхочу\b': 'хатю', 
 }
 
-# Множество ВСЕХ кириллических согласных (для lookbehind в правиле гласных).
-# Важно: после замены р/ш/щ/ж/ч на й/с/с/з/ц результат также является согласной,
-# поэтому lookbehind должен матчить как исходные, так и целевые буквы-согласные.
-_ALL_CONSONANTS = "бвгджзйклмнпрстфхцчшщ"
-
-# Гласные, подлежащие контекстной замене (только после согласной)
-_VOWEL_MAP = {
-    'у': 'ю',
-    'ы': 'и',
+SUBSTR_MAP = {
+    r'шься\b': 'фся', r'шь\b': 'ф', r'т[ь]?ся\b': 'тца',
+    r'сл': 'фл', r'дст': 'тст',
 }
 
-# Единый паттерн: одна кириллическая буква за раз, с захватом регистра.
-# Обрабатываем строку через re.sub с функцией, которая смотрит на ПРЕДЫДУЩИЙ
-# символ ИСХОДНОЙ строки (до замены) — так как любая заменяемая согласная
-# (р/ш/щ/ж/ч) остаётся согласной и после замены, проверка по исходному тексту
-# эквивалентна проверке по результату.
-_LETTER_PATTERN = re.compile(r'[а-яёА-ЯЁ]')
+CONSONANT_MAP = {
+    "р": "л", "Р": "Л", "ш": "ф", "Ш": "Ф", "щ": "ф", "Щ": "Ф",
+    "ж": "з", "Ж": "З", "ч": "т", "Ч": "Т",
+}
 
-
-def mimic_transform(text: str) -> str:
-    """
-    Преобразует текст в "шепелявую" форму.
-
-    Правила:
-      - р→й, ш→с, щ→с, ж→з, ч→ц (безусловно, регистронезависимо)
-      - у→ю, ы→и (ТОЛЬКО если предыдущий символ — кириллическая согласная)
-      - Регистр каждой буквы сохраняется индивидуально
-      - Всё остальное (пунктуация, пробелы, цифры, латиница) не изменяется
-
-    Args:
-        text: исходный текст (любой, включая пустую строку)
-
-    Returns:
-        Преобразованный текст той же длины по количеству символов
-        (посимвольная замена 1:1, никаких вставок/удалений).
-    """
-    if not text:
-        return text
-
-    result_chars = list(text)
-    n = len(text)
-
-    for i in range(n):
-        ch = text[i]
-        lower = ch.lower()
-        is_upper = ch.isupper()
-
-        if lower in _CONSONANT_MAP:
-            new_ch = _CONSONANT_MAP[lower]
-            result_chars[i] = new_ch.upper() if is_upper else new_ch
-            continue
-
-        if lower in _VOWEL_MAP:
-            # Смотрим на исходный предыдущий символ (не результат замены)
-            prev_char = text[i - 1].lower() if i > 0 else ''
-            if prev_char in _ALL_CONSONANTS:
-                new_ch = _VOWEL_MAP[lower]
-                result_chars[i] = new_ch.upper() if is_upper else new_ch
-            # иначе (начало слова / после гласной / после не-буквы) — не трогаем
-            continue
-
-        # всё остальное — без изменений
-        # (result_chars[i] уже равен ch)
-
-    return ''.join(result_chars)
+VOWEL_MAP_AFTER_CONSONANT = {"у": "ю", "У": "Ю"}
 ```
 
-**Почему посимвольный проход, а не `re.sub` с lookbehind-паттерном:**
-Lookbehind в Python regex не поддерживает переменную длину и плохо работает с
-Unicode-классами внутри `(?<=...)` при повторном использовании той же строки для
-двух независимых наборов замен (согласные + гласные) без побочных эффектов между
-проходами. Посимвольный проход:
-- проще для unit-тестирования (легко проверить каждый character transition);
-- гарантированно 1 проход = O(n), никаких проблем с перекрывающимися матчами;
-- явно решает вопрос "до или после" замены согласных, читая **исходный** символ.
+Алгоритм применяет трансформации послойно: WORD_MAP → SUBSTR_MAP → CONSONANT_MAP + VOWEL_MAP, с сохранением регистра (`_match_case`).
 
-#### 3.1.3 Верифицированные вручную тест-кейсы (проверено эмпирически при подготовке архитектуры)
+### 3.2 Текущая архитектура mimic в проекте
 
-| Вход | Выход | Комментарий |
-|---|---|---|
-| `мама мыла раму широкой щеткой` | `мама мила йамю сийокой сеткой` | классический кейс из ТЗ |
-| `как дела дружище` | `как дела дйюзисе` | ж→з, у после з(было ж, согласная)→ю |
-| `черный жук жужжит` | `цейний зюк зюззит` | ч→ц, р→й, ж→з, у после з→ю |
-| `Рыба уплыла в реку` | `Йиба уплила в йекю` | `Р`→`Й` (регистр!), начальная `у` в "уплыла" не после согласной → не меняется, `ы` после `л`→`и` |
-| `ЩУКА и ЖАБА` | `СЮКА и ЗАБА` | полностью капс — сохраняется |
-| `У Ивана усы` | `У Ивана уси` | `У` в начале слова (после пробела) — НЕ меняется; `ы`→`и` после `с` |
-| `мышь бежит мыши` | `мись безит миси` | `ь` не буква из наших карт — не трогаем; `ж`→`з`; `ы`→`и` после `м` |
+Mimic **уже интегрирован** в два сервиса:
 
-Тест-кейс `Рыба уплыла в реку` показывает важный edge case: слово "уплыла" начинается на
-«у», перед которым пробел (не согласная) → «у» не меняется. Но «ы» внутри слова (после «л»)
-меняется на «и». Это подтверждает, что правило проверяется **посимвольно относительно
-непосредственно предшествующего символа**, а не «после согласной где-то в слове».
+```
+services/mimic_transform.py   ← Трансформация (упрощённая версия, только consonant/vowel map)
+services/mimic_relay.py       ← Cooldown + dispatch для common сервиса
+handlers/common.py            ← mimic_handler (для MIMIC_VICTIM_USER_IDS)
+handlers/slavik.py            ← slavik_catchall_handler (mimic для Славы)
+```
 
-#### 3.1.4 Property-based тесты (для Builder, обязательны)
+**Конфигурация (уже существует):**
+```
+MIMIC_VICTIM_USER_IDS=138811255      # ID жертв (common)
+MIMIC_MIN_WORDS=5                    # Мин. слов для активации (common)
+MIMIC_COOLDOWN_SECONDS=60.0          # Кулдаун между ответами (common)
+SLAVIK_MIMIC_MIN_WORDS=5             # Мин. слов для Славы
+SLAVIK_MIMIC_COOLDOWN_SECONDS=60.0   # Кулдаун для Славы
+```
 
-- **Идемпотентность длины:** `len(mimic_transform(s)) == len(s)` для любого `s`.
-- **Сохранение непалитровых символов:** все символы, не входящие в а-яёА-ЯЁ, остаются
-  на своих позициях без изменений (цифры, пунктуация, emoji, латиница).
-- **Сохранение регистра:** `mimic_transform(s).isupper() == s.isupper()` не гарантируется
-  дословно, но для каждой ЗАМЕНЁННОЙ буквы регистр совпадает с оригиналом посимвольно.
-- **Пустая строка / None:** `mimic_transform("") == ""`; функция не должна вызываться с
-  `None` (вызывающий код обязан проверить `if text:` перед вызовом).
-- **Идемпотентность неизменяемых слов:** слово без р/ш/щ/ж/ч/у/ы возвращается как есть.
+### 3.3 Архитектурный план интеграции
 
-### 3.2 Подсчёт слов (word count) — общая утилита
+**Единственное изменение:** заменить содержимое `services/mimic_transform.py` на предоставленный алгоритм.
+
+**Что НЕ менять:**
+- `services/mimic_relay.py` — не меняется (использует `mimic_transform()` как чистую функцию)
+- `handlers/common.py::mimic_handler` — не меняется (использует `MimicRelay`)
+- `handlers/slavik.py::slavik_catchall_handler` — не меняется (вызывает `mimic_transform()` напрямую)
+- `config/settings.py` — не меняется (все нужные параметры уже есть)
+
+**Контракт `mimic_transform()`:**
+- Вход: `str` (текст сообщения)
+- Выход: `str` (трансформированный текст)
+- Чистая функция без сайд-эффектов
+- Обрабатывает пустую строку (возвращает пустую)
+
+**Файл для замены:** `services/mimic_transform.py`
+
+Полный код, который должен быть в файле (предоставлен пользователем):
 
 ```python
+import re
+
+WORD_MAP = {
+    r'\bчт?о\b': 'фе', r'\bч[еёо]\b': 'фе', r'\bчт?о-то\b': 'фе-то',
+    r'\bч[еёо]-то\b': 'фе-то', r'\bкого\b': 'каво', r'\bникого\b': 'никаво',
+    r'\bчего\b': 'фево', r'\bничего\b': 'нифево', r'\bпочему\b': 'патему',
+    r'\bпотому\s+что\b': 'патаму фе', r'\bзачем\b': 'затем', r'\bкуда\b': 'кудя',
+    r'\bоткуда\b': 'аткудя', r'\bкогда\b': 'када', r'\bтогда\b': 'тада',
+    r'\bвсегда\b': 'сигда', r'\bс[еи]йчас\b': 'сяс', r'\bщ[ая]с\b': 'сяс',
+    r'\bщ[ая]\b': 'ся', r'\bвообще\b': 'вафе', r'\bваще\b': 'вафе',
+    r'\bвообще-?то\b': 'вафе-то', r'\bбольше\b': 'бофе', r'\bбольшие\b': 'бофые',
+    r'\bконечно\b': 'канефна', r'\bпожалуйста\b': 'пазяста',
+    r'\bздравствуйт?е?\b': 'длатути', r'\bхочу\b': 'хатю', 
+}
+
+SUBSTR_MAP = {
+    r'шься\b': 'фся', r'шь\b': 'ф', r'т[ь]?ся\b': 'тца',
+    r'сл': 'фл', r'дст': 'тст',
+}
+
+CONSONANT_MAP = {
+    "р": "л", "Р": "Л", "ш": "ф", "Ш": "Ф", "щ": "ф", "Щ": "Ф",
+    "ж": "з", "Ж": "З", "ч": "т", "Ч": "Т",
+}
+
+VOWEL_MAP_AFTER_CONSONANT = {"у": "ю", "У": "Ю"}
+CYRILLIC_CONSONANTS = frozenset("бвгджзйклмнпрстфхцчшщБВГДЖЗЙКЛМНПРСТФХЦЧШЩ")
+
+def _match_case(match: re.Match, new_word: str) -> str:
+    word = match.group(0)
+    if word.isupper(): return new_word.upper()
+    if word.istitle(): return new_word.capitalize()
+    return new_word.lower()
+
+def mimic_transform(text: str) -> str:
+    if not text: return text
+    for pattern, replacement in WORD_MAP.items():
+        text = re.sub(pattern, lambda m, r=replacement: _match_case(m, r), text, flags=re.IGNORECASE)
+    for pattern, replacement in SUBSTR_MAP.items():
+        text = re.sub(pattern, lambda m, r=replacement: _match_case(m, r), text, flags=re.IGNORECASE)
+    chars = list(text)
+    result = []
+    for i, ch in enumerate(chars):
+        if ch in CONSONANT_MAP:
+            result.append(CONSONANT_MAP[ch])
+        elif ch in VOWEL_MAP_AFTER_CONSONANT and i > 0 and text[i - 1] in CYRILLIC_CONSONANTS:
+            result.append(VOWEL_MAP_AFTER_CONSONANT[ch])
+        else:
+            result.append(ch)
+    return "".join(result)
+
 def count_words(text: str) -> int:
-    """Считает количество 'слов' как непрерывных последовательностей
-    не-пробельных символов, разделённых пробелами (простой split()).
-    Не путать со словами в лингвистическом смысле — достаточно для порога >N слов.
-    """
-    if not text:
-        return 0
+    """Count words in text for mimic threshold check."""
+    if not text: return 0
     return len(text.split())
 ```
 
-Используется одинаково в интеграции 3.1 (common) и 3.2 (Slavik) для проверки условия
-"> N слов". Порог задаётся конфигом (см. ниже), сравнение строгое `> N` (не `>=`), как
-указано в ТЗ ("содержит > N слов").
+**Важно:** функция `count_words()` сохранена, т.к. используется в `MimicRelay.should_trigger()` и `slavik_catchall_handler`.
 
-### 3.3 Интеграция 3.1 — сервис `common` (реакция на "жертву")
+### 3.4 Точки интеграции (без изменений)
 
-#### 3.3.1 Конфигурация (`config/settings.py` — новые поля)
-
-```python
-# ── Mimic Feature (common service) ──
-# ID пользователя-"жертвы". 0 или пусто = фича полностью отключена.
-MIMIC_VICTIM_USER_ID: int = _env_int("MIMIC_VICTIM_USER_ID", 138811255)
-
-# Минимальное число слов в сообщении жертвы, чтобы сработал mimic (строго >)
-MIMIC_MIN_WORDS: int = _env_int("MIMIC_MIN_WORDS", 5)
-
-# Таймаут между срабатываниями mimic для одной жертвы (секунды)
-MIMIC_COOLDOWN_SECONDS: float = _env_float("MIMIC_COOLDOWN_SECONDS", 60.0)
+```
+                    ┌─────────────────────────┐
+                    │  mimic_transform(text)  │
+                    │  (services/mimic_       │
+                    │   transform.py)         │
+                    └──────┬────────┬─────────┘
+                           │        │
+              ┌────────────┘        └────────────┐
+              ▼                                  ▼
+    ┌──────────────────┐              ┌──────────────────┐
+    │  MimicRelay      │              │  slavik_catchall │
+    │  (common service) │              │  _handler        │
+    │                  │              │  (slavik router) │
+    │  used by:        │              │                  │
+    │  mimic_handler   │              │  direct call to  │
+    │  (common_router) │              │  mimic_transform │
+    └──────────────────┘              └──────────────────┘
 ```
 
-`.env.example` должен документировать: `MIMIC_VICTIM_USER_ID=0  # 0 = отключено`.
+---
 
-#### 3.3.2 Новый модуль `services/mimic_relay.py`
+## 4. Задача 4 — Смена путей slavik media + рандомный медиа-пикер
 
-Инкапсулирует: cooldown per-victim (не per-chat! — жертва может быть в нескольких чатах,
-таймаут должен быть общий для юзера, либо per-(chat, user) — архитектурное решение ниже),
-вызов `mimic_transform`, отправку ответа.
+### 4.1 Текущее состояние
 
-**Решение по scope кулдауна:** per-`(chat_id, user_id)` — идентично паттерну `CommonRelay`
-и `OtboyRelay` (in-memory dict, ключ `(chat_id, user_id)`). Это позволяет жертве получать
-mimic независимо в разных чатах, но не чаще одного раза в N секунд в пределах одного чата.
-Это соответствует ТЗ буквально ("таймаут" не уточняет per-chat/global) и следует
-установившемуся в проекте паттерну (OtboyRelay/CommonRelay/AlanGreeting — все per-chat).
+**Файловая структура `media/slavik/`:**
+```
+media/slavik/
+├── slavic_chlen.mp4           ← F3 GIF interval (каждые N сообщений)
+└── slavik_random/
+    ├── slavic_na_litso.jpg    ← F8 Photo interval (каждый N-й "пошёл нахуй")
+    └── slavic_did_you_dream.jpg
+```
+
+**Текущие env-переменные:**
+```
+GIF_PATH=media/slavic_chlen.mp4               # F3
+SLAVIC_PHOTO_PATH=media/slavic_na_litso.jpg   # F8 (один файл)
+SLAVIC_PHOTO_INTERVAL=10                      # Каждые N ответов
+```
+
+**Текущая логика F8 в `slavik_catchall_handler`:**
+```python
+if should_send_photo:
+    await message.answer_photo(photo=FSInputFile(settings.SLAVIC_PHOTO_PATH))
+```
+
+### 4.2 Требования
+
+1. `slavic_chlen.mp4` — **уже** лежит в `media\slavik\` → путь в `GIF_PATH` менять не нужно.
+2. `slavic_na_litso.jpg` — **уже** лежит в `media\slavik\slavik_random\` → нужно обновить логику.
+3. Вместо одного жёстко заданного файла — **рандомный** выбор из всей директории `slavik_random/`.
+4. Поддержка всех типов: photo (.jpg/.png/...), video (.mp4/.mov/...), animation (.mp4 с "gif" в имени).
+
+### 4.3 Архитектурное решение
+
+**Новая env-переменная:**
+```
+SLAVIC_RANDOM_DIR=media/slavik/slavik_random
+```
+
+**Старая переменная `SLAVIC_PHOTO_PATH`** — депрекейтится, но сохраняется в `settings.py` для обратной совместимости (можно использовать как fallback, если `SLAVIC_RANDOM_DIR` пуст или не существует).
+
+**Изменения в `handlers/slavik.py`** (только ветка Photo Interval):
 
 ```python
-# services/mimic_relay.py
-import logging
-import time
-from aiogram import Bot
-from services.mimic_transform import mimic_transform, count_words
+# Было (псевдокод):
+if should_send_photo:
+    filepath = settings.SLAVIC_PHOTO_PATH
+    if not Path(filepath).exists():
+        logger.warning("file not found: %s", filepath)
+    else:
+        await message.answer_photo(photo=FSInputFile(filepath))
 
-logger = logging.getLogger(__name__)
+# Стало (псевдокод):
+if should_send_photo:
+    media_dir = Path(settings.SLAVIC_RANDOM_DIR)
+    if media_dir.exists():
+        files = [f for f in media_dir.iterdir() if f.is_file()]
+        if files:
+            picked = random.choice(files)
+            media_type = _detect_slavik_media_type(picked)  # photo/video/animation
+            await _send_slavik_media(message, picked, media_type)
+            return
+    # Fallback: старый SLAVIC_PHOTO_PATH
+    ...
+```
 
+**Функция детекции типа медиа:**
+Использовать ту же логику, что и в `CommonRelay._detect_media_type()`:
+- `.jpg/.jpeg/.png/.webp/.bmp` → `photo`
+- `.mp4/.mov/.webm` с "gif" в имени → `animation`
+- `.mp4/.mov/.webm` без "gif" → `video`
 
-class MimicRelay:
-    """Отправляет 'передразнивающий' ответ на сообщение жертвы.
+**Рекомендация:** вынести `_detect_media_type` в общий утилитный модуль (например, `services/media_utils.py`), чтобы `CommonRelay` и slavik handler использовали один и тот же код. ИЛИ продублировать функцию в `handlers/slavik.py` (проще, но дублирование).
 
-    Cooldown: per (chat_id, user_id), in-memory, без БД (следует паттерну
-    OtboyRelay/CommonRelay — cooldown не критичен для персистентности,
-    сброс при рестарте бота приемлем).
-    """
+**Решение архитектора:** дублировать функцию в `handlers/slavik.py` как приватную `_detect_slavik_media_type()`. Вынос в общий утилитный модуль — за рамками данной задачи, может быть сделан в будущем рефакторинге.
 
-    def __init__(self, min_words: int, cooldown_seconds: float) -> None:
-        self._min_words = min_words
-        self._cooldown_seconds = cooldown_seconds
-        self._last_sent: dict[tuple[int, int], float] = {}
+### 4.4 Файлы для изменения
 
-    def should_trigger(self, chat_id: int, user_id: int, text: str) -> bool:
-        """Проверяет условия: >N слов И таймаут прошёл. НЕ обновляет cooldown
-        (обновление — отдельным методом mark_sent, вызывается ПОСЛЕ успешной отправки,
-        чтобы избежать false-positive обновления таймера при ошибке отправки)."""
-        if count_words(text) <= self._min_words:
-            return False
-        if self._cooldown_seconds > 0:
-            key = (chat_id, user_id)
-            last = self._last_sent.get(key)
-            if last is not None and (time.monotonic() - last) < self._cooldown_seconds:
-                return False
-        return True
+| Файл | Что меняется |
+|------|-------------|
+| `config/settings.py` | Добавить `SLAVIC_RANDOM_DIR`, пометить `SLAVIC_PHOTO_PATH` как deprecated |
+| `.env.example` | Добавить `SLAVIC_RANDOM_DIR`, закомментировать старый `SLAVIC_PHOTO_PATH` |
+| `handlers/slavik.py` | Переписать фото-ветку в `slavik_catchall_handler` |
+| Тесты | Обновить тесты для `slavik_catchall_handler` |
 
-    def mark_sent(self, chat_id: int, user_id: int) -> None:
-        self._last_sent[(chat_id, user_id)] = time.monotonic()
+### 4.5 Важно: НЕ трогать F3 GIF
 
-    async def send_mimic(self, bot: Bot, chat_id: int, message_id: int, text: str) -> None:
-        """Трансформирует текст и отправляет как reply (без quote — целое сообщение)."""
-        transformed = mimic_transform(text)
-        await bot.send_message(
-            chat_id=chat_id,
-            text=transformed,
-            reply_to_message_id=message_id,
+`GIF_PATH=media/slavic_chlen.mp4` — это **отдельная** фича (счётчик сообщений через `MessageCounterMiddleware`). Она не меняется. Файл `slavic_chlen.mp4` уже лежит в `media/slavik/` — путь корректен.
+
+---
+
+## 5. Сводный план для Builder
+
+### 5.1 Порядок реализации
+
+| # | Задача | Файлы | Приоритет | Оценка сложности |
+|---|--------|-------|-----------|-----------------|
+| 1 | **Задача 1 — Propagation fix** | `handlers/dead_page_trigger.py` | 🔴 Критический | Низкая (2 строки + импорт) |
+| 2 | **Задача 1 — Удаление WarWordFilter** | `handlers/war_alert.py`, удалить `filters/war_word.py` | 🟡 Средний | Низкая (замена импорта) |
+| 3 | **Задача 2 — Улучшение forward scan** | `services/dead_page_relay.py` | 🟡 Средний | Низкая (изменить константу + логи) |
+| 4 | **Задача 3 — Mimic алгоритм** | `services/mimic_transform.py` | 🟢 Обычный | Низкая (замена файла) |
+| 5 | **Задача 4 — Slavik random media** | `handlers/slavik.py`, `config/settings.py`, `.env.example` | 🟢 Обычный | Средняя (новая логика) |
+
+### 5.2 Риски
+
+| Риск | Вероятность | Влияние | Митигация |
+|------|-----------|---------|-----------|
+| `UNHANDLED` в dead_page_router ломает существующий flow для @d_pages репостов | Низкая | Высокое | Проверить, что `return UNHANDLED` только для non-target путей; target-путь делает `await _relay.send_dead_page()` и возвращает `None` (корректно) |
+| Удаление `WarWordFilter` ломает war_alert | Низкая | Высокое | `DangerWordFilter` идентичен по поведению (тот же список слов, те же паттерны) |
+| Rich Message не десериализуется в aiogram 3.29.1 | Средняя | Среднее | Диагностический лог INFO-level покажет `sent.rich_message is None`; forward при этом всё равно работает |
+| Новый mimic алгоритм ломает существующие тесты | Высокая | Среднее | Полный прогон pytest до и после, обновление ожидаемых значений в тестах |
+
+### 5.3 Тест-план
+
+**Перед любыми изменениями:**
+- `pytest` — полный suite, зафиксировать baseline
+
+**После Задачи 1:**
+- Тест: forwarded message с danger-словом → danger_handler вызывается
+- Тест: forwarded message НЕ из @d_pages → common_router получает событие
+- Тест: forwarded message ИЗ @d_pages → dead_page_router обрабатывает, propagation продолжается (для non-target логики)
+
+**После Задачи 2:**
+- Тест: Rich Message в relay-канале → форвардится (мок)
+- Тест: forward scan находит ID за пределами старого 20-ID окна
+
+**После Задачи 3:**
+- Тест: `mimic_transform("что")` → `"фе"` и другие кейсы из WORD_MAP
+- Тест: `mimic_transform("здравствуйте")` → `"длатути"`
+- Тест: регрессия — все существующие mimic-тесты проходят
+
+**После Задачи 4:**
+- Тест: random media из `slavik_random/` — выбирается файл и определяется тип
+- Тест: photo → `send_photo`, video → `send_video`, animation → `send_animation`
+- Тест: пустая директория → fallback на старый `SLAVIC_PHOTO_PATH`
+
+---
+
+## Приложение A: Текущий Router Order
+
+```
+Position 0:  admin_commands_router     (/deadpage, /alangreet)
+Position 1:  slava_presence_router     (ChatMemberUpdated: Slava join/leave)
+Position 1b: alan_greeting_router      (ChatMemberUpdated: Alan join → greeting)
+Position 2:  kostik_router             (UserIdFilter: Kostik → probability reply)
+Position 3:  alan_router               (UserIdFilter: Alan → reply engine)
+Position 4:  dead_page_router          (F.forward_origin: @d_pages reposts)  ← БЛОКИРУЕТ forwarded
+Position 4b: war_alert_router          (WarWordFilter + TargetChannelFilter)
+Position 4c: common_router             (OtboyWordFilter + DangerWordFilter + mimic)
+Position 5:  slavik_router             (UserIdFilter: Slava → kucha + catchall)
+Position 6:  vasya_router              (Text filters, no user restriction)
+```
+
+**Критическое наблюдение:** `dead_page_router` (4) использует `F.forward_origin` без ограничения по каналу. Фильтр матчит ЛЮБОЕ forwarded-сообщение, а handler возвращает `None` для non-target → propagation останавливается ДО `war_alert_router` (4b) и `common_router` (4c).
+
+---
+
+## Приложение B: Диагностическая SSH-проверка (для Задачи 1)
+
+Builder должен выполнить эти проверки на сервере `nik@198.46.175.136:/var/www/admin_bot` **до внесения изменений**:
+
+```bash
+# 1. Проверить DANGER_WORDS в .env на сервере
+cat .env | grep DANGER_WORDS
+# Ожидается: DANGER_WORDS= (пусто) или отсутствие строки
+
+# 2. Проверить статус процесса бота
+systemctl status adminbot   # или какое имя у сервиса
+# Сравнить "Active since" с временем последнего git pull
+
+# 3. Проверить HEAD коммита на сервере
+git log -1 --oneline
+# Должен быть af93acb или новее
+
+# 4. Проверить директорию media/common/danger/
+ls -la media/common/danger/
+# Должны быть danger_01.mp4, danger_02_gif.mp4, danger_boom.mp4
+```
+
+---
+
+## 6. Epic 18 — Danger Service Fixes (три микро-бага)
+
+> **Дата:** 2026-08-02
+> **Статус:** Архитектурный анализ. Реализация НЕ начата.
+> **Затрагиваемые файлы:** `services/common_relay.py`, `config/settings.py`, `bot.py`, `.env.example`, `tests/test_common.py`
+
+---
+
+### 6.1 Bug A — File scanning/selection robustness (недостаточное логирование + per-entry error handling)
+
+#### 6.1.1 Симптом
+
+Пользователь сообщает: «в danger было 3 файла, отправились только 2, третий ни разу не попался». Сейчас в danger 14 файлов.
+
+#### 6.1.2 Root Cause Analysis
+
+**Проверка текущего кода** (`services/common_relay.py`):
+
+```python
+# _scan_directory (строка 104-124):
+for entry in base.iterdir():      # ← итерирует ВСЕ entry в директории
+    if not entry.is_file():        # ← отсеивает поддиректории
+        continue
+    media_type = self._detect_media_type(entry)
+    if media_type is not None:
+        files.append((entry, media_type))
+
+# send_common (строка 231):
+filepath, media_type = random.choice(files)  # ← равновероятный выбор
+```
+
+**Заключение: логика СБОРА файлов корректна** — `iterdir()` итерирует все entry, `random.choice()` выбирает равномерно. Никаких хардкод-лимитов нет.
+
+**НО выявлены два реальных дефекта:**
+
+| Дефект | Расположение | Описание |
+|--------|-------------|----------|
+| **D1** | `_scan_directory` строка 110 | `entry.is_file()` может выбросить `OSError` для отдельных файлов (битый symlink, permission denied на одном файле). Это крашит ВЕСЬ `_scan_directory`, исключение прокидывается в `send_common` и глушится catch-all на строках 228-233 — **весь subdir пропускается молча.** |
+| **D2** | `_scan_directory` строка 122-124 | После успешного сканирования в лог попадает только WARNING «no files» (если пусто). НЕТ info-лога с перечнем найденных файлов → невозможно диагностировать проблему «3-го файла» без захода на сервер. |
+
+**Гипотеза про 3-й файл:** третий файл мог иметь неподдерживаемое расширение (например, `.mkv`, `.gif`), быть битым symlink-ом (OSError при `is_file()`), или быть добавленным позже. Без дополнительного логирования это невосстановимо.
+
+#### 6.1.3 Исправление
+
+**Файл: `services/common_relay.py` — метод `_scan_directory`**
+
+Два изменения:
+
+**(a) Per-entry OSError handling** — обернуть `entry.is_file()` и `_detect_media_type()` в try/except:
+
+```python
+# БЫЛО (строка 108-117):
+for entry in base.iterdir():
+    if not entry.is_file():
+        continue
+    media_type = self._detect_media_type(entry)
+    if media_type is not None:
+        files.append((entry, media_type))
+    else:
+        logger.debug(
+            "CommonRelay: skipping unsupported file %s in %s",
+            entry.name,
+            subdir,
         )
-        logger.info(
-            "MimicRelay: sent | chat_id=%s | msg_id=%s | len=%d",
-            chat_id, message_id, len(transformed),
+
+# СТАЛО:
+for entry in base.iterdir():
+    try:
+        if not entry.is_file():
+            continue
+        media_type = self._detect_media_type(entry)
+        if media_type is not None:
+            files.append((entry, media_type))
+        else:
+            logger.debug(
+                "CommonRelay: skipping unsupported file %s in %s",
+                entry.name,
+                subdir,
+            )
+    except OSError:
+        logger.warning(
+            "CommonRelay: cannot access entry %s in %s — skipping",
+            entry,
+            subdir,
         )
+        continue
 ```
 
-**Почему `should_trigger`/`mark_sent` разделены, а не единая атомарная функция:**
-Разделение позволяет переиспользовать ОДИН И ТОТ ЖЕ `MimicRelay` и в `common` (3.1), и как
-проверку условия внутри `slavik_catchall_handler` (3.2) — обеим точкам интеграции нужна
-идентичная логика "проверить условие → если решили отправлять → отправить → отметить".
-Критично для 3.2 (мьютекс), см. §3.4.
-
-#### 3.3.3 Хендлер (`handlers/common.py` — добавить новый handler)
+**(b) INFO-лог после сканирования** — добавить после цикла:
 
 ```python
-from filters.user_id import UserIdFilter
-
-@common_router.message(UserIdFilter(settings.MIMIC_VICTIM_USER_ID))
-async def mimic_handler(message: types.Message) -> None:
-    """Mimic feature: если жертва написала >N слов и таймаут прошёл — передразнить."""
-    if settings.MIMIC_VICTIM_USER_ID <= 0:
-        return  # выключено (защита от UserIdFilter(0), который не должен матчить никого)
-    if _mimic_relay is None:
-        return
-    content = message.text or message.caption
-    if not content:
-        return
-    if not _mimic_relay.should_trigger(message.chat.id, message.from_user.id, content):
-        return
-    try:
-        await _mimic_relay.send_mimic(message.bot, message.chat.id, message.message_id, content)
-        _mimic_relay.mark_sent(message.chat.id, message.from_user.id)
-    except Exception:
-        logger.exception("mimic_handler: send failed | chat_id=%s", message.chat.id)
-    return UNHANDLED
+# После цикла for, перед проверкой `if not files:`:
+logger.info(
+    "CommonRelay: scanned %s — found %d supported files: %s",
+    base,
+    len(files),
+    [(f.name, mt) for f, mt in files],
+)
 ```
 
-**Важно — регистрация порядка роутеров:** `UserIdFilter(0)` при `user_ids={0}` теоретически
-никогда не матчит реального юзера (Telegram user_id всегда > 0), поэтому явная проверка
-`if settings.MIMIC_VICTIM_USER_ID <= 0: return` избыточна, но оставлена как явный guard —
-дешёвая защита от опечаток в конфиге и повышение читаемости логов ("почему хендлер
-зарегистрирован, но никогда не срабатывает" — теперь есть явный early-return лог можно
-добавить при необходимости). Хендлер регистрируется в `common_router` НАРЯДУ с otboy/danger
-handlers — позиция 4c, **после** danger_handler, чтобы если жертва написала danger-слово,
-сначала сработает danger (UNHANDLED → propagate), затем mimic (UNHANDLED → propagate далее
-к slavik/vasya). Оба могут сработать на одно сообщение — это нормально и соответствует
-существующему паттерну (otboy + danger уже оба могут сработать одновременно).
+#### 6.1.4 Проверка random.choice unbiased
 
-#### 3.3.4 Admin-команда для форсированного вызова
+- `random.choice(files)` использует `random.Random.choice` → равномерное распределение по всей длине списка.
+- Никаких фильтров, сортировок или лимитов перед выбором нет.
+- **Баг не подтверждён** — `random.choice` работает корректно. Вероятность невыбора конкретного файла из 3 за N попыток = (2/3)^N. За 10 попыток ~1.7% — маловероятно, но возможно.
 
-Согласно ТЗ: "Сделай специальную админ-команду для форсированного вызова (тестирование в
-ЛС бота или чате)". Расширяем существующий `handlers/admin_commands.py` (паттерн `/deadpage`,
-`/alangreet` из Epic 9).
+---
+
+### 6.2 Bug B — GIF detection in filename (проверка по `stem` → проверка по `name`)
+
+#### 6.2.1 Симптом
+
+Пользователь: `danger_02_gif.mp4` был отправлен как video, а не animation.
+
+#### 6.2.2 Root Cause Analysis
+
+**Текущий код** (`services/common_relay.py` строка 76-78):
 
 ```python
-# В handlers/admin_commands.py — добавить обработчик
-
-@admin_commands_router.message(Command("mimic"))
-async def cmd_mimic(message: types.Message) -> None:
-    """Admin test command: форсированный вызов mimic на текст, переданный после команды.
-
-    Использование: /mimic мама мыла раму
-    DM: доступно любому пользователю (как /deadpage, /alangreet).
-    Группы: только ADMIN_USER_ID.
-    """
-    if message.chat.type != "private" and (
-        message.from_user is None or message.from_user.id != settings.ADMIN_USER_ID
-    ):
-        return
-
-    args = message.text.split(maxsplit=1)
-    sample_text = args[1] if len(args) > 1 else "мама мыла раму широкой щеткой"
-
-    transformed = mimic_transform(sample_text)
-    await message.reply(transformed)
-
-    try:
-        await message.delete()
-    except Exception:
-        logger.warning("cmd_mimic: failed to delete command message")
+if "gif" in filepath.stem.lower():
+    return MEDIA_ANIMATION
 ```
 
-Команда обходит `should_trigger`/cooldown/word-count полностью — предназначена
-исключительно для быстрой проверки самой трансформации в реальном чате/ЛС.
-Это соответствует существующему паттерну `/deadpage` и `/alangreet`, которые тоже
-вызывают relay-методы напрямую, минуя обычные условия триггера.
+**Тестирование на всех известных именах:**
 
-### 3.4 Интеграция 3.2 — сервис `Slavik` (мьютекс с "пошёл нахуй")
+| Имя файла | `Path.stem` | `"gif" in stem` | Результат |
+|-----------|-------------|-----------------|-----------|
+| `danger_02_gif.mp4` | `danger_02_gif` | ✅ True | animation ✓ |
+| `danger_zelelyot_gif_02.mp4` | `danger_zelelyot_gif_02` | ✅ True | animation ✓ |
+| `danger_nahryuck_gif.mp4` | `danger_nahryuck_gif` | ✅ True | animation ✓ |
+| `danger_boom.mp4` | `danger_boom` | ❌ False | video ✓ |
 
-#### 3.4.1 Требования из ТЗ (повторение для ясности контракта)
+**Вывод:** для ВСЕХ текущих файлов `stem`-проверка работает корректно. Баг `danger_02_gif.mp4` отправлен как video вероятно был в **старой версии**, где gif-проверка отсутствовала или имела другой вид.
 
-- Существующее поведение (KUCHA→ДАЛБАЕБ, catch-all→"пошёл нахуй", каждый N-й→фото
-  slavic_na_litso.jpg) **не должно быть тронуто в остальных случаях**.
-- Если сообщение Славика содержит > N слов И прошёл таймаут → вместо "пошёл нахуй"
-  отправляется mimic.
-- Если условие не выполнено (мало слов ИЛИ таймаут не прошёл) → как раньше, "пошёл нахуй".
-- **Взаимоисключение** гарантированно: НИКОГДА не отправляются оба ответа на одно сообщение.
+**НО есть краевой случай:**
 
-#### 3.4.2 Анализ текущего `slavik_catchall_handler` (прочитан код — `handlers/slavik.py`)
+| Имя файла | `Path.stem` | `"gif" in stem` | Должно быть |
+|-----------|-------------|-----------------|-------------|
+| `file.gift.mp4` | `file.gift` | ✅ True (ошибка!) | video (gift ≠ gif) |
 
-Текущая логика catch-all хендлера (после KuchaWordFilter handler, тот же router):
+Это ложное срабатывание маловероятно (никто не называет файлы `.gift`), но архитектурно нечисто.
 
-```
-slavik_catchall_handler(message):
-    если DB доступна и SLAVIC_PHOTO_INTERVAL > 0:
-        tick counter
-        если counter достиг интервала:
-            если файл существует: send_photo() и RETURN (текст не отправляется)
-            иначе: WARNING лог, falls through к тексту
-    (если фото не отправлено) → message.reply("пошёл нахуй")
-```
+#### 6.2.3 Исправление
 
-Ключевое наблюдение: существующий механизм фото/текст УЖЕ реализует мьютекс через
-`return` после `send_photo`. Новую mimic-логику нужно врезать в ту же цепочку `if/elif`,
-**не нарушая приоритет фото** — иначе легко получить баг "фото и mimic оба сработали".
+**Файл: `services/common_relay.py` — метод `_detect_media_type`**
 
-#### 3.4.3 Решение — приоритет и порядок проверок
-
-Порядок проверок внутри `slavik_catchall_handler` (сверху вниз, первая подходящая ветка
-"съедает" ответ, остальные пропускаются):
-
-1. **Фото-интервал** (F8, `SLAVIC_PHOTO_INTERVAL`) — проверяется первой, как сейчас.
-   Если фото отправлено → `return` (mimic и "пошёл нахуй" НЕ проверяются вообще).
-2. **Mimic-условие** (новое) — проверяется, только если фото НЕ было отправлено на этом шаге.
-   Если условие выполнено (>N слов И таймаут прошёл) → отправить mimic → `return`.
-3. **Fallback "пошёл нахуй"** — если ни фото, ни mimic не сработали.
-
-**Обоснование такого порядка (фото > mimic > текст):** ТЗ явно требует не ломать фото-
-механику ("Эти функции ломать НЕЛЬЗЯ"). ТЗ говорит про замену конкретно "пошёл нахуй" на
-mimic — фото не упомянуто как то, что должно уступать место mimic. Поэтому фото сохраняет
-наивысший приоритет (реже срабатывает, раз в N ответов — редкое "особое" событие), mimic
-занимает второе место (заменяет обычный текстовый ответ при выполнении условий), а простой
-"пошёл нахуй" — это базовый fallback.
-
-#### 3.4.4 Мьютекс — техническая гарантия отсутствия дублирования
-
-Мьютекс здесь не требует lock/семафор в конкурентном смысле (Python asyncio + aiogram
-обрабатывает одно сообщение = один вызов хендлера, без параллельного повторного входа для
-ТОГО ЖЕ message_id). "Мьютекс" в контексте ТЗ — это гарантия **логического** взаимного
-исключения через структуру `if/elif/else` (а не `if` + отдельный `if`), что синтаксически
-делает второй/третий вариант ответа недостижимым, если сработал первый:
+Заменить `filepath.stem.lower()` на `filepath.name.lower()` + добавить проверку на word-boundary `_gif`:
 
 ```python
-if <фото условие>:
-    ... send_photo() ...
-    return
-elif <mimic условие>:
-    ... send_mimic() ...
-    return
-else:
-    ... reply("пошёл нахуй") ...
+# БЫЛО (строка 76-78):
+if "gif" in filepath.stem.lower():
+    return MEDIA_ANIMATION
+
+# СТАЛО:
+# Check the full filename for 'gif' marker (more robust than stem-only).
+# Also check for '_gif' pattern to avoid false positives like 'gift'.
+fname = filepath.name.lower()
+if "_gif" in fname or fname.startswith("gif") or ".gif" in fname:
+    return MEDIA_ANIMATION
 ```
 
-Использование `if/elif/else` (или эквивалентных ранних `return`) — это ЕДИНСТВЕННО верный
-паттерн. Использование двух независимых `if` без `return`/`elif` — это ретроспективно
-задокументированный анти-паттерн, который архитектор explicitly запрещает Builder-у.
+**Обоснование:**
+- `filepath.name` вместо `filepath.stem` — покрывает multi-dot имена (редко, но безопаснее)
+- `"_gif"` + `startswith("gif")` + `".gif"` — точный матчинг gif как токена
+- `".gif"` покрывает случай `file.gif.mp4` (gif в середине имени)
+- Ложно-положительные срабатывания исключены (`.gift` не матчится ни одним из правил)
 
-#### 3.4.5 Обновлённый `handlers/slavik.py` — спецификация для Builder
+---
+
+### 6.3 Bug C — Separate danger cooldown (двойная блокировка)
+
+#### 6.3.1 Требование
+
+- Сохранить общий `COMMON_COOLDOWN_SECONDS` — блокирует otboy + danger вместе
+- Добавить `DANGER_COOLDOWN_SECONDS` — дополнительно ограничивает ТОЛЬКО danger
+- Otboy НЕ должен ограничиваться danger-кулдауном
+
+**Матрица блокировок:**
+
+| Сервис | Shared cooldown | Danger cooldown |
+|--------|----------------|-----------------|
+| otboy  | ✅ Проверяется | ❌ Не проверяется |
+| danger | ✅ Проверяется | ✅ Проверяется |
+
+**Пример (shared=30s, danger=60s):**
+
+```
+t=0s:  danger fires   → updates shared_ts[chat]=0, danger_ts[chat]=0
+t=10s: otboy triggers → shared elapsed=10s < 30s → BLOCKED
+t=40s: otboy triggers → shared elapsed=40s ≥ 30s → SENDS, shared_ts[chat]=40
+t=45s: danger triggers → danger elapsed=45s < 60s → BLOCKED (danger cooldown)
+                         shared elapsed=5s < 30s → also BLOCKED (shared)
+t=70s: danger triggers → danger elapsed=70s ≥ 60s AND shared elapsed=30s ≥ 30s → SENDS
+```
+
+#### 6.3.2 Изменения
+
+**Файл 1: `config/settings.py`**
+
+Добавить новое поле после `COMMON_COOLDOWN_SECONDS`:
 
 ```python
-"""handlers/slavik.py — ОБНОВЛЕНИЕ для mimic-интеграции (Задача 3.2)."""
-import logging
-import time
-from pathlib import Path
-from aiogram import Router, types
-from aiogram.types import FSInputFile
-from filters.user_id import UserIdFilter
-from filters.kucha_word import KuchaWordFilter
-from config.settings import settings
-from services.mimic_transform import mimic_transform, count_words
+# ── Common Service (Epic 15) ──
+# Cooldown between media sends in the same chat (shared across otboy + danger).
+# 0 = no cooldown (every trigger sends media).
+COMMON_COOLDOWN_SECONDS: float = _env_float("COMMON_COOLDOWN_SECONDS", 0)
 
-logger = logging.getLogger(__name__)
+# Danger-specific cooldown (Epic 18). Additional restriction on top of shared.
+# Danger sends are blocked if EITHER shared OR danger cooldown is active.
+# 0 = no additional danger restriction.
+DANGER_COOLDOWN_SECONDS: float = _env_float("DANGER_COOLDOWN_SECONDS", 60.0)
+```
 
-slavik_router = Router()
+**Файл 2: `services/common_relay.py` — класс `CommonRelay`**
 
-_db = None
+**(a) `__init__` — добавить параметр `danger_cooldown_seconds`:**
 
-# ── Mimic (Slavik-специфичный cooldown, независимый от common-сервиса) ──
-_slavik_mimic_last_sent: dict[int, float] = {}  # chat_id -> monotonic timestamp
+```python
+# БЫЛО:
+def __init__(
+    self,
+    bot: Bot,
+    cooldown_seconds: float,
+    media_base: str | None = None,
+) -> None:
+    self._bot = bot
+    self._cooldown_seconds = cooldown_seconds
+    self._media_base = media_base or settings.COMMON_MEDIA_BASE
+    self._cooldowns: dict[int, float] = {}
 
+# СТАЛО:
+def __init__(
+    self,
+    bot: Bot,
+    cooldown_seconds: float,
+    danger_cooldown_seconds: float = 0,
+    media_base: str | None = None,
+) -> None:
+    self._bot = bot
+    self._cooldown_seconds = cooldown_seconds
+    self._danger_cooldown_seconds = danger_cooldown_seconds
+    self._media_base = media_base or settings.COMMON_MEDIA_BASE
+    self._cooldowns: dict[int, float] = {}
+    self._danger_cooldowns: dict[int, float] = {}
+```
 
-def setup_slavik(db):
-    global _db
-    _db = db
+**(b) `send_common` — добавить danger-проверку перед shared-проверкой:**
 
+```python
+# БЫЛО (строка 223-230):
+now = time.monotonic()
 
-@slavik_router.message(KuchaWordFilter())
-async def kucha_handler(message: types.Message):
-    await message.reply("ДАЛБАЕБ")
+if self._cooldown_seconds > 0:
+    last_sent = self._cooldowns.get(chat_id)
+    if last_sent is not None:
+        elapsed = now - last_sent
+        if elapsed < self._cooldown_seconds:
+            logger.info(...)
+            return
 
+# СТАЛО:
+now = time.monotonic()
 
-def _slavik_mimic_should_trigger(chat_id: int, text: str) -> bool:
-    """Проверка условий mimic для Slavik-сервиса (F11).
-    Слова: count_words(text) > SLAVIK_MIMIC_MIN_WORDS
-    Таймаут: время с последнего mimic-ответа >= SLAVIK_MIMIC_COOLDOWN_SECONDS
-    """
-    if settings.SLAVIK_MIMIC_MIN_WORDS < 0:
-        return False
-    if count_words(text) <= settings.SLAVIK_MIMIC_MIN_WORDS:
-        return False
-    cooldown = settings.SLAVIK_MIMIC_COOLDOWN_SECONDS
-    if cooldown > 0:
-        last = _slavik_mimic_last_sent.get(chat_id)
-        if last is not None and (time.monotonic() - last) < cooldown:
-            return False
-    return True
-
-
-@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
-async def slavik_catchall_handler(message: types.Message):
-    """Reply to Slava. Приоритет: фото (F8) > mimic (F11) > "пошёл нахуй" (базовый)."""
-    logger.debug(
-        "Slavic catchall: processing msg_id=%d from user_id=%d",
-        message.message_id,
-        message.from_user.id if message.from_user else 0,
-    )
-
-    # ── Ветка 1: Фото-интервал (F8) — НЕ ТРОГАТЬ существующую логику ──
-    if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
-        try:
-            chat_id = message.chat.id
-            should_send_photo = await _db.slavic_photo_count_tick(
-                chat_id, settings.SLAVIC_PHOTO_INTERVAL
-            )
-            if should_send_photo:
-                logger.info(
-                    "Slavic Photo: interval reached | interval=%d | user_id=%d | chat_id=%d",
-                    settings.SLAVIC_PHOTO_INTERVAL, message.from_user.id, chat_id,
-                )
-                if not Path(settings.SLAVIC_PHOTO_PATH).exists():
-                    logger.warning(
-                        "Slavic Photo: file not found: %s", settings.SLAVIC_PHOTO_PATH
-                    )
-                    # ФАЙЛ НЕ НАЙДЕН → falls through к mimic/тексту (как и раньше)
-                else:
-                    await message.answer_photo(photo=FSInputFile(settings.SLAVIC_PHOTO_PATH))
-                    return
-        except Exception:
-            logger.exception(
-                "Slavic Photo: failed to send photo, falling back | msg_id=%d",
-                message.message_id,
-            )
-            # падение фото-логики → falls through к mimic/тексту (как и раньше)
-
-    # ── Ветка 2: Mimic (F11, новое) ──
-    content = message.text or message.caption
-    if content and _slavik_mimic_should_trigger(message.chat.id, content):
-        try:
-            transformed = mimic_transform(content)
-            await message.reply(transformed)
-            _slavik_mimic_last_sent[message.chat.id] = time.monotonic()
+# Layer 1: danger-specific cooldown (only for danger sub-service)
+if subdir == "danger" and self._danger_cooldown_seconds > 0:
+    last_danger = self._danger_cooldowns.get(chat_id)
+    if last_danger is not None:
+        elapsed = now - last_danger
+        if elapsed < self._danger_cooldown_seconds:
             logger.info(
-                "Slavik Mimic: sent | chat_id=%d | words=%d | msg_id=%d",
-                message.chat.id, count_words(content), message.message_id,
+                "CommonRelay: danger_cooldown_active | chat_id=%s | "
+                "elapsed=%.1fs | remaining=%.1fs",
+                chat_id,
+                elapsed,
+                self._danger_cooldown_seconds - elapsed,
             )
             return
-        except Exception:
-            logger.exception(
-                "Slavik Mimic: failed to send, falling back to text | msg_id=%d",
-                message.message_id,
+
+# Layer 2: shared cooldown (blocks all sub-services)
+if self._cooldown_seconds > 0:
+    last_sent = self._cooldowns.get(chat_id)
+    if last_sent is not None:
+        elapsed = now - last_sent
+        if elapsed < self._cooldown_seconds:
+            logger.info(
+                "CommonRelay: cooldown_active | chat_id=%s | subdir=%s | "
+                "elapsed=%.1fs | remaining=%.1fs",
+                chat_id,
+                subdir,
+                elapsed,
+                self._cooldown_seconds - elapsed,
             )
-            # падение mimic → falls through к базовому тексту (гарантия: юзер получит ХОТЬ ЧТО-ТО)
-
-    # ── Ветка 3: Базовый fallback ──
-    await message.reply("пошёл нахуй")
+            return
 ```
 
-**Ключевые архитектурные решения, зафиксированные в этой спецификации:**
-
-1. **Раздельные cooldown-состояния** для 3.1 (common, `MimicRelay._last_sent`, ключ
-   `(chat_id, user_id)`) и 3.2 (Slavik, `_slavik_mimic_last_sent`, ключ `chat_id`).
-   Это два РАЗНЫХ модуля/фичи с разными конфигурационными переменными — они не должны
-   делить состояние. Если жертва из 3.1 когда-либо совпадёт с `SLAVIK_USER_ID`, это два
-   независимых триггера на РАЗНЫХ роутерах (`common_router` и `slavik_router`), каждый со
-   своим cooldown. Такое совпадение конфигурации — на совести оператора бота, архитектура
-   не обязана его запрещать, но должна корректно работать при этом (оба хендлера
-   сработают независимо, оба используют `UNHANDLED`/обычный `return` — no conflict).
-2. **try/except с fallback внутри каждой ветки**: если фото падает — код переходит к mimic;
-   если mimic падает — код переходит к простому тексту. Это гарантирует, что Slavik
-   **всегда** получает какой-то ответ (соответствует принципу "не ломать существующее
-   поведение" — раньше падение просто привело бы к исключению, теперь — graceful
-   деградация до базового текста).
-3. **`_slavik_mimic_should_trigger` НЕ обновляет cooldown** (только читает) — обновление
-   происходит ПОСЛЕ успешной отправки (`_slavik_mimic_last_sent[chat_id] = ...` только
-   внутри `try`, после `message.reply()`), что предотвращает "сжигание" cooldown-таймера
-   при ошибке отправки (тот же принцип, что и в `MimicRelay.should_trigger`/`mark_sent`).
-
-#### 3.4.6 Конфигурация для Slavik-mimic (`config/settings.py`)
+**(c) `send_common` — обновление кулдаунов после успешной отправки:**
 
 ```python
-# ── Slavik Mimic (F11 — замена "пошёл нахуй" на mimic) ──
-SLAVIK_MIMIC_MIN_WORDS: int = _env_int("SLAVIK_MIMIC_MIN_WORDS", 5)
-SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float("SLAVIK_MIMIC_COOLDOWN_SECONDS", 60.0)
+# БЫЛО (строка 243):
+            self._cooldowns[chat_id] = now
+
+# СТАЛО:
+            self._cooldowns[chat_id] = now
+            if subdir == "danger":
+                self._danger_cooldowns[chat_id] = now
 ```
 
-Отдельные от `MIMIC_MIN_WORDS`/`MIMIC_COOLDOWN_SECONDS` (используемых в common-сервисе,
-§3.3.1) — оператор бота может настраивать пороги для Славика и для произвольной "жертвы"
-независимо. Это соответствует существующему стилю проекта (`COMMON_COOLDOWN_SECONDS`
-отдельно от `OTBOY_COOLDOWN_SECONDS` в истории Epic 15, где было принято решение шарить
-конфиг ТОЛЬКО внутри одного сервиса, но не между сервисами).
-
-### 3.5 Интеграция в `bot.py` — регистрация и wiring
+**Файл 3: `bot.py` — строка 78 (инициализация CommonRelay)**
 
 ```python
-# on_startup():
-from services.mimic_relay import MimicRelay
-mimic_relay = MimicRelay(
-    min_words=settings.MIMIC_MIN_WORDS,
-    cooldown_seconds=settings.MIMIC_COOLDOWN_SECONDS,
+# БЫЛО:
+common_relay = CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)
+
+# СТАЛО:
+common_relay = CommonRelay(
+    bot,
+    cooldown_seconds=settings.COMMON_COOLDOWN_SECONDS,
+    danger_cooldown_seconds=settings.DANGER_COOLDOWN_SECONDS,
 )
-setup_common_mimic(mimic_relay)  # новая функция в handlers/common.py, аналог setup_common()
-
-# Slavik не требует отдельного setup() для mimic — использует чистые функции
-# (mimic_transform, count_words) + module-level dict, без внешних зависимостей (без DB).
 ```
 
-**Router order:** НЕ изменяется. `mimic_handler` (3.1) регистрируется в `common_router`
-(позиция 4c, уже существует). `slavik_catchall_handler` (3.2) уже зарегистрирован в
-`slavik_router` (позиция 5) — просто модифицируется тело существующей функции. Никаких
-новых роутеров, никакого риска для порядка propagation.
+**Файл 4: `.env.example`**
 
-### 3.6 Тест-план для фичи mimic (для Builder)
+Добавить после `COMMON_COOLDOWN_SECONDS`:
 
-**Модуль `services/mimic_transform.py` (чистые функции — легко покрыть 100%):**
-- Все 7 verified кейсов из §3.1.3 как параметризованные тесты.
-- Пустая строка → пустая строка.
-- Строка без кириллицы (только латиница/цифры/пунктуация) → без изменений.
-- Каждая согласная (р/ш/щ/ж/ч) отдельно, нижний и верхний регистр.
-- Гласная в начале слова (после пробела/начала строки) → не меняется.
-- Гласная после гласной → не меняется ("моя" → "моя", `я` не в картах, но проверить "оу"-подобные).
-- Гласная после согласной, которая сама заменяется (например "ру" → "йю") — критический edge case.
-- `count_words`: пустая строка→0, одно слово→1, множественные пробелы→корректный подсчёт.
-
-**Модуль `services/mimic_relay.py`:**
-- `should_trigger`: слов ≤N → False; слов >N и нет предыдущей отправки → True.
-- `should_trigger`: слов >N, но cooldown не прошёл → False.
-- `should_trigger`: слов >N, cooldown=0 (отключён) → всегда True (если слов достаточно).
-- `mark_sent` корректно обновляет timestamp только для указанного `(chat_id, user_id)`.
-- `send_mimic`: вызывает `bot.send_message` с правильными `reply_to_message_id` и
-  трансформированным текстом.
-
-**Хендлер `common.py::mimic_handler`:**
-- `MIMIC_VICTIM_USER_ID=0` → хендлер никогда не срабатывает (UserIdFilter с пустым/0 ID).
-- Сообщение от жертвы, >N слов, cooldown прошёл → mimic отправлен, `UNHANDLED` возвращён.
-- Сообщение от жертвы, ≤N слов → mimic НЕ отправлен.
-- Сообщение НЕ от жертвы (другой user_id) → хендлер не вызывается вообще (UserIdFilter).
-- Propagation: после mimic_handler остальные хендлеры (slavik/vasya) всё равно получают
-  событие (аналогично otboy/danger — `UNHANDLED`).
-
-**Хендлер `slavik.py::slavik_catchall_handler` (регрессионные + новые):**
-- **Регрессия:** фото-интервал достигнут → фото отправлено, mimic/текст НЕ отправлены
-  (мьютекс работает).
-- **Регрессия:** фото не достигнут, mimic-условие НЕ выполнено → "пошёл нахуй" как раньше.
-- **Новое:** фото не достигнут, mimic-условие выполнено (>N слов, cooldown прошёл) →
-  mimic отправлен, "пошёл нахуй" НЕ отправлен.
-- **Новое:** фото не достигнут, mimic-условие выполнено, но `message.reply()` внутри
-  mimic-ветки бросает исключение → fallback на "пошёл нахуй" (graceful degradation).
-- **Мьютекс smoke-test:** для одного и того же `message`, при любой комбинации условий,
-  РОВНО один из трёх ответов (photo/mimic/text) отправляется — никогда 0, никогда 2+.
-- **KUCHA independence:** KuchaWordFilter продолжает работать независимо (это отдельный
-  handler в том же router — не затронут изменениями в catchall).
-
-**Admin-команда `/mimic`:**
-- DM от любого юзера → работает.
-- Группа от ADMIN_USER_ID → работает.
-- Группа от не-админа → команда игнорируется (no-op, тихо).
-- `/mimic <текст>` → трансформирует именно переданный текст.
-- `/mimic` без аргументов → использует дефолтный sample text.
-- Команда удаляется из чата после выполнения (как `/deadpage`/`/alangreet`).
+```env
+# Danger-specific cooldown in seconds (additional to shared).
+# Danger sends are blocked if EITHER shared OR danger cooldown is active.
+# 0 = no additional danger restriction (default: 60.0 = 1 minute).
+DANGER_COOLDOWN_SECONDS=60.0
+```
 
 ---
 
-## 4. Сводный план для Builder
+### 6.4 Сводка файлов и изменений для Builder
 
-### 4.1 Порядок реализации (рекомендуемый)
-
-Задачи независимы друг от друга (разные файлы, разные роутеры), можно делать в любом
-порядке или параллельно несколькими Builder-агентами. Рекомендуемый порядок по риску
-и трудоёмкости (от простого к сложному):
-
-1. **Задача 1 (danger_word)** — самая быстрая. Это ИНФРАСТРУКТУРНАЯ задача (деплой),
-   не написание кода. Основной риск — деплой в production (high-risk, требует явного
-   подтверждения пользователя перед выполнением, см. §1.5, шаг 1). Если пользователь
-   не готов давать доступ к серверу прямо сейчас — этот пункт можно отложить, а остальные
-   два реализовывать параллельно.
-2. **Задача 3 (mimic)** — chisto новая фича, ноль зависимости от существующих багов,
-   можно начинать сразу. Рекомендуется начать с `services/mimic_transform.py` (чистые
-   функции, 100% юнит-тестируемые без aiogram) → затем `services/mimic_relay.py` →
-   затем интеграция в `handlers/common.py` (3.1) → затем интеграция в `handlers/slavik.py`
-   (3.2, наиболее рискованная часть из-за требования мьютекса — см. §3.4.4).
-3. **Задача 2 (dead_page Rich Message)** — самая сложная и наименее определённая.
-   Требует ОТКРЫТОГО вопроса (§2.6) — реального сырого JSON от канала-источника — ПЕРЕД
-   написанием финального кода извлечения. Рекомендуется НАЧАТЬ с добавления временного
-   diagnostic-логирования (`logger.info("RAW RICH MESSAGE: %s", message.model_dump_json())`
-   в `bot.py::track_relay_post`), задеплоить ТОЛЬКО этот лог, дождаться реального Rich
-   Message поста в канале, изучить структуру `blocks`, и ТОЛЬКО ПОСЛЕ ЭТОГО реализовывать
-   §2.5 (early-exit для Rich Message в `_forward_with_heuristic`) и §2.5 п.1 (chronological
-   forward scan вместо random probing).
-
-### 4.2 Риски и точки, требующие подтверждения пользователя/Orchestrator ПЕРЕД началом кода
-
-| Риск | Задача | Требуемое действие |
-|------|--------|---------------------|
-| Деплой на production-сервер (`nik@198.46.175.136`) | 1 | Явное подтверждение пользователя перед `git pull` + restart на живом сервере |
-| Изменение алгоритма `_try_forward_from_channel`/`_forward_with_heuristic` в `dead_page_relay.py` — затрагивает уже работающий (для старых постов) механизм | 2 | Подтвердить с пользователем, что регрессия для старых/обычных постов недопустима — нужны explicit regression-тесты на существующее поведение (форвард обычного фото-поста без Rich Message) ДО внедрения изменений |
-| Отсутствие реального образца Rich Message JSON от конкретного канала — вся секция 2.5 построена на документации aiogram/Telegram, а не на реальных данных канала пользователя | 2 | См. §2.6 — получить сырой лог ПЕРЕД финальной реализацией парсинга/детекции |
-| `MIMIC_VICTIM_USER_ID` — конфиг может совпасть с `SLAVIK_USER_ID`, `ALAN_USER_ID`, `KOSTIK_USER_ID` — архитектура ЭТО ДОПУСКАЕТ (независимые роутеры/cooldown), но нужно явно предупредить пользователя при настройке .env, если совпадение обнаружено | 3 | Не блокирует разработку — Builder может просто задокументировать в `.env.example` предупреждение |
-
-### 4.3 Сводный тест-план (все три задачи)
-
-**Задача 1 (danger_word):**
-- Полный regression-прогон существующего `pytest` (399+ тестов) на сервере ПОСЛЕ деплоя.
-- 3 smoke-теста на живом проде (§1.5, п.4).
-- НЕ требует новых тестов в коде (баг уже покрыт существующими 143 тестами `test_common.py`).
-
-**Задача 2 (dead_page Rich Message):**
-- **Regression (обязательно, до любых изменений):** зафиксировать текущее поведение
-  форварда обычного поста (фото+caption) как baseline unit/integration тест, чтобы
-  гарантировать, что фикс Rich Message не сломает существующий работающий путь.
-- **Новые тесты (после получения реального образца JSON, см. §2.6):**
-  - `Message.rich_message is not None` → форвард происходит без heuristic album-probing.
-  - `Message.rich_message is None`, `media_group_id` присутствует → существующий Path 1
-    (DB lookup) работает без изменений.
-  - `Message.rich_message is None`, `media_group_id` отсутствует (старый одиночный пост) →
-    существующий heuristic path работает без изменений (regression).
-  - Chronological forward scan: после успешного форварда `msg_id=N`, следующий вызов
-    `send_dead_page` должен пробовать `N+1, N+2, ...` СНАЧАЛА, а не случайный `[1, N]`.
-  - `_try_forward_from_channel` не завершается с `return False` на единичной непредвиденной
-    ошибке для одного `msg_id` — переходит к следующему диапазону/ID.
-- **Smoke-тест на живом канале** (после деплоя): триггернуть репост нового Rich Message
-  поста → убедиться, что он появляется в целевом чате.
-
-**Задача 3 (mimic):** см. подробный тест-план в §3.6 (уже описан выше, включает property-based
-тесты трансформации, тесты relay, тесты обоих хендлеров, тесты мьютекса, тесты admin-команды).
-
-### 4.4 Файлы, которые Builder будет создавать/изменять (сводка)
-
-| Файл | Задача | Тип изменения |
-|------|--------|----------------|
-| (деплой-скрипты/CI, вне репозитория кода) | 1 | Деплой существующего коммита `af93acb`, без изменений кода |
-| `services/dead_page_relay.py` | 2 | MODIFY — `_build_search_ranges`, `_try_forward_from_channel`, `_forward_with_album_detection`, `_forward_with_heuristic` |
-| `bot.py::track_relay_post` | 2 | MODIFY — временное diagnostic-логирование Rich Message (§2.6), затем финальная логика проверки `rich_message is not None` |
-| `tests/test_dead_page_relay.py` | 2 | MODIFY — новые тесты Rich Message path + regression тесты старого поведения |
-| `services/mimic_transform.py` | 3 | CREATE — новый модуль, чистые функции `mimic_transform`, `count_words` |
-| `services/mimic_relay.py` | 3 | CREATE — `MimicRelay` класс для common-сервиса (3.1) |
-| `handlers/common.py` | 3 | MODIFY — добавить `mimic_handler` + `setup_common_mimic` |
-| `handlers/slavik.py` | 3 | MODIFY — врезать mimic-ветку в `slavik_catchall_handler` с мьютексом (§3.4.5) |
-| `handlers/admin_commands.py` | 3 | MODIFY — добавить `/mimic` команду |
-| `config/settings.py` | 3 | MODIFY — добавить `MIMIC_VICTIM_USER_ID`, `MIMIC_MIN_WORDS`, `MIMIC_COOLDOWN_SECONDS`, `SLAVIK_MIMIC_MIN_WORDS`, `SLAVIK_MIMIC_COOLDOWN_SECONDS` |
-| `.env.example` | 3 | MODIFY — документировать новые переменные |
-| `bot.py::on_startup` | 3 | MODIFY — создать `MimicRelay`, вызвать `setup_common_mimic` |
-| `tests/test_mimic_transform.py` | 3 | CREATE — property-based тесты трансформации |
-| `tests/test_mimic_relay.py` | 3 | CREATE — тесты `MimicRelay` |
-| `tests/test_common.py` | 3 | MODIFY — тесты `mimic_handler` |
-| `tests/test_slavik_handlers.py` | 3 | MODIFY — тесты мьютекса в `slavik_catchall_handler` |
-| `tests/test_admin_commands.py` | 3 | MODIFY — тесты `/mimic` команды |
-| `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md` | 1, 2, 3 | MODIFY — после реализации, задокументировать финальное поведение (стандартный процесс проекта, см. историю всех прошлых Epic) |
-
-### 4.5 Явные NON-GOALS (что Builder НЕ должен делать)
-
-- **Задача 1:** не переписывать словарь `DANGER_WORDS`, не менять архитектуру `common_router`
-  или `war_alert_router` — код уже корректен, требуется только деплой.
-- **Задача 2:** не реализовывать полную пересборку Rich Message через `sendRichMessage`/
-  `InputRichBlock*` (реконструкция контента) — если пользователь явно не подтвердит, что
-  простого `forward_message` (by-reference) недостаточно (см. открытый вопрос §2.6, пункт 2).
-- **Задача 3:** не использовать LLM/нейросети (явное требование ТЗ). Не менять существующее
-  поведение фото-интервала (F8) или KUCHA-фильтра в `slavik.py`. Не объединять cooldown-
-  состояния между 3.1 (common) и 3.2 (Slavik) — они должны оставаться независимыми модулями
-  с раздельной конфигурацией.
+| # | Файл | Что меняется | Сложность |
+|---|------|-------------|-----------|
+| **A1** | `services/common_relay.py` `_scan_directory` (строка 104-124) | Per-entry OSError try/except + INFO-лог со списком найденных файлов | Низкая |
+| **A2** | `services/common_relay.py` `send_common` (строка 228-233) | Проверить, что catch-all `(PermissionError, OSError)` больше не нужен (теперь per-entry) — оставить для `base.iterdir()` fail | Низкая |
+| **B** | `services/common_relay.py` `_detect_media_type` (строка 76-78) | `filepath.stem.lower()` → `filepath.name.lower()` + word-boundary проверка `_gif` / `gif`-prefix / `.gif` | Низкая |
+| **C1** | `config/settings.py` (после строки 96) | Добавить `DANGER_COOLDOWN_SECONDS: float = _env_float("DANGER_COOLDOWN_SECONDS", 60.0)` | Низкая |
+| **C2** | `services/common_relay.py` `__init__` (строка 54-68) | Добавить параметр `danger_cooldown_seconds` + `_danger_cooldowns` dict | Низкая |
+| **C3** | `services/common_relay.py` `send_common` (строка 210-250) | Layer-1 danger cooldown + Layer-2 shared cooldown + обновление обоих | Средняя |
+| **C4** | `bot.py` (строка 78) | Передать `danger_cooldown_seconds=settings.DANGER_COOLDOWN_SECONDS` в `CommonRelay(...)` | Низкая |
+| **C5** | `.env.example` (после COMMON_COOLDOWN_SECONDS) | Добавить `DANGER_COOLDOWN_SECONDS=60.0` | Низкая |
+| **T** | `tests/test_common.py` | Новые тесты (см. §6.5) | Средняя |
 
 ---
+
+### 6.5 Тест-план (Epic 18)
+
+#### 6.5.1 Bug A — Scan directory
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-A1 | `_scan_directory` с 3 .mp4 файлами | Возвращает 3 tuple, INFO-лог содержит имена всех 3 |
+| T-A2 | `_scan_directory` с 1 битым файлом (OSError на `is_file()`) + 2 нормальными | Возвращает 2 tuple, WARNING лог про пропущенный файл |
+| T-A3 | `send_common` → random.choice из 3 файлов (много вызовов) | Каждый файл выбран хотя бы раз за ~50 вызовов |
+
+#### 6.5.2 Bug B — GIF detection
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-B1 | `_detect_media_type(Path("danger_02_gif.mp4"))` | `MEDIA_ANIMATION` |
+| T-B2 | `_detect_media_type(Path("danger_zelelyot_gif_02.mp4"))` | `MEDIA_ANIMATION` |
+| T-B3 | `_detect_media_type(Path("danger_nahryuck_gif.mp4"))` | `MEDIA_ANIMATION` |
+| T-B4 | `_detect_media_type(Path("gif_animation.mp4"))` (gif в начале имени) | `MEDIA_ANIMATION` |
+| T-B5 | `_detect_media_type(Path("file.gift.mp4"))` (gift ≠ gif) | `MEDIA_VIDEO` (НЕ animation) |
+| T-B6 | `_detect_media_type(Path("danger_boom.mp4"))` (без gif) | `MEDIA_VIDEO` |
+
+#### 6.5.3 Bug C — Dual cooldown
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-C1 | danger → otboy через 30s при shared=60s, danger=60s | otboy BLOCKED (shared ещё активен) |
+| T-C2 | danger → danger через 30s при shared=60s, danger=60s | danger BLOCKED (оба кулдауна активны) |
+| T-C3 | danger → danger через 70s при shared=60s, danger=60s | danger SENDS (оба истекли) |
+| T-C4 | danger → otboy через 70s при shared=60s, danger=60s | otboy SENDS (shared истёк, danger не проверяется) |
+| T-C5 | otboy → danger через 30s при shared=60s, danger=60s | danger BLOCKED (shared активен) |
+| T-C6 | danger → danger через 30s при shared=0, danger=60s | danger BLOCKED (только danger кулдаун) |
+| T-C7 | danger → otboy через 30s при shared=0, danger=60s | otboy SENDS (shared=0, danger не проверяется) |
+| T-C8 | danger → danger через 30s при shared=60s, danger=0 | danger BLOCKED (shared кулдаун — danger отключен, но shared ещё активен) |
+
+**Уточнение T-C8:** danger → danger через 30s при shared=60s, danger=0. Danger cooldown отключен, но shared ещё активен (60s). Ответ: BLOCKED (shared кулдаун).
+
+**Уточнение T-C6:** danger → danger через 30s при shared=0, danger=60s. Shared отключен, danger кулдаун активен. Ответ: BLOCKED (danger кулдаун).
+
+#### 6.5.4 Существующие тесты — проверка регрессии
+
+Все существующие тесты в `TestCommonRelayCooldown` должны проходить без изменений, т.к. `danger_cooldown_seconds` по умолчанию = 0 (если не передано явно) — а существующие тесты создают `CommonRelay(bot, cooldown_seconds=X)` без danger-параметра.
+
+**НО:** сигнатура `__init__` меняется (добавляется необязательный параметр), поэтому:
+- Существующие вызовы `CommonRelay(mock_bot, cooldown_seconds=X)` остаются валидными.
+- Но `danger_cooldown_seconds` по умолчанию = 60.0 для проду, а для тестов нужно = 0.
+- **Решение:** в тестовых fixture явно передавать `danger_cooldown_seconds=0` ИЛИ установить дефолт 0 в `__init__`, а 60.0 передавать из `bot.py`.
+
+**Архитектурное решение (финальное):**
+- Дефолт в `__init__`: `danger_cooldown_seconds: float = 0` (безопасно для тестов)
+- В `bot.py`: явно передать `danger_cooldown_seconds=settings.DANGER_COOLDOWN_SECONDS` (60.0 на проде)
+- Это идиоматично: код модуля не завязывается на settings, конфигурация инжектится извне
+
+---
+
+### 6.6 Риски (Epic 18)
+
+| Риск | Вероятность | Влияние | Митигация |
+|------|-----------|---------|-----------|
+| Per-entry OSError ловит и глушит ошибки, маскируя проблемы с файловой системой | Низкая | Среднее | WARNING-лог с именем проблемного entry — ошибка не теряется |
+| `_gif`-проверка слишком строгая и НЕ матчит существующие имена (например, `somegif.mp4` без подчёркивания) | Низкая | Высокое | Текущие имена ВСЕ содержат `_gif`; дополнительно проверяется `startswith("gif")` |
+| Двойной кулдаун слишком агрессивен, danger практически никогда не срабатывает | Средняя | Среднее | Дефолт 60s = 1 минута — разумно; админ может выставить 0 для отключения |
+| Тесты падают из-за изменения сигнатуры `__init__` | Низкая | Низкое | Дефолт `danger_cooldown_seconds=0` сохраняет обратную совместимость |
+
+---
+
+@Orchestrator Epic 18 architecture ready, passing the baton.
+
+@Orchestrator Architecture is ready, passing the baton.

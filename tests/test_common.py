@@ -6,7 +6,10 @@ Covers:
   - CommonRelay: _detect_media_type, _scan_directory, send_common, cooldown
   - Handlers: otboy_handler, danger_handler, relay guard, propagation
   - Migration: settings fields renamed/removed
+  - Epic 18: GIF detection, scan robustness, dual cooldown
 """
+import logging
+import random
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -984,3 +987,261 @@ class TestMigration:
 
     def test_otboy_photo_path_removed(self):
         assert not hasattr(settings, "OTBOY_PHOTO_PATH")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# K. Epic 18 — GIF Detection Tests (Bug B)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCommonRelayGifDetection:
+    """Tests for GIF detection in filename (Epic 18 Bug B)."""
+
+    @pytest.fixture
+    def relay(self):
+        bot = AsyncMock()
+        return CommonRelay(bot, cooldown_seconds=0)
+
+    def test_gif_in_middle_with_underscore(self, relay):
+        assert relay._detect_media_type(Path("danger_02_gif.mp4")) == MEDIA_ANIMATION
+
+    def test_gif_before_number(self, relay):
+        assert relay._detect_media_type(Path("danger_zelelyot_gif_02.mp4")) == MEDIA_ANIMATION
+
+    def test_gif_at_end_of_stem(self, relay):
+        assert relay._detect_media_type(Path("danger_nahryuck_gif.mp4")) == MEDIA_ANIMATION
+
+    def test_gif_at_start(self, relay):
+        assert relay._detect_media_type(Path("gif_animation.mp4")) == MEDIA_ANIMATION
+
+    def test_gift_not_detected_as_gif(self, relay):
+        """'gift' should NOT be treated as 'gif'."""
+        assert relay._detect_media_type(Path("file.gift.mp4")) == MEDIA_VIDEO
+
+    def test_no_gif_in_name_is_video(self, relay):
+        assert relay._detect_media_type(Path("danger_boom.mp4")) == MEDIA_VIDEO
+
+    def test_gif_in_camelcase_name(self, relay):
+        assert relay._detect_media_type(Path("my_GiF_file.mp4")) == MEDIA_ANIMATION
+
+    def test_gif_with_dot_in_middle(self, relay):
+        """file.giF.mp4 should be detected as animation ('.gif' in name)."""
+        assert relay._detect_media_type(Path("my.giF.animation.mp4")) == MEDIA_ANIMATION
+
+
+# ═══════════════════════════════════════════════════════════════════
+# L. Epic 18 — Scan Robustness Tests (Bug A)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCommonRelayScanRobustness:
+    """Tests for scan directory robustness (Epic 18 Bug A)."""
+
+    @pytest.fixture
+    def relay(self):
+        bot = AsyncMock()
+        return CommonRelay(bot, cooldown_seconds=0)
+
+    def test_scan_logs_all_files(self, relay, tmp_path, caplog):
+        subdir = tmp_path / "danger"
+        subdir.mkdir()
+        (subdir / "a.mp4").write_text("fake")
+        (subdir / "b.mp4").write_text("fake")
+        (subdir / "c.mp4").write_text("fake")
+
+        relay._media_base = str(tmp_path)
+        with caplog.at_level(logging.INFO):
+            files = relay._scan_directory("danger")
+        assert len(files) == 3
+        log_text = caplog.text
+        assert "a.mp4" in log_text
+        assert "b.mp4" in log_text
+        assert "c.mp4" in log_text
+
+    def test_scan_skips_unreadable_file(self, relay, tmp_path, caplog):
+        """Per-entry OSError should skip bad files, not crash the whole scan."""
+        subdir = tmp_path / "danger"
+        subdir.mkdir()
+        (subdir / "good1.mp4").write_text("fake")
+        bad_file = subdir / "bad_link.mp4"
+        bad_file.write_text("fake")
+        (subdir / "good2.mp4").write_text("fake")
+
+        original_is_file = Path.is_file
+
+        def mock_is_file(self_path):
+            if self_path.name == "bad_link.mp4":
+                raise OSError("Permission denied")
+            return original_is_file(self_path)
+
+        relay._media_base = str(tmp_path)
+        with caplog.at_level(logging.WARNING):
+            with patch.object(Path, "is_file", mock_is_file):
+                files = relay._scan_directory("danger")
+        assert len(files) == 2
+        names = {f[0].name for f in files}
+        assert names == {"good1.mp4", "good2.mp4"}
+        assert "bad_link" in caplog.text
+
+    def test_random_choice_covers_all_files_over_many_calls(self, relay, tmp_path):
+        """Verify random.choice picks all files eventually (statistical test)."""
+        subdir = tmp_path / "danger"
+        subdir.mkdir()
+        for i in range(1, 4):
+            (subdir / f"file_{i}.mp4").write_text("fake")
+
+        relay._media_base = str(tmp_path)
+        picked = set()
+        for _ in range(100):
+            files = relay._scan_directory("danger")
+            fpath, _ = random.choice(files)
+            picked.add(fpath.name)
+        assert picked == {"file_1.mp4", "file_2.mp4", "file_3.mp4"}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# M. Epic 18 — Dual Cooldown Tests (Bug C)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCommonRelayDualCooldown:
+    """Tests for dual-layer cooldown (Epic 18 Bug C)."""
+
+    @pytest.fixture
+    def mock_bot(self):
+        bot = AsyncMock()
+        bot.send_photo = AsyncMock()
+        bot.send_video = AsyncMock()
+        bot.send_animation = AsyncMock()
+        return bot
+
+    @pytest.fixture
+    def mock_files(self):
+        return [(Path("/fake/photo.jpg"), MEDIA_PHOTO)]
+
+    @pytest.mark.asyncio
+    async def test_danger_then_otboy_blocked_by_shared(self, mock_bot, mock_files):
+        """danger → otboy: otboy blocked by shared cooldown."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 30):
+                await relay.send_common(1, 11, "отбой", "otboy")
+            assert mock_bot.send_photo.call_count == 1  # blocked by shared
+
+    @pytest.mark.asyncio
+    async def test_danger_then_danger_blocked_by_both(self, mock_bot, mock_files):
+        """danger → danger: blocked by both cooldowns."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 30):
+                await relay.send_common(1, 11, "ракета", "danger")
+            assert mock_bot.send_photo.call_count == 1  # blocked
+
+    @pytest.mark.asyncio
+    async def test_danger_after_danger_cooldown_expired(self, mock_bot, mock_files):
+        """danger → danger after 70s: both cooldowns expired, sends."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 70):
+                await relay.send_common(1, 11, "ракета", "danger")
+            assert mock_bot.send_photo.call_count == 2  # sends
+
+    @pytest.mark.asyncio
+    async def test_danger_then_otboy_after_shared_expired(self, mock_bot, mock_files):
+        """danger → otboy after 70s: shared expired, otboy sends."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 70):
+                await relay.send_common(1, 11, "отбой", "otboy")
+            assert mock_bot.send_photo.call_count == 2  # otboy sends
+
+    @pytest.mark.asyncio
+    async def test_otboy_then_danger_blocked_by_shared(self, mock_bot, mock_files):
+        """otboy → danger: danger blocked by shared cooldown."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "отбой", "otboy")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 30):
+                await relay.send_common(1, 11, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1  # blocked by shared
+
+    @pytest.mark.asyncio
+    async def test_danger_only_cooldown_with_shared_zero(self, mock_bot, mock_files):
+        """shared=0, danger=60: danger blocked by danger-only cooldown."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=0, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 30):
+                await relay.send_common(1, 11, "ракета", "danger")
+            assert mock_bot.send_photo.call_count == 1  # blocked by danger cooldown
+
+    @pytest.mark.asyncio
+    async def test_otboy_not_blocked_by_danger_cooldown(self, mock_bot, mock_files):
+        """shared=0, danger=60: otboy is NOT blocked by danger cooldown."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=0, danger_cooldown_seconds=60, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 5):
+                await relay.send_common(1, 11, "отбой", "otboy")
+            assert mock_bot.send_photo.call_count == 2  # otboy NOT blocked by danger
+
+    @pytest.mark.asyncio
+    async def test_danger_with_zero_danger_cooldown_blocked_by_shared(self, mock_bot, mock_files):
+        """shared=60, danger=0: danger blocked by shared cooldown."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, danger_cooldown_seconds=0, media_base="/fake")
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 30):
+                await relay.send_common(1, 11, "ракета", "danger")
+            assert mock_bot.send_photo.call_count == 1  # blocked by shared
+
+    @pytest.mark.asyncio
+    async def test_default_danger_cooldown_is_zero(self, mock_bot, mock_files):
+        """Without explicit danger_cooldown_seconds, it defaults to 0 (no extra restriction)."""
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, media_base="/fake")
+        assert relay._danger_cooldown_seconds == 0
+        assert relay._danger_cooldowns == {}
