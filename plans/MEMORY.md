@@ -1,21 +1,21 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.18.0 (IMPLEMENTED, Epic 20)
+> **Версия:** v2.18.0 (DEPLOYED, Epic 20)
 > **Дата:** 2026-08-02
-> **Статус:** Epics 1-20 IMPLEMENTED ✅. Epic 20 APPROVED. 570 тестов PASS. Готово к деплою.
-> **Текущий коммит:** `f57add4` (v2.17.0 deployed → v2.18.0 ready), master branch.
-> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, PID 697059, memory 79.6M, 0 errors.
+> **Статус:** ВСЕ 20 Epic'ов DEPLOYED ✅. 570 тестов PASS. Бот активен в продакшене.
+> **Текущий коммит:** `242cbac` (v2.18.0 deployed), master branch.
+> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, systemctl active (running), 0 errors.
 
 ---
 
-## 🔍 Context Sync Summary (2026-08-02) — Epic 20 FINAL SYNC
+## 🔍 Context Sync Summary (2026-08-02) — Epic 20 FINAL SYNC (DEPLOYED)
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Epics 1-20** | ✅ IMPLEMENTED | 130+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C + Epic 19 T-131–T-138 + Epic 20 T-139–T-148. v2.18.0 готов к деплою. |
-| **Epic 20** | ✅ APPROVED | Slavik Random Media Enhancement — IMPLEMENTED and APPROVED. 10 задач + 61 тест. 2 файла изменено. |
-| **Review** | ✅ APPROVED | Epic 20 tests: 570 pass (509 baseline + 61 new). Zero regressions. |
-| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: active (running). PID 697059, 79.6M. v2.17.0 в проде, v2.18.0 ready. |
+| **Epics 1-20** | ✅ DEPLOYED | 130+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C + Epic 19 T-131–T-138 + Epic 20 T-139–T-148. v2.18.0 в продакшене. |
+| **Epic 20** | ✅ DEPLOYED | Slavik Random Media Enhancement — DEPLOYED. Commit 242cbac. 570 тестов. 6 media types. |
+| **Review** | ✅ PASS | 570 tests pass. Zero regressions. |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: active (running). Git pull успешен. Commit 242cbac. |
 
 ---
 
@@ -498,11 +498,12 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 
 ---
 
-## ✅ Epic 20: Slavik Random Media Enhancement — v2.18.0 (IMPLEMENTED, 2026-08-02)
+## ✅ Epic 20: Slavik Random Media Enhancement — v2.18.0 (DEPLOYED, 2026-08-02)
 
 > **Цель:** Расширить поддержку медиа-типов в slavik random media picker до полного паритета с CommonRelay.
-> **Статус:** IMPLEMENTED ✅ — все 10 задач T-139–T-148 выполнены. 570 тестов проходят.
-> **Версия:** v2.18.0 (implemented, ready for deploy).
+> **Статус:** DEPLOYED ✅ — все 10 задач T-139–T-148 выполнены и задеплоены. 570 тестов проходят. Бот активен.
+> **Версия:** v2.18.0 (deployed). Commit: `242cbac`. Pushed to origin/master.
+> **Deploy:** Server nik@198.46.175.136:/var/www/admin_bot. Git pull → systemctl status active (running).
 
 ### Overview
 
@@ -619,9 +620,9 @@ Epic 20 расширяет `handlers/slavik.py` с 3 до 6 поддержива
 |--------|-------|
 | **DEPLOYED** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 18 Epics) ✅ |
 | **DEPLOYED** | Epic 19: T-131 – T-138 (DEPLOYED to production, commit f57add4) ✅ |
-| **IMPLEMENTED** | Epic 20: T-139 – T-148 (Slavik Random Media Enhancement — approved, 570 tests, ready for deploy) ✅ |
+| **DEPLOYED** | Epic 20: T-139 – T-148 (Slavik Random Media Enhancement — DEPLOYED, commit 242cbac, 570 tests) ✅ |
 
-> Epics 1-20 IMPLEMENTED ✅. Epic 20 APPROVED 🔮. Проект PRODUCTION-READY v2.18.0.
+> Epics 1-20 DEPLOYED ✅. Проект PRODUCTION-READY v2.18.0. ФИНАЛЬНЫЙ СТАТУС: все Epic'ы завершены и задеплоены.
 > 570 тестов. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
 > Ноль известных багов. Все сервисы инициализированы корректно. Бот активен.
 
@@ -631,19 +632,19 @@ Epic 20 расширяет `handlers/slavik.py` с 3 до 6 поддержива
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.17.0 (deployed) → v2.18.0 (ready for deploy) |
-| **Следующая версия** | v2.18.0 (Epic 20 — IMPLEMENTED and APPROVED, ready for DevOps) |
-| **Текущий коммит** | `f57add4` (v2.17.0 deployed) → next commit for v2.18.0 |
+| **Версия в проде** | v2.18.0 (deployed) |
+| **Следующая версия** | — (проект завершён, все 20 Epic'ов задеплоены) |
+| **Текущий коммит** | `242cbac` (v2.18.0 deployed) — Epic 20 Slavik Random Media Enhancement |
 | **Дата** | 2026-08-02 |
 | **Сервер** | nik@198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), PID 697059, memory 79.6M |
+| **Статус** | systemctl status adminbot → active (running), 0 errors |
 | **Git remote** | origin/master — pushed успешно |
 | **Тесты** | 570 PASS (все зелёные) |
-| **Эпики** | 1-19 DEPLOYED ✅. Epic 20 IMPLEMENTED ✅. Все 20 Epic'ов готовы. |
-| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C + Epic 19 T-131–T-138 + Epic 20 T-139–T-148 (ALL IMPLEMENTED) |
+| **Эпики** | 1-20 DEPLOYED ✅. ФИНАЛЬНЫЙ СТАТУС. |
+| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C + Epic 19 T-131–T-138 + Epic 20 T-139–T-148 (ALL DEPLOYED) |
 | **Ошибки** | 0 errors в логах. Все сервисы инициализированы корректно. |
 
 ---
 
-*Обновление: 2026-08-02 — EPIC 20 STATUS: IMPLEMENTED ✅. Slavik Random Media Enhancement реализован и одобрен. Scope: только handlers/slavik.py (3 функции) + tests/test_slavik_media_types.py (новый, 61 тест). 570 тестов проходят. 6 медиа-типов (photo/video/animation/audio/voice/document), document как универсальный fallback, GIF-детекция hardened (filepath.name + word-boundary). Никаких изменений роутеров, БД или конфигурации. Knowledge Graph синхронизирован: Epic 20 → IMPLEMENTED, AdminBot → v2.18.0. MEMORY.md, board.md, backlog.md обновлены. Готово к деплою (DevOps).*
+*Обновление: 2026-08-02 — EPIC 20 STATUS: DEPLOYED ✅. Slavik Random Media Enhancement задеплоен в production. Scope: только handlers/slavik.py (3 функции) + tests/test_slavik_media_types.py (новый, 61 тест). 570 тестов проходят. 6 медиа-типов (photo/video/animation/audio/voice/document), document как универсальный fallback, GIF-детекция hardened (filepath.name + word-boundary). Никаких изменений роутеров, БД или конфигурации. Deployment: commit 242cbac на ветке master, пуш в origin/master, git pull на сервере nik@198.46.175.136:/var/www/admin_bot успешен. systemctl status adminbot → active (running). Все 20 Epic'ов (T-001–T-148 + T2/T3/T4 + fixes) COMPLETE и DEPLOYED. Проект в продакшене v2.18.0. ФИНАЛЬНЫЙ СТАТУС.*
