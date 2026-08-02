@@ -22,21 +22,35 @@ _slavik_mimic_last_sent: dict[int, float] = {}
 # ── Media type detection — same logic as CommonRelay._detect_media_type ──
 _IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 _VIDEO_EXTENSIONS: set[str] = {".mp4", ".mov", ".webm"}
+_AUDIO_EXTENSIONS: set[str] = {".mp3"}
+_VOICE_EXTENSIONS: set[str] = {".ogg"}
 
 
-def _detect_slavik_media_type(filepath: Path) -> str | None:
+def _detect_slavik_media_type(filepath: Path) -> str:
     """Determine media type from file extension and filename.
 
-    Returns 'photo', 'video', 'animation', or None for unsupported.
+    Returns 'photo', 'video', 'animation', 'audio', 'voice', or 'document' (fallback).
     """
     ext = filepath.suffix.lower()
+    name_lower = filepath.name.lower()
+
     if ext in _IMAGE_EXTENSIONS:
         return "photo"
     if ext in _VIDEO_EXTENSIONS:
-        if "gif" in filepath.stem.lower():
+        # GIF detection: check full filename (not just stem) for "gif" with word boundaries
+        if (
+            "_gif" in name_lower
+            or name_lower.startswith("gif")
+            or ".gif." in name_lower
+        ):
             return "animation"
         return "video"
-    return None
+    if ext in _AUDIO_EXTENSIONS:
+        return "audio"
+    if ext in _VOICE_EXTENSIONS:
+        return "voice"
+    # Fallback: any other file → document
+    return "document"
 
 
 def _pick_random_slavik_media() -> tuple[Path, str] | None:
@@ -51,11 +65,16 @@ def _pick_random_slavik_media() -> tuple[Path, str] | None:
 
     files: list[tuple[Path, str]] = []
     for entry in media_dir.iterdir():
-        if not entry.is_file():
-            continue
-        media_type = _detect_slavik_media_type(entry)
-        if media_type is not None:
+        try:
+            if not entry.is_file():
+                continue
+            media_type = _detect_slavik_media_type(entry)
             files.append((entry, media_type))
+        except OSError:
+            logger.warning(
+                "Slavic Photo: cannot access entry %s — skipping", entry
+            )
+            continue
 
     if not files:
         logger.warning("Slavic Photo: no supported media files in %s", media_dir)
@@ -63,8 +82,8 @@ def _pick_random_slavik_media() -> tuple[Path, str] | None:
 
     picked = random.choice(files)
     logger.info(
-        "Slavic Photo: picked %s (%s) from %s",
-        picked[0].name, picked[1], media_dir,
+        "Slavic Photo: picked %s (%s) from %d files in %s",
+        picked[0].name, picked[1], len(files), media_dir,
     )
     return picked
 
@@ -82,9 +101,15 @@ async def _send_slavik_media(
         await message.answer_video(video=input_file)
     elif media_type == "animation":
         await message.answer_animation(animation=input_file)
+    elif media_type == "audio":
+        await message.answer_audio(audio=input_file)
+    elif media_type == "voice":
+        await message.answer_voice(voice=input_file)
+    elif media_type == "document":
+        await message.answer_document(document=input_file)
     else:
-        logger.warning("Slavic Photo: unknown media type %s for %s", media_type, filepath.name)
-        await message.answer_photo(photo=input_file)
+        logger.warning("Slavik: unknown media type %s for %s, falling back to document", media_type, filepath.name)
+        await message.answer_document(document=input_file)
 
 
 def setup_slavik(db):
