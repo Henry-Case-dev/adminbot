@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.17.0 | **Тестов:** 509 | **Эпиков:** 23 (141 задача)
+**Версия:** v2.18.0 | **Тестов:** 570 | **Эпиков:** 24 (144 задачи)
 
 ---
 
@@ -40,12 +40,20 @@
 **Исправлено в v2.9.0 (Epic 12):**
 - **Forwarded messages fix**: бот теперь перехватывает военные слова не только в сообщениях, которые Слава пишет сам, но и в его репостах (forwarded messages). Раньше Слава мог репостнуть «БПЛА летит» и бот молчал как партизан. Теперь не молчит.
 
-### Слава: фото-сюрприз (F6 — Epic 12, обновлено в v2.15.0) 🆕
-Каждый N-й ответ «пошёл нахуй» (по умолчанию N=10) бот вместо текста отправляет **случайное медиа** (фото/видео/GIF) из директории `media/slavik/slavik_random/`. Счётчик сбрасывается после отправки — и дальше по кругу.
+### Слава: фото-сюрприз (F6 — Epic 12, обновлено в v2.18.0) 🆕
+Каждый N-й ответ «пошёл нахуй» (по умолчанию N=10) бот вместо текста отправляет **случайное медиа** из директории `media/slavik/slavik_random/`. Счётчик сбрасывается после отправки — и дальше по кругу.
+
+**Поддерживаемые типы медиа (v2.18.0):**
+- 📷 **Photo**: `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`
+- 🎬 **Video**: `.mp4`, `.mov`, `.webm`
+- ✨ **Animation (GIF)**: видеофайлы с `gif` в имени (word-boundary детект — `.gif.`, `_gif`, `gif` в начале)
+- 🎵 **Audio**: `.mp3` → `send_audio`
+- 🎤 **Voice**: `.ogg` → `send_voice`
+- 📄 **Document (fallback)**: всё остальное отправляется как документ. `.pdf`? `.zip`? `.txt`? Да без разницы, Слава примет любой подарок.
 
 **Настройка:**
 - `SLAVIC_PHOTO_INTERVAL=10` — каждые сколько ответов слать медиа (в `.env`)
-- `SLAVIC_RANDOM_DIR=media/slavik/slavik_random` — директория со случайными фото/видео/GIF
+- `SLAVIC_RANDOM_DIR=media/slavik/slavik_random` — директория со случайным медиа всех типов
 - `SLAVIC_PHOTO_PATH` — **deprecated**, используется как запасной путь если `SLAVIC_RANDOM_DIR` пуст
 - `SLAVIC_PHOTO_INTERVAL=0` — отключает фичу (только текст)
 - Счётчик хранится в БД (переживает рестарт)
@@ -212,6 +220,7 @@ mkdir -p media/dead_page      # накидай .jpg и .txt (для fallback'а)
 mkdir -p media/leha_greeting  # накидай .mp4 для приветствия Алана
 mkdir -p media/common/otboy   # накидай медиа для ответа на «отбой»
 mkdir -p media/common/danger  # накидай медиа для danger detection
+mkdir -p media/slavik/slavik_random  # накидай фото/видео/GIF/аудио/войсы/доки для Slavik Random Media
 python bot.py
 ```
 
@@ -364,7 +373,7 @@ await message.reply("ВАСЯ")   # «админ»
 ## 🧪 Тестирование
 
 ```bash
-# Все 399 тестов
+# Все 570 тестов
 py -m pytest tests/ -v
 
 # Только Alan
@@ -474,6 +483,38 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 - Полный прогон: 478 тестов, 0 регрессий
 
 **Файлы:** `services/common_relay.py`, `config/settings.py`, `bot.py`, `.env.example`, `tests/test_common.py`
+
+---
+
+## 🐛 Исправлено в v2.18.0 (Epic 20)
+
+### Epic 20: Slavik Random Media Enhancement — полная поддержка медиа-типов и hardened GIF detection
+
+**Bug D — Slavik random media: только фото и видео:**
+- **Проблема:** Славик умел отправлять только фото и видео из `slavik_random/`. Аудио, войсы, документы — робот тупо игнорировал. Как Слава, который ест только пельмени и отказывается от супа.
+- **Исправление:** `_detect_slavik_media_type()` расширен до 6 типов: photo (.jpg/.png/.webp/.bmp/.jpeg), video (.mp4/.mov/.webm), animation (видео с gif-детектом), audio (.mp3), voice (.ogg), document (fallback для всего остального). `_send_slavik_media()` вызывает соответствующий метод Telegram API: `send_photo`, `send_video`, `send_animation`, `send_audio`, `send_voice`, `send_document`.
+
+**Bug E — GIF detection в slavik_random нестандартный:**
+- **Проблема:** GIF-детект в slavik_random отличался от CommonRelay — не ловил `_gif`, `.gif.`, и `gif` в начале имени.
+- **Исправление:** тройной word-boundary матчинг, идентичный CommonRelay: (1) `.gif.` (двойная точка), (2) `_gif` (подчёркивание), (3) `startswith("gif")` (в начале). Исключены ложные срабатывания на `gift` и `notagif`.
+
+**Bug F — Per-entry OSError: робот падал от битых файлов:**
+- **Проблема:** один битый или недоступный файл в `slavik_random/` — и `os.scandir()` крашил весь `_pick_random_slavik_media()`, лишая Славу медиа-сюрпризов. Как если бы Слава падал от одного плохого падика.
+- **Исправление:** per-entry `try/except OSError` с `logger.warning` — битые файлы пропускаются, остальные работают. Робот устойчив к битым файлам, как Слава устойчив к падикам.
+
+**Bug G — Dead code и диагностика:**
+- **Убран dead code:** охранный `if media_type is not None` (media_type НИКОГДА не был None — всегда был минимум `document` как fallback).
+- **Добавлен `len(files)` в диагностический лог** — теперь видно, сколько всего файлов найдено, а не только список имён.
+
+**Тесты: 509 → 570 (+61)**
+- 61 новый тест в `tests/test_slavik_media_types.py`:
+  - 33 теста на `_detect_slavik_media_type` (все расширения + GIF-детект + edge-кейсы)
+  - 7 тестов на `_send_slavik_media` (все 6 типов + unknown fallback)
+  - 7 тестов на `_pick_random_slavik_media` (пустая/битая/смешанная директория, поддиректории)
+  - 14 тестов на GIF detection edge-кейсы (starts_with, underscore, double-dot, false positives)
+- Полный прогон: **570 тестов**, 0 регрессий
+
+**Файлы:** `handlers/slavik.py`, `tests/test_slavik_media_types.py`
 
 ---
 

@@ -2,134 +2,49 @@
 
 ## 📋 Backlog
 
-### Epic 19: Сервис Olya — автоответ на видео от @ole4444444ka — 2026-08-02 🔵 PLANNED
-
-- [ ] T-131: Создать `filters/olya_video.py` — `OlyaVideoFilter` (UserId 834424825 + видео + детекция SaveAsBot)
-- [ ] T-132: Создать `services/olya_relay.py` — `OlyaRelay` (plain send, медиа-автоопределение, cooldown)
-- [ ] T-133: Создать `handlers/olya.py` — `olya_router` + `olya_handler` + `setup_olya()`
-- [ ] T-134: Добавить конфигурацию Olya в `config/settings.py` (+8 полей) и `.env.example`
-- [ ] T-135: Зарегистрировать `olya_router` в `bot.py` (позиция 4d, после common_router, до slavik_router)
-- [ ] T-136: Написать тесты `tests/test_olya.py` (15-20 тестов: фильтр, сервис, хендлер, интеграционные, corner cases)
-- [ ] T-137: Обновить README.md — добавить документацию Epic 19
-- [ ] T-138: Деплой на сервер (git pull, systemctl restart, проверка статуса)
-
-### Epic 18: Danger Service Fixes — File Selection, GIF Detection, Cooldown — 2026-08-02 🔵 IN PROGRESS
-
-**T-122: Investigate and fix file scanning/selection in CommonRelay**
-- [ ] T-122-A: Проверить `_scan_directory` — error handling (FileNotFoundError, PermissionError)
-- [ ] T-122-B: Проверить `_pick_media` — random.choice на списке файлов
-- [ ] T-122-C: Убедиться: нет хардкодных индексов, имён, счётчиков
-- [ ] T-122-D: Фильтрация — только медиа-расширения (исключить .gitkeep, .DS_Store, Thumbs.db)
-- [ ] T-122-E: `send_common()` — вызов `_pick_media` с правильным subdir
-- [ ] T-122-F: `send_danger()` — subdir="danger" через `COMMON_MEDIA_BASE`
-- [ ] T-122-G: Comprehensive логирование: количество файлов, выбранный файл
-- [ ] T-122-H: Edge: пустая директория → WARNING, graceful return
-- [ ] T-122-I: Edge: 1 файл → всегда выбирается
-- [ ] T-122-J: Edge: 14+ файлов → все достижимы через random.choice
-
-**T-123: Fix and verify GIF detection in filename**
-- [ ] T-123-A: Проверить `_detect_media_type` — `"gif" in filepath.stem.lower()`
-- [ ] T-123-B: `Path.stem` возвращает имя без расширения (danger_02_gif из danger_02_gif.mp4)
-- [ ] T-123-C: Case-insensitive: gif, GIF, Gif, GiF → animation
-- [ ] T-123-D: Все позиции "gif": danger_02_gif.mp4, danger_gif_02.mp4, danger_nahryuck_gif.mp4, danger_zelelyot_gif_02.mp4, gif_danger_01.mp4
-- [ ] T-123-E: Без "gif" → video (не animation): danger_01.mp4, danger_03.mp4
-- [ ] T-123-F: .gif-файлы → photo (image), не animation
-- [ ] T-123-G: .webm с "gif" → animation, без "gif" → video
-- [ ] T-123-H: `_send_media()` dispatch: animation → send_animation, video → send_video, photo → send_photo
-
-**T-124: Add DANGER_COOLDOWN_SECONDS config with independent cooldown tracking**
-- [ ] T-124-A: Поле `danger_cooldown: int = 60` в `CommonRelay.__init__`
-- [ ] T-124-B: `_last_danger_by_chat: dict[int, float]` — независимый трекинг
-- [ ] T-124-C: `send_otboy()` → COMMON_COOLDOWN_SECONDS + `_last_common_by_chat`
-- [ ] T-124-D: `send_danger()` → DANGER_COOLDOWN_SECONDS + `_last_danger_by_chat`
-- [ ] T-124-E: Per-chat изоляция для danger-cooldown
-- [ ] T-124-F: Thread-safety: словари `_last_otboy_by_chat` и `_last_danger_by_chat` независимы
-- [ ] T-124-G: DEBUG/INFO при cooldown active/expired для danger
-- [ ] T-124-H: Edge: `DANGER_COOLDOWN_SECONDS=0` → без ограничений
-
-**T-125: Update config/settings.py and .env.example**
-- [ ] T-125-A: `DANGER_COOLDOWN_SECONDS: int = 60` в settings.py
-- [ ] T-125-B: `DANGER_COOLDOWN_SECONDS=60` в .env.example
-- [ ] T-125-C: `COMMON_COOLDOWN_SECONDS` без изменений (default=0)
-- [ ] T-125-D: Параметр читается из os.getenv
-- [ ] T-125-E: Документировать разницу в описании параметров
-
-**T-126: Update bot.py for new CommonRelay initialization**
-- [ ] T-126-A: `on_startup()` → `CommonRelay(..., danger_cooldown=settings.DANGER_COOLDOWN_SECONDS)`
-- [ ] T-126-B: Импорты актуальны
-- [ ] T-126-C: Сигнатура `CommonRelay.__init__`: `cooldown_seconds` + `danger_cooldown`
-- [ ] T-126-D: `setup_common(relay)` передаёт relay в handler'ы
-- [ ] T-126-E: Propagation не сломан (handler'ы возвращают None)
-
-**T-127: Comprehensive tests for all fixes**
-- [ ] T-127-A: `_scan_directory` — возвращает все медиа-файлы
-- [ ] T-127-B: `_scan_directory` — исключает не-медиа
-- [ ] T-127-C: `_scan_directory` — пустая директория → [], без исключений
-- [ ] T-127-D: `_pick_media` — random.choice равномерно распределён (100 выборок из 14)
-- [ ] T-127-E: `_pick_media` — 1 файл → всегда он
-- [ ] T-127-F: `_detect_media_type` — все позиции "gif" (5+ паттернов, параметризованный)
-- [ ] T-127-G: `_detect_media_type` — без "gif" → video
-- [ ] T-127-H: `_detect_media_type` — case-insensitive: GIF, Gif, gif
-- [ ] T-127-I: `_detect_media_type` — image-расширения → photo
-- [ ] T-127-J: `_detect_media_type` — не-медиа → None/exception
-- [ ] T-127-K: `send_danger()` — cooldown active → не отправляет
-- [ ] T-127-L: `send_danger()` — cooldown expired → отправляет
-- [ ] T-127-M: `send_danger()` — DANGER_COOLDOWN_SECONDS=0 → без ограничений
-- [ ] T-127-N: `send_otboy()` — COMMON_COOLDOWN_SECONDS (независимо от danger)
-- [ ] T-127-O: Интеграция: otboy cooldown не блокирует danger, danger cooldown не блокирует otboy
-- [ ] T-127-P: Интеграция: per-chat изоляция для обоих cooldown
-- [ ] T-127-Q: `send_common()` — полный пайплайн
-- [ ] T-127-R: Regression: существующие test_common.py тесты проходят
-- [ ] T-127-S: `pytest` — полный suite, 0 регрессий
-
-**T-128: Update README.md with changes**
-- [ ] T-128-A: Common Service — 3 исправления (file selection, GIF detection, cooldown)
-- [ ] T-128-B: `DANGER_COOLDOWN_SECONDS` в таблице конфигурации
-- [ ] T-128-C: GIF detection logic: любая позиция "gif" → animation
-- [ ] T-128-D: Version bump v2.15.0 → v2.16.0
-- [ ] T-128-E: Changelog v2.16.0
-
-**T-129: Run full test suite, verify no regressions**
-- [ ] T-129-A: `pytest -v` — все тесты
-- [ ] T-129-B: Coverage `services/common_relay.py` ≥ 100%
-- [ ] T-129-C: 14 файлов danger/ доступны (после деплоя)
-- [ ] T-129-D: GIF detection для всех 14 реальных имён
-- [ ] T-129-E: Better Stack: нет ERROR/WARNING от danger
-
-**T-130: Deploy to server**
-- [ ] T-130-A: Git commit (conventional commits) в main
-- [ ] T-130-B: Git push
-- [ ] T-130-C: SSH → сервер → git pull
-- [ ] T-130-D: .env: DANGER_COOLDOWN_SECONDS=60
-- [ ] T-130-E: Проверить `media/common/danger/` — 14 файлов, chmod 644
-- [ ] T-130-F: Restart бота
-- [ ] T-130-G: Smoke: danger-слово → случайный danger-файл, правильный тип
-- [ ] T-130-H: Smoke: gif-файл → animation (не video)
-- [ ] T-130-I: Smoke: danger через 30 сек → cooldown active
-- [ ] T-130-J: Smoke: otboy → независим от danger-cooldown
-- [ ] T-130-K: Smoke: danger через 60+ сек → отправляет снова
-- [ ] T-130-L: Проверить другие фичи: слава, war_alert, алан, вася, костик, dead_page
-- [ ] T-130-M: Better Stack логи verified
-
----
+*No items in backlog. All Epics 1-20 implemented.*
 
 ## 🔧 In Progress
 
-### Epic 18: Danger Service Fixes — 2026-08-02 🔵
-
-- [ ] T-122: Investigate and fix file scanning/selection in CommonRelay
-- [ ] T-123: Fix and verify GIF detection in filename
-- [ ] T-124: Add DANGER_COOLDOWN_SECONDS config with independent cooldown tracking
-- [ ] T-125: Update config/settings.py and .env.example
-- [ ] T-126: Update bot.py for new CommonRelay initialization
-- [ ] T-127: Comprehensive tests for all fixes
-- [ ] T-128: Update README.md with changes
-- [ ] T-129: Run full test suite, verify no regressions
-- [ ] T-130: Deploy to server
-
----
+*No items in progress.*
 
 ## ✅ Done
+
+### Epic 20: Slavik Random Media Enhancement — 2026-08-02 ✅ IMPLEMENTED
+
+- [x] T-139: Verify reply behavior — message.answer_* replies without quoting
+- [x] T-140: Add audio support (.mp3) to _detect_slavik_media_type
+- [x] T-141: Add voice (.ogg) and document support to _detect_slavik_media_type
+- [x] T-142: Add audio sending to _send_slavik_media (answer_audio)
+- [x] T-143: Add voice and document sending to _send_slavik_media
+- [x] T-144: Verify and harden GIF detection from filename
+- [x] T-145: Add comprehensive tests for all 6 media types (61 tests)
+- [x] T-146: Run full test suite, verify no regressions
+- [x] T-147: Update README with ironic tone about the changes
+- [x] T-148: Commit and push (deploy leave to DevOps agent)
+
+### Epic 19: Сервис Olya — автоответ на видео от @ole4444444ka — 2026-08-02 ✅ DEPLOYED
+
+- [x] T-131: Создать `filters/olya_video.py` — `OlyaVideoFilter` (UserId 834424825 + видео + детекция SaveAsBot)
+- [x] T-132: Создать `services/olya_relay.py` — `OlyaRelay` (plain send, медиа-автоопределение, cooldown)
+- [x] T-133: Создать `handlers/olya.py` — `olya_router` + `olya_handler` + `setup_olya()`
+- [x] T-134: Добавить конфигурацию Olya в `config/settings.py` (+8 полей) и `.env.example`
+- [x] T-135: Зарегистрировать `olya_router` в `bot.py` (позиция 4d, после common_router, до slavik_router)
+- [x] T-136: Написать тесты `tests/test_olya.py` (15-20 тестов: фильтр, сервис, хендлер, интеграционные, corner cases)
+- [x] T-137: Обновить README.md — добавить документацию Epic 19
+- [x] T-138: Деплой на сервер (git pull, systemctl restart, проверка статуса)
+
+### Epic 18: Danger Service Fixes — File Selection, GIF Detection, Cooldown — 2026-08-02 ✅ DEPLOYED
+
+- [x] T-122-A–J: File scanning/selection
+- [x] T-123-A–H: GIF detection in filename
+- [x] T-124-A–H: DANGER_COOLDOWN_SECONDS config with independent cooldown
+- [x] T-125-A–E: Update config/settings.py and .env.example
+- [x] T-126-A–E: Update bot.py for new CommonRelay initialization
+- [x] T-127-A–S: Comprehensive tests for all fixes
+- [x] T-128-A–E: Update README.md with changes
+- [x] T-129-A–E: Run full test suite, verify no regressions
+- [x] T-130-A–M: Deploy to server
 
 ### Epic 17: Danger Word Fix — 2026-07-30
 - [x] T-115: Проверить медиа-файлы danger/ на сервере
@@ -352,4 +267,4 @@
 
 ---
 
-**Updated:** 2026-08-02 — Epic 17 archived (DONE). Epic 18 (Danger Service Fixes) created. v2.16.0 target.
+**Updated:** 2026-08-02 — All Epics 1-20 IMPLEMENTED ✅. Epic 20 (Slavik Random Media Enhancement) approved, 570 tests pass, ready for deploy. v2.18.0.

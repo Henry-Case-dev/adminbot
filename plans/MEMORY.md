@@ -1,25 +1,25 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.17.0 (IMPLEMENTED) — READY FOR DEPLOY
+> **Версия:** v2.18.0 (IMPLEMENTED, Epic 20)
 > **Дата:** 2026-08-02
-> **Статус:** Epics 1-18 DEPLOYED ✅. Epic 19 IMPLEMENTED ✅. 509 тестов.
-> **Текущий коммит:** `c4694c0` (v2.16.0 deployed), master branch.
-> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, PID 694761, memory 140.1M, 0 errors.
+> **Статус:** Epics 1-20 IMPLEMENTED ✅. Epic 20 APPROVED. 570 тестов PASS. Готово к деплою.
+> **Текущий коммит:** `f57add4` (v2.17.0 deployed → v2.18.0 ready), master branch.
+> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, PID 697059, memory 79.6M, 0 errors.
 
 ---
 
-## 🔍 Context Sync Summary (2026-08-02) — Epic 19 FINAL SYNC
+## 🔍 Context Sync Summary (2026-08-02) — Epic 20 FINAL SYNC
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Epics 1-18** | ✅ DEPLOYED | 120+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C. v2.16.0 в продакшене. |
-| **Epic 19** | 🟢 IMPLEMENTED | Olya Service — IMPLEMENTED and APPROVED by Reviewer. 8 задач T-131–T-138 COMPLETE. 31 new tests. |
-| **Review** | ✅ APPROVED | 6 issues fixed (3 HIGH, 2 MEDIUM, 1 LOW). KG populated with OlyaReviewFixes. |
-| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: running. v2.16.0 в проде. |
+| **Epics 1-20** | ✅ IMPLEMENTED | 130+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C + Epic 19 T-131–T-138 + Epic 20 T-139–T-148. v2.18.0 готов к деплою. |
+| **Epic 20** | ✅ APPROVED | Slavik Random Media Enhancement — IMPLEMENTED and APPROVED. 10 задач + 61 тест. 2 файла изменено. |
+| **Review** | ✅ APPROVED | Epic 20 tests: 570 pass (509 baseline + 61 new). Zero regressions. |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: active (running). PID 697059, 79.6M. v2.17.0 в проде, v2.18.0 ready. |
 
 ---
 
-## 🟢 Epic 19: Olya Service — v2.17.0 (IMPLEMENTED, 2026-08-02)
+## ✅ Epic 19: Olya Service — v2.17.0 (DEPLOYED, 2026-08-02)
 
 > **Цель:** Создать standalone сервис для пользователя @ole4444444ka (ID 834424825).
 > При получении видео-сообщения (или репоста видео) от этого пользователя бот отправляет
@@ -104,7 +104,7 @@
 | **T-135** | Добавить конфигурацию в `config/settings.py` + `.env.example` | `config/` | ✅ IMPLEMENTED |
 | **T-136** | Зарегистрировать `olya_router` в `bot.py` (позиция 4d) | `bot.py` | ✅ IMPLEMENTED |
 | **T-137** | Полное тестовое покрытие — фильтр, сервис, хендлер, corner cases | `tests/` | ✅ IMPLEMENTED |
-| **T-138** | Деплой на сервер, коммит, пуш, рестарт | DevOps | 🔵 READY FOR DEPLOY |
+| **T-138** | Деплой на сервер, коммит, пуш, рестарт | DevOps | ✅ DEPLOYED (f57add4, 2026-08-02) |
 
 ### Ключевые отличия от CommonRelay
 
@@ -498,6 +498,94 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 
 ---
 
+## ✅ Epic 20: Slavik Random Media Enhancement — v2.18.0 (IMPLEMENTED, 2026-08-02)
+
+> **Цель:** Расширить поддержку медиа-типов в slavik random media picker до полного паритета с CommonRelay.
+> **Статус:** IMPLEMENTED ✅ — все 10 задач T-139–T-148 выполнены. 570 тестов проходят.
+> **Версия:** v2.18.0 (implemented, ready for deploy).
+
+### Overview
+
+Epic 20 расширяет `handlers/slavik.py` с 3 до 6 поддерживаемых медиа-типов: photo, video, animation, **audio**, **voice**, **document**. Документ служит универсальным fallback-ом для любых неподдерживаемых форматов (PDF, MKV, ZIP и т.д.). GIF-детекция усилена word-boundary проверками (паритет с CommonRelay Epic 18 fix).
+
+### Ключевые ограничения
+
+| Ограничение | Детали |
+|-------------|--------|
+| **Scope** | Только `handlers/slavik.py` — 3 приватные функции |
+| **Новые файлы** | ❌ Ни одного |
+| **Изменения роутера** | ❌ Позиция, фильтры, хэндлеры — без изменений |
+| **Изменения БД** | ❌ `slavic_photo_count_tick` не меняется |
+| **Изменения конфига** | ❌ Никаких новых env-переменных |
+| **Reply behaviour** | ❌ Уже корректно — `message.answer_*` делает reply без quote |
+
+### Design Decisions (D49–D53)
+
+| # | Решение | Описание |
+|---|---------|----------|
+| **D49** | Reply без quote — CONFIRMED | `message.answer_*()` методы уже делают auto-reply без quote. Менять ничего не надо. |
+| **D50** | Media type parity | Расширение с 3 до 6 типов: +audio (.mp3), +voice (.ogg), +document (всё остальное) |
+| **D51** | GIF detection hardened | `filepath.stem` → `filepath.name` с 3 word-boundary проверками (`_gif`, `startswith("gif")`, `.gif.`) |
+| **D52** | Document fallback | `_detect_slavik_media_type()` всегда возвращает `str` (не `str\|None`). Любой файл отправляется как document. |
+| **D53** | Code scope | Только 3 функции в 1 файле. ~30 строк изменений. |
+
+### Media Type Matrix (после Epic 20)
+
+| Расширение | Условие | Тип | Send метод |
+|-----------|---------|-----|-----------|
+| `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp` | — | `photo` | `answer_photo` |
+| `.mp4`, `.mov`, `.webm` | нет "gif" в имени | `video` | `answer_video` |
+| `.mp4`, `.mov`, `.webm` | есть "gif" (word-boundary) | `animation` | `answer_animation` |
+| `.mp3` | — | `audio` | `answer_audio` |
+| `.ogg` | — | `voice` | `answer_voice` |
+| всё остальное | — | `document` | `answer_document` |
+
+### Задачи Epic 20
+
+| Task | Название | Компонент | Статус |
+|------|----------|-----------|--------|
+| **T-139** | Архитектурное проектирование | `plans/ARCHITECTURE.md` Section 28 | ✅ IMPLEMENTED |
+| **T-140** | Расширить `_detect_slavik_media_type()` — audio, voice, document | `handlers/slavik.py` | ✅ IMPLEMENTED |
+| **T-141** | Усилить GIF-детекцию — `filepath.stem` → `filepath.name` + word-boundary | `handlers/slavik.py` | ✅ IMPLEMENTED |
+| **T-142** | Реализовать document fallback (всегда возвращать str) | `handlers/slavik.py` | ✅ IMPLEMENTED |
+| **T-143** | Добавить audio/voice/document send-ветки в `_send_slavik_media()` | `handlers/slavik.py` | ✅ IMPLEMENTED |
+| **T-144** | Per-entry OSError handling + INFO-лог в `_pick_random_slavik_media()` | `handlers/slavik.py` | ✅ IMPLEMENTED |
+| **T-145** | Unit-тесты `_detect_slavik_media_type` — новые типы + GIF + регрессия | `tests/` | ✅ IMPLEMENTED |
+| **T-146** | Unit-тесты `_send_slavik_media` — 6 send-методов | `tests/` | ✅ IMPLEMENTED |
+| **T-147** | Unit-тесты `_pick_random_slavik_media` — document fallback + OSError | `tests/` | ✅ IMPLEMENTED |
+| **T-148** | Синхронизация документации (MEMORY.md, board.md, backlog.md) | `plans/` | ✅ IMPLEMENTED |
+
+### Функции для изменения
+
+| Функция | Текущее поведение | Новое поведение |
+|---------|-------------------|-----------------|
+| `_detect_slavik_media_type(filepath) → str\|None` | 3 типа, `None` для unsupported | **6 типов**, всегда `str` (document fallback) |
+| `_send_slavik_media(message, filepath, media_type)` | 3 send-ветки + хрупкий `else → answer_photo` | **6 send-веток**, убран хрупкий fallback |
+| `_pick_random_slavik_media() → tuple\|None` | Фильтрует `media_type is not None`, нет OSError-handling | **Включает все файлы**, per-entry OSError try/except, INFO-лог |
+
+### Тест-план (~31 тест)
+
+| Категория | Количество | Описание |
+|-----------|-----------|----------|
+| Новые типы (audio/voice/document) | 7 тестов | .mp3, .ogg, .pdf, .mkv, .zip, без расширения, .txt |
+| GIF-детекция (hardened) | 6 тестов | _gif, gif-prefix, .gif., gift != gif, обычное видео |
+| Регрессия (существующие типы) | 8 тестов | photo (.jpg/.png/.webp/.bmp), video (.mp4/.mov/.webm), animation (.webm+gif) |
+| Новые send-методы | 6 тестов | answer_photo, answer_video, answer_animation, answer_audio, answer_voice, answer_document |
+| Document fallback | 3 теста | mix типов, только .pdf, .txt |
+| Per-entry OSError | 1 тест | битый файл + нормальный |
+| **Total** | **~31** | **509 baseline → ~540** |
+
+### Риски
+
+| Риск | Вероятность | Влияние | Митигация |
+|------|-----------|---------|-----------|
+| `answer_document()` не поддерживается старой версией aiogram | Низкая | Высокое | aiogram 3.29.1 (используется) поддерживает с 3.0 |
+| Файлы без расширения падают при отправке | Низкая | Среднее | `FSInputFile` + `answer_document` обрабатывает любые файлы |
+| Изменение сигнатуры ломает неучтённых вызывателей | Низкая | Низкое | Приватная функция, один caller в том же файле |
+| GIF-детекция пропускает edge-case имена | Низкая | Среднее | Правила идентичны CommonRelay (Epic 18 verified) |
+
+---
+
 ## Previous Completed Epics
 
 | Version | Date | Epic | Tasks | Tests |
@@ -520,7 +608,8 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 | v2.13.0 | 2026-07-30 | Epic 17 (Danger Word Fix) | T2–T4 | 399 |
 | v2.15.0 | 2026-08-02 | 4 Major Fixes (propagation, mimic v2, slavik random media, dead_page relay) | — | 458 |
 | **v2.16.0** | **2026-08-02** | **Epic 18 (Danger Service Fixes)** | **A/B/C** | **478** |
-| **v2.17.0** | **2026-08-02** | **Epic 19 (Olya Service)** 🟢 | **T-131–T-138** | **509** |
+| **v2.17.0** | **2026-08-02** | **Epic 19 (Olya Service)** ✅ | **T-131–T-138** | **509** |
+| **v2.18.0** | **2026-08-02** | **Epic 20 (Slavik Random Media Enhancement)** ✅ | **T-139–T-148** | **570** |
 
 ---
 
@@ -528,13 +617,13 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 18 Epics) ✅ |
-| **Done** | Epic 19: T-131 – T-138 (IMPLEMENTED and APPROVED, ready for deploy) 🟢 |
-| **Pending** | Epic 19: T-138 (Deploy to server) 🔵 |
+| **DEPLOYED** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 18 Epics) ✅ |
+| **DEPLOYED** | Epic 19: T-131 – T-138 (DEPLOYED to production, commit f57add4) ✅ |
+| **IMPLEMENTED** | Epic 20: T-139 – T-148 (Slavik Random Media Enhancement — approved, 570 tests, ready for deploy) ✅ |
 
-> Epics 1-18 DEPLOYED ✅. Epic 19 (Olya Service) IMPLEMENTED — approved by Reviewer, ready for deployment.
-> 509 тестов, 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг. Commit: c4694c0.
-> 19 Epic'ов: 18 deployed + 1 implemented and approved. Ноль известных багов.
+> Epics 1-20 IMPLEMENTED ✅. Epic 20 APPROVED 🔮. Проект PRODUCTION-READY v2.18.0.
+> 570 тестов. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
+> Ноль известных багов. Все сервисы инициализированы корректно. Бот активен.
 
 ---
 
@@ -542,19 +631,19 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.16.0 (deployed) |
-| **Следующая версия** | v2.17.0 (Epic 19 — Olya Service, IMPLEMENTED — READY FOR DEPLOY) |
-| **Текущий коммит** | `c4694c0` (v2.16.0 deployed) |
+| **Версия в проде** | v2.17.0 (deployed) → v2.18.0 (ready for deploy) |
+| **Следующая версия** | v2.18.0 (Epic 20 — IMPLEMENTED and APPROVED, ready for DevOps) |
+| **Текущий коммит** | `f57add4` (v2.17.0 deployed) → next commit for v2.18.0 |
 | **Дата** | 2026-08-02 |
 | **Сервер** | nik@198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), PID 694761, memory 140.1M |
+| **Статус** | systemctl status adminbot → active (running), PID 697059, memory 79.6M |
 | **Git remote** | origin/master — pushed успешно |
-| **Тесты** | 509 PASS (все зелёные) |
-| **Эпики** | 1-18 DEPLOYED ✅, 19 IMPLEMENTED ✅ (READY FOR DEPLOY) |
-| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED), T-131–T-138 (IMPLEMENTED) |
+| **Тесты** | 570 PASS (все зелёные) |
+| **Эпики** | 1-19 DEPLOYED ✅. Epic 20 IMPLEMENTED ✅. Все 20 Epic'ов готовы. |
+| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C + Epic 19 T-131–T-138 + Epic 20 T-139–T-148 (ALL IMPLEMENTED) |
 | **Ошибки** | 0 errors в логах. Все сервисы инициализированы корректно. |
 
 ---
 
-*Обновление: 2026-08-02 — EPIC 19 STATUS: IMPLEMENTED ✅. Olya Service полностью реализован и одобрен Reviewer-ом. 4 новых файла (filters/olya_video.py, services/olya_relay.py, handlers/olya.py, tests/test_olya.py), 4 изменённых (config/settings.py, bot.py, .env.example, README.md). 31 новый тест (+ 6 review fixes). Все 509 тестов проходят. 6 review issues исправлено (3 HIGH: UNHANDLED propagation, GIF false-positive, silent exceptions; 2 MEDIUM: OSError in scan, test assertion; 1 LOW: README metrics). Knowledge Graph синхронизирован: Epic-19-Olya-Service статус IMPLEMENTED, создан OlyaReviewFixes, все задачи T-131–T-136 статус IMPLEMENTED, T-138 статус READY FOR DEPLOY. MEMORY.md обновлён — Epic 19 статус DESIGNED → IMPLEMENTED. Готово к деплою на сервер.*
+*Обновление: 2026-08-02 — EPIC 20 STATUS: IMPLEMENTED ✅. Slavik Random Media Enhancement реализован и одобрен. Scope: только handlers/slavik.py (3 функции) + tests/test_slavik_media_types.py (новый, 61 тест). 570 тестов проходят. 6 медиа-типов (photo/video/animation/audio/voice/document), document как универсальный fallback, GIF-детекция hardened (filepath.name + word-boundary). Никаких изменений роутеров, БД или конфигурации. Knowledge Graph синхронизирован: Epic 20 → IMPLEMENTED, AdminBot → v2.18.0. MEMORY.md, board.md, backlog.md обновлены. Готово к деплою (DevOps).*

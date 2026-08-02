@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.15.0-draft (Architect Investigation)
+> **Версия:** v2.18.0
 > **Дата:** 2026-08-02
-> **Статус:** Архитектурное расследование четырёх задач. Реализация НЕ начата — этот документ есть контракт для Builder.
+> **Статус:** Архитектурный контракт. Содержит дизайн Epic 18-20. Реализация НЕ начата.
 > **Автор:** @Architect
 
 ---
@@ -1728,3 +1728,415 @@ To disable Olya service:
 ---
 
 @Orchestrator Epic 19 architecture ready, passing the baton.
+
+---
+
+## Section 28: Epic 20 — Slavik Random Media Enhancement (v2.18.0)
+
+> **Дата:** 2026-08-02
+> **Статус:** Архитектурный дизайн. Реализация НЕ начата.
+> **Затрагиваемые файлы:** `handlers/slavik.py` (3 функции: `_detect_slavik_media_type`, `_send_slavik_media`, `_pick_random_slavik_media`). Никаких новых файлов, изменений роутера или БД.
+
+---
+
+### 28.1 Overview and Scope
+
+Epic 20 расширяет поддержку медиа-типов в slavik random media picker (`handlers/slavik.py`) до полного паритета с `CommonRelay` (`services/common_relay.py`). Текущая реализация поддерживает только photo, video и animation. Цель — добавить audio, voice и document (как fallback для любых неподдерживаемых форматов), а также усилить GIF-детекцию.
+
+**Критическое ограничение:** изменения затрагивают **ТОЛЬКО** `handlers/slavik.py`. Никакие другие файлы не модифицируются. Новые файлы не создаются. Роутеры, настройки, БД — без изменений.
+
+**Связанные эпики:**
+- Epic 16 (Slavik Random Media Picker) — реализован в текущей версии, заложил основу (photo/video/animation)
+- Epic 18 (Danger Service Fixes) — улучшил GIF-детекцию и per-entry OSError handling в CommonRelay
+- Epic 19 (Olya Service) — содержит `OlyaRelay._detect_media_type()` с полным набором типов (включая audio/voice)
+
+---
+
+### 28.2 Design Decisions (D49–D53)
+
+#### D49: Reply Behaviour — No Changes Needed (CONFIRMED)
+
+`message.answer_*()` методы в aiogram 3.x автоматически отвечают на оригинальное сообщение **без цитирования** (без вызова `send_*` с `ReplyParameters`). Это стандартное поведение Telegram Bot API для `answer_*` шорткатов — `reply_to_message_id` подставляется автоматически, `quote` отсутствует.
+
+В отличие от `CommonRelay` и `OlyaRelay`, которые используют `bot.send_*()` (требуется ручная передача `chat_id` и опциональных `ReplyParameters`), slavik handler использует `message.answer_*()`. Разница:
+
+| Метод | Тип вызова | Reply поведение | Quote |
+|-------|-----------|----------------|-------|
+| `message.answer_photo(photo=...)` | Shortcut | Auto-reply (без quote) | ❌ |
+| `message.answer_video(video=...)` | Shortcut | Auto-reply (без quote) | ❌ |
+| `message.answer_animation(animation=...)` | Shortcut | Auto-reply (без quote) | ❌ |
+| `message.answer_audio(audio=...)` | Shortcut | Auto-reply (без quote) | ❌ |
+| `message.answer_voice(voice=...)` | Shortcut | Auto-reply (без quote) | ❌ |
+| `message.answer_document(document=...)` | Shortcut | Auto-reply (без quote) | ❌ |
+| `bot.send_photo(chat_id=..., reply_parameters=...)` | Raw API | Ручное управление | ✅ (если передан) |
+
+**Вердикт:** reply-поведение slavik handler **уже корректно**. Никаких изменений не требуется. `message.answer_*` методы делают именно то, что нужно — reply без quote.
+
+---
+
+#### D50: Media Type Detection Parity with CommonRelay
+
+Текущая `_detect_slavik_media_type()` поддерживает 3 типа (photo, video, animation). `CommonRelay._detect_media_type()` поддерживает 5 типов (photo, video, animation, audio, voice). **Расширяем до 6 типов** — добавляем document как универсальный fallback.
+
+**Статус расширений:**
+
+| Тип | Расширения | Текущий slavik | CommonRelay | Epic 20 |
+|-----|-----------|:---:|:---:|:---:|
+| photo | .jpg, .jpeg, .png, .webp, .bmp | ✅ | ✅ | ✅ |
+| video | .mp4, .mov, .webm (без "gif") | ✅ | ✅ | ✅ |
+| animation | .mp4, .mov, .webm (с "gif") | ✅ | ✅ | ✅ |
+| audio | .mp3 | ❌ | ✅ | ✅ (NEW) |
+| voice | .ogg | ❌ | ✅ | ✅ (NEW) |
+| document | всё остальное (fallback) | ❌ | ❌ | ✅ (NEW) |
+
+**Архитектурное обоснование document-fallback:**
+- CommonRelay возвращает `None` для неподдерживаемых форматов → файл игнорируется при сканировании
+- Slavik handler НЕ может позволить себе игнорировать файлы — если пользователь положил `.pdf` или `.mkv` в `slavik_random/`, это валидный медиа-файл, который должен быть отправлен
+- `message.answer_document()` отправляет любой файл как документ — Telegram сам определит MIME-тип
+- Это делает slavik random media более устойчивым (robust) — **любой** файл в директории будет отправлен
+
+---
+
+#### D51: GIF Detection — Switch from `filepath.stem` to `filepath.name`
+
+**Текущий код** (`handlers/slavik.py` строка 36):
+```python
+if "gif" in filepath.stem.lower():
+    return "animation"
+```
+
+**Проблемы:**
+1. Несогласованность с CommonRelay — тот использует `filepath.name.lower()` (после Epic 18 fix)
+2. `filepath.stem` обрезает расширение: `file.gift.mp4` → stem = `file.gift` → содержит "gif" → **ложное срабатывание** (gift ≠ gif)
+3. Не проверяет word-boundary — любой "gif" в любом месте имени считается анимацией
+
+**Новый код (целевой):**
+```python
+if ext in _VIDEO_EXTENSIONS:
+    fname = filepath.name.lower()
+    if "_gif" in fname or fname.startswith("gif") or ".gif." in fname:
+        return "animation"
+    return "video"
+```
+
+**Правила матчинга (паритет с CommonRelay):**
+
+| Имя файла | `_gif` | `startswith("gif")` | `.gif.` | Результат |
+|-----------|:------:|:-------------------:|:-------:|-----------|
+| `slavic_chlen.mp4` | ❌ | ❌ | ❌ | video |
+| `danger_02_gif.mp4` | ✅ | ❌ | ✅ | animation |
+| `cringe_gif.mp4` | ✅ | ❌ | ❌ | animation |
+| `gif_animation.mp4` | ❌ | ✅ | ❌ | animation |
+| `some.gif.mp4` | ❌ | ❌ | ✅ | animation |
+| `file.gift.mp4` | ❌ | ❌ | ❌ | **video** (корректно!) |
+| `gift_box.mp4` | ❌ | ❌ | ❌ | video |
+
+**Почему `filepath.name` вместо `filepath.stem`:**
+- `Path("file.gift.mp4").stem` → `"file.gift"` → содержит "gif" — ложный animation
+- `Path("file.gift.mp4").name` → `"file.gift.mp4"` → `.gif.` не матчит, `_gif` не матчит, `startswith("gif")` не матчит → video (корректно)
+- `Path("danger_02_gif.mp4").name` → `"danger_02_gif.mp4"` → `_gif` матчит → animation (корректно)
+
+---
+
+#### D52: Fallback to Document — Robustness for Unsupported Formats
+
+**Текущее поведение:**
+- `_detect_slavik_media_type()` возвращает `None` для неподдерживаемых расширений
+- `_pick_random_slavik_media()` фильтрует `media_type is not None` → неподдерживаемые файлы **игнорируются**
+- `_send_slavik_media()` имеет `else`-ветку с fallback на `answer_photo` (хрупко — может упасть для не-photo файлов)
+
+**Новое поведение:**
+- `_detect_slavik_media_type()` возвращает `"document"` для ВСЕХ неподдерживаемых расширений (вместо `None`)
+- `_pick_random_slavik_media()` включает ВСЕ файлы (фильтр `media_type is not None` больше не отсекает — теперь `"document"` — валидный тип)
+- `_send_slavik_media()` вызывает `message.answer_document(document=input_file)` для типа `"document"`
+- Убирается хрупкий `else` → `answer_photo` fallback
+
+**Пример:** пользователь положил `slavik_ebook.pdf` в `slavik_random/`:
+- Было: `_detect_slavik_media_type()` → `None` → файл игнорируется при сканировании
+- Стало: `_detect_slavik_media_type()` → `"document"` → файл выбирается → `message.answer_document(document=FSInputFile("slavik_ebook.pdf"))`
+
+---
+
+#### D53: Code Changes Scope — Only 3 Functions in 1 File
+
+| Изменение | Файл | Функция | Тип изменения |
+|-----------|------|---------|--------------|
+| Добавить audio/voice/document детекцию + hardened GIF | `handlers/slavik.py` | `_detect_slavik_media_type()` | Расширение логики |
+| Добавить audio/voice/document send-ветки | `handlers/slavik.py` | `_send_slavik_media()` | Добавление elif-веток |
+| Включить все файлы (убрать фильтр по None) + per-entry OSError | `handlers/slavik.py` | `_pick_random_slavik_media()` | Изменение фильтрации + robustness |
+
+**Что НЕ меняется:**
+- `config/settings.py` — нет новых env-переменных
+- `.env.example` — без изменений
+- `bot.py` — нет изменений в регистрации роутеров
+- Роутер `slavik_router` — позиция, фильтры, хэндлеры — без изменений
+- `slavik_catchall_handler` — логика вызова `_pick_random_slavik_media()` и `_send_slavik_media()` остаётся прежней
+- БД — `slavic_photo_count_tick` не меняется
+- `media/slavik/` структура — не меняется
+
+---
+
+### 28.3 Media Type Detection Matrix
+
+Полная матрица: расширение → тип медиа (после Epic 20):
+
+| Расширение | Условие | Тип | Send метод |
+|-----------|---------|-----|-----------|
+| `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp` | — | `photo` | `message.answer_photo(photo=input_file)` |
+| `.mp4`, `.mov`, `.webm` | имя НЕ содержит "gif" | `video` | `message.answer_video(video=input_file)` |
+| `.mp4`, `.mov`, `.webm` | имя содержит "gif" (word-boundary) | `animation` | `message.answer_animation(animation=input_file)` |
+| `.mp3` | — | `audio` | `message.answer_audio(audio=input_file)` |
+| `.ogg` | — | `voice` | `message.answer_voice(voice=input_file)` |
+| любое другое | — | `document` | `message.answer_document(document=input_file)` |
+
+**GIF word-boundary правила:**
+- `"_gif"` в имени → animation (e.g. `slavic_gif.mp4`)
+- имя начинается с `"gif"` → animation (e.g. `gif_slavic.mp4`)
+- `".gif."` в имени → animation (e.g. `slavic.gif.mp4`)
+
+---
+
+### 28.4 Function-Level Before/After
+
+#### 28.4.1 `_detect_slavik_media_type(filepath: Path) -> str`
+
+**Было (3 типа, возвращает None для unsupported):**
+```python
+def _detect_slavik_media_type(filepath: Path) -> str | None:
+    ext = filepath.suffix.lower()
+    if ext in _IMAGE_EXTENSIONS:
+        return "photo"
+    if ext in _VIDEO_EXTENSIONS:
+        if "gif" in filepath.stem.lower():
+            return "animation"
+        return "video"
+    return None
+```
+
+**Стало (6 типов, ВСЕГДА возвращает str):**
+```python
+_IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+_VIDEO_EXTENSIONS: set[str] = {".mp4", ".mov", ".webm"}
+_AUDIO_EXTENSIONS: set[str] = {".mp3"}
+_VOICE_EXTENSIONS: set[str] = {".ogg"}
+
+def _detect_slavik_media_type(filepath: Path) -> str:
+    ext = filepath.suffix.lower()
+    if ext in _IMAGE_EXTENSIONS:
+        return "photo"
+    if ext in _VIDEO_EXTENSIONS:
+        fname = filepath.name.lower()
+        if "_gif" in fname or fname.startswith("gif") or ".gif." in fname:
+            return "animation"
+        return "video"
+    if ext in _AUDIO_EXTENSIONS:
+        return "audio"
+    if ext in _VOICE_EXTENSIONS:
+        return "voice"
+    return "document"
+```
+
+**Ключевое изменение сигнатуры:** возвращаемый тип `str | None` → `str`. Функция больше не возвращает `None` — любой файл получает валидный тип.
+
+#### 28.4.2 `_send_slavik_media(message, filepath, media_type) -> None`
+
+**Было (3 send-ветки + хрупкий photo-fallback):**
+```python
+async def _send_slavik_media(message, filepath, media_type):
+    input_file = FSInputFile(str(filepath))
+    if media_type == "photo":
+        await message.answer_photo(photo=input_file)
+    elif media_type == "video":
+        await message.answer_video(video=input_file)
+    elif media_type == "animation":
+        await message.answer_animation(animation=input_file)
+    else:
+        logger.warning("unknown media type %s", media_type)
+        await message.answer_photo(photo=input_file)
+```
+
+**Стало (6 send-веток, убран хрупкий fallback):**
+```python
+async def _send_slavik_media(message, filepath, media_type):
+    input_file = FSInputFile(str(filepath))
+    if media_type == "photo":
+        await message.answer_photo(photo=input_file)
+    elif media_type == "video":
+        await message.answer_video(video=input_file)
+    elif media_type == "animation":
+        await message.answer_animation(animation=input_file)
+    elif media_type == "audio":
+        await message.answer_audio(audio=input_file)
+    elif media_type == "voice":
+        await message.answer_voice(voice=input_file)
+    elif media_type == "document":
+        await message.answer_document(document=input_file)
+    else:
+        logger.warning("Slavic Photo: unknown media type %s for %s", media_type, filepath.name)
+```
+
+#### 28.4.3 `_pick_random_slavik_media() -> tuple[Path, str] | None`
+
+**Было (фильтрует unsupported):**
+```python
+def _pick_random_slavik_media() -> tuple[Path, str] | None:
+    media_dir = Path(settings.SLAVIC_RANDOM_DIR)
+    if not media_dir.exists():
+        return None
+    files: list[tuple[Path, str]] = []
+    for entry in media_dir.iterdir():
+        if not entry.is_file():
+            continue
+        media_type = _detect_slavik_media_type(entry)
+        if media_type is not None:       # ← отсекает unsupported
+            files.append((entry, media_type))
+    if not files:
+        return None
+    picked = random.choice(files)
+    return picked
+```
+
+**Стало (включает все файлы + per-entry OSError handling):**
+```python
+def _pick_random_slavik_media() -> tuple[Path, str] | None:
+    media_dir = Path(settings.SLAVIC_RANDOM_DIR)
+    if not media_dir.exists():
+        logger.warning("Slavic Photo: directory not found: %s", media_dir)
+        return None
+    files: list[tuple[Path, str]] = []
+    for entry in media_dir.iterdir():
+        try:
+            if not entry.is_file():
+                continue
+            media_type = _detect_slavik_media_type(entry)
+            files.append((entry, media_type))  # ← всегда добавляем (document fallback)
+        except OSError:
+            logger.warning(
+                "Slavic Photo: cannot access entry %s — skipping", entry
+            )
+            continue
+    if not files:
+        logger.warning("Slavic Photo: no files in %s", media_dir)
+        return None
+    picked = random.choice(files)
+    logger.info(
+        "Slavic Photo: picked %s (%s) from %d files in %s",
+        picked[0].name, picked[1], len(files), media_dir,
+    )
+    return picked
+```
+
+**Изменения:**
+1. Убран фильтр `if media_type is not None` — теперь `_detect_slavik_media_type()` ВСЕГДА возвращает валидный тип (document как fallback)
+2. Добавлен per-entry `OSError` try/except (паритет с CommonRelay Epic 18 fix)
+3. INFO-лог теперь показывает общее количество файлов в директории (полезно для диагностики)
+
+---
+
+### 28.5 Конфигурация (без изменений)
+
+Все существующие env-переменные остаются без изменений:
+
+| Переменная | Значение | Назначение |
+|-----------|---------|-----------|
+| `SLAVIC_RANDOM_DIR` | `media/slavik/slavik_random` | Директория с медиа (F8 Photo Interval) |
+| `SLAVIC_PHOTO_PATH` | (deprecated) | Fallback-путь к одному файлу (если RANDOM_DIR пуст) |
+| `SLAVIC_PHOTO_INTERVAL` | `10` | Каждые N ответов Славы — отправка random media |
+| `GIF_PATH` | `media/slavic_chlen.mp4` | F3 GIF Interval (НЕ затрагивается Epic 20) |
+
+---
+
+### 28.6 Тест-план (Epic 20)
+
+#### 28.6.1 `_detect_slavik_media_type` — New Types
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-D1 | `_detect_slavik_media_type(Path("song.mp3"))` | `"audio"` |
+| T-D2 | `_detect_slavik_media_type(Path("voice.ogg"))` | `"voice"` |
+| T-D3 | `_detect_slavik_media_type(Path("manual.pdf"))` | `"document"` |
+| T-D4 | `_detect_slavik_media_type(Path("video.mkv"))` | `"document"` |
+| T-D5 | `_detect_slavik_media_type(Path("archive.zip"))` | `"document"` |
+| T-D6 | `_detect_slavik_media_type(Path("no_extension"))` | `"document"` |
+| T-D7 | `_detect_slavik_media_type(Path("file.txt"))` | `"document"` |
+
+#### 28.6.2 `_detect_slavik_media_type` — GIF Detection (Hardened)
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-G1 | `_detect_slavik_media_type(Path("slavic_gif.mp4"))` | `"animation"` |
+| T-G2 | `_detect_slavik_media_type(Path("gif_animation.mp4"))` | `"animation"` |
+| T-G3 | `_detect_slavik_media_type(Path("some.gif.mp4"))` | `"animation"` |
+| T-G4 | `_detect_slavik_media_type(Path("file.gift.mp4"))` | `"video"` (НЕ animation — gift ≠ gif) |
+| T-G5 | `_detect_slavik_media_type(Path("slavic_chlen.mp4"))` | `"video"` |
+| T-G6 | `_detect_slavik_media_type(Path("gift_present.mp4"))` | `"video"` (gift ≠ gif) |
+
+#### 28.6.3 `_detect_slavik_media_type` — Regression (Existing Types)
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-R1 | `_detect_slavik_media_type(Path("photo.jpg"))` | `"photo"` |
+| T-R2 | `_detect_slavik_media_type(Path("image.png"))` | `"photo"` |
+| T-R3 | `_detect_slavik_media_type(Path("img.webp"))` | `"photo"` |
+| T-R4 | `_detect_slavik_media_type(Path("img.bmp"))` | `"photo"` |
+| T-R5 | `_detect_slavik_media_type(Path("video.mp4"))` | `"video"` |
+| T-R6 | `_detect_slavik_media_type(Path("clip.mov"))` | `"video"` |
+| T-R7 | `_detect_slavik_media_type(Path("anim.webm"))` | `"video"` |
+| T-R8 | `_detect_slavik_media_type(Path("anim_gif.webm"))` | `"animation"` (webm + gif) |
+
+#### 28.6.4 `_send_slavik_media` — New Send Methods
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-S1 | `_send_slavik_media(msg, path, "photo")` | `message.answer_photo()` called |
+| T-S2 | `_send_slavik_media(msg, path, "video")` | `message.answer_video()` called |
+| T-S3 | `_send_slavik_media(msg, path, "animation")` | `message.answer_animation()` called |
+| T-S4 | `_send_slavik_media(msg, path, "audio")` | `message.answer_audio()` called |
+| T-S5 | `_send_slavik_media(msg, path, "voice")` | `message.answer_voice()` called |
+| T-S6 | `_send_slavik_media(msg, path, "document")` | `message.answer_document()` called |
+
+#### 28.6.5 `_pick_random_slavik_media` — Document Fallback
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-P1 | Directory with .jpg + .mp3 + .pdf | 3 files returned, types: photo, audio, document |
+| T-P2 | Directory with only .pdf files | Returns random .pdf with type "document" |
+| T-P3 | Directory with .txt file (no extension logic match) | File included, type "document" |
+| T-P4 | Empty directory | Returns `None`, WARNING logged |
+| T-P5 | Missing directory | Returns `None`, WARNING logged |
+| T-P6 | Directory with 1 .mp4 + 1 broken symlink (OSError) | 1 file returned, WARNING for skipped entry |
+
+#### 28.6.6 Ответ без quote — верификация
+
+| ID | Тест | Ожидаемый результат |
+|----|------|--------------------|
+| T-Q1 | `message.answer_photo(photo=...)` | `reply_to_message_id` установлен, `reply_parameters` отсутствует, quote не цитируется |
+| T-Q2 | `message.answer_document(document=...)` | `reply_to_message_id` установлен, quote отсутствует |
+| T-Q3 | `message.answer_audio(audio=...)` | `reply_to_message_id` установлен, quote отсутствует |
+
+---
+
+### 28.7 Риски (Epic 20)
+
+| Риск | Вероятность | Влияние | Митигация |
+|------|-----------|---------|-----------|
+| `message.answer_document()` не поддерживается старой версией aiogram | Низкая | Высокое | aiogram 3.x поддерживает `answer_document` с версии 3.0; проект использует 3.29.1 |
+| Файлы без расширения получают тип `"document"` и падают при отправке | Низкая | Среднее | `FSInputFile` + `answer_document` обрабатывает любые файлы; Telegram сам определяет формат |
+| Изменение сигнатуры `_detect_slavik_media_type` (str|None → str) ломает неучтённых вызывателей | Низкая | Низкое | Функция приватная (`_`-префикс), используется только в `_pick_random_slavik_media()` — который тоже в этом же файле |
+| GIF-детекция через `filepath.name` пропускает edge-case имена | Низкая | Среднее | Правила проверены на всех текущих именах файлов; идентичны CommonRelay (Epic 18 verified) |
+
+---
+
+### 28.8 Сводка файлов и изменений для Builder
+
+| # | Файл | Что меняется | Сложность |
+|---|------|-------------|-----------|
+| **1** | `handlers/slavik.py` `_detect_slavik_media_type()` | Добавить `_AUDIO_EXTENSIONS`, `_VOICE_EXTENSIONS`; заменить `filepath.stem` на `filepath.name` с word-boundary; вернуть `"document"` вместо `None` | Низкая |
+| **2** | `handlers/slavik.py` `_send_slavik_media()` | Добавить `elif` ветки для `"audio"`, `"voice"`, `"document"`; убрать `else` → `answer_photo` fallback | Низкая |
+| **3** | `handlers/slavik.py` `_pick_random_slavik_media()` | Убрать фильтр `if media_type is not None`; добавить per-entry OSError try/except; улучшить INFO-лог | Низкая |
+
+**Общая оценка сложности:** Низкая (3 функции, ~30 строк изменений, без новых файлов, без изменений конфигурации).
+
+---
+
+@Orchestrator Epic 20 architecture ready, passing the baton.
