@@ -969,5 +969,111 @@
 
 ---
 
-**Status: Epics 1–17 ARCHIVED ✅. Epic 18 (Danger Service Fixes) — IN PROGRESS 🔵.**
-**Date: 2026-08-02 | v2.16.0 (target)**
+---
+
+## Epic 19: Сервис Olya — автоответ на видео от @ole4444444ka — 2026-08-02 🔵 PLANNED
+
+> **Цель:** Создать сервис, который при получении видео-сообщения (своего или репоста)
+> от пользователя ID 834424825 (@ole4444444ka) отправляет в ответ случайный медиа-файл
+> из `media/olya/cringe/`. Сервис использует архитектуру CommonRelay (plain send,
+> медиа-автоопределение, cooldown) и настраивается через конфиг с feature toggle.
+
+### Фильтр
+- [ ] T-131: Создать `filters/olya_video.py` — `OlyaVideoFilter`
+  - [ ] T-131-A: Фильтр проверяет `message.from_user.id == 834424825`
+  - [ ] T-131-B: Детекция видео-сообщения (своего или репост) — `message.video` или `message.video_note` или forwarded video
+  - [ ] T-131-C: Детекция SaveAsBot: (A) текст содержит "Спасибо, что пользуетесь - @SaveAsBot'ом" ИЛИ (B) репост из @SaveAsBot (ID 523131145)
+  - [ ] T-131-D: Логирование: INFO при срабатывании (chat_id, user_id, is_save_as_bot, видео тип)
+
+### Сервис
+- [ ] T-132: Создать `services/olya_relay.py` — `OlyaRelay`
+  - [ ] T-132-A: Метод `send_olya(chat_id, message_id, is_save_as_bot)` — plain send (НЕ reply)
+  - [ ] T-132-B: `_pick_media(media_dir="media/olya/cringe")` — случайный файл из директории
+  - [ ] T-132-C: `_detect_media_type(filename)` — photo, video, animation/gif, audio, voice
+  - [ ] T-132-D: GIF-детекция: если в имени файла есть "gif" → отправлять как animation
+  - [ ] T-132-E: `_send_media(chat_id, filepath, media_type, caption=None)` — единый dispatcher (photo/video/animation/audio/voice)
+  - [ ] T-132-F: Cooldown: настраиваемый (`OLYA_COOLDOWN_SECONDS`, default=60), per-chat tracking
+  - [ ] T-132-G: Plain send: НЕ reply, без цитирования, без reply_to
+  - [ ] T-132-H: Comprehensive логирование: INFO — media type, file, cooldown; WARNING — cooldown active
+
+### Хендлер
+- [ ] T-133: Создать `handlers/olya.py` — `olya_router` + `olya_handler` + `setup_olya()`
+  - [ ] T-133-A: `olya_router: Router` — MessageHandler с `OlyaVideoFilter()`
+  - [ ] T-133-B: `olya_handler` — делегирует в `OlyaRelay.send_olya()`
+  - [ ] T-133-C: `setup_olya(relay: OlyaRelay)` — инжекция зависимости relay в handler
+  - [ ] T-133-D: Handler возвращает None (не блокирует propagation к другим роутерам)
+  - [ ] T-133-E: Comprehensive логирование: INFO при вызове send_olya с chat_id и is_save_as_bot
+
+### Конфигурация
+- [ ] T-134: Добавить конфигурацию Olya в `config/settings.py` (+8 полей) и `.env.example`
+  - [ ] T-134-A: `OLYA_ENABLED: bool = True` — feature toggle
+  - [ ] T-134-B: `OLYA_USER_ID: int = 834424825` — ID пользователя @ole4444444ka
+  - [ ] T-134-C: `OLYA_SAVE_AS_BOT_USER_ID: int = 523131145` — ID @SaveAsBot
+  - [ ] T-134-D: `OLYA_MEDIA_DIR: str = "media/olya/cringe"` — директория с медиа
+  - [ ] T-134-E: `OLYA_COOLDOWN_SECONDS: int = 60` — cooldown между ответами (0 = без ограничений)
+  - [ ] T-134-F: `OLYA_CHANNEL_IDS: list[int] | None = None` — настраиваемые ID каналов (None = все чаты)
+  - [ ] T-134-G: `OLYA_CAPTION_TEXT: str | None = "Спасибо, что пользуетесь - @SaveAsBot'ом"` — настраиваемый текст подписи (None = без подписи)
+  - [ ] T-134-H: `OLYA_MEDIA_TYPE: str = "video"` — настраиваемый тип медиа ("video" | "photo")
+  - [ ] T-134-I: Обновить `.env.example` с описанием всех полей и дефолтными значениями
+
+### Интеграция
+- [ ] T-135: Зарегистрировать `olya_router` в `bot.py` (позиция 4d, после common_router, до slavik_router)
+  - [ ] T-135-A: Импортировать `olya_router`, `setup_olya` из `handlers.olya`
+  - [ ] T-135-B: Импортировать `OlyaRelay` из `services.olya_relay`
+  - [ ] T-135-C: `dp.include_router(olya_router)` — позиция 4d (после common_router, перед slavik_router)
+  - [ ] T-135-D: `on_startup()` — инициализировать `OlyaRelay(bot, ...)`, вызвать `setup_olya(relay)`
+  - [ ] T-135-E: Проверить, что OlyaRelay не блокирует propagation (handler возвращает None)
+  - [ ] T-135-F: Feature toggle: если `OLYA_ENABLED=False` — не регистрировать роутер
+
+### Тестирование
+- [ ] T-136: Написать тесты `tests/test_olya.py` (15-20 тестов: фильтр, сервис, хендлер, интеграционные, corner cases)
+  - [ ] T-136-A: OlyaVideoFilter — видео от целевого пользователя → True
+  - [ ] T-136-B: OlyaVideoFilter — видео от другого пользователя → False
+  - [ ] T-136-C: OlyaVideoFilter — не-видео от целевого пользователя → False
+  - [ ] T-136-D: OlyaVideoFilter — видео с текстом "Спасибо, что пользуетесь - @SaveAsBot'ом" → is_save_as_bot=True
+  - [ ] T-136-E: OlyaVideoFilter — репост из SaveAsBot (ID 523131145) → is_save_as_bot=True
+  - [ ] T-136-F: OlyaVideoFilter — видео без SaveAsBot → is_save_as_bot=False
+  - [ ] T-136-G: OlyaVideoFilter — forwarded видео от целевого пользователя → True
+  - [ ] T-136-H: OlyaRelay.send_olya — plain send (не reply, без reply_to)
+  - [ ] T-136-I: OlyaRelay._pick_media — случайный файл из media/olya/cringe
+  - [ ] T-136-J: OlyaRelay._detect_media_type — GIF в имени → animation
+  - [ ] T-136-K: OlyaRelay._detect_media_type — video, photo, audio, voice распознавание
+  - [ ] T-136-L: OlyaRelay cooldown — повтор в пределах cooldown → не отправляет
+  - [ ] T-136-M: OlyaRelay cooldown — после истечения → отправляет снова
+  - [ ] T-136-N: olya_handler — делегирует в OlyaRelay.send_olya с правильными параметрами
+  - [ ] T-136-O: Конфиг OLYA_ENABLED=False → olya_handler не вызывается / роутер не регистрируется
+  - [ ] T-136-P: OLYA_CHANNEL_IDS — отправляет только в указанные каналы (если настроено)
+  - [ ] T-136-Q: OLYA_CAPTION_TEXT — подпись добавляется к медиа
+  - [ ] T-136-R: Интеграция — olya_router не блокирует common/slavik/alan
+  - [ ] T-136-S: Интеграция — полный пайплайн (видео → фильтр → relay → сообщение)
+  - [ ] T-136-T: Corner: видео и "отбой" одновременно → оба сервиса срабатывают
+
+### Документация
+- [ ] T-137: Обновить README.md — добавить документацию Epic 19
+  - [ ] T-137-A: Секция "Сервис Olya (F10)" — описание, триггер, условия A/B
+  - [ ] T-137-B: Таблица конфигурации с 8 полями
+  - [ ] T-137-C: Описание логики GIF detection
+  - [ ] T-137-D: Version bump → v2.17.0
+  - [ ] T-137-E: Changelog entry для v2.17.0
+
+### Деплой
+- [ ] T-138: Деплой на сервер (git pull, systemctl restart, проверка статуса)
+  - [ ] T-138-A: Git commit (conventional commits) в main
+  - [ ] T-138-B: Git push
+  - [ ] T-138-C: SSH → сервер → git pull
+  - [ ] T-138-D: .env: добавить OLYA_* переменные (если переопределяются дефолты)
+  - [ ] T-138-E: Создать директорию `media/olya/cringe/` на сервере, загрузить файлы
+  - [ ] T-138-F: systemctl restart adminbot
+  - [ ] T-138-G: Smoke test: видео от Olya → ответ с медиа из cringe/
+  - [ ] T-138-H: Smoke test: видео с "Спасибо, что пользуетесь - @SaveAsBot'ом" → ответ
+  - [ ] T-138-I: Smoke test: видео без SaveAsBot текста → всё равно ответ
+  - [ ] T-138-J: Smoke test: cooldown 60s работает
+  - [ ] T-138-K: Smoke test: другие фичи не сломаны (common, slavik, alan, dead_page)
+  - [ ] T-138-L: Better Stack логи verified
+
+**Файлы:** `filters/olya_video.py` (новый), `services/olya_relay.py` (новый), `handlers/olya.py` (новый), `config/settings.py`, `.env.example`, `bot.py`, `tests/test_olya.py` (новый), `README.md`
+
+---
+
+**Status: Epics 1–17 ARCHIVED ✅. Epic 18 (Danger Service Fixes) — IN PROGRESS 🔵. Epic 19 (Сервис Olya) — PLANNED 🔵.**
+**Date: 2026-08-02 | v2.17.0 (target)**

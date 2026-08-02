@@ -2,6 +2,17 @@
 
 ## 📋 Backlog
 
+### Epic 19: Сервис Olya — автоответ на видео от @ole4444444ka — 2026-08-02 🔵 PLANNED
+
+- [ ] T-131: Создать `filters/olya_video.py` — `OlyaVideoFilter` (UserId 834424825 + видео + детекция SaveAsBot)
+- [ ] T-132: Создать `services/olya_relay.py` — `OlyaRelay` (plain send, медиа-автоопределение, cooldown)
+- [ ] T-133: Создать `handlers/olya.py` — `olya_router` + `olya_handler` + `setup_olya()`
+- [ ] T-134: Добавить конфигурацию Olya в `config/settings.py` (+8 полей) и `.env.example`
+- [ ] T-135: Зарегистрировать `olya_router` в `bot.py` (позиция 4d, после common_router, до slavik_router)
+- [ ] T-136: Написать тесты `tests/test_olya.py` (15-20 тестов: фильтр, сервис, хендлер, интеграционные, corner cases)
+- [ ] T-137: Обновить README.md — добавить документацию Epic 19
+- [ ] T-138: Деплой на сервер (git pull, systemctl restart, проверка статуса)
+
 ### Epic 18: Danger Service Fixes — File Selection, GIF Detection, Cooldown — 2026-08-02 🔵 IN PROGRESS
 
 **T-122: Investigate and fix file scanning/selection in CommonRelay**

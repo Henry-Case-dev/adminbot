@@ -34,7 +34,9 @@ from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
 from handlers.war_alert import war_alert_router, setup_war_alert
 from handlers.common import common_router, setup_common, setup_common_mimic
+from handlers.olya import olya_router, setup_olya
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
+from services.olya_relay import OlyaRelay
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -122,6 +124,19 @@ async def on_startup():
 
     # 4c. Common Service (Epic 15): otboy "отбой" + danger keywords → random media with quote
     dp.include_router(common_router)
+
+    # 4d. Olya Service (Epic 19) — video from @ole4444444ka → random media (plain send)
+    if settings.OLYA_ENABLED:
+        olya_relay = OlyaRelay(
+            bot=bot,
+            cooldown_seconds=settings.OLYA_COOLDOWN_SECONDS,
+            media_base=settings.OLYA_MEDIA_BASE,
+        )
+        setup_olya(olya_relay)
+        dp.include_router(olya_router)
+        logger.info("Olya service enabled (cooldown=%.1fs)", settings.OLYA_COOLDOWN_SECONDS)
+    else:
+        logger.info("Olya service disabled (OLYA_ENABLED=False)")
 
     # 5. Slava router — user ID 479167456 (F3, F4 + catch-all; F5 moved to 4b)
     dp.include_router(slavik_router)

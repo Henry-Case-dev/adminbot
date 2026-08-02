@@ -1,20 +1,164 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.16.0 (IMPLEMENTED)
+> **Версия:** v2.17.0 (IMPLEMENTED) — READY FOR DEPLOY
 > **Дата:** 2026-08-02
-> **Статус:** Epics 1-18 IMPLEMENTED ✅. 478 тестов. Epic 18 готов к деплою.
-> **Текущий коммит:** `ba495af`, `066d5bc` (v2.15.0 deployed), Epic 18 changes staged locally.
+> **Статус:** Epics 1-18 DEPLOYED ✅. Epic 19 IMPLEMENTED ✅. 509 тестов.
+> **Текущий коммит:** `c4694c0` (v2.16.0 deployed), master branch.
+> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, PID 694761, memory 140.1M, 0 errors.
 
 ---
 
-## 🔍 Context Sync Summary (2026-08-02) — Epic 18 IMPLEMENTED
+## 🔍 Context Sync Summary (2026-08-02) — Epic 19 FINAL SYNC
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Epics 1-18** | ✅ IMPLEMENTED | 120+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C. v2.16.0 готов к деплою. |
-| **Epic 18** | ✅ IMPLEMENTED | Danger Service Fixes — 3 бага (A/B/C) FIXED. 478 тестов. |
-| **MEMORY.md** | ✅ UPDATED | v2.16.0-implemented — Epic 18 synced to KG + markdown. |
-| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: running. v2.15.0 в проде. |
+| **Epics 1-18** | ✅ DEPLOYED | 120+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C. v2.16.0 в продакшене. |
+| **Epic 19** | 🟢 IMPLEMENTED | Olya Service — IMPLEMENTED and APPROVED by Reviewer. 8 задач T-131–T-138 COMPLETE. 31 new tests. |
+| **Review** | ✅ APPROVED | 6 issues fixed (3 HIGH, 2 MEDIUM, 1 LOW). KG populated with OlyaReviewFixes. |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: running. v2.16.0 в проде. |
+
+---
+
+## 🟢 Epic 19: Olya Service — v2.17.0 (IMPLEMENTED, 2026-08-02)
+
+> **Цель:** Создать standalone сервис для пользователя @ole4444444ka (ID 834424825).
+> При получении видео-сообщения (или репоста видео) от этого пользователя бот отправляет
+> случайный медиа-файл из `media/olya/cringe/` — без reply, без quote, plain send.
+
+### User Story
+
+| Элемент | Значение |
+|---------|----------|
+| **Целевой пользователь** | ID 834424825, юзернейм @ole4444444ka |
+| **Триггер** | Сообщение с видео (или репост видео) от целевого пользователя |
+| **Условие A** | Видео содержит текст «Спасибо, что пользуетесь - @SaveAsBot'ом» ИЛИ это репост из @SaveAsBot (channel ID 523131145) → отправить случайный файл |
+| **Условие B** | Видео от целевого пользователя, НО нет ключевого текста И не репост → ВСЁ РАВНО отправить файл |
+| **Тип отправки** | Plain send — НЕ reply, без quote, без reply_to_message_id |
+| **Медиа-типы** | Любые (photo, video, animation/GIF, audio и т.д.) — как в CommonRelay |
+| **GIF-детекция** | Если имя файла содержит "gif" → отправлять как animation |
+| **Cooldown** | Настраиваемый, по умолчанию 60 секунд (1 минута) |
+| **Отключение** | Полное отключение фичи через конфиг (OLYA_ENABLED=false) |
+| **Медиа-директория** | `media/olya/cringe/` — уже существует, содержит olya_cringe_01.mp4 |
+
+### Конфигурация (планируется)
+
+| Переменная | Тип | По умолчанию | Назначение |
+|-----------|-----|-------------|------------|
+| `OLYA_ENABLED` | bool | `True` | Полное отключение сервиса |
+| `OLYA_USER_ID` | int | `834424825` | Целевой пользователь |
+| `OLYA_COOLDOWN_SECONDS` | float | `60.0` | Cooldown между отправками (0 = без ограничений) |
+| `OLYA_MEDIA_DIR` | str | `media/olya/cringe` | Директория с медиа-файлами |
+| `OLYA_CAPTION_TEXT` | str | `Спасибо, что пользуетесь - @SaveAsBot'ом` | Ключевой текст для Condition A (пустая строка = отключено) |
+| `OLYA_CHANNEL_IDS` | str | `523131145` | ID каналов для детекции репостов (пустая строка = отключено) |
+| `OLYA_MEDIA_TYPE` | str | `video` | Тип медиа-триггера: `video`, `photo`, или `video,photo` |
+
+### Архитектурный план
+
+```
+Сообщение с видео от @ole4444444ka
+        │
+        ▼
+┌─────────────────────────────────┐
+│  OlyaVideoFilter               │
+│  - UserIdFilter(834424825)     │
+│  - F.content_type == VIDEO     │
+│  (или PHOTO если OLYA_MEDIA_TYPE включает photo) │
+│  - Condition A/B detection     │
+│  - Возвращает dict или False   │
+└──────────────┬──────────────────┘
+               │ matched → handler
+               ▼
+┌─────────────────────────────────┐
+│  olya_handler (handlers/olya.py)│
+│  → OlyaRelay.send_olya()       │
+│  → plain send (NO reply)       │
+│  → return UNHANDLED (propagate) │
+└──────────────┬──────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│  OlyaRelay (services/olya_relay.py) │
+│  - _scan_directory("cringe")   │
+│  - _detect_media_type()        │
+│  - plain send (bot.send_*)     │
+│  - cooldown (in-memory, per-chat) │
+└─────────────────────────────────┘
+```
+
+### Позиция роутера
+
+Новый `olya_router` регистрируется на позиции **4d** (между common и slavik):
+```
+0:admin → 1:slava_presence → 1b:alan_greeting → 2:kostik → 3:alan →
+4:dead_page → 4b:war_alert → 4c:common → 4d:olya → 5:slavik → 6:vasya
+```
+
+### Задачи Epic 19
+
+| Task | Название | Компонент | Статус |
+|------|----------|-----------|--------|
+| **T-131** | Архитектурное проектирование Olya Service | `plans/` | ✅ IMPLEMENTED |
+| **T-132** | Создать `filters/olya_video.py` — OlyaVideoFilter | `filters/` | ✅ IMPLEMENTED |
+| **T-133** | Создать `services/olya_relay.py` — OlyaRelay (plain send) | `services/` | ✅ IMPLEMENTED |
+| **T-134** | Создать `handlers/olya.py` — olya_router + handler | `handlers/` | ✅ IMPLEMENTED |
+| **T-135** | Добавить конфигурацию в `config/settings.py` + `.env.example` | `config/` | ✅ IMPLEMENTED |
+| **T-136** | Зарегистрировать `olya_router` в `bot.py` (позиция 4d) | `bot.py` | ✅ IMPLEMENTED |
+| **T-137** | Полное тестовое покрытие — фильтр, сервис, хендлер, corner cases | `tests/` | ✅ IMPLEMENTED |
+| **T-138** | Деплой на сервер, коммит, пуш, рестарт | DevOps | 🔵 READY FOR DEPLOY |
+
+### Ключевые отличия от CommonRelay
+
+| Аспект | CommonRelay (common) | OlyaRelay (olya) |
+|--------|---------------------|-------------------|
+| **Триггер** | DangerWordFilter / OtboyWordFilter (любой пользователь, текстовые слова) | UserIdFilter + ContentTypeFilter (конкретный пользователь + видео) |
+| **Отправка** | Reply + quote (`reply_parameters`) | **Plain send** (без reply, без quote) |
+| **Cooldown** | Dual-layer (общий + danger-specific) | Single-layer (только olya) |
+| **Конфиг** | COMMON_* / DANGER_* | OLYA_* |
+| **Медиа-тип** | Все типы | Все типы (та же логика _detect_media_type) |
+| **GIF-детекция** | word-boundary checks на filepath.name | Та же логика |
+| **Отключение** | Пустая строка DANGER_WORDS | OLYA_ENABLED=false |
+
+### Файлы Epic 19
+
+| Файл | Тип | Назначение |
+|------|-----|------------|
+| `filters/olya_video.py` | **CREATE** | OlyaVideoFilter: user ID + video content type + SaveAsBot detection |
+| `services/olya_relay.py` | **CREATE** | OlyaRelay: plain send media, cooldown, reuse media-type logic |
+| `handlers/olya.py` | **CREATE** | olya_router + olya_handler |
+| `config/settings.py` | MODIFY | +7 OLYA_* полей в Settings dataclass |
+| `.env.example` | MODIFY | +7 OLYA_* параметров с описаниями |
+| `bot.py` | MODIFY | import olya_router, регистрация на позиции 4d, инициализация OlyaRelay |
+| `tests/test_olya.py` | **CREATE** | ~15-20 тестов: фильтр, сервис, хендлер, cooldown, corner cases |
+
+### Медиа-директория
+
+```
+media/olya/cringe/
+├── olya_cringe_01.mp4    (существует)
+└── (дополнительные файлы добавляются по мере необходимости)
+```
+
+### Review Fixes (6 issues — 3 HIGH, 2 MEDIUM, 1 LOW)
+
+| Priority | ID | Описание | Компонент | Статус |
+|----------|----|----------|-----------|--------|
+| **HIGH** | 1 | UNHANDLED propagation — olya_handler теперь возвращает UNHANDLED для event flow к slavik_router | `handlers/olya.py` | ✅ FIXED |
+| **HIGH** | 2 | GIF false-positive — `_detect_media_type()` использует filepath.name word-boundary, не .stem | `services/olya_relay.py` | ✅ FIXED |
+| **HIGH** | 3 | Silent exceptions — добавлен per-entry OSError handling с WARNING logging в `_scan_directory()` | `services/olya_relay.py` | ✅ FIXED |
+| **MEDIUM** | 1 | OSError в scan — каждый os.scandir() entry обёрнут в try/except OSError | `services/olya_relay.py` | ✅ FIXED |
+| **MEDIUM** | 2 | Test assertion mismatch — исправлены expected values для plain send (без ReplyParameters) | `tests/test_olya.py` | ✅ FIXED |
+| **LOW** | 1 | README metrics — обновлён с Olya Service описанием, конфигом и позицией роутера | `README.md` | ✅ FIXED |
+
+### Risky Check Items — Resolved
+
+| RC | Описание | Статус |
+|----|----------|--------|
+| RC1 | OlyaVideoFilter не конфликтует с common_router — оба могут срабатывать на одном сообщении, UNHANDLED propagation обеспечивает | ✅ Resolved |
+| RC2 | Plain send без reply — send_photo/send_video/send_animation работают без reply_parameters | ✅ Resolved |
+| RC3 | Video content type filter — корректно обрабатывает и native video, и репосты | ✅ Resolved |
+| RC4 | OLYA_MEDIA_TYPE=photo поддержка — добавлен F.content_type == ContentType.PHOTO в фильтр | ✅ Resolved |
+| RC5 | Cooldown per-chat реализован — OlyaRelay использует time.monotonic() с dict[chat_id] | ✅ Resolved |
+| RC6 | OlyaRelay gracefully обрабатывает пустую директорию — WARNING log + return False | ✅ Resolved |
 
 ---
 
@@ -30,7 +174,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 478 тестов PASS (v2.16.0 implemented) |
+| Тесты | pytest + pytest-asyncio | ✅ 509 тестов PASS (v2.17.0 implemented) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -58,6 +202,7 @@
 4.  dead_page_router — Dead Page V2 trigger from @d_pages
 4b. war_alert_router — F5v2: war keywords (Slava) + TargetChannelFilter repost detection
 4c. common_router — F9/F10: otboy_handler + danger_handler (ALL users, DUAL cooldown: common + danger-specific)
+4d. olya_router — F11: Olya video trigger (user_id=834424825) + plain send media from media/olya/cringe/
 5.  slavik_router (user_id=479167456) + middleware F3 + F4 + catch-all + F8
 6.  vasya_router (text filters, no user restriction)
 ```
@@ -78,6 +223,7 @@
 | **E9** | Admin test commands: /deadpage, /alangreet | `handlers/admin_commands.py` | ✅ |
 | **F9** | Otboy Service — детект "отбой" (все пользователи) → common/otboy/ media | `handlers/common.py` (`otboy_handler`) + `CommonRelay` | ✅ v2.15.0 |
 | **F10** | Danger Detection — 135+ keywords (единый DANGER_WORDS из word_lists.py) | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` + `CommonRelay` (dual-layer cooldown, word-boundary GIF detection, per-entry OSError handling) | ✅ v2.16.0 |
+| **F11** | Olya Service — видео от @ole4444444ka → случайный cringe media, plain send | `handlers/olya.py` + `OlyaRelay` + `OlyaVideoFilter` | ✅ v2.17.0 |
 
 ### 3. Database Schema (SQLite, 5 tables)
 
@@ -109,6 +255,13 @@
 | `DANGER_COOLDOWN_SECONDS` | `60.0` | F10: danger-specific cooldown (dual-layer: common + danger). Не влияет на otboy. 0=off. ✅ v2.16.0 |
 | `COMMON_MEDIA_BASE` | `media/common` | F9/F10: base directory for common/otboy/ and common/danger/ |
 | `DANGER_WORDS` | `(135+ keywords)` | F10: comma-separated danger keywords (единый источник: filters/word_lists.py) |
+| `OLYA_ENABLED` | `True` | F11: enable/disable Olya Service (0=off) |
+| `OLYA_USER_ID` | `834424825` | F11: Olya's Telegram user ID (@ole4444444ka) |
+| `OLYA_COOLDOWN_SECONDS` | `60.0` | F11: cooldown between Olya media sends (0=off) |
+| `OLYA_MEDIA_BASE` | `media/olya/cringe` | F11: media directory for Olya cringe files |
+| `OLYA_CAPTION_TEXT` | `(SaveAsBot text)` | F11: key caption text for Condition A detection |
+| `OLYA_SAVEASBOT_CHANNEL_IDS` | `523131145` | F11: channel IDs for SaveAsBot repost detection |
+| `OLYA_ALWAYS_SEND` | `True` | F11: always send media regardless of caption/repost match |
 
 ---
 
@@ -240,11 +393,11 @@ danger_handler НЕ срабатывает — media из common/danger/ не о
 
 ---
 
-## ✅ Epic 18: Danger Service Fixes — v2.15.0 → v2.16.0 (IMPLEMENTED, 2026-08-02)
+## ✅ Epic 18: Danger Service Fixes — v2.15.0 → v2.16.0 (DEPLOYED, 2026-08-02)
 
 > **Цель:** Исправить 3 бага в CommonRelay/Danger service — file scanning robustness, GIF detection, dual cooldown.
-> **Статус:** IMPLEMENTED ✅ — все 3 бага FIXED. Full multi-agent цикл: Architect → Builder → Reviewer → Memory.
-> **Версия:** v2.16.0 (ready for deploy).
+> **Статус:** DEPLOYED ✅ — все 3 бага FIXED и в продакшене. Full multi-agent цикл: Architect → Builder → Reviewer → Memory → DevOps.
+> **Версия:** v2.16.0 (deployed). Commit: `c4694c0`.
 
 ### 3 Бага — ВСЕ FIXED
 
@@ -367,6 +520,7 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 | v2.13.0 | 2026-07-30 | Epic 17 (Danger Word Fix) | T2–T4 | 399 |
 | v2.15.0 | 2026-08-02 | 4 Major Fixes (propagation, mimic v2, slavik random media, dead_page relay) | — | 458 |
 | **v2.16.0** | **2026-08-02** | **Epic 18 (Danger Service Fixes)** | **A/B/C** | **478** |
+| **v2.17.0** | **2026-08-02** | **Epic 19 (Olya Service)** 🟢 | **T-131–T-138** | **509** |
 
 ---
 
@@ -374,11 +528,13 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEVELOPED across 18 Epics) ✅ |
+| **Done** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 18 Epics) ✅ |
+| **Done** | Epic 19: T-131 – T-138 (IMPLEMENTED and APPROVED, ready for deploy) 🟢 |
+| **Pending** | Epic 19: T-138 (Deploy to server) 🔵 |
 
-> Epics 1-18 IMPLEMENTED ✅. Epic 18 (Danger Service Fixes) завершён — v2.16.0 готов к деплою.
-> 478 тестов, 10 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
-> 18 Epic'ов: все реализованы. Ноль известных багов. Dual cooldown, улучшенная GIF-детекция, отказоустойчивое сканирование файлов.
+> Epics 1-18 DEPLOYED ✅. Epic 19 (Olya Service) IMPLEMENTED — approved by Reviewer, ready for deployment.
+> 509 тестов, 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг. Commit: c4694c0.
+> 19 Epic'ов: 18 deployed + 1 implemented and approved. Ноль известных багов.
 
 ---
 
@@ -386,18 +542,19 @@ bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLD
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.15.0 (deployed) |
-| **Следующая версия** | v2.16.0 (implemented — Epic 18, готов к деплою) |
-| **Текущий коммит** | `ba495af`, `066d5bc` (v2.15.0). Epic 18 changes staged locally. |
+| **Версия в проде** | v2.16.0 (deployed) |
+| **Следующая версия** | v2.17.0 (Epic 19 — Olya Service, IMPLEMENTED — READY FOR DEPLOY) |
+| **Текущий коммит** | `c4694c0` (v2.16.0 deployed) |
 | **Дата** | 2026-08-02 |
 | **Сервер** | nik@198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running) |
+| **Статус** | systemctl status adminbot → active (running), PID 694761, memory 140.1M |
 | **Git remote** | origin/master — pushed успешно |
-| **Тесты** | 478 PASS (все зелёные) |
-| **Эпики** | 1-18 IMPLEMENTED ✅ |
-| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEVELOPED) |
+| **Тесты** | 509 PASS (все зелёные) |
+| **Эпики** | 1-18 DEPLOYED ✅, 19 IMPLEMENTED ✅ (READY FOR DEPLOY) |
+| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED), T-131–T-138 (IMPLEMENTED) |
+| **Ошибки** | 0 errors в логах. Все сервисы инициализированы корректно. |
 
 ---
 
-*Обновление: 2026-08-02 — EPIC 18 IMPLEMENTED. Knowledge Graph синхронизирован: Epic-18-Danger-Service-Fixes (IMPLEMENTED), Bug-A-File-Scanning-Robustness (FIXED), Bug-B-GIF-Detection (FIXED), Bug-C-Dual-Cooldown (FIXED), AdminBot-v2.16.0 (IMPLEMENTED). Обновлены: CommonRelay, config/settings.py, bot.py, tests/test_common.py, AdminBot Router Architecture, AdminBot. Добавлены новые observations и relations (fixes, resolved_by, tests, includes). MEMORY.md обновлён до v2.16.0-implemented. Проект в продакшене (v2.15.0, 478 тестов), Epic 18 IMPLEMENTED — готов к деплою.*
+*Обновление: 2026-08-02 — EPIC 19 STATUS: IMPLEMENTED ✅. Olya Service полностью реализован и одобрен Reviewer-ом. 4 новых файла (filters/olya_video.py, services/olya_relay.py, handlers/olya.py, tests/test_olya.py), 4 изменённых (config/settings.py, bot.py, .env.example, README.md). 31 новый тест (+ 6 review fixes). Все 509 тестов проходят. 6 review issues исправлено (3 HIGH: UNHANDLED propagation, GIF false-positive, silent exceptions; 2 MEDIUM: OSError in scan, test assertion; 1 LOW: README metrics). Knowledge Graph синхронизирован: Epic-19-Olya-Service статус IMPLEMENTED, создан OlyaReviewFixes, все задачи T-131–T-136 статус IMPLEMENTED, T-138 статус READY FOR DEPLOY. MEMORY.md обновлён — Epic 19 статус DESIGNED → IMPLEMENTED. Готово к деплою на сервер.*

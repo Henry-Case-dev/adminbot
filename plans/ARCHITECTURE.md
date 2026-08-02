@@ -1037,3 +1037,694 @@ DANGER_COOLDOWN_SECONDS=60.0
 @Orchestrator Epic 18 architecture ready, passing the baton.
 
 @Orchestrator Architecture is ready, passing the baton.
+
+---
+
+## 7. Epic 19 — Сервис Olya (Video Trigger → Random Media)
+
+> **Дата:** 2026-08-02
+> **Статус:** Архитектурный дизайн. Реализация НЕ начата.
+> **Затрагиваемые файлы:** `filters/olya_video.py` (новый), `services/olya_relay.py` (новый), `handlers/olya.py` (новый), `config/settings.py`, `bot.py`, `tests/test_olya.py` (новый)
+
+---
+
+### 7.1 Overview and Purpose
+
+Olya — сервис, реагирующий на видеосообщения от конкретного пользователя (@ole4444444ka, ID 834424825). При получении видео-сообщения бот отправляет случайный медиа-файл из директории `media/olya/cringe/` **без reply/quote** — простым сообщением через `bot.send_*`.
+
+**Конфигурация триггера (все опции независимо настраиваются):**
+
+| Условие | Переменная | По умолчанию |
+|---------|-----------|-------------|
+| Видео с текстом "Спасибо, что пользуетесь - @SaveAsBot'ом" в caption | `OLYA_CAPTION_ENABLED=True` | True |
+| Репост из канала @SaveAsBot (channel ID 523131145) | `OLYA_REPOST_ENABLED=True` | True |
+| Всегда отправлять (Condition B — просто от этого пользователя с видео) | `OLYA_ALWAYS_SEND=True` | True |
+
+**Критическое отличие от CommonRelay:** медиа отправляется **plain-сообщением** — без `ReplyParameters`, без цитирования слова. Это просто `bot.send_video(chat_id, video=FSInputFile(path))`. Сообщение-триггер не цитируется.
+
+---
+
+### 7.2 Architecture Diagram (text-based)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                        EPIC 19: Olya Service                        │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  User @ole4444444ka (ID: 834424825)                                  │
+│       │                                                              │
+│       │  video message / forwarded video                             │
+│       ▼                                                              │
+│  ┌─────────────────────────────────────────┐                         │
+│  │  FILTER LAYER                           │                         │
+│  │  filters/olya_video.py                  │                         │
+│  │                                         │                         │
+│  │  OlyaVideoFilter(BaseFilter)            │                         │
+│  │  ┌───────────────────────────────────┐  │                         │
+│  │  │ 1. from_user.id == 834424825?    │  │                         │
+│  │  │ 2. media type matches config?    │  │                         │
+│  │  │ 3. caption text detection?       │  │                         │
+│  │  │ 4. SaveAsBot repost detection?   │  │                         │
+│  │  │ 5. OLYA_ALWAYS_SEND fallback?    │  │                         │
+│  │  └──────────────┬───────────────────┘  │                         │
+│  └─────────────────┼──────────────────────┘                         │
+│                    │ returns dict or False                           │
+│                    ▼                                                 │
+│  ┌─────────────────────────────────────────┐                         │
+│  │  SERVICE LAYER                          │                         │
+│  │  services/olya_relay.py                 │                         │
+│  │                                         │                         │
+│  │  OlyaRelay                              │                         │
+│  │  ┌───────────────────────────────────┐  │                         │
+│  │  │ _scan_directory()                 │  │                         │
+│  │  │ _detect_media_type()              │  │                         │
+│  │  │ send_olya(chat_id)                │  │                         │
+│  │  │   ├─ cooldown check (monotonic)  │  │                         │
+│  │  │   ├─ random.choice(files)        │  │                         │
+│  │  │   └─ _send_file(chat_id, ...)    │  │                         │
+│  │  │       └─ NO ReplyParameters!     │  │                         │
+│  │  └───────────────────────────────────┘  │                         │
+│  └─────────────────┬──────────────────────┘                         │
+│                    │                                                 │
+│                    ▼                                                 │
+│  ┌─────────────────────────────────────────┐                         │
+│  │  HANDLER LAYER                          │                         │
+│  │  handlers/olya.py                       │                         │
+│  │                                         │                         │
+│  │  olya_router (name="olya")              │                         │
+│  │  ┌───────────────────────────────────┐  │                         │
+│  │  │ olya_handler(message)             │  │                         │
+│  │  │   ├─ _service.send_olya(chat_id)  │  │                         │
+│  │  │   ├─ catch Exception              │  │                         │
+│  │  │   └─ return UNHANDLED             │  │                         │
+│  │  └───────────────────────────────────┘  │                         │
+│  └─────────────────────────────────────────┘                         │
+│                    │                                                 │
+│                    ▼  UNHANDLED (propagation continues)              │
+│  ┌─────────────────────────────────────────┐                         │
+│  │  Next routers in chain...               │                         │
+│  └─────────────────────────────────────────┘                         │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.3 Component Descriptions
+
+#### 7.3.1 Filter — `filters/olya_video.py`
+
+```python
+from aiogram.filters import BaseFilter
+from aiogram.types import Message, MessageOriginChannel
+from config.settings import settings
+
+class OlyaVideoFilter(BaseFilter):
+    """Filter: video from @ole4444444ka + optional SaveAsBot detection.
+    
+    Returns dict with detection info on match, False otherwise.
+    """
+    
+    def __init__(self) -> None:
+        self._user_id = settings.OLYA_USER_ID
+        self._saveasbot_channel_ids = set(settings.OLYA_SAVEASBOT_CHANNEL_IDS)
+        self._caption_text = settings.OLYA_CAPTION_TEXT
+        self._caption_enabled = settings.OLYA_CAPTION_ENABLED
+        self._repost_enabled = settings.OLYA_REPOST_ENABLED
+        self._media_type = settings.OLYA_MEDIA_TYPE
+        self._always_send = settings.OLYA_ALWAYS_SEND
+    
+    async def __call__(self, message: Message) -> dict[str, bool] | bool:
+        # 1. User check
+        if message.from_user is None:
+            return False
+        if message.from_user.id != self._user_id:
+            return False
+        
+        # 2. Media type check
+        if not self._check_media_type(message):
+            return False
+        
+        # 3. Detection
+        is_saveasbot = False
+        matched_caption = False
+        
+        if self._repost_enabled:
+            is_saveasbot = self._check_repost(message)
+        
+        if self._caption_enabled:
+            matched_caption = self._check_caption(message)
+        
+        # 4. Trigger decision
+        if is_saveasbot or matched_caption or self._always_send:
+            return {
+                "is_saveasbot": is_saveasbot,
+                "matched_caption": matched_caption,
+            }
+        
+        return False
+```
+
+**`_check_media_type(message) -> bool`:**
+- `OLYA_MEDIA_TYPE == "video"` → `message.video is not None`
+- `OLYA_MEDIA_TYPE == "photo"` → `message.photo is not None`
+- `OLYA_MEDIA_TYPE == "any"` → `True` (any media or text)
+
+**`_check_repost(message) -> bool`:**
+- Проверяет `message.forward_origin` — является ли `MessageOriginChannel` с ID из `_saveasbot_channel_ids`
+
+**`_check_caption(message) -> bool`:**
+- Проверяет `message.caption` — содержит ли `_caption_text` как подстроку
+
+#### 7.3.2 Service — `services/olya_relay.py`
+
+```python
+import logging
+import random
+import time
+from pathlib import Path
+
+from aiogram import Bot
+from aiogram.types import FSInputFile
+
+logger = logging.getLogger(__name__)
+
+MEDIA_PHOTO = "photo"
+MEDIA_VIDEO = "video"
+MEDIA_ANIMATION = "animation"
+MEDIA_AUDIO = "audio"
+MEDIA_VOICE = "voice"
+
+_IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+_VIDEO_EXTENSIONS: set[str] = {".mp4", ".mov", ".webm"}
+_AUDIO_EXTENSIONS: set[str] = {".mp3"}
+_VOICE_EXTENSIONS: set[str] = {".ogg"}
+
+
+class OlyaRelay:
+    """Sends random media files from olya media directory.
+    
+    Key differences from CommonRelay:
+    - NO ReplyParameters — plain send, no reply/quote
+    - Single cooldown (no per-type cooldown)
+    - User-specific (one user only)
+    - Scans a flat directory (not subdir-based like common/otboy/, common/danger/)
+    """
+    
+    def __init__(
+        self,
+        bot: Bot,
+        cooldown_seconds: float,
+        media_base: str,
+    ) -> None:
+        self._bot = bot
+        self._cooldown_seconds = cooldown_seconds
+        self._media_base = media_base
+        self._cooldowns: dict[int, float] = {}
+    
+    def _detect_media_type(self, filepath: Path) -> str | None:
+        """Detect media type from extension and filename.
+        
+        GIF detection: if filename contains "gif" anywhere → animation.
+        Matches CommonRelay pattern: check _gif, gif prefix, .gif.
+        """
+        ext = filepath.suffix.lower()
+        if ext in _IMAGE_EXTENSIONS:
+            return MEDIA_PHOTO
+        if ext in _VIDEO_EXTENSIONS:
+            fname = filepath.name.lower()
+            if "_gif" in fname or fname.startswith("gif") or ".gif." in fname:
+                return MEDIA_ANIMATION
+            return MEDIA_VIDEO
+        if ext in _AUDIO_EXTENSIONS:
+            return MEDIA_AUDIO
+        if ext in _VOICE_EXTENSIONS:
+            return MEDIA_VOICE
+        return None
+    
+    def _scan_directory(self) -> list[tuple[Path, str]]:
+        """Scan media_base for all supported media files.
+        
+        Returns list of (path, media_type). Empty if dir missing or no files.
+        Per-entry OSError handling (same pattern as CommonRelay Epic 18 fix).
+        """
+        base = Path(self._media_base)
+        if not base.exists():
+            logger.warning("OlyaRelay: directory not found %s", base)
+            return []
+        
+        files: list[tuple[Path, str]] = []
+        for entry in base.iterdir():
+            try:
+                if not entry.is_file():
+                    continue
+                media_type = self._detect_media_type(entry)
+                if media_type is not None:
+                    files.append((entry, media_type))
+                else:
+                    logger.debug(
+                        "OlyaRelay: skipping unsupported file %s", entry.name
+                    )
+            except OSError:
+                logger.warning(
+                    "OlyaRelay: cannot access entry %s — skipping", entry
+                )
+                continue
+        
+        logger.info(
+            "OlyaRelay: scanned %s — found %d supported files: %s",
+            base, len(files),
+            [(f.name, mt) for f, mt in files],
+        )
+        
+        if not files:
+            logger.warning("OlyaRelay: no supported media files in %s", base)
+        
+        return files
+    
+    async def _send_file(
+        self, chat_id: int, filepath: Path, media_type: str,
+    ) -> None:
+        """Send file via bot.send_* WITHOUT ReplyParameters (plain send)."""
+        input_file = FSInputFile(str(filepath))
+        
+        if media_type == MEDIA_PHOTO:
+            await self._bot.send_photo(chat_id=chat_id, photo=input_file)
+        elif media_type == MEDIA_VIDEO:
+            await self._bot.send_video(chat_id=chat_id, video=input_file)
+        elif media_type == MEDIA_ANIMATION:
+            await self._bot.send_animation(chat_id=chat_id, animation=input_file)
+        elif media_type == MEDIA_AUDIO:
+            await self._bot.send_audio(chat_id=chat_id, audio=input_file)
+        elif media_type == MEDIA_VOICE:
+            await self._bot.send_voice(chat_id=chat_id, voice=input_file)
+        else:
+            raise ValueError(f"OlyaRelay: unknown media_type: {media_type}")
+    
+    async def send_olya(self, chat_id: int) -> bool:
+        """Main entry point: cooldown check → pick random file → send.
+        
+        Returns True if media was sent, False if blocked/empty/error.
+        """
+        now = time.monotonic()
+        
+        if self._cooldown_seconds > 0:
+            last_sent = self._cooldowns.get(chat_id)
+            if last_sent is not None:
+                elapsed = now - last_sent
+                if elapsed < self._cooldown_seconds:
+                    logger.info(
+                        "OlyaRelay: cooldown_active | chat_id=%s | "
+                        "elapsed=%.1fs | remaining=%.1fs",
+                        chat_id, elapsed,
+                        self._cooldown_seconds - elapsed,
+                    )
+                    return False
+        
+        try:
+            files = self._scan_directory()
+        except (PermissionError, OSError):
+            logger.exception(
+                "OlyaRelay: scan error | chat_id=%s", chat_id
+            )
+            return False
+        
+        if not files:
+            return False
+        
+        filepath, media_type = random.choice(files)
+        logger.info(
+            "OlyaRelay: picked %s (%s) | chat_id=%s",
+            filepath.name, media_type, chat_id,
+        )
+        
+        try:
+            await self._send_file(chat_id, filepath, media_type)
+            self._cooldowns[chat_id] = now
+            logger.info(
+                "OlyaRelay: sent | chat_id=%s | file=%s | type=%s",
+                chat_id, filepath.name, media_type,
+            )
+            return True
+        except Exception:
+            logger.exception(
+                "OlyaRelay: send failed | chat_id=%s | file=%s | type=%s",
+                chat_id, filepath.name, media_type,
+            )
+            return False
+```
+
+#### 7.3.3 Handler — `handlers/olya.py`
+
+```python
+"""Epic 19 — Olya Service.
+
+Single-handler router:
+  1. olya_handler: catches video from @ole4444444ka → random media from olya/cringe/
+
+Registered at position 4d between common_router and slavik_router.
+"""
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+from aiogram import Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+from filters.olya_video import OlyaVideoFilter
+
+if TYPE_CHECKING:
+    from services.olya_relay import OlyaRelay
+
+logger = logging.getLogger(__name__)
+
+olya_router = Router(name="olya")
+
+_service: OlyaRelay | None = None
+
+
+def setup_olya(service: OlyaRelay) -> None:
+    """Inject OlyaRelay dependency. Called from bot.on_startup()."""
+    global _service
+    _service = service
+    logger.info("Olya Service: relay injected")
+
+
+@olya_router.message(OlyaVideoFilter())
+async def olya_handler(
+    message: types.Message,
+    is_saveasbot: bool,
+    matched_caption: bool,
+) -> None:
+    """Handle video from Olya user → send random media without reply."""
+    if _service is None:
+        logger.error(
+            "Olya Service: relay not initialized — skipping | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id, message.message_id,
+        )
+        return
+
+    logger.info(
+        "Olya Service: triggered | chat_id=%s | msg_id=%s | "
+        "is_saveasbot=%s | matched_caption=%s",
+        message.chat.id, message.message_id,
+        is_saveasbot, matched_caption,
+    )
+
+    try:
+        await _service.send_olya(message.chat.id)
+    except Exception:
+        logger.exception(
+            "Olya Service: handler failed | chat_id=%s | message_id=%s",
+            message.chat.id, message.message_id,
+        )
+    return UNHANDLED
+```
+
+---
+
+### 7.4 Configuration Table
+
+| # | Field | Type | Default | Env Variable | Description |
+|---|-------|------|---------|-------------|-------------|
+| 1 | `OLYA_ENABLED` | `bool` | `True` | `OLYA_ENABLED` | Feature toggle — disables entire router registration |
+| 2 | `OLYA_USER_ID` | `int` | `834424825` | `OLYA_USER_ID` | Target user ID (@ole4444444ka) |
+| 3 | `OLYA_COOLDOWN_SECONDS` | `float` | `60.0` | `OLYA_COOLDOWN_SECONDS` | Single cooldown between sends per chat |
+| 4 | `OLYA_MEDIA_BASE` | `str` | `"media/olya/cringe"` | `OLYA_MEDIA_BASE` | Directory for media files |
+| 5 | `OLYA_SAVEASBOT_CHANNEL_IDS` | `tuple[int, ...]` | `(523131145,)` | `OLYA_SAVEASBOT_CHANNEL_IDS` | Comma-separated channel IDs for repost detection |
+| 6 | `OLYA_CAPTION_ENABLED` | `bool` | `True` | `OLYA_CAPTION_ENABLED` | Enable caption text detection |
+| 7 | `OLYA_CAPTION_TEXT` | `str` | `"Спасибо, что пользуетесь - @SaveAsBot'ом"` | `OLYA_CAPTION_TEXT` | Text to match in message caption |
+| 8 | `OLYA_REPOST_ENABLED` | `bool` | `True` | `OLYA_REPOST_ENABLED` | Enable repost-from-SaveAsBot detection |
+| 9 | `OLYA_MEDIA_TYPE` | `str` | `"video"` | `OLYA_MEDIA_TYPE` | Media type filter: `"video"`, `"photo"`, or `"any"` |
+| 10 | `OLYA_ALWAYS_SEND` | `bool` | `True` | `OLYA_ALWAYS_SEND` | If True, always sends from this user regardless of conditions |
+
+**`config/settings.py` additions** (after existing Olya config or at end of `Settings`):
+
+```python
+# ── Olya Service (Epic 19) ──
+OLYA_ENABLED: bool = os.getenv("OLYA_ENABLED", "True").lower() in ("true", "1", "yes")
+OLYA_USER_ID: int = _env_int("OLYA_USER_ID", 834424825)
+OLYA_COOLDOWN_SECONDS: float = _env_float("OLYA_COOLDOWN_SECONDS", 60.0)
+OLYA_MEDIA_BASE: str = os.getenv("OLYA_MEDIA_BASE", "media/olya/cringe")
+OLYA_SAVEASBOT_CHANNEL_IDS: tuple[int, ...] = tuple(
+    int(x.strip()) for x in os.getenv("OLYA_SAVEASBOT_CHANNEL_IDS", "523131145").split(",") if x.strip()
+)
+OLYA_CAPTION_ENABLED: bool = os.getenv("OLYA_CAPTION_ENABLED", "True").lower() in ("true", "1", "yes")
+OLYA_CAPTION_TEXT: str = os.getenv("OLYA_CAPTION_TEXT", "Спасибо, что пользуетесь - @SaveAsBot'ом")
+OLYA_REPOST_ENABLED: bool = os.getenv("OLYA_REPOST_ENABLED", "True").lower() in ("true", "1", "yes")
+OLYA_MEDIA_TYPE: str = os.getenv("OLYA_MEDIA_TYPE", "video")
+OLYA_ALWAYS_SEND: bool = os.getenv("OLYA_ALWAYS_SEND", "True").lower() in ("true", "1", "yes")
+```
+
+---
+
+### 7.5 Router Position and Propagation Flow
+
+```
+Position 0:  admin_commands_router     (/deadpage, /alangreet)
+Position 1:  slava_presence_router     (ChatMemberUpdated: Slava join/leave)
+Position 1b: alan_greeting_router      (ChatMemberUpdated: Alan join → greeting)
+Position 2:  kostik_router             (UserIdFilter: Kostik → probability reply)
+Position 3:  alan_router               (UserIdFilter: Alan → reply engine)
+Position 4:  dead_page_router          (F.forward_origin: @d_pages reposts)
+Position 4b: war_alert_router          (WarWordFilter + TargetChannelFilter)
+Position 4c: common_router             (OtboyWordFilter + DangerWordFilter + mimic)
+Position 4d: olya_router               ← NEW: OlyaVideoFilter → random media
+Position 5:  slavik_router             (UserIdFilter: Slava → kucha + catchall)
+Position 6:  vasya_router              (Text filters, no user restriction)
+```
+
+**Propagation note:** `olya_router` positioned at 4d — after `common_router` but before `slavik_router`. All handlers return `UNHANDLED` to continue propagation. Even when Olya handler fires and sends media, the event continues to `slavik_router` and `vasya_router`. This is safe because:
+- `slavik_router` has `UserIdFilter(SLAVIK_USER_ID)` — won't match Olya's messages
+- `vasya_router` has text-based filters — unlikely to match a video message
+
+**registration guard in `bot.py`:**
+```python
+# 4d. Olya Service (Epic 19) — video from @ole4444444ka → random media (plain send)
+if settings.OLYA_ENABLED:
+    from handlers.olya import olya_router, setup_olya
+    from services.olya_relay import OlyaRelay
+    
+    olya_relay = OlyaRelay(
+        bot,
+        cooldown_seconds=settings.OLYA_COOLDOWN_SECONDS,
+        media_base=settings.OLYA_MEDIA_BASE,
+    )
+    setup_olya(olya_relay)
+    dp.include_router(olya_router)
+    logger.info("Olya Service (Epic 19) registered")
+```
+
+---
+
+### 7.6 Data Flow Diagram
+
+```
+ ┌───────────────────────────────────────────────────────────────┐
+ │  MESSAGE FLOW                                                 │
+ │                                                               │
+ │  @ole4444444ka sends video in chat                            │
+ │       │                                                       │
+ │       ▼                                                       │
+ │  ┌──────────┐    ┌──────────┐    ┌──────────┐                │
+ │  │ dead_page │───→│war_alert │───→│ common   │                │
+ │  │  router   │    │  router  │    │  router  │                │
+ │  │  (pos 4)  │    │  (pos 4b)│    │  (pos 4c)│                │
+ │  └─────┬─────┘    └─────┬────┘    └─────┬────┘                │
+ │        │               │              │                       │
+ │        ▼               ▼              ▼                       │
+ │   no match /       no match /     no match /                  │
+ │   UNHANDLED        UNHANDLED      UNHANDLED                   │
+ │                                                               │
+ │        ┌──────────────────┐                                   │
+ │        │  olya_router     │  ← NEW (pos 4d)                   │
+ │        │  ┌─────────────┐ │                                   │
+ │        │  │OlyaVideo    │ │                                   │
+ │        │  │Filter       │ │                                   │
+ │        │  └──────┬──────┘ │                                   │
+ │        │         │        │                                   │
+ │        │    ┌────▼─────┐  │                                   │
+ │        │    │ MATCH?    │  │                                   │
+ │        │    │ user=OK   │  │                                   │
+ │        │    │ media=OK  │  │                                   │
+ │        │    │ trigger=OK│  │                                   │
+ │        │    └────┬─────┘  │                                   │
+ │        │         │ YES    │                                   │
+ │        │    ┌────▼─────┐  │                                   │
+ │        │    │olya_     │  │                                   │
+ │        │    │handler() │  │                                   │
+ │        │    └────┬─────┘  │                                   │
+ │        └─────────┼────────┘                                   │
+ │                  │                                            │
+ │                  ▼                                            │
+ │        ┌─────────────────┐                                    │
+ │        │  OlyaRelay      │                                    │
+ │        │  ┌────────────┐ │                                    │
+ │        │  │ cooldown?  │─┤─── YES → return False             │
+ │        │  │ scan dir   │ │                                    │
+ │        │  │ random pick│ │                                    │
+ │        │  │ send plain │ │                                    │
+ │        │  └────────────┘ │                                    │
+ │        └────────┬────────┘                                    │
+ │                 │                                             │
+ │                 ▼                                             │
+ │        ┌─────────────────┐                                    │
+ │        │  bot.send_video │  ← NO ReplyParameters              │
+ │        │  bot.send_photo │                                    │
+ │        │  bot.send_anim  │                                    │
+ │        │  ...            │                                    │
+ │        └────────┬────────┘                                    │
+ │                 │                                             │
+ │                 ▼                                             │
+ │        ┌─────────────────┐                                    │
+ │        │  return         │                                    │
+ │        │  UNHANDLED      │  ← propagation continues           │
+ │        └────────┬────────┘                                    │
+ │                 │                                             │
+ │                 ▼                                             │
+ │        ┌─────────────────┐                                    │
+ │        │  slavik_router  │  (pos 5)                           │
+ │        │  vasya_router   │  (pos 6)                           │
+ │        └─────────────────┘                                    │
+ └───────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.7 Key Differences from CommonRelay
+
+| Aspect | CommonRelay | OlyaRelay |
+|--------|------------|-----------|
+| **Send style** | Reply with `ReplyParameters(message_id, quote=word)` | **Plain send** — no `ReplyParameters` |
+| **Cooldown** | Dual: shared + danger-specific | **Single**: one cooldown value |
+| **Users** | Any user | **One user only** (834424825) |
+| **Trigger** | Word-based (otboy, danger) | **Media-based** (video/photo from user) + config toggles |
+| **Directory** | `media/common/{subdir}/` (otboy/, danger/) | **Flat**: `media/olya/cringe/` |
+| **Filter returns** | `{"matched_word": str}` | **`{"is_saveasbot": bool, "matched_caption": bool}`** |
+| **Config complexity** | 5 fields | **10 fields** (multiple boolean toggles) |
+| **reply_to_message_id** | Used everywhere | **Never used** |
+
+**Mandatory constraint:** Olya handler/send MUST NOT reference `message.message_id`, `ReplyParameters`, `reply_to_message_id`, or any reply mechanism. Send is always `bot.send_*(chat_id=..., ...=FSInputFile(...))`.
+
+---
+
+### 7.8 Testing Strategy
+
+#### 7.8.1 Filter Tests (`TestOlyaVideoFilter`)
+
+| ID | Test | Expected |
+|----|------|----------|
+| T-F1 | Message from user 834424825 with video | `True`, returns `dict` |
+| T-F2 | Message from different user with video | `False` |
+| T-F3 | Message from user 834424825, no media (text only), `MEDIA_TYPE=video` | `False` |
+| T-F4 | Message from user 834424825 with photo, `MEDIA_TYPE=photo` | `True` |
+| T-F5 | Message from user 834424825 with photo, `MEDIA_TYPE=any` | `True` |
+| T-F6 | Message from user 834424825, caption contains SAVEAASBOT text, `CAPTION_ENABLED=True` | `True`, `matched_caption=True` |
+| T-F7 | Message from user 834424825, caption contains SAVEAASBOT text, `CAPTION_ENABLED=False` | Depends on `ALWAYS_SEND` |
+| T-F8 | Message from user 834424825, forward_origin is SaveAsBot channel (523131145), `REPOST_ENABLED=True` | `True`, `is_saveasbot=True` |
+| T-F9 | Message from user 834424825, forward_origin is SaveAsBot channel, `REPOST_ENABLED=False` | Depends on `ALWAYS_SEND` |
+| T-F10 | Message from user 834424825, forward_origin is OTHER channel | Depends on `ALWAYS_SEND` |
+| T-F11 | Message from user 834424825, video, no caption, no repost, `ALWAYS_SEND=True` | `True`, both flags False |
+| T-F12 | Message from user 834424825, video, no caption, no repost, `ALWAYS_SEND=False` | `False` |
+| T-F13 | Message from user 834424825, no `from_user` (should never happen) | `False` |
+
+#### 7.8.2 Service Tests (`TestOlyaRelay`)
+
+| ID | Test | Expected |
+|----|------|----------|
+| T-S1 | `_scan_directory` with 3 .mp4 files in media dir | Returns 3 tuples |
+| T-S2 | `_scan_directory` with mixed types (.jpg, .mp4, .ogg, .mp3) | All detected correctly |
+| T-S3 | `_scan_directory` with .gif file (e.g. `cringe_gif.mp4`) | Detected as `animation` |
+| T-S4 | `_scan_directory` with empty directory | Returns `[]`, WARNING logged |
+| T-S5 | `_scan_directory` with no directory | Returns `[]`, WARNING logged |
+| T-S6 | `_scan_directory` with unsupported file (.txt, .pdf) | Skipped, DEBUG logged |
+| T-S7 | `_scan_directory` with per-entry OSError | Bad entry skipped, good entries returned |
+| T-S8 | `_detect_media_type` photo (.jpg, .jpeg, .png, .webp, .bmp) | `MEDIA_PHOTO` |
+| T-S9 | `_detect_media_type` video (.mp4, .mov, .webm) | `MEDIA_VIDEO` |
+| T-S10 | `_detect_media_type` gif animation (`_gif.mp4`, `gif_name.mp4`, `name.gif.mp4`) | `MEDIA_ANIMATION` |
+| T-S11 | `_detect_media_type` audio (.mp3) | `MEDIA_AUDIO` |
+| T-S12 | `_detect_media_type` voice (.ogg) | `MEDIA_VOICE` |
+| T-S13 | `_detect_media_type` unsupported (.txt) | `None` |
+| T-S14 | `_detect_media_type` false positive: `gift.mp4` | `MEDIA_VIDEO` (not animation) |
+| T-S15 | `send_olya` with files → cooldown check → random.choice → send | Returns `True`, file sent |
+| T-S16 | `send_olya` during cooldown | Returns `False`, not sent |
+| T-S17 | `send_olya` after cooldown expires | Returns `True`, sent |
+| T-S18 | `send_olya` with cooldown=0 | Always sends (no blocking) |
+| T-S19 | `send_olya` with empty directory | Returns `False` |
+| T-S20 | `send_olya` → send fails (e.g. TelegramError) | Returns `False`, exception logged |
+| T-S21 | `send_olya` → scan fails (PermissionError) | Returns `False`, exception logged |
+| T-S22 | `_send_file` with `MEDIA_PHOTO` | Calls `bot.send_photo(chat_id, photo=...)` — no ReplyParameters |
+| T-S23 | `_send_file` with `MEDIA_VIDEO` | Calls `bot.send_video(chat_id, video=...)` — no ReplyParameters |
+| T-S24 | `_send_file` with `MEDIA_ANIMATION` | Calls `bot.send_animation(chat_id, animation=...)` — no ReplyParameters |
+| T-S25 | `_send_file` with `MEDIA_AUDIO` | Calls `bot.send_audio(chat_id, audio=...)` — no ReplyParameters |
+| T-S26 | `_send_file` with `MEDIA_VOICE` | Calls `bot.send_voice(chat_id, voice=...)` — no ReplyParameters |
+| T-S27 | `_send_file` with unknown type | Raises `ValueError` |
+| T-S28 | Random selection: 3 files, 100 calls | All files selected (uniform distribution, no starvation) |
+
+#### 7.8.3 Handler Tests (`TestOlyaHandler`)
+
+| ID | Test | Expected |
+|----|------|----------|
+| T-H1 | Handler calls `_service.send_olya(message.chat.id)` | `send_olya` called once |
+| T-H2 | `_service is None` (not initialized) | Error logged, no send called |
+| T-H3 | `_service.send_olya` raises `Exception` | Exception caught and logged |
+| T-H4 | Handler returns `UNHANDLED` | Event propagation continues |
+| T-H5 | Filter returns `False` → handler not called | Only filter checked |
+
+#### 7.8.4 Integration Tests
+
+| ID | Test | Expected |
+|----|------|----------|
+| T-I1 | `OLYA_ENABLED=False` → router not registered | No Olya handler in dispatcher |
+| T-I2 | Full flow: message → filter → handler → relay → send | Media sent without reply |
+| T-I3 | Full flow: message matches Olya AND Slava | Both handlers fire (Olya at 4d, Slava at 5) |
+
+---
+
+### 7.9 Deployment Notes
+
+#### 7.9.1 File Structure
+
+```
+media/olya/cringe/          ← NEW directory (created on deploy)
+├── cringe_01.mp4           ← example video
+├── cringe_02_gif.mp4       ← example animation (contains "gif")
+├── cringe_03.jpg           ← example photo
+└── ...                     ← any supported media type
+```
+
+#### 7.9.2 New Files Created
+
+| File | Purpose |
+|------|---------|
+| `filters/olya_video.py` | `OlyaVideoFilter` — user + media + trigger detection |
+| `services/olya_relay.py` | `OlyaRelay` — directory scan, media type detection, plain send |
+| `handlers/olya.py` | `olya_router` + `setup_olya()` + `olya_handler` |
+| `tests/test_olya.py` | Unit + integration tests (see §7.8) |
+
+#### 7.9.3 Existing Files Modified
+
+| File | Changes |
+|------|---------|
+| `config/settings.py` | Add 10 Olya fields (§7.4) |
+| `bot.py` | Import olya_router/OlyaRelay/setup_olya; create + inject in `on_startup()`; `dp.include_router(olya_router)` at position 4d with `OLYA_ENABLED` guard |
+| `.env.example` | Add Olya environment variables |
+
+#### 7.9.4 Backward Compatibility
+
+- All new code behind feature toggle `OLYA_ENABLED=True` (default)
+- If disabled (`OLYA_ENABLED=False`): no imports, no router registration, zero overhead
+- If enabled but directory empty: graceful degradation (WARNING log, no send)
+- Existing services (common, slavik, etc.) untouched
+- All handlers return `UNHANDLED` — no propagation interference
+
+#### 7.9.5 Rollback
+
+To disable Olya service:
+- Set `OLYA_ENABLED=False` in `.env` and restart bot
+- OR remove `media/olya/cringe/` directory (graceful empty dir handling)
+
+---
+
+@Orchestrator Epic 19 architecture ready, passing the baton.
