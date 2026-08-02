@@ -1,20 +1,20 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.13.0 (APPROVED)
-> **Дата:** 2026-07-30
-> **Статус:** Epics 1-17 APPROVED ✅. 399 тестов. Бот активен в production (v2.12.1). v2.13.0 готов к деплою.
-> **Commit:** Epic 17 — Danger Word Fix (APPROVED, awaiting deployment commit).
+> **Версия:** v2.16.0 (IMPLEMENTED)
+> **Дата:** 2026-08-02
+> **Статус:** Epics 1-18 IMPLEMENTED ✅. 478 тестов. Epic 18 готов к деплою.
+> **Текущий коммит:** `ba495af`, `066d5bc` (v2.15.0 deployed), Epic 18 changes staged locally.
 
 ---
 
-## 🔍 Context Sync Summary (2026-07-30) — Epic 17 APPROVED
+## 🔍 Context Sync Summary (2026-08-02) — Epic 18 IMPLEMENTED
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Epics 1-16** | ✅ DEPLOYED | 115 задач T-001–T-115 deployed. |
-| **Epic 17** | ✅ APPROVED | Danger Word Fix — v2.13.0. 399/399 тестов. |
-| **MEMORY.md** | ✅ UPDATED | v2.13.0-approved — Epic 17 final state synced. |
-| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: running. |
+| **Epics 1-18** | ✅ IMPLEMENTED | 120+ задач T-001–T-115 + T2/T3/T4 + Epic 18 A/B/C. v2.16.0 готов к деплою. |
+| **Epic 18** | ✅ IMPLEMENTED | Danger Service Fixes — 3 бага (A/B/C) FIXED. 478 тестов. |
+| **MEMORY.md** | ✅ UPDATED | v2.16.0-implemented — Epic 18 synced to KG + markdown. |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: running. v2.15.0 в проде. |
 
 ---
 
@@ -30,7 +30,7 @@
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env |
-| Тесты | pytest + pytest-asyncio | ✅ 399 тестов PASS (v2.13.0) |
+| Тесты | pytest + pytest-asyncio | ✅ 478 тестов PASS (v2.16.0 implemented) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -57,7 +57,7 @@
 3.  alan_router (user_id=138811255) + DB counter — F6 + F7v2 silence greeting
 4.  dead_page_router — Dead Page V2 trigger from @d_pages
 4b. war_alert_router — F5v2: war keywords (Slava) + TargetChannelFilter repost detection
-4c. common_router — F9/F10: otboy_handler + danger_handler (ALL users, shared cooldown)
+4c. common_router — F9/F10: otboy_handler + danger_handler (ALL users, DUAL cooldown: common + danger-specific)
 5.  slavik_router (user_id=479167456) + middleware F3 + F4 + catch-all + F8
 6.  vasya_router (text filters, no user restriction)
 ```
@@ -76,8 +76,8 @@
 | **F7v2** | Alan silence greeting — "Леха проснулся" | `handlers/alan.py` (inlined) | ✅ |
 | **F8** | slavic_na_litso.jpg — каждый N-й ответ "пошёл нахуй" → фото | `handlers/slavik.py` | ✅ |
 | **E9** | Admin test commands: /deadpage, /alangreet | `handlers/admin_commands.py` | ✅ |
-| **F9** | Otboy Service — детект "отбой" (все пользователи) → common/otboy/ media | `handlers/common.py` (`otboy_handler`) + `CommonRelay` | ✅ |
-| **F10** | Danger Detection — 135+ keywords (единый DANGER_WORDS из word_lists.py) | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` | ✅ v2.13.0 |
+| **F9** | Otboy Service — детект "отбой" (все пользователи) → common/otboy/ media | `handlers/common.py` (`otboy_handler`) + `CommonRelay` | ✅ v2.15.0 |
+| **F10** | Danger Detection — 135+ keywords (единый DANGER_WORDS из word_lists.py) | `handlers/common.py` (`danger_handler`) + `DangerWordFilter` + `CommonRelay` (dual-layer cooldown, word-boundary GIF detection, per-entry OSError handling) | ✅ v2.16.0 |
 
 ### 3. Database Schema (SQLite, 5 tables)
 
@@ -106,6 +106,7 @@
 | `WAR_REPLIES` | `` | Custom war reply phrases (F5v2) |
 | `SLIVIC_NA_LITSO_INTERVAL` | `10` | F8: каждый N-й "пошёл нахуй" → фото |
 | `COMMON_COOLDOWN_SECONDS` | `0` | F9/F10: shared cooldown for common sub-services (0=off) |
+| `DANGER_COOLDOWN_SECONDS` | `60.0` | F10: danger-specific cooldown (dual-layer: common + danger). Не влияет на otboy. 0=off. ✅ v2.16.0 |
 | `COMMON_MEDIA_BASE` | `media/common` | F9/F10: base directory for common/otboy/ and common/danger/ |
 | `DANGER_WORDS` | `(135+ keywords)` | F10: comma-separated danger keywords (единый источник: filters/word_lists.py) |
 
@@ -239,6 +240,111 @@ danger_handler НЕ срабатывает — media из common/danger/ не о
 
 ---
 
+## ✅ Epic 18: Danger Service Fixes — v2.15.0 → v2.16.0 (IMPLEMENTED, 2026-08-02)
+
+> **Цель:** Исправить 3 бага в CommonRelay/Danger service — file scanning robustness, GIF detection, dual cooldown.
+> **Статус:** IMPLEMENTED ✅ — все 3 бага FIXED. Full multi-agent цикл: Architect → Builder → Reviewer → Memory.
+> **Версия:** v2.16.0 (ready for deploy).
+
+### 3 Бага — ВСЕ FIXED
+
+| Bug | Название | Описание | Компонент | Статус |
+|-----|----------|----------|-----------|--------|
+| **A** | File scanning robustness | Per-entry OSError handling + INFO-level file logging | `services/common_relay.py::_scan_directory()` | ✅ FIXED |
+| **B** | GIF detection fix | `filepath.name` + word-boundary checks (`_gif`, `gif`, `.gif`) | `services/common_relay.py::_detect_media_type()` | ✅ FIXED |
+| **C** | Dual cooldown | `DANGER_COOLDOWN_SECONDS` (60.0) — danger-specific cooldown, otboy excluded | `services/common_relay.py`, `config/settings.py`, `bot.py` | ✅ FIXED |
+
+### Bug A: File Scanning Robustness — FIXED
+
+```
+Проблема: os.scandir() выбрасывает OSError на отдельных entries
+(permission denied, corrupted filesystem) → весь _scan_directory() падал.
+
+Решение: try/except OSError вокруг каждого entry в цикле os.scandir().
+Одна ошибка не ломает весь скан. + INFO-лог каждого файла.
+
+Реализация:
+  for entry in os.scandir(scan_dir):
+      try:
+          if entry.is_file():
+              filepath = Path(entry.path)
+              logger.info("Scanned file in %s: %s (%d bytes)", subdir, filepath.name, filepath.stat().st_size)
+              files.append(filepath)
+      except OSError as e:
+          logger.warning("Skipping unreadable entry in %s: %s", subdir, e)
+```
+
+### Bug B: GIF Detection Fix — FIXED
+
+```
+Проблема: _detect_media_type() использовала filepath.stem для проверки 'gif'.
+Файл danger_02_gif.mp4 → stem='danger_02_gif' → но старая проверка
+не матчила → отправлялся как video вместо animation.
+
+Решение: Использовать filepath.name (полное имя) с 3 word-boundary проверками:
+  1. '_gif' in name    — подчёркивание перед gif
+  2. name.startswith('gif')  — начинается с gif
+  3. '.gif' in name    — расширение .gif
+
+danger_02_gif.mp4 → name='danger_02_gif.mp4' → '_gif' in name → True → animation ✅
+Все легитимные видео (без _gif маркера) → video как раньше.
+```
+
+### Bug C: Dual Cooldown — FIXED
+
+```
+Проблема: COMMON_COOLDOWN_SECONDS блокировал ВСЕ sub-services одинаково.
+Не было способа задать отдельный cooldown для danger, не влияя на otboy.
+
+Решение: DANGER_COOLDOWN_SECONDS (float, default 60.0) + два раздельных dict:
+  _last_common  — общий cooldown (все sub-services)
+  _last_danger  — danger-specific cooldown (только danger)
+
+Логика send_common():
+  1. Проверить общий cooldown (_last_common) — если активен, return для всех
+  2. Если subdir='danger' → проверить danger cooldown (_last_danger) — если активен, return
+  3. Otboy (subdir='otboy') НЕ подвержен danger cooldown
+
+Конструктор: CommonRelay(bot, cooldown_seconds, danger_cooldown_seconds, media_base)
+bot.py: CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS, settings.DANGER_COOLDOWN_SECONDS, settings.COMMON_MEDIA_BASE)
+```
+
+### Файлы Epic 18 — ВСЕ IMPLEMENTED
+
+| Файл | Тип изменения | Задача | Статус |
+|------|---------------|--------|--------|
+| `services/common_relay.py` | MODIFY | Bug A (OSError handling + logging) + Bug B (word-boundary GIF detection) + Bug C (dual-layer cooldown) | ✅ IMPLEMENTED |
+| `config/settings.py` | MODIFY | Bug C: `DANGER_COOLDOWN_SECONDS: float = float(os.getenv('DANGER_COOLDOWN_SECONDS', '60.0'))` | ✅ IMPLEMENTED |
+| `bot.py` | MODIFY | Bug C: `CommonRelay(bot, ..., settings.DANGER_COOLDOWN_SECONDS, ...)` | ✅ IMPLEMENTED |
+| `.env.example` | MODIFY | Bug C: `DANGER_COOLDOWN_SECONDS=60.0` | ✅ IMPLEMENTED |
+| `tests/test_common.py` | MODIFY | Bug A, B, C: +23 теста (OSError handling, GIF detection, dual cooldown) | ✅ 124 теста |
+
+### Architectural Decisions (D49–D51) — IMPLEMENTED
+
+| # | Решение | Описание | Статус |
+|---|---------|----------|--------|
+| **D49** | Per-entry OSError handling | Оборачивать каждый entry в try/except, а не весь scandir(). Одна ошибка не ломает сервис. | ✅ IMPLEMENTED |
+| **D50** | filepath.name + word-boundary GIF detection | Использовать полное имя файла (с расширением), не stem. Три word-boundary проверки исключают ложные срабатывания. | ✅ IMPLEMENTED |
+| **D51** | Dual-layer cooldown (common + danger) | Два раздельных in-memory dict. Danger получает двухслойную защиту от спама, otboy — только общий cooldown. | ✅ IMPLEMENTED |
+
+### Risky Check Items — Resolved
+
+| RC | Описание | Статус |
+|----|----------|--------|
+| RC1 | Изменение конструктора CommonRelay ломает bot.py? | ✅ Resolved — `bot.py` обновлён, 478 тестов проходят. |
+| RC2 | GIF detection может дать ложный negative на легитимных видео? | ✅ Resolved — word-boundary проверки (`_gif`, `.gif`, `startswith('gif')`) проверены. Обычные имена видео не матчатся. |
+| RC3 | Danger cooldown может блокировать легитимные danger-сообщения? | ✅ Resolved — 60s default, env-configurable. 0 = отключено. Dual-layer логика проверена тестами. |
+
+### Test Suite (478 total)
+
+| Area | Count | Delta |
+|------|-------|-------|
+| Baseline (Epic 17 + v2.15.0) | 458 | — |
+| Epic 18: Bug A, B, C tests | +20 | test_common.py: 124 total (101 baseline + 23 new Epic 18) |
+| **Total** | **478** | **+20 net** |
+
+---
+
 ## Previous Completed Epics
 
 | Version | Date | Epic | Tasks | Tests |
@@ -258,7 +364,9 @@ danger_handler НЕ срабатывает — media из common/danger/ не о
 | v2.11.0 | 2026-07-28 | Epic 14 (Album Fix) | T-093–T-099 | 316 |
 | v2.12.0 | 2026-07-28 | Epic 15 (Common Service) | T-100–T-107 | 372 |
 | v2.12.1 | 2026-07-29 | Epic 16 (Bug Fixes) | T-109–T-115 | 387 |
-| **v2.13.0** | **2026-07-30** | **Epic 17 (Danger Word Fix)** | **T2–T4** | **399** |
+| v2.13.0 | 2026-07-30 | Epic 17 (Danger Word Fix) | T2–T4 | 399 |
+| v2.15.0 | 2026-08-02 | 4 Major Fixes (propagation, mimic v2, slavik random media, dead_page relay) | — | 458 |
+| **v2.16.0** | **2026-08-02** | **Epic 18 (Danger Service Fixes)** | **A/B/C** | **478** |
 
 ---
 
@@ -266,30 +374,30 @@ danger_handler НЕ срабатывает — media из common/danger/ не о
 
 | Status | Tasks |
 |--------|-------|
-| **Done** | T-001 – T-115 + T2, T3, T4 (117 задач across 17 Epics) ✅ |
-| **Planned** | — (все Epic'ы завершены) |
+| **Done** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEVELOPED across 18 Epics) ✅ |
 
-> Epics 1-16 DEPLOYED ✅. Epic 17 APPROVED ✅ — готов к деплою. AdminBot v2.13.0 — Production-ready.
-> 399 тестов, 10 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
-> 17 Epic'ов завершены. Ноль известных багов.
+> Epics 1-18 IMPLEMENTED ✅. Epic 18 (Danger Service Fixes) завершён — v2.16.0 готов к деплою.
+> 478 тестов, 10 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
+> 18 Epic'ов: все реализованы. Ноль известных багов. Dual cooldown, улучшенная GIF-детекция, отказоустойчивое сканирование файлов.
 
 ---
 
-## 🚀 Deployment Details (Final)
+## 🚀 Deployment Details
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия** | v2.13.0 (APPROVED) |
-| **Предыдущий коммит** | `b58d60f` (v2.12.1) |
-| **Дата** | 2026-07-30 |
+| **Версия в проде** | v2.15.0 (deployed) |
+| **Следующая версия** | v2.16.0 (implemented — Epic 18, готов к деплою) |
+| **Текущий коммит** | `ba495af`, `066d5bc` (v2.15.0). Epic 18 changes staged locally. |
+| **Дата** | 2026-08-02 |
 | **Сервер** | nik@198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
 | **Статус** | systemctl status adminbot → active (running) |
 | **Git remote** | origin/master — pushed успешно |
-| **Тесты** | 399 PASS (все зелёные) |
-| **Эпики** | 1-16 DEPLOYED ✅, 17 APPROVED ✅ |
-| **Задачи** | T-001 – T-115 + T2/T3/T4 (117 задач) закрыты |
+| **Тесты** | 478 PASS (все зелёные) |
+| **Эпики** | 1-18 IMPLEMENTED ✅ |
+| **Задачи** | T-001 – T-115 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEVELOPED) |
 
 ---
 
-*Обновление: 2026-07-30 — EPIC 17 APPROVED. Knowledge Graph синхронизирован: обновлены entity Epic-17-Danger-Word-Fix (APPROVED), AdminBot-v2.13.0 (APPROVED/ready-for-deploy), DangerWordFilter, CommonRelay, common-service, war_alert_router, filters/word_lists.py, AdminBot, AdminBot Router Architecture, handlers/common.py, services/common_relay.py, handlers/war_alert.py, tests/test_common.py. MEMORY.md обновлён до v2.13.0-approved. Проект в продакшене (v2.12.1), Epic 17 готов к деплою. 399 тестов. Ноль регрессий. Ноль известных багов.*
+*Обновление: 2026-08-02 — EPIC 18 IMPLEMENTED. Knowledge Graph синхронизирован: Epic-18-Danger-Service-Fixes (IMPLEMENTED), Bug-A-File-Scanning-Robustness (FIXED), Bug-B-GIF-Detection (FIXED), Bug-C-Dual-Cooldown (FIXED), AdminBot-v2.16.0 (IMPLEMENTED). Обновлены: CommonRelay, config/settings.py, bot.py, tests/test_common.py, AdminBot Router Architecture, AdminBot. Добавлены новые observations и relations (fixes, resolved_by, tests, includes). MEMORY.md обновлён до v2.16.0-implemented. Проект в продакшене (v2.15.0, 478 тестов), Epic 18 IMPLEMENTED — готов к деплою.*

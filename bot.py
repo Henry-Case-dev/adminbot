@@ -73,7 +73,11 @@ async def on_startup():
     setup_war_alert()
     setup_slavik(db)  # F6: Slavic photo counter (Epic 12)
     
-    common_relay = CommonRelay(bot, settings.COMMON_COOLDOWN_SECONDS)
+    common_relay = CommonRelay(
+        bot,
+        cooldown_seconds=settings.COMMON_COOLDOWN_SECONDS,
+        danger_cooldown_seconds=settings.DANGER_COOLDOWN_SECONDS,
+    )
     setup_common(common_relay)
     logger.info("Common Service (Epic 15) initialized")
 

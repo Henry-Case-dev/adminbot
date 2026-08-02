@@ -1,0 +1,23 @@
+{
+  "status": "ok",
+  "pid": 501738,
+  "active": "running",
+  "last_logs": [
+    "Jul 25 17:13:21 racknerd-f4e3456 systemd[1]: admin_bot.service: Failed with result 'timeout'.",
+    "Jul 25 17:13:21 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.",
+    "Jul 25 17:13:21 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 8.211s CPU time, 121.2M memory peak, 0B memory swap peak.",
+    "Jul 25 17:13:21 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.",
+    "Jul 25 17:13:25 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...",
+    "Jul 25 17:13:25 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.",
+    "Jul 25 17:13:25 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.",
+    "Jul 25 17:13:25 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 3.911s CPU time.",
+    "Jul 25 17:13:25 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.",
+    "[sudo] password for nik:"
+  ],
+  "steps": {
+    "git_pull": "Already up to date.",
+    "restart": "",
+    "status": "\u25cf admin_bot.service - Telegram Admin Bot\n     Loaded: loaded (/etc/systemd/system/admin_bot.service; enabled; preset: enabled)\n     Active: active (running) since Sat 2026-07-25 17:13:25 UTC; 2s ago\n   Main PID: 501738 (python)\n      Tasks: 1 (limit: 1055)\n     Memory: 60.6M (peak: 60.8M)\n        CPU: 2.666s\n     CGroup: /system.slice/admin_bot.service\n             \u2514\u2500501738 /var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py\n\nJul 25 17:13:25 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.\n[sudo] password for nik:",
+    "journal": "Jul 25 17:13:21 racknerd-f4e3456 systemd[1]: admin_bot.service: Main process exited, code=killed, status=9/KILL\nJul 25 17:13:21 racknerd-f4e3456 systemd[1]: admin_bot.service: Failed with result 'timeout'.\nJul 25 17:13:21 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.\nJul 25 17:13:21 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 8.211s CPU time, 121.2M memory peak, 0B memory swap peak.\nJul 25 17:13:21 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.\nJul 25 17:13:25 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...\nJul 25 17:13:25 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.\nJul 25 17:13:25 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.\nJul 25 17:13:25 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 3.911s CPU time.\nJul 25 17:13:25 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.\n[sudo] password for nik:"
+  }
+}

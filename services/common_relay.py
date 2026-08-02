@@ -49,6 +49,7 @@ class CommonRelay:
         self,
         bot: Bot,
         cooldown_seconds: float,
+        danger_cooldown_seconds: float = 0,
         media_base: str | None = None,
     ) -> None:
         """Initialise CommonRelay.
@@ -56,12 +57,15 @@ class CommonRelay:
         Args:
             bot: aiogram Bot instance for sending media.
             cooldown_seconds: Shared cooldown in seconds (0 = disabled).
+            danger_cooldown_seconds: Danger-specific cooldown in seconds (0 = no extra restriction).
             media_base: Base directory for media files (default: settings.COMMON_MEDIA_BASE).
         """
         self._bot = bot
         self._cooldown_seconds = cooldown_seconds
+        self._danger_cooldown_seconds = danger_cooldown_seconds
         self._media_base = media_base or settings.COMMON_MEDIA_BASE
         self._cooldowns: dict[int, float] = {}
+        self._danger_cooldowns: dict[int, float] = {}
 
     def _detect_media_type(self, filepath: Path) -> str | None:
         """Determine media type from file extension and filename.
@@ -73,7 +77,8 @@ class CommonRelay:
         if ext in _IMAGE_EXTENSIONS:
             return MEDIA_PHOTO
         if ext in _VIDEO_EXTENSIONS:
-            if "gif" in filepath.stem.lower():
+            fname = filepath.name.lower()
+            if "_gif" in fname or fname.startswith("gif") or ".gif." in fname:
                 return MEDIA_ANIMATION
             return MEDIA_VIDEO
         if ext in _AUDIO_EXTENSIONS:
@@ -102,17 +107,32 @@ class CommonRelay:
 
         files: list[tuple[Path, str]] = []
         for entry in base.iterdir():
-            if not entry.is_file():
-                continue
-            media_type = self._detect_media_type(entry)
-            if media_type is not None:
-                files.append((entry, media_type))
-            else:
-                logger.debug(
-                    "CommonRelay: skipping unsupported file %s in %s",
-                    entry.name,
+            try:
+                if not entry.is_file():
+                    continue
+                media_type = self._detect_media_type(entry)
+                if media_type is not None:
+                    files.append((entry, media_type))
+                else:
+                    logger.debug(
+                        "CommonRelay: skipping unsupported file %s in %s",
+                        entry.name,
+                        subdir,
+                    )
+            except OSError:
+                logger.warning(
+                    "CommonRelay: cannot access entry %s in %s — skipping",
+                    entry,
                     subdir,
                 )
+                continue
+
+        logger.info(
+            "CommonRelay: scanned %s — found %d supported files: %s",
+            base,
+            len(files),
+            [(f.name, mt) for f, mt in files],
+        )
 
         if not files:
             logger.warning(
@@ -200,6 +220,20 @@ class CommonRelay:
         """
         now = time.monotonic()
 
+        if subdir == "danger" and self._danger_cooldown_seconds > 0:
+            last_danger = self._danger_cooldowns.get(chat_id)
+            if last_danger is not None:
+                elapsed = now - last_danger
+                if elapsed < self._danger_cooldown_seconds:
+                    logger.info(
+                        "CommonRelay: danger_cooldown_active | chat_id=%s | "
+                        "elapsed=%.1fs | remaining=%.1fs",
+                        chat_id,
+                        elapsed,
+                        self._danger_cooldown_seconds - elapsed,
+                    )
+                    return
+
         if self._cooldown_seconds > 0:
             last_sent = self._cooldowns.get(chat_id)
             if last_sent is not None:
@@ -246,6 +280,8 @@ class CommonRelay:
                 media_type=media_type,
             )
             self._cooldowns[chat_id] = now
+            if subdir == "danger":
+                self._danger_cooldowns[chat_id] = now
             logger.info(
                 "CommonRelay: sent | chat_id=%s | subdir=%s | "
                 "file=%s | type=%s | matched_word=%r",
