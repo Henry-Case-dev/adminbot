@@ -15,6 +15,30 @@ def _env_float(key: str, default: float) -> float:
     return float(val)
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_str(name: str, default: str) -> str:
+    return os.getenv(name, default)
+
+
+def _env_int_tuple(name: str, default: tuple[int, ...]) -> tuple[int, ...]:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    parts = val.split(",")
+    result: list[int] = []
+    for p in parts:
+        p = p.strip()
+        if p:
+            result.append(int(p))
+    return tuple(result)
+
+
 @dataclass(frozen=True)
 class Settings:
     API_TOKEN: str = os.getenv("API_TOKEN", "")
@@ -122,6 +146,18 @@ class Settings:
 
     # Cooldown in seconds between Slavik mimic replies (per chat).
     SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float("SLAVIK_MIMIC_COOLDOWN_SECONDS", 60.0)
+
+    # ── Olya service (Epic 19) ──────────────────────────────────────────
+    OLYA_ENABLED: bool = _env_bool("OLYA_ENABLED", True)
+    OLYA_USER_ID: int = _env_int("OLYA_USER_ID", 834424825)
+    OLYA_COOLDOWN_SECONDS: float = _env_float("OLYA_COOLDOWN_SECONDS", 60.0)
+    OLYA_MEDIA_BASE: str = _env_str("OLYA_MEDIA_BASE", "media/olya/cringe")
+    OLYA_SAVEASBOT_CHANNEL_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_CHANNEL_IDS", (523131145,))
+    OLYA_CAPTION_ENABLED: bool = _env_bool("OLYA_CAPTION_ENABLED", True)
+    OLYA_CAPTION_TEXT: str = _env_str("OLYA_CAPTION_TEXT", "Спасибо, что пользуетесь - @SaveAsBot'ом")
+    OLYA_REPOST_ENABLED: bool = _env_bool("OLYA_REPOST_ENABLED", True)
+    OLYA_MEDIA_TYPE: str = _env_str("OLYA_MEDIA_TYPE", "video")
+    OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", True)
 
 
 settings = Settings()
