@@ -1173,3 +1173,110 @@
 
 **Status: Epics 1–20 IMPLEMENTED ✅. Epic 20 (Slavik Random Media Enhancement) — approved, 570 tests pass, ready for deploy. All 20 Epics COMPLETE. Project PRODUCTION-READY v2.18.0.**
 **Date: 2026-08-02 | v2.18.0 (implemented)**
+
+---
+
+## Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 🔵 IN PROGRESS
+
+> **Цель:** (1) Исправить критический propagation-баг: `alan_handler` в `handlers/alan.py`
+> перехватывает ВСЕ сообщения Алана и не возвращает `UNHANDLED`, блокируя `common_router`
+> (позиция 4c) где живёт `mimic_handler`. Default `MIMIC_VICTIM_USER_IDS=138811255` (Alan) —
+> mimic НИКОГДА не срабатывает. (2) Переименовать 4+ cooldown-переменных: убрать суффикс
+> `_SECONDS` и перейти на time-format строки (1s / 1m / 1h / 1d). Добавить утилиту
+> `parse_duration(value: str) -> float`. `0` или `"0"` = отключено.
+>
+> **SLAVIK_MIMIC НЕ затронут — живёт в `slavik_router` (позиция 5), полностью изолирован.**
+>
+> **Переименования:**
+> 1. `MIMIC_COOLDOWN_SECONDS` → `MIMIC_COOLDOWN`, default `"1h"`
+> 2. `SLAVIK_MIMIC_COOLDOWN_SECONDS` → `SLAVIK_MIMIC_COOLDOWN`, default `"60s"` (was 60.0)
+> 3. `COMMON_COOLDOWN_SECONDS` → `COMMON_COOLDOWN`, default `"0"` (disabled)
+> 4. `DEAD_PAGE_COOLDOWN_SECONDS` → `DEAD_PAGE_COOLDOWN`, default `"10s"` (was 10)
+> 5. (Опционально) `DANGER_COOLDOWN_SECONDS` → `DANGER_COOLDOWN`, default `"60s"` (was 60.0)
+> 6. (Опционально) `OLYA_COOLDOWN_SECONDS` → `OLYA_COOLDOWN`, default `"60s"` (was 60.0)
+
+### BUG FIX — MIMIC Propagation
+
+- [ ] T-149: Fix MIMIC propagation — add `return UNHANDLED` in `alan_handler`
+  - [ ] T-149-A: Root cause: `alan_handler` в `handlers/alan.py` (позиция 3) ловит ВСЕ сообщения Алана и НЕ возвращает `UNHANDLED`, блокируя propagation к `common_router` (позиция 4c) где живёт `mimic_handler`
+  - [ ] T-149-B: Fix: Добавить `from aiogram.dispatcher.event.bases import UNHANDLED` и `return UNHANDLED` в конец `alan_handler()` (после silence-логики, до return None по умолчанию)
+  - [ ] T-149-C: Проверить, что SLAVIK_MIMIC не затронут (slavik_router позиция 5, полностью изолирован)
+  - [ ] T-149-D: Проверить, что Alan-фичи не сломаны: greeting, silence greeting, message counting
+  - [ ] T-149-E: Integration test: сообщение Алана → MIMIC срабатывает в common_router
+  - [ ] T-149-F: Integration test: сообщение Алана → alan_handler срабатывает И mimic срабатывает (оба)
+
+### Time Format Cooldowns — parse_duration() utility
+
+- [ ] T-150: Create `parse_duration(value: str) -> float` helper in `config/settings.py`
+  - [ ] T-150-A: Поддержка форматов: `1s` (1 секунда), `1m` (60), `1h` (3600), `1d` (86400)
+  - [ ] T-150-B: `0` или `"0"` → returns `0.0` (disabled)
+  - [ ] T-150-C: Обработка edge cases: отрицательные значения → 0, пустая строка → 0
+  - [ ] T-150-D: Создать `_env_duration(key: str, default: str) -> float` helper (аналог `_env_int`/`_env_float`)
+  - [ ] T-150-E: Comprehensive docstring с примерами
+  - [ ] T-150-F: Unit tests: все форматы, 0, edge cases, whitespace
+
+### Rename COOLDOWN_SECONDS → COOLDOWN
+
+- [ ] T-151: Rename cooldown variables in `config/settings.py`
+  - [ ] T-151-A: `MIMIC_COOLDOWN_SECONDS: float = _env_float(...)` → `MIMIC_COOLDOWN: float = _env_duration("MIMIC_COOLDOWN", "1h")`
+  - [ ] T-151-B: `SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float(...)` → `SLAVIK_MIMIC_COOLDOWN: float = _env_duration("SLAVIK_MIMIC_COOLDOWN", "60s")`
+  - [ ] T-151-C: `COMMON_COOLDOWN_SECONDS: float = _env_float(...)` → `COMMON_COOLDOWN: float = _env_duration("COMMON_COOLDOWN", "0")`
+  - [ ] T-151-D: `DEAD_PAGE_COOLDOWN_SECONDS: int = _env_int(...)` → `DEAD_PAGE_COOLDOWN: float = _env_duration("DEAD_PAGE_COOLDOWN", "10s")`
+  - [ ] T-151-E: `DANGER_COOLDOWN_SECONDS: float = _env_float(...)` → `DANGER_COOLDOWN: float = _env_duration("DANGER_COOLDOWN", "60s")` (опционально)
+  - [ ] T-151-F: `OLYA_COOLDOWN_SECONDS: float = _env_float(...)` → `OLYA_COOLDOWN: float = _env_duration("OLYA_COOLDOWN", "60s")` (опционально)
+
+### Update all references in services and handlers
+
+- [ ] T-152: Update `bot.py` — all cooldown references (settings.MIMIC_COOLDOWN, etc.)
+- [ ] T-153: Update `handlers/slavik.py` — SLAVIK_MIMIC_COOLDOWN reference
+- [ ] T-154: Update `services/mimic_relay.py` — MIMIC_COOLDOWN reference
+- [ ] T-155: Update `services/common_relay.py` — COMMON_COOLDOWN + DANGER_COOLDOWN references
+- [ ] T-156: Update `services/dead_page_relay.py` — DEAD_PAGE_COOLDOWN reference
+
+### Configuration and environment
+
+- [ ] T-157: Update `.env.example` — rename all `*_COOLDOWN_SECONDS` → `*_COOLDOWN` with time-format defaults and descriptions
+
+### Testing
+
+- [ ] T-158: Update all test files for new cooldown names
+  - [ ] T-158-A: `tests/test_mimic_relay.py` — MIMIC_COOLDOWN references
+  - [ ] T-158-B: `tests/test_slavik_handlers.py` — SLAVIK_MIMIC_COOLDOWN references
+  - [ ] T-158-C: `tests/test_common.py` — COMMON_COOLDOWN (+ DANGER_COOLDOWN) references
+  - [ ] T-158-D: `tests/test_dead_page_relay.py` — DEAD_PAGE_COOLDOWN references
+  - [ ] T-158-E: `tests/test_settings.py` — parse_duration() tests + new env var names
+- [ ] T-159: Maximum test coverage + run tests
+  - [ ] T-159-A: Unit tests for `parse_duration()` — all formats, edge cases
+  - [ ] T-159-B: Unit tests for `_env_duration()` — env var reading
+  - [ ] T-159-C: Integration tests for MIMIC propagation fix (alan → common_router)
+  - [ ] T-159-D: `pytest -v` — все тесты, 0 регрессий
+  - [ ] T-159-E: Coverage ≥ 100% для новых/изменённых модулей
+
+### Documentation
+
+- [ ] T-160: Update README.md with ironic tone
+  - [ ] T-160-A: Описать MIMIC bug fix — почему mimic не работал и как исправили
+  - [ ] T-160-B: Описать time-format cooldowns — новый синтаксис (1s/1m/1h/1d)
+  - [ ] T-160-C: Таблица конфигурации с новыми именами переменных
+  - [ ] T-160-D: Version bump v2.18.0 → v2.19.0 + changelog
+- [ ] T-161: Documentation sync — MEMORY.md, ARCHITECTURE.md
+  - [ ] T-161-A: MEMORY.md — project state, features table, version bump
+  - [ ] T-161-B: ARCHITECTURE.md — router order rationale (alan propagation fix), cooldown system update
+
+### Commit + Push + Deploy
+
+- [ ] T-162: Commit + Push + Deploy
+  - [ ] T-162-A: Git commit на русском (conventional commits: `fix(mimic): ...`) в main
+  - [ ] T-162-B: Git push
+  - [ ] T-162-C: SSH → сервер nik@198.46.175.136:/var/www/admin_bot → git pull
+  - [ ] T-162-D: Обновить `.env` — переименовать старые переменные на новые (time-format) при необходимости
+  - [ ] T-162-E: `sudo systemctl restart admin_bot`
+  - [ ] T-162-F: `sudo systemctl status admin_bot` — verify running
+  - [ ] T-162-G: Smoke test: сообщение от Алана → mimic reply (проверить, что фикс работает)
+  - [ ] T-162-H: Smoke test: сообщение от пользователя с "отбой" → common relay reply (проверить, что cooldown не сломан)
+  - [ ] T-162-I: Verify Better Stack логи (без ERROR/WARNING от mimic или cooldown)
+
+**Файлы изменяемые:** `handlers/alan.py`, `config/settings.py`, `bot.py`, `handlers/slavik.py`, `services/mimic_relay.py`, `services/common_relay.py`, `services/dead_page_relay.py`, `.env.example`, `tests/test_*.py`, `README.md`, `plans/MEMORY.md`, `plans/ARCHITECTURE.md`
+
+**Статус: Epic 21 IN PROGRESS 🔵. T-149 (MIMIC fix) — Critical. T-150–T-156 (cooldown rename) — High.**
+**Date: 2026-08-03 | v2.19.0 (target)**

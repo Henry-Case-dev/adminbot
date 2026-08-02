@@ -11,7 +11,7 @@ def _make_mock_settings(**kwargs):
     s.SLAVIC_PHOTO_PATH = kwargs.get("SLAVIC_PHOTO_PATH", "media/slavic_na_litso.jpg")
     s.SLAVIK_USER_ID = 479167456
     s.SLAVIK_MIMIC_MIN_WORDS = kwargs.get("SLAVIK_MIMIC_MIN_WORDS", 5)
-    s.SLAVIK_MIMIC_COOLDOWN_SECONDS = kwargs.get("SLAVIK_MIMIC_COOLDOWN_SECONDS", 60.0)
+    s.SLAVIK_MIMIC_COOLDOWN = kwargs.get("SLAVIK_MIMIC_COOLDOWN", 60.0)
     return s
 
 

@@ -127,7 +127,7 @@ def _slavik_mimic_should_trigger(chat_id: int, text: str) -> bool:
         return False
     if count_words(text) <= settings.SLAVIK_MIMIC_MIN_WORDS:
         return False
-    cooldown = settings.SLAVIK_MIMIC_COOLDOWN_SECONDS
+    cooldown = settings.SLAVIK_MIMIC_COOLDOWN
     if cooldown > 0:
         last = _slavik_mimic_last_sent.get(chat_id)
         if last is not None and (time.monotonic() - last) < cooldown:

@@ -75,11 +75,11 @@ class DeadPageRelay:
         logger.info(f"[dead_page] === Triggered for chat {chat_id}, slot={slot} ===")
 
         if await self.db.was_dead_page_recently(
-            chat_id, settings.DEAD_PAGE_COOLDOWN_SECONDS
+            chat_id, settings.DEAD_PAGE_COOLDOWN
         ):
             logger.info(
                 f"[dead_page] SKIP chat {chat_id}: cooldown active "
-                f"({settings.DEAD_PAGE_COOLDOWN_SECONDS}s)"
+                f"({settings.DEAD_PAGE_COOLDOWN}s)"
             )
             return
 

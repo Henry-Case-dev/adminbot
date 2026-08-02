@@ -2139,4 +2139,312 @@ def _pick_random_slavik_media() -> tuple[Path, str] | None:
 
 ---
 
-@Orchestrator Epic 20 architecture ready, passing the baton.
+---
+
+## 29. Epic 21 — MIMIC Propagation Fix + Time-Format Cooldowns
+
+> **Версия:** v2.19.0
+> **Дата:** 2026-08-03
+> **Статус:** Архитектурный контракт. Дизайн Epic 21. Реализация НЕ начата.
+> **Автор:** @Architect
+
+### 29.1 Содержание Epic 21
+
+| # | Задача | Суть |
+|---|--------|------|
+| **1** | T-149: MIMIC propagation fix | `alan_handler` не возвращает `UNHANDLED` → блокирует `common_router` (mimic, danger, otboy) |
+| **2** | T-150–T-151: Time-format cooldowns | Новый хелпер `_parse_duration()`, переименование `*_COOLDOWN_SECONDS` → `*_COOLDOWN` |
+
+### 29.2 Design Decision D49: return UNHANDLED in `alan_handler`
+
+#### Проблема
+
+`alan_handler` в `handlers/alan.py` ловит **все** сообщения от Alan (UserID 138811255) через `UserIdFilter`, но **не возвращает `UNHANDLED`**. В aiogram 3.x это означает «событие обработано» → propagation останавливается. Все нижестоящие роутеры (common_router, dead_page_router, war_alert_router) **не получают** сообщения Alan.
+
+**Router position (из Приложения A):**
+```
+3. alan_router (UserIdFilter → Alan replies)
+4. dead_page_router (F.forward_origin)
+4b. war_alert_router (danger words, channel repost)
+4c. common_router (mimic_handler, otboy_handler, danger_handler)  ← НЕДОСТУПЕН
+5. slavik_router (Slavik catch-all)
+```
+
+**Последствия:** mimic_handler никогда не получает сообщения Alan → MIMIC фича сломана для единственного пользователя, под которого она настроена (`MIMIC_VICTIM_USER_IDS=138811255`).
+
+Danger и otboy для Alan тоже не работают (но это expected — Alan обычно не пишет danger-слова).
+
+**SLAVIK_MIMIC НЕ затронут** — он изолирован в `slavik_router` (позиция 5), который получает события независимо.
+
+#### Root Cause
+
+Файл `handlers/alan.py`:129 — последняя строка хэндлера:
+
+```python
+@alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
+async def alan_handler(message: types.Message) -> None:
+    # ... counting, reply, silence greeting ...
+    # NO return UNHANDLED — implicit None = "handled"
+```
+
+В aiogram 3.x конвенция:
+- `return None` (или отсутствие return) = «событие обработано» → propagation stops
+- `return UNHANDLED` = «событие НЕ обработано» → propagation continues to next routers
+- `return False` (только для filters) = не матчит
+
+#### Решение
+
+```python
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+@alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
+async def alan_handler(message: types.Message) -> None:
+    # ... весь существующий код без изменений ...
+    return UNHANDLED  # ← ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ
+```
+
+**Файл:** `handlers/alan.py`
+**Сложность:** Минимальная (1 import + 1 return).
+**Риски:** Нет. `alan_handler` только считает сообщения и иногда делает reply — он не должен блокировать propagation ни при каких условиях.
+
+#### New Message Flow (after fix)
+
+```
+Alan пишет "привет как дела мир труд май"
+  │
+  ├─ alan_router (pos 3): count=1, не кратно 10, return UNHANDLED
+  ├─ dead_page_router (pos 4): не forward → skip
+  ├─ war_alert_router (pos 4b): не danger → skip
+  ├─ common_router (pos 4c):
+  │   ├─ mimic_handler: count_words=5 > 3 → MIMIC FIRES! ✅
+  │   └─ danger/otboy: skip (нет ключевых слов)
+  ├─ slavik_router (pos 5): не Slava → skip
+  └─ vasya_router (pos 6): skip
+```
+
+### 29.3 Design Decision D50: Time-format cooldown system
+
+#### Rationale
+
+Текущие кулдауны — это `float` секунд в `.env`:
+```
+MIMIC_COOLDOWN_SECONDS=60.0
+COMMON_COOLDOWN_SECONDS=0
+DANGER_COOLDOWN_SECONDS=60.0
+```
+
+Недостатки:
+1. **Нечитаемо**: `3600` — это час или просто много?
+2. **Неудобно настраивать**: админ должен переводить часы/минуты в секунды.
+3. **Нет валидации**: `3.14159` — не имеет смысла, но пройдёт.
+4. **Несогласованный default для `DEAD_PAGE_COOLDOWN_SECONDS`**: int (10) вместо float.
+
+#### Решение: `_parse_duration()` + `_env_duration()`
+
+**Функция `_parse_duration(value: str) -> float`** (в `config/settings.py`):
+
+| Формат ввода | Секунды | Пример |
+|-------------|---------|--------|
+| `"1s"` | `1.0` | 1 секунда |
+| `"30s"` | `30.0` | 30 секунд |
+| `"1m"` | `60.0` | 1 минута |
+| `"5m"` | `300.0` | 5 минут |
+| `"1h"` | `3600.0` | 1 час |
+| `"2h"` | `7200.0` | 2 часа |
+| `"1d"` | `86400.0` | 24 часа |
+| `"0"` | `0.0` | Кулдаун отключён |
+| `"0s"` | `0.0` | Кулдаун отключён |
+
+**Правила валидации:**
+- Строка должна состоять из цифр + опциональный суффикс `s`/`m`/`h`/`d`
+- Число должно быть ≥ 0
+- Пустая строка → `ValueError`
+- Float-числа НЕ поддерживаются в duration-формате (`"0.5h"` → ошибка)
+- Без суффикса → трактуется как количество секунд (`"60"` = 60.0)
+- Неизвестный суффикс → `ValueError`
+- Отрицательные числа → `ValueError`
+
+**Функция `_env_duration(key: str, default: str) -> float`**:
+- Читает значение из `os.getenv(key, default)`
+- Вызывает `_parse_duration()` и возвращает float-секунды
+- При ошибке парсинга → логирует WARNING и возвращает `_parse_duration(default)` как fallback
+
+#### Полный список переименований
+
+| Старое имя | Новое имя | Default | Был default |
+|-----------|----------|---------|-------------|
+| `MIMIC_COOLDOWN_SECONDS` | `MIMIC_COOLDOWN` | `"1h"` (3600s) | `60.0` |
+| `SLAVIK_MIMIC_COOLDOWN_SECONDS` | `SLAVIK_MIMIC_COOLDOWN` | `"60s"` (60s) | `60.0` |
+| `COMMON_COOLDOWN_SECONDS` | `COMMON_COOLDOWN` | `"0"` (disabled) | `0` |
+| `DEAD_PAGE_COOLDOWN_SECONDS` | `DEAD_PAGE_COOLDOWN` | `"10s"` (10s) | `10` |
+| `DANGER_COOLDOWN_SECONDS` | `DANGER_COOLDOWN` | `"60s"` (60s) | `60.0` |
+| `OLYA_COOLDOWN_SECONDS` | `OLYA_COOLDOWN` | `"60s"` (60s) | `60.0` |
+
+**SLAVIC_PHOTO_COOLDOWN** — не существует в текущем коде. Не добавляется.
+
+#### Backward Compatibility
+
+**Ломающее изменение**: старые float-значения в `.env` (`60.0`, `0`, `10`) **НЕ будут работать** с `_env_duration()`. Причина: `_parse_duration` проверяет суффиксы и отклонит чистый float. Админ **должен** обновить `.env` при деплое.
+
+Переходный период: можно добавить fallback-логику в `_env_duration` — если значение похоже на число без суффикса и не содержит точку, трактовать как секунды. Но это временно, для обратной совместимости при деплое.
+
+### 29.4 Affected Files Matrix
+
+| # | Файл | Изменения | Сложность |
+|---|------|-----------|-----------|
+| **1** | `config/settings.py` | Добавить `_parse_duration()` + `_env_duration()`. Переименовать 6 полей `Settings`: `*_COOLDOWN_SECONDS` → `*_COOLDOWN`. Сменить тип c `_env_float`/`_env_int` на `_env_duration`. | **Средняя** |
+| **2** | `handlers/alan.py` | Добавить `from aiogram.dispatcher.event.bases import UNHANDLED`. Добавить `return UNHANDLED` в конце `alan_handler()`. | **Низкая** |
+| **3** | `bot.py` | Строки 80, 81, 88, 132, 137: переименовать `COOLDOWN_SECONDS` → `COOLDOWN`. | **Низкая** |
+| **4** | `handlers/slavik.py` | Строка 122: `settings.SLAVIK_MIMIC_COOLDOWN_SECONDS` → `settings.SLAVIK_MIMIC_COOLDOWN`. | **Низкая** |
+| **5** | `services/mimic_relay.py` | Конструктор `MimicRelay` принимает `cooldown_seconds` → не меняется (внутренний параметр). Но в `bot.py` при создании `MimicRelay` передаётся `settings.MIMIC_COOLDOWN`. | **Нет изменений** |
+| **6** | `services/common_relay.py` | Конструктор `CommonRelay` принимает `cooldown_seconds` и `danger_cooldown_seconds` → не меняются (внутренние параметры). Но в `bot.py` передаются новые имена: `settings.COMMON_COOLDOWN` и `settings.DANGER_COOLDOWN`. | **Нет изменений** |
+| **7** | `services/dead_page_relay.py` | Строка 78: `settings.DEAD_PAGE_COOLDOWN_SECONDS` → `settings.DEAD_PAGE_COOLDOWN`. Строка 82: аналогично в лог-сообщении. | **Низкая** |
+| **8** | `.env.example` | Все 6 переменных переименованы. Defaults: `1h`, `60s`, `0`, `10s`, `60s`, `60s`. Добавлен комментарий про time-format. | **Низкая** |
+| **9** | `README.md` | Обновить таблицу конфигурационных параметров (строки 86–149, 294, 475, 523). Заменить все `*_COOLDOWN_SECONDS` → `*_COOLDOWN` с time-format значениями. | **Средняя** |
+| **10** | `tests/test_mimic_relay.py` | Тесты используют `cooldown_seconds` как параметр конструктора → **не меняется** (внутренний параметр). | **Нет изменений** |
+| **11** | `tests/test_common.py` | Строка 973–975: `settings.COMMON_COOLDOWN_SECONDS` → `settings.COMMON_COOLDOWN`. Строка 400, 582, 756, 768 и др.: `cooldown_seconds` в `CommonRelay()` — **не меняется** (параметр конструктора). | **Низкая** |
+| **12** | `tests/test_alan.py` | Добавить тест: `alan_handler` возвращает `UNHANDLED`. | **Низкая** |
+| **13** | `tests/test_duration.py` | **Новый файл**: тесты `_parse_duration()` — все форматы, edge cases, ошибки. | **Средняя** |
+| **14** | `plans/MEMORY.md` | Обновить таблицу конфигурационных параметров, список переменных `config/settings.py`. | **Низкая** |
+| **15** | `plans/backlog.md` | Отметить T-149–T-158 как выполненные. | **Низкая** |
+
+### 29.5 Integration Diagram: Message Flow After Fix
+
+```
+Сообщение от Alan (user_id=138811255)
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ admin_commands_router (pos 0)                   │  skip (not a command)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ slava_presence_router (pos 1)                   │  skip (ChatMemberUpdated only)
+│ alan_greeting_router (pos 1b)                   │  skip (ChatMemberUpdated only)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ kostik_router (pos 2)                           │  skip (not Kostik)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ alan_router (pos 3)                             │
+│ ├─ UserIdFilter(ALAN_USER_ID) → matches        │
+│ ├─ alan_handler(): count, maybe reply, ...      │
+│ └─ return UNHANDLED  ← FIX                      │
+└─────────────────────────────────────────────────┘
+    │ propagation continues ▼
+    ▼
+┌─────────────────────────────────────────────────┐
+│ dead_page_router (pos 4)                        │  skip (not forwarded from @d_pages)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ war_alert_router (pos 4b)                       │  skip (no danger words in text)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ common_router (pos 4c)                          │
+│ ├─ mimic_handler: MIMIC FIRES! (if word_count  │
+│ │   > MIMIC_MIN_WORDS + cooldown passed)       │
+│ ├─ danger_handler: skip                         │
+│ └─ otboy_handler: skip                          │
+└─────────────────────────────────────────────────┘
+    │ propagation continues ▼
+    ▼
+┌─────────────────────────────────────────────────┐
+│ olya_router (pos 4d)                            │  skip (not Olya)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ slavik_router (pos 5)                           │  skip (not Slava)
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ vasya_router (pos 6)                            │  skip (no matching text filters)
+└─────────────────────────────────────────────────┘
+```
+
+### 29.6 `_parse_duration()` Specification
+
+```python
+def _parse_duration(value: str) -> float:
+    """Convert a human-readable duration string to seconds (float).
+    
+    Formats: "<number>[s|m|h|d]"
+      "1s"  = 1 second
+      "30s" = 30 seconds  
+      "1m"  = 60 seconds
+      "1h"  = 3600 seconds
+      "1d"  = 86400 seconds
+      "0"   = 0 (disabled)
+      "0s"  = 0 (disabled)
+    
+    Args:
+        value: Duration string from env var.
+    
+    Returns:
+        Float seconds.
+    
+    Raises:
+        ValueError: If format is invalid, negative, or suffix is unknown.
+    """
+```
+
+**Test cases for `test_duration.py`:**
+
+| ID | Input | Expected | Notes |
+|----|-------|----------|-------|
+| D-01 | `"1s"` | `1.0` | Базовый |
+| D-02 | `"30s"` | `30.0` | Много секунд |
+| D-03 | `"1m"` | `60.0` | Минута |
+| D-04 | `"5m"` | `300.0` | Много минут |
+| D-05 | `"1h"` | `3600.0` | Час |
+| D-06 | `"2h"` | `7200.0` | Два часа |
+| D-07 | `"1d"` | `86400.0` | Сутки |
+| D-08 | `"0"` | `0.0` | Zero без суффикса |
+| D-09 | `"0s"` | `0.0` | Zero с суффиксом |
+| D-10 | `"0m"` | `0.0` | Zero минут |
+| D-11 | `"0h"` | `0.0` | Zero часов |
+| D-12 | `""` | `ValueError` | Пустая строка |
+| D-13 | `"1x"` | `ValueError` | Неизвестный суффикс |
+| D-14 | `"-1s"` | `ValueError` | Отрицательное |
+| D-15 | `"1.5h"` | `ValueError` | Float не поддерживается |
+| D-16 | `"abc"` | `ValueError` | Не число |
+| D-17 | `"60s"` | `60.0` | Секунды, равные минуте |
+| D-18 | `"3600s"` | `3600.0` | Секунды, равные часу |
+
+### 29.7 Риски
+
+| Риск | Вероятность | Влияние | Митигация |
+|------|-----------|---------|-----------|
+| Старый `.env` на сервере с float-значениями сломает бота после деплоя | Высокая | **Критическое** | Добавить backward-compat fallback в `_env_duration` на переходный период: если чистое число (int), трактовать как секунды |
+| `_parse_duration` падает на edge-case формате, который использует админ | Низкая | Среднее | Полное покрытие тестами (D-01–D-18) |
+| Изменение `DEAD_PAGE_COOLDOWN_SECONDS` с int на float может сломать `was_dead_page_recently()` (DB ожидает int) | Средняя | Среднее | Проверить `DatabaseService.was_dead_page_recently()` — если ожидает int, привести к int в `dead_page_relay.py` при вызове |
+| `return UNHANDLED` в `alan_handler` может вызвать двойное срабатывание F7v2 (silence greeting) если сообщение Alan дублируется через другие роутеры | Низкая | Низкое | `alan_handler` только считает сообщения и ставит timestamp — других side-effects нет |
+
+### 29.8 Порядок реализации (для Builder)
+
+1. **T-150**: Создать `_parse_duration()` и `_env_duration()` в `config/settings.py` (с backward-compat)
+2. **T-151**: Переименовать все 6 полей в `Settings` + типы
+3. **T-149**: Добавить `return UNHANDLED` в `handlers/alan.py`
+4. **T-152**: Обновить `bot.py` — переименовать вызовы `settings.*_COOLDOWN_SECONDS` → `settings.*_COOLDOWN`
+5. **T-153**: Обновить `handlers/slavik.py` — `SLAVIK_MIMIC_COOLDOWN_SECONDS` → `SLAVIK_MIMIC_COOLDOWN`
+6. **T-154**: Обновить `services/dead_page_relay.py` — `DEAD_PAGE_COOLDOWN_SECONDS` → `DEAD_PAGE_COOLDOWN`
+7. **T-157**: Обновить `.env.example`
+8. **T-158**: Обновить тесты + создать `test_duration.py`
+9. **T-159**: Прогнать все тесты
+10. **T-160**: Обновить README.md
+11. **T-161**: MEMORY.md + ARCHITECTURE.md sync
+12. **T-162**: Commit + Push + Deploy
+
+---
+
+@Orchestrator Epic 21 architecture ready, passing the baton.

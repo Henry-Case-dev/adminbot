@@ -39,6 +39,50 @@ def _env_int_tuple(name: str, default: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(result)
 
 
+def _parse_duration(value: str) -> float:
+    """Parse a duration string like '1s', '1m', '1h', '1d' to seconds.
+
+    Also accepts bare integers as seconds for backward compatibility.
+    '0' or '0s' returns 0.0 (disabled).
+    """
+    value = str(value).strip().lower()
+    if not value:
+        return 0.0
+
+    if value.isdigit():
+        return float(value)
+
+    if value.endswith("s"):
+        return float(value[:-1])
+    elif value.endswith("m"):
+        return float(value[:-1]) * 60
+    elif value.endswith("h"):
+        return float(value[:-1]) * 3600
+    elif value.endswith("d"):
+        return float(value[:-1]) * 86400
+    else:
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(
+                f"Invalid duration format: '{value}'. "
+                f"Use format like '1s', '1m', '1h', '1d', or a plain number of seconds."
+            )
+
+
+def _env_duration(key: str, default: str) -> float:
+    """Read a duration env var and parse it. Falls back to default on parse error."""
+    raw = os.getenv(key, default)
+    try:
+        return _parse_duration(raw)
+    except ValueError:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Invalid duration for {key}='{raw}', using default '{default}' = {_parse_duration(default)}s"
+        )
+        return _parse_duration(default)
+
+
 @dataclass(frozen=True)
 class Settings:
     API_TOKEN: str = os.getenv("API_TOKEN", "")
@@ -67,7 +111,7 @@ class Settings:
     DEAD_PAGE_CAPTION_MAX_CHARS: int = _env_int("DEAD_PAGE_CAPTION_MAX_CHARS", 1024)
 
     # Anti-spam: minimum seconds between dead pages in same chat
-    DEAD_PAGE_COOLDOWN_SECONDS: int = _env_int("DEAD_PAGE_COOLDOWN_SECONDS", 10)
+    DEAD_PAGE_COOLDOWN: float = _env_duration("DEAD_PAGE_COOLDOWN", "10s")
 
     # Keep join trigger?
     DEAD_PAGE_POST_ON_JOIN: bool = os.getenv("DEAD_PAGE_POST_ON_JOIN", "True").lower() in ("true", "1", "yes")
@@ -114,7 +158,7 @@ class Settings:
     # ── Common Service (Epic 15) ──
     # Cooldown between media sends in the same chat (shared across otboy + danger).
     # 0 = no cooldown (every trigger sends media).
-    COMMON_COOLDOWN_SECONDS: float = _env_float("COMMON_COOLDOWN_SECONDS", 0)
+    COMMON_COOLDOWN: float = _env_duration("COMMON_COOLDOWN", "0")
 
     # Base directory for common media (contains otboy/ and danger/ subdirs).
     COMMON_MEDIA_BASE: str = os.getenv("COMMON_MEDIA_BASE", "media/common")
@@ -122,7 +166,7 @@ class Settings:
     # Danger-specific cooldown (Epic 18). Additional restriction on top of shared.
     # Danger sends are blocked if EITHER shared OR danger cooldown is active.
     # 0 = no additional danger restriction (default: 60.0 = 1 minute).
-    DANGER_COOLDOWN_SECONDS: float = _env_float("DANGER_COOLDOWN_SECONDS", 60.0)
+    DANGER_COOLDOWN: float = _env_duration("DANGER_COOLDOWN", "60s")
 
     # Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
     # Leave empty to use built-in defaults (135+ words from filters/word_lists.py).
@@ -137,7 +181,7 @@ class Settings:
     MIMIC_MIN_WORDS: int = _env_int("MIMIC_MIN_WORDS", 5)
 
     # Cooldown in seconds between mimic replies per (chat, user).
-    MIMIC_COOLDOWN_SECONDS: float = _env_float("MIMIC_COOLDOWN_SECONDS", 60.0)
+    MIMIC_COOLDOWN: float = _env_duration("MIMIC_COOLDOWN", "1h")
 
     # ── Slavik Mimic (§3.2 — replacement for "пошёл нахуй") ──
     # Minimum word count in Slava's message to use mimic instead of default reply.
@@ -145,12 +189,12 @@ class Settings:
     SLAVIK_MIMIC_MIN_WORDS: int = _env_int("SLAVIK_MIMIC_MIN_WORDS", 5)
 
     # Cooldown in seconds between Slavik mimic replies (per chat).
-    SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float("SLAVIK_MIMIC_COOLDOWN_SECONDS", 60.0)
+    SLAVIK_MIMIC_COOLDOWN: float = _env_duration("SLAVIK_MIMIC_COOLDOWN", "60s")
 
     # ── Olya service (Epic 19) ──────────────────────────────────────────
     OLYA_ENABLED: bool = _env_bool("OLYA_ENABLED", True)
     OLYA_USER_ID: int = _env_int("OLYA_USER_ID", 834424825)
-    OLYA_COOLDOWN_SECONDS: float = _env_float("OLYA_COOLDOWN_SECONDS", 60.0)
+    OLYA_COOLDOWN: float = _env_duration("OLYA_COOLDOWN", "60s")
     OLYA_MEDIA_BASE: str = _env_str("OLYA_MEDIA_BASE", "media/olya/cringe")
     OLYA_SAVEASBOT_CHANNEL_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_CHANNEL_IDS", (523131145,))
     OLYA_CAPTION_ENABLED: bool = _env_bool("OLYA_CAPTION_ENABLED", True)

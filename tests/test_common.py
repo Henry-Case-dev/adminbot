@@ -969,10 +969,10 @@ class TestCommonIntegration:
 class TestMigration:
     """Verify settings migration from OTBOY_* to COMMON_*."""
 
-    def test_common_cooldown_seconds_exists(self):
-        assert hasattr(settings, "COMMON_COOLDOWN_SECONDS")
-        assert isinstance(settings.COMMON_COOLDOWN_SECONDS, float)
-        assert settings.COMMON_COOLDOWN_SECONDS == 0
+    def test_common_cooldown_exists(self):
+        assert hasattr(settings, "COMMON_COOLDOWN")
+        assert isinstance(settings.COMMON_COOLDOWN, float)
+        assert settings.COMMON_COOLDOWN == 0
 
     def test_common_media_base_exists(self):
         assert hasattr(settings, "COMMON_MEDIA_BASE")
