@@ -1740,12 +1740,12 @@
 
 ---
 
-**Статус: Epic 24 PLANNED — Шаг 1 воркфлоу (PM) выполнен 2026-08-16. Контрольная верификация PM (2026-08-16): требования R1–R18 зафиксированы полностью (включая дословный системный промпт R11 и R18 — исследование через context7/duckduckgo/exa), PM-решения D59–D64, декомпозиция T-173..T-191 с исполнителями (@Architect/@Builder/@Reviewer/@DevOps, без @Orchestrator), остатки Epic 16 заархивированы (T-109/T-110/T-111/T-112/T-113/T-114), добавлены T-173-F (исследование) и T-188-D (ревью @Reviewer). Следующий шаг: @Architect (T-173) — архитектурное проектирование.**
+**Статус: Epic 24 ✅ DEPLOYED & ARCHIVED (2026-08-16, PM). Полный цикл завершён: @Architect T-173 (Section 33, PM-аппрув) → @Builder T-174…T-189 → @Reviewer T-188-D APPROVED (830 passed) → @DevOps T-190/T-191 (коммит `a68732c`, прод v2.22.0, PID 920105, smoke apinet.cloud OK). Сводка задач перенесена в колонку Done в `plans/board.md` при архивации. Открытое ручное действие пользователя: Н1 BotFather `/setprivacy` → Disable.**
 **Date: 2026-08-16**
 
 ---
 
-## Epic 25: Багфикс — /summary не реагирует + удаление команды — 2026-08-16 🆕 PLANNED
+## Epic 25: Багфикс — /summary не реагирует + удаление команды — 2026-08-16 ✅ DEPLOYED & ARCHIVED (v2.23.0-fix, коммит `c364f18`)
 
 > **Цель:** Исправить баг «на команду /summary бот не реагирует» (Epic 24 задеплоен v2.22.0,
 > 835 тестов) и реализовать новое требование: исходное сообщение `/summary` удаляется из чата
@@ -1852,5 +1852,186 @@
 
 ---
 
-**Статус: Epic 25 PLANNED — Шаг 1 воркфлоу (PM) ✅, Шаг 2 (@Architect) ✅ (T-192 RCA + T-193 Section 34), PM-гейт ✅ APPROVED 2026-08-16. Требования R25-1…R25-4, PM-решения D65 (удаление команды best-effort) и D66 (ack до LLM), декомпозиция T-192…T-198 без @Orchestrator. T-192 Done (первопричина: асимметрия троттлинг-мидлвари с Command-фильтром); T-193 Done (Section 34, B1–B9, PM-аппрув, 2 замечания Builder: B6 bot-инжекция, B3 strip-guard/точное сравнение). Следующий шаг: @Builder T-194/T-195 (READY FOR BUILDER).**
+**Статус: Epic 25 ✅ DEPLOYED & ARCHIVED (2026-08-16, PM). Полный цикл завершён: @Architect+@DevOps T-192 (RCA: чужая mention сожгла слот троттлинга) → @Architect T-193 (Section 34, B1–B9, PM-аппрув) → @Builder T-194/T-195 (B1–B9, +25 тестов, 860 total) → @Reviewer T-196 APPROVED → @DevOps T-197/T-198 (коммит `c364f18`, прод v2.23.0-fix, PID 923954, старт чистый). Сводка задач перенесена в колонку Done в `plans/board.md` при архивации. Ручные действия пользователя: живой тест /summary, Н1 BotFather `/setprivacy` → Disable, при WARNING удаления — админ-права `delete_messages`. Pre-existing наблюдения (кандидаты в бэклог): L3 dimension mismatch (768 vs 3072) → FTS5-фоллбек; stop-timeout systemd при рестарте.**
+**Date: 2026-08-16**
+
+---
+
+## Epic 26: GraphRAG-память — граф знаний поверх SQLite (многошаговый вывод, взаимосвязи участников) — 2026-08-16 🆕 IN PROGRESS (реализация ✅, преддеплойный P1-фикс T-206)
+
+> **Цель:** Легковесный GraphRAG поверх существующей SQLite-памяти SmartModule: граф знаний
+> (`nodes`/`edges`) для многошагового логического вывода и отслеживания взаимосвязей участников чата.
+> (1) Миграция БД — таблицы `nodes`/`edges` с chat_id-изоляцией (бот работает с несколькими чатами).
+> (2) Entity Extraction при архивации: перед удалением сырых сообщений
+> (`MemoryManager.compress_and_purge` / `_compress_batch`) LLM `deepseek-v4-flash` извлекает триплеты
+> `{subject, subject_type, predicate, object, object_type}` по ЗАХАРДКОЖЕННОМУ системному промпту;
+> сбой парсинга/LLM не должен ломать архивацию. (3) Гибридный поиск для `/summary`: ключевые сущности
+> из окна L1 (6ч) → SQL `ORDER BY weight DESC LIMIT 5` → справки «[Историческая справка: …]» в теге
+> `<historical_graph_facts>` в НАЧАЛЕ пользовательского промпта; ошибки graph-поиска не роняют саммари.
+> **Источник:** пользователь (2026-08-16). ВСЕ требования обязательные.
+> **Исполнители:** @Architect (T-199/T26.0), @Builder (T-200…T-204/T26.1…T26.5),
+> @Builder + @Reviewer (T-204, T-206/T26.7), @Builder + @DevOps (T-205). Без @Orchestrator. **Target:** v2.24.0.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect T-199) ✅ APPROVED → 3 (@Builder/@Reviewer/@DevOps): T-200…T-204 ✅, T-206 (P1) в работе, T-205 — после T-206.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R26-1** | Миграция БД (без alembic, существующий механизм `_SCHEMA_SQL` / `CREATE TABLE IF NOT EXISTS`): таблица `nodes` (`id` INTEGER PK, `entity_name` TEXT NOT NULL, `entity_type` TEXT NOT NULL CHECK ∈ {'user','topic','event'}) и `edges` (`id` INTEGER PK, `source_id` FK→nodes.id, `target_id` FK→nodes.id, `relation_type` TEXT NOT NULL, `weight` INTEGER NOT NULL DEFAULT 1, `last_updated`). Бот работает с несколькими чатами → **chat_id обязателен в обеих таблицах** + `UNIQUE(chat_id, entity_name)` (риск/решение D67). Индексы для выборок по weight. |
+| **R26-2** | Entity Extraction при архивации: в `compress_and_purge` / `_compress_batch` перед удалением сырья пачки вызвать LLM (`deepseek-v4-flash` через LLMClient) с ЗАХАРДКОЖЕННЫМ системным промптом «ты — анализатор взаимосвязей (data extractor)… верни СТРОГО JSON-массив триплетов {subject, subject_type, predicate, object, object_type}» (полный дословный текст фиксирует @Architect в T-199). Парсинг JSON в try/except; `INSERT OR IGNORE` в nodes; upsert edges с увеличением weight; сбой парсинга/LLM не должен ломать архивацию; сырьё пачки НЕ удаляется, пока граф не сохранён (ошибка → пачка остаётся, D68). |
+| **R26-3** | Гибридный поиск для /summary: выявить ключевые сущности из 6-часового окна L1 (имена активных юзеров + пара главных тем) → SQL-запросы к nodes/edges (`ORDER BY weight DESC LIMIT 5`) → текстовые справки «[Историческая справка: юзер А (жестко оскорбил) юзер Б; тема Х (связана с) тема Y]» → внедрить в НАЧАЛО пользовательского промпта саммари в теге `<historical_graph_facts>`. Ошибки graph-поиска не роняют саммари — fallback без секции (INFO/WARNING-лог). |
+| **R26-4** | Всё асинхронно (aiosqlite) + максимальное покрытие тестами; существующие 860 тестов не сломать. |
+| **R26-5** | Интеграционные точки: таблицы — в `_SCHEMA_SQL` (`services/database.py`); extraction — в compress-цикл (не удалять сырьё, пока граф не сохранён); graph traversal — в `SummaryGenerator._run` ПЕРЕД `_compose_user_content`; параметр `graph_facts: list[str] = []` в `_compose_user_content` (backward-compatible, D71). |
+| **R26-6** | Конфигурация в `config/settings.py` + `.env.example` (минимальный набор, D69). |
+| **R26-7** | README (ироничный тон, секция GraphRAG) + коммит на русском (conventional) в master + пуш + деплой: ssh nik@198.46.175.136, cd /var/www/admin_bot, git pull, при необходимости nano .env, systemctl restart admin_bot, systemctl status admin_bot, отчёт. |
+
+### Системный промпт экстрактора (R26-2 — захардкодить ДОСЛОВНО; полный текст фиксирует @Architect в T-199)
+
+```
+ты — анализатор взаимосвязей (data extractor)… верни СТРОГО JSON-массив триплетов {subject, subject_type, predicate, object, object_type}
+```
+
+> Ожидаемый формат ответа LLM: `[{"subject": "...", "subject_type": "user|topic|event", "predicate": "...", "object": "...", "object_type": "user|topic|event"}, …]` — строгий JSON-массив, без markdown-обёрток. Парсер принимает ТОЛЬКО валидный JSON-массив; всё остальное — WARNING + пачка остаётся (D68). Промпт НЕ логировать целиком (паттерн Epic 24 — достаточно len).
+
+### PM Decisions (зафиксированы 2026-08-16)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D67** | chat_id в nodes/edges | **ВКЛЮЧИТЬ.** Существующая архитектура чат-изолированная (chat_id есть во всех таблицах памяти SmartModule). `UNIQUE(chat_id, entity_name)` — одна и та же сущность в разных чатах = разные узлы; граф между чатами не смешивается. Риск глобального кросс-чат-графа осознанно НЕ берём (при необходимости — отдельная миграция). |
+| **D68** | Транзакционная безопасность пачки | В `_compress_batch`: (1) extraction через LLM; (2) сохранение графа (nodes INSERT OR IGNORE + edges upsert); (3) ТОЛЬКО ПОСЛЕ (2) — удаление сырья пачки. Любой сбой на (1)/(2) → WARNING + пачка остаётся для следующего цикла, `compress_and_purge` продолжает следующие пачки (per-batch isolation), исключение наружу не прокидывается. LLM-сбой не роняет архивацию. |
+| **D69** | Настройки | Минимальный набор: `GRAPH_RAG_ENABLED: bool = True`, `GRAPH_EDGE_WEIGHT_INCREMENT: int = 1`, `GRAPH_TOP_EDGES_LIMIT: int = 5`, `GRAPH_EXTRACT_MAX_TRIPLETS: int = 50`. Остальное — хардкод/предложение @Architect. |
+| **D70** | Нормализация сущностей/отношений | `entity_name` и `relation_type` от LLM — свободный текст: обязательны lowercase + strip перед upsert; `edges.UNIQUE(source_id, target_id, relation_type)` для идемпотентного upsert. Нормализация `event`-узлов и синонимов отношений — открытые вопросы @Architect (Риски 1–2). |
+| **D71** | graph facts в промпте | `escape_xml_text` (`services/summary_xml.py`) для всех строк справок; тег `<historical_graph_facts>` строго в НАЧАЛЕ user-промпта (до `<chat_history>`); параметр `graph_facts: list[str] = []` — существующие вызовы/тесты не меняются; любая ошибка graph-поиска → саммари без секции. |
+
+### Задачи
+
+### T-199 (T26.0) (@Architect + @PM) — Архитектурное проектирование GraphRAG + фиксация промпта
+
+**Приоритет:** P0. **Зависимости:** нет.
+
+- [x] T26.0-A: Дизайн `plans/ARCHITECTURE.md` **Section 35**: DDL nodes/edges, flow extraction в compress_and_purge/_compress_batch (порядок: extract → graph → delete), graph traversal в SummaryGenerator._run, контракты методов, решения по открытым вопросам 1–10 из секции «Риски»
+- [x] T26.0-B: Зафиксировать ДОСЛОВНО `EXTRACT_PROMPT` (R26-2, формат JSON-триплетов) в Section 35 и в `services/summary_prompts.py` (константа, паттерн SYSTEM_PROMPT Epic 24)
+- [x] T26.0-C: Self-review — изоляция от существующих фич (860 тестов), graceful degradation, нагрузка на LLM (доп. вызов в compress + возможный вызов в /summary)
+- [x] T26.0-D: Согласование финального дизайна с PM; закрыть ВСЕ открытые вопросы (Риски 1–10) — **APPROVED PM 2026-08-16**
+
+**DoD:** Section 35 одобрена PM; EXTRACT_PROMPT зафиксирован дословно; T26.1..T26.4 → READY FOR BUILDER.
+
+### T-200 (T26.1) (@Builder) — Миграция схемы: nodes/edges + индексы (R26-1, D67)
+
+**Приоритет:** P0. **Зависимости:** T-199.
+
+- [x] T26.1-A: `_SCHEMA_SQL` (services/database.py): `nodes` (id PK, chat_id, entity_name, entity_type CHECK IN ('user','topic','event'), UNIQUE(chat_id, entity_name)) + `edges` (id PK, source_id, target_id, relation_type, weight INTEGER NOT NULL DEFAULT 1, last_updated, UNIQUE(source_id, target_id, relation_type)) — CREATE TABLE IF NOT EXISTS, без alembic
+- [x] T26.1-B: Индексы: `nodes(chat_id, entity_type)`, `edges(source_id)`, `edges(target_id)`, `edges(weight DESC)`
+- [x] T26.1-C: Методы: `upsert_node(chat_id, entity_name, entity_type) -> node_id` (INSERT OR IGNORE + SELECT id); `upsert_edge(source_id, target_id, relation_type, weight_increment=1)` (ON CONFLICT DO UPDATE weight = weight + excluded.weight, last_updated = now); `get_top_edges(chat_id, entity_ids, limit=5)` (ORDER BY weight DESC); `get_top_edges_all(chat_id, limit=5)`
+- [x] T26.1-D: chat_id во всех методах (изоляция по чату, D67)
+- [x] T26.1-E: Проверить `PRAGMA foreign_keys` в существующей БД — upsert не должен полагаться на enforced FK (Риск 4, решение @Architect)
+
+**DoD:** DDL и CRUD покрыты тестами; существующие 860 тестов не сломаны.
+
+### T-201 (T26.2) (@Builder) — Entity Extraction при архивации (R26-2, R26-5, D68)
+
+**Приоритет:** P0. **Зависимости:** T-200.
+
+- [x] T26.2-A: Константа `EXTRACT_PROMPT` (дословно из T26.0-B) + функция `extract_triplets(texts) -> list[triplet]` через `LLMClient.generate` (deepseek-v4-flash)
+- [x] T26.2-B: JSON-парсинг с try/except: не-JSON/не-массив/кривые поля → WARNING + пустой результат (не исключение); валидация subject/predicate/object непустые, types ∈ {'user','topic','event'}
+- [x] T26.2-C: В `_compress_batch`: собрать тексты пачки → extraction → INSERT OR IGNORE nodes (по chat_id) → upsert edges (+weight) — ВСЁ ДО удаления сырья
+- [x] T26.2-D: Per-batch isolation: сбой LLM/парсинга/БД → WARNING + пачка НЕ удаляется (остаётся на след. цикл), compress_and_purge продолжает следующие пачки, исключение наружу не прокидывается (D68)
+- [x] T26.2-E: `GRAPH_RAG_ENABLED=False` → extraction пропускается, архивация работает как раньше (D69)
+- [x] T26.2-F: Comprehensive logging (INFO: extracted N triplets; WARNING: parse fail / LLM fail — пачка осталась)
+
+**DoD:** архивация не ломается при любом сбое extraction; пачка удаляется только после сохранения графа; тесты с FakeLLM (паттерн проекта).
+
+### T-202 (T26.3) (@Builder) — Graph traversal для /summary (R26-3, R26-5, D71)
+
+**Приоритет:** P0. **Зависимости:** T-200.
+
+- [x] T26.3-A: Выявление ключевых сущностей окна L1 (имена активных юзеров + пара главных тем) — механизм по дизайну @Architect (детерминированный или доп. LLM-вызов, Риск 3)
+- [x] T26.3-B: SQL к nodes/edges по chat_id: `ORDER BY weight DESC LIMIT 5` (GRAPH_TOP_EDGES_LIMIT)
+- [x] T26.3-C: Формирование справок «[Историческая справка: юзер А (жестко оскорбил) юзер Б; тема Х (связана с) тема Y]» с `escape_xml_text` для всех полей
+- [x] T26.3-D: В `SummaryGenerator._run` ПЕРЕД `_compose_user_content`: собрать `graph_facts` → тег `<historical_graph_facts>` в НАЧАЛЕ user-промпта (до `<chat_history>`); `_compose_user_content(..., graph_facts: list[str] = [])` — существующие вызовы/тесты не меняются
+- [x] T26.3-E: Fallback: любая ошибка graph-поиска → INFO/WARNING-лог + саммари БЕЗ секции (не роняет /summary)
+
+**DoD:** при непустом графе секция `<historical_graph_facts>` есть и стоит первой; при ошибке/пустом графе — саммари работает без секции; тесты на `_compose_user_content` (default []) и escape.
+
+### T-203 (T26.4) (@Builder) — Конфигурация (R26-6, D69)
+
+**Приоритет:** P1. **Зависимости:** T-199.
+
+- [x] T26.4-A: `config/settings.py` (хелперы `_env_*`): `GRAPH_RAG_ENABLED=True`, `GRAPH_EDGE_WEIGHT_INCREMENT=1`, `GRAPH_TOP_EDGES_LIMIT=5`, `GRAPH_EXTRACT_MAX_TRIPLETS=50`
+- [x] T26.4-B: `.env.example` — секция GraphRAG с описаниями и дефолтами
+
+**DoD:** параметры читаются из env с дефолтами; тесты парсинга.
+
+### T-204 (T26.5) (@Builder + @Reviewer) — Тесты: покрытие + edge cases + code review (R26-4)
+
+**Приоритет:** P0. **Зависимости:** T-201, T-202.
+
+- [x] T26.5-A: Unit: парсер JSON-триплетов (валидный/кривой JSON/не-массив/пустой/битые поля/types вне enum)
+- [x] T26.5-B: Unit: upsert node (INSERT OR IGNORE — дубликат не плодит узлы), upsert edge (weight инкремент, last_updated, UNIQUE-конфликт)
+- [x] T26.5-C: Unit: graph traversal (top-5 по weight DESC, лимит, пустой граф, чат-изоляция — сущности чата А не видны в чате Б)
+- [x] T26.5-D: Integration: compress_and_purge — LLM вернул кривой JSON → пачка НЕ удалена, цикл жив; LLM упал → то же; GRAPH_RAG_ENABLED=False → старое поведение (FakeLLM)
+- [x] T26.5-E: Integration: summary pipeline — graph_facts попадают в user-промпт первыми (тег `<historical_graph_facts>`), ошибка graph-поиска → саммари без секции; `_compose_user_content` с default []
+- [x] T26.5-F: Полный `pytest` — 860 + новые, 0 регрессий
+- [x] T26.5-G: **(@Reviewer)** Code review GraphRAG перед T-205: изоляция от существующих фич, graceful degradation (R26-2/R26-3), chat_id-изоляция, соответствие R26-1…R26-7 — **APPROVED 2026-08-16; находка: P1 FTS-баг удаления медиа-без-подписи → T-206**
+
+**DoD:** прогон зелёный; coverage новых модулей ≥ 100%; ревью APPROVED.
+
+### T-205 (T26.6) (@Builder + @DevOps) — README + коммит + пуш + деплой (R26-7)
+
+**Приоритет:** P0. **Зависимости:** T-204, **T-206 (T26.7) — коммит и деплой только после P1-фикса FTS-удаления**.
+
+- [ ] T26.6-A: `README.md` — секция GraphRAG (ироничный тон: «теперь бот помнит, кто кого назвал долбоёбом»), таблица env-параметров, version bump → v2.24.0, changelog
+- [ ] T26.6-B: Коммит на русском (conventional: `feat(graphrag): …`) в master + push; .env не коммитим — **выполняется ПОСЛЕ фикса T-206 (T26.7)**
+- [ ] T26.6-C: Деплой: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull → (при необходимости nano .env) → systemctl restart admin_bot → systemctl status admin_bot (active, running)
+- [ ] T26.6-D: Smoke: /summary с графом (справки в саммари), архивация с extraction (логи), отчёт пользователю
+
+**DoD:** прод обновлён (v2.24.0), сервис active (running), отчёт отправлен.
+
+### T-206 (T26.7) (@Builder + @Reviewer) — P1: фикс FTS-удаления для медиа без подписи (delete_smart_messages_by_ids / delete_smart_messages_older_than)
+
+**Приоритет:** P1 — 🚨 **БЛОКЕР деплоя T-205 (чинить до T26.6).** **Зависимости:** нет (код Epic 24/26).
+
+**Баг (подтверждён @Reviewer при ревью T-204; pre-existing с Epic 24, коммит `a68732c`):**
+сообщение-медиа без подписи (`text` пустой/None) вставляется в `smart_messages` БЕЗ строки в
+`smart_messages_fts` (условие `if text:` в `save_smart_message`, services/database.py:376), но обе
+функции удаления удаляют строки из FTS БЕЗУСЛОВНО:
+- `delete_smart_messages_by_ids` (services/database.py:425-428) — `DELETE FROM smart_messages_fts WHERE rowid IN (...)` по id;
+- `delete_smart_messages_older_than` (services/database.py:408-412) — то же с подзапросом.
+
+**Цепочка отказа (P1, триггер в проде):** ~через 30 дней медиа-без-подписи достигают cutoff
+(`FULL_MEMORY_RETENTION_DAYS`); `delete_smart_messages_by_ids` вызывается в `compress_and_purge`
+ВНЕ try/except (services/summary_memory.py:351) → `sqlite3.DatabaseError: database disk image is malformed`
+роняет пайплайн архивации → пачка не удаляется → повторные прогоны → дубли фактов L3 и повторный
+инкремент weight рёбер нового графа (Epic 26).
+
+**Минимальный фикс (рекомендация @Reviewer):** зеркалить условие вставки при удалении в ОБЕИХ функциях
+(удалять из FTS только строки, для которых в `smart_messages` есть непустой text):
+`DELETE FROM smart_messages_fts WHERE rowid IN (SELECT id FROM smart_messages WHERE chat_id = ? AND id IN (...) AND text IS NOT NULL AND text != '')`
+(аналогично для `older_than` — добавить `AND text IS NOT NULL AND text != ''` в подзапрос).
+
+- [ ] T26.7-A: Зеркалировать условие `if text:` в `delete_smart_messages_by_ids` — FTS-строки удаляются только для сообщений с непустым text (services/database.py)
+- [ ] T26.7-B: Зеркалировать условие в `delete_smart_messages_older_than` — подзапрос + `AND text IS NOT NULL AND text != ''`
+- [ ] T26.7-C: **Регрессионные тесты (обязательно):** (1) медиа-сообщение без подписи (text=None/'') + `delete_smart_messages_by_ids` → НЕ падает, строка из `smart_messages` удалена, FTS не трогался; (2) то же для `delete_smart_messages_older_than` (медиа-без-подписи достигло cutoff) → не падает; (3) обычные текстовые сообщения → delete удаляет и FTS-строки (существующее поведение без регрессий); (4) FTS-консистентность: после удаления в `smart_messages_fts` не остаётся «сирот» — число FTS-строк равно числу строк `smart_messages` с непустым text
+- [ ] T26.7-D: Полный `pytest` — 860 + новые, 0 регрессий; повторное ревью фикса @Reviewer
+
+**DoD:** обе функции безопасны для медиа-без-подписи; регрессионные тесты зелёные; аппрув @Reviewer; T-205 разблокирован.
+
+### Риски / открытые вопросы (для @Architect, T-199)
+
+1. **entity_type 'event':** LLM генерирует свободные названия событий → взрыв узлов. Нужна нормализация имён событий (или отказ от event-узлов в v1, если не удаётся ограничить).
+2. **relation_type:** свободный словарь LLM («жестко оскорбил» vs «оскорбил» vs «послал») — нужна нормализация/синонимы, чтобы справки были читаемыми и рёбра не дублировались; или фиксированный набор предикатов.
+3. **Выявление сущностей окна L1:** доп. LLM-вызов в /summary (+латентность и стоимость к уже ~3.5 мин) vs детерминированный подход (авторы окна + темы из FTS5/L3). Нужно решение с обоснованием.
+4. **FK-констрейнты:** `PRAGMA foreign_keys` может быть выключен в существующей БД — upsert edges не должен полагаться на CASCADE; решить, включать ли FK.
+5. **Размер пачки для extraction:** сколько сообщений пачки отдавать LLM за один вызов (токен-лимит, GRAPH_EXTRACT_MAX_TRIPLETS); что делать с медиа-сообщениями (описание вместо текста).
+6. **Протухание графа:** retention для nodes/edges (связка с ARCHIVE_MEMORY_RETENTION_DAYS?), кап weight, удаление сиротских узлов.
+7. **Обратная совместимость:** не менять сигнатуры `compress_and_purge`/`_compose_user_content` (только default-параметр graph_facts); vec0-purge (`rowid IN`) не затронуть.
+8. **Позиция секции:** `<historical_graph_facts>` строго первым в user-промпте, ДО `<chat_history>` (R26-3); системный промпт саммари не трогать.
+9. **Имена узлов-юзеров:** entity_name = alias или username/user_id — консистентность с каскадом алиасов (R7 Epic 24) и справками.
+10. **Тесты:** FakeLLM-паттерн для extraction (кривой JSON, падение, успех) без реальных API-вызовов.
+
+**Файлы (планируемые):** `services/database.py`, `services/summary_memory.py`, `services/summary_generator.py`, `services/summary_prompts.py`, `config/settings.py`, `.env.example`, `tests/test_graphrag*.py` (или по дизайну), `README.md`, `plans/ARCHITECTURE.md` (Section 35), `plans/board.md`, `plans/backlog.md`, `plans/MEMORY.md`.
+
+---
+
+**Статус: Epic 26 IN PROGRESS — реализация завершена, преддеплойный P1-фикс (2026-08-16). T-199 (T26.0, @Architect) — дизайн Section 35 APPROVED PM (T26.0-D); T-200…T-204 (T26.1…T26.5, @Builder) реализованы и прошли ревью @Reviewer (T26.5-G APPROVED). При ревью подтверждён P1 pre-existing баг (Epic 24, `a68732c`): медиа-без-подписи не попадает в `smart_messages_fts` (условие `if text:` при вставке), но `delete_smart_messages_by_ids` / `delete_smart_messages_older_than` удаляют из FTS безусловно → `sqlite3.DatabaseError: database disk image is malformed` в `compress_and_purge` (вызов вне try/except). Выделен T-206 (T26.7, P1, блокер деплоя): зеркалить `if text:` в обеих DELETE + регрессионные тесты (медиа без подписи → delete не падает; обычный текст → delete работает; FTS-консистентность). T-205 (T26.6, коммит/деплой) — ТОЛЬКО после фикса T-206.**
 **Date: 2026-08-16**

@@ -242,5 +242,15 @@ class Settings:
     SUMMARY_RAG_L3_LIMIT: int = _env_int("SUMMARY_RAG_L3_LIMIT", 10)
     SUMMARY_COMPRESS_BATCH: int = _env_int("SUMMARY_COMPRESS_BATCH", 100)
 
+    # ── GraphRAG (Epic 26) ─────────────────────────────────────────
+    # False = extraction-вызов при архивации не делается (ровно старое поведение)
+    GRAPH_RAG_ENABLED: bool = _env_bool("GRAPH_RAG_ENABLED", True)
+    # Инкремент веса ребра при повторном упоминании связи (D70)
+    GRAPH_EDGE_WEIGHT_INCREMENT: int = _env_int("GRAPH_EDGE_WEIGHT_INCREMENT", 1)
+    # Сколько рёбер-справок подмешивать в /summary (35.5)
+    GRAPH_TOP_EDGES_LIMIT: int = _env_int("GRAPH_TOP_EDGES_LIMIT", 5)
+    # Максимум триплетов, сохраняемых за один extraction-вызов (35.4)
+    GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
+
 
 settings = Settings()

@@ -78,6 +78,30 @@ class DatabaseService:
 
         -- L3: векторы создаются ЛЕНИВО из MemoryManager.initialize()
         -- (только если sqlite-vec загрузился; dim из конфига EMBEDDING_DIM)
+
+        -- ── GraphRAG: граф знаний (Epic 26) ──────────────────
+        CREATE TABLE IF NOT EXISTS nodes (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id     INTEGER NOT NULL,
+            entity_name TEXT NOT NULL,
+            entity_type TEXT NOT NULL CHECK (entity_type IN ('user', 'topic', 'event')),
+            UNIQUE (chat_id, entity_name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_nodes_chat_type ON nodes(chat_id, entity_type);
+
+        CREATE TABLE IF NOT EXISTS edges (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id       INTEGER NOT NULL,
+            source_id     INTEGER NOT NULL REFERENCES nodes(id),
+            target_id     INTEGER NOT NULL REFERENCES nodes(id),
+            relation_type TEXT NOT NULL,
+            weight        INTEGER NOT NULL DEFAULT 1,
+            last_updated  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (source_id, target_id, relation_type)
+        );
+        CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
+        CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
+        CREATE INDEX IF NOT EXISTS idx_edges_chat_weight ON edges(chat_id, weight);
     """
     
     def __init__(self, db_path: str):
@@ -99,6 +123,17 @@ class DatabaseService:
             await self.db.commit()
         except aiosqlite.OperationalError:
             pass  # Column already exists
+
+        # GraphRAG (Epic 26): log the actual FK pragma state (Q4).
+        # FK constraints are declared as documentation only — we never enable
+        # the pragma because it would change semantics of the existing connection.
+        try:
+            cursor = await self.db.execute("PRAGMA foreign_keys")
+            row = await cursor.fetchone()
+            logger.debug("PRAGMA foreign_keys = %s (declared as docs, not enforced — Q4)",
+                         row[0] if row is not None else None)
+        except Exception:
+            logger.debug("PRAGMA foreign_keys check failed", exc_info=True)
     
     async def close(self) -> None:
         if self.db:
@@ -372,7 +407,8 @@ class DatabaseService:
         """Delete messages (+ FTS rows) older than cutoff. Returns count of deleted rows."""
         await self.db.execute(
             "DELETE FROM smart_messages_fts WHERE rowid IN "
-            "(SELECT id FROM smart_messages WHERE chat_id = ? AND timestamp < ?)",
+            "(SELECT id FROM smart_messages WHERE chat_id = ? AND timestamp < ? "
+            "AND text IS NOT NULL AND text != '')",
             (chat_id, cutoff_ts),
         )
         cursor = await self.db.execute(
@@ -388,8 +424,10 @@ class DatabaseService:
             return 0
         placeholders = ",".join("?" for _ in ids)
         await self.db.execute(
-            f"DELETE FROM smart_messages_fts WHERE rowid IN ({placeholders})",
-            ids,
+            f"DELETE FROM smart_messages_fts WHERE rowid IN "
+            f"(SELECT id FROM smart_messages WHERE chat_id = ? AND id IN ({placeholders}) "
+            "AND text IS NOT NULL AND text != '')",
+            [chat_id, *ids],
         )
         cursor = await self.db.execute(
             f"DELETE FROM smart_messages WHERE chat_id = ? AND id IN ({placeholders})",
@@ -455,3 +493,99 @@ class DatabaseService:
         cursor = await self.db.execute("SELECT DISTINCT chat_id FROM smart_messages")
         rows = await cursor.fetchall()
         return [row["chat_id"] for row in rows]
+
+    # ── GraphRAG: nodes/edges (Epic 26, Section 35.2) ───────
+
+    async def upsert_node(self, chat_id: int, entity_name: str, entity_type: str) -> int:
+        """Insert-or-ignore a graph node keyed by (chat_id, entity_name). Returns its id."""
+        await self.db.execute(
+            "INSERT OR IGNORE INTO nodes (chat_id, entity_name, entity_type) VALUES (?, ?, ?)",
+            (chat_id, entity_name, entity_type),
+        )
+        cursor = await self.db.execute(
+            "SELECT id FROM nodes WHERE chat_id = ? AND entity_name = ?",
+            (chat_id, entity_name),
+        )
+        row = await cursor.fetchone()
+        await self.db.commit()
+        return row["id"]
+
+    async def upsert_edge(
+        self,
+        source_id: int,
+        target_id: int,
+        relation_type: str,
+        weight_increment: int = 1,
+    ) -> None:
+        """Merge a graph edge; duplicate (source,target,relation) bumps weight (D70).
+
+        chat_id is taken from the source node (both nodes always belong to the
+        same chat by construction). One statement → atomic.
+        """
+        await self.db.execute(
+            "INSERT INTO edges (chat_id, source_id, target_id, relation_type, weight) "
+            "SELECT chat_id, ?, ?, ?, ? FROM nodes WHERE id = ? "
+            "ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET "
+            "weight = weight + excluded.weight, last_updated = CURRENT_TIMESTAMP",
+            (source_id, target_id, relation_type, weight_increment, source_id),
+        )
+        await self.db.commit()
+
+    async def match_nodes(
+        self, chat_id: int, user_names: list[str], topic_keywords: list[str]
+    ) -> list[int]:
+        """Node ids matched by exact user names or topic substring LIKE (35.5)."""
+        conditions = []
+        params: list = []
+        if user_names:
+            placeholders = ",".join("?" for _ in user_names)
+            conditions.append(f"(entity_type = 'user' AND entity_name IN ({placeholders}))")
+            params.extend(user_names)
+        if topic_keywords:
+            like_clauses = " OR ".join("entity_name LIKE ?" for _ in topic_keywords)
+            conditions.append(f"(entity_type = 'topic' AND ({like_clauses}))")
+            params.extend(f"%{kw}%" for kw in topic_keywords)
+        if not conditions:
+            return []
+        sql = "SELECT id FROM nodes WHERE chat_id = ? AND (" + " OR ".join(conditions) + ")"
+        cursor = await self.db.execute(sql, [chat_id, *params])
+        rows = await cursor.fetchall()
+        return [row["id"] for row in rows]
+
+    async def get_top_edges(self, chat_id: int, entity_ids: list[int], limit: int) -> list:
+        """Top edges incident to any of entity_ids, weight DESC (35.5)."""
+        if not entity_ids:
+            return []
+        placeholders = ",".join("?" for _ in entity_ids)
+        cursor = await self.db.execute(
+            "SELECT e.id, e.chat_id, e.source_id, e.target_id, e.relation_type, "
+            "e.weight, e.last_updated, "
+            "s.entity_name AS source_name, s.entity_type AS source_type, "
+            "t.entity_name AS target_name, t.entity_type AS target_type "
+            "FROM edges e "
+            "JOIN nodes s ON s.id = e.source_id "
+            "JOIN nodes t ON t.id = e.target_id "
+            f"WHERE e.chat_id = ? AND (e.source_id IN ({placeholders}) "
+            f"OR e.target_id IN ({placeholders})) "
+            "ORDER BY e.weight DESC, e.last_updated DESC, e.id DESC "
+            "LIMIT ?",
+            [chat_id, *entity_ids, *entity_ids, limit],
+        )
+        return await cursor.fetchall()
+
+    async def get_top_edges_all(self, chat_id: int, limit: int) -> list:
+        """Chat-wide top edges, weight DESC (cold-graph fallback, 35.5)."""
+        cursor = await self.db.execute(
+            "SELECT e.id, e.chat_id, e.source_id, e.target_id, e.relation_type, "
+            "e.weight, e.last_updated, "
+            "s.entity_name AS source_name, s.entity_type AS source_type, "
+            "t.entity_name AS target_name, t.entity_type AS target_type "
+            "FROM edges e "
+            "JOIN nodes s ON s.id = e.source_id "
+            "JOIN nodes t ON t.id = e.target_id "
+            "WHERE e.chat_id = ? "
+            "ORDER BY e.weight DESC, e.last_updated DESC, e.id DESC "
+            "LIMIT ?",
+            (chat_id, limit),
+        )
+        return await cursor.fetchall()

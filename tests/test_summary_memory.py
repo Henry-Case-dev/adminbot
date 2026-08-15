@@ -10,6 +10,7 @@ from config.settings import settings
 from services.database import DatabaseService
 from services.llm_client import LLMError
 from services.summary_memory import MemoryManager, build_fts_query
+from services.summary_prompts import EXTRACT_PROMPT
 
 
 @pytest.fixture
@@ -25,11 +26,12 @@ def db():
 
 class FakeLLM:
     def __init__(self, facts="факт раз\nфакт два", vectors=None, fail_generate=False,
-                 fail_embed=False):
+                 fail_embed=False, extract_response="[]"):
         self.facts = facts
         self.vectors = vectors
         self.fail_generate = fail_generate
         self.fail_embed = fail_embed
+        self.extract_response = extract_response
         self.generate_calls = 0
         self.embed_calls = 0
 
@@ -37,6 +39,8 @@ class FakeLLM:
         self.generate_calls += 1
         if self.fail_generate:
             raise LLMError("api упал")
+        if messages[0]["content"] == EXTRACT_PROMPT:
+            return self.extract_response
         return self.facts
 
     async def embed(self, texts):
@@ -284,6 +288,8 @@ class TestCompressAndPurge:
                 self.calls = 0
 
             async def generate(self, messages):
+                if messages[0]["content"] == EXTRACT_PROMPT:
+                    return "[]"      # Epic 26: extraction call succeeds (graph stays empty)
                 self.calls += 1
                 if self.calls > 1:
                     raise LLMError("второй раз упал")

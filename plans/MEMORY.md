@@ -1,20 +1,72 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.22.0 DEPLOYED (Epic 24 SmartModule: Summary, коммит `a68732c`). **Epic 25 (багфикс /summary) — IMPLEMENTED + REVIEW PASSED (Section 34 B1–B9, 860 тестов; Шаг 6 sync @Memory).**
+> **Версия:** v2.23.0-fix DEPLOYED (Epic 25 багфикс /summary, коммит `c364f18`). **Epic 25 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-192…T-198 Done (Шаг 8, финальная синхронизация @Memory). Epic 26 (GraphRAG) — IMPLEMENTED, НЕ закоммичен (Шаг 6 @Memory).**
 > **Дата:** 2026-08-16
+> **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 6 (@Memory, граф знаний после реализации и ревью): T-200–T-204 IMPLEMENTED (@Builder), ревью дважды PASS, 939 тестов (860 baseline + 73 Epic 26 + 6 T-206), T-206 (P1, FTS-DELETE рассинхронизация) fixed, ARCHITECTURE.md 35.4 (JSON-объект-обёртка) зафиксирована. Код в рабочем дереве БЕЗ коммита. Осталось: T-205 (README+коммит+пуш+деплой) → @Builder+@DevOps.**
+> **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): Section 35 (35.1–35.11) спроектирована @Architect (T-199/T26.0): DDL nodes/edges (chat_id + UNIQUE), EXTRACT_PROMPT дословно (35.3), flow extract→graph→delete в compress_and_purge (D68), graph traversal для /summary с тегом <historical_graph_facts> первым в user-промпте (D71), настройки GRAPH_* (D69), тест-план 35.8. Статус: DESIGN — ждёт PM-аппрув (T26.0-D); после аппрува T26.1…T26.4 → READY FOR BUILDER. Код НЕ писался.**
+> **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): T-197 DONE (коммит `c364f18`, 11 файлов, +1001/−84; docs `2a45f79`; пуш `818e195..c364f18`; 860 passed; .env не тронут) + T-198 DONE (прод 198.46.175.136: git pull ff `a68732c..c364f18`, .env не меняли, restart → active (running) PID 923954, старт чистый). Epic 25 DEPLOYED. Осталось вручную пользователю: живой тест /summary; Н1 BotFather /setprivacy → Disable; при WARNING удаления — админ-права delete_messages.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 6 (@Memory, граф знаний после реализации и ревью): T-194/T-195 IMPLEMENTED (@Builder, B1–B9 в summary_throttling.py / summary_generator.py / handlers/summary.py), T-196 REVIEW APPROVED (@Reviewer, 860 тестов подтверждены лично, 4 Low-замечания не блокируют). Тесты: 860 PASS (835+25), 0 регрессий. Осталось: T-197 (коммит+пуш) и T-198 (деплой+верификация) → @DevOps.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): RCA ПОДТВЕРЖДЁН прод-логами (асимметрия ThrottlingMiddleware vs aiogram Command-фильтр), Section 34 (B1–B9) DESIGN APPROVED (PM: B6 ⚠️, B3 ⚠️). T-192/T-193 Done, T-194/T-195 READY FOR BUILDER.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 0 (@Memory, синхронизация контекста по баг-репорту): «/summary не реагирует» + требование удалять сообщение команды из чата.**
 > **Обновление:** 2026-08-16 — **Epic 24 «SmartModule: Summary» — Шаг 8 (@Memory, финальная синхронизация): ВЕСЬ запрос пользователя выполнен ✅. T-190 DONE (835 тестов PASS локально; коммит `a68732c`, 35 файлов, +4495/−28; docs-коммит `818e195`; пуш master; HEAD = origin/master). T-191 DONE (прод 198.46.175.136: git pull ff `756d237..a68732c`, .env +LLM-ключи, venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, smoke T-191-D ✅ apinet.cloud/v1/models OK, restart → active (running) PID 920105). Осталось пользователю вручную: Н1 BotFather `/setprivacy` → Disable (критично) + живая проверка `/summary`.**
-> **Статус:** Epics 1–24 ALL DEPLOYED ✅ (v2.22.0, `a68732c` + `818e195`, 835 тестов). Epic 24 DEPLOYED на проде (PID 920105, 0 трейсбеков). **Epic 25: IMPLEMENTED + REVIEW PASSED — T-192/T-193/T-194/T-195/T-196 Done, 860 тестов PASS (835+25), 0 регрессий. Осталось: T-197 (коммит+пуш) + T-198 (деплой+верификация) → @DevOps.** Ручные действия пользователя: Н1 (BotFather `/setprivacy` → Disable) и живая проверка `/summary` в чате.
-> **Текущий коммит:** `a68732c` (feat(summary): Epic 24 — SmartModule с трехуровневой памятью и саммари чата (v2.22.0)) + docs-коммит `818e195` (синхронизация board.md) — оба в origin/master (github.com/Henry-Case-dev/adminbot.git).
-> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 920105, логи чистые: «sqlite-vec loaded (dim=768)», «SmartModule Summary (Epic 24) initialized (TZ=Asia/Yekaterinburg)», cron 0,6,12,18, все 14 роутеров зарегистрированы.
+> **Статус:** Epics 1–25 ALL DEPLOYED ✅ (v2.23.0-fix, `c364f18` + docs `2a45f79`, 860 тестов). Epic 25 DEPLOYED на проде (PID 923954, старт чистый, 0 ImportError). **Epic 25: T-192/T-193/T-194/T-195/T-196/T-197/T-198 Done, 860 тестов PASS (835+25), 0 регрессий.** **Epic 26 (GraphRAG): IMPLEMENTED (Шаг 6), 939 тестов PASS (860+73+6), ревью дважды PASS, T-206 fixed; код НЕ закоммичен — T-205 (README/коммит/пуш/деплой) впереди.** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
+> **Текущий коммит:** `c364f18` (fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25)) + docs-коммит `2a45f79` (синхронизация board.md) — оба в origin/master (github.com/Henry-Case-dev/adminbot.git). Прод версия **v2.23.0-fix**.
+> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 923954, логи чистые: Database initialized, «sqlite-vec loaded (dim=768)», cron 0,6,12,18, «SmartModule Summary initialized», все 14 роутеров зарегистрированы, ImportError 0.
 
 ---
 
-## 🐛 Epic 25: багфикс /summary — IMPLEMENTED + REVIEW PASSED (Шаг 6, @Memory, 2026-08-16)
+## 🏗️ Epic 26: GraphRAG-память — граф знаний поверх SQLite (v2.24.0) — IMPLEMENTED (Шаг 6, @Memory, 2026-08-16)
 
-> **Статус:** RCA ПОДТВЕРЖДЁН прод-логами (T-192 ✅) → Section 34 (B1–B9) DESIGN APPROVED (T-193 ✅) → **IMPLEMENTED** (@Builder T-194/T-195 ✅, 860 тестов PASS) → **REVIEW APPROVED** (@Reviewer T-196 ✅, 4 Low-замечания не блокируют). Осталось: **T-197/T-198 → @DevOps.** Прод: v2.22.0 (PID 920105).
+> **Статус:** Шаг 1/3 (PM) ✅ → Шаг 2 (@Architect, T-199) ✅ → Шаг 3 (@Memory, DESIGN) ✅ → **Шаг 4–5: @Builder (T-200–T-204) ✅ + @Reviewer дважды PASS ✅ → Шаг 6 (@Memory): IMPLEMENTED.** Код в рабочем дереве, БЕЗ коммита. Впереди T-205: README (ироничный тон) + коммит на русском + пуш + деплой (ssh nik@198.46.175.136, systemctl restart admin_bot). Target v2.24.0.
+> **Требования R26-1…R26-7, PM-решения D67–D71, задачи T-199…T-205:** `plans/backlog.md` (Epic 26). **Дизайн:** `plans/ARCHITECTURE.md` Section 35 (35.1–35.11).
+
+### 📐 Дизайн (Section 35, @Architect, 2026-08-16)
+
+| Блок | Суть |
+|---|---|
+| **35.2 DDL** | `nodes` (id, chat_id, entity_name, entity_type CHECK ∈ user/topic/event, `UNIQUE(chat_id, entity_name)`) + `edges` (id, chat_id, source_id/target_id → nodes.id, relation_type, weight DEFAULT 1, last_updated, `UNIQUE(source_id,target_id,relation_type)`) в `_SCHEMA_SQL`; индексы chat_type / source / target / chat_weight |
+| **35.3 EXTRACT_PROMPT** | Захардкожен ДОСЛОВНО в `services/summary_prompts.py` («ты — анализатор взаимосвязей… верни СТРОГО JSON-массив триплетов»); тест байт-в-байт T26.5-A; промпт не логировать целиком |
+| **35.4 Extraction** | `_extract_and_save_graph` в `compress_and_purge`: extract (2-й LLM-вызов) → upsert nodes/edges → ТОЛЬКО ПОТОМ delete сырья (D68); кривой JSON → `GraphExtractionError` → пачка остаётся; валидный JSON с 0 годных триплетов — не застревает; `GRAPH_RAG_ENABLED=False` → вызов пропускается |
+| **35.5 Traversal** | `get_graph_facts(chat_id, rows, keywords)` — never raises; сущности окна детерминированно БЕЗ доп. LLM-вызова (авторы + топ-2 ключей); SQL `weight DESC LIMIT 5`; фоллбеки chat-wide top; справки «[Историческая справка: …]» в `<historical_graph_facts>` ПЕРВЫМ в user-промпте (D71) |
+| **35.6 Config** | `GRAPH_RAG_ENABLED=True`, `GRAPH_EDGE_WEIGHT_INCREMENT=1`, `GRAPH_TOP_EDGES_LIMIT=5`, `GRAPH_EXTRACT_MAX_TRIPLETS=50`; хардкод `_GRAPH_EXTRACT_MAX_CHARS=8000`, капы имён 100 / предикатов 200 |
+| **35.7 Контракты** | Новые методы DatabaseService (`upsert_node`/`upsert_edge`/`match_nodes`/`get_top_edges`/`get_top_edges_all`); существующие сигнатуры НЕ меняются (`graph_facts: list[str] = []`); `llm_client.py` / `summary_xml.py` / `bot.py` НЕ трогать |
+| **35.8 Тест-план** | 860 baseline + ~50–60 новых; адаптируются ТОЛЬКО 2 фикстуры (FakeLLM.extract_response, FakeMemory.get_graph_facts stub); ассерты не меняются |
+| **35.9 Q1–Q10** | Все 10 открытых вопросов закрыты: event-узлы v1 НЕ создаются (DDL форвард-совместим); синонимов предикатов НЕТ; сущности окна без доп. LLM; FK-прагма НЕ включается; пачка та же (100, хвост ≤8000 симв.); prune графа НЕТ; обратная совместимость подтверждена; секция первая; имена = author_name + lower/strip; FakeLLM canned JSON |
+
+### ✅ Реализация (T-200–T-204 + T-206, @Builder + @Reviewer, 2026-08-16)
+
+- **DDL (T-200/T26.1):** таблицы `nodes`/`edges` в `DatabaseService._SCHEMA_SQL` — chat_id, UNIQUE(chat_id, entity_name), UNIQUE(source_id, target_id, relation_type), 4 индекса, upsert weight (ON CONFLICT weight+1). Методы: `upsert_node(chat_id, entity_name, entity_type) -> int`, `upsert_edge(...)`.
+- **Extraction (T-201/T26.2):** `EXTRACT_PROMPT` дословно в `services/summary_prompts.py` (тест байт-в-байт T26.5-A PASS); `parse_triplets(raw) -> list[dict]` + `_extract_and_save_graph(chat_id, batch) -> None` в `services/summary_memory.py`; flow extract → graph → delete в `compress_and_purge` (per-batch isolation, D68); кривой JSON → GraphExtractionError → пачка остаётся.
+- **Traversal (T-202/T26.3):** `get_graph_facts(chat_id, rows, keywords)` — never raises (try/except → []); fallback chat-wide `get_top_edges_all`; тег `<historical_graph_facts>` ПЕРВЫМ в `_compose_user_content(..., graph_facts: list[str] = [])` (services/summary_generator.py line 194); escape_xml_text.
+- **Config (T-203/T26.4):** `GRAPH_RAG_ENABLED` / `GRAPH_EDGE_WEIGHT_INCREMENT` / `GRAPH_TOP_EDGES_LIMIT` / `GRAPH_EXTRACT_MAX_TRIPLETS` в config/settings.py (lines 247–253) + секция в .env.example; хардкод `_GRAPH_EXTRACT_MAX_CHARS=8000` и капы имён/предикатов в summary_memory.py.
+- **Тесты (T-204):** 939 passed = 860 baseline + 73 Epic 26 + 6 T-206. Ревью дважды PASS (0 блокеров).
+- **T-206 (P1, FIXED):** FTS-DELETE зеркалит условие вставки (`text IS NOT NULL AND text != ''`) в `delete_smart_messages_by_ids` и `delete_smart_messages_older_than`; добавлен chat_id-фильтр в FTS-DELETE by_ids; 6 регрессионных тестов. Pre-existing с Epic 24 (`a68732c`).
+- **ARCHITECTURE.md 35.4:** зафиксирована допустимость JSON-объект-обёртки в ответе LLM (parse_triplets снимает её).
+
+### 📋 Задачи (backlog/board)
+
+- **T-199 (T26.0)** @Architect+@PM — Section 35 ✅ спроектирована и одобрена
+- **T-200 (T26.1)** @Builder — DDL nodes/edges + 4 индекса + upsert CRUD (INSERT OR IGNORE / ON CONFLICT weight+1) ✅ DONE
+- **T-201 (T26.2)** @Builder — extraction: EXTRACT_PROMPT verbatim, parse_triplets, граф ДО удаления сырья, per-batch isolation ✅ DONE
+- **T-202 (T26.3)** @Builder — traversal: сущности окна L1, SQL weight DESC LIMIT 5, тег первым, escape_xml_text, fallback без секции ✅ DONE
+- **T-203 (T26.4)** @Builder — конфиг GRAPH_* + .env.example ✅ DONE
+- **T-204 (T26.5)** @Builder+@Reviewer — тесты (парсер/upsert/traversal/чат-изоляция/кривой JSON/pipeline graph_facts), полный pytest 939, code review дважды PASS ✅ DONE
+- **T-206 (P1, добавлена на ревью)** @Builder+@Reviewer — FTS-DELETE зеркалит условие вставки (text IS NOT NULL AND text != '') в delete_smart_messages_by_ids/delete_smart_messages_older_than; chat_id-фильтр в FTS-DELETE by_ids; 6 регрессионных тестов ✅ FIXED
+- **T-205 (T26.6)** @Builder+@DevOps — README (ироничный тон) + коммит на русском + пуш + деплой (ssh nik@198.46.175.136, systemctl restart admin_bot) ⏳ PENDING (Шаг 7)
+
+### ⚠️ Предупреждения для @Builder
+
+- 860 существующих тестов не ломать: правки ТОЛЬКО в фикстурах FakeLLM/FakeMemory (35.8), ассерты не трогать.
+- Порядок вызовов extract → graph → delete критичен (D68): сырьё пачки удаляется только после сохранения графа.
+- `PRAGMA foreign_keys` НЕ включать; проверка состояния прагмы на прод-БД → DEBUG-лог (T26.1-E).
+- Не трогать: `llm_client.py`, `summary_xml.py`, `summary_aliases.py`, `summary_scheduler.py`, `summary_throttling.py`, `handlers/summary.py`, `bot.py`, vec0-логику (`rowid IN` purge).
+- `SYSTEM_PROMPT` / `COMPRESS_PROMPT` — дословно заморожены (R11), НЕ менять.
+
+---
+
+## 🐛 Epic 25: багфикс /summary — DEPLOYED (Шаг 8, @Memory, финальная синхронизация 2026-08-16)
+
+> **Статус:** RCA ПОДТВЕРЖДЁН прод-логами (T-192 ✅) → Section 34 (B1–B9) DESIGN APPROVED (T-193 ✅) → **IMPLEMENTED** (@Builder T-194/T-195 ✅, 860 тестов PASS) → **REVIEW APPROVED** (@Reviewer T-196 ✅, 4 Low-замечания не блокируют) → **DEPLOYED** (@DevOps T-197/T-198 ✅, коммит `c364f18`, прод PID 923954). Прод: v2.23.0-fix.
 
 ### 🔬 RCA — подтверждён прод-логами Better Stack (T-192, 2026-08-16)
 
@@ -53,7 +105,7 @@
 - Подтверждены: **J1** (DI bot вместо `setup_summary`), **J2** (нет bot в data → своя mention), **J3** (ассерты DeleteMessage), **J4** (FakeLock), **J5** (B9 и caption). `Bot.me()` кэшируется aiogram — 1 вызов на процесс.
 - R8/R9 сохранены: троттлинг молчалив (INFO+remaining), denied — без ack/delete/ответа (INFO).
 
-| # | Low-замечание (не блокирует, на T-198/будущий эпик) | Статус |
+| # | Low-замечание (не блокирует; кандидаты в backlog) | Статус |
 |---|------------------------------------------------|--------|
 | L1 | Мидлварь проверяет только `event.text` — команда-капшн может обойти троттлинг | ⚠️ pre-existing (с Epic 24), сериализуется Lock, на будущее |
 | L2 | «ack sent» логируется даже при неудачной отправке ack | ⚠️ косметика |
@@ -62,8 +114,16 @@
 
 ### 📋 Статусы задач
 
-- **board.md:** T-192/T-193/T-194/T-195/T-196 ✅ Done. **T-197 (коммит на русском + push) / T-198 (деплой + верификация /summary живьём) → READY FOR @DevOps.**
-- ⚠️ **Деплойный риск для DevOps:** удаление чужих сообщений (B7) требует админ-права `delete_messages` у бота в чате (иначе 400 Bad Request → WARNING-лог, best-effort).
+- **board.md:** T-192/T-193/T-194/T-195/T-196/T-197/T-198 ✅ Done. **Epic 25 DEPLOYED (v2.23.0-fix, `c364f18`, PID 923954).**
+- ⚠️ **B7 (удаление команды) — best-effort:** при отсутствии у бота админ-права `delete_messages` в чате будет WARNING-лог (штатно). Ручное действие пользователя при появлении WARNING: выдать боту админ-права `delete_messages`.
+
+### 🚀 Деплой-дайджест (T-197/T-198 DONE, @DevOps, 2026-08-16)
+
+1. **T-197 ✅:** локально **860 passed** (7.43s) перед коммитом; коммит `c364f18` «fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25)» — 11 файлов, +1001/−84; пуш `818e195..c364f18`; docs-коммит `2a45f79` запушен; .env не тронут.
+2. **T-198 ✅:** прод 198.46.175.136: git pull ff `a68732c..c364f18`; .env не меняли (дефолты подходят); рестарт (первая попытка stop-timeout → SIGKILL старого процесса ~90с, pre-existing; вторая OK); active (running), **PID 923954**; старт чистый: Database initialized, sqlite-vec loaded (dim=768), cron 0,6,12,18, «SmartModule Summary initialized», все 14 роутеров, ImportError 0.
+3. **Ожидание:** живых /summary после рестарта ещё не было — финальная верификация по логам после теста пользователем. Ожидаемая цепочка: `triggered → ack sent → window_size → LLM request → chunk sent → command deleted` (или WARNING при отсутствии прав `delete_messages` — штатно).
+4. **Наблюдения (pre-existing, кандидаты в backlog):** (а) L3 dimension mismatch — эмбеддинги 3072 dim vs БД 768 → vector search failed → FTS5 fallback (деградация штатная, cron-саммари успешен); (б) stop-timeout systemd при рестарте (~90с → SIGKILL, сервис поднимается корректно).
+5. **Ручные действия пользователя:** живой тест `/summary`; Н1 BotFather `/setprivacy` → Disable; при WARNING удаления — выдать боту админ-права `delete_messages`.
 
 ### Журнал Epic 25
 
@@ -76,6 +136,8 @@
 | Шаг 4 | 2026-08-16 | @Builder: T-194/T-195 — B1–B9 реализованы (summary_throttling.py / summary_generator.py / handlers/summary.py), 860 тестов PASS (835+25), 0 регрессий |
 | Шаг 5 | 2026-08-16 | @Reviewer: T-196 — APPROVED, 860 тестов подтверждены лично, J1–J5 подтверждены, 4 Low-замечания |
 | Шаг 6 | 2026-08-16 | @Memory: граф знаний + MEMORY.md обновлены (IMPLEMENTED + REVIEW PASSED) → @DevOps (T-197/T-198) |
+| Шаг 7 | 2026-08-16 | @DevOps: T-197 (коммит `c364f18` + docs `2a45f79`, push OK) + T-198 (деплой ff `a68732c..c364f18`, restart → active PID 923954, старт чистый) |
+| Шаг 8 | 2026-08-16 | @Memory: ФИНАЛЬНАЯ синхронизация — граф знаний + MEMORY.md (Epic 25 DEPLOYED, v2.23.0-fix). Цикл завершён ✅ |
 
 ---
 
@@ -425,7 +487,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 9 таблиц после Epic 24 (было 5), WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env, time-format cooldowns |
-| Тесты | pytest + pytest-asyncio | ✅ 860 тестов локально PASS (Epic 25 IMPLEMENTED+REVIEWED; прод пока v2.22.0 = 835) |
+| Тесты | pytest + pytest-asyncio | ✅ 860 тестов локально PASS (Epic 25 DEPLOYED; прод v2.23.0-fix) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -558,7 +620,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **v2.20.0** | **2026-08-15** | **Epic 22 (Гонка функций и точность триггеров)** | **T-163–T-167 (DEPLOYED, `1dbb6da`)** | **621** |
 | **v2.21.0** | **2026-08-16** | **Epic 23 (Правка danger-словаря)** | **T-169–T-172 (DONE & DEPLOYED, `756d237`)** | **672** |
 | **v2.22.0** | **2026-08-16** | **Epic 24 (SmartModule: Summary)** | **T-173–T-191 (DONE & DEPLOYED, `a68732c` + `818e195`)** | **835** |
-| **v2.22.1 (in work)** | **2026-08-16** | **Epic 25 (багфикс /summary + удаление команды)** | **T-192–T-198 (5/7 Done: IMPLEMENTED + REVIEW PASSED; T-197/T-198 → @DevOps)** | **860** |
+| **v2.23.0-fix** | **2026-08-16** | **Epic 25 (багфикс /summary + удаление команды)** | **T-192–T-198 (7/7 Done & DEPLOYED, `c364f18` + `2a45f79`)** | **860** |
 
 ---
 
@@ -572,7 +634,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **DEPLOYED** | Chore T-168: danger_drone.mp4 в danger-пул — DONE & DEPLOYED ✅ (коммит `0c74220`, pull 1dbb6da..0c74220, chmod 644, хэш совпал, пул 16 файлов, PID 916795, smoke OK) |
 | **DEPLOYED** | Epic 23: T-169 – T-172 (DONE & DEPLOYED ✅, коммит `756d237`, 672 теста, прод v2.21.0, PID 917681) — словарь 118 слов + 17 фраз, .env DANGER_WORDS пустой (дефолты активны), проверка «118 17» совпала, логи чистые |
 | **DEPLOYED** | Epic 24: T-173 – T-191 (DONE & DEPLOYED ✅, коммит `a68732c` + docs `818e195`, 835 тестов, прод v2.22.0, PID 920105, smoke apinet.cloud OK) — Н1 BotFather `/setprivacy` → Disable остаётся ручным действием пользователя |
-| **IN REVIEW → READY FOR @DevOps** | Epic 25: T-192 – T-198 — T-192/T-193/T-194/T-195/T-196 ✅ Done (B1–B9 IMPLEMENTED, ревью APPROVED, 860 тестов); T-197 (коммит+пуш) и T-198 (деплой+верификация) → @DevOps |
+| **DEPLOYED** | Epic 25: T-192 – T-198 (DONE & DEPLOYED ✅, коммит `c364f18` + docs `2a45f79`, 860 тестов, прод v2.23.0-fix, PID 923954) — B1–B9 в проде; живой тест /summary остаётся ручной верификацией пользователя |
 
 > Epics 1-22 ALL DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, PID 914116). **Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — реализация (D51–D54) + ревью 3 раунда (APPROVED) + коммит/пуш/деплой (T-167-D).**
 > 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
@@ -585,20 +647,22 @@ common_router (pos 4c): НИКОГДА не получает события
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.22.0 (Epic 24 DEPLOYED) |
-| **Текущий коммит** | `a68732c` (feat(summary): Epic 24 — SmartModule с трехуровневой памятью и саммари чата (v2.22.0)) + docs `818e195`; прод HEAD после pull ff `756d237..a68732c` |
+| **Версия в проде** | v2.23.0-fix (Epic 25 DEPLOYED) |
+| **Текущий коммит** | `c364f18` (fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25)) + docs `2a45f79`; прод HEAD после pull ff `a68732c..c364f18` |
 | **Дата** | 2026-08-16 |
 | **Сервер** | 198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), PID 920105, логи чистые («sqlite-vec loaded (dim=768)», «SmartModule Summary initialized (TZ=Asia/Yekaterinburg)», cron 0,6,12,18, 14 роутеров) |
-| **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно, локальный HEAD = origin/master |
-| **Тесты** | 860 PASS локально (835 + 25 Epic 25); прод v2.22.0 — 835 |
-| **Эпики** | 1-24 ALL DEPLOYED ✅ |
-| **Epic 25** | T-192–T-196 Done (860 тестов, ревью APPROVED); T-197/T-198 pending → READY FOR @DevOps |
-| **Задачи** | T-001 – T-191 ALL DEPLOYED ✅ |
-| **.env на проде** | +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (без дублей); DANGER_WORDS пустой → дефолты; DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
-| **Ошибки** | 0 errors, 0 трейсбеков. Все сервисы инициализированы корректно. |
-| **Ручные действия** | Н1: BotFather `/setprivacy` → Disable (критично); живая проверка `/summary` в чате |
+| **Статус** | systemctl status adminbot → active (running), PID 923954, логи чистые (Database initialized, «sqlite-vec loaded (dim=768)», cron 0,6,12,18, «SmartModule Summary initialized», 14 роутеров, ImportError 0) |
+| **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно (818e195..c364f18 + docs 2a45f79), локальный HEAD = origin/master |
+| **Тесты** | 860 PASS локально (835 + 25 Epic 25, прогон 7.43s перед коммитом) |
+| **Эпики** | 1-25 ALL DEPLOYED ✅ |
+| **Epic 25** | T-192–T-198 Done & DEPLOYED (860 тестов, коммит `c364f18`, PID 923954). Финальная живая верификация /summary — по логам после теста пользователем |
+| **Epic 26** | GraphRAG-память — **IMPLEMENTED (Шаг 6 @Memory)**, 939 тестов (860+73+6), ревью дважды PASS, T-206 fixed. Код НЕ закоммичен; T-205 (README+коммит+пуш+деплой) впереди; target v2.24.0 |
+| **Задачи** | T-001 – T-198 ALL DEPLOYED ✅ |
+| **.env на проде** | Не менялся при Epic 25 (дефолты подходят); +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (с Epic 24, без дублей); DANGER_WORDS пустой → дефолты; DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
+| **Ошибки** | 0 errors, 0 трейсбеков, ImportError 0. Все сервисы инициализированы корректно. |
+| **Backlog-кандидаты (pre-existing)** | (а) L3 dimension mismatch: эмбеддинги 3072 dim vs БД 768 → vector search failed → FTS5 fallback (штатная деградация, cron-саммари успешен); (б) stop-timeout systemd при рестарте (~90с → SIGKILL, сервис поднимается корректно) |
+| **Ручные действия** | Живой тест `/summary` в чате (верификация цепочки по логам); Н1: BotFather `/setprivacy` → Disable (критично); при WARNING удаления — выдать боту админ-права `delete_messages` |
 
 ---
 
@@ -631,3 +695,9 @@ common_router (pos 4c): НИКОГДА не получает события
 *Обновление: 2026-08-16 — EPIC 24 (v2.22.0-in-progress): Шаг 3 (@Memory) — фаза архитектуры (T-173) завершена, граф знаний и MEMORY.md синхронизированы. Дизайн Section 33 (A1–A15, риски 33.14) зафиксирован в ARCHITECTURE.md; RESEARCH.md верифицирован (методология: context7 — Invalid API key / duckduckgo — anomaly → рабочий стек exa + webfetch docs.aiogram.dev). board.md: T-173 → In Review, T-174 → READY FOR BUILDER. Код не писался — передача @Builder после PM-аппрува T-173-E. Предупреждения для @Builder: Н1 BotFather /setprivacy → Disable (T-191); порядок роутеров 0a/0b не менять; 12 существующих роутеров и MessageCounterMiddleware не трогать; sqlite-vec — только graceful fallback (R3).*
 
 *Обновление: 2026-08-16 — EPIC 25 (багфикс /summary): IMPLEMENTED + REVIEW PASSED ✅ (Шаг 6, @Memory — граф знаний и MEMORY.md синхронизированы). @Builder: T-194/T-195 DONE — B1–B9 реализованы (summary_throttling.py B3: _parse_command, me()-валидация mention case-insensitive, чужая mention не жжёт слот и пропускается, base == "/summary", guard text.strip(), R8-молчание + INFO remaining; summary_generator.py B2/B4/B5: generate_and_send(chat_id, manual=False), _UX_EMPTY/_UX_BUSY, пустое окно/lock UX manual + INFO cron; handlers/summary.py B1/B6/B7/B8/B9: ack «ща гляну, подожди» send_message, _safe_send(bot) с DI bot, message.delete() после ack try/except WARNING, INFO-логи всех состояний, наблюдатель не пишет /summary* в text и caption). Тесты: 860 PASS (835+25), 0 регрессий. @Reviewer: T-196 APPROVED — 860 подтверждены личным прогоном, J1–J5 подтверждены, Bot.me() кэшируется (1 вызов на процесс); 4 Low-замечания не блокируют: (1) троттлинг смотрит только event.text — команда-капшн обходит (pre-existing, сериализуется Lock); (2) «ack sent» при неудаче; (3) bot.me() без try/except; (4) _last без TTL. Остаток: T-197 (коммит на русском + push) и T-198 (деплой + верификация /summary живьём через логи) → @DevOps. Деплойный риск B7: админ-права delete_messages у бота в чате (иначе 400 Bad Request → WARNING, best-effort).*
+
+*Обновление: 2026-08-16 — EPIC 25 (багфикс /summary): DEPLOYED ✅ (Шаг 8, @Memory — ФИНАЛЬНАЯ синхронизация, цикл завершён). @DevOps: T-197 DONE (локально 860 passed 7.43s; коммит c364f18 «fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25)» — 11 файлов, +1001/−84; пуш 818e195..c364f18; docs-коммит 2a45f79; .env не тронут). T-198 DONE (прод 198.46.175.136: git pull ff a68732c..c364f18; .env не меняли — дефолты подходят; рестарт: первая попытка stop-timeout → SIGKILL старого процесса ~90с (pre-existing), вторая OK; active (running) PID 923954; старт чистый: Database initialized, sqlite-vec dim=768, cron 0,6,12,18, «SmartModule Summary initialized», 14 роутеров, ImportError 0). Прод v2.23.0-fix, Epics 1-25 ALL DEPLOYED. Живой тест /summary после рестарта ещё не выполнялся — финальная верификация по логам после теста пользователем (цепочка: triggered → ack sent → window_size → LLM request → chunk sent → command deleted, или WARNING при отсутствии прав delete_messages — штатно). Наблюдения (pre-existing, кандидаты в backlog): (а) L3 dimension mismatch — эмбеддинги 3072 dim vs БД 768 → FTS5 fallback (cron-саммари успешен); (б) stop-timeout systemd при рестарте (~90с → SIGKILL, сервис поднимается корректно). Ручные действия пользователя: живой тест /summary; Н1 BotFather /setprivacy → Disable; при WARNING удаления — выдать боту админ-права delete_messages. board.md: T-197/T-198 Done, Epic 25 в финальной стадии.*
+
+*Обновление: 2026-08-16 — EPIC 26 (GraphRAG-память, v2.24.0): IMPLEMENTED + REVIEW PASSED ✅ (Шаг 6, @Memory — граф знаний и MEMORY.md синхронизированы). @Builder: T-200–T-204 DONE — DDL nodes/edges в _SCHEMA_SQL (chat_id, UNIQUE, 4 индекса, upsert weight), EXTRACT_PROMPT дословно в summary_prompts.py, parse_triplets/_extract_and_save_graph в summary_memory.py (extract → graph → delete, per-batch isolation), get_graph_facts (never raises, fallback chat-wide), тег <historical_graph_facts> первым в _compose_user_content (graph_facts: list[str] = []), настройки GRAPH_* в settings.py и .env.example. Реальные сигнатуры DatabaseService: upsert_node/upsert_edge/match_nodes/get_top_edges/get_top_edges_all. @Reviewer: дважды PASS (0 блокеров). Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206). T-206 (P1) исправлен: FTS-DELETE зеркалит условие вставки (text IS NOT NULL AND text != '') в delete_smart_messages_by_ids/delete_smart_messages_older_than; chat_id-фильтр в FTS-DELETE by_ids; 6 регрессионных тестов. ARCHITECTURE.md 35.4: допустимость JSON-объект-обёртки зафиксирована. Код в рабочем дереве БЕЗ коммита — впереди T-205: README (ироничный тон) + коммит на русском + пуш + деплой → @Builder+@DevOps.*
+
+*Обновление: 2026-08-16 — EPIC 26 (v2.24.0-in-progress): Шаг 3 (@Memory) — фаза архитектуры (T-199) завершена, граф знаний и MEMORY.md синхронизированы. Section 35 (35.1–35.11) зафиксирована в ARCHITECTURE.md: DDL nodes/edges (chat_id + UNIQUE(chat_id, entity_name) + UNIQUE(source_id, target_id, relation_type), weight, last_updated), upsert ON CONFLICT DO UPDATE weight=weight+1, extraction flow extract→graph→delete в compress_and_purge с per-batch isolation (D68), traversal get_graph_facts (never raises) с сущностями окна детерминированно БЕЗ доп. LLM-вызова и тегом <historical_graph_facts> ПЕРВЫМ в user-промпте (D71), EXTRACT_PROMPT дословно (35.3), настройки GRAPH_RAG_ENABLED/GRAPH_EDGE_WEIGHT_INCREMENT/GRAPH_TOP_EDGES_LIMIT/GRAPH_EXTRACT_MAX_TRIPLETS + хардкод-константы (D69). Все 10 открытых вопросов закрыты (35.9), риски R1–R10 (35.10). board.md: T-199 → In Progress (ждёт PM-аппрув). Код не писался — передача @Builder после PM-аппрува T26.0-D. Предупреждения для @Builder: 860 тестов не сломать (правки только 2 фикстур), порядок extract→graph→delete, PRAGMA foreign_keys не включать, SYSTEM_PROMPT/COMPRESS_PROMPT заморожены, llm_client.py/bot.py/vec0 не трогать.*
