@@ -313,3 +313,97 @@ class TestExtractKeywords:
         rows = [_row(text="а б в длинноеслово")]
         keywords = SummaryGenerator._extract_keywords(rows)
         assert keywords == ["длинноеслово"]
+
+
+class TestManualFlag:
+    """Epic 25 (B2/B4/B5): manual=True — UX-ответы; manual=False (cron) — тишина."""
+
+    @pytest.mark.asyncio
+    async def test_empty_window_manual_sends_ux(self, no_sleep):
+        memory = FakeMemory(rows=[])
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100, manual=True)
+        bot.send_message.assert_awaited_once_with(-100, "тут тишина, саммарить нечего")
+        assert llm.messages is None
+
+    @pytest.mark.asyncio
+    async def test_empty_window_cron_silent(self, no_sleep):
+        memory = FakeMemory(rows=[])
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        bot.send_message.assert_not_called()
+        assert llm.messages is None
+
+    @pytest.mark.asyncio
+    async def test_lock_busy_manual_sends_busy_ux_then_queues(self, no_sleep):
+        memory = FakeMemory(rows=[_row()])
+        bot = AsyncMock()
+        generator = _make_generator(memory, FakeLLM(), bot)
+
+        class FakeLock:
+            def locked(self):
+                return True
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        generator._lock = FakeLock()
+        await generator.generate_and_send(-100, manual=True)
+        texts = [call.args[1] for call in bot.send_message.await_args_list]
+        assert texts[0] == "уже делаю саммари, подожди"
+        assert any("самым главным шизом" in t for t in texts)
+
+    @pytest.mark.asyncio
+    async def test_lock_busy_cron_no_ux(self, no_sleep, caplog):
+        import logging
+
+        memory = FakeMemory(rows=[_row()])
+        bot = AsyncMock()
+        generator = _make_generator(memory, FakeLLM(), bot)
+
+        class FakeLock:
+            def locked(self):
+                return True
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        generator._lock = FakeLock()
+        with caplog.at_level(logging.INFO):
+            await generator.generate_and_send(-100)
+        texts = [call.args[1] for call in bot.send_message.await_args_list]
+        assert texts and all("уже делаю" not in t for t in texts)
+        assert any("lock busy" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_lock_busy_logged_with_manual(self, no_sleep, caplog):
+        import logging
+
+        memory = FakeMemory(rows=[_row()])
+        generator = _make_generator(memory, FakeLLM(), AsyncMock())
+
+        class FakeLock:
+            def locked(self):
+                return True
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        generator._lock = FakeLock()
+        with caplog.at_level(logging.INFO):
+            await generator.generate_and_send(-100, manual=True)
+        assert any("lock busy — queued" in r.message and "manual=True" in r.message
+                   for r in caplog.records)
