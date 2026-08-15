@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.21.0 (текущий дизайн: Epic 23)
+> **Версия:** v2.22.0 (текущий дизайн: Epic 24)
 > **Дата:** 2026-08-16
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681).
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён).
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -22,6 +22,7 @@
 10. [Section 30: Epic 22](#30-epic-22--гонка-функций-и-точность-триггеров-v2200) — Гонка функций и точность триггеров (v2.20.0, НОВОЕ)
 11. [Section 31: Конвенция media/](#31-конвенция-media-2026-08-16) — Политика media/ + инвентарь медиа-пулов (2026-08-16)
 12. [Section 32: Epic 23](#32-epic-23--точная-настройка-danger-словаря-v2210) — Точная настройка danger-словаря (v2.21.0, НОВОЕ)
+13. [Section 33: Epic 24](#33-epic-24--smartmodule-summary-v2220) — SmartModule: Summary (v2.22.0, НОВОЕ — трёхуровневая память, LLM, APScheduler)
 
 ---
 
@@ -3302,3 +3303,440 @@ class DangerWordFilter(BaseFilter):
 ---
 
 @Orchestrator Epic 23 (T-169..T-172) architecture ready — v2.21.0 design passed to @Builder.
+
+---
+
+## 33. Epic 24 — SmartModule: Summary (v2.22.0)
+
+> **Дата:** 2026-08-16
+> **Статус:** IMPLEMENTED ✅ (T-174…T-189 @Builder; ревью T-188-D APPROVE WITH FIXES → Approved; Low-фиксы закрыты в T-189; 835 тестов). Фактические решения реализации — 33.16.
+> **Цель:** автономный сервис Summary: бот копит все сообщения чата в SQLite, каждые 6 часов (00/06/12/18 Asia/Yekaterinburg) или по `/summary` генерирует токсично-ироничное саммари через LLM (apinet.cloud: `deepseek-v4-flash` + эмбеддинги `gemini-embedding-001`). Трёхуровневая память L1 (окно 6ч) / L2 (сырьё для RAG, `FULL_MEMORY_RETENTION_DAYS`) / L3 (архив sqlite-vec + обязательный фоллбек FTS5).
+> **Требования R1–R18 и решения D59–D64:** `plans/backlog.md` Epic 24 (зафиксированы PM 2026-08-16).
+> **Исследование R18 (T-173-F):** `plans/RESEARCH.md`, секция «Методология исследования» (context7 — API-key недоступен, duckduckgo — anomaly; рабочие инструменты: exa + webfetch docs.aiogram.dev; даты и источники там).
+
+### 33.1 Ключевые архитектурные решения (summary)
+
+| # | Решение | Обоснование |
+|---|---------|-------------|
+| **A1** | Все модули — **плоскими файлами** в `services/` и `handlers/` (НЕ подпакет `services/smartmodule/`), префикс имён `summary_*` | Конвенция проекта: `mimic_relay.py`, `common_relay.py`, `olya_relay.py`; подпакетов в `services/` нет |
+| **A2** | БД — **общая `local_database.db`** (существующий `DatabaseService`), НЕ отдельный `smartmodule.db` | Миграции уже идут через `_SCHEMA_SQL` (executescript CREATE IF NOT EXISTS), WAL включён, бэкапы единые. Отдельный файл = второй коннект + второй WAL + рассинхрон миграций |
+| **A3** | Наблюдатель сбора сообщений — **отдельный роутер `summary_observer_router` на позиции 0a** (самый первый), catch-all, всегда `return UNHANDLED` | Не трогает `dp.update.outer_middleware`, не конфликтует с `MessageCounterMiddleware` (это inner middleware slavik_router). Роутер — по конвенции проекта |
+| **A4** | `summary_router` (`/summary`) — **позиция 0b** (сразу после наблюдателя, ДО admin_commands и catch-all роутеров 5/6). Хендлер НИКОГДА не возвращает `UNHANDLED` на своём пути | Команда от Славы не должна долететь до `slavik_catchall_handler` («пошёл нахуй»). Не-`UNHANDLED` возврат останавливает propagation (конвенция раздела 1.2) |
+| **A5** | L3-сжатие — **НЕ отдельная джоба APScheduler**, а шаг внутри пайплайна генерации под общим `asyncio.Lock` | Устраняет гонку «сжатие vs генерация» (риск 7 backlog). Джоба одна (cron 0 */6 * * *), `max_instances=1, coalesce=True` |
+| **A6** | Фоллбек-каскад памяти: **vec0 KNN → FTS5**; текст архивных фактов пишется в обычную таблицу `smart_archive_facts` (+ её FTS5) ВСЕГДА, эмбеддинги — опционально | Даже без sqlite-vec архив живёт и ищется через FTS5 (R3, D60) |
+| **A7** | L2-RAG — **FTS5-поиск по ключевым словам окна L1** (программный запрос, без доп. LLM-вызова) | «Точные совпадения/цитаты» даёт phrase-match FTS5; лишний LLM-вызов = стоимость + таймаут |
+| **A8** | Имена участников — **резолвить в момент СОХРАНЕНИЯ** в колонку `author_name`; каскад alias → nickname → username (без @) → user_id | `nickname`/`username` недоступны из БД постфактум; менять алиасы в конфиге можно без миграций |
+| **A9** | `SUMMARY_ALIASES` — **JSON-строка** `{"<user_id>": "<alias>"}` | Машиночитаемо, парсится `json.loads` в try/except; проще `user_id:alias,...` для ID с именами |
+| **A10** | Промпты — **отдельный модуль `services/summary_prompts.py`** (SYSTEM_PROMPT дословно + COMPRESS_PROMPT) | Байт-в-байт тест R11 (T-182-A) без примеси логики |
+| **A11** | `/summary` НЕ удаляем из чата (в отличие от admin_commands) | Память собирает всё; удаление — опционально, решение за пользователем (backlog-риск 10) |
+| **A12** | **Деплой-нота:** для сбора ВСЕХ сообщений группы у бота должна быть отключена privacy mode (**BotFather → /setprivacy → Disable**) | С privacy ON бот в группах видит только команды/упоминания — L1/L2/L3 будут пустыми |
+| **A13** | Кросс-зависимости: `httpx>=0.27`, `APScheduler>=3.10,<4`, `sqlite-vec>=0.1.2` (в requirements; `sqlite-vec` — с graceful-fallback, см. 33.11) | RESEARCH T-173-F: MSVC-колесо sqlite-vec с v0.1.2-alpha.9; APScheduler только MemoryJobStore (pickle-ловушка) |
+| **A14** | Ответ LLM — постобработка: чанкинг ≤4096 по пробелам + проверка приписки «самым главным шизом…» (дописать при отсутствии) | R12/D63 + гарантия R9 финальной приписки |
+| **A15** | Троттлинг — **router-scoped outer middleware** только на `summary_router` (key = chat_id+user_id, TTL из `SUMMARY_THROTTLE_SECONDS`), молчаливый `return` | Не влияет на остальные роутеры и на наблюдателя; спам `/summary` отбрасывается без ответа |
+
+### 33.2 Структура файлов (точные пути)
+
+```
+services/summary_prompts.py       # SYSTEM_PROMPT (дословно, R11), COMPRESS_PROMPT (L3), MAX_CHARS_* константы
+services/llm_client.py            # LLMClient (провайдер-агностик): generate(), embed(), close(); LLMError-иерархия
+services/summary_memory.py        # MemoryManager: L1 окно, L2 FTS5-RAG, L3 сжатие+KNN(+FTS5-фоллбек), retention-клины
+services/summary_xml.py           # XmlGroundingBuilder: <chat_history><message …/></chat_history>, экранирование, лимиты
+services/summary_aliases.py       # AliasResolver: JSON-парсинг, каскад alias→nickname→username→user_id
+services/summary_generator.py     # SummaryGenerator: полный пайплайн + чанкинг + UX-ошибки + шиз-приписка
+services/summary_scheduler.py     # SummarySchedulerService: AsyncIOScheduler, cron 0 */6 * * *, generation-lock
+services/summary_throttling.py    # ThrottlingMiddleware (BaseMiddleware, in-memory TTL)
+handlers/summary.py               # summary_observer_router (0a) + summary_router (0b) + setup_summary()
+config/settings.py                # +18 полей (33.8)
+.env.example                      # секция SmartModule (T-174-B)
+bot.py                            # позиции 0a/0b, wiring on_startup/on_shutdown (33.9)
+services/database.py              # _SCHEMA_SQL + методы smart_messages/archive (33.3)
+tests/test_summary_*.py           # 9 файлов (33.13)
+```
+
+### 33.3 Схема БД (в существующей `local_database.db`, `_SCHEMA_SQL`)
+
+```sql
+-- R1: таблица сообщений (+author_name — обоснование A8)
+CREATE TABLE IF NOT EXISTS smart_messages (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER,                 -- NULL для сервисных (не сохраняем их вообще, см. 33.9)
+    chat_id      INTEGER NOT NULL,
+    text         TEXT,                    -- message.text ИЛИ message.caption (для медиа)
+    reply_to_id  INTEGER,                 -- reply_to_message.message_id | NULL
+    timestamp    INTEGER NOT NULL,        -- unix epoch секунды (UTC)
+    media_type   TEXT NOT NULL DEFAULT 'text',   -- text|photo|video|voice|audio|animation|sticker|document|other
+    author_name  TEXT NOT NULL DEFAULT '' -- резолв A8 на момент сохранения
+);
+CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_ts ON smart_messages(chat_id, timestamp);
+
+-- FTS5-индекс над сырьём L1/L2 (ВСЕГДА доступен, встроенный, без расширений) — фоллбек + L2-RAG
+CREATE VIRTUAL TABLE IF NOT EXISTS smart_messages_fts USING fts5(
+    text, content='smart_messages', content_rowid='id', tokenize='unicode61'
+);
+
+-- L3: архивные факты — обычная таблица (пишется ВСЕГДА при сжатии)
+CREATE TABLE IF NOT EXISTS smart_archive_facts (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id   INTEGER NOT NULL,
+    fact      TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_archive_facts_chat_ts ON smart_archive_facts(chat_id, timestamp);
+CREATE VIRTUAL TABLE IF NOT EXISTS smart_archive_facts_fts USING fts5(
+    fact, content='smart_archive_facts', content_rowid='id', tokenize='unicode61'
+);
+
+-- L3: векторы (создаётся ЛЕНИВО из кода, ТОЛЬКО если sqlite-vec загрузился; dim из конфига)
+-- CREATE VIRTUAL TABLE smart_archive USING vec0(
+--     embedding float[768] distance_metric=cosine, +fact_id INTEGER, +chat_id INTEGER
+-- );
+```
+
+**Миграции:** как в проекте — `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` внутри `_SCHEMA_SQL` (services/database.py:14); старые БД получают новые таблицы при рестарте, данные не трогаются. vec0-таблица создаётся из `MemoryManager.initialize()` (не из executescript — расширение может не загрузиться).
+
+**Методы `DatabaseService` (добавить в services/database.py):**
+- `save_smart_message(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name)` — INSERT + `INSERT INTO smart_messages_fts(rowid, text) VALUES (lastrowid, ?)` (или триггеры; достаточно прямой вставки в том же методе).
+- `get_smart_window(chat_id, since_ts, limit)` — L1, **один SQL-проход**: `SELECT … WHERE chat_id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT ?` → реверс ASC.
+- `get_smart_raw(chat_id, older_than_ts, limit)` — L2-сырьё (для цитат).
+- `delete_smart_messages_older_than(chat_id, cutoff_ts)` — retention L2 (после сжатия), возвращает число удалённых.
+- `save_archive_fact(chat_id, fact, timestamp)`, `delete_archive_facts_older_than(chat_id, cutoff_ts)`, `search_archive_fts(chat_id, match_query, limit)` — L3-текстовая ветка.
+- `search_messages_fts(chat_id, match_query, limit)` — L2-RAG и фоллбек.
+- Vector-методы (`insert_archive_embedding`, `search_archive_knn`) — В `MemoryManager`, НЕ в DatabaseService (они гейтятся по `self._vec_available`; DatabaseService остаётся extension-agnostic).
+
+### 33.4 `services/llm_client.py` — LLMClient (провайдер-агностик, R4/R5)
+
+```python
+class LLMError(Exception): ...
+class LLMAuthError(LLMError): ...      # 401/403
+class LLMRateLimitError(LLMError): ... # 429
+class LLMTimeoutError(LLMError): ...   # httpx.TimeoutException
+class LLMBadResponseError(LLMError): ...  # кривой JSON / нет content
+
+class LLMClient:
+    def __init__(self, base_url: str, api_key: str, chat_model: str,
+                 embed_model: str, timeout: float = settings.LLM_TIMEOUT,
+                 max_retries: int = settings.LLM_MAX_RETRIES) -> None
+    async def generate(self, messages: list[dict[str, str]]) -> str   # choices[0].message.content
+    async def embed(self, texts: list[str]) -> list[list[float]]      # data[i].embedding
+    async def close(self) -> None                                     # закрыть httpx-сессию
+```
+
+- **Одна `httpx.AsyncClient` сессия** на весь процесс (`timeout=httpx.Timeout(timeout, connect=10.0)`), ленивое создание, `close()` в `on_shutdown`.
+- Endpoints: `POST {base_url}/chat/completions` и `POST {base_url}/embeddings`, `Authorization: Bearer {api_key}` (contract — RESEARCH §h).
+- **Retry:** 429/5xx/timeout → до `max_retries` (default 2) повторов с backoff `0.5s * 2**n`; 401/403 — без повторов → `LLMAuthError`.
+- **R3:** `embed()` сам по себе НЕ глотает ошибки (бросает `LLMError`) — try/except на стороне `MemoryManager` (33.5).
+- Логи: модель, URL, размер запроса/ответа, время запроса; сырой текст генерации логирует ВЫЗЫВАЮЩИЙ (33.7, R14) — клиент не знает про Logtail-политику.
+
+### 33.5 `services/summary_memory.py` — MemoryManager (L1/L2/L3 + фоллбек)
+
+```python
+class MemoryManager:
+    def __init__(self, db: DatabaseService, llm: LLMClient) -> None
+    async def initialize(self) -> bool
+        # 1) try: await db.db.enable_load_extension(True); await db.db.load_extension(sqlite_vec.loadable_path())
+        #    except Exception → self._vec_available = False, WARNING-лог (R3 — не ронять бота)
+        # 2) if available: CREATE VIRTUAL TABLE smart_archive USING vec0(embedding float[?] …, +fact_id, +chat_id)
+        # 3) финально: await db.db.enable_load_extension(False)
+        # возвращает self._vec_available
+
+    async def get_window_messages(self, chat_id: int) -> list[Row]
+        # L1: db.get_smart_window(chat_id, since=now-SUMMARY_WINDOW_HOURS, limit=SUMMARY_MAX_WINDOW_MESSAGES)
+
+    async def search_long_term(self, chat_id: int, keywords: list[str], limit: int) -> list[Row]
+        # L2-RAG: FTS5 `text : "kw1" OR "kw2" …` (санитайз кавычек/звёздочек, RESEARCH §f) → ORDER BY rank
+
+    async def vector_search(self, chat_id: int, query: str, limit: int) -> list[str]
+        # L3: if self._vec_available:
+        #        try: v = await self.llm.embed([query])        # ← try/except (R3)
+        #             KNN: SELECT fact_id FROM smart_archive WHERE embedding MATCH ? AND chat_id=? AND k=? → join facts
+        #        except Exception: → fts-fallback
+        #      if not available / exception: → self._fts_search(chat_id, query, limit)  # smart_archive_facts_fts
+        #      return [fact_text, …]
+
+    async def compress_and_purge(self, chat_id: int) -> None
+        # 1) SELECT старые (> FULL_MEMORY_RETENTION_DAYS) пачками SUMMARY_COMPRESS_BATCH (default 100)
+        # 2) на каждую пачку: llm.generate(COMPRESS_PROMPT + тексты) → факты (построчно, до 10)
+        # 3) save_archive_fact(...) ВСЕГДА; если _vec_available: try embed+INSERT в vec0 → except: WARNING, факт живёт только в FTS5
+        # 4) delete_smart_messages_older_than(chat_id, cutoff)  — ТОЛЬКО после успешного сохранения фактов пачки
+        # 5) delete_archive_facts_older_than(chat_id, now - ARCHIVE_MEMORY_RETENTION_DAYS) (+ удалить их векторы rowid)
+        # ошибка LLM на пачке → logger.exception, пачка НЕ удаляется (не теряем сырьё), конвейер продолжает
+```
+
+**COMPRESS_PROMPT (захардкодить в summary_prompts.py; маленькие буквы — стиль бота):**
+```
+ты — сжиматель истории чата. из приведённого ниже списка сообщений выдели отдельные темы и факты, которые могут пригодиться для будущих саммари чата. каждый факт верни отдельной строкой. не используй нумерацию, маркдаун и смайлы. пиши с маленькой буквы. фактов должно быть не больше 10, только самое важное.
+```
+
+**Гонка (backlog-риск 7):** `compress_and_purge` вызывается ТОЛЬКО из `SummaryGenerator.generate_summary()` (33.7) под его `asyncio.Lock` — отдельной джобы нет (A5).
+
+### 33.6 `services/summary_xml.py` + `services/summary_aliases.py`
+
+**XmlGroundingBuilder (R6):**
+- `build(messages: list[Row], aliases: AliasResolver) -> str`:
+  `<chat_history>` + на каждое сообщение `<message id="{id}" timestamp="{iso8601}" author="{author}" reply_to_id="{rid|''}" type="{media_type}">{escaped}</message>` + `</chat_history>`.
+- Экранирование: `xml.sax.saxutils.escape(text)` (`&`→`&amp;`, `<`→`&lt;`, `>`→`&gt;`) + вырезать непечатаемые control-символы (`re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', s)`).
+- `author`: `author_name` из БД; пусто → каскад AliasResolver (страховка старых записей).
+- Медиа: `media_type != 'text'` и нет caption → тело = описание: photo→`[фото]`, video→`[видео]`, voice→`[голосовое]`, audio→`[аудио]`, animation→`[гифка]`, sticker→`[стикер]`, document→`[файл]`, other→`[медиа]`; caption есть → caption + описание.
+- Лимиты окна (риск 6): последние `SUMMARY_MAX_WINDOW_MESSAGES` (default 500) сообщений; каждое обрезается до `SUMMARY_MAX_MESSAGE_CHARS` (default 2000); суммарно не более `SUMMARY_MAX_CONTEXT_CHARS` (default 120000) — жёсткий кап до среза сообщения.
+
+**AliasResolver (R7/D61):**
+- `__init__(raw_json: str)`: `json.loads(raw_json)` в try/except → `{}` + WARNING; ключи — строки user_id → alias. Кэш резолва per-process.
+- `resolve(user_id: int, nickname: str | None, username: str | None) -> str`:
+  1. alias из словаря (если есть) → 2. nickname (`first_name`+`last_name` через пробел, если непусто) → 3. `username.lstrip('@')` (если есть) → 4. `str(user_id)`. **@ в результатах исключён на всех уровнях** — тест.
+- Применение: в наблюдателе при сохранении (A8); в XML — fallback для `author_name=''`.
+
+### 33.7 `services/summary_generator.py` — SummaryGenerator (полный конвейер)
+
+```python
+class SummaryGenerator:
+    def __init__(self, memory: MemoryManager, xml: XmlGroundingBuilder,
+                 llm: LLMClient, bot: Bot) -> None
+        self._lock = asyncio.Lock()   # дедупликация manual/cron (A5)
+
+    async def generate_and_send(self, chat_id: int) -> None:
+        async with self._lock:        # второй вызов ждёт/отваливается (см. 33.10)
+            await self._run(chat_id)
+
+    async def _run(self, chat_id: int) -> None:
+        try:
+            await self.memory.compress_and_purge(chat_id)          # L3-сжатие ПЕРЕД выборкой (A5)
+            rows = await self.memory.get_window_messages(chat_id)  # L1, один проход
+            if not rows:  # пустое окно → не генерировать, INFO-лог, выход без сообщения
+                return
+            xml_context = self.xml.build(rows, aliases)
+            keywords = self._extract_keywords(rows)                # топ-токены окна (частотный словарь, стоп-слова «ёпта/ну/и/а…»)
+            l2_quotes = await self.memory.search_long_term(chat_id, keywords, settings.SUMMARY_RAG_L2_LIMIT)
+            l3_facts  = await self.memory.vector_search(chat_id, " ".join(keywords), settings.SUMMARY_RAG_L3_LIMIT)
+            user_content = self._compose_user_content(xml_context, l2_quotes, l3_facts)  # <memory>+<facts> секции
+            max_symbols = settings.MAX_SUMMARY_PARTS * 4000 - 200
+            system = SYSTEM_PROMPT.format(max_symbols=max_symbols)   # ДОСЛОВНО, только плейсхолдер (R11)
+            raw = await self.llm.generate([{"role": "system", "content": system},
+                                           {"role": "user", "content": user_content}])
+            logger.info("summary LLM raw response | chat_id=%s | len=%d | raw=%r", chat_id, len(raw), raw)  # R14
+            text = self._ensure_shiz_postfix(raw, rows)              # нет приписки → дописать (A14)
+            await self._send_chunked(chat_id, text)
+        except LLMError/httpx-ошибки:
+            logger.exception(...); await self._send_ux(chat_id, "не смог сделать саммари потому что упал апи")
+        except aiosqlite.Error / sqlite3.Error:
+            logger.exception(...); await self._send_ux(chat_id, "база данных подавилась")
+        except Exception:
+            logger.exception(...); await self._send_ux(chat_id, "не смог сделать саммари")  # без техдеталей
+```
+
+- `_ensure_shiz_postfix`: `if "самым главным шизом объявляется" not in text` → выбрать самого активного автора окна (счётчик по author_name) → `text += "\nсамым главным шизом объявляется " + имя`. Если итог > 4096*parts — приписка отдельным последним чанком.
+- `_send_chunked`: `_chunk_by_whitespace(text, 4096)` → по каждому чанку `await bot.send_message(chat_id, chunk)`; **между чанками `await asyncio.sleep(settings.SUMMARY_CHUNK_DELAY)`** (default 1.0s); `except TelegramRetryAfter as e: await asyncio.sleep(e.retry_after)` и повтор чанка один раз (RESEARCH §g).
+- `_chunk_by_whitespace(text, limit)` — чистая функция (для тестов): жадно накапливает слова, разрыв только по пробелам; чанк ≤ limit; одиночное слово длиннее limit — не режется (Telegram сам откажет, лог WARNING).
+- UX-фразы (R13): маленькая буква, без эмодзи/техдеталей; отправляются только при первом сбое за прогон (не спамить чанками об ошибке).
+
+### 33.8 Конфиг — `config/settings.py` (24 поля, хелперы `_env_*` существующие)
+
+```python
+# ── SmartModule: Summary (Epic 24) ────────────────────────────
+LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")                              # R5/D64
+LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://apinet.cloud/v1")
+LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "deepseek-v4-flash")
+EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
+LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 60.0)
+LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
+EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 768)                          # dim vec0; gemini-embedding-001 = 768
+SUMMARY_ENABLED: bool = _env_bool("SUMMARY_ENABLED", True)
+SUMMARY_WINDOW_HOURS: float = _env_float("SUMMARY_WINDOW_HOURS", 6.0)
+FULL_MEMORY_RETENTION_DAYS: int = _env_int("FULL_MEMORY_RETENTION_DAYS", 30)
+ARCHIVE_MEMORY_RETENTION_DAYS: int = _env_int("ARCHIVE_MEMORY_RETENTION_DAYS", 90)
+MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
+SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
+ALLOWED_SUMMARY_IDS: tuple[int, ...] = _env_int_tuple("ALLOWED_SUMMARY_IDS", ())
+SUMMARY_ALIASES: str = os.getenv("SUMMARY_ALIASES", "")                      # JSON {"<user_id>": "<alias>"}
+SUMMARY_THROTTLE_SECONDS: float = _env_float("SUMMARY_THROTTLE_SECONDS", 60.0)
+SUMMARY_CHUNK_DELAY: float = _env_float("SUMMARY_CHUNK_DELAY", 1.0)
+SUMMARY_TARGET_CHAT_IDS: tuple[int, ...] = _env_int_tuple("SUMMARY_TARGET_CHAT_IDS", ())  # пусто = все чаты с сообщениями
+SUMMARY_MAX_WINDOW_MESSAGES: int = _env_int("SUMMARY_MAX_WINDOW_MESSAGES", 500)
+SUMMARY_MAX_MESSAGE_CHARS: int = _env_int("SUMMARY_MAX_MESSAGE_CHARS", 2000)
+SUMMARY_MAX_CONTEXT_CHARS: int = _env_int("SUMMARY_MAX_CONTEXT_CHARS", 120000)
+SUMMARY_RAG_L2_LIMIT: int = _env_int("SUMMARY_RAG_L2_LIMIT", 10)
+SUMMARY_RAG_L3_LIMIT: int = _env_int("SUMMARY_RAG_L3_LIMIT", 10)
+SUMMARY_COMPRESS_BATCH: int = _env_int("SUMMARY_COMPRESS_BATCH", 100)
+```
+
+Все ключи D59 покрыты; дефолты `FULL_MEMORY_RETENTION_DAYS=30`, `ARCHIVE_MEMORY_RETENTION_DAYS=90` зафиксированы @Architect (были «ориентиры»). `.env.example` — та же секция с комментариями; `LLM_API_KEY=` пустой (R17).
+
+### 33.9 `bot.py` — порядок регистрации и wiring (CRITICAL, не менять порядок)
+
+```
+# 0a. SmartModule observer (Epic 24) — catch-all, сохраняет ВСЁ, возвращает UNHANDLED
+dp.include_router(summary_observer_router)
+# 0b. SmartModule /summary (Epic 24) — ДО admin_commands и catch-all 5/6
+dp.include_router(summary_router)
+# 0. Admin test commands (Epic 10)
+dp.include_router(admin_commands_router)
+# … (1 … 6 без изменений)
+```
+
+**on_startup() (после существующих setup-ов):**
+```python
+if settings.SUMMARY_ENABLED:
+    llm_client = LLMClient(settings.LLM_BASE_URL, settings.LLM_API_KEY,
+                           settings.LLM_MODEL_NAME, settings.EMBEDDING_MODEL_NAME)
+    memory = MemoryManager(db, llm_client)
+    vec_ok = await memory.initialize()                      # A6: try/except внутри
+    logger.info("SmartModule: sqlite-vec %s", "available" if vec_ok else "UNAVAILABLE — FTS5 fallback (R3)")
+    aliases = AliasResolver(settings.SUMMARY_ALIASES)
+    xml_builder = XmlGroundingBuilder()
+    generator = SummaryGenerator(memory, xml_builder, llm_client, bot)
+    setup_summary(generator)                                # инъекция в handlers/summary.py
+    _summary_service = SummarySchedulerService(generator, db)   # module-level (для on_shutdown)
+    _summary_service.start()                                # ДО dp.start_polling (RESEARCH §c)
+    logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", settings.SUMMARY_TIMEZONE)
+```
+**on_shutdown():** `if _summary_service: _summary_service.shutdown(); await llm_client.close()` (refs — module-level в bot.py; текущий on_shutdown их не видит).
+
+**Наблюдатель (`handlers/summary.py`, router 0a):**
+- Фильтр: `F.message` (сообщения); пропуск: `from_user is None` ИЛИ `from_user.id == bot.id` (свои сообщения не пишем) ИЛИ `text is None and caption is None` (чистые сервисные).
+- Сохранение: `media_type` из полей (`text → 'text'`; `photo → 'photo'`; `video/video_note → 'video'`; `voice → 'voice'`; `audio → 'audio'`; `animation → 'animation'`; `sticker → 'sticker'`; `document → 'document'`; иначе `'other'`); `text = message.text or message.caption`; `reply_to_id = message.reply_to_message.message_id or None`; `author_name = aliases.resolve(...)`.
+- `try/except` вокруг `db.save_smart_message` → WARNING-лог, НЕ ронять event loop; **всегда `return UNHANDLED`** (включая пропуски) — propagation до остальных роутеров гарантирован (конвенция разделов 1.2/30).
+- `MessageCounterMiddleware` (inner middleware slavik_router) не затронут: он живёт в другом роутере и считает только Славу.
+
+**`summary_router` (0b, `/summary`):**
+```python
+@summary_router.message(Command("summary"))
+async def cmd_summary(message: types.Message):
+    user_id = message.from_user.id if message.from_user else 0
+    allowed = settings.ALLOWED_SUMMARY_IDS
+    if allowed and user_id not in allowed:          # R9/D62
+        logger.debug("[/summary] user %s not in ALLOWED_SUMMARY_IDS", user_id)
+        return                                       # молчаливо поглотить (НЕ UNHANDLED → до Славы не долетит)
+    await _generator.generate_and_send(message.chat.id)   # внутри: lock + пайплайн + UX-ошибки
+    return                                           # None → propagation остановлен (A4)
+```
+- `setup_summary(generator)` — паттерн инъекции проекта (`setup_olya` и др.).
+- `SUMMARY_ENABLED=False` → роутеры не регистрируются, `setup_summary` не вызывается; бот работает как раньше.
+
+### 33.10 `services/summary_scheduler.py` — APScheduler (R8)
+
+```python
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+class SummarySchedulerService:
+    def __init__(self, generator: SummaryGenerator, db: DatabaseService) -> None:
+        self._generator = generator
+        self._db = db
+        self._scheduler = AsyncIOScheduler(timezone=settings.SUMMARY_TIMEZONE)  # MemoryJobStore (default) — ТОЛЬКО он
+
+    def start(self) -> None:
+        self._scheduler.add_job(self._tick, CronTrigger(hour="0,6,12,18", minute=0),
+                                id="summary_job", replace_existing=True,
+                                max_instances=1, coalesce=True)     # антигонка: пропуск совпавших запусков
+        self._scheduler.start()                                      # до start_polling (bot.py 33.9)
+
+    async def _tick(self) -> None:
+        target = settings.SUMMARY_TARGET_CHAT_IDS or await self._db.get_smart_chat_ids()  # DISTINCT chat_id
+        for chat_id in target:
+            await self._generator.generate_and_send(chat_id)         # общий asyncio.Lock = дедуп с /summary
+    async def shutdown(self) -> None:
+        self._scheduler.shutdown(wait=False)
+```
+
+- **Дедупликация ручной/авто (A5):** и джоба, и `/summary` идут через `SummaryGenerator.generate_and_send` → общий `asyncio.Lock`; второй одновременный запуск просто дожидается, `max_instances=1`+`coalesce` глушат совпавшие тики; троттлинг (`SUMMARY_THROTTLE_SECONDS`, default 60s) отсекает повторные ручные вызовы в окне.
+- Существующий `SchedulerService` (DeadPage no-op) НЕ трогаем.
+
+### 33.11 `services/summary_throttling.py` — ThrottlingMiddleware (R10)
+
+```python
+class ThrottlingMiddleware(BaseMiddleware):
+    def __init__(self, throttle_seconds: float = settings.SUMMARY_THROTTLE_SECONDS) -> None:
+        self._throttle_seconds = throttle_seconds
+        self._last: dict[tuple[int, int], float] = {}          # (chat_id, user_id) → monotonic ts
+    async def __call__(self, handler, event, data):
+        if isinstance(event, Message) and (event.text or "").startswith("/summary"):
+            key = (event.chat.id, event.from_user.id if event.from_user else 0)
+            now = time.monotonic()
+            last = self._last.get(key)
+            if last is not None and (now - last) < self._throttle_seconds:
+                logger.info("[/summary] throttled | chat=%s user=%s", *key)
+                return                                          # ← НЕ вызывать await handler(event, data) (RESEARCH §a)
+            self._last[key] = now
+        return await handler(event, data)
+```
+
+Регистрация: `summary_router.message.outer_middleware(ThrottlingMiddleware(...))` — **только** на summary_router (не dp-level; наблюдатель и прочие роутеры не затронуты). Хранилище in-memory dict (сброс при рестарте — приемлемо, R10).
+
+### 33.12 Observability (R14) и система промптов (R11)
+
+- **Логирование:** существующая система — `logging.basicConfig` + `LogtailHandler(LOGTAIL_SOURCE_TOKEN)` в bot.py (уже на root logger) → новые модули берут `logging.getLogger(__name__)` и ничего не настраивают. Sentry уже инициализирован.
+- Поля/уровни: INFO — этапы пайплайна (window_size, rag_hits_l2/l3, model, request_len, latency_ms, chunks_sent); `logger.info("summary raw LLM response | chat_id=%s | raw=%r", …)` — **сырой ответ LLM в лог** (R14); WARNING — фоллбеки (vec недоступен, embed упал, пачка сжатия пропущена); ERROR+`logger.exception` — полные стектрейсы всех отказов.
+- **`services/summary_prompts.py`:** `SYSTEM_PROMPT` — ДОСЛОВНО из backlog Epic 24 (строки 1518–1523), плейсхолдер `{max_symbols}`; `COMPRESS_PROMPT` — из 33.5; тест байт-в-байт (T-182-A). Промпт НЕ логировать целиком (тяжёлый; достаточно `len`).
+
+### 33.13 Тестовая стратегия (R14/R15, 672 существующих не ломать)
+
+| Файл | Кейсы (моки) |
+|------|--------------|
+| `tests/test_summary_prompts.py` | SYSTEM_PROMPT байт-в-байт = backlog-текст; `{max_symbols}` подстановка; COMPRESS_PROMPT непуст |
+| `tests/test_llm_client.py` | `httpx.MockTransport`: успех generate/embed; 401→LLMAuthError; 429→retry→успех; 429×N→LLMRateLimitError; timeout→LLMTimeoutError; кривой JSON→LLMBadResponseError; заголовки Bearer/base_url/модель |
+| `tests/test_summary_memory.py` | aiosqlite in-memory + fake LLMClient: save→window границы окна (вкл/искл края); search_long_term (FTS5 phrase/prefix, санитайз `*"`); vector_search: vec_available=False→FTS5; embed бросает→FTS5; compress_and_purge (факты сохранились, сырьё удалено, retention-архива 90д, ошибка LLM→пачка не удалена); инициализация без sqlite-vec (monkeypatch loadable_path→битый путь) → `_vec_available=False` без падения |
+| `tests/test_summary_xml.py` | структура XML (атрибуты id/timestamp/author/reply_to_id/type); экранирование `<>&"`; control-символы вырезаны; media→описание (`[фото]` и т.п.); caption+медиа; лимиты messages/chars; пустой список → пустой `<chat_history/>` |
+| `tests/test_summary_aliases.py` | каскад 4 уровней (alias→nickname→username без @→user_id); `@` отсутствует во всех ветках; JSON битый→`{}`+WARNING; JSON ок |
+| `tests/test_summary_generator.py` | fake memory/llm/bot: полный пайплайн (порядок вызовов, max_symbols=3800 при parts=1); пустое окно→без LLM-вызова; LLMError→«не смог сделать саммари потому что упал апи»; sqlite-ошибка→«база данных подавилась»; `_ensure_shiz_postfix` (есть/нет приписки, самый активный автор); `_chunk_by_whitespace` (≤4096, разрыв по пробелам, длинное слово); паузы между чанками (fake sleep); TelegramRetryAfter→sleep+повтор |
+| `tests/test_summary_scheduler.py` | CronTrigger hour="0,6,12,18" minute=0 (внутренний атрибут); max_instances/coalesce; TZ Asia/Yekaterinburg; MemoryJobStore (нет add_jobstore); shutdown без ошибок; get_smart_chat_ids fallback |
+| `tests/test_summary_handlers.py` | `/summary` allowed пуст→всем; непуст→только ID; запрещённый→молча (нет ответов, propagation остановлен); observer: обычное сообщение→save+UNHANDLED; от бота/сервисное→skip+UNHANDLED; save упал→WARNING, UNHANDLED, не падает; ИНТЕГРАЦИОННЫЙ: Dispatcher со всеми 13 роутерами (mock-контекст) — `/summary` от Славы НЕ триггерит «пошёл нахуй»/photo/mimic/vasya |
+| `tests/test_summary_throttling.py` | первый вызов→handler вызван; повтор <TTL→handler НЕ вызван, ответов нет (молчание); после TTL (monkeypatch time.monotonic)→снова вызван; не-`/summary` события не троттлятся |
+| `tests/test_database.py` (доп.) | новые таблицы в `_SCHEMA_SQL` создаются на существующей БД (миграция); save/get_window/delete/archive методы |
+
+Стиль тестов — существующие фикстуры (`make_message`, `mock_bot` в conftest.py; message.delete/answer — AsyncMock). Полный прогон в T-188-C: **672 baseline + ~120 новых, 0 регрессий** (число уточнить по факту).
+
+### 33.14 Риски и решения (backlog-риски 1–12 + новые)
+
+| # | Риск | Решение (секция) |
+|---|------|------------------|
+| 1 | `/summary` от Славы → параллельный «пошёл нахуй» | summary_router на 0b ДО catch-all 5/6; хендлер никогда не возвращает UNHANDLED (33.9) |
+| 2 | Наблюдатель vs MessageCounterMiddleware | Отдельный роутер 0a с UNHANDLED; counter — inner middleware другого роутера (33.9) |
+| 3 | Отдельный файл БД | НЕТ — общая `local_database.db`, миграции executescript (33.3) |
+| 4 | sqlite-vec на Windows MSVC | `sqlite-vec>=0.1.2` (MSVC-колесо, RESEARCH §e/T-173-F); try/except в `initialize()` → FTS5 (33.5) |
+| 5 | APScheduler jobstore | ТОЛЬКО MemoryJobStore; версия `>=3.10,<4` в requirements (33.10) |
+| 6 | Окно 6ч > контекст LLM | Капы `SUMMARY_MAX_WINDOW_MESSAGES=500` / `SUMMARY_MAX_MESSAGE_CHARS=2000` / `SUMMARY_MAX_CONTEXT_CHARS=120000` (33.8) |
+| 7 | Гонка L3-сжатия и генерации | Сжатие — шаг пайплайна под общим `asyncio.Lock`; `max_instances=1, coalesce=True` (33.5/33.10) |
+| 8 | Формат SUMMARY_ALIASES | JSON `{"<user_id>": "<alias>"}`, `json.loads` в try/except (33.6) |
+| 9 | Prod .env | T-191-B: добавить `LLM_API_KEY` (+ опциональные оверрайды); дефолты работают без оверрайдов |
+| 10 | Удалять ли `/summary` | НЕ удаляем (A11); при желании пользователя — отдельная микро-задача |
+| 11 | Механика RAG L2 | FTS5 keyword/phrase-поиск из токенов L1, без доп. LLM-вызова (33.5) |
+| 12 | Rate limits Telegram | `SUMMARY_CHUNK_DELAY` между чанками + `TelegramRetryAfter`-обработка (33.7) |
+| Н1 | **Privacy mode бота** | Деплой-нота A12: BotFather `/setprivacy` → Disable, иначе бот в группах не видит сообщения → память пустая |
+| Н2 | Эмбеддинги недоступны, а sqlite-vec доступен | L3-записи только текст+FTS5, vec0 не заполняется; поиск всегда FTS5 — деградация незаметна (33.5) |
+| Н3 | LLM_API_KEY пуст на проде | `generate()` бросает LLMAuthError → UX «не смог сделать саммари потому что упал апи» + стектрейс в Logtail; бот не падает |
+| Н4 | Рост smart_messages | Сжатие+удаление в каждом прогоне; при долгом простое — первый же прогон сожмёт всё старше 30д |
+
+### 33.15 Сводка для Builder — порядок и границы (T-174 → T-189)
+
+1. **T-174** — `config/settings.py` (33.8) + `.env.example` (+ `requirements.txt`: `httpx>=0.27`, `APScheduler>=3.10,<4`, `sqlite-vec>=0.1.2`).
+2. **T-175** — `services/database.py`: `_SCHEMA_SQL` + 7 методов (33.3).
+3. **T-176** — L1/L2 в `MemoryManager` (33.5).
+4. **T-178** — `services/llm_client.py` (33.4). **T-182** — `services/summary_prompts.py` (дословно!).
+5. **T-177 + T-179** — L3 + FTS5-фоллбек (33.5). **T-180/T-181** — XML + алиасы (33.6).
+6. **T-185** — ThrottlingMiddleware (33.11). **T-184** — `handlers/summary.py` + позиции 0a/0b в `bot.py` (33.9).
+7. **T-183** — SummarySchedulerService (33.10) + wiring bot.py (33.9). **T-186** — чанкинг+UX (33.7).
+8. **T-187** — логи/сырые ответы (33.12). **T-188** — тесты (33.13) + полный pytest + ревью @Reviewer (T-188-D).
+9. **T-189** — README/доки v2.22.0; **T-190** — коммит на русском; **T-191** — деплой (+ BotFather /setprivacy Disable, A12).
+
+**НЕ менять:** существующие 12 роутеров, их handlers, `MessageCounterMiddleware`, `SchedulerService` (DeadPage), `CommonRelay`/`OlyaRelay`/`MimicRelay` — весь Epic 24 живёт в новых файлах + точечные правки `bot.py`/`database.py`/`settings.py`.
+
+### 33.16 Фактические решения @Builder (T-174…T-189, ревью T-188-D APPROVED)
+
+> Подтверждено реализацией и тестами (829→835 тестов, 0 регрессий). Ревью: APPROVE WITH FIXES → Approved; Low-2/Low-3 закрыты в T-189.
+
+- **sqlite-vec 0.1.9 работает на Windows** (PyPI-колесо есть, vec0 грузится) — риск MSVC из 33.14 не реализовался, но graceful-fallback FTS5 реализован и покрыт тестом (monkeypatch битого `loadable_path`).
+- **vec0 0.1.x не поддерживает JOIN внутри KNN-запроса** (ошибка «illegal WHERE constraint on auxiliary column») → KNN top-k выбирает `fact_id, chat_id, distance` отдельным запросом, фильтр по чату и выборка фактов — в Python.
+- **FTS5 unicode61 без стемминга** → `build_fts_query` строит префиксные запросы `"kw"*` (пользовательские `"`/`*` санитайзятся). Это интерпретация «phrase/prefix» из 33.13.
+- **APScheduler 3.11**: `CronTrigger` требует **явный** `timezone` (системный TZ протекает иначе — проверено); `AsyncIOScheduler._shutdown` исполняется через `call_soon_threadsafe` → в `shutdown()` добавлен `await asyncio.sleep(0)` + защита от `SchedulerNotRunningError`.
+- **`{username}` в SYSTEM_PROMPT ломает `str.format`** → `{max_symbols}` подставляется через `replace`, `{username}` остаётся литералом (R11 не нарушен, тест байт-в-байт зелёный).
+- **`F.message` как фильтр не матчит события** (magic-атрибут) → наблюдатель зарегистрирован как `@summary_observer_router.message()` без фильтра; роутер `message`-наблюдателя и так матчит только сообщения.
+- **Наблюдатель**: «нет text И caption» интерпретировано как «нет текста И нет медиа» — медиа без caption сохраняются с `text=NULL` (иначе R6 «описание медиа» нереализуемо), чистые сервисные (join/pin и т.п., без медиа) пропускаются. Подтверждено ревью.
+- **compress_and_purge**: удаление сырья — пачками по ids после успешного сохранения фактов (bulk-cutoff в цикле давал бесконечный повтор); `delete_smart_messages_older_than` сохранён в API DatabaseService.
+- **`SUMMARY_CHUNK_DELAY=2.0`** (E9) — осознанное отклонение от дизайна 1.0 (лимиты Telegram: 1 msg/s/чат, 20/мин группа). Зафиксировано в README.
+- **Low-2**: `<memory>`/`<facts>` проходят то же экранирование (`escape_xml_text` из summary_xml), что и `<chat_history>`.
+- **Low-3**: троттлинг отрезает суффикс `@BotName` перед проверкой команды.
+- **Low-4** (нет жёсткого капа чанков по `MAX_SUMMARY_PARTS` — лимит enforced промптом) и **Low-5** (location/contact/dice не сохраняются) — зафиксированы в README как осознанные решения.
+- Живой smoke-тест apinet.cloud с Windows-машины @Builder невозможен (сеть не пускает) — контракт покрыт MockTransport-тестами; живая проверка — T-191-D.
+
+---
+
+@Orchestrator Epic 24 (T-173) architecture ready — Section 33 design complete, self-review passed (T-173-D). RESEARCH.md verified (T-173-F: context7/duckduckgo недоступны в среде, рабочий стек exa+webfetch — зафиксировано). T-173 ждёт PM-аппрув (T-173-E); T-174 Ready for Builder.

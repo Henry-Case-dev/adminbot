@@ -207,5 +207,40 @@ class Settings:
     OLYA_MEDIA_TYPE: str = _env_str("OLYA_MEDIA_TYPE", "video")
     OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", False)
 
+    # ── SmartModule: Summary (Epic 24) ────────────────────────────
+    # LLM provider — OpenAI-compatible API (apinet.cloud hub by default).
+    LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")                            # R5/D64
+    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://apinet.cloud/v1")
+    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "deepseek-v4-flash")
+    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
+    LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 60.0)
+    LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
+    EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 768)                       # dim vec0; gemini-embedding-001 = 768
+    # Feature switch: False = routers not registered, бот работает как раньше.
+    SUMMARY_ENABLED: bool = _env_bool("SUMMARY_ENABLED", True)
+    # L1: окно генерации (часы).
+    SUMMARY_WINDOW_HOURS: float = _env_float("SUMMARY_WINDOW_HOURS", 6.0)
+    # L2: хранение сырых сообщений (дни), дальше — сжатие в L3.
+    FULL_MEMORY_RETENTION_DAYS: int = _env_int("FULL_MEMORY_RETENTION_DAYS", 30)
+    # L3: срок жизни архивных фактов (дни).
+    ARCHIVE_MEMORY_RETENTION_DAYS: int = _env_int("ARCHIVE_MEMORY_RETENTION_DAYS", 90)
+    # Лимит Telegram: число частей ответа (чанкинг 4096).
+    MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
+    SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
+    # Пусто = /summary разрешена всем (R9/D62).
+    ALLOWED_SUMMARY_IDS: tuple[int, ...] = _env_int_tuple("ALLOWED_SUMMARY_IDS", ())
+    # JSON-словарь алиасов {"<user_id>": "<alias>"} (R7/D61).
+    SUMMARY_ALIASES: str = os.getenv("SUMMARY_ALIASES", "")
+    SUMMARY_THROTTLE_SECONDS: float = _env_float("SUMMARY_THROTTLE_SECONDS", 60.0)
+    SUMMARY_CHUNK_DELAY: float = _env_float("SUMMARY_CHUNK_DELAY", 2.0)
+    # Пусто = все чаты, в которых есть сообщения.
+    SUMMARY_TARGET_CHAT_IDS: tuple[int, ...] = _env_int_tuple("SUMMARY_TARGET_CHAT_IDS", ())
+    SUMMARY_MAX_WINDOW_MESSAGES: int = _env_int("SUMMARY_MAX_WINDOW_MESSAGES", 500)
+    SUMMARY_MAX_MESSAGE_CHARS: int = _env_int("SUMMARY_MAX_MESSAGE_CHARS", 2000)
+    SUMMARY_MAX_CONTEXT_CHARS: int = _env_int("SUMMARY_MAX_CONTEXT_CHARS", 120000)
+    SUMMARY_RAG_L2_LIMIT: int = _env_int("SUMMARY_RAG_L2_LIMIT", 10)
+    SUMMARY_RAG_L3_LIMIT: int = _env_int("SUMMARY_RAG_L3_LIMIT", 10)
+    SUMMARY_COMPRESS_BATCH: int = _env_int("SUMMARY_COMPRESS_BATCH", 100)
+
 
 settings = Settings()
