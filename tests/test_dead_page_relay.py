@@ -63,6 +63,9 @@ class TestDeadPageRelay:
         db.get_last_known_message_id = AsyncMock(return_value=None)
         db.update_last_known_message_id = AsyncMock()
         db.record_dead_page_post = AsyncMock()
+        # Epic 22 / D54: anti-repeat
+        db.get_dead_page_last_sent = AsyncMock(return_value=None)
+        db.set_dead_page_last_sent = AsyncMock()
         # Epic 14: Album-aware forwarding
         db.get_relay_media_group_id = AsyncMock(return_value=None)
         db.get_relay_album_message_ids = AsyncMock(return_value=[])
@@ -273,14 +276,17 @@ class TestDeadPageRelay:
     @pytest.mark.asyncio
     async def test_sequential_scan_finds_only_post(self, relay, mock_bot, mock_db):
         """D28: Post at ID=3, DB last_msg_id=5 (stale). Forward scan IDs 6-55 (50 fail).
-        Ranges exhaust, then sequential (1,5) finds ID=3 + heuristic probes neighbors.
+        randint pinned to distinct values that never hit the valid ID=3, so random
+        ranges (6,100) and (1,100) always miss and the sequential (1,5) scan
+        deterministically finds ID=3.
         Total: 50 (fwd scan) + 5 (random 6,100) + 5 (random 1,100) + 2 (seq fails 1,2)
         + 6 (hit ID=3 + probes) = 68."""
         mock_db.get_last_known_message_id.return_value = 5  # stale DB value
         relay.max_retries = 5
         mock_bot.forward_message.side_effect = _make_valid_ids({3})
 
-        await relay.send_dead_page(-100123)
+        with patch("random.randint", side_effect=[77, 78, 79, 80, 81, 82, 83, 84, 85, 86]):
+            await relay.send_dead_page(-100123)
 
         assert mock_bot.forward_message.call_count == 68
         mock_db.record_dead_page_post.assert_called_once()
@@ -339,9 +345,165 @@ class TestDeadPageRelay:
 
         result = await relay._try_forward_from_channel(-100123)
 
-        assert result is False
+        assert result is None
         # Forward scan (50) + ranges (5+5+5+10+50+5+5+5) = 140
         assert call_count == 140
+
+
+class TestAntiRepeatLastSent:
+    """Epic 22 / D54: PostPicker must not pick the previously sent post."""
+
+    @pytest.fixture
+    def mock_bot(self):
+        bot = MagicMock()
+        bot.forward_message = AsyncMock()
+        bot.forward_messages = AsyncMock()
+        bot.delete_message = AsyncMock()
+        bot.send_photo = AsyncMock()
+        bot.send_message = AsyncMock()
+        return bot
+
+    @pytest.fixture
+    def mock_db(self):
+        db = MagicMock()
+        db.was_dead_page_recently = AsyncMock(return_value=False)
+        db.get_last_known_message_id = AsyncMock(return_value=None)
+        db.update_last_known_message_id = AsyncMock()
+        db.record_dead_page_post = AsyncMock()
+        db.get_dead_page_last_sent = AsyncMock(return_value=None)
+        db.set_dead_page_last_sent = AsyncMock()
+        db.get_relay_media_group_id = AsyncMock(return_value=None)
+        db.get_relay_album_message_ids = AsyncMock(return_value=[])
+        db.save_relay_album_map = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def mock_media(self):
+        media = MagicMock(spec=MediaService)
+        media.pick_random = AsyncMock(return_value=("test.jpg", "hello"))
+        return media
+
+    @pytest.fixture
+    def relay(self, mock_bot, mock_db, mock_media):
+        return DeadPageRelay(mock_bot, mock_db, mock_media)
+
+    @pytest.mark.asyncio
+    async def test_sequential_scan_skips_last_sent(self, relay, mock_bot, mock_db):
+        """Posts {3, 4}, last_sent=3 → sequential scan skips 3, finds 4."""
+        mock_bot.forward_message.side_effect = _make_valid_ids({3, 4})
+
+        result = await relay._try_forward_from_channel(-100123, last_sent=3)
+
+        assert result == 4
+
+    @pytest.mark.asyncio
+    async def test_forward_scan_skips_last_sent(self, relay, mock_bot, mock_db):
+        """last_msg_id=3, posts {4, 5}, last_sent=4 → forward scan finds 5."""
+        mock_db.get_last_known_message_id.return_value = 3
+        mock_bot.forward_message.side_effect = _make_valid_ids({4, 5})
+
+        result = await relay._try_forward_from_channel(-100123, last_sent=4)
+
+        assert result == 5
+
+    @pytest.mark.asyncio
+    async def test_random_rerolls_last_sent_without_burning_attempt(self, relay, mock_bot, mock_db):
+        """randint returns last_sent → re-roll WITHOUT attempt. max_retries=1 still finds 150."""
+        relay.max_retries = 1
+        mock_bot.forward_message.side_effect = _make_valid_ids({150})
+
+        with patch("random.randint", side_effect=[77, 150]) as random_mock:
+            result = await relay._try_forward_from_channel(-100123, last_sent=77)
+
+        # 77 (re-roll) → 150 (attempt 1). If 77 burned the attempt, result would be None.
+        assert result == 150
+        assert random_mock.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_last_resort_repeats_only_post(self, relay, mock_bot, mock_db):
+        """Only post (3) == last_sent → all ranges skip it → last-resort repeats 3."""
+        mock_bot.forward_message.side_effect = _make_valid_ids({3})
+        # 3 random ranges × 5 attempts — all miss (valid only {3})
+        with patch("random.randint", side_effect=[1, 2, 4, 5, 6] * 3):
+            result = await relay._try_forward_from_channel(-100123, last_sent=3)
+
+        assert result == 3
+
+    @pytest.mark.asyncio
+    async def test_last_sent_none_returns_id(self, relay, mock_bot, mock_db):
+        """Contract: int | None — success returns primary msg_id, not bool."""
+        mock_bot.forward_message.side_effect = _make_valid_ids({3})
+
+        result = await relay._try_forward_from_channel(-100123)
+
+        assert result == 3
+
+    @pytest.mark.asyncio
+    async def test_send_dead_page_writes_last_sent_after_success(self, relay, mock_bot, mock_db):
+        """Successful channel forward → set_dead_page_last_sent(chat, primary_id)."""
+        mock_bot.forward_message.side_effect = _make_valid_ids({3})
+
+        await relay.send_dead_page(-100123)
+
+        mock_db.set_dead_page_last_sent.assert_called_once_with(-100123, 3)
+
+    @pytest.mark.asyncio
+    async def test_album_forward_writes_primary_id_not_max(self, relay, mock_bot, mock_db):
+        """Album {10, 11, 12} → write primary candidate id (10), not max (12)."""
+
+        async def get_group(msg_id):
+            return "mg123" if msg_id == 10 else None
+
+        mock_db.get_relay_media_group_id = AsyncMock(side_effect=get_group)
+        mock_db.get_relay_album_message_ids.return_value = [10, 11, 12]
+        mock_bot.forward_message.side_effect = _make_valid_ids({10})
+
+        await relay.send_dead_page(-100123)
+
+        mock_db.set_dead_page_last_sent.assert_called_once_with(-100123, 10)
+
+    @pytest.mark.asyncio
+    async def test_fallback_local_does_not_write_last_sent(self, relay, mock_bot, mock_db):
+        """Local-media fallback has no message_id → set_dead_page_last_sent NOT called."""
+        mock_bot.forward_message.side_effect = _make_valid_ids(set())
+        # avoid infinite re-roll: provide distinct randint values
+        with patch("random.randint", side_effect=[1, 2, 4, 5, 6] * 20):
+            await relay.send_dead_page(-100123)
+
+        mock_bot.send_photo.assert_called()
+        mock_db.set_dead_page_last_sent.assert_not_called()
+        mock_db.record_dead_page_post.assert_called_once_with(-100123, "repost")
+
+    @pytest.mark.asyncio
+    async def test_get_last_sent_db_error_is_graceful(self, relay, mock_bot, mock_db):
+        """DB error on get → anti-repeat disabled, dead page still works."""
+        mock_db.get_dead_page_last_sent = AsyncMock(side_effect=RuntimeError("db down"))
+        mock_bot.forward_message.side_effect = _make_valid_ids({3})
+
+        await relay.send_dead_page(-100123)
+
+        mock_db.set_dead_page_last_sent.assert_called_once_with(-100123, 3)
+
+    @pytest.mark.asyncio
+    async def test_two_calls_pick_different_posts(self, relay, mock_bot, mock_db):
+        """D54: two sequential sends → second send avoids the first post."""
+        state = {"last": None}
+
+        async def get_last(chat_id):
+            return state["last"]
+
+        async def set_last(chat_id, msg_id):
+            state["last"] = msg_id
+
+        mock_db.get_dead_page_last_sent = AsyncMock(side_effect=get_last)
+        mock_db.set_dead_page_last_sent = AsyncMock(side_effect=set_last)
+        mock_bot.forward_message.side_effect = _make_valid_ids({3, 4})
+
+        await relay.send_dead_page(-100123)
+        assert state["last"] == 3
+
+        await relay.send_dead_page(-100123)
+        assert state["last"] == 4
 
 
 class TestAlbumForwarding:

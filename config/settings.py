@@ -113,8 +113,8 @@ class Settings:
     # Anti-spam: minimum seconds between dead pages in same chat
     DEAD_PAGE_COOLDOWN: float = _env_duration("DEAD_PAGE_COOLDOWN", "10s")
 
-    # Keep join trigger?
-    DEAD_PAGE_POST_ON_JOIN: bool = os.getenv("DEAD_PAGE_POST_ON_JOIN", "True").lower() in ("true", "1", "yes")
+    # Keep join trigger? (Epic 22 / D53: default off — join → only «ДОЛБОЕБ ВЕРНУЛСЯ»)
+    DEAD_PAGE_POST_ON_JOIN: bool = _env_bool("DEAD_PAGE_POST_ON_JOIN", False)
 
     # Max retries for random post picking
     DEAD_PAGE_MAX_FORWARD_RETRIES: int = _env_int("DEAD_PAGE_MAX_FORWARD_RETRIES", 5)
@@ -183,6 +183,10 @@ class Settings:
     # Cooldown in seconds between mimic replies per (chat, user).
     MIMIC_COOLDOWN: float = _env_duration("MIMIC_COOLDOWN", "1h")
 
+    # Мимикрировать только обычные сообщения; репосты пропускать (Epic 22 / D52).
+    # True = передразнивать и репосты тоже.
+    MIMIC_FORWARDS_ENABLED: bool = _env_bool("MIMIC_FORWARDS_ENABLED", False)
+
     # ── Slavik Mimic (§3.2 — replacement for "пошёл нахуй") ──
     # Minimum word count in Slava's message to use mimic instead of default reply.
     # Set to -1 to disable Slavik mimic entirely.
@@ -201,7 +205,7 @@ class Settings:
     OLYA_CAPTION_TEXT: str = _env_str("OLYA_CAPTION_TEXT", "Спасибо, что пользуетесь - @SaveAsBot'ом")
     OLYA_REPOST_ENABLED: bool = _env_bool("OLYA_REPOST_ENABLED", True)
     OLYA_MEDIA_TYPE: str = _env_str("OLYA_MEDIA_TYPE", "video")
-    OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", True)
+    OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", False)
 
 
 settings = Settings()

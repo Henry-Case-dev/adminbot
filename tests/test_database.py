@@ -113,6 +113,40 @@ class TestDatabaseService:
         assert await db.get_last_known_message_id(channel_id=100) == 42
         assert await db.get_last_known_message_id(channel_id=200) == 99
 
+    # ── Dead Page Anti-Repeat (Epic 22 / D54) ────────────
+
+    @pytest.mark.asyncio
+    async def test_dead_page_last_sent_roundtrip(self, db):
+        """set/get_dead_page_last_sent roundtrip."""
+        assert await db.get_dead_page_last_sent(-100123) is None
+        await db.set_dead_page_last_sent(-100123, 42)
+        assert await db.get_dead_page_last_sent(-100123) == 42
+
+    @pytest.mark.asyncio
+    async def test_dead_page_last_sent_overwrite(self, db):
+        """Repeated set overwrites the previous value."""
+        await db.set_dead_page_last_sent(-100123, 3)
+        await db.set_dead_page_last_sent(-100123, 7)
+        assert await db.get_dead_page_last_sent(-100123) == 7
+
+    @pytest.mark.asyncio
+    async def test_dead_page_last_sent_per_chat_isolation(self, db):
+        """Different chats have independent last-sent values."""
+        await db.set_dead_page_last_sent(-1001, 3)
+        await db.set_dead_page_last_sent(-1002, 7)
+        assert await db.get_dead_page_last_sent(-1001) == 3
+        assert await db.get_dead_page_last_sent(-1002) == 7
+
+    @pytest.mark.asyncio
+    async def test_dead_page_last_sent_corrupted_value(self, db):
+        """Broken value in DB returns None gracefully."""
+        await db.db.execute(
+            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+            ("dead_page_last_sent:-100123", "not_a_number"),
+        )
+        await db.db.commit()
+        assert await db.get_dead_page_last_sent(-100123) is None
+
     # ── Alan Activity (F7v2 / Epic 11) ──────────────────
 
     @pytest.mark.asyncio

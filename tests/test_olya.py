@@ -52,16 +52,31 @@ class TestOlyaVideoFilter:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_filter_user_match_video(self, olya_filter, make_message, olya_user_id):
-        msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO)
-        result = await olya_filter(msg)
+    async def test_filter_plain_video_default_no_match(self, make_message, olya_user_id):
+        """Epic 22 (D51): default OLYA_ALWAYS_SEND=False → plain video does NOT trigger."""
+        import filters.olya_video as filter_mod
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False)
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO)
+            result = await f(msg)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_filter_user_match_video(self, make_message, olya_user_id):
+        import filters.olya_video as filter_mod
+        mod = _modified_settings(OLYA_ALWAYS_SEND=True)
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO)
+            result = await f(msg)
         assert isinstance(result, dict)
         assert result == {"is_saveasbot": False, "matched_caption": False}
 
     @pytest.mark.asyncio
     async def test_filter_user_match_photo_when_media_type_photo(self, make_message, olya_user_id):
         import filters.olya_video as filter_mod
-        mod = _modified_settings(OLYA_MEDIA_TYPE="photo")
+        mod = _modified_settings(OLYA_MEDIA_TYPE="photo", OLYA_ALWAYS_SEND=True)
         with patch.object(filter_mod, "settings", mod):
             f = OlyaVideoFilter()
             msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.PHOTO)
@@ -378,13 +393,16 @@ class TestOlyaIntegration:
     @pytest.mark.asyncio
     async def test_integration_filter_to_handler(self, make_message, olya_user_id):
         """Full pipeline: filter passes → handler called → service called."""
+        import filters.olya_video as filter_mod
         mock_service = MagicMock()
         mock_service.send_olya = AsyncMock(return_value=True)
         setup_olya(mock_service)
 
-        f = OlyaVideoFilter()
-        msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO)
-        filter_result = await f(msg)
+        mod = _modified_settings(OLYA_ALWAYS_SEND=True)
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO)
+            filter_result = await f(msg)
         assert isinstance(filter_result, dict)
 
         await olya_handler(msg, **filter_result)

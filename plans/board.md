@@ -6,39 +6,69 @@
 
 ## 🔧 In Progress
 
-### Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 🔵
+*No items in progress.*
 
-- [ ] T-149: Fix MIMIC propagation — add `return UNHANDLED` in `handlers/alan.py`
-  - [ ] T-149-A: Root cause: alan_handler blocks propagation to common_router (mimic_handler)
-  - [ ] T-149-B: Fix: `from aiogram.dispatcher.event.bases import UNHANDLED` + `return UNHANDLED`
-  - [ ] T-149-C: Verify SLAVIK_MIMIC not affected (slavik_router, position 5)
-  - [ ] T-149-D: Verify Alan features not broken (greeting, silence, counting)
-  - [ ] T-149-E: Integration test: Alan message → MIMIC fires in common_router
-  - [ ] T-149-F: Integration test: Alan message → both alan_handler AND mimic fire
-- [ ] T-150: Create `parse_duration(value: str) -> float` + `_env_duration()` in `config/settings.py`
-  - [ ] T-150-A–F: Support 1s/1m/1h/1d, 0=disabled, edge cases, unit tests
-- [ ] T-151: Rename COOLDOWN_SECONDS → COOLDOWN in `config/settings.py`
-  - [ ] T-151-A: MIMIC_COOLDOWN_SECONDS → MIMIC_COOLDOWN (default "1h")
-  - [ ] T-151-B: SLAVIK_MIMIC_COOLDOWN_SECONDS → SLAVIK_MIMIC_COOLDOWN (default "60s")
-  - [ ] T-151-C: COMMON_COOLDOWN_SECONDS → COMMON_COOLDOWN (default "0")
-  - [ ] T-151-D: DEAD_PAGE_COOLDOWN_SECONDS → DEAD_PAGE_COOLDOWN (default "10s")
-  - [ ] T-151-E: DANGER_COOLDOWN_SECONDS → DANGER_COOLDOWN (default "60s") — optional
-  - [ ] T-151-F: OLYA_COOLDOWN_SECONDS → OLYA_COOLDOWN (default "60s") — optional
-- [ ] T-152: Update `bot.py` — all cooldown references
-- [ ] T-153: Update `handlers/slavik.py` — SLAVIK_MIMIC_COOLDOWN reference
-- [ ] T-154: Update `services/mimic_relay.py` — MIMIC_COOLDOWN reference
-- [ ] T-155: Update `services/common_relay.py` — COMMON_COOLDOWN + DANGER_COOLDOWN references
-- [ ] T-156: Update `services/dead_page_relay.py` — DEAD_PAGE_COOLDOWN reference
-- [ ] T-157: Update `.env.example` — rename all `*_COOLDOWN_SECONDS` → `*_COOLDOWN`
-- [ ] T-158: Update all test files for new cooldown names (mimic, slavik, common, dead_page, settings)
-- [ ] T-159: Maximum test coverage + run tests
-  - [ ] T-159-A–E: Unit tests (parse_duration, _env_duration), integration tests (MIMIC propagation), pytest all green
-- [ ] T-160: Update README.md with ironic tone (MIMIC fix, time-format cooldowns, v2.19.0)
-- [ ] T-161: Documentation sync — MEMORY.md, ARCHITECTURE.md (router order, cooldown system)
-- [ ] T-162: Commit + Push + Deploy
-  - [ ] T-162-A–I: Conventional commit (Russian), push, SSH deploy, .env update, restart, smoke tests, Better Stack
+## 🔍 In Review
+
+### Epic 22: Гонка функций и точность триггеров (Olya/Mimic/Slavik/PostPicker) — 2026-08-15 ✅ IMPLEMENTED (@Builder, стадия ревью)
+
+> **Цель:** Устранить гонку ответов у Славика (приветствие vs dead page vs «пошёл нахуй»),
+> сделать триггеры точнее: Olya — только SaveAsBot-видео, mimic — не передразнивать репосты,
+> PostPicker — не выбирать пост, отправленный в предыдущий раз.
+> **PM-решения:** D51 (Olya: ИЛИ + OLYA_ALWAYS_SEND=False), D52 (MIMIC_FORWARDS_ENABLED=False),
+> D53 (DEAD_PAGE_POST_ON_JOIN=False, dead page только на репосты Славы из @d_pages, catchall-гейт),
+> D54 (channel_state `dead_page_last_sent:{chat_id}`). Target: v2.20.0.
+> **Итог:** реализовано, 621 тест PASS (586 baseline + 35 новых), 0 регрессий. Коммит/деплой — отдельные шаги (НЕ задеплоено).
+
+- [x] T-163 (@Builder): Olya — реагировать только на SaveAsBot-видео (D51)
+  - [x] T-163-A: OLYA_ALWAYS_SEND default → False (settings.py + .env.example)
+  - [x] T-163-B: Сохранить ИЛИ: caption-признак ИЛИ репост из OLYA_SAVEASBOT_CHANNEL_IDS
+  - [x] T-163-C: AC: обычное видео → False; репост SaveAsBot → True; caption → True; ALWAYS_SEND=True → True
+  - [x] T-163-D: Тесты (≈5) + README/.env.example
+- [x] T-164 (@Builder): Mimic — не передразнивать репосты (D52)
+  - [x] T-164-A: MIMIC_FORWARDS_ENABLED: bool = False (settings.py + .env.example)
+  - [x] T-164-B: common.py mimic_handler: forward_origin is not None + off → UNHANDLED
+  - [x] T-164-C: slavik.py catchall Branch 2: то же правило (mimic пропускается)
+  - [x] T-164-D: Тесты (≈6): forwarded+off → нет mimic; обычное → mimic; forwarded+on → mimic (оба механизма)
+- [x] T-165 (@Builder): Славик — приоритет приветствия, dead page только на репосты Славы из @d_pages (D53)
+  - [x] T-165-A: DEAD_PAGE_POST_ON_JOIN default → False (join → только «ДОЛБОЕБ ВЕРНУЛСЯ»)
+  - [x] T-165-B: dead_page_trigger: только репосты Славы (UserIdFilter), убрать is_present-гейт
+  - [x] T-165-C: catchall guard: d_pages-репост Славы → UNHANDLED (ни photo, ни mimic, ни «пошёл нахуй»)
+  - [x] T-165-D: Интеграционные тесты: join-race (1 ответ), repost-race (1 ответ)
+- [x] T-166 (@Builder): PostPicker — не выбирать пост, отправленный в прошлый раз (D54)
+  - [x] T-166-A: БД: channel_state `dead_page_last_sent:{chat_id}` + get/set_last_sent_message_id
+  - [x] T-166-B: Forward scan + sequential scan: skip кандидата == last_sent (fallback при исчерпании)
+  - [x] T-166-C: Random probing: re-roll last_sent без сжигания attempt + контрольный try в конце
+  - [x] T-166-D: Запись первичного msg_id после успешного форварда (все пути, включая альбомы)
+  - [x] T-166-E: Тесты (≈7): два вызова → разные посты; один пост → fallback повтор
+- [x] T-167 (@Builder): Документация, полный pytest, коммит
+  - [x] T-167-A: README.md (v2.20.0, changelog)
+  - [x] T-167-B: ARCHITECTURE.md + MEMORY.md
+  - [x] T-167-C: pytest — 0 регрессий (621 passed: 586 + 35 новых)
+  - [ ] T-167-D: Коммит на русском (conventional commits), push. Деплой — DevOps. ⏳ ОТДЕЛЬНЫЙ ШАГ
+
+> ⚠️ Блокеры/риски: (1) prod .env может содержать OLYA_ALWAYS_SEND=True / DEAD_PAGE_POST_ON_JOIN=True — обновить при деплое;
+> (2) не путать last_known_message_id (верхняя граница forward-scan) и dead_page_last_sent (анти-повтор);
+> (3) danger_handler (4c) может ответить на d_pages-репост при danger-словах — существующее поведение, вне скоупа.
 
 ## ✅ Done
+
+### Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 ✅ DEPLOYED (v2.19.0, commit c683903)
+
+- [x] T-149: Fix MIMIC propagation — return UNHANDLED в handlers/alan.py (3 code paths)
+- [x] T-150: parse_duration / _env_duration хелперы в config/settings.py
+- [x] T-151: Переименование 6 cooldown-полей (*_COOLDOWN_SECONDS → *_COOLDOWN, time-format)
+- [x] T-152: Update bot.py — все cooldown references
+- [x] T-153: Update handlers/slavik.py — SLAVIK_MIMIC_COOLDOWN
+- [x] T-154: Update services/mimic_relay.py — MIMIC_COOLDOWN (verified)
+- [x] T-155: Update services/common_relay.py — COMMON_COOLDOWN + DANGER_COOLDOWN (verified)
+- [x] T-156: Update services/dead_page_relay.py — DEAD_PAGE_COOLDOWN
+- [x] T-157: Update .env.example — time-format defaults
+- [x] T-158: Update tests + tests/test_duration.py (15 тестов)
+- [x] T-159: Полный прогон — 586 tests PASS, 0 failures
+- [x] T-160: README.md — v2.19.0, config table
+- [x] T-161: Sync MEMORY.md / ARCHITECTURE.md
+- [x] T-162: Commit (c683903) + push + deploy — server active (PID 699945)
 
 ### Epic 20: Slavik Random Media Enhancement — 2026-08-02 ✅ IMPLEMENTED
 
@@ -297,4 +327,4 @@
 
 ---
 
-**Updated:** 2026-08-03 — All Epics 1-20 IMPLEMENTED ✅. Epic 21 (MIMIC Fix + Time Format Cooldowns) IN PROGRESS 🔵. v2.19.0 targeted.
+**Updated:** 2026-08-15 — Epics 1-21 DEPLOYED ✅ (v2.19.0, commit c683903, 586 tests). Epic 22 «Гонка функций и точность триггеров» IMPLEMENTED ✅ (стадия ревью) — T-163..T-167-C выполнены @Builder, 621 тест PASS, коммит/деплой — отдельные шаги. Target: v2.20.0.

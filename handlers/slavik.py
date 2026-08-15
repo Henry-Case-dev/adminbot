@@ -3,7 +3,8 @@ import random
 import time
 from pathlib import Path
 from aiogram import Router, types
-from aiogram.types import FSInputFile
+from aiogram.dispatcher.event.bases import UNHANDLED
+from aiogram.types import FSInputFile, MessageOriginChannel
 from filters.user_id import UserIdFilter
 from filters.kucha_word import KuchaWordFilter
 from config.settings import settings
@@ -118,11 +119,15 @@ def setup_slavik(db):
     _db = db
 
 
-def _slavik_mimic_should_trigger(chat_id: int, text: str) -> bool:
-    """Check mimic conditions for Slavik: word count and cooldown.
+def _slavik_mimic_should_trigger(
+    chat_id: int, text: str, is_forwarded: bool = False
+) -> bool:
+    """Check mimic conditions for Slavik: word count, cooldown, forward gate (D52).
 
     Returns True if mimic should fire instead of the default reply.
     """
+    if is_forwarded and not settings.MIMIC_FORWARDS_ENABLED:
+        return False  # D52: mimic пропускается → дальше Branch 3 «пошёл нахуй»
     if settings.SLAVIK_MIMIC_MIN_WORDS < 0:
         return False
     if count_words(text) <= settings.SLAVIK_MIMIC_MIN_WORDS:
@@ -155,6 +160,22 @@ async def slavik_catchall_handler(message: types.Message):
         message.message_id,
         message.from_user.id if message.from_user else 0,
     )
+
+    # ── Branch 0: Dead Page gate (Epic 22 / D53) ──
+    # d_pages-репост принадлежит dead_page_router (позиция 4). Defense-in-depth:
+    # если событие всё же дошло сюда — уступить, dead page должен быть ЕДИНСТВЕННЫМ ответом.
+    origin = message.forward_origin
+    if isinstance(origin, MessageOriginChannel):
+        src_username = settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME
+        src_id = settings.DEAD_PAGE_SOURCE_CHANNEL_ID
+        if (src_username and origin.chat.username == src_username) or (
+            src_id and origin.chat.id == src_id
+        ):
+            logger.info(
+                "Slavik catchall: d_pages repost — yielding to dead_page_router | msg_id=%d",
+                message.message_id,
+            )
+            return UNHANDLED  # ни photo, ни mimic, ни «пошёл нахуй»
 
     # ── Branch 1: Photo interval (F8) — random media from SLAVIC_RANDOM_DIR ──
     if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
@@ -214,7 +235,10 @@ async def slavik_catchall_handler(message: types.Message):
 
     # ── Branch 2: Mimic (F11, new) — replaces "пошёл нахуй" when conditions met ──
     content = message.text or message.caption
-    if content and _slavik_mimic_should_trigger(message.chat.id, content):
+    if content and _slavik_mimic_should_trigger(
+        message.chat.id, content,
+        is_forwarded=message.forward_origin is not None,
+    ):
         try:
             transformed = mimic_transform(content)
             await message.reply(transformed)

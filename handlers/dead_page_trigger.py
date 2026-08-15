@@ -6,6 +6,7 @@ from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 from config.settings import settings
+from filters.user_id import UserIdFilter
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,20 @@ _db = None
 
 
 def setup_dead_page(relay, db):
+    """Inject DeadPageRelay + DatabaseService (db kept for bot.py signature compat).
+
+    Epic 22 / D53: db is no longer used inside this module — a repost by Slava
+    itself implies Slava is present in the chat.
+    """
     global _relay, _db
     _relay = relay
     _db = db
 
 
-@dead_page_router.message(F.forward_origin)
+@dead_page_router.message(
+    F.forward_origin,
+    UserIdFilter(settings.SLAVIK_USER_ID),  # D53: только репосты Славы
+)
 async def on_forward(message: types.Message):
     origin = message.forward_origin
     
@@ -79,13 +88,11 @@ async def on_forward(message: types.Message):
         if len(_seen_media_groups) > _MAX_DEDUP_ENTRIES:
             _seen_media_groups.popitem(last=False)
 
-    # Check if Slava is present (configurable, for future scaling)
-    if _db is not None:
-        is_present = await _db.is_present(settings.SLAVIK_USER_ID, message.chat.id)
-        if not is_present:
-            logger.debug(f"Slava not present in chat {message.chat.id}, skipping dead page")
-            return
-    
+    # ── D53 (Epic 22): is_present-гейт УДАЛЁН ──
+    # Репост Славы сам по себе означает, что Слава в чате.
+    # _db остаётся в сигнатуре setup_dead_page(relay, db) для совместимости с bot.py,
+    # но больше не используется в этом модуле.
+
     if _relay is None:
         logger.error("DeadPageRelay not initialized — cannot send dead page")
         return
