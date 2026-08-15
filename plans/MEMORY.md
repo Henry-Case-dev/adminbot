@@ -2,6 +2,7 @@
 
 > **Версия:** v2.20.0 DEPLOYED (Epic 22, коммит `1dbb6da`)
 > **Дата:** 2026-08-15
+> **Обновление:** 2026-08-16 — зафиксирована политика media/ (см. секцию «Политика media/»); новая chore-задача: коммит + деплой `media/common/danger/danger_drone.mp4` (16-й файл danger-пула).
 > **Статус:** Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — T-163..T-167 (A/B/C/D) завершены, 621 тест PASS, коммит `1dbb6da` запушен, прод обновлён до v2.20.0. Epics 1–22 ALL DEPLOYED ✅.
 > **Текущий коммит:** `1dbb6da` (v2.20.0 deployed) на master, пуш в origin (github.com/Henry-Case-dev/adminbot.git).
 > **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 914116 (был 699945), логи чистые (Bot started, listening...).
@@ -16,6 +17,16 @@
 | **Epic 22** | ✅ DONE & DEPLOYED | «Гонка функций и точность триггеров» — PM-решения D51–D54, T-163..T-167 (включая D) завершены. 621 тест PASS (+35 новых). Коммит `1dbb6da`, пуш, деплой. Прод v2.20.0. |
 | **Review (current)** | ✅ APPROVED | 621 tests pass / 0 failed. 3 раунда ревью, все замечания закрыты (README v2.20.0/621, планы IMPLEMENTED, board «In Review»). |
 | **Сервер** | ✅ ACTIVE | 198.46.175.136:/var/www/admin_bot. systemctl: active (running), PID 914116 (был 699945). Логи чистые (Bot started, listening...). HEAD=1dbb6da. |
+
+---
+
+## 📁 Политика media/ (по указанию пользователя, 2026-08-16) — ОБЯЗАТЕЛЬНА К ИСПОЛНЕНИЮ
+
+> **Всё, что добавляется или удаляется в папке `media/` (`media/common/danger`, `media/olya/cringe`, `media/slavik_random` и т.п.), — делается СОЗНАТЕЛЬНО и СПЕЦИАЛЬНО для загрузки на сервер и дальнейшего использования ботом.**
+
+- Media-файлы **НЕ являются случайными артефактами**: их НЕЛЬЗЯ исключать из коммитов как мусор, НЕЛЬЗЯ добавлять в `.gitignore`, НЕЛЬЗЯ удалять без явного указания пользователя.
+- ❌ Рекомендация «добавить `danger_drone.mp4` в `.gitignore`» была **ОШИБОЧНОЙ и ОТМЕНЯЕТСЯ**.
+- ✅ `media/common/danger/danger_drone.mp4` — **16-й файл danger-пула**, добавлен намеренно: его нужно **закоммитить и задеплоить**. Пул danger-медиа используется сервисом danger-слов (DangerWordFilter → CommonRelay), media_picker выбирает файлы из папки автоматически — дополнительный код не требуется.
 
 ---
 
@@ -69,7 +80,7 @@
 - Все замечания закрыты: README v2.20.0/621, статусы планов IMPLEMENTED, board «In Review», нумерация T-167 выровнена.
 - Наблюдения ревьюера (не блокеры): README пишет «ДОЛБОЕВ» vs планы «ДОЛБОЕБ»; фактическая ветка — master.
 - ✅ Деплой-чеклист DevOps выполнен (2026-08-15): prod `.env` → `DEAD_PAGE_POST_ON_JOIN=False` (True→False, бэкап `.env.bak.2026-08-15`); `OLYA_ALWAYS_SEND` и `MIMIC_FORWARDS_ENABLED` отсутствуют в .env — активны дефолты False.
-- Артефакт `media/common/danger/danger_drone.mp4` — untracked, исключён из стейджинга, файл оставлен на диске; рекомендация: добавить в `.gitignore` (зафиксировано, НЕ выполнено).
+- ❌→✅ `media/common/danger/danger_drone.mp4` — **ОТМЕНЕНО пользователем (2026-08-16):** рекомендация «добавить в `.gitignore`» была ошибочной. Файл добавлен НАМЕРЕННО (16-й файл danger-пула) → должен быть ЗАКОММИЧЕН и ЗАДЕПЛОЕН.
 
 ---
 
@@ -335,6 +346,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **DEPLOYED** | T-001 – T-148 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 20 Epics) ✅ |
 | **DEPLOYED** | Epic 21: T-149 – T-162 (DEPLOYED, commit c683903, 586 tests pass) ✅ |
 | **DEPLOYED** | Epic 22: T-163 – T-167 (DEPLOYED, commit `1dbb6da`, 621 tests pass, прод v2.20.0) ✅ |
+| **IN PROGRESS** | Chore T-168: danger_drone.mp4 в danger-пул (коммит + деплой) — 🚧 спланировано PM 2026-08-16 (backlog.md T-168-A..E + board.md In Progress @Builder), Section 31 ARCHITECTURE.md ✅. Ожидает @Builder. |
 
 > Epics 1-22 ALL DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, PID 914116). **Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — реализация (D51–D54) + ревью 3 раунда (APPROVED) + коммит/пуш/деплой (T-167-D).**
 > 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
@@ -362,8 +374,12 @@ common_router (pos 4c): НИКОГДА не получает события
 
 ---
 
-*Обновление: 2026-08-15 — EPIC 22 STATUS: DONE & DEPLOYED ✅ (v2.20.0, коммит `1dbb6da`). «Гонка функций и точность триггеров» — PM-решения D51–D54 реализованы и задеплоены (Olya SaveAsBot-only / MIMIC_FORWARDS_ENABLED=False / Slavik race fix / PostPicker last-sent). Задачи T-163–T-167 (A/B/C/D) выполнены: ревью 3 раунда APPROVED, 621 тест PASS (586 baseline + 35 новых), 0 регрессий. Деплой: сервер 198.46.175.136:/var/www/admin_bot, git pull c683903..1dbb6da (21 файл, +1778/-224), systemctl restart OK, active (running), PID 914116 (был 699945), логи чистые. Prod .env: DEAD_PAGE_POST_ON_JOIN=True→False (бэкап .env.bak.2026-08-15); OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED отсутствуют — дефолты False. Артефакт media/common/danger/danger_drone.mp4 — untracked, рекомендация: добавить в .gitignore (зафиксировано, НЕ выполнено).*
+*Обновление: 2026-08-16 — ЗАФИКСИРОВАНА ПОЛИТИКА MEDIA-ПАПКИ (указание пользователя): всё, что добавляется/удаляется в media/ (media/common/danger, media/olya/cringe, media/slavik_random и т.п.), делается СОЗНАТЕЛЬНО и СПЕЦИАЛЬНО для загрузки на сервер и использования ботом; media-файлы НЕ исключаются из коммитов как мусор, НЕ добавляются в .gitignore, НЕ удаляются без явного указания. Рекомендация «danger_drone.mp4 → .gitignore» — ОШИБОЧНАЯ, ОТМЕНЕНА. danger_drone.mp4 — 16-й файл danger-пула, добавлен намеренно. Новая chore-задача: коммит + деплой media/common/danger/danger_drone.mp4.*
+
+*Обновление: 2026-08-15 — EPIC 22 STATUS: DONE & DEPLOYED ✅ (v2.20.0, коммит `1dbb6da`). «Гонка функций и точность триггеров» — PM-решения D51–D54 реализованы и задеплоены (Olya SaveAsBot-only / MIMIC_FORWARDS_ENABLED=False / Slavik race fix / PostPicker last-sent). Задачи T-163–T-167 (A/B/C/D) выполнены: ревью 3 раунда APPROVED, 621 тест PASS (586 baseline + 35 новых), 0 регрессий. Деплой: сервер 198.46.175.136:/var/www/admin_bot, git pull c683903..1dbb6da (21 файл, +1778/-224), systemctl restart OK, active (running), PID 914116 (был 699945), логи чистые. Prod .env: DEAD_PAGE_POST_ON_JOIN=True→False (бэкап .env.bak.2026-08-15); OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED отсутствуют — дефолты False. media/common/danger/danger_drone.mp4 — добавлен намеренно (16-й файл danger-пула), к коммиту и деплою; рекомендация про .gitignore ОТМЕНЕНА пользователем (2026-08-16).*
 
 *Предыдущий статус (2026-08-15): EPIC 22 IMPLEMENTED + APPROVED ✅ (коммит и деплой pending). T-163–T-167-C выполнены @Builder, ревью 3 раунда — APPROVED. 621 тест PASS. НЕ закоммичен/НЕ задеплоен (базовый коммит c683903 v2.19.0 в проде).*
 
 *Предыдущий статус (2026-08-03): EPIC 21 STATUS: DEPLOYED ✅. MIMIC propagation fix (D49: return UNHANDLED in alan_handler, 3 code paths). Time-format cooldowns (D50: _parse_duration с 1s/1m/1h/1d, 6 полей переименовано). 586 тестов пасс. All 14 tasks T-149–T-162 COMPLETE + DEPLOYED. Commit c683903, push origin/master.*
+
+*Обновление: 2026-08-16 — CHORE T-168: IN PROGRESS 🚧. PM добавил T-168 в backlog.md (T-168-A..E + AC) и board.md (In Progress, @Builder): chore — коммит + деплой `media/common/danger/danger_drone.mp4` (16-й файл danger-пула). Architect добавил Section 31 в ARCHITECTURE.md (Конвенция media/ + инвентарь пулов). Код не требуется — media_picker подхватывает файл автоматически. Ожидает @Builder: verify → коммит `chore(media): danger_drone.mp4 в danger-пул` (на русском) → push → деплой (git pull на 198.46.175.136) → verify на сервере → smoke test. Соблюдать политику media/: НЕ в .gitignore, НЕ удалять.*
