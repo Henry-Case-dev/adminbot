@@ -1,8 +1,9 @@
 # ARCHITECTURE.md — AdminBot
 
 > **Версия:** v2.20.0 (текущий дизайн: Epic 22)
-> **Дата:** 2026-08-15
+> **Дата:** 2026-08-16
 > **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅ (стадия ревью, коммит/деплой pending).
+> **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
 ---
@@ -19,6 +20,7 @@
 8. [Section 28: Epic 20](#section-28-epic-20--slavik-random-media-enhancement-v2180) — Slavik Random Media Enhancement (v2.18.0)
 9. [Section 29: Epic 21](#29-epic-21--mimic-propagation-fix--time-format-cooldowns) — MIMIC Propagation Fix + Time-Format Cooldowns (v2.19.0)
 10. [Section 30: Epic 22](#30-epic-22--гонка-функций-и-точность-триггеров-v2200) — Гонка функций и точность триггеров (v2.20.0, НОВОЕ)
+11. [Section 31: Конвенция media/](#31-конвенция-media-2026-08-16) — Политика media/ + инвентарь медиа-пулов (2026-08-16)
 
 ---
 
@@ -2952,3 +2954,30 @@ async def _try_forward_from_channel(self, chat_id: int, last_sent: int | None = 
 ---
 
 @Orchestrator Epic 22 (T-163..T-167) architecture ready — v2.20.0 design passed to @Builder.
+
+---
+
+## 31. Конвенция media/ (2026-08-16)
+
+> **Дата:** 2026-08-16
+> **Статус:** Конвенция (обязательна к исполнению). По указанию пользователя.
+
+### 31.1 Конвенция
+
+Конвенция media/ (по указанию пользователя, 2026-08-16): все изменения в папке `media/` — **сознательные**, делаются для загрузки на сервер и использования ботом; media-файлы:
+- **не являются артефактами** — не исключаются из коммитов;
+- **не добавляются в `.gitignore`**;
+- **не удаляются** без явного указания пользователя.
+
+**Пример:** `danger_drone.mp4` — 16-й файл danger-пула (`media/common/danger/`), добавлен намеренно; `media_picker` подхватывает файлы автоматически (без правок кода).
+
+**Chore-задача (2026-08-16):** закоммитить и задеплоить `media/common/danger/danger_drone.mp4`.
+
+### 31.2 Инвентарь медиа-пулов
+
+| Пул | Директория | Файлов | Примечание |
+|-----|-----------|--------|------------|
+| danger | `media/common/danger/` | **16** | `danger_drone.mp4` — 16-й файл (2026-08-16, добавлен намеренно) |
+| otboy | `media/common/otboy/` | 1 | `otboy_01.jpg` |
+| olya cringe | `media/olya/cringe/` | 2 | `olya_cringe_01.mp4`, `olya_cringe_02.mp4` |
+| slavik random | `media/slavik/slavik_random/` | 5 | photo + video/animation mix |

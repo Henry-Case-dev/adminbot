@@ -6,7 +6,14 @@
 
 ## 🔧 In Progress
 
-*No items in progress.*
+### Chore (2026-08-16): danger_drone.mp4 в danger-пул
+
+- [ ] T-168 (@Builder): Медиа: danger_drone.mp4 в danger-пул (коммит + деплой)
+  - Файл `media/common/danger/danger_drone.mp4` добавлен намеренно — 16-й файл danger-пула (источник: пользователь, 2026-08-16).
+  - Кода не требуется: media_picker автоматически подхватывает файлы из `media/common/danger/`.
+  - AC: файл закоммичен в master, запушен, задеплоен на сервер (git pull), медиа доступно для danger-пула.
+  - ⚠️ Политика media/: media-файлы добавляются сознательно для сервера и бота — НЕ исключать из коммитов, НЕ в .gitignore, НЕ удалять без указания пользователя.
+  - Ссылка: backlog.md → «Chore: danger_drone.mp4 в danger-пул — 2026-08-16» (T-168-A..E).
 
 ## 🔍 In Review
 
@@ -332,4 +339,4 @@
 
 ---
 
-**Updated:** 2026-08-15 — Epics 1-22 DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, 621 tests). Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — T-163..T-167 (включая D) завершены: коммит `1dbb6da`, пуш в origin, деплой на 198.46.175.136:/var/www/admin_bot (git pull c683903..1dbb6da, 21 файл, +1778/-224), PID 914116, prod .env DEAD_PAGE_POST_ON_JOIN=False. Прод v2.20.0.
+**Updated:** 2026-08-16 — Epics 1-22 DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, 621 tests). In Progress: Chore T-168 (@Builder) — danger_drone.mp4 в danger-пул (коммит + деплой). Медиа из media/common/danger/ подхватывается media_picker автоматически, код не требуется. Прод v2.20.0.
