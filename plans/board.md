@@ -10,7 +10,24 @@
 
 ## 🔍 In Review
 
-*No items in review.*
+### Epic 23: Точная настройка danger-словаря (v2.21.0) — 2026-08-16 — ✅ IMPLEMENTED + APPROVED (деплой pending)
+
+> **Цель:** Убрать ложноположительные секции danger-словаря (Flight/arrival, Падение/сбитие),
+> перевести Shelter и Атаку/угрозу на фразы-связки, добавить «хлопок»-синонимы, ввести
+> механику DANGER_PHRASES.
+> **PM-решения:** D55 (DANGER_PHRASES + ветка фраз в DangerWordFilter, regex по краям фразы
+> IGNORECASE, возврат {"matched_word"} совместимый; env-оверрайд фраз НЕ вводим),
+> D56 (Shelter: −26 одиночных форм, +10 фраз), D57 (вспышка*/взрыв* остаются,
+> +хлопок/хлопки/хлопнуло/хлопнул, омоним-риск принят), D58 (Атака: −28 одиночных форм, +7 фраз).
+> Target: v2.21.0. Prod .env НЕ менять (DANGER_WORDS пустой → дефолты из word_lists.py).
+> **Статус:** IMPLEMENTED + APPROVED ✅ — T-169..T-171 DONE, 672 теста PASS (621+51),
+> ревью 2 раунда APPROVED. T-172: доки + коммит DONE ✅ (feat(danger) на master),
+> деплой PENDING — @DevOps.
+
+- [x] T-169 (@Builder): Словарь — Flight удалить, Падение удалить, Shelter→10 фраз (DANGER_PHRASES), Flash + «хлопок» (D56, D57)
+- [x] T-170 (@Builder): Атака/угроза → 7 фраз (D58)
+- [x] T-171 (@Builder): Механика DANGER_PHRASES в DangerWordFilter + тесты (обновить сломанные, новые на фразы/негатив)
+- [ ] T-172 (@Builder + @DevOps): Доки DONE ✅ (README «187 словоформ» → 118 + 17 фраз, v2.21.0/672, ARCHITECTURE, MEMORY) + коммит DONE ✅ (feat(danger) на master) — деплой PENDING (v2.21.0)
 
 ## ✅ Done
 
@@ -346,4 +363,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — Epics 1-22 DEPLOYED ✅ + Chore T-168 DEPLOYED ✅ (коммит `0c74220`). Прод HEAD = 0c74220 (v2.20.0 + danger_drone.mp4, danger-пул = 16 файлов). Бот active (running), PID 916795, логи чистые.
+**Updated:** 2026-08-16 — Epics 1-22 DEPLOYED ✅ + Chore T-168 DEPLOYED ✅ (коммит `0c74220`). Прод HEAD = 0c74220 (v2.20.0 + danger_drone.mp4, danger-пул = 16 файлов). Бот active (running), PID 916795, логи чистые. Epic 23 (точная настройка danger-словаря, v2.21.0) — IMPLEMENTED + APPROVED ✅ (672 теста, ревью 2 раунда): T-169..T-171 DONE, T-172 доки/коммит DONE ✅ (feat(danger) на master); деплой PENDING (DevOps).
