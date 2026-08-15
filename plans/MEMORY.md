@@ -1,7 +1,8 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.23.0-fix DEPLOYED (Epic 25 багфикс /summary, коммит `c364f18`). **Epic 25 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-192…T-198 Done (Шаг 8, финальная синхронизация @Memory). Epic 26 (GraphRAG) — IMPLEMENTED, НЕ закоммичен (Шаг 6 @Memory).**
+> **Версия:** v2.24.0 DEPLOYED (Epic 26 GraphRAG-память, коммит `7c7c241`). **Epic 26 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-199…T-206 Done, весь цикл воркфлоу (Шаги 0–8) закрыт (Шаг 8, финальная синхронизация @Memory). Прод v2.24.0, PID 926618, 939 тестов.**
 > **Дата:** 2026-08-16
+> **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): DEPLOYED ✅. Коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» запушен в origin/master (github.com/Henry-Case-dev/adminbot.git). Деплой на прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `c364f18..7c7c241`; .env +GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап .env.bak.epic26); systemctl restart admin_bot → active (running), Main PID 926618; таблицы nodes/edges созданы в продовой БД; 0 traceback. Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206); T-206 (P1, FTS-удаление медиа без подписи) исправлен в этом же релизе. Известный не-блокер: бот не отвечает на SIGTERM (~95с рестарт, pre-existing) — рекомендуется отдельный тикет graceful shutdown. Вся цепочка воркфлоу (0–8) завершена.**
 > **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 6 (@Memory, граф знаний после реализации и ревью): T-200–T-204 IMPLEMENTED (@Builder), ревью дважды PASS, 939 тестов (860 baseline + 73 Epic 26 + 6 T-206), T-206 (P1, FTS-DELETE рассинхронизация) fixed, ARCHITECTURE.md 35.4 (JSON-объект-обёртка) зафиксирована. Код в рабочем дереве БЕЗ коммита. Осталось: T-205 (README+коммит+пуш+деплой) → @Builder+@DevOps.**
 > **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): Section 35 (35.1–35.11) спроектирована @Architect (T-199/T26.0): DDL nodes/edges (chat_id + UNIQUE), EXTRACT_PROMPT дословно (35.3), flow extract→graph→delete в compress_and_purge (D68), graph traversal для /summary с тегом <historical_graph_facts> первым в user-промпте (D71), настройки GRAPH_* (D69), тест-план 35.8. Статус: DESIGN — ждёт PM-аппрув (T26.0-D); после аппрува T26.1…T26.4 → READY FOR BUILDER. Код НЕ писался.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): T-197 DONE (коммит `c364f18`, 11 файлов, +1001/−84; docs `2a45f79`; пуш `818e195..c364f18`; 860 passed; .env не тронут) + T-198 DONE (прод 198.46.175.136: git pull ff `a68732c..c364f18`, .env не меняли, restart → active (running) PID 923954, старт чистый). Epic 25 DEPLOYED. Осталось вручную пользователю: живой тест /summary; Н1 BotFather /setprivacy → Disable; при WARNING удаления — админ-права delete_messages.**
@@ -9,15 +10,15 @@
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): RCA ПОДТВЕРЖДЁН прод-логами (асимметрия ThrottlingMiddleware vs aiogram Command-фильтр), Section 34 (B1–B9) DESIGN APPROVED (PM: B6 ⚠️, B3 ⚠️). T-192/T-193 Done, T-194/T-195 READY FOR BUILDER.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 0 (@Memory, синхронизация контекста по баг-репорту): «/summary не реагирует» + требование удалять сообщение команды из чата.**
 > **Обновление:** 2026-08-16 — **Epic 24 «SmartModule: Summary» — Шаг 8 (@Memory, финальная синхронизация): ВЕСЬ запрос пользователя выполнен ✅. T-190 DONE (835 тестов PASS локально; коммит `a68732c`, 35 файлов, +4495/−28; docs-коммит `818e195`; пуш master; HEAD = origin/master). T-191 DONE (прод 198.46.175.136: git pull ff `756d237..a68732c`, .env +LLM-ключи, venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, smoke T-191-D ✅ apinet.cloud/v1/models OK, restart → active (running) PID 920105). Осталось пользователю вручную: Н1 BotFather `/setprivacy` → Disable (критично) + живая проверка `/summary`.**
-> **Статус:** Epics 1–25 ALL DEPLOYED ✅ (v2.23.0-fix, `c364f18` + docs `2a45f79`, 860 тестов). Epic 25 DEPLOYED на проде (PID 923954, старт чистый, 0 ImportError). **Epic 25: T-192/T-193/T-194/T-195/T-196/T-197/T-198 Done, 860 тестов PASS (835+25), 0 регрессий.** **Epic 26 (GraphRAG): IMPLEMENTED (Шаг 6), 939 тестов PASS (860+73+6), ревью дважды PASS, T-206 fixed; код НЕ закоммичен — T-205 (README/коммит/пуш/деплой) впереди.** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
-> **Текущий коммит:** `c364f18` (fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25)) + docs-коммит `2a45f79` (синхронизация board.md) — оба в origin/master (github.com/Henry-Case-dev/adminbot.git). Прод версия **v2.23.0-fix**.
-> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 923954, логи чистые: Database initialized, «sqlite-vec loaded (dim=768)», cron 0,6,12,18, «SmartModule Summary initialized», все 14 роутеров зарегистрированы, ImportError 0.
+> **Статус:** Epics 1–26 ALL DEPLOYED ✅ (v2.24.0, `7c7c241`, 939 тестов). **Epic 26 (GraphRAG) DEPLOYED на проде: PID 926618, таблицы nodes/edges созданы, 0 traceback, T-199–T-206 Done (T-206 P1 fixed в этом же релизе).** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
+> **Текущий коммит:** `7c7c241` (feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)) — в origin/master (github.com/Henry-Case-dev/adminbot.git). Прод версия **v2.24.0**.
+> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 926618, 0 traceback после рестарта; таблицы nodes/edges созданы в продовой БД; .env +4 переменные GRAPH_* (бэкап .env.bak.epic26). Известный не-блокер (pre-existing): бот не отвечает на SIGTERM (~95с рестарт) — кандидат в отдельный тикет graceful shutdown.
 
 ---
 
-## 🏗️ Epic 26: GraphRAG-память — граф знаний поверх SQLite (v2.24.0) — IMPLEMENTED (Шаг 6, @Memory, 2026-08-16)
+## ✅ Epic 26: GraphRAG-память — граф знаний поверх SQLite (v2.24.0) — DEPLOYED (Шаг 8, @Memory, финальная синхронизация 2026-08-16)
 
-> **Статус:** Шаг 1/3 (PM) ✅ → Шаг 2 (@Architect, T-199) ✅ → Шаг 3 (@Memory, DESIGN) ✅ → **Шаг 4–5: @Builder (T-200–T-204) ✅ + @Reviewer дважды PASS ✅ → Шаг 6 (@Memory): IMPLEMENTED.** Код в рабочем дереве, БЕЗ коммита. Впереди T-205: README (ироничный тон) + коммит на русском + пуш + деплой (ssh nik@198.46.175.136, systemctl restart admin_bot). Target v2.24.0.
+> **Статус:** Шаг 1/3 (PM) ✅ → Шаг 2 (@Architect, T-199) ✅ → Шаг 3 (@Memory, DESIGN) ✅ → Шаги 4–5: @Builder (T-200–T-204) ✅ + @Reviewer дважды PASS ✅ → Шаг 6 (@Memory): IMPLEMENTED ✅ → **Шаг 7: @DevOps T-205 (README + коммит `7c7c241` + пуш + деплой) ✅ → Шаг 8 (@Memory): DEPLOYED ✅. ЭПИК 26 ЗАКРЫТ, цикл воркфлоу (0–8) завершён. Прод v2.24.0, PID 926618, 939 тестов.**
 > **Требования R26-1…R26-7, PM-решения D67–D71, задачи T-199…T-205:** `plans/backlog.md` (Epic 26). **Дизайн:** `plans/ARCHITECTURE.md` Section 35 (35.1–35.11).
 
 ### 📐 Дизайн (Section 35, @Architect, 2026-08-16)
@@ -52,7 +53,15 @@
 - **T-203 (T26.4)** @Builder — конфиг GRAPH_* + .env.example ✅ DONE
 - **T-204 (T26.5)** @Builder+@Reviewer — тесты (парсер/upsert/traversal/чат-изоляция/кривой JSON/pipeline graph_facts), полный pytest 939, code review дважды PASS ✅ DONE
 - **T-206 (P1, добавлена на ревью)** @Builder+@Reviewer — FTS-DELETE зеркалит условие вставки (text IS NOT NULL AND text != '') в delete_smart_messages_by_ids/delete_smart_messages_older_than; chat_id-фильтр в FTS-DELETE by_ids; 6 регрессионных тестов ✅ FIXED
-- **T-205 (T26.6)** @Builder+@DevOps — README (ироничный тон) + коммит на русском + пуш + деплой (ssh nik@198.46.175.136, systemctl restart admin_bot) ⏳ PENDING (Шаг 7)
+- **T-205 (T26.6)** @Builder+@DevOps — README (ироничный тон) + коммит на русском + пуш + деплой (ssh nik@198.46.175.136, systemctl restart admin_bot) ✅ DONE (Шаг 7) — коммит `7c7c241` запушен в origin/master, деплой на прод (PID 926618), 939 тестов
+
+### 🚀 Деплой-дайджест (T-205 DONE, @DevOps + @Memory, 2026-08-16)
+
+1. **T-205 ✅:** коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» (README с ироничным тоном + весь код Epic 26) запушен в origin/master (github.com/Henry-Case-dev/adminbot.git).
+2. **Деплой ✅:** прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `c364f18..7c7c241`; в .env добавлены `GRAPH_RAG_ENABLED=True`, `GRAPH_EDGE_WEIGHT_INCREMENT=1`, `GRAPH_TOP_EDGES_LIMIT=5`, `GRAPH_EXTRACT_MAX_TRIPLETS=50` (бэкап `.env.bak.epic26`); systemctl restart admin_bot → active (running), **Main PID 926618**; таблицы nodes/edges созданы в продовой БД; 0 traceback после рестарта.
+3. **Тесты:** 939 passed (860 baseline + 73 Epic 26 + 6 T-206). T-206 (P1, FTS-удаление медиа без подписи) исправлен в этом же релизе.
+4. **Известный не-блокер (pre-existing):** бот не отвечает на SIGTERM (~95с рестарт) — рекомендуется отдельный тикет graceful shutdown.
+5. **Вся цепочка воркфлоу (0–8) завершена. Epic 26 CLOSED.**
 
 ### ⚠️ Предупреждения для @Builder
 
@@ -647,24 +656,26 @@ common_router (pos 4c): НИКОГДА не получает события
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.23.0-fix (Epic 25 DEPLOYED) |
-| **Текущий коммит** | `c364f18` (fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25)) + docs `2a45f79`; прод HEAD после pull ff `a68732c..c364f18` |
+| **Версия в проде** | v2.24.0 (Epic 26 GraphRAG DEPLOYED) |
+| **Текущий коммит** | `7c7c241` (feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)); прод HEAD после pull ff `c364f18..7c7c241` |
 | **Дата** | 2026-08-16 |
 | **Сервер** | 198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), PID 923954, логи чистые (Database initialized, «sqlite-vec loaded (dim=768)», cron 0,6,12,18, «SmartModule Summary initialized», 14 роутеров, ImportError 0) |
-| **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно (818e195..c364f18 + docs 2a45f79), локальный HEAD = origin/master |
-| **Тесты** | 860 PASS локально (835 + 25 Epic 25, прогон 7.43s перед коммитом) |
-| **Эпики** | 1-25 ALL DEPLOYED ✅ |
+| **Статус** | systemctl status adminbot → active (running), PID 926618, 0 traceback после рестарта; таблицы nodes/edges созданы в продовой БД |
+| **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно (`c364f18..7c7c241`), локальный HEAD = origin/master |
+| **Тесты** | 939 PASS (860 baseline + 73 Epic 26 + 6 T-206) |
+| **Эпики** | 1-26 ALL DEPLOYED ✅ |
 | **Epic 25** | T-192–T-198 Done & DEPLOYED (860 тестов, коммит `c364f18`, PID 923954). Финальная живая верификация /summary — по логам после теста пользователем |
-| **Epic 26** | GraphRAG-память — **IMPLEMENTED (Шаг 6 @Memory)**, 939 тестов (860+73+6), ревью дважды PASS, T-206 fixed. Код НЕ закоммичен; T-205 (README+коммит+пуш+деплой) впереди; target v2.24.0 |
-| **Задачи** | T-001 – T-198 ALL DEPLOYED ✅ |
-| **.env на проде** | Не менялся при Epic 25 (дефолты подходят); +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (с Epic 24, без дублей); DANGER_WORDS пустой → дефолты; DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
+| **Epic 26** | GraphRAG-память — **DEPLOYED (Шаг 8 @Memory)**, коммит `7c7c241`, v2.24.0, 939 тестов (860+73+6), T-199–T-206 Done, T-206 (P1) fixed в этом же релизе, прод PID 926618, 0 traceback |
+| **Задачи** | T-001 – T-206 ALL DEPLOYED ✅ |
+| **.env на проде** | +GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап `.env.bak.epic26`); +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (с Epic 24); DANGER_WORDS пустой → дефолты; DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
 | **Ошибки** | 0 errors, 0 трейсбеков, ImportError 0. Все сервисы инициализированы корректно. |
-| **Backlog-кандидаты (pre-existing)** | (а) L3 dimension mismatch: эмбеддинги 3072 dim vs БД 768 → vector search failed → FTS5 fallback (штатная деградация, cron-саммари успешен); (б) stop-timeout systemd при рестарте (~90с → SIGKILL, сервис поднимается корректно) |
+| **Backlog-кандидаты (pre-existing)** | (а) L3 dimension mismatch: эмбеддинги 3072 dim vs БД 768 → vector search failed → FTS5 fallback (штатная деградация, cron-саммари успешен); (б) stop-timeout systemd при рестарте (~90-95с → SIGKILL, сервис поднимается корректно); (в) **SIGTERM graceful shutdown** — бот не отвечает на SIGTERM, рекомендуется отдельный тикет |
 | **Ручные действия** | Живой тест `/summary` в чате (верификация цепочки по логам); Н1: BotFather `/setprivacy` → Disable (критично); при WARNING удаления — выдать боту админ-права `delete_messages` |
 
 ---
+
+*Обновление: 2026-08-16 — EPIC 26 (GraphRAG-память, v2.24.0): DEPLOYED ✅ (Шаг 8, @Memory — ФИНАЛЬНАЯ синхронизация, весь цикл воркфлоу 0–8 закрыт). @DevOps: T-205 DONE — коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» (README с ироничным тоном + весь код Epic 26) запушен в origin/master (github.com/Henry-Case-dev/adminbot.git); деплой на прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `c364f18..7c7c241`; в .env добавлены GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап .env.bak.epic26); systemctl restart admin_bot → active (running), Main PID 926618; таблицы nodes/edges созданы в продовой БД; 0 traceback после рестарта. Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206); T-206 (P1, FTS-удаление медиа без подписи) исправлен в этом же релизе. Известный не-блокер (pre-existing): бот не отвечает на SIGTERM (~95с рестарт) — рекомендуется отдельный тикет graceful shutdown. ЭПИК 26 ЗАКРЫТ: T-199–T-206 Done, Epics 1–26 ALL DEPLOYED, прод v2.24.0. Ручные действия пользователя (не через SSH): живой тест /summary; Н1 BotFather /setprivacy → Disable; при WARNING удаления — админ-права delete_messages.*
 
 *Обновление: 2026-08-16 — EPIC 24 (v2.22.0): DEPLOYED ✅ (Шаг 8, @Memory — финальная синхронизация). ВЕСЬ запрос пользователя выполнен. @DevOps: T-190 DONE (835 тестов PASS локально; коммит a68732c «feat(summary): Epic 24 — SmartModule с трехуровневой памятью и саммари чата (v2.22.0)» — 35 файлов, +4495/−28, включая медиа leha_greeting_18-21.mp4 и olya_cringe-03.mp4, проверены; пуш master c093de7..a68732c; docs-коммит 818e195 (синхронизация board.md), пуш ✅; HEAD = origin/master, дерево чистое; .env не коммичен). T-191 DONE (прод 198.46.175.136: git pull ff 756d237..a68732c; prod .env +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE без дублей; venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1; smoke T-191-D ✅ curl apinet.cloud/v1/models → валидный список моделей; restart → active (running) PID 920105; логи: «sqlite-vec loaded (dim=768)», «SmartModule Summary initialized (TZ=Asia/Yekaterinburg)», cron 0,6,12,18, 14 роутеров, трейсбеков нет). Наблюдение: старый процесс v2.21.0 (PID 917681) завис в shutdown ~90с → SIGKILL systemd (поведение старого кода, новый стартует чисто). Открытые ручные действия пользователя (не через SSH): Н1 BotFather /setprivacy → Disable (критично, иначе память L1/L2/L3 пустая); живая проверка /summary в чате. board.md: T-190 ✅ Done, T-191 ✅ Done, Epic 24 ✅ DEPLOYED (v2.22.0).*
 
