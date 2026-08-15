@@ -1,11 +1,11 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.20.0 DEPLOYED (Epic 22, коммит `1dbb6da`)
-> **Дата:** 2026-08-15
-> **Обновление:** 2026-08-16 — зафиксирована политика media/ (см. секцию «Политика media/»); новая chore-задача: коммит + деплой `media/common/danger/danger_drone.mp4` (16-й файл danger-пула).
-> **Статус:** Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — T-163..T-167 (A/B/C/D) завершены, 621 тест PASS, коммит `1dbb6da` запушен, прод обновлён до v2.20.0. Epics 1–22 ALL DEPLOYED ✅.
-> **Текущий коммит:** `1dbb6da` (v2.20.0 deployed) на master, пуш в origin (github.com/Henry-Case-dev/adminbot.git).
-> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 914116 (был 699945), логи чистые (Bot started, listening...).
+> **Версия:** v2.20.0 DEPLOYED (Epic 22, коммит `1dbb6da`) + Chore T-168 DEPLOYED (коммит `0c74220`)
+> **Дата:** 2026-08-16
+> **Обновление:** 2026-08-16 — Chore T-168 DONE & DEPLOYED ✅: `media/common/danger/danger_drone.mp4` (16-й файл danger-пула) закоммичен и задеплоен на прод. HEAD = `0c74220`.
+> **Статус:** Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — T-163..T-167 (A/B/C/D) завершены, 621 тест PASS. Epics 1–22 ALL DEPLOYED ✅. Chore T-168 (danger_drone.mp4 в danger-пул) DONE & DEPLOYED ✅.
+> **Текущий коммит:** `0c74220` (v2.20.0 + медиа danger_drone.mp4) на master, пуш в origin (github.com/Henry-Case-dev/adminbot.git).
+> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 916795 (был 914116), логи чистые (Bot started, listening...).
 
 ---
 
@@ -346,7 +346,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **DEPLOYED** | T-001 – T-148 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 20 Epics) ✅ |
 | **DEPLOYED** | Epic 21: T-149 – T-162 (DEPLOYED, commit c683903, 586 tests pass) ✅ |
 | **DEPLOYED** | Epic 22: T-163 – T-167 (DEPLOYED, commit `1dbb6da`, 621 tests pass, прод v2.20.0) ✅ |
-| **IN PROGRESS** | Chore T-168: danger_drone.mp4 в danger-пул (коммит + деплой) — 🚧 спланировано PM 2026-08-16 (backlog.md T-168-A..E + board.md In Progress @Builder), Section 31 ARCHITECTURE.md ✅. Ожидает @Builder. |
+| **DEPLOYED** | Chore T-168: danger_drone.mp4 в danger-пул — DONE & DEPLOYED ✅ (коммит `0c74220`, pull 1dbb6da..0c74220, chmod 644, хэш совпал, пул 16 файлов, PID 916795, smoke OK) |
 
 > Epics 1-22 ALL DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, PID 914116). **Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — реализация (D51–D54) + ревью 3 раунда (APPROVED) + коммит/пуш/деплой (T-167-D).**
 > 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
@@ -359,12 +359,12 @@ common_router (pos 4c): НИКОГДА не получает события
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.20.0 (deployed) |
-| **Текущий коммит** | `1dbb6da` (v2.20.0 deployed, feat(triggers): Epic 22 — точность триггеров и фикс гонки ответов) |
-| **Дата** | 2026-08-15 |
+| **Версия в проде** | v2.20.0 + Chore T-168 (deployed) |
+| **Текущий коммит** | `0c74220` (chore(media): danger_drone.mp4 в danger-пул; прод HEAD после pull 1dbb6da..0c74220) |
+| **Дата** | 2026-08-16 |
 | **Сервер** | 198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), PID 914116 (был 699945), логи чистые (Bot started, listening...) |
+| **Статус** | systemctl status adminbot → active (running), PID 916795 (был 914116), логи чистые (Bot started, listening...) |
 | **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно |
 | **Тесты** | 621 PASS (0 failures, zero regressions) |
 | **Эпики** | 1-22 ALL DEPLOYED ✅ |
@@ -383,3 +383,7 @@ common_router (pos 4c): НИКОГДА не получает события
 *Предыдущий статус (2026-08-03): EPIC 21 STATUS: DEPLOYED ✅. MIMIC propagation fix (D49: return UNHANDLED in alan_handler, 3 code paths). Time-format cooldowns (D50: _parse_duration с 1s/1m/1h/1d, 6 полей переименовано). 586 тестов пасс. All 14 tasks T-149–T-162 COMPLETE + DEPLOYED. Commit c683903, push origin/master.*
 
 *Обновление: 2026-08-16 — CHORE T-168: IN PROGRESS 🚧. PM добавил T-168 в backlog.md (T-168-A..E + AC) и board.md (In Progress, @Builder): chore — коммит + деплой `media/common/danger/danger_drone.mp4` (16-й файл danger-пула). Architect добавил Section 31 в ARCHITECTURE.md (Конвенция media/ + инвентарь пулов). Код не требуется — media_picker подхватывает файл автоматически. Ожидает @Builder: verify → коммит `chore(media): danger_drone.mp4 в danger-пул` (на русском) → push → деплой (git pull на 198.46.175.136) → verify на сервере → smoke test. Соблюдать политику media/: НЕ в .gitignore, НЕ удалять.*
+
+*Обновление: 2026-08-16 — CHORE T-168: A/B DONE ✅, APPROVED ревьюером. Коммит `0c74220` (chore(media): danger_drone.mp4 в danger-пул) сделан и запушен в master. Состав: 1 медиа-файл + 4 plans-файла, кода нет. danger_drone.mp4 закоммичен (blob `918c9be9…`, 2 574 925 байт, ftyp isom/MP4), working tree clean. C/D/E (деплой на сервер / verify на сервере / smoke test) — PENDING. Прод пока на `1dbb6da` (v2.20.0) до деплоя.*
+
+*Обновление: 2026-08-16 — CHORE T-168: DONE & DEPLOYED ✅. Все подзадачи A..E закрыты. Деплой: git pull на сервере fast-forward 1dbb6da..0c74220 (5 файлов: danger_drone.mp4 + 4 plans). danger_drone.mp4 на месте (2 574 925 байт), права 644, хэш 918c9be9... совпал, danger-пул = 16 файлов. systemctl restart OK: active (running), PID 916795, логи чистые. Smoke test пройден. Прод HEAD = 0c74220 (v2.20.0 + медиа).*
