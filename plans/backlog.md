@@ -1371,7 +1371,7 @@
 
 ---
 
-## Chore: danger_drone.mp4 в danger-пул — 2026-08-16 🚧 IN PROGRESS
+## Chore: danger_drone.mp4 в danger-пул — 2026-08-16 ✅ DONE (DEPLOYED)
 
 > **Тип:** chore (медиа, без кода). **Источник:** пользователь (2026-08-16).
 > **Исполнитель:** @Builder (коммит + деплой).
@@ -1385,15 +1385,15 @@
 
 ### T-168 (@Builder) — Медиа: danger_drone.mp4 в danger-пул (коммит + деплой)
 
-- [ ] T-168-A: Verify — файл `media/common/danger/danger_drone.mp4` существует локально (16-й файл пула), не в .gitignore, виден в `git status` (untracked)
-- [ ] T-168-B: Коммит на русском (conventional commits): `chore(media): danger_drone.mp4 в danger-пул` в master + push в origin (github.com/Henry-Case-dev/adminbot.git)
-- [ ] T-168-C: Деплой: SSH → сервер 198.46.175.136:/var/www/admin_bot → git pull (файл появляется в `media/common/danger/`)
-- [ ] T-168-D: Verify на сервере: `media/common/danger/danger_drone.mp4` присутствует, права chmod 644, пул = 16 файлов
-- [ ] T-168-E: Smoke test: danger-слово → случайный ответ из danger-пула (danger_drone.mp4 распознаётся как video через media_picker); другие фичи не сломаны
+- [x] T-168-A: Verify — файл `media/common/danger/danger_drone.mp4` существует локально (16-й файл пула), не в .gitignore, виден в `git status` (untracked)
+- [x] T-168-B: Коммит на русском (conventional commits): `chore(media): danger_drone.mp4 в danger-пул` в master + push в origin (github.com/Henry-Case-dev/adminbot.git) — коммит `0c74220` ✓
+- [x] T-168-C: Деплой: SSH → сервер 198.46.175.136:/var/www/admin_bot → git pull (файл появляется в `media/common/danger/`) — fast-forward 1dbb6da..0c74220 ✓
+- [x] T-168-D: Verify на сервере: `media/common/danger/danger_drone.mp4` присутствует, права chmod 644, пул = 16 файлов — хэш 918c9be9... совпал ✓
+- [x] T-168-E: Smoke test: danger-слово → случайный ответ из danger-пула (danger_drone.mp4 распознаётся как video через media_picker); другие фичи не сломаны ✓
 
 **AC:** файл закоммичен в master, запушен, задеплоен на сервер (git pull), медиа доступно для danger-пула.
 
 ---
 
-**Статус: Epic 22 DONE ✅ DEPLOYED v2.20.0 (коммит `1dbb6da`, пуш в origin, деплой на 198.46.175.136:/var/www/admin_bot, PID 914116). T-163–T-167 (включая T-167-D) выполнены: 621 тестов PASS (586 baseline + 35 новых), 0 регрессий. Все Epics 1–22 DONE/DEPLOYED ✅. Chore T-168 (danger_drone.mp4 в danger-пул) — 🚧 IN PROGRESS: спланировано PM, ожидает @Builder (коммит + деплой).**
-**Date: 2026-08-16 | v2.20.0 (deployed) + chore T-168 in progress**
+**Статус: Epic 22 DONE ✅ DEPLOYED v2.20.0 + Chore T-168 DONE & DEPLOYED ✅ (коммит `0c74220`, прод HEAD после pull 1dbb6da..0c74220, PID 916795). T-163–T-167 (включая T-167-D) выполнены: 621 тестов PASS (586 baseline + 35 новых), 0 регрессий. Все Epics 1–22 DONE/DEPLOYED ✅. Chore T-168 (danger_drone.mp4 в danger-пул) — DONE & DEPLOYED: все подзадачи A..E закрыты, danger-пул = 16 файлов на проде.**
+**Date: 2026-08-16 | v2.20.0 (deployed) + chore T-168 DEPLOYED (коммит `0c74220`)**
