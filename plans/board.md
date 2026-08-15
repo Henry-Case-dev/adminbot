@@ -2,55 +2,50 @@
 
 ## 📋 Backlog
 
-### Epic 24: SmartModule — сервис Summary (v2.22.0) — 2026-08-16 — ✅ DEPLOYED (коммит `a68732c`; ⚠️ Н1 BotFather `/setprivacy` → Disable — ручное действие пользователя)
+### Epic 26: GraphRAG-память — граф знаний поверх SQLite (v2.24.0) — 2026-08-16 — 🆕 IN PROGRESS (реализация ✅, преддеплойный P1-фикс T-206)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect) ✅ → 3 (@Builder ✅ T-174…T-189, @Reviewer ✅ T-188-D APPROVED 2026-08-16, @DevOps ✅ T-190/T-191). Epic 24 ЗАДЕПЛОЕН (v2.22.0). Осталось пользователю: Н1 — BotFather `/setprivacy` → **Disable**.
-> Требования R1–R18, PM-решения D59–D64, системный промпт (дословно) и риски —
-> в `plans/backlog.md` (Epic 24). Дизайн — `plans/ARCHITECTURE.md` Section 33 (T-173, Done).
+> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect T-199/T26.0 — Section 35 + дословный EXTRACT_PROMPT) ✅ APPROVED PM → 3 (@Builder/@Reviewer/@DevOps): T-200…T-204 ✅ (реализовано + ревью), T-206 (P1-фикс) → In Progress, T-205 (деплой) — ПОСЛЕ T-206.
+> Требования R26-1…R26-7, PM-решения D67–D71 (chat_id в nodes/edges + UNIQUE(chat_id, entity_name); per-batch изоляция «граф до удаления сырья»; минимальный набор настроек; нормализация сущностей/отношений; graph_facts=[] default + escape + тег первым) и риски 1–10 — в `plans/backlog.md` (Epic 26).
+> 🚨 **P1 (найдено @Reviewer при ревью T-204, pre-existing с Epic 24 `a68732c`):** медиа-без-подписи нет в `smart_messages_fts` (`if text:` при вставке), но FTS-удаление безусловно → `sqlite3.DatabaseError: database disk image is malformed` в `compress_and_purge`. Фикс — **T-206 (T26.7), чинить ДО деплоя T-205.**
 
-- [x] T-174 (@Builder, P0, ←T-173): Конфигурация — settings.py + .env.example (LLM_*, окна памяти, MAX_SUMMARY_PARTS, ALLOWED_SUMMARY_IDS, алиасы, троттлинг; D59) — **Done: 24 поля + секция SmartModule в .env.example + requirements (httpx/APScheduler/sqlite-vec)**
-- [x] T-175 (@Builder, P0, ←T-173): БД — таблица `smart_messages` + CRUD + миграция (R1) — **Done: _SCHEMA_SQL (smart_messages+author_name, 2×FTS5, smart_archive_facts) + 10 методов**
-- [x] T-176 (@Builder, P0, ←T-175): Память L1+L2 — окно генерации 6ч (один проход) + RAG-сырьё (R2) — **Done: get_window_messages + search_long_term (FTS5-префиксы)**
-- [x] T-177 (@Builder, P1, ←T-175/T-178): Память L3 — sqlite-vec архив: суммаризация по темам/фактам + KNN (R2) — **Done: initialize() с ленивой загрузкой vec0, compress_and_purge пачками, KNN без JOIN (ограничение vec0 0.1.x)**
-- [x] T-178 (@Builder, P0, ←T-173/T-174): LLM-клиент — генерация deepseek-v4-flash + эмбеддинги gemini-embedding-001, провайдер-агностик (R4/R5) — **Done: httpx, retry 429/5xx/timeout с backoff, LLMError-иерархия**
-- [x] T-179 (@Builder, P1, ←T-177/T-178): Фоллбек FTS5 при недоступности sqlite-vec ИЛИ эмбеддингов (R3/D60) — **Done: vector_search → FTS5 при любом сбое; тест деградации зелёный**
-- [x] T-180 (@Builder, P0, ←T-175): XML-контекст `<chat_history><message …/></chat_history>` (R6) — **Done: saxutils + control-символы, описания медиа, капы окна**
-- [x] T-181 (@Builder, P1, ←T-180): Алиасы: каскад alias → nickname → username (без @) → user_id (R7/D61) — **Done: JSON-словарь + кэш; тест «нет @» на всех ветках**
-- [x] T-182 (@Builder, P0, ←T-173): Системный промпт — захардкодить ДОСЛОВНО, `{max_symbols}` плейсхолдер (R11) — **Done: байт-в-байт тест против backlog.md; подстановка через replace (не format — {username} остаётся литералом)**
-- [x] T-183 (@Builder, P0, ←T-178..T-182): APScheduler — 00:00/06:00/12:00/18:00, TZ Asia/Yekaterinburg, MemoryJobStore (R8) — **Done: AsyncIOScheduler + CronTrigger с явным timezone, max_instances=1+coalesce, shutdown идемпотентен**
-- [x] T-184 (@Builder, P0, ←T-183): Ручной триггер `/summary` — ALLOWED_SUMMARY_IDS пуст → всем (R9/D62) — **Done: summary_router 0b + observer 0a (UNHANDLED всегда), интеграция 13 роутеров зелёная**
-- [x] T-185 (@Builder, P1, ←T-184): ThrottlingMiddleware — in-memory, молчаливое прерывание при спаме (R10) — **Done: router-scoped на summary_router, key=chat+user**
-- [x] T-186 (@Builder, P0, ←T-183): Чанкинг ≤4096 по пробелам, `{max_symbols}=(parts*4000)-200`, UX-ошибки (R12/R13/D63) — **Done: + SUMMARY_CHUNK_DELAY между чанками, TelegramRetryAfter→sleep+1 повтор, _ensure_shiz_postfix со стрипом @**
-- [x] T-187 (@Builder, P1, ←T-183): Observability — Better Stack, полные стектрейсы, сырые ответы LLM (R14) — **Done: logger.exception + raw response в INFO**
-- [x] T-188 (@Builder + @Reviewer, P0, ←T-186): Тесты — максимальное покрытие + отсутствие конфликтов с 12 роутерами + полный pytest (R15) + code review (T-188-D) — **DONE: A/B/C @Builder (157 новых тестов, интеграция 13 роутеров) + T-188-D @Reviewer APPROVED 2026-08-16. Ревью: 829 passed подтверждён личным прогоном; вердикт APPROVE WITH FIXES → 2 точечных фикса внесены ревьюером (`await _summary_service.shutdown()` в bot.py on_shutdown — не-awaited coroutine; vec0-purge → документированная форма `rowid IN`) + 1 QA-тест test_vec_purge_removes_vectors → итог 830 passed. Low-замечания (не блокируют, на T-189): экранирование l2/l3-цитат в псевдо-XML, /summary@bot обходит троттлинг, нет жёсткого капа чанков по MAX_SUMMARY_PARTS, SUMMARY_CHUNK_DELAY=2.0 зафиксировать в доках**
-- [x] T-189 (@Builder, P1, ←T-188): README (ироничный тон) + ARCHITECTURE/MEMORY, v2.22.0 (R15) — **Done: README секция SmartModule (фичи/память/деградация/все env-переменные/прод-требования BotFather setprivacy+LLM_API_KEY), changelog v2.22.0, фиксы Low-2 (экранирование <memory>/<facts> через escape_xml_text) и Low-3 (троттлинг /summary@BotName) + 6 тестов, Low-4/Low-5/E9 задокументированы, ARCHITECTURE 33.16 (фактические решения), итог 835 passed**
-- [x] T-190 (@Builder + @DevOps, P0, ←T-189): Коммит на русском (conventional) в master + push; .env не коммитим (R15/R17) — **Done: коммит `a68732c` (35 файлов, v2.22.0), push origin/master OK; .env не коммичен**
-- [x] T-191 (@DevOps, P0, ←T-190): Деплой — ssh nik@198.46.175.136, git pull, nano .env, systemctl restart/status, отчёт (R16) — **Done: git pull `a68732c` (fast-forward), .env +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (без дублей), venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, restart → active (running) PID 920105, curl apinet.cloud OK (список моделей, auth по ключу), лог: sqlite-vec dim=768 + scheduler cron 0,6,12,18 Asia/Yekaterinburg, трейсбеков нет. ⚠️ Н1 (BotFather /setprivacy → Disable) — ручное действие пользователя**
-
-### Epic 25: Багфикс — /summary не реагирует + удаление команды — 2026-08-16 — 🆕 PLANNED
-
-> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect) ✅ (T-192 RCA + T-193 Section 34) → **PM-гейт ✅ APPROVED 2026-08-16** → 3 (@Builder ✅ T-194/T-195 DONE 2026-08-16) → **@Reviewer ✅ T-196 APPROVED 2026-08-16** → **@DevOps ✅ T-197/T-198 DONE 2026-08-16 (коммит `c364f18`, деплой на прод, PID 923954)**. Требования R25-1…R25-4, PM-решения D65/D66 и риски — в `plans/backlog.md` (Epic 25). Дизайн фикса — `plans/ARCHITECTURE.md` Section 34 (T-193, @Architect DONE; T-193-B — PM APPROVED).
-> **Реализация @Builder (T-194/T-195):** B1 ack «ща гляну, подожди» отдельным send_message до пайплайна; B2 `generate_and_send(chat_id, manual=False)` (scheduler без изменений); B3 троттлинг валидирует mention через `data["bot"].me()` (чужая mention не жжёт слот, `base == "/summary"` точное сравнение, guard на пробельный текст, R8-молчание + INFO-лог с remaining); B4 пустое окно → UX (manual) / INFO (cron); B5 lock busy → «уже делаю саммари, подожди» + очередь; B6 `bot` из DI хендлера в `_safe_send` (работает при `_generator is None`); B7 `message.delete()` сразу после ack, try/except → WARNING; B8 INFO-логи всех состояний; B9 наблюдатель не пишет `/summary*` (guard по префиксу, text и caption). Тесты: +25 (860 total), 0 регрессий.
-> **Гипотезы RCA:** H-A нет ack при долгом LLM (~3.5 мин) · H-B пустое окно L1 → молчание · H-C троттлинг 60с глотает повторы · H-D гонка cron/Lock · H-E ALLOWED_SUMMARY_IDS на проде · H-F бесшумный сбой отправки. Исключено: недостижимость хендлера, privacy-блокировка.
-> **RCA-вывод (T-192):** первопричина — асимметрия троттлинг-мидлвари с aiogram Command-фильтром: 18:02:19 `/summary@RofloslavBot` (чужая mention) сжёг слот троттлинга и был корректно отклонён хендлером, 18:02:31 повтор `/summary` — молча сглочен троттлингом (H-C ✅). H-A/H-B/H-D/E/F не реализовались (доказательства: journalctl+smart_messages+aiogram source); закрыты превентивно B1/B4/B5.
-
-- [x] T-192 (@Architect + @DevOps, P0, —): RCA — прод-логи Better Stack/Sentry + journalctl за момент теста, прод .env, статус Н1 + админ-права `delete_messages`, следы cron; отчёт причин по H-A…H-F → feed в T-193/T-194. **Done: первопричина — чужая mention `/summary@RofloslavBot` сожгла слот троттлинга (middleware матчит без валидации mention), повтор `/summary` через 12с молча сглочен (журнал: единственная строка «throttled», «triggered» — ноль; БД: id=68/69; aiogram 3.29.1 validate_mention). H-A/H-B/H-D/E/F не подтвердились (окно 91 msg, бот жив, ALLOWED пуст, cron не совпал). Доказательства в Section 34.2**
-- [x] T-193 (@Architect, P0, ←T-192): Дизайн фикса в ARCHITECTURE.md Section 34 — ack-механика (D66), UX-ответы вместо молчания (H-B/H-C/H-F), best-effort удаление (D65), решения по троттлингу/cron-гонке. **Done: Section 34 (34.1–34.10), решения B1–B9: B1 ack «ща гляну, подожди» отдельным send_message до пайплайна; B2 manual-флаг (cron без ack); B3 симметрия троттлинга с Command-фильтром (чужая mention не жжёт слот, R8-молчание сохранено); B4 пустое окно → UX; B5 lock занят → «уже делаю саммари, подожди» + очередь; B6 страховки UX; B7 delete best-effort сразу после ack (WARNING при отказе, удаляется только команда); B8 логирование состояний; B9 наблюдатель не пишет /summary* в память. Тесты + риски (R8/R9 сохранены, ack отсекается bot.id-фильтром). T-194 READY FOR BUILDER** ✅ **PM-аппрув 2026-08-16: B1–B9 сверены с R25-1…R25-4 + исходным ТЗ (R7/R8). Замечания Builder (не блокируют): (1) B6 — `_safe_send` использует `_generator.bot` → при `_generator is None` UX не доставляется; ввести `bot` в `setup_summary` (обязательно) или принимать `bot` параметром хендлера; (2) B3 — сохранить guard `if text.strip()` из текущего кода (иначе IndexError на пробельном тексте) и сравнение `base == "/summary"` вместо startswith (полная симметрия с Command); (3) backlog синхронизирован: H-C остаётся молчаливой (R8), только INFO-лог. Гейт открыт.**
-- [x] T-194 (@Builder, P0, ←T-193): **READY FOR BUILDER** — Реализация — ack «ща подумаю» до LLM; UX-ответы вместо молчания; удаление команды (best-effort try/except); логирование этапов. **DoD:** /summary отвечает всегда (кроме осознанных случаев); команда удаляется; сбой удаления логируется и не ломает ответ — **Done: B1–B9 реализованы (см. ниже)**
-- [x] T-195 (@Builder, P0, ←T-194): **READY FOR BUILDER** — Тесты — ack до LLM, UX-ветки H-B/H-F, чужая mention не жжёт слот, delete после обработки, delete-ошибка не роняет пайплайн; полный pytest. **DoD:** 835 + новые, 0 регрессий — **Done: +25 новых тестов (860 total), полный прогон зелёный, 0 регрессий**
-- [x] T-196 (@Reviewer, P1, ←T-195): Ревью фикса. **DoD:** аппрув в board.md, R25-1…R25-4 проверены — **Done: APPROVED 2026-08-16. Личный прогон 860 passed (835+25), 0 регрессий. B1–B9 соответствуют Section 34. Первопричина закрыта: чужая mention не жжёт слот и проходит мимо троттлинга; своя/без mention троттлится; `base == "/summary"` точное сравнение (/summaryfoo не матчится); case-insensitive mention; guard на пробельный текст. R8 сохранён (троттлинг молчалив, только INFO+remaining), R9 сохранён (denied без ack/delete/ответа, INFO). B7: delete после ack, try/except → WARNING, удаляется только команда. B6: bot из DI хендлера — работает при `_generator is None`. aiogram 3.29.1 проверен по исходникам venv: "bot" есть в data (middleware + handler-DI), `Bot.me()` кэшируется (`self._me`, нет N+1), `Message.delete()` → DeleteMessage. Low-замечания (не блокируют; на T-198/будущий эпик): (1) мидлварь не смотрит `caption`, а Command-фильтр смотрит (`text or caption`) → команда-капшн обходит троттлинг (pre-existing с Epic 24, сериализуется Lock; требует решения PM/Architect); (2) «ack sent» логируется и при неудачной отправке ack (косметика); (3) `bot.me()` в мидлвари без try/except — сбой первого getMe уронит обработку update (бот жив, errors-handler); (4) `self._last` растёт без TTL (pre-existing). Передача @DevOps (T-197) разрешена.**
-- [x] T-197 (@DevOps, P0, ←T-196): Коммит на русском (conventional) + push. **DoD:** коммит в master, .env не коммичен — **Done: коммит `c364f18` (fix(summary): починить /summary — валидация mention в троттлинге, ack и удаление команды (Epic 25), 11 файлов, +1001/−84), push origin/master OK (`818e195..c364f18`), 860 passed перед коммитом, .env не тронут (в .gitignore)**
-- [x] T-198 (@DevOps, P0, ←T-197): Деплой на прод + верификация /summary живьём через логи. **DoD:** в логах виден полный пайплайн — triggered + ack + отправка + удаление (или WARNING удаления с причиной) — **Done: git pull `a68732c..c364f18` fast-forward (11 файлов) на 198.46.175.136:/var/www/admin_bot; .env не меняли (LLM_API_KEY есть, ALLOWED_SUMMARY_IDS/SUMMARY_ENABLED не заданы → дефолты подходят); systemctl restart → active (running), новый PID 923954; старт чистый (sqlite-vec dim=768, scheduler cron 0,6,12,18 Asia/Yekaterinburg, «SmartModule Summary initialized», «All routers registered», Bot started, 0 ImportError/traceback). Живой тест /summary после рестарта ещё не выполнялся — финальная верификация цепочки triggered → ack → LLM → chunk sent → command deleted по логам после теста пользователем. ⚠️ Наблюдение (pre-existing, не Epic 25): L3-векторный поиск падает с dimension mismatch (768 vs 3072) → FTS5-фоллбек, cron-саммари при этом успешен; при рестарте старый процесс убит SIGKILL после stop-timeout systemd — сервис поднялся корректно**
+- [x] T-199 (T26.0) (@Architect + @PM, P0, —): Проектирование GraphRAG — ARCHITECTURE.md Section 35 (DDL nodes/edges, flow extract→graph→delete в _compress_batch, traversal в SummaryGenerator._run), ДОСЛОВНЫЙ EXTRACT_PROMPT, self-review — **✅ APPROVED PM 2026-08-16 (T26.0-D)**
+- [x] T-200 (T26.1) (@Builder, P0, ←T-199): Миграция схемы — nodes/edges + chat_id + UNIQUE(chat_id, entity_name) + индексы + upsert CRUD (INSERT OR IGNORE / ON CONFLICT weight+1) — **Done**
+- [x] T-201 (T26.2) (@Builder, P0, ←T-200): Entity extraction в архивации — EXTRACT_PROMPT (verbatim), JSON try/except, граф ДО удаления сырья, per-batch isolation (ошибка → пачка остаётся), graceful degradation — **Done**
+- [x] T-202 (T26.3) (@Builder, P0, ←T-200): Graph traversal для /summary — сущности окна L1, SQL weight DESC LIMIT 5, справки «[Историческая справка: …]», тег `<historical_graph_facts>` первым в user-промпте, escape_xml_text, fallback без секции — **Done**
+- [x] T-203 (T26.4) (@Builder, P1, ←T-199): Конфигурация — GRAPH_RAG_ENABLED / GRAPH_EDGE_WEIGHT_INCREMENT / GRAPH_TOP_EDGES_LIMIT / GRAPH_EXTRACT_MAX_TRIPLETS + .env.example — **Done**
+- [x] T-204 (T26.5) (@Builder + @Reviewer, P0, ←T-201/T-202): Тесты — парсер JSON, upsert, traversal, чат-изоляция, кривой JSON → пачка остаётся, пустой граф, дубликаты сущностей, pipeline с graph_facts; полный pytest (860 + новые); @Reviewer code review — **Done; ревью APPROVED, найдена P1 → T-206**
+- [ ] T-206 (T26.7) (@Builder + @Reviewer, **P1, 🚨 БЛОКЕР T-205**): P1-фикс FTS-удаления для медиа без подписи — `delete_smart_messages_by_ids` / `delete_smart_messages_older_than` удаляют из FTS безусловно, но вставка была под `if text:` → `sqlite3.DatabaseError: database disk image is malformed` в `compress_and_purge` (вызов вне try/except). Минимальный фикс: зеркалить условие вставки в обеих DELETE + регрессионные тесты (медиа без подписи → delete не падает; обычный текст → delete работает; FTS-консистентность) — **→ In Progress (срочно)**
+- [ ] T-205 (T26.6) (@Builder + @DevOps, P0, ←T-204, ⛔ ←T-206): README (ироничный тон) + коммит на русском + push + деплой (ssh nik@198.46.175.136, git pull, systemctl restart/status admin_bot) — **деплой только после фикса T-206**
 
 ## 🔧 In Progress
 
-*No items in progress.*
+- 🚧 T-206 (T26.7) (@Builder, P1 — 🚨 БЛОКЕР деплоя T-205) — Epic 26: фикс FTS-удаления для медиа без подписи (`delete_smart_messages_by_ids` / `delete_smart_messages_older_than`, services/database.py). Pre-existing с Epic 24 (`a68732c`), подтверждён @Reviewer при ревью T-204. Минимальный фикс: зеркалировать `if text:` в обеих DELETE; регрессионные тесты: медиа без подписи → delete не падает; обычный текст → delete работает; FTS-консистентность. Чинить до T-205.
 
 ## 🔍 In Review
 
 *No items in review.*
 
 ## ✅ Done
+
+### Epic 26: T-199…T-204 — дизайн + реализация GraphRAG — ✅ (PM 2026-08-16; преддеплойный P1-фикс → T-206)
+
+> **Итог:** T-199 (T26.0) — дизайн `plans/ARCHITECTURE.md` Section 35 (35.1–35.11) **APPROVED PM 2026-08-16 (T26.0-D)**.
+> T-200…T-204 (T26.1…T26.5) — **реализовано @Builder и прошло ревью @Reviewer (T26.5-G APPROVED)**:
+> DDL nodes/edges (chat_id + UNIQUE), extraction в compress_and_purge (D68 per-batch isolation),
+> traversal get_graph_facts (тег `<historical_graph_facts>` первым, escape), настройки GRAPH_* (D69),
+> тесты test_graphrag_database/test_graphrag_memory + полный pytest.
+> ⚠️ @Reviewer подтвердил **P1 pre-existing баг** (Epic 24, `a68732c`): медиа-без-подписи нет в FTS, но FTS-удаление безусловно → malformed DB в compress_and_purge. Выделен **T-206 (T26.7)** — чинить ДО деплоя T-205 (коммита Epic 26 ещё нет — код в рабочем дереве).
+
+- [x] 👤 T-199 (T26.0) (@Architect + @PM, P0) — Архитектурное проектирование GraphRAG + фиксация промпта
+  - [x] T26.0-A: Section 35 (35.1–35.11): DDL nodes/edges, flow extract→graph→delete, traversal, открытые вопросы 1–10
+  - [x] T26.0-B: EXTRACT_PROMPT зафиксирован дословно (35.3 + services/summary_prompts.py)
+  - [x] T26.0-C: Self-review — изоляция от 860 тестов, graceful degradation, LLM-нагрузка
+  - [x] T26.0-D: **APPROVED PM 2026-08-16** — R26-1…R26-7 покрыты, риски 1–10 закрыты (35.9); T26.1…T26.4 → READY FOR BUILDER
+- [x] T-200 (T26.1) (@Builder, P0) — Миграция схемы: nodes/edges + chat_id + UNIQUE + индексы + upsert CRUD (R26-1, D67) — Done
+- [x] T-201 (T26.2) (@Builder, P0) — Entity Extraction в архивации: EXTRACT_PROMPT (verbatim), JSON try/except, граф ДО удаления сырья, per-batch isolation (R26-2, D68) — Done
+- [x] T-202 (T26.3) (@Builder, P0) — Graph traversal для /summary: сущности L1, SQL weight DESC LIMIT 5, справки «[Историческая справка: …]», `<historical_graph_facts>` первым, escape_xml_text, fallback (R26-3, D71) — Done
+- [x] T-203 (T26.4) (@Builder, P1) — Конфигурация GRAPH_* (4 параметра) + .env.example (R26-6, D69) — Done
+- [x] T-204 (T26.5) (@Builder + @Reviewer, P0) — Тесты (парсер JSON, upsert, traversal, чат-изоляция, кривой JSON → пачка остаётся, pipeline с graph_facts) + полный pytest — Done; @Reviewer (T26.5-G) **APPROVED 2026-08-16** — с находкой P1 → T-206
 
 ### Epic 24: T-173 — Архитектурное проектирование SmartModule/Summary — 2026-08-16 — ✅ APPROVED (PM, T-173-E)
 
@@ -82,6 +77,27 @@
 - [x] 👤 T-193 (@Architect + @PM, P0) — Epic 25: Дизайн фикса (2026-08-16)
   - [x] T-193-A: Section 34 (34.1–34.10): ack (D66), best-effort удаление (D65), B1–B9, тест-план 34.8, риски 34.9
   - [x] T-193-B: **APPROVED PM 2026-08-16** — B1–B9 сверены с R25-1…R25-4 и исходным ТЗ R7/R8; 2 замечания Builder (B6 bot-инжекция, B3 strip-guard/точное сравнение); backlog синхронизирован (H-C молчалива)
+
+### Epic 24: T-174…T-191 — реализация и деплой SmartModule — ✅ DEPLOYED (v2.22.0, коммит `a68732c`)
+
+> Перенесено из колонки Backlog при архивации (PM, 2026-08-16). Полный трек — `plans/backlog.md` (Epic 24).
+> ⚠️ Н1 BotFather `/setprivacy` → Disable — ручное действие пользователя.
+
+- [x] T-174..T-189 (@Builder): конфиг (24 поля), БД smart_messages+CRUD, память L1/L2/L3 (sqlite-vec + FTS5-фоллбек), LLM-клиент (httpx, retry 429/5xx), XML-контекст, алиасы, системный промпт (verbatim), APScheduler 00/06/12/18 Asia/Yekaterinburg, /summary, троттлинг, чанкинг, observability — Done (157 новых тестов)
+- [x] T-188-D (@Reviewer): code review SmartModule — APPROVED 2026-08-16 (830 passed после 2 точечных фиксов)
+- [x] T-189 (@Builder): README (ироничный тон) + ARCHITECTURE 33.16 + MEMORY, v2.22.0 — Done (итог 835 passed)
+- [x] T-190 (@Builder + @DevOps): коммит `a68732c` (35 файлов, на русском, conventional) + push origin/master — Done (.env не коммичен)
+- [x] T-191 (@DevOps): деплой — git pull, .env +LLM_*, venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, restart → active (running) PID 920105, smoke apinet.cloud OK — Done
+
+### Epic 25: T-194…T-198 — фикс /summary — ✅ DEPLOYED (v2.23.0-fix, коммит `c364f18`)
+
+> Перенесено из колонки Backlog при архивации (PM, 2026-08-16). Полный трек — `plans/backlog.md` (Epic 25).
+
+- [x] T-194 (@Builder): реализация B1–B9 (ack «ща гляну, подожди», UX-ветки, delete best-effort, логирование этапов) — Done
+- [x] T-195 (@Builder): +25 тестов (860 total), полный прогон зелёный, 0 регрессий — Done
+- [x] T-196 (@Reviewer): APPROVED 2026-08-16 (личный прогон 860 passed; 4 Low-замечания не блокируют — на будущий эпик)
+- [x] T-197 (@DevOps): коммит `c364f18` (11 файлов, +1001/−84) + push origin/master — Done (860 passed перед коммитом, .env не тронут)
+- [x] T-198 (@DevOps): деплой fast-forward `a68732c..c364f18`, restart → active (running) PID 923954, старт чистый — Done. ⚠️ Pre-existing: L3 dimension mismatch (768 vs 3072) → FTS5-фоллбек; stop-timeout systemd при рестарте. Живой тест /summary — после теста пользователем
 
 ### Epic 23: Точная настройка danger-словаря (v2.21.0) — 2026-08-16 — ✅ DEPLOYED (коммит `756d237`)
 
@@ -436,4 +452,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — **Epics 1-25 ALL DEPLOYED ✅**. Epic 24 «SmartModule: Summary» (v2.22.0, коммит `a68732c`): @Builder T-174…T-189 ✅, @Reviewer T-188-D APPROVED ✅, @DevOps T-190/T-191 ✅ (деплой, PID 920105). Н1 (BotFather `/setprivacy` → Disable) — ручное действие пользователя (невыполнимо через SSH). **Epic 25 (багфикс /summary): RCA (чужая mention сожгла слот троттлинга) → Section 34 (B1–B9) → @Builder T-194/T-195 ✅ → @Reviewer T-196 APPROVED ✅ → @DevOps ✅ T-197 (коммит `c364f18`, push OK, 860 passed, .env не коммичен) / T-198 (деплой fast-forward `a68732c..c364f18`, restart → active (running), новый PID 923954, старт чистый). Финальная живая верификация цепочки triggered → ack → chunk sent → command deleted — по логам после теста пользователем (/summary в чате).**
+**Updated:** 2026-08-16 — **Epics 1-25 ALL DEPLOYED ✅ и архивированы в колонке Done (PM)**. Epic 24 «SmartModule: Summary» (v2.22.0, `a68732c`, PID 920105) и Epic 25 (багфикс /summary, v2.23.0-fix, `c364f18`, PID 923954) перенесены из Backlog в Done при архивации. **Epic 26 «GraphRAG-память» — IN PROGRESS:** дизайн T-199 (Section 35) APPROVED PM; T-200…T-204 реализованы и прошли ревью @Reviewer (перенесены в Done); 🚨 **T-206 (T26.7, P1)** — преддеплойный фикс FTS-удаления медиа-без-подписи (In Progress, блокер); **T-205 (T26.6, деплой)** — выполняется только после фикса T-206. Полный трек — `plans/backlog.md` (Epic 26).

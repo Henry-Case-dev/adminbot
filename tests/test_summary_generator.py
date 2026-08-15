@@ -25,9 +25,10 @@ def no_sleep(monkeypatch):
 
 
 class FakeMemory:
-    def __init__(self, rows=None, error=None):
+    def __init__(self, rows=None, error=None, graph_facts=None):
         self.rows = rows if rows is not None else []
         self.error = error
+        self.graph_facts = graph_facts if graph_facts is not None else []
         self.events = []
 
     async def compress_and_purge(self, chat_id):
@@ -48,6 +49,11 @@ class FakeMemory:
     async def vector_search(self, chat_id, query, limit):
         self.events.append("l3")
         return []
+
+    async def get_graph_facts(self, chat_id, rows, keywords):
+        if self.error == "graph":
+            raise sqlite3.OperationalError("граф упал")
+        return self.graph_facts
 
 
 class FakeLLM:
@@ -294,6 +300,74 @@ class TestComposeUserContent:
         assert "\x1f" not in result
         assert "цитатас хвостом" in result
         assert "фактконец" in result
+
+
+class TestComposeGraphFacts:
+    """Epic 26 (R26-3/D71/Q8): <historical_graph_facts> — ПЕРВОЙ секцией, до <chat_history>."""
+
+    def test_default_arg_output_unchanged(self):
+        """D71: default [] → вывод байт-в-байт прежний (регрессия)."""
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>", ["кто-то: цитата"], ["факт"]
+        )
+        assert result == "<chat_history/>\n\n<memory>\nкто-то: цитата\n</memory>\n\n<facts>\nфакт\n</facts>"
+
+    def test_graph_section_first(self):
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>", [], [], ["[Историческая справка: вася (спорил с) петя]"]
+        )
+        assert result.startswith("<historical_graph_facts>")
+        assert result.index("<historical_graph_facts>") < result.index("<chat_history/")
+
+    def test_graph_facts_escaped(self):
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>",
+            [],
+            [],
+            ["[Историческая справка: a < b & c > d (р) e]"],
+        )
+        assert "a &lt; b &amp; c &gt; d" in result
+        assert "< b" not in result
+
+    def test_graph_facts_control_chars_stripped(self):
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>", [], [], ["[Историческая справка: a\x00b (р) c]"]
+        )
+        assert "\x00" not in result
+
+    def test_empty_graph_facts_no_section(self):
+        result = SummaryGenerator._compose_user_content("<chat_history/>", [], [], [])
+        assert "<historical_graph_facts>" not in result
+
+
+class TestPipelineGraphFacts:
+    @pytest.mark.asyncio
+    async def test_run_includes_graph_facts_in_user_prompt(self, no_sleep):
+        memory = FakeMemory(
+            rows=[_row()],
+            graph_facts=["[Историческая справка: вася (спорил с) петя]"],
+        )
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        user = llm.messages[1]["content"]
+        assert user.startswith("<historical_graph_facts>")
+        assert "Историческая справка" in user
+        bot.send_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_graph_facts_error_still_sends_summary(self, no_sleep):
+        """get_graph_facts бросает → саммари всё равно отправлено без секции."""
+        memory = FakeMemory(rows=[_row()], error="graph")
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        user = llm.messages[1]["content"]
+        assert "<historical_graph_facts>" not in user
+        assert "<chat_history>" in user
+        bot.send_message.assert_called_once()
 
 
 class TestExtractKeywords:

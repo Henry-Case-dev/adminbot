@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.22.0 (текущий дизайн: Epic 24)
+> **Версия:** v2.23.0-fix (прод) / целевой дизайн: v2.24.0 (Epic 26)
 > **Дата:** 2026-08-16
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён).
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — DESIGN (T-199, @Architect) — ждёт PM-аппрув.
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -23,6 +23,8 @@
 11. [Section 31: Конвенция media/](#31-конвенция-media-2026-08-16) — Политика media/ + инвентарь медиа-пулов (2026-08-16)
 12. [Section 32: Epic 23](#32-epic-23--точная-настройка-danger-словаря-v2210) — Точная настройка danger-словаря (v2.21.0, НОВОЕ)
 13. [Section 33: Epic 24](#33-epic-24--smartmodule-summary-v2220) — SmartModule: Summary (v2.22.0, НОВОЕ — трёхуровневая память, LLM, APScheduler)
+14. [Section 34: Epic 25](#34-epic-25--багфикс-summary-не-реагирует--удаление-команды-v2230) — Багфикс «/summary не реагирует» + удаление команды (v2.23.0)
+15. [Section 35: Epic 26](#35-epic-26--graphrag-граф-знаний-поверх-sqlite-v2240) — GraphRAG: граф знаний поверх SQLite (v2.24.0, НОВОЕ)
 
 ---
 
@@ -3966,3 +3968,322 @@ if command_text and command_text.lstrip().startswith("/summary"):
 ---
 
 @Orchestrator Epic 24 (T-173) architecture ready — Section 33 design complete, self-review passed (T-173-D). RESEARCH.md verified (T-173-F: context7/duckduckgo недоступны в среде, рабочий стек exa+webfetch — зафиксировано). T-173 ждёт PM-аппрув (T-173-E); T-174 Ready for Builder.
+
+---
+
+## 35. Epic 26 — GraphRAG: граф знаний поверх SQLite (v2.24.0)
+
+> **Дата:** 2026-08-16
+> **Статус:** DESIGN (T-199/T26.0, @Architect) — ждёт PM-аппрув (T26.0-D); после аппрува T26.1…T26.4 → READY FOR BUILDER.
+> **Цель:** легковесный GraphRAG поверх существующей SQLite-памяти SmartModule: таблицы `nodes`/`edges` (chat-изолированные), entity extraction через LLM при архивации (ЗАХАРДКОЖЕННЫЙ промпт), гибридный поиск для /summary — справки «[Историческая справка: …]» в теге `<historical_graph_facts>` в САМОМ НАЧАЛЕ пользовательского промпта.
+> **Требования R26-1…R26-7, PM-решения D67–D71:** `plans/backlog.md` Epic 26 (зафиксированы PM 2026-08-16). Все ответы на открытые вопросы 1–10 — в 35.9.
+
+### 35.1 Цели и границы (v1 scope)
+
+| Входит в v1 | Не входит в v1 (осознанно) |
+|---|---|
+| Таблицы `nodes`/`edges` в общей `local_database.db` (`_SCHEMA_SQL`) | Отдельный граф-файл БД / графовая СУБД |
+| Extraction при архивации: LLM (`deepseek-v4-flash` через существующий `LLMClient`), ровно 1 доп. вызов на пачку | Слияние COMPRESS_PROMPT и EXTRACT_PROMPT в один вызов (COMPRESS_PROMPT — дословно заморожен, R11) |
+| Детерминированный graph-поиск для /summary (БЕЗ доп. LLM-вызова) | Доп. LLM-вызов для сущностей окна (Q3) |
+| Нормализация lower/strip; дедупликация UNIQUE + weight-инкремент | Словарь синонимов предикатов (Q2), event-узлы (Q1) |
+| Накопительный weight без удаления рёбер | Retention/prune графа (Q6) |
+| `PRAGMA foreign_keys` — НЕ трогаем (Q4) | Alembic / ALTER TABLE (таблицы новые, CREATE IF NOT EXISTS) |
+
+### 35.2 Схема БД — точный DDL (в `_SCHEMA_SQL`, services/database.py)
+
+Добавить в конец `DatabaseService._SCHEMA_SQL` (после smart-секции; старые БД получают таблицы при рестарте — паттерн 33.3):
+
+```sql
+-- ── GraphRAG: граф знаний (Epic 26) ──────────────────
+CREATE TABLE IF NOT EXISTS nodes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id     INTEGER NOT NULL,
+    entity_name TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('user', 'topic', 'event')),
+    UNIQUE (chat_id, entity_name)
+);
+CREATE INDEX IF NOT EXISTS idx_nodes_chat_type ON nodes(chat_id, entity_type);
+
+CREATE TABLE IF NOT EXISTS edges (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id       INTEGER NOT NULL,
+    source_id     INTEGER NOT NULL REFERENCES nodes(id),
+    target_id     INTEGER NOT NULL REFERENCES nodes(id),
+    relation_type TEXT NOT NULL,
+    weight        INTEGER NOT NULL DEFAULT 1,
+    last_updated  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (source_id, target_id, relation_type)
+);
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
+CREATE INDEX IF NOT EXISTS idx_edges_chat_weight ON edges(chat_id, weight);
+```
+
+Обоснования:
+- **chat_id в ОБЕИХ таблицах** (D67): бот работает с несколькими чатами; `UNIQUE(chat_id, entity_name)` — один и тот же человек в разных чатах = разные узлы, графы между чатами не смешиваются. `edges.chat_id` денормализован для дешёвых per-chat выборок (индекс `idx_edges_chat_weight`) и belt-and-suspenders изоляции.
+- **UNIQUE-стратегия upsert:** узлы — `INSERT OR IGNORE` по `(chat_id, entity_name)`; рёбра — `INSERT … ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET weight = weight + excluded.weight, last_updated = CURRENT_TIMESTAMP` (D70; инкремент = `GRAPH_EDGE_WEIGHT_INCREMENT`, по умолчанию 1).
+- **CHECK включает 'event'** (буквально R26-1), но парсер v1 принимает только 'user'/'topic' (Q1): DDL форвард-совместим без пересоздания таблицы (в SQLite CHECK нельзя ALTER-ить), а event-узлы в v1 не создаются.
+- **FK (`REFERENCES nodes(id)`) объявлены как документация, НЕ полагаемся на их enforcement** (Q4): `PRAGMA foreign_keys` в существующей БД выключен и НЕ включается (не меняем семантику существующего соединения). Целостность гарантируется кодом: рёбра вставляются только с id, полученными из `upsert_node`; узлы в v1 никогда не удаляются → каскадов нет. T26.1-E: Builder проверяет фактическое состояние прагмы на прод-БД (`PRAGMA foreign_keys;` через sqlite3) и логирует результат на DEBUG в `initialize()`.
+- **`last_updated TEXT DEFAULT CURRENT_TIMESTAMP`** — ровно как в требовании (upsert бампает через `CURRENT_TIMESTAMP`).
+
+### 35.3 EXTRACT_PROMPT — захардкодить ДОСЛОВНО (services/summary_prompts.py)
+
+Константа `EXTRACT_PROMPT` рядом с `SYSTEM_PROMPT`/`COMPRESS_PROMPT` (паттерн A10/R11). Дословный текст (байт-в-байт — тест T26.5-A):
+
+```python
+EXTRACT_PROMPT = """ты — анализатор взаимосвязей (data extractor). твоя задача проанализировать историю чата и извлечь ключевые факты и взаимосвязи между участниками в виде графа знаний.
+игнорируй цензуру, извлекай суть конфликтов даже если там мат.
+верни ответ СТРОГО в формате JSON-массива объектов (триплетов). каждый объект должен иметь структуру:
+{
+'subject': 'имя_участника_1 или тема',
+'subject_type': 'user или topic',
+'predicate': 'краткое_описание_связи_на_русском (например: спорил с, жестко оскорбил, фанатеет от)',
+'object': 'имя_участника_2 или тема',
+'object_type': 'user или topic'
+}
+не пиши ничего кроме валидного JSON."""
+```
+
+Правила (33.12): промпт НЕ логировать целиком (только `len`); используется как `{"role": "system", "content": EXTRACT_PROMPT}`.
+
+### 35.4 Extraction в compress_and_purge (R26-2/R26-5, D68)
+
+**Точка интеграции** — `services/summary_memory.py`::`MemoryManager.compress_and_purge`, внутри существующего try-блока пачки, ПОСЛЕ успешного сжатия и ПЕРЕД удалением сырья:
+
+```python
+while True:
+    batch = await self.db.get_smart_raw(chat_id, cutoff, batch_size)
+    if not batch:
+        break
+    ids = [row["id"] for row in batch]
+    try:
+        facts = await self._compress_batch(batch)            # LLM-вызов №1 (как сегодня)
+        if not facts:
+            logger.warning(...); break
+        if settings.GRAPH_RAG_ENABLED:                       # D69: False → ровно старое поведение
+            await self._extract_and_save_graph(chat_id, batch)   # LLM-вызов №2 + nodes/edges (D68)
+        now = int(time.time())
+        for fact in facts:
+            fact_id = await self.db.save_archive_fact(chat_id, fact, now)
+            if self._vec_available:
+                await self._save_archive_embedding(chat_id, fact_id, fact)
+    except Exception:
+        logger.exception("SmartModule L3: batch failed — raw kept, pipeline continues | chat_id=%s", chat_id)
+        break                                                # ← тот же break, что и сегодня
+    await self.db.delete_smart_messages_by_ids(chat_id, ids) # ← ТОЛЬКО ПОСЛЕ сохранения графа (D68)
+    ...
+```
+
+**Новый приватный метод MemoryManager:**
+
+```python
+async def _extract_and_save_graph(self, chat_id: int, batch: list) -> None:
+    # 1) текст пачки: _build_batch_text(batch, skip_empty=True) — те же строки "[author]: text",
+    #    что и в _compress_batch (DRY); медиа без подписи (пустой text) — исключаются;
+    #    хвост: text[-_GRAPH_EXTRACT_MAX_CHARS:] (последние 8000 символов пачки — самые свежие)
+    # 2) raw = await self.llm.generate([{"role": "system", "content": EXTRACT_PROMPT},
+    #                                   {"role": "user", "content": text_tail}])
+    # 3) triplets = parse_triplets(raw)      # чистая модульная функция, см. ниже
+    # 4) для каждого триплета (≤ GRAPH_EXTRACT_MAX_TRIPLETS):
+    #    sid = await self.db.upsert_node(chat_id, norm(subject), subject_type)
+    #    oid = await self.db.upsert_node(chat_id, norm(object), object_type)
+    #    await self.db.upsert_edge(sid, oid, norm(predicate),
+    #                              weight_increment=settings.GRAPH_EDGE_WEIGHT_INCREMENT)
+    # 5) INFO: "graph: triplets=%d | chat_id=%s"
+    # Любое исключение (LLM/парсинг/БД) прокидывается наружу →
+    # существующий except в compress_and_purge: logger.exception + break → пачка остаётся (D68).
+```
+
+**Парсер `parse_triplets(raw: str) -> list[dict]`** — чистая модульная функция в `summary_memory.py` (тестируется изолированно):
+
+- Вход: сырой ответ LLM. Попытки: (a) `json.loads(raw)`; (b) если упал — снять ```json / ```-обёртки по краям и повторить один раз. Допустимые формы ответа: JSON-массив ИЛИ JSON-объект с единственным полем-списком (напр. `{"triplets": [...]}`) — снисходительность к LLM, зафиксирована как поведение и покрыта тестом (`TestParseTriplets.test_object_with_list_field_accepted`). Всё ещё не валидно ИЛИ результат не список → **`GraphExtractionError`** (новый exception-класс в `summary_memory.py`) → пачка остаётся (D68, T26.5-D).
+- Валидный список: каждый элемент обрабатывается по отдельности; битый элемент (не dict / нет ключей / пустая строка / тип не ∈ {'user','topic'} / subject==object после нормализации / длина > капов) — **пропускается** с агрегированным WARNING-счётчиком, остальные триплеты сохраняются. Структурно валидный JSON с нулём годных триплетов (включая `[]`) — НЕ ошибка: пачка удаляется (защита от вечного застревания пачки на мусорном, но валидном JSON).
+- Валидация: `subject/predicate/object` — непустые str после strip; `subject_type/object_type` ∈ {'user','topic'} (Q1); капы: имя ≤ `_GRAPH_MAX_NAME_CHARS` (100), предикат ≤ `_GRAPH_MAX_RELATION_CHARS` (200); результат усекается до `GRAPH_EXTRACT_MAX_TRIPLETS`.
+- **Нормализация (D70):** `_normalize_name(s) = s.strip().lower()` + схлопывание повторных пробелов — применяется к `subject`/`object`/`predicate` ПЕРЕД upsert; те же правила применяются к кандидатам окна в 35.5 (иначе матчинг разъедется).
+
+**Атомарность (что и почему):**
+- Каждый DML-метод DatabaseService — свой неявный транзакционный блок с commit (паттерн проекта): `upsert_edge` — ОДИН statement (`INSERT … ON CONFLICT DO UPDATE`) → атомарен; `upsert_node` — `INSERT OR IGNORE` + `SELECT id` (два statement, один commit) — безопасно: одно соединение (aiosqlite, один event loop), запись в граф идёт только из compress под generator-lock, `INSERT OR IGNORE` идемпотентен, `SELECT` в любом случае вернёт существующую строку.
+- Инвариант «граф сохранён ДО удаления сырья» (D68) обеспечивается ПОРЯДКОМ вызовов, не одной SQL-транзакцией — как и сегодня для фактов L3. Сбой между «граф сохранён» и «сырьё удалено» → пачка переобработается в следующий прогон → повторный weight-инкремент тех же триплетов. **Принято** (прецедент: факты L3 в этом же окне тоже дублируются — 33.16); вероятность низкая.
+
+**Ошибки:** LLMError / GraphExtractionError / sqlite-ошибки — единый путь: существующий `except Exception` + `logger.exception` + `break` (пачка не удалена, цикл завершается как при сегодняшней LLM-ошибке; следующий прогон повторит). Примиривание с формулировкой D68 «продолжает следующие пачки»: в пределах одного чата цикл обязан остановиться (иначе бесконечный повтор той же пачки) — «pipeline жив» трактуется как «архивация других чатов и следующие прогоны не затронуты». `GRAPH_RAG_ENABLED=False` → вызов целиком пропускается (D69).
+
+### 35.5 Graph traversal для /summary (R26-3, D71)
+
+**Сущности окна L1 — детерминированно, БЕЗ доп. LLM-вызова (Q3):**
+- user-кандидаты: `author_name` всех строк окна (каскад алиасов уже применён при сохранении, A8), нормализованные `_normalize_name`.
+- topic-кандидаты: **топ-2** из уже вычисленных `SummaryGenerator._extract_keywords(rows)` — существующий keyword-механизм (никаких новых вызовов).
+
+**Новый публичный метод MemoryManager (никогда не бросает):**
+
+```python
+async def get_graph_facts(self, chat_id: int, rows: list, keywords: list[str]) -> list[str]:
+    """R26-3: детерминированный graph-поиск по сущностям окна L1 → строки справок."""
+    if not settings.GRAPH_RAG_ENABLED:
+        return []
+    try:
+        user_names = [norm(r["author_name"]) for r in rows if (r["author_name"] or "").strip()]
+        topic_kws = [kw.lower() for kw in keywords[:2]]
+        entity_ids = await self.db.match_nodes(chat_id, user_names, topic_kws)
+        if entity_ids:
+            edges = await self.db.get_top_edges(chat_id, entity_ids, settings.GRAPH_TOP_EDGES_LIMIT)
+            if not edges:                       # сущности есть, но рёбер у них нет
+                edges = await self.db.get_top_edges_all(chat_id, settings.GRAPH_TOP_EDGES_LIMIT)
+        else:                                   # окно не сматчилось ни с одним узлом (холодный граф)
+            edges = await self.db.get_top_edges_all(chat_id, settings.GRAPH_TOP_EDGES_LIMIT)
+        facts = [self._format_graph_fact(e) for e in edges]
+        logger.info("SmartModule graph: facts=%d | chat_id=%s", len(facts), chat_id)
+        return facts
+    except Exception:
+        logger.warning("SmartModule graph: lookup failed — summary without graph section | chat_id=%s",
+                       chat_id, exc_info=True)
+        return []
+```
+
+Фоллбек «entity-scoped → пусто → chat-wide top» даёт контекст на холодном графе; НЕ смешиваем два результата (справки релевантнее, когда все про сущности окна).
+
+**Методы DatabaseService (точные SQL):**
+
+```python
+async def match_nodes(self, chat_id: int, user_names: list[str], topic_keywords: list[str]) -> list[int]:
+    # user_names (нормализованные, без дублей/пустых) → IN (?,…)
+    # topic_keywords → LIKE '%kw%' (substring; токены из _KEYWORD_RE безопасны — без % _)
+    # SELECT id FROM nodes WHERE chat_id = ?
+    #   AND ((entity_type = 'user' AND entity_name IN (...))
+    #        OR (entity_type = 'topic' AND (entity_name LIKE ? OR ...)))
+    # оба списка пусты → вернуть [] без SQL
+
+async def get_top_edges(self, chat_id: int, entity_ids: list[int], limit: int) -> list:
+    # SELECT e.id, e.chat_id, e.source_id, e.target_id, e.relation_type, e.weight, e.last_updated,
+    #        s.entity_name AS source_name, s.entity_type AS source_type,
+    #        t.entity_name AS target_name, t.entity_type AS target_type
+    # FROM edges e
+    # JOIN nodes s ON s.id = e.source_id
+    # JOIN nodes t ON t.id = e.target_id
+    # WHERE e.chat_id = ? AND (e.source_id IN (…) OR e.target_id IN (…))
+    # ORDER BY e.weight DESC, e.last_updated DESC, e.id DESC
+    # LIMIT ?
+
+async def get_top_edges_all(self, chat_id: int, limit: int) -> list:
+    # то же без условия на entity_ids
+```
+
+**Формат справки (`_format_graph_fact(row) -> str`):** ровно одна строка на ребро —
+`[Историческая справка: {source_name} ({relation_type}) {target_name}]` (для topic-сущностей форма та же: «тема Х (связана с) тема Y»). Предикат — как его сформулировал LLM (нормализованный регистр, Q2); имя — `entity_name` узла.
+
+**Сборка пользовательского промпта (Q8, D71)** — `services/summary_generator.py`:
+
+```python
+@staticmethod
+def _compose_user_content(
+    xml_context: str,
+    l2_quotes: list[str],
+    l3_facts: list[str],
+    graph_facts: list[str] = [],          # D71: default [] — существующие вызовы/тесты не меняются
+) -> str:
+    parts = []
+    if graph_facts:                        # Q8: секция ПЕРВАЯ, до <chat_history>
+        escaped = [escape_xml_text(line) for line in graph_facts]
+        parts.append("<historical_graph_facts>\n" + "\n".join(escaped) + "\n</historical_graph_facts>")
+    parts.append(xml_context)
+    ...                                     # <memory>/<facts> — как сегодня
+```
+
+В `SummaryGenerator._run` — ровно одна вставка, после l3 и перед compose:
+
+```python
+graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)   # never raises
+user_content = self._compose_user_content(xml_context, l2_quotes, l3_facts, graph_facts)
+```
+
+`get_graph_facts` никогда не бросает → новых UX-веток не появляется; `SYSTEM_PROMPT` не трогаем; `escape_xml_text` (из `summary_xml.py`) — тот же экранировщик, что у `<memory>`/`<facts>` (Low-2).
+
+### 35.6 Конфигурация (R26-6, D69)
+
+`config/settings.py` (после SmartModule-секции):
+
+```python
+# ── GraphRAG (Epic 26) ─────────────────────────────────────────
+GRAPH_RAG_ENABLED: bool = _env_bool("GRAPH_RAG_ENABLED", True)
+GRAPH_EDGE_WEIGHT_INCREMENT: int = _env_int("GRAPH_EDGE_WEIGHT_INCREMENT", 1)
+GRAPH_TOP_EDGES_LIMIT: int = _env_int("GRAPH_TOP_EDGES_LIMIT", 5)
+GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
+```
+
+Хардкод-константы в `services/summary_memory.py` (не env — D69 «остальное хардкод»): `_GRAPH_EXTRACT_MAX_CHARS = 8000` (хвост текста пачки), `_GRAPH_MAX_NAME_CHARS = 100`, `_GRAPH_MAX_RELATION_CHARS = 200`.
+
+`.env.example` — секция GraphRAG с теми же комментариями и дефолтами (T26.4-B).
+
+### 35.7 Новые сигнатуры — полный контракт (обратная совместимость, Q7)
+
+| Файл | Изменение |
+|---|---|
+| `services/database.py` | `_SCHEMA_SQL` += DDL 35.2. НОВЫЕ методы: `upsert_node(chat_id, entity_name, entity_type) -> int`; `upsert_edge(source_id, target_id, relation_type, weight_increment: int = 1) -> None`; `match_nodes(chat_id, user_names: list[str], topic_keywords: list[str]) -> list[int]`; `get_top_edges(chat_id, entity_ids: list[int], limit: int) -> list`; `get_top_edges_all(chat_id, limit: int) -> list`. Существующие методы НЕ трогаем. |
+| `services/summary_prompts.py` | НОВАЯ константа `EXTRACT_PROMPT` (35.3, дословно). `SYSTEM_PROMPT`/`COMPRESS_PROMPT` НЕ трогаем. |
+| `services/summary_memory.py` | НОВЫЕ: `parse_triplets(raw) -> list[dict]` (модульная), `GraphExtractionError`, `_normalize_name(s)`, `_build_batch_text(batch, skip_empty=False)` (рефакторинг `_compress_batch` — без изменения его внешнего поведения), `_extract_and_save_graph(chat_id, batch) -> None` (private), `get_graph_facts(chat_id, rows, keywords) -> list[str]` (public, never raises). `compress_and_purge` — сигнатура НЕ меняется (внутри одна вставка 35.4). |
+| `services/summary_generator.py` | `_compose_user_content(..., graph_facts: list[str] = [])` (D71); в `_run` одна вставка `graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)`. Всё остальное без изменений. |
+| `config/settings.py` | +4 поля (35.6). |
+| `.env.example` | секция GraphRAG. |
+
+**НЕ менять:** `llm_client.py`, `summary_xml.py` (используем `escape_xml_text`), `summary_aliases.py`, `summary_scheduler.py`, `summary_throttling.py`, `handlers/summary.py`, `bot.py`, `vec0`-логику (`rowid IN` purge не затронут).
+
+### 35.8 Тест-план (R26-4; 860 существующих не сломать)
+
+**Адаптация существующих фикстур (ассерты НЕ меняются):**
+- `tests/test_summary_memory.py::FakeLLM` — добавить `extract_response: str = "[]"` (canned JSON, Q10) и диспетчеризацию в `generate()`: если `messages[0]["content"] == EXTRACT_PROMPT` → вернуть `extract_response`, иначе `self.facts`. Существующие compress-тесты остаются зелёными (пустой валидный JSON → 0 триплетов → пачка удаляется как раньше); `fail_generate=True` ломается на ПЕРВОМ вызове (compress) — поведение то же.
+- `tests/test_summary_generator.py::FakeMemory` — добавить stub `async def get_graph_facts(self, chat_id, rows, keywords): return []` (иначе существующие пайплайн-тесты упадут в generic-except).
+
+**Новые файлы:**
+
+| Файл | Кейсы |
+|---|---|
+| `tests/test_graphrag_database.py` | DDL создаётся на существующей БД (initialize на готовой smart-БД); `upsert_node` идемпотентен (дубликат не плодит узлы, тот же id; нормализация — на стороне кода); `upsert_edge` weight-инкремент + бамп `last_updated` + UNIQUE-дедуп пары (source,target,relation); `match_nodes` (user exact, topic LIKE, пустые списки → [], чат-изоляция: узел чата А не матчится в чате Б); `get_top_edges` (weight DESC, лимит, entity-scope, ти-брейк), `get_top_edges_all`; пустой граф → [] |
+| `tests/test_graphrag_memory.py` | FakeLLM-паттерн (Q10): валидный JSON-массив → триплеты распарсены, узлы/рёбра в БД (integration через aiosqlite in-memory); ```json```-обёртка → принят; кривой JSON → `GraphExtractionError` → compress_and_purge: пачка НЕ удалена, цикл оборван, pipeline жив (следующий вызов работает); JSON-объект вместо массива → то же; `[]` → 0 триплетов, пачка удалена; битые элементы внутри валидного массива (нет ключей / 'event' / пустые / self-loop) → пропущены, годные сохранены; LLMError на extraction → пачка осталась; `GRAPH_RAG_ENABLED=False` → extraction-вызов не сделан (счётчик), старое поведение; нормализация имён/предикатов (регистр, пробелы); кап `GRAPH_EXTRACT_MAX_TRIPLETS`; `get_graph_facts`: авторы+топ-2 ключа → справки нужного формата; entity-scoped пусто → chat-wide фоллбек; sqlite-ошибка внутри → `[]` без исключения; `GRAPH_RAG_ENABLED=False` → `[]` |
+| `tests/test_summary_generator.py` (доп.) | `_compose_user_content` с default `[]` → вывод байт-в-байт прежний (регрессия); с graph_facts → `<historical_graph_facts>` ПЕРВЫЙ, до `<chat_history>`, строки escaped (`<` `>` `&`); `_run`: fake-memory возвращает справки → попали в user-промпт; `get_graph_facts` бросает → саммари всё равно отправлено без секции |
+| `tests/test_summary_prompts.py` (доп.) | `EXTRACT_PROMPT` байт-в-байт = текст 35.3; `SYSTEM_PROMPT`/`COMPRESS_PROMPT` не изменились (существующие тесты) |
+
+**Итого:** 860 baseline + ~50–60 новых, 0 регрессий (точное число — по факту в T-204/T26.5-F). Coverage новых модулей ≥ 100% (DoD T-204).
+
+### 35.9 Ответы на 10 открытых вопросов PM
+
+| # | Вопрос | Решение @Architect | Обоснование |
+|---|---|---|---|
+| **Q1** | `entity_type 'event'` нужен? | **v1: НЕТ в коде.** Парсер принимает только 'user'/'topic'; триплет с 'event' пропускается (WARNING). DDL-CHECK включает 'event' | Дословный промпт разрешает только user/topic — LLM не должен изобретать event; event-имена — свободный текст → взрыв несвязанных узлов (backlog-риск 1). CHECK с 'event' — форвард-совместимость (SQLite не умеет ALTER CHECK без пересоздания таблицы), R26-1 выполнен буквально |
+| **Q2** | Нормализация `relation_type`, словарь синонимов? | **v1: lower/strip + схлопывание пробелов + дедуп по UNIQUE(source,target,relation); синонимов НЕТ** | Синоним-словарь — открытая NLP-задача, субъективен («оскорбил» vs «жестко оскорбил» — разные интенты; пример пользователя сам использует «жестко оскорбил» как предикат). Точные дубли гасит UNIQUE+weight. Апгрейд без миграции: relation_type — строка, словарь добавляется чистой функцией |
+| **Q3** | Сущности окна L1 для /summary | **ПОДТВЕРЖДЕНО: детерминированно, БЕЗ доп. LLM-вызова.** Авторы окна (author_name) + топ-2 из существующего `_extract_keywords`; матчинг: users — exact (нормализованные), topics — substring LIKE | Латентность /summary уже ~3.5 мин (таймаут 60с × ретраи + compress-батчи); доп. LLM-вызов = стоимость, таймаут и новая точка отказа ради того, что дёшево берётся из уже вычисленных данных. Ключи уже извлекаются для L2-RAG — переиспользование без нового кода |
+| **Q4** | `PRAGMA foreign_keys` | **НЕ включаем, на enforcement НЕ полагаемся.** FK в DDL объявлены как документация; целостность — кодом (рёбра только с id из upsert_node; узлы не удаляются в v1). Builder проверяет фактическое состояние прагмы на проде и логирует DEBUG | Включение прагмы меняет семантику существующего соединения (глобально для всех таблиц) — неоправданный риск для 860 тестов и прода. При отсутствии DELETE по nodes каскады всё равно не нужны |
+| **Q5** | Размер пачки extraction | **Та же пачка (100 сообщений), тот же текст `"[author]: text"` (DRY с `_compress_batch`), хвост ≤ 8000 символов** (`_GRAPH_EXTRACT_MAX_CHARS`, хардкод); строки с пустым text (медиа без подписи) исключаются; триплеты ≤ 50 (`GRAPH_EXTRACT_MAX_TRIPLETS`) | ~8000 символов ≈ 2–4k токенов — безопасно для deepseek-v4-flash; хвост = самые свежие сообщения = самые актуальные связи; отдельная нарезка пачки не нужна |
+| **Q6** | Протухание графа | **v1: рёбра НЕ удаляются, weight накапливается; prune сиротских узлов — НЕТ.** `last_updated` бампается для диагностики | Weight — это «салиентность»; удаление привязало бы граф к retention фактов (90д) и стёрло бы ровно те исторические справки, ради которых фича делается. В схеме нет per-edge времени для затухания. Рост ограничен UNIQUE + капами триплетов (тысячи строк — тривиально для SQLite). Retention-политика графа — отдельная будущая задача |
+| **Q7** | Обратная совместимость | **Подтверждено.** Существующие сигнатуры не меняются: `compress_and_purge`, `search_long_term`, `vector_search`, `_compress_batch` (рефакторинг только внутри), `_compose_user_content` — только новый kw `graph_facts: list[str] = []`. Все новые методы — дополнительные (35.7) | Существующие 860 тестов: правки ТОЛЬКО в двух фикстурах (FakeLLM, FakeMemory — 35.8), ассерты не трогаются |
+| **Q8** | Порядок секций в user-промпте | **Подтверждено: `<historical_graph_facts>` ПЕРВЫМ**, до `<chat_history>`; SYSTEM_PROMPT не трогаем | Требование пользователя «в САМОМ НАЧАЛЕ основного промпта» + R26-3/D71. При пустых graph_facts вывод байт-в-байт прежний |
+| **Q9** | Имена юзеров в графе | **v1: `author_name` из сообщений (как в фактах) + lower/strip нормализация. Каскад алиасов уже применён при сохранении (A8) — повторный резолв НЕ делаем** | Extraction видит только текст «[author]: …» — субъекты LLM естественно совпадают с author_name. Обратный маппинг свободного текста LLM → user_id хрупок (это v2 с AliasResolver-мержем). Нормализация гарантирует совпадение с кандидатами окна (35.5) и дедуп UNIQUE; алиас-имена в справках — как в чате |
+| **Q10** | FakeLLM для тестов | **Паттерн «canned JSON»:** в существующий FakeLLM добавляется `extract_response: str = "[]"` + диспетчеризация по `EXTRACT_PROMPT` в `generate()`; новый `tests/test_graphrag_memory.py` — своя FakeLLM с режимами (валидный/кривой/не-массив/пустой/`fail_extract`) и счётчиками вызовов | Никаких реальных API; существующие compress-тесты зелёные без изменения ассертов (35.8); счётчики доказывают «extraction не вызван при GRAPH_RAG_ENABLED=False» |
+
+### 35.10 Риски
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| R1 | Двойной LLM-вызов на пачку (compress + extract) — рост латентности compress | Принято (требование R26-2); deepseek-v4-flash быстрый; `GRAPH_RAG_ENABLED=False` — аварийный рубильник |
+| R2 | «Застревание» пачки при персистентно кривом JSON extraction | Это ровно сегодняшнее поведение при LLM-ошибке (break, повтор в следующий прогон) + WARNING в лог; валидный JSON с 0 годных триплетов пачку НЕ застревает (35.4) |
+| R3 | Повторный weight-инкремент при сбое между save-graph и delete-raw | Принято (прецедент L3-фактов 33.16); вероятность низкая; задокументировано в 35.4 |
+| R4 | lower()-коллизия разных людей с похожими именами («Slavik»/«slavik») | Принято (D70); в одном чате коллизия маловероятна; правится через алиасы (A8) |
+| R5 | LLM выдаёт субъекты, не совпадающие с author_name (прозвища) | Матчинг в /summary всё равно не теряет контекст: фоллбек chat-wide top (35.5); мерж узлов — v2 |
+| R6 | `get_graph_facts` упадёт на сломанной БД | Внутренний try/except → `[]` → саммари без секции (R26-3/D71), WARNING+exc_info |
+| R7 | Существующие пайплайн-тесты FakeMemory без `get_graph_facts` | Stub-метод добавляется в фикстуру (35.8) — ассерты не меняются |
+| R8 | Рост nodes/edges без ограничения | UNIQUE + `GRAPH_EXTRACT_MAX_TRIPLETS` + капы имён; retention-политика — будущая задача (Q6) |
+| R9 | FK-прагма случайно включена на проде → INSERT ребра упадёт при кривом id | Код всегда берёт id из `upsert_node`; Builder логирует состояние прагмы (T26.1-E); исключение → пачка останется (D68), не коррупция |
+| R10 | Версия/доки | v2.24.0: README (T26.6-A), MEMORY.md, board.md, header ARCHITECTURE.md |
+
+### 35.11 Сводка для Builder (T-200 → T-205) и файлы
+
+1. **T-200 (T26.1)** — `services/database.py`: DDL (35.2) + 5 методов (35.7); проверка/лог PRAGMA foreign_keys (Q4).
+2. **T-201 (T26.2)** — `services/summary_prompts.py` (`EXTRACT_PROMPT` дословно) + `services/summary_memory.py`: `parse_triplets`, `GraphExtractionError`, `_normalize_name`, `_build_batch_text`, `_extract_and_save_graph`, вставка в `compress_and_purge` (35.4).
+3. **T-202 (T26.3)** — `services/summary_memory.py::get_graph_facts` + `services/summary_generator.py`: `graph_facts` в `_run` и `_compose_user_content(..., graph_facts=[])` (35.5).
+4. **T-203 (T26.4)** — `config/settings.py` +4 поля, `.env.example` секция GraphRAG (35.6).
+5. **T-204 (T26.5)** — тесты (35.8) + полный pytest + @Reviewer.
+6. **T-205 (T26.6)** — README (ироничный тон, «теперь бот помнит, кто кого назвал долбоёбом»), коммит `feat(graphrag): …`, деплой, smoke.
+
+**Файлы, которые Builder должен создать/изменить:** изменить — `services/database.py`, `services/summary_memory.py`, `services/summary_generator.py`, `services/summary_prompts.py`, `config/settings.py`, `.env.example`, `tests/test_summary_memory.py` (FakeLLM), `tests/test_summary_generator.py` (FakeMemory + доп. тесты), `tests/test_summary_prompts.py`; создать — `tests/test_graphrag_database.py`, `tests/test_graphrag_memory.py`; доки в T-205 — `README.md`, `plans/board.md`, `plans/backlog.md`, `plans/MEMORY.md`.
+
+---
+
+@Orchestrator Epic 26 (T-199) architecture ready — Section 35 design complete (DDL, extraction D68-flow, traversal D71, EXTRACT_PROMPT verbatim 35.3, все 10 PM-вопросов закрыты в 35.9). Self-review: 860 существующих тестов не ломаются (только 2 фикстуры адаптируются), существующие сигнатуры не меняются, graceful degradation на всех уровнях. T-199 ждёт PM-аппрув (T26.0-D).

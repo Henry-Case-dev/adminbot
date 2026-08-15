@@ -96,7 +96,17 @@ class SummaryGenerator:
             l3_facts = await self.memory.vector_search(
                 chat_id, " ".join(keywords), settings.SUMMARY_RAG_L3_LIMIT
             )
-            user_content = self._compose_user_content(xml_context, l2_quotes, l3_facts)
+            try:
+                graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)
+            except Exception:
+                logger.warning(
+                    "summary: graph facts lookup failed — summary without graph section | chat_id=%s",
+                    chat_id, exc_info=True,
+                )
+                graph_facts = []
+            user_content = self._compose_user_content(
+                xml_context, l2_quotes, l3_facts, graph_facts
+            )
             max_symbols = settings.MAX_SUMMARY_PARTS * 4000 - 200
             # NOTE: {username} must stay literal in the prompt (R11), so we
             # substitute only {max_symbols} via replace, not str.format.
@@ -182,9 +192,18 @@ class SummaryGenerator:
 
     @staticmethod
     def _compose_user_content(
-        xml_context: str, l2_quotes: list[str], l3_facts: list[str]
+        xml_context: str,
+        l2_quotes: list[str],
+        l3_facts: list[str],
+        graph_facts: list[str] = [],
     ) -> str:
-        parts = [xml_context]
+        parts = []
+        if graph_facts:                        # Q8: секция ПЕРВАЯ, до <chat_history>
+            escaped = [escape_xml_text(line) for line in graph_facts]
+            parts.append(
+                "<historical_graph_facts>\n" + "\n".join(escaped) + "\n</historical_graph_facts>"
+            )
+        parts.append(xml_context)
         if l2_quotes:
             escaped = [escape_xml_text(line) for line in l2_quotes]
             parts.append("<memory>\n" + "\n".join(escaped) + "\n</memory>")

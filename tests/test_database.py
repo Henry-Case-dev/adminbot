@@ -235,6 +235,70 @@ class TestSmartModuleDatabase:
         rows = await db.get_smart_raw(-100, 9999, 10)
         assert [r["text"] for r in rows] == ["новое"]
 
+    # ── T-206 (T26.7-C): медиа без подписи и FTS-консистентность удаления ──
+
+    @pytest.mark.asyncio
+    async def test_delete_by_ids_media_without_caption_no_fts_row(self, db):
+        """Медиа без подписи (text=None) нет в FTS → удаление не падает, сырьё удаляется."""
+        media_id = await db.save_smart_message(1, -100, None, None, 100, "photo", "вася")
+        text_id = await db.save_smart_message(2, -100, "подпись", None, 200, "text", "петя")
+        deleted = await db.delete_smart_messages_by_ids(-100, [media_id, text_id])
+        assert deleted == 2
+        assert await db.get_smart_raw(-100, 9999, 10) == []
+
+    @pytest.mark.asyncio
+    async def test_delete_by_ids_media_with_empty_caption(self, db):
+        """Медиа с пустой подписью (text='') нет в FTS → удаление не падает."""
+        media_id = await db.save_smart_message(1, -100, "", None, 100, "photo", "вася")
+        deleted = await db.delete_smart_messages_by_ids(-100, [media_id])
+        assert deleted == 1
+        assert await db.get_smart_raw(-100, 9999, 10) == []
+
+    @pytest.mark.asyncio
+    async def test_delete_older_than_media_without_caption(self, db):
+        """Медиа без подписи под cutoff не ломает FTS-DELETE; текстовые строки целы."""
+        await db.save_smart_message(1, -100, None, None, 100, "photo", "вася")
+        await db.save_smart_message(2, -100, "текст", None, 200, "text", "петя")
+        deleted = await db.delete_smart_messages_older_than(-100, 150)
+        assert deleted == 1
+        rows = await db.get_smart_raw(-100, 9999, 10)
+        assert [r["text"] for r in rows] == ["текст"]
+        assert len(await db.search_messages_fts(-100, '"текст"', 10)) == 1
+
+    @pytest.mark.asyncio
+    async def test_delete_by_ids_removes_fts_rows(self, db):
+        """Обычный текст: FTS-строки удаляются вместе с сырьём."""
+        gone_id = await db.save_smart_message(1, -100, "удалим", None, 100, "text", "а")
+        await db.save_smart_message(2, -100, "останется", None, 200, "text", "б")
+        deleted = await db.delete_smart_messages_by_ids(-100, [gone_id])
+        assert deleted == 1
+        assert await db.search_messages_fts(-100, '"удалим"', 10) == []
+        assert len(await db.search_messages_fts(-100, '"останется"', 10)) == 1
+
+    @pytest.mark.asyncio
+    async def test_delete_older_than_removes_fts_rows(self, db):
+        """Обычный текст: FTS-строки удаляются вместе с сырьём (older_than)."""
+        await db.save_smart_message(1, -100, "удалим", None, 100, "text", "а")
+        await db.save_smart_message(2, -100, "останется", None, 200, "text", "б")
+        deleted = await db.delete_smart_messages_older_than(-100, 150)
+        assert deleted == 1
+        assert await db.search_messages_fts(-100, '"удалим"', 10) == []
+        assert len(await db.search_messages_fts(-100, '"останется"', 10)) == 1
+
+    @pytest.mark.asyncio
+    async def test_no_fts_orphans_after_delete(self, db):
+        """FTS-консистентность: после удаления в FTS нет сирот (rowid без строки сырья)."""
+        m1 = await db.save_smart_message(1, -100, "текст", None, 100, "text", "а")
+        m2 = await db.save_smart_message(2, -100, None, None, 200, "photo", "б")
+        m3 = await db.save_smart_message(3, -100, "", None, 300, "photo", "в")
+        await db.delete_smart_messages_by_ids(-100, [m1, m2])
+        await db.delete_smart_messages_older_than(-100, 9999)
+        cursor = await db.db.execute(
+            "SELECT rowid FROM smart_messages_fts "
+            "WHERE rowid NOT IN (SELECT id FROM smart_messages)"
+        )
+        assert await cursor.fetchall() == []
+
     @pytest.mark.asyncio
     async def test_save_archive_fact_and_search(self, db):
         await db.save_archive_fact(-100, "факт номер один", 100)

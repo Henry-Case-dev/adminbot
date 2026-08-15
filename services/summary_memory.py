@@ -10,7 +10,7 @@ import re
 import time
 
 from config.settings import settings
-from services.summary_prompts import COMPRESS_PROMPT
+from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,118 @@ _VEC_TABLE_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS smart_archive USING vec0("
     "embedding float[{dim}] distance_metric=cosine, +fact_id INTEGER, +chat_id INTEGER)"
 )
+
+# ── GraphRAG (Epic 26, Section 35) ──────────────────────────────
+
+_GRAPH_EXTRACT_MAX_CHARS = 8000      # tail of the batch text sent to extraction (Q5)
+_GRAPH_MAX_NAME_CHARS = 100          # cap for subject/object entity names (35.4)
+_GRAPH_MAX_RELATION_CHARS = 200      # cap for the predicate (35.4)
+
+
+class GraphExtractionError(Exception):
+    """Raw LLM extraction answer is not a JSON array of triplets (35.4)."""
+
+
+def _normalize_name(s: str) -> str:
+    """D70: strip + collapse repeated whitespace + lower (shared by extract and lookup)."""
+    return re.sub(r"\s+", " ", str(s)).strip().lower()
+
+
+def parse_triplets(raw: str) -> list[dict]:
+    """Parse a raw LLM answer into valid triplets (35.4).
+
+    Accepts a JSON array, a JSON object holding a list value, and a code-fenced
+    payload. Invalid items inside a valid array are skipped (aggregated WARNING);
+    an invalid structure raises GraphExtractionError.
+    """
+    text = str(raw).strip()
+    candidates = [text]
+    if text.startswith("```"):
+        unwrapped = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        unwrapped = re.sub(r"\s*```\s*$", "", unwrapped)
+        if unwrapped != text:
+            candidates.append(unwrapped)
+    data = None
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+            break
+        except (ValueError, TypeError):
+            continue
+    if isinstance(data, dict):
+        for value in data.values():
+            if isinstance(value, list):
+                data = value
+                break
+        else:
+            data = None
+    if not isinstance(data, list):
+        raise GraphExtractionError("extraction answer is not a JSON array of triplets")
+
+    triplets = []
+    skipped = 0
+    for item in data:
+        triplet = _validate_triplet(item)
+        if triplet is None:
+            skipped += 1
+            continue
+        triplets.append(triplet)
+        if len(triplets) >= settings.GRAPH_EXTRACT_MAX_TRIPLETS:
+            break
+    if skipped:
+        logger.warning("graph extract: skipped %d invalid triplets", skipped)
+    return triplets
+
+
+def _validate_triplet(item) -> dict | None:
+    """Return a normalized valid triplet dict or None when the item must be skipped."""
+    if not isinstance(item, dict):
+        return None
+    try:
+        subject = item["subject"]
+        subject_type = item["subject_type"]
+        predicate = item["predicate"]
+        obj = item["object"]
+        object_type = item["object_type"]
+    except (KeyError, TypeError):
+        return None
+    if not all(
+        isinstance(value, str)
+        for value in (subject, subject_type, predicate, obj, object_type)
+    ):
+        return None
+    if subject_type not in ("user", "topic") or object_type not in ("user", "topic"):
+        return None
+    norm_subject = _normalize_name(subject)
+    norm_predicate = _normalize_name(predicate)
+    norm_obj = _normalize_name(obj)
+    if not norm_subject or not norm_predicate or not norm_obj:
+        return None
+    if len(norm_subject) > _GRAPH_MAX_NAME_CHARS or len(norm_obj) > _GRAPH_MAX_NAME_CHARS:
+        return None
+    if len(norm_predicate) > _GRAPH_MAX_RELATION_CHARS:
+        return None
+    if norm_subject == norm_obj:
+        return None
+    return {
+        "subject": norm_subject,
+        "subject_type": subject_type,
+        "predicate": norm_predicate,
+        "object": norm_obj,
+        "object_type": object_type,
+    }
+
+
+def _build_batch_text(batch: list, skip_empty: bool = False) -> str:
+    """Same '[author]: text' lines as the compress prompt (DRY, 35.4)."""
+    lines = []
+    for row in batch:
+        author = (row["author_name"] or "").strip() or "unknown"
+        text = row["text"] or ""
+        if skip_empty and not text:
+            continue
+        lines.append(f"[{author}]: {text}")
+    return "\n".join(lines)
 
 
 def build_fts_query(keywords: list[str]) -> str:
@@ -156,6 +268,53 @@ class MemoryManager:
             return []
         return await self.db.search_archive_fts(chat_id, match_query, limit)
 
+    # ── GraphRAG lookup for /summary (R26-3, D71) ───────────────
+
+    async def get_graph_facts(
+        self, chat_id: int, rows: list, keywords: list[str]
+    ) -> list[str]:
+        """R26-3: детерминированный graph-поиск по сущностям окна L1 → строки справок."""
+        if not settings.GRAPH_RAG_ENABLED:
+            return []
+        try:
+            user_names = [
+                _normalize_name(r["author_name"])
+                for r in rows
+                if (r["author_name"] or "").strip()
+            ]
+            topic_kws = [kw.lower() for kw in keywords[:2]]
+            entity_ids = await self.db.match_nodes(chat_id, user_names, topic_kws)
+            if entity_ids:
+                edges = await self.db.get_top_edges(
+                    chat_id, entity_ids, settings.GRAPH_TOP_EDGES_LIMIT
+                )
+                if not edges:                       # сущности есть, но рёбер у них нет
+                    edges = await self.db.get_top_edges_all(
+                        chat_id, settings.GRAPH_TOP_EDGES_LIMIT
+                    )
+            else:                                   # окно не сматчилось ни с одним узлом (холодный граф)
+                edges = await self.db.get_top_edges_all(
+                    chat_id, settings.GRAPH_TOP_EDGES_LIMIT
+                )
+            facts = [self._format_graph_fact(e) for e in edges]
+            logger.info("SmartModule graph: facts=%d | chat_id=%s", len(facts), chat_id)
+            return facts
+        except Exception:
+            logger.warning(
+                "SmartModule graph: lookup failed — summary without graph section | chat_id=%s",
+                chat_id,
+                exc_info=True,
+            )
+            return []
+
+    @staticmethod
+    def _format_graph_fact(row) -> str:
+        """One line per edge: [Историческая справка: A (relation) B] (35.5)."""
+        return (
+            f"[Историческая справка: {row['source_name']} "
+            f"({row['relation_type']}) {row['target_name']}]"
+        )
+
     # ── L3 compression + retention (A5: called only under generator lock) ──
 
     async def compress_and_purge(self, chat_id: int) -> None:
@@ -175,6 +334,8 @@ class MemoryManager:
                         chat_id,
                     )
                     break
+                if settings.GRAPH_RAG_ENABLED:                       # D69: False → ровно старое поведение
+                    await self._extract_and_save_graph(chat_id, batch)  # LLM-вызов №2 + nodes/edges (D68)
                 now = int(time.time())
                 for fact in facts:
                     fact_id = await self.db.save_archive_fact(chat_id, fact, now)
@@ -198,12 +359,7 @@ class MemoryManager:
         await self._purge_archive(chat_id)
 
     async def _compress_batch(self, batch: list) -> list[str]:
-        lines = []
-        for row in batch:
-            author = (row["author_name"] or "").strip() or "unknown"
-            text = row["text"] or ""
-            lines.append(f"[{author}]: {text}")
-        user_content = "\n".join(lines)
+        user_content = _build_batch_text(batch, skip_empty=False)
         raw = await self.llm.generate(
             [
                 {"role": "system", "content": COMPRESS_PROMPT},
@@ -212,6 +368,41 @@ class MemoryManager:
         )
         facts = [line.strip() for line in raw.splitlines() if line.strip()]
         return facts[:10]
+
+    async def _extract_and_save_graph(self, chat_id: int, batch: list) -> None:
+        """R26-2: one extra LLM call per batch → nodes/edges upsert (35.4).
+
+        Raises on any failure (LLM / parsing / DB) — the caller keeps the batch.
+        """
+        text = _build_batch_text(batch, skip_empty=True)
+        if not text:
+            logger.info(
+                "graph extract: batch has no captions — nothing to extract | chat_id=%s",
+                chat_id,
+            )
+            return
+        tail = text[-_GRAPH_EXTRACT_MAX_CHARS:]
+        raw = await self.llm.generate(
+            [
+                {"role": "system", "content": EXTRACT_PROMPT},
+                {"role": "user", "content": tail},
+            ]
+        )
+        triplets = parse_triplets(raw)
+        for triplet in triplets:
+            sid = await self.db.upsert_node(
+                chat_id, _normalize_name(triplet["subject"]), triplet["subject_type"]
+            )
+            oid = await self.db.upsert_node(
+                chat_id, _normalize_name(triplet["object"]), triplet["object_type"]
+            )
+            await self.db.upsert_edge(
+                sid,
+                oid,
+                _normalize_name(triplet["predicate"]),
+                weight_increment=settings.GRAPH_EDGE_WEIGHT_INCREMENT,
+            )
+        logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
 
     async def _save_archive_embedding(self, chat_id: int, fact_id: int, fact: str) -> None:
         try:
