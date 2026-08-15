@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from filters.user_id import UserIdFilter
 from filters.kucha_word import KuchaWordFilter
 from filters.danger_word import DangerWordFilter
+from filters.word_lists import DANGER_PHRASES
 
 
 class TestUserIdFilter:
@@ -124,8 +125,10 @@ class TestDangerWordFilter:
 
     @pytest.mark.asyncio
     async def test_bunker_matches(self, make_message):
+        """Epic 23: matches via phrase 'иди в бункер' (single 'бункер' removed)."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "иди в бункер"))
+        result = await f(make_message(1, "иди в бункер"))
+        assert result == {"matched_word": "иди в бункер"}
 
     @pytest.mark.asyncio
     async def test_vspyshka_matches(self, make_message):
@@ -133,19 +136,23 @@ class TestDangerWordFilter:
         assert await f(make_message(1, "вспышка справа"))
 
     @pytest.mark.asyncio
-    async def test_prilet_matches(self, make_message):
+    async def test_prilet_not_matched(self, make_message):
+        """Epic 23: 'прилет' removed from the dictionary — must NOT match."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "прилет в соседний дом"))
+        assert await f(make_message(1, "прилет в соседний дом")) is False
 
     @pytest.mark.asyncio
     async def test_ukrytie_matches(self, make_message):
+        """Epic 23: matches via phrase 'бегом в укрытие' (single 'укрытие' removed)."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "бегом в укрытие"))
+        result = await f(make_message(1, "бегом в укрытие"))
+        assert result == {"matched_word": "бегом в укрытие"}
 
     @pytest.mark.asyncio
-    async def test_letit_matches(self, make_message):
+    async def test_letit_not_matched(self, make_message):
+        """Epic 23: 'летит' removed from the dictionary — must NOT match."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "летит птица"))
+        assert await f(make_message(1, "летит птица")) is False
 
     @pytest.mark.asyncio
     async def test_no_war_word_fails(self, make_message):
@@ -180,12 +187,8 @@ class TestDangerWordFilter:
         """Test each synonym group has at least one matching word."""
         f = DangerWordFilter()
         test_words = [
-            ("летает самолет", True),
-            ("прилетел поезд", True),
-            ("летят гуси", True),
             ("дронов много", True),
             ("беспилотник замечен", True),
-            ("два бункера", True),
             ("ракет не хватит", True),
         ]
         for text, expected in test_words:
@@ -213,9 +216,16 @@ class TestDangerWordFilter:
 
     @pytest.mark.asyncio
     async def test_ubezhishe_matches(self, make_message):
-        """New keyword: убежище"""
+        """Epic 23: 'пройдите в убежище' matches via phrase 'в убежище'."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "пройдите в убежище"))
+        result = await f(make_message(1, "пройдите в убежище"))
+        assert result == {"matched_word": "в убежище"}
+
+    @pytest.mark.asyncio
+    async def test_ubezhishe_alone_not_matched(self, make_message):
+        """Epic 23: single 'убежище' removed from the dictionary — must NOT match."""
+        f = DangerWordFilter()
+        assert await f(make_message(1, "убежище")) is False
 
     @pytest.mark.asyncio
     async def test_vnimanie_matches(self, make_message):
@@ -249,15 +259,17 @@ class TestDangerWordFilter:
 
     @pytest.mark.asyncio
     async def test_ataka_matches(self, make_message):
-        """New keyword: атака"""
+        """Epic 23: matches via phrase 'атака беспилотников' (single 'атака' removed)."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "атака беспилотников"))
+        result = await f(make_message(1, "атака беспилотников"))
+        assert result == {"matched_word": "атака беспилотников"}
 
     @pytest.mark.asyncio
     async def test_obstrel_matches(self, make_message):
-        """New keyword: обстрел"""
+        """Epic 23: matches via phrase 'ракетный обстрел' (single 'обстрел' removed)."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "обстрел города"))
+        result = await f(make_message(1, "ракетный обстрел"))
+        assert result == {"matched_word": "ракетный обстрел"}
 
     @pytest.mark.asyncio
     async def test_trevoga_matches(self, make_message):
@@ -284,16 +296,16 @@ class TestDangerWordFilter:
         assert await f(make_message(1, "отбой тревоги"))
 
     @pytest.mark.asyncio
-    async def test_upal_matches(self, make_message):
-        """New keyword: упал"""
+    async def test_upal_not_matched(self, make_message):
+        """Epic 23: 'упал' removed from the dictionary — must NOT match."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "упал беспилотник"))
+        assert await f(make_message(1, "ребёнок упал")) is False
 
     @pytest.mark.asyncio
-    async def test_sbit_matches(self, make_message):
-        """New keyword: сбит"""
+    async def test_sbit_not_matched(self, make_message):
+        """Epic 23: 'сбит' removed from the dictionary — must NOT match."""
         f = DangerWordFilter()
-        assert await f(make_message(1, "сбит дрон"))
+        assert await f(make_message(1, "самолёт сбит")) is False
 
     # ── Caption support (T-057 fix) ──
 
@@ -337,6 +349,124 @@ class TestDangerWordFilter:
         msg = make_message(479167456, text=None)
         msg.caption = ""
         assert await f(msg) is False
+
+
+class TestDangerPhrases:
+    """Epic 23 (D55–D58): phrase branch of DangerWordFilter."""
+
+    SINGLE_WORDS_REMOVED = [
+        "атака", "угроза", "обстрел", "укрытие", "убежище",
+        "бункер", "бомбоубежище", "летит", "прилет", "сбит",
+        "упал", "падение",
+    ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("phrase", DANGER_PHRASES)
+    async def test_all_phrases_standalone_match(self, make_message, phrase):
+        """All 17 phrases (D56/D58) must match as standalone messages."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, phrase))
+        assert result == {"matched_word": phrase}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("скажи в укрытие быстро", "в укрытие"),
+            ("немедленно укрыться в убежище", "укрыться в убежище"),
+            ("слышали ракетный обстрел района", "ракетный обстрел"),
+        ],
+    )
+    async def test_phrase_in_context_matches(self, make_message, text, expected):
+        """Phrase in the middle/end of a sentence returns the exact substring."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, text))
+        assert result == {"matched_word": expected}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("word", SINGLE_WORDS_REMOVED)
+    async def test_single_words_removed_not_matched(self, make_message, word):
+        """Singles removed in Epic 23 must NOT match (D56, D58, доп. Flight/Падение)."""
+        f = DangerWordFilter()
+        assert await f(make_message(1, word)) is False
+
+    @pytest.mark.asyncio
+    async def test_v_bunkere_not_matched(self, make_message):
+        """'в бункере' must NOT match 'в бункер' (right boundary blocks)."""
+        f = DangerWordFilter()
+        assert await f(make_message(1, "сидим в бункере")) is False
+
+    @pytest.mark.asyncio
+    async def test_spryatatsya_v_bunkere_matches(self, make_message):
+        """'спрятаться в бункере' matches its own phrase (32.6 п.1)."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, "спрятаться в бункере"))
+        assert result == {"matched_word": "спрятаться в бункере"}
+
+    @pytest.mark.asyncio
+    async def test_khlopok_matches(self, make_message):
+        """Epic 23 (D57): new word 'хлопок'."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, "слышен хлопок"))
+        assert result == {"matched_word": "хлопок"}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("word", ["хлопки", "хлопнуло", "хлопнул"])
+    async def test_khlopok_forms_match(self, make_message, word):
+        """Epic 23 (D57): journalist forms of 'хлопок'."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, f"раздался {word}"))
+        assert result == {"matched_word": word}
+
+    @pytest.mark.asyncio
+    async def test_khlopkovy_not_matched(self, make_message):
+        """'хлопковый' must NOT match 'хлопок' (right boundary blocks)."""
+        f = DangerWordFilter()
+        assert await f(make_message(1, "хлопковый пояс")) is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("В БУНКЕР", "В БУНКЕР"),
+            ("Ракетная Атака", "Ракетная Атака"),
+        ],
+    )
+    async def test_phrase_case_insensitive(self, make_message, text, expected):
+        """IGNORECASE matches, matched_word keeps the text case."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, text))
+        assert result == {"matched_word": expected}
+
+    @pytest.mark.asyncio
+    async def test_phrase_returned_before_word(self, make_message):
+        """'ракетная атака' phrase wins over single word 'ракетная' (32.5)."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, "ракетная атака дронов"))
+        assert result == {"matched_word": "ракетная атака"}
+
+    @pytest.mark.asyncio
+    async def test_longest_phrase_returned_first(self, make_message):
+        """'иди в бункер' is returned, not the overlapping 'в бункер' (32.6 п.6)."""
+        f = DangerWordFilter()
+        result = await f(make_message(1, "иди в бункер"))
+        assert result == {"matched_word": "иди в бункер"}
+
+    @pytest.mark.asyncio
+    async def test_phrases_independent_of_custom_words(self, make_message):
+        """Custom words must NOT disable the phrase branch (D55, 32.6 п.8)."""
+        f = DangerWordFilter(words=["атака"])
+        result = await f(make_message(1, "в бункер"))
+        assert result == {"matched_word": "в бункер"}
+
+    @pytest.mark.asyncio
+    async def test_phrase_in_caption_matches(self, make_message):
+        """Phrase in message.caption must match."""
+        f = DangerWordFilter()
+        msg = make_message(479167456, text=None)
+        msg.caption = "все в укрытие"
+        result = await f(msg)
+        assert result == {"matched_word": "в укрытие"}
 
 
 @pytest.mark.asyncio

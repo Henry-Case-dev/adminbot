@@ -20,8 +20,14 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.exceptions import TelegramBadRequest
 
 from config.settings import settings
-from filters.danger_word import DangerWordFilter, _build_danger_patterns, _parse_danger_words
+from filters.danger_word import (
+    DangerWordFilter,
+    _build_danger_patterns,
+    _build_phrase_patterns,
+    _parse_danger_words,
+)
 from filters.otboy_word import OtboyWordFilter
+from filters.word_lists import DANGER_PHRASES
 from handlers.common import (
     danger_handler,
     mimic_handler,
@@ -215,6 +221,11 @@ class TestDangerWordFilter:
         result2 = await f(msg2)
         assert result2 == {"matched_word": "\u0443\u0433\u0440\u043e\u0437\u0430"}
 
+        # Epic 23 (D55): phrase branch works regardless of custom words
+        msg3 = make_message(text="\u0432 \u0431\u0443\u043d\u043a\u0435\u0440")
+        result3 = await f(msg3)
+        assert result3 == {"matched_word": "\u0432 \u0431\u0443\u043d\u043a\u0435\u0440"}
+
     @pytest.mark.asyncio
     async def test_empty_config_uses_defaults(self):
         f = DangerWordFilter()
@@ -290,19 +301,35 @@ class TestDangerWordFilterExpanded:
 
     @pytest.mark.asyncio
     async def test_ukrytie_matches(self):
+        """Epic 23: 'все в укрытие' matches via phrase 'в укрытие'."""
         f = DangerWordFilter()
         msg = make_message(text="\u0432\u0441\u0435 \u0432 \u0443\u043a\u0440\u044b\u0442\u0438\u0435")
         result = await f(msg)
-        assert result is not False
-        assert "укрытие" in result["matched_word"].lower()
+        assert result == {"matched_word": "\u0432 \u0443\u043a\u0440\u044b\u0442\u0438\u0435"}
+
+    @pytest.mark.asyncio
+    async def test_ukrytie_alone_not_matched(self):
+        """Epic 23: single 'укрытие' must NOT match."""
+        f = DangerWordFilter()
+        msg = make_message(text="\u0443\u043a\u0440\u044b\u0442\u0438\u0435")
+        result = await f(msg)
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_bunker_matches(self):
+        """Epic 23: 'заходи в бункер' matches via phrase 'в бункер'."""
         f = DangerWordFilter()
         msg = make_message(text="\u0437\u0430\u0445\u043e\u0434\u0438 \u0432 \u0431\u0443\u043d\u043a\u0435\u0440")
         result = await f(msg)
-        assert result is not False
-        assert "бункер" in result["matched_word"].lower()
+        assert result == {"matched_word": "\u0432 \u0431\u0443\u043d\u043a\u0435\u0440"}
+
+    @pytest.mark.asyncio
+    async def test_bunker_alone_not_matched(self):
+        """Epic 23: single 'бункер' must NOT match."""
+        f = DangerWordFilter()
+        msg = make_message(text="\u0431\u0443\u043d\u043a\u0435\u0440")
+        result = await f(msg)
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_ordinary_word_does_not_match(self):
@@ -337,6 +364,7 @@ class TestDangerWordFilterExpanded:
 
     @pytest.mark.asyncio
     async def test_sbit_matches(self):
+        """Epic 23: 'бпла сбит' matches via 'бпла' ('сбит' removed, 'бпла' remains)."""
         f = DangerWordFilter()
         msg = make_message(text="\u0431\u043f\u043b\u0430 \u0441\u0431\u0438\u0442")
         result = await f(msg)
@@ -380,18 +408,43 @@ class TestDangerPatternBuilder:
 
     def test_parse_danger_words_empty_returns_defaults(self):
         result = _parse_danger_words("")
-        # Expanded WAR_WORDS list from filters/war_word.py (T-109)
+        # Epic 23 (32.2): 118 word forms in filters/word_lists.py
         assert "\u0431\u043f\u043b\u0430" in result
         assert "\u0434\u0440\u043e\u043d" in result
         assert "\u0440\u0430\u043a\u0435\u0442\u0430" in result
         assert "\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c" in result
         assert "\u0432\u0437\u0440\u044b\u0432" in result
-        assert len(result) > 100
+        assert len(result) == 118
 
     def test_parse_danger_words_default_list_length(self):
         result = _parse_danger_words("")
-        # Expanded WAR_WORDS list from filters/war_word.py (T-109)
-        assert len(result) > 100
+        # Epic 23 (32.2): 191 − 77 removed + 4 'хлопок' forms = 118
+        assert len(result) == 118
+
+    def test_build_phrase_patterns_compiles_valid_phrases(self):
+        patterns = _build_phrase_patterns(["\u0432 \u0431\u0443\u043d\u043a\u0435\u0440", "\u0440\u0430\u043a\u0435\u0442\u043d\u0430\u044f \u0430\u0442\u0430\u043a\u0430"])
+        assert len(patterns) == 2
+        assert patterns[0].search("\u0438\u0434\u0438 \u0432 \u0431\u0443\u043d\u043a\u0435\u0440") is not None
+
+    def test_build_phrase_patterns_word_boundary(self):
+        patterns = _build_phrase_patterns(["\u0432 \u0431\u0443\u043d\u043a\u0435\u0440"])
+        assert patterns[0].search("\u0432 \u0431\u0443\u043d\u043a\u0435\u0440") is not None
+        # right boundary: 'в бункере' must NOT match 'в бункер'
+        assert patterns[0].search("\u0432 \u0431\u0443\u043d\u043a\u0435\u0440\u0435") is None
+
+    def test_danger_phrases_count_matches_contract(self):
+        """Epic 23 (32.2/32.3): ровно 17 фраз — 10 shelter + 7 attack, longest-first."""
+        assert len(DANGER_PHRASES) == 17
+        assert DANGER_PHRASES[:10] == [
+            'укрыться в убежище', 'уйти в бомбоубежище', 'пройти в убежище',
+            'спрятаться в бункере', 'бегом в укрытие', 'иди в бункер',
+            'в бомбоубежище', 'в убежище', 'в укрытие', 'в бункер',
+        ]
+        assert DANGER_PHRASES[10:] == [
+            'беспилотная атака', 'ракетная атака', 'атака дронов',
+            'атака беспилотников', 'ракетный обстрел',
+            'артиллерийский обстрел', 'массированный обстрел',
+        ]
 
 
 # ═══════════════════════════════════════════════════════════════════

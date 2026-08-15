@@ -2,8 +2,8 @@
 
 > **Версия:** v2.20.0 DEPLOYED (Epic 22, коммит `1dbb6da`) + Chore T-168 DEPLOYED (коммит `0c74220`)
 > **Дата:** 2026-08-16
-> **Обновление:** 2026-08-16 — Chore T-168 DONE & DEPLOYED ✅: `media/common/danger/danger_drone.mp4` (16-й файл danger-пула) закоммичен и задеплоен на прод. HEAD = `0c74220`.
-> **Статус:** Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — T-163..T-167 (A/B/C/D) завершены, 621 тест PASS. Epics 1–22 ALL DEPLOYED ✅. Chore T-168 (danger_drone.mp4 в danger-пул) DONE & DEPLOYED ✅.
+> **Обновление:** 2026-08-16 — **Epic 23 «Правка danger-словаря» IMPLEMENTED + APPROVED ✅ (до деплоя): T-169..T-171 DONE, 672 теста PASS (621+51), ревью 2 раунда APPROVED (2 фикса тестов выполнены дословно). T-172: доки + коммит DONE ✅ (feat(danger) на master), деплой PENDING.** Прод HEAD = `0c74220` (v2.20.0 + T-168 media).
+> **Статус:** Epics 1–22 ALL DEPLOYED ✅ (v2.20.0, `1dbb6da`). Chore T-168 (danger_drone.mp4 в danger-пул) DONE & DEPLOYED ✅ (`0c74220`). **Epic 23 «Правка danger-словаря» IMPLEMENTED + APPROVED ✅ (672 теста, целевая версия v2.21.0); T-172: доки/коммит DONE ✅, деплой PENDING.**
 > **Текущий коммит:** `0c74220` (v2.20.0 + медиа danger_drone.mp4) на master, пуш в origin (github.com/Henry-Case-dev/adminbot.git).
 > **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 916795 (был 914116), логи чистые (Bot started, listening...).
 
@@ -81,6 +81,43 @@
 - Наблюдения ревьюера (не блокеры): README пишет «ДОЛБОЕВ» vs планы «ДОЛБОЕБ»; фактическая ветка — master.
 - ✅ Деплой-чеклист DevOps выполнен (2026-08-15): prod `.env` → `DEAD_PAGE_POST_ON_JOIN=False` (True→False, бэкап `.env.bak.2026-08-15`); `OLYA_ALWAYS_SEND` и `MIMIC_FORWARDS_ENABLED` отсутствуют в .env — активны дефолты False.
 - ❌→✅ `media/common/danger/danger_drone.mp4` — **ОТМЕНЕНО пользователем (2026-08-16):** рекомендация «добавить в `.gitignore`» была ошибочной. Файл добавлен НАМЕРЕННО (16-й файл danger-пула) → должен быть ЗАКОММИЧЕН и ЗАДЕПЛОЕН.
+
+---
+
+## 🚧 Epic 23: Правка danger-словаря — v2.21.0 (IMPLEMENTED + APPROVED, деплой PENDING)
+
+> **Цель:** Сократить и уточнить danger-словарь: убрать «шумные» секции, добавить фразовые шаблоны (shelter/атака), сохранить совместимость `{"matched_word"}`.
+> **Статус (2026-08-16):** IMPLEMENTED + APPROVED ✅ — T-169..T-171 DONE, **672 теста PASS** (621 baseline + 51 новых), ревью 2 раунда APPROVED (2 фикса тестов выполнены дословно). **T-172: доки + коммит DONE ✅ (feat(danger) на master), деплой PENDING (DevOps).** Прод пока на `0c74220` (v2.20.0 + T-168 media).
+
+### Факты реализации
+
+| Параметр | Было | Стало |
+|----------|------|-------|
+| **DANGER_WORDS** | 191 словоформа | **118** (удалены Flight, Shelter, Атака/угроза, Падение/сбитие; добавлены хлопок/хлопки/хлопнуло/хлопнул) |
+| **DANGER_PHRASES** | — | **17 фраз**: 10 shelter + 7 атака, longest-first |
+| **Итого паттернов** | 191 | **135** (118 слов + 17 фраз) |
+
+### Механика (D55–D58)
+
+- `_build_phrase_patterns` в `DangerWordFilter` (filters/danger_word.py): фразы проверяются **ДО** слов, границы по краям фразы, `re.IGNORECASE`.
+- Возврат `{"matched_word": ...}` **совместимый** — Telegram quote API не сломан.
+- **Env-независимо:** дефолты в `filters/word_lists.py`; `DANGER_WORDS` env var — только опциональный override. Прод `.env` НЕ трогаем.
+- Потребители: `war_alert` (роутер 4b) и `danger_handler` (роутер 4c) — единый словарь.
+
+### Тесты — 672 PASS / 0 failed
+
+- **672** = 621 baseline + 51 новых.
+- Переписаны/добавлены: `TestDangerPhrases` (**42 кейса**), контрактный тест (**17 фраз**), негативы.
+- Ревью: 2 раунда, APPROVED ✅ (2 фикса тестов выполнены дословно).
+
+### Задачи Epic 23
+
+| Task | Название | Статус |
+|------|----------|--------|
+| **T-169** | Правка DANGER_WORDS в filters/word_lists.py (191→118) | ✅ DONE + APPROVED |
+| **T-170** | DANGER_PHRASES (17 фраз) в filters/word_lists.py | ✅ DONE + APPROVED |
+| **T-171** | `_build_phrase_patterns` + тесты (TestDangerPhrases 42 кейса, контракт 17 фраз) | ✅ DONE + APPROVED |
+| **T-172** | README/планы + коммит + деплой v2.21.0 | ✅ ДОКИ/КОММИТ DONE; деплой PENDING (DevOps) |
 
 ---
 
@@ -212,7 +249,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env, time-format cooldowns |
-| Тесты | pytest + pytest-asyncio | ✅ 621 тест PASS (v2.20.0 implemented, Epic 22) |
+| Тесты | pytest + pytest-asyncio | ✅ 672 теста PASS (v2.21.0 implemented + approved, Epic 23; 621 baseline + 51 новых) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -336,6 +373,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | v2.18.0 | 2026-08-02 | Epic 20 (Slavik Random Media) | T-139–T-148 | 570 |
 | **v2.19.0** | **2026-08-03** | **Epic 21 (MIMIC fix + Time-format cooldowns)** | **T-149–T-162** | **586** |
 | **v2.20.0** | **2026-08-15** | **Epic 22 (Гонка функций и точность триггеров)** | **T-163–T-167 (DEPLOYED, `1dbb6da`)** | **621** |
+| **v2.21.0** | **2026-08-16** | **Epic 23 (Правка danger-словаря)** | **T-169–T-171 (DONE + APPROVED; T-172 доки/коммит DONE ✅, деплой PENDING)** | **672** |
 
 ---
 
@@ -347,6 +385,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **DEPLOYED** | Epic 21: T-149 – T-162 (DEPLOYED, commit c683903, 586 tests pass) ✅ |
 | **DEPLOYED** | Epic 22: T-163 – T-167 (DEPLOYED, commit `1dbb6da`, 621 tests pass, прод v2.20.0) ✅ |
 | **DEPLOYED** | Chore T-168: danger_drone.mp4 в danger-пул — DONE & DEPLOYED ✅ (коммит `0c74220`, pull 1dbb6da..0c74220, chmod 644, хэш совпал, пул 16 файлов, PID 916795, smoke OK) |
+| **APPROVED (до деплоя)** | Epic 23: T-169 – T-171 (DONE + APPROVED ✅, 672 теста, ревью 2 раунда); **T-172: доки/коммит DONE ✅ (README v2.21.0/672, backlog/board/MEMORY sync, коммит feat(danger) на master), деплой PENDING** — целевая версия **v2.21.0** |
 
 > Epics 1-22 ALL DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, PID 914116). **Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — реализация (D51–D54) + ревью 3 раунда (APPROVED) + коммит/пуш/деплой (T-167-D).**
 > 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
@@ -366,7 +405,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **Путь** | /var/www/admin_bot |
 | **Статус** | systemctl status adminbot → active (running), PID 916795 (был 914116), логи чистые (Bot started, listening...) |
 | **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно |
-| **Тесты** | 621 PASS (0 failures, zero regressions) |
+| **Тесты** | 672 PASS в workspace (Epic 23 APPROVED); прод HEAD `0c74220` — v2.20.0 + T-168 media |
 | **Эпики** | 1-22 ALL DEPLOYED ✅ |
 | **Задачи** | T-001 – T-167 ALL DEPLOYED ✅ |
 | **.env на проде** | DEAD_PAGE_POST_ON_JOIN=True→False (бэкап .env.bak.2026-08-15); OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED отсутствуют — дефолты False |
@@ -387,3 +426,9 @@ common_router (pos 4c): НИКОГДА не получает события
 *Обновление: 2026-08-16 — CHORE T-168: A/B DONE ✅, APPROVED ревьюером. Коммит `0c74220` (chore(media): danger_drone.mp4 в danger-пул) сделан и запушен в master. Состав: 1 медиа-файл + 4 plans-файла, кода нет. danger_drone.mp4 закоммичен (blob `918c9be9…`, 2 574 925 байт, ftyp isom/MP4), working tree clean. C/D/E (деплой на сервер / verify на сервере / smoke test) — PENDING. Прод пока на `1dbb6da` (v2.20.0) до деплоя.*
 
 *Обновление: 2026-08-16 — CHORE T-168: DONE & DEPLOYED ✅. Все подзадачи A..E закрыты. Деплой: git pull на сервере fast-forward 1dbb6da..0c74220 (5 файлов: danger_drone.mp4 + 4 plans). danger_drone.mp4 на месте (2 574 925 байт), права 644, хэш 918c9be9... совпал, danger-пул = 16 файлов. systemctl restart OK: active (running), PID 916795, логи чистые. Smoke test пройден. Прод HEAD = 0c74220 (v2.20.0 + медиа).*
+
+*Обновление: 2026-08-16 — EPIC 23: IMPLEMENTED + APPROVED ✅ (коммит/деплой PENDING). «Правка danger-словаря» — T-169..T-171 DONE: DANGER_WORDS 191→118 (удалены Flight/Shelter/Атака-угроза/Падение-сбитие; добавлены хлопок/хлопки/хлопнуло/хлопнул), новая DANGER_PHRASES=17 (10 shelter + 7 атака, longest-first). Механика: _build_phrase_patterns в DangerWordFilter — фразы→слова, {"matched_word"} совместимо, env-независимо. Тесты: 672 PASS (621+51; TestDangerPhrases 42 кейса, контракт 17 фраз, негативы). Ревью 2 раунда APPROVED (2 фикса тестов выполнены дословно). T-172 (README/доки/коммит/деплой) PENDING. Прод на 0c74220 (v2.20.0 + T-168 media). Целевая версия v2.21.0.*
+
+*Обновление: 2026-08-16 — EPIC 23: T-172-A..D DONE ✅, деплой (E..G) PENDING — DevOps. README: v2.21.0, 672 теста, «187 словоформ» → 118 слов + 17 фраз (135 паттернов), примеры словаря (атака/угроза/прилет → фразы, добавлен хлопок), changelog «Изменено в v2.21.0 (Epic 23)» с D55–D58. backlog: T-169..T-171 [x], T-172-A..D [x], деплой [ ]; статус Epic 23 → IMPLEMENTED (APPROVED, деплой pending). board: Epic 23 → In Review с пометкой «APPROVED, деплой pending», футер синхронизирован. Коммит feat(danger) на master + push в origin. Состав: word_lists.py, danger_word.py, test_filters.py, test_common.py, README.md, ARCHITECTURE.md, MEMORY.md, backlog.md, board.md. Прод на 0c74220 (v2.20.0 + T-168 media).*
+
+*Обновление: 2026-08-16 — EPIC 23: IN PROGRESS 🚧 (СПЛАНИРОВАН, целевая версия v2.21.0). PM и Architect спланировали Epic 23 «Правка danger-словаря»: решения D55–D58, задачи T-169..T-172. DANGER_WORDS: 118 словоформ (было 191) — удалены секции Flight (10), Shelter (26), Атака/угроза (28), Падение/сбитие (13); добавлены хлопок/хлопки/хлопнуло/хлопнул. Новая DANGER_PHRASES (17 фраз: 10 shelter + 7 атака). Механика: _build_phrase_patterns в DangerWordFilter — фразы проверяются до слов, границы по краям фразы, IGNORECASE, возврат {"matched_word": ...} совместимый. Потребители: war_alert (4b) и danger_handler (4c) — единый словарь. Итог 135 паттернов; target ≈646 тестов. Прод .env не трогаем.*
