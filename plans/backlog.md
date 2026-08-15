@@ -826,7 +826,7 @@
 
 ---
 
-## Epic 18: Danger Service Fixes — File Selection, GIF Detection, Cooldown — 2026-08-02 🔵 IN PROGRESS
+## Epic 18: Danger Service Fixes — File Selection, GIF Detection, Cooldown — 2026-08-02 ✅ DONE (DEPLOYED v2.16.0)
 
 > **Цель:** Исправить три бага в Common Service (danger):
 > 1. **File selection:** `_scan_directory` / `send_common` должен корректно выбирать
@@ -849,121 +849,121 @@
 >   в `CommonRelay`.
 
 ### T-122: Investigate and fix file scanning/selection in CommonRelay
-- [ ] T-122-A: Проверить `_scan_directory(media_dir)` — error handling (FileNotFoundError, PermissionError)
-- [ ] T-122-B: Проверить `_pick_media(media_dir)` — корректный `random.choice()` на списке файлов
-- [ ] T-122-C: Убедиться, что нет хардкодных индексов, имён файлов, счётчиков (только `len(files)`)
-- [ ] T-122-D: Проверить фильтрацию — только медиа-расширения (исключить `.gitkeep`, `.DS_Store`, Thumbs.db)
-- [ ] T-122-E: Проверить `send_common()` — вызов `_pick_media` с правильным subdir
-- [ ] T-122-F: Проверить `send_danger()` — subdir="danger" разрешается через `COMMON_MEDIA_BASE`
-- [ ] T-122-G: Добавить comprehensive логирование: количество найденных файлов, выбранный файл
-- [ ] T-122-H: Edge case: пустая директория → WARNING-лог, graceful return (без краша)
-- [ ] T-122-I: Edge case: 1 файл в директории → должен выбираться всегда
-- [ ] T-122-J: Edge case: 14+ файлов → все должны быть достижимы через random.choice
+- [x] T-122-A: Проверить `_scan_directory(media_dir)` — error handling (FileNotFoundError, PermissionError)
+- [x] T-122-B: Проверить `_pick_media(media_dir)` — корректный `random.choice()` на списке файлов
+- [x] T-122-C: Убедиться, что нет хардкодных индексов, имён файлов, счётчиков (только `len(files)`)
+- [x] T-122-D: Проверить фильтрацию — только медиа-расширения (исключить `.gitkeep`, `.DS_Store`, Thumbs.db)
+- [x] T-122-E: Проверить `send_common()` — вызов `_pick_media` с правильным subdir
+- [x] T-122-F: Проверить `send_danger()` — subdir="danger" разрешается через `COMMON_MEDIA_BASE`
+- [x] T-122-G: Добавить comprehensive логирование: количество найденных файлов, выбранный файл
+- [x] T-122-H: Edge case: пустая директория → WARNING-лог, graceful return (без краша)
+- [x] T-122-I: Edge case: 1 файл в директории → должен выбираться всегда
+- [x] T-122-J: Edge case: 14+ файлов → все должны быть достижимы через random.choice
 
 **Файлы:** `services/common_relay.py` — `_scan_directory`, `_pick_media`, `send_common`, `send_danger`
 
 ### T-123: Fix and verify GIF detection in filename
-- [ ] T-123-A: Проверить `_detect_media_type(filepath)` — текущая логика `"gif" in filepath.stem.lower()`
-- [ ] T-123-B: Убедиться, что `Path.stem` возвращает имя файла без расширения (e.g., `danger_02_gif` из `danger_02_gif.mp4`)
-- [ ] T-123-C: Проверить case-insensitive: `gif`, `GIF`, `Gif`, `GiF` → все должны матчить
-- [ ] T-123-D: Проверить все позиции "gif" в имени:
+- [x] T-123-A: Проверить `_detect_media_type(filepath)` — текущая логика `"gif" in filepath.stem.lower()`
+- [x] T-123-B: Убедиться, что `Path.stem` возвращает имя файла без расширения (e.g., `danger_02_gif` из `danger_02_gif.mp4`)
+- [x] T-123-C: Проверить case-insensitive: `gif`, `GIF`, `Gif`, `GiF` → все должны матчить
+- [x] T-123-D: Проверить все позиции "gif" в имени:
   - `danger_02_gif.mp4` → "gif" в конце → animation ✓
   - `danger_gif_02.mp4` → "gif" в середине → animation ✓
   - `danger_nahryuck_gif.mp4` → "gif" в конце после underscore → animation ✓
   - `danger_zelelyot_gif_02.mp4` → "gif" в середине → animation ✓
   - `gif_danger_01.mp4` → "gif" в начале → animation ✓
-- [ ] T-123-E: Проверить, что файлы БЕЗ "gif" не ошибочно отправляются как animation:
+- [x] T-123-E: Проверить, что файлы БЕЗ "gif" не ошибочно отправляются как animation:
   - `danger_01.mp4` → video ✓
   - `danger_03.mp4` → video ✓
-- [ ] T-123-F: Проверить, что `.gif`-файлы (расширение .gif) → photo (как image), а не animation (если такие появятся)
-- [ ] T-123-G: Проверить, что `.webm` с "gif" → animation, без "gif" → video
-- [ ] T-123-H: Проверить `_send_media()` dispatch: animation → `send_animation`, video → `send_video`, photo → `send_photo`
+- [x] T-123-F: Проверить, что `.gif`-файлы (расширение .gif) → photo (как image), а не animation (если такие появятся)
+- [x] T-123-G: Проверить, что `.webm` с "gif" → animation, без "gif" → video
+- [x] T-123-H: Проверить `_send_media()` dispatch: animation → `send_animation`, video → `send_video`, photo → `send_photo`
 
 **Файлы:** `services/common_relay.py` — `_detect_media_type`, `_send_media`
 
 ### T-124: Add DANGER_COOLDOWN_SECONDS config with independent cooldown tracking
-- [ ] T-124-A: Добавить поле `danger_cooldown: int = 60` в `__init__` класса `CommonRelay`
-- [ ] T-124-B: Добавить независимый `_last_danger_by_chat: dict[int, float]` для трекинга danger-таймаута
-- [ ] T-124-C: Cooldown-логика для `send_otboy()`: использует `COMMON_COOLDOWN_SECONDS` + `_last_common_by_chat` (как сейчас)
-- [ ] T-124-D: Cooldown-логика для `send_danger()`: использует `DANGER_COOLDOWN_SECONDS` + `_last_danger_by_chat` (новый, независимый)
-- [ ] T-124-E: Проверить per-chat изоляцию: danger в чате A не блокирует danger в чате B
-- [ ] T-124-F: Проверить thread-safety: словари `_last_otboy_by_chat` и `_last_danger_by_chat` независимы
-- [ ] T-124-G: Логирование: DEBUG/INFO при cooldown active, cooldown expired для danger
-- [ ] T-124-H: Edge case: `DANGER_COOLDOWN_SECONDS=0` → no cooldown (отправка на каждое срабатывание)
+- [x] T-124-A: Добавить поле `danger_cooldown: int = 60` в `__init__` класса `CommonRelay`
+- [x] T-124-B: Добавить независимый `_last_danger_by_chat: dict[int, float]` для трекинга danger-таймаута
+- [x] T-124-C: Cooldown-логика для `send_otboy()`: использует `COMMON_COOLDOWN_SECONDS` + `_last_common_by_chat` (как сейчас)
+- [x] T-124-D: Cooldown-логика для `send_danger()`: использует `DANGER_COOLDOWN_SECONDS` + `_last_danger_by_chat` (новый, независимый)
+- [x] T-124-E: Проверить per-chat изоляцию: danger в чате A не блокирует danger в чате B
+- [x] T-124-F: Проверить thread-safety: словари `_last_otboy_by_chat` и `_last_danger_by_chat` независимы
+- [x] T-124-G: Логирование: DEBUG/INFO при cooldown active, cooldown expired для danger
+- [x] T-124-H: Edge case: `DANGER_COOLDOWN_SECONDS=0` → no cooldown (отправка на каждое срабатывание)
 
 **Файлы:** `services/common_relay.py` — `__init__`, `send_otboy`, `send_danger`
 
 ### T-125: Update config/settings.py and .env.example
-- [ ] T-125-A: Добавить `DANGER_COOLDOWN_SECONDS: int = 60` в `config/settings.py`
-- [ ] T-125-B: Добавить `DANGER_COOLDOWN_SECONDS=60` в `.env.example` с описанием
-- [ ] T-125-C: Убедиться, что `COMMON_COOLDOWN_SECONDS` остаётся неизменным (default=0)
-- [ ] T-125-D: Проверить, что параметр читается из переменных окружения (через `os.getenv`)
-- [ ] T-125-E: Документировать разницу: `COMMON_COOLDOWN_SECONDS` — для otboy, `DANGER_COOLDOWN_SECONDS` — для danger
+- [x] T-125-A: Добавить `DANGER_COOLDOWN_SECONDS: int = 60` в `config/settings.py`
+- [x] T-125-B: Добавить `DANGER_COOLDOWN_SECONDS=60` в `.env.example` с описанием
+- [x] T-125-C: Убедиться, что `COMMON_COOLDOWN_SECONDS` остаётся неизменным (default=0)
+- [x] T-125-D: Проверить, что параметр читается из переменных окружения (через `os.getenv`)
+- [x] T-125-E: Документировать разницу: `COMMON_COOLDOWN_SECONDS` — для otboy, `DANGER_COOLDOWN_SECONDS` — для danger
 
 **Файлы:** `config/settings.py`, `.env.example`
 
 ### T-126: Update bot.py for new CommonRelay initialization with danger_cooldown
-- [ ] T-126-A: Обновить `on_startup()` — передать `danger_cooldown=settings.DANGER_COOLDOWN_SECONDS` в `CommonRelay()`
-- [ ] T-126-B: Проверить импорты — `from config.settings import settings` уже есть
-- [ ] T-126-C: Проверить сигнатуру `CommonRelay.__init__` — принимает `cooldown_seconds` и `danger_cooldown`
-- [ ] T-126-D: Убедиться, что `setup_common(relay)` корректно передаёт relay в handler'ы
-- [ ] T-126-E: Проверить, что propagation не сломан (оба handler'а всё ещё возвращают None)
+- [x] T-126-A: Обновить `on_startup()` — передать `danger_cooldown=settings.DANGER_COOLDOWN_SECONDS` в `CommonRelay()`
+- [x] T-126-B: Проверить импорты — `from config.settings import settings` уже есть
+- [x] T-126-C: Проверить сигнатуру `CommonRelay.__init__` — принимает `cooldown_seconds` и `danger_cooldown`
+- [x] T-126-D: Убедиться, что `setup_common(relay)` корректно передаёт relay в handler'ы
+- [x] T-126-E: Проверить, что propagation не сломан (оба handler'а всё ещё возвращают None)
 
 **Файлы:** `bot.py`
 
 ### T-127: Comprehensive tests for all fixes
-- [ ] T-127-A: `_scan_directory` — возвращает список всех медиа-файлов (не только первые N)
-- [ ] T-127-B: `_scan_directory` — исключает не-медиа файлы (.gitkeep, .DS_Store, etc.)
-- [ ] T-127-C: `_scan_directory` — пустая директория → пустой список, без исключений
-- [ ] T-127-D: `_pick_media` — random.choice равномерно распределён (статистический тест: 100 выборок из 14 файлов)
-- [ ] T-127-E: `_pick_media` — 1 файл → всегда возвращает этот файл
-- [ ] T-127-F: `_detect_media_type` — все позиции "gif" (5+ паттернов, параметризованный тест)
-- [ ] T-127-G: `_detect_media_type` — файлы без "gif" → video (не animation)
-- [ ] T-127-H: `_detect_media_type` — case-insensitive: "GIF", "Gif", "gif" → все animation
-- [ ] T-127-I: `_detect_media_type` — image-расширения → photo
-- [ ] T-127-J: `_detect_media_type` — не-медиа расширения → None или exception
-- [ ] T-127-K: `send_danger()` — cooldown active → повторный вызов не отправляет (danger_cooldown)
-- [ ] T-127-L: `send_danger()` — cooldown expired → отправляет снова
-- [ ] T-127-M: `send_danger()` — DANGER_COOLDOWN_SECONDS=0 → без ограничений
-- [ ] T-127-N: `send_otboy()` — использует COMMON_COOLDOWN_SECONDS (независимо от danger)
-- [ ] T-127-O: Интеграционный тест: otboy cooldown не блокирует danger, danger cooldown не блокирует otboy
-- [ ] T-127-P: Интеграционный тест: per-chat изоляция для обоих cooldown
-- [ ] T-127-Q: `send_common()` — интеграционный тест с полным пайплайном (фильтр → handler → relay → отправка)
-- [ ] T-127-R: Regression: все существующие тесты test_common.py проходят
-- [ ] T-127-S: `pytest` — полный suite, 0 регрессий
+- [x] T-127-A: `_scan_directory` — возвращает список всех медиа-файлов (не только первые N)
+- [x] T-127-B: `_scan_directory` — исключает не-медиа файлы (.gitkeep, .DS_Store, etc.)
+- [x] T-127-C: `_scan_directory` — пустая директория → пустой список, без исключений
+- [x] T-127-D: `_pick_media` — random.choice равномерно распределён (статистический тест: 100 выборок из 14 файлов)
+- [x] T-127-E: `_pick_media` — 1 файл → всегда возвращает этот файл
+- [x] T-127-F: `_detect_media_type` — все позиции "gif" (5+ паттернов, параметризованный тест)
+- [x] T-127-G: `_detect_media_type` — файлы без "gif" → video (не animation)
+- [x] T-127-H: `_detect_media_type` — case-insensitive: "GIF", "Gif", "gif" → все animation
+- [x] T-127-I: `_detect_media_type` — image-расширения → photo
+- [x] T-127-J: `_detect_media_type` — не-медиа расширения → None или exception
+- [x] T-127-K: `send_danger()` — cooldown active → повторный вызов не отправляет (danger_cooldown)
+- [x] T-127-L: `send_danger()` — cooldown expired → отправляет снова
+- [x] T-127-M: `send_danger()` — DANGER_COOLDOWN_SECONDS=0 → без ограничений
+- [x] T-127-N: `send_otboy()` — использует COMMON_COOLDOWN_SECONDS (независимо от danger)
+- [x] T-127-O: Интеграционный тест: otboy cooldown не блокирует danger, danger cooldown не блокирует otboy
+- [x] T-127-P: Интеграционный тест: per-chat изоляция для обоих cooldown
+- [x] T-127-Q: `send_common()` — интеграционный тест с полным пайплайном (фильтр → handler → relay → отправка)
+- [x] T-127-R: Regression: все существующие тесты test_common.py проходят
+- [x] T-127-S: `pytest` — полный suite, 0 регрессий
 
 **Файлы:** `tests/test_common.py`, `tests/test_common_relay.py` (если отдельный)
 
 ### T-128: Update README.md with changes
-- [ ] T-128-A: Обновить секцию Common Service — описать 3 исправления (file selection, GIF detection, cooldown)
-- [ ] T-128-B: Добавить `DANGER_COOLDOWN_SECONDS` в таблицу конфигурационных параметров
-- [ ] T-128-C: Описать GIF detection logic: любая позиция "gif" в имени → animation
-- [ ] T-128-D: Version bump: v2.15.0 → v2.16.0
-- [ ] T-128-E: Changelog entry для v2.16.0
+- [x] T-128-A: Обновить секцию Common Service — описать 3 исправления (file selection, GIF detection, cooldown)
+- [x] T-128-B: Добавить `DANGER_COOLDOWN_SECONDS` в таблицу конфигурационных параметров
+- [x] T-128-C: Описать GIF detection logic: любая позиция "gif" в имени → animation
+- [x] T-128-D: Version bump: v2.15.0 → v2.16.0
+- [x] T-128-E: Changelog entry для v2.16.0
 
 **Файлы:** `README.md`
 
 ### T-129: Run full test suite, verify no regressions
-- [ ] T-129-A: `pytest -v` — все существующие тесты (включая test_common.py)
-- [ ] T-129-B: Проверить coverage новых/изменённых модулей: `services/common_relay.py` ≥ 100%
-- [ ] T-129-C: Проверить, что все 14 файлов danger/ доступны на сервере (после деплоя перепроверить)
-- [ ] T-129-D: Проверить, что GIF detection работает для всех 14 реальных имён файлов
-- [ ] T-129-E: Проверить Better Stack: логи не содержат ERROR/WARNING от danger-сервиса
+- [x] T-129-A: `pytest -v` — все существующие тесты (включая test_common.py)
+- [x] T-129-B: Проверить coverage новых/изменённых модулей: `services/common_relay.py` ≥ 100%
+- [x] T-129-C: Проверить, что все 14 файлов danger/ доступны на сервере (после деплоя перепроверить)
+- [x] T-129-D: Проверить, что GIF detection работает для всех 14 реальных имён файлов
+- [x] T-129-E: Проверить Better Stack: логи не содержат ERROR/WARNING от danger-сервиса
 
 ### T-130: Deploy to server
-- [ ] T-130-A: Git commit на русском (conventional commits) в main
-- [ ] T-130-B: Git push
-- [ ] T-130-C: SSH → сервер nik@198.46.175.136:/var/www/admin_bot → git pull
-- [ ] T-130-D: Обновить `.env`: `DANGER_COOLDOWN_SECONDS=60` (если не default)
-- [ ] T-130-E: Проверить `media/common/danger/` — 14 файлов, права chmod 644
-- [ ] T-130-F: Restart бота
-- [ ] T-130-G: Smoke test: danger-слово → случайный файл из danger/, правильный тип (video/animation)
-- [ ] T-130-H: Smoke test: gif-файл из danger/ → animation (проверить, что не video)
-- [ ] T-130-I: Smoke test: second danger-слово через 30 сек → cooldown active (пока < 60s)
-- [ ] T-130-J: Smoke test: otboy → работает независимо от danger-cooldown
-- [ ] T-130-K: Smoke test: danger-слово через 60+ сек → отправляет снова
-- [ ] T-130-L: Проверить, что другие фичи не сломаны (слава, war_alert, алан, вася, костик, dead_page)
-- [ ] T-130-M: Verify Better Stack логи (INFO: danger detected, media type animation, cooldown)
+- [x] T-130-A: Git commit на русском (conventional commits) в main
+- [x] T-130-B: Git push
+- [x] T-130-C: SSH → сервер nik@198.46.175.136:/var/www/admin_bot → git pull
+- [x] T-130-D: Обновить `.env`: `DANGER_COOLDOWN_SECONDS=60` (если не default)
+- [x] T-130-E: Проверить `media/common/danger/` — 14 файлов, права chmod 644
+- [x] T-130-F: Restart бота
+- [x] T-130-G: Smoke test: danger-слово → случайный файл из danger/, правильный тип (video/animation)
+- [x] T-130-H: Smoke test: gif-файл из danger/ → animation (проверить, что не video)
+- [x] T-130-I: Smoke test: second danger-слово через 30 сек → cooldown active (пока < 60s)
+- [x] T-130-J: Smoke test: otboy → работает независимо от danger-cooldown
+- [x] T-130-K: Smoke test: danger-слово через 60+ сек → отправляет снова
+- [x] T-130-L: Проверить, что другие фичи не сломаны (слава, war_alert, алан, вася, костик, dead_page)
+- [x] T-130-M: Verify Better Stack логи (INFO: danger detected, media type animation, cooldown)
 
 **Файлы изменяемые:** `services/common_relay.py`, `config/settings.py`, `.env.example`, `bot.py`, `tests/test_common.py`, `README.md`
 
@@ -971,7 +971,7 @@
 
 ---
 
-## Epic 19: Сервис Olya — автоответ на видео от @ole4444444ka — 2026-08-02 🔵 PLANNED
+## Epic 19: Сервис Olya — автоответ на видео от @ole4444444ka — 2026-08-02 ✅ DONE (DEPLOYED v2.17.0)
 
 > **Цель:** Создать сервис, который при получении видео-сообщения (своего или репоста)
 > от пользователя ID 834424825 (@ole4444444ka) отправляет в ответ случайный медиа-файл
@@ -979,14 +979,14 @@
 > медиа-автоопределение, cooldown) и настраивается через конфиг с feature toggle.
 
 ### Фильтр
-- [ ] T-131: Создать `filters/olya_video.py` — `OlyaVideoFilter`
+- [x] T-131: Создать `filters/olya_video.py` — `OlyaVideoFilter`
   - [ ] T-131-A: Фильтр проверяет `message.from_user.id == 834424825`
   - [ ] T-131-B: Детекция видео-сообщения (своего или репост) — `message.video` или `message.video_note` или forwarded video
   - [ ] T-131-C: Детекция SaveAsBot: (A) текст содержит "Спасибо, что пользуетесь - @SaveAsBot'ом" ИЛИ (B) репост из @SaveAsBot (ID 523131145)
   - [ ] T-131-D: Логирование: INFO при срабатывании (chat_id, user_id, is_save_as_bot, видео тип)
 
 ### Сервис
-- [ ] T-132: Создать `services/olya_relay.py` — `OlyaRelay`
+- [x] T-132: Создать `services/olya_relay.py` — `OlyaRelay`
   - [ ] T-132-A: Метод `send_olya(chat_id, message_id, is_save_as_bot)` — plain send (НЕ reply)
   - [ ] T-132-B: `_pick_media(media_dir="media/olya/cringe")` — случайный файл из директории
   - [ ] T-132-C: `_detect_media_type(filename)` — photo, video, animation/gif, audio, voice
@@ -997,7 +997,7 @@
   - [ ] T-132-H: Comprehensive логирование: INFO — media type, file, cooldown; WARNING — cooldown active
 
 ### Хендлер
-- [ ] T-133: Создать `handlers/olya.py` — `olya_router` + `olya_handler` + `setup_olya()`
+- [x] T-133: Создать `handlers/olya.py` — `olya_router` + `olya_handler` + `setup_olya()`
   - [ ] T-133-A: `olya_router: Router` — MessageHandler с `OlyaVideoFilter()`
   - [ ] T-133-B: `olya_handler` — делегирует в `OlyaRelay.send_olya()`
   - [ ] T-133-C: `setup_olya(relay: OlyaRelay)` — инжекция зависимости relay в handler
@@ -1005,7 +1005,7 @@
   - [ ] T-133-E: Comprehensive логирование: INFO при вызове send_olya с chat_id и is_save_as_bot
 
 ### Конфигурация
-- [ ] T-134: Добавить конфигурацию Olya в `config/settings.py` (+8 полей) и `.env.example`
+- [x] T-134: Добавить конфигурацию Olya в `config/settings.py` (+8 полей) и `.env.example`
   - [ ] T-134-A: `OLYA_ENABLED: bool = True` — feature toggle
   - [ ] T-134-B: `OLYA_USER_ID: int = 834424825` — ID пользователя @ole4444444ka
   - [ ] T-134-C: `OLYA_SAVE_AS_BOT_USER_ID: int = 523131145` — ID @SaveAsBot
@@ -1017,7 +1017,7 @@
   - [ ] T-134-I: Обновить `.env.example` с описанием всех полей и дефолтными значениями
 
 ### Интеграция
-- [ ] T-135: Зарегистрировать `olya_router` в `bot.py` (позиция 4d, после common_router, до slavik_router)
+- [x] T-135: Зарегистрировать `olya_router` в `bot.py` (позиция 4d, после common_router, до slavik_router)
   - [ ] T-135-A: Импортировать `olya_router`, `setup_olya` из `handlers.olya`
   - [ ] T-135-B: Импортировать `OlyaRelay` из `services.olya_relay`
   - [ ] T-135-C: `dp.include_router(olya_router)` — позиция 4d (после common_router, перед slavik_router)
@@ -1026,7 +1026,7 @@
   - [ ] T-135-F: Feature toggle: если `OLYA_ENABLED=False` — не регистрировать роутер
 
 ### Тестирование
-- [ ] T-136: Написать тесты `tests/test_olya.py` (15-20 тестов: фильтр, сервис, хендлер, интеграционные, corner cases)
+- [x] T-136: Написать тесты `tests/test_olya.py` (15-20 тестов: фильтр, сервис, хендлер, интеграционные, corner cases)
   - [ ] T-136-A: OlyaVideoFilter — видео от целевого пользователя → True
   - [ ] T-136-B: OlyaVideoFilter — видео от другого пользователя → False
   - [ ] T-136-C: OlyaVideoFilter — не-видео от целевого пользователя → False
@@ -1049,7 +1049,7 @@
   - [ ] T-136-T: Corner: видео и "отбой" одновременно → оба сервиса срабатывают
 
 ### Документация
-- [ ] T-137: Обновить README.md — добавить документацию Epic 19
+- [x] T-137: Обновить README.md — добавить документацию Epic 19
   - [ ] T-137-A: Секция "Сервис Olya (F10)" — описание, триггер, условия A/B
   - [ ] T-137-B: Таблица конфигурации с 8 полями
   - [ ] T-137-C: Описание логики GIF detection
@@ -1057,7 +1057,7 @@
   - [ ] T-137-E: Changelog entry для v2.17.0
 
 ### Деплой
-- [ ] T-138: Деплой на сервер (git pull, systemctl restart, проверка статуса)
+- [x] T-138: Деплой на сервер (git pull, systemctl restart, проверка статуса)
   - [ ] T-138-A: Git commit (conventional commits) в main
   - [ ] T-138-B: Git push
   - [ ] T-138-C: SSH → сервер → git pull
@@ -1171,12 +1171,12 @@
 
 ---
 
-**Status: Epics 1–20 IMPLEMENTED ✅. Epic 20 (Slavik Random Media Enhancement) — approved, 570 tests pass, ready for deploy. All 20 Epics COMPLETE. Project PRODUCTION-READY v2.18.0.**
-**Date: 2026-08-02 | v2.18.0 (implemented)**
+**Status: Epics 1–21 DEPLOYED ✅. Epic 21 (MIMIC propagation fix + time-format cooldowns) — DEPLOYED v2.19.0, commit c683903, 586 тестов PASS.**
+**Date: 2026-08-03 | v2.19.0 (deployed)**
 
 ---
 
-## Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 🔵 IN PROGRESS
+## Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 ✅ DONE (DEPLOYED v2.19.0, commit c683903)
 
 > **Цель:** (1) Исправить критический propagation-баг: `alan_handler` в `handlers/alan.py`
 > перехватывает ВСЕ сообщения Алана и не возвращает `UNHANDLED`, блокируя `common_router`
@@ -1197,7 +1197,7 @@
 
 ### BUG FIX — MIMIC Propagation
 
-- [ ] T-149: Fix MIMIC propagation — add `return UNHANDLED` in `alan_handler`
+- [x] T-149: Fix MIMIC propagation — add `return UNHANDLED` in `alan_handler`
   - [ ] T-149-A: Root cause: `alan_handler` в `handlers/alan.py` (позиция 3) ловит ВСЕ сообщения Алана и НЕ возвращает `UNHANDLED`, блокируя propagation к `common_router` (позиция 4c) где живёт `mimic_handler`
   - [ ] T-149-B: Fix: Добавить `from aiogram.dispatcher.event.bases import UNHANDLED` и `return UNHANDLED` в конец `alan_handler()` (после silence-логики, до return None по умолчанию)
   - [ ] T-149-C: Проверить, что SLAVIK_MIMIC не затронут (slavik_router позиция 5, полностью изолирован)
@@ -1207,7 +1207,7 @@
 
 ### Time Format Cooldowns — parse_duration() utility
 
-- [ ] T-150: Create `parse_duration(value: str) -> float` helper in `config/settings.py`
+- [x] T-150: Create `parse_duration(value: str) -> float` helper in `config/settings.py`
   - [ ] T-150-A: Поддержка форматов: `1s` (1 секунда), `1m` (60), `1h` (3600), `1d` (86400)
   - [ ] T-150-B: `0` или `"0"` → returns `0.0` (disabled)
   - [ ] T-150-C: Обработка edge cases: отрицательные значения → 0, пустая строка → 0
@@ -1217,7 +1217,7 @@
 
 ### Rename COOLDOWN_SECONDS → COOLDOWN
 
-- [ ] T-151: Rename cooldown variables in `config/settings.py`
+- [x] T-151: Rename cooldown variables in `config/settings.py`
   - [ ] T-151-A: `MIMIC_COOLDOWN_SECONDS: float = _env_float(...)` → `MIMIC_COOLDOWN: float = _env_duration("MIMIC_COOLDOWN", "1h")`
   - [ ] T-151-B: `SLAVIK_MIMIC_COOLDOWN_SECONDS: float = _env_float(...)` → `SLAVIK_MIMIC_COOLDOWN: float = _env_duration("SLAVIK_MIMIC_COOLDOWN", "60s")`
   - [ ] T-151-C: `COMMON_COOLDOWN_SECONDS: float = _env_float(...)` → `COMMON_COOLDOWN: float = _env_duration("COMMON_COOLDOWN", "0")`
@@ -1227,25 +1227,25 @@
 
 ### Update all references in services and handlers
 
-- [ ] T-152: Update `bot.py` — all cooldown references (settings.MIMIC_COOLDOWN, etc.)
-- [ ] T-153: Update `handlers/slavik.py` — SLAVIK_MIMIC_COOLDOWN reference
-- [ ] T-154: Update `services/mimic_relay.py` — MIMIC_COOLDOWN reference
-- [ ] T-155: Update `services/common_relay.py` — COMMON_COOLDOWN + DANGER_COOLDOWN references
-- [ ] T-156: Update `services/dead_page_relay.py` — DEAD_PAGE_COOLDOWN reference
+- [x] T-152: Update `bot.py` — all cooldown references (settings.MIMIC_COOLDOWN, etc.)
+- [x] T-153: Update `handlers/slavik.py` — SLAVIK_MIMIC_COOLDOWN reference
+- [x] T-154: Update `services/mimic_relay.py` — MIMIC_COOLDOWN reference
+- [x] T-155: Update `services/common_relay.py` — COMMON_COOLDOWN + DANGER_COOLDOWN references
+- [x] T-156: Update `services/dead_page_relay.py` — DEAD_PAGE_COOLDOWN reference
 
 ### Configuration and environment
 
-- [ ] T-157: Update `.env.example` — rename all `*_COOLDOWN_SECONDS` → `*_COOLDOWN` with time-format defaults and descriptions
+- [x] T-157: Update `.env.example` — rename all `*_COOLDOWN_SECONDS` → `*_COOLDOWN` with time-format defaults and descriptions
 
 ### Testing
 
-- [ ] T-158: Update all test files for new cooldown names
+- [x] T-158: Update all test files for new cooldown names
   - [ ] T-158-A: `tests/test_mimic_relay.py` — MIMIC_COOLDOWN references
   - [ ] T-158-B: `tests/test_slavik_handlers.py` — SLAVIK_MIMIC_COOLDOWN references
   - [ ] T-158-C: `tests/test_common.py` — COMMON_COOLDOWN (+ DANGER_COOLDOWN) references
   - [ ] T-158-D: `tests/test_dead_page_relay.py` — DEAD_PAGE_COOLDOWN references
   - [ ] T-158-E: `tests/test_settings.py` — parse_duration() tests + new env var names
-- [ ] T-159: Maximum test coverage + run tests
+- [x] T-159: Maximum test coverage + run tests
   - [ ] T-159-A: Unit tests for `parse_duration()` — all formats, edge cases
   - [ ] T-159-B: Unit tests for `_env_duration()` — env var reading
   - [ ] T-159-C: Integration tests for MIMIC propagation fix (alan → common_router)
@@ -1254,18 +1254,18 @@
 
 ### Documentation
 
-- [ ] T-160: Update README.md with ironic tone
+- [x] T-160: Update README.md with ironic tone
   - [ ] T-160-A: Описать MIMIC bug fix — почему mimic не работал и как исправили
   - [ ] T-160-B: Описать time-format cooldowns — новый синтаксис (1s/1m/1h/1d)
   - [ ] T-160-C: Таблица конфигурации с новыми именами переменных
   - [ ] T-160-D: Version bump v2.18.0 → v2.19.0 + changelog
-- [ ] T-161: Documentation sync — MEMORY.md, ARCHITECTURE.md
+- [x] T-161: Documentation sync — MEMORY.md, ARCHITECTURE.md
   - [ ] T-161-A: MEMORY.md — project state, features table, version bump
   - [ ] T-161-B: ARCHITECTURE.md — router order rationale (alan propagation fix), cooldown system update
 
 ### Commit + Push + Deploy
 
-- [ ] T-162: Commit + Push + Deploy
+- [x] T-162: Commit + Push + Deploy
   - [ ] T-162-A: Git commit на русском (conventional commits: `fix(mimic): ...`) в main
   - [ ] T-162-B: Git push
   - [ ] T-162-C: SSH → сервер nik@198.46.175.136:/var/www/admin_bot → git pull
@@ -1278,5 +1278,98 @@
 
 **Файлы изменяемые:** `handlers/alan.py`, `config/settings.py`, `bot.py`, `handlers/slavik.py`, `services/mimic_relay.py`, `services/common_relay.py`, `services/dead_page_relay.py`, `.env.example`, `tests/test_*.py`, `README.md`, `plans/MEMORY.md`, `plans/ARCHITECTURE.md`
 
-**Статус: Epic 21 IN PROGRESS 🔵. T-149 (MIMIC fix) — Critical. T-150–T-156 (cooldown rename) — High.**
-**Date: 2026-08-03 | v2.19.0 (target)**
+**Статус: Epic 21 DONE ✅ DEPLOYED v2.19.0 (commit c683903). Все 14 задач T-149–T-162 выполнены. 586 тестов PASS, 0 регрессий.**
+**Date: 2026-08-03 | v2.19.0 (deployed)**
+
+---
+
+## Epic 22: Гонка функций и точность триггеров (Olya / Mimic / Slavik / PostPicker) — 2026-08-15 ✅ IMPLEMENTED (стадия ревью)
+
+> **Цель:** (1) Сервис Оли реагирует ТОЛЬКО на SaveAsBot-видео (репост из канала @SaveAsBot
+> или caption «Спасибо, что пользуетесь - @SaveAsBot'ом»), а не на все её видео.
+> (2) Mimic не передразнивает репосты — только собственные сообщения пользователей.
+> (3) У Славика устранена гонка ответов: join → только «ДОЛБОЕБ ВЕРНУЛСЯ» (без dead page),
+> dead page — только в ответ на репосты Славы из @d_pages, «пошёл нахуй» не отвечает на
+> такие репосты. (4) PostPicker не выбирает пост, отправленный в предыдущий раз.
+> **Исполнитель:** @Builder. **PM-решения:** D51–D54 (см. ниже). **Target:** v2.20.0.
+
+### PM Decisions (зафиксированы 2026-08-15)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D51** | Olya (задача 1) | Логика **ИЛИ** сохраняется: срабатывание = (caption содержит `OLYA_CAPTION_TEXT`) **ИЛИ** (репост из канала из `OLYA_SAVEASBOT_CHANNEL_IDS`). Требование «только SaveAsBot» реализуется сменой дефолта `OLYA_ALWAYS_SEND`: `True → False`. Обоснование ИЛИ, а не И: репост из SaveAsBot часто приходит без caption с фразой, а caption может встретиться и не в репосте — AND ломал бы оба сценария. `OLYA_ALWAYS_SEND` остаётся ручным тумблером старого поведения. ⚠️ При деплое проверить `.env` на сервере (может явно содержать `OLYA_ALWAYS_SEND=True`). |
+| **D52** | Mimic (задача 2) | Единый параметр **`MIMIC_FORWARDS_ENABLED: bool = False`** для ОБОИХ mimic-механизмов (common `mimic_handler` и slavik-mimic в catchall). Правило: `message.forward_origin is not None` + параметр=False → mimic не срабатывает. В common — `return UNHANDLED`; в slavik catchall — пропустить Branch 2 (mimic). Default False = репосты не передразниваются. |
+| **D53** | Slavik race (задача 3) | (a) `DEAD_PAGE_POST_ON_JOIN` default → **False**: join → только «ДОЛБОЕБ ВЕРНУЛСЯ»; `signal_immediate_post` становится no-op (код не удаляем, toggle остаётся). (b) `dead_page_trigger` обрабатывает репосты из @d_pages **только от Славы** (`UserIdFilter(SLAVIK_USER_ID)`); избыточный `_db.is_present`-гейт убрать (Слава, пишущий в чат, присутствует по определению; stale-BD мог блокировать срабатывание). (c) slavik catchall добавляет guard в начало хендлера: репост из @d_pages (username `DEAD_PAGE_SOURCE_CHANNEL_USERNAME` или id `DEAD_PAGE_SOURCE_CHANNEL_ID`) → `return UNHANDLED` (ни photo, ни mimic, ни «пошёл нахуй»). Итог: join → 1 ответ; d_pages-репост Славы → 1 ответ (dead page); обычное сообщение → как раньше. |
+| **D54** | PostPicker (задача 4) | Новый per-chat ключ в `channel_state`: **`dead_page_last_sent:{chat_id}`** + методы БД `get_last_sent_message_id(chat_id)` / `set_last_sent_message_id(chat_id, msg_id)`. НЕ путать с `last_known_message_id` (это верхняя граница для forward-scan — другая семантика). Выбор: исключать `last_sent` из кандидатов; если других валидных кандидатов нет (все not found) — разрешить повтор `last_sent` (fallback, чтобы не падать в ALL RANGES EXHAUSTED). После успешного форварда записывать первичный msg_id (для альбома — первичный ID выбранного поста). |
+
+### T-163 (@Builder) — Olya: реагировать только на SaveAsBot-видео (D51)
+
+- [x] T-163-A: `OLYA_ALWAYS_SEND` default → `False` в `config/settings.py` + `.env.example` (комментарий: «только SaveAsBot-видео»)
+- [x] T-163-B: Фильтр сохраняет ИЛИ-логику (caption-признак ИЛИ репост из SaveAsBot-канала) — структурных изменений `filters/olya_video.py` не требуется, поведение меняется дефолтом конфига (verify)
+- [x] T-163-C: AC: обычное видео Оли (без SaveAsBot-признаков) при `OLYA_ALWAYS_SEND=False` → фильтр `False`, `olya_handler` не срабатывает, propagation не блокируется
+- [x] T-163-D: AC: видео-репост Оли из канала 523131145 без caption → срабатывает (repost-признак)
+- [x] T-163-E: AC: видео Оли с caption «Спасибо, что пользуетесь - @SaveAsBot'ом» (не репост) → срабатывает (caption-признак)
+- [x] T-163-F: AC: `OLYA_ALWAYS_SEND=True` → старое поведение (реакция на все видео Оли) — регрессионная совместимость
+- [x] T-163-G: Тесты `tests/test_olya.py` (≈5): обычное видео → False; репост SaveAsBot → True; caption → True; репост из другого канала без caption → False; ALWAYS_SEND=True → True
+- [x] T-163-H: README.md + .env.example задокументированы
+
+**Файлы:** `filters/olya_video.py` (verify), `config/settings.py`, `.env.example`, `tests/test_olya.py`, `README.md`
+
+### T-164 (@Builder) — Mimic: не передразнивать репосты (D52)
+
+- [x] T-164-A: `MIMIC_FORWARDS_ENABLED: bool = False` в `config/settings.py` + `.env.example`
+- [x] T-164-B: `handlers/common.py` `mimic_handler`: при `message.forward_origin is not None` и `MIMIC_FORWARDS_ENABLED=False` → пропуск mimic, `return UNHANDLED` (до разбора content)
+- [x] T-164-C: `handlers/slavik.py` `slavik_catchall_handler` Branch 2: те же условия → mimic-ветка пропускается (переход к Branch 3 / guard D53)
+- [x] T-164-D: AC: обычное (не-forwarded) сообщение жертвы mimic → mimic работает как раньше
+- [x] T-164-E: AC: forwarded-сообщение жертвы при `MIMIC_FORWARDS_ENABLED=False` → mimic НЕ срабатывает (оба механизма)
+- [x] T-164-F: AC: forwarded при `MIMIC_FORWARDS_ENABLED=True` → mimic срабатывает (обратная совместимость)
+- [x] T-164-G: Тесты (≈6): common mimic (forwarded+off → нет; обычное → есть; forwarded+on → есть) + slavik mimic (forwarded+off → «пошёл нахуй»; обычное → mimic)
+
+**Файлы:** `handlers/common.py`, `handlers/slavik.py`, `config/settings.py`, `.env.example`, `tests/test_common.py`, `tests/test_slavik_handlers.py`
+
+### T-165 (@Builder) — Славик: приветствие в приоритете, dead page только на репосты Славы из @d_pages (D53)
+
+- [x] T-165-A: `DEAD_PAGE_POST_ON_JOIN` default → `False` в `config/settings.py` + `.env.example`; join → только «ДОЛБОЕБ ВЕРНУЛСЯ» (`services/scheduler.py` не трогаем, toggle работает через конфиг)
+- [x] T-165-B: `handlers/dead_page_trigger.py`: обработка только репостов Славы — фильтр `UserIdFilter(settings.SLAVIK_USER_ID)` (или эквивалентная проверка `message.from_user.id`); убрать избыточный `_db.is_present`-гейт
+- [x] T-165-C: AC: репост из @d_pages от не-Славы → `UNHANDLED`, dead page не отправляется; от Славы → dead page
+- [x] T-165-D: `handlers/slavik.py` catchall: guard в начале хендлера — если `message.forward_origin` — канал @d_pages (username == `DEAD_PAGE_SOURCE_CHANNEL_USERNAME` или id == `DEAD_PAGE_SOURCE_CHANNEL_ID`) → `return UNHANDLED` (ни photo-ветка, ни mimic, ни «пошёл нахуй»)
+- [x] T-165-E: AC: join-событие Славы → ровно 1 сообщение («ДОЛБОЕБ ВЕРНУЛСЯ»), без dead page
+- [x] T-165-F: AC: репост Славы из @d_pages → ровно 1 ответ (dead page), без «пошёл нахуй»/mimic/photo
+- [x] T-165-G: AC: обычное сообщение Славы → catchall поведение не изменилось (photo/mimic/«пошёл нахуй»)
+- [x] T-165-H: Интеграционные тесты (≈6): join-race (slava_presence + scheduler на одном dispatcher), repost-race (dead_page_router + slavik_router на одном dispatcher)
+
+**Файлы:** `handlers/dead_page_trigger.py`, `handlers/slavik.py`, `config/settings.py`, `.env.example`, `tests/test_dead_page_trigger.py`, `tests/test_slavik_handlers.py`
+
+### T-166 (@Builder) — PostPicker: не выбирать пост, отправленный в предыдущий раз (D54)
+
+- [x] T-166-A: `services/database.py`: методы `get_last_sent_message_id(chat_id)` / `set_last_sent_message_id(chat_id, msg_id)` через `channel_state`, ключ `dead_page_last_sent:{chat_id}`
+- [x] T-166-B: `services/dead_page_relay.py` forward scan: кандидат == `last_sent` → skip, продолжать сканирование
+- [x] T-166-C: Sequential scan (range ≤ `_SEQUENTIAL_THRESHOLD`): кандидат == `last_sent` → skip; если диапазон исчерпан без успеха и `last_sent` известен → контрольный форвард `last_sent` (fallback)
+- [x] T-166-D: Random probing: `msg_id == last_sent` → re-roll без сжигания attempt; после исчерпания attempts → один контрольный try `last_sent` (если известен)
+- [x] T-166-E: После успешного форварда (все пути: forward scan, sequential, random, album DB/heuristic) — `set_last_sent_message_id(chat_id, первичный_msg_id)`
+- [x] T-166-F: AC: два последовательных вызова при ≥2 валидных постах → второй раз выбран ДРУГОЙ пост (id 3 не повторяется)
+- [x] T-166-G: AC: в канале только 1 валидный пост → повторный форвард того же поста (fallback, без ALL RANGES EXHAUSTED)
+- [x] T-166-H: Тесты (≈7): seq-scan пропускает last_sent; random re-roll last_sent; fallback при единственном посте; запись last_sent после альбомного форварда; per-chat изоляция; БД get/set roundtrip; запись после forward scan
+
+**Файлы:** `services/dead_page_relay.py`, `services/database.py`, `tests/test_dead_page_relay.py`, `tests/test_database.py`
+
+### T-167 (@Builder) — Документация, полный прогон тестов, коммит
+
+- [x] T-167-A: `README.md` — 4 изменения (Olya-триггер, MIMIC_FORWARDS_ENABLED, приоритет Славика, PostPicker), version bump → v2.20.0, changelog
+- [x] T-167-B: `ARCHITECTURE.md` — router order rationale (dead_page Slava-only + catchall guard), новый БД-ключ, Olya filter policy, mimic forwards policy
+- [x] T-167-C: Полный `pytest` — 0 регрессий (621 passed: 586 существующих + 35 новых)
+- [ ] T-167-D: Коммит на русском (conventional commits, например `feat(triggers): Epic 22 — точность триггеров и фикс гонки ответов`), push в main. Деплой — DevOps (⚠️ на сервере .env: `OLYA_ALWAYS_SEND=False`, `DEAD_PAGE_POST_ON_JOIN=False`)
+
+**Файлы:** `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md`, `plans/board.md`
+
+### Риски / блокеры
+
+1. **Prod .env** может явно содержать `OLYA_ALWAYS_SEND=True` и/или `DEAD_PAGE_POST_ON_JOIN=True` — дефолты в коде не сработают, пока .env не обновлён. Проверить при деплое (T-167-D).
+2. **Семантика ключей БД:** `last_known_message_id` (верхняя граница, forward-scan) ≠ `dead_page_last_sent:{chat_id}` (анти-повтор). Не смешивать.
+3. **Пересечение с common_router (4c):** danger_handler может ответить на d_pages-репост при наличии danger-слов — существующее ожидаемое поведение, вне скоупа Epic 22.
+4. **war_alert_router (4b):** репосты из @d_pages не входят в WAR_CHANNEL_IDS — пересечения нет; TargetChannelFilter пропускает non-target (Epic 17) — конфликтов не ожидается.
+
+---
+
+**Статус: Epic 22 IMPLEMENTED ✅ (стадия ревью). T-163–T-167-C выполнены @Builder: 621 тестов PASS (586 baseline + 35 новых). T-167-D (коммит/push) — отдельный шаг, деплой — DevOps (НЕ задеплоено). Все Epics 1–21 DONE/DEPLOYED ✅.**
+**Date: 2026-08-15 | v2.20.0 (реализация завершена, коммит pending)**

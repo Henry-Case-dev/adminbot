@@ -21,6 +21,7 @@ def make_message():
         msg = MagicMock()
         msg.text = text
         msg.caption = None
+        msg.forward_origin = None  # ordinary message, not a forward (MagicMock-safe)
         msg.chat = MagicMock()
         msg.chat.id = chat_id
         msg.from_user = MagicMock()

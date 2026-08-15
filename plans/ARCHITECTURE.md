@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.18.0
-> **Дата:** 2026-08-02
-> **Статус:** Архитектурный контракт. Содержит дизайн Epic 18-20. Реализация НЕ начата.
+> **Версия:** v2.20.0 (текущий дизайн: Epic 22)
+> **Дата:** 2026-08-15
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅ (стадия ревью, коммит/деплой pending).
 > **Автор:** @Architect
 
 ---
@@ -16,6 +16,9 @@
 5. [Сводный план для Builder](#5-сводный-план-для-builder) — Порядок реализации, риски, тест-план
 6. [Приложение A: Текущий Router Order](#приложение-a-текущий-router-order)
 7. [Приложение B: Диагностическая SSH-проверка](#приложение-b-диагностическая-ssh-проверка-для-задачи-1)
+8. [Section 28: Epic 20](#section-28-epic-20--slavik-random-media-enhancement-v2180) — Slavik Random Media Enhancement (v2.18.0)
+9. [Section 29: Epic 21](#29-epic-21--mimic-propagation-fix--time-format-cooldowns) — MIMIC Propagation Fix + Time-Format Cooldowns (v2.19.0)
+10. [Section 30: Epic 22](#30-epic-22--гонка-функций-и-точность-триггеров-v2200) — Гонка функций и точность триггеров (v2.20.0, НОВОЕ)
 
 ---
 
@@ -2448,3 +2451,504 @@ def _parse_duration(value: str) -> float:
 ---
 
 @Orchestrator Epic 21 architecture ready, passing the baton.
+
+---
+
+## 30. Epic 22 — Гонка функций и точность триггеров (v2.20.0)
+
+> **Дата дизайна:** 2026-08-15 · **Автор:** @Architect · **Статус:** IMPLEMENTED ✅ — реализовано @Builder (D51–D54, T-163–T-167-C), стадия ревью
+> **Цель:** устранить гонку ответов Славика (приветствие vs dead page vs «пошёл нахуй»),
+> сделать триггеры точнее: Olya — только SaveAsBot-видео, mimic — не передразнивать
+> репосты, PostPicker — не выбирать пост, отправленный в предыдущий раз.
+
+### 30.1 PM-решения (из board.md) и их отображение на задачи
+
+| PM | Задача | Суть решения |
+|----|--------|--------------|
+| D51 | T-163 | Логика ИЛИ сохраняется: caption-признак **ИЛИ** репост из `OLYA_SAVEASBOT_CHANNEL_IDS`. Дефолт `OLYA_ALWAYS_SEND` True→**False**. |
+| D52 | T-164 | Единый параметр `MIMIC_FORWARDS_ENABLED: bool = False` для ОБОИХ mimic-механизмов (`handlers/common.py::mimic_handler` и `handlers/slavik.py::_slavik_mimic_should_trigger`). При `forward_origin is not None` и выключенном параметре — mimic пропускается. |
+| D53 | T-165 | `DEAD_PAGE_POST_ON_JOIN=False` (join → только «ДОЛБОЕБ ВЕРНУЛСЯ»); dead_page_trigger — только репосты Славы (`UserIdFilter`, убрать is_present-гейт); catch-all Славика — гейт в начале: репост из @d_pages → `UNHANDLED` (dead page остаётся единственным ответом). Приветствие при входе в приоритете. |
+| D54 | T-166 | Новый ключ `channel_state` `dead_page_last_sent:{chat_id}` (не путать с `last_known_message_id`). last_sent исключается из выбора (forward-scan, sequential, random ветки `services/dead_page_relay.py`); fallback на повтор при отсутствии альтернатив; запись msg_id после любого успешного форварда. Корень проблемы: при диапазоне ≤ 50 ID (`_SEQUENTIAL_THRESHOLD`) sequential scan всегда находит первый существующий пост (id 3). |
+| — | T-167 | Документация (README/ARCHITECTURE/MEMORY, v2.20.0), полный pytest (0 регрессий, 586 + ~30 новых), коммит на русском (conventional commits). |
+
+### 30.2 Контекст внешних API (дата 2026-08-15)
+
+> Источники собраны с fallback-инструментом `exa_web_search_exa`: инструмент context7
+> вернул «Invalid API key», DuckDuckGo — rate-limit («DDG detected an anomaly»). Все
+> факты ниже перепроверены по официальной документации core.telegram.org и docs.aiogram.dev.
+
+1. **`Message.forward_origin` в aiogram 3.x** — тип
+   `MessageOriginUser | MessageOriginHiddenUser | MessageOriginChat | MessageOriginChannel | None`.
+   **`None` — для обычных (не пересланных) сообщений.** Это основной детектор репоста:
+   `message.forward_origin is not None`. Legacy-поля `forward_from`, `forward_from_chat`,
+   `forward_from_message_id`, `forward_sender_name`, `forward_signature`, `forward_date`
+   — **deprecated** (Bot API 7.0, 2023-12-29) и заменены на `forward_origin`.
+   *Источники:* https://docs.aiogram.dev/en/dev-3.x/api/types/message.html (aiogram 3.27/3.28);
+   https://core.telegram.org/bots/api-changelog (Bot API 7.0).
+2. **`MessageOriginChannel`** — поля: `type` (`'channel'`), `date`, `chat: Chat` (канал, где
+   сообщение было изначально отправлено), `message_id: int` (уникальный id сообщения внутри
+   канала), `author_signature: str | None`. **Корректная детекция репоста из конкретного
+   канала:** `isinstance(origin, MessageOriginChannel)` + сравнение `origin.chat.id` /
+   `origin.chat.username` (паттерн уже реализован в `handlers/dead_page_trigger.py` и
+   `handlers/war_alert.py`).
+   *Источник:* https://docs.aiogram.dev/en/latest/api/types/message%5Forigin%5Fchannel.html
+3. **4 типа MessageOrigin:** `MessageOriginUser` (`sender_user`), `MessageOriginHiddenUser`
+   (`sender_user_name`), `MessageOriginChat` (`sender_chat`), `MessageOriginChannel` (`chat`).
+   У всех есть `type` и `date`.
+   *Источник:* https://core.telegram.org/bots/api#messageorigin
+4. **`Message.caption: str | None`** — подпись для animation/audio/document/photo/video/voice.
+   У пересланных медиа текст находится в `caption`, а не в `text`. Полный контент репоста:
+   `message.text or message.caption` (паттерн уже в проекте: `DangerWordFilter`, `mimic_handler`).
+   *Источники:* docs.aiogram.dev Message; community-практика (Latenode, SO) подтверждает:
+   «For forwarded messages with photos, use message.caption instead of message.text».
+5. **`forwardMessage`/`forwardMessages`:** «Use this method to forward messages of any kind.
+   Service messages and messages with protected content can't be forwarded.» Бот должен быть
+   членом (админом) канала-источника. Ошибка `Bad Request: message to forward not found` —
+   штатный признак отсутствующего/удалённого пробного id → обрабатывать `continue`, не abort.
+   `message_id` — сквозная нумерация в рамках чата (важно для sequential-scan).
+   *Источники:* https://docs.aiogram.dev/en/latest/api/methods/forward_message.html;
+   aiogram issue #1205; python-telegram-bot #1956; SO 66550987.
+6. **Gotcha — origin на репостах:** `origin.chat` — это канал-ИСТОЧНИК, а пересылающего
+   идентифицирует `message.from_user`. Пересланные альбомы не сохраняют общий
+   `media_group_id` (группировать можно по `forward_origin.chat.id`).
+   *Источники:* SO 79152213; aiogram discussion #1402.
+7. **Gotcha — тесты (MagicMock):** атрибуты MagicMock автогенерируются и truthy —
+   `message.forward_origin is not None` на MagicMock вернёт MagicMock (`True`). Тестовые
+   фабрики (`conftest.make_message`, локальная `make_message` в `tests/test_common.py`)
+   должны явно выставлять `msg.forward_origin = None`. Гейт в slavik catch-all сделан
+   mock-safe через `isinstance(origin, MessageOriginChannel)`.
+8. **Ограничения sendMediaGroup/forwardMessages:** альбом — 2–10 сообщений; `getChat`/
+   `getChatMember` для каналов требуют членства бота (в проекте не используются — релей
+   форвардит по id из канала, где бот — админ: `DEAD_PAGE_RELAY_CHANNEL_ID`).
+   *Источник:* core.telegram.org/bots/api.
+
+---
+
+### 30.3 T-163 / D51 — Olya: реагировать только на SaveAsBot-видео
+
+**Файлы и изменения (логика НЕ меняется — меняется только дефолт):**
+
+| Файл | Изменение |
+|------|-----------|
+| `config/settings.py:204` | `OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", True)` → **`False`** |
+| `.env.example:105` | `OLYA_ALWAYS_SEND=True` → **`OLYA_ALWAYS_SEND=False`** |
+| `filters/olya_video.py` | **Без изменений.** ИЛИ-логика (строки 44–51) уже верна: `saveasbot_triggered = is_saveasbot or matched_caption`; `if saveasbot_triggered or always_send`. |
+| `handlers/olya.py`, `services/olya_relay.py`, `bot.py` | Без изменений. |
+
+**Итоговая матрица поведения (AC T-163-C):**
+
+| Событие | ALWAYS_SEND=False (новый дефолт) | ALWAYS_SEND=True (явный override) |
+|---------|----------------------------------|-----------------------------------|
+| Обычное видео от Оли | `False` (не отвечаем) | `True` |
+| Репост из SaveAsBot-канала (`OLYA_SAVEASBOT_CHANNEL_IDS`) | `True` | `True` |
+| Caption содержит `OLYA_CAPTION_TEXT` | `True` | `True` |
+| Caption **и** репост SaveAsBot | `True` | `True` |
+
+**Псевдокод (текущий, подтверждённый — менять не нужно):**
+```python
+saveasbot_triggered = is_saveasbot or matched_caption
+if saveasbot_triggered or settings.OLYA_ALWAYS_SEND:
+    return {"is_saveasbot": saveasbot_triggered, "matched_caption": matched_caption}
+return False
+```
+
+---
+
+### 30.4 T-164 / D52 — Mimic: не передразнивать репосты
+
+**Новый конфиг-параметр (один на оба механизма):**
+- `config/settings.py`, секция «Mimic Feature» (после `MIMIC_COOLDOWN`, строка ~184):
+  ```python
+  # Мимикрировать только обычные сообщения; репосты пропускать.
+  # True = передразнивать и репосты тоже.
+  MIMIC_FORWARDS_ENABLED: bool = _env_bool("MIMIC_FORWARDS_ENABLED", False)
+  ```
+- `.env.example`, секция «Mimic Feature»:
+  ```
+  # Mimic только на обычные сообщения (не на репосты). True = включая репосты.
+  MIMIC_FORWARDS_ENABLED=False
+  ```
+
+**Механизм 1 — `handlers/common.py::mimic_handler` (строки 144–177):**
+```python
+@common_router.message(UserIdFilter(*_MIMIC_USER_IDS))
+async def mimic_handler(message: types.Message) -> None:
+    if not _VICTIM_IDS:  # disabled
+        return
+    # ── D52: репосты не передразниваем (если не включено явно) ──
+    if message.forward_origin is not None and not settings.MIMIC_FORWARDS_ENABLED:
+        logger.debug(
+            "Mimic: forwarded message — skipping (MIMIC_FORWARDS_ENABLED=False) | "
+            "chat_id=%s | message_id=%s", message.chat.id, message.message_id,
+        )
+        return UNHANDLED
+    if _mimic_relay is None:
+        ...  # без изменений
+    content = message.text or message.caption
+    ...
+    return UNHANDLED
+```
+
+**Механизм 2 — `handlers/slavik.py::_slavik_mimic_should_trigger` (строки 121–135):**
+Сигнатура расширяется параметром с обратной совместимостью; гейт ставится ПЕРВЫМ:
+```python
+def _slavik_mimic_should_trigger(
+    chat_id: int, text: str, is_forwarded: bool = False
+) -> bool:
+    """Check mimic conditions for Slavik: word count, cooldown, forward gate (D52)."""
+    if is_forwarded and not settings.MIMIC_FORWARDS_ENABLED:
+        return False          # D52: mimic пропускается → дальше Branch 3 «пошёл нахуй»
+    if settings.SLAVIK_MIMIC_MIN_WORDS < 0:
+        return False
+    ...  # word count и cooldown без изменений
+```
+Call-site (Branch 2, строка 217):
+```python
+content = message.text or message.caption
+if content and _slavik_mimic_should_trigger(
+    message.chat.id, content,
+    is_forwarded=message.forward_origin is not None,
+):
+```
+**Семантика для Slavik:** при репосте и выключенном параметре mimic пропускается → фоллбэк
+на Branch 3 («пошёл нахуй»), ЕСЛИ это не d_pages-репост (тогда сработает гейт Branch 0 из D53 —
+см. 30.5.3, и сообщение останется без «пошёл нахуй»).
+
+---
+
+### 30.5 T-165 / D53 — Славик: приоритет приветствия, dead page только на репосты Славы из @d_pages
+
+#### 30.5.1 Конфигурация
+
+| Файл | Изменение |
+|------|-----------|
+| `config/settings.py:117` | `DEAD_PAGE_POST_ON_JOIN: bool = os.getenv("DEAD_PAGE_POST_ON_JOIN", "True").lower() in ("true", "1", "yes")` → **`_env_bool("DEAD_PAGE_POST_ON_JOIN", False)`** (заодно унифицируем с остальными bool-полями; `_env_bool` принимает `1/true/yes/on` — надмножество старого списка) |
+| `.env.example:27` | `DEAD_PAGE_POST_ON_JOIN=True` → **`DEAD_PAGE_POST_ON_JOIN=False`** |
+| `services/scheduler.py` | **Без изменений** — `SchedulerService.__init__` читает `settings.DEAD_PAGE_POST_ON_JOIN` при конструировании (строка 29); `signal_immediate_post` уже выходит по `if not self.post_on_join` (строки 46–48). |
+| `handlers/slava_presence.py` | **Без изменений** — «ДОЛБОЕБ ВЕРНУЛСЯ» отправляется всегда; вызов `signal_immediate_post` остаётся (внутри него dead page теперь заглушен дефолтом). |
+
+#### 30.5.2 `handlers/dead_page_trigger.py` — только репосты Славы
+
+```python
+from filters.user_id import UserIdFilter          # + import
+
+@dead_page_router.message(
+    F.forward_origin,
+    UserIdFilter(settings.SLAVIK_USER_ID),        # ← D53: только репосты Славы
+)
+async def on_forward(message: types.Message):
+    origin = message.forward_origin
+    if not isinstance(origin, MessageOriginChannel):
+        logger.debug(...)
+        return UNHANDLED                          # без изменений
+    ...  # определение is_target (username/id) без изменений
+    if not is_target:
+        return UNHANDLED                          # без изменений
+    ...  # media-group dedup (Epic 14) — БЕЗ изменений
+
+    # ── D53: is_present-гейт УДАЛЯЕТСЯ (строки 82–87) ──
+    # Репост Славы сам по себе означает, что Слава в чате.
+    # _db остаётся в сигнатуре setup_dead_page(relay, db) для совместимости с bot.py:72,
+    # но больше не используется в этом модуле.
+
+    if _relay is None:
+        logger.error("DeadPageRelay not initialized — cannot send dead page")
+        return                                    # implicit None → propagation stop (как сейчас)
+    await _relay.send_dead_page(chat_id, slot="repost")
+    # implicit None в конце — намеренно: d_pages-репост Славы ОСТАНАВЛИВАЕТ propagation,
+    # dead page остаётся единственным ответом (существующее поведение, сохраняем).
+```
+
+Ключевой момент: не-Славины репосты теперь отсекаются **фильтром** (handler не вызывается →
+propagation продолжается, в отличие от прежнего `return`-паттерна). Это чинит старый класс
+багов (см. секцию 1.2) и для d_pages-репостов других пользователей.
+
+#### 30.5.3 Catch-all гейт в `handlers/slavik.py`
+
+```python
+from aiogram.dispatcher.event.bases import UNHANDLED       # + import
+from aiogram.types import MessageOriginChannel             # + import
+
+@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
+async def slavik_catchall_handler(message: types.Message):
+    logger.debug(...)
+
+    # ── Branch 0: Dead Page gate (Epic 22 / D53) ──
+    # d_pages-репост принадлежит dead_page_router (позиция 4). Defense-in-depth:
+    # если событие всё же дошло сюда — уступить, dead page должен быть ЕДИНСТВЕННЫМ ответом.
+    origin = message.forward_origin
+    if isinstance(origin, MessageOriginChannel):
+        src_username = settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME
+        src_id = settings.DEAD_PAGE_SOURCE_CHANNEL_ID
+        if (src_username and origin.chat.username == src_username) or (
+            src_id and origin.chat.id == src_id
+        ):
+            logger.info(
+                "Slavik catchall: d_pages repost — yielding to dead_page_router | msg_id=%d",
+                message.message_id,
+            )
+            return UNHANDLED    # ни photo, ни mimic, ни «пошёл нахуй»
+
+    # Branch 1 (photo interval), Branch 2 (mimic c is_forwarded), Branch 3 («пошёл нахуй») — без изменений
+```
+
+#### 30.5.4 Приоритеты и propagation — точная последовательность
+
+Целевая иерархия: **«приветствие при входе» > «dead page» > (нет ответа) > «пошёл нахуй»**.
+
+1. **Join-событие:** `slava_presence_router` (позиция 1) отправляет только
+   «ДОЛБОЕБ ВЕРНУЛСЯ»; `signal_immediate_post` выходит по дефолту (`DEAD_PAGE_POST_ON_JOIN=False`).
+   ChatMemberUpdated-события вообще не пересекаются с message-роутерами → гонки нет.
+2. **d_pages-репост Славы:** матчится `dead_page_router` (позиция 4) → `send_dead_page` →
+   implicit `None` в конце handler'а **останавливает propagation** → `slavik_router` (позиция 5)
+   событие не получает → ни photo, ни mimic, ни «пошёл нахуй». Dead page — единственный ответ.
+3. **Defense-in-depth:** если событие всё же достигает catch-all (другая версия aiogram/
+   прямой вызов хендлера в тестах) — гейт Branch 0 возвращает `UNHANDLED`.
+4. **Не-d_pages репост Славы:** trigger возвращает `UNHANDLED` → propagation идёт дальше →
+   mimic пропускается (D52, Branch 2) → Branch 3 «пошёл нахуй».
+5. **Обычное сообщение Славы:** без изменений — Branch 1 (photo interval) > Branch 2 (mimic) >
+   Branch 3 («пошёл нахуй»).
+
+#### 30.5.5 Почему порядок роутеров НЕ меняется
+
+- `dead_page_router` (4) уже стоит ДО `slavik_router` (5) — это и даёт приоритет dead page.
+  Перенос позиций ничего не добавил бы.
+- `war_alert_router` (4b) и `common_router` (4c) между ними не матчат d_pages-репосты в
+  общем случае; danger-ответ на d_pages-репост с danger-словами — существующее поведение,
+  вне скоупа (board, риск 3): propagation останавливается на dead_page handler'е.
+- Всё необходимое достигается сужением ФИЛЬТРОВ (UserIdFilter + гейт), а не перестановкой
+  роутеров — минимальный риск для остальных 20+ фич.
+
+---
+
+### 30.6 T-166 / D54 — PostPicker: не выбирать пост, отправленный в прошлый раз
+
+#### 30.6.1 Схема данных
+
+Новых таблиц нет — используем существующую `channel_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`.
+
+| Ключ | Тип значения | Смысл | Кто пишет/читает |
+|------|--------------|-------|------------------|
+| `dead_page_last_sent:{chat_id}` | `str(int)` — message_id первичного поста релей-канала | Анти-повтор: пост, отправленный в этот чат в прошлый раз | `DatabaseService.get/set_dead_page_last_sent`; `DeadPageRelay` |
+| `last_known_message_id` / `last_msg_id:{channel_id}` | `str(int)` | **НЕ ПУТАТЬ:** глобальная верхняя граница для forward-scan (существующее) | без изменений |
+| `alan_last_msg:{chat_id}`, `slavic_photo:{chat_id}` | — | существующие паттерны key-per-chat | — |
+
+#### 30.6.2 `services/database.py` — новые методы (после `update_last_known_message_id`, ~строка 193)
+
+```python
+async def get_dead_page_last_sent(self, chat_id: int) -> int | None:
+    """Primary relay-channel msg_id forwarded into this chat last time (anti-repeat)."""
+    key = f"dead_page_last_sent:{chat_id}"
+    cursor = await self.db.execute("SELECT value FROM channel_state WHERE key = ?", (key,))
+    row = await cursor.fetchone()
+    if row:
+        try:
+            return int(row["value"])
+        except (ValueError, TypeError):
+            return None
+    return None
+
+async def set_dead_page_last_sent(self, chat_id: int, msg_id: int) -> None:
+    key = f"dead_page_last_sent:{chat_id}"
+    await self.db.execute(
+        "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+        (key, str(msg_id)),
+    )
+    await self.db.commit()
+```
+
+#### 30.6.3 `services/dead_page_relay.py` — псевдокод
+
+```python
+# ── send_dead_page (строка 70) ──
+async def send_dead_page(self, chat_id: int, slot: str = "repost") -> None:
+    ...  # cooldown-проверка без изменений
+
+    try:
+        last_sent = await self.db.get_dead_page_last_sent(chat_id)
+    except Exception:
+        logger.warning("[dead_page] get_dead_page_last_sent failed — anti-repeat disabled", exc_info=True)
+        last_sent = None
+
+    success_msg_id = await self._try_forward_from_channel(chat_id, last_sent)
+
+    if success_msg_id is None:
+        logger.warning("[dead_page] FALLBACK: channel forward failed ...")
+        await self._fallback_local_send(chat_id)
+    else:
+        try:
+            await self.db.set_dead_page_last_sent(chat_id, success_msg_id)  # ← D54: запись после успеха
+        except Exception:
+            logger.warning("[dead_page] set_dead_page_last_sent failed", exc_info=True)
+
+    await self.db.record_dead_page_post(chat_id, slot)
+    ...
+
+# ── _try_forward_from_channel (строка 100) — КОНТРАКТ МЕНЯЕТСЯ: bool → int | None ──
+async def _try_forward_from_channel(self, chat_id: int, last_sent: int | None = None) -> int | None:
+    """Returns the primary relay-channel msg_id that was forwarded, or None."""
+    ...
+    # Forward scan (строки 121–146): пропускать last_sent
+    if last_msg_id and last_msg_id > 0:
+        for probe_id in range(last_msg_id + 1, last_msg_id + _FORWARD_SCAN_LIMIT + 1):
+            if last_sent is not None and probe_id == last_sent:
+                continue                      # ← D54: skip, попытку не тратим
+            try:
+                result = await self._forward_single(chat_id, probe_id, last_msg_id)
+                ...
+                return probe_id               # было: return result
+            except Exception as e: ...        # без изменений
+
+    for range_idx, (lo, hi) in enumerate(ranges):
+        if range_size <= _SEQUENTIAL_THRESHOLD:
+            # Sequential scan (строки 159–188): пропускать last_sent
+            for msg_id in range(lo, hi + 1):
+                if last_sent is not None and msg_id == last_sent:
+                    continue                  # ← D54: решает «всегда id 3» (первый существующий)
+                try:
+                    result = await self._forward_with_album_detection(chat_id, msg_id, last_msg_id)
+                    ...
+                    return msg_id             # было: return result
+                except Exception as e: ...    # без изменений
+        else:
+            # Random probing (строки 190–233): re-roll last_sent БЕЗ сжигания attempt
+            tried, attempts, re_rolls = set(), 0, 0
+            while attempts < self.max_retries:
+                msg_id = random.randint(lo, hi)
+                if msg_id in tried:
+                    continue
+                if last_sent is not None and msg_id == last_sent:
+                    re_rolls += 1
+                    if re_rolls <= 20:
+                        continue              # ← D54: re-roll без attempt (bounded — защита от бесконечного цикла)
+                    break                     # диапазон «состоит только из last_sent» → сдаёмся
+                tried.add(msg_id)
+                attempts += 1
+                ...
+                return msg_id                 # было: return result
+
+    # ← D54: last-resort fallback — повтор при отсутствии альтернатив (после ВСЕХ диапазонов)
+    if last_sent is not None:
+        logger.warning("[dead_page] No alternative posts — repeating last sent msg_id=%d", last_sent)
+        try:
+            if await self._forward_with_album_detection(chat_id, last_sent, last_msg_id):
+                return last_sent
+        except Exception as e:
+            logger.error("[dead_page] Last-sent fallback failed: msg_id=%d → %s", last_sent, e, exc_info=True)
+
+    logger.error(... ALL RANGES EXHAUSTED ...)
+    return None                                # было: return False
+```
+
+**Не меняются:** `_forward_single`, `_forward_album_post_send`, `_forward_with_album_detection`,
+`_forward_with_heuristic` (остаются `-> bool`; кандидат известен на call-site). Обновление
+`update_last_known_message_id` — без изменений (отвечает за верхнюю границу скана).
+
+**Запись last_sent:** только при успешном канальном форварде, всегда **primary id**
+(кандидат, инициировавший форвард) — в т.ч. для альбомов (записывается id первичного поста,
+а не max). Fallback на локальные медиа (`_fallback_local_send`) last_sent **не** записывает
+(нет message_id). Ручной `/deadpage` проходит тот же путь и тоже записывает — корректно.
+
+#### 30.6.4 Edge cases (T-166)
+
+| Кейс | Поведение |
+|------|-----------|
+| Ключа в БД нет (первый запуск) | `last_sent=None` → поведение идентично текущему |
+| Канал: один пост (id 3), last_sent=3 | все ветки пропускают 3 → last-resort fallback → повтор 3 (осознанный повтор, PM D54) |
+| Канал: посты 3 и 4, last_sent=3 | sequential [1,10] пропускает 3, находит 4 → форвард 4 |
+| Random: randint вернул last_sent | re-roll без сжигания attempt (≤ 20 re-rolls) |
+| Альбом: primary записан; следующий выбор попал в sibling | повтор части альбома возможен (низкая вероятность, принято) |
+| Ошибка БД на get/set | graceful degrade: anti-repeat отключается, dead page работает |
+| Multi-chat | ключ per-`{chat_id}` — изоляция чатов |
+
+---
+
+### 30.7 Конфигурационные изменения — сводная таблица
+
+| Поле | Где (settings.py) | Было | Стало | .env.example |
+|------|-------------------|------|-------|--------------|
+| `OLYA_ALWAYS_SEND` | строка 204 | `_env_bool(..., True)` | `_env_bool(..., False)` | `OLYA_ALWAYS_SEND=False` |
+| `MIMIC_FORWARDS_ENABLED` | НОВОЕ, секция Mimic (~184) | — | `_env_bool("MIMIC_FORWARDS_ENABLED", False)` | `MIMIC_FORWARDS_ENABLED=False` |
+| `DEAD_PAGE_POST_ON_JOIN` | строка 117 | `os.getenv(..., "True").lower() in ("true","1","yes")` | `_env_bool("DEAD_PAGE_POST_ON_JOIN", False)` | `DEAD_PAGE_POST_ON_JOIN=False` |
+
+---
+
+### 30.8 Тестовый план
+
+**Новые тесты (~30):**
+
+| Файл | Кейсы |
+|------|-------|
+| `tests/test_olya.py` (~3) | дефолт без override → обычное видео `False`; ALWAYS_SEND=True → `True` (существующий); ИЛИ-матрица caption+repost (существующие + проверка дефолта) |
+| `tests/test_common.py` (~4, класс `TestMimicForwardsGate`) | mimic_handler: forwarded+off → `UNHANDLED` и `send_mimic` не вызван; forwarded+on → вызван; обычное сообщение+off → вызван; forwarded без content → skip |
+| `tests/test_slavik_handlers.py` (~5) | `_slavik_mimic_should_trigger(is_forwarded=...)` матрица 2×2; catchall: d_pages-репост → `UNHANDLED` и ноль ответов; репост другого канала → «пошёл нахуй»; обычное сообщение — без регрессий |
+| `tests/test_dead_page_trigger.py` (переработка + ~3 новых) | Slava-репост @d_pages → relay вызван (user id = `SLAVIK_USER_ID`); не-Славин репост → фильтр `False` (UserIdFilter) и relay не вызван; `db.is_present` больше НЕ вызывается; остальные каналы → `UNHANDLED`; dedup-кейсы (обновить user id) |
+| `tests/test_slavik_priority.py` (НОВЫЙ, ~3, интеграционные через `Dispatcher`) | join → ровно 1 ответ «ДОЛБОЕБ ВЕРНУЛСЯ» и relay НЕ вызван; d_pages-репост через Dispatcher (dead_page_router + slavik_router) → ровно 1 dead page, нет «пошёл нахуй»/mimic; cooldown активен → всё равно нет «пошёл нахуй» (гейт держит) |
+| `tests/test_database.py` (+3) | `get/set_dead_page_last_sent` roundtrip; per-chat изоляция (A=3, B=7); отсутствие ключа → `None`; битое значение → `None` |
+| `tests/test_dead_page_relay.py` (+9) | sequential пропускает last_sent → следующий существующий; forward-scan пропускает; random re-rolls last_sent без attempt (mock `random.randint`: 7,7,last_sent,5 → attempts=2); last-resort повтор при единственном посте; запись last_sent после успеха; запись primary id для альбома; fallback local → last_sent НЕ пишется; ошибка БД на get → graceful; `last_sent=None` → поведение как сегодня |
+| `tests/test_scheduler.py` (+1) | дефолтный `SchedulerService` (без override) с `DEAD_PAGE_POST_ON_JOIN=False` → `signal_immediate_post` пропускает |
+
+**Затронутые существующие тесты (обязательная адаптация):**
+
+| Файл | Что затронуто |
+|------|---------------|
+| `tests/test_dead_page_relay.py` | 9 строк: `assert result is True/False` → `assert result == <msg_id>` / `assert result is None` (строки 342, 390, 429, 462, 486, 530, 582, 610, 636); прямые вызовы `_try_forward_from_channel` совместимы (новый параметр с дефолтом `None`) |
+| `tests/test_dead_page_trigger.py` | все 8 тестов: user id в `make_forward_message` → `SLAVIK_USER_ID`; фикстура `mock_db.is_present` и кейс `test_skips_when_slava_not_present` удаляются (гейт снят) |
+| `tests/conftest.py` + `tests/test_common.py` (локальная фабрика) | добавить `msg.forward_origin = None` в `make_message` (MagicMock-готовность, см. 30.2 п.7) |
+| `tests/test_olya.py` | ревью: хелпер `_modified_settings` уже параметризует `OLYA_ALWAYS_SEND` явно — точечные правки при необходимости |
+| `tests/test_slavik_handlers.py` | гейт Branch 0 mock-safe (`isinstance`), фабрики дополняются `forward_origin=None` — правки минимальны |
+| `tests/test_scheduler.py`, `tests/test_slava_presence.py` | без изменений (+1 новый кейс в scheduler) |
+
+**Итого:** 586 существующих + ~30 новых ≈ **616 тестов**, 0 регрессий.
+
+---
+
+### 30.9 Риски миграции
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| R1 | **Prod `.env` может содержать явные `OLYA_ALWAYS_SEND=True` / `DEAD_PAGE_POST_ON_JOIN=True`** — дефолты не применятся, старое поведение молча останется | Деплой-чеклист: поправить/удалить эти строки в prod `.env` (board-риск 1); smoke-тесты после рестарта |
+| R2 | Контракт `_try_forward_from_channel: bool → int \| None` | Единственный production-вызывающий — `send_dead_page`; в тестах 9 assertion-строк обновляются в рамках T-166 |
+| R3 | 586 существующих тестов | Полный прогон в T-167; адаптации перечислены в 30.8; новые фабрики выставляют `forward_origin=None` |
+| R4 | Бесконечный re-roll в random probing (диапазон = {last_sent}) | Bounded re-rolls ≤ 20 → `break`; last-resort fallback выполняется после ВСЕХ диапазонов |
+| R5 | Sequential scan «всегда id 3» | Исправляется skip'ом last_sent; при единственном посте — осознанный повтор (требование D54) |
+| R6 | Альбомы: primary записан, sibling может повториться | Принято (вероятность низкая); запись именно primary id зафиксирована в 30.6.3 |
+| R7 | Миграция БД | Не нужна: переиспользуется `channel_state` (без ALTER/CREATE) |
+| R8 | Danger-ответ на d_pages-репост | Существующее поведение (propagation останавливается на dead_page), вне скоупа Epic 22 (board-риск 3) |
+| R9 | MagicMock truthy-атрибуты в тестах | Гейты пишутся mock-safe (`isinstance`); фабрики дополняются `forward_origin=None` |
+| R10 | Версия | v2.19.0 → **v2.20.0**: README changelog, MEMORY.md, header ARCHITECTURE.md |
+
+---
+
+### 30.10 Сводка для Builder — точные сигнатуры изменений
+
+1. `config/settings.py`
+   - `OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", False)`  (строка 204, дефолт True→False)
+   - `MIMIC_FORWARDS_ENABLED: bool = _env_bool("MIMIC_FORWARDS_ENABLED", False)`  (НОВОЕ)
+   - `DEAD_PAGE_POST_ON_JOIN: bool = _env_bool("DEAD_PAGE_POST_ON_JOIN", False)`  (строка 117, замена os.getenv-выражения)
+2. `.env.example` — 3 правки (30.7).
+3. `handlers/common.py::mimic_handler` — гейт после `if not _VICTIM_IDS`:
+   `if message.forward_origin is not None and not settings.MIMIC_FORWARDS_ENABLED: return UNHANDLED`.
+4. `handlers/slavik.py`
+   - imports: `UNHANDLED`, `MessageOriginChannel`;
+   - `_slavik_mimic_should_trigger(chat_id: int, text: str, is_forwarded: bool = False) -> bool` — гейт первой строкой;
+   - `slavik_catchall_handler`: Branch 0 (d_pages-гейт) в начале; Branch 2 вызывает mimic с `is_forwarded=message.forward_origin is not None`.
+5. `handlers/dead_page_trigger.py`
+   - `@dead_page_router.message(F.forward_origin, UserIdFilter(settings.SLAVIK_USER_ID))`;
+   - удалить is_present-блок (строки 82–87); `setup_dead_page(relay, db)` — сигнатуру сохранить.
+6. `services/database.py` — `get_dead_page_last_sent(chat_id) -> int | None`, `set_dead_page_last_sent(chat_id, msg_id) -> None` (ключ `dead_page_last_sent:{chat_id}`).
+7. `services/dead_page_relay.py`
+   - `send_dead_page`: загрузка last_sent → `_try_forward_from_channel(chat_id, last_sent)` → запись last_sent при успехе;
+   - `_try_forward_from_channel(self, chat_id: int, last_sent: int | None = None) -> int | None` — skip в forward-scan/sequential, bounded re-roll в random, last-resort fallback после всех диапазонов, `return None` вместо `False`.
+8. **НЕ менять:** `bot.py` (порядок роутеров, setup-вызовы), `services/scheduler.py`, `filters/olya_video.py`, `handlers/olya.py`, `handlers/slava_presence.py`, `services/olya_relay.py`.
+
+### 30.11 Порядок реализации
+
+1. **T-163** (config + тесты) → 2. **T-164** (config + 2 mimic-механизма + тесты) →
+3. **T-165** (config + trigger + catch-all гейт + интеграционные тесты) →
+4. **T-166** (DB-методы + relay + тесты) → 5. **T-167** (README/MEMORY/ARCHITECTURE sync v2.20.0,
+   полный pytest ≈ 616 тестов, коммит на русском `feat: ...` / `fix: ...`, push; деплой — DevOps).
+
+---
+
+@Orchestrator Epic 22 (T-163..T-167) architecture ready — v2.20.0 design passed to @Builder.

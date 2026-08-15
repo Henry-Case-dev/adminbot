@@ -1,30 +1,97 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.19.0 (IMPLEMENTED AND REVIEWED, Epic 21)
-> **Дата:** 2026-08-03
-> **Статус:** Epic 21 IMPLEMENTED ✅, REVIEWED ✅. Epics 1-20 DEPLOYED ✅. 586 тестов PASS.
-> **Текущий коммит:** `242cbac` (v2.18.0 deployed), Epic 21 коммит pending.
-> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, systemctl active (running), 0 errors.
+> **Версия:** v2.20.0 (Epic 22 IMPLEMENTED + APPROVED, готово к коммиту) / v2.19.0 (DEPLOYED, Epic 21)
+> **Дата:** 2026-08-15
+> **Статус:** Epic 22 «Гонка функций и точность триггеров» IMPLEMENTED + APPROVED ✅ — T-163..T-167-C выполнены @Builder, ревью 3 раунда (замечания закрыты), 621 тест PASS, коммит/деплой pending. Epics 1–21 COMPLETE and DEPLOYED ✅.
+> **Текущий коммит:** `c683903` (v2.19.0 deployed) на master, пуш в origin/master. Epic 22 НЕ закоммичен, НЕ задеплоен.
+> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 699945, 121.6M.
 
 ---
 
-## 🔍 Context Sync Summary (2026-08-03) — Epic 21 COMPLETED (IMPLEMENTED + REVIEWED)
+## 🔍 Context Sync Summary (2026-08-15) — Epic 22 IMPLEMENTED + APPROVED, v2.20.0 готово к коммиту
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Epics 1-21** | ✅ DEPLOYED | 160+ задач T-001–T-162 + T2/T3/T4 + Epic 18 A/B/C. v2.19.0 (commit c683903) в продакшене. |
+| **Epic 22** | ✅ IMPLEMENTED + APPROVED | «Гонка функций и точность триггеров» — PM-решения D51–D54, T-163..T-167-C выполнены @Builder. 621 тест PASS (+35 новых). Ревью 3 раунда, замечания закрыты. Коммит/деплой — отдельные шаги. |
+| **Review (current)** | ✅ APPROVED | 621 tests pass / 0 failed. 3 раунда ревью, все замечания закрыты (README v2.20.0/621, планы IMPLEMENTED, board «In Review»). |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: active (running), PID 699945, 121.6M. Epic 22 НЕ задеплоен (прод на v2.19.0). |
+
+---
+
+## 🚧 Epic 22: Гонка функций и точность триггеров — v2.20.0 (IMPLEMENTED + APPROVED, 2026-08-15)
+
+> **Цель:** Устранить гонку ответов Славика (приветствие vs dead page vs «пошёл нахуй»),
+> сделать триггеры точнее: Olya — только SaveAsBot-видео, mimic — не передразнивать репосты,
+> PostPicker — не выбирать пост, отправленный в предыдущий раз.
+> **Статус:** IMPLEMENTED + APPROVED ✅ — T-163..T-167-C выполнены @Builder, ревью 3 раунда (замечания закрыты), 621 тест PASS, 0 регрессий. Готово к коммиту.
+> T-167-D (коммит/push) и деплой — отдельные шаги (DevOps). НЕ задеплоено.
+> **Target (достигнут):** v2.20.0, 621 тест (586 baseline + 35 новых), 0 регрессий.
+
+### PM-решения D51–D54
+
+| # | Решение | Задача | Суть |
+|---|---------|--------|------|
+| **D51** | Olya SaveAsBot-only | T-163 | Логика **ИЛИ** сохраняется (caption ИЛИ репост из `OLYA_SAVEASBOT_CHANNEL_IDS`=523131145). Дефолт `OLYA_ALWAYS_SEND` True→**False**. ⚠️ prod .env может содержать `OLYA_ALWAYS_SEND=True`. |
+| **D52** | Mimic forwards gate | T-164 | Единый параметр **`MIMIC_FORWARDS_ENABLED=False`** для ОБОИХ mimic-механизмов (`handlers/common.py::mimic_handler`, `handlers/slavik.py::_slavik_mimic_should_trigger`). `forward_origin is not None` + off → mimic пропущен. |
+| **D53** | Slavik race fix | T-165 | `DEAD_PAGE_POST_ON_JOIN=False` (join → только «ДОЛБОЕБ ВЕРНУЛСЯ»); dead_page_trigger — только репосты Славы (`UserIdFilter`, is_present-гейт убран); catch-all Branch 0 гейт: d_pages-репост → `UNHANDLED`. Приоритет: приветствие > dead page > «пошёл нахуй». |
+| **D54** | PostPicker last-sent | T-166 | Ключ `channel_state` **`dead_page_last_sent:{chat_id}`** (≠ `last_known_message_id`). last_sent исключается из forward/sequential/random веток; fallback-повтор при единственном посте; запись primary msg_id после успеха. Фикс бага «почти всегда id 3». |
+
+### Задачи Epic 22
+
+| Task | Название | Компоненты | Статус |
+|------|----------|-----------|--------|
+| **T-163** | Olya: только SaveAsBot-видео (D51) | config/settings.py, .env.example, tests/test_olya.py | ✅ DONE (APPROVED) |
+| **T-164** | Mimic: не передразнивать репосты (D52) | config/settings.py, handlers/common.py, handlers/slavik.py | ✅ DONE (APPROVED) |
+| **T-165** | Славик: приоритет приветствия + dead page на репосты Славы (D53) | handlers/dead_page_trigger.py, handlers/slavik.py, tests/test_slavik_priority.py (NEW) | ✅ DONE (APPROVED) |
+| **T-166** | PostPicker: не выбирать last-sent пост (D54) | services/database.py, services/dead_page_relay.py | ✅ DONE (APPROVED) |
+| **T-167** | README (ироничный тон), полный pytest (621), conventional commit на русском | README/ARCHITECTURE/MEMORY | ✅ A/B/C DONE (APPROVED) / ⏳ T-167-D коммит — отдельный шаг |
+
+### Ключевой API-контекст (Section 30.2)
+
+- aiogram 3.x `message.forward_origin`: **None** для обычных сообщений, `MessageOriginChannel` для репостов из каналов (`origin.chat.id` — канал-источник); legacy `forward_from*` deprecated (Bot API 7.0).
+- MagicMock gotcha: атрибуты автогенерируются и truthy — тестовые фабрики должны явно выставлять `msg.forward_origin = None`; гейты mock-safe через `isinstance`.
+- `forwardMessage(s)` — `Bad Request: message to forward not found` = штатный признак отсутствующего пробного id → `continue`.
+
+### Риски миграции (Section 30.9)
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| R1 | Prod `.env` с явными `OLYA_ALWAYS_SEND=True` / `DEAD_PAGE_POST_ON_JOIN=True` | Деплой-чеклист DevOps |
+| R2 | Контракт `_try_forward_from_channel: bool → int\|None` | 9 assertion-строк в тестах обновляются в T-166 |
+| R5 | Sequential scan «всегда id 3» | skip last_sent; при единственном посте — осознанный повтор |
+| R7 | Миграция БД | Не нужна — переиспользуется `channel_state` |
+
+### Результаты ревью — 3 раунда, APPROVED ✅
+
+- 621 тест PASS / 0 failed (+35 новых: `tests/test_slavik_priority.py` NEW, классы `TestMimicForwardsGate`, `TestAntiRepeatLastSent` и др.).
+- Флаки-тест `test_sequential_scan_finds_only_post` детерминирован патчем `random.randint` (side_effect [77..86], 25/25 PASS).
+- Все замечания закрыты: README v2.20.0/621, статусы планов IMPLEMENTED, board «In Review», нумерация T-167 выровнена.
+- Наблюдения ревьюера (не блокеры): README пишет «ДОЛБОЕВ» vs планы «ДОЛБОЕБ»; фактическая ветка — master.
+- ⚠️ Деплой-чеклист DevOps: prod `.env` → `OLYA_ALWAYS_SEND=False`, `DEAD_PAGE_POST_ON_JOIN=False`.
+- Артефакт `media/common/danger/danger_drone.mp4` — untracked, исключён из стейджинга, файл оставлен на диске; рекомендация: добавить в `.gitignore` (зафиксировано, НЕ выполнено).
+
+---
+
+## 🔍 Context Sync Summary (2026-08-03) — Epic 21 DEPLOYED ✅
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **Epics 1-20** | ✅ DEPLOYED | 130+ задач T-001–T-148 + T2/T3/T4 + Epic 18 A/B/C + Epic 19 + Epic 20. v2.18.0 в продакшене. |
-| **Epic 21** | ✅ IMPLEMENTED & REVIEWED | MIMIC propagation fix + Time-format cooldowns. 14 задач T-149–T-162. D49 + D50. |
+| **Epic 21** | ✅ DEPLOYED | MIMIC propagation fix + Time-format cooldowns. 14 задач T-149–T-162. D49 + D50. Commit c683903. |
 | **Review** | ✅ PASS | 586 tests pass. 0 failures. Zero regressions. |
-| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: active (running). |
-| **DevOps (T-162)** | 📋 PENDING | Deploy pending — git commit, push, server pull, restart. |
+| **Сервер** | ✅ ACTIVE | nik@198.46.175.136:/var/www/admin_bot. systemctl: active (running), PID 699945, 121.6M. |
+| **DevOps (T-162)** | ✅ DEPLOYED | Commit c683903, push origin/master, server pull + restart successful. Zero errors in logs. |
 
 ---
 
-## ✅ Epic 21: MIMIC Propagation Fix + Time-Format Cooldowns — v2.19.0 (IMPLEMENTED + REVIEWED, 2026-08-03)
+## ✅ Epic 21: MIMIC Propagation Fix + Time-Format Cooldowns — v2.19.0 (DEPLOYED, 2026-08-03)
 
 > **Цель:** Исправить propagation-блокировку в `alan_handler` (MIMIC не работал для Alan) и перевести все кулдауны на человекочитаемый time-format (1s/1m/1h/1d).
-> **Статус:** IMPLEMENTED ✅ + REVIEWED ✅ — все 14 задач T-149–T-162 выполнены (T-162 DevOps pending). 586 тестов проходят.
-> **Версия:** v2.19.0 (реализована, ревью пройдено).
+> **Статус:** DEPLOYED ✅ — все 14 задач T-149–T-162 выполнены и задеплоены в production. 586 тестов проходят.
+> **Версия:** v2.19.0 (деплой на сервер выполнен).
+> **Коммит:** `c683903` на master, пуш в origin/master.
+> **Сервер:** nik@198.46.175.136:/var/www/admin_bot, PID 699945, active (running), 121.6M.
 
 ### Root Cause: alan_handler blocks propagation
 
@@ -77,7 +144,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **T-159** | Полный прогон тестов — 586 tests PASS, 0 failures | `pytest` | ✅ IMPLEMENTED |
 | **T-160** | Обновить `README.md` — version v2.19.0, config table, 586 tests | `README.md` | ✅ IMPLEMENTED |
 | **T-161** | Sync MEMORY.md — Epic 21 completion status | `plans/` | ✅ IMPLEMENTED |
-| **T-162** | Commit, push, deploy | DevOps | 📋 PENDING (ждёт коммита) |
+| **T-162** | Commit, push, deploy | DevOps | ✅ DEPLOYED (commit c683903, server: PID 699945) |
 
 ### Reviewer Audit — 3 Issues Found, ALL FIXED
 
@@ -134,7 +201,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | Фреймворк | aiogram 3.7+ | ✅ |
 | База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env, time-format cooldowns |
-| Тесты | pytest + pytest-asyncio | ✅ 586 тестов PASS (v2.19.0 implemented) |
+| Тесты | pytest + pytest-asyncio | ✅ 621 тест PASS (v2.20.0 implemented, Epic 22) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -225,7 +292,10 @@ common_router (pos 4c): НИКОГДА не получает события
 | `OLYA_MEDIA_BASE` | `media/olya/cringe` | F11: media directory for Olya cringe files |
 | `OLYA_CAPTION_TEXT` | `(SaveAsBot text)` | F11: key caption text for Condition A detection |
 | `OLYA_SAVEASBOT_CHANNEL_IDS` | `523131145` | F11: channel IDs for SaveAsBot repost detection |
-| `OLYA_ALWAYS_SEND` | `True` | F11: always send media regardless of caption/repost match |
+| `OLYA_ALWAYS_SEND` | `False` | F11: always send media regardless of caption/repost match ✅ v2.20.0 IMPLEMENTED (Epic 22 D51: дефолт True→False) |
+| `MIMIC_FORWARDS_ENABLED` | `False` | Epic 22 D52 (NEW) ✅ v2.20.0 IMPLEMENTED: mimic только обычные сообщения; True = включая репосты (forward_origin is not None) |
+| `DEAD_PAGE_POST_ON_JOIN` | `False` | Epic 22 D53 ✅ v2.20.0 IMPLEMENTED: при входе только «ДОЛБОЕБ ВЕРНУЛСЯ» (dead page на join выключен) |
+| `dead_page_last_sent:{chat_id}` | — (channel_state) | Epic 22 D54 ✅ v2.20.0 IMPLEMENTED: anti-repeat ключ БД — PostPicker не выбирает последний отправленный пост |
 
 ---
 
@@ -254,6 +324,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | v2.17.0 | 2026-08-02 | Epic 19 (Olya Service) | T-131–T-138 | 509 |
 | v2.18.0 | 2026-08-02 | Epic 20 (Slavik Random Media) | T-139–T-148 | 570 |
 | **v2.19.0** | **2026-08-03** | **Epic 21 (MIMIC fix + Time-format cooldowns)** | **T-149–T-162** | **586** |
+| **v2.20.0** | **2026-08-15** | **Epic 22 (Гонка функций и точность триггеров)** | **T-163–T-167 (IMPLEMENTED + APPROVED, не задеплоено)** | **621** |
 
 ---
 
@@ -262,13 +333,13 @@ common_router (pos 4c): НИКОГДА не получает события
 | Status | Tasks |
 |--------|-------|
 | **DEPLOYED** | T-001 – T-148 + T2/T3/T4 + v2.15.0 fixes + Epic 18 A/B/C (DEPLOYED across 20 Epics) ✅ |
-| **IMPLEMENTED** | Epic 21: T-149 – T-161 (IMPLEMENTED and REVIEWED, 586 tests pass) ✅ |
-| **PENDING** | T-162: DevOps deploy — git commit, push, server deploy (ждёт коммита) 📋 |
+| **DEPLOYED** | Epic 21: T-149 – T-162 (DEPLOYED, commit c683903, 586 tests pass) ✅ |
+| **IMPLEMENTED + APPROVED** | Epic 22: T-163 – T-167-C — PM-решения D51–D54, ревью 3 раунда APPROVED, 621 тест PASS, коммит/деплой pending ✅ |
 
-> Epics 1-20 DEPLOYED ✅. Epic 21 IMPLEMENTED + REVIEWED ✅ (T-162 deploy pending).
-> 586 тестов. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
+> Epics 1-21 ALL DEPLOYED ✅ (v2.19.0, commit c683903, PID 699945). **Epic 22 «Гонка функций и точность триггеров» IMPLEMENTED + APPROVED ✅ — реализация завершена @Builder (D51–D54), ревью 3 раунда (APPROVED), 621 тест PASS. Коммит и деплой — отдельные шаги (НЕ задеплоено).**
+> 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
 > MIMIC propagation FIXED. All 6 cooldowns in time-format (1s/1m/1h/1d).
-> Ноль известных багов. Все сервисы инициализированы корректно. Бот активен.
+> Epic 22 реализовано: D51 (Olya SaveAsBot-only, OLYA_ALWAYS_SEND=False), D52 (MIMIC_FORWARDS_ENABLED=False), D53 (Slavik race fix, DEAD_PAGE_POST_ON_JOIN=False), D54 (PostPicker last-sent). v2.20.0, 621 тест.
 
 ---
 
@@ -276,19 +347,20 @@ common_router (pos 4c): НИКОГДА не получает события
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.18.0 (deployed) |
-| **Следующая версия** | v2.19.0 (Epic 21 — IMPLEMENTED + REVIEWED, awaiting DevOps T-162) |
-| **Текущий коммит** | `242cbac` (v2.18.0 deployed) |
+| **Версия в проде** | v2.19.0 (deployed) |
+| **Текущий коммит** | `c683903` (v2.19.0 deployed) |
 | **Дата** | 2026-08-03 |
 | **Сервер** | nik@198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), 0 errors |
+| **Статус** | systemctl status adminbot → active (running), PID 699945, 121.6M |
 | **Git remote** | origin/master — pushed успешно |
 | **Тесты** | 586 PASS (0 failures, zero regressions) |
-| **Эпики** | 1-20 DEPLOYED ✅, Epic 21 IMPLEMENTED + REVIEWED ✅ |
-| **Задачи** | T-001 – T-148 + T2/T3/T4 + fixes (ALL DEPLOYED) + T-149–T-161 (IMPLEMENTED + REVIEWED) + T-162 (PENDING) |
-| **Ошибки** | 0 errors в логах. Все сервисы инициализированы корректно. |
+| **Эпики** | 1-21 ALL DEPLOYED ✅ |
+| **Задачи** | T-001 – T-162 ALL DEPLOYED ✅ |
+| **Ошибки** | 0 errors в production логах. Все сервисы инициализированы корректно. |
 
 ---
 
-*Обновление: 2026-08-03 — EPIC 21 STATUS: IMPLEMENTED ✅ + REVIEWED ✅. MIMIC propagation fix (D49: return UNHANDLED in alan_handler, 3 code paths). Time-format cooldowns (D50: _parse_duration с 1s/1m/1h/1d, 6 полей переименовано). 586 тестов пасс. Reviewer нашёл 3 бага — все FIXED. T-162 (DevOps deploy) PENDING. Текущий прод: v2.18.0 (Epic 20). Бот активен, 0 ошибок.*
+*Обновление: 2026-08-15 — EPIC 22 STATUS: IMPLEMENTED + APPROVED ✅ (коммит и деплой pending). «Гонка функций и точность триггеров» — PM-решения D51–D54 реализованы @Builder (Olya SaveAsBot-only / MIMIC_FORWARDS_ENABLED=False / Slavik race fix / PostPicker last-sent). Задачи T-163–T-167-C выполнены, ревью 3 раунда — APPROVED (README v2.20.0/621, планы IMPLEMENTED, board «In Review»). 621 тест PASS (586 baseline + 35 новых), 0 регрессий; флаки-тест test_sequential_scan_finds_only_post детерминирован патчем random.randint. v2.20.0 НЕ закоммичен и НЕ задеплоен — базовый коммит c683903 (v2.19.0) остаётся в проде; сервер: nik@198.46.175.136, PID 699945, active (running). Артефакт media/common/danger/danger_drone.mp4 — untracked, рекомендация: добавить в .gitignore. Деплой-чеклист: prod .env → OLYA_ALWAYS_SEND=False, DEAD_PAGE_POST_ON_JOIN=False.*
+
+*Предыдущий статус (2026-08-03): EPIC 21 STATUS: DEPLOYED ✅. MIMIC propagation fix (D49: return UNHANDLED in alan_handler, 3 code paths). Time-format cooldowns (D50: _parse_duration с 1s/1m/1h/1d, 6 полей переименовано). 586 тестов пасс. All 14 tasks T-149–T-162 COMPLETE + DEPLOYED. Commit c683903, push origin/master.*

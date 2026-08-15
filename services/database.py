@@ -191,6 +191,35 @@ class DatabaseService:
         )
         await self.db.commit()
 
+    # ── Dead Page Anti-Repeat (Epic 22 / D54) ─────────────
+
+    async def get_dead_page_last_sent(self, chat_id: int) -> int | None:
+        """Primary relay-channel msg_id forwarded into this chat last time (anti-repeat).
+
+        Uses channel_state key `dead_page_last_sent:{chat_id}`. Returns None when
+        the key is missing or holds a broken (non-int) value.
+        """
+        key = f"dead_page_last_sent:{chat_id}"
+        cursor = await self.db.execute(
+            "SELECT value FROM channel_state WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            try:
+                return int(row["value"])
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    async def set_dead_page_last_sent(self, chat_id: int, msg_id: int) -> None:
+        """Record the primary relay-channel msg_id forwarded into this chat."""
+        key = f"dead_page_last_sent:{chat_id}"
+        await self.db.execute(
+            "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",
+            (key, str(msg_id)),
+        )
+        await self.db.commit()
+
     # ── Slavic Photo Counter (Epic 12) ──
 
     async def slavic_photo_count_tick(self, chat_id: int, interval: int) -> bool:

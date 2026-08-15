@@ -1,16 +1,20 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from aiogram.types import Message, Chat, User, MessageOriginChannel
+from filters.user_id import UserIdFilter
 from handlers.dead_page_trigger import on_forward, setup_dead_page
 from config.settings import settings
 
 
 class TestDeadPageTrigger:
-    """Tests for dead_page_trigger handler."""
+    """Tests for dead_page_trigger handler (Epic 22 / D53: only Slava's reposts)."""
 
-    def make_forward_message(self, username="d_pages", chat_id=-100123):
+    def make_forward_message(self, username="d_pages", chat_id=-100123,
+                             user_id=None):
         """Create a Message with forward_origin from a channel."""
-        user = User(id=111, is_bot=False, first_name="Test")
+        if user_id is None:
+            user_id = settings.SLAVIK_USER_ID
+        user = User(id=user_id, is_bot=False, first_name="Test")
         chat_obj = Chat(id=chat_id, type="group")
         origin_chat = Chat(id=-100999, type="channel", username=username)
         origin = MessageOriginChannel(
@@ -57,13 +61,29 @@ class TestDeadPageTrigger:
         mock_relay.send_dead_page.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_skips_when_slava_not_present(self, mock_relay, mock_db):
-        """Should skip dead page if Slava is not in chat."""
+    async def test_does_not_check_presence(self, mock_relay, mock_db):
+        """D53: is_present gate removed — a repost by Slava implies presence."""
         setup_dead_page(mock_relay, mock_db)
         mock_db.is_present.return_value = False
         msg = self.make_forward_message(username="d_pages")
         await on_forward(msg)
-        mock_relay.send_dead_page.assert_not_called()
+        mock_relay.send_dead_page.assert_called_once_with(-100123, slot="repost")
+        mock_db.is_present.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_user_id_filter_accepts_slavik(self):
+        """D53: router filter passes reposts from Slava."""
+        f = UserIdFilter(settings.SLAVIK_USER_ID)
+        msg = self.make_forward_message(username="d_pages",
+                                        user_id=settings.SLAVIK_USER_ID)
+        assert await f(msg) is True
+
+    @pytest.mark.asyncio
+    async def test_user_id_filter_rejects_non_slavik(self):
+        """D53: router filter rejects reposts from anyone else."""
+        f = UserIdFilter(settings.SLAVIK_USER_ID)
+        msg = self.make_forward_message(username="d_pages", user_id=111)
+        assert await f(msg) is False
 
     @pytest.mark.asyncio
     async def test_no_crash_when_relay_not_setup(self, mock_db):

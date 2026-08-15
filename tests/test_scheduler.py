@@ -16,7 +16,11 @@ class TestSchedulerServiceV2:
 
     @pytest.fixture
     def scheduler(self, mock_relay):
-        return SchedulerService(relay=mock_relay, target_user_id=settings.SLAVIK_USER_ID)
+        return SchedulerService(
+            relay=mock_relay,
+            target_user_id=settings.SLAVIK_USER_ID,
+            post_on_join=True,  # explicit: default is False since Epic 22 / D53
+        )
 
     @pytest.mark.asyncio
     async def test_signal_immediate_post_calls_relay(self, scheduler, mock_relay):
@@ -49,5 +53,16 @@ class TestSchedulerServiceV2:
     async def test_signal_immediate_post_respects_join_config(self, mock_relay):
         """When DEAD_PAGE_POST_ON_JOIN=False, should skip."""
         scheduler = SchedulerService(relay=mock_relay, post_on_join=False)
+        await scheduler.signal_immediate_post(-100123)
+        mock_relay.send_dead_page.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_default_config_skips_join_post(self, mock_relay):
+        """Epic 22 / D53: default settings DEAD_PAGE_POST_ON_JOIN=False → skip."""
+        from dataclasses import replace
+        from unittest.mock import patch
+        mod = replace(settings, DEAD_PAGE_POST_ON_JOIN=False)
+        with patch("services.scheduler.settings", mod):
+            scheduler = SchedulerService(relay=mock_relay)
         await scheduler.signal_immediate_post(-100123)
         mock_relay.send_dead_page.assert_not_called()

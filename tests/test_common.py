@@ -10,6 +10,7 @@ Covers:
 """
 import logging
 import random
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -21,7 +22,13 @@ from aiogram.exceptions import TelegramBadRequest
 from config.settings import settings
 from filters.danger_word import DangerWordFilter, _build_danger_patterns, _parse_danger_words
 from filters.otboy_word import OtboyWordFilter
-from handlers.common import danger_handler, otboy_handler, setup_common
+from handlers.common import (
+    danger_handler,
+    mimic_handler,
+    otboy_handler,
+    setup_common,
+    setup_common_mimic,
+)
 from services.common_relay import (
     MEDIA_ANIMATION,
     MEDIA_AUDIO,
@@ -41,6 +48,7 @@ def make_message(text=None, caption=None, chat_id=-100123, message_id=1,
     msg = MagicMock()
     msg.text = text
     msg.caption = caption
+    msg.forward_origin = None  # ordinary message, not a forward (MagicMock-safe)
     msg.message_id = message_id
     msg.chat = MagicMock()
     msg.chat.id = chat_id
@@ -1245,3 +1253,78 @@ class TestCommonRelayDualCooldown:
         relay = CommonRelay(mock_bot, cooldown_seconds=60, media_base="/fake")
         assert relay._danger_cooldown_seconds == 0
         assert relay._danger_cooldowns == {}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# N. Epic 22 — Mimic Forwards Gate (D52)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestMimicForwardsGate:
+    """D52 (Epic 22): mimic_handler skips forwarded messages unless enabled."""
+
+    @pytest.fixture(autouse=True)
+    def _reset(self):
+        import handlers.common as common_mod
+        original_ids = common_mod._VICTIM_IDS
+        common_mod._VICTIM_IDS = [111]
+        mock_relay = MagicMock()
+        mock_relay.should_trigger = MagicMock(return_value=True)
+        mock_relay.send_mimic = AsyncMock()
+        mock_relay.mark_sent = MagicMock()
+        setup_common_mimic(mock_relay)
+        yield common_mod, mock_relay
+        setup_common_mimic(None)
+        common_mod._VICTIM_IDS = original_ids
+
+    @pytest.mark.asyncio
+    async def test_forwarded_off_returns_unhandled(self, _reset):
+        """forwarded + MIMIC_FORWARDS_ENABLED=False (default) → UNHANDLED, no mimic."""
+        common_mod, mock_relay = _reset
+        msg = make_message(text="раз два три четыре пять шесть", from_id=111)
+        msg.forward_origin = MagicMock()
+
+        result = await mimic_handler(msg)
+
+        assert result is UNHANDLED
+        mock_relay.send_mimic.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ordinary_message_mimics(self, _reset):
+        """Ordinary (not forwarded) message → mimic works as before."""
+        common_mod, mock_relay = _reset
+        msg = make_message(text="раз два три четыре пять шесть", from_id=111)
+        msg.forward_origin = None
+
+        result = await mimic_handler(msg)
+
+        assert result is UNHANDLED
+        mock_relay.send_mimic.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_forwarded_on_mimics(self, _reset):
+        """forwarded + MIMIC_FORWARDS_ENABLED=True → mimic fires."""
+        common_mod, mock_relay = _reset
+        mod = replace(settings, MIMIC_FORWARDS_ENABLED=True)
+        msg = make_message(text="раз два три четыре пять шесть", from_id=111)
+        msg.forward_origin = MagicMock()
+
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(msg)
+
+        assert result is UNHANDLED
+        mock_relay.send_mimic.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_forwarded_on_without_content_skips(self, _reset):
+        """forwarded + enabled but no text/caption → skip, no send."""
+        common_mod, mock_relay = _reset
+        mod = replace(settings, MIMIC_FORWARDS_ENABLED=True)
+        msg = make_message(text=None, caption=None, from_id=111)
+        msg.forward_origin = MagicMock()
+
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(msg)
+
+        assert result is None
+        mock_relay.send_mimic.assert_not_called()

@@ -146,6 +146,15 @@ async def mimic_handler(message: types.Message) -> None:
     """Mimic feature: if victim wrote >N words and cooldown elapsed → mimic reply."""
     if not _VICTIM_IDS:  # disabled
         return
+    # ── D52 (Epic 22): репосты не передразниваем (если не включено явно) ──
+    if message.forward_origin is not None and not settings.MIMIC_FORWARDS_ENABLED:
+        logger.debug(
+            "Mimic: forwarded message — skipping (MIMIC_FORWARDS_ENABLED=False) | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+        return UNHANDLED
     if _mimic_relay is None:
         logger.warning(
             "Common Service: mimic relay not initialized — skipping | "

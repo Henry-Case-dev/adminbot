@@ -83,31 +83,56 @@ class DeadPageRelay:
             )
             return
 
-        success = await self._try_forward_from_channel(chat_id)
+        # D54 (Epic 22): anti-repeat — skip the post sent last time (graceful on DB error)
+        try:
+            last_sent = await self.db.get_dead_page_last_sent(chat_id)
+        except Exception:
+            logger.warning(
+                "[dead_page] get_dead_page_last_sent failed — anti-repeat disabled",
+                exc_info=True,
+            )
+            last_sent = None
 
-        if not success:
+        success_msg_id = await self._try_forward_from_channel(chat_id, last_sent)
+
+        if success_msg_id is None:
             logger.warning(
                 f"[dead_page] FALLBACK: channel forward failed for chat {chat_id}, "
                 f"using local media"
             )
             await self._fallback_local_send(chat_id)
+        else:
+            # D54: record primary relay-channel msg_id after a successful forward.
+            # Local-media fallback does NOT write (no message_id).
+            try:
+                await self.db.set_dead_page_last_sent(chat_id, success_msg_id)
+            except Exception:
+                logger.warning(
+                    "[dead_page] set_dead_page_last_sent failed", exc_info=True
+                )
 
         await self.db.record_dead_page_post(chat_id, slot)
         logger.info(f"[dead_page] === Done for chat {chat_id}, slot={slot} ===")
 
     # ── Channel forward ─────────────────────────────────────────
 
-    async def _try_forward_from_channel(self, chat_id: int) -> bool:
+    async def _try_forward_from_channel(
+        self, chat_id: int, last_sent: int | None = None
+    ) -> int | None:
         """
         Discover valid posts and forward a random one to chat_id.
 
         Strategy:
           1. Forward scan: if last_msg_id is known, try msg_ids just beyond it.
           2. Try progressively wider random/sequential ranges.
-          3. On first success → update DB ceiling and return True.
-          4. If all ranges exhausted → return False (trigger fallback).
-          5. Non-"not found" errors in the scan are logged but don't abort;
-             only channel-wide failures return False immediately.
+          3. On first success → update DB ceiling and return the primary msg_id.
+          4. If all ranges exhausted → last-resort fallback (repeat last_sent).
+          5. Non-"not found" errors in the scan are logged but don't abort.
+
+        D54 (Epic 22): candidates equal to last_sent are skipped; when no other
+        valid post exists, last_sent is forwarded again (conscious repeat).
+
+        Returns the primary relay-channel msg_id that was forwarded, or None.
         """
         logger.info(
             f"[dead_page] Forward attempt: chat={chat_id}, "
@@ -124,13 +149,18 @@ class DeadPageRelay:
                 f"{last_msg_id + 1} → {last_msg_id + _FORWARD_SCAN_LIMIT}"
             )
             for probe_id in range(last_msg_id + 1, last_msg_id + _FORWARD_SCAN_LIMIT + 1):
+                if last_sent is not None and probe_id == last_sent:
+                    logger.debug(
+                        f"[dead_page]   SKIP last_sent: msg_id={probe_id} (forward scan)"
+                    )
+                    continue  # D54: skip, попытку не тратим
                 try:
                     result = await self._forward_single(chat_id, probe_id, last_msg_id)
                     logger.info(
                         f"[dead_page]   SUCCESS (forward scan): msg_id={probe_id} "
                         f"forwarded to chat {chat_id}"
                     )
-                    return result
+                    return probe_id if result else None
                 except Exception as e:
                     error_msg = str(e).lower()
                     if "not found" in error_msg or "bad request" in error_msg:
@@ -162,6 +192,11 @@ class DeadPageRelay:
                     f"[dead_page] Range [{lo},{hi}] → sequential scan ({range_size} IDs)"
                 )
                 for msg_id in range(lo, hi + 1):
+                    if last_sent is not None and msg_id == last_sent:
+                        logger.debug(
+                            f"[dead_page]   SKIP last_sent: msg_id={msg_id} (sequential)"
+                        )
+                        continue  # D54: решает «всегда id 3» (первый существующий)
                     try:
                         result = await self._forward_with_album_detection(
                             chat_id, msg_id, last_msg_id
@@ -170,7 +205,7 @@ class DeadPageRelay:
                             f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
                             f"(sequential scan, range [{lo},{hi}])"
                         )
-                        return result
+                        return msg_id if result else None
                     except Exception as e:
                         error_msg = str(e).lower()
                         if "not found" in error_msg or "bad request" in error_msg:
@@ -190,10 +225,16 @@ class DeadPageRelay:
                 # Random probing for large ranges
                 tried: set[int] = set()
                 attempts = 0
+                re_rolls = 0  # D54: bounded re-rolls of last_sent
                 while attempts < self.max_retries:
                     msg_id = random.randint(lo, hi)
                     if msg_id in tried:
                         continue  # D17: re-roll without burning attempt
+                    if last_sent is not None and msg_id == last_sent:
+                        re_rolls += 1
+                        if re_rolls <= 20:
+                            continue  # D54: re-roll без attempt (bounded — защита от бесконечного цикла)
+                        break  # диапазон «состоит только из last_sent» → сдаёмся
                     tried.add(msg_id)
                     attempts += 1
 
@@ -210,7 +251,7 @@ class DeadPageRelay:
                             f"[dead_page]   SUCCESS: msg_id={msg_id} forwarded to chat {chat_id} "
                             f"(range [{lo},{hi}], attempt {attempts})"
                         )
-                        return result
+                        return msg_id if result else None
 
                     except Exception as e:
                         error_msg = str(e).lower()
@@ -232,6 +273,20 @@ class DeadPageRelay:
                     f"({self.max_retries} misses)"
                 )
 
+        # ← D54: last-resort fallback — повтор при отсутствии альтернатив (после ВСЕХ диапазонов)
+        if last_sent is not None:
+            logger.warning(
+                f"[dead_page] No alternative posts — repeating last sent msg_id={last_sent}"
+            )
+            try:
+                if await self._forward_with_album_detection(chat_id, last_sent, last_msg_id):
+                    return last_sent
+            except Exception as e:
+                logger.error(
+                    f"[dead_page] Last-sent fallback failed: msg_id={last_sent} → {e}",
+                    exc_info=True,
+                )
+
         logger.error(
             f"[dead_page] ALL RANGES EXHAUSTED for chat {chat_id}: "
             f"no valid posts found in channel {self.relay_channel_id}. "
@@ -239,7 +294,7 @@ class DeadPageRelay:
             f"Possible causes: channel is empty, all posts deleted, "
             f"or last_known_message_id is way off."
         )
-        return False
+        return None
 
     def _build_search_ranges(
         self, last_msg_id: int | None
