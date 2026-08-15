@@ -2,9 +2,9 @@
 
 ## 📋 Backlog
 
-### Epic 24: SmartModule — сервис Summary (v2.22.0) — 2026-08-16 🆕 BUILD
+### Epic 24: SmartModule — сервис Summary (v2.22.0) — 2026-08-16 — ✅ DEPLOYED (коммит `a68732c`; ⚠️ Н1 BotFather `/setprivacy` → Disable — ручное действие пользователя)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect) ✅ → 3 (@Builder ✅ T-174…T-189, @Reviewer ✅ T-188-D APPROVED 2026-08-16). Гейт на T-190 (коммит/пуш) открыт для @DevOps.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect) ✅ → 3 (@Builder ✅ T-174…T-189, @Reviewer ✅ T-188-D APPROVED 2026-08-16, @DevOps ✅ T-190/T-191). Epic 24 ЗАДЕПЛОЕН (v2.22.0). Осталось пользователю: Н1 — BotFather `/setprivacy` → **Disable**.
 > Требования R1–R18, PM-решения D59–D64, системный промпт (дословно) и риски —
 > в `plans/backlog.md` (Epic 24). Дизайн — `plans/ARCHITECTURE.md` Section 33 (T-173, Done).
 
@@ -24,8 +24,8 @@
 - [x] T-187 (@Builder, P1, ←T-183): Observability — Better Stack, полные стектрейсы, сырые ответы LLM (R14) — **Done: logger.exception + raw response в INFO**
 - [x] T-188 (@Builder + @Reviewer, P0, ←T-186): Тесты — максимальное покрытие + отсутствие конфликтов с 12 роутерами + полный pytest (R15) + code review (T-188-D) — **DONE: A/B/C @Builder (157 новых тестов, интеграция 13 роутеров) + T-188-D @Reviewer APPROVED 2026-08-16. Ревью: 829 passed подтверждён личным прогоном; вердикт APPROVE WITH FIXES → 2 точечных фикса внесены ревьюером (`await _summary_service.shutdown()` в bot.py on_shutdown — не-awaited coroutine; vec0-purge → документированная форма `rowid IN`) + 1 QA-тест test_vec_purge_removes_vectors → итог 830 passed. Low-замечания (не блокируют, на T-189): экранирование l2/l3-цитат в псевдо-XML, /summary@bot обходит троттлинг, нет жёсткого капа чанков по MAX_SUMMARY_PARTS, SUMMARY_CHUNK_DELAY=2.0 зафиксировать в доках**
 - [x] T-189 (@Builder, P1, ←T-188): README (ироничный тон) + ARCHITECTURE/MEMORY, v2.22.0 (R15) — **Done: README секция SmartModule (фичи/память/деградация/все env-переменные/прод-требования BotFather setprivacy+LLM_API_KEY), changelog v2.22.0, фиксы Low-2 (экранирование <memory>/<facts> через escape_xml_text) и Low-3 (троттлинг /summary@BotName) + 6 тестов, Low-4/Low-5/E9 задокументированы, ARCHITECTURE 33.16 (фактические решения), итог 835 passed**
-- [ ] T-190 (@Builder + @DevOps, P0, ←T-189): Коммит на русском (conventional) в master + push; .env не коммитим (R15/R17)
-- [ ] T-191 (@DevOps, P0, ←T-190): Деплой — ssh nik@198.46.175.136, git pull, nano .env, systemctl restart/status, отчёт (R16)
+- [x] T-190 (@Builder + @DevOps, P0, ←T-189): Коммит на русском (conventional) в master + push; .env не коммитим (R15/R17) — **Done: коммит `a68732c` (35 файлов, v2.22.0), push origin/master OK; .env не коммичен**
+- [x] T-191 (@DevOps, P0, ←T-190): Деплой — ssh nik@198.46.175.136, git pull, nano .env, systemctl restart/status, отчёт (R16) — **Done: git pull `a68732c` (fast-forward), .env +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (без дублей), venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, restart → active (running) PID 920105, curl apinet.cloud OK (список моделей, auth по ключу), лог: sqlite-vec dim=768 + scheduler cron 0,6,12,18 Asia/Yekaterinburg, трейсбеков нет. ⚠️ Н1 (BotFather /setprivacy → Disable) — ручное действие пользователя**
 
 ## 🔧 In Progress
 
@@ -405,4 +405,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — Epics 1-23 ALL DEPLOYED ✅ (v2.21.0, коммит `756d237`). Epic 24 «SmartModule: Summary» — Шаг 2 (@Architect, T-173) **APPROVED PM (T-173-E)**; Шаг 3: @Builder T-174…T-188-A/B/C DONE (157 новых тестов, 829 passed) + @Reviewer **T-188-D APPROVED** (830 passed после 2 точечных фиксов + 1 QA-теста). Гейт на T-189 (README/доки) открыт → T-190 (коммит) → T-191 (деплой, + BotFather /setprivacy Disable, A12).
+**Updated:** 2026-08-16 — **Epics 1-24 ALL DEPLOYED ✅** (v2.22.0, коммит `a68732c`). Epic 24 «SmartModule: Summary»: @Builder T-174…T-189 ✅, @Reviewer T-188-D APPROVED ✅, @DevOps T-190 (коммит+пуш `a68732c`) ✅ / T-191 (деплой на прод: git pull, .env, venv-зависимости, restart → active (running), smoke apinet.cloud OK) ✅. Н1 (BotFather `/setprivacy` → Disable) — ручное действие пользователя (невыполнимо через SSH).
