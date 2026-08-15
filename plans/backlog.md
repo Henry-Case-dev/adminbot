@@ -1283,7 +1283,7 @@
 
 ---
 
-## Epic 22: Гонка функций и точность триггеров (Olya / Mimic / Slavik / PostPicker) — 2026-08-15 ✅ IMPLEMENTED (стадия ревью)
+## Epic 22: Гонка функций и точность триггеров (Olya / Mimic / Slavik / PostPicker) — 2026-08-15 ✅ DONE (DEPLOYED v2.20.0, коммит `1dbb6da`)
 
 > **Цель:** (1) Сервис Оли реагирует ТОЛЬКО на SaveAsBot-видео (репост из канала @SaveAsBot
 > или caption «Спасибо, что пользуетесь - @SaveAsBot'ом»), а не на все её видео.
@@ -1358,18 +1358,18 @@
 - [x] T-167-A: `README.md` — 4 изменения (Olya-триггер, MIMIC_FORWARDS_ENABLED, приоритет Славика, PostPicker), version bump → v2.20.0, changelog
 - [x] T-167-B: `ARCHITECTURE.md` — router order rationale (dead_page Slava-only + catchall guard), новый БД-ключ, Olya filter policy, mimic forwards policy
 - [x] T-167-C: Полный `pytest` — 0 регрессий (621 passed: 586 существующих + 35 новых)
-- [ ] T-167-D: Коммит на русском (conventional commits, например `feat(triggers): Epic 22 — точность триггеров и фикс гонки ответов`), push в main. Деплой — DevOps (⚠️ на сервере .env: `OLYA_ALWAYS_SEND=False`, `DEAD_PAGE_POST_ON_JOIN=False`)
+- [x] T-167-D: Коммит на русском (conventional commits): `1dbb6da` — `feat(triggers): Epic 22 — точность триггеров и фикс гонки ответов (v2.20.0)` на master, push в origin (github.com/Henry-Case-dev/adminbot.git). Деплой выполнен: сервер 198.46.175.136:/var/www/admin_bot, git pull c683903..1dbb6da (21 файл, +1778/-224); prod .env: `DEAD_PAGE_POST_ON_JOIN=True→False` (бэкап `.env.bak.2026-08-15`; `OLYA_ALWAYS_SEND` и `MIMIC_FORWARDS_ENABLED` отсутствуют в .env — работают дефолты False); systemctl restart OK; статус active (running), PID 914116 (был 699945); логи чистые (Bot started, listening...); HEAD=1dbb6da.
 
 **Файлы:** `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md`, `plans/board.md`
 
 ### Риски / блокеры
 
-1. **Prod .env** может явно содержать `OLYA_ALWAYS_SEND=True` и/или `DEAD_PAGE_POST_ON_JOIN=True` — дефолты в коде не сработают, пока .env не обновлён. Проверить при деплое (T-167-D).
+1. **Prod .env** может явно содержать `OLYA_ALWAYS_SEND=True` и/или `DEAD_PAGE_POST_ON_JOIN=True` — дефолты в коде не сработают, пока .env не обновлён. ✅ РАЗРЕШЕНО при деплое (T-167-D): `DEAD_PAGE_POST_ON_JOIN` выставлен в False (бэкап `.env.bak.2026-08-15`); `OLYA_ALWAYS_SEND` отсутствует — дефолт False.
 2. **Семантика ключей БД:** `last_known_message_id` (верхняя граница, forward-scan) ≠ `dead_page_last_sent:{chat_id}` (анти-повтор). Не смешивать.
 3. **Пересечение с common_router (4c):** danger_handler может ответить на d_pages-репост при наличии danger-слов — существующее ожидаемое поведение, вне скоупа Epic 22.
 4. **war_alert_router (4b):** репосты из @d_pages не входят в WAR_CHANNEL_IDS — пересечения нет; TargetChannelFilter пропускает non-target (Epic 17) — конфликтов не ожидается.
 
 ---
 
-**Статус: Epic 22 IMPLEMENTED ✅ (стадия ревью). T-163–T-167-C выполнены @Builder: 621 тестов PASS (586 baseline + 35 новых). T-167-D (коммит/push) — отдельный шаг, деплой — DevOps (НЕ задеплоено). Все Epics 1–21 DONE/DEPLOYED ✅.**
-**Date: 2026-08-15 | v2.20.0 (реализация завершена, коммит pending)**
+**Статус: Epic 22 DONE ✅ DEPLOYED v2.20.0 (коммит `1dbb6da`, пуш в origin, деплой на 198.46.175.136:/var/www/admin_bot, PID 914116). T-163–T-167 (включая T-167-D) выполнены: 621 тестов PASS (586 baseline + 35 новых), 0 регрессий. Все Epics 1–22 DONE/DEPLOYED ✅.**
+**Date: 2026-08-15 | v2.20.0 (deployed)**

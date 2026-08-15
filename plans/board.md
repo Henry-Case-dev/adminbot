@@ -10,7 +10,11 @@
 
 ## 🔍 In Review
 
-### Epic 22: Гонка функций и точность триггеров (Olya/Mimic/Slavik/PostPicker) — 2026-08-15 ✅ IMPLEMENTED (@Builder, стадия ревью)
+*No items in review.*
+
+## ✅ Done
+
+### Epic 22: Гонка функций и точность триггеров (Olya/Mimic/Slavik/PostPicker) — 2026-08-15 ✅ DEPLOYED (v2.20.0, коммит `1dbb6da`)
 
 > **Цель:** Устранить гонку ответов у Славика (приветствие vs dead page vs «пошёл нахуй»),
 > сделать триггеры точнее: Olya — только SaveAsBot-видео, mimic — не передразнивать репосты,
@@ -18,7 +22,10 @@
 > **PM-решения:** D51 (Olya: ИЛИ + OLYA_ALWAYS_SEND=False), D52 (MIMIC_FORWARDS_ENABLED=False),
 > D53 (DEAD_PAGE_POST_ON_JOIN=False, dead page только на репосты Славы из @d_pages, catchall-гейт),
 > D54 (channel_state `dead_page_last_sent:{chat_id}`). Target: v2.20.0.
-> **Итог:** реализовано, 621 тест PASS (586 baseline + 35 новых), 0 регрессий. Коммит/деплой — отдельные шаги (НЕ задеплоено).
+> **Итог:** реализовано и задеплоено. 621 тест PASS (586 baseline + 35 новых), 0 регрессий.
+> Коммит `1dbb6da` на master, пуш в origin. Деплой: 198.46.175.136:/var/www/admin_bot,
+> git pull c683903..1dbb6da (21 файл, +1778/-224), prod .env DEAD_PAGE_POST_ON_JOIN=True→False
+> (бэкап .env.bak.2026-08-15), systemctl restart OK, active (running), PID 914116. Прод v2.20.0.
 
 - [x] T-163 (@Builder): Olya — реагировать только на SaveAsBot-видео (D51)
   - [x] T-163-A: OLYA_ALWAYS_SEND default → False (settings.py + .env.example)
@@ -45,13 +52,11 @@
   - [x] T-167-A: README.md (v2.20.0, changelog)
   - [x] T-167-B: ARCHITECTURE.md + MEMORY.md
   - [x] T-167-C: pytest — 0 регрессий (621 passed: 586 + 35 новых)
-  - [ ] T-167-D: Коммит на русском (conventional commits), push. Деплой — DevOps. ⏳ ОТДЕЛЬНЫЙ ШАГ
+  - [x] T-167-D: Коммит `1dbb6da` (feat(triggers): Epic 22 — точность триггеров и фикс гонки ответов (v2.20.0)) + push в origin + деплой (198.46.175.136:/var/www/admin_bot, PID 914116, прод v2.20.0) ✅
 
-> ⚠️ Блокеры/риски: (1) prod .env может содержать OLYA_ALWAYS_SEND=True / DEAD_PAGE_POST_ON_JOIN=True — обновить при деплое;
+> ⚠️ Блокеры/риски (исторически): (1) prod .env мог содержать OLYA_ALWAYS_SEND=True / DEAD_PAGE_POST_ON_JOIN=True — РАЗРЕШЕНО при деплое (DEAD_PAGE_POST_ON_JOIN→False, бэкап .env.bak.2026-08-15);
 > (2) не путать last_known_message_id (верхняя граница forward-scan) и dead_page_last_sent (анти-повтор);
 > (3) danger_handler (4c) может ответить на d_pages-репост при danger-словах — существующее поведение, вне скоупа.
-
-## ✅ Done
 
 ### Epic 21: BUG FIX — MIMIC Not Working + Time Format Cooldowns — 2026-08-03 ✅ DEPLOYED (v2.19.0, commit c683903)
 
@@ -327,4 +332,4 @@
 
 ---
 
-**Updated:** 2026-08-15 — Epics 1-21 DEPLOYED ✅ (v2.19.0, commit c683903, 586 tests). Epic 22 «Гонка функций и точность триггеров» IMPLEMENTED ✅ (стадия ревью) — T-163..T-167-C выполнены @Builder, 621 тест PASS, коммит/деплой — отдельные шаги. Target: v2.20.0.
+**Updated:** 2026-08-15 — Epics 1-22 DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, 621 tests). Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — T-163..T-167 (включая D) завершены: коммит `1dbb6da`, пуш в origin, деплой на 198.46.175.136:/var/www/admin_bot (git pull c683903..1dbb6da, 21 файл, +1778/-224), PID 914116, prod .env DEAD_PAGE_POST_ON_JOIN=False. Прод v2.20.0.
