@@ -37,6 +37,13 @@ from handlers.common import common_router, setup_common, setup_common_mimic
 from handlers.olya import olya_router, setup_olya
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
 from services.olya_relay import OlyaRelay
+from handlers.summary import summary_observer_router, summary_router, setup_summary
+from services.llm_client import LLMClient
+from services.summary_aliases import AliasResolver
+from services.summary_generator import SummaryGenerator
+from services.summary_memory import MemoryManager
+from services.summary_scheduler import SummarySchedulerService
+from services.summary_xml import XmlGroundingBuilder
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -54,6 +61,10 @@ logger = logging.getLogger(__name__)
 
 bot = Bot(token=settings.API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+
+# SmartModule (Epic 24) — module-level refs for on_shutdown
+_summary_service = None
+_llm_client = None
 
 
 async def on_startup():
@@ -97,9 +108,42 @@ async def on_startup():
     asyncio.create_task(scheduler.run())
     logger.info("Scheduler started")
 
+    # ── SmartModule: Summary (Epic 24) ──────────────────────
+    global _summary_service, _llm_client
+    if settings.SUMMARY_ENABLED:
+        _llm_client = LLMClient(
+            settings.LLM_BASE_URL,
+            settings.LLM_API_KEY,
+            settings.LLM_MODEL_NAME,
+            settings.EMBEDDING_MODEL_NAME,
+        )
+        memory = MemoryManager(db, _llm_client)
+        vec_ok = await memory.initialize()
+        logger.info(
+            "SmartModule: sqlite-vec %s",
+            "available" if vec_ok else "UNAVAILABLE — FTS5 fallback (R3)",
+        )
+        aliases = AliasResolver(settings.SUMMARY_ALIASES)
+        xml_builder = XmlGroundingBuilder()
+        generator = SummaryGenerator(memory, xml_builder, _llm_client, bot, aliases)
+        setup_summary(generator, db, aliases, bot.id)
+        _summary_service = SummarySchedulerService(generator, db)
+        _summary_service.start()  # BEFORE dp.start_polling (RESEARCH §c)
+        logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", settings.SUMMARY_TIMEZONE)
+    else:
+        logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
+
     # ═══════════════════════════════════════════════════════════
     # REGISTRATION ORDER (CRITICAL — DO NOT CHANGE)
     # ═══════════════════════════════════════════════════════════
+
+    # 0a. SmartModule observer (Epic 24) — catch-all, saves ALL messages, returns UNHANDLED
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(summary_observer_router)
+
+    # 0b. SmartModule /summary (Epic 24) — BEFORE admin_commands and catch-all 5/6
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(summary_router)
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
@@ -171,6 +215,10 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup resources on bot shutdown."""
     logger.info("Bot shutting down...")
+    if _summary_service:
+        await _summary_service.shutdown()
+    if _llm_client:
+        await _llm_client.close()
 
 
 async def main():

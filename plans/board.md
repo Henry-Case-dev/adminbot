@@ -2,7 +2,30 @@
 
 ## 📋 Backlog
 
-*No items in backlog.*
+### Epic 24: SmartModule — сервис Summary (v2.22.0) — 2026-08-16 🆕 BUILD
+
+> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect) ✅ → 3 (@Builder ✅ T-174…T-189, @Reviewer ✅ T-188-D APPROVED 2026-08-16). Гейт на T-190 (коммит/пуш) открыт для @DevOps.
+> Требования R1–R18, PM-решения D59–D64, системный промпт (дословно) и риски —
+> в `plans/backlog.md` (Epic 24). Дизайн — `plans/ARCHITECTURE.md` Section 33 (T-173, Done).
+
+- [x] T-174 (@Builder, P0, ←T-173): Конфигурация — settings.py + .env.example (LLM_*, окна памяти, MAX_SUMMARY_PARTS, ALLOWED_SUMMARY_IDS, алиасы, троттлинг; D59) — **Done: 24 поля + секция SmartModule в .env.example + requirements (httpx/APScheduler/sqlite-vec)**
+- [x] T-175 (@Builder, P0, ←T-173): БД — таблица `smart_messages` + CRUD + миграция (R1) — **Done: _SCHEMA_SQL (smart_messages+author_name, 2×FTS5, smart_archive_facts) + 10 методов**
+- [x] T-176 (@Builder, P0, ←T-175): Память L1+L2 — окно генерации 6ч (один проход) + RAG-сырьё (R2) — **Done: get_window_messages + search_long_term (FTS5-префиксы)**
+- [x] T-177 (@Builder, P1, ←T-175/T-178): Память L3 — sqlite-vec архив: суммаризация по темам/фактам + KNN (R2) — **Done: initialize() с ленивой загрузкой vec0, compress_and_purge пачками, KNN без JOIN (ограничение vec0 0.1.x)**
+- [x] T-178 (@Builder, P0, ←T-173/T-174): LLM-клиент — генерация deepseek-v4-flash + эмбеддинги gemini-embedding-001, провайдер-агностик (R4/R5) — **Done: httpx, retry 429/5xx/timeout с backoff, LLMError-иерархия**
+- [x] T-179 (@Builder, P1, ←T-177/T-178): Фоллбек FTS5 при недоступности sqlite-vec ИЛИ эмбеддингов (R3/D60) — **Done: vector_search → FTS5 при любом сбое; тест деградации зелёный**
+- [x] T-180 (@Builder, P0, ←T-175): XML-контекст `<chat_history><message …/></chat_history>` (R6) — **Done: saxutils + control-символы, описания медиа, капы окна**
+- [x] T-181 (@Builder, P1, ←T-180): Алиасы: каскад alias → nickname → username (без @) → user_id (R7/D61) — **Done: JSON-словарь + кэш; тест «нет @» на всех ветках**
+- [x] T-182 (@Builder, P0, ←T-173): Системный промпт — захардкодить ДОСЛОВНО, `{max_symbols}` плейсхолдер (R11) — **Done: байт-в-байт тест против backlog.md; подстановка через replace (не format — {username} остаётся литералом)**
+- [x] T-183 (@Builder, P0, ←T-178..T-182): APScheduler — 00:00/06:00/12:00/18:00, TZ Asia/Yekaterinburg, MemoryJobStore (R8) — **Done: AsyncIOScheduler + CronTrigger с явным timezone, max_instances=1+coalesce, shutdown идемпотентен**
+- [x] T-184 (@Builder, P0, ←T-183): Ручной триггер `/summary` — ALLOWED_SUMMARY_IDS пуст → всем (R9/D62) — **Done: summary_router 0b + observer 0a (UNHANDLED всегда), интеграция 13 роутеров зелёная**
+- [x] T-185 (@Builder, P1, ←T-184): ThrottlingMiddleware — in-memory, молчаливое прерывание при спаме (R10) — **Done: router-scoped на summary_router, key=chat+user**
+- [x] T-186 (@Builder, P0, ←T-183): Чанкинг ≤4096 по пробелам, `{max_symbols}=(parts*4000)-200`, UX-ошибки (R12/R13/D63) — **Done: + SUMMARY_CHUNK_DELAY между чанками, TelegramRetryAfter→sleep+1 повтор, _ensure_shiz_postfix со стрипом @**
+- [x] T-187 (@Builder, P1, ←T-183): Observability — Better Stack, полные стектрейсы, сырые ответы LLM (R14) — **Done: logger.exception + raw response в INFO**
+- [x] T-188 (@Builder + @Reviewer, P0, ←T-186): Тесты — максимальное покрытие + отсутствие конфликтов с 12 роутерами + полный pytest (R15) + code review (T-188-D) — **DONE: A/B/C @Builder (157 новых тестов, интеграция 13 роутеров) + T-188-D @Reviewer APPROVED 2026-08-16. Ревью: 829 passed подтверждён личным прогоном; вердикт APPROVE WITH FIXES → 2 точечных фикса внесены ревьюером (`await _summary_service.shutdown()` в bot.py on_shutdown — не-awaited coroutine; vec0-purge → документированная форма `rowid IN`) + 1 QA-тест test_vec_purge_removes_vectors → итог 830 passed. Low-замечания (не блокируют, на T-189): экранирование l2/l3-цитат в псевдо-XML, /summary@bot обходит троттлинг, нет жёсткого капа чанков по MAX_SUMMARY_PARTS, SUMMARY_CHUNK_DELAY=2.0 зафиксировать в доках**
+- [x] T-189 (@Builder, P1, ←T-188): README (ироничный тон) + ARCHITECTURE/MEMORY, v2.22.0 (R15) — **Done: README секция SmartModule (фичи/память/деградация/все env-переменные/прод-требования BotFather setprivacy+LLM_API_KEY), changelog v2.22.0, фиксы Low-2 (экранирование <memory>/<facts> через escape_xml_text) и Low-3 (троттлинг /summary@BotName) + 6 тестов, Low-4/Low-5/E9 задокументированы, ARCHITECTURE 33.16 (фактические решения), итог 835 passed**
+- [ ] T-190 (@Builder + @DevOps, P0, ←T-189): Коммит на русском (conventional) в master + push; .env не коммитим (R15/R17)
+- [ ] T-191 (@DevOps, P0, ←T-190): Деплой — ssh nik@198.46.175.136, git pull, nano .env, systemctl restart/status, отчёт (R16)
 
 ## 🔧 In Progress
 
@@ -13,6 +36,21 @@
 *No items in review.*
 
 ## ✅ Done
+
+### Epic 24: T-173 — Архитектурное проектирование SmartModule/Summary — 2026-08-16 — ✅ APPROVED (PM, T-173-E)
+
+> **Итог:** дизайн `plans/ARCHITECTURE.md` Section 33 (33.1–33.15, решения A1–A15) APPROVED.
+> R1–R18 покрыты полностью; риски 1–12 backlog + Н1–Н4 закрыты решениями (33.14).
+> Минорные замечания для @Builder (не блокируют): (1) в 33.8 сказано «+18 полей» — в блоке 24 поля, поправить число в комментарии; (2) `_ensure_shiz_postfix` проверяет только наличие приписки «самым главным шизом объявляется», но не убирает `@`, если LLM сам написал её с @ — добавить стрип `@` в финальном имени; (3) число новых тестов в 33.13 (~120) уточнить по факту в T-188-C.
+> T-174 → READY FOR BUILDER. Передача @Builder.
+
+- [x] 👤 T-173 (@Architect + @PM, P0) — Epic 24: Архитектурное проектирование SmartModule/Summary (2026-08-16)
+  - [x] T-173-A: Модули, data flow, схема БД, контракты — `plans/ARCHITECTURE.md` **Section 33** (33.1–33.15)
+  - [x] T-173-B: Позиции роутеров — `summary_observer_router` 0a + `summary_router` 0b (ДО catch-all 5/6); сбор всех сообщений — отдельный роутер с UNHANDLED
+  - [x] T-173-C: Общая `local_database.db`; сжатие L3 — шаг пайплайна под общим `asyncio.Lock` (без отдельной джобы)
+  - [x] T-173-D: Self-review — изоляция от 12 роутеров, фоллбек-пути FTS5, таймауты LLM, секция 33.14
+  - [x] T-173-F: RESEARCH.md верифицирован (context7 — API-key недоступен; duckduckgo — anomaly; рабочий стек: exa + webfetch docs.aiogram.dev; секция «Методология» + источники с датами)
+  - [x] T-173-E: **APPROVED PM 2026-08-16** — R1–R18 ✅, риски закрыты, конвенции соблюдены (settings.py хелперы, bot.py on_startup-wiring, _SCHEMA_SQL-миграции, инъекции setup_*, MessageCounterMiddleware router-scoped не задет)
 
 ### Epic 23: Точная настройка danger-словаря (v2.21.0) — 2026-08-16 — ✅ DEPLOYED (коммит `756d237`)
 
@@ -166,9 +204,9 @@
 - [x] T-109: DangerWordFilter — RCA completed (22 слова → нужно 91+)
 - [x] T-114: war_channel_repost_handler — RCA completed (F.forward_origin блокирует)
 - [x] T-113: DEAD_PAGE_RELAY_CHANNEL_ID — RCA completed
-- [ ] T-110: DeadPageRelay album fix — DEFERRED
-- [ ] T-111: Тесты — DEFERRED
-- [ ] T-112: Документация — DEFERRED
+- [x] T-110: DeadPageRelay album fix — ARCHIVED (перекрыто Epic 14 T-093–T-099)
+- [x] T-111: Тесты — ARCHIVED (перекрыто Epic 14 T-098 / Epic 17 T-119)
+- [x] T-112: Документация — ARCHIVED (перекрыто Epic 17 T-120)
 
 ### Epic 15: Common Service — Rename + Media Upgrade + Danger — 2026-07-28
 - [x] 👤 T-100 (@Architect): Архитектурное проектирование Common Service + sub-agent review
@@ -358,7 +396,7 @@
 - [x] T-052: Dead Page Relay — sequential scanning for sparse channels (Critical)
 - [x] T-053: Propagation-stopping bug in slava_presence.py — F7 completely broken (Critical)
 
-### Remaining LOW (not blocking)
+### Remaining LOW (not blocking — ARCHIVED, вне активного бэклога)
 - [ ] H3: Dispatcher integration tests — deferred
 - [ ] L1: README platform-specific Windows commands
 - [ ] L2: Quoting in response text (reply_to covers)
@@ -367,4 +405,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — Epics 1-23 ALL DEPLOYED ✅ (v2.21.0, коммит `756d237`). Epic 23 «точная настройка danger-словаря» DONE & DEPLOYED: T-169..T-172 закрыты (включая деплойные подзадачи E..G), 672 теста PASS. Деплой: git pull 0c74220..756d237 (9 файлов), .env DANGER_WORDS пустой (дефолты), проверка «118 17» совпала. Бот active (running), PID 917681, логи чистые. Прод v2.21.0.
+**Updated:** 2026-08-16 — Epics 1-23 ALL DEPLOYED ✅ (v2.21.0, коммит `756d237`). Epic 24 «SmartModule: Summary» — Шаг 2 (@Architect, T-173) **APPROVED PM (T-173-E)**; Шаг 3: @Builder T-174…T-188-A/B/C DONE (157 новых тестов, 829 passed) + @Reviewer **T-188-D APPROVED** (830 passed после 2 точечных фиксов + 1 QA-теста). Гейт на T-189 (README/доки) открыт → T-190 (коммит) → T-191 (деплой, + BotFather /setprivacy Disable, A12).

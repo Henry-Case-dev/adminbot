@@ -1,11 +1,116 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.21.0 DEPLOYED (Epic 23, коммит `756d237`)
+> **Версия:** v2.21.0 DEPLOYED (Epic 23, коммит `756d237`); в работе: v2.22.0 (Epic 24 SmartModule) — ИМПЛЕМЕНТАЦИЯ ЗАВЕРШЕНА + РЕВЬЮ ПРОЙДЕНО.
 > **Дата:** 2026-08-16
-> **Обновление:** 2026-08-16 — **Epic 23 «Правка danger-словаря» DONE & DEPLOYED ✅ (v2.21.0, коммит `756d237`): T-169..T-172 DONE (включая деплойные подзадачи E..G), 672 теста PASS (621+51), ревью 2 раунда APPROVED. Деплой: git pull `0c74220..756d237` (9 файлов), .env DANGER_WORDS пустой (дефолты активны), проверка «118 17» совпала, сервис active (running) PID 917681, логи чистые.**
-> **Статус:** Epics 1–23 ALL DEPLOYED ✅ (v2.21.0, `756d237`). Epic 23 «Правка danger-словаря» DONE & DEPLOYED ✅ — словарь 118 слов + 17 фраз (135 паттернов) в продакшене.
+> **Обновление:** 2026-08-16 — **Epic 24 «SmartModule: Summary» — Шаг 6 (@Memory): реализация (T-174–T-188 A/B/C, @Builder) и ревью (T-188-D, @Reviewer: APPROVE WITH FIXES → Approved) завершены ✅. 830 тестов PASS / 0 failed (672 старых + 158 новых). Остаток: T-189 (README/доки), T-190 (коммит+пуш), T-191 (деплой). Критичный риск Н1 (BotFather `/setprivacy` → Disable) остаётся обязательным для деплоя.**
+> **Статус:** Epics 1–23 ALL DEPLOYED ✅ (v2.21.0, `756d237`, 672 теста). Epic 24 (v2.22.0) — IMPLEMENTED + REVIEW PASSED (830 тестов), НЕ закоммичен/НЕ задеплоен (T-189/T-190/T-191 pending, @DevOps).
 > **Текущий коммит:** `756d237` (feat(danger): Epic 23 — точная настройка danger-словаря (v2.21.0)) на master, пуш в origin (github.com/Henry-Case-dev/adminbot.git).
 > **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 917681, логи чистые (Bot started, listening...).
+
+---
+
+## 🆕 Epic 24: SmartModule — сервис Summary (v2.22.0) — ИМПЛЕМЕНТАЦИЯ ЗАВЕРШЕНА + РЕВЬЮ ПРОЙДЕНО (2026-08-16)
+
+> **Запрос пользователя (2026-08-16):** спроектировать и реализовать автономный сервис
+> **SmartModule** с подсервисом **Summary** для существующего бота. Все требования обязательные.
+> **Статус (2026-08-16):** Шаг 1 (PM) ✅ → Шаг 2 (@Architect, T-173) ✅ → Шаг 4 (@Builder, T-174–T-188 A/B/C) ✅ →
+> Шаг 5 (@Reviewer, T-188-D: **APPROVE WITH FIXES → Approved**) ✅. **Имплементация завершена, ревью пройдено.**
+> **Тесты: 830 PASS / 0 failed** (672 baseline + 158 новых: 147 в 9 новых тест-файлах + 11 в test_database.py).
+> **Файлы:** CREATE `services/llm_client.py`, `summary_prompts.py`, `summary_aliases.py`, `summary_xml.py`,
+> `summary_memory.py`, `summary_generator.py`, `summary_scheduler.py`, `summary_throttling.py`,
+> `handlers/summary.py`; MODIFY `config/settings.py` (+24 поля), `services/database.py` (_SCHEMA_SQL + 11 методов),
+> `bot.py` (роутеры 0a/0b + wiring on_startup/on_shutdown), `requirements.txt` (httpx, APScheduler 3.x, sqlite-vec),
+> `.env.example`; локальный `.env` с реальным LLM_API_KEY (gitignored — в коммит не попадёт).
+> **Ревью-фиксы (T-188-D):** (1) bot.py on_shutdown → `await _summary_service.shutdown()` (была не-awaited корутина, High);
+> (2) summary_memory.py `_purge_archive`: DELETE по rowid IN вместо fact_id IN (документированная vec0-форма);
+> (3) +1 QA-тест `test_vec_purge_removes_vectors`.
+> **Остаток:** T-189 (README/доки + Low-замечания) → T-190 (коммит+пуш) → T-191 (деплой).
+> **Критично для деплоя:** риск **Н1** — BotFather `/setprivacy` → **Disable** обязателен (T-191).
+
+### Подтверждённые технические решения (реализация + реальные тесты, 2026-08-16)
+
+- **sqlite-vec 0.1.9 работает на Windows/Py3.12** — реальные тесты без skip.
+- **vec0 0.1.x не поддерживает WHERE по auxiliary-колонкам в KNN** → фильтр чата в Python.
+- **FTS5 unicode61 + свой префиксный поиск** с санитайзом `*` и `"`.
+- **APScheduler 3.11 требует tz в CronTrigger**; shutdown(wait=False) + asyncio.sleep(0).
+- **Латентный баг дизайна 33.7 ИСПРАВЛЕН:** `{username}` подставляется литералом, `{max_symbols}` — через `.replace()` (str.format не вызывается).
+- Наблюдатель через `@router.message()` без фильтра; медиа без caption сохраняются ([фото]/[видео]), чистые сервисные пропускаются; удаление пачки по ids после успешного сжатия; `SUMMARY_CHUNK_DELAY=2.0`.
+- Живой smoke apinet.cloud локально невозможен (ReadTimeout) → проверка в T-191-D на проде.
+
+### Low-замечания ревьюера (не блокируют; зафиксировать в T-189)
+
+| # | Замечание |
+|---|-----------|
+| L1 | XML-экранирование l2/l3-блоков (`<memory>`/`<facts>`) не реализовано |
+| L2 | Троттлинг не ловит `/summary@BotName` (команда с упоминанием бота) |
+| L3 | Нет жёсткого капа чанков по MAX_SUMMARY_PARTS |
+| L4 | location/contact/dice классифицируются как `other` и не сохраняются |
+
+### Суть запроса (кратко)
+
+| # | Требование |
+|---|-----------|
+| R1 | SQLite (aiosqlite): таблица `smart_messages` — id, user_id, chat_id, text, reply_to_id, timestamp, media_type |
+| R2 | Трёхуровневая память: L1 окно 6ч (один проход) → L2 полная `FULL_MEMORY_RETENTION_DAYS` (RAG-цитаты) → L3 архив sqlite-vec (суммаризация→векторы, KNN, `ARCHIVE_MEMORY_RETENTION_DAYS`) |
+| R3 | Фоллбек: sqlite-vec недоступен ИЛИ эмбеддинги падают → **FTS5**; try-except вокруг всех вызовов эмбеддингов |
+| R4/R5 | LLM через **apinet.cloud**: генерация `deepseek-v4-flash`, эмбеддинги `gemini-embedding-001`; .env: LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME |
+| R6 | XML-контекст: `<chat_history><message id timestamp author reply_to_id type>…</message></chat_history>` |
+| R7 | Алиасы: каскад `alias → nickname → username (без @) → user_id` |
+| R8 | APScheduler: TZ Asia/Yekaterinburg, 00:00/06:00/12:00/18:00, ТОЛЬКО MemoryJobStore |
+| R9/R10 | Ручной `/summary` (ALLOWED_SUMMARY_IDS пуст = всем) + кастомный ThrottlingMiddleware (in-memory, молчаливый) |
+| R11 | Системный промпт — захардкодить ДОСЛОВНО: токсичный «бот-абьюзер», маленькие буквы, без эмодзи/маркдауна, приписка «самым главным шизом объявляется {username}» (текст в backlog.md) |
+| R12/R13 | `{max_symbols} = (MAX_SUMMARY_PARTS*4000)-200`; чанкинг по пробелам ≤4096; UX-ошибки на маленькой букве («не смог сделать саммари потому что упал апи», «база данных подавилась») |
+| R14–R17 | Better Stack observability (стектрейсы, сырые ответы LLM); тесты + README ироничный; коммит на русском; деплой SSH nik@198.46.175.136 (/var/www/admin_bot, git pull, systemctl restart adminbot); LLM_API_KEY в .env НЕ коммитим |
+
+### Архитектурные решения A1–A15 (Section 33, @Architect, 2026-08-16)
+
+| # | Решение |
+|---|---------|
+| **A1** | Плоские модули `services/summary_*.py` + `handlers/summary.py` (НЕ подпакет `smartmodule/`) |
+| **A2** | Общая `local_database.db` + миграции `_SCHEMA_SQL` (отдельный smartmodule.db отклонён) |
+| **A3** | `summary_observer_router` на позиции **0a** (catch-all, всегда `UNHANDLED`) |
+| **A4** | `summary_router` на позиции **0b** (ДО admin/catch-all 5/6, никогда не `UNHANDLED`) |
+| **A5** | L3-сжатие — шаг пайплайна под общим `asyncio.Lock`, отдельной джобы APScheduler НЕТ |
+| **A6** | Каскад памяти vec0 KNN → FTS5; факты архива пишутся в текст ВСЕГДА |
+| **A7** | L2-RAG — FTS5 keyword/phrase-поиск из токенов L1 (без доп. LLM-вызова) |
+| **A8** | Имена резолвятся в момент сохранения в `author_name` (alias → nickname → username → user_id) |
+| **A9** | `SUMMARY_ALIASES` — JSON-строка `{"<user_id>": "<alias>"}` |
+| **A10** | Промпты в `services/summary_prompts.py` (SYSTEM_PROMPT дословно, R11) |
+| **A11** | `/summary` из чата НЕ удаляется |
+| **A12** | Деплой-нота: BotFather `/setprivacy` → **Disable** (иначе память пустая — риск **Н1**) |
+| **A13** | Зависимости: `httpx>=0.27`, `APScheduler>=3.10,<4`, `sqlite-vec>=0.1.2` (graceful fallback) |
+| **A14** | Постобработка: чанкинг ≤4096 по пробелам + автодописывание шиз-приписки |
+| **A15** | Throttling — router-scoped outer middleware только на `summary_router` (key chat+user, TTL 60s, молчаливый return) |
+
+**Структура файлов (Section 33.2):** `services/llm_client.py`, `summary_memory.py`,
+`summary_xml.py`, `summary_aliases.py`, `summary_generator.py`, `summary_scheduler.py`,
+`summary_throttling.py`, `summary_prompts.py`, `handlers/summary.py` (+ точечные правки
+`config/settings.py` +18 полей, `services/database.py`, `bot.py`, `.env.example`).
+
+**БД (Section 33.3):** `smart_messages` (+author_name), FTS5 `smart_messages_fts`,
+`smart_archive_facts` (+FTS5), vec0 `smart_archive` (лениво, только при загруженном sqlite-vec).
+
+**LLM (Section 33.4):** одна httpx-сессия, `/v1/chat/completions` + `/v1/embeddings`,
+retry 429/5xx с backoff, иерархия LLMError; `embed()` оборачивается try/except у вызывающего.
+
+**Критичный риск Н1:** BotFather `/setprivacy` → **Disable** обязателен на проде (T-191) —
+иначе бот в группе не видит сообщения, память L1/L2/L3 пустая.
+
+### Критичные напоминания для @DevOps (T-189/T-190/T-191)
+
+1. **Н1 (критично, T-191):** BotFather `/setprivacy` → **Disable** обязателен на проде — иначе бот в группе не видит сообщения, память L1/L2/L3 пустая.
+2. **T-191-D:** живой smoke apinet.cloud локально невозможен (ReadTimeout) — проверять на проде (GET /v1/models или реальный generate-вызов).
+3. **T-189:** зафиксировать Low-замечания в README/доках: XML-экранирование l2/l3-блоков (`<memory>`/`<facts>`); троттлинг не ловит `/summary@BotName`; нет жёсткого капа чанков по MAX_SUMMARY_PARTS; location/contact/dice → `other`, не сохраняются.
+4. **T-190:** коммит на русском (conventional commits) — НЕ включать локальный `.env` (LLM_API_KEY, gitignored); включить `.env.example`, requirements.txt, `plans/RESEARCH.md` (untracked) — закоммитить с планами.
+5. **Деплой (T-191):** SSH nik@198.46.175.136 (/var/www/admin_bot), git pull, nano .env → LLM_API_KEY + SUMMARY_ENABLED, systemctl restart adminbot. Позиции роутеров 0a/0b — CRITICAL, порядок не менять.
+6. **Политика media/** (обязательна): медиа добавляются сознательно, НЕ в .gitignore, НЕ удалять.
+
+### Baseline перед стартом Epic 24
+
+- Прод **v2.21.0** (коммит `756d237`), бот active (PID 917681), 0 ошибок.
+- **672 теста** локально; 12 роутеров (0:admin → 1:slava_presence → 1b:alan_greeting → 2:kostik → 3:alan → 4:dead_page → 4b:war_alert → 4c:common → 4d:olya → 5:slavik → 6:vasya); 5 таблиц БД.
+- requirements.txt: aiogram 3.7+, python-dotenv, aiosqlite, pytest(+asyncio), sentry-sdk 2.64.0, logtail-python 0.4.0 (LLM/sqlite-vec/APScheduler/httpx отсутствуют — будут добавлены).
+- Сервер: 198.46.175.136:/var/www/admin_bot, сервис adminbot (systemctl).
 
 ---
 
@@ -247,9 +352,9 @@ common_router (pos 4c): НИКОГДА не получает события
 |-----------|-----------|--------|
 | Рантайм | Python 3.x + asyncio | ✅ |
 | Фреймворк | aiogram 3.7+ | ✅ |
-| База данных | SQLite (local_database.db) | ✅ 5 таблиц, WAL mode |
+| База данных | SQLite (local_database.db) | ✅ 9 таблиц после Epic 24 (было 5), WAL mode |
 | Конфигурация | .env + config/settings.py | ✅ Все настройки через env, time-format cooldowns |
-| Тесты | pytest + pytest-asyncio | ✅ 672 теста PASS (v2.21.0 DEPLOYED, Epic 23; 621 baseline + 51 новых) |
+| Тесты | pytest + pytest-asyncio | ✅ 830 тестов локально PASS (Epic 24 IMPLEMENTED; прод v2.21.0 — 672) |
 | Документация | ARCHITECTURE.md, MEMORY.md | ✅ |
 | Мониторинг | ✅ Sentry + Logtail | Error tracking + cloud logging via Better Stack |
 
@@ -301,7 +406,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **F10** | Danger Detection — 135+ keywords from word_lists.py | `handlers/common.py` (danger_handler) + `DangerWordFilter` + `CommonRelay` (dual cooldown) | ✅ |
 | **F11** | Olya Service — видео от @ole4444444ka → cringe media | `handlers/olya.py` + `OlyaRelay` + `OlyaVideoFilter` | ✅ |
 
-### 3. Database Schema (SQLite, 5 tables)
+### 3. Database Schema (SQLite, 9 tables после Epic 24)
 
 | Таблица | Назначение | Ключевые колонки |
 |---------|-----------|-----------------|
@@ -310,6 +415,11 @@ common_router (pos 4c): НИКОГДА не получает события
 | `dead_page_posts` | Учёт dead-page постов (F2 V2) | `chat_id`, `slot`, `timestamp` |
 | `channel_state` | Ключ-значение (F2 V2, F7v2) | `key` (TEXT PK), `value` (TEXT) |
 | `relay_album_map` | Трекинг media_group_id для альбомов (Epic 14) | `message_id` (INTEGER PK), `media_group_id` (TEXT, INDEXED) |
+| `smart_messages` | Сырые сообщения чата (Epic 24, L1/L2) | `id`, `chat_id`, `user_id`, `author_name`, `text`, `reply_to_id`, `media_type`, `timestamp` |
+| `smart_messages_fts` | FTS5-индекс сообщений (L2-RAG) | `text`, content=`smart_messages` |
+| `smart_archive_facts` | Факты L3-сжатия (текстовая ветка, ВСЕГДА) | `id`, `chat_id`, `fact`, `timestamp` |
+| `smart_archive_facts_fts` | FTS5-индекс фактов (фоллбек L3) | `fact`, content=`smart_archive_facts` |
+| `smart_archive` | vec0-векторная ветка L3 (лениво) | `rowid`, `fact_id`, `chat_id`, `embedding float[768]` |
 
 ### 4. Config (env-configurable via settings.py, TIME-FORMAT v2.19.0)
 
@@ -374,6 +484,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **v2.19.0** | **2026-08-03** | **Epic 21 (MIMIC fix + Time-format cooldowns)** | **T-149–T-162** | **586** |
 | **v2.20.0** | **2026-08-15** | **Epic 22 (Гонка функций и точность триггеров)** | **T-163–T-167 (DEPLOYED, `1dbb6da`)** | **621** |
 | **v2.21.0** | **2026-08-16** | **Epic 23 (Правка danger-словаря)** | **T-169–T-172 (DONE & DEPLOYED, `756d237`)** | **672** |
+| **v2.22.0** | **2026-08-16** | **Epic 24 (SmartModule: Summary)** | **T-174–T-188 (IMPLEMENTED + REVIEW PASSED; T-189/T-190/T-191 pending)** | **830** |
 
 ---
 
@@ -386,6 +497,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **DEPLOYED** | Epic 22: T-163 – T-167 (DEPLOYED, commit `1dbb6da`, 621 tests pass, прод v2.20.0) ✅ |
 | **DEPLOYED** | Chore T-168: danger_drone.mp4 в danger-пул — DONE & DEPLOYED ✅ (коммит `0c74220`, pull 1dbb6da..0c74220, chmod 644, хэш совпал, пул 16 файлов, PID 916795, smoke OK) |
 | **DEPLOYED** | Epic 23: T-169 – T-172 (DONE & DEPLOYED ✅, коммит `756d237`, 672 теста, прод v2.21.0, PID 917681) — словарь 118 слов + 17 фраз, .env DANGER_WORDS пустой (дефолты активны), проверка «118 17» совпала, логи чистые |
+| **IMPLEMENTED + REVIEW PASSED** | Epic 24: T-174 – T-188 (A/B/C) DONE @Builder ✅; T-188-D APPROVED @Reviewer ✅; **830 тестов PASS** — T-189 (README/доки) / T-190 (коммит+пуш) / T-191 (деплой) PENDING |
 
 > Epics 1-22 ALL DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, PID 914116). **Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — реализация (D51–D54) + ревью 3 раунда (APPROVED) + коммит/пуш/деплой (T-167-D).**
 > 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
@@ -405,13 +517,15 @@ common_router (pos 4c): НИКОГДА не получает события
 | **Путь** | /var/www/admin_bot |
 | **Статус** | systemctl status adminbot → active (running), PID 917681, логи чистые (Bot started, listening...) |
 | **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно |
-| **Тесты** | 672 PASS (621 baseline + 51 Epic 23) |
-| **Эпики** | 1-23 ALL DEPLOYED ✅ |
+| **Тесты** | 672 PASS в проде (621 baseline + 51 Epic 23); локально 830 PASS после Epic 24 (не задеплоен) |
+| **Эпики** | 1-23 ALL DEPLOYED ✅; Epic 24 IMPLEMENTED + REVIEW PASSED (не задеплоен) |
 | **Задачи** | T-001 – T-172 ALL DEPLOYED ✅ |
 | **.env на проде** | DANGER_WORDS пустой → дефолты активны (118 слов + 17 фраз); DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
 | **Ошибки** | 0 errors в production логах. Все сервисы инициализированы корректно. |
 
 ---
+
+*Обновление: 2026-08-16 — EPIC 24 (v2.22.0): IMPLEMENTED + REVIEW PASSED ✅ (Шаг 6, @Memory — граф и MEMORY.md синхронизированы). @Builder: T-174–T-188 A/B/C DONE (9 новых модулей services/summary_*.py + llm_client.py + handlers/summary.py; settings.py +24 поля; database.py _SCHEMA_SQL + 11 методов; bot.py роутеры 0a/0b + wiring; requirements.txt httpx/APScheduler 3.x/sqlite-vec; .env.example). @Reviewer T-188-D: APPROVE WITH FIXES → Approved (фиксы: await shutdown() в on_shutdown; _purge_archive rowid IN; +QA-тест test_vec_purge_removes_vectors). Тесты: 830 PASS / 0 failed (672 + 158: 147 в 9 новых файлах + 11 в test_database.py). Подтверждено: sqlite-vec 0.1.9 на Windows/Py3.12; vec0 KNN без WHERE по auxiliary-колонкам → chat-фильтр в Python; APScheduler 3.11 требует tz в CronTrigger; {username} литералом + {max_symbols} через .replace() (фикс бага 33.7). Low-замечания → T-189: XML-экранирование l2/l3-блоков; /summary@BotName не ловится троттлингом; нет капа чанков по MAX_SUMMARY_PARTS; location/contact/dice не сохраняются. Живой smoke apinet.cloud локально невозможен (ReadTimeout) → T-191-D на проде. Остаток: T-189/T-190/T-191; Н1 (BotFather /setprivacy → Disable) критичен для деплоя.*
 
 *Обновление: 2026-08-16 — ЗАФИКСИРОВАНА ПОЛИТИКА MEDIA-ПАПКИ (указание пользователя): всё, что добавляется/удаляется в media/ (media/common/danger, media/olya/cringe, media/slavik_random и т.п.), делается СОЗНАТЕЛЬНО и СПЕЦИАЛЬНО для загрузки на сервер и использования ботом; media-файлы НЕ исключаются из коммитов как мусор, НЕ добавляются в .gitignore, НЕ удаляются без явного указания. Рекомендация «danger_drone.mp4 → .gitignore» — ОШИБОЧНАЯ, ОТМЕНЕНА. danger_drone.mp4 — 16-й файл danger-пула, добавлен намеренно. Новая chore-задача: коммит + деплой media/common/danger/danger_drone.mp4.*
 
@@ -434,3 +548,5 @@ common_router (pos 4c): НИКОГДА не получает события
 *Обновление: 2026-08-16 — EPIC 23: IN PROGRESS 🚧 (СПЛАНИРОВАН, целевая версия v2.21.0). PM и Architect спланировали Epic 23 «Правка danger-словаря»: решения D55–D58, задачи T-169..T-172. DANGER_WORDS: 118 словоформ (было 191) — удалены секции Flight (10), Shelter (26), Атака/угроза (28), Падение/сбитие (13); добавлены хлопок/хлопки/хлопнуло/хлопнул. Новая DANGER_PHRASES (17 фраз: 10 shelter + 7 атака). Механика: _build_phrase_patterns в DangerWordFilter — фразы проверяются до слов, границы по краям фразы, IGNORECASE, возврат {"matched_word": ...} совместимый. Потребители: war_alert (4b) и danger_handler (4c) — единый словарь. Итог 135 паттернов; target ≈646 тестов. Прод .env не трогаем.*
 
 *Обновление: 2026-08-16 — EPIC 23: DONE & DEPLOYED ✅ (v2.21.0, коммит `756d237`). Деплой: git pull 0c74220..756d237 (9 файлов) на 198.46.175.136:/var/www/admin_bot, systemctl restart OK — active (running) PID 917681, логи чистые. .env DANGER_WORDS пустой → активны дефолты word_lists.py (118 слов + 17 фраз, 135 паттернов). Python-проверка «118 17» на сервере совпала. Все 23 Epic'а COMPLETE и DEPLOYED. Прод v2.21.0, бот активен, 0 ошибок.*
+
+*Обновление: 2026-08-16 — EPIC 24 (v2.22.0-in-progress): Шаг 3 (@Memory) — фаза архитектуры (T-173) завершена, граф знаний и MEMORY.md синхронизированы. Дизайн Section 33 (A1–A15, риски 33.14) зафиксирован в ARCHITECTURE.md; RESEARCH.md верифицирован (методология: context7 — Invalid API key / duckduckgo — anomaly → рабочий стек exa + webfetch docs.aiogram.dev). board.md: T-173 → In Review, T-174 → READY FOR BUILDER. Код не писался — передача @Builder после PM-аппрува T-173-E. Предупреждения для @Builder: Н1 BotFather /setprivacy → Disable (T-191); порядок роутеров 0a/0b не менять; 12 существующих роутеров и MessageCounterMiddleware не трогать; sqlite-vec — только graceful fallback (R3).*

@@ -186,3 +186,91 @@ class TestDatabaseService:
         )
         await db.db.commit()
         assert await db.get_alan_last_message_ts(-100123) is None
+
+
+# ── SmartModule: Summary (Epic 24) ─────────────────────
+
+class TestSmartModuleDatabase:
+    @pytest.mark.asyncio
+    async def test_smart_tables_created(self, db):
+        cursor = await db.db.execute(
+            "SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual table') ORDER BY name"
+        )
+        names = [row["name"] async for row in cursor]
+        assert "smart_messages" in names
+        assert "smart_messages_fts" in names
+        assert "smart_archive_facts" in names
+        assert "smart_archive_facts_fts" in names
+
+    @pytest.mark.asyncio
+    async def test_save_and_window(self, db):
+        await db.save_smart_message(1, -100, "первое", None, 100, "text", "вася")
+        await db.save_smart_message(2, -100, "второе", None, 200, "text", "петя")
+        rows = await db.get_smart_window(-100, 0, 10)
+        assert [r["text"] for r in rows] == ["первое", "второе"]
+        assert rows[0]["author_name"] == "вася"
+
+    @pytest.mark.asyncio
+    async def test_window_since_boundary(self, db):
+        await db.save_smart_message(1, -100, "граница", None, 500, "text", "а")
+        await db.save_smart_message(2, -100, "раньше", None, 499, "text", "б")
+        rows = await db.get_smart_window(-100, 500, 10)
+        assert [r["text"] for r in rows] == ["граница"]
+
+    @pytest.mark.asyncio
+    async def test_get_smart_raw_older_than(self, db):
+        await db.save_smart_message(1, -100, "старое", None, 100, "text", "а")
+        await db.save_smart_message(2, -100, "новое", None, 200, "text", "б")
+        rows = await db.get_smart_raw(-100, 150, 10)
+        assert [r["text"] for r in rows] == ["старое"]
+
+    @pytest.mark.asyncio
+    async def test_delete_older_than_removes_fts(self, db):
+        await db.save_smart_message(1, -100, "старое", None, 100, "text", "а")
+        await db.save_smart_message(2, -100, "новое", None, 200, "text", "б")
+        deleted = await db.delete_smart_messages_older_than(-100, 150)
+        assert deleted == 1
+        rows = await db.search_messages_fts(-100, '"старое"', 10)
+        assert rows == []
+        rows = await db.get_smart_raw(-100, 9999, 10)
+        assert [r["text"] for r in rows] == ["новое"]
+
+    @pytest.mark.asyncio
+    async def test_save_archive_fact_and_search(self, db):
+        await db.save_archive_fact(-100, "факт номер один", 100)
+        facts = await db.search_archive_fts(-100, '"факт"', 10)
+        assert facts == ["факт номер один"]
+
+    @pytest.mark.asyncio
+    async def test_delete_archive_facts_older_than(self, db):
+        await db.save_archive_fact(-100, "древний", 100)
+        await db.save_archive_fact(-100, "свежий", 200)
+        deleted = await db.delete_archive_facts_older_than(-100, 150)
+        assert deleted == 1
+        facts = await db.search_archive_fts(-100, '"свежий"', 10)
+        assert facts == ["свежий"]
+
+    @pytest.mark.asyncio
+    async def test_search_messages_fts_chat_isolation(self, db):
+        await db.save_smart_message(1, -100, "секрет", None, 100, "text", "а")
+        await db.save_smart_message(2, -200, "секрет чужой", None, 100, "text", "б")
+        rows = await db.search_messages_fts(-100, '"секрет"', 10)
+        assert len(rows) == 1
+        assert rows[0]["text"] == "секрет"
+
+    @pytest.mark.asyncio
+    async def test_get_smart_chat_ids(self, db):
+        await db.save_smart_message(1, -100, "а", None, 1, "text", "х")
+        await db.save_smart_message(2, -100, "б", None, 2, "text", "х")
+        await db.save_smart_message(3, -200, "в", None, 3, "text", "х")
+        assert sorted(await db.get_smart_chat_ids()) == [-200, -100]
+
+    @pytest.mark.asyncio
+    async def test_migration_on_existing_db(self, db):
+        """Old tables exist alongside the new ones after migration."""
+        cursor = await db.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = [row["name"] async for row in cursor]
+        assert "user_presence" in tables  # legacy table
+        assert "smart_messages" in tables

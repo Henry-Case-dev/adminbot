@@ -44,6 +44,40 @@ class DatabaseService:
             media_group_id TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_relay_album_media_group ON relay_album_map(media_group_id);
+
+        -- ── SmartModule: Summary (Epic 24) ─────────────────────────
+        -- R1: сырьё всех сообщений чата (+author_name — резолв A8 на момент сохранения)
+        CREATE TABLE IF NOT EXISTS smart_messages (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER,
+            chat_id      INTEGER NOT NULL,
+            text         TEXT,
+            reply_to_id  INTEGER,
+            timestamp    INTEGER NOT NULL,
+            media_type   TEXT NOT NULL DEFAULT 'text',
+            author_name  TEXT NOT NULL DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_ts ON smart_messages(chat_id, timestamp);
+
+        -- FTS5 над сырьём L1/L2 (встроенный, без расширений) — L2-RAG + фоллбек
+        CREATE VIRTUAL TABLE IF NOT EXISTS smart_messages_fts USING fts5(
+            text, content='smart_messages', content_rowid='id', tokenize='unicode61'
+        );
+
+        -- L3: архивные факты — обычная таблица (пишется ВСЕГДА при сжатии)
+        CREATE TABLE IF NOT EXISTS smart_archive_facts (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id   INTEGER NOT NULL,
+            fact      TEXT NOT NULL,
+            timestamp INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_archive_facts_chat_ts ON smart_archive_facts(chat_id, timestamp);
+        CREATE VIRTUAL TABLE IF NOT EXISTS smart_archive_facts_fts USING fts5(
+            fact, content='smart_archive_facts', content_rowid='id', tokenize='unicode61'
+        );
+
+        -- L3: векторы создаются ЛЕНИВО из MemoryManager.initialize()
+        -- (только если sqlite-vec загрузился; dim из конфига EMBEDDING_DIM)
     """
     
     def __init__(self, db_path: str):
@@ -283,3 +317,141 @@ class DatabaseService:
         )
         rows = await cursor.fetchall()
         return [row["message_id"] for row in rows]
+
+    # ── SmartModule: Summary (Epic 24) ──────────────────
+
+    async def save_smart_message(
+        self,
+        user_id: int,
+        chat_id: int,
+        text: str | None,
+        reply_to_id: int | None,
+        timestamp: int,
+        media_type: str,
+        author_name: str,
+    ) -> int:
+        """Insert a chat message into smart_messages + FTS index. Returns the new row id."""
+        cursor = await self.db.execute(
+            "INSERT INTO smart_messages "
+            "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name),
+        )
+        row_id = cursor.lastrowid
+        if text:
+            await self.db.execute(
+                "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
+                (row_id, text),
+            )
+        await self.db.commit()
+        return row_id
+
+    async def get_smart_window(self, chat_id: int, since_ts: int, limit: int) -> list:
+        """L1: messages within the generation window (timestamp >= since_ts), ASC order."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name "
+            "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
+            "ORDER BY timestamp DESC LIMIT ?",
+            (chat_id, since_ts, limit),
+        )
+        rows = await cursor.fetchall()
+        rows.reverse()
+        return rows
+
+    async def get_smart_raw(self, chat_id: int, older_than_ts: int, limit: int) -> list:
+        """L2/сжатие: messages older than the cutoff timestamp, ASC order."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name "
+            "FROM smart_messages WHERE chat_id = ? AND timestamp < ? "
+            "ORDER BY timestamp ASC LIMIT ?",
+            (chat_id, older_than_ts, limit),
+        )
+        return await cursor.fetchall()
+
+    async def delete_smart_messages_older_than(self, chat_id: int, cutoff_ts: int) -> int:
+        """Delete messages (+ FTS rows) older than cutoff. Returns count of deleted rows."""
+        await self.db.execute(
+            "DELETE FROM smart_messages_fts WHERE rowid IN "
+            "(SELECT id FROM smart_messages WHERE chat_id = ? AND timestamp < ?)",
+            (chat_id, cutoff_ts),
+        )
+        cursor = await self.db.execute(
+            "DELETE FROM smart_messages WHERE chat_id = ? AND timestamp < ?",
+            (chat_id, cutoff_ts),
+        )
+        await self.db.commit()
+        return cursor.rowcount
+
+    async def delete_smart_messages_by_ids(self, chat_id: int, ids: list[int]) -> int:
+        """Delete specific messages (+ FTS rows) of a chat. Returns count deleted."""
+        if not ids:
+            return 0
+        placeholders = ",".join("?" for _ in ids)
+        await self.db.execute(
+            f"DELETE FROM smart_messages_fts WHERE rowid IN ({placeholders})",
+            ids,
+        )
+        cursor = await self.db.execute(
+            f"DELETE FROM smart_messages WHERE chat_id = ? AND id IN ({placeholders})",
+            [chat_id, *ids],
+        )
+        await self.db.commit()
+        return cursor.rowcount
+
+    async def save_archive_fact(self, chat_id: int, fact: str, timestamp: int) -> int:
+        """L3: save a compressed archive fact (+ FTS row). Returns the new fact id."""
+        cursor = await self.db.execute(
+            "INSERT INTO smart_archive_facts (chat_id, fact, timestamp) VALUES (?, ?, ?)",
+            (chat_id, fact, timestamp),
+        )
+        fact_id = cursor.lastrowid
+        await self.db.execute(
+            "INSERT INTO smart_archive_facts_fts(rowid, fact) VALUES (?, ?)",
+            (fact_id, fact),
+        )
+        await self.db.commit()
+        return fact_id
+
+    async def delete_archive_facts_older_than(self, chat_id: int, cutoff_ts: int) -> int:
+        """Delete archive facts (+ FTS rows) older than cutoff. Returns count deleted."""
+        await self.db.execute(
+            "DELETE FROM smart_archive_facts_fts WHERE rowid IN "
+            "(SELECT id FROM smart_archive_facts WHERE chat_id = ? AND timestamp < ?)",
+            (chat_id, cutoff_ts),
+        )
+        cursor = await self.db.execute(
+            "DELETE FROM smart_archive_facts WHERE chat_id = ? AND timestamp < ?",
+            (chat_id, cutoff_ts),
+        )
+        await self.db.commit()
+        return cursor.rowcount
+
+    async def search_messages_fts(self, chat_id: int, match_query: str, limit: int) -> list:
+        """L2-RAG / фоллбек: FTS5 search over raw messages, ordered by rank."""
+        cursor = await self.db.execute(
+            "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, m.timestamp, "
+            "m.media_type, m.author_name "
+            "FROM smart_messages_fts JOIN smart_messages m ON m.id = smart_messages_fts.rowid "
+            "WHERE smart_messages_fts MATCH ? AND m.chat_id = ? "
+            "ORDER BY smart_messages_fts.rank LIMIT ?",
+            (match_query, chat_id, limit),
+        )
+        return await cursor.fetchall()
+
+    async def search_archive_fts(self, chat_id: int, match_query: str, limit: int) -> list[str]:
+        """L3 фоллбек: FTS5 search over archive facts, ordered by rank."""
+        cursor = await self.db.execute(
+            "SELECT f.fact FROM smart_archive_facts_fts "
+            "JOIN smart_archive_facts f ON f.id = smart_archive_facts_fts.rowid "
+            "WHERE smart_archive_facts_fts MATCH ? AND f.chat_id = ? "
+            "ORDER BY smart_archive_facts_fts.rank LIMIT ?",
+            (match_query, chat_id, limit),
+        )
+        rows = await cursor.fetchall()
+        return [row["fact"] for row in rows]
+
+    async def get_smart_chat_ids(self) -> list[int]:
+        """Distinct chat ids that have at least one saved message."""
+        cursor = await self.db.execute("SELECT DISTINCT chat_id FROM smart_messages")
+        rows = await cursor.fetchall()
+        return [row["chat_id"] for row in rows]

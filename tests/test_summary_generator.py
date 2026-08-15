@@ -1,0 +1,315 @@
+"""Tests for services/summary_generator.py (T-186, Section 33.7)."""
+import sqlite3
+from dataclasses import replace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from aiogram.exceptions import TelegramRetryAfter
+
+from config.settings import settings
+from services.llm_client import LLMError
+from services.summary_generator import SummaryGenerator
+from services.summary_xml import XmlGroundingBuilder
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    """Replace asyncio in summary_generator with a stub whose sleep is recorded."""
+    import asyncio as real_asyncio
+
+    fake = MagicMock()
+    fake.sleep = AsyncMock(return_value=None)
+    fake.Lock = real_asyncio.Lock
+    monkeypatch.setattr("services.summary_generator.asyncio", fake)
+    return fake.sleep
+
+
+class FakeMemory:
+    def __init__(self, rows=None, error=None):
+        self.rows = rows if rows is not None else []
+        self.error = error
+        self.events = []
+
+    async def compress_and_purge(self, chat_id):
+        self.events.append("compress")
+
+    async def get_window_messages(self, chat_id):
+        self.events.append("window")
+        if self.error == "window":
+            raise sqlite3.OperationalError("бд упала")
+        if self.error == "generic":
+            raise ValueError("что-то странное")
+        return self.rows
+
+    async def search_long_term(self, chat_id, keywords, limit):
+        self.events.append("l2")
+        return []
+
+    async def vector_search(self, chat_id, query, limit):
+        self.events.append("l3")
+        return []
+
+
+class FakeLLM:
+    def __init__(self, text="саммари текста", error=None):
+        self.text = text
+        self.error = error
+        self.messages = None
+
+    async def generate(self, messages):
+        self.messages = messages
+        if self.error:
+            raise self.error
+        return self.text
+
+
+def _row(author_name="вася", text="какое-то сообщение", **kwargs):
+    defaults = {
+        "id": 1,
+        "user_id": 10,
+        "timestamp": 1_700_000_000,
+        "author_name": author_name,
+        "text": text,
+        "reply_to_id": None,
+        "media_type": "text",
+    }
+    defaults.update(kwargs)
+    return defaults
+
+
+def _make_generator(memory, llm, bot, monkeypatch=None):
+    return SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot, aliases=None)
+
+
+class TestPipeline:
+    @pytest.mark.asyncio
+    async def test_full_pipeline_order_and_max_symbols(self, no_sleep):
+        memory = FakeMemory(rows=[_row(), _row(author_name="петя")])
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        assert memory.events == ["compress", "window", "l2", "l3"]
+        system = llm.messages[0]["content"]
+        assert "3800 символов" in system  # MAX_SUMMARY_PARTS=1 → 1*4000-200
+        user = llm.messages[1]["content"]
+        assert "<chat_history>" in user
+        assert '<message id="1"' in user
+        bot.send_message.assert_called_once()
+        sent = bot.send_message.call_args.args[1]
+        assert "самым главным шизом объявляется" in sent
+
+    @pytest.mark.asyncio
+    async def test_empty_window_no_llm_call(self, no_sleep):
+        memory = FakeMemory(rows=[])
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        assert llm.messages is None
+        bot.send_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_llm_error_ux_phrase(self, no_sleep):
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM(error=LLMError("api упал"))
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        bot.send_message.assert_called_once_with(
+            -100, "не смог сделать саммари потому что упал апи"
+        )
+
+    @pytest.mark.asyncio
+    async def test_db_error_ux_phrase(self, no_sleep):
+        memory = FakeMemory(rows=[_row()], error="window")
+        bot = AsyncMock()
+        generator = _make_generator(memory, FakeLLM(), bot)
+        await generator.generate_and_send(-100)
+        bot.send_message.assert_called_once_with(-100, "база данных подавилась")
+
+    @pytest.mark.asyncio
+    async def test_generic_error_ux_phrase(self, no_sleep):
+        memory = FakeMemory(rows=[_row()], error="generic")
+        bot = AsyncMock()
+        generator = _make_generator(memory, FakeLLM(), bot)
+        await generator.generate_and_send(-100)
+        bot.send_message.assert_called_once_with(-100, "не смог сделать саммари")
+
+    @pytest.mark.asyncio
+    async def test_ux_send_failure_does_not_crash(self, no_sleep):
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM(error=LLMError("упал"))
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=Exception("бот забанен"))
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+
+    @pytest.mark.asyncio
+    async def test_raw_response_logged(self, no_sleep, caplog):
+        import logging
+
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM(text="сырой текст саммари")
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        with caplog.at_level(logging.INFO):
+            await generator.generate_and_send(-100)
+        assert any("summary LLM raw response" in r.message for r in caplog.records)
+        assert any("сырой текст саммари" in r.message for r in caplog.records)
+
+
+class TestShizPostfix:
+    def test_postfix_added_when_missing(self):
+        rows = [_row(author_name="вася"), _row(author_name="петя"), _row(author_name="вася")]
+        text = SummaryGenerator._ensure_shiz_postfix(None, "было всякое", rows)
+        assert text.endswith("самым главным шизом объявляется вася")
+
+    def test_most_active_author_chosen(self):
+        rows = [_row(author_name="петя"), _row(author_name="вася"), _row(author_name="вася")]
+        text = SummaryGenerator._ensure_shiz_postfix(None, "текст", rows)
+        assert text.endswith("самым главным шизом объявляется вася")
+
+    def test_existing_postfix_not_duplicated(self):
+        text = "тут уже есть самым главным шизом объявляется петя приписка"
+        result = SummaryGenerator._ensure_shiz_postfix(None, text, [_row()])
+        assert result == text
+        assert result.count("самым главным шизом") == 1
+
+    def test_at_symbol_stripped_from_llm_name(self):
+        text = "конец. самым главным шизом объявляется @вася"
+        result = SummaryGenerator._ensure_shiz_postfix(None, text, [_row()])
+        assert "самым главным шизом объявляется вася" in result
+        assert "объявляется @" not in result
+
+    def test_no_rows_fallback_name(self):
+        text = SummaryGenerator._ensure_shiz_postfix(None, "текст", [])
+        assert text.endswith("самым главным шизом объявляется кто-то")
+
+    def test_empty_author_rows_fallback(self):
+        text = SummaryGenerator._ensure_shiz_postfix(None, "текст", [_row(author_name="")])
+        assert text.endswith("самым главным шизом объявляется кто-то")
+
+
+class TestChunking:
+    def test_short_text_single_chunk(self):
+        assert SummaryGenerator._chunk_by_whitespace("короткий текст", 4096) == ["короткий текст"]
+
+    def test_empty_text(self):
+        assert SummaryGenerator._chunk_by_whitespace("", 4096) == []
+
+    def test_chunks_respect_limit(self):
+        words = ["а" * 10] * 1000
+        text = " ".join(words)
+        chunks = SummaryGenerator._chunk_by_whitespace(text, 4096)
+        assert len(chunks) == 3
+        assert all(len(c) <= 4096 for c in chunks)
+        assert " ".join(chunks) == text
+
+    def test_never_splits_words(self):
+        text = " ".join(["длинноеслово" * 100, "короткое"])
+        chunks = SummaryGenerator._chunk_by_whitespace(text, 500)
+        # первое слово (1200 символов) не режется и идёт целым чанком
+        assert chunks[0] == "длинноеслово" * 100
+        assert chunks[1] == "короткое"
+
+
+class TestSendChunked:
+    @pytest.mark.asyncio
+    async def test_delay_between_chunks(self, no_sleep):
+        bot = AsyncMock()
+        generator = SummaryGenerator(FakeMemory(), XmlGroundingBuilder(), FakeLLM(), bot)
+        text = " ".join(["а" * 10] * 1000)
+        await generator._send_chunked(-100, text)
+        assert bot.send_message.await_count == 3
+        assert no_sleep.await_count == 2
+        no_sleep.assert_any_await(settings.SUMMARY_CHUNK_DELAY)
+
+    @pytest.mark.asyncio
+    async def test_single_chunk_no_delay(self, no_sleep):
+        bot = AsyncMock()
+        generator = SummaryGenerator(FakeMemory(), XmlGroundingBuilder(), FakeLLM(), bot)
+        await generator._send_chunked(-100, "один чанк")
+        assert bot.send_message.await_count == 1
+        no_sleep.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_telegram_retry_after_sleeps_and_retries(self, no_sleep):
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(
+            side_effect=[
+                TelegramRetryAfter(method=None, message="retry", retry_after=3),
+                None,
+            ]
+        )
+        generator = SummaryGenerator(FakeMemory(), XmlGroundingBuilder(), FakeLLM(), bot)
+        await generator._send_chunked(-100, "чанк")
+        assert bot.send_message.await_count == 2
+        no_sleep.assert_any_await(3)
+
+    @pytest.mark.asyncio
+    async def test_oversized_word_warns_but_sends(self, no_sleep, caplog):
+        import logging
+
+        bot = AsyncMock()
+        generator = SummaryGenerator(FakeMemory(), XmlGroundingBuilder(), FakeLLM(), bot)
+        with caplog.at_level(logging.WARNING):
+            await generator._send_chunked(-100, "х" * 5000)
+        assert bot.send_message.await_count == 1
+        assert any("exceeds 4096" in r.message for r in caplog.records)
+
+
+class TestComposeUserContent:
+    def test_xml_only(self):
+        result = SummaryGenerator._compose_user_content("<chat_history/>", [], [])
+        assert result == "<chat_history/>"
+
+    def test_with_memory_and_facts(self):
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>", ["кто-то: цитата"], ["факт один"]
+        )
+        assert "<memory>\nкто-то: цитата\n</memory>" in result
+        assert "<facts>\nфакт один\n</facts>" in result
+
+    def test_memory_and_facts_are_xml_escaped(self):
+        """Review Low-2: L2/L3 контент проходит то же экранирование, что и <chat_history>."""
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>",
+            ["кто-то: 1 < 2 & 3 > 2"],
+            ["факт с <тегом> и & амперсандом"],
+        )
+        assert "1 &lt; 2 &amp; 3 &gt; 2" in result
+        assert "факт с &lt;тегом&gt; и &amp; амперсандом" in result
+        assert "<тегом>" not in result
+
+    def test_memory_and_facts_control_chars_stripped(self):
+        """Review Low-2: control-символы вырезаются и в <memory>/<facts>."""
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>",
+            ["цитата\x00\x08с хвостом"],
+            ["факт\x1fконец"],
+        )
+        assert "\x00" not in result
+        assert "\x08" not in result
+        assert "\x1f" not in result
+        assert "цитатас хвостом" in result
+        assert "фактконец" in result
+
+
+class TestExtractKeywords:
+    def test_top_keywords_ignore_stopwords(self):
+        from services.summary_generator import _STOPWORDS
+
+        rows = [
+            _row(text="ракета летит ракета дрон"),
+            _row(text="ракета и дрон"),
+        ]
+        keywords = SummaryGenerator._extract_keywords(rows)
+        assert keywords[0] == "ракета"
+        assert "дрон" in keywords
+        assert all(kw not in _STOPWORDS for kw in keywords)
+
+    def test_short_tokens_ignored(self):
+        rows = [_row(text="а б в длинноеслово")]
+        keywords = SummaryGenerator._extract_keywords(rows)
+        assert keywords == ["длинноеслово"]
