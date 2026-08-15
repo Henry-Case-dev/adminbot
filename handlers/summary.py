@@ -1,17 +1,21 @@
-"""Epic 24 — SmartModule Summary handlers (Section 33.9).
+"""Epic 24/25 — SmartModule Summary handlers (Sections 33.9 + 34.5/34.6).
 
 summary_observer_router (position 0a): catch-all observer — saves ALL chat
 messages to smart_messages, ALWAYS returns UNHANDLED so propagation to the
-other routers is guaranteed even on failures.
+other routers is guaranteed even on failures. Epic 25 (B9): commands starting
+with /summary are NOT saved to memory.
 
 summary_router (position 0b): /summary manual trigger. ALLOWED_SUMMARY_IDS
 empty = everyone; non-empty = listed IDs only (silent absorb). Handler never
 returns UNHANDLED on its own path (A4) — Slava's catch-all must not fire.
+Epic 25: ack «ща гляну, подожди» before the pipeline (B1), best-effort command
+deletion right after the ack (B7), UX safety net when the generator is not
+injected (B6), INFO logs for every state (B8).
 """
 import logging
 import time
 
-from aiogram import Router, types
+from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import Command
 
@@ -27,6 +31,9 @@ _generator = None
 _db = None
 _aliases = None
 _bot_id = None
+
+_UX_ACK = "ща гляну, подожди"                 # B1: ручной вызов, до пайплайна
+_UX_NOT_READY = "не смог сделать саммари"     # B6: страховка вайринга (R13-стиль)
 
 
 def setup_summary(generator, db=None, aliases=None, bot_id=None) -> None:
@@ -81,7 +88,11 @@ async def summary_observer(message: types.Message):
             return UNHANDLED
         if _bot_id is not None and user.id == _bot_id:
             return UNHANDLED
-        text = message.text or message.caption
+        command_text = message.text or message.caption
+        if command_text and command_text.lstrip().startswith("/summary"):
+            # B9: команды — не контент чата; в окно LLM не попадают
+            return UNHANDLED
+        text = command_text
         media_type = _detect_media_type(message)
         if not text and media_type == "other":
             # чистые сервисные (join/pin и т.п.) — не сохраняем
@@ -116,19 +127,55 @@ async def summary_observer(message: types.Message):
 
 # ── 0b. /summary command ─────────────────────────────────────
 
+async def _safe_send(bot: Bot | None, chat_id: int, text: str) -> None:
+    """B6: UX-отправка; отказ не должен ронять хендлер.
+
+    Bot берётся из DI хендлера (не из _generator.bot) — работает и при
+    _generator is None (замечание PM к T-193).
+    """
+    if bot is None:
+        logger.warning("[/summary] no bot available to send | chat_id=%s", chat_id)
+        return
+    try:
+        await bot.send_message(chat_id, text)
+    except Exception:
+        logger.exception("[/summary] failed to send | chat_id=%s", chat_id)
+
+
+async def _delete_command(message: types.Message) -> None:
+    """B7: удалить команду из чата. Отказ (нет delete_messages в группе) — WARNING, не падение."""
+    try:
+        await message.delete()
+        logger.info(
+            "[/summary] command deleted | chat=%s msg=%s",
+            message.chat.id, message.message_id,
+        )
+    except Exception:
+        logger.warning(
+            "[/summary] command delete failed (no delete_messages right?) | chat=%s msg=%s",
+            message.chat.id, message.message_id, exc_info=True,
+        )
+
+
 @summary_router.message(Command("summary"))
-async def cmd_summary(message: types.Message):
-    """Manual summary trigger (R9/D62)."""
+async def cmd_summary(message: types.Message, bot: Bot = None):
+    """Manual summary trigger (R9/D62). Ack → delete → pipeline (B1/B7/B2)."""
     user_id = message.from_user.id if message.from_user else 0
     allowed = settings.ALLOWED_SUMMARY_IDS
     if allowed and user_id not in allowed:
-        logger.debug("[/summary] user %s not in ALLOWED_SUMMARY_IDS", user_id)
+        # R9/D62: silent absorb — НЕ удаляем, НЕ отвечаем; только INFO-лог (B8)
+        logger.info("[/summary] denied | user=%s not in ALLOWED_SUMMARY_IDS", user_id)
         return
     if _generator is None:
+        # B6: страховка вайринга — пользователь должен получить ответ
         logger.warning("[/summary] SummaryGenerator not initialized — skipping")
+        await _safe_send(bot, message.chat.id, _UX_NOT_READY)
         return
     logger.info("[/summary] triggered | chat=%s user=%s", message.chat.id, user_id)
-    await _generator.generate_and_send(message.chat.id)
+    await _safe_send(bot, message.chat.id, _UX_ACK)          # B1: ack ДО пайплайна
+    logger.info("[/summary] ack sent | chat=%s", message.chat.id)
+    await _delete_command(message)                            # B7: best-effort, сразу после ack
+    await _generator.generate_and_send(message.chat.id, manual=True)  # B2
     return
 
 

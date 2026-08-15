@@ -115,3 +115,16 @@ class TestTick:
         service = SummarySchedulerService(generator, db)
         await service._tick()
         generator.generate_and_send.assert_not_called()
+
+
+    @pytest.mark.asyncio
+    async def test_tick_passes_no_manual_kwarg(self):
+        """B2: cron-вызов без manual — scheduler не менялся."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        db = MagicMock()
+        db.get_smart_chat_ids = AsyncMock(return_value=[-100])
+        service = SummarySchedulerService(generator, db)
+        await service._tick()
+        generator.generate_and_send.assert_awaited_once_with(-100)
+        assert generator.generate_and_send.await_args.kwargs == {}

@@ -168,53 +168,218 @@ class TestObserver:
     def test_observer_router_has_handler(self):
         assert len(summary_observer_router.message.handlers) >= 1
 
+    # ── B9 (Epic 25): команды /summary* не пишутся в память ──
+
+    @pytest.mark.asyncio
+    async def test_summary_command_not_saved(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="/summary", reply_to_message=None)
+        result = await summary_observer(msg)
+        assert result is UNHANDLED
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_foreign_summary_command_not_saved(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="/summary@RofloslavBot", reply_to_message=None)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_summary_prefix_command_not_saved(self, db, make_message, setup_cleanup):
+        """B9: guard по префиксу — /summaryfoo тоже не сохраняется."""
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="/summaryfoo", reply_to_message=None)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_caption_summary_command_not_saved(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text=None, caption="/summary", reply_to_message=None)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_plain_message_still_saved_after_b9(self, db, make_message, setup_cleanup):
+        """Регрессия: B9 не ломает сохранение обычных сообщений."""
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="про саммари разговор", reply_to_message=None)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert [r["text"] for r in rows] == ["про саммари разговор"]
+
 
 class TestSummaryCommand:
+    @pytest.mark.asyncio
+    async def test_ack_before_pipeline_and_manual_flag(self, make_message, setup_cleanup):
+        """B1/B2: ack отдельным send_message ДО generate_and_send(manual=True)."""
+        events = []
+
+        generator = MagicMock()
+
+        async def _generate(chat_id, manual=False):
+            events.append("generate")
+
+        generator.generate_and_send = AsyncMock(side_effect=_generate)
+        setup_summary(generator)
+
+        bot = AsyncMock()
+
+        async def _send(chat_id, text):
+            events.append(("send", text))
+
+        bot.send_message = AsyncMock(side_effect=_send)
+
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        with patch.object(summary_mod, "settings", mod):
+            result = await cmd_summary(msg, bot=bot)
+
+        assert result is None
+        assert events[0] == ("send", "ща гляну, подожди")
+        assert events[1] == "generate"
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+
+    @pytest.mark.asyncio
+    async def test_delete_called_after_ack_before_pipeline(self, make_message, setup_cleanup):
+        """B7: удаление команды сразу после ack, до пайплайна."""
+        events = []
+
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock(
+            side_effect=lambda *a, **k: events.append("generate")
+        )
+        setup_summary(generator)
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=lambda *a, **k: events.append("ack"))
+        msg = make_message(
+            from_id=SLAVIK_ID, text="/summary",
+            delete=AsyncMock(side_effect=lambda: events.append("delete")),
+        )
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        with patch.object(summary_mod, "settings", mod):
+            await cmd_summary(msg, bot=bot)
+        assert events == ["ack", "delete", "generate"]
+
+    @pytest.mark.asyncio
+    async def test_ack_is_not_reply(self, make_message, setup_cleanup):
+        """B1: ack — send_message (не reply/answer)."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        with patch.object(summary_mod, "settings", mod):
+            await cmd_summary(msg, bot=bot)
+        msg.reply.assert_not_called()
+        msg.answer.assert_not_called()
+        bot.send_message.assert_awaited_once_with(CHAT_ID, "ща гляну, подожди")
+
     @pytest.mark.asyncio
     async def test_allowed_empty_everyone(self, make_message, setup_cleanup):
         generator = MagicMock()
         generator.generate_and_send = AsyncMock()
         setup_summary(generator)
+        bot = AsyncMock()
         mod = replace(settings, ALLOWED_SUMMARY_IDS=())
-        msg = make_message(from_id=SLAVIK_ID, text="/summary")
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
         with patch.object(summary_mod, "settings", mod):
-            result = await cmd_summary(msg)
+            result = await cmd_summary(msg, bot=bot)
         assert result is None
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
 
     @pytest.mark.asyncio
     async def test_allowed_list_contains_user(self, make_message, setup_cleanup):
         generator = MagicMock()
         generator.generate_and_send = AsyncMock()
         setup_summary(generator)
+        bot = AsyncMock()
         mod = replace(settings, ALLOWED_SUMMARY_IDS=(SLAVIK_ID, 42))
-        msg = make_message(from_id=SLAVIK_ID, text="/summary")
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
         with patch.object(summary_mod, "settings", mod):
-            await cmd_summary(msg)
-        generator.generate_and_send.assert_awaited_once()
+            await cmd_summary(msg, bot=bot)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
 
     @pytest.mark.asyncio
-    async def test_not_allowed_silently_absorbed(self, make_message, setup_cleanup):
+    async def test_not_allowed_silently_absorbed(self, make_message, setup_cleanup, caplog):
+        """R9/B8: denied → нет ack, нет delete, нет ответа; только INFO-лог."""
         generator = MagicMock()
         generator.generate_and_send = AsyncMock()
         setup_summary(generator)
+        bot = AsyncMock()
         mod = replace(settings, ALLOWED_SUMMARY_IDS=(42,))
-        msg = make_message(from_id=SLAVIK_ID, text="/summary")
-        with patch.object(summary_mod, "settings", mod):
-            result = await cmd_summary(msg)
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.INFO):
+            result = await cmd_summary(msg, bot=bot)
         assert result is None  # НЕ UNHANDLED — propagation остановлен
         generator.generate_and_send.assert_not_called()
+        bot.send_message.assert_not_called()
+        msg.delete.assert_not_called()
         msg.reply.assert_not_called()
         msg.answer.assert_not_called()
+        assert any("denied" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_generator_not_initialized(self, make_message, setup_cleanup):
+    async def test_generator_not_initialized_ux(self, make_message, setup_cleanup):
+        """B6: _generator is None → UX «не смог сделать саммари» через DI-bot."""
+        setup_summary(None)
+        bot = AsyncMock()
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        with patch.object(summary_mod, "settings", mod):
+            await cmd_summary(msg, bot=bot)
+        bot.send_message.assert_awaited_once_with(CHAT_ID, "не смог сделать саммари")
+        msg.delete.assert_not_called()
+        msg.reply.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_generator_none_without_bot_no_crash(self, make_message, setup_cleanup):
+        """B6: bot=None (юнит-вызов) → warning, не падение."""
         setup_summary(None)
         mod = replace(settings, ALLOWED_SUMMARY_IDS=())
-        msg = make_message(from_id=SLAVIK_ID, text="/summary")
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
         with patch.object(summary_mod, "settings", mod):
             await cmd_summary(msg)
-        msg.reply.assert_not_called()
+        msg.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_failure_does_not_break_pipeline(self, make_message, setup_cleanup, caplog):
+        """B7: отказ удаления (нет прав delete_messages) → WARNING, пайплайн жив."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        msg = make_message(
+            from_id=SLAVIK_ID, text="/summary",
+            delete=AsyncMock(side_effect=Exception("нет прав")),
+        )
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.WARNING):
+            await cmd_summary(msg, bot=bot)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        bot.send_message.assert_awaited_once()  # ack всё равно ушёл
+        assert any("command delete failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_ack_send_failure_does_not_break_pipeline(self, make_message, setup_cleanup):
+        """B6: отказ отправки ack не роняет хендлер — delete и пайплайн выполняются."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=Exception("сеть упала"))
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        with patch.object(summary_mod, "settings", mod):
+            await cmd_summary(msg, bot=bot)
+        msg.delete.assert_awaited_once()
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
 
     def test_summary_router_has_command_handler(self):
         assert len(summary_router.message.handlers) >= 1
@@ -331,12 +496,16 @@ class TestRouterIntegration:
             update_type="message", event=message, bot=bot_mock
         )
 
-        generator.generate_and_send.assert_awaited_once_with(-1001)
-        # слава не ответил «пошёл нахуй», нет никаких сообщений
-        assert bot_mock.await_count == 0
-        # наблюдатель сохранил сообщение (0a вернул UNHANDLED)
+        generator.generate_and_send.assert_awaited_once_with(-1001, manual=True)
+        # B7: команда удалена (aiogram: delete → bot(DeleteMessage))
+        assert bot_mock.await_count == 1
+        assert bot_mock.await_args.args[0].__class__.__name__ == "DeleteMessage"
+        # B1: ack отдельным send_message; Слава не ответил «пошёл нахуй»
+        assert bot_mock.send_message.await_count == 1
+        assert bot_mock.send_message.await_args.args[1] == "ща гляну, подожди"
+        # B9: команда не попала в память наблюдателя (0a вернул UNHANDLED)
         rows = await db.get_smart_window(-1001, 0, 10)
-        assert any(r["text"] == "/summary" for r in rows)
+        assert all(not (r["text"] or "").lstrip().startswith("/summary") for r in rows)
 
     @pytest.mark.asyncio
     async def test_summary_not_allowed_silently_absorbed(self, integration_env):
@@ -353,6 +522,7 @@ class TestRouterIntegration:
 
         generator.generate_and_send.assert_not_called()
         assert bot_mock.await_count == 0  # и Слава молчит
+        bot_mock.send_message.assert_not_called()  # B1: denied → без ack
 
     @pytest.mark.asyncio
     async def test_summary_from_other_user_works(self, integration_env):
@@ -365,8 +535,13 @@ class TestRouterIntegration:
             update_type="message", event=message, bot=bot_mock
         )
 
-        generator.generate_and_send.assert_awaited_once_with(-1003)
-        assert bot_mock.await_count == 0
+        generator.generate_and_send.assert_awaited_once_with(-1003, manual=True)
+        # B7: удаление команды — единственный вызов bot-объекта
+        assert bot_mock.await_count == 1
+        assert bot_mock.await_args.args[0].__class__.__name__ == "DeleteMessage"
+        # B1: ack отдельным send_message
+        assert bot_mock.send_message.await_count == 1
+        assert bot_mock.send_message.await_args.args[1] == "ща гляну, подожди"
 
     @pytest.mark.asyncio
     async def test_ordinary_message_still_reaches_slavik(self, integration_env):

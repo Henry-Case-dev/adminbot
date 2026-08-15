@@ -1,7 +1,11 @@
-"""Epic 24 — SummaryGenerator: full summary pipeline (Section 33.7).
+"""Epic 24/25 — SummaryGenerator: full summary pipeline (Sections 33.7 + 34.3).
 
 L3 compress → L1 window → XML → L2 RAG → L3 vectors → LLM → postprocessing
 (shiz postfix, 4096-chunking with TelegramRetryAfter handling) → send.
+
+Epic 25 (B2/B4/B5): `generate_and_send(chat_id, manual=False)` — manual calls
+(/summary) get UX replies for empty window and busy lock; cron stays quiet
+(no ack, no empty-window UX, INFO logs instead). Error UX (R13) is sent to both.
 """
 import asyncio
 import logging
@@ -27,6 +31,8 @@ logger = logging.getLogger(__name__)
 _UX_LLM_FAILED = "не смог сделать саммари потому что упал апи"
 _UX_DB_FAILED = "база данных подавилась"
 _UX_GENERIC_FAILED = "не смог сделать саммари"
+_UX_EMPTY = "тут тишина, саммарить нечего"        # B4: пустое окно L1, только manual
+_UX_BUSY = "уже делаю саммари, подожди"          # B5: lock занят, только manual
 
 _SHIZ_MARKER = "самым главным шизом объявляется"
 _SHIZ_AT_RE = re.compile(r"(самым главным шизом объявляется\s+)@+")
@@ -54,17 +60,28 @@ class SummaryGenerator:
         self.aliases = aliases
         self._lock = asyncio.Lock()
 
-    async def generate_and_send(self, chat_id: int) -> None:
-        """Public entrypoint for both /summary and the cron job (dedup via lock)."""
+    async def generate_and_send(self, chat_id: int, manual: bool = False) -> None:
+        """Entrypoint for /summary (manual=True) and cron (manual=False). B2/B5."""
+        if self._lock.locked():
+            if manual:
+                await self._send_ux(chat_id, _UX_BUSY)          # B5: не стоять молча
+            logger.info(
+                "summary: lock busy — queued | chat_id=%s manual=%s", chat_id, manual
+            )
         async with self._lock:
-            await self._run(chat_id)
+            await self._run(chat_id, manual)
 
-    async def _run(self, chat_id: int) -> None:
+    async def _run(self, chat_id: int, manual: bool) -> None:
         try:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
             if not rows:
-                logger.info("summary: empty window | chat_id=%s — no LLM call", chat_id)
+                if manual:
+                    await self._send_ux(chat_id, _UX_EMPTY)     # B4
+                logger.info(
+                    "summary: empty window | chat_id=%s manual=%s — no LLM call",
+                    chat_id, manual,
+                )
                 return
             xml_context = self.xml.build(rows, self.aliases)
             keywords = self._extract_keywords(rows)

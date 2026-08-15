@@ -136,3 +136,100 @@ class TestThrottlingMiddleware:
 
         middleware = ThrottlingMiddleware()
         assert middleware._throttle_seconds == settings.SUMMARY_THROTTLE_SECONDS
+
+
+def _fake_bot(username="v1vv2as_bot"):
+    """Fake aiogram Bot с me() → username (для валидации mention, B3)."""
+    bot = MagicMock()
+    me = MagicMock()
+    me.username = username
+    bot.me = AsyncMock(return_value=me)
+    return bot
+
+
+class TestMentionValidation:
+    """Epic 25 (B3): симметрия троттлинга с Command-фильтром."""
+
+    @pytest.mark.asyncio
+    async def test_foreign_mention_does_not_consume_slot(self, fake_time):
+        """Регресс первопричины: /summary@RofloslavBot не жжёт слот троттлинга."""
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock()
+        data = {"bot": _fake_bot("v1vv2as_bot")}
+        await middleware(handler, _make_message(text="/summary@RofloslavBot"), data)
+        fake_time["now"] += 12
+        await middleware(handler, _make_message(text="/summary"), data)
+        assert handler.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_foreign_mention_passes_event_through(self, fake_time):
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock(return_value="handled")
+        data = {"bot": _fake_bot("v1vv2as_bot")}
+        result = await middleware(handler, _make_message(text="/summary@RofloslavBot"), data)
+        assert result == "handled"
+        assert middleware._last == {}
+
+    @pytest.mark.asyncio
+    async def test_own_mention_still_throttled(self, fake_time):
+        """Low-3 жив: /summary@НашБот троттлится как /summary."""
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock()
+        data = {"bot": _fake_bot("v1vv2as_bot")}
+        await middleware(handler, _make_message(text="/summary@v1vv2as_bot"), data)
+        fake_time["now"] += 10
+        result = await middleware(handler, _make_message(text="/summary@v1vv2as_bot"), data)
+        assert result is None
+        assert handler.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_own_mention_case_insensitive(self, fake_time):
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock()
+        data = {"bot": _fake_bot("v1vv2as_bot")}
+        await middleware(handler, _make_message(text="/summary@V1VV2AS_BOT"), data)
+        fake_time["now"] += 10
+        result = await middleware(handler, _make_message(text="/summary"), data)
+        assert result is None
+        assert handler.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_summaryfoo_not_matched(self, fake_time):
+        """B3: точное сравнение — /summaryfoo не матчится и не жжёт слот."""
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock()
+        await middleware(handler, _make_message(text="/summaryfoo"), {})
+        await middleware(handler, _make_message(text="/summary"), {})
+        assert handler.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_blank_text_passes_through(self, fake_time):
+        """Guard: пробельный текст не роняет middleware (замечание PM)."""
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock(return_value="ok")
+        result = await middleware(handler, _make_message(text="   "), {})
+        assert result == "ok"
+
+    @pytest.mark.asyncio
+    async def test_mention_without_bot_in_data_treated_as_own(self, fake_time):
+        """Нет bot в data (юнит-вызов) → mention не валидируется, троттлится как своя."""
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock()
+        await middleware(handler, _make_message(text="/summary@AnyBot"), {})
+        fake_time["now"] += 10
+        result = await middleware(handler, _make_message(text="/summary"), {})
+        assert result is None
+        assert handler.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_throttled_log_contains_remaining(self, fake_time, caplog):
+        import logging
+
+        middleware = ThrottlingMiddleware(throttle_seconds=60.0)
+        handler = AsyncMock()
+        await middleware(handler, _make_message(text="/summary"), {})
+        fake_time["now"] += 30
+        with caplog.at_level(logging.INFO):
+            await middleware(handler, _make_message(text="/summary"), {})
+        assert any("throttled" in r.message and "remaining=" in r.message
+                   for r in caplog.records)

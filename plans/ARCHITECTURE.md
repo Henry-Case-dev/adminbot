@@ -3737,6 +3737,232 @@ class ThrottlingMiddleware(BaseMiddleware):
 - **Low-4** (нет жёсткого капа чанков по `MAX_SUMMARY_PARTS` — лимит enforced промптом) и **Low-5** (location/contact/dice не сохраняются) — зафиксированы в README как осознанные решения.
 - Живой smoke-тест apinet.cloud с Windows-машины @Builder невозможен (сеть не пускает) — контракт покрыт MockTransport-тестами; живая проверка — T-191-D.
 
+## 34. Epic 25 — Багфикс «/summary не реагирует» + удаление команды (v2.23.0)
+
+> **Дата:** 2026-08-16
+> **Статус:** DESIGN ✅ (T-192 RCA + T-193 дизайн, @Architect). → T-194/T-195 READY FOR BUILDER (после PM-аппрува).
+> **Цель:** устранить «тишину» после `/summary` (RCA T-192), добавить ack-механику (D66) и best-effort удаление команды из чата (D65). Требования R25-1…R25-4 — `plans/backlog.md` Epic 25.
+
+### 34.1 Ключевые решения (summary-fix)
+
+| # | Решение | Обоснование |
+|---|---------|-------------|
+| **B1** | Ack при ручном `/summary` — «ща гляну, подожди» **отдельным** `send_message` (НЕ reply/answer), ДО `generate_and_send` | Закрывает H-A: при LLM до ~3 мин (60s timeout × 3 попытки + compress-батчи) пользователь сразу видит реакцию. Не reply — команда тут же удаляется (B7), reply на удалённое сообщение выглядит криво. Отдельное сообщение не пересекается с чанкингом (A14) |
+| **B2** | `generate_and_send(chat_id, manual: bool = False)` — флаг источника вызова | Cron-джоба НЕ шлёт ack и UX пустого окна (не будить чат ночью); ручной вызов — шлёт. UX-сбои (R13) шлются обоим (чат видит «упал апи» и от cron — это честно). Сигнатура обратно совместима: scheduler не меняется |
+| **B3** | Троттлинг: **валидировать mention в middleware** (как aiogram `Command`-фильтр): чужая mention → НЕ потреблять слот троттлинга; своя/без mention → троттлить как раньше. Молчание при троттлинге **ОСТАЁТСЯ** (R8/R10 by design) + INFO-лог с `remaining_seconds` | **Первопричина бага** (доказательства 34.2): `/summary@RofloslavBot` (чужой бот) сжёг слот, повтор `/summary` через 12с молча сглотился. Low-3 (`/summary@НашБот`) не ломается — свой mention по-прежнему матчится. R8 не нарушен — прерывание остаётся молчаливым |
+| **B4** | Пустое окно L1: `manual=True` → UX «тут тишина, саммарить нечего»; `manual=False` (cron) → только INFO-лог | H-B: молчаливый return заменён UX для ручных вызовов; cron не спамит 4 раза в сутки |
+| **B5** | Занятый `asyncio.Lock`: `manual=True` → «уже делаю саммари, подожди», затем **встать в очередь** (не отваливаться); `manual=False` → INFO-лог и в очередь | H-D: не стоять молча. Отказ от таймаута-отвала: пользователь явно попросил саммари — дождаться честнее, чем молча отвалить. Возможный двойной ответ (cron дописал → manual дождался и тоже дописал) — приемлемо, покрывается логом `lock busy — queued` |
+| **B6** | UX-сбои (LLM/БД/генерик) уже реализованы (33.7) и достижимы во всех путях `_run`; добавить страховку `_generator is None` в `cmd_summary` → UX «не смог сделать саммари» + WARNING | H-F закрыт превентивно: любой отказ конвейера → UX-попытка; отказ самого UX → `logger.exception` (существующий `_send_ux`) |
+| **B7** | Удаление команды: `await message.delete()` в `cmd_summary` **сразу после ack** (НЕ в `finally`), try/except → WARNING при отказе | Команда — мусор; `finally` отложил бы удаление на 3+ мин пайплайна. В группах без админ-права `delete_messages` → `TelegramForbiddenError` → WARNING, не падаем. Удаляется только исходный `message_id` — ack/саммари не задеваются (отдельные сообщения). При denied-ветке (R9) команда НЕ удаляется (чужое не трогаем) |
+| **B8** | Логирование каждого состояния (34.7): triggered / denied / throttled+remaining / ack sent / window empty+manual / lock busy / llm ok-fail / chunks sent / command deleted | «Тишина» должна быть диагностируема из Better Stack (R14); `[/summary] denied` поднят с DEBUG до INFO |
+| **B9** | Наблюдатель (0a) НЕ сохраняет команды `/summary*` в `smart_messages` | Команды — не контент чата; на проде в БД уже лежат 2 таких строки (id 68/69). UNHANDLED-контракт и счётчик сообщений не меняются |
+
+### 34.2 RCA T-192 — факты с прода и вывод (доказательства)
+
+**Среда:** nik@198.46.175.136 (Posh-SSH), `/var/www/admin_bot`, unit `admin_bot`, aiogram 3.29.1, бот `@v1vv2as_bot` (id 8349768372). journald без sudo пуст (nik не в `adm`) — читалось через `sudo -S`.
+
+**Хронология (журнал + БД наблюдателя):**
+
+| Время (UTC) | Событие | Источник |
+|---|---|---|
+| 17:10:27 | Рестарт v2.22.0 (T-191), PID 920105, `SUMMARY_TIMEZONE=Asia/Yekaterinburg`, sqlite-vec dim=768 | journalctl / systemctl |
+| 18:02:19 | `[/summary@RofloslavBot]` от user 5885953495 → observer сохранил (БД id=68) → middleware **поставил слот троттлинга** → `Command("summary")` отклонил (чужая mention ≠ @v1vv2as_bot) → update «not handled. 14 ms» → **тишина** | smart_messages + journalctl + aiogram filters/command.py |
+| 18:02:31 | `[/summary]` (без mention) → observer сохранил (id=69) → middleware: 12s < 60s → **`[/summary] throttled | chat=-1002661910336 user=5885953495`** → «handled. 8 ms» → **тишина** | journalctl (единственная summary-строка за весь boot с 2026-07-07) |
+| — | Строк `triggered`/`window_size`/`LLM request` в журнале — **ноль** за всё время | journalctl --no-pager, полный |
+
+**Проверка гипотез:**
+
+| Гипотеза | Вердикт | Доказательство |
+|---|---|---|
+| **H-C** (троттлинг глотает) | **✅ ПОДТВЕРЖДЕНА — триггер бага** | `18:02:31 [/summary] throttled` + молчание; повтор через 12с в окне 60с |
+| **НОВОЕ: асимметрия middleware/Command** | **✅ ПОДТВЕРЖДЕНА — первопричина** | Первая команда `/summary@RofloslavBot` (БД id=68): middleware матчит `/summary*` без проверки mention и сжигает слот, а `Command`-фильтр корректно отклоняет чужую mention (`validate_mention` → «Mention did not match», aiogram 3.29.1). Итог: ни первый (чужой бот), ни второй (троттлинг) вызов не дошли до пайплайна |
+| H-A (нет ack, LLM ~3.5 мин) | ⚠️ Не реализовалась live (пайплайн не запускался), но дизайн-риск реален | Дефолты `LLM_TIMEOUT=60s`×3 попытки ≈ 181s + compress-батчи; `.env` без оверрайдов. Закрывается B1 |
+| H-B (пустое окно) | ❌ Не подтверждена | БД: 91 сообщение в окне 6ч, чат -1002661910336. Ветка молчалива — закрывается B4 |
+| H-D (гонка cron/Lock) | ❌ Не подтверждена (18:02 UTC ≠ тик 19:00/01:00/07:00/13:00 UTC), риск остаётся | `timedatectl` UTC; CronTrigger с явным TZ (33.16). Закрывается B5 |
+| H-E (ALLOWED_SUMMARY_IDS) | ❌ Не подтверждена | `.env`: только `LLM_MODEL_NAME`/`SUMMARY_TIMEZONE` → ALLOWED пуст → всем. Лог denied — DEBUG (невидим) → B8 |
+| H-F (бесшумный сбой/падение) | ❌ Не подтверждена | `systemctl status`: active (running) 1h12m+, без рестартов, трейсбеков нет |
+
+**Вывод RCA:** баг — **комбинация пользовательской команды с чужой mention и асимметрии троттлинг-мидлвари с Command-фильтром**: слот троттлинга сжигается вызовом, который хендлер всё равно отвергнет, а легитимный повтор в окне 60с молча глотается (R8 by design). Усугубляет «тишину» отсутствие ack (H-A) и молчаливые ветки H-B/H-D — они не стреляли, но фикс закрывает их превентивно.
+
+### 34.3 B1/B2/B5 — `services/summary_generator.py` (точечные правки)
+
+```python
+_UX_ACK   = "ща гляну, подожди"                  # B1: ручной вызов, до пайплайна
+_UX_EMPTY = "тут тишина, саммарить нечего"       # B4: пустое окно L1, только manual
+_UX_BUSY  = "уже делаю саммари, подожди"         # B5: lock занят, только manual
+
+async def generate_and_send(self, chat_id: int, manual: bool = False) -> None:
+    """Entrypoint для /summary (manual=True) и cron (manual=False). B2/B5."""
+    if self._lock.locked():
+        if manual:
+            await self._send_ux(chat_id, _UX_BUSY)                     # B5: не стоять молча
+        logger.info("summary: lock busy — queued | chat_id=%s manual=%s", chat_id, manual)
+    async with self._lock:
+        await self._run(chat_id, manual)
+
+async def _run(self, chat_id: int, manual: bool) -> None:
+    try:
+        await self.memory.compress_and_purge(chat_id)
+        rows = await self.memory.get_window_messages(chat_id)
+        if not rows:
+            if manual:
+                await self._send_ux(chat_id, _UX_EMPTY)                # B4
+            logger.info("summary: empty window | chat_id=%s manual=%s — no LLM call", chat_id, manual)
+            return
+        # … остальной конвейер БЕЗ изменений (XML → RAG → LLM → чанкинг)
+```
+
+- `_run` вызывается только из `generate_and_send`; `SummarySchedulerService._tick` продолжает звать `generate_and_send(chat_id)` — `manual=False` по умолчанию, **scheduler не трогаем**.
+- UX-фразы B1/B4/B5 — маленькая буква, без эмодзи (стиль R13); они же выносятся в тест-константы.
+- Остаточная гонка B5: после «уже делаю…» manual-вызов дождётся конца cron-прогона и допишет результат — принято осознанно.
+
+### 34.4 B3 — `services/summary_throttling.py` (симметрия с Command-фильтром)
+
+```python
+def _parse_command(text: str) -> tuple[str, str | None]:
+    token = text.split()[0]
+    base, _, mention = token.partition("@")
+    return base, (mention.lower() if mention else None)
+
+async def __call__(self, handler, event, data):
+    if isinstance(event, Message) and (event.text or ""):
+        base, mention = _parse_command(event.text)
+        if base.startswith("/summary"):
+            if mention:
+                bot = data.get("bot")
+                me = await bot.me() if bot else None      # me() кэшируется aiogram
+                if me and me.username and mention != me.username.lower():
+                    return await handler(event, data)      # B3: чужая команда — не наша,
+                                                           # слот НЕ потребляем; Command сам отклонит
+            key = (event.chat.id, event.from_user.id if event.from_user else 0)
+            now = time.monotonic()
+            last = self._last.get(key)
+            if last is not None and (now - last) < self._throttle_seconds:
+                logger.info(
+                    "[/summary] throttled | chat=%s user=%s remaining=%.0fs",
+                    *key, self._throttle_seconds - (now - last),      # B8
+                )
+                return                                # R8: молчаливое прерывание СОХРАНЕНО
+            self._last[key] = now
+    return await handler(event, data)
+```
+
+- «Чужая mention» = парс `@...` ≠ `bot.username` (case-insensitive), ровно как `CommandFilter.validate_mention` (aiogram 3.29.1, проверено на проде). Чужие команды просто пропускаются мимо троттлинга — их и так никто не обработает (стандартное поведение Telegram).
+- Low-3 не ломается: `/summary@НашБот` проходит валидацию и троттлится как раньше.
+- `data["bot"]` в outer middleware доступен (aiogram кладёт `bot` в данные события).
+
+### 34.5 B1/B6/B7 — `handlers/summary.py` (cmd_summary)
+
+```python
+@summary_router.message(Command("summary"))
+async def cmd_summary(message: types.Message):
+    user_id = message.from_user.id if message.from_user else 0
+    allowed = settings.ALLOWED_SUMMARY_IDS
+    if allowed and user_id not in allowed:
+        logger.info("[/summary] denied | user=%s not in ALLOWED_SUMMARY_IDS", user_id)  # B8: DEBUG→INFO
+        return                                                             # R9/D62: silent absorb (НЕ удаляем, НЕ отвечаем)
+    if _generator is None:                                                 # B6: страховка вайринга
+        logger.warning("[/summary] SummaryGenerator not initialized — skipping")
+        await _safe_send(message.chat.id, "не смог сделать саммари")
+        return
+    logger.info("[/summary] triggered | chat=%s user=%s", message.chat.id, user_id)
+    await _safe_send(message.chat.id, "ща гляну, подожди")                 # B1: ack ДО пайплайна
+    logger.info("[/summary] ack sent | chat=%s", message.chat.id)
+    await _delete_command(message)                                         # B7: best-effort, сразу после ack
+    await _generator.generate_and_send(message.chat.id, manual=True)       # B2
+    return
+
+async def _safe_send(chat_id: int, text: str) -> None:
+    """B6: отказ отправки не должен ронять хендлер."""
+    try:
+        await _generator.bot.send_message(chat_id, text)
+    except Exception:
+        logger.exception("[/summary] failed to send | chat_id=%s", chat_id)
+
+async def _delete_command(message: types.Message) -> None:
+    """B7: удалить команду из чата. Отказ (нет delete_messages в группе) — WARNING, не падение."""
+    try:
+        await message.delete()                                             # aiogram: deleteMessage API
+        logger.info("[/summary] command deleted | chat=%s msg=%s", message.chat.id, message.message_id)
+    except Exception:
+        logger.warning(
+            "[/summary] command delete failed (no delete_messages right?) | chat=%s msg=%s",
+            message.chat.id, message.message_id, exc_info=True,
+        )
+```
+
+- Порядок B1→B7: ack первым (реакция мгновенная), затем удаление команды, затем пайплайн. Удаление не в `finally` — команда не висит в чате 3+ мин.
+- `message.delete()` — корректный aiogram API (Bot API `deleteMessage`); в группах требует админ-права `delete_messages`, иначе `TelegramForbiddenError` → WARNING (не падаем).
+- Удаляется только исходная команда; ack и саммари — отдельные сообщения, не затрагиваются. При denied/`_generator is None` команда НЕ удаляется.
+- Доступ к `bot` — через `_generator.bot` (поле уже есть); при желании Builder может добавить `bot` в `setup_summary(...)` — минимальный дифф не обязателен.
+
+### 34.6 B9 — наблюдатель не пишет команды в память
+
+В `summary_observer` (0a), сразу после фильтра «свои сообщения бота», добавить:
+
+```python
+command_text = message.text or message.caption
+if command_text and command_text.lstrip().startswith("/summary"):
+    return UNHANDLED            # B9: команды — не контент; в окно LLM не попадают
+```
+
+- Ack-сообщения бота в БД **уже отсечены** существующей проверкой `user.id == _bot_id` (handlers/summary.py:82) — B9 не требуется для них, но добавляется тест-регрессия (34.8).
+- На проде 2 строки-команды (id 68/69) останутся в `smart_messages` — они истекают по retention L2/L3 естественно, чистить не требуется.
+
+### 34.7 B8 — Логирование состояний (R14)
+
+| Состояние | Уровень | Лог-строка (ключ) |
+|---|---|---|
+| denied (R9) | INFO (было DEBUG) | `[/summary] denied | user=%s not in ALLOWED_SUMMARY_IDS` |
+| triggered | INFO (есть) | `[/summary] triggered | chat=%s user=%s` |
+| ack sent | INFO (новое) | `[/summary] ack sent | chat=%s` |
+| throttled | INFO (есть, +remaining) | `[/summary] throttled | chat=%s user=%s remaining=%.0fs` |
+| window empty | INFO (есть, +manual) | `summary: empty window | chat_id=%s manual=%s — no LLM call` |
+| lock busy | INFO (новое) | `summary: lock busy — queued | chat_id=%s manual=%s` |
+| LLM ok/fail, chunks sent | INFO/ERROR (есть, 33.12) | без изменений |
+| command deleted | INFO (новое) | `[/summary] command deleted | chat=%s msg=%s` |
+| delete failed / send failed | WARNING+exc_info (новое) | `[/summary] command delete failed …` / `failed to send …` |
+
+### 34.8 Тесты (T-195, моки aiogram)
+
+| Файл | Новые кейсы |
+|---|---|
+| `tests/test_summary_handlers.py` | ack отправлен ДО `generate_and_send` (порядок mock-вызовов) и отдельным `send_message` (не reply); `manual=True` передан; delete вызван после ack; denied → нет ack, нет delete, нет ответа; `_generator is None` → UX «не смог сделать саммари»; ack/delete-отказ не роняет хендлер |
+| `tests/test_summary_throttling.py` | `/summary@чужая_mention` НЕ потребляет слот (следующий `/summary` проходит); `/summary@НашБот` троттлится (Low-3 не сломан); лог throttled содержит `remaining`; не-`/summary` события по-прежнему не троттлятся |
+| `tests/test_summary_generator.py` | пустое окно manual=True → UX «тут тишина, саммарить нечего»; manual=False → 0 отправок; `lock.locked()` + manual → «уже делаю саммари, подожди» до результата; `_run(manual=False)` совместим со старыми вызовами |
+| `tests/test_summary_handlers.py` (observer) | `/summary` и `/summary@RofloslavBot` НЕ сохраняются в БД (B9); сообщение бота (ack) не сохраняется (регрессия существующего фильтра) |
+| `tests/test_summary_scheduler.py` | `_tick` вызывает `generate_and_send` без `manual` (совместимость, без ack-спама) |
+
+Моки: `Message.delete` — `AsyncMock` (в т.ч. бросающий `TelegramForbiddenError` → WARNING, пайплайн жив); `bot.send_message` — `AsyncMock`; `bot.me()` — `AsyncMock` с `username`; фейк `asyncio.Lock` с `locked()=True`. Базовые фикстуры `make_message`/`mock_bot` из `conftest.py` — без изменений. **Цель: 835 + ~25 новых, 0 регрессий.**
+
+### 34.9 Риски и границы
+
+| # | Риск | Решение |
+|---|------|---------|
+| 1 | Нарушить R8 (молчаливый троттлинг — исходное требование) | B3 оставляет молчание при троттлинге; добавляется только лог. Никаких сообщений при throttled |
+| 2 | Нарушить R9/D62 (silent absorb denied) | denied-ветка без ответа и без удаления; только INFO-лог |
+| 3 | Ack/саммари попали в БД наблюдателем | Ack — сообщение бота, отсекается `user.id == _bot_id` (тест-регрессия в 34.8); команды — B9 |
+| 4 | Удаление зацепит ack/саммари | Удаляется только `message.message_id` исходной команды |
+| 5 | Сломать чанкинг (A14) | Ack — отдельное сообщение до `generate_and_send`; `_send_chunked` не трогаем |
+| 6 | Сломать 835 тестов | Правки только в `services/summary_generator.py`, `summary_throttling.py`, `handlers/summary.py` + тесты; `manual` — kw-аргумент с default `False`; scheduler/bot.py не меняются |
+| 7 | Нет прав `delete_messages` в группе | `TelegramForbiddenError` → WARNING, не падение (B7); deploy-нота: дать боту админ-права в группе (опционально) |
+| 8 | Двойной ответ при гонке cron/manual | Принято (B5), логируется `lock busy — queued` |
+| 9 | Диагностика на проде | journald для nik только через `sudo -S` (нет группы `adm`); верификация T-198 — Better Stack + `sudo -S journalctl` |
+
+### 34.10 Сводка для Builder (T-194 → T-195)
+
+1. **T-194-A** `services/summary_throttling.py` — B3 (+`_parse_command`, валидация mention через `data["bot"].me()`), лог `remaining`.
+2. **T-194-B** `services/summary_generator.py` — B2/B4/B5: `manual`-флаг, UX-константы `_UX_EMPTY`/`_UX_BUSY`, проверка `self._lock.locked()`.
+3. **T-194-C** `handlers/summary.py` — B1/B6/B7/B9: ack, `_safe_send`, `_delete_command`, наблюдатель пропускает `/summary*`, denied-лог INFO.
+4. **T-194-D** логи B8 по таблице 34.7.
+5. **T-195** тесты по 34.8 + полный pytest (835 + новые, 0 регрессий).
+
+**НЕ трогать:** `bot.py` (порядок роутеров), `summary_scheduler.py` (совместимость через default `manual=False`), `services/llm_client.py`, UX-фразы R13, все не-summary модули. Ориентир версии: v2.23.0.
+
+---
+
+@Orchestrator Epic 25 (T-192/T-193) — RCA и дизайн готовы. Первопричина: асимметрия троттлинг-мидлвари с Command-фильтром — `/summary@RofloslavBot` (чужая mention) сжёг слот, повтор `/summary` молча сглотился (доказательства из journalctl + smart_messages + aiogram source на проде). H-A/H-B/H-D закрыты превентивно (B1/B4/B5), R8/R9 сохранены. Section 34: B1–B9, 34.1–34.10. T-194 READY FOR BUILDER.
+
 ---
 
 @Orchestrator Epic 24 (T-173) architecture ready — Section 33 design complete, self-review passed (T-173-D). RESEARCH.md verified (T-173-F: context7/duckduckgo недоступны в среде, рабочий стек exa+webfetch — зафиксировано). T-173 ждёт PM-аппрув (T-173-E); T-174 Ready for Builder.
