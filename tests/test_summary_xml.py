@@ -123,3 +123,58 @@ class TestAuthorFallback:
     def test_empty_author_no_resolver(self):
         xml = XmlGroundingBuilder().build([_row(author_name="")])
         assert 'author=""' in xml
+
+
+# ── Epic 28 (T-213): атрибуты репоста + ре-резолв алиасов ───
+
+class TestForwardAttributes:
+    def test_forward_attrs_appended_at_end_of_tag(self):
+        xml = XmlGroundingBuilder().build(
+            [_row(is_forward=1, forward_source="Канал X")]
+        )
+        tag = [line for line in xml.splitlines() if line.startswith("<message ")][0]
+        assert 'type="text" is_forward="true" forward_source="Канал X">привет</message>' in tag
+        # порядок прежних атрибутов не меняется: id → timestamp → author → reply_to_id → type
+        assert tag.index('id="1"') < tag.index("timestamp=")
+        assert tag.index("timestamp=") < tag.index("author=")
+        assert tag.index("author=") < tag.index("reply_to_id=")
+        assert tag.index("reply_to_id=") < tag.index('type="text"')
+        assert tag.index('type="text"') < tag.index('is_forward="true"')
+
+    def test_forward_without_source_keeps_marker_only(self):
+        xml = XmlGroundingBuilder().build([_row(is_forward=1, forward_source="")])
+        assert 'type="text" is_forward="true">' in xml
+        assert "forward_source=" not in xml
+
+    def test_plain_message_has_no_forward_attrs(self):
+        xml = XmlGroundingBuilder().build([_row()])
+        assert "is_forward" not in xml
+        assert "forward_source" not in xml
+
+    def test_forward_source_escaped(self):
+        xml = XmlGroundingBuilder().build(
+            [_row(is_forward=1, forward_source='Канал "X" & <лучший>')]
+        )
+        assert 'forward_source="Канал &quot;X&quot; &amp; &lt;лучший&gt;"' in xml
+
+
+class TestAuthorReresolve:
+    def test_alias_overrides_stored_author_name(self):
+        """T-213-D: заданный алиас побеждает непустой устаревший author_name."""
+        resolver = AliasResolver('{"10": "шкет"}')
+        xml = XmlGroundingBuilder().build(
+            [_row(author_name="старый вася")], aliases=resolver
+        )
+        assert 'author="шкет"' in xml
+        assert 'author="старый вася"' not in xml
+
+    def test_resolver_without_alias_keeps_stored_name(self):
+        resolver = AliasResolver("")
+        xml = XmlGroundingBuilder().build(
+            [_row(author_name="вася")], aliases=resolver
+        )
+        assert 'author="вася"' in xml
+
+    def test_no_aliases_old_behavior(self):
+        xml = XmlGroundingBuilder().build([_row(author_name="вася")])
+        assert 'author="вася"' in xml

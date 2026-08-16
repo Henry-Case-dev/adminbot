@@ -1,4 +1,4 @@
-"""T-182-A / T-207-B: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11 v2)."""
+"""T-182-A / T-217-B: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11 v3)."""
 import re
 from pathlib import Path
 
@@ -8,10 +8,10 @@ from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT, SYSTEM_PRO
 
 
 def _backlog_system_prompt() -> str:
-    """Extract the verbatim prompt from plans/backlog.md Epic 27 (lines 1518-1538)."""
+    """Extract the verbatim prompt from plans/backlog.md Epic 28 (lines 1518-1540)."""
     lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
-    # Lines are 1-indexed: 1518..1538 (21 lines, R11 v2 — Epic 27)
-    return "\n".join(lines[1517:1538])
+    # Lines are 1-indexed: 1518..1540 (23 lines, R11 v3 — Epic 28)
+    return "\n".join(lines[1517:1540])
 
 
 def _arch_extract_prompt() -> str:
@@ -49,6 +49,14 @@ class TestSystemPrompt:
 
     def test_shiz_marker_present(self):
         assert "самым главным шизом объявляется" in SYSTEM_PROMPT
+
+    def test_rules_6_7_present(self):
+        """T-217: правила 6 (имена/алиасы из author) и 7 (репосты) в v3."""
+        assert "6. Имена участников:" in SYSTEM_PROMPT
+        assert "7. Репосты:" in SYSTEM_PROMPT
+        assert 'is_forward="true"' in SYSTEM_PROMPT
+        assert "forward_source" in SYSTEM_PROMPT
+        assert "имя участника из атрибута author" in SYSTEM_PROMPT
 
 
 class TestCompressPrompt:

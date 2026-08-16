@@ -8,7 +8,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiogram import Router
 from aiogram.dispatcher.event.bases import UNHANDLED
-from aiogram.types import Chat, Message, User
+from aiogram.types import (
+    Chat,
+    Message,
+    MessageOriginChannel,
+    MessageOriginChat,
+    MessageOriginHiddenUser,
+    MessageOriginUser,
+    User,
+)
 
 from config.settings import settings
 from handlers import summary as summary_mod
@@ -212,6 +220,154 @@ class TestObserver:
         await summary_observer(msg)
         rows = await db.get_smart_window(CHAT_ID, 0, 10)
         assert [r["text"] for r in rows] == ["про саммари разговор"]
+
+
+# ── Epic 28 (T-212): forward-маркировка observer ───────────
+
+def _now():
+    return datetime.datetime.now()
+
+
+class TestObserverForward:
+    def _channel_origin(self):
+        return MessageOriginChannel(
+            date=_now(),
+            chat=Chat(id=-777, type="channel", title="Канал X", username="channelx"),
+            message_id=5,
+            author_signature="Подпись",
+        )
+
+    def _user_origin(self):
+        return MessageOriginUser(
+            date=_now(),
+            sender_user=User(
+                id=5, is_bot=False, first_name="Вася", last_name="Пупкин", username="vasya"
+            ),
+        )
+
+    def _hidden_origin(self):
+        return MessageOriginHiddenUser(date=_now(), sender_user_name="Аноним")
+
+    def _chat_origin(self):
+        return MessageOriginChat(
+            date=_now(),
+            sender_chat=Chat(id=-888, type="group", title="Чат X", username="chatx"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_channel_origin_saved_with_source(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="переслали", reply_to_message=None, forward_origin=self._channel_origin())
+        result = await summary_observer(msg)
+        assert result is UNHANDLED
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "Канал X @channelx Подпись"
+
+    @pytest.mark.asyncio
+    async def test_channel_origin_title_only(self, db, make_message, setup_cleanup):
+        origin = MessageOriginChannel(
+            date=_now(), chat=Chat(id=-777, type="channel", title="Просто канал"),
+            message_id=5,
+        )
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=origin)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "Просто канал"
+
+    @pytest.mark.asyncio
+    async def test_user_origin_resolved_through_aliases(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver('{"5": "вася-алиас"}'), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=self._user_origin())
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "вася-алиас"
+
+    @pytest.mark.asyncio
+    async def test_user_origin_nickname_without_aliases(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=self._user_origin())
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "Вася Пупкин"
+
+    @pytest.mark.asyncio
+    async def test_hidden_user_origin(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=self._hidden_origin())
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "Аноним"
+
+    @pytest.mark.asyncio
+    async def test_chat_origin(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=self._chat_origin())
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "Чат X @chatx"
+
+    @pytest.mark.asyncio
+    async def test_unknown_origin_type_saved_with_empty_source(
+        self, db, make_message, setup_cleanup
+    ):
+        """Неизвестный тип origin: is_forward=True, forward_source='' (содержание чужое)."""
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=object())
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == ""
+
+    @pytest.mark.asyncio
+    async def test_source_truncated_to_100_chars(self, db, make_message, setup_cleanup):
+        origin = MessageOriginChannel(
+            date=_now(),
+            chat=Chat(id=-777, type="channel", title="К" * 150),
+            message_id=5,
+        )
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=origin)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert len(rows[0]["forward_source"]) == 100
+
+    @pytest.mark.asyncio
+    async def test_extraction_failure_saves_as_forward_empty_source(
+        self, db, make_message, setup_cleanup, monkeypatch
+    ):
+        """Сбой экстракции не роняет сохранение: is_forward=1, source=''."""
+        original = summary_mod._build_nickname
+
+        def selective_boom(user):
+            if getattr(user, "id", None) == 5:  # только sender_user из origin
+                raise RuntimeError("кривой origin")
+            return original(user)
+
+        monkeypatch.setattr(summary_mod, "_build_nickname", selective_boom)
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="x", reply_to_message=None, forward_origin=self._user_origin())
+        result = await summary_observer(msg)
+        assert result is UNHANDLED
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == ""
+
+    @pytest.mark.asyncio
+    async def test_plain_message_saved_without_forward(self, db, make_message, setup_cleanup):
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(from_id=1, text="обычное", reply_to_message=None)
+        await summary_observer(msg)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert rows[0]["is_forward"] == 0
+        assert rows[0]["forward_source"] == ""
 
 
 class TestSummaryCommand:

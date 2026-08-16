@@ -1,15 +1,20 @@
 """Tests for services/summary_memory.py (T-176/T-177/T-179, Section 33.5)."""
 import asyncio
+import sqlite3
 import time
 from dataclasses import replace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from config.settings import settings
 from services.database import DatabaseService
 from services.llm_client import LLMError
-from services.summary_memory import MemoryManager, build_fts_query
+from services.summary_memory import (
+    MemoryManager,
+    _build_batch_text,
+    build_fts_query,
+)
 from services.summary_prompts import EXTRACT_PROMPT
 
 
@@ -68,6 +73,49 @@ class TestBuildFtsQuery:
         assert build_fts_query(['"*"', "   "]) == ""
 
 
+# ── Epic 28 (T-215): forward-маркировка в batch-тексте L3/GraphRAG ──
+
+class TestBuildBatchTextForward:
+    def test_forward_with_source(self):
+        batch = [
+            {
+                "author_name": "оля",
+                "text": "текст",
+                "is_forward": 1,
+                "forward_source": "Канал X",
+            }
+        ]
+        assert _build_batch_text(batch) == '[оля (репост из "Канал X")]: текст'
+
+    def test_forward_without_source(self):
+        batch = [
+            {"author_name": "оля", "text": "текст", "is_forward": 1, "forward_source": ""}
+        ]
+        assert _build_batch_text(batch) == "[оля (репост)]: текст"
+
+    def test_plain_row_old_format_byte_for_byte(self):
+        batch = [{"author_name": "оля", "text": "текст"}]
+        assert _build_batch_text(batch) == "[оля]: текст"
+
+    def test_skip_empty_still_works(self):
+        batch = [
+            {"author_name": "оля", "text": "", "is_forward": 1, "forward_source": "X"},
+            {"author_name": "петя", "text": "текст"},
+        ]
+        assert _build_batch_text(batch, skip_empty=True) == "[петя]: текст"
+
+    def test_inner_quotes_replaced(self):
+        batch = [
+            {
+                "author_name": "оля",
+                "text": "т",
+                "is_forward": 1,
+                "forward_source": 'Канал "X"',
+            }
+        ]
+        assert _build_batch_text(batch) == '[оля (репост из "Канал \'X\'")]: т'
+
+
 class TestInitialize:
     @pytest.mark.asyncio
     async def test_broken_extension_falls_back(self, db, monkeypatch):
@@ -89,6 +137,129 @@ class TestInitialize:
         if not ok:
             pytest.skip("sqlite-vec extension could not be loaded here")
         assert memory.vec_available is True
+
+
+# ── Epic 28 (T-216): векторное автолечение ──────────────────
+
+class TestSelfHeal:
+    @pytest.mark.asyncio
+    async def test_broken_extension_zero_probe_calls(self, db, monkeypatch):
+        """Расширение не загрузилось → пробный embed НЕ вызывается (0 вызовов)."""
+        monkeypatch.setattr("sqlite_vec.loadable_path", lambda: "/nonexistent/vec0.dll")
+        llm = FakeLLM()
+        memory = MemoryManager(db, llm)
+        result = await memory.initialize()
+        assert result is False
+        assert memory._vec_dim is None
+        assert llm.embed_calls == 0
+
+    @pytest.mark.asyncio
+    async def test_probe_embed_failure_falls_back_without_crash(self, db, caplog):
+        """Probe падает (LLM-ошибка) → старт ок, FTS5, WARNING."""
+        import logging
+
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        memory = MemoryManager(db, FakeLLM(fail_embed=True))
+        with caplog.at_level(logging.WARNING):
+            ok = await memory.initialize()
+        assert ok is False
+        assert memory._vec_dim is None
+        assert any("probe embed failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_actual_dim_differs_from_settings_warns(self, db, caplog):
+        """actual_dim(3) != settings.EMBEDDING_DIM(768) → WARNING, таблица создана с actual."""
+        import logging
+
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        memory = MemoryManager(db, FakeLLM(vectors=[[0.1] * 3]))
+        with caplog.at_level(logging.WARNING):
+            ok = await memory.initialize()
+        if not ok:
+            pytest.skip("sqlite-vec extension could not be loaded here")
+        assert memory._vec_dim == 3
+        assert memory.vec_available is True
+        assert any("EMBEDDING_DIM" in r.message for r in caplog.records)
+        cursor = await db.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='smart_archive'"
+        )
+        row = await cursor.fetchone()
+        assert "float[3]" in row["sql"]
+
+    @pytest.mark.asyncio
+    async def test_dimension_mismatch_drops_and_recreates_facts_kept(self, db):
+        """stored 768 vs actual 3072 → DROP smart_archive + пересоздание; факты целы (D78)."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        first = MemoryManager(db, FakeLLM(vectors=[[0.1] * 768]))
+        if not await first.initialize():
+            pytest.skip("sqlite-vec extension could not be loaded here")
+        assert first._vec_dim == 768
+        fact_id = await db.save_archive_fact(-100, "факт сохранился", 1)
+        await first._save_archive_embedding(-100, fact_id, "факт сохранился")
+
+        second = MemoryManager(db, FakeLLM(vectors=[[0.1] * 3072]))
+        ok = await second.initialize()
+        assert ok is True
+        assert second._vec_dim == 3072
+        cursor = await db.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='smart_archive'"
+        )
+        row = await cursor.fetchone()
+        assert "float[3072]" in row["sql"]
+        facts = await db.search_archive_fts(-100, '"факт"', 10)
+        assert facts == ["факт сохранился"]
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM smart_archive_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_knn_falls_back_to_fts(self, db):
+        """Пустой KNN-результат → FTS5-фоллбек (не пустой return)."""
+        await db.save_archive_fact(-100, "факт из фтс", 1)
+        memory = MemoryManager(db, FakeLLM())
+        memory._vec_available = True
+        memory._search_archive_knn = AsyncMock(return_value=[])
+        facts = await memory.vector_search(-100, "фтс", 10)
+        assert facts == ["факт из фтс"]
+        memory._search_archive_knn.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_insert_dimension_mismatch_disables_vec(self, db, caplog):
+        """Рантайм-mismatch на INSERT → _vec_available=False (без живого DROP) + ERROR один раз."""
+        import logging
+
+        memory = MemoryManager(db, FakeLLM())
+        memory._vec_available = True
+
+        async def boom(*args, **kwargs):
+            raise sqlite3.OperationalError("Dimension mismatch")
+
+        memory.db.db.execute = boom
+        with caplog.at_level(logging.ERROR):
+            await memory._save_archive_embedding(-100, 1, "факт")
+        assert memory._vec_available is False
+        assert any("dimension mismatch on INSERT" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_insert_other_error_keeps_vec(self, db, caplog):
+        """Обычная ошибка embed/INSERT не гасит vec (факт остаётся в FTS5)."""
+        import logging
+
+        memory = MemoryManager(db, FakeLLM(fail_embed=True))
+        memory._vec_available = True
+        with caplog.at_level(logging.WARNING):
+            await memory._save_archive_embedding(-100, 1, "факт")
+        assert memory._vec_available is True
+        assert any("fact stays in FTS5 only" in r.message for r in caplog.records)
 
 
 class TestWindow:

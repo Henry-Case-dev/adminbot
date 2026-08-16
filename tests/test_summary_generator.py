@@ -8,6 +8,7 @@ from aiogram.exceptions import TelegramRetryAfter
 
 from config.settings import settings
 from services.llm_client import LLMError
+from services.summary_aliases import AliasResolver
 from services.summary_generator import SummaryGenerator
 from services.summary_xml import XmlGroundingBuilder
 
@@ -83,8 +84,8 @@ def _row(author_name="вася", text="какое-то сообщение", **kw
     return defaults
 
 
-def _make_generator(memory, llm, bot, monkeypatch=None):
-    return SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot, aliases=None)
+def _make_generator(memory, llm, bot, monkeypatch=None, aliases=None):
+    return SummaryGenerator(memory, XmlGroundingBuilder(), llm, bot, aliases=aliases)
 
 
 class TestPipeline:
@@ -481,3 +482,107 @@ class TestManualFlag:
             await generator.generate_and_send(-100, manual=True)
         assert any("lock busy — queued" in r.message and "manual=True" in r.message
                    for r in caplog.records)
+
+
+# ── Epic 28 (T-214/T-218): репост-маркер, ре-резолв, cleanup ───
+
+class TestL2QuoteForward:
+    def test_forward_quote_with_source(self):
+        generator = _make_generator(FakeMemory(), FakeLLM(), AsyncMock())
+        row = _row(author_name="оля", text="контент", is_forward=1, forward_source="Канал X")
+        assert generator._format_l2_quote(row) == 'оля (репост из "Канал X"): контент'
+
+    def test_forward_quote_without_source(self):
+        generator = _make_generator(FakeMemory(), FakeLLM(), AsyncMock())
+        row = _row(author_name="оля", text="контент", is_forward=1, forward_source="")
+        assert generator._format_l2_quote(row) == "оля (репост): контент"
+
+    def test_forward_source_inner_quotes_replaced(self):
+        generator = _make_generator(FakeMemory(), FakeLLM(), AsyncMock())
+        row = _row(author_name="оля", text="контент", is_forward=1, forward_source='Канал "X"')
+        assert generator._format_l2_quote(row) == "оля (репост из \"Канал 'X'\"): контент"
+
+    def test_plain_quote_unchanged(self):
+        generator = _make_generator(FakeMemory(), FakeLLM(), AsyncMock())
+        row = _row(author_name="оля", text="контент")
+        assert generator._format_l2_quote(row) == "оля: контент"
+
+    def test_quote_author_resolved_through_aliases(self):
+        generator = _make_generator(
+            FakeMemory(), FakeLLM(), AsyncMock(),
+            aliases=AliasResolver('{"10": "оля-алиас"}'),
+        )
+        row = _row(author_name="старое имя", text="контент")
+        assert generator._format_l2_quote(row) == "оля-алиас: контент"
+
+
+class TestMostActiveAuthorAliases:
+    def test_alias_overrides_stored_name(self):
+        rows = [
+            _row(author_name="старый вася"),
+            _row(author_name="петя"),
+            _row(author_name="старый вася"),
+        ]
+        aliases = AliasResolver('{"10": "шкет"}')
+        assert SummaryGenerator._most_active_author(rows, aliases) == "шкет"
+
+    def test_without_aliases_old_behavior(self):
+        rows = [
+            _row(author_name="старый вася"),
+            _row(author_name="петя"),
+            _row(author_name="старый вася"),
+        ]
+        assert SummaryGenerator._most_active_author(rows, None) == "старый вася"
+
+    def test_ensure_shiz_postfix_uses_generator_aliases(self):
+        generator = _make_generator(
+            FakeMemory(), FakeLLM(), AsyncMock(),
+            aliases=AliasResolver('{"10": "шкет"}'),
+        )
+        text = generator._ensure_shiz_postfix("текст", [_row(author_name="старый вася")])
+        assert text.endswith("самым главным шизом объявляется шкет")
+
+    def test_ensure_shiz_postfix_none_self_old_behavior(self):
+        text = SummaryGenerator._ensure_shiz_postfix(
+            None, "текст", [_row(author_name="старый вася")]
+        )
+        assert text.endswith("самым главным шизом объявляется старый вася")
+
+
+class TestCleanupApplied:
+    @pytest.mark.asyncio
+    async def test_cleanup_replaces_forbidden_typography(self, no_sleep):
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM(text="саммари с «ёлочками» и тире — длинным – коротким")
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        sent = bot.send_message.call_args.args[1]
+        assert "«" not in sent and "»" not in sent
+        assert "—" not in sent and "–" not in sent
+        assert 'саммари с "ёлочками" и тире - длинным - коротким' in sent
+
+    @pytest.mark.asyncio
+    async def test_cleanup_applied_before_shiz_postfix(self, no_sleep):
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM(text="итог «шикарный» — ок")
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        sent = bot.send_message.call_args.args[1]
+        assert "«" not in sent
+        assert "—" not in sent
+        assert sent.endswith("самым главным шизом объявляется вася")
+
+    @pytest.mark.asyncio
+    async def test_raw_log_kept_before_cleanup(self, no_sleep, caplog):
+        import logging
+
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM(text="с «ёлочкой» — да")
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        with caplog.at_level(logging.INFO):
+            await generator.generate_and_send(-100)
+        raw_logs = [r.message for r in caplog.records if "summary LLM raw response" in r.message]
+        assert any("«ёлочкой»" in msg for msg in raw_logs)  # лог честный raw, до очистки
