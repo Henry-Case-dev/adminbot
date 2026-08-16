@@ -506,12 +506,12 @@ class TestSummaryCommand:
 
     @pytest.mark.asyncio
     async def test_not_allowed_silently_absorbed(self, make_message, setup_cleanup, caplog):
-        """R9/B8: denied → нет ack, нет delete, нет ответа; только INFO-лог."""
+        """R9/B8/D94: denied (allowlist-ветка) → нет ack, нет delete, нет ответа; только INFO-лог."""
         generator = MagicMock()
         generator.generate_and_send = AsyncMock()
         setup_summary(generator)
         bot = AsyncMock()
-        mod = replace(settings, ALLOWED_SUMMARY_IDS=(42,))
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=(42,), SUMMARY_ADMIN_ONLY=False)
         msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
         with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.INFO):
             result = await cmd_summary(msg, bot=bot)
@@ -521,7 +521,82 @@ class TestSummaryCommand:
         msg.delete.assert_not_called()
         msg.reply.assert_not_called()
         msg.answer.assert_not_called()
-        assert any("denied" in r.message for r in caplog.records)
+        assert any(
+            "denied" in r.message and "not in ALLOWED_SUMMARY_IDS" in r.message
+            for r in caplog.records
+        )
+
+    # ── Epic 31 (D94): allow-check — SUMMARY_ADMIN_ONLY → ALLOWED_SUMMARY_IDS ──
+
+    @pytest.mark.asyncio
+    async def test_admin_only_true_and_admin_ok(self, make_message, setup_cleanup):
+        """D94: SUMMARY_ADMIN_ONLY=true + ADMIN_USER_ID → пайплайн ок."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=(), SUMMARY_ADMIN_ONLY=True)
+        msg = make_message(
+            from_id=settings.ADMIN_USER_ID, text="/summary", delete=AsyncMock()
+        )
+        with patch.object(summary_mod, "settings", mod):
+            await cmd_summary(msg, bot=bot)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+
+    @pytest.mark.asyncio
+    async def test_admin_only_true_stranger_denied(
+        self, make_message, setup_cleanup, caplog
+    ):
+        """D94: SUMMARY_ADMIN_ONLY=true + чужой → denied silent, лог с веткой."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=(), SUMMARY_ADMIN_ONLY=True)
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.INFO):
+            result = await cmd_summary(msg, bot=bot)
+        assert result is None
+        generator.generate_and_send.assert_not_called()
+        bot.send_message.assert_not_called()
+        msg.delete.assert_not_called()
+        msg.reply.assert_not_called()
+        assert any(
+            "denied" in r.message and "(SUMMARY_ADMIN_ONLY)" in r.message
+            for r in caplog.records
+        )
+
+    @pytest.mark.asyncio
+    async def test_admin_only_true_ignores_allowlist(
+        self, make_message, setup_cleanup, caplog
+    ):
+        """D94: SUMMARY_ADMIN_ONLY=true + юзер В allowlist, но ≠ ADMIN → denied (список игнорируется)."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=(SLAVIK_ID,), SUMMARY_ADMIN_ONLY=True)
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.INFO):
+            result = await cmd_summary(msg, bot=bot)
+        assert result is None
+        generator.generate_and_send.assert_not_called()
+        assert any("(SUMMARY_ADMIN_ONLY)" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_admin_only_false_empty_allowlist_everyone(
+        self, make_message, setup_cleanup
+    ):
+        """D94: SUMMARY_ADMIN_ONLY=false + пустой список → чужой юзер ок."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=(), SUMMARY_ADMIN_ONLY=False)
+        msg = make_message(from_id=777, text="/summary", delete=AsyncMock())
+        with patch.object(summary_mod, "settings", mod):
+            await cmd_summary(msg, bot=bot)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
 
     @pytest.mark.asyncio
     async def test_generator_not_initialized_ux(self, make_message, setup_cleanup):

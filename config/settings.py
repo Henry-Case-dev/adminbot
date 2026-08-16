@@ -242,6 +242,9 @@ class Settings:
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
     # Пусто = /summary разрешена всем (R9/D62).
     ALLOWED_SUMMARY_IDS: tuple[int, ...] = _env_int_tuple("ALLOWED_SUMMARY_IDS", ())
+    # Epic 31 (D94): true = /summary только для ADMIN_USER_ID (ALLOWED_SUMMARY_IDS
+    # игнорируется); false = всем/по списку (старое поведение).
+    SUMMARY_ADMIN_ONLY: bool = _env_bool("SUMMARY_ADMIN_ONLY", False)
     # JSON-словарь алиасов {"<user_id>": "<alias>"} (R7/D61).
     SUMMARY_ALIASES: str = os.getenv("SUMMARY_ALIASES", "")
     SUMMARY_THROTTLE_SECONDS: float = _env_float("SUMMARY_THROTTLE_SECONDS", 60.0)

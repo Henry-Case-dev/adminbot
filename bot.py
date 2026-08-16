@@ -46,6 +46,7 @@ from services.summary_scheduler import SummarySchedulerService
 from services.summary_xml import XmlGroundingBuilder
 from services.goodmorning_relay import GoodmorningRelay
 from services.goodmorning_scheduler import GoodmorningSchedulerService
+from services.bot_commands import setup_bot_commands
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -149,6 +150,9 @@ async def on_startup():
         target_chat_ids=settings.GOODMORNING_TARGET_CHAT_IDS,
     )
     _goodmorning_scheduler.start()  # ДО dp.start_polling; пустые targets → WARNING, no-op
+
+    # ── Epic 31 (R31-2): меню команд (setMyCommands) — ДО dp.start_polling ──
+    await setup_bot_commands(bot)
 
     # ═══════════════════════════════════════════════════════════
     # REGISTRATION ORDER (CRITICAL — DO NOT CHANGE)
