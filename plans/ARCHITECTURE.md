@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.27.0 (прод) / целевой дизайн: v2.28.0 (Epic 30)
+> **Версия:** v2.28.0 (прод) / целевой дизайн: v2.29.0 (Epic 31)
 > **Дата:** 2026-08-17
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `7160a33`, 1002 теста, прод PID 937634). Секция 39: дизайн Epic 30 (v2.28.0) — DESIGN (@Architect, шаг 2/3).
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `7160a33`, 1002 теста, прод PID 937634). Секция 39: дизайн Epic 30 (v2.28.0) — IMPLEMENTED ✅ (прод v2.28.0, `714a4f6`). Секция 40: дизайн Epic 31 (v2.29.0) — DESIGN (@Architect, шаг 2/3).
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -29,6 +29,7 @@
 17. [Section 37: Epic 28](#37-epic-28--качество-памяти-векторы-репосты-алиасы-очистка-v2260) — Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0, НОВОЕ)
 18. [Section 38: Epic 29](#38-epic-29--ux-полировка-удаление-команды-ack-вариации-промпт-v4-v2270) — UX-полировка: удаление команды, ack-вариации, промпт v4 (v2.27.0, НОВОЕ)
 19. [39. Epic 30](#39-epic-30--common-expansion-selfdevwork-реакции-goodmorning-рассылка-фикс-нумерации-промпта-v2280) — Common Expansion: selfdev/work, goodmorning, нумерация промпта (v2.28.0, НОВОЕ)
+20. [40. Epic 31](#40-epic-31--summary-для-всех--setmycommands--таймаут-фразы-v2290) — /summary для всех + setMyCommands + таймаут-фразы (v2.29.0, НОВОЕ)
 
 ---
 
@@ -5365,3 +5366,233 @@ GOODMORNING_MEDIA_DIR: str = os.getenv("GOODMORNING_MEDIA_DIR", "media/common/go
 **Изменяемые файлы:** `filters/word_lists.py` (+4 списка, 39.2), `handlers/common.py` (+selfdev_handler/work_handler, 39.4), `services/common_relay.py` (39.5), `config/settings.py` (39.7), `.env.example` (39.7), `bot.py` (CommonRelay kw + goodmorning wiring, 39.5/39.6.4/39.7), `services/summary_prompts.py` (39.8), `tests/test_common.py` (39.9), `tests/test_summary_prompts.py` (39.8), `plans/backlog.md` (блок R11 — только номера), `plans/board.md` (статусы + примечание эталона), `README.md` (T-232), `plans/MEMORY.md` (@Memory). Медиа: `media/common/{selfdev,work,goodmorning}` — в коммит T-233 (политика media/, 31.1; НЕ в .gitignore).
 
 @Architect Epic 30 architecture ready (Section 39), passing the baton to @Builder.
+
+---
+
+## 40. Epic 31 — /summary для всех + setMyCommands + таймаут-фразы (v2.29.0)
+
+> **Дата:** 2026-08-17
+> **Статус:** DESIGN (@Architect, шаг 2/3). Передача @Builder (T-235…T-239), @Reviewer (в T-238), @DevOps (T-240/T-241).
+> **Источник:** запрос пользователя 2026-08-17: (1) `/summary` доступна ЛЮБОМУ юзеру + переключатель доступности; (2) команда с описанием в меню «/» БЕЗ BotFather; (3) при троттлинге — фраза-отборка с реальным оставшимся временем вместо тишины. Требования R31-1…R31-8, решения PM D94–D98, риски 1–7 — `plans/backlog.md` (Epic 31, строки 2570–2689, ниже эталона R11 1518–1539). **Затрагиваемые файлы:** см. 40.8.
+> **Ключевое ограничение:** порядок роутеров 0a/0b в `bot.py` НЕ меняется; ThrottlingMiddleware остаётся router-scoped только на `summary_router` (регистрация `handlers/summary.py:253` без изменений); троттлинг стоит ДО allow-check (как было — middleware раньше хендлера); denied — молчаливое поглощение СОХРАНЯЕТСЯ (R9/D62).
+
+### 40.1 API-контекст (исследование @Architect, 2026-08-17)
+
+**Инструменты:** context7 — API-key недоступен (invalid key, `ctx7sk`-префикс, как в 39.1); duckduckgo — не использовался; **рабочий стек: exa web search + exa web fetch** на core.telegram.org и docs.aiogram.dev.
+
+| # | Тема | Вывод | Источники |
+|---|------|-------|-----------|
+| 1 | **BotFather НЕ нужен** | Команды меню задаются Bot API `setMyCommands` из кода. Официальный мануал: «The command list can be changed by the owner of the bot through @BotFather, **but bots can also change their own command list** by invoking bots.setBotCommands» (MTProto-аналог Bot API setMyCommands). BotFather `/setcommands` — лишь ручной способ записать ТОТ ЖЕ список; вызов setMyCommands из кода полностью его заменяет. | core.telegram.org/api/bots/commands |
+| 2 | **setMyCommands (метод)** | «Use this method to change the list of the bot's commands. Returns True on success.» Параметры: `commands` (Array of BotCommand, **≤100**, обязательный); `scope` (BotCommandScope, optional) — «**Defaults to BotCommandScopeDefault**»; `language_code` (optional) — «If empty, commands will be applied to all users from the given scope, for whose language there are no dedicated commands». Повторный вызов **ПЕРЕЗАПИСЫВАЕТ** список для данного scope/language → вызов на каждом старте идемпотентен. | core.telegram.org/bots/api#setmycommands (текст параметров — зеркала SDK: docs.rs telegram-bot-api, github rubenlagus/TelegramBots) |
+| 3 | **Scope = ВИДИМОСТЬ, НЕ доступ** | `BotCommandScopeDefault` — «The commands will be valid in **all dialogs**» (приватки + группы + супергруппы, все юзеры). Прочие scopes (AllPrivateChats, AllGroupChats, AllChatAdministrators, Chat, ChatAdministrators, ChatMember) сужают ТОЛЬКО ВИДИМОСТЬ меню. Ключевая цитата (bots/features): «Bot API updates **will not contain any information about the scope** of a command sent by the user — in fact, they may contain commands that don't exist at all in your bot. **Your backend should always verify** that received commands are valid and that the user was authorized to use them **regardless of scope**». → Меню «/» — **подсказка/UX, НЕ ограничение**: юзер может отправить ЛЮБУЮ /команду, даже если её нет в меню; реальный доступ решает код бота (наш allow-check D94). | core.telegram.org/type/BotCommandScope; core.telegram.org/bots/features |
+| 4 | Меню «/» и Menu button | Подсказка команд при вводе «/» показывается, если список задан через BotFather ИЛИ через API. Кнопка-меню у поля ввода (`setChatMenuButton`) — отдельная сущность, Epic 31 её НЕ трогает. | core.telegram.org/bots/features; core.telegram.org/api/bots/menu |
+| 5 | deleteMyCommands | Метод удаления списка команд для scope/language существует (`bot.delete_my_commands`) — в Epic 31 НЕ используется; фиксирует, что список живёт на стороне API, а не только BotFather. | core.telegram.org/bots/api-changelog (Personalized Commands) |
+| 6 | aiogram 3.x | `BotCommand(command, description)`, `BotCommandScopeDefault` и методы `Bot.set_my_commands(commands, scope=None, language_code=None) -> bool`, `Bot.delete_my_commands(...)` доступны во всех aiogram 3.x (проект: 3.29.1, requirements `aiogram>=3.7.0,<4.0.0`). Вызов — в `on_startup` (работающий event loop) ДО `dp.start_polling`; module-level `bot` уже создан в `bot.py:64`. | docs.aiogram.dev (dev-3.x/3.27–3.30: bot.html, types/bot_command.html, types/bot_command_scope_default.html; методы set_my_commands/delete_my_commands) |
+
+**Ответ на ключевой вопрос:** да, BotFather НЕ нужен — `setMyCommands` со стороны кода добавляет `/summary` в меню «/» с описанием, `scope=BotCommandScopeDefault` делает меню видимым ВСЕМ юзерам во ВСЕХ чатах; а «доступность для вызова» определяется не scope и не меню (меню — подсказка), а allow-check в коде (R31-1/D94) — юзер может вызвать команду и без меню, и наоборот: наличие в меню не даёт доступ тем, кому код откажет.
+
+### 40.2 Allow-check в `cmd_summary` (handlers/summary.py, R31-1/D94)
+
+**Решение:** заменить блок `handlers/summary.py:234-239` на двухступенчатую проверку D94 (порядок: SUMMARY_ADMIN_ONLY → ALLOWED_SUMMARY_IDS). Denied — silent absorb СОХРАНЯЕТСЯ (не удаляем, не отвечаем, только INFO-лог, как R9/D62/B8). Обновить docstring модуля (строка 8: «Epic 31: SUMMARY_ADMIN_ONLY»).
+
+```python
+    user_id = message.from_user.id if message.from_user else 0
+    # D94 (Epic 31): порядок проверок — SUMMARY_ADMIN_ONLY → ALLOWED_SUMMARY_IDS.
+    # true  → разрешён ТОЛЬКО ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется);
+    # false → старая логика: пусто = всем, список = только перечисленным.
+    # Denied — silent absorb (R9/D62): не удаляем, не отвечаем, только INFO-лог.
+    if settings.SUMMARY_ADMIN_ONLY and user_id != settings.ADMIN_USER_ID:
+        logger.info("[/summary] denied | user=%s (SUMMARY_ADMIN_ONLY)", user_id)
+        return
+    allowed = settings.ALLOWED_SUMMARY_IDS
+    if not settings.SUMMARY_ADMIN_ONLY and allowed and user_id not in allowed:
+        logger.info("[/summary] denied | user=%s not in ALLOWED_SUMMARY_IDS", user_id)
+        return
+```
+
+- **Обратная совместимость:** с дефолтом `SUMMARY_ADMIN_ONLY=False` вторая ветка байт-в-байт повторяет текущее поведение — существующие тесты `test_allowed_empty_everyone`, `test_allowed_list_contains_user`, `test_not_allowed_silently_absorbed`, `test_summary_from_other_user_works`, `test_summary_not_allowed_silently_absorbed` остаются зелёными без правок (в новых тестах `replace(settings, ..., SUMMARY_ADMIN_ONLY=...)` задаётся явно для детерминизма).
+- Троттлинг (middleware) выполняется ДО этой проверки и остаётся на месте — порядок «троттлинг → allow-check → пайплайн» не меняется (R31-8).
+- `user_id == 0` (нет from_user): при `SUMMARY_ADMIN_ONLY=true` → denied (0 ≠ ADMIN); при `false` — как раньше.
+
+### 40.3 `services/bot_commands.py` (НОВЫЙ, R31-2/D95)
+
+**Решение:** только `/summary` в списке v1 (D95). Обоснование: `setMyCommands` **ЗАМЕНЯЕТ весь список** для scope — если бы бот имел BotFather-меню, оно перезаписалось бы; сейчас в коде меню нигде не регистрируется, а админ-команды `/deadpage` и `/alangreet` — скрытые тестовые (в меню сознательно НЕ выносим — D95: «не просили»). Полный список команд бота (grep `Command(`): `summary`, `deadpage`, `alangreet` — только эти три; в меню — только summary.
+
+```python
+"""Epic 31 (R31-2/D95) — регистрация меню команд через Bot API setMyCommands.
+
+BotFather НЕ нужен: setMyCommands полностью заменяет список команд бота для
+заданного scope (40.1). Меню «/» — подсказка/UX; на ВОЗМОЖНОСТЬ вызова команды
+не влияет — доступ решает allow-check в cmd_summary (D94), а не scope.
+"""
+import logging
+
+from aiogram import Bot
+from aiogram.types import BotCommand, BotCommandScopeDefault
+
+logger = logging.getLogger(__name__)
+
+# D95: только /summary (v1). setMyCommands ЗАМЕНЯЕТ весь список — админ-команды
+# /deadpage, /alangreet в меню сознательно НЕ выносим (скрытые тестовые).
+_COMMANDS: tuple[BotCommand, ...] = (
+    BotCommand(
+        command="summary",
+        description="Саммари чата — прочитай, что ты пропустил, ленивец",
+    ),
+)
+
+
+async def setup_bot_commands(bot: Bot) -> bool:
+    """Register bot command menu. Best-effort: сбой API не роняет старт.
+
+    Идемпотентно: setMyCommands перезаписывает список — повторный вызов на
+    каждом старте безвреден. Returns True при успехе (маркер для T-241-D).
+    """
+    try:
+        # language_code НЕ задаём (D95): иначе меню скрыто от юзеров с не-русской
+        # локалью Telegram, а ТЗ — «доступна любому юзеру».
+        await bot.set_my_commands(
+            commands=list(_COMMANDS),
+            scope=BotCommandScopeDefault(),   # default: все чаты, все юзеры
+        )
+        logger.info(
+            "Bot commands registered (set_my_commands ok): %s",
+            [c.command for c in _COMMANDS],
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to register bot commands (set_my_commands)")
+        return False
+```
+
+**Точка вызова (`bot.py::on_startup`):** после блока SmartModule (после строки ~140, рядом с goodmorning-блоком), ДО блока «REGISTRATION ORDER»/`dp.start_polling`; import `from services.bot_commands import setup_bot_commands` в шапке (рядом с остальными services-импортами):
+
+```python
+    # ── Epic 31 (R31-2): меню команд (setMyCommands) — ДО dp.start_polling ──
+    await setup_bot_commands(bot)
+```
+
+- Возврат `bool` не используется в on_startup (best-effort; лог — единственный маркер). Результат НЕ влияет на регистрацию роутеров.
+- Не вызывать в `on_shutdown` и не удалять (`delete_my_commands`) — меню живёт между рестартами.
+
+### 40.4 Таймаут-фразы вместо тишины (services/summary_throttling.py, R31-3/D96/D97/D98)
+
+**Решение:** пул и хелпер — в `services/summary_throttling.py` (D97 явно: «в services/summary_throttling.py»; отдельный модуль не нужен — пул тестируется вместе с middleware, прецедент `_UX_ACK_VARIANTS` в handlers/summary.py). Конструктор middleware НЕ меняется (bot в конструктор НЕ инжектится — регистрация `handlers/summary.py:253` без изменений).
+
+```python
+import math
+import random   # добавить к существующим import logging/time
+
+# R31-3 (D96): 7 фраз, плейсхолдер {remaining}. 2 канона пользователя ДОСЛОВНО
+# (первыми) + 5 новых PM (стиль-гард как D82: маленькие буквы, без эмодзи).
+# Расширение пула = новая строка в кортеже.
+_THROTTLE_PHRASES: tuple[str, ...] = (
+    "хули ты дрочишь, подожди {remaining}",              # канон 1 (D96)
+    "угомонись нахуй, не можешь {remaining} подождать?", # канон 2 (D96)
+    "куда ты ломишься, {remaining} ещё не прошло",
+    "остынь, дрыщ, саммари варится ещё {remaining}",
+    "ты че, в сотый раз жмёшь? потерпи {remaining}",
+    "хватит тыкать, через {remaining} вернёшься — не отсохнет",
+    "твоё саммари в печи, дай ему {remaining} допечься",
+)
+
+
+def _pluralize(n: int, forms: tuple[str, str, str]) -> str:
+    """Русская плюрализация: forms = (одна, две, много). 21 → «секунда», 11 → «секунд»."""
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11:
+        return forms[0]
+    if n10 in (2, 3, 4) and n100 not in (12, 13, 14):
+        return forms[1]
+    return forms[2]
+
+
+def format_remaining_seconds(seconds: float) -> str:
+    """D97: ceil вверх; <60с → «N секунда/секунды/секунд»; ≥60с → «N минута/минуты/минут».
+
+    Примеры: 60.0 → «1 минута», 25.0 → «25 секунд», 0.4 → «1 секунда».
+    """
+    total = max(1, math.ceil(seconds))          # guard: в ветке троттлинга remaining > 0 всегда
+    if total < 60:
+        return f"{total} {_pluralize(total, ('секунда', 'секунды', 'секунд'))}"
+    minutes = math.ceil(total / 60)             # целые минуты, ceil (90с → «2 минуты»)
+    return f"{minutes} {_pluralize(minutes, ('минута', 'минуты', 'минут'))}"
+```
+
+**Механика отправки (D98)** — ветка троттлинга в `ThrottlingMiddleware.__call__` (заменяет `return` на строках 55-60):
+
+```python
+                if last is not None and (now - last) < self._throttle_seconds:
+                    remaining = self._throttle_seconds - (now - last)
+                    logger.info(                                  # аккуратность лога НЕ меняем (D97)
+                        "[/summary] throttled | chat=%s user=%s remaining=%.0fs",
+                        *key, remaining,
+                    )
+                    phrase = random.choice(_THROTTLE_PHRASES).format(
+                        remaining=format_remaining_seconds(remaining)
+                    )
+                    try:
+                        await event.reply(phrase)                 # reply на сообщение юзера
+                    except Exception:
+                        logger.warning(                           # best-effort: не ронять propagation
+                            "[/summary] throttled reply failed | chat=%s user=%s",
+                            *key, exc_info=True,
+                        )
+                    return                                        # хендлер НЕ вызывается (семантика троттлинга)
+```
+
+- **Где взять bot:** в aiogram 3 событие middleware — `Message`, и диспетчер биндит `message._bot` ДО middleware → `event.reply(phrase)` шлёт `sendMessage(chat_id, phrase, reply_parameters=ReplyParameters(message_id=event.message_id))` через ТОТ ЖЕ bot, что лежит в `data["bot"]`. Отдельный `bot.send_message` не нужен. В юнит-тестах `event` — MagicMock: `event.reply` задаётся `AsyncMock()`, bot передаётся через `data={"bot": fake_bot}` (D98) — middleware его не требует, но тест-контракт сохраняем.
+- **Сбой reply** (TelegramAPIError/сеть/нет `_bot`) → try/except → WARNING-лог; `return` выполняется ВСЕГДА: хендлер не вызывается, исключение не всплывает — UNHANDLED-семантика не затронута (middleware router-scoped на summary_router; другие роутеры получают событие независимо — как сейчас).
+- Слот троттлинга: первый вызов записывает `self._last[key] = now`; повторные внутри окна НЕ обновляют слот (D98 — «слот не сжигается повторно»); фразы не влияют на наблюдателя 0a и прочие роутеры.
+
+### 40.5 Конфиг (config/settings.py + .env.example, T-235-A)
+
+```python
+    # Пусто = /summary разрешена всем (R9/D62).
+    ALLOWED_SUMMARY_IDS: tuple[int, ...] = _env_int_tuple("ALLOWED_SUMMARY_IDS", ())
+    # Epic 31 (D94): true = /summary только для ADMIN_USER_ID (ALLOWED_SUMMARY_IDS
+    # игнорируется); false = всем/по списку (старое поведение).
+    SUMMARY_ADMIN_ONLY: bool = _env_bool("SUMMARY_ADMIN_ONLY", False)
+```
+
+- Место — сразу после `ALLOWED_SUMMARY_IDS` (`config/settings.py:244`), стиль `_env_bool` с дефолтом `False` (прецедент `SUMMARY_ENABLED:247`→ строка 233).
+- `.env.example` (после строки 151 `ALLOWED_SUMMARY_IDS=`):
+
+```
+# false = /summary доступна всем (или по списку ALLOWED_SUMMARY_IDS); true = только ADMIN_USER_ID (Epic 31/D94)
+SUMMARY_ADMIN_ONLY=False
+```
+
+### 40.6 Тест-план (T-238, R31-4; baseline 1327, 0 регрессий)
+
+| Файл | Что покрываем |
+|------|---------------|
+| `tests/test_summary_throttling.py` (переписать часть) | `test_spam_silently_dropped` → переписать: второй вызов в окне → handler НЕ вызван повторно, `event.reply` вызван ОДИН раз фразой, равной `phrase.format(remaining=format_remaining_seconds(...))` для какого-то `phrase ∈ _THROTTLE_PHRASES` (ассерт через список кандидатов); `_make_message` — добавить `message.reply = AsyncMock()`. Остальные тесты класса живы (`test_first_call_passes` — reply НЕ вызывается; `test_after_ttl_passes_again`; ключи; B3-mention; `test_throttled_log_contains_remaining` — лог «throttled»/«remaining=» сохранён). |
+| `tests/test_summary_throttling.py` (новые) | Юниты `format_remaining_seconds`: 25→«25 секунд», 60→«1 минута», 120→«2 минуты», 1→«1 секунда», 21→«21 секунда», 0.4→«1 секунда» (ceil), 2→«2 секунды», 11→«11 секунд», 59→«59 секунд», 61→«2 минуты» (ceil минут), 90→«2 минуты»; юниты `_pluralize` (краевые 11/12/21/22/25). Пул: `len(_THROTTLE_PHRASES) == 7`; первые 2 — каноны ДОСЛОВНО (байт-в-байт с D96); стиль-гард: все с маленькой буквы, без эмодзи, `{remaining}` в каждой. Нет bot в data → без падения (reply всё равно AsyncMock). Сбой `event.reply` (side_effect=Exception) → не роняет middleware, WARNING-лог, handler не вызван, result None. Конструктор без аргументов не изменился (существующий тест `test_default_constructor_uses_settings`). |
+| `tests/test_summary_handlers.py` (расширение TestSummaryCommand) | Allow-check D94: `SUMMARY_ADMIN_ONLY=True` + `ADMIN_USER_ID` → пайплайн ок; `SUMMARY_ADMIN_ONLY=True` + чужой → denied silent (нет delete/ack/generate, INFO-лог «(SUMMARY_ADMIN_ONLY)»); `SUMMARY_ADMIN_ONLY=True` + `ALLOWED_SUMMARY_IDS` содержит юзера, но ≠ ADMIN → denied (список игнорируется); `SUMMARY_ADMIN_ONLY=False` + пустой список + чужой → ок (есть: `test_summary_from_other_user_works`); `SUMMARY_ADMIN_ONLY=False` + `(42,)` + чужой → denied (есть: `test_not_allowed_silently_absorbed` — обновить ассерт лога на «not in ALLOWED_SUMMARY_IDS»). Во всех новых тестах `replace(settings, ALLOWED_SUMMARY_IDS=..., SUMMARY_ADMIN_ONLY=...)` явно. |
+| `tests/test_bot_commands.py` (НОВЫЙ) | `setup_bot_commands`: `bot.set_my_commands` вызван с `commands=[BotCommand(command="summary", description="Саммари чата — прочитай, что ты пропустил, ленивец")]` и `scope=BotCommandScopeDefault()` (ассерт kw; `language_code` не передаётся/None); `_COMMANDS` — ровно 1 команда; успех → `True` + INFO «Bot commands registered (set_my_commands ok)»; `set_my_commands` бросает `aiogram.exceptions.TelegramAPIError` → `False`, ERROR-лог, НЕ всплывает. (Тест самого `on_startup` не делаем — тяжёлые импорты Sentry/DB; покрытие на уровне функции-юнита, вызов в on_startup проверяется ревью + smoke на проде T-241-D.) |
+| Регрессия | Интеграционные тесты `TestRouterIntegration` (13 роутеров) — без изменений и зелёные; `test_router_count_is_13`; порядок 0a/0b не тронут; полный `pytest` — 1327 + новые, 0 failed/skipped; `git diff --check`. |
+
+### 40.7 Риски (дополнение к backlog-рискам 1–7)
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | **setMyCommands перезапишет BotFather-меню** (если оно есть на проде — список будет заменён на один `/summary`; `/deadpage`/`/alangreet` пропадут из меню, если были) | Это ожидаемо по D95 (админ-команды в меню не выносим). Если в будущем нужны и они — добавить строки в `_COMMANDS` (40.3). Вызов каждый старт идемпотентен (40.1 п.2). |
+| 2 | Меню не появилось на проде | Лог-маркер «set_my_commands ok»/ERROR (40.3) + версия aiogram 3.29.1 (типы доступны — 40.1 п.6); verify T-241-D. |
+| 3 | **Групповая приватность:** `/summary` теперь вызывается ЛЮБЫМ участником групп, где бот есть (на проде `ALLOWED_SUMMARY_IDS` пуст, `SUMMARY_ADMIN_ONLY=False`) | Это ТЗ (R31-1). Контроль — allow-check в коде (D94): меню/scope доступ НЕ дают (40.1 п.3); для закрытия — `SUMMARY_ADMIN_ONLY=True` или список ID. |
+| 4 | Фразы-отборки в личке vs группе | `event.reply` работает в обоих контекстах (reply на сообщение); команда при троттлинге НЕ удаляется (delete — только в пайплайне) — как и было (R8). |
+| 5 | Reply в middleware ломает UNHANDLED-семантику | try/except вокруг `event.reply`; `return` выполняется всегда; middleware router-scoped (только summary_router) — наблюдатель 0a и остальные роутеры не затронуты (40.4). |
+| 6 | Плюрализация/ceil краевые (11 vs 21; 59/60/61; 90с) | `_pluralize` по правилу n10/n100; юнит-тесты краёв (40.6); guard `max(1, ceil)` защищает от «0 секунд». |
+| 7 | Двойные ответы | В окне — только reply-фраза (ack+пайплайн не идут — handler не вызван); вне окна — только ack+пайплайн; гонок нет (одна middleware-ветка, backlog-риск 4). |
+| 8 | Эталон промпта R11 (1518–1539) | Epic 31 в backlog уже ниже 1539 (backlog-риск 7); ARCHITECTURE.md на эталон не влияет. |
+| 9 | Denied-юзер (allow-check) при спаме получает фразу-отборку: троттлинг стоит ДО allow-check (R31-8), поэтому повторный `/summary` запрещённого юзера внутри окна троттлинга получает reply из `_THROTTLE_PHRASES` (первый вызов — по-прежнему silent deny). Фраза generic, данных не утекает | Принято осознанно (R31-8 фиксирует порядок middleware → allow-check). В прод-конфиге (пустой список + `SUMMARY_ADMIN_ONLY=False`) denied-юзера не существует — ветка недостижима. |
+
+### 40.8 Сводка для Builder (файлы и сигнатуры)
+
+**Новые файлы:** `services/bot_commands.py` (`_COMMANDS: tuple[BotCommand, ...]`; `async def setup_bot_commands(bot: Bot) -> bool`), `tests/test_bot_commands.py`.
+
+**Изменяемые файлы:** `config/settings.py` (`SUMMARY_ADMIN_ONLY: bool = _env_bool("SUMMARY_ADMIN_ONLY", False)` после ALLOWED_SUMMARY_IDS — 40.5), `.env.example` (+ключ, 40.5), `handlers/summary.py` (allow-check D94 — 40.2; docstring модуля), `services/summary_throttling.py` (`_THROTTLE_PHRASES`, `_pluralize`, `format_remaining_seconds`, reply-ветка — 40.4; импорты `math`, `random`), `bot.py` (import + `await setup_bot_commands(bot)` в on_startup после SmartModule, ДО регистрации роутеров — 40.3), `tests/test_summary_throttling.py`, `tests/test_summary_handlers.py` (40.6), `README.md` (T-239-A), `plans/backlog.md` (статусы T-235…T-239), `plans/board.md`, `plans/MEMORY.md` (@Memory).
+
+**НЕ менять:** порядок роутеров 0a/0b и все прочие секции bot.py; `handlers/summary.py:253` (attach middleware); конструктор `ThrottlingMiddleware`; формат INFO-лога «throttled … remaining=…»; B9-гейт наблюдателя; `/deadpage`/`/alangreet` (в меню не выносятся).
+
+@Architect Epic 31 architecture ready (Section 40), passing the baton to @Builder (T-235 P0 → T-236/T-237 параллельно → T-238 тесты+ревью → T-239 доки; T-240/T-241 — @DevOps).

@@ -11,7 +11,8 @@ returns UNHANDLED on its own path (A4) — Slava's catch-all must not fire.
 Epic 25: ack before the pipeline (B1), best-effort command deletion (B7), UX
 safety net when the generator is not injected (B6), INFO logs for every state
 (B8). Epic 29 (D81/D82): команда удаляется СРАЗУ, ДО ack; ack — random.choice
-из пула вариаций _UX_ACK_VARIANTS.
+из пула вариаций _UX_ACK_VARIANTS. Epic 31 (D94): SUMMARY_ADMIN_ONLY=true →
+доступ только ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется).
 """
 import logging
 import random
@@ -232,9 +233,15 @@ async def _delete_command(message: types.Message) -> None:
 async def cmd_summary(message: types.Message, bot: Bot = None):
     """Manual summary trigger (R9/D62). Delete → ack → pipeline (D81/B1/B2)."""
     user_id = message.from_user.id if message.from_user else 0
+    # D94 (Epic 31): порядок проверок — SUMMARY_ADMIN_ONLY → ALLOWED_SUMMARY_IDS.
+    # true  → разрешён ТОЛЬКО ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется);
+    # false → старая логика: пусто = всем, список = только перечисленным.
+    # Denied — silent absorb (R9/D62): не удаляем, не отвечаем, только INFO-лог.
+    if settings.SUMMARY_ADMIN_ONLY and user_id != settings.ADMIN_USER_ID:
+        logger.info("[/summary] denied | user=%s (SUMMARY_ADMIN_ONLY)", user_id)
+        return
     allowed = settings.ALLOWED_SUMMARY_IDS
-    if allowed and user_id not in allowed:
-        # R9/D62: silent absorb — НЕ удаляем, НЕ отвечаем; только INFO-лог (B8)
+    if not settings.SUMMARY_ADMIN_ONLY and allowed and user_id not in allowed:
         logger.info("[/summary] denied | user=%s not in ALLOWED_SUMMARY_IDS", user_id)
         return
     if _generator is None:

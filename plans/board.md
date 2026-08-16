@@ -2,38 +2,50 @@
 
 ## 📋 Backlog
 
-### Epic 30: Common Expansion — selfdev/work-реакции, goodmorning-рассылка, фикс нумерации промпта (v2.28.0) — 2026-08-17 — 🆕 Шаг 1 (PM) ✅ → реализация: @Builder (T-227…T-230, T-232, T-233), @Reviewer (T-231), @DevOps (T-234)
+### Epic 31: /summary для всех + setMyCommands + таймаут-фразы (v2.29.0) — 2026-08-17 — 🆕 Шаг 1 (PM) ✅ → реализация: @Builder (T-235…T-239), @Reviewer (T-238-E), @DevOps (T-240/T-241)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R30-1…R30-8, решения D85–D93) → реализация @Builder (T-227…T-230, по порядку; T-229/T-230 — параллельно с T-227/T-228) → T-231 (@Builder+@Reviewer) → T-232/T-233 (@Builder) → T-234 (@DevOps). Без @Orchestrator.
-> Требования R30-1…R30-8, решения D85–D93 (списки слов selfdev/work, коулдауны, goodmorning-конфиг, нумерация промпта), риски 1–10 — в `plans/backlog.md` (Epic 30). **Target:** v2.28.0.
-> ⚠️ ЭТАЛОН ПРОМПТА: блок R11 в `plans/backlog.md` (строки 1518–1539, слайс `lines[1517:1539]`) — правки Epic 30 в backlog ТОЛЬКО в конце файла (ниже 1539) → сдвига строк НЕТ; блок (только номера пунктов) обновит @Builder в T-230 СИНХРОННО с кодом и тестами (D90). COMPRESS_PROMPT/EXTRACT_PROMPT заморожены.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R31-1…R31-8, решения D94–D98) → реализация @Builder (T-235 → T-236/T-237 параллельно → T-238 → T-239) → @DevOps (T-240 коммит → T-241 деплой). Без @Orchestrator.
+> Требования R31-1…R31-8, решения D94–D98 (логика allow-check, setMyCommands/BotCommandScopeDefault, пул 7 таймаут-фраз, формат времени, reply-механика), риски 1–7 — в `plans/backlog.md` (Epic 31). **Target:** v2.29.0. Baseline: прод v2.28.0 (`714a4f6`), 1327 тестов.
+> ⚠️ ЭТАЛОН ПРОМПТА: блок R11 в `plans/backlog.md` (строки 1518–1539, слайс `lines[1517:1539]`) — правки Epic 31 в backlog ТОЛЬКО в конце файла (ниже 1539) → сдвига строк НЕТ (соблюдено: Epic 31 в конце).
 
-- [x] T-227 (@Builder, **P0**): selfdev в common (4c): фильтр «саморазвитие»+склонения+синонимы (SELFDEV_WORDS/SELFDEV_PHRASES, D85), НЕ репосты (forward_origin is None), reply+quote (ReplyParameters), gif-маркер→animation, SELFDEV_COOLDOWN=5m (D87), `media/common/selfdev/`, UNHANDLED
-- [x] T-228 (@Builder, **P0**, ←T-227): work в common (4c): «устал»/«заебался»+склонения+синонимы+обороты усталости (WORK_WORDS/WORK_PHRASES, D86), остальное как T-227, WORK_COOLDOWN=5m, `media/common/work/`
-- [x] T-229 (@Builder, **P0**): goodmorning-рассылка: APScheduler (прецедент summary_scheduler), GOODMORNING_TIME=07:00 / GOODMORNING_TZ=Asia/Yekaterinburg, random-медиа из `media/common/goodmorning/` + random-caption (пул 3 канона + 3 новые, D88/D89), plain-send (прецедент OlyaRelay), GOODMORNING_TARGET_CHAT_IDS (пусто=выключено)
-- [x] T-230 (@Builder, **P1**): фикс нумерации SYSTEM_PROMPT v4: 4→3, 5→4, 6→5, 7→6 (текст пунктов НЕ менять) + эталон backlog 1518–1539 (22 строки, диапазон не меняется) + тесты test_summary_prompts.py (:54–56, :70–73) + docstring (D90)
-- [ ] T-231 (@Builder + @Reviewer, **P0**, ←T-227…T-230): тесты (максимальное покрытие) + полный pytest (1002 baseline, 0 регрессий) + проверка конфликтов с danger/otboy/mimic/war/summary + пересечение новых списков слов с DANGER_WORDS/DANGER_PHRASES (R30-5)
-- [x] T-232 (@Builder, **P1**, ←T-227…T-230): README (ироничный тон): v2.28.0, секции selfdev/work/goodmorning, конфиг-таблица (.env.example синхронизировать), changelog (R30-6)
-- [ ] T-233 (@Builder, **P0**, ←T-231/T-232): коммит на русском (conventional: `feat(common): Epic 30 — … (v2.28.0)`) + медиа-папки selfdev/work/goodmorning в коммите (политика media/ — НЕ в .gitignore) + пуш в origin/master; .env не коммитим (R30-7)
-- [ ] T-234 (@DevOps, **P0**, ←T-233): деплой: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull → .env при необходимости (GOODMORNING_TARGET_CHAT_IDS, SELFDEV/WORK_COOLDOWN=5m, бэкап `.env.bak.epic30`) → sudo systemctl restart admin_bot → status active (running) → верификация логов (0 traceback, goodmorning-планировщик стартовал) (R30-8)
+- [x] T-235 (@Builder, **P0**): доступ /summary для всех: `SUMMARY_ADMIN_ONLY` (_env_bool, дефолт False) + allow-check по D94 (admin_only → ADMIN_USER_ID; иначе ALLOWED_SUMMARY_IDS, пусто=все); denied — silent (R9/D62); .env.example (R31-1, D94) — **Done → In Review**
+- [x] T-236 (@Builder, **P0**, ∥T-237): setMyCommands: `services/bot_commands.py` (НОВЫЙ) `setup_bot_commands(bot)` — BotCommand(«summary», «Саммари чата — прочитай, что ты пропустил, ленивец»), BotCommandScopeDefault, best-effort try/except, INFO «set_my_commands ok»; вызов в bot.py on_startup ДО polling (R31-2, D95) — **Done → In Review**
+- [x] T-237 (@Builder, **P0**, ∥T-236): таймаут-фразы: пул `_THROTTLE_PHRASES` (7: 2 канона дословно + 5 новых, D96) + `format_remaining_seconds` (ceil, плюрализация, D97); middleware: reply фразой с РЕАЛЬНЫМ временем, best-effort (R31-3, D98) — **Done → In Review**
+- [x] T-238 (@Builder + @Reviewer, **P0**, ←T-235…T-237): тесты (throttling → reply из пула с временем; allow-check 4 комбинации; test_bot_commands.py НОВЫЙ; юниты форматтера) + полный pytest (1327 baseline, 0 регрессий) + ревью @Reviewer (R31-4) — **Done (1366 passed) → In Review (APPROVED)**
+- [x] T-239 (@Builder, **P1**, ←T-238): README (v2.29.0, меню команд, таймаут-фразы, конфиг-таблица + SUMMARY_ADMIN_ONLY, строка «молча глотается» → фраза-отборка) + .env.example (R31-5) — **Done → In Review**
+- [ ] T-240 (@DevOps, **P0**, ←T-238/T-239): коммит на русском (conventional: `feat(summary): Epic 31 — /summary для всех, setMyCommands и таймаут-фразы (v2.29.0)`) + пуш в origin/master; .env не коммитим (R31-6)
+- [ ] T-241 (@DevOps, **P0**, ←T-240): деплой: ssh nik@198.46.175.136 → git pull → **.env: `ALLOWED_SUMMARY_IDS=` (пусто) + `SUMMARY_ADMIN_ONLY=False`** (бэкап `.env.bak.epic31`) → systemctl restart → active (running) → логи: 0 traceback + «set_my_commands ok» → живой тест /summary от НЕ-владельца (R31-7)
 
 ## 🔧 In Progress
 
-### Epic 30 — реализация (@Builder): T-227…T-230, T-232 DONE (код+тесты+README); T-231 — ревью @Reviewer; T-233 (@DevOps — коммит/пуш); T-234 (@DevOps)
-
-- [x] T-227 (@Builder, **P0**) — selfdev-функция (R30-1, D85/D87/D92) — **Done** (фильтр+хендлер+коулдаун, 87 юнитов)
-- [x] T-228 (@Builder, **P0**, ←T-227) — work-функция (R30-2, D86/D87/D92) — **Done** (фильтр+хендлер+коулдаун, 183 юнита)
-- [x] T-229 (@Builder, **P0**) — goodmorning-рассылка (R30-3, D88/D89) — **Done** (captions+relay+scheduler+bot.py, 39 юнитов)
-- [x] T-230 (@Builder, **P1**) — фикс нумерации промпта (R30-4, D90) — **Done** (1–6, байт-в-байт ✅, test_numbering_sequential)
-- [ ] T-231 (@Builder + @Reviewer, P0) — тесты: полный прогон **1327 passed** (1002 baseline + 325 новых), 0 failed/skipped — ревью @Reviewer в очереди
-- [x] T-232 (@Builder, P1) — README v2.28.0 (selfdev/work/goodmorning, changelog) + .env.example — **Done**
-- [ ] T-233…T-234 — в очереди (@DevOps): T-233 ←T-231/T-232; T-234 ←T-233
+*(пусто — T-235…T-239 реализованы @Builder, перенесены в In Review)*
 
 ## 🔍 In Review
 
-- [ ] T-231 (@Builder + @Reviewer, **P0**) — тесты Epic 30: прогон @Builder **1327 passed** (1002 baseline + 325 новых, 0 failed/skipped); ждёт code review @Reviewer (T-231-D: пересечения списков, анти-спам, изоляция от summary/GraphRAG)
+### Epic 31 — реализация @Builder (T-235…T-239): DONE → ревью @Reviewer (T-238-E)
+
+- [x] T-235 (@Builder, P0) — `SUMMARY_ADMIN_ONLY` + allow-check D94 — **Done**
+- [x] T-236 (@Builder, P0) — `services/bot_commands.py` + вызов в on_startup — **Done**
+- [x] T-237 (@Builder, P0) — `_THROTTLE_PHRASES` (7) + `format_remaining_seconds` + reply-ветка — **Done**
+- [x] T-238 (@Builder, P0) — тесты: **1366 passed** (1327 + 39 новых), 0 failed/skipped — **Done**
+- [x] T-239 (@Builder, P1) — README v2.29.0 + .env.example — **Done**
+- [x] T-238-E (@Reviewer) — code review — **APPROVED** (2026-08-17)
 
 ## ✅ Done
+
+### Epic 30: Common Expansion — selfdev/work-реакции, goodmorning-рассылка, фикс нумерации промпта — ✅ DEPLOYED (v2.28.0, коммит `714a4f6`, 1327 тестов, прод PID 939545)
+
+> Перенесено из Backlog/In Progress/In Review при архивации (PM, 2026-08-17). Полный трек — `plans/backlog.md` (Epic 30, статус DEPLOYED).
+> **Итог:** T-227…T-234 ALL DONE. @Builder: selfdev (SELFDEV_WORDS 48/фраз 17, 87 юнитов), work (WORK_WORDS 128/фраз 31, 183 юнита), goodmorning (captions 6 = 3 канона + 3 новых, relay, APScheduler, 39 юнитов), фикс нумерации промпта 1–6 (D90, байт-в-байт ✅); T-231 — @Builder + @Reviewer **APPROVED** (1327 passed: 1002 baseline + 325 новых, 0 failed/skipped, пересечения списков ∅, `git diff --check` чист); T-232 — README v2.28.0 + .env.example; T-233/T-234 (@DevOps) — коммит `714a4f6` «feat(common): Epic 30 — selfdev/work-реакции, goodmorning-рассылка и фикс нумерации промпта (v2.28.0)» (30 файлов, 8 медиа) + пуш + деплой: git pull ff `7160a33..714a4f6`, .env (бэкап `.env.bak.epic30`: GOODMORNING_TARGET_CHAT_IDS=-1002661910336 ВКЛЮЧЕНА, SELFDEV/WORK_COOLDOWN=5m), restart → active (running) **PID 939545**, «Goodmorning scheduler started (07:00 Asia/Yekaterinburg, 1 chats)», 0 traceback. Шаг 8 (@Memory): docs-коммит `4b50272`. **ЭПИК 30 ЗАКРЫТ (Шаг 8), Epics 1–30 ALL DEPLOYED.**
+
+- [x] T-227 (@Builder, P0) — selfdev-функция (R30-1, D85/D87/D92) — **Done** (фильтр+хендлер+коулдаун, 87 юнитов)
+- [x] T-228 (@Builder, P0) — work-функция (R30-2, D86/D87/D92) — **Done** (фильтр+хендлер+коулдаун, 183 юнита)
+- [x] T-229 (@Builder, P0) — goodmorning-рассылка (R30-3, D88/D89) — **Done** (captions+relay+scheduler+bot.py, 39 юнитов)
+- [x] T-230 (@Builder, P1) — фикс нумерации промпта (R30-4, D90) — **Done** (1–6, байт-в-байт ✅)
+- [x] T-231 (@Builder + @Reviewer, P0) — тесты 1327 passed + ревью — **Done (APPROVED)**
+- [x] T-232 (@Builder, P1) — README v2.28.0 + .env.example — **Done**
+- [x] T-233 (@DevOps, P0) — коммит `714a4f6` + пуш (30 файлов, медиа в коммите) — **Done**
+- [x] T-234 (@DevOps, P0) — деплой v2.28.0 (PID 939545, goodmorning ON, 0 traceback) — **Done (Шаг 8: `4b50272`)**
 
 ### Epic 29: T-221…T-226 — UX-полировка (код + тесты + доки + коммит + деплой) — ✅ DONE & DEPLOYED (v2.27.0, коммит `7160a33`, 1002 passed, прод PID 937634)
 
@@ -493,4 +505,4 @@
 
 ---
 
-**Updated:** 2026-08-17 — **Epic 29 (v2.27.0) АРХИВИРОВАН: T-221…T-226 ALL DONE (коммит `7160a33`, прод PID 937634, 1002 теста, Шаг 8).** Открыт **Epic 30 «Common Expansion — selfdev/work-реакции, goodmorning-рассылка, фикс нумерации промпта» (v2.28.0)**: Шаг 1 (PM) ✅ — требования R30-1…R30-8, решения D85–D93 в `plans/backlog.md`; T-227…T-230 → @Builder (T-227 в работе, по порядку), T-231 (@Builder+@Reviewer), T-232/T-233 (@Builder), T-234 (@DevOps) — в очереди.
+**Updated:** 2026-08-17 — **Epic 30 (v2.28.0) АРХИВИРОВАН: T-227…T-234 ALL DONE & DEPLOYED (коммит `714a4f6`, прод PID 939545, 1327 теста, Шаг 8 `4b50272`).** Открыт **Epic 31 «/summary для всех + setMyCommands + таймаут-фразы» (v2.29.0)**: Шаг 1 (PM) ✅ — требования R31-1…R31-8, решения D94–D98 в `plans/backlog.md`; T-235 → @Builder первой, T-236/T-237 параллельно, T-238 (@Builder+@Reviewer), T-239 (@Builder), T-240/T-241 (@DevOps) — в очереди.
