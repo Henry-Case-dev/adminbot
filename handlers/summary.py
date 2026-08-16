@@ -8,11 +8,13 @@ with /summary are NOT saved to memory.
 summary_router (position 0b): /summary manual trigger. ALLOWED_SUMMARY_IDS
 empty = everyone; non-empty = listed IDs only (silent absorb). Handler never
 returns UNHANDLED on its own path (A4) — Slava's catch-all must not fire.
-Epic 25: ack «ща гляну, подожди» before the pipeline (B1), best-effort command
-deletion right after the ack (B7), UX safety net when the generator is not
-injected (B6), INFO logs for every state (B8).
+Epic 25: ack before the pipeline (B1), best-effort command deletion (B7), UX
+safety net when the generator is not injected (B6), INFO logs for every state
+(B8). Epic 29 (D81/D82): команда удаляется СРАЗУ, ДО ack; ack — random.choice
+из пула вариаций _UX_ACK_VARIANTS.
 """
 import logging
+import random
 import time
 
 from aiogram import Bot, Router, types
@@ -32,7 +34,30 @@ _db = None
 _aliases = None
 _bot_id = None
 
-_UX_ACK = "ща гляну, подожди"                 # B1: ручной вызов, до пайплайна
+# B1/D82 (Epic 29): ручной вызов, до пайплайна; random.choice при каждом вызове.
+# Канон (D82) — первым элементом; 20 вариаций, полный список — Section 38.2.
+_UX_ACK_VARIANTS: tuple[str, ...] = (
+    "ща гляну, подожди",                          # канон (D82)
+    "секунду, роюсь в истории",
+    "погнали, сейчас посчитаю шизов",
+    "так, кому тут саммари? ща сделаю",
+    "минуту, перечитываю вашу ленту",
+    "ща, собираю мысли в кучу",
+    "уже бегу по вашим сообщениям",
+    "подожди, листаю архив позора",
+    "сейчас всё разложу по полочкам, ну или не разложу",
+    "одну секунду, вспоминаю кто тут кто",
+    "ща посмотрю, кто тут наговорил",
+    "минуточку, анализирую вашу дичь",
+    "погоди, выжимаю суть из этого балагана",
+    "сейчас, кручу ленту назад",
+    "терпи, читаю как вы тут живёте",
+    "ща, соберу цитатки",
+    "секунду, грею нейроны",
+    "погоди, вытаскиваю главного шиза",
+    "ща, всё посмотрю и расскажу",
+    "минутку, ваш саммари уже в печи",
+)
 _UX_NOT_READY = "не смог сделать саммари"     # B6: страховка вайринга (R13-стиль)
 
 _FORWARD_SOURCE_MAX_CHARS = 100
@@ -205,7 +230,7 @@ async def _delete_command(message: types.Message) -> None:
 
 @summary_router.message(Command("summary"))
 async def cmd_summary(message: types.Message, bot: Bot = None):
-    """Manual summary trigger (R9/D62). Ack → delete → pipeline (B1/B7/B2)."""
+    """Manual summary trigger (R9/D62). Delete → ack → pipeline (D81/B1/B2)."""
     user_id = message.from_user.id if message.from_user else 0
     allowed = settings.ALLOWED_SUMMARY_IDS
     if allowed and user_id not in allowed:
@@ -218,9 +243,9 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
         await _safe_send(bot, message.chat.id, _UX_NOT_READY)
         return
     logger.info("[/summary] triggered | chat=%s user=%s", message.chat.id, user_id)
-    await _safe_send(bot, message.chat.id, _UX_ACK)          # B1: ack ДО пайплайна
+    await _delete_command(message)                                 # D81: удалить СРАЗУ, ДО ack
+    await _safe_send(bot, message.chat.id, random.choice(_UX_ACK_VARIANTS))   # B1/D82: ack из пула
     logger.info("[/summary] ack sent | chat=%s", message.chat.id)
-    await _delete_command(message)                            # B7: best-effort, сразу после ack
     await _generator.generate_and_send(message.chat.id, manual=True)  # B2
     return
 

@@ -2,22 +2,18 @@
 
 ## 📋 Backlog
 
-### Epic 28: Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0) — 2026-08-16 — 🆕 РЕАЛИЗОВАНО (T-211…T-219 ✅, ревью @Reviewer PASS; остался T-220: коммит/деплой)
+### Epic 29: UX-полировка: удаление команды, ack-вариации, промпт v4 (v2.27.0) — 2026-08-16 — 🆕 IN PROGRESS (Шаг 3: @Builder T-222…T-225 DONE → T-226 @DevOps)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R28-1…R28-6, решения D76–D80) → 2/3 (@Architect: дизайн + дословные правила 6/7 промпта) ✅ → 3/3 (@Builder: реализация ✅, @Reviewer: PASS 2026-08-16, 995 passed) — остался T-220 (@Builder + @DevOps + @PM: коммит/деплой).
-> Требования R28-1…R28-6, решения D76–D80, риски 1–8 — в `plans/backlog.md` (Epic 28).
-> ⚠️ T-217 (T-28-G) сдвинет эталон R11 (строки 1518–1538) — хелпер-диапазон `tests/test_summary_prompts.py` и ссылки «1518–1538» в ARCHITECTURE/MEMORY обновлять синхронно (риск 4).
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R29-1…R29-6, решения D81–D84) → 2/3 (@Architect) ✅ (T-221, Section 38) → 3/3 (@Builder/@Reviewer/@DevOps): T-222…T-225 DONE (1002 passed), T-226 PENDING (@DevOps).
+> Требования R29-1…R29-6, решения D81–D84, риски 1–8 — в `plans/backlog.md` (Epic 29).
+> ✅ Промпт v4: эталон R11 обновлён (22 строки, 1518–1539, слайс `lines[1517:1539]`), байт-в-байт снова зелёный; канон пункта 6 пользователя синхронизирован с backlog (D83), входит в коммит T-226-A, НЕ переписывать.
 
-- [x] T-211 (T-28-A) (@Builder, **P0**): Миграция smart_messages: +is_forward INTEGER NOT NULL DEFAULT 0, +forward_source TEXT NOT NULL DEFAULT ''; save_smart_message kw-параметры (позиционная совместимость); расширенные SELECT'ы (get_smart_window, get_smart_raw, search_messages_fts) — **Done**
-- [x] T-212 (T-28-B) (@Builder, **P0**, ←T-211): observer handlers/summary.py: forward_origin (getattr-защита), _extract_forward_source (Channel: chat.title/username + author_signature; User: имя sender_user через алиасы; HiddenUser: sender_user_name; Chat: sender_chat.title/username), try/except, обрезка ~100 симв — **Done**
-- [x] T-213 (T-28-C) (@Builder, **P0**, ←T-211): summary_xml.py: атрибуты is_forward="true" forward_source="..." в конец тега (порядок существующих атрибутов не менять; type занят media_type); row.get("is_forward") для совместимости; экранирование escape; ре-резолв алиасов на лету (всегда): aliases.resolve(user_id, author_name or None, None) — **Done**
-- [x] T-214 (T-28-D) (@Builder, **P0**, ←T-212/T-213): summary_generator.py: ре-резолв алиасов в L2-цитатах и _most_active_author (передать aliases); маркер репостов в цитатах — **Done**
-- [x] T-215 (T-28-E) (@Builder, **P0**, ←T-211/T-212): _build_batch_text: маркировка репостов для L3/GraphRAG («[Оля (репост из «X»)]: текст»); COMPRESS_PROMPT не трогать — **Done**
-- [x] T-216 (T-28-F) (@Builder, **P1**): векторное автолечение: initialize() — пробный llm.embed(["probe"]) → actual_dim; несовпадение с sqlite_master → DROP TABLE smart_archive + пересоздание float[{actual_dim}]; WARNING при расхождении с EMBEDDING_DIM; пустой KNN → FTS5-фоллбек; пробный embed в try/except (не ломать старт). D78: история векторов жертвуется, smart_archive_facts (текст) сохраняется — **Done**
-- [x] T-217 (T-28-G) (@Builder, **P0**, ←дизайн @Architect): SYSTEM_PROMPT — правила 6 и 7 (D76: алиас обязателен при наличии; D77: без алиаса — свобода + креативная интерпретация ника, паттерн «эмодзи-пейзаж» сохранить; репосты не приписывать переславшему) + обновление эталона R11 в backlog.md (строки 1518–1538 сдвинутся) + хелпер tests/test_summary_prompts.py (диапазон строк) + ссылки «1518–1538» в ARCHITECTURE/MEMORY — **Done**
-- [x] T-218 (T-28-H) (@Builder, **P2**): services/summary_cleanup.py (НОВЫЙ): REPLACEMENTS («»→", „“→", —→-, –→-), cleanup_llm_text, расширяемый список правил; вставка в _run сразу после llm.generate ДО _ensure_shiz_postfix — **Done**
-- [x] T-219 (T-28-I) (@Builder + @Reviewer, **P0**, ←T-212…T-218): тесты на всё + полный прогон (939 baseline + новые) — **Done (@Reviewer: PASS 2026-08-16, 995 passed)**
-- [ ] T-220 (T-28-J) (@Builder + @DevOps + @PM, **P1**, ←T-219): коммит + пуш; деплой: git pull, restart, проверка логов (нет Dimension mismatch; алиасы работают), при необходимости EMBEDDING_DIM=3072 в прод .env или автолечение; инструкция для пользователя при ручных действиях (D80)
+- [x] 👤 T-221 (@Architect, **P0**): /summary — удалять команду СРАЗУ: `_delete_command` ДО ack (best-effort try/except сохранить; порядок логов triggered → command deleted → ack sent; Section 38) — **Done (DESIGN ✅)**
+- [x] T-222 (@Builder, **P1**, ←T-221): ~20 вариаций ack-фраз в стиле «ща гляну, подожди» (пул + `random.choice`, канон в пуле — D82); 4 теста (tests/test_summary_handlers.py:400/438/661/700) → `assert in` вариаций; docstring — **Done**
+- [x] T-223 (@Builder, **P0**, ←решение нумерации @Architect): промпт v4: удалить пункт 3 (типографика → cleanup); пункт 6 — канон пользователя (D83); нумерация — зазор «1,2,4,5,6,7» — D84; эталон backlog + слайс `lines[1517:1539]` + docstring + ссылки «1518–1539» — **Done (байт-в-байт ✅)**
+- [x] T-224 (@Builder, **P1**, ←T-221/T-223): доки: ARCHITECTURE (36.2/36.3/37.x, B1/B7 порядок), MEMORY (10/102/214), README:176 («расстрел типографики» → cleanup), grep-проверка T-220 — **Done**
+- [x] T-225 (@Builder + @Reviewer, **P0**, ←T-222/T-223): тесты + полный прогон (995 baseline, 0 регрессий; байт-в-байт снова зелёный) — **Done (1002 passed; ревью @Reviewer — T-225-C)**
+- [ ] T-226 (@Builder + @DevOps, **P0**, ←T-225): коммит (feat(summary): Epic 29 … (v2.27.0), канон пользователя в коммите) + пуш + деплой (git pull, restart, проверка логов: triggered → command deleted → ack sent)
 
 ## 🔧 In Progress
 
@@ -28,6 +24,25 @@
 *No items in review.*
 
 ## ✅ Done
+
+### Epic 29: T-221…T-225 — UX-полировка (код + тесты + доки) — ✅ DONE (@Builder, 1002 passed, байт-в-байт ✅; T-226 — коммит/деплой впереди)
+
+> Перенесено из Backlog при завершении (@Builder, 2026-08-16). Полный трек — `plans/backlog.md` (Epic 29).
+> **Итог:** T-221 (@Architect) — Section 38 (38.1–38.7), DESIGN ✅; T-222 — пул 20 ack-фраз (`_UX_ACK_VARIANTS`, канон первым) + `random.choice`, delete ДО ack; T-223 — промпт v4 (пункт 3 удалён, пункт 6 — канон пользователя дословно), эталон backlog 1518–1539 (22 строки), слайс `lines[1517:1539]`; T-224 — доки (ARCHITECTURE/MEMORY/README/board); T-225 — тесты + полный прогон 1002 passed (995 baseline + 7 новых), 0 failed, 0 skipped, `git diff --check` чист. Остаток: T-226 (@DevOps) — коммит `feat(summary): Epic 29 — … (v2.27.0)` + пуш + деплой.
+
+- [x] T-221 (@Architect, P0) — Section 38 (38.1–38.7), порядок delete→ack — **Done (DESIGN ✅)**
+- [x] T-222 (@Builder, P1) — пул ack-фраз + `random.choice` + 4 ассерта → принадлежность пулу — **Done**
+- [x] T-223 (@Builder, P0) — промпт v4 + эталон backlog + слайс `lines[1517:1539]` — **Done (байт-в-байт ✅)**
+- [x] T-224 (@Builder, P1) — доки (ARCHITECTURE/MEMORY/README/board) — **Done**
+- [x] T-225 (@Builder + @Reviewer, P0) — тесты + полный прогон 1002 passed — **Done (ревью @Reviewer — T-225-C)**
+
+### Epic 28: T-211…T-220 — качество памяти: векторы, репосты, алиасы, очистка — ✅ DEPLOYED (v2.26.0, коммит `ac80ce8` + `ccfad99`, 995 тестов)
+
+> Перенесено из колонки Backlog при архивации (PM, 2026-08-16). Полный трек — `plans/backlog.md` (Epic 28).
+> **Итог:** T-211…T-219 реализованы (@Builder), ревью @Reviewer PASS (995 passed). T-220 DONE: коммит `ac80ce8` «feat(summary): Epic 28 — качество памяти: репосты, алиасы, векторное автолечение и cleanup (v2.26.0)» + пуш в origin/master; деплой выполнен (git pull, restart, логи проверены: нет Dimension mismatch, алиасы работают). Шаг 8 (@Memory): `ccfad99` — финальная синхронизация. ЭПИК 28 ЗАКРЫТ.
+
+- [x] T-211…T-219 (@Builder, @Reviewer) — реализация + ревью PASS (995 passed) — **Done**
+- [x] T-220 (@Builder + @DevOps + @PM) — коммит `ac80ce8` + пуш + деплой v2.26.0 + Шаг 8 `ccfad99` — **Done**
 
 ### Epic 27: T-207…T-210 — новый системный промпт + SUMMARY_ALIASES на прод — ✅ DEPLOYED (v2.25.0, коммиты `1d7bed4` + `17fcd18`, 939 тестов, PID 934174)
 
@@ -467,4 +482,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — **Epics 1-27 ALL DEPLOYED ✅ и архивированы в колонке Done (PM)**. Epic 27 «Новый системный промпт + алиасы на прод» (v2.25.0, коммиты `1d7bed4` + `17fcd18`, PID 934174, 939 тестов, T-207…T-210) перенесён в Done — финальная синхронизация после деплоя (Шаг 8). **Epic 28 «Качество памяти: векторы, репосты, алиасы, очистка» (v2.26.0) — РЕАЛИЗОВАНО (T-211…T-219 ✅, ревью @Reviewer PASS 2026-08-16, 995 passed):** требования R28-1…R28-6 и решения D76–D80 реализованы; дизайн @Architect и дословные правила 6/7 ✅; остался T-220 (коммит/деплой @DevOps). Полный трек — `plans/backlog.md` (Epic 28).
+**Updated:** 2026-08-16 — **Epic 29 «UX-полировка: удаление команды, ack-вариации, промпт v4» (v2.27.0) — Шаг 3 (@Builder):** T-222…T-225 DONE — пул 20 ack-фраз + `random.choice`, delete ДО ack, промпт v4 (пункт 3 удалён, пункт 6 — канон пользователя, зазор-нумерация), эталон backlog 1518–1539 (22 строки), доки синхронизированы; полный прогон 1002 passed (995 baseline + 7 новых), 0 failed, `git diff --check` чист. T-221 снят с In Progress (DESIGN ✅). Впереди: T-226 (@DevOps) — коммит `feat(summary): Epic 29 … (v2.27.0)` + пуш + деплой. Канон пункта 6 пользователя — в коммите T-226-A, НЕ переписан (D83).
