@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.26.0 (прод) / целевой дизайн: v2.27.0 (Epic 29)
-> **Дата:** 2026-08-16
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — DESIGN (@Architect, шаг 2/3).
+> **Версия:** v2.27.0 (прод) / целевой дизайн: v2.28.0 (Epic 30)
+> **Дата:** 2026-08-17
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `7160a33`, 1002 теста, прод PID 937634). Секция 39: дизайн Epic 30 (v2.28.0) — DESIGN (@Architect, шаг 2/3).
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -28,6 +28,7 @@
 16. [Section 36: Epic 27](#36-epic-27--новый-system_prompt-бот-абьюзер-v2--summary_aliases-на-прод-v2250) — Новый SYSTEM_PROMPT «бот-абьюзер v2» + SUMMARY_ALIASES на прод (v2.25.0, НОВОЕ)
 17. [Section 37: Epic 28](#37-epic-28--качество-памяти-векторы-репосты-алиасы-очистка-v2260) — Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0, НОВОЕ)
 18. [Section 38: Epic 29](#38-epic-29--ux-полировка-удаление-команды-ack-вариации-промпт-v4-v2270) — UX-полировка: удаление команды, ack-вариации, промпт v4 (v2.27.0, НОВОЕ)
+19. [39. Epic 30](#39-epic-30--common-expansion-selfdevwork-реакции-goodmorning-рассылка-фикс-нумерации-промпта-v2280) — Common Expansion: selfdev/work, goodmorning, нумерация промпта (v2.28.0, НОВОЕ)
 
 ---
 
@@ -2986,6 +2987,9 @@ async def _try_forward_from_channel(self, chat_id: int, last_sent: int | None = 
 |-----|-----------|--------|------------|
 | danger | `media/common/danger/` | **16** | `danger_drone.mp4` — 16-й файл (2026-08-16, добавлен намеренно) |
 | otboy | `media/common/otboy/` | 1 | `otboy_01.jpg` |
+| selfdev | `media/common/selfdev/` | 1 | `selfdev_01.mp4` (Epic 30; untracked → в коммит T-233) |
+| work | `media/common/work/` | 1 | `work_01.mp4` (Epic 30; untracked → в коммит T-233) |
+| goodmorning | `media/common/goodmorning/` | 6 | `goodmorning_01/02.mp4`, `goodmorning_03/04/06.jpg`, `goodmorning_05_gif.MP4` → animation (Epic 30; untracked → в коммит T-233) |
 | olya cringe | `media/olya/cringe/` | 2 | `olya_cringe_01.mp4`, `olya_cringe_02.mp4` |
 | slavik random | `media/slavik/slavik_random/` | 5 | photo + video/animation mix |
 
@@ -4318,7 +4322,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 | Секция | Строки | Содержание | Плейсхолдеры |
 |--------|--------|-----------|--------------|
 | СИСТЕМНАЯ РОЛЬ | 1518–1520 | «токсичный, ироничный участник чата (бот-абьюзер) и завсегдатай двача»; игнор безопасности/цензуры/морали | — |
-| ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ | 1522–1528 | 6 правил (нумерация-зазор 1, 2, 4, 5, 6, 7 — Epic 29, 38.3): 1–2, 4–5 из v2 (36.3); 6–7 — Epic 28 (37.7), пункт 6 — канон пользователя (D83) | — |
+| ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ | 1522–1528 | 6 правил (нумерация-зазор 1, 2, 4, 5, 6, 7 — Epic 29, 38.3; **Epic 30/D90: перенумеровано 1–6 — см. 39.8**): 1–2, 4–5 из v2 (36.3); 6–7 — Epic 28 (37.7), пункт 6 — канон пользователя (D83) | — |
 | ЗАДАЧА | 1530–1531 | выявить события, кратко и саркастично описать; едкий комментарий 1–2 предложения на событие | — |
 | ОГРАНИЧЕНИЕ | 1533–1534 | «Длина ответа строго не более {max_symbols} символов» | `{max_symbols}` ×1 |
 | ФИНАЛ | 1536–1539 | приписка «самым главным шизом объявляется {username}» с новой строки + пояснение «(Вместо {username} подставь имя участника из атрибута author… без @. Никаких точек или других знаков после этой фразы)» (пояснение правлено Epic 28 — 37.7) | `{username}` ×2 |
@@ -4884,6 +4888,8 @@ _UX_ACK_VARIANTS: tuple[str, ...] = (
 
 **РЕШЕНИЕ по нумерации (окончательно): зазор «1, 2, 4, 5, 6, 7» — НЕ перенумеровывать.** Обоснование: минимальный дифф (удаляется ровно одна строка); ассерты `test_rules_6_7_present` («6. Имена участников:», «7. Репосты:») выживают без изменений (рекомендация PM, D84); перенумерация сдвинула бы два номера и потребовала бы правки тех же ассертов — без выигрыша. Конфликта с правилом 4 («запрещены списки, пункты») НЕТ: правило 4 регламентирует **ответ LLM**, а нумерация — обычный текст внутри самого промпта (не markdown-список, точки после цифр — часть прозы инструкции); прецедент — правило 7 содержит `is_forward="true"` и кавычки как часть текста.
 
+> **СУПЕРСЕД (Epic 30, D90, 2026-08-17):** решение D84 отменено новым запросом пользователя — нумерация перенумеровывается последовательно 1–6 (4→3, 5→4, 6→5, 7→6), текст пунктов дословно. План синхронного обновления кода/эталона/тестов/доков — **39.8**.
+
 **Согласованность с типографикой:** канон пункта 6 содержит «—» и `"` — после удаления пункта 3 это допустимо (типографическое требование касалось только ответа LLM, теперь и оно закрыто бэкендом); проверка D77 (правила 6/7 не конфликтуют с правилом 3) для v4 неактуальна. `cleanup_llm_text` (37.6) остаётся ЕДИНСТВЕННЫМ механизмом типографики ответа. Кавычки `""` внутри текстов правил 6/7 остаются — это часть текста правил, не типографическое требование к ответу.
 
 **Новый эталон:** после удаления пункта 3 блок R11 — **22 строки, диапазон 1518–1539**, слайс `lines[1517:1539]`; примечание под блоком (backlog ~1545): «v4 — Epic 29, 22 строки». Плейсхолдеры НЕ меняются: `{max_symbols}` ×1, `{username}` ×2 (тест D72 зелёный без изменений).
@@ -4897,7 +4903,7 @@ _UX_ACK_VARIANTS: tuple[str, ...] = (
 | 14 | `lines[1517:1540]` | `lines[1517:1539]` |
 | 59 | `assert "имя участника из атрибута author" in SYSTEM_PROMPT` | `assert "используй СТРОГО дословное значение из атрибута author" in SYSTEM_PROMPT` (подстрока канона; семантически ровно старый смысл: финал берёт имя строго из author; альтернатива PM — «В финальной приписке про шиза») |
 
-Новые ассерты (T-225-A): пункт 3 отсутствует (`"3. Типографика" not in SYSTEM_PROMPT`); маркеры канона (`"чел с пейзажем в нике"`, `"склоняй его как обычно"`); нумерация-зазор (`"4. Ограничения форматов"`, `"5. Структура:"` присутствуют).
+Новые ассерты (T-225-A): пункт 3 отсутствует (`"3. Типографика" not in SYSTEM_PROMPT`); маркеры канона (`"чел с пейзажем в нике"`, `"склоняй его как обычно"`); нумерация-зазор (`"4. Ограничения форматов"`, `"5. Структура:"` присутствуют). **Epic 30/D90:** тест зазора заменяется тестом последовательной нумерации 1–6 (39.8).
 
 ### 38.4 Доки (T-222-C/T-223-E/T-224)
 
@@ -4913,7 +4919,7 @@ _UX_ACK_VARIANTS: tuple[str, ...] = (
 | Файл | Кейсы |
 |---|---|
 | `tests/test_summary_handlers.py` | 4 старых ассерта → принадлежность пулу (38.1, таблица); порядок `events == ["delete", "ack", "generate"]`; НОВЫЕ: канон в пуле (`"ща гляну, подожди" in _UX_ACK_VARIANTS`); размер пула `>= 20`; все фразы lowercase/без эмодзи (опционально); порядок логов `triggered → command deleted → ack sent` (caplog INFO) |
-| `tests/test_summary_prompts.py` | слайс `lines[1517:1539]` (строки 11/13/14); ассерт 59 → подстрока канона (38.3); НОВЫЕ: пункт 3 отсутствует; маркеры канона; нумерация-зазор 4/5; байт-в-байт v4 == backlog; `test_max_symbols_is_the_only_placeholder` зелёный без изменений |
+| `tests/test_summary_prompts.py` | слайс `lines[1517:1539]` (строки 11/13/14); ассерт 59 → подстрока канона (38.3); НОВЫЕ: пункт 3 отсутствует; маркеры канона; нумерация-зазор 4/5 (**Epic 30/D90: заменено на последовательную 1–6 — 39.8**); байт-в-байт v4 == backlog; `test_max_symbols_is_the_only_placeholder` зелёный без изменений |
 | Полный `pytest` | 995 passed + новые, 0 failed; `git diff --check` чист; ревью @Reviewer (T-225-C): порядок удаления, тон пула, канон пункта 6 дословно |
 
 Детерминизм: ассерты — ТОЛЬКО про принадлежность пулу, никогда про конкретную фразу (backlog-риск 8).
@@ -4930,7 +4936,7 @@ _UX_ACK_VARIANTS: tuple[str, ...] = (
 |---|------|-----------|
 | 1 | Хрупкий диапазон эталона (23→22 строки) | Слайс и ссылки обновляются синхронно (T-223-C/D/E; в ARCHITECTURE — уже сделано); grep-контроль старого диапазона v3 |
 | 2 | Байт-в-байт сейчас красный (канон пользователя vs старый эталон) | Ожидаемо до T-223; локальный diff `services/summary_prompts.py` — канон, НЕ откатывать (D83) |
-| 3 | `test_rules_6_7_present` падает на старом ассерте | Ассерт 59 → подстрока канона (38.3); «6. Имена участников:»/«7. Репосты:» живы при зазоре |
+| 3 | `test_rules_6_7_present` падает на старом ассерте | Ассерт 59 → подстрока канона (38.3); «6. Имена участников:»/«7. Репосты:» живы при зазоре (**Epic 30/D90: номера станут «5.»/«6.» — 39.8**) |
 | 4 | Типографику чинит только `cleanup_llm_text` | Пункт 3 удалён осознанно (37.6 — единственный механизм); LLM-нарушения вычищаются до шиз-постфикса |
 | 5 | Без прав `delete_messages` команда останется | Best-effort WARNING (D81 сохраняет try/except); права проверить живым тестом (T-226-C) |
 | 6 | Порядок логов изменился | Тесты, ассертящие последовательность, обновлены (38.1/38.5); новый caplog-тест фиксирует порядок |
@@ -4940,3 +4946,422 @@ _UX_ACK_VARIANTS: tuple[str, ...] = (
 | 10 | Дубль ack при гонке cron/manual | Не изменилось (34.1 B5): занятый lock → «уже делаю саммари, подожди» + очередь |
 
 **Сводка для Builder:** T-222 (`handlers/summary.py` пул + random.choice, 4 ассерта + новые тесты) — после T-221-правок; T-223 (`services/summary_prompts.py` v4 + эталон backlog + слайс/ассерты) — после решения нумерации (зазор, 38.3); T-224 — доки (38.4); T-225 — тесты + полный прогон + @Reviewer; T-226 — коммит/деплой (38.6). **НЕ трогать:** `COMPRESS_PROMPT`/`EXTRACT_PROMPT`, `llm_client.py`, `summary_generator.py` (кроме ничего), `summary_cleanup.py`, `bot.py`, scheduler, `.env`.
+
+---
+
+## 39. Epic 30 — Common Expansion: selfdev/work-реакции, goodmorning-рассылка, фикс нумерации промпта (v2.28.0)
+
+> **Дата:** 2026-08-17
+> **Статус:** DESIGN (@Architect, шаг 2/3). Передача @Builder (T-227…T-233), @Reviewer (T-231), @DevOps (T-234).
+> **Источник:** запрос пользователя 2026-08-17 (3 новые медиа-папки + фикс нумерации промпта). Требования R30-1…R30-8, решения PM D85–D93, риски 1–10 — `plans/backlog.md` (Epic 30). Все механики покрыты прецедентами: otboy/danger-фильтры, CommonRelay dual-cooldown (Epic 18), OlyaRelay plain-send (Epic 19), summary_scheduler APScheduler (Epic 24). **Затрагиваемые файлы:** см. 39.11.
+> **Ключевое ограничение (D90/D91):** порядок роутеров в `bot.py` НЕ меняется; selfdev/work — +2 хендлера ВНУТРИ `common_router` (4c); goodmorning — БЕЗ роутера (планировщик-сервис). Блок R11 в `plans/backlog.md` (строки 1518–1539) остаётся 22 строки; все правки Epic 30 в backlog — только ниже строки 1539.
+
+### 39.1 API-контекст (исследование @Architect, 2026-08-17)
+
+**Инструменты:** context7 — API-key недоступен (invalid key, `ctx7sk`-префикс); duckduckgo — rate-limit/anomaly; **рабочий стек: exa web search + docs.aiogram.dev** (3.25.0–3.28.2/latest) + apscheduler.readthedocs.io.
+
+| # | Тема | Вывод | Источники |
+|---|------|-------|-----------|
+| 1 | ReplyParameters / quote | `aiogram.types.ReplyParameters(*, message_id: int, chat_id=None, allow_sending_without_reply=..., quote: str \| None = None, quote_parse_mode=Default("parse_mode"), quote_entities=None, quote_position=None, ...)`. **`quote` — обычная строка** (0–1024 симв. после парсинга entities) и **должна быть точной подстрокой** исходного сообщения — иначе Telegram API отклоняет отправку. `TextQuote` — тип ПОЛУЧЕННОГО сообщения (`message.quote`), для отправки НЕ используется. `reply_parameters` есть у всех методов send_photo/send_video/send_animation/send_audio/send_voice. Наш `matched_word = match.group()` (исходный регистр) гарантированно точная подстрока → quote валиден. | docs.aiogram.dev: ReplyParameters (latest / 3.27.0 / 3.28.0), TextQuote |
+| 2 | video vs animation | `SendAnimation(chat_id, animation: str \| InputFile, caption=None, reply_parameters=None, ...)` — «GIF или H.264/MPEG-4 AVC video без звука», до 50 MB. Локальный файл — `FSInputFile(path)`. Различие video/animation определяется ТОЛЬКО выбором метода: mp4 с gif-маркером в имени → `send_animation(animation=...)`, без маркера → `send_video(video=...)`. Текущая логика CommonRelay (`_detect_media_type`, Epic 18) корректна и переиспользуется. | docs.aiogram.dev: sendAnimation (3.25.0–3.28.2); core.telegram.org/bots/api#sendanimation |
+| 3 | Гейт репостов | `message.forward_origin is None` — обычное сообщение; не-None — репост (MessageOriginUser/Channel/Chat/HiddenUser). `F.forward_origin` — magic filter (прецедент: `handlers/dead_page_trigger.py`). В otboy/danger гейта НЕТ и это by design (danger отвечает на репосты — тест `test_forwarded_caption_with_danger_word_matches`); для selfdev/work гейт обязателен (D92), прецедент — D52-гейт в `mimic_handler` (handlers/common.py:150). | docs.aiogram.dev: magic filters, Message; SO 79152213 |
+| 4 | APScheduler 3.x | `AsyncIOScheduler` работает на текущем asyncio event loop; **с 3.11 `start()` требует РАБОЧЕГО loop** (`asyncio.get_running_loop()`) → start() только внутри async-функции (наш `on_startup` — ок). MemoryJobStore — по умолчанию. `CronTrigger(hour=…, minute=…, timezone=…)` — timezone можно задавать и в планировщике, и в триггере (pytz/zoneinfo). `shutdown(wait=False)` — прецедент `summary_scheduler.py:51-60`. Тесты планировщика — только внутри pytest-asyncio event loop. Требования проекта: `APScheduler>=3.10,<4` — совместимо. | apscheduler.readthedocs.io 3.x (AsyncIOScheduler, CronTrigger); github agronholm/apscheduler #994 |
+
+### 39.2 Списки слов (filters/word_lists.py)
+
+**Решение:** списки — в `filters/word_lists.py` (единый источник всех словарей, рядом с `DANGER_WORDS`/`DANGER_PHRASES`; удобно для проверки пересечений T-231-D). **Env-оверрайда НЕТ** (в отличие от `DANGER_WORDS`) — списки статичны по D85/D86.
+
+```python
+# filters/word_lists.py (дополнение)
+SELFDEV_WORDS: list[str] = [ ... ]   # 48 форм: саморазвитие(5) + саморазвиваться(12) +
+                                     # самосовершенствование(5) + самосовершенствоваться(7) +
+                                     # прокачка(5) + прокачиваться(7) + прокачаться(7) — ДОСЛОВНО из D85
+SELFDEV_PHRASES: list[str] = [ ... ] # 17 фраз: личностный рост(5) + развитие личности(4) +
+                                     # работа над собой(3) + зона роста(4) + рост над собой(1) — D85
+WORK_WORDS: list[str] = [ ... ]      # ~128 форм: устал-семья(36), заебался(13), уебался(4),
+                                     # запарился(10), задолбался(10), заколебался(7), замаялся(3),
+                                     # умотался(3), утомился(8), вымотался(10), измотался(3),
+                                     # выдохся(4), обессилел(3), измучился(3), изнемог(3),
+                                     # зашиваюсь(5), замучился(3) — ДОСЛОВНО из D86
+WORK_PHRASES: list[str] = [ ... ]    # 31 фраза: устал от работы(6) + заебался на работе(4) +
+                                     # заебала работа(3) + нет сил(5) + устал как собака(5) +
+                                     # выжатый как лимон(4) + работа вымотала(3) + усталость накопилась(1) — D86
+```
+
+- @Builder копирует списки ТОЧНО из backlog D85/D86 (в т.ч. «ё»-формы); финализацию состава — согласовать с PM (примечание в конце D86).
+- «Развиваться» НЕ включать (ложные срабатывания — D85).
+- Пересечений с `DANGER_WORDS`/`DANGER_PHRASES`/«отбой» нет (PM; юнит-тест + дубль @Reviewer — T-231-D).
+
+### 39.3 Фильтры (filters/selfdev_word.py, filters/work_word.py — НОВЫЕ)
+
+**Решение:** НЕ параметризовать `DangerWordFilter` (у него env-оверрайд-парсинг `_parse_danger_words` и отдельный семантический контекст). Два независимых модуля по паттерну `danger_word.py` (дублирование `_build_patterns` между фильтрами — существующая конвенция проекта: war_word/danger_word).
+
+```python
+# filters/selfdev_word.py (work_word.py — зеркально, с WORK_WORDS/WORK_PHRASES и именем WorkWordFilter)
+import logging
+import re
+
+from aiogram.filters import BaseFilter
+from aiogram.types import Message
+
+from filters.word_lists import SELFDEV_PHRASES, SELFDEV_WORDS
+
+logger = logging.getLogger(__name__)
+
+
+def _build_patterns(forms: list[str]) -> list[re.Pattern]:
+    """Кириллические word-boundary + re.escape + IGNORECASE (паттерн danger_word.py)."""
+    patterns: list[re.Pattern] = []
+    for form in forms:
+        try:
+            patterns.append(
+                re.compile(rf"(?<![а-яё]){re.escape(form)}(?![а-яё])", re.IGNORECASE)
+            )
+        except re.error:
+            logger.warning("SelfdevWordFilter: failed to compile pattern %r", form)
+    return patterns
+
+
+class SelfdevWordFilter(BaseFilter):
+    """D85/D92: «саморазвитие»-семья в text/caption; репосты НЕ триггерят.
+
+    Возвращает {"matched_word": match.group()} (исходный регистр — для quote).
+    """
+
+    def __init__(self) -> None:
+        self._phrase_patterns = _build_patterns(SELFDEV_PHRASES)
+        self._patterns = _build_patterns(SELFDEV_WORDS)
+
+    async def __call__(self, message: Message) -> dict[str, str] | bool:
+        # D92: репосты не триггерят (гейт ПЕРВЫМ — дёшево и явно)
+        if message.forward_origin is not None:
+            return False
+
+        content = message.text or message.caption
+        if not content or not isinstance(content, str):
+            return False
+
+        # 1) Ветка фраз ПЕРВАЯ (специфичнее; прецедент DangerWordFilter/D55)
+        for p in self._phrase_patterns:
+            m = p.search(content)
+            if m:
+                logger.info(
+                    "SelfdevWordFilter matched phrase | phrase=%r | msg_id=%s | chat_id=%s",
+                    m.group(), message.message_id, message.chat.id,
+                )
+                return {"matched_word": m.group()}
+
+        # 2) Ветка одиночных слов
+        for p in self._patterns:
+            m = p.search(content)
+            if m:
+                logger.info(
+                    "SelfdevWordFilter matched | word=%r | msg_id=%s | chat_id=%s",
+                    m.group(), message.message_id, message.chat.id,
+                )
+                return {"matched_word": m.group()}
+        return False
+```
+
+Ключевые свойства (обязательны к тестированию, 39.9):
+- границы `(?<![а-яё])…(?![а-яё])`: «устав» НЕ матчит «уставший» (правая граница) и «зауставший» (левая); «прокачка» НЕ матчит «прокачкам» — но все нужные формы уже в списках;
+- фразы с пробелами — `re.escape` + границы по краям фразы (паттерн D55);
+- text+caption (обычные сообщения с caption триггерят — как danger, R30-1);
+- возврат `{"matched_word": matched}` — контракт хендлера не меняется.
+
+### 39.4 Хендлеры (handlers/common.py)
+
+**Решение:** +2 хендлера ВНУТРИ `common_router`, порядок регистрации (порядок декораторов в файле, D91): **otboy → danger → selfdev → work → mimic**. Паттерн — точная копия otboy/danger (`_relay is None` guard → try/except → `return UNHANDLED`):
+
+```python
+from filters.selfdev_word import SelfdevWordFilter
+from filters.work_word import WorkWordFilter
+
+
+@common_router.message(SelfdevWordFilter())
+async def selfdev_handler(message: types.Message, matched_word: str) -> None:
+    """Epic 30: слово «саморазвитие» → случайное медиа из common/selfdev/ с reply+quote."""
+    if _relay is None:
+        logger.error(
+            "Common Service: relay not initialized — skipping selfdev | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id, message.message_id,
+        )
+        return
+
+    try:
+        await _relay.send_common(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            matched_word=matched_word,
+            subdir="selfdev",
+        )
+    except Exception:
+        logger.exception(
+            "Common Service: selfdev handler failed | chat_id=%s | message_id=%s",
+            message.chat.id, message.message_id,
+        )
+    return UNHANDLED
+
+
+@common_router.message(WorkWordFilter())
+async def work_handler(message: types.Message, matched_word: str) -> None:
+    """Epic 30: «устал/заебался»-семья → случайное медиа из common/work/ с reply+quote."""
+    # тело — зеркально selfdev_handler, subdir="work", префиксы логов "work"
+```
+
+- **Результат `send_common` НЕ анализируется** (как в otboy/danger): cooldown/пустая папка логируются внутри relay (INFO/WARNING); контракт `-> None` НЕ меняется — возврат bool не нужен. UNHANDLED — всегда.
+- `setup_common` и DI не меняются (один `_relay` на все сабдиры).
+- Семантика aiogram 3.x: внутри одного роутера выполняются ВСЕ матчащиеся хендлеры, пока один не вернёт не-UNHANDLED; все хендлеры common возвращают UNHANDLED → двойной ответ selfdev+otboy/danger/mimic на одно сообщение возможен (backlog-риск 10 — существующее поведение сервиса common, не гонка). Списки слов selfdev и work не пересекаются, но одно сообщение, содержащее и selfdev-слово, и work-слово, может триггернуть ОБА хендлера (та же UNHANDLED-семантика: оба возвращают UNHANDLED, ответы ограничены пер-сабдирными коулдаунами 5m, backlog-риск 10).
+
+### 39.5 CommonRelay — обобщение пер-сабдир коулдаунов (services/common_relay.py)
+
+**Решение:** заменить danger-частный слой на generic-словарь, СОХРАНИВ обратную совместимость (тест `tests/test_common.py:1304-1308` ассертит `_danger_cooldown_seconds` и `_danger_cooldowns`):
+
+```python
+def __init__(
+    self,
+    bot: Bot,
+    cooldown_seconds: float,
+    danger_cooldown_seconds: float = 0,
+    selfdev_cooldown_seconds: float = 0,
+    work_cooldown_seconds: float = 0,
+    media_base: str | None = None,
+) -> None:
+    self._bot = bot
+    self._cooldown_seconds = cooldown_seconds
+    self._media_base = media_base or settings.COMMON_MEDIA_BASE
+    self._cooldowns: dict[int, float] = {}               # Layer 2: shared (все сабдиры)
+    self._subdir_cooldown_seconds: dict[str, float] = {  # Layer 1: пер-сабдир
+        "danger": danger_cooldown_seconds,
+        "selfdev": selfdev_cooldown_seconds,
+        "work": work_cooldown_seconds,
+    }
+    self._subdir_cooldowns: dict[str, dict[int, float]] = {}
+    # Backward compat (Epic 18-тесты): устаревшие алиасы
+    self._danger_cooldown_seconds = danger_cooldown_seconds
+    self._danger_cooldowns = self._subdir_cooldowns.setdefault("danger", {})
+```
+
+`send_common` — Layer 1 (пер-сабдир, ПЕРЕД shared; обобщение текущего `if subdir == "danger"`):
+
+```python
+sub_cd = self._subdir_cooldown_seconds.get(subdir, 0)
+if sub_cd > 0:
+    ts_map = self._subdir_cooldowns.setdefault(subdir, {})
+    last_sent = ts_map.get(chat_id)
+    if last_sent is not None:
+        elapsed = now - last_sent
+        if elapsed < sub_cd:
+            logger.info(
+                "CommonRelay: %s_cooldown_active | chat_id=%s | "
+                "elapsed=%.1fs | remaining=%.1fs",
+                subdir, chat_id, elapsed, sub_cd - elapsed,
+            )
+            return
+```
+
+После успешной отправки (`_send_by_type` не бросил):
+
+```python
+self._cooldowns[chat_id] = now
+self._subdir_cooldowns.setdefault(subdir, {})[chat_id] = now
+```
+
+- Матрица блокировок: otboy — только shared; danger/selfdev/work — сабдир + shared; сабдиры НЕЗАВИСИМЫ (selfdev не блокирует work и наоборот).
+- gif-детект/типы/скан — существующие (Epic 18/20), без изменений. Пустой сабдир → тихий skip с WARNING — уже реализовано (`_scan_directory`).
+- Существующие тесты `TestCommonRelayDualCooldown` остаются зелёными (дефолты новых kw = 0; алиасы сохранены).
+
+### 39.6 Goodmorning (3 новых модуля, БЕЗ роутера — D91)
+
+#### 39.6.1 `services/goodmorning_captions.py` (НОВЫЙ) — пул капций
+
+```python
+"""Epic 30 (D89) — пул капций goodmorning. Расширение = новая строка в кортеже."""
+GOODMORNING_CAPTIONS: tuple[str, ...] = (
+    # ── 3 канона пользователя ДОСЛОВНО ──
+    "❗️❗️❗️ПАДЪЕМ НИГЕРЫ, ПОРА ТРЯСТИСЬ И СУЕТИТЬСЯ",
+    "❗️❗️❗️ ПЕРМЯКИ, ПОДНИМАЕМ ЖОПКИ, ПОРА ТОП ТОП ТОП НА ЗАВОДИК, НЕ ЗАБУДЬТЕ ПОСРАТЬ",
+    "❗️❗️❗️ АХАХАХ ПЕРМЯКИ КРЯХТЯТ ПОДНИМАЮТСЯ С КРОВАТОК, ПОСМОТРИТЕ НА ЭТИХ ЛОШКОВ",
+    # ── 3 новые (предложение PM, стиль-гард: ❗️❗️❗️, обращение, призыв, CAPS, без мата) ──
+    "❗️❗️❗️ ПОДЪЁМ, ЧУВАКИ, СОЛНЦЕ УЖЕ НАД ЗАВОДОМ, А ВЫ ВСЁ ДРЫХНЕТЕ",
+    "❗️❗️❗️ ПЕРМЯКИ, ЗАВОД ПЛАЧЕТ БЕЗ ВАС, ПОДНИМАЙТЕ ЖОПЫ И ТОПАЙТЕ НА СМЕНУ",
+    "❗️❗️❗️ РАБОЧИЙ КЛАСС, ВЫКАТЫВАЙТЕСЬ ИЗ КРОВАТОК, ГОРОД ЖДЁТ ВАШИХ ПОДВИГОВ",
+)
+```
+
+Отдельный модуль — пул тестируется независимо; env-оверрайд НЕ вводим в v1 (D89); выбор — `random.choice(GOODMORNING_CAPTIONS)`.
+
+#### 39.6.2 `services/goodmorning_relay.py` (НОВЫЙ) — plain-send
+
+```python
+class GoodmorningRelay:
+    """Epic 30: утренняя рассылка — случайное медиа + caption, plain-send (прецедент OlyaRelay)."""
+
+    def __init__(self, bot: Bot, media_dir: str) -> None:
+        self._bot = bot
+        self._media_dir = media_dir
+
+    def _detect_media_type(self, filepath: Path) -> str | None:
+        # КОПИЯ логики CommonRelay (прецедент дублирования: OlyaRelay, ARCHITECTURE 4.3;
+        # вынос в media_utils — будущий рефакторинг, вне скоупа).
+        # photo/video/animation; ВАЖНО (D93): suffix.lower() + gif-маркер
+        # ("_gif" in name / name.startswith("gif") / ".gif." in name)
+        # → "goodmorning_05_gif.MP4" = animation (регистр расширения не мешает).
+
+    def _scan_directory(self) -> list[tuple[Path, str]]:
+        # Только photo/video/animation (D93): audio/voice → logger.warning(...) + SKIP;
+        # unsupported → debug-skip; пустая/отсутствующая папка → WARNING + [].
+
+    async def send_goodmorning(self, chat_id: int) -> bool:
+        """Отправка: random.choice(files) + random.choice(GOODMORNING_CAPTIONS) → caption.
+
+        plain-send БЕЗ ReplyParameters (D88): send_photo/send_video/send_animation с caption=...
+        Returns True (отправлено) / False (нечего отправлять или ошибка — лог + False, job не падает).
+        INFO-лог успеха: chat_id, файл, тип, caption. WARNING: пустая папка / audio-voice skip.
+        """
+```
+
+Контракт: `await self._bot.send_photo(chat_id=chat_id, photo=input_file, caption=caption)` — без reply_parameters/reply_to_message_id (тест-ассерт обязателен).
+
+#### 39.6.3 `services/goodmorning_scheduler.py` (НОВЫЙ) — APScheduler (прецедент summary_scheduler.py)
+
+```python
+def _parse_hhmm(value: str) -> tuple[int, int]:
+    """'HH:MM' → (hour, minute). Кривой формат → WARNING + fallback (7, 0) (T-229-E)."""
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", value.strip())
+    if m and 0 <= int(m.group(1)) <= 23 and 0 <= int(m.group(2)) <= 59:
+        return int(m.group(1)), int(m.group(2))
+    logger.warning("Goodmorning: invalid GOODMORNING_TIME %r — fallback 07:00", value)
+    return 7, 0
+
+
+class GoodmorningSchedulerService:
+    JOB_ID = "goodmorning_job"
+
+    def __init__(self, relay: GoodmorningRelay, time_str: str, tz: str,
+                 target_chat_ids: tuple[int, ...]) -> None:
+        self._relay = relay
+        self._target_chat_ids = target_chat_ids
+        self._tz = tz  # валидация: zoneinfo.ZoneInfo(tz) — на ошибку WARNING + "Asia/Yekaterinburg"
+        self._hour, self._minute = _parse_hhmm(time_str)
+        self._scheduler = AsyncIOScheduler(timezone=self._tz)  # MemoryJobStore (default)
+
+    def start(self) -> bool:
+        """Запуск ТОЛЬКО при непустых TARGET_CHAT_IDS (D88); иначе WARNING + return False."""
+        if not self._target_chat_ids:
+            logger.warning("Goodmorning: рассылка выключена — GOODMORNING_TARGET_CHAT_IDS пуст")
+            return False
+        self._scheduler.add_job(
+            self._tick,
+            CronTrigger(hour=self._hour, minute=self._minute, timezone=self._tz),
+            id=self.JOB_ID, replace_existing=True, max_instances=1, coalesce=True,
+        )
+        self._scheduler.start()  # ОБЯЗАТЕЛЬНО внутри работающего event loop (APScheduler 3.11+, 39.1 п.4)
+        logger.info("Goodmorning scheduler started (%02d:%02d %s, %d chats)",
+                    self._hour, self._minute, self._tz, len(self._target_chat_ids))
+        return True
+
+    async def _tick(self) -> None:
+        for chat_id in self._target_chat_ids:
+            try:
+                sent = await self._relay.send_goodmorning(chat_id)
+                logger.info("Goodmorning tick: chat_id=%s sent=%s", chat_id, sent)
+            except Exception:
+                logger.exception("Goodmorning tick failed | chat_id=%s", chat_id)
+
+    async def shutdown(self) -> None:
+        # КОПИЯ паттерна summary_scheduler.py:51-60: SchedulerNotRunningError-guard,
+        # shutdown(wait=False) + await asyncio.sleep(0) — фикс гонки состояния STOPPED.
+```
+
+#### 39.6.4 Интеграция в bot.py (БЕЗ изменений порядка роутеров — D91)
+
+```python
+# module-level: _goodmorning_scheduler = None  (рядом с _summary_service)
+
+# on_startup (после блока SmartModule):
+goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=settings.GOODMORNING_MEDIA_DIR)
+_goodmorning_scheduler = GoodmorningSchedulerService(
+    relay=goodmorning_relay,
+    time_str=settings.GOODMORNING_TIME,
+    tz=settings.GOODMORNING_TZ,
+    target_chat_ids=settings.GOODMORNING_TARGET_CHAT_IDS,
+)
+_goodmorning_scheduler.start()  # ДО dp.start_polling; пустые targets → WARNING, no-op (39.6.3)
+
+# on_shutdown (первым из сервисов):
+if _goodmorning_scheduler:
+    await _goodmorning_scheduler.shutdown()
+```
+
+DI-функция `setup_goodmorning` НЕ нужна (нет роутера) — прямое создание в on_startup, состояние в module-level ref (прецедент `_summary_service`).
+
+### 39.7 Конфиг (config/settings.py + .env.example)
+
+```python
+# ── Common Service: selfdev/work (Epic 30) ──
+# Пер-сабдир анти-спам (time-format): блокирует только свой сабдир, поверх общего COMMON_COOLDOWN.
+SELFDEV_COOLDOWN: float = _env_duration("SELFDEV_COOLDOWN", "5m")
+WORK_COOLDOWN: float = _env_duration("WORK_COOLDOWN", "5m")
+
+# ── Goodmorning (Epic 30) ──
+GOODMORNING_TIME: str = os.getenv("GOODMORNING_TIME", "07:00")           # HH:MM
+GOODMORNING_TZ: str = os.getenv("GOODMORNING_TZ", "Asia/Yekaterinburg")
+# Пусто = рассылка выключена (планировщик не стартует, WARNING в лог).
+GOODMORNING_TARGET_CHAT_IDS: tuple[int, ...] = _env_int_tuple("GOODMORNING_TARGET_CHAT_IDS", ())
+GOODMORNING_MEDIA_DIR: str = os.getenv("GOODMORNING_MEDIA_DIR", "media/common/goodmorning")
+```
+
+- `.env.example`: те же ключи с комментариями (SELFDEV_COOLDOWN=5m, WORK_COOLDOWN=5m, GOODMORNING_TIME=07:00, GOODMORNING_TZ, GOODMORNING_TARGET_CHAT_IDS= (пусто=выключено), GOODMORNING_MEDIA_DIR).
+- `bot.py`: `CommonRelay(bot, cooldown_seconds=settings.COMMON_COOLDOWN, danger_cooldown_seconds=settings.DANGER_COOLDOWN, selfdev_cooldown_seconds=settings.SELFDEV_COOLDOWN, work_cooldown_seconds=settings.WORK_COOLDOWN)` — kw с дефолтами, сигнатура `setup_common` не ломается.
+
+### 39.8 Нумерация SYSTEM_PROMPT v4 (R30-4, D90) — план синхронных правок
+
+1. **`services/summary_prompts.py:15-18`** — только первые символы строк: «4. Ограничения форматов:»→«3.», «5. Структура:»→«4.», «6. Имена участников:»→«5.», «7. Репосты:»→«6.». Текст/пунктуация пунктов дословно. Docstring модуля (строки 1–6): добавить «нумерация 1–6 исправлена (Epic 30), версия v4». `COMPRESS_PROMPT`/`EXTRACT_PROMPT` НЕ трогать.
+2. **`plans/backlog.md` блок R11 (строки 1518–1539)** — те же 4 строки с новыми номерами; 22 строки сохраняются, диапазон и слайс `lines[1517:1539]` НЕ меняются; примечание (~строка 1544) дополнить «нумерация 1–6 (Epic 30)». Все правки Epic 30 в backlog — ТОЛЬКО ниже строки 1539 (риск 1).
+3. **`tests/test_summary_prompts.py`**:
+   - `test_rules_6_7_present` (:53–59): «6. Имена участников:»→«5. Имена участников:», «7. Репосты:»→«6. Репосты:» (прочие ассерты не меняются);
+   - `test_numbering_gap_4_5` (:70–73) → переименовать в `test_numbering_sequential`: «3. Ограничения форматов», «4. Структура:», «5. Имена участников:», «6. Репосты:» присутствуют; «7. » в блоке ПРАВИЛ отсутствует; «2. Пунктуация» жив; docstring — «последовательная нумерация 1–6 (Epic 30/D90)»;
+   - `test_rule_3_typography_removed` остаётся зелёным (пункта 3 нет);
+   - комментарии хелпера (:11/13/14) — «нумерация 1–6 (Epic 30)»;
+   - header-комментарий файла (:1) — +T-230.
+4. **Доки, ссылающиеся на зазор** (обновить в ТОМ ЖЕ коммите T-233; байт-в-байт красный допустим только в рабочем дереве до T-233):
+   - `plans/ARCHITECTURE.md` — **выполнено в этом шаге** (4321, 4885, 4900, 4916, 4933 + Section 39);
+   - `plans/MEMORY.md` — @Memory: строки 5/6/7/8/40/48/66/73/857/866 («зазор-нумерация» → «нумерация 1–6 (Epic 30)»);
+   - `README.md` — @Builder (T-232-A): упоминания «1,2,4,5,6,7»/«зазор» → «1–6»;
+   - `plans/board.md` — @Builder (T-230): строки 9/14 — примечание об эталоне («только номера, 1–6»).
+5. **Порядок:** код+эталон+тесты — ОДНИМ коммитом (T-233); T-230 — параллельно с T-227/T-228/T-229, но не трогать блок R11 до выполнения T-230 (board.md).
+
+### 39.9 Тест-план (T-231, R30-5; baseline 1002, 0 регрессий)
+
+| Файл | Что покрываем |
+|------|---------------|
+| `tests/test_selfdev_word.py` (НОВЫЙ) | Фильтр: параметризация по ВСЕМ 48 формам SELFDEV_WORDS (матч, matched_word = исходный регистр); регистронезависимость («САМОРАЗВИТИЕ»); границы (не-матч: «саморазвитиемс», «прасаморазвитие»); 17 фраз (матч в контексте «занимаюсь личностным ростом вечерами»); фраза ПЕРВЕЕ слова (сообщение с фразой+словом → вернулась фраза); caption-матч; text-приоритет над caption; пустой/не-строковый контент → False; **гейт D92**: forward_origin set (MagicMock) → False и для text, и для caption; обычное сообщение с caption → матч |
+| `tests/test_work_word.py` (НОВЫЙ) | То же для WORK_WORDS (~128 форм, параметризация) и WORK_PHRASES (31); специфические: «устав» не матчит «уставший», «усталость» матчит «усталости» нет (обе в списке — матч каждой формы отдельно); мат-формы (заебался/заебусь/заебётся); гейт репостов |
+| `tests/test_common.py` (расширение) | **Relay:** selfdev-коулдаун (selfdev→selfdev через <5m — blocked; через >5m — sends); сабдиры независимы (selfdev не блокирует work/danger/otboy при shared=0); shared блокирует всё (cross-subdir, прецедент существующих тестов); коулдаун не ставится при ошибке отправки; обратная совместимость: `_danger_cooldown_seconds`/`_danger_cooldowns` — Epic 18-тест зелёный; **Хендлеры:** selfdev_handler/work_handler вызывают `send_common(..., subdir="selfdev"/"work")`; relay-None guard; exception catch; return UNHANDLED; **Пересечения:** `set(SELFDEV_WORDS) & set(DANGER_WORDS|WORK_WORDS|...) == set()` + фразы; **Интеграция:** полный common_router — порядок otboy→danger→selfdev→work→mimic; selfdev-матч → ровно один selfdev-ответ; UNHANDLED-propagation (slavik/vasya/war живы); mimic не сломан |
+| `tests/test_goodmorning.py` (НОВЫЙ) | **Captions:** len==6, первые 3 — каноны дословно (D89), стиль-гард (все начинаются с ❗️❗️❗️, CAPS, без мата-слов). **`_parse_hhmm`:** "07:00"→(7,0); "7:00"→(7,0); "23:59"→(23,59); "24:00"/"07:60"/"abc"/"07"→(7,0)+WARNING. **Relay:** `_detect_media_type("goodmorning_05_gif.MP4")`→animation (регистр расширения, D93); audio (.mp3)/voice (.ogg) → skip+WARNING; пустая папка → False+WARNING; plain-send: `send_photo/send_video/send_animation` c `caption=...` и БЕЗ reply_parameters/reply_to_message_id (ассерт call kwargs); caption ∈ пулу; random покрывает все файлы; ошибка отправки → False + лог. **Scheduler:** пустые targets → `start() is False` + WARNING + `_scheduler.running is False`; непустые → job добавлен (CronTrigger hour/minute/tz), `get_job(JOB_ID)` с max_instances=1/coalesce=True; `_tick` шлёт всем chat_id; падение одного чата не валит остальные; `shutdown()` идемпотентен (двойной вызов не падает) |
+| `tests/test_summary_prompts.py` | По 39.8: последовательная нумерация 1–6; байт-в-байт после синхронного обновления эталона; `test_rule_3_typography_removed` зелёный |
+
+Полный `pytest` (1002 + новые, 0 failed/skipped), `git diff --check`, code review @Reviewer (T-231-D: пересечения списков, анти-спам, изоляция от summary/GraphRAG).
+
+### 39.10 Риски (дополнение к backlog-рискам 1–10)
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | Рефактор коулдаунов ломает Epic 18-тесты | Алиасы `_danger_cooldown_seconds`/`_danger_cooldowns` сохранены (39.5); существующие тесты зелёные без правок |
+| 2 | quote не является точной подстрокой | `match.group()` — буквально подстрока исходного текста (39.1 п.1); регистр сохранён |
+| 3 | Пересечение списков selfdev/work с danger/otboy | Юнит-тест пересечений (39.9) + дубль @Reviewer (T-231-D); danger зарегистрирован раньше — при коллизии украдёт событие (backlog-риск 3) |
+| 4 | `start()` планировщика вне event loop (APScheduler 3.11+) | start() вызывается только в `on_startup` (работающий loop); тесты — только в pytest-asyncio (39.1 п.4) |
+| 5 | Пустая папка медиа → молчание | WARNING-логи во всех skip-ветках (39.6.2); smoke-проверка на проде (T-234-C) |
+| 6 | Кривая GOODMORNING_TIME/TZ валит старт | `_parse_hhmm` fallback 07:00 + zoneinfo-валидация TZ с fallback (39.6.3) |
+| 7 | Эталон промпта сдвигается правками backlog выше 1539 | Запрет на правки выше 1539 (D90); обновление — одним коммитом T-233 |
+| 8 | Двойные ответы (selfdev+otboy/danger/mimic) | Существующее поведение common (backlog-риск 10); анти-спам: общий COMMON_COOLDOWN + пер-сабдир 5m; Reviewer проверяет отсутствие регрессий |
+
+### 39.11 Сводка для Builder (файлы и сигнатуры)
+
+**Новые файлы:** `filters/selfdev_word.py` (`SelfdevWordFilter.__call__(message) -> dict | bool`), `filters/work_word.py` (`WorkWordFilter`), `services/goodmorning_captions.py` (`GOODMORNING_CAPTIONS: tuple[str, ...]`), `services/goodmorning_relay.py` (`GoodmorningRelay(bot, media_dir)`; `send_goodmorning(chat_id) -> bool`), `services/goodmorning_scheduler.py` (`_parse_hhmm(str) -> tuple[int,int]`; `GoodmorningSchedulerService(relay, time_str, tz, target_chat_ids)`; `start() -> bool`; `shutdown()`), `tests/test_selfdev_word.py`, `tests/test_work_word.py`, `tests/test_goodmorning.py`.
+
+**Изменяемые файлы:** `filters/word_lists.py` (+4 списка, 39.2), `handlers/common.py` (+selfdev_handler/work_handler, 39.4), `services/common_relay.py` (39.5), `config/settings.py` (39.7), `.env.example` (39.7), `bot.py` (CommonRelay kw + goodmorning wiring, 39.5/39.6.4/39.7), `services/summary_prompts.py` (39.8), `tests/test_common.py` (39.9), `tests/test_summary_prompts.py` (39.8), `plans/backlog.md` (блок R11 — только номера), `plans/board.md` (статусы + примечание эталона), `README.md` (T-232), `plans/MEMORY.md` (@Memory). Медиа: `media/common/{selfdev,work,goodmorning}` — в коммит T-233 (политика media/, 31.1; НЕ в .gitignore).
+
+@Architect Epic 30 architecture ready (Section 39), passing the baton to @Builder.

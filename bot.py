@@ -44,6 +44,8 @@ from services.summary_generator import SummaryGenerator
 from services.summary_memory import MemoryManager
 from services.summary_scheduler import SummarySchedulerService
 from services.summary_xml import XmlGroundingBuilder
+from services.goodmorning_relay import GoodmorningRelay
+from services.goodmorning_scheduler import GoodmorningSchedulerService
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -65,6 +67,8 @@ dp = Dispatcher(storage=MemoryStorage())
 # SmartModule (Epic 24) — module-level refs for on_shutdown
 _summary_service = None
 _llm_client = None
+# Goodmorning (Epic 30) — module-level ref for on_shutdown
+_goodmorning_scheduler = None
 
 
 async def on_startup():
@@ -90,6 +94,8 @@ async def on_startup():
         bot,
         cooldown_seconds=settings.COMMON_COOLDOWN,
         danger_cooldown_seconds=settings.DANGER_COOLDOWN,
+        selfdev_cooldown_seconds=settings.SELFDEV_COOLDOWN,
+        work_cooldown_seconds=settings.WORK_COOLDOWN,
     )
     setup_common(common_relay)
     logger.info("Common Service (Epic 15) initialized")
@@ -132,6 +138,17 @@ async def on_startup():
         logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", settings.SUMMARY_TIMEZONE)
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
+
+    # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
+    global _goodmorning_scheduler
+    goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=settings.GOODMORNING_MEDIA_DIR)
+    _goodmorning_scheduler = GoodmorningSchedulerService(
+        relay=goodmorning_relay,
+        time_str=settings.GOODMORNING_TIME,
+        tz=settings.GOODMORNING_TZ,
+        target_chat_ids=settings.GOODMORNING_TARGET_CHAT_IDS,
+    )
+    _goodmorning_scheduler.start()  # ДО dp.start_polling; пустые targets → WARNING, no-op
 
     # ═══════════════════════════════════════════════════════════
     # REGISTRATION ORDER (CRITICAL — DO NOT CHANGE)
@@ -215,6 +232,8 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup resources on bot shutdown."""
     logger.info("Bot shutting down...")
+    if _goodmorning_scheduler:
+        await _goodmorning_scheduler.shutdown()
     if _summary_service:
         await _summary_service.shutdown()
     if _llm_client:

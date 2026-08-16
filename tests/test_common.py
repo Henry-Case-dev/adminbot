@@ -1381,3 +1381,288 @@ class TestMimicForwardsGate:
 
         assert result is None
         mock_relay.send_mimic.assert_not_called()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# O. Epic 30 — selfdev/work (T-227/T-228): relay cooldowns + handlers
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCommonRelaySelfdevWorkCooldowns:
+    """Epic 30 (39.5): generic пер-сабдир cooldown-слой (Layer 1)."""
+
+    @pytest.fixture
+    def mock_bot(self):
+        bot = AsyncMock()
+        bot.send_photo = AsyncMock()
+        bot.send_video = AsyncMock()
+        bot.send_animation = AsyncMock()
+        return bot
+
+    @pytest.fixture
+    def mock_files(self):
+        return [(Path("/fake/photo.jpg"), MEDIA_PHOTO)]
+
+    @pytest.mark.asyncio
+    async def test_selfdev_then_selfdev_blocked_by_selfdev_cooldown(self, mock_bot, mock_files):
+        """selfdev → selfdev через <5m: пер-сабдирный коулдаун блокирует."""
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=0,
+            selfdev_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "прокачка", "selfdev")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 60):
+                await relay.send_common(1, 11, "саморазвитие", "selfdev")
+            assert mock_bot.send_photo.call_count == 1  # blocked
+
+    @pytest.mark.asyncio
+    async def test_selfdev_after_selfdev_cooldown_expired(self, mock_bot, mock_files):
+        """selfdev → selfdev через >5m: отправка проходит."""
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=0,
+            selfdev_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "прокачка", "selfdev")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 301):
+                await relay.send_common(1, 11, "саморазвитие", "selfdev")
+            assert mock_bot.send_photo.call_count == 2  # sends
+
+    @pytest.mark.asyncio
+    async def test_selfdev_does_not_block_work(self, mock_bot, mock_files):
+        """Сабдиры независимы: selfdev не блокирует work при shared=0."""
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=0,
+            selfdev_cooldown_seconds=300,
+            work_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "прокачка", "selfdev")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 5):
+                await relay.send_common(1, 11, "устал", "work")
+            assert mock_bot.send_photo.call_count == 2  # work НЕ заблокирован selfdev
+
+    @pytest.mark.asyncio
+    async def test_work_then_work_blocked_by_work_cooldown(self, mock_bot, mock_files):
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=0,
+            work_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "устал", "work")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 60):
+                await relay.send_common(1, 11, "заебался", "work")
+            assert mock_bot.send_photo.call_count == 1  # blocked
+
+    @pytest.mark.asyncio
+    async def test_selfdev_does_not_block_danger_and_otboy(self, mock_bot, mock_files):
+        """shared=0: selfdev-коулдаун не трогает danger/otboy."""
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=0,
+            danger_cooldown_seconds=60,
+            selfdev_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "прокачка", "selfdev")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 5):
+                await relay.send_common(1, 11, "бпла", "danger")
+            assert mock_bot.send_photo.call_count == 2  # danger не заблокирован selfdev
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 6):
+                await relay.send_common(1, 12, "отбой", "otboy")
+            assert mock_bot.send_photo.call_count == 3  # otboy не заблокирован
+
+    @pytest.mark.asyncio
+    async def test_selfdev_blocked_by_shared(self, mock_bot, mock_files):
+        """shared=60: selfdev после любой отправки заблокирован общим слоем."""
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=60,
+            selfdev_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        fake_now = 1000.0
+
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            with patch("services.common_relay.time.monotonic", return_value=fake_now):
+                await relay.send_common(1, 10, "прокачка", "selfdev")
+            assert mock_bot.send_photo.call_count == 1
+
+            with patch("services.common_relay.time.monotonic", return_value=fake_now + 30):
+                await relay.send_common(1, 11, "устал", "work")
+            assert mock_bot.send_photo.call_count == 1  # blocked by shared
+
+    @pytest.mark.asyncio
+    async def test_cooldown_not_stamped_on_send_error(self, mock_bot):
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=0,
+            selfdev_cooldown_seconds=300,
+            media_base="/fake",
+        )
+        mock_files = [(Path("/fake/corrupt.jpg"), MEDIA_PHOTO)]
+        with patch.object(relay, "_scan_directory", return_value=mock_files):
+            mock_bot.send_photo.side_effect = TelegramBadRequest(
+                method="sendPhoto",
+                message="Bad Request: failed to send",
+            )
+            await relay.send_common(chat_id=1, message_id=10, matched_word="прокачка", subdir="selfdev")
+
+        assert 1 not in relay._cooldowns
+        assert 1 not in relay._subdir_cooldowns.get("selfdev", {})
+
+    @pytest.mark.asyncio
+    async def test_default_selfdev_work_cooldowns_are_zero(self, mock_bot, mock_files):
+        relay = CommonRelay(mock_bot, cooldown_seconds=60, media_base="/fake")
+        assert relay._subdir_cooldown_seconds["selfdev"] == 0
+        assert relay._subdir_cooldown_seconds["work"] == 0
+
+    def test_danger_alias_backward_compat(self, mock_bot):
+        """Epic 18-алиасы живы (тест :1304-1308 зелёный + прямое соответствие)."""
+        relay = CommonRelay(
+            mock_bot,
+            cooldown_seconds=60,
+            danger_cooldown_seconds=30,
+            media_base="/fake",
+        )
+        assert relay._danger_cooldown_seconds == 30
+        assert relay._danger_cooldowns is relay._subdir_cooldowns["danger"]
+        relay._danger_cooldowns[42] = 123.0
+        assert relay._subdir_cooldowns["danger"][42] == 123.0
+
+
+class TestSelfdevWorkHandlers:
+    """Epic 30: selfdev_handler/work_handler (handlers/common.py)."""
+
+    @pytest.fixture(autouse=True)
+    def reset_relay(self):
+        setup_common(None)
+        yield
+        setup_common(None)
+
+    @pytest.mark.asyncio
+    async def test_selfdev_handler_calls_relay_with_selfdev_subdir(self):
+        from handlers.common import selfdev_handler
+
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+
+        msg = make_message(text="саморазвитие", chat_id=-100456, message_id=789)
+        result = await selfdev_handler(msg, matched_word="саморазвитие")
+
+        assert result is UNHANDLED
+        mock_relay.send_common.assert_called_once_with(
+            chat_id=-100456,
+            message_id=789,
+            matched_word="саморазвитие",
+            subdir="selfdev",
+        )
+
+    @pytest.mark.asyncio
+    async def test_work_handler_calls_relay_with_work_subdir(self):
+        from handlers.common import work_handler
+
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+
+        msg = make_message(text="устал", chat_id=-100789, message_id=555)
+        result = await work_handler(msg, matched_word="устал")
+
+        assert result is UNHANDLED
+        mock_relay.send_common.assert_called_once_with(
+            chat_id=-100789,
+            message_id=555,
+            matched_word="устал",
+            subdir="work",
+        )
+
+    @pytest.mark.asyncio
+    async def test_selfdev_handler_relay_none_returns_none(self):
+        from handlers.common import selfdev_handler
+
+        setup_common(None)
+        msg = make_message(text="саморазвитие")
+        result = await selfdev_handler(msg, matched_word="саморазвитие")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_work_handler_relay_none_returns_none(self):
+        from handlers.common import work_handler
+
+        setup_common(None)
+        msg = make_message(text="устал")
+        result = await work_handler(msg, matched_word="устал")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_selfdev_handler_catches_exception(self):
+        from handlers.common import selfdev_handler
+
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock(side_effect=RuntimeError("fail"))
+        setup_common(mock_relay)
+
+        msg = make_message(text="саморазвитие")
+        result = await selfdev_handler(msg, matched_word="саморазвитие")
+        assert result is UNHANDLED
+
+    @pytest.mark.asyncio
+    async def test_work_handler_catches_exception(self):
+        from handlers.common import work_handler
+
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock(side_effect=RuntimeError("fail"))
+        setup_common(mock_relay)
+
+        msg = make_message(text="устал")
+        result = await work_handler(msg, matched_word="устал")
+        assert result is UNHANDLED
+
+
+class TestCommonRouterHandlerOrder:
+    """D91: порядок хендлеров в common_router: otboy → danger → selfdev → work → mimic."""
+
+    def test_handler_order_in_common_router(self):
+        from handlers.common import common_router
+
+        names = [h.callback.__name__ for h in common_router.message.handlers]
+        expected = ["otboy_handler", "danger_handler", "selfdev_handler", "work_handler", "mimic_handler"]
+        assert names == expected
