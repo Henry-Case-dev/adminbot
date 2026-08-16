@@ -1,4 +1,5 @@
-"""T-182-A: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11)."""
+"""T-182-A / T-207-B: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11 v2)."""
+import re
 from pathlib import Path
 
 import pytest
@@ -7,10 +8,10 @@ from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT, SYSTEM_PRO
 
 
 def _backlog_system_prompt() -> str:
-    """Extract the verbatim prompt from plans/backlog.md Epic 24 (lines 1518-1523)."""
+    """Extract the verbatim prompt from plans/backlog.md Epic 27 (lines 1518-1538)."""
     lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
-    # Lines are 1-indexed: 1518..1523
-    return "\n".join(lines[1517:1523])
+    # Lines are 1-indexed: 1518..1538 (21 lines, R11 v2 — Epic 27)
+    return "\n".join(lines[1517:1538])
 
 
 def _arch_extract_prompt() -> str:
@@ -36,10 +37,9 @@ class TestSystemPrompt:
         assert SYSTEM_PROMPT == EXPECTED_SYSTEM_PROMPT
 
     def test_max_symbols_is_the_only_placeholder(self):
-        assert SYSTEM_PROMPT.count("{") == 2
-        assert SYSTEM_PROMPT.count("}") == 2
-        assert "{max_symbols}" in SYSTEM_PROMPT
-        assert "{username}" in SYSTEM_PROMPT
+        """D72: unique placeholders are exactly {max_symbols, username} (3 brace pairs)."""
+        placeholders = set(re.findall(r"\{(\w+)\}", SYSTEM_PROMPT))
+        assert placeholders == {"max_symbols", "username"}
 
     def test_format_max_symbols(self):
         formatted = SYSTEM_PROMPT.replace("{max_symbols}", "3800")
