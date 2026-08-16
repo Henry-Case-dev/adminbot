@@ -1,11 +1,14 @@
 """Epic 15 — Common Service (was Otboy Service F9).
 
-Three-handler router on a single common_router:
+Five-handler router on a single common_router:
   1. otboy_handler: catches "отбой" (OtboyWordFilter) → random media from common/otboy/
   2. danger_handler: catches danger words (DangerWordFilter) → random media from common/danger/
-  3. mimic_handler: catches messages from MIMIC_VICTIM_USER_IDS → mimic transform reply
+  3. selfdev_handler: catches «саморазвитие» (SelfdevWordFilter, Epic 30) → common/selfdev/
+  4. work_handler: catches «устал/заебался» (WorkWordFilter, Epic 30) → common/work/
+  5. mimic_handler: catches messages from MIMIC_VICTIM_USER_IDS → mimic transform reply
 
-otboy + danger share CommonRelay with a single per-chat cooldown.
+otboy + danger + selfdev + work share CommonRelay (Layer 1 пер-сабдирные
+коулдауны + Layer 2 shared cooldown).
 mimic uses MimicRelay with independent per-(chat, user) cooldown.
 
 Router registered at position 4c between war_alert_router and slavik_router.
@@ -21,7 +24,9 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from filters.danger_word import DangerWordFilter
 from filters.otboy_word import OtboyWordFilter
+from filters.selfdev_word import SelfdevWordFilter
 from filters.user_id import UserIdFilter
+from filters.work_word import WorkWordFilter
 
 if TYPE_CHECKING:
     from services.common_relay import CommonRelay
@@ -105,6 +110,68 @@ async def danger_handler(
     except Exception:
         logger.exception(
             "Common Service: danger handler failed | chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+    return UNHANDLED
+
+
+@common_router.message(SelfdevWordFilter())
+async def selfdev_handler(
+    message: types.Message,
+    matched_word: str,
+) -> None:
+    """Epic 30: слово «саморазвитие» → случайное медиа из common/selfdev/ с reply+quote."""
+    if _relay is None:
+        logger.error(
+            "Common Service: relay not initialized — skipping selfdev | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+        return
+
+    try:
+        await _relay.send_common(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            matched_word=matched_word,
+            subdir="selfdev",
+        )
+    except Exception:
+        logger.exception(
+            "Common Service: selfdev handler failed | chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+    return UNHANDLED
+
+
+@common_router.message(WorkWordFilter())
+async def work_handler(
+    message: types.Message,
+    matched_word: str,
+) -> None:
+    """Epic 30: «устал/заебался»-семья → случайное медиа из common/work/ с reply+quote."""
+    if _relay is None:
+        logger.error(
+            "Common Service: relay not initialized — skipping work | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+        return
+
+    try:
+        await _relay.send_common(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            matched_word=matched_word,
+            subdir="work",
+        )
+    except Exception:
+        logger.exception(
+            "Common Service: work handler failed | chat_id=%s | message_id=%s",
             message.chat.id,
             message.message_id,
         )

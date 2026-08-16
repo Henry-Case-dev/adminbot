@@ -168,6 +168,19 @@ class Settings:
     # 0 = no additional danger restriction (default: 60.0 = 1 minute).
     DANGER_COOLDOWN: float = _env_duration("DANGER_COOLDOWN", "60s")
 
+    # ── Common Service: selfdev/work (Epic 30) ──
+    # Пер-сабдир анти-спам (time-format): блокирует только свой сабдир,
+    # поверх общего COMMON_COOLDOWN.
+    SELFDEV_COOLDOWN: float = _env_duration("SELFDEV_COOLDOWN", "5m")
+    WORK_COOLDOWN: float = _env_duration("WORK_COOLDOWN", "5m")
+
+    # ── Goodmorning (Epic 30) ──
+    GOODMORNING_TIME: str = os.getenv("GOODMORNING_TIME", "07:00")           # HH:MM
+    GOODMORNING_TZ: str = os.getenv("GOODMORNING_TZ", "Asia/Yekaterinburg")
+    # Пусто = рассылка выключена (планировщик не стартует, WARNING в лог).
+    GOODMORNING_TARGET_CHAT_IDS: tuple[int, ...] = _env_int_tuple("GOODMORNING_TARGET_CHAT_IDS", ())
+    GOODMORNING_MEDIA_DIR: str = os.getenv("GOODMORNING_MEDIA_DIR", "media/common/goodmorning")
+
     # Comma-separated danger keywords (case-insensitive, Cyrillic word boundaries).
     # Leave empty to use built-in defaults (135+ words from filters/word_lists.py).
     DANGER_WORDS: str = os.getenv("DANGER_WORDS", "")

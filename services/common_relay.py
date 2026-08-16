@@ -1,4 +1,4 @@
-"""CommonRelay — unified media service for otboy + danger sub-services.
+"""CommonRelay — unified media service for otboy + danger + selfdev + work sub-services.
 
 Sends random media files from media/common/{subdir}/ directories.
 Supports five media types, auto-detected from file extension and name:
@@ -8,8 +8,15 @@ Supports five media types, auto-detected from file extension and name:
   - audio:  .mp3
   - voice:  .ogg
 
-Shared cooldown across all sub-services (otboy + danger).
+Shared cooldown across all sub-services (otboy + danger + selfdev + work).
 Per-chat in-memory cooldown (dict[int, float]), no DB.
+
+Epic 30 (39.5): danger-частный cooldown-слой обобщён до пер-сабдирного:
+  Layer 1 — self._subdir_cooldown_seconds / self._subdir_cooldowns
+            (danger/selfdev/work; otboy — только Layer 2)
+  Layer 2 — общий shared-коулдаун (как раньше)
+Алиасы _danger_cooldown_seconds/_danger_cooldowns сохранены для
+обратной совместимости (тесты Epic 18).
 """
 import logging
 import random
@@ -39,10 +46,11 @@ class CommonRelay:
     """Sends random media files from common subdirectories.
 
     Supports three media types, auto-detected from file extension and name.
-    Shared cooldown across all sub-services (otboy + danger).
+    Shared cooldown across all sub-services (otboy + danger + selfdev + work).
 
     Attributes:
-        _cooldowns: Per-chat cooldown timestamps (chat_id → time.monotonic()).
+        _cooldowns: Per-chat shared cooldown timestamps (chat_id → time.monotonic()).
+        _subdir_cooldowns: Per-subdir per-chat cooldowns (subdir → chat_id → ts).
     """
 
     def __init__(
@@ -50,6 +58,8 @@ class CommonRelay:
         bot: Bot,
         cooldown_seconds: float,
         danger_cooldown_seconds: float = 0,
+        selfdev_cooldown_seconds: float = 0,
+        work_cooldown_seconds: float = 0,
         media_base: str | None = None,
     ) -> None:
         """Initialise CommonRelay.
@@ -58,14 +68,24 @@ class CommonRelay:
             bot: aiogram Bot instance for sending media.
             cooldown_seconds: Shared cooldown in seconds (0 = disabled).
             danger_cooldown_seconds: Danger-specific cooldown in seconds (0 = no extra restriction).
+            selfdev_cooldown_seconds: Selfdev-specific cooldown in seconds (Epic 30, 0 = no extra restriction).
+            work_cooldown_seconds: Work-specific cooldown in seconds (Epic 30, 0 = no extra restriction).
             media_base: Base directory for media files (default: settings.COMMON_MEDIA_BASE).
         """
         self._bot = bot
         self._cooldown_seconds = cooldown_seconds
-        self._danger_cooldown_seconds = danger_cooldown_seconds
         self._media_base = media_base or settings.COMMON_MEDIA_BASE
         self._cooldowns: dict[int, float] = {}
-        self._danger_cooldowns: dict[int, float] = {}
+        # Epic 30 (39.5): generic пер-сабдир cooldown-слой (Layer 1)
+        self._subdir_cooldown_seconds: dict[str, float] = {
+            "danger": danger_cooldown_seconds,
+            "selfdev": selfdev_cooldown_seconds,
+            "work": work_cooldown_seconds,
+        }
+        self._subdir_cooldowns: dict[str, dict[int, float]] = {}
+        # Backward compat (Epic 18-тесты): устаревшие алиасы
+        self._danger_cooldown_seconds = danger_cooldown_seconds
+        self._danger_cooldowns = self._subdir_cooldowns.setdefault("danger", {})
 
     def _detect_media_type(self, filepath: Path) -> str | None:
         """Determine media type from file extension and filename.
@@ -209,8 +229,9 @@ class CommonRelay:
     ) -> None:
         """Send random media from media/common/{subdir}/ as a reply.
 
-        Shared cooldown across all sub-services — if any sub-service
-        recently sent in this chat, all are blocked.
+        Dual-layer cooldown (Epic 18, обобщён Epic 30):
+        Layer 1 — пер-сабдирный (danger/selfdev/work); Layer 2 — shared
+        (все сабдиры). Отправка блокируется, если активен ЛЮБОЙ слой.
 
         Args:
             chat_id: Target chat.
@@ -220,17 +241,18 @@ class CommonRelay:
         """
         now = time.monotonic()
 
-        if subdir == "danger" and self._danger_cooldown_seconds > 0:
-            last_danger = self._danger_cooldowns.get(chat_id)
-            if last_danger is not None:
-                elapsed = now - last_danger
-                if elapsed < self._danger_cooldown_seconds:
+        # Layer 1: пер-сабдирный коулдаун (danger/selfdev/work; otboy — пропуск)
+        sub_cd = self._subdir_cooldown_seconds.get(subdir, 0)
+        if sub_cd > 0:
+            ts_map = self._subdir_cooldowns.setdefault(subdir, {})
+            last_sent = ts_map.get(chat_id)
+            if last_sent is not None:
+                elapsed = now - last_sent
+                if elapsed < sub_cd:
                     logger.info(
-                        "CommonRelay: danger_cooldown_active | chat_id=%s | "
+                        "CommonRelay: %s_cooldown_active | chat_id=%s | "
                         "elapsed=%.1fs | remaining=%.1fs",
-                        chat_id,
-                        elapsed,
-                        self._danger_cooldown_seconds - elapsed,
+                        subdir, chat_id, elapsed, sub_cd - elapsed,
                     )
                     return
 
@@ -280,8 +302,9 @@ class CommonRelay:
                 media_type=media_type,
             )
             self._cooldowns[chat_id] = now
-            if subdir == "danger":
-                self._danger_cooldowns[chat_id] = now
+            # Layer 1: пер-сабдирный штамп (danger/selfdev/work)
+            if subdir in self._subdir_cooldown_seconds:
+                self._subdir_cooldowns.setdefault(subdir, {})[chat_id] = now
             logger.info(
                 "CommonRelay: sent | chat_id=%s | subdir=%s | "
                 "file=%s | type=%s | matched_word=%r",
