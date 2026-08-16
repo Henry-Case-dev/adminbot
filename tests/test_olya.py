@@ -6,6 +6,7 @@ Covers:
   - Handlers: olya_handler, service guard, propagation
   - Integration: filter → handler → service pipeline, no-reply constraint
 """
+import logging
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -126,7 +127,11 @@ class TestOlyaVideoFilter:
         from aiogram.types import MessageOriginChannel
         import filters.olya_video as filter_mod
 
-        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_REPOST_ENABLED=True)
+        mod = _modified_settings(
+            OLYA_ALWAYS_SEND=False,
+            OLYA_REPOST_ENABLED=True,
+            OLYA_SAVEASBOT_CHANNEL_IDS=(523131145,),
+        )
         origin = MagicMock(spec=MessageOriginChannel)
         origin.chat = MagicMock()
         origin.chat.id = 523131145
@@ -174,6 +179,209 @@ class TestOlyaVideoFilter:
             result = await f(msg)
         assert isinstance(result, dict)
         assert result == {"is_saveasbot": False, "matched_caption": False}
+
+
+class TestOlyaVideoFilterEpic32:
+    """Epic 32 (D100/D101): caption normalization, @saveasbot mention, origin matrix."""
+
+    @pytest.mark.asyncio
+    async def test_filter_channel_repost_no_match_by_default(self, make_message, olya_user_id):
+        """Channel ID 523131145 lived in the channel key by mistake — default is now () → no match."""
+        from aiogram.types import MessageOriginChannel
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_REPOST_ENABLED=True)
+        origin = MagicMock(spec=MessageOriginChannel)
+        origin.chat = MagicMock()
+        origin.chat.id = 523131145
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, forward_origin=origin)
+            result = await f(msg)
+        assert result is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("dash", ["\u2013", "\u2014", "\u2015", "\u2212"])
+    async def test_filter_caption_dash_variants(self, make_message, olya_user_id, dash):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_CAPTION_ENABLED=True)
+        caption = f"Спасибо, что пользуетесь {dash} @SaveAsBot'ом"
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, caption=caption)
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["matched_caption"] is True
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("apostrophe", ["\u2019", "\u02bc", "`", "\u2032"])
+    async def test_filter_caption_apostrophe_variants(self, make_message, olya_user_id, apostrophe):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_CAPTION_ENABLED=True)
+        caption = f"Спасибо, что пользуетесь - @SaveAsBot{apostrophe}ом"
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, caption=caption)
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["matched_caption"] is True
+
+    @pytest.mark.asyncio
+    async def test_filter_caption_upper_case(self, make_message, olya_user_id):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_CAPTION_ENABLED=True)
+        caption = "СПАСИБО, ЧТО ПОЛЬЗУЕТЕСЬ - @SAVEASBOT'ОМ"
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, caption=caption)
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["matched_caption"] is True
+
+    @pytest.mark.asyncio
+    async def test_filter_caption_extra_spaces(self, make_message, olya_user_id):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_CAPTION_ENABLED=True)
+        caption = "  Спасибо,   что пользуетесь    -   @SaveAsBot'ом  "
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, caption=caption)
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["matched_caption"] is True
+
+    @pytest.mark.asyncio
+    async def test_filter_caption_newlines_collapsed(self, make_message, olya_user_id):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_CAPTION_ENABLED=True)
+        caption = "Спасибо,\nчто пользуетесь - @SaveAsBot'ом"
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, caption=caption)
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["matched_caption"] is True
+
+    @pytest.mark.asyncio
+    async def test_filter_caption_mention_enabled(self, make_message, olya_user_id):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(
+            OLYA_ALWAYS_SEND=False,
+            OLYA_CAPTION_ENABLED=True,
+            OLYA_CAPTION_MENTION_ENABLED=True,
+        )
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO,
+                               caption="Привет, это @SaveAsBot")
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["matched_caption"] is True
+
+    @pytest.mark.asyncio
+    async def test_filter_caption_mention_disabled(self, make_message, olya_user_id):
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(
+            OLYA_ALWAYS_SEND=False,
+            OLYA_CAPTION_ENABLED=True,
+            OLYA_CAPTION_MENTION_ENABLED=False,
+        )
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO,
+                               caption="Привет, это @SaveAsBot")
+            result = await f(msg)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_filter_repost_from_saveasbot_user(self, make_message, olya_user_id):
+        from aiogram.types import MessageOriginUser
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_REPOST_ENABLED=True)
+        origin = MagicMock(spec=MessageOriginUser)
+        origin.sender_user = MagicMock()
+        origin.sender_user.id = 523131145
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, forward_origin=origin)
+            result = await f(msg)
+        assert isinstance(result, dict)
+        assert result["is_saveasbot"] is True
+
+    @pytest.mark.asyncio
+    async def test_filter_repost_from_foreign_user(self, make_message, olya_user_id):
+        from aiogram.types import MessageOriginUser
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_REPOST_ENABLED=True)
+        origin = MagicMock(spec=MessageOriginUser)
+        origin.sender_user = MagicMock()
+        origin.sender_user.id = 999999
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, forward_origin=origin)
+            result = await f(msg)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_filter_repost_hidden_user_no_match(self, make_message, olya_user_id, caplog):
+        from aiogram.types import MessageOriginHiddenUser
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_REPOST_ENABLED=True)
+        origin = MagicMock(spec=MessageOriginHiddenUser)
+        origin.sender_user_name = "Olya"
+
+        with patch.object(filter_mod, "settings", mod), \
+                caplog.at_level(logging.INFO, logger="filters.olya_video"):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, forward_origin=origin)
+            result = await f(msg)
+        assert result is False
+        assert "unexpected forward origin type" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_filter_repost_chat_origin_no_match(self, make_message, olya_user_id):
+        from aiogram.types import MessageOriginChat
+        import filters.olya_video as filter_mod
+
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False, OLYA_REPOST_ENABLED=True)
+        origin = MagicMock(spec=MessageOriginChat)
+
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO, forward_origin=origin)
+            result = await f(msg)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_plain_video_no_caption_no_repost(self, make_message, olya_user_id):
+        """AC R32-2: обычное видео (без caption/репоста) → НЕТ реакции."""
+        import filters.olya_video as filter_mod
+        mod = _modified_settings(OLYA_ALWAYS_SEND=False)
+        with patch.object(filter_mod, "settings", mod):
+            f = OlyaVideoFilter()
+            msg = make_message(from_id=olya_user_id, text=None, content_type=ContentType.VIDEO)
+            result = await f(msg)
+        assert result is False
 
 
 # ═══════════════════════════════════════════════════════════════════

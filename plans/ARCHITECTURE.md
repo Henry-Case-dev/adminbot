@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.28.0 (прод) / целевой дизайн: v2.29.0 (Epic 31)
+> **Версия:** v2.29.0 (прод) / целевой дизайн: v2.30.0 (Epic 32)
 > **Дата:** 2026-08-17
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `7160a33`, 1002 теста, прод PID 937634). Секция 39: дизайн Epic 30 (v2.28.0) — IMPLEMENTED ✅ (прод v2.28.0, `714a4f6`). Секция 40: дизайн Epic 31 (v2.29.0) — DESIGN (@Architect, шаг 2/3).
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `7160a33`, 1002 теста, прод PID 937634). Секция 39: дизайн Epic 30 (v2.28.0) — IMPLEMENTED ✅ (прод v2.28.0, `714a4f6`). Секция 40: дизайн Epic 31 (v2.29.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `0f25c7e`, 1366 тестов, прод PID 941281). Секция 41: дизайн Epic 32 (v2.30.0) — DESIGN (@Architect, шаг 2/3).
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -29,7 +29,8 @@
 17. [Section 37: Epic 28](#37-epic-28--качество-памяти-векторы-репосты-алиасы-очистка-v2260) — Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0, НОВОЕ)
 18. [Section 38: Epic 29](#38-epic-29--ux-полировка-удаление-команды-ack-вариации-промпт-v4-v2270) — UX-полировка: удаление команды, ack-вариации, промпт v4 (v2.27.0, НОВОЕ)
 19. [39. Epic 30](#39-epic-30--common-expansion-selfdevwork-реакции-goodmorning-рассылка-фикс-нумерации-промпта-v2280) — Common Expansion: selfdev/work, goodmorning, нумерация промпта (v2.28.0, НОВОЕ)
-20. [40. Epic 31](#40-epic-31--summary-для-всех--setmycommands--таймаут-фразы-v2290) — /summary для всех + setMyCommands + таймаут-фразы (v2.29.0, НОВОЕ)
+20. [40. Epic 31](#40-epic-31--summary-для-всех--setmycommands--таймаут-фразы-v2290) — /summary для всех + setMyCommands + таймаут-фразы (v2.29.0, IMPLEMENTED & DEPLOYED ✅)
+21. [41. Epic 32](#41-epic-32--гифка-славика--триггеры-оли-captionрепост--троттлинг-300с-v2300) — Гифка Славика + триггеры Оли (caption/репост) + троттлинг 300с (v2.30.0, НОВОЕ)
 
 ---
 
@@ -1491,6 +1492,8 @@ OLYA_MEDIA_TYPE: str = os.getenv("OLYA_MEDIA_TYPE", "video")
 OLYA_ALWAYS_SEND: bool = os.getenv("OLYA_ALWAYS_SEND", "True").lower() in ("true", "1", "yes")
 ```
 
+> **Эпилог Epic 32 (v2.30.0):** актуальный инвентарь Olya-ключей — в секции 41.4. Изменения относительно таблицы 7.4: `OLYA_COOLDOWN_SECONDS` в текущем коде называется `OLYA_COOLDOWN` (`_env_duration`, «60s»); `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт `(523131145,)` → `()` (ID переехал в новый `OLYA_SAVEASBOT_USER_IDS=(523131145,)`, т.к. SaveAsBot — юзер/бот, а не канал); новый `OLYA_CAPTION_MENTION_ENABLED=True` (триггер `@saveasbot` в caption); `OLYA_ALWAYS_SEND` дефолт с Epic 22 (D51) — `False` (таблица 7.4 историческая, зафиксировала `True`).
+
 ---
 
 ### 7.5 Router Position and Propagation Flow
@@ -2057,6 +2060,8 @@ def _pick_random_slavik_media() -> tuple[Path, str] | None:
 | `SLAVIC_PHOTO_PATH` | (deprecated) | Fallback-путь к одному файлу (если RANDOM_DIR пуст) |
 | `SLAVIC_PHOTO_INTERVAL` | `10` | Каждые N ответов Славы — отправка random media |
 | `GIF_PATH` | `media/slavic_chlen.mp4` | F3 GIF Interval (НЕ затрагивается Epic 20) |
+
+> **Эпилог Epic 32 (v2.30.0):** дефолт `GIF_PATH` изменён на `media/slavik/slavic_chlen.mp4` (файл переехал в v2.15.0); `MessageCounterMiddleware` теперь читает `settings.GIF_PATH`/`settings.GIF_INTERVAL` (секция 41.2). Прод `.env` с устаревшим `GIF_PATH` перекрывает дефолт — правится при деплое (T-248).
 
 ---
 
@@ -5596,3 +5601,252 @@ SUMMARY_ADMIN_ONLY=False
 **НЕ менять:** порядок роутеров 0a/0b и все прочие секции bot.py; `handlers/summary.py:253` (attach middleware); конструктор `ThrottlingMiddleware`; формат INFO-лога «throttled … remaining=…»; B9-гейт наблюдателя; `/deadpage`/`/alangreet` (в меню не выносятся).
 
 @Architect Epic 31 architecture ready (Section 40), passing the baton to @Builder (T-235 P0 → T-236/T-237 параллельно → T-238 тесты+ревью → T-239 доки; T-240/T-241 — @DevOps).
+
+---
+
+## 41. Epic 32 — Гифка Славика + триггеры Оли (caption/репост) + троттлинг 300с (v2.30.0)
+
+> **Статус:** DESIGN (@Architect, шаг 2/3). Код не писался — передача @Builder (T-242 ∥ T-243 → T-245 → T-246) и @DevOps (T-244 ∥ коду, T-247, T-248).
+> **Источник:** запрос пользователя 2026-08-17. Требования R32-1…R32-3, решения PM D99–D103, риски 1–6 — `plans/backlog.md` (Epic 32, строки 2693–2811, ниже эталона R11 1518–1539). **Target:** v2.30.0. **Baseline:** прод v2.29.0 (`0f25c7e`, PID 941281), 1366 тестов, 14 роутеров.
+
+### 41.1 Контекст (R32-1…R32-3, кратко)
+
+| # | Проблема | Root cause |
+|---|----------|------------|
+| R32-1 | Гифка Славика не отправляется ~с 2026-08-02 | `services/message_counter.py:17-18` хардкодит `GIF_PATH="media/slavic_chlen.mp4"` и `INTERVAL=5`, игнорируя `settings.GIF_PATH`/`settings.GIF_INTERVAL`; файл в v2.15.0 переехал в `media/slavik/slavic_chlen.mp4` (проверено: файл на месте, старого пути нет); `except Exception: pass` (стр. 40) глушит FileNotFoundError → молчаливый отказ. |
+| R32-2 | Оля не отвечает ни на caption, ни на репост | Epic 22 (D51) дефолт `OLYA_ALWAYS_SEND=False` — by design («только caption/репост»). Но caption-матч (case-only substring) чувствителен к «—»/«'»-вариантам, а репост-матч смотрит только `MessageOriginChannel` по `OLYA_SAVEASBOT_CHANNEL_IDS=(523131145,)` — но SaveAsBot это БОТ (`MessageOriginUser`), поэтому ветка недостижима. |
+| R32-3 | Троттлинг `/summary` 60с → 300с | В прод .env ключа нет → 60.0. Код не менять — только прод .env (D103). |
+
+### 41.2 `services/message_counter.py` (D99, T-242)
+
+**Ключевые решения:**
+
+1. **Чтение settings в `__init__`** (снапшот `self.gif_path` / `self.interval`), а не module-level константы. Мидлварь создаётся в `bot.py:112` уже после загрузки settings — значения актуальны. Снапшот в `__init__` делает мидлварь тестируемой (патч `services.message_counter.settings` до инстанцирования).
+2. **Проверка существования файла ДО отправки:** `Path(self.gif_path).is_file()` → `False` ⇒ WARNING «GIF file not found: <путь>, skipping», `answer_animation` НЕ вызывается, пропагация не прерывается (handler всё равно вызывается).
+3. **Защитный guard `self.interval > 0`** — иначе `GIF_INTERVAL=0` в env даёт ZeroDivisionError и роняет весь update (отклонение от D99 в сторону защиты; WARNING-лог).
+4. **Логирование вместо глушения:** успех → INFO; `FileNotFoundError` (гонка: файл удалили между проверкой и отправкой) → ERROR с путём; прочие `Exception` → ERROR `exc_info=True` с путём.
+5. **Обратная совместимость:** сигнатура конструктора `MessageCounterMiddleware(db)` не меняется → `bot.py:112` НЕ трогаем; `answer_animation(animation=FSInputFile(path))` и счётчик БД — без изменений.
+
+```python
+import logging
+from pathlib import Path
+from typing import Any, Awaitable, Callable
+
+from aiogram import BaseMiddleware
+from aiogram.types import FSInputFile, Message
+
+from config.settings import settings
+from services.database import DatabaseService
+
+logger = logging.getLogger(__name__)
+
+
+class MessageCounterMiddleware(BaseMiddleware):
+    """Inner middleware for slavik_router.
+
+    On every message from a user on this router:
+      1. Increments the DB counter for (chat_id, user_id).
+      2. If new count is divisible by interval (settings.GIF_INTERVAL),
+         sends GIF (settings.GIF_PATH) as animation.
+      3. Passes to next handler (does NOT consume the update).
+    """
+
+    def __init__(self, db: DatabaseService) -> None:
+        self.db = db
+        self.gif_path: str = settings.GIF_PATH
+        self.interval: int = settings.GIF_INTERVAL
+        super().__init__()
+
+    async def __call__(
+        self,
+        handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: dict[str, Any],
+    ) -> Any:
+        user_id = event.from_user.id
+        chat_id = event.chat.id
+
+        new_count = await self.db.increment_and_get_count(chat_id, user_id)
+
+        if self.interval > 0 and new_count % self.interval == 0:
+            await self._send_gif(event, chat_id, new_count)
+        elif self.interval <= 0:
+            logger.warning("GIF interval is %s — GIF sending disabled", self.interval)
+
+        return await handler(event, data)
+
+    async def _send_gif(self, event: Message, chat_id: int, new_count: int) -> None:
+        if not Path(self.gif_path).is_file():
+            logger.warning("GIF file not found: %s, skipping", self.gif_path)
+            return
+        try:
+            await event.answer_animation(animation=FSInputFile(self.gif_path))
+        except FileNotFoundError as exc:
+            logger.error("GIF file missing at send time | path=%s | error=%s", self.gif_path, exc)
+        except Exception:
+            logger.error("GIF send failed | path=%s", self.gif_path, exc_info=True)
+        else:
+            logger.info("GIF sent | path=%s | chat_id=%s | count=%s", self.gif_path, chat_id, new_count)
+```
+
+### 41.3 `filters/olya_video.py` (D100/D101, T-243)
+
+**Порядок проверок `__call__` (решение по п.2 ТЗ):**
+
+1. `OLYA_ENABLED` → `False`
+2. `from_user is None or from_user.id != OLYA_USER_ID` → `False`
+3. media type (video / photo / any) → `False`
+4. **`OLYA_ALWAYS_SEND`** → ранний return `{"is_saveasbot": False, "matched_caption": False}` (флаги в этой ветке не вычисляются — отправка происходит и без них)
+5. **caption-ветка** (если `OLYA_CAPTION_ENABLED and message.caption`) — нормализованный substring-матч + упоминание (41.3.1)
+6. **origin-ветка** (если `OLYA_REPOST_ENABLED and message.forward_origin`) — Channel / User (41.3.2)
+7. `matched_caption or is_saveasbot` → `{"is_saveasbot": ..., "matched_caption": ...}`, иначе `False`
+
+**Контракт возврата НЕ меняется:** `dict | bool` с ключами `is_saveasbot`/`matched_caption` → `handlers/olya.py` и тесты на `**filter_result` совместимы.
+
+#### 41.3.1 `_normalize_caption(text: str) -> str` (D100)
+
+Точный алгоритм (module-level хелпер):
+1. `text.strip()`
+2. `.lower()`
+3. `text.translate(_NORMALIZE_TRANSLATION)` — таблица замен:
+
+| Вход | Unicode | → | Выход |
+|------|---------|---|-------|
+| `–` EN DASH | U+2013 | → | `-` U+002D |
+| `—` EM DASH | U+2014 | → | `-` |
+| `―` HORIZONTAL BAR | U+2015 | → | `-` |
+| `−` MINUS SIGN | U+2212 | → | `-` |
+| `’` RIGHT SINGLE QUOTATION MARK | U+2019 | → | `'` U+0027 |
+| `ʼ` MODIFIER LETTER APOSTROPHE | U+02BC | → | `'` |
+| `` ` `` GRAVE ACCENT | U+0060 | → | `'` |
+| `′` PRIME | U+2032 | → | `'` |
+
+4. `re.sub(r"\s+", " ", text)` — схлоп пробелов (включая `\n`, `\t`)
+
+```python
+import re
+
+_NORMALIZE_TRANSLATION = str.maketrans(
+    {
+        "\u2013": "-", "\u2014": "-", "\u2015": "-", "\u2212": "-",
+        "\u2019": "'", "\u02bc": "'", "`": "'", "\u2032": "'",
+    }
+)
+_MULTISPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_caption(text: str) -> str:
+    text = text.strip().lower()
+    text = text.translate(_NORMALIZE_TRANSLATION)
+    return _MULTISPACE_RE.sub(" ", text)
+```
+
+**Матч caption:**
+- `norm_caption = _normalize_caption(message.caption)`
+- `norm_expected = _normalize_caption(settings.OLYA_CAPTION_TEXT)`
+- `matched_caption = norm_expected in norm_caption`
+- **Доп. триггер (D100):** если `OLYA_CAPTION_MENTION_ENABLED` и `"@saveasbot" in norm_caption` → `matched_caption = True` (после `lower()` регистр не важен; Telegram хранит упоминание как литеральный текст в caption).
+
+#### 41.3.2 Origin-ветка (D101) — типы aiogram 3.29.1 (проверено интроспекцией)
+
+| Класс | Поле | Матч |
+|-------|------|------|
+| `MessageOriginChannel` | `origin.chat: Chat` → `origin.chat.id` | `in OLYA_SAVEASBOT_CHANNEL_IDS` |
+| `MessageOriginUser` | `origin.sender_user: User` → `origin.sender_user.id` | `in OLYA_SAVEASBOT_USER_IDS` |
+| `MessageOriginHiddenUser` | `origin.sender_user_name: str` — ID недоступен | НЕ матчится + INFO-лог |
+| `MessageOriginChat` | `origin.sender_chat: Chat` — чат-источник | НЕ матчится + INFO-лог |
+
+```python
+if settings.OLYA_REPOST_ENABLED and message.forward_origin:
+    origin = message.forward_origin
+    if isinstance(origin, MessageOriginChannel):
+        if origin.chat.id in settings.OLYA_SAVEASBOT_CHANNEL_IDS:
+            is_saveasbot = True
+    elif isinstance(origin, MessageOriginUser):
+        if origin.sender_user.id in settings.OLYA_SAVEASBOT_USER_IDS:
+            is_saveasbot = True
+    else:
+        logger.info("Olya: unexpected forward origin type | type=%s", type(origin).__name__)
+```
+
+**Импорты:** добавить `MessageOriginUser` (и `MessageOriginHiddenUser` — необязателен, ветка покрывается `else`).
+
+### 41.4 Конфигурация (settings.py + .env.example)
+
+| Ключ | Тип | Дефолт (было → стало) | Env | Где |
+|------|-----|----------------------|-----|-----|
+| `GIF_PATH` | `str` | `media/slavic_chlen.mp4` → **`media/slavik/slavic_chlen.mp4`** | `GIF_PATH` | settings.py:124; .env.example:32 |
+| `GIF_INTERVAL` | `int` | `5` (без изменений) | `GIF_INTERVAL` | — |
+| `OLYA_SAVEASBOT_USER_IDS` | `tuple[int, ...]` | **НОВЫЙ:** `(523131145,)` | `OLYA_SAVEASBOT_USER_IDS` | settings.py (~216); .env.example |
+| `OLYA_SAVEASBOT_CHANNEL_IDS` | `tuple[int, ...]` | `(523131145,)` → **`()`** | `OLYA_SAVEASBOT_CHANNEL_IDS` | settings.py:216; .env.example:119 |
+| `OLYA_CAPTION_MENTION_ENABLED` | `bool` | **НОВЫЙ:** `True` | `OLYA_CAPTION_MENTION_ENABLED` | settings.py (~218); .env.example |
+| `OLYA_COOLDOWN` | `float` | `60s` (без изменений, D102) | `OLYA_COOLDOWN` | — |
+| `SUMMARY_THROTTLE_SECONDS` | `float` | 60.0 (код НЕ менять) | `SUMMARY_THROTTLE_SECONDS` | прод .env: `300.0` (T-244) |
+
+**settings.py** (после `OLYA_ALWAYS_SEND`, settings.py:221):
+
+```python
+# ── Olya service (Epic 32: D100/D101) ──
+# ID юзера/бота SaveAsBot (репосты MessageOriginUser)
+OLYA_SAVEASBOT_USER_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_USER_IDS", (523131145,))
+# Канальные ID SaveAsBot (репосты MessageOriginChannel). Пусто = каналы не матчим.
+# (523131145 — ID юзера, а не канала: дефолт сменён с (523131145,) на () в Epic 32)
+OLYA_SAVEASBOT_CHANNEL_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_CHANNEL_IDS", ())
+# Доп. триггер: упоминание @SaveAsBot в caption (регистронезависимо)
+OLYA_CAPTION_MENTION_ENABLED: bool = _env_bool("OLYA_CAPTION_MENTION_ENABLED", True)
+```
+
+**.env.example:**
+
+```
+# ── Olya (Epic 19 / Epic 32) ────────────────────────────────
+OLYA_SAVEASBOT_USER_IDS=523131145
+# Канальные ID SaveAsBot (репосты MessageOriginChannel); пусто = не матчим каналы
+OLYA_SAVEASBOT_CHANNEL_IDS=
+# Доп. триггер: упоминание @SaveAsBot в caption (любой регистр/дефис)
+OLYA_CAPTION_MENTION_ENABLED=True
+```
+
+**Совместимость старых ключей (не удаляем):** `OLYA_CAPTION_ENABLED`, `OLYA_CAPTION_TEXT`, `OLYA_REPOST_ENABLED`, `OLYA_MEDIA_TYPE`, `OLYA_ALWAYS_SEND`, `OLYA_SAVEASBOT_CHANNEL_IDS` — поведение при явном env сохраняется (env > default).
+
+**`SUMMARY_THROTTLE_SECONDS` (D103):** код НЕ меняется. Формат в прод .env — `SUMMARY_THROTTLE_SECONDS=300.0` (простой float: `_env_float` → `float()`; НЕ «5m» — time-format этим ключом не поддерживается). Дефолт settings (60.0) и `.env.example` не трогаем. Таймаут-фразы Epic 31 автоматически покажут «до 5 минут».
+
+### 41.5 Влияние и обратная совместимость
+
+- **`services/olya_relay.py` — БЕЗ изменений:** relay триггер-агностичен (`send_olya(chat_id)`); cooldown 60s остаётся единственной защитой от дублей.
+- **`handlers/olya.py` — БЕЗ изменений:** dict-контракт флагов сохранён; UNHANDLED-пропагация не трогается.
+- **`bot.py` — БЕЗ изменений:** attach мидлвари `bot.py:112` и порядок роутеров 4d/5 не трогаются.
+- **Пропагация:** olya_handler → `UNHANDLED` → common 4c / war_alert 4b / slavik 5 не затронуты; GIF-мидлварь inner для `slavik_router` и update не потребляет.
+- **Нормализация не ломает существующие olya-тесты** с точным caption-текстом (точное совпадение — частный случай нормализованного; `"@saveasbot"` в тестовых «some other text» нет).
+- **Ломаются (требуют обновления в T-245):** `test_sends_gif_on_5th_message`, `test_gif_on_10th_message` (старого пути нет → новый код пропускает отправку, нужен патч settings.GIF_PATH на реальный tmp-файл); `test_filter_repost_saveasbot` (дефолт CHANNEL_IDS теперь `()` → канал 523131145 не матчится, нужен явный `OLYA_SAVEASBOT_CHANNEL_IDS=(523131145,)`).
+
+### 41.6 Тест-план (T-245; baseline 1366, 0 регрессий)
+
+| Файл | Что покрываем |
+|------|---------------|
+| `tests/test_message_counter.py` | **Рефактор существующих:** патч `services.message_counter.settings` (`GIF_PATH` → tmp_path-файл) в тестах отправки. **Sanity:** `Path(settings.GIF_PATH).is_file()` — реальный файл в репо. FSInputFile вызывается с `settings.GIF_PATH` (патч `services.message_counter.FSInputFile`). Кастомный `GIF_INTERVAL` из settings (2 → 2-е сообщение триггерит, 1-е нет). Файл отсутствует → WARNING-лог с путём + `answer_animation` НЕ вызван + handler вызван (пропагация жива). `answer_animation` бросает `Exception` → ERROR-лог с путём (`exc_info`), handler вызван (переписать `test_gif_send_error_silently_handled`). `FileNotFoundError` → отдельный ERROR. Успех → INFO. `GIF_INTERVAL=0` → guard, без падения, WARNING. |
+| `tests/test_olya.py` (A. Filter) | **Обновить:** `test_filter_repost_saveasbot` — добавить `OLYA_SAVEASBOT_CHANNEL_IDS=(523131145,)` в `_modified_settings` (compat-путь). **Новые:** канальный дефолт `()` → канал 523131145 НЕ матчится; нормализация caption: «—»-вариант → matched, «’»-вариант → matched, ВЕРХНИЙ регистр → matched, лишние пробелы → matched, `\n` в caption → matched; чужой caption → False; упоминание `@SaveAsBot` без полного текста → matched (`MENTION_ENABLED=True`); `MENTION_ENABLED=False` → False; `MessageOriginUser` sender_user.id=523131145 → True; sender_user.id=999 → False; `MessageOriginHiddenUser` → False; `MessageOriginChat` → False. **Сохранить:** plain video (`ALWAYS_SEND=False`) → False (AC), `ALWAYS_SEND=True` → dict False/False, точный caption → matched, гейты user/media/disabled. |
+| Регрессия | Полный `pytest`: 1366 + новые, 0 failed/skipped; `git diff --check`; интеграционные тесты роутеров без изменений; OlyaRelay-тесты (B–G) не трогаются. |
+
+### 41.7 Риски
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | **Прод `.env:52` содержит устаревший `GIF_PATH=media/slavic_chlen.mp4`** — env ПЕРЕКРЫВАЕТ новый дефолт settings | T-248-B: заменить на актуальный путь или удалить строку (дефолт теперь верный). До деплоя — хотя бы WARNING-лог вместо тишины. |
+| 2 | `GIF_INTERVAL=0` в env → ZeroDivisionError роняет update | Guard `self.interval > 0` + WARNING (41.2); тест в 41.6. |
+| 3 | **ID SaveAsBot 523131145 как user ID** мог устареть (известен с Epic 19: `OLYA_SAVE_AS_BOT_USER_ID`) | Оставить дефолтом; DevOps при T-248 проверяет по логам/памяти → пишет в .env; иначе — пометка «требует живой проверки» в отчёте деплоя (D102). |
+| 4 | Двойные отправки Оли | Одно сообщение → один вызов handler → одна отправка. Media group (N сообщений) → N срабатываний, но `OLYA_COOLDOWN=60s` оставляет первую. Caption+репост одновременно → одна отправка (ИЛИ-логика). |
+| 5 | Ложный триггер `@saveasbot` внутри произвольного текста caption | Принято (D100); отключается `OLYA_CAPTION_MENTION_ENABLED=False`. |
+| 6 | Прод .env явно задаёт `OLYA_SAVEASBOT_CHANNEL_IDS=523131145` | env > default → поведение каналов сохранится; T-248-B ревизует прод .env (backlog-риск 3). |
+| 7 | Пропагация/гонки с common 4c и war_alert 4b | Мидлварь и olya_handler не потребляют update (41.5); подтверждено порядком роутеров `bot.py:159-210`. |
+| 8 | Относительный `GIF_PATH` зависит от CWD | Аналогично OlyaRelay/goodmorning — бот запускается из корня `/var/www/admin_bot`; не меняем. |
+
+### 41.8 Сводка для Builder (файлы и сигнатуры)
+
+**Изменяемые файлы:** `services/message_counter.py` (`__init__` читает settings; `_send_gif()`; логи; guard interval>0), `filters/olya_video.py` (`_normalize_caption()`, `_NORMALIZE_TRANSLATION`, `_MULTISPACE_RE`, caption/mention/origin-ветки, импорт `MessageOriginUser`), `config/settings.py` (`GIF_PATH` дефолт; `OLYA_SAVEASBOT_USER_IDS`; `OLYA_SAVEASBOT_CHANNEL_IDS` → `()`; `OLYA_CAPTION_MENTION_ENABLED`), `.env.example` (GIF_PATH + OLYA_*-блок), `tests/test_message_counter.py`, `tests/test_olya.py` (41.6), `README.md` (T-246-A), `plans/backlog.md` (статусы T-242…T-246), `plans/board.md`, `plans/MEMORY.md` (@Memory).
+
+**Сигнатуры:** `MessageCounterMiddleware.__init__(self, db: DatabaseService) -> None`; `async def _send_gif(self, event: Message, chat_id: int, new_count: int) -> None`; `def _normalize_caption(text: str) -> str`; `OlyaVideoFilter.__call__(self, message: types.Message) -> dict | bool` (сигнатура без изменений).
+
+**НЕ менять:** `bot.py` (attach мидлвари и порядок роутеров), `services/olya_relay.py`, `handlers/olya.py`, `OLYA_COOLDOWN`, `SUMMARY_THROTTLE_SECONDS` в коде (прод-only 300.0, D103), старые ключи `OLYA_CAPTION_ENABLED`/`OLYA_CAPTION_TEXT`/`OLYA_REPOST_ENABLED`/`OLYA_MEDIA_TYPE`/`OLYA_ALWAYS_SEND`.
+
+@Architect Epic 32 architecture ready (Section 41), passing the baton to @Builder (T-242 ∥ T-243 → T-245 → T-246) и @DevOps (T-244 ∥ коду, T-247, T-248).

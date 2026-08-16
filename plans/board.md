@@ -2,36 +2,41 @@
 
 ## 📋 Backlog
 
-### Epic 31: /summary для всех + setMyCommands + таймаут-фразы (v2.29.0) — 2026-08-17 — 🆕 Шаг 1 (PM) ✅ → реализация: @Builder (T-235…T-239), @Reviewer (T-238-E), @DevOps (T-240/T-241)
+### Epic 32: Фикс гифки Славика + сервис Оли (caption/репост) + SUMMARY_THROTTLE_SECONDS=300 на проде (v2.30.0) — 2026-08-17 — 🆕 Шаг 1 (PM) ✅ → реализация: @Builder (T-242/T-243/T-245/T-246), @DevOps (T-244/T-247/T-248)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R31-1…R31-8, решения D94–D98) → реализация @Builder (T-235 → T-236/T-237 параллельно → T-238 → T-239) → @DevOps (T-240 коммит → T-241 деплой). Без @Orchestrator.
-> Требования R31-1…R31-8, решения D94–D98 (логика allow-check, setMyCommands/BotCommandScopeDefault, пул 7 таймаут-фраз, формат времени, reply-механика), риски 1–7 — в `plans/backlog.md` (Epic 31). **Target:** v2.29.0. Baseline: прод v2.28.0 (`714a4f6`), 1327 тестов.
-> ⚠️ ЭТАЛОН ПРОМПТА: блок R11 в `plans/backlog.md` (строки 1518–1539, слайс `lines[1517:1539]`) — правки Epic 31 в backlog ТОЛЬКО в конце файла (ниже 1539) → сдвига строк НЕТ (соблюдено: Epic 31 в конце).
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R32-1…R32-3, решения D99–D103) → реализация @Builder (T-242 ∥ T-243 → T-245 тесты → T-246 доки) → @DevOps (T-244 конфиг прод (параллельно) → T-247 коммит → T-248 деплой). Без @Orchestrator.
+> Требования R32-1…R32-3, решения D99–D103 (гифка Славика: settings.GIF_PATH/GIF_INTERVAL + логи вместо глушения; Оля: caption-нормализация + OLYA_CAPTION_MENTION_ENABLED + OLYA_SAVEASBOT_USER_IDS для MessageOriginUser; троттлинг прод 300.0), риски 1–6 — в `plans/backlog.md` (Epic 32). **Target:** v2.30.0. Baseline: прод v2.29.0, 1366 тестов.
 
-- [x] T-235 (@Builder, **P0**): доступ /summary для всех: `SUMMARY_ADMIN_ONLY` (_env_bool, дефолт False) + allow-check по D94 (admin_only → ADMIN_USER_ID; иначе ALLOWED_SUMMARY_IDS, пусто=все); denied — silent (R9/D62); .env.example (R31-1, D94) — **Done → In Review**
-- [x] T-236 (@Builder, **P0**, ∥T-237): setMyCommands: `services/bot_commands.py` (НОВЫЙ) `setup_bot_commands(bot)` — BotCommand(«summary», «Саммари чата — прочитай, что ты пропустил, ленивец»), BotCommandScopeDefault, best-effort try/except, INFO «set_my_commands ok»; вызов в bot.py on_startup ДО polling (R31-2, D95) — **Done → In Review**
-- [x] T-237 (@Builder, **P0**, ∥T-236): таймаут-фразы: пул `_THROTTLE_PHRASES` (7: 2 канона дословно + 5 новых, D96) + `format_remaining_seconds` (ceil, плюрализация, D97); middleware: reply фразой с РЕАЛЬНЫМ временем, best-effort (R31-3, D98) — **Done → In Review**
-- [x] T-238 (@Builder + @Reviewer, **P0**, ←T-235…T-237): тесты (throttling → reply из пула с временем; allow-check 4 комбинации; test_bot_commands.py НОВЫЙ; юниты форматтера) + полный pytest (1327 baseline, 0 регрессий) + ревью @Reviewer (R31-4) — **Done (1366 passed) → In Review (APPROVED)**
-- [x] T-239 (@Builder, **P1**, ←T-238): README (v2.29.0, меню команд, таймаут-фразы, конфиг-таблица + SUMMARY_ADMIN_ONLY, строка «молча глотается» → фраза-отборка) + .env.example (R31-5) — **Done → In Review**
-- [ ] T-240 (@DevOps, **P0**, ←T-238/T-239): коммит на русском (conventional: `feat(summary): Epic 31 — /summary для всех, setMyCommands и таймаут-фразы (v2.29.0)`) + пуш в origin/master; .env не коммитим (R31-6)
-- [ ] T-241 (@DevOps, **P0**, ←T-240): деплой: ssh nik@198.46.175.136 → git pull → **.env: `ALLOWED_SUMMARY_IDS=` (пусто) + `SUMMARY_ADMIN_ONLY=False`** (бэкап `.env.bak.epic31`) → systemctl restart → active (running) → логи: 0 traceback + «set_my_commands ok» → живой тест /summary от НЕ-владельца (R31-7)
+- [x] T-242 (@Builder, **P0**, ∥T-243): фикс гифки Славика — `services/message_counter.py` читает settings.GIF_PATH/GIF_INTERVAL; дефолт GIF_PATH → `media/slavik/slavic_chlen.mp4` (settings.py:124); fallback «файла нет» → WARNING + skip; ERROR/`exc_info`-логи вместо `except: pass`; .env.example (R32-1, D99)
+- [x] T-243 (@Builder, **P0**, ∥T-242): Оля — `_normalize_caption` (дефис/апостроф/case/пробелы) + триггер `@saveasbot` (`OLYA_CAPTION_MENTION_ENABLED=True`); репосты `MessageOriginUser` → `OLYA_SAVEASBOT_USER_IDS` (дефолт (523131145,)); `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт → (); старые ключи сохранены; HiddenUser — не матчится + лог (R32-2, D100/D101/D102)
+- [x] T-244 (@DevOps, **P0**, независимо от кода): прод .env `SUMMARY_THROTTLE_SECONDS=300.0` (бэкап `.env.bak.epic32`) + restart + статус/логи (R32-3, D103); можно совместить с рестартом T-248
+- [x] T-245 (@Builder, **P1**, ←T-242/T-243): тесты — test_message_counter.py (реальный путь, лог ошибки, skip); test_olya.py («обычное видео не триггерит», нормализация, MessageOriginUser/Channel/HiddenUser, mention вкл/выкл, ALWAYS_SEND=True) + полный pytest (1366 baseline, 0 регрессий)
+- [x] T-246 (@Builder, **P1**, ←T-245): README v2.30.0 (ирония, changelog) + .env.example (grep-полнота новых ключей)
+- [ ] T-247 (@DevOps, **P0**, ←T-245/T-246): коммит на русском (conventional: `fix(media): Epic 32 — гифка Славика, триггеры Оли (caption/репост) и троттлинг 300с (v2.30.0)`) + пуш; .env не коммитим
+- [ ] T-248 (@DevOps, **P0**, ←T-247): деплой: git pull → .env: `GIF_PATH=media/slavik/slavic_chlen.mp4`, `OLYA_SAVEASBOT_USER_IDS=<актуальный>` (или дефолт + пометка «требует живой проверки»), `SUMMARY_THROTTLE_SECONDS=300.0` (если не сделано в T-244) → restart → active (running) → 0 traceback
 
 ## 🔧 In Progress
 
-*(пусто — T-235…T-239 реализованы @Builder, перенесены в In Review)*
+*(пусто — ожидает старта реализации @Builder/@DevOps)*
 
 ## 🔍 In Review
 
-### Epic 31 — реализация @Builder (T-235…T-239): DONE → ревью @Reviewer (T-238-E)
+*(пусто — Epic 31 перенесён в Done при архивации)*
+
+## ✅ Done
+
+### Epic 31: /summary для всех + setMyCommands + таймаут-фразы — ✅ DEPLOYED & ARCHIVED (v2.29.0, 1366 тестов)
+
+> Перенесено из Backlog/In Review при архивации (PM, 2026-08-17). Полный трек — `plans/backlog.md` (Epic 31).
+> **Итог:** T-235…T-241 ALL DONE. @Builder: `SUMMARY_ADMIN_ONLY` + allow-check (D94), `services/bot_commands.py` (setMyCommands, BotCommandScopeDefault, «set_my_commands ok»), `_THROTTLE_PHRASES` (7) + `format_remaining_seconds`, тесты **1366 passed** (1327 + 39 новых, 0 failed/skipped); @Reviewer T-238-E **APPROVED** (2026-08-17); T-239 README v2.29.0 + .env.example; @DevOps T-240 коммит + пуш, T-241 деплой: .env `ALLOWED_SUMMARY_IDS=` пусто + `SUMMARY_ADMIN_ONLY=False` (бэкап `.env.bak.epic31`), restart → active (running), «set_my_commands ok», 0 traceback, /summary доступен всем. **ЭПИК 31 ЗАКРЫТ. Прод v2.29.0. Эпики 1–31 ALL DEPLOYED.**
 
 - [x] T-235 (@Builder, P0) — `SUMMARY_ADMIN_ONLY` + allow-check D94 — **Done**
 - [x] T-236 (@Builder, P0) — `services/bot_commands.py` + вызов в on_startup — **Done**
 - [x] T-237 (@Builder, P0) — `_THROTTLE_PHRASES` (7) + `format_remaining_seconds` + reply-ветка — **Done**
-- [x] T-238 (@Builder, P0) — тесты: **1366 passed** (1327 + 39 новых), 0 failed/skipped — **Done**
+- [x] T-238 (@Builder + @Reviewer, P0) — тесты 1366 passed + ревью — **Done (APPROVED)**
 - [x] T-239 (@Builder, P1) — README v2.29.0 + .env.example — **Done**
-- [x] T-238-E (@Reviewer) — code review — **APPROVED** (2026-08-17)
-
-## ✅ Done
+- [x] T-240 (@DevOps, P0) — коммит + пуш — **Done**
+- [x] T-241 (@DevOps, P0) — деплой v2.29.0 (ALLOWED_SUMMARY_IDS пусто, SUMMARY_ADMIN_ONLY=False) — **Done**
 
 ### Epic 30: Common Expansion — selfdev/work-реакции, goodmorning-рассылка, фикс нумерации промпта — ✅ DEPLOYED (v2.28.0, коммит `714a4f6`, 1327 тестов, прод PID 939545)
 
@@ -505,4 +510,4 @@
 
 ---
 
-**Updated:** 2026-08-17 — **Epic 30 (v2.28.0) АРХИВИРОВАН: T-227…T-234 ALL DONE & DEPLOYED (коммит `714a4f6`, прод PID 939545, 1327 теста, Шаг 8 `4b50272`).** Открыт **Epic 31 «/summary для всех + setMyCommands + таймаут-фразы» (v2.29.0)**: Шаг 1 (PM) ✅ — требования R31-1…R31-8, решения D94–D98 в `plans/backlog.md`; T-235 → @Builder первой, T-236/T-237 параллельно, T-238 (@Builder+@Reviewer), T-239 (@Builder), T-240/T-241 (@DevOps) — в очереди.
+**Updated:** 2026-08-17 — **Epic 31 (v2.29.0) АРХИВИРОВАН: T-235…T-241 ALL DONE & DEPLOYED (1366 тестов, 0 failed/skipped).** Открыт **Epic 32 «Фикс гифки Славика + сервис Оли + троттлинг 300с» (v2.30.0)**: Шаг 1 (PM) ✅ — требования R32-1…R32-3, решения D99–D103 в `plans/backlog.md`; T-242 ∥ T-243 (@Builder) → T-245 → T-246; T-244/T-247/T-248 (@DevOps) — в очереди. Без @Orchestrator.

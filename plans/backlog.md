@@ -2567,7 +2567,7 @@
 
 ---
 
-## Epic 31: /summary для всех + setMyCommands + таймаут-фразы — 2026-08-17 🆕 Шаг 1 (PM) ✅ → реализация @Builder/@Reviewer/@DevOps
+## Epic 31: /summary для всех + setMyCommands + таймаут-фразы — 2026-08-17 ✅ DEPLOYED & ARCHIVED (v2.29.0)
 
 > **Цель (запрос пользователя, 2026-08-17):**
 > **(1)** Сейчас `/summary` отвечает только владельцу (в продовом .env `ALLOWED_SUMMARY_IDS` — список из одного ID; чужой юзер = молчаливое игнорирование). Сделать команду доступной ВСЕМ + добавить в конфиг переключатель доступности (все / только админы): `false` = доступно всем.
@@ -2685,5 +2685,127 @@
 
 ---
 
-**Статус: Epic 31 — Шаг 1 (PM) ✅ (2026-08-17): требования R31-1…R31-8 и решения D94–D98 зафиксированы в `plans/backlog.md`; Epic 30 архивирован (DEPLOYED, `714a4f6`); доска `plans/board.md` обновлена. Передача @Builder: T-235 (P0) первой → T-236/T-237 параллельно → T-238 (тесты+ревью) → T-239; коммит T-240 и деплой T-241 — @DevOps.**
+**Статус: Epic 31 — ✅ DEPLOYED & ARCHIVED (2026-08-17): T-235…T-241 ALL DONE (1366 passed: 1327 + 39 новых, 0 failed/skipped; ревью @Reviewer T-238-E APPROVED). Прод v2.29.0: .env `ALLOWED_SUMMARY_IDS=` пусто + `SUMMARY_ADMIN_ONLY=False` (бэкап `.env.bak.epic31`), restart → active (running), «set_my_commands ok», 0 traceback, /summary доступен всем. Полный трек — `plans/board.md` (Done).**
+**Date: 2026-08-17**
+
+---
+
+## Epic 32: Фикс гифки Славика + сервис Оли (caption/репост) + SUMMARY_THROTTLE_SECONDS=300 на проде — 2026-08-17 🆕 Шаг 1 (PM) ✅ → реализация @Builder/@DevOps (v2.30.0)
+
+> **Цель (запрос пользователя, 2026-08-17):**
+> **(1) Славик:** гифка `slavic_chlen.mp4` давно не отправляется — расследовать и починить (раньше работало; затронули ли смежные изменения логику).
+> **(2) Оля:** видео не отправляется вообще (ни обычные видео, ни caption+репост). Настроить сервис ТОЛЬКО на caption или репост SaveAsBot; на обычные видео Оля отвечать НЕ должна.
+> **(3) Прод:** `SUMMARY_THROTTLE_SECONDS = 300.0` (5 минут).
+>
+> **Данные расследования (@Memory, подтверждены по коду 2026-08-17):** R32-1…R32-3 ниже.
+> **Источник:** пользователь (2026-08-17). **Исполнители:** @Builder (T-242, T-243, T-245, T-246), @DevOps (T-244, T-247, T-248). Без @Orchestrator. **Target:** v2.30.0. **Baseline:** прод v2.29.0 (Epic 31 DEPLOYED), 1366 тестов, 14 роутеров.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R32-1…R32-3, решения D99–D103) → 2/3 реализация @Builder (T-242 ∥ T-243 → T-245 → T-246) → 3/3 @DevOps (T-244 — конфиг прод, параллельно коду → T-247 коммит → T-248 деплой).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R32-1** | **Славик, гифка (root cause найден, 2026-08-17):** `services/message_counter.py` (F3-GIF-мидлварь, последнее изменение v1.3.0) хардкодит `GIF_PATH = "media/slavic_chlen.mp4"` (строка 17) и `INTERVAL = 5`, игнорируя `settings.GIF_PATH`/`settings.GIF_INTERVAL`. Файл в v2.15.0 (`066d5bc`, 2026-08-02) перенесён в `media/slavik/slavic_chlen.mp4` (подтверждено: файл на месте, старого пути нет) → `FSInputFile` падает FileNotFoundError, но `except Exception: pass` (строка 40) глушит всё → молчаливый отказ ~с 2026-08-02. Смежные Epic 30/31 логику Славика НЕ задевали (отдельный роутер 5:slavik, отдельный коулдаун). `.env:52` — устаревший `GIF_PATH=media/slavic_chlen.mp4` (сейчас не читается). Тесты мокают `answer_animation` — путь не проверяется. **Фикс:** читать settings + логировать (D99). |
+| **R32-2** | **Оля (цепочка: handlers/olya.py 4d → OlyaVideoFilter filters/olya_video.py → OlyaRelay services/olya_relay.py → media/olya/cringe/):** Epic 22 (`1dbb6da`, 2026-08-15, D51) сменил дефолт `OLYA_ALWAYS_SEND` True→False — обычные видео не триггерят (by design, соответствует ТЗ «только caption или репост»). Но caption+репост тоже молчат (код фильтра не менялся с Epic 19 `f57add4`). **Гипотезы, подтверждённые кодом:** (а) caption-матч — substring `OLYA_CAPTION_TEXT.lower() in caption.lower()` — чувствителен к вариантам «-»/«—» и «'»; (б) репост-матч — только `MessageOriginChannel` по `OLYA_SAVEASBOT_CHANNEL_IDS=(523131145,)`, но SaveAsBot — бот (юзер), а не канал → реальный origin репоста `MessageOriginUser` → ветка никогда не срабатывает; (в) ID 523131145 мог устареть (известен с Epic 19: `OLYA_SAVE_AS_BOT_USER_ID`); (г) `OLYA_COOLDOWN=60s` глотает частые срабатывания. **Фикс:** D100/D101/D102. **AC:** обычное видео (не репост, без caption) → НЕТ реакции; caption SaveAsBot → ответ; репост от SaveAsBot → ответ. |
+| **R32-3** | **Троттлинг:** `SUMMARY_THROTTLE_SECONDS: float = _env_float("SUMMARY_THROTTLE_SECONDS", 60.0)` (settings.py:250); в прод .env ключа нет → сейчас 60.0. Требуется 300.0 в прод .env + рестарт. **Код не менять** (значение — float, НЕ time-format; таймаут-фразы Epic 31 сами покажут реальное время). |
+
+### PM Decisions (зафиксированы 2026-08-17)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D99** | Славик, гифка | `services/message_counter.py`: убрать классовые константы `GIF_PATH`/`INTERVAL`; в `__init__` читать `self.gif_path = settings.GIF_PATH`, `self.interval = settings.GIF_INTERVAL` (мидлварь создаётся после загрузки settings). **Fallback:** если `not Path(self.gif_path).is_file()` → WARNING-лог «GIF file not found: <путь>, skipping» и НЕ вызывать `answer_animation` (пропагация не прерывается). **Логирование вместо глушения:** `except FileNotFoundError` → ERROR-лог с путём; `except Exception` → `logger.error("GIF send failed | path=%s", self.gif_path, exc_info=True)`; успех → INFO. `config/settings.py:124`: дефолт `GIF_PATH` → `"media/slavik/slavic_chlen.mp4"`. `.env.example:31-32`: значение и комментарии обновить. Прод `.env:52` — поправить при деплое (T-248). Тесты: реальный путь существует, FSInputFile вызывается с `settings.GIF_PATH`, лог ошибки, кастомный `GIF_INTERVAL` из settings, файл отсутствует → skip + WARNING, propagation жив. |
+| **D100** | Оля, caption-нормализация | Хелпер `_normalize_caption(text)` в `filters/olya_video.py`: strip → lower → варианты дефиса/тире (`–`, `—`, `―`, `−`) → «-» → варианты апострофа (`’`, `ʼ`, `` ` ``, `′`) → «'» → схлопнуть пробелы (`\s+` → « »). Матч: нормализованный caption содержит нормализованный `settings.OLYA_CAPTION_TEXT` (case-insensitive автоматически). **Доп. устойчивый триггер:** нормализованный caption содержит `@saveasbot` → matched; управляется новым ключом `OLYA_CAPTION_MENTION_ENABLED: bool = _env_bool("OLYA_CAPTION_MENTION_ENABLED", True)` (на проде можно отключить, оставив только точный текст). Старые ключи `OLYA_CAPTION_ENABLED`/`OLYA_CAPTION_TEXT` НЕ трогаем (совместимость). |
+| **D101** | Оля, репост-матч (origin-типы) | Новый ключ `OLYA_SAVEASBOT_USER_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_USER_IDS", (523131145,))` — ID юзера/бота SaveAsBot. Ветка репоста: `MessageOriginChannel` → `origin.chat.id in OLYA_SAVEASBOT_CHANNEL_IDS` **ИЛИ** `MessageOriginUser` → `origin.sender_user.id in OLYA_SAVEASBOT_USER_IDS`. `MessageOriginHiddenUser` — не матчится (ID недоступен; INFO-лог при неожиданном origin-типе). Старый ключ `OLYA_SAVEASBOT_CHANNEL_IDS` сохраняем, но дефолт меняем `(523131145,)` → `()` (523131145 — ID юзера, в канальном ключе жил ошибочно; переносится в USER_IDS). Если SaveAsBot сменил ID — живую проверку делает DevOps при деплое (T-248): `OLYA_SAVEASBOT_USER_IDS=<актуальный>` в .env, код не меняется. |
+| **D102** | Оля, прод-конфиг | `OLYA_COOLDOWN=60s` (дефолт) — оставляем. При деплое в прод .env завести/актуализировать: `OLYA_SAVEASBOT_USER_IDS` (актуальный ID), `OLYA_SAVEASBOT_CHANNEL_IDS` (пусто или актуальные каналы), `OLYA_CAPTION_TEXT` (фактический текст подписи SaveAsBot, если отличается от дефолта) — все ключи уже существуют/заведены, правка только конфига. Значения фиксирует DevOps по факту (память/логи); если живая проверка недоступна — пометить в отчёте деплоя как «требует проверки в чате». |
+| **D103** | Троттлинг прод | Код НЕ менять. Прод `.env`: `SUMMARY_THROTTLE_SECONDS=300.0` (float с точкой — `_env_float`). Бэкап `.env.bak.epic32`, рестарт. Дефолт settings (60.0) и `.env.example` не меняем. Таймаут-фразы Epic 31 автоматически покажут реальное время (до 5 минут). |
+
+### Задачи
+
+### T-242 (@Builder) — Фикс гифки Славика (R32-1, D99)
+
+**Приоритет:** P0. **Зависимости:** нет (параллельно с T-243). **Оценка:** 0.5d.
+
+- [ ] T-242-A: `services/message_counter.py` — читать `settings.GIF_PATH`/`settings.GIF_INTERVAL` (в `__init__`), убрать хардкоды; fallback «файла нет» → WARNING + skip; `except Exception: pass` → ERROR/`exc_info`-логи с путём (FileNotFoundError отдельно)
+- [ ] T-242-B: `config/settings.py` — дефолт `GIF_PATH` → `"media/slavik/slavic_chlen.mp4"` (строка 124); `GIF_INTERVAL` дефолт 5 остаётся
+- [ ] T-242-C: `.env.example` — `GIF_PATH=media/slavik/slavic_chlen.mp4` + комментарии (строки 31–32)
+- [ ] T-242-D: Тесты `tests/test_message_counter.py` — реальный путь (`Path(settings.GIF_PATH).is_file()`), FSInputFile с `settings.GIF_PATH`, лог ERROR/WARNING с путём, кастомный GIF_INTERVAL из settings, отсутствующий файл → skip без падения, propagation жив
+
+**DoD:** гифка отправляется каждые N сообщений (файл по актуальному пути); при отсутствии файла — WARNING-лог, бот не падает; ошибки не глушатся молча.
+
+### T-243 (@Builder) — Оля: caption-нормализация + репосты от юзера SaveAsBot (R32-2, D100/D101/D102)
+
+**Приоритет:** P0. **Зависимости:** нет (параллельно с T-242). **Оценка:** 0.75d.
+
+- [ ] T-243-A: `filters/olya_video.py` — `_normalize_caption()` + нормализованный substring-матч OLYA_CAPTION_TEXT; ветка `@saveasbot` + `OLYA_CAPTION_MENTION_ENABLED` (D100)
+- [ ] T-243-B: `filters/olya_video.py` — ветка репоста: `MessageOriginUser` → `OLYA_SAVEASBOT_USER_IDS` (импорт MessageOriginUser); `MessageOriginChannel` как было; `MessageOriginHiddenUser` → не матчится + лог (D101)
+- [ ] T-243-C: `config/settings.py` + `.env.example` — `OLYA_SAVEASBOT_USER_IDS` (дефолт (523131145,)), `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт → (), `OLYA_CAPTION_MENTION_ENABLED=True` (D100/D101)
+- [ ] T-243-D: AC-тесты (в T-245): обычное видео (не репост, без caption) → НЕТ реакции; caption SaveAsBot (в т.ч. с «—»/«'»-вариантами) → ответ; репост от MessageOriginUser SaveAsBot → ответ; репост от чужого юзера/канала → НЕТ; репост MessageOriginChannel из OLYA_SAVEASBOT_CHANNEL_IDS → ответ (совместимость)
+
+**DoD:** конфиг-только-caption/репост работает; обычные видео не триггерят; старые ключи и OLYA_ALWAYS_SEND=True совместимы.
+
+### T-244 (@DevOps) — Прод: SUMMARY_THROTTLE_SECONDS=300.0 (R32-3, D103)
+
+**Приоритет:** P0. **Зависимости:** нет (можно параллельно с кодом; если совмещается с T-248 — один рестарт). **Оценка:** 0.25d.
+
+- [ ] T-244-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → бэкап `.env.bak.epic32` → добавить/заменить `SUMMARY_THROTTLE_SECONDS=300.0` в .env
+- [ ] T-244-B: sudo systemctl restart admin_bot → status active (running)
+- [ ] T-244-C: верификация логов: 0 traceback; (при повторном /summary внутри окна фразы покажут время до 5 минут)
+
+**DoD:** прод-значение 300.0 активно, бот healthy.
+
+### T-245 (@Builder) — Тесты + полный прогон
+
+**Приоритет:** P1. **Зависимости:** T-242, T-243. **Оценка:** 1d.
+
+- [ ] T-245-A: `tests/test_message_counter.py` — тесты D99 (путь, лог, skip, кастомный интервал)
+- [ ] T-245-B: `tests/test_olya.py` — «обычное видео не триггерит» (уже есть, D51 — сохранить), нормализация caption (дефис/апостроф/регистр/лишние пробелы), `@saveasbot`-триггер (вкл/выкл), MessageOriginUser SaveAsBot → True, чужой юзер → False, MessageOriginChannel → True (совместимость), MessageOriginHiddenUser → False, OLYA_ALWAYS_SEND=True → True
+- [ ] T-245-C: Полный `pytest` — 1366 baseline + новые, 0 failed/skipped; `git diff --check` чист
+
+**DoD:** полный прогон зелёный.
+
+### T-246 (@Builder) — README + .env.example (v2.30.0)
+
+**Приоритет:** P1. **Зависимости:** T-245. **Оценка:** 0.25d.
+
+- [ ] T-246-A: README — «Версия: v2.30.0», changelog «🔧 Исправлено в v2.30.0 (Epic 32)»: гифка Славика (путь+логи), триггеры Оли (нормализация caption, репосты от юзера SaveAsBot, упоминание @SaveAsBot), SUMMARY_THROTTLE_SECONDS прод 300с; конфиг-таблица: GIF_PATH (новый дефолт), OLYA_SAVEASBOT_USER_IDS, OLYA_CAPTION_MENTION_ENABLED; ироничный тон
+- [ ] T-246-B: `.env.example` — grep-проверка полноты новых ключей
+
+**DoD:** grep: OLYA_SAVEASBOT_USER_IDS/OLYA_CAPTION_MENTION_ENABLED/GIF_PATH в README и .env.example.
+
+### T-247 (@DevOps) — Коммит + пуш
+
+**Приоритет:** P0. **Зависимости:** T-245, T-246. **Оценка:** 0.25d.
+
+- [ ] T-247-A: `git add` — код, тесты, планы (backlog/board/MEMORY), README, `.env.example`; `.env` — НЕ коммитим
+- [ ] T-247-B: Коммит на русском (conventional): `fix(media): Epic 32 — гифка Славика, триггеры Оли (caption/репост) и троттлинг 300с (v2.30.0)`; пуш в origin/master
+- [ ] T-247-C: `git status` чист (кроме .env), HEAD == origin/master
+
+**DoD:** коммит в master, пуш выполнен.
+
+### T-248 (@DevOps) — Деплой на прод (v2.30.0)
+
+**Приоритет:** P0. **Зависимости:** T-247. **Оценка:** 0.5d.
+
+- [ ] T-248-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff)
+- [ ] T-248-B: **.env** (бэкап `.env.bak.epic32`): `GIF_PATH=media/slavik/slavic_chlen.mp4` (или удалить — дефолт верный; строка 52 устарела); `OLYA_SAVEASBOT_USER_IDS=<актуальный ID SaveAsBot>` (если известен из логов/памяти; иначе оставить дефолт и пометить «требует живой проверки»); `OLYA_SAVEASBOT_CHANNEL_IDS` — пусто/актуальное; `SUMMARY_THROTTLE_SECONDS=300.0` (если не сделано в T-244)
+- [ ] T-248-C: sudo systemctl restart admin_bot → status active (running), новый PID
+- [ ] T-248-D: Верификация логов: 0 traceback; «Bot started, listening…»
+- [ ] T-248-E: Отчёт: версия v2.30.0, PID, что изменено в .env, результат проверок; живой тест гифки/Оли — при возможности в чате
+
+**DoD:** прод v2.30.0, active (running), конфиг актуализирован, логи чистые.
+
+### Риски (Epic 32)
+
+1. **Эталон промпта R11 (1518–1539):** правки Epic 32 в backlog — только в конце файла (ниже 1539) → сдвига строк НЕТ (соблюдено: Epic 32 в конце).
+2. **Славик:** не путать F3-GIF (MessageCounterMiddleware, router 5:slavik) и F8 slavik_random (slavik catchall) — фикс только мидлвари; Epic 30/31 Славика не трогали (подтверждено).
+3. **Оля:** `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт меняется на () — если кто-то в прод .env явно прописал канальный ID 523131145, поведение для каналов не ломается (ключ читается из env); проверка прод .env в T-248.
+4. **Живые значения SaveAsBot:** точный caption-текст/ID может отличаться от дефолтов — ключи заведены, правится только .env; если проверка в чате невозможна — пометить в отчёте деплоя.
+5. **Троттлинг:** `SUMMARY_THROTTLE_SECONDS` — float-формат (`300.0`), НЕ time-format (в отличие от *_COOLDOWN) — не писать «5m».
+6. **Рестарт:** T-244 и T-248 могут требовать два рестарта; можно совместить в один (решение DevOps).
+
+**Файлы (планируемые):** `services/message_counter.py`, `filters/olya_video.py`, `config/settings.py`, `.env.example`, `tests/test_message_counter.py`, `tests/test_olya.py`, `README.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`.
+
+---
+
+**Статус: Epic 32 — Шаг 1 (PM) ✅ (2026-08-17): требования R32-1…R32-3 и решения D99–D103 зафиксированы в `plans/backlog.md`; Epic 31 архивирован (DEPLOYED, v2.29.0); доска `plans/board.md` обновлена. Передача @Builder: T-242 ∥ T-243 → T-245 → T-246; @DevOps: T-244 (конфиг прод, параллельно) → T-247 коммит → T-248 деплой. Без @Orchestrator.**
 **Date: 2026-08-17**

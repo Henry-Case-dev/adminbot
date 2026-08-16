@@ -121,7 +121,7 @@ class Settings:
 
     # GIF counter
     GIF_INTERVAL: int = _env_int("GIF_INTERVAL", 5)
-    GIF_PATH: str = os.getenv("GIF_PATH", "media/slavic_chlen.mp4")
+    GIF_PATH: str = os.getenv("GIF_PATH", "media/slavik/slavic_chlen.mp4")
 
     # Dead page media directory
     DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
@@ -213,12 +213,20 @@ class Settings:
     OLYA_USER_ID: int = _env_int("OLYA_USER_ID", 834424825)
     OLYA_COOLDOWN: float = _env_duration("OLYA_COOLDOWN", "60s")
     OLYA_MEDIA_BASE: str = _env_str("OLYA_MEDIA_BASE", "media/olya/cringe")
-    OLYA_SAVEASBOT_CHANNEL_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_CHANNEL_IDS", (523131145,))
+    # Канальные ID SaveAsBot (репосты MessageOriginChannel). Пусто = каналы не матчим.
+    # (523131145 — ID юзера, а не канала: дефолт сменён с (523131145,) на () в Epic 32)
+    OLYA_SAVEASBOT_CHANNEL_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_CHANNEL_IDS", ())
     OLYA_CAPTION_ENABLED: bool = _env_bool("OLYA_CAPTION_ENABLED", True)
     OLYA_CAPTION_TEXT: str = _env_str("OLYA_CAPTION_TEXT", "Спасибо, что пользуетесь - @SaveAsBot'ом")
     OLYA_REPOST_ENABLED: bool = _env_bool("OLYA_REPOST_ENABLED", True)
     OLYA_MEDIA_TYPE: str = _env_str("OLYA_MEDIA_TYPE", "video")
     OLYA_ALWAYS_SEND: bool = _env_bool("OLYA_ALWAYS_SEND", False)
+
+    # ── Olya service (Epic 32: D100/D101) ──
+    # ID юзера/бота SaveAsBot (репосты MessageOriginUser)
+    OLYA_SAVEASBOT_USER_IDS: tuple[int, ...] = _env_int_tuple("OLYA_SAVEASBOT_USER_IDS", (523131145,))
+    # Доп. триггер: упоминание @SaveAsBot в caption (регистронезависимо)
+    OLYA_CAPTION_MENTION_ENABLED: bool = _env_bool("OLYA_CAPTION_MENTION_ENABLED", True)
 
     # ── SmartModule: Summary (Epic 24) ────────────────────────────
     # LLM provider — OpenAI-compatible API (apinet.cloud hub by default).
