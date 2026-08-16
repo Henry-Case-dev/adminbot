@@ -1,7 +1,8 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.24.0 DEPLOYED (Epic 26 GraphRAG-память, коммит `7c7c241`). **Epic 26 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-199…T-206 Done, весь цикл воркфлоу (Шаги 0–8) закрыт. Epic 27 (v2.25.0) IMPLEMENTED (Шаг 6): T-207/T-208 Done, ревью PASS, 939/939; T-209/T-210 PENDING — коммита нет. Прод v2.24.0, PID 926618, 939 тестов.**
+> **Версия:** v2.25.0 DEPLOYED (Epic 27 — новый системный промпт бота-абьюзера v2 + SUMMARY_ALIASES на прод, коммит `1d7bed4`). **Epic 27 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-207…T-210 Done, весь цикл воркфлоу (Шаги 0–8) закрыт. Прод v2.25.0, PID 934174 (был 926618), 939 тестов.**
 > **Дата:** 2026-08-16
+> **Обновление:** 2026-08-16 — **Epic 27 (новый системный промпт + SUMMARY_ALIASES на прод) — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): DEPLOYED ✅. Коммит `1d7bed4` «feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)» запушен в origin/master (8 файлов). Деплой на прод nik@198.46.175.136 (/var/www/admin_bot): git pull ff `7c7c241..1d7bed4`; в .env добавлена SUMMARY_ALIASES (36 пар, бэкап .env.bak.epic27, верифицировано python3: JSON OK, sha1 совпал с репо); systemctl restart admin_bot → active (running), новый PID 934174 (был 926618); 0 traceback; WARNING «SUMMARY_ALIASES invalid JSON» отсутствует → AliasResolver распарсил 36 пар. Тесты: 939 passed. Ревью PASS. SYSTEM_PROMPT v2 байт-в-байт == backlog 1518–1538, плейсхолдеры {max_symbols} ×1, {username} ×2, подстановка .replace не тронута, COMPRESS/EXTRACT заморожены. Pre-existing не-блокер (не Epic 27): WARNING «SmartModule L3: vector search failed — FTS5 fallback» + OperationalError Dimension mismatch 3072 vs 768 (старые эмбеддинги) — FTS5-фоллбек сработал штатно; рекомендован отдельный тикет на миграцию векторов. Вся цепочка воркфлоу (0–8) завершена.**
 > **Обновление:** 2026-08-16 — **Epic 27 (новый системный промпт + SUMMARY_ALIASES на прод) — Шаг 6 (@Memory, граф знаний после реализации и ревью): IMPLEMENTED ✅. @Builder (T-207/T-208) завершил, @Reviewer PASS: 939/939 тестов (полный прогон; точечно 50). SYSTEM_PROMPT v2 в services/summary_prompts.py (строки 8–28, 21 строка) байт-в-байт == эталон backlog.md 1518–1538; {max_symbols} ×1, {username} ×2; подстановка .replace в summary_generator.py:113 НЕ тронута; COMPRESS_PROMPT/EXTRACT_PROMPT не изменены. Тест test_max_symbols_is_the_only_placeholder переписан по D72 (regex `\{(\w+)\}` → set {max_symbols, username}); хелпер lines[1517:1538]. Доки: README (+ироничный блок «Промпт v2»), ARCHITECTURE.md Section 36 (4298–4360), MEMORY.md (строки 109/241/258/751), board/backlog T-207/T-208 done. Изменено ровно 8 файлов (.env.example с SUMMARY_ALIASES 36 пар — валидный JSON). Коммита ещё нет. Впереди: T-210 (коммит `feat(summary): Epic 27 … (v2.25.0)` + пуш) и T-209 (деплой .env.bak.epic27 + SUMMARY_ALIASES → прод .env, git pull, restart ~95с SIGTERM — штат, верификация).**
 > **Обновление:** 2026-08-16 — **Epic 27 (новый системный промпт + SUMMARY_ALIASES на прод) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): DESIGN ✅. @Architect добавил Section 36 (36.1–36.8) в ARCHITECTURE.md: C1 (эталон промпта ТОЛЬКО в backlog.md 1518–1538, без дублей), C2 (подстановка `SYSTEM_PROMPT.replace("{max_symbols}", …)` в summary_generator.py:113 НЕ меняется — `str.format` упал бы KeyError на `{username}`), C3–C5; тест-план 36.4 — меняются ТОЛЬКО хелпер `_backlog_system_prompt` (слайс 1517:1538) и `test_max_symbols_is_the_only_placeholder` (набор `{"max_symbols","username"}` по D72); деплой 36.6 — `.env.bak.epic27`, SUMMARY_ALIASES в одинарных кавычках с grep-гардом от дублей, git pull, restart (~95с SIGTERM), верификация. **SYSTEM_PROMPT с Epic 27 больше НЕ заморожен (R11 v2); COMPRESS_PROMPT/EXTRACT_PROMPT остаются заморожены.** Статусы: T-207/T-208 READY FOR BUILDER, T-209/T-210 PENDING (@DevOps). Код НЕ писался — передача @Builder (T-207/T-208).**
 > **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): DEPLOYED ✅. Коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» запушен в origin/master (github.com/Henry-Case-dev/adminbot.git). Деплой на прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `c364f18..7c7c241`; .env +GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап .env.bak.epic26); systemctl restart admin_bot → active (running), Main PID 926618; таблицы nodes/edges созданы в продовой БД; 0 traceback. Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206); T-206 (P1, FTS-удаление медиа без подписи) исправлен в этом же релизе. Известный не-блокер: бот не отвечает на SIGTERM (~95с рестарт, pre-existing) — рекомендуется отдельный тикет graceful shutdown. Вся цепочка воркфлоу (0–8) завершена.**
@@ -12,15 +13,15 @@
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): RCA ПОДТВЕРЖДЁН прод-логами (асимметрия ThrottlingMiddleware vs aiogram Command-фильтр), Section 34 (B1–B9) DESIGN APPROVED (PM: B6 ⚠️, B3 ⚠️). T-192/T-193 Done, T-194/T-195 READY FOR BUILDER.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 0 (@Memory, синхронизация контекста по баг-репорту): «/summary не реагирует» + требование удалять сообщение команды из чата.**
 > **Обновление:** 2026-08-16 — **Epic 24 «SmartModule: Summary» — Шаг 8 (@Memory, финальная синхронизация): ВЕСЬ запрос пользователя выполнен ✅. T-190 DONE (835 тестов PASS локально; коммит `a68732c`, 35 файлов, +4495/−28; docs-коммит `818e195`; пуш master; HEAD = origin/master). T-191 DONE (прод 198.46.175.136: git pull ff `756d237..a68732c`, .env +LLM-ключи, venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, smoke T-191-D ✅ apinet.cloud/v1/models OK, restart → active (running) PID 920105). Осталось пользователю вручную: Н1 BotFather `/setprivacy` → Disable (критично) + живая проверка `/summary`.**
-> **Статус:** Epics 1–26 ALL DEPLOYED ✅ (v2.24.0, `7c7c241`, 939 тестов). **Epic 26 (GraphRAG) DEPLOYED на проде: PID 926618, таблицы nodes/edges созданы, 0 traceback, T-199–T-206 Done (T-206 P1 fixed в этом же релизе).** **Epic 27 (v2.25.0) IMPLEMENTED — Шаг 6 @Memory: T-207/T-208 DONE (ревью PASS, 939/939), T-209/T-210 PENDING — коммита ещё нет.** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
-> **Текущий коммит:** `7c7c241` (feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)) — в origin/master (github.com/Henry-Case-dev/adminbot.git). Прод версия **v2.24.0**.
-> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 926618, 0 traceback после рестарта; таблицы nodes/edges созданы в продовой БД; .env +4 переменные GRAPH_* (бэкап .env.bak.epic26). Известный не-блокер (pre-existing): бот не отвечает на SIGTERM (~95с рестарт) — кандидат в отдельный тикет graceful shutdown.
+> **Статус:** Epics 1–27 ALL DEPLOYED ✅ (v2.25.0, `1d7bed4`, 939 тестов). **Epic 27 (промпт v2 + SUMMARY_ALIASES) DEPLOYED на проде: PID 934174, SUMMARY_ALIASES 36 пар активны (бэкап .env.bak.epic27), 0 traceback, T-207–T-210 Done.** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
+> **Текущий коммит:** `1d7bed4` (feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)) — в origin/master (github.com/Henry-Case-dev/adminbot.git). Прод версия **v2.25.0**.
+> **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 934174 (был 926618), 0 traceback после рестарта; .env +SUMMARY_ALIASES (36 пар, бэкап .env.bak.epic27, JSON OK, sha1 совпал с репо). Известные не-блокеры (pre-existing): бот не отвечает на SIGTERM (~95с рестарт); L3 vector search failed — Dimension mismatch 3072 vs 768 (старые эмбеддинги) → FTS5-фоллбек штатный, рекомендован тикет на миграцию векторов.
 
 ---
 
-## 🚧 Epic 27: Новый системный промпт (бот-абьюзер v2) + SUMMARY_ALIASES на прод — v2.25.0 (IMPLEMENTED, Шаг 6 @Memory, 2026-08-16)
+## ✅ Epic 27: Новый системный промпт (бот-абьюзер v2) + SUMMARY_ALIASES на прод — v2.25.0 (DEPLOYED, Шаг 8 @Memory, 2026-08-16)
 
-> **Статус:** Шаг 1 (PM) ✅ → Шаг 2 (@Architect, Section 36) ✅ → **Шаги 4–5: @Builder (T-207/T-208) ✅ + @Reviewer PASS ✅ → Шаг 6 (@Memory): IMPLEMENTED ✅**. T-207/T-208 DONE; T-209/T-210 PENDING (@DevOps). Target **v2.25.0**. Код в рабочем дереве БЕЗ коммита (ровно 8 файлов).
+> **Статус:** Шаг 1 (PM) ✅ → Шаг 2 (@Architect, Section 36) ✅ → Шаги 4–5: @Builder (T-207/T-208) ✅ + @Reviewer PASS ✅ → Шаг 6 (@Memory): IMPLEMENTED ✅ → **Шаг 7: @DevOps T-210 (коммит `1d7bed4` + пуш) + T-209 (SUMMARY_ALIASES на прод + git pull + restart + верификация) ✅ → Шаг 8 (@Memory): DEPLOYED ✅. ЭПИК 27 ЗАКРЫТ, цикл воркфлоу (0–8) завершён. Прод v2.25.0, PID 934174, 939 тестов.**
 > **Требования R27-1…R27-4, решения D72–D75:** `plans/backlog.md` (Epic 27, эталон промпта R11 v2 на строках 1518–1538). **Дизайн:** `plans/ARCHITECTURE.md` Section 36 (36.1–36.8).
 
 ### 📐 Дизайн (Section 36, @Architect, 2026-08-16)
@@ -41,14 +42,22 @@
 - **SYSTEM_PROMPT v2 (T-207):** `services/summary_prompts.py` строки 8–28 (21 строка) — байт-в-байт == эталон `plans/backlog.md` 1518–1538 (инвариант D74, `git diff --check` чист); плейсхолдеры `{max_symbols}` ×1, `{username}` ×2; подстановка `.replace` в `summary_generator.py:113` НЕ тронута (C2); `COMPRESS_PROMPT`/`EXTRACT_PROMPT` не изменены (C4).
 - **Тесты:** хелпер `_backlog_system_prompt` — слайс `lines[1517:1538]`; `test_max_symbols_is_the_only_placeholder` переписан по D72 (regex `\{(\w+)\}` → set `{max_symbols, username}`); полный pytest **939 passed / 0 failed**; точечно 50 passed.
 - **Доки (T-208):** README.md (+ироничный блок «Промпт v2»); plans/MEMORY.md (строки 109/241/258/751 — «SYSTEM_PROMPT обновлён в Epic 27 R11 v2; COMPRESS/EXTRACT заморожены»); ARCHITECTURE.md Section 36 (4298–4360); board/backlog: T-207/T-208 done.
-- **Изменённые файлы (ровно 8):** `.env.example` (SUMMARY_ALIASES 36 пар, валидный JSON), `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md`, `plans/backlog.md`, `plans/board.md`, `services/summary_prompts.py`, `tests/test_summary_prompts.py`. **Коммита ещё нет.**
+- **Изменённые файлы (ровно 8):** `.env.example` (SUMMARY_ALIASES 36 пар, валидный JSON), `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md`, `plans/backlog.md`, `plans/board.md`, `services/summary_prompts.py`, `tests/test_summary_prompts.py`. **Закоммичено в `1d7bed4` и запушено (T-210).**
 
-### 📋 Задачи (статусы на Шаг 6)
+### 📋 Задачи (финальные статусы, Шаг 8)
 
 - **T-207** @Builder (P0) — SYSTEM_PROMPT = v2 дословно (backlog 1518–1538, без хвостовых пробелов) + docstring; тесты 36.4; полный pytest 939 → **DONE**
 - **T-208** @Builder (P1, ←T-207) — доки: ARCHITECTURE.md (3332/3342/3514/3670/3676/3732/4198/4221/4242/4257 — правки Architect уже внесены, верифицировать), MEMORY.md (72/204/221/714 — «заморожено»), README.md (217) → **DONE**
-- **T-209** @DevOps (P0, ←T-207/T-210) — SUMMARY_ALIASES на прод + git pull + restart + верификация (36.6) → **PENDING** (деплой впереди)
-- **T-210** @DevOps+@PM (P1, ←T-207/T-208) — коммит `feat(summary): Epic 27 — новый системный промпт + SUMMARY_ALIASES на прод (v2.25.0)` + пуш → **PENDING** (коммит впереди)
+- **T-209** @DevOps (P0, ←T-207/T-210) — SUMMARY_ALIASES на прод + git pull + restart + верификация (36.6) → **DONE** (Шаг 7: 36 пар в продовый .env, бэкап .env.bak.epic27, JSON OK, sha1 совпал, restart → PID 934174, 0 traceback, WARNING «invalid JSON» отсутствует)
+- **T-210** @DevOps+@PM (P1, ←T-207/T-208) — коммит `feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)` + пуш → **DONE** (Шаг 7: коммит `1d7bed4`, 8 файлов, пуш в origin/master)
+
+### 🚀 Деплой-дайджест (T-209/T-210 DONE, @DevOps + @Memory, 2026-08-16)
+
+1. **T-210 ✅:** коммит `1d7bed4` «feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)» (8 файлов) запушен в origin/master (github.com/Henry-Case-dev/adminbot.git).
+2. **T-209 ✅:** прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `7c7c241..1d7bed4`; в .env добавлена `SUMMARY_ALIASES` (36 пар, бэкап `.env.bak.epic27`; верифицировано python3: JSON OK, sha1 совпал с репо); systemctl restart admin_bot → active (running), **новый PID 934174** (был 926618); 0 traceback после рестарта.
+3. **Верификация:** WARNING «SUMMARY_ALIASES invalid JSON» в логах ОТСУТСТВУЕТ → AliasResolver распарсил все 36 пар. Тесты: 939 passed. Ревью PASS. SYSTEM_PROMPT v2 байт-в-байт == backlog 1518–1538; плейсхолдеры {max_symbols} ×1, {username} ×2; подстановка .replace не тронута; COMPRESS/EXTRACT заморожены.
+4. **Pre-existing не-блокер (не Epic 27):** WARNING «SmartModule L3: vector search failed — FTS5 fallback» + OperationalError Dimension mismatch 3072 vs 768 (старые эмбеддинги) — FTS5-фоллбек сработал штатно; рекомендован отдельный тикет на миграцию векторов.
+5. **Вся цепочка воркфлоу (0–8) завершена. Epic 27 CLOSED.**
 
 ### ⚠️ Предупреждения для @Builder
 
@@ -675,6 +684,8 @@ common_router (pos 4c): НИКОГДА не получает события
 | **v2.21.0** | **2026-08-16** | **Epic 23 (Правка danger-словаря)** | **T-169–T-172 (DONE & DEPLOYED, `756d237`)** | **672** |
 | **v2.22.0** | **2026-08-16** | **Epic 24 (SmartModule: Summary)** | **T-173–T-191 (DONE & DEPLOYED, `a68732c` + `818e195`)** | **835** |
 | **v2.23.0-fix** | **2026-08-16** | **Epic 25 (багфикс /summary + удаление команды)** | **T-192–T-198 (7/7 Done & DEPLOYED, `c364f18` + `2a45f79`)** | **860** |
+| **v2.24.0** | **2026-08-16** | **Epic 26 (GraphRAG-память)** | **T-199–T-206 (DONE & DEPLOYED, `7c7c241`)** | **939** |
+| **v2.25.0** | **2026-08-16** | **Epic 27 (промпт v2 + SUMMARY_ALIASES)** | **T-207–T-210 (DONE & DEPLOYED, `1d7bed4`)** | **939** |
 
 ---
 
@@ -689,6 +700,7 @@ common_router (pos 4c): НИКОГДА не получает события
 | **DEPLOYED** | Epic 23: T-169 – T-172 (DONE & DEPLOYED ✅, коммит `756d237`, 672 теста, прод v2.21.0, PID 917681) — словарь 118 слов + 17 фраз, .env DANGER_WORDS пустой (дефолты активны), проверка «118 17» совпала, логи чистые |
 | **DEPLOYED** | Epic 24: T-173 – T-191 (DONE & DEPLOYED ✅, коммит `a68732c` + docs `818e195`, 835 тестов, прод v2.22.0, PID 920105, smoke apinet.cloud OK) — Н1 BotFather `/setprivacy` → Disable остаётся ручным действием пользователя |
 | **DEPLOYED** | Epic 25: T-192 – T-198 (DONE & DEPLOYED ✅, коммит `c364f18` + docs `2a45f79`, 860 тестов, прод v2.23.0-fix, PID 923954) — B1–B9 в проде; живой тест /summary остаётся ручной верификацией пользователя |
+| **DEPLOYED** | Epic 27: T-207 – T-210 (DONE & DEPLOYED ✅, коммит `1d7bed4`, 939 тестов, прод v2.25.0, PID 934174) — SYSTEM_PROMPT v2 + SUMMARY_ALIASES 36 пар (бэкап .env.bak.epic27), AliasResolver OK, 0 traceback |
 
 > Epics 1-22 ALL DEPLOYED ✅ (v2.20.0, commit `1dbb6da`, PID 914116). **Epic 22 «Гонка функций и точность триггеров» DONE & DEPLOYED ✅ — реализация (D51–D54) + ревью 3 раунда (APPROVED) + коммит/пуш/деплой (T-167-D).**
 > 621 тест. 11 роутеров, 5 таблиц БД, Sentry + Logtail мониторинг.
@@ -701,24 +713,27 @@ common_router (pos 4c): НИКОГДА не получает события
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия в проде** | v2.24.0 (Epic 26 GraphRAG DEPLOYED) |
-| **Текущий коммит** | `7c7c241` (feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)); прод HEAD после pull ff `c364f18..7c7c241` |
+| **Версия в проде** | v2.25.0 (Epic 27 — промпт v2 + SUMMARY_ALIASES — DEPLOYED) |
+| **Текущий коммит** | `1d7bed4` (feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)); прод HEAD после pull ff `7c7c241..1d7bed4` |
 | **Дата** | 2026-08-16 |
 | **Сервер** | 198.46.175.136 |
 | **Путь** | /var/www/admin_bot |
-| **Статус** | systemctl status adminbot → active (running), PID 926618, 0 traceback после рестарта; таблицы nodes/edges созданы в продовой БД |
-| **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно (`c364f18..7c7c241`), локальный HEAD = origin/master |
-| **Тесты** | 939 PASS (860 baseline + 73 Epic 26 + 6 T-206) |
-| **Эпики** | 1-26 ALL DEPLOYED ✅ |
+| **Статус** | systemctl status adminbot → active (running), PID 934174 (был 926618), 0 traceback после рестарта; SUMMARY_ALIASES распарсены (36 пар), WARNING «invalid JSON» отсутствует |
+| **Git remote** | origin (github.com/Henry-Case-dev/adminbot.git) — pushed успешно (`7c7c241..1d7bed4`), локальный HEAD = origin/master |
+| **Тесты** | 939 PASS (860 baseline + 73 Epic 26 + 6 T-206; Epic 27 без новых тестов — только переписан 1) |
+| **Эпики** | 1-27 ALL DEPLOYED ✅ |
 | **Epic 25** | T-192–T-198 Done & DEPLOYED (860 тестов, коммит `c364f18`, PID 923954). Финальная живая верификация /summary — по логам после теста пользователем |
-| **Epic 26** | GraphRAG-память — **DEPLOYED (Шаг 8 @Memory)**, коммит `7c7c241`, v2.24.0, 939 тестов (860+73+6), T-199–T-206 Done, T-206 (P1) fixed в этом же релизе, прод PID 926618, 0 traceback |
-| **Задачи** | T-001 – T-206 ALL DEPLOYED ✅ |
-| **.env на проде** | +GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап `.env.bak.epic26`); +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (с Epic 24); DANGER_WORDS пустой → дефолты; DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
+| **Epic 26** | GraphRAG-память — **DEPLOYED (Шаг 8 @Memory)**, коммит `7c7c241`, v2.24.0, 939 тестов (860+73+6), T-199–T-206 Done, T-206 (P1) fixed в этом же релизе |
+| **Epic 27** | Промпт v2 + SUMMARY_ALIASES — **DEPLOYED (Шаг 8 @Memory)**, коммит `1d7bed4`, v2.25.0, 939 тестов, T-207–T-210 Done, прод PID 934174, 0 traceback, AliasResolver распарсил 36 пар |
+| **Задачи** | T-001 – T-210 ALL DEPLOYED ✅ |
+| **.env на проде** | +SUMMARY_ALIASES (36 пар id-имя, бэкап `.env.bak.epic27`, JSON OK, sha1 совпал с репо); +GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап `.env.bak.epic26`); +LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME/EMBEDDING_MODEL_NAME/SUMMARY_TIMEZONE (с Epic 24); DANGER_WORDS пустой → дефолты; DEAD_PAGE_POST_ON_JOIN=False; OLYA_ALWAYS_SEND и MIMIC_FORWARDS_ENABLED — дефолты False |
 | **Ошибки** | 0 errors, 0 трейсбеков, ImportError 0. Все сервисы инициализированы корректно. |
-| **Backlog-кандидаты (pre-existing)** | (а) L3 dimension mismatch: эмбеддинги 3072 dim vs БД 768 → vector search failed → FTS5 fallback (штатная деградация, cron-саммари успешен); (б) stop-timeout systemd при рестарте (~90-95с → SIGKILL, сервис поднимается корректно); (в) **SIGTERM graceful shutdown** — бот не отвечает на SIGTERM, рекомендуется отдельный тикет |
+| **Backlog-кандидаты (pre-existing)** | (а) L3 dimension mismatch: эмбеддинги 3072 dim vs БД 768 → vector search failed → FTS5 fallback (штатная деградация, cron-саммари успешен; рекомендован тикет на миграцию векторов); (б) stop-timeout systemd при рестарте (~90-95с → SIGKILL, сервис поднимается корректно); (в) **SIGTERM graceful shutdown** — бот не отвечает на SIGTERM, рекомендуется отдельный тикет |
 | **Ручные действия** | Живой тест `/summary` в чате (верификация цепочки по логам); Н1: BotFather `/setprivacy` → Disable (критично); при WARNING удаления — выдать боту админ-права `delete_messages` |
 
 ---
+
+*Обновление: 2026-08-16 — EPIC 27 (новый системный промпт бота-абьюзера v2 + SUMMARY_ALIASES, v2.25.0): DEPLOYED ✅ (Шаг 8, @Memory — ФИНАЛЬНАЯ синхронизация, весь цикл воркфлоу 0–8 закрыт). @DevOps: T-210 DONE — коммит `1d7bed4` «feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)» (8 файлов) запушен в origin/master. T-209 DONE — прод nik@198.46.175.136 (/var/www/admin_bot): git pull ff `7c7c241..1d7bed4`; в .env добавлена SUMMARY_ALIASES (36 пар, бэкап .env.bak.epic27, python3: JSON OK, sha1 совпал с репо); systemctl restart admin_bot → active (running), новый PID 934174 (был 926618); 0 traceback; WARNING «SUMMARY_ALIASES invalid JSON» отсутствует → AliasResolver распарсил 36 пар. Тесты 939 passed, ревью PASS. SYSTEM_PROMPT v2 байт-в-байт == backlog 1518–1538 ({max_symbols} ×1, {username} ×2, подстановка .replace не тронута, COMPRESS/EXTRACT заморожены). Pre-existing не-блокер (не Epic 27): WARNING «SmartModule L3: vector search failed — FTS5 fallback» + OperationalError Dimension mismatch 3072 vs 768 (старые эмбеддинги) — FTS5-фоллбек штатный; рекомендован отдельный тикет на миграцию векторов. ЭПИК 27 ЗАКРЫТ: T-207–T-210 Done, Epics 1–27 ALL DEPLOYED, прод v2.25.0. MEMORY.md обновлён локально — docs-коммит решит Orchestrator.*
 
 *Обновление: 2026-08-16 — EPIC 26 (GraphRAG-память, v2.24.0): DEPLOYED ✅ (Шаг 8, @Memory — ФИНАЛЬНАЯ синхронизация, весь цикл воркфлоу 0–8 закрыт). @DevOps: T-205 DONE — коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» (README с ироничным тоном + весь код Epic 26) запушен в origin/master (github.com/Henry-Case-dev/adminbot.git); деплой на прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `c364f18..7c7c241`; в .env добавлены GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап .env.bak.epic26); systemctl restart admin_bot → active (running), Main PID 926618; таблицы nodes/edges созданы в продовой БД; 0 traceback после рестарта. Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206); T-206 (P1, FTS-удаление медиа без подписи) исправлен в этом же релизе. Известный не-блокер (pre-existing): бот не отвечает на SIGTERM (~95с рестарт) — рекомендуется отдельный тикет graceful shutdown. ЭПИК 26 ЗАКРЫТ: T-199–T-206 Done, Epics 1–26 ALL DEPLOYED, прод v2.24.0. Ручные действия пользователя (не через SSH): живой тест /summary; Н1 BotFather /setprivacy → Disable; при WARNING удаления — админ-права delete_messages.*
 
