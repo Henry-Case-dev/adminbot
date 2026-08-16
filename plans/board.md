@@ -2,24 +2,20 @@
 
 ## 📋 Backlog
 
-### Epic 26: GraphRAG-память — граф знаний поверх SQLite (v2.24.0) — 2026-08-16 — 🆕 IN PROGRESS (реализация ✅, преддеплойный P1-фикс T-206)
+### Epic 27: Новый системный промпт + SUMMARY_ALIASES на прод (v2.25.0) — 2026-08-16 — 🆕 IN PROGRESS (Шаг 1: PM — требования и планы)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ → 2 (@Architect T-199/T26.0 — Section 35 + дословный EXTRACT_PROMPT) ✅ APPROVED PM → 3 (@Builder/@Reviewer/@DevOps): T-200…T-204 ✅ (реализовано + ревью), T-206 (P1-фикс) → In Progress, T-205 (деплой) — ПОСЛЕ T-206.
-> Требования R26-1…R26-7, PM-решения D67–D71 (chat_id в nodes/edges + UNIQUE(chat_id, entity_name); per-batch изоляция «граф до удаления сырья»; минимальный набор настроек; нормализация сущностей/отношений; graph_facts=[] default + escape + тег первым) и риски 1–10 — в `plans/backlog.md` (Epic 26).
-> 🚨 **P1 (найдено @Reviewer при ревью T-204, pre-existing с Epic 24 `a68732c`):** медиа-без-подписи нет в `smart_messages_fts` (`if text:` при вставке), но FTS-удаление безусловно → `sqlite3.DatabaseError: database disk image is malformed` в `compress_and_purge`. Фикс — **T-206 (T26.7), чинить ДО деплоя T-205.**
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (эталон промпта в backlog R11 v2, решения D72–D75) → 2/3 (@Builder T-207/T-208) ✅ → 3/3 (@DevOps T-209/T-210).
+> Требования R27-1…R27-4, решения D72–D75, риски 1–6 — в `plans/backlog.md` (Epic 27).
+> ⚠️ В новом промпте **3 пары** фигурных скобок (`{max_symbols}` ×1, `{username}` ×2) — тест-счётчик `test_max_symbols_is_the_only_placeholder` переписывается на набор плейсхолдеров (D72).
 
-- [x] T-199 (T26.0) (@Architect + @PM, P0, —): Проектирование GraphRAG — ARCHITECTURE.md Section 35 (DDL nodes/edges, flow extract→graph→delete в _compress_batch, traversal в SummaryGenerator._run), ДОСЛОВНЫЙ EXTRACT_PROMPT, self-review — **✅ APPROVED PM 2026-08-16 (T26.0-D)**
-- [x] T-200 (T26.1) (@Builder, P0, ←T-199): Миграция схемы — nodes/edges + chat_id + UNIQUE(chat_id, entity_name) + индексы + upsert CRUD (INSERT OR IGNORE / ON CONFLICT weight+1) — **Done**
-- [x] T-201 (T26.2) (@Builder, P0, ←T-200): Entity extraction в архивации — EXTRACT_PROMPT (verbatim), JSON try/except, граф ДО удаления сырья, per-batch isolation (ошибка → пачка остаётся), graceful degradation — **Done**
-- [x] T-202 (T26.3) (@Builder, P0, ←T-200): Graph traversal для /summary — сущности окна L1, SQL weight DESC LIMIT 5, справки «[Историческая справка: …]», тег `<historical_graph_facts>` первым в user-промпте, escape_xml_text, fallback без секции — **Done**
-- [x] T-203 (T26.4) (@Builder, P1, ←T-199): Конфигурация — GRAPH_RAG_ENABLED / GRAPH_EDGE_WEIGHT_INCREMENT / GRAPH_TOP_EDGES_LIMIT / GRAPH_EXTRACT_MAX_TRIPLETS + .env.example — **Done**
-- [x] T-204 (T26.5) (@Builder + @Reviewer, P0, ←T-201/T-202): Тесты — парсер JSON, upsert, traversal, чат-изоляция, кривой JSON → пачка остаётся, пустой граф, дубликаты сущностей, pipeline с graph_facts; полный pytest (860 + новые); @Reviewer code review — **Done; ревью APPROVED, найдена P1 → T-206**
-- [ ] T-206 (T26.7) (@Builder + @Reviewer, **P1, 🚨 БЛОКЕР T-205**): P1-фикс FTS-удаления для медиа без подписи — `delete_smart_messages_by_ids` / `delete_smart_messages_older_than` удаляют из FTS безусловно, но вставка была под `if text:` → `sqlite3.DatabaseError: database disk image is malformed` в `compress_and_purge` (вызов вне try/except). Минимальный фикс: зеркалить условие вставки в обеих DELETE + регрессионные тесты (медиа без подписи → delete не падает; обычный текст → delete работает; FTS-консистентность) — **→ In Progress (срочно)**
-- [ ] T-205 (T26.6) (@Builder + @DevOps, P0, ←T-204, ⛔ ←T-206): README (ироничный тон) + коммит на русском + push + деплой (ssh nik@198.46.175.136, git pull, systemctl restart/status admin_bot) — **деплой только после фикса T-206**
+- [x] T-207 (@Builder, **P0**): Замена SYSTEM_PROMPT в services/summary_prompts.py на новый дословный текст (эталон backlog R11 v2, строки 1518–1538) + тесты (хелпер-диапазон 1517:1538, набор плейсхолдеров D72) + полный pytest 939 — **Done (939 passed, 0 регрессий)**
+- [x] T-208 (@Builder, **P1**, ←T-207): Доки — ARCHITECTURE.md (правки Architect верифицированы — «SYSTEM_PROMPT не трогаем» уже заменено, диапазон 1518–1538), MEMORY.md («заморожено» → новый промпт), README (промпт v2, ироничный тон) — **Done**
+- [ ] T-209 (@DevOps, **P0**, ←T-207): SUMMARY_ALIASES (36 пар) в продовый .env с бэкапом .env.bak.epic27 + git pull + restart admin_bot (SIGTERM ~95с) + верификация
+- [ ] T-210 (@DevOps + @PM, **P1**, ←T-207/T-208): Коммит на русском + пуш (код + .env.example + доки); .env не коммитим
 
 ## 🔧 In Progress
 
-- 🚧 T-206 (T26.7) (@Builder, P1 — 🚨 БЛОКЕР деплоя T-205) — Epic 26: фикс FTS-удаления для медиа без подписи (`delete_smart_messages_by_ids` / `delete_smart_messages_older_than`, services/database.py). Pre-existing с Epic 24 (`a68732c`), подтверждён @Reviewer при ревью T-204. Минимальный фикс: зеркалировать `if text:` в обеих DELETE; регрессионные тесты: медиа без подписи → delete не падает; обычный текст → delete работает; FTS-консистентность. Чинить до T-205.
+- 🚧 Epic 27 — Шаг 2 (@Builder, 2026-08-16) ✅: T-207 (SYSTEM_PROMPT v2 дословно, байт-в-байт с эталоном backlog 1518–1538; тесты D72; полный pytest 939 passed) и T-208 (доки: MEMORY.md «заморожено» → R11 v2, README промпт v2, ARCHITECTURE верифицирован) DONE. T-209/T-210 → @DevOps.
 
 ## 🔍 In Review
 
@@ -27,14 +23,15 @@
 
 ## ✅ Done
 
-### Epic 26: T-199…T-204 — дизайн + реализация GraphRAG — ✅ (PM 2026-08-16; преддеплойный P1-фикс → T-206)
+### Epic 26: T-199…T-206 — дизайн, реализация и деплой GraphRAG — ✅ DEPLOYED (v2.24.0, коммит `7c7c241`, 939 тестов, PID 926618)
 
 > **Итог:** T-199 (T26.0) — дизайн `plans/ARCHITECTURE.md` Section 35 (35.1–35.11) **APPROVED PM 2026-08-16 (T26.0-D)**.
 > T-200…T-204 (T26.1…T26.5) — **реализовано @Builder и прошло ревью @Reviewer (T26.5-G APPROVED)**:
 > DDL nodes/edges (chat_id + UNIQUE), extraction в compress_and_purge (D68 per-batch isolation),
 > traversal get_graph_facts (тег `<historical_graph_facts>` первым, escape), настройки GRAPH_* (D69),
 > тесты test_graphrag_database/test_graphrag_memory + полный pytest.
-> ⚠️ @Reviewer подтвердил **P1 pre-existing баг** (Epic 24, `a68732c`): медиа-без-подписи нет в FTS, но FTS-удаление безусловно → malformed DB в compress_and_purge. Выделен **T-206 (T26.7)** — чинить ДО деплоя T-205 (коммита Epic 26 ещё нет — код в рабочем дереве).
+> ⚠️ @Reviewer подтвердил **P1 pre-existing баг** (Epic 24, `a68732c`) → выделен **T-206 (T26.7)**: FTS-DELETE зеркалит условие вставки (`text IS NOT NULL AND text != ''`) в `delete_smart_messages_by_ids`/`delete_smart_messages_older_than` + chat_id-фильтр + 6 регрессионных тестов — **FIXED в релизе v2.24.0**.
+> **T-205 (T26.6) DONE:** коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» + пуш + деплой: git pull fast-forward `c364f18..7c7c241`, .env +GRAPH_* (бэкап .env.bak.epic26), systemctl restart → active (running), Main PID 926618, nodes/edges созданы, 0 traceback. Тесты: 939 passed (860+73+6). ЭПИК 26 ЗАКРЫТ (Шаг 8, @Memory). Известный не-блокер: SIGTERM ~95с рестарт (pre-existing).
 
 - [x] 👤 T-199 (T26.0) (@Architect + @PM, P0) — Архитектурное проектирование GraphRAG + фиксация промпта
   - [x] T26.0-A: Section 35 (35.1–35.11): DDL nodes/edges, flow extract→graph→delete, traversal, открытые вопросы 1–10
@@ -46,6 +43,8 @@
 - [x] T-202 (T26.3) (@Builder, P0) — Graph traversal для /summary: сущности L1, SQL weight DESC LIMIT 5, справки «[Историческая справка: …]», `<historical_graph_facts>` первым, escape_xml_text, fallback (R26-3, D71) — Done
 - [x] T-203 (T26.4) (@Builder, P1) — Конфигурация GRAPH_* (4 параметра) + .env.example (R26-6, D69) — Done
 - [x] T-204 (T26.5) (@Builder + @Reviewer, P0) — Тесты (парсер JSON, upsert, traversal, чат-изоляция, кривой JSON → пачка остаётся, pipeline с graph_facts) + полный pytest — Done; @Reviewer (T26.5-G) **APPROVED 2026-08-16** — с находкой P1 → T-206
+- [x] T-206 (T26.7) (@Builder + @Reviewer, P1) — P1-фикс FTS-удаления медиа без подписи + 6 регрессионных тестов — **FIXED (релиз v2.24.0)**
+- [x] T-205 (T26.6) (@Builder + @DevOps, P0) — README + коммит `7c7c241` + пуш + деплой — **DEPLOYED (v2.24.0, PID 926618, 939 тестов)**
 
 ### Epic 24: T-173 — Архитектурное проектирование SmartModule/Summary — 2026-08-16 — ✅ APPROVED (PM, T-173-E)
 
@@ -452,4 +451,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — **Epics 1-25 ALL DEPLOYED ✅ и архивированы в колонке Done (PM)**. Epic 24 «SmartModule: Summary» (v2.22.0, `a68732c`, PID 920105) и Epic 25 (багфикс /summary, v2.23.0-fix, `c364f18`, PID 923954) перенесены из Backlog в Done при архивации. **Epic 26 «GraphRAG-память» — IN PROGRESS:** дизайн T-199 (Section 35) APPROVED PM; T-200…T-204 реализованы и прошли ревью @Reviewer (перенесены в Done); 🚨 **T-206 (T26.7, P1)** — преддеплойный фикс FTS-удаления медиа-без-подписи (In Progress, блокер); **T-205 (T26.6, деплой)** — выполняется только после фикса T-206. Полный трек — `plans/backlog.md` (Epic 26).
+**Updated:** 2026-08-16 — **Epics 1-26 ALL DEPLOYED ✅ и архивированы в колонке Done (PM)**. Epic 26 «GraphRAG-память» (v2.24.0, `7c7c241`, PID 926618, 939 тестов, T-199…T-206) перенесён в Done — финальная синхронизация после деплоя (Шаг 8, коммит `3520f42`). **Epic 27 «Новый системный промпт + алиасы на прод» — IN PROGRESS (Шаг 1/3, PM):** требования R27-1…R27-4 и решения D72–D75 зафиксированы; эталон нового SYSTEM_PROMPT — backlog R11 v2 (строки 1518–1538, 21 строка, 3 пары скобок / 2 плейсхолдера); T-207 (P0) → READY FOR BUILDER. Полный трек — `plans/backlog.md` (Epic 27).

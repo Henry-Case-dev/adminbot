@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.23.0-fix (прод) / целевой дизайн: v2.24.0 (Epic 26)
+> **Версия:** v2.24.0 (прод) / целевой дизайн: v2.25.0 (Epic 27)
 > **Дата:** 2026-08-16
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — DESIGN (T-199, @Architect) — ждёт PM-аппрув.
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — DESIGN (@Architect, шаг 2/3).
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -25,6 +25,7 @@
 13. [Section 33: Epic 24](#33-epic-24--smartmodule-summary-v2220) — SmartModule: Summary (v2.22.0, НОВОЕ — трёхуровневая память, LLM, APScheduler)
 14. [Section 34: Epic 25](#34-epic-25--багфикс-summary-не-реагирует--удаление-команды-v2230) — Багфикс «/summary не реагирует» + удаление команды (v2.23.0)
 15. [Section 35: Epic 26](#35-epic-26--graphrag-граф-знаний-поверх-sqlite-v2240) — GraphRAG: граф знаний поверх SQLite (v2.24.0, НОВОЕ)
+16. [Section 36: Epic 27](#36-epic-27--новый-system_prompt-бот-абьюзер-v2--summary_aliases-на-прод-v2250) — Новый SYSTEM_PROMPT «бот-абьюзер v2» + SUMMARY_ALIASES на прод (v2.25.0, НОВОЕ)
 
 ---
 
@@ -3329,7 +3330,7 @@ class DangerWordFilter(BaseFilter):
 | **A7** | L2-RAG — **FTS5-поиск по ключевым словам окна L1** (программный запрос, без доп. LLM-вызова) | «Точные совпадения/цитаты» даёт phrase-match FTS5; лишний LLM-вызов = стоимость + таймаут |
 | **A8** | Имена участников — **резолвить в момент СОХРАНЕНИЯ** в колонку `author_name`; каскад alias → nickname → username (без @) → user_id | `nickname`/`username` недоступны из БД постфактум; менять алиасы в конфиге можно без миграций |
 | **A9** | `SUMMARY_ALIASES` — **JSON-строка** `{"<user_id>": "<alias>"}` | Машиночитаемо, парсится `json.loads` в try/except; проще `user_id:alias,...` для ID с именами |
-| **A10** | Промпты — **отдельный модуль `services/summary_prompts.py`** (SYSTEM_PROMPT дословно + COMPRESS_PROMPT) | Байт-в-байт тест R11 (T-182-A) без примеси логики |
+| **A10** | Промпты — **отдельный модуль `services/summary_prompts.py`** (SYSTEM_PROMPT дословно, R11; v2 — Epic 27, Section 36 + COMPRESS_PROMPT) | Байт-в-байт тест R11 (T-182-A) без примеси логики |
 | **A11** | `/summary` НЕ удаляем из чата (в отличие от admin_commands) | Память собирает всё; удаление — опционально, решение за пользователем (backlog-риск 10) |
 | **A12** | **Деплой-нота:** для сбора ВСЕХ сообщений группы у бота должна быть отключена privacy mode (**BotFather → /setprivacy → Disable**) | С privacy ON бот в группах видит только команды/упоминания — L1/L2/L3 будут пустыми |
 | **A13** | Кросс-зависимости: `httpx>=0.27`, `APScheduler>=3.10,<4`, `sqlite-vec>=0.1.2` (в requirements; `sqlite-vec` — с graceful-fallback, см. 33.11) | RESEARCH T-173-F: MSVC-колесо sqlite-vec с v0.1.2-alpha.9; APScheduler только MemoryJobStore (pickle-ловушка) |
@@ -3339,7 +3340,7 @@ class DangerWordFilter(BaseFilter):
 ### 33.2 Структура файлов (точные пути)
 
 ```
-services/summary_prompts.py       # SYSTEM_PROMPT (дословно, R11), COMPRESS_PROMPT (L3), MAX_CHARS_* константы
+services/summary_prompts.py       # SYSTEM_PROMPT (дословно, R11 v2 — Epic 27), COMPRESS_PROMPT (L3), EXTRACT_PROMPT (35.3), MAX_CHARS_* константы
 services/llm_client.py            # LLMClient (провайдер-агностик): generate(), embed(), close(); LLMError-иерархия
 services/summary_memory.py        # MemoryManager: L1 окно, L2 FTS5-RAG, L3 сжатие+KNN(+FTS5-фоллбек), retention-клины
 services/summary_xml.py           # XmlGroundingBuilder: <chat_history><message …/></chat_history>, экранирование, лимиты
@@ -3511,7 +3512,7 @@ class SummaryGenerator:
             l3_facts  = await self.memory.vector_search(chat_id, " ".join(keywords), settings.SUMMARY_RAG_L3_LIMIT)
             user_content = self._compose_user_content(xml_context, l2_quotes, l3_facts)  # <memory>+<facts> секции
             max_symbols = settings.MAX_SUMMARY_PARTS * 4000 - 200
-            system = SYSTEM_PROMPT.format(max_symbols=max_symbols)   # ДОСЛОВНО, только плейсхолдер (R11)
+            system = SYSTEM_PROMPT.replace("{max_symbols}", str(max_symbols))   # ДОСЛОВНО (R11 v2 — Epic 27); {username} — литерал, str.format дал бы KeyError
             raw = await self.llm.generate([{"role": "system", "content": system},
                                            {"role": "user", "content": user_content}])
             logger.info("summary LLM raw response | chat_id=%s | len=%d | raw=%r", chat_id, len(raw), raw)  # R14
@@ -3667,13 +3668,13 @@ class ThrottlingMiddleware(BaseMiddleware):
 
 - **Логирование:** существующая система — `logging.basicConfig` + `LogtailHandler(LOGTAIL_SOURCE_TOKEN)` в bot.py (уже на root logger) → новые модули берут `logging.getLogger(__name__)` и ничего не настраивают. Sentry уже инициализирован.
 - Поля/уровни: INFO — этапы пайплайна (window_size, rag_hits_l2/l3, model, request_len, latency_ms, chunks_sent); `logger.info("summary raw LLM response | chat_id=%s | raw=%r", …)` — **сырой ответ LLM в лог** (R14); WARNING — фоллбеки (vec недоступен, embed упал, пачка сжатия пропущена); ERROR+`logger.exception` — полные стектрейсы всех отказов.
-- **`services/summary_prompts.py`:** `SYSTEM_PROMPT` — ДОСЛОВНО из backlog Epic 24 (строки 1518–1523), плейсхолдер `{max_symbols}`; `COMPRESS_PROMPT` — из 33.5; тест байт-в-байт (T-182-A). Промпт НЕ логировать целиком (тяжёлый; достаточно `len`).
+- **`services/summary_prompts.py`:** `SYSTEM_PROMPT` — ДОСЛОВНО из backlog (R11; v2 — Epic 27, строки **1518–1538**, Section 36), плейсхолдеры `{max_symbols}` (рантайм-подстановка) и `{username}` (литерал для LLM); `COMPRESS_PROMPT` — из 33.5; тест байт-в-байт (T-182-A). Промпт НЕ логировать целиком (тяжёлый; достаточно `len`).
 
 ### 33.13 Тестовая стратегия (R14/R15, 672 существующих не ломать)
 
 | Файл | Кейсы (моки) |
 |------|--------------|
-| `tests/test_summary_prompts.py` | SYSTEM_PROMPT байт-в-байт = backlog-текст; `{max_symbols}` подстановка; COMPRESS_PROMPT непуст |
+| `tests/test_summary_prompts.py` | SYSTEM_PROMPT байт-в-байт = backlog-текст (R11 v2 — Epic 27, строки 1518–1538); набор плейсхолдеров `{max_symbols, username}` (D72); `{max_symbols}` подстановка через replace; COMPRESS_PROMPT непуст |
 | `tests/test_llm_client.py` | `httpx.MockTransport`: успех generate/embed; 401→LLMAuthError; 429→retry→успех; 429×N→LLMRateLimitError; timeout→LLMTimeoutError; кривой JSON→LLMBadResponseError; заголовки Bearer/base_url/модель |
 | `tests/test_summary_memory.py` | aiosqlite in-memory + fake LLMClient: save→window границы окна (вкл/искл края); search_long_term (FTS5 phrase/prefix, санитайз `*"`); vector_search: vec_available=False→FTS5; embed бросает→FTS5; compress_and_purge (факты сохранились, сырьё удалено, retention-архива 90д, ошибка LLM→пачка не удалена); инициализация без sqlite-vec (monkeypatch loadable_path→битый путь) → `_vec_available=False` без падения |
 | `tests/test_summary_xml.py` | структура XML (атрибуты id/timestamp/author/reply_to_id/type); экранирование `<>&"`; control-символы вырезаны; media→описание (`[фото]` и т.п.); caption+медиа; лимиты messages/chars; пустой список → пустой `<chat_history/>` |
@@ -3729,7 +3730,7 @@ class ThrottlingMiddleware(BaseMiddleware):
 - **vec0 0.1.x не поддерживает JOIN внутри KNN-запроса** (ошибка «illegal WHERE constraint on auxiliary column») → KNN top-k выбирает `fact_id, chat_id, distance` отдельным запросом, фильтр по чату и выборка фактов — в Python.
 - **FTS5 unicode61 без стемминга** → `build_fts_query` строит префиксные запросы `"kw"*` (пользовательские `"`/`*` санитайзятся). Это интерпретация «phrase/prefix» из 33.13.
 - **APScheduler 3.11**: `CronTrigger` требует **явный** `timezone` (системный TZ протекает иначе — проверено); `AsyncIOScheduler._shutdown` исполняется через `call_soon_threadsafe` → в `shutdown()` добавлен `await asyncio.sleep(0)` + защита от `SchedulerNotRunningError`.
-- **`{username}` в SYSTEM_PROMPT ломает `str.format`** → `{max_symbols}` подставляется через `replace`, `{username}` остаётся литералом (R11 не нарушен, тест байт-в-байт зелёный).
+- **`{username}` в SYSTEM_PROMPT ломает `str.format`** → `{max_symbols}` подставляется через `replace`, `{username}` остаётся литералом (R11 не нарушен, тест байт-в-байт зелёный). Верно и для v2 (Epic 27): `{username}` в тексте дважды — `.replace` сохранён (36.1 C2).
 - **`F.message` как фильтр не матчит события** (magic-атрибут) → наблюдатель зарегистрирован как `@summary_observer_router.message()` без фильтра; роутер `message`-наблюдателя и так матчит только сообщения.
 - **Наблюдатель**: «нет text И caption» интерпретировано как «нет текста И нет медиа» — медиа без caption сохраняются с `text=NULL` (иначе R6 «описание медиа» нереализуемо), чистые сервисные (join/pin и т.п., без медиа) пропускаются. Подтверждено ревью.
 - **compress_and_purge**: удаление сырья — пачками по ids после успешного сохранения фактов (bulk-cutoff в цикле давал бесконечный повтор); `delete_smart_messages_older_than` сохранён в API DatabaseService.
@@ -4195,7 +4196,7 @@ graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)   # nev
 user_content = self._compose_user_content(xml_context, l2_quotes, l3_facts, graph_facts)
 ```
 
-`get_graph_facts` никогда не бросает → новых UX-веток не появляется; `SYSTEM_PROMPT` не трогаем; `escape_xml_text` (из `summary_xml.py`) — тот же экранировщик, что у `<memory>`/`<facts>` (Low-2).
+`get_graph_facts` никогда не бросает → новых UX-веток не появляется; `SYSTEM_PROMPT` в Epic 26 не трогали (заменён Epic 27 — Section 36); `escape_xml_text` (из `summary_xml.py`) — тот же экранировщик, что у `<memory>`/`<facts>` (Low-2).
 
 ### 35.6 Конфигурация (R26-6, D69)
 
@@ -4218,7 +4219,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 | Файл | Изменение |
 |---|---|
 | `services/database.py` | `_SCHEMA_SQL` += DDL 35.2. НОВЫЕ методы: `upsert_node(chat_id, entity_name, entity_type) -> int`; `upsert_edge(source_id, target_id, relation_type, weight_increment: int = 1) -> None`; `match_nodes(chat_id, user_names: list[str], topic_keywords: list[str]) -> list[int]`; `get_top_edges(chat_id, entity_ids: list[int], limit: int) -> list`; `get_top_edges_all(chat_id, limit: int) -> list`. Существующие методы НЕ трогаем. |
-| `services/summary_prompts.py` | НОВАЯ константа `EXTRACT_PROMPT` (35.3, дословно). `SYSTEM_PROMPT`/`COMPRESS_PROMPT` НЕ трогаем. |
+| `services/summary_prompts.py` | НОВАЯ константа `EXTRACT_PROMPT` (35.3, дословно). `SYSTEM_PROMPT`/`COMPRESS_PROMPT` в Epic 26 НЕ трогаем (SYSTEM_PROMPT заменён в Epic 27 — Section 36). |
 | `services/summary_memory.py` | НОВЫЕ: `parse_triplets(raw) -> list[dict]` (модульная), `GraphExtractionError`, `_normalize_name(s)`, `_build_batch_text(batch, skip_empty=False)` (рефакторинг `_compress_batch` — без изменения его внешнего поведения), `_extract_and_save_graph(chat_id, batch) -> None` (private), `get_graph_facts(chat_id, rows, keywords) -> list[str]` (public, never raises). `compress_and_purge` — сигнатура НЕ меняется (внутри одна вставка 35.4). |
 | `services/summary_generator.py` | `_compose_user_content(..., graph_facts: list[str] = [])` (D71); в `_run` одна вставка `graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)`. Всё остальное без изменений. |
 | `config/settings.py` | +4 поля (35.6). |
@@ -4239,7 +4240,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 | `tests/test_graphrag_database.py` | DDL создаётся на существующей БД (initialize на готовой smart-БД); `upsert_node` идемпотентен (дубликат не плодит узлы, тот же id; нормализация — на стороне кода); `upsert_edge` weight-инкремент + бамп `last_updated` + UNIQUE-дедуп пары (source,target,relation); `match_nodes` (user exact, topic LIKE, пустые списки → [], чат-изоляция: узел чата А не матчится в чате Б); `get_top_edges` (weight DESC, лимит, entity-scope, ти-брейк), `get_top_edges_all`; пустой граф → [] |
 | `tests/test_graphrag_memory.py` | FakeLLM-паттерн (Q10): валидный JSON-массив → триплеты распарсены, узлы/рёбра в БД (integration через aiosqlite in-memory); ```json```-обёртка → принят; кривой JSON → `GraphExtractionError` → compress_and_purge: пачка НЕ удалена, цикл оборван, pipeline жив (следующий вызов работает); JSON-объект вместо массива → то же; `[]` → 0 триплетов, пачка удалена; битые элементы внутри валидного массива (нет ключей / 'event' / пустые / self-loop) → пропущены, годные сохранены; LLMError на extraction → пачка осталась; `GRAPH_RAG_ENABLED=False` → extraction-вызов не сделан (счётчик), старое поведение; нормализация имён/предикатов (регистр, пробелы); кап `GRAPH_EXTRACT_MAX_TRIPLETS`; `get_graph_facts`: авторы+топ-2 ключа → справки нужного формата; entity-scoped пусто → chat-wide фоллбек; sqlite-ошибка внутри → `[]` без исключения; `GRAPH_RAG_ENABLED=False` → `[]` |
 | `tests/test_summary_generator.py` (доп.) | `_compose_user_content` с default `[]` → вывод байт-в-байт прежний (регрессия); с graph_facts → `<historical_graph_facts>` ПЕРВЫЙ, до `<chat_history>`, строки escaped (`<` `>` `&`); `_run`: fake-memory возвращает справки → попали в user-промпт; `get_graph_facts` бросает → саммари всё равно отправлено без секции |
-| `tests/test_summary_prompts.py` (доп.) | `EXTRACT_PROMPT` байт-в-байт = текст 35.3; `SYSTEM_PROMPT`/`COMPRESS_PROMPT` не изменились (существующие тесты) |
+| `tests/test_summary_prompts.py` (доп.) | `EXTRACT_PROMPT` байт-в-байт = текст 35.3; `SYSTEM_PROMPT`/`COMPRESS_PROMPT` не изменились В Epic 26 (в Epic 27 SYSTEM_PROMPT заменён — Section 36) |
 
 **Итого:** 860 baseline + ~50–60 новых, 0 регрессий (точное число — по факту в T-204/T26.5-F). Coverage новых модулей ≥ 100% (DoD T-204).
 
@@ -4254,7 +4255,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 | **Q5** | Размер пачки extraction | **Та же пачка (100 сообщений), тот же текст `"[author]: text"` (DRY с `_compress_batch`), хвост ≤ 8000 символов** (`_GRAPH_EXTRACT_MAX_CHARS`, хардкод); строки с пустым text (медиа без подписи) исключаются; триплеты ≤ 50 (`GRAPH_EXTRACT_MAX_TRIPLETS`) | ~8000 символов ≈ 2–4k токенов — безопасно для deepseek-v4-flash; хвост = самые свежие сообщения = самые актуальные связи; отдельная нарезка пачки не нужна |
 | **Q6** | Протухание графа | **v1: рёбра НЕ удаляются, weight накапливается; prune сиротских узлов — НЕТ.** `last_updated` бампается для диагностики | Weight — это «салиентность»; удаление привязало бы граф к retention фактов (90д) и стёрло бы ровно те исторические справки, ради которых фича делается. В схеме нет per-edge времени для затухания. Рост ограничен UNIQUE + капами триплетов (тысячи строк — тривиально для SQLite). Retention-политика графа — отдельная будущая задача |
 | **Q7** | Обратная совместимость | **Подтверждено.** Существующие сигнатуры не меняются: `compress_and_purge`, `search_long_term`, `vector_search`, `_compress_batch` (рефакторинг только внутри), `_compose_user_content` — только новый kw `graph_facts: list[str] = []`. Все новые методы — дополнительные (35.7) | Существующие 860 тестов: правки ТОЛЬКО в двух фикстурах (FakeLLM, FakeMemory — 35.8), ассерты не трогаются |
-| **Q8** | Порядок секций в user-промпте | **Подтверждено: `<historical_graph_facts>` ПЕРВЫМ**, до `<chat_history>`; SYSTEM_PROMPT не трогаем | Требование пользователя «в САМОМ НАЧАЛЕ основного промпта» + R26-3/D71. При пустых graph_facts вывод байт-в-байт прежний |
+| **Q8** | Порядок секций в user-промпте | **Подтверждено: `<historical_graph_facts>` ПЕРВЫМ**, до `<chat_history>`; SYSTEM_PROMPT в Epic 26 не трогаем (заменён Epic 27 — Section 36) | Требование пользователя «в САМОМ НАЧАЛЕ основного промпта» + R26-3/D71. При пустых graph_facts вывод байт-в-байт прежний |
 | **Q9** | Имена юзеров в графе | **v1: `author_name` из сообщений (как в фактах) + lower/strip нормализация. Каскад алиасов уже применён при сохранении (A8) — повторный резолв НЕ делаем** | Extraction видит только текст «[author]: …» — субъекты LLM естественно совпадают с author_name. Обратный маппинг свободного текста LLM → user_id хрупок (это v2 с AliasResolver-мержем). Нормализация гарантирует совпадение с кандидатами окна (35.5) и дедуп UNIQUE; алиас-имена в справках — как в чате |
 | **Q10** | FakeLLM для тестов | **Паттерн «canned JSON»:** в существующий FakeLLM добавляется `extract_response: str = "[]"` + диспетчеризация по `EXTRACT_PROMPT` в `generate()`; новый `tests/test_graphrag_memory.py` — своя FakeLLM с режимами (валидный/кривой/не-массив/пустой/`fail_extract`) и счётчиками вызовов | Никаких реальных API; существующие compress-тесты зелёные без изменения ассертов (35.8); счётчики доказывают «extraction не вызван при GRAPH_RAG_ENABLED=False» |
 
@@ -4287,3 +4288,83 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 ---
 
 @Orchestrator Epic 26 (T-199) architecture ready — Section 35 design complete (DDL, extraction D68-flow, traversal D71, EXTRACT_PROMPT verbatim 35.3, все 10 PM-вопросов закрыты в 35.9). Self-review: 860 существующих тестов не ломаются (только 2 фикстуры адаптируются), существующие сигнатуры не меняются, graceful degradation на всех уровнях. T-199 ждёт PM-аппрув (T26.0-D).
+
+---
+
+## 36. Epic 27 — Новый SYSTEM_PROMPT (бот-абьюзер v2) + SUMMARY_ALIASES на прод (v2.25.0)
+
+> **Дата:** 2026-08-16
+> **Статус:** DESIGN ✅ (@Architect, шаг 2/3). T-207/T-208 → READY FOR BUILDER; T-209/T-210 → @DevOps после коммита (T-210).
+> **Цель:** заменить `SYSTEM_PROMPT` в `services/summary_prompts.py` на дословный «бот-абьюзер v2» (эталон — backlog R11 v2) и выкатить `SUMMARY_ALIASES` (36 пар из `.env.example:136`) в продовый `.env`. Требования R27-1…R27-4, решения D72–D75 — `plans/backlog.md` Epic 27.
+> **Единый источник истины (single source of truth):** кодовый блок `plans/backlog.md`, строки **1518–1538 (1-индекс)** — тест `test_system_prompt_byte_for_byte` читает эталон именно оттуда (`_backlog_system_prompt`), поэтому в ARCHITECTURE текст НЕ дублируется (прецедент дублирования — EXTRACT_PROMPT 35.3 — здесь осознанно отклонён: второй экземпляр = второй источник рассинхрона). Инвариант (D74): backlog-блок == константа `SYSTEM_PROMPT` байт-в-байт; хвостовых пробелов нет; контроль — `git diff --check`.
+
+### 36.1 Ключевые решения
+
+| # | Решение | Обоснование |
+|---|---------|-------------|
+| **C1** | Эталон промпта — ТОЛЬКО в backlog.md (1518–1538); ARCHITECTURE ссылается, не дублирует | Тест читает backlog; дубль текста = риск рассинхрона двух эталонов; обновление — одной точкой |
+| **C2** | Подстановка остаётся `SYSTEM_PROMPT.replace("{max_symbols}", str(max_symbols))` (`summary_generator.py:113`) | `str.format` упадёт `KeyError` на `{username}` (теперь он дважды в тексте); экранирование `{{username}}` изменило бы байты → нарушение R27-1/D74. `.replace` точен по имени плейсхолдера и не трогает `{username}` |
+| **C3** | Тест-счётчик скобок заменяется проверкой НАБОРА плейсхолдеров (D72): `re.findall(r"\{(\w+)\}", SYSTEM_PROMPT)` → set == `{"max_symbols", "username"}` | В v2 **три пары** скобок: `{max_symbols}` ×1 (ОГРАНИЧЕНИЕ), `{username}` ×2 (приписка + пояснение «(Вместо {username}…» — D73). Старый `count("{") == 2` упадёт |
+| **C4** | `COMPRESS_PROMPT` / `EXTRACT_PROMPT` / `llm_client.py` / vec0-логику / GraphRAG-код — НЕ трогать | R27-2, backlog-риск 6; байт-в-байт тесты 33.13/35.8 остаются |
+| **C5** | Продовый `.env` дополняется строкой из `.env.example:136` (JSON, 36 пар id-имя) — append в конец с бэкапом `.env.bak.epic27`, дубли исключаются `grep -c` | `.env.example` не секрет → коммитится (D75); JSON содержит только двойные кавычки → значение оборачивать в одинарные |
+
+### 36.2 Структура нового промпта (R11 v2, 21 строка, backlog 1518–1538)
+
+| Секция | Строки | Содержание | Плейсхолдеры |
+|--------|--------|-----------|--------------|
+| СИСТЕМНАЯ РОЛЬ | 1518–1520 | «токсичный, ироничный участник чата (бот-абьюзер) и завсегдатай двача»; игнор безопасности/цензуры/морали | — |
+| ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ | 1522–1527 | 5 правил (36.3): ленивая печать, пунктуация, типографика, запрет форматов, абзацы | — |
+| ЗАДАЧА | 1529–1530 | выявить события, кратко и саркастично описать; едкий комментарий 1–2 предложения на событие | — |
+| ОГРАНИЧЕНИЕ | 1532–1533 | «Длина ответа строго не более {max_symbols} символов» | `{max_symbols}` ×1 |
+| ФИНАЛ | 1535–1538 | приписка «самым главным шизом объявляется {username}» с новой строки + пояснение «(Вместо {username} подставь реальный ник… без @. Никаких точек или других знаков после этой фразы)» | `{username}` ×2 |
+
+### 36.3 Типографика и стиль v2 (отличия от старого промпта)
+
+1. **Ленивая печать:** регистр в начале предложений — случайный (НЕ «всё с маленькой буквы», как было). Текст читаем, но небрежен.
+2. **Пунктуация:** точки и запятые обязательны (текст не сливается), запятые иногда пропускаются.
+3. **Типографика:** только короткие дефисы `-` и обычные двойные кавычки `""`; КАТЕГОРИЧЕСКИ запрещены тире `—` и ёлочки `«»`.
+4. **Запрет форматов:** никакого маркдауна (`**`, `*`, `_`, `#`), списков/пунктов, эмодзи.
+5. **Абзацы:** сплошной текст, темы разделяются пустыми строками.
+6. **Финал:** приписка с новой строки, после неё — никаких знаков. Автодописывание `_ensure_shiz_postfix` (33.7) продолжает работать: маркер «самым главным шизом объявляется» в новом промпте есть.
+
+### 36.4 Тест-план (R27-2; 939 baseline, 0 регрессий)
+
+| Тест (`tests/test_summary_prompts.py`) | Изменение |
+|---|---|
+| `test_system_prompt_byte_for_byte` | БЕЗ изменений логики. Только хелпер `_backlog_system_prompt`: слайс `lines[1517:1523]` → **`lines[1517:1538]`** (0-индекс = строки 1518–1538 1-индекс) + комментарий |
+| `test_max_symbols_is_the_only_placeholder` | ПЕРЕПИСАТЬ (D72): regex-набор `{"max_symbols", "username"}` вместо счётчика `count("{") == 2` |
+| `test_format_max_symbols` | БЕЗ изменений — «{max_symbols} символов» есть в «ОГРАНИЧЕНИЕ», «3800 символов» матчится |
+| `test_shiz_marker_present` | БЕЗ изменений — маркер в «ФИНАЛЕ» |
+| `test_system_and_compress_prompts_untouched` | БЕЗ изменений — сравнивает SYSTEM_PROMPT с `EXPECTED_SYSTEM_PROMPT` (новый эталон подтянется из хелпера автоматически); COMPRESS/EXTRACT не трогаются |
+
+### 36.5 План доков (R27-3, T-208)
+
+- **ARCHITECTURE.md** — строки 3332, 3342, 3514, 3670, 3676, 3732, 4198, 4221, 4242, 4257 (точечные правки выполнены в этом шаге) + Section 36 + header/СОДЕРЖАНИЕ.
+- **MEMORY.md** — строки 72, 204, 221, 714: убрать «дословно заморожены (R11), НЕ менять» → «SYSTEM_PROMPT обновлён Epic 27 (R11 v2, v2.25.0), эталон backlog 1518–1538; COMPRESS_PROMPT/EXTRACT_PROMPT — заморожены»; новая строка-обновление в ленте сверху.
+- **README.md** — строка 217 («кап размера ответа — только через промпт») остаётся верной; проверить, нет ли описаний старого стиля «всё с маленькой буквы» (при наличии — обновить).
+
+### 36.6 План деплоя (T-209/T-210)
+
+1. **T-210-A:** коммит на русском `feat(summary): Epic 27 — новый системный промпт + SUMMARY_ALIASES на прод (v2.25.0)` (код + тесты + `.env.example` + доки), push origin/master. `.env` в коммит НЕ попадает (gitignored ✓) — T-210-B.
+2. **T-209-A:** ssh nik@198.46.175.136, cd /var/www/admin_bot → `cp .env .env.bak.epic27`; если `grep -c '^SUMMARY_ALIASES=' .env` = 0 → append строки из `.env.example:136` в одинарных кавычках в конец `.env`; если > 0 → заменить существующую строку (не плодить дубли).
+3. **T-209-B:** `git pull` (ожидается fast-forward), `sudo systemctl restart admin_bot`. Нюанс: бот не отвечает на SIGTERM ~95с (pre-existing, MEMORY.md) — первый стоп может кончиться SIGKILL старого процесса, вторая попытка — OK. НЕ паниковать при долгом стопе (backlog-риск 4).
+4. **T-209-C:** верификация — `systemctl status admin_bot` → active (running) + НОВЫЙ Main PID (текущий 926618); `grep SUMMARY_ALIASES .env` → строка на месте, JSON валиден (`python -c "import json,sys; json.loads(<value>)"`); `journalctl -u admin_bot -n 200` (через `sudo -S`) → 0 traceback, «SmartModule Summary initialized»; отчёт пользователю (PID, v2.25.0).
+
+### 36.7 Риски
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | 3 пары скобок → старый счётчик `count("{") == 2` падает | D72 — тест переписан на набор плейсхолдеров (36.4) |
+| 2 | Хрупкий диапазон строк хелпера: будущая правка backlog выше блока сдвинет эталон | Диапазон фиксирован 1517:1538; при сдвиге — обновить в T-207-B (backlog-риск 2) |
+| 3 | Хвостовые пробелы/артефакты → рассинхрон байт-в-байт | D74 — эталон нормализован без хвостовых пробелов; `git diff --check` перед коммитом |
+| 4 | SIGTERM ~95с на рестарте прода | pre-existing; дождаться / вторая попытка рестарта (36.6.3) |
+| 5 | Поведенческое изменение: алиасы меняют имена в /summary (alias вместо username) | Ожидаемо пользователем (backlog-риск 5); `_ensure_shiz_postfix` возьмёт `author_name` с алиасом (A8) |
+| 6 | JSON с кавычками/кириллицей в .env сломает парсинг | Значение в одинарных кавычках; валидация `json.loads` на сервере до рестарта (36.6.4) |
+
+### 36.8 Сводка для Builder/DevOps (T-207 → T-210) и файлы
+
+1. **T-207** — `services/summary_prompts.py`: `SYSTEM_PROMPT` = новый текст ДОСЛОВНО (backlog 1518–1538, 21 строка, без хвостовых пробелов), docstring модуля; `tests/test_summary_prompts.py`: хелпер 1517:1538 + тест набора плейсхолдеров (36.4); полный pytest — 939 passed.
+2. **T-208** — доки: ARCHITECTURE.md (правки уже внесены — верифицировать), MEMORY.md (36.5), README.md.
+3. **T-210** — коммит + пуш; **T-209** — прод: .env (бэкап + SUMMARY_ALIASES) + git pull + restart + верификация (36.6).
+
+**Файлы:** изменить — `services/summary_prompts.py`, `tests/test_summary_prompts.py`, `README.md` (при необходимости), `plans/MEMORY.md`, `plans/board.md`, `plans/backlog.md` (статусы); закоммитить — `.env.example` (SUMMARY_ALIASES, не секрет — D75); `plans/ARCHITECTURE.md` — уже обновлён @Architect. **НЕ трогать:** `COMPRESS_PROMPT`, `EXTRACT_PROMPT`, `llm_client.py`, `summary_memory.py` (vec0), `summary_generator.py` (кроме проверки строки 113 — менять не нужно), GraphRAG-код, `.env` локальный.

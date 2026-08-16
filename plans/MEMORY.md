@@ -1,7 +1,9 @@
 # MEMORY.md — AdminBot
 
-> **Версия:** v2.24.0 DEPLOYED (Epic 26 GraphRAG-память, коммит `7c7c241`). **Epic 26 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-199…T-206 Done, весь цикл воркфлоу (Шаги 0–8) закрыт (Шаг 8, финальная синхронизация @Memory). Прод v2.24.0, PID 926618, 939 тестов.**
+> **Версия:** v2.24.0 DEPLOYED (Epic 26 GraphRAG-память, коммит `7c7c241`). **Epic 26 ПОЛНОСТЬЮ ЗАВЕРШЁН: T-199…T-206 Done, весь цикл воркфлоу (Шаги 0–8) закрыт. Epic 27 (v2.25.0) IMPLEMENTED (Шаг 6): T-207/T-208 Done, ревью PASS, 939/939; T-209/T-210 PENDING — коммита нет. Прод v2.24.0, PID 926618, 939 тестов.**
 > **Дата:** 2026-08-16
+> **Обновление:** 2026-08-16 — **Epic 27 (новый системный промпт + SUMMARY_ALIASES на прод) — Шаг 6 (@Memory, граф знаний после реализации и ревью): IMPLEMENTED ✅. @Builder (T-207/T-208) завершил, @Reviewer PASS: 939/939 тестов (полный прогон; точечно 50). SYSTEM_PROMPT v2 в services/summary_prompts.py (строки 8–28, 21 строка) байт-в-байт == эталон backlog.md 1518–1538; {max_symbols} ×1, {username} ×2; подстановка .replace в summary_generator.py:113 НЕ тронута; COMPRESS_PROMPT/EXTRACT_PROMPT не изменены. Тест test_max_symbols_is_the_only_placeholder переписан по D72 (regex `\{(\w+)\}` → set {max_symbols, username}); хелпер lines[1517:1538]. Доки: README (+ироничный блок «Промпт v2»), ARCHITECTURE.md Section 36 (4298–4360), MEMORY.md (строки 109/241/258/751), board/backlog T-207/T-208 done. Изменено ровно 8 файлов (.env.example с SUMMARY_ALIASES 36 пар — валидный JSON). Коммита ещё нет. Впереди: T-210 (коммит `feat(summary): Epic 27 … (v2.25.0)` + пуш) и T-209 (деплой .env.bak.epic27 + SUMMARY_ALIASES → прод .env, git pull, restart ~95с SIGTERM — штат, верификация).**
+> **Обновление:** 2026-08-16 — **Epic 27 (новый системный промпт + SUMMARY_ALIASES на прод) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): DESIGN ✅. @Architect добавил Section 36 (36.1–36.8) в ARCHITECTURE.md: C1 (эталон промпта ТОЛЬКО в backlog.md 1518–1538, без дублей), C2 (подстановка `SYSTEM_PROMPT.replace("{max_symbols}", …)` в summary_generator.py:113 НЕ меняется — `str.format` упал бы KeyError на `{username}`), C3–C5; тест-план 36.4 — меняются ТОЛЬКО хелпер `_backlog_system_prompt` (слайс 1517:1538) и `test_max_symbols_is_the_only_placeholder` (набор `{"max_symbols","username"}` по D72); деплой 36.6 — `.env.bak.epic27`, SUMMARY_ALIASES в одинарных кавычках с grep-гардом от дублей, git pull, restart (~95с SIGTERM), верификация. **SYSTEM_PROMPT с Epic 27 больше НЕ заморожен (R11 v2); COMPRESS_PROMPT/EXTRACT_PROMPT остаются заморожены.** Статусы: T-207/T-208 READY FOR BUILDER, T-209/T-210 PENDING (@DevOps). Код НЕ писался — передача @Builder (T-207/T-208).**
 > **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): DEPLOYED ✅. Коммит `7c7c241` «feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)» запушен в origin/master (github.com/Henry-Case-dev/adminbot.git). Деплой на прод nik@198.46.175.136 (/var/www/admin_bot): git pull fast-forward `c364f18..7c7c241`; .env +GRAPH_RAG_ENABLED=True, GRAPH_EDGE_WEIGHT_INCREMENT=1, GRAPH_TOP_EDGES_LIMIT=5, GRAPH_EXTRACT_MAX_TRIPLETS=50 (бэкап .env.bak.epic26); systemctl restart admin_bot → active (running), Main PID 926618; таблицы nodes/edges созданы в продовой БД; 0 traceback. Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206); T-206 (P1, FTS-удаление медиа без подписи) исправлен в этом же релизе. Известный не-блокер: бот не отвечает на SIGTERM (~95с рестарт, pre-existing) — рекомендуется отдельный тикет graceful shutdown. Вся цепочка воркфлоу (0–8) завершена.**
 > **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 6 (@Memory, граф знаний после реализации и ревью): T-200–T-204 IMPLEMENTED (@Builder), ревью дважды PASS, 939 тестов (860 baseline + 73 Epic 26 + 6 T-206), T-206 (P1, FTS-DELETE рассинхронизация) fixed, ARCHITECTURE.md 35.4 (JSON-объект-обёртка) зафиксирована. Код в рабочем дереве БЕЗ коммита. Осталось: T-205 (README+коммит+пуш+деплой) → @Builder+@DevOps.**
 > **Обновление:** 2026-08-16 — **Epic 26 (GraphRAG-память) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): Section 35 (35.1–35.11) спроектирована @Architect (T-199/T26.0): DDL nodes/edges (chat_id + UNIQUE), EXTRACT_PROMPT дословно (35.3), flow extract→graph→delete в compress_and_purge (D68), graph traversal для /summary с тегом <historical_graph_facts> первым в user-промпте (D71), настройки GRAPH_* (D69), тест-план 35.8. Статус: DESIGN — ждёт PM-аппрув (T26.0-D); после аппрува T26.1…T26.4 → READY FOR BUILDER. Код НЕ писался.**
@@ -10,9 +12,52 @@
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 3 (@Memory, граф знаний после фазы архитектуры): RCA ПОДТВЕРЖДЁН прод-логами (асимметрия ThrottlingMiddleware vs aiogram Command-фильтр), Section 34 (B1–B9) DESIGN APPROVED (PM: B6 ⚠️, B3 ⚠️). T-192/T-193 Done, T-194/T-195 READY FOR BUILDER.**
 > **Обновление:** 2026-08-16 — **Epic 25 (багфикс /summary) — Шаг 0 (@Memory, синхронизация контекста по баг-репорту): «/summary не реагирует» + требование удалять сообщение команды из чата.**
 > **Обновление:** 2026-08-16 — **Epic 24 «SmartModule: Summary» — Шаг 8 (@Memory, финальная синхронизация): ВЕСЬ запрос пользователя выполнен ✅. T-190 DONE (835 тестов PASS локально; коммит `a68732c`, 35 файлов, +4495/−28; docs-коммит `818e195`; пуш master; HEAD = origin/master). T-191 DONE (прод 198.46.175.136: git pull ff `756d237..a68732c`, .env +LLM-ключи, venv +APScheduler 3.11.3/sqlite-vec 0.1.9/httpx 0.28.1, smoke T-191-D ✅ apinet.cloud/v1/models OK, restart → active (running) PID 920105). Осталось пользователю вручную: Н1 BotFather `/setprivacy` → Disable (критично) + живая проверка `/summary`.**
-> **Статус:** Epics 1–26 ALL DEPLOYED ✅ (v2.24.0, `7c7c241`, 939 тестов). **Epic 26 (GraphRAG) DEPLOYED на проде: PID 926618, таблицы nodes/edges созданы, 0 traceback, T-199–T-206 Done (T-206 P1 fixed в этом же релизе).** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
+> **Статус:** Epics 1–26 ALL DEPLOYED ✅ (v2.24.0, `7c7c241`, 939 тестов). **Epic 26 (GraphRAG) DEPLOYED на проде: PID 926618, таблицы nodes/edges созданы, 0 traceback, T-199–T-206 Done (T-206 P1 fixed в этом же релизе).** **Epic 27 (v2.25.0) IMPLEMENTED — Шаг 6 @Memory: T-207/T-208 DONE (ревью PASS, 939/939), T-209/T-210 PENDING — коммита ещё нет.** Ручные действия пользователя: живой тест `/summary` в чате, Н1 (BotFather `/setprivacy` → Disable), при WARNING удаления — выдать боту админ-права `delete_messages`.
 > **Текущий коммит:** `7c7c241` (feat(graphrag): Epic 26 — граф знаний nodes/edges, entity extraction и гибридный поиск /summary (v2.24.0)) — в origin/master (github.com/Henry-Case-dev/adminbot.git). Прод версия **v2.24.0**.
 > **Сервер:** 198.46.175.136:/var/www/admin_bot, systemctl active (running), PID 926618, 0 traceback после рестарта; таблицы nodes/edges созданы в продовой БД; .env +4 переменные GRAPH_* (бэкап .env.bak.epic26). Известный не-блокер (pre-existing): бот не отвечает на SIGTERM (~95с рестарт) — кандидат в отдельный тикет graceful shutdown.
+
+---
+
+## 🚧 Epic 27: Новый системный промпт (бот-абьюзер v2) + SUMMARY_ALIASES на прод — v2.25.0 (IMPLEMENTED, Шаг 6 @Memory, 2026-08-16)
+
+> **Статус:** Шаг 1 (PM) ✅ → Шаг 2 (@Architect, Section 36) ✅ → **Шаги 4–5: @Builder (T-207/T-208) ✅ + @Reviewer PASS ✅ → Шаг 6 (@Memory): IMPLEMENTED ✅**. T-207/T-208 DONE; T-209/T-210 PENDING (@DevOps). Target **v2.25.0**. Код в рабочем дереве БЕЗ коммита (ровно 8 файлов).
+> **Требования R27-1…R27-4, решения D72–D75:** `plans/backlog.md` (Epic 27, эталон промпта R11 v2 на строках 1518–1538). **Дизайн:** `plans/ARCHITECTURE.md` Section 36 (36.1–36.8).
+
+### 📐 Дизайн (Section 36, @Architect, 2026-08-16)
+
+| Блок | Суть |
+|---|---|
+| **C1** | Единый источник истины — ТОЛЬКО backlog.md (R11 v2, 1518–1538, 21 строка); ARCHITECTURE ссылается, не дублирует (дубль = риск рассинхрона эталонов) |
+| **C2** | Подстановка остаётся `SYSTEM_PROMPT.replace("{max_symbols}", …)` (summary_generator.py:113). `str.format` упал бы KeyError на `{username}` (теперь ×2); `.replace` точен и не трогает `{username}` |
+| **C3** | Тест-счётчик скобок → проверка НАБОРА: `re.findall(r"\{(\w+)\}", SYSTEM_PROMPT)` → set == `{"max_symbols","username"}` (3 пары скобок: `{max_symbols}` ×1 + `{username}` ×2) |
+| **C4** | `COMPRESS_PROMPT` / `EXTRACT_PROMPT` / `llm_client.py` / vec0-логика / GraphRAG-код — НЕ трогать |
+| **C5** | Продовый .env: append строки из `.env.example:136` (JSON, 36 пар id-имя) с бэкапом `.env.bak.epic27`; grep-гард от дублей; значение в одинарных кавычках |
+| **36.2/36.3** | Промпт v2: ленивая печать (случайный регистр), только короткие дефисы `-` и двойные кавычки `""` (тире `—` и ёлочки `«»` запрещены), запрет маркдауна/списков/эмодзи, абзацы; финал «самым главным шизом объявляется {username}» — маркер `_ensure_shiz_postfix` сохраняется |
+| **36.4 Тест-план** | 939 baseline, 0 регрессий. Меняются ТОЛЬКО: хелпер `_backlog_system_prompt` (слайс `lines[1517:1523]` → `lines[1517:1538]`) и `test_max_symbols_is_the_only_placeholder` (набор по D72). `test_format_max_symbols` / `test_shiz_marker_present` / `test_system_and_compress_prompts_untouched` — без изменений |
+| **36.6 Деплой** | Бэкап `.env.bak.epic27` → SUMMARY_ALIASES (36 пар, одинарные кавычки, grep-гард) → git pull ff → restart (SIGTERM ~95с, pre-existing — не паниковать) → верификация: active (running), новый PID, JSON-валидация, 0 traceback, отчёт пользователю |
+
+### ✅ Реализация (T-207/T-208, @Builder + @Reviewer, 2026-08-16)
+
+- **SYSTEM_PROMPT v2 (T-207):** `services/summary_prompts.py` строки 8–28 (21 строка) — байт-в-байт == эталон `plans/backlog.md` 1518–1538 (инвариант D74, `git diff --check` чист); плейсхолдеры `{max_symbols}` ×1, `{username}` ×2; подстановка `.replace` в `summary_generator.py:113` НЕ тронута (C2); `COMPRESS_PROMPT`/`EXTRACT_PROMPT` не изменены (C4).
+- **Тесты:** хелпер `_backlog_system_prompt` — слайс `lines[1517:1538]`; `test_max_symbols_is_the_only_placeholder` переписан по D72 (regex `\{(\w+)\}` → set `{max_symbols, username}`); полный pytest **939 passed / 0 failed**; точечно 50 passed.
+- **Доки (T-208):** README.md (+ироничный блок «Промпт v2»); plans/MEMORY.md (строки 109/241/258/751 — «SYSTEM_PROMPT обновлён в Epic 27 R11 v2; COMPRESS/EXTRACT заморожены»); ARCHITECTURE.md Section 36 (4298–4360); board/backlog: T-207/T-208 done.
+- **Изменённые файлы (ровно 8):** `.env.example` (SUMMARY_ALIASES 36 пар, валидный JSON), `README.md`, `plans/ARCHITECTURE.md`, `plans/MEMORY.md`, `plans/backlog.md`, `plans/board.md`, `services/summary_prompts.py`, `tests/test_summary_prompts.py`. **Коммита ещё нет.**
+
+### 📋 Задачи (статусы на Шаг 6)
+
+- **T-207** @Builder (P0) — SYSTEM_PROMPT = v2 дословно (backlog 1518–1538, без хвостовых пробелов) + docstring; тесты 36.4; полный pytest 939 → **DONE**
+- **T-208** @Builder (P1, ←T-207) — доки: ARCHITECTURE.md (3332/3342/3514/3670/3676/3732/4198/4221/4242/4257 — правки Architect уже внесены, верифицировать), MEMORY.md (72/204/221/714 — «заморожено»), README.md (217) → **DONE**
+- **T-209** @DevOps (P0, ←T-207/T-210) — SUMMARY_ALIASES на прод + git pull + restart + верификация (36.6) → **PENDING** (деплой впереди)
+- **T-210** @DevOps+@PM (P1, ←T-207/T-208) — коммит `feat(summary): Epic 27 — новый системный промпт + SUMMARY_ALIASES на прод (v2.25.0)` + пуш → **PENDING** (коммит впереди)
+
+### ⚠️ Предупреждения для @Builder
+
+- **SYSTEM_PROMPT больше НЕ заморожен с Epic 27** (R11 v2) — упоминания «дословно заморожены (R11), НЕ менять» обновлены в **T-208-B** (Builder, 2026-08-16; после сдвига строк Шага 3 это строки 109/241/258/751 — в дизайне 36.5 они значились как 72/204/221/714).
+- `COMPRESS_PROMPT` / `EXTRACT_PROMPT` — по-прежнему заморожены дословно, НЕ трогать (backlog-риск 6, C4).
+- Байт-в-байт инвариант (D74): backlog-блок 1518–1538 == константа `SYSTEM_PROMPT`, без хвостовых пробелов; контроль `git diff --check`.
+- Диапазон хелпера `1517:1538` хрупкий — при сдвиге строк backlog выше блока обновить в T-207-B.
+- `summary_generator.py` НЕ менять — только проверить строку 113 (`.replace`, НЕ `str.format`).
+- Файлы Builder: `services/summary_prompts.py`, `tests/test_summary_prompts.py`, README.md (при необходимости), планы; `.env.example` коммитится (D75, не секрет); локальный `.env` НЕ трогать/не коммитить.
 
 ---
 
@@ -69,7 +114,7 @@
 - Порядок вызовов extract → graph → delete критичен (D68): сырьё пачки удаляется только после сохранения графа.
 - `PRAGMA foreign_keys` НЕ включать; проверка состояния прагмы на прод-БД → DEBUG-лог (T26.1-E).
 - Не трогать: `llm_client.py`, `summary_xml.py`, `summary_aliases.py`, `summary_scheduler.py`, `summary_throttling.py`, `handlers/summary.py`, `bot.py`, vec0-логику (`rowid IN` purge).
-- `SYSTEM_PROMPT` / `COMPRESS_PROMPT` — дословно заморожены (R11), НЕ менять.
+- `SYSTEM_PROMPT` — обновлён в Epic 27 (R11 v2); `COMPRESS_PROMPT` и `EXTRACT_PROMPT` остаются заморожены (R11).
 
 ---
 
@@ -201,7 +246,7 @@
 | R7 | Алиасы: каскад `alias → nickname → username (без @) → user_id` |
 | R8 | APScheduler: TZ Asia/Yekaterinburg, 00:00/06:00/12:00/18:00, ТОЛЬКО MemoryJobStore |
 | R9/R10 | Ручной `/summary` (ALLOWED_SUMMARY_IDS пуст = всем) + кастомный ThrottlingMiddleware (in-memory, молчаливый) |
-| R11 | Системный промпт — захардкодить ДОСЛОВНО: токсичный «бот-абьюзер», маленькие буквы, без эмодзи/маркдауна, приписка «самым главным шизом объявляется {username}» (текст в backlog.md) |
+| R11 | Системный промпт — захардкодить ДОСЛОВНО: токсичный «бот-абьюзер» (v2 — Epic 27: ленивая печать, запрет маркдауна/эмодзи/тире-ёлочек, абзацы), приписка «самым главным шизом объявляется {username}» (эталон в backlog.md, строки 1518–1538) |
 | R12/R13 | `{max_symbols} = (MAX_SUMMARY_PARTS*4000)-200`; чанкинг по пробелам ≤4096; UX-ошибки на маленькой букве («не смог сделать саммари потому что упал апи», «база данных подавилась») |
 | R14–R17 | Better Stack observability (стектрейсы, сырые ответы LLM); тесты + README ироничный; коммит на русском; деплой SSH nik@198.46.175.136 (/var/www/admin_bot, git pull, systemctl restart adminbot); LLM_API_KEY в .env НЕ коммитим |
 
@@ -218,7 +263,7 @@
 | **A7** | L2-RAG — FTS5 keyword/phrase-поиск из токенов L1 (без доп. LLM-вызова) |
 | **A8** | Имена резолвятся в момент сохранения в `author_name` (alias → nickname → username → user_id) |
 | **A9** | `SUMMARY_ALIASES` — JSON-строка `{"<user_id>": "<alias>"}` |
-| **A10** | Промпты в `services/summary_prompts.py` (SYSTEM_PROMPT дословно, R11) |
+| **A10** | Промпты в `services/summary_prompts.py` (SYSTEM_PROMPT дословно, R11 v2 — Epic 27) |
 | **A11** | `/summary` из чата НЕ удаляется |
 | **A12** | Деплой-нота: BotFather `/setprivacy` → **Disable** (иначе память пустая — риск **Н1**) |
 | **A13** | Зависимости: `httpx>=0.27`, `APScheduler>=3.10,<4`, `sqlite-vec>=0.1.2` (graceful fallback) |
@@ -711,4 +756,4 @@ common_router (pos 4c): НИКОГДА не получает события
 
 *Обновление: 2026-08-16 — EPIC 26 (GraphRAG-память, v2.24.0): IMPLEMENTED + REVIEW PASSED ✅ (Шаг 6, @Memory — граф знаний и MEMORY.md синхронизированы). @Builder: T-200–T-204 DONE — DDL nodes/edges в _SCHEMA_SQL (chat_id, UNIQUE, 4 индекса, upsert weight), EXTRACT_PROMPT дословно в summary_prompts.py, parse_triplets/_extract_and_save_graph в summary_memory.py (extract → graph → delete, per-batch isolation), get_graph_facts (never raises, fallback chat-wide), тег <historical_graph_facts> первым в _compose_user_content (graph_facts: list[str] = []), настройки GRAPH_* в settings.py и .env.example. Реальные сигнатуры DatabaseService: upsert_node/upsert_edge/match_nodes/get_top_edges/get_top_edges_all. @Reviewer: дважды PASS (0 блокеров). Тесты: 939 passed (860 baseline + 73 Epic 26 + 6 T-206). T-206 (P1) исправлен: FTS-DELETE зеркалит условие вставки (text IS NOT NULL AND text != '') в delete_smart_messages_by_ids/delete_smart_messages_older_than; chat_id-фильтр в FTS-DELETE by_ids; 6 регрессионных тестов. ARCHITECTURE.md 35.4: допустимость JSON-объект-обёртки зафиксирована. Код в рабочем дереве БЕЗ коммита — впереди T-205: README (ироничный тон) + коммит на русском + пуш + деплой → @Builder+@DevOps.*
 
-*Обновление: 2026-08-16 — EPIC 26 (v2.24.0-in-progress): Шаг 3 (@Memory) — фаза архитектуры (T-199) завершена, граф знаний и MEMORY.md синхронизированы. Section 35 (35.1–35.11) зафиксирована в ARCHITECTURE.md: DDL nodes/edges (chat_id + UNIQUE(chat_id, entity_name) + UNIQUE(source_id, target_id, relation_type), weight, last_updated), upsert ON CONFLICT DO UPDATE weight=weight+1, extraction flow extract→graph→delete в compress_and_purge с per-batch isolation (D68), traversal get_graph_facts (never raises) с сущностями окна детерминированно БЕЗ доп. LLM-вызова и тегом <historical_graph_facts> ПЕРВЫМ в user-промпте (D71), EXTRACT_PROMPT дословно (35.3), настройки GRAPH_RAG_ENABLED/GRAPH_EDGE_WEIGHT_INCREMENT/GRAPH_TOP_EDGES_LIMIT/GRAPH_EXTRACT_MAX_TRIPLETS + хардкод-константы (D69). Все 10 открытых вопросов закрыты (35.9), риски R1–R10 (35.10). board.md: T-199 → In Progress (ждёт PM-аппрув). Код не писался — передача @Builder после PM-аппрува T26.0-D. Предупреждения для @Builder: 860 тестов не сломать (правки только 2 фикстур), порядок extract→graph→delete, PRAGMA foreign_keys не включать, SYSTEM_PROMPT/COMPRESS_PROMPT заморожены, llm_client.py/bot.py/vec0 не трогать.*
+*Обновление: 2026-08-16 — EPIC 26 (v2.24.0-in-progress): Шаг 3 (@Memory) — фаза архитектуры (T-199) завершена, граф знаний и MEMORY.md синхронизированы. Section 35 (35.1–35.11) зафиксирована в ARCHITECTURE.md: DDL nodes/edges (chat_id + UNIQUE(chat_id, entity_name) + UNIQUE(source_id, target_id, relation_type), weight, last_updated), upsert ON CONFLICT DO UPDATE weight=weight+1, extraction flow extract→graph→delete в compress_and_purge с per-batch isolation (D68), traversal get_graph_facts (never raises) с сущностями окна детерминированно БЕЗ доп. LLM-вызова и тегом <historical_graph_facts> ПЕРВЫМ в user-промпте (D71), EXTRACT_PROMPT дословно (35.3), настройки GRAPH_RAG_ENABLED/GRAPH_EDGE_WEIGHT_INCREMENT/GRAPH_TOP_EDGES_LIMIT/GRAPH_EXTRACT_MAX_TRIPLETS + хардкод-константы (D69). Все 10 открытых вопросов закрыты (35.9), риски R1–R10 (35.10). board.md: T-199 → In Progress (ждёт PM-аппрув). Код не писался — передача @Builder после PM-аппрува T26.0-D. Предупреждения для @Builder: 860 тестов не сломать (правки только 2 фикстур), порядок extract→graph→delete, PRAGMA foreign_keys не включать, COMPRESS_PROMPT заморожен (SYSTEM_PROMPT обновлён в Epic 27, R11 v2), llm_client.py/bot.py/vec0 не трогать.*
