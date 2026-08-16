@@ -397,13 +397,14 @@ class TestSummaryCommand:
             result = await cmd_summary(msg, bot=bot)
 
         assert result is None
-        assert events[0] == ("send", "ща гляну, подожди")
+        assert events[0][0] == "send"
+        assert events[0][1] in summary_mod._UX_ACK_VARIANTS
         assert events[1] == "generate"
         generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
 
     @pytest.mark.asyncio
-    async def test_delete_called_after_ack_before_pipeline(self, make_message, setup_cleanup):
-        """B7: удаление команды сразу после ack, до пайплайна."""
+    async def test_delete_called_before_ack_before_pipeline(self, make_message, setup_cleanup):
+        """D81: удаление команды ДО ack и до пайплайна (delete → ack → generate)."""
         events = []
 
         generator = MagicMock()
@@ -420,7 +421,45 @@ class TestSummaryCommand:
         mod = replace(settings, ALLOWED_SUMMARY_IDS=())
         with patch.object(summary_mod, "settings", mod):
             await cmd_summary(msg, bot=bot)
-        assert events == ["ack", "delete", "generate"]
+        assert events == ["delete", "ack", "generate"]
+
+    def test_ack_pool_contains_canon(self):
+        """D82: каноничная фраза «ща гляну, подожди» остаётся в пуле."""
+        assert "ща гляну, подожди" in summary_mod._UX_ACK_VARIANTS
+
+    def test_ack_pool_size_at_least_20(self):
+        """D82: пул — ~20 вариаций."""
+        assert len(summary_mod._UX_ACK_VARIANTS) >= 20
+
+    def test_ack_pool_style(self):
+        """D82: все фразы — с маленькой буквы, без эмодзи."""
+        for phrase in summary_mod._UX_ACK_VARIANTS:
+            assert phrase == phrase.lower()
+            assert not any(0x1F000 <= ord(ch) <= 0x1FAFF for ch in phrase)
+
+    @pytest.mark.asyncio
+    async def test_log_order_delete_before_ack(self, make_message, setup_cleanup, caplog):
+        """D81/T-221-C: журнал в фактическом порядке: triggered → command deleted → ack sent."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        setup_summary(generator)
+        bot = AsyncMock()
+        msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
+        mod = replace(settings, ALLOWED_SUMMARY_IDS=())
+        with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.INFO):
+            await cmd_summary(msg, bot=bot)
+
+        def _stage(text: str) -> str | None:
+            for marker in ("triggered", "command deleted", "command delete failed", "ack sent"):
+                if marker in text:
+                    return marker
+            return None
+
+        stages = [
+            stage for record in caplog.records
+            if record.name == "handlers.summary" and (stage := _stage(record.message))
+        ]
+        assert stages.index("triggered") < stages.index("command deleted") < stages.index("ack sent")
 
     @pytest.mark.asyncio
     async def test_ack_is_not_reply(self, make_message, setup_cleanup):
@@ -435,7 +474,10 @@ class TestSummaryCommand:
             await cmd_summary(msg, bot=bot)
         msg.reply.assert_not_called()
         msg.answer.assert_not_called()
-        bot.send_message.assert_awaited_once_with(CHAT_ID, "ща гляну, подожди")
+        bot.send_message.assert_awaited_once()
+        sent = bot.send_message.await_args.args
+        assert sent[0] == CHAT_ID
+        assert sent[1] in summary_mod._UX_ACK_VARIANTS
 
     @pytest.mark.asyncio
     async def test_allowed_empty_everyone(self, make_message, setup_cleanup):
@@ -658,7 +700,7 @@ class TestRouterIntegration:
         assert bot_mock.await_args.args[0].__class__.__name__ == "DeleteMessage"
         # B1: ack отдельным send_message; Слава не ответил «пошёл нахуй»
         assert bot_mock.send_message.await_count == 1
-        assert bot_mock.send_message.await_args.args[1] == "ща гляну, подожди"
+        assert bot_mock.send_message.await_args.args[1] in summary_mod._UX_ACK_VARIANTS
         # B9: команда не попала в память наблюдателя (0a вернул UNHANDLED)
         rows = await db.get_smart_window(-1001, 0, 10)
         assert all(not (r["text"] or "").lstrip().startswith("/summary") for r in rows)
@@ -697,7 +739,7 @@ class TestRouterIntegration:
         assert bot_mock.await_args.args[0].__class__.__name__ == "DeleteMessage"
         # B1: ack отдельным send_message
         assert bot_mock.send_message.await_count == 1
-        assert bot_mock.send_message.await_args.args[1] == "ща гляну, подожди"
+        assert bot_mock.send_message.await_args.args[1] in summary_mod._UX_ACK_VARIANTS
 
     @pytest.mark.asyncio
     async def test_ordinary_message_still_reaches_slavik(self, integration_env):

@@ -1,4 +1,4 @@
-"""T-182-A / T-217-B: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11 v3)."""
+"""T-182-A / T-217-B / T-223-D: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11 v4)."""
 import re
 from pathlib import Path
 
@@ -8,10 +8,10 @@ from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT, SYSTEM_PRO
 
 
 def _backlog_system_prompt() -> str:
-    """Extract the verbatim prompt from plans/backlog.md Epic 28 (lines 1518-1540)."""
+    """Extract the verbatim prompt from plans/backlog.md Epic 29 (lines 1518-1539)."""
     lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
-    # Lines are 1-indexed: 1518..1540 (23 lines, R11 v3 — Epic 28)
-    return "\n".join(lines[1517:1540])
+    # Lines are 1-indexed: 1518..1539 (22 lines, R11 v4 — Epic 29)
+    return "\n".join(lines[1517:1539])
 
 
 def _arch_extract_prompt() -> str:
@@ -51,12 +51,26 @@ class TestSystemPrompt:
         assert "самым главным шизом объявляется" in SYSTEM_PROMPT
 
     def test_rules_6_7_present(self):
-        """T-217: правила 6 (имена/алиасы из author) и 7 (репосты) в v3."""
+        """T-217/T-223: правила 6 (имена/алиасы из author) и 7 (репосты) живы в v4 (нумерация-зазор)."""
         assert "6. Имена участников:" in SYSTEM_PROMPT
         assert "7. Репосты:" in SYSTEM_PROMPT
         assert 'is_forward="true"' in SYSTEM_PROMPT
         assert "forward_source" in SYSTEM_PROMPT
-        assert "имя участника из атрибута author" in SYSTEM_PROMPT
+        assert "используй СТРОГО дословное значение из атрибута author" in SYSTEM_PROMPT
+
+    def test_rule_3_typography_removed(self):
+        """D84: пункт 3 (типографика) удалён — её чинит cleanup_llm_text (37.6)."""
+        assert "3. Типографика" not in SYSTEM_PROMPT
+
+    def test_canon_point_6_markers(self):
+        """D83: маркеры канона пользователя (пункт 6, v4)."""
+        assert "чел с пейзажем в нике" in SYSTEM_PROMPT
+        assert "склоняй его как обычно" in SYSTEM_PROMPT
+
+    def test_numbering_gap_4_5(self):
+        """D84: нумерация-зазор — пункты 4 и 5 остаются с исходными номерами."""
+        assert "4. Ограничения форматов" in SYSTEM_PROMPT
+        assert "5. Структура:" in SYSTEM_PROMPT
 
 
 class TestCompressPrompt:
