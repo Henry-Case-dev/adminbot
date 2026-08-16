@@ -9,6 +9,8 @@ import re
 from xml.sax.saxutils import escape as _xml_escape
 
 from config.settings import settings
+from services.database import row_get
+from services.summary_aliases import AliasResolver
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ def escape_xml_text(text: str, quote: bool = False) -> str:
 class XmlGroundingBuilder:
     """Builds the XML chat history block for the LLM prompt."""
 
-    def build(self, messages: list, aliases=None) -> str:
+    def build(self, messages: list, aliases: AliasResolver | None = None) -> str:
         """messages: rows with id/timestamp/author_name/text/reply_to_id/media_type."""
         if not messages:
             return "<chat_history/>"
@@ -80,16 +82,22 @@ class XmlGroundingBuilder:
         except (TypeError, ValueError, OSError):
             iso = ""
         author = (row["author_name"] or "").strip()
-        if not author and aliases is not None:
-            # Fallback for legacy rows saved without author_name (A8)
-            author = aliases.resolve(int(row["user_id"] or 0), None, None)
+        if aliases is not None:
+            # Epic 28 (T-213-D): алиас побеждает устаревший author_name старых строк
+            author = aliases.resolve(int(row["user_id"] or 0), author or None, None)
         media_type = row["media_type"] or "text"
         body = self._build_body(row["text"], media_type)
         reply_to_id = row["reply_to_id"]
         reply_attr = "" if reply_to_id is None else str(reply_to_id)
+        extra = ""
+        if row_get(row, "is_forward"):
+            extra += ' is_forward="true"'
+            source = (row_get(row, "forward_source") or "").strip()
+            if source:
+                extra += f' forward_source="{_escape(source, quote=True)}"'
         return (
             f'<message id="{msg_id}" timestamp="{iso}" author="{_escape(author, quote=True)}" '
-            f'reply_to_id="{reply_attr}" type="{media_type}">{_escape(body)}</message>'
+            f'reply_to_id="{reply_attr}" type="{media_type}"{extra}>{_escape(body)}</message>'
         )
 
     def _build_body(self, text: str | None, media_type: str) -> str:

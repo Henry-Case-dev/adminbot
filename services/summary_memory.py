@@ -10,6 +10,7 @@ import re
 import time
 
 from config.settings import settings
+from services.database import row_get
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -123,13 +124,20 @@ def _validate_triplet(item) -> dict | None:
 
 
 def _build_batch_text(batch: list, skip_empty: bool = False) -> str:
-    """Same '[author]: text' lines as the compress prompt (DRY, 35.4)."""
+    """Same '[author]: text' lines as the compress prompt (DRY, 35.4).
+
+    Epic 28 (R28-1): rows with is_forward get the source marker:
+    [Оля (репост из "Канал X")]: текст / [Оля (репост)]: текст.
+    """
     lines = []
     for row in batch:
         author = (row["author_name"] or "").strip() or "unknown"
         text = row["text"] or ""
         if skip_empty and not text:
             continue
+        if row_get(row, "is_forward"):
+            source = (row_get(row, "forward_source") or "").replace('"', "'").strip()
+            author = f'{author} (репост из "{source}")' if source else f"{author} (репост)"
         lines.append(f"[{author}]: {text}")
     return "\n".join(lines)
 
@@ -156,22 +164,59 @@ class MemoryManager:
         self.db = db
         self.llm = llm
         self._vec_available = False
+        self._vec_dim = None
 
-    # ── Initialization (R3: graceful sqlite-vec load) ──────────
+    # ── Initialization (R3: graceful sqlite-vec load + self-heal) ──────────
 
     async def initialize(self) -> bool:
-        """Try to load sqlite-vec and create the vec0 table. Never raises."""
+        """Load sqlite-vec + self-heal dimension mismatch (Epic 28, R28-2). Never raises."""
         self._vec_available = False
+        self._vec_dim = None
         try:
             import sqlite_vec
 
             await self.db.db.enable_load_extension(True)
             await self.db.db.load_extension(sqlite_vec.loadable_path())
-            dim = int(settings.EMBEDDING_DIM)
-            await self.db.db.execute(_VEC_TABLE_SQL.format(dim=dim))
+            actual_dim = None
+            try:
+                vectors = await self.llm.embed(["probe"])
+                if vectors and vectors[0]:
+                    actual_dim = len(vectors[0])
+            except Exception:
+                logger.warning("SmartModule: probe embed failed — FTS5 fallback", exc_info=True)
+            if actual_dim is None:
+                return False
+            if actual_dim != int(settings.EMBEDDING_DIM):
+                logger.warning(
+                    "SmartModule: EMBEDDING_DIM=%s != actual API dim=%d — using actual",
+                    settings.EMBEDDING_DIM, actual_dim,
+                )
+            stored_dim = None
+            cursor = await self.db.db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='smart_archive'"
+            )
+            row = await cursor.fetchone()
+            if row and row["sql"]:
+                match = re.search(r"float\[(\d+)\]", row["sql"])
+                if match:
+                    stored_dim = int(match.group(1))
+                else:
+                    logger.warning(
+                        "SmartModule: could not parse stored dim from smart_archive DDL — "
+                        "runtime guard active (no dimension self-heal)"
+                    )
+            if stored_dim is not None and stored_dim != actual_dim:
+                logger.warning(
+                    "SmartModule: vec dimension mismatch (stored=%d, actual=%d) — "
+                    "dropping smart_archive (facts in smart_archive_facts are kept)",
+                    stored_dim, actual_dim,
+                )
+                await self.db.db.execute("DROP TABLE smart_archive")
+            await self.db.db.execute(_VEC_TABLE_SQL.format(dim=actual_dim))
             await self.db.db.commit()
+            self._vec_dim = actual_dim
             self._vec_available = True
-            logger.info("SmartModule: sqlite-vec loaded (dim=%d)", dim)
+            logger.info("SmartModule: sqlite-vec loaded (dim=%d)", actual_dim)
         except Exception:
             logger.warning(
                 "SmartModule: sqlite-vec unavailable — FTS5 fallback (R3)",
@@ -224,10 +269,14 @@ class MemoryManager:
                 vectors = await self.llm.embed([query])
                 if vectors and vectors[0]:
                     facts = await self._search_archive_knn(chat_id, vectors[0], limit)
+                    if facts:
+                        logger.info(
+                            "SmartModule L3: knn_hits=%d | chat_id=%s", len(facts), chat_id
+                        )
+                        return facts
                     logger.info(
-                        "SmartModule L3: knn_hits=%d | chat_id=%s", len(facts), chat_id
+                        "SmartModule L3: KNN empty — FTS5 fallback | chat_id=%s", chat_id
                     )
-                    return facts
             except Exception:
                 logger.warning(
                     "SmartModule L3: vector search failed — FTS5 fallback | chat_id=%s",
@@ -414,11 +463,20 @@ class MemoryManager:
                 (fact_id, fact_id, chat_id, json.dumps(vector)),
             )
             await self.db.db.commit()
-        except Exception:
-            logger.warning(
-                "SmartModule L3: embed/vec insert failed for fact_id=%d — fact stays in FTS5 only",
-                fact_id, exc_info=True,
-            )
+        except Exception as exc:
+            message = str(exc).lower()
+            if "dimension" in message or "mismatch" in message:
+                self._vec_available = False
+                logger.error(
+                    "SmartModule L3: dimension mismatch on INSERT — vec disabled until "
+                    "restart (self-heal on next start) | fact_id=%d",
+                    fact_id, exc_info=True,
+                )
+            else:
+                logger.warning(
+                    "SmartModule L3: embed/vec insert failed for fact_id=%d — fact stays in FTS5 only",
+                    fact_id, exc_info=True,
+                )
 
     async def _purge_archive(self, chat_id: int) -> None:
         archive_cutoff = int(time.time()) - settings.ARCHIVE_MEMORY_RETENTION_DAYS * 86400

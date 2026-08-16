@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — AdminBot
 
-> **Версия:** v2.24.0 (прод) / целевой дизайн: v2.25.0 (Epic 27)
+> **Версия:** v2.25.0 (прод) / целевой дизайн: v2.26.0 (Epic 28)
 > **Дата:** 2026-08-16
-> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — DESIGN (@Architect, шаг 2/3).
+> **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — DESIGN (@Architect, шаг 2/3).
 > **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
 > **Автор:** @Architect
 
@@ -26,6 +26,7 @@
 14. [Section 34: Epic 25](#34-epic-25--багфикс-summary-не-реагирует--удаление-команды-v2230) — Багфикс «/summary не реагирует» + удаление команды (v2.23.0)
 15. [Section 35: Epic 26](#35-epic-26--graphrag-граф-знаний-поверх-sqlite-v2240) — GraphRAG: граф знаний поверх SQLite (v2.24.0, НОВОЕ)
 16. [Section 36: Epic 27](#36-epic-27--новый-system_prompt-бот-абьюзер-v2--summary_aliases-на-прод-v2250) — Новый SYSTEM_PROMPT «бот-абьюзер v2» + SUMMARY_ALIASES на прод (v2.25.0, НОВОЕ)
+17. [Section 37: Epic 28](#37-epic-28--качество-памяти-векторы-репосты-алиасы-очистка-v2260) — Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0, НОВОЕ)
 
 ---
 
@@ -3668,13 +3669,13 @@ class ThrottlingMiddleware(BaseMiddleware):
 
 - **Логирование:** существующая система — `logging.basicConfig` + `LogtailHandler(LOGTAIL_SOURCE_TOKEN)` в bot.py (уже на root logger) → новые модули берут `logging.getLogger(__name__)` и ничего не настраивают. Sentry уже инициализирован.
 - Поля/уровни: INFO — этапы пайплайна (window_size, rag_hits_l2/l3, model, request_len, latency_ms, chunks_sent); `logger.info("summary raw LLM response | chat_id=%s | raw=%r", …)` — **сырой ответ LLM в лог** (R14); WARNING — фоллбеки (vec недоступен, embed упал, пачка сжатия пропущена); ERROR+`logger.exception` — полные стектрейсы всех отказов.
-- **`services/summary_prompts.py`:** `SYSTEM_PROMPT` — ДОСЛОВНО из backlog (R11; v2 — Epic 27, строки **1518–1538**, Section 36), плейсхолдеры `{max_symbols}` (рантайм-подстановка) и `{username}` (литерал для LLM); `COMPRESS_PROMPT` — из 33.5; тест байт-в-байт (T-182-A). Промпт НЕ логировать целиком (тяжёлый; достаточно `len`).
+- **`services/summary_prompts.py`:** `SYSTEM_PROMPT` — ДОСЛОВНО из backlog (R11; v3 — Epic 28, строки **1518–1540**, Section 37), плейсхолдеры `{max_symbols}` (рантайм-подстановка) и `{username}` (литерал для LLM); `COMPRESS_PROMPT` — из 33.5; тест байт-в-байт (T-182-A). Промпт НЕ логировать целиком (тяжёлый; достаточно `len`).
 
 ### 33.13 Тестовая стратегия (R14/R15, 672 существующих не ломать)
 
 | Файл | Кейсы (моки) |
 |------|--------------|
-| `tests/test_summary_prompts.py` | SYSTEM_PROMPT байт-в-байт = backlog-текст (R11 v2 — Epic 27, строки 1518–1538); набор плейсхолдеров `{max_symbols, username}` (D72); `{max_symbols}` подстановка через replace; COMPRESS_PROMPT непуст |
+| `tests/test_summary_prompts.py` | SYSTEM_PROMPT байт-в-байт = backlog-текст (R11 v3 — Epic 28, строки 1518–1540); набор плейсхолдеров `{max_symbols, username}` (D72); `{max_symbols}` подстановка через replace; COMPRESS_PROMPT непуст |
 | `tests/test_llm_client.py` | `httpx.MockTransport`: успех generate/embed; 401→LLMAuthError; 429→retry→успех; 429×N→LLMRateLimitError; timeout→LLMTimeoutError; кривой JSON→LLMBadResponseError; заголовки Bearer/base_url/модель |
 | `tests/test_summary_memory.py` | aiosqlite in-memory + fake LLMClient: save→window границы окна (вкл/искл края); search_long_term (FTS5 phrase/prefix, санитайз `*"`); vector_search: vec_available=False→FTS5; embed бросает→FTS5; compress_and_purge (факты сохранились, сырьё удалено, retention-архива 90д, ошибка LLM→пачка не удалена); инициализация без sqlite-vec (monkeypatch loadable_path→битый путь) → `_vec_available=False` без падения |
 | `tests/test_summary_xml.py` | структура XML (атрибуты id/timestamp/author/reply_to_id/type); экранирование `<>&"`; control-символы вырезаны; media→описание (`[фото]` и т.п.); caption+медиа; лимиты messages/chars; пустой список → пустой `<chat_history/>` |
@@ -4296,27 +4297,27 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 > **Дата:** 2026-08-16
 > **Статус:** DESIGN ✅ (@Architect, шаг 2/3). T-207/T-208 → READY FOR BUILDER; T-209/T-210 → @DevOps после коммита (T-210).
 > **Цель:** заменить `SYSTEM_PROMPT` в `services/summary_prompts.py` на дословный «бот-абьюзер v2» (эталон — backlog R11 v2) и выкатить `SUMMARY_ALIASES` (36 пар из `.env.example:136`) в продовый `.env`. Требования R27-1…R27-4, решения D72–D75 — `plans/backlog.md` Epic 27.
-> **Единый источник истины (single source of truth):** кодовый блок `plans/backlog.md`, строки **1518–1538 (1-индекс)** — тест `test_system_prompt_byte_for_byte` читает эталон именно оттуда (`_backlog_system_prompt`), поэтому в ARCHITECTURE текст НЕ дублируется (прецедент дублирования — EXTRACT_PROMPT 35.3 — здесь осознанно отклонён: второй экземпляр = второй источник рассинхрона). Инвариант (D74): backlog-блок == константа `SYSTEM_PROMPT` байт-в-байт; хвостовых пробелов нет; контроль — `git diff --check`.
+> **Единый источник истины (single source of truth):** кодовый блок `plans/backlog.md`, строки **1518–1540 (1-индекс)** (v3 — Epic 28, Section 37.7) — тест `test_system_prompt_byte_for_byte` читает эталон именно оттуда (`_backlog_system_prompt`), поэтому в ARCHITECTURE текст НЕ дублируется (прецедент дублирования — EXTRACT_PROMPT 35.3 — здесь осознанно отклонён: второй экземпляр = второй источник рассинхрона). Инвариант (D74): backlog-блок == константа `SYSTEM_PROMPT` байт-в-байт; хвостовых пробелов нет; контроль — `git diff --check`.
 
 ### 36.1 Ключевые решения
 
 | # | Решение | Обоснование |
 |---|---------|-------------|
-| **C1** | Эталон промпта — ТОЛЬКО в backlog.md (1518–1538); ARCHITECTURE ссылается, не дублирует | Тест читает backlog; дубль текста = риск рассинхрона двух эталонов; обновление — одной точкой |
+| **C1** | Эталон промпта — ТОЛЬКО в backlog.md (1518–1540, v3 — Epic 28); ARCHITECTURE ссылается, не дублирует | Тест читает backlog; дубль текста = риск рассинхрона двух эталонов; обновление — одной точкой |
 | **C2** | Подстановка остаётся `SYSTEM_PROMPT.replace("{max_symbols}", str(max_symbols))` (`summary_generator.py:113`) | `str.format` упадёт `KeyError` на `{username}` (теперь он дважды в тексте); экранирование `{{username}}` изменило бы байты → нарушение R27-1/D74. `.replace` точен по имени плейсхолдера и не трогает `{username}` |
 | **C3** | Тест-счётчик скобок заменяется проверкой НАБОРА плейсхолдеров (D72): `re.findall(r"\{(\w+)\}", SYSTEM_PROMPT)` → set == `{"max_symbols", "username"}` | В v2 **три пары** скобок: `{max_symbols}` ×1 (ОГРАНИЧЕНИЕ), `{username}` ×2 (приписка + пояснение «(Вместо {username}…» — D73). Старый `count("{") == 2` упадёт |
 | **C4** | `COMPRESS_PROMPT` / `EXTRACT_PROMPT` / `llm_client.py` / vec0-логику / GraphRAG-код — НЕ трогать | R27-2, backlog-риск 6; байт-в-байт тесты 33.13/35.8 остаются |
 | **C5** | Продовый `.env` дополняется строкой из `.env.example:136` (JSON, 36 пар id-имя) — append в конец с бэкапом `.env.bak.epic27`, дубли исключаются `grep -c` | `.env.example` не секрет → коммитится (D75); JSON содержит только двойные кавычки → значение оборачивать в одинарные |
 
-### 36.2 Структура нового промпта (R11 v2, 21 строка, backlog 1518–1538)
+### 36.2 Структура нового промпта (R11 v3 — Epic 28, 23 строки, backlog 1518–1540)
 
 | Секция | Строки | Содержание | Плейсхолдеры |
 |--------|--------|-----------|--------------|
 | СИСТЕМНАЯ РОЛЬ | 1518–1520 | «токсичный, ироничный участник чата (бот-абьюзер) и завсегдатай двача»; игнор безопасности/цензуры/морали | — |
-| ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ | 1522–1527 | 5 правил (36.3): ленивая печать, пунктуация, типографика, запрет форматов, абзацы | — |
-| ЗАДАЧА | 1529–1530 | выявить события, кратко и саркастично описать; едкий комментарий 1–2 предложения на событие | — |
-| ОГРАНИЧЕНИЕ | 1532–1533 | «Длина ответа строго не более {max_symbols} символов» | `{max_symbols}` ×1 |
-| ФИНАЛ | 1535–1538 | приписка «самым главным шизом объявляется {username}» с новой строки + пояснение «(Вместо {username} подставь реальный ник… без @. Никаких точек или других знаков после этой фразы)» | `{username}` ×2 |
+| ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ | 1522–1529 | 7 правил: 1–5 из v2 (36.3); 6–7 — Epic 28 (Section 37.7) | — |
+| ЗАДАЧА | 1531–1532 | выявить события, кратко и саркастично описать; едкий комментарий 1–2 предложения на событие | — |
+| ОГРАНИЧЕНИЕ | 1534–1535 | «Длина ответа строго не более {max_symbols} символов» | `{max_symbols}` ×1 |
+| ФИНАЛ | 1537–1540 | приписка «самым главным шизом объявляется {username}» с новой строки + пояснение «(Вместо {username} подставь имя участника из атрибута author… без @. Никаких точек или других знаков после этой фразы)» (пояснение правлено Epic 28 — 37.7) | `{username}` ×2 |
 
 ### 36.3 Типографика и стиль v2 (отличия от старого промпта)
 
@@ -4331,7 +4332,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 
 | Тест (`tests/test_summary_prompts.py`) | Изменение |
 |---|---|
-| `test_system_prompt_byte_for_byte` | БЕЗ изменений логики. Только хелпер `_backlog_system_prompt`: слайс `lines[1517:1523]` → **`lines[1517:1538]`** (0-индекс = строки 1518–1538 1-индекс) + комментарий |
+| `test_system_prompt_byte_for_byte` | БЕЗ изменений логики. Только хелпер `_backlog_system_prompt`: слайс `lines[1517:1523]` → **`lines[1517:1540]`** (0-индекс = строки 1518–1540 1-индекс) + комментарий |
 | `test_max_symbols_is_the_only_placeholder` | ПЕРЕПИСАТЬ (D72): regex-набор `{"max_symbols", "username"}` вместо счётчика `count("{") == 2` |
 | `test_format_max_symbols` | БЕЗ изменений — «{max_symbols} символов» есть в «ОГРАНИЧЕНИЕ», «3800 символов» матчится |
 | `test_shiz_marker_present` | БЕЗ изменений — маркер в «ФИНАЛЕ» |
@@ -4340,7 +4341,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 ### 36.5 План доков (R27-3, T-208)
 
 - **ARCHITECTURE.md** — строки 3332, 3342, 3514, 3670, 3676, 3732, 4198, 4221, 4242, 4257 (точечные правки выполнены в этом шаге) + Section 36 + header/СОДЕРЖАНИЕ.
-- **MEMORY.md** — строки 72, 204, 221, 714: убрать «дословно заморожены (R11), НЕ менять» → «SYSTEM_PROMPT обновлён Epic 27 (R11 v2, v2.25.0), эталон backlog 1518–1538; COMPRESS_PROMPT/EXTRACT_PROMPT — заморожены»; новая строка-обновление в ленте сверху.
+- **MEMORY.md** — строки 72, 204, 221, 714: убрать «дословно заморожены (R11), НЕ менять» → «SYSTEM_PROMPT обновлён Epic 27 (R11 v2, v2.25.0), эталон backlog 1518–1540; COMPRESS_PROMPT/EXTRACT_PROMPT — заморожены»; новая строка-обновление в ленте сверху.
 - **README.md** — строка 217 («кап размера ответа — только через промпт») остаётся верной; проверить, нет ли описаний старого стиля «всё с маленькой буквы» (при наличии — обновить).
 
 ### 36.6 План деплоя (T-209/T-210)
@@ -4355,7 +4356,7 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 | # | Риск | Митигация |
 |---|------|-----------|
 | 1 | 3 пары скобок → старый счётчик `count("{") == 2` падает | D72 — тест переписан на набор плейсхолдеров (36.4) |
-| 2 | Хрупкий диапазон строк хелпера: будущая правка backlog выше блока сдвинет эталон | Диапазон фиксирован 1517:1538; при сдвиге — обновить в T-207-B (backlog-риск 2) |
+| 2 | Хрупкий диапазон строк хелпера: будущая правка backlog выше блока сдвинет эталон | Диапазон фиксирован 1517:1540 (v3 — Epic 28, 23 строки); при сдвиге — обновить в T-217-B/C (backlog-риск 2) |
 | 3 | Хвостовые пробелы/артефакты → рассинхрон байт-в-байт | D74 — эталон нормализован без хвостовых пробелов; `git diff --check` перед коммитом |
 | 4 | SIGTERM ~95с на рестарте прода | pre-existing; дождаться / вторая попытка рестарта (36.6.3) |
 | 5 | Поведенческое изменение: алиасы меняют имена в /summary (alias вместо username) | Ожидаемо пользователем (backlog-риск 5); `_ensure_shiz_postfix` возьмёт `author_name` с алиасом (A8) |
@@ -4363,8 +4364,422 @@ GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 
 ### 36.8 Сводка для Builder/DevOps (T-207 → T-210) и файлы
 
-1. **T-207** — `services/summary_prompts.py`: `SYSTEM_PROMPT` = новый текст ДОСЛОВНО (backlog 1518–1538, 21 строка, без хвостовых пробелов), docstring модуля; `tests/test_summary_prompts.py`: хелпер 1517:1538 + тест набора плейсхолдеров (36.4); полный pytest — 939 passed.
+1. **T-207** — `services/summary_prompts.py`: `SYSTEM_PROMPT` = новый текст ДОСЛОВНО (backlog 1518–1540, 23 строки, без хвостовых пробелов — v3 Epic 28, 37.7), docstring модуля; `tests/test_summary_prompts.py`: хелпер 1517:1540 + тест набора плейсхолдеров (36.4); полный pytest — 939 passed.
 2. **T-208** — доки: ARCHITECTURE.md (правки уже внесены — верифицировать), MEMORY.md (36.5), README.md.
 3. **T-210** — коммит + пуш; **T-209** — прод: .env (бэкап + SUMMARY_ALIASES) + git pull + restart + верификация (36.6).
 
 **Файлы:** изменить — `services/summary_prompts.py`, `tests/test_summary_prompts.py`, `README.md` (при необходимости), `plans/MEMORY.md`, `plans/board.md`, `plans/backlog.md` (статусы); закоммитить — `.env.example` (SUMMARY_ALIASES, не секрет — D75); `plans/ARCHITECTURE.md` — уже обновлён @Architect. **НЕ трогать:** `COMPRESS_PROMPT`, `EXTRACT_PROMPT`, `llm_client.py`, `summary_memory.py` (vec0), `summary_generator.py` (кроме проверки строки 113 — менять не нужно), GraphRAG-код, `.env` локальный.
+
+---
+
+## 37. Epic 28 — Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0)
+
+> **Дата:** 2026-08-16
+> **Статус:** DESIGN ✅ (@Architect, шаг 2/3). T-211…T-219 → READY FOR BUILDER; T-220 → @Builder + @DevOps + @PM.
+> **Цель:** закрыть 4 проблемы качества памяти SmartModule: (1) автолечение L3-векторов при dimension mismatch (старые 768-dim против фактических 3072-dim); (2) forward-маркировка репостов (БД → observer → XML → L2-цитаты → L3/GraphRAG); (3) ре-резолв алиасов на лету (XML/L2/шиз) + правила 6/7 в SYSTEM_PROMPT; (4) cleanup-модуль типографики сырого ответа LLM. Требования R28-1…R28-6, решения D76–D80 — `plans/backlog.md` Epic 28.
+> **Источник истины промпта:** как и в 36.1 C1 — ТОЛЬКО блок R11 в `plans/backlog.md`; после T-217-B диапазон блока **1518–1540** (формула 37.7). ARCHITECTURE текст не дублирует.
+
+### 37.1 Цели и границы
+
+| # | Проблема | Решение | Скоуп |
+|---|----------|---------|-------|
+| 1 | Векторы L3 | Автолечение размерности vec0 (37.5), пустой KNN → FTS5 | `summary_memory.py` |
+| 2 | Репосты | `is_forward`/`forward_source` (37.2, 37.3) | `database.py`, `handlers/summary.py`, `summary_xml.py`, `summary_generator.py`, `summary_memory.py` |
+| 3 | Алиасы | Ре-резолв на лету (37.4) + правила 6/7 промпта (37.7) | `summary_xml.py`, `summary_generator.py`, `summary_prompts.py` |
+| 4 | Типографика ответа | `summary_cleanup.py` (37.6) | новый модуль + `summary_generator.py` |
+
+**Границы (НЕ трогать):** `COMPRESS_PROMPT`/`EXTRACT_PROMPT` (байт-в-байт тесты), `llm_client.py`, подстановка `SYSTEM_PROMPT.replace("{max_symbols}", …)` (`summary_generator.py:113`), порядок существующих атрибутов тега `<message>`, маркер `_ensure_shiz_postfix`, роутер-порядок `bot.py`, таблицу `smart_archive_facts` (текст фактов НЕ жертвуется — D78), `_SCHEMA_SQL` кроме блока `smart_messages`.
+
+### 37.2 Миграция БД smart_messages (T-211, R28-1)
+
+**Свежие БД** — заменить блок `smart_messages` в `_SCHEMA_SQL` (services/database.py:50–59) целиком (новые колонки в КОНЦЕ — порядок идентичен результату ALTER на старых БД):
+
+```sql
+        CREATE TABLE IF NOT EXISTS smart_messages (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER,
+            chat_id         INTEGER NOT NULL,
+            text            TEXT,
+            reply_to_id     INTEGER,
+            timestamp       INTEGER NOT NULL,
+            media_type      TEXT NOT NULL DEFAULT 'text',
+            author_name     TEXT NOT NULL DEFAULT '',
+            is_forward      INTEGER NOT NULL DEFAULT 0,
+            forward_source  TEXT NOT NULL DEFAULT ''
+        );
+```
+
+**Существующие прод-БД** — в `DatabaseService.initialize()` сразу ПОСЛЕ блока миграции `dead_page_posts` (database.py:120–125), ДО блока `PRAGMA foreign_keys` (перед строкой 127), прецедент — тот же паттерн try/except OperationalError:
+
+```python
+        # Epic 28 (R28-1): forward-marking columns for existing smart_messages tables
+        try:
+            await self.db.execute(
+                "ALTER TABLE smart_messages ADD COLUMN is_forward INTEGER NOT NULL DEFAULT 0"
+            )
+            await self.db.commit()
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+        try:
+            await self.db.execute(
+                "ALTER TABLE smart_messages ADD COLUMN forward_source TEXT NOT NULL DEFAULT ''"
+            )
+            await self.db.commit()
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+```
+
+**`save_smart_message`** (database.py:358) — kw-параметры в КОНЕЦ сигнатуры с дефолтами; все существующие вызовы совместимы: позиционные 7-арг вызовы в `tests/test_database.py` (~207–329), `tests/test_summary_memory.py:56`, `tests/test_graphrag_memory.py:73` и kw-вызов observer `handlers/summary.py:109`:
+
+```python
+    async def save_smart_message(
+        self,
+        user_id: int,
+        chat_id: int,
+        text: str | None,
+        reply_to_id: int | None,
+        timestamp: int,
+        media_type: str,
+        author_name: str,
+        is_forward: bool = False,
+        forward_source: str = "",
+    ) -> int:
+        cursor = await self.db.execute(
+            "INSERT INTO smart_messages "
+            "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+            "is_forward, forward_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name,
+             int(is_forward), forward_source),
+        )
+```
+
+**SELECT'ы** — добавить `is_forward, forward_source` в список колонок (ровно три правки):
+- `get_smart_window` (database.py:387): `"SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, is_forward, forward_source "`
+- `get_smart_raw` (database.py:399): тот же список.
+- `search_messages_fts` (database.py:470–471): `"m.media_type, m.author_name, m.is_forward, m.forward_source "`
+
+### 37.3 Forward-маркировка: observer → XML → L2 → L3 (T-212/T-213/T-214/T-215, R28-1)
+
+**Observer (`handlers/summary.py`):** после расчёта `reply_to_id` (строка ~102), до `save_smart_message`:
+
+```python
+        origin = getattr(message, "forward_origin", None)   # getattr-защита (риск 7)
+        is_forward = origin is not None
+        forward_source = _extract_forward_source(origin) if is_forward else None
+        ...
+            await _db.save_smart_message(
+                ...,
+                is_forward=is_forward,
+                forward_source=(forward_source or "")[:_FORWARD_SOURCE_MAX_CHARS],
+            )
+```
+
+**Решение по алиасам в observer:** observer УЖЕ имеет доступ к алиасам — модульный глобал `_aliases` заполняется `setup_summary(generator, db, aliases, bot_id)` (`bot.py:129`) и уже используется для author в строке 103 `handlers/summary.py`. Никаких новых сигнатур в `setup_summary` не требуется. Для `MessageOriginUser` имя источника резолвим через тот же `_aliases.resolve(...)` — имена источника консистентны с author-каскадом (alias → nickname → username). `forward_source` хранит ТОЛЬКО строку источника; ре-резолв алиасов в XML (37.4) применяется к `author_name` переславшего — двойного резолва нет, и для источника имя через алиасы НЕ обязательно (строка-источник), но так имена в XML согласованы.
+
+**Точная функция** (модульный уровень, рядом с `_detect_media_type`, строки 48–66):
+
+```python
+_FORWARD_SOURCE_MAX_CHARS = 100
+
+
+def _extract_forward_source(origin) -> str | None:
+    """Epic 28 (R28-1): label of the forward origin; None = save as ordinary."""
+    if origin is None:
+        return None
+    try:
+        if isinstance(origin, types.MessageOriginChannel):
+            chat = getattr(origin, "chat", None)
+            title = (getattr(chat, "title", None) or "").strip()
+            username = (getattr(chat, "username", None) or "").strip()
+            signature = (getattr(origin, "author_signature", None) or "").strip()
+            parts = [title] + ([f"@{username}"] if username else []) + ([signature] if signature else [])
+            return " ".join(parts) or None
+        if isinstance(origin, types.MessageOriginUser):
+            sender = getattr(origin, "sender_user", None)
+            if sender is None:
+                return None
+            if _aliases is not None:
+                return _aliases.resolve(
+                    sender.id,
+                    nickname=_build_nickname(sender),
+                    username=getattr(sender, "username", None),
+                )
+            nickname = _build_nickname(sender)
+            return nickname or (getattr(sender, "username", None) or str(sender.id)).lstrip("@")
+        if isinstance(origin, types.MessageOriginHiddenUser):
+            name = getattr(origin, "sender_user_name", None)
+            return (name or "").strip() or None
+        if isinstance(origin, types.MessageOriginChat):
+            chat = getattr(origin, "sender_chat", None)
+            title = (getattr(chat, "title", None) or "").strip()
+            username = (getattr(chat, "username", None) or "").strip()
+            parts = [title] + ([f"@{username}"] if username else [])
+            return " ".join(parts) or None
+        return None
+    except Exception:
+        logger.warning("SmartModule observer: forward source extraction failed", exc_info=True)
+        return None
+```
+
+Семантика: `is_forward=True` при любом `forward_origin` (даже если метку извлечь не удалось — содержание всё равно не принадлежит переславшему); `forward_source=""` допустимо. Обрезка 100 симв. при сохранении (см. выше); весь блок детекции в существующем try/except observer — сбой не роняет сохранение (T-212-C).
+
+**XML (`summary_xml.py` `_build_element`)** — атрибуты В КОНЕЦ тега, порядок существующих не меняется (ассерты `test_summary_xml.py` — substring-матчи, остаются зелёными). Итоговый порядок: `id, timestamp, author, reply_to_id, type, [is_forward, forward_source]`:
+
+```python
+        extra = ""
+        if row.get("is_forward"):
+            extra += ' is_forward="true"'
+            source = (row.get("forward_source") or "").strip()
+            if source:
+                extra += f' forward_source="{_escape(source, quote=True)}"'
+        return (
+            f'<message id="{msg_id}" timestamp="{iso}" author="{_escape(author, quote=True)}" '
+            f'reply_to_id="{reply_attr}" type="{media_type}"{extra}>{_escape(body)}</message>'
+        )
+```
+
+**L2-цитаты (`summary_generator.py:91–95`)** — формат маркера: `Оля (репост из "Канал X"): текст` (без квадратных скобок — как текущий формат цитат; двойные кавычки по типографике проекта). Новые хелперы:
+
+```python
+    def _resolve_author(self, row) -> str:
+        if self.aliases is not None:
+            return self.aliases.resolve(
+                int(row["user_id"] or 0), (row["author_name"] or None), None
+            )
+        return row["author_name"] or "кто-то"
+
+    def _format_l2_quote(self, row) -> str:
+        name = self._resolve_author(row)
+        if row.get("is_forward"):
+            source = (row.get("forward_source") or "").replace('"', "'").strip()
+            name = f'{name} (репост из "{source}")' if source else f"{name} (репост)"
+        return f'{name}: {row["text"]}'
+```
+
+**`_build_batch_text` (`summary_memory.py:125–134`)** — формат строк: `[Оля (репост из "Канал X")]: текст` (нейтральный: квадратные скобки — существующий паттерн, двойные кавычки — разрешённая типографика правила 3; «» не используются; cleanup применяется только к ответу LLM — конфликтов нет). Вложенные `"` в forward_source заменяются на `'` (защита парсинга):
+
+```python
+        if row.get("is_forward"):
+            source = (row.get("forward_source") or "").replace('"', "'").strip()
+            author = f'{author} (репост из "{source}")' if source else f"{author} (репост)"
+        lines.append(f"[{author}]: {text}")
+```
+
+`COMPRESS_PROMPT` не трогаем (T-215-B); строки без `is_forward` — старое поведение байт-в-байт.
+
+### 37.4 Ре-резолв алиасов на лету (T-213-D, T-214-A/B, D76)
+
+Паттерн (зафиксирован в backlog T-213-D): `aliases.resolve(int(row["user_id"] or 0), author_name or None, None)` — сохранённый `author_name` передаётся как `nickname`: алиас (если задан) побеждает устаревшее имя; иначе fallback на сохранённое имя (каскад AliasResolver не ломается). Применяется:
+
+1. **`summary_xml.py` `_build_element`** — ВСЕГДА при `aliases is not None` (не только при пустом имени):
+```python
+        author = (row["author_name"] or "").strip()
+        if aliases is not None:
+            # Epic 28 (T-213-D): алиас побеждает устаревший author_name старых строк
+            author = aliases.resolve(int(row["user_id"] or 0), author or None, None)
+```
+   Существующие тесты зелёные: `test_empty_author_uses_alias_resolver` (author_name="", user_id=10, alias "главный") → "главный"; `test_empty_author_no_resolver` (без aliases) → `author=""`; `test_single_message` (без aliases) → "вася".
+2. **`summary_generator.py` L2-цитаты** — через `_resolve_author(row)` (37.3).
+3. **`_most_active_author(rows, aliases=None)`** — остаётся staticmethod с новым опциональным параметром; в `_ensure_shiz_postfix` берём `aliases = getattr(self, "aliases", None)` (тесты зовут `SummaryGenerator._ensure_shiz_postfix(None, ...)` — при self=None getattr вернёт None → старое поведение):
+```python
+        name = SummaryGenerator._most_active_author(rows, getattr(self, "aliases", None))
+```
+   Внутри `_most_active_author`: `name = aliases.resolve(int(row["user_id"] or 0), stored or None, None) if aliases is not None else stored` (stored = `(row["author_name"] or "").strip().lstrip("@")`).
+
+**Сигнатура `build()`:** параметр уже существует (`build(self, messages, aliases=None)`) и так называется в вызовах `summary_generator.py:86` и тестах (`aliases=resolver`). НЕ переименовывать в `resolver` — только уточнить аннотацию: `aliases: AliasResolver | None = None` (совместимость).
+
+### 37.5 Векторное автолечение L3 (T-216, R28-2, D78/D79)
+
+**Итоговый алгоритм (основной источник размерности — probe embed; DDL — только проверка существующей таблицы):**
+- Пробный `embed(["probe"])` — ПЕРВИЧНЫЙ источник actual_dim; делается ТОЛЬКО если sqlite-vec успешно загрузился. Ровно **1 вызов эмбеддингов на старт** (0 вызовов, если расширение не загрузилось). Весь вызов в try/except → сбой = WARNING + FTS5-фоллбек, старт не ломается (D79).
+- DDL-разбор (`SELECT sql FROM sqlite_master WHERE type='table' AND name='smart_archive'` → regex `float\[(\d+)\]`) — только чтобы узнать stored_dim существующей таблицы.
+- **DROP только при фактическом расхождении** `stored_dim != actual_dim` (не по конфигу) → пересоздание `float[{actual_dim}]`; `smart_archive_facts` НЕ трогается (D78).
+- WARNING при `actual_dim != settings.EMBEDDING_DIM` (конфиг vs реальный API).
+- **INSERT-pадение с Dimension mismatch в рантайме** (`_save_archive_embedding`) — живой DROP НЕ делаем: `self._vec_available = False` (FTS5 до рестарта) + ERROR-лог; автолечение добьёт на следующем старте (безопаснее, чем DROP при работающем KNN).
+- `self._vec_dim = actual_dim` — атрибут `MemoryManager` (для логов/диагностики); `__init__` дополняется `self._vec_dim = None`.
+
+Точный код `initialize()` (замена существующего, summary_memory.py:162–185; `re` уже импортирован строкой 9):
+
+```python
+    async def initialize(self) -> bool:
+        """Load sqlite-vec + self-heal dimension mismatch (Epic 28, R28-2). Never raises."""
+        self._vec_available = False
+        self._vec_dim = None
+        try:
+            import sqlite_vec
+
+            await self.db.db.enable_load_extension(True)
+            await self.db.db.load_extension(sqlite_vec.loadable_path())
+            actual_dim = None
+            try:
+                vectors = await self.llm.embed(["probe"])
+                if vectors and vectors[0]:
+                    actual_dim = len(vectors[0])
+            except Exception:
+                logger.warning("SmartModule: probe embed failed — FTS5 fallback", exc_info=True)
+            if actual_dim is None:
+                return False
+            if actual_dim != int(settings.EMBEDDING_DIM):
+                logger.warning(
+                    "SmartModule: EMBEDDING_DIM=%s != actual API dim=%d — using actual",
+                    settings.EMBEDDING_DIM, actual_dim,
+                )
+            stored_dim = None
+            cursor = await self.db.db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='smart_archive'"
+            )
+            row = await cursor.fetchone()
+            if row and row["sql"]:
+                match = re.search(r"float\[(\d+)\]", row["sql"])
+                if match:
+                    stored_dim = int(match.group(1))
+            if stored_dim is not None and stored_dim != actual_dim:
+                logger.warning(
+                    "SmartModule: vec dimension mismatch (stored=%d, actual=%d) — "
+                    "dropping smart_archive (facts in smart_archive_facts are kept)",
+                    stored_dim, actual_dim,
+                )
+                await self.db.db.execute("DROP TABLE smart_archive")
+            await self.db.db.execute(_VEC_TABLE_SQL.format(dim=actual_dim))
+            await self.db.db.commit()
+            self._vec_dim = actual_dim
+            self._vec_available = True
+            logger.info("SmartModule: sqlite-vec loaded (dim=%d)", actual_dim)
+        except Exception:
+            logger.warning(
+                "SmartModule: sqlite-vec unavailable — FTS5 fallback (R3)",
+                exc_info=True,
+            )
+        finally:
+            try:
+                await self.db.db.enable_load_extension(False)
+            except Exception:
+                pass
+        return self._vec_available
+```
+
+**Пустой KNN → FTS5** (точное место — `vector_search`, summary_memory.py:221–241): вернуть результат только если непуст; при пустом — INFO-лог и проваливание в `_fts_search_archive`:
+
+```python
+                if vectors and vectors[0]:
+                    facts = await self._search_archive_knn(chat_id, vectors[0], limit)
+                    if facts:
+                        logger.info(
+                            "SmartModule L3: knn_hits=%d | chat_id=%s", len(facts), chat_id
+                        )
+                        return facts
+                    logger.info(
+                        "SmartModule L3: KNN empty — FTS5 fallback | chat_id=%s", chat_id
+                    )
+```
+
+**Рантайм-гард `_save_archive_embedding`** (summary_memory.py:407–421) — перед общим except вставить проверку сообщения ошибки:
+
+```python
+        except Exception as exc:
+            message = str(exc).lower()
+            if "dimension" in message or "mismatch" in message:
+                self._vec_available = False
+                logger.error(
+                    "SmartModule L3: dimension mismatch on INSERT — vec disabled until "
+                    "restart (self-heal on next start) | fact_id=%d",
+                    fact_id, exc_info=True,
+                )
+            else:
+                logger.warning(
+                    "SmartModule L3: embed/vec insert failed for fact_id=%d — fact stays in FTS5 only",
+                    fact_id, exc_info=True,
+                )
+```
+
+### 37.6 Cleanup-модуль типографики (T-218, R28-3)
+
+**Новый файл `services/summary_cleanup.py`** (полный текст):
+
+```python
+"""Epic 28 — cleanup of raw LLM summary text before postprocessing (R28-3).
+
+The model occasionally breaks SYSTEM_PROMPT rule 3: long dashes and «ёлочки»
+slip into the answer. This module normalizes the raw generate() output BEFORE
+_ensure_shiz_postfix. Adding a rule = adding one (old, new) pair to REPLACEMENTS.
+"""
+
+REPLACEMENTS = (
+    ("«", '"'),
+    ("»", '"'),
+    ("„", '"'),
+    ("“", '"'),
+    ("—", "-"),
+    ("–", "-"),
+)
+
+
+def cleanup_llm_text(text: str) -> str:
+    """Replace forbidden typography in the raw LLM answer. Never raises."""
+    for old, new in REPLACEMENTS:
+        text = text.replace(old, new)
+    return text
+```
+
+**Вставка в `summary_generator._run`** — сразу ПОСЛЕ `llm.generate` и лога сырого ответа, ДО `_ensure_shiz_postfix` (лог остаётся честным raw; шиз-маркер запрещённых символов не содержит — порядок безопасен):
+
+```python
+            raw = await self.llm.generate(...)
+            logger.info("summary LLM raw response ...")   # ← лог ДО очистки
+            raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
+            text = self._ensure_shiz_postfix(raw, rows)
+```
+
+Импорт: `from services.summary_cleanup import cleanup_llm_text` в `summary_generator.py`.
+
+### 37.7 SYSTEM_PROMPT v3: правила 6 и 7 (T-217, R28-4, D76/D77)
+
+**Правило 6 (дословно, вставляется после пункта 5 блока «ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ»):**
+
+> 6. Имена участников: в атрибуте author каждого сообщения стоит готовое имя участника. Если участнику задан алиас, он указан именно в этом атрибуте, поэтому используй его дословно и не имеешь права переименовывать участника. Если алиаса нет, можешь называть участника свободно: ник или юзернейм, при этом разрешена креативная интерпретация ника (например, участника с эмодзи-пейзажем в нике можно назвать "человек с пейзажем в нике"). В финальной приписке используй имя из атрибута author того участника, которого объявил шизом.
+
+**Правило 7 (дословно, сразу после правила 6):**
+
+> 7. Репосты: сообщение с атрибутом is_forward="true" переслано участником из атрибута author, но его содержание принадлежит источнику из атрибута forward_source. Не приписывай содержание репоста переславшему участнику.
+
+**Проверки конфликтов (D77):** правила используют только `""` и `-` (согласовано с правилом 3), не содержат маркдауна/эмодзи/списков (правило 4), не трогают структуру абзацев (правило 5), не меняют «ЗАДАЧА/ОГРАНИЧЕНИЕ/ФИНАЛ». Атрибуты упомянуты БЕЗ фигурных скобок (`author`, `is_forward="true"`, `forward_source`) → набор плейсхолдеров остаётся `{"max_symbols", "username"}`: `{max_symbols}` ×1, `{username}` ×2 (3 пары скобок — тест D72 зелёный без изменений).
+
+**Решение про пояснение финала:** минимальная правка — «реальный ник из контекста» → «имя участника из атрибута author» (согласовано с правилом 6: финал берёт имя из author). D73 сохраняется (пояснение — часть дословного промпта), остальной текст пояснения не меняется. Новая строка: `(Вместо {username} подставь имя участника из атрибута author без символа @. Никаких точек или других знаков после этой фразы).` Эталон в backlog обновляется в любом случае (T-217-B) — байт-в-байт тест не пострадает.
+
+**Формула диапазона (для Builder, T-217-B/C/D):** в блок R11 вставляются ровно **2 строки** (правила 6 и 7, после строки 5, перед пустой строкой и «ЗАДАЧА:»); итог — **23 строки**, диапазон **1518–1540**, слайс `lines[1517:1540]`. Общая формула: `новый_конец = 1538 + N_вставленных_строк`. ⚠️ Если Builder вставит иначе (лишние/недостающие пустые строки) — пересчитать диапазон и обновить его ВЕЗДЕ (grep «1518–15»): `tests/test_summary_prompts.py` (хелпер), ARCHITECTURE.md (36.2/36.4/36.5/36.7/36.8), MEMORY.md, board.md, а также эталонную заметку под блоком R11 в backlog (сейчас ~1543–1545). Плесхолдер-тест и docstring `summary_prompts.py` (Epic 28, новый диапазон) — тоже T-217-A.
+
+### 37.8 Тест-план (T-219, R28-5; 939 baseline + новые, 0 регрессий)
+
+| Задача | Тесты |
+|--------|-------|
+| T-211 (БД) | свежая БД: колонки с дефолтами (0/'') в CREATE-пути; мигрированная: вручную созданная старая таблица → `initialize()` → ALTER добавил колонки; `save_smart_message` с kw и без (дефолты); 3 SELECT'а возвращают новые поля |
+| T-212 (observer) | 4 типа origin → строки источника (Channel с title/username/author_signature; User через алиас и без; HiddenUser; Chat); неизвестный тип/None → не падает, `is_forward=True` при origin, `forward_source=""`; обрезка 100 симв.; исключение в экстракции → сообщение сохранено обычным |
+| T-213 (XML) | атрибуты в конце тега (порядок `id,timestamp,author,reply_to_id,type[,is_forward][,forward_source]`); существующие substring-ассерты зелёные; escape forward_source (`&`, `"`); ре-резолв: alias побеждает stale author_name; без алиаса — сохранённое имя; без aliases — старое поведение |
+| T-214 (генератор) | L2-цитата с алиасом; маркер `(репост из "X")`; `_most_active_author(rows, aliases)`; `_ensure_shiz_postfix(None, ...)` без алиасов — старое поведение (существующие 6 тестов TestShizPostfix зелёные) |
+| T-215 (batch) | `[Оля (репост из "Канал X")]: текст`; без source → `[Оля (репост)]: текст`; не-репост — байт-в-байт старый; skip_empty работает |
+| T-216 (автолечение) | vec import fail → 0 probe-вызовов, FTS5; probe fail (LLM-ошибка) → старт ок, FTS5; actual(3) != settings.EMBEDDING_DIM → WARNING; таблицы нет → создана с actual_dim; stored 768 vs actual 3072 → DROP + пересоздание, факты smart_archive_facts целы; пустой KNN → вызван FTS5-путь; INSERT-mismatch → `_vec_available=False` |
+| T-217 (промпт) | байт-в-байт == блок backlog (новый диапазон); набор плейсхолдеров `{max_symbols, username}`; `test_format_max_symbols`/`test_shiz_marker_present` зелёные |
+| T-218 (cleanup) | 6 пар замен по отдельности + смешанный текст; идемпотентность; чистый текст не меняется; cleanup применён ДО `_ensure_shiz_postfix` (шпион порядка) |
+
+### 37.9 Деплой + инструкция пользователю (T-220, R28-6, D80)
+
+**Рекомендация DevOps:** правка прод `.env` **НЕ требуется** — автолечение (37.5) чинит размерность само при рестарте (probe embed → DROP/пересоздание vec0; факты сохраняются). `EMBEDDING_DIM=3072` в прод `.env` — **опционально** (только чтобы убрать WARNING «EMBEDDING_DIM=768 != actual API dim=3072»; с бэкапом `.env.bak.epic28`). Остальное: git pull → `sudo systemctl restart admin_bot` (SIGTERM ~95с — pre-existing, не паниковать) → верификация: в логах НЕТ `Dimension mismatch`, есть `sqlite-vec loaded (dim=3072)` (или WARNING probe — тогда FTS5), 0 traceback.
+
+**Текст инструкции для пользователя (короткий):**
+> Действия не нужны — после обновления бот сам починит векторную память при старте (старые векторы будут пересозданы, текстовые факты сохранятся). Если хочешь чистые логи: в прод `.env` можно добавить `EMBEDDING_DIM=3072` (с бэкапом), но это необязательно.
+
+### 37.10 Риски
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | DROP smart_archive — жертва векторной истории (~день) | D78; только при фактическом расхождении stored≠actual; факты-текст не трогаются; WARNING с причинами |
+| 2 | Probe embed на старте — задержка/стоимость | 1 вызов «probe» (1 токен), только при загруженном vec; try/except → FTS5, старт не ломается (D79) |
+| 3 | Живой DROP при работающем KNN | НЕ делаем: mismatch в рантайме → `_vec_available=False` до рестарта |
+| 4 | Сдвиг эталона R11 (1518–1538 → 1518–1540) | Формула 37.7; T-217-B/C/D + grep-проверка всех ссылок; иначе байт-в-байт тест падает |
+| 5 | Позиционная совместимость save_smart_message | kw в конце с дефолтами; перечисленные вызовы (37.2) не меняются |
+| 6 | forward_origin отсутствует в старых aiogram/типах | getattr-защита + try/except в экстракции; сообщение сохраняется обычным |
+| 7 | Cleanup vs шиз-маркер | Маркер не содержит запрещённых символов; cleanup до `_ensure_shiz_postfix` безопасен |
+| 8 | `_ensure_shiz_postfix(None, …)` в тестах | `getattr(self, "aliases", None)` — self=None → None → старое поведение |
+| 9 | Ре-резолв меняет author XML по сравнению со старыми строками | Осознанно (D76): алиас приоритетнее устаревшего author_name; без алиаса поведение идентично |
+
+**Файлы:** `services/database.py`, `handlers/summary.py`, `services/summary_xml.py`, `services/summary_generator.py`, `services/summary_memory.py`, `services/summary_cleanup.py` (НОВЫЙ), `services/summary_prompts.py`, `tests/test_database.py`, `tests/test_summary_handlers.py`, `tests/test_summary_xml.py`, `tests/test_summary_generator.py`, `tests/test_summary_memory.py`, `tests/test_summary_prompts.py`, `plans/backlog.md` (эталон R11 + статусы), `plans/MEMORY.md`, `plans/board.md`, `README.md`. **НЕ трогать:** `COMPRESS_PROMPT`/`EXTRACT_PROMPT`, `llm_client.py`, `bot.py` (кроме ничего — wiring не меняется), `config/settings.py` (EMBEDDING_DIM не меняем — автолечение), `.env.example` (опционально: комментарий про EMBEDDING_DIM).

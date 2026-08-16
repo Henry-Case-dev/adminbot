@@ -2,26 +2,42 @@
 
 ## 📋 Backlog
 
-### Epic 27: Новый системный промпт + SUMMARY_ALIASES на прод (v2.25.0) — 2026-08-16 — 🆕 IN PROGRESS (Шаг 1: PM — требования и планы)
+### Epic 28: Качество памяти: векторы, репосты, алиасы, очистка (v2.26.0) — 2026-08-16 — 🆕 РЕАЛИЗОВАНО (T-211…T-219 ✅, ревью @Reviewer PASS; остался T-220: коммит/деплой)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ (эталон промпта в backlog R11 v2, решения D72–D75) → 2/3 (@Builder T-207/T-208) ✅ → 3/3 (@DevOps T-209/T-210).
-> Требования R27-1…R27-4, решения D72–D75, риски 1–6 — в `plans/backlog.md` (Epic 27).
-> ⚠️ В новом промпте **3 пары** фигурных скобок (`{max_symbols}` ×1, `{username}` ×2) — тест-счётчик `test_max_symbols_is_the_only_placeholder` переписывается на набор плейсхолдеров (D72).
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R28-1…R28-6, решения D76–D80) → 2/3 (@Architect: дизайн + дословные правила 6/7 промпта) ✅ → 3/3 (@Builder: реализация ✅, @Reviewer: PASS 2026-08-16, 995 passed) — остался T-220 (@Builder + @DevOps + @PM: коммит/деплой).
+> Требования R28-1…R28-6, решения D76–D80, риски 1–8 — в `plans/backlog.md` (Epic 28).
+> ⚠️ T-217 (T-28-G) сдвинет эталон R11 (строки 1518–1538) — хелпер-диапазон `tests/test_summary_prompts.py` и ссылки «1518–1538» в ARCHITECTURE/MEMORY обновлять синхронно (риск 4).
 
-- [x] T-207 (@Builder, **P0**): Замена SYSTEM_PROMPT в services/summary_prompts.py на новый дословный текст (эталон backlog R11 v2, строки 1518–1538) + тесты (хелпер-диапазон 1517:1538, набор плейсхолдеров D72) + полный pytest 939 — **Done (939 passed, 0 регрессий)**
-- [x] T-208 (@Builder, **P1**, ←T-207): Доки — ARCHITECTURE.md (правки Architect верифицированы — «SYSTEM_PROMPT не трогаем» уже заменено, диапазон 1518–1538), MEMORY.md («заморожено» → новый промпт), README (промпт v2, ироничный тон) — **Done**
-- [ ] T-209 (@DevOps, **P0**, ←T-207): SUMMARY_ALIASES (36 пар) в продовый .env с бэкапом .env.bak.epic27 + git pull + restart admin_bot (SIGTERM ~95с) + верификация
-- [ ] T-210 (@DevOps + @PM, **P1**, ←T-207/T-208): Коммит на русском + пуш (код + .env.example + доки); .env не коммитим
+- [x] T-211 (T-28-A) (@Builder, **P0**): Миграция smart_messages: +is_forward INTEGER NOT NULL DEFAULT 0, +forward_source TEXT NOT NULL DEFAULT ''; save_smart_message kw-параметры (позиционная совместимость); расширенные SELECT'ы (get_smart_window, get_smart_raw, search_messages_fts) — **Done**
+- [x] T-212 (T-28-B) (@Builder, **P0**, ←T-211): observer handlers/summary.py: forward_origin (getattr-защита), _extract_forward_source (Channel: chat.title/username + author_signature; User: имя sender_user через алиасы; HiddenUser: sender_user_name; Chat: sender_chat.title/username), try/except, обрезка ~100 симв — **Done**
+- [x] T-213 (T-28-C) (@Builder, **P0**, ←T-211): summary_xml.py: атрибуты is_forward="true" forward_source="..." в конец тега (порядок существующих атрибутов не менять; type занят media_type); row.get("is_forward") для совместимости; экранирование escape; ре-резолв алиасов на лету (всегда): aliases.resolve(user_id, author_name or None, None) — **Done**
+- [x] T-214 (T-28-D) (@Builder, **P0**, ←T-212/T-213): summary_generator.py: ре-резолв алиасов в L2-цитатах и _most_active_author (передать aliases); маркер репостов в цитатах — **Done**
+- [x] T-215 (T-28-E) (@Builder, **P0**, ←T-211/T-212): _build_batch_text: маркировка репостов для L3/GraphRAG («[Оля (репост из «X»)]: текст»); COMPRESS_PROMPT не трогать — **Done**
+- [x] T-216 (T-28-F) (@Builder, **P1**): векторное автолечение: initialize() — пробный llm.embed(["probe"]) → actual_dim; несовпадение с sqlite_master → DROP TABLE smart_archive + пересоздание float[{actual_dim}]; WARNING при расхождении с EMBEDDING_DIM; пустой KNN → FTS5-фоллбек; пробный embed в try/except (не ломать старт). D78: история векторов жертвуется, smart_archive_facts (текст) сохраняется — **Done**
+- [x] T-217 (T-28-G) (@Builder, **P0**, ←дизайн @Architect): SYSTEM_PROMPT — правила 6 и 7 (D76: алиас обязателен при наличии; D77: без алиаса — свобода + креативная интерпретация ника, паттерн «эмодзи-пейзаж» сохранить; репосты не приписывать переславшему) + обновление эталона R11 в backlog.md (строки 1518–1538 сдвинутся) + хелпер tests/test_summary_prompts.py (диапазон строк) + ссылки «1518–1538» в ARCHITECTURE/MEMORY — **Done**
+- [x] T-218 (T-28-H) (@Builder, **P2**): services/summary_cleanup.py (НОВЫЙ): REPLACEMENTS («»→", „“→", —→-, –→-), cleanup_llm_text, расширяемый список правил; вставка в _run сразу после llm.generate ДО _ensure_shiz_postfix — **Done**
+- [x] T-219 (T-28-I) (@Builder + @Reviewer, **P0**, ←T-212…T-218): тесты на всё + полный прогон (939 baseline + новые) — **Done (@Reviewer: PASS 2026-08-16, 995 passed)**
+- [ ] T-220 (T-28-J) (@Builder + @DevOps + @PM, **P1**, ←T-219): коммит + пуш; деплой: git pull, restart, проверка логов (нет Dimension mismatch; алиасы работают), при необходимости EMBEDDING_DIM=3072 в прод .env или автолечение; инструкция для пользователя при ручных действиях (D80)
 
 ## 🔧 In Progress
 
-- 🚧 Epic 27 — Шаг 2 (@Builder, 2026-08-16) ✅: T-207 (SYSTEM_PROMPT v2 дословно, байт-в-байт с эталоном backlog 1518–1538; тесты D72; полный pytest 939 passed) и T-208 (доки: MEMORY.md «заморожено» → R11 v2, README промпт v2, ARCHITECTURE верифицирован) DONE. T-209/T-210 → @DevOps.
+*No items in progress.*
 
 ## 🔍 In Review
 
 *No items in review.*
 
 ## ✅ Done
+
+### Epic 27: T-207…T-210 — новый системный промпт + SUMMARY_ALIASES на прод — ✅ DEPLOYED (v2.25.0, коммиты `1d7bed4` + `17fcd18`, 939 тестов, PID 934174)
+
+> Перенесено из колонки Backlog при архивации (PM, 2026-08-16). Полный трек — `plans/backlog.md` (Epic 27).
+> **Итог:** T-207 — SYSTEM_PROMPT заменён на «бот-абьюзер v2» дословно (эталон backlog R11 v2, строки 1518–1538, байт-в-байт ✅; тесты D72; полный pytest 939 passed / 0 регрессий) и T-208 — доки (MEMORY.md «заморожено» → R11 v2, README промпт v2, ARCHITECTURE верифицирован) DONE. T-209 — прод: .env +SUMMARY_ALIASES (36 пар, бэкап `.env.bak.epic27`, python3: JSON OK, sha1 совпал с репо), git pull fast-forward `7c7c241..1d7bed4`, systemctl restart → active (running), **PID 934174**, 0 traceback. T-210 — коммит `1d7bed4` «feat(summary): Epic 27 — новый системный промпт бота-абьюзера v2 и SUMMARY_ALIASES (v2.25.0)» (8 файлов, .env НЕ коммичен, .env.example коммичен) + пуш в origin/master. Шаг 8 (@Memory): финальная синхронизация `17fcd18`. ЭПИК 27 ЗАКРЫТ. ⚠️ Pre-existing не-блокер → Epic 28: L3 dimension mismatch (768 vs 3072) → FTS5-фоллбек.
+
+- [x] T-207 (@Builder, **P0**): Замена SYSTEM_PROMPT на новый дословный текст (эталон backlog R11 v2, строки 1518–1538) + тесты (хелпер-диапазон 1517:1538, набор плейсхолдеров D72) + полный pytest 939 — **Done (байт-в-байт ✅)**
+- [x] T-208 (@Builder, **P1**, ←T-207): Доки — ARCHITECTURE.md, MEMORY.md («заморожено» → R11 v2), README (промпт v2) — **Done**
+- [x] T-209 (@DevOps, **P0**, ←T-207): SUMMARY_ALIASES (36 пар) в продовый .env (бэкап `.env.bak.epic27`, JSON OK, sha1 совпал) + git pull + restart admin_bot + верификация — **Done (PID 934174, 0 traceback)**
+- [x] T-210 (@DevOps + @PM, **P1**, ←T-207/T-208): Коммит `1d7bed4` (conventional, 8 файлов) + пуш; .env не коммичен — **Done (Шаг 8: `17fcd18`)**
 
 ### Epic 26: T-199…T-206 — дизайн, реализация и деплой GraphRAG — ✅ DEPLOYED (v2.24.0, коммит `7c7c241`, 939 тестов, PID 926618)
 
@@ -451,4 +467,4 @@
 
 ---
 
-**Updated:** 2026-08-16 — **Epics 1-26 ALL DEPLOYED ✅ и архивированы в колонке Done (PM)**. Epic 26 «GraphRAG-память» (v2.24.0, `7c7c241`, PID 926618, 939 тестов, T-199…T-206) перенесён в Done — финальная синхронизация после деплоя (Шаг 8, коммит `3520f42`). **Epic 27 «Новый системный промпт + алиасы на прод» — IN PROGRESS (Шаг 1/3, PM):** требования R27-1…R27-4 и решения D72–D75 зафиксированы; эталон нового SYSTEM_PROMPT — backlog R11 v2 (строки 1518–1538, 21 строка, 3 пары скобок / 2 плейсхолдера); T-207 (P0) → READY FOR BUILDER. Полный трек — `plans/backlog.md` (Epic 27).
+**Updated:** 2026-08-16 — **Epics 1-27 ALL DEPLOYED ✅ и архивированы в колонке Done (PM)**. Epic 27 «Новый системный промпт + алиасы на прод» (v2.25.0, коммиты `1d7bed4` + `17fcd18`, PID 934174, 939 тестов, T-207…T-210) перенесён в Done — финальная синхронизация после деплоя (Шаг 8). **Epic 28 «Качество памяти: векторы, репосты, алиасы, очистка» (v2.26.0) — РЕАЛИЗОВАНО (T-211…T-219 ✅, ревью @Reviewer PASS 2026-08-16, 995 passed):** требования R28-1…R28-6 и решения D76–D80 реализованы; дизайн @Architect и дословные правила 6/7 ✅; остался T-220 (коммит/деплой @DevOps). Полный трек — `plans/backlog.md` (Epic 28).

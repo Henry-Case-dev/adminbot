@@ -16,7 +16,9 @@ import time
 from aiogram.exceptions import TelegramRetryAfter
 
 from config.settings import settings
+from services.database import row_get
 from services.llm_client import LLMError
+from services.summary_cleanup import cleanup_llm_text
 from services.summary_prompts import SYSTEM_PROMPT
 from services.summary_xml import escape_xml_text
 
@@ -89,7 +91,7 @@ class SummaryGenerator:
                 chat_id, keywords, settings.SUMMARY_RAG_L2_LIMIT
             )
             l2_quotes = [
-                f'{(row["author_name"] or "кто-то")}: {row["text"]}'
+                self._format_l2_quote(row)
                 for row in l2_rows
                 if row["text"]
             ]
@@ -123,6 +125,7 @@ class SummaryGenerator:
                 "summary LLM raw response | chat_id=%s | len=%d | latency_ms=%.0f | raw=%r",
                 chat_id, len(raw), latency_ms, raw,
             )
+            raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
             text = self._ensure_shiz_postfix(raw, rows)
             await self._send_chunked(chat_id, text)
         except LLMError:
@@ -137,23 +140,44 @@ class SummaryGenerator:
 
     # ── Postprocessing ────────────────────────────────────────
 
+    def _resolve_author(self, row) -> str:
+        """Epic 28 (T-214-A): алиас побеждает устаревший author_name старых строк."""
+        if self.aliases is not None:
+            return self.aliases.resolve(
+                int(row["user_id"] or 0), (row["author_name"] or None), None
+            )
+        return row["author_name"] or "кто-то"
+
+    def _format_l2_quote(self, row) -> str:
+        """Epic 28 (R28-1): L2-цитата с ре-резолвом автора и маркером репоста."""
+        name = self._resolve_author(row)
+        if row_get(row, "is_forward"):
+            source = (row_get(row, "forward_source") or "").replace('"', "'").strip()
+            name = f'{name} (репост из "{source}")' if source else f"{name} (репост)"
+        return f'{name}: {row["text"]}'
+
     def _ensure_shiz_postfix(self, text: str, rows: list) -> str:
         """Guarantee the 'самым главным шизом объявляется …' postfix (A14)."""
         text = text or ""
         if _SHIZ_MARKER in text:
             # PM note: strip '@' if the LLM wrote the name with it
             return _SHIZ_AT_RE.sub(r"\1", text)
-        name = SummaryGenerator._most_active_author(rows)
+        name = SummaryGenerator._most_active_author(rows, getattr(self, "aliases", None))
         text = text.rstrip()
         if text:
             text += "\n"
         return text + f"самым главным шизом объявляется {name}"
 
     @staticmethod
-    def _most_active_author(rows: list) -> str:
+    def _most_active_author(rows: list, aliases=None) -> str:
         counter: dict[str, int] = {}
         for row in rows:
-            name = (row["author_name"] or "").strip().lstrip("@")
+            stored = (row["author_name"] or "").strip().lstrip("@")
+            if aliases is not None:
+                # Epic 28 (T-214-B): заданный алиас побеждает сохранённое имя
+                name = aliases.resolve(int(row["user_id"] or 0), stored or None, None)
+            else:
+                name = stored
             if name:
                 counter[name] = counter.get(name, 0) + 1
         if not counter:

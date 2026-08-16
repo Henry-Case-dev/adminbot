@@ -8,6 +8,17 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def row_get(row, key, default=None):
+    """Field accessor: if row has .get (dict) — row.get(key, default);
+    otherwise row[key], falling back to default on KeyError/IndexError/TypeError."""
+    if hasattr(row, "get"):
+        return row.get(key, default)
+    try:
+        return row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+
+
 class DatabaseService:
     """Async SQLite wrapper using aiosqlite. Manages schema, connections, and all queries."""
     
@@ -46,16 +57,19 @@ class DatabaseService:
         CREATE INDEX IF NOT EXISTS idx_relay_album_media_group ON relay_album_map(media_group_id);
 
         -- ── SmartModule: Summary (Epic 24) ─────────────────────────
-        -- R1: сырьё всех сообщений чата (+author_name — резолв A8 на момент сохранения)
+        -- R1: сырьё всех сообщений чата (+author_name — резолв A8 на момент сохранения;
+        -- Epic 28: is_forward/forward_source — forward-маркировка, R28-1)
         CREATE TABLE IF NOT EXISTS smart_messages (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id      INTEGER,
-            chat_id      INTEGER NOT NULL,
-            text         TEXT,
-            reply_to_id  INTEGER,
-            timestamp    INTEGER NOT NULL,
-            media_type   TEXT NOT NULL DEFAULT 'text',
-            author_name  TEXT NOT NULL DEFAULT ''
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER,
+            chat_id         INTEGER NOT NULL,
+            text            TEXT,
+            reply_to_id     INTEGER,
+            timestamp       INTEGER NOT NULL,
+            media_type      TEXT NOT NULL DEFAULT 'text',
+            author_name     TEXT NOT NULL DEFAULT '',
+            is_forward      INTEGER NOT NULL DEFAULT 0,
+            forward_source  TEXT NOT NULL DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_ts ON smart_messages(chat_id, timestamp);
 
@@ -120,6 +134,22 @@ class DatabaseService:
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
             await self.db.execute("ALTER TABLE dead_page_posts ADD COLUMN timestamp INTEGER")
+            await self.db.commit()
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+
+        # Epic 28 (R28-1): forward-marking columns for existing smart_messages tables
+        try:
+            await self.db.execute(
+                "ALTER TABLE smart_messages ADD COLUMN is_forward INTEGER NOT NULL DEFAULT 0"
+            )
+            await self.db.commit()
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+        try:
+            await self.db.execute(
+                "ALTER TABLE smart_messages ADD COLUMN forward_source TEXT NOT NULL DEFAULT ''"
+            )
             await self.db.commit()
         except aiosqlite.OperationalError:
             pass  # Column already exists
@@ -364,13 +394,16 @@ class DatabaseService:
         timestamp: int,
         media_type: str,
         author_name: str,
+        is_forward: bool = False,
+        forward_source: str = "",
     ) -> int:
         """Insert a chat message into smart_messages + FTS index. Returns the new row id."""
         cursor = await self.db.execute(
             "INSERT INTO smart_messages "
-            "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name),
+            "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+            "is_forward, forward_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name,
+             int(is_forward), forward_source),
         )
         row_id = cursor.lastrowid
         if text:
@@ -384,7 +417,8 @@ class DatabaseService:
     async def get_smart_window(self, chat_id: int, since_ts: int, limit: int) -> list:
         """L1: messages within the generation window (timestamp >= since_ts), ASC order."""
         cursor = await self.db.execute(
-            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name "
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+            "is_forward, forward_source "
             "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
             "ORDER BY timestamp DESC LIMIT ?",
             (chat_id, since_ts, limit),
@@ -396,7 +430,8 @@ class DatabaseService:
     async def get_smart_raw(self, chat_id: int, older_than_ts: int, limit: int) -> list:
         """L2/сжатие: messages older than the cutoff timestamp, ASC order."""
         cursor = await self.db.execute(
-            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name "
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+            "is_forward, forward_source "
             "FROM smart_messages WHERE chat_id = ? AND timestamp < ? "
             "ORDER BY timestamp ASC LIMIT ?",
             (chat_id, older_than_ts, limit),
@@ -468,7 +503,7 @@ class DatabaseService:
         """L2-RAG / фоллбек: FTS5 search over raw messages, ordered by rank."""
         cursor = await self.db.execute(
             "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, m.timestamp, "
-            "m.media_type, m.author_name "
+            "m.media_type, m.author_name, m.is_forward, m.forward_source "
             "FROM smart_messages_fts JOIN smart_messages m ON m.id = smart_messages_fts.rowid "
             "WHERE smart_messages_fts MATCH ? AND m.chat_id = ? "
             "ORDER BY smart_messages_fts.rank LIMIT ?",

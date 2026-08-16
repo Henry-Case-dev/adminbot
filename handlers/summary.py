@@ -35,6 +35,47 @@ _bot_id = None
 _UX_ACK = "ща гляну, подожди"                 # B1: ручной вызов, до пайплайна
 _UX_NOT_READY = "не смог сделать саммари"     # B6: страховка вайринга (R13-стиль)
 
+_FORWARD_SOURCE_MAX_CHARS = 100
+
+
+def _extract_forward_source(origin) -> str | None:
+    """Epic 28 (R28-1): label of the forward origin; None = save as ordinary."""
+    if origin is None:
+        return None
+    try:
+        if isinstance(origin, types.MessageOriginChannel):
+            chat = getattr(origin, "chat", None)
+            title = (getattr(chat, "title", None) or "").strip()
+            username = (getattr(chat, "username", None) or "").strip()
+            signature = (getattr(origin, "author_signature", None) or "").strip()
+            parts = [title] + ([f"@{username}"] if username else []) + ([signature] if signature else [])
+            return " ".join(parts) or None
+        if isinstance(origin, types.MessageOriginUser):
+            sender = getattr(origin, "sender_user", None)
+            if sender is None:
+                return None
+            if _aliases is not None:
+                return _aliases.resolve(
+                    sender.id,
+                    nickname=_build_nickname(sender),
+                    username=getattr(sender, "username", None),
+                )
+            nickname = _build_nickname(sender)
+            return nickname or (getattr(sender, "username", None) or str(sender.id)).lstrip("@")
+        if isinstance(origin, types.MessageOriginHiddenUser):
+            name = getattr(origin, "sender_user_name", None)
+            return (name or "").strip() or None
+        if isinstance(origin, types.MessageOriginChat):
+            chat = getattr(origin, "sender_chat", None)
+            title = (getattr(chat, "title", None) or "").strip()
+            username = (getattr(chat, "username", None) or "").strip()
+            parts = [title] + ([f"@{username}"] if username else [])
+            return " ".join(parts) or None
+        return None
+    except Exception:
+        logger.warning("SmartModule observer: forward source extraction failed", exc_info=True)
+        return None
+
 
 def setup_summary(generator, db=None, aliases=None, bot_id=None) -> None:
     """Inject dependencies. Called from bot.py on_startup() (33.9)."""
@@ -105,6 +146,9 @@ async def summary_observer(message: types.Message):
             nickname=_build_nickname(user),
             username=getattr(user, "username", None),
         )
+        origin = getattr(message, "forward_origin", None)   # getattr-защита (риск 7)
+        is_forward = origin is not None
+        forward_source = _extract_forward_source(origin) if is_forward else None
         try:
             await _db.save_smart_message(
                 user_id=user.id,
@@ -114,6 +158,8 @@ async def summary_observer(message: types.Message):
                 timestamp=int(time.time()),
                 media_type=media_type,
                 author_name=author_name,
+                is_forward=is_forward,
+                forward_source=(forward_source or "")[:_FORWARD_SOURCE_MAX_CHARS],
             )
         except Exception:
             logger.warning(

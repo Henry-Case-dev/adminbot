@@ -338,3 +338,73 @@ class TestSmartModuleDatabase:
         tables = [row["name"] async for row in cursor]
         assert "user_presence" in tables  # legacy table
         assert "smart_messages" in tables
+
+
+# ── Epic 28 (T-211): forward-marking columns ─────────────
+
+class TestSmartModuleForward:
+    @pytest.mark.asyncio
+    async def test_forward_columns_exist_in_fresh_db(self, db):
+        """CREATE-путь: новые колонки есть с дефолтами (0 / '')."""
+        cursor = await db.db.execute("PRAGMA table_info(smart_messages)")
+        cols = {row["name"] for row in await cursor.fetchall()}
+        assert {"is_forward", "forward_source"} <= cols
+        await db.save_smart_message(1, -100, "обычное", None, 100, "text", "вася")
+        rows = await db.get_smart_window(-100, 0, 10)
+        assert rows[0]["is_forward"] == 0
+        assert rows[0]["forward_source"] == ""
+
+    @pytest.mark.asyncio
+    async def test_migration_alters_existing_old_table(self, tmp_path):
+        """Старая smart_messages (без новых колонок) → initialize() → ALTER добавил."""
+        import aiosqlite
+
+        path = str(tmp_path / "migrate.db")
+        raw = await aiosqlite.connect(path)
+        await raw.execute(
+            "CREATE TABLE smart_messages ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER,"
+            "chat_id INTEGER NOT NULL, text TEXT, reply_to_id INTEGER,"
+            "timestamp INTEGER NOT NULL, media_type TEXT NOT NULL DEFAULT 'text',"
+            "author_name TEXT NOT NULL DEFAULT '')"
+        )
+        await raw.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, media_type, author_name) "
+            "VALUES (1, -100, 'старое', 100, 'text', 'вася')"
+        )
+        await raw.commit()
+        await raw.close()
+
+        d = DatabaseService(path)
+        await d.initialize()
+        cursor = await d.db.execute("PRAGMA table_info(smart_messages)")
+        cols = {row["name"] for row in await cursor.fetchall()}
+        assert {"is_forward", "forward_source"} <= cols
+        rows = await d.get_smart_raw(-100, 9999, 10)
+        assert rows[0]["text"] == "старое"
+        assert rows[0]["is_forward"] == 0
+        assert rows[0]["forward_source"] == ""
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_save_with_forward_kw(self, db):
+        await db.save_smart_message(
+            1, -100, "репост", None, 100, "text", "вася",
+            is_forward=True, forward_source="Канал X",
+        )
+        rows = await db.get_smart_window(-100, 0, 10)
+        assert rows[0]["is_forward"] == 1
+        assert rows[0]["forward_source"] == "Канал X"
+
+    @pytest.mark.asyncio
+    async def test_selects_return_forward_fields(self, db):
+        await db.save_smart_message(
+            1, -100, "репост текст", None, 100, "text", "вася",
+            is_forward=True, forward_source="Канал X",
+        )
+        window = await db.get_smart_window(-100, 0, 10)
+        raw = await db.get_smart_raw(-100, 9999, 10)
+        fts = await db.search_messages_fts(-100, '"репост"', 10)
+        for row in (window[0], raw[0], fts[0]):
+            assert row["is_forward"] == 1
+            assert row["forward_source"] == "Канал X"
