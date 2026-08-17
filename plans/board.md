@@ -6,25 +6,36 @@
 
 ## 🔧 In Progress
 
-### Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — 🚧 IN PROGRESS (Шаг 4 @Builder ✅, 2026-08-17, target v2.31.2)
+### Epic 36: FactCheck — парсинг caption альбомов + адаптивный размер ответов — 🚧 IN PROGRESS (target v2.31.3, Шаг 4 @Builder ✅, 2026-08-17)
 
-> **Баг (прод v2.31.1, `5fb532b`, PID 949763):** после 10.8ч молчания Алана (порог 2ч) бот отправил greeting ТРИ раза подряд (05:03:24–26 UTC, чат -1002661910336).
-> **RCA (@DevOps, read-only, подтверждён логами):** race condition F7v2 — пачка из 3 сообщений Алана за <1 сек → три РАЗНЫХ апдейта (518925226/227/228) обработаны параллельно; `_last_greeting` пуст после рестарта 04:35:59 (записывается ТОЛЬКО ПОСЛЕ отправки видео, 1.3–2с); `alan_last_msg:{chat_id}` записывается ТОЖЕ ПОСЛЕ `await _send_greeting()` → все три хендлера прочитали устаревший ts (10.8ч ≥ 2ч → проход). Дедупликации по update_id/message_id нет.
-> **Направления фикса (для @Architect, Section 44):** asyncio.Lock на чат вокруг проверки+отправки; запись кулдауна/ts ДО await отправки; персистентный last_greeting_at с атомарной проверкой-записью; возможна комбинация.
-> Полный трек — `plans/backlog.md` (Epic 35).
+> Полный трек — `plans/backlog.md` (Epic 36). Требования R36-1/R36-2, решения D120–D123.
+> Передача @DevOps (T-279). Без @Orchestrator.
 
-- [x] T-268 (@Architect, P0) — RCA-подтверждение по логам + дизайн фикса в ARCHITECTURE.md (Section 44) — **Done (Шаг 2)**
-- [x] T-269 (@Builder, P0) — реализация фикса race condition (по дизайну Architect) — **Done (Шаг 4: per-chat `asyncio.Lock` (`_greeting_locks`/`_get_greeting_lock` в alan_greeting.py, общий для F7v2 + обоих join-путей) + claim-before-send (кулдаун и ts записываются ДО `await _send_greeting()`, `ts_written`-флаг, rollback при неудаче)**
-- [x] T-270 (@Builder, P1) — юнит/интеграционные тесты на конкурентный сценарий (3 параллельных хендлера → ровно 1 greeting), 0 регрессий (baseline 1564) — **Done (Шаг 4, +9 тестов, 1573 passed / 0 failed)**
-- [x] T-271 (@Reviewer, P0) — ревью — **Шаг 5 ✅ APPROVED (2026-08-17: соответствие Section 44 дословно, дедлоков нет, BLOCKER/MAJOR НЕТ; личный прогон 1573 passed / 0 failed / 0 skipped; diff-check чист, секретов 0)**
-- [ ] T-272 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.2 (git pull, restart, status, проверка логов)
-- [x] T-273 (@Builder, P1) — README changelog v2.31.2 (ироничный тон) — **Done (Шаг 4, changelog «🔧 Исправлено в v2.31.2 (Epic 35)»)**
+- [x] T-274 (@Architect, P0) — дизайн буфера media groups + правки промптов (ARCHITECTURE.md Section 45) — **Done (Шаг 2)**
+- [x] T-275 (@Builder, P0) — буфер/парсинг caption альбомов в factcheck (прецеденты _seen_media_groups/observer 0a) — **Done (Шаг 4: `services/media_group_buffer.py` TTL 60с/LRU 100 + fill в summary_observer 0a + чтение в `_extract_target_text`)**
+- [x] T-276 (@Builder, P0) — блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» в обоих промптах + эталоны 42.5.1/42.5.2 + тесты (одним коммитом, D123) — **Done (Шаг 4: блок дословно, `{max_symbols}` ×1, эталоны синхронизированы)**
+- [x] T-277 (@Builder, P1) — тесты (альбом с caption, reply на 2-е/3-е фото, TTL/LRU, промпты дословно, test_replace_substitution), 0 регрессий (baseline 1573) — **Done (Шаг 4: +20 тестов, 1593 passed / 0 failed, `git diff --check` чист)**
+- [x] T-278 (@Reviewer, P0) — ревью — **Шаг 5 ✅ APPROVED (2026-08-17: Section 45.1 дословно, TTL/LRU реально работают, гонок/утечек нет; промпты БАЙТ-В-БАЙТ с эталоном R36-2 и 42.5.1/42.5.2, `{max_symbols}` ×1; личный прогон 1593 passed / 0 failed / 0 skipped; BLOCKER/MAJOR НЕТ, 4 MINOR не-блокера)**
+- [ ] T-279 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.3
+- [x] T-280 (@Builder, P1) — README changelog (ироничный тон) — **Done (Шаг 4, changelog «✨ Новое в v2.31.3 (Epic 36)»)**
 
 ## 🔍 In Review
 
 *(пусто — Epic 31 перенесён в Done при архивации)*
 
 ## ✅ Done
+
+### Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — ✅ DEPLOYED & ARCHIVED (v2.31.2, коммит `585da8d`, прод PID 950693, 1573 тестов)
+
+> Перенесено из In Progress при архивации (Memory, 2026-08-17, Шаг 8). Полный трек — `plans/backlog.md` (Epic 35).
+> **Итог:** T-268…T-273 ALL DONE. @Architect: RCA подтверждён (check-then-act race F7v2/join, 3 параллельных апдейта) + Section 44; @Builder: per-chat `asyncio.Lock` (`_greeting_locks`/`_get_greeting_lock`) + claim кулдауна/ts ДО `await _send_greeting()` + rollback (handlers/alan_greeting.py, handlers/alan.py), +9 тестов, README v2.31.2; @Reviewer: APPROVED (личный прогон 1573 passed / 0 failed); @DevOps: коммит `585da8d` «fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)» (**9 файлов, +764/−79**) + пуш origin (`5fb532b..585da8d`) + деплой (git pull --ff-only, `.env`/зависимости не тронуты, `systemctl restart admin_bot` → active (running) **PID 950693**, journalctl 0 traceback). **ЭПИК 35 ЗАКРЫТ (Шаг 8). Прод v2.31.2. Epics 1–35 ALL DEPLOYED. Тесты: 1573 passed / 0 failed (1564 + 9).**
+
+- [x] T-268 (@Architect, P0) — RCA-подтверждение по логам + дизайн фикса в ARCHITECTURE.md (Section 44) — **Done (Шаг 2)**
+- [x] T-269 (@Builder, P0) — реализация фикса race condition (по дизайну Architect) — **Done (Шаг 4: per-chat `asyncio.Lock` (`_greeting_locks`/`_get_greeting_lock` в alan_greeting.py, общий для F7v2 + обоих join-путей) + claim-before-send (кулдаун и ts записываются ДО `await _send_greeting()`, `ts_written`-флаг, rollback при неудаче)**
+- [x] T-270 (@Builder, P1) — юнит/интеграционные тесты на конкурентный сценарий (3 параллельных хендлера → ровно 1 greeting), 0 регрессий (baseline 1564) — **Done (Шаг 4, +9 тестов, 1573 passed / 0 failed)**
+- [x] T-271 (@Reviewer, P0) — ревью — **Шаг 5 ✅ APPROVED (2026-08-17: соответствие Section 44 дословно, дедлоков нет, BLOCKER/MAJOR НЕТ; личный прогон 1573 passed / 0 failed / 0 skipped; diff-check чист, секретов 0)**
+- [x] T-272 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.2 (git pull, restart, status, проверка логов) — **Done (Шаг 7, коммит `585da8d`, пуш `5fb532b..585da8d`, деплой ff, прод v2.31.2, PID 950693, 0 traceback)**
+- [x] T-273 (@Builder, P1) — README changelog v2.31.2 (ироничный тон) — **Done (Шаг 4, changelog «🔧 Исправлено в v2.31.2 (Epic 35)»)**
 
 ### Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — ✅ DEPLOYED & ARCHIVED (v2.31.1, коммит `5fb532b`, прод PID 949763, 1564 тестов)
 

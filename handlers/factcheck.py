@@ -20,6 +20,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from handlers.summary import _extract_forward_source
 from services.llm_client import LLMError
+from services.media_group_buffer import get_media_group_caption
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
@@ -64,10 +65,19 @@ def _parse_trigger(message: types.Message) -> tuple[types.Message | None, str | 
 
 
 def _extract_target_text(message: types.Message, target: types.Message) -> str | None:
-    """Текст целевого сообщения (text or caption). Репост-вариант (target is message):
-    caption несёт триггер — берём только text, если он НЕ триггер; иначе None → 5.3."""
+    """Текст целевого сообщения. Приоритет: text/caption → буфер альбома (R36-1) → None (5.3).
+    Репост-вариант (target is message): caption несёт триггер — берём только text,
+    если он НЕ триггер; иначе None → 5.3 (D121: репост-вариант не меняется)."""
     if target is not message:
-        return (target.text or target.caption or "").strip() or None
+        direct = (target.text or target.caption or "").strip()
+        if direct:
+            return direct
+        mgid = getattr(target, "media_group_id", None)   # getattr: MagicMock-safe в тестах
+        if mgid:
+            caption = get_media_group_caption(mgid)      # caption с 1-го фото альбома
+            if caption:
+                return caption
+        return None
     raw = (target.text or "").strip()
     return raw if raw and not _FACTCHECK_TRIGGER_RE.match(raw) else None
 

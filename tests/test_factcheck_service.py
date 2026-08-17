@@ -70,6 +70,7 @@ class TestCheckClaim:
         system, user = messages[0]["content"], messages[1]["content"]
         assert str(settings.FACTCHECK_MAX_SYMBOLS) in system
         assert "{max_symbols}" not in system
+        assert "Максимальный жесткий потолок" in system  # R36-2 (D120)
         assert "<claim>текст</claim>" in user
         assert "<user_hint>хинт</user_hint>" in user
         assert "<search_results>хиты</search_results>" in user

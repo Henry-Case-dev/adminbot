@@ -3157,7 +3157,7 @@
 
 ---
 
-## Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — 2026-08-17 🚧 IN PROGRESS (target v2.31.2)
+## Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — 2026-08-17 ✅ DEPLOYED & ARCHIVED (v2.31.2, коммит `585da8d`, прод PID 950693)
 
 > **Цель:** Устранить прод-баг v2.31.1 (коммит `5fb532b`, PID 949763): после долгого перерыва Алана
 > (10.8ч молчания, порог `ALAN_SILENCE_GREETING_HOURS=2`) бот отправил greeting ТРИ раза подряд
@@ -3242,9 +3242,9 @@
 
 **Приоритет:** P0. **Зависимости:** T-271. **Оценка:** 0.5d.
 
-- [ ] T-272-A: Коммит на русском (conventional): `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`; пуш в origin/master; `.env` НЕ коммитим
-- [ ] T-272-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID
-- [ ] T-272-C: Верификация логов: 0 traceback; отчёт (версия v2.31.2, PID, результат проверок)
+- [x] T-272-A: Коммит на русском (conventional): `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`; пуш в origin/master; `.env` НЕ коммитим — **готово (Шаг 7: коммит `585da8d` «fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)» на master, 9 файлов, +764/−79; пуш в origin (5fb532b..585da8d); `.env` не тронут)**
+- [x] T-272-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID — **готово (Шаг 7: git pull --ff-only, HEAD=585da8d, .env/зависимости не тронуты, systemctl restart admin_bot → active (running), MainPID 950693 (был 949763))**
+- [x] T-272-C: Верификация логов: 0 traceback; отчёт (версия v2.31.2, PID, результат проверок) — **готово (Шаг 7: journalctl чистый — 0 traceback; прод v2.31.2, PID 950693)**
 
 **DoD:** прод v2.31.2, active (running), логи чистые, отчёт пользователю.
 
@@ -3284,4 +3284,155 @@
 ---
 
 **Статус: Epic 35 — Шаг 5 (@Reviewer) ✅ (2026-08-17): T-271 ЗАКРЫТ — вердикт APPROVED, BLOCKER/MAJOR НЕТ.** **T-271-A (ревью):** соответствие Section 44 дословно — `_greeting_locks`/`_get_greeting_lock` (per-chat, общий для F7v2 и обоих join-путей, 44.3); claim-before-send во всех трёх путях (in-memory `_last_greeting[chat_id]=now` + best-effort ts в БД ДО `await _send_greeting()`), флаг `ts_written` (ровно 1 запись ts на вызов; ставится даже при сбое записи заявки — контракт `test_silence_db_write_error_graceful` сохранён), rollback при неудаче send; порядок логов «triggered» → «sent» и все строки дословно; F6-блок (91-98) и UNHANDLED-возврат не тронуты. Дедлоков нет: иерархия greeting_lock → aiosqlite (get/set_alan_last_message_ts БЕЗ DatabaseService._lock)/send_video, обратного порядка нет, повторного входа `_get_greeting_lock` нет; CancelledError освобождает лок через `async with`; зависший send ограничен таймаутом сессии (риск #2). Исходный инцидент решён: 3 параллельных апдейта → РОВНО 1 видео (H2/H3 под локом читают свежий ts → «threshold not reached»; degraded-режим при падении БД на запись заявки закрыт in-memory заявкой 10с). Влияние на propagation: для пачки в том же чате задержка UNHANDLED ~ длительности send — НЕ хуже v2.31.1 (там каждый хендлер сам слал видео); другие чаты не блокируются; `/alangreet` намеренно вне лока (риск #8, D117). **T-271-B (прогон):** личный прогон @Reviewer: **1573 passed / 0 failed / 0 skipped (6.11с; 1564+9)**; `git diff --check` чист; секретов в новых строках диффа 0; `.env` не в индексе; изменены только 9 разрешённых файлов (2 боевых + 2 тестовых + README + 4 плана). **MINOR (не блокеры, вне 44.4):** нет теста на WARNING-ветку «claim ts write failed»; дублирование _FakeSilenceDB/FakeDB в тестах; `_greeting_locks` без эвикции (риск #7 принят); в join-путях заявка берёт второй `time.time()` вместо `now` (соответствует псевдокоду 44.3, дрейф микросекунды). Context7 недоступен в окружении (Invalid API key) — компенсировано эмпирикой (прогон на венве с aiogram 3.29) и stdlib-семантикой asyncio. Передача @DevOps (T-272: коммит `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`, пуш, деплой, верификация 0 traceback и «triggered» → РОВНО один «sent» на пачку). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 35 — Шаг 7 (@DevOps) ✅ (2026-08-17): T-272 ЗАКРЫТ — hotfix v2.31.2 ЗАДЕПЛОЕН НА ПРОД.** Коммит `585da8d` «fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)» на master (9 файлов, +764/−79), пуш в origin (github.com/Henry-Case-dev/adminbot.git, fast-forward `5fb532b..585da8d`). Деплой: сервер nik@198.46.175.136:/var/www/admin_bot — `git pull --ff-only` (HEAD=585da8d), `.env`/зависимости НЕ тронуты, `systemctl restart admin_bot` → active (running), **MainPID 950693** (был 949763), journalctl чистый (**0 traceback**). Фикс в проде: per-chat asyncio.Lock + claim кулдауна/ts ДО отправки + rollback (handlers/alan_greeting.py, handlers/alan.py). Передача @Memory — Шаг 8 (финальная синхронизация).
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 35 — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация) ✅ (2026-08-17): DEPLOYED & ARCHIVED. ЭПИК 35 ЗАКРЫТ И В ПРОДЕ — весь запрос пользователя (баг-репорт Алана: тройной greeting) выполнен, полный цикл воркфлоу (Шаги 0–8) завершён.** T-268…T-273 ALL DONE. Тесты: **1573 passed / 0 failed** (1564 + 9). Ревью APPROVED. Прод = **v2.31.2** (`585da8d`, PID 950693), supersedes v2.31.1 (`5fb532b`, PID 949763). Граф знаний синхронизирован: Bug «alan_greeting triple greeting» → RESOLVED_DEPLOYED; Epic 35 → DEPLOYED & CLOSED; T-272 → CLOSED; UserRequest (баг-репорт Алана) → COMPLETED; связь `deployed_to` → AdminBot Production Server. **Epics 1–35 ALL COMPLETE и DEPLOYED.** Без @Orchestrator.
+**Date: 2026-08-17**
+
+---
+
+## Epic 36: FactCheck — парсинг caption альбомов + адаптивный размер ответов — 2026-08-17 🚧 IN PROGRESS (target v2.31.3, baseline v2.31.2 `585da8d`, 1573 теста)
+
+> **Цель:** Закрыть две прод-проблемы FactCheck/SmartSearch: (1) фактчек не распарсил альбом из 3 фото
+> с caption (текст новости) — reply «фактчек» на 2-е/3-е фото альбома ушёл в ветку 5.3 «пустой контекст»;
+> (2) жёсткий лимит «строго до {max_symbols} символов» в промптах обоих сервисов → адаптивный размер
+> ответа по сложности темы.
+> **Причина (подтверждена кодом, Шаг 0):** caption цели УЖЕ обрабатывается (`handlers/factcheck.py` `_extract_target_text`:
+> target.text or target.caption; тест `test_reply_target_caption` зелёный). Реальная дыра — альбомы: aiogram НЕ
+> агрегирует media groups; caption приходит только на ПЕРВОМ элементе группы; reply на 2-е/3-е фото →
+> caption/text пуст → ветка 5.3. Bot API не имеет getMessage; пересланные альбомы НЕ сохраняют
+> media_group_id (группировка репост-альбомов только по forward_origin + близким message_id — edge-кейс).
+> **Прецеденты:** `handlers/dead_page_trigger.py` `_seen_media_groups` (OrderedDict LRU + TTL 5с);
+> relay_album_map (БД, только канальные посты релея); summary_observer (0a) видит все сообщения ДО
+> factcheck (0c) — точка для заполнения буфера caption/text по media_group_id.
+> **Исполнители:** @Architect (T-274), @Builder (T-275/T-276/T-277/T-280), @Reviewer (T-278), @DevOps (T-279).
+> Без @Orchestrator. **Target:** v2.31.3. **Baseline:** прод v2.31.2 (`585da8d`), 1573 теста.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R36-1/R36-2, решения D120–D123) → 2/3 @Architect (T-274: дизайн Section 45) ✅ → 3/3 @Builder (T-275 ∥ T-276 → T-277 → T-280) → @Reviewer (T-278) → @DevOps (T-279).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R36-1** | **Парсинг текста в любом типе сообщений (FactCheck):** распознавать текст-контент (caption/text) не только в одиночных сообщениях, но и в альбомах (media groups): reply «фактчек» на 2-е/3-е фото альбома, где caption есть только на 1-м фото, должен получить текст новости (НЕ ветка 5.3 «пустой контекст»). Дизайн — @Architect (Section 45): буфер caption/text по media_group_id (прецеденты `_seen_media_groups`, observer 0a). |
+| **R36-2** | **Адаптивный размер ответа в промптах ОБОИХ сервисов:** заменить жёсткую строку «ОГРАНИЧЕНИЕ: длина ответа строго до {max_symbols} символов.» (factcheck_prompts.py:25, search_prompts.py:24) блоком «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» (эталон ниже — ДОСЛОВНО, D120). Механика подстановки `.replace("{max_symbols}", …)` (factcheck_service.py:44, search_service.py:37) сохраняется, `{max_symbols}` ×1 — в новом блоке. Эталоны ARCHITECTURE.md 42.5.1/42.5.2 + байт-в-байт тесты (test_factcheck_prompts.py, test_smartsearch_prompts.py) + test_replace_substitution обновляются ОДНИМ коммитом (прецедент D90, D123). |
+
+Эталон блока (R36-2, вставлять ДОСЛОВНО — дефисные/звёздочные маркеры сохраняются, D120):
+
+```
+ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА:
+- Максимальный жесткий потолок: {max_symbols} символов.
+- Длину ответа определяй сам по сложности темы:
+  * Простой вопрос, очевидный фейк или односложный факт -> короткий язвительный ответ на 2-4 предложения (без размазывания соплей).
+  * Сложная комплексная тема, спорный вброс или технический вопрос -> подробный разбор на пару абзацев с пруфами.
+- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО лить воду, тянуть время и раздувать объем текста ради объема. Отвечай ровно столько, сколько нужно для сути.
+```
+
+### PM Decisions (зафиксированы 2026-08-17)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D120** | Промпт-блок | Блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» вставляется ДОСЛОВНО в оба промпта. Дефисные/звёздочные маркеры внутри блока формально конфликтуют с запретом «списков» в промптах — ОСОЗНАННОЕ РЕШЕНИЕ: блок — инструкция выше стилевых ограничений, пользовательский канон (прецедент D83/D89/D96); не переписывать. |
+| **D121** | Репост-альбомы | MVP-опционально. Пересланные альбомы НЕ сохраняют media_group_id; группировка только по forward_origin + близким message_id — edge-кейс. Базовый кейс (обычный альбом, caption на 1-м фото) обязателен; ограничение зафиксировать. |
+| **D122** | TTL/LRU буфера | Предложение PM: TTL 60с (прецедент dead_page_trigger — 5с; для альбомов нужно больше, т.к. reply может прийти заметно позже отправки группы). Точные TTL/LRU-cap — на дизайн @Architect (Section 45). |
+| **D123** | Единый коммит эталонов | Промпты продублированы в ARCHITECTURE.md 42.5.1/42.5.2 + байт-в-байт тесты (test_factcheck_prompts.py, test_smartsearch_prompts.py) — менять код, эталоны и тесты ОДНИМ коммитом (прецедент D90 Epic 30). test_replace_substitution обновить: ожидание «до 4000 символов» → «Максимальный жесткий потолок: 4000 символов.». |
+
+### Задачи
+
+### T-274 (@Architect) — Дизайн буфера media groups + правки промптов (R36-1, R36-2)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [x] T-274-A: Дизайн буфера caption/text по media_group_id в `plans/ARCHITECTURE.md` Section 45: точка заполнения (summary_observer 0a — видит все сообщения ДО factcheck 0c), схема хранения (media_group_id → {caption/text, first_message_id, ts}), TTL (PM-предложение 60с — D122) и LRU-cap (прецедент `_seen_media_groups`), точка чтения в factcheck-потоке (`_extract_target_text`/хендлер); порядок роутеров НЕ менять (D106)
+- [x] T-274-B: Дизайн правок промптов: замена последней строки factcheck_prompts.py:25 / search_prompts.py:24 блоком ДОСЛОВНО (D120); синхронизация эталонов 42.5.1/42.5.2; тест-план (байт-в-байт, test_replace_substitution, D123)
+- [x] T-274-C: Self-review + PM-аппрув; T-275/T-276 → READY FOR BUILDER
+
+**DoD:** Section 45 в ARCHITECTURE.md; TTL/LRU зафиксированы; эталонные блоки промптов зафиксированы; PM-аппрув.
+
+### T-275 (@Builder) — Буфер caption альбомов в factcheck (R36-1, D121/D122)
+
+**Приоритет:** P0. **Зависимости:** T-274. **Оценка:** 0.5d.
+
+- [x] T-275-A: Реализовать буфер строго по Section 45 (прецеденты: `_seen_media_groups` — OrderedDict LRU + TTL; observer 0a — точка заполнения)
+- [x] T-275-B: Интеграция в factcheck: reply на 2-е/3-е фото альбома → текст из буфера (НЕ ветка 5.3); caption на 1-м фото записывается в буфер; одиночные сообщения/caption-цели — поведение не меняется
+- [x] T-275-C: Логирование по конвенции (INFO заполнение/чтение/эвикция, WARNING сбои); graceful degradation (буфер упал → поведение как до фикса)
+
+**DoD:** альбом с caption на 1-м фото → reply «фактчек» на любое фото группы получает текст новости.
+
+### T-276 (@Builder) — Блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» в обоих промптах (R36-2, D120/D123)
+
+**Приоритет:** P0. **Зависимости:** T-274. **Оценка:** 0.25d.
+
+- [x] T-276-A: Заменить жёсткую строку «ОГРАНИЧЕНИЕ: длина ответа строго до {max_symbols} символов.» (последняя строка factcheck_prompts.py / search_prompts.py) блоком ДОСЛОВНО; `{max_symbols}` ×1 — в новом блоке; механика `.replace` (factcheck_service.py:44, search_service.py:37) НЕ меняется
+- [x] T-276-B: Синхронизировать эталоны ARCHITECTURE.md 42.5.1/42.5.2 байт-в-байт; обновить байт-в-байт тесты test_factcheck_prompts.py / test_smartsearch_prompts.py и test_replace_substitution («до 4000 символов» → «Максимальный жесткий потолок: 4000 символов.») — ОДНИМ коммитом с эталонами (D90/D123)
+
+**DoD:** оба промпта байт-в-байт == эталонам; `{max_symbols}` ×1; тесты-эталоны зелёные.
+
+### T-277 (@Builder) — Тесты + полный прогон (R36-1, R36-2)
+
+**Приоритет:** P1. **Зависимости:** T-275, T-276. **Оценка:** 0.5d.
+
+- [x] T-277-A: Альбом с caption на 1-м фото; reply на 2-е/3-е фото → текст найден (НЕ ветка 5.3); TTL/LRU буфера (истечение TTL → 5.3; LRU-эвикция; разные media_group_id не смешиваются)
+- [x] T-277-B: Промпты дословно (байт-в-байт с новыми эталонами); test_replace_substitution обновлён; test_reply_target_caption остаётся зелёным (регрессия caption-цели/репост-триггера)
+- [x] T-277-C: Полный `pytest` — 1573 baseline + новые, 0 failed/skipped; `git diff --check` чист
+
+**DoD:** полный прогон зелёный, 0 регрессий (baseline 1573).
+
+### T-278 (@Reviewer) — Code review
+
+**Приоритет:** P0. **Зависимости:** T-277. **Оценка:** 0.25d.
+
+- [x] T-278-A: Ревью буфера (соответствие Section 45, TTL/LRU, нет утечек/гонок) и промптов (дословность, `{max_symbols}` ×1, эталоны 42.5.1/42.5.2 синхронизированы) — **готово (Шаг 5: APPROVED, BLOCKER/MAJOR НЕТ; 4 MINOR не-блокера)**
+- [x] T-278-B: Личный полный прогон (1573+ passed); вердикт APPROVED — **готово (Шаг 5: личный прогон @Reviewer 1593 passed / 0 failed / 0 skipped, 5.99с)**
+
+**DoD:** APPROVED.
+
+### T-279 (@DevOps) — Коммит + пуш + деплой v2.31.3
+
+**Приоритет:** P0. **Зависимости:** T-278. **Оценка:** 0.5d.
+
+- [ ] T-279-A: Коммит на русском (conventional) — код + эталоны + тесты ОДНИМ коммитом (D123); пуш в origin/master; `.env` НЕ коммитим (конфиг не меняется)
+- [ ] T-279-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID
+- [ ] T-279-C: Верификация: 0 traceback; отчёт (версия v2.31.3, PID)
+
+**DoD:** прод v2.31.3, active (running), логи чистые, отчёт пользователю.
+
+### T-280 (@Builder) — README changelog
+
+**Приоритет:** P1. **Зависимости:** T-276. **Оценка:** 0.1d.
+
+- [x] T-280-A: README v2.31.3 — changelog (ироничный тон): фактчек теперь читает альбомы (а не разводит руками на 2-м фото), промпты сами решают размер ответа
+
+**DoD:** README консистентен.
+
+### Риски (Epic 36)
+
+1. **Эталон SYSTEM_PROMPT R11 (1518–1539):** правки Epic 36 в backlog — ТОЛЬКО в конце файла (ниже 3297) → сдвига строк НЕТ (соблюдено: Epic 36 в конце).
+2. **Дубли эталонов промптов:** 42.5.1/42.5.2 + байт-в-байт тесты — менять ОДНИМ коммитом (D90/D123), иначе тесты-эталоны краснеют.
+3. **Маркеры списков в блоке** при запрете «списков» в промпте — блок вставляется дословно (D120, осознанное решение, зафиксировано).
+4. **Порядок роутеров:** observer 0a до factcheck 0c — заполнение буфера без сдвига роутеров (D106).
+5. **TTL-баланс:** слишком малый TTL → reply на 2-е/3-е фото не успеет; слишком большой → утечка памяти — LRU-cap + TTL на дизайн Architect (D122).
+6. **Репост-альбомы** без media_group_id — MVP-опционально (D121), зафиксировать как известное ограничение.
+
+**Файлы (планируемые):** `handlers/factcheck.py`, `services/factcheck_prompts.py`, `services/search_prompts.py` (factcheck_service.py/search_service.py — БЕЗ правок механики), `tests/test_factcheck_handlers.py`, `tests/test_factcheck_prompts.py`, `tests/test_smartsearch_prompts.py`, `tests/test_factcheck_service.py`/`tests/test_smartsearch_service.py` (test_replace_substitution), `README.md`, `plans/ARCHITECTURE.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`.
+
+---
+
+**Статус: Epic 36 — Шаг 2 (@Architect) ✅ (2026-08-17): T-274 ЗАКРЫТ — `plans/ARCHITECTURE.md` Section 45 (45.1 буфер `services/media_group_buffer.py`: OrderedDict, LRU 100, TTL 60с, заполнение в summary_observer 0a без изменения его поведения, чтение в `_extract_target_text` с приоритетом прямого caption → буфер → 5.3; 45.2 промпты v2: блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» дословно, `{max_symbols}` ×1, эталоны 42.5.1/42.5.2 + байт-в-байт тесты одним коммитом D123; 45.3 тест-план ~19 новых кейсов; 45.4 риски; 45.5 сводка для Builder). Порядок роутеров НЕ меняется (D106). Эталон SYSTEM_PROMPT R11 (1518–1539) НЕ тронут. Передача @Builder (T-275 ∥ T-276 → T-277 → T-280) → @Reviewer → @DevOps. Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 36 — Шаг 4 (@Builder) ✅ (2026-08-17): T-275/T-276/T-277/T-280 ALL DONE — реализация строго по Section 45.** **T-275 (R36-1, буфер альбомов):** НОВЫЙ `services/media_group_buffer.py` — `MediaGroupCaptionBuffer` (OrderedDict `media_group_id → {caption, first_message_id, ts}`), `TTL_SECONDS=60.0`, `MAX_ENTRIES=100`, `record_media_group_message` (refresh ts + move_to_end при существующей записи; caption НЕ затирается пустым; вставка только при непустом caption; `_cleanup_expired` на write-пути; LRU `popitem(last=False)`), `get_media_group_caption` (ленивая эвикция по TTL). `handlers/summary.py` — fill в summary_observer (0a) сразу после проверки пустых сервисных и ДО `save_smart_message`, в собственном try/except (сбой → WARNING, не падение); ранние return'ы и финальный UNHANDLED не тронуты. `handlers/factcheck.py` `_extract_target_text` — приоритет: прямой text/caption → буфер (getattr media_group_id → get_media_group_caption) → None (5.3); репост-вариант не тронут (D121). **T-276 (R36-2, D120/D123):** последняя строка обоих промптов заменена блоком «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» ДОСЛОВНО (6 строк), `{max_symbols}` ×1 в блоке; эталоны ARCHITECTURE.md 42.5.1/42.5.2 синхронизированы в той же правке (один коммит D123); механика `.replace` в factcheck_service/search_service НЕ тронута. **T-277 (тесты, +20 по 45.3):** НОВЫЙ `tests/test_media_group_buffer.py` (+9: запись/не-затирание/альбом без caption/TTL/LRU/изоляция/touch/miss/без mgid); `test_summary_handlers.py` (+2: observer заполняет буфер, UNHANDLED и БД живы; сбой fill → WARNING без падения); `test_factcheck_handlers.py` (+5: буферный caption → check_claim, reply до заполнения → 5.3, TTL → 5.3, LRU → 5.3, приоритет прямого caption; `_make_msg` + `media_group_id=None`); `test_epic33_router_isolation.py` (+2: полный Dispatcher — альбом из 3 фото с caption на 1-м → reply «фактчек» на 3-е → ровно 1 ответ с текстом из буфера; альбом без caption → 5.3-фраза); prompt-тесты — `test_replace_substitution` обновлён («Максимальный жесткий потолок: 4000 символов.») + `test_volume_block_verbatim` в обоих; service-тесты — ассерт «Максимальный жесткий потолок» in system. **Полный прогон: 1593 passed / 0 failed / 0 skipped (1573 + 20); `git diff --check` чист.** **T-280 (README):** v2.31.3 — changelog «✨ Новое в v2.31.3 (Epic 36)» в ироничном тоне (фактчек читает альбомы; промпты сами решают размер ответа). **НЕ тронуты:** `bot.py` (порядок роутеров, D106), `config/settings.py`, `.env`, `services/factcheck_service.py`/`services/search_service.py` (механика .replace), эталон SYSTEM_PROMPT R11 (1518–1539). Передача @Reviewer (T-278: ревью + личный прогон 1593+) → @DevOps (T-279: коммит `feat(factcheck): Epic 36 — caption альбомов + адаптивный размер ответов (v2.31.3)`, пуш, деплой, верификация). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 36 — Шаг 5 (@Reviewer) ✅ (2026-08-17): T-278 ЗАКРЫТ — вердикт APPROVED, BLOCKER/MAJOR НЕТ (4 MINOR не-блокера).** **T-278-A (ревью буфера, R36-1):** соответствие Section 45.1 дословно — `MediaGroupCaptionBuffer` (OrderedDict `media_group_id → _MediaGroupRecord{caption, first_message_id, ts}`, `TTL_SECONDS=60.0`, `MAX_ENTRIES=100`, без импортов из handlers); `record_media_group_message` все 6 правил 45.1 (return без mgid; caption = `(caption or text or "").strip()`; touch `move_to_end` + refresh ts, caption НЕ затирается пустым; вставка только при непустом caption; `_cleanup_expired` на write-пути; LRU `popitem(last=False)`; INFO/DEBUG-логи); `get_media_group_caption` — ленивая эвикция, None на miss/TTL. Fill в summary_observer (0a) — сразу после проверки пустых сервисных (summary.py:165-167) и ДО `save_smart_message`, в собственном try/except (WARNING «media group buffer fill failed»), ранние return'ы и финальный UNHANDLED (202) не тронуты; порядок роутеров НЕ менялся (bot.py 0a→0b→0c→0d, bot.py не в диффе, D106). Чтение в `_extract_target_text` — прямой text/caption → буфер (getattr mgid → get_media_group_caption) → None (5.3); репост-вариант (`target is message`) не тронут (D121). Гонок нет: все операции синхронные в одном event loop, aiogram обрабатывает апдейты последовательно по update_id (риск #5 закрыт); повторный record идемпотентен (touch), edited-апдейты в router.message() не попадают (риск #4). Утечки нет: LRU-кап 100 записей (<150KB) + TTL 60с с ленивой эвикцией на read и `_cleanup_expired` на write (риск #2). **T-278-A (ревью промптов, R36-2):** независимым скриптом подтверждено БАЙТ-В-БАЙТ: блок в коде == эталон backlog R36-2 == ARCHITECTURE.md 42.5.1/42.5.2 (оба промпта); `{max_symbols}` ×1; старая строка «ОГРАНИЧЕНИЕ: длина ответа строго до» отсутствует; механика `.replace` в factcheck_service.py:36/search_service.py:31 НЕ тронута (файлы вне диффа). **T-278-B (личный прогон):** **1593 passed / 0 failed / 0 skipped (5.99с)** — совпадает с заявкой Builder (1573 + 20); `git diff --check` чист; секретов в новых строках диффа 0; `.env` не в индексе; изменены только файлы из планируемого списка Epic 36 (17 modified + 2 новых). **Тесты не заглушки:** #17 (test_epic33_router_isolation) — полный Dispatcher, альбом из 3 фото (caption на 1-м) → reply «фактчек» на 3-е → ровно 1 ответ, `check_claim("текст новости", None, None)`, `reply_to_message_id=72` — ровно сценарий юзера; #12-16 покрывают буферный caption/приоритет прямого caption/5.3 при пустоте/TTL/LRU; #10-11 — observer заполняет буфер и переживает сбой fill. Context7 недоступен (Invalid API key) — компенсировано эмпирикой: aiogram 3.29.1 на венве, `media_group_id` подтверждён через `Message.model_fields` (`str | None`), интеграционные тесты на реальных `Message`/`PhotoSize` зелёные. **MINOR (не блокеры):** (1) `first_message_id` хранится, но используется только в логе вставки (по схеме 45.1 — осознанно); (2) `_cleanup_expired` O(n) на каждый write (n≤100 — незначимо); (3) тест-фикстуры fake-time продублированы в test_media_group_buffer.py и test_factcheck_handlers.py (прецедент Epic 35); (4) пересланные альбомы без media_group_id остаются вне MVP (D121 — зафиксированное ограничение). Передача @DevOps (T-279: коммит `feat(factcheck): Epic 36 — caption альбомов + адаптивный размер ответов (v2.31.3)`, пуш, деплой, верификация 0 traceback). Без @Orchestrator.**
 **Date: 2026-08-17**

@@ -27,11 +27,18 @@ from handlers.summary import (
     summary_observer_router,
     summary_router,
 )
+from services import media_group_buffer as mgb_mod
 from services.database import DatabaseService
 from services.summary_aliases import AliasResolver
 
 CHAT_ID = -1001234567890
 SLAVIK_ID = 479167456
+
+
+@pytest.fixture
+def media_buffer_cleanup():
+    yield
+    mgb_mod._buffer.clear()
 
 
 @pytest.fixture
@@ -172,6 +179,48 @@ class TestObserver:
             result = await summary_observer(msg)
         assert result is UNHANDLED
         assert any("save failed" in r.message for r in caplog.records)
+
+    # ── Epic 36 (R36-1, Section 45.3 #10-11): observer заполняет буфер альбомов ──
+
+    @pytest.mark.asyncio
+    async def test_observer_fills_media_group_buffer(
+        self, db, make_message, setup_cleanup, media_buffer_cleanup
+    ):
+        """#10: альбомный элемент через observer → буфер заполнен,
+        UNHANDLED и БД-поведение не сломаны."""
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(
+            from_id=1, text=None, caption="новость из альбома",
+            reply_to_message=None, media_group_id="album-1",
+        )
+        result = await summary_observer(msg)
+        assert result is UNHANDLED
+        assert mgb_mod.get_media_group_caption("album-1") == "новость из альбома"
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert len(rows) == 1
+        assert rows[0]["text"] == "новость из альбома"
+
+    @pytest.mark.asyncio
+    async def test_observer_survives_buffer_fill_failure(
+        self, db, make_message, setup_cleanup, media_buffer_cleanup, monkeypatch, caplog
+    ):
+        """#11: record_media_group_message → raise → observer по-прежнему
+        UNHANDLED, WARNING в caplog, БД-сохранение живо."""
+        def boom(message):
+            raise RuntimeError("буфер сдох")
+
+        monkeypatch.setattr(summary_mod, "record_media_group_message", boom)
+        setup_summary(None, db, AliasResolver(""), bot_id=None)
+        msg = make_message(
+            from_id=1, text=None, caption="новость из альбома",
+            reply_to_message=None, media_group_id="album-2",
+        )
+        with caplog.at_level(logging.WARNING):
+            result = await summary_observer(msg)
+        assert result is UNHANDLED
+        assert any("media group buffer fill failed" in r.message for r in caplog.records)
+        rows = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert len(rows) == 1  # БД-сохранение не пострадало
 
     def test_observer_router_has_handler(self):
         assert len(summary_observer_router.message.handlers) >= 1
