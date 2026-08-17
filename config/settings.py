@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -81,6 +82,42 @@ def _env_duration(key: str, default: str) -> float:
             f"Invalid duration for {key}='{raw}', using default '{default}' = {_parse_duration(default)}s"
         )
         return _parse_duration(default)
+
+
+def _env_int_min(key: str, default: int, min_value: int) -> int:
+    """Int из env; кривой формат или значение < min_value → WARNING + default (D104)."""
+    raw = os.getenv(key, str(default))
+    try:
+        val = int(raw)
+    except ValueError:
+        logging.getLogger(__name__).warning(
+            f"Invalid int for {key}='{raw}', using default {default} (D104)"
+        )
+        return default
+    if val < min_value:
+        logging.getLogger(__name__).warning(
+            f"{key}={val} < {min_value}, using default {default} (D104)"
+        )
+        return default
+    return val
+
+
+def _env_float_min(key: str, default: float, min_value: float) -> float:
+    """Float из env; кривой формат или значение < min_value → WARNING + default (D104)."""
+    raw = os.getenv(key, str(default))
+    try:
+        val = float(raw)
+    except ValueError:
+        logging.getLogger(__name__).warning(
+            f"Invalid float for {key}='{raw}', using default {default} (D104)"
+        )
+        return default
+    if val < min_value:
+        logging.getLogger(__name__).warning(
+            f"{key}={val} < {min_value}, using default {default} (D104)"
+        )
+        return default
+    return val
 
 
 @dataclass(frozen=True)
@@ -275,6 +312,19 @@ class Settings:
     GRAPH_TOP_EDGES_LIMIT: int = _env_int("GRAPH_TOP_EDGES_LIMIT", 5)
     # Максимум триплетов, сохраняемых за один extraction-вызов (35.4)
     GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
+
+    # ── SmartModule: FactCheck + SmartSearch (Epic 33, D104) ─────
+    # Ключи поисковиков. Пусто = уровень каскада отключён (WARNING при старте).
+    # Секреты — ТОЛЬКО в .env (R17): не в коде, не в .env.example.
+    TAVILY_API_KEY: str = _env_str("TAVILY_API_KEY", "")
+    EXA_API_KEY: str = _env_str("EXA_API_KEY", "")
+    # Длина LLM-ответа, символы; <100 → дефолт 4000 (WARNING).
+    SEARCH_MAX_SYMBOLS: int = _env_int_min("SEARCH_MAX_SYMBOLS", 4000, 100)
+    FACTCHECK_MAX_SYMBOLS: int = _env_int_min("FACTCHECK_MAX_SYMBOLS", 4000, 100)
+    # Кулдауны per (chat, user) в СЕКУНДАХ (float; прецедент SUMMARY_THROTTLE_SECONDS —
+    # НЕ time-format). <0 → дефолт 300.0 (WARNING). 0 = кулдаун выключен.
+    SEARCH_COOLDOWN_SECONDS: float = _env_float_min("SEARCH_COOLDOWN_SECONDS", 300.0, 0.0)
+    FACTCHECK_COOLDOWN_SECONDS: float = _env_float_min("FACTCHECK_COOLDOWN_SECONDS", 300.0, 0.0)
 
 
 settings = Settings()

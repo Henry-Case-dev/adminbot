@@ -2,28 +2,45 @@
 
 ## 📋 Backlog
 
-### Epic 32: Фикс гифки Славика + сервис Оли (caption/репост) + SUMMARY_THROTTLE_SECONDS=300 на проде (v2.30.0) — 2026-08-17 — 🆕 Шаг 1 (PM) ✅ → реализация: @Builder (T-242/T-243/T-245/T-246), @DevOps (T-244/T-247/T-248)
-
-> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R32-1…R32-3, решения D99–D103) → реализация @Builder (T-242 ∥ T-243 → T-245 тесты → T-246 доки) → @DevOps (T-244 конфиг прод (параллельно) → T-247 коммит → T-248 деплой). Без @Orchestrator.
-> Требования R32-1…R32-3, решения D99–D103 (гифка Славика: settings.GIF_PATH/GIF_INTERVAL + логи вместо глушения; Оля: caption-нормализация + OLYA_CAPTION_MENTION_ENABLED + OLYA_SAVEASBOT_USER_IDS для MessageOriginUser; троттлинг прод 300.0), риски 1–6 — в `plans/backlog.md` (Epic 32). **Target:** v2.30.0. Baseline: прод v2.29.0, 1366 тестов.
-
-- [x] T-242 (@Builder, **P0**, ∥T-243): фикс гифки Славика — `services/message_counter.py` читает settings.GIF_PATH/GIF_INTERVAL; дефолт GIF_PATH → `media/slavik/slavic_chlen.mp4` (settings.py:124); fallback «файла нет» → WARNING + skip; ERROR/`exc_info`-логи вместо `except: pass`; .env.example (R32-1, D99)
-- [x] T-243 (@Builder, **P0**, ∥T-242): Оля — `_normalize_caption` (дефис/апостроф/case/пробелы) + триггер `@saveasbot` (`OLYA_CAPTION_MENTION_ENABLED=True`); репосты `MessageOriginUser` → `OLYA_SAVEASBOT_USER_IDS` (дефолт (523131145,)); `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт → (); старые ключи сохранены; HiddenUser — не матчится + лог (R32-2, D100/D101/D102)
-- [x] T-244 (@DevOps, **P0**, независимо от кода): прод .env `SUMMARY_THROTTLE_SECONDS=300.0` (бэкап `.env.bak.epic32`) + restart + статус/логи (R32-3, D103); можно совместить с рестартом T-248
-- [x] T-245 (@Builder, **P1**, ←T-242/T-243): тесты — test_message_counter.py (реальный путь, лог ошибки, skip); test_olya.py («обычное видео не триггерит», нормализация, MessageOriginUser/Channel/HiddenUser, mention вкл/выкл, ALWAYS_SEND=True) + полный pytest (1366 baseline, 0 регрессий)
-- [x] T-246 (@Builder, **P1**, ←T-245): README v2.30.0 (ирония, changelog) + .env.example (grep-полнота новых ключей)
-- [ ] T-247 (@DevOps, **P0**, ←T-245/T-246): коммит на русском (conventional: `fix(media): Epic 32 — гифка Славика, триггеры Оли (caption/репост) и троттлинг 300с (v2.30.0)`) + пуш; .env не коммитим
-- [ ] T-248 (@DevOps, **P0**, ←T-247): деплой: git pull → .env: `GIF_PATH=media/slavik/slavic_chlen.mp4`, `OLYA_SAVEASBOT_USER_IDS=<актуальный>` (или дефолт + пометка «требует живой проверки»), `SUMMARY_THROTTLE_SECONDS=300.0` (если не сделано в T-244) → restart → active (running) → 0 traceback
+*(пусто — Epic 32 перенесён в Done при архивации; Epic 33 в работе — см. In Progress)*
 
 ## 🔧 In Progress
 
-*(пусто — ожидает старта реализации @Builder/@DevOps)*
+### Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator (v2.31.0) — 2026-08-17 — Шаг 1 (PM) ✅ → Шаг 2 (@Architect, T-249) ✅ → Шаг 4 (@Builder, T-250…T-257-E) ✅ → Шаг 5 (@Reviewer) ✅ APPROVED (повторное ревью) — IMPLEMENTED & REVIEWED → T-258 README (@Builder) → @DevOps (T-259/T-260)
+
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R33-1…R33-8, решения D104–D111 — в `plans/backlog.md`) → 2/3 @Architect (T-249, дизайн Section 42) ✅ (блокер D109 СНЯТ — промпты 42.5.1/42.5.2) → 3/3 @Builder (T-250 ∥ T-251 → T-252 ∥ T-253 → T-254/T-255/T-256 → T-257 тесты+ревью → T-258 доки) ✅ (Шаг 4a/4b: 1542 теста — 1392 baseline + 150 новых, 0 failed) → T-257-F @Reviewer → T-258 (@Builder) → @DevOps (T-259 коммит → T-260 деплой). Без @Orchestrator. **Target:** v2.31.0. **Baseline:** прод v2.30.0 (`2bad5ff`), 1392 теста, 14 роутеров.
+
+- [x] T-249 (@Architect, **P0**) — дизайн ARCHITECTURE.md Section 42 (подсервисы в SmartModule, SearchAggregator, пайплайны FactCheck/SmartSearch, троттлинг, тест-план; D109 RESOLVED) — **Done (Шаг 2)**
+- [x] T-250 (@Builder, **P0**, ←T-249) — конфиг 6 ключей + валидация (R33-1, D104) — **Done (Шаг 4a)**
+- [x] T-251 (@Builder, **P0**, ←T-249/T-250) — SearchAggregator: Tavily→Exa→DDG каскад (R33-2, D105) — **Done (Шаг 4a)**
+- [x] T-252 (@Builder, **P0**, ←T-251) — FactCheck-хендлер: триггер reply «фактчек», вердикт на reply_to_message_id целевого (R33-3, D106/D107) — **Done (Шаг 4a)**
+- [x] T-253 (@Builder, **P0**, ←T-251) — SmartSearch-хендлер: «найди/поищи/загугли», всё реплаем на message_id (R33-4, D106/D107) — **Done (Шаг 4a)**
+- [x] T-254 (@Builder, **P1**, ∥) — пулы фраз 5.1–5.5 дословно + форматтер {remaining_time} (R33-5, D108) — **Done (Шаг 4a)**
+- [x] T-255 (@Builder, **P1**, ✅ D109) — системные промпты фактчека/поиска байт-в-байт (R33-6) — **Done (Шаг 4a)**
+- [x] T-256 (@Builder, **P1**, ←T-252/T-253) — пост-процессинг summary_cleanup, чанкинг >4096, logger.exception (R33-7, D110) — **Done (Шаг 4a)**
+- [x] T-257 (@Builder + @Reviewer, **P0**, ←T-250…T-256) — тесты (фолбек, троттлинг, рандомизация, чанкинг) + полный pytest 1392+ + ревью (R33-7) — **T-257-A…E Done (Шаг 4b: 150 тестов, 1542 passed); Шаг 5: фиксы ревью NEEDS FIXES закрыты (BLOCKER-1 ключи→плейсхолдеры, MAJOR-1 интеграция роутеров `test_epic33_router_isolation.py` 4 теста, MINOR 1–4), 1555 passed / 0 failed; T-257-F @Reviewer — повторное ревью APPROVED ✅ (2026-08-17)**
+- [ ] T-258 (@Builder, **P1**, ←T-257) — README v2.31.0 + .env.example (R33-8)
+- [ ] T-259 (@DevOps, **P0**, ←T-257/T-258) — коммит на русском + пуш (R33-8; секреты только в .env)
+- [ ] T-260 (@DevOps, **P0**, ←T-259) — деплой v2.31.0: .env ключи EXA/TAVILY, pip install duckduckgo_search, restart, отчёт (R33-8, D111)
 
 ## 🔍 In Review
 
 *(пусто — Epic 31 перенесён в Done при архивации)*
 
 ## ✅ Done
+
+### Epic 32: Фикс гифки Славика + сервис Оли (caption/репост) + SUMMARY_THROTTLE_SECONDS=300 — ✅ DEPLOYED & ARCHIVED (v2.30.0, коммит `2bad5ff`, 1392 теста, прод PID 942078)
+
+> Перенесено из Backlog при архивации (PM, 2026-08-17, Шаг 1 Epic 33). Полный трек — `plans/backlog.md` (Epic 32).
+> **Итог:** T-242…T-248 ALL DONE. @Builder: гифка Славика (settings-снапшот GIF_PATH/GIF_INTERVAL, is_file-guard → WARNING+skip, ERROR/INFO-логи вместо глушения, D99), Оля (`_normalize_caption` + триггер `@saveasbot` + origin-матрица MessageOriginUser/Channel/HiddenUser, D100–D102), тесты **1392 passed** (1366 + 26 новых, 0 failed), ревью @Reviewer APPROVED; @DevOps: прод .env `SUMMARY_THROTTLE_SECONDS=300.0` (D103), коммит `2bad5ff` «fix(media): Epic 32 — починен Славик (stale путь гифки), Оля теперь только caption/репост, таймаут саммари 300с на проде (v2.30.0)» + пуш, деплой (git pull ff `0f25c7e..2bad5ff`; .env: удалён устаревший `GIF_PATH`, +`SUMMARY_THROTTLE_SECONDS=300.0`, +`OLYA_SAVEASBOT_USER_IDS=523131145`, бэкап `.env.bak.epic32`) → active (running) **PID 942078**, 0 traceback, WARNING «GIF file not found» отсутствует. **ЭПИК 32 ЗАКРЫТ. Прод v2.30.0. Epics 1–32 ALL DEPLOYED.**
+
+- [x] T-242 (@Builder, P0) — гифка Славика (R32-1, D99) — **Done**
+- [x] T-243 (@Builder, P0) — Оля: нормализация caption + репосты (R32-2, D100/D101/D102) — **Done**
+- [x] T-244 (@DevOps, P0) — прод SUMMARY_THROTTLE_SECONDS=300.0 (R32-3, D103) — **Done**
+- [x] T-245 (@Builder, P1) — тесты + полный прогон (1392 passed) — **Done**
+- [x] T-246 (@Builder, P1) — README v2.30.0 + .env.example — **Done**
+- [x] T-247 (@DevOps, P0) — коммит `2bad5ff` + пуш — **Done**
+- [x] T-248 (@DevOps, P0) — деплой v2.30.0 (PID 942078, 0 traceback) — **Done**
 
 ### Epic 31: /summary для всех + setMyCommands + таймаут-фразы — ✅ DEPLOYED & ARCHIVED (v2.29.0, 1366 тестов)
 
@@ -510,4 +527,4 @@
 
 ---
 
-**Updated:** 2026-08-17 — **Epic 31 (v2.29.0) АРХИВИРОВАН: T-235…T-241 ALL DONE & DEPLOYED (1366 тестов, 0 failed/skipped).** Открыт **Epic 32 «Фикс гифки Славика + сервис Оли + троттлинг 300с» (v2.30.0)**: Шаг 1 (PM) ✅ — требования R32-1…R32-3, решения D99–D103 в `plans/backlog.md`; T-242 ∥ T-243 (@Builder) → T-245 → T-246; T-244/T-247/T-248 (@DevOps) — в очереди. Без @Orchestrator.
+**Updated:** 2026-08-17 — **Epic 32 (v2.30.0) АРХИВИРОВАН: T-242…T-248 ALL DONE & DEPLOYED (коммит `2bad5ff`, 1392 теста, PID 942078).** Открыт **Epic 33 «SmartModule Extension: FactCheck + SmartSearch + SearchAggregator» (v2.31.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R33-1…R33-8, решения D104–D111 в `plans/backlog.md`; T-249 (@Architect, дизайн) → T-250…T-258 (@Builder) → T-259/T-260 (@DevOps). ⚠️ Блокер D109: дословные тексты промптов — у пользователя. Без @Orchestrator. **→ 2026-08-17, Шаг 4b (@Builder): Epic 33 IMPLEMENTED (T-249 ✅, T-250…T-256 ✅, T-257-A…E ✅ — 10 новых тест-файлов, 150 тестов, полный прогон 1542 passed / 0 failed, `git diff --check` чист); блокер D109 СНЯТ (промпты 42.5.1/42.5.2 байт-в-байт); T-257-F — @Reviewer (ожидается); T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 5 (@Builder, фиксы ревью): @Reviewer NEEDS FIXES закрыты — BLOCKER-1 (реальные ключи в backlog.md R33-1 → плейсхолдеры; grep: ключи только в .env), MAJOR-1 (новая интеграция `test_epic33_router_isolation.py`: Dispatcher 0a/0c/0d/4c через feed_update — «найди ракету» → 1 ответ от search, factcheck → reply на target, observer 0a пишет память, danger/common живы), MINOR 1–4 (.env +4 явных ключа и чистый UTF-8-комментарий; убран `.lower()` в factcheck.py:72; `test_settings_helpers.py` 9 тестов вскрыл и закрыл `NameError: logging` в settings.py); прогон **1555 passed / 0 failed**. Повторное ревью @Reviewer ожидается.** **→ 2026-08-17, Шаг 5 (повторное ревью, @Reviewer): ✅ APPROVED — все замечания закрыты и подтверждены лично (BLOCKER-1: grep по фрагментам ключей — только .env; MAJOR-1: 4 теста через `Dispatcher.feed_update` содержательны; MINOR 1–4 ✅; промпты/пулы байт-в-байт повторно; роутеры 0c/0d не сдвинуты; `git diff --check` чист; полный прогон 1555 passed / 0 failed подтверждён лично). T-257 ЗАКРЫТ. Впереди: T-258 README (@Builder) → T-259/T-260 (@DevOps).**

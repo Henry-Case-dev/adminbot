@@ -2725,10 +2725,10 @@
 
 **Приоритет:** P0. **Зависимости:** нет (параллельно с T-243). **Оценка:** 0.5d.
 
-- [ ] T-242-A: `services/message_counter.py` — читать `settings.GIF_PATH`/`settings.GIF_INTERVAL` (в `__init__`), убрать хардкоды; fallback «файла нет» → WARNING + skip; `except Exception: pass` → ERROR/`exc_info`-логи с путём (FileNotFoundError отдельно)
-- [ ] T-242-B: `config/settings.py` — дефолт `GIF_PATH` → `"media/slavik/slavic_chlen.mp4"` (строка 124); `GIF_INTERVAL` дефолт 5 остаётся
-- [ ] T-242-C: `.env.example` — `GIF_PATH=media/slavik/slavic_chlen.mp4` + комментарии (строки 31–32)
-- [ ] T-242-D: Тесты `tests/test_message_counter.py` — реальный путь (`Path(settings.GIF_PATH).is_file()`), FSInputFile с `settings.GIF_PATH`, лог ERROR/WARNING с путём, кастомный GIF_INTERVAL из settings, отсутствующий файл → skip без падения, propagation жив
+- [x] T-242-A: `services/message_counter.py` — читать `settings.GIF_PATH`/`settings.GIF_INTERVAL` (в `__init__`), убрать хардкоды; fallback «файла нет» → WARNING + skip; `except Exception: pass` → ERROR/`exc_info`-логи с путём (FileNotFoundError отдельно)
+- [x] T-242-B: `config/settings.py` — дефолт `GIF_PATH` → `"media/slavik/slavic_chlen.mp4"` (строка 124); `GIF_INTERVAL` дефолт 5 остаётся
+- [x] T-242-C: `.env.example` — `GIF_PATH=media/slavik/slavic_chlen.mp4` + комментарии (строки 31–32)
+- [x] T-242-D: Тесты `tests/test_message_counter.py` — реальный путь (`Path(settings.GIF_PATH).is_file()`), FSInputFile с `settings.GIF_PATH`, лог ERROR/WARNING с путём, кастомный GIF_INTERVAL из settings, отсутствующий файл → skip без падения, propagation жив
 
 **DoD:** гифка отправляется каждые N сообщений (файл по актуальному пути); при отсутствии файла — WARNING-лог, бот не падает; ошибки не глушатся молча.
 
@@ -2736,10 +2736,10 @@
 
 **Приоритет:** P0. **Зависимости:** нет (параллельно с T-242). **Оценка:** 0.75d.
 
-- [ ] T-243-A: `filters/olya_video.py` — `_normalize_caption()` + нормализованный substring-матч OLYA_CAPTION_TEXT; ветка `@saveasbot` + `OLYA_CAPTION_MENTION_ENABLED` (D100)
-- [ ] T-243-B: `filters/olya_video.py` — ветка репоста: `MessageOriginUser` → `OLYA_SAVEASBOT_USER_IDS` (импорт MessageOriginUser); `MessageOriginChannel` как было; `MessageOriginHiddenUser` → не матчится + лог (D101)
-- [ ] T-243-C: `config/settings.py` + `.env.example` — `OLYA_SAVEASBOT_USER_IDS` (дефолт (523131145,)), `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт → (), `OLYA_CAPTION_MENTION_ENABLED=True` (D100/D101)
-- [ ] T-243-D: AC-тесты (в T-245): обычное видео (не репост, без caption) → НЕТ реакции; caption SaveAsBot (в т.ч. с «—»/«'»-вариантами) → ответ; репост от MessageOriginUser SaveAsBot → ответ; репост от чужого юзера/канала → НЕТ; репост MessageOriginChannel из OLYA_SAVEASBOT_CHANNEL_IDS → ответ (совместимость)
+- [x] T-243-A: `filters/olya_video.py` — `_normalize_caption()` + нормализованный substring-матч OLYA_CAPTION_TEXT; ветка `@saveasbot` + `OLYA_CAPTION_MENTION_ENABLED` (D100)
+- [x] T-243-B: `filters/olya_video.py` — ветка репоста: `MessageOriginUser` → `OLYA_SAVEASBOT_USER_IDS` (импорт MessageOriginUser); `MessageOriginChannel` как было; `MessageOriginHiddenUser` → не матчится + лог (D101)
+- [x] T-243-C: `config/settings.py` + `.env.example` — `OLYA_SAVEASBOT_USER_IDS` (дефолт (523131145,)), `OLYA_SAVEASBOT_CHANNEL_IDS` дефолт → (), `OLYA_CAPTION_MENTION_ENABLED=True` (D100/D101)
+- [x] T-243-D: AC-тесты (в T-245): обычное видео (не репост, без caption) → НЕТ реакции; caption SaveAsBot (в т.ч. с «—»/«'»-вариантами) → ответ; репост от MessageOriginUser SaveAsBot → ответ; репост от чужого юзера/канала → НЕТ; репост MessageOriginChannel из OLYA_SAVEASBOT_CHANNEL_IDS → ответ (совместимость)
 
 **DoD:** конфиг-только-caption/репост работает; обычные видео не триггерят; старые ключи и OLYA_ALWAYS_SEND=True совместимы.
 
@@ -2747,9 +2747,9 @@
 
 **Приоритет:** P0. **Зависимости:** нет (можно параллельно с кодом; если совмещается с T-248 — один рестарт). **Оценка:** 0.25d.
 
-- [ ] T-244-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → бэкап `.env.bak.epic32` → добавить/заменить `SUMMARY_THROTTLE_SECONDS=300.0` в .env
-- [ ] T-244-B: sudo systemctl restart admin_bot → status active (running)
-- [ ] T-244-C: верификация логов: 0 traceback; (при повторном /summary внутри окна фразы покажут время до 5 минут)
+- [x] T-244-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → бэкап `.env.bak.epic32` → добавить/заменить `SUMMARY_THROTTLE_SECONDS=300.0` в .env
+- [x] T-244-B: sudo systemctl restart admin_bot → status active (running)
+- [x] T-244-C: верификация логов: 0 traceback; (при повторном /summary внутри окна фразы покажут время до 5 минут)
 
 **DoD:** прод-значение 300.0 активно, бот healthy.
 
@@ -2757,9 +2757,9 @@
 
 **Приоритет:** P1. **Зависимости:** T-242, T-243. **Оценка:** 1d.
 
-- [ ] T-245-A: `tests/test_message_counter.py` — тесты D99 (путь, лог, skip, кастомный интервал)
-- [ ] T-245-B: `tests/test_olya.py` — «обычное видео не триггерит» (уже есть, D51 — сохранить), нормализация caption (дефис/апостроф/регистр/лишние пробелы), `@saveasbot`-триггер (вкл/выкл), MessageOriginUser SaveAsBot → True, чужой юзер → False, MessageOriginChannel → True (совместимость), MessageOriginHiddenUser → False, OLYA_ALWAYS_SEND=True → True
-- [ ] T-245-C: Полный `pytest` — 1366 baseline + новые, 0 failed/skipped; `git diff --check` чист
+- [x] T-245-A: `tests/test_message_counter.py` — тесты D99 (путь, лог, skip, кастомный интервал)
+- [x] T-245-B: `tests/test_olya.py` — «обычное видео не триггерит» (уже есть, D51 — сохранить), нормализация caption (дефис/апостроф/регистр/лишние пробелы), `@saveasbot`-триггер (вкл/выкл), MessageOriginUser SaveAsBot → True, чужой юзер → False, MessageOriginChannel → True (совместимость), MessageOriginHiddenUser → False, OLYA_ALWAYS_SEND=True → True
+- [x] T-245-C: Полный `pytest` — 1366 baseline + новые, 0 failed/skipped; `git diff --check` чист
 
 **DoD:** полный прогон зелёный.
 
@@ -2767,8 +2767,8 @@
 
 **Приоритет:** P1. **Зависимости:** T-245. **Оценка:** 0.25d.
 
-- [ ] T-246-A: README — «Версия: v2.30.0», changelog «🔧 Исправлено в v2.30.0 (Epic 32)»: гифка Славика (путь+логи), триггеры Оли (нормализация caption, репосты от юзера SaveAsBot, упоминание @SaveAsBot), SUMMARY_THROTTLE_SECONDS прод 300с; конфиг-таблица: GIF_PATH (новый дефолт), OLYA_SAVEASBOT_USER_IDS, OLYA_CAPTION_MENTION_ENABLED; ироничный тон
-- [ ] T-246-B: `.env.example` — grep-проверка полноты новых ключей
+- [x] T-246-A: README — «Версия: v2.30.0», changelog «🔧 Исправлено в v2.30.0 (Epic 32)»: гифка Славика (путь+логи), триггеры Оли (нормализация caption, репосты от юзера SaveAsBot, упоминание @SaveAsBot), SUMMARY_THROTTLE_SECONDS прод 300с; конфиг-таблица: GIF_PATH (новый дефолт), OLYA_SAVEASBOT_USER_IDS, OLYA_CAPTION_MENTION_ENABLED; ироничный тон
+- [x] T-246-B: `.env.example` — grep-проверка полноты новых ключей
 
 **DoD:** grep: OLYA_SAVEASBOT_USER_IDS/OLYA_CAPTION_MENTION_ENABLED/GIF_PATH в README и .env.example.
 
@@ -2776,9 +2776,9 @@
 
 **Приоритет:** P0. **Зависимости:** T-245, T-246. **Оценка:** 0.25d.
 
-- [ ] T-247-A: `git add` — код, тесты, планы (backlog/board/MEMORY), README, `.env.example`; `.env` — НЕ коммитим
-- [ ] T-247-B: Коммит на русском (conventional): `fix(media): Epic 32 — гифка Славика, триггеры Оли (caption/репост) и троттлинг 300с (v2.30.0)`; пуш в origin/master
-- [ ] T-247-C: `git status` чист (кроме .env), HEAD == origin/master
+- [x] T-247-A: `git add` — код, тесты, планы (backlog/board/MEMORY), README, `.env.example`; `.env` — НЕ коммитим
+- [x] T-247-B: Коммит на русском (conventional): `fix(media): Epic 32 — гифка Славика, триггеры Оли (caption/репост) и троттлинг 300с (v2.30.0)`; пуш в origin/master
+- [x] T-247-C: `git status` чист (кроме .env), HEAD == origin/master
 
 **DoD:** коммит в master, пуш выполнен.
 
@@ -2786,11 +2786,11 @@
 
 **Приоритет:** P0. **Зависимости:** T-247. **Оценка:** 0.5d.
 
-- [ ] T-248-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff)
-- [ ] T-248-B: **.env** (бэкап `.env.bak.epic32`): `GIF_PATH=media/slavik/slavic_chlen.mp4` (или удалить — дефолт верный; строка 52 устарела); `OLYA_SAVEASBOT_USER_IDS=<актуальный ID SaveAsBot>` (если известен из логов/памяти; иначе оставить дефолт и пометить «требует живой проверки»); `OLYA_SAVEASBOT_CHANNEL_IDS` — пусто/актуальное; `SUMMARY_THROTTLE_SECONDS=300.0` (если не сделано в T-244)
-- [ ] T-248-C: sudo systemctl restart admin_bot → status active (running), новый PID
-- [ ] T-248-D: Верификация логов: 0 traceback; «Bot started, listening…»
-- [ ] T-248-E: Отчёт: версия v2.30.0, PID, что изменено в .env, результат проверок; живой тест гифки/Оли — при возможности в чате
+- [x] T-248-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff)
+- [x] T-248-B: **.env** (бэкап `.env.bak.epic32`): `GIF_PATH=media/slavik/slavic_chlen.mp4` (или удалить — дефолт верный; строка 52 устарела); `OLYA_SAVEASBOT_USER_IDS=<актуальный ID SaveAsBot>` (если известен из логов/памяти; иначе оставить дефолт и пометить «требует живой проверки»); `OLYA_SAVEASBOT_CHANNEL_IDS` — пусто/актуальное; `SUMMARY_THROTTLE_SECONDS=300.0` (если не сделано в T-244)
+- [x] T-248-C: sudo systemctl restart admin_bot → status active (running), новый PID
+- [x] T-248-D: Верификация логов: 0 traceback; «Bot started, listening…»
+- [x] T-248-E: Отчёт: версия v2.30.0, PID, что изменено в .env, результат проверок; живой тест гифки/Оли — при возможности в чате
 
 **DoD:** прод v2.30.0, active (running), конфиг актуализирован, логи чистые.
 
@@ -2807,5 +2807,207 @@
 
 ---
 
-**Статус: Epic 32 — Шаг 1 (PM) ✅ (2026-08-17): требования R32-1…R32-3 и решения D99–D103 зафиксированы в `plans/backlog.md`; Epic 31 архивирован (DEPLOYED, v2.29.0); доска `plans/board.md` обновлена. Передача @Builder: T-242 ∥ T-243 → T-245 → T-246; @DevOps: T-244 (конфиг прод, параллельно) → T-247 коммит → T-248 деплой. Без @Orchestrator.**
+**Статус: Epic 32 — ✅ DEPLOYED & ARCHIVED (2026-08-17, Шаг 1 Epic 33 — PM): T-242…T-248 ALL DONE (1392 passed: 1366 + 26 новых, 0 failed; ревью @Reviewer APPROVED). Коммит `2bad5ff` «fix(media): Epic 32 — починен Славик (stale путь гифки), Оля теперь только caption/репост, таймаут саммари 300с на проде (v2.30.0)» + пуш + деплой: прод .env (удалён устаревший `GIF_PATH`, +`SUMMARY_THROTTLE_SECONDS=300.0`, +`OLYA_SAVEASBOT_USER_IDS=523131145`, бэкап `.env.bak.epic32`), restart → active (running) PID 942078, 0 traceback, WARNING «GIF file not found» отсутствует. Прод v2.30.0. Epics 1–32 ALL DEPLOYED.**
+**Date: 2026-08-17**
+
+---
+
+## Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator — 2026-08-17 🆕 Шаг 1 (PM) ✅ → Шаг 2 (@Architect, T-249) ✅ (Section 42, D109 RESOLVED) → реализация @Builder (T-250…T-258) ✅, @DevOps (T-259/T-260) — Шаг 4 (@Builder): IMPLEMENTED (1542 теста); T-257-F ревью + T-258 README + T-259/T-260 — впереди
+
+> **Цель (запрос пользователя, 2026-08-17):** расширение SmartModule (Epic 24) — подсервисы FactCheck и SmartSearch строго внутри модуля SmartModule:
+> **(1) FactCheck** — фактчекинг по reply/репосту (триггер: текст начинается со слова «фактчек», регистронезависимо); **(2) SmartSearch** — естественный поиск (триггеры «найди/поищи/загугли»); **(3) SearchAggregator** — асинхронный каскадный фолбек Tavily → Exa → DuckDuckGo → AllSearchEnginesFailedException.
+> **Источник:** пользователь (2026-08-17). **Исполнители:** @Architect (T-249), @Builder (T-250…T-258), @Reviewer (в T-257), @DevOps (T-259/T-260). Без @Orchestrator. **Target:** v2.31.0. **Baseline:** прод v2.30.0 (`2bad5ff`), 1392 теста, 14 роутеров.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R33-1…R33-8, решения D104–D111) → 2/3 @Architect (T-249, дизайн Section 42) ✅ → 3/3 @Builder (T-250 ∥ T-251 → T-252 ∥ T-253 → T-254/T-255/T-256 → T-257 тесты+ревью → T-258 доки) ✅ → @DevOps (T-259 коммит → T-260 деплой).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R33-1** | **Конфигурация + валидация:** `.env`: `EXA_API_KEY=<значение в .env>`, `TAVILY_API_KEY=<значение в .env>`, `SEARCH_MAX_SYMBOLS=4000`, `FACTCHECK_MAX_SYMBOLS=4000`, `SEARCH_COOLDOWN_SECONDS=300`, `FACTCHECK_COOLDOWN_SECONDS=300` + валидация конфигурации (кривые/пустые значения → WARNING + дефолт/деградация). ⚠️ API-ключи — секреты (R17): только в `.env`, НЕ в `.env.example`, НЕ в коде. |
+| **R33-2** | **SearchAggregator:** асинхронный каскадный фолбек: Tavily (`https://api.tavily.com/search`, httpx, таймаут >5с → фолбек) → Exa (`https://api.exa.ai/search`, httpx) → DuckDuckGo (`AsyncDDGS` из `duckduckgo_search`) → `AllSearchEnginesFailedException`. |
+| **R33-3** | **FactCheck:** триггер — reply/репост на любое сообщение, текст начинается со слова «фактчек» (регистронезависимо). Пустой целевой контекст (медиа/стикер без текста) → фраза из пула 5.3 без вызова поиска. Доп. текст после «фактчек» → user_hint. `is_forward="true"` → `forward_source` в контекст. Итоговый вердикт и ошибки поиска/анализа шлются реплаем на `reply_to_message_id` ЦЕЛЕВОГО сообщения (`message.reply_to_message.message_id`). Ошибки троттлинга — реплаем на `message_id` вызова. Кулдаун `FACTCHECK_COOLDOWN_SECONDS` per chat/user, независимый. |
+| **R33-4** | **SmartSearch:** триггер — сообщение начинается с «найди/поищи/загугли» (регистронезависимо). Регулярка: `^(?i)(?:найди|поищи|загугли)(?:[\s,:]+)(?:мне\s+|пожалуйста\s+)?(.+)$`. ВСЕ ответы поиска (выжимка, ошибки, пустой запрос, троттлинг) — реплаем на `message.message_id`. Кулдаун `SEARCH_COOLDOWN_SECONDS` per chat/user, независимый от фактчека. Пустой запрос → фраза из пула 5.2 без обращения к поисковикам. |
+| **R33-5** | **Пулы токсичных фраз** (random.choice, строчными, без форматирования):<br>**5.1 троттлинг** (`{remaining_time}` в формате «X мин Y сек» или «Z сек»): «отъебись от меня, подожди {remaining_time}»; «че доебался, жди {remaining_time}»; «иди потрогай траву {remaining_time}, потом пиши»; «куда ты так спешишь, шиз, посиди молча {remaining_time}»; «дай от тебя отдохнуть, таймер еще {remaining_time}».<br>**5.2 пустой поисковый запрос:** «и че тебе найти, мысли твои прочитать?»; «запрос забыл высрать, гений»; «ты мне пустоту предлагаешь гуглить, шиз?»; «пальцы отсохли запрос дописать?»; «воздух нашел, держи в курсе».<br>**5.3 пустой контекст фактчека:** «и че тут проверять, пустоту?»; «в этом высере даже текста нет для фактчека»; «я стикеры и войсы на пруфы не проверяю, дай текст»; «фактчек воздуха прошел успешно: это пиздеж»; «тут букв нет, шиз, на что мне отвечать?».<br>**5.4 ошибка поиска** — SmartSearch: «интернет сдох, ищи сам»; «поисковики легли, пиздуй в библиотеку»; «сеть отвалилась, гугли своими культяпками»; «провайдер сдох от твоих запросов, ничего не нашел»; «интернет кончился, больше инфы нет». FactCheck: «интернет сдох, фактчека не будет»; «поисковики легли, проверяй свои вбросы сам»; «пруфов в сети не нашлось, все базы упали»; «сеть легла, считай что тебе все наврали»; «не могу достучаться до пруфов, интернет откис».<br>**5.5 ошибка LLM:** «база подавилась»; «нейронка срыгнула от этого бреда»; «мозги закипели это переваривать, попробуй позже»; «токенов на твою хуйню не хватило, сервер сдох»; «llm откинулась, сгенерировать не вышло». |
+| **R33-6** | **Системные промпты** `FACTCHECK_SYSTEM_PROMPT` и `SEARCH_SYSTEM_PROMPT` — дословно из ТЗ пользователя: токсичный фактчекер/исследователь, ленивая печать, без маркдауна/списков/эмодзи, запрет длинных тире и ёлочек, `{max_symbols}` placeholder, сплошной текст с абзацами. ✅ **D109 RESOLVED (2026-08-17):** дословные тексты переданы пользователем на Шаге 2 и зафиксированы эталон-блоками в `plans/ARCHITECTURE.md` Section 42.5.1/42.5.2 (эталон для T-255 + байт-в-байт тест). |
+| **R33-7** | **Надёжность:** пост-процессинг всех успешных ответов через `summary_cleanup.py`; чанкинг >4096 (`reply_to_message_id` у первой части); стектрейсы исключений в Betterstack (`logger.exception`); тесты: юнит парсера триггеров/регулярки/`reply_to_message_id`, независимость троттлинга и подстановка `{remaining_time}`, фолбек SearchAggregator (Tavily→Exa→DDG), рандомизация фраз, пост-процессинг summary_cleanup, 0 регрессий (baseline 1392 теста). |
+| **R33-8** | **Деплой:** покрытие тестами, проверка конфликтов с другими функциями бота, README в ироничном тоне, коммит на русском, пуш, затем SSH `nik@198.46.175.136`, `cd /var/www/admin_bot`, `git pull`, правка `.env` при необходимости, `sudo systemctl restart admin_bot`, `sudo systemctl status admin_bot`, человекочитаемый отчёт. |
+
+### PM Decisions (зафиксированы 2026-08-17)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D104** | Конфиг | `config/settings.py`: `EXA_API_KEY: str = _env_str("EXA_API_KEY", "")`, `TAVILY_API_KEY` — аналогично; `SEARCH_MAX_SYMBOLS: int = _env_int("SEARCH_MAX_SYMBOLS", 4000)`, `FACTCHECK_MAX_SYMBOLS` — аналогично; `SEARCH_COOLDOWN_SECONDS: float = _env_float("SEARCH_COOLDOWN_SECONDS", 300.0)`, `FACTCHECK_COOLDOWN_SECONDS` — аналогично (float-секунды, прецедент `SUMMARY_THROTTLE_SECONDS`, НЕ time-format). Валидация при старте: пустой API-ключ → WARNING «Tavily/Exa disabled» + уровень каскада пропускается; `max_symbols < 100` → fallback дефолт + WARNING; `cooldown < 0` → дефолт. `.env.example` — БЕЗ реальных ключей (R17). |
+| **D105** | SearchAggregator | НОВЫЙ `services/search_aggregator.py` (внутри SmartModule): `async search(query: str, max_symbols: int) -> str`. Каскад: 1) Tavily — POST `https://api.tavily.com/search` (httpx, Bearer `TAVILY_API_KEY`, timeout 5.0с; таймаут или HTTP-ошибка → фолбек); 2) Exa — POST `https://api.exa.ai/search` (httpx, `x-api-key` `EXA_API_KEY`); 3) DuckDuckGo — `AsyncDDGS` (context manager). Все уровни упали → `AllSearchEnginesFailedException` (НОВЫЙ, в этом же модуле). Результат — тексты результатов, обрезка до `max_symbols`; логирование уровня/длительности. `requirements.txt`: +`duckduckgo_search` (httpx уже есть; SDK tavily/exa не тянем — httpx по ТЗ). |
+| **D106** | Роутеры | Подсервисы СТРОГО внутри SmartModule (`services/`), хендлеры — в SmartModule-блоке `bot.py` (рядом с summary-роутерами 0a/0b, ДО catch-all); точную позицию и порядок (factcheck ↔ search ↔ 14 существующих роутеров) фиксирует @Architect в T-249; существующие 14 роутеров и их порядок НЕ менять; хендлеры возвращают UNHANDLED (propagation жив — прецедент selfdev/work). |
+| **D107** | Троттлинг | Два НЕЗАВИСИМЫХ dict-TTL коулдауна (search и factcheck, отдельные словари; прецедент `ThrottlingMiddleware`/summary_throttling): ключ `(chat_id, user_id)`, TTL `SEARCH_COOLDOWN_SECONDS` / `FACTCHECK_COOLDOWN_SECONDS`. Нарушение → фраза 5.1 с `{remaining_time}` («X мин Y сек»/«Z сек», форматтер — прецедент `format_remaining_seconds`). Троттлинг-ответ фактчека — reply на `message_id` ВЫЗОВА (не целевого); смарт-поиска — на `message.message_id` (как все его ответы). |
+| **D108** | Пулы фраз | Отдельный модуль (напр. `services/smartmodule_phrases.py` или по-подсервисно) с пулами 5.1–5.5 ДОСЛОВНО (каноны пользователя, прецедент D83/D89/D96 — не переписывать); выбор `random.choice`; все фразы строчными, без форматирования/эмодзи; 5.4 — два подпула (SmartSearch, FactCheck). Тесты ассертят ТОЛЬКО принадлежность пулу (прецедент T-222-B, флак-защита). |
+| **D109** | Промпты | ✅ **RESOLVED (2026-08-17, @Architect, T-249):** дословные тексты `FACTCHECK_SYSTEM_PROMPT`/`SEARCH_SYSTEM_PROMPT` получены от пользователя на Шаге 2 и зафиксированы эталон-блоками в `plans/ARCHITECTURE.md` Section 42.5.1/42.5.2 ДОСЛОВНО (прецедент R11) + байт-в-байт тесты (T-255-B). T-255 стартует без блокера. Стилевые требования: токсичный фактчекер/исследователь, ленивая печать, без маркдауна/списков/эмодзи, запрет длинных тире и ёлочек, `{max_symbols}` placeholder (подстановка `.replace`, прецедент C2/Epic 27 — НЕ `str.format`), сплошной текст с абзацами. |
+| **D110** | Надёжность | Пост-процессинг ВСЕХ успешных LLM-ответов (фактчек-вердикт + выжимка поиска) через `cleanup_llm_text` (`services/summary_cleanup.py`, прецедент Epic 28). Чанкинг >4096 символов — прецедент `_chunk_by_whitespace`/`_send_chunked` (`services/summary_generator.py`), `reply_to_message_id` ТОЛЬКО у первой части. Ошибки LLM → фраза 5.5, ошибки поиска → фраза 5.4 (соответствующий подпул). Все исключения — `logger.exception` (стектрейсы в Betterstack/Sentry). |
+| **D111** | Деплой | Прод `.env`: `EXA_API_KEY`/`TAVILY_API_KEY` (секреты из ТЗ, бэкап `.env.bak.epic33`), при необходимости `SEARCH_MAX_SYMBOLS`/`FACTCHECK_MAX_SYMBOLS`/кулдауны. venv на проде: `pip install duckduckgo_search` (новая зависимость). git pull → restart → status → человекочитаемый отчёт (R33-8). |
+
+### Задачи
+
+### T-249 (@Architect) — Архитектурное проектирование Epic 33
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 1d.
+
+- [x] T-249-A: `plans/ARCHITECTURE.md` Section 42: подсервисы FactCheck/SmartSearch/SearchAggregator внутри SmartModule (модули, data flow, контракты), позиции новых хендлеров/роутеров в bot.py (0c/0d — ДО catch-all, порядок 14 существующих НЕ менять, D106), каскад SearchAggregator (таймауты/фолбеки/исключение, D105), пайплайны FactCheck (триггер/парсинг user_hint/forward_source/reply-таргеты) и SmartSearch (регулярка/reply-таргеты), двойной независимый троттлинг (D107), пост-процессинг/чанкинг (D110), промпты-эталоны 42.5.1/42.5.2 (D109 RESOLVED)
+- [x] T-249-B: Тест-план (юниты триггеров/регулярки/reply_to_message_id, фолбек Tavily→Exa→DDG, независимость троттлинга, рандомизация, summary_cleanup) + риски (сетевые, зависимости, конфликты роутеров)
+- [x] T-249-C: Self-review + PM-аппрув; research по Tavily/Exa/duckduckgo_search API выполнен 2026-08-17 (exa/web; context7 недоступен — прецедент R18), зафиксирован в RESEARCH.md §i
+
+**DoD:** Section 42 в ARCHITECTURE.md, T-250…T-258 → READY FOR BUILDER; решение по блокеру D109 (тексты промптов) согласовано с PM/пользователем.
+
+### T-250 (@Builder) — Конфиг + валидация (R33-1, D104)
+
+**Приоритет:** P0. **Зависимости:** T-249. **Оценка:** 0.25d.
+
+- [x] T-250-A: `config/settings.py` — 6 ключей (D104); `.env.example` — БЕЗ реальных ключей, с комментариями
+- [x] T-250-B: Валидация при старте (wiring/on_startup): пустые ключи → WARNING + отключение уровня каскада; кривые max_symbols/cooldown → дефолт + WARNING
+
+**DoD:** ключи читаются из .env; пустой ключ не роняет бота (деградация до DDG); .env.example без секретов.
+
+### T-251 (@Builder) — SearchAggregator (R33-2, D105)
+
+**Приоритет:** P0. **Зависимости:** T-249, T-250. **Оценка:** 1d.
+
+- [x] T-251-A: `services/search_aggregator.py` — каскад Tavily → Exa → DDG (`AsyncDDGS`), httpx-клиенты, timeout 5с Tavily → фолбек, обработка HTTP-ошибок, обрезка до max_symbols, логирование уровня
+- [x] T-251-B: `AllSearchEnginesFailedException` + требования: `requirements.txt` +`duckduckgo_search` (с версией)
+
+**DoD:** юнит-тесты каскада (моки httpx/AsyncDDGS): успех Tavily; таймаут Tavily → Exa; отказ Tavily+Exa → DDG; все падают → исключение; обрезка max_symbols.
+
+### T-252 (@Builder) — FactCheck-хендлер (R33-3, D106/D107)
+
+**Приоритет:** P0. **Зависимости:** T-251. **Оценка:** 1d.
+
+- [x] T-252-A: Парсер триггера: reply/репост на любое сообщение, текст начинается с «фактчек» (регистронезависимо); доп. текст → `user_hint`; пустой целевой контекст (медиа/стикер без текста) → фраза 5.3 БЕЗ вызова поиска
+- [x] T-252-B: Контекст для LLM: целевой текст + `is_forward="true"` → `forward_source`; вызов SearchAggregator + LLM-вердикт (FACTCHECK_SYSTEM_PROMPT, FACTCHECK_MAX_SYMBOLS)
+- [x] T-252-C: Reply-таргеты: вердикт/ошибки поиска-анализа → reply на `message.reply_to_message.message_id` (ЦЕЛЕВОГО); троттлинг → reply на `message_id` вызова; кулдаун FACTCHECK_COOLDOWN_SECONDS per chat/user, независимый
+- [x] T-252-D: Регистрация хендлера в SmartModule-блоке bot.py (позиция по T-249/D106); UNHANDLED; логирование
+
+**DoD:** «фактчек»-reply → вердикт реплаем на целевое; стикер/медиа-цель → фраза 5.3; троттлинг → 5.1 на вызов; репост-цель → forward_source в контексте; коулдаун не зависит от поиска.
+
+### T-253 (@Builder) — SmartSearch-хендлер (R33-4, D106/D107)
+
+**Приоритет:** P0. **Зависимости:** T-251. **Оценка:** 1d.
+
+- [x] T-253-A: Триггер «найди/поищи/загугли» + регулярка `^(?i)(?:найди|поищи|загугли)(?:[\s,:]+)(?:мне\s+|пожалуйста\s+)?(.+)$`; пустой запрос → фраза 5.2 БЕЗ поисковиков
+- [x] T-253-B: Пайплайн: SearchAggregator → LLM-выжимка (SEARCH_SYSTEM_PROMPT, SEARCH_MAX_SYMBOLS); ВСЕ ответы (выжимка, ошибки 5.4/5.5, пустой запрос 5.2, троттлинг 5.1) — reply на `message.message_id`
+- [x] T-253-C: Кулдаун SEARCH_COOLDOWN_SECONDS per chat/user, независимый от фактчека; регистрация в bot.py (T-249/D106); UNHANDLED
+
+**DoD:** «найди X» → выжимка реплаем; «найди» (пусто) → 5.2; троттлинг → 5.1; ответы не пересекаются с фактчек-коулдауном.
+
+### T-254 (@Builder) — Пулы фраз 5.1–5.5 (R33-5, D108)
+
+**Приоритет:** P1. **Зависимости:** нет (параллельно). **Оценка:** 0.25d.
+
+- [x] T-254-A: Модуль пулов (5.1 с `{remaining_time}`, 5.2, 5.3, 5.4 — подпулы SmartSearch/FactCheck, 5.5) ДОСЛОВНО из ТЗ; `random.choice`; строчными, без форматирования
+- [x] T-254-B: Форматтер `{remaining_time}` → «X мин Y сек» или «Z сек»
+
+**DoD:** все фразы пулов байт-в-байт совпадают с ТЗ (тесты принадлежности пулу).
+
+### T-255 (@Builder) — Системные промпты FACTCHECK_SYSTEM_PROMPT / SEARCH_SYSTEM_PROMPT (R33-6, D109)
+
+**Приоритет:** P1. **Зависимости:** ✅ **D109 RESOLVED — дословные тексты в ARCHITECTURE.md 42.5.1/42.5.2**; далее — нет. **Оценка:** 0.25d.
+
+- [x] T-255-A: Перенести дословные тексты из ARCHITECTURE.md 42.5.1/42.5.2 в модули промптов (`services/factcheck_prompts.py` / `services/search_prompts.py`) ДОСЛОВНО (эталон-блоки); `{max_symbols}` placeholder; подстановка `.replace` (НЕ `str.format`)
+- [x] T-255-B: Байт-в-байт тест (прецедент `test_system_prompt_byte_for_byte`)
+
+**DoD:** оба промпта в коде == эталону backlog байт-в-байт; стилевые требования ТЗ соблюдены.
+
+### T-256 (@Builder) — Надёжность: пост-процессинг, чанкинг, логирование (R33-7, D110)
+
+**Приоритет:** P1. **Зависимости:** T-252, T-253. **Оценка:** 0.5d.
+
+- [x] T-256-A: `cleanup_llm_text` для всех успешных LLM-ответов (фактчек + поиск)
+- [x] T-256-B: Чанкинг >4096 (паттерн `_chunk_by_whitespace`/`_send_chunked`), `reply_to_message_id` только у первой части
+- [x] T-256-C: `logger.exception` на всех except-ветках (стектрейсы в Betterstack/Sentry); деградация: ошибки → 5.4/5.5
+
+**DoD:** длинный вердикт/выжимка режется и шлётся чанками; ёлочки/тире вычищены; стектрейсы в логах.
+
+### T-257 (@Builder + @Reviewer) — Тесты + полный прогон + проверка конфликтов (R33-7)
+
+**Приоритет:** P0. **Зависимости:** T-250…T-256. **Оценка:** 1d.
+
+- [x] T-257-A: Юниты: парсер триггеров фактчека/поиска, регулярка, reply_to_message_id (вердикт→целевое, троттлинг→вызов), user_hint, forward_source, пустые контекст/запрос → 5.3/5.2 без поиска
+- [x] T-257-B: Троттлинг: независимость двух коулдаунов + подстановка `{remaining_time}` («X мин Y сек»/«Z сек»)
+- [x] T-257-C: SearchAggregator: фолбек Tavily→Exa→DDG (все комбинации отказов), AllSearchEnginesFailedException → фраза 5.4 (нужный подпул)
+- [x] T-257-D: Рандомизация фраз (принадлежность пулу), пост-процессинг summary_cleanup, чанкинг (reply_to_message_id у 1-й части), LLM-ошибки → 5.5
+- [x] T-257-E: Полный `pytest` — 1392 baseline + новые, 0 регрессий; проверка конфликтов с другими функциями (mimic/catch-all/summary/common) — одно сообщение не даёт двойных ответов
+- [x] T-257-F: **(@Reviewer)** Code review ПРОВЕДЁН (2026-08-17): вердикт **NEEDS FIXES** → фиксы внесены → **ПОВТОРНОЕ РЕВЬЮ APPROVED ✅** — пулы 5.1–5.5 и промпты байт-в-байт ✓ (независимая сверка ×2), reply-контракты/троттлинг/каскад/чанкинг/cleanup ✓, секретов в коде/тестах/.env.example НЕТ ✓; BLOCKER-1 закрыт (ключи в backlog.md:2826 замаскированы `<значение в .env>`, grep по фрагментам — 0 совпадений вне .env), MAJOR-1 закрыт (`tests/test_epic33_router_isolation.py`, 4 содержательных теста через `Dispatcher.feed_update`), MINOR-1/2/3/4 закрыты; полный прогон **1555 passed / 0 failed** подтверждён лично.
+
+**DoD:** полный прогон зелёный (1392+); ревью APPROVED; конфликтов нет.
+
+### T-258 (@Builder) — README + доки (R33-8)
+
+**Приоритет:** P1. **Зависимости:** T-257. **Оценка:** 0.25d.
+
+- [ ] T-258-A: README v2.31.0 (ироничный тон): секции FactCheck/SmartSearch (триггеры, кулдауны, каскад поисковиков), конфиг-таблица (6 новых ключей), changelog
+- [ ] T-258-B: `.env.example` — grep-полнота новых ключей (без секретов); `plans/MEMORY.md` — запись реализации (по завершении)
+
+**DoD:** grep: EXA_API_KEY/TAVILY_API_KEY/SEARCH_MAX_SYMBOLS/FACTCHECK_MAX_SYMBOLS/SEARCH_COOLDOWN_SECONDS/FACTCHECK_COOLDOWN_SECONDS в README и .env.example.
+
+### T-259 (@DevOps) — Коммит + пуш (R33-8)
+
+**Приоритет:** P0. **Зависимости:** T-257, T-258. **Оценка:** 0.25d.
+
+- [ ] T-259-A: `git add` — код, тесты, планы (backlog/board/MEMORY/ARCHITECTURE), README, `.env.example`, requirements.txt; `.env` — НЕ коммитим (секреты EXA/TAVILY — ТОЛЬКО в .env, R17/D104)
+- [ ] T-259-B: Коммит на русском (conventional): `feat(smartmodule): Epic 33 — FactCheck, SmartSearch и SearchAggregator (v2.31.0)`; пуш в origin/master
+- [ ] T-259-C: `git status` чист (кроме .env), HEAD == origin/master
+
+**DoD:** коммит в master, пуш выполнен, секретов в коммите нет.
+
+### T-260 (@DevOps) — Деплой на прод (R33-8, D111)
+
+**Приоритет:** P0. **Зависимости:** T-259. **Оценка:** 0.5d.
+
+- [ ] T-260-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); venv: pip install новой зависимости `duckduckgo_search`
+- [ ] T-260-B: **.env** (бэкап `.env.bak.epic33`): `EXA_API_KEY=…`, `TAVILY_API_KEY=…` (значения из ТЗ), при необходимости SEARCH/FACTCHECK_* (дефолты 4000/300 корректны)
+- [ ] T-260-C: sudo systemctl restart admin_bot → sudo systemctl status admin_bot → active (running), новый PID
+- [ ] T-260-D: Верификация логов: 0 traceback, WARNING «Tavily/Exa disabled» отсутствует (ключи заданы); smoke-тест фактчека/поиска в чате (при возможности); человекочитаемый отчёт (версия, PID, изменения .env, результаты)
+
+**DoD:** прод v2.31.0, active (running), ключи заданы, логи чистые, отчёт пользователю.
+
+### Риски (Epic 33)
+
+1. **Эталон SYSTEM_PROMPT R11 (1518–1539):** правки Epic 33 в backlog — ТОЛЬКО в конце файла (ниже 1539) → сдвига строк НЕТ (соблюдено: Epic 33 в конце). Новые промпты-эталоны (T-255) — отдельными блоками ниже 1539.
+2. **Секреты:** EXA_API_KEY/TAVILY_API_KEY — только в .env (R17); в .env.example/коде/коммите не должно быть; прод .env — T-260 (бэкап .env.bak.epic33).
+3. **Блокер D109 — СНЯТ ✅ (2026-08-17):** тексты промптов получены от пользователя и зафиксированы эталонами в ARCHITECTURE.md 42.5.1/42.5.2; T-255 стартует без блокера.
+4. **Новые зависимости:** `duckduckgo_search` в requirements.txt → установка в прод venv обязательна (T-260-A), иначе ImportError; сетевой доступ сервера к api.tavily.com/api.exa.ai/duckduckgo.
+5. **Роутеры/гонки:** новые хендлеры ДО catch-all; сообщение «найди…» может зацепить danger/mimic/common — тесты на отсутствие двойных ответов (T-257-E); порядок 14 существующих роутеров НЕ менять (D106).
+6. **Таймаут Tavily >5с:** на проде сети медленнее — порог 5с фиксирован ТЗ; фолбек каскада не должен превышать разумное суммарное время (httpx-таймауты на каждом уровне).
+7. **Кулдауны:** независимость search/factcheck — отдельные dict-TTL (не перепутать при рефакторинге); ключ (chat_id, user_id) — прецедент summary_throttling.
+8. **Мат в пулах:** каноны пользователя ДОСЛОВНО (прецедент D83/D89/D96 — не переписывать); тесты — только принадлежность пулу (D108).
+9. **Чанкинг:** >4096 — reply_to_message_id только у первой части (остальные части — без reply-таргета); TelegramRetryAfter — прецедент `_send_chunked`.
+10. **Промпт-подстановка:** `{max_symbols}` — `.replace` (НЕ `str.format`, иначе KeyError на фигурных скобках текста — прецедент C2/Epic 27).
+
+**Файлы (планируемые):** `config/settings.py`, `services/search_aggregator.py` (НОВЫЙ), `services/factcheck_*` (НОВЫЕ, внутри SmartModule), `services/smartsearch_*` (НОВЫЕ, внутри SmartModule), `services/smartmodule_phrases.py` (НОВЫЙ), `services/summary_cleanup.py` (переиспользование), `services/summary_generator.py` (чанкинг-паттерн), `handlers/…` (НОВЫЕ), `bot.py` (только wiring), `requirements.txt`, `.env.example`, `tests/test_search_aggregator.py` (НОВЫЙ), `tests/test_factcheck_*.py` (НОВЫЕ), `tests/test_smartsearch_*.py` (НОВЫЕ), `README.md`, `plans/ARCHITECTURE.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`.
+
+---
+
+**Статус: Epic 33 — Шаг 1 (PM) ✅ (2026-08-17): требования R33-1…R33-8 и решения D104–D111 зафиксированы в `plans/backlog.md`; Epic 32 архивирован (DEPLOYED, v2.30.0, `2bad5ff`); доска `plans/board.md` обновлена. Передача @Architect (T-249, дизайн Section 42). ⚠️ Блокер D109 — дословные тексты FACTCHECK_SYSTEM_PROMPT/SEARCH_SYSTEM_PROMPT получить у пользователя. Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 33 — Шаг 2 (@Architect) ✅ (2026-08-17): T-249-A/T-249-B выполнены — Section 42 в `plans/ARCHITECTURE.md` (модули/интерфейсы, каскад SearchAggregator Tavily→Exa→DDG, reply-таргеты, пайплайны FactCheck/SmartSearch, двойной независимый троттлинг, роутеры 0c/0d, тест-план, риски); research Tavily/Exa/duckduckgo_search зафиксирован в `plans/RESEARCH.md` §i (context7 недоступен — прецедент R18). ⚠️→✅ **Блокер D109 СНЯТ: дословные тексты FACTCHECK_SYSTEM_PROMPT/SEARCH_SYSTEM_PROMPT получены от пользователя и зафиксированы эталон-блоками в ARCHITECTURE.md 42.5.1/42.5.2; T-255 стартует без блокера.** Передача @Builder (T-250…T-258) и @DevOps (T-259/T-260) после PM-аппрува дизайна (T-249-C). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 33 — Шаг 4b (@Builder) ✅ (2026-08-17): реализация (Шаг 4a: T-250…T-256) и тесты (Шаг 4b: T-257-A…E) завершены. 10 новых тест-файлов, 150 тестов; полный прогон **1542 passed / 0 failed** (baseline 1392 + 150 новых, ~5.0с); `git diff --check` чист. Покрыто: парсер триггера фактчека (`^фактчек\b`, регистронезависимо, «фактчекинг»/«это фактчек» не матчатся, user_hint), регулярка поиска (найди/поищи/загугли, «найди»→5.2, «найдикто»→None, ТЗ-квирк «загугли,,»→«,» зафиксирован как фактическое поведение), reply-таргеты (вердикт/5.3/5.4b/5.5 → target.message_id; троттлинг → message.message_id; SmartSearch все → message.message_id), независимость двух CooldownTracker + {remaining_time} («X мин Y сек»/«Z сек»), фолбек SearchAggregator через httpx.MockTransport (Tavily→Exa→DDG; sync DDGS через asyncio.to_thread; все три упали → AllSearchEnginesFailedException; пустой ключ → уровень пропущен), пулы 5.1–5.5 дословно (ровно по 5, строчными), cleanup_llm_text в пайплайнах сервисов, чанкинг >4096 (reply_to_message_id у 1-й части, TelegramRetryAfter → sleep+повтор), 5.3/5.2 без вызова агрегатора, промпты байт-в-байт с эталонами 42.5.1/42.5.2 ({max_symbols} ×1, .replace). Зафиксировано фактическое поведение кода 4a: репост-триггер фактчека по caption работает при пустом text (media-репост); format_remaining_time(59.5) → «1 мин» (ceil→divmod). Впереди: T-257-F (@Reviewer), T-258 (README, @Builder), T-259/T-260 (@DevOps). Epic 33: IMPLEMENTED, ожидает ревью. Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 33 — Шаг 5 (@Builder, фиксы ревью @Reviewer) ✅ (2026-08-17): NEEDS FIXES закрыты.** BLOCKER-1 (security): реальные ключи EXA/TAVILY удалены из `plans/backlog.md` R33-1 → плейсхолдеры `<значение в .env>` (grep по фрагментам ключей: только `.env`, gitignored; эталон SYSTEM_PROMPT 1518–1539 не тронут). MAJOR-1 (T-257-E): НОВЫЙ `tests/test_epic33_router_isolation.py` (4 теста) — реальный aiogram Dispatcher (0a observer + 0c factcheck + 0d search + 4c common) через `feed_update`: «найди ракету» → ровно 1 ответ от search (danger 4c не срабатывает); reply «фактчек …» → ровно 1 ответ на `reply_to_message_id == target.message_id`; обычное сообщение → 0c/0d молчат, observer 0a записал в память; danger-слово → common 4c работает как раньше. MINOR: (1) `.env` + явные `SEARCH_MAX_SYMBOLS=4000`/`FACTCHECK_MAX_SYMBOLS=4000`/`SEARCH_COOLDOWN_SECONDS=300`/`FACTCHECK_COOLDOWN_SECONDS=300`; (2) комментарий Epic 33 в `.env` перезаписан чистым UTF-8 (байты проверены — валидные, мойджибейк был артефактом отображения); (3) `handlers/factcheck.py:72` — убран избыточный `.lower()` (regex уже IGNORECASE); (4) НОВЫЙ `tests/test_settings_helpers.py` (9 тестов) на `_env_int_min`/`_env_float_min` — тесты вскрыли РЕАЛЬНЫЙ баг Шага 4a: `NameError: logging is not defined` в WARNING-ветках (фикс: `import logging` в `config/settings.py`). Полный прогон: **1555 passed / 0 failed** (1392 + 150 + 13 новых), `git diff --check` чист. Epic 33: IMPLEMENTED, повторное ревью @Reviewer ожидается. Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 33 — Шаг 5 (@Reviewer) ❌ NEEDS FIXES (2026-08-17): строгое ревью проведено, вердикт — вернуть @Builder (итерация не пройдена). Подтверждено лично:** полный прогон **1542 passed / 0 failed** (5.2с); независимая сверка пулов 5.1–5.5 (все 6 пулов × 5 фраз — байт-в-байт с каноном R33-5) и промптов (байт-в-байт с эталонами 42.5.1/42.5.2, `{max_symbols}` ×1); эффективные значения конфига 4000/4000/300.0/300.0; `.env` в `.gitignore` (`.gitignore:9`); оба задокументированных отклонения подтверждены эмпирически (duckduckgo-search 8.1.1: `AsyncDDGS` отсутствует, `DDGS.text` sync — есть; `re.compile('^(?i)…')` на Python 3.12 → `re.error: global flags not at the start`); секреты в `*.py`/тестах/`.env.example` отсутствуют (grep + скрипт). **BLOCKER-1 (security):** реальные API-ключи в `plans/backlog.md:2826` (таблица R33-1) попадут в git-коммит (T-259-A включает планы) — нарушение R17/риск 2 «в коммите не должно быть»; фикс: замаскировать значения до T-259 (ключи уже в `.env`). **MAJOR-1:** обещанный в 42.10/T-257-E dispatcher-интеграционный тест изоляции роутеров (0a+0c/0d+common на одном Dispatcher → «найди/фактчек» не дают двойных ответов, observer 0a жив) отсутствует — роутеры `factcheck_router`/`search_router` не используются ни в одном тесте; добавить. **MINOR:** (1) локальный `.env` не содержит явных SEARCH_/FACTCHECK_* ключей (дефолты покрывают ТЗ, D111 разрешает — зафиксировать при T-260); (2) комментарий-блок Epic 33 в `.env` записан с битой кодировкой (косметика, ключи парсятся); (3) `handlers/factcheck.py:72` избыточный `.lower()` (regex уже IGNORECASE); (4) `_env_int_min`/`_env_float_min` не покрыты прямыми юнит-тестами. Передача @Builder: фикс BLOCKER-1 + MAJOR-1 → повторное ревью. Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 33 — Шаг 5 (повторное ревью, @Reviewer) ✅ APPROVED (2026-08-17): все замечания первого ревью закрыты и подтверждены лично.** **BLOCKER-1 ✅:** реальные ключи в `plans/backlog.md:2826` заменены на `<значение в .env>`; grep по фрагментам `6bbb01df`/`tvly-dev` — 0 совпадений вне `.env` (gitignored `.gitignore:9`). **MAJOR-1 ✅:** добавлен `tests/test_epic33_router_isolation.py` — 4 содержательных теста через `Dispatcher.feed_update` (0a+0c+0d+4c): «найди ракету» → ровно 1 ответ от search, common danger НЕ вызывается; reply «фактчек …» → 1 ответ с `reply_to_message_id == target.message_id`; обычное сообщение → observer 0a сохраняет в БД, ответов нет; «слышал хлопок в небе» → common danger работает. **MINOR-1 ✅:** `.env` дополнен `SEARCH_MAX_SYMBOLS=4000`, `FACTCHECK_MAX_SYMBOLS=4000`, `SEARCH_COOLDOWN_SECONDS=300`, `FACTCHECK_COOLDOWN_SECONDS=300` (все 33 ключа на месте). **MINOR-2 ✅:** `.env` декодируется как чистый UTF-8. **MINOR-3 ✅:** `handlers/factcheck.py:72` — `.lower()` убран. **MINOR-4 ✅:** `tests/test_settings_helpers.py` (9 тестов) + `import logging` в `config/settings.py:1` (баг NameError закрыт). **Регрессионная сверка:** промпты/пулы байт-в-байт (независимый скрипт — повторно True), роутеры 0c/0d после 0b до 0:admin не сдвинуты, `git diff --check` чист, `.env` не в индексе. **Полный прогон лично: 1555 passed / 0 failed** (5.4с; 1542 + 4 + 9). Передача @Builder (T-258 README) → @DevOps (T-259/T-260). Без @Orchestrator.**
 **Date: 2026-08-17**

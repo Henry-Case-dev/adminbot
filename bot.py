@@ -47,6 +47,11 @@ from services.summary_xml import XmlGroundingBuilder
 from services.goodmorning_relay import GoodmorningRelay
 from services.goodmorning_scheduler import GoodmorningSchedulerService
 from services.bot_commands import setup_bot_commands
+from handlers.factcheck import factcheck_router, setup_factcheck
+from handlers.search import search_router, setup_search
+from services.search_aggregator import SearchAggregator
+from services.factcheck_service import FactCheckService
+from services.search_service import SearchService
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -70,6 +75,8 @@ _summary_service = None
 _llm_client = None
 # Goodmorning (Epic 30) — module-level ref for on_shutdown
 _goodmorning_scheduler = None
+# SmartModule FactCheck + SmartSearch (Epic 33) — module-level ref for on_shutdown
+_search_aggregator = None
 
 
 async def on_startup():
@@ -137,6 +144,14 @@ async def on_startup():
         _summary_service = SummarySchedulerService(generator, db)
         _summary_service.start()  # BEFORE dp.start_polling (RESEARCH §c)
         logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", settings.SUMMARY_TIMEZONE)
+
+        # ── SmartModule: FactCheck + SmartSearch (Epic 33) ──
+        global _search_aggregator
+        _search_aggregator = SearchAggregator()                 # ленивый httpx-клиент
+        _search_aggregator.log_config()                         # D104: WARNING-и пустых ключей
+        setup_factcheck(FactCheckService(_search_aggregator, _llm_client))
+        setup_search(SearchService(_search_aggregator, _llm_client))
+        logger.info("SmartModule FactCheck + SmartSearch (Epic 33) initialized")
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
 
@@ -165,6 +180,14 @@ async def on_startup():
     # 0b. SmartModule /summary (Epic 24) — BEFORE admin_commands and catch-all 5/6
     if settings.SUMMARY_ENABLED:
         dp.include_router(summary_router)
+
+    # 0c. SmartModule FactCheck (Epic 33) — reply с «фактчек»; консьюмит, НЕ-триггеры → UNHANDLED
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(factcheck_router)
+
+    # 0d. SmartModule SmartSearch (Epic 33) — «найди/поищи/загугли»; консьюмит, НЕ-триггеры → UNHANDLED
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(search_router)
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
@@ -242,6 +265,8 @@ async def on_shutdown():
         await _summary_service.shutdown()
     if _llm_client:
         await _llm_client.close()
+    if _search_aggregator:
+        await _search_aggregator.close()
 
 
 async def main():
