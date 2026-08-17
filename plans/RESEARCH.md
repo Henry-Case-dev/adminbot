@@ -257,6 +257,38 @@ POST <base>/v1/embeddings
 
 ---
 
+## i) Поисковые API: Tavily, Exa, DuckDuckGo (duckduckgo_search) — Epic 33, T-249-C (2026-08-17)
+
+**Инструменты:** context7 ❌ (Invalid API key — прецедент методологии T-173-F, 2026-08-16); exa ✅ (работает — данные ниже из официальных доков через exa_web_search_exa).
+
+### Tavily Search (`https://api.tavily.com/search`)
+- **Auth:** `Authorization: Bearer <tvly-...>` + `Content-Type: application/json`.
+- **Body:** `{"query": str (required), "max_results": 1–20 (default 5), "search_depth": "basic"|"advanced"|"fast"|"ultra-fast" (default basic), "include_answer": bool, "topic": "general"|"news"|"finance"}`.
+- **Response 200:** `{"results": [{"title": str, "url": str, "content": str (AI-снипет, наиболее релевантный), "score": float}], "query": …, "response_time": …, "answer"?: str}`. Ошибки — HTTP 4xx/5xx.
+- **Вывод для агрегатора:** `max_results=5`, `search_depth="basic"` (1 кредит); снипеты = `results[].content`; пустой `results` → провал уровня (фолбек).
+
+### Exa Search (`https://api.exa.ai/search`)
+- **Auth:** `x-api-key: <key>` (документирован и `Authorization: Bearer`).
+- **Body:** `{"query": str (required), "numResults": 1–100 (default 10), "type": "auto", "contents": {...}}`. **ВАЖНО:** на `/search` параметры `text`/`highlights`/`summary` ВЛОЖЕНЫ в `contents` (на `/contents` — топ-уровневые); `contents.text` — `true` или объект `{"maxCharacters": N}`.
+- **Response 200:** `{"results": [{"title", "url", "id", "text"?: str (markdown), "highlights"?: [str], "summary"?: str, "publishedDate", "author"}], "requestId", "costDollars"}`. Ошибки: 4xx/5xx; **402 = Payment Required** (лимит плана).
+- **Вывод:** body `{"query": q, "numResults": 5, "type": "auto", "contents": {"text": {"maxCharacters": 2000}}}`; снипет = `text or highlights[0] or summary`; пустой `results` → провал уровня.
+
+### DuckDuckGo (пакет `duckduckgo-search`, импорт `duckduckgo_search`)
+- **PyPI:** `duckduckgo-search`, последняя **8.1.1** (проверено `pip index versions`, 2026-08-17); `AsyncDDGS` + `atext` + context manager — с 6.x.
+- **Использование:** `async with AsyncDDGS(timeout=15) as ddgs: results = await ddgs.atext(query, max_results=5)` — элементы dict `{"title", "href", "body"}`. Схема ответа нестабильна между мажорами → читать через `dict.get`.
+- **Вывод:** третий уровень каскада без ключа; pin `duckduckgo-search>=8.1.0,<9.0.0`; сбой → `AllSearchEnginesFailedException`.
+
+### Источники (добавлены 2026-08-17)
+
+- https://docs.tavily.com/documentation/api-reference/endpoint/search — Tavily /search: body-параметры, results[].content, securityScheme bearer
+- https://docs.tavily.com/documentation/api-reference/introduction — base URL, `Authorization: Bearer`
+- https://exa.ai/docs/reference/search — Exa /search: OpenAPI 2.0.0, `contents.text`, response-схема, x-codeSamples
+- https://exa.ai/docs/reference/search-api-guide-for-coding-agents — вложение text/highlights/summary в `contents` на /search; 402
+- https://exa.mintlify.app/exa-search/curl — curl-примеры x-api-key
+- PyPI duckduckgo-search 8.1.1 (`pip index versions duckduckgo-search`, 2026-08-17)
+
+---
+
 ## Ключевые выводы и риски (для архитектуры)
 
 1. **Прерывание апдейта в middleware aiogram 3:** официальный способ — НЕ вызывать `await handler(event, data)` (просто `return None`). `CancelUpdate`/`CancelHandler` — внутренние исключения aiogram, в пользовательской middleware их использовать не обязательно.
