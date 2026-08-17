@@ -3023,7 +3023,7 @@
 
 ---
 
-## Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — 2026-08-17 🆕 Шаг 4 (@Builder) ✅ → IN PROGRESS (target v2.31.1)
+## Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — 2026-08-17 ✅ DEPLOYED & ARCHIVED (v2.31.1, коммит `5fb532b`, прод PID 949763, 1564 тестов)
 
 > **Цель:** Устранить прод-баг v2.31.0 (коммит `1172fb5`, PID 948950): «Фактчек отработал, а поиск молчит».
 > В супергруппе chat_id=-1002661910336 при длинном пайплайне SmartSearch (каскад Tavily 5с → Exa 10с → DDG 15с + LLM-генерация
@@ -3114,9 +3114,9 @@
 
 **Приоритет:** P0. **Зависимости:** T-265. **Оценка:** 0.5d.
 
-- [ ] T-266-A: Коммит на русском (conventional): `fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)`; пуш в origin/master; `.env` НЕ коммитим
-- [ ] T-266-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID
-- [ ] T-266-C: Верификация: 0 traceback; новых «message to be replied not found» от SmartSearch нет; отчёт (версия v2.31.1, PID, результат проверок)
+- [x] T-266-A: Коммит на русском (conventional): `fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)`; пуш в origin/master; `.env` НЕ коммитим — **готово: коммит `5fb532b` (9 файлов, +621/−49), пуш origin `1172fb5..5fb532b`, .env не тронут**
+- [x] T-266-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID — **готово: git pull --ff-only (HEAD=5fb532b), .env/venv не тронуты, systemctl restart admin_bot → active (running), MainPID 949763**
+- [x] T-266-C: Верификация: 0 traceback; новых «message to be replied not found» от SmartSearch нет; отчёт (версия v2.31.1, PID, результат проверок) — **готово: journalctl чистый (0 traceback), смоук OK, прод v2.31.1 (5fb532b, PID 949763)**
 
 **DoD:** прод v2.31.1, active (running), логи чистые, отчёт пользователю.
 
@@ -3147,4 +3147,141 @@
 **Date: 2026-08-17**
 
 **Статус: Epic 34 — Шаг 5 (@Reviewer) ✅ APPROVED (2026-08-17): T-265 ЗАКРЫТ, BLOCKER/MAJOR НЕТ.** Ревью строгое, все 8 пунктов чек-листа PASS: (1) реализация дословно соответствует Section 43 (контракты `_send_once`, маркер, fallback только на 1-м чанке, RetryAfter-повтор через `_send_once`, WARNING+INFO матрица); (2) `services/smartmodule_utils.py` прочитан целиком — нет двойной отправки (fallback-успех возвращается штатно → generic except хендлеров не срабатывает), swallowed exceptions нет (только прежний best-effort `_reply`), сигнатуры `_reply`/`send_chunked_reply` не изменены (обратная совместимость); (3) `handlers/search.py` и `handlers/factcheck.py` — git diff пуст (0 изменений); (4) все 9 тестов содержательны (счётчики await_count, kwargs по вызовам, caplog-матрица WARNING/INFO, отсутствие «unexpected error»), покрыты все ветки `_send_once`; (5) личный полный прогон **1564 passed / 0 failed (5.59с)**; (6) `git diff --check` чист, мусора нет, `.env` не в индексе; (7) секретов в диффе нет (упоминания фрагментов ключей в plans — pre-existing текст Epic 33, в новых строках отсутствуют); (8) риски дизайна оценены: бесконечных циклов нет (fallback одноразовый, RetryAfter-повтор прежний один), повторная отправка при RetryAfter сохраняет reply (надмножество, дизайн 43.2), потребители `_reply`/`send_chunked_reply` — только smartmodule-хендлеры (grep-подтверждено), edge «RetryAfter на fallback-повторе» безвреден (RetryAfter = сообщение НЕ принято → дубль невозможен). aiogram 3.29.1 проверен эмпирически на венве: `TelegramAPIError.__init__(self, method, message)` → `exc.message` содержит description, `.description`/`.match` отсутствуют — контракт `_is_reply_target_gone` корректен. MINOR (не блокирует): локальный `import logging` в новых тестах — консистентен с pre-existing стилем файлов (не является дефектом). Передача @DevOps (T-266: коммит `fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)`, пуш, деплой, верификация). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+**Статус: Epic 34 — Шаг 7 (@DevOps) ✅ (2026-08-17): T-266 ЗАКРЫТ — DEPLOYED.** Коммит `5fb532b` «fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)» на master (**9 файлов, +621/−49**), пуш в origin (`1172fb5..5fb532b`). Деплой: `git pull --ff-only` (HEAD=5fb532b), `.env`/venv НЕ тронуты, `systemctl restart admin_bot` → **active (running), MainPID 949763**, journalctl чистый (**0 traceback**), смоук OK. Верификация: 0 traceback, новых «message to be replied not found» от SmartSearch нет. Прод = **v2.31.1** (supersedes v2.31.0). Хендлеры не изменялись.
+**Date: 2026-08-17**
+
+**Статус: Epic 34 — Шаг 8 (@Memory) ✅ ФИНАЛЬНАЯ СИНХРОНИЗАЦИЯ (2026-08-17): ✅ DEPLOYED & ARCHIVED. ЭПИК 34 ЗАКРЫТ И В ПРОДЕ — весь запрос пользователя (баг-репорт SmartSearch: «Фактчек отработал, а поиск молчит») выполнен, полный цикл (Шаги 0–8) завершён.** T-261…T-267 ALL DONE: @Architect (RCA + Section 43) → @Builder (_send_once fallback, хендлеры без правок, +9 тестов, README) → @Reviewer (APPROVED, 1564 passed / 0 failed) → @DevOps (коммит 5fb532b, пуш, деплой, PID 949763, 0 traceback) → @Memory (Шаг 8: граф знаний + планы синхронизированы). **Прод v2.31.1 (`5fb532b`, PID 949763). Тесты: 1564 passed / 0 failed (1555 + 9). Epics 1–34 ALL COMPLETE и DEPLOYED.** Эталон SYSTEM_PROMPT R11 (1518–1539) НЕ тронут. Без @Orchestrator.
+**Date: 2026-08-17**
+
+---
+
+## Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — 2026-08-17 🚧 IN PROGRESS (target v2.31.2)
+
+> **Цель:** Устранить прод-баг v2.31.1 (коммит `5fb532b`, PID 949763): после долгого перерыва Алана
+> (10.8ч молчания, порог `ALAN_SILENCE_GREETING_HOURS=2`) бот отправил greeting ТРИ раза подряд
+> (05:03:24–26 UTC, чат -1002661910336).
+> **Первопричина (RCA, подтверждён логами сервера, read-only диагностика @DevOps):** race condition
+> в F7v2 (`handlers/alan.py`, F7v2-блок строки 100–167) + `handlers/alan_greeting.py`. Алан прислал
+> пачку из 3 сообщений за <1 сек → три РАЗНЫХ апдейта (518925226/227/228) обработаны параллельно
+> (старт ~24.033–24.035; duration 1392/2015/2679 мс). Кулдаун `_last_greeting` (in-memory dict, 10с)
+> пуст после рестарта 04:35:59 (деплой v2.31.1) и записывается ТОЛЬКО ПОСЛЕ успешной отправки видео
+> (1.3–2с). Персистентный `alan_last_msg:{chat_id}` в channel_state (`services/database.py:248-269`)
+> записывается ТОЖЕ ПОСЛЕ `await _send_greeting()` — все три хендлера прочитали устаревший ts
+> (10.8ч ≥ 2ч → проход). Дедупликации по update_id/message_id нет; `_send_greeting` собственного
+> кулдауна не имеет; второго процесса нет; ретраев апдейтов нет; exception нет.
+> **Направления фикса (для @Architect, Section 44):** asyncio.Lock на чат вокруг проверки+отправки;
+> запись кулдауна/ts ДО await отправки; персистентный `last_greeting_at` с атомарной проверкой-записью;
+> возможна комбинация.
+> **Источник:** прод-логи, read-only диагностика @DevOps (2026-08-17). **Исполнители:** @Architect (T-268),
+> @Builder (T-269/T-270/T-273), @Reviewer (T-271), @DevOps (T-272). Без @Orchestrator. **Target:** v2.31.2 (hotfix).
+> **Baseline:** прод v2.31.1 (`5fb532b`), 1564 теста.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R35-1…R35-6, решения D116–D119) → 2/3 @Architect (T-268: RCA-подтверждение + дизайн Section 44)
+> → 3/3 @Builder (T-269 → T-270 → T-273) → @Reviewer (T-271) → @DevOps (T-272).
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R35-1** | **RCA + дизайн (@Architect):** подтвердить/опровергнуть RCA по коду/логам (3 параллельных апдейта, `_last_greeting` пуст после рестарта, запись `alan_last_msg:{chat_id}` ПОСЛЕ `await _send_greeting()`, 10.8ч ≥ 2ч у всех трёх хендлеров); спроектировать фикс в `plans/ARCHITECTURE.md` Section 44 с инвариантом «ровно один greeting на пачку сообщений Алана»; направления D116 (asyncio.Lock / запись ДО await / атомарный персистент / комбинация); тест-план конкурентного сценария; риски. |
+| **R35-2** | **Фикс (@Builder, по дизайну Architect):** 3 параллельных хендлера на 3 апдейтах Алана → РОВНО 1 greeting; легитимный silence-greeting (молчание ≥ порога — как кейс 10.8ч) сохраняется, но отправляется один раз. |
+| **R35-3** | **Тесты:** юнит/интеграционные на конкурентный сценарий (3 параллельных хендлера → ровно 1 greeting, `send_video` вызван 1 раз); полный `pytest` — 1564 baseline + новые, 0 failed/skipped, 0 регрессий. |
+| **R35-4** | **Ревью:** code review @Reviewer, APPROVED до коммита. |
+| **R35-5** | **Деплой:** коммит на русском (conventional `fix(alan): …`), пуш, SSH `nik@198.46.175.136`, `cd /var/www/admin_bot`, git pull, `systemctl restart admin_bot`, `systemctl status admin_bot`, проверка логов (0 traceback). `.env` НЕ трогать (конфиг не меняется). |
+| **R35-6** | **README:** changelog v2.31.2 (ироничный тон). |
+
+### PM Decisions (зафиксированы 2026-08-17)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D116** | Направление фикса | Выбор за @Architect (Section 44): (а) asyncio.Lock на чат вокруг проверки+отправки; (б) запись кулдауна/ts ДО await отправки; (в) персистентный `last_greeting_at` с атомарной проверкой-записью; возможна комбинация. Инвариант: «ровно 1 greeting» на пачку, silence-функция не теряется. |
+| **D117** | Скоуп | Только F7v2-код: `handlers/alan.py` (F7v2-блок 100–167), `handlers/alan_greeting.py` (при необходимости), `services/database.py` (при персистентном подходе), тесты `tests/test_alan*`. Остальные фичи НЕ трогать. |
+| **D118** | Тесты | Конкурентный сценарий через `asyncio.gather`/таски: 3 параллельных вызова хендлера → `send_video` вызван ровно 1 раз; полный `pytest` — 1564 baseline + новые, 0 failed/skipped; `git diff --check` чист. |
+| **D119** | Деплой | Target v2.31.2 (hotfix, patch bump). Коммит на русском (conventional) + пуш; деплой: git pull → restart → status; `.env` без изменений; верификация: 0 traceback. |
+
+### Задачи
+
+### T-268 (@Architect) — RCA-подтверждение + дизайн фикса (R35-1)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [x] T-268-A: Подтвердить race condition по коду/логам (апдейты 518925226/227/228, старт ~24.033–24.035, duration 1392/2015/2679 мс; `_last_greeting` пуст после рестарта 04:35:59; запись ts ПОСЛЕ `await _send_greeting()`; 10.8ч ≥ 2ч → проход всех трёх) — **RCA ПОДТВЕРЖДЁН** (цитаты логов и кода в ARCHITECTURE.md Section 44.1; параллельность доказана пересечением duration; рестарт 04:35:50 SIGKILL→04:35:59 PID 949763; 1 процесс; 0 исключений)
+- [x] T-268-B: Дизайн фикса в `plans/ARCHITECTURE.md` Section 44: гарантия «ровно один greeting»; направления D116 (asyncio.Lock / запись ДО await / персистентный `last_greeting_at` атомарно / комбинация); тест-план конкурентного сценария; риски (дедлоки, restart-persistence, потеря легитимного silence-greeting) — **ВЫБРАНО (d)=(a)+(b): per-chat `asyncio.Lock` + заявка кулдауна/ts ДО `await _send_greeting`** (обоснование 44.2, правки 44.3, тест-план 44.4 из ~9 кейсов, риски 44.5)
+- [x] T-268-C: Self-review + согласование дизайна с PM; T-269/T-270 → READY FOR BUILDER — **готово: D116-подобных блокеров НЕТ**
+
+**DoD:** Section 44 в ARCHITECTURE.md; RCA подтверждён/опровергнут письменно; PM-аппрув дизайна.
+
+### T-269 (@Builder) — Реализация фикса race condition (R35-2, D117)
+
+**Приоритет:** P0. **Зависимости:** T-268. **Оценка:** 0.5d.
+
+- [x] T-269-A: Реализовать фикс строго по Section 44 (lock / запись-до-await / атомарный персистент — по дизайну Architect) — **готово: `handlers/alan_greeting.py` — `import asyncio`, `_greeting_locks: dict[int, asyncio.Lock]` + `_get_greeting_lock(chat_id)` (per-chat, общий для всех трёх путей); `on_alan_join` и `on_alan_new_member` — кулдаун-проверка + отправка внутри `async with _get_greeting_lock(chat_id):`, `_last_greeting[chat_id] = time.time()` ДО `await _send_greeting()` (заявка), при `success=False` → `_last_greeting.pop(chat_id, None)` (rollback); `handlers/alan.py` — F7v2-блок целиком под тем же локом (`from handlers.alan_greeting import ... _get_greeting_lock`): заявка `_last_greeting[chat_id] = now` + best-effort `set_alan_last_message_ts(chat_id, now)` ДО await send (WARNING при сбое записи, in-memory заявка держит degraded-защиту), флаг `ts_written` — инвариант «ровно одна запись ts на вызов» (baseline / below-threshold / cooldown-skip — запись в конце, как раньше); после успешной отправки — если ts не был записан, дописать; при неудаче send — rollback in-memory заявки. Порядок операций в логах («triggered» → «sent»), выводы и поведение при ошибках БД сохранены**
+- [x] T-269-B: Логирование: skip-ветка (кулдаун/лок) с причиной; успешная отправка; WARNING/INFO по конвенции проекта — **готово: все существующие INFO/WARNING строки F7v2 сохранены дословно (контракты тестов), добавлен только WARNING «F7v2: claim ts write failed | chat=%d — in-memory claim holds» (exc_info) для degraded-режима записи заявки (44.3)**
+
+**DoD:** 3 параллельных апдейта → ровно 1 greeting; silence-детекция работает как раньше (легитимный greeting при молчании ≥ порога, один раз).
+
+### T-270 (@Builder) — Тесты на конкурентный сценарий + полный прогон (R35-3, D118)
+
+**Приоритет:** P1. **Зависимости:** T-269. **Оценка:** 0.5d.
+
+- [x] T-270-A: Юнит/интеграционные тесты: 3 параллельных хендлера (`asyncio.gather`) → `send_video` вызван ровно 1 раз; повторная пачка после истечения кулдауна/порога → снова ровно 1 greeting — **готово: +9 кейсов 44.4 — `tests/test_alan.py` `TestAlanSilenceGreetingRace` (+7: 3 параллельных → 1 send и 2×«threshold not reached» в caplog; повтор в кулдаун → 0; после истечения кулдауна → 1; ts записан ДО отправки — side_effect `_send_greeting` в момент вызова проверяет fake-DB ts == NOW и `_last_greeting` уже заявлен; рестарт-симуляция (`_last_greeting`/`_greeting_locks` пусты, stale ts в БД) → 1, повтор сразу → 0; per-chat изоляция (−100 и −200 параллельно → по 1, суммарно 2); неудача send в пачке → `_last_greeting` пуст, ts записан ровно 1 раз на вызов (set_count == 3)); `tests/test_alan_greeting.py` `TestAlanGreetingRace` (+2: 2 параллельных `on_alan_join` → 1 send_video, второй «suppressed» в caplog; join + message одновременно (общий лок, общий счётчик send) → ровно 1). Autouse-фикстуры обновлены: сброс `_greeting_locks` + `_last_greeting` (test_alan.py `_clear_last_greeting`; test_alan_greeting.py — новая фикстура в `TestAlanGreeting` + в `TestAlanGreetingRace`). Fake-DB с dict-хранилищем имитирует реальную БД под локом; `_send_greeting` = slow-send с `await asyncio.sleep(0.05)` (имитация 1.3–2.7с видео)**
+- [x] T-270-B: Полный `pytest` — 1564 baseline + новые, 0 failed/skipped, 0 регрессий; `git diff --check` чист — **готово: 1573 passed / 0 failed / 0 skipped (5.77с; 1564 + 9 новых), существующие тесты alan/alan_greeting зелёные БЕЗ содержательных правок (только autouse-фикстуры дополнены сбросом `_greeting_locks` — согласовано 44.4); `git diff --check` чист (исправлен pre-existing trailing whitespace на alan_greeting.py:110, задетый реиндентом)**
+
+**DoD:** полный прогон зелёный, 0 регрессий (baseline 1564).
+
+### T-271 (@Reviewer) — Code review (R35-4)
+
+**Приоритет:** P0. **Зависимости:** T-270. **Оценка:** 0.25d.
+
+- [x] T-271-A: Ревью фикса (соответствие Section 44, отсутствие дедлоков lock, отсутствие дублей/молчания, логирование) и тестов — **готово (Шаг 5: дословное соответствие 44.3 — `_greeting_locks`/`_get_greeting_lock`, claim-before-send в F7v2 и обоих join-путях, rollback при failure, `ts_written`-флаг; дедлоков нет — иерархия greeting_lock → aiosqlite (get/set_alan_last_message_ts БЕЗ self._lock)/send_video, обратного порядка нет, повторного входа нет; F6/UNHANDLED/порядок логов не тронуты; BLOCKER/MAJOR НЕТ)**
+- [x] T-271-B: Личный прогон полного pytest (1564+ passed); вердикт APPROVED — **готово (Шаг 5: личный прогон @Reviewer 1573 passed / 0 failed / 0 skipped (6.11с, 1564+9); git diff --check чист; секретов в диффе 0; .env не в индексе; только 9 разрешённых файлов изменено)**
+
+**DoD:** APPROVED.
+
+### T-272 (@DevOps) — Коммит + пуш + деплой (R35-5, D119)
+
+**Приоритет:** P0. **Зависимости:** T-271. **Оценка:** 0.5d.
+
+- [ ] T-272-A: Коммит на русском (conventional): `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`; пуш в origin/master; `.env` НЕ коммитим
+- [ ] T-272-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID
+- [ ] T-272-C: Верификация логов: 0 traceback; отчёт (версия v2.31.2, PID, результат проверок)
+
+**DoD:** прод v2.31.2, active (running), логи чистые, отчёт пользователю.
+
+### T-273 (@Builder) — README changelog (R35-6)
+
+**Приоритет:** P1. **Зависимости:** T-270. **Оценка:** 0.1d.
+
+- [x] T-273-A: README v2.31.2 — changelog «🔧 Исправлено в v2.31.2 (Epic 35)» (ироничный тон про тройное приветствие Алана) — **готово: заголовок «Версия: v2.31.2 | Тестов: 1573 | Эпиков: 35 (T-001…T-273)»; секция «🔧 Исправлено в v2.31.2 (Epic 35)» — «Алан больше не здоровается трижды (это не эхо)»: причина (check-then-act race, кулдаун/таймер ПОСЛЕ отправки), фикс (per-chat `asyncio.Lock` + claim-before-send, rollback при неудаче), сохранение легитимного silence-greeting; тесты 1564 → 1573 (+9), полный прогон 1573 / 0 failed**
+
+**DoD:** README консистентен.
+
+### Риски (Epic 35)
+
+1. **Эталон SYSTEM_PROMPT R11 (1518–1539):** правки Epic 35 в backlog — ТОЛЬКО в конце файла (ниже 3156) → сдвига строк НЕТ (соблюдено: Epic 35 в конце).
+2. **Дедлоки/производительность:** asyncio.Lock на чат не должен блокировать другие фичи Алана (F2 random-reply каждые 10 сообщений, mimic) — проверить тестами (T-270).
+3. **Потеря функции:** фикс не должен подавить легитимный silence-greeting (кейс 10.8ч — корректный); skip-ветки логируются.
+4. **Restart-persistence:** in-memory lock/кулдаун теряются при рестарте — персистентный вариант (D116в) закрывает и это; решение за @Architect.
+5. **mimic_relay.py:56-60** (pre-existing, из Epic 34 риск 4) — ВНЕ скоупа, отдельный тикет.
+
+**Файлы (планируемые):** `handlers/alan.py`, `handlers/alan_greeting.py` (при необходимости), `services/database.py` (при персистентном подходе), `tests/test_alan*`, `plans/ARCHITECTURE.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`, `README.md`.
+
+---
+
+**Статус: Epic 35 — Шаг 1 (PM) ✅ (2026-08-17): баг зафиксирован в планах. Требования R35-1…R35-6 и решения D116–D119 зафиксированы в `plans/backlog.md`; доска `plans/board.md` обновлена (Epic 35 → In Progress); `plans/MEMORY.md` — запись Шага 1. RCA (read-only, @DevOps) зафиксирован: race condition F7v2 (`handlers/alan.py` 100–167 + `alan_greeting.py`) — 3 параллельных апдейта, `_last_greeting` пуст после рестарта, персистентный ts записывается ПОСЛЕ await отправки. Epics 33/34 остаются в Done. Эталон SYSTEM_PROMPT R11 (1518–1539) НЕ тронут. Передача @Architect (T-268, RCA-подтверждение + Section 44). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 35 — Шаг 2 (@Architect) ✅ (2026-08-17): T-268 ЗАКРЫТ — RCA ПОДТВЕРЖДЁН, дизайн Section 44 в `plans/ARCHITECTURE.md` готов.** RCA подтверждён цитатами логов (`journal.txt:376-393`, `journal_48h.txt:898-937`: три «triggered» 05:03:24.049/24.062/24.706 → три «sent» 25.423/26.044/26.705; апдейты 518925226/227/228, duration 1392/2015/2679 мс — старты ~24.033–24.035, параллельность доказана пересечением; рестарт 04:35:50 SIGKILL → 04:35:59 PID 949763; 1 процесс, 0 исключений) и кодом (RC1 `alan.py:134-136` — кулдаун ПОСЛЕ send; RC2 `alan.py:157` — ts ПОСЛЕ send; RC3 — нет дедупа по update_id). **Дизайн (Section 44.2, D116): комбинация (d)=(a)+(b)** — per-chat `asyncio.Lock` (`_greeting_locks` + `_get_greeting_lock` в `handlers/alan_greeting.py`, общий для F7v2 и обоих join-путях) + заявка `_last_greeting[chat_id]=now` и запись ts в БД ДО `await _send_greeting()` (rollback заявки при неудаче send — старая семантика; флаг `ts_written` — инвариант «ровно одна запись ts на вызов»; запись заявки best-effort — degraded-режим защищён in-memory кулдауном). Вариант (в) атомарный check-and-set — отклонён для hotfix (1 процесс подтверждён; задокументирован как апгрейд при мультиинстансе, риск #5). Тест-план (44.4): ~9 новых кейсов (asyncio.gather: 3 параллельных → 1 greeting; повтор в кулдаун → 0; после кулдауна → 1; ts записан ДО отправки; join+message → 1; рестарт-симуляция; per-chat изоляция; неудача send → rollback); существующие 1564 теста остаются зелёными БЕЗ содержательных правок (все контракты assert_called_once_with/-100 not in _last_greeting сохранены). Риски (44.5): дедлоков нет (иерархии локов не пересекаются), зависший send ограничен таймаутом сессии aiogram, `/alangreet` НЕ трогаем (D117). Боевой код — 2 файла (`handlers/alan_greeting.py`, `handlers/alan.py`); `services/database.py`/`config/settings.py`/`bot.py`/`.env` — БЕЗ изменений. T-269/T-270/T-273 → READY FOR BUILDER. Передача @Builder (T-269 → T-270 → T-273) → @Reviewer (T-271) → @DevOps (T-272). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 35 — Шаг 4 (@Builder) ✅ (2026-08-17): T-269/T-270/T-273 ALL DONE — фикс реализован строго по Section 44, 1573 passed / 0 failed.** **T-269 (код, 2 файла):** `handlers/alan_greeting.py` — `import asyncio`, `_greeting_locks` + `_get_greeting_lock(chat_id)` (per-chat, общий для F7v2 и обоих join-путей); `on_alan_join`/`on_alan_new_member` — кулдаун-проверка + отправка под `async with _get_greeting_lock(chat_id):`, `_last_greeting[chat_id] = time.time()` ДО `await _send_greeting()` (claim-before-send), при `success=False` → `_last_greeting.pop(chat_id, None)` (rollback, старая семантика). `handlers/alan.py` — F7v2-блок целиком под тем же локом: заявка `_last_greeting[chat_id] = now` + best-effort `set_alan_last_message_ts(chat_id, now)` ДО await send (WARNING «claim ts write failed» при сбое БД, degraded-защита in-memory кулдауном), флаг `ts_written` — ровно одна запись ts на вызов (baseline/below-threshold/cooldown-skip — запись в конце, как раньше); при неудаче send — rollback in-memory заявки. Логи: порядок «triggered» → «sent» и существующие строки сохранены дословно; F6-блок (91-98) не тронут; UNHANDLED-возврат сохранён. **T-270 (тесты, +9):** `tests/test_alan.py` `TestAlanSilenceGreetingRace` (+7: 3 параллельных → ровно 1 send, H2/H3 → «threshold not reached» (caplog); повтор в кулдаун → 0; после истечения → 1; ts записан ДО отправки (side_effect проверяет fake-DB ts == NOW в момент send); рестарт-симуляция → 1 и повтор сразу → 0; per-chat изоляция −100/−200 → по 1; неудача send → `_last_greeting` пуст, ts по 1 записи на вызов); `tests/test_alan_greeting.py` `TestAlanGreetingRace` (+2: 2 параллельных join → 1 send_video, второй suppressed; join + message одновременно → ровно 1). Autouse-фикстуры дополнены сбросом `_greeting_locks` (+ `_last_greeting`) — единственная правка существующих тестов, согласованная 44.4; содержательных правок старых тестов НЕТ. **Полный прогон: 1573 passed / 0 failed / 0 skipped (5.77с; 1564 + 9), `git diff --check` чист.** **T-273 (README):** «Версия: v2.31.2 | Тестов: 1573 | Эпиков: 35», changelog «🔧 Исправлено в v2.31.2 (Epic 35)» — «Алан больше не здоровается трижды (это не эхо)» (ироничный тон). `services/database.py`/`config/settings.py`/`bot.py`/`.env`/`handlers/admin_commands.py` (`/alangreet`)/F6-блок — НЕ тронуты (git diff подтверждает). Эталон SYSTEM_PROMPT R11 (1518–1539) НЕ тронут; правки — только в блоке Epic 35. Передача @Reviewer (T-271: ревью + личный прогон 1573+) → @DevOps (T-272: коммит `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`, пуш, деплой, верификация «triggered» → РОВНО один «sent»). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 35 — Шаг 5 (@Reviewer) ✅ (2026-08-17): T-271 ЗАКРЫТ — вердикт APPROVED, BLOCKER/MAJOR НЕТ.** **T-271-A (ревью):** соответствие Section 44 дословно — `_greeting_locks`/`_get_greeting_lock` (per-chat, общий для F7v2 и обоих join-путей, 44.3); claim-before-send во всех трёх путях (in-memory `_last_greeting[chat_id]=now` + best-effort ts в БД ДО `await _send_greeting()`), флаг `ts_written` (ровно 1 запись ts на вызов; ставится даже при сбое записи заявки — контракт `test_silence_db_write_error_graceful` сохранён), rollback при неудаче send; порядок логов «triggered» → «sent» и все строки дословно; F6-блок (91-98) и UNHANDLED-возврат не тронуты. Дедлоков нет: иерархия greeting_lock → aiosqlite (get/set_alan_last_message_ts БЕЗ DatabaseService._lock)/send_video, обратного порядка нет, повторного входа `_get_greeting_lock` нет; CancelledError освобождает лок через `async with`; зависший send ограничен таймаутом сессии (риск #2). Исходный инцидент решён: 3 параллельных апдейта → РОВНО 1 видео (H2/H3 под локом читают свежий ts → «threshold not reached»; degraded-режим при падении БД на запись заявки закрыт in-memory заявкой 10с). Влияние на propagation: для пачки в том же чате задержка UNHANDLED ~ длительности send — НЕ хуже v2.31.1 (там каждый хендлер сам слал видео); другие чаты не блокируются; `/alangreet` намеренно вне лока (риск #8, D117). **T-271-B (прогон):** личный прогон @Reviewer: **1573 passed / 0 failed / 0 skipped (6.11с; 1564+9)**; `git diff --check` чист; секретов в новых строках диффа 0; `.env` не в индексе; изменены только 9 разрешённых файлов (2 боевых + 2 тестовых + README + 4 плана). **MINOR (не блокеры, вне 44.4):** нет теста на WARNING-ветку «claim ts write failed»; дублирование _FakeSilenceDB/FakeDB в тестах; `_greeting_locks` без эвикции (риск #7 принят); в join-путях заявка берёт второй `time.time()` вместо `now` (соответствует псевдокоду 44.3, дрейф микросекунды). Context7 недоступен в окружении (Invalid API key) — компенсировано эмпирикой (прогон на венве с aiogram 3.29) и stdlib-семантикой asyncio. Передача @DevOps (T-272: коммит `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`, пуш, деплой, верификация 0 traceback и «triggered» → РОВНО один «sent» на пачку). Без @Orchestrator.**
 **Date: 2026-08-17**

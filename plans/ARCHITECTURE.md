@@ -6694,3 +6694,186 @@ Best-effort семантика сохранена; fallback теперь защ�
 **НЕ менять:** `services/summary_generator.py` (статический `_chunk_by_whitespace` уже импортируется), `services/summary_cleanup.py`, `services/mimic_relay.py` (риск #4 — отдельный тикет), порядок роутеров, `.env`.
 
 @Architect Epic 34 architecture ready (Section 43, RCA подтверждён — удалённый reply-таргет; fallback спроектирован в utils, хендлеры без правок), passing the baton to @Builder (T-262 → T-263 → T-264 → T-267) и @Reviewer (T-265) / @DevOps (T-266).
+
+---
+
+## Section 44: Epic 35 — Hotfix alan_greeting тройной greeting (race condition F7v2, v2.31.2)
+
+**Баг:** прод v2.31.1 (коммит `5fb532b`, PID 949763): после 10.8ч молчания Алана (порог `ALAN_SILENCE_GREETING_HOURS=2.0` на проде) бот отправил greeting-видео ТРИ раза подряд (05:03:24–26 UTC, чат -1002661910336). **Target:** v2.31.2 (hotfix, D119). **Baseline:** 1564 теста. **Инвариант (R35-1):** пачка сообщений Алана (silence ИЛИ join) → РОВНО 1 greeting; легитимный silence-greeting сохраняется. Без @Orchestrator.
+
+### 44.1 RCA — ПОДТВЕРЖДЁН логами и кодом (T-268-A)
+
+**Ключевые цитаты логов (`journal.txt:376-393`; рестарт — `journal_48h.txt:898-937`):**
+
+```
+05:03:24,049 - handlers.alan - INFO - F7v2: silence greeting triggered | chat=-1002661910336 | elapsed=10.8h | threshold=2.0h
+05:03:24,062 - handlers.alan - INFO - F7v2: silence greeting triggered | ... (второй «triggered» через 13 мс)
+05:03:24,706 - handlers.alan - INFO - F7v2: silence greeting triggered | ... (третий, +657 мс)
+05:03:25,423 - handlers.alan - INFO - F7v2: silence greeting sent | ...
+05:03:25,427 - aiogram.event - INFO - Update id=518925227 is not handled. Duration 1392 ms by bot id=8349768372
+05:03:26,044 - handlers.alan - INFO - F7v2: silence greeting sent | ...
+05:03:26,050 - aiogram.event - INFO - Update id=518925228 is not handled. Duration 2015 ms by bot id=8349768372
+05:03:26,705 - handlers.alan - INFO - F7v2: silence greeting sent | ...
+05:03:26,712 - aiogram.event - INFO - Update id=518925226 is not handled. Duration 2679 ms by bot id=8349768372
+```
+
+- **Три РАЗНЫХ апдейта** (518925226/227/228) — не ретраи; «not handled» — норма (alan_handler возвращает UNHANDLED, alan.py:169), но F7v2-логика в нём отработала (по «triggered» на каждый).
+- **Параллельность доказана пересечением duration:** старты = 26.712−2.679 ≈ 24.033, 26.050−2.015 ≈ 24.035, 25.427−1.392 ≈ 24.035 — все три хендлера выполнялись ОДНОВРЕМЕННО.
+- **Рестарт:** `journal_48h.txt:898-905` — 04:35:50 SIGKILL старого PID 949617 («State 'stop-sigterm' timed out»); `:935-937` — 04:35:59 новый PID 949763 «Bot started, listening for messages...» → in-memory `_last_greeting` был ПУСТ на 05:03:24.
+- **Один процесс:** `processes.txt` — единственный `python /var/www/admin_bot/bot.py` PID 949763; `status.txt` — unit active (running). Второго инстанса НЕТ.
+- **Исключений в окне инцидента нет** — журнал чистый, только INFO.
+- `db_read2.txt`: ключ `alan_last_msg:-1002661910336` существует — персистентный ts пишется, но ПОСЛЕ отправки.
+
+**Корневые причины (код):**
+
+| # | Причина | Цитата |
+|---|---|---|
+| RC1 | In-memory кулдаун записывается ПОСЛЕ `await _send_greeting()` (1.3–2.7с на отправку видео) | `handlers/alan.py:134-136` — `success = await _send_greeting(...)` → `_last_greeting[chat_id] = now`; то же в join-путях `handlers/alan_greeting.py:102-104`, `127-129` |
+| RC2 | Персистентный ts записывается ПОСЛЕ отправки — все три хендлера прочитали устаревший ts | `handlers/alan.py:110` (чтение) и `:157` (`await alan_db.set_alan_last_message_ts(chat_id, now)` ПОСЛЕ send); хранилище `services/database.py:248-269` |
+| RC3 | Дедупликации по update_id/message_id нет; `_send_greeting` собственного кулдауна не имеет | `handlers/alan_greeting.py:53-72` — только pick + send_video |
+
+**Хронология:** все три хендлера одновременно (~24.033–24.035) прочитали ts «10.8ч назад» (RC2), `_last_greeting` пуст (рестарт 04:35:59), каждый прошёл порог 2.0ч → три «triggered» → три send_video (25.423/26.044/26.705), и только ПОСЛЕ этого каждый записал кулдаун/ts (RC1/RC2). Классический check-then-act race.
+
+**Исключено:** второй процесс (processes.txt — 1 PID); ретраи (разные update_id); exception (журнал чист); join-цепочка как источник ЭТОГО инцидента (в логах только F7v2-строки из alan.py) — но join-пути уязвимы к ТОЙ ЖЕ гонке (вторичный сценарий, лечится тем же фиксом).
+
+### 44.2 Выбор механизма (D116) — комбинация (а)+(б): per-chat asyncio.Lock + заявка ДО await
+
+| Кандидат | Оценка | Вердикт |
+|---|---|---|
+| (а) asyncio.Lock на чат | Сериализует «проверка порога → кулдаун → отправка → запись ts»; второй/третий хендлер ВНУТРИ лока читают уже свежий ts из БД → порог не пройден → skip. Работает и после рестарта: источник истины silence-порога — БД ts, а чтение происходит под локом | ✅ основной механизм |
+| (б) запись кулдауна/ts ДО await | Закрывает окно «кулдаун/ts записан через 1.3–2.7с ПОСЛЕ отправки». Сама по себе НЕ достаточна (без лока три хендлера могут записать ts раньше, чем его прочитают остальные — окно сужается, но не исчезает) | ✅ применяется ВНУТРИ лока |
+| (в) персистентный `last_greeting_at` с атомарным check-and-set | Защищает и от двух ИНСТАНСОВ бота. Но процесс один (подтверждено ops-фактами); требует нового SQL/метода → больше диффа в hotfix; read+write на одном aiosqlite-коннекте и так сериализованы | ❌ вне скоупа; задокументирован как будущий апгрейд при мультиинстансе (риск #5) |
+| (d) комбинация | (а)+(б) даёт инвариант «ровно 1 greeting на пачку» ДЕТЕРМИНИРОВАННО при одном процессе; минимальный дифф; сохраняет существующее поведение (10с кулдаун, silence-порог, rollback при неудаче) | ✅ ВЫБРАНО |
+
+**Почему (а)+(б) достаточно при рестарте:** проблема не «память потеряна», а «check-then-act без сериализации». Под локом первый хендлер пишет ts ДО отправки (44.3); второй/третий читают уже свежий ts → «threshold not reached». Потеря in-memory `_last_greeting` при рестарте несущественна: silence-порог опирается на БД, а join-greeting после рестарта легитимен (свежее join-событие).
+
+**Крэш между отправкой и записью:** окно закрыто переносом записи ts ДО `await _send_greeting` — крэш после записи теряет максимум ОДИН greeting и НИКОГДА не дублирует. Обратная сторона (крэш между записью и отправкой → greeting потерян) — приемлемая цена против тройного спама.
+
+### 44.3 Точные правки (D117)
+
+**Файл 1: `handlers/alan_greeting.py`** — общий per-chat lock + claim-before-send в обоих join-путях:
+
+```python
+import asyncio                                  # добавить к существующим импортам
+
+_greeting_locks: dict[int, asyncio.Lock] = {}   # рядом с _last_greeting (строка 24)
+
+def _get_greeting_lock(chat_id: int) -> asyncio.Lock:
+    """Per-chat lock (Section 44). Создание синхронное — гонки на создание нет."""
+    lock = _greeting_locks.get(chat_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _greeting_locks[chat_id] = lock
+    return lock
+```
+
+- `on_alan_join` (75-105): кулдаун-проверку + отправку обернуть в `async with _get_greeting_lock(chat_id):`; `_last_greeting[chat_id] = time.time()` — ДО `await _send_greeting(...)` (заявка); при `success=False` → `_last_greeting.pop(chat_id, None)` (rollback — старая семантика «неудача не ставит кулдаун»).
+- `on_alan_new_member` (107-131): то же самое; ветка suppressed → `return UNHANDLED` (как сейчас).
+
+**Файл 2: `handlers/alan.py`** — F7v2-блок (100-167) целиком внутрь того же лока:
+
+```python
+from handlers.alan_greeting import _send_greeting, _last_greeting, _get_greeting_lock  # расширить строку 19
+
+# F7v2-блок (внутри существующего try, вместо текущего тела 108-161):
+async with _get_greeting_lock(message.chat.id):
+    now = time.time()
+    last_ts = await alan_db.get_alan_last_message_ts(message.chat.id)
+    chat_id = message.chat.id
+    ts_written = False
+    if last_ts is not None:
+        elapsed = now - last_ts
+        threshold = silence_hours * 3600
+        if elapsed >= threshold:
+            cooldown_ok = True
+            if chat_id in _last_greeting:
+                since_last = now - _last_greeting[chat_id]
+                if since_last < settings.ALAN_GREETING_COOLDOWN:
+                    cooldown_ok = False
+                    logger.info("F7v2: silence greeting for chat %d suppressed by shared cooldown "
+                                "(%.1fs since last greeting, cooldown=%ds)",
+                                chat_id, since_last, settings.ALAN_GREETING_COOLDOWN)
+            if cooldown_ok:
+                # ── ЗАЯВКА ДО ОТПРАВКИ (Section 44.2): in-memory кулдаун + персистентный ts ──
+                _last_greeting[chat_id] = now
+                try:
+                    await alan_db.set_alan_last_message_ts(chat_id, now)   # ts ДО await send
+                except Exception:
+                    logger.warning("F7v2: claim ts write failed | chat=%d — in-memory claim holds",
+                                   chat_id, exc_info=True)
+                ts_written = True   # инвариант «ровно одна запись ts на вызов»
+                logger.info("F7v2: silence greeting triggered | chat=%d | elapsed=%.1fh | threshold=%.1fh",
+                            chat_id, elapsed / 3600, silence_hours)
+                success = await _send_greeting(message.bot, chat_id)
+                if success:
+                    logger.info("F7v2: silence greeting sent | chat=%d | elapsed=%.1fh",
+                                chat_id, elapsed / 3600)
+                else:
+                    logger.warning("F7v2: silence greeting send failed | chat=%d", chat_id)
+                    _last_greeting.pop(chat_id, None)   # rollback заявки (старая семантика)
+        else:
+            logger.info("F7v2: silence threshold not reached | chat=%d | elapsed=%.1fh | threshold=%.1fh "
+                        "— timer reset without greeting", chat_id, elapsed / 3600, silence_hours)
+    else:
+        logger.info("F7v2: first message from Alan in chat %d — baseline recorded, no greeting", chat_id)
+    if not ts_written:
+        await alan_db.set_alan_last_message_ts(chat_id, now)   # baseline / below-threshold / cooldown-skip
+    logger.debug("F7v2: updated last message timestamp for chat %d to %.0f", chat_id, now)
+```
+
+**Ключевые контракты:**
+
+- **Ровно одна запись ts на вызов** (`ts_written`-флаг): baseline / below-threshold / cooldown-skip → запись в конце (как раньше); claim-ветка → запись ДО send. Флаг ставится даже при неудачной записи заявки — повторная doomed-запись не делается (сохранён контракт `test_silence_db_write_error_graceful`).
+- **Rollback in-memory заявки при неудаче send** — сохранена старая семантика (`test_silence_send_greeting_error_graceful`: `assert -100 not in _last_greeting`).
+- **Деградация при падении БД на запись заявки:** in-memory заявка всё равно блокирует H2/H3 через 10с-кулдаун (dual protection) → тройной greeting невозможен даже в degraded-режиме; WARNING в лог.
+- **F6-часть (alan.py:91-98) НЕ трогаем** — reply-движок вне критической секции; alan_handler по-прежнему возвращает UNHANDLED → mimic/danger/summary-observer не затронуты.
+- **`/alangreet` (admin_commands.py:106-127) НЕ трогаем:** ручной админ-триггер намеренно без кулдауна (D117 — скоуп только F7v2, «не ломать»). Пересечение ручного триггера с join/silence — редкий админ-осознанный кейс (риск #8).
+
+**НЕ менять:** `services/database.py` (существующие `get_alan_last_message_ts`/`set_alan_last_message_ts` переиспользуются), `config/settings.py` (`ALAN_GREETING_COOLDOWN=10`, `ALAN_SILENCE_GREETING_HOURS` — без изменений), `bot.py`, `.env` (D119).
+
+**Совместимость с aiogram 3.7+:** asyncio.Lock — stdlib, прикладной уровень; не пересекается с диспетчеризацией aiogram (каждый апдейт — отдельная таска, блокировка лока не останавливает polling). Хендлеры остаются async; сигнатуры не меняются.
+
+### 44.4 Тест-план (R35-3, D118; baseline 1564 → 1564 + новые, 0 failed/skipped)
+
+Конкурентность: `asyncio.gather` трёх корутин; fake-DB с dict-хранилищем (`get` читает dict, `set` пишет — имитация реальной БД под локом); `_send_greeting` = AsyncMock с `await asyncio.sleep(0.05)` (имитация 1.3–2.7с видео); autouse-fixture сбрасывает `_last_greeting` И `_greeting_locks`.
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | `tests/test_alan.py` (новый класс TestAlanSilenceGreetingRace) | 3 параллельных `alan_handler` (`asyncio.gather`), stale ts = NOW−7ч, кулдаун пуст | `_send_greeting` вызван РОВНО 1 раз; ts в fake-DB = NOW; H2/H3 → «threshold not reached» |
+| 2 | там же | Повторная пачка сразу после #1 (в течение 10с) | 0 отправок (кулдаун) |
+| 3 | там же | Повторная пачка через 15с (`_last_greeting[chat] = NOW−15`) + stale ts | РОВНО 1 отправка |
+| 4 | там же | **ts записан ДО отправки:** side_effect `_send_greeting` в момент вызова проверяет fake-DB ts == NOW | ts записан до await send (инвариант 44.2) |
+| 5 | `tests/test_alan_greeting.py` | join + message одновременно: `asyncio.gather(on_alan_join(event), alan_handler(msg))`, общий bot-mock | суммарно РОВНО 1 send_video |
+| 6 | там же | 2 параллельных `on_alan_join` | 1 send_video; второй «suppressed (cooldown)» |
+| 7 | `tests/test_alan.py` | **Рестарт-симуляция:** `_last_greeting`/`_greeting_locks` пусты, stale ts в fake-DB → одиночный вызов | 1 отправка (silence переживает рестарт); повтор сразу → 0 |
+| 8 | там же | Per-chat изоляция лока: параллельные пачки в чатах −100 и −200 | по 1 отправке в каждом (2 суммарно) |
+| 9 | там же | Неудача send в пачке: 3 параллельных, `_send_greeting` → False | заявка откачена (`_last_greeting` пуст), ts записан 1 раз — старая семантика |
+| Регрессия | — | Полный `pytest` | 1564 baseline + ~9 новых, 0 failed/skipped, `git diff --check` чист |
+
+**Существующие тесты остаются зелёными БЕЗ содержательных правок** — дизайн сохраняет все контракты: `test_silence_threshold_exceeded_sends_greeting` (`set_alan_last_message_ts.assert_called_once_with` — одна запись), `test_silence_send_greeting_error_graceful` (`-100 not in _last_greeting` — rollback), `test_silence_db_write_error_graceful` (send вызван, несмотря на сбой записи), `test_silence_cooldown_suppresses_duplicate` (одна запись ts), 16 тестов `test_alan_greeting.py`. Единственная правка тестов — autouse-fixture `_clear_last_greeting` дополнить сбросом `_greeting_locks` (изоляция между тестами).
+
+### 44.5 Риски
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | **Дедлок** — вложенные await под локом (send_video, БД) | Критическая секция не вызывает ничего, что берёт greeting-lock того же/другого чата; `DatabaseService._lock` — другая иерархия, циклов нет; тесты #1/#5 ловят регрессию |
+| 2 | **Зависший send_video держит лок** | `_send_greeting` ловит ВСЕ исключения → лок всегда освобождается; ожидание ограничено таймаутом HTTP-сессии aiogram; страдает только очередь greeting того же чата (F6/mimic/danger — вне лока, другие чаты не блокируются); `asyncio.wait_for` — опциональное будущее усиление, НЕ в hotfix |
+| 3 | **Влияние на другие фичи Алана (роутер 3)** | F6-ответ (91-98) до лока; alan_handler по-прежнему возвращает UNHANDLED → propagation (mimic/danger/summary-observer) не затронут; лок per-chat → другие чаты не блокируются |
+| 4 | **Restart-persistence** | Закрыта дизайном: чтение ts под локом + запись ДО отправки (44.2). In-memory `_last_greeting` остаётся только как 10с-антиспам F7/F7v2 |
+| 5 | **Мультиинстанс бота** | Исключён ops-фактами (1 PID, 1 systemd-unit). Если появится — апгрейд на (в) атомарный check-and-set в БД (отдельный тикет) |
+| 6 | **Падение БД на запись заявки** | Деградация: in-memory заявка блокирует дубли 10с; WARNING в лог; поведение не хуже v2.31.1 |
+| 7 | **Рост `_greeting_locks`** | По одному лок'у на chat_id; бот обслуживает единичные чаты (прецедент `_last_greeting`); очистка — вне скоупа hotfix |
+| 8 | **Ручной `/alangreet` вне лока** | Намеренно (D117, «не ломать»); пересечение с join/silence — редкий админ-кейс, риск принят |
+| 9 | **Эталон SYSTEM_PROMPT R11 (backlog 1518–1539)** | Правки backlog — только в блоке Epic 35 (конец файла); сдвига строк НЕТ |
+
+### 44.6 Сводка для Builder (файлы, порядок)
+
+**Боевой код — ДВА файла:** `handlers/alan_greeting.py` (лок + claim-before-send в join-путях) и `handlers/alan.py` (F7v2-блок под тем же локом, заявка до await). `services/database.py`, `config/settings.py`, `bot.py`, `.env` — БЕЗ изменений.
+
+**Тесты:** `tests/test_alan.py` (+7 кейсов: #1-4, #7-9), `tests/test_alan_greeting.py` (+2: #5-6).
+
+**Порядок:** T-269 (alan_greeting.py → alan.py) → T-270 (тесты + полный прогон 1564+, `git diff --check`) → T-273 (README v2.31.2) → @Reviewer T-271 → @DevOps T-272 (коммит `fix(alan): Epic 35 — race condition тройного greeting F7v2 (v2.31.2)`, пуш, деплой, верификация: 0 traceback, «triggered» → РОВНО один «sent» на пачку). `.env` НЕ трогать (D119).
+
+**НЕ менять:** `services/database.py`, `config/settings.py`, `bot.py`, порядок роутеров, `handlers/admin_commands.py` (`/alangreet`), `.env`, эталон SYSTEM_PROMPT.
+
+@Architect Epic 35 architecture ready (Section 44, RCA подтверждён — check-then-act race в F7v2/join, три параллельных апдейта; фикс — per-chat asyncio.Lock + заявка кулдауна/ts ДО await send), passing the baton to @Builder (T-269 → T-270 → T-273) и @Reviewer (T-271) / @DevOps (T-272).

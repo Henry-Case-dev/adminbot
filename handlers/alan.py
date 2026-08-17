@@ -16,7 +16,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from filters.user_id import UserIdFilter
 from config.settings import settings
 from services.database import DatabaseService
-from handlers.alan_greeting import _send_greeting, _last_greeting
+from handlers.alan_greeting import _send_greeting, _last_greeting, _get_greeting_lock
 
 logger = logging.getLogger(__name__)
 
@@ -106,59 +106,72 @@ async def alan_handler(message: types.Message) -> None:
         )
     else:
         try:
-            now = time.time()
-            last_ts = await alan_db.get_alan_last_message_ts(message.chat.id)
-            chat_id = message.chat.id
+            async with _get_greeting_lock(message.chat.id):
+                now = time.time()
+                last_ts = await alan_db.get_alan_last_message_ts(message.chat.id)
+                chat_id = message.chat.id
+                ts_written = False
 
-            if last_ts is not None:
-                elapsed = now - last_ts
-                threshold = silence_hours * 3600
-                if elapsed >= threshold:
-                    # Check shared anti-spam cooldown with F7 join greeting
-                    cooldown_ok = True
-                    if chat_id in _last_greeting:
-                        since_last = now - _last_greeting[chat_id]
-                        if since_last < settings.ALAN_GREETING_COOLDOWN:
-                            cooldown_ok = False
+                if last_ts is not None:
+                    elapsed = now - last_ts
+                    threshold = silence_hours * 3600
+                    if elapsed >= threshold:
+                        # Check shared anti-spam cooldown with F7 join greeting
+                        cooldown_ok = True
+                        if chat_id in _last_greeting:
+                            since_last = now - _last_greeting[chat_id]
+                            if since_last < settings.ALAN_GREETING_COOLDOWN:
+                                cooldown_ok = False
+                                logger.info(
+                                    "F7v2: silence greeting for chat %d suppressed by shared cooldown "
+                                    "(%.1fs since last greeting, cooldown=%ds)",
+                                    chat_id, since_last, settings.ALAN_GREETING_COOLDOWN,
+                                )
+
+                        if cooldown_ok:
+                            # ── ЗАЯВКА ДО ОТПРАВКИ (Section 44.2): in-memory кулдаун + персистентный ts ──
+                            _last_greeting[chat_id] = now
+                            try:
+                                await alan_db.set_alan_last_message_ts(chat_id, now)
+                            except Exception:
+                                logger.warning(
+                                    "F7v2: claim ts write failed | chat=%d — in-memory claim holds",
+                                    chat_id, exc_info=True,
+                                )
+                            ts_written = True
                             logger.info(
-                                "F7v2: silence greeting for chat %d suppressed by shared cooldown "
-                                "(%.1fs since last greeting, cooldown=%ds)",
-                                chat_id, since_last, settings.ALAN_GREETING_COOLDOWN,
+                                "F7v2: silence greeting triggered | chat=%d | elapsed=%.1fh | threshold=%.1fh",
+                                chat_id, elapsed / 3600, silence_hours,
                             )
-
-                    if cooldown_ok:
+                            success = await _send_greeting(message.bot, chat_id)
+                            if success:
+                                logger.info(
+                                    "F7v2: silence greeting sent | chat=%d | elapsed=%.1fh",
+                                    chat_id, elapsed / 3600,
+                                )
+                            else:
+                                logger.warning(
+                                    "F7v2: silence greeting send failed | chat=%d", chat_id,
+                                )
+                                _last_greeting.pop(chat_id, None)
+                    else:
                         logger.info(
-                            "F7v2: silence greeting triggered | chat=%d | elapsed=%.1fh | threshold=%.1fh",
+                            "F7v2: silence threshold not reached | chat=%d | elapsed=%.1fh | threshold=%.1fh "
+                            "— timer reset without greeting",
                             chat_id, elapsed / 3600, silence_hours,
                         )
-                        success = await _send_greeting(message.bot, chat_id)
-                        if success:
-                            _last_greeting[chat_id] = now
-                            logger.info(
-                                "F7v2: silence greeting sent | chat=%d | elapsed=%.1fh",
-                                chat_id, elapsed / 3600,
-                            )
-                        else:
-                            logger.warning(
-                                "F7v2: silence greeting send failed | chat=%d", chat_id,
-                            )
                 else:
                     logger.info(
-                        "F7v2: silence threshold not reached | chat=%d | elapsed=%.1fh | threshold=%.1fh "
-                        "— timer reset without greeting",
-                        chat_id, elapsed / 3600, silence_hours,
+                        "F7v2: first message from Alan in chat %d — baseline recorded, no greeting",
+                        chat_id,
                     )
-            else:
-                logger.info(
-                    "F7v2: first message from Alan in chat %d — baseline recorded, no greeting",
-                    chat_id,
-                )
 
-            await alan_db.set_alan_last_message_ts(chat_id, now)
-            logger.debug(
-                "F7v2: updated last message timestamp for chat %d to %.0f",
-                chat_id, now,
-            )
+                if not ts_written:
+                    await alan_db.set_alan_last_message_ts(chat_id, now)
+                logger.debug(
+                    "F7v2: updated last message timestamp for chat %d to %.0f",
+                    chat_id, now,
+                )
 
         except Exception:
             logger.exception(

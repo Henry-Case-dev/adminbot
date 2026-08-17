@@ -9,6 +9,8 @@ Tests cover:
   - Empty greeting directory handled gracefully
   - Random video selection from multiple files
 """
+import asyncio
+import logging
 import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,6 +22,7 @@ from handlers.alan_greeting import (
     _send_greeting,
     alan_greeting_router,
     _last_greeting,
+    _greeting_locks,
 )
 
 
@@ -47,6 +50,12 @@ def make_cmu_event(user_id: int, old_status: str = "left", new_status: str = "me
 
 
 class TestAlanGreeting:
+    @pytest.fixture(autouse=True)
+    def _clear_greeting_state(self):
+        """Reset _last_greeting and _greeting_locks between tests (per-chat lock isolation, Section 44)."""
+        _last_greeting.clear()
+        _greeting_locks.clear()
+
     @pytest.mark.asyncio
     async def test_alan_join_sends_video(self):
         event = make_cmu_event(138811255, "left", "member")
@@ -342,3 +351,80 @@ class TestAlanGreeting:
 
         slava_presence_router._parent_router = None
         alan_greeting_router._parent_router = None
+
+
+class TestAlanGreetingRace:
+    """Concurrency tests for the F7 join-greeting race fix (Epic 35, Section 44).
+
+    The per-chat lock is shared between join paths and the F7v2 silence path:
+    join + message bursts must produce exactly ONE greeting in total.
+    """
+
+    NOW = 1721000000.0
+
+    @pytest.fixture(autouse=True)
+    def _clear_greeting_state(self):
+        _last_greeting.clear()
+        _greeting_locks.clear()
+
+    @pytest.mark.asyncio
+    async def test_parallel_joins_single_video(self, caplog):
+        """2 parallel on_alan_join on the same chat → 1 send_video, second suppressed."""
+        event1 = make_cmu_event(138811255, "left", "member")
+        event2 = make_cmu_event(138811255, "left", "member", chat_id=event1.chat.id)
+
+        sends = []
+
+        async def slow_send(bot, chat_id):
+            await asyncio.sleep(0.05)
+            sends.append((bot, chat_id))
+            return True
+
+        with patch("handlers.alan_greeting._send_greeting", side_effect=slow_send), \
+             caplog.at_level(logging.INFO, logger="handlers.alan_greeting"):
+            await asyncio.gather(on_alan_join(event1), on_alan_join(event2))
+
+        assert len(sends) == 1
+        assert "suppressed" in caplog.text
+        assert _last_greeting[event1.chat.id] is not None
+
+    @pytest.mark.asyncio
+    async def test_join_and_message_race_single_video(self, make_message):
+        """on_alan_join + alan_handler (F7v2) simultaneously → exactly 1 greeting in total."""
+        from handlers.alan import alan_handler, setup_alan
+
+        class FakeDB:
+            def __init__(self):
+                self.ts = {}
+
+            async def increment_and_get_count(self, chat_id, user_id):
+                return 1
+
+            async def get_alan_last_message_ts(self, chat_id):
+                return self.ts.get(chat_id)
+
+            async def set_alan_last_message_ts(self, chat_id, ts):
+                self.ts[chat_id] = ts
+
+        db = FakeDB()
+        db.ts[-1001234567890] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        event = make_cmu_event(138811255, "left", "member")
+        msg = make_message(138811255, text="первое сообщение Алана", chat_id=event.chat.id)
+        msg.bot = AsyncMock()
+
+        sends = []
+
+        async def slow_send(bot, chat_id):
+            await asyncio.sleep(0.05)
+            sends.append((bot, chat_id))
+            return True
+
+        with patch("handlers.alan_greeting._send_greeting", side_effect=slow_send), \
+             patch("handlers.alan._send_greeting", side_effect=slow_send), \
+             patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan_greeting.time.time", return_value=self.NOW):
+            await asyncio.gather(on_alan_join(event), alan_handler(msg))
+
+        assert len(sends) == 1

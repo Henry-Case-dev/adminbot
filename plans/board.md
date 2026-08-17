@@ -6,23 +6,38 @@
 
 ## 🔧 In Progress
 
-### Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — 🚧 IN PROGRESS (Шаг 5/@Reviewer ✅ APPROVED → T-266 @DevOps, target v2.31.1)
+### Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — 🚧 IN PROGRESS (Шаг 4 @Builder ✅, 2026-08-17, target v2.31.2)
 
-> Заведён 2026-08-17 (@PM, Шаг 1). Баг прод v2.31.0 (коммит `1172fb5`, PID 948950): «Фактчек отработал, а поиск молчит» — триггер «найди …» удаляется в супергруппе (-1002661910336) за время каскада research() → `TelegramBadRequest` «message to be replied not found» в `handlers/search.py:85` и повторно в `services/smartmodule_utils.py:36` (общий except `handlers/search.py:95-98` шлёт `_reply` на тот же мёртвый id → вторая 400 → пользователь не получает ничего). Полный трек — `plans/backlog.md` (Epic 34). Порядок: T-261 (@Architect) → T-262/T-263/T-264/T-267 (@Builder) → T-265 (@Reviewer) → T-266 (@DevOps). Без @Orchestrator.
+> **Баг (прод v2.31.1, `5fb532b`, PID 949763):** после 10.8ч молчания Алана (порог 2ч) бот отправил greeting ТРИ раза подряд (05:03:24–26 UTC, чат -1002661910336).
+> **RCA (@DevOps, read-only, подтверждён логами):** race condition F7v2 — пачка из 3 сообщений Алана за <1 сек → три РАЗНЫХ апдейта (518925226/227/228) обработаны параллельно; `_last_greeting` пуст после рестарта 04:35:59 (записывается ТОЛЬКО ПОСЛЕ отправки видео, 1.3–2с); `alan_last_msg:{chat_id}` записывается ТОЖЕ ПОСЛЕ `await _send_greeting()` → все три хендлера прочитали устаревший ts (10.8ч ≥ 2ч → проход). Дедупликации по update_id/message_id нет.
+> **Направления фикса (для @Architect, Section 44):** asyncio.Lock на чат вокруг проверки+отправки; запись кулдауна/ts ДО await отправки; персистентный last_greeting_at с атомарной проверкой-записью; возможна комбинация.
+> Полный трек — `plans/backlog.md` (Epic 35).
 
-- [x] T-261 (@Architect, P0) — RCA-подтверждение + дизайн фикса (ARCHITECTURE.md Section 43) — **Шаг 2 ✅ (2026-08-17)**
-- [x] T-262 (@Builder, P0) — fallback «retry без reply_to_message_id» в smartmodule_utils (send_chunked_reply/_reply) + логирование — **Шаг 4 ✅ (`_send_once`/`_is_reply_target_gone`, WARNING→INFO)**
-- [x] T-263 (@Builder, P1) — применение фолбека в handlers/search.py (+ factcheck.py при необходимости), без дублей — **Шаг 4 ✅ (хендлеры БЕЗ правок, 43.3; доказано тестами #8/#9: 1×400-gone = 1 доставка без reply)**
-- [x] T-264 (@Builder, P1) — юнит-тесты fallback (мок bot.send_message: 1-й TelegramBadRequest → 2-й без reply OK), 0 регрессий (baseline 1555) — **Шаг 4 ✅ (+9 тестов, 1564 passed / 0 failed)**
-- [x] T-265 (@Reviewer, P0) — code review — **Шаг 5 ✅ APPROVED (2026-08-17, T-265-A/B: личный прогон 1564 passed / 0 failed, diff-check чист, хендлеры не тронуты, секретов нет; BLOCKER/MAJOR НЕТ)**
-- [ ] T-266 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.1 (git pull, restart, status)
-- [x] T-267 (@Builder, P1) — README-фикс при необходимости (или skip) — **Шаг 4 ✅ (changelog «🔧 Исправлено в v2.31.1 (Epic 34)»)**
+- [x] T-268 (@Architect, P0) — RCA-подтверждение по логам + дизайн фикса в ARCHITECTURE.md (Section 44) — **Done (Шаг 2)**
+- [x] T-269 (@Builder, P0) — реализация фикса race condition (по дизайну Architect) — **Done (Шаг 4: per-chat `asyncio.Lock` (`_greeting_locks`/`_get_greeting_lock` в alan_greeting.py, общий для F7v2 + обоих join-путей) + claim-before-send (кулдаун и ts записываются ДО `await _send_greeting()`, `ts_written`-флаг, rollback при неудаче)**
+- [x] T-270 (@Builder, P1) — юнит/интеграционные тесты на конкурентный сценарий (3 параллельных хендлера → ровно 1 greeting), 0 регрессий (baseline 1564) — **Done (Шаг 4, +9 тестов, 1573 passed / 0 failed)**
+- [x] T-271 (@Reviewer, P0) — ревью — **Шаг 5 ✅ APPROVED (2026-08-17: соответствие Section 44 дословно, дедлоков нет, BLOCKER/MAJOR НЕТ; личный прогон 1573 passed / 0 failed / 0 skipped; diff-check чист, секретов 0)**
+- [ ] T-272 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.2 (git pull, restart, status, проверка логов)
+- [x] T-273 (@Builder, P1) — README changelog v2.31.2 (ироничный тон) — **Done (Шаг 4, changelog «🔧 Исправлено в v2.31.2 (Epic 35)»)**
 
 ## 🔍 In Review
 
 *(пусто — Epic 31 перенесён в Done при архивации)*
 
 ## ✅ Done
+
+### Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — ✅ DEPLOYED & ARCHIVED (v2.31.1, коммит `5fb532b`, прод PID 949763, 1564 тестов)
+
+> Перенесено из In Progress при архивации (Memory, 2026-08-17, Шаг 8). Полный трек — `plans/backlog.md` (Epic 34).
+> **Итог:** T-261…T-267 ALL DONE. @Architect: RCA подтверждён + Section 43 (43.1–43.6); @Builder: `_send_once` fallback в `services/smartmodule_utils.py` (хендлеры БЕЗ правок), +9 тестов, README v2.31.1; @Reviewer: APPROVED (личный прогон 1564 passed / 0 failed); @DevOps: коммит `5fb532b` «fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)» (**9 файлов, +621/−49**) + пуш origin (`1172fb5..5fb532b`) + деплой (git pull --ff-only, `.env`/venv не тронуты, `systemctl restart admin_bot` → active (running) **PID 949763**, journalctl 0 traceback, смоук OK). **ЭПИК 34 ЗАКРЫТ (Шаг 8). Прод v2.31.1. Epics 1–34 ALL DEPLOYED. Тесты: 1564 passed / 0 failed (1555 + 9).**
+
+- [x] T-261 (@Architect, P0) — RCA-подтверждение + дизайн фикса (ARCHITECTURE.md Section 43) — **Done (Шаг 2)**
+- [x] T-262 (@Builder, P0) — fallback «retry без reply_to_message_id» в smartmodule_utils (send_chunked_reply/_reply) + логирование — **Done (Шаг 4, `_send_once`/`_is_reply_target_gone`, WARNING→INFO)**
+- [x] T-263 (@Builder, P1) — применение фолбека в handlers/search.py (+ factcheck.py при необходимости), без дублей — **Done (Шаг 4, хендлеры БЕЗ правок, 43.3; доказано тестами #8/#9)**
+- [x] T-264 (@Builder, P1) — юнит-тесты fallback (мок bot.send_message: 1-й TelegramBadRequest → 2-й без reply OK), 0 регрессий (baseline 1555) — **Done (Шаг 4, +9 тестов, 1564 passed / 0 failed)**
+- [x] T-265 (@Reviewer, P0) — code review — **Done (Шаг 5, APPROVED: личный прогон 1564 passed / 0 failed, diff-check чист, хендлеры не тронуты, секретов нет; BLOCKER/MAJOR НЕТ)**
+- [x] T-266 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.1 (git pull, restart, status) — **Done (Шаг 7, коммит `5fb532b`, прод v2.31.1, PID 949763, 0 traceback)**
+- [x] T-267 (@Builder, P1) — README-фикс при необходимости (или skip) — **Done (Шаг 4, changelog «🔧 Исправлено в v2.31.1 (Epic 34)»)**
 
 ### Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator — ✅ DEPLOYED & ARCHIVED (v2.31.0, коммит `1172fb5`, 1555 тестов, прод PID 948950)
 

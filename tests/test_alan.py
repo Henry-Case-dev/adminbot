@@ -13,10 +13,13 @@ Tests cover:
   - F6 + F7v2 coexistence
   - UNHANDLED return for propagation
 """
+import asyncio
+import logging
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from handlers.alan import alan_handler, setup_alan, ALAN_REPLIES, _last_greeting
+from handlers.alan_greeting import _greeting_locks
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 
@@ -250,8 +253,9 @@ class TestAlanSilenceGreeting:
 
     @pytest.fixture(autouse=True)
     def _clear_last_greeting(self):
-        """Reset _last_greeting dict between tests to avoid cross-test pollution."""
+        """Reset _last_greeting and _greeting_locks between tests to avoid cross-test pollution."""
         _last_greeting.clear()
+        _greeting_locks.clear()
 
     @pytest.mark.asyncio
     async def test_silence_first_message_baseline(self, make_message):
@@ -522,6 +526,210 @@ class TestAlanSilenceGreeting:
         mock_send.assert_not_called()
         # DB should still record timestamp (baseline for non-Alan via this handler)
         mock_db.set_alan_last_message_ts.assert_called_once()
+
+
+class _FakeSilenceDB:
+    """In-memory fake of DatabaseService: get reads dict, set writes — imitates the real DB under lock."""
+
+    def __init__(self):
+        self.ts: dict[int, float] = {}
+        self.set_count = 0
+
+    async def increment_and_get_count(self, chat_id, user_id):
+        return 1
+
+    async def get_alan_last_message_ts(self, chat_id):
+        return self.ts.get(chat_id)
+
+    async def set_alan_last_message_ts(self, chat_id, ts):
+        self.set_count += 1
+        self.ts[chat_id] = ts
+
+
+class TestAlanSilenceGreetingRace:
+    """Concurrency tests for the F7v2 race fix (Epic 35, Section 44).
+
+    Per-chat asyncio.Lock + claim-before-send: a burst of parallel Alan
+    messages must produce exactly ONE greeting — the in-memory cooldown and
+    the persistent ts are claimed BEFORE `await _send_greeting()`.
+    """
+
+    NOW = 1721000000.0
+
+    @pytest.fixture(autouse=True)
+    def _clear_greeting_state(self):
+        _last_greeting.clear()
+        _greeting_locks.clear()
+
+    def _make_slow_send(self, results, delay=0.05):
+        async def slow_send(bot, chat_id):
+            await asyncio.sleep(delay)
+            results.append((bot, chat_id))
+            return True
+        return slow_send
+
+    def _make_batch(self, make_message, chat_id, count):
+        msgs = [make_message(138811255, text=f"burst {i}", chat_id=chat_id) for i in range(count)]
+        for m in msgs:
+            m.bot = AsyncMock()
+        return msgs
+
+    @pytest.mark.asyncio
+    async def test_race_three_parallel_calls_single_greeting(self, make_message, caplog):
+        """3 parallel alan_handler calls on stale ts → exactly 1 greeting; H2/H3 skip."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        sends = []
+        slow_send = self._make_slow_send(sends)
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=slow_send) as mock_send, \
+             caplog.at_level(logging.INFO, logger="handlers.alan"):
+            msgs = self._make_batch(make_message, -100, 3)
+            await asyncio.gather(*(alan_handler(m) for m in msgs))
+
+        assert mock_send.call_count == 1
+        assert db.ts[-100] == self.NOW
+        assert caplog.text.count("F7v2: silence greeting triggered") == 1
+        assert caplog.text.count("F7v2: silence threshold not reached") == 2
+
+    @pytest.mark.asyncio
+    async def test_race_repeat_within_cooldown_suppressed(self, make_message):
+        """A second burst within the 10s cooldown → 0 greetings."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        sends = []
+        slow_send = self._make_slow_send(sends)
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=slow_send) as mock_send:
+            batch1 = self._make_batch(make_message, -100, 3)
+            await asyncio.gather(*(alan_handler(m) for m in batch1))
+            assert mock_send.call_count == 1
+
+            batch2 = self._make_batch(make_message, -100, 3)
+            await asyncio.gather(*(alan_handler(m) for m in batch2))
+
+        assert mock_send.call_count == 1
+        assert _last_greeting[-100] == self.NOW
+
+    @pytest.mark.asyncio
+    async def test_race_after_cooldown_expiry_sends_once(self, make_message):
+        """Cooldown expired (15s ago) + stale ts → burst produces exactly 1 greeting."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        _last_greeting[-100] = self.NOW - 15
+
+        sends = []
+        slow_send = self._make_slow_send(sends)
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=slow_send) as mock_send:
+            msgs = self._make_batch(make_message, -100, 3)
+            await asyncio.gather(*(alan_handler(m) for m in msgs))
+
+        assert mock_send.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_ts_claimed_before_send(self, make_message):
+        """ts must be written to the DB BEFORE `await _send_greeting()` (claim-before-send)."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        observed = {}
+
+        async def check_send(bot, chat_id):
+            observed["db_ts"] = db.ts.get(chat_id)
+            observed["claimed"] = chat_id in _last_greeting
+            await asyncio.sleep(0.05)
+            return True
+
+        msg = make_message(138811255, text="wake", chat_id=-100)
+        msg.bot = AsyncMock()
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=check_send):
+            await alan_handler(msg)
+
+        assert observed["db_ts"] == self.NOW
+        assert observed["claimed"] is True
+
+    @pytest.mark.asyncio
+    async def test_restart_simulation_single_greeting(self, make_message):
+        """After a restart (in-memory state empty, stale ts in DB) → 1 greeting, then cooldown."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        assert _last_greeting == {}
+        assert _greeting_locks == {}
+
+        sends = []
+        slow_send = self._make_slow_send(sends)
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=slow_send) as mock_send:
+            msg = make_message(138811255, text="back after silence", chat_id=-100)
+            msg.bot = AsyncMock()
+            await alan_handler(msg)
+            assert mock_send.call_count == 1
+
+            msg2 = make_message(138811255, text="immediate repeat", chat_id=-100)
+            msg2.bot = AsyncMock()
+            await alan_handler(msg2)
+
+        assert mock_send.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_per_chat_lock_isolation(self, make_message):
+        """Parallel bursts in two chats → 1 greeting per chat (2 total), locks don't collide."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        db.ts[-200] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        sends = []
+        slow_send = self._make_slow_send(sends)
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=slow_send) as mock_send:
+            msgs = self._make_batch(make_message, -100, 3) + self._make_batch(make_message, -200, 3)
+            await asyncio.gather(*(alan_handler(m) for m in msgs))
+
+        assert mock_send.call_count == 2
+        sent_chats = {call.args[1] for call in mock_send.call_args_list}
+        assert sent_chats == {-100, -200}
+
+    @pytest.mark.asyncio
+    async def test_race_send_failure_rolls_back_claim(self, make_message):
+        """Send failure in a burst → claim rolled back (_last_greeting empty), 1 ts write per call."""
+        db = _FakeSilenceDB()
+        db.ts[-100] = self.NOW - 7.0 * 3600
+        setup_alan(db)
+
+        sends = []
+
+        async def fail_send(bot, chat_id):
+            await asyncio.sleep(0.05)
+            sends.append((bot, chat_id))
+            return False
+
+        with patch("handlers.alan.time.time", return_value=self.NOW), \
+             patch("handlers.alan._send_greeting", side_effect=fail_send) as mock_send:
+            msgs = self._make_batch(make_message, -100, 3)
+            await asyncio.gather(*(alan_handler(m) for m in msgs))
+
+        assert mock_send.call_count == 1
+        assert _last_greeting == {}
+        assert db.set_count == 3
+        assert db.ts[-100] == self.NOW
 
 
 class TestAlanHandlerPropagation:
