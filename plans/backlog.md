@@ -2812,7 +2812,7 @@
 
 ---
 
-## Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator — 2026-08-17 🆕 Шаг 1 (PM) ✅ → Шаг 2 (@Architect, T-249) ✅ (Section 42, D109 RESOLVED) → реализация @Builder (T-250…T-258) ✅, @DevOps (T-259/T-260) — Шаг 4 (@Builder): IMPLEMENTED (1542 теста); T-257-F ревью + T-258 README + T-259/T-260 — впереди
+## Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator — 2026-08-17 — ✅ DEPLOYED & ARCHIVED (Шаг 8 @Memory): T-249…T-260 ALL DONE (1555 passed / 0 failed; ревью @Reviewer APPROVED). Коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» (32 файла, +3610/−43) + пуш + деплой: git pull ff `2bad5ff..1172fb5`, pip install duckduckgo-search 8.1.1, прод .env +6 ключей (бэкап `.env.bak.epic33`), restart → active (running) PID 948950, 0 traceback, «SmartModule FactCheck + SmartSearch (Epic 33) initialized». Прод v2.31.0. Epics 1–33 ALL DEPLOYED.
 
 > **Цель (запрос пользователя, 2026-08-17):** расширение SmartModule (Epic 24) — подсервисы FactCheck и SmartSearch строго внутри модуля SmartModule:
 > **(1) FactCheck** — фактчекинг по reply/репосту (триггер: текст начинается со слова «фактчек», регистронезависимо); **(2) SmartSearch** — естественный поиск (триггеры «найди/поищи/загугли»); **(3) SearchAggregator** — асинхронный каскадный фолбек Tavily → Exa → DuckDuckGo → AllSearchEnginesFailedException.
@@ -2941,8 +2941,8 @@
 
 **Приоритет:** P1. **Зависимости:** T-257. **Оценка:** 0.25d.
 
-- [ ] T-258-A: README v2.31.0 (ироничный тон): секции FactCheck/SmartSearch (триггеры, кулдауны, каскад поисковиков), конфиг-таблица (6 новых ключей), changelog
-- [ ] T-258-B: `.env.example` — grep-полнота новых ключей (без секретов); `plans/MEMORY.md` — запись реализации (по завершении)
+- [x] T-258-A: README v2.31.0 (ироничный тон): секции FactCheck/SmartSearch (триггеры, кулдауны, каскад поисковиков), конфиг-таблица (6 новых ключей), changelog
+- [x] T-258-B: `.env.example` — grep-полнота новых ключей (без секретов); `plans/MEMORY.md` — запись реализации (по завершении)
 
 **DoD:** grep: EXA_API_KEY/TAVILY_API_KEY/SEARCH_MAX_SYMBOLS/FACTCHECK_MAX_SYMBOLS/SEARCH_COOLDOWN_SECONDS/FACTCHECK_COOLDOWN_SECONDS в README и .env.example.
 
@@ -2950,9 +2950,9 @@
 
 **Приоритет:** P0. **Зависимости:** T-257, T-258. **Оценка:** 0.25d.
 
-- [ ] T-259-A: `git add` — код, тесты, планы (backlog/board/MEMORY/ARCHITECTURE), README, `.env.example`, requirements.txt; `.env` — НЕ коммитим (секреты EXA/TAVILY — ТОЛЬКО в .env, R17/D104)
-- [ ] T-259-B: Коммит на русском (conventional): `feat(smartmodule): Epic 33 — FactCheck, SmartSearch и SearchAggregator (v2.31.0)`; пуш в origin/master
-- [ ] T-259-C: `git status` чист (кроме .env), HEAD == origin/master
+- [x] T-259-A: `git add` — код, тесты, планы (backlog/board/MEMORY/ARCHITECTURE), README, `.env.example`, requirements.txt; `.env` — НЕ коммитим (секреты EXA/TAVILY — ТОЛЬКО в .env, R17/D104)
+- [x] T-259-B: Коммит на русском (conventional): `feat(smartmodule): Epic 33 — FactCheck, SmartSearch и SearchAggregator (v2.31.0)`; пуш в origin/master
+- [x] T-259-C: `git status` чист (кроме .env), HEAD == origin/master
 
 **DoD:** коммит в master, пуш выполнен, секретов в коммите нет.
 
@@ -2960,10 +2960,10 @@
 
 **Приоритет:** P0. **Зависимости:** T-259. **Оценка:** 0.5d.
 
-- [ ] T-260-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); venv: pip install новой зависимости `duckduckgo_search`
-- [ ] T-260-B: **.env** (бэкап `.env.bak.epic33`): `EXA_API_KEY=…`, `TAVILY_API_KEY=…` (значения из ТЗ), при необходимости SEARCH/FACTCHECK_* (дефолты 4000/300 корректны)
-- [ ] T-260-C: sudo systemctl restart admin_bot → sudo systemctl status admin_bot → active (running), новый PID
-- [ ] T-260-D: Верификация логов: 0 traceback, WARNING «Tavily/Exa disabled» отсутствует (ключи заданы); smoke-тест фактчека/поиска в чате (при возможности); человекочитаемый отчёт (версия, PID, изменения .env, результаты)
+- [x] T-260-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); venv: pip install новой зависимости `duckduckgo_search`
+- [x] T-260-B: **.env** (бэкап `.env.bak.epic33`): `EXA_API_KEY=…`, `TAVILY_API_KEY=…` (значения из ТЗ), при необходимости SEARCH/FACTCHECK_* (дефолты 4000/300 корректны)
+- [x] T-260-C: sudo systemctl restart admin_bot → sudo systemctl status admin_bot → active (running), новый PID
+- [x] T-260-D: Верификация логов: 0 traceback, WARNING «Tavily/Exa disabled» отсутствует (ключи заданы); smoke-тест фактчека/поиска в чате (при возможности); человекочитаемый отчёт (версия, PID, изменения .env, результаты)
 
 **DoD:** прод v2.31.0, active (running), ключи заданы, логи чистые, отчёт пользователю.
 
@@ -3010,4 +3010,141 @@
 ---
 
 **Статус: Epic 33 — Шаг 5 (повторное ревью, @Reviewer) ✅ APPROVED (2026-08-17): все замечания первого ревью закрыты и подтверждены лично.** **BLOCKER-1 ✅:** реальные ключи в `plans/backlog.md:2826` заменены на `<значение в .env>`; grep по фрагментам `6bbb01df`/`tvly-dev` — 0 совпадений вне `.env` (gitignored `.gitignore:9`). **MAJOR-1 ✅:** добавлен `tests/test_epic33_router_isolation.py` — 4 содержательных теста через `Dispatcher.feed_update` (0a+0c+0d+4c): «найди ракету» → ровно 1 ответ от search, common danger НЕ вызывается; reply «фактчек …» → 1 ответ с `reply_to_message_id == target.message_id`; обычное сообщение → observer 0a сохраняет в БД, ответов нет; «слышал хлопок в небе» → common danger работает. **MINOR-1 ✅:** `.env` дополнен `SEARCH_MAX_SYMBOLS=4000`, `FACTCHECK_MAX_SYMBOLS=4000`, `SEARCH_COOLDOWN_SECONDS=300`, `FACTCHECK_COOLDOWN_SECONDS=300` (все 33 ключа на месте). **MINOR-2 ✅:** `.env` декодируется как чистый UTF-8. **MINOR-3 ✅:** `handlers/factcheck.py:72` — `.lower()` убран. **MINOR-4 ✅:** `tests/test_settings_helpers.py` (9 тестов) + `import logging` в `config/settings.py:1` (баг NameError закрыт). **Регрессионная сверка:** промпты/пулы байт-в-байт (независимый скрипт — повторно True), роутеры 0c/0d после 0b до 0:admin не сдвинуты, `git diff --check` чист, `.env` не в индексе. **Полный прогон лично: 1555 passed / 0 failed** (5.4с; 1542 + 4 + 9). Передача @Builder (T-258 README) → @DevOps (T-259/T-260). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+---
+
+**Статус: Epic 33 — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация) ✅ DEPLOYED & ARCHIVED (2026-08-17): весь запрос пользователя выполнен — Epic 33 в проде, цикл воркфлоу (Шаги 0–8) завершён полностью.**
+**T-258 ✅ (@Builder):** README v2.31.0 (ироничный тон: секции FactCheck/SmartSearch, конфиг-таблица 6 ключей, changelog) + `.env.example` grep-полнота.
+**T-259 ✅ (@DevOps):** коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» на master — **32 файла, +3610/−43**; пуш в origin/master (github.com/Henry-Case-dev/adminbot); `.env` НЕ коммитился (секреты EXA/TAVILY — R17).
+**T-260 ✅ (@DevOps):** деплой на прод `nik@198.46.175.136:/var/www/admin_bot` — git pull fast-forward `2bad5ff..1172fb5`; venv: `pip install duckduckgo-search 8.1.1`; прод `.env` +6 ключей (EXA_API_KEY, TAVILY_API_KEY, SEARCH_MAX_SYMBOLS=4000, FACTCHECK_MAX_SYMBOLS=4000, SEARCH_COOLDOWN_SECONDS=300, FACTCHECK_COOLDOWN_SECONDS=300; бэкап `.env.bak.epic33`); `systemctl restart admin_bot` → active (running), **MainPID 948950**, uptime ~1:11+, **0 traceback** в journalctl; WARNING «Tavily/Exa disabled» отсутствует; «SmartModule FactCheck + SmartSearch (Epic 33) initialized».
+**Итог:** тесты **1555 passed / 0 failed** (1392 baseline + 163 новых). **T-249…T-260 ALL DONE. Прод = v2.31.0 (`1172fb5`, PID 948950). Epics 1–33 ALL COMPLETE и DEPLOYED ✅.** Пайплайн: Шаг 0 (контекст) ✅ → Шаг 1 (PM) ✅ → Шаг 2 (Architect) ✅ → Шаг 3 (Memory DESIGN) ✅ → Шаг 4a/4b (Builder) ✅ → Шаг 5 (Reviewer NEEDS FIXES → APPROVED) ✅ → Шаг 6 (Memory IMPLEMENTED) ✅ → Шаг 7 (DevOps) ✅ → **Шаг 8 (Memory DEPLOYED) ✅.** Без @Orchestrator.
+**Date: 2026-08-17**
+
+---
+
+## Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — 2026-08-17 🆕 Шаг 4 (@Builder) ✅ → IN PROGRESS (target v2.31.1)
+
+> **Цель:** Устранить прод-баг v2.31.0 (коммит `1172fb5`, PID 948950): «Фактчек отработал, а поиск молчит».
+> В супергруппе chat_id=-1002661910336 при длинном пайплайне SmartSearch (каскад Tavily 5с → Exa 10с → DDG 15с + LLM-генерация
+> десятки секунд) сообщение-триггер «найди …» успевает быть удалённым → `reply_to_message_id` указывает на несуществующее
+> сообщение → `aiogram.exceptions.TelegramBadRequest: message to be replied not found` (Betterstack: `handlers/search.py:85` —
+> `send_chunked_reply` → `bot.send_message` с `reply_to_message_id=message.message_id`; повторно `services/smartmodule_utils.py:36` —
+> `_reply` с тем же мёртвым id).
+> **Почему молчит:** `send_chunked_reply` (smartmodule_utils.py:70-73) ловит ТОЛЬКО `TelegramRetryAfter` → `TelegramBadRequest` улетает
+> в общий except `handlers/search.py:95-98`, который логирует ERROR и снова шлёт `_reply` на ТОТ ЖЕ мёртвый id → вторая 400 →
+> пользователь не получает ничего. FactCheck не страдает (реплаит на целевое/чужое сообщение, которое не удаляют).
+> **Источник:** прод-логи Betterstack, Шаг 0 (2026-08-17). **Исполнители:** @Architect (T-261), @Builder (T-262/T-263/T-264/T-267),
+> @Reviewer (T-265), @DevOps (T-266). Без @Orchestrator. **Target:** v2.31.1 (hotfix). **Baseline:** прод v2.31.0 (`1172fb5`), 1555 тестов.
+> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R34-1…R34-7, решения D112–D115) → 2/3 @Architect (T-261: RCA-подтверждение + дизайн Section 43) ✅
+> → 3/3 @Builder (T-262 ∥ T-263 → T-264 → T-267) → @Reviewer (T-265) → @DevOps (T-266).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R34-1** | **RCA + дизайн (@Architect):** подтвердить/опровергнуть гипотезу Шага 0 (удаление триггера в супергруппе за время research(); мёртвый `reply_to_message_id`); спроектировать устойчивый fallback «при TelegramBadRequest „message to be replied not found“ — повторная отправка БЕЗ `reply_to_message_id`» в `services/smartmodule_utils.py` (send_chunked_reply/_reply) + порядок применения в `handlers/search.py` (и `handlers/factcheck.py`, если затронут); зафиксировать в `plans/ARCHITECTURE.md` Section 43. |
+| **R34-2** | **Fallback в smartmodule_utils:** `send_chunked_reply` и `_reply` при `TelegramBadRequest` «message to be replied not found» (reply задан) — ровно ОДИН повтор отправки БЕЗ `reply_to_message_id`; исходный отказ — WARNING, успех повтора — INFO; прочие TelegramBadRequest — как раньше (ERROR, наверх); `TelegramRetryAfter` — прежнее поведение (sleep + повтор). |
+| **R34-3** | **handlers/search.py:** общий except не должен повторно слать `_reply` на тот же мёртвый id — использовать результат fallback (сообщение доставлено без reply → не считается ошибкой доставки, логируется один раз); при необходимости то же в `handlers/factcheck.py`. |
+| **R34-4** | **Тесты:** юнит-тесты fallback — мок `bot.send_message`: первый вызов кидает `TelegramBadRequest` («message to be replied not found») → второй (без reply) — OK; повтор без reply ровно один; прочие TelegramBadRequest → без повтора; чанкинг — reply только у первой части; 0 регрессий (baseline 1555). |
+| **R34-5** | **Ревью:** code review @Reviewer, APPROVED до коммита. |
+| **R34-6** | **Деплой:** коммит на русском (conventional `fix(smartmodule): …`), пуш, SSH `nik@198.46.175.136`, `cd /var/www/admin_bot`, git pull, `systemctl restart admin_bot`, `systemctl status admin_bot`, человекочитаемый отчёт. `.env` НЕ трогать (конфиг не меняется). |
+| **R34-7** | **README:** фикс при необходимости (краткая запись в changelog или явный skip — решение @Builder). |
+
+### PM Decisions (зафиксированы 2026-08-17)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D112** | Fallback | Один повтор БЕЗ `reply_to_message_id` ТОЛЬКО при `TelegramBadRequest` «message to be replied not found» (мёртвый id). Прочие 400 не ретраить (нет смысла) и не молчать. `TelegramRetryAfter` — существующее поведение сохранить. Логи: WARNING «reply target gone, retrying without reply_to_message_id» (chat_id, msg_id, exc_info) → INFO «sent without reply» (chat_id). |
+| **D113** | Скоуп | Правки только в SmartModule-коде: `services/smartmodule_utils.py`, `handlers/search.py`, `handlers/factcheck.py` (только если делит путь `_reply`), `tests/*smartmodule*`. `services/mimic_relay.py:56-60` (reply без try/except) — ВНЕ скоупа hotfix, зафиксирован риск → отдельный тикет. |
+| **D114** | Тесты | Юниты fallback через мок `bot.send_message`; полный `pytest` — 1555 baseline + новые, 0 failed/skipped; `git diff --check` чист. |
+| **D115** | Деплой | Target v2.31.1 (hotfix, минорный bump). Коммит на русском (conventional) + пуш; деплой: git pull → restart → status; `.env` без изменений; верификация: 0 traceback, новых «message to be replied not found» от SmartSearch нет. |
+
+### Задачи
+
+### T-261 (@Architect) — RCA-подтверждение + дизайн фикса (R34-1)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [x] T-261-A: Подтвердить первопричину по коду/логам (удаление триггера в супергруппе, длительность research() ≥30с, мёртвый `reply_to_message_id`; вторая 400 из общего except `handlers/search.py:95-98`) — **ПОДТВЕРЖДЕНО (43.1)**
+- [x] T-261-B: Дизайн fallback в `services/smartmodule_utils.py` (send_chunked_reply/_reply) + контракт для `handlers/search.py` (+ `factcheck.py` при необходимости); прецеденты: `_safe_send` (handlers/summary.py:202-214), common_relay.py:317-325 — **готово (43.2/43.3)**
+- [x] T-261-C: `plans/ARCHITECTURE.md` Section 43 (RCA, паттерн fallback, точки применения, тест-план, риски); self-review + PM-аппрув — **готово (43.1–43.6), D109-подобных блокеров НЕТ**
+
+**DoD:** Section 43 в ARCHITECTURE.md; гипотеза Шага 0 подтверждена/опровергнута письменно; T-262…T-264 → READY FOR BUILDER.
+
+### T-262 (@Builder) — Fallback в smartmodule_utils (R34-2, D112)
+
+**Приоритет:** P0. **Зависимости:** T-261. **Оценка:** 0.5d.
+
+- [x] T-262-A: `send_chunked_reply` — catch `TelegramBadRequest` «message to be replied not found» (reply задан) → ровно один повтор БЕЗ `reply_to_message_id`; WARNING/INFO-логи; прочие 400 — наверх — **готово (`_send_once`, 43.2)**
+- [x] T-262-B: `_reply` — тот же fallback; `TelegramRetryAfter` — прежнее поведение (sleep + повтор) — **готово (оба пути через `_send_once`)**
+- [x] T-262-C: Логирование: исходная ошибка (exc_info), принятое решение, результат повтора — **готово (WARNING «reply target gone» exc_info → INFO «sent without reply»)**
+
+**DoD:** мёртвый reply-target больше не оставляет пользователя без ответа — сообщение доставляется без reply; логи WARNING/INFO на месте.
+
+### T-263 (@Builder) — Применение fallback в handlers/search.py (+ factcheck.py) (R34-3, D113)
+
+**Приоритет:** P1. **Зависимости:** T-262. **Оценка:** 0.25d.
+
+- [x] T-263-A: `handlers/search.py:95-98` — общий except НЕ шлёт повторную `_reply` на мёртвый id, если fallback уже доставил сообщение; ошибка логируется один раз — **готово БЕЗ правок кода хендлера (43.3): «gone»-400 больше НЕ пропагирует из utils, тест #8 доказывает отсутствие ERROR-трейса**
+- [x] T-263-B: `handlers/factcheck.py` — применить fallback, если использует тот же `_reply`-путь (решение по факту кода) — **готово автоматически (делит `_reply`/`send_chunked_reply`); тест #9 — симметрия**
+- [x] T-263-C: Проверка: двойных сообщений нет (fallback-повтор не дублирует доставку) — **готово: тесты #8/#9 — ровно 2 вызова `send_message` (1-й с reply → 400, 2-й без reply → OK), 0 дублей**
+
+**DoD:** один TelegramBadRequest = одна доставка без reply; нет дублей и нет молчания.
+
+### T-264 (@Builder) — Тесты + полный прогон (R34-4, D114)
+
+**Приоритет:** P1. **Зависимости:** T-262, T-263. **Оценка:** 0.5d.
+
+- [x] T-264-A: Юниты: мок `bot.send_message` — 1-й вызов кидает `TelegramBadRequest` («message to be replied not found») → 2-й без reply — OK; повтор ровно один; чанкинг — reply у 1-й части; другие TelegramBadRequest → без повтора; TelegramRetryAfter → прежний путь — **готово: +9 тестов (utils +7, search-хендлер +1, factcheck-хендлер +1, 43.4)**
+- [x] T-264-B: Полный `pytest` — 1555 baseline + новые, 0 failed/skipped; `git diff --check` чист — **готово: 1564 passed / 0 failed (~5.8с), diff-check чист**
+
+**DoD:** полный прогон зелёный, 0 регрессий.
+
+### T-265 (@Reviewer) — Code review (R34-5)
+
+**Приоритет:** P0. **Зависимости:** T-264. **Оценка:** 0.25d.
+
+- [x] T-265-A: Ревью fallback (корректность D112/D113, отсутствие дублей, логирование) и тестов — **готово: сверено с Section 43 дословно; aiogram 3.29.1 проверен эмпирически (TelegramAPIError.__init__(method, message) → exc.message; .description/.match отсутствуют); сигнатуры _reply/send_chunked_reply не тронуты; хендлеры handlers/search.py/factcheck.py — 0 изменений (git diff пуст); тесты #1–#9 содержательны (счётчики вызовов, kwargs, caplog-матрица)**
+- [x] T-265-B: Личная сверка полного прогона (1555+ passed); вердикт APPROVED — **готово: личный прогон 1564 passed / 0 failed (5.59с; 1555 baseline + 9 новых), git diff --check чист, .env не в индексе, секретов в диффе нет; вердикт APPROVED**
+
+**DoD:** APPROVED.
+
+### T-266 (@DevOps) — Коммит + пуш + деплой (R34-6, D115)
+
+**Приоритет:** P0. **Зависимости:** T-265. **Оценка:** 0.5d.
+
+- [ ] T-266-A: Коммит на русском (conventional): `fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)`; пуш в origin/master; `.env` НЕ коммитим
+- [ ] T-266-B: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff) → sudo systemctl restart admin_bot → status active (running), новый PID
+- [ ] T-266-C: Верификация: 0 traceback; новых «message to be replied not found» от SmartSearch нет; отчёт (версия v2.31.1, PID, результат проверок)
+
+**DoD:** прод v2.31.1, active (running), логи чистые, отчёт пользователю.
+
+### T-267 (@Builder) — README при необходимости (R34-7)
+
+**Приоритет:** P1. **Зависимости:** T-264. **Оценка:** 0.1d (или skip).
+
+- [x] T-267-A: Если нужен changelog — краткая запись «🔧 Исправлено в v2.31.1 (Epic 34)»; иначе — зафиксировать «skip» с обоснованием — **записано: README v2.31.1 (changelog «🔧 Исправлено в v2.31.1 (Epic 34)» — SmartSearch больше не молчит; ироничный тон сохранён)**
+
+**DoD:** README консистентен (или явный skip).
+
+### Риски (Epic 34)
+
+1. **Эталон SYSTEM_PROMPT R11 (1518–1539):** правки Epic 34 в backlog — ТОЛЬКО в конце файла (ниже 3022) → сдвига строк НЕТ (соблюдено: Epic 34 в конце).
+2. **Не переусложнить:** fallback только для «message to be replied not found»; прочие 400 не ретраить и не молчать — D112.
+3. **Дубли доставки:** общий except в handlers/search.py не должен слать второе сообщение после успешного fallback-повтора (T-263-C).
+4. **mimic_relay.py:56-60** — reply без try/except (сопутствующий риск, ВНЕ скоупа hotfix, D113) → отдельный тикет.
+5. **FactCheck:** реплаит на целевое (не удаляемое) сообщение — риск ниже; fallback применяется только если делит путь `_reply` (не навязывать).
+
+**Файлы (планируемые):** `services/smartmodule_utils.py`, `handlers/search.py`, `handlers/factcheck.py` (при необходимости), `tests/*smartmodule*`, `plans/ARCHITECTURE.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`, `README.md` (при необходимости).
+
+---
+
+**Статус: Epic 34 — Шаг 2 (@Architect) ✅ (2026-08-17): RCA ПОДТВЕРЖДЁН кодом (удаление триггера за время research(); двойная 400 из общего except handlers/search.py:95-98 — цитаты в Section 43.1). Fallback спроектирован в `plans/ARCHITECTURE.md` Section 43 (43.1–43.6): хелпер `_send_once` + `_is_reply_target_gone` в services/smartmodule_utils.py (ед. точка отправки для _reply и send_chunked_reply); хендлеры handlers/search.py и handlers/factcheck.py — БЕЗ правок (fallback приходит из общих utils, фактчек покрыт автоматически); тест-план 43.4 (9 новых кейсов, baseline 1555); риски 43.5. D109-подобные блокеры — НЕТ. T-262…T-264 → READY FOR BUILDER. Передача @Builder (T-262 → T-263 → T-264 → T-267) → @Reviewer (T-265) → @DevOps (T-266). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+**Статус: Epic 34 — Шаг 4 (@Builder) ✅ (2026-08-17): T-262/T-263/T-264/T-267 ALL DONE.** **T-262 (код):** боевой файл ОДИН — `services/smartmodule_utils.py`: `_REPLY_GONE_MARKER` («message to be replied not found»), `_is_reply_target_gone` (подстрока в `exc.message`, без регэкспов/.description), `_send_once` (ед. точка отправки: «gone»-400 + reply задан → WARNING «reply target gone» (exc_info) + РОВНО ОДИН повтор БЕЗ reply → INFO «sent without reply»; прочие исключения — наверх); `_reply` и `send_chunked_reply` переведены на `_send_once` (reply только у 1-го чанка, TelegramRetryAfter-повтор тоже через `_send_once`), публичные сигнатуры сохранены. **T-263 (верификация):** `handlers/search.py` и `handlers/factcheck.py` НЕ тронуты (git status — нет изменений); тесты #8/#9 доказывают: один «gone»-400 = одна доставка без reply, ровно 2 вызова `send_message`, `logger.exception` НЕ вызывается, дублей нет (T-263-A/B/C через устранение причины пропагации, 43.3). **T-264 (тесты):** +9 новых кейсов — `tests/test_smartmodule_utils.py` +7 (gone→1 повтор без reply и порядок вызовов; прочий 400 → без повтора/пропагация; без reply + gone → НЕ фолбечится; чанкинг: gone только на 1-й части, остальные штатно; RetryAfter-повтор через `_send_once`; успех → ровно 1 вызов; WARNING+INFO в caplog), `tests/test_smartsearch_handlers.py` +1 (#8), `tests/test_factcheck_handlers.py` +1 (#9); полный прогон **1564 passed / 0 failed** (~5.8с; 1555 + 9), `git diff --check` чист. **T-267:** README v2.31.1 — changelog «🔧 Исправлено в v2.31.1 (Epic 34)» (SmartSearch больше не играет в молчанку; ироничный тон), заголовок «Версия: v2.31.1 | Тестов: 1564 | Эпиков: 34». Эталон SYSTEM_PROMPT R11 (1518–1539) НЕ тронут; правки — только в конце файла. Передача @Reviewer (T-265) → @DevOps (T-266). Без @Orchestrator.**
+**Date: 2026-08-17**
+
+**Статус: Epic 34 — Шаг 5 (@Reviewer) ✅ APPROVED (2026-08-17): T-265 ЗАКРЫТ, BLOCKER/MAJOR НЕТ.** Ревью строгое, все 8 пунктов чек-листа PASS: (1) реализация дословно соответствует Section 43 (контракты `_send_once`, маркер, fallback только на 1-м чанке, RetryAfter-повтор через `_send_once`, WARNING+INFO матрица); (2) `services/smartmodule_utils.py` прочитан целиком — нет двойной отправки (fallback-успех возвращается штатно → generic except хендлеров не срабатывает), swallowed exceptions нет (только прежний best-effort `_reply`), сигнатуры `_reply`/`send_chunked_reply` не изменены (обратная совместимость); (3) `handlers/search.py` и `handlers/factcheck.py` — git diff пуст (0 изменений); (4) все 9 тестов содержательны (счётчики await_count, kwargs по вызовам, caplog-матрица WARNING/INFO, отсутствие «unexpected error»), покрыты все ветки `_send_once`; (5) личный полный прогон **1564 passed / 0 failed (5.59с)**; (6) `git diff --check` чист, мусора нет, `.env` не в индексе; (7) секретов в диффе нет (упоминания фрагментов ключей в plans — pre-existing текст Epic 33, в новых строках отсутствуют); (8) риски дизайна оценены: бесконечных циклов нет (fallback одноразовый, RetryAfter-повтор прежний один), повторная отправка при RetryAfter сохраняет reply (надмножество, дизайн 43.2), потребители `_reply`/`send_chunked_reply` — только smartmodule-хендлеры (grep-подтверждено), edge «RetryAfter на fallback-повторе» безвреден (RetryAfter = сообщение НЕ принято → дубль невозможен). aiogram 3.29.1 проверен эмпирически на венве: `TelegramAPIError.__init__(self, method, message)` → `exc.message` содержит description, `.description`/`.match` отсутствуют — контракт `_is_reply_target_gone` корректен. MINOR (не блокирует): локальный `import logging` в новых тестах — консистентен с pre-existing стилем файлов (не является дефектом). Передача @DevOps (T-266: коммит `fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)`, пуш, деплой, верификация). Без @Orchestrator.**
 **Date: 2026-08-17**

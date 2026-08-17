@@ -3,14 +3,17 @@
 send_chunked_reply: чанкинг >4096, reply_to_message_id ТОЛЬКО у первой части,
 TelegramRetryAfter → sleep + один повтор, chunk_delay между частями.
 _reply: best-effort. throttle_phrase: пул 5.1 + .replace-подстановка.
+Epic 34 (D112/D114, Section 43.4): _send_once — fallback «gone»-400 → ровно
+один повтор БЕЗ reply_to_message_id; прочие 400 — наверх.
 """
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiogram.exceptions import TelegramRetryAfter
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from services import smartmodule_utils as utils_mod
 from services.smartmodule_phrases import THROTTLE_PHRASES
+from services.summary_generator import SummaryGenerator
 
 CHAT_ID = -1001234567890
 
@@ -20,6 +23,14 @@ def _long_text(chunks: int = 2, word_len: int = 1000) -> str:
     for i in range(chunks * 5):
         words.append(chr(ord("a") + i % 26) * word_len)
     return " ".join(words)
+
+
+def _gone_400() -> TelegramBadRequest:
+    """aiogram 3.29.1: TelegramAPIError.__init__(method, message) — .message
+    содержит description (Section 43.4)."""
+    return TelegramBadRequest(
+        method=None, message="Bad Request: message to be replied not found"
+    )
 
 
 class TestSendChunkedReply:
@@ -116,6 +127,98 @@ class TestReply:
         with caplog.at_level(logging.WARNING):
             await utils_mod._reply(None, CHAT_ID, "привет")
         assert any("no bot available" in r.message for r in caplog.records)
+
+
+class TestSendOnceFallback:
+    """Epic 34 (43.4): _send_once — единая точка отправки с reply-fallback."""
+
+    @pytest.mark.asyncio
+    async def test_reply_gone_400_retries_once_without_reply(self):
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=[_gone_400(), None])
+        await utils_mod._reply(bot, CHAT_ID, "ответ", 42)
+        assert bot.send_message.await_count == 2
+        calls = bot.send_message.await_args_list
+        assert calls[0].args == (CHAT_ID, "ответ")
+        assert calls[0].kwargs["reply_to_message_id"] == 42
+        assert calls[1].args == (CHAT_ID, "ответ")
+        assert "reply_to_message_id" not in calls[1].kwargs
+
+    @pytest.mark.asyncio
+    async def test_other_bad_request_propagates_without_retry(self):
+        bot = AsyncMock()
+        other = TelegramBadRequest(method=None, message="Bad Request: chat not found")
+        bot.send_message = AsyncMock(side_effect=other)
+        with pytest.raises(TelegramBadRequest):
+            await utils_mod._send_once(bot, CHAT_ID, "ответ", 42)
+        assert bot.send_message.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_reply_gone_400_does_not_fallback(self):
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=_gone_400())
+        with pytest.raises(TelegramBadRequest):
+            await utils_mod._send_once(bot, CHAT_ID, "ответ")
+        assert bot.send_message.await_count == 1
+        assert "reply_to_message_id" not in bot.send_message.await_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_chunked_first_chunk_gone_fallback_others_plain(self, monkeypatch):
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", AsyncMock())
+        bot = AsyncMock()
+        text = _long_text()
+        chunks = SummaryGenerator._chunk_by_whitespace(text, utils_mod._CHUNK_LIMIT)
+        assert len(chunks) > 1
+        bot.send_message = AsyncMock(side_effect=[_gone_400()] + [None] * len(chunks))
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, text, 42)
+        assert bot.send_message.await_count == len(chunks) + 1
+        calls = bot.send_message.await_args_list
+        assert calls[0].kwargs["reply_to_message_id"] == 42
+        assert calls[0].args[1] == chunks[0]
+        assert "reply_to_message_id" not in calls[1].kwargs
+        assert calls[1].args[1] == chunks[0]
+        for call, chunk in zip(calls[2:], chunks[1:]):
+            assert "reply_to_message_id" not in call.kwargs
+            assert call.args[1] == chunk
+
+    @pytest.mark.asyncio
+    async def test_retry_after_retry_goes_through_send_once(self, monkeypatch):
+        sleep = AsyncMock()
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", sleep)
+        bot = AsyncMock()
+        retry_error = TelegramRetryAfter(method=None, message="retry", retry_after=3)
+        bot.send_message = AsyncMock(side_effect=[retry_error, _gone_400(), None])
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, "текст", 42)
+        assert bot.send_message.await_count == 3
+        sleep.assert_awaited_once_with(3)
+        calls = bot.send_message.await_args_list
+        assert calls[0].kwargs["reply_to_message_id"] == 42
+        assert calls[1].kwargs["reply_to_message_id"] == 42
+        assert "reply_to_message_id" not in calls[2].kwargs
+
+    @pytest.mark.asyncio
+    async def test_successful_send_exactly_one_call(self):
+        bot = AsyncMock()
+        await utils_mod._send_once(bot, CHAT_ID, "ответ", 42)
+        assert bot.send_message.await_count == 1
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_fallback_logs_warning_and_info(self, caplog):
+        import logging
+
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=[_gone_400(), None])
+        with caplog.at_level(logging.INFO):
+            await utils_mod._reply(bot, CHAT_ID, "ответ", 42)
+        assert any(
+            "reply target gone" in r.message and r.levelno == logging.WARNING
+            for r in caplog.records
+        )
+        assert any(
+            "sent without reply" in r.message and r.levelno == logging.INFO
+            for r in caplog.records
+        )
 
 
 class TestThrottlePhrase:

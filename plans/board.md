@@ -2,32 +2,45 @@
 
 ## 📋 Backlog
 
-*(пусто — Epic 32 перенесён в Done при архивации; Epic 33 в работе — см. In Progress)*
+*(пусто — Epic 33 перенесён в Done при архивации)*
 
 ## 🔧 In Progress
 
-### Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator (v2.31.0) — 2026-08-17 — Шаг 1 (PM) ✅ → Шаг 2 (@Architect, T-249) ✅ → Шаг 4 (@Builder, T-250…T-257-E) ✅ → Шаг 5 (@Reviewer) ✅ APPROVED (повторное ревью) — IMPLEMENTED & REVIEWED → T-258 README (@Builder) → @DevOps (T-259/T-260)
+### Epic 34: Hotfix — SmartSearch TelegramBadRequest «message to be replied not found» — 🚧 IN PROGRESS (Шаг 5/@Reviewer ✅ APPROVED → T-266 @DevOps, target v2.31.1)
 
-> **Шаг воркфлоу:** 1/3 (PM) ✅ (требования R33-1…R33-8, решения D104–D111 — в `plans/backlog.md`) → 2/3 @Architect (T-249, дизайн Section 42) ✅ (блокер D109 СНЯТ — промпты 42.5.1/42.5.2) → 3/3 @Builder (T-250 ∥ T-251 → T-252 ∥ T-253 → T-254/T-255/T-256 → T-257 тесты+ревью → T-258 доки) ✅ (Шаг 4a/4b: 1542 теста — 1392 baseline + 150 новых, 0 failed) → T-257-F @Reviewer → T-258 (@Builder) → @DevOps (T-259 коммит → T-260 деплой). Без @Orchestrator. **Target:** v2.31.0. **Baseline:** прод v2.30.0 (`2bad5ff`), 1392 теста, 14 роутеров.
+> Заведён 2026-08-17 (@PM, Шаг 1). Баг прод v2.31.0 (коммит `1172fb5`, PID 948950): «Фактчек отработал, а поиск молчит» — триггер «найди …» удаляется в супергруппе (-1002661910336) за время каскада research() → `TelegramBadRequest` «message to be replied not found» в `handlers/search.py:85` и повторно в `services/smartmodule_utils.py:36` (общий except `handlers/search.py:95-98` шлёт `_reply` на тот же мёртвый id → вторая 400 → пользователь не получает ничего). Полный трек — `plans/backlog.md` (Epic 34). Порядок: T-261 (@Architect) → T-262/T-263/T-264/T-267 (@Builder) → T-265 (@Reviewer) → T-266 (@DevOps). Без @Orchestrator.
 
-- [x] T-249 (@Architect, **P0**) — дизайн ARCHITECTURE.md Section 42 (подсервисы в SmartModule, SearchAggregator, пайплайны FactCheck/SmartSearch, троттлинг, тест-план; D109 RESOLVED) — **Done (Шаг 2)**
-- [x] T-250 (@Builder, **P0**, ←T-249) — конфиг 6 ключей + валидация (R33-1, D104) — **Done (Шаг 4a)**
-- [x] T-251 (@Builder, **P0**, ←T-249/T-250) — SearchAggregator: Tavily→Exa→DDG каскад (R33-2, D105) — **Done (Шаг 4a)**
-- [x] T-252 (@Builder, **P0**, ←T-251) — FactCheck-хендлер: триггер reply «фактчек», вердикт на reply_to_message_id целевого (R33-3, D106/D107) — **Done (Шаг 4a)**
-- [x] T-253 (@Builder, **P0**, ←T-251) — SmartSearch-хендлер: «найди/поищи/загугли», всё реплаем на message_id (R33-4, D106/D107) — **Done (Шаг 4a)**
-- [x] T-254 (@Builder, **P1**, ∥) — пулы фраз 5.1–5.5 дословно + форматтер {remaining_time} (R33-5, D108) — **Done (Шаг 4a)**
-- [x] T-255 (@Builder, **P1**, ✅ D109) — системные промпты фактчека/поиска байт-в-байт (R33-6) — **Done (Шаг 4a)**
-- [x] T-256 (@Builder, **P1**, ←T-252/T-253) — пост-процессинг summary_cleanup, чанкинг >4096, logger.exception (R33-7, D110) — **Done (Шаг 4a)**
-- [x] T-257 (@Builder + @Reviewer, **P0**, ←T-250…T-256) — тесты (фолбек, троттлинг, рандомизация, чанкинг) + полный pytest 1392+ + ревью (R33-7) — **T-257-A…E Done (Шаг 4b: 150 тестов, 1542 passed); Шаг 5: фиксы ревью NEEDS FIXES закрыты (BLOCKER-1 ключи→плейсхолдеры, MAJOR-1 интеграция роутеров `test_epic33_router_isolation.py` 4 теста, MINOR 1–4), 1555 passed / 0 failed; T-257-F @Reviewer — повторное ревью APPROVED ✅ (2026-08-17)**
-- [ ] T-258 (@Builder, **P1**, ←T-257) — README v2.31.0 + .env.example (R33-8)
-- [ ] T-259 (@DevOps, **P0**, ←T-257/T-258) — коммит на русском + пуш (R33-8; секреты только в .env)
-- [ ] T-260 (@DevOps, **P0**, ←T-259) — деплой v2.31.0: .env ключи EXA/TAVILY, pip install duckduckgo_search, restart, отчёт (R33-8, D111)
+- [x] T-261 (@Architect, P0) — RCA-подтверждение + дизайн фикса (ARCHITECTURE.md Section 43) — **Шаг 2 ✅ (2026-08-17)**
+- [x] T-262 (@Builder, P0) — fallback «retry без reply_to_message_id» в smartmodule_utils (send_chunked_reply/_reply) + логирование — **Шаг 4 ✅ (`_send_once`/`_is_reply_target_gone`, WARNING→INFO)**
+- [x] T-263 (@Builder, P1) — применение фолбека в handlers/search.py (+ factcheck.py при необходимости), без дублей — **Шаг 4 ✅ (хендлеры БЕЗ правок, 43.3; доказано тестами #8/#9: 1×400-gone = 1 доставка без reply)**
+- [x] T-264 (@Builder, P1) — юнит-тесты fallback (мок bot.send_message: 1-й TelegramBadRequest → 2-й без reply OK), 0 регрессий (baseline 1555) — **Шаг 4 ✅ (+9 тестов, 1564 passed / 0 failed)**
+- [x] T-265 (@Reviewer, P0) — code review — **Шаг 5 ✅ APPROVED (2026-08-17, T-265-A/B: личный прогон 1564 passed / 0 failed, diff-check чист, хендлеры не тронуты, секретов нет; BLOCKER/MAJOR НЕТ)**
+- [ ] T-266 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.1 (git pull, restart, status)
+- [x] T-267 (@Builder, P1) — README-фикс при необходимости (или skip) — **Шаг 4 ✅ (changelog «🔧 Исправлено в v2.31.1 (Epic 34)»)**
 
 ## 🔍 In Review
 
 *(пусто — Epic 31 перенесён в Done при архивации)*
 
 ## ✅ Done
+
+### Epic 33: SmartModule Extension — FactCheck + SmartSearch + SearchAggregator — ✅ DEPLOYED & ARCHIVED (v2.31.0, коммит `1172fb5`, 1555 тестов, прод PID 948950)
+
+> Перенесено из In Progress при архивации (Memory, 2026-08-17, Шаг 8). Полный трек — `plans/backlog.md` (Epic 33).
+> **Итог:** T-249…T-260 ALL DONE. @Architect: Section 42 (42.1–42.12), D109 RESOLVED (промпты 42.5.1/42.5.2 дословно); @Builder: конфиг 6 ключей, SearchAggregator (Tavily→Exa→DDG→AllSearchEnginesFailedException), хендлеры factcheck (0c) / search (0d), пулы 5.1–5.5 байт-в-байт, промпты байт-в-байт, cleanup/чанкинг/logger.exception, README v2.31.0; @Reviewer: NEEDS FIXES → фиксы → **APPROVED** (1555 passed лично: 1392 + 150 + 4 интеграционных + 9 хелперов, 0 failed); @DevOps: коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» (**32 файла, +3610/−43**) + пуш, деплой (git pull ff `2bad5ff..1172fb5`; pip install duckduckgo-search 8.1.1; .env +6 ключей: EXA_API_KEY/TAVILY_API_KEY/SEARCH_MAX_SYMBOLS=4000/FACTCHECK_MAX_SYMBOLS=4000/SEARCH_COOLDOWN_SECONDS=300/FACTCHECK_COOLDOWN_SECONDS=300, бэкап `.env.bak.epic33`) → active (running) **PID 948950**, 0 traceback, «SmartModule FactCheck + SmartSearch (Epic 33) initialized». **ЭПИК 33 ЗАКРЫТ (Шаг 8). Прод v2.31.0. Epics 1–33 ALL DEPLOYED.**
+
+- [x] T-249 (@Architect, P0) — дизайн Section 42 + D109 RESOLVED — **Done (Шаг 2)**
+- [x] T-250 (@Builder, P0) — конфиг 6 ключей + валидация (R33-1, D104) — **Done (Шаг 4a)**
+- [x] T-251 (@Builder, P0) — SearchAggregator: каскад Tavily→Exa→DDG (R33-2, D105) — **Done (Шаг 4a)**
+- [x] T-252 (@Builder, P0) — FactCheck-хендлер (R33-3, D106/D107) — **Done (Шаг 4a)**
+- [x] T-253 (@Builder, P0) — SmartSearch-хендлер (R33-4, D106/D107) — **Done (Шаг 4a)**
+- [x] T-254 (@Builder, P1) — пулы 5.1–5.5 дословно (R33-5, D108) — **Done (Шаг 4a)**
+- [x] T-255 (@Builder, P1) — промпты байт-в-байт (R33-6) — **Done (Шаг 4a)**
+- [x] T-256 (@Builder, P1) — надёжность: cleanup/чанкинг/логи (R33-7, D110) — **Done (Шаг 4a)**
+- [x] T-257 (@Builder + @Reviewer, P0) — тесты + полный прогон + ревью APPROVED (1555 passed) — **Done (Шаг 5)**
+- [x] T-258 (@Builder, P1) — README v2.31.0 + .env.example (R33-8) — **Done**
+- [x] T-259 (@DevOps, P0) — коммит `1172fb5` + пуш (32 файла, +3610/−43) — **Done**
+- [x] T-260 (@DevOps, P0) — деплой v2.31.0 (PID 948950, 6 ключей .env, duckduckgo-search 8.1.1, 0 traceback) — **Done (Шаг 8)**
 
 ### Epic 32: Фикс гифки Славика + сервис Оли (caption/репост) + SUMMARY_THROTTLE_SECONDS=300 — ✅ DEPLOYED & ARCHIVED (v2.30.0, коммит `2bad5ff`, 1392 теста, прод PID 942078)
 
@@ -527,4 +540,4 @@
 
 ---
 
-**Updated:** 2026-08-17 — **Epic 32 (v2.30.0) АРХИВИРОВАН: T-242…T-248 ALL DONE & DEPLOYED (коммит `2bad5ff`, 1392 теста, PID 942078).** Открыт **Epic 33 «SmartModule Extension: FactCheck + SmartSearch + SearchAggregator» (v2.31.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R33-1…R33-8, решения D104–D111 в `plans/backlog.md`; T-249 (@Architect, дизайн) → T-250…T-258 (@Builder) → T-259/T-260 (@DevOps). ⚠️ Блокер D109: дословные тексты промптов — у пользователя. Без @Orchestrator. **→ 2026-08-17, Шаг 4b (@Builder): Epic 33 IMPLEMENTED (T-249 ✅, T-250…T-256 ✅, T-257-A…E ✅ — 10 новых тест-файлов, 150 тестов, полный прогон 1542 passed / 0 failed, `git diff --check` чист); блокер D109 СНЯТ (промпты 42.5.1/42.5.2 байт-в-байт); T-257-F — @Reviewer (ожидается); T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 5 (@Builder, фиксы ревью): @Reviewer NEEDS FIXES закрыты — BLOCKER-1 (реальные ключи в backlog.md R33-1 → плейсхолдеры; grep: ключи только в .env), MAJOR-1 (новая интеграция `test_epic33_router_isolation.py`: Dispatcher 0a/0c/0d/4c через feed_update — «найди ракету» → 1 ответ от search, factcheck → reply на target, observer 0a пишет память, danger/common живы), MINOR 1–4 (.env +4 явных ключа и чистый UTF-8-комментарий; убран `.lower()` в factcheck.py:72; `test_settings_helpers.py` 9 тестов вскрыл и закрыл `NameError: logging` в settings.py); прогон **1555 passed / 0 failed**. Повторное ревью @Reviewer ожидается.** **→ 2026-08-17, Шаг 5 (повторное ревью, @Reviewer): ✅ APPROVED — все замечания закрыты и подтверждены лично (BLOCKER-1: grep по фрагментам ключей — только .env; MAJOR-1: 4 теста через `Dispatcher.feed_update` содержательны; MINOR 1–4 ✅; промпты/пулы байт-в-байт повторно; роутеры 0c/0d не сдвинуты; `git diff --check` чист; полный прогон 1555 passed / 0 failed подтверждён лично). T-257 ЗАКРЫТ. Впереди: T-258 README (@Builder) → T-259/T-260 (@DevOps).**
+**Updated:** 2026-08-17 — **Epic 32 (v2.30.0) АРХИВИРОВАН: T-242…T-248 ALL DONE & DEPLOYED (коммит `2bad5ff`, 1392 теста, PID 942078).** Открыт **Epic 33 «SmartModule Extension: FactCheck + SmartSearch + SearchAggregator» (v2.31.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R33-1…R33-8, решения D104–D111 в `plans/backlog.md`; T-249 (@Architect, дизайн) → T-250…T-258 (@Builder) → T-259/T-260 (@DevOps). ⚠️ Блокер D109: дословные тексты промптов — у пользователя. Без @Orchestrator. **→ 2026-08-17, Шаг 4b (@Builder): Epic 33 IMPLEMENTED (T-249 ✅, T-250…T-256 ✅, T-257-A…E ✅ — 10 новых тест-файлов, 150 тестов, полный прогон 1542 passed / 0 failed, `git diff --check` чист); блокер D109 СНЯТ (промпты 42.5.1/42.5.2 байт-в-байт); T-257-F — @Reviewer (ожидается); T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 5 (@Builder, фиксы ревью): @Reviewer NEEDS FIXES закрыты — BLOCKER-1 (реальные ключи в backlog.md R33-1 → плейсхолдеры; grep: ключи только в .env), MAJOR-1 (новая интеграция `test_epic33_router_isolation.py`: Dispatcher 0a/0c/0d/4c через feed_update — «найди ракету» → 1 ответ от search, factcheck → reply на target, observer 0a пишет память, danger/common живы), MINOR 1–4 (.env +4 явных ключа и чистый UTF-8-комментарий; убран `.lower()` в factcheck.py:72; `test_settings_helpers.py` 9 тестов вскрыл и закрыл `NameError: logging` в settings.py); прогон **1555 passed / 0 failed**. Повторное ревью @Reviewer ожидается.** **→ 2026-08-17, Шаг 5 (повторное ревью, @Reviewer): ✅ APPROVED — все замечания закрыты и подтверждены лично (BLOCKER-1: grep по фрагментам ключей — только .env; MAJOR-1: 4 теста через `Dispatcher.feed_update` содержательны; MINOR 1–4 ✅; промпты/пулы байт-в-байт повторно; роутеры 0c/0d не сдвинуты; `git diff --check` чист; полный прогон 1555 passed / 0 failed подтверждён лично). T-257 ЗАКРЫТ. Впереди: T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): Epic 33 ✅ DEPLOYED & ARCHIVED — T-249…T-260 ALL DONE. Коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» (32 файла, +3610/−43) + пуш в origin/master. Деплой на прод nik@198.46.175.136:/var/www/admin_bot: git pull ff `2bad5ff..1172fb5`, pip install duckduckgo-search 8.1.1, .env +6 ключей (бэкап `.env.bak.epic33`), systemctl restart → active (running) MainPID 948950, 0 traceback, «SmartModule FactCheck + SmartSearch (Epic 33) initialized». Тесты 1555 passed / 0 failed. Прод v2.31.0. Epics 1–33 ALL DEPLOYED. Цикл воркфлоу (Шаги 0–8) завершён.**
