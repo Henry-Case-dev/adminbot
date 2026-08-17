@@ -208,3 +208,32 @@ class TestHandler:
         await search_mod.smartsearch_handler(msg, bot=bot)
         service.research.assert_awaited_once_with("мем")
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
+
+    @pytest.mark.asyncio
+    async def test_gone_400_fallback_delivers_without_reply_no_error(
+        self, search_cleanup, caplog
+    ):
+        """Epic 34 (#8, T-263-C): 1-й send_message с reply → «gone»-400,
+        2-й без reply OK → доставка есть, logger.exception НЕ вызывается,
+        ровно 2 вызова send_message (дублей нет)."""
+        import logging
+
+        from aiogram.exceptions import TelegramBadRequest
+
+        service = MagicMock()
+        service.research = AsyncMock(return_value="выжимка сути")
+        search_mod.setup_search(service)
+        bot = AsyncMock()
+        gone = TelegramBadRequest(
+            method=None, message="Bad Request: message to be replied not found"
+        )
+        bot.send_message = AsyncMock(side_effect=[gone, None])
+        msg = _make_msg(text="найди пруфы", message_id=11)
+        with caplog.at_level(logging.ERROR):
+            await search_mod.smartsearch_handler(msg, bot=bot)
+        assert bot.send_message.await_count == 2
+        calls = bot.send_message.await_args_list
+        assert calls[0].kwargs["reply_to_message_id"] == 11
+        assert "reply_to_message_id" not in calls[1].kwargs
+        assert calls[1].args[1] == "выжимка сути"
+        assert not any("unexpected error" in r.message for r in caplog.records)

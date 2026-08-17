@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.31.0 | **Тестов:** 1555 | **Эпиков:** 33 (T-001…T-258)
+**Версия:** v2.31.1 | **Тестов:** 1564 | **Эпиков:** 34 (T-001…T-267)
 
 ---
 
@@ -863,6 +863,21 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 - Полный прогон: **1555 тестов**, 0 failed, 0 регрессий
 
 **Файлы:** `services/search_aggregator.py`, `services/factcheck_service.py`, `services/search_service.py`, `services/factcheck_prompts.py`, `services/search_prompts.py`, `services/smartmodule_phrases.py`, `services/smartmodule_throttling.py`, `services/smartmodule_utils.py` (новые), `handlers/factcheck.py`, `handlers/search.py` (новые), `config/settings.py`, `.env.example`, `requirements.txt`, `bot.py`, `tests/test_search_aggregator.py`, `tests/test_factcheck_*.py`, `tests/test_smartsearch_*.py`, `tests/test_smartmodule_phrases.py`, `tests/test_epic33_router_isolation.py`, `tests/test_settings_helpers.py` (новые)
+
+---
+
+## 🔧 Исправлено в v2.31.1 (Epic 34)
+
+### SmartSearch больше не играет в молчанку
+
+- **Проблема:** в супергруппе сообщение-триггер «найди …» успевали удалить за время каскада Tavily→Exa→DDG + LLM (десятки секунд). Telegram отвечал 400 «message to be replied not found», ответ улетал в общий except, повторный reply упирался в тот же мёртвый id — вторая 400, и пользователь получал тишину вместо выжимки.
+- **Исправление:** `services/smartmodule_utils.py` — единая точка отправки `_send_once`: при 400 «message to be replied not found» и заданном reply — ровно один повтор **без** `reply_to_message_id` (WARNING → INFO). Ответ доставляется в любом случае, просто без привязки к удалённому сообщению. Прочие 400 не ретраятся — ретраить «chat not found» всё равно что стучаться в пустую квартиру.
+- **FactCheck** покрыт автоматически (делит те же утилиты); хендлеры не трогали.
+
+**Тесты: 1555 → 1564 (+9)**
+- Полный прогон: **1564 теста**, 0 failed, 0 регрессий
+
+**Файлы:** `services/smartmodule_utils.py`, `tests/test_smartmodule_utils.py`, `tests/test_smartsearch_handlers.py`, `tests/test_factcheck_handlers.py`
 
 ---
 

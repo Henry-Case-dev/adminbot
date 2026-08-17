@@ -320,3 +320,33 @@ class TestHandlerReplyTargets:
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
         await factcheck_mod.factcheck_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] == 'уже чисто: "кавычки" - дефис'
+
+    @pytest.mark.asyncio
+    async def test_gone_400_on_target_delivers_verdict_without_reply(
+        self, factcheck_cleanup, caplog
+    ):
+        """Epic 34 (#9): target.message_id «удалён» → gone-400 → fallback без
+        reply; вердикт доставлен, ровно 2 вызова, без ERROR-лога
+        (симметрия 43.3 — фактчек делит те же utils)."""
+        import logging
+
+        from aiogram.exceptions import TelegramBadRequest
+
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт: пиздеж")
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        gone = TelegramBadRequest(
+            method=None, message="Bad Request: message to be replied not found"
+        )
+        bot.send_message = AsyncMock(side_effect=[gone, None])
+        target = _make_msg(text="Земля плоская", message_id=77)
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        with caplog.at_level(logging.ERROR):
+            await factcheck_mod.factcheck_handler(msg, bot=bot)
+        assert bot.send_message.await_count == 2
+        calls = bot.send_message.await_args_list
+        assert calls[0].kwargs["reply_to_message_id"] == 77
+        assert "reply_to_message_id" not in calls[1].kwargs
+        assert calls[1].args[1] == "вердикт: пиздеж"
+        assert not any("unexpected error" in r.message for r in caplog.records)

@@ -6545,3 +6545,152 @@ async def send_chunked_reply(
 **Зависимость:** `duckduckgo-search>=8.1.0,<9.0.0` (import `duckduckgo_search`; на 2026-08-17 PyPI-актуальная 8.1.1; установка в прод venv — T-260-A).
 
 @Architect Epic 33 architecture ready (Section 42, D109 resolved — промпты 42.5.1/42.5.2), passing the baton to @Builder (T-250 ∥ T-251 → T-252 ∥ T-253 → T-254/T-255/T-256 → T-257 тесты+ревью → T-258) и @DevOps (T-259/T-260).
+
+## Section 43: Epic 34 — Hotfix SmartSearch «message to be replied not found» (v2.31.1)
+
+**Баг:** прод v2.31.0 (коммит `1172fb5`, PID 948950): «Фактчек отработал, поиск молчит» в супергруппе chat_id=-1002661910336. Betterstack: `aiogram.exceptions.TelegramBadRequest` «message to be replied not found» — первая 400 в `handlers/search.py:85` (`send_chunked_reply` → `bot.send_message` с `reply_to_message_id=message.message_id`), вторая 400 в `services/smartmodule_utils.py:36` (`_reply` с тем же мёртвым id из общего except `handlers/search.py:95-98`). **Target:** v2.31.1 (hotfix, D115). **Baseline:** 1555 тестов. Без @Orchestrator.
+
+### 43.1 RCA — гипотеза Шага 0 ПОДТВЕРЖДЕНА (T-261-A)
+
+**Первичная причина — удаление сообщения-триггера за время пайплайна (мёртвый `reply_to_message_id`):**
+
+1. `handlers/search.py:84` — `summary = await _service.research(query)` длится десятки секунд (каскад Tavily 5с → Exa 10с → DDG 15с + LLM-генерация). За это время триггер «найди …» удаляется в супергруппе.
+2. `handlers/search.py:85` — `send_chunked_reply(bot, message.chat.id, summary, message.message_id)`; первый чанк шлётся с `reply_to_message_id=message.message_id` (`services/smartmodule_utils.py:70-72`) → Telegram отвечает 400 «message to be replied not found» → aiogram рейзит `TelegramBadRequest`.
+3. `services/smartmodule_utils.py:73` — `send_chunked_reply` ловит ТОЛЬКО `TelegramRetryAfter`; `TelegramBadRequest` улетает наверх.
+4. `handlers/search.py:95-98` — общий `except Exception` → `logger.exception` (ERROR в Betterstack) + `_reply(..., message.message_id)` на ТОТ ЖЕ мёртвый id → вторая 400 → `_reply` глотает её (`smartmodule_utils.py:37-40`, WARNING) → **пользователь не получает ничего** («поиск молчит»).
+
+**Цитаты-подтверждения:**
+- `smartmodule_utils.py:70-77`: `kwargs = {"reply_to_message_id": reply_to_message_id} if index == 0 else {}` → `try: await bot.send_message(chat_id, chunk, **kwargs)` → `except TelegramRetryAfter` — единственный перехват (TelegramBadRequest пропагирует).
+- `handlers/search.py:95-98`: `except Exception: logger.exception(...)` → `await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES), message.message_id)` — повторная отправка на мёртвый id.
+- `smartmodule_utils.py:34-40`: `_reply` — `except Exception: logger.warning(..., exc_info=True)` БЕЗ fallback «без reply» — вторая 400 глотается молча.
+
+**Альтернативы оценены:**
+
+| Гипотеза | Оценка | Покрывается фиксом? |
+|---|---|---|
+| Удаление триггера (основная) | Соответствует логам (2×400 на одном message_id) и факту «FactCheck не страдает» — его таргет это ЧУЖОЕ целевое сообщение (`factcheck.py:99` → `target.message_id`), его не удаляют | ✅ |
+| Forum-топики (reply в другой тред) | Бот НЕ передаёт `message_thread_id` — aiogram наследует тред сообщения; межтредовый reply в этом коде невозможен. Если тред удалён/закрыт — ошибка иная («message thread not found»), НЕ наш маркер | ✅ (тот же маркер, тот же fallback, если возникнет) |
+| Анонимные админы | Таргет анонима для бота доступен; 400 возникает только когда таргет удалён — тот же класс «таргет недоступен» | ✅ |
+| Прочие 400 («chat not found» и т.п.) | НЕ ретраим (D112 — бессмысленно; не молчать) | Не требуется |
+
+**Вывод:** контракт фикса «при `TelegramBadRequest` со строкой „message to be replied not found“ и заданном reply — ровно ОДИН повтор БЕЗ `reply_to_message_id`» покрывает ВСЕ реальные первопричины класса «reply-таргет недоступен боту», независимо от точной причины (удаление/топики/аноним). Точную причину удаления из своих логов бот доказать не может (события удаления чужих сообщений боту не приходят) — но это НЕ блокер: фикс корректен для всех вариантов, содержимое ответа доставляется в любом случае.
+
+### 43.2 Fallback в `services/smartmodule_utils.py` (D112, R34-2, T-262)
+
+**Ключевой контракт:** новый приватный хелпер `_send_once` — ЕДИНАЯ точка отправки для `_reply` и `send_chunked_reply` (логика fallback в одном месте, дублей нет — D113).
+
+```python
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+
+_REPLY_GONE_MARKER = "message to be replied not found"   # точная строка из прод-логов
+
+
+def _is_reply_target_gone(exc: TelegramBadRequest) -> bool:
+    """aiogram 3.29.1: description лежит в exc.message (TelegramAPIError.__init__).
+    Маркер — точная подстрока, БЕЗ регэкспов и БЕЗ .description/.match
+    (в aiogram этих атрибутов НЕТ — проверено MRO/сигнатурой)."""
+    return _REPLY_GONE_MARKER in (getattr(exc, "message", "") or "")
+
+
+async def _send_once(bot, chat_id: int, text: str,
+                     reply_to_message_id: int | None = None) -> None:
+    """Одна отправка с reply-fallback (D112):
+    - 400 «message to be replied not found» + reply задан → WARNING (exc_info —
+      полный трейс в Betterstack) + РОВНО ОДИН повтор БЕЗ reply → INFO;
+    - прочие исключения — НАВЕРХ без изменений (ERROR остаётся делом хендлера);
+    - fallback возможен только при заданном reply (у чанков 2+ его нет) —
+      единый код для всех чанков, спец-логики по индексу НЕТ (не переусложнять)."""
+    try:
+        if reply_to_message_id:
+            await bot.send_message(chat_id, text, reply_to_message_id=reply_to_message_id)
+        else:
+            await bot.send_message(chat_id, text)
+    except TelegramBadRequest as exc:
+        if reply_to_message_id and _is_reply_target_gone(exc):
+            logger.warning(
+                "SmartModule: reply target gone — retrying without reply_to_message_id | "
+                "chat_id=%s msg_id=%s", chat_id, reply_to_message_id, exc_info=True,
+            )
+            await bot.send_message(chat_id, text)
+            logger.info("SmartModule: sent without reply | chat_id=%s", chat_id)
+            return
+        raise
+```
+
+**`_reply` (`smartmodule_utils.py:27-40`) — замена ТОЛЬКО тела try:**
+
+```python
+    try:
+        await _send_once(bot, chat_id, text, reply_to_message_id)
+    except Exception:
+        logger.warning(
+            "SmartModule: failed to send reply | chat_id=%s", chat_id, exc_info=True
+        )
+```
+
+Best-effort семантика сохранена; fallback теперь защищает и UX-фразы 5.1/5.2/5.4a/5.5.
+
+**`send_chunked_reply` (`smartmodule_utils.py:50-79`) — цикл чанков:**
+
+```python
+    for index, chunk in enumerate(chunks):
+        if len(chunk) > _CHUNK_LIMIT: ...        # без изменений
+        reply_id = reply_to_message_id if index == 0 else None
+        try:
+            await _send_once(bot, chat_id, chunk, reply_id)
+        except TelegramRetryAfter as exc:
+            logger.warning("TelegramRetryAfter %.1fs — sleeping, one retry | chat_id=%s",
+                           exc.retry_after, chat_id)
+            await asyncio.sleep(exc.retry_after)
+            await _send_once(bot, chat_id, chunk, reply_id)   # повтор ТОЖЕ через _send_once
+        if index < len(chunks) - 1:
+            await asyncio.sleep(chunk_delay)
+```
+
+**Контракты/нюансы:**
+- **Чанки:** fallback срабатывает ТОЛЬКО на 1-й части (только у неё задан reply → условие `reply_to_message_id and ...` истинно). У чанков 2+ reply нет — «gone»-ошибка невозможна, их 400 пропагируют как раньше. Единый код без ветвления по индексу.
+- **TelegramRetryAfter:** aiogram 3.29.1 — `TelegramRetryAfter` и `TelegramBadRequest` — сиблинги под `TelegramAPIError` (проверено MRO) → порядок except не влияет; семантика «sleep + один повтор» сохранена; повтор идёт через `_send_once` (если таргет удалили за время sleep — fallback сработает и на повторе; поведение-надмножество, существующий тест `test_retry_after_sleeps_and_retries_once` остаётся зелёным без изменений).
+- **Содержимое не меняется:** повтор шлёт ТОТ ЖЕ текст (выжимка/вердикт/UX-фраза) — только БЕЗ `reply_to_message_id`.
+- **ERROR, когда?** Только в хендлерах: когда вторая попытка (без reply) тоже упала НЕ-«gone»-ошибкой → исключение пропагирует в generic except (`handlers/search.py:95-98` / `handlers/factcheck.py:109-112`) → `logger.exception` (полный трейс) + best-effort UX-фраза (короткая LLM_ERROR_PHRASES, не дубль выжимки).
+- **Логи-матрица (D112):** исходный 400-gone → WARNING «reply target gone — retrying without reply_to_message_id» (chat_id, msg_id, exc_info) → успех повтора → INFO «sent without reply» (chat_id). Один инцидент = WARNING+INFO, НЕ ERROR. Прочие 400 — наверх (ERROR из хендлера, как раньше).
+
+### 43.3 Хендлеры — БЕЗ правок (R34-3, D113, T-263)
+
+- **`handlers/search.py` НЕ меняется:** «gone»-400 больше НЕ пропагирует из utils → общий except (95-98) для этого кейса не срабатывает → двойной 400 нет, ERROR нет, дубля нет. R34-3 достигается устранением ПРИЧИНЫ пропагации (инцидент логируется один раз: WARNING+INFO в utils).
+- **`handlers/factcheck.py` НЕ меняется:** делит те же `_reply`/`send_chunked_reply` (import `factcheck.py:30`) → fallback применяется автоматически и симметрично: вердикт/5.3/5.4b/5.5 на удалённом `target.message_id` доставляются БЕЗ reply. D113 («только если делит путь _reply») — делит, но точка правки ОДНА — utils; править хендлер = дублировать логику.
+- **Обязательная проверка Builder (T-263-A/C):** тестами доказать «один 400-gone = одна доставка без reply, дублей нет» для ОБОИХ хендлеров.
+
+### 43.4 Тест-план (R34-4, D114, T-264; baseline 1555 → 1555 + новые, 0 failed/skipped)
+
+Мок ошибки: `TelegramBadRequest(method=None, message="Bad Request: message to be replied not found")` — сигнатура aiogram 3.29.1 (`TelegramAPIError.__init__(method, message)`), `.message` содержит description.
+
+| Файл | Кейсы (мок `bot.send_message` = `AsyncMock` с `side_effect`) |
+|---|---|
+| `tests/test_smartmodule_utils.py` (расширить) | **1.** `_reply` с reply: 1-й вызов кидает «gone»-400 → 2-й БЕЗ reply OK: `await_count == 2`, у 2-го вызова нет `reply_to_message_id`; caplog: WARNING «reply target gone» + INFO «sent without reply»; **2.** другой `TelegramBadRequest` («chat not found») → БЕЗ повтора, WARNING «failed to send reply» (best-effort, не рейзится); **3.** `_reply` БЕЗ reply + «gone»-400 → НЕ ретраится, re-raise → WARNING (1 вызов); **4.** `send_chunked_reply` короткий текст: «gone»-400 → повтор без reply, ровно 2 вызова; **5.** чанкинг >4096: 1-й чанк «gone»-400 → повтор без reply; чанки 2+ — по одному вызову и БЕЗ reply; **6.** `TelegramRetryAfter` — прежний путь (sleep + повтор; существующий тест без изменений); **7.** успешная отправка с reply — ровно 1 вызов (поведение не меняется) |
+| `tests/test_smartsearch_handlers.py` (расширить) | **8.** research OK, `send_message` side_effect `[gone_400, None]` → handler НЕ падает, `logger.exception` НЕ вызывается (caplog), итоговая доставка без reply, вызовов `send_message` ровно 2 (нет дублей — T-263-C) |
+| `tests/test_factcheck_handlers.py` (расширить) | **9.** `check_claim` OK, `target.message_id` «удалён» → вердикт доставлен без reply, 2 вызова, без ERROR-лога (симметрия 43.3) |
+| Регрессия (T-264-B) | Полный `pytest`: 1555 baseline + новые, 0 failed/skipped; `git diff --check` чист |
+
+### 43.5 Риски
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | **Не переусложнить** (D112): ретрай любых 400, новые настройки | Маркер — одна точная подстрока; fallback только при «gone»+reply задан; прочие 400 — наверх (ERROR в хендлере) |
+| 2 | **Дубли доставки** — повтор и в utils, и в generic except | Fallback-успех НЕ пропагирует → generic except не срабатывает; тесты #8/#9 доказывают ровно 2 вызова send_message и отсутствие ERROR |
+| 3 | **TelegramRetryAfter-регрессия** | Повтор через `_send_once` — надмножество; существующий тест не меняется, должен остаться зелёным |
+| 4 | **`mimic_relay.py:56-60`** — reply без try/except (сопутствующий риск) | ВНЕ скоупа hotfix (D113) → отдельный тикет после v2.31.1 |
+| 5 | **Эталон SYSTEM_PROMPT R11 (backlog 1518–1539)** | Правки backlog — только в блоке Epic 34 (конец файла); сдвига строк НЕТ |
+| 6 | **Маркер изменится в будущих версиях Bot API** | Строка стабильна; при изменении поведение деградирует к старому (generic except) — не хуже v2.31.0; тест #2 фиксирует контракт |
+| 7 | **FactCheck-симметрия навязана** | НЕ навязывается: fallback приходит из общих utils автоматически; хендлер не трогаем (43.3) |
+
+### 43.6 Сводка для Builder (файлы, порядок)
+
+**Боевой код — ОДИН файл:** `services/smartmodule_utils.py` (`_REPLY_GONE_MARKER`, `_is_reply_target_gone`, `_send_once` + замена тел `_reply`/`send_chunked_reply`). Хендлеры `handlers/search.py`/`handlers/factcheck.py` НЕ трогать (43.3) — только верификация тестами #8/#9.
+
+**Тесты:** `tests/test_smartmodule_utils.py` (+7 кейсов), `tests/test_smartsearch_handlers.py` (+1), `tests/test_factcheck_handlers.py` (+1).
+
+**Порядок:** T-262 (utils) → T-263 (верификация хендлеров тестами — правок кода НЕТ) → T-264 (полный прогон 1555+ зелёные, `git diff --check`) → T-267 (README skip/запись) → @Reviewer T-265 → @DevOps T-266 (коммит `fix(smartmodule): Epic 34 — fallback при удалённом reply-таргете SmartSearch (v2.31.1)`, пуш, деплой, верификация: 0 traceback, новых «gone»-400 от SmartSearch нет). `.env` НЕ трогать, конфиг НЕ меняется (D115).
+
+**НЕ менять:** `services/summary_generator.py` (статический `_chunk_by_whitespace` уже импортируется), `services/summary_cleanup.py`, `services/mimic_relay.py` (риск #4 — отдельный тикет), порядок роутеров, `.env`.
+
+@Architect Epic 34 architecture ready (Section 43, RCA подтверждён — удалённый reply-таргет; fallback спроектирован в utils, хендлеры без правок), passing the baton to @Builder (T-262 → T-263 → T-264 → T-267) и @Reviewer (T-265) / @DevOps (T-266).
