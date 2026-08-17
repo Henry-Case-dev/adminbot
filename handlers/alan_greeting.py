@@ -4,6 +4,7 @@ F7 — Alan Greeting Video.
 When Alan (id 138811255) joins the chat, the bot picks a random video
 from media/leha_greeting/ and sends it via send_video with caption "@Alan_Z".
 """
+import asyncio
 import glob
 import logging
 import os
@@ -22,6 +23,16 @@ logger = logging.getLogger(__name__)
 alan_greeting_router = Router()
 
 _last_greeting: dict[int, float] = {}
+_greeting_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_greeting_lock(chat_id: int) -> asyncio.Lock:
+    """Per-chat lock (Section 44). Создание синхронное — гонки на создание нет."""
+    lock = _greeting_locks.get(chat_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _greeting_locks[chat_id] = lock
+    return lock
 
 _VIDEO_EXTENSIONS = {".mp4", ".MP4", ".avi", ".AVI", ".mov", ".MOV", ".webm", ".WEBM"}
 
@@ -91,17 +102,19 @@ async def on_alan_join(event: types.ChatMemberUpdated):
 
     logger.info("Alan (id=%d) joined chat %d — detected via ChatMemberUpdated", user.id, chat_id)
 
-    now = time.time()
-    if chat_id in _last_greeting:
-        elapsed = now - _last_greeting[chat_id]
-        if elapsed < settings.ALAN_GREETING_COOLDOWN:
-            logger.info("Greeting for chat %d suppressed (cooldown: %.1fs remaining)", 
-                       chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
-            return
+    async with _get_greeting_lock(chat_id):
+        now = time.time()
+        if chat_id in _last_greeting:
+            elapsed = now - _last_greeting[chat_id]
+            if elapsed < settings.ALAN_GREETING_COOLDOWN:
+                logger.info("Greeting for chat %d suppressed (cooldown: %.1fs remaining)",
+                           chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
+                return
 
-    success = await _send_greeting(event.bot, chat_id)
-    if success:
         _last_greeting[chat_id] = time.time()
+        success = await _send_greeting(event.bot, chat_id)
+        if not success:
+            _last_greeting.pop(chat_id, None)
 
 
 @alan_greeting_router.message(F.new_chat_members)
@@ -116,16 +129,18 @@ async def on_alan_new_member(message: types.Message):
         logger.info("Alan (id=%d) joined chat %d — detected via new_chat_members fallback",
                    settings.ALAN_USER_ID, chat_id)
 
-        now = time.time()
-        if chat_id in _last_greeting:
-            elapsed = now - _last_greeting[chat_id]
-            if elapsed < settings.ALAN_GREETING_COOLDOWN:
-                logger.info("Greeting for chat %d suppressed via new_chat_members (cooldown: %.1fs remaining)",
-                           chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
-                return UNHANDLED
+        async with _get_greeting_lock(chat_id):
+            now = time.time()
+            if chat_id in _last_greeting:
+                elapsed = now - _last_greeting[chat_id]
+                if elapsed < settings.ALAN_GREETING_COOLDOWN:
+                    logger.info("Greeting for chat %d suppressed via new_chat_members (cooldown: %.1fs remaining)",
+                               chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
+                    return UNHANDLED
 
-        success = await _send_greeting(message.bot, chat_id)
-        if success:
             _last_greeting[chat_id] = time.time()
+            success = await _send_greeting(message.bot, chat_id)
+            if not success:
+                _last_greeting.pop(chat_id, None)
 
     return UNHANDLED
