@@ -46,7 +46,7 @@ def factcheck_cleanup():
 
 
 def _make_msg(text=None, caption=None, message_id=1, user_id=1,
-              reply_to_message=None, forward_origin=None):
+              reply_to_message=None, forward_origin=None, media_group_id=None):
     msg = MagicMock()
     msg.text = text
     msg.caption = caption
@@ -57,7 +57,31 @@ def _make_msg(text=None, caption=None, message_id=1, user_id=1,
     msg.from_user.id = user_id
     msg.reply_to_message = reply_to_message
     msg.forward_origin = forward_origin
+    msg.media_group_id = media_group_id   # Epic 36: не альбом по умолчанию
     return msg
+
+
+@pytest.fixture
+def media_buffer_cleanup():
+    from services import media_group_buffer as mgb_mod
+
+    yield
+    mgb_mod._buffer.clear()
+
+
+@pytest.fixture
+def buffer_time(monkeypatch):
+    from services import media_group_buffer as mgb_mod
+
+    state = {"now": 1000.0}
+
+    class FakeTime:
+        @staticmethod
+        def monotonic():
+            return state["now"]
+
+    monkeypatch.setattr(mgb_mod, "time", FakeTime)
+    return state
 
 
 def _channel_origin(title="Канал X", username="channelx", signature="Подпись"):
@@ -350,3 +374,110 @@ class TestHandlerReplyTargets:
         assert "reply_to_message_id" not in calls[1].kwargs
         assert calls[1].args[1] == "вердикт: пиздеж"
         assert not any("unexpected error" in r.message for r in caplog.records)
+
+
+class TestAlbumCaptionBuffer:
+    """Epic 36 (R36-1, Section 45.3 #12-16): reply на 2-е/3-е фото альбома —
+    caption берётся из MediaGroupCaptionBuffer (заполняется observer 0a)."""
+
+    def _fill(self, caption, media_group_id="album-1", message_id=70):
+        from services import media_group_buffer as mgb_mod
+
+        mgb_mod.record_media_group_message(
+            _make_msg(caption=caption, message_id=message_id,
+                      media_group_id=media_group_id)
+        )
+
+    @pytest.mark.asyncio
+    async def test_album_target_uses_buffered_caption(
+        self, factcheck_cleanup, media_buffer_cleanup
+    ):
+        """#12: буфер записан observer'ом → reply на 2-е фото (без caption)
+        → check_claim получает caption 1-го фото, reply на target.message_id."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт: пиздеж")
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        self._fill("текст новости")
+        target = _make_msg(text=None, caption=None, message_id=71,
+                           media_group_id="album-1")
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        service.check_claim.assert_awaited_once_with("текст новости", None, None)
+        assert bot.send_message.await_args.args[1] == "вердикт: пиздеж"
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 71
+
+    @pytest.mark.asyncio
+    async def test_album_reply_before_buffer_fill_goes_empty_context(
+        self, factcheck_cleanup, media_buffer_cleanup
+    ):
+        """#13: reply ДО заполнения буфера (буфер пуст) → 5.3, check_claim не вызван."""
+        service = MagicMock()
+        service.check_claim = AsyncMock()
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        target = _make_msg(text=None, caption=None, message_id=71,
+                           media_group_id="album-empty")
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        assert bot.send_message.await_args.args[1] in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 71
+        service.check_claim.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_album_caption_expired_goes_empty_context(
+        self, factcheck_cleanup, media_buffer_cleanup, buffer_time
+    ):
+        """#14: TTL истёк → 5.3."""
+        from services import media_group_buffer as mgb_mod
+
+        service = MagicMock()
+        service.check_claim = AsyncMock()
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        self._fill("текст новости", media_group_id="album-ttl")
+        buffer_time["now"] += mgb_mod.TTL_SECONDS + 1
+        target = _make_msg(text=None, caption=None, message_id=71,
+                           media_group_id="album-ttl")
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        assert bot.send_message.await_args.args[1] in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        service.check_claim.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_album_caption_lru_evicted_goes_empty_context(
+        self, factcheck_cleanup, media_buffer_cleanup
+    ):
+        """#15: LRU-эвикция записи → 5.3."""
+        from services import media_group_buffer as mgb_mod
+
+        service = MagicMock()
+        service.check_claim = AsyncMock()
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        self._fill("старейший caption", media_group_id="album-lru")
+        for i in range(1, mgb_mod.MAX_ENTRIES + 1):
+            self._fill(f"c{i}", media_group_id=f"album-{i}")
+        assert mgb_mod.get_media_group_caption("album-lru") is None
+        target = _make_msg(text=None, caption=None, message_id=71,
+                           media_group_id="album-lru")
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        assert bot.send_message.await_args.args[1] in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        service.check_claim.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_direct_caption_has_priority_over_buffer(
+        self, factcheck_cleanup, media_buffer_cleanup
+    ):
+        """#16: у цели есть прямой caption → буфер не читается (регрессия)."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        self._fill("старый caption из буфера", media_group_id="album-dir")
+        target = _make_msg(text=None, caption="глянь это", message_id=71,
+                           media_group_id="album-dir")
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        service.check_claim.assert_awaited_once_with("глянь это", None, None)

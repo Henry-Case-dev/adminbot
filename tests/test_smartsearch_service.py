@@ -32,6 +32,7 @@ class TestResearch:
         system, user = messages[0]["content"], messages[1]["content"]
         assert str(settings.SEARCH_MAX_SYMBOLS) in system
         assert "{max_symbols}" not in system
+        assert "Максимальный жесткий потолок" in system  # R36-2 (D120)
         assert user == "<query>найди пруфы</query>\n\n<search_results>хиты</search_results>"
 
     @pytest.mark.asyncio

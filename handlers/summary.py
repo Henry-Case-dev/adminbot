@@ -23,6 +23,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import Command
 
 from config.settings import settings
+from services.media_group_buffer import record_media_group_message
 from services.summary_throttling import ThrottlingMiddleware
 
 logger = logging.getLogger(__name__)
@@ -164,6 +165,10 @@ async def summary_observer(message: types.Message):
         if not text and media_type == "other":
             # чистые сервисные (join/pin и т.п.) — не сохраняем
             return UNHANDLED
+        try:
+            record_media_group_message(message)     # Epic 36 (R36-1, Section 45.1)
+        except Exception:
+            logger.warning("SmartModule observer: media group buffer fill failed", exc_info=True)
         reply_to_id = (
             message.reply_to_message.message_id if message.reply_to_message else None
         )
