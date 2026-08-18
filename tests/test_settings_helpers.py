@@ -120,3 +120,32 @@ class TestEpic37SettingsDefaults:
         assert settings_mod.settings.WEBPAGE_MAX_SYMBOLS == 2000
         assert settings_mod.settings.YOUTUBE_COOLDOWN_SECONDS == 60.5
         assert settings_mod.settings.WEBPAGE_COOLDOWN_SECONDS == 0.0
+
+
+_EPIC39_KEYS = (
+    "YOUTUBE_TRANSCRIPT_PROXY_URL",
+    "YOUTUBE_COOKIES_FILE",
+)
+
+
+class TestEpic39SettingsDefaults:
+    """Epic 39 (48.2/48.6): дефолты 2 новых ключей failover + reload-паттерн."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC39_KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.YOUTUBE_TRANSCRIPT_PROXY_URL == ""
+        assert settings_mod.settings.YOUTUBE_COOKIES_FILE == ""
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "http://127.0.0.1:8080")
+        monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "/tmp/cookies.txt")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.YOUTUBE_TRANSCRIPT_PROXY_URL == "http://127.0.0.1:8080"
+        assert settings_mod.settings.YOUTUBE_COOKIES_FILE == "/tmp/cookies.txt"

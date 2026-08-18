@@ -337,5 +337,13 @@ class Settings:
     YOUTUBE_COOLDOWN_SECONDS: float = _env_float_min("YOUTUBE_COOLDOWN_SECONDS", 300.0, 0.0)
     WEBPAGE_COOLDOWN_SECONDS: float = _env_float_min("WEBPAGE_COOLDOWN_SECONDS", 300.0, 0.0)
 
+    # ── SmartModule: YouTube engine failover (Epic 39, D142/D144) ──
+    # Прокси для ОБОИХ движков (yt-dlp опция proxy; transcript-api proxies
+    # {"http": u, "https": u}). Пусто = без прокси. R17: значение НЕ логируется.
+    YOUTUBE_TRANSCRIPT_PROXY_URL: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_URL", "")
+    # Путь к Netscape-файлу cookies (yt-dlp cookiefile; transcript-api cookies=).
+    # Пусто = без cookies. R17: значение НЕ логируется.
+    YOUTUBE_COOKIES_FILE: str = _env_str("YOUTUBE_COOKIES_FILE", "")
+
 
 settings = Settings()

@@ -3744,7 +3744,7 @@ llm откинулась, сгенерировать не вышло
 
 ---
 
-## Epic 38: Refactoring WebSummarizer — Jina Reader → Trafilatura + Tavily/Exa фолбеки — 2026-08-19 🚧 IN PROGRESS (target v2.32.1, baseline v2.32.0 `747cb99`, 1757 тестов)
+## Epic 38: Refactoring WebSummarizer — Jina Reader → Trafilatura + Tavily/Exa фолбеки — 2026-08-19 ✅ DONE & DEPLOYED (v2.32.1, коммит `f0bc4d6`, 1763 теста, прод PID 974412) — АРХИВИРОВАН 2026-08-19 (Шаг 1 Epic 39)
 
 > **Цель:** Полностью удалить интеграцию с Jina Reader и заменить движок извлечения контента веб-страниц
 > в WebSummarizer на локальную `trafilatura` с каскадным фолбеком на API Tavily и Exa.
@@ -3791,8 +3791,8 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
 
-- [ ] T-294-A: Дизайн в `plans/ARCHITECTURE.md` (Section 47/48 — номер уточнить): класс `WebContentExtractor` (метод `extract(target_url) → str`), контракты каждого шага каскада (R38-3 дословно), обработка пустых ключей, `WebContentExtractionFailedException`, DI `setup_web`/`on_shutdown` (close), тест-план (4 сценария ТЗ + edge), риски; закрыть открытые вопросы PM (1–5)
-- [ ] T-294-B: Self-review + PM-аппрув; T-295…T-299 → READY FOR BUILDER
+- [x] T-294-A: Дизайн в `plans/ARCHITECTURE.md` (Section 47/48 — номер уточнить): класс `WebContentExtractor` (метод `extract(target_url) → str`), контракты каждого шага каскада (R38-3 дословно), обработка пустых ключей, `WebContentExtractionFailedException`, DI `setup_web`/`on_shutdown` (close), тест-план (4 сценария ТЗ + edge), риски; закрыть открытые вопросы PM (1–5)
+- [x] T-294-B: Self-review + PM-аппрув; T-295…T-299 → READY FOR BUILDER
 
 **DoD:** Section в ARCHITECTURE.md; открытые вопросы закрыты; PM-аппрув.
 
@@ -3800,11 +3800,11 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-294. **Оценка:** 0.5d.
 
-- [ ] T-295-A: Удалить `services/jina_reader.py` (весь файл) и `tests/test_jina_reader.py` (весь файл)
-- [ ] T-295-B: Удалить `JINA_API_KEY` из `config/settings.py` и `.env.example`
-- [ ] T-295-C: Правки `bot.py` (импорт, `_jina_reader`, close()), `services/web_summarizer_service.py`, `handlers/web.py`, `README.md`
-- [ ] T-295-D: Правки тестов: `tests/test_settings_helpers.py` (3 места), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`
-- [ ] T-295-E: Верификация grep: `jina`, `r.jina.ai`, `JINA_API_KEY` → 0 вхождений в коде/конфигах/доках
+- [x] T-295-A: Удалить `services/jina_reader.py` (весь файл) и `tests/test_jina_reader.py` (весь файл)
+- [x] T-295-B: Удалить `JINA_API_KEY` из `config/settings.py` и `.env.example`
+- [x] T-295-C: Правки `bot.py` (импорт, `_jina_reader`, close()), `services/web_summarizer_service.py`, `handlers/web.py`, `README.md`
+- [x] T-295-D: Правки тестов: `tests/test_settings_helpers.py` (3 места), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`
+- [x] T-295-E: Верификация grep: `jina`, `r.jina.ai`, `JINA_API_KEY` → 0 вхождений в коде/конфигах/доках
 
 **DoD:** Jina полностью удалён; тесты (кроме целевых Epic 38) зелёные.
 
@@ -3812,12 +3812,12 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-294. **Оценка:** 0.75d.
 
-- [ ] T-296-A: `services/web_content_extractor.py`: класс `WebContentExtractor` (ленивый `httpx.AsyncClient`, прецедент SearchAggregator) + `WebContentExtractionFailedException`
-- [ ] T-296-B: Шаг 1 trafilatura: httpx-загрузка HTML (UA Chrome/122, `follow_redirects=True`, `timeout=10.0`) → `trafilatura.extract(html, output_format="markdown", include_links=False, include_images=False, include_tables=True, favor_precision=True)` в `asyncio.to_thread` (прецедент youtube_transcript_engine); успех: not None и `len(strip)>150`
-- [ ] T-296-C: Шаг 2 Tavily: `POST https://api.tavily.com/extract`, `json={"urls":[target_url],"api_key":TAVILY_API_KEY}`, `timeout=15.0`; успех: `results[0]["raw_content"]` >150; пустой ключ → skip с WARNING (прецедент SearchAggregator)
-- [ ] T-296-D: Шаг 3 Exa: `POST https://api.exa.ai/contents`, `headers={"x-api-key":EXA_API_KEY}`, `json={"urls":[target_url],"text":True}`, `timeout=15.0`; успех: `results[0]["text"]` >150; пустой ключ → skip с WARNING
-- [ ] T-296-E: Шаг 4: все уровни провалились/пусто → `WebContentExtractionFailedException`; `close()` для on_shutdown; логирование шагов (INFO/WARNING/ERROR) по конвенции; ретраи внутри уровней НЕ добавлять (D134)
-- [ ] T-296-F: `requirements.txt` + `trafilatura` (с пином)
+- [x] T-296-A: `services/web_content_extractor.py`: класс `WebContentExtractor` (ленивый `httpx.AsyncClient`, прецедент SearchAggregator) + `WebContentExtractionFailedException`
+- [x] T-296-B: Шаг 1 trafilatura: httpx-загрузка HTML (UA Chrome/122, `follow_redirects=True`, `timeout=10.0`) → `trafilatura.extract(html, output_format="markdown", include_links=False, include_images=False, include_tables=True, favor_precision=True)` в `asyncio.to_thread` (прецедент youtube_transcript_engine); успех: not None и `len(strip)>150`
+- [x] T-296-C: Шаг 2 Tavily: `POST https://api.tavily.com/extract`, `json={"urls":[target_url],"api_key":TAVILY_API_KEY}`, `timeout=15.0`; успех: `results[0]["raw_content"]` >150; пустой ключ → skip с WARNING (прецедент SearchAggregator)
+- [x] T-296-D: Шаг 3 Exa: `POST https://api.exa.ai/contents`, `headers={"x-api-key":EXA_API_KEY}`, `json={"urls":[target_url],"text":True}`, `timeout=15.0`; успех: `results[0]["text"]` >150; пустой ключ → skip с WARNING
+- [x] T-296-E: Шаг 4: все уровни провалились/пусто → `WebContentExtractionFailedException`; `close()` для on_shutdown; логирование шагов (INFO/WARNING/ERROR) по конвенции; ретраи внутри уровней НЕ добавлять (D134)
+- [x] T-296-F: `requirements.txt` + `trafilatura` (с пином)
 
 **DoD:** каскад реализован дословно по R38-3; исключение бросается на шаге 4.
 
@@ -3825,9 +3825,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-295, T-296. **Оценка:** 0.5d.
 
-- [ ] T-297-A: `services/web_summarizer_service.py` — заменить JinaReader на `WebContentExtractor` (пайплайн: extract → промпт `{max_symbols}` через `.replace` → `llm.generate` → `cleanup_llm_text`); `_truncate` до `WEBPAGE_MAX_SYMBOLS` сохранить
-- [ ] T-297-B: `handlers/web.py` — `WebContentExtractionFailedException` → случайная фраза из `WEB_ERROR_PHRASES` (5.7, D135) реплаем на целевое сообщение + полный трейс в Betterstack (`logger.exception`); триггеры/UX/Reply-To/троттлинг `WEBPAGE_COOLDOWN_SECONDS` НЕ менять (R38-4)
-- [ ] T-297-C: `bot.py` — DI: инициализация `WebContentExtractor` в `on_startup` (`setup_web`), `close()` в `on_shutdown` (прецедент Epic 33/37); порядок роутеров НЕ менять
+- [x] T-297-A: `services/web_summarizer_service.py` — заменить JinaReader на `WebContentExtractor` (пайплайн: extract → промпт `{max_symbols}` через `.replace` → `llm.generate` → `cleanup_llm_text`); `_truncate` до `WEBPAGE_MAX_SYMBOLS` сохранить
+- [x] T-297-B: `handlers/web.py` — `WebContentExtractionFailedException` → случайная фраза из `WEB_ERROR_PHRASES` (5.7, D135) реплаем на целевое сообщение + полный трейс в Betterstack (`logger.exception`); триггеры/UX/Reply-To/троттлинг `WEBPAGE_COOLDOWN_SECONDS` НЕ менять (R38-4)
+- [x] T-297-C: `bot.py` — DI: инициализация `WebContentExtractor` в `on_startup` (`setup_web`), `close()` в `on_shutdown` (прецедент Epic 33/37); порядок роутеров НЕ менять
 
 **DoD:** WebSummarizer работает на WebContentExtractor; ошибки каскада → пул 5.7 реплаем; пункты R38-4 не тронуты.
 
@@ -3835,9 +3835,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-297. **Оценка:** 1d.
 
-- [ ] T-298-A (@Builder): `tests/test_web_content_extractor.py` (~15-20 кейсов, `httpx.MockTransport` + monkeypatch `trafilatura.extract`): 4 сценария ТЗ (trafilatura успех; trafilatura падает → Tavily успех; trafilatura+Tavily падают → Exa успех; все три падают → `WebContentExtractionFailedException` + случайная фраза из пула); пустые ключи → skip; порог 150; close() клиента; логирование
-- [ ] T-298-B (@Builder): правки `tests/test_settings_helpers.py` (3 места JINA), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`; проверить `tests/test_epic37_router_isolation.py`; полный `pytest` — 1757 baseline, 0 failed/skipped; `git diff --check` чист
-- [ ] T-298-C (@Reviewer): ревью (каскад дословно R38-3, пул 5.7 без изменений, DI, propagation, секретов нет) + личный прогон; вердикт APPROVED
+- [x] T-298-A (@Builder): `tests/test_web_content_extractor.py` (~15-20 кейсов, `httpx.MockTransport` + monkeypatch `trafilatura.extract`): 4 сценария ТЗ (trafilatura успех; trafilatura падает → Tavily успех; trafilatura+Tavily падают → Exa успех; все три падают → `WebContentExtractionFailedException` + случайная фраза из пула); пустые ключи → skip; порог 150; close() клиента; логирование
+- [x] T-298-B (@Builder): правки `tests/test_settings_helpers.py` (3 места JINA), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`; проверить `tests/test_epic37_router_isolation.py`; полный `pytest` — 1757 baseline, 0 failed/skipped; `git diff --check` чист
+- [x] T-298-C (@Reviewer): ревью (каскад дословно R38-3, пул 5.7 без изменений, DI, propagation, секретов нет) + личный прогон; вердикт APPROVED
 
 **DoD:** APPROVED; 4 сценария покрыты; 0 регрессий (baseline 1757).
 
@@ -3845,7 +3845,7 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P1. **Зависимости:** T-298. **Оценка:** 0.25d.
 
-- [ ] T-299-A: README v2.32.1 (ироничный тон, changelog) + `plans/MEMORY.md` (Epic 38, v2.32.1)
+- [x] T-299-A: README v2.32.1 (ироничный тон, changelog) + `plans/MEMORY.md` (Epic 38, v2.32.1)
 
 **DoD:** доки консистентны; упоминаний Jina нет.
 
@@ -3883,19 +3883,148 @@ llm откинулась, сгенерировать не вышло
 ---
 
 **Статус: Epic 38 — Шаг 1 (PM) ✅ (2026-08-19): требования R38-1…R38-6, решения D134–D138, задачи T-294…T-301 зафиксированы; Epic 37 архивирован (DEPLOYED, v2.32.0, `747cb99`). Передача @Architect (T-294, Section 47/48 — открытые вопросы 1–5 выше). Без @Orchestrator.**
+**Статус: Epic 38 — АРХИВАЦИЯ ✅ (2026-08-19, Шаг 1 Epic 39): T-294…T-301 ALL DONE — задеплоен v2.32.1 (коммит `f0bc4d6`, 1763 passed / 0 failed, прод PID 974412, 0 traceback). ЭПИК 38 ЗАКРЫТ. Прод v2.32.1. Трек Epic 39 — ниже. Без @Orchestrator.**
 **Date: 2026-08-19**
 
 ---
 
-## Epic 39: YouTube engine fix — 2026-08-19 🕒 CANDIDATE (ожидает решения пользователя)
+## Epic 39: YouTube engine fix — 2026-08-19 🚧 IN PROGRESS (одобрено пользователем, target v2.33.0, baseline v2.32.1 `f0bc4d6`, 1763 теста)
 
-> **Прод-дефект Epic 37:** YouTube-фича (YouTubeTranscriptService, youtube-transcript-api 0.6.3) сломана
-> IP-блоком YouTube (AS36352) на проде. ВНЕ скоупа Epic 38 (Web-рефакторинг).
-> **Статус:** «Ожидает решения пользователя» — задачи T-* НЕ создаются до выбора варианта.
-> **Результаты расследования:** IP-блок AS36352 (прод, пост-деплой Epic 37, v2.32.0).
-> **Варианты (на выбор пользователя):**
-> 1. **yt-dlp (primary):** скачивание субтитров через yt-dlp (+ cookies-файл) — снимает IP-блок.
-> 2. **youtube-transcript-api>=1.1.1 + прокси/cookies:** остаться на текущей библиотеке, добавить прокси и cookies-поддержку.
-> 3. **Прокси:** маршрутизировать исходящие запросы к YouTube через прокси.
->
-> После решения пользователя — оформить полноценным эпиком (R/T/D-нумерация) по стандартному воркфлоу (без @Orchestrator).
+> **Цель:** Починить YouTube-фичу на проде: связка **yt-dlp (основной движок) → при неудаче
+> youtube-transcript-api через прокси/cookies (фолбек)**, с ОБЯЗАТЕЛЬНОЙ проверкой реальной ссылки
+> с серверного IP при деплое.
+> **Контекст:** прод-дефект Epic 37 — YouTube деградирует датацентровый IP (AS36352): TranscriptsDisabled /
+> пустое тело timedtext. Логика движка не виновата.
+> **Контракт (НЕ менять):** `services/youtube_transcript_engine.py`: `async fetch_transcript(video_id, max_symbols) -> str`
+> + `YouTubeTranscriptUnavailableException`. Сервис (`YoutubeSummarizerService(engine, llm).summarize(video_id)`),
+> хендлер (`handlers/youtube.py`, роутер 0e), триггеры, пулы (5.6/5.5), промпты, Reply-To, троттлинг
+> `YOUTUBE_COOLDOWN_SECONDS` — БЕЗ изменений. Вся правка локализуется: движок + settings + requirements +
+> .env.example + тесты движка.
+> **Ключевой факт (Memory):** youtube-transcript-api 0.6.3 (проверено по исходникам .venv) УЖЕ поддерживает
+> proxies (dict http/https) и cookies (Netscape-файл) в list_transcripts/get_transcript; сессия пробрасывается
+> до fetch(). Апгрейд >=1.1.1 НЕ нужен (ломает сигнатуру fetch()) — пин остаётся >=0.6.2,<1.0.
+> **Прецеденты:** `services/search_aggregator.py` `_search_ddg` (lazy-импорт DDGS + ImportError-guard +
+> asyncio.to_thread, НЕ subprocess), `services/youtube_transcript_engine.py` `_pick_transcript` (приоритет
+> треков) и `_format` (общий форматтер).
+> **Исполнители:** @Architect (T-302, Section 48), @Builder (T-303…T-306), @Reviewer (T-305-C), @DevOps (T-307/T-308). Без @Orchestrator.
+> **Target:** v2.33.0. **Baseline:** прод v2.32.1 (`f0bc4d6`), 1763 теста.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R39-1** | **yt-dlp как основной движок:** Python-API (`import yt_dlp`, lazy-импорт с ImportError-guard), вызов в `asyncio.to_thread` (НЕ subprocess; прецедент `SearchAggregator._search_ddg`/DDGS). Выбор трека зеркалит приоритет `_pick_transcript` (ru manual → en manual → ru auto → en auto → прочий). Нормализация форматов (JSON3/VTT/SRT) в `list[dict]` `{text, start, duration}` для общего `_format`. |
+| **R39-2** | **Фолбек youtube-transcript-api 0.6.3** (пин НЕ менять: >=0.6.2,<1.0) с прокидыванием `proxies` (dict http/https) и `cookies` (Netscape-файл) в list_transcripts/get_transcript; сессия пробрасывается до fetch(). |
+| **R39-3** | **Конфиг:** `YOUTUBE_TRANSCRIPT_PROXY_URL` (str, _env_str, "") и `YOUTUBE_COOKIES_FILE` (str, _env_str, "") — опциональные, пусто = выключено. Прокси для ОБОИХ движков (yt-dlp опция proxy; transcript-api proxies={"http":u,"https":u}); cookies — yt-dlp cookiefile / transcript-api cookies=. R17: значения прокси/cookies НЕ логировать (только факт «set/empty»). `.env.example` + прод `.env` с бэкапом (прецедент `.env.bak.epic39`). |
+| **R39-4** | **Сохранение контракта:** сервис/хендлер/роутер 0e/пулы/промпты/триггеры/Reply-To/троттлинг — БЕЗ изменений. Правки только: движок + settings + requirements + .env.example + тесты движка. |
+| **R39-5** | **Тесты:** в `tests/test_youtube_transcript_engine.py` сохранить классы TestPickTranscriptPriority/TestFormat/TestFetchErrors; ДОПОЛНИТЬ: мок yt-dlp (monkeypatch модуля YoutubeDL), yt-dlp успех → нормализация → _format; yt-dlp фейл → фолбек transcript-api; оба фейл → исключение; assert прокидывания proxies/cookies kwargs. `test_youtube_summarizer_service.py` / `test_youtube_handlers.py` / `test_epic37_router_isolation.py` — БЕЗ правок (критерий «функционал не меняется»). `test_settings_helpers.py` — +2 кейса новых ключей. 0 регрессий (база 1763). |
+| **R39-6** | **Деплой:** `pip install yt-dlp` (floor-пин, D143) в прод-venv; restart; **ОБЯЗАТЕЛЬНАЯ проверка реальной ссылки с серверного IP**: dQw4w9WgXcQ (ловит пустой timedtext); cUbIkNUFs-4 и aPYGbtkSE7A (с DC-IP TranscriptsDisabled, с резидентного есть субтитры); + 1-2 видео с ручными ru-субтитрами (проверка приоритета). Бэкап `.env` (прецедент `.env.bak.epic39`). |
+
+### PM Decisions (зафиксированы 2026-08-19)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D139** | Основной движок | yt-dlp через Python-API: lazy `import yt_dlp` + ImportError-guard (на проде yt-dlp отсутствует; вес импорта ~1с), вызов в `asyncio.to_thread`; НЕ subprocess (прецедент DDGS/`SearchAggregator._search_ddg`). |
+| **D140** | Фолбек | youtube-transcript-api 0.6.3 БЕЗ апгрейда: >=1.1.1 ломает сигнатуру `fetch()`; пин остаётся >=0.6.2,<1.0; proxies/cookies уже поддерживаются и пробрасываются до fetch(). |
+| **D141** | Приоритет/формат | Выбор трека yt-dlp зеркалит `_pick_transcript` (ru manual → en manual → ru auto → en auto → прочий); нормализация в `list[dict]` `{text, start, duration}` → общий `_format`. |
+| **D142** | Стартовое состояние | Прокси/cookies от пользователя пока НЕ предоставлены: пустые значения = выключено, yt-dlp стартует без прокси. Дизайн поддерживает их включение без изменений кода. |
+| **D143** | Пин yt-dlp | Floor-пин (>=X.Y.Z) — точное значение определит @Architect (T-302); учесть план регулярного `pip install -U yt-dlp` (yt-dlp периодически ломается вместе с изменениями YouTube). ffmpeg для субтитров НЕ нужен. |
+| **D144** | Секреты/логи | R17: значения прокси/cookies в логи НЕ пишутся — только факт «set/empty»; сами значения — только в прод `.env` (не в репо). |
+
+### Открытые вопросы для @Architect (закрыть в Section 48)
+
+1. **Floor-пин yt-dlp:** точное значение (>=X.Y.Z) для requirements.txt с учётом Python 3.11 и регулярных апдейтов (D143).
+2. **Номер секции:** после Section 47 (Epic 38) — Section 48; подтвердить по факту.
+3. **Нормализация:** точные правила JSON3 (segments/управляющие события), VTT (таймкоды/теги), SRT → `{text, start, duration}`.
+4. **Отсутствие yt_dlp** (ImportError/не установлен): каскад сразу на transcript-api или исключение (на проде yt-dlp появится только на шаге деплоя).
+5. **Таймауты yt-dlp:** socket_timeout/лимиты, чтобы `asyncio.to_thread` не зависал (риск принят дизайном, но параметры зафиксировать).
+6. **Прод-верификация:** подтвердить/дополнить набор видео для проверки с серверного IP (R39-6).
+
+### Задачи
+
+### T-302 (@Architect) — Дизайн Section 48 (R39-1…R39-6, D139–D144)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-302-A: Дизайн в `plans/ARCHITECTURE.md` (Section 48): каскад yt-dlp → transcript-api, приоритет треков (зеркало `_pick_transcript`), нормализация `{text, start, duration}`, прокидывание proxies/cookies в оба движка, тест-план (моки yt-dlp, каскад, kwargs), риски; закрыть открытые вопросы PM 1–6
+- [ ] T-302-B: Self-review + PM-аппрув; T-303…T-306 → READY FOR BUILDER
+
+**DoD:** Section 48 в ARCHITECTURE.md; открытые вопросы закрыты (в т.ч. floor-пин yt-dlp); PM-аппрув.
+
+### T-303 (@Builder) — Конфиг + зависимости (R39-3, D143/D144)
+
+**Приоритет:** P0. **Зависимости:** T-302. **Оценка:** 0.25d.
+
+- [ ] T-303-A: `config/settings.py` + `.env.example`: `YOUTUBE_TRANSCRIPT_PROXY_URL` и `YOUTUBE_COOKIES_FILE` (str, `_env_str`, "")
+- [ ] T-303-B: `requirements.txt`: yt-dlp floor-пин (по T-302); пин youtube-transcript-api НЕ менять (>=0.6.2,<1.0)
+- [ ] T-303-C: Логирование фактов «proxy set/empty», «cookies set/empty» БЕЗ значений (R17, D144)
+
+**DoD:** ключи читаются из env; требования обновлены; значений прокси/cookies в логах нет.
+
+### T-304 (@Builder) — Движок: yt-dlp primary + фолбек (R39-1/R39-2/R39-4, D139–D142)
+
+**Приоритет:** P0. **Зависимости:** T-303. **Оценка:** 0.75d.
+
+- [ ] T-304-A: `services/youtube_transcript_engine.py`: lazy `import yt_dlp` + ImportError-guard; вызов в `asyncio.to_thread` (D139)
+- [ ] T-304-B: yt-dlp: выбор трека зеркалит `_pick_transcript` (ru manual → en manual → ru auto → en auto → прочий); нормализация JSON3/VTT/SRT → `list[dict]` `{text, start, duration}` → общий `_format` (D141)
+- [ ] T-304-C: Фолбек youtube-transcript-api 0.6.3: proxies (dict http/https) и cookies (Netscape-файл) прокидываются в list_transcripts/get_transcript; оба движка фейл → `YouTubeTranscriptUnavailableException` (R39-2)
+- [ ] T-304-D: Контракт `fetch_transcript(video_id, max_symbols) -> str` НЕ менять; сервис/хендлер/роутер 0e НЕ трогать (R39-4)
+
+**DoD:** каскад yt-dlp → transcript-api работает; контракт движка дословно сохранён; сервис/хендлер не тронуты.
+
+### T-305 (@Builder + @Reviewer) — Тесты + полный прогон + ревью (R39-5)
+
+**Приоритет:** P0. **Зависимости:** T-304. **Оценка:** 1d.
+
+- [ ] T-305-A (@Builder): `tests/test_youtube_transcript_engine.py`: сохранить TestPickTranscriptPriority/TestFormat/TestFetchErrors; ДОПОЛНИТЬ мок yt-dlp (monkeypatch модуля YoutubeDL): успех → нормализация → _format; фейл → фолбек transcript-api; оба фейл → `YouTubeTranscriptUnavailableException`; assert прокидывания proxies/cookies kwargs в оба движка
+- [ ] T-305-B (@Builder): `tests/test_settings_helpers.py` +2 кейса (новые ключи); НЕ трогать `test_youtube_summarizer_service.py` / `test_youtube_handlers.py` / `test_epic37_router_isolation.py`; полный `pytest` — 0 регрессий (baseline 1763); `git diff --check` чист
+- [ ] T-305-C (@Reviewer): ревью (каскад, приоритет, нормализация, R17-логи, контракт не тронут, секретов нет) + личный прогон; вердикт APPROVED
+
+**DoD:** APPROVED; 1763+ тестов, 0 регрессий; файлы вне скоупа не тронуты.
+
+### T-306 (@Builder) — Документация
+
+**Приоритет:** P1. **Зависимости:** T-305. **Оценка:** 0.25d.
+
+- [ ] T-306-A: README v2.33.0 (ироничный тон, changelog) + `plans/MEMORY.md` (Epic 39, v2.33.0)
+
+**DoD:** доки консистентны; ключи описаны без значений.
+
+### T-307 (@DevOps) — Коммит + пуш (R39-6)
+
+**Приоритет:** P0. **Зависимости:** T-305-C. **Оценка:** 0.25d.
+
+- [ ] T-307-A: Коммит на русском (conventional: `fix(youtube): Epic 39 — yt-dlp движок + фолбек transcript-api с прокси/cookies (v2.33.0)`); пуш в origin/master; `.env` НЕ коммитим
+
+**DoD:** HEAD == origin/master; секретов в диффе нет.
+
+### T-308 (@DevOps) — Деплой + обязательная верификация с серверного IP (R39-6)
+
+**Приоритет:** P0. **Зависимости:** T-307. **Оценка:** 0.75d.
+
+- [ ] T-308-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); `pip install "yt-dlp>=X.Y.Z"` в venv прод (floor-пин из T-302)
+- [ ] T-308-B: Прод `.env`: добавить `YOUTUBE_TRANSCRIPT_PROXY_URL`/`YOUTUBE_COOKIES_FILE` (пустые — стартовое состояние D142; бэкап `.env.bak.epic39`); `sudo systemctl restart admin_bot` → active (running), новый PID
+- [ ] T-308-C: **ОБЯЗАТЕЛЬНАЯ проверка реальных ссылок с серверного IP:** dQw4w9WgXcQ (пустой timedtext); cUbIkNUFs-4, aPYGbtkSE7A (DC-IP TranscriptsDisabled → фолбек-путь); +1-2 видео с ручными ru-субтитрами (приоритет); `journalctl -u admin_bot -n 50 --no-pager` (0 traceback); отчёт (v2.33.0, PID, результаты проверок)
+
+**DoD:** прод v2.33.0, active (running), 0 traceback; верификация реальных ссылок выполнена и задокументирована.
+
+### Риски (Epic 39)
+
+1. **yt-dlp тоже может ловить блок на DC-IP** → смягчение cookies/прокси (дизайн поддерживает, D142).
+2. **Скорость поломок yt-dlp** (меняется YouTube) → план регулярного `pip install -U yt-dlp` (D143).
+3. **0.6.3 хрупок против markup-изменений** YouTube — фолбек не вечен; зафиксировано.
+4. **Вес импорта yt_dlp ~1с** → lazy-импорт + ImportError-guard (D139).
+5. **Утечка кредов в логи** → R17/D144: только факт «set/empty».
+6. **to_thread-зависание** — принято дизайном; таймауты зафиксировать в T-302 (вопрос 5).
+7. **Нормализация JSON3/VTT/SRT** должна быть точной (вопрос 3).
+
+### Файлы (планируемые)
+
+`config/settings.py`, `.env.example`, `requirements.txt`, `services/youtube_transcript_engine.py` (правка), `tests/test_youtube_transcript_engine.py` (расширение), `tests/test_settings_helpers.py` (+2 кейса), `README.md`, `plans/ARCHITECTURE.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`.
+
+**НЕ трогать (критерий R39-4):** `services/youtube_summarizer_service.py`, `handlers/youtube.py`, `bot.py`, `tests/test_youtube_summarizer_service.py`, `tests/test_youtube_handlers.py`, `tests/test_epic37_router_isolation.py`.
+
+---
+
+**Статус: Epic 39 — Шаг 1 (PM) ✅ (2026-08-19): одобренный план пользователя зафиксирован — требования R39-1…R39-6, решения D139–D144, задачи T-302…T-308; Epic 38 архивирован (DEPLOYED, v2.32.1, `f0bc4d6`, 1763 теста, PID 974412). Передача @Architect (T-302, Section 48 — открытые вопросы 1–6 выше, в т.ч. точный floor-пин yt-dlp). Без @Orchestrator.**
+**Date: 2026-08-19**
