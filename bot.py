@@ -52,6 +52,12 @@ from handlers.search import search_router, setup_search
 from services.search_aggregator import SearchAggregator
 from services.factcheck_service import FactCheckService
 from services.search_service import SearchService
+from handlers.youtube import youtube_router, setup_youtube
+from handlers.web import web_router, setup_web
+from services.jina_reader import JinaReader
+from services.youtube_transcript_engine import YouTubeTranscriptEngine
+from services.youtube_summarizer_service import YoutubeSummarizerService
+from services.web_summarizer_service import WebSummarizerService
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -77,6 +83,8 @@ _llm_client = None
 _goodmorning_scheduler = None
 # SmartModule FactCheck + SmartSearch (Epic 33) — module-level ref for on_shutdown
 _search_aggregator = None
+# SmartModule YouTube + Web (Epic 37) — module-level ref for on_shutdown
+_jina_reader = None
 
 
 async def on_startup():
@@ -152,6 +160,14 @@ async def on_startup():
         setup_factcheck(FactCheckService(_search_aggregator, _llm_client))
         setup_search(SearchService(_search_aggregator, _llm_client))
         logger.info("SmartModule FactCheck + SmartSearch (Epic 33) initialized")
+
+        # ── SmartModule: YouTube + Web (Epic 37) ──
+        global _jina_reader
+        youtube_engine = YouTubeTranscriptEngine()
+        _jina_reader = JinaReader(api_key=settings.JINA_API_KEY)
+        setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client))
+        setup_web(WebSummarizerService(_jina_reader, _llm_client))
+        logger.info("SmartModule YouTube + Web (Epic 37) initialized")
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
 
@@ -188,6 +204,14 @@ async def on_startup():
     # 0d. SmartModule SmartSearch (Epic 33) — «найди/поищи/загугли»; консьюмит, НЕ-триггеры → UNHANDLED
     if settings.SUMMARY_ENABLED:
         dp.include_router(search_router)
+
+    # 0e. SmartModule YouTube (Epic 37) — YT-URL + триггер; консьюмит, НЕ-триггеры → UNHANDLED
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(youtube_router)
+
+    # 0f. SmartModule Web (Epic 37) — веб-URL + триггер; консьюмит, НЕ-триггеры → UNHANDLED
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(web_router)
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
@@ -267,6 +291,8 @@ async def on_shutdown():
         await _llm_client.close()
     if _search_aggregator:
         await _search_aggregator.close()
+    if _jina_reader:
+        await _jina_reader.close()
 
 
 async def main():
