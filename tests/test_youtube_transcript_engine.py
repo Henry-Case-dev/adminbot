@@ -1,5 +1,5 @@
 """Tests for services/youtube_transcript_engine.py (T-289, R37-3, Section 46.4/46.12;
-Epic 39, R39-5, Section 48.6).
+Epic 39, R39-5, Section 48.6; Epic 40, T-310-B, Section 49.4).
 
 youtube-transcript-api мокается через services.youtube_transcript_engine.YouTubeTranscriptApi
 (модуль-левел импорт с ImportError-guard — прецедент DDGS в test_search_aggregator.py;
@@ -9,6 +9,7 @@ engine_mod.yt_dlp (types.SimpleNamespace(YoutubeDL=_FakeYDL)) — реальна
 import json
 import logging
 import types
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -596,6 +597,53 @@ class TestYtdlpPrimary:
             YouTubeTranscriptEngine()._read_ytdlp_subtitle(
                 {"ext": "json3", "filepath": filepath}, "video-1"
             )
+
+
+class TestProxyUrlWithCredentials:
+    """T-310-B (Section 49.4, Epic 40): страховочный тест — URL прокси, в т.ч.
+    с basic-auth userinfo http://user:pass@127.0.0.1:10808, пробрасывается БЕЗ
+    изменений и без валидации в opts['proxy'] и оба ключа proxies; пусто → ключи
+    proxy отсутствуют; userinfo алфавита [A-Za-z0-9_-] разбирается urlsplit
+    (механизм, на котором urllib3 строит Proxy-Authorization). Без сети и без
+    реальных кредов — только плейсхолдеры."""
+
+    @pytest.mark.parametrize(
+        "proxy_url",
+        [
+            "http://127.0.0.1:10808",               # без кредов
+            "http://user:pass@127.0.0.1:10808",     # с кредами — как есть
+        ],
+    )
+    def test_proxy_url_passed_verbatim_to_ytdlp_opts(self, monkeypatch, proxy_url):
+        _mock_settings(monkeypatch, proxy=proxy_url)
+        assert YouTubeTranscriptEngine()._ytdlp_opts()["proxy"] == proxy_url
+
+    @pytest.mark.parametrize(
+        "proxy_url",
+        [
+            "http://127.0.0.1:10808",
+            "http://user:pass@127.0.0.1:10808",
+        ],
+    )
+    def test_proxy_url_passed_verbatim_to_both_proxies_keys(
+        self, monkeypatch, proxy_url
+    ):
+        _mock_settings(monkeypatch, proxy=proxy_url)
+        kwargs = YouTubeTranscriptEngine()._transcript_api_kwargs()
+        assert kwargs["proxies"] == {"http": proxy_url, "https": proxy_url}
+
+    def test_userinfo_urlsplit_for_safe_alphabet(self):
+        """user/pass алфавита [A-Za-z0-9_-] (49.6): urlsplit разбирает userinfo."""
+        parts = urlsplit("http://Ab_12-Cd:Zx_-90@127.0.0.1:10808")
+        assert (parts.username, parts.password) == ("Ab_12-Cd", "Zx_-90")
+
+    def test_empty_proxy_no_ytdlp_proxy_key(self, monkeypatch):
+        _mock_settings(monkeypatch, proxy="")
+        assert "proxy" not in YouTubeTranscriptEngine()._ytdlp_opts()
+
+    def test_empty_proxy_no_transcript_api_proxies(self, monkeypatch):
+        _mock_settings(monkeypatch, proxy="")
+        assert "proxies" not in YouTubeTranscriptEngine()._transcript_api_kwargs()
 
 
 class TestNormalizers:
