@@ -2,7 +2,7 @@
 
 Кривые значения → WARNING + дефолт; значения ниже минимума → WARNING + дефолт;
 корректные → парсинг; граница min — принимается. Epic 37 (R37-2, 46.2):
-дефолты 5 новых ключей + D104-механика через reload config.settings.
+дефолты 4 новых ключей + D104-механика через reload config.settings.
 """
 import importlib
 import logging
@@ -66,12 +66,11 @@ _EPIC37_KEYS = (
     "WEBPAGE_MAX_SYMBOLS",
     "YOUTUBE_COOLDOWN_SECONDS",
     "WEBPAGE_COOLDOWN_SECONDS",
-    "JINA_API_KEY",
 )
 
 
 class TestEpic37SettingsDefaults:
-    """R37-2 (46.2): дефолты 5 новых ключей + D104-механика (reload settings)."""
+    """R37-2 (46.2): дефолты 4 новых ключей + D104-механика (reload settings)."""
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
@@ -86,7 +85,6 @@ class TestEpic37SettingsDefaults:
         assert settings_mod.settings.WEBPAGE_MAX_SYMBOLS == 4000
         assert settings_mod.settings.YOUTUBE_COOLDOWN_SECONDS == 300.0
         assert settings_mod.settings.WEBPAGE_COOLDOWN_SECONDS == 300.0
-        assert settings_mod.settings.JINA_API_KEY == ""
 
     def test_max_symbols_below_100_falls_back_with_warning(self, monkeypatch, caplog):
         """#40: YOUTUBE_MAX_SYMBOLS=50 (<100) → дефолт 4000 + WARNING."""
@@ -117,10 +115,8 @@ class TestEpic37SettingsDefaults:
         monkeypatch.setenv("WEBPAGE_MAX_SYMBOLS", "2000")
         monkeypatch.setenv("YOUTUBE_COOLDOWN_SECONDS", "60.5")
         monkeypatch.setenv("WEBPAGE_COOLDOWN_SECONDS", "0")
-        monkeypatch.setenv("JINA_API_KEY", "jina-secret")
         importlib.reload(settings_mod)
         assert settings_mod.settings.YOUTUBE_MAX_SYMBOLS == 6000
         assert settings_mod.settings.WEBPAGE_MAX_SYMBOLS == 2000
         assert settings_mod.settings.YOUTUBE_COOLDOWN_SECONDS == 60.5
         assert settings_mod.settings.WEBPAGE_COOLDOWN_SECONDS == 0.0
-        assert settings_mod.settings.JINA_API_KEY == "jina-secret"

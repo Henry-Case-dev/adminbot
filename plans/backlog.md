@@ -3447,7 +3447,7 @@
 **Статус: Epic 36 — Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация) ✅ (2026-08-17): ✅ DEPLOYED & ARCHIVED. ЭПИК 36 ЗАКРЫТ И В ПРОДЕ — весь запрос пользователя (caption альбомов в фактчеке + адаптивный размер ответов) выполнен, полный цикл воркфлоу (Шаги 0–8, без @Orchestrator) завершён.** **Шаг 7 (@DevOps) ✅ T-279 ЗАКРЫТ:** коммит `2e26690` «feat(factcheck): Epic 36 — caption альбомов + адаптивный размер ответов (v2.31.3)» на master (**19 файлов, +982/−28**), пуш в origin (`585da8d..2e26690`); деплой: `git pull --ff-only` (HEAD=2e26690), `.env`/зависимости НЕ тронуты, `systemctl restart admin_bot` → **active (running), MainPID 951645**, journalctl чистый (**0 traceback** от нового процесса). **Финальная сводка пайплайна (Шаги 0–8):** Шаг 0 (@Memory, контекст двух требований, OPEN) ✅ → Шаг 1 (@PM: R36-1/R36-2, D120–D123, T-274…T-280) ✅ → Шаг 2 (@Architect: T-274, Section 45) ✅ → Шаг 3 (@Memory: DESIGN_COMPLETE) ✅ → Шаг 4 (@Builder: T-275 MediaGroupCaptionBuffer (TTL 60с/LRU 100, fill в observer 0a, чтение в `_extract_target_text`), T-276 блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» в обоих промптах + эталоны 42.5.1/42.5.2 одним коммитом, T-277 +20 тестов, T-280 README v2.31.3) ✅ → Шаг 5 (@Reviewer: T-278 APPROVED, BLOCKER/MAJOR нет, 1593 passed / 0 failed) ✅ → Шаг 6 (@Memory: IMPLEMENTED & REVIEWED) ✅ → Шаг 7 (@DevOps: T-279 коммит/пуш/деплой) ✅ → **Шаг 8 (@Memory: DEPLOYED & ARCHIVED) ✅.** **Тесты: 1593 passed / 0 failed (1573 + 20). Прод = v2.31.3 (`2e26690`, PID 951645), supersedes v2.31.2 (`585da8d`). Обе фичи в проде: фактчек читает caption альбомов через MediaGroupCaptionBuffer; промпты обоих сервисов с адаптивным размером ответа. Epics 1–36 ALL COMPLETE и DEPLOYED. Без @Orchestrator.**
 **Date: 2026-08-17**
 
-## Epic 37: SmartModule — YouTubeSummarizer + WebSummarizer — 2026-08-18 🚧 IN PROGRESS (target v2.32.0, baseline v2.31.3 `2e26690`, 1593 теста)
+## Epic 37: SmartModule — YouTubeSummarizer + WebSummarizer — 2026-08-18 ✅ DEPLOYED & ARCHIVED (v2.32.0, коммит `747cb99`, 1757 тестов, прод PID 969047)
 
 > **Цель:** Два новых подсервиса строго внутри существующего пакета SmartModule (рядом с Summary, FactCheck, SmartSearch):
 > (1) **YouTubeSummarizer** — текстовая расшифровка видео через youtube-transcript-api → едкая выжимка LLM;
@@ -3599,9 +3599,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
 
-- [ ] T-281-A: Дизайн в `plans/ARCHITECTURE.md` Section 46: модули (youtube_prompts/webpage_prompts, youtube_transcript_service, jina_reader_service, youtube_service/webpage_service, handlers/youtube.py + handlers/web.py), URL-детекция (regex YouTube watch/shorts/youtu.be vs общий http(s)), триггеры сценариев А/Б и reply-таргеты, роутеры 0e/0f (после 0d, до 0:admin, под SUMMARY_ENABLED), раздельные CooldownTracker, пулы/промпты-эталоны, DI setup_*/on_shutdown, тест-план, риски; закрыть открытые вопросы PM (1–6)
-- [ ] T-281-B: Зафиксировать эталоны промптов и пулов в Section 46 байт-в-байт (R37-5/R37-6, D130/D131)
-- [ ] T-281-C: Self-review + PM-аппрув; T-282…T-289 → READY FOR BUILDER
+- [x] T-281-A: Дизайн в `plans/ARCHITECTURE.md` Section 46: модули (youtube_prompts/webpage_prompts, youtube_transcript_service, jina_reader_service, youtube_service/webpage_service, handlers/youtube.py + handlers/web.py), URL-детекция (regex YouTube watch/shorts/youtu.be vs общий http(s)), триггеры сценариев А/Б и reply-таргеты, роутеры 0e/0f (после 0d, до 0:admin, под SUMMARY_ENABLED), раздельные CooldownTracker, пулы/промпты-эталоны, DI setup_*/on_shutdown, тест-план, риски; закрыть открытые вопросы PM (1–6)
+- [x] T-281-B: Зафиксировать эталоны промптов и пулов в Section 46 байт-в-байт (R37-5/R37-6, D130/D131)
+- [x] T-281-C: Self-review + PM-аппрув; T-282…T-289 → READY FOR BUILDER
 
 **DoD:** Section 46 в ARCHITECTURE.md; открытые вопросы закрыты; эталоны зафиксированы; PM-аппрув.
 
@@ -3609,8 +3609,8 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-281. **Оценка:** 0.25d.
 
-- [ ] T-282-A: 5 полей в конец `config/settings.py` (хелперы `_env_int_min`/`_env_str`): `YOUTUBE_MAX_SYMBOLS=4000`, `WEBPAGE_MAX_SYMBOLS=4000`, `YOUTUBE_COOLDOWN_SECONDS=300`, `WEBPAGE_COOLDOWN_SECONDS=300`, `JINA_API_KEY=""`
-- [ ] T-282-B: `.env.example` + 5 ключей с описаниями/дефолтами; `requirements.txt` + `youtube-transcript-api` (версия закреплена)
+- [x] T-282-A: 5 полей в конец `config/settings.py` (хелперы `_env_int_min`/`_env_str`): `YOUTUBE_MAX_SYMBOLS=4000`, `WEBPAGE_MAX_SYMBOLS=4000`, `YOUTUBE_COOLDOWN_SECONDS=300`, `WEBPAGE_COOLDOWN_SECONDS=300`, `JINA_API_KEY=""`
+- [x] T-282-B: `.env.example` + 5 ключей с описаниями/дефолтами; `requirements.txt` + `youtube-transcript-api` (версия закреплена)
 
 **DoD:** Settings/.env.example/requirements обновлены; существующие поля не тронуты; тесты settings зелёные.
 
@@ -3618,8 +3618,8 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-281. **Оценка:** 0.25d.
 
-- [ ] T-283-A: `services/youtube_prompts.py` (YOUTUBE_SYSTEM_PROMPT) и `services/webpage_prompts.py` (WEBPAGE_SYSTEM_PROMPT) ДОСЛОВНО (эталоны R37-6), `{max_symbols}` ×1
-- [ ] T-283-B: Байт-в-байт тесты + синхронизация эталонов Section 46 — одним коммитом (прецедент D90/D123); подстановка ТОЛЬКО `.replace` (прецедент C2)
+- [x] T-283-A: `services/youtube_prompts.py` (YOUTUBE_SYSTEM_PROMPT) и `services/webpage_prompts.py` (WEBPAGE_SYSTEM_PROMPT) ДОСЛОВНО (эталоны R37-6), `{max_symbols}` ×1
+- [x] T-283-B: Байт-в-байт тесты + синхронизация эталонов Section 46 — одним коммитом (прецедент D90/D123); подстановка ТОЛЬКО `.replace` (прецедент C2)
 
 **DoD:** оба промпта байт-в-байт == эталонам; `{max_symbols}` ×1; тесты-эталоны зелёные.
 
@@ -3627,9 +3627,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-281. **Оценка:** 0.5d.
 
-- [ ] T-284-A: `services/youtube_transcript_service.py`: URL-парсер (watch?v=/shorts/youtu.be → video_id), валидация невалидных ссылок → None
-- [ ] T-284-B: `YouTubeTranscriptApi` через `asyncio.to_thread`/`run_in_executor`; приоритет языков ru → en → автогенерированные; склейка таймкодов и текста в единый структурированный контекст для LLM
-- [ ] T-284-C: `_truncate` до `YOUTUBE_MAX_SYMBOLS` (длинное видео — сжатие/чанкинг); ошибки (нет субтитров/удалено/приватно) → None + категория для пула 5.2; логирование по конвенции
+- [x] T-284-A: `services/youtube_transcript_service.py`: URL-парсер (watch?v=/shorts/youtu.be → video_id), валидация невалидных ссылок → None
+- [x] T-284-B: `YouTubeTranscriptApi` через `asyncio.to_thread`/`run_in_executor`; приоритет языков ru → en → автогенерированные; склейка таймкодов и текста в единый структурированный контекст для LLM
+- [x] T-284-C: `_truncate` до `YOUTUBE_MAX_SYMBOLS` (длинное видео — сжатие/чанкинг); ошибки (нет субтитров/удалено/приватно) → None + категория для пула 5.2; логирование по конвенции
 
 **DoD:** watch/shorts/youtu.be парсятся; транскрипт склеивается и обрезается; ошибки категоризируются для 5.2.
 
@@ -3637,9 +3637,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-281. **Оценка:** 0.5d.
 
-- [ ] T-285-A: `services/jina_reader_service.py`: ленивый `httpx.AsyncClient`, GET `https://r.jina.ai/{target_url}`, заголовки `X-Return-Format: markdown`, `X-Target-Selector: article, main, body`
-- [ ] T-285-B: `Authorization: Bearer {JINA_API_KEY}` только при непустом ключе; пустой ключ → публичный эндпоинт
-- [ ] T-285-C: Таймауты/ретраи по Section 46; 404/403/таймаут/пустая страница → None + категория для пула 5.3; `_truncate` до `WEBPAGE_MAX_SYMBOLS`; close() для on_shutdown
+- [x] T-285-A: `services/jina_reader_service.py`: ленивый `httpx.AsyncClient`, GET `https://r.jina.ai/{target_url}`, заголовки `X-Return-Format: markdown`, `X-Target-Selector: article, main, body`
+- [x] T-285-B: `Authorization: Bearer {JINA_API_KEY}` только при непустом ключе; пустой ключ → публичный эндпоинт
+- [x] T-285-C: Таймауты/ретраи по Section 46; 404/403/таймаут/пустая страница → None + категория для пула 5.3; `_truncate` до `WEBPAGE_MAX_SYMBOLS`; close() для on_shutdown
 
 **DoD:** markdown статьи получен и обрезан; заголовки и Authorization корректны; ошибки категоризируются для 5.3.
 
@@ -3647,8 +3647,8 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-281. **Оценка:** 0.25d.
 
-- [ ] T-286-A: `services/smartmodule_phrases.py` — новые пулы ДОСЛОВНО (эталоны R37-5): троттлинг `{remaining_time}`, ошибки YouTube, ошибки веб, ошибка LLM; все `random.choice`, с маленькой буквы
-- [ ] T-286-B: Существующие пулы 5.1–5.5 Epic 33 НЕ трогать; байт-в-байт тесты новых пулов
+- [x] T-286-A: `services/smartmodule_phrases.py` — новые пулы ДОСЛОВНО (эталоны R37-5): троттлинг `{remaining_time}`, ошибки YouTube, ошибки веб, ошибка LLM; все `random.choice`, с маленькой буквы
+- [x] T-286-B: Существующие пулы 5.1–5.5 Epic 33 НЕ трогать; байт-в-байт тесты новых пулов
 
 **DoD:** 4 новых пула по 5 фраз дословно; старые пулы без изменений.
 
@@ -3656,8 +3656,8 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-283, T-284, T-285. **Оценка:** 0.5d.
 
-- [ ] T-287-A: `services/youtube_service.py` + `services/webpage_service.py` (прецедент factcheck_service/search_service): промпт с `.replace("{max_symbols}", …)` → `llm.generate([system, user])` → `cleanup_llm_text` → return
-- [ ] T-287-B: Сбой LLM (исключение/таймаут) → исключение → хендлер отвечает фразой пула 5.4 + `logger.exception` (по Section 46)
+- [x] T-287-A: `services/youtube_service.py` + `services/webpage_service.py` (прецедент factcheck_service/search_service): промпт с `.replace("{max_symbols}", …)` → `llm.generate([system, user])` → `cleanup_llm_text` → return
+- [x] T-287-B: Сбой LLM (исключение/таймаут) → исключение → хендлер отвечает фразой пула 5.4 + `logger.exception` (по Section 46)
 
 **DoD:** пайплайн генерации идентичен прецеденту; cleanup применён; сбои LLM не роняют бота.
 
@@ -3665,10 +3665,10 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-284, T-285, T-286, T-287. **Оценка:** 1d.
 
-- [ ] T-288-A: `handlers/youtube.py` (youtube_router, observer) и `handlers/web.py` (web_router, observer): не-триггер → `UNHANDLED` (прецедент factcheck/search)
-- [ ] T-288-B: Сценарий А — reply на сообщение с URL + триггер → ответ `reply_to_message_id = message.reply_to_message.message_id`; Сценарий Б — URL + триггер в одном сообщении → `reply_to_message_id = message.message_id`; триггеры регистронезависимые (R37-4, D128)
-- [ ] T-288-C: Раздельные `CooldownTracker` (YOUTUBE/WEBPAGE), троттлинг → фраза 5.1 с `format_remaining_time`; ошибки движков → пулы 5.2/5.3; сбой LLM → пул 5.4 (D129)
-- [ ] T-288-D: Чанкинг >4096 через `send_chunked_reply`; необработанные исключения → `logger.exception` (полный стектрейс в Betterstack) + фраза пула 5.4 в чат; DI: `setup_youtube(...)`/`setup_web(...)` + module-level refs для on_shutdown (close) (D127/D132)
+- [x] T-288-A: `handlers/youtube.py` (youtube_router, observer) и `handlers/web.py` (web_router, observer): не-триггер → `UNHANDLED` (прецедент factcheck/search)
+- [x] T-288-B: Сценарий А — reply на сообщение с URL + триггер → ответ `reply_to_message_id = message.reply_to_message.message_id`; Сценарий Б — URL + триггер в одном сообщении → `reply_to_message_id = message.message_id`; триггеры регистронезависимые (R37-4, D128)
+- [x] T-288-C: Раздельные `CooldownTracker` (YOUTUBE/WEBPAGE), троттлинг → фраза 5.1 с `format_remaining_time`; ошибки движков → пулы 5.2/5.3; сбой LLM → пул 5.4 (D129)
+- [x] T-288-D: Чанкинг >4096 через `send_chunked_reply`; необработанные исключения → `logger.exception` (полный стектрейс в Betterstack) + фраза пула 5.4 в чат; DI: `setup_youtube(...)`/`setup_web(...)` + module-level refs для on_shutdown (close) (D127/D132)
 
 **DoD:** оба сценария работают; троттлинг разделён; все ветки ошибок отвечают пулами; propagation не блокирует другие хендлеры.
 
@@ -3676,8 +3676,8 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-288. **Оценка:** 0.25d.
 
-- [ ] T-289-A: `youtube_router` (0e) и `web_router` (0f) — строго ПОСЛЕ 0d, ДО 0:admin, под гейтом SUMMARY_ENABLED; существующий порядок роутеров НЕ менять
-- [ ] T-289-B: `on_startup`: инициализация сервисов + `setup_youtube`/`setup_web`; `on_shutdown`: close() (прецедент Epic 33)
+- [x] T-289-A: `youtube_router` (0e) и `web_router` (0f) — строго ПОСЛЕ 0d, ДО 0:admin, под гейтом SUMMARY_ENABLED; существующий порядок роутеров НЕ менять
+- [x] T-289-B: `on_startup`: инициализация сервисов + `setup_youtube`/`setup_web`; `on_shutdown`: close() (прецедент Epic 33)
 
 **DoD:** порядок 0a→0b→0c→0d→0e→0f→0:admin; startup/shutdown чисты.
 
@@ -3685,9 +3685,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-289. **Оценка:** 1d.
 
-- [ ] T-290-A (@Builder): юнит-тесты URL-парсера YouTube (watch/shorts/youtu.be/невалидные) и веб-URL; триггеров (все фразы дословно, регистронезависимость, сценарии А/Б, reply-таргеты, observer UNHANDLED); моки youtube-transcript-api (MagicMock/AsyncMock) и Jina (httpx.MockTransport: заголовки, Authorization при ключе/без ключа); раздельный троттлинг (2 трекера изолированы); пулы дословно; пост-процессинг summary_cleanup; чанкинг >4096
-- [ ] T-290-B (@Builder): полный `pytest` — 1593 baseline + новые, 0 failed/skipped; `git diff --check` чист
-- [ ] T-290-C (@Reviewer): ревью (дословность промптов/пулов, `{max_symbols}` ×1, троттлинг, DI, propagation) + личный прогон; вердикт APPROVED
+- [x] T-290-A (@Builder): юнит-тесты URL-парсера YouTube (watch/shorts/youtu.be/невалидные) и веб-URL; триггеров (все фразы дословно, регистронезависимость, сценарии А/Б, reply-таргеты, observer UNHANDLED); моки youtube-transcript-api (MagicMock/AsyncMock) и Jina (httpx.MockTransport: заголовки, Authorization при ключе/без ключа); раздельный троттлинг (2 трекера изолированы); пулы дословно; пост-процессинг summary_cleanup; чанкинг >4096
+- [x] T-290-B (@Builder): полный `pytest` — 1593 baseline + новые, 0 failed/skipped; `git diff --check` чист
+- [x] T-290-C (@Reviewer): ревью (дословность промптов/пулов, `{max_symbols}` ×1, троттлинг, DI, propagation) + личный прогон; вердикт APPROVED
 
 **DoD:** APPROVED; полный прогон зелёный; 0 регрессий (baseline 1593).
 
@@ -3695,7 +3695,7 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P1. **Зависимости:** T-290. **Оценка:** 0.25d.
 
-- [ ] T-291-A: README v2.32.0 (ироничный тон) + `.env.example` + `plans/MEMORY.md` (Epic 37, v2.32.0)
+- [x] T-291-A: README v2.32.0 (ироничный тон) + `.env.example` + `plans/MEMORY.md` (Epic 37, v2.32.0)
 
 **DoD:** доки консистентны.
 
@@ -3703,7 +3703,7 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-290-C. **Оценка:** 0.25d.
 
-- [ ] T-292-A: Коммит на русском (conventional: `feat(smartmodule): Epic 37 — YouTubeSummarizer и WebSummarizer (v2.32.0)`); пуш в origin/master; `.env` НЕ коммитим
+- [x] T-292-A: Коммит на русском (conventional: `feat(smartmodule): Epic 37 — YouTubeSummarizer и WebSummarizer (v2.32.0)`); пуш в origin/master; `.env` НЕ коммитим
 
 **DoD:** HEAD == origin/master; секретов в диффе нет.
 
@@ -3711,9 +3711,9 @@ llm откинулась, сгенерировать не вышло
 
 **Приоритет:** P0. **Зависимости:** T-292. **Оценка:** 0.5d.
 
-- [ ] T-293-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); pip install youtube-transcript-api в venv прод
-- [ ] T-293-B: Прод `.env` + 5 ключей (JINA_API_KEY пустой), бэкап `.env.bak.epic37`; `sudo systemctl restart admin_bot` → active (running), новый PID
-- [ ] T-293-C: Верификация `journalctl -u admin_bot -n 50 --no-pager` (0 traceback); отчёт (v2.32.0, PID)
+- [x] T-293-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); pip install youtube-transcript-api в venv прод
+- [x] T-293-B: Прод `.env` + 5 ключей (JINA_API_KEY пустой), бэкап `.env.bak.epic37`; `sudo systemctl restart admin_bot` → active (running), новый PID
+- [x] T-293-C: Верификация `journalctl -u admin_bot -n 50 --no-pager` (0 traceback); отчёт (v2.32.0, PID)
 
 **DoD:** прод v2.32.0, active (running), 0 traceback.
 
@@ -3736,3 +3736,166 @@ llm откинулась, сгенерировать не вышло
 
 **Статус: Epic 37 — Шаг 1 (PM) ✅ (2026-08-18): требования R37-1…R37-9 и решения D124–D133 зафиксированы в `plans/backlog.md`; Epic 36 архивирован (DEPLOYED, v2.31.3, `2e26690`): backlog финализирован (T-279 [x], статусы Шаг 7/Шаг 8 в конце секции Epic 36; восстановлена строка статуса «Epic 33 — Шаг 2», случайно затёртая при финализации); доска `plans/board.md` обновлена (Epic 36 → Done, Epic 37 → In Progress). Передача @Architect (T-281, дизайн Section 46 — открытые вопросы PM 1–6 зафиксированы выше). Без @Orchestrator.**
 **Date: 2026-08-18**
+
+---
+
+**Статус: Epic 37 — АРХИВАЦИЯ ✅ (2026-08-19, Шаг 1 Epic 38): T-281…T-293 ALL DONE — задеплоен v2.32.0 (коммит `747cb99`, 1757 passed / 0 failed, прод PID 969047, 0 traceback).** **Прод-дефекты движков (пост-деплой):** Web-фича мертва на проде (Jina 401: JINA_API_KEY пуст + блок анонимных запросов AS36352; селектор не вычленял статью → «только реклама») → **Epic 38** (рефакторинг WebSummarizer); YouTube-фича сломана IP-блоком YouTube — **ВНЕ скоупа** → **Epic 39** (кандидат, ожидает решения пользователя). Трек Epic 38/Epic 39 — ниже. Без @Orchestrator.
+**Date: 2026-08-19**
+
+---
+
+## Epic 38: Refactoring WebSummarizer — Jina Reader → Trafilatura + Tavily/Exa фолбеки — 2026-08-19 🚧 IN PROGRESS (target v2.32.1, baseline v2.32.0 `747cb99`, 1757 тестов)
+
+> **Цель:** Полностью удалить интеграцию с Jina Reader и заменить движок извлечения контента веб-страниц
+> в WebSummarizer на локальную `trafilatura` с каскадным фолбеком на API Tavily и Exa.
+> **Контекст:** прод-дефект Epic 37 — Web-фича мертва на проде (Jina 401: JINA_API_KEY пуст + блок анонимных
+> запросов AS36352; селектор не вычленял статью → «только реклама»). YouTube-фича (IP-блок YouTube) — ВНЕ скоупа → Epic 39 (кандидат).
+> **Ключи:** `TAVILY_API_KEY` и `EXA_API_KEY` УЖЕ есть в `config/settings.py` (Epic 33) и прод-.env — новых полей НЕ добавлять.
+> **Прецеденты:** `services/search_aggregator.py` (каскад, ленивый httpx-клиент, skip уровня при пустом ключе, log_config WARNING),
+> `services/youtube_transcript_engine.py` (`asyncio.to_thread` для sync-библиотеки).
+> **Исполнители:** @Architect (T-294, Section 47/48 — номер уточнит по факту), @Builder (T-295…T-299), @Reviewer (T-298-C), @DevOps (T-300/T-301). Без @Orchestrator.
+> **Target:** v2.32.1. **Baseline:** прод v2.32.0 (`747cb99`), 1757 тестов.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R38-1** | **Цель:** полностью удалить интеграцию с Jina Reader; движок извлечения контента веб-страниц в WebSummarizer — локальная `trafilatura` с каскадным фолбеком на API Tavily и Exa. |
+| **R38-2** | **Зависимости/конфиг:** добавить `trafilatura` в requirements.txt (с пином); удалить из настроек и кода любые упоминания `JINA_API_KEY` и `r.jina.ai`; использовать уже имеющиеся в .env ключи `TAVILY_API_KEY` и `EXA_API_KEY` (settings, Epic 33) — новых полей НЕ добавлять. |
+| **R38-3** | **Единый асинхронный сервис `WebContentExtractor`** (`services/web_content_extractor.py`) + `WebContentExtractionFailedException`, каскад: **Шаг 1** (основной) — trafilatura: `httpx.AsyncClient` скачивает HTML (UA Chrome/122, `follow_redirects=True`, `timeout=10.0`) → `trafilatura.extract(html, output_format="markdown", include_links=False, include_images=False, include_tables=True, favor_precision=True)` в `asyncio.to_thread`; успех: not None и `len(strip)>150`. **Шаг 2** (фолбек №1) — Tavily Extract API: `POST https://api.tavily.com/extract`, `json={"urls":[target_url],"api_key":TAVILY_API_KEY}`, `timeout=15.0`; успех: `results[0]["raw_content"]` длиной >150. **Шаг 3** (фолбек №2) — Exa Contents API: `POST https://api.exa.ai/contents`, `headers={"x-api-key":EXA_API_KEY}`, `json={"urls":[target_url],"text":True}`, `timeout=15.0`; успех: `results[0]["text"]` длиной >150. **Шаг 4** — все три уровня провалились/пусто → `WebContentExtractionFailedException`; бот шлёт случайную токсичную фразу из существующего пула ошибок веб-ссылок реплаем на целевое сообщение; полный трейс в Betterstack. |
+| **R38-4** | **Без изменений:** триггеры, UX, Reply-To, системные промпты, пулы, пост-процессинг `summary_cleanup`, чанкинг 4096, троттлинг `WEBPAGE_COOLDOWN_SECONDS`. |
+| **R38-5** | **Тесты:** мок-тесты 4 сценариев (trafilatura успех; trafilatura падает → Tavily успех; trafilatura+Tavily падают → Exa успех; все три падают → случайная фраза из пула). Новый `tests/test_web_content_extractor.py` (~15-20 кейсов, `httpx.MockTransport` + monkeypatch `trafilatura.extract`). 0 регрессий (база 1757). |
+| **R38-6** | **Деплой:** commit в master; на сервере `git pull`, `pip install trafilatura`, `sudo systemctl restart admin_bot`; проверка `journalctl -u admin_bot -n 50 --no-pager`. |
+
+### PM Decisions (зафиксированы 2026-08-19)
+
+| # | Задача | Решение |
+|---|--------|---------|
+| **D134** | Каскад | `WebContentExtractor` по прецедентам `SearchAggregator` (каскад, ленивый `httpx.AsyncClient`, skip уровня при пустом ключе, log_config WARNING) и `youtube_transcript_engine` (`asyncio.to_thread` для sync-библиотеки). Ретраи внутри уровней НЕ добавлять (прецедент SearchAggregator: просто фолбек). `close()` в `on_shutdown`. |
+| **D135** | Пул ошибок | «Пул 5.3» из ТЗ — нумерация изначального ТЗ Epic 37; фактически ошибки веб-ссылок = пул `WEB_ERROR_PHRASES` (5.7) в `services/smartmodule_phrases.py`, уже wired в `handlers/web.py`. Использовать его. Каноны пулов НЕ менять, новых фраз НЕ добавлять. |
+| **D136** | Эндпоинты | Держаться ТЗ дословно: Tavily `/extract` (api_key в json-теле), Exa `/contents` (x-api-key в хедере). |
+| **D137** | Зависимости | `trafilatura` в requirements.txt с пином (рекомендуется). |
+| **D138** | Нумерация | Epic 38 — Web-рефакторинг (данное ТЗ); YouTube-фикс — Epic 39 (кандидат, «ожидает решения пользователя»). |
+
+### Открытые вопросы для @Architect (закрыть в Section 47/48)
+
+1. **Номер секции:** последняя в `plans/ARCHITECTURE.md` — Section 46 (Epic 37); уточнить по факту 47 или 48 (если 47 занята — взять 48).
+2. **Пустые ключи:** `TAVILY_API_KEY`/`EXA_API_KEY` пустые → skip уровня с WARNING-логом (прецедент SearchAggregator) — подтвердить.
+3. **Константы каскада** (endpoint URL, UA «Chrome/122», таймауты 10.0/15.0/15.0, порог 150 символов) — локализовать внутри `web_content_extractor.py`.
+4. **Логирование шагов:** INFO при успехе уровня (источник: trafilatura/tavily/exa), WARNING при провале уровня, ERROR + `logger.exception` при `WebContentExtractionFailedException` (Betterstack) — по конвенции проекта.
+5. **Мусор от Jina:** заголовки `X-Return-Format`/`X-Target-Selector` удаляются вместе с `jina_reader.py`; подтвердить grep: `jina`, `r.jina.ai`, `JINA_API_KEY` → 0 вхождений в коде/конфигах/доках.
+
+### Задачи
+
+### T-294 (@Architect) — Дизайн Section 47/48 (R38-1…R38-6, D134–D137)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-294-A: Дизайн в `plans/ARCHITECTURE.md` (Section 47/48 — номер уточнить): класс `WebContentExtractor` (метод `extract(target_url) → str`), контракты каждого шага каскада (R38-3 дословно), обработка пустых ключей, `WebContentExtractionFailedException`, DI `setup_web`/`on_shutdown` (close), тест-план (4 сценария ТЗ + edge), риски; закрыть открытые вопросы PM (1–5)
+- [ ] T-294-B: Self-review + PM-аппрув; T-295…T-299 → READY FOR BUILDER
+
+**DoD:** Section в ARCHITECTURE.md; открытые вопросы закрыты; PM-аппрув.
+
+### T-295 (@Builder) — Удаление Jina Reader (R38-2)
+
+**Приоритет:** P0. **Зависимости:** T-294. **Оценка:** 0.5d.
+
+- [ ] T-295-A: Удалить `services/jina_reader.py` (весь файл) и `tests/test_jina_reader.py` (весь файл)
+- [ ] T-295-B: Удалить `JINA_API_KEY` из `config/settings.py` и `.env.example`
+- [ ] T-295-C: Правки `bot.py` (импорт, `_jina_reader`, close()), `services/web_summarizer_service.py`, `handlers/web.py`, `README.md`
+- [ ] T-295-D: Правки тестов: `tests/test_settings_helpers.py` (3 места), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`
+- [ ] T-295-E: Верификация grep: `jina`, `r.jina.ai`, `JINA_API_KEY` → 0 вхождений в коде/конфигах/доках
+
+**DoD:** Jina полностью удалён; тесты (кроме целевых Epic 38) зелёные.
+
+### T-296 (@Builder) — WebContentExtractor (R38-3, D134/D136/D137)
+
+**Приоритет:** P0. **Зависимости:** T-294. **Оценка:** 0.75d.
+
+- [ ] T-296-A: `services/web_content_extractor.py`: класс `WebContentExtractor` (ленивый `httpx.AsyncClient`, прецедент SearchAggregator) + `WebContentExtractionFailedException`
+- [ ] T-296-B: Шаг 1 trafilatura: httpx-загрузка HTML (UA Chrome/122, `follow_redirects=True`, `timeout=10.0`) → `trafilatura.extract(html, output_format="markdown", include_links=False, include_images=False, include_tables=True, favor_precision=True)` в `asyncio.to_thread` (прецедент youtube_transcript_engine); успех: not None и `len(strip)>150`
+- [ ] T-296-C: Шаг 2 Tavily: `POST https://api.tavily.com/extract`, `json={"urls":[target_url],"api_key":TAVILY_API_KEY}`, `timeout=15.0`; успех: `results[0]["raw_content"]` >150; пустой ключ → skip с WARNING (прецедент SearchAggregator)
+- [ ] T-296-D: Шаг 3 Exa: `POST https://api.exa.ai/contents`, `headers={"x-api-key":EXA_API_KEY}`, `json={"urls":[target_url],"text":True}`, `timeout=15.0`; успех: `results[0]["text"]` >150; пустой ключ → skip с WARNING
+- [ ] T-296-E: Шаг 4: все уровни провалились/пусто → `WebContentExtractionFailedException`; `close()` для on_shutdown; логирование шагов (INFO/WARNING/ERROR) по конвенции; ретраи внутри уровней НЕ добавлять (D134)
+- [ ] T-296-F: `requirements.txt` + `trafilatura` (с пином)
+
+**DoD:** каскад реализован дословно по R38-3; исключение бросается на шаге 4.
+
+### T-297 (@Builder) — Wiring WebSummarizer (R38-3/R38-4, D135)
+
+**Приоритет:** P0. **Зависимости:** T-295, T-296. **Оценка:** 0.5d.
+
+- [ ] T-297-A: `services/web_summarizer_service.py` — заменить JinaReader на `WebContentExtractor` (пайплайн: extract → промпт `{max_symbols}` через `.replace` → `llm.generate` → `cleanup_llm_text`); `_truncate` до `WEBPAGE_MAX_SYMBOLS` сохранить
+- [ ] T-297-B: `handlers/web.py` — `WebContentExtractionFailedException` → случайная фраза из `WEB_ERROR_PHRASES` (5.7, D135) реплаем на целевое сообщение + полный трейс в Betterstack (`logger.exception`); триггеры/UX/Reply-To/троттлинг `WEBPAGE_COOLDOWN_SECONDS` НЕ менять (R38-4)
+- [ ] T-297-C: `bot.py` — DI: инициализация `WebContentExtractor` в `on_startup` (`setup_web`), `close()` в `on_shutdown` (прецедент Epic 33/37); порядок роутеров НЕ менять
+
+**DoD:** WebSummarizer работает на WebContentExtractor; ошибки каскада → пул 5.7 реплаем; пункты R38-4 не тронуты.
+
+### T-298 (@Builder + @Reviewer) — Тесты + полный прогон + ревью (R38-5)
+
+**Приоритет:** P0. **Зависимости:** T-297. **Оценка:** 1d.
+
+- [ ] T-298-A (@Builder): `tests/test_web_content_extractor.py` (~15-20 кейсов, `httpx.MockTransport` + monkeypatch `trafilatura.extract`): 4 сценария ТЗ (trafilatura успех; trafilatura падает → Tavily успех; trafilatura+Tavily падают → Exa успех; все три падают → `WebContentExtractionFailedException` + случайная фраза из пула); пустые ключи → skip; порог 150; close() клиента; логирование
+- [ ] T-298-B (@Builder): правки `tests/test_settings_helpers.py` (3 места JINA), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`; проверить `tests/test_epic37_router_isolation.py`; полный `pytest` — 1757 baseline, 0 failed/skipped; `git diff --check` чист
+- [ ] T-298-C (@Reviewer): ревью (каскад дословно R38-3, пул 5.7 без изменений, DI, propagation, секретов нет) + личный прогон; вердикт APPROVED
+
+**DoD:** APPROVED; 4 сценария покрыты; 0 регрессий (baseline 1757).
+
+### T-299 (@Builder) — Документация
+
+**Приоритет:** P1. **Зависимости:** T-298. **Оценка:** 0.25d.
+
+- [ ] T-299-A: README v2.32.1 (ироничный тон, changelog) + `plans/MEMORY.md` (Epic 38, v2.32.1)
+
+**DoD:** доки консистентны; упоминаний Jina нет.
+
+### T-300 (@DevOps) — Коммит + пуш (R38-6)
+
+**Приоритет:** P0. **Зависимости:** T-298-C. **Оценка:** 0.25d.
+
+- [ ] T-300-A: Коммит на русском (conventional: `refactor(smartmodule): Epic 38 — WebSummarizer: Jina Reader → Trafilatura + Tavily/Exa фолбеки (v2.32.1)`); пуш в origin/master; `.env` НЕ коммитим
+
+**DoD:** HEAD == origin/master; секретов в диффе нет.
+
+### T-301 (@DevOps) — Деплой (R38-6)
+
+**Приоритет:** P0. **Зависимости:** T-300. **Оценка:** 0.5d.
+
+- [ ] T-301-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); `pip install trafilatura` в venv прод
+- [ ] T-301-B: Прод `.env`: удалить `JINA_API_KEY` (бэкап `.env.bak.epic38`); `sudo systemctl restart admin_bot` → active (running), новый PID
+- [ ] T-301-C: Верификация `journalctl -u admin_bot -n 50 --no-pager` (0 traceback); отчёт (v2.32.1, PID)
+
+**DoD:** прод v2.32.1, active (running), 0 traceback, JINA_API_KEY удалён с прода.
+
+### Риски (Epic 38)
+
+1. **Эталон SYSTEM_PROMPT R11 (1518–1539):** правки в backlog — ТОЛЬКО в конец файла → сдвига строк НЕТ.
+2. **Пул 5.7 (`WEB_ERROR_PHRASES`):** канон НЕ менять; «пул 5.3» ТЗ = нумерация исходного ТЗ Epic 37 (D135).
+3. **Ключи Tavily/Exa:** уже в прод-.env (Epic 33) — при деплое НЕ трогать; пустые ключи → skip уровня (D134).
+4. **trafilatura на проде:** пакет отсутствует — pip install при деплое (D137); sync-библиотека → только `asyncio.to_thread`.
+5. **Секреты:** ключи Tavily/Exa — только в `.env`; в планы/коммит не попадают.
+6. **Порядок роутеров и UX:** 0f/web — без изменений (R38-4); propagation не блокируется.
+
+### Файлы (планируемые)
+
+`requirements.txt`, `config/settings.py`, `.env.example`, `services/jina_reader.py` (УДАЛЕНИЕ), `services/web_content_extractor.py` (НОВЫЙ), `services/web_summarizer_service.py`, `handlers/web.py`, `bot.py`, `tests/test_jina_reader.py` (УДАЛЕНИЕ), `tests/test_web_content_extractor.py` (НОВЫЙ), `tests/test_settings_helpers.py`, `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`, `tests/test_epic37_router_isolation.py` (проверка), `README.md`, `plans/ARCHITECTURE.md`, `plans/backlog.md`, `plans/board.md`, `plans/MEMORY.md`.
+
+---
+
+**Статус: Epic 38 — Шаг 1 (PM) ✅ (2026-08-19): требования R38-1…R38-6, решения D134–D138, задачи T-294…T-301 зафиксированы; Epic 37 архивирован (DEPLOYED, v2.32.0, `747cb99`). Передача @Architect (T-294, Section 47/48 — открытые вопросы 1–5 выше). Без @Orchestrator.**
+**Date: 2026-08-19**
+
+---
+
+## Epic 39: YouTube engine fix — 2026-08-19 🕒 CANDIDATE (ожидает решения пользователя)
+
+> **Прод-дефект Epic 37:** YouTube-фича (YouTubeTranscriptService, youtube-transcript-api 0.6.3) сломана
+> IP-блоком YouTube (AS36352) на проде. ВНЕ скоупа Epic 38 (Web-рефакторинг).
+> **Статус:** «Ожидает решения пользователя» — задачи T-* НЕ создаются до выбора варианта.
+> **Результаты расследования:** IP-блок AS36352 (прод, пост-деплой Epic 37, v2.32.0).
+> **Варианты (на выбор пользователя):**
+> 1. **yt-dlp (primary):** скачивание субтитров через yt-dlp (+ cookies-файл) — снимает IP-блок.
+> 2. **youtube-transcript-api>=1.1.1 + прокси/cookies:** остаться на текущей библиотеке, добавить прокси и cookies-поддержку.
+> 3. **Прокси:** маршрутизировать исходящие запросы к YouTube через прокси.
+>
+> После решения пользователя — оформить полноценным эпиком (R/T/D-нумерация) по стандартному воркфлоу (без @Orchestrator).

@@ -13,12 +13,12 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
-from services.jina_reader import JinaReaderException
 from services.llm_client import LLMError
 from services.smartmodule_phrases import LLM_ERROR_PHRASES, WEB_ERROR_PHRASES
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_urls import extract_web_url
 from services.smartmodule_utils import _reply, send_chunked_reply, throttle_phrase
+from services.web_content_extractor import WebContentExtractionFailedException
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +89,8 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         text = await _service.summarize(url)
         await send_chunked_reply(bot, message.chat.id, text, target.message_id)
         logger.info("[web] summary sent | chat=%s", message.chat.id)
-    except JinaReaderException:
-        logger.exception("[web] reader failed | chat=%s", message.chat.id)
+    except WebContentExtractionFailedException:
+        logger.exception("[web] extractor failed | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(WEB_ERROR_PHRASES),      # 5.7 → ЦЕЛЕВОЕ
                      target.message_id)
     except LLMError:

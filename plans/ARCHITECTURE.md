@@ -7711,3 +7711,329 @@ from services.web_summarizer_service import WebSummarizerService
 **Порядок:** T-281 (конфиг + requirements + .env.example) → T-282 (urls) → T-283 ∥ T-284 (движки) → T-285 (промпты + эталоны 46.7.x + тесты — ОДИН коммит D132) → T-286 (пулы + тесты) → T-287 (сервисы + тесты) → T-288 (хендлеры + wiring + тесты) → T-289 (isolation + полный прогон ~1660, `git diff --check`) → T-290 (README v2.32.0) → @Reviewer → @DevOps T-291 (деплой 46.14). `.env` локально не трогать.
 
 @Architect Epic 37 architecture ready (Section 46: 11 новых файлов — smartmodule_urls / youtube_transcript_engine / jina_reader / промпты-эталоны 46.7.1-46.7.2 дословно / сервисы-генераторы / хендлеры 0e-0f; 5 полей Settings; пулы 5.6/5.7; вопросы PM 1-6 закрыты D125-D130: MVP-формы YouTube, А→Б fallback, Jina retry 429/5xx/timeout ×2 + timeout 30с, приоритет YouTube-URL, репосты без спец-обработки, заголовок не используется; троттлинг — reply на вызов D131), passing the baton to @Builder (T-281→T-290) и @Reviewer/@DevOps (T-291).
+
+## Section 47: Epic 38 — WebSummarizer: Jina Reader → Trafilatura + Tavily/Exa фолбеки (v2.32.1)
+
+**Проблема (R38-1):** прод-дефект Epic 37 — Web-фича мертва на проде: Jina 401 (`JINA_API_KEY` пуст + блок анонимных запросов AS36352), а селектор не вычленял статью («только реклама»). Полностью удаляем интеграцию с Jina Reader; движок извлечения контента веб-страниц — локальная `trafilatura` с каскадным фолбеком на API Tavily и Exa (ключи УЖЕ в `.env`, `config/settings.py:319-320`, Epic 33 — новых полей НЕ добавлять). **Target:** v2.32.1. **Baseline:** прод v2.32.0 (`747cb99`), 1757 тестов. **Ограничения (R38-4, байт-в-байт НЕ трогать):** триггеры, UX, Reply-To (успех/5.7/5.5 → `target.message_id`, троттлинг → `message.message_id`), `web_prompts.py` (эталон 46.7.2 — байт-в-байт тесты!), пулы (5.7 `WEB_ERROR_PHRASES` канон), `summary_cleanup`, чанкинг 4096, троттлинг `WEBPAGE_COOLDOWN_SECONDS`, порядок роутеров 0e/0f.
+
+### 47.1 Закрытие вопросов PM (D134–D138)
+
+| # | Вопрос PM | Решение (дизайн) |
+|---|---|---|
+| 1 | Номер секции | **47** — подтверждено: последняя в ARCHITECTURE.md — Section 46 (Epic 37, строки 7129–7713); 47 свободна. |
+| 2 | Пустые Tavily/Exa-ключи | **Подтверждено (D134):** уровень каскада пропускается с WARNING `[web_extractor] level skipped (no api key) | provider=…`; плюс `log_config()` при старте (WARNING пустых ключей, прецедент SearchAggregator.log_config D104). trafilatura — локальный уровень, ключей не имеет, пропускается НИКОГДА. |
+| 3 | Константы каскада | **Подтверждено:** URL эндпоинтов, UA «Chrome/122», таймауты 10.0/15.0/15.0, порог 150 — модульные константы внутри `services/web_content_extractor.py` (НЕ env; список .env-ключей не расширяется, R38-2). |
+| 4 | Логирование шагов | INFO успеха уровня: `[web_extractor] level ok | provider=trafilatura/tavily/exa | latency_ms=… | chars=…` (прецедент SearchAggregator); WARNING провала: `[web_extractor] level failed → fallback | provider=… | error=…`; финальный фейл — ERROR `[web_extractor] all levels failed | url=…` + raise, а полный трейс в Betterstack даёт `logger.exception` в хендлере (catch `WebContentExtractionFailedException`). |
+| 5 | Grep-верификация Jina | **Критерий DoD T-295-E:** `jina`, `r.jina.ai`, `JINA_API_KEY` → 0 вхождений в `services/`, `handlers/`, `config/`, `bot.py`, `tests/`, `.env.example`, `README.md`, `requirements.txt`. Исключение — `plans/` (Section 46 и записи Epic 37 — исторические, легитимно упоминают удалённый движок; обновляются по мере прохождения Epic 38). |
+
+### 47.2 Полное удаление Jina (R38-2, T-295)
+
+| Файл:строки | Действие |
+|---|---|
+| `services/jina_reader.py` | **УДАЛИТЬ целиком** (JinaReader, JinaReaderException, `JINA_BASE_URL`, ретраи D127, `_truncate` — вместе с ним уходят заголовки `X-Return-Format`/`X-Target-Selector`) |
+| `tests/test_jina_reader.py` | **УДАЛИТЬ целиком** (18 кейсов: 4+3+6+3+2) |
+| `config/settings.py:339-341` | Удалить комментарий + `JINA_API_KEY` (3 строки). Tavily/Exa (319-320) — НЕ трогать |
+| `.env.example:208-209` | Удалить 2 строки (комментарий + `JINA_API_KEY=`) |
+| `bot.py:57,87,165,167,169,294-295` | `_jina_reader` → `_web_extractor` (см. 47.5) |
+| `services/web_summarizer_service.py:13,25,38,39` | import/параметр/вызов (см. 47.5) |
+| `handlers/web.py:16,92` | import/except (см. 47.5) |
+| `README.md:932,937,940,943` | движок/конфиг/тесты/файлы (см. 47.3-заметку) |
+| `tests/test_settings_helpers.py:64-70,89,120,126` | кортеж `_EPIC37_KEYS` (убрать `"JINA_API_KEY"`), `test_defaults_without_env` (убрать ассерт), `test_valid_values_parsed` (убрать setenv+ассерт); комментарий «5 новых ключей» → «4 новых ключа» |
+| `tests/test_web_summarizer_service.py:13,20-25,36-37,79-83` | см. 47.6 |
+| `tests/test_web_handlers.py:13,170-183,257` | см. 47.6 |
+| `tests/test_epic37_router_isolation.py` | **Проверить — правок НЕ ожидается** (мокается `web_service.summarize`, Jina не импортируется, grep подтвердил) |
+
+### 47.3 Зависимости и конфиг (R38-2, D137)
+
+**`requirements.txt`:** добавить строку `trafilatura>=2.2.0,<3.0`. **Обоснование пина:** 2.2.0 — актуальный стабильный релиз PyPI (ветка 2.x; 2.1.0 — июнь 2026); требует Python >=3.10 — прод venv 3.12.3, ок; верхний потолок `<3.0` от слома API (прецедент `youtube-transcript-api>=0.6.2,<1.0`); сигнатура `extract()` с `output_format`/`include_links`/`include_images`/`include_tables`/`favor_precision` стабильна в 2.x. Транзитивно: lxml, htmldate, justext (бинарные колёса Linux x86_64 — риск низкий). `httpx>=0.27` уже есть. **Import-guard в коде:** `try: import trafilatura / except ImportError: trafilatura = None` (прецедент DDGS в search_aggregator.py:22-25) — без пакета уровень падает в фолбек, а не валит старт.
+
+### 47.4 Дизайн `WebContentExtractor` (R38-3, D134/D136, T-296)
+
+**`services/web_content_extractor.py` (НОВЫЙ).** Контракт — дословно ТЗ R38-3; внутри уровней ретраев НЕТ (просто фолбек, D134); обрезка до `max_symbols` внутри `extract()` (прецедент JinaReader._truncate → правки сервиса минимальны).
+
+```python
+# services/web_content_extractor.py (НОВЫЙ)
+"""Epic 38 — WebContentExtractor (R38-3, D134/D136, Section 47.4).
+
+Каскад: trafilatura → Tavily /extract → Exa /contents (прецедент
+SearchAggregator: ленивый httpx.AsyncClient, skip уровня при пустом ключе,
+ретраев внутри уровней НЕТ). Все уровни упали → WebContentExtractionFailedException
+→ пул 5.7 (WEB_ERROR_PHRASES) в handlers/web.py."""
+import asyncio
+import logging
+import time
+
+import httpx
+
+from config.settings import settings
+
+try:
+    import trafilatura
+except ImportError:  # pragma: no cover — зависимость в requirements.txt
+    trafilatura = None
+
+logger = logging.getLogger(__name__)
+
+TAVILY_EXTRACT_URL = "https://api.tavily.com/extract"
+EXA_CONTENTS_URL = "https://api.exa.ai/contents"
+
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+_FETCH_TIMEOUT = 10.0   # trafilatura: скачивание HTML (ТЗ)
+_API_TIMEOUT = 15.0     # Tavily / Exa (ТЗ)
+_MIN_CONTENT_CHARS = 150
+
+
+class WebContentExtractionFailedException(Exception):
+    """Все уровни каскада провалились/пусто. → пул 5.7 (WEB_ERROR_PHRASES)."""
+
+
+class WebContentExtractor:
+    def __init__(
+        self,
+        tavily_api_key: str = settings.TAVILY_API_KEY,
+        exa_api_key: str = settings.EXA_API_KEY,
+    ) -> None:
+        self._tavily_api_key = tavily_api_key
+        self._exa_api_key = exa_api_key
+        self._client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        """Ленивый общий httpx-клиент (прецедент SearchAggregator._get_client)."""
+        if self._client is None:
+            self._client = httpx.AsyncClient()
+        return self._client
+
+    async def extract(self, target_url: str, max_symbols: int) -> str:
+        """Каскад: trafilatura → tavily → exa. Успех уровня: text.strip() ДОЛЖЕН
+        быть СТРОГО >150 символов (ровно 150 → фейл, ТЗ «длина >150»), затем
+        text[:max_symbols] (жёсткий срез). Все уровни упали →
+        WebContentExtractionFailedException."""
+        levels = [
+            ("trafilatura", self._extract_trafilatura, None),
+            ("tavily", self._extract_tavily, self._tavily_api_key),
+            ("exa", self._extract_exa, self._exa_api_key),
+        ]
+        for name, fn, key in levels:
+            if key is not None and not key.strip():
+                # пустой ключ — уровень отключён (D104-прецедент)
+                logger.warning(
+                    "[web_extractor] level skipped (no api key) | provider=%s", name
+                )
+                continue
+            started = time.monotonic()
+            try:
+                text = await fn(target_url)
+                if len(text.strip()) <= _MIN_CONTENT_CHARS:
+                    raise ValueError("short content")
+                latency_ms = (time.monotonic() - started) * 1000.0
+                logger.info(
+                    "[web_extractor] level ok | provider=%s | latency_ms=%.0f | chars=%d",
+                    name, latency_ms, len(text),
+                )
+                return self._truncate(text, max_symbols)
+            except Exception as exc:
+                logger.warning(
+                    "[web_extractor] level failed → fallback | provider=%s | error=%s",
+                    name, exc,
+                )
+        logger.error("[web_extractor] all levels failed | url=%s", target_url)
+        raise WebContentExtractionFailedException(
+            f"all extraction levels failed | url={target_url!r}"
+        )
+
+    async def _extract_trafilatura(self, target_url: str) -> str:
+        """Шаг 1 (основной): GET target_url (UA, follow_redirects=True,
+        timeout 10.0) → trafilatura.extract(...) в asyncio.to_thread
+        (прецедент youtube_transcript_engine). None/raise → фолбек."""
+        if trafilatura is None:  # pragma: no cover
+            raise RuntimeError("trafilatura is not installed")
+        client = self._get_client()
+        response = await client.get(
+            target_url,
+            headers={"User-Agent": _USER_AGENT},
+            follow_redirects=True,
+            timeout=httpx.Timeout(_FETCH_TIMEOUT),
+        )
+        response.raise_for_status()
+        text = await asyncio.to_thread(
+            trafilatura.extract,
+            response.text,
+            output_format="markdown",
+            include_links=False,
+            include_images=False,
+            include_tables=True,
+            favor_precision=True,
+        )
+        if text is None:
+            raise ValueError("trafilatura: no extractable content")
+        return text
+
+    async def _extract_tavily(self, target_url: str) -> str:
+        """Шаг 2 (фолбек №1): POST api.tavily.com/extract,
+        json={"urls":[target_url],"api_key":…}, timeout 15.0 (ТЗ).
+        Возвращает results[0]["raw_content"]; пусто → raise."""
+        client = self._get_client()
+        response = await client.post(
+            TAVILY_EXTRACT_URL,
+            json={"urls": [target_url], "api_key": self._tavily_api_key},
+            timeout=httpx.Timeout(_API_TIMEOUT),
+        )
+        response.raise_for_status()
+        results = response.json().get("results") or []
+        if not results or not str(results[0].get("raw_content") or "").strip():
+            raise ValueError("tavily: empty raw_content")
+        return str(results[0]["raw_content"])
+
+    async def _extract_exa(self, target_url: str) -> str:
+        """Шаг 3 (фолбек №2): POST api.exa.ai/contents,
+        headers={"x-api-key":…}, json={"urls":[target_url],"text":True},
+        timeout 15.0 (ТЗ). Возвращает results[0]["text"]; пусто → raise."""
+        client = self._get_client()
+        response = await client.post(
+            EXA_CONTENTS_URL,
+            headers={"x-api-key": self._exa_api_key},
+            json={"urls": [target_url], "text": True},
+            timeout=httpx.Timeout(_API_TIMEOUT),
+        )
+        response.raise_for_status()
+        results = response.json().get("results") or []
+        if not results or not str(results[0].get("text") or "").strip():
+            raise ValueError("exa: empty text")
+        return str(results[0]["text"])
+
+    async def close(self) -> None:
+        """Закрыть ленивый клиент (on_shutdown, прецедент Epic 33/37)."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    def log_config(self) -> None:
+        """WARNING пустых ключей при старте (bot.py on_startup, прецедент D104)."""
+        if not (self._tavily_api_key or "").strip():
+            logger.warning("Tavily extract level disabled: TAVILY_API_KEY is empty")
+        if not (self._exa_api_key or "").strip():
+            logger.warning("Exa contents level disabled: EXA_API_KEY is empty")
+
+    @staticmethod
+    def _truncate(text: str, max_symbols: int) -> str:
+        """Жёсткий срез (прецедент SearchAggregator._truncate)."""
+        return text[:max_symbols]
+```
+
+**Условия перехода каскада:** уровень пропущен (пустой ключ, только tavily/exa) | любое исключение уровня (timeout/HTTP-статус/транспорт/JSON-ошибка/пустой результат/None) | `len(text.strip()) <= 150`. Успех — СТРОГО `>150`. Ретраев внутри уровней НЕТ. Проверка порога — в общем цикле `extract()` (уровни проверяют только непустоту результата).
+
+### 47.5 Wiring (R38-3/R38-4, D135, T-297)
+
+**`services/web_summarizer_service.py`** — пайплайн байт-в-байт (промпт `.replace`, XML-контекст, `llm.generate`, `cleanup_llm_text`), меняется только движок:
+
+```python
+from services.web_content_extractor import WebContentExtractor
+
+class WebSummarizerService:
+    """Web: страница через WebContentExtractor (trafilatura→Tavily→Exa) →
+    LLM-выжимка в токсичном стиле → cleanup."""
+
+    def __init__(self, extractor: WebContentExtractor, llm: LLMClient) -> None:
+        self.extractor = extractor
+        self.llm = llm
+```
+
+`summarize()`: `markdown = await self.extractor.extract(url, settings.WEBPAGE_MAX_SYMBOLS)` (вместо `reader.fetch_markdown`); docstring/Raises → `WebContentExtractionFailedException / LLMError — пробрасываются`. Остальное — без изменений.
+
+**`handlers/web.py`** — только импорт и ветка ошибки; триггеры/`_parse`/троттлинг/LLMError/Exception — байт-в-байт:
+
+```python
+from services.web_content_extractor import WebContentExtractionFailedException
+...
+    except WebContentExtractionFailedException:
+        logger.exception("[web] extractor failed | chat=%s", message.chat.id)
+        await _reply(bot, message.chat.id, random.choice(WEB_ERROR_PHRASES),      # 5.7 → ЦЕЛЕВОЕ
+                     target.message_id)
+```
+
+(было `except JinaReaderException` + `"[web] reader failed"`; `logger.exception` → полный трейс в Betterstack).
+
+**`bot.py`** — `_jina_reader` → `_web_extractor` (строки 57, 87, 165, 167, 169, 294-295):
+
+```python
+from services.web_content_extractor import WebContentExtractor
+...
+_web_extractor = None
+...
+        _web_extractor = WebContentExtractor()
+        _web_extractor.log_config()                         # WARNING пустых ключей (D104)
+        setup_web(WebSummarizerService(_web_extractor, _llm_client))
+...
+    if _web_extractor:
+        await _web_extractor.close()
+```
+
+**`README.md` (T-299):** 932 → «Страницу читает локальный trafilatura (markdown), при провале — каскад Tavily /extract → Exa /contents»; 937 → конфиг: 4 ключа Epic 37 (без JINA_API_KEY) + упоминание переиспользования TAVILY_API_KEY/EXA_API_KEY; 940 → «экстрактор (каскад, порог 150, пустые ключи → skip)»; 943 → `services/jina_reader.py` → `services/web_content_extractor.py`; changelog v2.32.1.
+
+### 47.6 Тест-план (R38-5, T-298)
+
+**Мок-инфраструктура (НОВЫЙ `tests/test_web_content_extractor.py`):** `_make_extractor(handler, monkeypatch, **kwargs)` — `httpx.MockTransport` + monkeypatch-фабрика `httpx.AsyncClient` (прецедент test_search_aggregator.py:57-77, test_jina_reader.py:15-32); `monkeypatch.setattr("services.web_content_extractor.trafilatura", MagicMock())` целиком (работает и без установленного пакета) + `.extract` = fake-функция.
+
+| # | Сценарий | Ожидание |
+|---|---|---|
+| 1 | trafilatura успех (extract → текст >150) | РОВНО 1 запрос (GET target), UA-заголовок, `follow_redirects=True`, timeout 10.0, результат == текст; INFO `level ok | provider=trafilatura` |
+| 2 | trafilatura успех, `max_symbols` меньше | жёсткий срез `len(result) == max_symbols` |
+| 3 | trafilatura → None | фолбек Tavily: запросы `[target, TAVILY_EXTRACT_URL]`; json-тело `{"urls":[target],"api_key":…}`; результат == raw_content |
+| 4 | trafilatura короткий текст (≤150) | фолбек Tavily |
+| 5 | trafilatura HTTP 403 | фолбек Tavily (ретраев нет, 1 GET) |
+| 6 | trafilatura httpx.TimeoutException | фолбек Tavily |
+| 7 | trafilatura.extract raise (lxml-ошибка) | фолбек Tavily |
+| 8 | Tavily 500 | фолбек Exa: запросы `[target, TAVILY, EXA]`; хедер `x-api-key`; результат == `results[0]["text"]` |
+| 9 | Tavily пустые `results` / пробельный raw_content | фолбек Exa |
+| 10 | **Сценарий ТЗ №4:** все три уровня падают | `WebContentExtractionFailedException`, сообщение содержит url |
+| 11 | Граничный порог: ровно 150 / 151 | 150 → фейл уровня; 151 → успех (parametrize) |
+| 12 | Пустой `tavily_api_key` | skip → Exa: запросы `[target, EXA]`, WARNING `level skipped` |
+| 13 | Оба ключа пустые + trafilatura фейл | исключение; к Tavily/Exa НЕ обращаемся (только GET target) |
+| 14 | Пробельный ключ `"   "` | == пустой (skip) |
+| 15 | `log_config()` | WARNING при пустых ключах; тихо при непустых |
+| 16 | `close()` до запроса / после | no-op / клиент закрыт |
+| 17 | Логи уровней | WARNING `level failed → fallback` + INFO с latency_ms/chars |
+| 18 | Exa пустой `text` / Tavily не-JSON ответ | фолбек/исключение по каскаду |
+
+**Правки существующих тестов:** `test_settings_helpers.py` (64-70, 89, 120, 126 — 4 места JINA); `test_web_summarizer_service.py` — `_service()`: `reader.fetch_markdown` → `extractor.extract = AsyncMock(return_value="# Заголовок")`, ассерт → `assert_awaited_once_with(TARGET, settings.WEBPAGE_MAX_SYMBOLS)`, `test_reader_failure_propagates` → `WebContentExtractionFailedException`; `test_web_handlers.py` — импорт, кейс #35 (`JinaReaderException` → `WebContentExtractionFailedException`), docstring #36 («Jina» → «экстрактор»); `test_epic37_router_isolation.py` — проверка, правок НЕ ожидается (сервис мокается целиком).
+
+**Ожидаемый счёт:** 1757 − 18 (удалённый test_jina_reader) + ~18–20 новых ≈ 1758–1760; **критерий: все passed, 0 failed/skipped, `git diff --check` чист.**
+
+### 47.7 DoD и критерии приёмки
+
+- **Builder (T-295…T-299):** каскад дословно R38-3 (UA Chrome/122, follow_redirects, таймауты 10.0/15.0/15.0, порог `>150`, `asyncio.to_thread`); `WebContentExtractionFailedException` на шаге 4; пул 5.7 без изменений; R38-4 байт-в-байт; grep `jina` / `r.jina.ai` / `JINA_API_KEY` → **0 вхождений** вне `plans/` (47.1, вопрос 5); полный `pytest` — 1757+ passed, 0 failed/skipped; `git diff --check` чист; секретов в диффе нет.
+- **DevOps (T-300/T-301):** коммит `refactor(smartmodule): Epic 38 — WebSummarizer: Jina → Trafilatura + Tavily/Exa (v2.32.1)`, пуш master; прод-`.env` без JINA_API_KEY (бэкап `.env.bak.epic38`); зависимость установлена; restart → active (running); journalctl 0 traceback.
+
+### 47.8 Деплой-чеклист (R38-6, T-300/T-301)
+
+1. Коммит на русском (conventional) + пуш origin/master; `.env` НЕ коммитим.
+2. `ssh nik@198.46.175.136:22` → `cd /var/www/admin_bot` → `git pull` (ff-only).
+3. `cp .env .env.bak.epic38` (прецедент epic37); **удалить `JINA_API_KEY` из `.env`**; `TAVILY_API_KEY`/`EXA_API_KEY` — НЕ трогать.
+4. В venv прод: `pip install "trafilatura>=2.2.0,<3.0"`; проверить `python -c "import trafilatura; print(trafilatura.__version__)"`.
+5. `sudo systemctl restart admin_bot` → active (running), новый PID.
+6. `journalctl -u admin_bot -n 50 --no-pager` — 0 traceback, «SmartModule YouTube + Web (Epic 37) initialized».
+7. Smoke: веб-ссылка + «поясни за ссылку» → выжимка; битый сайт → фраза 5.7 реплаем; Betterstack — 0 ERROR от `[web]`.
+
+### 47.9 Риски
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | trafilatura с датацентрового IP тоже может ловить 403/бот-стены целевых сайтов (причина смерти Jina была иной — 401 на r.jina.ai, — но блоки целевых сайтов реальны) | Каскад спасает: Tavily/Exa извлекают своими бэкендами (кэш/рендеринг); фича живёт, деградирует только латентность |
+| 2 | lxml-зависимости trafilatura (lxml, htmldate, justext) | Бинарные колёса Linux x86_64; проверить импортом ДО restart (п. 4 чеклиста) |
+| 3 | CPU-heavy `trafilatura.extract` без таймаута в executor на гигантских страницах | Принято (прецедент Epic 37: executor-зависание youtube принято 46.13); загрузка HTML ограничена 10с, обрезка — на выходе |
+| 4 | Порог ровно 150 → фейл (ТЗ «>150») | Осознанно: короткие страницы-снипеты уйдут на Tavily/Exa; граничный тест фиксирует контракт (#11) |
+| 5 | Канон пула 5.7 / промптов 46.7.x | НЕ менять, новых фраз НЕ добавлять (D135); байт-в-байт тесты промптов краснеют при любом изменении `web_prompts.py` |
+| 6 | Роутеры/UX/Reply-To/троттлинг | Байт-в-байт (R38-4); порядок 0e/0f и гейт `SUMMARY_ENABLED` не трогать |
+| 7 | Удаление test_jina_reader (18 кейсов) сдвигает счёт | Критерий — «все passed, 0 failed/skipped», точное число фиксируется по факту прогона в отчёте Builder |
+| 8 | trafilatura не установлена (локально/прод) | Import-guard → уровень падает в фолбек, старт не валится; на проде — пин + pip install при деплое |
+
+### 47.10 Сводка для Builder (файлы, порядок)
+
+**НОВЫЕ:** `services/web_content_extractor.py` (WebContentExtractor + WebContentExtractionFailedException, 47.4), `tests/test_web_content_extractor.py` (~18 кейсов, 47.6). **УДАЛЕНИЕ:** `services/jina_reader.py`, `tests/test_jina_reader.py`. **ПРАВКИ:** `config/settings.py` (−3 строки), `.env.example` (−2), `bot.py` (wiring 47.5), `services/web_summarizer_service.py` (движок), `handlers/web.py` (импорт + except), `requirements.txt` (+trafilatura), `README.md` (932/937/940/943 + changelog v2.32.1), `tests/test_settings_helpers.py` (4 места), `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`. **ПРОВЕРКА:** `tests/test_epic37_router_isolation.py` (без правок). **БЕЗ изменений:** `web_prompts.py`, `smartmodule_phrases.py`, `smartmodule_urls.py`, `youtube_*`, `summary_cleanup.py`, `smartmodule_utils.py`, `smartmodule_throttling.py`, `settings.py:319-320` (Tavily/Exa).
+
+**Порядок:** T-295 (удаление Jina + правки существующих + grep-верификация) → T-296 (экстрактор + requirements) → T-297 (wiring сервиса/хендлера/bot.py) → T-298 (новый тест-файл + правки тестов + полный прогон ~1758+ + ревью) → T-299 (README v2.32.1 + MEMORY) → @DevOps T-300/T-301 (47.8). `.env` локально не трогать.
+
+@Architect Epic 38 architecture ready (Section 47: WebContentExtractor — каскад trafilatura → Tavily /extract → Exa /contents, порог СТРОГО >150, пустые ключи → skip WARNING, WebContentExtractionFailedException → пул 5.7 реплаем на целевое; вопросы PM 1-5 закрыты: секция 47, skip-семантика D134, константы в модуле, схема логов [web_extractor], grep-критерий 0 вхождений jina вне планов; Jina удаляется полностью — services/jina_reader.py, settings/.env.example, bot.py, сервис, хендлер, README, 3 тест-файла + удаление test_jina_reader; R38-4 байт-в-байт), passing the baton to @Builder (T-295 → T-296 → T-297 → T-298 → T-299) и @Reviewer/@DevOps (T-298-C/T-300/T-301).

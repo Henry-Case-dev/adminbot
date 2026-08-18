@@ -54,7 +54,7 @@ from services.factcheck_service import FactCheckService
 from services.search_service import SearchService
 from handlers.youtube import youtube_router, setup_youtube
 from handlers.web import web_router, setup_web
-from services.jina_reader import JinaReader
+from services.web_content_extractor import WebContentExtractor
 from services.youtube_transcript_engine import YouTubeTranscriptEngine
 from services.youtube_summarizer_service import YoutubeSummarizerService
 from services.web_summarizer_service import WebSummarizerService
@@ -84,7 +84,7 @@ _goodmorning_scheduler = None
 # SmartModule FactCheck + SmartSearch (Epic 33) — module-level ref for on_shutdown
 _search_aggregator = None
 # SmartModule YouTube + Web (Epic 37) — module-level ref for on_shutdown
-_jina_reader = None
+_web_extractor = None
 
 
 async def on_startup():
@@ -162,11 +162,12 @@ async def on_startup():
         logger.info("SmartModule FactCheck + SmartSearch (Epic 33) initialized")
 
         # ── SmartModule: YouTube + Web (Epic 37) ──
-        global _jina_reader
+        global _web_extractor
         youtube_engine = YouTubeTranscriptEngine()
-        _jina_reader = JinaReader(api_key=settings.JINA_API_KEY)
+        _web_extractor = WebContentExtractor()
+        _web_extractor.log_config()                         # WARNING пустых ключей (D104)
         setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client))
-        setup_web(WebSummarizerService(_jina_reader, _llm_client))
+        setup_web(WebSummarizerService(_web_extractor, _llm_client))
         logger.info("SmartModule YouTube + Web (Epic 37) initialized")
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
@@ -291,8 +292,8 @@ async def on_shutdown():
         await _llm_client.close()
     if _search_aggregator:
         await _search_aggregator.close()
-    if _jina_reader:
-        await _jina_reader.close()
+    if _web_extractor:
+        await _web_extractor.close()
 
 
 async def main():
