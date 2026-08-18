@@ -4028,3 +4028,138 @@ llm откинулась, сгенерировать не вышло
 
 **Статус: Epic 39 — Шаг 1 (PM) ✅ (2026-08-19): одобренный план пользователя зафиксирован — требования R39-1…R39-6, решения D139–D144, задачи T-302…T-308; Epic 38 архивирован (DEPLOYED, v2.32.1, `f0bc4d6`, 1763 теста, PID 974412). Передача @Architect (T-302, Section 48 — открытые вопросы 1–6 выше, в т.ч. точный floor-пин yt-dlp). Без @Orchestrator.**
 **Date: 2026-08-19**
+
+**UPD 2026-08-19 (Шаг 1 Epic 40): код v2.33.0 закоммичен и запушен (`bb472ba`, T-307). ⛔ DEPLOY_BLOCKED: T-308 заморожен на гейте T-308-C — 0–1/4 вместо ≥3/4 (датацентровый IP 198.46.175.136, AS36352, блок YouTube), рестарт admin_bot НЕ выполнялся. Разблокировка деплоя — Epic 40 (VPN-прокси xray, гейт ≥3/4 → рестарт → верификация T-308-C).**
+
+---
+
+## Epic 40: YouTube VPN-прокси (xray) + разблокировка деплоя Epic 39 — 2026-08-19 🚧 IN PROGRESS (одобрено пользователем, target v2.33.0 — КОД НЕ МЕНЯЕТСЯ)
+
+> **Цель:** Установить на сервер xray-core с оплаченной VPN-конфигурацией пользователя
+> (VLESS Reality + gRPC, выход ams.superbhost.xyz:443), поднять ЛОКАЛЬНЫЙ http-прокси
+> 127.0.0.1:10808 с авторизацией (accounts), направить через него только YouTube-движок
+> (существующий YOUTUBE_TRANSCRIPT_PROXY_URL), пройти гейт серверной верификации Epic 39
+> (≥3/4) и разблокировать деплой v2.33.0 (коммит `bb472ba`).
+> **Контекст:** Epic 39 (v2.33.0, `bb472ba`) ЗАВИС на гейте серверной верификации:
+> 0–1/4 вместо ≥3/4 — датацентровый IP 198.46.175.136 (AS36352) блокируется YouTube;
+> рестарт admin_bot НЕ выполнялся (T-308 заморожен). Вопрос «поможет ли VPN» решается
+> эмпирически гейтом ≥3/4.
+> **Принцип (D145):** VPN — ТОЛЬКО локальный прокси на 127.0.0.1; глобальный VPN/iptables/HTTP_PROXY
+> на сервере ЗАПРЕЩЁН (иначе SSH/Telegram уйдут в туннель). Через прокси ходит только
+> YouTube-движок (yt-dlp + transcript-api) через YOUTUBE_TRANSCRIPT_PROXY_URL (R39-3, D142).
+> **Ключевой факт (код Epic 39):** yt-dlp proxy-опция + requests-прокси http — из коробки;
+> socks5 потребовал бы PySocks. http-inbound с accounts (подтверждено эмпирикой v26.3.27) → движку хватает
+> YOUTUBE_TRANSCRIPT_PROXY_URL=http://user:pass@127.0.0.1:10808, КОД-ПРАВКИ НЕ НУЖНЫ (R40-6).
+> **Исполнители:** @Architect (T-309, Section 49), @Builder (T-310), @Reviewer (T-311),
+> @DevOps (T-312…T-314). Без @Orchestrator.
+> **Target:** v2.33.0 (код не меняется). **Baseline:** прод v2.32.1 (`f0bc4d6`), 1763 теста.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R40-1** | **xray-core на сервере:** установка xray-core (не v2ray-core — VLESS+Reality+gRPC нативный формат Xray) через оф. установщик Xray-install (бинарь /usr/local/bin/xray, конфиг /usr/local/etc/xray/config.json); VLESS-конфиг пользователя (Reality + gRPC, выход ams.superbhost.xyz:443) размещается на сервере; inbound http на 127.0.0.1:10808 (НЕ 0.0.0.0) с accounts (user/pass; подтверждено эмпирикой v26.3.27 — поле users xray молча игнорирует, auth не включается). Реальные UUID/pbk/sid/SNI в планы НЕ вносить (только «конфиг пользователя, хранится на сервере 600»). |
+| **R40-2** | **Автозапуск:** systemd-юнит xray.service (Restart=always), systemctl enable → подъём при перезагрузке сервера. |
+| **R40-3** | **Точечное использование:** через прокси ходит ТОЛЬКО YouTube-движок (YOUTUBE_TRANSCRIPT_PROXY_URL); SSH/Telegram/остальные фичи — напрямую. Глобальный VPN/iptables/HTTP_PROXY запрещён (D145). |
+| **R40-4** | **Секретность (R17):** VLESS-конфиг (UUID/pbk/sid/SNI) — chmod 600, вне git, вне логов; .env-креды локального inbound (user/pass) — вне git; в логах только факт «proxy set/empty» (D144). |
+| **R40-5** | **Верификация-гейт (разблокировка Epic 39):** start xray → curl -x 127.0.0.1:10808 api.ipify.org (IP ≠ 198.46.175.136) → НЕГАТИВ-ТЕСТ 407 (curl без кредов → 407; при 200 — auth не включена: поле accounts — эмпирика v26.3.27) → заполнить .env → /tmp/epic39_verify.py ≥3/4 OK → sudo systemctl restart admin_bot → journalctl (0 traceback, proxy=set) → smoke. |
+| **R40-6** | **Код-правки не требуются** (зафиксированный факт): YOUTUBE_TRANSCRIPT_PROXY_URL уже читается движком Epic 39 и уходит в yt-dlp proxy / transcript-api proxies; http-прокси с basic-auth в URL поддерживается requests из коробки (PySocks не нужен — это http, не socks5). |
+| **R40-7** | **Rollback-план:** при гейте <3/4 — оставить .env пустым/прежним (из бэкапа), прод остаётся v2.32.1 (рестарт не выполнялся — откат не требуется); фиксируется план Б: cookies / другая локация VPN / резидентский прокси. |
+
+### PM Decisions (зафиксированы 2026-08-19, Orchestrator)
+
+| # | Решение |
+|---|---------|
+| **D145** | **VPN — только локальный прокси** на 127.0.0.1; через него ходит только YouTube-движок (yt-dlp + transcript-api) через существующий YOUTUBE_TRANSCRIPT_PROXY_URL. Глобальный VPN/iptables/HTTP_PROXY на сервере ЗАПРЕЩЁН (иначе SSH/Telegram уйдут в туннель). |
+| **D146** | **xray-core**, не v2ray-core (VLESS+Reality+gRPC — нативный формат Xray). Оф. установщик Xray-install → бинарь /usr/local/bin/xray, конфиг /usr/local/etc/xray/config.json, systemd-юнит xray.service (Restart=always), systemctl enable → автозапуск. |
+| **D147** | **Inbound: http на 127.0.0.1:10808 (НЕ 0.0.0.0) с accounts (user/pass; подтверждено эмпирикой v26.3.27)** → движку хватает YOUTUBE_TRANSCRIPT_PROXY_URL=http://user:pass@127.0.0.1:10808; КОД-ПРАВКИ НЕ НУЖНЫ (yt-dlp proxy-опция + requests-прокси http — из коробки; socks5 потребовал бы PySocks). |
+| **D148** | **Секретность R17:** VLESS-конфиг (UUID/pbk/sid/SNI) — chmod 600, вне git, вне логов; .env-креды локального inbound — вне git. |
+| **D149** | **Верификация (гейт Epic 39):** start xray → curl -x 127.0.0.1:10808 api.ipify.org (IP ≠ 198.46.175.136) → негатив-тест 407 (без кредов; auth включается только полем accounts — эмпирика v26.3.27) → заполнить .env → /tmp/epic39_verify.py → ≥3/4 OK → sudo systemctl restart admin_bot → journalctl (0 traceback, proxy=set) → smoke. |
+| **D150** | **Риски:** выходной IP VPN может тоже быть засвеченным datacenter → гейт снова <3/4 (план Б: другая локация VPN / cookies / резидентский прокси); падение прокси → YouTube-фича деградирует до 5.6 (Restart=always поднимет xray); смена ключей провайдером → переустановка конфига. |
+
+### Открытые вопросы для @Architect (закрыть в Section 49)
+
+1. **Inbound http + accounts:** точный формат (поле accounts; users игнорируется молча — эмпирика v26.3.27) в config.json и проксирование basic-auth из URL http://user:pass@127.0.0.1:10808 в yt-dlp/requests (urllib3) без PySocks — подтвердить в 49.x.
+2. **Outbound:** VLESS-конфиг пользователя размещается дословно + дефолтный routing (весь трафик → proxy); нужны ли таймауты/mux, чтобы asyncio.to_thread не зависал (аналогия с Epic 39, вопрос 5).
+3. **Порядок гейта:** .env заполняется ДО рестарта admin_bot (прокси уже поднят и проверен curl'ом); критерий «proxy set» в journalctl — факт без значения (R17, D144).
+4. **Деградация при падении прокси:** подтвердить, что каскад Epic 39 (yt-dlp фейл → transcript-api фейл → исключение → пул 5.6) уже покрыт тестами и правок не требует.
+
+### Задачи
+
+### T-309 (@Architect) — Дизайн Section 49 (R40-1…R40-7, D145–D150)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-309-A: Дизайн в `plans/ARCHITECTURE.md` (Section 49): топология (движок → YOUTUBE_TRANSCRIPT_PROXY_URL → xray http-inbound 127.0.0.1:10808 с accounts → outbound VLESS Reality+gRPC ams.superbhost.xyz:443), systemd-юнит xray.service (Restart=always, enable), поток верификации-гейта (D149), секретность (chmod 600, вне git/логов, D148), rollback-план (R40-7), риски (D150); закрыть открытые вопросы PM 1–4
+- [ ] T-309-B: Self-review + PM-аппрув; T-310…T-314 → READY
+
+**DoD:** Section 49 в ARCHITECTURE.md; вопросы PM 1–4 закрыты; PM-аппрув.
+
+### T-310 (@Builder) — Код-готовность/верификация «без правок» (R40-3/R40-6, D147)
+
+**Приоритет:** P1. **Зависимости:** T-309. **Оценка:** 0.25d.
+
+- [ ] T-310-A: Верифицировать путь YOUTUBE_TRANSCRIPT_PROXY_URL в коде Epic 39 (`bb472ba`): yt-dlp proxy-опция и transcript-api proxies={"http":u,"https":u} принимают URL с basic-auth http://user:pass@127.0.0.1:10808 из коробки (requests/urllib3; PySocks НЕ нужен — http, не socks5)
+- [ ] T-310-B: При расхождении — вынести мини-фикс отдельной задачей (не ожидается); + юнит-тест разбора URL с креденшалами (без реальных значений); полный pytest — 0 регрессий (baseline 1763)
+
+**DoD:** факт R40-6 подтверждён в коде/тестах; секретов в тестах нет.
+
+### T-311 (@Reviewer) — Ревью Section 49 + код-готовности
+
+**Приоритет:** P0. **Зависимости:** T-309, T-310. **Оценка:** 0.25d.
+
+- [ ] T-311-A: Ревью: Section 49 (гейт/rollback/секретность/риски) + T-310 (соответствие коду); вердикт APPROVED
+
+**DoD:** APPROVED; BLOCKER/MAJOR нет.
+
+### T-312 (@DevOps) — Установка xray-core + конфиг + автозапуск (R40-1/R40-2/R40-4, D146–D148)
+
+**Приоритет:** P0. **Зависимости:** T-311. **Оценка:** 0.5d.
+
+- [ ] T-312-A: Xray-install (оф. установщик) → бинарь /usr/local/bin/xray
+- [ ] T-312-B: Конфиг пользователя → /usr/local/etc/xray/config.json: VLESS-секция дословно (UUID/pbk/sid/SNI — из файла пользователя, В ПЛАНЫ НЕ ВПИСЫВАТЬ) + inbound http 127.0.0.1:10808 (НЕ 0.0.0.0) с accounts (user/pass — сгенерировать на сервере; поле users игнорируется — эмпирика v26.3.27); chmod 600
+- [ ] T-312-C: systemctl enable --now xray; Restart=always; xray.service → active (running)
+- [ ] T-312-D: curl -x http://user:pass@127.0.0.1:10808 api.ipify.org → внешний IP ≠ 198.46.175.136; journalctl -u xray — без ошибок
+
+**DoD:** xray active (running) + enable (автозапуск); ipify через прокси показывает IP VPN.
+
+### T-313 (@DevOps) — Гейт Epic 39: .env → верификация ≥3/4 → рестарт → smoke (R40-3/R40-5/R40-7, D149/D150)
+
+**Приоритет:** P0. **Зависимости:** T-312. **Оценка:** 0.5d.
+
+- [ ] T-313-A: Прод .env: YOUTUBE_TRANSCRIPT_PROXY_URL=http://user:pass@127.0.0.1:10808 (бэкап `.env.bak.epic40`); YOUTUBE_COOKIES_FILE не трогать
+- [ ] T-313-B: /tmp/epic39_verify.py (проверка реальных ссылок с сервера ЧЕРЕЗ прокси) → ≥3/4 OK
+- [ ] T-313-C: sudo systemctl restart admin_bot → active (running), новый PID; journalctl -u admin_bot -n 50: 0 traceback, «proxy set» (факт, без значения — R17/D144)
+- [ ] T-313-D: Smoke: YouTube-фича в чате → ответ движка; Better Stack без ошибок
+- [ ] T-313-E: **Гейт <3/4 → ROLLBACK (R40-7):** .env пустым/прежним (из бэкапа `.env.bak.epic40`), прод остаётся v2.32.1 (рестарт НЕ выполнялся — откат не требуется); зафиксировать план Б: cookies / другая локация VPN / резидентский прокси
+
+**DoD:** прод v2.33.0 с прокси, гейт ≥3/4, 0 traceback, smoke OK; ЛИБО честный rollback + план Б.
+
+### T-314 (@DevOps) — Завершение Epic 39: верификация T-308-C + статусы (R40-5)
+
+**Приоритет:** P1. **Зависимости:** T-313 (при успехе гейта). **Оценка:** 0.25d.
+
+- [ ] T-314-A: T-308-C (Epic 39): верификация dQw4w9WgXcQ / cUbIkNUFs-4 / aPYGbtkSE7A + ru-manual видео через прокси; отчёт (v2.33.0, PID, результаты)
+- [ ] T-314-B: Обновить статусы Epic 39/40 в board.md и backlog.md (T-308 → Done)
+
+**DoD:** Epic 39 DEPLOYED (v2.33.0, T-308-C пройден); Epic 40 закрыт; доски синхронизированы.
+
+### Риски (Epic 40)
+
+1. **Выходной IP VPN тоже datacenter/засвеченный** → гейт снова <3/4 → план Б (D150, R40-7).
+2. **Падение прокси** → YouTube-фича деградирует до пула 5.6 (Restart=always поднимет xray; каскад движка → исключение → 5.6).
+3. **Смена ключей провайдером** → ручная переустановка config.json (задокументировать в Section 49).
+4. **Утечка секретов:** UUID/pbk/sid/SNI/user/pass — в git и логи НЕ попадают (R40-4, D148).
+5. **HTTP-прокси без шифрования на loopback** — приемлемо (только 127.0.0.1 + accounts, подтверждено эмпирикой v26.3.27; D147).
+6. **Потеря доступа к серверу** исключена: глобальный VPN запрещён (D145), SSH идёт напрямую.
+
+### Файлы (планируемые)
+
+`plans/ARCHITECTURE.md` (Section 49), `plans/backlog.md`, `plans/board.md`; серверные `/usr/local/etc/xray/config.json` и прод `.env` (вне git), `/tmp/epic39_verify.py` (вне git).
+
+**НЕ трогать (R40-6):** код-репозиторий — БЕЗ правок (только юнит-тест разбора URL в T-310-B при необходимости).
+
+---
+
+**Статус: Epic 40 — Шаг 1 (PM) ✅ (2026-08-19): требования R40-1…R40-7, решения D145–D150 (Orchestrator), задачи T-309…T-314 зафиксированы; Epic 39 — ⛔ DEPLOY_BLOCKED (гейт T-308-C, 0–1/4). Передача @Architect (T-309, Section 49). Без @Orchestrator. Реальные UUID/ключи VPN-конфига в планы НЕ внесены (R40-4).**
+**Date: 2026-08-19**

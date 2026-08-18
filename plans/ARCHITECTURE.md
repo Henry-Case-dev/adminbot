@@ -8508,3 +8508,185 @@ EOF
 **Порядок:** T-303 (конфиг + requirements + .env.example + тесты settings) → T-304 (движок) → T-305 (тесты + полный прогон 1763+ зелёные, `git diff --check`, ревью) → T-306 (README v2.33.0 + MEMORY) → @DevOps T-307 (коммит/пуш) → T-308 (деплой + ОБЯЗАТЕЛЬНАЯ серверная верификация 48.8). `.env` локально не трогать.
 
 @Architect Epic 39 architecture ready (Section 48: yt-dlp primary → transcript-api fallback; D143 floor-пин `yt-dlp>=2026.7.4` без потолка + месячный `-U`; D141 нормализация JSON3/VTT/SRT/TTML в `{text,start,duration}` через download-в-tempdir самим yt-dlp (не self-fetch подписанных URL — эмпирически подтверждён impersonation); D139 ImportError → WARNING + фолбек, socket_timeout=20; D142/D144 прокси/cookies опциональны, R17-логи set/empty; приоритеты 1-4 зеркалом `_pick_transcript`, 5-й делегирован фолбеку; контракт и сервис/хендлер/bot.py НЕ трогаем — единственный боевой файл движок; набор прод-верификации 4+1 с фактически подтверждёнными статусами субтитров, sNhhvQGsMEc — manual ru), passing the baton to @Builder (T-303 → T-304 → T-305 → T-306) и @Reviewer/@DevOps (T-307/T-308 — верификация с серверного IP ОБЯЗАТЕЛЬНА, приёмка ≥3/4 видео OK).
+
+## Section 49: Epic 40 — YouTube VPN-прокси (xray-core, VLESS Reality + gRPC → локальный HTTP-прокси) + разблокировка деплоя Epic 39 (v2.33.0)
+
+### 49.1 Контекст, топология и закрытие вопросов PM (R40-1…R40-7, D145–D150)
+
+**Контекст:** Epic 39 (v2.33.0, `bb472ba`) ЗАВИС на гейте T-308-C: серверная верификация 0–1/4 вместо ≥3/4 — датацентровый IP 198.46.175.136 (AS36352) блокируется YouTube (bot-check, 429 на timedtext); рестарт admin_bot НЕ выполнялся, прод = v2.32.1 (`f0bc4d6`, PID 974412). Пользователь предоставил оплаченную VPN-конфигурацию VLESS (Reality + gRPC, выход `ams.superbhost.xyz:443`). Epic 40 НЕ меняет код: поднимаем xray-core как ЛОКАЛЬНЫЙ HTTP-прокси `127.0.0.1:10808` и включаем существующий `YOUTUBE_TRANSCRIPT_PROXY_URL` (D142, Section 48) — через прокси ходит только YouTube-движок (yt-dlp `opts["proxy"]` + transcript-api `proxies={"http":u,"https":u}`, оба — из коробки, PySocks НЕ нужен, т.к. схема http, не socks5).
+
+**Топология (R40-3, D145):**
+
+```
+YouTube-движок (admin_bot, v2.33.0)
+  └─ YOUTUBE_TRANSCRIPT_PROXY_URL=http://<LOCAL_USER>:<LOCAL_PASS>@127.0.0.1:10808
+       └─ xray-core: inbound "http-in" (127.0.0.1:10808, accounts/basic-auth)
+            └─ routing: входящий трафик → outbound "proxy" (vless+reality+grpc)
+                 └─ VPN-сервер ams.superbhost.xyz:443 → интернет (выходной IP ≠ 198.46.175.136)
+
+SSH (22) / Telegram / остальные фичи — НАПРЯМУЮ (в xray никого не заводим).
+Глобальный VPN / iptables / HTTP_PROXY / http_proxy env — ЗАПРЕЩЕНЫ (D145).
+```
+
+**Закрытие открытых вопросов PM:**
+
+| # | Вопрос PM | Решение в Section 49 |
+|---|---|---|
+| 1 | Точный формат inbound http с accounts + как basic-auth пройдёт в yt-dlp/requests | **49.2/49.4:** inbound `protocol:"http"`, `settings.accounts:[{user,pass}]` (Xray сам делает Basic Auth: HTTP-запросы — `Proxy-Authorization: Basic …`, HTTPS — при CONNECT); непустой `accounts` = аутентификация включена, пустой = анонимный прокси (недопустимо на 127.0.0.1). Поле `users` для http-inbound xray МОЛЧА ИГНОРИРУЕТ — auth НЕ включается (анонимный прокси): эмпирика Xray 26.3.27, поймано негатив-тестом 407 (при `users` без кредов приходил HTTP 200); поля `auth` для http не существует. В URL `http://user:pass@127.0.0.1:10808` креды парсятся urllib3 (yt-dlp `proxy`-опция и requests `proxies`-dict — единый механизм), PySocks НЕ нужен (это http, не socks5). Условие: user/pass ТОЛЬКО из `[A-Za-z0-9_-]` (генерация — `openssl rand`, 49.6) — спецсимволы потребовали бы percent-encoding URL (49.9 #5). |
+| 2 | Outbound дословно (vless+reality+grpc) + routing; таймауты/mux | **49.2:** outbound — шаблон ниже (`vnext[]`, `streamSettings.security="reality"`, `realitySettings{serverName,fingerprint,password(бывш. publicKey),shortId,alpn:["h2"],spiderX:""}`, `grpcSettings{serviceName}`). `flow` ОТСУТСТВУЕТ (Vision — только TCP, здесь gRPC; в URI пользователя flow не задан — не добавлять). `mux` ВЫКЛЮЧЕН (оф. доки Xray: mux.cool не рекомендуется с gRPC/HTTP2; в 1.8+ mux по умолчанию off — поле не пишем). `multiMode` не включать (клиентская BETA-опция; в URI провайдера её нет — риск несовместимости с сервером). Таймауты: на сетевом уровне — штатные дефолты xray (TCP-keepalive встроен); на прикладном — у движка УЖЕ `socket_timeout=20` (D139, каждый вызов yt-dlp) + transcript-api requests-таймауты; `asyncio.to_thread` не зависает сверх этого (прецедент 48.9 #3). **Routing:** правило «весь входящий трафик → outbound proxy», глобальный system-proxy НЕ трогаем (D145). |
+| 3 | Порядок гейта (ipify → .env → verify → рестарт) | **49.7:** строгая последовательность: (1) xray start + curl-пре-чек `-x http://user:pass@127.0.0.1:10808 https://api.ipify.org` → IP ≠ 198.46.175.136 (плюс дешёвый ASN-пре-чек 49.7.3: если ASN снова datacenter — вероятность фейла гейта высокая, прогонять 5 видео всё равно, но план Б готовить заранее); (2) `.env` (+бэкап `.env.bak.epic40`); (3) `/tmp/epic39_verify.py` ИЗ-ПОД ПРОД-VENV (читает прокси из settings → .env — тот же путь, что у движка); (4) ТОЛЬКО при ≥3/4 → `sudo systemctl restart admin_bot`; (5) journalctl: 0 traceback + `[youtube engine] config | proxy=set` (ФАКТ без значения — R17/D144); (6) smoke. admin_bot при правке .env НЕ рестартить до прохождения гейта — settings читает .env только при старте (факт Section 48), поэтому verify-скрипт можно гонять сколько угодно раз, не трогая прод. |
+| 4 | Каскад Epic 39 при падении прокси покрыт тестами без правок | **49.5:** ПОДТВЕРЖДЕНО — `tests/test_youtube_transcript_engine.py` (Epic 39): `TestYtdlpPrimary` покрывает «yt-dlp фейл → фолбек transcript-api» и «оба фейл → YouTubeTranscriptUnavailableException» (→ пул 5.6 в сервисе), `TestFetchErrors` — поведение ошибок. Падение прокси = прокси-ошибка в обоих движках → тот же тестовый путь. Код-правки НЕ требуются (R40-6); T-310-B добавляет только юнит-тест разбора URL прокси с креденшалами (без сети, без реальных значений). |
+
+### 49.2 Шаблон `/usr/local/etc/xray/config.json` (R40-1, D146/D147)
+
+**ВАЖНО (R40-4/R17):** в git и планы попадают ТОЛЬКО плейсхолдеры `<UUID> <SNI> <FP> <PBK> <SID> <SERVICE> <LOCAL_USER> <LOCAL_PASS> <EXIT_HOST> <EXIT_PORT>`. Единственное осознанное исключение — публичный адрес/порт выхода провайдера (ams.superbhost.xyz:443): это публичный endpoint из конфига пользователя, нужен DevOps для идентификации конфигурации в топологии 49.1; креденшалом не является. Всё остальное (UUID/PBK/SID/SNI/FP/SERVICE/local user/pass) — ТОЛЬКО плейсхолдеры; ⚠️ если SNI провайдера совпадает с адресом выхода — само значение SNI в планы/логи не добавлять. Реальные значения — ТОЛЬКО из VPN-конфига пользователя, в серверном файле `/usr/local/etc/xray/config.json` (вне git, `chmod 600`). Маппинг полей из URI пользователя (справочно, значения в файл НЕ вносить): uuid→`id`; address→`address`; port→`port`; sni→`realitySettings.serverName`; fp→`realitySettings.fingerprint`; pbk→`realitySettings.password` (в старых версиях Xray поле называлось `publicKey` — семантика идентична, проверить версию); sid→`realitySettings.shortId`; alpn→`realitySettings.alpn`; serviceName→`grpcSettings.serviceName`; `flow` в URI отсутствует → поле `flow` НЕ добавлять (gRPC ≠ TCP+Vision); `encryption:"none"` — дословно.
+
+```json
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    {
+      "tag": "http-in",
+      "listen": "127.0.0.1",
+      "port": 10808,
+      "protocol": "http",
+      "settings": {
+        "accounts": [
+          { "user": "<LOCAL_USER>", "pass": "<LOCAL_PASS>" }
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<EXIT_HOST>",
+            "port": <EXIT_PORT>,
+            "users": [
+              { "id": "<UUID>", "encryption": "none", "level": 0 }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "security": "reality",
+        "grpcSettings": { "serviceName": "<SERVICE>" },
+        "realitySettings": {
+          "serverName": "<SNI>",
+          "fingerprint": "<FP>",
+          "password": "<PBK>",
+          "shortId": "<SID>",
+          "spiderX": "",
+          "alpn": ["h2"]
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      { "type": "field", "inboundTag": ["http-in"], "outboundTag": "proxy" }
+    ]
+  }
+}
+```
+
+Комментарии по схеме (сверены с оф. доками Xray — xtls.github.io, разделы inbound/http, outbounds/vless, transports/reality, transports/grpc):
+
+- **Inbound http:** `accounts:[{user,pass}]` — ТОЧНЫЙ формат, ПОДТВЕРЖДЁН ЭМПИРИКОЙ v26.3.27: auth включается ТОЛЬКО полем `settings.accounts`; поле `users` xray молча игнорирует (auth не включается → анонимный прокси — поймано негатив-тестом 407: без кредов приходил HTTP 200 при `users`); поле `auth` для http-inbound не существует. Непустой `accounts` включает Basic Auth; пустой = анонимный прокси — НЕДОПУСТИМО даже на loopback (R40-4). `listen:"127.0.0.1"` обязателен (D147; 0.0.0.0 запрещён). `allowTransparent` НЕ ставить (не нужен, риск петель). Только TCP (UDP не нужен — YouTube-движок ходит по TCP; для IPv6 YouTube движок использует DNS-разрешение самого xray — направление трафика через прокси покрывает оба семейства).
+- **Outbound vless+reality+grpc:** `realitySettings` содержит только клиентские поля (serverName/fingerprint/password/shortId/spiderX/alpn); серверные поля (target/privateKey/shortIds/serverNames) в КЛИЕНТЕ НЕ ПИСАТЬ — Xray определяет сторону по наличию `target` (оф. доки, предупреждение). `password` — публичный ключ сервера (старое имя `publicKey`): если установленная версия xray требует `publicKey` — переименовать поле, значение то же (проверить на `xray run -test`). `shortId` = 16 hex (sid из URI). `alpn:["h2"]` обязателен для gRPC-хендшейка. `mux` и `flow` не указывать (49.1 #2). `spiderX:""` — пустая строка безопасна (клиентская опция, каждый клиент может свою; «рекомендуется каждому клиенту своё значение» — при желании сгенерировать, но пустое валидно и не ломает handshake).
+- **Routing:** единственное правило заворачивает ВСЁ, что вошло в `http-in`, в outbound `proxy`; других inbound нет; выхода в freedom (direct) нет → трафик xray физически не может уйти мимо VPN. DNS у клиента не настраиваем (gRPC-адрес — домен `address`, резолвится самим xray). `domainStrategy:"AsIs"` — не вмешиваемся в SNI/домены.
+- **Логи:** `loglevel:"warning"` → в journald (`journalctl -u xray`). Уровень `debug` НЕ ставить на проде (потенциально печатает URL/сниффинг). Значения ключей в логи не пишутся.
+- **Гео-файлы (geoip/geosite):** routing их не использует → опция `--without-geodata` при установке допустима (R40-1 не противоречит; меньше мусора на диске).
+
+### 49.3 systemd: автозапуск и Restart=always (R40-2, D146)
+
+- Установщик: `bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install` → бинарь `/usr/local/bin/xray`, юниты `/etc/systemd/system/xray.service` + `xray@.service`, `Environment=XRAY_LOCATION_CONFIG=/usr/local/etc/xray/config.json` (путь по умолчанию — файл НЕ переименовывать, иначе менять Environment).
+- **Restart=always — ОБЯЗАТЕЛЬНО и ПРОВЕРИТЬ ПО ФАКТУ:** если в установленном `xray.service` нет `Restart=always` (или стоит on-failure), добавить drop-in:
+  `/etc/systemd/system/xray.service.d/restart.conf`:
+  ```ini
+  [Service]
+  Restart=always
+  RestartSec=5
+  ```
+  затем `systemctl daemon-reload`. Drop-in не трогает установщик-управляемый юнит (переживает апгрейды), в отличие от правки самого юнита.
+- Активация: `sudo systemctl enable --now xray` → `systemctl is-enabled xray` = `enabled` (критерий DoD); `systemctl status xray` = active (running).
+- Причины вечного рестарта: падение xray (краш, OOM), сетевые фейлы провайдера VPN, `config.json` невалиден. Поведение при падении прокси — 49.5 (деградация до 5.6, фолбека на прямое соединение нет — дизайн Epic 39, осознанно).
+
+### 49.4 Прокси-аутентификация в движке (R40-6, D147, T-310)
+
+- `YOUTUBE_TRANSCRIPT_PROXY_URL=http://<LOCAL_USER>:<LOCAL_PASS>@127.0.0.1:10808` (user/pass — алфавит `[A-Za-z0-9_-]`, 49.6) уходит: yt-dlp `opts["proxy"]` (строка как есть, `services/youtube_transcript_engine.py:_ytdlp_opts`) и transcript-api `proxies={"http":u,"https":u}` (`_transcript_api_kwargs`). Оба пути — urllib3: userinfo из URL прокси конвертируется в заголовок `Proxy-Authorization: Basic base64(user:pass)` автоматически; для HTTPS — при CONNECT к прокси. PySocks НЕ задействован (схема http). КОД-ПРАВКИ НЕ НУЖНЫ.
+- Xray со стороны inbound принимает Basic Auth из `accounts[]`; на неверные креды отвечает `407 Proxy Authentication Required` → в движке это прокси-ошибка → каскад фолбека → 5.6 (49.5).
+- **T-310-B (страховочный тест, без сети и без реальных кредов):** юнит-тест, что URL вида `http://user:pass@127.0.0.1:10808` (а) без изменений уходит в `opts["proxy"]`, (б) без изменений уходит в оба ключа `proxies`, (в) разбор userinfo (urlsplit) не падает для алфавита `[A-Za-z0-9_-]`. При расхождении с фактом — мини-фикс отдельной задачей (НЕ ожидается).
+
+### 49.5 Деградация при падении прокси (R40-7 #2, D150, PM-вопрос 4)
+
+- Падение xray/VPN → yt-dlp `ProxyError` → WARNING → transcript-api с тем же прокси падает → `YouTubeTranscriptUnavailableException` → пул 5.6 (YOUTUBE_ERROR_PHRASES). Прямого фолбека на прямое соединение НЕТ (дизайн Epic 39 — при включённом прокси он обязателен для обоих движков; осознанно, зафиксировано 48.x).
+- Покрыто тестами Epic 39 БЕЗ правок: `tests/test_youtube_transcript_engine.py` — `TestYtdlpPrimary` («yt-dlp фейл → фолбек», «оба фейл → исключение»), `TestFetchErrors` (Epic 37). Новых тестов на каскад НЕ требуется.
+- Восстановление: systemd `Restart=always` поднимает xray; движок stateless — следующий запрос идёт через поднявшийся прокси штатно (никакого рестарта admin_bot не нужно).
+
+### 49.6 Секретность (R40-4/R17, D148)
+
+- `/usr/local/etc/xray/config.json` — `chmod 600`, владелец root; в git НЕ хранится (в Section 49 — только плейсхолдеры, реальные UUID/pbk/sid/SNI/serviceName сюда НЕ вносить — R40-4). Правки — только через `sudo`.
+- Локальные креды inbound `<LOCAL_USER>/<LOCAL_PASS>`: сгенерировать НА СЕРВЕРЕ `openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 16` (алфавит без спецсимволов — не требует percent-encoding в URL, 49.4); живут в двух местах: `config.json` (600) и прод `.env` (вне git). В логи НЕ попадают: код логирует только `proxy=set/empty` (D144), yt-dlp — quiet/no_warnings (48.5).
+- Журналы: `journalctl -u xray` — ошибки рукопожатия без значений ключей; при отладке НЕ вставлять `xray run`-вывод с полным конфигом в чаты/логи.
+- `.env`-бэкапы (`.env.bak.epic39`, `.env.bak.epic40`) — chmod 600 (как и сам `.env`).
+
+### 49.7 Гейт верификации — строгий порядок (R40-5, D149)
+
+Критерий приёмки: `/tmp/epic39_verify.py` (существующий скрипт Epic 39, набор из 5 видео: dQw4w9WgXcQ, cUbIkNUFs-4, aPYGbtkSE7A, sNhhvQGsMEc, 00000000000-negative) из-под прод-venv ≥ **3/4** валидных видео OK, ИСТОЧНИК — лог `[youtube engine] transcript ok | source=yt-dlp` (transcript-api тоже допустим как источник, но гейт считает видео по любому OK). Скрипт читает `YOUTUBE_TRANSCRIPT_PROXY_URL` из прод `.env` через settings — ТОТ ЖЕ путь, что у боевого движка (49.1 #3), поэтому успех скрипта эквивалентен работе движка под рестартом.
+
+Шаги (без сокращений, ни один не пропускать):
+
+1. **Базлайн (ДО начала):** `curl -s https://api.ipify.org` → 198.46.175.136 (зафиксировать); `grep YOUTUBE_TRANSCRIPT_PROXY_URL .env` → пусто; `systemctl is-enabled xray` → ошибка (не установлен).
+2. **Установка xray** (49.3): install-release.sh → `xray version`; `systemctl is-enabled xray`.
+3. **Конфиг** (49.2): заполнить плейсхолдеры реальными значениями из VPN-конфига пользователя, `chmod 600`, `xray run -test -config /usr/local/etc/xray/config.json` → OK без ошибок.
+4. **Restart=always** (49.3): проверить `systemctl cat xray`, при необходимости drop-in → `daemon-reload`.
+5. **enable --now xray** → active (running); `journalctl -u xray -n 20` — без ошибок рукопожатия.
+6. **Пре-чек выхода:** `curl -x http://<LOCAL_USER>:<LOCAL_PASS>@127.0.0.1:10808 https://api.ipify.org` → IP ≠ 198.46.175.136; НЕГАТИВНЫЙ тест аутентификации: `curl -x http://127.0.0.1:10808 https://api.ipify.org` (без кредов) → `407 Proxy Authentication Required` (если 200 — auth НЕ включена: проверять поле `accounts`, не `users` — эмпирика v26.3.27).
+7. **ASN-пре-чек (дешёвый, до 5-видео прогона):** `curl -x http://<LOCAL_USER>:<LOCAL_PASS>@127.0.0.1:10808 https://ipinfo.io/json` (или ip-api.com) → org/ASN выходного IP. Если ASN снова datacenter/hosting — вероятность фейла гейта высокая: прогон 5 видео всё равно делаем (эмпирический критерий), но план Б (49.8) готовим заранее.
+8. **.env:** `cp .env .env.bak.epic40`; прописать `YOUTUBE_TRANSCRIPT_PROXY_URL=http://<LOCAL_USER>:<LOCAL_PASS>@127.0.0.1:10808` (YOUTUBE_COOKIES_FILE не трогать). **admin_bot НЕ рестартить.**
+9. **Гейт:** `cd /var/www/admin_bot && venv/bin/python /tmp/epic39_verify.py` → счёт ≥3/4.
+10. **ПРИ ≥3/4:** `sudo systemctl restart admin_bot` → active (running), новый PID; `journalctl -u admin_bot -n 50 --no-pager` — 0 traceback, `[youtube engine] config | proxy=set | cookies=empty` (факты); smoke в чате: YT-ссылка → выжимка, битое видео → 5.6; Betterstack — 0 новых ERROR `[youtube]`. Далее T-314: финальная верификация T-308-C (dQw4w9WgXcQ/cUbIkNUFs-4/aPYGbtkSE7A + sNhhvQGsMEc manual ru) и синхронизация досок.
+11. **ПРИ <3/4 (повторный прогон для исключения флапа — максимум 2 прогона):** РЕСТАРТ НЕ ВЫПОЛНЯТЬ, прод остаётся v2.32.1 — rollback 49.8.
+
+### 49.8 Rollback и план Б (R40-7, D150)
+
+- **Rollback (гейт <3/4):** `.env` вернуть из бэкапа `.env.bak.epic40` (прокси-URL пустым), admin_bot НЕ перезапускался → прод так и остаётся v2.32.1 (`f0bc4d6`), откат кода не требуется. xray: `systemctl stop xray` опционально (не мешает ничему, но чтобы не платил/не шумел в логах — остановить и `disable`; конфиг 600 сохранить для ретрая). Честная фиксация результата в board/backlog + передача пользователю.
+- **План Б (по порядку):** (1) cookies (`YOUTUBE_COOKIES_FILE`) от пользователя — уже в дизайне Epic 39, включается правкой .env; (2) другая локация VPN у того же провайдера (сменить конфиг → ретрай 49.7 с шага 6); (3) резидентский прокси как HTTP(S)-прокси напрямую в `YOUTUBE_TRANSCRIPT_PROXY_URL` (тогда xray не нужен вовсе — движок умеет внешний http-прокси из коробки, R40-6).
+- **Смена ключей провайдером (риск #3):** обновить `/usr/local/etc/xray/config.json` (uuid/pbk/sid/SNI/serviceName), `xray run -test`, `systemctl restart xray`, повторить 49.7 с шага 6. Прод-`.env` и admin_bot не трогать.
+
+### 49.9 Риски (D150)
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | **Р1: выходной IP VPN тоже datacenter/засвеченный** → гейт снова <3/4 | ASN-пре-чек 49.7.7 до полного прогона; гейт ≥3/4 — эмпирический критерий; при фейле — план Б 49.8 без вреда проду (рестарт не выполнялся) |
+| 2 | **Р2: падение прокси** (краш xray, сеть провайдера) → вся YouTube-фича деградирует до пула 5.6 | systemd `Restart=always` + `RestartSec=5`; каскад Epic 39 покрыт тестами (49.5); мониторинг — Betterstack (ERROR `[youtube]`); при хроническом падении — план Б |
+| 3 | Смена ключей/адреса провайдером VPN | Ручная переустановка config.json + ретрай гейта (49.8); xray-конфиг — единственная точка правки, прод-код не трогаем |
+| 4 | **Р4: утечка секретов** (uuid/pbk/sid/SNI/user/pass) в git/логи | Только плейсхолдеры в планах; config.json 600, вне git; логи set/empty (D144); `journalctl -u xray` warning-уровень без значений |
+| 5 | Спецсимволы в local user/pass ломают URL прокси (нужен percent-encoding) | Генерация `openssl rand` с алфавитом `[A-Za-z0-9_-]` (49.6); юнит-тест разбора URL (T-310-B) |
+| 6 | HTTP-прокси без шифрования (basic-auth в открытую) | Только loopback `127.0.0.1:10808` + accounts (D147); чужих процессов-слушателей на сервере нет (единственный пользователь nik); шифрование на участке сервер→VPN обеспечивает REALITY |
+| 7 | Потеря доступа к серверу (SSH ушёл в туннель) | Исключено дизайном: глобальный VPN/iptables/HTTP_PROXY запрещены (D145), SSH ходит напрямую; xray слушает только loopback |
+| 8 | Установщик затирает/пересоздаёт юнит при апгрейде | Restart=always — drop-in в `xray.service.d/` (49.3), переживает переустановку юнита; проверять `systemctl cat xray` после апгрейдов |
+| 9 | `xray run -test` не проверяет валидность ключей (руки провайдера) | Пре-чек 49.7.6 (curl через прокси) — фактические рукопожатие и выход в интернет ДО любых правок .env |
+| 10 | gRPC-поле `password` vs `publicKey` в зависимости от версии xray | 49.2: если `xray run -test` ругается — переименовать поле (значение то же); зафиксировать версию xray в отчёте DevOps |
+| 11 | **Эмпирика v26.3.27:** поле `users` в HTTP-inbound xray молча игнорируется — auth не включается (риск анонимного прокси); auth включается ТОЛЬКО полем `settings.accounts`; поле `auth` для http не существует | Уже учтено в 49.2 (шаблон — `accounts`); перед enable обязателен `xray run -test` + негатив-тест 407 (49.7.6); зафиксировано post-deploy-коррекцией планов 2026-08-19 |
+
+### 49.10 DoD (Epic 40)
+
+- **DevOps (T-312):** xray-core установлен (`xray version`); `xray run -test` OK; `/usr/local/etc/xray/config.json` chmod 600, только реальные значения, в git/планах — только плейсхолдеры; `systemctl is-enabled xray` = `enabled`; xray active (running) c `Restart=always` (drop-in при необходимости); curl-пре-чек 49.7.6: IP ≠ 198.46.175.136, негативный тест 407.
+- **DevOps (T-313):** `.env.bak.epic40` + `YOUTUBE_TRANSCRIPT_PROXY_URL` (только при успешном гейте остаётся в .env); `/tmp/epic39_verify.py` из-под прод-venv ≥3/4; `sudo systemctl restart admin_bot` → active (running), новый PID; journalctl: 0 traceback, `[youtube engine] config | proxy=set`; smoke + Betterstack чистый. ЛИБО честный rollback 49.8 + план Б.
+- **Builder (T-310):** R40-6 подтверждён чтением кода `bb472ba` (+ юнит-тест разбора URL без сети/секретов); полный pytest 1763+ passed, 0 failed; `git diff --check` чист.
+- **Reviewer (T-311):** Section 49 + T-310 APPROVED, BLOCKER/MAJOR нет.
+- **DevOps (T-314):** T-308-C пройден через прокси (набор 48.8, ≥3/4); Epic 39 DEPLOYED (v2.33.0), Epic 40 закрыт, board/backlog синхронизированы.
+
+### 49.11 Сводка для Builder/DevOps (файлы, порядок)
+
+**Репозиторий:** ТОЛЬКО `plans/ARCHITECTURE.md` (Section 49). Код, settings, requirements, тесты — БЕЗ правок (R40-6); исключение — опциональный юнит-тест T-310-B (без секретов, без сети). **Сервер (вне git):** `/usr/local/bin/xray`, `/usr/local/etc/xray/config.json` (600), `/etc/systemd/system/xray.service.d/restart.conf` (при необходимости), прод `.env` + `.env.bak.epic40`, `/tmp/epic39_verify.py` (существующий). **Порядок:** T-309 (эта секция) → T-310 (@Builder, код-готовность) → T-311 (@Reviewer) → T-312 (@DevOps: установка+конфиг+enable) → T-313 (гейт 49.7 → рестарт ЛИБО rollback 49.8) → T-314 (T-308-C + доски).
+
+@Architect Epic 40 architecture ready (Section 49: xray-core как ЛОКАЛЬНЫЙ http-прокси 127.0.0.1:10808 с Basic Auth; inbound `accounts[{user,pass}]` — ПОДТВЕРЖДЕНО ЭМПИРИКОЙ v26.3.27: только `accounts` включает auth, поле `users` игнорируется молча → анонимный прокси; негатив-тест 407 обязателен), basic-auth через userinfo URL работает в yt-dlp/requests из коробки (urllib3), PySocks не нужен; outbound vless+reality+grpc ДОСЛОВНО из URI: password=pbk (бывш. publicKey), alpn=["h2"], serviceName, flow НЕ ставим (gRPC≠TCP), mux ВЫКЛЮЧЕН (оф. доки: не рекомендуется с gRPC); routing — весь inbound → proxy, глобальный system-proxy запрещён; systemd enable + drop-in Restart=always; таймауты — socket_timeout=20 движка уже покрывает; каскад при падении прокси покрыт TestYtdlpPrimary без правок (R40-6); строгий гейт 49.7: ipify IP≠198.46.175.136 → ASN-пре-чек → .env.bak.epic40 → epic39_verify.py ≥3/4 → ТОЛЬКО тогда restart admin_bot → 0 traceback + proxy=set → smoke; при <3/4 — rollback без рестарта, прод v2.32.1, план Б cookies/локация/резидентский прокси; секреты только на сервере 600, в планах — плейсхолдеры), passing the baton to @Builder (T-310) → @Reviewer (T-311) → @DevOps (T-312 → T-313 → T-314).
