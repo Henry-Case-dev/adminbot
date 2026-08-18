@@ -326,5 +326,19 @@ class Settings:
     SEARCH_COOLDOWN_SECONDS: float = _env_float_min("SEARCH_COOLDOWN_SECONDS", 300.0, 0.0)
     FACTCHECK_COOLDOWN_SECONDS: float = _env_float_min("FACTCHECK_COOLDOWN_SECONDS", 300.0, 0.0)
 
+    # ── SmartModule: YouTube + Web (Epic 37) ──────────────────
+    # Длина LLM-ответа И лимит контекста (транскрипт/страница), символы;
+    # <100 → дефолт 4000 (WARNING). Прецедент SEARCH_MAX_SYMBOLS (двойное назначение).
+    YOUTUBE_MAX_SYMBOLS: int = _env_int_min("YOUTUBE_MAX_SYMBOLS", 4000, 100)
+    WEBPAGE_MAX_SYMBOLS: int = _env_int_min("WEBPAGE_MAX_SYMBOLS", 4000, 100)
+    # Кулдауны per (chat, user) в СЕКУНДАХ (float; прецедент SEARCH_COOLDOWN_SECONDS —
+    # НЕ time-format). <0 → дефолт 300.0 (WARNING). 0 = кулдаун выключен.
+    # Раздельные трекеры → троттлинг YouTube и Web НЕЗАВИСИМ (46.9).
+    YOUTUBE_COOLDOWN_SECONDS: float = _env_float_min("YOUTUBE_COOLDOWN_SECONDS", 300.0, 0.0)
+    WEBPAGE_COOLDOWN_SECONDS: float = _env_float_min("WEBPAGE_COOLDOWN_SECONDS", 300.0, 0.0)
+    # Jina Reader API-ключ (опционально). Пусто → публичный https://r.jina.ai/ без ключа.
+    # Секрет — ТОЛЬКО в .env (R17): в .env.example — пустым.
+    JINA_API_KEY: str = _env_str("JINA_API_KEY", "")
+
 
 settings = Settings()

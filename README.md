@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.31.3 | **Тестов:** 1593 | **Эпиков:** 36 (T-001…T-280)
+**Версия:** v2.32.0 | **Тестов:** 1757 | **Эпиков:** 37 (T-001…T-293)
 
 ---
 
@@ -913,6 +913,34 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 - Промпты: дословность блока, подстановка `{max_symbols}` (2)
 
 **Файлы:** `services/media_group_buffer.py` (новый), `handlers/summary.py`, `handlers/factcheck.py`, `services/factcheck_prompts.py`, `services/search_prompts.py`, `tests/test_media_group_buffer.py` (новый), `tests/test_summary_handlers.py`, `tests/test_factcheck_handlers.py`, `tests/test_epic33_router_isolation.py`, `tests/test_factcheck_prompts.py`, `tests/test_smartsearch_prompts.py`, `tests/test_factcheck_service.py`, `tests/test_smartsearch_service.py`, `tests/conftest.py`
+
+---
+
+## ✨ Новое в v2.32.0 (Epic 37)
+
+### SmartModule Expansion: YouTubeSummarizer + WebSummarizer
+
+Бот наконец научился не только искать, но и **смотреть за тебя** — теперь он выжимает ролики и статьи с фирменной ленью и ядом.
+
+**YouTubeSummarizer (R37-1):**
+- Триггеры: «транскрипт», «че за видос», «о чем видео», «поясни за видос», «перескажи видос», «че в видосе» (регистронезависимо) + ссылка на `youtube.com/watch?v=`, `shorts/` или `youtu.be/`
+- Субтитры тянет через `youtube-transcript-api` (приоритет ru → en → автогенерация), клеит таймкоды `[MM:SS]` и скармливает LLM с токсичным промптом
+- Нет субтитров / видео сдохло → порция абьюза из нового пула 5.6 («в этом высере нет субтитров, сиди и слушай ушами» и соседи)
+
+**WebSummarizer (R37-2):**
+- Триггеры: «поясни за ссылку», «че по ссылке», «о чем статья», «поясни за статью», «выжимка», «че на сайте», «перескажи статью» + любой http(s)-URL (YouTube-ссылки в веб-парсер не уходят — D128)
+- Страницу читает Jina Reader (`https://r.jina.ai/`, заголовки `X-Return-Format: markdown` + `X-Target-Selector: article, main, body`); ретраи ×2 только на 429/5xx/таймауты, 401/403/404 — мгновенный отказ
+- Сайт сдох или за пейволлом → пул 5.7 («сайт сдох или закрылся пейволлом, читать нечего»)
+
+**Сценарии вызова:** реплай на сообщение с ссылкой → ответ на исходное сообщение; ссылка+триггер в одном сообщении → ответ на него. Кулдауны раздельные (`YOUTUBE_COOLDOWN_SECONDS` / `WEBPAGE_COOLDOWN_SECONDS`, дефолт 300с) — выжимка ролика не блокирует выжимку статьи.
+
+**Конфиг:** 5 новых env-ключей: `YOUTUBE_MAX_SYMBOLS`, `WEBPAGE_MAX_SYMBOLS` (дефолт 4000), `YOUTUBE_COOLDOWN_SECONDS`, `WEBPAGE_COOLDOWN_SECONDS` (дефолт 300), `JINA_API_KEY` (опционально; пусто = публичный r.jina.ai). Роутеры 0e/0f встали после 0d smartsearch, до admin; не-триггер → `UNHANDLED`, пропагация живёт (проверено интеграционными тестами через `Dispatcher.feed_update`).
+
+**Тесты: 1593 → 1757 (+164)**
+- URL-экстракция (все формы YouTube, D128-приоритет, чистка пунктуации), transcript-engine (приоритеты языков, формат таймкодов, truncate), Jina (заголовки, Bearer, ретраи, пустое тело), промпты байт-в-байт с эталонами Section 46.7, сервисы (пайплайн, XML-экранирование, cleanup), хендлеры (сценарии А/Б/D126, троттлинг, пулы), изоляция роутеров
+- Полный прогон: **1757 тестов**, 0 failed, 0 регрессий
+
+**Файлы:** `services/smartmodule_urls.py`, `services/youtube_transcript_engine.py`, `services/jina_reader.py`, `services/youtube_prompts.py`, `services/web_prompts.py`, `services/youtube_summarizer_service.py`, `services/web_summarizer_service.py`, `handlers/youtube.py`, `handlers/web.py` (новые), `config/settings.py`, `services/smartmodule_phrases.py`, `bot.py`, `requirements.txt`, `.env.example`, `tests/test_*epic37*` (10 тест-файлов)
 
 ---
 

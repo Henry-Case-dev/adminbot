@@ -6,24 +6,44 @@
 
 ## 🔧 In Progress
 
-### Epic 36: FactCheck — парсинг caption альбомов + адаптивный размер ответов — 🚧 IN PROGRESS (target v2.31.3, Шаг 4 @Builder ✅, 2026-08-17)
+### Epic 37: SmartModule — YouTubeSummarizer + WebSummarizer — 🚧 IN PROGRESS (target v2.32.0, Шаг 1 @PM ✅, 2026-08-18)
 
-> Полный трек — `plans/backlog.md` (Epic 36). Требования R36-1/R36-2, решения D120–D123.
-> Передача @DevOps (T-279). Без @Orchestrator.
+> Полный трек — `plans/backlog.md` (Epic 37). Требования R37-1…R37-9, решения D124–D133.
+> Два подсервиса SmartModule: YouTube-транскрипт (youtube-transcript-api) + Web-парсер (Jina Reader, r.jina.ai).
+> Передача @Architect (T-281, Section 46). Без @Orchestrator.
 
-- [x] T-274 (@Architect, P0) — дизайн буфера media groups + правки промптов (ARCHITECTURE.md Section 45) — **Done (Шаг 2)**
-- [x] T-275 (@Builder, P0) — буфер/парсинг caption альбомов в factcheck (прецеденты _seen_media_groups/observer 0a) — **Done (Шаг 4: `services/media_group_buffer.py` TTL 60с/LRU 100 + fill в summary_observer 0a + чтение в `_extract_target_text`)**
-- [x] T-276 (@Builder, P0) — блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» в обоих промптах + эталоны 42.5.1/42.5.2 + тесты (одним коммитом, D123) — **Done (Шаг 4: блок дословно, `{max_symbols}` ×1, эталоны синхронизированы)**
-- [x] T-277 (@Builder, P1) — тесты (альбом с caption, reply на 2-е/3-е фото, TTL/LRU, промпты дословно, test_replace_substitution), 0 регрессий (baseline 1573) — **Done (Шаг 4: +20 тестов, 1593 passed / 0 failed, `git diff --check` чист)**
-- [x] T-278 (@Reviewer, P0) — ревью — **Шаг 5 ✅ APPROVED (2026-08-17: Section 45.1 дословно, TTL/LRU реально работают, гонок/утечек нет; промпты БАЙТ-В-БАЙТ с эталоном R36-2 и 42.5.1/42.5.2, `{max_symbols}` ×1; личный прогон 1593 passed / 0 failed / 0 skipped; BLOCKER/MAJOR НЕТ, 4 MINOR не-блокера)**
-- [ ] T-279 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.3
-- [x] T-280 (@Builder, P1) — README changelog (ироничный тон) — **Done (Шаг 4, changelog «✨ Новое в v2.31.3 (Epic 36)»)**
+- [ ] T-281 (@Architect, P0) — дизайн Section 46 в ARCHITECTURE.md (движки, URL-детекция, триггеры А/Б, роутеры 0e/0f, пулы, промпты-эталоны, тест-план, риски)
+- [ ] T-282 (@Builder, P0) — конфиг: 5 ключей Settings + .env.example + requirements youtube-transcript-api (R37-1)
+- [ ] T-283 (@Builder, P0) — промпты дословно (services/youtube_prompts.py + webpage_prompts.py) + эталоны Section 46 одним коммитом (R37-6, D131)
+- [ ] T-284 (@Builder, P0) — YouTubeTranscriptService: URL-парсер (watch/shorts/youtu.be), asyncio.to_thread, ru→en→авто, склейка таймкодов (R37-2)
+- [ ] T-285 (@Builder, P0) — JinaReaderService: httpx, X-Return-Format/X-Target-Selector, Authorization опционально (R37-3)
+- [ ] T-286 (@Builder, P0) — пулы фраз 5.1–5.4 дословно в smartmodule_phrases.py (R37-5)
+- [ ] T-287 (@Builder, P0) — сервисы генерации YT/Web: llm.generate([system, user]) → cleanup_llm_text (R37-6)
+- [ ] T-288 (@Builder, P0) — хендлеры handlers/youtube.py + handlers/web.py: триггеры А/Б, observer UNHANDLED, раздельные кулдауны, reply-таргеты, чанкинг (R37-4, R37-7)
+- [ ] T-289 (@Builder, P0) — wiring bot.py: роутеры 0e/0f ПОСЛЕ 0d ДО 0:admin под SUMMARY_ENABLED, setup_* в on_startup, refs для on_shutdown (R37-4)
+- [ ] T-290 (@Builder + @Reviewer, P0) — тесты (URL-парсеры, триггеры, моки yt/Jina, раздельный троттлинг, пулы, summary_cleanup) + полный прогон + ревью APPROVED, 0 регрессий (baseline 1593) (R37-8)
+- [ ] T-291 (@Builder, P1) — README v2.32.0 + MEMORY (R37-9)
+- [ ] T-292 (@DevOps, P0) — коммит на русском + пуш master (R37-9)
+- [ ] T-293 (@DevOps, P0) — деплой: SSH git pull, pip install youtube-transcript-api, .env +5 ключей (бэкап .env.bak.epic37), restart, journalctl -n 50 (R37-9)
 
 ## 🔍 In Review
 
 *(пусто — Epic 31 перенесён в Done при архивации)*
 
 ## ✅ Done
+
+### Epic 36: FactCheck — парсинг caption альбомов + адаптивный размер ответов — ✅ DEPLOYED & ARCHIVED (v2.31.3, коммит `2e26690`, прод PID 951645, 1593 тестов)
+
+> Перенесено из In Progress при архивации (PM, 2026-08-18, Шаг 1 Epic 37). Полный трек — `plans/backlog.md` (Epic 36).
+> **Итог:** T-274…T-280 ALL DONE. @Architect: Section 45 (буфер `MediaGroupCaptionBuffer` TTL 60с/LRU 100 + промпты-эталоны 42.5.1/42.5.2); @Builder: буфер альбомов (fill в observer 0a, чтение в `_extract_target_text`), блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» в обоих промптах, +20 тестов, README v2.31.3; @Reviewer: APPROVED (личный прогон 1593 passed / 0 failed / 0 skipped, BLOCKER/MAJOR НЕТ); @DevOps: коммит `2e26690` (19 файлов, +982/−28) + пуш (`585da8d..2e26690`) + деплой (git pull ff, PID 951645, 0 traceback). **ЭПИК 36 ЗАКРЫТ. Прод v2.31.3. Тесты: 1593 passed / 0 failed (1573 + 20).**
+
+- [x] T-274 (@Architect, P0) — дизайн буфера media groups + правки промптов (ARCHITECTURE.md Section 45) — **Done (Шаг 2)**
+- [x] T-275 (@Builder, P0) — буфер/парсинг caption альбомов в factcheck — **Done (Шаг 4: `services/media_group_buffer.py` TTL 60с/LRU 100 + fill в summary_observer 0a + чтение в `_extract_target_text`)**
+- [x] T-276 (@Builder, P0) — блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» в обоих промптах + эталоны 42.5.1/42.5.2 + тесты (одним коммитом, D123) — **Done (Шаг 4)**
+- [x] T-277 (@Builder, P1) — тесты, 0 регрессий — **Done (Шаг 4: +20 тестов, 1593 passed / 0 failed, `git diff --check` чист)**
+- [x] T-278 (@Reviewer, P0) — ревью — **Шаг 5 ✅ APPROVED (личный прогон 1593 passed / 0 failed / 0 skipped; BLOCKER/MAJOR НЕТ, 4 MINOR не-блокера)**
+- [x] T-279 (@DevOps, P0) — коммит на русском + пуш + деплой v2.31.3 — **Done (Шаг 7: коммит `2e26690`, 19 файлов +982/−28, пуш `585da8d..2e26690`, деплой ff, PID 951645, 0 traceback)**
+- [x] T-280 (@Builder, P1) — README changelog — **Done (Шаг 4, changelog «✨ Новое в v2.31.3 (Epic 36)»)**
 
 ### Epic 35: Hotfix — alan_greeting тройной greeting (race condition F7v2) — ✅ DEPLOYED & ARCHIVED (v2.31.2, коммит `585da8d`, прод PID 950693, 1573 тестов)
 
@@ -567,3 +587,4 @@
 ---
 
 **Updated:** 2026-08-17 — **Epic 32 (v2.30.0) АРХИВИРОВАН: T-242…T-248 ALL DONE & DEPLOYED (коммит `2bad5ff`, 1392 теста, PID 942078).** Открыт **Epic 33 «SmartModule Extension: FactCheck + SmartSearch + SearchAggregator» (v2.31.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R33-1…R33-8, решения D104–D111 в `plans/backlog.md`; T-249 (@Architect, дизайн) → T-250…T-258 (@Builder) → T-259/T-260 (@DevOps). ⚠️ Блокер D109: дословные тексты промптов — у пользователя. Без @Orchestrator. **→ 2026-08-17, Шаг 4b (@Builder): Epic 33 IMPLEMENTED (T-249 ✅, T-250…T-256 ✅, T-257-A…E ✅ — 10 новых тест-файлов, 150 тестов, полный прогон 1542 passed / 0 failed, `git diff --check` чист); блокер D109 СНЯТ (промпты 42.5.1/42.5.2 байт-в-байт); T-257-F — @Reviewer (ожидается); T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 5 (@Builder, фиксы ревью): @Reviewer NEEDS FIXES закрыты — BLOCKER-1 (реальные ключи в backlog.md R33-1 → плейсхолдеры; grep: ключи только в .env), MAJOR-1 (новая интеграция `test_epic33_router_isolation.py`: Dispatcher 0a/0c/0d/4c через feed_update — «найди ракету» → 1 ответ от search, factcheck → reply на target, observer 0a пишет память, danger/common живы), MINOR 1–4 (.env +4 явных ключа и чистый UTF-8-комментарий; убран `.lower()` в factcheck.py:72; `test_settings_helpers.py` 9 тестов вскрыл и закрыл `NameError: logging` в settings.py); прогон **1555 passed / 0 failed**. Повторное ревью @Reviewer ожидается.** **→ 2026-08-17, Шаг 5 (повторное ревью, @Reviewer): ✅ APPROVED — все замечания закрыты и подтверждены лично (BLOCKER-1: grep по фрагментам ключей — только .env; MAJOR-1: 4 теста через `Dispatcher.feed_update` содержательны; MINOR 1–4 ✅; промпты/пулы байт-в-байт повторно; роутеры 0c/0d не сдвинуты; `git diff --check` чист; полный прогон 1555 passed / 0 failed подтверждён лично). T-257 ЗАКРЫТ. Впереди: T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): Epic 33 ✅ DEPLOYED & ARCHIVED — T-249…T-260 ALL DONE. Коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» (32 файла, +3610/−43) + пуш в origin/master. Деплой на прод nik@198.46.175.136:/var/www/admin_bot: git pull ff `2bad5ff..1172fb5`, pip install duckduckgo-search 8.1.1, .env +6 ключей (бэкап `.env.bak.epic33`), systemctl restart → active (running) MainPID 948950, 0 traceback, «SmartModule FactCheck + SmartSearch (Epic 33) initialized». Тесты 1555 passed / 0 failed. Прод v2.31.0. Epics 1–33 ALL DEPLOYED. Цикл воркфлоу (Шаги 0–8) завершён.**
+**Updated:** 2026-08-18 — **Epic 36 (v2.31.3) АРХИВИРОВАН: T-274…T-280 ALL DONE & DEPLOYED (коммит `2e26690`, 1593 теста, PID 951645).** Открыт **Epic 37 «SmartModule: YouTubeSummarizer + WebSummarizer» (v2.32.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R37-1…R37-9, решения D124–D133 в `plans/backlog.md`; T-281 (@Architect, Section 46) → T-282…T-291 (@Builder) → T-292/T-293 (@DevOps). Без @Orchestrator.

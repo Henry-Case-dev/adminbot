@@ -1,8 +1,10 @@
-"""Tests for services/smartmodule_phrases.py (T-257-D, R33-5, D108).
+"""Tests for services/smartmodule_phrases.py (T-257-D, R33-5, D108; Epic 37 R37-5).
 
-Пулы 5.1–5.5 ДОСЛОВНО из ТЗ (каноны пользователя — не переписывать):
+Пулы 5.1–5.7 ДОСЛОВНО из ТЗ (каноны пользователя — не переписывать):
 принадлежность пулу, ровно по 5 фраз, плейсхолдер {remaining_time} в 5.1,
-все фразы строчными, без эмодзи.
+все фразы строчными, без эмодзи. Epic 37: пулы 5.6/5.7 добавлены В КОНЕЦ,
+старые каноны 5.1–5.5 без правок; пул «Ошибка LLM» Epic 37 == существующий 5.5
+(переиспользование, дублирование запрещено).
 """
 import pytest
 
@@ -13,6 +15,8 @@ from services.smartmodule_phrases import (
     SEARCH_EMPTY_QUERY_PHRASES,
     SEARCH_ERROR_PHRASES,
     THROTTLE_PHRASES,
+    WEB_ERROR_PHRASES,
+    YOUTUBE_ERROR_PHRASES,
 )
 
 # Каноны R33-5 (backlog, дословно)
@@ -59,9 +63,25 @@ EXPECTED_5_5 = (
     "llm откинулась, сгенерировать не вышло",
 )
 
+# Каноны R37-5 (Epic 37, Section 46.6, дословно)
+EXPECTED_5_6 = (
+    "в этом высере нет субтитров, сиди и слушай ушами",
+    "автор видоса зажал субтитры, пересказывать нечего",
+    "видео сдохло или закрыто приватностью, иди нахуй",
+    "не могу выдрать текст из этого ролика, ютуб послал меня",
+    "там либо музыки навалили, либо автор немой, текста нет",
+)
+EXPECTED_5_7 = (
+    "сайт сдох или закрылся пейволлом, читать нечего",
+    "страница пустая как твоя голова, инфы ноль",
+    "не могу открыть эту помойку, сервак лег",
+    "сайт заблокировал парсер, читай своими глазами",
+    "там три строчки рекламы и больше ничего, пересказывать нечего",
+)
+
 
 class TestPoolsVerbatim:
-    """Каждый пул — ровно 5 фраз, дословно из ТЗ R33-5."""
+    """Каждый пул — ровно 5 фраз, дословно из ТЗ R33-5/R37-5."""
 
     @pytest.mark.parametrize(
         "actual,expected,name",
@@ -72,6 +92,8 @@ class TestPoolsVerbatim:
             (SEARCH_ERROR_PHRASES, EXPECTED_5_4_SEARCH, "5.4 search"),
             (FACTCHECK_ERROR_PHRASES, EXPECTED_5_4_FACTCHECK, "5.4 factcheck"),
             (LLM_ERROR_PHRASES, EXPECTED_5_5, "5.5"),
+            (YOUTUBE_ERROR_PHRASES, EXPECTED_5_6, "5.6"),
+            (WEB_ERROR_PHRASES, EXPECTED_5_7, "5.7"),
         ],
     )
     def test_pool_matches_canon_verbatim(self, actual, expected, name):
@@ -86,11 +108,36 @@ class TestPoolsVerbatim:
             (SEARCH_ERROR_PHRASES, EXPECTED_5_4_SEARCH, "5.4 search"),
             (FACTCHECK_ERROR_PHRASES, EXPECTED_5_4_FACTCHECK, "5.4 factcheck"),
             (LLM_ERROR_PHRASES, EXPECTED_5_5, "5.5"),
+            (YOUTUBE_ERROR_PHRASES, EXPECTED_5_6, "5.6"),
+            (WEB_ERROR_PHRASES, EXPECTED_5_7, "5.7"),
         ],
     )
     def test_pool_has_exactly_5_phrases(self, actual, expected, name):
         assert len(actual) == 5
         assert len(set(actual)) == 5  # без дублей внутри пула
+
+
+class TestEpic37Pools:
+    """R37-5 (Section 46.6): переиспользование 5.5, отсутствие дублей."""
+
+    def test_llm_error_pool_reused_not_duplicated(self):
+        """Пул «Ошибка LLM» из ТЗ R37-5 == существующий 5.5 (T-286-ассерт)."""
+        assert LLM_ERROR_PHRASES == EXPECTED_5_5
+
+    def test_new_pools_disjoint_from_existing(self):
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+        )
+        assert not set(YOUTUBE_ERROR_PHRASES) & existing
+        assert not set(WEB_ERROR_PHRASES) & existing
+
+    def test_new_pools_disjoint_from_each_other(self):
+        assert not set(YOUTUBE_ERROR_PHRASES) & set(WEB_ERROR_PHRASES)
 
 
 class TestPoolStyle:
@@ -101,6 +148,8 @@ class TestPoolStyle:
         SEARCH_ERROR_PHRASES,
         FACTCHECK_ERROR_PHRASES,
         LLM_ERROR_PHRASES,
+        YOUTUBE_ERROR_PHRASES,
+        WEB_ERROR_PHRASES,
     )
 
     def test_all_phrases_lowercase(self):
@@ -125,6 +174,8 @@ class TestPoolStyle:
             SEARCH_ERROR_PHRASES,
             FACTCHECK_ERROR_PHRASES,
             LLM_ERROR_PHRASES,
+            YOUTUBE_ERROR_PHRASES,
+            WEB_ERROR_PHRASES,
         ):
             for phrase in pool:
                 assert "{remaining_time}" not in phrase
