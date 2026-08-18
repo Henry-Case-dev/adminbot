@@ -2,35 +2,46 @@
 
 ## 📋 Backlog
 
-*(пусто — Epic 33 перенесён в Done при архивации)*
+### Epic 39: YouTube engine fix — 🕒 CANDIDATE (ожидает решения пользователя)
+
+> Прод-дефект Epic 37: YouTube-фича сломана IP-блоком YouTube (AS36352, youtube-transcript-api 0.6.3). Вне скоупа Epic 38.
+> Задачи T-* НЕ создаются до выбора варианта пользователем: (1) yt-dlp (primary); (2) youtube-transcript-api>=1.1.1 + прокси/cookies; (3) прокси. Полный трек — `plans/backlog.md` (Epic 39).
 
 ## 🔧 In Progress
 
-### Epic 37: SmartModule — YouTubeSummarizer + WebSummarizer — 🚧 IN PROGRESS (target v2.32.0, Шаг 1 @PM ✅, 2026-08-18)
+### Epic 38: Refactoring WebSummarizer — Jina → Trafilatura + Tavily/Exa фолбеки — 🚧 IN PROGRESS (target v2.32.1, Шаг 1 @PM ✅, 2026-08-19)
 
-> Полный трек — `plans/backlog.md` (Epic 37). Требования R37-1…R37-9, решения D124–D133.
-> Два подсервиса SmartModule: YouTube-транскрипт (youtube-transcript-api) + Web-парсер (Jina Reader, r.jina.ai).
-> Передача @Architect (T-281, Section 46). Без @Orchestrator.
+> Полный трек — `plans/backlog.md` (Epic 38). Требования R38-1…R38-6, решения D134–D138.
+> Полное удаление Jina Reader; WebContentExtractor: trafilatura → Tavily /extract → Exa /contents → WEB_ERROR_PHRASES (5.7).
+> Ключи Tavily/Exa уже в .env (Epic 33). Передача @Architect (T-294, Section 47/48 — номер уточнит). Без @Orchestrator.
 
-- [ ] T-281 (@Architect, P0) — дизайн Section 46 в ARCHITECTURE.md (движки, URL-детекция, триггеры А/Б, роутеры 0e/0f, пулы, промпты-эталоны, тест-план, риски)
-- [ ] T-282 (@Builder, P0) — конфиг: 5 ключей Settings + .env.example + requirements youtube-transcript-api (R37-1)
-- [ ] T-283 (@Builder, P0) — промпты дословно (services/youtube_prompts.py + webpage_prompts.py) + эталоны Section 46 одним коммитом (R37-6, D131)
-- [ ] T-284 (@Builder, P0) — YouTubeTranscriptService: URL-парсер (watch/shorts/youtu.be), asyncio.to_thread, ru→en→авто, склейка таймкодов (R37-2)
-- [ ] T-285 (@Builder, P0) — JinaReaderService: httpx, X-Return-Format/X-Target-Selector, Authorization опционально (R37-3)
-- [ ] T-286 (@Builder, P0) — пулы фраз 5.1–5.4 дословно в smartmodule_phrases.py (R37-5)
-- [ ] T-287 (@Builder, P0) — сервисы генерации YT/Web: llm.generate([system, user]) → cleanup_llm_text (R37-6)
-- [ ] T-288 (@Builder, P0) — хендлеры handlers/youtube.py + handlers/web.py: триггеры А/Б, observer UNHANDLED, раздельные кулдауны, reply-таргеты, чанкинг (R37-4, R37-7)
-- [ ] T-289 (@Builder, P0) — wiring bot.py: роутеры 0e/0f ПОСЛЕ 0d ДО 0:admin под SUMMARY_ENABLED, setup_* в on_startup, refs для on_shutdown (R37-4)
-- [ ] T-290 (@Builder + @Reviewer, P0) — тесты (URL-парсеры, триггеры, моки yt/Jina, раздельный троттлинг, пулы, summary_cleanup) + полный прогон + ревью APPROVED, 0 регрессий (baseline 1593) (R37-8)
-- [ ] T-291 (@Builder, P1) — README v2.32.0 + MEMORY (R37-9)
-- [ ] T-292 (@DevOps, P0) — коммит на русском + пуш master (R37-9)
-- [ ] T-293 (@DevOps, P0) — деплой: SSH git pull, pip install youtube-transcript-api, .env +5 ключей (бэкап .env.bak.epic37), restart, journalctl -n 50 (R37-9)
+- [ ] T-294 (@Architect, P0) — дизайн Section 47/48 в ARCHITECTURE.md: WebContentExtractor, каскад 4 шагов, пустые ключи, тест-план, риски (R38-1…R38-6)
+- [ ] T-295 (@Builder, P0) — удаление Jina: services/jina_reader.py + tests/test_jina_reader.py (целиком), JINA_API_KEY из settings/.env.example, bot.py, web_summarizer_service.py, handlers/web.py, README, test_settings_helpers (3 места), test_web_summarizer_service, test_web_handlers (R38-2)
+- [ ] T-296 (@Builder, P0) — services/web_content_extractor.py: WebContentExtractor + WebContentExtractionFailedException, каскад trafilatura→Tavily→Exa→исключение (R38-3, D134/D136) + requirements trafilatura (пин)
+- [ ] T-297 (@Builder, P0) — wiring: web_summarizer_service.py на WebContentExtractor; handlers/web.py — исключение → WEB_ERROR_PHRASES (5.7) реплаем на целевое сообщение + logger.exception; bot.py DI/close (R38-3/R38-4, D135)
+- [ ] T-298 (@Builder + @Reviewer, P0) — тесты: test_web_content_extractor.py (~15-20, MockTransport + monkeypatch, 4 сценария) + правки тестов + проверить test_epic37_router_isolation; полный прогон, 0 регрессий (baseline 1757) (R38-5)
+- [ ] T-299 (@Builder, P1) — README v2.32.1 + MEMORY
+- [ ] T-300 (@DevOps, P0) — коммит на русском + пуш master (R38-6)
+- [ ] T-301 (@DevOps, P0) — деплой: прод .env чистка JINA_API_KEY (бэкап .env.bak.epic38), pip install trafilatura, restart, journalctl -n 50 (R38-6)
 
 ## 🔍 In Review
 
 *(пусто — Epic 31 перенесён в Done при архивации)*
 
 ## ✅ Done
+
+### Epic 37: SmartModule — YouTubeSummarizer + WebSummarizer — ✅ DEPLOYED & ARCHIVED (v2.32.0, коммит `747cb99`, прод PID 969047, 1757 тестов)
+
+> Перенесено из In Progress при архивации (PM, 2026-08-19, Шаг 1 Epic 38). Полный трек — `plans/backlog.md` (Epic 37).
+> **Итог:** T-281…T-293 ALL DONE. @Architect: Section 46 (46.1–46.15); @Builder: 19 новых файлов + 7 правок (движки YouTube/Jina, промпты-эталоны, пулы 5.6/5.7, сервисы, хендлеры 0e/0f, wiring), 1757 passed / 0 failed (1593 + 164); @Reviewer: APPROVED; @DevOps: коммит `747cb99` (31 файл) + деплой v2.32.0 (git pull ff, .env +5 ключей, бэкап `.env.bak.epic37`, PID 969047, 0 traceback).
+> **Прод-дефекты движков (пост-деплой):** Web-фича мертва (Jina 401: JINA_API_KEY пуст + блок анонимных запросов AS36352; селектор не вычленял статью) → **Epic 38** (рефакторинг WebSummarizer, v2.32.1); YouTube-фича сломана IP-блоком YouTube → **Epic 39** (кандидат, ожидает решения пользователя). **ЭПИК 37 АРХИВИРОВАН. Прод v2.32.0.**
+
+- [x] T-281 (@Architect, P0) — дизайн Section 46 в ARCHITECTURE.md — **Done (Шаги 2–3)**
+- [x] T-282…T-289 (@Builder, P0) — конфиг, промпты, движки, пулы, сервисы, хендлеры, wiring — **Done (Шаг 4)**
+- [x] T-290 (@Builder + @Reviewer, P0) — тесты + полный прогон 1757 passed + ревью APPROVED — **Done (Шаги 5–6)**
+- [x] T-291 (@Builder, P1) — README v2.32.0 + MEMORY — **Done**
+- [x] T-292 (@DevOps, P0) — коммит `747cb99` + пуш — **Done (Шаг 7)**
+- [x] T-293 (@DevOps, P0) — деплой v2.32.0 (PID 969047, 0 traceback) — **Done (Шаг 7)**
 
 ### Epic 36: FactCheck — парсинг caption альбомов + адаптивный размер ответов — ✅ DEPLOYED & ARCHIVED (v2.31.3, коммит `2e26690`, прод PID 951645, 1593 тестов)
 

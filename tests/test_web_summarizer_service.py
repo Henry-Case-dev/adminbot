@@ -1,39 +1,39 @@
-"""Tests for services/web_summarizer_service.py (T-289, R37-7, Section 46.8/46.12).
+"""Tests for services/web_summarizer_service.py (T-298, R38-3, Section 47.5/47.6).
 
-Пайплайн: reader.fetch_markdown(url, settings.WEBPAGE_MAX_SYMBOLS) →
+Пайплайн: extractor.extract(url, settings.WEBPAGE_MAX_SYMBOLS) →
 WEBPAGE_SYSTEM_PROMPT ({max_symbols} → settings) → user с <webpage url="…">
 (escape_xml_text quote=True) → llm.generate → cleanup_llm_text (R37-7).
-Ошибки ридера/LLM пробрасываются.
+Ошибки экстрактора/LLM пробрасываются.
 """
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from config.settings import settings
-from services.jina_reader import JinaReaderException
 from services.llm_client import LLMError
+from services.web_content_extractor import WebContentExtractionFailedException
 from services.web_summarizer_service import WebSummarizerService
 
 TARGET = "https://example.com/article"
 
 
 def _service():
-    reader = MagicMock()
-    reader.fetch_markdown = AsyncMock(return_value="# Заголовок")
+    extractor = MagicMock()
+    extractor.extract = AsyncMock(return_value="# Заголовок")
     llm = MagicMock()
     llm.generate = AsyncMock(return_value="выжимка")
-    return WebSummarizerService(reader, llm), reader, llm
+    return WebSummarizerService(extractor, llm), extractor, llm
 
 
 class TestSummarize:
     @pytest.mark.asyncio
     async def test_pipeline_order_and_prompt_substitution(self):
-        """#24: ридер с settings-лимитом; system без {max_symbols}, с числом;
+        """#24: экстрактор с settings-лимитом; system без {max_symbols}, с числом;
         user содержит <webpage url=…>."""
-        service, reader, llm = _service()
+        service, extractor, llm = _service()
         result = await service.summarize(TARGET)
         assert result == "выжимка"
-        reader.fetch_markdown.assert_awaited_once_with(
+        extractor.extract.assert_awaited_once_with(
             TARGET, settings.WEBPAGE_MAX_SYMBOLS
         )
         messages = llm.generate.await_args.args[0]
@@ -56,8 +56,8 @@ class TestSummarize:
     @pytest.mark.asyncio
     async def test_xml_escape_applied_to_markdown(self):
         """#26: XML-спецсимволы страницы эскейпятся."""
-        service, reader, _ = _service()
-        reader.fetch_markdown = AsyncMock(return_value="<a> & </a>")
+        service, extractor, _ = _service()
+        extractor.extract = AsyncMock(return_value="<a> & </a>")
         await service.summarize(TARGET)
         user = service.llm.generate.await_args.args[0][1]["content"]
         assert "&lt;a&gt; &amp; &lt;/a&gt;" in user
@@ -72,13 +72,13 @@ class TestSummarize:
         assert 'url="https://x.com/a&quot;b"' in user
 
     @pytest.mark.asyncio
-    async def test_reader_failure_propagates(self):
-        """#27: JinaReaderException проброшен, LLM не вызван."""
-        service, reader, _ = _service()
-        reader.fetch_markdown = AsyncMock(
-            side_effect=JinaReaderException("сайт сдох")
+    async def test_extractor_failure_propagates(self):
+        """#27: WebContentExtractionFailedException проброшен, LLM не вызван."""
+        service, extractor, _ = _service()
+        extractor.extract = AsyncMock(
+            side_effect=WebContentExtractionFailedException("сайт сдох")
         )
-        with pytest.raises(JinaReaderException):
+        with pytest.raises(WebContentExtractionFailedException):
             await service.summarize(TARGET)
         service.llm.generate.assert_not_called()
 
@@ -90,8 +90,8 @@ class TestSummarize:
             await service.summarize(TARGET)
 
     @pytest.mark.asyncio
-    async def test_unexpected_reader_failure_propagates(self):
-        service, reader, _ = _service()
-        reader.fetch_markdown = AsyncMock(side_effect=RuntimeError("внезапно"))
+    async def test_unexpected_extractor_failure_propagates(self):
+        service, extractor, _ = _service()
+        extractor.extract = AsyncMock(side_effect=RuntimeError("внезапно"))
         with pytest.raises(RuntimeError):
             await service.summarize(TARGET)

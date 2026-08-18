@@ -10,7 +10,6 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from unittest.mock import AsyncMock, MagicMock
 
 from handlers import web as web_mod
-from services.jina_reader import JinaReaderException
 from services.llm_client import LLMError
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
@@ -18,6 +17,7 @@ from services.smartmodule_phrases import (
     WEB_ERROR_PHRASES,
 )
 from services.smartmodule_throttling import format_remaining_time
+from services.web_content_extractor import WebContentExtractionFailedException
 
 CHAT_ID = -1001234567890
 WEB_URL = "https://habr.com/ru/articles/1"
@@ -167,11 +167,11 @@ class TestHandler:
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
     @pytest.mark.asyncio
-    async def test_reader_error_5_7_on_target(self, web_cleanup):
-        """#35: JinaReaderException → 5.7 на target."""
+    async def test_extractor_error_5_7_on_target(self, web_cleanup):
+        """#35: WebContentExtractionFailedException → 5.7 на target."""
         service = MagicMock()
         service.summarize = AsyncMock(
-            side_effect=JinaReaderException("сайт сдох")
+            side_effect=WebContentExtractionFailedException("сайт сдох")
         )
         web_mod.setup_web(service)
         bot = AsyncMock()
@@ -254,7 +254,7 @@ class TestHandler:
 
     @pytest.mark.asyncio
     async def test_youtube_url_never_reaches_service(self, web_cleanup):
-        """#36: только YT-URL → UNHANDLED, Jina-сервис НЕ вызван с YT-ссылкой."""
+        """#36: только YT-URL → UNHANDLED, экстрактор НЕ вызван с YT-ссылкой."""
         service = MagicMock()
         service.summarize = AsyncMock()
         web_mod.setup_web(service)

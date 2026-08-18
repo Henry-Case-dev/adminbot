@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.32.0 | **Тестов:** 1757 | **Эпиков:** 37 (T-001…T-293)
+**Версия:** v2.32.1 | **Тестов:** 1763 | **Эпиков:** 38 (T-001…T-301)
 
 ---
 
@@ -929,18 +929,32 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 
 **WebSummarizer (R37-2):**
 - Триггеры: «поясни за ссылку», «че по ссылке», «о чем статья», «поясни за статью», «выжимка», «че на сайте», «перескажи статью» + любой http(s)-URL (YouTube-ссылки в веб-парсер не уходят — D128)
-- Страницу читает Jina Reader (`https://r.jina.ai/`, заголовки `X-Return-Format: markdown` + `X-Target-Selector: article, main, body`); ретраи ×2 только на 429/5xx/таймауты, 401/403/404 — мгновенный отказ
+- Страницу читает локальный `trafilatura` (markdown), при провале — каскад Tavily `/extract` → Exa `/contents` (порог качества: строго >150 символов, пустые ключи — уровень пропускается)
 - Сайт сдох или за пейволлом → пул 5.7 («сайт сдох или закрылся пейволлом, читать нечего»)
 
 **Сценарии вызова:** реплай на сообщение с ссылкой → ответ на исходное сообщение; ссылка+триггер в одном сообщении → ответ на него. Кулдауны раздельные (`YOUTUBE_COOLDOWN_SECONDS` / `WEBPAGE_COOLDOWN_SECONDS`, дефолт 300с) — выжимка ролика не блокирует выжимку статьи.
 
-**Конфиг:** 5 новых env-ключей: `YOUTUBE_MAX_SYMBOLS`, `WEBPAGE_MAX_SYMBOLS` (дефолт 4000), `YOUTUBE_COOLDOWN_SECONDS`, `WEBPAGE_COOLDOWN_SECONDS` (дефолт 300), `JINA_API_KEY` (опционально; пусто = публичный r.jina.ai). Роутеры 0e/0f встали после 0d smartsearch, до admin; не-триггер → `UNHANDLED`, пропагация живёт (проверено интеграционными тестами через `Dispatcher.feed_update`).
+**Конфиг:** 4 новых env-ключей: `YOUTUBE_MAX_SYMBOLS`, `WEBPAGE_MAX_SYMBOLS` (дефолт 4000), `YOUTUBE_COOLDOWN_SECONDS`, `WEBPAGE_COOLDOWN_SECONDS` (дефолт 300); веб-экстрактор переиспользует `TAVILY_API_KEY`/`EXA_API_KEY` (Epic 33). Роутеры 0e/0f встали после 0d smartsearch, до admin; не-триггер → `UNHANDLED`, пропагация живёт (проверено интеграционными тестами через `Dispatcher.feed_update`).
 
 **Тесты: 1593 → 1757 (+164)**
-- URL-экстракция (все формы YouTube, D128-приоритет, чистка пунктуации), transcript-engine (приоритеты языков, формат таймкодов, truncate), Jina (заголовки, Bearer, ретраи, пустое тело), промпты байт-в-байт с эталонами Section 46.7, сервисы (пайплайн, XML-экранирование, cleanup), хендлеры (сценарии А/Б/D126, троттлинг, пулы), изоляция роутеров
+- URL-экстракция (все формы YouTube, D128-приоритет, чистка пунктуации), transcript-engine (приоритеты языков, формат таймкодов, truncate), экстрактор (каскад trafilatura→Tavily→Exa, порог 150, пустые ключи → skip), промпты байт-в-байт с эталонами Section 46.7, сервисы (пайплайн, XML-экранирование, cleanup), хендлеры (сценарии А/Б/D126, троттлинг, пулы), изоляция роутеров
 - Полный прогон: **1757 тестов**, 0 failed, 0 регрессий
 
-**Файлы:** `services/smartmodule_urls.py`, `services/youtube_transcript_engine.py`, `services/jina_reader.py`, `services/youtube_prompts.py`, `services/web_prompts.py`, `services/youtube_summarizer_service.py`, `services/web_summarizer_service.py`, `handlers/youtube.py`, `handlers/web.py` (новые), `config/settings.py`, `services/smartmodule_phrases.py`, `bot.py`, `requirements.txt`, `.env.example`, `tests/test_*epic37*` (10 тест-файлов)
+**Файлы:** `services/smartmodule_urls.py`, `services/youtube_transcript_engine.py`, `services/web_content_extractor.py`, `services/youtube_prompts.py`, `services/web_prompts.py`, `services/youtube_summarizer_service.py`, `services/web_summarizer_service.py`, `handlers/youtube.py`, `handlers/web.py` (новые), `config/settings.py`, `services/smartmodule_phrases.py`, `bot.py`, `requirements.txt`, `.env.example`, `tests/test_*epic37*` (10 тест-файлов)
+
+---
+
+## ✨ Новое в v2.32.1 (Epic 38)
+
+### WebSummarizer: сторонний reader → trafilatura + Tavily/Exa фолбеки
+
+- **Проблема:** Web-фича мертва на проде — сторонний reader-сервис отдавал 401 (ключ пуст + блок анонимных запросов AS36352), а селектор не вычленял статью («только реклама»).
+- **Движок:** интеграция со сторонним reader удалена полностью (движок с ретраями, его исключение и env-ключ выпилены из конфига). Страницу теперь читает локальный `trafilatura` (GET с UA Chrome/122, `follow_redirects`, timeout 10с, `extract` в `asyncio.to_thread`, output markdown, без ссылок/картинок, с таблицами, `favor_precision`), при провале — каскад Tavily `/extract` → Exa `/contents` (timeout 15с). Успех уровня — строго >150 символов (ровно 150 → фолбек); ретраев внутри уровней нет; пустые `TAVILY_API_KEY`/`EXA_API_KEY` → уровень пропускается с WARNING. Все уровни упали → `WebContentExtractionFailedException` → пул 5.7 реплаем на целевое сообщение.
+- **Конфиг:** новых env-ключей не добавлено — веб-экстрактор переиспользует `TAVILY_API_KEY`/`EXA_API_KEY` (Epic 33); ключ стороннего reader из `.env` можно вычистить. Триггеры, Reply-To, троттлинг, промпты и пулы — без изменений.
+
+**Тесты:** 1757 → 1763 (+6) (удалены 18 кейсов стороннего reader, добавлены 24 кейса `tests/test_web_content_extractor.py`)
+
+**Файлы:** `services/web_content_extractor.py` (новый), `services/web_summarizer_service.py`, `handlers/web.py`, `bot.py`, `config/settings.py`, `.env.example`, `requirements.txt` (+`trafilatura>=2.2.0,<3.0`), `tests/test_web_content_extractor.py` (новый), `tests/test_settings_helpers.py`, `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`; удалены движок стороннего reader и его тест-файл
 
 ---
 

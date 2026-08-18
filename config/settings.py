@@ -336,9 +336,6 @@ class Settings:
     # Раздельные трекеры → троттлинг YouTube и Web НЕЗАВИСИМ (46.9).
     YOUTUBE_COOLDOWN_SECONDS: float = _env_float_min("YOUTUBE_COOLDOWN_SECONDS", 300.0, 0.0)
     WEBPAGE_COOLDOWN_SECONDS: float = _env_float_min("WEBPAGE_COOLDOWN_SECONDS", 300.0, 0.0)
-    # Jina Reader API-ключ (опционально). Пусто → публичный https://r.jina.ai/ без ключа.
-    # Секрет — ТОЛЬКО в .env (R17): в .env.example — пустым.
-    JINA_API_KEY: str = _env_str("JINA_API_KEY", "")
 
 
 settings = Settings()
