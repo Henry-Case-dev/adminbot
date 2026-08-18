@@ -8037,3 +8037,474 @@ _web_extractor = None
 **Порядок:** T-295 (удаление Jina + правки существующих + grep-верификация) → T-296 (экстрактор + requirements) → T-297 (wiring сервиса/хендлера/bot.py) → T-298 (новый тест-файл + правки тестов + полный прогон ~1758+ + ревью) → T-299 (README v2.32.1 + MEMORY) → @DevOps T-300/T-301 (47.8). `.env` локально не трогать.
 
 @Architect Epic 38 architecture ready (Section 47: WebContentExtractor — каскад trafilatura → Tavily /extract → Exa /contents, порог СТРОГО >150, пустые ключи → skip WARNING, WebContentExtractionFailedException → пул 5.7 реплаем на целевое; вопросы PM 1-5 закрыты: секция 47, skip-семантика D134, константы в модуле, схема логов [web_extractor], grep-критерий 0 вхождений jina вне планов; Jina удаляется полностью — services/jina_reader.py, settings/.env.example, bot.py, сервис, хендлер, README, 3 тест-файла + удаление test_jina_reader; R38-4 байт-в-байт), passing the baton to @Builder (T-295 → T-296 → T-297 → T-298 → T-299) и @Reviewer/@DevOps (T-298-C/T-300/T-301).
+
+---
+
+## Section 48: Epic 39 — YouTube engine fix: yt-dlp primary → youtube-transcript-api fallback (v2.33.0)
+
+**Проблема (R39):** YouTube деградирует датацентровый IP прода (AS36352, 198.46.175.136): TranscriptsDisabled / пустое тело timedtext (ParseError) у youtube-transcript-api; с резидентного IP те же видео работают. **Одобренный пользователем план:** связка **yt-dlp (основной) → при неудаче youtube-transcript-api через прокси/cookies (фолбек)**; обязательная проверка реальной ссылки с серверного IP при деплое; сохранить существующий функционал (триггеры, пулы 5.6/5.5, промпты, Reply-To, троттлинг) БЕЗ изменений. **Target:** v2.33.0. **Baseline:** прод v2.32.1 (`f0bc4d6`), 1763 теста. **Единственный меняемый боевой файл:** `services/youtube_transcript_engine.py` (R39-4).
+
+### 48.1 Контекст, эмпирика и закрытие вопросов PM (D139–D144)
+
+Дизайн проверен ЭМПИРИЧЕСКИ на локальной машине с резидентного IP (2026-08-19, yt-dlp 2026.7.4 — актуальная стабильная на PyPI, Requires-Python >=3.10, прод venv 3.12.3 — ок; youtube-transcript-api 0.6.3 — сигнатуры сверены по исходникам .venv):
+
+- `YoutubeDL({skip_download: True, writesubtitles: True, writeautomaticsub: True, subtitleslangs: ["ru","en"], subtitlesformat: "json3", outtmpl, paths, quiet, no_warnings, noprogress, noplaylist, socket_timeout}).extract_info(url, download=True)` → yt-dlp САМ скачивает файлы субтитров во временную папку, `info['requested_subtitles'][lang]` = `{'ext': 'json3', 'url', 'name', 'filepath': '<tmp>/<id>.ru.json3'}`; stdout полностью тихий (quiet + no_warnings + **noprogress** — без noprogress видны `[download]`-строки).
+- `process_subtitles` (YoutubeDL.py:3114-3172) мержит треки так: `requested_subtitles[lang]` = manual-формат языка, если manual есть, иначе auto-формат (ASR, при необходимости переведённый) — manual-preferred внутри языка встроен в yt-dlp.
+- JSON3-структура: `{"events": [{"tStartMs": int, "dDurationMs": int, "segs": [{"utf8": str}, ...]}, ...]}`; текст = `"".join(segs[].utf8)`; встречаются пустые rollup-события (пример: `tStartMs=0, dDurationMs=382080, text=''`) — пропускаем.
+- Сбой скачивания субтитров (реальный 429 при прогоне) → `DownloadError` из `_write_subtitles` → catch-all → фолбек. Это штатный путь деградации.
+- Подписанные timedtext-URL содержат `signature`/`expire` и требуют impersonation-хедеров (`__yt_dlp_client: "tv"`) → self-fetch URL своим httpx исключён (хрупко), выбран download через yt-dlp.
+- youtube-transcript-api 0.6.3: `list_transcripts(video_id, proxies=None, cookies=None)` (прокси — requests-формат dict, cookies — путь к Netscape-файлу, MozillaCookieJar.load); сессия с ними доходит до `fetch()`.
+
+| # | Вопрос PM | Решение (дизайн) |
+|---|---|---|
+| 1 | Floor-пин yt-dlp | **D143:** `yt-dlp>=2026.7.4`, БЕЗ верхней границы. Обоснование: (а) календарные версии YYYY.MM.DD монотонны — верхняя граница не защищает, только блокирует фиксы под меняющийся YouTube; (б) 2026.7.4 — актуальная стабильная на PyPI на дату дизайна, Section 48 проверена именно на ней; (в) все используемые опции (skip_download/writesubtitles/writeautomaticsub/subtitleslangs/subtitlesformat/outtmpl/paths/proxy/cookiefile/socket_timeout/quiet/no_warnings/noprogress/noplaylist/overwrites) стабильны с 2021; (г) Requires-Python >=3.10 — прод venv 3.12.3, ок; (д) поломки yt-dlp лечатся апгрейдом → каденс `pip install -U yt-dlp` раз в месяц (задача DevOps, зафиксировать в прод-регламенте). ffmpeg для субтитров НЕ нужен (видео не качается вообще). |
+| 2 | Номер секции | **48** — подтверждено: последняя в ARCHITECTURE.md — Section 47 (строки 7715–8039). |
+| 3 | Получение текста трека | **Детализация D141:** download во временную папку САМИМ yt-dlp (48.1-обоснование), затем парсинг файла по ext: **JSON3** — events[] → `{text: "".join(segs[].utf8), start: tStartMs/1000.0, duration: dDurationMs/1000.0}`, пустые rollup-события пропускаются; **VTT/SRT** — cue-блоки по пустым строкам, заголовок `HH:MM:SS.mmm --> …`, inline-теги `<…>` стрипятся, multiline склеивается пробелами, `duration = max(end-start, 0.0)`; **TTML** — регекс `<p begin="…" end="…">…</p>` (DOTALL), теги стрипятся; таймкоды → float-секунды `_ts_to_seconds` (формы `HH:MM:SS.mmm` / `MM:SS.mmm` / `SS.mmm`, запятая допускается). Выход — ровно `list[dict]` `{text, start, duration}` → существующий `_format` БЕЗ правок. Неизвестный ext / нет filepath / пустые сегменты → raise → фолбек. |
+| 4 | ImportError yt_dlp | **Детализация D139 (прецедент DDGS-guard, search_aggregator.py:22-25):** модуль-левел `try: import yt_dlp / except ImportError: yt_dlp = None`; `__init__` движка — одноразовый WARNING «yt-dlp is not installed — every request will go to transcript-api»; `_fetch_ytdlp` сразу рейзит `RuntimeError("yt-dlp is not installed")` → каскад переходит на transcript-api. НЕ исключение наружу, НЕ падение старта, НЕ зависимость лёгкого пути от наличия пакета. |
+| 5 | Таймауты yt-dlp | **Детализация D139:** модульная константа `_YTDLP_SOCKET_TIMEOUT = 20` (НЕ env) → опция `socket_timeout` — ограничивает КАЖДЫЙ сетевой вызов yt-dlp (метаданные + скачивание файлов субтитров). Зависание executor-потока вне сетевых вызовов остаётся принятым риском (прецедент 46.13 риск #3); `asyncio.wait_for` вокруг to_thread НЕ вводим (отмена таски не освобождает поток — фиктивный эффект). |
+| 6 | Набор видео для прод-верификации | Подтверждён и уточнён ЭМПИРИЧЕСКИ (статусы субтитров сняты с резидентного IP 2026-08-19; названия — фактические, ID перепроверены по титрам, т.к. YouTube переиспользует старые ID): таблица ниже. |
+
+**Набор прод-верификации (R39-6, обязательный):**
+
+| video_id | Название (факт.) | Субтитры (проверено 2026-08-19) | Что проверяет |
+|---|---|---|---|
+| `dQw4w9WgXcQ` | Rick Astley — Never Gonna Give You Up (Official Video) (4K Remaster) | manual: de-DE/en/es-419/ja/pt-BR; auto ru/en ЕСТЬ | ветка «generated ru» (ASR-перевод); исторически ловит пустой timedtext на DC-IP |
+| `cUbIkNUFs-4` | The Original Square Hole Girl Video + The Redemption | manual: нет; auto ru/en ЕСТЬ | чисто auto-ветка |
+| `aPYGbtkSE7A` | «Инквизитор Warhammer 40000…» (RU-канал, кириллица) | manual en/uk; auto ru/en НЕТ | приоритет 2 (manual en); регион-кейс |
+| `sNhhvQGsMEc` | Kurzgesagt — The Fermi Paradox — Where Are All The Aliens? (1/2) | **manual RU ЕСТЬ** (+~50 языков); auto ru/en ЕСТЬ | ГЛАВНЫЙ кейс: manual ru (json3, 86 событий; первый сегмент «Одиноки ли мы во всей Вселенной?») |
+| `00000000000` | не существует (negative) | — | оба движка падают → `YouTubeTranscriptUnavailableException` → пул 5.6 |
+
+**Ожидания:** 4 валидных видео → выжимка (источник в логе `[youtube engine] … source=yt-dlp|transcript-api`); negative → 5.6. Если на серверном IP yt-dlp падает по всем валидным видео → включить `YOUTUBE_TRANSCRIPT_PROXY_URL` (и/или cookies) и повторить; **приёмка деплоя: ≥3 из 4 валидных видео дают выжимку** через любой из движков.
+
+### 48.2 Конфиг и зависимости (R39-3, D143/D144, T-303)
+
+**`config/settings.py` — 2 новых поля В КОНЕЦ класса `Settings` (после `WEBPAGE_COOLDOWN_SECONDS`, settings.py:338), новых хелперов НЕ нужно (`_env_str` уже есть, прецедент `JINA_API_KEY`):**
+
+```python
+    # ── SmartModule: YouTube engine failover (Epic 39, D142/D144) ──
+    # Прокси для ОБОИХ движков (yt-dlp опция proxy; transcript-api proxies
+    # {"http": u, "https": u}). Пусто = без прокси. R17: значение НЕ логируется.
+    YOUTUBE_TRANSCRIPT_PROXY_URL: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_URL", "")
+    # Путь к Netscape-файлу cookies (yt-dlp cookiefile; transcript-api cookies=).
+    # Пусто = без cookies. R17: значение НЕ логируется.
+    YOUTUBE_COOKIES_FILE: str = _env_str("YOUTUBE_COOKIES_FILE", "")
+```
+
+**`.env.example` — в конец блока «SmartModule: YouTube + Web (Epic 37)» (после `WEBPAGE_COOLDOWN_SECONDS=300`, .env.example:207):**
+
+```
+# ── SmartModule: YouTube engine failover (Epic 39) ─────────────
+# Прокси для yt-dlp и youtube-transcript-api (http://[user:pass@]host:port).
+# Пусто = выключено. Секрет — только в .env; в логи не пишется (R17).
+YOUTUBE_TRANSCRIPT_PROXY_URL=
+# Путь к файлу cookies (Netscape-формат) для yt-dlp и youtube-transcript-api.
+# Пусто = выключено.
+YOUTUBE_COOKIES_FILE=
+```
+
+**`requirements.txt`** — добавить строку `yt-dlp>=2026.7.4` (после `youtube-transcript-api>=0.6.2,<1.0`, строка 12). Пин `youtube-transcript-api>=0.6.2,<1.0` НЕ менять (D140: 1.x ломает сигнатуру `fetch()`). `httpx` уже есть, но движок yt-dlp-пути его НЕ использует (всю сеть делает yt-dlp).
+
+**Стартовое состояние (D142):** оба ключа пустые — yt-dlp и transcript-api работают без прокси/cookies; включение — только `.env` на проде, БЕЗ правок кода.
+
+### 48.3 Дизайн движка: `services/youtube_transcript_engine.py` (ПРАВКА, R39-1/R39-2/R39-4, D139–D142, T-304)
+
+```python
+# services/youtube_transcript_engine.py (ПРАВКА, Epic 39, R39-1/R39-2, Section 48.3)
+"""Epic 37/39 — YouTube Transcript Engine (R37-3, Section 46.4; R39-1/2, Section 48).
+
+Epic 39: yt-dlp (основной) → youtube-transcript-api (фолбек, D140). Контракт
+fetch_transcript(video_id, max_symbols) -> str и YouTubeTranscriptUnavailableException
+БЕЗ изменений. Прокси/cookies — из settings (R17: значения НЕ логируются, D144).
+"""
+import asyncio
+import json
+import logging
+import os
+import re
+import shutil
+import tempfile
+
+from config.settings import settings
+
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+except ImportError:  # pragma: no cover — зависимость в requirements.txt
+    YouTubeTranscriptApi = None
+
+try:
+    import yt_dlp
+except ImportError:  # pragma: no cover — зависимость в requirements.txt
+    yt_dlp = None
+
+logger = logging.getLogger(__name__)
+
+_YTDLP_SOCKET_TIMEOUT = 20        # D139: граница КАЖДОГО сетевого вызова yt-dlp
+_YTDLP_SUBTITLE_LANGS = ("ru", "en")
+
+
+class YouTubeTranscriptUnavailableException(Exception):
+    """Транскрипт недоступен (ОБА движка упали): нет субтитров / приватность /
+    видео удалено / 429 / сетевой сбой. → пул 5.6 (YOUTUBE_ERROR_PHRASES)."""
+
+
+class YouTubeTranscriptEngine:
+    """yt-dlp primary → transcript-api fallback. Формат [MM:SS] text, truncate."""
+
+    def __init__(self) -> None:
+        """D144: факт конфигурации логируется ОДИН раз при создании (bot.py
+        on_startup), значения — НИКОГДА (R17)."""
+        proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
+        cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
+        logger.info(
+            "[youtube engine] config | proxy=%s | cookies=%s",
+            "set" if proxy else "empty", "set" if cookies else "empty",
+        )
+        if yt_dlp is None:  # pragma: no cover
+            logger.warning(
+                "[youtube engine] yt-dlp is not installed — every request "
+                "will go to transcript-api"
+            )
+
+    async def fetch_transcript(self, video_id: str, max_symbols: int) -> str:
+        """yt-dlp (основной) → при неудаче youtube-transcript-api (фолбек) →
+        YouTubeTranscriptUnavailableException. Контракт БЕЗ изменений (46.4);
+        sync-вызовы — в asyncio.to_thread (прецедент DDGS / 46.4)."""
+        try:
+            segments = await asyncio.to_thread(self._fetch_ytdlp, video_id)
+            logger.info(
+                "[youtube engine] transcript ok | source=yt-dlp | "
+                "video_id=%r | segments=%d", video_id, len(segments),
+            )
+            return self._format(segments, max_symbols)
+        except Exception as exc:
+            logger.warning(
+                "[youtube engine] yt-dlp failed → transcript-api fallback | "
+                "video_id=%r | error=%s", video_id, exc,
+            )
+        try:
+            segments = await asyncio.to_thread(self._fetch_segments, video_id)
+            logger.info(
+                "[youtube engine] transcript ok | source=transcript-api | "
+                "video_id=%r | segments=%d", video_id, len(segments),
+            )
+            return self._format(segments, max_symbols)
+        except Exception as exc:
+            raise YouTubeTranscriptUnavailableException(
+                f"both engines failed | video_id={video_id!r} ({exc})"
+            ) from exc
+
+    # ── Основной движок: yt-dlp (R39-1, D139/D141) ────────────────
+
+    def _fetch_ytdlp(self, video_id: str) -> list[dict]:
+        """Sync-блок (executor). extract_info(download=True) + skip_download →
+        yt-dlp сам скачивает файлы субтитров во временную папку (подписанные
+        timedtext-URL + impersonation-хедеры — НЕ self-fetch, 48.1), парсим файл
+        выбранного трека, папку удаляем в finally. Любая ошибка (DownloadError
+        на 429 субтитров, VideoUnavailable, сеть) — наверх → фолбек."""
+        if yt_dlp is None:  # pragma: no cover
+            raise RuntimeError("yt-dlp is not installed")
+        tmpdir = tempfile.mkdtemp(prefix="ytdlp_subs_")
+        try:
+            opts = self._ytdlp_opts()
+            opts["outtmpl"] = os.path.join(tmpdir, "%(id)s.%(ext)s")
+            opts["paths"] = {"home": tmpdir}
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            return self._extract_ytdlp_segments(info, video_id)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def _ytdlp_opts(self) -> dict:
+        opts = {
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": list(_YTDLP_SUBTITLE_LANGS),
+            "subtitlesformat": "json3",
+            "quiet": True,
+            "no_warnings": True,
+            "noprogress": True,          # обязательно: quiet без noprogress
+            "noplaylist": True,          # не глушит [download]-строки (48.1)
+            "socket_timeout": _YTDLP_SOCKET_TIMEOUT,
+            "overwrites": True,
+        }
+        proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
+        if proxy:
+            opts["proxy"] = proxy
+        cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
+        if cookies:
+            opts["cookiefile"] = cookies
+        return opts
+
+    def _extract_ytdlp_segments(self, info: dict, video_id: str) -> list[dict]:
+        """Выбор трека — зеркало _pick_transcript (D141): manual ru → manual en →
+        generated ru → generated en. requested_subtitles[lang] уже manual-preferred
+        внутри языка (process_subtitles, 48.1), поэтому итерация по ("ru","en")
+        даёт ровно 4 первые приоритета. Приоритет 5 (прочий generated) НЕ качаем
+        (subtitleslangs ограничен ru/en) — кейс делегируется фолбеку
+        transcript-api, где _pick_transcript умеет его с Epic 37."""
+        manual = info.get("subtitles") or {}
+        auto = info.get("automatic_captions") or {}
+        requested = info.get("requested_subtitles") or {}
+        for lang in _YTDLP_SUBTITLE_LANGS:
+            if lang in requested and (lang in manual or lang in auto):
+                return self._read_ytdlp_subtitle(requested[lang], video_id)
+        raise YouTubeTranscriptUnavailableException(
+            f"yt-dlp: no ru/en subtitles | video_id={video_id!r}"
+        )
+
+    def _read_ytdlp_subtitle(self, sub_info: dict, video_id: str) -> list[dict]:
+        filepath = sub_info.get("filepath")
+        if not filepath or not os.path.exists(filepath):
+            raise YouTubeTranscriptUnavailableException(
+                f"yt-dlp: subtitle file missing | video_id={video_id!r}"
+            )
+        ext = (sub_info.get("ext") or "").lower()
+        with open(filepath, encoding="utf-8") as fh:
+            content = fh.read()
+        if ext == "json3":
+            segments = self._normalize_json3(content)
+        elif ext in ("vtt", "srt"):
+            segments = self._normalize_vtt_srt(content)
+        elif ext == "ttml":
+            segments = self._normalize_ttml(content)
+        else:
+            raise YouTubeTranscriptUnavailableException(
+                f"yt-dlp: unsupported subtitle format {ext!r} | video_id={video_id!r}"
+            )
+        if not segments:
+            raise YouTubeTranscriptUnavailableException(
+                f"yt-dlp: empty transcript | video_id={video_id!r}"
+            )
+        return segments
+
+    # ── Нормализация форматов (D141, 48.1) ─────────────────────
+
+    @staticmethod
+    def _ts_to_seconds(ts: str) -> float:
+        """«HH:MM:SS.mmm» | «MM:SS.mmm» | «SS.mmm» → float-секунды; ',' = '.'."""
+        parts = [float(p) for p in ts.replace(",", ".").split(":")]
+        if len(parts) == 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        if len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        return parts[0]
+
+    @staticmethod
+    def _normalize_json3(content: str) -> list[dict]:
+        """events[] → {text, start, duration}; ms → секунды; пустые rollup-события
+        (48.1: tStartMs=0, dDurationMs=382080, text='') пропускаются."""
+        segments = []
+        for event in json.loads(content).get("events", []):
+            text = "".join(seg.get("utf8", "") for seg in event.get("segs") or [])
+            text = re.sub(r"\s+", " ", text).strip()
+            if not text:
+                continue
+            segments.append({
+                "text": text,
+                "start": float(event.get("tStartMs") or 0) / 1000.0,
+                "duration": float(event.get("dDurationMs") or 0) / 1000.0,
+            })
+        return segments
+
+    @staticmethod
+    def _normalize_vtt_srt(content: str) -> list[dict]:
+        """Cue-блоки по пустым строкам; заголовок «HH:MM:SS.mmm --> …»
+        (хвост настроек после «-->» игнорируется); inline-теги стрипятся;
+        многострочный текст склеивается пробелами; duration = end - start (>=0)."""
+        segments = []
+        for block in re.split(r"\n\s*\n", content.strip()):
+            header, *lines = block.strip().split("\n")
+            m = re.match(r"^([\d:.]+[.,]?\d*)\s*-->\s*([\d:.]+[.,]?\d*)", header)
+            if not m:
+                continue
+            text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", " ".join(lines))).strip()
+            if not text:
+                continue
+            start = YouTubeTranscriptEngine._ts_to_seconds(m.group(1))
+            end = YouTubeTranscriptEngine._ts_to_seconds(m.group(2))
+            segments.append({
+                "text": text, "start": start, "duration": max(end - start, 0.0),
+            })
+        return segments
+
+    @staticmethod
+    def _normalize_ttml(content: str) -> list[dict]:
+        segments = []
+        for m in re.finditer(
+            r'<p\b[^>]*\bbegin="([^"]+)"[^>]*end="([^"]+)"[^>]*>(.*?)</p>',
+            content, re.S,
+        ):
+            text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(3))).strip()
+            if not text:
+                continue
+            start = YouTubeTranscriptEngine._ts_to_seconds(m.group(1))
+            end = YouTubeTranscriptEngine._ts_to_seconds(m.group(2))
+            segments.append({
+                "text": text, "start": start, "duration": max(end - start, 0.0),
+            })
+        return segments
+
+    # ── Фолбек: youtube-transcript-api (R39-2, D140) ────────────
+
+    def _transcript_api_kwargs(self) -> dict:
+        """Прокси (requests-формат {"http": u, "https": u}) и cookies (путь к
+        Netscape-файлу). Пусто → ПУСТОЙ dict: вызов list_transcripts(video_id)
+        идентичен 46.4 — существующие моки/тесты живы без правок."""
+        kwargs = {}
+        proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
+        if proxy:
+            kwargs["proxies"] = {"http": proxy, "https": proxy}
+        cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
+        if cookies:
+            kwargs["cookies"] = cookies
+        return kwargs
+
+    def _fetch_segments(self, video_id: str) -> list[dict]:
+        """Как 46.4 + прокидывание proxies/cookies в list_transcripts
+        (сессия с ними доходит до fetch() — проверено по исходникам 0.6.3)."""
+        if YouTubeTranscriptApi is None:  # pragma: no cover
+            raise YouTubeTranscriptUnavailableException(
+                "youtube-transcript-api is not installed"
+            )
+        try:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(
+                video_id, **self._transcript_api_kwargs()
+            )
+        except Exception as exc:
+            raise YouTubeTranscriptUnavailableException(
+                f"list_transcripts failed | video_id={video_id!r} ({exc})"
+            ) from exc
+        transcript = self._pick_transcript(transcript_list, video_id)
+        try:
+            return transcript.fetch()
+        except Exception as exc:
+            raise YouTubeTranscriptUnavailableException(
+                f"transcript fetch failed | video_id={video_id!r} ({exc})"
+            ) from exc
+
+    # _pick_transcript / _format — БЕЗ изменений (46.4)
+```
+
+**Ключевые контракты:**
+- `fetch_transcript(video_id, max_symbols) -> str`, `_pick_transcript`, `_format` — байт-в-байт 46.4; `_fetch_segments` отличается ТОЛЬКО строкой `list_transcripts(video_id, **kwargs)` (при пустых настройках kwargs={} — поведение идентично).
+- Приоритет 5 (прочий generated) — осознанная делегация фолбеку (48.3-docstring): качать все языки нельзя (сотни треков на видео), а transcript-api уже умеет этот кейс.
+- `settings` импортируется ОБЪЕКТОМ (`from config.settings import settings`) и читается в момент вызова — тесты подменяют `engine_mod.settings` (SimpleNamespace), несмотря на frozen-датакласс.
+
+### 48.4 Контракт неизменности (R39-4)
+
+**БЕЗ правок (критерий приёмки — `git diff --name-only` их НЕ содержит):**
+- `services/youtube_summarizer_service.py` — `summarize()` как в 46.8, вызывает `engine.fetch_transcript(video_id, settings.YOUTUBE_MAX_SYMBOLS)`.
+- `handlers/youtube.py` — роутер 0e, триггеры, `_parse`, Reply-To (успех/5.6/5.5 → `target.message_id`, 5.1 → `message.message_id`), троттлинг, пулы 5.6/5.5.
+- `bot.py` — wiring `YouTubeTranscriptEngine()` в on_startup уже есть (Epic 37); `close()` движку НЕ нужен (временных ресурсов не держит: tmpdir живёт внутри одного вызова, сеть — внутри вызова) → on_shutdown НЕ трогаем.
+- `services/youtube_prompts.py` (байт-в-байт эталон 46.7.1), `services/smartmodule_phrases.py` (пулы-каноны), `services/smartmodule_urls.py`, `smartmodule_utils/throttling`, `summary_cleanup`, `summary_xml`.
+- `tests/test_youtube_summarizer_service.py`, `tests/test_youtube_handlers.py`, `tests/test_epic37_router_isolation.py`.
+
+### 48.5 Логирование (R17/D144)
+
+| Событие | Уровень | Строка |
+|---|---|---|
+| Создание движка (on_startup) | INFO | `[youtube engine] config \| proxy=set/empty \| cookies=set/empty` — ТОЛЬКО факты (D144) |
+| yt_dlp отсутствует (ImportError) | WARNING | `[youtube engine] yt-dlp is not installed — every request will go to transcript-api` |
+| Успех yt-dlp | INFO | `[youtube engine] transcript ok \| source=yt-dlp \| video_id=%r \| segments=%d` |
+| Провал yt-dlp → фолбек | WARNING | `[youtube engine] yt-dlp failed → transcript-api fallback \| video_id=%r \| error=%s` |
+| Успех transcript-api | INFO | `… \| source=transcript-api \| …` |
+| Оба упали | — | raise → существующий `logger.exception("[youtube] transcript failed …")` в хендлере + фраза 5.6 |
+
+**R17:** URL прокси (возможно, с user:pass) и путь cookies НИКОГДА не пишутся: код их не логирует; yt-dlp при quiet не печатает опции; тексты исключений yt-dlp содержат URL видео/трека, но не креды прокси (риск #6).
+
+### 48.6 Тест-план (R39-5, T-305; baseline 1763 → ~1788, 0 failed/skipped)
+
+**Мок-инфраструктура:** `engine_mod.yt_dlp` — monkeypatch на `types.SimpleNamespace(YoutubeDL=_FakeYDL)`, где `_FakeYDL` — класс с `__init__(opts)` (захват `self.opts`), `__enter__/__exit__` и `extract_info(url, download=True)` (fake или `side_effect`). `engine_mod.settings` — monkeypatch на `SimpleNamespace(YOUTUBE_TRANSCRIPT_PROXY_URL=…, YOUTUBE_COOKIES_FILE=…)` (frozen-датакласс подменяем объектом целиком, 48.3). json3-файлы — через `tmp_path`. Реальная сеть НИКОГДА не ходит.
+
+| # | Класс/файл | Кейс | Ожидание |
+|---|---|---|---|
+| — | TestPickTranscriptPriority / TestFormat / TestFetchErrors | существуют БЕЗ правок | зелёные как есть |
+| 1 | TestFetchTranscript (3 существующих теста) | + autouse `monkeypatch.setattr(engine_mod, "yt_dlp", None)` | каскад сразу в фолбек; ассерты дословно (иначе тесты пойдут в РЕАЛЬНУЮ сеть yt-dlp) |
+| 2 | TestYtdlpPrimary (НОВЫЙ) | yt-dlp успех: fake extract_info → requested_subtitles={"ru": {ext json3, filepath}} + tmp_path-файл с событиями (включая пустой rollup) | результат == `_format`-вывод, «[00:00] …»; INFO `source=yt-dlp`; пустое событие пропущено |
+| 3 | там же | `extract_info` raise (`DownloadError`) → transcript-api успех (существующий `_FakeApi`-паттерн) | отформатировано; WARNING `yt-dlp failed → transcript-api fallback`; INFO `source=transcript-api` |
+| 4 | там же | ОБА падают | `YouTubeTranscriptUnavailableException`, сообщение содержит `both engines failed` |
+| 5 | там же | `yt_dlp = None` (ImportError-прецедент) | WARNING в `__init__` (caplog); фолбек transcript-api отработал |
+| 6 | там же | settings: proxy+cookies заданы → yt-dlp | `_FakeYDL.opts["proxy"] == "http://pr:8080"`, `opts["cookiefile"] == "/tmp/c.txt"` |
+| 7 | там же | settings: proxy+cookies заданы → transcript-api (yt-dlp raise) | `list_transcripts` получил `proxies={"http": "http://pr:8080", "https": "http://pr:8080"}` и `cookies="/tmp/c.txt"` (capturing-fake) |
+| 8 | там же | settings пустые (дефолт) | `opts` БЕЗ ключей `proxy`/`cookiefile`; `list_transcripts` вызван БЕЗ kwargs (регрессия: существующие моки живы) |
+| 9 | там же | приоритет `_extract_ytdlp_segments` (parametrize): manual ru+en → ru; manual en + auto ru → ru; только auto en → en | выбран правильный filepath |
+| 10 | там же | ни ru, ни en в requested | raise → фолбек transcript-api (делегация приоритета 5) |
+| 11 | там же | filepath отсутствует / неизвестный ext / пустые сегменты | raise → фолбек |
+| 12 | TestNormalizers (НОВЫЙ) | json3: ms→секунды (tStartMs=3760 → start 3.76), rollup-skip, пробелы схлопнуты | точные float-значения |
+| 13 | там же | vtt: `00:00:03.420 --> 00:07:13.940 align:start`, `<c>`-теги, multiline | text чистый, start/end секунды, duration=end-start |
+| 14 | там же | srt: `00:00:03,420 --> 00:00:07,940` | запятые приняты |
+| 15 | там же | ttml: `<p begin="00:00:03.420" end="...">…<br/>…</p>` | теги стрипнуты, text склеен |
+| 16 | там же | `_ts_to_seconds`: «01:02:03.500»→3723.5, «01:02»→62.0, «12.3»→12.3, «00:01:02,5»→62.5 (parametrize) | float-секунды |
+| 17 | `tests/test_settings_helpers.py` (+2 кейса) | дефолты 2 новых ключей без env; валидные значения парсятся (reload-паттерн Epic 37) | "" / заданные значения |
+| Регрессия | — | Полный `pytest` | 1763 baseline + ~24 новых, 0 failed/skipped; `git diff --check` чист; `git diff --name-only` НЕ содержит test_youtube_summarizer_service.py / test_youtube_handlers.py / test_epic37_router_isolation.py (R39-4) |
+
+### 48.7 DoD
+
+- **Builder (T-303…T-305):** каскад дословно 48.3 (yt-dlp primary → transcript-api fallback → `YouTubeTranscriptUnavailableException`); контракт `fetch_transcript` и `_format`/`_pick_transcript` без изменений; R17-логирование (только set/empty); прокси/cookies прокидываются в ОБА движка; полный `pytest` 1763+ passed, 0 failed/skipped; `git diff --check` чист; секретов в диффе нет; grep `YOUTUBE_TRANSCRIPT_PROXY_URL`/`YOUTUBE_COOKIES_FILE` — только в settings/.env.example/тестах/планах.
+- **DevOps (T-307/T-308):** коммит `fix(youtube): Epic 39 — yt-dlp движок + фолбек transcript-api с прокси/cookies (v2.33.0)`, пуш master; прод-`.env` +2 ключа с бэкапом `.env.bak.epic39`; `pip install "yt-dlp>=2026.7.4"`; restart → active (running); **ОБЯЗАТЕЛЬНАЯ верификация реальных ссылок с серверного IP (48.8) — критерий ≥3/4 валидных видео дают выжимку.**
+
+### 48.8 Деплой-чеклист (R39-6, T-307/T-308)
+
+1. Локально: полный `pytest` (1763+), `git diff --check` чист.
+2. Commit+push master, conventional на русском: `fix(youtube): Epic 39 — yt-dlp движок + фолбек transcript-api с прокси/cookies (v2.33.0)`.
+3. SSH `nik@198.46.175.136:22` → `cd /var/www/admin_bot` → `git pull` (ff-only).
+4. Бэкап: `cp .env .env.bak.epic39`. Добавить `YOUTUBE_TRANSCRIPT_PROXY_URL=` / `YOUTUBE_COOKIES_FILE=` (пустые — D142) или реальные значения, если предоставлены.
+5. В venv прод: `pip install "yt-dlp>=2026.7.4"` (НЕ голый диапазон из файла — точная версия для предсказуемости); проверить `python -c "import yt_dlp; print(yt_dlp.version.__version__)"` → 2026.7.4+. **Каденс:** ежемесячный `pip install -U yt-dlp` (D143, в прод-регламент).
+6. **ОБЯЗАТЕЛЬНАЯ верификация с серверного IP (ДО рестарта в чат-режиме, движок stateless):**
+
+```bash
+cd /var/www/admin_bot && venv/bin/python - <<'EOF'
+import asyncio
+from services.youtube_transcript_engine import YouTubeTranscriptEngine
+
+VIDS = [
+    ("dQw4w9WgXcQ", "Rick Astley — auto ru/en"),
+    ("cUbIkNUFs-4", "Square Hole Girl — auto ru/en"),
+    ("aPYGbtkSE7A", "Инквизитор Warhammer — manual en"),
+    ("sNhhvQGsMEc", "Kurzgesagt Fermi Paradox — MANUAL RU"),
+    ("00000000000", "negative — не существует"),
+]
+
+async def main():
+    engine = YouTubeTranscriptEngine()
+    for vid, label in VIDS:
+        try:
+            text = await engine.fetch_transcript(vid, 4000)
+            print(f"{vid} ({label}): OK {len(text)} chars | head={text[:60]!r}")
+        except Exception as exc:
+            print(f"{vid} ({label}): FAIL {type(exc).__name__}: {str(exc)[:120]}")
+
+asyncio.run(main())
+EOF
+```
+
+   Ожидания: `sNhhvQGsMEc` → OK с текстом «Одиноки ли мы во всей Вселенной?» (manual ru); `dQw4w9WgXcQ`/`cUbIkNUFs-4` → OK (auto); `aPYGbtkSE7A` → OK (manual en); `00000000000` → FAIL. Источник — в логах `[youtube engine] … source=yt-dlp|transcript-api`. **Если yt-dlp на серверном IP падает по всем валидным видео** → прописать `YOUTUBE_TRANSCRIPT_PROXY_URL` (и/или cookies) в `.env` (48.2) и повторить. **Приёмка: ≥3/4 валидных видео OK.**
+7. `sudo systemctl restart admin_bot` → active (running), новый PID.
+8. `journalctl -u admin_bot -n 50 --no-pager` — 0 traceback, `[youtube engine] config | proxy=… | cookies=…` (факты).
+9. Smoke в чате: YT-ссылка + «поясни за видос» → выжимка; битое видео → фраза 5.6 реплаем на целевое; Betterstack — 0 новых ERROR от `[youtube]`.
+
+### 48.9 Риски
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | yt-dlp ломается вместе с изменениями YouTube | Floor-пин БЕЗ потолка + месячный `pip install -U yt-dlp` (D143); живой фолбек transcript-api; при обоих мертвых — пул 5.6 (деградация до Epic 37-поведения) |
+| 2 | yt-dlp тоже ловит блок DC-IP | Прокси/cookies уже в дизайне (D142); включение — только `.env`; прод-верификация 48.8 это покажет сразу |
+| 3 | Зависание sync-вызова в executor | `socket_timeout=20` граничит каждый сетевой вызов yt-dlp; остаточное зависание — принятый прецедент 46.13/47.9 риск #3 (event-loop не блокируется, страдает только конкретный запрос) |
+| 4 | 429 при скачивании субтитров (наблюдался эмпирически) | `DownloadError` → фолбек transcript-api — штатный путь деградации (48.1) |
+| 5 | Утечка temp-папок `ytdlp_subs_*` | `finally: shutil.rmtree(ignore_errors=True)`; папки в системном temp, при крэше убираются перезагрузкой ОС |
+| 6 | R17: креды прокси в логах | Код логирует только set/empty; yt-dlp при quiet опций не печатает; тексты исключений содержат URL треков, не креды (проверено прогонами) |
+| 7 | Приоритет 5 (прочий generated) не в yt-dlp-пути | Осознанная делегация фолбеку transcript-api (48.3); `_pick_transcript` покрывает кейс с Epic 37 — функционал не сужается |
+| 8 | Frozen-датакласс Settings нетestируем патчем атрибутов | Патчится объект целиком (`engine_mod.settings` → SimpleNamespace) — задокументировано 48.6 |
+| 9 | Существующие TestFetchTranscript пойдут в реальную сеть | Autouse `yt_dlp=None` в классе (тест #1) — сеть в тестах исключена полностью |
+| 10 | Переиспользование video_id YouTube'ом (проверено: старые ID сменили видео) | Набор 48.1 сверен по фактическим названиям 2026-08-19; перед верификацией — пробежаться скриптом и сверить титры с таблицей |
+| 11 | Эталон SYSTEM_PROMPT R11 (backlog 1518–1539) | Правки backlog — только в блоке Epic 39 (конец файла); сдвига строк НЕТ |
+
+### 48.10 Сводка для Builder (файлы, порядок)
+
+**Боевой код — ОДИН файл:** `services/youtube_transcript_engine.py` (48.3: `_fetch_ytdlp`/`_ytdlp_opts`/`_extract_ytdlp_segments`/`_read_ytdlp_subtitle`/`_transcript_api_kwargs` + нормализаторы + каскад в `fetch_transcript` + `__init__`-логирование; `_pick_transcript`/`_format`/`_fetch_segments`-каркас — без содержательных правок). **Конфиг:** `config/settings.py` (+2 поля), `requirements.txt` (+`yt-dlp>=2026.7.4`), `.env.example` (+2 ключа). **Тесты:** `tests/test_youtube_transcript_engine.py` (TestFetchTranscript +autouse, НОВЫЕ TestYtdlpPrimary #2-11 + TestNormalizers #12-16), `tests/test_settings_helpers.py` (+2). **БЕЗ изменений:** `services/youtube_summarizer_service.py`, `handlers/youtube.py`, `bot.py`, `youtube_prompts.py`, `smartmodule_phrases.py`, `tests/test_youtube_summarizer_service.py`, `tests/test_youtube_handlers.py`, `tests/test_epic37_router_isolation.py` (R39-4).
+
+**Порядок:** T-303 (конфиг + requirements + .env.example + тесты settings) → T-304 (движок) → T-305 (тесты + полный прогон 1763+ зелёные, `git diff --check`, ревью) → T-306 (README v2.33.0 + MEMORY) → @DevOps T-307 (коммит/пуш) → T-308 (деплой + ОБЯЗАТЕЛЬНАЯ серверная верификация 48.8). `.env` локально не трогать.
+
+@Architect Epic 39 architecture ready (Section 48: yt-dlp primary → transcript-api fallback; D143 floor-пин `yt-dlp>=2026.7.4` без потолка + месячный `-U`; D141 нормализация JSON3/VTT/SRT/TTML в `{text,start,duration}` через download-в-tempdir самим yt-dlp (не self-fetch подписанных URL — эмпирически подтверждён impersonation); D139 ImportError → WARNING + фолбек, socket_timeout=20; D142/D144 прокси/cookies опциональны, R17-логи set/empty; приоритеты 1-4 зеркалом `_pick_transcript`, 5-й делегирован фолбеку; контракт и сервис/хендлер/bot.py НЕ трогаем — единственный боевой файл движок; набор прод-верификации 4+1 с фактически подтверждёнными статусами субтитров, sNhhvQGsMEc — manual ru), passing the baton to @Builder (T-303 → T-304 → T-305 → T-306) и @Reviewer/@DevOps (T-307/T-308 — верификация с серверного IP ОБЯЗАТЕЛЬНА, приёмка ≥3/4 видео OK).

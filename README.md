@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.32.1 | **Тестов:** 1763 | **Эпиков:** 38 (T-001…T-301)
+**Версия:** v2.33.0 | **Тестов:** 1789 | **Эпиков:** 39 (T-001…T-308)
 
 ---
 
@@ -955,6 +955,20 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 **Тесты:** 1757 → 1763 (+6) (удалены 18 кейсов стороннего reader, добавлены 24 кейса `tests/test_web_content_extractor.py`)
 
 **Файлы:** `services/web_content_extractor.py` (новый), `services/web_summarizer_service.py`, `handlers/web.py`, `bot.py`, `config/settings.py`, `.env.example`, `requirements.txt` (+`trafilatura>=2.2.0,<3.0`), `tests/test_web_content_extractor.py` (новый), `tests/test_settings_helpers.py`, `tests/test_web_summarizer_service.py`, `tests/test_web_handlers.py`; удалены движок стороннего reader и его тест-файл
+
+---
+
+## ✨ Новое в v2.33.0 (Epic 39)
+
+### YouTube-движок: yt-dlp в главной роли, youtube-transcript-api на подхвате
+
+- **Проблема:** YouTube деградирует датацентровый IP прода (TranscriptsDisabled / пустое тело timedtext) — выжимка роликов падала в «нет субтитров», хотя с домашнего IP те же видео работали.
+- **Движок:** основной движок теперь `yt-dlp` (качает субтитры ru/en сам, JSON3/VTT/SRT/TTML → нормализация в сегменты, socket_timeout 20с). При любой неудаче (429 на субтитрах, блок IP, сеть) — автоматический фолбек на `youtube-transcript-api`; упали оба → прежний пул 5.6. Приоритет треков прежний: manual ru → manual en → автогенерация ru/en; прочий автогенерат делегируется фолбеку.
+- **Конфиг:** 2 новых env-ключа `YOUTUBE_TRANSCRIPT_PROXY_URL` и `YOUTUBE_COOKIES_FILE` (пусто = выключено) — прокси и Netscape-cookies прокидываются в ОБА движка. Значения секретные: в логи пишутся только факты `proxy=set/empty`, `cookies=set/empty`. Триггеры, промпты, пулы, Reply-To и троттлинг — без изменений.
+
+**Тесты:** 1763 → 1789 (+26) (yt-dlp primary/фолбек/оба фейл/ImportError, прокидование proxy/cookies в оба движка, приоритеты треков, делегация приоритета 5, нормализация JSON3/VTT/SRT/TTML/таймкодов, 2 кейса settings; реальная сеть в тестах не дёргается)
+
+**Файлы:** `services/youtube_transcript_engine.py` (единственный меняемый боевой файл), `config/settings.py`, `.env.example`, `requirements.txt` (+`yt-dlp>=2026.7.4`), `tests/test_youtube_transcript_engine.py`, `tests/test_settings_helpers.py`
 
 ---
 

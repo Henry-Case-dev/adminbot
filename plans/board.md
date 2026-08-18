@@ -2,27 +2,23 @@
 
 ## 📋 Backlog
 
-### Epic 39: YouTube engine fix — 🕒 CANDIDATE (ожидает решения пользователя)
-
-> Прод-дефект Epic 37: YouTube-фича сломана IP-блоком YouTube (AS36352, youtube-transcript-api 0.6.3). Вне скоупа Epic 38.
-> Задачи T-* НЕ создаются до выбора варианта пользователем: (1) yt-dlp (primary); (2) youtube-transcript-api>=1.1.1 + прокси/cookies; (3) прокси. Полный трек — `plans/backlog.md` (Epic 39).
+*(пусто)*
 
 ## 🔧 In Progress
 
-### Epic 38: Refactoring WebSummarizer — Jina → Trafilatura + Tavily/Exa фолбеки — 🚧 IN PROGRESS (target v2.32.1, Шаг 1 @PM ✅, 2026-08-19)
+### Epic 39: YouTube engine fix — yt-dlp → youtube-transcript-api фолбек — 🚧 IN PROGRESS (одобрено пользователем, target v2.33.0, Шаг 1 @PM ✅, 2026-08-19)
 
-> Полный трек — `plans/backlog.md` (Epic 38). Требования R38-1…R38-6, решения D134–D138.
-> Полное удаление Jina Reader; WebContentExtractor: trafilatura → Tavily /extract → Exa /contents → WEB_ERROR_PHRASES (5.7).
-> Ключи Tavily/Exa уже в .env (Epic 33). Передача @Architect (T-294, Section 47/48 — номер уточнит). Без @Orchestrator.
+> Полный трек — `plans/backlog.md` (Epic 39). Требования R39-1…R39-6, решения D139–D144.
+> yt-dlp (Python-API, lazy, to_thread) — основной движок → фолбек youtube-transcript-api 0.6.3 с proxies/cookies; контракт движка/сервис/хендлер/пулы/промпты/троттлинг БЕЗ изменений.
+> Новые ключи (опциональные): YOUTUBE_TRANSCRIPT_PROXY_URL / YOUTUBE_COOKIES_FILE. Передача @Architect (T-302, Section 48). Без @Orchestrator.
 
-- [ ] T-294 (@Architect, P0) — дизайн Section 47/48 в ARCHITECTURE.md: WebContentExtractor, каскад 4 шагов, пустые ключи, тест-план, риски (R38-1…R38-6)
-- [ ] T-295 (@Builder, P0) — удаление Jina: services/jina_reader.py + tests/test_jina_reader.py (целиком), JINA_API_KEY из settings/.env.example, bot.py, web_summarizer_service.py, handlers/web.py, README, test_settings_helpers (3 места), test_web_summarizer_service, test_web_handlers (R38-2)
-- [ ] T-296 (@Builder, P0) — services/web_content_extractor.py: WebContentExtractor + WebContentExtractionFailedException, каскад trafilatura→Tavily→Exa→исключение (R38-3, D134/D136) + requirements trafilatura (пин)
-- [ ] T-297 (@Builder, P0) — wiring: web_summarizer_service.py на WebContentExtractor; handlers/web.py — исключение → WEB_ERROR_PHRASES (5.7) реплаем на целевое сообщение + logger.exception; bot.py DI/close (R38-3/R38-4, D135)
-- [ ] T-298 (@Builder + @Reviewer, P0) — тесты: test_web_content_extractor.py (~15-20, MockTransport + monkeypatch, 4 сценария) + правки тестов + проверить test_epic37_router_isolation; полный прогон, 0 регрессий (baseline 1757) (R38-5)
-- [ ] T-299 (@Builder, P1) — README v2.32.1 + MEMORY
-- [ ] T-300 (@DevOps, P0) — коммит на русском + пуш master (R38-6)
-- [ ] T-301 (@DevOps, P0) — деплой: прод .env чистка JINA_API_KEY (бэкап .env.bak.epic38), pip install trafilatura, restart, journalctl -n 50 (R38-6)
+- [ ] T-302 (@Architect, P0) — дизайн Section 48: каскад yt-dlp → transcript-api, приоритет треков (зеркало `_pick_transcript`), нормализация, тест-план, риски; закрыть открытые вопросы PM 1–6 (R39-1…R39-6)
+- [ ] T-303 (@Builder, P0) — settings +2 ключа (R17: не логировать значения) + requirements yt-dlp floor-пин + .env.example (R39-3)
+- [ ] T-304 (@Builder, P0) — движок: yt-dlp primary + фолбек transcript-api 0.6.3 (proxies/cookies); контракт `fetch_transcript` не менять (R39-1/R39-2/R39-4, D139–D141)
+- [ ] T-305 (@Builder + @Reviewer, P0) — тесты: мок yt-dlp, каскад, kwargs, сохранение классов; полный прогон 0 регрессий (baseline 1763); ревью APPROVED (R39-5)
+- [ ] T-306 (@Builder, P1) — README v2.33.0 + MEMORY
+- [ ] T-307 (@DevOps, P0) — коммит на русском + пуш master (R39-6)
+- [ ] T-308 (@DevOps, P0) — деплой: pip install yt-dlp (floor-пин), .env (бэкап `.env.bak.epic39`), restart, ОБЯЗАТЕЛЬНАЯ верификация реальных ссылок с серверного IP (dQw4w9WgXcQ, cUbIkNUFs-4, aPYGbtkSE7A + ru-manual видео) (R39-6)
 
 ## 🔍 In Review
 
@@ -30,11 +26,25 @@
 
 ## ✅ Done
 
+### Epic 38: Refactoring WebSummarizer — Jina → Trafilatura + Tavily/Exa фолбеки — ✅ DEPLOYED & ARCHIVED (v2.32.1, коммит `f0bc4d6`, прод PID 974412, 1763 теста)
+
+> Перенесено из In Progress при архивации (PM, 2026-08-19, Шаг 1 Epic 39). Полный трек — `plans/backlog.md` (Epic 38).
+> **Итог:** T-294…T-301 ALL DONE. @Architect: Section 47; @Builder: Jina полностью удалён, WebContentExtractor (trafilatura → Tavily → Exa → исключение), wiring, +тесты; @Reviewer: APPROVED; @DevOps: коммит `f0bc4d6` «refactor(smartmodule): Epic 38 — WebSummarizer: Jina → Trafilatura + Tavily/Exa (v2.32.1)» + деплой v2.32.1 (pip install trafilatura, .env без JINA_API_KEY, бэкап `.env.bak.epic38`, PID 974412, 0 traceback). **ЭПИК 38 ЗАКРЫТ. Прод v2.32.1. Тесты: 1763 passed / 0 failed (1757 baseline + 6).**
+
+- [x] T-294 (@Architect, P0) — дизайн Section 47 — **Done (Шаг 2)**
+- [x] T-295 (@Builder, P0) — удаление Jina Reader (R38-2) — **Done**
+- [x] T-296 (@Builder, P0) — WebContentExtractor + каскад trafilatura→Tavily→Exa (R38-3) — **Done**
+- [x] T-297 (@Builder, P0) — wiring WebSummarizer (R38-3/R38-4, D135) — **Done**
+- [x] T-298 (@Builder + @Reviewer, P0) — тесты + полный прогон 1763 passed + ревью APPROVED (R38-5) — **Done**
+- [x] T-299 (@Builder, P1) — README v2.32.1 + MEMORY — **Done**
+- [x] T-300 (@DevOps, P0) — коммит `f0bc4d6` + пуш — **Done (Шаг 7)**
+- [x] T-301 (@DevOps, P0) — деплой v2.32.1 (PID 974412, 0 traceback) — **Done (Шаг 7)**
+
 ### Epic 37: SmartModule — YouTubeSummarizer + WebSummarizer — ✅ DEPLOYED & ARCHIVED (v2.32.0, коммит `747cb99`, прод PID 969047, 1757 тестов)
 
 > Перенесено из In Progress при архивации (PM, 2026-08-19, Шаг 1 Epic 38). Полный трек — `plans/backlog.md` (Epic 37).
 > **Итог:** T-281…T-293 ALL DONE. @Architect: Section 46 (46.1–46.15); @Builder: 19 новых файлов + 7 правок (движки YouTube/Jina, промпты-эталоны, пулы 5.6/5.7, сервисы, хендлеры 0e/0f, wiring), 1757 passed / 0 failed (1593 + 164); @Reviewer: APPROVED; @DevOps: коммит `747cb99` (31 файл) + деплой v2.32.0 (git pull ff, .env +5 ключей, бэкап `.env.bak.epic37`, PID 969047, 0 traceback).
-> **Прод-дефекты движков (пост-деплой):** Web-фича мертва (Jina 401: JINA_API_KEY пуст + блок анонимных запросов AS36352; селектор не вычленял статью) → **Epic 38** (рефакторинг WebSummarizer, v2.32.1); YouTube-фича сломана IP-блоком YouTube → **Epic 39** (кандидат, ожидает решения пользователя). **ЭПИК 37 АРХИВИРОВАН. Прод v2.32.0.**
+> **Прод-дефекты движков (пост-деплой):** Web-фича мертва (Jina 401: JINA_API_KEY пуст + блок анонимных запросов AS36352; селектор не вычленял статью) → **Epic 38** (рефакторинг WebSummarizer, v2.32.1, ЗАКРЫТ); YouTube-фича сломана IP-блоком YouTube → **Epic 39** (одобрено пользователем, In Progress, v2.33.0). **ЭПИК 37 АРХИВИРОВАН. Прод v2.32.0.**
 
 - [x] T-281 (@Architect, P0) — дизайн Section 46 в ARCHITECTURE.md — **Done (Шаги 2–3)**
 - [x] T-282…T-289 (@Builder, P0) — конфиг, промпты, движки, пулы, сервисы, хендлеры, wiring — **Done (Шаг 4)**
