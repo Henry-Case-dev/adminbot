@@ -21,6 +21,38 @@
 - [x] T-321 (@DevOps, P0) — коммит на русском + пуш master — **Done (Шаг 7, коммит `eaa84c5`, пуш `5c99566..eaa84c5`)**
 - [x] T-322 (@DevOps, P0) — деплой v2.33.1: git pull, restart, journalctl -n 50, живой smoke (полный гейт не обязателен) — **Done (Шаг 7: прод ff `bb472ba..eaa84c5`, PID 986288, proxy=set, 0 новых traceback, xray без изменений)**
 
+### Epic 42: Checkup (самодиагностика, в SmartModule) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.34.0)
+
+> Полный трек — `plans/backlog.md` (Epic 42). Требования R42-1…R42-6, решения D158–D162.
+> Триггеры: чекап / ты в порядке / живой собака / пульс бота / чекни здоровье / как сервак (реплай, кулдаун 300с, MAX_SYMBOLS 3000). Каскад: Betterstack `/api/v2/events` (Bearer из `LOGTAIL_SOURCE_TOKEN`, D160) → фолбек journalctl (D161) → LLM DeepSeek с токсичным отчётом. Пулы `CHECKUP_FALLBACK/DEAD/LLM_ERROR` дословно из ТЗ; троттлинг — `THROTTLE_PHRASES` (5.1). Роутер 0g после 0f web под SUMMARY_ENABLED. Без @Orchestrator.
+
+- [ ] T-323 (@Architect, P0) — дизайн Section 51 + каноны пулов/CHECKUP_SYSTEM_PROMPT (байт-в-байт); закрыть открытые вопросы PM 1–5
+- [ ] T-324 (@Builder, P0) — конфиг CHECKUP_COOLDOWN_SECONDS=300 / CHECKUP_MAX_SYMBOLS=3000 + токен (D160)
+- [ ] T-325 (@Builder, P0) — пулы CHECKUP_FALLBACK/DEAD/LLM_ERROR + тест-канон
+- [ ] T-326 (@Builder, P0) — CHECKUP_SYSTEM_PROMPT (.replace {max_symbols}, байт-в-байт)
+- [ ] T-327 (@Builder, P0) — fetcher-каскад fetch_system_logs (4 шага, приписка фолбека)
+- [ ] T-328 (@Builder, P0) — checkup-сервис + хендлер 0g (триггеры-regex, кулдаун 300с)
+- [ ] T-329 (@Builder, P0) — wiring bot.py + test_summary_handlers router_count 13→14
+- [ ] T-330 (@Builder + @Reviewer, P0) — тесты (~20) + полный прогон + ревью (baseline 1796)
+- [ ] T-331 (@Builder, P1) — README v2.34.0 (Checkup) + MEMORY
+
+### Epic 43: /info + live-редактор /edit_info — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.34.0)
+
+> Полный трек — `plans/backlog.md` (Epic 43). Требования R43-1…R43-5, решения D162–D165.
+> /info: delete команды (нет прав → пул), текст из `info_text.md` (файл на диске + кэш), set_my_commands «Справка по фичам бота», кулдаун 300с. /edit_info: только ADMIN_USER_ID, рендер-валидация превью в DM (не спамить чат), успех → файл+кэш. Пулы `INFO_*` дословно из ТЗ; троттлинг — `THROTTLE_PHRASES` (5.1). Регистрация безусловная (по прецеденту admin_commands, Epic 9). Деплой v2.34.0 общий с Epic 42 (T-341/T-342). Без @Orchestrator.
+
+- [ ] T-332 (@Architect, P0) — дизайн Section 52 + канон дефолтного info_text.md; закрыть открытые вопросы PM 1–5
+- [ ] T-333 (@Builder, P0) — конфиг INFO_COOLDOWN_SECONDS=300 + INFO_TEXT_FILE
+- [ ] T-334 (@Builder, P0) — пулы INFO_NO_DELETE_RIGHTS/NOT_ADMIN/BAD_MARKUP/EDIT_OK + тест-канон
+- [ ] T-335 (@Builder, P0) — info_service: info_text.md + кэш + дефолтный текст
+- [ ] T-336 (@Builder, P0) — хендлер /info (delete → пул, экранирование, кулдаун, set_my_commands)
+- [ ] T-337 (@Builder, P0) — хендлер /edit_info (ADMIN_USER_ID, DM-превью-валидация, файл+кэш)
+- [ ] T-338 (@Builder, P0) — wiring + test_bot_commands len(_COMMANDS) 1→2
+- [ ] T-339 (@Builder + @Reviewer, P0) — тесты 100% /info /edit_info, моки ФС, set_my_commands + ревью
+- [ ] T-340 (@Builder, P1) — README v2.34.0 (/info) + MEMORY
+- [ ] T-341 (@DevOps, P0) — коммит + пуш v2.34.0 (Epic 42+43)
+- [ ] T-342 (@DevOps, P0) — деплой v2.34.0: git pull, journalctl-права (D161), curl Bearer (D160), restart, smoke (чекап + /info + /edit_info)
+
 ## 🔍 In Review
 
 *(пусто)*
@@ -620,3 +652,4 @@
 
 **Updated:** 2026-08-17 — **Epic 32 (v2.30.0) АРХИВИРОВАН: T-242…T-248 ALL DONE & DEPLOYED (коммит `2bad5ff`, 1392 теста, PID 942078).** Открыт **Epic 33 «SmartModule Extension: FactCheck + SmartSearch + SearchAggregator» (v2.31.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R33-1…R33-8, решения D104–D111 в `plans/backlog.md`; T-249 (@Architect, дизайн) → T-250…T-258 (@Builder) → T-259/T-260 (@DevOps). ⚠️ Блокер D109: дословные тексты промптов — у пользователя. Без @Orchestrator. **→ 2026-08-17, Шаг 4b (@Builder): Epic 33 IMPLEMENTED (T-249 ✅, T-250…T-256 ✅, T-257-A…E ✅ — 10 новых тест-файлов, 150 тестов, полный прогон 1542 passed / 0 failed, `git diff --check` чист); блокер D109 СНЯТ (промпты 42.5.1/42.5.2 байт-в-байт); T-257-F — @Reviewer (ожидается); T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 5 (@Builder, фиксы ревью): @Reviewer NEEDS FIXES закрыты — BLOCKER-1 (реальные ключи в backlog.md R33-1 → плейсхолдеры; grep: ключи только в .env), MAJOR-1 (новая интеграция `test_epic33_router_isolation.py`: Dispatcher 0a/0c/0d/4c через feed_update — «найди ракету» → 1 ответ от search, factcheck → reply на target, observer 0a пишет память, danger/common живы), MINOR 1–4 (.env +4 явных ключа и чистый UTF-8-комментарий; убран `.lower()` в factcheck.py:72; `test_settings_helpers.py` 9 тестов вскрыл и закрыл `NameError: logging` в settings.py); прогон **1555 passed / 0 failed**. Повторное ревью @Reviewer ожидается.** **→ 2026-08-17, Шаг 5 (повторное ревью, @Reviewer): ✅ APPROVED — все замечания закрыты и подтверждены лично (BLOCKER-1: grep по фрагментам ключей — только .env; MAJOR-1: 4 теста через `Dispatcher.feed_update` содержательны; MINOR 1–4 ✅; промпты/пулы байт-в-байт повторно; роутеры 0c/0d не сдвинуты; `git diff --check` чист; полный прогон 1555 passed / 0 failed подтверждён лично). T-257 ЗАКРЫТ. Впереди: T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): Epic 33 ✅ DEPLOYED & ARCHIVED — T-249…T-260 ALL DONE. Коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» (32 файла, +3610/−43) + пуш в origin/master. Деплой на прод nik@198.46.175.136:/var/www/admin_bot: git pull ff `2bad5ff..1172fb5`, pip install duckduckgo-search 8.1.1, .env +6 ключей (бэкап `.env.bak.epic33`), systemctl restart → active (running) MainPID 948950, 0 traceback, «SmartModule FactCheck + SmartSearch (Epic 33) initialized». Тесты 1555 passed / 0 failed. Прод v2.31.0. Epics 1–33 ALL DEPLOYED. Цикл воркфлоу (Шаги 0–8) завершён.**
 **Updated:** 2026-08-18 — **Epic 36 (v2.31.3) АРХИВИРОВАН: T-274…T-280 ALL DONE & DEPLOYED (коммит `2e26690`, 1593 теста, PID 951645).** Открыт **Epic 37 «SmartModule: YouTubeSummarizer + WebSummarizer» (v2.32.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R37-1…R37-9, решения D124–D133 в `plans/backlog.md`; T-281 (@Architect, Section 46) → T-282…T-291 (@Builder) → T-292/T-293 (@DevOps). Без @Orchestrator.
+**Updated:** 2026-08-20 — **Epic 42 «Checkup» + Epic 43 «/info + live-редактор» открыты (Шаг 1 @PM ✅, target v2.34.0)**: требования R42-1…R42-6 / R43-1…R43-5, решения D158–D165, задачи T-323…T-342 в `plans/backlog.md`; T-323/T-332 (@Architect, Sections 51/52) → @Builder → @Reviewer → @DevOps (деплой v2.34.0 общий). Epic 41 (v2.33.1) — ждёт архивации (Шаг 8 @Memory). Без @Orchestrator.

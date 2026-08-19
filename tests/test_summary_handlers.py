@@ -713,7 +713,7 @@ class TestSummaryCommand:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Integration: all 13 routers on one dispatcher (T-188-B)
+# Integration: all 14 routers on one dispatcher (T-188-B, T-329-B)
 # ═══════════════════════════════════════════════════════════════
 
 _ALL_ROUTERS = None
@@ -726,6 +726,7 @@ def _collect_routers():
     from handlers.admin_commands import admin_commands_router
     from handlers.alan import alan_router
     from handlers.alan_greeting import alan_greeting_router
+    from handlers.checkup import checkup_router
     from handlers.common import common_router
     from handlers.dead_page_trigger import dead_page_router
     from handlers.kostik import kostik_router
@@ -738,6 +739,7 @@ def _collect_routers():
     _ALL_ROUTERS = [
         summary_observer_router,  # 0a
         summary_router,           # 0b
+        checkup_router,           # 0g (Epic 42; info_router НЕ входит — D164)
         admin_commands_router,    # 0
         slava_presence_router,    # 1
         alan_greeting_router,     # 1b
@@ -901,7 +903,7 @@ class TestRouterIntegration:
         rows = await db.get_smart_window(-1005, 0, 10)
         assert rows == []
 
-    def test_router_count_is_13(self):
+    def test_router_count_is_14(self):
         routers = _collect_routers()
-        assert len(routers) == 13
-        assert len(set(id(r) for r in routers)) == 13
+        assert len(routers) == 14
+        assert len(set(id(r) for r in routers)) == 14

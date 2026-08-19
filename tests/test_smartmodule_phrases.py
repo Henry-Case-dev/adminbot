@@ -9,8 +9,15 @@
 import pytest
 
 from services.smartmodule_phrases import (
+    CHECKUP_DEAD_PHRASES,
+    CHECKUP_FALLBACK_PHRASES,
+    CHECKUP_LLM_ERROR_PHRASES,
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
+    INFO_BAD_MARKUP_PHRASES,
+    INFO_EDIT_OK_PHRASES,
+    INFO_NO_DELETE_RIGHTS_PHRASES,
+    INFO_NOT_ADMIN_PHRASES,
     LLM_ERROR_PHRASES,
     SEARCH_EMPTY_QUERY_PHRASES,
     SEARCH_ERROR_PHRASES,
@@ -89,6 +96,60 @@ EXPECTED_5_8 = (
     "канал сопротивляется, повторяю, отстань на секунду",
 )
 
+# Каноны R42-3/R42-4/R42-5 (Epic 42, Section 51.5, дословно)
+EXPECTED_CHECKUP_FALLBACK = (
+    "беттерстак обосрался, лезу ковырять локальные логи...",
+    "облачный мониторинг сдох, ща буду читать локальную помойку на серваке...",
+    "модный беттерстак отвалился, перехожу на чтение логов с жесткого диска как дед...",
+    "платная хуйня легла, парсю локальные файлы. жди...",
+    "беттерстак поперхнулся, откатываюсь на чтение логов из системы...",
+)
+EXPECTED_CHECKUP_DEAD = (
+    "беттерстак лег, а локальные логи сгорели вместе с сервером",
+    "не могу достучаться до логов, админ опять все сломал",
+    "мониторинг сдох, мы ослепли",
+    "сервисы послали меня нахуй, разбирайся сам",
+    "доступ к логам отвалился везде, диагностики не будет",
+)
+EXPECTED_CHECKUP_LLM_ERROR = (
+    "база подавилась логами",
+    "нейронка срыгнула от этого кода",
+    "мозги закипели это переваривать, попробуй позже",
+    "токенов на эту помойку не хватило, сервер сдох",
+    "llm откинулась, сгенерировать не вышло",
+)
+
+# Каноны R43-4 (Epic 43, Section 52.5, дословно)
+EXPECTED_INFO_NO_DELETE_RIGHTS = (
+    "какого хуя у меня нет прав удалять сообщения? выдай админку, шиз",
+    "я не могу стереть твой высер с командой, дай права",
+    "сделай меня админом, я не могу убирать за тобой команды",
+)
+EXPECTED_INFO_NOT_ADMIN = (
+    "ты кто такой, чтобы мне тексты менять? пиздуй отсюда, прав нет",
+    "губу закатай, редактировать инфу может только создатель",
+    "слышь, кнопка редактирования не для твоих культяпок",
+)
+EXPECTED_INFO_BAD_MARKUP = (
+    "твой маркдаун говно, телега его не жрет. переписывай, шиз.",
+    "ты теги забыл закрыть или экранировать, апишка телеги выблевала твой текст. переделывай.",
+    "криворукий, разметка битая. телеграм отказался это публиковать.",
+)
+EXPECTED_INFO_EDIT_OK = (
+    "текст перезаписан. надеюсь, ты не нахуевертил там с разметкой.",
+    "сохранил твою новую справку в базу. проверяй.",
+    "справка обновлена, теперь юзеры будут читать эту версию.",
+)
+
+# Канон 51.5 (R42-5) ДОСЛОВНО фиксирует эти две фразы — они буквально
+# совпадают с 5.5 (LLM_ERROR_PHRASES). Канон сильнее свойства «disjoint»:
+# фразы whitelist-ятся в disjoint-тесте осознанно (расхождение зафиксировано
+# для @Reviewer).
+_CANON_SHARED_WITH_5_5 = {
+    "мозги закипели это переваривать, попробуй позже",
+    "llm откинулась, сгенерировать не вышло",
+}
+
 
 class TestPoolsVerbatim:
     """Каждый пул — ровно 5 фраз, дословно из ТЗ R33-5/R37-5."""
@@ -105,6 +166,13 @@ class TestPoolsVerbatim:
             (YOUTUBE_ERROR_PHRASES, EXPECTED_5_6, "5.6"),
             (WEB_ERROR_PHRASES, EXPECTED_5_7, "5.7"),
             (YOUTUBE_RETRY_PHRASES, EXPECTED_5_8, "5.8"),
+            (CHECKUP_FALLBACK_PHRASES, EXPECTED_CHECKUP_FALLBACK, "checkup fallback"),
+            (CHECKUP_DEAD_PHRASES, EXPECTED_CHECKUP_DEAD, "checkup dead"),
+            (CHECKUP_LLM_ERROR_PHRASES, EXPECTED_CHECKUP_LLM_ERROR, "checkup llm error"),
+            (INFO_NO_DELETE_RIGHTS_PHRASES, EXPECTED_INFO_NO_DELETE_RIGHTS, "info no delete"),
+            (INFO_NOT_ADMIN_PHRASES, EXPECTED_INFO_NOT_ADMIN, "info not admin"),
+            (INFO_BAD_MARKUP_PHRASES, EXPECTED_INFO_BAD_MARKUP, "info bad markup"),
+            (INFO_EDIT_OK_PHRASES, EXPECTED_INFO_EDIT_OK, "info edit ok"),
         ],
     )
     def test_pool_matches_canon_verbatim(self, actual, expected, name):
@@ -122,6 +190,9 @@ class TestPoolsVerbatim:
             (YOUTUBE_ERROR_PHRASES, EXPECTED_5_6, "5.6"),
             (WEB_ERROR_PHRASES, EXPECTED_5_7, "5.7"),
             (YOUTUBE_RETRY_PHRASES, EXPECTED_5_8, "5.8"),
+            (CHECKUP_FALLBACK_PHRASES, EXPECTED_CHECKUP_FALLBACK, "checkup fallback"),
+            (CHECKUP_DEAD_PHRASES, EXPECTED_CHECKUP_DEAD, "checkup dead"),
+            (CHECKUP_LLM_ERROR_PHRASES, EXPECTED_CHECKUP_LLM_ERROR, "checkup llm error"),
         ],
     )
     def test_pool_has_exactly_5_phrases(self, actual, expected, name):
@@ -169,6 +240,89 @@ class TestEpic41Pool:
         assert not set(YOUTUBE_RETRY_PHRASES) & existing
 
 
+class TestEpic42CheckupPools:
+    """R42-3…R42-5 (Section 51.5): по 5 фраз, каноны дословно."""
+
+    CHECKUP_POOLS = (
+        CHECKUP_FALLBACK_PHRASES,
+        CHECKUP_DEAD_PHRASES,
+        CHECKUP_LLM_ERROR_PHRASES,
+    )
+
+    def test_checkup_pools_disjoint_from_each_other(self):
+        assert not set(CHECKUP_FALLBACK_PHRASES) & set(CHECKUP_DEAD_PHRASES)
+        assert not set(CHECKUP_FALLBACK_PHRASES) & set(CHECKUP_LLM_ERROR_PHRASES)
+        assert not set(CHECKUP_DEAD_PHRASES) & set(CHECKUP_LLM_ERROR_PHRASES)
+
+    def test_checkup_pools_disjoint_from_5_1_to_5_8_except_canon_overlap(self):
+        """Disjoint с 5.1–5.8, КРОМЕ 2 фраз: канон 51.5 (R42-5) дословно
+        повторяет их из 5.5 — канон сильнее свойства (whitelist осознанный)."""
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+            | set(YOUTUBE_ERROR_PHRASES)
+            | set(WEB_ERROR_PHRASES)
+            | set(YOUTUBE_RETRY_PHRASES)
+        )
+        for pool in self.CHECKUP_POOLS:
+            assert (set(pool) & existing) <= _CANON_SHARED_WITH_5_5
+
+    def test_llm_error_pool_differs_where_canon_differs(self):
+        assert "база подавилась логами" in CHECKUP_LLM_ERROR_PHRASES
+        assert "база подавилась логами" not in LLM_ERROR_PHRASES
+
+
+class TestEpic43InfoPools:
+    """R43-4 (Section 52.5): по 3 фразы, каноны дословно, disjoint со всеми."""
+
+    INFO_POOLS = (
+        INFO_NO_DELETE_RIGHTS_PHRASES,
+        INFO_NOT_ADMIN_PHRASES,
+        INFO_BAD_MARKUP_PHRASES,
+        INFO_EDIT_OK_PHRASES,
+    )
+
+    @pytest.mark.parametrize(
+        "pool,name",
+        [
+            (INFO_NO_DELETE_RIGHTS_PHRASES, "info no delete"),
+            (INFO_NOT_ADMIN_PHRASES, "info not admin"),
+            (INFO_BAD_MARKUP_PHRASES, "info bad markup"),
+            (INFO_EDIT_OK_PHRASES, "info edit ok"),
+        ],
+    )
+    def test_info_pools_have_exactly_3_phrases(self, pool, name):
+        assert len(pool) == 3
+        assert len(set(pool)) == 3
+
+    def test_info_pools_disjoint_from_each_other(self):
+        for i, pool in enumerate(self.INFO_POOLS):
+            for other in self.INFO_POOLS[i + 1:]:
+                assert not set(pool) & set(other)
+
+    def test_info_pools_disjoint_from_5_1_to_5_8_and_checkup(self):
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+            | set(YOUTUBE_ERROR_PHRASES)
+            | set(WEB_ERROR_PHRASES)
+            | set(YOUTUBE_RETRY_PHRASES)
+            | set(CHECKUP_FALLBACK_PHRASES)
+            | set(CHECKUP_DEAD_PHRASES)
+            | set(CHECKUP_LLM_ERROR_PHRASES)
+        )
+        for pool in self.INFO_POOLS:
+            assert not set(pool) & existing
+
+
 class TestPoolStyle:
     ALL_POOLS = (
         THROTTLE_PHRASES,
@@ -180,6 +334,13 @@ class TestPoolStyle:
         YOUTUBE_ERROR_PHRASES,
         WEB_ERROR_PHRASES,
         YOUTUBE_RETRY_PHRASES,
+        CHECKUP_FALLBACK_PHRASES,
+        CHECKUP_DEAD_PHRASES,
+        CHECKUP_LLM_ERROR_PHRASES,
+        INFO_NO_DELETE_RIGHTS_PHRASES,
+        INFO_NOT_ADMIN_PHRASES,
+        INFO_BAD_MARKUP_PHRASES,
+        INFO_EDIT_OK_PHRASES,
     )
 
     def test_all_phrases_lowercase(self):
@@ -207,6 +368,13 @@ class TestPoolStyle:
             YOUTUBE_ERROR_PHRASES,
             WEB_ERROR_PHRASES,
             YOUTUBE_RETRY_PHRASES,
+            CHECKUP_FALLBACK_PHRASES,
+            CHECKUP_DEAD_PHRASES,
+            CHECKUP_LLM_ERROR_PHRASES,
+            INFO_NO_DELETE_RIGHTS_PHRASES,
+            INFO_NOT_ADMIN_PHRASES,
+            INFO_BAD_MARKUP_PHRASES,
+            INFO_EDIT_OK_PHRASES,
         ):
             for phrase in pool:
                 assert "{remaining_time}" not in phrase

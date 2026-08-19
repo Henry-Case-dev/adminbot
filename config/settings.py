@@ -345,5 +345,24 @@ class Settings:
     # Пусто = без cookies. R17: значение НЕ логируется.
     YOUTUBE_COOKIES_FILE: str = _env_str("YOUTUBE_COOKIES_FILE", "")
 
+    # ── SmartModule: Checkup (Epic 42) ────────────────────────────
+    # Кулдаун per-chat в СЕКУНДАХ (float; прецедент SEARCH_COOLDOWN_SECONDS —
+    # НЕ time-format). <0 → дефолт 300.0 (WARNING). 0 = выключен.
+    CHECKUP_COOLDOWN_SECONDS: float = _env_float_min("CHECKUP_COOLDOWN_SECONDS", 300.0, 0.0)
+    # Лимит ОТВЕТА LLM, символы; <100 → дефолт 3000 (WARNING).
+    CHECKUP_MAX_SYMBOLS: int = _env_int_min("CHECKUP_MAX_SYMBOLS", 3000, 100)
+    # D160: BETTERSTACK_TOKEN если задан, ИНАЧЕ существующий LOGTAIL_SOURCE_TOKEN
+    # (новых секретов не заводим; R17 — значение НЕ логируется).
+    CHECKUP_BETTERSTACK_TOKEN: str = _env_str("BETTERSTACK_TOKEN", "") or os.getenv("LOGTAIL_SOURCE_TOKEN", "")
+    CHECKUP_BETTERSTACK_URL: str = _env_str("CHECKUP_BETTERSTACK_URL", "https://logs.betterstack.com/api/v2/events")
+    CHECKUP_JOURNALCTL_CMD: str = _env_str("CHECKUP_JOURNALCTL_CMD", "journalctl -u admin_bot -n 300 --no-pager")
+
+    # ── /info + /edit_info (Epic 43) ────────────────────────────
+    # Кулдаун /info per-chat в СЕКУНДАХ (float; прецедент SEARCH_COOLDOWN_SECONDS).
+    # <0 → дефолт 300.0 (WARNING). 0 = выключен.
+    INFO_COOLDOWN_SECONDS: float = _env_float_min("INFO_COOLDOWN_SECONDS", 300.0, 0.0)
+    # Путь к справке: CWD-относительный или абсолютный; UTF-8 (52.1 #2)
+    INFO_TEXT_FILE: str = _env_str("INFO_TEXT_FILE", "info_text.md")
+
 
 settings = Settings()

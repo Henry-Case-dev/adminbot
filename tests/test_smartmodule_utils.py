@@ -101,6 +101,66 @@ class TestSendChunkedReply:
         assert utils_mod.send_chunked_reply.__defaults__[0] == utils_mod.settings.SUMMARY_CHUNK_DELAY
 
 
+class TestSendChunkedReplyParseMode:
+    """Epic 43 (52.2): опциональный kwarg parse_mode; обратная совместимость."""
+
+    @pytest.mark.asyncio
+    async def test_parse_mode_passed_to_send(self, monkeypatch):
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", AsyncMock())
+        bot = AsyncMock()
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, "текст", 42, parse_mode="HTML")
+        kwargs = bot.send_message.await_args.kwargs
+        assert kwargs["parse_mode"] == "HTML"
+        assert kwargs["reply_to_message_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_no_parse_mode_by_default_backward_compat(self, monkeypatch):
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", AsyncMock())
+        bot = AsyncMock()
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, "текст", 42)
+        assert "parse_mode" not in bot.send_message.await_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_parse_mode_with_reply_none_no_reply_kwarg(self, monkeypatch):
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", AsyncMock())
+        bot = AsyncMock()
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, "текст", None, parse_mode="HTML")
+        kwargs = bot.send_message.await_args.kwargs
+        assert kwargs["parse_mode"] == "HTML"
+        assert "reply_to_message_id" not in kwargs
+
+    @pytest.mark.asyncio
+    async def test_parse_mode_kept_on_gone_fallback(self, monkeypatch):
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", AsyncMock())
+        bot = AsyncMock()
+        bot.send_message = AsyncMock(side_effect=[_gone_400(), None])
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, "ответ", 42, parse_mode="HTML")
+        calls = bot.send_message.await_args_list
+        assert calls[0].kwargs["parse_mode"] == "HTML"
+        assert "reply_to_message_id" not in calls[1].kwargs
+        assert calls[1].kwargs["parse_mode"] == "HTML"
+
+    @pytest.mark.asyncio
+    async def test_parse_mode_kept_on_retry_after(self, monkeypatch):
+        sleep = AsyncMock()
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", sleep)
+        bot = AsyncMock()
+        retry_error = TelegramRetryAfter(method=None, message="retry", retry_after=3)
+        bot.send_message = AsyncMock(side_effect=[retry_error, None])
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, "текст", 42, parse_mode="HTML")
+        assert bot.send_message.await_count == 2
+        for call in bot.send_message.await_args_list:
+            assert call.kwargs["parse_mode"] == "HTML"
+
+    @pytest.mark.asyncio
+    async def test_parse_mode_on_all_chunks(self, monkeypatch):
+        monkeypatch.setattr(utils_mod.asyncio, "sleep", AsyncMock())
+        bot = AsyncMock()
+        await utils_mod.send_chunked_reply(bot, CHAT_ID, _long_text(), 42, parse_mode="HTML")
+        for call in bot.send_message.await_args_list:
+            assert call.kwargs["parse_mode"] == "HTML"
+
+
 class TestReply:
     @pytest.mark.asyncio
     async def test_sends_with_reply_to(self):
