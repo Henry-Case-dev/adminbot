@@ -18,8 +18,8 @@
 - [x] T-318 (@Builder, P0) — сервис+хендлер: on_retry-замыкание → `_reply`, video_id в handler-логи, логи фолбека (R41-2/R41-3/R41-5, D153)
 - [x] T-319 (@Builder + @Reviewer, P0) — тесты: 2 сломанных ассерта + ~15–20 кейсов (monkeypatch asyncio.sleep); полный прогон 0 регрессий (baseline 1796); ревью APPROVED
 - [x] T-320 (@Builder, P1) — README v2.33.1 + MEMORY
-- [ ] T-321 (@DevOps, P0) — коммит на русском + пуш master
-- [ ] T-322 (@DevOps, P0) — деплой v2.33.1: git pull, restart, journalctl -n 50, живой smoke (полный гейт не обязателен)
+- [x] T-321 (@DevOps, P0) — коммит на русском + пуш master — **Done (Шаг 7, коммит `eaa84c5`, пуш `5c99566..eaa84c5`)**
+- [x] T-322 (@DevOps, P0) — деплой v2.33.1: git pull, restart, journalctl -n 50, живой smoke (полный гейт не обязателен) — **Done (Шаг 7: прод ff `bb472ba..eaa84c5`, PID 986288, proxy=set, 0 новых traceback, xray без изменений)**
 
 ## 🔍 In Review
 
