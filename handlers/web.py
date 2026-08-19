@@ -85,9 +85,12 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм
     _cooldown.touch(message.chat.id, user_id)
+    text = (message.text or message.caption or "")   # Epic 46 (55.5): rag_query
     try:
-        text = await _service.summarize(url)
-        await send_chunked_reply(bot, message.chat.id, text, target.message_id)
+        summary = await _service.summarize(
+            url, chat_id=message.chat.id, rag_query=text
+        )
+        await send_chunked_reply(bot, message.chat.id, summary, target.message_id)
         logger.info("[web] summary sent | chat=%s", message.chat.id)
     except WebContentExtractionFailedException:
         logger.exception("[web] extractor failed | chat=%s", message.chat.id)

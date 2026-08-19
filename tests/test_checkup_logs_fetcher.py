@@ -1,14 +1,18 @@
-"""Tests for services/system_logs_fetcher.py (T-330-A #11-23, Sections 51.3/53.5).
+"""Tests for services/system_logs_fetcher.py (T-354-A #1-16, Sections 51.3/54.3).
 
-Betterstack (Live Tail Query API v2, 53.5): httpx.MockTransport через параметр
-transport конструктора (реальная сеть НИКОГДА); params source_ids/batch/from/to
-(+query опц.), плоская схема data[]{dt,level,message}, pagination.next
-(cursor-URL) ≤5 стр., потолки 200/20000; skip при пустых token/source_ids.
+Betterstack SQL API (ClickHouse HTTP, 54.3): httpx.MockTransport через параметр
+transport конструктора (реальная сеть НИКОГДА); POST SQL-тела (шаблон-канон
+R45-1 или sql_query-оверрайд), Basic auth, Content-type: plain/text,
+output_format_pretty_row_numbers=0, парсинг JSONEachRow → «Timestamp - Level -
+Message» (уровень из raw по keyword), потолки 200/20000; skip при пустых
+host/user/password ИЛИ пустом SQL; 401/404/5xx/таймаут/ConnectError → journalctl.
 journalctl: monkeypatch модульного атрибута asyncio.create_subprocess_shell
 (fetcher импортирует asyncio модулем — прецедент 50.8); fake-процесс:
 SimpleNamespace(returncode=…, communicate=AsyncMock(return_value=(stdout, stderr))).
 """
 import asyncio
+import base64
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -22,11 +26,15 @@ from services.system_logs_fetcher import (
     CheckupLogsUnavailableException,
 )
 
-BASE_URL = "https://telemetry.betterstack.com/api/v2/query/live-tail"
+SQL_HOST = "https://eu-fsn-3-connect.betterstackdata.com"
 
 
-def _make_fetcher(transport, token="tok-123", source_ids="123"):
-    return CheckupLogsFetcher(token=token, source_ids=source_ids, transport=transport)
+def _make_fetcher(transport, host=SQL_HOST, user="user", password="pass",
+                  table="t123_x", query="", journalctl_cmd="journalctl -u admin_bot"):
+    return CheckupLogsFetcher(
+        sql_host=host, sql_user=user, sql_password=password, sql_table=table,
+        sql_query=query, journalctl_cmd=journalctl_cmd, transport=transport,
+    )
 
 
 def _transport_with(handler):
@@ -61,83 +69,237 @@ def _unix_expected(ts: int) -> str:
     return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-class TestFetcherBetterstack:
+def _jsoneachrow(rows):
+    return "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n"
+
+
+class TestFetcherSqlApi:
     @pytest.mark.asyncio
-    async def test_flat_live_tail_200_format(self):
-        """#11': 200 + плоская live-tail схема (КАНОН 53.5):
-        data[] flat {dt, level, message}; fetch → (text, False);
-        формат «ts - LEVEL - message»; info-событие отфильтровано локально."""
-        payload = {
-            "data": [
-                {"dt": "2026-08-20 10:00:00.000000", "level": "error",
-                 "message": "disk exploded"},
-                {"dt": "2026-08-20 10:01:00.000000", "level": "info",
-                 "message": "just an info"},
-            ],
-            "pagination": {"next": None},
-        }
-        fetcher = _make_fetcher(_json_handler(payload))
+    async def test_canonical_jsoneachrow_200_format(self):
+        """#1: 200 + канонический JSONEachRow {dt, raw} → «Timestamp - Level -
+        Message»; used_fallback is False."""
+        payload = _jsoneachrow([
+            {"dt": "2026-08-20 10:00:00.000000", "raw": "ERROR disk exploded"},
+        ])
+
+        def handler(request):
+            return httpx.Response(200, text=payload, request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
         text, used_fallback = await fetcher.fetch()
         assert used_fallback is False
         assert text == "2026-08-20 10:00:00.000000 - ERROR - disk exploded"
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_page1_params_source_ids_batch_from_to(self):
-        """53.5: страница 1 — source_ids, batch=100, from, to; query/курсор/page
-        отсутствуют; path == /api/v2/query/live-tail."""
-        payload = {
-            "data": [{"dt": "T1", "level": "error", "message": "boom"}],
-            "pagination": {"next": None},
-        }
+    async def test_basic_auth_and_post_and_param(self):
+        """#2: Basic auth из user/password; метод POST; URL host +
+        output_format_pretty_row_numbers=0 в params."""
         requests = []
 
         def handler(request):
             requests.append(request)
-            return httpx.Response(200, json=payload, request=request)
+            return httpx.Response(200, text="", request=request)
 
         fetcher = _make_fetcher(_transport_with(handler))
         await fetcher.fetch()
-        params = requests[0].url.params
-        assert requests[0].url.path == "/api/v2/query/live-tail"
-        assert params["source_ids"] == "123"
-        assert params["batch"] == "100"
-        assert "from" in params and "to" in params
-        assert "query" not in params
-        assert "cursor" not in params and "page" not in params
+        req = requests[0]
+        assert req.method == "POST"
+        assert str(req.url) == f"{SQL_HOST}?output_format_pretty_row_numbers=0"
+        expected = "Basic " + base64.b64encode(b"user:pass").decode()
+        assert req.headers["Authorization"] == expected
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_query_param_passed_through(self):
-        """53.5: query задан → присутствует в params страницы 1 (pass-through)."""
-        payload = {
-            "data": [{"dt": "T1", "level": "error", "message": "boom"}],
-            "pagination": {"next": None},
-        }
+    async def test_content_type_header_plain_text(self):
+        """#3: хедер Content-type == "plain/text" (канон R45-1, НЕ text/plain)."""
         requests = []
 
         def handler(request):
             requests.append(request)
-            return httpx.Response(200, json=payload, request=request)
+            return httpx.Response(200, text="", request=request)
 
-        fetcher = CheckupLogsFetcher(
-            token="tok-123", source_ids="123", query="level:error",
-            transport=_transport_with(handler),
-        )
+        fetcher = _make_fetcher(_transport_with(handler))
         await fetcher.fetch()
-        assert requests[0].url.params["query"] == "level:error"
+        assert requests[0].headers["Content-type"] == "plain/text"
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_empty_source_ids_skips_betterstack(self, monkeypatch):
-        """53.5: пустые source_ids → betterstack НЕ вызван (0 запросов),
+    async def test_template_sql_body(self):
+        """#4: тело SQL — шаблон-канон с table/limit, заканчивается
+        FORMAT JSONEachRow."""
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, text="", request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        await fetcher.fetch()
+        body = requests[0].content.decode("utf-8")
+        assert body == fetcher_mod._SQL_QUERY_TEMPLATE.format(table="t123_x", limit=200)
+        assert body.endswith("FORMAT JSONEachRow")
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_sql_query_override_verbatim(self):
+        """#5: sql_query задан → тело == query ВЕРБАТИМ (шаблон НЕ применяется)."""
+        custom = "SELECT * FROM custom_logs LIMIT 7 FORMAT JSONEachRow"
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, text="", request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler), query=custom)
+        await fetcher.fetch()
+        assert requests[0].content.decode("utf-8") == custom
+        await fetcher.close()
+
+    @pytest.mark.parametrize(
+        "raw,expected_level",
+        [
+            ("WARNING low memory", "WARNING"),
+            ("Traceback (most recent call last)", "TRACEBACK"),
+            ("ConnectionException raised", "EXCEPTION"),
+            ("level: CRITICAL boom", "CRITICAL"),
+            ("warn: disk is dying", "WARNING"),
+        ],
+    )
+    def test_level_extracted_from_raw(self, raw, expected_level):
+        """#6: маппинг уровня — первое keyword-вхождение в raw (warn → WARNING)."""
+        level = CheckupLogsFetcher._extract_level(raw)
+        assert level == expected_level
+
+    @pytest.mark.asyncio
+    async def test_local_level_filter(self):
+        """#7: raw без keyword (info/debug) — строка НЕ попадает;
+        5 релевантных из 7 → 5 строк."""
+        rows = [
+            {"dt": "2026-08-20 10:00:00", "raw": "ERROR a"},
+            {"dt": "2026-08-20 10:00:01", "raw": "info noise"},
+            {"dt": "2026-08-20 10:00:02", "raw": "debug noise"},
+            {"dt": "2026-08-20 10:00:03", "raw": "WARNING b"},
+            {"dt": "2026-08-20 10:00:04", "raw": "CRITICAL c"},
+            {"dt": "2026-08-20 10:00:05", "raw": "fatal d"},
+            {"dt": "2026-08-20 10:00:06", "raw": "exception e"},
+        ]
+
+        def handler(request):
+            return httpx.Response(200, text=_jsoneachrow(rows), request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        text, used_fallback = await fetcher.fetch()
+        assert used_fallback is False
+        assert len(text.splitlines()) == 5
+        assert "info noise" not in text and "debug noise" not in text
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_broken_jsoneachrow_line_skipped_with_warning(self, caplog):
+        """#8: кривая JSONEachRow-строка → пропуск + WARNING; валидные соседи
+        сохранены."""
+        import logging
+
+        payload = (
+            '{"dt": "2026-08-20 10:00:00", "raw": "ERROR one"}\n'
+            'this is not json\n'
+            '{"dt": "2026-08-20 10:00:01", "raw": "WARNING two"}\n'
+        )
+
+        def handler(request):
+            return httpx.Response(200, text=payload, request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        with caplog.at_level(logging.WARNING):
+            text, used_fallback = await fetcher.fetch()
+        assert used_fallback is False
+        assert text.splitlines() == [
+            "2026-08-20 10:00:00 - ERROR - one",
+            "2026-08-20 10:00:01 - WARNING - two",
+        ]
+        assert any("broken JSONEachRow" in r.message for r in caplog.records)
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_non_json_body_is_valid_empty_not_fallback(self, monkeypatch, caplog):
+        """#9: 200 + не-JSON-тело → все строки битые → («», False) — ВАЛИДНЫЙ
+        «логов нет», НЕ фолбек (journalctl НЕ вызывается)."""
+        import logging
+
+        def handler(request):
+            return httpx.Response(200, text="<html>error page</html>", request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        with caplog.at_level(logging.WARNING):
+            text, used_fallback = await fetcher.fetch()
+        assert (text, used_fallback) == ("", False)
+        assert any("broken JSONEachRow" in r.message for r in caplog.records)
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_numeric_dt_converted_via_fromtimestamp(self):
+        """#10: числовой dt → fromtimestamp UTC; вне диапазона → как есть."""
+        ts = 1755684000
+        payload = _jsoneachrow([
+            {"dt": ts, "raw": "ERROR numeric"},
+            {"dt": "99999999999", "raw": "ERROR out of range"},
+        ])
+
+        def handler(request):
+            return httpx.Response(200, text=payload, request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        text, _ = await fetcher.fetch()
+        lines = text.splitlines()
+        assert lines[0] == f"{_unix_expected(ts)} - ERROR - numeric"
+        assert lines[1].startswith("99999999999 - ERROR - ")
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_cap_200_events(self):
+        """#11: 250 релевантных → ровно 200 строк."""
+        rows = [
+            {"dt": f"2026-08-20 10:00:{i % 60:02d}", "raw": f"ERROR event {i}"}
+            for i in range(250)
+        ]
+
+        def handler(request):
+            return httpx.Response(200, text=_jsoneachrow(rows), request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        text, _ = await fetcher.fetch()
+        assert len(text.splitlines()) == 200
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_symbol_cap_20000(self):
+        """#11: >20000 символов → обрезка до 20000."""
+        rows = [
+            {"dt": "2026-08-20 10:00:00", "raw": f"ERROR {'x' * 300} {i}"}
+            for i in range(80)
+        ]
+
+        def handler(request):
+            return httpx.Response(200, text=_jsoneachrow(rows), request=request)
+
+        fetcher = _make_fetcher(_transport_with(handler))
+        text, _ = await fetcher.fetch()
+        assert len(text) == fetcher_mod._MAX_LOG_SYMBOLS
+        await fetcher.close()
+
+    @pytest.mark.parametrize("user,password", [("", "pass"), ("user", ""), ("", "")])
+    @pytest.mark.asyncio
+    async def test_empty_credentials_skip_sql(self, monkeypatch, user, password):
+        """#12: пустые user/password → SQL API НЕ вызван (0 запросов),
         сразу journalctl, (text, True)."""
         shell = AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n"))
         monkeypatch.setattr(fetcher_mod.asyncio, "create_subprocess_shell", shell)
         requests = []
 
         fetcher = CheckupLogsFetcher(
-            token="tok-123", source_ids="",
+            sql_host=SQL_HOST, sql_user=user, sql_password=password,
+            sql_table="t123_x", sql_query="",
             transport=_transport_with(lambda r: requests.append(r) or None),
         )
         text, used_fallback = await fetcher.fetch()
@@ -147,170 +309,70 @@ class TestFetcherBetterstack:
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_flat_schema_unix_ts(self):
-        """#12: плоская схема (data[]{message,level,_dt}) → unix → формат-ts."""
-        ts = 1755684000
-        payload = {
-            "data": [
-                {"message": "kernel panic", "level": "CRITICAL", "_dt": ts},
-            ],
-            "pagination": {"first": None, "next": None},
-        }
-        fetcher = _make_fetcher(_json_handler(payload))
-        text, _ = await fetcher.fetch()
-        assert text == f"{_unix_expected(ts)} - CRITICAL - kernel panic"
-        await fetcher.close()
-
-    def test_extract_lines_tolerant_variants(self):
-        """Толерантный контракт: attributes/плоские поля, алиасы message/level/ts,
-        events-fallback при data-не-списке, не-dict элементы пропускаются,
-        нет ts → «-»."""
-        payload = {
-            "data": [
-                {"attributes": {"message": "a", "level": "error", "dt": "T1"}},
-                {"msg": "b", "severity": "warning", "timestamp": "T2"},
-                {"json": "c", "log_level": "alert", "_dt": 1755684000},
-                {"message": "d", "level": "fatal"},
-                "not-a-dict",
-                {"message": "e", "level": "info"},       # нерелевантный уровень
-            ],
-            "pagination": {"next": None},
-        }
-        lines = CheckupLogsFetcher._extract_lines(payload)
-        assert lines == [
-            "T1 - ERROR - a",
-            "T2 - WARNING - b",
-            f"{_unix_expected(1755684000)} - ALERT - c",
-            "- - FATAL - d",
-        ]
-
-    def test_extract_lines_events_fallback_when_data_not_list(self):
-        payload = {
-            "data": {"broken": "object"},
-            "events": [{"message": "x", "level": "error", "dt": "T1"}],
-        }
-        lines = CheckupLogsFetcher._extract_lines(payload)
-        assert lines == ["T1 - ERROR - x"]
-
-    def test_extract_lines_numeric_ts_out_of_range_kept_raw(self):
-        """Числовой ts вне диапазона fromtimestamp → except → ts как есть
-        (защитная ветка 51.3)."""
-        payload = {
-            "data": [{"message": "x", "level": "error", "_dt": "99999999999"}],
-            "pagination": {"next": None},
-        }
-        lines = CheckupLogsFetcher._extract_lines(payload)
-        assert lines == ["99999999999 - ERROR - x"]
-
-    def test_extract_lines_message_in_json_field_and_level_filter(self):
-        """#13: фильтр уровней — ЛОКАЛЬНО по level+message (имена ключей
-        level/severity, ключевые слова в message: Exception/Traceback).
-        Формат строки — «ts - LEVEL - message» (level — как в событии)."""
-        payload = {
-            "data": [
-                {"message": "all good", "level": "info"},                          # мимо
-                {"message": "doing fine", "severity": "debug"},                    # мимо
-                {"message": "Traceback (most recent call last)", "level": "info"}, # в message
-                {"message": "ConnectionException raised", "level": "info"},        # exception
-                {"message": "boom", "level": "CRITICAL"},
-                {"message": "fyi", "level": "warning"},
-                {"json": "{\"msg\": \"alert!\"}", "level": "alert"},
-            ],
-            "pagination": {"next": None},
-        }
-        lines = CheckupLogsFetcher._extract_lines(payload)
-        assert len(lines) == 5
-        assert lines[0].endswith("- INFO - Traceback (most recent call last)")
-        assert lines[1].endswith("- INFO - ConnectionException raised")
-        assert lines[2].endswith("- CRITICAL - boom")
-        assert lines[3].endswith("- WARNING - fyi")
-        assert lines[4].endswith('- ALERT - {"msg": "alert!"}')
-
-    @pytest.mark.asyncio
-    async def test_cap_200_events(self):
-        """#14: >200 релевантных событий → ровно 200 строк."""
-        payload = {
-            "data": [
-                {"message": f"err {i}", "level": "error", "dt": f"T{i}"}
-                for i in range(250)
-            ],
-            "pagination": {"first": None, "next": None},
-        }
-        fetcher = _make_fetcher(_json_handler(payload))
-        text, _ = await fetcher.fetch()
-        assert len(text.splitlines()) == 200
-        await fetcher.close()
-
-    @pytest.mark.asyncio
-    async def test_pagination_follows_next_two_pages(self):
-        """#15: pagination.next → 2-й GET без params, события объединены."""
-        page1 = {
-            "data": [{"message": "one", "level": "error", "dt": "T1"}],
-            "pagination": {"next": f"{BASE_URL}?page=2"},
-        }
-        page2 = {
-            "data": [{"message": "two", "level": "warning", "dt": "T2"}],
-            "pagination": {"next": None},
-        }
+    async def test_empty_table_and_query_skip_sql(self, monkeypatch):
+        """#13: пустой table И пустой query → skip → journalctl (0 запросов)."""
+        shell = AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n"))
+        monkeypatch.setattr(fetcher_mod.asyncio, "create_subprocess_shell", shell)
         requests = []
 
-        def handler(request):
-            requests.append(request)
-            payload = page1 if "page=2" not in str(request.url) else page2
-            return httpx.Response(200, json=payload, request=request)
-
-        fetcher = _make_fetcher(_transport_with(handler))
-        text, _ = await fetcher.fetch()
-        assert len(requests) == 2
-        assert "from" in requests[0].url.params and "to" in requests[0].url.params
-        assert "page" not in requests[0].url.params
-        assert "from" not in requests[1].url.params   # params только на 1-й странице
-        assert text.splitlines() == ["T1 - ERROR - one", "T2 - WARNING - two"]
-        await fetcher.close()
-
-    @pytest.mark.asyncio
-    async def test_pagination_capped_at_max_pages(self, monkeypatch):
-        """next всегда есть → стоп на _MAX_PAGES, ровно 5 GET."""
-        requests = []
-
-        def handler(request):
-            requests.append(request)
-            payload = {
-                "data": [{"message": f"e{len(requests)}", "level": "error", "dt": "T"}],
-                "pagination": {"next": f"{BASE_URL}?page={len(requests) + 1}"},
-            }
-            return httpx.Response(200, json=payload, request=request)
-
-        fetcher = _make_fetcher(_transport_with(handler))
-        text, _ = await fetcher.fetch()
-        assert len(requests) == fetcher_mod._MAX_PAGES == 5
-        assert len(text.splitlines()) == 5
-        await fetcher.close()
-
-    @pytest.mark.asyncio
-    async def test_401_falls_back_to_journalctl(self, monkeypatch):
-        """#16: 401 (raise_for_status) → journalctl → (text, True)."""
-        monkeypatch.setattr(
-            fetcher_mod.asyncio,
-            "create_subprocess_shell",
-            AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\nINFO noise\n")),
+        fetcher = CheckupLogsFetcher(
+            sql_host=SQL_HOST, sql_user="user", sql_password="pass",
+            sql_table="", sql_query="",
+            transport=_transport_with(lambda r: requests.append(r) or None),
         )
-        fetcher = _make_fetcher(_json_handler({"error": "unauthorized"}, status=401))
+        text, used_fallback = await fetcher.fetch()
+        assert used_fallback is True
+        assert requests == []
+        assert text == "ERROR local"
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_empty_query_with_table_uses_template(self):
+        """#14: пустой query + table задан → шаблон с table применяется
+        (запрос ушёл)."""
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, text="", request=request)
+
+        fetcher = CheckupLogsFetcher(
+            sql_host=SQL_HOST, sql_user="user", sql_password="pass",
+            sql_table="t9_z", sql_query="", transport=_transport_with(handler),
+        )
+        _, used_fallback = await fetcher.fetch()
+        assert used_fallback is False
+        assert len(requests) == 1
+        assert requests[0].content.decode("utf-8") == fetcher_mod._SQL_QUERY_TEMPLATE.format(
+            table="t9_z", limit=200
+        )
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_empty_host_skip_sql(self, monkeypatch):
+        shell = AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n"))
+        monkeypatch.setattr(fetcher_mod.asyncio, "create_subprocess_shell", shell)
+        fetcher = CheckupLogsFetcher(
+            sql_host="", sql_user="user", sql_password="pass", sql_table="t",
+        )
         text, used_fallback = await fetcher.fetch()
         assert used_fallback is True
         assert text == "ERROR local"
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_500_falls_back(self, monkeypatch):
+    @pytest.mark.parametrize("status", [401, 404, 500])
+    async def test_http_errors_fall_back_to_journalctl(self, monkeypatch, status):
+        """#15: 401/404/500 (raise_for_status) → journalctl, (text, True)."""
         monkeypatch.setattr(
             fetcher_mod.asyncio,
             "create_subprocess_shell",
-            AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n")),
+            AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\nINFO noise\n")),
         )
-        fetcher = _make_fetcher(_json_handler({}, status=500))
-        _, used_fallback = await fetcher.fetch()
+        fetcher = _make_fetcher(_json_handler({"error": "boom"}, status=status))
+        text, used_fallback = await fetcher.fetch()
         assert used_fallback is True
+        assert text == "ERROR local"
         await fetcher.close()
 
     @pytest.mark.asyncio
@@ -319,7 +381,7 @@ class TestFetcherBetterstack:
         [httpx.ConnectTimeout("t", request=None), httpx.ConnectError("conn")],
     )
     async def test_timeout_and_connect_error_fall_back(self, monkeypatch, exc):
-        """#17: таймаут/ConnectError (RequestError) → journalctl."""
+        """#15: таймаут/ConnectError (RequestError) → journalctl."""
         monkeypatch.setattr(
             fetcher_mod.asyncio,
             "create_subprocess_shell",
@@ -338,41 +400,11 @@ class TestFetcherBetterstack:
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_broken_json_falls_back(self, monkeypatch):
-        """#18: 200 + битый JSON → ValueError → фолбек."""
-        monkeypatch.setattr(
-            fetcher_mod.asyncio,
-            "create_subprocess_shell",
-            AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n")),
-        )
-
-        def handler(request):
-            return httpx.Response(200, text="<html>not json</html>", request=request)
-
-        fetcher = _make_fetcher(_transport_with(handler))
-        _, used_fallback = await fetcher.fetch()
-        assert used_fallback is True
-        await fetcher.close()
-
-    @pytest.mark.asyncio
-    async def test_empty_token_skips_betterstack(self, monkeypatch):
-        """#19: пустой токен → betterstack НЕ вызван, сразу journalctl, (text, True)."""
-        shell = AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n"))
-        monkeypatch.setattr(fetcher_mod.asyncio, "create_subprocess_shell", shell)
-        requests = []
-
-        fetcher = CheckupLogsFetcher(
-            token="", transport=_transport_with(lambda r: requests.append(r) or None)
-        )
-        text, used_fallback = await fetcher.fetch()
-        assert used_fallback is True
-        assert requests == []
-        assert text == "ERROR local"
-        await fetcher.close()
-
-    @pytest.mark.asyncio
     async def test_close_releases_client(self):
-        fetcher = _make_fetcher(_json_handler({"data": [], "pagination": {"next": None}}))
+        """#16: close() освобождает клиента."""
+        fetcher = _make_fetcher(_transport_with(
+            lambda r: httpx.Response(200, text="", request=r)
+        ))
         await fetcher.fetch()
         assert fetcher._client is not None
         await fetcher.close()
@@ -394,7 +426,7 @@ class TestFetcherJournalctl:
         )
         proc = _fake_proc(stdout=stdout)
         _patch_journalctl(monkeypatch, proc)
-        fetcher = CheckupLogsFetcher(token="")
+        fetcher = CheckupLogsFetcher(sql_user="")
         text, used_fallback = await fetcher.fetch()
         assert used_fallback is True
         lines = text.splitlines()
@@ -409,7 +441,7 @@ class TestFetcherJournalctl:
     async def test_rc0_keeps_last_300_lines(self, monkeypatch):
         stdout = b"\n".join(f"ERROR line {i}".encode() for i in range(350))
         _patch_journalctl(monkeypatch, _fake_proc(stdout=stdout))
-        fetcher = CheckupLogsFetcher(token="")
+        fetcher = CheckupLogsFetcher(sql_user="")
         text, _ = await fetcher.fetch()
         assert len(text.splitlines()) == fetcher_mod._JOURNALCTL_MAX_LINES
         assert text.endswith("ERROR line 349")
@@ -419,7 +451,7 @@ class TestFetcherJournalctl:
     async def test_rc0_empty_stdout_is_valid_not_dead(self, monkeypatch):
         """#21: rc=0 + пустой stdout → («», True) — ВАЛИДНО, НЕ dead."""
         _patch_journalctl(monkeypatch, _fake_proc(stdout=b"", stderr=b""))
-        fetcher = CheckupLogsFetcher(token="")
+        fetcher = CheckupLogsFetcher(sql_user="")
         text, used_fallback = await fetcher.fetch()
         assert (text, used_fallback) == ("", True)
         await fetcher.close()
@@ -429,7 +461,7 @@ class TestFetcherJournalctl:
     async def test_nonzero_rc_raises_unavailable(self, monkeypatch, rc, stderr):
         """#22: rc=127/rc=1 + stderr hint → CheckupLogsUnavailableException."""
         _patch_journalctl(monkeypatch, _fake_proc(returncode=rc, stderr=stderr))
-        fetcher = CheckupLogsFetcher(token="")
+        fetcher = CheckupLogsFetcher(sql_user="")
         with pytest.raises(CheckupLogsUnavailableException):
             await fetcher.fetch()
         await fetcher.close()
@@ -441,7 +473,7 @@ class TestFetcherJournalctl:
             raise OSError("no such binary")
 
         monkeypatch.setattr(fetcher_mod.asyncio, "create_subprocess_shell", fake_shell)
-        fetcher = CheckupLogsFetcher(token="")
+        fetcher = CheckupLogsFetcher(sql_user="")
         with pytest.raises(CheckupLogsUnavailableException):
             await fetcher.fetch()
         await fetcher.close()
@@ -451,7 +483,7 @@ class TestFetcherJournalctl:
         """#23: communicate таймаутит → raise."""
         proc = _fake_proc(comm_error=asyncio.TimeoutError)
         _patch_journalctl(monkeypatch, proc)
-        fetcher = CheckupLogsFetcher(token="")
+        fetcher = CheckupLogsFetcher(sql_user="")
         with pytest.raises(CheckupLogsUnavailableException):
             await fetcher.fetch()
         await fetcher.close()

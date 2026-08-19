@@ -10,10 +10,13 @@ from services.search_prompts import SEARCH_SYSTEM_PROMPT
 
 
 def _arch_search_prompt() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 42.5.2 (эталон-блок)."""
+    """Эталон из plans/ARCHITECTURE.md Section 55.7.2 (эталон-блок; якорь
+    «## Section 55:» — ловушка «первого вхождения» D167)."""
     lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if line.startswith("## Section 55:"))
     start = next(
-        i for i, line in enumerate(lines) if line.startswith("SEARCH_SYSTEM_PROMPT = ")
+        i for i, line in enumerate(lines[anchor:], anchor)
+        if line.startswith("SEARCH_SYSTEM_PROMPT = ")
     )
     end = next(
         i for i, line in enumerate(lines[start:], start) if line.endswith('"""')
@@ -24,7 +27,18 @@ def _arch_search_prompt() -> str:
     return "\n".join(block)
 
 
+def _rag_instruction() -> str:
+    """Канон R46-4 — инструкция (VERBATIM из backlog, якорь «> «Если в блоке
+    <bot_knowledge>», strip «> « и «»»)."""
+    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        if line.startswith("> «Если в блоке <bot_knowledge>"):
+            return line[len("> «"):][:-1]
+    raise AssertionError("канон R46-4 не найден в backlog")
+
+
 EXPECTED_PROMPT = _arch_search_prompt()
+RAG_INSTRUCTION = _rag_instruction()
 
 # R36-2 (D120, Section 45.2): блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» — дословно
 # (дефисные/звёздочные маркеры сохраняются, осознанное решение D120).
@@ -65,3 +79,17 @@ class TestSearchPrompt:
         assert "Имитируй ленивую печать" in SEARCH_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in SEARCH_SYSTEM_PROMPT
         assert "Поясни тему глубоко и без воды" in SEARCH_SYSTEM_PROMPT
+
+    def test_ends_with_rag_instruction(self):
+        """55.7.2: канон-инструкция R46-4 — последний абзац промпта."""
+        assert SEARCH_SYSTEM_PROMPT.endswith(RAG_INSTRUCTION)
+
+    def test_rag_instruction_canon_verbatim(self):
+        """Канон R46-4 — инструкция ДОСЛОВНО из backlog."""
+        assert RAG_INSTRUCTION == (
+            "Если в блоке <bot_knowledge> есть информация по текущей теме, "
+            "используй её, чтобы унизить оппонента своими знаниями. Дай понять, "
+            "что ты уже проверял эту инфу ранее или смотрел ролик на эту тему, "
+            "и тебе не нужно повторять дважды."
+        )
+        assert "<bot_knowledge>" in SEARCH_SYSTEM_PROMPT

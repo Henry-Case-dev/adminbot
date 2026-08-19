@@ -149,3 +149,87 @@ class TestEpic39SettingsDefaults:
         importlib.reload(settings_mod)
         assert settings_mod.settings.YOUTUBE_TRANSCRIPT_PROXY_URL == "http://127.0.0.1:8080"
         assert settings_mod.settings.YOUTUBE_COOKIES_FILE == "/tmp/cookies.txt"
+
+
+_EPIC45_KEYS = (
+    "CHECKUP_BETTERSTACK_SQL_HOST",
+    "CHECKUP_BETTERSTACK_SQL_USER",
+    "CHECKUP_BETTERSTACK_SQL_PASSWORD",
+    "CHECKUP_BETTERSTACK_SQL_TABLE",
+    "CHECKUP_BETTERSTACK_SQL_QUERY",
+)
+
+
+class TestEpic45SettingsDefaults:
+    """Epic 45 (54.2, #17): дефолты SQL-ключей; легаси live-tail-ключей нет."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC45_KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_HOST == (
+            "https://eu-fsn-3-connect.betterstackdata.com"
+        )
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_USER == ""
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_PASSWORD == ""
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_TABLE == ""
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_QUERY == ""
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("CHECKUP_BETTERSTACK_SQL_USER", "clickhouse_user")
+        monkeypatch.setenv("CHECKUP_BETTERSTACK_SQL_TABLE", "t123_x")
+        monkeypatch.setenv("CHECKUP_BETTERSTACK_SQL_QUERY", "SELECT 1")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_USER == "clickhouse_user"
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_TABLE == "t123_x"
+        assert settings_mod.settings.CHECKUP_BETTERSTACK_SQL_QUERY == "SELECT 1"
+
+    def test_legacy_live_tail_keys_absent(self):
+        """54.4: легаси-ключи Epic 44 отсутствуют в Settings."""
+        for key in (
+            "CHECKUP_BETTERSTACK_TOKEN",
+            "CHECKUP_BETTERSTACK_URL",
+            "CHECKUP_BETTERSTACK_SOURCE_IDS",
+            "CHECKUP_BETTERSTACK_QUERY",
+        ):
+            assert not hasattr(settings_mod.settings, key), f"legacy {key} должен быть удалён"
+
+
+_EPIC46_KEYS = (
+    "EMBEDDING_DIM",
+    "GRAPH_FACT_TTL_DAYS",
+    "GRAPH_RAG_FACTS_LIMIT",
+    "GRAPH_RAG_CONTEXT_MAX_CHARS",
+)
+
+
+class TestEpic46SettingsDefaults:
+    """Epic 46 (55.2, #26): EMBEDDING_DIM=3072 и дефолты GraphRAG v2."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC46_KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.EMBEDDING_DIM == 3072
+        assert settings_mod.settings.GRAPH_FACT_TTL_DAYS == 14
+        assert settings_mod.settings.GRAPH_RAG_FACTS_LIMIT == 10
+        assert settings_mod.settings.GRAPH_RAG_CONTEXT_MAX_CHARS == 2000
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("GRAPH_FACT_TTL_DAYS", "21")
+        monkeypatch.setenv("GRAPH_RAG_FACTS_LIMIT", "7")
+        monkeypatch.setenv("GRAPH_RAG_CONTEXT_MAX_CHARS", "1500")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.GRAPH_FACT_TTL_DAYS == 21
+        assert settings_mod.settings.GRAPH_RAG_FACTS_LIMIT == 7
+        assert settings_mod.settings.GRAPH_RAG_CONTEXT_MAX_CHARS == 1500

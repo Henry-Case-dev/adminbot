@@ -479,6 +479,19 @@ class TestCompressAndPurge:
         assert [r["text"] for r in raw] == [f"старое {i}" for i in range(10, 15)]
 
     @pytest.mark.asyncio
+    async def test_compress_and_purge_purges_expired_graph_facts(self, db):
+        """Epic 46 (55.1 #5, D175): piggyback — истёкшие GraphRAG v2-факты
+        удаляются в хвосте compress_and_purge; живые (expires_at NULL) остаются."""
+        expired_id = await db.insert_graph_fact(
+            -100, "истёкший факт", "search_fact", int(time.time()) - 100)
+        live_id = await db.insert_graph_fact(
+            -100, "живой факт", "chat_history", None)
+        memory = MemoryManager(db, FakeLLM())
+        await memory.compress_and_purge(-100)
+        texts = await db.get_graph_fact_texts([expired_id, live_id])
+        assert texts == [("chat_history", "живой факт")]
+
+    @pytest.mark.asyncio
     async def test_vec_purge_removes_vectors(self, db):
         """QA (T-188-D): vec0 purge uses documented rowid IN form; vectors removed."""
         try:
@@ -501,3 +514,199 @@ class TestCompressAndPurge:
         assert row["c"] == 0
         facts = await db.search_archive_fts(-100, '"древний"', 10)
         assert facts == []
+
+
+# ── Epic 46 (Section 55.8, T-366-A #22-25) ────────────────────────
+
+
+class FlakyLLM:
+    """Embed падает первые fail_calls раз, затем отвечает (403-эпизод, 55.8)."""
+
+    def __init__(self, fail_calls=3, dim=None):
+        self.fail_calls = fail_calls
+        self.calls = 0
+        self.dim = dim or settings.EMBEDDING_DIM
+        self.generate_calls = 0
+
+    async def embed(self, texts):
+        self.calls += 1
+        if self.calls <= self.fail_calls:
+            raise LLMError("403 эмбеддингов")
+        return [[0.1] * self.dim for _ in texts]
+
+    async def generate(self, messages):
+        self.generate_calls += 1
+        return "[]"
+
+
+class TestVecOffReasonSplit:
+    @pytest.mark.asyncio
+    async def test_extension_fail_sets_reason_extension(self, db, monkeypatch, caplog):
+        """#22: расширение не загрузилось → reason=="extension" + лог
+        «sqlite-vec unavailable» (НЕ «probe embed failed»)."""
+        import logging
+
+        monkeypatch.setattr("sqlite_vec.loadable_path", lambda: "/nonexistent/vec0.dll")
+        memory = MemoryManager(db, FakeLLM())
+        with caplog.at_level(logging.WARNING):
+            ok = await memory.initialize()
+        assert ok is False
+        assert memory._vec_off_reason == "extension"
+        assert any("sqlite-vec unavailable" in r.message for r in caplog.records)
+        assert not any("probe embed failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_probe_fail_sets_reason_embed_split_log(self, db, monkeypatch, caplog):
+        """#22: probe упал → reason=="embed" + лог «probe embed failed»
+        (НЕ «sqlite-vec unavailable»)."""
+        import logging
+
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        memory = MemoryManager(db, FakeLLM(fail_embed=True))
+        with caplog.at_level(logging.WARNING):
+            ok = await memory.initialize()
+        assert ok is False
+        assert memory._vec_off_reason == "embed"
+        assert any("probe embed failed" in r.message for r in caplog.records)
+        assert not any("sqlite-vec unavailable" in r.message for r in caplog.records)
+
+
+class TestEmbedRetries:
+    @pytest.mark.asyncio
+    async def test_embed_retries_three_attempts(self, db, monkeypatch):
+        """#23: FakeLLM падает 2 раза → 3-я попытка ок (backoff=0)."""
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        llm = FlakyLLM(fail_calls=2)
+        memory = MemoryManager(db, llm)
+        vectors = await memory._embed(["текст"])
+        assert vectors[0] == [0.1] * settings.EMBEDDING_DIM
+        assert llm.calls == 3
+
+    @pytest.mark.asyncio
+    async def test_embed_exhausted_retries_raises(self, db, monkeypatch):
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        llm = FlakyLLM(fail_calls=99)
+        memory = MemoryManager(db, llm)
+        with pytest.raises(LLMError):
+            await memory._embed(["текст"])
+        assert llm.calls == 3
+
+
+class TestVecReactivation:
+    @pytest.mark.asyncio
+    async def test_reactivation_after_embed_recovery(self, db, monkeypatch, caplog):
+        """#24: probe-фейл → FTS; интервал=0 → re-probe ок → vec reactivated
+        (лог) + KNN работает."""
+        import logging
+
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        monkeypatch.setattr("services.summary_memory._VEC_REACTIVATE_INTERVAL", 0.0)
+
+        llm = FlakyLLM(fail_calls=3)          # первый probe исчерпывает 3 попытки
+        memory = MemoryManager(db, llm)
+        ok = await memory.initialize()
+        assert ok is False
+        assert memory._vec_off_reason == "embed"
+
+        with caplog.at_level(logging.INFO):
+            reactivated = await memory._ensure_vec_retry()
+        assert reactivated is True
+        assert memory._vec_available is True
+        assert memory._vec_off_reason is None
+        assert any("vec reactivated after embed recovery" in r.message
+                   for r in caplog.records)
+
+        # KNN работает после реактивации
+        fact_id = await db.save_archive_fact(-100, "факт про дроны", 1)
+        await memory._save_archive_embedding(-100, fact_id, "факт про дроны")
+        facts = await memory.vector_search(-100, "дроны", 5)
+        assert facts == ["факт про дроны"]
+
+    @pytest.mark.asyncio
+    async def test_reactivation_interval_not_elapsed_no_probe(self, db, monkeypatch):
+        """#24: интервал не прошёл → re-probe НЕ выполняется (остаётся FTS)."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        monkeypatch.setattr("services.summary_memory._VEC_REACTIVATE_INTERVAL", 600.0)
+        llm = FlakyLLM(fail_calls=99)
+        memory = MemoryManager(db, llm)
+        await memory.initialize()
+        assert memory._vec_off_reason == "embed"
+        calls_before = llm.calls
+        assert await memory._ensure_vec_retry() is False
+        assert llm.calls == calls_before          # новых embed-вызовов нет
+
+
+class TestBackfill:
+    @pytest.mark.asyncio
+    async def test_backfill_reembeds_and_is_idempotent(self, db):
+        """#25: 2 факта без vec → re-embedded; повторный вызов → 0."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        memory = MemoryManager(db, FakeLLM())
+        ok = await memory.initialize()
+        if not ok:
+            pytest.skip("sqlite-vec extension could not be loaded")
+        await asyncio.sleep(0.05)     # фоновый backfill из initialize завершился (пусто)
+        await db.save_archive_fact(-100, "факт один", 1)
+        await db.save_archive_fact(-100, "факт два", 2)
+        assert await memory.backfill_archive_vectors() == 2
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM smart_archive")
+        row = await cursor.fetchone()
+        assert row["c"] == 2
+        assert await memory.backfill_archive_vectors() == 0
+
+    @pytest.mark.asyncio
+    async def test_backfill_embed_fail_deferred_returns_zero(self, db, monkeypatch):
+        """#25: embed-фейл внутри backfill → 0, НЕ бросает."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        memory = MemoryManager(db, FakeLLM())
+        ok = await memory.initialize()
+        if not ok:
+            pytest.skip("sqlite-vec extension could not be loaded")
+        await asyncio.sleep(0.05)
+        await db.save_archive_fact(-100, "факт один", 1)
+        memory.llm = FakeLLM(fail_embed=True)
+        assert await memory.backfill_archive_vectors() == 0
+
+    @pytest.mark.asyncio
+    async def test_backfill_vec_unavailable_returns_zero(self, db):
+        memory = MemoryManager(db, FakeLLM())
+        memory._vec_available = False
+        assert await memory.backfill_archive_vectors() == 0
+
+
+class TestFireAndForget:
+    @pytest.mark.asyncio
+    async def test_background_failure_logged_not_raised(self, caplog):
+        """R46-5 (55.5): падение фонового факта НЕ всплывает (тихий WARNING)."""
+        import logging
+
+        from services.summary_memory import fire_and_forget
+
+        async def boom():
+            raise ValueError("фон упал")
+
+        with caplog.at_level(logging.WARNING):
+            fire_and_forget(boom(), "test-tag")
+            for _ in range(5):
+                await asyncio.sleep(0)
+        assert any("[graphrag hook] test-tag failed" in r.message
+                   for r in caplog.records)

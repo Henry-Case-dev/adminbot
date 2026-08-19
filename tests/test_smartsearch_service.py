@@ -65,3 +65,72 @@ class TestResearch:
         llm.generate = AsyncMock(side_effect=LLMError("llm сдох"))
         with pytest.raises(LLMError):
             await service.research("q")
+
+
+# ── Epic 46 (55.5, T-366-A #17-18) ────────────────────────────────
+
+def _spy_create_task(monkeypatch):
+    spy = []
+    monkeypatch.setattr(
+        "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+    )
+    return spy
+
+
+class TestGraphRagV2Hooks:
+    def _service_with_memory(self):
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="хиты")
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка")
+        memory = MagicMock()
+        memory.memorize_facts = AsyncMock()
+        memory.get_rag_context = AsyncMock(return_value="")
+        return SearchService(aggregator, llm, memory=memory), aggregator, llm, memory
+
+    @pytest.mark.asyncio
+    async def test_memory_none_old_path_no_create_task(self, monkeypatch):
+        """#17: memory=None → create_task НЕ вызван, user-контент как раньше."""
+        spy = _spy_create_task(monkeypatch)
+        service, _, llm = TestResearch._service(self)
+        result = await service.research("найди пруфы")
+        assert result == 'выжимка "да" - суть'
+        assert spy == []
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user == "<query>найди пруфы</query>\n\n<search_results>хиты</search_results>"
+
+    @pytest.mark.asyncio
+    async def test_chat_id_none_old_path_no_create_task(self, monkeypatch):
+        """#17: chat_id=None → create_task НЕ вызван."""
+        spy = _spy_create_task(monkeypatch)
+        service, _, llm, _ = self._service_with_memory()
+        result = await service.research("найди пруфы")
+        assert result == "выжимка"
+        assert spy == []
+
+    @pytest.mark.asyncio
+    async def test_memory_set_create_task_and_raw_memorize(self, monkeypatch):
+        """#18: память задана → create_task вызван; research возвращает ответ
+        (НЕ блокирует); memorize вызван с RAW-результатами поиска (НЕ с
+        финальным LLM-ответом, R46-2)."""
+        spy = _spy_create_task(monkeypatch)
+        service, _, llm, memory = self._service_with_memory()
+        result = await service.research("найди пруфы", chat_id=-100)
+        assert result == "выжимка"
+        assert len(spy) == 1
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        memory.memorize_facts.assert_awaited_once_with(-100, "хиты", "search_fact")
+        memory.get_rag_context.assert_awaited_once_with(-100, "найди пруфы")
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "<search_results>хиты</search_results>" in user
+
+    @pytest.mark.asyncio
+    async def test_rag_context_prefixed_to_user_content(self, monkeypatch):
+        """55.5/55.6: непустой RAG-контекст — ПЕРВОЙ секцией user-контента."""
+        spy = _spy_create_task(monkeypatch)
+        service, _, llm, memory = self._service_with_memory()
+        memory.get_rag_context = AsyncMock(return_value="<context>ctx</context>")
+        await service.research("найди пруфы", chat_id=-100)
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user.startswith("<context>ctx</context>\n\n<query>найди пруфы</query>")

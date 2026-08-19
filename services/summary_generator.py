@@ -19,6 +19,7 @@ from config.settings import settings
 from services.database import row_get
 from services.llm_client import LLMError
 from services.summary_cleanup import cleanup_llm_text
+from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import SYSTEM_PROMPT
 from services.summary_xml import escape_xml_text
 
@@ -106,8 +107,14 @@ class SummaryGenerator:
                     chat_id, exc_info=True,
                 )
                 graph_facts = []
+            if settings.GRAPH_RAG_ENABLED:
+                fire_and_forget(
+                    self.memory.memorize_facts(
+                        chat_id, _build_batch_text(rows, skip_empty=True), "chat_history"),
+                    "summary")
+            rag_context = await self.memory.get_rag_context(chat_id, " ".join(keywords))
             user_content = self._compose_user_content(
-                xml_context, l2_quotes, l3_facts, graph_facts
+                xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
             )
             max_symbols = settings.MAX_SUMMARY_PARTS * 4000 - 200
             # NOTE: {username} must stay literal in the prompt (R11), so we
@@ -220,8 +227,11 @@ class SummaryGenerator:
         l2_quotes: list[str],
         l3_facts: list[str],
         graph_facts: list[str] = [],
+        rag_context: str = "",
     ) -> str:
         parts = []
+        if rag_context:                       # Epic 46 (55.5): RAG-контекст ПЕРВЫМ
+            parts.append(rag_context)
         if graph_facts:                        # Q8: секция ПЕРВАЯ, до <chat_history>
             escaped = [escape_xml_text(line) for line in graph_facts]
             parts.append(

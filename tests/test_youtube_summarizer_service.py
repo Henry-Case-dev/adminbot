@@ -94,3 +94,76 @@ class TestSummarize:
         engine.fetch_transcript = AsyncMock(side_effect=RuntimeError("внезапно"))
         with pytest.raises(RuntimeError):
             await service.summarize(VIDEO_ID)
+
+
+# ── Epic 46 (55.5, T-366-A #17-19) ────────────────────────────────
+
+class TestGraphRagV2Hooks:
+    def _service_with_memory(self):
+        engine = MagicMock()
+        engine.fetch_transcript = AsyncMock(return_value="[00:05] привет")
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка")
+        memory = MagicMock()
+        memory.memorize_facts = AsyncMock()
+        memory.get_rag_context = AsyncMock(return_value="")
+        return YoutubeSummarizerService(engine, llm, memory=memory), engine, llm, memory
+
+    @pytest.mark.asyncio
+    async def test_memory_none_no_create_task(self, monkeypatch):
+        """#17: memory=None → create_task НЕ вызван."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        service, _, _ = _service()
+        result = await service.summarize(VIDEO_ID)
+        assert result == "выжимка"
+        assert spy == []
+
+    @pytest.mark.asyncio
+    async def test_short_transcript_memorized_raw(self, monkeypatch):
+        """#19: transcript ≤ 8000 → memorize сырых субтитров (create_task)."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        service, _, _, memory = self._service_with_memory()
+        result = await service.summarize(VIDEO_ID, chat_id=-100, rag_query="че за видос")
+        assert result == "выжимка"
+        assert len(spy) == 1
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        memory.memorize_facts.assert_awaited_once_with(
+            -100, "[00:05] привет", "youtube_content"
+        )
+        memory.get_rag_context.assert_awaited_once_with(-100, "че за видос")
+
+    @pytest.mark.asyncio
+    async def test_long_transcript_compressed_then_memorized(self):
+        """#19: > 8000 символов → нетоксичная LLM-выжимка, затем memorize
+        сжатого (порог 55.5)."""
+        from services.summary_memory import _MEMORIZE_COMPRESS_PROMPT, _memorize_youtube
+
+        long_text = "слово " * 3000
+        memory = MagicMock()
+        memory.llm = MagicMock()
+        memory.llm.generate = AsyncMock(return_value="сжатая выжимка")
+        memory.memorize_facts = AsyncMock()
+        await _memorize_youtube(memory, -100, long_text)
+        system = memory.llm.generate.await_args.args[0][0]["content"]
+        assert system == _MEMORIZE_COMPRESS_PROMPT
+        memory.memorize_facts.assert_awaited_once_with(
+            -100, "сжатая выжимка", "youtube_content"
+        )
+
+    @pytest.mark.asyncio
+    async def test_compress_failure_does_not_raise(self):
+        """#19: сжатие упало → тихий WARNING, НЕ бросает."""
+        from services.summary_memory import _memorize_youtube
+
+        long_text = "слово " * 3000
+        memory = MagicMock()
+        memory.llm = MagicMock()
+        memory.llm.generate = AsyncMock(side_effect=LLMError("сжатие упало"))
+        await _memorize_youtube(memory, -100, long_text)   # не бросает
+        memory.memorize_facts.assert_not_called()

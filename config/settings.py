@@ -273,7 +273,7 @@ class Settings:
     EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
     LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 60.0)
     LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
-    EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 768)                       # dim vec0; gemini-embedding-001 = 768
+    EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 3072)   # Epic 46 (D177): gemini-embedding-001 = 3072
     # Feature switch: False = routers not registered, бот работает как раньше.
     SUMMARY_ENABLED: bool = _env_bool("SUMMARY_ENABLED", True)
     # L1: окно генерации (часы).
@@ -313,6 +313,16 @@ class Settings:
     # Максимум триплетов, сохраняемых за один extraction-вызов (35.4)
     GRAPH_EXTRACT_MAX_TRIPLETS: int = _env_int("GRAPH_EXTRACT_MAX_TRIPLETS", 50)
 
+    # ── GraphRAG v2 (Epic 46) ─────────────────────────────────────
+    # TTL фактов (search_fact/youtube_content/web_content), дней; отдельно от
+    # FULL_MEMORY_RETENTION_DAYS=30 / ARCHIVE_MEMORY_RETENTION_DAYS=90 (D175).
+    # chat_history-факты — expires_at NULL (вечно).
+    GRAPH_FACT_TTL_DAYS: int = _env_int("GRAPH_FACT_TTL_DAYS", 14)
+    # Гибридный RAG (55.6): top-K фактов в контекст.
+    GRAPH_RAG_FACTS_LIMIT: int = _env_int("GRAPH_RAG_FACTS_LIMIT", 10)
+    # Жёсткий потолок символов XML-контекста RAG (truncate с WARNING).
+    GRAPH_RAG_CONTEXT_MAX_CHARS: int = _env_int("GRAPH_RAG_CONTEXT_MAX_CHARS", 2000)
+
     # ── SmartModule: FactCheck + SmartSearch (Epic 33, D104) ─────
     # Ключи поисковиков. Пусто = уровень каскада отключён (WARNING при старте).
     # Секреты — ТОЛЬКО в .env (R17): не в коде, не в .env.example.
@@ -351,15 +361,21 @@ class Settings:
     CHECKUP_COOLDOWN_SECONDS: float = _env_float_min("CHECKUP_COOLDOWN_SECONDS", 300.0, 0.0)
     # Лимит ОТВЕТА LLM, символы; <100 → дефолт 3000 (WARNING).
     CHECKUP_MAX_SYMBOLS: int = _env_int_min("CHECKUP_MAX_SYMBOLS", 3000, 100)
-    # D169 (Epic 44): BETTERSTACK_TOKEN (Telemetry API token, team-scoped) приоритет;
-    # иначе существующий LOGTAIL_SOURCE_TOKEN (R17 — значение НЕ логируется).
-    CHECKUP_BETTERSTACK_TOKEN: str = _env_str("BETTERSTACK_TOKEN", "") or os.getenv("LOGTAIL_SOURCE_TOKEN", "")
-    # Epic 44: Live Tail Query API v2 (Bearer team-токен; follow-redirects).
-    CHECKUP_BETTERSTACK_URL: str = _env_str("CHECKUP_BETTERSTACK_URL", "https://telemetry.betterstack.com/api/v2/query/live-tail")
-    # ID источников через запятую (Sources API); пусто → облачная ступень пропускается.
-    CHECKUP_BETTERSTACK_SOURCE_IDS: str = _env_str("BETTERSTACK_SOURCE_IDS", "")
-    # Live-tail фильтр (опционально); пусто → фильтр уровней локально (как раньше).
-    CHECKUP_BETTERSTACK_QUERY: str = _env_str("BETTERSTACK_QUERY", "")
+    # ── SmartModule: Checkup Betterstack SQL API (Epic 45, D172/D173) ──
+    # ClickHouse HTTP-коннекшн (R45-1): POST SQL-тела, Basic auth,
+    # FORMAT JSONEachRow (в тексте SQL). Пустые USER/PASSWORD ИЛИ пустой
+    # TABLE при пустом QUERY → ступень пропущена (WARNING) → journalctl.
+    # Хост — полный URL (порт неявный); не секрет, значение в .env необязательно.
+    CHECKUP_BETTERSTACK_SQL_HOST: str = _env_str(
+        "CHECKUP_BETTERSTACK_SQL_HOST", "https://eu-fsn-3-connect.betterstackdata.com"
+    )
+    CHECKUP_BETTERSTACK_SQL_USER: str = _env_str("CHECKUP_BETTERSTACK_SQL_USER", "")
+    # R17: значение НИКОГДА не логируется (только факт configured/not configured).
+    CHECKUP_BETTERSTACK_SQL_PASSWORD: str = _env_str("CHECKUP_BETTERSTACK_SQL_PASSWORD", "")
+    # Префикс сорса логов (t<id>_<source> из карточки коннекшна «Query with»).
+    CHECKUP_BETTERSTACK_SQL_TABLE: str = _env_str("CHECKUP_BETTERSTACK_SQL_TABLE", "")
+    # Полный SQL-оверрайд (если задан — используется ВМЕСТО шаблона 54.3).
+    CHECKUP_BETTERSTACK_SQL_QUERY: str = _env_str("CHECKUP_BETTERSTACK_SQL_QUERY", "")
     CHECKUP_JOURNALCTL_CMD: str = _env_str("CHECKUP_JOURNALCTL_CMD", "journalctl -u admin_bot -n 300 --no-pager")
 
     # ── /info + /edit_info (Epic 43) ────────────────────────────

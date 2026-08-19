@@ -106,7 +106,7 @@ class TestHandler:
         msg = _make_msg(text="найди пруфы", message_id=11)
         result = await search_mod.smartsearch_handler(msg, bot=bot)
         assert result is None
-        service.research.assert_awaited_once_with("пруфы")
+        service.research.assert_awaited_once_with("пруфы", chat_id=CHAT_ID)
         assert bot.send_message.await_args.args[1] == "выжимка сути"
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
@@ -206,7 +206,7 @@ class TestHandler:
         msg = _make_msg(text=None, message_id=11)
         msg.caption = "загугли мем"
         await search_mod.smartsearch_handler(msg, bot=bot)
-        service.research.assert_awaited_once_with("мем")
+        service.research.assert_awaited_once_with("мем", chat_id=CHAT_ID)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
     @pytest.mark.asyncio

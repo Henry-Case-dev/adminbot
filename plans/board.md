@@ -6,6 +6,38 @@
 
 ## 🔧 In Progress
 
+### Epic 45: Betterstack SQL API (Checkup) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.35.0)
+
+> Полный трек — `plans/backlog.md` (Epic 45). Требования R45-1…R45-5, решения D171–D174.
+> Основная ступень CheckupLogsFetcher — SQL API: POST `eu-fsn-3-connect.betterstackdata.com:443`, Basic auth, `Content-type: plain/text`, SQL-тело, детерминированный парсинг **JSONEachRow** (вместо Pretty) → «Timestamp - Level - Message». Креды `CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD` (значения ТОЛЬКО @DevOps в прод .env, бэкап `.env.bak.epic45`; в планы — только имена, R17; в коде не логировать). Фолбек journalctl неприкосновенен; судьба легаси `BETTERSTACK_TOKEN/SOURCE_IDS/QUERY` и Telemetry-ступени Epic 44 — @Architect (Section 54). MCP — запасной вариант, НЕ основной. curl-верификация SQL API на проде — обязательный шаг деплоя. Общий релиз v2.35.0 с Epic 46. Без @Orchestrator.
+
+- [ ] T-351 (@Architect, P0) — Section 54: дизайн SQL API + судьба легаси/Telemetry + каскад ступеней; закрыть открытые вопросы PM 1–6
+- [ ] T-352 (@Builder, P0) — конфиг CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD + .env.example (только имена, R17)
+- [ ] T-353 (@Builder, P0) — fetcher: POST + Basic + plain/text + JSONEachRow; 401/404/таймаут → каскад journalctl (фолбек без изменений)
+- [ ] T-354 (@Builder + @Reviewer, P0) — тесты TestFetcherBetterstack под SQL API + полный прогон 0 регрессий (baseline 1976+ Epic 44) + ревью APPROVED
+- [ ] T-355 (@Builder, P1) — README v2.35.0 + MEMORY
+- [ ] T-356 (@DevOps, P0) — коммит + пуш (код+тесты одним коммитом)
+- [ ] T-357 (@DevOps, P0) — деплой: .env.bak.epic45 + SQL-креды, git pull, restart, **curl-верификация SQL API (обязательный шаг)**, smoke чекап
+
+### Epic 46: GraphRAG-память + диагностика (origin/TTL, Fact Extractor, гибридный RAG, аудит фактчека) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.35.0)
+
+> Полный трек — `plans/backlog.md` (Epic 46). Требования R46-1…R46-8, решения D175–D179; каноны R46-2/R46-4 VERBATIM в backlog (промпт-экстрактор, XML `<context>/<user_gossip>/<bot_knowledge>`, RAG-инструкция).
+> Шаг 0 (диагностика, уже выполнена): БД не повреждена (vec0 float[3072] self-heal, локов 0); первопричины: исторический dim-сдвиг 768→3072 (векторы потеряны, backfill'а нет), L3-архив пуст (ретеншн 30д, чату 4д — сжатие не запускалось), эпизодические 403 /v1/embeddings (решены .env в Epic 44). Миграция nodes/edges: +`origin TEXT` (chat_history|search_fact|youtube_content|web_content) +`expires_at INTEGER`; TTL: chat_history → NULL (вечно), остальные → 14 дней (`GRAPH_FACT_TTL_DAYS`), ленивое исключение из RAG (D175). `memorize_facts(raw_text, source_type)` в SmartModule/memory.py (фактически `services/summary_memory.py`): raw → DeepSeek (канон-промпт R46-2) → JSON-триплеты → embed (`gemini-embedding-001`, dim=3072, механизм НЕ менять) → SQLite origin/expires_at; токсичные ответы бота НЕ сохранять. Хуки fire-and-forget (`asyncio.create_task`, ДО генерации): search_service::research + factcheck_service::check_claim (после aggregator.search()), youtube_summarizer_service::summarize (после fetch_transcript), web_summarizer_service::summarize (после extractor.extract), summary_generator::_run (после get_window_messages). Гибридный RAG: новый entrypoint векторного поиска по запросу юзера для ВСЕХ пайплайнов, XML-канон, escape_xml_text, канон-инструкция во ВСЕ системные промпты (Checkup — @Architect). Фиксы Шага 0: EMBEDDING_DIM дефолт 3072 (или авто), 403-устойчивость + повторная активация vec, backfill из smart_archive_facts, PRAGMA user_version, разделение логов vec vs 403. Аудит фактчека (код НЕ менять) → `plans/FACTCHECK_AUDIT.md`. Общий релиз v2.35.0 с Epic 45. Без @Orchestrator.
+
+- [ ] T-358 (@Architect, P0) — Section 55: дизайн GraphRAG v2 + каноны VERBATIM; закрыть открытые вопросы PM 1–9
+- [ ] T-359 (@Builder, P0) — конфиг: EMBEDDING_DIM (3072/авто), GRAPH_FACT_TTL_DAYS=14 + .env.example
+- [ ] T-360 (@Builder, P0) — миграции: ALTER TABLE origin/expires_at + PRAGMA user_version + entity_type CHECK + скрипт для прод (идемпотентный)
+- [ ] T-361 (@Builder, P0) — memorize_facts (канон-промпт R46-2 VERBATIM, DeepSeek, JSON try/except, embed, origin/expires_at)
+- [ ] T-362 (@Builder, P0) — фиксы Шага 0: EMBEDDING_DIM, 403-ретраи + повторная активация vec, backfill, разделение логов
+- [ ] T-363 (@Builder, P0) — хуки 4 пайплайнов (fire-and-forget, тихий лог Betterstack при падении)
+- [ ] T-364 (@Builder, P0) — гибридный RAG: entrypoint + XML-канон + TTL-фильтр (ленивый WHERE) + escape_xml_text
+- [ ] T-365 (@Builder, P0) — правки ВСЕХ системных промптов + канон-инструкция R46-4 VERBATIM + эталоны (Checkup — по Section 55)
+- [ ] T-366 (@Builder + @Reviewer, P0) — тесты TTL/Extractor (FakeLLM)/миграционные/эталоны + полный прогон 0 регрессий (база 1981) + ревью APPROVED
+- [ ] T-367 (@Builder, P1) — README v2.35.0 + MEMORY
+- [ ] T-368 (@Builder, P1) — аудит фактчека → plans/FACTCHECK_AUDIT.md (код НЕ меняем)
+- [ ] T-369 (@DevOps, P0) — коммит + пуш v2.35.0 (Epic 45+46, код+миграции+тесты одним коммитом)
+- [ ] T-370 (@DevOps, P0) — деплой: git pull → скрипт миграции (на остановленном боте) → restart → journalctl (0 старых ошибок векторной БД)
+
 ### Epic 44: Новый /info-текст + фикс прав удаления + Betterstack Telemetry — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.34.1)
 
 > Полный трек — `plans/backlog.md` (Epic 44). Требования R44-1…R44-3 (канон R44-1 VERBATIM в backlog), решения D166–D170.

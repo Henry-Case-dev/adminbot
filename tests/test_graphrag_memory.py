@@ -1,9 +1,11 @@
-"""Tests for the GraphRAG memory layer (Epic 26, T-201/T-202/T26.2/T26.3, Section 35.4/35.5)."""
+"""Tests for the GraphRAG memory layer (Epic 26/46, T-201/T-202/T26.2/T26.3/
+T-366-A, Sections 35.4/35.5/55.4/55.6)."""
 import asyncio
 import json
 import sqlite3
 import time
 from dataclasses import replace
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -12,9 +14,11 @@ from config.settings import settings
 from services.database import DatabaseService
 from services.llm_client import LLMError
 from services.summary_memory import (
+    FACT_EXTRACT_PROMPT,
     GraphExtractionError,
     MemoryManager,
     _normalize_name,
+    build_rag_context,
     parse_triplets,
 )
 from services.summary_prompts import EXTRACT_PROMPT
@@ -443,3 +447,363 @@ class TestGetGraphFacts:
         await self._graph(db)
         memory = MemoryManager(db, FakeLLM())
         assert await memory.get_graph_facts(-200, [_row(author_name="вася")], []) == []
+
+
+# ── Epic 46 (Sections 55.4/55.6, T-366-A #8-16) ──────────────────
+
+
+class FactsLLM:
+    """FakeLLM для memorize_facts (55.4): канон-JSON ответ на FACT_EXTRACT_PROMPT."""
+
+    def __init__(self, response="[]", fail_embed=False, embed_vectors=None):
+        self.response = response
+        self.fail_embed = fail_embed
+        self.embed_vectors = embed_vectors
+        self.generate_calls = 0
+        self.embed_calls = 0
+        self.last_user = None
+
+    async def generate(self, messages):
+        self.generate_calls += 1
+        assert messages[0]["content"] == FACT_EXTRACT_PROMPT
+        self.last_user = messages[1]["content"]
+        return self.response
+
+    async def embed(self, texts):
+        self.embed_calls += 1
+        if self.fail_embed:
+            raise LLMError("403 эмбеддингов")
+        if self.embed_vectors is not None:
+            return self.embed_vectors
+        return [[0.1] * settings.EMBEDDING_DIM for _ in texts]
+
+
+def _fact(subject="Ozon", predicate="доставляет быстрее чем", obj="Wildberries",
+          context=None):
+    item = {"subject": subject, "predicate": predicate, "object": obj}
+    if context is not None:
+        item["context"] = context
+    return item
+
+
+def _backlog_fact_extract_prompt() -> str:
+    """Канон R46-2 из backlog (якорь «Канон R46-2 — промпт-экстрактор»)."""
+    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    start = next(
+        i for i, line in enumerate(lines)
+        if line.startswith("**Канон R46-2 — промпт-экстрактор")
+    )
+    fence = next(
+        i for i, line in enumerate(lines[start:], start) if line.strip() == "```"
+    )
+    end = next(
+        i for i, line in enumerate(lines[fence + 1:], fence + 1)
+        if line.strip() == "```"
+    )
+    return "\n".join(lines[fence + 1:end])
+
+
+class TestFactExtractPromptCanon:
+    def test_fact_extract_prompt_byte_for_byte(self):
+        """#13: FACT_EXTRACT_PROMPT байт-в-байт == backlog канон R46-2."""
+        assert FACT_EXTRACT_PROMPT == _backlog_fact_extract_prompt()
+
+    def test_no_format_placeholders_in_canon(self):
+        import re
+
+        assert re.findall(r"\{(\w+)\}", FACT_EXTRACT_PROMPT) == []
+
+
+class TestMemorizeFacts:
+    @pytest.mark.asyncio
+    async def test_canon_json_writes_nodes_edges_facts_with_ttl(self, db, monkeypatch):
+        """#8: канон-JSON → nodes(2, type fact) + edge + graph_facts с
+        origin/expires_at; search_fact → now + GRAPH_FACT_TTL_DAYS (fake_time)."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        llm = FactsLLM(response=json.dumps(
+            [_fact(context="из-за большего количества складов")], ensure_ascii=False
+        ))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "Ozon доставляет быстрее Wildberries",
+                                    "search_fact")
+
+        cursor = await db.db.execute(
+            "SELECT entity_name, entity_type, origin, expires_at FROM nodes ORDER BY id"
+        )
+        nodes = await cursor.fetchall()
+        assert [(r["entity_name"], r["entity_type"], r["origin"]) for r in nodes] == [
+            ("ozon", "fact", "search_fact"), ("wildberries", "fact", "search_fact"),
+        ]
+        expected_expiry = now + settings.GRAPH_FACT_TTL_DAYS * 86400
+        assert all(r["expires_at"] == expected_expiry for r in nodes)
+
+        cursor = await db.db.execute(
+            "SELECT relation_type, origin, expires_at FROM edges"
+        )
+        edges = await cursor.fetchall()
+        assert len(edges) == 1
+        assert edges[0]["relation_type"] == "доставляет быстрее чем"
+        assert edges[0]["origin"] == "search_fact"
+        assert edges[0]["expires_at"] == expected_expiry
+
+        cursor = await db.db.execute("SELECT fact, origin, expires_at FROM graph_facts")
+        facts = await cursor.fetchall()
+        assert len(facts) == 1
+        assert facts[0]["fact"] == (
+            "ozon доставляет быстрее чем wildberries (из-за большего количества складов)"
+        )
+        assert facts[0]["origin"] == "search_fact"
+        assert facts[0]["expires_at"] == expected_expiry
+
+    @pytest.mark.asyncio
+    async def test_chat_history_expiry_null(self, db):
+        """#8: chat_history → expires_at NULL (вечно)."""
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="спорил с", obj="петя")],
+            ensure_ascii=False,
+        ))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "вася спорил с петей", "chat_history")
+        cursor = await db.db.execute("SELECT origin, expires_at FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["origin"] == "chat_history"
+        assert row["expires_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_broken_json_quiet_warning_nothing_saved(self, db, caplog):
+        """#9: кривой JSON → тихий WARNING, ничего не сохранено, НЕ бросает."""
+        import logging
+
+        memory = MemoryManager(db, FactsLLM(response="каша, не json"))
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        assert any("not a JSON list" in r.message for r in caplog.records)
+        for table in ("nodes", "edges", "graph_facts"):
+            cursor = await db.db.execute(f"SELECT COUNT(*) AS c FROM {table}")
+            row = await cursor.fetchone()
+            assert row["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_empty_array_and_non_json_object_zero_facts(self, db, caplog):
+        """#10: пустой массив / не-JSON-объект → 0 фактов, не бросает."""
+        import logging
+
+        memory = MemoryManager(db, FactsLLM(response="[]"))
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        memory.llm.response = '{"foo": "bar"}'
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        assert any("not a JSON list" in r.message for r in caplog.records)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_embed_fail_fact_saved_text_only(self, db, monkeypatch, caplog):
+        """#11: embed-фейл → факт сохранён ТЕКСТОМ (graph_facts есть, vec-строк
+        0), WARNING «[graphrag] embed failed». НЕ бросает."""
+        import logging
+
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        llm = FactsLLM(
+            response=json.dumps([_fact(subject="a", predicate="p", obj="b")],
+                                ensure_ascii=False),
+            fail_embed=True,
+        )
+        memory = MemoryManager(db, llm)
+        memory._vec_available = True
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "web_content")
+        assert any("[graphrag] embed failed" in r.message for r in caplog.records)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+
+    @pytest.mark.asyncio
+    async def test_context_caps_selfloop_unknown_source(self, db, caplog):
+        """#12: context → «s p o (context)»; капсы имён / subject==object —
+        пропуск; unknown source_type — skip с WARNING."""
+        import logging
+
+        long_name = "а" * 101
+        llm = FactsLLM(response=json.dumps([
+            _fact(subject="S", predicate="P", obj="O", context="  ctx  "),
+            _fact(subject=long_name, predicate="p", obj="o"),
+            _fact(subject="s", predicate="p", obj="s"),
+            _fact(subject="ok", predicate="p2", obj="ok2"),
+        ], ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "текст", "web_content")
+        cursor = await db.db.execute("SELECT fact FROM graph_facts")
+        facts = [r["fact"] for r in await cursor.fetchall()]
+        assert facts == ["s p o (ctx)", "ok p2 ok2"]
+
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "banana_source")
+        assert any("unknown source_type" in r.message for r in caplog.records)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 2
+
+    @pytest.mark.asyncio
+    async def test_disabled_no_llm_call(self, db):
+        """GRAPH_RAG_ENABLED=False → memorize_facts — no-op (0 LLM-вызовов)."""
+        llm = FactsLLM(response="[]")
+        memory = MemoryManager(db, llm)
+        mod = replace(settings, GRAPH_RAG_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        assert llm.generate_calls == 0
+
+    @pytest.mark.asyncio
+    async def test_extract_uses_tail_max_chars(self, db):
+        """Хвост ≤ _FACT_EXTRACT_MAX_CHARS уходит экстрактору."""
+        long_text = "слово " * 10_000
+        llm = FactsLLM(response="[]")
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, long_text, "web_content")
+        assert len(llm.last_user) <= 8000
+        assert llm.last_user.endswith("слово")
+
+
+class TestBuildRagContext:
+    def test_canon_structure_byte_for_byte(self):
+        """#14: канон 55.6 — два блока, 2-пробельный отступ."""
+        facts = [
+            ("chat_history", "вася спорил с петей"),
+            ("search_fact", "Ozon доставляет быстрее чем Wildberries"),
+        ]
+        assert build_rag_context(facts) == (
+            "<context>\n"
+            "  <user_gossip>вася спорил с петей</user_gossip>\n"
+            "  <bot_knowledge>[Из твоего прошлого поиска]: Ozon доставляет быстрее чем Wildberries</bot_knowledge>\n"
+            "</context>"
+        )
+
+    def test_all_canon_prefixes(self):
+        facts = [
+            ("search_fact", "a"),
+            ("youtube_content", "b"),
+            ("web_content", "c"),
+        ]
+        ctx = build_rag_context(facts)
+        assert "[Из твоего прошлого поиска]: a" in ctx
+        assert "[Из видео, которое кидали ранее]: b" in ctx
+        assert "[Из статьи]: c" in ctx
+
+    def test_unknown_origin_without_prefix(self):
+        ctx = build_rag_context([("alien_origin", "x")])
+        assert "  <bot_knowledge>x</bot_knowledge>" in ctx
+        assert "  <user_gossip></user_gossip>" in ctx
+
+    def test_empty_facts_returns_empty_string(self):
+        assert build_rag_context([]) == ""
+
+    def test_xml_escape_applied(self):
+        ctx = build_rag_context([("chat_history", "a < b & c")])
+        assert "a &lt; b &amp; c" in ctx
+        assert "< b" not in ctx
+
+    def test_empty_gossip_block_kept(self):
+        ctx = build_rag_context([("search_fact", "a")])
+        assert "  <user_gossip></user_gossip>" in ctx
+
+
+class TestGetRagContext:
+    @pytest.mark.asyncio
+    async def test_ttl_expired_not_in_context_fts_path(self, db, monkeypatch):
+        """#15: ленивый TTL — истёкший факт не попадает в контекст (FTS-путь)."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        await db.insert_graph_fact(-100, "озон быстрее чем вб", "search_fact", now + 100)
+        await db.insert_graph_fact(-100, "озон древний факт", "search_fact", now - 100)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "озон")
+        assert "озон быстрее чем вб" in ctx
+        assert "древний" not in ctx
+
+    @pytest.mark.asyncio
+    async def test_knn_path_ttl_expired_excluded(self, db, monkeypatch):
+        """#15: KNN-путь — факт с истёкшим expires_at НЕ в контексте."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        memory = MemoryManager(db, FactsLLM())
+        ok = await memory.initialize()
+        if not ok:
+            pytest.skip("sqlite-vec extension could not be loaded")
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        f1 = await db.insert_graph_fact(-100, "озон быстрее чем вб", "search_fact",
+                                        now + 100)
+        f2 = await db.insert_graph_fact(-100, "озон устаревший факт", "search_fact",
+                                        now - 100)
+        await memory._save_graph_fact_embedding(
+            f1, -100, "озон быстрее чем вб", "search_fact", now + 100)
+        await memory._save_graph_fact_embedding(
+            f2, -100, "озон устаревший факт", "search_fact", now - 100)
+        ctx = await memory.get_rag_context(-100, "озон")
+        assert "озон быстрее чем вб" in ctx
+        assert "устаревший" not in ctx
+
+    @pytest.mark.asyncio
+    async def test_vec_off_uses_fts(self, db):
+        """#16: vec выключен → FTS-фолбек."""
+        await db.insert_graph_fact(-100, "ракеты обсуждались вчера", "web_content",
+                                   None)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "ракеты")
+        assert "[Из статьи]: ракеты обсуждались вчера" in ctx
+
+    @pytest.mark.asyncio
+    async def test_embed_fail_uses_fts(self, db, monkeypatch):
+        """#16: embed упал (vec включён) → FTS-фолбек."""
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        await db.insert_graph_fact(-100, "дроны летали низко", "youtube_content", None)
+        memory = MemoryManager(db, FactsLLM(fail_embed=True))
+        memory._vec_available = True
+        ctx = await memory.get_rag_context(-100, "дроны")
+        assert "[Из видео, которое кидали ранее]: дроны летали низко" in ctx
+
+    @pytest.mark.asyncio
+    async def test_all_paths_empty_returns_empty_string(self, db):
+        memory = MemoryManager(db, FactsLLM())
+        assert await memory.get_rag_context(-100, "нет такого факта") == ""
+
+    @pytest.mark.asyncio
+    async def test_never_raises_on_broken_db(self, db):
+        """#16: НИКОГДА не бросает (любая ошибка → "")."""
+        class BrokenDB:
+            async def search_graph_facts_fts(self, *args, **kwargs):
+                raise sqlite3.OperationalError("бд сломалась")
+
+        memory = MemoryManager(BrokenDB(), FactsLLM())
+        ctx = await memory.get_rag_context(-100, "запрос")
+        assert ctx == ""
+
+    @pytest.mark.asyncio
+    async def test_disabled_returns_empty(self, db):
+        memory = MemoryManager(db, FactsLLM())
+        mod = replace(settings, GRAPH_RAG_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            assert await memory.get_rag_context(-100, "запрос") == ""
+
+    @pytest.mark.asyncio
+    async def test_limits_facts_and_chars(self, db, monkeypatch):
+        """#14/55.6: лимит 10 фактов; потолок символов контекста."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        for i in range(15):
+            await db.insert_graph_fact(-100, f"тема токен {i}", "search_fact", now + 100)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "тема")
+        assert ctx.count("[Из твоего прошлого поиска]:") <= 10
+        # потолок: длинные факты обрезаются до GRAPH_RAG_CONTEXT_MAX_CHARS
+        for i in range(10):
+            await db.insert_graph_fact(
+                -100, f"тема токен {i} " + "х" * 200, "web_content", now + 100)
+        ctx2 = await memory.get_rag_context(-100, "тема")
+        assert len(ctx2) <= settings.GRAPH_RAG_CONTEXT_MAX_CHARS

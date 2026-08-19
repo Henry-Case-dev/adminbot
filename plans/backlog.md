@@ -4785,3 +4785,364 @@ llm откинулась, сгенерировать не вышло
 
 **Статус: Epic 44 — Шаг 1 (PM) ✅ (2026-08-20): требования R44-1…R44-3 (канон R44-1 verbatim выше), решения D166–D170 (Orchestrator D-1…D-5), задачи T-343…T-350 (target v2.34.1). Токены НЕ внесены — только имена env (R17). Передача @Architect (T-343 Section 53 + веб-ресёрч эндпоинта — открытые вопросы 1–6). Без @Orchestrator.**
 **Date: 2026-08-20**
+
+---
+
+## Epic 45: Betterstack SQL API (Checkup) — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, target v2.35.0)
+
+> **Цель:** Переключить `CheckupLogsFetcher` с мёртвого live-tail REST на SQL API.
+> Пользователь создал SQL/ClickHouse-коннекшн: Host `eu-fsn-3-connect.betterstackdata.com:443`,
+> username/password (значения — ТОЛЬКО @DevOps, прод .env, R17). Основной путь — POST SQL-тела
+> с Basic auth и детерминированным парсингом (JSONEachRow вместо Pretty). Фолбек journalctl
+> НЕ трогать. MCP в интеграциях — запасной вариант (НЕ основной путь).
+> **Исполнители:** @Architect (T-351, Section 54), @Builder (T-352…T-355), @Reviewer (T-354-B),
+> @DevOps (T-356/T-357 — коммит/деплой + curl-верификация SQL API). Без @Orchestrator.
+> **Target:** v2.35.0 (общий релиз с Epic 46). **Baseline:** 1976+ тестов (по факту Epic 44).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R45-1** | **SQL API — основная ступень CheckupLogsFetcher:** POST `https://eu-fsn-3-connect.betterstackdata.com` (порт 443), Basic auth (curl-эквивалент `curl -u user:pass`), заголовок `Content-type: plain/text`, SQL-тело в теле запроса (SQL: `dt`, `raw` из `remote(..._logs) UNION ALL s3Cluster(primary, ...) WHERE _row_type = 1`), детерминированный парсинг ответа — **JSONEachRow вместо Pretty** → схема «Timestamp - Level - Message». |
+| **R45-2** | **Фолбек journalctl НЕ трогать.** Каскад: SQL API → journalctl. Судьба Telemetry-ступени Epic 44 (`BETTERSTACK_TOKEN`, GET `/api/v2/events`) в каскаде — решает @Architect (Section 54). |
+| **R45-3** | **Креды — только имена env (R17):** `CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD`; значения пишет ТОЛЬКО @DevOps в прод .env (бэкап `.env.bak.epic45`); в коде значения НЕ логировать; в планы НЕ вносить. |
+| **R45-4** | **curl-верификация SQL API на проде обязательна** (@DevOps при деплое, T-357): 200 → схема зафиксирована; 401/404 → честный отчёт, каскад живёт на journalctl. |
+| **R45-5** | **Легаси-конфиг:** `BETTERSTACK_TOKEN`/`SOURCE_IDS`/`QUERY` — удалить или оставить — решает @Architect (Section 54). MCP упомянут пользователем как запасной вариант — НЕ основной путь. |
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*)
+
+| # | Решение |
+|---|---------|
+| **D171** | **Нумерация:** Epic 45 + Epic 46, target **v2.35.0** (общий релиз), задачи **T-351+**; решения продолжают D170. |
+| **D172** | **SQL-креды (R45-3):** `CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD` (env); прод .env пишет @DevOps (бэкап `.env.bak.epic45`); в коде значения НЕ логировать. |
+| **D173** | **Фетчер SQL API (R45-1):** POST, Basic auth, `Content-type: plain/text`, SQL-тело, детерминированный парсинг **JSONEachRow** (вместо Pretty); легаси `BETTERSTACK_TOKEN/SOURCE_IDS/QUERY` — решить @Architect (удалить или оставить ступенью); MCP — запасной вариант, НЕ основной путь; фолбек journalctl неприкосновенен. |
+| **D174** | **curl-верификация SQL API на проде обязательна** (@DevOps, T-357): 200 → схема зафиксирована; фейл → честный отчёт, каскад на journalctl. |
+
+### Открытые вопросы для @Architect (закрыть в Section 54)
+
+1. **Дизайн SQL API:** точный URL (https://eu-fsn-3-connect.betterstackdata.com — с портом 443 в HOST-env или отдельно), auth-заголовок (Basic), как задаётся SQL-тело (env `CHECKUP_BETTERSTACK_SQL_QUERY` vs хардкод-дефолт в Section 54), параметр формата (JSONEachRow — query-param vs в SQL-тексте).
+2. **Парсинг JSONEachRow** → «Timestamp - Level - Message»: схема строки (поля `dt`/`raw`), как из `raw` извлечь уровень/сообщение, сортировка/лимит за 24ч.
+3. **Судьба легаси:** `BETTERSTACK_TOKEN`/`SOURCE_IDS`/`QUERY` — удалить или оставить; Telemetry-ступень Epic 44 — остаётся в каскаде (SQL → Telemetry → journalctl) или SQL её заменяет.
+4. **Каскад ступеней Checkup:** SQL API → journalctl (минимум) — полный порядок ступеней и их фолбеки.
+5. **MCP** — запасной вариант: нужна ли какая-то подготовка/доки (НЕ основной путь).
+6. **Тесты:** `test_checkup_logs_fetcher.py` (`TestFetcherBetterstack`) — переписать под SQL API (Basic/POST/JSONEachRow/фолбек-кейсы).
+
+### Задачи
+
+### T-351 (@Architect) — Дизайн Section 54: SQL API ступень Checkup (R45-1…R45-5, D171–D174)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 1d.
+
+- [ ] T-351-A: Дизайн в `plans/ARCHITECTURE.md` (Section 54): URL/Basic auth/`Content-type: plain/text`/SQL-тело/JSONEachRow, парсер → «Timestamp - Level - Message», каскад ступеней (SQL → journalctl; Telemetry Epic 44 — решить), судьба легаси `BETTERSTACK_TOKEN/SOURCE_IDS/QUERY`, MCP — запасной вариант; тест-план, риски
+- [ ] T-351-B: Self-review + PM-аппрув; закрыть открытые вопросы 1–6; T-352…T-355 → READY
+
+**DoD:** Section 54 в ARCHITECTURE.md; вопросы 1–6 закрыты; PM-аппрув.
+
+### T-352 (@Builder) — Конфиг SQL-кредов (R45-3, D172)
+
+**Приоритет:** P0. **Зависимости:** T-351. **Оценка:** 0.25d.
+
+- [ ] T-352-A: `config/settings.py` + `.env.example`: `CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD` (в .env.example — только имена, R17); дефолты безопасные (пустые → ступень отключена, каскад на journalctl)
+- [ ] T-352-B: в коде значения кредов НЕ логировать (только факт «SQL API configured/not configured»)
+
+**DoD:** конфиг в settings + .env.example (имена, без значений).
+
+### T-353 (@Builder) — Fetcher: SQL API ступень (R45-1/R45-2, D173)
+
+**Приоритет:** P0. **Зависимости:** T-351/T-352. **Оценка:** 0.5d.
+
+- [ ] T-353-A: `services/system_logs_fetcher.py`: POST `CHECKUP_BETTERSTACK_SQL_HOST`, Basic auth (`CHECKUP_BETTERSTACK_SQL_USER/PASSWORD`), `Content-type: plain/text`, SQL-тело (по Section 54), парсинг JSONEachRow → «Timestamp - Level - Message»
+- [ ] T-353-B: 401/404/RequestError/таймаут/пустые креды → каскад на journalctl БЕЗ изменений фолбека (пул `CHECKUP_FALLBACK_PHRASES` + приписка — Epic 42 не трогаем); судьба Telemetry-ступени — по Section 54 (вопрос 3/4)
+
+**DoD:** облачная ступень SQL API работает по Section 54; фолбек живой.
+
+### T-354 (@Builder + @Reviewer) — Тесты + полный прогон + ревью (R45-1…R45-4, D174)
+
+**Приоритет:** P0. **Зависимости:** T-352/T-353. **Оценка:** 1d.
+
+- [ ] T-354-A (@Builder): переписать `TestFetcherBetterstack`: Basic auth-заголовок, POST-тело SQL, парсер JSONEachRow (валидный/кривой JSON), кейсы 401/404/таймаут/пустые креды → фолбек journalctl; судьба легаси-тестов — по Section 54
+- [ ] T-354-B (@Reviewer): ревью + личный прогон; APPROVED; полный pytest — **0 регрессий (baseline 1976+ по факту Epic 44)**; `git diff --check` чист; секретов нет (только имена env)
+
+**DoD:** APPROVED; полный прогон зелёный.
+
+### T-355 (@Builder) — Документация
+
+**Приоритет:** P1. **Зависимости:** T-354-B. **Оценка:** 0.25d.
+
+- [ ] T-355-A: README v2.35.0 (SQL API Checkup) + `plans/MEMORY.md` (Epic 45, v2.35.0)
+
+**DoD:** доки синхронизированы.
+
+### T-356 (@DevOps) — Коммит + пуш v2.35.0 (Epic 45)
+
+**Приоритет:** P0. **Зависимости:** T-354-B. **Оценка:** 0.25d.
+
+- [ ] T-356-A: Коммит на русском (conventional: `feat(checkup): Epic 45 — Betterstack SQL API вместо live-tail REST (v2.35.0)`); код+тесты одним коммитом (D123-стиль); пуш в origin/master; `.env` НЕ коммитим
+
+**DoD:** коммит в master, пуш в origin.
+
+### T-357 (@DevOps) — Деплой v2.35.0: SQL-креды + curl-верификация (R45-3/R45-4, D172/D174)
+
+**Приоритет:** P0. **Зависимости:** T-356. **Оценка:** 0.5d.
+
+- [ ] T-357-A: ssh nik@198.46.175.136 → бэкап `.env` → `.env.bak.epic45`; `CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD=<значения от пользователя>` в прод .env (значения НЕ в планы, R17)
+- [ ] T-357-B: git pull --ff-only; restart admin_bot → active (running), новый PID; `journalctl -u admin_bot -n 50` (0 traceback)
+- [ ] T-357-C: **Эмпирическая curl-верификация SQL API** (обязательный шаг): `curl -u user:pass -H 'Content-type: plain/text' -X POST 'https://eu-fsn-3-connect.betterstackdata.com?output_format_pretty_row_numbers=0' -d "SELECT ... FORMAT JSONEachRow"` → 200 → схема зафиксирована; 401/404 → честный отчёт, каскад живёт на journalctl
+- [ ] T-357-D: Smoke: чекап → реплай (SQL API или честный фолбек)
+
+**DoD:** прод v2.35.0 (часть 1), 0 traceback, вердикт по SQL API зафиксирован.
+
+### Риски (Epic 45)
+
+1. **SQL API не заработает (401/404/таймаут)** — каскад остаётся на journalctl, честный отчёт (D174, T-357-C); НЕ блокер деплоя.
+2. **Судьба легаси Telemetry Epic 44** — решается в Section 54 (вопрос 3/4); не удалять до решения Architect.
+3. **Парсинг JSONEachRow** — схема строки (`dt`/`raw`) фиксируется в Section 54 + тесты (вопрос 2).
+
+### Файлы (планируемые)
+
+`services/system_logs_fetcher.py`, `config/settings.py` + `.env.example`; тесты `tests/test_checkup_logs_fetcher.py`; `README.md`, `plans/ARCHITECTURE.md` (Section 54), `plans/MEMORY.md`.
+
+**НЕ трогать:** journalctl-фолбек (R45-2), Checkup-пулы (Epic 42), LLM-промпты.
+
+---
+
+## Epic 46: GraphRAG-память + диагностика (origin/TTL, Fact Extractor, гибридный RAG) — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, target v2.35.0)
+
+> **Цель:** Расширить GraphRAG-память (Epic 26): origin/TTL-колонки в nodes/edges,
+> Fact Extractor `memorize_facts()` с LLM-промптом-экстрактором, фоновые хуки 4 пайплайнов
+> (SmartSearch/FactCheck, YouTubeSummarizer, WebSummarizer, Summary), гибридный RAG
+> (векторный поиск + XML-контекст `<user_gossip>/<bot_knowledge>` во ВСЕХ системных промптах),
+> фиксы диагностики Шага 0 (EMBEDDING_DIM, 403-устойчивость, backfill, PRAGMA user_version)
+> и текстовый АУДИТ фактчека (код НЕ менять).
+> **Исполнители:** @Architect (T-358, Section 55), @Builder (T-359…T-368), @Reviewer (T-366-B),
+> @DevOps (T-369/T-370 — коммит/деплой + скрипт миграции). Без @Orchestrator.
+> **Target:** v2.35.0 (общий релиз с Epic 45). **Baseline:** база 1981 тест (Шаг 0).
+
+### Факты Шага 0 (диагностика @Memory/@DevOps — уже выполнена)
+
+- БД НЕ повреждена (integrity ok; vec0 float[3072] пересоздана self-heal'ом; локов 0). Первопричины:
+  (1) исторический dim-сдвиг 768→3072 (самоисцелено, векторы потеряны — backfill'а нет),
+  (2) L3-архив пуст (ретеншн 30 дней, чату 4 дня — сжатие не запускалось),
+  (3) эпизодические 403 на /v1/embeddings (решены обновлением .env в Epic 44).
+- БД: 11 таблиц (nodes/edges есть; `entity_type CHECK ('user','topic','event')` — для фактов может не хватить);
+  vec0 лениво в `MemoryManager.initialize()`; user_version НЕТ; WAL есть, busy_timeout НЕТ
+  («database is locked» не обрабатывается; на проде локов 0); self-heal dim-mismatch уже есть
+  (DROP vec-таблицы, факты сохраняются).
+- Embed: `LLMClient.embed()` → POST `{LLM_BASE_URL}/embeddings`, модель `gemini-embedding-001`
+  через apinet.cloud, реальный dim=3072 vs `EMBEDDING_DIM=768` (дефолт settings).
+  «gemini-embedding» из ТЗ уже есть — механизм менять НЕ нужно.
+- TTL существующий: `FULL_MEMORY_RETENTION_DAYS=30`, `ARCHIVE_MEMORY_RETENTION_DAYS=90`.
+  Новый 14-дневный TTL для фактов — отдельный параметр.
+- Точки хуков (файл:строка): `search_service.py::research()` после `aggregator.search()` до generate;
+  `factcheck_service.py::check_claim()` аналогично; `youtube_summarizer_service.py::summarize()`
+  после fetch_transcript до generate; `web_summarizer_service.py::summarize()` после
+  `extractor.extract` до generate; `summary_generator.py::_run()` после `get_window_messages`.
+- Промпты (модификация): `summary_prompts.py` (SYSTEM_PROMPT, COMPRESS_PROMPT, EXTRACT_PROMPT),
+  `search_prompts.py`, `factcheck_prompts.py`, `youtube_prompts.py`, `web_prompts.py`,
+  `checkup_prompts.py` (решить). Тесты байт-в-байт потребуют обновления эталонов.
+- Тесты-прецеденты: `test_graphrag_database.py` (миграционные), `test_graphrag_memory.py` (FakeLLM),
+  `test_summary_memory.py` (FakeLLM embed, KNN→FTS5, dim-mismatch), `test_media_group_buffer.py` (TTL fake_time).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R46-1** | **Миграция nodes/edges:** +`origin TEXT` (chat_history\|search_fact\|youtube_content\|web_content), +`expires_at INTEGER` (UNIX ts). TTL: chat_history → NULL (вечно); search_fact/youtube_content/web_content → 14 дней, после — исключаются из RAG (ленивое WHERE или фоновый job — D175). |
+| **R46-2** | **Fact Extractor:** `memorize_facts(raw_text: str, source_type: str)` в SmartModule/memory.py (фактически `services/summary_memory.py` — уточнить в Section 55): raw_text → LLM (DeepSeek) с канон-промптом-экстрактором (VERBATIM ниже) → JSON-триплеты → векторизация (текущий embed: `LLMClient.embed()` → `gemini-embedding-001` через apinet.cloud, реальный dim=3072) → SQLite с origin/expires_at. **ЗАПРЕЩЕНО сохранять токсичные ответы бота — только сырая фактура.** |
+| **R46-3** | **Хуки (фоновые `asyncio.create_task`, ДО генерации ответа, не замедлять чат):** SmartSearch & FactCheck — raw-текст SearchAggregator (после `aggregator.search()`, ДО `llm.generate`), origin=search_fact; YouTubeSummarizer — склеенные субтитры (или сжатая нетоксичная выжимка, если огромные), origin=youtube_content; WebSummarizer — чистый Markdown Trafilatura, origin=web_content; Summary — анализ чата (частично есть), origin=chat_history. |
+| **R46-4** | **Гибридный RAG:** перед генерацией любого ответа — векторный поиск по графу по запросу юзера; факты в два изолированных XML-блока (КАНОН VERBATIM ниже) — подмешиваются в системный промпт/начало контекста. Модификация ВСЕХ системных промптов (Summary/Search/FactCheck/YouTube/Web; CHECKUP — решить Architect): добавить КАНОН-инструкцию (VERBATIM ниже). |
+| **R46-5** | **Надёжность:** fire-and-forget; падение экстрактора/кривой JSON → тихий лог в Betterstack, чат не прерывается; юнит-тесты TTL (факты >14 дней не попадают в bot_knowledge), тесты Fact Extractor с моками LLM, 0 регрессий (база 1981). |
+| **R46-6** | **АУДИТ фактчека (код НЕ менять):** текстовый отчёт простыми словами: гарантирован ли выход в сеть; рекомендации (промпт, скорость, кэширование повторных проверок, query expansion). Фактика Шага 0: выход в сеть ГАРАНТИРОВАН структурно (`check_claim()` первым шагом зовёт `aggregator.search()`, LLM только при успехе, все 3 уровня упали → `AllSearchEnginesFailedException` → пул ошибок; каскад Tavily→Exa→DDG, DDG всегда есть). Отчёт → `plans/FACTCHECK_AUDIT.md` (D179). |
+| **R46-7** | **Деплой:** коммит (+миграции БД) → SSH git pull → запуск скрипта миграции (ALTER TABLE ADD COLUMN origin/expires_at; расширение CHECK entity_type при необходимости; PRAGMA user_version) → systemctl restart admin_bot → journalctl: отсутствие старых ошибок векторной БД. |
+| **R46-8** | **Фиксы Шага 0 (кодом):** `EMBEDDING_DIM` дефолт 768→3072 (или автоопределение — D177); устойчивость к 403 (ретраи/повторная активация vec после восстановления API — сейчас один неудачный probe навсегда выключает вектора); backfill re-embedding фактов из smart_archive_facts; разделение логов «sqlite-vec недоступен» vs «probe embed failed (403)»; PRAGMA user_version для миграций. |
+
+**Канон R46-2 — промпт-экстрактор (VERBATIM, байт-в-байт):**
+
+```
+СИСТЕМНАЯ РОЛЬ:
+Ты — безэмоциональный архивариус (ETL-процессор). Твоя задача: извлечь сухие, проверяемые факты из предоставленного текста и представить их в виде графовых триплетов (Субъект -> Предикат -> Объект).
+- Игнорируй любые эмоции, шутки, оскорбления и личности авторов запроса.
+- Извлекай только объективную информацию (суть статьи, результаты поиска, тезисы видео).
+- Если текст содержит техническую или справочную инфу — сохрани её максимально точно.
+
+ВЫВОД:
+Верни строго JSON со списком фактов. Пример: [{"subject": "Ozon", "predicate": "доставляет быстрее чем", "object": "Wildberries", "context": "из-за большего количества складов"}]
+```
+
+**Канон R46-4 — XML-шаблон RAG-контекста (VERBATIM, байт-в-байт; escape_xml_text обязателен):**
+
+```
+<context>
+  <user_gossip>факты origin=chat_history</user_gossip>
+  <bot_knowledge>факты search_fact/youtube_content/web_content с префиксами «[Из твоего прошлого поиска]:», «[Из видео, которое кидали ранее]:» и т.п.</bot_knowledge>
+</context>
+```
+
+**Канон R46-4 — инструкция во ВСЕ системные промпты (VERBATIM, байт-в-байт):**
+
+> «Если в блоке <bot_knowledge> есть информация по текущей теме, используй её, чтобы унизить оппонента своими знаниями. Дай понять, что ты уже проверял эту инфу ранее или смотрел ролик на эту тему, и тебе не нужно повторять дважды.»
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*)
+
+| # | Решение |
+|---|---------|
+| **D175** | **TTL (R46-1):** ленивое исключение в RAG-выборке (`WHERE expires_at IS NULL OR expires_at > now`) + опциональный фоновый purge (решит Architect; прецедент SummaryScheduler). 14 дней для search_fact/youtube_content/web_content; chat_history → NULL (вечно). Новый параметр `GRAPH_FACT_TTL_DAYS` — отдельно от `FULL_MEMORY_RETENTION_DAYS=30`/`ARCHIVE_MEMORY_RETENTION_DAYS=90`. |
+| **D176** | **Гибридный RAG (R46-4):** новый entrypoint векторного поиска по пользовательскому запросу для ВСЕХ пайплайнов; формат `<context>`/`<user_gossip>`/`<bot_knowledge>` по канону ТЗ; `escape_xml_text` обязателен; канон-инструкция в промпты — дословно. |
+| **D177** | **EMBEDDING_DIM (R46-8):** дефолт 3072 (или автоопределение с кэшем — решит Architect); устойчивость к 403 эмбеддингов (ретраи/повторная активация vec после восстановления API) и backfill re-embedding из smart_archive_facts — включить в Epic 46. |
+| **D178** | **Миграции (R46-1/R46-7):** PRAGMA user_version + ALTER TABLE ADD COLUMN origin/expires_at; `entity_type CHECK` — расширить или не ограничивать для фактов (решит Architect). Скрипт миграции для прод — @Builder (T-360), запуск — @DevOps (T-370). |
+| **D179** | **Аудит фактчека (R46-6):** @Builder готовит текстовый отчёт (без изменения кода) → сохранить в `plans/FACTCHECK_AUDIT.md` (T-368) и включить в финальный отчёт. |
+
+### Открытые вопросы для @Architect (закрыть в Section 55)
+
+1. **EMBEDDING_DIM:** дефолт 3072 или автоопределение (probe при инициализации + кэш); судьба self-heal dim-mismatch (остаётся как safety net?).
+2. **403-устойчивость:** схема ретраев (число, backoff), механизм «повторной активации vec» после восстановления API (когда перепроверять; прецедент — ленивая инициализация MemoryManager).
+3. **Backfill:** схема re-embedding фактов из smart_archive_facts (триггер, батчи, лимиты, идемпотентность).
+4. **entity_type CHECK:** расширить ('user','topic','event' + ?) или факты в nodes без CHECK-ограничения — выбор и SQL миграции.
+5. **TTL:** фоновый purge нужен или только ленивое WHERE (D175); прецедент SummaryScheduler (APScheduler).
+6. **CHECKUP промпт:** модифицировать или нет (канон-инструкция R46-4); тест-эталон `checkup_prompts.py`.
+7. **RAG-выборка:** сколько фактов (лимит), дедуп, порог схожести; точный порядок XML-блоков и инъекция (системный промпт vs начало контекста); экранирование (escape_xml_text).
+8. **Хуки YouTube:** порог «огромных субтитров» и кто сжимает (LLM-выжимка ДО extraction — какой промпт/лимит).
+9. **Расположение memory.py:** `memorize_facts` в `services/summary_memory.py` (фактическая память SmartModule) — подтвердить точку; тест-эталоны промптов (байт-в-байт слайсы — номера строк backlog).
+
+### Задачи
+
+### T-358 (@Architect) — Дизайн Section 55: GraphRAG v2 (R46-1…R46-8, D175–D179)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 1.5d.
+
+- [ ] T-358-A: Дизайн в `plans/ARCHITECTURE.md` (Section 55): миграции nodes/edges (origin/expires_at, PRAGMA user_version, entity_type CHECK), TTL (ленивый WHERE + purge?), `memorize_facts` (канон-промпт R46-2, JSON try/except, embed dim=3072, запрет токсичных ответов), хуки 4 пайплайнов (fire-and-forget, тихий лог), гибридный RAG (entrypoint, XML-канон R46-4, escape_xml_text, канон-инструкция в промпты — Checkup решить), EMBEDDING_DIM/403/backfill/разделение логов, тест-план, риски
+- [ ] T-358-B: Self-review + PM-аппрув; закрыть открытые вопросы 1–9; T-359…T-368 → READY
+
+**DoD:** Section 55 в ARCHITECTURE.md; каноны зафиксированы дословно; вопросы 1–9 закрыты; PM-аппрув.
+
+### T-359 (@Builder) — Конфиг GraphRAG v2 (R46-1/R46-8, D175/D177)
+
+**Приоритет:** P0. **Зависимости:** T-358. **Оценка:** 0.25d.
+
+- [ ] T-359-A: `config/settings.py` + `.env.example`: `EMBEDDING_DIM` дефолт 3072 (или автоопределение — по Section 55), `GRAPH_FACT_TTL_DAYS=14` (отдельно от ретеншн 30/90), параметры RAG-лимита/backfill по Section 55
+
+**DoD:** конфиг в settings + .env.example.
+
+### T-360 (@Builder) — Миграции БД + скрипт для прод (R46-1/R46-7, D178)
+
+**Приоритет:** P0. **Зависимости:** T-358. **Оценка:** 0.5d.
+
+- [ ] T-360-A: `services/database.py`: ALTER TABLE nodes/edges ADD COLUMN `origin TEXT` + `expires_at INTEGER`; entity_type CHECK — по Section 55 (вопрос 4); PRAGMA user_version (схема версий — Section 55)
+- [ ] T-360-B: скрипт миграции для прод (выполняется ДО restart: ALTER TABLE…, CHECK, PRAGMA user_version; идемпотентный)
+
+**DoD:** миграции в _SCHEMA_SQL + отдельный скрипт; user_version проставлен.
+
+### T-361 (@Builder) — memorize_facts + канон-промпт (R46-2, D175)
+
+**Приоритет:** P0. **Зависимости:** T-358/T-360. **Оценка:** 1d.
+
+- [ ] T-361-A: `services/summary_memory.py` (точка — по Section 55, вопрос 9): `memorize_facts(raw_text, source_type)` — канон-промпт R46-2 БАЙТ-В-БАЙТ, LLM DeepSeek, JSON-триплеты try/except (кривой JSON → тихий лог), векторизация через существующий `LLMClient.embed()` (gemini-embedding-001, dim=3072), запись nodes/edges с origin/expires_at (chat_history → NULL; остальные → now + GRAPH_FACT_TTL_DAYS)
+- [ ] T-361-B: ЗАПРЕЩЕНО сохранять токсичные ответы бота — только сырая фактура (raw-текст источников)
+
+**DoD:** memorize_facts работает по Section 55; байт-в-байт канона подтверждён тестом (T-366).
+
+### T-362 (@Builder) — Фиксы Шага 0: EMBEDDING_DIM/403/backfill/логи (R46-8, D177)
+
+**Приоритет:** P0. **Зависимости:** T-358/T-359. **Оценка:** 0.5d.
+
+- [ ] T-362-A: EMBEDDING_DIM 768→3072 (или автоопределение — Section 55)
+- [ ] T-362-B: 403-устойчивость: ретраи + повторная активация vec после восстановления API (один неудачный probe НЕ выключает вектора навсегда)
+- [ ] T-362-C: backfill re-embedding фактов из smart_archive_facts (схема — Section 55, вопрос 3)
+- [ ] T-362-D: разделение логов «sqlite-vec недоступен» vs «probe embed failed (403)»
+
+**DoD:** вектора переживают 403 и восстанавливаются; backfill работает; логи разведены.
+
+### T-363 (@Builder) — Хуки 4 пайплайнов (R46-3)
+
+**Приоритет:** P0. **Зависимости:** T-358/T-361. **Оценка:** 1d.
+
+- [ ] T-363-A: `search_service.py::research()` + `factcheck_service.py::check_claim()`: after `aggregator.search()` BEFORE generate → memorize_facts(raw, search_fact)
+- [ ] T-363-B: `youtube_summarizer_service.py::summarize()`: после fetch_transcript → memorize_facts(субтитры или сжатая выжимка, youtube_content)
+- [ ] T-363-C: `web_summarizer_service.py::summarize()`: после `extractor.extract` → memorize_facts(Markdown Trafilatura, web_content)
+- [ ] T-363-D: `summary_generator.py::_run()`: после `get_window_messages` → memorize_facts(анализ чата, chat_history)
+- [ ] T-363-E: fire-and-forget (`asyncio.create_task`), ДО генерации ответа, чат не замедляется; падение → тихий лог Betterstack
+
+**DoD:** все 4 хука в проде-пути; чат не блокируется.
+
+### T-364 (@Builder) — Гибридный RAG entrypoint + XML-канон (R46-4, D175/D176)
+
+**Приоритет:** P0. **Зависимости:** T-358/T-360/T-361. **Оценка:** 1d.
+
+- [ ] T-364-A: entrypoint векторного поиска по графу по запросу юзера (для ВСЕХ пайплайнов), TTL-фильтр `WHERE expires_at IS NULL OR expires_at > now` (ленивое исключение, D175)
+- [ ] T-364-B: XML-канон `<context>/<user_gossip>/<bot_knowledge>` БАЙТ-В-БАЙТ; префиксы «[Из твоего прошлого поиска]:», «[Из видео, которое кидали ранее]:» и т.п. по Section 55; `escape_xml_text` обязателен; инъекция в системный промпт/начало контекста
+
+**DoD:** RAG-контекст собирается по канону для всех пайплайнов.
+
+### T-365 (@Builder) — Правки ВСЕХ системных промптов + канон-инструкция (R46-4, D176)
+
+**Приоритет:** P0. **Зависимости:** T-358/T-364. **Оценка:** 0.5d.
+
+- [ ] T-365-A: `summary_prompts.py` (SYSTEM_PROMPT, COMPRESS_PROMPT, EXTRACT_PROMPT), `search_prompts.py`, `factcheck_prompts.py`, `youtube_prompts.py`, `web_prompts.py` — добавить канон-инструкцию R46-4 ДОСЛОВНО (+ блок <context>); `checkup_prompts.py` — по Section 55 (вопрос 6)
+- [ ] T-365-B: обновить тест-эталоны байт-в-байт (слайсы — Section 55, вопрос 9) — одним коммитом с кодом (D123-стиль, T-369)
+
+**DoD:** инструкция дословно во всех промптах; эталоны обновлены.
+
+### T-366 (@Builder + @Reviewer) — Тесты + полный прогон + ревью (R46-5, D179)
+
+**Приоритет:** P0. **Зависимости:** T-359…T-365. **Оценка:** 1.5d.
+
+- [ ] T-366-A (@Builder): юнит-тесты TTL (факты >14 дней не попадают в bot_knowledge; chat_history вечно); тесты Fact Extractor с моками LLM (FakeLLM — прецедент test_graphrag_memory.py: валидный JSON, кривой JSON → тихий лог, токсичный ответ НЕ сохраняется); миграционные (test_graphrag_database.py: origin/expires_at, user_version); байт-в-байт канонов R46-2/R46-4 (слайсы backlog); 403/backfill (test_summary_memory.py, dim-mismatch прецедент); хуки (fire-and-forget, чат не падает)
+- [ ] T-366-B (@Reviewer): ревью + личный прогон; APPROVED; полный pytest — **0 регрессий (база 1981)**; `git diff --check` чист; секретов нет
+
+**DoD:** APPROVED; 1981+ тестов passed.
+
+### T-367 (@Builder) — Документация
+
+**Приоритет:** P1. **Зависимости:** T-366-B. **Оценка:** 0.25d.
+
+- [ ] T-367-A: README v2.35.0 (GraphRAG v2) + `plans/MEMORY.md` (Epic 46, v2.35.0)
+
+**DoD:** доки синхронизированы.
+
+### T-368 (@Builder) — АУДИТ фактчека → FACTCHECK_AUDIT.md (R46-6, D179)
+
+**Приоритет:** P1. **Зависимости:** нет (код НЕ меняем). **Оценка:** 0.5d.
+
+- [ ] T-368-A: текстовый отчёт простыми словами в `plans/FACTCHECK_AUDIT.md`: гарантирован ли выход в сеть (фактика Шага 0: структурно ГАРАНТИРОВАН — `check_claim()` первым зовёт `aggregator.search()`, LLM только при успехе, все 3 уровня упали → `AllSearchEnginesFailedException` → пул ошибок; каскад Tavily→Exa→DDG, DDG всегда есть); рекомендации: промпт, скорость, кэширование повторных проверок, query expansion
+- [ ] T-368-B: включить сводку аудита в финальный отчёт
+
+**DoD:** `plans/FACTCHECK_AUDIT.md` создан; код не тронут.
+
+### T-369 (@DevOps) — Коммит + пуш v2.35.0 (Epic 45+46)
+
+**Приоритет:** P0. **Зависимости:** T-354-B/T-366-B. **Оценка:** 0.25d.
+
+- [ ] T-369-A: Коммит на русском (conventional: `feat(graphrag): Epic 45+46 — Betterstack SQL API + GraphRAG v2 (origin/TTL, Fact Extractor, гибридный RAG) (v2.35.0)`); код+миграции+тесты+каноны одним коммитом (D123-стиль); пуш в origin/master; `.env` НЕ коммитим
+
+**DoD:** коммит в master, пуш в origin.
+
+### T-370 (@DevOps) — Деплой v2.35.0: скрипт миграции + верификация (R46-7, D178)
+
+**Приоритет:** P0. **Зависимости:** T-369. **Оценка:** 0.5d.
+
+- [ ] T-370-A: ssh nik@198.46.175.136 → git pull --ff-only
+- [ ] T-370-B: запуск скрипта миграции (ALTER TABLE ADD COLUMN origin/expires_at; расширение CHECK entity_type при необходимости; PRAGMA user_version) — на остановленном боте (busy_timeout нет)
+- [ ] T-370-C: systemctl restart admin_bot → active (running), новый PID; `journalctl -u admin_bot -n 50`: **отсутствие старых ошибок векторной БД** (dim mismatch, 403-cascade, «database is locked»)
+- [ ] T-370-D: Smoke: чекап (SQL API — Epic 45), /summary (RAG-контекст), поиск/фактчек (хуки не замедляют)
+
+**DoD:** прод v2.35.0, миграция применена, 0 traceback, старые ошибки векторной БД отсутствуют.
+
+### Риски (Epic 46)
+
+1. **Промпт-модификации ломают байт-в-байт эталоны** — эталоны обновляются вместе с кодом (T-365-B/T-369, D123-стиль); канон-инструкция добавляется дословно.
+2. **Экстрактор/кривой JSON** — fire-and-forget + тихий лог Betterstack (R46-5); чат не прерывается.
+3. **403 эмбеддингов** — ретраи + повторная активация vec (D177, T-362-B); один probe не выключает вектора навсегда.
+4. **Миграция на проде** — обязательный скрипт ДО restart (T-370-B); busy_timeout нет → миграцию выполнять на остановленном боте; идемпотентность (T-360-B).
+5. **Токсичные ответы бота** — не должны попадать в факты (R46-2): только сырая фактура источников.
+6. **0 регрессий (база 1981)** — обновлённые эталоны промптов + FakeLLM-тесты (T-366).
+
+### Файлы (планируемые)
+
+`services/database.py` (+миграции), `services/summary_memory.py` (memorize_facts), `services/summary_prompts.py`, `services/search_prompts.py`, `services/factcheck_prompts.py`, `services/youtube_prompts.py`, `services/web_prompts.py`, `services/checkup_prompts.py` (по Section 55), `services/search_service.py`, `services/factcheck_service.py`, `services/youtube_summarizer_service.py`, `services/web_summarizer_service.py`, `services/summary_generator.py`, `config/settings.py` + `.env.example`, скрипт миграции; тесты `tests/test_graphrag_database.py`, `tests/test_graphrag_memory.py`, `tests/test_summary_memory.py` + новые; `README.md`, `plans/ARCHITECTURE.md` (Section 55), `plans/MEMORY.md`, `plans/FACTCHECK_AUDIT.md`.
+
+**НЕ трогать:** journalctl-фолбек Checkup (R45-2), ретеншн `FULL_MEMORY_RETENTION_DAYS=30`/`ARCHIVE_MEMORY_RETENTION_DAYS=90` (новый TTL — отдельный параметр, D175), механизм embed (`LLMClient.embed` → gemini-embedding-001 через apinet.cloud — менять НЕ нужно), self-heal dim-mismatch (остаётся safety net).
+
+---
+
+**Статус: Epic 45 + Epic 46 — Шаг 1 (PM) ✅ (2026-08-20): требования R45-1…R45-5 и R46-1…R46-8 (каноны R46-2/R46-4 verbatim выше), решения D171–D179 (Orchestrator D-1…D-7), задачи T-351…T-370 (target v2.35.0). SQL-креды НЕ внесены — только имена env (R17). Передача @Architect (T-351 Section 54 + T-358 Section 55 — открытые вопросы Epic 45: 1–6, Epic 46: 1–9). Без @Orchestrator.**
+**Date: 2026-08-20**
