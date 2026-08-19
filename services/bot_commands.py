@@ -18,6 +18,10 @@ _COMMANDS: tuple[BotCommand, ...] = (
         command="summary",
         description="Саммари чата — прочитай, что ты пропустил, ленивец",
     ),
+    BotCommand(
+        command="info",
+        description="Справка по фичам бота",      # Epic 43 (R43-1)
+    ),
 )
 
 

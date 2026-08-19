@@ -58,6 +58,11 @@ from services.web_content_extractor import WebContentExtractor
 from services.youtube_transcript_engine import YouTubeTranscriptEngine
 from services.youtube_summarizer_service import YoutubeSummarizerService
 from services.web_summarizer_service import WebSummarizerService
+from handlers.checkup import checkup_router, setup_checkup
+from services.checkup_service import CheckupService
+from services.system_logs_fetcher import CheckupLogsFetcher
+from handlers.info import info_router, setup_info
+from services.info_service import InfoService
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -85,6 +90,8 @@ _goodmorning_scheduler = None
 _search_aggregator = None
 # SmartModule YouTube + Web (Epic 37) — module-level ref for on_shutdown
 _web_extractor = None
+# SmartModule Checkup (Epic 42) — module-level ref for on_shutdown
+_checkup_fetcher = None
 
 
 async def on_startup():
@@ -169,6 +176,16 @@ async def on_startup():
         setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client))
         setup_web(WebSummarizerService(_web_extractor, _llm_client))
         logger.info("SmartModule YouTube + Web (Epic 37) initialized")
+
+        # ── SmartModule: Checkup (Epic 42) ──
+        global _checkup_fetcher
+        _checkup_fetcher = CheckupLogsFetcher(
+            settings.CHECKUP_BETTERSTACK_TOKEN,
+            settings.CHECKUP_BETTERSTACK_URL,
+            journalctl_cmd=settings.CHECKUP_JOURNALCTL_CMD,
+        )
+        setup_checkup(CheckupService(_llm_client), _checkup_fetcher)
+        logger.info("SmartModule Checkup (Epic 42) initialized")
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
 
@@ -182,6 +199,12 @@ async def on_startup():
         target_chat_ids=settings.GOODMORNING_TARGET_CHAT_IDS,
     )
     _goodmorning_scheduler.start()  # ДО dp.start_polling; пустые targets → WARNING, no-op
+
+    # ── /info + /edit_info (Epic 43, D162) — БЕЗУСЛОВНО (LLM не нужен) ──
+    info_service = InfoService(settings.INFO_TEXT_FILE)
+    info_service.load()
+    setup_info(info_service)
+    logger.info("InfoService (Epic 43) initialized | file=%s", settings.INFO_TEXT_FILE)
 
     # ── Epic 31 (R31-2): меню команд (setMyCommands) — ДО dp.start_polling ──
     await setup_bot_commands(bot)
@@ -214,8 +237,15 @@ async def on_startup():
     if settings.SUMMARY_ENABLED:
         dp.include_router(web_router)
 
+    # 0g. SmartModule Checkup (Epic 42) — триггер-фразы; консьюмит, НЕ-триггеры → UNHANDLED
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(checkup_router)
+
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
+
+    # 0h. /info + /edit_info (Epic 43) — БЕЗУСЛОВНО (D162), command-based
+    dp.include_router(info_router)
 
     # 1. ChatMemberUpdated handler (F1: Slava return detection)
     dp.include_router(slava_presence_router)
@@ -294,6 +324,8 @@ async def on_shutdown():
         await _search_aggregator.close()
     if _web_extractor:
         await _web_extractor.close()
+    if _checkup_fetcher:
+        await _checkup_fetcher.close()
 
 
 async def main():

@@ -34,25 +34,31 @@ def _is_reply_target_gone(exc: TelegramBadRequest) -> bool:
 
 
 async def _send_once(bot, chat_id: int, text: str,
-                     reply_to_message_id: int | None = None) -> None:
+                     reply_to_message_id: int | None = None,
+                     parse_mode: str | None = None) -> None:
     """Одна отправка с reply-fallback (D112):
     - 400 «message to be replied not found» + reply задан → WARNING (exc_info —
       полный трейс в Betterstack) + РОВНО ОДИН повтор БЕЗ reply → INFO;
     - прочие исключения — НАВЕРХ без изменений (ERROR остаётся делом хендлера);
     - fallback возможен только при заданном reply (у чанков 2+ его нет) —
-      единый код для всех чанков, спец-логики по индексу НЕТ (не переусложнять)."""
+      единый код для всех чанков, спец-логики по индексу НЕТ (не переусложнять);
+    - parse_mode (Epic 43, 52.2) — опциональный kwarg, None → БЕЗ ключа
+      (обратная совместимость существующих вызовов)."""
+    kwargs: dict = {}
+    if parse_mode:
+        kwargs["parse_mode"] = parse_mode
     try:
         if reply_to_message_id:
-            await bot.send_message(chat_id, text, reply_to_message_id=reply_to_message_id)
+            await bot.send_message(chat_id, text, reply_to_message_id=reply_to_message_id, **kwargs)
         else:
-            await bot.send_message(chat_id, text)
+            await bot.send_message(chat_id, text, **kwargs)
     except TelegramBadRequest as exc:
         if reply_to_message_id and _is_reply_target_gone(exc):
             logger.warning(
                 "SmartModule: reply target gone — retrying without reply_to_message_id | "
                 "chat_id=%s msg_id=%s", chat_id, reply_to_message_id, exc_info=True,
             )
-            await bot.send_message(chat_id, text)
+            await bot.send_message(chat_id, text, **kwargs)
             logger.info("SmartModule: sent without reply | chat_id=%s", chat_id)
             return
         raise
@@ -87,10 +93,13 @@ async def send_chunked_reply(
     text: str,
     reply_to_message_id: int,
     chunk_delay: float = settings.SUMMARY_CHUNK_DELAY,
+    parse_mode: str | None = None,
 ) -> None:
     """Прецедент _send_chunked (summary_generator.py), НО с reply-таргетом:
     reply_to_message_id ТОЛЬКО у первой части; остальные — plain send_message.
-    TelegramRetryAfter → sleep + один повтор (прецедент _send_one_chunk)."""
+    TelegramRetryAfter → sleep + один повтор (прецедент _send_one_chunk).
+    parse_mode (Epic 43, 52.2) — опциональный kwarg для всех чанков
+    (обратная совместимость: существующие вызовы без kwarg не меняются)."""
     chunks = SummaryGenerator._chunk_by_whitespace(text, _CHUNK_LIMIT)   # существующий код НЕ меняем
     if not chunks:
         logger.warning("SmartModule: empty final text | chat_id=%s", chat_id)
@@ -103,11 +112,11 @@ async def send_chunked_reply(
             )
         reply_id = reply_to_message_id if index == 0 else None
         try:
-            await _send_once(bot, chat_id, chunk, reply_id)
+            await _send_once(bot, chat_id, chunk, reply_id, parse_mode)
         except TelegramRetryAfter as exc:
             logger.warning("TelegramRetryAfter %.1fs — sleeping, one retry | chat_id=%s",
                            exc.retry_after, chat_id)
             await asyncio.sleep(exc.retry_after)
-            await _send_once(bot, chat_id, chunk, reply_id)   # повтор ТОЖЕ через _send_once
+            await _send_once(bot, chat_id, chunk, reply_id, parse_mode)   # повтор ТОЖЕ через _send_once
         if index < len(chunks) - 1:
             await asyncio.sleep(chunk_delay)
