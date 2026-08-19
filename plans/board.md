@@ -6,6 +6,20 @@
 
 ## 🔧 In Progress
 
+### Epic 44: Новый /info-текст + фикс прав удаления + Betterstack Telemetry — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.34.1)
+
+> Полный трек — `plans/backlog.md` (Epic 44). Требования R44-1…R44-3 (канон R44-1 VERBATIM в backlog), решения D166–D170.
+> R44-1: новый текст /info (HTML: `<b>`/`<code>`/`<a>`; суть менять нельзя) → Section 53, `DEFAULT_INFO_TEXT`, `info_text.md` в репо (старый блок 52.4 — «заменён в Section 53»). R44-2: /info при отказе delete → пул прав И справка (убрать `return`, handlers/info.py:50-59). R44-3: облачная ступень Checkup через Telemetry API token (Bearer, env `BETTERSTACK_TOKEN`) + конфигурируемый `CHECKUP_BETTERSTACK_URL` (эндпоинт — @Architect); фолбек journalctl неприкосновенен; curl-верификация на проде обязательна (200 → схема зафиксирована; 401/404 → честный отчёт, каскад на journalctl). Uptime token НЕ используется. Baseline: прод v2.34.0 (`cb339d6`, PID 990054), 1976 тестов. Без @Orchestrator.
+
+- [ ] T-343 (@Architect, P0) — Section 53: HTML-канон нового DEFAULT_INFO_TEXT + пометка 52.4 + тест-хелпер + фикс-дизайн reply-таргета; веб-ресёрч эндпоинта Betterstack (telemetry JSON:API vs SQL/Query API ClickHouse); закрыть открытые вопросы PM 1–6
+- [ ] T-344 (@Builder, P0) — новый DEFAULT_INFO_TEXT байт-в-байт + info_text.md в репо (R44-1, D167)
+- [ ] T-345 (@Builder, P0) — фикс handlers/info.py:50-59: убрать return, пул прав → ПРОДОЛЖИТЬ (R44-2, D168)
+- [ ] T-346 (@Builder, P0) — fetcher: CHECKUP_BETTERSTACK_URL + Bearer Telemetry token + парсер новой схемы; фолбек journalctl без изменений (R44-3, D169)
+- [ ] T-347 (@Builder + @Reviewer, P0) — тесты: test_info_service/test_info_handlers #2/#3/test_checkup_logs_fetcher переписать под новый канон/поведение; полный прогон 0 регрессий (baseline 1976); ревью APPROVED (D170)
+- [ ] T-348 (@Builder, P1) — README v2.34.1 + MEMORY
+- [ ] T-349 (@DevOps, P0) — коммит на русском + пуш master (код+канон+тесты+info_text.md одним коммитом, D123-стиль)
+- [ ] T-350 (@DevOps, P0) — деплой v2.34.1: .env.bak.epic44 + BETTERSTACK_TOKEN (Telemetry) в прод .env, бэкап+checkout info_text.md перед pull, git pull --ff-only, restart, curl-верификация эндпоинта (обязательный шаг), smoke /info+чекап
+
 ### Epic 41: YouTube engine hardening (ru-first, ретраи 4–5 + токсичные сообщения, логи фолбека) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-19, Шаг 1 @PM ✅, target v2.33.1)
 
 > Полный трек — `plans/backlog.md` (Epic 41). Требования R41-1…R41-5 (R41-4 = NON-GOAL: BetterStack-алерт ОТМЕНЁН пользователем), решения D151–D157.

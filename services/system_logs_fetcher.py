@@ -1,10 +1,12 @@
-"""Epic 42 — CheckupLogsFetcher (R42-2, D160/D161, Section 51.3).
+"""Epic 42/44 — CheckupLogsFetcher (R42-2/R44-3, D160/D161/D169, Sections 51.3/53.5).
 
-Каскад: GET {base_url} (Betterstack, Bearer, 24ч) → при падении журнал
-journalctl (create_subprocess_shell, БЕЗ sudo). fetch() -> (logs_text, used_fallback).
-Обе ступени мертвы → CheckupLogsUnavailableException (хендлер шлёт CHECKUP_DEAD_PHRASES).
-Пустой токен → шаг 1 пропускается (WARNING, D104-стиль), сразу journalctl.
-Токен НЕ логируется (R17); платные MCP не используются (R42-2).
+Каскад: GET {base_url} (Betterstack Live Tail Query API v2, Bearer, 24ч,
+source_ids/batch/from/to/query, follow-redirects) → при падении журнал
+journalctl (create_subprocess_shell, БЕЗ sudo). fetch() -> (logs_text,
+used_fallback). Обе ступени мертвы → CheckupLogsUnavailableException (хендлер
+шлёт CHECKUP_DEAD_PHRASES). Пустой токен ИЛИ пустые source_ids → шаг 1
+пропускается (WARNING, D104-стиль), сразу journalctl. Токен НЕ логируется
+(R17); платные MCP не используются (R42-2).
 """
 import asyncio
 import logging
@@ -17,6 +19,7 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+_BATCH = 100                        # API: 50–1000, default 100 (Epic 44, 53.5)
 _BETTERSTACK_TIMEOUT = 10.0
 _LOOKBACK_HOURS = 24.0
 _MAX_PAGES = 5                      # pagination.next — максимум доп. страниц
@@ -42,11 +45,15 @@ class CheckupLogsFetcher:
         self,
         token: str,
         base_url: str = settings.CHECKUP_BETTERSTACK_URL,
+        source_ids: str = settings.CHECKUP_BETTERSTACK_SOURCE_IDS,
+        query: str = settings.CHECKUP_BETTERSTACK_QUERY,
         journalctl_cmd: str = settings.CHECKUP_JOURNALCTL_CMD,
         transport: httpx.AsyncBaseTransport | None = None,   # тесты: MockTransport
     ) -> None:
         self._token = token
         self._base_url = base_url
+        self._source_ids = source_ids
+        self._query = query
         self._journalctl_cmd = journalctl_cmd
         self._transport = transport
         self._client: httpx.AsyncClient | None = None
@@ -57,6 +64,7 @@ class CheckupLogsFetcher:
                 timeout=httpx.Timeout(_BETTERSTACK_TIMEOUT, connect=10.0),
                 headers={"Authorization": f"Bearer {self._token}"},
                 transport=self._transport,
+                follow_redirects=True,           # требование API (53.5)
             )
         return self._client
 
@@ -68,8 +76,8 @@ class CheckupLogsFetcher:
     async def fetch(self) -> tuple[str, bool]:
         """(logs_text, used_fallback). Betterstack ок → (text, False).
         Betterstack упал → journalctl → (text, True). Оба мертвы → raise."""
-        if not self._token.strip():
-            logger.warning("[checkup fetcher] betterstack skipped (no token) → journalctl")
+        if not self._token.strip() or not self._source_ids.strip():
+            logger.warning("[checkup fetcher] betterstack skipped (no token/source_ids) → journalctl")
             return await self._fetch_journalctl(), True
         try:
             return await self._fetch_betterstack(), False
@@ -80,22 +88,26 @@ class CheckupLogsFetcher:
             )
             return await self._fetch_journalctl(), True
 
-    # ── Ступень 1: Betterstack ────────────────────────────────
+    # ── Ступень 1: Betterstack (Live Tail Query API v2) ───────
 
     async def _fetch_betterstack(self) -> str:
         now = datetime.now(timezone.utc)
-        params = {
+        params: dict[str, str] = {
+            "source_ids": self._source_ids,
+            "batch": str(_BATCH),
             "from": (now - timedelta(hours=_LOOKBACK_HOURS)).strftime("%Y-%m-%dT%H:%M:%S%z"),
             "to": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
+        if self._query.strip():
+            params["query"] = self._query.strip()
         lines: list[str] = []
         url: str | None = self._base_url
         page = 0
         while url and page < _MAX_PAGES and len(lines) < _MAX_LOG_EVENTS:
             page += 1
             resp = await self._get_client().get(url, params=params if page == 1 else None)
-            resp.raise_for_status()                    # 4xx/5xx → HTTPStatusError → фолбек
-            payload = resp.json()                      # битый JSON → ValueError → фолбек
+            resp.raise_for_status()                    # 401/404/5xx → фолбек
+            payload = resp.json()                      # битый JSON → фолбек
             lines.extend(self._extract_lines(payload))
             nxt = (payload.get("pagination") or {}).get("next")
             url = nxt if isinstance(nxt, str) and nxt else None

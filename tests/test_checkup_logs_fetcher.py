@@ -1,10 +1,12 @@
-"""Tests for services/system_logs_fetcher.py (T-330-A #11-23, Section 51.3).
+"""Tests for services/system_logs_fetcher.py (T-330-A #11-23, Sections 51.3/53.5).
 
-Betterstack: httpx.MockTransport через параметр transport конструктора
-(реальная сеть НИКОГДА). journalctl: monkeypatch модульного атрибута
-asyncio.create_subprocess_shell (fetcher импортирует asyncio модулем —
-прецедент 50.8); fake-процесс: SimpleNamespace(returncode=…,
-communicate=AsyncMock(return_value=(stdout, stderr))).
+Betterstack (Live Tail Query API v2, 53.5): httpx.MockTransport через параметр
+transport конструктора (реальная сеть НИКОГДА); params source_ids/batch/from/to
+(+query опц.), плоская схема data[]{dt,level,message}, pagination.next
+(cursor-URL) ≤5 стр., потолки 200/20000; skip при пустых token/source_ids.
+journalctl: monkeypatch модульного атрибута asyncio.create_subprocess_shell
+(fetcher импортирует asyncio модулем — прецедент 50.8); fake-процесс:
+SimpleNamespace(returncode=…, communicate=AsyncMock(return_value=(stdout, stderr))).
 """
 import asyncio
 from datetime import datetime, timezone
@@ -20,11 +22,11 @@ from services.system_logs_fetcher import (
     CheckupLogsUnavailableException,
 )
 
-BASE_URL = "https://logs.betterstack.com/api/v2/events"
+BASE_URL = "https://telemetry.betterstack.com/api/v2/query/live-tail"
 
 
-def _make_fetcher(transport, token="tok-123"):
-    return CheckupLogsFetcher(token=token, transport=transport)
+def _make_fetcher(transport, token="tok-123", source_ids="123"):
+    return CheckupLogsFetcher(token=token, source_ids=source_ids, transport=transport)
 
 
 def _transport_with(handler):
@@ -36,10 +38,6 @@ def _json_handler(payload, status=200):
         return httpx.Response(status, json=payload, request=request)
 
     return _transport_with(handler)
-
-
-def _attr_event(message, level, dt):
-    return {"id": "e", "attributes": {"message": message, "level": level, "dt": dt}}
 
 
 def _patch_journalctl(monkeypatch, proc):
@@ -65,27 +63,32 @@ def _unix_expected(ts: int) -> str:
 
 class TestFetcherBetterstack:
     @pytest.mark.asyncio
-    async def test_jsonapi_200_format_and_params(self, monkeypatch):
-        """#11: 200 + JSON:API (data[].attributes{message,level,dt});
-        fetch → (text, False); from/to ISO8601 на 1-м запросе."""
+    async def test_flat_live_tail_200_format(self):
+        """#11': 200 + плоская live-tail схема (КАНОН 53.5):
+        data[] flat {dt, level, message}; fetch → (text, False);
+        формат «ts - LEVEL - message»; info-событие отфильтровано локально."""
         payload = {
             "data": [
-                _attr_event("disk exploded", "error", "2026-08-20T10:00:00+00:00"),
-                _attr_event("just an info", "info", "2026-08-20T10:01:00+00:00"),
+                {"dt": "2026-08-20 10:00:00.000000", "level": "error",
+                 "message": "disk exploded"},
+                {"dt": "2026-08-20 10:01:00.000000", "level": "info",
+                 "message": "just an info"},
             ],
-            "pagination": {"first": None, "next": None},
+            "pagination": {"next": None},
         }
         fetcher = _make_fetcher(_json_handler(payload))
         text, used_fallback = await fetcher.fetch()
         assert used_fallback is False
-        assert text == "2026-08-20T10:00:00+00:00 - ERROR - disk exploded"
+        assert text == "2026-08-20 10:00:00.000000 - ERROR - disk exploded"
         await fetcher.close()
 
     @pytest.mark.asyncio
-    async def test_from_to_params_on_first_request(self):
+    async def test_page1_params_source_ids_batch_from_to(self):
+        """53.5: страница 1 — source_ids, batch=100, from, to; query/курсор/page
+        отсутствуют; path == /api/v2/query/live-tail."""
         payload = {
-            "data": [_attr_event("boom", "error", "2026-08-20T10:00:00+00:00")],
-            "pagination": {"first": None, "next": None},
+            "data": [{"dt": "T1", "level": "error", "message": "boom"}],
+            "pagination": {"next": None},
         }
         requests = []
 
@@ -95,8 +98,52 @@ class TestFetcherBetterstack:
 
         fetcher = _make_fetcher(_transport_with(handler))
         await fetcher.fetch()
-        assert requests[0].url.path == "/api/v2/events"
-        assert "from" in requests[0].url.params and "to" in requests[0].url.params
+        params = requests[0].url.params
+        assert requests[0].url.path == "/api/v2/query/live-tail"
+        assert params["source_ids"] == "123"
+        assert params["batch"] == "100"
+        assert "from" in params and "to" in params
+        assert "query" not in params
+        assert "cursor" not in params and "page" not in params
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_query_param_passed_through(self):
+        """53.5: query задан → присутствует в params страницы 1 (pass-through)."""
+        payload = {
+            "data": [{"dt": "T1", "level": "error", "message": "boom"}],
+            "pagination": {"next": None},
+        }
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, json=payload, request=request)
+
+        fetcher = CheckupLogsFetcher(
+            token="tok-123", source_ids="123", query="level:error",
+            transport=_transport_with(handler),
+        )
+        await fetcher.fetch()
+        assert requests[0].url.params["query"] == "level:error"
+        await fetcher.close()
+
+    @pytest.mark.asyncio
+    async def test_empty_source_ids_skips_betterstack(self, monkeypatch):
+        """53.5: пустые source_ids → betterstack НЕ вызван (0 запросов),
+        сразу journalctl, (text, True)."""
+        shell = AsyncMock(return_value=_fake_proc(stdout=b"ERROR local\n"))
+        monkeypatch.setattr(fetcher_mod.asyncio, "create_subprocess_shell", shell)
+        requests = []
+
+        fetcher = CheckupLogsFetcher(
+            token="tok-123", source_ids="",
+            transport=_transport_with(lambda r: requests.append(r) or None),
+        )
+        text, used_fallback = await fetcher.fetch()
+        assert used_fallback is True
+        assert requests == []
+        assert text == "ERROR local"
         await fetcher.close()
 
     @pytest.mark.asyncio

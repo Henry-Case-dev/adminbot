@@ -9989,7 +9989,7 @@ class InfoService:
             fh.write(DEFAULT_INFO_TEXT)
 ```
 
-### 52.4 КАНОН дефолтного `info_text.md` (T-332-B, ДОСЛОВНО)
+### 52.4 КАНОН дефолтного `info_text.md` (T-332-B, ДОСЛОВНО) — ЗАМЕНЁН в Section 53 (Epic 44, R44-1)
 
 Канон зафиксирован БАЙТ-В-БАЙТ ниже — это ровно строка `DEFAULT_INFO_TEXT` (52.3), содержимое файла при инициализации и эталон verbatim-теста:
 
@@ -10313,3 +10313,406 @@ INFO_COOLDOWN_SECONDS=300
 **Порядок:** T-332 (эта секция) → T-333 (конфиг) → T-334 (пулы) → T-335 (info_service + канон) → T-336 (/info + bot_commands) → T-337 (/edit_info) → T-338 (wiring + test_bot_commands) → T-339 (тесты 100% + ревью) → T-340 (доки) → T-341/T-342 (единый деплой 52.12).
 
 @Architect Epic 43 architecture ready (Section 52: parse_mode=HTML — экранирование тривиально, превью-валидация D163 ловит битую разметку ДО сохранения, /info-отправка с plain-фолбеком никогда не падает; info_text.md — корень репо, UTF-8, INFO_TEXT_FILE-конфигурируем, канон DEFAULT_INFO_TEXT зафиксирован БАЙТ-В-БАЙТ в 52.4 (<b> заголовки, <code> команды/фразы, 5 фич по R43-2 с примерами и кулдаунами); /edit_info — админ-чек → пустой аргумент = показ текущего текста → DM-превью → save_text (файл+кэш) → пул успеха реплаем на команду (команда НЕ удаляется — reply-таргет жив); 4 INFO-пула — каноны в 52.5; set_my_commands: /summary → /info (description «Справка по фичам бота»); кулдаун per-chat 300с → THROTTLE_PHRASES 5.1; wiring безусловный 0h + setup_info; router_count 13→14 — только checkup, info_router в _collect_routers НЕ входит (D164 ровно); send_chunked_reply получает опциональный kwarg parse_mode (обратная совместимость); ~24 теста с tmp_path-ФС-моками, 100% покрытие info-модулей; единый деплой v2.34.0 — чеклист 52.12), passing the baton to @Builder (T-333…T-338) → @Reviewer (T-339-C) → @DevOps (T-341/T-342: v2.34.0, единый коммит/деплой Epic 42+43).
+
+---
+
+## Section 53: Epic 44 — Новый /info-текст + фикс прав удаления + Betterstack Telemetry (v2.34.1)
+
+### 53.1 Контекст, эмпирика и закрытие вопросов PM (R44-1…R44-3, D166–D170)
+
+**Контекст:** (1) Заменить канон `DEFAULT_INFO_TEXT` на новый текст пользователя (R44-1 VERBATIM; HTML: заголовки/номера секций `<b>`, триггер-слова и примеры `<code>`, ссылки `<a href>`; суть менять нельзя) — `services/info_service.py`, `info_text.md` в репо, Section 53. (2) Починить /info: отказ `message.delete()` (нет прав) не должен обрушивать логику — пул `INFO_NO_DELETE_RIGHTS_PHRASES` И справка (R44-2). (3) Включить облачную ступень Checkup через Telemetry API token (Bearer) и правильный эндпоинт Betterstack — конфигурируемый `CHECKUP_BETTERSTACK_URL`; фолбек journalctl неприкосновенен; финальная эмпирическая curl-верификация на проде с реальным токеном (@DevOps, T-350-D). **Target:** v2.34.1. **Baseline:** прод v2.34.0 (`cb339d6`, PID 990054), **1976 тестов**. Uptime API token НЕ используется (D169, зарезервирован). Значения токенов — ТОЛЬКО @DevOps в прод `.env`; в планы — только имена env (R17).
+
+**Ключевые факты (проверены по коду, Шаг 0):**
+
+- `handlers/info.py:50-59`: при отказе delete — пул + `return` (СТОП, T-336-A). Кулдаун-чек стоит ПОСЛЕ delete-блока; отправка справки — `send_chunked_reply(bot, chat_id, text, None, parse_mode="HTML")` (команда удалена → без reply).
+- `tests/test_info_service.py`: `_arch_default_info()` ищет ПЕРВУЮ строку `DEFAULT_INFO_TEXT = ` (сейчас — 52.3, line 9921), `_arch_info_html_block()` — ПЕРВЫЙ ```html (сейчас — 52.4, line 9996). ОБА хелпера после добавления Section 53 будут возвращать СТАРЫЙ канон (52.3/52.4 идут раньше Section 53) — ловушка D167/вопрос 2, оба перепривязать к якорю 53.3.
+- `services/system_logs_fetcher.py`: контракт толерантный (data[] плоская ИЛИ JSON:API attributes; алиасы message|msg|json, level|severity|log_level, dt|timestamp|_dt; локальный фильтр уровней; pagination.next; потолки _MAX_PAGES=5/_MAX_LOG_EVENTS=200/_MAX_LOG_SYMBOLS=20000). Парсер `_extract_lines` — ПЕРЕИСПОЛЬЗУЕТСЯ БЕЗ ИЗМЕНЕНИЙ.
+- `config/settings.py:356-357`: `CHECKUP_BETTERSTACK_TOKEN` (env `BETTERSTACK_TOKEN`, fallback `LOGTAIL_SOURCE_TOKEN`), `CHECKUP_BETTERSTACK_URL` (сейчас дефолт `https://logs.betterstack.com/api/v2/events` — мёртвый: 404).
+- `info_text.md` (корень репо): 1408 байт, UTF-8, LF, БЕЗ хвостового `\n` (последний байт `.`); формат-прецедент 52.4.
+
+**Закрытие открытых вопросов PM:**
+
+| # | Вопрос PM | Решение в Section 53 |
+|---|---|---|
+| 1 | HTML-разметка канона R44-1 | **53.2/53.3**: интро + «N. Название секции» целиком в `<b>` (6 пар); триггер-слова и примеры команд — `<code>` (23 пары); обе ссылки — `<a href="...">` (2 пары), плейсхолдер `...` после `https://youtu.be/` — текстом ПОСЛЕ `</a>`; кавычки `"` — verbatim; `&` в каноне НЕТ (href без query — экранировать нечего); parse_mode остаётся HTML (52.2) |
+| 2 | Механизм канона в ARCHITECTURE.md | 52.4 помечен «ЗАМЕНЁН в Section 53 (Epic 44, R44-1)»; канон — в 53.3 двумя блоками (python + html); тест-хелперы `_arch_default_info`/`_arch_info_html_block` привязываются к якорю `### 53.3 ` (startswith) вместо «первого вхождения» (53.7) |
+| 3 | Betterstack эндпоинт | **`GET https://telemetry.betterstack.com/api/v2/query/live-tail`** (Query API v2 Live Tail, Bearer team-токен) — кандидат (а) подтверждён документацией (см. 53.5, ресёрч + источники); SQL/Query API (Basic, ClickHouse-коннекшн) — запасной документированный путь НА БУДУЩЕЕ, не в этом эпике |
+| 4 | Reply-таргеты /info (D168) | При НЕудалённой команде справка — **реплаем на `message.message_id`** (команда висит в чате); при удалённой — БЕЗ reply (прецедент 52.6); при кулдауне — 5.1 реплаем на `message.message_id` (прецедент 52.6, test #4) |
+| 5 | test_covers_features | Новые маркеры: `Гайд по фичам`, `фактчек`, `чекап`, `кулдаун`, `Checkup`, `youtu.be`, `какой-то-сайт.ru` (старые `/summary` и «кулдаун 5 минут» в новом тексте отсутствуют) — 53.7 |
+| 6 | Тест-эталон DEFAULT_INFO_TEXT | Байт-в-байт: `DEFAULT_INFO_TEXT` == python-блоку 53.3 == html-блоку 53.3 (оба хелпера). Суть verbatim: НОВЫЙ тест — снятие всех тегов (`re.sub(r"<[^>]+>", "", ...)`) == fenced-блоку канона R44-1 в `plans/backlog.md` (якорь «Канон R44-1») — 53.7 |
+
+### 53.2 HTML-разметка канона: правила (R44-1, вопрос 1)
+
+- `parse_mode="HTML"` — без изменений (52.2). Экранирование вне тегов: в каноне НЕТ `&`, `<`, `>` вне тегов (href без query-строк → `&amp;` не нужен; риск 4 в 53.10).
+- `<b>…</b>` — интро-заголовок (первая строка) и строки «N. Название секции» ЦЕЛИКОМ (включая скобочные пояснения и `:` у секции 3) — 6 пар.
+- `<code>…</code>` — КАЖДОЕ точное вхождение триггер-слов (фактчек, найди, поищи, загугли, транскрипт, че за видос, о чем видео, поясни за видос, поясни за ссылку, че по ссылке, о чем статья, выжимка, чекап, ты в порядке, живой собака, чекни здоровье) и примеры команд (фактчек правда ли склад сгорел?, фактчек поясни за цифры, загугли почему видеокарта греется в простое, найди последние новости про новый патч) — 23 пары. Словоформы-производные НЕ оборачиваем (в «пришлет выжимку реплаем» — `выжимку` ≠ триггер `выжимка`).
+- `<a href="https://youtu.be/">https://youtu.be/</a>` и `<a href="https://какой-то-сайт.ru">https://какой-то-сайт.ru</a>` — кликабельные; плейсхолдер `...` после ютуб-ссылки остаётся ТЕКСТОМ сразу за `</a>`; разделители (`, `, ` / `) и пунктуация — как в оригинале; кавычки `"` в строке «не "видит" веб-страницу» — verbatim.
+- Пункты-списки `- ` и пустые строки-разделители — verbatim (Telegram рендерит как текст).
+
+### 53.3 КАНОН нового `DEFAULT_INFO_TEXT` (R44-1, ДОСЛОВНО)
+
+Канон — суть VERBATIM из backlog R44-1 + теги по 53.2. Зафиксирован БАЙТ-В-БАЙТ двумя блоками ниже: python-блок — ровно строка `DEFAULT_INFO_TEXT` (правка `services/info_service.py`), html-блок — ровно содержимое `info_text.md` и кросс-эталон тестов. Эталон для тест-хелперов — якорь `### 53.3 ` (строка ниже).
+
+```python
+# КАНОН дефолтной справки (Epic 44, R44-1, Section 53.3) — байт-в-байт тест
+DEFAULT_INFO_TEXT = """<b>Гайд по фичам бота с выходом в сеть internet. Никаких слеш-команд, всё работает нативно прямо в диалоге.</b>
+
+<b>1. Фактчек сообщений и новостей (чтобы чекать репосты Лехи)</b>
+- Как вызвать: сделай Reply (ответ) на любое сообщение или репост в чате и напиши слово <code>фактчек</code>.
+- С уточнением: если нужно проверить конкретную деталь, допиши вопрос следом.
+Например: <code>фактчек правда ли склад сгорел?</code> или <code>фактчек поясни за цифры</code>.
+Бот поднимет поисковики, проверит достоверность и выдаст вердикт в своем стиле прямо в ответ на исходный пост.
+
+<b>2. Поиск инфы (кому лень зайти в гугл во время срача)</b>
+- Как вызвать: просто начни сообщение со слов <code>найди</code>, <code>поищи</code> или <code>загугли</code> и дальше пиши суть.
+- Примеры: <code>загугли почему видеокарта греется в простое</code> / <code>найди последние новости про новый патч</code>
+Бот соберет факты из сети и пришлет выжимку реплаем на твое сообщение.
+Нюансы: На поиск и <code>фактчек</code> стоят раздельные кулдауны по 5 минут. Если спамить — бот пошлет вас нахуй.
+
+<b>3. Пересказ ролика с ютуба (если есть субтитры):</b>
+Способ 1 (реплай): Ответь на сообщение с ютуб-ссылкой и напиши: <code>транскрипт</code>, <code>че за видос</code>, <code>о чем видео</code>, <code>поясни за видос</code>.
+Способ 2 (одной строкой): Просто кинь ссылку и фразу в одном сообщении (<a href="https://youtu.be/">https://youtu.be/</a>... <code>поясни за видос</code>).
+Бот не распознает само видео, он парсит сабы и пересказывает суть.
+
+<b>4. Пересказ веб-страницы</b>
+Способ 1 (реплай): Ответь на сообщение с ссылкой и напиши: <code>поясни за ссылку</code>, <code>че по ссылке</code>, <code>о чем статья</code>, <code>выжимка</code>.
+Способ 2 (одной строкой): Ссылка + фраза (<a href="https://какой-то-сайт.ru">https://какой-то-сайт.ru</a> <code>выжимка</code>).
+Опять же бот не "видит" веб-страницу, а парсит ее маркдаун версию, пересказывает на свой лад.
+
+<b>5. Checkup (Здоровье бота)</b>
+Хочешь узнать, жив ли бот и сервак? Команда заставить его посмотреть внутрь себя.
+Как вызвать: напиши в чат <code>чекап</code>, <code>ты в порядке</code>, <code>живой собака</code> или <code>чекни здоровье</code>.
+Бот залезет в системные логи, найдет свежие ошибки и токсично пояснит, что отвалилось на сервере."""
+```
+
+```html
+<b>Гайд по фичам бота с выходом в сеть internet. Никаких слеш-команд, всё работает нативно прямо в диалоге.</b>
+
+<b>1. Фактчек сообщений и новостей (чтобы чекать репосты Лехи)</b>
+- Как вызвать: сделай Reply (ответ) на любое сообщение или репост в чате и напиши слово <code>фактчек</code>.
+- С уточнением: если нужно проверить конкретную деталь, допиши вопрос следом.
+Например: <code>фактчек правда ли склад сгорел?</code> или <code>фактчек поясни за цифры</code>.
+Бот поднимет поисковики, проверит достоверность и выдаст вердикт в своем стиле прямо в ответ на исходный пост.
+
+<b>2. Поиск инфы (кому лень зайти в гугл во время срача)</b>
+- Как вызвать: просто начни сообщение со слов <code>найди</code>, <code>поищи</code> или <code>загугли</code> и дальше пиши суть.
+- Примеры: <code>загугли почему видеокарта греется в простое</code> / <code>найди последние новости про новый патч</code>
+Бот соберет факты из сети и пришлет выжимку реплаем на твое сообщение.
+Нюансы: На поиск и <code>фактчек</code> стоят раздельные кулдауны по 5 минут. Если спамить — бот пошлет вас нахуй.
+
+<b>3. Пересказ ролика с ютуба (если есть субтитры):</b>
+Способ 1 (реплай): Ответь на сообщение с ютуб-ссылкой и напиши: <code>транскрипт</code>, <code>че за видос</code>, <code>о чем видео</code>, <code>поясни за видос</code>.
+Способ 2 (одной строкой): Просто кинь ссылку и фразу в одном сообщении (<a href="https://youtu.be/">https://youtu.be/</a>... <code>поясни за видос</code>).
+Бот не распознает само видео, он парсит сабы и пересказывает суть.
+
+<b>4. Пересказ веб-страницы</b>
+Способ 1 (реплай): Ответь на сообщение с ссылкой и напиши: <code>поясни за ссылку</code>, <code>че по ссылке</code>, <code>о чем статья</code>, <code>выжимка</code>.
+Способ 2 (одной строкой): Ссылка + фраза (<a href="https://какой-то-сайт.ru">https://какой-то-сайт.ru</a> <code>выжимка</code>).
+Опять же бот не "видит" веб-страницу, а парсит ее маркдаун версию, пересказывает на свой лад.
+
+<b>5. Checkup (Здоровье бота)</b>
+Хочешь узнать, жив ли бот и сервак? Команда заставить его посмотреть внутрь себя.
+Как вызвать: напиши в чат <code>чекап</code>, <code>ты в порядке</code>, <code>живой собака</code> или <code>чекни здоровье</code>.
+Бот залезет в системные логи, найдет свежие ошибки и токсично пояснит, что отвалилось на сервере.
+```
+
+**Свойства канона:** 6 пар `<b>` (интро + 5 секций), 23 пары `<code>` (триггеры + примеры), 2 пары `<a href>` (кликабельные ссылки); все теги парные; `&`/`<`/`>` вне тегов отсутствуют; кавычки `"` — verbatim (1 вхождение); `...` — текст после `</a>`; суть — ровно backlog R44-1 (проверка тестом 53.7 #24). `/summary` и `/edit_info` в канон НЕ входят (справка — про нативные фичи, как просит пользователь).
+
+**Формат `info_text.md` (T-344-B):** содержимое == html-блоку выше БАЙТ-В-БАЙТ; UTF-8; LF; **БЕЗ хвостового `\n`** (прецедент 52.4: текущий файл 1408 байт, последний байт `.`; `InfoService._write_default` пишет `DEFAULT_INFO_TEXT` как есть — байт-эталон теста #16 сходится на linux-проде).
+
+### 53.4 Фикс /info: `handlers/info.py` (R44-2, D168, вопрос 4)
+
+**Поток (после фикса):** init-гард → delete СРАЗУ (R43-1) → **нет прав → пул `INFO_NO_DELETE_RIGHTS_PHRASES` реплаем на `message.message_id` + ПРОДОЛЖИТЬ** (БЕЗ `return`; `deleted = False`) → кулдаун 5.1 (сработал → throttle-фраза реплаем на `message.message_id` + return, справка НЕ шлётся — как 52.6) → touch → справка: `reply_to = None if deleted else message.message_id` (команда удалена → без reply; НЕ удалена → реплай на висящую команду) → HTML → plain-фолбек (без изменений).
+
+```python
+@info_router.message(Command("info"))
+async def cmd_info(message: types.Message, bot: Bot = None) -> None:
+    if _service is None or bot is None:
+        logger.warning("[/info] InfoService not initialized — skipping")
+        return
+    user_id = message.from_user.id if message.from_user else 0
+    logger.info("[/info] triggered | chat=%s user=%s", message.chat.id, user_id)
+    deleted = True                                 # R44-2 (53.4): отказ delete — НЕ стоп
+    try:                                           # R43-1: удалить СРАЗУ
+        await message.delete()
+        logger.info("[/info] command deleted | chat=%s msg=%s",
+                    message.chat.id, message.message_id)
+    except Exception:
+        logger.warning("[/info] delete failed (no delete_messages right?) | chat=%s",
+                       message.chat.id, exc_info=True)
+        await _reply(bot, message.chat.id, random.choice(INFO_NO_DELETE_RIGHTS_PHRASES),
+                     message.message_id)
+        deleted = False                            # команда висит → справка РЕПЛАЕМ
+    remaining = _cooldown.remaining(message.chat.id, _CHAT_SLOT)
+    if remaining > 0:                              # 5.1 (D159)
+        await _reply(bot, message.chat.id, throttle_phrase(remaining),
+                     message.message_id)
+        return
+    _cooldown.touch(message.chat.id, _CHAT_SLOT)
+    text = _service.get_text()
+    reply_to = None if deleted else message.message_id
+    try:
+        await send_chunked_reply(bot, message.chat.id, text, reply_to, parse_mode="HTML")
+        logger.info("[/info] sent | chat=%s", message.chat.id)
+    except TelegramBadRequest:
+        # файл правлен вручную мимо /edit_info → plain-деградация, НЕ падаем
+        logger.exception("[/info] HTML markup rejected → plain fallback | chat=%s",
+                         message.chat.id)
+        try:
+            await send_chunked_reply(bot, message.chat.id, text, reply_to)
+        except Exception:
+            logger.exception("[/info] plain fallback failed | chat=%s", message.chat.id)
+    except Exception:
+        logger.exception("[/info] send failed | chat=%s", message.chat.id)
+```
+
+Модульный docstring: строку «delete СРАЗУ → нет прав → пул + СТОП → кулдаун» заменить на «delete СРАЗУ → нет прав → пул + ПРОДОЛЖИТЬ (команда висит в чате → справка реплаем) → кулдаун per-chat → отправка HTML». `/edit_info` — **БЕЗ изменений**. Остальные ветки, HTML/plain-фолбеки, init-гарды — без изменений.
+
+### 53.5 Betterstack: веб-ресёрч и контракт облачной ступени (R44-3, D169, вопрос 3)
+
+**Ресёрч (источники):** (1) https://betterstack.com/docs/logs/api/getting-started/ — Telemetry API: JSON:API + Bearer, Telemetry API token team-scoped; (2) https://betterstack.com/docs/logs/api/explorations/list/ (+/get, /create) — Explorations API отдаёт ТОЛЬКО определения (chart/query-конфиги), НЕ события → «run query/explore»-эндпоинта с событиями в Telemetry API НЕТ; (3) https://betterstack.com/docs/logs/api/connections/get/ — Connections API требует GLOBAL API token (не team-токен); (4) **http://web.archive.org/web/20250115034546/https://betterstack.com/docs/logs/query-api/v2/live-tail/** — Query API v2 Live Tail (документация снята с текущего сайта, архив 2025-07/2025-08): `GET https://telemetry.betterstack.com/api/v2/query/live-tail`, Bearer, flat `data[]` + `pagination.next` cursor; (5) http://web.archive.org/web/20250124064404/https://betterstack.com/docs/logs/query-api/ — Legacy v1 `/api/v1/query` (deprecated, «decommissioned 15.08.2024»); (6) https://betterstack.com/docs/logs/query-api/connect-remotely/ — SQL/Query API (ClickHouse HTTP, Basic auth connection user/pass, `FORMAT JSONEachRow`, `SELECT dt, raw …`) — запасной путь на будущее; (7) gist.github.com/boly38/e853a1d83b63481fd5a97e4b7822813e — живой пример legacy API (`data[].dt/message`).
+
+**Вердикт:** кандидат (а) ПОДТВЕРЖДЁН документацией (архив доков): выбран **`GET https://telemetry.betterstack.com/api/v2/query/live-tail`** — единственный Bearer-эндпоинт с team-токеном, отдающий события (и согласуется с прод-фактом «401 Invalid Team API token»: эндпоинт-семейство живо, отклоняет source-токен, ждёт TEAM-токен — ровно Telemetry API token из R44-3). SQL/Query API (вариант б) — документированный, но Basic auth + ручное создание коннекшна в UI + таблица `tXXXX_source_logs` — противоречит «только BETTERSTACK_TOKEN в .env»; зафиксирован как план Б на будущее (не в этом эпике).
+
+**Контракт облачной ступени (фиксируем):**
+
+| Аспект | Значение |
+|---|---|
+| URL-дефолт (`CHECKUP_BETTERSTACK_URL`) | `https://telemetry.betterstack.com/api/v2/query/live-tail` (настраиваемый, D169) |
+| Метод | `GET`; **follow redirects обязателен** (httpx: `follow_redirects=True` — явно в клиенте) |
+| Заголовки | `Authorization: Bearer {CHECKUP_BETTERSTACK_TOKEN}` (BETTERSTACK_TOKEN приоритет; R17 — значение НЕ логируется) |
+| Параметры (страница 1) | `source_ids` (обязательный, через запятую; новый settings), `batch=100` (диапазон API 50–1000), `from`/`to` ISO8601 `%Y-%m-%dT%H:%M:%S%z` (окно 24ч), `query` (live-tail фильтр, ОПЦИОНАЛЬНО — пусто → не шлём, фильтр уровней ЛОКАЛЬНО как раньше), `order` — не шлём (default newest_first) |
+| Схема ответа 200 | `{"data": [{"dt": "2026-08-20 12:28:14.000000", "message": "...", "level": "debug", ...}], "pagination": {"next": "<url c cursor>|null"}}` — ПЛОСКАЯ (не JSON:API), flat `data[]` |
+| Маппинг полей | `dt` (строка) → timestamp; `level` → level (отсутствует → `-`); `message` → message; парсер толерантен: алиасы message|msg|json, level|severity|log_level, dt|timestamp|_dt, + ветка JSON:API attributes — **`_extract_lines` БЕЗ изменений** |
+| Пагинация | `pagination.next` — GET как есть (без доп. params), cursor-URL; потолки прежние: `_MAX_PAGES=5`, `_MAX_LOG_EVENTS=200`, `_MAX_LOG_SYMBOLS=20000` |
+| Пустой токен ИЛИ пустой `source_ids` | облачная ступень ПРОПУСКАЕТСЯ (WARNING) → journalctl (прецедент «no token») |
+| Ошибки (401/404/HTTPError/битый JSON/таймаут) | → journalctl БЕЗ изменений (фолбек неприкосновенен), `used_fallback=True` |
+
+**ДОПУСК (D169):** документация v2-эндпоинта снята с текущего сайта; парсер толерантен; финальная эмпирическая верификация — curl на проде с реальным токеном (@DevOps, T-350-D): **200 → схема зафиксирована в `plans/MEMORY.md`; 401/404 → каскад живёт на journalctl, отчёт честный**. НЕ блокер деплоя.
+
+**`config/settings.py` (357):**
+
+```python
+    # D169 (Epic 44): BETTERSTACK_TOKEN (Telemetry API token, team-scoped) приоритет;
+    # иначе существующий LOGTAIL_SOURCE_TOKEN (R17 — значение НЕ логируется).
+    CHECKUP_BETTERSTACK_TOKEN: str = _env_str("BETTERSTACK_TOKEN", "") or os.getenv("LOGTAIL_SOURCE_TOKEN", "")
+    # Epic 44: Live Tail Query API v2 (Bearer team-токен; follow-redirects).
+    CHECKUP_BETTERSTACK_URL: str = _env_str("CHECKUP_BETTERSTACK_URL", "https://telemetry.betterstack.com/api/v2/query/live-tail")
+    # ID источников через запятую (Sources API); пусто → облачная ступень пропускается.
+    CHECKUP_BETTERSTACK_SOURCE_IDS: str = _env_str("BETTERSTACK_SOURCE_IDS", "")
+    # Live-tail фильтр (опционально); пусто → фильтр уровней локально (как раньше).
+    CHECKUP_BETTERSTACK_QUERY: str = _env_str("BETTERSTACK_QUERY", "")
+    CHECKUP_JOURNALCTL_CMD: str = _env_str("CHECKUP_JOURNALCTL_CMD", "journalctl -u admin_bot -n 300 --no-pager")
+```
+
+`.env.example` (после Checkup-блока):
+
+```
+# ── Checkup: Betterstack Telemetry (Epic 44, D169) ──
+# BETTERSTACK_TOKEN=<Telemetry API token, team-scoped>
+# BETTERSTACK_SOURCE_IDS=123,456
+# BETTERSTACK_QUERY=level:error OR level:warning OR level:critical
+```
+
+**`services/system_logs_fetcher.py` (переработка):**
+
+```python
+_BATCH = 100                        # API: 50–1000, default 100 (Epic 44, 53.5)
+
+class CheckupLogsFetcher:
+    def __init__(
+        self,
+        token: str,
+        base_url: str = settings.CHECKUP_BETTERSTACK_URL,
+        source_ids: str = settings.CHECKUP_BETTERSTACK_SOURCE_IDS,
+        query: str = settings.CHECKUP_BETTERSTACK_QUERY,
+        journalctl_cmd: str = settings.CHECKUP_JOURNALCTL_CMD,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        ...
+        self._source_ids = source_ids
+        self._query = query
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(_BETTERSTACK_TIMEOUT, connect=10.0),
+                headers={"Authorization": f"Bearer {self._token}"},
+                transport=self._transport,
+                follow_redirects=True,           # требование API (53.5)
+            )
+        return self._client
+
+    async def fetch(self) -> tuple[str, bool]:
+        if not self._token.strip() or not self._source_ids.strip():
+            logger.warning("[checkup fetcher] betterstack skipped (no token/source_ids) → journalctl")
+            return await self._fetch_journalctl(), True
+        try:
+            return await self._fetch_betterstack(), False
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning(
+                "[checkup fetcher] betterstack failed → journalctl fallback | error=%s", exc
+            )
+            return await self._fetch_journalctl(), True
+
+    async def _fetch_betterstack(self) -> str:
+        now = datetime.now(timezone.utc)
+        params: dict[str, str] = {
+            "source_ids": self._source_ids,
+            "batch": str(_BATCH),
+            "from": (now - timedelta(hours=_LOOKBACK_HOURS)).strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "to": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        }
+        if self._query.strip():
+            params["query"] = self._query.strip()
+        lines: list[str] = []
+        url: str | None = self._base_url
+        page = 0
+        while url and page < _MAX_PAGES and len(lines) < _MAX_LOG_EVENTS:
+            page += 1
+            resp = await self._get_client().get(url, params=params if page == 1 else None)
+            resp.raise_for_status()                    # 401/404/5xx → фолбек
+            payload = resp.json()                      # битый JSON → фолбек
+            lines.extend(self._extract_lines(payload))
+            nxt = (payload.get("pagination") or {}).get("next")
+            url = nxt if isinstance(nxt, str) and nxt else None
+        text = "\n".join(lines[:_MAX_LOG_EVENTS])
+        logger.info(
+            "[checkup fetcher] betterstack ok | events=%d | chars=%d | pages=%d",
+            len(lines), len(text), page,
+        )
+        return text[:_MAX_LOG_SYMBOLS]
+```
+
+`_extract_lines` — **БЕЗ изменений** (толерантный контракт 51.3 уже покрывает плоскую live-tail схему: `data[]` + `dt`/`level`/`message`). journalctl-ступень, `close()`, потолки — БЕЗ изменений. Модульный docstring обновить (Epic 44, Section 53.5).
+
+### 53.6 Сводка правок файлов
+
+**Боевой код:** `services/info_service.py` (канон 53.3 байт-в-байт), `handlers/info.py` (53.4 — только `cmd_info` + docstring), `config/settings.py` + `.env.example` (53.5), `services/system_logs_fetcher.py` (53.5). **Данные:** `info_text.md` (html-канон 53.3, UTF-8/LF/без хвостового `\n`). **Тесты:** `tests/test_info_service.py`, `tests/test_info_handlers.py`, `tests/test_checkup_logs_fetcher.py` (53.7). **Доки:** `README.md`, `plans/MEMORY.md` (T-348-A). **НЕ трогать:** пулы (кроме переиспользования), journalctl-фолбек, LLM-промпты, `bot.py`, `smartmodule_utils.py`, `/edit_info`, Uptime API token (не используется, D169).
+
+### 53.7 Тест-план (правки + новые; baseline 1976, 0 failed/skipped)
+
+**`tests/test_info_service.py` (правки):**
+
+```python
+_ARCH_53_ANCHOR = "### 53.3 "
+
+
+def _arch_default_info() -> str:
+    """Эталон из plans/ARCHITECTURE.md Section 53.3 (python-блок КАНОНА)."""
+    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if line.startswith(_ARCH_53_ANCHOR))
+    start = next(
+        i for i, line in enumerate(lines[anchor:], anchor)
+        if line.startswith("DEFAULT_INFO_TEXT = ")
+    )
+    end = next(
+        i for i, line in enumerate(lines[start:], start) if line.endswith('"""')
+    )
+    block = lines[start : end + 1]
+    block[0] = block[0][len('DEFAULT_INFO_TEXT = """'):]
+    block[-1] = block[-1][:-3]
+    return "\n".join(block)
+
+
+def _arch_info_html_block() -> str:
+    """Кросс-эталон: html-блок Section 53.3 (ПЕРВЫЙ ```html ПОСЛЕ якоря)."""
+    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if line.startswith(_ARCH_53_ANCHOR))
+    start = next(
+        i for i, line in enumerate(lines[anchor:], anchor) if line.strip() == "```html"
+    )
+    end = next(
+        i for i, line in enumerate(lines[start + 1:], start + 1)
+        if line.strip() == "```"
+    )
+    return "\n".join(lines[start + 1 : end])
+
+
+def _backlog_r44_1_text() -> str:
+    """Verbatim-эталон СУТИ: fenced-блок канона R44-1 в plans/backlog.md."""
+    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if "Канон R44-1" in line)
+    start = next(
+        i for i, line in enumerate(lines[anchor:], anchor) if line.strip() == "```"
+    ) + 1
+    end = next(
+        i for i, line in enumerate(lines[start:], start) if line.strip() == "```"
+    )
+    return "\n".join(lines[start:end])
+```
+
+| # | Кейс | Ожидание |
+|---|---|---|
+| 20' | `test_byte_for_byte_with_architecture` | `DEFAULT_INFO_TEXT == _arch_default_info()` (якорь 53.3, не 52.3!) |
+| 20'' | `test_byte_for_byte_with_html_block` | `DEFAULT_INFO_TEXT == _arch_info_html_block()` (якорь 53.3, не 52.4!) |
+| 20''' | `test_html_tags_balanced` | + `DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>")` (b/code — как раньше) |
+| 20'''' | `test_no_unbalanced_special_chars` | strip-список дополнить: `<a href="https://youtu.be/">`, `<a href="https://какой-то-сайт.ru">`, `</a>`; в href НЕТ `&` (экранирование не требуется — зафиксировано в каноне 53.3) |
+| 20''''' | `test_covers_features` | маркеры: `Гайд по фичам`, `фактчек`, `чекап`, `кулдаун`, `Checkup`, `youtu.be`, `какой-то-сайт.ru` (старые `/summary`/«кулдаун 5 минут» УДАЛИТЬ) |
+| **24 (NEW)** | `test_canon_matches_backlog_r44_1_essence` | `re.sub(r"<[^>]+>", "", DEFAULT_INFO_TEXT) == _backlog_r44_1_text()` — суть verbatim R44-1 (вопрос 6) |
+
+Тесты класса `TestInfoServiceFs` — БЕЗ изменений (логика InfoService не менялась; канон подтягивается сам).
+
+**`tests/test_info_handlers.py` (правки #2/#3 + новые):**
+
+| # | Кейс | Ожидание |
+|---|---|---|
+| 2' | delete бросает TelegramBadRequest («not enough rights») | ДВА send: (1) `INFO_NO_DELETE_RIGHTS_PHRASES` реплаем на `message_id`; (2) справка — `send_chunked_reply(..., reply_to=message_id, parse_mode="HTML")`; порядок: пул ДО справки; `service.get_text` вызван |
+| 3' | delete бросает прочий Exception | как #2' |
+| NEW | нет прав + кулдаун активен | пул прав реплаем; throttle 5.1 реплаем; справка НЕ шлётся (return после кулдауна сохраняется) |
+| NEW | нет прав + успех | справка приходит с `reply_to_message_id == message_id` и `parse_mode == "HTML"` (команда висит в чате) |
+| 1 (регресс) | delete успех | справка БЕЗ `reply_to_message_id` (команда удалена) — как 52.6 |
+| 4-7 | кулдаун/фолбеки/init-гарды | БЕЗ изменений |
+
+**`tests/test_checkup_logs_fetcher.py` (`TestFetcherBetterstack` — переписать под 53.5):** `BASE_URL = "https://telemetry.betterstack.com/api/v2/query/live-tail"`.
+
+| # | Кейс | Ожидание |
+|---|---|---|
+| 11' | 200 + плоская live-tail схема (КАНОНИЧЕСКАЯ): `data[]` flat `{dt, level, message}` | строки `"2026-08-20 10:00:00.000000 - ERROR - disk exploded"`; `used_fallback is False` |
+| NEW | params страницы 1 | `source_ids`, `batch=100`, `from`, `to` в `requests[0].url.params`; `query` отсутствует при пустом; `cursor`/`page` отсутствуют |
+| NEW | `query` задан | `query` присутствует в params страницы 1 (pass-through) |
+| NEW | пустой `source_ids` | betterstack НЕ вызван (0 запросов), сразу journalctl, `(text, True)` |
+| 12-15 | tolerant `_extract_lines` (JSON:API attributes — как толерантная ветка; unix-ts; events-fallback; потолки) | БЕЗ изменений (парсер не менялся) |
+| 15' | `pagination.next` (cursor-URL) | 2-й GET по URL как есть (без доп. params), события объединены |
+| 15'' | next всегда → стоп `_MAX_PAGES == 5` | ровно 5 GET |
+| 16-18,19 | 401/500/таймаут/ConnectError/битый JSON/пустой токен → journalctl | БЕЗ изменений по ожиданиям (URL/params обновились) |
+
+`TestFetcherJournalctl` — **БЕЗ изменений**. Заголовки-комментарии тест-файлов: ссылку на Section 52.x → 53.x.
+
+**Регрессия:** полный `pytest` — baseline 1976 + новые (замены не уменьшают счётчик ниже baseline; D170: 0 failed/skipped); `git diff --check` чист; секретов нет (только имена env).
+
+### 53.8 DoD (Epic 44)
+
+- **Builder (T-344…T-348):** канон 53.3 байт-в-байт в `DEFAULT_INFO_TEXT` + `info_text.md` (UTF-8/LF/без хвостового `\n`); фикс /info 53.4 (пул + ПРОДОЛЖЕНИЕ, reply-таргеты по таблице 53.4, `/edit_info` не тронут); fetcher 53.5 (новый URL/auth/params/схема, `follow_redirects`, skip при пустых token/source_ids, фолбек journalctl без изменений); settings + `.env.example` 53.5; тесты 53.7; README + MEMORY v2.34.1.
+- **Reviewer (T-347-B):** Section 53 + код APPROVED; каноны сверены байт-в-байт; BLOCKER/MAJOR нет; полный pytest 0 регрессий (baseline 1976).
+- **DevOps (T-349/T-350):** коммит + пуш v2.34.1; деплой по чеклисту 53.9; вердикт по эндпоинту зафиксирован (T-350-D).
+
+### 53.9 Деплой-чеклист v2.34.1 (T-349/T-350, D169)
+
+1. Локально: полный `pytest` (0 failed/skipped); `git diff --check` чист; секретов в диффе нет.
+2. Коммит+push master (T-349-A): `feat(smartmodule): Epic 44 — новый /info текст + фикс delete + Betterstack Telemetry (v2.34.1)`; код+канон+тесты+`info_text.md` ОДНИМ коммитом (D123-стиль); `.env` НЕ коммитим.
+3. SSH `nik@198.46.175.136:22` → `cd /var/www/admin_bot` → бэкап: `cp .env .env.bak.epic44`; в прод `.env` ДОБАВИТЬ (значения НЕ в планы, R17): `BETTERSTACK_TOKEN=<Telemetry API token>` и `BETTERSTACK_SOURCE_IDS=<id,id>` (опц. `BETTERSTACK_QUERY`).
+4. **Прод-нюанс `info_text.md`** (T-350-B, юзер мог править на проде через /edit_info): `cp info_text.md info_text.md.bak.epic44` → `git checkout -- info_text.md` ПЕРЕД pull (пользователь явно просит новый текст).
+5. `git pull --ff-only`.
+6. **Определение source_ids:** `curl -sS -L -H "Authorization: Bearer $BETTERSTACK_TOKEN" "https://telemetry.betterstack.com/api/v2/sources"` → взять id источника, куда льются логи admin_bot → сверить с `BETTERSTACK_SOURCE_IDS` в .env.
+7. **Эмпирическая curl-верификация (T-350-D):** `curl -sS -L -w "\n%{http_code}\n" -H "Authorization: Bearer $BETTERSTACK_TOKEN" "https://telemetry.betterstack.com/api/v2/query/live-tail?source_ids=$SOURCE_IDS&from=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%S%z)&to=$(date -u +%Y-%m-%dT%H:%M:%S%z)&batch=100"` (значение токена в shell-вывод НЕ логировать). **200** → образец схемы ответа зафиксировать в `plans/MEMORY.md` (плоская `data[]` vs иное — фактик по контракту 53.5); **401/404** → каскад живёт на journalctl, отчёт честный (в board/MEMORY: «эндпоинт не подтверждён, фолбек активен»).
+8. `sudo systemctl restart admin_bot` → active (running), новый PID; `journalctl -u admin_bot -n 50 --no-pager` — 0 traceback; факты: `InfoService (Epic 43) initialized` (логика wiring не менялась), нет ERROR от `[checkup fetcher]` сверх WARNING-фолбеков.
+9. **Smoke (T-350-E):** (а) /info → новый текст (HTML: жирные секции, код-триггеры, кликабельные ссылки), команда удаляется (или пул прав + справка реплаем при отсутствии прав); (б) «чекап» → реплай: облачный отчёт (если шаг 7 = 200) или честный фолбек journalctl; (в) `/edit_info` админом не сломан (превью в DM).
+
+### 53.10 Риски
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | `/api/v2/query/live-tail` на проде 401/404 (документация снята с текущего сайта; известный факт 401 «Invalid Team API token») | T-350-D curl-верификация; фейл → каскад на journalctl (неприкосновенен), честный отчёт; НЕ блокер деплоя (D169) |
+| 2 | `source_ids` пуст/неверен | skip-ветка (пусто → journalctl, WARNING); 422/ошибки → фолбек; шаг 6 чек-листа |
+| 3 | IDN-домен в `<a href="https://какой-то-сайт.ru">` отвергнут Telegram-рендером → /info уйдёт в plain-фолбек | Smoke T-350-E (а) ловит; фикс — правка канона через /edit_info на проде + follow-up-коммит канона; тест байт-в-байт перевешивается только с обновлением Section 53.3 |
+| 4 | Ловушка «первого html-блока»/«первого DEFAULT_INFO_TEXT» | Оба хелпера перепривязаны к якорю `### 53.3 ` (53.7); 52.4 помечен «ЗАМЕНЁН в Section 53» |
+| 5 | `info_text.md` конфликт на проде (`/edit_info`) | бэкап + `git checkout -- info_text.md` перед pull (шаг 4) |
+| 6 | 0 регрессий (baseline 1976) | переписанные #2/#3 и `TestFetcherBetterstack`; парсер `_extract_lines` без изменений → tolerant-тесты остаются валидными |
+| 7 | `&` в href (ловушка `test_no_unbalanced_special_chars`) | в каноне href БЕЗ query-строк → `&` отсутствует; зафиксировано в 53.3 (20'''') |
+
+### 53.11 Сводка для Builder (файлы, порядок)
+
+**Порядок:** T-344 (канон 53.3: `info_service.py` + `info_text.md`) → T-345 (фикс 53.4) → T-346 (fetcher 53.5 + settings) → T-347-A (тесты 53.7) → T-347-B (@Reviewer: ревью + полный прогон, 0 регрессий) → T-348 (README + MEMORY) → T-349/T-350 (@DevOps: коммит `feat(smartmodule): Epic 44 — новый /info текст + фикс delete + Betterstack Telemetry (v2.34.1)` + деплой по чеклисту 53.9).
+
+@Architect Epic 44 architecture ready (Section 53: HTML-канон R44-1 зафиксирован БАЙТ-В-БАЙТ в 53.3 двумя блоками — 6 пар `<b>` (интро + секции 1..5), 23 пары `<code>` (триггеры/примеры), 2 кликабельные `<a href>` («...» после ютуб-ссылки — текстом), `&` в href нет, кавычки verbatim; суть — verbatim R44-1, проверяется НОВЫМ тестом снятия тегов против fenced-блока backlog; 52.4 помечен «ЗАМЕНЁН в Section 53»; ОБА тест-хелпера перепривязаны к якорю `### 53.3 ` (ловушка «первого вхождения» закрыта); /info-фикс: пул прав + ПРОДОЛЖЕНИЕ, справка реплаем на висящую команду (`deleted=False → reply_to=message_id`), кулдаун-ветка без изменений; Betterstack: веб-ресёрч подтвердил кандидата (а) — `GET https://telemetry.betterstack.com/api/v2/query/live-tail` (Bearer Telemetry team-токен, source_ids/batch/from/to/query, follow-redirects, плоская `data[]` dt/message/level + cursor-пагинация; источники — архив docs.betterstack.com 2025 + текущие доки SQL API; парсер толерантен БЕЗ изменений; SQL/Query API — план Б на будущее); допуск D169: эмпирическая curl-верификация на проде (T-350-D) — 200 → схема в MEMORY, 401/404 → каскад на journalctl, честный отчёт; фолбек journalctl неприкосновенен), passing the baton to @Builder (T-344…T-348) → @Reviewer (T-347-B) → @DevOps (T-349/T-350: v2.34.1, коммит + деплой по чеклисту 53.9).

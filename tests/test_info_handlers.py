@@ -1,9 +1,10 @@
-"""Tests for handlers/info.py (T-339-A #1-14, Section 52.6).
+"""Tests for handlers/info.py (T-339-A #1-16, Sections 52.6/53.4).
 
-100% покрытие /info и /edit_info: delete+пул нет прав (СТОП), кулдаун
-per-chat (команда удаляется даже при троттлинге), HTML-отправка с
-plain-фолбеком, админ-гейт, DM-превью (порядок preview→save), рендер-
-валидация (файл/кэш нетронуты), OSError, пустой аргумент, init-гарды.
+100% покрытие /info и /edit_info: delete+пул нет прав (ПРОДОЛЖЕНИЕ — справка
+реплаем на висящую команду), кулдаун per-chat (команда удаляется даже при
+троттлинге), HTML-отправка с plain-фолбеком, админ-гейт, DM-превью (порядок
+preview→save), рендер-валидация (файл/кэш нетронуты), OSError, пустой
+аргумент, init-гарды.
 """
 import logging
 from unittest.mock import AsyncMock, MagicMock
@@ -95,29 +96,87 @@ class TestCmdInfo:
         service.get_text.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_delete_no_rights_pool_and_stop(self, info_cleanup):
-        """#2: delete бросает TelegramBadRequest → INFO_NO_DELETE_RIGHTS_PHRASES
-        реплаем; отправка справки НЕ происходит (СТОП)."""
+    async def test_delete_no_rights_pool_then_continue(self, info_cleanup):
+        """#2': delete бросает TelegramBadRequest → ДВА send: (1)
+        INFO_NO_DELETE_RIGHTS_PHRASES реплаем на message_id; (2) справка —
+        send_chunked_reply(..., reply_to=message_id, parse_mode="HTML");
+        порядок: пул ДО справки; service.get_text вызван (R44-2, 53.4)."""
         service = _service()
         info_mod.setup_info(service)
         msg = _make_msg("/info")
         msg.delete = AsyncMock(side_effect=_no_rights_400())
         bot = AsyncMock()
         await info_mod.cmd_info(msg, bot=bot)
-        assert bot.send_message.await_count == 1
-        assert bot.send_message.await_args.args[1] in INFO_NO_DELETE_RIGHTS_PHRASES
-        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 5
+        calls = bot.send_message.await_args_list
+        assert len(calls) == 2
+        assert calls[0].args[1] in INFO_NO_DELETE_RIGHTS_PHRASES
+        assert calls[0].kwargs["reply_to_message_id"] == 5
+        assert calls[1].args == (CHAT_ID, HTML_TEXT)
+        assert calls[1].kwargs["reply_to_message_id"] == 5
+        assert calls[1].kwargs["parse_mode"] == "HTML"
+        service.get_text.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_delete_generic_exception_same_pool(self, info_cleanup):
-        """#3: delete бросает прочий Exception → тот же пул."""
+    async def test_delete_generic_exception_pool_then_continue(self, info_cleanup):
+        """#3': delete бросает прочий Exception → как #2' (пул + справка)."""
         service = _service()
         info_mod.setup_info(service)
         msg = _make_msg("/info")
         msg.delete = AsyncMock(side_effect=RuntimeError("сеть"))
         bot = AsyncMock()
         await info_mod.cmd_info(msg, bot=bot)
-        assert bot.send_message.await_args.args[1] in INFO_NO_DELETE_RIGHTS_PHRASES
+        calls = bot.send_message.await_args_list
+        assert len(calls) == 2
+        assert calls[0].args[1] in INFO_NO_DELETE_RIGHTS_PHRASES
+        assert calls[0].kwargs["reply_to_message_id"] == 5
+        assert calls[1].args == (CHAT_ID, HTML_TEXT)
+        assert calls[1].kwargs["reply_to_message_id"] == 5
+        assert calls[1].kwargs["parse_mode"] == "HTML"
+
+    @pytest.mark.asyncio
+    async def test_no_rights_help_replied_to_visible_command(self, info_cleanup):
+        """NEW (53.7): нет прав + успех → справка приходит с
+        reply_to_message_id == message_id и parse_mode == "HTML"
+        (команда висит в чате)."""
+        service = _service()
+        info_mod.setup_info(service)
+        msg = _make_msg("/info", message_id=77)
+        msg.delete = AsyncMock(side_effect=_no_rights_400())
+        bot = AsyncMock()
+        await info_mod.cmd_info(msg, bot=bot)
+        help_call = bot.send_message.await_args_list[-1]
+        assert help_call.args == (CHAT_ID, HTML_TEXT)
+        assert help_call.kwargs["reply_to_message_id"] == 77
+        assert help_call.kwargs["parse_mode"] == "HTML"
+
+    @pytest.mark.asyncio
+    async def test_no_rights_and_cooldown_pool_throttle_no_help(
+        self, info_cleanup, fake_time
+    ):
+        """NEW (53.7): нет прав + кулдаун активен → пул прав реплаем;
+        throttle 5.1 реплаем; справка НЕ шлётся (return после кулдауна)."""
+        service = _service()
+        info_mod.setup_info(service)
+        bot = AsyncMock()
+        first = _make_msg("/info", user_id=1)
+        await info_mod.cmd_info(first, bot=bot)
+        assert bot.send_message.await_count == 1
+
+        fake_time["now"] += 100
+        expected_remaining = info_mod._cooldown.remaining(CHAT_ID, 0)
+        assert expected_remaining > 0
+        second = _make_msg("/info", user_id=2, message_id=6)
+        second.delete = AsyncMock(side_effect=_no_rights_400())
+        await info_mod.cmd_info(second, bot=bot)
+        calls = bot.send_message.await_args_list
+        assert len(calls) == 3
+        assert calls[1].args[1] in INFO_NO_DELETE_RIGHTS_PHRASES
+        assert calls[1].kwargs["reply_to_message_id"] == 6
+        fmt = format_remaining_time(expected_remaining)
+        candidates = [p.replace("{remaining_time}", fmt) for p in THROTTLE_PHRASES]
+        assert calls[2].args[1] in candidates
+        assert calls[2].kwargs["reply_to_message_id"] == 6
+        assert service.get_text.call_count == 1     # справка после кулдауна НЕ слалась
 
     @pytest.mark.asyncio
     async def test_cooldown_throttles_but_still_deletes(self, info_cleanup, fake_time):
