@@ -1,11 +1,12 @@
-"""Epic 43 — /info + /edit_info handlers (R43-1/R43-3, D162/D163, Section 52.6).
+"""Epic 43 — /info + /edit_info handlers (R43-1/R43-3, D162/D163, Section 52.6/53.4).
 
 Роутер command-based (прецедент admin_commands, Epic 9), регистрируется
 БЕЗУСЛОВНО (LLM не нужен, D162). /info: delete СРАЗУ → нет прав → пул +
-СТОП → кулдаун per-chat → отправка HTML (TelegramBadRequest → plain-фолбек).
-/edit_info: ТОЛЬКО ADMIN_USER_ID; рендер-валидация превью админу в DM (D163,
-чат не спамим) → успех → save_text (файл+кэш) → пул успеха реплаем на
-команду. Команда /edit_info НЕ удаляется — reply-таргет должен жить (T-337-C).
+ПРОДОЛЖИТЬ (команда висит в чате → справка реплаем) → кулдаун per-chat →
+отправка HTML (TelegramBadRequest → plain-фолбек). /edit_info: ТОЛЬКО
+ADMIN_USER_ID; рендер-валидация превью админу в DM (D163, чат не спамим) →
+успех → save_text (файл+кэш) → пул успеха реплаем на команду. Команда
+/edit_info НЕ удаляется — reply-таргет должен жить (T-337-C).
 """
 import logging
 import random
@@ -47,6 +48,7 @@ async def cmd_info(message: types.Message, bot: Bot = None) -> None:
         return
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[/info] triggered | chat=%s user=%s", message.chat.id, user_id)
+    deleted = True                                 # R44-2 (53.4): отказ delete — НЕ стоп
     try:                                           # R43-1: удалить СРАЗУ
         await message.delete()
         logger.info("[/info] command deleted | chat=%s msg=%s",
@@ -56,7 +58,7 @@ async def cmd_info(message: types.Message, bot: Bot = None) -> None:
                        message.chat.id, exc_info=True)
         await _reply(bot, message.chat.id, random.choice(INFO_NO_DELETE_RIGHTS_PHRASES),
                      message.message_id)
-        return                                     # СТОП (T-336-A)
+        deleted = False                            # команда висит → справка РЕПЛАЕМ
     remaining = _cooldown.remaining(message.chat.id, _CHAT_SLOT)
     if remaining > 0:                              # 5.1 (D159)
         await _reply(bot, message.chat.id, throttle_phrase(remaining),
@@ -64,16 +66,16 @@ async def cmd_info(message: types.Message, bot: Bot = None) -> None:
         return
     _cooldown.touch(message.chat.id, _CHAT_SLOT)
     text = _service.get_text()
+    reply_to = None if deleted else message.message_id
     try:
-        # команда удалена → БЕЗ reply (reply_to_message_id=None)
-        await send_chunked_reply(bot, message.chat.id, text, None, parse_mode="HTML")
+        await send_chunked_reply(bot, message.chat.id, text, reply_to, parse_mode="HTML")
         logger.info("[/info] sent | chat=%s", message.chat.id)
     except TelegramBadRequest:
         # файл правлен вручную мимо /edit_info → plain-деградация, НЕ падаем
         logger.exception("[/info] HTML markup rejected → plain fallback | chat=%s",
                          message.chat.id)
         try:
-            await send_chunked_reply(bot, message.chat.id, text, None)
+            await send_chunked_reply(bot, message.chat.id, text, reply_to)
         except Exception:
             logger.exception("[/info] plain fallback failed | chat=%s", message.chat.id)
     except Exception:

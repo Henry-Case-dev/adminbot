@@ -351,10 +351,15 @@ class Settings:
     CHECKUP_COOLDOWN_SECONDS: float = _env_float_min("CHECKUP_COOLDOWN_SECONDS", 300.0, 0.0)
     # Лимит ОТВЕТА LLM, символы; <100 → дефолт 3000 (WARNING).
     CHECKUP_MAX_SYMBOLS: int = _env_int_min("CHECKUP_MAX_SYMBOLS", 3000, 100)
-    # D160: BETTERSTACK_TOKEN если задан, ИНАЧЕ существующий LOGTAIL_SOURCE_TOKEN
-    # (новых секретов не заводим; R17 — значение НЕ логируется).
+    # D169 (Epic 44): BETTERSTACK_TOKEN (Telemetry API token, team-scoped) приоритет;
+    # иначе существующий LOGTAIL_SOURCE_TOKEN (R17 — значение НЕ логируется).
     CHECKUP_BETTERSTACK_TOKEN: str = _env_str("BETTERSTACK_TOKEN", "") or os.getenv("LOGTAIL_SOURCE_TOKEN", "")
-    CHECKUP_BETTERSTACK_URL: str = _env_str("CHECKUP_BETTERSTACK_URL", "https://logs.betterstack.com/api/v2/events")
+    # Epic 44: Live Tail Query API v2 (Bearer team-токен; follow-redirects).
+    CHECKUP_BETTERSTACK_URL: str = _env_str("CHECKUP_BETTERSTACK_URL", "https://telemetry.betterstack.com/api/v2/query/live-tail")
+    # ID источников через запятую (Sources API); пусто → облачная ступень пропускается.
+    CHECKUP_BETTERSTACK_SOURCE_IDS: str = _env_str("BETTERSTACK_SOURCE_IDS", "")
+    # Live-tail фильтр (опционально); пусто → фильтр уровней локально (как раньше).
+    CHECKUP_BETTERSTACK_QUERY: str = _env_str("BETTERSTACK_QUERY", "")
     CHECKUP_JOURNALCTL_CMD: str = _env_str("CHECKUP_JOURNALCTL_CMD", "journalctl -u admin_bot -n 300 --no-pager")
 
     # ── /info + /edit_info (Epic 43) ────────────────────────────

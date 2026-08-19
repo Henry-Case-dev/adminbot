@@ -1,22 +1,28 @@
-"""Tests for services/info_service.py (T-339-A/B #15-20, Section 52.3/52.4).
+"""Tests for services/info_service.py (T-339-A/B #15-24, Sections 52.3/53.3/53.7).
 
 ФС-моки: tmp_path + явный путь конструктора. Канон DEFAULT_INFO_TEXT —
-байт-в-байт с Section 52.3/52.4; инициализация дефолтом; load/save/кэш;
-save_text переживает «рестарт» (новый инстанс на том же пути).
+байт-в-байт с Section 53.3 (python + html блоки, якорь «### 53.3»); суть —
+verbatim R44-1 (strip-теги == fenced-блок backlog); инициализация дефолтом;
+load/save/кэш; save_text переживает «рестарт» (новый инстанс на том же пути).
 """
 import logging
+import re
 from pathlib import Path
 
 import pytest
 
 from services.info_service import DEFAULT_INFO_TEXT, InfoService
 
+_ARCH_53_ANCHOR = "### 53.3 "
+
 
 def _arch_default_info() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 52.3 (эталон-блок)."""
+    """Эталон из plans/ARCHITECTURE.md Section 53.3 (python-блок КАНОНА)."""
     lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if line.startswith(_ARCH_53_ANCHOR))
     start = next(
-        i for i, line in enumerate(lines) if line.startswith("DEFAULT_INFO_TEXT = ")
+        i for i, line in enumerate(lines[anchor:], anchor)
+        if line.startswith("DEFAULT_INFO_TEXT = ")
     )
     end = next(
         i for i, line in enumerate(lines[start:], start) if line.endswith('"""')
@@ -28,9 +34,12 @@ def _arch_default_info() -> str:
 
 
 def _arch_info_html_block() -> str:
-    """Кросс-эталон: html-блок Section 52.4."""
+    """Кросс-эталон: html-блок Section 53.3 (ПЕРВЫЙ ```html ПОСЛЕ якоря)."""
     lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
-    start = next(i for i, line in enumerate(lines) if line.strip() == "```html")
+    anchor = next(i for i, line in enumerate(lines) if line.startswith(_ARCH_53_ANCHOR))
+    start = next(
+        i for i, line in enumerate(lines[anchor:], anchor) if line.strip() == "```html"
+    )
     end = next(
         i for i, line in enumerate(lines[start + 1:], start + 1)
         if line.strip() == "```"
@@ -38,8 +47,22 @@ def _arch_info_html_block() -> str:
     return "\n".join(lines[start + 1 : end])
 
 
+def _backlog_r44_1_text() -> str:
+    """Verbatim-эталон СУТИ: fenced-блок канона R44-1 в plans/backlog.md."""
+    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if "Канон R44-1" in line)
+    start = next(
+        i for i, line in enumerate(lines[anchor:], anchor) if line.strip() == "```"
+    ) + 1
+    end = next(
+        i for i, line in enumerate(lines[start:], start) if line.strip() == "```"
+    )
+    return "\n".join(lines[start:end])
+
+
 class TestDefaultInfoText:
-    """#20: DEFAULT_INFO_TEXT == канону 52.4 байт-в-байт; валидный HTML."""
+    """#20-24: DEFAULT_INFO_TEXT == канону 53.3 байт-в-байт; валидный HTML;
+    суть verbatim R44-1."""
 
     def test_byte_for_byte_with_architecture(self):
         assert DEFAULT_INFO_TEXT == _arch_default_info()
@@ -50,18 +73,26 @@ class TestDefaultInfoText:
     def test_html_tags_balanced(self):
         assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>")
         assert DEFAULT_INFO_TEXT.count("<code>") == DEFAULT_INFO_TEXT.count("</code>")
+        assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>")
 
     def test_no_unbalanced_special_chars(self):
         stripped = DEFAULT_INFO_TEXT.replace("<b>", "").replace("</b>", "")
         stripped = stripped.replace("<code>", "").replace("</code>", "")
+        stripped = stripped.replace('<a href="https://youtu.be/">', "")
+        stripped = stripped.replace('<a href="https://какой-то-сайт.ru">', "")
+        stripped = stripped.replace("</a>", "")
         assert "&" not in stripped and "<" not in stripped and ">" not in stripped
 
     def test_covers_features(self):
         for marker in (
-            "фактчек", "найди", "YouTube", "Веб-статьи", "Checkup",
-            "/info", "/summary", "кулдаун 5 минут",
+            "Гайд по фичам", "фактчек", "чекап", "кулдаун", "Checkup",
+            "youtu.be", "какой-то-сайт.ru",
         ):
             assert marker in DEFAULT_INFO_TEXT
+
+    def test_canon_matches_backlog_r44_1_essence(self):
+        """#24: снятие всех тегов == verbatim-канону R44-1 (вопрос 6)."""
+        assert re.sub(r"<[^>]+>", "", DEFAULT_INFO_TEXT) == _backlog_r44_1_text()
 
 
 class TestInfoServiceFs:

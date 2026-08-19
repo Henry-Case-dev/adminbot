@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.34.0 | **Тестов:** 1976 | **Эпиков:** 43 (T-001…T-342)
+**Версия:** v2.34.1 | **Тестов:** 1981 | **Эпиков:** 44 (T-001…T-348)
 
 ---
 
@@ -1015,6 +1015,20 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 **Тесты:** 100% покрытие `info_service.py` и `handlers/info.py` (порядок delete→кулдаун→отправка, HTML→plain-фолбек, админ-гейт, DM-превью до сохранения, OSError, ФС-инициализация каноном), канон DEFAULT_INFO_TEXT байт-в-байт, пулы дословно, set_my_commands 1→2, router_count 13→14.
 
 **Файлы:** `services/info_service.py`, `handlers/info.py`, `info_text.md` (новые), `services/smartmodule_utils.py`, `services/bot_commands.py`, `config/settings.py`, `.env.example`, `bot.py`, `tests/test_info_service.py`, `tests/test_info_handlers.py` (новые)
+
+---
+
+## 🔧 Новое в v2.34.1 (Epic 44)
+
+### Новый текст /info + фикс прав удаления + Betterstack Telemetry
+
+- **Новый канон /info:** справка переписана целиком — «Гайд по фичам бота с выходом в сеть internet»: 5 секций (фактчек, поиск, ютуб, веб-страницы, Checkup) с жирными заголовками, `<code>`-триггерами («фактчек», «загугли», «транскрипт», «чекап»…) и кликабельными ссылками. Никаких слеш-команд — только нативные триггеры прямо в диалоге. Канон живёт в `info_text.md` и `DEFAULT_INFO_TEXT` (байт-в-байт, `/edit_info` по-прежнему работает).
+- **Фикс /info:** раньше отсутствие прав на удаление команды обрубало логику (пул возмущения и СТОП). Теперь бот шлёт пул «нет прав» И справку — реплаем на висящую в чате команду. Команда удалилась — справка без реплая, как раньше.
+- **Betterstack Telemetry (облачная ступень Checkup):** правильный эндпоинт `GET https://telemetry.betterstack.com/api/v2/query/live-tail` (Live Tail Query API v2): Bearer team-токен, follow-redirects, параметры `source_ids`/`batch=100`/`from`/`to`/`query` (опционально), пагинация курсором до 5 страниц, потолки 200 событий / 20К символов. Настройка: `CHECKUP_BETTERSTACK_URL`, `BETTERSTACK_SOURCE_IDS`, `BETTERSTACK_QUERY`. Пустой токен/источники или отказ облака — честный фолбек на `journalctl` (неприкосновенен).
+
+**Тесты: 1976 → 1981 (+5)**: новый канон байт-в-байт (python + html блоки Section 53.3 + суть verbatim R44-1), фикс /info (пул + ПРОДОЛЖЕНИЕ, reply-таргеты, кулдаун), Betterstack live-tail (params страницы 1, плоская схема `data[]`, `pagination.next`, skip при пустых `source_ids`, 401/500/таймаут/битый JSON → фолбек).
+
+**Файлы:** `services/info_service.py`, `handlers/info.py`, `info_text.md`, `services/system_logs_fetcher.py`, `config/settings.py`, `.env.example`, `tests/test_info_service.py`, `tests/test_info_handlers.py`, `tests/test_checkup_logs_fetcher.py`
 
 ---
 
