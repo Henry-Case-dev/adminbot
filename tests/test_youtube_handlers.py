@@ -14,6 +14,7 @@ from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     THROTTLE_PHRASES,
     YOUTUBE_ERROR_PHRASES,
+    YOUTUBE_RETRY_PHRASES,
 )
 from services.smartmodule_throttling import format_remaining_time
 from services.youtube_transcript_engine import YouTubeTranscriptUnavailableException
@@ -139,7 +140,11 @@ class TestHandler:
         assert bot.send_message.await_args.args[0] == CHAT_ID
         assert bot.send_message.await_args.args[1] == "выжимка видоса"
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
-        service.summarize.assert_awaited_once_with("dQw4w9WgXcQ")
+        service.summarize.assert_awaited_once()
+        await_args = service.summarize.await_args
+        assert await_args.args[0] == "dQw4w9WgXcQ"
+        assert "on_retry" in await_args.kwargs
+        assert callable(await_args.kwargs["on_retry"])
 
     @pytest.mark.asyncio
     async def test_success_replies_to_message_scenario_b(self, youtube_cleanup):
@@ -151,6 +156,41 @@ class TestHandler:
         msg = _make_msg(text=f"{YT_URL} че за видос", message_id=11)
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
+
+    @pytest.mark.asyncio
+    async def test_on_retry_callback_sends_pool_phrase_on_target(self, youtube_cleanup):
+        """#17 (50.8): on_retry из kwargs summarize → фраза 5.8 реплаем на target (77)."""
+        service = MagicMock()
+        service.summarize = AsyncMock(return_value="выжимка видоса")
+        youtube_mod.setup_youtube(service)
+        bot = AsyncMock()
+        target = _make_msg(text=f"{YT_URL}", message_id=77)
+        msg = _make_msg(text="поясни за видос", message_id=11,
+                        reply_to_message=target)
+        await youtube_mod.youtube_handler(msg, bot=bot)
+        on_retry = service.summarize.await_args.kwargs["on_retry"]
+        await on_retry(2, 4)
+        assert bot.send_message.await_args.args[1] in YOUTUBE_RETRY_PHRASES
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
+
+    @pytest.mark.asyncio
+    async def test_on_retry_called_four_times_sends_four_pool_phrases(
+        self, youtube_cleanup
+    ):
+        """#18 (50.8): 4 вызова cb → 4 send_message, все тексты в пуле 5.8."""
+        service = MagicMock()
+        service.summarize = AsyncMock(return_value="выжимка")
+        youtube_mod.setup_youtube(service)
+        bot = AsyncMock()
+        msg = _make_msg(text=f"{YT_URL} че за видос", message_id=11)
+        await youtube_mod.youtube_handler(msg, bot=bot)
+        before = bot.send_message.await_count
+        on_retry = service.summarize.await_args.kwargs["on_retry"]
+        for attempt in (1, 2, 3, 4):
+            await on_retry(attempt, 4)
+        assert bot.send_message.await_count == before + 4
+        texts = [c.args[1] for c in bot.send_message.await_args_list[before:]]
+        assert all(t in YOUTUBE_RETRY_PHRASES for t in texts)
 
     @pytest.mark.asyncio
     async def test_d126_fallback_success_replies_to_call(self, youtube_cleanup):

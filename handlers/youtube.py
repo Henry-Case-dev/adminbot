@@ -13,7 +13,11 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
 from services.llm_client import LLMError
-from services.smartmodule_phrases import LLM_ERROR_PHRASES, YOUTUBE_ERROR_PHRASES
+from services.smartmodule_phrases import (
+    LLM_ERROR_PHRASES,
+    YOUTUBE_ERROR_PHRASES,
+    YOUTUBE_RETRY_PHRASES,   # НОВОЕ (5.8, R41-2)
+)
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_urls import extract_youtube_video_id
 from services.smartmodule_utils import _reply, send_chunked_reply, throttle_phrase
@@ -42,6 +46,17 @@ def _has_trigger(text: str) -> bool:
     """Регистронезависимый substring-матч любой триггер-фразы (R37-4)."""
     lowered = text.lower()
     return any(trigger in lowered for trigger in _YOUTUBE_TRIGGERS)
+
+
+def _make_retry_notifier(bot, chat_id, target_message_id):
+    """R41-2/D156: on_retry-замыкание для движка — токсичная фраза из 5.8
+    реплаем на ЦЕЛЕВОЕ сообщение (target.message_id), прецедент Reply-To 5.6/5.5.
+    Best-effort: если таргет исчез (_reply бросит MessageToReplyNotFound) —
+    каскад НЕ падает: движок глушит колбэк logger.exception (50.3)."""
+    async def on_retry(attempt: int, max_attempts: int) -> None:
+        await _reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES),
+                     target_message_id)
+    return on_retry
 
 
 def _parse(message: types.Message) -> tuple[types.Message | None, str | None]:
@@ -77,25 +92,34 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     if target is None:
         return UNHANDLED                       # не триггер → пропагация живёт
     user_id = message.from_user.id if message.from_user else 0
-    logger.info("[youtube] triggered | chat=%s user=%s", message.chat.id, user_id)
+    logger.info("[youtube] triggered | chat=%s user=%s video_id=%r",   # R41-5
+                message.chat.id, user_id, video_id)
     remaining = _cooldown.remaining(message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (D131/D107)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм
     _cooldown.touch(message.chat.id, user_id)
     try:
-        text = await _service.summarize(video_id)
+        text = await _service.summarize(
+            video_id,
+            on_retry=_make_retry_notifier(bot, message.chat.id,
+                                          target.message_id),
+        )
         await send_chunked_reply(bot, message.chat.id, text, target.message_id)
-        logger.info("[youtube] summary sent | chat=%s", message.chat.id)
+        logger.info("[youtube] summary sent | chat=%s video_id=%r",      # R41-5
+                    message.chat.id, video_id)
     except YouTubeTranscriptUnavailableException:
-        logger.exception("[youtube] transcript failed | chat=%s", message.chat.id)
+        logger.exception("[youtube] transcript failed | chat=%s video_id=%r",
+                         message.chat.id, video_id)                       # R41-5
         await _reply(bot, message.chat.id, random.choice(YOUTUBE_ERROR_PHRASES),  # 5.6 → ЦЕЛЕВОЕ
                      target.message_id)
     except LLMError:
-        logger.exception("[youtube] LLM failed | chat=%s", message.chat.id)
+        logger.exception("[youtube] LLM failed | chat=%s video_id=%r",
+                         message.chat.id, video_id)                       # R41-5
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),       # 5.5 → ЦЕЛЕВОЕ
                      target.message_id)
     except Exception:
-        logger.exception("[youtube] unexpected error | chat=%s", message.chat.id)
+        logger.exception("[youtube] unexpected error | chat=%s video_id=%r",
+                         message.chat.id, video_id)                       # R41-5
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
                      target.message_id)

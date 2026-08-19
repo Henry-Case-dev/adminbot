@@ -1,14 +1,19 @@
 """Tests for services/youtube_transcript_engine.py (T-289, R37-3, Section 46.4/46.12;
-Epic 39, R39-5, Section 48.6; Epic 40, T-310-B, Section 49.4).
+Epic 39, R39-5, Section 48.6; Epic 40, T-310-B, Section 49.4; Epic 41, R41-6, Section 50.8).
 
 youtube-transcript-api мокается через services.youtube_transcript_engine.YouTubeTranscriptApi
 (модуль-левел импорт с ImportError-guard — прецедент DDGS в test_search_aggregator.py;
 реальная библиотека в тестах НЕ импортируется). Epic 39: yt-dlp мокается через
 engine_mod.yt_dlp (types.SimpleNamespace(YoutubeDL=_FakeYDL)) — реальная сеть НЕ ходит.
+Epic 41: ретраи тестируются флаки-фейками с счётчиками; asyncio.sleep ЗАМОКАН
+(monkeypatch engine_mod.asyncio.sleep) — реальные паузы 1..8с НЕ случаются;
+классификация D155 — по локальным фейк-классам, названным как реальные
+(работает по type(root).__name__ и тексту, библиотеки не импортируются).
 """
 import json
 import logging
 import types
+from unittest.mock import AsyncMock
 from urllib.parse import urlsplit
 
 import pytest
@@ -18,6 +23,73 @@ from services.youtube_transcript_engine import (
     YouTubeTranscriptEngine,
     YouTubeTranscriptUnavailableException,
 )
+
+
+# ── Epic 41: фейк-классы исключений, названные ТОЧНО как реальные (50.8) ──
+
+class HTTPError(Exception):
+    def __init__(self, message=None, status=None, response=None):
+        self.status = status
+        self.response = response
+        super().__init__(
+            message if message is not None else f"HTTP Error {status}"
+        )
+
+
+class TooManyRequests(Exception):
+    pass
+
+
+class VideoUnavailable(Exception):
+    pass
+
+
+class ParseError(Exception):
+    pass
+
+
+class YouTubeRequestFailed(Exception):
+    pass
+
+
+class TransportError(Exception):
+    pass
+
+
+class ProxyError(Exception):
+    pass
+
+
+class DownloadError(Exception):
+    pass
+
+
+class TranscriptsDisabled(Exception):
+    pass
+
+
+class NoTranscriptAvailable(Exception):
+    pass
+
+
+class NoTranscriptFound(Exception):
+    pass
+
+
+class InvalidVideoId(Exception):
+    pass
+
+
+class FailedToCreateConsentCookie(Exception):
+    pass
+
+
+class ExtractorError(Exception):
+    pass
+
+
+class JSONDecodeError(Exception):
+    pass
 
 
 class _FakeTranscript:
@@ -598,6 +670,20 @@ class TestYtdlpPrimary:
                 {"ext": "json3", "filepath": filepath}, "video-1"
             )
 
+    @pytest.mark.asyncio
+    async def test_ignoreerrors_enabled_in_opts(self, tmp_path):
+        """Epic 41 (50.8 #7, R41-1/D154): ignoreerrors=True — 429 на 'en' не валит ru."""
+        filepath = _json3_file(
+            tmp_path,
+            [{"tStartMs": 1000, "dDurationMs": 1000, "segs": [{"utf8": "текст"}]}],
+        )
+        sub = {"ext": "json3", "filepath": filepath}
+        _FakeYDL.extract_result = _ytdlp_info(
+            manual={"ru": sub}, auto={}, requested={"ru": sub}
+        )
+        await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
+        assert _FakeYDL.last_opts["ignoreerrors"] is True
+
 
 class TestProxyUrlWithCredentials:
     """T-310-B (Section 49.4, Epic 40): страховочный тест — URL прокси, в т.ч.
@@ -721,3 +807,461 @@ class TestNormalizers:
     def test_ts_to_seconds(self, ts, expected):
         """#16: «HH:MM:SS.mmm» / «MM:SS.mmm» / «SS.mmm», ',' = '.'."""
         assert YouTubeTranscriptEngine._ts_to_seconds(ts) == expected
+
+
+# ── Epic 41 (50.8): ретраи каскада, ru-first, classification, логи ──────────
+
+def _flaky_fetcher(outcomes):
+    """Флаки-фейк (50.8): N-й вызов возвращает outcomes[n-1] или бросает его,
+    если это Exception; последний outcome повторяется бесконечно.
+    → (fn, counter) — counter["n"] = число вызовов."""
+    counter = {"n": 0}
+
+    def fn(video_id):
+        counter["n"] += 1
+        item = outcomes[min(counter["n"] - 1, len(outcomes) - 1)]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    return fn, counter
+
+
+@pytest.fixture
+def patched_cascade(monkeypatch):
+    """Движок с подменёнными _fetch_ytdlp/_fetch_segments (флаки-скрипты) и
+    ЗАМОКАННЫМ asyncio.sleep (50.8 — иначе реальные паузы 1..8с)."""
+
+    def _patch(ytdlp_outcomes, api_outcomes):
+        engine = YouTubeTranscriptEngine()
+        ytdlp_fn, ytdlp_calls = _flaky_fetcher(ytdlp_outcomes)
+        api_fn, api_calls = _flaky_fetcher(api_outcomes)
+        monkeypatch.setattr(engine, "_fetch_ytdlp", ytdlp_fn)
+        monkeypatch.setattr(engine, "_fetch_segments", api_fn)
+        sleep_mock = AsyncMock()
+        monkeypatch.setattr(engine_mod.asyncio, "sleep", sleep_mock)
+        return engine, ytdlp_calls, api_calls, sleep_mock
+
+    return _patch
+
+
+class TestRetryCascade:
+    """Epic 41 (50.8 #1-6): попытка = ВЕСЬ каскад; 4 ретрая = 5 попыток;
+    backoff (1,2,4,8); перманент → 0 ретраев; on_retry ровно (1,4)…(4,4)."""
+
+    @pytest.mark.asyncio
+    async def test_transient_then_success_retries_once(self, patched_cascade, caplog):
+        """#1: 429+429 → 429+api-успех: source=transcript-api attempt=2, sleep (1.0,)."""
+        engine, ytdlp_calls, api_calls, sleep_mock = patched_cascade(
+            [HTTPError(status=429), HTTPError(status=429)],
+            [TooManyRequests("too many"), _segments(("привет", 5.0))],
+        )
+        with caplog.at_level(logging.INFO):
+            result = await engine.fetch_transcript("video-1", 4000)
+        assert result == "[00:05] привет"
+        assert ytdlp_calls["n"] == 2
+        assert api_calls["n"] == 2
+        assert sleep_mock.await_count == 1
+        assert sleep_mock.await_args.args == (1.0,)
+        assert any(
+            "source=transcript-api" in r.message and "attempt=2" in r.message
+            for r in caplog.records
+        )
+
+    @pytest.mark.asyncio
+    async def test_exhausted_raises_after_5_attempts(self, patched_cascade):
+        """#2: оба транзиентны все 5 попыток → raise after 5 attempt(s);
+        on_retry ровно (1,4),(2,4),(3,4),(4,4); sleep [1,2,4,8]."""
+        engine, ytdlp_calls, api_calls, sleep_mock = patched_cascade(
+            [HTTPError(status=429)], [TooManyRequests("too many")]
+        )
+        on_retry = AsyncMock()
+        with pytest.raises(
+            YouTubeTranscriptUnavailableException,
+            match="both engines failed after 5 attempt",
+        ):
+            await engine.fetch_transcript("video-1", 4000, on_retry=on_retry)
+        assert ytdlp_calls["n"] == 5
+        assert api_calls["n"] == 5
+        assert [c.args for c in on_retry.await_args_list] == [
+            (1, 4), (2, 4), (3, 4), (4, 4),
+        ]
+        assert [c.args[0] for c in sleep_mock.await_args_list] == [
+            1.0, 2.0, 4.0, 8.0,
+        ]
+
+    @pytest.mark.asyncio
+    async def test_permanent_both_engines_no_retries(self, patched_cascade):
+        """#3: VideoUnavailable + NoTranscriptFound → raise после 1 попытки;
+        on_retry/sleep НЕ вызваны; движки по 1 вызову."""
+        engine, ytdlp_calls, api_calls, sleep_mock = patched_cascade(
+            [VideoUnavailable("Video unavailable")],
+            [NoTranscriptFound("no transcript")],
+        )
+        on_retry = AsyncMock()
+        with pytest.raises(
+            YouTubeTranscriptUnavailableException, match="after 1 attempt"
+        ):
+            await engine.fetch_transcript("video-1", 4000, on_retry=on_retry)
+        assert ytdlp_calls["n"] == 1
+        assert api_calls["n"] == 1
+        on_retry.assert_not_awaited()
+        sleep_mock.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_mixed_permanent_ytdlp_transient_api_retries(self, patched_cascade):
+        """#4: yt-dlp перманент + api транзиент (успех на 2-й) → ретрай идёт
+        (правило «хотя бы один транзиентен»), api вызван 2 раза."""
+        engine, ytdlp_calls, api_calls, sleep_mock = patched_cascade(
+            [VideoUnavailable("Video unavailable")],
+            [TooManyRequests("too many"), _segments(("привет", 5.0))],
+        )
+        on_retry = AsyncMock()
+        result = await engine.fetch_transcript("video-1", 4000, on_retry=on_retry)
+        assert result == "[00:05] привет"
+        assert ytdlp_calls["n"] == 2
+        assert api_calls["n"] == 2
+        assert [c.args for c in on_retry.await_args_list] == [(1, 4)]
+        assert sleep_mock.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_on_retry_none_retries_silently(self, patched_cascade):
+        """#5: on_retry не передан (None) — ретраи без уведомлений, не падает."""
+        engine, _, _, sleep_mock = patched_cascade(
+            [HTTPError(status=500), _segments(("первый", 5.0))],
+            [TooManyRequests("too many")],
+        )
+        result = await engine.fetch_transcript("video-1", 4000)
+        assert result == "[00:05] первый"
+        assert sleep_mock.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_on_retry_callback_exception_ignored(self, patched_cascade, caplog):
+        """#6: колбэк бросает → logger.exception «on_retry callback failed»,
+        каскад жив: ретрай + итоговый успех."""
+        engine, _, _, sleep_mock = patched_cascade(
+            [HTTPError(status=429), _segments(("ок", 5.0))],
+            [TooManyRequests("too many")],
+        )
+
+        async def boom(attempt, max_attempts):
+            raise RuntimeError("send failed")
+
+        with caplog.at_level(logging.ERROR):
+            result = await engine.fetch_transcript("video-1", 4000, on_retry=boom)
+        assert result == "[00:05] ок"
+        assert any("on_retry callback failed" in r.message for r in caplog.records)
+        assert sleep_mock.await_count == 1
+
+
+def _lang_sub(filepath, ext="json3"):
+    sub = {"ext": ext}
+    if filepath is not None:
+        sub["filepath"] = filepath
+    return sub
+
+
+class TestRuFirst:
+    """Epic 41 (50.8 #8-11, R41-1/D154): итерация ("ru","en") по
+    requested_subtitles; язык без filepath пропускается (ignoreerrors)."""
+
+    def test_ru_readable_en_without_filepath_returns_ru(self, tmp_path):
+        """#8: ru скачан, en упал (429, БЕЗ filepath) → возвращён ru."""
+        ru_path = _json3_file(
+            tmp_path,
+            [{"tStartMs": 1000, "dDurationMs": 1000, "segs": [{"utf8": "текст-ru"}]}],
+            name="ru.json3",
+        )
+        info = _ytdlp_info(
+            manual={"ru": _lang_sub(ru_path)},
+            requested={"ru": _lang_sub(ru_path), "en": _lang_sub(None)},
+        )
+        segments = YouTubeTranscriptEngine()._extract_ytdlp_segments(info, "video-1")
+        assert [s["text"] for s in segments] == ["текст-ru"]
+
+    def test_ru_without_filepath_en_readable_returns_en(self, tmp_path):
+        """#9: ru упал (БЕЗ filepath) + en читаем → skip ru, возвращён en."""
+        en_path = _json3_file(
+            tmp_path,
+            [{"tStartMs": 1000, "dDurationMs": 1000, "segs": [{"utf8": "text-en"}]}],
+            name="en.json3",
+        )
+        info = _ytdlp_info(
+            requested={"ru": _lang_sub(None), "en": _lang_sub(en_path)}
+        )
+        segments = YouTubeTranscriptEngine()._extract_ytdlp_segments(info, "video-1")
+        assert [s["text"] for s in segments] == ["text-en"]
+
+    def test_all_languages_without_filepath_raises(self):
+        """#10: filepath НЕТ ни у одного языка → «no readable subtitle files»
+        (ПЕРМАНЕНТ → фолбек без ретраев)."""
+        info = _ytdlp_info(
+            requested={"ru": _lang_sub(None), "en": _lang_sub(None)}
+        )
+        with pytest.raises(
+            YouTubeTranscriptUnavailableException,
+            match="no readable subtitle files",
+        ):
+            YouTubeTranscriptEngine()._extract_ytdlp_segments(info, "video-1")
+
+    @pytest.mark.asyncio
+    async def test_all_filepath_less_falls_back_without_retries(
+        self, tmp_path, monkeypatch
+    ):
+        """#10: перманент → фолбек transcript-api успех, 0 ретраев (sleep нет)."""
+        _FakeYDL.last_opts = None
+        _FakeYDL.extract_result = None
+        _FakeYDL.extract_error = None
+        monkeypatch.setattr(
+            engine_mod, "yt_dlp", types.SimpleNamespace(YoutubeDL=_FakeYDL)
+        )
+        _mock_settings(monkeypatch)
+        _FakeYDL.extract_result = _ytdlp_info(
+            requested={"ru": _lang_sub(None), "en": _lang_sub(None)}
+        )
+
+        class _Api(_FakeApi):
+            result = _FakeTranscriptList(
+                [_FakeTranscript("ru", False, _segments(("привет", 5.0)))]
+            )
+
+        monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
+        sleep_mock = AsyncMock()
+        monkeypatch.setattr(engine_mod.asyncio, "sleep", sleep_mock)
+        result = await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
+        assert result == "[00:05] привет"
+        sleep_mock.assert_not_awaited()
+
+    def test_ru_empty_transcript_en_readable_continues_to_en(self, tmp_path):
+        """#11: ru-файл пустой («empty transcript») + en читаем → continue на en."""
+        ru_path = _json3_file(
+            tmp_path,
+            [{"tStartMs": 0, "dDurationMs": 1000, "segs": [{"utf8": ""}]}],
+            name="ru.json3",
+        )
+        en_path = _json3_file(
+            tmp_path,
+            [{"tStartMs": 1000, "dDurationMs": 1000, "segs": [{"utf8": "text-en"}]}],
+            name="en.json3",
+        )
+        info = _ytdlp_info(
+            requested={"ru": _lang_sub(ru_path), "en": _lang_sub(en_path)}
+        )
+        segments = YouTubeTranscriptEngine()._extract_ytdlp_segments(info, "video-1")
+        assert [s["text"] for s in segments] == ["text-en"]
+
+
+class TestInfoNone:
+    """Epic 41 (50.8 #12, D154): extract_info → None (ignoreerrors-семантика) —
+    транзиентный фейл yt-dlp-уровня → ретрай каскада."""
+
+    @pytest.mark.asyncio
+    async def test_extract_info_none_is_transient_retries_then_success(
+        self, monkeypatch, caplog
+    ):
+        _FakeYDL.last_opts = None
+        _FakeYDL.extract_result = None
+        _FakeYDL.extract_error = None
+        monkeypatch.setattr(
+            engine_mod, "yt_dlp", types.SimpleNamespace(YoutubeDL=_FakeYDL)
+        )
+        _mock_settings(monkeypatch)
+        _FakeYDL.extract_result = None          # extract_info всегда возвращает None
+        api_calls = {"n": 0}
+
+        class _Api(_FakeApi):
+            @classmethod
+            def list_transcripts(cls, video_id):
+                api_calls["n"] += 1
+                if api_calls["n"] == 1:
+                    raise TooManyRequests("too many")
+                return _FakeTranscriptList(
+                    [_FakeTranscript("ru", False, _segments(("привет", 5.0)))]
+                )
+
+        monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
+        sleep_mock = AsyncMock()
+        monkeypatch.setattr(engine_mod.asyncio, "sleep", sleep_mock)
+        with caplog.at_level(logging.WARNING):
+            result = await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
+        assert result == "[00:05] привет"
+        assert sleep_mock.await_count == 1
+        assert api_calls["n"] == 2
+        assert any(
+            "extract_info returned None" in r.message for r in caplog.records
+        )
+
+
+class TestClassification:
+    """Epic 41 (50.8 #13, D155): таблица 50.2 — точные True/False по корневой
+    причине; дефолт PERMANENT; порядок проверок (перманентные паттерны ДО
+    транзиентных)."""
+
+    @pytest.mark.parametrize(
+        "exc,expected",
+        [
+            (HTTPError(status=429), True),
+            (HTTPError(status=403), True),
+            (HTTPError(status=500), True),
+            (HTTPError(status=404), False),
+            (HTTPError(status=407), False),        # 407 от мёртвого прокси (50.11 #5)
+            (HTTPError("HTTP Error 503", status=None), True),   # регэксп-путь
+            (HTTPError("HTTP Error 404", status=None), False),  # регэксп-путь
+            (TransportError("network down"), True),
+            (ProxyError("proxy failed"), True),
+            (DownloadError("ERROR: Unable to download webpage: HTTP Error 429"), True),
+            (DownloadError("ERROR: unable to download video data"), False),
+            (VideoUnavailable("Video unavailable"), False),
+            (ExtractorError("Sign in to confirm you're not a bot"), True),
+            (JSONDecodeError("Expecting value"), True),
+            (
+                YouTubeTranscriptUnavailableException(
+                    "yt-dlp: empty transcript | video_id='v'"
+                ),
+                True,
+            ),
+            (
+                YouTubeTranscriptUnavailableException(
+                    "yt-dlp: no readable subtitle files | video_id='v'"
+                ),
+                False,
+            ),
+            (
+                YouTubeTranscriptUnavailableException(
+                    "yt-dlp: no ru/en subtitles | video_id='v'"
+                ),
+                False,
+            ),
+            (
+                YouTubeTranscriptUnavailableException(
+                    "yt-dlp: extract_info returned None | video_id='v'"
+                ),
+                True,
+            ),
+            (RuntimeError("yt-dlp is not installed"), False),   # ДО дефолта (50.11 #3)
+            (TooManyRequests("too many requests"), True),
+            (FailedToCreateConsentCookie("consent cookie"), True),
+            (YouTubeRequestFailed("HTTP Error 429: too many requests"), True),
+            (YouTubeRequestFailed("request timed out"), True),
+            (YouTubeRequestFailed("unknown failure"), False),
+            (ParseError("no element found"), True),
+            (ParseError("malformed xml"), False),
+            (TranscriptsDisabled("disabled"), False),
+            (NoTranscriptAvailable("none available"), False),
+            (NoTranscriptFound("not found"), False),
+            (InvalidVideoId("invalid id"), False),
+            (RuntimeError("request timed out"), True),
+            (TimeoutError("timed out"), True),
+            (RuntimeError("unknown failure"), False),   # дефолт: PERMANENT
+            (YouTubeTranscriptUnavailableException("no suitable transcript"), False),
+        ],
+    )
+    def test_is_transient_table(self, exc, expected):
+        assert YouTubeTranscriptEngine._is_transient(exc) is expected
+
+    def test_is_transient_unwraps_cause_chain(self):
+        """Обёртки из _fetch_segments сохраняют исходник в __cause__ →
+        классификация по корневой причине (многоуровневый unwrap)."""
+        inner = HTTPError(status=429)
+        mid = TooManyRequests("wrapped")
+        mid.__cause__ = inner
+        outer = YouTubeTranscriptUnavailableException("list_transcripts failed")
+        outer.__cause__ = mid
+        assert YouTubeTranscriptEngine._is_transient(outer) is True
+        assert YouTubeTranscriptEngine._root_cause(outer) is inner
+
+        permanent = NoTranscriptFound("not found")
+        wrapped = YouTubeTranscriptUnavailableException("list_transcripts failed")
+        wrapped.__cause__ = permanent
+        assert YouTubeTranscriptEngine._is_transient(wrapped) is False
+
+    def test_none_is_not_transient(self):
+        assert YouTubeTranscriptEngine._is_transient(None) is False
+
+
+class TestRetryLogs:
+    """Epic 41 (50.8 #14-15, D157): status/body_bytes в WARNING и финальном
+    исключении (атрибут → регэксп → «-»)."""
+
+    @pytest.mark.asyncio
+    async def test_status_and_body_bytes_in_warning_and_final_error(
+        self, patched_cascade, caplog
+    ):
+        """#14: HTTPError(status=429, response=b"abcd") → status=429, body_bytes=4."""
+        engine, _, _, _ = patched_cascade(
+            [HTTPError(status=429, response=b"abcd")],
+            [NoTranscriptFound("not found")],
+        )
+        with pytest.raises(YouTubeTranscriptUnavailableException) as exc_info:
+            with caplog.at_level(logging.WARNING):
+                await engine.fetch_transcript("video-1", 4000)
+        message = str(exc_info.value)
+        assert "both engines failed after 5 attempt(s)" in message
+        assert "status=429" in message
+        assert "body_bytes=4" in message
+        ytdlp_warnings = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING and "yt-dlp failed" in r.message
+        ]
+        assert ytdlp_warnings
+        assert any(
+            "status=429" in r.message and "body_bytes=4" in r.message
+            for r in ytdlp_warnings
+        )
+        api_warnings = [
+            r for r in caplog.records if "transcript-api failed" in r.message
+        ]
+        assert api_warnings
+        assert any(
+            "status=-" in r.message and "body_bytes=-" in r.message
+            for r in api_warnings
+        )
+
+    @pytest.mark.asyncio
+    async def test_regexp_status_and_missing_body(self, patched_cascade, caplog):
+        """#15: RuntimeError с «HTTP Error 503» без атрибутов → status=503,
+        body_bytes=- (регэксп-путь)."""
+        engine, _, _, _ = patched_cascade(
+            [RuntimeError("HTTP Error 503 Service Unavailable")],
+            [NoTranscriptFound("not found")],
+        )
+        with pytest.raises(YouTubeTranscriptUnavailableException) as exc_info:
+            with caplog.at_level(logging.WARNING):
+                await engine.fetch_transcript("video-1", 4000)
+        assert "status=503" in str(exc_info.value)
+        assert "body_bytes=-" in str(exc_info.value)
+        warnings = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING and "yt-dlp failed" in r.message
+        ]
+        assert any(
+            "status=503" in r.message and "body_bytes=-" in r.message
+            for r in warnings
+        )
+
+    def test_exc_status_and_body_bytes_helpers(self):
+        assert YouTubeTranscriptEngine._exc_status(None) == "-"
+        assert YouTubeTranscriptEngine._exc_body_bytes(None) == "-"
+        assert YouTubeTranscriptEngine._exc_status(HTTPError(status=429)) == "429"
+        assert YouTubeTranscriptEngine._exc_status(RuntimeError("HTTP Error 503")) == "503"
+        assert YouTubeTranscriptEngine._exc_status(RuntimeError("no status")) == "-"
+        assert (
+            YouTubeTranscriptEngine._exc_body_bytes(
+                HTTPError(status=429, response=b"abcd")
+            )
+            == "4"
+        )
+
+        class _FakeHttpResponse:
+            length = 1234
+
+        assert (
+            YouTubeTranscriptEngine._exc_body_bytes(
+                HTTPError(status=429, response=_FakeHttpResponse())
+            )
+            == "1234"
+        )
+        assert (
+            YouTubeTranscriptEngine._exc_body_bytes(RuntimeError("no response"))
+            == "-"
+        )

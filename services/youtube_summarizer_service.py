@@ -8,6 +8,7 @@ YOUTUBE_SYSTEM_PROMPT ({max_symbols} через .replace) → XML-контекс
 """
 import logging
 import time
+from typing import Awaitable, Callable
 
 from config.settings import settings
 from services.llm_client import LLMClient
@@ -26,20 +27,15 @@ class YoutubeSummarizerService:
         self.engine = engine
         self.llm = llm
 
-    async def summarize(self, video_id: str) -> str:
-        """1) transcript = await self.engine.fetch_transcript(video_id,
-                                                              settings.YOUTUBE_MAX_SYMBOLS)
-        2) system = YOUTUBE_SYSTEM_PROMPT.replace("{max_symbols}",
-                                                  str(settings.YOUTUBE_MAX_SYMBOLS))
-        3) user = f"<video_id>{video_id}</video_id>\n\n"
-                  f"<transcript>{escape_xml_text(transcript)}</transcript>"
-                  (escape_xml_text из services/summary_xml.py; D130: заголовок НЕ нужен,
-                  video_id — отдельным тегом для grounding)
-        4) raw = await self.llm.generate([{system}, {user}])
-        5) return cleanup_llm_text(raw)          # R37-7, ПОСТОЯННО
-        Raises: YouTubeTranscriptUnavailableException / LLMError — пробрасываются."""
+    async def summarize(
+        self,
+        video_id: str,
+        on_retry: Callable[[int, int], Awaitable[None]] | None = None,
+    ) -> str:
+        """R41-2/D156: on_retry пробрасывается в движок как есть
+        (None — ретраи без уведомлений). Остальной пайплайн — 46.8."""
         transcript = await self.engine.fetch_transcript(
-            video_id, settings.YOUTUBE_MAX_SYMBOLS
+            video_id, settings.YOUTUBE_MAX_SYMBOLS, on_retry=on_retry
         )
         system = YOUTUBE_SYSTEM_PROMPT.replace(
             "{max_symbols}", str(settings.YOUTUBE_MAX_SYMBOLS)

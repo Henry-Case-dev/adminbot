@@ -8690,3 +8690,563 @@ SSH (22) / Telegram / остальные фичи — НАПРЯМУЮ (в xray 
 **Репозиторий:** ТОЛЬКО `plans/ARCHITECTURE.md` (Section 49). Код, settings, requirements, тесты — БЕЗ правок (R40-6); исключение — опциональный юнит-тест T-310-B (без секретов, без сети). **Сервер (вне git):** `/usr/local/bin/xray`, `/usr/local/etc/xray/config.json` (600), `/etc/systemd/system/xray.service.d/restart.conf` (при необходимости), прод `.env` + `.env.bak.epic40`, `/tmp/epic39_verify.py` (существующий). **Порядок:** T-309 (эта секция) → T-310 (@Builder, код-готовность) → T-311 (@Reviewer) → T-312 (@DevOps: установка+конфиг+enable) → T-313 (гейт 49.7 → рестарт ЛИБО rollback 49.8) → T-314 (T-308-C + доски).
 
 @Architect Epic 40 architecture ready (Section 49: xray-core как ЛОКАЛЬНЫЙ http-прокси 127.0.0.1:10808 с Basic Auth; inbound `accounts[{user,pass}]` — ПОДТВЕРЖДЕНО ЭМПИРИКОЙ v26.3.27: только `accounts` включает auth, поле `users` игнорируется молча → анонимный прокси; негатив-тест 407 обязателен), basic-auth через userinfo URL работает в yt-dlp/requests из коробки (urllib3), PySocks не нужен; outbound vless+reality+grpc ДОСЛОВНО из URI: password=pbk (бывш. publicKey), alpn=["h2"], serviceName, flow НЕ ставим (gRPC≠TCP), mux ВЫКЛЮЧЕН (оф. доки: не рекомендуется с gRPC); routing — весь inbound → proxy, глобальный system-proxy запрещён; systemd enable + drop-in Restart=always; таймауты — socket_timeout=20 движка уже покрывает; каскад при падении прокси покрыт TestYtdlpPrimary без правок (R40-6); строгий гейт 49.7: ipify IP≠198.46.175.136 → ASN-пре-чек → .env.bak.epic40 → epic39_verify.py ≥3/4 → ТОЛЬКО тогда restart admin_bot → 0 traceback + proxy=set → smoke; при <3/4 — rollback без рестарта, прод v2.32.1, план Б cookies/локация/резидентский прокси; секреты только на сервере 600, в планах — плейсхолдеры), passing the baton to @Builder (T-310) → @Reviewer (T-311) → @DevOps (T-312 → T-313 → T-314).
+
+## Section 50: Epic 41 — YouTube engine hardening: ретраи каскада с токсичным уведомлением + ru-first + статус-логи фолбека (v2.33.1)
+
+### 50.1 Контекст, эмпирика и закрытие вопросов PM (R41-1…R41-6, D151–D157)
+
+**Контекст:** Epic 39/40 (v2.33.0, Sections 48/49) разблокировали YouTube-фичу на проде (yt-dlp → transcript-api через локальный xray-прокси 127.0.0.1:10808). Живой мониторинг (journalctl, Betterstack) выявил дефекты каскада: **(1)** 429 на 'en'-треке валит ВЕСЬ запрос в 5.6, даже когда 'ru'-трек уже скачан (`_write_subtitles` при фейле языка роняет `extract_info` — `ignoreerrors` НЕ выставлен); **(2)** каскад НЕ ретраит: один транзиентный 429/5xx/сетевой сбой → мгновенный `YouTubeTranscriptUnavailableException` без второй попытки; **(3)** в логах фолбека нет HTTP-статуса/размера тела — диагностика вслепую; **(4)** в логах хендлера нет video_id. **Одобренные требования пользователя (с правками):** ru-first (не валить запрос из-за 429 на английском — если русская дорожка скачана, брать её); ретраи 4–5 с backoff + на КАЖДОМ ретрае токсичное сообщение в чат в стиле бота с НЕСКОЛЬКИМИ вариациями (новый пул `YOUTUBE_RETRY_PHRASES`); HTTP-статус/размер тела в WARNING и трейсе; **Betterstack-алерт — ОТМЕНЁН (non-goal)**; video_id в логах хендлера. **Target:** v2.33.1. **Baseline:** прод v2.33.0 (`bb472ba`, Epic 39 DEPLOYED через T-314, прокси работает — полный гейт 49.7 НЕ повторяем).
+
+**Ключевые факты (проверены по коду и исходникам, Шаг 0):**
+
+- Движок `services/youtube_transcript_engine.py` (323 стр.): `fetch_transcript(video_id, max_symbols)` — `asyncio.to_thread(_fetch_ytdlp)` → INFO `source=yt-dlp`; `except Exception` catch-all → WARNING «yt-dlp failed → transcript-api fallback» → `_fetch_segments` → INFO `source=transcript-api`; иначе `raise YouTubeTranscriptUnavailableException("both engines failed | video_id={!r} ({exc})")`.
+- `_ytdlp_opts`: skip_download, writesubtitles, writeautomaticsub, `subtitleslangs=("ru","en")`, subtitlesformat="json3", socket_timeout=20, overwrites, proxy/cookiefile. `ignoreerrors` НЕ выставлен.
+- yt-dlp 2026.7.4 эмпирика: `_write_subtitles` при фейле языка → если `ignoreerrors is not True` → raise `DownloadError` (валит `extract_info`); при `ignoreerrors=True` → warning + продолжает к следующему языку; упавший язык остаётся в `requested_subtitles` БЕЗ `filepath`; `extract_info` может вернуть `None` вместо raise. `subtitleslangs` порядок сохраняется (ru первым); manual-preferred внутри языка (process_subtitles, 48.1). yt-dlp сам НЕ ретраит 429 на субтитрах → свой цикл обязателен.
+- Обёртка транскриптапи-ошибок в `YouTubeTranscriptUnavailableException` в `_fetch_segments` сохраняет исходник в `__cause__` → классификация работает по корневой причине (unwrap `__cause__`).
+
+**Закрытие открытых вопросов PM:**
+
+| # | Вопрос PM | Решение в Section 50 |
+|---|---|---|
+| 1 | Точное число ретраев: 4 или 5? | **D151: 4 ретрая = 5 попыток каскада** (`_MAX_CASCADE_RETRIES = 4`; попытки 1..5). Обоснование: (а) требование пользователя «4–5» — берём нижнюю границу; (б) спам ограничен ровно 4 сообщениями на запрос, перманентные фейлы — 0 сообщений; (в) суммарный backoff 15с — окно, достаточное для проседания коротких 429-всплесков YouTube; (г) 5-й ретрай (+8с сна и +1 сообщение) даёт маргинальный прирост надёжности при заметном росте латентности худшего случая — баланс «спам ↔ надёжность» смещаем к надёжности без лишнего шума. |
+| 2 | Backoff-схема: фикс или экспонента? | **D152: экспонента `_RETRY_BACKOFFS = (1.0, 2.0, 4.0, 8.0)`, cap 8с**, `len == _MAX_CASCADE_RETRIES`, индекс = `attempt-1`. Фикс давал бы либо агрессивное (1с×4), либо слишком медленное (8с×4 = 32с) поведение; экспонента — стандарт для 429 (Retry-After-подобная деградация). Худший случай сна 15с. |
+| 3 | Канон YOUTUBE_RETRY_PHRASES | **D153:** 5 токсичных вариаций строчными, в стиле пулов 5.6/5.7, БЕЗ эмодзи/маркдауна/плейсхолдеров; disjoint с 5.1–5.7; байт-в-байт тест. Канон зафиксирован ДОСЛОВНО в 50.7. |
+| 4 | ignoreerrors-семантика extract_info (None/частичные данные) при 429 на 'en' + скачанном ru | **D154:** `ignoreerrors=True` в `_ytdlp_opts`; `_extract_ytdlp_segments` итерирует `("ru","en")` ПО `requested_subtitles` (порядок `subtitleslangs` сохраняется, ru первым): язык БЕЗ `filepath` пропускается (артефакт ignoreerrors); читается первый читаемый (исключение чтения → continue на следующий язык); `filepath` нет НИ у одного языка → raise «no readable subtitle files» (ПЕРМАНЕНТ — НЕ ретраить, идти в фолбек); иначе — последнее исключение чтения (напр. «empty transcript» → транзиент). `info is None` → трактовать как ТРАНЗИЕНТНЫЙ фейл yt-dlp-уровня (raise → каскад/ретрай). Точные правила — 50.3. |
+
+### 50.2 Классификация транзиентных/перманентных фейлов (D155)
+
+Функция `_is_transient(exc)` классифицирует ПО КОРНЕВОЙ ПРИЧИНЕ (unwrap `__cause__` до дна) и ДО обёртки в `YouTubeTranscriptUnavailableException`. Ретраится каскад, только если **хотя бы один** из двух движков попытки транзиентен; перманентный фейл ОБОИХ → немедленный raise (0 ретраев). **Дефолт — PERMANENT (строго): неизвестное не ретраится — не спамим и не тянем 15с+.**
+
+| Движок | Исключение / паттерн текста | Вердикт |
+|---|---|---|
+| yt-dlp | `HTTPError` со статусом 403 / 429 / 500 / 502 / 503 / 504 (атрибут `.status` или регэксп `HTTP Error (\d{3})`) | TRANSIENT |
+| yt-dlp | `HTTPError` с прочим статусом (404/410/407 — в т.ч. 407 от мёртвого/неверного прокси xray) | PERMANENT |
+| yt-dlp | `TransportError` / `ProxyError` / `TimeoutError` / «timed out» | TRANSIENT |
+| yt-dlp | `DownloadError` с «HTTP Error» в тексте | TRANSIENT |
+| yt-dlp | `VideoUnavailable` / «Video unavailable» / «video is not available» | PERMANENT |
+| yt-dlp | `ExtractorError` «Sign in to confirm you're not a bot» (bot-check DC-IP) | TRANSIENT |
+| yt-dlp | `json.JSONDecodeError` / «empty transcript» (пустой/битый timedtext при 200) | TRANSIENT |
+| yt-dlp | «no readable subtitle files» / «no ru/en subtitles» (все языки без filepath — артефакт ignoreerrors) | PERMANENT |
+| yt-dlp | «extract_info returned None» (ignoreerrors-семантика) | TRANSIENT |
+| yt-dlp | `RuntimeError` «… is not installed» (ImportError-гарды) | PERMANENT |
+| transcript-api | `TooManyRequests`, `FailedToCreateConsentCookie` | TRANSIENT |
+| transcript-api | `YouTubeRequestFailed` с «HTTP Error» или «timed out» в reason | TRANSIENT |
+| transcript-api | `ParseError` «no element found» (пустой timedtext при 200) | TRANSIENT |
+| transcript-api | `TranscriptsDisabled` / `NoTranscriptAvailable` / `NoTranscriptFound` / `InvalidVideoId` | PERMANENT |
+| оба | всё прочее (неизвестные классы/тексты) | PERMANENT |
+
+**Порядок проверок критичен:** перманентные паттерны («is not installed», «Video unavailable», «no readable subtitle files») — ДО транзиентных, чтобы подклассы/обёртки не проскочили в ретрай; «Sign in to confirm» — до generic-`ExtractorError`; `HTTPError`-статус — до родительского `TransportError`.
+
+### 50.3 Дизайн движка: `services/youtube_transcript_engine.py` (ПРАВКА, R41-1/R41-2/R41-3, D151–D157)
+
+```python
+# services/youtube_transcript_engine.py (ПРАВКА, Epic 41, R41-1/R41-2/R41-3, Section 50.3)
+"""Epic 37/39/41 — YouTube Transcript Engine (R37-3, 46.4; R39-1/2, 48; R41-1/2/3, 50).
+
+Epic 41: каскад с ретраями (4 ретрая = 5 попыток, D151), ru-first через
+ignoreerrors (D154), классификация транзиентных фейлов (D155), on_retry-колбэк
+(D156), статус/размер тела в логах фолбека (D157). Контракт
+fetch_transcript(video_id, max_symbols) -> str расширяется ОПЦИОНАЛЬНЫМ
+kwarg on_retry=None (позиционная совместимость сохранена).
+"""
+import asyncio
+import json
+import logging
+import os
+import re
+import shutil
+import tempfile
+from typing import Awaitable, Callable
+
+from config.settings import settings
+
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+except ImportError:  # pragma: no cover — зависимость в requirements.txt
+    YouTubeTranscriptApi = None
+
+try:
+    import yt_dlp
+except ImportError:  # pragma: no cover — зависимость в requirements.txt
+    yt_dlp = None
+
+logger = logging.getLogger(__name__)
+
+_YTDLP_SOCKET_TIMEOUT = 20        # D139 (48.3): граница КАЖДОГО сетевого вызова yt-dlp
+_YTDLP_SUBTITLE_LANGS = ("ru", "en")
+_MAX_CASCADE_RETRIES = 4          # D151: 4 ретрая = 5 попыток каскада (1 стартовая + 4)
+_RETRY_BACKOFFS = (1.0, 2.0, 4.0, 8.0)   # D152: экспонента, cap 8с; len == _MAX_CASCADE_RETRIES
+_RETRY_HTTP_STATUSES = frozenset({403, 429, 500, 502, 503, 504})  # D155: транзиентные
+
+
+class YouTubeTranscriptUnavailableException(Exception):   # БЕЗ изменений (46.4)
+    ...
+
+
+class YouTubeTranscriptEngine:
+    """yt-dlp primary → transcript-api fallback. Формат [MM:SS] text, truncate."""
+
+    def __init__(self) -> None:
+        # БЕЗ изменений (48.3): proxy/cookies set|empty + WARNING при yt_dlp is None
+        ...
+
+    async def fetch_transcript(
+        self,
+        video_id: str,
+        max_symbols: int,
+        on_retry: Callable[[int, int], Awaitable[None]] | None = None,
+    ) -> str:
+        """D151/D152/D156: попытка = ВЕСЬ каскад (yt-dlp → transcript-api).
+        Транзиентный фейл попытки (хотя бы один движок транзиентен, D155) →
+        on_retry(attempt, _MAX_CASCADE_RETRIES) → sleep(backoff) → повтор;
+        максимум _MAX_CASCADE_RETRIES ретраев. Перманентный фейл ОБОИХ →
+        немедленный raise (0 ретраев). on_retry=None — ретраи без уведомлений."""
+        ytdlp_exc: BaseException | None = None
+        api_exc: BaseException | None = None
+        for attempt in range(1, _MAX_CASCADE_RETRIES + 2):        # 1..5
+            try:
+                segments = await asyncio.to_thread(self._fetch_ytdlp, video_id)
+                logger.info(
+                    "[youtube engine] transcript ok | source=yt-dlp | "
+                    "video_id=%r | segments=%d | attempt=%d",
+                    video_id, len(segments), attempt,
+                )
+                return self._format(segments, max_symbols)
+            except Exception as exc:
+                ytdlp_exc = exc
+                logger.warning(
+                    "[youtube engine] yt-dlp failed → transcript-api fallback | "
+                    "video_id=%r | error=%s | status=%s | body_bytes=%s",
+                    video_id, exc,
+                    self._exc_status(exc), self._exc_body_bytes(exc),
+                )
+            try:
+                segments = await asyncio.to_thread(self._fetch_segments, video_id)
+                logger.info(
+                    "[youtube engine] transcript ok | source=transcript-api | "
+                    "video_id=%r | segments=%d | attempt=%d",
+                    video_id, len(segments), attempt,
+                )
+                return self._format(segments, max_symbols)
+            except Exception as exc:
+                api_exc = exc
+                logger.warning(
+                    "[youtube engine] transcript-api failed | video_id=%r | "
+                    "error=%s | status=%s | body_bytes=%s",
+                    video_id, exc,
+                    self._exc_status(exc), self._exc_body_bytes(exc),
+                )
+            transient = (
+                self._is_transient(ytdlp_exc) or self._is_transient(api_exc)
+            )
+            if not transient or attempt > _MAX_CASCADE_RETRIES:
+                break
+            await self._notify_retry(on_retry, attempt, video_id)
+            logger.warning(
+                "[youtube engine] cascade attempt %d failed (transient) → "
+                "retry in %.0fs | video_id=%r",
+                attempt, _RETRY_BACKOFFS[attempt - 1], video_id,
+            )
+            await asyncio.sleep(_RETRY_BACKOFFS[attempt - 1])
+        raise YouTubeTranscriptUnavailableException(
+            f"both engines failed after {attempt} attempt(s) | video_id={video_id!r} "
+            f"(yt-dlp: {ytdlp_exc} [status={self._exc_status(ytdlp_exc)}, "
+            f"body_bytes={self._exc_body_bytes(ytdlp_exc)}]; "
+            f"transcript-api: {api_exc} [status={self._exc_status(api_exc)}, "
+            f"body_bytes={self._exc_body_bytes(api_exc)}])"
+        )
+
+    async def _notify_retry(
+        self,
+        on_retry: Callable[[int, int], Awaitable[None]] | None,
+        attempt: int,
+        video_id: str,
+    ) -> None:
+        """D156: вызов (attempt, _MAX_CASCADE_RETRIES) ПЕРЕД sleep — ровно
+        (1,4),(2,4),(3,4),(4,4). Колбэк НЕ должен ронять каскад: любое
+        исключение глушится logger.exception (в т.ч. исчезнувший reply-таргет
+        в хендлере)."""
+        if on_retry is None:
+            return
+        try:
+            await on_retry(attempt, _MAX_CASCADE_RETRIES)
+        except Exception:
+            logger.exception(
+                "[youtube engine] on_retry callback failed (ignored) | video_id=%r",
+                video_id,
+            )
+
+    # ── Основной движок: yt-dlp (R41-1, D154) ──────────────────
+
+    def _fetch_ytdlp(self, video_id: str) -> list[dict]:
+        """Sync-блок (executor). D154: ignoreerrors=True — фейл языка НЕ роняет
+        extract_info (warning + переход к следующему языку); упавший язык
+        остаётся в requested_subtitles БЕЗ filepath; extract_info может вернуть
+        None вместо raise → info None = транзиентный фейл yt-dlp-уровня."""
+        if yt_dlp is None:  # pragma: no cover
+            raise RuntimeError("yt-dlp is not installed")
+        tmpdir = tempfile.mkdtemp(prefix="ytdlp_subs_")
+        try:
+            opts = self._ytdlp_opts()
+            opts["outtmpl"] = os.path.join(tmpdir, "%(id)s.%(ext)s")
+            opts["paths"] = {"home": tmpdir}
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            if info is None:                     # D154: ignoreerrors-семантика
+                raise YouTubeTranscriptUnavailableException(
+                    f"yt-dlp: extract_info returned None | video_id={video_id!r}"
+                )
+            return self._extract_ytdlp_segments(info, video_id)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def _ytdlp_opts(self) -> dict:
+        # как 48.3 ПЛЮС одна строка (R41-1/D154):
+        opts = {
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": list(_YTDLP_SUBTITLE_LANGS),
+            "subtitlesformat": "json3",
+            "quiet": True,
+            "no_warnings": True,
+            "noprogress": True,
+            "noplaylist": True,
+            "socket_timeout": _YTDLP_SOCKET_TIMEOUT,
+            "overwrites": True,
+            "ignoreerrors": True,      # R41-1/D154: 429 на 'en' не валит ru
+        }
+        # proxy/cookiefile — как 48.3, БЕЗ изменений
+        ...
+
+    def _extract_ytdlp_segments(self, info: dict, video_id: str) -> list[dict]:
+        """R41-1/D154 (ru-first): итерация ("ru","en") ПО requested_subtitles
+        (порядок subtitleslangs сохраняется, ru первым; manual-preferred внутри
+        языка — process_subtitles, 48.1). Язык БЕЗ filepath пропускается
+        (артефакт ignoreerrors — 429 на 'en' при скачанном ru больше не валит
+        запрос); исключение чтения файла языка → continue на следующий язык.
+        Raise: «no readable subtitle files» — если filepath НЕТ ни у одного
+        языка (ПЕРМАНЕНТ, D155 — идём в фолбек без ретраев); иначе — последнее
+        исключение чтения (напр. «empty transcript» → транзиент)."""
+        requested = info.get("requested_subtitles") or {}
+        last_exc: BaseException | None = None
+        any_filepath = False
+        for lang in _YTDLP_SUBTITLE_LANGS:
+            sub = requested.get(lang)
+            if not sub:
+                continue
+            if not (sub.get("filepath") and os.path.exists(sub["filepath"])):
+                continue                    # ignoreerrors-артефакт: язык упал
+            any_filepath = True
+            try:
+                return self._read_ytdlp_subtitle(sub, video_id)
+            except Exception as exc:
+                last_exc = exc
+                continue                    # следующий язык (en) может быть читаем
+        if not any_filepath:
+            raise YouTubeTranscriptUnavailableException(
+                f"yt-dlp: no readable subtitle files | video_id={video_id!r}"
+            )
+        raise last_exc
+
+    # _read_ytdlp_subtitle / нормализаторы / _transcript_api_kwargs /
+    # _fetch_segments / _pick_transcript / _format — БЕЗ изменений (48.3/46.4)
+
+    # ── Классификация и диагностика (R41-2/R41-3, D155/D157) ──
+
+    @staticmethod
+    def _root_cause(exc: BaseException) -> BaseException:
+        while exc.__cause__ is not None:
+            exc = exc.__cause__
+        return exc
+
+    @staticmethod
+    def _is_transient(exc: BaseException | None) -> bool:
+        """D155: таблица 50.2, по корневой причине (unwrap __cause__ — обёртки
+        YouTubeTranscriptUnavailableException из _fetch_segments сохраняют
+        исходник в __cause__). Дефолт — PERMANENT (строго)."""
+        if exc is None:
+            return False
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        text = str(root)
+        text_l = text.lower()
+        name = type(root).__name__
+        if "is not installed" in text:                       # ImportError-гарды
+            return False
+        if "extract_info returned none" in text_l:           # D154
+            return True
+        if ("no readable subtitle files" in text
+                or "no ru/en subtitles" in text):            # ignoreerrors-артефакт
+            return False
+        if ("video unavailable" in text_l
+                or "video is not available" in text_l
+                or name == "VideoUnavailable"):
+            return False
+        if "sign in to confirm you're not a bot" in text_l:
+            return True
+        if name in ("TooManyRequests", "FailedToCreateConsentCookie",
+                    "JSONDecodeError"):
+            return True
+        if name == "ParseError":
+            return "no element found" in text_l
+        if name == "YouTubeRequestFailed":
+            return ("http error" in text_l) or ("timed out" in text_l)
+        if "empty transcript" in text_l:
+            return True
+        if name == "HTTPError":                              # ДО TransportError!
+            status = getattr(root, "status", None)
+            if status is None:
+                m = re.search(r"HTTP Error (\d{3})", text)
+                status = int(m.group(1)) if m else None
+            return status in _RETRY_HTTP_STATUSES if status is not None else False
+        if name in ("TransportError", "ProxyError"):
+            return True
+        if name == "DownloadError":
+            return "http error" in text_l
+        if name in ("TranscriptsDisabled", "NoTranscriptAvailable",
+                    "NoTranscriptFound", "InvalidVideoId"):
+            return False
+        if "timed out" in text_l or isinstance(root, TimeoutError):
+            return True
+        return False                                         # дефолт: PERMANENT
+
+    @staticmethod
+    def _exc_status(exc: BaseException | None) -> str:
+        """D157: HTTP-статус из корневой причины: HTTPError.status → регэксп
+        «HTTP Error (\d{3})» (DownloadError/YouTubeRequestFailed-тексты) → «-»."""
+        if exc is None:
+            return "-"
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        status = getattr(root, "status", None)
+        if status is not None:
+            return str(status)
+        m = re.search(r"HTTP Error (\d{3})", str(root))
+        return m.group(1) if m else "-"
+
+    @staticmethod
+    def _exc_body_bytes(exc: BaseException | None) -> str:
+        """D157: размер тела из корневой причины: exc.response — bytes/bytearray
+        → len; http.client.HTTPResponse — атрибут length; иначе «-»."""
+        if exc is None:
+            return "-"
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        resp = getattr(root, "response", None)
+        if isinstance(resp, (bytes, bytearray)):
+            return str(len(resp))
+        if hasattr(resp, "length") and resp.length is not None:
+            return str(resp.length)
+        return "-"
+```
+
+**Ключевые контракты:**
+
+- `fetch_transcript(video_id, max_symbols, on_retry=None)` — третий параметр ОПЦИОНАЛЬНЫЙ: существующие позиционные вызовы не ломаются; kwarg-семантика — только в новых вызовах сервиса.
+- Финальное сообщение исключения сохраняет префикс **«both engines failed»** (match существующего теста `test_both_engines_fail_raises_unavailable`) и добавляет `after N attempt(s)` + status/body_bytes обоих движков (попадает в `logger.exception` хендлера → трейс с диагностикой, R41-3).
+- WARNING «yt-dlp failed → transcript-api fallback» сохраняет подстроку-якорь существующих тестов, добавляя `status=%s | body_bytes=%s`; НОВЫЙ WARNING «transcript-api failed» — симметрично.
+- on_retry вызывается ровно `(1,4),(2,4),(3,4),(4,4)` ПЕРЕД `asyncio.sleep`; колбэк-исключение глушится (50.3 `_notify_retry`).
+- ru-first ДОПОЛНИТЕЛЬНО улучшает доступность: читаемый ru всегда выигрывает у en, даже без 429; битый/пустой ru → continue на en.
+
+### 50.4 Сервис: `services/youtube_summarizer_service.py` (ПРАВКА, R41-2, D156)
+
+```python
+import logging
+import time
+from typing import Awaitable, Callable
+
+from config.settings import settings
+# … остальные импорты БЕЗ изменений (46.8)
+
+
+class YoutubeSummarizerService:
+    """YouTube: субтитры → LLM-выжимка в токсичном стиле → cleanup."""
+
+    def __init__(self, engine: YouTubeTranscriptEngine, llm: LLMClient) -> None:
+        # БЕЗ изменений
+        ...
+
+    async def summarize(
+        self,
+        video_id: str,
+        on_retry: Callable[[int, int], Awaitable[None]] | None = None,
+    ) -> str:
+        """R41-2/D156: on_retry пробрасывается в движок как есть
+        (None — ретраи без уведомлений). Остальной пайплайн — 46.8."""
+        transcript = await self.engine.fetch_transcript(
+            video_id, settings.YOUTUBE_MAX_SYMBOLS, on_retry=on_retry
+        )
+        # system/user/llm.generate/cleanup_llm_text — БЕЗ изменений (46.8)
+        ...
+```
+
+### 50.5 Хендлер: `handlers/youtube.py` (ПРАВКА, R41-2/R41-5, D156)
+
+```python
+import logging
+import random
+
+from aiogram import Bot, Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
+
+from config.settings import settings
+from services.llm_client import LLMError
+from services.smartmodule_phrases import (
+    LLM_ERROR_PHRASES,
+    YOUTUBE_ERROR_PHRASES,
+    YOUTUBE_RETRY_PHRASES,   # НОВОЕ (5.8, R41-2)
+)
+# … остальные импорты БЕЗ изменений (46.9.1)
+
+
+def _make_retry_notifier(bot, chat_id, target_message_id):
+    """R41-2/D156: on_retry-замыкание для движка — токсичная фраза из 5.8
+    реплаем на ЦЕЛЕВОЕ сообщение (target.message_id), прецедент Reply-To 5.6/5.5.
+    Best-effort: если таргет исчез (_reply бросит MessageToReplyNotFound) —
+    каскад НЕ падает: движок глушит колбэк logger.exception (50.3)."""
+    async def on_retry(attempt: int, max_attempts: int) -> None:
+        await _reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES),
+                     target_message_id)
+    return on_retry
+
+
+@youtube_router.message()
+async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
+    if _service is None or bot is None:
+        return UNHANDLED
+    target, video_id = _parse(message)
+    if target is None:
+        return UNHANDLED
+    user_id = message.from_user.id if message.from_user else 0
+    logger.info("[youtube] triggered | chat=%s user=%s video_id=%r",   # R41-5
+                message.chat.id, user_id, video_id)
+    remaining = _cooldown.remaining(message.chat.id, user_id)
+    if remaining > 0:
+        await _reply(bot, message.chat.id, throttle_phrase(remaining),
+                     message.message_id)
+        return
+    _cooldown.touch(message.chat.id, user_id)
+    try:
+        text = await _service.summarize(
+            video_id,
+            on_retry=_make_retry_notifier(bot, message.chat.id,
+                                          target.message_id),
+        )
+        await send_chunked_reply(bot, message.chat.id, text, target.message_id)
+        logger.info("[youtube] summary sent | chat=%s video_id=%r",      # R41-5
+                    message.chat.id, video_id)
+    except YouTubeTranscriptUnavailableException:
+        logger.exception("[youtube] transcript failed | chat=%s video_id=%r",
+                         message.chat.id, video_id)                       # R41-5
+        await _reply(bot, message.chat.id, random.choice(YOUTUBE_ERROR_PHRASES),
+                     target.message_id)
+    except LLMError:
+        logger.exception("[youtube] LLM failed | chat=%s video_id=%r",
+                         message.chat.id, video_id)                       # R41-5
+        await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
+                     target.message_id)
+    except Exception:
+        logger.exception("[youtube] unexpected error | chat=%s video_id=%r",
+                         message.chat.id, video_id)                       # R41-5
+        await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
+                     target.message_id)
+```
+
+**R41-5:** `video_id=%r` добавлен в 5 лог-строк хендлера: `triggered`, `summary sent`, `transcript failed`, `LLM failed`, `unexpected error`. Остальная логика (`_parse`, триггеры, троттлинг 5.1 → message.message_id, 5.6/5.5 → target.message_id) — БЕЗ изменений (46.9.1/48.4).
+
+### 50.6 Логирование (R41-3/R41-5, D157)
+
+| Событие | Уровень | Строка |
+|---|---|---|
+| Успех любого движка | INFO | `[youtube engine] transcript ok \| source=yt-dlp\|transcript-api \| video_id=%r \| segments=%d \| attempt=%d` |
+| Провал yt-dlp → фолбек | WARNING | `[youtube engine] yt-dlp failed → transcript-api fallback \| video_id=%r \| error=%s \| status=%s \| body_bytes=%s` |
+| Провал transcript-api (НОВОЕ) | WARNING | `[youtube engine] transcript-api failed \| video_id=%r \| error=%s \| status=%s \| body_bytes=%s` |
+| Ретрай | WARNING | `[youtube engine] cascade attempt %d failed (transient) → retry in %.0fs \| video_id=%r` |
+| Колбэк упал (не роняет каскад) | ERROR+трейс | `[youtube engine] on_retry callback failed (ignored) \| video_id=%r` |
+| Оба упали | — | raise → `logger.exception("[youtube] transcript failed … video_id=%r")` в хендлере; текст исключения содержит `after N attempt(s)` + `[status=…, body_bytes=…]` обоих движков (R41-3: «то же в финальном трейсе») |
+| Хендлер (5 строк) | INFO/ERROR | `[youtube] triggered/summary sent/transcript failed/LLM failed/unexpected error \| … video_id=%r` (R41-5) |
+
+**status:** из `HTTPError.status` → регэксп `HTTP Error (\d{3})` (тексты `DownloadError`/`YouTubeRequestFailed.reason`) → `-`. **body_bytes:** `exc.response` (bytes/bytearray → `len`; `http.client.HTTPResponse` → `.length`) → `-`. R17 не затронут: статус/размер тела — не секреты; креды прокси не логируются (48.5 остаётся в силе).
+
+### 50.7 Пул YOUTUBE_RETRY_PHRASES (КАНОН, R41-2, D153)
+
+**`services/smartmodule_phrases.py` — ДОБАВИТЬ В КОНЕЦ файла (после 5.7); пулы 5.1–5.7 НЕ ТРОГАТЬ:**
+
+```python
+# 5.8 — ретрай YouTube-транскрипта (Epic 41, R41-2)
+YOUTUBE_RETRY_PHRASES: tuple[str, ...] = (
+    "ютуб опять тупит, пробую выдрать текст еще раз",
+    "не отвалился я, это ютуб упирается, щас повторим",
+    "попытка в молоко, кручу еще раз, не ной",
+    "субтитры не отдают, долблюсь в них снова",
+    "канал сопротивляется, повторяю, отстань на секунду",
+)
+```
+
+**Канон зафиксирован ДОСЛОВНО выше** — для байт-в-байт теста. Свойства (все проверяются тестами): ровно 5 фраз, без дублей внутри пула; строчными; без эмодзи; без маркдауна; без плейсхолдеров; disjoint с пулами 5.1–5.7 и между собой. Выбор — `random.choice` в точке использования (прецедент всех пулов).
+
+### 50.8 Тест-план (R41-6, T-316; baseline v2.33.0 → +~22, 0 failed/skipped)
+
+**Мок-инфраструктура:** как 48.6 (`_FakeYDL`, `_CapturingApi`, `_mock_settings`), плюс: флаки-фейки с счётчиками попыток (`attempts`/`fail_times` + `side_effect`); локальные фейк-классы исключений, названные ТОЧНО как реальные (`class HTTPError(Exception)` с `.status`/`.response`, `class TooManyRequests(Exception)`, `class VideoUnavailable(Exception)`, `class ParseError(Exception)`, `class YouTubeRequestFailed(Exception)`) — классификация `_is_transient` работает по `type(root).__name__` и тексту, реальные библиотеки не импортируются; **`monkeypatch.setattr(engine_mod.asyncio, "sleep", …)`** в ретрай-тестах (движок импортирует `asyncio` модулем). Реальная сеть НИКОГДА не ходит.
+
+| # | Класс/файл | Кейс | Ожидание |
+|---|---|---|---|
+| — | TestFetchTranscript / TestYtdlpPrimary / TestNormalizers / TestPickTranscriptPriority / TestFormat | существующие БЕЗ правок | зелёные как есть (фейлы существующих кейсов — перманентные: RuntimeError, None-list, «no suitable transcript» → 0 ретраев, sleep НЕ вызывается) |
+| 1 | TestRetryCascade (НОВЫЙ, движок) | попытка 1: yt-dlp `HTTPError(429)` + api `TooManyRequests`; попытка 2: yt-dlp снова 429 + api успех | результат отформатирован; INFO `source=transcript-api` с `attempt=2`; `_fetch_ytdlp` и `_fetch_segments` вызваны по 2 раза; sleep вызван 1 раз с `(1.0,)` |
+| 2 | там же | ОБА движка транзиентно падают ВСЕ 5 попыток (exhausted) | raise «both engines failed after 5 attempt(s)»; on_retry вызван ровно 4 раза с `(1,4),(2,4),(3,4),(4,4)`; sleep: `[1.0, 2.0, 4.0, 8.0]` |
+| 3 | там же | перманент: yt-dlp `VideoUnavailable` + api `NoTranscriptFound` | raise сразу «after 1 attempt(s)»; on_retry НЕ вызван; sleep НЕ вызван; `_fetch_ytdlp`/`_fetch_segments` — ровно по 1 вызову (call count) |
+| 4 | там же | смешанный: yt-dlp перманент + api `TooManyRequests` (успех на 2-й) | ретрай идёт (правило «хотя бы один транзиентен»), api вызван 2 раза, результат OK |
+| 5 | там же | `on_retry=None` + транзиентные фейлы | ретраи происходят без колбэка, не падает |
+| 6 | там же | on_retry БРОСАЕТ исключение | каскад жив: logger.exception «on_retry callback failed» + ретрай + итоговый успех |
+| 7 | TestYtdlpPrimary (+1) | `_FakeYDL.last_opts["ignoreerrors"] is True` | опция проставлена (R41-1) |
+| 8 | TestRuFirst (НОВЫЙ) | ru с filepath (читаем) + en в requested БЕЗ filepath → `_extract_ytdlp_segments` | возвращён ru-текст; фолбек НЕ вызван (первая попытка, источник yt-dlp) |
+| 9 | там же | ru БЕЗ filepath + en с filepath | возвращён en-текст (skip ru) |
+| 10 | там же | ВСЕ языки без filepath | raise «no readable subtitle files» → фолбек transcript-api успех; 0 ретраев (перманент) |
+| 11 | там же | ru-файл пустой («empty transcript») + en читаем | continue на en, возвращён en-текст |
+| 12 | TestInfoNone (НОВЫЙ) | `extract_info` → None (ignoreerrors) + api транзиентно падает, потом успех | «extract_info returned None» — транзиент: sleep 1 раз, результат OK |
+| 13 | TestClassification (НОВЫЙ) | parametrize `_is_transient` по таблице 50.2 (все классы/паттерны: HTTPError 429/403/500/404/407, TransportError, ProxyError, DownloadError+HTTP Error, VideoUnavailable, Sign in, JSONDecodeError, empty transcript, no readable subtitle files, extract_info None, is not installed, TooManyRequests, FailedToCreateConsentCookie, YouTubeRequestFailed, ParseError no element found, TranscriptsDisabled/NoTranscriptFound/InvalidVideoId, дефолт RuntimeError) | точные True/False |
+| 14 | TestRetryLogs (НОВЫЙ) | caplog: `HTTPError(status=429, response=b"abcd")` | WARNING содержит `status=429` и `body_bytes=4`; текст финального исключения содержит `status=429` |
+| 15 | там же | `RuntimeError("HTTP Error 503 …")` без атрибутов | `status=503`, `body_bytes=-` (регэксп-путь) |
+| 16 | test_youtube_handlers.py (ФИКС #142) | успех сценария А | `service.summarize.assert_awaited_once()`; `await_args.args[0] == "dQw4w9WgXcQ"`; `"on_retry" in await_args.kwargs` и callable |
+| 17 | там же (НОВЫЙ) | извлечь on_retry из `await_args.kwargs`, `await cb(2, 4)` | `bot.send_message` вызван с фразой из `YOUTUBE_RETRY_PHRASES` и `reply_to_message_id == 77` (target) |
+| 18 | там же (НОВЫЙ) | 4 вызова cb | `bot.send_message.await_count == 4`, все тексты в пуле |
+| 19 | test_youtube_summarizer_service.py (ФИКС #36) | дефолт | `engine.fetch_transcript.assert_awaited_once_with(VIDEO_ID, settings.YOUTUBE_MAX_SYMBOLS, on_retry=None)` |
+| 20 | там же (НОВЫЙ) | `summarize(VIDEO_ID, on_retry=cb)` | `engine.fetch_transcript` вызван с `on_retry=cb` (проброс) |
+| 21 | test_smartmodule_phrases.py (НОВЫЙ) | `EXPECTED_RETRY` verbatim (канон 50.7); ровно 5, без дублей; disjoint с 5.1–5.7; lowercase/без эмодзи/без плейсхолдера (через TestPoolStyle.ALL_POOLS и parametrize TestPoolsVerbatim) | пул == канону байт-в-байт |
+| Регрессия | — | Полный `pytest` | baseline v2.33.0 + ~22 новых, 0 failed/skipped; `git diff --check` чист; секретов в диффе нет |
+
+### 50.9 DoD
+
+- **Builder (T-316):** пул 5.8 дословно 50.7 (пулы 5.1–5.7 не тронуты); движок 50.3 (retry-цикл, `_notify_retry`, `ignoreerrors`, ru-first `_extract_ytdlp_segments`, `info None`-правило, `_is_transient`/`_root_cause`/`_exc_status`/`_exc_body_bytes`); сервис 50.4 и хендлер 50.5 (video_id в 5 строках, замыкание `_make_retry_notifier`); полный `pytest` зелёный, 0 failed/skipped; `git diff --check` чист; Betterstack-алерт НЕ делался (non-goal); контракт `fetch_transcript` совместим (kwarg опционален), префикс «both engines failed» в финальном сообщении сохранён.
+- **DevOps (T-318):** коммит `fix(youtube): Epic 41 — ретраи каскада + ru-first + статус-логи фолбека (v2.33.1)`, пуш master; деплой по 50.10; journalctl 0 traceback + `video_id=` в логах хендлера + `proxy=set` (факт); живой smoke; Betterstack — 0 новых ERROR `[youtube]`.
+- **Reviewer (T-317):** Section 50 + T-316 APPROVED, BLOCKER/MAJOR нет.
+
+### 50.10 Деплой-чеклист (T-318)
+
+1. Локально: полный `pytest` (baseline + ~22, 0 failed/skipped), `git diff --check` чист.
+2. Commit+push master: `fix(youtube): Epic 41 — ретраи каскада + ru-first + статус-логи фолбека (v2.33.1)`.
+3. SSH `nik@198.46.175.136:22` → `cd /var/www/admin_bot` → `git pull` (ff-only).
+4. `sudo systemctl restart admin_bot` → active (running), новый PID.
+5. `journalctl -u admin_bot -n 50 --no-pager` — 0 traceback; `[youtube engine] config | proxy=set | cookies=empty` (факты, R17); при ретраях — WARNING `cascade attempt N failed (transient) → retry in …s | video_id=…`.
+6. Живой smoke в чате: YT-ссылка + «поясни за видос» (sNhhvQGsMEc / dQw4w9WgXcQ) → выжимка; при 429-всплеске — 1–4 токсичных сообщения 5.8 реплаем на целевое, затем выжимка; битое видео → фраза 5.6 БЕЗ ретрай-сообщений (перманент — 0 ретраев); Betterstack — 0 новых ERROR от `[youtube]`.
+7. **Полный гейт 49.7 НЕ повторяем** — прокси xray уже работает и принят (T-314, Epic 39 DEPLOYED v2.33.0); этот деплой — код-правки поверх работающего транспорта.
+
+### 50.11 Риски
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | Спам 4–5 сообщений на запрос | Дословное требование пользователя (R41-2) — выполняем; D151 ограничивает ровно 4 сообщениями, перманентные фейлы — 0 сообщений; троттлинг хендлера (5.1) не затронут |
+| 2 | Попытка до 20с+ (5 попыток × сетевые таймауты + 15с backoff) | Принято (R41-2); каскад в `asyncio.to_thread` — event-loop свободен (прецедент 48.9 #3); перманент-фейлы мгновенны; socket_timeout=20 граничит каждый сетевой вызов |
+| 3 | Классификация критична: ложный транзиент = спам, ложный перманент = фейл без шанса | Дефолт PERMANENT (строго); таблица 50.2 с упорядоченными проверками; parametrize-тест каждого класса (#13); «is not installed» → permanent ДО дефолта (иначе существующие TestFetchTranscript/TestYtdlpPrimary-кейсы уснут в реальных 15с) |
+| 4 | ignoreerrors → None/частичные данные extract_info | `info None` → транзиент (D154, тест #12); все filepath-less → «no readable subtitle files» перманент → фолбек без ретраев (тест #10) |
+| 5 | 407 от мёртвого/неверного прокси xray | `HTTPError(407)` → PERMANENT → быстрый 5.6 без 4-кратного спама — желаемое поведение при падении прокси (49.5-совместимо) |
+| 6 | Колбэк в ретрай-цикле (await send_message внутри) | `_notify_retry` глушит любые исключения logger.exception (50.3); исчезнувший reply-таргет не роняет каскад; латентность send_message ~мс — пренебрежима на фоне backoff |
+| 7 | Ломаются 2 ассерта существующих тестов (test_youtube_handlers.py:142, test_youtube_summarizer_service.py:36) | Починены по 50.8 (#16/#19) — это ЕДИНСТВЕННЫЕ ожидаемые поломки; префикс «both engines failed» сохранён (match теста #4 TestYtdlpPrimary) |
+| 8 | ru-first шире 429-кейса: пустой/битый ru → continue на en | Осознанное улучшение доступности (50.3); «empty transcript» последнего языка → транзиент (ретрай), «no readable subtitle files» → перманент (фолбек) — границы классификации покрыты тестами #11/#10 |
+
+### 50.12 Сводка для Builder (файлы, порядок)
+
+**Боевой код (4 файла):** `services/youtube_transcript_engine.py` (50.3: retry-цикл в `fetch_transcript` + `_notify_retry` + `ignoreerrors` + ru-first `_extract_ytdlp_segments` + `info None`-правило + `_is_transient`/`_root_cause`/`_exc_status`/`_exc_body_bytes`; `_read_ytdlp_subtitle`/нормализаторы/`_fetch_segments`/`_pick_transcript`/`_format` — БЕЗ правок), `services/youtube_summarizer_service.py` (50.4: kwarg on_retry), `handlers/youtube.py` (50.5: video_id в 5 логах + `_make_retry_notifier`), `services/smartmodule_phrases.py` (50.7: пул 5.8 В КОНЕЦ, 5.1–5.7 не трогать). **Тесты:** `tests/test_youtube_transcript_engine.py` (TestRetryCascade #1-6, TestRuFirst #8-11, TestInfoNone #12, TestClassification #13, TestRetryLogs #14-15, +ignoreerrors #7), `tests/test_youtube_handlers.py` (#16-18), `tests/test_youtube_summarizer_service.py` (#19-20), `tests/test_smartmodule_phrases.py` (#21). **БЕЗ изменений:** settings, requirements, .env, bot.py, youtube_prompts.py.
+
+**Порядок:** T-315 (эта секция) → T-316 (@Builder: пул 5.8 + тесты пулов → движок + тесты движка → сервис/хендлер + их тесты → полный pytest зелёный, `git diff --check`, ревью) → T-317 (@Reviewer) → T-318 (@DevOps: коммит/пуш → деплой 50.10 → smoke).
+
+@Architect Epic 41 architecture ready (Section 50: D151 4 ретрая = 5 попыток каскада — спам ≤4 сообщений, перманент-фейл = 0; D152 экспонента (1,2,4,8) cap 8с, суммарный сон 15с; D153 канон 5.8 зафиксирован дословно в 50.7; D154 ignoreerrors=True + ru-first (язык без filepath пропускается, info None → транзиент); D155 классификация по корневой причине с упорядоченными правилами, дефолт PERMANENT (строго — «is not installed» permanent ДО дефолта, иначе существующие тесты уснут); D156 on_retry(attempt, 4) ровно (1,4)…(4,4) ПЕРЕД sleep, колбэк глушится logger.exception; D157 status/body_bytes в WARNING и финальном трейсе (атрибут → регэксп → «-»); контракт fetch_transcript — опциональный kwarg on_retry=None, префикс «both engines failed» сохранён; 2 известных ассерта-поломки чинятся по 50.8 #16/#19; Betterstack-алерт ОТМЕНЁН (non-goal); полный гейт 49.7 НЕ повторяем — прокси уже принят), passing the baton to @Builder (T-316) → @Reviewer (T-317) → @DevOps (T-318: v2.33.1).

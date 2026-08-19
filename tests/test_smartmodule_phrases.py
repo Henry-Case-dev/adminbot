@@ -17,6 +17,7 @@ from services.smartmodule_phrases import (
     THROTTLE_PHRASES,
     WEB_ERROR_PHRASES,
     YOUTUBE_ERROR_PHRASES,
+    YOUTUBE_RETRY_PHRASES,
 )
 
 # Каноны R33-5 (backlog, дословно)
@@ -79,6 +80,15 @@ EXPECTED_5_7 = (
     "там три строчки рекламы и больше ничего, пересказывать нечего",
 )
 
+# Канон R41-2 (Epic 41, Section 50.7, дословно)
+EXPECTED_5_8 = (
+    "ютуб опять тупит, пробую выдрать текст еще раз",
+    "не отвалился я, это ютуб упирается, щас повторим",
+    "попытка в молоко, кручу еще раз, не ной",
+    "субтитры не отдают, долблюсь в них снова",
+    "канал сопротивляется, повторяю, отстань на секунду",
+)
+
 
 class TestPoolsVerbatim:
     """Каждый пул — ровно 5 фраз, дословно из ТЗ R33-5/R37-5."""
@@ -94,6 +104,7 @@ class TestPoolsVerbatim:
             (LLM_ERROR_PHRASES, EXPECTED_5_5, "5.5"),
             (YOUTUBE_ERROR_PHRASES, EXPECTED_5_6, "5.6"),
             (WEB_ERROR_PHRASES, EXPECTED_5_7, "5.7"),
+            (YOUTUBE_RETRY_PHRASES, EXPECTED_5_8, "5.8"),
         ],
     )
     def test_pool_matches_canon_verbatim(self, actual, expected, name):
@@ -110,6 +121,7 @@ class TestPoolsVerbatim:
             (LLM_ERROR_PHRASES, EXPECTED_5_5, "5.5"),
             (YOUTUBE_ERROR_PHRASES, EXPECTED_5_6, "5.6"),
             (WEB_ERROR_PHRASES, EXPECTED_5_7, "5.7"),
+            (YOUTUBE_RETRY_PHRASES, EXPECTED_5_8, "5.8"),
         ],
     )
     def test_pool_has_exactly_5_phrases(self, actual, expected, name):
@@ -140,6 +152,23 @@ class TestEpic37Pools:
         assert not set(YOUTUBE_ERROR_PHRASES) & set(WEB_ERROR_PHRASES)
 
 
+class TestEpic41Pool:
+    """R41-2 (Section 50.7): пул 5.8 disjoint со всеми существующими."""
+
+    def test_retry_pool_disjoint_from_5_1_to_5_7(self):
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+            | set(YOUTUBE_ERROR_PHRASES)
+            | set(WEB_ERROR_PHRASES)
+        )
+        assert not set(YOUTUBE_RETRY_PHRASES) & existing
+
+
 class TestPoolStyle:
     ALL_POOLS = (
         THROTTLE_PHRASES,
@@ -150,6 +179,7 @@ class TestPoolStyle:
         LLM_ERROR_PHRASES,
         YOUTUBE_ERROR_PHRASES,
         WEB_ERROR_PHRASES,
+        YOUTUBE_RETRY_PHRASES,
     )
 
     def test_all_phrases_lowercase(self):
@@ -176,6 +206,7 @@ class TestPoolStyle:
             LLM_ERROR_PHRASES,
             YOUTUBE_ERROR_PHRASES,
             WEB_ERROR_PHRASES,
+            YOUTUBE_RETRY_PHRASES,
         ):
             for phrase in pool:
                 assert "{remaining_time}" not in phrase

@@ -6,40 +6,36 @@
 
 ## 🔧 In Progress
 
-### Epic 39: YouTube engine fix — yt-dlp → youtube-transcript-api фолбек — 🚧 IN PROGRESS → ⛔ DEPLOY_BLOCKED на гейте T-308-C (одобрено пользователем, target v2.33.0, Шаг 1 @PM ✅, 2026-08-19)
+### Epic 41: YouTube engine hardening (ru-first, ретраи 4–5 + токсичные сообщения, логи фолбека) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-19, Шаг 1 @PM ✅, target v2.33.1)
 
-> Полный трек — `plans/backlog.md` (Epic 39). Требования R39-1…R39-6, решения D139–D144.
-> yt-dlp (Python-API, lazy, to_thread) — основной движок → фолбек youtube-transcript-api 0.6.3 с proxies/cookies; контракт движка/сервис/хендлер/пулы/промпты/троттлинг БЕЗ изменений.
-> Новые ключи (опциональные): YOUTUBE_TRANSCRIPT_PROXY_URL / YOUTUBE_COOKIES_FILE. Передача @Architect (T-302, Section 48). Без @Orchestrator.
-> **⛔ DEPLOY_BLOCKED (2026-08-19, Шаг 1 Epic 40):** код v2.33.0 закоммичен и запушен (`bb472ba`, T-307); деплой заморожен на гейте T-308-C — 0–1/4 вместо ≥3/4 (датацентровый IP 198.46.175.136, AS36352, блок YouTube); рестарт admin_bot НЕ выполнялся. **Разблокирует деплой: Epic 40 (VPN-прокси xray, гейт ≥3/4 → рестарт → T-308-C).**
+> Полный трек — `plans/backlog.md` (Epic 41). Требования R41-1…R41-5 (R41-4 = NON-GOAL: BetterStack-алерт ОТМЕНЁН пользователем), решения D151–D157.
+> Контекст: инцидент 2026-08-19 01:24:55 (`v-6q7YMmjnM` — 429 на 'en' + пустой timedtext через DC-выход VPN; флап ~50/50). ru-first (`ignoreerrors: True` + skip языков без filepath + `extract_info → None`), ретраи в движке (классификация ДО обёртки; yt-dlp N → фолбек transcript-api N → исключение), колбэк `on_retry(attempt, max_attempts)` (kwarg; прецеденты search_aggregator.py:64, message_counter.py:33), пул `YOUTUBE_RETRY_PHRASES` (~5 вариаций, random.choice, строчными; канон создаст @Architect; пулы 5.1–5.7 не трогать), video_id в handler-логи, HTTP-статус/размер тела в фолбек-WARNING.
+> Прокси уже стоит (гейт Epic 40 пройден) — повторный полный гейт не обязателен. Без @Orchestrator.
 
-- [ ] T-302 (@Architect, P0) — дизайн Section 48: каскад yt-dlp → transcript-api, приоритет треков (зеркало `_pick_transcript`), нормализация, тест-план, риски; закрыть открытые вопросы PM 1–6 (R39-1…R39-6)
-- [ ] T-303 (@Builder, P0) — settings +2 ключа (R17: не логировать значения) + requirements yt-dlp floor-пин + .env.example (R39-3)
-- [ ] T-304 (@Builder, P0) — движок: yt-dlp primary + фолбек transcript-api 0.6.3 (proxies/cookies); контракт `fetch_transcript` не менять (R39-1/R39-2/R39-4, D139–D141)
-- [ ] T-305 (@Builder + @Reviewer, P0) — тесты: мок yt-dlp, каскад, kwargs, сохранение классов; полный прогон 0 регрессий (baseline 1763); ревью APPROVED (R39-5)
-- [ ] T-306 (@Builder, P1) — README v2.33.0 + MEMORY
-- [ ] T-307 (@DevOps, P0) — коммит на русском + пуш master — ✅ `bb472ba` (R39-6)
-- [ ] T-308 (@DevOps, P0) — деплой: pip install yt-dlp (floor-пин), .env (бэкап `.env.bak.epic39`), restart, ОБЯЗАТЕЛЬНАЯ верификация реальных ссылок с серверного IP (dQw4w9WgXcQ, cUbIkNUFs-4, aPYGbtkSE7A + ru-manual видео) (R39-6) — ⛔ ЗАМОРОЖЕН на гейте T-308-C (0–1/4); возобновление после Epic 40 T-313/T-314
-
-### Epic 40: YouTube VPN-прокси (xray) + разблокировка деплоя Epic 39 — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-19, Шаг 1 @PM ✅, target v2.33.0 — КОД НЕ МЕНЯЕТСЯ)
-
-> Полный трек — `plans/backlog.md` (Epic 40). Требования R40-1…R40-7, решения D145–D150 (Orchestrator).
-> xray-core на сервере: VLESS-конфиг пользователя (Reality+gRPC, ams.superbhost.xyz:443) + http-inbound 127.0.0.1:10808 с accounts (подтверждено эмпирикой v26.3.27); systemd enable + Restart=always (R40-1/R40-2).
-> Через прокси ходит ТОЛЬКО YouTube-движок (YOUTUBE_TRANSCRIPT_PROXY_URL); глобальный VPN запрещён (D145). Код-правки не требуются (R40-6, D147).
-> **Разблокирует деплой Epic 39:** гейт ≥3/4 (/tmp/epic39_verify.py) → рестарт admin_bot → journalctl 0 traceback → smoke; при <3/4 — rollback R40-7 (план Б). Без @Orchestrator.
-
-- [ ] T-309 (@Architect, P0) — дизайн Section 49: топология, accounts, systemd, секретность, гейт, rollback; закрыть вопросы PM 1–4
-- [ ] T-310 (@Builder, P1) — код-готовность/верификация R40-6: путь YOUTUBE_TRANSCRIPT_PROXY_URL → yt-dlp proxy / transcript-api proxies http+basic-auth из коробки (без PySocks); при расхождении — фикс-задача
-- [ ] T-311 (@Reviewer, P0) — ревью Section 49 + T-310 → APPROVED
-- [ ] T-312 (@DevOps, P0) — установка xray-core (Xray-install) + config.json (chmod 600) + systemctl enable --now + curl -x ipify (IP ≠ 198.46.175.136) (R40-1/R40-2/R40-4)
-- [ ] T-313 (@DevOps, P0) — гейт: .env (бэкап `.env.bak.epic40`) → /tmp/epic39_verify.py ≥3/4 → restart admin_bot → journalctl (0 traceback, proxy=set) → smoke; при <3/4 — rollback R40-7 (R40-3/R40-5)
-- [ ] T-314 (@DevOps, P1) — завершение Epic 39: верификация T-308-C реальных ссылок с прокси; финальные статусы board/backlog
+- [ ] T-315 (@Architect, P0) — дизайн Section 50 + КАНОН YOUTUBE_RETRY_PHRASES (5 токсичных вариаций, строчными, дословно); закрыть открытые вопросы PM 1–4 (число ретраев 4/5, backoff-схема)
+- [x] T-316 (@Builder, P0) — движок: ru-first + ретраи с backoff + классификация + `on_retry` kwarg (R41-1/R41-2, D151–D154)
+- [x] T-317 (@Builder, P0) — пул YOUTUBE_RETRY_PHRASES + тест-канон (R41-2, D155)
+- [x] T-318 (@Builder, P0) — сервис+хендлер: on_retry-замыкание → `_reply`, video_id в handler-логи, логи фолбека (R41-2/R41-3/R41-5, D153)
+- [x] T-319 (@Builder + @Reviewer, P0) — тесты: 2 сломанных ассерта + ~15–20 кейсов (monkeypatch asyncio.sleep); полный прогон 0 регрессий (baseline 1796); ревью APPROVED
+- [x] T-320 (@Builder, P1) — README v2.33.1 + MEMORY
+- [ ] T-321 (@DevOps, P0) — коммит на русском + пуш master
+- [ ] T-322 (@DevOps, P0) — деплой v2.33.1: git pull, restart, journalctl -n 50, живой smoke (полный гейт не обязателен)
 
 ## 🔍 In Review
 
-*(пусто — Epic 31 перенесён в Done при архивации)*
+*(пусто)*
 
 ## ✅ Done
+
+### Epic 40: YouTube VPN-прокси (xray) + разблокировка деплоя Epic 39 — ✅ DEPLOYED & ARCHIVED (v2.33.0, коммит `bb472ba`, прод PID 980709, 1796 тестов)
+
+> Перенесено из In Progress при архивации (PM, 2026-08-19, Шаг 1 Epic 41). Полный трек — `plans/backlog.md` (Epic 40).
+> **Итог:** T-309…T-314 ALL DONE (по plans/MEMORY.md, Шаг 8). xray-core 26.3.27 + http-inbound 127.0.0.1:10808 с accounts (эмпирика: поле users молча игнорируется) + systemd enable/Restart=always; выходной IP 195.181.173.207 (AS60068); гейт 49.7 ПРОЙДЕН (3/4: sNhhvQGsMEc/cUbIkNUFs-4/aPYGbtkSE7A OK; dQw4w9WgXcQ — известный кейс пустого timedtext, не блок). Epic 39 разблокирован: прод v2.33.0 активирован, **PID 980709**, 0 traceback, proxy=set. Код не менялся. Тесты: 1796 passed (1789 + 7).
+
+### Epic 39: YouTube engine fix — yt-dlp → youtube-transcript-api фолбек — ✅ DEPLOYED & ARCHIVED (v2.33.0, коммит `bb472ba`, прод PID 980709, 1796 тестов)
+
+> Перенесено из In Progress при архивации (PM, 2026-08-19, Шаг 1 Epic 41). Полный трек — `plans/backlog.md` (Epic 39).
+> **Итог:** T-302…T-306 DONE (Section 48, yt-dlp primary + фолбек transcript-api 0.6.3, +2 ключа настроек), T-307 коммит `bb472ba`; T-308 DEPLOY_BLOCKED на гейте T-308-C был СНЯТ Epic 40 (гейт 3/4 через прокси) → v2.33.0 в проде (PID 980709, 0 traceback).
 
 ### Epic 38: Refactoring WebSummarizer — Jina → Trafilatura + Tavily/Exa фолбеки — ✅ DEPLOYED & ARCHIVED (v2.32.1, коммит `f0bc4d6`, прод PID 974412, 1763 теста)
 

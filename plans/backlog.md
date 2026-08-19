@@ -4162,4 +4162,151 @@ llm откинулась, сгенерировать не вышло
 ---
 
 **Статус: Epic 40 — Шаг 1 (PM) ✅ (2026-08-19): требования R40-1…R40-7, решения D145–D150 (Orchestrator), задачи T-309…T-314 зафиксированы; Epic 39 — ⛔ DEPLOY_BLOCKED (гейт T-308-C, 0–1/4). Передача @Architect (T-309, Section 49). Без @Orchestrator. Реальные UUID/ключи VPN-конфига в планы НЕ внесены (R40-4).**
+**Статус: Epic 40 — ЗАКРЫТ ✅ (2026-08-19, Шаг 8 @Memory, см. plans/MEMORY.md): гейт 49.7 ПРОЙДЕН (3/4 ≥3/4, прокси 127.0.0.1:10808 с accounts — эмпирика v26.3.27), Epic 39 разблокирован, прод v2.33.0 (`bb472ba`, PID 980709, 0 traceback). T-309…T-314 ALL DONE. 1796 тестов (1789 + 7).**
+**Date: 2026-08-19**
+
+---
+
+## Epic 41: YouTube engine hardening — 2026-08-19 🚧 IN PROGRESS (одобрено пользователем, target v2.33.1)
+
+> **Цель:** Захарднить YouTube-движок против транзиентных rate-limit/soft-block YouTube
+> на timedtext-эндпоинтах через DC-выход VPN. Правки пользователя (из рекомендаций по
+> инциденту 2026-08-19 01:24:55 UTC) зафиксированы: (1) ru-first — не валить запрос из-за
+> 429 на 'en', если русская дорожка скачана; (2) ретраи 4–5 с backoff + токсичное сообщение
+> бота в чат на КАЖДОМ ретрае (новый пул YOUTUBE_RETRY_PHRASES, ~5 вариаций, random.choice);
+> (3) HTTP-статус/размер тела в WARNING-фолбек-логах; (4) BetterStack-алерт — ОТМЕНЁН
+> пользователем («беттерстак завалит алертами») — НЕ включать; (5) video_id в handler-логи
+> `[youtube] triggered/summary sent/transcript failed/LLM failed/unexpected error`.
+> **Контекст инцидента:** `v-6q7YMmjnM`: yt-dlp 429 на автосубтитрах 'en' → фолбек transcript-api →
+> HTTP 200 с ПУСТЫМ телом timedtext → ParseError «no element found» → оба движка упали → пул 5.6.
+> Флап ~50/50 при репродукции; первопричина — транзиентный rate-limit/soft-block YouTube через
+> DC-выход VPN (195.181.173.207, AS60068), не код и не прокси. Гейт Epic 40 пройден — прокси стоит.
+> **Исполнители:** @Architect (T-315, Section 50 + КАНОН пула фраз), @Builder (T-316…T-320),
+> @Reviewer (T-319-C), @DevOps (T-321/T-322). Без @Orchestrator.
+> **Target:** v2.33.1. **Baseline:** прод v2.33.0 (`bb472ba`), 1796 тестов.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R41-1** | **ru-first:** не валить запрос из-за 429 на 'en', если русская дорожка скачана. Технически: `ignoreerrors: True` в yt-dlp opts + пропуск языков без filepath; явная обработка `extract_info → None` (ignoreerrors меняет семантику extract_info). |
+| **R41-2** | **Ретраи 4–5** (пользователь: «Ретраев нужно 4-5»; точное число уточнит @Architect) с backoff на транзиентных ошибках в ОБОИХ движках; классификация ДО обёртки в YouTubeTranscriptUnavailableException; каждый движок ретраится отдельно: yt-dlp N попыток → фолбек transcript-api N попыток → исключение. На КАЖДОМ ретрае бот шлёт в чат токсичное сообщение в своём стиле, С НЕСКОЛЬКИМИ ВАРИАЦИЯМИ: новый пул `YOUTUBE_RETRY_PHRASES` (~5 вариаций, `random.choice`, строчными, без эмодзи/маркдауна) в `services/smartmodule_phrases.py`; паттерн — опциональный async-колбэк `on_retry(attempt, max_attempts)` (kwarg в `fetch_transcript` и `summarize`), хендлер передаёт замыкание → `_reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES), target.message_id)`. |
+| **R41-3** | **Лучшие логи фолбека:** HTTP-статус/размер тела в WARNING `yt-dlp failed → transcript-api fallback` и в трейсе. |
+| **R41-4** | **NON-GOAL:** BetterStack-алерт на частоту `[youtube] transcript failed` — ОТМЕНЁН пользователем («беттерстак завалит алертами») — НЕ включать, НЕ проектировать, НЕ реализовывать. |
+| **R41-5** | **video_id в логах хендлера:** добавить в `[youtube] triggered/summary sent/transcript failed/LLM failed/unexpected error` (сейчас video_id только в engine-логах — слабая корреляция). |
+
+### PM Decisions (зафиксированы 2026-08-19, Шаг 1 PM)
+
+| # | Решение |
+|---|---------|
+| **D151** | **ru-first:** `ignoreerrors: True` в yt-dlp opts; языки без filepath пропускаются; `extract_info → None` обрабатывается явно (без TypeError/AttributeError). |
+| **D152** | **Ретраи в ДВИЖКЕ (`fetch_transcript`):** классификация ошибок ДО обёртки в YouTubeTranscriptUnavailableException. **Транзиентные (ретраить):** yt-dlp — HTTPError/429/5xx/403, TransportError/ProxyError/timeout, DownloadError с «HTTP Error 429», JSONDecodeError/«empty transcript», «Sign in to confirm you're not a bot»; transcript-api — TooManyRequests, YouTubeRequestFailed, FailedToCreateConsentCookie, ParseError «no element found». **Перманентные (НЕ ретраить, 0 попыток):** VideoUnavailable/«Video unavailable», «no ru/en subtitles», «unsupported subtitle format»; TranscriptsDisabled, NoTranscriptAvailable, NoTranscriptFound, InvalidVideoId. |
+| **D153** | **Уведомление о ретрае:** опциональный async-колбэк `on_retry(attempt, max_attempts)` — kwarg в `fetch_transcript` и `summarize`; хендлер передаёт замыкание → `_reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES), target.message_id)`. Прецеденты колбэков в services: `search_aggregator.py:64`, `message_counter.py:33`; services НЕ импортируют aiogram (чистота слоя сохраняется). |
+| **D154** | **Константы ретраев в движке** (прецедент `_YTDLP_SOCKET_TIMEOUT`): ретраи = 4–5 (точное число — @Architect в T-315), backoff 1–2с или экспонента (схему фиксирует @Architect). Каждый движок ретраится отдельно (см. R41-2). |
+| **D155** | **Пул:** `YOUTUBE_RETRY_PHRASES` в `services/smartmodule_phrases.py` (кортеж, ~5 фраз, дословный канон создаст @Architect в Section 50; строчными, без эмодзи/маркдауна). Пулы 5.1–5.7 НЕ трогать. Тест-канон в `test_smartmodule_phrases.py`. |
+| **D156** | **Релиз/деплой v2.33.1:** коммит+пуш, git pull, рестарт admin_bot, journalctl -n 50, живой smoke. Прокси уже стоит, гейт Epic 40 пройден — повторный полный гейт НЕ обязателен; верификация одного видео допустима. |
+| **D157** | **Риски (приняты):** спам в чате (4–5 сообщений на ретраи — требование пользователя, выполняем дословно); долгие ожидания (попытка до 20с+); классификация транзиентных/перманентных критична (ошибка = 0 ретраев или бесконечные ретраи); ignoreerrors меняет семантику extract_info (None) — обязательны тесты. |
+
+### Открытые вопросы для @Architect (закрыть в Section 50)
+
+1. **Точное число ретраев:** 4 или 5 (пользователь: «Ретраев нужно 4-5»)? — зафиксировать в константах движка (D154).
+2. **Backoff-схема:** фикс 1–2с или экспонента (база/множитель/cap)? С учётом того, что попытка до 20с+ (D157).
+3. **Канон YOUTUBE_RETRY_PHRASES:** 5 токсичных вариаций в стиле бота, строчными, без эмодзи/маркдауна — @Architect фиксирует ДОСЛОВНО в Section 50 (пулы 5.1–5.7 не трогать, D155).
+4. **ignoreerrors-семантика:** extract_info → None / частичные данные; поведение приоритетов 1–4 в `_extract_ytdlp_segments` при 429 на 'en' + скачанном ru (R41-1, D151).
+
+### Задачи
+
+### T-315 (@Architect) — Дизайн Section 50 + канон пула фраз (R41-1…R41-5, D151–D157)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-315-A: Дизайн в `plans/ARCHITECTURE.md` (Section 50 — номер по факту, последняя 49): ru-first/ignoreerrors-семантика, классификация транзиентных/перманентных ошибок (D152), retry-константы + backoff (D154), колбэк `on_retry` (D153), лучшие логи фолбека (R41-3), video_id в handler-логах (R41-5), тест-план (~15–20 кейсов), риски (D157), NON-GOAL алерта (R41-4); закрыть открытые вопросы PM 1–4
+- [ ] T-315-B: **КАНОН `YOUTUBE_RETRY_PHRASES`** — 5 токсичных вариаций в стиле бота, строчными, без эмодзи/маркдауна — ДОСЛОВНО в Section 50 (пулы 5.1–5.7 не трогать, D155)
+- [ ] T-315-C: Self-review + PM-аппрув; T-316…T-322 → READY
+
+**DoD:** Section 50 в ARCHITECTURE.md; вопросы PM 1–4 закрыты; канон пула зафиксирован дословно; PM-аппрув.
+
+### T-316 (@Builder) — Движок: ru-first + ретраи + on_retry (R41-1/R41-2/R41-3, D151–D154)
+
+**Приоритет:** P0. **Зависимости:** T-315. **Оценка:** 1d.
+
+- [ ] T-316-A: `services/youtube_transcript_engine.py`: `ignoreerrors: True` в yt-dlp opts; пропуск языков без filepath; явная обработка `extract_info → None`
+- [ ] T-316-B: Классификация ошибок (D152) ДО обёртки в YouTubeTranscriptUnavailableException; ретраи с backoff (константы по T-315): yt-dlp N попыток → фолбек transcript-api N попыток → исключение
+- [ ] T-316-C: Опциональный async-колбэк `on_retry(attempt, max_attempts)` — kwarg в `fetch_transcript`; контракт `fetch_transcript(video_id, max_symbols)` сохранить (обратная совместимость — kwarg опциональный)
+- [ ] T-316-D: WARNING `yt-dlp failed → transcript-api fallback` + трейс с HTTP-статусом/размером тела (R41-3)
+
+**DoD:** движок по Section 50; 0 ретраев на перманентных; N на транзиентных; колбэк вызывается (attempt, max_attempts).
+
+### T-317 (@Builder) — Пул YOUTUBE_RETRY_PHRASES + тест-канон (R41-2, D155)
+
+**Приоритет:** P0. **Зависимости:** T-315 (канон). **Оценка:** 0.25d.
+
+- [ ] T-317-A: `services/smartmodule_phrases.py`: кортеж `YOUTUBE_RETRY_PHRASES` дословно по канону T-315-B (5 вариаций, строчными, без эмодзи/маркдауна); пулы 5.1–5.7 НЕ трогать
+- [ ] T-317-B: `tests/test_smartmodule_phrases.py`: тест-канон (ассерты на кортеж/принадлежность пулу, по образцу существующих пулов)
+
+**DoD:** пул байт-в-байт по канону; тест зелёный.
+
+### T-318 (@Builder) — Сервис + хендлер: on_retry-замыкание + video_id-логи (R41-2/R41-5, D153)
+
+**Приоритет:** P0. **Зависимости:** T-316, T-317. **Оценка:** 0.5d.
+
+- [ ] T-318-A: `services/youtube_summarizer_service.py`: `summarize(..., on_retry=None)` — проброс kwarg в `fetch_transcript` (колбэк опциональный, обратная совместимость)
+- [ ] T-318-B: `handlers/youtube.py`: замыкание → `_reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES), target.message_id)`; services НЕ импортируют aiogram (D153)
+- [ ] T-318-C: video_id в handler-логи `[youtube] triggered/summary sent/transcript failed/LLM failed/unexpected error` (R41-5)
+
+**DoD:** хендлер шлёт фразу на каждый ретрай; video_id виден во всех youtube-логах хендлера.
+
+### T-319 (@Builder + @Reviewer) — Тесты + полный прогон + ревью (R41-5)
+
+**Приоритет:** P0. **Зависимости:** T-316…T-318. **Оценка:** 1d.
+
+- [ ] T-319-A (@Builder): починить 2 сломанных ассерта (`test_youtube_handlers.py:142`, `test_youtube_summarizer_service.py:36` — вызовы с новым kwarg)
+- [ ] T-319-B (@Builder): ~15–20 кейсов: ru + 429en → ru (ru-first); retry-2-then-success; exhausted → фолбек; перманент → 0 ретраев; on_retry (1,4)… (порядок аргументов); ignoreerrors в opts; filepath-less skip; info=None; caplog статус/размер тела. В ретрай-тестах monkeypatch asyncio.sleep
+- [ ] T-319-C (@Reviewer): ревью (классификация, каскад, контракты, секретов нет) + личный прогон; вердикт APPROVED; полный pytest — 0 регрессий (baseline 1796)
+
+**DoD:** APPROVED; 1796+ тестов passed; `git diff --check` чист.
+
+### T-320 (@Builder) — Документация
+
+**Приоритет:** P1. **Зависимости:** T-319-C. **Оценка:** 0.25d.
+
+- [ ] T-320-A: README v2.33.1 (ироничный тон, changelog: ретраи + токсичные сообщения, ru-first, логи) + `plans/MEMORY.md` (Epic 41, v2.33.1)
+
+**DoD:** доки синхронизированы.
+
+### T-321 (@DevOps) — Коммит + пуш
+
+**Приоритет:** P0. **Зависимости:** T-319-C. **Оценка:** 0.25d.
+
+- [ ] T-321-A: Коммит на русском (conventional: `fix(youtube): Epic 41 — ru-first, ретраи с backoff и уведомлениями, логи фолбека (v2.33.1)`); пуш в origin/master; `.env` НЕ коммитим
+
+**DoD:** коммит в master, пуш в origin.
+
+### T-322 (@DevOps) — Деплой v2.33.1
+
+**Приоритет:** P0. **Зависимости:** T-321. **Оценка:** 0.25d.
+
+- [ ] T-322-A: ssh nik@198.46.175.136 → cd /var/www/admin_bot → git pull (ff); .env/venv НЕ трогать (прокси уже стоит)
+- [ ] T-322-B: `sudo systemctl restart admin_bot` → active (running), новый PID; `journalctl -u admin_bot -n 50` (0 traceback)
+- [ ] T-322-C: Живой smoke: YouTube-ссылка в чат (прокси уже стоит, гейт Epic 40 пройден — повторный полный гейт НЕ обязателен; верификация одного видео допустима)
+
+**DoD:** прод v2.33.1, 0 traceback, smoke OK.
+
+### Риски (Epic 41)
+
+1. **Спам в чате:** 4–5 токсичных сообщений на ретраях — требование пользователя, выполняем дословно (R41-2, D157).
+2. **Долгие ожидания:** попытка до 20с+ × N ретраев × 2 движка — приемлемо (D157).
+3. **Классификация ошибок критична:** ложный «перманент» = 0 ретраев, ложный «транзиент» = лишние ретраи (D152, тесты T-319).
+4. **ignoreerrors меняет семантику extract_info (None):** без явной обработки — краш; тесты обязательны (R41-1, D151).
+5. **Обратная совместимость:** `on_retry` опциональный — существующие вызовы `fetch_transcript`/`summarize` не ломаются (D153).
+
+### Файлы (планируемые)
+
+`services/youtube_transcript_engine.py`, `services/youtube_summarizer_service.py`, `handlers/youtube.py`, `services/smartmodule_phrases.py`; тесты `tests/test_youtube_transcript_engine.py`, `tests/test_youtube_handlers.py`, `tests/test_youtube_summarizer_service.py`, `tests/test_smartmodule_phrases.py`; `README.md`, `plans/ARCHITECTURE.md` (Section 50), `plans/MEMORY.md`.
+
+**НЕ трогать (R41-4):** BetterStack-алерты/мониторинг; пулы 5.1–5.7 (D155); `filters/`, `bot.py` (wiring не меняется), промпты.
+
+---
+
+**Статус: Epic 41 — Шаг 1 (PM) ✅ (2026-08-19): одобренные правки пользователя зафиксированы — требования R41-1…R41-5 (включая NON-GOAL алерта R41-4), решения D151–D157, задачи T-315…T-322; Epic 40 ЗАКРЫТ (прод v2.33.0, `bb472ba`, гейт пройден — см. plans/MEMORY.md). Передача @Architect (T-315, Section 50 — открытые вопросы 1–4 выше, в т.ч. канон YOUTUBE_RETRY_PHRASES). Без @Orchestrator.**
 **Date: 2026-08-19**
