@@ -34,7 +34,7 @@ class TestSummarize:
         result = await service.summarize(VIDEO_ID)
         assert result == "выжимка"
         engine.fetch_transcript.assert_awaited_once_with(
-            VIDEO_ID, settings.YOUTUBE_MAX_SYMBOLS
+            VIDEO_ID, settings.YOUTUBE_MAX_SYMBOLS, on_retry=None
         )
         messages = llm.generate.await_args.args[0]
         system_content, user = messages[0]["content"], messages[1]["content"]
@@ -50,6 +50,16 @@ class TestSummarize:
         service.llm.generate = AsyncMock(return_value="«ёлочки» — тире")
         result = await service.summarize(VIDEO_ID)
         assert result == '"ёлочки" - тире'
+
+    @pytest.mark.asyncio
+    async def test_on_retry_passed_through_to_engine(self):
+        """#20 (50.8, R41-2): on_retry пробрасывается в fetch_transcript как есть."""
+        service, engine, _ = _service()
+        cb = AsyncMock()
+        await service.summarize(VIDEO_ID, on_retry=cb)
+        engine.fetch_transcript.assert_awaited_once_with(
+            VIDEO_ID, settings.YOUTUBE_MAX_SYMBOLS, on_retry=cb
+        )
 
     @pytest.mark.asyncio
     async def test_xml_escape_applied_to_transcript(self):

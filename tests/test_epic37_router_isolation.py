@@ -118,7 +118,9 @@ class TestRouterIsolation:
         sent = bot.send_message.await_args
         assert sent.args[1] == "выжимка видоса"
         assert sent.kwargs["reply_to_message_id"] == 11
-        youtube_service.summarize.assert_awaited_once_with("dQw4w9WgXcQ")
+        youtube_service.summarize.assert_awaited_once()
+        assert youtube_service.summarize.await_args.args[0] == "dQw4w9WgXcQ"
+        assert "on_retry" in youtube_service.summarize.await_args.kwargs
         web_service.summarize.assert_not_awaited()
         relay.send_common.assert_not_awaited()
 

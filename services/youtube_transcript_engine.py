@@ -1,9 +1,11 @@
-# services/youtube_transcript_engine.py (ПРАВКА, Epic 39, R39-1/R39-2, Section 48.3)
-"""Epic 37/39 — YouTube Transcript Engine (R37-3, Section 46.4; R39-1/2, Section 48).
+# services/youtube_transcript_engine.py (ПРАВКА, Epic 41, R41-1/R41-2/R41-3, Section 50.3)
+"""Epic 37/39/41 — YouTube Transcript Engine (R37-3, 46.4; R39-1/2, 48; R41-1/2/3, 50).
 
-Epic 39: yt-dlp (основной) → youtube-transcript-api (фолбек, D140). Контракт
-fetch_transcript(video_id, max_symbols) -> str и YouTubeTranscriptUnavailableException
-БЕЗ изменений. Прокси/cookies — из settings (R17: значения НЕ логируются, D144).
+Epic 41: каскад с ретраями (4 ретрая = 5 попыток, D151), ru-first через
+ignoreerrors (D154), классификация транзиентных фейлов (D155), on_retry-колбэк
+(D156), статус/размер тела в логах фолбека (D157). Контракт
+fetch_transcript(video_id, max_symbols) -> str расширяется ОПЦИОНАЛЬНЫМ
+kwarg on_retry=None (позиционная совместимость сохранена).
 """
 import asyncio
 import json
@@ -12,6 +14,7 @@ import os
 import re
 import shutil
 import tempfile
+from typing import Awaitable, Callable
 
 from config.settings import settings
 
@@ -27,8 +30,11 @@ except ImportError:  # pragma: no cover — зависимость в requiremen
 
 logger = logging.getLogger(__name__)
 
-_YTDLP_SOCKET_TIMEOUT = 20        # D139: граница КАЖДОГО сетевого вызова yt-dlp
+_YTDLP_SOCKET_TIMEOUT = 20        # D139 (48.3): граница КАЖДОГО сетевого вызова yt-dlp
 _YTDLP_SUBTITLE_LANGS = ("ru", "en")
+_MAX_CASCADE_RETRIES = 4          # D151: 4 ретрая = 5 попыток каскада (1 стартовая + 4)
+_RETRY_BACKOFFS = (1.0, 2.0, 4.0, 8.0)   # D152: экспонента, cap 8с; len == _MAX_CASCADE_RETRIES
+_RETRY_HTTP_STATUSES = frozenset({403, 429, 500, 502, 503, 504})  # D155: транзиентные
 
 
 class YouTubeTranscriptUnavailableException(Exception):
@@ -54,42 +60,99 @@ class YouTubeTranscriptEngine:
                 "will go to transcript-api"
             )
 
-    async def fetch_transcript(self, video_id: str, max_symbols: int) -> str:
-        """yt-dlp (основной) → при неудаче youtube-transcript-api (фолбек) →
-        YouTubeTranscriptUnavailableException. Контракт БЕЗ изменений (46.4);
-        sync-вызовы — в asyncio.to_thread (прецедент DDGS / 46.4)."""
-        try:
-            segments = await asyncio.to_thread(self._fetch_ytdlp, video_id)
-            logger.info(
-                "[youtube engine] transcript ok | source=yt-dlp | "
-                "video_id=%r | segments=%d", video_id, len(segments),
+    async def fetch_transcript(
+        self,
+        video_id: str,
+        max_symbols: int,
+        on_retry: Callable[[int, int], Awaitable[None]] | None = None,
+    ) -> str:
+        """D151/D152/D156: попытка = ВЕСЬ каскад (yt-dlp → transcript-api).
+        Транзиентный фейл попытки (хотя бы один движок транзиентен, D155) →
+        on_retry(attempt, _MAX_CASCADE_RETRIES) → sleep(backoff) → повтор;
+        максимум _MAX_CASCADE_RETRIES ретраев. Перманентный фейл ОБОИХ →
+        немедленный raise (0 ретраев). on_retry=None — ретраи без уведомлений."""
+        ytdlp_exc: BaseException | None = None
+        api_exc: BaseException | None = None
+        for attempt in range(1, _MAX_CASCADE_RETRIES + 2):        # 1..5
+            try:
+                segments = await asyncio.to_thread(self._fetch_ytdlp, video_id)
+                logger.info(
+                    "[youtube engine] transcript ok | source=yt-dlp | "
+                    "video_id=%r | segments=%d | attempt=%d",
+                    video_id, len(segments), attempt,
+                )
+                return self._format(segments, max_symbols)
+            except Exception as exc:
+                ytdlp_exc = exc
+                logger.warning(
+                    "[youtube engine] yt-dlp failed → transcript-api fallback | "
+                    "video_id=%r | error=%s | status=%s | body_bytes=%s",
+                    video_id, exc,
+                    self._exc_status(exc), self._exc_body_bytes(exc),
+                )
+            try:
+                segments = await asyncio.to_thread(self._fetch_segments, video_id)
+                logger.info(
+                    "[youtube engine] transcript ok | source=transcript-api | "
+                    "video_id=%r | segments=%d | attempt=%d",
+                    video_id, len(segments), attempt,
+                )
+                return self._format(segments, max_symbols)
+            except Exception as exc:
+                api_exc = exc
+                logger.warning(
+                    "[youtube engine] transcript-api failed | video_id=%r | "
+                    "error=%s | status=%s | body_bytes=%s",
+                    video_id, exc,
+                    self._exc_status(exc), self._exc_body_bytes(exc),
+                )
+            transient = (
+                self._is_transient(ytdlp_exc) or self._is_transient(api_exc)
             )
-            return self._format(segments, max_symbols)
-        except Exception as exc:
+            if not transient or attempt > _MAX_CASCADE_RETRIES:
+                break
+            await self._notify_retry(on_retry, attempt, video_id)
             logger.warning(
-                "[youtube engine] yt-dlp failed → transcript-api fallback | "
-                "video_id=%r | error=%s", video_id, exc,
+                "[youtube engine] cascade attempt %d failed (transient) → "
+                "retry in %.0fs | video_id=%r",
+                attempt, _RETRY_BACKOFFS[attempt - 1], video_id,
             )
+            await asyncio.sleep(_RETRY_BACKOFFS[attempt - 1])
+        raise YouTubeTranscriptUnavailableException(
+            f"both engines failed after {attempt} attempt(s) | video_id={video_id!r} "
+            f"(yt-dlp: {ytdlp_exc} [status={self._exc_status(ytdlp_exc)}, "
+            f"body_bytes={self._exc_body_bytes(ytdlp_exc)}]; "
+            f"transcript-api: {api_exc} [status={self._exc_status(api_exc)}, "
+            f"body_bytes={self._exc_body_bytes(api_exc)}])"
+        )
+
+    async def _notify_retry(
+        self,
+        on_retry: Callable[[int, int], Awaitable[None]] | None,
+        attempt: int,
+        video_id: str,
+    ) -> None:
+        """D156: вызов (attempt, _MAX_CASCADE_RETRIES) ПЕРЕД sleep — ровно
+        (1,4),(2,4),(3,4),(4,4). Колбэк НЕ должен ронять каскад: любое
+        исключение глушится logger.exception (в т.ч. исчезнувший reply-таргет
+        в хендлере)."""
+        if on_retry is None:
+            return
         try:
-            segments = await asyncio.to_thread(self._fetch_segments, video_id)
-            logger.info(
-                "[youtube engine] transcript ok | source=transcript-api | "
-                "video_id=%r | segments=%d", video_id, len(segments),
+            await on_retry(attempt, _MAX_CASCADE_RETRIES)
+        except Exception:
+            logger.exception(
+                "[youtube engine] on_retry callback failed (ignored) | video_id=%r",
+                video_id,
             )
-            return self._format(segments, max_symbols)
-        except Exception as exc:
-            raise YouTubeTranscriptUnavailableException(
-                f"both engines failed | video_id={video_id!r} ({exc})"
-            ) from exc
 
     # ── Основной движок: yt-dlp (R39-1, D139/D141) ────────────────
 
     def _fetch_ytdlp(self, video_id: str) -> list[dict]:
-        """Sync-блок (executor). extract_info(download=True) + skip_download →
-        yt-dlp сам скачивает файлы субтитров во временную папку (подписанные
-        timedtext-URL + impersonation-хедеры — НЕ self-fetch, 48.1), парсим файл
-        выбранного трека, папку удаляем в finally. Любая ошибка (DownloadError
-        на 429 субтитров, VideoUnavailable, сеть) — наверх → фолбек."""
+        """Sync-блок (executor). D154: ignoreerrors=True — фейл языка НЕ роняет
+        extract_info (warning + переход к следующему языку); упавший язык
+        остаётся в requested_subtitles БЕЗ filepath; extract_info может вернуть
+        None вместо raise → info None = транзиентный фейл yt-dlp-уровня."""
         if yt_dlp is None:  # pragma: no cover
             raise RuntimeError("yt-dlp is not installed")
         tmpdir = tempfile.mkdtemp(prefix="ytdlp_subs_")
@@ -100,6 +163,10 @@ class YouTubeTranscriptEngine:
             url = f"https://www.youtube.com/watch?v={video_id}"
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+            if info is None:                     # D154: ignoreerrors-семантика
+                raise YouTubeTranscriptUnavailableException(
+                    f"yt-dlp: extract_info returned None | video_id={video_id!r}"
+                )
             return self._extract_ytdlp_segments(info, video_id)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
@@ -117,6 +184,7 @@ class YouTubeTranscriptEngine:
             "noplaylist": True,          # не глушит [download]-строки (48.1)
             "socket_timeout": _YTDLP_SOCKET_TIMEOUT,
             "overwrites": True,
+            "ignoreerrors": True,      # R41-1/D154: 429 на 'en' не валит ru
         }
         proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
         if proxy:
@@ -127,21 +195,34 @@ class YouTubeTranscriptEngine:
         return opts
 
     def _extract_ytdlp_segments(self, info: dict, video_id: str) -> list[dict]:
-        """Выбор трека — зеркало _pick_transcript (D141): manual ru → manual en →
-        generated ru → generated en. requested_subtitles[lang] уже manual-preferred
-        внутри языка (process_subtitles, 48.1), поэтому итерация по ("ru","en")
-        даёт ровно 4 первые приоритета. Приоритет 5 (прочий generated) НЕ качаем
-        (subtitleslangs ограничен ru/en) — кейс делегируется фолбеку
-        transcript-api, где _pick_transcript умеет его с Epic 37."""
-        manual = info.get("subtitles") or {}
-        auto = info.get("automatic_captions") or {}
+        """R41-1/D154 (ru-first): итерация ("ru","en") ПО requested_subtitles
+        (порядок subtitleslangs сохраняется, ru первым; manual-preferred внутри
+        языка — process_subtitles, 48.1). Язык БЕЗ filepath пропускается
+        (артефакт ignoreerrors — 429 на 'en' при скачанном ru больше не валит
+        запрос); исключение чтения файла языка → continue на следующий язык.
+        Raise: «no readable subtitle files» — если filepath НЕТ ни у одного
+        языка (ПЕРМАНЕНТ, D155 — идём в фолбек без ретраев); иначе — последнее
+        исключение чтения (напр. «empty transcript» → транзиент)."""
         requested = info.get("requested_subtitles") or {}
+        last_exc: BaseException | None = None
+        any_filepath = False
         for lang in _YTDLP_SUBTITLE_LANGS:
-            if lang in requested and (lang in manual or lang in auto):
-                return self._read_ytdlp_subtitle(requested[lang], video_id)
-        raise YouTubeTranscriptUnavailableException(
-            f"yt-dlp: no ru/en subtitles | video_id={video_id!r}"
-        )
+            sub = requested.get(lang)
+            if not sub:
+                continue
+            if not (sub.get("filepath") and os.path.exists(sub["filepath"])):
+                continue                    # ignoreerrors-артефакт: язык упал
+            any_filepath = True
+            try:
+                return self._read_ytdlp_subtitle(sub, video_id)
+            except Exception as exc:
+                last_exc = exc
+                continue                    # следующий язык (en) может быть читаем
+        if not any_filepath:
+            raise YouTubeTranscriptUnavailableException(
+                f"yt-dlp: no readable subtitle files | video_id={video_id!r}"
+            )
+        raise last_exc
 
     def _read_ytdlp_subtitle(self, sub_info: dict, video_id: str) -> list[dict]:
         filepath = sub_info.get("filepath")
@@ -321,3 +402,88 @@ class YouTubeTranscriptEngine:
             lines.append(line)
             total += len(line) + 1
         return "\n".join(lines)[:max_symbols]   # финальный жёсткий срез
+
+    # ── Классификация и диагностика (R41-2/R41-3, D155/D157) ──
+
+    @staticmethod
+    def _root_cause(exc: BaseException) -> BaseException:
+        while exc.__cause__ is not None:
+            exc = exc.__cause__
+        return exc
+
+    @staticmethod
+    def _is_transient(exc: BaseException | None) -> bool:
+        """D155: таблица 50.2, по корневой причине (unwrap __cause__ — обёртки
+        YouTubeTranscriptUnavailableException из _fetch_segments сохраняют
+        исходник в __cause__). Дефолт — PERMANENT (строго)."""
+        if exc is None:
+            return False
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        text = str(root)
+        text_l = text.lower()
+        name = type(root).__name__
+        if "is not installed" in text:                       # ImportError-гарды
+            return False
+        if "extract_info returned none" in text_l:           # D154
+            return True
+        if ("no readable subtitle files" in text
+                or "no ru/en subtitles" in text):            # ignoreerrors-артефакт
+            return False
+        if ("video unavailable" in text_l
+                or "video is not available" in text_l
+                or name == "VideoUnavailable"):
+            return False
+        if "sign in to confirm you're not a bot" in text_l:
+            return True
+        if name in ("TooManyRequests", "FailedToCreateConsentCookie",
+                    "JSONDecodeError"):
+            return True
+        if name == "ParseError":
+            return "no element found" in text_l
+        if name == "YouTubeRequestFailed":
+            return ("http error" in text_l) or ("timed out" in text_l)
+        if "empty transcript" in text_l:
+            return True
+        if name == "HTTPError":                              # ДО TransportError!
+            status = getattr(root, "status", None)
+            if status is None:
+                m = re.search(r"HTTP Error (\d{3})", text)
+                status = int(m.group(1)) if m else None
+            return status in _RETRY_HTTP_STATUSES if status is not None else False
+        if name in ("TransportError", "ProxyError"):
+            return True
+        if name == "DownloadError":
+            return "http error" in text_l
+        if name in ("TranscriptsDisabled", "NoTranscriptAvailable",
+                    "NoTranscriptFound", "InvalidVideoId"):
+            return False
+        if "timed out" in text_l or isinstance(root, TimeoutError):
+            return True
+        return False                                         # дефолт: PERMANENT
+
+    @staticmethod
+    def _exc_status(exc: BaseException | None) -> str:
+        r"""D157: HTTP-статус из корневой причины: HTTPError.status → регэксп
+        «HTTP Error (\d{3})» (DownloadError/YouTubeRequestFailed-тексты) → «-»."""
+        if exc is None:
+            return "-"
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        status = getattr(root, "status", None)
+        if status is not None:
+            return str(status)
+        m = re.search(r"HTTP Error (\d{3})", str(root))
+        return m.group(1) if m else "-"
+
+    @staticmethod
+    def _exc_body_bytes(exc: BaseException | None) -> str:
+        """D157: размер тела из корневой причины: exc.response — bytes/bytearray
+        → len; http.client.HTTPResponse — атрибут length; иначе «-»."""
+        if exc is None:
+            return "-"
+        root = YouTubeTranscriptEngine._root_cause(exc)
+        resp = getattr(root, "response", None)
+        if isinstance(resp, (bytes, bytearray)):
+            return str(len(resp))
+        if hasattr(resp, "length") and resp.length is not None:
+            return str(resp.length)
+        return "-"
