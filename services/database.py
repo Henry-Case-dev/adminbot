@@ -7,6 +7,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+_BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
+_SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
+
 
 def row_get(row, key, default=None):
     """Field accessor: if row has .get (dict) — row.get(key, default);
@@ -93,12 +96,14 @@ class DatabaseService:
         -- L3: векторы создаются ЛЕНИВО из MemoryManager.initialize()
         -- (только если sqlite-vec загрузился; dim из конфига EMBEDDING_DIM)
 
-        -- ── GraphRAG: граф знаний (Epic 26) ──────────────────
+        -- ── GraphRAG: граф знаний (Epic 26/46) ──────────────────
         CREATE TABLE IF NOT EXISTS nodes (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id     INTEGER NOT NULL,
             entity_name TEXT NOT NULL,
-            entity_type TEXT NOT NULL CHECK (entity_type IN ('user', 'topic', 'event')),
+            entity_type TEXT NOT NULL CHECK (entity_type IN ('user', 'topic', 'event', 'fact')),
+            origin      TEXT NOT NULL DEFAULT 'chat_history',
+            expires_at  INTEGER,
             UNIQUE (chat_id, entity_name)
         );
         CREATE INDEX IF NOT EXISTS idx_nodes_chat_type ON nodes(chat_id, entity_type);
@@ -111,11 +116,29 @@ class DatabaseService:
             relation_type TEXT NOT NULL,
             weight        INTEGER NOT NULL DEFAULT 1,
             last_updated  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            origin        TEXT NOT NULL DEFAULT 'chat_history',
+            expires_at    INTEGER,
             UNIQUE (source_id, target_id, relation_type)
         );
         CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
         CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
         CREATE INDEX IF NOT EXISTS idx_edges_chat_weight ON edges(chat_id, weight);
+
+        -- GraphRAG v2 (Epic 46, Section 55.3): факты гибридного RAG
+        -- (origin/expires_at — ТЗ R46-1; TTL-исключение — ленивое WHERE, D175)
+        CREATE TABLE IF NOT EXISTS graph_facts (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id    INTEGER NOT NULL,
+            fact       TEXT NOT NULL,
+            origin     TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
+                       ('chat_history', 'search_fact', 'youtube_content', 'web_content')),
+            expires_at INTEGER,
+            created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin ON graph_facts(chat_id, origin);
+        CREATE VIRTUAL TABLE IF NOT EXISTS graph_facts_fts USING fts5(
+            fact, content='graph_facts', content_rowid='id', tokenize='unicode61'
+        );
     """
     
     def __init__(self, db_path: str):
@@ -128,8 +151,10 @@ class DatabaseService:
         self.db = await aiosqlite.connect(str(self.db_path))
         self.db.row_factory = aiosqlite.Row
         await self.db.execute("PRAGMA journal_mode=WAL")
+        await self.db.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
         await self.db.executescript(self._SCHEMA_SQL)
         await self.db.commit()
+        await self._migrate_graphrag_v2()
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -165,6 +190,44 @@ class DatabaseService:
         except Exception:
             logger.debug("PRAGMA foreign_keys check failed", exc_info=True)
     
+    async def _migrate_graphrag_v2(self) -> None:
+        """Идемпотентная миграция Epic 46 (55.3): origin/expires_at в nodes/edges,
+        CHECK entity_type + 'fact' (пересоздание nodes с сохранением id),
+        PRAGMA user_version = 1. Повторный запуск — no-op."""
+        for table in ("nodes", "edges"):
+            for sql in (
+                f"ALTER TABLE {table} ADD COLUMN origin TEXT NOT NULL DEFAULT 'chat_history'",
+                f"ALTER TABLE {table} ADD COLUMN expires_at INTEGER",
+            ):
+                try:
+                    await self.db.execute(sql)
+                    await self.db.commit()
+                except aiosqlite.OperationalError:
+                    pass                        # колонка уже есть
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='nodes'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "'fact'" not in row["sql"]:
+            # SQLite не умеет ALTER CHECK — пересоздание с сохранением id (55.1 #4)
+            await self.db.executescript(
+                "ALTER TABLE nodes RENAME TO nodes_old; "
+                "CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "chat_id INTEGER NOT NULL, entity_name TEXT NOT NULL, "
+                "entity_type TEXT NOT NULL CHECK (entity_type IN "
+                "('user','topic','event','fact')), "
+                "origin TEXT NOT NULL DEFAULT 'chat_history', expires_at INTEGER, "
+                "UNIQUE (chat_id, entity_name)); "
+                "INSERT INTO nodes (id, chat_id, entity_name, entity_type, origin, expires_at) "
+                "SELECT id, chat_id, entity_name, entity_type, 'chat_history', NULL "
+                "FROM nodes_old; "
+                "DROP TABLE nodes_old; "
+                "CREATE INDEX IF NOT EXISTS idx_nodes_chat_type ON nodes(chat_id, entity_type);"
+            )
+            await self.db.commit()
+        await self.db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+        await self.db.commit()
+
     async def close(self) -> None:
         if self.db:
             await self.db.close()
@@ -531,11 +594,14 @@ class DatabaseService:
 
     # ── GraphRAG: nodes/edges (Epic 26, Section 35.2) ───────
 
-    async def upsert_node(self, chat_id: int, entity_name: str, entity_type: str) -> int:
-        """Insert-or-ignore a graph node keyed by (chat_id, entity_name). Returns its id."""
+    async def upsert_node(self, chat_id: int, entity_name: str, entity_type: str,
+                          origin: str = "chat_history", expires_at=None) -> int:
+        """INSERT OR IGNORE (ключ chat_id+entity_name): существующий узел сохраняет
+        СВОЙ тип/origin (не перезаписывается); новые получают origin/expires_at."""
         await self.db.execute(
-            "INSERT OR IGNORE INTO nodes (chat_id, entity_name, entity_type) VALUES (?, ?, ?)",
-            (chat_id, entity_name, entity_type),
+            "INSERT OR IGNORE INTO nodes (chat_id, entity_name, entity_type, origin, expires_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (chat_id, entity_name, entity_type, origin, expires_at),
         )
         cursor = await self.db.execute(
             "SELECT id FROM nodes WHERE chat_id = ? AND entity_name = ?",
@@ -551,18 +617,22 @@ class DatabaseService:
         target_id: int,
         relation_type: str,
         weight_increment: int = 1,
+        origin: str = "chat_history",
+        expires_at=None,
     ) -> None:
         """Merge a graph edge; duplicate (source,target,relation) bumps weight (D70).
 
         chat_id is taken from the source node (both nodes always belong to the
-        same chat by construction). One statement → atomic.
+        same chat by construction). One statement → atomic. Epic 46 (55.3):
+        origin/expires_at записываются.
         """
         await self.db.execute(
-            "INSERT INTO edges (chat_id, source_id, target_id, relation_type, weight) "
-            "SELECT chat_id, ?, ?, ?, ? FROM nodes WHERE id = ? "
+            "INSERT INTO edges (chat_id, source_id, target_id, relation_type, weight, "
+            "origin, expires_at) "
+            "SELECT chat_id, ?, ?, ?, ?, ?, ? FROM nodes WHERE id = ? "
             "ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET "
             "weight = weight + excluded.weight, last_updated = CURRENT_TIMESTAMP",
-            (source_id, target_id, relation_type, weight_increment, source_id),
+            (source_id, target_id, relation_type, weight_increment, origin, expires_at, source_id),
         )
         await self.db.commit()
 
@@ -624,3 +694,61 @@ class DatabaseService:
             (chat_id, limit),
         )
         return await cursor.fetchall()
+
+    # ── GraphRAG v2 (Epic 46, Section 55.3): graph_facts ─────────
+
+    async def insert_graph_fact(self, chat_id, fact, origin, expires_at) -> int:
+        """Факт-строка (+FTS-индекс). Возвращает id."""
+        cursor = await self.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (chat_id, fact, origin, expires_at, int(time.time())))
+        fact_id = cursor.lastrowid
+        await self.db.execute(
+            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))
+        await self.db.commit()
+        return fact_id
+
+    async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts) -> list:
+        """FTS-фолбек RAG с ленивым TTL-фильтром (D175)."""
+        cursor = await self.db.execute(
+            "SELECT f.id, f.fact, f.origin FROM graph_facts_fts "
+            "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
+            "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
+            "AND (f.expires_at IS NULL OR f.expires_at > ?) "
+            "ORDER BY graph_facts_fts.rank LIMIT ?",
+            (match_query, chat_id, now_ts, limit))
+        return await cursor.fetchall()
+
+    async def get_graph_fact_texts(self, fact_ids) -> list:
+        """[(origin, fact), ...] в порядке fact_ids (порядок KNN сохраняется)."""
+        if not fact_ids:
+            return []
+        placeholders = ",".join("?" for _ in fact_ids)
+        cursor = await self.db.execute(
+            f"SELECT id, fact, origin FROM graph_facts WHERE id IN ({placeholders})",
+            fact_ids)
+        by_id = {row["id"]: (row["origin"], row["fact"]) for row in await cursor.fetchall()}
+        return [by_id[fid] for fid in fact_ids if fid in by_id]
+
+    async def purge_expired_graph_facts(self, chat_id) -> int:
+        """Опциональный purge (D175, 55.1 #5): edges истёкших узлов → edges с
+        истёкшим expires_at → истёкшие nodes → истёкшие graph_facts (+FTS)."""
+        now = int(time.time())
+        for side in ("source_id", "target_id"):
+            await self.db.execute(
+                f"DELETE FROM edges WHERE id IN ("
+                f"SELECT e.id FROM edges e JOIN nodes n ON n.id = e.{side} "
+                "WHERE n.expires_at IS NOT NULL AND n.expires_at <= ?)", (now,))
+        await self.db.execute(
+            "DELETE FROM edges WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+        await self.db.execute(
+            "DELETE FROM nodes WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+        await self.db.execute(
+            "DELETE FROM graph_facts_fts WHERE rowid IN "
+            "(SELECT id FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?)",
+            (now,))
+        cursor = await self.db.execute(
+            "DELETE FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+        await self.db.commit()
+        return cursor.rowcount

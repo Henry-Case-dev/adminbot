@@ -1,4 +1,5 @@
-"""T-182-A / T-217-B / T-223-D / T-230: SYSTEM_PROMPT byte-for-byte against the backlog requirement (R11 v4)."""
+"""T-182-A / T-217-B / T-223-D / T-230 / T-365-B: SYSTEM_PROMPT byte-for-byte
+against the backlog requirement (R11 v4 + канон-инструкция R46-4, 55.7.1)."""
 import re
 from pathlib import Path
 
@@ -15,6 +16,16 @@ def _backlog_system_prompt() -> str:
     return "\n".join(lines[1517:1539])
 
 
+def _rag_instruction() -> str:
+    """Канон R46-4 — инструкция (VERBATIM из backlog, якорь «> «Если в блоке
+    <bot_knowledge>», strip «> « и «»»)."""
+    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        if line.startswith("> «Если в блоке <bot_knowledge>"):
+            return line[len("> «"):][:-1]
+    raise AssertionError("канон R46-4 не найден в backlog")
+
+
 def _arch_extract_prompt() -> str:
     """Extract the verbatim EXTRACT_PROMPT from plans/ARCHITECTURE.md Section 35.3."""
     lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
@@ -28,7 +39,8 @@ def _arch_extract_prompt() -> str:
     return "\n".join(block)
 
 
-EXPECTED_SYSTEM_PROMPT = _backlog_system_prompt()
+RAG_INSTRUCTION = _rag_instruction()
+EXPECTED_SYSTEM_PROMPT = _backlog_system_prompt() + "\n\n" + RAG_INSTRUCTION
 EXPECTED_EXTRACT_PROMPT = _arch_extract_prompt()
 
 
@@ -36,6 +48,23 @@ class TestSystemPrompt:
     def test_system_prompt_byte_for_byte(self):
         """R11: the constant must match the backlog text EXACTLY."""
         assert SYSTEM_PROMPT == EXPECTED_SYSTEM_PROMPT
+
+    def test_system_prompt_ends_with_rag_instruction(self):
+        """55.7.1: канон-инструкция R46-4 — последний абзац промпта (через \n\n)."""
+        assert SYSTEM_PROMPT.endswith(RAG_INSTRUCTION)
+        assert SYSTEM_PROMPT.endswith(
+            "\n\n" + RAG_INSTRUCTION
+        )
+
+    def test_rag_instruction_canon_verbatim(self):
+        """Канон R46-4 — инструкция ДОСЛОВНО из backlog (якорь «> «Если в блоке»)."""
+        assert RAG_INSTRUCTION == (
+            "Если в блоке <bot_knowledge> есть информация по текущей теме, "
+            "используй её, чтобы унизить оппонента своими знаниями. Дай понять, "
+            "что ты уже проверял эту инфу ранее или смотрел ролик на эту тему, "
+            "и тебе не нужно повторять дважды."
+        )
+        assert "<bot_knowledge>" in SYSTEM_PROMPT
 
     def test_max_symbols_is_the_only_placeholder(self):
         """D72: unique placeholders are exactly {max_symbols, username} (3 brace pairs)."""

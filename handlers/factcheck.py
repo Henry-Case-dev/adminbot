@@ -105,7 +105,9 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if getattr(target, "forward_origin", None) is not None:
         forward_source = _extract_forward_source(target.forward_origin)  # reuse handlers/summary.py
     try:
-        verdict = await _service.check_claim(target_text, user_hint, forward_source)
+        verdict = await _service.check_claim(
+            target_text, user_hint, forward_source, chat_id=message.chat.id
+        )
         await send_chunked_reply(bot, message.chat.id, verdict, target.message_id)
         logger.info("[factcheck] verdict sent | chat=%s", message.chat.id)
     except AllSearchEnginesFailedException:

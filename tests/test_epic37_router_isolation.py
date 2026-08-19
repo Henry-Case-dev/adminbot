@@ -121,6 +121,8 @@ class TestRouterIsolation:
         youtube_service.summarize.assert_awaited_once()
         assert youtube_service.summarize.await_args.args[0] == "dQw4w9WgXcQ"
         assert "on_retry" in youtube_service.summarize.await_args.kwargs
+        assert youtube_service.summarize.await_args.kwargs["chat_id"] == CHAT_ID
+        assert youtube_service.summarize.await_args.kwargs["rag_query"] == f"{YT_URL} че за видос"
         web_service.summarize.assert_not_awaited()
         relay.send_common.assert_not_awaited()
 
@@ -135,7 +137,9 @@ class TestRouterIsolation:
         sent = bot.send_message.await_args
         assert sent.args[1] == "выжимка статьи"
         assert sent.kwargs["reply_to_message_id"] == 11
-        web_service.summarize.assert_awaited_once_with(WEB_URL)
+        web_service.summarize.assert_awaited_once_with(
+            WEB_URL, chat_id=CHAT_ID, rag_query=f"{WEB_URL} выжимка"
+        )
         youtube_service.summarize.assert_not_awaited()
         relay.send_common.assert_not_awaited()
 

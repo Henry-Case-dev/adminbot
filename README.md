@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.34.1 | **Тестов:** 1981 | **Эпиков:** 44 (T-001…T-348)
+**Версия:** v2.35.0 | **Тестов:** 2069 | **Эпиков:** 46 (T-001…T-368)
 
 ---
 
@@ -1029,6 +1029,19 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 **Тесты: 1976 → 1981 (+5)**: новый канон байт-в-байт (python + html блоки Section 53.3 + суть verbatim R44-1), фикс /info (пул + ПРОДОЛЖЕНИЕ, reply-таргеты, кулдаун), Betterstack live-tail (params страницы 1, плоская схема `data[]`, `pagination.next`, skip при пустых `source_ids`, 401/500/таймаут/битый JSON → фолбек).
 
 **Файлы:** `services/info_service.py`, `handlers/info.py`, `info_text.md`, `services/system_logs_fetcher.py`, `config/settings.py`, `.env.example`, `tests/test_info_service.py`, `tests/test_info_handlers.py`, `tests/test_checkup_logs_fetcher.py`
+
+---
+
+## ✨ Новое в v2.35.0 (Epic 45 + Epic 46)
+
+### Checkup: Betterstack SQL API вместо live-tail + GraphRAG v2
+
+- **Checkup SQL API (Epic 45):** облачная ступень чекапа переведена на SQL/ClickHouse-коннекшн — POST SQL-тела на `https://eu-fsn-3-connect.betterstackdata.com` (Basic auth, `Content-type: plain/text`, формат `JSONEachRow`). Шаблон-канон запроса (`remote(..._logs) UNION ALL s3Cluster(..._s3)` + `ORDER BY dt DESC LIMIT 200`) или полный оверрайд через `CHECKUP_BETTERSTACK_SQL_QUERY`. Настройка: `CHECKUP_BETTERSTACK_SQL_HOST/USER/PASSWORD/TABLE` (креды — только в прод `.env`). Каскад SQL API → `journalctl` остаётся неприкосновенным; обе ступени мертвы — пул полного отказа. Легаси live-tail Epic 44 удалён полностью.
+- **GraphRAG v2 (Epic 46):** (1) Fact Extractor — сырая фактура источников (поиск/фактчек/ютуб/веб/саммари) фоново извлекается в граф фактов (`origin`/`expires_at`, TTL 14 дней, chat_history — вечно); токсичные ответы бота в память НЕ сохраняются. (2) Гибридный RAG — перед генерацией бот подмешивает в контекст собственные прошлые знания (векторный KNN по `graph_facts_vec` → FTS5-фолбек) в канон-XML `<context>/<user_gossip>/<bot_knowledge>`; все 5 системных промптов получили RAG-инструкцию. (3) Фиксы: `EMBEDDING_DIM=3072`, ретраи эмбеддингов (403-устойчивость), автопереактивация vec0 (re-probe раз в 10 мин) и ленивый backfill векторов архива; миграция БД (`origin`/`expires_at`, CHECK `entity_type` +`fact`, `PRAGMA user_version=1`, `busy_timeout=5000`) + скрипт `scripts/migrate_graphrag_v2.py` (идемпотентный). Аудит фактчека — `plans/FACTCHECK_AUDIT.md`: выход в сеть гарантирован структурно.
+
+**Тесты: 1981 → 2069 (+88, −0)**: SQL-fetcher (Basic/POST/JSONEachRow/потолки/фолбеки), миграции (origin/expires_at/CHECK/user_version/busy_timeout), Fact Extractor (канон R46-2 байт-в-байт, кривой JSON, embed-фейл → текст), хуки fire-and-forget, RAG-сборка (канон R46-4, префиксы, escape, TTL), промпт-эталоны 55.7.1–55.7.5, фиксы диагностики (ретраи/реактивация/backfill).
+
+**Файлы:** `services/system_logs_fetcher.py`, `services/summary_memory.py`, `services/database.py`, `scripts/migrate_graphrag_v2.py` (новый), 4 сервиса-хуков, `services/summary_generator.py`, 5 промпт-файлов, `config/settings.py`, `.env.example`, `plans/FACTCHECK_AUDIT.md` (новый), хендлеры search/factcheck/youtube/web, `bot.py`.
 
 ---
 

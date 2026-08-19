@@ -140,7 +140,9 @@ class TestHandler:
         assert bot.send_message.await_args.args[0] == CHAT_ID
         assert bot.send_message.await_args.args[1] == "выжимка статьи"
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
-        service.summarize.assert_awaited_once_with(WEB_URL)
+        service.summarize.assert_awaited_once_with(
+            WEB_URL, chat_id=CHAT_ID, rag_query="поясни за статью"
+        )
 
     @pytest.mark.asyncio
     async def test_success_replies_to_message_scenario_b(self, web_cleanup):

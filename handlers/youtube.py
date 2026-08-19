@@ -99,13 +99,16 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм
     _cooldown.touch(message.chat.id, user_id)
+    text = (message.text or message.caption or "")   # Epic 46 (55.5): rag_query
     try:
-        text = await _service.summarize(
+        text_out = await _service.summarize(
             video_id,
             on_retry=_make_retry_notifier(bot, message.chat.id,
                                           target.message_id),
+            chat_id=message.chat.id,
+            rag_query=text,
         )
-        await send_chunked_reply(bot, message.chat.id, text, target.message_id)
+        await send_chunked_reply(bot, message.chat.id, text_out, target.message_id)
         logger.info("[youtube] summary sent | chat=%s video_id=%r",      # R41-5
                     message.chat.id, video_id)
     except YouTubeTranscriptUnavailableException:

@@ -10,10 +10,13 @@ from services.youtube_prompts import YOUTUBE_SYSTEM_PROMPT
 
 
 def _arch_youtube_prompt() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 46.7.1 (эталон-блок)."""
+    """Эталон из plans/ARCHITECTURE.md Section 55.7.4 (эталон-блок; якорь
+    «## Section 55:» — ловушка «первого вхождения» D167)."""
     lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    anchor = next(i for i, line in enumerate(lines) if line.startswith("## Section 55:"))
     start = next(
-        i for i, line in enumerate(lines) if line.startswith("YOUTUBE_SYSTEM_PROMPT = ")
+        i for i, line in enumerate(lines[anchor:], anchor)
+        if line.startswith("YOUTUBE_SYSTEM_PROMPT = ")
     )
     end = next(
         i for i, line in enumerate(lines[start:], start) if line.endswith('"""')
@@ -24,7 +27,18 @@ def _arch_youtube_prompt() -> str:
     return "\n".join(block)
 
 
+def _rag_instruction() -> str:
+    """Канон R46-4 — инструкция (VERBATIM из backlog, якорь «> «Если в блоке
+    <bot_knowledge>», strip «> « и «»»)."""
+    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        if line.startswith("> «Если в блоке <bot_knowledge>"):
+            return line[len("> «"):][:-1]
+    raise AssertionError("канон R46-4 не найден в backlog")
+
+
 EXPECTED_PROMPT = _arch_youtube_prompt()
+RAG_INSTRUCTION = _rag_instruction()
 
 
 class TestYoutubePrompt:
@@ -51,3 +65,17 @@ class TestYoutubePrompt:
         assert "сплошной текст с разделением на абзацы" in YOUTUBE_SYSTEM_PROMPT
         assert "едкую, плотную выжимку видео" in YOUTUBE_SYSTEM_PROMPT
         assert "о чем реально пиздит автор" in YOUTUBE_SYSTEM_PROMPT
+
+    def test_ends_with_rag_instruction(self):
+        """55.7.4: канон-инструкция R46-4 — последний абзац промпта."""
+        assert YOUTUBE_SYSTEM_PROMPT.endswith(RAG_INSTRUCTION)
+
+    def test_rag_instruction_canon_verbatim(self):
+        """Канон R46-4 — инструкция ДОСЛОВНО из backlog."""
+        assert RAG_INSTRUCTION == (
+            "Если в блоке <bot_knowledge> есть информация по текущей теме, "
+            "используй её, чтобы унизить оппонента своими знаниями. Дай понять, "
+            "что ты уже проверял эту инфу ранее или смотрел ролик на эту тему, "
+            "и тебе не нужно повторять дважды."
+        )
+        assert "<bot_knowledge>" in YOUTUBE_SYSTEM_PROMPT

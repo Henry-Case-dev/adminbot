@@ -306,3 +306,263 @@ class TestTopEdges:
     @pytest.mark.asyncio
     async def test_empty_graph(self, db):
         assert await db.get_top_edges_all(-100, 10) == []
+
+
+# ── Epic 46 (Section 55.3, T-366-A #1-7) ─────────────────────────
+
+_OLD_NODES_DDL = """
+CREATE TABLE nodes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id     INTEGER NOT NULL,
+    entity_name TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('user', 'topic', 'event')),
+    UNIQUE (chat_id, entity_name)
+);
+"""
+
+_OLD_EDGES_DDL = """
+CREATE TABLE edges (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id       INTEGER NOT NULL,
+    source_id     INTEGER NOT NULL REFERENCES nodes(id),
+    target_id     INTEGER NOT NULL REFERENCES nodes(id),
+    relation_type TEXT NOT NULL,
+    weight        INTEGER NOT NULL DEFAULT 1,
+    last_updated  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (source_id, target_id, relation_type)
+);
+"""
+
+
+def _create_old_db(path):
+    """Пре-Epic-46 схема (без origin/expires_at, CHECK без 'fact', user_version 0)."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(path))
+    conn.executescript(_OLD_NODES_DDL + _OLD_EDGES_DDL)
+    conn.execute(
+        "INSERT INTO nodes (id, chat_id, entity_name, entity_type) "
+        "VALUES (7, -100, 'вася', 'user'), (9, -100, 'ракеты', 'topic')"
+    )
+    conn.execute(
+        "INSERT INTO edges (chat_id, source_id, target_id, relation_type) "
+        "VALUES (-100, 7, 9, 'фанатеет от')"
+    )
+    conn.commit()
+    conn.close()
+
+
+class TestGraphRagV2Migration:
+    @pytest.mark.asyncio
+    async def test_origin_expires_at_columns_present(self, db):
+        """#1: nodes/edges имеют origin/expires_at (PRAGMA table_info)."""
+        for table in ("nodes", "edges"):
+            cursor = await db.db.execute(f"PRAGMA table_info({table})")
+            columns = {row["name"] for row in await cursor.fetchall()}
+            assert {"origin", "expires_at"} <= columns
+
+    @pytest.mark.asyncio
+    async def test_entity_type_check_fact_allowed_banana_rejected(self, db):
+        """#1: CHECK расширен до 'fact'; 'banana' — IntegrityError."""
+        import aiosqlite
+
+        await db.db.execute(
+            "INSERT INTO nodes (chat_id, entity_name, entity_type) "
+            "VALUES (-100, 'факт-узел', 'fact')"
+        )
+        await db.db.commit()
+        with pytest.raises(aiosqlite.IntegrityError):
+            await db.db.execute(
+                "INSERT INTO nodes (chat_id, entity_name, entity_type) "
+                "VALUES (-100, 'х', 'banana')"
+            )
+
+    @pytest.mark.asyncio
+    async def test_user_version_is_1_after_initialize(self, db):
+        """#2: PRAGMA user_version == 1."""
+        cursor = await db.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        assert row[0] == 1
+
+    @pytest.mark.asyncio
+    async def test_reinitialize_is_idempotent_user_version_stays_1(self, tmp_path):
+        """#2: повторный initialize идемпотентен (user_version остаётся 1)."""
+        d = DatabaseService(str(tmp_path / "mig2.db"))
+        await d.initialize()
+        await d.close()
+        await d.initialize()
+        cursor = await d.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        assert row[0] == 1
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_old_db_migrated_data_kept_ids_preserved(self, tmp_path):
+        """#3: старая БД (DDL до Epic 46) → initialize: колонки добавлены,
+        данные сохранены (id узлов те же), user_version 1."""
+        path = tmp_path / "old.db"
+        _create_old_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+
+        for table in ("nodes", "edges"):
+            cursor = await d.db.execute(f"PRAGMA table_info({table})")
+            columns = {row["name"] for row in await cursor.fetchall()}
+            assert {"origin", "expires_at"} <= columns
+
+        cursor = await d.db.execute(
+            "SELECT id, chat_id, entity_name, entity_type, origin, expires_at "
+            "FROM nodes ORDER BY id"
+        )
+        rows = await cursor.fetchall()
+        assert [(r["id"], r["entity_name"], r["entity_type"]) for r in rows] == [
+            (7, "вася", "user"), (9, "ракеты", "topic"),
+        ]
+        assert all(r["origin"] == "chat_history" for r in rows)
+        assert all(r["expires_at"] is None for r in rows)
+
+        cursor = await d.db.execute("SELECT COUNT(*) AS c FROM edges")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+
+        cursor = await d.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        assert row[0] == 1
+
+        # расширенный CHECK активен: 'fact' проходит, 'banana' — нет
+        import aiosqlite
+
+        await d.db.execute(
+            "INSERT INTO nodes (chat_id, entity_name, entity_type) "
+            "VALUES (-100, 'ф', 'fact')"
+        )
+        await d.db.commit()
+        with pytest.raises(aiosqlite.IntegrityError):
+            await d.db.execute(
+                "INSERT INTO nodes (chat_id, entity_name, entity_type) "
+                "VALUES (-100, 'б', 'banana')"
+            )
+        await d.close()
+
+
+class TestGraphRagV2Upserts:
+    @pytest.mark.asyncio
+    async def test_upsert_node_writes_origin_and_expires_at(self, db):
+        """#4: upsert_node с origin/expires_at — колонки записаны."""
+        exp = 1_800_000_000
+        nid = await db.upsert_node(-100, "озон", "fact", origin="search_fact",
+                                   expires_at=exp)
+        cursor = await db.db.execute(
+            "SELECT origin, expires_at FROM nodes WHERE id = ?", (nid,)
+        )
+        row = await cursor.fetchone()
+        assert row["origin"] == "search_fact"
+        assert row["expires_at"] == exp
+
+    @pytest.mark.asyncio
+    async def test_upsert_node_existing_keeps_its_own_values(self, db):
+        """#4: INSERT OR IGNORE — существующий узел НЕ перезаписан."""
+        first = await db.upsert_node(-100, "озон", "fact", origin="web_content",
+                                     expires_at=1_800_000_000)
+        again = await db.upsert_node(-100, "озон", "fact", origin="chat_history",
+                                     expires_at=None)
+        assert again == first
+        cursor = await db.db.execute(
+            "SELECT origin, expires_at FROM nodes WHERE id = ?", (first,)
+        )
+        row = await cursor.fetchone()
+        assert row["origin"] == "web_content"
+        assert row["expires_at"] == 1_800_000_000
+
+    @pytest.mark.asyncio
+    async def test_upsert_edge_writes_origin_and_expires_at(self, db):
+        """#4: upsert_edge с origin/expires_at."""
+        exp = 1_800_000_000
+        sid = await db.upsert_node(-100, "озон", "fact", origin="search_fact")
+        oid = await db.upsert_node(-100, "вб", "fact", origin="search_fact")
+        await db.upsert_edge(sid, oid, "доставляет быстрее чем",
+                             origin="search_fact", expires_at=exp)
+        cursor = await db.db.execute(
+            "SELECT origin, expires_at FROM edges WHERE source_id = ?", (sid,)
+        )
+        row = await cursor.fetchone()
+        assert row["origin"] == "search_fact"
+        assert row["expires_at"] == exp
+
+
+class TestGraphFacts:
+    @pytest.mark.asyncio
+    async def test_insert_and_fts_search_with_ttl_param(self, db):
+        """#5: insert_graph_fact + search_graph_facts_fts; истёкший факт НЕ в
+        выдаче (TTL-параметр now_ts)."""
+        now = 1_800_000_000
+        await db.insert_graph_fact(-100, "озон доставляет быстрее", "search_fact",
+                                   now + 1000)
+        await db.insert_graph_fact(-100, "древний факт про озон", "search_fact",
+                                   now - 1000)
+        await db.insert_graph_fact(-100, "вечный факт про озон", "chat_history", None)
+        rows = await db.search_graph_facts_fts(-100, '"озон"*', 10, now)
+        facts = [r["fact"] for r in rows]
+        assert "озон доставляет быстрее" in facts
+        assert "вечный факт про озон" in facts
+        assert "древний факт про озон" not in facts
+
+    @pytest.mark.asyncio
+    async def test_get_graph_fact_texts_keeps_knn_order(self, db):
+        """get_graph_fact_texts: [(origin, fact), ...] в порядке fact_ids."""
+        f1 = await db.insert_graph_fact(-100, "факт один", "web_content", None)
+        f2 = await db.insert_graph_fact(-100, "факт два", "search_fact", None)
+        rows = await db.get_graph_fact_texts([f2, f1, 999])
+        assert rows == [("search_fact", "факт два"), ("web_content", "факт один")]
+
+    @pytest.mark.asyncio
+    async def test_purge_expired_graph_facts(self, db, monkeypatch):
+        """#6: purge: истёкшие nodes/edges/facts удалены, живые остались."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.database.time.time", lambda: now)
+        dead_exp = now - 100
+        live_exp = now + 1000
+        # истёкшие узлы + ребро
+        a = await db.upsert_node(-100, "мёртвый а", "fact", origin="search_fact",
+                                 expires_at=dead_exp)
+        b = await db.upsert_node(-100, "мёртвый б", "fact", origin="search_fact",
+                                 expires_at=dead_exp)
+        await db.upsert_edge(a, b, "связь мёртвых", origin="search_fact",
+                             expires_at=dead_exp)
+        # живые узлы + ребро с собственным истёкшим expires_at
+        c = await db.upsert_node(-100, "живой в", "fact", origin="web_content",
+                                 expires_at=live_exp)
+        d = await db.upsert_node(-100, "живой г", "fact", origin="web_content",
+                                 expires_at=live_exp)
+        await db.upsert_edge(c, d, "связь с истёкшим ttl", origin="web_content",
+                             expires_at=dead_exp)
+        await db.upsert_edge(c, d, "живая связь", origin="web_content",
+                             expires_at=live_exp)
+        # факты
+        await db.insert_graph_fact(-100, "мёртвый факт", "search_fact", dead_exp)
+        await db.insert_graph_fact(-100, "живой факт", "web_content", live_exp)
+        await db.insert_graph_fact(-100, "вечный факт", "chat_history", None)
+
+        deleted = await db.purge_expired_graph_facts(-100)
+        assert deleted == 1            # только graph_facts (rowcount последнего DELETE)
+
+        cursor = await db.db.execute("SELECT entity_name FROM nodes ORDER BY id")
+        names = [r["entity_name"] for r in await cursor.fetchall()]
+        assert names == ["живой в", "живой г"]
+
+        cursor = await db.db.execute(
+            "SELECT relation_type FROM edges ORDER BY id"
+        )
+        rels = [r["relation_type"] for r in await cursor.fetchall()]
+        assert rels == ["живая связь"]
+
+        cursor = await db.db.execute("SELECT fact FROM graph_facts ORDER BY id")
+        facts = [r["fact"] for r in await cursor.fetchall()]
+        assert facts == ["живой факт", "вечный факт"]
+
+    @pytest.mark.asyncio
+    async def test_busy_timeout_pragma_is_5000(self, db):
+        """#7: PRAGMA busy_timeout == 5000 после initialize."""
+        cursor = await db.db.execute("PRAGMA busy_timeout")
+        row = await cursor.fetchone()
+        assert row[0] == 5000

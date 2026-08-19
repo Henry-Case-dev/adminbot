@@ -95,3 +95,64 @@ class TestSummarize:
         extractor.extract = AsyncMock(side_effect=RuntimeError("внезапно"))
         with pytest.raises(RuntimeError):
             await service.summarize(TARGET)
+
+
+# ── Epic 46 (55.5, T-366-A #17-18) ────────────────────────────────
+
+class TestGraphRagV2Hooks:
+    @pytest.mark.asyncio
+    async def test_memory_none_no_create_task(self, monkeypatch):
+        """#17: memory=None → create_task НЕ вызван."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        service, _, _ = _service()
+        result = await service.summarize(TARGET)
+        assert result == "выжимка"
+        assert spy == []
+
+    @pytest.mark.asyncio
+    async def test_memory_set_create_task_and_raw_markdown(self, monkeypatch):
+        """#18: create_task вызван; ответ возвращается (не блокирует);
+        memorize — с raw-markdown страницы."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        extractor = MagicMock()
+        extractor.extract = AsyncMock(return_value="# Заголовок")
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка")
+        memory = MagicMock()
+        memory.memorize_facts = AsyncMock()
+        memory.get_rag_context = AsyncMock(return_value="")
+        service = WebSummarizerService(extractor, llm, memory=memory)
+        result = await service.summarize(TARGET, chat_id=-100, rag_query="статья")
+        assert result == "выжимка"
+        assert len(spy) == 1
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        memory.memorize_facts.assert_awaited_once_with(-100, "# Заголовок", "web_content")
+        memory.get_rag_context.assert_awaited_once_with(-100, "статья")
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "<webpage" in user
+
+    @pytest.mark.asyncio
+    async def test_rag_context_prefixed_to_user_content(self, monkeypatch):
+        """55.5/55.6: RAG-контекст — префикс user-контента (до <webpage>)."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        extractor = MagicMock()
+        extractor.extract = AsyncMock(return_value="# Заголовок")
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка")
+        memory = MagicMock()
+        memory.memorize_facts = AsyncMock()
+        memory.get_rag_context = AsyncMock(return_value="<context>ctx</context>")
+        service = WebSummarizerService(extractor, llm, memory=memory)
+        await service.summarize(TARGET, chat_id=-100, rag_query="статья")
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user.startswith("<context>ctx</context>\n\n<webpage")

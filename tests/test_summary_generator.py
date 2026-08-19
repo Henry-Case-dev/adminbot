@@ -31,6 +31,8 @@ class FakeMemory:
         self.error = error
         self.graph_facts = graph_facts if graph_facts is not None else []
         self.events = []
+        self.memorized = []
+        self.rag_context = ""
 
     async def compress_and_purge(self, chat_id):
         self.events.append("compress")
@@ -55,6 +57,14 @@ class FakeMemory:
         if self.error == "graph":
             raise sqlite3.OperationalError("граф упал")
         return self.graph_facts
+
+    async def memorize_facts(self, chat_id, raw_text, source_type):
+        """Epic 46 (55.5): фоновый хук — фиксируем вызов, не трогаем events."""
+        self.memorized.append((chat_id, raw_text, source_type))
+
+    async def get_rag_context(self, chat_id, query):
+        """Epic 46 (55.6): RAG-контекст (по умолчанию пуст — старые тесты)."""
+        return self.rag_context
 
 
 class FakeLLM:
@@ -369,6 +379,68 @@ class TestPipelineGraphFacts:
         assert "<historical_graph_facts>" not in user
         assert "<chat_history>" in user
         bot.send_message.assert_called_once()
+
+
+# ── Epic 46 (55.5, T-366-A #20) ───────────────────────────────────
+
+class TestGraphRagV2Hooks:
+    @pytest.mark.asyncio
+    async def test_run_memorizes_chat_history_in_background(self, no_sleep):
+        """#20: _run → memorize_facts(chat_history) в фоновой задаче
+        (не блокирует ответ)."""
+        import asyncio as real_asyncio
+
+        memory = FakeMemory(rows=[_row()])
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        for _ in range(10):
+            await real_asyncio.sleep(0)        # даём fire_and_forget-задаче выполниться
+        assert len(memory.memorized) == 1
+        chat_id, raw_text, source_type = memory.memorized[0]
+        assert chat_id == -100
+        assert source_type == "chat_history"
+        assert "какое-то сообщение" in raw_text
+        bot.send_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_rag_context_first_section(self, no_sleep):
+        """#20: непустой RAG-контекст — ПЕРВОЙ секцией user-контента."""
+        memory = FakeMemory(rows=[_row()])
+        memory.rag_context = "<context>\n  <user_gossip>сплетня</user_gossip>\n</context>"
+        llm = FakeLLM()
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        await generator.generate_and_send(-100)
+        user = llm.messages[1]["content"]
+        assert user.startswith("<context>")
+        assert user.index("<context>") < user.index("<chat_history")
+        assert "<chat_history>" in user
+        bot.send_message.assert_called_once()
+
+    def test_compose_rag_context_first_before_graph_and_history(self):
+        """#20: порядок секций — rag → historical_graph_facts → chat_history."""
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>",
+            [],
+            [],
+            ["[Историческая справка: вася (спорил с) петя]"],
+            rag_context="<context>\n</context>",
+        )
+        assert result.startswith("<context>")
+        assert result.index("<context>") < result.index("<historical_graph_facts>")
+        assert result.index("<historical_graph_facts>") < result.index("<chat_history/")
+
+    def test_compose_without_rag_context_unchanged(self):
+        """#20: rag_context="" → вывод как раньше."""
+        result = SummaryGenerator._compose_user_content(
+            "<chat_history/>", [], [], ["[Историческая справка: вася (спорил с) петя]"]
+        )
+        assert result == (
+            "<historical_graph_facts>\n[Историческая справка: вася (спорил с) петя]\n"
+            "</historical_graph_facts>\n\n<chat_history/>"
+        )
 
 
 class TestExtractKeywords:

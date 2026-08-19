@@ -106,3 +106,63 @@ class TestCheckClaim:
         user = service.llm.generate.await_args.args[0][1]["content"]
         assert 'is_forward="true"' in user
         assert 'forward_source="Канал"' in user
+
+
+# ── Epic 46 (55.5, T-366-A #17-18) ────────────────────────────────
+
+class TestGraphRagV2Hooks:
+    def _service_with_memory(self):
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="хиты")
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="вердикт")
+        memory = MagicMock()
+        memory.memorize_facts = AsyncMock()
+        memory.get_rag_context = AsyncMock(return_value="")
+        return FactCheckService(aggregator, llm, memory=memory), aggregator, llm, memory
+
+    @pytest.mark.asyncio
+    async def test_memory_none_old_path_no_create_task(self, monkeypatch):
+        """#17: memory=None → create_task НЕ вызван."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        service, _, llm = TestCheckClaim._service(self, None)
+        result = await service.check_claim("текст", "хинт", None)
+        assert result == 'вердикт "да" - пиздеж'
+        assert spy == []
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "<claim>текст</claim>" in user
+
+    @pytest.mark.asyncio
+    async def test_memory_set_create_task_and_raw_memorize(self, monkeypatch):
+        """#18: create_task вызван; вердикт возвращается (не блокирует);
+        memorize — с raw-результатами поиска."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        service, _, llm, memory = self._service_with_memory()
+        result = await service.check_claim("текст", None, None, chat_id=-100)
+        assert result == "вердикт"
+        assert len(spy) == 1
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        memory.memorize_facts.assert_awaited_once_with(-100, "хиты", "search_fact")
+        memory.get_rag_context.assert_awaited_once_with(-100, "текст")
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "<claim>текст</claim>" in user
+
+    @pytest.mark.asyncio
+    async def test_rag_context_prefixed_to_user_content(self, monkeypatch):
+        """55.5/55.6: RAG-контекст — префикс user-контента (до <claim>)."""
+        spy = []
+        monkeypatch.setattr(
+            "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
+        )
+        service, _, llm, memory = self._service_with_memory()
+        memory.get_rag_context = AsyncMock(return_value="<context>ctx</context>")
+        await service.check_claim("текст", None, None, chat_id=-100)
+        await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user.startswith("<context>ctx</context>\n\n<claim>текст</claim>")

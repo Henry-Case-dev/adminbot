@@ -164,8 +164,8 @@ async def on_startup():
         global _search_aggregator
         _search_aggregator = SearchAggregator()                 # ленивый httpx-клиент
         _search_aggregator.log_config()                         # D104: WARNING-и пустых ключей
-        setup_factcheck(FactCheckService(_search_aggregator, _llm_client))
-        setup_search(SearchService(_search_aggregator, _llm_client))
+        setup_factcheck(FactCheckService(_search_aggregator, _llm_client, memory=memory))
+        setup_search(SearchService(_search_aggregator, _llm_client, memory=memory))
         logger.info("SmartModule FactCheck + SmartSearch (Epic 33) initialized")
 
         # ── SmartModule: YouTube + Web (Epic 37) ──
@@ -173,16 +173,23 @@ async def on_startup():
         youtube_engine = YouTubeTranscriptEngine()
         _web_extractor = WebContentExtractor()
         _web_extractor.log_config()                         # WARNING пустых ключей (D104)
-        setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client))
-        setup_web(WebSummarizerService(_web_extractor, _llm_client))
+        setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client, memory=memory))
+        setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory))
         logger.info("SmartModule YouTube + Web (Epic 37) initialized")
 
         # ── SmartModule: Checkup (Epic 42) ──
         global _checkup_fetcher
         _checkup_fetcher = CheckupLogsFetcher(
-            settings.CHECKUP_BETTERSTACK_TOKEN,
-            settings.CHECKUP_BETTERSTACK_URL,
+            sql_host=settings.CHECKUP_BETTERSTACK_SQL_HOST,
+            sql_user=settings.CHECKUP_BETTERSTACK_SQL_USER,
+            sql_password=settings.CHECKUP_BETTERSTACK_SQL_PASSWORD,
+            sql_table=settings.CHECKUP_BETTERSTACK_SQL_TABLE,
+            sql_query=settings.CHECKUP_BETTERSTACK_SQL_QUERY,
             journalctl_cmd=settings.CHECKUP_JOURNALCTL_CMD,
+        )
+        logger.info(
+            "Checkup SQL API configured=%s (R17: только факт)",
+            bool(settings.CHECKUP_BETTERSTACK_SQL_USER and settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
         )
         setup_checkup(CheckupService(_llm_client), _checkup_fetcher)
         logger.info("SmartModule Checkup (Epic 42) initialized")

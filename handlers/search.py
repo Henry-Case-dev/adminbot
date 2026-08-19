@@ -81,7 +81,7 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
                      message.message_id)
         return
     try:
-        summary = await _service.research(query)
+        summary = await _service.research(query, chat_id=message.chat.id)
         await send_chunked_reply(bot, message.chat.id, summary, message.message_id)
         logger.info("[smartsearch] summary sent | chat=%s", message.chat.id)
     except AllSearchEnginesFailedException:
