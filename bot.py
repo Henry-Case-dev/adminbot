@@ -61,6 +61,9 @@ from services.web_summarizer_service import WebSummarizerService
 from handlers.checkup import checkup_router, setup_checkup
 from services.checkup_service import CheckupService
 from services.system_logs_fetcher import CheckupLogsFetcher
+from handlers.direct_chat import direct_chat_router, setup_direct_chat
+from services.direct_chat_service import DirectChatService
+from services.smart_cache import close_smart_cache
 from handlers.info import info_router, setup_info
 from services.info_service import InfoService
 
@@ -193,6 +196,19 @@ async def on_startup():
         )
         setup_checkup(CheckupService(_llm_client), _checkup_fetcher)
         logger.info("SmartModule Checkup (Epic 42) initialized")
+
+        # ── SmartModule: DirectChat (Epic 50, Section 58.4) ──
+        bot_user = await bot.get_me()
+        setup_direct_chat(
+            DirectChatService(
+                memory, db, _llm_client, aliases,
+                bot_id=bot.id,
+                bot_username=(getattr(bot_user, "username", None) or "").lower(),
+            ),
+            bot.id,
+            (getattr(bot_user, "username", None) or "").lower(),
+        )
+        logger.info("SmartModule DirectChat (Epic 50) initialized")
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
 
@@ -247,6 +263,11 @@ async def on_startup():
     # 0g. SmartModule Checkup (Epic 42) — триггер-фразы; консьюмит, НЕ-триггеры → UNHANDLED
     if settings.SUMMARY_ENABLED:
         dp.include_router(checkup_router)
+
+    # 0h. SmartModule DirectChat (Epic 50, Section 58.4) — Reply-на-бота/упоминание;
+    # позиция ПОСЛЕ 0g checkup, ДО admin_commands. Observer-стиль.
+    if settings.SUMMARY_ENABLED:
+        dp.include_router(direct_chat_router)
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
@@ -333,6 +354,7 @@ async def on_shutdown():
         await _web_extractor.close()
     if _checkup_fetcher:
         await _checkup_fetcher.close()
+    await close_smart_cache()
 
 
 async def main():

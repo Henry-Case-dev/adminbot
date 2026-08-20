@@ -22,6 +22,8 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+_4XX_BODY_MAX_CHARS = 500   # Epic 49 (Section 57.4): тело 4xx-ответа в диагн-логе
+
 
 class LLMError(Exception):
     """Base error for all LLM client failures."""
@@ -177,6 +179,16 @@ class LLMClient:
                     if status in (401, 403):
                         raise LLMAuthError(f"LLM auth failed ({status}): {url}")
                     if status >= 400:
+                        # Epic 49 (57.4, D197): детерминированное отклонение провайдера —
+                        # инцидентный сигнал в Betterstack. R17: url без query/секретов,
+                        # тело ≤ 500 симв., заголовки не логируются.
+                        logger.error(
+                            "LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_messages=%d | body_4xx=%r",
+                            status, url, request_len,
+                            sum(len(str(m.get("content", ""))) for m in payload.get("messages", [])),
+                            len(payload.get("messages", [])),
+                            response.text[:_4XX_BODY_MAX_CHARS],
+                        )
                         raise LLMError(f"LLM HTTP {status}: {url}")
                     logger.info(
                         "LLM request OK | url=%s | status=%d | latency_ms=%.0f | in=%d chars | out=%d chars",

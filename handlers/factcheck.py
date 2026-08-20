@@ -22,6 +22,7 @@ from handlers.summary import _extract_forward_source
 from services.llm_client import LLMError
 from services.media_group_buffer import get_media_group_caption
 from services.search_aggregator import AllSearchEnginesFailedException
+from services.smart_cache import get_smart_cache
 from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
@@ -104,11 +105,21 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     forward_source = None
     if getattr(target, "forward_origin", None) is not None:
         forward_source = _extract_forward_source(target.forward_origin)  # reuse handlers/summary.py
+    # Epic 51 (59.2, D210): Exact Match Cache — ДО ресурсоёмких ступеней
+    # (поиск/LLM). Хит → reply на ТЕКУЩЕЕ сообщение, БЕЗ вызовов.
+    cache = get_smart_cache()
+    cache_key = cache.build_key("factcheck", target_text)
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        await _reply(bot, message.chat.id, cached, message.message_id)
+        logger.info("[factcheck] cache hit | chat=%s", message.chat.id)
+        return
     try:
         verdict = await _service.check_claim(
             target_text, user_hint, forward_source, chat_id=message.chat.id
         )
         await send_chunked_reply(bot, message.chat.id, verdict, target.message_id)
+        await cache.set(cache_key, verdict)      # только успешная генерация (59.2)
         logger.info("[factcheck] verdict sent | chat=%s", message.chat.id)
     except AllSearchEnginesFailedException:
         logger.exception("[factcheck] search failed | chat=%s", message.chat.id)

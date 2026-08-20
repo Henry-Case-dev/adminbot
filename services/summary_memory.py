@@ -48,7 +48,8 @@ FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 ВЫВОД:
 Верни строго JSON со списком фактов. Пример: [{"subject": "Ozon", "predicate": "доставляет быстрее чем", "object": "Wildberries", "context": "из-за большего количества складов"}]"""
 
-_FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content")
+_FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content",
+                 "bot_direct_reply")   # Epic 50 (58.8, D205): + direct-ответы
 _FACT_EXTRACT_MAX_CHARS = 8000      # tail текста, отправляемый экстрактору
 _FACT_MAX_NAME_CHARS = 100
 _FACT_MAX_PREDICATE_CHARS = 200
@@ -622,20 +623,23 @@ class MemoryManager:
 
     # ── GraphRAG v2: Fact Extractor (Epic 46, Section 55.4) ───────
 
-    async def memorize_facts(self, chat_id: int, raw_text: str, source_type: str) -> None:
+    async def memorize_facts(self, chat_id: int, raw_text: str, source_type: str,
+                             target_user: str | None = None) -> None:
         """R46-2 (55.4): raw_text → FACT_EXTRACT_PROMPT (канон R46-2) →
         триплеты → nodes/edges (entity_type='fact', origin/expires_at) +
         graph_facts (+vec0). Embed-фейл (403 и пр.) → факт сохраняется ТЕКСТОМ
         (FTS-фолбек), WARNING. Только сырая фактура источников — ответы бота
         сюда НЕ попадают (хуки передают raw, 55.5). chat_history → expires_at
-        NULL (вечно); остальные → now + GRAPH_FACT_TTL_DAYS*86400 (D175)."""
+        NULL (вечно); остальные → now + GRAPH_FACT_TTL_DAYS*86400 (D175).
+        Epic 50 (58.8, D205): source_type='bot_direct_reply' + target_user;
+        TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто/0 → expires_at NULL, вечное)."""
         if not settings.GRAPH_RAG_ENABLED:
             return
         if source_type not in _FACT_ORIGINS:
             logger.warning("graphrag memorize: unknown source_type=%r — skipped", source_type)
             return
         try:
-            await self._memorize_facts_inner(chat_id, raw_text, source_type)
+            await self._memorize_facts_inner(chat_id, raw_text, source_type, target_user)
         except LLMError as exc:
             # Ожидаемое (timeout/429/5xx/транспорт после _post-ретраев) — WARNING
             # без traceback (Epic 47, D188/56.7 #9). Auth тоже «ожидаемый» фон.
@@ -671,7 +675,8 @@ class MemoryManager:
                     continue
                 raise exc
 
-    async def _memorize_facts_inner(self, chat_id, raw_text, source_type) -> None:
+    async def _memorize_facts_inner(self, chat_id, raw_text, source_type,
+                                    target_user=None) -> None:
         text = " ".join(str(raw_text).split())
         if not text:
             return
@@ -682,8 +687,17 @@ class MemoryManager:
             logger.info("graphrag memorize: 0 facts | chat_id=%s | source=%s",
                         chat_id, source_type)
             return
-        expiry = None if source_type == "chat_history" else \
-            int(time.time()) + settings.GRAPH_FACT_TTL_DAYS * 86400
+        # Epic 50 (58.8, D205): bot_direct_reply — TTL по CHAT_DIRECT_REPLY_TTL_DAYS
+        # (пусто/0 → expires_at NULL, вечное — по ТЗ); chat_history — NULL;
+        # остальные — GRAPH_FACT_TTL_DAYS (D175, без изменений).
+        if source_type == "chat_history":
+            expiry = None
+        elif source_type == "bot_direct_reply":
+            ttl_days = settings.CHAT_DIRECT_REPLY_TTL_DAYS
+            expiry = None if ttl_days in (None, 0) else \
+                int(time.time()) + ttl_days * 86400
+        else:
+            expiry = int(time.time()) + settings.GRAPH_FACT_TTL_DAYS * 86400
         saved = 0
         skipped = 0
         for i, fact in enumerate(facts, 1):
@@ -698,7 +712,7 @@ class MemoryManager:
                 if fact["context"]:
                     sentence += f" ({fact['context']})"
                 fact_id = await self.db.insert_graph_fact(
-                    chat_id, sentence, source_type, expiry)
+                    chat_id, sentence, source_type, expiry, target_user=target_user)
                 if self._vec_available:
                     await self._save_graph_fact_embedding(
                         fact_id, chat_id, sentence, source_type, expiry)
@@ -729,20 +743,30 @@ class MemoryManager:
 
     # ── GraphRAG v2: гибридный RAG (Epic 46, Section 55.6) ────────
 
-    async def get_rag_context(self, chat_id: int, query: str) -> str:
+    async def get_rag_context(self, chat_id: int, query: str, *,
+                              sort_by_timestamp: bool = False,
+                              include_direct_reply: bool = False) -> str:
         """Гибридный RAG (55.6): векторный поиск по graph_facts_vec (KNN) →
         FTS5-фолбек (graph_facts_fts). Ленивый TTL (D175). Возвращает КАНОН-XML
-        или "". НИКОГДА не бросает (любая ошибка → WARNING → "")."""
+        или "". НИКОГДА не бросает (любая ошибка → WARNING → "").
+        Epic 50 (58.8, D206): sort_by_timestamp=True (ТОЛЬКО DirectChat) —
+        стабильная сортировка фактов по created_at ASC (таймлайн
+        <RAG_Memory>); include_direct_reply=True — origin='bot_direct_reply'
+        участвует (default False: direct-флуд не подмешивается в чужие
+        пайплайны)."""
         if not settings.GRAPH_RAG_ENABLED:
             return ""
         try:
             facts = await self._search_graph_facts(
-                chat_id, str(query or ""), settings.GRAPH_RAG_FACTS_LIMIT)
+                chat_id, str(query or ""), settings.GRAPH_RAG_FACTS_LIMIT,
+                include_direct_reply=include_direct_reply)
         except Exception:
             logger.warning("graphrag RAG: search failed — empty context | chat_id=%s",
                            chat_id, exc_info=True)
             return ""
-        context = build_rag_context(facts)
+        if sort_by_timestamp:
+            facts = sorted(facts, key=lambda f: f[2] or 0)   # стабильная сортировка, ASC
+        context = build_rag_context([(origin, fact) for origin, fact, _ in facts])
         if context and len(context) > settings.GRAPH_RAG_CONTEXT_MAX_CHARS:
             logger.warning("graphrag RAG: context truncated to %d chars | chat_id=%s",
                            settings.GRAPH_RAG_CONTEXT_MAX_CHARS, chat_id)
@@ -752,15 +776,18 @@ class MemoryManager:
                         len(facts), chat_id, len(context))
         return context
 
-    async def _search_graph_facts(self, chat_id, query, limit) -> list:
-        """[(origin, fact), ...]. Vec-путь: _ensure_vec_retry (55.8) → KNN;
-        фейл embed/vec → FTS-фолбек. Оба пустых → []. НЕ бросает."""
+    async def _search_graph_facts(self, chat_id, query, limit,
+                                  include_direct_reply=False) -> list:
+        """[(origin, fact, created_at), ...]. Vec-путь: _ensure_vec_retry (55.8)
+        → KNN; фейл embed/vec → FTS-фолбек. Оба пустых → []. НЕ бросает.
+        Epic 50 (58.8, D206): default — фильтр origin='bot_direct_reply'."""
         now = int(time.time())
         if await self._ensure_vec_retry():
             try:
                 vectors = await self._embed([query])
                 if vectors and vectors[0]:
-                    rows = await self._knn_graph_facts(chat_id, vectors[0], limit)
+                    rows = await self._knn_graph_facts(
+                        chat_id, vectors[0], limit, include_direct_reply=include_direct_reply)
                     if rows:
                         return rows
             except Exception:
@@ -771,10 +798,12 @@ class MemoryManager:
         match_query = build_fts_query(keywords)
         if not match_query:
             return []
-        rows = await self.db.search_graph_facts_fts(chat_id, match_query, limit, now)
-        return [(row["origin"], row["fact"]) for row in rows]
+        rows = await self.db.search_graph_facts_fts(
+            chat_id, match_query, limit, now, include_direct_reply=include_direct_reply)
+        return [(row["origin"], row["fact"], row["created_at"]) for row in rows]
 
-    async def _knn_graph_facts(self, chat_id, vector, limit) -> list:
+    async def _knn_graph_facts(self, chat_id, vector, limit,
+                               include_direct_reply=False) -> list:
         now = int(time.time())
         cursor = await self.db.db.execute(
             "SELECT fact_id, chat_id, origin, expires_at, distance FROM graph_facts_vec "
@@ -784,6 +813,7 @@ class MemoryManager:
         kept = [
             (row["fact_id"], row["origin"]) for row in rows
             if row["chat_id"] == chat_id
+            and (include_direct_reply or row["origin"] != "bot_direct_reply")
             and (row["expires_at"] is None or row["expires_at"] > now)
         ][:limit]
         if not kept:

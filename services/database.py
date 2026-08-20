@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
+_SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 
 
 def row_get(row, key, default=None):
@@ -61,7 +62,8 @@ class DatabaseService:
 
         -- ── SmartModule: Summary (Epic 24) ─────────────────────────
         -- R1: сырьё всех сообщений чата (+author_name — резолв A8 на момент сохранения;
-        -- Epic 28: is_forward/forward_source — forward-маркировка, R28-1)
+        -- Epic 28: is_forward/forward_source — forward-маркировка, R28-1;
+        -- Epic 50 (58.7): tg_message_id — id TG-сообщения для цепочек <Conversation_Thread>)
         CREATE TABLE IF NOT EXISTS smart_messages (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id         INTEGER,
@@ -72,9 +74,12 @@ class DatabaseService:
             media_type      TEXT NOT NULL DEFAULT 'text',
             author_name     TEXT NOT NULL DEFAULT '',
             is_forward      INTEGER NOT NULL DEFAULT 0,
-            forward_source  TEXT NOT NULL DEFAULT ''
+            forward_source  TEXT NOT NULL DEFAULT '',
+            tg_message_id   INTEGER
         );
         CREATE INDEX IF NOT EXISTS idx_smart_messages_chat_ts ON smart_messages(chat_id, timestamp);
+        -- idx_smart_messages_tg создаётся в _migrate_direct_chat_v2 (старые БД
+        -- не имеют колонки tg_message_id до ALTER — индекс тут упал бы)
 
         -- FTS5 над сырьём L1/L2 (встроенный, без расширений) — L2-RAG + фоллбек
         CREATE VIRTUAL TABLE IF NOT EXISTS smart_messages_fts USING fts5(
@@ -125,19 +130,34 @@ class DatabaseService:
         CREATE INDEX IF NOT EXISTS idx_edges_chat_weight ON edges(chat_id, weight);
 
         -- GraphRAG v2 (Epic 46, Section 55.3): факты гибридного RAG
-        -- (origin/expires_at — ТЗ R46-1; TTL-исключение — ленивое WHERE, D175)
+        -- (origin/expires_at — ТЗ R46-1; TTL-исключение — ленивое WHERE, D175;
+        -- Epic 50 (58.7): CHECK + 'bot_direct_reply' и target_user — пересоздание
+        -- в _migrate_direct_chat_v2 для старых БД)
         CREATE TABLE IF NOT EXISTS graph_facts (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id    INTEGER NOT NULL,
             fact       TEXT NOT NULL,
             origin     TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
-                       ('chat_history', 'search_fact', 'youtube_content', 'web_content')),
+                       ('chat_history', 'search_fact', 'youtube_content', 'web_content',
+                        'bot_direct_reply')),
             expires_at INTEGER,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            target_user TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin ON graph_facts(chat_id, origin);
+        -- idx_graph_facts_target_user создаётся в _migrate_direct_chat_v2
+        -- (старые БД не имеют колонки target_user до пересоздания)
         CREATE VIRTUAL TABLE IF NOT EXISTS graph_facts_fts USING fts5(
             fact, content='graph_facts', content_rowid='id', tokenize='unicode61'
+        );
+
+        -- ── Smart Cache (Epic 51, Section 59.2, D209) ────────────
+        -- Аддитивное хранилище Exact Match Cache; user_version НЕ поднимается
+        -- (кэш — новое хранилище, не миграция, R51-5).
+        CREATE TABLE IF NOT EXISTS smart_cache (
+            key        TEXT PRIMARY KEY,
+            payload    TEXT NOT NULL,
+            created_at REAL NOT NULL
         );
     """
     
@@ -155,6 +175,7 @@ class DatabaseService:
         await self.db.executescript(self._SCHEMA_SQL)
         await self.db.commit()
         await self._migrate_graphrag_v2()
+        await self._migrate_direct_chat_v2()   # Epic 50 (58.7): user_version 1→2
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -226,6 +247,48 @@ class DatabaseService:
             )
             await self.db.commit()
         await self.db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+        await self.db.commit()
+
+    async def _migrate_direct_chat_v2(self) -> None:
+        """Идемпотентная миграция Epic 50 (58.7, D201): (а) graph_facts —
+        CHECK-расширение 'bot_direct_reply' + target_user через пересоздание
+        (SQLite не умеет ALTER CHECK; id сохраняются → FTS/vec валидны БЕЗ
+        пересоздания); (б) smart_messages.tg_message_id + индекс; (в)
+        PRAGMA user_version = 2. Повторный запуск — no-op (guard + PRAGMA).
+        Прецедент _migrate_graphrag_v2 (55.3)."""
+        # (б) tg_message_id — ALTER для старых БД (новая схема уже имеет колонку)
+        try:
+            await self.db.execute("ALTER TABLE smart_messages ADD COLUMN tg_message_id INTEGER")
+            await self.db.commit()
+        except aiosqlite.OperationalError:
+            pass                        # колонка уже есть
+        await self.db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_smart_messages_tg ON smart_messages(chat_id, tg_message_id)")
+        await self.db.commit()
+        # (а) graph_facts: CHECK-расширение через пересоздание
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "bot_direct_reply" not in row["sql"]:
+            await self.db.executescript(
+                "ALTER TABLE graph_facts RENAME TO graph_facts_old; "
+                "CREATE TABLE graph_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "fact TEXT NOT NULL, "
+                "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
+                "('chat_history','search_fact','youtube_content','web_content',"
+                "'bot_direct_reply')), "
+                "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT); "
+                "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, created_at, target_user) "
+                "SELECT id, chat_id, fact, origin, expires_at, created_at, NULL FROM graph_facts_old; "
+                "DROP TABLE graph_facts_old; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin ON graph_facts(chat_id, origin); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user ON graph_facts(chat_id, target_user);"
+            )
+            await self.db.commit()
+        # (в)
+        await self.db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION_DIRECT_CHAT}")
         await self.db.commit()
 
     async def close(self) -> None:
@@ -459,14 +522,17 @@ class DatabaseService:
         author_name: str,
         is_forward: bool = False,
         forward_source: str = "",
+        message_id: int | None = None,
     ) -> int:
-        """Insert a chat message into smart_messages + FTS index. Returns the new row id."""
+        """Insert a chat message into smart_messages + FTS index. Returns the new row id.
+        Epic 50 (58.7, D201): message_id = TG message_id (для reply-цепочек
+        <Conversation_Thread>); None → NULL (легаси-вызовы без изменений)."""
         cursor = await self.db.execute(
             "INSERT INTO smart_messages "
             "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "is_forward, forward_source, tg_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name,
-             int(is_forward), forward_source),
+             int(is_forward), forward_source, message_id),
         )
         row_id = cursor.lastrowid
         if text:
@@ -481,7 +547,7 @@ class DatabaseService:
         """L1: messages within the generation window (timestamp >= since_ts), ASC order."""
         cursor = await self.db.execute(
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source "
+            "is_forward, forward_source, tg_message_id "
             "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
             "ORDER BY timestamp DESC LIMIT ?",
             (chat_id, since_ts, limit),
@@ -494,12 +560,23 @@ class DatabaseService:
         """L2/сжатие: messages older than the cutoff timestamp, ASC order."""
         cursor = await self.db.execute(
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source "
+            "is_forward, forward_source, tg_message_id "
             "FROM smart_messages WHERE chat_id = ? AND timestamp < ? "
             "ORDER BY timestamp ASC LIMIT ?",
             (chat_id, older_than_ts, limit),
         )
         return await cursor.fetchall()
+
+    async def get_smart_message_by_tg_id(self, chat_id: int, tg_message_id: int):
+        """Epic 50 (58.7, D201): строка smart_messages по TG message_id
+        (рекурсия reply-цепочек <Conversation_Thread>); None — нет записи."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+            "is_forward, forward_source, tg_message_id "
+            "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
+            (chat_id, tg_message_id),
+        )
+        return await cursor.fetchone()
 
     async def delete_smart_messages_older_than(self, chat_id: int, cutoff_ts: int) -> int:
         """Delete messages (+ FTS rows) older than cutoff. Returns count of deleted rows."""
@@ -639,7 +716,9 @@ class DatabaseService:
     async def match_nodes(
         self, chat_id: int, user_names: list[str], topic_keywords: list[str]
     ) -> list[int]:
-        """Node ids matched by exact user names or topic substring LIKE (35.5)."""
+        """Node ids matched by exact user names or topic substring LIKE (35.5).
+        Epic 50 (58.8): сущности origin='bot_direct_reply' в /summary-справки
+        НЕ попадают (R26-3-фильтр от direct-диалогов)."""
         conditions = []
         params: list = []
         if user_names:
@@ -652,13 +731,15 @@ class DatabaseService:
             params.extend(f"%{kw}%" for kw in topic_keywords)
         if not conditions:
             return []
-        sql = "SELECT id FROM nodes WHERE chat_id = ? AND (" + " OR ".join(conditions) + ")"
+        sql = ("SELECT id FROM nodes WHERE chat_id = ? AND origin != 'bot_direct_reply' AND ("
+               + " OR ".join(conditions) + ")")
         cursor = await self.db.execute(sql, [chat_id, *params])
         rows = await cursor.fetchall()
         return [row["id"] for row in rows]
 
     async def get_top_edges(self, chat_id: int, entity_ids: list[int], limit: int) -> list:
-        """Top edges incident to any of entity_ids, weight DESC (35.5)."""
+        """Top edges incident to any of entity_ids, weight DESC (35.5).
+        Epic 50 (58.8): фильтр origin='bot_direct_reply' (рёбра и оба конца)."""
         if not entity_ids:
             return []
         placeholders = ",".join("?" for _ in entity_ids)
@@ -672,6 +753,8 @@ class DatabaseService:
             "JOIN nodes t ON t.id = e.target_id "
             f"WHERE e.chat_id = ? AND (e.source_id IN ({placeholders}) "
             f"OR e.target_id IN ({placeholders})) "
+            "AND e.origin != 'bot_direct_reply' "
+            "AND s.origin != 'bot_direct_reply' AND t.origin != 'bot_direct_reply' "
             "ORDER BY e.weight DESC, e.last_updated DESC, e.id DESC "
             "LIMIT ?",
             [chat_id, *entity_ids, *entity_ids, limit],
@@ -679,7 +762,8 @@ class DatabaseService:
         return await cursor.fetchall()
 
     async def get_top_edges_all(self, chat_id: int, limit: int) -> list:
-        """Chat-wide top edges, weight DESC (cold-graph fallback, 35.5)."""
+        """Chat-wide top edges, weight DESC (cold-graph fallback, 35.5).
+        Epic 50 (58.8): фильтр origin='bot_direct_reply' (рёбра и оба конца)."""
         cursor = await self.db.execute(
             "SELECT e.id, e.chat_id, e.source_id, e.target_id, e.relation_type, "
             "e.weight, e.last_updated, "
@@ -689,6 +773,8 @@ class DatabaseService:
             "JOIN nodes s ON s.id = e.source_id "
             "JOIN nodes t ON t.id = e.target_id "
             "WHERE e.chat_id = ? "
+            "AND e.origin != 'bot_direct_reply' "
+            "AND s.origin != 'bot_direct_reply' AND t.origin != 'bot_direct_reply' "
             "ORDER BY e.weight DESC, e.last_updated DESC, e.id DESC "
             "LIMIT ?",
             (chat_id, limit),
@@ -697,38 +783,51 @@ class DatabaseService:
 
     # ── GraphRAG v2 (Epic 46, Section 55.3): graph_facts ─────────
 
-    async def insert_graph_fact(self, chat_id, fact, origin, expires_at) -> int:
-        """Факт-строка (+FTS-индекс). Возвращает id."""
+    async def insert_graph_fact(self, chat_id, fact, origin, expires_at,
+                                target_user=None) -> int:
+        """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
+        target_user — имя обращающегося (origin='bot_direct_reply'); created_at
+        ставится автоматически (int(time.time()))."""
         cursor = await self.db.execute(
-            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (chat_id, fact, origin, expires_at, int(time.time())))
+            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, created_at, target_user) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (chat_id, fact, origin, expires_at, int(time.time()), target_user))
         fact_id = cursor.lastrowid
         await self.db.execute(
             "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))
         await self.db.commit()
         return fact_id
 
-    async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts) -> list:
-        """FTS-фолбек RAG с ленивым TTL-фильтром (D175)."""
-        cursor = await self.db.execute(
-            "SELECT f.id, f.fact, f.origin FROM graph_facts_fts "
+    async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts,
+                                     include_direct_reply=False) -> list:
+        """FTS-фолбек RAG с ленивым TTL-фильтром (D175). Epic 50 (58.8, D206):
+        include_direct_reply=False (default) → origin='bot_direct_reply' НЕ
+        подмешивается в чужие пайплайны; + created_at/target_user в SELECT."""
+        sql = (
+            "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
             "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
-            "AND (f.expires_at IS NULL OR f.expires_at > ?) "
-            "ORDER BY graph_facts_fts.rank LIMIT ?",
-            (match_query, chat_id, now_ts, limit))
+            "AND (f.expires_at IS NULL OR f.expires_at > ?) ")
+        if not include_direct_reply:
+            sql += "AND f.origin != 'bot_direct_reply' "
+        sql += "ORDER BY graph_facts_fts.rank LIMIT ?"
+        cursor = await self.db.execute(sql, (match_query, chat_id, now_ts, limit))
         return await cursor.fetchall()
 
     async def get_graph_fact_texts(self, fact_ids) -> list:
-        """[(origin, fact), ...] в порядке fact_ids (порядок KNN сохраняется)."""
+        """[(origin, fact, created_at), ...] в порядке fact_ids (порядок KNN
+        сохраняется). Epic 50 (58.7): + created_at/target_user (только SELECT)."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
         cursor = await self.db.execute(
-            f"SELECT id, fact, origin FROM graph_facts WHERE id IN ({placeholders})",
+            f"SELECT id, fact, origin, created_at, target_user "
+            f"FROM graph_facts WHERE id IN ({placeholders})",
             fact_ids)
-        by_id = {row["id"]: (row["origin"], row["fact"]) for row in await cursor.fetchall()}
+        by_id = {
+            row["id"]: (row["origin"], row["fact"], row["created_at"])
+            for row in await cursor.fetchall()
+        }
         return [by_id[fid] for fid in fact_ids if fid in by_id]
 
     async def purge_expired_graph_facts(self, chat_id) -> int:

@@ -37,10 +37,6 @@ _UX_GENERIC_FAILED = "не смог сделать саммари"
 _UX_EMPTY = "тут тишина, саммарить нечего"        # B4: пустое окно L1, только manual
 _UX_BUSY = "уже делаю саммари, подожди"          # B5: lock занят, только manual
 
-# Epic 47 (D189, Section 56.6): деградированный саммари без LLM.
-_DEGRADED_HEADER = "выжимка без нейронки:"
-_DEGRADED_LINE_CHARS = 200
-
 _SHIZ_MARKER = "самым главным шизом объявляется"
 _SHIZ_AT_RE = re.compile(r"(самым главным шизом объявляется\s+)@+")
 
@@ -138,14 +134,7 @@ class SummaryGenerator:
                 try:
                     started = time.monotonic()   # latency_ms — только повторная попытка
                     raw = await self.llm.generate(payload)
-                except LLMError as exc2:
-                    if settings.SUMMARY_DEGRADED_ENABLED:
-                        # B — деградированный саммари (без LLM), manual и cron
-                        logger.warning(
-                            "summary: LLM failed after retry-once — degraded summary "
-                            "| chat_id=%s | error=%s", chat_id, exc2)
-                        await self._send_chunked(chat_id, self._degraded_summary(rows))
-                        return
+                except LLMError:
                     raise                       # C — UX R13 через внешний except
             latency_ms = (time.monotonic() - started) * 1000.0
             logger.info(
@@ -164,23 +153,6 @@ class SummaryGenerator:
         except Exception:
             logger.exception("summary: unexpected failure | chat_id=%s", chat_id)
             await self._send_ux(chat_id, _UX_GENERIC_FAILED)
-
-    def _degraded_summary(self, rows) -> str:
-        """Epic 47 (D189, 56.6): детерминированная выжимка БЕЗ LLM.
-        Первые SUMMARY_DEGRADED_COUNT фрагментов × SUMMARY_DEGRADED_LINE_CHARS
-        символов, канон-приписка шиза через _ensure_shiz_postfix. Сырой текст
-        НЕ логируется (R14)."""
-        max_lines = settings.SUMMARY_DEGRADED_COUNT
-        lines = []
-        for row in rows:
-            text = (row["text"] or "").strip().replace("\r", " ").replace("\n", " ")
-            if not text:
-                continue
-            lines.append(f"{self._resolve_author(row)}: {text}"[:_DEGRADED_LINE_CHARS])
-            if len(lines) >= max_lines:
-                break
-        body = "\n".join(lines) or "никто ничего не написал"
-        return self._ensure_shiz_postfix(f"{_DEGRADED_HEADER}\n{body}", rows)
 
     # ── Postprocessing ────────────────────────────────────────
 

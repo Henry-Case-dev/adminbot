@@ -5328,3 +5328,616 @@ llm откинулась, сгенерировать не вышло
 
 **Статус: Epic 47 — Шаг 1 (PM) ✅ (2026-08-20): прод-инцидент (падения LLM/memorize/summary 2×/сутки), требования R47-1…R47-6, решения D180–D185 (Orchestrator D-*), задачи T-371…T-380 (target v2.35.1, прод v2.35.0 `eef5939`). Baseline: 2070 тестов. Каноны промптов НЕ трогаем, миграций нет. Epic 47 → In Progress (board.md). Передача @Architect (T-371, Section 56 — открытые вопросы 1–7). Без @Orchestrator.**
 **Date: 2026-08-20**
+
+## Epic 48: Откат degraded-саммари (Summary: LLM или ничего) — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, Шаг 1 @PM ✅, target v2.36.0, P0 — «в первую очередь»)
+> **Цель:** Полный откат деградированного саммари (Epic 47, D189, Section 56.6): саммари
+> должно быть ЛИБО от LLM, ЛИБО никакое — «выжимка без нейронки» (degraded summary)
+> УБИРАЕТСЯ полностью. Ветка degraded в `_run`, `_degraded_summary`,
+> `_DEGRADED_HEADER`, `_DEGRADED_LINE_CHARS`, настройки `SUMMARY_DEGRADED_ENABLED`/
+> `SUMMARY_DEGRADED_COUNT` и соответствующие тесты — удаляются. Retry-once
+> (повторная попытка через `SUMMARY_RETRY_ONCE_PAUSE=5с` перед UX-фразой) — СОХРАНЯЕТСЯ
+> (это всё ещё LLM-путь). Токсичные UX-фразы R13 («не смог сделать саммари потому что
+> упал апи» / «база данных подавилась» / generic) — остаются финальным fallback,
+> тексты байт-в-байт НЕ менять. Док-долг: Section 56.6 привести к финальной реализации
+> (без degraded).
+> **Исполнители:** @Architect (T-381, Section 57 — финализация 56.6), @Builder (T-382…T-386),
+> @Reviewer (T-385), @DevOps (T-406/T-407 — релиз v2.36.0 общий с Epics 49–51). Без @Orchestrator.
+> **Target:** v2.36.0 (прод сейчас v2.35.1 `6d0cba0`). **Baseline:** 2099 тестов (0 регрессий).
+
+### Факты Шага 0 (проверка кода исполнителем PM перед записью ТЗ)
+
+- `services/summary_generator.py`: `_DEGRADED_HEADER`/`_DEGRADED_LINE_CHARS` (строки 41-42),
+  degraded-ветка «B» в `_run` (142-148): `if settings.SUMMARY_DEGRADED_ENABLED: → _send_chunked(_degraded_summary(rows))`,
+  `_degraded_summary` (168-183). Retry-once «A» (135-141): `logger.warning("summary: LLM failed — retry-once")`
+  + `asyncio.sleep(settings.SUMMARY_RETRY_ONCE_PAUSE)` → ВТОРОЙ `llm.generate` — СОХРАНИТЬ.
+  UX R13 (34-36): `_UX_LLM_FAILED`/`_UX_DB_FAILED`/`_UX_GENERIC_FAILED` — НЕ трогать.
+- `config/settings.py`: `SUMMARY_RETRY_ONCE_PAUSE` (288, остаётся), `SUMMARY_DEGRADED_ENABLED` (289, удалить),
+  `SUMMARY_DEGRADED_COUNT` (291, удалить). `.env.example` строки 155-156 (`# SUMMARY_DEGRADED_ENABLED=True`,
+  `# SUMMARY_DEGRADED_COUNT=15`) — удалить; строка 154 (`# SUMMARY_RETRY_ONCE_PAUSE=5.0`) — остаётся.
+- **Прод `.env`: `SUMMARY_DEGRADED_*` ОТСУТСТВУЮТ (проверено PM: grep по .env пуст) — удалять нечего,
+  при деплое T-407 подтвердить.**
+- Тесты: `tests/test_summary_generator.py` — `test_llm_error_retry_then_degraded` (148-158, переписать:
+  два фейла → UX R13), `test_llm_error_retry_once_pause` (161-176, оставить; снять ассерт
+  `not any("degraded summary" ...)` — строка 176), `test_llm_error_degraded_disabled_ux_phrase`
+  (179-192, УДАЛИТЬ — дублирует новый сценарий), `test_degraded_summary_limits` (195-206, УДАЛИТЬ),
+  `test_degraded_summary_empty_rows` (209-214, УДАЛИТЬ).
+  `tests/test_settings_helpers.py`: строки 246-248/271-273/283-285/295/299-307 — убрать
+  `SUMMARY_DEGRADED_*` (ассерты дефолтов/env/валидации min), `SUMMARY_RETRY_ONCE_PAUSE=5.0` оставить.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R48-1** | **Саммари = LLM ИЛИ ничего:** удалить degraded-вывод целиком — `_degraded_summary`, `_DEGRADED_HEADER`, `_DEGRADED_LINE_CHARS`, ветку «B» в `_run` (summary_generator.py:142-148). После исчерпания retry-once — `raise` → внешний `except LLMError` → UX R13 (существующий путь). Manual и cron — одинаково. |
+| **R48-2** | **Retry-once СОХРАНИТЬ:** повторная попытка через `SUMMARY_RETRY_ONCE_PAUSE` (дефолт 5.0с) остаётся LLM-путём; WARNING-лог и латентность повторной попытки (summary_generator.py:135-150) — без изменений. |
+| **R48-3** | **Настройки:** удалить `SUMMARY_DEGRADED_ENABLED` (settings.py:289) и `SUMMARY_DEGRADED_COUNT` (settings.py:291) из config/settings.py и `.env.example` (строки 155-156); прод `.env` — SUMMARY_DEGRADED_* уже отсутствуют (проверено), ничего не добавлять/не удалять. `SUMMARY_RETRY_ONCE_PAUSE` (settings.py:288 + .env.example:154) остаётся. |
+| **R48-4** | **Тесты:** переписать `test_llm_error_retry_then_degraded` → «retry ×2 (fail_times=99) → UX `не смог сделать саммари потому что упал апи`»; удалить `test_llm_error_degraded_disabled_ux_phrase`, `test_degraded_summary_limits`, `test_degraded_summary_empty_rows`; `test_llm_error_retry_once_pause` обновить (снять ассерт про 'degraded summary'); `test_settings_helpers.py` — убрать все `SUMMARY_DEGRADED_*` (дефолты/env/валидация). Полный pytest — **0 регрессий (база 2099)**. |
+| **R48-5** | **UX-каноны R13 не трогать:** `_UX_LLM_FAILED`/`_UX_DB_FAILED`/`_UX_GENERIC_FAILED` (summary_generator.py:34-36) — байт-в-байт; `_SQLITE_ERRORS` → `logger.exception` (162) и unexpected → `logger.exception` (165) остаются ERROR (не-ожиданное). |
+| **R48-6** | **Док-долг:** Section 56.6 в `plans/ARCHITECTURE.md` — привести к финальной реализации БЕЗ degraded (retry-once → UX R13), с пометкой «degraded отменён пользователем (Epic 48)»; README/.env.example/MEMORY синхронизировать. |
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*)
+
+| # | Решение |
+|---|---------|
+| **D186** | **Epic 48 — откат degraded (P0, «в первую очередь»), target v2.36.0** (прод v2.35.1 `6d0cba0`), задачи **T-381+**, решения продолжают D185. Без @Orchestrator. Откат механический, отдельная дизайн-секция не нужна: Section 56.6 финализируется в Section 57 (общая с Epic 49, T-381). |
+| **D187** | **Epic 49 — расследование + фикс 400 чекапа (P0), target v2.36.0** (ниже). |
+| **D188** | **Epic 50 — DirectChat (P1), target v2.36.0** (ниже). |
+| **D189** | **Epic 51 — Intelligent Caching (P1), target v2.36.0** (ниже). |
+
+### Открытые вопросы для @Architect (закрыть в Section 57)
+
+1. **Section 56.6:** переписать блок про degraded в финальную реализацию (retry-once → raise → UX R13) с пометкой «отменено пользователем 2026-08-20 (Epic 48)» — достаточно пометки или удалить упоминания degraded совсем (контекст резерва на будущее)?
+2. **Тесты:** `test_llm_error_degraded_disabled_ux_phrase` удаляется как дубль нового сценария «retry → UX» — подтвердить, что НЕ нужен отдельный кейс «retry-once сработал (fail_times=1) → успех» (уже покрыт `test_llm_error_retry_once_pause`).
+
+### Задачи
+
+### T-381 (@Architect) — Section 57: финализация 56.6 (Epic 48) + дизайн чекап-фикса (Epic 49) (R48-6, R49-1…R49-4, D186/D187)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 1d.
+
+- [ ] T-381-A: Section 57 в `plans/ARCHITECTURE.md`: (а) Epic 48 — Section 56.6 → финальная реализация без degraded (пометка «отменено пользователем»); (б) Epic 49 — дизайн диагностики 400 (см. открытые вопросы 1–5 Эпика 49), финальное решение фикса первопричины, маппинг UX-пулов; Section 58 (Epic 50) и Section 59 (Epic 51) — отдельными задачами (T-393/T-401)
+- [ ] T-381-B: Self-review + PM-аппрув; закрыть открытые вопросы 1–2 Эпика 48; T-382…T-385 → READY
+
+**DoD:** Section 57 в ARCHITECTURE.md; вопросы закрыты; PM-аппрув.
+
+### T-382 (@Builder) — Откат кода degraded (R48-1/R48-2, D186)
+
+**Приоритет:** P0. **Зависимости:** T-381. **Оценка:** 0.25d.
+
+- [ ] T-382-A: `services/summary_generator.py` — удалить `_DEGRADED_HEADER`/`_DEGRADED_LINE_CHARS` (41-42), ветку «B» (142-148, после второго фейла — `raise`), `_degraded_summary` (168-183); retry-once «A» (135-141) и постобработку успеха — без изменений; UX R13 (34-36) не трогать
+
+**DoD:** в `_run` нет веток degraded; `_degraded_summary` отсутствует.
+
+### T-383 (@Builder) — Настройки degraded (R48-3, D186)
+
+**Приоритет:** P0. **Зависимости:** T-381. **Оценка:** 0.25d.
+
+- [ ] T-383-A: `config/settings.py` — удалить `SUMMARY_DEGRADED_ENABLED` (289) и `SUMMARY_DEGRADED_COUNT` (291); `.env.example` — удалить строки 155-156; `SUMMARY_RETRY_ONCE_PAUSE` (288/154) остаётся
+- [ ] T-383-B: прод `.env` — НЕ трогать (SUMMARY_DEGRADED_* отсутствуют — проверено); при деплое T-407 подтвердить отсутствие
+
+**DoD:** настройки degraded отсутствуют (settings/.env.example); прод .env без изменений.
+
+### T-384 (@Builder) — Тесты отката (R48-4, D186)
+
+**Приоритет:** P0. **Зависимости:** T-382/T-383. **Оценка:** 0.5d.
+
+- [ ] T-384-A: `tests/test_summary_generator.py`: `test_llm_error_retry_then_degraded` → «retry ×2 → UX `не смог сделать саммари потому что упал апи`»; удалить `test_llm_error_degraded_disabled_ux_phrase`/`test_degraded_summary_limits`/`test_degraded_summary_empty_rows`; `test_llm_error_retry_once_pause` — снять ассерт `not any("degraded summary" ...)` (176), остальное оставить (calls==2, no_sleep, шиз-постфикс)
+- [ ] T-384-B: `tests/test_settings_helpers.py` (246-307) — убрать `SUMMARY_DEGRADED_*` (дефолты/env/валидация); `SUMMARY_RETRY_ONCE_PAUSE` ассерты оставить; полный pytest — 0 регрессий (база 2099)
+
+**DoD:** degraded-тесты удалены/переписаны; полный прогон 2099+ passed.
+
+### T-385 (@Builder + @Reviewer) — Ревью отката (R48-4/R48-5, D186)
+
+**Приоритет:** P0. **Зависимости:** T-384. **Оценка:** 0.25d.
+
+- [ ] T-385-A (@Reviewer): ревью + личный прогон; APPROVED; полный pytest — **0 регрессий (база 2099)**; `git diff --check` чист; UX R13 и retry-once не тронуты
+
+**DoD:** APPROVED; 2099+ тестов passed.
+
+### T-386 (@Builder) — Доки отката (R48-6, D186)
+
+**Приоритет:** P1. **Зависимости:** T-385. **Оценка:** 0.25d.
+
+- [ ] T-386-A: README v2.36.0 (раздел summary: degraded удалён) + `plans/MEMORY.md` (Epic 48, v2.36.0); Section 56.6 — через T-381-A
+
+**DoD:** доки синхронизированы.
+
+### Риски (Epic 48)
+
+1. **Случайно задеть retry-once (R48-2)** — ретраи режутся вместе с degraded: тест `test_llm_error_retry_once_pause` это ловит (calls==2).
+2. **UX R13 может быть разбит при переписывании `_run`** — тексты фраз (34-36) байт-в-байт неизменны; тест `test_db_error_ux_phrase`/`test_generic_error_ux_phrase` — живые гаранты.
+3. **Потеря настроек при удалении** — `SUMMARY_DEGRADED_*` не вынесены в прод .env (проверено), дефолты в settings удаляются вместе с кодом — ссылок нигде не остаётся (grep по репо).
+4. **0 регрессий (база 2099)** — удаление тестов только degraded-веток; остальной прогон зелёный.
+
+### Файлы (планируемые)
+
+`services/summary_generator.py`, `config/settings.py`, `.env.example`; тесты `tests/test_summary_generator.py`, `tests/test_settings_helpers.py`; доки `plans/ARCHITECTURE.md` (Section 57/56.6), `README.md`, `plans/MEMORY.md`.
+
+**НЕ трогать:** UX R13 (summary_generator.py:34-36), `SUMMARY_RETRY_ONCE_PAUSE`, каноны промптов (R11 SYSTEM_PROMPT, R46-2/R46-4, эталоны) и их байт-в-байт тесты; прод `.env`.
+
+---
+
+**Статус: Epic 48 — Шаг 1 (PM) ✅ (2026-08-20): полный откат degraded-саммари (P0, «в первую очередь»), требования R48-1…R48-6 (LLM или ничего, retry-once остаётся, UX R13 байт-в-байт), прод .env проверен (SUMMARY_DEGRADED_* отсутствуют). Задачи T-381…T-386, target v2.36.0 (прод v2.35.1 `6d0cba0`), baseline 2099. Epic 48 → In Progress (board.md, первый в очереди). Передача @Architect (T-381, Section 57 — финализация 56.6). Без @Orchestrator.**
+**Date: 2026-08-20**
+
+## Epic 49: Чекап 400: расследование + фикс + разделение UX-фраз — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, Шаг 1 @PM ✅, target v2.36.0, P0)
+
+> **Цель:** Расследовать и устранить прод-инцидент 2026-08-20T09:33:58 UTC (прод PID 1013533):
+> `LLM HTTP 400: https://apinet.cloud/v1/chat/completions` (llm_client.py:180 `_post` →
+> generate:198 → checkup_service.py:31 → handlers/checkup.py:77-81). Два вызова подряд —
+> стабильный 400 (НЕ транзиентный; политика Epic 47 его не ретраит — ожидаемо). Юзер получил
+> «база подавилась логами» (из пула `CHECKUP_LLM_ERROR_PHRASES`, R42-5, random.choice) — фраза
+> про «базу» вводит в заблуждение: упал LLM, а не БД. Порядок: (1) СНАЧАЛА диагностика
+> (длина payload + тело 4xx в лог; реальное окно deepseek-v4-flash у apinet.cloud;
+> фактическая длина user-сообщения), (2) фикс первопричины (обрезка/сжатие контекста и/или
+> валидация символов — решение @Architect Section 57), (3) попутно: `logger.exception` →
+> WARNING в checkup.py:81 (долг Epic 47) и РАЗДЕЛЕНИЕ UX-фраз (LLMError → «LLM/мозги»,
+> ошибки получения логов → «база»; тексты R13/R42-5 НЕ менять — только маппинг).
+> **Исполнители:** @Architect (T-381, Section 57), @Builder (T-388…T-392), @Reviewer (T-391),
+> @DevOps (T-406/T-407 — релиз v2.36.0 общий с Epics 48/50/51). Без @Orchestrator.
+> **Target:** v2.36.0 (прод сейчас v2.35.1 `6d0cba0`). **Baseline:** 2099 тестов (0 регрессий).
+
+### Факты Шага 0 (инцидент + проверка кода исполнителем PM)
+
+- **Инцидент:** 2026-08-20T09:33:58 UTC, прод PID 1013533, `LLM HTTP 400: https://apinet.cloud/v1/chat/completions`.
+  Трейс: `_post` (llm_client.py:179-180, `if status >= 400: raise LLMError(...)`) → `generate`
+  (196-201) → `checkup_service.py:31` → `handlers/checkup.py:77-81`. Два вызова подряд — стабильный
+  400. Политика Epic 47 (R47-1): 4xx кроме 401/403 — НЕ транзиентный, мгновенный `LLMError` — ок,
+  ретрая не нужно (это не баг политики).
+- **Юзер в чате получил** «база подавилась логами» (`CHECKUP_LLM_ERROR_PHRASES`, smartmodule_phrases.py:108,
+  random.choice). Фраза про базу — ложный след: упал LLM (400), а не БД. Задача R49-4: развести пулы.
+- **Контекст (известные факты):** чекап на проде работает через journalctl-фолбек (SQL API Betterstack
+  мёртв — Epic 45); лог ≤ 20000 символов (`_MAX_LOG_SYMBOLS`, system_logs_fetcher.py:33; ≤200 событий
+  `_MAX_LOG_EVENTS`:32); payload = [system, user] БЕЗ max_tokens/temperature/response_format;
+  model=deepseek-v4-flash. Гипотезы: (а) превышение контекстного окна модели (20K кириллицы ≈
+  25-40K токенов) — НАИБОЛЕЕ вероятна; (б) невалидные управляющие символы в raw-логах; (в) невалидный
+  параметр (маловероятно).
+- **Диагностический пробел:** тело 400-ответа и длина payload при 4xx НЕ логируются. В `_post`
+  длина логируется ТОЛЬКО в OK-ветке (llm_client.py:181-184: `in=%d chars | out=%d`); 4xx-ветка
+  (177-180) — молчаливый `raise`. `checkup_service.py` логирует только OK (37-40: `out_chars`,
+  `latency_ms`, `used_fallback`).
+- **Логи fetcher'а (для замера длины user-сообщения):** `system_logs_fetcher.py:118-122`
+  (`sql api ok | events=%d | chars=%d`) и 227-229 (`journalctl ok | lines=%d`) — фактические длины
+  уже пишутся в INFO; при journalctl-фолбеке — `joined[:_MAX_LOG_SYMBOLS]` напрямую в user-контент.
+- **`handlers/checkup.py`:** `except LLMError: logger.exception(...)` (80-83, строка 81) — ERROR-шторм
+  на ожидаемом LLMError (долг Epic 47, R47-5). `except CheckupLogsUnavailableException: logger.exception`
+  (67-71, строка 68) — тоже ERROR на ожидаемом отказе обеих ступеней (заслуживает WARNING по р47-стилю,
+  но не входит в скоуп R49-3 напрямую — вынести как опцию).
+- **Пулы фраз (smartmodule_phrases.py):** `CHECKUP_FALLBACK_PHRASES` (89-95, фолбек-фразы про
+  «беттерстак/локальные логи»), `CHECKUP_DEAD_PHRASES` (98-104, полный отказ → «база/мониторинг/логи
+  сгорели»), `CHECKUP_LLM_ERROR_PHRASES` (107-113, сейчас СМЕШАННЫЙ: «база подавилась логами» +
+  LLM-фразы). Тексты менять НЕЛЬЗЯ (каноны R42-5) — только распределение по семантически чистым пулам.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R49-1** | **СНАЧАЛА диагностика:** залогировать при финальном 4xx в `llm_client._post` (179-180): длину payload (число символов всего user+system и число messages) + тело ответа провайдера (обрезка до безопасного лимита, без секретов — R17; DEBUG-уровень или ERROR-детализация — по Section 57). Цель — закрыть гипотезы (а)/(б)/(в) фактами, а не догадками. |
+| **R49-2** | **Измерение до реализации фикса:** установить (1) реальное контекстное окно deepseek-v4-flash у apinet.cloud (ресёрч контекст7/веб, T-387) и (2) фактическую длину user-сообщения чекапа на проде (по INFO-логам fetcher'а `chars=N` либо замер — T-407-шаг). Сравнить с окном → подтвердить/опровергнуть гипотезу (а). |
+| **R49-3** | **Фикс первопричины (решение @Architect, Section 57):** обрезка/сжатие контекста чекапа (напр., уменьшение `_MAX_LOG_SYMBOLS` (20000 → безопасный лимит по фактам T-389) и/или сжатие в checkup_service) И/ИЛИ валидация/очистка управляющих символов raw-логов (гипотеза (б)). Финальный выбор — за @Architect; дефолт-кандидат — безопасный потолок символов user-сообщения (гипотеза (а)). Выходной лимит `CHECKUP_MAX_SYMBOLS` (сам отчёт) НЕ трогать. |
+| **R49-4** | **Попутно (в рамках эпика):** (а) `handlers/checkup.py:81` — `logger.exception` → WARNING без traceback (долг Epic 47, R47-5); (б) РАЗДЕЛИТЬ UX-фразы: LLMError → пул «LLM/мозги расплавились»; ошибки получения логов (`CheckupLogsUnavailableException` и фолбек-пути) → фразы про «базу/логи». Тексты существующих фраз R42-5/R13 НЕ менять байт-в-байт — только маппинг/распределение по пулам (проверить smartmodule_phrases.py:107-113). `checkup.py:68` (`logger.exception` для DEAD) — рассмотреть WARNING (опция, по Section 57). |
+| **R49-5** | **Тесты + ограничения:** новые тесты покрывают: (1) диагностический лог 4xx (payload length + body в логе, секретов нет); (2) обрезка/валидация контекста (длина user ≤ потолка; управляющие символы scrub'ятся); (3) класс лога checkup LLM-ошибки = WARNING (не ERROR); (4) маппинг пулов (LLM-пул vs лог/«база»-пул, random.choice из правильного пула). Полный pytest — **0 регрессий (база 2099)**; каноны `CHECKUP_SYSTEM_PROMPT` (R42-6) / `CHECKUP_FALLBACK_NOTICE` (R42-2) НЕ трогать; миграций БД НЕТ; прод-деплой v2.36.0 без миграции. |
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*, D187)
+
+| # | Решение |
+|---|---------|
+| **D187** | **Epic 49 — расследование + фикс 400 чекапа (P0), target v2.36.0**, задачи **T-387+**. Порядок строгий: (1) диагностика (R49-1/R49-2) → (2) фикс первопричины (R49-3, Section 57) → (3) попутные UX/log-фиксы (R49-4). Политика ретраев Epic 47 НЕ меняется (400 не транзиентный — мгновенный LLMError). |
+| **D186** | Epic 48 — откат degraded (P0, «в первую очередь») — см. выше. |
+| **D188** | Epic 50 — DirectChat (P1) — см. ниже. |
+| **D189** | Epic 51 — Intelligent Caching (P1) — см. ниже. |
+
+### Открытые вопросы для @Architect (закрыть в Section 57)
+
+1. **Реальное окно deepseek-v4-flash у apinet.cloud:** сколько токенов (context/total)? Подтверждается ли гипотеза (а): 20K кириллицы ≈ 25-40K токенов > окно? Если окно меньше — потолок символов чекапа вывести из него с запасом.
+2. **Фактическая длина user-сообщения чекапа:** по прод-логам (`chars=N` у fetcher'а) и, если доступно, размеру payload из R49-1-диагностики — нижняя/верхняя грань.
+3. **Стратегия фикса (R49-3):** уменьшить `_MAX_LOG_SYMBOLS` (20000 → ?) против сжатия контекста (суммаризация логов до LLM) против scrub управляющих символов — что в скоупе, что просто, что безопасно; как проверить, что после фикса 400 не возвращается.
+4. **Куда логировать 4xx-тело:** DEBUG-level (с `logger.debug`) или ERROR-детализация; лимит обрезки тела (константа `_4XX_BODY_MAX_CHARS`?); гарантия отсутствия секретов (R17) — тело провайдера секретов не содержит по определению, но перестраховка.
+5. **Маппинг пулов (R49-4):** точное распределение существующих фраз `CHECKUP_LLM_ERROR_PHRASES` (107-113) на «LLM-пул» vs «лог/база-пул» («база подавилась логами» → лог-пул?); нужно ли архивировать старый объединённый пул или перераспределить строки по новым константам с сохранением текста.
+6. **`checkup.py:68` (except CheckupLogsUnavailableException → DEAD):** тоже ERROR→WARNING (как R49-4а) или оставить ERROR (это «полный отказ» — неожиданное)? Фолбек (used_fallback) уже WARNING — ок.
+
+### Задачи
+
+### T-387 (@Architect) — Section 57: дизайн диагностики + финальное решение фикса 400 + UX-маппинг (R49-1…R49-4, D187)
+
+**Приоритет:** P0. **Зависимости:** нет (частично с T-381, Epic 48). **Оценка:** 1d.
+
+- [ ] T-387-A: Section 57 в `plans/ARCHITECTURE.md`: дизайн диагностического лога 4xx (R49-1, вопрос 4), ресёрч окна deepseek-v4-flash у apinet.cloud (контекст7/веб — вопрос 1), финальное решение фикса первопричины (R49-3: обрезка/сжатие и/или scrub символов — вопросы 2-3), маппинг UX-пулов (R49-4, вопрос 5), судьба `checkup.py:68` (вопрос 6), тест-план (R49-5), риски
+- [ ] T-387-B: Self-review + PM-аппрув; закрыть открытые вопросы 1–6; T-388…T-391 → READY
+
+**DoD:** Section 57 в ARCHITECTURE.md; вопросы 1–6 закрыты; PM-аппрув.
+
+### T-388 (@Builder) — Диагностический лог 4xx в llm_client (R49-1/R49-5, D187)
+
+**Приоритет:** P0. **Зависимости:** T-387. **Оценка:** 0.25d.
+
+- [ ] T-388-A: `services/llm_client.py` `_post` (179-180): при финальном `status >= 400` — диагностический лог: `payload_chars` (сумма длин content + system) / `num_messages` / `status` / `url` + тело ответа провайдера (обрезано до `_4XX_BODY_MAX_CHARS`, без секретов R17); уровень — по Section 57 (DEBUG или ERROR-детализация)
+
+**DoD:** 4xx логирует длину payload и тело; секретов в лог не попадает.
+
+### T-389 (@Builder) — Фикс первопричины по Section 57 (R49-3, D187)
+
+**Приоритет:** P0. **Зависимости:** T-387/T-388. **Оценка:** 0.5d.
+
+- [ ] T-389-A: по Section 57: уменьшение `_MAX_LOG_SYMBOLS` и/или сжатие контекста в checkup_service, и/или валидация/scrub управляющих символов raw-логов (system_logs_fetcher.py/checkup_service.py); выходной `CHECKUP_MAX_SYMBOLS` НЕ трогать; поведение фолбеков/каскада НЕ менять
+
+**DoD:** user-сообщение чекапа ≤ безопасного потолка (гипотеза (а) закрыта); 400 не воспроизводится на реальных данных.
+
+### T-390 (@Builder) — Логи и UX-сплит (R49-4, D187)
+
+**Приоритет:** P0. **Зависимости:** T-387. **Оценка:** 0.25d.
+
+- [ ] T-390-A: `handlers/checkup.py:81` — `logger.exception` → `logger.warning` (без traceback); `checkup.py:68` — по Section 57 (вопрос 6; опционально WARNING)
+- [ ] T-390-B: разнести фразы: LLMError → LLM-пул («LLM/мозги расплавились»); ошибки получения логов → «база/логи»-пул; тексты R42-5/R13 байт-в-байт, изменение ТОЛЬКО маппинга/констант пулов в smartmodule_phrases.py + импортов в checkup.py
+
+**DoD:** чекап не роняет ERROR на ожидаемом LLMError; фраза «база подавилась логами» больше НЕ уходит при падении LLM; тексты канонов не тронуты.
+
+### T-391 (@Builder + @Reviewer) — Тесты 400-эпика (R49-5, D187)
+
+**Приоритет:** P0. **Зависимости:** T-388…T-390. **Оценка:** 0.5d.
+
+- [ ] T-391-A (@Builder): тесты: (1) 4xx → диагностический лог с payload length + тела в логе (FakeTransport/MockTransport); (2) обрезка/валидация (user ≤ потолка; scrub управляющих символов); (3) checkup LLM-ошибка → WARNING (caplog, не ERROR); (4) маппинг пулов (LLM-пул vs лог-пул, random.choice из правильного); полный pytest — 0 регрессий (база 2099)
+- [ ] T-391-B (@Reviewer): ревью + личный прогон; APPROVED; `git diff --check` чист; каноны R42-6/R42-2 не тронуты
+
+**DoD:** APPROVED; 2099+ тестов passed; 400-сценарий покрыт.
+
+### T-392 (@Builder) — Доки (R49-*, D187)
+
+**Приоритет:** P1. **Зависимости:** T-391. **Оценка:** 0.25d.
+
+- [ ] T-392-A: README v2.36.0 (checkup: 400-fix, диагностика, UX-сплит) + `plans/MEMORY.md` (Epic 49, v2.36.0); зафиксировать результат расследования (реальное окно модели, фактические длины)
+
+**DoD:** доки синхронизированы.
+
+### Риски (Epic 49)
+
+1. **Фикс «вслепую»** — запрещено: реализация только ПОСЛЕ диагностики (R49-1/R49-2) и решения Section 57 (R49-3).
+2. **Миграция не нужна, но может потребоваться потолок символов** — `_MAX_LOG_SYMBOLS` только код/конфиг, без миграций БД.
+3. **UX-каноны R42-5/R13 случайно изменены** — текст фраз байт-в-байт; меняется ТОЛЬКО маппинг по пулам; тест-канон это гарантирует.
+4. **Scrub символов может обрезать нужный текст** — только управляющие (C0), не символы; тест на кириллицу.
+5. **400 может быть не токенов, а невалидного символа** — диагностический лог (тело 4xx) даст точный ответ (код ошибки провайдера), гипотезы (а)/(б)/(в) закрываются фактами.
+6. **0 регрессий (база 2099)** — новые тесты в том же коммите; каноны промптов чекапа не трогать.
+
+### Файлы (планируемые)
+
+`services/llm_client.py`, `services/checkup_service.py`, `services/system_logs_fetcher.py`, `handlers/checkup.py`, `services/smartmodule_phrases.py` (+ `config/settings.py`/`.env.example` при необходимости потолка `CHECKUP_MAX_INPUT_SYMBOLS`); тесты `tests/test_llm_client.py`, `tests/test_checkup_handlers.py`, `tests/test_checkup_service.py`, `tests/test_system_logs_fetcher.py`, `tests/test_smartmodule_phrases.py` + новые; `plans/ARCHITECTURE.md` (Section 57), `README.md`, `plans/MEMORY.md`.
+
+**НЕ трогать:** каноны `CHECKUP_SYSTEM_PROMPT` (R42-6), `CHECKUP_FALLBACK_NOTICE` (R42-2) и их байт-в-байт эталоны; тексты пулов `CHECKUP_*` (R42-5) — только маппинг; политика ретраев HTTP 47 (400 не транзиентный); `CHECKUP_MAX_SYMBOLS` (выходной лимит отчёта); миграций БД — НЕТ.
+
+---
+
+**Статус: Epic 49 — Шаг 1 (PM) ✅ (2026-08-20): прод-инцидент 400 чекапа (PID 1013533) — диагностика СНАЧАЛА (длина payload + тело 4xx), фикс первопричины по Section 57, попутно WARNING вместо ERROR (checkup.py:81) + разделение UX-фраз (тексты R42-5/C13 не менять). Требования R49-1…R49-5, решение D187, задачи T-387…T-392, target v2.36.0, baseline 2099. Epic 49 → In Progress (board.md, после Epic 48). Передача @Architect (T-387, Section 57 — открытые вопросы 1–6). Без @Orchestrator.**
+**Date: 2026-08-20**
+## Epic 50: DirectChat (прямое общение с сохранением контекста) — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, Шаг 1 @PM ✅, target v2.36.0, P1)
+
+> **Цель:** Новый подсервис `DirectChat` внутри SmartModule: пользователь может напрямую
+> обращаться к боту (Reply на сообщение бота ЛИБО упоминание юзернейма/тега) и получать
+> токсичный ответ с сохранением контекста: последние сообщения чата, рекурсивная цепочка
+> реплаев, факты из Temporal GraphRAG (по хронологии), имя/алиас обращающегося. Строгое
+> правило: бот НИКОГДА не инициирует диалог сам. Все ответы — строго через механизм Reply
+> на сообщение обращающегося пользователя. Идентификация пользователя — через существующую
+> систему алиасов (Алиас → Никнейм → Юзернейм, `AliasResolver`). Троттлинг — Token Bucket
+> (CHAT_BURST_LIMIT зарядов, восстановление через CHAT_COOLDOWN_SECONDS, кулдаун-пул).
+> Интеграция с Temporal GraphRAG: ответы бота НЕ сливаются с флудом `chat_history` и не
+> теряют хронологию (origin='bot_direct_reply', ORDER BY timestamp ASC при сборке
+> `<RAG_Memory>`, метаданные target_user/chat_id/timestamp).
+> **Исполнители:** @Architect (T-393, Section 58 — каноны VERBATIM + дизайн), @Builder (T-394…T-400),
+> @Reviewer (T-399), @DevOps (T-406/T-407 — релиз v2.36.0 общий с Epics 48/49/51). Без @Orchestrator.
+> **Target:** v2.36.0 (прод сейчас v2.35.1 `6d0cba0`). **Baseline:** 2099 тестов (0 регрессий).
+
+### Факты Шага 0 (что уже есть для интеграции — проверка кода исполнителем PM)
+
+- **AliasResolver** (`services/summary_aliases.py`): `resolve(user_id, nickname, username)` → имя
+  БЕЗ '@' (каскад Алиас → Никнейм → Юзернейм, Range 33.6/R7/D61). Для `<Target_User>` используем
+  его, для User Resolution Map (R51-2) — список пар user_id → имя по всем участникам окна.
+- **`_reply`/`send_chunked_reply`** (`services/smartmodule_utils.py:67-122`): реплай на
+  `reply_to_message_id` — механизм ответа DirectChat (первый чанк — реплай, остальные — plain).
+- **CooldownTracker** (`services/smartmodule_throttling.py:24-42`): dict-TTL per (chat_id, user_id),
+  прецедент для Token Bucket (in-memory dict, перезапуск сбрасывает — принять).
+- **`memorize_facts(chat_id, raw_text, source_type)`** (`services/summary_memory.py:625`): gating
+  по `_FACT_ORIGINS` (51) = (`chat_history`, `search_fact`, `youtube_content`, `web_content`) —
+  `'bot_direct_reply'` СЕЙЧАС ОТСУТСТВУЕТ → memorize WARNING-skip (634-636). `fire_and_forget`
+  (22, прецедент 114-118). `insert_graph_fact(chat_id, sentence, origin, expiry)` (database.py:703).
+- **CHECK-констрейнт origin** (database.py:133-134): `graph_facts.origin CHECK (origin IN
+  ('chat_history','search_fact','youtube_content','web_content'))` — `INSERT ... origin='bot_direct_reply'`
+  → IntegrityError. nodes/edges CHECK на origin НЕ имеют (100-122). **Смена CHECK = пересоздание
+  таблицы в SQLite = миграция** (прецедент Epic 46 T-360, идемпотентный скрипт + user_version).
+- **`created_at INTEGER NOT NULL` в graph_facts** (database.py:136) УЖЕ ЕСТЬ → `ORDER BY created_at ASC`
+  при сборке `<RAG_Memory>` возможен БЕЗ новой колонки; но FTS-запрос (`search_graph_facts_fts`,
+  database.py:712-720) возвращает `(id, fact, origin)` — без created_at; KNN (summary_memory.py:777-784)
+  возвращает `(fact_id, chat_id, origin, expires_at, distance)` — тоже без created_at. Расширение
+  SELECT'ов = только код (без миграции). `build_rag_context(facts)` (summary_memory.py:316) принимает
+  `[(origin, fact), ...]` — порядок следования фактов сохраняет порядок подачи → сортировка до вызова.
+- **`get_rag_context`** (732) используется summary-генератором; DirectChat будет использовать
+  `_search_graph_facts`/новый entrypoint для `<RAG_Memory>` с принудительной сортировкой по
+  created_at ASC (R50-6).
+- **Окно сообщений:** `get_window_messages(chat_id)` (database.py:481-488, ORDER BY timestamp DESC,
+  within generation window) — для `<Global_Context>` (последние CHAT_GLOBAL_CONTEXT_LIMIT) и
+  `<Conversation_Thread>` (рекурсия по `reply_to_id`, колонка есть в smart_messages).
+- **Промпты:** эталоны промптов в репо байт-в-байт тестируются (прецедент R11/R42-6/R50-4) — новый
+  канон `CHAT_SYSTEM_PROMPT` фиксируется дословно и тестируется слайсом/строкой.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R50-1** | **Архитектура и ограничения:** подсервис `DirectChat` внутри SmartModule. Бот НИКОГДА не инициирует диалог сам; отвечает ТОЛЬКО если пользователь сделал Reply на сообщение бота ЛИБО упомянул его юзернейм/тег. Все ответы — строго через механизм Reply на сообщение обращающегося пользователя. Идентификация при формировании контекста — через существующую систему алиасов (`AliasResolver`: Алиас → Никнейм → Юзернейм). |
+| **R50-2** | **Конфигурация .env (новые переменные):** `CHAT_GLOBAL_CONTEXT_LIMIT=100` (последние сообщения чата для фона); `CHAT_BURST_LIMIT=3` (обращений подряд до кулдауна); `CHAT_COOLDOWN_SECONDS=300` (блокировка после исчерпания); `CHAT_DIRECT_REPLY_TTL_DAYS=""` (TTL памяти прямых ответов; пусто = вечное хранение). В `config/settings.py` + `.env.example` + прод `.env` (@DevOps T-407). |
+| **R50-3** | **Context Partitioning:** системный промпт со строгими XML-тегами: `<RAG_Memory>` (факты из графовой БД по запросу, ОБЯЗАТЕЛЬНО по хронологии, см. R50-6); `<Global_Context>` (последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений чата); `<Conversation_Thread>` (рекурсивная цепочка реплаев: сообщение юзера → ответ бота → текущее сообщение); `<Target_User>` (имя/алиас обращающегося). |
+| **R50-4** | **CHAT_SYSTEM_PROMPT — КАНОН (дословно):** текст ниже, переносится в `services/chat_prompts.py` (или аналог по Section 58) байт-в-байт + тест-эталон (прецедент R11/R42-6). Запрещено любое ограничение по символам — только по структуре. |
+
+#### CHAT_SYSTEM_PROMPT (канон R50-4, VERBATIM — дословно, байт-в-байт)
+
+```
+CHAT_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+Ты — токсичный, саркастичный и циничный участник чата (бот-абьюзер). Ты отвечаешь на прямые обращения пользователя (<Target_User>).
+В блоке <Global_Context> находится фон беседы. В блоке <Conversation_Thread> — история вашего текущего диалога.
+
+ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ:
+1. Имитируй ленивую печать: только строчные буквы (включая начало предложений), без форматирования (никакого маркдауна).
+2. Пунктуация базовая, без сложных тире.
+3. Разрешен мат и сленг. Будь грубым, но по факту.
+
+ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. 
+Не объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
+```
+
+| # | Требование |
+|---|-----------|
+| **R50-5** | **Интеграция с Temporal GraphRAG:** ответы бота НЕ сливаются с флудом `chat_history` и не теряют хронологию. После успешной отправки ответа текст ответа и изначальный запрос асинхронно передаются в `memorize_facts()` (fire-and-forget, прецедент R46-5); `origin='bot_direct_reply'`; TTL: если `CHAT_DIRECT_REPLY_TTL_DAYS` пусто → `expires_at = NULL` (вечное), иначе `now + TTL*86400`; метаданные (критично): при записи в SQLite бэкенд ОБЯЗАТЕЛЬНО добавляет к извлечённому факту `target_user`, `chat_id` и точный `timestamp`. |
+| **R50-6** | **Сборка RAG-ответа (хронология):** узлы/факты при гибридном поиске ОБЯЗАТЕЛЬНО сортируются по `timestamp` (`ORDER BY timestamp ASC`) перед инъекцией в `<RAG_Memory>` — бот читает прошлые факты как таймлайн. (Существующая колонка `created_at` в `graph_facts` — кандидат на роль точного timestamp; вопрос миграции origin — открытый вопрос 2.) |
+| **R50-7** | **Троттлинг (Token Bucket):** у каждого пользователя `CHAT_BURST_LIMIT` «зарядов» (дефолт 3); обращение тратит 1 заряд; заряды восстанавливаются полностью через `CHAT_COOLDOWN_SECONDS` (300с) после последнего сообщения; если заряды кончились — бот отправляет фразу из пула кулдауна и игнорирует пользователя на время кулдауна. Хранение — на усмотрение Section 58 (кандидат: in-memory dict с TTL по образцу CooldownTracker). ПУЛ КУЛДАУНА (random.choice, дословно, `{remaining_time}` — подстановка): |
+|    | - `ты заебал спамить, я пошел курить на {remaining_time}` |
+|    | - `лимит тупых вопросов исчерпан, отдыхай {remaining_time}` |
+|    | - `дай передохнуть от твоей духоты, вернусь через {remaining_time}` |
+|    | - `рот оффни на {remaining_time}, я не нанимался с тобой болтать без остановки` |
+| **R50-8** | **ПУЛ ОШИБОК (Сбой LLM / API, random.choice, дословно):** |
+|    | - `мои мозги расплавились от твоего бреда` |
+|    | - `внутренняя ошибка базы, иди нахуй` |
+|    | - `я подавился токенами, попробуй позже` |
+| **R50-9** | **Тесты + ограничения:** тесты: триггеры (Reply на бота / упоминание), Token Bucket (лимит + кулдаун), каноны `CHAT_SYSTEM_PROMPT` + обоих пулов байт-в-байт (слайс-эталон, прецедент R11), context partitioning (теги XML и порядок секций), memorize-мок с метаданными (target_user/chat_id/timestamp), ORDER BY created_at ASC (хронология фактов в `<RAG_Memory>`). Полный pytest — **0 регрессий (база 2099)**; существующие каноны промптов (R11, R46-2/R46-4, R42-6) НЕ трогать; миграций БД БЫТЬ НЕ ДОЛЖНО по умолчанию — вопрос origin='bot_direct_reply' решается по открытому вопросу 2 (либо колонка/правило уже есть, либо идемпотентная миграция user_version по прецеденту Epic 46 T-360). |
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*, D188)
+
+| # | Решение |
+|---|---------|
+| **D188** | **Epic 50 — DirectChat (P1), target v2.36.0**, задачи **T-393+**. Каноны R50-4/R50-7/R50-8 — VERBATIM из ТЗ пользователя (дословно, догма). Частично зависит от Epic 51 (R51-2: порядок payload; R50-3 с учётом «статичное вверх») — допустимо параллельно; финальный порядок payload унифицируется в Epic 51/Epic 50 по Section 58-59. |
+| **D186** | Epic 48 — откат degraded (P0) — см. выше. |
+| **D187** | Epic 49 — чекап 400 (P0) — см. выше. |
+| **D189** | Epic 51 — Intelligent Caching (P1) — см. ниже. |
+
+### Открытые вопросы для @Architect (закрыть в Section 58)
+
+1. **Хранение Token Bucket:** in-memory dict с TTL по образцу `CooldownTracker` (smartmodule_throttling.py, сброс при рестарте принят) или что-то устойчивое? Кол-во зарядов per (chat_id, user_id)? Когда «восстановление полностью»: таймер с момента последнего сообщения или с момента исчерпания?
+2. **origin='bot_direct_reply' и миграция:** `graph_facts.origin` имеет CHECK (database.py:133-134) с фиксированным списком → `'bot_direct_reply'` НЕ пройдёт без пересоздания таблицы. Варианты: (а) идемпотентная миграция `user_version` с пересозданием `graph_facts` (прецедент Epic 46 T-360) и расширением CHECK + добавлением `target_user INTEGER`; (б) хранить под существующим origin + отдельная колонка `target_user` (ALTER TABLE ADD COLUMN — без пересоздания) + отдельный RAG-запрос с фильтром по chat_id/target_user; (в) вариант «без миграции» — хранить direct-reply факты как `chat_history` + колонка `target_user` (ALTER ADD COLUMN). ВАЖНО: точный timestamp ДЛЯ СБОРКИ `<RAG_Memory>` — `created_at` (database.py:136) уже есть → ORDER BY created_at ASC без новой колонки, но FTS/KNN SELECT'ы сейчас не возвращают created_at (расширить код). Проверить `PRAGMA user_version` прода на T-407-шаге.
+3. **Детект «упоминание юзернейма/тег»:** префикс `@` + вхождение username (без @, регистр?)? Считать ли `message.entities` (mention-entity) или только текст? Кириллические username'ы? Коллизии частичного совпадения (напр., `@al` в слове)?
+4. **Куда вешать хендлер:** message-хендлер с `reply_to_message` (проверка `reply_to_message.from_user.id == bot.id`) ЛИБО mention → DirectChat; порядок регистрации роутера (после 0g checkup, до summary?), исключения (не перехватывать команды `/...`, свои триггеры, административные пути); взаимодействие с кулдаунами других подсервисов (не конфликтовать).
+5. **Лимиты `<Global_Context>` в токенах:** 100 сообщений × средняя длина — брать сырой текст или сжимать/обрезать до потолка токенов (модель deepseek-v4-flash, окно по T-387)? Потолок символов Global_Context/Conversation_Thread перед сборкой payload.
+6. **Сигнатура memorize для direct-reply:** расширять `memorize_facts(chat_id, raw_text, source_type, target_user=None)` или отдельный метод `memorize_direct_reply(chat_id, query, answer, target_user)`? Как передать точный timestamp и сохранить его в БД (created_at автоматически ставится, но для R50-6 нужен консистентный ORDER).
+7. **Conversation_Thread:** глубина рекурсии реплаев по `reply_to_id` (лимит шагов, напр. 6?); включать ли сообщения бота между узлами цепочки; что делать при обрыве цепочки (нет reply_to_id у предка).
+8. **Вечное хранение vs фильтр в RAG:** `CHAT_DIRECT_REPLY_TTL_DAYS=""` → `expires_at=NULL` навсегда — риск роста БД; как фильтровать `origin='bot_direct_reply'` из RAG-контекста ДРУГИХ подсервисов (summary/factcheck/search) — НЕ подмешивать direct-reply флуд в общий `<RAG_Memory>`/`<bot_knowledge>` (фильтр по origin, прецедент build_rag_context).
+
+### Задачи
+
+### T-393 (@Architect) — Section 58: каноны VERBATIM + дизайн DirectChat (R50-1…R50-9, D188)
+
+**Приоритет:** P1. **Зависимости:** T-387 (окно модели — вопрос 5). **Оценка:** 1d.
+
+- [ ] T-393-A: `plans/ARCHITECTURE.md` Section 58: каноны VERBATIM (`CHAT_SYSTEM_PROMPT` R50-4, пул кулдауна R50-7, пул ошибок R50-8 — дословно из backlog), дизайн (триггеры Reply/упоминание, Token Bucket, context partitioning, хендлер, конфиг, GraphRAG origin='bot_direct_reply' + метаданные + ORDER BY созданный, TTL, фильтр от флуда других подсервисов), закрыть открытые вопросы 1–8, тест-план, риски
+- [ ] T-393-B: Self-review + PM-аппрув; T-394…T-399 → READY
+
+**DoD:** Section 58 в ARCHITECTURE.md; вопросы 1–8 закрыты; PM-аппрув.
+
+### T-394 (@Builder) — Конфиг DirectChat (R50-2, D188)
+
+**Приоритет:** P1. **Зависимости:** T-393. **Оценка:** 0.25d.
+
+- [ ] T-394-A: `config/settings.py` + `.env.example` + прод `.env` (T-407): `CHAT_GLOBAL_CONTEXT_LIMIT=100` / `CHAT_BURST_LIMIT=3` / `CHAT_COOLDOWN_SECONDS=300` / `CHAT_DIRECT_REPLY_TTL_DAYS=""` (пусто = вечное); валидация (TTL пусто/число)
+
+**DoD:** конфиг в settings + .env.example + прод .env (при деплое).
+
+### T-395 (@Builder) — Каноны фраз и промпта (R50-4/R50-7/R50-8, D188)
+
+**Приоритет:** P1. **Зависимости:** T-393. **Оценка:** 0.25d.
+
+- [ ] T-395-A: `services/chat_prompts.py` (или по Section 58): `CHAT_SYSTEM_PROMPT` байт-в-байт (R50-4); `CHAT_COOLDOWN_PHRASES` (4, R50-7) и `CHAT_ERROR_PHRASES` (3, R50-8) — в smartmodule_phrases.py + тест-канон (эталон-слайс из backlog, прецедент R11/R42-6)
+
+**DoD:** каноны в коде байт-в-байт + тест-эталоны.
+
+### T-396 (@Builder) — DirectChatService: token bucket + context partitioning (R50-1/R50-3/R50-7, D188)
+
+**Приоритет:** P1. **Зависимости:** T-394/T-395. **Оценка:** 0.75d.
+
+- [ ] T-396-A: Token Bucket (по Section 58, вопрос 1 — кандидат in-memory dict-TTL по образцу CooldownTracker); исчерпание → фраза кулдауна (R50-7, {remaining_time} через форматтеры smartmodule_throttling) + игнор
+- [ ] T-396-B: сборка секций: `<RAG_Memory>` (R50-6, ORDER BY timestamp/created_at ASC), `<Global_Context>` (CHAT_GLOBAL_CONTEXT_LIMIT, вопрос 5 — потолок), `<Conversation_Thread>` (рекурсия reply_to_id, вопрос 7), `<Target_User>` (AliasResolver: Алиас → Никнейм → Юзернейм, R50-1); escape_xml_text для всех секций
+- [ ] T-396-C: сборка payload по R51-2/порядку Section 58 (system → aliases → RAG → динамика); ответ → `_reply`/`send_chunked_reply` на сообщение обращающегося (механизм Reply); WARNING вместо ERROR на ожидаемых LLM-сбоях; пул ошибок R50-8 при сбое LLM
+
+**DoD:** сервис отвечает строго Reply-ом; контекст-партишн и троттлинг работают.
+
+### T-397 (@Builder) — Хендлер сообщений (R50-1, D188)
+
+**Приоритет:** P1. **Зависимости:** T-396. **Оценка:** 0.5d.
+
+- [ ] T-397-A: message-хендлер: Reply на сообщение бота (`reply_to_message.from_user.id == bot.id`, вопрос 4) ИЛИ упоминание юзернейма/тега (вопрос 3: @ + username, регистр/entities); исключения для команд/чужих триггеров; роутер по Section 58; wiring в bot.py
+- [ ] T-397-B: упоминание → `<Target_User>` через AliasResolver; юзер без алиаса — nickname/username по cascade
+
+**DoD:** DirectChat триггерится только на Reply-боту и упоминания; команды не перехватываются.
+
+### T-398 (@Builder) — Temporal GraphRAG: memorize origin='bot_direct_reply' + метаданные + ORDER BY (R50-5/R50-6, D188)
+
+**Приоритет:** P1. **Зависимости:** T-393 (вопрос 2 — миграция) / T-396. **Оценка:** 1d.
+
+- [ ] T-398-A: по Section 58: `memorize_facts`/новый метод (вопрос 6) с origin='bot_direct_reply'; TTL по `CHAT_DIRECT_REPLY_TTL_DAYS` (пусто → expires_at NULL); метаданные target_user/chat_id/точный timestamp (вопрос 2 — колонка или расширение; CREATE-схема по решению миграции)
+- [ ] T-398-B: сборка RAG-контекста DirectChat: гибридный поиск → ОБЯЗАТЕЛЬНО `ORDER BY created_at ASC` перед `<RAG_Memory>` (расширить SELECT FTS/KNN — только код, если колонка есть); фильтр origin='bot_direct_reply' НЕ подмешивается в другие подсервисы (build_rag_context/RAG summary, вопрос 8); fire-and-forget после успешной отправки ответа (текст ответа + изначальный запрос)
+
+**DoD:** direct-reply факты пишутся с метаданными и хронологией; в `chat_history`-флуд/чужие RAG не попадают.
+
+### T-399 (@Builder + @Reviewer) — Тесты DirectChat (R50-9, D188)
+
+**Приоритет:** P1. **Зависимости:** T-395…T-398. **Оценка:** 1d.
+
+- [ ] T-399-A (@Builder): тесты: триггеры (Reply на бота → ответ; упоминание @username; не-триггер → UNHANDLED), Token Bucket (лимит → кулдаун-фраза → игнор), каноны байт-в-байт (CHAT_SYSTEM_PROMPT/пул кулдауна/пул ошибок — слайс-эталон), context partitioning (теги и порядок), memorize-мок с метаданными (target_user/chat_id/timestamp), ORDER BY ASC (факты в таймлайн-порядке), миграция/схема (если добавление колонки/пересоздание — по Section 58 вопрос 2); полный pytest — 0 регрессий (база 2099)
+- [ ] T-399-B (@Reviewer): ревью + личный прогон; APPROVED; `git diff --check` чист; существующие каноны не тронуты
+
+**DoD:** APPROVED; 2099+ тестов passed.
+
+### T-400 (@Builder) — Доки (R50-*, D188)
+
+**Приоритет:** P1. **Зависимости:** T-399. **Оценка:** 0.25d.
+
+- [ ] T-400-A: README v2.36.0 (DirectChat: триггеры, конфиг, ограничения) + `plans/MEMORY.md` (Epic 50, v2.36.0) + `.env.example` (в T-394)
+
+**DoD:** доки синхронизированы.
+
+### Риски (Epic 50)
+
+1. **Случайно изменить тексты канонов R50-4/R50-7/R50-8** — каноны байт-в-байт из backlog + слайс-эталон-тест (прецедент R11).
+2. **Миграция для origin='bot_direct_reply'** — если CHECK block'ит: либо идемпотентный скрипт user_version (прецедент Epic 46 T-360, прод-деплой на остановленном боте), либо решение без пересоздания (ALTER ADD COLUMN target_user). Обязательный гейт в Section 58 (вопрос 2) с проверкой `PRAGMA user_version` прода.
+3. **DirectReply не перехватывает чужие команды** — хендлер только Reply-на-бота + mention; регулярки/исключения команд — тест на /summary и триггеры других подсервисов.
+4. **Рост БД при вечном TTL** — expires_at NULL допустим по ТЗ; риск митигируется фильтром origin в чужих RAG (вопрос 8) и опциональным лимитом (CHAT_DIRECT_REPLY_TTL_DAYS можно задать позже).
+5. **Токен-бакет + кулдаун не конфликтует с CooldownTracker других подсервисов** — отдельные ключи (chat_id, user_id), свои инстансы.
+6. **0 регрессий (база 2099)** — новые тесты в том же коммите; существующие каноны промптов (R11/R46-2/R46-4/R42-6) не трогать.
+
+### Файлы (планируемые)
+
+`services/chat_prompts.py` (новый), `services/direct_chat_service.py` (новый), `handlers/direct_chat.py` (новый), `services/summary_memory.py` (memorize + сборка RAG + ORDER BY), `services/summary_aliases.py` (использование), `services/smartmodule_throttling.py` (token bucket или аналог), `services/database.py` (+ колонка/CHECK по Section 58), `config/settings.py` + `.env.example`, `bot.py`; тесты `tests/test_direct_chat.py` + `tests/test_direct_chat_handlers.py` + обновление `tests/test_graphrag_memory.py`/`tests/test_smartmodule_phrases.py`; `plans/ARCHITECTURE.md` (Section 58), `README.md`, `plans/MEMORY.md`.
+
+**НЕ трогать:** существующие каноны промптов (R11 SYSTEM_PROMPT, R46-2 FACT_EXTRACT_PROMPT, R46-4 XML/инструкция, R42-6 CHECKUP_SYSTEM_PROMPT) и их байт-в-байт эталоны; UX R13/R42-5 тексты; пулы 5.1–5.7; ядро `chat_history`-memorize (origin и TTL логика существующих источников); механизм embed; миграций БД НЕТ по умолчанию (по Section 58, вопрос 2).
+
+---
+
+**Статус: Epic 50 — Шаг 1 (PM) ✅ (2026-08-20): DirectChat (P1) — каноны VERBATIM (R50-4 CHAT_SYSTEM_PROMPT, R50-7/R50-8 пулы), переменные R50-2, Context Partitioning (R50-3), Temporal GraphRAG (R50-5/R50-6: origin='bot_direct_reply', ORDER BY timestamp ASC, метаданные), Token Bucket (R50-7). Требования R50-1…R50-9, решение D188, задачи T-393…T-400, target v2.36.0, baseline 2099. Открытые вопросы 1–8 (@Architect, Section 58) — включая миграцию origin (CHECK graph_facts) и <RAG_Memory> хронологию. Epic 50 → In Progress (board.md). Передача @Architect (T-393, Section 58). Без @Orchestrator.**
+**Date: 2026-08-20**
+## Epic 51: Intelligent Caching (Token Optimization) — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, Шаг 1 @PM ✅, target v2.36.0, P1)
+
+> **Цель:** Система кэширования для всех подсервисов (FactCheck, SmartSearch, Web/YouTube
+> Summarizer, DirectChat) — радикальная экономия токенов БЕЗ обрезания контекста.
+> Уровень 1 — Exact Match Cache: локальный SQLite/Redis кэш на базе хэша MD5(
+> команда + нормализованный запрос/URL) → СГЕНЕРИРОВАННЫЙ ОТВЕТ БОТА, TTL 30 минут;
+> повторная ссылка за 30 мин → бот НЕ лезет в Trafilatura/Tavily и НЕ дергает LLM,
+> моментально отдаёт токсичный ответ из кэша. Уровень 2 — DeepSeek Prompt Caching
+> Optimization: нативное кэширование префикса (Prompt Cache) делает запросы в 5-10 раз
+> дешевле, если начало промпта совпадает; рефакторинг ВСЕХ генераторов промптов по правилу
+> «Статичное — вверх, Динамичное — вниз»: (1) System Prompt → НАЧАЛО; (2) User Resolution Map
+> (алиасы/имена чата) — редко меняется; (3) Bot Knowledge (RAG-выгрузка) — редко меняется;
+> (4) динамика (контекст чата/история/текст страницы) → КОНЕЦ.
+> **Исполнители:** @Architect (T-401, Section 59), @Builder (T-402…T-405), @Reviewer (T-404),
+> @DevOps (T-406/T-407 — релиз v2.36.0 общий с Epics 48/49/50). Без @Orchestrator.
+> **Target:** v2.36.0 (прод сейчас v2.35.1 `6d0cba0`). **Baseline:** 2099 тестов (0 регрессий).
+
+### Факты Шага 0 (что уже есть для интеграции — проверка кода исполнителем PM)
+
+- **Подсервисы (для врезки кэша):** FactCheck (`handlers/factcheck.py` + `services/factcheck_service.py`,
+  агрегатор `services/search_aggregator.py`), SmartSearch (`handlers/search.py` + `services/search_service.py`),
+  WebSummarizer (`services/web_summarizer_service.py` + `web_content_extractor.py`: Trafilatura → Tavily → Exa),
+  YouTubeSummarizer (`services/youtube_summarizer_service.py` + `youtube_transcript_engine.py`), DirectChat
+  (Epic 50). Кэш врезается ДО Trafilatura/Tavily/LLM (реализация — Section 59).
+- **Стороны токенов:** все сервисы идут через `llm_client.generate(messages)` (payload =
+  [{"role":"system","content":...},{"role":"user","content":...},...]). Промпты-каноны: summary R11,
+  factcheck 42.5.1/42.5.2, search (Epic 33), youtube/web (Epic 37), checkup R42-6, direct R50-4.
+- **`telegramRetryAfter`/пулы:** ответы из кэша должны идти через существующие механики
+  `_reply`/`send_chunked_reply` (reply на сообщение юзера), пулы кулдауна НЕ кэшируются.
+- **Prompt Caching формат:** apinet.cloud / DeepSeek кэширует префикс messages. Для совместимости
+  со ВСЕМИ промптами порядок payload унифицируется (R51-2). Продумать влияние `<Target_User>`
+  (R50 DirectChat) — он должен идти в динамическую часть, НЕ в статичный префикс.
+- **Текущий порядок в коде (после Epic 46):** summary `_compose_user_content` уже складывает
+  rag_context → graph → xml → l2 → l3 (статичное «System» в system-роли отдельно). Проверить на
+  регрессии эталонов (полная байт-в-байт замена контента user-сообщения — НЕЛЬЗЯ: каноны R46-4/XML
+  фиксированы; рефакторинг = порядок секций внутри user-сообщения И/ИЛИ вынос system/словарей в
+  отдельные messages — решение Section 59, строго без нарушения существующих эталонов).
+- **Хранилище:** существующая SQLite (`smart_archive_facts`/`graph_facts` — БД уже есть) или
+  in-memory dict/LRU — решение Section 59 (вопрос 2).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R51-1** | **Уровень 1 — Exact Match Cache:** локальный SQLite/Redis кэш на базе хэша для ресурсоёмких функций поиска и фактчека: ключ `MD5(команда + нормализованный_запрос_или_URL)`; значение — СГЕНЕРИРОВАННЫЙ ОТВЕТ БОТА; TTL 30 минут; если юзер кидает ту же ссылку за 30 минут — бот НЕ лезет в Trafilatura/Tavily и НЕ дергает LLM, а моментально отдаёт токсичный ответ из кэша (через существующий `_reply`/`send_chunked_reply`). То же для FactCheck/SmartSearch (запрос) и YouTube (URL). |
+| **R51-2** | **Уровень 2 — DeepSeek Prompt Caching (порядок payload):** нативное кэширование префикса (Prompt Cache) → запросы в 5-10 раз дешевле при совпадающем начале промпта. Рефакторинг ВСЕХ генераторов промптов по правилу «Статичное — вверх, Динамичное — вниз»; строгий порядок сборки payload для ВСЕХ LLM-вызовов: (1) System Prompt (одинаков для всех) → НАЧАЛО; (2) Список алиасов и имён чата (User Resolution Map) — меняется редко; (3) Выгрузка из RAG памяти (Bot Knowledge) — меняется редко; (4) Текущий контекст чата / история цепочки / текст веб-страницы — уникально → КОНЕЦ. Байт-в-байт эталоны существующих канонов НЕ ломать (рефакторинг секций без изменения текстов/тегов). |
+| **R51-3** | **Конфиг:** TTL кэша (30 мин), размер/политика (LRU?), хранилище SQLite/in-memory — по Section 59; параметры в `config/settings.py` + `.env.example`. `СACHE_ENABLED` на случай аварийного выключения. |
+| **R51-4** | **Тесты и деплой:** (а) юнит-тест Token Bucket (кулдаун после превышения CHAT_BURST_LIMIT — DirectChat, Epic 50); (б) тест Exact Match Cache (второй вызов с тем же URL НЕ вызывает API LLM — мок llm/tavily/trafilatura); (в) проверка сборки Payload (assert System Prompt всегда на нулевом индексе messages для ВСЕХ сервисов); (г) мок-тест memorize_facts с проверкой метаданных (timestamp, chat_id, user — DirectChat, Epic 50); (д) деплой через git pull и systemctl restart admin_bot. Полный pytest — **0 регрессий (база 2099)**. |
+| **R51-5** | **Ограничения:** каноны промптов (R11, R46-2/R46-4, R42-6, R50-4 — байт-в-байт) и их эталоны НЕ трогать (рефакторинг только порядок секций/сборки, без изменения самих текстов); UX-тексты R13/R42 не менять (кроме маппинга Эпика 49); пулы 5.1–5.7 не трогать; миграций БД НЕТ (кэш — опциональное новое хранилище, не БД миграция; вопрос origin Epic 50 решается отдельно). |
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*, D189)
+
+| # | Решение |
+|---|---------|
+| **D189** | **Epic 51 — Intelligent Caching (P1), target v2.36.0**, задачи **T-401+**. Два уровня: Exact Match Cache (R51-1) + Prompt Caching порядок payload (R51-2). Параллелен Epic 50 (DirectChat участвует в обоих: payload-порядок и Token Bucket). |
+| **D186** | Epic 48 — откат degraded (P0) — см. выше. |
+| **D187** | Epic 49 — чекап 400 (P0) — см. выше. |
+| **D188** | Epic 50 — DirectChat (P1) — см. выше. |
+
+### Открытые вопросы для @Architect (закрыть в Section 59)
+
+9. **Нормализация для MD5:** для URL — strip query (utm_*/ref и т.п.) или full URL? Для запроса — lower/strip/схлопывание пробелов/удаление эмодзи? Команда — slug (factcheck/search/youtube/web/direct)? Где хранить нормализацию (общий хелпер).
+10. **Хранилище Exact Match Cache:** SQLite (новая таблица `smart_cache(key TEXT PRIMARY KEY, answer TEXT, created_at INTEGER)` — это НЕ миграция существующих таблиц, но создание новой; против in-memory dict/LRU (сброс при рестарте). ТТЛ 30 мин — время жизни ключа или удаление по created_at ленивое (как expires_at в graph_facts)? Политика вытеснения (LRU-размер?).
+11. **Взаимодействие с пулами и reply:** кэш-хит возвращает СТАТИЧНЫЙ ответ (одинаковая токсичность) — по ТЗ это НОРМА (не варьировать); кулдаун/ошибки/фолбек-фразы НЕ кэшируются (только успешные генерации); reply_to_message_id при кэш-хите — reply на ТЕКУЩЕЕ сообщение юзера.
+12. **Prompt Cache совместимость:** кэширует ли apinet.cloud префикс автоматически (без параметра) и что именно (весь messages с system)? Размер статичного префикса (кэш ~совпадает с токенами выше первого изменения?); влияние `<Target_User>` (R50-4: он во ВРЕМЕННОЙ части, точно не в статике); max_tokens/др. параметры при кэше.
+13. **Без нарушения эталонов:** как выполнить R51-2 с сохранением байт-в-байт канонов — только порядок messages/sections? Что если эталон фиксирует порядок внутри user-сообщения (R46-4 XML `<user_gossip>`/`<bot_knowledge>`): можно ли добавлять новые секции/слои в user-сообщение (норма/нет).
+
+### Задачи
+
+### T-401 (@Architect) — Section 59: дизайн Intelligent Caching (R51-1…R51-5, D189)
+
+**Приоритет:** P1. **Зависимости:** T-393 (вопрос 12/13 — DirectChat/эталоны). **Оценка:** 1d.
+
+- [ ] T-401-A: `plans/ARCHITECTURE.md` Section 59: MD5-ключ/нормализация (вопрос 9), хранилище/TTL/LRU (вопрос 10), интеграция при кэш-хите с пулами/reply (вопрос 11), Prompt Cache-совместимость и порядок payload (вопрос 12), безупречность эталонов (вопрос 13), конфиг (R51-3), тест-план (R51-4), риски; закрыть открытые вопросы 9–13
+- [ ] T-401-B: Self-review + PM-аппрув; T-402…T-404 → READY
+
+**DoD:** Section 59 в ARCHITECTURE.md; вопросы 9–13 закрыты; PM-аппрув.
+
+### T-402 (@Builder) — Exact Match Cache (R51-1/R51-3, D189)
+
+**Приоритет:** P1. **Зависимости:** T-401. **Оценка:** 0.75d.
+
+- [ ] T-402-A: `services/smart_cache.py` (или по Section 59): MD5-ключ (команда + нормализованный запрос/URL), TTL 30 мин (ленивое истечение по created_at), LRU-политика при необходимости; конфиг `SMART_CACHE_ENABLED`/`SMART_CACHE_TTL_SECONDS`/размер в settings + .env.example
+- [ ] T-402-B: врезка в пайплайны ДО Trafilatura/Tavily/LLM: factcheck/search (запрос), youtube/web (URL); кэш-хит → `_reply`/`send_chunked_reply` на текущее сообщение юзера; пулы кулдауна/ошибок НЕ кэшируются; сигнатура хендлеров не ломается (дефолт-пустой кэш)
+
+**DoD:** повторная ссылка/запрос за 30 мин — мгновенный ответ без Trafilatura/Tavily/LLM.
+
+### T-403 (@Builder) — Prompt Caching: порядок payload (R51-2, D189)
+
+**Приоритет:** P1. **Зависимости:** T-401. **Оценка:** 1d.
+
+- [ ] T-403-A: унифицированный билдер payload `build_messages(system, user_resolution_map, bot_knowledge, dynamic)` для ВСЕХ подсервисов (summary/factcheck/search/youtube/web/checkup/direct): системный промпт на 0-м индексе; алиасы/имена чата; RAG-выгрузка; динамика в конце; эталоны-тесты на порядок; существующие каноны/теги/тексты НЕ меняются (Section 59, вопрос 13)
+- [ ] T-403-B: применить в каждом генераторе (проверить, что `<Target_User>` DirectChat — в динамической части, а не в статике)
+
+**DoD:** у ВСЕХ LLM-вызовов system на индексе 0; статичный префикс ≥ (system + user map + RAG); динамика — в конце.
+
+### T-404 (@Builder + @Reviewer) — Тесты кэширования (R51-4, D189)
+
+**Приоритет:** P1. **Зависимости:** T-402/T-403 (+ T-396 DirectChat для (а)/(г)). **Оценка:** 1d.
+
+- [ ] T-404-A (@Builder): тесты: (а) Token Bucket — кулдаун после превышения CHAT_BURST_LIMIT (DirectChat, Epic 50); (б) Exact Match Cache — второй вызов с тем же URL НЕ вызывает API LLM (мок) и НЕ лезет в Trafilatura/Tavily; (в) сборка payload — System Prompt всегда на нулевом индексе messages (для всех сервисов); (г) memorize_facts мок с проверкой метаданных (timestamp, chat_id, target_user — DirectChat); полный pytest — 0 регрессий (база 2099)
+- [ ] T-404-B (@Reviewer): ревью + личный прогон; APPROVED; `git diff --check` чист; каноны/эталоны не тронуты
+
+**DoD:** APPROVED; 2099+ тестов passed.
+
+### T-405 (@Builder) — Доки (R51-*, D189)
+
+**Приоритет:** P1. **Зависимости:** T-404. **Оценка:** 0.25d.
+
+- [ ] T-405-A: README v2.36.0 (Exact Match Cache + Prompt Caching: концепция, настройки, лимиты) + `plans/MEMORY.md` (Epic 51, v2.36.0) + `.env.example` (в T-402)
+
+**DoD:** доки синхронизированы.
+
+### Риски (Epic 51)
+
+1. **Кэш возвращает устаревший/токсичный константный ответ** — ТЗ это НОРМА (повтор за 30 мин); но прыжок в пулы/кулдаун не кэшируется — гарантия, что кэш не маскирует ошибки.
+2. **Рефакторинг payload ломает каноны/эталоны** — Section 59 (вопрос 13): менять только ПОРЯДОК, не тексты; тесты-эталоны слайсов остаются зелёными.
+3. **Prompt Cache не активен на apinet.cloud** — R51-2 всё равно выигрывает (чистое структурное улучшение); кэш-метрики/замер (опционально) подтвердят экономию.
+4. **MD5-коллизии/неверная нормализация** — нормализация строго по Section 59 (вопрос 9); ключ включает команду → разные подсервисы не пересекаются.
+5. **Кэш молчит на ошибках** — только успешные генерации кэшируются; LLM-фейл → пул ошибок, кэш не тронут.
+6. **0 регрессий (база 2099)** — новые тесты в том же коммите; миграций БД нет (новая кэш-таблица — опция создания, не изменение существующих).
+
+### Файлы (планируемые)
+
+`services/smart_cache.py` (новый), `services/direct_chat_service.py` (Token Bucket — Epic 50), `services/factcheck_service.py`, `services/search_service.py`, `services/web_summarizer_service.py`, `services/youtube_summarizer_service.py`, `services/checkup_service.py`, `services/summary_generator.py` (payload-билдер), `config/settings.py` + `.env.example`; тесты `tests/test_smart_cache.py`, `tests/test_payload_builder.py`, обновление `tests/test_*.py` затронутых сервисов; `plans/ARCHITECTURE.md` (Section 59), `README.md`, `plans/MEMORY.md`.
+
+**НЕ трогать:** каноны промптов (R11, R46-2/R46-4, R42-6, R50-4) и их байт-в-байт эталоны (только порядок секций/сборки, тексты и теги неизменны); UX R13/R42-5 (кроме маппинга Эпика 49); пулы 5.1–5.7; миграций БД — НЕТ (кэш — новое хранилище по Section 59).
+
+---
+
+**Статус: Epic 51 — Шаг 1 (PM) ✅ (2026-08-20): Intelligent Caching (P1) — Exact Match Cache (R51-1: MD5+TTL 30м, без Trafilatura/Tavily/LLM) + Prompt Caching (R51-2: System → User Resolution Map → Bot Knowledge → динамика; system всегда на индексе 0). Требования R51-1…R51-5, решение D189, задачи T-401…T-405, target v2.36.0, baseline 2099. Открытые вопросы 9–13 (@Architect, Section 59). Epic 51 → In Progress (board.md). Передача @Architect (T-401, Section 59). Без @Orchestrator.**
+**Date: 2026-08-20**

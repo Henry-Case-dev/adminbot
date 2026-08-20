@@ -2,7 +2,7 @@
 
 *Решение для тех, кто хочет токсичности в чате, но ленится писать сам. Теперь с памятью слона и терпением снайпера.*
 
-**Версия:** v2.35.0 | **Тестов:** 2069 | **Эпиков:** 46 (T-001…T-368)
+**Версия:** v2.36.0 | **Тестов:** 2205 | **Эпиков:** 51 (T-001…T-407)
 
 ---
 
@@ -1042,6 +1042,57 @@ py -m pytest tests/ -v --cov=. --cov-report=term-missing
 **Тесты: 1981 → 2069 (+88, −0)**: SQL-fetcher (Basic/POST/JSONEachRow/потолки/фолбеки), миграции (origin/expires_at/CHECK/user_version/busy_timeout), Fact Extractor (канон R46-2 байт-в-байт, кривой JSON, embed-фейл → текст), хуки fire-and-forget, RAG-сборка (канон R46-4, префиксы, escape, TTL), промпт-эталоны 55.7.1–55.7.5, фиксы диагностики (ретраи/реактивация/backfill).
 
 **Файлы:** `services/system_logs_fetcher.py`, `services/summary_memory.py`, `services/database.py`, `scripts/migrate_graphrag_v2.py` (новый), 4 сервиса-хуков, `services/summary_generator.py`, 5 промпт-файлов, `config/settings.py`, `.env.example`, `plans/FACTCHECK_AUDIT.md` (новый), хендлеры search/factcheck/youtube/web, `bot.py`.
+
+---
+
+## ✨ Новое в v2.36.0 (Epic 48–51)
+
+### Summary: «LLM или ничего» (Epic 48) — degraded-саммари отменён
+
+Деградированный саммари «выжимка без нейронки» удалён полностью по требованию пользователя. Финальная цепочка: **retry-once** (пауза `SUMMARY_RETRY_ONCE_PAUSE`, 5с) → второй `LLMError` → честное **«не смог сделать саммари потому что упал апи»**. Настройки `SUMMARY_DEGRADED_ENABLED`/`SUMMARY_DEGRADED_COUNT` выпилены из конфига и `.env.example`.
+
+### Checkup: разбор инцидента 400 (Epic 49)
+
+- **Диагностика:** при финальном 4xx (400/404/422 и пр.) в логи уходит ERROR-строка с длиной payload и телом ответа провайдера (≤500 симв., без секретов R17): `LLM HTTP %d | url | request_len | content_chars | num_messages | body_4xx`.
+- **Фикс первопричины:** raw-логи проходят scrub управляющих C0-символов (кроме `\n`/`\t` — каждый становится пробелом) и урезаются до `CHECKUP_MAX_INPUT_SYMBOLS=12000` символов (мин 1000). Кириллица не затрагивается.
+- **UX-сплит:** пул `CHECKUP_LLM_ERROR_PHRASES` стал чистым LLM-пулом из 4 фраз — «база подавилась логами» архивирована: при падении нейронки фразы про базу больше нет (DoD T-390). Логи `[checkup] LLM failed`/`all log sources failed` — WARNING без traceback.
+
+### DirectChat: бот вливается в разговор (Epic 50) 🆕
+
+Бот отвечает на **прямые обращения** — и только на них (реактивный режим, сам бот никогда не инициирует):
+
+- **Триггеры:** reply на сообщение бота, упоминание `@username` (entities + fallback-текст, регистронезависимо). Команды `/…` не перехватываются.
+- **Token Bucket:** 3 обращения подряд (`CHAT_BURST_LIMIT`), дальше — кулдаун-фраза с реальным оставшимся временем; полное восстановление зарядов через `CHAT_COOLDOWN_SECONDS=300`.
+- **Контекст-партишн:** `<RAG_Memory>` (факты DirectChat-диалогов в хронологии), `<Global_Context>` (последние 100 сообщений, ≤4000 симв.), `<Conversation_Thread>` (reply-цепочка глубиной 6, ≤2000 симв.), `<Target_User>` (алиас → имя → юзернейм).
+- **Память:** диалоги запоминаются с `origin='bot_direct_reply'` и меткой `target_user`; TTL — `CHAT_DIRECT_REPLY_TTL_DAYS` (пусто = вечное хранение). В чужие пайплайны (summary/фактчек/поиск) direct-флуд НЕ подмешивается.
+- **Миграция БД** `user_version` 1→2 (CHECK `graph_facts` + `bot_direct_reply`, колонки `target_user`/`tg_message_id`): идемпотентный скрипт `scripts/migrate_direct_chat_v2.py`, запуск на остановленном боте.
+
+### SmartCache: повторная ссылка — мгновенный ответ (Epic 51) 🆕
+
+- **Exact Match Cache:** хэш `MD5(команда + нормализованный ввод)` → СГЕНЕРИРОВАННЫЙ ответ бота в SQLite (таблица `smart_cache`). Повторная ссылка/запрос за 30 минут (`SMART_CACHE_TTL_SECONDS=1800`) → бот НЕ лезет в Trafilatura/Tavily и НЕ дёргает LLM — моментально отдаёт токсичный ответ из кэша реплаем на текущее сообщение. Лимит 1000 строк (`SMART_CACHE_MAX_ROWS`) с ленивой очисткой старейших. Кэшируются только успешные генерации — пулы кулдауна/ошибок в кэш не попадают.
+- **Нормализация URL:** strip `utm_*`/`fbclid`/`gclid`, trailing `/`, регистр хоста, фрагменты. Запрос — lower/strip/схлопывание пробелов.
+- **Аварийный рубильник:** `SMART_CACHE_ENABLED=False` по умолчанию — кэш спит, ничего не создаёт. Включение — осознанное решение на проде (деплой T-407).
+- **Prompt Caching:** порядок payload «system → алиасы → RAG → динамика» (system всегда на индексе 0) — унифицирован через `build_messages` для DirectChat; существующие генераторы уже соблюдают порядок (guard-тест), тексты канонов не переписывались.
+
+### Новые переменные `.env`
+
+| Переменная | По умолчанию | Что делает |
+|-----------|-------------|-----------|
+| `CHECKUP_MAX_INPUT_SYMBOLS` | `12000` | Потолок user-входа чекапа после scrub C0 (мин 1000) |
+| `CHAT_GLOBAL_CONTEXT_LIMIT` | `100` | Сообщений фона DirectChat `<Global_Context>` |
+| `CHAT_BURST_LIMIT` | `3` | Обращений DirectChat подряд до кулдауна |
+| `CHAT_COOLDOWN_SECONDS` | `300` | Восстановление зарядов Token Bucket |
+| `CHAT_DIRECT_REPLY_TTL_DAYS` | *(пусто)* | TTL памяти direct-диалогов; пусто = вечно |
+| `CHAT_GLOBAL_CONTEXT_MAX_CHARS` | `4000` | Потолок `<Global_Context>` |
+| `CHAT_THREAD_MAX_DEPTH` | `6` | Глубина reply-цепочки |
+| `CHAT_THREAD_MAX_CHARS` | `2000` | Потолок `<Conversation_Thread>` |
+| `SMART_CACHE_ENABLED` | `False` | Рубильник Exact Match Cache |
+| `SMART_CACHE_TTL_SECONDS` | `1800` | Время жизни кэш-строк (30 мин) |
+| `SMART_CACHE_MAX_ROWS` | `1000` | Потолок строк таблицы кэша |
+
+**Тесты: 2069 → 2192 (+123, −3)**: откат degraded (retry×2 → UX R13), 4xx-диаг-лог (тело ≤500, 401 без body-лога), scrub C0/обрезка чекапа, WARNING-уровни, UX-сплит, каноны DirectChat VERBATIM (промпт + пулы), token bucket, контекст-партишн, memorize-метаданные, миграция 1→2 + smoke-скрипт, SmartCache (нормализация/ключи/hit-miss/очистка/no-op-файла), кэш-хиты в хендлерах (LLM не вызывается), guard system@0 для 10 генераторов.
+
+**Файлы:** `services/direct_chat_service.py`, `services/chat_prompts.py`, `services/smart_cache.py`, `services/payload_builder.py`, `handlers/direct_chat.py`, `scripts/migrate_direct_chat_v2.py` (новые), `services/summary_generator.py`, `services/checkup_service.py`, `services/llm_client.py`, `services/smartmodule_phrases.py`, `services/database.py`, `services/summary_memory.py`, `services/smartmodule_utils.py`, `handlers/checkup.py`, `handlers/factcheck.py`, `handlers/search.py`, `handlers/youtube.py`, `handlers/web.py`, `handlers/summary.py`, `config/settings.py`, `.env.example`, `bot.py`.
 
 ---
 

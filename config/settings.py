@@ -102,6 +102,21 @@ def _env_int_min(key: str, default: int, min_value: int) -> int:
     return val
 
 
+def _env_int_optional(key: str, default: int | None) -> int | None:
+    """Int из env; пустая строка/отсутствие → default (None); кривой формат →
+    WARNING + default (58.3)."""
+    raw = os.getenv(key)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logging.getLogger(__name__).warning(
+            f"Invalid int for {key}='{raw}', using default {default} (58.3)"
+        )
+        return default
+
+
 def _env_float_min(key: str, default: float, min_value: float) -> float:
     """Float из env; кривой формат или значение < min_value → WARNING + default (D104)."""
     raw = os.getenv(key, str(default))
@@ -286,9 +301,6 @@ class Settings:
     GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF: float = _env_float_min("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", 2.0, 0.0)
     # ── SummaryGenerator (Epic 47, Section 56.6) ──
     SUMMARY_RETRY_ONCE_PAUSE: float = _env_float_min("SUMMARY_RETRY_ONCE_PAUSE", 5.0, 0.0)
-    SUMMARY_DEGRADED_ENABLED: bool = _env_bool("SUMMARY_DEGRADED_ENABLED", True)
-    # Фрагментов в деградированном саммари (строк) × 200 символов (56.6).
-    SUMMARY_DEGRADED_COUNT: int = _env_int_min("SUMMARY_DEGRADED_COUNT", 15, 1)
     # Feature switch: False = routers not registered, бот работает как раньше.
     SUMMARY_ENABLED: bool = _env_bool("SUMMARY_ENABLED", True)
     # L1: окно генерации (часы).
@@ -376,6 +388,9 @@ class Settings:
     CHECKUP_COOLDOWN_SECONDS: float = _env_float_min("CHECKUP_COOLDOWN_SECONDS", 300.0, 0.0)
     # Лимит ОТВЕТА LLM, символы; <100 → дефолт 3000 (WARNING).
     CHECKUP_MAX_SYMBOLS: int = _env_int_min("CHECKUP_MAX_SYMBOLS", 3000, 100)
+    # ── Checkup 400 (Epic 49, Section 57.5) ──
+    # Потолок user-входа (<system_logs>) в символах после scrub C0; <1000 → 12000 (WARNING).
+    CHECKUP_MAX_INPUT_SYMBOLS: int = _env_int_min("CHECKUP_MAX_INPUT_SYMBOLS", 12000, 1000)
     # ── SmartModule: Checkup Betterstack SQL API (Epic 45, D172/D173) ──
     # ClickHouse HTTP-коннекшн (R45-1): POST SQL-тела, Basic auth,
     # FORMAT JSONEachRow (в тексте SQL). Пустые USER/PASSWORD ИЛИ пустой
@@ -399,6 +414,31 @@ class Settings:
     INFO_COOLDOWN_SECONDS: float = _env_float_min("INFO_COOLDOWN_SECONDS", 300.0, 0.0)
     # Путь к справке: CWD-относительный или абсолютный; UTF-8 (52.1 #2)
     INFO_TEXT_FILE: str = _env_str("INFO_TEXT_FILE", "info_text.md")
+
+    # ── DirectChat (Epic 50, Section 58) ───────────────────────
+    # Последние сообщений чата для фона <Global_Context> (58.6).
+    CHAT_GLOBAL_CONTEXT_LIMIT: int = _env_int("CHAT_GLOBAL_CONTEXT_LIMIT", 100)
+    # Token Bucket: обращений подряд до кулдауна; <1 → дефолт 3 (WARNING).
+    CHAT_BURST_LIMIT: int = _env_int_min("CHAT_BURST_LIMIT", 3, 1)
+    # Полное восстановление зарядов после последнего допущенного обращения, сек.
+    CHAT_COOLDOWN_SECONDS: float = _env_float_min("CHAT_COOLDOWN_SECONDS", 300.0, 0.0)
+    # TTL памяти bot_direct_reply-фактов, дней; пусто/0 = expires_at NULL (вечное).
+    CHAT_DIRECT_REPLY_TTL_DAYS: int | None = _env_int_optional("CHAT_DIRECT_REPLY_TTL_DAYS", None)
+    # Потолок символов <Global_Context>; <500 → дефолт 4000 (WARNING).
+    CHAT_GLOBAL_CONTEXT_MAX_CHARS: int = _env_int_min("CHAT_GLOBAL_CONTEXT_MAX_CHARS", 4000, 500)
+    # Глубина рекурсии <Conversation_Thread> (reply-цепочка); <1 → дефолт 6.
+    CHAT_THREAD_MAX_DEPTH: int = _env_int_min("CHAT_THREAD_MAX_DEPTH", 6, 1)
+    # Потолок символов <Conversation_Thread>; <500 → дефолт 2000 (WARNING).
+    CHAT_THREAD_MAX_CHARS: int = _env_int_min("CHAT_THREAD_MAX_CHARS", 2000, 500)
+
+    # ── Smart Cache (Epic 51, Section 59.2) ────────────────────
+    # Аварийный рубильник Exact Match Cache. По умолчанию ВЫКЛЮЧЕН (mandate D212):
+    # включается явно в прод-.env при деплое (T-407).
+    SMART_CACHE_ENABLED: bool = _env_bool("SMART_CACHE_ENABLED", False)
+    # TTL кэш-строк, сек; <60 → дефолт 1800 (WARNING).
+    SMART_CACHE_TTL_SECONDS: int = _env_int_min("SMART_CACHE_TTL_SECONDS", 1800, 60)
+    # Потолок строк таблицы smart_cache; <100 → дефолт 1000 (WARNING).
+    SMART_CACHE_MAX_ROWS: int = _env_int_min("SMART_CACHE_MAX_ROWS", 1000, 100)
 
 
 settings = Settings()

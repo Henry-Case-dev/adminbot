@@ -1,8 +1,7 @@
 """Tests for services/summary_generator.py (T-186, Section 33.7)."""
 import logging
 import sqlite3
-from dataclasses import replace
-from unittest.mock import AsyncMock, MagicMock, patch as mock_patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiogram.exceptions import TelegramRetryAfter
@@ -145,17 +144,21 @@ class TestPipeline:
         bot.send_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_llm_error_retry_then_degraded(self, no_sleep):
+    async def test_llm_error_retry_then_ux_r13(self, no_sleep, caplog):
+        """Epic 48 (57.2, D194): retry-once → 2-й LLMError → raise → UX R13
+        («не смог сделать саммари потому что упал апи» байт-в-байт)."""
         memory = FakeMemory(rows=[_row()])
         llm = RetryLLM(fail_times=99)
         bot = AsyncMock()
         generator = _make_generator(memory, llm, bot)
-        await generator.generate_and_send(-100)
-        bot.send_message.assert_called_once()
-        sent = bot.send_message.call_args.args[1]
-        assert "выжимка без нейронки:" in sent
-        assert "вася: какое-то сообщение" in sent
-        assert "самым главным шизом объявляется" in sent
+        with caplog.at_level(logging.WARNING):
+            await generator.generate_and_send(-100)
+        bot.send_message.assert_called_once_with(
+            -100, "не смог сделать саммари потому что упал апи"
+        )
+        assert any("summary: LLM failed | chat_id=-100" in r.message
+                   for r in caplog.records)
+        no_sleep.assert_awaited_once_with(settings.SUMMARY_RETRY_ONCE_PAUSE)
 
     @pytest.mark.asyncio
     async def test_llm_error_retry_once_pause(self, no_sleep, caplog):
@@ -173,45 +176,6 @@ class TestPipeline:
         assert "самым главным шизом объявляется" in sent
         assert any("summary: LLM failed — retry-once" in r.message
                    for r in caplog.records)
-        assert not any("degraded summary" in r.message for r in caplog.records)
-
-    @pytest.mark.asyncio
-    async def test_llm_error_degraded_disabled_ux_phrase(self, no_sleep, caplog):
-        memory = FakeMemory(rows=[_row()])
-        llm = RetryLLM(fail_times=99)
-        bot = AsyncMock()
-        generator = _make_generator(memory, llm, bot)
-        mod = replace(settings, SUMMARY_DEGRADED_ENABLED=False)
-        with mock_patch("services.summary_generator.settings", mod):
-            with caplog.at_level(logging.WARNING):
-                await generator.generate_and_send(-100)
-        bot.send_message.assert_called_once_with(
-            -100, "не смог сделать саммари потому что упал апи"
-        )
-        assert any("summary: LLM failed | chat_id=-100" in r.message
-                   for r in caplog.records)
-
-    @pytest.mark.asyncio
-    async def test_degraded_summary_limits(self):
-        rows = [_row(id=i, text=f"фрагмент номер {i} " * 50) for i in range(20)]
-        bot = AsyncMock()
-        generator = _make_generator(FakeMemory(rows=rows), FakeLLM(), bot)
-        text = generator._degraded_summary(rows)
-        lines = text.splitlines()
-        assert "выжимка без нейронки:" in lines[0]
-        frags = [l for l in lines[1:-1] if l]
-        assert len(frags) <= 15  # SUMMARY_DEGRADED_COUNT
-        assert all(len(l) <= 200 for l in frags)
-        assert "самым главным шизом объявляется" in text
-        assert "фрагмент номер 0" in text
-
-    @pytest.mark.asyncio
-    async def test_degraded_summary_empty_rows(self):
-        bot = AsyncMock()
-        generator = _make_generator(FakeMemory(rows=[]), FakeLLM(), bot)
-        text = generator._degraded_summary([])
-        assert text.startswith("выжимка без нейронки:\nникто ничего не написал")
-        assert "самым главным шизом объявляется" in text
 
     @pytest.mark.asyncio
     async def test_db_error_ux_phrase(self, no_sleep):

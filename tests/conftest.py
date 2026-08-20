@@ -23,6 +23,7 @@ def make_message():
         msg.caption = None
         msg.forward_origin = None  # ordinary message, not a forward (MagicMock-safe)
         msg.media_group_id = None  # Epic 36: not an album by default (MagicMock-safe)
+        msg.message_id = 12345     # Epic 50: observer сохраняет tg_message_id
         msg.chat = MagicMock()
         msg.chat.id = chat_id
         msg.from_user = MagicMock()

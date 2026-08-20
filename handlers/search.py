@@ -19,6 +19,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from services.llm_client import LLMError
 from services.search_aggregator import AllSearchEnginesFailedException
+from services.smart_cache import get_smart_cache
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     SEARCH_EMPTY_QUERY_PHRASES,
@@ -80,9 +81,19 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, random.choice(SEARCH_EMPTY_QUERY_PHRASES),
                      message.message_id)
         return
+    # Epic 51 (59.2, D210): Exact Match Cache — ДО поиска/LLM. Хит → reply
+    # на ТЕКУЩЕЕ сообщение, БЕЗ вызовов поисковиков.
+    cache = get_smart_cache()
+    cache_key = cache.build_key("search", query)
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        await _reply(bot, message.chat.id, cached, message.message_id)
+        logger.info("[smartsearch] cache hit | chat=%s", message.chat.id)
+        return
     try:
         summary = await _service.research(query, chat_id=message.chat.id)
         await send_chunked_reply(bot, message.chat.id, summary, message.message_id)
+        await cache.set(cache_key, summary)    # только успешная генерация (59.2)
         logger.info("[smartsearch] summary sent | chat=%s", message.chat.id)
     except AllSearchEnginesFailedException:
         logger.exception("[smartsearch] search failed | chat=%s", message.chat.id)

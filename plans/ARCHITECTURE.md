@@ -12163,7 +12163,13 @@ async def _extract_facts(self, tail: str):
 
 ### 56.6 `services/summary_generator.py` — summary: retry-once → деградированный саммари → UX R13 (R47-4, D189)
 
-**Цепочка в `_run`; заменяет текущий `raw = await self.llm.generate(...)` (строки 124-129), канонический `SYSTEM_PROMPT`/`user_content` НЕ меняются:**
+> **⚠ CANCELLED (Epic 48, 2026-08-20, D193):** деградированный саммари ОТМЕНЁН пользователем —
+> «Summary: LLM ИЛИ ничего» (R48-1). В v2.36.0 ветка B удаляется; эталоном реализации
+> является Section 57.2 (retry-once → raise → UX R13). Текст ниже сохранён как ИСТОРИЯ
+> архитектуры Epic 47 (56.2 D189 зафиксирован на момент релиза v2.35.1) и для контекста
+> возможного резерва; НЕ применять при реализации.
+
+**Историческая запись Epic 47 (реализовано и выпущено в v2.35.1). Цепочка в `_run`; заменяет текущий `raw = await self.llm.generate(...)` (строки 124-129), канонический `SYSTEM_PROMPT`/`user_content` НЕ меняются:**
 1. **A — retry-once.** Первый `LLMError` от `self.llm.generate` (саммари) → `logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)` → `await asyncio.sleep(settings.SUMMARY_RETRY_ONCE_PAUSE)` (default **5.0с**) → повторная генерация с ТЕМ ЖЕ payload. Ретраится ТОЛЬКО `LLMError`; sqlite/unexpected — не ретраятся.
 2. **B — деградированный саммари** при повторном `LLMError` И `SUMMARY_DEGRADED_ENABLED=True`: `logger.warning("summary: LLM failed after retry-once — degraded summary | chat_id=%s | error=%s", chat_id, exc)` → `await self._send_chunked(chat_id, self._degraded_summary(rows))` → `return`. Отправляется и manual, и cron (лучше UX).
 3. **C — честная UX-фраза R13** (финальный fallback): если деградированный выключен → `raise` → ловится внешним `except LLMError: logger.warning("summary: LLM failed | chat_id=%s | error=%s", chat_id, exc)` + `await self._send_ux(chat_id, _UX_LLM_FAILED)` («не смог сделать саммари потому что упал апи», текст НЕ менять).
@@ -12329,3 +12335,533 @@ LLM_TIMEOUT=30.0
 **Доки после кода:** README v2.35.1 + `plans/MEMORY.md` (T-378). Коммит/деплой без миграций — T-379/T-380.
 
 @Architect Epic 47 architecture ready (Section 56: LLM-ретраи — все транзиентные (httpx.TransportError + 408/425/429/5xx), backoff `min(BASE*2**a,CAP)+U(0,JITTER)` BASE=1.0/CAP=8.0/JITTER=2.0, Retry-After приоритетнее backoff (сон=min(header,CAP) для 429/5xx), LLM_TOTAL_BUDGET=60с жёстким `asyncio.timeout`, LLM_TIMEOUT 60→30, LLM_MAX_RETRIES=2 (3 попытки), единственный владелец ретраев — `_post`, итоговые классы LLM*Error сохранены (тексты «after N attempts»); memorize — LLMError→WARNING без traceback, bounded-повтор экстракции 2× (backoff 2.0/4.0), per-fact сохранение с WARNING+continue, deferred-очередь НЕ вводим (дубли graph_facts); summary — retry-once (пауза 5с) → деградированный саммари «выжимка без нейронки:» (15 строк × 200 симв.) → UX R13 (тексты не менять); логи — ERROR только неожиданное, WARNING-формат `… | error=%s` без traceback (фактчек/search/youtube/web/memorize/fire_and_forget), checkup.py:9716 НЕ трогаем; конфиг D191 (10 новых/изменённых переменных с _env_float_min/_env_int_min); тест-план D192 (30 кейсов, 4 изменяемых; база 2070, 0 регрессий); v2.35.1 без миграций.)
+
+---
+
+## Section 57: Epic 48 — откат degraded (Summary: LLM или ничего) + Epic 49 — Чекап 400: диагностика/фикс/UX-сплит (v2.36.0, P0)
+
+> Статус: `осталось от Epic 47` = retry-once (R48-2) и UX R13 (R48-5) — ПЕРЕИСПОЛЬЗУЮТСЯ как есть;
+> `новое (Epic 48)` = полное удаление degraded-ветки B; `новое (Epic 49)` = диагностика 4xx,
+> фикс первопричины 400, WARNING-уровни checkup, разделение UX-пулов. Целевая база тестов: 2099.
+
+### 57.1 Контекст и закрытие открытых вопросов (R48-1…R48-6, R49-1…R49-5, D193–D199)
+
+**Контекст:** (а) Epic 48 — degraded-саммари отменён пользователем («LLM или ничего»), ветка B
+(summary_generator.py:142-148), `_degraded_summary` (168-183), константы (41-42), настройки
+`SUMMARY_DEGRADED_*` удаляются; прод `.env` уже без них (проверено PM). (б) Epic 49 — прод-инцидент
+2026-08-20T09:33:58 UTC: `LLM HTTP 400` из `checkup_service.py:31` (два стабильных вызова подряд),
+юзер получил «база подавилась логами» (ложный след: упал LLM, а не БД). Политика 4xx Epic 47
+(мгновенный `LLMError`) — НЕ меняется (400 не транзиентный).
+
+**Закрытие открытых вопросов PM:**
+
+| # | Вопрос | Решение |
+|---|---------|---------|
+| 1 (48) | 56.6: пометка vs удаление degraded | **57.2 (D193)**: 56.6 помечен ⚠ CANCELLED (история сохранена, ссылка на 57.2) |
+| 2 (48) | судьба `test_llm_error_degraded_disabled_ux_phrase` | **57.8 (D194)**: удаляется; отдельный кейс «retry-once успех» НЕ нужен (покрыт `test_llm_error_retry_once_pause`) |
+| 1 (49) | реальное окно deepseek-v4-flash у apinet.cloud | **57.3 (D195)** |
+| 2 (49) | фактическая длина user-сообщения чекапа | **57.3 (D195)**: fetcher INFO (`chars=N`) + диагн-лог 57.4 |
+| 3 (49) | стратегия фикса (R49-3) | **57.5 (D196)**: scrub C0 + потолок `CHECKUP_MAX_INPUT_SYMBOLS` |
+| 4 (49) | уровень/формат 4xx-лога | **57.4 (D197)** |
+| 5 (49) | маппинг UX-пулов (R49-4б) | **57.6 (D198)** |
+| 6 (49) | `checkup.py:68` (DEAD) + эскалация | **57.6/57.4 (D199)** |
+
+### 57.2 Epic 48 — финальная цепочка `_run`: retry-once → raise → UX R13 (R48-1…R48-6, D193/D194)
+
+**Финал реализации (взамен 56.6, эталон — ТОЛЬКО это):**
+1. **A — retry-once** (БЕЗ изменений, R48-2): первый `LLMError` → WARNING `summary: LLM failed — retry-once | chat_id=%s` → `asyncio.sleep(SUMMARY_RETRY_ONCE_PAUSE)` → повторная генерация с тем же payload. Ретраится только `LLMError`; sqlite/unexpected — нет.
+2. **B — УДАЛЕНО** (ограничение: degraded-ветка 142-148, `_degraded_summary` 168-183, `_DEGRADED_HEADER`/`_DEGRADED_LINE_CHARS` 41-42). После второго `LLMError` — `raise` (как в старой ветке «C»).
+3. **C — UX R13** (БЕЗ изменений, R48-5): внешний `except LLMError: logger.warning("summary: LLM failed | chat_id=%s | error=%s", ...)` → `_send_ux(chat_id, _UX_LLM_FAILED)` («не смог сделать саммари потому что упал апи» — байт-в-байт). `_SQLITE_ERRORS`/`except Exception` и `_UX_DB_FAILED`/`_UX_GENERIC_FAILED` — без изменений.
+
+**Настройки (R48-3):** удалить `SUMMARY_DEGRADED_ENABLED` (settings.py:289) и `SUMMARY_DEGRADED_COUNT` (291); `.env.example` строки 155-156 удалить; строка 154 (`# SUMMARY_RETRY_ONCE_PAUSE=5.0`) остаётся; прод `.env` НЕ трогать. `MAX_SUMMARY_PARTS`/system-подстановка `{max_symbols}` — без изменений.
+
+**Тесты (R48-4, D194):**
+- `test_llm_error_retry_then_degraded` (148-158) → переписать в `test_llm_error_retry_then_ux_r13`: `RetryLLM(fail_times=99)` → `bot.send_message.assert_called_once_with(-100, "не смог сделать саммари потому что упал апи")`; WARNING-лог `summary: LLM failed | chat_id=-100`; `no_sleep` вызван ровно 1 раз (retry-once).
+- УДАЛИТЬ: `test_llm_error_degraded_disabled_ux_phrase` (179-192 — дубль нового сценария), `test_degraded_summary_limits` (195-206), `test_degraded_summary_empty_rows` (209-214).
+- `test_llm_error_retry_once_pause` (161-176): снять ассерт `not any("degraded summary" ...)` (строка 176); остальное (calls==2, no_sleep==PASUE, шиз-постофикс, WARNING retry-once) — без изменений.
+- `test_settings_helpers.py` (246-248/271-273/283-285/295/299-307): убрать `SUMMARY_DEGRADED_*` (дефолты/env/валидация min); `SUMMARY_RETRY_ONCE_PAUSE=5.0` остаётся.
+- `tests/test_summary_generator.py` — `_chunk_by_whitespace`/постообработка успеха — не трогать.
+
+### 57.3 Ресёрч окна модели и диагноз гипотез (R49-2, D195)
+
+**Факты (ресёрч 2026-08-20, DeepSeek официальные доки + наблюдения сообщества):**
+- `deepseek-v4-flash` (официальный DeepSeek): контекст **1M токенов** (1,048,576), max output 384K; режимы thinking/non-thinking; **prefix caching включён автоматически** (`prompt_cache_hit_tokens` в `usage`, без параметра) — факт важен для Epic 51 (Section 59).
+- Легаси `deepseek-chat`/`deepseek-reasoner` выведены **2026-07-24 15:59 UTC** (маршрутизируются на v4-flash); в природе встречались прокси-окна 131072 токенов для deepseek-chat (наблюдение community) — но инцидент случился после ретайрмента.
+- apinet.cloud — DeepSeek-совместимый хаб (`https://apinet.cloud/v1`); собственные политики окна/валидации публично не документированы → **верифицируются телом 400** (57.4).
+
+**Диагноз гипотез (контекст чекапа: payload [system, user], user = `<system_logs>` ≤ 20000 симв)`):**
+- 20000 символов кириллицы ≈ **12–17K токенов** (реалистичный токенизатор ~1.3–1.6 симв/токен); «25-40K токенов» из ТЗ — завышенная оценка. Даже при окне 131K это НЕ превышение → **гипотеза (а) «окно исчерпано» — ОТКЛОНЕНА как основная**.
+- Наиболее вероятна **(б) невалидные управляющие/бинарные символы** в raw-логах (journalctl-фолбек; строки логов могут содержать C0-символы/аномалии) — 400 детерминирован на ИДЕНТИЧНОМ payload дважды подряд (контент-валідатор провайдера).
+- (в) невалидный параметр — маловероятна (payload-форма фиксирована, `model=deepseek-v4-flash` валиден по докам 2026).
+**Итог:** фикс 57.5 — защита в глубину, независимая от точной причины; окончательные факты — диагн-лог 57.4 (тело 400 содержит текст ошибки провайдера). Фактическая длина user-сообщения — INFO-строки fetcher'а (`sql api ok | chars=N` / `journalctl ok | lines=N`, system_logs_fetcher.py:118-122/227-229) + `content_chars` диагн-лога.
+
+### 57.4 Диагностический 4xx-лог в `llm_client._post` (R49-1, D197)
+
+**Где:** единственная точка — финальная ветка `if status >= 400: raise LLMError(...)` (llm_client.py:179-180)
+(НЕ 401/403 — у них LLMAuthError с собственным текстом; 401/403-ветка и её тесты НЕ трогаются).
+
+**Уровень: ERROR** (детерминированное отклонение провайдера — инцидентный сигнал, уходит в Betterstack; это и есть эскалация — отдельный heartbeat/инфраструктура НЕ вводится, D199).
+
+**Формат (дословно, константа `_4XX_BODY_MAX_CHARS = 500`):**
+```
+logger.error("LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_messages=%d | body_4xx=%r",
+             status, url, request_len,
+             sum(len(str(m.get("content", ""))) for m in payload.get("messages", [])),
+             len(payload.get("messages", [])),
+             response.text[:_4XX_BODY_MAX_CHARS])
+```
+- `request_len` уже вычислен (строка 120); `url` без query/секретов (R17); `body_4xx` — первые ≤500 симв. тела ответа провайдера (декодирован `response.text`; секретов в теле ошибки нет по определению — R17 перестраховка соблюдена обрезкой и отсутствием заголовков).
+- Класс/текст исключения НЕ меняются (`LLMError(f"LLM HTTP {status}: {url}")` байт-в-байт — существующий тест 56.8 #11 зелёный).
+
+### 57.5 Фикс первопричины: scrub C0 + потолок ввода (R49-3, D196)
+
+**Единая точка — `checkup_service.checkup` (после fetcher, до escape_xml_text) — fetcher и его тесты НЕ трогаем:**
+
+```python
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")   # C0, кроме \n \t; плюс DEL
+
+user_content = _CONTROL_CHARS_RE.sub(" ", logs_text)                  # каждый C0 → ОДИН пробел
+if len(user_content) > settings.CHECKUP_MAX_INPUT_SYMBOLS:           # default 12000
+    logger.warning("[checkup] input truncated | chars=%d -> %d", len(user_content),
+                   settings.CHECKUP_MAX_INPUT_SYMBOLS)
+    user_content = user_content[:settings.CHECKUP_MAX_INPUT_SYMBOLS]
+user = f"<system_logs>{escape_xml_text(user_content)}</system_logs>"
+```
+
+- **Scrub (основной механизм, гипотеза (б)):** все C0-символы кроме `\n` (переносы строк логов НЕ трогаем — смысловая структура) и `\t`; каждый заменяется ровно одним пробелом (сохраняем токен-границы). Кириллица/UTF-8 не затрагиваются.
+- **Потолок (запас по гипотезе (а), D195):** `CHECKUP_MAX_INPUT_SYMBOLS = 12000` симв ≈ 8–10K токенов << 131K (запас ×13) — страховка на случай прокси-инцидентов с окном. `_MAX_LOG_SYMBOLS` fetcher'а (20000) НЕ меняем (0 регрессий fetcher-тестов) — второй каскадный потолок в checkup_service.
+- Выходной `CHECKUP_MAX_SYMBOLS` (отчёт) — НЕ трогать (R49-3). Каноны `CHECKUP_SYSTEM_PROMPT` (R42-6)/`CHECKUP_FALLBACK_NOTICE` (R42-2) — байт-в-байт.
+- **Проверка «400 не возвращается»:** диагн-лог 57.4 пуст в течение недели прода + тест scrub/потолка (57.8).
+
+### 57.6 Логи checkup и разделение UX-пулов (R49-4, D198/D199)
+
+**Уровни логов (R49-4а, D199):**
+| Точка | Было | Стало |
+|---|---|---|
+| checkup.py:81 (LLMError) | `logger.exception` ERROR+traceback | `logger.warning("[checkup] LLM failed | chat=%s | error=%s", message.chat.id, exc)` |
+| checkup.py:68 (DEAD, CheckupLogsUnavailableException) | `logger.exception` ERROR+traceback | `logger.warning("[checkup] all log sources failed | chat=%s | error=%s", message.chat.id, exc)` |
+| checkup.py:85 (unexpected) | ERROR `logger.exception` | БЕЗ изменений (неожиданное — ERROR, R47-5) |
+| fallback-фраза (73) | WARNING | БЕЗ изменений |
+
+**UX-сплит (R49-4б, D198) — тексты канонов R42-5/R13 байт-в-байт, меняется ТОЛЬКО состав пула:**
+- `CHECKUP_LLM_ERROR_PHRASES` (smartmodule_phrases.py:107-113) ← **4 LLM-текста** (убрать «база подавилась логами»):
+  - `нейронка срыгнула от этого кода`
+  - `мозги закипели это переваривать, попробуй позже`
+  - `токенов на эту помойку не хватило, сервер сдох`
+  - `llm откинулась, сгенерировать не вышло`
+- **«база подавилась логами» — АРХИВИРУЕТСЯ** (нигде не используется; сохранена как канон-текст R42-5 в истории данной секции). Новые пулы НЕ создаются (нет точки использования → мёртвый код; существующие DEAD/fallback-пулы УЖЕ «база/логи»-семантики).
+- Маппинг: `LLMError` → `CHECKUP_LLM_ERROR_PHRASES` (чистый LLM-пул); `except Exception` (unexpected) → `CHECKUP_LLM_ERROR_PHRASES` (страховочный, как сейчас); DEAD → `CHECKUP_DEAD_PHRASES` (R42-4, БЕЗ изменений); fallback → `CHECKUP_FALLBACK_PHRASES` (R42-3, БЕЗ изменений).
+- **DoD T-390:** «база подавилась логами» больше НЕ уходит при падении LLM — гарантировано составом пула.
+
+**Эскалация/heartbeat (D199):** новый heartbeat НЕ вводится. Путь эскалации = ERROR-диагн-лог 57.4 (в Betterstack) + существующий мониторинг. Неизвестный/другой 4xx-код попадает в общий блок `status >= 400` с телом — диагностируется тем же логом.
+
+### 57.7 Конфиг (D191-продолжение, v2.36.0 часть)
+
+`config/settings.py`:
+```python
+    # ── Checkup 400 (Epic 49, Section 57.5) ──
+    CHECKUP_MAX_INPUT_SYMBOLS: int = _env_int_min("CHECKUP_MAX_INPUT_SYMBOLS", 12000, 1000)
+```
+`SUMMARY_DEGRADED_ENABLED`/`SUMMARY_DEGRADED_COUNT` — УДАЛИТЬ (Epic 48, 57.2). `.env.example`: удалить строки 155-156; добавить `# CHECKUP_MAX_INPUT_SYMBOLS=12000`.
+
+### 57.8 Тест-план (R49-5, D213-часть) и судьба тестов Epic 48
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | test_llm_client.py | final 400 (MockTransport, status=400, тело «context length…») | ERROR `LLM HTTP 400 \| url=… \| request_len=… \| content_chars=… \| num_messages=2 \| body_4xx='...'`, тело ≤500 симв, текст исключения прежний |
+| 2 | там же | 401/403 c телом | без body-лога (авторизация не логируется, R17; существующий тест зелёный) |
+| 3 | там же | тело >500 симв | обрезано до `_4XX_BODY_MAX_CHARS` |
+| 4 | test_checkup_service.py | scrub: `"a\x00b\x01c\nd\x7fe"` → `"a b c\nd e"` | C0→пробел, `\n` сохранён |
+| 5 | там же | вход 12001+ симв | user ≤ `CHECKUP_MAX_INPUT_SYMBOLS`; WARNING `input truncated`; кириллица цела |
+| 6 | там же | вход ≤12000 | без изменений (байт-в-байт прежний путь) |
+| 7 | test_checkup_handlers.py | LLMError → caplog | класс WARNING (не ERROR), `error=` без traceback; реплика ∈ `CHECKUP_LLM_ERROR_PHRASES` (4 элемента) |
+| 8 | там же | DEAD (CheckupLogsUnavailableException) → caplog | WARNING `all log sources failed`; реплика ∈ CHECKUP_DEAD_PHRASES |
+| 9 | там же | LLM-падение | реплика ≠ «база подавилась логами» (DoD T-390) |
+| 10 | test_smartmodule_phrases.py | строка 275 | `assert "база подавилась логами" not in CHECKUP_LLM_ERROR_PHRASES` (обновить канoн-ассерт; тексты остальных 4 — прежние) |
+| 11 | test_settings_helpers.py | новый дефолт | `CHECKUP_MAX_INPUT_SYMBOLS == 12000`; `<1000` → WARNING+default |
+| 12 | РЕГРЕССИЯ | полный pytest | база 2099 + ~8-10 новых − 3 удалённых (Epic 48) − 1 изменённый (275) — 0 failed/skipped |
+
+**Изменяемые существующие (Эпик 48, R48-4):** перечислены в 57.2. Каноны промптов R42-6/R42-2/R11/R46-2/R46-4 и их эталоны — БЕЗ правок.
+
+### 57.9 Риски (D213-часть)
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | Фикс «вслепую» (без диагностики) | Порядок строгий: T-388 (лог) → T-389 (фикс по фактам) — требование R49-1/R49-2 |
+| 2 | Scrub режет нужные символы | Только C0 (кроме \n \t) → пробел; кириллица/UTF-8 не тронуты; тесты 4-6 |
+| 3 | Каноны R42-5/R13 задеты | Тексты байт-в-байт; меняется только состав пула (1 строка убрана) и маппинг; тест-эталоны — только строка 275 |
+| 4 | 400 возвращается | Диагн-лог (тело провайдера) даст точную причину; потолок 12000 = запас ×13 к 131K |
+| 5 | Retry-once случайно задет при откате | calls==2 в `test_llm_error_retry_once_pause`; дифф только удалений degraded |
+| 6 | 0 регрессий (база 2099) | Удаления/изменения в том же коммите; полный прогон |
+
+### 57.10 Сводка для @Builder (пофайлово, порядок)
+
+1. `services/summary_generator.py` — удалить: `_DEGRADED_HEADER`/`_DEGRADED_LINE_CHARS` (41-42), ветку B (142-148, заменить на `raise`), `_degraded_summary` (168-183); ретрай-once (135-141) и постообработку успеха, UX R13 (34-36) — НЕ трогать.
+2. `config/settings.py` — удалить `SUMMARY_DEGRADED_ENABLED` (289)/`SUMMARY_DEGRADED_COUNT` (291); добавить `CHECKUP_MAX_INPUT_SYMBOLS=12000` (мин 1000).
+3. `.env.example` — удалить строки 155-156; добавить `# CHECKUP_MAX_INPUT_SYMBOLS=12000`; строка 154 остаётся.
+4. `services/llm_client.py` — `_4XX_BODY_MAX_CHARS = 500`; в ветке `status >= 400` (179-180) ДО `raise` — ERROR-лог 57.4 (формат дословно; `request_len` уже есть); 401/403/429/5xx-ветки и тексты исключений — БЕЗ изменений.
+5. `services/checkup_service.py` — `_CONTROL_CHARS_RE` + scrub → потолок → escape (57.5); INFO-лог OK (`out_chars/latency_ms/used_fallback`) — без изменений.
+6. `handlers/checkup.py` — строки 68 и 81 → `logger.warning` без traceback (формат 57.6); импорты/маппинг пулов БЕЗ изменений (только состав пула в п.7).
+7. `services/smartmodule_phrases.py` — `CHECKUP_LLM_ERROR_PHRASES` := 4 текста (57.6); остальные пулы — БЕЗ изменений.
+8. Тесты — 57.2 (Epic 48) + таблица 57.8 (#1-11); полный pytest 0 регрессий; `git diff --check` чист.
+9. Прод — НЕ трогать до T-407 (деплой v2.36.0 общий, Section 60). Миграций БД — НЕТ (Эпик 49).
+
+---
+
+## Section 58: Epic 50 — DirectChat: прямое общение с сохранением контекста (v2.36.0, P1)
+
+### 58.1 Контекст и закрытие открытых вопросов (R50-1…R50-9, D200–D207)
+
+**Контекст:** новый реактивный подсервис SmartModule; каноны R50-4/R50-7/R50-8 VERBATIM из ТЗ (догма);
+закрываются вопросы 1-8. Частично пересекается с Epic 51 (порядок payload — Section 59, D211).
+
+| # | Вопрос | Решение |
+|---|---------|---------|
+| 1 | Хранилище Token Bucket | **58.5 (D200)**: `DirectChatThrottle` — in-memory dict-TTL в `services/direct_chat_service.py` |
+| 2 | origin='bot_direct_reply' + миграция | **58.7 (D201)**: идемпотентная user_version 1→2 (пересоздание graph_facts + `target_user` + `tg_message_id`), прецедент T-360 |
+| 3 | Детект «упоминание» | **58.4 (D202)**: Reply на бота ИЛИ entities-подход (mention/text_mention) + fallback-текст |
+| 4 | Хендлер/роутер | **58.4 (D202)**: позиция 0h, после 0g checkup, до admin_commands |
+| 5 | Лимиты `<Global_Context>` в токенах | **58.6 (D203/D204)**: 4000 симв / 2000 симв / ≤ ~8K токенов суммарно |
+| 6 | Сигнатура memorize | **58.8 (D205)**: `memorize_facts(..., target_user=None)` + `insert_graph_fact(target_user=...)` |
+| 7 | Conversation_Thread | **58.6 (D203)**: рекурсия `reply_to_id` по новой колонке `tg_message_id`, глубина 6 |
+| 8 | Вечное хранение + сортировка | **58.8 (D206)**: `sort_by_timestamp` флаг только для DirectChat; фильтр `bot_direct_reply` из чужих RAG |
+
+### 58.2 Каноны VERBATIM (R50-4/R50-7/R50-8, дословно из backlog — эталон)
+
+`services/chat_prompts.py` (новый файл, аналог summary_prompts/checkup_prompts):
+```python
+"""Epic 50 — DirectChat prompts (R50-4, Section 58.2). КАНОН — байт-в-байт из backlog."""
+
+CHAT_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
+Ты — токсичный, саркастичный и циничный участник чата (бот-абьюзер). Ты отвечаешь на прямые обращения пользователя (<Target_User>).
+В блоке <Global_Context> находится фон беседы. В блоке <Conversation_Thread> — история вашего текущего диалога.
+
+ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ:
+1. Имитируй ленивую печать: только строчные буквы (включая начало предложений), без форматирования (никакого маркдауна).
+2. Пунктуация базовая, без сложных тире.
+3. Разрешен мат и сленг. Будь грубым, но по факту.
+
+ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. 
+Не объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
+```
+
+`services/smartmodule_phrases.py` (добавить, VERBATIM; тексты не пересекаются с существующими пулами — перекрёстный тест 253-255 остаётся зелёным):
+```python
+# DirectChat — кулдаун Token Bucket (Epic 50, R50-7, VERBATIM; {remaining_time} — подстановка .replace)
+CHAT_COOLDOWN_PHRASES: tuple[str, ...] = (
+    "ты заебал спамить, я пошел курить на {remaining_time}",
+    "лимит тупых вопросов исчерпан, отдыхай {remaining_time}",
+    "дай передохнуть от твоей духоты, вернусь через {remaining_time}",
+    "рот оффни на {remaining_time}, я не нанимался с тобой болтать без остановки",
+)
+
+# DirectChat — сбой LLM/API (Epic 50, R50-8, VERBATIM)
+CHAT_ERROR_PHRASES: tuple[str, ...] = (
+    "мои мозги расплавились от твоего бреда",
+    "внутренняя ошибка базы, иди нахуй",
+    "я подавился токенами, попробуй позже",
+)
+```
+Проверка канона: слайс-эталоны в тестах (прецедент R11): `test_direct_chat_prompts.py` — `CHAT_SYSTEM_PROMPT` целиком (дословная строка-эталон из Section 58.2), пулы — поэлементно.
+
+### 58.3 Конфиг (R50-2, D212-часть)
+
+`config/settings.py` + `.env.example` + прод `.env` (T-407):
+```python
+    # ── DirectChat (Epic 50, Section 58) ──
+    CHAT_GLOBAL_CONTEXT_LIMIT: int = _env_int("CHAT_GLOBAL_CONTEXT_LIMIT", 100)
+    CHAT_BURST_LIMIT: int = _env_int_min("CHAT_BURST_LIMIT", 3, 1)
+    CHAT_COOLDOWN_SECONDS: float = _env_float_min("CHAT_COOLDOWN_SECONDS", 300.0, 0.0)
+    CHAT_DIRECT_REPLY_TTL_DAYS: int | None = _env_int_optional("CHAT_DIRECT_REPLY_TTL_DAYS", None)
+    CHAT_GLOBAL_CONTEXT_MAX_CHARS: int = _env_int_min("CHAT_GLOBAL_CONTEXT_MAX_CHARS", 4000, 500)
+    CHAT_THREAD_MAX_DEPTH: int = _env_int_min("CHAT_THREAD_MAX_DEPTH", 6, 1)
+    CHAT_THREAD_MAX_CHARS: int = _env_int_min("CHAT_THREAD_MAX_CHARS", 2000, 500)
+```
+`_env_int_optional`: новая хелпер-функция в settings.py — пустая строка/отсутствие → `None`, иначе `int` (кривой → WARNING+None).
+
+### 58.4 Триггеры, детект и хендлер-роутинг (R50-1, D202)
+
+**`handlers/direct_chat.py` (новый), роутер `direct_chat_router`, регистрация — позиция 0h в bot.py** (сразу после блока 0g checkup, до admin_commands; гейт `if settings.SUMMARY_ENABLED`). DI: `setup_direct_chat(service, bot_id, bot_username)`; в `on_startup`: `bot_user = await bot.get_me()` → `setup_direct_chat(DirectChatService(...), bot.id, (bot_user.username or "").lower())`.
+
+**Триггер (реактивный — бот НИКОГДА не инициирует; фоновых инициатив нет):**
+1. **Reply на бота:** `message.reply_to_message` ЕСТЬ и `reply_to_message.from_user` ЕСТЬ и `reply_to_message.from_user.id == _bot_id`.
+2. **Упоминание (entities-подход — основной):** `message.entities` содержит entity типа `mention` с `entity.username.lower() == _bot_username` ЛИБО типа `text_mention` с `entity.user.id == _bot_id`.
+3. **Fallback (текст, без entities старых клиентов):** если триггер 2 не сработал — regex `(?i)@re.escape(_bot_username)\b` в `message.text` (регистронезависимо; кириллические username поддерживаются через `text_mention` — entity несёт user.id; `@al`-коллизии исключены \b-границей слова и полным username).
+
+**Исключения (UNHANDLED, пропагация живёт):** `_service is None`/`bot is None`; `from_user.id == _bot_id` (само-сообщения); текст начинается с `/` (команды — `/summary` и пр. не перехватываются); пустой текст. Каналы (channel-post) — вне скоупа; группы/супергруппы/ЛС — работают (троттлинг защищает от спама, 58.5).
+
+**Поток хендлера:** триггер → `DirectChatThrottle.allow` → кулдаун-фраза (`random.choice(CHAT_COOLDOWN_PHRASES).replace("{remaining_time}", format_remaining_time(...))` → `_reply` на `message.message_id`); иначе `touch` → сборка контекста 58.6 → `llm.generate(payload 58.9)` → `sent = await send_chunked_reply(bot, chat, text, message.message_id)` → запись ответа в `_bot_replies` (58.6) → fire-and-forget `memorize_facts` (58.8). `except LLMError → logger.warning("[direct] LLM failed | chat=%s | user=%s | error=%s")` + `random.choice(CHAT_ERROR_PHRASES)` → `_reply`; `except Exception → logger.exception("[direct] unexpected | chat=%s")` + `CHAT_ERROR_PHRASES`.
+
+### 58.5 Token Bucket (R50-7, D200) — `DirectChatThrottle` (в `services/direct_chat_service.py`)
+
+```python
+class DirectChatThrottle:
+    """Token Bucket (R50-7): per (chat_id, user_id). In-memory; рестарт сбрасывает (принято,
+    прецедент CooldownTracker smartmodule_throttling.py). Полное восстановление зарядов через
+    CHAT_COOLDOWN_SECONDS после ПОСЛЕДНЕГО допущенного обращения. Однопоточный event loop —
+    asyncio.Lock НЕ нужен (прецедент CooldownTracker)."""
+
+    def __init__(self, burst_limit: int, cooldown_seconds: float) -> None:
+        self._limit = burst_limit
+        self._cooldown = cooldown_seconds
+        self._state: dict[tuple[int, int], tuple[int, float]] = {}   # (chat_id, user_id) -> (burst_left, last_ts)
+
+    def allow(self, chat_id: int, user_id: int) -> float:
+        """0.0 = допустимо (заряд списан); >0 = остаток кулдауна, сек (фраза R50-7)."""
+        now = time.monotonic()
+        state = self._state.get((chat_id, user_id))
+        if state is None or now - state[1] >= self._cooldown:
+            burst = self._limit                       # полное восстановление
+        else:
+            burst = state[0]
+        if burst <= 0:
+            return max(1.0, self._cooldown - (now - state[1]))   # ceil-по-остатку
+        self._state[(chat_id, user_id)] = (burst - 1, now)
+        return 0.0
+```
+- Семантика: 3 обращения подряд допустимы (3→2→1), 4-е — denied; `last_ts` обновляется ТОЛЬКО при допущенных (кулдаун отсчитывается от последнего допущенного, полное восстановление — скачком после cooldown); раздельные слоты per (chat, user) — не конфликтует с CooldownTracker других подсервисов (свои инстансы/ключи, риск 5 закрыт).
+- TTL-очистки нет (слоты ограничены активными юзерами; прецедент CooldownTracker, reset при рестарте принят).
+
+### 58.6 Context Partitioning (R50-3, D203/D204)
+
+Секции user-сообщения в XML-тегах (все значения через `escape_xml_text`; allow_empty для пустых):
+
+1. **`<RAG_Memory>`** — факты Temporal GraphRAG: `await self.memory.get_rag_context(chat_id, query, sort_by_timestamp=True, include_direct_reply=True)` (58.8, D206) → `"<RAG_Memory> ... </RAG_Memory>"` (условие обрамления: если пусто — секция опускается).
+2. **`<Global_Context>`** — последние `CHAT_GLOBAL_CONTEXT_LIMIT=100` сообщений чата: `get_window_messages(chat_id)` (уже ASC) → строки `"[имя]: текст"` (имя — `aliases.resolve`, прецедент `_build_batch_text`); потолок `CHAT_GLOBAL_CONTEXT_MAX_CHARS=4000` (slice + WARNING `direct: global context truncated | chars=%d`).
+3. **`<Conversation_Thread>`** — рекурсивная цепочка reply по `reply_to_id` (колонка есть):
+   - база: `smart_messages` (observer сохраняет ВСЕ user-сообщения + теперь `tg_message_id`, D201) + **in-memory `_bot_replies`** в DirectChatService: `OrderedDict[(chat_id, tg_message_id)] → text` (записывается ПОСЛЕ каждой успешной отправки ответа; лимит 200, TTL 3600с ленивый, прецедент media_group_buffer.MAX_ENTRIES).
+   - обход: текущее TG-сообщение (вход триггера) → `db.get_smart_message_by_tg_id(chat_id, reply_to_id)` → … до `CHAT_THREAD_MAX_DEPTH=6` записей; бот-сообщения подставляются из `_bot_replies` (их в БД нет — observer их не сохраняет, B9-стиль); при обрыве (нет `reply_to_id`/не найдено/TTL истёк) — стоп.
+   - рендер сверху-вниз `"[имя]: текст"`, потолок `CHAT_THREAD_MAX_CHARS=2000`.
+4. **`<Target_User>`** — имя обращающегося: `aliases.resolve(from_user.id, nickname, username)` (R50-1, каскад Алиас → Никнейм → Юзернейм, БЕЗ '@').
+
+**Лимит бюджета (D204):** RAG ≤ `GRAPH_RAG_CONTEXT_MAX_CHARS` (2000) + Global 4000 + Thread 2000 + Target ≤100 + aliases-map ≤500 = ≤ ~8.6K симв ≈ 6–7K токенов + system ~0.5K ≈ **≤8K токенов суммарно** — запас ×8 к любому прокси-окну 64K+ (57.3).
+
+**User Resolution Map (алиасы-блок, R51-2):** строки `"имя — user_id"` по участникам окна Global_Context (user_id → `aliases.resolve`); блок в НАЧАЛЕ user-контента (D211, 58.9) — редко меняется → префикс-кэш.
+
+### 58.7 Миграция user_version 1→2 (вопрос 2, D201) — `_migrate_direct_chat_v2`
+
+В `DatabaseService`: метод `_migrate_direct_chat_v2()`, вызывается из `initialize()` ПОСЛЕ `_migrate_graphrag_v2()`. Идемпотентный; прецедент T-360 (55.3).
+
+```sql
+-- (а) graph_facts: CHECK-расширение через пересоздание (SQLite не умеет ALTER CHECK)
+--     guard: SELECT sql FROM sqlite_master WHERE name='graph_facts'; если 'bot_direct_reply' NOT IN sql:
+ALTER TABLE graph_facts RENAME TO graph_facts_old;
+CREATE TABLE graph_facts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id    INTEGER NOT NULL,
+    fact       TEXT NOT NULL,
+    origin     TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
+               ('chat_history','search_fact','youtube_content','web_content','bot_direct_reply')),
+    expires_at INTEGER,
+    created_at INTEGER NOT NULL,
+    target_user TEXT
+);
+INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, created_at, target_user)
+    SELECT id, chat_id, fact, origin, expires_at, created_at, NULL FROM graph_facts_old;
+DROP TABLE graph_facts_old;
+CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin ON graph_facts(chat_id, origin);
+CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user ON graph_facts(chat_id, target_user);
+```
+- id сохраняются → `graph_facts_fts` (external-content по имени таблицы) и `graph_facts_vec` (по `fact_id`) валидны БЕЗ пересоздания; данные НЕ трогаются.
+- (б) `smart_messages`: `ALTER TABLE smart_messages ADD COLUMN tg_message_id INTEGER` (try/except OperationalError — уже есть) + `CREATE INDEX IF NOT EXISTS idx_smart_messages_tg ON smart_messages(chat_id, tg_message_id)`.
+- (в) `PRAGMA user_version = 2` (после всех шагов). Повторный запуск — no-op (guard + PRAGMA).
+- Скрипт `scripts/migrate_direct_chat_v2.py` (прецедент migrate_graphrag_v2.py): запуск на ОСТАНОВЛЕННОМ боте, печатает user_version до/после. Прод: T-406 (Section 60).
+- Кодовые расширения SELECT (БЕЗ миграции): `get_graph_fact_texts` → `SELECT id, fact, origin, created_at, target_user`; `search_graph_facts_fts` → + `f.created_at, f.target_user` (только SELECT); `save_smart_message` → параметр `message_id: int | None = None` + INSERT `tg_message_id`; новый `get_smart_message_by_tg_id(chat_id, tg_message_id) -> row | None`.
+
+### 58.8 memorize + RAG-хронология + фильтр от флуда (R50-5/R50-6, D205/D206)
+
+**memorize (D205):**
+- `_FACT_ORIGINS` (summary_memory.py:51) += `'bot_direct_reply'`.
+- Сигнатура: `memorize_facts(chat_id, raw_text, source_type, target_user: str | None = None)` — default None (все legacy-вызовы без изменений; WARNING-skip для неизвестных origin — как сейчас).
+- `insert_graph_fact(chat_id, fact, origin, expires_at, target_user=None)` (database.py:700): INSERT включает `target_user`; `created_at` ставится автоматически (`int(time.time())`) — колонка УЖЕ есть (database.py:136), точный timestamp гарантирован.
+- TTL: `expiry = None if (origin == 'chat_history' or CHAT_DIRECT_REPLY_TTL_DAYS in (None, 0)) else int(time.time()) + CHAT_DIRECT_REPLY_TTL_DAYS * 86400`; итог: пустое значение → `expires_at = NULL` (вечное — по ТЗ).
+- Вызов (fire-and-forget, ПОСЛЕ успешной отправки): `fire_and_forget(self.memory.memorize_facts(chat_id, f"{query}\n{answer}", "bot_direct_reply", target_user=username), "direct")` — запрос и ответ одной парой (прецедент 55.5: хуки передают raw).
+- nodes/edges: `origin='bot_direct_reply'` проходит (CHECK только у `graph_facts`), upsert_price без изменений.
+
+**Сборка RAG (D206) — изолированный флаг, 0 влияния на чужие пайплайны:**
+- `get_rag_context(chat_id, query, *, sort_by_timestamp=False, include_direct_reply=False)`; `_search_graph_facts(chat_id, query, limit, include_direct_reply=False)`:
+  - default: **фильтр `origin != 'bot_direct_reply'`** (KNN: в `kept`-comprehension `row["origin"] != "bot_direct_reply"`; FTS: `AND f.origin != 'bot_direct_reply'` в WHERE) — direct-reply флуд НЕ подмешивается в summary/factcheck/search/youtube/web (R50-8, вопрос 8);
+  - DirectChat: `include_direct_reply=True` + `sort_by_timestamp=True` → после гибридного поиска (релевантность KNN/FTS-ranks, limit `GRAPH_RAG_FACTS_LIMIT=10`) результат **дополнительно сортируется по `created_at` ASC** (стабильная сортировка) → таймлайн в `<RAG_Memory>`. KNN-выбор остаётся по расстоянию (ORDER BY distance сохраняется внутри KNN-запроса); `ORDER BY` не лезет в чужие запросы.
+- `get_graph_facts` (R26-3, summary-граф): `match_nodes`/`get_top_edges`/`get_top_edges_all` + условие `origin != 'bot_direct_reply'` (nodes: `AND origin != 'bot_direct_reply'`; edges: `AND e.origin != 'bot_direct_reply' AND s.origin != 'bot_direct_reply' AND t.origin != 'bot_direct_reply'`) — сущности direct-диалогов не попадают в справки /summary.
+
+### 58.9 Payload-порядок (R51-2/D211, взаимодействие с Epic 51)
+
+`services/payload_builder.py` (новый, Section 59.3): `build_messages(system: str, user_blocks: list[str]) -> list[dict]` — гарантирует `[{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(user_blocks)}]`. DirectChat: `user_blocks = [UserResolutionMap, <RAG_Memory>, <Target_User>, <Global_Context>, <Conversation_Thread>]` — статичное (алиасы ≈ стабильны, RAG редко меняется) вверх, динамика вниз; `<Target_User>` — в динамическую часть (НЕ в префикс). System на индексе 0.
+
+### 58.10 Тест-план (R50-9, D213-часть)
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | test_direct_chat_prompts.py | каноны VERBATIM | `CHAT_SYSTEM_PROMPT` == эталон (Section 58.2) байт-в-байт; `CHAT_COOLDOWN_PHRASES`/`CHAT_ERROR_PHRASES` == поэлементно; пулы не пересекаются с существующими (253-255-стиль) |
+| 2 | test_direct_chat_service.py | триггер Reply (reply_to_message.from_user.id == bot_id) | сработал; юзер-без-триггера → UNHANDLED |
+| 3 | там же | mention entities (username / text_mention user.id) + fallback-текст @username | сработали все 3 пути; `@AL` = `@al` (case-insensitive); `@al` внутри слова — НЕ триггер |
+| 4 | там же | команды `/summary`/чужие триггеры | UNHANDLED (пропагация) |
+| 5 | там же | Token Bucket: 3 подряд allowed → 4-й denied + фраза `{remaining_time}` подставлена | счётчик зарядов, remaining=ceil(cooldown-…); после cooldown — полное восстановление; per (chat,user) изоляция |
+| 6 | там же | Context Partitioning | порядок секций `[map, RAG_Memory, Target_User, Global_Context, Conversation_Thread]`; escape_xml_text применён; RAG_Memory факты в created_at ASC (мок `_search_graph_facts`) |
+| 7 | там же | Global_Context ≤ 4000 / Thread ≤ 2000, глубина ≤ 6, обрыв цепочки | slice + WARNING; стоп на отсутствии reply_to_id |
+| 8 | там же | memorize-мок | origin='bot_direct_reply', target_user/chat_id/created_at переданы; TTL: пусто → expires_at None |
+| 9 | test_graphrag_memory.py | `sort_by_timestamp` default=False | ровно старое поведение (порядок по distance/rank, фильтр applied к несуществующему origin — no-op) |
+| 10 | test_graphrag_database.py | миграция 1→2 | graph_facts CHECK + target_user; tg_message_id; user_version==2; повторный запуск no-op; старые строки сохранены (id/данные); FTS/vec целы |
+| 11 | test_summary_memory.py | R26-3 фильтр | узлы/рёбра bot_direct_reply не попадают в `get_graph_facts` |
+| 12 | РЕГРЕССИЯ | полный pytest | база 2099 + ~15-18 новых/изменённых — 0 failed/skipped |
+
+### 58.11 Риски (D213-часть)
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | Каноны R50-4/R50-7/R50-8 изменены | VERBATIM-эталоны 58.2 + слайс-тест (прецедент R11) |
+| 2 | Миграция ломает ФТС/vec | id сохраняются при INSERT SELECT; тест #10 |
+| 3 | Хендлер перехватывает команды | `/`-исключение + тест #4 |
+| 4 | Рост БД (вечное TTL) | фильтр origin в чужих RAG (58.8) + лимиты выборки (GRAPH_RAG_FACTS_LIMIT=10) |
+| 5 | Конфликт троттлингов | отдельные ключи/инстансы (58.5) |
+| 6 | 0 регрессий (база 2099) | флаги по умолчанию = старое поведение; тесты в том же коммите |
+
+### 58.12 Сводка для @Builder (пофайлово, порядок)
+
+1. `config/settings.py` — 7 переменных 58.3 + хелпер `_env_int_optional`; `.env.example` — тот же блок.
+2. `services/chat_prompts.py` (новый) — `CHAT_SYSTEM_PROMPT` VERBATIM (58.2).
+3. `services/smartmodule_phrases.py` — `CHAT_COOLDOWN_PHRASES` (4) + `CHAT_ERROR_PHRASES` (3) VERBATIM.
+4. `services/payload_builder.py` (новый) — `build_messages` (58.9, 59.3).
+5. `services/direct_chat_service.py` (новый) — `DirectChatThrottle` (58.5), `DirectChatService` (контекст 58.6, `_bot_replies` LRU 200/TTL 3600, generate → build_messages, memorize-hook 58.8).
+6. `handlers/direct_chat.py` (новый) — роутер 0h, триггеры D202, reply-механика (`_reply`/`send_chunked_reply`), логи (WARNING/ERROR 58.4).
+7. `bot.py` — `bot_user = await bot.get_me()`; `setup_direct_chat(...)`; `dp.include_router(direct_chat_router)` на позиции 0h (после 0g checkup, до admin_commands).
+8. `services/database.py` — `_migrate_direct_chat_v2` (58.7), `save_smart_message(+message_id)`, `get_smart_message_by_tg_id`, расширения SELECT (58.7), `insert_graph_fact(+target_user)` (58.8).
+9. `scripts/migrate_direct_chat_v2.py` (новый) — прецедент migrate_graphrag_v2.py.
+10. `services/summary_memory.py` — `_FACT_ORIGINS`+=; `memorize_facts(+target_user)`; `get_rag_context`/`_search_graph_facts`/`_knn_graph_facts` — флаги `sort_by_timestamp`/`include_direct_reply` + фильтр origin (58.8).
+11. `services/database.py` `match_nodes`/`get_top_edges`/`get_top_edges_all` — фильтр `bot_direct_reply` (58.8).
+12. `handlers/summary.py` — observer: `message_id=message.message_id` в `save_smart_message`.
+13. Тесты: `tests/test_direct_chat.py`, `tests/test_direct_chat_prompts.py`, `tests/test_direct_chat_handlers.py` (новые), обновление `test_graphrag_memory.py`/`test_graphrag_database.py`/`test_summary_memory.py`/`test_summary_handlers.py`/`test_smartmodule_phrases.py`; полный pytest 0 регрессий.
+14. Прод: миграция T-406 + .env T-407 (Section 60).
+
+---
+
+## Section 59: Epic 51 — Intelligent Caching (v2.36.0, P1)
+
+### 59.1 Контекст и закрытие открытых вопросов (R51-1…R51-5, D208–D211)
+
+**Контекст:** два уровня — Exact Match Cache (R51-1) + DeepSeek Prompt Caching порядок payload (R51-2). Факт провайдера (57.3): DeepSeek кэширует префикс АВТОМАТИЧЕСКИ (`prompt_cache_hit_tokens`; параметр не нужен; cache-hit ~$0.014/M vs $0.44/M — экономия до ~97%) — обоснование рефакторинга порядка payload.
+
+| # | Вопрос | Решение |
+|---|---------|---------|
+| 9 | Нормализация для MD5 | **59.2 (D208)**: URL — host lower, strip utm_*/fbclid/gclid, trailing '/', fragment; текст — casefold + схлопывание пробелов; ключ MD5(slug\0norm) |
+| 10 | Хранилище | **59.2 (D209)**: SQLite (новая таблица `smart_cache`; ленивая очистка; лимит 1000 строк). Redis нет в deps; in-memory отклонён (теряет кросс-рестарт) |
+| 11 | Взаимодействие с пулами/reply | **59.2 (D210)**: кэш-хит → `_reply`/`send_chunked_reply` на текущее сообщение; кэшируются ТОЛЬКО успешные генерации; TTL 1800с |
+| 12 | Prompt Cache совместимость | **59.3 (D211)**: автоматический префикс-кэш; порядок «system → алиасы → RAG → динамика»; `<Target_User>` — в динамику |
+| 13 | Без нарушения эталонов | **59.3 (D211)**: тексты/теги НЕ меняются; существующие порядки УЖЕ RAG-first; билдер применяется только к DirectChat; guard-тест для всех |
+
+### 59.2 Exact Match Cache (R51-1/R51-3, D208/D209/D210) — `services/smart_cache.py` (новый)
+
+**Ключ (D208):**
+- `normalize_url(url)`: `str.strip()` → `urllib.parse.urlparse`; netloc → lower; path как есть, но срезать ОДИН trailing '/' (если не корень); query: удалить ключи с префиксом `utm_` + `fbclid`, `gclid` (остальные сохранить); fragment отбросить.
+- `normalize_text(query)`: `str.casefold().strip()` + `re.sub(r"\s+", " ", ...)`.
+- `build_key(slug, raw_input)`: slug ∈ фиксированный словарь `{"factcheck": normalize_text, "search": normalize_text, "youtube": normalize_url, "web": normalize_url}` (неизвестный slug → `ValueError`); `key = hashlib.md5(f"{slug}\x00{norm}".encode()).hexdigest()` — команда в ключе исключает межсервисные коллизии.
+
+**Хранилище (D209) — SQLite:**
+- Таблица в `_SCHEMA_SQL` DatabaseService: `CREATE TABLE IF NOT EXISTS smart_cache(key TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at REAL NOT NULL)` — аддитивное создание, **user_version НЕ поднимается** (R51-5: кэш — новое хранилище, не миграция).
+- Класс `SmartCache`: собственное ленивое `aiosqlite`-соединение к `settings.DB_PATH` (WAL допускает несколько соединений; `close()` в on_shutdown); `async get(key) -> str | None` (просроченный — истёк по TTL → DELETE + None); `async set(key, payload)` (INSERT OR REPLACE) + **ленивая очистка на каждом set**: (1) `DELETE FROM smart_cache WHERE created_at < now - SMART_CACHE_TTL_SECONDS`; (2) если `COUNT(*) > SMART_CACHE_MAX_ROWS` → `DELETE WHERE key IN (SELECT key FROM smart_cache ORDER BY created_at ASC LIMIT count - MAX)` (старейшие). Ошибки БД — WARNING + miss/нет-записи (кэш НЕ роняет хендлер). INFO-логи: `smart cache: hit | key=… | age=…s` / `miss | key=…` / `set | key=…`.
+- `SMART_CACHE_ENABLED=False` → `get` всегда None; `set` no-op (аварийный рубильник, R51-3).
+
+**Врезка (D210) — в ХЕНДЛЕРАХ (bot-зависимые reply):** `handlers/factcheck.py`, `handlers/search.py`, `handlers/youtube.py`, `handlers/web.py`:
+```
+key = await smart_cache.build_key("factcheck", claim_text)        # slug по сервису
+cached = await smart_cache.get(key)
+if cached is not None:  _reply/send_chunked_reply(bot, chat, cached, message.message_id); logger.info(...); return
+… существующий pipeline (ДО Trafilatura/Tavily/LLM не кэш-фаза; кэш-проверка в самом начале) …
+result = await service.generate(...)                               # успешная генерация
+await smart_cache.set(key, result)                                 # ПОСЛЕ успеха, до/после reply — без разницы
+```
+- Кэшируются только успешные финальные тексты (включая токсичность — константность по ТЗ R51-1, вопрос 11); кулдаун/ошибки/фолбек-пулы, empty-ветки (5.2/5.3), исключения — НИКОГДА не пишутся в кэш.
+- Кэш-хит → reply на ТЕКУЩЕЕ сообщение юзера (`message.message_id`) — механика `_reply`/`send_chunked_reply` без изменений (SmartModule utils).
+- Кэш НЕ применяется к: checkup (логи меняются постоянно — бессмысленно), summary (окно-зависимо), DirectChat (диалог персональный; кулдаун-фразы не кэшируются по правилу выше).
+
+### 59.3 Prompt Caching: порядок payload (R51-2/R51-4, D211)
+
+**Факты (57.3):** DeepSeek (и совместимые хабы, включая apinet.cloud по умолчанию) кэшируют префикс messages АВТОМАТИЧЕСКИ; достаточное условие — идентичное начало (содержимое system + начало user). Если хаб не кэширует — рефакторинг всё равно безопасен (изменение только порядка сборки, тексты байт-в-байт; риск 3 Эпика 51 закрыт).
+
+**Карта генераторов (проверено по коду, порядок user-блоков «статичное → динамика»):**
+
+| Сервис | System (index 0) | user-блоки (порядок) | Статус R51-2 |
+|---|---|---|---|
+| summary (R11) | `SYSTEM_PROMPT` | rag_context (55.5, ПЕРВЫЙ) → historical_graph_facts → xml(динамика) → memory → facts | ✅ уже соблюдён |
+| factcheck (42.5.1) | `FACTCHECK_SYSTEM_PROMPT` | rag → target/claim → user_hint (factcheck_service.py:63) | ✅ уже соблюдён |
+| search (Epic 33) | `SEARCH_SYSTEM_PROMPT` | rag → `<query>` (search_service.py:54) | ✅ уже соблюдён |
+| youtube (Epic 37) | `YOUTUBE_SYSTEM_PROMPT` | rag → транскрипт (youtube:58) | ✅ уже соблюдён |
+| web (Epic 37) | `WEBPAGE_SYSTEM_PROMPT` | rag → страница (web:62) | ✅ уже соблюдён |
+| checkup (R42-6) | `CHECKUP_SYSTEM_PROMPT` | `<system_logs>`(динамика) | ✅ уже соблюдён |
+| direct (R50-4) | `CHAT_SYSTEM_PROMPT` | UserResolutionMap → RAG_Memory → Target_User → Global_Context → Conversation_Thread | **новый** — через `build_messages` (58.9) |
+
+**Вывод (вопрос 13):** ПЕРЕПИСЫВАНИЕ user-контента существующих сервисов ЗАПРЕЩЕНО (каноны/эталоны байт-в-байт: R46-4/XML 55.7/42.5.x — порядок секций и теги фиксированы тестами; «добавлять блок алиасов в user-секцию» НЕ делаем — нет выгоды, есть риск регрессий). Унификация — через `services/payload_builder.py::build_messages(system, user_blocks)` (гарантирует system @ 0), применяется: (1) новый DirectChat (58.9); (2) как guard-тест для остальных сервисов (R51-4(в): `messages[0]["role"] == "system"` — уже выполняется). `<Target_User>` — динамический блок (не статичный префикс) — подтверждено.
+
+**Экономия:** ожидаемый статичный префикс DirectChat ≈ system (0.5K) + aliases (~0.5K) + RAG (≤2K) ≈ 3K токенов — кэш-хит для серии сообщений одного чата (алиасы почти стабильны).
+
+### 59.4 Конфиг (R51-3, D212-часть)
+
+```python
+    # ── Smart Cache (Epic 51, Section 59.2) ──
+    SMART_CACHE_ENABLED: bool = _env_bool("SMART_CACHE_ENABLED", True)
+    SMART_CACHE_TTL_SECONDS: int = _env_int_min("SMART_CACHE_TTL_SECONDS", 1800, 60)
+    SMART_CACHE_MAX_ROWS: int = _env_int_min("SMART_CACHE_MAX_ROWS", 1000, 100)
+```
+`.env.example` — тот же блок (закомментирован); прод `.env` — T-407.
+
+### 59.5 Тест-план (R51-4, D213-часть)
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | test_smart_cache.py | normalize_url: utm_*/fbclid/gclid/trailing '/', host-case, fragment | одинаковый ключ для вариантов одной ссылки |
+| 2 | там же | normalize_text: casefold/схлопывание пробелов | `"  Что??  "` = `"что??"` |
+| 3 | там же | build_key: один текст в factcheck vs search | РАЗНЫЕ ключи (slug в MD5) |
+| 4 | там же | hit/miss/expiry | 2-й вызов с тем же URL: LLM/Tavily/Trafilatura НЕ вызываются (моки), `_reply` на текущее сообщение; просроченный → None+удалён |
+| 5 | там же | ленивая очистка | >1000 строк → старейшие удалены; истёкшие удалены на set |
+| 6 | там же | SMART_CACHE_ENABLED=False | get→None, set no-op |
+| 7 | там же | БД-ошибка | WARNING + miss (кэш не роняет хендлер) |
+| 8 | test_payload_builder.py | build_messages | [0].role=='system'; user = "\n\n".join в порядке блоков |
+| 9 | там же | guard для всех сервисов (R51-4в) | `messages[0]["role"] == "system"` для summary/factcheck/search/youtube/web/checkup/direct (мок-call захват) |
+| 10 | test_checkup_* | кэш НЕ применяется к checkup | pipeline без изменений |
+| 11 | РЕГРЕССИЯ | полный pytest | база 2099 + новые — 0 failed/skipped |
+
+### 59.6 Риски (D213-часть)
+
+| # | Риск | Митигация |
+|---|---|---|
+| 1 | Устаревший/токсичный константный ответ | НОРМА по ТЗ (TTL 30м); ошибки/кулдаун в кэш не попадают (59.2) |
+| 2 | Рефакторинг ломает эталоны | Тексты не меняются; билдер только для DirectChat; guard-тест |
+| 3 | Провайдер не кэширует | Рефакторинг безопасен; замер `prompt_cache_hit_tokens` опционален (57.3) |
+| 4 | MD5-коллизии/нормализация | slug в ключе; нормализация строго по D208; тесты 1-3 |
+| 5 | Кэш маскирует ошибки | Пишется только успех; пулы ошибок не кэшируются |
+| 6 | 0 регрессий (база 2099) | Новые таблицы аддитивны; флаги по умолчанию — старый код-путь |
+
+### 59.7 Сводка для @Builder (пофайлово, порядок)
+
+1. `services/smart_cache.py` (новый) — `SmartCache`, `normalize_url/normalize_text/build_key` (59.2); `close()`.
+2. `services/database.py` — `CREATE TABLE IF NOT EXISTS smart_cache(...)` в `_SCHEMA_SQL`.
+3. `services/payload_builder.py` (новый) — `build_messages` (59.3).
+4. `services/direct_chat_service.py` — использовать `build_messages` (58.9).
+5. `handlers/factcheck.py`, `handlers/search.py`, `handlers/youtube.py`, `handlers/web.py` — кэш-врезка (59.2: до ресурсоёмких ступеней + set после успеха); сигнатуры хендлеров/сервисов НЕ меняются.
+6. `config/settings.py` + `.env.example` — 3 переменные 59.4.
+7. `bot.py` — `smart_cache` DI-инстанс + `close()` в on_shutdown (или ленивый синглтон в services — по выбору Builder, прецедент: класс без DI-хендлеров).
+8. Тесты: `tests/test_smart_cache.py`, `tests/test_payload_builder.py` (новые), затронутые `test_factcheck_handlers.py`/`test_smartsearch_handlers.py`/`test_youtube_handlers.py`/`test_web_handlers.py` (+мок-ассерты «не вызвано»); полный pytest 0 регрессий.
+9. `README.md`/MEMORY — T-405.
+
+---
+
+## Section 60: План релиза v2.36.0 (порядок работ)
+
+**Состав релиза:** Epic 48 (откат degraded, P0), Epic 49 (чекап 400, P0), Epic 50 (DirectChat, P1), Epic 51 (Intelligent Caching, P1). Прод: v2.35.1 `6d0cba0`, baseline 2099, target v2.36.0. Одна машина, один коммит-поезд; каждая эпика — отдельный PR-коммит с зелёным pytest.
+
+**Порядок исполнения (зависимости):**
+1. **T-381 + T-387 (@Architect)** — Section 57 (эта запись), Sections 58/59 (T-393/T-401 — отдельные задачи, решения D200-D211 в данной записи уже зафиксированы; задачи T-393/T-401 закрываются ссылкой на Sections 58/59).
+2. **Epic 48 (P0, первый):** T-382 (код) → T-383 (настройки) → T-384 (тесты) → T-385 (ревью; полный pytest, `git diff --check`) → T-386 (README/MEMORY).
+3. **Epic 49 (P0):** T-388 (диагн-лог) → T-389 (фикс 57.5 — ТОЛЬКО после T-388) → T-390 (логи/UX-сплит) → T-391 (тесты + ревью) → T-392 (доки: зафиксировать результат расследования — окно модели, фактические длины).
+4. **Epic 50 (P1):** T-394 (конфиг) → T-395 (каноны) → T-396 (DirectChatService: bucket + partitioning + payload) → T-397 (хендлер/роутер 0h/bot.py) → T-398 (миграция 1→2 + memorize + RAG-хронология + фильтр) → T-399 (тесты + ревью) → T-400 (доки).
+5. **Epic 51 (P1):** T-402 (SmartCache + врезка) → T-403 (payload-билдер; после T-396) → T-404 (тесты + ревью; зависит от T-396) → T-405 (доки).
+6. **T-406 (@DevOps) — прод-миграция:** бот ОСТАНОВЛЕН → `venv/bin/python scripts/migrate_direct_chat_v2.py` → отчёт (`user_version` 1→2, graph_facts с `bot_direct_reply`/`target_user`, `tg_message_id`) → старт.
+7. **T-407 (@DevOps) — деплой v2.36.0:** `git pull`; прод `.env`: добавить `CHAT_GLOBAL_CONTEXT_LIMIT=100`, `CHAT_BURST_LIMIT=3`, `CHAT_COOLDOWN_SECONDS=300`, `CHAT_DIRECT_REPLY_TTL_DAYS=""`, `SMART_CACHE_ENABLED=True`, `SMART_CACHE_TTL_SECONDS=1800`, `SMART_CACHE_MAX_ROWS=1000`; подтвердить ОТСУТСТВИЕ `SUMMARY_DEGRADED_*`; `systemctl restart admin_bot`; пост-деплой проверки: `PRAGMA user_version == 2`; INFO `smart cache:`; диагн-лог 4xx пуст (чекап не падает); 0 ERROR-шторма; DirectChat отвечает reply-ом.
+8. **Финализация:** README v2.36.0 + `plans/MEMORY.md` (Epic 48-51, окно модели, релиз-факты).
+
+**Критерии готовности:** полный pytest зелёный (ожидаемый финал ≈ 2125-2135 тестов: база 2099 + ~8-10 (Epic49) + ~15-18 (Epic50) + ~8-10 (Epic51) − 3 удалённых (Epic48) / ≈10 изменённых); `git diff --check` чист; каноны промптов (R11/R46-2/R46-4/R42-6/R50-4) и UX-тексты (R13/R42-5) не тронуты (только маппинг Epic 49); миграция — ТОЛЬКО идемпотентная user_version 1→2 (script-прецедент T-360); R17 соблюдён (секреты не в логах).
+
+**Оценка:** Epic 48 ≈ 1.5d, Epic 49 ≈ 2d, Epic 50 ≈ 3.75d, Epic 51 ≈ 3d, релиз/деплой ≈ 1d. Итого ≈ 11-12d до v2.36.0.
+
+@Architect Epic 48-51 architecture ready (Sections 57-60, D193-D214: Epic 48 — degraded ОТМЕНЁН (56.6 помечен CANCELLED), финал summary = retry-once → raise → UX R13, удаляются SUMMARY_DEGRADED_*, 3 теста, правка 1; Epic 49 — окно deepseek-v4-flash 1M (гипотеза «окно» отклонена, приоритет — C0-символы), диагн-лог 4xx ERROR «LLM HTTP %d | url | request_len | content_chars | num_messages | body_4xx≤500», фикс = scrub C0 (кроме \n\t → пробел) + CHECKUP_MAX_INPUT_SYMBOLS=12000 в checkup_service, WARNING-уровни checkup.py:68/81, UX-сплит (CHECKUP_LLM_ERROR_PHRASES=4, «база подавилась логами» архивирована), эскалация — через ERROR+Betterstack без нового heartbeat; Epic 50 — DirectChat (роутер 0h, триггеры Reply/entities/fallback, DirectChatThrottle in-memory (3 заряда, полный рефетч через 300с), контексты Global 4000/Thread 6×2000/RAG sort_by_timestamp ASC, каноны VERBATIM R50-4/R50-7/R50-8, миграция user_version 1→2 идемпотентная: graph_facts CHECK+bot_direct_reply + target_user + tg_message_id (script миграции), memorize_facts(+target_user), TTL пусто→NULL, фильтр bot_direct_reply из чужих RAG и R26-3); Epic 51 — SmartCache SQLite (MD5(slug\0norm), TTL 1800с, лимит 1000, ленивая очистка, врезка в factcheck/search/youtube/web ДО ресурсоёмких ступеней, кэш только успешных генераций, reply на текущее сообщение), Prompt Caching — автоматический префикс-кэш DeepSeek, порядок всех генераторов УЖЕ RAG-first (переписывание запрещено), build_messages только для DirectChat + guard-тест system@0; релиз v2.36.0 — порядок 48→49→50→51→T-406 (миграция на остановленном боте)→T-407 (деплой+.env+пост-проверки), ожидаемый финал ~2125-2135 тестов, 0 регрессий, миграция только 1→2.)

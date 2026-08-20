@@ -9,6 +9,8 @@
 import pytest
 
 from services.smartmodule_phrases import (
+    CHAT_COOLDOWN_PHRASES,
+    CHAT_ERROR_PHRASES,
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
     CHECKUP_LLM_ERROR_PHRASES,
@@ -112,11 +114,23 @@ EXPECTED_CHECKUP_DEAD = (
     "доступ к логам отвалился везде, диагностики не будет",
 )
 EXPECTED_CHECKUP_LLM_ERROR = (
-    "база подавилась логами",
     "нейронка срыгнула от этого кода",
     "мозги закипели это переваривать, попробуй позже",
     "токенов на эту помойку не хватило, сервер сдох",
     "llm откинулась, сгенерировать не вышло",
+)
+
+# Каноны R50-7/R50-8 (Epic 50, Section 58.2) — VERBATIM из backlog (эталон-слайс)
+EXPECTED_CHAT_COOLDOWN = (
+    "ты заебал спамить, я пошел курить на {remaining_time}",
+    "лимит тупых вопросов исчерпан, отдыхай {remaining_time}",
+    "дай передохнуть от твоей духоты, вернусь через {remaining_time}",
+    "рот оффни на {remaining_time}, я не нанимался с тобой болтать без остановки",
+)
+EXPECTED_CHAT_ERROR = (
+    "мои мозги расплавились от твоего бреда",
+    "внутренняя ошибка базы, иди нахуй",
+    "я подавился токенами, попробуй позже",
 )
 
 # Каноны R43-4 (Epic 43, Section 52.5, дословно)
@@ -169,6 +183,8 @@ class TestPoolsVerbatim:
             (CHECKUP_FALLBACK_PHRASES, EXPECTED_CHECKUP_FALLBACK, "checkup fallback"),
             (CHECKUP_DEAD_PHRASES, EXPECTED_CHECKUP_DEAD, "checkup dead"),
             (CHECKUP_LLM_ERROR_PHRASES, EXPECTED_CHECKUP_LLM_ERROR, "checkup llm error"),
+            (CHAT_COOLDOWN_PHRASES, EXPECTED_CHAT_COOLDOWN, "chat cooldown"),
+            (CHAT_ERROR_PHRASES, EXPECTED_CHAT_ERROR, "chat error"),
             (INFO_NO_DELETE_RIGHTS_PHRASES, EXPECTED_INFO_NO_DELETE_RIGHTS, "info no delete"),
             (INFO_NOT_ADMIN_PHRASES, EXPECTED_INFO_NOT_ADMIN, "info not admin"),
             (INFO_BAD_MARKUP_PHRASES, EXPECTED_INFO_BAD_MARKUP, "info bad markup"),
@@ -192,12 +208,24 @@ class TestPoolsVerbatim:
             (YOUTUBE_RETRY_PHRASES, EXPECTED_5_8, "5.8"),
             (CHECKUP_FALLBACK_PHRASES, EXPECTED_CHECKUP_FALLBACK, "checkup fallback"),
             (CHECKUP_DEAD_PHRASES, EXPECTED_CHECKUP_DEAD, "checkup dead"),
-            (CHECKUP_LLM_ERROR_PHRASES, EXPECTED_CHECKUP_LLM_ERROR, "checkup llm error"),
         ],
     )
     def test_pool_has_exactly_5_phrases(self, actual, expected, name):
         assert len(actual) == 5
         assert len(set(actual)) == 5  # без дублей внутри пула
+
+    def test_checkup_llm_error_pool_has_exactly_4_phrases(self):
+        """Epic 49 (57.6, D198): чистый LLM-пул из 4 фраз («база подавилась
+        логами» архивирована)."""
+        assert len(CHECKUP_LLM_ERROR_PHRASES) == 4
+        assert len(set(CHECKUP_LLM_ERROR_PHRASES)) == 4
+
+    def test_chat_pool_sizes(self):
+        """R50-7/R50-8: кулдаун — 4 фразы, ошибки — 3 фразы."""
+        assert len(CHAT_COOLDOWN_PHRASES) == 4
+        assert len(set(CHAT_COOLDOWN_PHRASES)) == 4
+        assert len(CHAT_ERROR_PHRASES) == 3
+        assert len(set(CHAT_ERROR_PHRASES)) == 3
 
 
 class TestEpic37Pools:
@@ -272,8 +300,48 @@ class TestEpic42CheckupPools:
             assert (set(pool) & existing) <= _CANON_SHARED_WITH_5_5
 
     def test_llm_error_pool_differs_where_canon_differs(self):
-        assert "база подавилась логами" in CHECKUP_LLM_ERROR_PHRASES
+        """Epic 49 (57.6, D198): «база подавилась логами» АРХИВИРОВАНА —
+        в LLM-пуле её нет (DoD T-390)."""
+        assert "база подавилась логами" not in CHECKUP_LLM_ERROR_PHRASES
         assert "база подавилась логами" not in LLM_ERROR_PHRASES
+
+
+class TestEpic50ChatPools:
+    """R50-7/R50-8 (Section 58.2): каноны VERBATIM, disjoint со всеми пулами."""
+
+    def test_chat_pools_disjoint_from_each_other(self):
+        assert not set(CHAT_COOLDOWN_PHRASES) & set(CHAT_ERROR_PHRASES)
+
+    def test_chat_pools_disjoint_from_all_existing(self):
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+            | set(YOUTUBE_ERROR_PHRASES)
+            | set(WEB_ERROR_PHRASES)
+            | set(YOUTUBE_RETRY_PHRASES)
+            | set(CHECKUP_FALLBACK_PHRASES)
+            | set(CHECKUP_DEAD_PHRASES)
+            | set(CHECKUP_LLM_ERROR_PHRASES)
+            | set(INFO_NO_DELETE_RIGHTS_PHRASES)
+            | set(INFO_NOT_ADMIN_PHRASES)
+            | set(INFO_BAD_MARKUP_PHRASES)
+            | set(INFO_EDIT_OK_PHRASES)
+        )
+        assert not set(CHAT_COOLDOWN_PHRASES) & existing
+        assert not set(CHAT_ERROR_PHRASES) & existing
+
+    def test_chat_cooldown_pool_has_placeholder_in_every_phrase(self):
+        for phrase in CHAT_COOLDOWN_PHRASES:
+            assert "{remaining_time}" in phrase
+            assert phrase.count("{remaining_time}") == 1
+
+    def test_chat_error_pool_no_placeholder(self):
+        for phrase in CHAT_ERROR_PHRASES:
+            assert "{remaining_time}" not in phrase
 
 
 class TestEpic43InfoPools:
@@ -337,6 +405,8 @@ class TestPoolStyle:
         CHECKUP_FALLBACK_PHRASES,
         CHECKUP_DEAD_PHRASES,
         CHECKUP_LLM_ERROR_PHRASES,
+        CHAT_COOLDOWN_PHRASES,
+        CHAT_ERROR_PHRASES,
         INFO_NO_DELETE_RIGHTS_PHRASES,
         INFO_NOT_ADMIN_PHRASES,
         INFO_BAD_MARKUP_PHRASES,
@@ -371,6 +441,7 @@ class TestPoolStyle:
             CHECKUP_FALLBACK_PHRASES,
             CHECKUP_DEAD_PHRASES,
             CHECKUP_LLM_ERROR_PHRASES,
+            CHAT_ERROR_PHRASES,
             INFO_NO_DELETE_RIGHTS_PHRASES,
             INFO_NOT_ADMIN_PHRASES,
             INFO_BAD_MARKUP_PHRASES,

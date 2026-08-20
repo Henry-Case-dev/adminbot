@@ -84,3 +84,48 @@ class TestCheckupService:
         user = llm.generate.await_args.args[0][1]["content"]
         assert user == "<system_logs></system_logs>"
         assert result == "всё горит"
+
+
+class TestEpic49ScrubAndTruncate:
+    """Epic 49 (57.5, D196): scrub C0 (кроме \\n \\t → пробел) + потолок
+    CHECKUP_MAX_INPUT_SYMBOLS; кириллица не затрагивается."""
+
+    @pytest.mark.asyncio
+    async def test_scrub_control_chars(self, make_service):
+        """#4: "a\\x00b\\x01c\\nd\\x7fe" → "a b c\\nd e" — C0→пробел, \\n сохранён."""
+        service, llm = make_service()
+        await service.checkup("a\x00b\x01c\nd\x7fe", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "a b c\nd e" in user
+        assert "\x00" not in user and "\x01" not in user and "\x7f" not in user
+
+    @pytest.mark.asyncio
+    async def test_scrub_keeps_tab(self, make_service):
+        """\\t НЕ заменяется (разрешён вместе с \\n)."""
+        service, llm = make_service()
+        await service.checkup("a\tb\nc", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "a\tb\nc" in user
+
+    @pytest.mark.asyncio
+    async def test_input_truncated_with_warning(self, make_service, caplog):
+        """#5: вход 12001+ симв → user ≤ CHECKUP_MAX_INPUT_SYMBOLS, WARNING,
+        кириллица цела."""
+        import logging
+
+        limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
+        logs = "я" * (limit + 1)
+        service, llm = make_service()
+        with caplog.at_level(logging.WARNING):
+            await service.checkup(logs, used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user == f"<system_logs>{'я' * limit}</system_logs>"
+        assert any("[checkup] input truncated" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_within_limit_unchanged(self, make_service):
+        """#6: вход ≤ 12000 — байт-в-байт прежний путь (никаких правок)."""
+        service, llm = make_service()
+        await service.checkup("обычные логи без аномалий", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user == "<system_logs>обычные логи без аномалий</system_logs>"

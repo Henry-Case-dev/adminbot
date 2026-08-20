@@ -489,7 +489,8 @@ class TestCompressAndPurge:
         memory = MemoryManager(db, FakeLLM())
         await memory.compress_and_purge(-100)
         texts = await db.get_graph_fact_texts([expired_id, live_id])
-        assert texts == [("chat_history", "живой факт")]
+        assert [(origin, fact) for origin, fact, _ in texts] == [
+            ("chat_history", "живой факт")]
 
     @pytest.mark.asyncio
     async def test_vec_purge_removes_vectors(self, db):
@@ -821,7 +822,7 @@ class TestMemorizeResilience:
         texts = await db.get_graph_fact_texts(
             [row["id"] for row in await (await db.db.execute(
                 "SELECT id FROM graph_facts")).fetchall()])
-        assert any("а б в" in fact for _, fact in texts)
+        assert any("а б в" in fact for _, fact, _ in texts)
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_llm_error_warning_without_exc_info(self, caplog):

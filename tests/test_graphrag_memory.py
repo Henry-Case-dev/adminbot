@@ -419,6 +419,21 @@ class TestGetGraphFacts:
         assert await memory.get_graph_facts(-100, [_row()], ["тема"]) == []
 
     @pytest.mark.asyncio
+    async def test_direct_reply_entities_excluded_from_summary_graph(self, db):
+        """Epic 50 (58.8, R26-3-фильтр): сущности/рёбра origin='bot_direct_reply'
+        НЕ попадают в справки /summary (nodes + edges + оба конца)."""
+        await self._graph(db)
+        d1 = await db.upsert_node(-100, "бот", "user", origin="bot_direct_reply")
+        d2 = await db.upsert_node(-100, "пользователь", "user", origin="bot_direct_reply")
+        await db.upsert_edge(d1, d2, "болтает с", origin="bot_direct_reply")
+        memory = MemoryManager(db, FakeLLM())
+        facts = await memory.get_graph_facts(-100, [_row(author_name="вася")], ["ракеты"])
+        texts = " ".join(facts)
+        assert "болтает с" not in texts
+        assert "пользователь" not in texts
+        assert "спорил с" in texts                     # легитимные рёбра на месте
+
+    @pytest.mark.asyncio
     async def test_disabled_returns_empty(self, db):
         memory = MemoryManager(db, FakeLLM())
         mod = replace(settings, GRAPH_RAG_ENABLED=False)
@@ -807,3 +822,103 @@ class TestGetRagContext:
                 -100, f"тема токен {i} " + "х" * 200, "web_content", now + 100)
         ctx2 = await memory.get_rag_context(-100, "тема")
         assert len(ctx2) <= settings.GRAPH_RAG_CONTEXT_MAX_CHARS
+
+
+class TestEpic50RagFlags:
+    """Epic 50 (58.8, D206): sort_by_timestamp/include_direct_reply — флаги
+    изолированы, дефолт = ровно старое поведение (58.10 #9)."""
+
+    @pytest.mark.asyncio
+    async def test_default_sort_keeps_old_behavior(self, db, monkeypatch):
+        """sort_by_timestamp=False (default) — порядок по rank/релевантности,
+        НЕ по created_at (в FTS-пути ранжирование внутри SQL)."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        for i in range(5):
+            await db.insert_graph_fact(-100, f"тема токен {i}", "search_fact", now + 100)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "тема")
+        assert "тема токен" in ctx                  # просто вернулись факты
+
+    @pytest.mark.asyncio
+    async def test_sort_by_timestamp_asc(self, db, monkeypatch):
+        """sort_by_timestamp=True — факты в таймлайне created_at ASC."""
+        clock = {"now": 1_000_000_000}
+        monkeypatch.setattr("services.database.time.time", lambda: clock["now"])
+        for delta, text in ((300, "поздний факт"), (100, "ранний факт"),
+                            (200, "средний факт")):
+            clock["now"] = 1_000_000_000 + delta
+            await db.insert_graph_fact(-100, text, "chat_history", None)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(
+            -100, "факт", sort_by_timestamp=True, include_direct_reply=True)
+        assert ctx.index("ранний факт") < ctx.index("средний факт") < ctx.index("поздний факт")
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_excluded_by_default(self, db):
+        """default include_direct_reply=False: bot_direct_reply НЕ подмешивается
+        в чужие пайплайны (FTS-путь)."""
+        await db.insert_graph_fact(-100, "бот рассказал секрет", "bot_direct_reply", None)
+        await db.insert_graph_fact(-100, "в чате обсуждали секрет", "chat_history", None)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "секрет")
+        assert "бот рассказал секрет" not in ctx
+        assert "обсуждали секрет" in ctx
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_included_when_flag_set(self, db):
+        await db.insert_graph_fact(-100, "бот рассказал секрет", "bot_direct_reply", None)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(
+            -100, "секрет", include_direct_reply=True, sort_by_timestamp=True)
+        assert "бот рассказал секрет" in ctx
+
+
+class TestEpic50MemorizeDirectReply:
+    """Epic 50 (58.8, D205): memorize с origin='bot_direct_reply' + target_user;
+    TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто → expires_at NULL)."""
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_writes_metadata_and_no_ttl_by_default(self, db, monkeypatch):
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="спросил про", obj="дроны")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "вася: что там с дронами\nбот: дроны летят",
+                                    "bot_direct_reply", target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT origin, expires_at, target_user FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["origin"] == "bot_direct_reply"
+        assert row["target_user"] == "вася"
+        assert row["expires_at"] is None          # TTL пусто → вечное (по ТЗ)
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_ttl_when_configured(self, db, monkeypatch):
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        mod = replace(settings, CHAT_DIRECT_REPLY_TTL_DAYS=7)
+        with patch("services.summary_memory.settings", mod):
+            llm = FactsLLM(response=json.dumps(
+                [_fact(subject="вася", predicate="спросил про", obj="дроны")],
+                ensure_ascii=False))
+            memory = MemoryManager(db, llm)
+            await memory.memorize_facts(-100, "текст", "bot_direct_reply",
+                                        target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["expires_at"] == now + 7 * 86400
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_rag_chronology_included(self, db, monkeypatch):
+        """DirectChat: get_rag_context с include_direct_reply=True включает
+        direct-факты (58.6 <RAG_Memory>)."""
+        await db.insert_graph_fact(-100, "бот: дроны летят на запад", "bot_direct_reply",
+                                   None, target_user="вася")
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(
+            -100, "дроны", include_direct_reply=True, sort_by_timestamp=True)
+        assert "дроны летят на запад" in ctx
