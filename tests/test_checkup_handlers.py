@@ -244,3 +244,64 @@ class TestCheckupHandler:
         msg = _make_msg(text="чекап", message_id=11)
         await checkup_mod.checkup_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in CHECKUP_LLM_ERROR_PHRASES
+
+
+class TestEpic49LogLevels:
+    """Epic 49 (57.6, D199): checkup.py:68/81 — WARNING без traceback."""
+
+    @pytest.mark.asyncio
+    async def test_llm_error_is_warning_without_traceback(self, checkup_cleanup, caplog):
+        import logging
+
+        service = MagicMock()
+        service.checkup = AsyncMock(side_effect=LLMError("сдохла"))
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("логи", False))
+        _wire(service, fetcher)
+        bot = AsyncMock()
+        msg = _make_msg(text="чекап", message_id=11)
+        with caplog.at_level(logging.WARNING):
+            await checkup_mod.checkup_handler(msg, bot=bot)
+        records = [r for r in caplog.records
+                   if r.message.startswith("[checkup] LLM failed")]
+        assert records, "нет WARNING-лога LLM failed"
+        assert records[0].levelno == logging.WARNING
+        assert records[0].exc_info is None or records[0].exc_info[0] is None
+        assert "error=" in records[0].message
+        assert bot.send_message.await_args.args[1] in CHECKUP_LLM_ERROR_PHRASES
+
+    @pytest.mark.asyncio
+    async def test_dead_is_warning_without_traceback(self, checkup_cleanup, caplog):
+        import logging
+
+        service = MagicMock()
+        service.checkup = AsyncMock()
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(side_effect=CheckupLogsUnavailableException("dead"))
+        _wire(service, fetcher)
+        bot = AsyncMock()
+        msg = _make_msg(text="чекап", message_id=11)
+        with caplog.at_level(logging.WARNING):
+            await checkup_mod.checkup_handler(msg, bot=bot)
+        records = [r for r in caplog.records
+                   if r.message.startswith("[checkup] all log sources failed")]
+        assert records
+        assert records[0].levelno == logging.WARNING
+        assert records[0].exc_info is None or records[0].exc_info[0] is None
+        assert bot.send_message.await_args.args[1] in CHECKUP_DEAD_PHRASES
+
+    @pytest.mark.asyncio
+    async def test_llm_failure_never_says_db_phrase(self, checkup_cleanup):
+        """DoD T-390: при падении LLM «база подавилась логами» НЕ уходит."""
+        service = MagicMock()
+        service.checkup = AsyncMock(side_effect=LLMError("сдохла"))
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("логи", False))
+        _wire(service, fetcher)
+        bot = AsyncMock()
+        msg = _make_msg(text="чекап", message_id=11)
+        await checkup_mod.checkup_handler(msg, bot=bot)
+        reply = bot.send_message.await_args.args[1]
+        assert reply in CHECKUP_LLM_ERROR_PHRASES
+        assert "база подавилась логами" not in reply
+        assert "база подавилась логами" not in CHECKUP_LLM_ERROR_PHRASES

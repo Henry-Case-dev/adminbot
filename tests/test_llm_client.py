@@ -527,3 +527,74 @@ class TestEpic47Retries:
             and "reason=status=429" in m
             for m in retry_records
         )
+
+
+class TestEpic49DiagnosticLog:
+    """Epic 49 (57.4, D197): финальный 4xx → ERROR-диагн-лог с длиной payload
+    и телом провайдера (≤500 симв.); 401/403 и текст исключения — без изменений."""
+
+    @pytest.mark.asyncio
+    async def test_final_400_logs_diagnostics(self, monkeypatch, caplog):
+        import logging
+
+        def handler(request):
+            return httpx.Response(400, text="context length exceeded", request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(LLMError) as ei:
+                await client.generate([
+                    {"role": "system", "content": "sys"},
+                    {"role": "user", "content": "запрос" * 50},
+                ])
+        assert str(ei.value) == "LLM HTTP 400: https://api.test/v1/chat/completions"
+        records = [r.message for r in caplog.records if "LLM HTTP 400" in r.message]
+        assert len(records) == 1
+        msg = records[0]
+        assert "url=https://api.test/v1/chat/completions" in msg
+        assert "request_len=" in msg
+        assert "content_chars=" in msg
+        assert "num_messages=2" in msg
+        assert "body_4xx='context length exceeded'" in msg
+
+    @pytest.mark.asyncio
+    async def test_400_body_truncated_to_500_chars(self, monkeypatch, caplog):
+        import logging
+
+        def handler(request):
+            return httpx.Response(400, text="x" * 1000, request=request)
+
+        client = _make_client(handler, monkeypatch)
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(LLMError):
+                await client.generate([{"role": "user", "content": "q"}])
+        record = next(r for r in caplog.records if "LLM HTTP 400" in r.message)
+        assert "x" * 501 not in record.message          # обрезано до _4XX_BODY_MAX_CHARS
+        assert "x" * 500 in record.message
+
+    @pytest.mark.asyncio
+    async def test_401_403_no_body_log(self, monkeypatch, caplog):
+        import logging
+
+        def handler(request):
+            return httpx.Response(401, text="unauthorized body", request=request)
+
+        client = _make_client(handler, monkeypatch)
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(LLMAuthError):
+                await client.generate([{"role": "user", "content": "q"}])
+        assert not any("body_4xx" in r.message for r in caplog.records)   # R17
+
+    @pytest.mark.asyncio
+    async def test_other_4xx_also_logged(self, monkeypatch, caplog):
+        import logging
+
+        def handler(request):
+            return httpx.Response(422, text="unprocessable", request=request)
+
+        client = _make_client(handler, monkeypatch)
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(LLMError):
+                await client.generate([{"role": "user", "content": "q"}])
+        assert any("LLM HTTP 422" in r.message and "body_4xx=" in r.message
+                   for r in caplog.records)

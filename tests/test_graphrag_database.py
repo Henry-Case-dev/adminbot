@@ -378,28 +378,28 @@ class TestGraphRagV2Migration:
             )
 
     @pytest.mark.asyncio
-    async def test_user_version_is_1_after_initialize(self, db):
-        """#2: PRAGMA user_version == 1."""
+    async def test_user_version_is_2_after_initialize(self, db):
+        """#2: PRAGMA user_version == 2 (Epic 46 → 1, Epic 50/58.7 → 2)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 1
+        assert row[0] == 2
 
     @pytest.mark.asyncio
-    async def test_reinitialize_is_idempotent_user_version_stays_1(self, tmp_path):
-        """#2: повторный initialize идемпотентен (user_version остаётся 1)."""
+    async def test_reinitialize_is_idempotent_user_version_stays_2(self, tmp_path):
+        """#2: повторный initialize идемпотентен (user_version остаётся 2)."""
         d = DatabaseService(str(tmp_path / "mig2.db"))
         await d.initialize()
         await d.close()
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 1
+        assert row[0] == 2
         await d.close()
 
     @pytest.mark.asyncio
     async def test_old_db_migrated_data_kept_ids_preserved(self, tmp_path):
         """#3: старая БД (DDL до Epic 46) → initialize: колонки добавлены,
-        данные сохранены (id узлов те же), user_version 1."""
+        данные сохранены (id узлов те же), user_version 2."""
         path = tmp_path / "old.db"
         _create_old_db(path)
         d = DatabaseService(str(path))
@@ -427,7 +427,7 @@ class TestGraphRagV2Migration:
 
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 1
+        assert row[0] == 2
 
         # расширенный CHECK активен: 'fact' проходит, 'banana' — нет
         import aiosqlite
@@ -509,11 +509,86 @@ class TestGraphFacts:
 
     @pytest.mark.asyncio
     async def test_get_graph_fact_texts_keeps_knn_order(self, db):
-        """get_graph_fact_texts: [(origin, fact), ...] в порядке fact_ids."""
+        """get_graph_fact_texts: [(origin, fact, created_at), ...] в порядке
+        fact_ids (Epic 50/58.7: + created_at для хронологии DirectChat)."""
         f1 = await db.insert_graph_fact(-100, "факт один", "web_content", None)
         f2 = await db.insert_graph_fact(-100, "факт два", "search_fact", None)
         rows = await db.get_graph_fact_texts([f2, f1, 999])
-        assert rows == [("search_fact", "факт два"), ("web_content", "факт один")]
+        assert len(rows) == 2
+        assert rows[0][:2] == ("search_fact", "факт два")
+        assert rows[1][:2] == ("web_content", "факт один")
+        assert all(isinstance(r[2], int) for r in rows)
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_migration_columns_and_check(self, db):
+        """Epic 50 (58.7, D201): graph_facts CHECK + 'bot_direct_reply' +
+        target_user; smart_messages.tg_message_id; user_version == 2."""
+        import aiosqlite
+
+        cursor = await db.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
+        row = await cursor.fetchone()
+        assert "bot_direct_reply" in row["sql"]
+        cursor = await db.db.execute("PRAGMA table_info(graph_facts)")
+        cols = {r["name"] for r in await cursor.fetchall()}
+        assert "target_user" in cols
+        cursor = await db.db.execute("PRAGMA table_info(smart_messages)")
+        cols = {r["name"] for r in await cursor.fetchall()}
+        assert "tg_message_id" in cols
+        # CHECK принимает bot_direct_reply, отклоняет левый origin
+        fid = await db.insert_graph_fact(-100, "диалог с ботом", "bot_direct_reply",
+                                         None, target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT origin, target_user FROM graph_facts WHERE id = ?", (fid,))
+        fact = await cursor.fetchone()
+        assert fact["origin"] == "bot_direct_reply"
+        assert fact["target_user"] == "вася"
+        with pytest.raises(aiosqlite.IntegrityError):
+            await db.db.execute(
+                "INSERT INTO graph_facts (chat_id, fact, origin, created_at) "
+                "VALUES (-100, 'x', 'alien_origin', 100)")
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_migration_idempotent_and_fts_intact(self, tmp_path):
+        """Epic 50 (58.7): повторный initialize — no-op; graph_facts_fts
+        валиден БЕЗ пересоздания (id сохранены)."""
+        d = DatabaseService(str(tmp_path / "mig_dc.db"))
+        await d.initialize()
+        fid = await d.insert_graph_fact(-100, "факт до рестарта", "chat_history", None)
+        await d.close()
+        await d.initialize()                       # рестарт: миграция — no-op
+        cursor = await d.db.execute(
+            "SELECT id, fact FROM graph_facts WHERE id = ?", (fid,))
+        row = await cursor.fetchone()
+        assert row["fact"] == "факт до рестарта"
+        rows = await d.search_graph_facts_fts(-100, '"факт"*', 10, 1_800_000_000)
+        assert any(r["fact"] == "факт до рестарта" for r in rows)
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 2
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_search_fts_filters_direct_reply_by_default(self, db):
+        """Epic 50 (58.8, D206): default — bot_direct_reply НЕ в чужих RAG;
+        include_direct_reply=True — участвует."""
+        await db.insert_graph_fact(-100, "бот рассказал секрет", "bot_direct_reply", None)
+        await db.insert_graph_fact(-100, "пользователь спросил", "chat_history", None)
+        rows = await db.search_graph_facts_fts(-100, '"рассказал"*', 10, 1_800_000_000)
+        assert not any("бот рассказал" in r["fact"] for r in rows)
+        rows = await db.search_graph_facts_fts(
+            -100, '"рассказал"*', 10, 1_800_000_000, include_direct_reply=True)
+        assert any("бот рассказал" in r["fact"] for r in rows)
+
+    @pytest.mark.asyncio
+    async def test_save_smart_message_with_tg_message_id(self, db):
+        """Epic 50 (58.7): tg_message_id сохраняется; get_smart_message_by_tg_id."""
+        await db.save_smart_message(
+            user_id=10, chat_id=-100, text="привет", reply_to_id=None,
+            timestamp=1_700_000_000, media_type="text", author_name="вася",
+            message_id=777)
+        row = await db.get_smart_message_by_tg_id(-100, 777)
+        assert row is not None and row["text"] == "привет"
+        assert await db.get_smart_message_by_tg_id(-100, 999) is None
 
     @pytest.mark.asyncio
     async def test_purge_expired_graph_facts(self, db, monkeypatch):

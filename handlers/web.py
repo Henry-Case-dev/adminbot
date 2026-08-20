@@ -14,6 +14,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
 from services.llm_client import LLMError
+from services.smart_cache import get_smart_cache
 from services.smartmodule_phrases import LLM_ERROR_PHRASES, WEB_ERROR_PHRASES
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_urls import extract_web_url
@@ -86,11 +87,21 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         return                                # консьюм
     _cooldown.touch(message.chat.id, user_id)
     text = (message.text or message.caption or "")   # Epic 46 (55.5): rag_query
+    # Epic 51 (59.2, D210): Exact Match Cache — ДО Trafilatura/Tavily/LLM.
+    # Хит → reply на ТЕКУЩЕЕ сообщение.
+    cache = get_smart_cache()
+    cache_key = cache.build_key("web", url)
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        await _reply(bot, message.chat.id, cached, message.message_id)
+        logger.info("[web] cache hit | chat=%s", message.chat.id)
+        return
     try:
         summary = await _service.summarize(
             url, chat_id=message.chat.id, rag_query=text
         )
         await send_chunked_reply(bot, message.chat.id, summary, target.message_id)
+        await cache.set(cache_key, summary)       # только успешная генерация (59.2)
         logger.info("[web] summary sent | chat=%s", message.chat.id)
     except WebContentExtractionFailedException:
         logger.exception("[web] extractor failed | chat=%s", message.chat.id)

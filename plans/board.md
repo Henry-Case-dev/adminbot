@@ -6,6 +6,98 @@
 
 ## 🔧 In Progress
 
+### Epic 48: Откат degraded-саммари (Summary: LLM или ничего) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.36.0, P0 — «в первую очередь»)
+
+> Полный трек — `plans/backlog.md` (Epic 48). Требования R48-1…R48-6, решения D186–D189.
+> Саммари = ЛИБО от LLM, ЛИБО никакое: degraded-вывод (`_degraded_summary`, `_DEGRADED_HEADER`, `_DEGRADED_LINE_CHARS`, ветка «B» в `_run` 142-148) УДАЛЯЕТСЯ. Retry-once (`SUMMARY_RETRY_ONCE_PAUSE=5с`) СОХРАНЯЕТСЯ (LLM-путь): второй фейл → raise → UX R13. Удалить `SUMMARY_DEGRADED_ENABLED/COUNT` из settings.py (289/291) + .env.example (155-156); прод `.env` — SUMMARY_DEGRADED_* отсутствуют (проверено PM). UX R13 байт-в-байт не трогать. Тест-переписать: degraded-цепочка → «retry ×2 → UX», удалить disabled/limits/empty-тесты (test_summary_generator.py, test_settings_helpers.py 246-307). Док-долг: Section 56.6 → финальная реализация (Section 57). Каноны промптов не трогать; миграций нет; база 2099; v2.36.0 (прод `6d0cba0`). Без @Orchestrator.
+
+- [ ] T-381 (@Architect, P0) — Section 57: финализация 56.6 (Epic 48) + дизайн чекап-фикса (Epic 49); закрыть открытые вопросы 1–2
+- [ ] T-382 (@Builder, P0) — откат кода: удалить degraded из summary_generator.py (retry-once и UX R13 сохранить)
+- [ ] T-383 (@Builder, P0) — удалить SUMMARY_DEGRADED_* из settings.py + .env.example (прод .env не трогать — отсутствуют)
+- [ ] T-384 (@Builder, P0) — тесты: переписать degraded-цепочку → UX R13; удалить disabled/limits/empty; 0 регрессий (база 2099)
+- [ ] T-385 (@Builder + @Reviewer, P0) — ревью APPROVED + полный прогон 0 регрессий
+- [ ] T-386 (@Builder, P1) — README v2.36.0 + MEMORY
+
+### Epic 49: Чекап 400: расследование + фикс + разделение UX-фраз — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.36.0, P0)
+
+> Полный трек — `plans/backlog.md` (Epic 49). Требования R49-1…R49-5, решение D187.
+> Инцидент 2026-08-20T09:33:58 UTC (PID 1013533): стабильный `LLM HTTP 400` apinet.cloud
+> (llm_client.py:180 → generate:198 → checkup_service.py:31 → handlers/checkup.py:77-81);
+> юзер получил «база подавилась логами» (CHECKUP_LLM_ERROR_PHRASES) — ложный след (упал LLM).
+> Порядок: (1) диагностика СНАЧАЛА — лог длины payload + тело 4xx (сейчас НЕ логируется),
+> окно deepseek-v4-flash у apinet.cloud (ресёрч), фактическая длина user-сообщения чекапа
+> (≤20000 симв. `_MAX_LOG_SYMBOLS`, journalctl-фолбек Epic 45); (2) фикс первопричины по Section 57
+> (обрезка/сжатие контекста и/или scrub управляющих символов; гипотезы (а) окно/(б) символы/(в) параметр);
+> (3) попутно: checkup.py:81 `logger.exception` → WARNING (долг Epic 47) + сплит UX-фраз
+> (LLMError → «LLM/мозги», ошибки логов → «база»; тексты R42-5/R13 байт-в-байт, только маппинг).
+> Каноны CHECKUP_SYSTEM_PROMPT не трогать; миграций нет; база 2099; v2.36.0. Без @Orchestrator.
+
+- [ ] T-387 (@Architect, P0) — Section 57: дизайн диагностики 4xx + ресёрч окна модели + финальное решение фикса + UX-маппинг; закрыть открытые вопросы 1–6
+- [ ] T-388 (@Builder, P0) — llm_client: диагностический лог 4xx (payload length + тело, без секретов R17)
+- [ ] T-389 (@Builder, P0) — фикс первопричины по Section 57 (обрезка/сжатие контекста и/или scrub символов)
+- [ ] T-390 (@Builder, P0) — checkup.py:81 WARNING без traceback + сплит UX-пулов (маппинг, тексты не менять)
+- [ ] T-391 (@Builder + @Reviewer, P0) — тесты 4xx-диагностики/обрезки/WARNING/маппинга + 0 регрессий (база 2099) + ревью APPROVED
+- [ ] T-392 (@Builder, P1) — README v2.36.0 + MEMORY
+
+### Epic 50: DirectChat (прямое общение с сохранением контекста) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.36.0, P1)
+
+> Полный трек — `plans/backlog.md` (Epic 50). Требования R50-1…R50-9, решение D188.
+> Подсервис DirectChat в SmartModule: бот НИКОГДА не инициирует диалог; отвечает ТОЛЬКО на Reply
+> своему сообщению ЛИБО упоминание юзернейма/тега; все ответы — Reply на сообщение обращающегося;
+> идентификация через AliasResolver (Алиас → Никнейм → Юзернейм). Конфиг: CHAT_GLOBAL_CONTEXT_LIMIT=100 /
+> CHAT_BURST_LIMIT=3 / CHAT_COOLDOWN_SECONDS=300 / CHAT_DIRECT_REPLY_TTL_DAYS="" (пусто = вечно).
+> Context Partitioning: <RAG_Memory> (по хронологии) / <Global_Context> / <Conversation_Thread>
+> (рекурсивные реплаи) / <Target_User>. Канон CHAT_SYSTEM_PROMPT + пулы кулдауна (4) и ошибок (3) —
+> VERBATIM в backlog (R50-4/7/8). Temporal GraphRAG: origin='bot_direct_reply', TTL по CHAT_DIRECT_REPLY_TTL_DAYS
+> (пусто → expires_at NULL), метаданные target_user/chat_id/timestamp, ORDER BY timestamp ASC при сборке
+> <RAG_Memory>. Token Bucket: CHAT_BURST_LIMIT зарядов/юзер, восстановление через 300с, кулдаун-пул.
+> ⚠️ ОТКРЫТЫЙ ВОПРОС: CHECK `graph_facts.origin` (database.py:133-134) НЕ допускает 'bot_direct_reply'
+> → возможна идемпотентная миграция user_version (прецедент Epic 46 T-360) или ALTER ADD COLUMN target_user;
+> created_at в graph_facts уже есть → ORDER BY без новой колонки (по Section 58). Каноны промптов не трогать;
+> база 2099; v2.36.0. Без @Orchestrator.
+
+- [ ] T-393 (@Architect, P1) — Section 58: каноны VERBATIM + дизайн (триггеры/token bucket/context partitioning/memorize/ORDER BY); закрыть открытые вопросы 1–8 (вкл. миграцию origin)
+- [ ] T-394 (@Builder, P1) — конфиг CHAT_GLOBAL_CONTEXT_LIMIT/CHAT_BURST_LIMIT/CHAT_COOLDOWN_SECONDS/CHAT_DIRECT_REPLY_TTL_DAYS + .env.example
+- [ ] T-395 (@Builder, P1) — каноны: CHAT_SYSTEM_PROMPT + CHAT_COOLDOWN_PHRASES (4) + CHAT_ERROR_PHRASES (3) + тест-эталоны
+- [ ] T-396 (@Builder, P1) — DirectChatService: token bucket + context partitioning + payload-порядок (R51-2) + Reply-отправка
+- [ ] T-397 (@Builder, P1) — хендлер: Reply-на-бота (reply_to_message.from_user==bot_id) ИЛИ упоминание @username; wiring
+- [ ] T-398 (@Builder, P1) — GraphRAG: memorize origin='bot_direct_reply' + метаданные + TTL + ORDER BY created_at ASC; фильтр от флуда других подсервисов
+- [ ] T-399 (@Builder + @Reviewer, P1) — тесты DirectChat (триггеры/bucket/каноны/partitioning/metadata/ORDER BY) + 0 регрессий (база 2099) + ревью APPROVED
+- [ ] T-400 (@Builder, P1) — README v2.36.0 + MEMORY
+
+### Epic 51: Intelligent Caching (Token Optimization) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.36.0, P1)
+
+> Полный трек — `plans/backlog.md` (Epic 51). Требования R51-1…R51-5, решение D189.
+> Уровень 1 — Exact Match Cache: локальный SQLite/Redis кэш по ключу MD5(команда + нормализованный
+> запрос/URL) → СГЕНЕРИРОВАННЫЙ ОТВЕТ БОТА; TTL 30 мин; повторная ссылка → НЕ лезет в Trafilatura/Tavily
+> и НЕ дергает LLM — мгновенный токсичный ответ (FactCheck/SmartSearch/Web/YouTube). Уровень 2 — DeepSeek
+> Prompt Caching: «Статичное — вверх, Динамичное — вниз»; строгий порядок payload для ВСЕХ LLM-вызовов:
+> (1) System Prompt → НАЧАЛО; (2) User Resolution Map (алиасы/имена чата); (3) Bot Knowledge (RAG);
+> (4) динамика (контекст/история/текст страницы) → КОНЕЦ. Тесты: (а) Token Bucket кулдаун; (б) Exact Match
+> (второй вызов URL НЕ вызывает LLM); (в) system на индексе 0; (г) memorize мок с метаданными
+> (timestamp/chat_id/user); (д) деплой git pull + systemctl restart. Каноны промптов/эталоны не трогать
+> (только порядок секций); UX R13/R42 не менять; миграций БД нет; база 2099; v2.36.0. Без @Orchestrator.
+
+- [ ] T-401 (@Architect, P1) — Section 59: дизайн MD5-нормализация/хранилище/TTL/LRU + Prompt Cache совместимость + безупречность эталонов; закрыть открытые вопросы 9–13
+- [ ] T-402 (@Builder, P1) — smart_cache: MD5-ключ + TTL 30м + врезка ДО Trafilatura/Tavily/LLM (factcheck/search/youtube/web); кэш-хит → reply
+- [ ] T-403 (@Builder, P1) — payload-билдер (system на 0-м индексе; user map; RAG; динамика в конце) для всех генераторов; эталоны-тесты порядка
+- [ ] T-404 (@Builder + @Reviewer, P1) — тесты (а)–(г) + 0 регрессий (база 2099) + ревью APPROVED
+- [ ] T-405 (@Builder, P1) — README v2.36.0 + MEMORY
+
+### Epic 48–51: Релиз v2.36.0 (общий деплой, T-406/T-407) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅)
+
+> Общий релиз Epics 48/49/50/51 (откат degraded + чекап-400 + DirectChat + Intelligent Caching).
+> Коммит одними код+тесты (D123-стиль), пуш origin/master; прод .env: SUMMARY_DEGRADED_* отсутствуют
+> (проверено) — подтвердить при деплое; при необходимости новых переменных (CHAT_*/SMART_CACHE_*) —
+> бэкап `.env.bak.epic48_51` + добавление. Миграций БД нет ПО УМОЛЧАНИЮ (вопрос origin Epic 50 —
+> по Section 58, идемпотентная миграция user_version при одобрении @Architect). Деплой:
+> git pull --ff-only → systemctl restart admin_bot → active (running), новый PID → journalctl -n 50
+> (0 traceback) → smoke: /summary (LLM или UX — НЕ degraded), чекап (без «база подавилась логами» при
+> падении LLM), DirectChat (Reply боту + упоминание), кэш (повторный URL → мгновенный ответ).
+
+- [ ] T-406 (@DevOps, P0) — коммит на русском + пуш origin/master (Epics 48–51 одним коммитом, D123-стиль)
+- [ ] T-407 (@DevOps, P0) — деплой v2.36.0: git pull --ff-only; .env (проверка SUMMARY_DEGRADED_* отсутствуют, +CHAT_*/SMART_CACHE_* при необходимости); systemctl restart admin_bot; journalctl 0 traceback; smoke всех подсервисов
+
 ### Epic 47: Resilience — LLM-клиент и GraphRAG-память (прод-инцидент падений) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.35.1)
 
 > Полный трек — `plans/backlog.md` (Epic 47). Требования R47-1…R47-6, решения D180–D185.

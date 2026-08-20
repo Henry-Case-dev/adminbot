@@ -191,6 +191,7 @@ async def summary_observer(message: types.Message):
                 author_name=author_name,
                 is_forward=is_forward,
                 forward_source=(forward_source or "")[:_FORWARD_SOURCE_MAX_CHARS],
+                message_id=message.message_id,   # Epic 50 (58.7): TG id для reply-цепочек
             )
         except Exception:
             logger.warning(

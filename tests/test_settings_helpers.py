@@ -244,13 +244,11 @@ _EPIC47_KEYS = (
     "GRAPH_MEMORIZE_MAX_BATCH_RETRIES",
     "GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF",
     "SUMMARY_RETRY_ONCE_PAUSE",
-    "SUMMARY_DEGRADED_ENABLED",
-    "SUMMARY_DEGRADED_COUNT",
 )
 
 
 class TestEpic47SettingsDefaults:
-    """Epic 47 (56.4/56.8, Section 56.2): дефолты Legacy-ретраев LLM + degrade."""
+    """Epic 47 (56.4/56.8, Section 56.2): дефолты Legacy-ретраев LLM."""
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
@@ -269,8 +267,6 @@ class TestEpic47SettingsDefaults:
         assert settings_mod.settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES == 2
         assert settings_mod.settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF == 2.0
         assert settings_mod.settings.SUMMARY_RETRY_ONCE_PAUSE == 5.0
-        assert settings_mod.settings.SUMMARY_DEGRADED_ENABLED is True
-        assert settings_mod.settings.SUMMARY_DEGRADED_COUNT == 15
 
     def test_valid_values_parsed(self, monkeypatch):
         monkeypatch.setenv("LLM_TIMEOUT", "45")
@@ -281,8 +277,6 @@ class TestEpic47SettingsDefaults:
         monkeypatch.setenv("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", "4")
         monkeypatch.setenv("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", "3")
         monkeypatch.setenv("SUMMARY_RETRY_ONCE_PAUSE", "2.5")
-        monkeypatch.setenv("SUMMARY_DEGRADED_ENABLED", "false")
-        monkeypatch.setenv("SUMMARY_DEGRADED_COUNT", "8")
         importlib.reload(settings_mod)
         assert settings_mod.settings.LLM_TIMEOUT == 45.0
         assert settings_mod.settings.LLM_RETRY_BACKOFF_BASE == 0.5
@@ -292,16 +286,110 @@ class TestEpic47SettingsDefaults:
         assert settings_mod.settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES == 4
         assert settings_mod.settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF == 3.0
         assert settings_mod.settings.SUMMARY_RETRY_ONCE_PAUSE == 2.5
-        assert settings_mod.settings.SUMMARY_DEGRADED_ENABLED is False
-        assert settings_mod.settings.SUMMARY_DEGRADED_COUNT == 8
 
     def test_below_min_falls_back_with_warning(self, monkeypatch, caplog):
-        """LLM_TOTAL_BUDGET=0.5 (<1) → дефолт 60.0 + WARNING; SUMMARY_DEGRADED_COUNT=0 → 15."""
+        """LLM_TOTAL_BUDGET=0.5 (<1) → дефолт 60.0 + WARNING."""
         monkeypatch.setenv("LLM_TOTAL_BUDGET", "0.5")
-        monkeypatch.setenv("SUMMARY_DEGRADED_COUNT", "0")
         with caplog.at_level(logging.WARNING):
             importlib.reload(settings_mod)
         assert settings_mod.settings.LLM_TOTAL_BUDGET == 60.0
-        assert settings_mod.settings.SUMMARY_DEGRADED_COUNT == 15
         assert any("LLM_TOTAL_BUDGET=0.5 < 1.0" in r.message for r in caplog.records)
-        assert any("SUMMARY_DEGRADED_COUNT=0 < 1" in r.message for r in caplog.records)
+
+
+_EPIC4851_KEYS = (
+    "CHECKUP_MAX_INPUT_SYMBOLS",
+    "CHAT_GLOBAL_CONTEXT_LIMIT",
+    "CHAT_BURST_LIMIT",
+    "CHAT_COOLDOWN_SECONDS",
+    "CHAT_DIRECT_REPLY_TTL_DAYS",
+    "CHAT_GLOBAL_CONTEXT_MAX_CHARS",
+    "CHAT_THREAD_MAX_DEPTH",
+    "CHAT_THREAD_MAX_CHARS",
+    "SMART_CACHE_ENABLED",
+    "SMART_CACHE_TTL_SECONDS",
+    "SMART_CACHE_MAX_ROWS",
+)
+
+
+class TestEpic4851SettingsDefaults:
+    """Epic 48-51 (57.7/58.3/59.4, D212): дефолты checkup-400 / DirectChat /
+    SmartCache; SUMMARY_DEGRADED_* УДАЛЕНЫ."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC4851_KEYS + ("SUMMARY_DEGRADED_ENABLED", "SUMMARY_DEGRADED_COUNT"):
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_summary_degraded_settings_removed(self):
+        importlib.reload(settings_mod)
+        assert not hasattr(settings_mod.settings, "SUMMARY_DEGRADED_ENABLED")
+        assert not hasattr(settings_mod.settings, "SUMMARY_DEGRADED_COUNT")
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS == 12000
+        assert settings_mod.settings.CHAT_GLOBAL_CONTEXT_LIMIT == 100
+        assert settings_mod.settings.CHAT_BURST_LIMIT == 3
+        assert settings_mod.settings.CHAT_COOLDOWN_SECONDS == 300.0
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS is None
+        assert settings_mod.settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS == 4000
+        assert settings_mod.settings.CHAT_THREAD_MAX_DEPTH == 6
+        assert settings_mod.settings.CHAT_THREAD_MAX_CHARS == 2000
+        assert settings_mod.settings.SMART_CACHE_ENABLED is False
+        assert settings_mod.settings.SMART_CACHE_TTL_SECONDS == 1800
+        assert settings_mod.settings.SMART_CACHE_MAX_ROWS == 1000
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("CHECKUP_MAX_INPUT_SYMBOLS", "9000")
+        monkeypatch.setenv("CHAT_GLOBAL_CONTEXT_LIMIT", "50")
+        monkeypatch.setenv("CHAT_BURST_LIMIT", "5")
+        monkeypatch.setenv("CHAT_COOLDOWN_SECONDS", "120")
+        monkeypatch.setenv("CHAT_DIRECT_REPLY_TTL_DAYS", "7")
+        monkeypatch.setenv("CHAT_GLOBAL_CONTEXT_MAX_CHARS", "3000")
+        monkeypatch.setenv("CHAT_THREAD_MAX_DEPTH", "4")
+        monkeypatch.setenv("CHAT_THREAD_MAX_CHARS", "1500")
+        monkeypatch.setenv("SMART_CACHE_ENABLED", "true")
+        monkeypatch.setenv("SMART_CACHE_TTL_SECONDS", "900")
+        monkeypatch.setenv("SMART_CACHE_MAX_ROWS", "500")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS == 9000
+        assert settings_mod.settings.CHAT_GLOBAL_CONTEXT_LIMIT == 50
+        assert settings_mod.settings.CHAT_BURST_LIMIT == 5
+        assert settings_mod.settings.CHAT_COOLDOWN_SECONDS == 120.0
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS == 7
+        assert settings_mod.settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS == 3000
+        assert settings_mod.settings.CHAT_THREAD_MAX_DEPTH == 4
+        assert settings_mod.settings.CHAT_THREAD_MAX_CHARS == 1500
+        assert settings_mod.settings.SMART_CACHE_ENABLED is True
+        assert settings_mod.settings.SMART_CACHE_TTL_SECONDS == 900
+        assert settings_mod.settings.SMART_CACHE_MAX_ROWS == 500
+
+    def test_empty_ttl_days_means_none(self, monkeypatch):
+        """CHAT_DIRECT_REPLY_TTL_DAYS="" → None (вечное хранение, R50-2)."""
+        monkeypatch.setenv("CHAT_DIRECT_REPLY_TTL_DAYS", "")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS is None
+
+    def test_crooked_ttl_days_warns_and_defaults(self, monkeypatch, caplog):
+        monkeypatch.setenv("CHAT_DIRECT_REPLY_TTL_DAYS", "каша")
+        with caplog.at_level(logging.WARNING):
+            importlib.reload(settings_mod)
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS is None
+        assert any("CHAT_DIRECT_REPLY_TTL_DAYS" in r.message for r in caplog.records)
+
+    def test_below_min_falls_back_with_warning(self, monkeypatch, caplog):
+        """CHECKUP_MAX_INPUT_SYMBOLS=500 (<1000) → 12000 + WARNING;
+        CHAT_BURST_LIMIT=0 (<1) → 3 + WARNING; SMART_CACHE_TTL_SECONDS=30 → 1800."""
+        monkeypatch.setenv("CHECKUP_MAX_INPUT_SYMBOLS", "500")
+        monkeypatch.setenv("CHAT_BURST_LIMIT", "0")
+        monkeypatch.setenv("SMART_CACHE_TTL_SECONDS", "30")
+        with caplog.at_level(logging.WARNING):
+            importlib.reload(settings_mod)
+        assert settings_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS == 12000
+        assert settings_mod.settings.CHAT_BURST_LIMIT == 3
+        assert settings_mod.settings.SMART_CACHE_TTL_SECONDS == 1800
+        assert any("CHECKUP_MAX_INPUT_SYMBOLS=500 < 1000" in r.message for r in caplog.records)
+        assert any("CHAT_BURST_LIMIT=0 < 1" in r.message for r in caplog.records)
+        assert any("SMART_CACHE_TTL_SECONDS=30 < 60" in r.message for r in caplog.records)

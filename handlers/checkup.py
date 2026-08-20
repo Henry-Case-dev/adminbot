@@ -64,8 +64,10 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     _cooldown.touch(message.chat.id, _CHAT_SLOT)
     try:
         logs, used_fallback = await _fetcher.fetch()
-    except CheckupLogsUnavailableException:
-        logger.exception("[checkup] all log sources failed | chat=%s", message.chat.id)
+    except CheckupLogsUnavailableException as exc:
+        # Epic 49 (D199): WARNING без traceback (ожидаемая ветка, D190-стиль)
+        logger.warning("[checkup] all log sources failed | chat=%s | error=%s",
+                       message.chat.id, exc)
         await _reply(bot, message.chat.id, random.choice(CHECKUP_DEAD_PHRASES),
                      message.message_id)
         return
@@ -77,8 +79,10 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         report = await _service.checkup(logs, used_fallback)
         await send_chunked_reply(bot, message.chat.id, report, message.message_id)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
-    except LLMError:
-        logger.exception("[checkup] LLM failed | chat=%s", message.chat.id)
+    except LLMError as exc:
+        # Epic 47/49 (D190/D199): WARNING без traceback (ожидаемая ветка)
+        logger.warning("[checkup] LLM failed | chat=%s | error=%s",
+                       message.chat.id, exc)
         await _reply(bot, message.chat.id, random.choice(CHECKUP_LLM_ERROR_PHRASES),
                      message.message_id)
     except Exception:
