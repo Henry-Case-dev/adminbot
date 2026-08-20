@@ -1,7 +1,8 @@
 """Tests for services/summary_generator.py (T-186, Section 33.7)."""
+import logging
 import sqlite3
 from dataclasses import replace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch as mock_patch
 
 import pytest
 from aiogram.exceptions import TelegramRetryAfter
@@ -80,6 +81,23 @@ class FakeLLM:
         return self.text
 
 
+class RetryLLM:
+    """Epic 47 (56.6): generate падает LLMError первые fail_times вызовов."""
+
+    def __init__(self, fail_times=0, text="саммари текста"):
+        self.fail_times = fail_times
+        self.text = text
+        self.calls = 0
+        self.messages = None
+
+    async def generate(self, messages):
+        self.calls += 1
+        self.messages = messages
+        if self.calls <= self.fail_times:
+            raise LLMError("api упал")
+        return self.text
+
+
 def _row(author_name="вася", text="какое-то сообщение", **kwargs):
     defaults = {
         "id": 1,
@@ -127,15 +145,73 @@ class TestPipeline:
         bot.send_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_llm_error_ux_phrase(self, no_sleep):
+    async def test_llm_error_retry_then_degraded(self, no_sleep):
         memory = FakeMemory(rows=[_row()])
-        llm = FakeLLM(error=LLMError("api упал"))
+        llm = RetryLLM(fail_times=99)
         bot = AsyncMock()
         generator = _make_generator(memory, llm, bot)
         await generator.generate_and_send(-100)
+        bot.send_message.assert_called_once()
+        sent = bot.send_message.call_args.args[1]
+        assert "выжимка без нейронки:" in sent
+        assert "вася: какое-то сообщение" in sent
+        assert "самым главным шизом объявляется" in sent
+
+    @pytest.mark.asyncio
+    async def test_llm_error_retry_once_pause(self, no_sleep, caplog):
+        memory = FakeMemory(rows=[_row()])
+        llm = RetryLLM(fail_times=1)
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        with caplog.at_level(logging.WARNING):
+            await generator.generate_and_send(-100)
+        assert llm.calls == 2
+        no_sleep.assert_awaited_once_with(settings.SUMMARY_RETRY_ONCE_PAUSE)
+        bot.send_message.assert_called_once()
+        sent = bot.send_message.call_args.args[1]
+        assert "выжимка без нейронки:" not in sent
+        assert "самым главным шизом объявляется" in sent
+        assert any("summary: LLM failed — retry-once" in r.message
+                   for r in caplog.records)
+        assert not any("degraded summary" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_llm_error_degraded_disabled_ux_phrase(self, no_sleep, caplog):
+        memory = FakeMemory(rows=[_row()])
+        llm = RetryLLM(fail_times=99)
+        bot = AsyncMock()
+        generator = _make_generator(memory, llm, bot)
+        mod = replace(settings, SUMMARY_DEGRADED_ENABLED=False)
+        with mock_patch("services.summary_generator.settings", mod):
+            with caplog.at_level(logging.WARNING):
+                await generator.generate_and_send(-100)
         bot.send_message.assert_called_once_with(
             -100, "не смог сделать саммари потому что упал апи"
         )
+        assert any("summary: LLM failed | chat_id=-100" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_degraded_summary_limits(self):
+        rows = [_row(id=i, text=f"фрагмент номер {i} " * 50) for i in range(20)]
+        bot = AsyncMock()
+        generator = _make_generator(FakeMemory(rows=rows), FakeLLM(), bot)
+        text = generator._degraded_summary(rows)
+        lines = text.splitlines()
+        assert "выжимка без нейронки:" in lines[0]
+        frags = [l for l in lines[1:-1] if l]
+        assert len(frags) <= 15  # SUMMARY_DEGRADED_COUNT
+        assert all(len(l) <= 200 for l in frags)
+        assert "самым главным шизом объявляется" in text
+        assert "фрагмент номер 0" in text
+
+    @pytest.mark.asyncio
+    async def test_degraded_summary_empty_rows(self):
+        bot = AsyncMock()
+        generator = _make_generator(FakeMemory(rows=[]), FakeLLM(), bot)
+        text = generator._degraded_summary([])
+        assert text.startswith("выжимка без нейронки:\nникто ничего не написал")
+        assert "самым главным шизом объявляется" in text
 
     @pytest.mark.asyncio
     async def test_db_error_ux_phrase(self, no_sleep):

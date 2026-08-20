@@ -88,8 +88,9 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         logger.exception("[smartsearch] search failed | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(SEARCH_ERROR_PHRASES),     # 5.4a
                      message.message_id)
-    except LLMError:
-        logger.exception("[smartsearch] LLM failed | chat=%s", message.chat.id)
+    except LLMError as exc:
+        logger.warning("[smartsearch] LLM failed | chat=%s | error=%s",   # Epic 47 (D190): WARNING без traceback
+                       message.chat.id, exc)
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),        # 5.5
                      message.message_id)
     except Exception:

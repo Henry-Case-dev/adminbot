@@ -114,8 +114,9 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         logger.exception("[factcheck] search failed | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(FACTCHECK_ERROR_PHRASES),  # 5.4b → ЦЕЛЕВОЕ
                      target.message_id)
-    except LLMError:
-        logger.exception("[factcheck] LLM failed | chat=%s", message.chat.id)
+    except LLMError as exc:
+        logger.warning("[factcheck] LLM failed | chat=%s | error=%s",   # Epic 47 (D190): WARNING без traceback
+                       message.chat.id, exc)
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),       # 5.5 → ЦЕЛЕВОЕ
                      target.message_id)
     except Exception:

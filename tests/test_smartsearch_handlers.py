@@ -158,15 +158,24 @@ class TestHandler:
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
     @pytest.mark.asyncio
-    async def test_llm_error_5_5_replies_to_message(self, search_cleanup):
+    async def test_llm_error_5_5_replies_to_message(self, search_cleanup, caplog):
+        """#28: LLMError → WARNING без exc_info + 5.5."""
+        import logging
+
         service = MagicMock()
         service.research = AsyncMock(side_effect=LLMError("llm сдох"))
         search_mod.setup_search(service)
         bot = AsyncMock()
         msg = _make_msg(text="найди что-то", message_id=11)
-        await search_mod.smartsearch_handler(msg, bot=bot)
+        with caplog.at_level(logging.WARNING):
+            await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
+        assert any(
+            r.name == "handlers.search" and "LLM failed" in r.message
+            and "| error=llm сдох" in r.message and r.exc_info is None
+            for r in caplog.records
+        )
 
     @pytest.mark.asyncio
     async def test_unexpected_error_5_5_replies_to_message(self, search_cleanup):

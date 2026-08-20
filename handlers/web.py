@@ -96,8 +96,9 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         logger.exception("[web] extractor failed | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(WEB_ERROR_PHRASES),      # 5.7 → ЦЕЛЕВОЕ
                      target.message_id)
-    except LLMError:
-        logger.exception("[web] LLM failed | chat=%s", message.chat.id)
+    except LLMError as exc:
+        logger.warning("[web] LLM failed | chat=%s | error=%s",          # Epic 47 (D190): WARNING без traceback
+                       message.chat.id, exc)
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),       # 5.5 → ЦЕЛЕВОЕ
                      target.message_id)
     except Exception:

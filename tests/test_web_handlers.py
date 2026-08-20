@@ -185,8 +185,10 @@ class TestHandler:
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
 
     @pytest.mark.asyncio
-    async def test_llm_error_5_5_on_target(self, web_cleanup):
-        """#35: LLMError → 5.5 на target."""
+    async def test_llm_error_5_5_on_target(self, web_cleanup, caplog):
+        """#35: LLMError → WARNING без exc_info + 5.5 на target."""
+        import logging
+
         service = MagicMock()
         service.summarize = AsyncMock(side_effect=LLMError("llm сдох"))
         web_mod.setup_web(service)
@@ -194,9 +196,15 @@ class TestHandler:
         target = _make_msg(text=WEB_URL, message_id=77)
         msg = _make_msg(text="поясни за ссылку", message_id=11,
                         reply_to_message=target)
-        await web_mod.web_handler(msg, bot=bot)
+        with caplog.at_level(logging.WARNING):
+            await web_mod.web_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
+        assert any(
+            r.name == "handlers.web" and "LLM failed" in r.message
+            and "| error=llm сдох" in r.message and r.exc_info is None
+            for r in caplog.records
+        )
 
     @pytest.mark.asyncio
     async def test_unexpected_error_5_5_on_target(self, web_cleanup, caplog):

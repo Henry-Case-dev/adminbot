@@ -271,9 +271,24 @@ class Settings:
     LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://apinet.cloud/v1")
     LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "deepseek-v4-flash")
     EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
-    LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 60.0)
+    LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 30.0)   # Epic 47 (56.4): 60.0 → 30.0 (per-request)
+    # LLM_MAX_RETRIES сохраняется (default 2): число повторов, попыток = retries + 1 = 3.
     LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
     EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 3072)   # Epic 46 (D177): gemini-embedding-001 = 3072
+    # ── LLM resilience (Epic 47, Section 56, D191) ──
+    LLM_RETRY_BACKOFF_BASE: float = _env_float_min("LLM_RETRY_BACKOFF_BASE", 1.0, 0.0)
+    LLM_RETRY_BACKOFF_CAP: float = _env_float_min("LLM_RETRY_BACKOFF_CAP", 8.0, 0.0)
+    LLM_RETRY_JITTER_MAX: float = _env_float_min("LLM_RETRY_JITTER_MAX", 2.0, 0.0)
+    # Жёсткий дедлайн ВСЕЙ _post (все попытки + сны), asyncio.timeout (56.4).
+    LLM_TOTAL_BUDGET: float = _env_float_min("LLM_TOTAL_BUDGET", 60.0, 1.0)
+    # ── GraphRAG memorize (Epic 47, Section 56.5) ──
+    GRAPH_MEMORIZE_MAX_BATCH_RETRIES: int = _env_int_min("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", 2, 0)
+    GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF: float = _env_float_min("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", 2.0, 0.0)
+    # ── SummaryGenerator (Epic 47, Section 56.6) ──
+    SUMMARY_RETRY_ONCE_PAUSE: float = _env_float_min("SUMMARY_RETRY_ONCE_PAUSE", 5.0, 0.0)
+    SUMMARY_DEGRADED_ENABLED: bool = _env_bool("SUMMARY_DEGRADED_ENABLED", True)
+    # Фрагментов в деградированном саммари (строк) × 200 символов (56.6).
+    SUMMARY_DEGRADED_COUNT: int = _env_int_min("SUMMARY_DEGRADED_COUNT", 15, 1)
     # Feature switch: False = routers not registered, бот работает как раньше.
     SUMMARY_ENABLED: bool = _env_bool("SUMMARY_ENABLED", True)
     # L1: окно генерации (часы).

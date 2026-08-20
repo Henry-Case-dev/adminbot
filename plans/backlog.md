@@ -5144,5 +5144,187 @@ llm откинулась, сгенерировать не вышло
 
 ---
 
-**Статус: Epic 45 + Epic 46 — Шаг 1 (PM) ✅ (2026-08-20): требования R45-1…R45-5 и R46-1…R46-8 (каноны R46-2/R46-4 verbatim выше), решения D171–D179 (Orchestrator D-1…D-7), задачи T-351…T-370 (target v2.35.0). SQL-креды НЕ внесены — только имена env (R17). Передача @Architect (T-351 Section 54 + T-358 Section 55 — открытые вопросы Epic 45: 1–6, Epic 46: 1–9). Без @Orchestrator.**
+## Epic 47: Resilience — LLM-клиент и GraphRAG-память (прод-инцидент падений 2×/сутки) — 2026-08-20 🚧 IN PROGRESS (одобрено пользователем, target v2.35.1)
+
+> **Цель:** Устранить прод-инцидент (чекап бота): дважды за сутки (01:00:02/03 и 07:00:22 UTC)
+> упали graphrag memorize + LLM-клиент + генератор саммари при транзиентных сбоях API
+> (`LLMTimeoutError`/`httpx.ReadTimeout` attempt=2; `LLMError` 502 after 3 attempts). Сделать
+> LLM-клиент и пайплайны memory/summary устойчивыми: ретраи транзиентных ошибок с капс+jitter,
+> WARNING вместо ERROR-шторма, повтор батча/деградированный вывод вместо пустого UX. Пользователь
+> не должен оставаться без ответа; дублирующиеся «падения» по одному сценарию — убрать.
+> **Исполнители:** @Architect (T-371, Section 56), @Builder (T-372…T-378), @Reviewer (T-377-B),
+> @DevOps (T-379/T-380 — коммит/деплой БЕЗ миграций). Без @Orchestrator.
+> **Target:** v2.35.1 (прод сейчас v2.35.0 `eef5939`). **Baseline:** 2070 тестов (0 регрессий).
+
+### Факты Шага 0 (чекап бота на проде, @Memory — локальная копия = прод eef5939)
+
+- Инцидент: дважды за сутки (01:00:02/03 и 07:00:22 UTC) упали graphrag memorize
+  (`summary_memory.py:631` `_memorize_facts_inner`), LLM-клиент (`llm_client.py:120` generate)
+  и генератор саммари (`summary_generator.py:124`). Пользователь в чате получил
+  «не смог сделать саммари потому что упал апи» и «база подавилась».
+- Логи: (1) 07:09:32 `LLMTimeoutError: LLM request timed out: https://apinet.cloud/v1/chat/completions`
+  (httpx.ReadTimeout, attempt=2, factcheck); (2) 07:09:32 `LLM timeout | url=... attempt=2`;
+  (3) 07:00:22 `LLMError: LLM server error 502 after 3 attempts` (summary).
+- `llm_client.py` `_post`: попытки = max_retries(2)+1 = 3; таймаут `httpx.Timeout(60.0, connect=10.0)`;
+  backoff `0.5*2**n` (0.5/1.0с) БЕЗ капса и jitter; ретраятся ТОЛЬКО `httpx.TimeoutException`, 429, 5xx;
+  **транспортные `ConnectError`/`ReadError` (subclass `httpx.HTTPError`) — НЕ ретраятся, мгновенный
+  LLMError (llm_client.py:87-89)**; 401/403 — мгновенный фейл; Retry-After НЕ читается; худший
+  случай ~181.5с (60с×3).
+- `summary_memory.py` `memorize_facts` (618) обёрнута в `try/except Exception → logger.exception`
+  (631-635) — это и есть «падение» для чекапа. При падении LLM ВЕСЬ батч-окно (tail≤8000 симв.)
+  теряется; повторной попытки нет. Пустые/не-JSON ответы безопасны (LLMBadResponseError / []+WARNING).
+- `summary_generator.py` `_run` (77-146): except LLMError → `logger.exception` + UX «не смог сделать
+  саммари потому что упал апи»; except _SQLITE_ERRORS → «база данных подавилась»; except Exception →
+  «не смог сделать саммари». Retry-once на уровне генератора НЕТ; деградированного саммари НЕТ.
+- `handlers/factcheck.py:118` + `factcheck_service.py:53` (fire-and-forget memorize-хук) — логируют
+  ERROR traceback при ожидаемых LLMError.
+- Прецеденты resilience в проекте: _embed-ретраи 3× backoff `1.0*2**n` (summary_memory.py:442-453);
+  YouTube-каскад `_RETRY_BACKOFFS=(1.0,2.0,4.0,8.0)` cap 8с + on_retry-колбэк + статус/размер тела
+  в WARNING (Epic 41); Jina-каскад «ретраим только транзиентные» (D127); TelegramRetryAfter
+  (один повтор чанка).
+- «Красные» точки журнала, которые видел пользователь: logger.exception в llm_client (85-86
+  timeout — ок, оставить), summary_generator (138-140), фактчек (118).
+- Ограничения чекапа: каноны промптов (R11, R46-2/R46-4 и др.) НЕ трогать; миграций БД НЕТ →
+  прод-деплой без миграции; 0 регрессий (база 2070).
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R47-1** | **LLM-клиент — ретраи ВСЕХ транзиентных ошибок:** timeout (`httpx.TimeoutException`), 429, 5xx И транспортные (`ConnectError`/`ReadError`/`ReadTimeout` — сейчас мгновенный фейл, llm_client.py:87-89) — с экспоненциальным backoff с КАПСОМ и JITTER'ом (прецедент YouTube `_RETRY_BACKOFFS` cap 8с + on_retry, Epic 41). Не-транзиентные (401/403, прочие 4xx) — мгновенный фейл (текущее поведение). `Retry-After` — читать, если сервер прислал. |
+| **R47-2** | **LLM-клиент — тайминг и конфигурация:** общий сценарий (N ретраев) НЕ должен занимать ~180с; параметры ретраев/backoff/timeout — конфигурируемые через settings + `.env` (`LLM_*`, дефолты — Section 56 @Architect); при исчерпании ретраев — итоговая ошибка с существующим классом `LLM*Error` + WARNING-лог попыток (attempt/N, sleep). |
+| **R47-3** | **GraphRAG memorize — НЕ роняет ERROR при ожидаемых LLM-сбоях:** `memorize_facts`/`_memorize_facts_inner` (summary_memory.py:618-635) — ожидаемые LLMError (timeout/5xx/429 после ретраев, кривой JSON) логируются WARNING БЕЗ traceback-шторма (без `logger.exception`); факты батч-окна (tail≤8000 симв.) НЕ теряются при транзиентном падении — повторная попытка батча и/или отложенное сохранение (Section 56); fire-and-forget-хуки (search/factcheck/youtube/web/summary) остаются тихими (WARNING). |
+| **R47-4** | **Генератор саммари переживает падение LLM:** `summary_generator.py` `_run` — retry-once на уровне генератора И/ИЛИ деградированный вывод (напр., сжатое окно/краткий текст) вместо голого UX «не смог сделать саммари потому что упал апи»; существующие UX-фразы (R13: «не смог…», «база данных подавилась») остаются финальным fallback и НЕ меняются; expected LLMError → WARNING (не `logger.exception`). |
+| **R47-5** | **Логи/UX-классификация («красный» журнал — только неожиданное):** ERROR (`logger.exception`) — только неожиданные ошибки; ожидаемые (LLM timeout/5xx/429 после ретраев, empty window, кривой JSON экстрактора) — WARNING/INFO с контекстом (attempt, url, status) без полного traceback. Развести точки: summary_generator:138-140, handlers/factcheck.py:118, summary_memory.py:631-635; llm_client.py:85-86 timeout — оставить ERROR (это ок). |
+| **R47-6** | **Тесты + ограничения чекапа:** тесты покрывают НОВЫЕ ветки: ретраи транспортных (ConnectError/ReadError → success), капс+jitter (порядок попыток), Retry-After (сон по заголовку), memorize WARNING вместо ERROR + повтор батча при фейле, summary retry-once/degraded, классы логов в фактчеке; полный pytest — **0 регрессий (база 2070)**; каноны промптов (R11, R46-2/R46-4, эталоны) НЕ трогать; миграций БД НЕТ; прод-деплой v2.35.1 без миграции. |
+
+### PM Decisions (зафиксированы 2026-08-20, Шаг 1 PM — решения Orchestrator D-*)
+
+| # | Решение |
+|---|---------|
+| **D180** | **Нумерация:** Epic 47 (resilience, прод-инцидент), target **v2.35.1** (прод сейчас v2.35.0 `eef5939`), задачи **T-371+**; решения продолжают D179. Без @Orchestrator. |
+| **D181** | **LLM-клиент (R47-1/R47-2):** ретраи транзиентных ВКЛЮЧАЯ транспортные; backoff с капсом и jitter; Retry-After; параметры конфигурируемые (`LLM_*`); дефолты/точная схема — Section 56 (@Architect); итоговые ошибки — существующие `LLM*Error`. |
+| **D182** | **memorize (R47-3):** ожидаемые LLM-сбои → WARNING без traceback; повторная попытка/отложенное сохранение батча — по Section 56; fire-and-forget-хуки остаются тихими. |
+| **D183** | **SummaryGenerator (R47-4):** retry-once и/или деградированный вывод — дизайн Section 56; UX-фразы R13 — финальный fallback, НЕ менять. |
+| **D184** | **Логи (R47-5):** ERROR только для неожиданного; ожидаемое → WARNING/INFO; llm_client:85-86 timeout остаётся ERROR (ок). |
+| **D185** | **Тесты/ограничения (R47-6):** 0 регрессий (база 2070); каноны промптов не трогать; без миграций; v2.35.1. |
+
+### Открытые вопросы для @Architect (закрыть в Section 56)
+
+1. **Схема ретраев LLM-клиента:** число попыток (сохранить 3 или иначе), backoff base/cap/jitter-формула, читать ли Retry-After и как (единая функция сна), классификация транзиентных (ConnectError/ReadError/ReadTimeout — ретраить; все ли 4xx кроме 401/403 — мгновенно).
+2. **Тайминг:** target total-budget сценария (напр., ≤60с), дефолты `LLM_TIMEOUT`/`LLM_MAX_RETRIES`/новых `LLM_RETRY_*`; отдельный бюджет для chat vs embed.
+3. **memorize повтор/потеря батча:** сколько повторных попыток батча (8000 симв.) и как (retry с backoff в `_memorize_facts_inner`); отложенное сохранение (deferred-очередь) — нужно ли; прецедент _embed-ретраев 3× (55.8).
+4. **SummaryGenerator:** retry-once на уровне `_run` или деградированный вывод (что именно: последний compress? сжатое окно без LLM?); порядок fallback-цепочки до UX R13.
+5. **Логи:** точный список точек ERROR→WARNING (summary_generator:138-140, factcheck:118, memorize:631-635) и что остаётся ERROR; формат WARNING-строк (attempt/url/status) без traceback-шторма.
+6. **Хуки fire-and-forget:** повторный memorize при падении (схема), тихий лог; не блокируют ли ретраи хуков чат.
+7. **Тест-план:** какие существующие тесты затрагиваются (test_llm_client, test_summary_memory, test_summary_generator, test_factcheck_handlers) и новые кейсы.
+
+### Задачи
+
+### T-371 (@Architect) — Дизайн Section 56: Resilience LLM-клиент + memorize + summary + логи (R47-1…R47-6, D180–D185)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 1d.
+
+- [ ] T-371-A: Дизайн в `plans/ARCHITECTURE.md` (Section 56): схема ретраев LLM-клиента (классификация транзиентных, backoff base/cap/jitter, Retry-After, total-budget, конфиг `LLM_*`), memorize-повтор/отложенное сохранение батча, summary retry-once/деградированный вывод, карта уровней логирования (ERROR vs WARNING), тест-план, риски
+- [ ] T-371-B: Self-review + PM-аппрув; закрыть открытые вопросы 1–7; T-372…T-378 → READY
+
+**DoD:** Section 56 в ARCHITECTURE.md; вопросы 1–7 закрыты; PM-аппрув.
+
+### T-372 (@Builder) — Конфиг retry/backoff LLM (R47-1/R47-2, D181)
+
+**Приоритет:** P0. **Зависимости:** T-371. **Оценка:** 0.25d.
+
+- [ ] T-372-A: `config/settings.py` + `.env.example`: параметры по Section 56 (напр., `LLM_RETRY_BACKOFF_BASE/CAP/JITTER`, `LLM_TOTAL_BUDGET` и т.п.); дефолты безопасные; совместимость `LLM_TIMEOUT=60.0`/`LLM_MAX_RETRIES=2` — по Section 56
+
+**DoD:** конфиг в settings + .env.example.
+
+### T-373 (@Builder) — llm_client: ретраи транзиентных + капс/jitter + Retry-After (R47-1/R47-2, D181)
+
+**Приоритет:** P0. **Зависимости:** T-371/T-372. **Оценка:** 0.5d.
+
+- [ ] T-373-A: `services/llm_client.py` `_post`: ретраи транспортных `httpx.HTTPError` (ConnectError/ReadError) + TimeoutException + 429/5xx; backoff с капсом и jitter (Section 56); `Retry-After` приоритетнее backoff (если заголовок есть)
+- [ ] T-373-B: 401/403 и прочие 4xx — мгновенный фейл (НЕ транзиентные); итоговые ошибки — существующие `LLM*Error`; WARNING-логи попыток (attempt/N, sleep, url); timeout-ERROR (llm_client:85-86) сохранить
+
+**DoD:** транзиентные ретраятся; сценарий в total-budget; классы ошибок не ломаются.
+
+### T-374 (@Builder) — memorize: WARNING вместо ERROR + повтор батча (R47-3/R47-5, D182/D184)
+
+**Приоритет:** P0. **Зависимости:** T-371/T-373. **Оценка:** 0.5d.
+
+- [ ] T-374-A: `services/summary_memory.py` `memorize_facts`/`_memorize_facts_inner` (618-635): ожидаемые LLMError → WARNING без `logger.exception` (traceback-шторма нет); кривой JSON → WARNING (уже безопасен)
+- [ ] T-374-B: повторная попытка батча (tail≤8000 симв.) и/или отложенное сохранение при транзиентном падении (Section 56, вопрос 3) — факты НЕ теряются
+
+**DoD:** memorize не роняет ERROR на ожидаемых сбоях; батч не теряется.
+
+### T-375 (@Builder) — SummaryGenerator: retry-once/деградированный вывод + классы логов (R47-4/R47-5, D183/D184)
+
+**Приоритет:** P0. **Зависимости:** T-371/T-373. **Оценка:** 0.5d.
+
+- [ ] T-375-A: `services/summary_generator.py` `_run` (77-146): retry-once на уровне генератора и/или деградированный вывод (Section 56, вопрос 4); UX-фразы R13 — финальный fallback БЕЗ изменения текста
+- [ ] T-375-B: expected LLMError → WARNING (не `logger.exception:138-140`); `_SQLITE_ERRORS`/unexpected → ERROR (остаётся)
+
+**DoD:** генератор переживает падение LLM; UX-каноны не тронуты.
+
+### T-376 (@Builder) — Фактчек/хуки: классы логов (R47-5, D184)
+
+**Приоритет:** P1. **Зависимости:** T-371. **Оценка:** 0.25d.
+
+- [ ] T-376-A: `handlers/factcheck.py:118` (LLMError) → WARNING без traceback; `factcheck_service.py:53` fire-and-forget memorize-хук — тихий WARNING; зеркально поиск/youtube/web-хуки (по Section 56, вопрос 6)
+- [ ] T-376-B: ERROR остаётся только для неожиданных (`except Exception`)
+
+**DoD:** «красный» журнал только для неожиданных ошибок.
+
+### T-377 (@Builder + @Reviewer) — Тесты + полный прогон + ревью (R47-6, D185)
+
+**Приоритет:** P0. **Зависимости:** T-372…T-376. **Оценка:** 1d.
+
+- [ ] T-377-A (@Builder): тесты: ретраи транспортных (ConnectError/ReadError → success), капс+jitter (порядок/сон, monkeypatch asyncio.sleep), Retry-After, memorize WARNING вместо ERROR + повтор батча (FakeLLM), summary retry-once/degraded, классы логов фактчека; существующие тесты llm_client/memory/generator/фактчек — обновить по Section 56
+- [ ] T-377-B (@Reviewer): ревью + личный прогон; APPROVED; полный pytest — **0 регрессий (база 2070)**; `git diff --check` чист; каноны промптов не тронуты
+
+**DoD:** APPROVED; 2070+ тестов passed.
+
+### T-378 (@Builder) — Документация
+
+**Приоритет:** P1. **Зависимости:** T-377-B. **Оценка:** 0.25d.
+
+- [ ] T-378-A: README v2.35.1 (resilience LLM/memory/summary) + `plans/MEMORY.md` (Epic 47, v2.35.1)
+
+**DoD:** доки синхронизированы.
+
+### T-379 (@DevOps) — Коммит + пуш v2.35.1 (Epic 47)
+
+**Приоритет:** P0. **Зависимости:** T-377-B. **Оценка:** 0.25d.
+
+- [ ] T-379-A: Коммит на русском (conventional: `fix(llm): Epic 47 — resilience LLM-клиента и GraphRAG-памяти: ретраи с капс+jitter, WARNING-логи, деградированный саммари (v2.35.1)`); код+тесты одним коммитом (D123-стиль); пуш в origin/master; `.env` НЕ коммитим
+
+**DoD:** коммит в master, пуш в origin.
+
+### T-380 (@DevOps) — Деплой v2.35.1 (БЕЗ миграций) + верификация (R47-6, D185)
+
+**Приоритет:** P0. **Зависимости:** T-379. **Оценка:** 0.5d.
+
+- [ ] T-380-A: ssh nik@198.46.175.136 → git pull --ff-only; `.env` НЕ трогаем (миграций нет)
+- [ ] T-380-B: systemctl restart admin_bot → active (running), новый PID; `journalctl -u admin_bot -n 50`: 0 traceback, 0 ERROR-шторма memorize
+- [ ] T-380-C: Smoke: /summary, фактчек/поиск, чекап; при транзиентном сбое API — WARNING-логи вместо ERROR, пользователь получает UX (деградированный саммари или понятная фраза)
+
+**DoD:** прод v2.35.1, без миграций, 0 traceback, «красный» журнал только неожиданный.
+
+### Риски (Epic 47)
+
+1. **Смена ретраев ломает классы ошибок** — итоговые `LLM*Error` сохраняются; существующие except-ветки (summary/factcheck) не переписываются насильно — только классы логов.
+2. **Тотальное время сценария** — капс+jitter+Retry-After держат в бюджете; тест на sleep-последовательность (monkeypatch asyncio.sleep, прецедент Epic 41).
+3. **memorize-батч при падении** — повтор/отложенное сохранение (Section 56, вопрос 3); не блокировать чат (fire-and-forget).
+4. **UX-каноны (R13) случайно изменены** — тексты фраз НЕ трогать (только порядок fallback-цепочки).
+5. **Каноны промптов (R11, R46-2/R46-4)** — НЕ трогать; байт-в-байт эталоны остаются зелёными.
+6. **0 регрессий (база 2070)** — обновлённые тесты ретраев/логов в том же коммите.
+
+### Файлы (планируемые)
+
+`services/llm_client.py`, `services/summary_memory.py`, `services/summary_generator.py`, `handlers/factcheck.py` (+ при необходимости `handlers/search.py`, `services/factcheck_service.py`, youtube/web-хуки — по Section 56), `config/settings.py` + `.env.example`; тесты `tests/test_llm_client.py`, `tests/test_summary_memory.py`, `tests/test_summary_generator.py`, `tests/test_factcheck_handlers.py` + новые; `README.md`, `plans/ARCHITECTURE.md` (Section 56), `plans/MEMORY.md`.
+
+**НЕ трогать:** каноны промптов (R11 SYSTEM_PROMPT, R46-2 FACT_EXTRACT_PROMPT, R46-4 XML/инструкция) и их байт-в-байт эталоны; UX-фразы R13; механизм embed (`LLMClient.embed` → gemini-embedding-001); journalctl-фолбек Checkup (Epic 45); миграций БД — НЕТ.
+
+---
+
+**Статус: Epic 47 — Шаг 1 (PM) ✅ (2026-08-20): прод-инцидент (падения LLM/memorize/summary 2×/сутки), требования R47-1…R47-6, решения D180–D185 (Orchestrator D-*), задачи T-371…T-380 (target v2.35.1, прод v2.35.0 `eef5939`). Baseline: 2070 тестов. Каноны промптов НЕ трогаем, миграций нет. Epic 47 → In Progress (board.md). Передача @Architect (T-371, Section 56 — открытые вопросы 1–7). Без @Orchestrator.**
 **Date: 2026-08-20**

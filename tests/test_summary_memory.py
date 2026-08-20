@@ -710,3 +710,151 @@ class TestFireAndForget:
                 await asyncio.sleep(0)
         assert any("[graphrag hook] test-tag failed" in r.message
                    for r in caplog.records)
+
+
+# ── Epic 47 (Section 56.5/56.7, D188/D190; 56.8 #15-19) ─────────────
+
+
+class MemorizeRetryLLM:
+    """generate падает LLMError `fail_times` раз, затем отдаёт JSON-факты."""
+
+    def __init__(self, fail_times=0, facts='[{"subject":"А","predicate":"Б","object":"В"}]',
+                 raise_type=LLMError):
+        self.fail_times = fail_times
+        self.facts = facts
+        self.raise_type = raise_type
+        self.generate_calls = 0
+
+    async def generate(self, messages):
+        self.generate_calls += 1
+        if self.generate_calls <= self.fail_times:
+            raise self.raise_type("api упал")
+        return self.facts
+
+    async def embed(self, texts):
+        return [[0.1] * settings.EMBEDDING_DIM for _ in texts]
+
+
+class TestMemorizeResilience:
+    @pytest.mark.asyncio
+    async def test_extract_retry_then_success_saves_batch(self, db, caplog):
+        """56.8 #15: LLMError 1-й → успех 2-й → факты+узлы сохранены,
+        generate_calls==2, INFO «extract retry»."""
+        import logging
+
+        llm = MemorizeRetryLLM(fail_times=1)
+        memory = MemoryManager(db, llm)
+        mod = replace(settings, GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF=0)
+        with patch("services.summary_memory.settings", mod):
+            with caplog.at_level(logging.INFO):
+                await memory.memorize_facts(1, "какой-то текст для фактов", "chat_history")
+        assert llm.generate_calls == 2
+        assert any("graphrag memorize: extract retry" in r.message
+                   for r in caplog.records)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+        assert all(r.levelno < logging.ERROR for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_extract_llm_error_exhausted_warning_no_error(self, db, caplog):
+        """56.8 #16: LLMError ×3 → WARNING «graphrag memorize: LLM failed»,
+        0 строк, caplog БЕЗ ERROR, без raise (без traceback-шторма)."""
+        import logging
+
+        llm = MemorizeRetryLLM(fail_times=99)
+        memory = MemoryManager(db, llm)
+        mod = replace(settings, GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF=0)
+        with patch("services.summary_memory.settings", mod):
+            with caplog.at_level(logging.WARNING):
+                await memory.memorize_facts(1, "какой-то текст", "chat_history")   # без raise
+        assert llm.generate_calls == 3
+        assert any("graphrag memorize: LLM failed" in r.message for r in caplog.records)
+        assert all(r.levelno < logging.ERROR for r in caplog.records)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_extract_non_llm_exception_logs_error(self, db, caplog):
+        """56.8 #17: RuntimeError экстракции → ERROR logger.exception
+        («graphrag memorize: unexpected failure»), без raise из memorize_facts."""
+        import logging
+
+        llm = MemorizeRetryLLM(fail_times=1, raise_type=RuntimeError)
+        memory = MemoryManager(db, llm)
+        mod = replace(settings, GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF=0)
+        with patch("services.summary_memory.settings", mod):
+            with caplog.at_level(logging.ERROR):
+                await memory.memorize_facts(1, "какой-то текст", "chat_history")
+        assert any("graphrag memorize: unexpected failure" in r.message
+                   for r in caplog.records)
+        assert any(r.exc_info for r in caplog.records)
+        assert llm.generate_calls == 1            # НЕ ретраится (только LLMError)
+
+    @pytest.mark.asyncio
+    async def test_per_fact_save_failure_skipped_others_saved(self, db, caplog):
+        """56.8 #18: сбой сохранения факта №2 (фейковый БД) → факт №1 сохранён,
+        WARNING «save skipped», INFO saved=1 skipped=1."""
+        import logging
+
+        llm = MemorizeRetryLLM(
+            facts='[{"subject":"А","predicate":"Б","object":"В"},'
+                  '{"subject":"Г","predicate":"Д","object":"Е"}]')
+        memory = MemoryManager(db, llm)
+        original = memory.db.upsert_node
+        state = {"n": 0}
+
+        async def flaky_upsert(*args, **kwargs):
+            state["n"] += 1
+            if state["n"] == 3:                    # subject факта №2
+                raise sqlite3.OperationalError("db сбой")
+            return await original(*args, **kwargs)
+
+        memory.db.upsert_node = flaky_upsert
+        with caplog.at_level(logging.INFO):
+            await memory.memorize_facts(1, "какой-то текст", "chat_history")
+        assert any("graphrag memorize: fact #2 save skipped" in r.message
+                   for r in caplog.records)
+        assert any("graphrag memorize: saved=1 skipped=1" in r.message
+                   for r in caplog.records)
+        texts = await db.get_graph_fact_texts(
+            [row["id"] for row in await (await db.db.execute(
+                "SELECT id FROM graph_facts")).fetchall()])
+        assert any("а б в" in fact for _, fact in texts)
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_llm_error_warning_without_exc_info(self, caplog):
+        """56.8 #19a: fire_and_forget: LLMError → WARNING БЕЗ exc_info."""
+        import logging
+
+        from services.summary_memory import fire_and_forget
+
+        async def boom():
+            raise LLMError("api упал")
+
+        with caplog.at_level(logging.WARNING):
+            fire_and_forget(boom(), "llm-tag")
+            for _ in range(5):
+                await asyncio.sleep(0)
+        match = [r for r in caplog.records
+                 if r.message.startswith("[graphrag hook] llm-tag failed")]
+        assert match and all(r.exc_info is None for r in match)
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_generic_error_warning_with_exc_info(self, caplog):
+        """56.8 #19b: fire_and_forget: RuntimeError → WARNING + exc_info."""
+        import logging
+
+        from services.summary_memory import fire_and_forget
+
+        async def boom():
+            raise RuntimeError("фон упал")
+
+        with caplog.at_level(logging.WARNING):
+            fire_and_forget(boom(), "gen-tag")
+            for _ in range(5):
+                await asyncio.sleep(0)
+        match = [r for r in caplog.records
+                 if r.message == "[graphrag hook] gen-tag failed"]
+        assert match and any(r.exc_info for r in match)
