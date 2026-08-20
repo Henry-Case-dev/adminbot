@@ -5,6 +5,7 @@ reply-таргеты: вердикт/5.3/5.4b/5.5 → target.message_id (ЦЕЛ�
 троттлинг 5.1 → message.message_id (ВЫЗОВ, D107).
 """
 import datetime
+import logging
 
 import pytest
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -217,28 +218,42 @@ class TestHandlerReplyTargets:
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
 
     @pytest.mark.asyncio
-    async def test_llm_error_replies_to_target(self, factcheck_cleanup):
+    async def test_llm_error_replies_to_target(self, factcheck_cleanup, caplog):
+        """D190 (#28): LLMError → WARNING (exc_info пустой) + 5.5 на target."""
         service = MagicMock()
         service.check_claim = AsyncMock(side_effect=LLMError("llm сдох"))
         factcheck_mod.setup_factcheck(service)
         bot = AsyncMock()
         target = _make_msg(text="текст", message_id=77)
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
-        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        with caplog.at_level(logging.WARNING):
+            await factcheck_mod.factcheck_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
+        assert any(
+            r.name == "handlers.factcheck" and "LLM failed" in r.message
+            and "| error=llm сдох" in r.message and r.exc_info is None
+            for r in caplog.records
+        )
 
     @pytest.mark.asyncio
-    async def test_unexpected_error_replies_to_target(self, factcheck_cleanup):
+    async def test_unexpected_error_replies_to_target(self, factcheck_cleanup, caplog):
+        """D190 (#27): неожиданный Exception → logger.exception (ERROR, exc_info)."""
         service = MagicMock()
         service.check_claim = AsyncMock(side_effect=RuntimeError("неожиданно"))
         factcheck_mod.setup_factcheck(service)
         bot = AsyncMock()
         target = _make_msg(text="текст", message_id=77)
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
-        await factcheck_mod.factcheck_handler(msg, bot=bot)
+        with caplog.at_level(logging.ERROR):
+            await factcheck_mod.factcheck_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
+        assert any(
+            r.name == "handlers.factcheck" and "unexpected error" in r.message
+            and r.exc_info is not None
+            for r in caplog.records
+        )
 
     @pytest.mark.asyncio
     async def test_empty_context_replies_to_target_without_search(self, factcheck_cleanup):

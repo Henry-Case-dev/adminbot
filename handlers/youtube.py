@@ -116,9 +116,9 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
                          message.chat.id, video_id)                       # R41-5
         await _reply(bot, message.chat.id, random.choice(YOUTUBE_ERROR_PHRASES),  # 5.6 → ЦЕЛЕВОЕ
                      target.message_id)
-    except LLMError:
-        logger.exception("[youtube] LLM failed | chat=%s video_id=%r",
-                         message.chat.id, video_id)                       # R41-5
+    except LLMError as exc:
+        logger.warning("[youtube] LLM failed | chat=%s video_id=%r | error=%s",  # Epic 47 (D190): WARNING
+                       message.chat.id, video_id, exc)
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),       # 5.5 → ЦЕЛЕВОЕ
                      target.message_id)
     except Exception:

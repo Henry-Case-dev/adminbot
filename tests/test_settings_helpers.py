@@ -233,3 +233,75 @@ class TestEpic46SettingsDefaults:
         assert settings_mod.settings.GRAPH_FACT_TTL_DAYS == 21
         assert settings_mod.settings.GRAPH_RAG_FACTS_LIMIT == 7
         assert settings_mod.settings.GRAPH_RAG_CONTEXT_MAX_CHARS == 1500
+
+
+_EPIC47_KEYS = (
+    "LLM_TIMEOUT",
+    "LLM_RETRY_BACKOFF_BASE",
+    "LLM_RETRY_BACKOFF_CAP",
+    "LLM_RETRY_JITTER_MAX",
+    "LLM_TOTAL_BUDGET",
+    "GRAPH_MEMORIZE_MAX_BATCH_RETRIES",
+    "GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF",
+    "SUMMARY_RETRY_ONCE_PAUSE",
+    "SUMMARY_DEGRADED_ENABLED",
+    "SUMMARY_DEGRADED_COUNT",
+)
+
+
+class TestEpic47SettingsDefaults:
+    """Epic 47 (56.4/56.8, Section 56.2): дефолты Legacy-ретраев LLM + degrade."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC47_KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_TIMEOUT == 30.0
+        assert settings_mod.settings.LLM_RETRY_BACKOFF_BASE == 1.0
+        assert settings_mod.settings.LLM_RETRY_BACKOFF_CAP == 8.0
+        assert settings_mod.settings.LLM_RETRY_JITTER_MAX == 2.0
+        assert settings_mod.settings.LLM_TOTAL_BUDGET == 60.0
+        assert settings_mod.settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES == 2
+        assert settings_mod.settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF == 2.0
+        assert settings_mod.settings.SUMMARY_RETRY_ONCE_PAUSE == 5.0
+        assert settings_mod.settings.SUMMARY_DEGRADED_ENABLED is True
+        assert settings_mod.settings.SUMMARY_DEGRADED_COUNT == 15
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("LLM_TIMEOUT", "45")
+        monkeypatch.setenv("LLM_RETRY_BACKOFF_BASE", "0.5")
+        monkeypatch.setenv("LLM_RETRY_BACKOFF_CAP", "12")
+        monkeypatch.setenv("LLM_RETRY_JITTER_MAX", "1")
+        monkeypatch.setenv("LLM_TOTAL_BUDGET", "120")
+        monkeypatch.setenv("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", "4")
+        monkeypatch.setenv("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", "3")
+        monkeypatch.setenv("SUMMARY_RETRY_ONCE_PAUSE", "2.5")
+        monkeypatch.setenv("SUMMARY_DEGRADED_ENABLED", "false")
+        monkeypatch.setenv("SUMMARY_DEGRADED_COUNT", "8")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_TIMEOUT == 45.0
+        assert settings_mod.settings.LLM_RETRY_BACKOFF_BASE == 0.5
+        assert settings_mod.settings.LLM_RETRY_BACKOFF_CAP == 12.0
+        assert settings_mod.settings.LLM_RETRY_JITTER_MAX == 1.0
+        assert settings_mod.settings.LLM_TOTAL_BUDGET == 120.0
+        assert settings_mod.settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES == 4
+        assert settings_mod.settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF == 3.0
+        assert settings_mod.settings.SUMMARY_RETRY_ONCE_PAUSE == 2.5
+        assert settings_mod.settings.SUMMARY_DEGRADED_ENABLED is False
+        assert settings_mod.settings.SUMMARY_DEGRADED_COUNT == 8
+
+    def test_below_min_falls_back_with_warning(self, monkeypatch, caplog):
+        """LLM_TOTAL_BUDGET=0.5 (<1) → дефолт 60.0 + WARNING; SUMMARY_DEGRADED_COUNT=0 → 15."""
+        monkeypatch.setenv("LLM_TOTAL_BUDGET", "0.5")
+        monkeypatch.setenv("SUMMARY_DEGRADED_COUNT", "0")
+        with caplog.at_level(logging.WARNING):
+            importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_TOTAL_BUDGET == 60.0
+        assert settings_mod.settings.SUMMARY_DEGRADED_COUNT == 15
+        assert any("LLM_TOTAL_BUDGET=0.5 < 1.0" in r.message for r in caplog.records)
+        assert any("SUMMARY_DEGRADED_COUNT=0 < 1" in r.message for r in caplog.records)

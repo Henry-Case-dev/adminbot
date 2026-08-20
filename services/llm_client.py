@@ -2,10 +2,18 @@
 
 One httpx.AsyncClient session per process (lazy creation, close() in on_shutdown).
 Endpoints: POST {base_url}/chat/completions and POST {base_url}/embeddings.
-Retry: 429/5xx/timeout → up to max_retries with backoff 0.5s * 2**n; 401/403 → LLMAuthError.
+
+Epic 47 (Section 56, D186/D187): ретраятся ВСЕ транзиентные ошибки —
+httpx.TransportError (timeout/connect/read/write/pool/network/protocol) +
+HTTP 408/425/429/5xx. Сон = `min(BASE*2**attempt, CAP) + U(0, JITTER)`;
+для 429/5xx заголовок Retry-After приоритетнее backoff
+(сон = min(header_seconds, CAP)); жёсткий total-budget
+LLM_TOTAL_BUDGET = asyncio.timeout на всю _post; 401/403 → LLMAuthError
+мгновенно. Единственный владелец ретраев — _post (56.4).
 """
 import asyncio
 import logging
+import random
 import time
 
 import httpx
@@ -53,7 +61,12 @@ class LLMClient:
         self._embed_model = embed_model
         self._timeout = timeout
         self._max_retries = max_retries
-        self.backoff_base = 0.5  # tests may set to 0 to avoid real sleeps
+        # Epic 47 (D186): backoff base/cap/jitter + total budget (56.3/56.4).
+        # Test-hook: tests may set `client.backoff_base = 0` → сон 0 (jitter тоже 0).
+        self.backoff_base = settings.LLM_RETRY_BACKOFF_BASE
+        self._backoff_cap = settings.LLM_RETRY_BACKOFF_CAP
+        self._jitter_max = settings.LLM_RETRY_JITTER_MAX
+        self._budget = settings.LLM_TOTAL_BUDGET
         self._client: httpx.AsyncClient | None = None
 
     def _get_client(self) -> httpx.AsyncClient:
@@ -69,50 +82,115 @@ class LLMClient:
             await self._client.aclose()
             self._client = None
 
+    def _sleep_seconds(
+        self,
+        attempt: int,
+        status: int | None = None,
+        headers: httpx.Headers | None = None,
+    ) -> float:
+        """Epic 47 (56.3): сон перед retry.
+
+        Retry-After (429/5xx, парсится как float, ≥0) приоритетнее обычного
+        backoff; значение капится LLM_RETRY_BACKOFF_CAP. Кривой/отрицательный
+        header либо статус ≠ 429/5xx → обычный backoff
+        `min(BASE*2**attempt, CAP) + U(0, JITTER)`. backoff_base == 0 → сон 0.
+        """
+        if self.backoff_base == 0:
+            return 0.0
+        if status is not None and (status == 429 or 500 <= status < 600):
+            raw = headers.get("Retry-After") if headers is not None else None
+            if raw is not None:
+                try:
+                    header_seconds = float(raw)
+                except (TypeError, ValueError):
+                    header_seconds = -1.0
+                if header_seconds >= 0:
+                    return min(header_seconds, self._backoff_cap)
+        base_sleep = min(self.backoff_base * (2 ** attempt), self._backoff_cap)
+        return base_sleep + random.uniform(0, self._jitter_max)
+
     async def _post(self, path: str, payload: dict) -> httpx.Response:
-        """POST with retry on 429/5xx/timeout; auth errors raised immediately."""
+        """POST with retry on all transient errors; auth errors raised immediately.
+
+        Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
+        _post — asyncio.timeout(LLM_TOTAL_BUDGET) (56.4).
+        """
         client = self._get_client()
         url = f"{self._base_url}{path}"
         request_len = len(str(payload))
-        for attempt in range(self._max_retries + 1):
-            started = time.monotonic()
-            try:
-                response = await client.post(url, json=payload)
-            except httpx.TimeoutException as exc:
-                if attempt < self._max_retries:
-                    await asyncio.sleep(self.backoff_base * (2 ** attempt))
-                    continue
-                logger.error("LLM timeout | url=%s attempt=%d", url, attempt)
-                raise LLMTimeoutError(f"LLM request timed out: {url}") from exc
-            except httpx.HTTPError as exc:
-                logger.error("LLM transport error | url=%s: %s", url, exc)
-                raise LLMError(f"LLM transport error: {exc}") from exc
+        total_attempts = self._max_retries + 1
+        started_total = time.monotonic()
+        budget_exceeded = False
+        try:
+            async with asyncio.timeout(self._budget):
+                for attempt in range(total_attempts):
+                    if attempt > 0 and (time.monotonic() - started_total) >= self._budget:
+                        budget_exceeded = True
+                        break                   # попытка не стартует (56.4)
+                    started = time.monotonic()
+                    try:
+                        response = await client.post(url, json=payload)
+                    except httpx.TransportError as exc:
+                        # Транзиентное (timeout/connect/read/.../protocol) → ретрай
+                        if attempt < self._max_retries:
+                            sleep = self._sleep_seconds(attempt)
+                            logger.warning(
+                                "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
+                                url, attempt + 1, total_attempts, sleep,
+                                f"{type(exc).__name__}: {exc}",
+                            )
+                            await asyncio.sleep(sleep)
+                            continue
+                        if isinstance(exc, httpx.TimeoutException):
+                            logger.error("LLM timeout | url=%s attempt=%d", url, attempt)
+                            raise LLMTimeoutError(
+                                f"LLM request timed out after {total_attempts} attempts: {url}"
+                            ) from exc
+                        raise LLMError(
+                            f"LLM transport error after {total_attempts} attempts: {exc}: {url}"
+                        ) from exc
+                    except httpx.HTTPError as exc:
+                        # Не-транспортное (InvalidURL и пр.) → мгновенно
+                        raise LLMError(f"LLM HTTP client error: {exc}") from exc
 
-            latency_ms = (time.monotonic() - started) * 1000.0
-            if response.status_code == 429:
-                if attempt < self._max_retries:
-                    await asyncio.sleep(self.backoff_base * (2 ** attempt))
-                    continue
-                raise LLMRateLimitError(
-                    f"LLM rate limited (429) after {self._max_retries + 1} attempts: {url}"
-                )
-            if 500 <= response.status_code < 600:
-                if attempt < self._max_retries:
-                    await asyncio.sleep(self.backoff_base * (2 ** attempt))
-                    continue
-                raise LLMError(
-                    f"LLM server error {response.status_code} after "
-                    f"{self._max_retries + 1} attempts: {url}"
-                )
-            if response.status_code in (401, 403):
-                raise LLMAuthError(f"LLM auth failed ({response.status_code}): {url}")
-            if response.status_code >= 400:
-                raise LLMError(f"LLM HTTP {response.status_code}: {url}")
-            logger.info(
-                "LLM request OK | url=%s | status=%d | latency_ms=%.0f | in=%d chars | out=%d chars",
-                url, response.status_code, latency_ms, request_len, len(response.content),
+                    status = response.status_code
+                    latency_ms = (time.monotonic() - started) * 1000.0
+                    if status in (408, 425, 429) or 500 <= status < 600:
+                        if attempt < self._max_retries:
+                            sleep = self._sleep_seconds(attempt, status, response.headers)
+                            logger.warning(
+                                "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
+                                url, attempt + 1, total_attempts, sleep, f"status={status}",
+                            )
+                            await asyncio.sleep(sleep)
+                            continue
+                        if status == 429:
+                            raise LLMRateLimitError(
+                                f"LLM rate limited (429) after {total_attempts} attempts: {url}"
+                            )
+                        if status in (408, 425):
+                            raise LLMError(f"LLM HTTP {status}: {url}")
+                        raise LLMError(
+                            f"LLM server error {status} after "
+                            f"{total_attempts} attempts: {url}"
+                        )
+                    if status in (401, 403):
+                        raise LLMAuthError(f"LLM auth failed ({status}): {url}")
+                    if status >= 400:
+                        raise LLMError(f"LLM HTTP {status}: {url}")
+                    logger.info(
+                        "LLM request OK | url=%s | status=%d | latency_ms=%.0f | in=%d chars | out=%d chars",
+                        url, status, latency_ms, request_len, len(response.content),
+                    )
+                    return response
+        except asyncio.TimeoutError:
+            raise LLMTimeoutError(
+                f"LLM request timed out after {total_attempts} attempts: {url}"
+            ) from None
+        if budget_exceeded:
+            raise LLMTimeoutError(
+                f"LLM request timed out after {total_attempts} attempts: {url}"
             )
-            return response
         raise LLMError(f"LLM request failed after retries: {url}")
 
     async def generate(self, messages: list[dict[str, str]]) -> str:

@@ -16,6 +16,7 @@ import time
 
 from config.settings import settings
 from services.database import row_get
+from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
 
@@ -277,10 +278,14 @@ def _validate_fact(item) -> dict | None:
 
 def fire_and_forget(coro, tag: str) -> None:
     """R46-3/R46-5: asyncio.create_task + тихий лог. Падение фонового факта
-    НЕ всплывает в чат (исключение не теряется — ловится здесь)."""
+    НЕ всплывает в чат (исключение не теряется — ловится здесь).
+    Epic 47 (D190, 56.7 #11): ожидаемый LLMError → WARNING без exc_info;
+    неожиданное Exception → WARNING + exc_info."""
     async def _run() -> None:
         try:
             await coro
+        except LLMError as exc:
+            logger.warning("[graphrag hook] %s failed: %s", tag, exc)
         except Exception:
             logger.warning("[graphrag hook] %s failed", tag, exc_info=True)
     asyncio.create_task(_run())
@@ -302,6 +307,8 @@ async def _memorize_youtube(memory, chat_id: int, transcript: str) -> None:
             {"role": "user", "content": text[-_FACT_EXTRACT_MAX_CHARS:]},
         ])
         await memory.memorize_facts(chat_id, raw, "youtube_content")
+    except LLMError as exc:
+        logger.warning("[graphrag hook] youtube compress failed: %s", exc)
     except Exception:
         logger.warning("[graphrag hook] youtube compress failed", exc_info=True)
 
@@ -629,20 +636,47 @@ class MemoryManager:
             return
         try:
             await self._memorize_facts_inner(chat_id, raw_text, source_type)
+        except LLMError as exc:
+            # Ожидаемое (timeout/429/5xx/транспорт после _post-ретраев) — WARNING
+            # без traceback (Epic 47, D188/56.7 #9). Auth тоже «ожидаемый» фон.
+            logger.warning(
+                "graphrag memorize: LLM failed | chat_id=%s | source=%s | error=%s",
+                chat_id, source_type, exc,
+            )
         except Exception:
             logger.exception(
-                "graphrag memorize: failed | chat_id=%s | source=%s", chat_id, source_type
+                "graphrag memorize: unexpected failure | chat_id=%s | source=%s",
+                chat_id, source_type,
             )
+
+    async def _extract_facts(self, tail: str) -> str:
+        """R47-3/D188 (56.5): bounded-ретраи ПОСЛЕ _post-ретраев. Только LLMError.
+
+        max_retry = GRAPH_MEMORIZE_MAX_BATCH_RETRIES (default 2 → 3 попытки),
+        сон GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF * 2**attempt (default 2.0/4.0).
+        Канон FACT_EXTRACT_PROMPT (R46-2) — байт-в-байт, НЕ трогать.
+        """
+        max_retry = settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES
+        for attempt in range(max_retry + 1):
+            try:
+                return await self.llm.generate([
+                    {"role": "system", "content": FACT_EXTRACT_PROMPT},
+                    {"role": "user", "content": tail}])
+            except LLMError as exc:
+                if attempt < max_retry:
+                    logger.info("graphrag memorize: extract retry | attempt=%d/%d | error=%s",
+                                attempt + 1, max_retry + 1, exc)
+                    await asyncio.sleep(
+                        settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF * (2 ** attempt))
+                    continue
+                raise exc
 
     async def _memorize_facts_inner(self, chat_id, raw_text, source_type) -> None:
         text = " ".join(str(raw_text).split())
         if not text:
             return
         tail = text[-_FACT_EXTRACT_MAX_CHARS:]
-        raw = await self.llm.generate([
-            {"role": "system", "content": FACT_EXTRACT_PROMPT},
-            {"role": "user", "content": tail},
-        ])
+        raw = await self._extract_facts(tail)     # Epic 47 (D188): bounded-повтор
         facts = parse_fact_list(raw)
         if not facts:
             logger.info("graphrag memorize: 0 facts | chat_id=%s | source=%s",
@@ -651,24 +685,32 @@ class MemoryManager:
         expiry = None if source_type == "chat_history" else \
             int(time.time()) + settings.GRAPH_FACT_TTL_DAYS * 86400
         saved = 0
-        for fact in facts:
-            sid = await self.db.upsert_node(
-                chat_id, fact["subject"], "fact", origin=source_type, expires_at=expiry)
-            oid = await self.db.upsert_node(
-                chat_id, fact["object"], "fact", origin=source_type, expires_at=expiry)
-            await self.db.upsert_edge(
-                sid, oid, fact["predicate"], origin=source_type, expires_at=expiry)
-            sentence = f"{fact['subject']} {fact['predicate']} {fact['object']}"
-            if fact["context"]:
-                sentence += f" ({fact['context']})"
-            fact_id = await self.db.insert_graph_fact(
-                chat_id, sentence, source_type, expiry)
-            if self._vec_available:
-                await self._save_graph_fact_embedding(
-                    fact_id, chat_id, sentence, source_type, expiry)
-            saved += 1
-        logger.info("graphrag memorize: facts=%d | chat_id=%s | source=%s",
-                    saved, chat_id, source_type)
+        skipped = 0
+        for i, fact in enumerate(facts, 1):
+            try:
+                sid = await self.db.upsert_node(
+                    chat_id, fact["subject"], "fact", origin=source_type, expires_at=expiry)
+                oid = await self.db.upsert_node(
+                    chat_id, fact["object"], "fact", origin=source_type, expires_at=expiry)
+                await self.db.upsert_edge(
+                    sid, oid, fact["predicate"], origin=source_type, expires_at=expiry)
+                sentence = f"{fact['subject']} {fact['predicate']} {fact['object']}"
+                if fact["context"]:
+                    sentence += f" ({fact['context']})"
+                fact_id = await self.db.insert_graph_fact(
+                    chat_id, sentence, source_type, expiry)
+                if self._vec_available:
+                    await self._save_graph_fact_embedding(
+                        fact_id, chat_id, sentence, source_type, expiry)
+                saved += 1
+            except Exception as exc:
+                # Epic 47 (D188, 56.5): один БД-сбой не роняет батч (per-fact)
+                skipped += 1
+                logger.warning("graphrag memorize: fact #%d save skipped | error=%s",
+                               i, exc)
+                continue
+        logger.info("graphrag memorize: saved=%d skipped=%d | chat_id=%s | source=%s",
+                    saved, skipped, chat_id, source_type)
 
     async def _save_graph_fact_embedding(self, fact_id, chat_id, fact, origin,
                                          expires_at) -> None:

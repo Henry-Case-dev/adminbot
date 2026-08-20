@@ -6,6 +6,22 @@
 
 ## 🔧 In Progress
 
+### Epic 47: Resilience — LLM-клиент и GraphRAG-память (прод-инцидент падений) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.35.1)
+
+> Полный трек — `plans/backlog.md` (Epic 47). Требования R47-1…R47-6, решения D180–D185.
+> Инцидент: 2 падения за сутки (01:00:02/03, 07:00:22 UTC) — graphrag memorize (summary_memory.py:631), LLM-клиент (llm_client.py:120), генератор саммари (summary_generator.py:124); пользователь получил «не смог сделать саммари потому что упал апи» и «база подавилась». Логи: LLMTimeoutError/httpx.ReadTimeout attempt=2 (factcheck), LLMError 502 after 3 attempts (summary). Текущее устройство: транспортные ConnectError/ReadError НЕ ретраятся (мгновенный LLMError, llm_client.py:87-89); backoff 0.5*2**n без капса/jitter; Retry-After не читается; худший случай ~181.5с; memorize → logger.exception (631-635), батч 8000 симв. теряется; summary без retry-once и деградации; фактчек/хуки логируют ERROR на ожидаемых LLMError. Решение: ретраи транзиентных (timeout/5xx/429/транспортные) с капс+jitter+Retry-After (прецедент YouTube Epic 41), WARNING вместо ERROR-шторма, memorize-повтор батча, summary retry-once/деградированный вывод, UX R13 — финальный fallback без изменений. Каноны промптов НЕ трогать; миграций нет; база 2070; v2.35.1 (прод eef5939). Без @Orchestrator.
+
+- [ ] T-371 (@Architect, P0) — Section 56: дизайн resilience (LLM-клиент + memorize + summary + логи); закрыть открытые вопросы PM 1–7
+- [ ] T-372 (@Builder, P0) — конфиг LLM_RETRY_*/budget + .env.example
+- [ ] T-373 (@Builder, P0) — llm_client: ретраи транзиентных + капс/jitter + Retry-After + WARNING-логи
+- [ ] T-374 (@Builder, P0) — memorize: WARNING вместо ERROR + повтор батча (факты не теряются)
+- [ ] T-375 (@Builder, P0) — summary_generator: retry-once/деградированный вывод + классы логов
+- [ ] T-376 (@Builder, P1) — фактчек/хуки: классы логов (LLMError → WARNING)
+- [ ] T-377 (@Builder + @Reviewer, P0) — тесты новых веток + полный прогон 0 регрессий (база 2070) + ревью APPROVED
+- [ ] T-378 (@Builder, P1) — README v2.35.1 + MEMORY
+- [ ] T-379 (@DevOps, P0) — коммит + пуш v2.35.1 (код+тесты одним коммитом)
+- [ ] T-380 (@DevOps, P0) — деплой БЕЗ миграций: git pull, restart, journalctl (0 ERROR-шторма memorize), smoke
+
 ### Epic 45: Betterstack SQL API (Checkup) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.35.0)
 
 > Полный трек — `plans/backlog.md` (Epic 45). Требования R45-1…R45-5, решения D171–D174.

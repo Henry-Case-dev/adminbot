@@ -3440,6 +3440,7 @@ class LLMClient:
 - **Одна `httpx.AsyncClient` сессия** на весь процесс (`timeout=httpx.Timeout(timeout, connect=10.0)`), ленивое создание, `close()` в `on_shutdown`.
 - Endpoints: `POST {base_url}/chat/completions` и `POST {base_url}/embeddings`, `Authorization: Bearer {api_key}` (contract — RESEARCH §h).
 - **Retry:** 429/5xx/timeout → до `max_retries` (default 2) повторов с backoff `0.5s * 2**n`; 401/403 — без повторов → `LLMAuthError`.
+  - 🔹 **Правка (Epic 47, ЗАМЕНЕНО Section 56.3):** ретраи ВСЕХ транзиентных (вкл. транспортные `httpx.TransportError`: ConnectError/ReadError/WriteError/PoolTimeout/NetworkError/ProtocolError + 408/425/429/5xx); backoff `min(BASE*2**a, CAP) + U(0, JITTER)` (BASE=1.0, CAP=8.0, JITTER=2.0); Retry-After приоритетнее backoff (сон = min(header, CAP)); total-budget `LLM_TOTAL_BUDGET`=60с (жёсткий дедлайн `asyncio.timeout`); `LLM_TIMEOUT` дефолт 60→30. Владелец ретраев — только `_post`. См. Section 56.3-56.4.
 - **R3:** `embed()` сам по себе НЕ глотает ошибки (бросает `LLMError`) — try/except на стороне `MemoryManager` (33.5).
 - Логи: модель, URL, размер запроса/ответа, время запроса; сырой текст генерации логирует ВЫЗЫВАЮЩИЙ (33.7, R14) — клиент не знает про Logtail-политику.
 
@@ -11511,6 +11512,8 @@ def fire_and_forget(coro, tag: str) -> None:
     asyncio.create_task(_run())
 ```
 
+> 🔹 **Правка (Epic 47, D190):** `fire_and_forget` разделяет лог — `except LLMError → logger.warning("[graphrag hook] %s failed: %s", tag, exc)` (БЕЗ traceback); `except Exception → logger.warning(..., exc_info=True)` (неожиданное). Подробно — Section 56.7.
+
 **Порог YouTube и сжатие (55.1 #8):**
 
 ```python
@@ -12042,3 +12045,287 @@ _BACKFILL_MAX_FACTS = 500            # потолок фактов за один
 **Порядок:** T-358 (эта секция) → T-359 (конфиг) → T-360 (миграции + скрипт) → T-361 (memorize_facts) → T-362 (фиксы 403/backfill) → T-363 (хуки) → T-364 (RAG) → T-365 (промпты + эталоны) → T-366-A (тесты + прогон) → T-366-B (@Reviewer) → T-367 (доки) → T-368 (аудит) → T-369/T-370 (@DevOps: коммит + миграция + деплой 55.12; Epic 45 — 54.8).
 
 @Architect Epic 46 architecture ready (Section 55: EMBEDDING_DIM дефолт 3072 при сохранении runtime-probe как источника истины (self-heal остаётся safety net); 403-схема — _embed-ретраи 3×backoff + «deferred»-состояние вместо вечного выключения + re-probe раз в 600с с asyncio.Lock и автопересозданием vec-таблиц; backfill ленивый идемпотентный из smart_archive_facts (батчи 50, потолок 500) при успешном init и реактивации; логи «sqlite-vec unavailable» vs «probe embed failed» разделены; busy_timeout=5000; миграция: nodes/edges +origin (default 'chat_history')/expires_at, CHECK entity_type расширен до 'fact' пересозданием таблицы (id сохраняются), PRAGMA user_version=1, скрипт scripts/migrate_graphrag_v2.py на остановленном боте; memorize_facts — метод MemoryManager (services/summary_memory.py, файла memory.py нет) с канон-промптом R46-2 БАЙТ-В-БАЙТ, толерантным parse_fact_list (кривой JSON → тихий WARNING), записью nodes/edges+graph_facts(+vec0+FTS) с origin/expires_at (chat_history → NULL, остальные → now+14d), embed-фейл → факт сохраняется ТЕКСТОМ; хуки — fire_and_forget (asyncio.create_task + тихий лог) в 4 пайплайнах ДО generate, YouTube-порог 8000 символов → нетоксичная LLM-выжимка внутри фоновой задачи; RAG — get_rag_context (KNN graph_facts_vec → FTS-фолбек, ленивый TTL WHERE, никогда не бросает) + build_rag_context (КАНОН R46-4: `<context>/<user_gossip>/<bot_knowledge>`, префиксы «[Из твоего прошлого поиска]:»/«[Из видео, которое кидали ранее]:»/«[Из статьи]:», escape_xml_text обязателен, потолок 2000 символов), инъекция — в начало user-контента (прецедент _compose_user_content); канон-инструкция R46-4 ДОСЛОВНО в 5 системных промптов (полные эталоны 55.7.1–55.7.5 с якорями Section 55), checkup/compress/extract НЕ тронуты; аудит фактчека — структура FACTCHECK_AUDIT.md в 55.9 (гарантия сети структурная: aggregator.search первым, LLM только при успехе, каскад Tavily→Exa→DDG, AllSearchEnginesFailedException → пул; рекомендации: промпт, скорость, кэш одинаковых проверок, query expansion); база 1981 тестов, 0 регрессий), passing the baton to @Builder (T-359…T-368) → @Reviewer (T-366-B) → @DevOps (T-369/T-370: v2.35.0, миграция на остановленном боте, чеклист 55.12; Epic 45 — 54.8).
+
+## Section 56: Epic 47 — Resilience: LLM-ретраи (капс+jitter+Retry-After+бюджет), memorize-повтор, summary retry-once/degraded + карта логов (v2.35.1)
+
+### 56.1 Контекст и закрытие открытых вопросов (R47-1…R47-6, D186–D192)
+
+**Контекст (фактика Шага 0, backlog Epic 47):** прод-инцидент — 2 падения/сутки (01:00:02/03, 07:00:22 UTC): `LLMTimeoutError` (httpx.ReadTimeout, attempt=2, factcheck), `LLMError 502 after 3 attempts` (summary), graphrag memorize (`summary_memory.py:631`) падал с ERROR-штормом (`logger.exception`). Первопричины: (а) `llm_client.py:87-89` — транспортные `ConnectError`/`ReadError` НЕ ретраились (мгновенный `LLMError`); (б) backoff `0.5*2**n` без капса/jitter; `Retry-After` не читался; (в) худший кейс ~181.5с (60с×3); (г) memorize: падение LLM теряло ВЕСЬ батч (tail≤8000 симв.), повтора не было; (д) summary_generator: нет retry-once/деградированного вывода — сразу UX R13 «не смог сделать саммари потому что упал апи»; (е) «красный» журнал: ожидаемые LLMError логировались `logger.exception` (summary_generator:138-140, factcheck.py:118, memorize:631-635).
+
+**Ограничения чекапа (D185):** 0 регрессий (база 2070); каноны промптов (R11, R46-2/R46-4) и UX-фразы R13 НЕ трогать; миграций БД НЕТ; деплой v2.35.1 без миграции; `llm_client.py:85-86` timeout-ERROR оставить.
+
+**Закрытие открытых вопросов PM (вопросы 1–7):**
+
+| # | Вопрос | Решение |
+|---|---------|---------|
+| 1 | Схема ретраев LLM-клиента (число попыток, backoff base/cap/jitter, Retry-After, классификация транзиентных) | **56.3 (D186)** |
+| 2 | Тайминг: total-budget, дефолты LLM_TIMEOUT/LLM_MAX_RETRIES/LLM_RETRY_*, отдельный бюджет chat vs embed, владелец ретраев | **56.4 (D187)** |
+| 3 | memorize: повтор батча (8000 симв.)/отложенное сохранение, прецедент _embed-ретраев 3× | **56.5 (D188)** |
+| 4 | SummaryGenerator: retry-once или деградированный вывод, порядок fallback до UX R13 | **56.6 (D189)** |
+| 5 | Логи: точки ERROR→WARNING, формат WARNING-строк, что остаётся ERROR | **56.7 (D190)** |
+| 6 | Хуки fire-and-forget: повторный memorize, тихий лог, блокировка чата | **56.7 (D190)** |
+| 7 | Тест-план: затрагиваемые и новые кейсы | **56.8 (D192)** |
+
+### 56.2 Решения D186–D192 (сводная таблица)
+
+| # | Решение |
+|---|---------|
+| **D186** | **LLM-ретраи (R47-1):** классификация транзиентных (таблица 56.3), backoff `min(BASE*2**a, CAP)+U(0,JITTER)` с BASE=1.0/CAP=8.0/JITTER=2.0, Retry-After приоритетнее backoff (сон = min(header, CAP) для 429/5xx), транспортные `httpx.TransportError` ретраятся (новое), итоговые ошибки — существующие классы `LLM*Error` |
+| **D187** | **LLM-тайминг/владелец (R47-2):** total-budget `LLM_TOTAL_BUDGET`=60с — жёсткий дедлайн всей `_post` (реализация `asyncio.timeout`); `LLM_TIMEOUT` дефолт 60.0→30.0 (per-request); `LLM_MAX_RETRIES`=2 (попыток 3) сохраняется; отдельного embed-бюджета НЕТ; единственный владелец ретраев — `_post` (двойных ретраев в вызывающих НЕТ) |
+| **D188** | **memorize (R47-3):** ожидаемые LLMError → WARNING без traceback (`error=%s`); bounded-повтор экстракции батча `GRAPH_MEMORIZE_MAX_BATCH_RETRIES`=2 с backoff 2.0/4.0 (основной механизм); промежуточное per-fact сохранение с WARNING+continue (фолбек, построчная персистентность); deferred-очередь/повторный прогон батча НЕ вводим (дубли `graph_facts`) |
+| **D189** | **SummaryGenerator (R47-4):** retry-once (пауза `SUMMARY_RETRY_ONCE_PAUSE`=5с) → деградированный саммари «выжимка без нейронки:» (`SUMMARY_DEGRADED_ENABLED`=True) → UX R13 (финальный fallback, тексты НЕ менять); expected LLMError → WARNING (не `logger.exception`) |
+| **D190** | **Логи/UX (R47-5):** ERROR — только неожиданное (`except Exception`); ожидаемое → WARNING `… \| error=%s` без traceback; карта 56.7 (factcheck/search/youtube/web LLMError → WARNING; memorize LLMError → WARNING; fire_and_forget LLMError → WARNING без exc_info, иное — с exc_info); reply-пулы R13 и reply-таргеты НЕ меняются |
+| **D191** | **Конфиг (R47-2):** новые переменные (таблица 56.8): `LLM_RETRY_BACKOFF_BASE/CAP/JITTER_MAX`, `LLM_TOTAL_BUDGET`, `GRAPH_MEMORIZE_MAX_BATCH_RETRIES/BATCH_RETRY_BACKOFF`, `SUMMARY_RETRY_ONCE_PAUSE/SUMMARY_DEGRADED_ENABLED`; `LLM_TIMEOUT`/`LLM_MAX_RETRIES` — НЕ устаревшие (композиция: timeout=per-request, retries=число повторов, budget=лимит сценария) |
+| **D192** | **Тест-план (R47-6):** 30 кейсов по файлам (таблица 56.8); изменяемые тесты: `test_llm_error_ux_phrase`→degraded, `TestFireAndForget::test_background_failure_logged_not_raised`, `test_factcheck_handlers::test_llm_error_replies_to_target` (+лог-класс), `test_settings_helpers` (+дефолты, LLM_TIMEOUT 30.0); полный pytest — 0 регрессий (база 2070) |
+
+### 56.3 `services/llm_client.py` — ретраи всех транзиентных + капс/jitter + Retry-After (R47-1, D186)
+
+**Классификация ошибок в `_post` (точная):**
+
+| Ошибка / статус | Транзиентная? | Поведение |
+|---|---|---|
+| `httpx.TimeoutException` (в т.ч. `ConnectTimeout`/`ReadTimeout`) | ✅ ретрай | сон → следующая попытка; исчерпание → `LLMTimeoutError` |
+| `httpx.ConnectError`, `httpx.ReadError`, `WriteError`, `PoolTimeout`, `NetworkError`, `ProtocolError` (все подклассы `httpx.TransportError`) | ✅ ретрай (**НОВОЕ** — раньше мгновенный `LLMError`, llm_client.py:87-89) | сон → следующая попытка; исчерпание → `LLMError(f"LLM transport error after {N} attempts: {exc}: {url}")` |
+| HTTP 408, 425, 429 | ✅ ретрай | 429 → при исчерпании `LLMRateLimitError("LLM rate limited (429) after {N} attempts: {url}")`; 408/425 → после повторов `LLMError(f"LLM HTTP {code}: {url}")` |
+| HTTP 5xx (500–599) | ✅ ретрай | исчерпание → `LLMError(f"LLM server error {code} after {N} attempts: {url}")` (текст существующий) |
+| HTTP 401, 403 | ❌ мгновенно | `LLMAuthError` (без повторов, существующий тест) |
+| Прочие 4xx (400/404/409/422…) | ❌ мгновенно | `LLMError(f"LLM HTTP {code}: {url}")` |
+| `httpx.HTTPError` НЕ-`TransportError` (напр. `InvalidURL`) | ❌ мгновенно | `LLMError(f"LLM HTTP client error: {exc}")` |
+
+Реализация: единый `except httpx.TransportError as exc:` → общий ретрай-путь; при исчерпании `raise LLMTimeoutError(...) if isinstance(exc, httpx.TimeoutException) else raise LLMError(...)`; затем `except httpx.HTTPError as exc:` → мгновенно (не-транспортное).
+
+**Формула backoff** (retry-индекс a = 0, 1, …, `max_retries-1`): `sleep = min(BASE * 2**a, CAP) + U(0, JITTER)`.
+- `BASE = LLM_RETRY_BACKOFF_BASE` (default **1.0**) — совпадает с `_EMBED_RETRY_BACKOFF=1.0` (55.8) и YouTube-базой 1.0 (Epic 41);
+- `CAP = LLM_RETRY_BACKOFF_CAP` (default **8.0**) — прецедент YouTube `_RETRY_BACKOFFS` cap 8с;
+- `JITTER = LLM_RETRY_JITTER_MAX` (default **2.0**) — `random.uniform(0, JITTER)`, добавляется к всегда;
+- Дефолтные сны: retry1 ≈ 1.0–3.0с, retry2 ≈ 2.0–4.0с.
+- **Test-hook сохранён:** `self.backoff_base == 0` → сон 0 (jitter тоже 0 — ведёт себя как существующий хелпер `_make_client`). В `__init__`: `self.backoff_base = settings.LLM_RETRY_BACKOFF_BASE`; `self._backoff_cap`, `self._jitter_max`, `self._budget` из settings. Сигнатура `__init__` НЕ меняется (`timeout`/`max_retries` kwargs остаются).
+
+**Retry-After (приоритет над backoff):** для 429 и 5xx, если заголовок `Retry-After` есть и парсится (`float`) → `sleep = min(header_seconds, CAP)` (кап — защита бюджета; заголовок 120с → сон 8с). Кривой/отрицательный header, статусы ≠ 429/5xx → игнор → обычный backoff.
+
+**Total-budget (D187):** `LLM_TOTAL_BUDGET` (default **60.0**) — жёсткий дедлайн ВСЕЙ `_post` (все попытки + сны). Реализация: `async with asyncio.timeout(self._budget):` вокруг цикла `for attempt in range(self._max_retries + 1):` (Python 3.12; `asyncio` в test_llm_client НЕ мокается). Истечение → `LLMTimeoutError(f"LLM request timed out after {N} attempts: {url}")`. Перед каждой попыткой (кроме 1-й) при `elapsed ≥ budget` — break (попытка не стартует). Худший кейс ≤ ~62с (старый ~181.5с). `N = self._max_retries + 1`.
+
+**WARNING-лог попытки (R47-2), точный формат, БЕЗ traceback:**
+```
+logger.warning("LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
+               url, attempt + 1, self._max_retries + 1, sleep, reason)
+```
+`reason` = `f"status={code}"` (для 408/425/429/5xx) либо `f"{type(exc).__name__}: {exc}"` (для транспортных). `llm_client.py:85-86` timeout-ERROR на исчерпании ОСТАВЛЯЕТСЯ ERROR (R47-5 дословно), но текст финального исключения уже «after N attempts» (обновить N — сохранив слово `attempts`).
+
+**Докстринг модуля (строка «Retry: 429/5xx/timeout → … 0.5s * 2**n») — переписать** на схему D186/D187.
+
+### 56.4 Владелец ретраев и тайминг (R47-2, D187)
+
+- **Единственный владелец LLM-ретраев — `_post`.** В `memorize`/`generate`-вызывающих новый LLM-слой ретраев НЕ добавляется (двойные ретраи исключены). Что делают вызывающие при исчерпании: memorize — D188 (bounded-повтор экстракции + per-fact сохранение); summary — D189 (retry-once + деградированный саммари); фактчек/search/youtube/web — проброс `LLMError` в хендлер → WARNING + UX R13 (56.7).
+- **`MemoryManager._embed` (55.8) ОСТАЁТСЯ** — это отдельный embed-слой (ретраи 3× backoff 1.0*2**n) ПОВЕРХ `_post`-ретраев; Epic 47 его НЕ трогает и НЕ расширяет (embed-путь деградирует в FTS5 при фейлах, 55.6/55.8). Отдельного embed-бюджета НЕТ: `LLM_TOTAL_BUDGET` применяется к каждому вызову `_post` (и chat, и embed).
+- **`LLM_TIMEOUT` дефолт 60.0 → 30.0** (per-request `httpx.Timeout(timeout, connect=10.0)`). Обоснование: бюджет — авторитетный лимит сценария; 30с×3 + сны ≈ 90с > 60с бюджета → бюджет (asyncio.timeout) прерывает; реально успевают 2 попытки на «долгих» таймаутах, 3 попытки — на быстрых 429/5xx. `_env_float` (без min) оставить.
+- **Финальные временные значения (default):** попыток 3, бюджет 60с, timeout 30с, сны ≤ 8с+jitter2. Худший сценарий (долгие таймауты) ≈ 60–62с; нормальные 429/5xx — легко в бюджете (3 быстрых ответа + сны ~3–7с).
+
+### 56.5 `services/summary_memory.py` — memorize: WARNING вместо ERROR + повтор батча + per-fact сохранение (R47-3, D188)
+
+**Разделение «ожидаемый LLMError → WARNING (без traceback)» vs «неожиданный Exception → ERROR» (механизм) — в `memorize_facts` (текущие строки 618-635):**
+```python
+try:
+    await self._memorize_facts_inner(chat_id, raw_text, source_type)
+except LLMError as exc:          # ОЖИДАЕМОЕ (timeout/429/5xx/транспорт после _post-ретраев)
+    logger.warning("graphrag memorize: LLM failed | chat_id=%s | source=%s | error=%s",
+                   chat_id, source_type, exc)                       # БЕЗ traceback
+except Exception:                # НЕОЖИДАННОЕ (баг, БД и т.п.)
+    logger.exception("graphrag memorize: unexpected failure | chat_id=%s | source=%s",
+                     chat_id, source_type)                          # ERROR + traceback (R47-5)
+```
+Строгое уточнение: `except LLMError` перехватывает все подклассы (`LLMAuthError`/`LLMRateLimitError`/`LLMTimeoutError`) — они тоже «ожидаемые» при фоновом memorize (ошибка экстракции не должна ронять ERROR-шторм; auth-проблема всё равно видна в тексте `error=%s`).
+
+**Основной механизм защиты батча (tail≤8000) — bounded-повтор экстракции (выбран: простой, надёжный, тестируемый):**
+```python
+async def _extract_facts(self, tail: str):
+    """R47-3/D188: bounded-ретраи ПОСЛЕ _post-ретраев. Только LLMError."""
+    max_retry = settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES      # default 2 → 3 попытки
+    for attempt in range(max_retry + 1):
+        try:
+            return await self.llm.generate([
+                {"role": "system", "content": FACT_EXTRACT_PROMPT},   # канон R46-2, НЕ трогать
+                {"role": "user", "content": tail}])
+        except LLMError as exc:
+            if attempt < max_retry:
+                logger.info("graphrag memorize: extract retry | attempt=%d/%d | error=%s",
+                            attempt + 1, max_retry + 1, exc)
+                await asyncio.sleep(
+                    settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF * (2 ** attempt))  # 2.0, 4.0
+                continue
+            raise exc
+```
+Итого попыток экстракции = 1 + 2 = 3; батч НЕ теряется при транзиентном падении. Факторы: канон `FACT_EXTRACT_PROMPT` (R46-2) — ВЕЗДЕ как есть (байт-в-байт).
+
+**Фолбек — промежуточное построчное (per-fact) сохранение:** цикл сохранения (upsert_node×2 → upsert_edge → `insert_graph_fact` → embed) — каждый факт обёрнут в `try/except Exception → logger.warning("graphrag memorize: fact #%d save skipped | error=%s", i, exc)` + `continue`. Один БД-сбой не роняет батч (частичная персистентность гарантирована); embed на факт уже защищён `_save_graph_fact_embedding` (55.8). Итоговый INFO: `graphrag memorize: saved=%d skipped=%d | chat_id=%s | source=%s`.
+
+**Deferred-очередь / повторный прогон всего батча — НЕ вводим:** `insert_graph_fact` не дедуплицируется, повторный прогон после парсинга дублировал бы факт-строки (nodes/edges идемпотентны — UNIQUE, но `graph_facts.id` — AUTOINCREMENT). bounded-ретрай экстракции + per-fact сохранение закрывают R47-3 полностью.
+
+### 56.6 `services/summary_generator.py` — summary: retry-once → деградированный саммари → UX R13 (R47-4, D189)
+
+**Цепочка в `_run`; заменяет текущий `raw = await self.llm.generate(...)` (строки 124-129), канонический `SYSTEM_PROMPT`/`user_content` НЕ меняются:**
+1. **A — retry-once.** Первый `LLMError` от `self.llm.generate` (саммари) → `logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)` → `await asyncio.sleep(settings.SUMMARY_RETRY_ONCE_PAUSE)` (default **5.0с**) → повторная генерация с ТЕМ ЖЕ payload. Ретраится ТОЛЬКО `LLMError`; sqlite/unexpected — не ретраятся.
+2. **B — деградированный саммари** при повторном `LLMError` И `SUMMARY_DEGRADED_ENABLED=True`: `logger.warning("summary: LLM failed after retry-once — degraded summary | chat_id=%s | error=%s", chat_id, exc)` → `await self._send_chunked(chat_id, self._degraded_summary(rows))` → `return`. Отправляется и manual, и cron (лучше UX).
+3. **C — честная UX-фраза R13** (финальный fallback): если деградированный выключен → `raise` → ловится внешним `except LLMError: logger.warning("summary: LLM failed | chat_id=%s | error=%s", chat_id, exc)` + `await self._send_ux(chat_id, _UX_LLM_FAILED)` («не смог сделать саммари потому что упал апи», текст НЕ менять).
+
+Внешние `except _SQLITE_ERRORS:` / `except Exception:` — БЕЗ изменений (ERROR `logger.exception` + `_UX_DB_FAILED`/`_UX_GENERIC_FAILED`). Внешний `except LLMError:` (был `logger.exception`, строки 138-140) — переводится на WARNING без traceback (после A/B практически недостижим — защитный).
+
+**`_degraded_summary(rows)` — детерминированный, БЕЗ LLM (модульные константы, тестируемые):**
+```python
+_DEGRADED_HEADER = "выжимка без нейронки:"
+_DEGRADED_MAX_LINES = 15
+_DEGRADED_LINE_CHARS = 200
+
+def _degraded_summary(self, rows) -> str:
+    lines = []
+    for row in rows:
+        text = (row["text"] or "").strip().replace("\r", " ").replace("\n", " ")
+        if not text:
+            continue
+        lines.append(f"{self._resolve_author(row)}: {text}"[:_DEGRADED_LINE_CHARS])
+        if len(lines) >= _DEGRADED_MAX_LINES:
+            break
+    body = "\n".join(lines) or "никто ничего не написал"
+    return self._ensure_shiz_postfix(f"{_DEGRADED_HEADER}\n{body}", rows)
+```
+`_resolve_author` (алиасы Epic 28) и `_ensure_shiz_postfix` (канон-приписка) переиспользуются; формат ≤ ~3.5k симв. → `_send_chunked` (4096-чанки, `TelegramRetryAfter` handling уже есть). Сырой текст деградированного вывода НЕ логируется (R14: raw-лог только для успешного LLM-ответа).
+
+### 56.7 Карта уровней логирования и UX (R47-5/R47-6, D190)
+
+| # | Точка | Было | Стало (Epic 47) |
+|---|-------|------|-----------------|
+| 1 | llm_client timeout (85-86) | ERROR | ERROR + текст «after N attempts» (**сохранить**, R47-5) |
+| 2 | llm_client попытка ретрая | — | WARNING `LLM request retry \| url=%s \| attempt=%d/%d \| sleep=%.1fs \| reason=%s` (без traceback) |
+| 3 | summary_generator LLM (138-140) | ERROR+exc | WARNING `summary: LLM failed \| chat_id=%s \| error=%s` (после retry-once/degraded; без traceback) |
+| 4 | summary_generator retry-once | — | WARNING `summary: LLM failed — retry-once \| chat_id=%s` |
+| 5 | summary_generator degraded | — | WARNING `summary: LLM failed after retry-once — degraded summary \| chat_id=%s \| error=%s` |
+| 6 | handlers/factcheck.py:118 (LLMError) | ERROR+exc | WARNING `[factcheck] LLM failed \| chat=%s \| error=%s` (без traceback; reply — `LLM_ERROR_PHRASES`, НЕ менять) |
+| 7 | handlers/search.py:91 (LLMError) | ERROR+exc | WARNING `[smartsearch] LLM failed \| chat=%s \| error=%s` (reply — R13) |
+| 8 | handlers/youtube.py:119 / web.py:99 (LLMError) | ERROR+exc | WARNING `[youtube] LLM failed \| chat=%s video_id=%r \| error=%s` / `[web] LLM failed \| chat=%s \| error=%s` (reply — R13) |
+| 9 | memorize_facts LLMError (631-635) | ERROR+exc | WARNING `graphrag memorize: LLM failed \| chat_id=%s \| source=%s \| error=%s` (без traceback) |
+| 10 | memorize_facts unexpected (except Exception) | ERROR+exc | ERROR+exc (остаётся, R47-5) |
+| 11 | fire_and_forget `_run` (55.5) | WARNING+exc_info | `except LLMError → logger.warning("[graphrag hook] %s failed: %s", tag, exc)` БЕЗ exc_info; `except Exception → logger.warning(..., exc_info=True)` |
+| 12 | `_memorize_youtube` compress (55.5) | WARNING+exc_info | LLMError → без exc_info; иное → + exc_info (зеркально) |
+| 13 | handlers/checkup.py:9716 (LLMError) | ERROR+exc | **НЕ трогаем** (вне скоупа R47-5; рамки 54.6) |
+| 14 | summary `_SQLITE_ERRORS`/`except Exception` | ERROR+exc | без изменений |
+| 15 | factcheck/search/youtube/web `except Exception` | ERROR+exc | без изменений (unexpected остаётся ERROR) |
+
+**Reply пользователю:** во всех хендлерах при LLMError — существующий пул `LLM_ERROR_PHRASES` (R13, 5.5) через `random.choice`, тексты и reply-таргеты (фактчек → `target.message_id`; поиск → `message.message_id`) НЕ меняются. Хуки memorize — без UX (фоновые). WARNING-строки — с `str(exc)` (в `exc` уже url/status из финальных сообщений `LLM*Error`); секреты НЕ логируются (R17 — exc не содержит ключей).
+
+### 56.8 Конфиг и тест-план (R47-2/R47-6, D191/D192)
+
+**`config/settings.py`** — новые поля (прецедент `_env_float_min/_env_int_min` D104, WARNING+default при кривом/<min) после блока Epic 24:
+```python
+    ── LLM resilience (Epic 47, Section 56) ──
+    LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 30.0)        # ПРАВКА: 60.0 → 30.0
+    # LLM_MAX_RETRIES сохраняется (default 2): число повторов, попыток = retries + 1 = 3.
+    LLM_RETRY_BACKOFF_BASE: float = _env_float_min("LLM_RETRY_BACKOFF_BASE", 1.0, 0.0)
+    LLM_RETRY_BACKOFF_CAP: float = _env_float_min("LLM_RETRY_BACKOFF_CAP", 8.0, 0.0)
+    LLM_RETRY_JITTER_MAX: float = _env_float_min("LLM_RETRY_JITTER_MAX", 2.0, 0.0)
+    LLM_TOTAL_BUDGET: float = _env_float_min("LLM_TOTAL_BUDGET", 60.0, 1.0)
+    # GraphRAG memorize (Epic 47, Section 56.5)
+    GRAPH_MEMORIZE_MAX_BATCH_RETRIES: int = _env_int_min("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", 2, 0)
+    GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF: float = _env_float_min("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", 2.0, 0.0)
+    # SummaryGenerator (Epic 47, Section 56.6)
+    SUMMARY_RETRY_ONCE_PAUSE: float = _env_float_min("SUMMARY_RETRY_ONCE_PAUSE", 5.0, 0.0)
+    SUMMARY_DEGRADED_ENABLED: bool = _env_bool("SUMMARY_DEGRADED_ENABLED", True)
+```
+
+**Сводная таблица переменных (имя / тип / дефолт / допустимый диапазон):**
+
+| Переменная | Тип | Дефолт | Диапазон |
+|---|---|---|---|
+| `LLM_TIMEOUT` | float (env) | 30.0 (было 60.0) | >0 (нет min-проверки, как сейчас) |
+| `LLM_MAX_RETRIES` | int (env) | 2 | ≥0 (попыток = retries+1) |
+| `LLM_RETRY_BACKOFF_BASE` | float_min | 1.0 | ≥0 (0 → сон 0) |
+| `LLM_RETRY_BACKOFF_CAP` | float_min | 8.0 | ≥0 |
+| `LLM_RETRY_JITTER_MAX` | float_min | 2.0 | ≥0 (0 → детерминированный сон) |
+| `LLM_TOTAL_BUDGET` | float_min | 60.0 | ≥1.0 |
+| `GRAPH_MEMORIZE_MAX_BATCH_RETRIES` | int_min | 2 | ≥0 (0 → единичная экстракция) |
+| `GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF` | float_min | 2.0 | ≥0 |
+| `SUMMARY_RETRY_ONCE_PAUSE` | float_min | 5.0 | ≥0 |
+| `SUMMARY_DEGRADED_ENABLED` | bool | True | 1/true/yes/on, 0/false/… |
+
+`.env.example` (после LLM-блока Epic 24, R17 — пустые/закомментированные значения, реальных нет):
+```
+# ── LLM resilience (Epic 47, Section 56) ──
+LLM_TIMEOUT=30.0
+# LLM_MAX_RETRIES=2
+# LLM_RETRY_BACKOFF_BASE=1.0
+# LLM_RETRY_BACKOFF_CAP=8.0
+# LLM_RETRY_JITTER_MAX=2.0
+# LLM_TOTAL_BUDGET=60.0
+# ── GraphRAG memorize (Epic 47) ──
+# GRAPH_MEMORIZE_MAX_BATCH_RETRIES=2
+# GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF=2.0
+# ── SummaryGenerator (Epic 47) ──
+# SUMMARY_RETRY_ONCE_PAUSE=5.0
+# SUMMARY_DEGRADED_ENABLED=True
+```
+
+**Тест-план (R47-6, D192; мок-инфраструктура):** httpx.MockTransport (прецедент test_llm_client); `client.backoff_base = 0` — сон 0 (jitter 0 автоматически); для снов — `monkeypatch.setattr("services.llm_client.asyncio.sleep", recorder)` (llm_client импортирует asyncio модулем) + `monkeypatch.setattr(llm_client.random, "uniform", lambda a, b: 0.0)`; бюджет — маленькое значение (например `LLM_TOTAL_BUDGET=10`); FakeLLM c `fail_times` (падает N раз, потом успех).
+
+| # | Файл | Кейс | Ожидание |
+|---|------|------|----------|
+| 1 | test_llm_client.py | `ConnectError`×1 → success | ретрай, generate OK, `calls==2` (был мгновенный фейл) |
+| 2 | там же | `ReadError`×1 → success | то же |
+| 3 | там же | `ConnectError` всегда → исчерпание | `LLMError` (класс сохранён), `calls==N`, WARNING `LLM request retry` |
+| 4 | там же | timeout всегда → исчерпание | `LLMTimeoutError` (существующий тест зелёный, текст «after N attempts») |
+| 5 | там же | 429 + `Retry-After: 5` | сон == 5.0 (приоритет заголовка), успех |
+| 6 | там же | 429 + `Retry-After: 120` | сон == CAP (8.0), не 120 |
+| 7 | там же | 503 + `Retry-After: 3` | сон == 3.0 |
+| 8 | там же | кривой `Retry-After: abc` | игнор → обычный backoff |
+| 9 | там же | последовательность снов (base=1, jitter→0, max_retries=3) | recorder == [1.0, 2.0, 4.0] |
+| 10 | там же | jitter: uniform→0.5 | сон = backoff + 0.5 |
+| 11 | там же | 408/425 retry→success; 400/404/422 мгновенно | классификация |
+| 12 | там же | 401/403 → `LLMAuthError` мгновенно | существующий тест |
+| 13 | там же | total-budget: handler бросит TimeoutException 3 раза, budget=10 → поймано `LLMTimeoutError`, attempts ≤ 2, caplog | бюджет бьёт |
+| 14 | там же | caplog формат `LLM request retry \| url=… \| attempt=1/3 \| sleep=… \| reason=status=429` | формат |
+| 15 | test_summary_memory.py | memorize: LLMError 1-й → успех 2-й | факты+узлы сохранены, `generate_calls==2`, INFO `extract retry` |
+| 16 | там же | LLMError ×3 → WARNING, 0 строк, `caplog` NO ERROR-record, без raise | без traceback-шторма |
+| 17 | там же | non-LLM Exception (RuntimeError) экстракции → ERROR | `logger.exception` сработал |
+| 18 | там же | сбой сохранения факта №2 (БД fake) | факт №1 сохранён, WARNING `save skipped`, saved=1 skipped=1 |
+| 19 | там же | fire_and_forget: LLMError → WARNING без exc_info; RuntimeError → WARNING + exc_info | разделение D190 |
+| 20 | test_summary_generator.py | LLMError 1-й → retry-once → успех 2-й | саммари ушло, `generate_calls==2`, WARNING `retry-once` |
+| 21 | там же | LLMError ×2 → деградированный | send содержит `выжимка без нейронки:` + приписка шиза; UX R13 НЕ отправлена |
+| 22 | там же | `SUMMARY_DEGRADED_ENABLED=False` + LLMError ×2 | отправлена `_UX_LLM_FAILED` |
+| 23 | там же | `_degraded_summary` unit | ≤15 строк, ≤200 симв., header, постофикс, пусто → «никто ничего не написал» |
+| 24 | там же | no_sleep: пауза retry-once зафиксирована (recorder) | 1 сон == `SUMMARY_RETRY_ONCE_PAUSE` |
+| 25 | там же | DB-ошибка → `база данных подавилась` | существующий тест зелёный |
+| 26 | test_factcheck_handlers.py | LLMError → WARNING без traceback; reply из `LLM_ERROR_PHRASES` | лог-класс + текст без изменений |
+| 27 | там же | unexpected → ERROR `logger.exception` | без изменений |
+| 28 | test_smartsearch_handlers.py / youtube / web-хендлеры | LLMError → WARNING | зеркало D190 |
+| 29 | test_settings_helpers.py | new дефолты (таблица выше) + `LLM_TIMEOUT==30.0` | дефолты |
+| 30 | РЕГРЕССИЯ | полный `pytest` | база 2070 + ~25–30 новых, 0 failed/skipped; `git diff --check` чист |
+
+**Изменяемые существующие тесты (по R47-6, «обновить по Section 56»):** `test_summary_generator.py::test_llm_error_ux_phrase` → переименовать в `test_llm_error_retry_then_degraded` (ожидание — деградированный саммари); `test_llm_client.py::test_embed_transport_error` остаётся зелёным (ConnectError теперь до 3 попыток, класс `LLMError` тот же); `test_summary_memory.py::TestFireAndForget::test_background_failure_logged_not_raised` → разделить LLMError/другое; `test_factcheck_handlers.py::test_llm_error_replies_to_target` → + ассерт WARNING-лога (reply-текст тот же); `test_settings_helpers.py` — нет констрейнтов на LLM_TIMEOUT (проверено), только добавить дефолты.
+
+### 56.9 Риски
+
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | Смена ретраев ломает классы ошибок/except-ветки | Классы `LLM*Error` сохранены (56.3); ветки не переписываются — только лог-классы (56.7) |
+| 2 | Время сценария (бюджет) | `asyncio.timeout(budget)` + капс 8с + Retry-After c cap; тест #13 фиксирует |
+| 3 | memorize: дубли фактов при повторе | deferred/повторный прогон НЕ вводим; ретрай ТОЛЬКО экстракции; per-fact сохранение единожды (56.5) |
+| 4 | Деградированный саммари выглядит «сломанным» | Заголовок «выжимка без нейронки:» честно маркирует; UX R13 остаётся финальным страховым |
+| 5 | UX-каноны (R13) / промпт-каноны (R11/R46-2/R46-4) задеты | Тексты не трогаем, только порядок fallback-цепочки; байт-в-байт эталоны зелёные |
+| 6 | 0 регрессий (база 2070) | Тесты обновляются в том же коммите (D123-стиль); изменено ожидание только 3–4 тестов (56.8) |
+| 7 | fire-and-forget-хуки блокируют чат | Хуки фоновые (`asyncio.create_task`), bounded-ретраи 2×2с максимум; чат не ждёт |
+
+### 56.10 Сводка для @Builder (пофайлово, порядок)
+
+**Боевой код и правки:**
+1. `config/settings.py` — правка `LLM_TIMEOUT` 60.0→30.0; новые поля 56.8 (LLM_RETRY_*, LLM_TOTAL_BUDGET, GRAPH_MEMORIZE_*, SUMMARY_*); `import random` не нужен (это в llm_client).
+2. `.env.example` — блок 56.8 (LLM_TIMEOUT=30.0 + 8 новых закомментированных).
+3. `services/llm_client.py` — `__init__`: `self.backoff_base = settings.LLM_RETRY_BACKOFF_BASE` (test-hook `client.backoff_base=0` сохраняется), `_backoff_cap/_jitter_max/_budget`; `_post`: единый `except httpx.TransportError` (ретрай; на исчерпании TimeoutException→`LLMTimeoutError`, иначе `LLMError`), затем `except httpx.HTTPError` (мгновенно); 408/425 в транзиентную ветку; backoff-функция `_sleep_seconds(attempt, status, headers)`: Retry-After (429/5xx, float, cap) приоритетнее `min(base*2**a, cap) + U(0, jitter)` (jitter=0 при backoff_base==0); `async with asyncio.timeout(budget)` вокруг цикла; WARNING `LLM request retry | url | attempt | sleep | reason`; сообщения финальных исключений с «after {max_retries+1} attempts» (у 429/5xx текст сохранить, транспортный — новый); докстринг модуля переписать.
+4. `services/summary_memory.py` — `memorize_facts`: two-branch except (LLMError → WARNING `error=%s` без traceback; else → `logger.exception`); `_extract_facts(tail)` — bounded-ретраи `GRAPH_MEMORIZE_MAX_BATCH_RETRIES`=2 с сном `GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF*2**a` (2.0/4.0), INFO `extract retry`; `_memorize_facts_inner`: вызов `_extract_facts` вместо прямого `self.llm.generate`; цикл сохранения — per-fact try/except WARNING `save skipped` + continue; итоговый INFO `saved/skipped`; `fire_and_forget._run`: `except LLMError → WARNING без exc_info`, `except Exception → WARNING + exc_info`; `_memorize_youtube` compress — зеркально. Канон `FACT_EXTRACT_PROMPT` (R46-2) НЕ трогать.
+5. `services/summary_generator.py` — `_run`: retry-once/degraded/UX-цепочка 56.6; `_degraded_summary` + константы `_DEGRADED_HEADER/_MAX_LINES/_LINE_CHARS`; внешний `except LLMError` → WARNING `error=%s` (без traceback); `_SQLITE_ERRORS`/unexpected — без изменений.
+6. `handlers/factcheck.py` (строка 118) — `except LLMError: logger.warning("[factcheck] LLM failed | chat=%s | error=%s", ..., exc)`, reply `LLM_ERROR_PHRASES` без изменений.
+7. `handlers/search.py` (91), `handlers/youtube.py` (119), `handlers/web.py` (99) — зеркально → WARNING без traceback; `except Exception` — без изменений.
+8. `services/factcheck_service.py` (53), `services/search_service.py` (46), `services/youtube_summarizer_service.py` (51), `services/web_summarizer_service.py` (54) — **кода НЕ меняют** (хуки уже `fire_and_forget`); поведение улучшается внутри `summary_memory.py`.
+
+**Тесты:** по таблице 56.8 + 4 изменяемых (summary_generator UX-тест, TestFireAndForget, factcheck-лог, settings-дефолты). Каноны промптов и эталоны (55.7, test_*_prompts) — БЕЗ правок.
+
+**Доки после кода:** README v2.35.1 + `plans/MEMORY.md` (T-378). Коммит/деплой без миграций — T-379/T-380.
+
+@Architect Epic 47 architecture ready (Section 56: LLM-ретраи — все транзиентные (httpx.TransportError + 408/425/429/5xx), backoff `min(BASE*2**a,CAP)+U(0,JITTER)` BASE=1.0/CAP=8.0/JITTER=2.0, Retry-After приоритетнее backoff (сон=min(header,CAP) для 429/5xx), LLM_TOTAL_BUDGET=60с жёстким `asyncio.timeout`, LLM_TIMEOUT 60→30, LLM_MAX_RETRIES=2 (3 попытки), единственный владелец ретраев — `_post`, итоговые классы LLM*Error сохранены (тексты «after N attempts»); memorize — LLMError→WARNING без traceback, bounded-повтор экстракции 2× (backoff 2.0/4.0), per-fact сохранение с WARNING+continue, deferred-очередь НЕ вводим (дубли graph_facts); summary — retry-once (пауза 5с) → деградированный саммари «выжимка без нейронки:» (15 строк × 200 симв.) → UX R13 (тексты не менять); логи — ERROR только неожиданное, WARNING-формат `… | error=%s` без traceback (фактчек/search/youtube/web/memorize/fire_and_forget), checkup.py:9716 НЕ трогаем; конфиг D191 (10 новых/изменённых переменных с _env_float_min/_env_int_min); тест-план D192 (30 кейсов, 4 изменяемых; база 2070, 0 регрессий); v2.35.1 без миграций.)
