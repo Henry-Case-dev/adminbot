@@ -6,6 +6,33 @@
 
 ## 🔧 In Progress
 
+### Epic 53: ALAN_REPLIES v2 + LLM 502 (direct_chat) + RESEARCH_HUMAN — ✅ IMPLEMENTED + REVIEWED (APPROVED) (пользовательский запрос, 2026-08-23, Шаг 6 @Memory, target v2.38.0, P0/P1, 2354 passed / 0 failed, DEPLOY PENDING @DevOps)
+
+> Полный трек — `plans/backlog.md` (Epic 53). Требования R53-1…R53-4, решения D215–D217.
+> П1 — ALAN_REPLIES v2: 5 новых тем (NixOS/Линукс, Продажа SSD, Витамины Life Extension,
+> 5-сек прогулки с гантелями, Уличный тренажёр+колени) довести до ПОЛНОЦЕННЫХ (≥4-5 фраз, сейчас
+> по 3 — огрызки); старые темы СОХРАНЯЮТСЯ (D215 — их требуют контракты test_topic_coverage);
+> фразу alan.py:43 («разминался сегодня?...») → пул издевательских токсичных вопросов (3-5);
+> прод `ALAN_REPLIES_ENABLED=false` НЕ менять (проверка в T-426). П2 — LLM 502 direct_chat
+> (рецидив Epic 47: ReadTimeout→502→502, ретраи не спасают): расследование (T-418) + фикс D216 —
+> circuit breaker (ОСНОВНОЙ: N=3 подряд → кулдаун + человеческая фраза) + опциональный
+> фоллбэк-провайдер (LLM_FALLBACK_BASE_URL/MODEL/API_KEY, пусто=выключен) + диагностика 502;
+> health-check НЕ делаем (обоснование D216). П3 — `plans/RESEARCH_HUMAN.md` (D217): ВСЕ
+> рекомендации RESEARCH.md §6 человеческим языком (что/зачем/что даст/цена/приоритет) + чекбоксы
+> [ ]; RESEARCH.md НЕ трогать. v2.38.0, база 2302, пуш origin/master.
+
+- [x] T-418 (@Architect, P0) — расследование 502 (llm_client/settings/direct_chat_service + логи прода) + Section 62 (дизайн CB/фоллбэк + каноны фраз VERBATIM: 5 тем × ≥4-5 + пул вопросов + CHAT_LLM_DOWN_PHRASES)
+- [x] T-419 (@Builder, P1) — ALAN_REPLIES v2 (handlers/alan.py): 5 тем расширить до ≥4-5 фраз; alan.py:43 → пул издевательских вопросов; старые темы не трогать; test_alan.py (полнота тем, word-boundary чистота)
+- [x] T-420 (@Builder, P0) — llm_client: диагностика 502 (тело ≤500, R17) + CircuitBreaker (порог 3, кулдаун 300-600с, half-open) + фоллбэк-провайдер (LLM_FALLBACK_*, пусто=выключен) + settings/.env.example
+- [x] T-421 (@Builder, P0) — direct_chat: CB OPEN → без вызова LLM, фраза из CHAT_LLM_DOWN_PHRASES (новый пул, VERBATIM); R50-8 CHAT_ERROR_PHRASES не трогать; успех → сброс CB
+- [x] T-422 (@Builder + @QA, P0) — тесты: мок httpx (502×3 → LLMError; 502×2+успех; таймаут; CB OPEN без HTTP; фоллбэк on/off; лог 502), direct_chat CB-ветка, alan-полнота; полный pytest 0 регрессий (2354 passed / 0 failed)
+- [x] T-423 (@Docs, P2) — plans/RESEARCH_HUMAN.md: все рекомендации §6 (6.1–6.11 + P0/P1/P2 + чек-лист) простыми словами + [ ] чекбоксы; RESEARCH.md не трогать
+- [ ] T-424 (@Docs, P2) — README v2.38.0 (иронично) + MEMORY
+- [ ] T-425 (@DevOps, P1) — коммит на русском + пуш origin/master
+- [ ] T-426 (@DevOps, P1) — деплой v2.38.0: .env.bak.epic53, ПРОВЕРИТЬ ALAN_REPLIES_ENABLED=false (НЕ менять), LLM_FALLBACK_* не ставить; restart; journalctl 0 traceback; smoke (alan false, direct_chat, славик, checkup)
+
+**Updated:** 2026-08-23 — **Epic 53 ✅ IMPLEMENTED + REVIEWED (APPROVED, Шаг 6 @Memory)**: T-418…T-423 DONE ([x]); T-424/T-425/T-426 pending (@Docs/@DevOps). 2354 passed / 0 failed (было 2302, +52). DEPLOY PENDING (@DevOps, Шаг 7). Фиксы ревью: H1 (on_failure при HALF_OPEN), M1 (_FALLBACK_TIMEOUT_SECONDS=30.0, asyncio.timeout), L3 (_failures = min(+1, _threshold)). CB — основной фикс 502, фоллбэк опционален. ALAN_REPLIES_ENABLED=false остаётся. Инициация (Шаг 1 @PM ✅): зафиксированы R53-1…R53-4, решения D215 (старые темы ALAN сохраняются — контракты; 5 новых тем ≥4-5 фраз; alan.py:43 → пул вопросов; прод false остаётся), D216 (LLM 502: CB основной + фоллбэк опциональный + диаг-лог 502; health-check нет — CB покрывает дешевле), D217 (RESEARCH_HUMAN.md, RESEARCH.md не трогать); задачи T-418…T-426, target v2.38.0, baseline 2302; пуш origin/master (не main).
+
 ### Epic 48: Откат degraded-саммари (Summary: LLM или ничего) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.36.0, P0 — «в первую очередь»)
 
 > Полный трек — `plans/backlog.md` (Epic 48). Требования R48-1…R48-6, решения D186–D189.
@@ -819,30 +846,24 @@
 - [x] Epic 51: Intelligent Caching (SmartCache + Prompt Caching, Sections 59) — T-401…T-405
 - [x] Релиз v2.36.0 (миграция на остановленном боте + деплой) — T-406/T-407
 
-### Epic 52: Запрос пользователя 2026-08-23 (ALAN_REPLIES/common/slavik/direct_chat + ресёрч) — 🚧 IN PROGRESS (пользовательский запрос, 2026-08-23, Шаг 1 @PM ✅, target v2.37.0, P1)
+### Epic 52: Запрос пользователя 2026-08-23 (ALAN_REPLIES/common/slavik/direct_chat + ресёрч) — ✅ DEPLOYED & ARCHIVED (v2.37.0, коммит `56cccd6`, прод PID 1051710, 2302 теста)
 
-> Полный трек — `plans/backlog.md` (Epic 52). Требования R52-1…R52-8, решения D213/D214.
-> П1 — ALAN_REPLIES: убрать трейдинг, добавить ироничные темы (NixOS/нейрокластер/планшет/
-> продажа SSD/витамины 100500%/5-сек прогулка с гантелями/уличной тренажёр+реванш за колени),
-> дополнить старые темы; выключение через `ALAN_REPLIES_ENABLED=false` (F7v2 silence greeting НЕ
-> трогать). П2 — common/work: `COMMON_WORK_MEDIA_ENABLED=false` (точечный, D213) + глобальный
-> `COMMON_MEDIA_ENABLED`. П3 — Славик: одно сообщение = одно действие (dead page > GIF > рандом-медиа
-> > mimic > «пошел нахуй»); медиа замещает «пошел нахуй»; dead page без ругани и без медиа; join →
-> только «ДОЛБОЕБ ВЕРНУЛСЯ»; координация с message_counter. П3.1 (R52-8, T-417) — детект удаления
-> репоста dead page (InaccessibleMessage, D214) → удаление своей dead page или токсичная фраза.
-> П4 — direct_chat отвечает на «бот»/«ботохуета»+синонимы (word-boundary, `DIRECT_CHAT_BOTWORD_ENABLED`)
-> с reply to. П5 — ресёрч direct_chat: дополнение plans/RESEARCH.md (существует, Epic 50).
-> Итог: макс тесты (база 2205) + прогон + конфликты; README (иронично); коммит+пуш в origin/master; деплой. v2.37.0.
+> Перенесено из In Progress при архивации (PM, 2026-08-23, Шаг 1 Epic 53). Полный трек — `plans/backlog.md` (Epic 52).
+> **Итог (по MEMORY.md, Шаг 8):** T-408…T-414 + T-417 ALL DONE; Section 61 (D213/D214);
+> @Researcher T-412 (RESEARCH.md §6); @QA 2302 passed / 0 failed (+97); @Reviewer APPROVED;
+> @DevOps коммит `56cccd6` + пуш origin/master + деплой (b394e1e..56cccd6, .env.bak.epic52:
+> ALAN_REPLIES_ENABLED=false + COMMON_WORK_MEDIA_ENABLED=false, PID 1051710, 0 traceback).
+> **ЭПИК 52 ЗАКРЫТ. Прод v2.37.0.**
 
-- [ ] T-408 (@Builder, P1) — ALAN_REPLIES (handlers/alan.py): убрать трейдинг; добавить ироничные темы (NixOS/нейрокластер/планшет/SSD/витамины 100500%/5-сек прогулка/уличной тренажёр+колени); дополнить старые; конфиг ALAN_REPLIES_ENABLED (гейт ТОЛЬКО на реплики, F7v2 жив); обновить test_alan.py
-- [ ] T-409 (@Builder, P1) — common/work (handlers/common.py, services/common_relay.py): COMMON_WORK_MEDIA_ENABLED=false (точечный) + COMMON_MEDIA_ENABLED (глобальный) + .env.example (D213)
-- [ ] T-410 (@Builder, P1) — Славик (handlers/slavik.py, services/message_counter.py): одно сообщение = одно действие (dead page > GIF > рандом-медиа > mimic > «пошел нахуй»); медиа замещает «пошел нахуй»; dead page чистая; join → только «ДОЛБОЕБ ВЕРНУЛСЯ» (middleware: skip service-сообщений + data-флаг slavik_gif_sent)
-- [ ] T-411 (@Builder, P1) — direct_chat (handlers/direct_chat.py): ответ на «бот»/«ботохуета»+синонимы (word-boundary, минимальный список) с reply to; DIRECT_CHAT_BOTWORD_ENABLED (default true)
-- [ ] T-412 (@Researcher, P2) — ресёрч direct_chat (context7/duckduckgo/exa): дополнение plans/RESEARCH.md (keyword-триггеры + детект удаления сообщений, D214)
-- [ ] T-413 (@QA, P1) — макс покрытие тестами (T-408…T-411 + T-417) + обновление существующих (test_alan.py topic_coverage!) + прогон pytest 0 регрессий (база 2205) + проверка конфликтов (0a–0g > 0h)
-- [ ] T-414 (@Docs, P2) — README v2.37.0 (иронично) + MEMORY
-- [ ] T-415 (@DevOps, P1) — коммит + пуш **origin/master** на русском (ветка проекта — master, НЕ main)
-- [ ] T-416 (@DevOps, P1) — деплой: ssh git pull; .env (ALAN_REPLIES_ENABLED=false, COMMON_WORK_MEDIA_ENABLED=false + бэкап .env.bak.epic52); systemctl restart admin_bot; systemctl status (active, новый PID) + journalctl 0 traceback; smoke
-- [ ] T-417 (@Builder, P1) — Dead page: детект удаления репоста Славиком (R52-8, D214): маппинг в БД (repost → своя dead page); фильтр InaccessibleMessage (reply_to date==0); права → удалить свою dead page / 403 → токсичная фраза из пула 3–5+ с reply; одно действие; тесты
+- [x] T-408 (@Builder, P1) — ALAN_REPLIES: трейдинг выпилен, ироничные темы (NixOS/нейрокластер/планшет/SSD/витамины 100500%/5-сек прогулка/тренажёр+колени) + ALAN_REPLIES_ENABLED (гейт ТОЛЬКО на реплики, F7v2 жив) — **Done (Шаг 4, прод false)**
+- [x] T-409 (@Builder, P1) — common/work: COMMON_WORK_MEDIA_ENABLED=false + COMMON_MEDIA_ENABLED (D213) — **Done**
+- [x] T-410 (@Builder, P1) — Славик: одно действие (dead page > GIF > рандом-медиа > mimic > «пошёл нахуй»); join → только «ДОЛБОЕБ ВЕРНУЛСЯ» — **Done**
+- [x] T-411 (@Builder, P1) — direct_chat: «бот»/«ботохуета»+синонимы (word-boundary, reply to) + DIRECT_CHAT_BOTWORD_ENABLED — **Done**
+- [x] T-412 (@Researcher, P2) — ресёрч direct_chat → RESEARCH.md §6 (6.1–6.11, D214 подтверждён) — **Done**
+- [x] T-413 (@QA, P1) — макс покрытие + прогон 2302 passed / 0 failed + конфликты 0a–0g > 0h — **Done (Шаг 5)**
+- [x] T-414 (@Docs, P2) — README v2.37.0 (иронично) + MEMORY — **Done**
+- [x] T-415 (@DevOps, P1) — коммит `56cccd6` + пуш origin/master — **Done (Шаг 7)**
+- [x] T-416 (@DevOps, P1) — деплой v2.37.0 (PID 1051710, 0 traceback, smoke) — **Done (Шаг 7)**
+- [x] T-417 (@Builder, P1) — Dead page delete (R52-8, D214): InaccessibleMessage-детект + маппинг БД + пул фраз — **Done (Шаг 4)**
 
-**Updated:** 2026-08-23 — **Epic 52 (v2.37.0) 🚧 IN PROGRESS (пользовательский запрос, Шаг 1 @PM уточнён)**: зафиксированы R52-1…R52-8 (R52-8 — НОВОЕ: детект удаления репоста dead page), решения D213 (common: точечный COMMON_WORK_MEDIA_ENABLED + глобальный COMMON_MEDIA_ENABLED — пользователь просит именно work) и D214 (детект через InaccessibleMessage — Bot API не шлёт удаления в группах, getMessage удалён в 8.3), задачи T-408…T-417 (T-417 — НОВОЕ, п. 3.1 запроса), env-переменные: ALAN_REPLIES_ENABLED=false, COMMON_WORK_MEDIA_ENABLED=false (прод .env), COMMON_MEDIA_ENABLED/DIRECT_CHAT_BOTWORD_ENABLED (default true); F7v2 silence greeting НЕ трогать; координация с services/message_counter.py явно в T-410; пуш в origin/master (не main).
+**Updated:** 2026-08-23 — **Epic 52 ✅ DEPLOYED & ARCHIVED (v2.37.0, коммит `56cccd6`, прод PID 1051710, 2302 теста)**: перенесено из In Progress при архивации (PM, Шаг 1 Epic 53). Все T-408…T-417 DONE; итог по MEMORY.md Шаг 8 (коммит запушен в origin/master, деплой b394e1e..56cccd6, прод .env: ALAN_REPLIES_ENABLED=false + COMMON_WORK_MEDIA_ENABLED=false, 0 ошибок).

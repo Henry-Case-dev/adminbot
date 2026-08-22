@@ -8,6 +8,10 @@ DirectChatService — сборка контекст-секций (58.6), generat
 build_messages (58.9/59.3), _bot_replies (LRU 200/TTL 3600, прецедент
 MediaGroupCaptionBuffer) для цепочек <Conversation_Thread>, fire-and-forget
 memorize_facts с origin='bot_direct_reply' (58.8) ПОСЛЕ успешной отправки.
+
+Epic 53 (Section 62.3.3, D216): CB-обёртка LLMCircuitBreaker — OPEN → фраза
+CHAT_LLM_DOWN_PHRASES БЕЗ вызова LLM; транзиентные классы инкрементят CB;
+успех (в т.ч. фоллбэка) сбрасывает CB. Скоуп — только direct_chat.
 """
 import logging
 import random
@@ -16,9 +20,19 @@ from collections import OrderedDict
 
 from config.settings import settings
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
-from services.llm_client import LLMError
+from services.llm_client import (
+    LLMError,
+    LLMServerError,
+    LLMTimeoutError,
+    LLMTransportError,
+)
+from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.payload_builder import build_messages
-from services.smartmodule_phrases import CHAT_COOLDOWN_PHRASES, CHAT_ERROR_PHRASES
+from services.smartmodule_phrases import (
+    CHAT_COOLDOWN_PHRASES,
+    CHAT_ERROR_PHRASES,
+    CHAT_LLM_DOWN_PHRASES,
+)
 from services.smartmodule_throttling import format_remaining_time
 from services.smartmodule_utils import _reply, send_chunked_reply
 from services.summary_memory import fire_and_forget
@@ -60,7 +74,8 @@ class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
     def __init__(self, memory, db, llm, aliases, throttle=None,
-                 bot_id: int | None = None, bot_username: str | None = None) -> None:
+                 bot_id: int | None = None, bot_username: str | None = None,
+                 breaker=None) -> None:
         self.memory = memory
         self.db = db
         self.llm = llm
@@ -69,6 +84,14 @@ class DirectChatService:
             settings.CHAT_BURST_LIMIT, settings.CHAT_COOLDOWN_SECONDS)
         self.bot_id = bot_id
         self.bot_username = (bot_username or "").lower()
+        # Epic 53 (62.3.3): CB-обёртка direct_chat. breaker инжектируем для
+        # тестов; None → автогенерация из settings (LLM_CB_ENABLED).
+        self._breaker = breaker if breaker is not None else (
+            LLMCircuitBreaker(
+                settings.LLM_CB_FAILURE_THRESHOLD,
+                settings.LLM_CB_COOLDOWN_SECONDS,
+            ) if settings.LLM_CB_ENABLED else None
+        )
         # (chat_id, tg_message_id) -> (text, ts); записывается ПОСЛЕ успешной
         # отправки ответа бота (58.6).
         self._bot_replies: OrderedDict[tuple[int, int], tuple[str, float]] = OrderedDict()
@@ -115,6 +138,15 @@ class DirectChatService:
                            chat_id, target_name, remaining)
             return
         logger.info("[direct] triggered | chat=%s user=%s", chat_id, target_name)
+        # Epic 53 (62.3.3): CB OPEN → БЕЗ вызова LLM (0 запросов в апстрим),
+        # сразу человеческая фраза CHAT_LLM_DOWN_PHRASES. Throttle-заряд уже
+        # списан (троттлинг остаётся нижней защитой, 62.1 в.5).
+        if self._breaker is not None and not self._breaker.allow_request():
+            logger.warning("[direct] circuit breaker open | chat=%s user=%s",
+                           chat_id, target_name)
+            await _reply(bot, chat_id, random.choice(CHAT_LLM_DOWN_PHRASES),
+                         message.message_id)
+            return
         try:
             user_blocks = await self._build_user_content(chat_id, message, target_name)
             payload = build_messages(CHAT_SYSTEM_PROMPT, user_blocks)
@@ -131,15 +163,33 @@ class DirectChatService:
                         target_user=target_name),
                     "direct")
             logger.info("[direct] reply sent | chat=%s user=%s", chat_id, target_name)
+            # Epic 53 (62.3.3): успех (в т.ч. фоллбэка) → полный сброс CB.
+            if self._breaker is not None:
+                self._breaker.on_success()
         except LLMError as exc:
             logger.warning("[direct] LLM failed | chat=%s | user=%s | error=%s",
                            chat_id, target_name, exc)
             await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
                          message.message_id)
+            # Epic 53 (62.3.3): транзиентные классы → инкремент CB. Если CB в
+            # HALF_OPEN — текущий вызов и есть пробная генерация: ЛЮБОЙ LLMError
+            # пробы (в т.ч. не-транзиентный: апстрим ответил 4xx/auth) снова
+            # открывает CB, чтобы он не залип в HALF_OPEN навсегда.
+            if self._breaker is not None:
+                if isinstance(exc, (LLMTimeoutError, LLMServerError, LLMTransportError)):
+                    self._breaker.on_failure()
+                elif self._breaker.state == STATE_HALF_OPEN:
+                    self._breaker.on_failure()
         except Exception:
             logger.exception("[direct] unexpected | chat=%s", chat_id)
             await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
                          message.message_id)
+            # H1: пробная генерация в HALF_OPEN, упавшая НЕ-LLMError (БД в
+            # _build_user_content, TelegramRetryAfter и пр.), снова открывает
+            # CB — иначе CB залипнет в HALF_OPEN навсегда (allow_request в
+            # HALF_OPEN всегда False, пробная уже израсходована).
+            if self._breaker is not None and self._breaker.state == STATE_HALF_OPEN:
+                self._breaker.on_failure()
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 

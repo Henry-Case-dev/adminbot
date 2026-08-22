@@ -393,3 +393,68 @@ class TestEpic4851SettingsDefaults:
         assert any("CHECKUP_MAX_INPUT_SYMBOLS=500 < 1000" in r.message for r in caplog.records)
         assert any("CHAT_BURST_LIMIT=0 < 1" in r.message for r in caplog.records)
         assert any("SMART_CACHE_TTL_SECONDS=30 < 60" in r.message for r in caplog.records)
+
+
+_EPIC53_KEYS = (
+    "LLM_CB_ENABLED",
+    "LLM_CB_FAILURE_THRESHOLD",
+    "LLM_CB_COOLDOWN_SECONDS",
+    "LLM_FALLBACK_BASE_URL",
+    "LLM_FALLBACK_MODEL",
+    "LLM_FALLBACK_API_KEY",
+)
+
+
+class TestEpic53SettingsDefaults:
+    """Epic 53 (62.6, тест-план 62.5 #16): дефолты CB + фоллбэк-ключей."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC53_KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_CB_ENABLED is True
+        assert settings_mod.settings.LLM_CB_FAILURE_THRESHOLD == 3
+        assert settings_mod.settings.LLM_CB_COOLDOWN_SECONDS == 300.0
+        assert settings_mod.settings.LLM_FALLBACK_BASE_URL == ""
+        assert settings_mod.settings.LLM_FALLBACK_MODEL == ""
+        assert settings_mod.settings.LLM_FALLBACK_API_KEY == ""
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("LLM_CB_ENABLED", "false")
+        monkeypatch.setenv("LLM_CB_FAILURE_THRESHOLD", "5")
+        monkeypatch.setenv("LLM_CB_COOLDOWN_SECONDS", "600")
+        monkeypatch.setenv("LLM_FALLBACK_BASE_URL", "https://other.test/v1")
+        monkeypatch.setenv("LLM_FALLBACK_MODEL", "model-2")
+        monkeypatch.setenv("LLM_FALLBACK_API_KEY", "key-2")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_CB_ENABLED is False
+        assert settings_mod.settings.LLM_CB_FAILURE_THRESHOLD == 5
+        assert settings_mod.settings.LLM_CB_COOLDOWN_SECONDS == 600.0
+        assert settings_mod.settings.LLM_FALLBACK_BASE_URL == "https://other.test/v1"
+        assert settings_mod.settings.LLM_FALLBACK_MODEL == "model-2"
+        assert settings_mod.settings.LLM_FALLBACK_API_KEY == "key-2"
+
+    def test_threshold_below_one_falls_back_with_warning(self, monkeypatch, caplog):
+        """LLM_CB_FAILURE_THRESHOLD=0 (<1) → 3 + WARNING."""
+        monkeypatch.setenv("LLM_CB_FAILURE_THRESHOLD", "0")
+        with caplog.at_level(logging.WARNING):
+            importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_CB_FAILURE_THRESHOLD == 3
+        assert any(
+            "LLM_CB_FAILURE_THRESHOLD=0 < 1" in r.message for r in caplog.records
+        )
+
+    def test_cooldown_below_zero_falls_back_with_warning(self, monkeypatch, caplog):
+        """LLM_CB_COOLDOWN_SECONDS=-5 (<0) → 300.0 + WARNING."""
+        monkeypatch.setenv("LLM_CB_COOLDOWN_SECONDS", "-5")
+        with caplog.at_level(logging.WARNING):
+            importlib.reload(settings_mod)
+        assert settings_mod.settings.LLM_CB_COOLDOWN_SECONDS == 300.0
+        assert any(
+            "LLM_CB_COOLDOWN_SECONDS=-5.0 < 0.0" in r.message for r in caplog.records
+        )

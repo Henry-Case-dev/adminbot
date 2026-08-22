@@ -10,6 +10,11 @@ HTTP 408/425/429/5xx. Сон = `min(BASE*2**attempt, CAP) + U(0, JITTER)`;
 (сон = min(header_seconds, CAP)); жёсткий total-budget
 LLM_TOTAL_BUDGET = asyncio.timeout на всю _post; 401/403 → LLMAuthError
 мгновенно. Единственный владелец ретраев — _post (56.4).
+
+Epic 53 (Section 62, D216): классы LLMServerError/LLMTransportError (62.3.2),
+диаг-лог финальных 5xx с body_5xx ≤500 (62.5), опциональный фоллбэк-провайдер
+LLM_FALLBACK_* (62.4, пустые env = ровно старое поведение). CB живёт в
+direct_chat_service (llm_client о нём НЕ знает — контракт 62.3).
 """
 import asyncio
 import logging
@@ -22,7 +27,12 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-_4XX_BODY_MAX_CHARS = 500   # Epic 49 (Section 57.4): тело 4xx-ответа в диагн-логе
+_BODY_MAX_CHARS = 500   # Epic 49 (57.4) / Epic 53 (62.5): тело 4xx/5xx-ответа в диагн-логе
+
+# Epic 53 (62.1): худший случай generate = бюджет primary (60с) + фоллбэк без
+# таймаута (до 30с per-request) ≈ 90с — противоречит цели «сократить ожидание».
+# Фоллбэк ограничен фиксированным бюджетом 30с (как LLM_TIMEOUT).
+_FALLBACK_TIMEOUT_SECONDS = 30.0
 
 
 class LLMError(Exception):
@@ -41,6 +51,16 @@ class LLMTimeoutError(LLMError):
     """Request timed out (retries exhausted)."""
 
 
+class LLMServerError(LLMError):
+    """Epic 53 (62.3.2): исчерпание 5xx — устойчивый отказ апстрима.
+    Текст без изменений: «LLM server error {code} after {N} attempts: {url}»."""
+
+
+class LLMTransportError(LLMError):
+    """Epic 53 (62.3.2): исчерпание не-timeout httpx.TransportError.
+    Текст без изменений: «LLM transport error after {N} attempts: …»."""
+
+
 class LLMBadResponseError(LLMError):
     """Malformed JSON or missing content in a 2xx response."""
 
@@ -56,6 +76,9 @@ class LLMClient:
         embed_model: str,
         timeout: float = settings.LLM_TIMEOUT,
         max_retries: int = settings.LLM_MAX_RETRIES,
+        fallback_base_url: str = settings.LLM_FALLBACK_BASE_URL,
+        fallback_model: str = settings.LLM_FALLBACK_MODEL,
+        fallback_api_key: str = settings.LLM_FALLBACK_API_KEY,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -63,13 +86,29 @@ class LLMClient:
         self._embed_model = embed_model
         self._timeout = timeout
         self._max_retries = max_retries
+        # Epic 53 (62.4): фоллбэк активен ТОЛЬКО при всех трёх параметрах;
+        # частичная конфигурация → WARNING (R17: только факты, без значений),
+        # пустые env = ровно старое поведение.
+        self._fallback_base_url = (fallback_base_url or "").strip()
+        self._fallback_model = (fallback_model or "").strip()
+        self._fallback_api_key = (fallback_api_key or "").strip()
+        configured = (bool(self._fallback_base_url), bool(self._fallback_model),
+                      bool(self._fallback_api_key))
+        self._fallback_active = all(configured)
+        if any(configured) and not all(configured):
+            logger.warning(
+                "LLM fallback partially configured — disabled | base=%s model=%s key=%s",
+                *configured,
+            )
         # Epic 47 (D186): backoff base/cap/jitter + total budget (56.3/56.4).
         # Test-hook: tests may set `client.backoff_base = 0` → сон 0 (jitter тоже 0).
         self.backoff_base = settings.LLM_RETRY_BACKOFF_BASE
         self._backoff_cap = settings.LLM_RETRY_BACKOFF_CAP
         self._jitter_max = settings.LLM_RETRY_JITTER_MAX
         self._budget = settings.LLM_TOTAL_BUDGET
+        self._fallback_timeout = _FALLBACK_TIMEOUT_SECONDS
         self._client: httpx.AsyncClient | None = None
+        self._fallback_client: httpx.AsyncClient | None = None
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -79,10 +118,22 @@ class LLMClient:
             )
         return self._client
 
+    def _get_fallback_client(self) -> httpx.AsyncClient:
+        """Epic 53 (62.4): ленивый клиент фоллбэка, тот же таймаут-срез."""
+        if self._fallback_client is None:
+            self._fallback_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._timeout, connect=10.0),
+                headers={"Authorization": f"Bearer {self._fallback_api_key}"},
+            )
+        return self._fallback_client
+
     async def close(self) -> None:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+        if self._fallback_client is not None:
+            await self._fallback_client.aclose()
+            self._fallback_client = None
 
     def _sleep_seconds(
         self,
@@ -148,7 +199,7 @@ class LLMClient:
                             raise LLMTimeoutError(
                                 f"LLM request timed out after {total_attempts} attempts: {url}"
                             ) from exc
-                        raise LLMError(
+                        raise LLMTransportError(
                             f"LLM transport error after {total_attempts} attempts: {exc}: {url}"
                         ) from exc
                     except httpx.HTTPError as exc:
@@ -172,7 +223,18 @@ class LLMClient:
                             )
                         if status in (408, 425):
                             raise LLMError(f"LLM HTTP {status}: {url}")
-                        raise LLMError(
+                        # Epic 53 (62.5): диаг-лог финального 5xx ДО raise
+                        # LLMServerError — инцидентный сигнал Betterstack. R17:
+                        # url без query/секретов, заголовки не логируются,
+                        # тело ≤ _BODY_MAX_CHARS. На ретраях тело НЕ логируем.
+                        logger.error(
+                            "LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_messages=%d | body_5xx=%r",
+                            status, url, request_len,
+                            sum(len(str(m.get("content", ""))) for m in payload.get("messages", [])),
+                            len(payload.get("messages", [])),
+                            response.text[:_BODY_MAX_CHARS],
+                        )
+                        raise LLMServerError(
                             f"LLM server error {status} after "
                             f"{total_attempts} attempts: {url}"
                         )
@@ -187,7 +249,7 @@ class LLMClient:
                             status, url, request_len,
                             sum(len(str(m.get("content", ""))) for m in payload.get("messages", [])),
                             len(payload.get("messages", [])),
-                            response.text[:_4XX_BODY_MAX_CHARS],
+                            response.text[:_BODY_MAX_CHARS],
                         )
                         raise LLMError(f"LLM HTTP {status}: {url}")
                     logger.info(
@@ -205,12 +267,47 @@ class LLMClient:
             )
         raise LLMError(f"LLM request failed after retries: {url}")
 
+    async def _post_fallback(self, payload: dict) -> httpx.Response:
+        """Epic 53 (62.4): РОВНО одна попытка на фоллбэке, БЕЗ ретраев.
+
+        Тот же messages-payload, model заменён на LLM_FALLBACK_MODEL.
+        Ошибки (транспорт/не-2xx) разбирает вызывающий — проброс исходного
+        исключения primary.
+        """
+        client = self._get_fallback_client()
+        url = f"{self._fallback_base_url.rstrip('/')}/chat/completions"
+        fallback_payload = dict(payload)
+        fallback_payload["model"] = self._fallback_model
+        return await client.post(url, json=fallback_payload)
+
     async def generate(self, messages: list[dict[str, str]]) -> str:
-        """POST /chat/completions → choices[0].message.content."""
-        response = await self._post(
-            "/chat/completions",
-            {"model": self._chat_model, "messages": messages},
-        )
+        """POST /chat/completions → choices[0].message.content.
+
+        Epic 53 (62.4): при LLMError primary (кроме LLMBadResponseError) и
+        активном фоллбэке — 1 попытка на фоллбэке; фейл фоллбэка → проброс
+        ИСХОДНОГО исключения primary (CB-классификация работает по классу).
+        """
+        payload = {"model": self._chat_model, "messages": messages}
+        try:
+            response = await self._post("/chat/completions", payload)
+        except LLMError as exc:
+            if not self._fallback_active or isinstance(exc, LLMBadResponseError):
+                raise
+            logger.warning("LLM fallback attempt | primary_error=%s", exc)
+            try:
+                async with asyncio.timeout(self._fallback_timeout):
+                    fallback_response = await self._post_fallback(payload)
+                    fallback_status = fallback_response.status_code
+            except Exception as fallback_exc:
+                logger.warning("LLM fallback failed | error=%s", fallback_exc)
+                raise exc from None
+            if fallback_status != 200:
+                logger.warning(
+                    "LLM fallback failed | error=status=%d", fallback_status
+                )
+                raise exc
+            response = fallback_response
+            logger.warning("LLM fallback OK | model=%s", self._fallback_model)
         try:
             data = response.json()
         except ValueError as exc:

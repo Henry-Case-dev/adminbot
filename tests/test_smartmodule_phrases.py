@@ -11,6 +11,7 @@ import pytest
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
     CHAT_ERROR_PHRASES,
+    CHAT_LLM_DOWN_PHRASES,
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
     CHECKUP_LLM_ERROR_PHRASES,
@@ -133,6 +134,14 @@ EXPECTED_CHAT_ERROR = (
     "я подавился токенами, попробуй позже",
 )
 
+# Канон R53-2 (Epic 53, Section 62.2.3) — VERBATIM
+EXPECTED_CHAT_LLM_DOWN = (
+    "так, мой мозг сейчас на перезагрузке, дай ему пару минут прийти в себя",
+    "я сейчас не в ресурсе, подожди немного и попробуй снова",
+    "мозги временно ушли на профилактику, скоро вернутся",
+    "перегрелся я, отдохну минут пять и снова буду умничать",
+)
+
 # Каноны R43-4 (Epic 43, Section 52.5, дословно)
 EXPECTED_INFO_NO_DELETE_RIGHTS = (
     "какого хуя у меня нет прав удалять сообщения? выдай админку, шиз",
@@ -185,6 +194,7 @@ class TestPoolsVerbatim:
             (CHECKUP_LLM_ERROR_PHRASES, EXPECTED_CHECKUP_LLM_ERROR, "checkup llm error"),
             (CHAT_COOLDOWN_PHRASES, EXPECTED_CHAT_COOLDOWN, "chat cooldown"),
             (CHAT_ERROR_PHRASES, EXPECTED_CHAT_ERROR, "chat error"),
+            (CHAT_LLM_DOWN_PHRASES, EXPECTED_CHAT_LLM_DOWN, "chat llm down"),
             (INFO_NO_DELETE_RIGHTS_PHRASES, EXPECTED_INFO_NO_DELETE_RIGHTS, "info no delete"),
             (INFO_NOT_ADMIN_PHRASES, EXPECTED_INFO_NOT_ADMIN, "info not admin"),
             (INFO_BAD_MARKUP_PHRASES, EXPECTED_INFO_BAD_MARKUP, "info bad markup"),
@@ -226,6 +236,23 @@ class TestPoolsVerbatim:
         assert len(set(CHAT_COOLDOWN_PHRASES)) == 4
         assert len(CHAT_ERROR_PHRASES) == 3
         assert len(set(CHAT_ERROR_PHRASES)) == 3
+
+    def test_chat_llm_down_pool_has_exactly_4_phrases(self):
+        """R53-2 (62.2.3): CHAT_LLM_DOWN_PHRASES — 4 фразы, без дублей."""
+        assert len(CHAT_LLM_DOWN_PHRASES) == 4
+        assert len(set(CHAT_LLM_DOWN_PHRASES)) == 4
+
+
+class TestEpic53ChatLlmDownPool:
+    """R53-2 (Section 62.2.3): CHAT_LLM_DOWN_PHRASES отделён от R50-8."""
+
+    def test_down_pool_disjoint_from_error_and_cooldown_pools(self):
+        assert not set(CHAT_LLM_DOWN_PHRASES) & set(CHAT_ERROR_PHRASES)
+        assert not set(CHAT_LLM_DOWN_PHRASES) & set(CHAT_COOLDOWN_PHRASES)
+
+    def test_down_pool_no_placeholder(self):
+        for phrase in CHAT_LLM_DOWN_PHRASES:
+            assert "{remaining_time}" not in phrase
 
 
 class TestEpic37Pools:
@@ -407,6 +434,7 @@ class TestPoolStyle:
         CHECKUP_LLM_ERROR_PHRASES,
         CHAT_COOLDOWN_PHRASES,
         CHAT_ERROR_PHRASES,
+        CHAT_LLM_DOWN_PHRASES,
         INFO_NO_DELETE_RIGHTS_PHRASES,
         INFO_NOT_ADMIN_PHRASES,
         INFO_BAD_MARKUP_PHRASES,
@@ -442,6 +470,7 @@ class TestPoolStyle:
             CHECKUP_DEAD_PHRASES,
             CHECKUP_LLM_ERROR_PHRASES,
             CHAT_ERROR_PHRASES,
+            CHAT_LLM_DOWN_PHRASES,
             INFO_NO_DELETE_RIGHTS_PHRASES,
             INFO_NOT_ADMIN_PHRASES,
             INFO_BAD_MARKUP_PHRASES,
