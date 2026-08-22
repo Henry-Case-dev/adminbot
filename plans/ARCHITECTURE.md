@@ -13118,3 +13118,225 @@ CREATE TABLE IF NOT EXISTS dead_page_repost_map (
 | Двойное действие (фраза + «пошёл нахуй» от slavik_router) | Средняя | Среднее | Позиция роутера 4a ДО slavik; consume при срабатывании; снятие маппинга |
 
 **Критерии готовности:** полный pytest без регрессий (база 2205 + новые: T-408 ~4, T-409 ~6, T-410 ~8, T-411 ~8, T-417 ~10); каноны R50-4/R50-7/R50-8 VERBATIM; миграций БД нет (аддитивная таблица + CREATE IF NOT EXISTS); 0 трасбеков в journalctl после деплоя; smoke: (1) реплики Алана молчат при false, F7v2 жив; (2) Славик — одно действие, на join только «ДОЛБОЕБ ВЕРНУЛСЯ»; (3) direct_chat отвечает на «бот» с reply_to; (4) work-медиа молчит, otboy/danger живы; (5) удаление репоста dead page → бот удаляет свою dead page (или токсичная фраза).
+
+---
+
+## Section 62: Epic 53 — ALAN_REPLIES v2 + LLM 502 direct_chat: расследование, circuit breaker, фоллбэк, диагностика (v2.38.0)
+
+> **Дата:** 2026-08-23. **Статус:** DESIGN (@Architect, T-418-B). **Цель:** R53-1/R53-2 (backlog.md, T-418…T-422; board.md Epic 53). **Решения:** D215 (ALAN_REPLIES v2), D216 (CB + фоллбэк + диаг-лог 502). **Прод:** v2.37.0 (`56cccd6`, PID 1051710), baseline 2302 теста. Каноны R50-4/R50-7/R50-8 НЕ трогаем; `ALAN_REPLIES_ENABLED=false` на проде ОСТАЁТСЯ; миграций БД НЕТ.
+
+### 62.1 Расследование 502 (инцидент 2026-08-23, чат -1002661910336, keyword «бот») — ответы на вопросы 1–8
+
+#### Вопрос 1. Какие ретраи настроены сейчас (фактические значения из кода)
+
+| Параметр | Значение | Где |
+|---|---|---|
+| `LLM_MAX_RETRIES` | **2** → попыток **3** | `config/settings.py:304` |
+| `LLM_TIMEOUT` | **30.0 c** per-request (`httpx.Timeout(30.0, connect=10.0)`) | `settings.py:302`, `llm_client.py:77` |
+| backoff | `min(BASE*2**a, CAP) + U(0, JITTER)`; BASE=**1.0**, CAP=**8.0**, JITTER=**2.0** | `settings.py:307-309`, `llm_client.py:100-112` |
+| Retry-After | для 429/5xx приоритетнее backoff, сон = `min(header, 8.0)` | `llm_client.py:102-110` |
+| `LLM_TOTAL_BUDGET` | **60.0 c** — `asyncio.timeout` на всю `_post` (все попытки + сны) | `settings.py:311`, `llm_client.py:127` |
+| Транзиентные | `httpx.TransportError` (timeout/connect/read/write/pool/network/protocol) + HTTP 408/425/429/5xx → ретрай; 401/403 → мгновенно `LLMAuthError`; прочие 4xx → мгновенно | `llm_client.py:135-192` |
+
+Прод-последовательность инцидента: попытка 1 `ReadTimeout` (30с) → WARNING `llm_client.py:139` («LLM request retry», sleep 1.7с = backoff 1.0 + jitter 0.7); попытка 2 `status=502` → WARNING `llm_client.py:163` (sleep 3.0с — Retry-After провайдера либо backoff 2.0+jitter 1.0); попытка 3 `502` → `LLMError «LLM server error 502 after 3 attempts»` (`llm_client.py:175-178`) → catch `direct_chat_service.py:135` → `CHAT_ERROR_PHRASES`. Настройки соответствуют дизайну Epic 47 (56.3/56.4) — ретраи работают ровно как спроектировано.
+
+#### Вопрос 2. Почему ретраи не спасли (подтверждённый расчёт)
+
+**Ретраи не спасают от устойчивых 502 апстрима по построению:** все 3 попытки идут на ТОТ ЖЕ `https://apinet.cloud/v1/chat/completions`; если апстрим стабильно отвечает 502 — это retry-storm на дохлый апстрим: 3 HTTP-запроса и 0 шансов на успех, зато стабильная потеря времени юзера. Расчёт инцидента: 30с (ReadTimeout) + 1.7с сон + ~0.1с (502) + 3.0с сон + ~0.1с (502) ≈ **~35с** ожидания → фраза об ошибке. Худший кейс: 3×30с + 2 сна ≈ 92с, обрезается `LLM_TOTAL_BUDGET=60с` → **юзер ждёт до 60с на каждый триггер**, пока апстрим лежит. Ретраи лечат ТОЛЬКО кратковременные сбои (что Epic 47 и чинил); устойчивый отказ провайдера — другой класс проблемы, лечится CB (D216).
+
+#### Вопрос 3. Что известно про apinet.cloud + история инцидента 2026-08-20 (Epic 47, `6d0cba0`)
+
+- Конфиг: `LLM_BASE_URL=https://apinet.cloud/v1` (дефолт, `settings.py:299`), `LLM_MODEL_NAME=deepseek-v4-flash`, `LLM_API_KEY` — только из прод `.env` (R17; в дефолтах/`.env.example` — `your_key_here`, реального ключа в репо нет). apinet.cloud — DeepSeek-совместимый хаб, собственные политики публично не документированы (57.3).
+- **Epic 47 (коммит `6d0cba0`, v2.35.1):** инцидент 2026-08-20 — падения 2×/сутки (01:00, 07:00 UTC): `LLMTimeoutError` (ReadTimeout, factcheck), `LLM server error 502 after 3 attempts` (summary 07:00:22), ERROR-шторм memorize. Тогда СДЕЛАНО: ретраи всех транзиентных (были только 429/5xx/timeout, без транспорта), backoff капс+jitter, Retry-After, `LLM_TOTAL_BUDGET=60с`, `LLM_TIMEOUT 60→30с`, WARNING-карта логов (56.3–56.7). **НЕ СДЕЛАНО:** устойчивые 502 как класс не решались — инцидент 2026-08-23 это рецидив той же первопричины (апстрим периодически ложится, ретраи сглаживают транспорты, но не 502-простои).
+
+#### Вопрос 4. Есть ли другой провайдер/ключ
+
+**НЕТ.** В `.env.example` — только `LLM_API_KEY/LLM_BASE_URL/LLM_MODEL_NAME` (один провайдер); в settings/планах/графе упоминаний второго провайдера или ключа нет. Вывод: фоллбэк можно только СПРОЕКТИРОВАТЬ опционально (env, дефолт пусто) — реальный второй ключ приносит пользователь, если захочет. Отсюда приоритет D216: **CB основной, фоллбэк вторичный**.
+
+#### Вопрос 5. Как деградирует direct_chat сейчас; throttle-заряды
+
+- `CHAT_ERROR_PHRASES` — **3 фразы** (`smartmodule_phrases.py:126-130`): «мои мозги расплавились от твоего бреда», «внутренняя ошибка базы, иди нахуй», «я подавился токенами, попробуй позже». Тон — оскорбительно-ошибочный (подходит для «я сломался», НЕ подходит для «провайдер лежит, я просто подожду»).
+- Throttle-заряды: `throttle.allow()` вызывается ДО LLM (`direct_chat_service.py:109-110`), заряд списывается при допуске; при `LLMError` **заряд НЕ возвращается** (refund'а нет). Следствие: при мёртвом апстриме юзер за 3 обращения сжигает 3 заряда → кулдаун 300с — де-факто предохранитель от retry-storm, но ценой ~35-60с ожидания на КАЖДОЕ из трёх обращений. CB сохранит этот порядок (заряд списывается и при CB OPEN — троттлинг остаётся нижней защитой от флуда фразами).
+
+#### Вопрос 6. Локальный smoke
+
+**Невозможен** (исторический факт: apinet.cloud с Windows-машины не достучаться — ReadTimeout; Epic 24, `ARCHITECTURE.md:3756`, MEMORY «Живой smoke apinet.cloud локально невозможен»). Фикс тестируется ТОЛЬКО моками (`httpx.MockTransport`, прецедент `test_llm_client.py::_make_client`); прода-проверка — деплой-smoke T-426 + наблюдение журнала после инцидента (риск 3 Epic 53 принят).
+
+#### Вопрос 7. Глобальность llm_client — влияние CB на другие сервисы
+
+`llm.generate()` вызывают 8+ точек: `direct_chat_service.py:121`, `summary_generator.py:129/136`, `factcheck_service.py:65`, `search_service.py:58`, `youtube_summarizer_service.py:63`, `web_summarizer_service.py:67`, `checkup_service.py:46`, `summary_memory.py:666/924/946` (memorize-экстракция/compress). У всех уже есть свои degrade-пути (LLM_ERROR_PHRASES, UX R13, CHECKUP_LLM_ERROR_PHRASES, WARNING-карта 56.7). **Решение: CB — ТОЛЬКО direct_chat** (обёртка в `direct_chat_service`, не глобальный слой): фоновым пайплайнам (memorize/summary-cron) выгоднее всегда пробовать (терять батч фактов из-за кулдауна хуже, чем лишний запрос), а интерактивному чату — наоборот. Фоллбэк-слой в `llm_client` — общий (один код, работает для всех вызывающих при заполненном env; при пустых env — ровно старое поведение).
+
+#### Вопрос 8. Какие параметры выносить в env
+
+- **CB:** `LLM_CB_ENABLED` / `LLM_CB_FAILURE_THRESHOLD` / `LLM_CB_COOLDOWN_SECONDS` (62.6).
+- **Фоллбэк:** `LLM_FALLBACK_BASE_URL` / `LLM_FALLBACK_MODEL` / `LLM_FALLBACK_API_KEY` (62.6).
+- **`CHAT_LLM_TIMEOUT` — НЕ вводим.** Гипотеза закрыта: отдельный таймаут < 30с не решает проблему (502 приходит БЫСТРО — выигрыш только на ReadTimeout-кейсах), а CB решает корневую UX-проблему («не дёргать дохляка») целиком. 30с per-request + бюджет 60с остаются; раздельные таймауты — резерв будущего эпика, НЕ блокер (D216).
+
+### 62.2 Каноны VERBATIM (R53-1, D215) — для T-419 и T-421
+
+Правила: все фразы строчными, без маркдауна/эмодзи; старые блоки (Original 6, Тренировки, Лонгковид, Нейросети, Жим дьявола) и существующие 3 фразы каждой новой темы **НЕ трогаем** — Builder добавляет только блоки «НОВЫЕ» ниже байт-в-байт. Проверка трейдинг-слов (word-boundary контракт `test_no_trading_words`): фьючерс/биток/биткоин/рынок/трейдер/график/шорт/лонг/крипт — выполнена Архитектором для всех новых строк (слово «рынок» в SSD-теме намеренно избегается).
+
+#### 62.2.1 Пять тем: НОВЫЕ фразы (+2 на тему, итого 5)
+
+```python
+    # ── NixOS / Линукс ── (существующие 3 остаются) НОВЫЕ:
+    "собираю конфиг на никсах третий час, а он всё ещё собирается — флейк посчитал себя зависимостью сам от себя",
+    "apt установил систему, nix переустановил личность — теперь я думаю в деривациях и ругаюсь на гнома",
+
+    # ── Продажа SSD ── (существующие 3 остаются) НОВЫЕ:
+    "мой ssd уже в предпродажной готовности: протёр пыль, помолился и поднял цену в два раза",
+    "беру на себя смелость продавать ssd по цене трёх таких же — инфляция, сам виноват что не купил вчера",
+
+    # ── Витамины Life Extension ── (существующие 3 остаются) НОВЫЕ:
+    "капсула life extension заменила мне завтрак, обед и совесть — питаюсь одними 100500%",
+    "после витаминов life extension начал подтягиваться на турнике без турника — эффект накопительный",
+
+    # ── 5-секундные прогулки с гантелями ── (существующие 3 остаются) НОВЫЕ:
+    "сегодня поставил рекорд: семь секунд с гантелями по коридору — вызывайте олимпийский комитет",
+    "врач сказал больше двигаться — двигаю гантели из угла в угол, это тоже считается",
+
+    # ── Уличный тренажёр + колени ── (существующие 3 остаются) НОВЫЕ:
+    "уличный тренажёр починили — колени сразу вспомнили все прошлые обиды и подали коллективный иск",
+    "пришёл к уличному тренажёру с мыслями о реванше, ушёл с мыслями о льготной парковке",
+```
+
+#### 62.2.2 Пул издевательских вопросов (ЗАМЕНА alan.py:43)
+
+Строку 43 («разминался сегодня? я вот на 5-секундной прогулке с гантелями по коридору чуть не сдох, советую начинать с малого») **УДАЛИТЬ**; вместо неё — отдельный блок (5 фраз; тема «гантел» сохранена фразой №3 для контракта `test_topic_coverage`):
+
+```python
+    # ── Вопросы-подколы ──
+    "разминку сделал или сразу к железу с негнущимися коленями?",
+    "а ты вообще разминался? или как обычно — с дивана сразу к штанге?",
+    "гантели для прогулки сегодня брал или опять филонишь?",
+    "дыхалку тренируешь или она у тебя уже по гарантии не подлежит ремонту?",
+    "сколько раз сегодня размялся? ноль раз — это тоже результат, запиши в дневничок",
+```
+
+#### 62.2.3 НОВЫЙ пул `CHAT_LLM_DOWN_PHRASES` (для CB OPEN / LLM недоступен)
+
+Отдельно от `CHAT_ERROR_PHRASES` (R50-8 неприкосновенен — остаётся для обычных `LLMError`). Тон — «человечный», бот признаёт свой простой, БЕЗ оскорбления юзера (4 фразы). Поместить в `services/smartmodule_phrases.py` после блока DirectChat:
+
+```python
+# DirectChat — LLM-провайдер лежит (CB OPEN) (Epic 53, R53-2, VERBATIM из Section 62.2.3)
+CHAT_LLM_DOWN_PHRASES: tuple[str, ...] = (
+    "так, мой мозг сейчас на перезагрузке, дай ему пару минут прийти в себя",
+    "я сейчас не в ресурсе, подожди немного и попробуй снова",
+    "мозги временно ушли на профилактику, скоро вернутся",
+    "перегрелся я, отдохну минут пять и снова буду умничать",
+)
+```
+
+### 62.3 Circuit Breaker (R53-2, D216 — ОСНОВНОЙ механизм)
+
+**Скоуп: ТОЛЬКО direct_chat LLM-вызовы.** summary/factcheck/search/youtube/web/checkup/memorize НЕ затрагиваются (вопрос 7). Реализация — **обёртка в `direct_chat_service` + отдельный модуль `services/llm_circuit_breaker.py`**; `llm_client` НЕ знает о CB (контракт: CB-хуки вызывает вызывающий, не клиент). Это позволяет тестировать CB в тестах direct_chat с `FakeLLM` без HTTP-моков.
+
+#### 62.3.1 Модуль `services/llm_circuit_breaker.py`
+
+```python
+class LLMCircuitBreaker:
+    """CLOSED → (N подряд транзиентных фейлов) → OPEN (кулдаун) → HALF_OPEN
+    (одна пробная попытка) → CLOSED/OPEN. In-memory, однопоточный event loop
+    (прецедент DirectChatThrottle — asyncio.Lock не нужен)."""
+
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0): ...
+    def allow_request(self) -> bool   # CLOSED → True; OPEN (кулдаун не истёк) → False;
+                                      # OPEN (истёк) → HALF_OPEN, True ровно один раз (пробная)
+    def on_success(self) -> None      # полный сброс: CLOSED, failures=0 (1 успех достаточно)
+    def on_failure(self) -> None      # failures += 1; >= threshold → OPEN + opened_at=now
+```
+
+**Параметры (обоснование):**
+- **Порог 3** — совпадает с числом HTTP-попыток одного `generate` (max_retries=2): 3 подряд генерации с исчерпанием = 9 HTTP-запросов в мёртвый апстрим — вердикт «апстрим лежит» достоверен. 429 (LLMRateLimitError), 4xx, auth НЕ инкрементят (апстрим жив / детерминированный отказ).
+- **Кулдаун 300с** (диапазон PM 300–600): эпизоды падений apinet.cloud по наблюдениям — минуты (Epic 47: падения в 01:00 и 07:00, эпизодами); 5 минут достаточно, чтобы пересидеть эпизод и не жечь по 35–60с на триггер; 600с не даёт выигрыша (если апстрим лежит час — оба значения работают), но дольше держит чат без LLM после восстановления. Компромисс 300с + half-open.
+- **Half-open:** после истечения кулдауна `allow_request()` пропускает РОВНО одну пробную генерацию; успех → `on_success` → CLOSED; фейл → `on_failure` → OPEN с новым кулдауном. Отдельный счётчик успехов не нужен (1 успех = полный сброс) — риск 4 Epic 53 закрыт.
+- **Классификация фейлов для CB** (вопрос 1 backlog): `LLMTimeoutError`, `LLMServerError`, `LLMTransportError` (новые классы, ниже). Рестарт сбрасывает CB (in-memory) — принято (прецедент DirectChatThrottle/CooldownTracker).
+
+#### 62.3.2 Новые классы исключений в `services/llm_client.py`
+
+Чтобы вызывающий мог отличить «апстрим умер» (5xx/транспорт) от «запрос отклонён» (4xx) БЕЗ парсинга строк:
+- `LLMServerError(LLMError)` — исчерпание 5xx, текст исключения БЕЗ изменений («LLM server error {code} after {N} attempts: {url}»).
+- `LLMTransportError(LLMError)` — исчерпание не-timeout `httpx.TransportError`, текст БЕЗ изменений.
+- Существующие тесты зелёные: `pytest.raises(LLMError)` ловит подклассы, тексты сохранены; `test_error_hierarchy` дополнить двумя классами.
+
+#### 62.3.3 Точка вставки в `services/direct_chat_service.py::handle`
+
+```python
+# __init__: breaker=None kwarg → self._breaker = breaker or (LLMCircuitBreaker(...)
+#           если settings.LLM_CB_ENABLED else None)   # инжектируемо для тестов
+# handle(), после throttle-проверки, ДО _build_user_content:
+if self._breaker is not None and not self._breaker.allow_request():
+    logger.warning("[direct] circuit breaker open | chat=%s user=%s", chat_id, target_name)
+    await _reply(bot, chat_id, random.choice(CHAT_LLM_DOWN_PHRASES), message.message_id)
+    return
+# ... после УСПЕШНОЙ отправки ответа:
+if self._breaker is not None:
+    self._breaker.on_success()          # успех (в т.ч. фоллбэка) → сброс CB
+# except LLMError as exc (существующая ветка 134-138) — ДОБАВИТЬ:
+if self._breaker is not None and isinstance(
+        exc, (LLMTimeoutError, LLMServerError, LLMTransportError)):
+    self._breaker.on_failure()          # транзиентный класс → инкремент
+```
+Throttle-заряд при CB OPEN списывается как обычно (62.1 в.5) — троттлинг остаётся нижней защитой. Импорт классов: `from services.llm_client import LLMError, LLMServerError, LLMTimeoutError, LLMTransportError`.
+
+### 62.4 Фоллбэк-провайдер (R53-2, D216 — ВТОРИЧНЫЙ, опциональный)
+
+**В `services/llm_client.py` (общий для всех вызывающих), дефолт — выключен.** Активен ТОЛЬКО если заданы ВСЕ ТРИ `LLM_FALLBACK_BASE_URL` / `LLM_FALLBACK_MODEL` / `LLM_FALLBACK_API_KEY` (частичная конфигурация → WARNING при создании клиента, фоллбэк не используется). Пустые env = ровно старое поведение (ноль изменений).
+
+**Контракт `generate()`:**
+1. primary: `_post` как сейчас (3 попытки, ретраи, бюджет 60с);
+2. при `LLMError` (кроме `LLMBadResponseError` — ответ получен, но нераспарсиваемый: повторение на другом провайдере бессмысленно) и активном фоллбэке: WARNING `LLM fallback attempt | primary_error=%s` → **1 попытка** на фоллбэке (ленивый `httpx.AsyncClient` с `Bearer LLM_FALLBACK_API_KEY`, `httpx.Timeout(LLM_TIMEOUT, connect=10.0)`, **БЕЗ ретраев**, POST `{LLM_FALLBACK_BASE_URL}/chat/completions`, `model=LLM_FALLBACK_MODEL`, тот же messages-payload);
+3. успех фоллбэка → WARNING `LLM fallback OK | model=%s` → ответ (для direct_chat это «успех» → `breaker.on_success()` — сброс CB, 62.3.3);
+4. фейл фоллбэка (не-2xx/транспорт) → WARNING `LLM fallback failed | error=%s` → **проброс ИСХОДНОГО исключения primary** (первопричина; тексты ошибок контрактны) → direct_chat: `on_failure` по классу (фоллбэк-фейл инкрементит CB — требование D216/T-420-C).
+5. `close()` закрывает и фоллбэк-клиент. R17: значение `LLM_FALLBACK_API_KEY` НИКОГДА не логируется (только факт configured).
+
+CB OPEN → direct_chat вообще не вызывает `generate` → фоллбэк не дёргается (это и есть цель CB — не жечь оба апстрима).
+
+### 62.5 Диагностика 502 + тест-план (R53-2, T-420-A/T-422)
+
+**Диаг-лог 5xx (вопрос 5 backlog: ВСЕ 5xx, не только 502 — единая ветка исчерпания; 502 — частный случай):** в `_post`, при ФИНАЛЬНОМ 5xx (после исчерпания ретраев, ДО raise `LLMServerError`) — ERROR-лог по образцу 57.4 (инцидентный сигнал Betterstack, R17):
+
+```
+logger.error("LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_messages=%d | body_5xx=%r",
+             status, url, request_len, ..., response.text[:_BODY_MAX_CHARS])
+```
+Константу `_4XX_BODY_MAX_CHARS` переименовать в `_BODY_MAX_CHARS` (общая для 4xx/5xx; в тестах имя не импортируется). Заголовки не логируются, url без query, тело ≤500 симв. На ретраях (не финальных) тело НЕ логировать — retry-WARNING уже есть, спама не нужно.
+
+**Тест-план (моки: httpx.MockTransport; прецедент `_make_client` test_llm_client.py; FakeLLM с `error=`/`text=` для direct_chat):**
+
+| # | Файл | Кейс | Ожидание |
+|---|------|------|----------|
+| 1 | test_llm_client.py | 502×3 → исчерпание | `LLMServerError` (текст «server error 502 after 3 attempts» сохранён) + ERROR-лог с `body_5xx=` ≤500 |
+| 2 | там же | 502×2 + 200 | успех, calls==3 |
+| 3 | там же | ReadTimeout×3 | `LLMTimeoutError` (существующий) |
+| 4 | там же | ConnectError×3 | `LLMTransportError` (текст «transport error after 3 attempts» сохранён) |
+| 5 | там же | 400 мгновенно / 429×3 / 401 | классы `LLMError`/`LLMRateLimitError`/`LLMAuthError` без изменений; `test_error_hierarchy` + 2 новых класса |
+| 6 | там же | фоллбэк задан (инжект-параметры), primary 502×3 → fallback 200 | ответ фоллбэка, WARNING `LLM fallback OK` |
+| 7 | там же | fallback 502 | проброс исходного `LLMServerError`, WARNING `LLM fallback failed` |
+| 8 | там же | env пуст | fallback НЕ вызывается (счётчик запросов мок-транспорта == primary-only) |
+| 9 | там же | primary 200 → | fallback не вызывается; `LLMBadResponseError` → без фоллбэка |
+| 10 | tests/test_circuit_breaker.py (НОВЫЙ) | CLOSED → allow True; 3×on_failure → OPEN, allow False; кулдаун истёк (fake time) → HALF_OPEN allow True один раз; пробная упала → OPEN (новый кулдаун); пробная успешна → CLOSED, счётчик 0; on_success при 2 фейлах → CLOSED | конечный автомат |
+| 11 | test_direct_chat.py | CB OPEN → handle: llm.generate НЕ вызван (0 вызовов), фраза ∈ `CHAT_LLM_DOWN_PHRASES`, WARNING «circuit breaker open», reply_to == message.message_id | degrade-ветка |
+| 12 | там же | `LLMServerError` → `CHAT_ERROR_PHRASES` (R50-8) + `breaker._failures==1`; ×3 → OPEN → 4-й вызов без LLM | инкремент + OPEN |
+| 13 | там же | успех → `on_success` (failures сброшены); `LLMAuthError`/`LLMRateLimitError` → `CHAT_ERROR_PHRASES`, счётчик НЕ инкрементится | классификация |
+| 14 | test_alan.py | полнота: на каждую из 5 тем — маркер (никс, ssd|ссд, life extension|витамин, гантел, уличн|тренажёр) встречается в ≥3 фразах пула (канон даёт 5); пул вопросов присутствует; строка 43 удалена | D215 |
+| 15 | test_alan.py | `test_no_trading_words` (word-boundary) зелёный на полном пуле; `test_topic_coverage`, `test_pool_has_minimum_size` (≥16) зелёные | контракты |
+| 16 | test_settings_helpers.py | дефолты 62.6 | дефолты |
+| 17 | регрессия | полный pytest | 2302 + новые, 0 failed/skipped; `git diff --check` чист |
+
+### 62.6 Env-сводка (R53-2, T-420-B/C)
+
+| Переменная | Тип/паттерн | Дефолт | Прод .env (T-426) |
+|---|---|---|---|
+| `LLM_CB_ENABLED` | `_env_bool` | `true` | не ставим (default) |
+| `LLM_CB_FAILURE_THRESHOLD` | `_env_int_min` (min 1) | `3` | не ставим |
+| `LLM_CB_COOLDOWN_SECONDS` | `_env_float_min` (min 0; СЕКУНДЫ, прецедент SEARCH_COOLDOWN_SECONDS — НЕ duration) | `300.0` | не ставим |
+| `LLM_FALLBACK_BASE_URL` | `_env_str` | `""` (пусто = выключен) | не ставим |
+| `LLM_FALLBACK_MODEL` | `_env_str` | `""` | не ставим |
+| `LLM_FALLBACK_API_KEY` | `_env_str` | `""` | не ставим |
+
+**НЕ трогаем:** `LLM_TIMEOUT=30`/`LLM_MAX_RETRIES=2`/`LLM_TOTAL_BUDGET=60` (Epic 47 — рабочая композиция), `CHAT_LLM_TIMEOUT` НЕ вводим (в.8), каноны R50-4/R50-7/R50-8, `CHAT_SYSTEM_PROMPT`, гейт-структуру alan, прод `ALAN_REPLIES_ENABLED=false` (T-426 проверяет). Все 6 новых ключей — в `.env.example` с комментариями; секреты — только имена (R17).
+
+**Порядок реализации для Builder:** T-420 (llm_client: классы `LLMServerError`/`LLMTransportError`, диаг-лог 5xx, фоллбэк-слой, settings/.env.example) → T-421 (`services/llm_circuit_breaker.py` + обёртка в direct_chat_service + пул `CHAT_LLM_DOWN_PHRASES`) → T-419 (alan-каноны 62.2.1/62.2.2) → T-422 (тесты пишутся с каждой задачей, финальный прогон). Первым — **T-420** (фундамент: без новых классов исключений CB неразличим).
+
+@Architect Epic 53 investigation + design ready (Section 62): 502 = устойчивый отказ apinet.cloud (рецидив Epic 47) — ретраи не спасают по построению (3 попытки в тот же URL, до ~35с инцидент / до 60с худший кейс на триггер); второй провайдер/ключ отсутствует (фоллбэк — опционально, env); локальный smoke невозможен (мок-тесты). Дизайн: CB (порог 3 транзиентных подряд — классы LLMServerError/LLMTransportError/LLMTimeoutError, кулдаун 300с, half-open 1 пробная) — обёртка в direct_chat_service, модуль llm_circuit_breaker.py, скоуп только direct_chat; фоллбэк в llm_client (все 3 env, 1 попытка без ретраев, кроме LLMBadResponseError, проброс исходного исключения); диаг-лог всех финальных 5xx с телом ≤500 (body_5xx, R17); CHAT_LLM_DOWN_PHRASES (4) отдельно от R50-8; CHAT_LLM_TIMEOUT НЕ вводим; каноны alan VERBATIM (5 тем × 2 новых + пул вопросов 5); 6 env-переменных, прод на дефолтах, ALAN_REPLIES_ENABLED=false остаётся. T-419…T-422 → READY.

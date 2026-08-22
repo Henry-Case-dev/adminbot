@@ -309,6 +309,21 @@ class Settings:
     LLM_RETRY_JITTER_MAX: float = _env_float_min("LLM_RETRY_JITTER_MAX", 2.0, 0.0)
     # Жёсткий дедлайн ВСЕЙ _post (все попытки + сны), asyncio.timeout (56.4).
     LLM_TOTAL_BUDGET: float = _env_float_min("LLM_TOTAL_BUDGET", 60.0, 1.0)
+    # ── LLM Circuit Breaker + Fallback (Epic 53, Section 62.6) ──
+    # CB: скоуп ТОЛЬКО direct_chat (обёртка в direct_chat_service; llm_client
+    # о CB не знает). Порог транзиентных фейлов подряд (5xx/транспорт/таймаут)
+    # до OPEN; <1 → дефолт 3 (WARNING).
+    LLM_CB_ENABLED: bool = _env_bool("LLM_CB_ENABLED", True)
+    LLM_CB_FAILURE_THRESHOLD: int = _env_int_min("LLM_CB_FAILURE_THRESHOLD", 3, 1)
+    # Кулдаун OPEN→HALF_OPEN в СЕКУНДАХ (float; прецедент SEARCH_COOLDOWN_SECONDS
+    # — НЕ duration). <0 → дефолт 300.0 (WARNING).
+    LLM_CB_COOLDOWN_SECONDS: float = _env_float_min("LLM_CB_COOLDOWN_SECONDS", 300.0, 0.0)
+    # Фоллбэк-провайдер (опциональный): активен ТОЛЬКО если заданы ВСЕ ТРИ
+    # (пусто = выключен — ровно старое поведение). R17: ключ — только в .env,
+    # значение НИКОГДА не логируется (только факт configured).
+    LLM_FALLBACK_BASE_URL: str = _env_str("LLM_FALLBACK_BASE_URL", "")
+    LLM_FALLBACK_MODEL: str = _env_str("LLM_FALLBACK_MODEL", "")
+    LLM_FALLBACK_API_KEY: str = _env_str("LLM_FALLBACK_API_KEY", "")
     # ── GraphRAG memorize (Epic 47, Section 56.5) ──
     GRAPH_MEMORIZE_MAX_BATCH_RETRIES: int = _env_int_min("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", 2, 0)
     GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF: float = _env_float_min("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", 2.0, 0.0)

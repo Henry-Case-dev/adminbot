@@ -1,5 +1,6 @@
 """Epic 50 (R50-3/R50-7, Section 58.5/58.6): DirectChatThrottle (token bucket)
 и DirectChatService (context partitioning, handle-поток, memorize-хук)."""
+import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
@@ -7,8 +8,25 @@ import pytest
 
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.direct_chat_service import DirectChatService, DirectChatThrottle
-from services.llm_client import LLMError
-from services.smartmodule_phrases import CHAT_COOLDOWN_PHRASES, CHAT_ERROR_PHRASES
+from services.llm_circuit_breaker import (
+    LLMCircuitBreaker,
+    STATE_CLOSED,
+    STATE_HALF_OPEN,
+    STATE_OPEN,
+)
+from services.llm_client import (
+    LLMAuthError,
+    LLMError,
+    LLMRateLimitError,
+    LLMServerError,
+    LLMTimeoutError,
+    LLMTransportError,
+)
+from services.smartmodule_phrases import (
+    CHAT_COOLDOWN_PHRASES,
+    CHAT_ERROR_PHRASES,
+    CHAT_LLM_DOWN_PHRASES,
+)
 from services.summary_aliases import AliasResolver
 
 CHAT_ID = -1001234567890
@@ -95,11 +113,28 @@ class FakeLLM:
         self.text = text
         self.error = error
         self.messages = None
+        self.call_count = 0
 
     async def generate(self, messages):
+        self.call_count += 1
         self.messages = messages
         if self.error:
             raise self.error
+        return self.text
+
+
+class GatedLLM:
+    """Блокирующий LLM для тестов конкуренции: generate висит на asyncio.Event
+    до явного release — детерминированная гонка двух handle()."""
+
+    def __init__(self, text="всё по делу, иди нахуй"):
+        self.text = text
+        self.enter = asyncio.Event()
+        self.call_count = 0
+
+    async def generate(self, messages):
+        self.call_count += 1
+        await self.enter.wait()
         return self.text
 
 
@@ -116,7 +151,7 @@ def _thread_row(tg_id, user_id=10, author_name="вася", text="сообщен�
 
 
 def _make_service(memory=None, db=None, llm=None, aliases=None, throttle=None,
-                  bot_id=12345, bot_username="test_bot"):
+                  bot_id=12345, bot_username="test_bot", breaker=None):
     return DirectChatService(
         memory or FakeMemory(),
         db or FakeDB(),
@@ -125,6 +160,7 @@ def _make_service(memory=None, db=None, llm=None, aliases=None, throttle=None,
         throttle=throttle,
         bot_id=bot_id,
         bot_username=bot_username,
+        breaker=breaker,
     )
 
 
@@ -391,3 +427,224 @@ class TestBotRepliesLru:
         assert len(service._bot_replies) == 200
         assert service.get_bot_reply(CHAT_ID, 0) is None     # вытеснен
         assert service.get_bot_reply(CHAT_ID, 299) == "ответ 299"
+
+
+@pytest.fixture
+def breaker_time(monkeypatch):
+    """Мок time.monotonic в llm_circuit_breaker (CB живёт в своём модуле)."""
+    state = {"now": 1000.0}
+
+    class FakeTime:
+        @staticmethod
+        def monotonic():
+            return state["now"]
+
+    monkeypatch.setattr("services.llm_circuit_breaker.time", FakeTime)
+    return state
+
+
+class TestCircuitBreakerIntegration:
+    """Epic 53 (62.3.3, тест-план 62.5 #11-13): CB-обёртка в DirectChatService."""
+
+    @pytest.mark.asyncio
+    async def test_cb_open_skips_llm_and_sends_down_phrase(self, fake_time, caplog):
+        """62.5 #11: CB OPEN → llm.generate НЕ вызван, фраза из
+        CHAT_LLM_DOWN_PHRASES, WARNING «circuit breaker open», reply_to."""
+        breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=300.0)
+        breaker.on_failure()                          # OPEN
+        llm = FakeLLM()
+        service = _make_service(
+            llm=llm, breaker=breaker,
+            throttle=DirectChatThrottle(10, 300.0),
+        )
+        bot = _bot()
+        msg = _message(message_id=55)
+        with caplog.at_level(logging.WARNING):
+            await service.handle(bot, msg, msg.from_user)
+        assert llm.call_count == 0                    # 0 вызовов LLM
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 55
+        assert bot.send_message.await_args.args[1] in CHAT_LLM_DOWN_PHRASES
+        assert any("circuit breaker open" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_three_transient_failures_open_fourth_skips_llm(self, fake_time):
+        """62.5 #12: 3× LLMServerError → CHAT_ERROR_PHRASES + OPEN; 4-й вызов —
+        БЕЗ LLM, CHAT_LLM_DOWN_PHRASES."""
+        breaker = LLMCircuitBreaker(failure_threshold=3, cooldown_seconds=300.0)
+        llm = FakeLLM(error=LLMServerError(
+            "LLM server error 502 after 3 attempts: https://api.test/v1/chat/completions"))
+        service = _make_service(
+            llm=llm, breaker=breaker,
+            throttle=DirectChatThrottle(10, 300.0),
+        )
+        bot = _bot()
+        for i in range(3):
+            await service.handle(bot, _message(message_id=i), _user())
+            assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+        assert breaker.state == STATE_OPEN
+        assert llm.call_count == 3
+        await service.handle(bot, _message(message_id=99), _user())
+        assert llm.call_count == 3                    # 4-й — без вызова LLM
+        assert bot.send_message.await_args.args[1] in CHAT_LLM_DOWN_PHRASES
+
+    @pytest.mark.asyncio
+    async def test_transient_failure_increments_counter(self, fake_time):
+        """LLMServerError → CHAT_ERROR_PHRASES (R50-8) + _failures==1."""
+        breaker = LLMCircuitBreaker(failure_threshold=3)
+        llm = FakeLLM(error=LLMServerError("LLM server error 500 after 3 attempts: u"))
+        service = _make_service(llm=llm, breaker=breaker)
+        bot = _bot()
+        await service.handle(bot, _message(), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+        assert breaker._failures == 1
+        assert breaker.state == STATE_CLOSED
+
+    @pytest.mark.asyncio
+    async def test_auth_error_does_not_increment(self, fake_time):
+        """62.5 #13: LLMAuthError → CHAT_ERROR_PHRASES, счётчик НЕ инкрементится."""
+        breaker = LLMCircuitBreaker(failure_threshold=3)
+        llm = FakeLLM(error=LLMAuthError("LLM auth failed (401): u"))
+        service = _make_service(llm=llm, breaker=breaker)
+        bot = _bot()
+        await service.handle(bot, _message(), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+        assert breaker._failures == 0
+
+    @pytest.mark.asyncio
+    async def test_success_resets_breaker(self, fake_time):
+        """62.5 #13: 2 транзиентных фейла + успех → полный сброс CB."""
+        breaker = LLMCircuitBreaker(failure_threshold=3)
+        llm = FakeLLM(error=LLMServerError("LLM server error 502 after 3 attempts: u"))
+        service = _make_service(llm=llm, breaker=breaker)
+        bot = _bot()
+        for _ in range(2):
+            await service.handle(bot, _message(), _user())
+        assert breaker._failures == 2
+        llm.error = None                             # апстрим ожил
+        await service.handle(bot, _message(), _user())
+        assert breaker._failures == 0
+        assert breaker.state == STATE_CLOSED
+
+    @pytest.mark.asyncio
+    async def test_half_open_non_transient_probe_reopens(self, breaker_time):
+        """Отклонение от буквы 62.3.3 (см. отчёт): пробная генерация в
+        HALF_OPEN, упавшая НЕ-транзиентно (LLMAuthError), снова открывает CB —
+        иначе CB залипает в HALF_OPEN навсегда (пробная уже израсходована)."""
+        breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=300.0)
+        llm = FakeLLM(error=LLMServerError("LLM server error 502 after 3 attempts: u"))
+        service = _make_service(
+            llm=llm, breaker=breaker,
+            throttle=DirectChatThrottle(10, 300.0),
+        )
+        bot = _bot()
+        await service.handle(bot, _message(), _user())   # OPEN (threshold=1)
+        assert breaker.state == STATE_OPEN
+        breaker_time["now"] += 300.0
+        llm.error = LLMAuthError("LLM auth failed (401): u")   # проба: апстрим ответил 401
+        await service.handle(bot, _message(), _user())
+        assert breaker.state == STATE_OPEN              # не залипли в HALF_OPEN
+
+    @pytest.mark.asyncio
+    async def test_half_open_non_llm_error_probe_reopens(self, breaker_time, fake_time):
+        """H1: half-open-проба падает НЕ-LLMError (RuntimeError из generate —
+        аналог TelegramRetryAfter/ошибки БД в except Exception) → CB снова
+        OPEN, а не навсегда HALF_OPEN."""
+        breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=300.0)
+        llm = FakeLLM(error=LLMServerError("LLM server error 502 after 3 attempts: u"))
+        service = _make_service(
+            llm=llm, breaker=breaker,
+            throttle=DirectChatThrottle(10, 300.0),
+        )
+        bot = _bot()
+        await service.handle(bot, _message(), _user())   # OPEN (threshold=1)
+        assert breaker.state == STATE_OPEN
+        breaker_time["now"] += 300.0                     # кулдаун истёк
+        llm.error = RuntimeError("внезапно")             # проба: не-LLMError
+        await service.handle(bot, _message(), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+        assert breaker.state == STATE_OPEN               # не залипли в HALF_OPEN
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_increments_counter(self, fake_time):
+        """62.3.3: LLMTimeoutError — транзиентный класс → CB._failures==1."""
+        breaker = LLMCircuitBreaker(failure_threshold=3)
+        llm = FakeLLM(error=LLMTimeoutError(
+            "LLM request timed out after 3 attempts: u"))
+        service = _make_service(llm=llm, breaker=breaker)
+        bot = _bot()
+        await service.handle(bot, _message(), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+        assert breaker._failures == 1
+        assert breaker.state == STATE_CLOSED
+
+    @pytest.mark.asyncio
+    async def test_transport_error_increments_counter(self, fake_time):
+        """62.3.3: LLMTransportError — транзиентный класс → CB._failures==1."""
+        breaker = LLMCircuitBreaker(failure_threshold=3)
+        llm = FakeLLM(error=LLMTransportError(
+            "LLM transport error after 3 attempts: u"))
+        service = _make_service(llm=llm, breaker=breaker)
+        bot = _bot()
+        await service.handle(bot, _message(), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+        assert breaker._failures == 1
+        assert breaker.state == STATE_CLOSED
+
+    @pytest.mark.asyncio
+    async def test_half_open_concurrent_handles_single_probe(self, breaker_time, fake_time):
+        """M2д: два параллельных handle() при истёкшем кулдауне → РОВНО одна
+        пробная генерация; вторая получает down-фразу (CB HALF_OPEN)."""
+        breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=300.0)
+        llm = FakeLLM(error=LLMServerError("LLM server error 502 after 3 attempts: u"))
+        service = _make_service(
+            llm=llm, breaker=breaker,
+            throttle=DirectChatThrottle(10, 300.0),
+        )
+        await service.handle(_bot(), _message(), _user())   # OPEN (threshold=1)
+        assert breaker.state == STATE_OPEN
+        breaker_time["now"] += 300.0                     # кулдаун истёк
+        gated = GatedLLM(text="пробный ответ")
+        service.llm = gated
+        bot1, bot2 = _bot(), _bot()
+        async def run(bot, mid):
+            await service.handle(bot, _message(message_id=mid), _user())
+            return bot
+
+        task = asyncio.ensure_future(
+            asyncio.gather(run(bot1, 1), run(bot2, 2)))
+        await asyncio.sleep(0)                           # обе задачи начали handle
+        await asyncio.sleep(0)                           # дожали до точек блокировки
+        # Пробная генерация висит на gated — второй handle должен увидеть
+        # HALF_OPEN и отдать down-фразу БЕЗ вызова LLM.
+        assert breaker.state == STATE_HALF_OPEN
+        assert gated.call_count == 1                     # ровно одна проба
+        assert bot2.send_message.await_args.args[1] in CHAT_LLM_DOWN_PHRASES
+        gated.enter.set()                                # проба успешна
+        await task
+        assert breaker.state == STATE_CLOSED             # успех → сброс
+        assert gated.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_cb_disabled_by_settings(self, fake_time, monkeypatch):
+        """LLM_CB_ENABLED=False → breaker None, поведение как раньше."""
+        import config.settings as settings_module
+        new_settings = settings_module.Settings(LLM_CB_ENABLED=False)
+        monkeypatch.setattr("services.direct_chat_service.settings", new_settings)
+        llm = FakeLLM(error=LLMError("апи сдохло"))
+        service = _make_service(llm=llm)
+        assert service._breaker is None
+        bot = _bot()
+        await service.handle(bot, _message(), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
+
+    @pytest.mark.asyncio
+    async def test_throttle_charge_spent_when_cb_open(self, fake_time):
+        """62.1 в.5: при CB OPEN заряд троттлинга списывается как обычно."""
+        breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=300.0)
+        breaker.on_failure()
+        throttle = DirectChatThrottle(1, 300.0)
+        service = _make_service(llm=FakeLLM(), breaker=breaker, throttle=throttle)
+        bot = _bot()
+        await service.handle(bot, _message(), _user())           # OPEN → down-фраза
+        assert bot.send_message.await_args.args[1] in CHAT_LLM_DOWN_PHRASES
+        assert throttle.allow(CHAT_ID, 10) > 0                   # заряд израсходован

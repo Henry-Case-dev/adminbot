@@ -307,6 +307,59 @@ class TestAlanHandler:
         msg_b.reply.assert_not_called()
 
 
+class TestEpic53AlanTopics:
+    """Epic 53 (D215, Section 62.2, тест-план 62.5 #14-15): 5 новых тем
+    полноценные (≥3 фразы на маркер), пул вопросов присутствует, фраза
+    alan.py:43 (старая) удалена, контракты сохранены."""
+
+    TOPIC_MARKERS = {
+        "NixOS/Линукс": ("никс", "nix"),
+        "SSD": ("ssd", "ссд"),
+        "Витамины Life Extension": ("life extension", "витамин"),
+        "5-сек прогулки с гантелями": ("гантел",),
+        "Уличный тренажёр + колени": ("уличн", "тренажёр"),
+    }
+
+    QUESTION_POOL = (
+        "разминку сделал или сразу к железу с негнущимися коленями?",
+        "а ты вообще разминался? или как обычно — с дивана сразу к штанге?",
+        "гантели для прогулки сегодня брал или опять филонишь?",
+        "дыхалку тренируешь или она у тебя уже по гарантии не подлежит ремонту?",
+        "сколько раз сегодня размялся? ноль раз — это тоже результат, запиши в дневничок",
+    )
+
+    @pytest.mark.asyncio
+    async def test_new_topics_have_at_least_three_phrases(self):
+        """62.5 #14: на каждую из 5 тем — маркер в ≥3 фразах пула (канон даёт 5)."""
+        pool = [phrase.lower() for phrase in ALAN_REPLIES]
+        for topic, markers in self.TOPIC_MARKERS.items():
+            count = sum(1 for phrase in pool if any(m in phrase for m in markers))
+            assert count >= 3, f"Тема '{topic}': {count} фраз < 3"
+
+    @pytest.mark.asyncio
+    async def test_question_pool_verbatim_present(self):
+        """Пул издевательских вопросов (62.2.2) присутствует байт-в-байт."""
+        for question in self.QUESTION_POOL:
+            assert question in ALAN_REPLIES, f"Вопрос '{question}' не найден в пуле"
+
+    @pytest.mark.asyncio
+    async def test_old_line43_phrase_removed(self):
+        """Старая фраза alan.py:43 удалена (заменена пулом вопросов, D215)."""
+        assert not any(
+            phrase.startswith("разминался сегодня? я вот на 5-секундной прогулке")
+            for phrase in ALAN_REPLIES
+        )
+
+    @pytest.mark.asyncio
+    async def test_question_phrases_are_questions(self):
+        """Каждая фраза пула вопросов содержит '?'; 4 из 5 заканчиваются на
+        '?' (5-я фраза канона 62.2.2 — с '?' в середине: «сколько раз сегодня
+        размялся? ноль раз — это тоже результат...»)."""
+        for phrase in self.QUESTION_POOL:
+            assert "?" in phrase
+        assert sum(1 for p in self.QUESTION_POOL if p.rstrip().endswith("?")) == 4
+
+
 class TestAlanSilenceGreeting:
     """Unit tests for F7v2 Alan silence greeting (Epic 11).
 

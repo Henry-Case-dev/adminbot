@@ -14,12 +14,17 @@ from services.llm_client import (
     LLMClient,
     LLMError,
     LLMRateLimitError,
+    LLMServerError,
     LLMTimeoutError,
+    LLMTransportError,
 )
 
 
-def _make_client(handler, monkeypatch, **kwargs):
-    """LLMClient backed by httpx.MockTransport; backoff sleeps disabled."""
+def _make_client(handler, monkeypatch,
+                 fallback_base_url="", fallback_model="", fallback_api_key="",
+                 **kwargs):
+    """LLMClient backed by httpx.MockTransport; backoff sleeps disabled.
+    Epic 53: фоллбэк-параметры — явные инжект-параметры (изоляция от env)."""
     transport = httpx.MockTransport(handler)
     original = httpx.AsyncClient
 
@@ -28,7 +33,11 @@ def _make_client(handler, monkeypatch, **kwargs):
 
     monkeypatch.setattr("services.llm_client.httpx.AsyncClient", factory)
     client = LLMClient(
-        "https://api.test/v1", "test-key", "chat-model", "embed-model", **kwargs
+        "https://api.test/v1", "test-key", "chat-model", "embed-model",
+        fallback_base_url=fallback_base_url,
+        fallback_model=fallback_model,
+        fallback_api_key=fallback_api_key,
+        **kwargs,
     )
     client.backoff_base = 0
     return client
@@ -248,6 +257,9 @@ class TestMisc:
         assert issubclass(LLMRateLimitError, LLMError)
         assert issubclass(LLMTimeoutError, LLMError)
         assert issubclass(LLMBadResponseError, LLMError)
+        # Epic 53 (62.3.2): новые транзиентные классы — подклассы LLMError
+        assert issubclass(LLMServerError, LLMError)
+        assert issubclass(LLMTransportError, LLMError)
 
 
 # ── Epic 47 (Section 56, D186/D187): ретраи всех транзиентных + backoff/cap/jitter
@@ -307,7 +319,8 @@ class TestEpic47Retries:
 
     @pytest.mark.asyncio
     async def test_connect_error_always_exhausts_llm_error(self, monkeypatch, caplog):
-        """56.8 #3: ConnectError всегда → LLMError (класс сохранён), calls==N=3,
+        """56.8 #3: ConnectError всегда → LLMTransportError (62.3.2, текст
+        «transport error after 3 attempts» сохранён), calls==N=3,
         WARNING «LLM request retry»."""
         import logging
 
@@ -321,6 +334,7 @@ class TestEpic47Retries:
         with caplog.at_level(logging.WARNING):
             with pytest.raises(LLMError) as ei:
                 await client.generate([{"role": "user", "content": "q"}])
+        assert isinstance(ei.value, LLMTransportError)
         assert state["n"] == 3
         assert "transport error after 3 attempts" in str(ei.value)
         assert any("LLM request retry" in r.message for r in caplog.records)
@@ -569,7 +583,7 @@ class TestEpic49DiagnosticLog:
             with pytest.raises(LLMError):
                 await client.generate([{"role": "user", "content": "q"}])
         record = next(r for r in caplog.records if "LLM HTTP 400" in r.message)
-        assert "x" * 501 not in record.message          # обрезано до _4XX_BODY_MAX_CHARS
+        assert "x" * 501 not in record.message          # обрезано до _BODY_MAX_CHARS
         assert "x" * 500 in record.message
 
     @pytest.mark.asyncio
@@ -598,3 +612,331 @@ class TestEpic49DiagnosticLog:
                 await client.generate([{"role": "user", "content": "q"}])
         assert any("LLM HTTP 422" in r.message and "body_4xx=" in r.message
                    for r in caplog.records)
+
+
+class TestEpic53ServerErrors:
+    """Epic 53 (62.3.2/62.5): классы LLMServerError/LLMTransportError +
+    диаг-лог финальных 5xx с body_5xx ≤500 (тест-план 62.5 #1-4)."""
+
+    @pytest.mark.asyncio
+    async def test_502_exhaustion_raises_server_error_with_body_log(self, monkeypatch, caplog):
+        """62.5 #1: 502×3 → LLMServerError (текст сохранён) + ERROR-лог body_5xx."""
+        import logging
+
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(502, text="upstream broken details", request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(LLMServerError) as ei:
+                await client.generate([{"role": "user", "content": "q"}])
+        assert state["n"] == 3
+        assert "server error 502 after 3 attempts" in str(ei.value)
+        assert "https://api.test/v1/chat/completions" in str(ei.value)
+        records = [r.message for r in caplog.records if "LLM HTTP 502" in r.message]
+        assert len(records) == 1
+        msg = records[0]
+        assert "url=https://api.test/v1/chat/completions" in msg
+        assert "request_len=" in msg
+        assert "num_messages=1" in msg
+        assert "body_5xx='upstream broken details'" in msg
+
+    @pytest.mark.asyncio
+    async def test_502_body_truncated_to_500_chars(self, monkeypatch, caplog):
+        """62.5 #1: тело финального 502 в логе обрезано до _BODY_MAX_CHARS."""
+        import logging
+
+        def handler(request):
+            return httpx.Response(502, text="x" * 1000, request=request)
+
+        client = _make_client(handler, monkeypatch)
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(LLMServerError):
+                await client.generate([{"role": "user", "content": "q"}])
+        record = next(r for r in caplog.records if "LLM HTTP 502" in r.message)
+        assert "x" * 501 not in record.message
+        assert "x" * 500 in record.message
+
+    @pytest.mark.asyncio
+    async def test_502_twice_then_success(self, monkeypatch):
+        """62.5 #2: 502×2 + 200 → успех, calls==3."""
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            if state["n"] <= 2:
+                return httpx.Response(502, json={}, request=request)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ок"}}]}, request=request
+            )
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        result = await client.generate([{"role": "user", "content": "q"}])
+        assert result == "ок"
+        assert state["n"] == 3
+
+    @pytest.mark.asyncio
+    async def test_read_timeout_exhaustion_raises_timeout_error(self, monkeypatch):
+        """62.5 #3: ReadTimeout×3 → LLMTimeoutError, calls==3."""
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            raise httpx.ReadTimeout("чтение зависло", request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with pytest.raises(LLMTimeoutError):
+            await client.generate([{"role": "user", "content": "q"}])
+        assert state["n"] == 3
+
+    @pytest.mark.asyncio
+    async def test_5xx_body_not_logged_on_retries(self, monkeypatch, caplog):
+        """62.5: на НЕ-финальных 5xx (ретрай) тело НЕ логируется — только
+        retry-WARNING, спама нет."""
+        import logging
+
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            if state["n"] < 3:
+                return httpx.Response(502, text="retry body", request=request)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ok"}}]}, request=request
+            )
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with caplog.at_level(logging.WARNING):
+            result = await client.generate([{"role": "user", "content": "q"}])
+        assert result == "ok"
+        assert not any("body_5xx" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_429_408_425_classes_unchanged(self, monkeypatch):
+        """62.5 #5: 429 → LLMRateLimitError; 408/425 → LLMError (не новые классы)."""
+
+        def handler(request):
+            return httpx.Response(429, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=0)
+        with pytest.raises(LLMRateLimitError):
+            await client.generate([{"role": "user", "content": "q"}])
+
+
+class TestEpic53Fallback:
+    """Epic 53 (62.4, тест-план 62.5 #6-9): фоллбэк-провайдер LLM_FALLBACK_*."""
+
+    FB = dict(
+        fallback_base_url="https://fallback.test/v1",
+        fallback_model="fb-model",
+        fallback_api_key="fb-key",
+    )
+
+    @pytest.mark.asyncio
+    async def test_fallback_success_after_primary_5xx(self, monkeypatch, caplog):
+        """62.5 #6: primary 502×3 → фоллбэк 200 → ответ фоллбэка, WARNING-логи."""
+        import logging
+
+        state = {"n": 0, "fb": 0}
+        seen = {}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                state["fb"] += 1
+                seen["fb_url"] = str(request.url)
+                seen["fb_auth"] = request.headers.get("authorization")
+                seen["fb_payload"] = json.loads(request.content)
+                return httpx.Response(
+                    200, json={"choices": [{"message": {"content": "ответ фоллбэка"}}]},
+                    request=request,
+                )
+            state["n"] += 1
+            return httpx.Response(502, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        with caplog.at_level(logging.WARNING):
+            result = await client.generate([{"role": "user", "content": "q"}])
+        assert result == "ответ фоллбэка"
+        assert state["n"] == 3                      # primary исчерпан
+        assert state["fb"] == 1                     # РОВНО одна попытка
+        assert seen["fb_url"] == "https://fallback.test/v1/chat/completions"
+        assert seen["fb_auth"] == "Bearer fb-key"
+        assert seen["fb_payload"]["model"] == "fb-model"
+        assert seen["fb_payload"]["messages"] == [{"role": "user", "content": "q"}]
+        assert any("LLM fallback attempt" in r.message for r in caplog.records)
+        assert any("LLM fallback OK | model=fb-model" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_502_rethrows_primary_error(self, monkeypatch, caplog):
+        """62.5 #7: фоллбэк 502 → проброс ИСХОДНОГО исключения primary."""
+        import logging
+
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(502, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMServerError) as ei:
+                await client.generate([{"role": "user", "content": "q"}])
+        # исходное исключение primary (primary url в тексте), не фоллбэка
+        assert "server error 502 after 3 attempts" in str(ei.value)
+        assert "https://api.test/v1/chat/completions" in str(ei.value)
+        assert state["n"] == 4                      # 3 primary + 1 фоллбэк
+        assert any("LLM fallback failed | error=status=502" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_transport_error_rethrows_primary(self, monkeypatch, caplog):
+        import logging
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                raise httpx.ConnectError("фоллбэк недоступен", request=request)
+            return httpx.Response(503, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMServerError) as ei:
+                await client.generate([{"role": "user", "content": "q"}])
+        assert "server error 503 after 3 attempts" in str(ei.value)
+        assert any("LLM fallback failed | error=" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_fires_after_429_exhaustion(self, monkeypatch, caplog):
+        """M2а: 429×3 primary → LLMRateLimitError (подкласс LLMError) →
+        фоллбэк-попытка по контракту 62.4 п.2 (любой LLMError, кроме
+        LLMBadResponseError)."""
+        import logging
+
+        state = {"n": 0, "fb": 0}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                state["fb"] += 1
+                return httpx.Response(
+                    200, json={"choices": [{"message": {"content": "ответ фоллбэка"}}]},
+                    request=request,
+                )
+            state["n"] += 1
+            return httpx.Response(429, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        with caplog.at_level(logging.WARNING):
+            result = await client.generate([{"role": "user", "content": "q"}])
+        assert result == "ответ фоллбэка"
+        assert state["n"] == 3                      # primary исчерпан: 429×3
+        assert state["fb"] == 1                     # фоллбэк: РОВНО одна попытка
+        assert any("LLM fallback OK" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_bounded_by_timeout(self, monkeypatch, caplog):
+        """M1: зависший фоллбэк обрезается _FALLBACK_TIMEOUT_SECONDS (а не
+        висит до per-request LLM_TIMEOUT) → проброс исходного исключения
+        primary; худший случай ≤ бюджет primary + 30с, а не +90с."""
+        import logging
+        import time
+
+        async def handler(request):
+            await asyncio.sleep(5)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ок"}}]}, request=request
+            )
+
+        client = _make_client(handler, monkeypatch, max_retries=0, **self.FB)
+        client._budget = 0.05
+        client._fallback_timeout = 0.05
+        started = time.monotonic()
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMTimeoutError):
+                await client.generate([{"role": "user", "content": "q"}])
+        assert time.monotonic() - started < 2.0        # фоллбэк обрезан таймаутом
+        assert any("LLM fallback failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_env_empty_no_fallback(self, monkeypatch):
+        """62.5 #8: фоллбэк-параметры пусты → фоллбэк НЕ вызывается."""
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(502, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2)
+        with pytest.raises(LLMServerError):
+            await client.generate([{"role": "user", "content": "q"}])
+        assert state["n"] == 3                      # только primary
+
+    @pytest.mark.asyncio
+    async def test_primary_success_no_fallback(self, monkeypatch):
+        """62.5 #9: primary 200 → фоллбэк не вызывается, calls==1."""
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ок"}}]}, request=request
+            )
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        result = await client.generate([{"role": "user", "content": "q"}])
+        assert result == "ок"
+        assert state["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_bad_response_no_fallback(self, monkeypatch):
+        """62.5 #9: LLMBadResponseError → БЕЗ фоллбэка (повтор бессмыслен)."""
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(200, text="не json", request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        with pytest.raises(LLMBadResponseError):
+            await client.generate([{"role": "user", "content": "q"}])
+        assert state["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_partial_config_warns_and_disables(self, monkeypatch, caplog):
+        """62.4: задан только base_url → WARNING при создании, фоллбэк выключен."""
+        import logging
+
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(502, json={}, request=request)
+
+        with caplog.at_level(logging.WARNING):
+            client = _make_client(
+                handler, monkeypatch, max_retries=2,
+                fallback_base_url="https://fallback.test/v1",
+            )
+        assert any("LLM fallback partially configured" in r.message
+                   for r in caplog.records)
+        assert client._fallback_active is False
+        with pytest.raises(LLMServerError):
+            await client.generate([{"role": "user", "content": "q"}])
+        assert state["n"] == 3
+
+    @pytest.mark.asyncio
+    async def test_close_closes_fallback_client(self, monkeypatch):
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                return httpx.Response(
+                    200, json={"choices": [{"message": {"content": "фб"}}]}, request=request
+                )
+            return httpx.Response(502, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2, **self.FB)
+        result = await client.generate([{"role": "user", "content": "q"}])
+        assert result == "фб"
+        await client.close()
+        assert client._client is None
+        assert client._fallback_client is None
