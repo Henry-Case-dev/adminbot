@@ -72,12 +72,12 @@ class TestDefaultInfoText:
 
     def test_html_tags_balanced(self):
         assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>")
-        assert DEFAULT_INFO_TEXT.count("<code>") == DEFAULT_INFO_TEXT.count("</code>")
+        assert DEFAULT_INFO_TEXT.count("<blockquote>") == DEFAULT_INFO_TEXT.count("</blockquote>")
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>")
 
     def test_no_unbalanced_special_chars(self):
         stripped = DEFAULT_INFO_TEXT.replace("<b>", "").replace("</b>", "")
-        stripped = stripped.replace("<code>", "").replace("</code>", "")
+        stripped = stripped.replace("<blockquote>", "").replace("</blockquote>", "")
         stripped = stripped.replace('<a href="https://youtu.be/">', "")
         stripped = stripped.replace('<a href="https://какой-то-сайт.ru">', "")
         stripped = stripped.replace("</a>", "")
@@ -86,8 +86,8 @@ class TestDefaultInfoText:
     def test_covers_features(self):
         for marker in (
             "Гайд по фичам", "фактчек", "чекап", "кулдаун", "Checkup",
-            "youtu.be", "какой-то-сайт.ru", "100500%", "пересаживается",
-            "ботяра",
+            "youtu.be", "какой-то-сайт.ru",
+            "ботяра", "Богу Машине", "ботохуета",
         ):
             assert marker in DEFAULT_INFO_TEXT
 

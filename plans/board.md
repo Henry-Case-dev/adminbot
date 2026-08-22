@@ -6,7 +6,31 @@
 
 ## 🔧 In Progress
 
-### Epic 55: /info — «Что нового» по последним апдейтам — 🚧 IN PROGRESS — ✅ IMPLEMENTED + REVIEWED (APPROVED WITH NOTES), DEPLOY PENDING (одобрено пользователем, 2026-08-23, Шаг 6 @Memory ✅, target v2.39.0)
+### Epic 56: /info — правка пользователя (раздел 6 «Прямое обращение к Богу Машине») + `<code>`→`<blockquote>` — ✅ IMPLEMENTED + REVIEWED (APPROVED WITH NOTES), 🚧 DEPLOY PENDING (@DevOps T-440, target v2.40.0, P0)
+
+> Полный трек — `plans/backlog.md` (Epic 56). Требования R56-1…R56-7, решения D223–D225.
+> Правка пользователя (раздел 6 «6. Прямое обращение к Богу Машине» — слова-триггеры,
+> реплай на бота, тег @) существует ТОЛЬКО в локальной рабочей копии. Локальная копия =
+> источник истины (D224); серверный `info_text.md` == HEAD `c7a6da5` (старого канона — факт
+> сверки T-438-A); после коммита git-канон == источнику истины.
+> Теги `<code>` не видны в мобильном Telegram → замена ТОЛЬКО тегов на `<blockquote>`
+> (27 мест), текст не трогать. Обязательная сверка ЧЕРЕЗ EXA: Telegram Bot API formatting
+> options (blockquote в HTML parse mode — Bot API 7.0 (December 29, 2023); expandable 7.7 — не используется) + aiogram 3.29.1
+> передача `parse_mode` (T-437). Канон-цепочка (5 мест) синхронно: DEFAULT_INFO_TEXT =
+> info_text.md = ARCHITECTURE 53.3 (оба блока) = backlog «Канон R44-1» (plain). Порядок
+> деплоя инвертирован (D225): канон в git → коммит+пуш → `git pull` на проде, правку
+> пользователя НЕ терять. v2.40.0 (minor, D223 — прецедент D220). База: прод v2.39.0
+> (`c7a6da5`, PID 1053785), 2354 теста, Epics 1–55 ALL CLOSED. Без @Orchestrator.
+
+- [x] T-437 (@Architect, P0) — exa-ресёрч (Telegram Bot API blockquote/expandable + aiogram parse_mode) + вердикт + новый канон Section 53.3/63 (оба блока) + правки тестов дословно. **DoD:** вердикт зафиксирован; решение по замене зафиксировано; Section 53.3 (или 63) с новым каноном; правки тестов перечислены; вопросы 1–5 закрыты. ✅ **DONE (Шаг 2 @Architect: `<blockquote>` в HTML parse mode поддержан с Bot API 7.0 (December 29, 2023 — НЕ 7.1); expandable (7.7) НЕ нужен; Section 53.3 «Дополнение Epic 56»).**
+- [x] T-438 (@Builder, P0) — серверный `info_text.md` (SSH `nik@198.46.175.136`, пароль у @DevOps) ↔ локально байт-в-байт; замена ТОЛЬКО тегов `<code>`→`<blockquote>` (27 мест); канон-цепочка 5 мест; тесты (счётчики/strip/маркеры); pytest 0 регрессий. **DoD:** сверка байт-в-байт; только теги заменены; 5 мест синхронны; тесты зелёные; 0 регрессий (2354). ✅ **DONE (Шаг 4 @Builder: сверка T-438-A — серверный файл == HEAD `c7a6da5`, правка пользователя только в локальной копии; 27 `<code>`→`<blockquote>`, текст не тронут; канон-цепочка синхронна; 2354 passed / 0 failed).**
+- [ ] T-439 (@Reviewer, P0) — байт-в-байт сверка 5 мест; дифф только теги; 0 регрессий; APPROVED. **DoD:** APPROVED; 5 мест синхронны; дифф = только замены тегов.
+- [ ] T-440 (@DevOps, P0) — бэкап `info_text.md.bak.epic56` ДО всего; коммит (код+канон+тесты+info_text.md, без mp4) + пуш; деплой: `git pull` (при локальных изменениях серверного файла — сверка/checkout, правку НЕ терять), restart, 0 traceback, smoke /info. **DoD:** бэкап есть; коммит запушен; правка не потеряна; новый PID; 0 traceback; smoke OK.
+- [ ] T-441 (@Docs, P1) — README v2.40.0 + MEMORY. **DoD:** доки актуализированы; Epic 56 CLOSED.
+
+**Updated:** 2026-08-23 — **Epic 56 ✅ IMPLEMENTED + REVIEWED (APPROVED WITH NOTES) — DEPLOY PENDING (@DevOps T-440)**: T-437/T-438 DONE; T-439 APPROVED WITH NOTES — замечания закрыты @Docs (T-441): Medium-1 — источник истины = локальная копия пользователя (сервер == HEAD `c7a6da5`, правки на проде НЕТ); Low-1 — Bot API 7.0 (December 29, 2023), НЕ 7.1. Далее — @DevOps (T-440 коммит+пуш+деплой). Epics 1–55 ALL CLOSED.**
+
+### Epic 55: /info — «Что нового» по последним апдейтам — ✅ DEPLOYED & CLOSED (v2.39.0, коммит `c7a6da5`, прод PID 1053785, 2354 теста, 2026-08-23, Шаг 8 @Memory)
 
 > Полный трек — `plans/backlog.md` (Epic 55). Требования R55-1…R55-5, решения D220–D222.
 > В /info добавить НЕДОСТАЮЩУЮ информацию по последним апдейтам (Epic 52 v2.37.0, Epic 53
@@ -26,11 +50,11 @@
 - [x] T-431 (@Architect, P0) — канон-текст нового раздела «Что нового» (html, стиль существующих) + Section 53.3 (ОБА блока, append) + маркеры для test_covers_features; закрыть вопросы 1–4. **DoD:** канон байт-в-байт (html+plain), 53.3 дополнена, маркеры перечислены дословно, существующие 5 разделов не тронуты. ✅ **DONE (Шаг 2 @Architect).**
 - [x] T-432 (@Builder, P0) — канон-цепочка: DEFAULT_INFO_TEXT + info_text.md + backlog «Канон R44-1» (plain) — append байт-в-байт из 53.3. **DoD:** 5 мест синхронны, дифф только append, старые 5 разделов не тронуты. ✅ **DONE (Шаг 4 @Builder).**
 - [x] T-433 (@Builder + @QA, P0) — тесты: маркеры новых фич + байт-в-байт (3 теста зелёные) + полный pytest 0 регрессий (2354). **DoD:** маркеры добавлены, 0 регрессий, diff --check чист. ✅ **DONE (2354 passed / 0 failed; APPROVED WITH NOTES).**
-- [ ] T-434 (@DevOps, P1) — коммит на русском + пуш origin/master (код+канон+тесты+info_text.md одним коммитом, D123-стиль). **DoD:** коммит запушен. ⏳ PENDING (@DevOps, Шаг 7).
-- [ ] T-435 (@DevOps, P0) — деплой v2.39.0: бэкап info_text.md.bak.epic55 + git checkout -- info_text.md ДО pull; git pull --ff-only; restart (новый PID); journalctl 0 traceback; smoke /info (новый раздел + старые 5). **DoD:** бэкап есть, pull ff, новый PID, 0 traceback, smoke OK. ⏳ PENDING (@DevOps, Шаг 7).
-- [ ] T-436 (@Docs, P1) — README v2.39.0 + MEMORY. **DoD:** доки актуализированы, Epic 55 CLOSED. 🟡 **ЧАСТИЧНО: T-436-A ✅ DONE** (README v2.39.0 + MEMORY + Low-3 «До Epic 55:»); остаток — пометка CLOSED после деплоя (T-435).
+- [x] T-434 (@DevOps, P1) — коммит на русском + пуш origin/master (код+канон+тесты+info_text.md одним коммитом, D123-стиль). **DoD:** коммит запушен. ✅ **DONE (Шаг 7: коммит `c7a6da5`, пуш 148328a..c7a6da5, 8 файлов, без mp4).**
+- [x] T-435 (@DevOps, P0) — деплой v2.39.0: бэкап info_text.md.bak.epic55 + git checkout -- info_text.md ДО pull; git pull --ff-only; restart (новый PID); journalctl 0 traceback; smoke /info (новый раздел + старые 5). **DoD:** бэкап есть, pull ff, новый PID, 0 traceback, smoke OK. ✅ **DONE (Шаг 7: бэкап + checkout ДО pull, pull ff 148328a..c7a6da5, PID 1053785, 0 traceback, smoke «Что нового» 1 + старые секции 4).**
+- [x] T-436 (@Docs, P1) — README v2.39.0 + MEMORY. **DoD:** доки актуализированы, Epic 55 CLOSED. ✅ **DONE (T-436-A: README v2.39.0 + MEMORY + Low-3 «До Epic 55:» — ранее; финализация Шаг 8: Epic 55 помечен CLOSED).**
 
-**Updated:** 2026-08-23 — **Epic 55 IN PROGRESS (Шаг 1 @PM)**: T-431…T-436 занесены, target v2.39.0 (D220). Передача @Architect (T-431). **Шаг 6 (@Memory, 2026-08-23): ✅ IMPLEMENTED + REVIEWED (APPROVED WITH NOTES), DEPLOY PENDING — T-431/T-432/T-433 ✅ DONE, T-436-A ✅ (README/MEMORY/Low-3); T-434/T-435 ⏳ @DevOps (Шаг 7: коммит+пуш, деплой с бэкапом info_text.md.bak.epic55 + checkout ДО pull); T-436 остаток (CLOSED-пометка) после деплоя. Тесты 2354/0.**
+**Updated:** 2026-08-23 — **Epic 55 ✅ DEPLOYED & CLOSED (v2.39.0, Шаг 8 @Memory)**: все T-431…T-436 DONE ([x]). Шаг 7 @DevOps: коммит `c7a6da5` (8 файлов, без mp4) + пуш origin/master (148328a..c7a6da5); деплой — бэкап info_text.md.bak.epic55 + checkout ДО pull, pull ff, restart OK, PID 1053785, 0 traceback; smoke по файлу: «Что нового» 1 + старые секции 4. Тесты 2354/0. Раздел 6 «Что нового» на проде. Epics 1–55 ALL CLOSED.**
 
 ### Epic 53: ALAN_REPLIES v2 + LLM 502 (direct_chat) + RESEARCH_HUMAN — ✅ DEPLOYED & CLOSED (v2.38.0, коммит `a8f82b1`, прод PID 1052443, 2354 тестов, 2026-08-23, Шаг 8 @Memory)
 
