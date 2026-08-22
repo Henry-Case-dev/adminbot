@@ -1657,6 +1657,138 @@ class TestSelfdevWorkHandlers:
         assert result is UNHANDLED
 
 
+# ── Epic 52 (T-409, D213): common/work env-выключатели ──
+
+
+class TestCommonMediaFlags:
+    """T-409: COMMON_WORK_MEDIA_ENABLED (точечный) × COMMON_MEDIA_ENABLED (глобальный)."""
+
+    @pytest.fixture(autouse=True)
+    def reset_relay(self):
+        setup_common(None)
+        yield
+        setup_common(None)
+
+    # ── work=false → work_handler UNHANDLED, relay не вызван ──
+
+    @pytest.mark.asyncio
+    async def test_work_disabled_handler_returns_unhandled(self):
+        import handlers.common as common_mod
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+
+        mod = replace(settings, COMMON_WORK_MEDIA_ENABLED=False)
+        with patch.object(common_mod, "settings", mod):
+            from handlers.common import work_handler
+            msg = make_message(text="устал", chat_id=-100789, message_id=555)
+            result = await work_handler(msg, matched_word="устал")
+
+        assert result is UNHANDLED
+        mock_relay.send_common.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_work_disabled_still_returns_unhandled_without_relay(self):
+        """work=false и relay=None → UNHANDLED (не падает на _relay-проверке)."""
+        import handlers.common as common_mod
+        mod = replace(settings, COMMON_WORK_MEDIA_ENABLED=False)
+        with patch.object(common_mod, "settings", mod):
+            from handlers.common import work_handler
+            msg = make_message(text="заебался")
+            result = await work_handler(msg, matched_word="заебался")
+
+        assert result is UNHANDLED
+
+    @pytest.mark.asyncio
+    async def test_work_enabled_default_calls_relay(self):
+        """default (флаг не трогали) — work работает как раньше."""
+        import handlers.common as common_mod
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+
+        from handlers.common import work_handler
+        msg = make_message(text="устал", chat_id=-100789, message_id=555)
+        result = await work_handler(msg, matched_word="устал")
+
+        assert result is UNHANDLED
+        mock_relay.send_common.assert_called_once_with(
+            chat_id=-100789,
+            message_id=555,
+            matched_word="устал",
+            subdir="work",
+        )
+
+    # ── global=false → send_common молчит для ВСЕХ сабдиров ──
+
+    @pytest.mark.asyncio
+    async def test_global_disabled_all_subdirs_silent(self):
+        import services.common_relay as relay_mod
+        bot = AsyncMock()
+        relay = CommonRelay(bot, cooldown_seconds=0, media_base="/fake/media")
+
+        mod = replace(settings, COMMON_MEDIA_ENABLED=False)
+        with patch.object(relay_mod, "settings", mod):
+            with patch.object(relay, "_scan_directory",
+                              return_value=[(Path("/fake/photo.jpg"), MEDIA_PHOTO)]):
+                for subdir in ("otboy", "danger", "selfdev", "work"):
+                    await relay.send_common(1, 10, "слово", subdir)
+
+        bot.send_photo.assert_not_called()
+        bot.send_video.assert_not_called()
+        bot.send_animation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_global_disabled_even_with_work_enabled(self):
+        """GLOBAL=false + WORK=true → всё равно молчит (гейт в relay — верхний)."""
+        import services.common_relay as relay_mod
+        bot = AsyncMock()
+        relay = CommonRelay(bot, cooldown_seconds=0, media_base="/fake/media")
+
+        mod = replace(settings, COMMON_MEDIA_ENABLED=False, COMMON_WORK_MEDIA_ENABLED=True)
+        with patch.object(relay_mod, "settings", mod):
+            with patch.object(relay, "_scan_directory",
+                              return_value=[(Path("/fake/photo.jpg"), MEDIA_PHOTO)]):
+                await relay.send_common(1, 10, "устал", "work")
+
+        bot.send_photo.assert_not_called()
+
+    # ── изоляция: work=false ≠ otboy/danger/selfdev off ──
+
+    @pytest.mark.asyncio
+    async def test_work_disabled_other_handlers_still_send(self):
+        """WORK=false → молчит ТОЛЬКО work; otboy/danger/selfdev шлют."""
+        import handlers.common as common_mod
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+
+        mod = replace(settings, COMMON_WORK_MEDIA_ENABLED=False)
+        with patch.object(common_mod, "settings", mod):
+            from handlers.common import (danger_handler, otboy_handler,
+                                         selfdev_handler)
+            await otboy_handler(make_message(text="отбой"), matched_word="отбой")
+            await danger_handler(make_message(text="бпла"), matched_word="бпла")
+            await selfdev_handler(make_message(text="саморазвитие"), matched_word="саморазвитие")
+
+        assert mock_relay.send_common.call_count == 3
+        subdirs = [c.kwargs["subdir"] for c in mock_relay.send_common.call_args_list]
+        assert set(subdirs) == {"otboy", "danger", "selfdev"}
+
+    @pytest.mark.asyncio
+    async def test_global_enabled_default_sends(self):
+        """default (global флаг не трогали) — media шлются."""
+        import services.common_relay as relay_mod
+        bot = AsyncMock()
+        relay = CommonRelay(bot, cooldown_seconds=0, media_base="/fake/media")
+
+        with patch.object(relay, "_scan_directory",
+                          return_value=[(Path("/fake/photo.jpg"), MEDIA_PHOTO)]):
+            await relay.send_common(1, 10, "отбой", "otboy")
+
+        bot.send_photo.assert_called_once()
+
+
 class TestCommonRouterHandlerOrder:
     """D91: порядок хендлеров в common_router: otboy → danger → selfdev → work → mimic."""
 

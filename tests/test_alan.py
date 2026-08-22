@@ -111,17 +111,50 @@ class TestAlanHandler:
 
     @pytest.mark.asyncio
     async def test_topic_coverage(self):
-        """Key topics must be represented in the reply pool."""
+        """Key topics must be represented in the reply pool.
+
+        T-408 (Epic 52): «фьючерс» убран из обязательных тем; добавлены новые
+        (никс/линукс, нейрокластер, планшет, ссд, витамин, тренажёр/гантел, колен).
+        """
         pool_text = " ".join(ALAN_REPLIES).lower()
         required_topics = [
             "тренировк",   # тренировки/тренировка
             "лонгковид",
-            "фьючерс",
             "нейросет",    # нейросети/нейросеть/нейросетки
             "жим дьявола",
+            # ── новые темы T-408 ──
+            "никс",        # NixOS/никсы
+            "линукс",
+            "нейрокластер",
+            "планшет",
+            "колен",       # колени (тренажёр + реванш)
         ]
         for topic in required_topics:
             assert topic in pool_text, f"Topic '{topic}' not found in ALAN_REPLIES"
+        # SSD может писаться латиницей (SSD) или кириллицей (ссд)
+        assert ("ssd" in pool_text or "ссд" in pool_text), "Topic 'SSD/ссд' not found in ALAN_REPLIES"
+        assert ("витамин" in pool_text or "life extension" in pool_text), \
+            "Topic 'витамины Life Extension' not found in ALAN_REPLIES"
+        assert ("тренажёр" in pool_text or "гантел" in pool_text), \
+            "Topic 'тренажёр/гантели' not found in ALAN_REPLIES"
+
+    @pytest.mark.asyncio
+    async def test_no_trading_words(self):
+        """T-408: в пуле НЕТ трейдинг-слов (фьючерсы/биток/рынок/трейдеры и т.п.).
+
+        Word-boundary матчинг: «лонгковид» НЕ считается «лонг» (после «лонг»
+        идёт буква → граница не срабатывает).
+        """
+        trading_words = [
+            "фьючерс", "биток", "биткоин", "рынок", "трейдер",
+            "график", "шорт", "лонг", "крипт",
+        ]
+        pool_text = " ".join(ALAN_REPLIES).lower()
+        for word in trading_words:
+            pattern = r"(?<![0-9a-zа-яё_])" + word + r"(?![0-9a-zа-яё_])"
+            assert not __import__("re").search(pattern, pool_text), (
+                f"Trading word '{word}' found in ALAN_REPLIES: {pool_text}"
+            )
 
     @pytest.mark.asyncio
     async def test_no_reply_for_wrong_user(self, make_message):
@@ -193,6 +226,40 @@ class TestAlanHandler:
         msg = make_message(138811255, text="fifth message")
         await alan_handler(msg)
         msg.reply.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_replies_disabled_flag(self, make_message):
+        """T-408: ALAN_REPLIES_ENABLED=False → reply-блок молчит, счётчик инкрементится."""
+        mock_db = AsyncMock()
+        setup_alan(mock_db)
+        mock_db.increment_and_get_count.return_value = 10  # кратно интервалу
+
+        with patch("handlers.alan.settings") as mock_settings:
+            mock_settings.ALAN_REPLIES_ENABLED = False
+            mock_settings.ALAN_REPLY_INTERVAL = 10
+            mock_settings.ALAN_SILENCE_GREETING_HOURS = 0  # F7v2 выключен — чисто reply-блок
+            msg = make_message(138811255, text="сообщение на 10-м счётчике")
+            await alan_handler(msg)
+
+        msg.reply.assert_not_called()
+        mock_db.increment_and_get_count.assert_called_once_with(msg.chat.id, msg.from_user.id)
+
+    @pytest.mark.asyncio
+    async def test_replies_disabled_flag_default_true(self, make_message):
+        """T-408: default (флаг не выставлялся) — reply работает как раньше."""
+        mock_db = AsyncMock()
+        setup_alan(mock_db)
+        mock_db.increment_and_get_count.return_value = 10
+
+        with patch("handlers.alan.settings") as mock_settings:
+            mock_settings.ALAN_REPLIES_ENABLED = True
+            mock_settings.ALAN_REPLY_INTERVAL = 10
+            mock_settings.ALAN_SILENCE_GREETING_HOURS = 0
+            msg = make_message(138811255, text="десятое сообщение")
+            await alan_handler(msg)
+
+        msg.reply.assert_called_once()
+        assert msg.reply.call_args[0][0] in ALAN_REPLIES
 
     @pytest.mark.asyncio
     async def test_non_text_message_also_counts(self, make_message):
@@ -478,6 +545,30 @@ class TestAlanSilenceGreeting:
         mock_send.assert_called_once()
         msg.reply.assert_called_once()
         assert msg.reply.call_args[0][0] in ALAN_REPLIES
+
+    @pytest.mark.asyncio
+    async def test_f7v2_alive_when_replies_disabled(self, make_message):
+        """T-408: ALAN_REPLIES_ENABLED=False + истёкший silence-порог →
+        greeting отправлен, reply НЕ отправлен (гейт не трогает F7v2)."""
+        mock_db = AsyncMock()
+        mock_db.increment_and_get_count.return_value = 10   # кратно интервалу → без гейта ответил бы
+        mock_db.get_alan_last_message_ts.return_value = self.NOW - 7.0 * 3600
+        setup_alan(mock_db)
+
+        with patch("handlers.alan.time.time", return_value=self.NOW):
+            with patch("handlers.alan._send_greeting", return_value=True) as mock_send:
+                with patch("handlers.alan.settings") as mock_settings:
+                    mock_settings.ALAN_REPLIES_ENABLED = False
+                    mock_settings.ALAN_REPLY_INTERVAL = 10
+                    mock_settings.ALAN_SILENCE_GREETING_HOURS = 6.0
+                    mock_settings.ALAN_GREETING_COOLDOWN = 10
+                    msg = make_message(138811255, text="woke up but replies off", chat_id=-100)
+                    msg.bot = AsyncMock()
+                    await alan_handler(msg)
+
+        mock_send.assert_called_once()          # F7v2 жив
+        msg.reply.assert_not_called()           # reply-блок молчит
+        mock_db.increment_and_get_count.assert_called_once()  # счётчик инкрементился
 
     @pytest.mark.asyncio
     async def test_silence_timestamp_always_updated(self, make_message):

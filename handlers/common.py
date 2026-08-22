@@ -153,6 +153,17 @@ async def work_handler(
     matched_word: str,
 ) -> None:
     """Epic 30: «устал/заебался»-семья → случайное медиа из common/work/ с reply+quote."""
+    # T-409 (Epic 52, D213): точечный гейт work-медиа — ПЕРВАЯ строка, ДО проверки _relay.
+    # false → work-медиа не шлются, хендлер остаётся зарегистрированным (триггеры живы),
+    # UNHANDLED — пропагация не ломается.
+    if not settings.COMMON_WORK_MEDIA_ENABLED:
+        logger.info(
+            "Common Service: work media disabled (COMMON_WORK_MEDIA_ENABLED=False) | "
+            "chat_id=%s | message_id=%s",
+            message.chat.id,
+            message.message_id,
+        )
+        return UNHANDLED
     if _relay is None:
         logger.error(
             "Common Service: relay not initialized — skipping work | "

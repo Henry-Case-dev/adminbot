@@ -32,6 +32,7 @@ from handlers.vasya import vasya_router
 from handlers.slava_presence import slava_presence_router, setup_presence
 from handlers.alan_greeting import alan_greeting_router
 from handlers.dead_page_trigger import dead_page_router, setup_dead_page
+from handlers.dead_page_delete import dead_page_delete_router, setup_dead_page_delete
 from handlers.war_alert import war_alert_router, setup_war_alert
 from handlers.common import common_router, setup_common, setup_common_mimic
 from handlers.olya import olya_router, setup_olya
@@ -289,6 +290,11 @@ async def on_startup():
 
     # 4. Dead Page trigger — reposts from @d_pages (NEW in V2)
     dp.include_router(dead_page_router)
+
+    # 4a. Dead Page delete detection (Epic 52 / T-417, Section 61.6.4) — reply/quote
+    # на УДАЛЁННЫЙ репост Славика (InaccessibleMessage). Позиция ДО war_alert/common/slavik.
+    setup_dead_page_delete(db, bot.id)
+    dp.include_router(dead_page_delete_router)
 
     # 4b. War Words Alert (F5v2) — keyword + channel repost alerts (Epic 10)
     dp.include_router(war_alert_router)

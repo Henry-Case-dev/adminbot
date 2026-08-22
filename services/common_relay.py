@@ -241,6 +241,16 @@ class CommonRelay:
         """
         now = time.monotonic()
 
+        # T-409 (Epic 52, D213): глобальный рубильник ВСЕХ common-медиа.
+        # Единая точка — send_common вызывают все 4 хендлера (otboy/danger/selfdev/work).
+        if not settings.COMMON_MEDIA_ENABLED:
+            logger.info(
+                "CommonRelay: media disabled (COMMON_MEDIA_ENABLED=False) | "
+                "subdir=%s | chat_id=%s",
+                subdir, chat_id,
+            )
+            return
+
         # Layer 1: пер-сабдирный коулдаун (danger/selfdev/work; otboy — пропуск)
         sub_cd = self._subdir_cooldown_seconds.get(subdir, 0)
         if sub_cd > 0:

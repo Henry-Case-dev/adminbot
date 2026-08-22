@@ -391,10 +391,17 @@ class TestAntiRepeatLastSent:
     async def test_sequential_scan_skips_last_sent(self, relay, mock_bot, mock_db):
         """Posts {3, 4}, last_sent=3 → sequential scan skips 3, finds 4."""
         mock_bot.forward_message.side_effect = _make_valid_ids({3, 4})
+        # 3 и 4 — same-date «альбом» в моке → group-forward через forward_messages
+        mock_bot.forward_messages.return_value = [
+            _make_msg_mock(message_id=3), _make_msg_mock(message_id=4),
+        ]
 
         result = await relay._try_forward_from_channel(-100123, last_sent=3)
 
-        assert result == 4
+        # T-417: (source_channel_msg_id, dest_ids)
+        assert result is not None
+        assert result[0] == 4
+        assert 4 in result[1]
 
     @pytest.mark.asyncio
     async def test_forward_scan_skips_last_sent(self, relay, mock_bot, mock_db):
@@ -404,7 +411,9 @@ class TestAntiRepeatLastSent:
 
         result = await relay._try_forward_from_channel(-100123, last_sent=4)
 
-        assert result == 5
+        assert result is not None
+        assert result[0] == 5
+        assert 5 in result[1]
 
     @pytest.mark.asyncio
     async def test_random_rerolls_last_sent_without_burning_attempt(self, relay, mock_bot, mock_db):
@@ -416,7 +425,8 @@ class TestAntiRepeatLastSent:
             result = await relay._try_forward_from_channel(-100123, last_sent=77)
 
         # 77 (re-roll) → 150 (attempt 1). If 77 burned the attempt, result would be None.
-        assert result == 150
+        assert result is not None
+        assert result[0] == 150
         assert random_mock.call_count == 2
 
     @pytest.mark.asyncio
@@ -427,16 +437,20 @@ class TestAntiRepeatLastSent:
         with patch("random.randint", side_effect=[1, 2, 4, 5, 6] * 3):
             result = await relay._try_forward_from_channel(-100123, last_sent=3)
 
-        assert result == 3
+        assert result is not None
+        assert result[0] == 3
+        assert 3 in result[1]
 
     @pytest.mark.asyncio
     async def test_last_sent_none_returns_id(self, relay, mock_bot, mock_db):
-        """Contract: int | None — success returns primary msg_id, not bool."""
+        """Contract: (int, list[int]) | None — success returns primary msg_id + dest ids."""
         mock_bot.forward_message.side_effect = _make_valid_ids({3})
 
         result = await relay._try_forward_from_channel(-100123)
 
-        assert result == 3
+        assert result is not None
+        assert result[0] == 3
+        assert result[1] == [3]
 
     @pytest.mark.asyncio
     async def test_send_dead_page_writes_last_sent_after_success(self, relay, mock_bot, mock_db):
@@ -504,6 +518,64 @@ class TestAntiRepeatLastSent:
 
         await relay.send_dead_page(-100123)
         assert state["last"] == 4
+
+    # ── Epic 52 (T-417, Section 61.6.3): send_dead_page возвращает dest ids ──
+
+    @pytest.mark.asyncio
+    async def test_send_dead_page_returns_dest_ids_forward(self, relay, mock_bot, mock_db):
+        """Forward-путь: send_dead_page → id сообщений бота В ГРУППЕ."""
+        mock_bot.forward_message.side_effect = _make_valid_ids({3})
+
+        result = await relay.send_dead_page(-100123)
+
+        assert result == [3]
+        mock_db.set_dead_page_last_sent.assert_awaited_once_with(-100123, 3)
+
+    @pytest.mark.asyncio
+    async def test_send_dead_page_returns_dest_ids_fallback(self, relay, mock_bot, mock_db):
+        """Fallback-путь: send_photo → [message_id] (T-417)."""
+        mock_bot.forward_message.side_effect = _make_valid_ids(set())
+        mock_bot.send_photo = AsyncMock(return_value=_make_msg_mock(message_id=555))
+
+        result = await relay.send_dead_page(-100123)
+
+        assert result == [555]
+        mock_db.set_dead_page_last_sent.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_send_dead_page_cooldown_returns_none(self, relay, mock_db):
+        """Cooldown/ранний выход → None."""
+        mock_db.was_dead_page_recently.return_value = True
+
+        result = await relay.send_dead_page(-100123)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_send_dead_page_fallback_no_files_returns_none(self, relay, mock_bot, mock_db):
+        """Fallback без локальных файлов → None (ничего не отправлено)."""
+        mock_bot.forward_message.side_effect = _make_valid_ids(set())
+        relay.media.pick_random = AsyncMock(side_effect=FileNotFoundError("no files"))
+
+        result = await relay.send_dead_page(-100123)
+
+        assert result is None
+        mock_bot.send_photo.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_send_dead_page_album_dest_ids(self, relay, mock_bot, mock_db):
+        """Альбом (DB lookup): dest ids из forward_messages (список Message)."""
+        mock_db.get_relay_media_group_id.return_value = "mg123"
+        mock_db.get_relay_album_message_ids.return_value = [10, 11, 12]
+        mock_bot.forward_messages = AsyncMock(return_value=[
+            _make_msg_mock(message_id=10),
+            _make_msg_mock(message_id=11),
+            _make_msg_mock(message_id=12),
+        ])
+
+        result = await relay.send_dead_page(-100123)
+
+        assert set(result) == {10, 11, 12}
 
 
 class TestAlbumForwarding:

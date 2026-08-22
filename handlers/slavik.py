@@ -142,18 +142,23 @@ def _slavik_mimic_should_trigger(
 
 # Handler 1: F4 — KUCHA words → "ДАЛБАЕБ"
 @slavik_router.message(KuchaWordFilter())
-async def kucha_handler(message: types.Message):
+async def kucha_handler(message: types.Message, data: dict | None = None):
+    # T-410 (Section 61.4.1): строгая семантика «одно действие» — если гифка
+    # уже ушла (data-флаг от миддлвари), ДАЛБАЕБ не шлём.
+    if (data or {}).get("slavik_gif_sent"):
+        return UNHANDLED
     await message.reply("ДАЛБАЕБ")
 
 
-# Handler 2: Catch-all — priority: photo (F8) > mimic (F11) > "пошёл нахуй"
+# Handler 2: Catch-all — priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4)
 # Note: F5 (war words) moved to war_alert_router at position 4b (Epic 10)
 # Note: F6 (slavic photo) — every N replies, send slavic_na_litso.jpg (Epic 12)
 @slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
-async def slavik_catchall_handler(message: types.Message):
-    """Reply to Slava. Priority: photo (F8) > mimic (F11) > default text.
+async def slavik_catchall_handler(message: types.Message, data: dict | None = None):
+    """Reply to Slava. Priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4).
 
-    Mutex via if/elif/else chain — exactly ONE response per message.
+    T-410 (Epic 52, Section 61.4.3): жёсткий приоритет РОВНО ОДНОГО действия
+    на сообщение. Mutex via if/elif/else chain.
     """
     logger.debug(
         "Slavic catchall: processing msg_id=%d from user_id=%d",
@@ -177,7 +182,23 @@ async def slavik_catchall_handler(message: types.Message):
             )
             return UNHANDLED  # ни photo, ни mimic, ни «пошёл нахуй»
 
-    # ── Branch 1: Photo interval (F8) — random media from SLAVIC_RANDOM_DIR ──
+    # ── Branch 0.5: service-сообщение (T-410, Section 61.4.3) ──
+    # join обрабатывает ТОЛЬКО slava_presence («ДОЛБОЕБ ВЕРНУЛСЯ») — без гифки/медиа.
+    if message.new_chat_members or message.left_chat_member:
+        return UNHANDLED
+
+    # ── Branch 1: GIF уже отправлен (T-410, Section 61.4.1) ──
+    # data-флаг ставит MessageCounterMiddleware после УСПЕШНОЙ отправки гифки.
+    # Гифка уже ушла → рандом-медиа/mimic/«пошёл нахуй» НЕ выполняются,
+    # фото-счётчик НЕ тикает (slavic_photo_count_tick не вызывается).
+    if (data or {}).get("slavik_gif_sent"):
+        logger.debug(
+            "Slavic catchall: GIF already sent by middleware — no further action | msg_id=%d",
+            message.message_id,
+        )
+        return None
+
+    # ── Branch 2: Photo interval (F8) — random media from SLAVIC_RANDOM_DIR ──
     if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
         logger.debug(
             "Slavic photo logic: _db=%s SLAVIC_PHOTO_INTERVAL=%d",
