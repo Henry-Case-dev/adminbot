@@ -149,6 +149,10 @@ class Settings:
     # Alan reply interval — every N messages, bot replies with random phrase
     ALAN_REPLY_INTERVAL: int = _env_int("ALAN_REPLY_INTERVAL", 10)
 
+    # Epic 52 (T-408): выключатель reply-блока Алана. false → reply молчит,
+    # счётчик продолжает инкрементиться, F7v2 silence greeting работает БЕЗУСЛОВНО.
+    ALAN_REPLIES_ENABLED: bool = _env_bool("ALAN_REPLIES_ENABLED", True)
+
     # Kostik reply probability — 0.0 (never) to 1.0 (always, legacy default)
     KOSTIK_REPLY_PROBABILITY: float = _env_float("KOSTIK_REPLY_PROBABILITY", 1.0)
 
@@ -225,6 +229,15 @@ class Settings:
     # поверх общего COMMON_COOLDOWN.
     SELFDEV_COOLDOWN: float = _env_duration("SELFDEV_COOLDOWN", "5m")
     WORK_COOLDOWN: float = _env_duration("WORK_COOLDOWN", "5m")
+
+    # ── Epic 52 (T-409, D213): выключатели common-медиа ──
+    # Точечный: work-подсервис (media/common/work). false → work_handler
+    # возвращает UNHANDLED, триггеры WorkWordFilter остаются зарегистрированными.
+    # Прод: false (требование пользователя, T-416).
+    COMMON_WORK_MEDIA_ENABLED: bool = _env_bool("COMMON_WORK_MEDIA_ENABLED", True)
+    # Глобальный рубильник ВСЕХ common-медиа (otboy/danger/selfdev/work)
+    # в единой точке CommonRelay.send_common. На проде НЕ выставляется.
+    COMMON_MEDIA_ENABLED: bool = _env_bool("COMMON_MEDIA_ENABLED", True)
 
     # ── Goodmorning (Epic 30) ──
     GOODMORNING_TIME: str = os.getenv("GOODMORNING_TIME", "07:00")           # HH:MM
@@ -416,6 +429,10 @@ class Settings:
     INFO_TEXT_FILE: str = _env_str("INFO_TEXT_FILE", "info_text.md")
 
     # ── DirectChat (Epic 50, Section 58) ───────────────────────
+    # Epic 52 (T-411, R52-4): keyword-триггер «бот»/«ботохуета»/«ботина»/
+    # «ботяра»/«ботик»/«ботохуйня» с word-boundary. false = keyword-ветка молчит
+    # (reply на бота и mention работают как раньше).
+    DIRECT_CHAT_BOTWORD_ENABLED: bool = _env_bool("DIRECT_CHAT_BOTWORD_ENABLED", True)
     # Последние сообщений чата для фона <Global_Context> (58.6).
     CHAT_GLOBAL_CONTEXT_LIMIT: int = _env_int("CHAT_GLOBAL_CONTEXT_LIMIT", 100)
     # Token Bucket: обращений подряд до кулдауна; <1 → дефолт 3 (WARNING).

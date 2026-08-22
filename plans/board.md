@@ -807,3 +807,42 @@
 **Updated:** 2026-08-17 — **Epic 32 (v2.30.0) АРХИВИРОВАН: T-242…T-248 ALL DONE & DEPLOYED (коммит `2bad5ff`, 1392 теста, PID 942078).** Открыт **Epic 33 «SmartModule Extension: FactCheck + SmartSearch + SearchAggregator» (v2.31.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R33-1…R33-8, решения D104–D111 в `plans/backlog.md`; T-249 (@Architect, дизайн) → T-250…T-258 (@Builder) → T-259/T-260 (@DevOps). ⚠️ Блокер D109: дословные тексты промптов — у пользователя. Без @Orchestrator. **→ 2026-08-17, Шаг 4b (@Builder): Epic 33 IMPLEMENTED (T-249 ✅, T-250…T-256 ✅, T-257-A…E ✅ — 10 новых тест-файлов, 150 тестов, полный прогон 1542 passed / 0 failed, `git diff --check` чист); блокер D109 СНЯТ (промпты 42.5.1/42.5.2 байт-в-байт); T-257-F — @Reviewer (ожидается); T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 5 (@Builder, фиксы ревью): @Reviewer NEEDS FIXES закрыты — BLOCKER-1 (реальные ключи в backlog.md R33-1 → плейсхолдеры; grep: ключи только в .env), MAJOR-1 (новая интеграция `test_epic33_router_isolation.py`: Dispatcher 0a/0c/0d/4c через feed_update — «найди ракету» → 1 ответ от search, factcheck → reply на target, observer 0a пишет память, danger/common живы), MINOR 1–4 (.env +4 явных ключа и чистый UTF-8-комментарий; убран `.lower()` в factcheck.py:72; `test_settings_helpers.py` 9 тестов вскрыл и закрыл `NameError: logging` в settings.py); прогон **1555 passed / 0 failed**. Повторное ревью @Reviewer ожидается.** **→ 2026-08-17, Шаг 5 (повторное ревью, @Reviewer): ✅ APPROVED — все замечания закрыты и подтверждены лично (BLOCKER-1: grep по фрагментам ключей — только .env; MAJOR-1: 4 теста через `Dispatcher.feed_update` содержательны; MINOR 1–4 ✅; промпты/пулы байт-в-байт повторно; роутеры 0c/0d не сдвинуты; `git diff --check` чист; полный прогон 1555 passed / 0 failed подтверждён лично). T-257 ЗАКРЫТ. Впереди: T-258 README (@Builder) → T-259/T-260 (@DevOps).** **→ 2026-08-17, Шаг 8 (@Memory, ФИНАЛЬНАЯ синхронизация): Epic 33 ✅ DEPLOYED & ARCHIVED — T-249…T-260 ALL DONE. Коммит `1172fb5` «feat(smartmodule): Epic 33 — FactCheck и SmartSearch с SearchAggregator (v2.31.0)» (32 файла, +3610/−43) + пуш в origin/master. Деплой на прод nik@198.46.175.136:/var/www/admin_bot: git pull ff `2bad5ff..1172fb5`, pip install duckduckgo-search 8.1.1, .env +6 ключей (бэкап `.env.bak.epic33`), systemctl restart → active (running) MainPID 948950, 0 traceback, «SmartModule FactCheck + SmartSearch (Epic 33) initialized». Тесты 1555 passed / 0 failed. Прод v2.31.0. Epics 1–33 ALL DEPLOYED. Цикл воркфлоу (Шаги 0–8) завершён.**
 **Updated:** 2026-08-18 — **Epic 36 (v2.31.3) АРХИВИРОВАН: T-274…T-280 ALL DONE & DEPLOYED (коммит `2e26690`, 1593 теста, PID 951645).** Открыт **Epic 37 «SmartModule: YouTubeSummarizer + WebSummarizer» (v2.32.0, IN PROGRESS)**: Шаг 1 (PM) ✅ — требования R37-1…R37-9, решения D124–D133 в `plans/backlog.md`; T-281 (@Architect, Section 46) → T-282…T-291 (@Builder) → T-292/T-293 (@DevOps). Без @Orchestrator.
 **Updated:** 2026-08-20 — **Epic 42 «Checkup» + Epic 43 «/info + live-редактор» открыты (Шаг 1 @PM ✅, target v2.34.0)**: требования R42-1…R42-6 / R43-1…R43-5, решения D158–D165, задачи T-323…T-342 в `plans/backlog.md`; T-323/T-332 (@Architect, Sections 51/52) → @Builder → @Reviewer → @DevOps (деплой v2.34.0 общий). Epic 41 (v2.33.1) — ждёт архивации (Шаг 8 @Memory). Без @Orchestrator.
+
+
+---
+
+### Epic 48–51 (v2.36.0): АРХИВИРОВАНО ✅ (2026-08-23, по MEMORY.md — DEPLOYED & CLOSED, коммит `b394e1e`, 2205 тестов, PID 1018603, user_version=2)
+
+- [x] Epic 48: откат degraded-саммари (LLM или ничего) — T-381…T-386
+- [x] Epic 49: чекап 400 (scrub C0, CHECKUP_MAX_INPUT_SYMBOLS, UX-сплит) — T-387…T-392
+- [x] Epic 50: DirectChat (роутер 0h, каноны R50-4/R50-7/R50-8, миграция 1→2) — T-393…T-400
+- [x] Epic 51: Intelligent Caching (SmartCache + Prompt Caching, Sections 59) — T-401…T-405
+- [x] Релиз v2.36.0 (миграция на остановленном боте + деплой) — T-406/T-407
+
+### Epic 52: Запрос пользователя 2026-08-23 (ALAN_REPLIES/common/slavik/direct_chat + ресёрч) — 🚧 IN PROGRESS (пользовательский запрос, 2026-08-23, Шаг 1 @PM ✅, target v2.37.0, P1)
+
+> Полный трек — `plans/backlog.md` (Epic 52). Требования R52-1…R52-8, решения D213/D214.
+> П1 — ALAN_REPLIES: убрать трейдинг, добавить ироничные темы (NixOS/нейрокластер/планшет/
+> продажа SSD/витамины 100500%/5-сек прогулка с гантелями/уличной тренажёр+реванш за колени),
+> дополнить старые темы; выключение через `ALAN_REPLIES_ENABLED=false` (F7v2 silence greeting НЕ
+> трогать). П2 — common/work: `COMMON_WORK_MEDIA_ENABLED=false` (точечный, D213) + глобальный
+> `COMMON_MEDIA_ENABLED`. П3 — Славик: одно сообщение = одно действие (dead page > GIF > рандом-медиа
+> > mimic > «пошел нахуй»); медиа замещает «пошел нахуй»; dead page без ругани и без медиа; join →
+> только «ДОЛБОЕБ ВЕРНУЛСЯ»; координация с message_counter. П3.1 (R52-8, T-417) — детект удаления
+> репоста dead page (InaccessibleMessage, D214) → удаление своей dead page или токсичная фраза.
+> П4 — direct_chat отвечает на «бот»/«ботохуета»+синонимы (word-boundary, `DIRECT_CHAT_BOTWORD_ENABLED`)
+> с reply to. П5 — ресёрч direct_chat: дополнение plans/RESEARCH.md (существует, Epic 50).
+> Итог: макс тесты (база 2205) + прогон + конфликты; README (иронично); коммит+пуш в origin/master; деплой. v2.37.0.
+
+- [ ] T-408 (@Builder, P1) — ALAN_REPLIES (handlers/alan.py): убрать трейдинг; добавить ироничные темы (NixOS/нейрокластер/планшет/SSD/витамины 100500%/5-сек прогулка/уличной тренажёр+колени); дополнить старые; конфиг ALAN_REPLIES_ENABLED (гейт ТОЛЬКО на реплики, F7v2 жив); обновить test_alan.py
+- [ ] T-409 (@Builder, P1) — common/work (handlers/common.py, services/common_relay.py): COMMON_WORK_MEDIA_ENABLED=false (точечный) + COMMON_MEDIA_ENABLED (глобальный) + .env.example (D213)
+- [ ] T-410 (@Builder, P1) — Славик (handlers/slavik.py, services/message_counter.py): одно сообщение = одно действие (dead page > GIF > рандом-медиа > mimic > «пошел нахуй»); медиа замещает «пошел нахуй»; dead page чистая; join → только «ДОЛБОЕБ ВЕРНУЛСЯ» (middleware: skip service-сообщений + data-флаг slavik_gif_sent)
+- [ ] T-411 (@Builder, P1) — direct_chat (handlers/direct_chat.py): ответ на «бот»/«ботохуета»+синонимы (word-boundary, минимальный список) с reply to; DIRECT_CHAT_BOTWORD_ENABLED (default true)
+- [ ] T-412 (@Researcher, P2) — ресёрч direct_chat (context7/duckduckgo/exa): дополнение plans/RESEARCH.md (keyword-триггеры + детект удаления сообщений, D214)
+- [ ] T-413 (@QA, P1) — макс покрытие тестами (T-408…T-411 + T-417) + обновление существующих (test_alan.py topic_coverage!) + прогон pytest 0 регрессий (база 2205) + проверка конфликтов (0a–0g > 0h)
+- [ ] T-414 (@Docs, P2) — README v2.37.0 (иронично) + MEMORY
+- [ ] T-415 (@DevOps, P1) — коммит + пуш **origin/master** на русском (ветка проекта — master, НЕ main)
+- [ ] T-416 (@DevOps, P1) — деплой: ssh git pull; .env (ALAN_REPLIES_ENABLED=false, COMMON_WORK_MEDIA_ENABLED=false + бэкап .env.bak.epic52); systemctl restart admin_bot; systemctl status (active, новый PID) + journalctl 0 traceback; smoke
+- [ ] T-417 (@Builder, P1) — Dead page: детект удаления репоста Славиком (R52-8, D214): маппинг в БД (repost → своя dead page); фильтр InaccessibleMessage (reply_to date==0); права → удалить свою dead page / 403 → токсичная фраза из пула 3–5+ с reply; одно действие; тесты
+
+**Updated:** 2026-08-23 — **Epic 52 (v2.37.0) 🚧 IN PROGRESS (пользовательский запрос, Шаг 1 @PM уточнён)**: зафиксированы R52-1…R52-8 (R52-8 — НОВОЕ: детект удаления репоста dead page), решения D213 (common: точечный COMMON_WORK_MEDIA_ENABLED + глобальный COMMON_MEDIA_ENABLED — пользователь просит именно work) и D214 (детект через InaccessibleMessage — Bot API не шлёт удаления в группах, getMessage удалён в 8.3), задачи T-408…T-417 (T-417 — НОВОЕ, п. 3.1 запроса), env-переменные: ALAN_REPLIES_ENABLED=false, COMMON_WORK_MEDIA_ENABLED=false (прод .env), COMMON_MEDIA_ENABLED/DIRECT_CHAT_BOTWORD_ENABLED (default true); F7v2 silence greeting НЕ трогать; координация с services/message_counter.py явно в T-410; пуш в origin/master (не main).

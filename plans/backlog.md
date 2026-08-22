@@ -5941,3 +5941,160 @@ CHAT_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 **Статус: Epic 51 — Шаг 1 (PM) ✅ (2026-08-20): Intelligent Caching (P1) — Exact Match Cache (R51-1: MD5+TTL 30м, без Trafilatura/Tavily/LLM) + Prompt Caching (R51-2: System → User Resolution Map → Bot Knowledge → динамика; system всегда на индексе 0). Требования R51-1…R51-5, решение D189, задачи T-401…T-405, target v2.36.0, baseline 2099. Открытые вопросы 9–13 (@Architect, Section 59). Epic 51 → In Progress (board.md). Передача @Architect (T-401, Section 59). Без @Orchestrator.**
 **Date: 2026-08-20**
+
+---
+
+## Epic 52: Запрос пользователя 2026-08-23 (ALAN_REPLIES/common/slavik/direct_chat + ресёрч) — 2026-08-23 🚧 IN PROGRESS (пользовательский запрос, @PM ✅, target v2.37.0)
+
+> **Цель:** Точечная перенастройка поведения бота по запросу пользователя 2026-08-23:
+> перефразировка ALAN_REPLIES (убрать трейдинг, добавить ироничные темы), выключение
+> common/media через env, доработка Славика (одно действие, медиа-замещение, dead page
+> без «пошел нахуй»), ответы direct_chat на «бот»/«ботохуета», и ресёрч direct_chat
+> через поисковики (context7 + duckduckgo/exa) с рекомендациями.
+> **Исполнители:** @Builder (T-408…T-411), @Researcher (T-412), @QA (T-413), @Docs (T-414),
+> @DevOps (T-415/T-416). Без @Orchestrator.
+> **Target:** v2.37.0.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R52-1** | **ALAN_REPLIES (П1):** в `handlers/alan.py` убрать ВСЕ фразы по трейдингу; добавить ироничные фразы по темам: линукс NixOS, нейрокластер, планшет, продажа SSD (кризис/рост цен), витамины life extension 100500%, 5-сек прогулка с гантелями, борьба с уличным тренажёром и реванш за колени; дополнить старые темы (тренировки/лонгковид/нейросети/жим дьявола); выключение через новый env `ALAN_REPLIES_ENABLED=false`. ⚠️ F7v2 silence greeting (в том же файле) НЕ трогать — работает при выключенном флаге. |
+| **R52-2** | **common/work медиа (П2):** в `handlers/common.py` + `services/common_relay.py` отключить медиа work-подсервиса через `COMMON_WORK_MEDIA_ENABLED=false` (default true); глобальный рубильник ВСЕХ common-медиа (otboy/danger/selfdev/work) — `COMMON_MEDIA_ENABLED` (default true). Решение D213. Триггеры/текстовое поведение не ломать. |
+| **R52-3** | **Славик (П3):** на одно входящее сообщение РОВНО ОДНО действие (приоритет: dead page > GIF > рандом-медиа > mimic > «пошел нахуй»); медиа (`slavik_random`, `slavic_chlen.mp4`) замещает фразу «пошел нахуй» (одно из двух, НЕ оба); dead page отвечает самим dead page, БЕЗ «пошел нахуй» и БЕЗ медиа; вход в чат (join) → ТОЛЬКО «ДОЛБОЕБ ВЕРНУЛСЯ» (`handlers/slava_presence.py`), БЕЗ гифки и БЕЗ рандом-медиа. Координация с `services/message_counter.py` (GIF_INTERVAL=5) обязательна. |
+| **R52-4** | **direct_chat (П4):** в `handlers/direct_chat.py` отвечать на «бот», «ботохуета» и синонимы (ботохуйня, ботина, ботяра, ботик) с reply на исходное сообщение; аккуратный word-boundary матчинг (без ложных срабатываний на «робот»/«ботва»), минимальный список; env `DIRECT_CHAT_BOTWORD_ENABLED` (default true). |
+| **R52-5** | **Ресёрч (П5):** `plans/RESEARCH.md` УЖЕ существует (183 стр., создан в Epic 50, раздел 3 — «бот»/«ботохуета»); @Researcher дополняет: keyword-триггеры best practices (word-boundary, минимальные списки, ложные срабатывания), анти-спам, НОВЫЙ раздел про детект удаления сообщений в группах (InaccessibleMessage — подтверждение D214); контекст: context7 (python-telegram-bot), при недоступности — duckduckgo, затем exa. |
+| **R52-6** | **Качество:** максимальное покрытие тестами П1–П4 + R52-8; полный прогон pytest с 0 регрессий (база 2205); проверка конфликтов `ALAN_REPLIES_ENABLED`/`COMMON_*_ENABLED`/`DIRECT_CHAT_BOTWORD_ENABLED` с соседними хендлерами. |
+| **R52-7** | **Релиз:** обновить README (иронично) + MEMORY; коммит+пуш в **origin/master** (ветка проекта — master, НЕ main) на русском (conventional); деплой на сервер (ssh git pull, правка .env с бэкапом `.env.bak.epic52`, systemctl restart admin_bot, status). |
+| **R52-8** | **Dead page delete (П3.1):** детект удаления Славиком своего репоста мёртвой страницы: (а) есть права на удаление → удалить СВОЮ dead page, отправленную в ответ; (б) прав нет → одна из пула 3–5+ токсичных фраз (стиль бота) с reply на вызвавшее сообщение. Ровно одно действие. Маппинг (chat, репост, ответ) в БД. Решение D214. |
+
+### Решения (PM)
+
+| # | Решение |
+|---|---------|
+| **D213** | **Epic 52 — common/work медиа (П2):** ДВА env-флага в `config/settings.py` + `.env.example`: (1) `COMMON_WORK_MEDIA_ENABLED` (bool, default **true**) — точечный выключатель work-подсервиса (`handlers/common.py::work_handler`, media/common/work); на проде ставится `false` — это ТРЕБОВАНИЕ пользователя; (2) `COMMON_MEDIA_ENABLED` (bool, default **true**) — глобальный рубильник ВСЕХ common-медиа (otboy/danger/selfdev/work) в единой точке `CommonRelay.send_common` (`services/common_relay.py`), по конвенции *_ENABLED (прецеденты OLYA_ENABLED/SUMMARY_ENABLED). **Обоснование:** пользователь говорит именно про work → точечный флаг минимально решает задачу БЕЗ побочных эффектов на otboy/danger/selfdev (их медиа остаются активны); глобальный — конвенция + аварийный рубильник на будущее (на проде не выставляется). При `false` хендлеры остаются зарегистрированными (триггеры распознаются), медиа НЕ отправляются, возврат `UNHANDLED` (пропагация живёт). |
+| **D214** | **Epic 52 — детект удаления репоста dead page (П3.1):** Bot API НЕ присылает боту update об удалении сообщений в группах (в `Update` нет `message_deleted`/`channel_post_deleted`; `getMessage` удалён из Bot API 8.3 — в aiogram 3.29.1 отсутствует; верифицировано PM). Детект — через `InaccessibleMessage`: когда на УДАЛЁННЫЙ репост Славика кто-то делает reply/quote, входящий update несёт `reply_to_message = InaccessibleMessage` (`date == 0` / isinstance; aiogram 3.x `MaybeInaccessibleMessage`). Маппинг {chat_id, slavik_repost_msg_id → bot_dead_page_msg_id(s), ts} сохраняется в БД при каждом ответе на репост (расширить `DeadPageRelay.send_dead_page` — возврат id отправленных сообщений, сейчас None). Ограничение (детект срабатывает при reply/quote на удалённый репост, активный probe невозможен) фиксируется в `plans/RESEARCH.md`. |
+
+### Задачи
+
+### T-408 (@Builder) — ALAN_REPLIES: перефраз + env (R52-1)
+
+**Приоритет:** P1. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-408-A: `handlers/alan.py` — удалить ВСЕ фразы по трейдингу (фьючерсы/рынок/биток/график/шорт/лонг/трейдеры — секции «Фьючерсы» и «Смешанные» с рынком); добавить ироничные пулы: NixOS/линукс (например «поставил никсы — теперь дефолтный префикс на всю жизнь»), нейрокластер, планшет, продажа SSD (кризис/рост цен), витамины life extension с 100500% в составе, 5-сек прогулка с гантелями по коридору, борьба с уличным тренажёром + реванш за повреждённые в нём колени; ДОПОЛНИТЬ старые темы (тренировки/лонгковид/нейросети/жим дьявола) новыми фразами в том же тоне
+- [ ] T-408-B: конфиг `ALAN_REPLIES_ENABLED` (default true) в `config/settings.py` + `.env.example`; гейт в `alan_handler` закрывает ТОЛЬКО reply-блок (count%interval) — ⚠️ F7v2 silence greeting (строки ~100–180) работает БЕЗУСЛОВНО, при `ALAN_REPLIES_ENABLED=false` тоже (счётчик можно продолжать инкрементить)
+- [ ] T-408-C: обновить `tests/test_alan.py`: `test_topic_coverage` (сейчас требует «фьючерс» — заменить на новые темы: никсы/нейрокластер/планшет/ссд/витамин/тренажёр/колени); добавить тест «нет трейдинг-слов» (фьючерс/биток/рынок/трейдер/график/шорт/лонг) и тест «F7v2 работает при ALAN_REPLIES_ENABLED=false»
+
+**DoD:** трейдинг-фраз нет; новые ироничные темы присутствуют; `ALAN_REPLIES_ENABLED=false` глушит только реплики, F7v2 silence greeting жив.
+
+### T-409 (@Builder) — common/media: env-выключатель (R52-2)
+
+**Приоритет:** P1. **Зависимости:** нет. **Оценка:** 0.25d.
+
+- [ ] T-409-A: `handlers/common.py::work_handler` — точечный гейт `COMMON_WORK_MEDIA_ENABLED` (default true); false → work-медиа (media/common/work) не отправляются, хендлер возвращает UNHANDLED, триггеры WorkWordFilter остаются
+- [ ] T-409-B: `services/common_relay.py::send_common` — глобальный гейт `COMMON_MEDIA_ENABLED` (default true); false → НИКАКИЕ common-медиа (otboy/danger/selfdev/work) не отправляются, без логики-исключений
+- [ ] T-409-C: оба флага в `config/settings.py` (`_env_bool`, секция Common Service, D213) + `.env.example` с комментариями
+
+**DoD:** `COMMON_WORK_MEDIA_ENABLED=false` глушит ТОЛЬКО work (otboy/danger/selfdev живы); `COMMON_MEDIA_ENABLED=false` глушит все common-медиа; текст/триггеры не ломаются.
+
+### T-410 (@Builder) — Славик: одно действие + медиа-замещение + dead page (R52-3)
+
+**Приоритет:** P1. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-410-A: `services/message_counter.py` (middleware прикреплён к slavik_router, bot.py:137): (1) ПРОПУСКАТЬ service-сообщения (`new_chat_members`/`left_chat_member`) — без инкремента счётчика и без GIF (сейчас гифка шлётся и на вход Славика в чат); (2) при срабатывании GIF_INTERVAL класть `data["slavik_gif_sent"]=True` для хендлера
+- [ ] T-410-B: `handlers/slavik.py::slavik_catchall_handler` — жёсткий приоритет РОВНО ОДНОГО действия: (0) d_pages-репост → UNHANDLED (defense-in-depth, есть); (0.5) `new_chat_members`/`left_chat_member` → UNHANDLED (join обрабатывает ТОЛЬКО slava_presence); (1) `data["slavik_gif_sent"]` → return БЕЗ рандом-медиа/мимикри/«пошёл нахуй» (гифка уже отправлена); (2) рандом-медиа (SLAVIC_PHOTO_INTERVAL) — ЗАМЕЩАЕТ «пошёл нахуй»; (3) mimic — ЗАМЕЩАЕТ; (4) «пошёл нахуй» — ТОЛЬКО если ничего выше не сработало
+- [ ] T-410-C: join Славика → бот шлёт ТОЛЬКО «ДОЛБОЕБ ВЕРНУЛСЯ» (`handlers/slava_presence.py`), БЕЗ гифки и БЕЗ рандом-медиа (проверка интеграционным тестом через feed_update)
+
+**DoD:** одно сообщение Славика → одно действие (dead page > GIF > рандом-медиа > mimic > «пошёл нахуй»); медиа замещает ругательство; dead page чистая; join → только «ДОЛБОЕБ ВЕРНУЛСЯ».
+
+### T-411 (@Builder) — direct_chat: ответ на «бот»/«ботохуета» (R52-4)
+
+**Приоритет:** P1. **Зависимости:** нет. **Оценка:** 0.25d.
+
+- [ ] T-411-A: конфиг `DIRECT_CHAT_BOTWORD_ENABLED` (default true) в `config/settings.py` + `.env.example`
+- [ ] T-411-B: `handlers/direct_chat.py::_is_direct_trigger` — доп. ветка под флагом: word-boundary regex на минимальном списке `бот|ботик|ботяра|ботина|ботохуета|ботохуйня` (регистронезависимо; границы `(?<![0-9a-zа-яё_])`/`(?![0-9a-zа-яё_])` — «робот»/«ботва» НЕ триггерят, «ботохуета» матчится своим токеном, не через «бот»); вызов `service.handle()` — reply на исходное сообщение уже реализован (`direct_chat_service.py`:113,123 — `message.message_id`); без изменений канонов R50-4/R50-7/R50-8
+
+**DoD:** «бот»/«ботохуета»+синонимы → ответ с reply на исходное; ложные срабатывания минимальны; `DIRECT_CHAT_BOTWORD_ENABLED=false` → ветка молчит.
+
+### T-412 (@Researcher) — Ресёрч direct_chat через поисковики (R52-5)
+
+**Приоритет:** P2. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-412-A: context7 (python-telegram-bot: reply, rate limiting, tone) при доступности; при недоступности — duckduckgo, затем exa; темы: keyword-триггеры (word-boundary, минимальные списки, ложные срабатывания), анти-спам/throttle, reply-паттерны; ОБЯЗАТЕЛЬНО: детект удаления сообщений в группах (InaccessibleMessage) — подтвердить/опровергнуть дизайн D214
+- [ ] T-412-B: дополнение `plans/RESEARCH.md` (файл УЖЕ существует, 183 строки, Epic 50 — раздел 3 уже про «бот»/«ботохуета»; дописывается, НЕ перезаписывается): новый раздел про keyword-триггер + новый раздел про удаление сообщений; обновить «Сводный чек-лист» и «Источники»
+
+**DoD:** RESEARCH.md дополнен (keyword-триггеры + детект удаления), рекомендации конкретны и применимы.
+
+### T-413 (@QA) — Тесты + прогон + конфликты (R52-6)
+
+**Приоритет:** P1. **Зависимости:** T-408…T-411. **Оценка:** 1d.
+
+- [ ] T-413-A: НОВЫЕ тесты: ALAN (env on/off; нет трейдинг-слов: фьючерс/биток/рынок/трейдер/график/шорт/лонг; есть новые темы: никсы/нейрокластер/планшет/ссд/витамин/тренажёр/колени; F7v2 жив при ALAN_REPLIES_ENABLED=false); common (оба флага on/off; изоляция: work off ≠ otboy/danger/selfdev off); Славик (join → ТОЛЬКО «ДОЛБОЕБ ВЕРНУЛСЯ»; GIF+«пошёл нахуй» НЕ вместе; GIF+рандом НЕ вместе; одно действие на сообщение; dead page без ругани/медиа); direct_chat («бот»/«ботохуета»/ботина/ботяра → reply с reply_to; «робот»/«ботва» НЕ триггерят; DIRECT_CHAT_BOTWORD_ENABLED=false молчит; приоритет 0a–0g над 0h); T-417 (см. T-417-E)
+- [ ] T-413-B: ОБНОВИТЬ существующие тесты: `tests/test_alan.py` (test_topic_coverage: «фьючерс» → новые темы; мин. размер пула); `tests/test_message_counter.py` (service-сообщения, data-флаг); `tests/test_slavik_handlers.py` (приоритеты/join); `tests/test_direct_chat.py` (keyword-триггер); `tests/test_common.py` (флаги)
+- [ ] T-413-C: полный прогон pytest — 0 регрессий (база 2205); проверка конфликтов: direct_chat 0h (после 0g checkup — «бот, чекни сервак» должен отвечать checkup, НЕ direct_chat); ALAN_REPLIES_ENABLED с alan_greeting (F7v2); COMMON_* с olya/slavik-медиа (изоляция)
+
+**DoD:** покрытие максимальное; 0 регрессий; конфликтов нет.
+
+### T-414 (@Docs) — README (иронично) + MEMORY (R52-7)
+
+**Приоритет:** P2. **Зависимости:** T-413. **Оценка:** 0.25d.
+
+- [ ] T-414-A: README v2.37.0 (иронично про NixOS/SSD/витамины 100500%/колени/уличной тренажёр/одно действие Славика/бот-word триггер) + `plans/MEMORY.md` (Epic 52, v2.37.0) + RESEARCH.md (в T-412)
+
+**DoD:** доки синхронизированы.
+
+### T-415 (@DevOps) — Коммит + пуш в master (R52-7)
+
+**Приоритет:** P1. **Зависимости:** T-414. **Оценка:** 0.1d.
+
+- [ ] T-415-A: коммит код+тесты+доки одним коммитом на русском (conventional); пуш **origin/master** (ветка проекта — master, НЕ main)
+
+**DoD:** пуш в origin/master выполнен.
+
+### T-416 (@DevOps) — Деплой на сервер (R52-7)
+
+**Приоритет:** P1. **Зависимости:** T-415. **Оценка:** 0.25d.
+
+- [ ] T-416-A: ssh на сервер; `git pull`; правка `.env` (бэкап `.env.bak.epic52`): `ALAN_REPLIES_ENABLED=false`, `COMMON_WORK_MEDIA_ENABLED=false` (`COMMON_MEDIA_ENABLED`/`DIRECT_CHAT_BOTWORD_ENABLED` не ставим — default true); `systemctl restart admin_bot`; `systemctl status admin_bot` (active running, новый PID) + `journalctl -n 50` (0 traceback); smoke: alan-ирония (реплики молчат при false, F7v2 жив), славик (одно действие), direct_chat reply на «бот»
+
+**DoD:** бот задеплоен, active (running), smoke зелёный.
+
+### T-417 (@Builder) — Dead page: детект удаления репоста Славиком (R52-8, D214)
+
+**Приоритет:** P1. **Зависимости:** T-410. **Оценка:** 0.75d.
+
+- [ ] T-417-A: маппинг в БД (`services/database.py`): при ответе на репост dead page сохранять {chat_id, slavik_repost_msg_id, bot_dead_page_msg_id(s), ts} (ключ вида `dead_page_repost_map:{chat_id}:{msg_id}` — прецедент `dead_page_last_sent`); `DeadPageRelay.send_dead_page` — вернуть id отправленных сообщений (сейчас возвращает None); TTL-очистка маппинга (≈24ч)
+- [ ] T-417-B: детект: фильтр на `reply_to_message` типа `InaccessibleMessage` (`date == 0` / isinstance; aiogram 3.29 `MaybeInaccessibleMessage`) в новом хендлере (роутер рядом с dead_page_router, позиция до slavik_router) + матчинг `message_id` по маппингу БД; срабатывание РОВНО ОДИН раз на пару (репост, чат) — после реакции маппинг удаляется; НЕ реагировать на события собственных сообщений бота
+- [ ] T-417-C: поведение: (а) есть права на удаление → `bot.delete_message` СВОЕЙ dead page (id из маппинга), в чат НИЧЕГО не слать; (б) `403`/нет прав → отправить в чат ОДНУ из пула токсичных фраз (стиль бота: «снёс репост мёртвой страницы? стыдно стало?» и т.п.) с reply на вызвавшее сообщение; ровно одно действие
+- [ ] T-417-D: пул `DEAD_PAGE_DELETE_PHRASES` (минимум 3–5, токсичный тон, упоминание удаления репоста) в коде; никаких пересечений с другими хендлерами (матчинг ТОЛЬКО по маппингу)
+- [ ] T-417-E: тесты (в T-413-A): мок InaccessibleMessage (reply_to на удалённый репост) → (а) права → своя dead page удалена, ничего не послано; (б) 403 → фраза из пула с reply_to; TTL и очистка маппинга; отсутствие повторных срабатываний; не-триггеры (обычный reply на живой репост) не ломаются
+
+**DoD:** Славик удалил репост → бот задетектил (reply/quote на удалённый репост): либо удалил свою dead page, либо выдал токсичную фразу; ровно одно действие; ограничение Bot API (нет real-time детекта) задокументировано в RESEARCH.md.
+
+### Новые env-переменные (Epic 52)
+
+| Переменная | Дефолт | Прод .env (T-416) | Где |
+|-----------|--------|-------------------|-----|
+| `ALAN_REPLIES_ENABLED` | `true` | `false` | `config/settings.py` + `.env.example` |
+| `COMMON_MEDIA_ENABLED` | `true` | не ставим (default) | `config/settings.py` + `.env.example` |
+| `COMMON_WORK_MEDIA_ENABLED` | `true` | `false` | `config/settings.py` + `.env.example` |
+| `DIRECT_CHAT_BOTWORD_ENABLED` | `true` | не ставим (default) | `config/settings.py` + `.env.example` |
+
+Все — `_env_bool`, паттерн `*_ENABLED` (прецеденты OLYA_ENABLED/SUMMARY_ENABLED).
+
+### Риски (Epic 52)
+
+1. **Детект удаления репоста ограничен Bot API** — нет update об удалении сообщений в группах, `getMessage` удалён из Bot API 8.3 (D214). Детект срабатывает при reply/quote на удалённый репост. Не блокер: основной кейс («кто-то заметил, что Славик снёс репост») работает; ограничение фиксируется в RESEARCH.md.
+2. **Ложные срабатывания direct_chat на «бот»** — минимальный список + word-boundary; роутеры 0a–0g идут РАНЬШЕ 0h (factcheck/search/checkup сохраняют приоритет); интеграционный тест в T-413.
+3. **`test_alan.py::test_topic_coverage` требует «фьючерс»** — правка теста в ТОМ ЖЕ коммите (T-408-C/T-413-B), иначе регрессия.
+4. **COMMON_WORK_MEDIA_ENABLED=false снимает work-реакции во всех чатах** — это прямое требование пользователя; otboy/danger/selfdev и глобальный `COMMON_MEDIA_ENABLED` не трогаются.
+5. **Каноны/пулы не нарушаются** — R50-4/R50-7/R50-8 (direct_chat) VERBATIM; ALAN_REPLIES — НОВЫЙ пул (канон только порядок сборки не затрагивает); миграций БД — нет (маппинг T-417 — аддитивные ключи).
+
+### Файлы (планируемые)
+
+`handlers/alan.py`, `handlers/common.py`, `services/common_relay.py`, `services/message_counter.py`, `handlers/slavik.py`, `handlers/dead_page_trigger.py`, `services/dead_page_relay.py` (возврат msg_id), `services/database.py` (маппинг T-417), `handlers/direct_chat.py`, `config/settings.py` + `.env.example`; тесты: новые `tests/test_dead_page_delete.py`, обновления `tests/test_alan.py` (topic_coverage/трейдинг-слова/F7v2), `tests/test_message_counter.py`, `tests/test_slavik_handlers.py`, `tests/test_direct_chat.py`, `tests/test_common.py`; `plans/RESEARCH.md` (дополнение, T-412), `README.md`, `plans/MEMORY.md`.
+
+---
+
+**Статус: Epic 52 — Шаг 1 (PM) ✅ (2026-08-23): пользовательский запрос — ALAN_REPLIES (убрать трейдинг, ироничные темы NixOS/нейрокластер/планшет/SSD/витамины/5-сек прогулка/уличной тренажёр+колени, F7v2 НЕ трогать) + env `ALAN_REPLIES_ENABLED=false`; common/work — ДВА флага D213 (`COMMON_WORK_MEDIA_ENABLED=false` точечный + `COMMON_MEDIA_ENABLED` глобальный); Славик (одно действие с приоритетом dead page > GIF > рандом-медиа > mimic > «пошёл нахуй», координация с message_counter, join → только «ДОЛБОЕБ ВЕРНУЛСЯ»); direct_chat reply на «бот»/«ботохуета»+синонимы с word-boundary и `DIRECT_CHAT_BOTWORD_ENABLED`; НОВОЕ R52-8/T-417 — детект удаления репоста dead page через InaccessibleMessage (D214: Bot API не шлёт удаления в группах) + пул токсичных фраз; ресёрч — дополнение plans/RESEARCH.md. Задачи T-408…T-417, target v2.37.0, baseline 2205, пуш в origin/master. Без @Orchestrator.**
+**Date: 2026-08-23**

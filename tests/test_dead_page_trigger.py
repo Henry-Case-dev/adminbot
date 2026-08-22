@@ -9,6 +9,18 @@ from config.settings import settings
 class TestDeadPageTrigger:
     """Tests for dead_page_trigger handler (Epic 22 / D53: only Slava's reposts)."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_dedup_state(self):
+        """Сброс dedup-состояния между тестами (модульные OrderedDict/dict)."""
+        import handlers.dead_page_trigger as dpt
+        dpt._seen_media_groups.clear()
+        dpt._media_group_bot_ids.clear()
+        dpt._pending_media_group_ids.clear()
+        yield
+        dpt._seen_media_groups.clear()
+        dpt._media_group_bot_ids.clear()
+        dpt._pending_media_group_ids.clear()
+
     def make_forward_message(self, username="d_pages", chat_id=-100123,
                              user_id=None):
         """Create a Message with forward_origin from a channel."""
@@ -149,3 +161,126 @@ class TestDeadPageTrigger:
 
         await on_forward(msg)
         mock_relay.send_dead_page.assert_called_once_with(-100123, slot="repost")
+
+    # ── Epic 52 (T-417): маппинг «репост → dead page бота» ──
+
+    @pytest.mark.asyncio
+    async def test_mapping_recorded_after_repost(self, mock_relay, mock_db):
+        """T-417 (Section 61.6.2): send_dead_page вернул bot_msg_ids →
+        записан маппинг {chat_id, repost_msg_id, bot_ids}."""
+        setup_dead_page(mock_relay, mock_db)
+        mock_relay.send_dead_page = AsyncMock(return_value=[100, 101])
+        mock_db.record_dead_page_repost_map = AsyncMock()
+
+        msg = self.make_forward_message(username="d_pages")
+
+        await on_forward(msg)
+
+        mock_db.record_dead_page_repost_map.assert_awaited_once_with(
+            -100123, msg.message_id, [100, 101]
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_mapping_when_send_failed(self, mock_relay, mock_db):
+        """T-417: send_dead_page вернул None → маппинг НЕ пишется."""
+        setup_dead_page(mock_relay, mock_db)
+        mock_relay.send_dead_page = AsyncMock(return_value=None)
+        mock_db.record_dead_page_repost_map = AsyncMock()
+
+        msg = self.make_forward_message(username="d_pages")
+
+        await on_forward(msg)
+
+        mock_db.record_dead_page_repost_map.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_db_error_on_record_graceful(self, mock_relay, mock_db):
+        """T-417: ошибка записи маппинга → не падает."""
+        setup_dead_page(mock_relay, mock_db)
+        mock_relay.send_dead_page = AsyncMock(return_value=[100])
+        mock_db.record_dead_page_repost_map = AsyncMock(
+            side_effect=RuntimeError("db down")
+        )
+
+        msg = self.make_forward_message(username="d_pages")
+
+        await on_forward(msg)  # не должно бросить исключение
+
+    # ── M1 (review-fix): маппинг для ВСЕХ элементов альбома ──
+
+    @pytest.mark.asyncio
+    async def test_mapping_recorded_for_all_album_messages(self, mock_relay, mock_db):
+        """M1: дедуп скипает повторную отправку, но маппинг пишется и для
+        2-го элемента альбома (тем же набором bot_ids) — reply на удалённый
+        2-й элемент найдёт маппинг."""
+        setup_dead_page(mock_relay, mock_db)
+        mock_relay.send_dead_page = AsyncMock(return_value=[100, 101])
+        mock_db.record_dead_page_repost_map = AsyncMock()
+
+        msg1 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg1, "media_group_id", "mg_map_001")
+        object.__setattr__(msg1, "message_id", 1)
+
+        msg2 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg2, "media_group_id", "mg_map_001")
+        object.__setattr__(msg2, "message_id", 2)
+
+        await on_forward(msg1)
+        await on_forward(msg2)
+
+        assert mock_relay.send_dead_page.call_count == 1       # дедуп жив
+        mock_db.record_dead_page_repost_map.assert_any_await(-100123, 1, [100, 101])
+        mock_db.record_dead_page_repost_map.assert_any_await(-100123, 2, [100, 101])
+
+    @pytest.mark.asyncio
+    async def test_dedup_no_mapping_when_send_failed(self, mock_relay, mock_db):
+        """M1: send_dead_page вернул None для первого элемента → маппинга нет
+        ни для первого, ни для дублей (нечего удалять)."""
+        setup_dead_page(mock_relay, mock_db)
+        mock_relay.send_dead_page = AsyncMock(return_value=None)
+        mock_db.record_dead_page_repost_map = AsyncMock()
+
+        msg1 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg1, "media_group_id", "mg_map_none")
+        object.__setattr__(msg1, "message_id", 1)
+        msg2 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg2, "media_group_id", "mg_map_none")
+        object.__setattr__(msg2, "message_id", 2)
+
+        await on_forward(msg1)
+        await on_forward(msg2)
+
+        mock_db.record_dead_page_repost_map.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_mapping_recorded_for_all_album_messages_concurrent(self, mock_relay, mock_db):
+        """B1 (review-fix): aiogram 3.29.1 с handle_as_tasks=True обрабатывает
+        апдейты альбома конкурентно (asyncio.create_task на каждый апдейт) —
+        второй элемент может попасть в dedup-ветку, пока первый ещё внутри
+        send_dead_page (медленный сетевой вызов, смоделирован asyncio.sleep).
+        Маппинг {репост → dead page бота} должен быть записан для ОБОИХ
+        message_id — reply на удалённый 2-й элемент альбома найдёт маппинг."""
+        import asyncio
+
+        setup_dead_page(mock_relay, mock_db)
+
+        async def slow_send_dead_page(chat_id, slot="repost"):
+            await asyncio.sleep(0.1)
+            return [100, 101]
+
+        mock_relay.send_dead_page = AsyncMock(side_effect=slow_send_dead_page)
+        mock_db.record_dead_page_repost_map = AsyncMock()
+
+        msg1 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg1, "media_group_id", "mg_b1_concurrent")
+        object.__setattr__(msg1, "message_id", 1)
+
+        msg2 = self.make_forward_message(username="d_pages")
+        object.__setattr__(msg2, "media_group_id", "mg_b1_concurrent")
+        object.__setattr__(msg2, "message_id", 2)
+
+        await asyncio.gather(on_forward(msg1), on_forward(msg2))
+
+        assert mock_relay.send_dead_page.call_count == 1   # дедуп жив
+        mock_db.record_dead_page_repost_map.assert_any_await(-100123, 1, [100, 101])
+        mock_db.record_dead_page_repost_map.assert_any_await(-100123, 2, [100, 101])

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import logging
 import time
 import aiosqlite
@@ -158,6 +159,21 @@ class DatabaseService:
             key        TEXT PRIMARY KEY,
             payload    TEXT NOT NULL,
             created_at REAL NOT NULL
+        );
+
+        -- ── Dead page repost map (Epic 52, Section 61.6.2, T-417) ──
+        -- Маппинг «репост Славика (в группе) → dead page бота (id в группе)»
+        -- для детекта удаления репоста через InaccessibleMessage. Аддитивно,
+        -- CREATE IF NOT EXISTS (миграций нет, R52-8).
+        -- Индекс по (chat_id, repost_msg_id) НЕ создаём отдельно — UNIQUE
+        -- авто-создаёт его (sqlite_autoindex, L4 review-fix).
+        CREATE TABLE IF NOT EXISTS dead_page_repost_map (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id       INTEGER NOT NULL,
+            repost_msg_id INTEGER NOT NULL,          -- message_id репоста Славика в группе
+            bot_msg_ids   TEXT    NOT NULL,          -- JSON-массив id dead page бота в группе
+            created_at    REAL    NOT NULL,          -- time.time()
+            UNIQUE (chat_id, repost_msg_id)
         );
     """
     
@@ -444,6 +460,84 @@ class DatabaseService:
             (key, str(msg_id)),
         )
         await self.db.commit()
+
+    # ── Dead Page Repost Map (Epic 52 / T-417, Section 61.6.2) ─────
+
+    _DEAD_PAGE_REPOST_MAP_TTL_SECONDS = 86400   # 24ч
+    _DEAD_PAGE_REPOST_MAP_CAP = 500             # cap-очистка
+
+    async def record_dead_page_repost_map(
+        self, chat_id: int, repost_msg_id: int, bot_msg_ids: list[int]
+    ) -> None:
+        """INSERT OR REPLACE маппинга {репост Славика → dead page бота}.
+
+        Ленивая TTL-очистка (> 24ч) + cap-очистка (оставить последние 500 по id).
+        """
+        now = time.time()
+        await self.db.execute(
+            "DELETE FROM dead_page_repost_map WHERE created_at < ?",
+            (now - self._DEAD_PAGE_REPOST_MAP_TTL_SECONDS,),
+        )
+        await self.db.execute(
+            "INSERT OR REPLACE INTO dead_page_repost_map "
+            "(chat_id, repost_msg_id, bot_msg_ids, created_at) VALUES (?, ?, ?, ?)",
+            (chat_id, repost_msg_id, json.dumps(bot_msg_ids), now),
+        )
+        # cap-очистка ПОСЛЕ вставки: оставить последние CAP по id (иначе
+        # количество осциллирует 500/501 на границе)
+        await self.db.execute(
+            "DELETE FROM dead_page_repost_map WHERE id NOT IN "
+            "(SELECT id FROM dead_page_repost_map ORDER BY id DESC LIMIT ?)",
+            (self._DEAD_PAGE_REPOST_MAP_CAP,),
+        )
+        await self.db.commit()
+        logger.info(
+            "[dead_page_repost_map] recorded | chat=%s | repost_msg_id=%s | bot_ids=%s",
+            chat_id, repost_msg_id, bot_msg_ids,
+        )
+
+    async def get_dead_page_repost_map(self, chat_id: int, repost_msg_id: int) -> list[int] | None:
+        """bot_msg_ids по (chat_id, repost_msg_id); None = маппинга нет."""
+        cursor = await self.db.execute(
+            "SELECT bot_msg_ids FROM dead_page_repost_map "
+            "WHERE chat_id = ? AND repost_msg_id = ?",
+            (chat_id, repost_msg_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        try:
+            return json.loads(row["bot_msg_ids"])
+        except (ValueError, TypeError):
+            logger.warning(
+                "[dead_page_repost_map] broken JSON | chat=%s | repost_msg_id=%s",
+                chat_id, repost_msg_id,
+            )
+            return None
+
+    async def delete_dead_page_repost_map(self, chat_id: int, repost_msg_id: int) -> None:
+        """Снять маппинг (срабатывание ровно один раз на пару (чат, репост))."""
+        await self.db.execute(
+            "DELETE FROM dead_page_repost_map WHERE chat_id = ? AND repost_msg_id = ?",
+            (chat_id, repost_msg_id),
+        )
+        await self.db.commit()
+
+    async def try_claim_dead_page_repost_map(
+        self, chat_id: int, repost_msg_id: int
+    ) -> bool:
+        """Атомарно снять маппинг; True = claim выполнен, False = уже снят.
+
+        M2 (review-fix): DELETE + rowcount — при двойном reply на удалённый
+        репост в одном цикле оба хендлера успевают прочитать маппинг до
+        delete, но фразу отправляет ровно первый claimer.
+        """
+        cursor = await self.db.execute(
+            "DELETE FROM dead_page_repost_map WHERE chat_id = ? AND repost_msg_id = ?",
+            (chat_id, repost_msg_id),
+        )
+        await self.db.commit()
+        return cursor.rowcount == 1
 
     # ── Slavic Photo Counter (Epic 12) ──
 

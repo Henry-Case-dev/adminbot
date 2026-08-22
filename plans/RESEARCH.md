@@ -1,340 +1,462 @@
-# RESEARCH: Telegram API + aiogram 3.x контекст
+# Исследование и рекомендации по подсервису `direct_chat` (AdminBot)
 
-**Дата исследования:** 2026-08-16 (PM) → **верификация @Architect (T-173-F): 2026-08-16**
-**Цель:** фактический контекст для архитектуры Telegram-бота (aiogram 3 + SQLite/aiosqlite + sqlite-vec + FTS5 + APScheduler + OpenAI-совместимый LLM API).
+**Контекст:** Telegram-бот на aiogram 3.x. Подсервис `direct_chat` отвечает на сообщения,
+адресованные боту: reply на своё сообщение, упоминание `@username`/text_mention, или
+fallback-regex. Все ответы — строгий reply на обращающегося. Контекст собирается через LLM
+(RAG-память + ветка reply + глобальный контекст), есть token-bucket throttle.
 
-> ✅ **T-173-F выполнен (@Architect, 2026-08-16).** Данные ниже верифицированы/дополнены инструментами
-> из требования R18. Ограничения инструментов зафиксированы в секции «Методология». Нумерация секций
-> a)–h) сохранена, правки — инлайном в секциях + новые блоки «T-173-F» в конце секций e), g), h).
+**Ключевые файлы:** `handlers/direct_chat.py`, `services/direct_chat_service.py`.
 
----
-
-## Методология исследования (context7 + duckduckgo/exa) — T-173-F, 2026-08-16
-
-| Инструмент | Статус | Что получено |
-|------------|--------|--------------|
-| **context7** (`context7_resolve-library-id` + `context7_query-docs`) | ❌ НЕДОСТУПЕН — MCP-сервер возвращает `Invalid API key. Please check your API key. API keys should start with 'ctx7sk' prefix` (проблема конфигурации сервера, не transient: 2 попытки) | — |
-| **duckduckgo** (MCP `duckduckgo_web_search`) | ❌ НЕДОСТУПЕН — `DDG detected an anomaly in the request, you are likely making requests too quickly` (2 попытки) | — |
-| **exa** (`exa_web_search_exa`, `exa_web_fetch_exa`) — резервный инструмент по R18 | ✅ РАБОТАЕТ | Telegram-лимиты (4096, 1 msg/s/чат, 20 msg/min группа, ~30 msg/s глобально), sqlite-vec issue #45 (Windows MSVC), FTS5 токенизация/BM25, aiogram+APScheduler паттерны, DeepSeek OpenAI-совместимость |
-| **webfetch** (docs.aiogram.dev, документация aiogram 3.30.0) | ✅ РАБОТАЕТ (страницы тяжёлые, контент подтверждён — сигнатуры и версии совпали с уже зафиксированными данными) | BaseMiddleware, Router/Dispatcher, aiogram 3.30.0 актуальна |
-
-**Правило на будущее:** context7 и duckduckgo в текущей конфигурации среды недоступны; рабочий стек для верификации — exa + webfetch официальных доков.
-
-### Новые данные, полученные при верификации (2026-08-16)
-
-1. **sqlite-vec Windows (важно, RESEARCH §e):** PyPI-колесо до v0.1.2-alpha.9 собиралось MinGW → MSVC-Python (python.org / Microsoft Store) падал с `The specified module could not be found` (issue asg017/sqlite-vec#45, #13). **С v0.1.2-alpha.9 автор перешёл на MSVC-сборку** — на Windows 11 + CPython 3.11/3.12 загрузка работает; в issue #13 подтверждено закрытие. Вывод: ставить `sqlite-vec>=0.1.2` (не alpha), но try/except при `load_extension` ВСЁ РАВНО обязателен (R3) — на проде и локально возможны любые окружения.
-2. **Per-connection загрузка подтверждена на практике** (basic-memory issue #735): модуль vec0 регистрируется **на каждое соединение отдельно**; «no such module: vec0» на другом соединении — классический баг. В aiosqlite: `await db.enable_load_extension(True)` / `await db.load_extension(path)` (aiosqlite ≥ 0.20, async-методы) сразу после `connect()`.
-3. **FTS5:** `unicode61` — регистронезависимый, без стемминга для русского; для fallback-поиска по русскому использовать точные токены и префиксы `term*`; `ORDER BY rank` (BM25); ввод от пользователя в MATCH — экранировать (оборачивать в кавычки), чтобы символы `"`, `*` не ломали парсер.
-4. **APScheduler + aiogram 3 (актуальные примеры 2025–2026):** `AsyncIOScheduler` в том же event loop; `scheduler.start()` до `dp.start_polling(bot)`; `scheduler.shutdown()` в `finally`; `CronTrigger(hour="0,6,12,18", minute=0)`; ловить `aiogram.exceptions.TelegramRetryAfter` → `await asyncio.sleep(e.retry_after)`; persistent jobstore (SQLAlchemyJobStore) — ошибки pickle (`cannot pickle 'SSLContext' object`), использовать ТОЛЬКО MemoryJobStore.
-5. **OpenAI-совместимый контракт (DeepSeek/шлюзы, 2026):** `/chat/completions` + `/embeddings`, `Authorization: Bearer`; шлюзы-агрегаторы (включая apinet.cloud) следуют этому контракту; base_url выносить в конфиг (`https://apinet.cloud/v1`), модель в конфиг; ответ `choices[0].message.content`; эмбеддинги `data[0].embedding`.
+**Метод:** поиск по DuckDuckGo/Exa по кейсам похожих ботов + документация aiogram 3.x
+(официальные docs aiogram.dev). Context7 был недоступен (нет валидного API-ключа), поэтому
+документация взята напрямую с docs.aiogram.dev и GitHub-обсуждений aiogram.
 
 ---
 
-## a) aiogram 3.x: структура проекта, Router/Dispatcher, middleware, команды, Message.answer, лимит 4096
+## 1. Обработка упоминаний / ключевых слов (mention & keyword triggers)
 
-**Актуальная версия:** 3.30.0 (docs.aiogram.dev/en/latest). Требует Python 3.9+.
+**Что уже сделано (хорошо):** в `direct_chat.py` реализованы 3 триггера — reply на бота,
+entities (mention/text_mention) и fallback-regex. Это соответствует лучшим практикам.
 
-**Базовая структура:**
-```python
-from aiogram import Bot, Dispatcher, Router
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command
-from aiogram.types import Message
+**Рекомендации:**
 
-bot = Bot(token=..., default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher()
-router = Router()
-
-@router.message(CommandStart())
-async def start(message: Message): ...
-@router.message(Command("search"))
-async def search(message: Message): ...
-
-dp.include_router(router)      # роутеры вкладываются; Dispatcher сам является Router
-await dp.start_polling(bot)    # long polling в текущем event loop
-```
-
-**BaseMiddleware — сигнатура (официально, docs.aiogram.dev):**
-```python
-from aiogram import BaseMiddleware
-from typing import Any, Awaitable, Callable, Dict
-from aiogram.types import TelegramObject, Message
-
-class CounterMiddleware(BaseMiddleware):
-    async def __call__(
-        self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-        event: TelegramObject,
-        data: Dict[str, Any],
-    ) -> Any:
-        data['counter'] = 1
-        return await handler(event, data)
-```
-
-**Критично: как молчаливо прервать событие.** Официальная документация: "Middleware should always call `await handler(event, data)` to propagate event... **If you want to stop processing event in middleware you should not call `await handler(event, data)`**". То есть просто `return` (вернуть None) без вызова `handler` — апдейт молча отбрасывается, хендлер не выполняется. Исключения `CancelHandler`/`CancelUpdate` — внутренние механизмы диспетчера (используются фильтрами и внутри aiogram); в собственной middleware достаточно не вызывать `await handler(event, data)`.
-
-**Два уровня регистрации middleware:**
-- Outer (до фильтров): `dp.update.outer_middleware(...)` / `router.message.outer_middleware(...)` — вызывается на каждое событие.
-- Inner (после фильтров, перед handler): `router.message.middleware(...)` — вызывается только когда фильтры прошли; в `data["handler"]` доступен выбранный хендлер (можно читать его атрибуты).
-
-**Message.answer():** у объекта `Message` есть алиасы API-методов — `await message.answer(text)` автоматически подставляет `chat_id` текущего чата и вызывает `SendMessage`. Аналог напрямую: `await bot.send_message(chat_id=message.chat.id, text=...)`. `parse_mode` задаётся глобально через `DefaultBotProperties(parse_mode=ParseMode.HTML)` или per-call параметром.
-
-**Лимит 4096:** Bot API принимает `text` длиной 1–4096 символов **после парсинга entities**. Длинные ответы (LLM) нужно резать на чанки ≤ 4096 и отправлять последовательно; разрывать по границам слов/абзацев.
+- **Нормализация упоминаний.** По документации aiogram 3.x `MessageEntity` типа `mention`
+  не несёт поле `username` — юзернейм извлекается через `entity.extract_from(text)`
+  (`docs.aiogram.dev/en/latest/api/types/message_entity.html`). В коде это уже сделано
+  (`_has_bot_mention`). Стоит добавить **bare-username** (без `@`, как в `telebot-pb`
+  https://github.com/romanurban/telebot-pb — матчинг по `username` и паттернам имён) и
+  **skip для форвардов/сервисных** сообщений.
+- **Негативные ключевые слова (exclusions).** По опыту Telegram keyword-мониторинга 2026
+  (https://telega.to/blog/telegram-keyword-monitoring-bot-2026) — добавить список
+  исключений, чтобы не отвечать на «@bot хай» в спам-группах. Минимальная длина сообщения
+  (≥ 2–3 слова) снижает шум.
+- **Команды внутри диалога.** Сейчас сообщения, начинающиеся с `/`, возвращают `UNHANDLED`
+  (строка 84). Это правильно — команды не перехватываются. Но стоит поддержать
+  **внутридиалоговые команды** (см. раздел 4), парся их до возврата `UNHANDLED`.
+- **Групповая приватность.** Для ответов на `@username` в группах боту нужен **выключенный
+  Group Privacy** (иначе он не видит сообщения без упоминания). `telebot-pb` это явно
+  документирует. Стоит проверить настройку через BotFather и задокументировать в README.
 
 ---
 
-## b) aiogram 3.x: медиа, user id/username/nickname, reply_to_message
+## 2. Контекстные LLM-диалоги (context window, memory, RAG)
 
-**Поля `Message` (актуальная модель aiogram):**
-- `message.from_user: User | None` — у `User`: `id` (int), `username` (str | None, без @), `first_name` (str), `last_name` (str | None), `full_name` (property).
-- `message.photo: list[PhotoSize] | None` — список размеров; брать самый большой: `max(message.photo, key=lambda p: p.width * p.height)` → `file_id`.
-- `message.video: Video | None` (имеет `file_id`, `duration`).
-- `message.text: str | None`, `message.caption: str | None` (подпись к медиа).
-- `message.reply_to_message: Message | None` — сообщение, на которое ответили. **Важно:** внутри `reply_to_message` поля `reply_to_message` уже НЕ будет (только один уровень вложенности).
-- `message.media_group_id: str | None`.
+**Что уже сделано:** ветка reply (`_build_conversation_thread`), RAG-память, Global_Context,
+UserResolutionMap, LRU-кэш `_bot_replies` — солидная архитектура.
 
-**Фильтры:** `F.photo`, `F.video`, `F.text`, `F.reply_to_message`, `F.from_user.id == X`, `Command("x")`, `CommandStart()`.
+**Рекомендации (на базе найденных кейсов):**
 
-**Отправка медиа:** `await message.answer_photo(photo=file_id_or_InputFile, caption="...")`, `await message.answer_video(...)`, `bot.send_photo(chat_id, photo, caption)`. Для файлов из памяти: `aiogram.types.BufferedInputFile(data: bytes, filename=...)` или `FSInputFile(path)`.
-
-**Получение файла по file_id:** `file = await bot.get_file(file_id)` → `file.file_path`; скачивание: `await bot.download_file(file.file_path)` или `await bot.download(file, destination)`.
-
----
-
-## c) APScheduler (AsyncIOScheduler) + aiogram
-
-- `AsyncIOScheduler` работает в **том же** event loop, что и aiogram — один процесс, никаких тредов/мостов. Совместимо, т.к. aiogram 3 async-only.
-- Таймзона: `scheduler = AsyncIOScheduler(timezone="Asia/Yekaterinburg")` и/или в триггере: `CronTrigger(hour=9, minute=0, timezone="Asia/Yekaterinburg")`.
-- Регистрация: `scheduler.add_job(func, trigger=CronTrigger(...), kwargs={"bot": bot})`; `scheduler.start()` до `dp.start_polling(bot)`; `scheduler.shutdown()` в `finally`.
-- Строковые TZ-имена работают через pytz/zoneinfo; APScheduler 3.x (3.10+) понимает и `zoneinfo.ZoneInfo`.
-
-**Ошибка-ловушка:** НЕ использовать `SQLAlchemyJobStore`/персистентные jobstore с async-функциями — ошибка `TypeError: cannot pickle 'SSLContext' object` / `cannot pickle '_asyncio.Future' object`. Для простых задач достаточно дефолтного `MemoryJobStore`; периодика воссоздаётся при старте.
-
-**Паттерн защиты от Telegram rate limits в задаче:** ловить `aiogram.exceptions.TelegramRetryAfter` и `await asyncio.sleep(e.retry_after)`, либо заранее вставлять `await asyncio.sleep(1)` между массовыми отправками.
-
----
-
-## d) aiosqlite: асинхронные паттерны
-
-```python
-import aiosqlite
-
-async with aiosqlite.connect("data.db") as db:      # авто-закрытие
-    db.row_factory = aiosqlite.Row                   # доступ row['col'] и row[0]
-    await db.execute("CREATE TABLE IF NOT EXISTS t(id INTEGER PRIMARY KEY, name TEXT)")
-    await db.executemany("INSERT INTO t(name) VALUES (?)", [("a",), ("b",)])  # батч
-    await db.commit()
-
-    async with db.execute("SELECT * FROM t WHERE name LIKE ?", ("a%",)) as cur:
-        async for row in cur:                        # row — aiosqlite.Row
-            print(row["name"])
-```
-
-- Одно соединение = один внутренний thread с очередью запросов (все операции сериализуются, блокировки event loop нет). Для одного бота достаточно одного соединения; для конкурентного чтения можно открывать отдельные read-only соединения (`file:...?mode=ro`, `uri=True`).
-- `await db.execute(...)` + `await db.commit()` обязательны (автокоммита нет); `db.total_changes` доступен.
-- Индексы: `await db.execute("CREATE INDEX IF NOT EXISTS idx_t_name ON t(name)")`.
-- PRAGMA: `journal_mode = WAL`, `busy_timeout = 5000`, `foreign_keys = ON`.
+- **Тримминг по токенам, а не по символам.** В `direct_chat_service.py` лимиты заданы в
+  символах (`CHAT_GLOBAL_CONTEXT_MAX_CHARS`, `CHAT_THREAD_MAX_CHARS`). По кейсу aiogram +
+  Claude (https://johal.in/build-telegram-bot-python-313-aiogram-310-claude) оценка по
+  символам ошибается до 40% на смешанном языке; рекомендуют `tiktoken` для подсчёта токенов.
+  Стоит перейти на токен-бюджет контекста.
+- **Суммаризация старых сообщений.** LangChain-документация
+  (https://docs.langchain.com/oss/javascript/langchain/short-term-memory) рекомендует при
+  превышении окна не просто отсекать, а **суммировать** (summarization middleware) — иначе
+  теряется смысл. `LLM_Memory` (https://github.com/ArhyPlayer/LLM_Memory) реализует гибрид:
+  короткая память (deque последних N) + долгая (ChromaDB) + тезисы в БД. Можно добавить
+  слой «тезисов» в `_bot_replies`/memory.
+- **Пер-пользовательская изоляция контекста.** Уже реализовано по `user_id` — это верно
+  (https://www.youngju.dev/blog/chatbot/2026-03-03-telegram-langchain-rag-bot-guide.en
+  подчёркивает изоляцию per-user). Добавить **TTL хранилища в БД** (а не только in-memory
+  LRU), чтобы контекст переживал рестарт (сейчас throttle и `_bot_replies` in-memory, сброс
+  при рестарте — см. комментарии в коде).
+- **RAG top-K + MMR.** Пример RAG-цепочки (ChromaDB, `k=4`, MMR) — хороший референс для
+  настройки `get_rag_context` (разнообразие результатов, а не только релевантность).
+- **Стриминг ответа.** `ai-microcore` (https://github.com/Nayjest/ai-microcore) и кейс
+  johal.in показывают стриминг с `edit_text` + индикатор `ChatAction.TYPING`. Сейчас ответ
+  целиком через `send_chunked_reply` — добавить typing-индикатор и постепенный апдейт текста
+  улучшит UX (особенно при долгих ответах LLM).
 
 ---
 
-## e) sqlite-vec: установка, загрузка, vec0, KNN, проблемы Windows
+## 3. Анти-спам и throttle (ключевые слова «бот», «ботохуета» и т.п.)
 
-**Установка:** `pip install sqlite-vec`. Векторы хранятся как BLOB (serialize: `struct.pack(f"{n}f", *vec)`).
+**Что уже сделано:** `DirectChatThrottle` (token bucket, per (chat,user), R50-7). Это уже
+хорошо закрывает флуд от одного юзера.
 
-**Загрузка в обычный sqlite3:**
-```python
-import sqlite3, sqlite_vec
-db = sqlite3.connect(":memory:")
-db.enable_load_extension(True)
-sqlite_vec.load(db)                    # эквивалент db.load_extension(sqlite_vec.loadable_path())
-db.enable_load_extension(False)
-```
+**Рекомендации:**
 
-**Загрузка в aiosqlite (>= 0.20 есть async-методы):**
-```python
-import aiosqlite, sqlite_vec
-db = await aiosqlite.connect("data.db")
-await db.enable_load_extension(True)
-await db.load_extension(sqlite_vec.loadable_path())   # путь к vec0.dll/so
-await db.enable_load_extension(False)
-```
-Запасной вариант (private API, работает): `db._conn.enable_load_extension(True); db._conn.load_extension(path)` — но предпочтительны публичные async-методы. **Расширение загружается per-connection** — при пуле соединений грузить на каждом.
-
-**vec0-таблица и KNN:**
-```sql
-CREATE VIRTUAL TABLE vec_items USING vec0(embedding float[768]);
-INSERT INTO vec_items(rowid, embedding) VALUES (?, ?);   -- embedding = serialize_f32(list)
-
-SELECT rowid, distance
-FROM vec_items
-WHERE embedding MATCH ?
-ORDER BY distance
-LIMIT 10;                          -- или: AND k = 10
-```
-- По умолчанию метрика L2; можно `distance_metric=cosine` в определении колонки.
-- Доп. колонки: metadata (в WHERE KNN), partition key, auxiliary (`+col`) — для хранения текста/данных рядом с вектором.
-- Альтернатива без vec0: обычная таблица + `vec_distance_cosine()/vec_distance_L2()` + ORDER BY.
-
-**Известные проблемы Windows (issue asg017/sqlite-vec#45):**
-- Python MSVC-сборки (официальный python.org / Microsoft Store) часто не могут загрузить DLL из PyPI-колеса (оно собрано MinGW): ошибка `sqlite3.OperationalError: The specified module could not be found`.
-- Работает: Anaconda Python, MinGW-сборки Python; на macOS системный Python вообще без `enable_load_extension` (нужен Homebrew Python).
-- Обходной путь: собрать vec0.dll самому через MSVC (`cl sqlite-vec.c -link -dll -out:sqlite-vec.dll`) или использовать запасной путь поиска (см. "Ключевые выводы").
-
-> ✅ **T-173-F (2026-08-16):** с релиза **v0.1.2-alpha.9** (MSVC-сборка колеса) загрузка на Windows 11 +
-> CPython 3.11/3.12 подтверждена работающей (issue #13 закрыт). Рекомендация: `sqlite-vec>=0.1.2`
-> в requirements; **try/except вокруг load_extension обязателен в любом случае** (R3).
+- **Глобальный throttle (per-bot, а не per-chat).** Telegram лимиты — **на бота целиком**,
+  а не на чат (https://grammy.dev/advanced/flood). При нескольких чатах in-memory
+  per-(chat,user) не спасёт от 429 на уровне бота. Нужен глобальный счётчик + обработка
+  `TelegramRetryAfter` (уже есть в примере ai-microcore).
+- **Семантический/паттерн-спам-фильтр.** `tg-spam` (https://github.com/umputun/tg-spam)
+  даёт практики: лимит упоминаний (`--meta.mentions-limit`), «mention-only» чек, короткие
+  флуд-сообщения, similarity-порог. `censor-tg-bot` (https://github.com/capcom6/censor-tg-bot)
+  — плагинные стратегии (keyword/ratelimit/regex) с приоритетами. Стоит добавить:
+  - блок «только упоминание бота + мусор» (цифры/пунктуация) → не отвечать;
+  - дедуп повторяющихся обращений (один и тот же текст N раз);
+  - **чёрный список фраз** (в т.ч. «ботохуета») — через config, не хардкод.
+- **Reputation/бан за повторы.** `rspamd-telegram-bot`
+  (https://github.com/akey098/rspamd-telegram-bot) и `tg-spam` ведут репутацию юзера; при
+  превышении — молчать/делать warn. Для `direct_chat` достаточно «молчать после N
+  кулдаунов подряд» вместо фразы.
+- **Анти-петля (reply-loop).** Уже частично закрыто (бот не отвечает сам себе, `user.id ==
+  _bot_id`). Добавить защиту от **двух ботов**, переписывающихся друг с другом (bus-flag в
+  `telebot-pb`), если в группе несколько ботов.
 
 ---
 
-## f) SQLite FTS5: фоллбек текстового поиска
+## 4. Интересные фичи «личного ассистента»
 
-FTS5 **встроен в SQLite** (не требует загрузки расширений — важное преимущество как fallback).
-
-```sql
-CREATE VIRTUAL TABLE messages_fts USING fts5(text);
-
--- MATCH: слово/фраза/префикс/булева логика
-SELECT rowid, text FROM messages_fts WHERE messages_fts MATCH 'sqlite';        -- слово
-SELECT * FROM messages_fts WHERE messages_fts MATCH '"точная фраза"';         -- фраза
-SELECT * FROM messages_fts WHERE messages_fts MATCH 'trig*';                  -- префикс
-SELECT * FROM messages_fts WHERE messages_fts MATCH 'a AND b NOT c';          -- логика
-SELECT * FROM messages_fts WHERE messages_fts MATCH 'title:sqlite';           -- по колонке
-
--- BM25-ранжирование: чем МЕНЬШЕ rank, тем релевантнее
-SELECT * FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank;
-SELECT * FROM messages_fts WHERE messages_fts MATCH ? ORDER BY bm25(messages_fts, 10.0, 1.0);  -- веса колонок
-```
-- Дефолтный токенизатор `unicode61` — для русского языка работает по словам (без стемминга; `tokenize='porter'` — только английский). Для русского фоллбек-поиск по точным токенам/префиксам приемлем.
-- MATCH регистронезависимый; `rank` — скрытая колонка; `ORDER BY rank` быстрее `ORDER BY bm25(ft)`.
-
-> ✅ **T-173-F (2026-08-16):** пользовательский ввод в `MATCH` экранировать (кавычки вокруг фразы);
-> `*`, `"`, `AND/OR/NOT` в тексте запроса — синтаксис FTS5. Для нашего fallback-поиска запрос строится
-> ПРОГРАММНО из токенов окна L1 (не сырой пользовательский ввод) — обязательная обёртка-санитайзер.
+- **Персона / тон (persona & mood).** `Alya-Bot` (https://github.com/Afdaan/Alya-Bot-Telegram)
+  и `TISM` (https://github.com/DisruptiveCollective/TISM) дают `/setpersonality`,
+  мульти-настроение, эволюцию отношений. Для AdminBot уместно: **per-chat persona** (тон
+  модератора vs дружелюбный), переключаемая командой внутри диалога.
+- **Внутридиалоговые команды** (inline-управление без выхода из чата): `/clear` (сброс
+  контекста), `/persona <...>`, `/tone formal|casual`, `/forget`. Шаблон из johal.in и
+  Byeol (https://github.com/openmaya/byeol) — команды прямо в потоке.
+- **Эмоции / mood-детект.** `Alya-Bot` детектит эмоции собеседника. Опционально: менять тон
+  ответа по настроению сообщения.
+- **Проактивность (nudge/re-engage).** `telebot-pb` шлёт nudge при бездействии; `byeol` —
+  проактивный коучинг. Для AdminBot это может быть: бот сам напоминает о незакрытых
+  обращениях (но осторожно — сейчас бот строго реактивный по 58.4, это менять по согласованию).
+- **Инструменты (MCP/tools).** `telebot-pb` подключает MCP-тулы (погода, факты, картинки).
+  AdminBot может давать боту доступ к внутренним командам (статус сервиса, справка) через
+  tool-calling LLM.
+- **TTS / голос.** опционально, как в heatherbot (https://github.com/dvoraknc/heatherbot).
 
 ---
 
-## g) Telegram Bot API: лимиты, sendMessage, parse_mode
+## 5. Избежание конфликтов нескольких хендлеров на одно сообщение
 
-**Официальные лимиты (core.telegram.org/bots/faq):**
-- Текст сообщения: **1–4096 символов** (после парсинга entities); подпись к медиа: 1024.
-- **Не более ~1 сообщения в секунду в один чат** (короткие всплески допускаются, затем 429).
-- **В группе — не более 20 сообщений в минуту**.
-- Глобальная рассылка: ~30 msg/sec на бота (платные broadcasts — до 1000 msg/sec, требуют 100k Stars).
-- При 429: поле `retry_after` (сек) — в aiogram исключение `TelegramRetryAfter`.
-- Файлы: отправка до 50 МБ, `getFile` работает для файлов до 20 МБ.
-- file_id можно считать постоянными.
+**Что уже сделано:** `direct_chat_handler` возвращает `UNHANDLED`, когда не сработал
+триггер — пропагация живёт, другие роутеры (admin_commands и т.д.) получают событие. Это
+корректный паттерн aiogram 3.x.
 
-**sendMessage (HTTP):**
-```
-POST https://api.telegram.org/bot<token>/sendMessage
-{ "chat_id": <id>, "text": "...", "parse_mode": "HTML" | "MarkdownV2" }
-```
-parse_mode: HTML и MarkdownV2; в aiogram — `ParseMode.HTML` / `ParseMode.MARKDOWN_V2`.
+**Рекомендации (документация aiogram 3.x):**
 
----
-
-## h) OpenAI-совместимый API (apinet.cloud)
-
-**Стандартный OpenAI-совместимый контракт (его держат все шлюзы, включая apinet.cloud):**
-```
-POST <base>/v1/chat/completions
-Authorization: Bearer <key>
-{ "model": "...", "messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}],
-  "temperature": 0.7, "max_tokens": 1024 }
-→ choices[0].message.content
-
-POST <base>/v1/embeddings
-{ "model": "...", "input": "текст" | ["текст1", ...] }
-→ data[0].embedding: [float, ...]
-```
-- `temperature`: 0..2 (0 — детерминированно); `max_tokens` — лимит генерации.
-- Ошибки: HTTP 400/401/403/429/500 + JSON `{"error": {"message": ..., "type": ...}}`; 429 — rate limit.
-- Через httpx: `httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))`; ловить `httpx.TimeoutException`, `httpx.HTTPStatusError`, а также JSON-парсинг в try/except. **Асинхронный клиент переиспользовать** (одна сессия на приложение) либо закрывать в `async with`.
-- Размерность эмбеддингов зависит от модели — определять из ответа при инициализации и хранить в схеме БД (колонка `float[dim]`).
-
-**apinet.cloud специфика:** это "AI API Gateway" (агрегатор моделей). Сайт JS-heavy: статическая документация по URL https://apinet.cloud/docs не отдаёт текстовый контент; страницы /pricing, /docs существуют, но деталей в статике нет; поддержка — Telegram @apinet_support. **Вывод для архитектуры:** точный base URL и список моделей проверять в рантайме через `GET /v1/models` (или из личного кабинета); формат запросов считать OpenAI-совместимым (`/v1/chat/completions`, `/v1/embeddings`) и заложить конфигурационные параметры (base_url, model_chat, model_embedding, api_key) в env/config, а не хардкодить.
+- **Порядок регистрации = приоритет.** В aiogram 3.x обработка останавливается на первом
+  совпавшем наборе фильтров; порядок — по регистрации (if-elif-else семантика). Источник:
+  GitHub Issue #208 (https://github.com/aiogram/aiogram/issues/208) и Discussion #1550
+  (https://github.com/aiogram/aiogram/discussions/1550). В `bot.py` `direct_chat_router`
+  подключается «сразу после 0g checkup, до admin_commands» (комментарий в
+  `direct_chat.py:3`) — это правильно, т.к. direct_chat матчит узко (только триггеры).
+- **`SkipHandler` — анти-паттерн.** Discussion #1550 прямо называет `raise SkipHandler`
+  анти-паттерном, ведущим к неожиданному поведению. Текущий код НЕ использует его — молодцы.
+  Если понадобится несколько реакций на одно сообщение — лучше **один хендлер + вызов
+  нескольких use-case функций** (рекомендация из того же discussion).
+- **Явная регистрация `.register()`** для контроля порядка (Issue #942
+  https://github.com/aiogram/aiogram/issues/942 — фильтр-фабрику убрали, фильтры задаются
+  явно и в порядке). Стоит убедиться, что все узкие хендлеры зарегистрированы до широких
+  (catch-all).
+- **Global filters на router.** aiogram 3.x поддерживает глобальные фильтры роутера
+  (документация миграции 2→3) — можно вынести «не команды / не бот / есть текст» в
+  глобальный фильтр роутера, снизив дублирование.
+- **Middleware вместо «pre-handler».** Для сквозной логики (логирование, rate-limit,
+  antiflood) — inner/outer middleware (https://docs.aiogram.dev/en/v3.23.0/dispatcher/middlewares.html),
+  а не отдельный хендлер. Сейчас throttle внутри `handle()` — можно вынести в middleware
+  роутера `direct_chat`, чтобы не дублировать в каждом сервисе.
 
 ---
 
-## i) Поисковые API: Tavily, Exa, DuckDuckGo (duckduckgo_search) — Epic 33, T-249-C (2026-08-17)
+## 6. Эпик 52 (T-412, R52-5) — Direct Chat: ресёрч и рекомендации (keyword-триггеры, контекст, InaccessibleMessage)
 
-**Инструменты:** context7 ❌ (Invalid API key — прецедент методологии T-173-F, 2026-08-16); exa ✅ (работает — данные ниже из официальных доков через exa_web_search_exa).
+> **Метод:** как и в прошлый раз, context7 MCP (Invalid API key) и duckduckgo (аномалии)
+> недоступны — работал стек **exa** (+ webfetch) и живой `inspect` установленного
+> aiogram 3.29.1 (venv проекта) для подтверждения Bot API-фактов. Дата: 2026-08-23.
 
-### Tavily Search (`https://api.tavily.com/search`)
-- **Auth:** `Authorization: Bearer <tvly-...>` + `Content-Type: application/json`.
-- **Body:** `{"query": str (required), "max_results": 1–20 (default 5), "search_depth": "basic"|"advanced"|"fast"|"ultra-fast" (default basic), "include_answer": bool, "topic": "general"|"news"|"finance"}`.
-- **Response 200:** `{"results": [{"title": str, "url": str, "content": str (AI-снипет, наиболее релевантный), "score": float}], "query": …, "response_time": …, "answer"?: str}`. Ошибки — HTTP 4xx/5xx.
-- **Вывод для агрегатора:** `max_results=5`, `search_depth="basic"` (1 кредит); снипеты = `results[].content`; пустой `results` → провал уровня (фолбек).
+### 6.1 Краткое резюме
 
-### Exa Search (`https://api.exa.ai/search`)
-- **Auth:** `x-api-key: <key>` (документирован и `Authorization: Bearer`).
-- **Body:** `{"query": str (required), "numResults": 1–100 (default 10), "type": "auto", "contents": {...}}`. **ВАЖНО:** на `/search` параметры `text`/`highlights`/`summary` ВЛОЖЕНЫ в `contents` (на `/contents` — топ-уровневые); `contents.text` — `true` или объект `{"maxCharacters": N}`.
-- **Response 200:** `{"results": [{"title", "url", "id", "text"?: str (markdown), "highlights"?: [str], "summary"?: str, "publishedDate", "author"}], "requestId", "costDollars"}`. Ошибки: 4xx/5xx; **402 = Payment Required** (лимит плана).
-- **Вывод:** body `{"query": q, "numResults": 5, "type": "auto", "contents": {"text": {"maxCharacters": 2000}}}`; снипет = `text or highlights[0] or summary`; пустой `results` → провал уровня.
+Индустрия 2025–2026 по «боту-товарищу в группе» сошлась на паттернах, большинство из
+которых в AdminBot уже есть:
 
-### DuckDuckGo (пакет `duckduckgo-search`, импорт `duckduckgo_search`)
-- **PyPI:** `duckduckgo-search`, последняя **8.1.1** (проверено `pip index versions`, 2026-08-17); `AsyncDDGS` + `atext` + context manager — с 6.x.
-- **Использование:** `async with AsyncDDGS(timeout=15) as ddgs: results = await ddgs.atext(query, max_results=5)` — элементы dict `{"title", "href", "body"}`. Схема ответа нестабильна между мажорами → читать через `dict.get`.
-- **Вывод:** третий уровень каскада без ключа; pin `duckduckgo-search>=8.1.0,<9.0.0`; сбой → `AllSearchEnginesFailedException`.
+- **Trigger-сет «reply / mention / trigger-word»** с word-boundary — стандарт (tva.sg,
+  Talon, OpenClaw): mention-first, keyword — осознанное расширение, всегда в связке с
+  фильтрами шума. Подтверждает дизайн 61.5.1.
+- **Двухслойная архитектура «ingestion → execution»** (aeqi mention-gating, tva.sg
+  silent-log): бот читает ВСЁ (контекст копится в фон), отвечает ТОЛЬКО по триггеру.
+  У AdminBot это уже работает: observer пишет память на каждое сообщение, direct_chat
+  отвечает узко. Хорошая новость: паттерн не надо достраивать, надо не сломать.
+- **Контекст: rolling summarization вместо обрезки** (Anthropic, OpenAI cookbook,
+  tianpan, niteagent): 70–80% токен-бюджета → суммаризация старого, последние N
+  verbatim. Текущая обрезка по символам (CHAT_*_MAX_CHARS) — самое слабое место.
+- **Бюджет: троттлинг + кэш + (опционально) дешёвый triage-гейт** (openclaw-triage-gate:
+  −75–90% токенов в группах). Bucket 3/300с как нижняя граница — ОК, но нужен потолок
+  на чат в целом (см. 6.6).
+- **D214 ПОДТВЕРЖДЁН** тремя источниками, включая inspect aiogram 3.29.1 (см. 6.7).
 
-### Источники (добавлены 2026-08-17)
+### 6.2 Оптимизация триггеров (подтверждение 61.5.1 + рекомендации)
 
-- https://docs.tavily.com/documentation/api-reference/endpoint/search — Tavily /search: body-параметры, results[].content, securityScheme bearer
-- https://docs.tavily.com/documentation/api-reference/introduction — base URL, `Authorization: Bearer`
-- https://exa.ai/docs/reference/search — Exa /search: OpenAPI 2.0.0, `contents.text`, response-схема, x-codeSamples
-- https://exa.ai/docs/reference/search-api-guide-for-coding-agents — вложение text/highlights/summary в `contents` на /search; 402
-- https://exa.mintlify.app/exa-search/curl — curl-примеры x-api-key
-- PyPI duckduckgo-search 8.1.1 (`pip index versions duckduckgo-search`, 2026-08-17)
+**Паттерн 61.5.1 подтверждён:** явные lookarounds
+`(?<![0-9a-zа-яё_])бот(?:…)?(?![0-9a-zа-яё_])` эквивалентны `\b` (Python 3 `re` —
+Unicode-aware, кириллица работает), но читаемее и явно не матчат подчёркивание.
+Тест-кейсы 61.5.3 («робот»/«ботва»/«работа»/«забота») корректны — совпадает с
+индустриальным «word-boundary regex, чтобы advisor не срабатывал на advisory»
+(tva.sg).
+
+Рекомендации по снижению ложных срабатываний (референсы: Discord AutoMod allow-list,
+mavibot «Ignore triggers», tg-spam):
+
+- **NFKC-нормализация + lower перед матчем** (`unicodedata.normalize("NFKC", text)`):
+  iOS-клавиатуры шлют разложенную кириллицу/широкие буквы; hashbot «fuzzy mode»
+  нормализует так же. Дёшево, ловит «Б0Т»-класс.
+- **Минимум 2 слова для keyword-ветки** («бот.» / «бот!!!» не триггерят, «бот, чекни» —
+  да). Reply/mention-ветки не трогаем. mavibot прямо советует: триггер не должен быть
+  одним словом.
+- **Стоп-фразы через конфиг** (не хардкод): «бот в помощь», «бот не в теме», «бот,
+  подожди» — exclude-список в settings, проверяется ДО OR-триггеров.
+- **Стрипинг триггера из query** (Talon): перед LLM убирать «бот»/«@бот» из текста
+  запроса («@bot что за погода?» → «что за погода?») — меньше токенов и меньше
+  соблазна LLM комментировать слово «бот».
+- **Дедуп повторов** (tg-spam similarity, rspamd): одинаковый текст N раз в окне →
+  один ответ, дальше молчание. Прямо закрывает «бот бот бот…» — флуд-кейс.
+- **Чёрный список фраз-дразнилок** — в тот же конфиг.
+
+Связь с разделом 3: там уже были mention-only-чек, дедуп и чёрный список — здесь они
+получают подтверждение из свежих кейсов и конкретные точки применения для keyword-ветки.
+
+### 6.3 Управление контекстом (windows, суммаризация, thread vs global)
+
+Текущая модель (Global_Context окно + Conversation_Thread + RAG_Memory) — комбинация
+Window/Summary/Vector памяти, по классификации youngju — это «правильная смесь».
+Слабые места:
+
+- **Токен-бюджет вместо char-лимитов** (уже в разделе 2; подтверждаем вторым эшелоном
+  индустрии: niteagent, youngju, bessavagner — `tiktoken` надёжнее оценок по символам).
+- **Rolling summarization** (tianpan, OpenAI cookbook): при заполнении 70–80% бюджета
+  старые сообщения НЕ отрезаются, а сливаются в бегущее саммари чата; последние
+  20–30 сообщений остаются verbatim. Для AdminBot: ленивая фоновая регенерация саммари
+  (fire-and-forget, прецедент memorize_facts), хранение в БД/SmartCache с TTL, не в
+  памяти. Триггер — 80%, не 100% (niteagent: «сжатие занимает ход, нужен запас»).
+- **Бюджет по категориям** (niteagent): system ~5% / history ~30% / thread ~20% /
+  RAG ~15% / генерация 15–25% / headroom 10%. Сейчас Global_Context может съесть весь
+  бюджет и не оставить места под ответ.
+- **Thread vs Global:** ветка reply — «working memory» (правильно), Global — «недавний
+  контекст». Добавить **supersession-маркеры** (tianpan): явное «забудь/сбрось»
+  (`/clear` из раздела 4) и **must-preserve-поля** (имена, решения, обещания) — выносить
+  в слоты, а не в прозу саммари (entity-preserving summarization, tianpan). Граф знаний
+  Epic 26 уже делает это на уровне фактов.
+- **Context poisoning** (OpenAI cookbook): ошибочный факт в саммари отравляет будущие
+  ходы — «вчерашний план рулит сегодняшним». Митигация: логгировать промпты/выводы
+  саммари, свежий факт побеждает (mem0: recent wins), противоречия помечать UNVERIFIED.
+
+### 6.4 Память (долгосрочная, facts, настроения — в духе GraphRAG Epic 26)
+
+- **Memory formation вместо суммаризации** (Mem0, DIANA, kotodamai): не компрессировать
+  всё, а выборочно копить факты. У проекта это уже есть: GraphRAG (Epic 26) +
+  memorize_facts с origin='bot_direct_reply'. Рекомендации поверх:
+  - **Пер-пользовательские профили** (DIANA: raw + durable facts + dated events +
+    interaction stats; kotodamai: contact_profiles): агрегировать факты о юзере из
+    direct_chat-диалогов — имя, тон, интересы, «темы-кнопки» юзера. У AdminBot уже есть
+    aliases (каскад имён) — добавить слой «факты о человеке» в GraphRAG-узлы.
+  - **Decay + конфликт-резолюция**: старые факты слабее, свежий побеждает (Mem0);
+    TTL уже есть (GRAPH_FACT_TTL_DAYS).
+  - **Consolidation-интервал** (kotodamai: 1800с — забавное совпадение со
+    SmartCache TTL): периодический пересмотр фактов, а не только per-message.
+  - **НЕ сохранять мусор/токсичность** (R46-2 уже запрещает; direct_chat пишет
+    «query\nanswer» только после успешной отправки — канон соблюдён).
+
+### 6.5 Стиль/персона
+
+- **Структура персоны** (kotodamai/telegram-persona): style_rules (исполняемые правила
+  с confidence и evidence), per-contact/group profiles, topic_graph, memes. AdminBot —
+  не userbot-клоун, но лёгкая версия уместна: per-chat overlay тона (раздел 4 уже
+  рекомендовал) + few-shot.
+- **Стилевые якоря:** LLM лучше держит стиль, если видит 2–3 своих последних ответа.
+  Уже делается через Conversation_Thread (бот-сообщения из _bot_replies) — усилить
+  явной секцией `<Your_recent_style>`: «вот как ты отвечал недавно, держи тон».
+- **Пост-процессинг** (heatherbot 7-stage filter): резать thinking-теги, маркдаун-обёртки,
+  AI-дисклеймеры, самопризнания «я ИИ» перед отправкой. Дёшево, заметно «человечнее».
+- **Человеческие тайминги** (icarus, kotodamai WPM=40, read receipts): typing-индикатор
+  (ChatActionSender — подтверждён в 3.29.1, см. 6.8) + короткая пауза 0.5–2с перед
+  ответом. Крошечная правка, много живости. Но: паузу НЕ делать при кулдаун-фразах
+  (они и так мгновенны и это правильно).
+- **Температура:** один канал, общий LLM — не крутить на горячую; вынести в конфиг
+  (прецедент ai-responder: creative/precise/balanced/chatty). Для фактов — ниже, для
+  «настроения» — выше; без фанатизма.
+
+### 6.6 Троттлинг/бюджет (R52-5 п.2 — ответ на вопрос)
+
+**«Достаточно ли token-bucket 3 заряда / 300с per (chat,user)?» — да, как нижняя
+граница per-user. НО есть дыры:**
+
+- Keyword-триггер расширяет поверхность: 50 юзеров × 3 заряда = до 150 генераций/300с
+  на один чат (насколько позволит Bot API). Bucket per-(chat,user) это не режет.
+  **Нужен потолок на чат/день** (RunGuard «budget cap», OpenAI «decision waterfall»:
+  лимиты + кредиты как слои одного решения): N генераций на чат в сутки, дальше —
+  вежливое молчание (фраза из пула «лимит на сегодня»).
+- **Triage-гейт** (openclaw-triage-gate, kotodamai DECISION_LLM_MODEL, GroupGPT
+  Intervention Judge): дёшевая LLM «RESPOND/SKIP» (max_tokens=10) перед дорогой →
+  −75–90% токенов в «всегда-на» режимах. Для AdminBot НЕ обязателен (триггер и так
+  узкий), но это самый дешёвый рычаг при росте keyword-нагрузки. Обязательный контракт:
+  **fail-open** (ошибка триажа → отвечать, лучше потратить токены, чем молчать).
+- **Семантический кэш** (tianpan): SmartCache TTL 1800с уже есть — расширить ключ на
+  (chat_id, user_id, normalized_text): один и тот же вопрос дважды → ответ из кэша без
+  LLM. Заодно решает дедуп из 6.2.
+- **Circuit breaker** (RunGuard): N LLM-ошибок подряд → тишина 5 минут вместо фразы из
+  пула (сейчас каждая ошибка — фраза; при больном LLM это мини-спам).
+- **Глобальный per-bot throttle + TelegramRetryAfter** (уже в разделе 3): с keyword
+  актуальность растёт — flood-лимиты Telegram считаются на бота целиком
+  (grammy.dev/advanced/flood).
+
+### 6.7 Удаление/редактирование сообщений, InaccessibleMessage (R52-5 п.3 — ПОДТВЕРЖДЕНИЕ D214)
+
+**D214 подтверждён тремя источниками: core.telegram.org/bots/api, changelog Bot API,
+живой inspect aiogram 3.29.1 (venv проекта):**
+
+1. **delete-updates боту не приходят** — в Bot API нет события удаления сообщений в
+   группах. Активного детекта не существует.
+2. **`getMessage` удалён из Bot API 8.3** — в aiogram 3.29.1 метода нет (проверено:
+   `hasattr(Bot, "get_message") == False`). Активный probe невозможен.
+3. **`InaccessibleMessage` = {chat, message_id, date}**, `date == 0` для удалённых
+   (проверено: `model_fields == {chat, message_id, date}`, default `date=0`), поле
+   `from_user` ОТСУТСТВУЕТ.
+4. **Тип `reply_to_message` в aiogram — `Message | None`**: на runtime там может лежать
+   InaccessibleMessage; детект D214 `getattr(reply_to, "date", 1) == 0` — корректный
+   идиоматичный способ. Отсутствие `from_user` делает `_is_direct_trigger` безопасным
+   для InaccessibleMessage (подтверждает 61.6.1).
+5. **Чистый quote (выделение текста) НЕ несёт ссылки на оригинал**: `Message.quote` —
+   только текст + entities, message_id оригинала в update отсутствует → детект
+   удалённого по чистому quote **НЕВОЗМОЖЕН**. Known limitation — подтверждает риск
+   из 61.9.
+6. **deleteMessage:** свои сообщения — всегда; чужие — только админ/can_delete_messages;
+   **лимит 48 часов**; ошибки 400 «message can't be deleted» / 403. Для T-417: 403 →
+   фраза (уже в D214), «message not found»-класс 400 → считать удалённым (идемпотентно).
+7. **edited_message приходит** (бот получает редактирования видимых сообщений):
+   рекомендация — на редактирование СВОИХ ответов обновлять текст в `_bot_replies`
+   (цепочка Conversation_Thread остаётся правдивой); на редактирование юзером
+   триггерного сообщения НЕ переотвечать (двойной расход, открытый кейс «правка →
+   ре-генерация» — не закладываться).
+8. **Реакции:** `Bot.set_message_reaction` подтверждён в 3.29.1; админ-права НЕ нужны;
+   custom-emoji требуют allowlist (available_reactions); update'ы реакций юзеров бот
+   получает только админом + allowed_updates — на это не закладываться.
+
+### 6.8 Интеграции
+
+- **Typing-индикатор:** `ChatActionSender` (aiogram.utils.chat_action) — подтверждён
+  в 3.29.1; привязать к `llm.generate` (старт TYPING → стоп после ответа). Уже
+  рекомендовано в разделе 2 (стриминг) — typing дешевле стриминга и закрывает 90% UX.
+- **Реакции-ack:** при пустом ответе LLM — реакция 👀 на триггер вместо текста
+  (Hermes-паттерн, подробно 6.9.2).
+- **Веб-поиск/фактчек:** SmartModule (Epic 33) уже консьюмит «найди/проверь» раньше 0h —
+  в direct_chat НЕ дублировать; только связка, если понадобится.
+- **Кнопки (callback):** «подробнее»/«эскалация» — реактивности не противоречит;
+  опционально, не на старте.
+- **Мемы/стикеры:** репертуар по настроению (telegram-persona memes.json) — опционально.
+- **Force reply — НЕ использовать** (pcraft: путает пользователей).
+- **Голос/TTS** (heatherbot, tanya voice notes) — отметка на будущее, не для AdminBot.
+
+### 6.9 Что НЕ делать (анти-паттерны из кейсов)
+
+1. **Выключать Group Privacy без собственного фильтра** → бот отвечает на каждое
+   сообщение (tva.sg, OpenClaw, core FAQ). Обратная сторона: keyword-триггер БЕЗ
+   выключенного privacy не работает вообще (см. 6.10) — это осознанное ТЗ-решение,
+   фильтр в `_is_direct_trigger` уже узкий.
+2. **Пустой ответ LLM → текстовая фраза** (Hermes-кейс): `Bad Request: message text is
+   empty` → общий except → пул фраз. У AdminBot риск есть ровно такой же
+   (send_chunked_reply с пустой строкой). Фикс: `strip()` → пусто = молчание +
+   реакция-ack + маркер в память «триггер был, ответа нет».
+3. **Force reply** — путает пользователей (pcraft).
+4. **SkipHandler** — анти-паттерн aiogram (раздел 5).
+5. **Гонки генераций в одном чате:** `handle()` — async, два «бот»-сообщения подряд →
+   два параллельных LLM-вызова, ответы могут прийти в обратном порядке (Hermes:
+   два триггера в одну секунду → перезапись сессии). Фикс: **per-chat asyncio.Lock**
+   вокруг generate (в духе философии T-410 «одно действие»).
+6. **Контекст-отравление** (OpenAI cookbook, tianpan): устаревшие факты в саммари
+   рулят новыми ходами — `/clear`, must-preserve, лог саммари.
+7. **Хардкод списков слов/фраз** — конфиг (раздел 3, повтор; с keyword-веткой
+   становится критичным — список будет расти).
+8. **Ответы-ошибки как «легитимная история»** (Hermes): фоллбек-фразы не должны
+   попадать в память как факты. У AdminBot memorize_facts идёт только после успешной
+   отправки — канон соблюдён, не сломать.
+
+### 6.10 Ограничения Bot API (сводно, влияют на фичи)
+
+| Ограничение | Следствие для direct_chat |
+|---|---|
+| Group Privacy ON: бот видит только команды/reply/mention; каждое сообщение доступно только ОДНОМУ privacy-боту; отключение — BotFather + пере-добавление в каждую группу | **Keyword-триггер «бот» ТРЕБУЕТ privacy Disable** — иначе «бот» в тексте невидим. Задокументировать в README + связать с разделом 1 |
+| Боты не видят сообщения других ботов (кроме Bot-to-Bot Communication Mode) | Платформенная анти-петля bot↔bot; режим НЕ включать |
+| Flood-лимиты per-bot + retry_after | Глобальный throttle обязателен при keyword (раздел 3) |
+| deleteMessage: свои всегда / чужие только с правами, 48 часов | T-417: 403 → фраза (в дизайне); «not found» → идемпотентно удалён |
+| InaccessibleMessage {chat, message_id, date=0}; getMessage удалён (8.3) | Только пассивный детект (D214); probe невозможен |
+| Чистый quote без message_id оригинала | quote-детект невозможен (known limitation) |
+| message_reaction update'ы — только админ + allowed_updates; custom-emoji — allowlist | Реакции бота — «в одну сторону» (бот → чат) |
+| edited_message доступен | Обновлять _bot_replies при редактировании своих ответов |
+
+### 6.11 Рекомендации по приоритетам (для Epic 52 и после)
+
+| Приоритет | Рекомендация | Зачем | Сложность |
+|---|---|---|---|
+| **P0** | Задокументировать Group Privacy Disable (keyword без него не работает) | базовая функциональность | низкая |
+| **P0** | per-chat asyncio.Lock вокруг генерации | порядок ответов при спаренных триггерах | низкая |
+| **P0** | Глобальный per-bot throttle + TelegramRetryAfter | flood-безопасность (раздел 3) | средняя |
+| **P1** | Токен-бюджет + rolling summarization (70–80%) | качество на длинных диалогах | средняя |
+| **P1** | Empty-answer guard (strip + реакция вместо фразы) | Hermes-кейс, защита от 400 | низкая |
+| **P1** | edited_message → обновление _bot_replies | правдивость Thread-цепочек | низкая |
+| **P1** | Дедуп (chat,user,text) через SmartCache-ключ | экономия LLM + анти-флуд | низкая |
+| **P2** | Triage-гейт (дёшевая LLM RESPOND/SKIP, fail-open) | −75–90% токенов при росте | средняя |
+| **P2** | Дневной бюджет генераций на чат (wallet) | защита от «бот»-марафонов толпой | средняя |
+| **P2** | Стилевые якоря + пост-процессинг + typing-индикатор | «человечность» | низкая |
+| **P2** | Стоп-фразы / минимум слов / NFKC для keyword-ветки | меньше ложных срабатываний | низкая |
 
 ---
 
-## Ключевые выводы и риски (для архитектуры)
+## Сводный чек-лист улучшений (приоритет)
 
-1. **Прерывание апдейта в middleware aiogram 3:** официальный способ — НЕ вызывать `await handler(event, data)` (просто `return None`). `CancelUpdate`/`CancelHandler` — внутренние исключения aiogram, в пользовательской middleware их использовать не обязательно.
-2. **Лимит 4096:** резать все ответы бота (особенно LLM-генерацию) на чанки ≤ 4096 по границам абзацев/предложений; HTML-разметка считается до парсинга — не разрывать entity-теги посередине.
-3. **Rate limits:** 1 msg/sec/чат и 20 msg/min в группе → в рассылке/периодике: sleep(1) между отправками в один чат, ловить `TelegramRetryAfter` (sleep на `retry_after`), в группах не слать чаще 1 раза в 3+ сек.
-4. **sqlite-vec на Windows — главный технический риск:** MSVC-Python (python.org / Microsoft Store) часто не грузит DLL из pip-колеса. Необходимо: (а) пробная загрузка расширения на старте с graceful fallback; (б) запасной путь — FTS5 (встроенный, работает везде) + при необходимости brute-force cosine в чистом Python для малых коллекций; (в) документировать Anaconda/Mingw-вариант и самостоятельную сборку MSVC DLL.
-5. **Расширение грузится per-connection:** в aiosqlite использовать `await db.enable_load_extension(True)` / `await db.load_extension(path)` (aiosqlite ≥ 0.20) сразу после открытия каждого соединения.
-6. **APScheduler:** только `MemoryJobStore` с async-задачами (persistent jobstore ломается на pickle); scheduler.start() до start_polling; shutdown() в finally; TZ="Asia/Yekaterinburg" в конструкторе и/или CronTrigger.
-7. **FTS5 и русский:** токенизатор unicode61 без стемминга — приемлемо для поиска по точным словам и префиксам (`term*`); `ORDER BY rank` (меньше = релевантнее).
-8. **apinet.cloud:** документация в статике недоступна; контракт OpenAI-совместимый, но base URL/модели подтверждать в рантайме (`/v1/models`) и выносить в конфиг; обязательны таймауты и обработка 429/5xx на стороне httpx.
-9. **aiogram Message:** `from_user`, `photo` (брать максимальный PhotoSize), `video`, `caption`, `reply_to_message` (без вложенных reply) — всё доступно напрямую; `message.answer()`/`answer_photo()`/`answer_video()` с авто-подстановкой chat_id.
-
----
+1. **Высокий приоритет (надёжность):** глобальный per-bot throttle + обработка
+   `TelegramRetryAfter`; персистентность контекста/троттла в БД (переживание рестарта);
+   токен-бюджет вместо char-лимитов.
+2. **Средний (качество):** суммаризация старого контекста; стриминг + typing-индикатор;
+   негативные ключевые слова и паттерн-спам-фильтр (`mention-only`, дедуп); bare-username.
+3. **Низкий (фичи):** per-chat persona/mood; внутридиалоговые команды (`/clear`, `/persona`,
+   `/tone`); MCP-тулы; документировать Group Privacy + порядок роутеров.
+4. **Эпик 52 / keyword-ветка (T-412, детали в разделе 6):** P0 — задокументировать Group
+   Privacy Disable (иначе keyword не работает), per-chat lock генераций, глобальный
+   per-bot throttle; P1 — токен-бюджет + rolling summarization, empty-answer guard,
+   edited_message-обновление `_bot_replies`, дедуп через SmartCache-ключ; P2 — triage-гейт,
+   дневной wallet на чат, стилевые якоря/пост-процессинг/typing, стоп-фразы + NFKC +
+   минимум слов для keyword-ветки.
 
 ## Источники
 
-- https://docs.aiogram.dev/en/latest/ (главная; версия 3.30.0)
-- https://docs.aiogram.dev/en/latest/dispatcher/middlewares.html (BaseMiddleware, сигнатура, прерывание события)
-- https://docs.aiogram.dev/en/latest/dispatcher/router.html (Router/Dispatcher)
-- https://docs.aiogram.dev/en/latest/api/types/message.html (поля Message, алиасы answer*)
-- https://docs.aiogram.dev/en/latest/api/methods/send_message.html (sendMessage)
-- https://botfather.dev/news/lifecycle-of-an-update-in-aiogram (жизненный цикл апдейта, middleware)
-- https://core.telegram.org/bots/faq (лимиты: 1 msg/sec, 20 msg/min в группе, ~30 msg/sec, 50 МБ/20 МБ)
-- https://core.telegram.org/bots/api#sendmessage (формат sendMessage, 1–4096 символов, parse_mode)
-- https://aiosqlite.omnilib.dev/ (паттерны aiosqlite)
-- https://aiosqlite.omnilib.dev/en/v0.22.1/api.html (async enable_load_extension/load_extension)
-- https://alexgarcia.xyz/sqlite-vec/python.html (Python-интеграция sqlite-vec)
-- https://alexgarcia.xyz/sqlite-vec/features/knn.html (vec0 KNN, distance_metric)
-- https://alexgarcia.xyz/sqlite-vec/features/vec0.html (типы колонок vec0)
-- https://alexgarcia.xyz/sqlite-vec/compiling.html (компиляция DLL на Windows)
-- https://github.com/asg017/sqlite-vec/issues/45 (проблема загрузки DLL на Windows MSVC Python)
-- https://www.sqlite.org/fts5.html (FTS5: MATCH, bm25, rank)
-- https://coddy.tech/docs/ru/sqlite/full-text-search (FTS5 на русском: MATCH-синтаксис, BM25)
-- https://dev.to/castanderness/auto-posting-telegram-channel-bot-with-apscheduler-and-aiogram-3-kfe (AsyncIOScheduler + aiogram 3)
-- https://stackoverflow.com/questions/76846860/how-can-i-send-a-message-in-telegram-with-apscheduler-and-aiogram (pickle-ошибки jobstore)
-- https://stackoverflow.com/questions/72245946/setting-timezone-in-asyncioscheduler (настройка TZ в AsyncIOScheduler)
-- https://apinet.cloud/ , https://apinet.cloud/docs , https://apinet.cloud/pricing (apinet.cloud, поддержка @apinet_support)
-- https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/ (эталон OpenAI-совместимых /v1/chat/completions и /v1/embeddings)
-
-### Источники, добавленные при верификации T-173-F (2026-08-16, exa + webfetch)
-
-- https://core.telegram.org/bots/api + https://core.telegram.org/bots/faq — лимиты подтверждены: текст 1–4096 после парсинга entities; «avoid sending more than one message per second» в чат; «Bots cannot send more than 20 messages per minute to the same group»; ~30 msg/s глобально (exa, 2026-08-16)
-- https://github.com/asg017/sqlite-vec/issues/13 — статус MSVC-колеса v0.1.2-alpha.9+, подтверждение фикса на Windows 11/Python 3.11–3.12 (exa, 2026-08-16)
-- https://github.com/basicmachines-co/basic-memory/issues/735 — per-connection загрузка sqlite-vec: «no such module: vec0» на другом соединении пула (exa, 2026-08-16)
-- https://audrey.feldroy.com/articles/2025-01-13-SQLite-FTS5-Tokenizers-unicode61-and-ascii — поведение unicode61: регистронезависимость, split по пунктуации, диакритика (exa, 2026-08-16)
-- https://wiki.r-that.com/patterns/sqlite-fts5-search/ — FTS5 external-content + триггеры, экранирование MATCH-ввода (exa, 2026-08-16)
-- https://apitube.io/blog/post/telegram-news-bot-python — aiogram 3.27 + AsyncIOScheduler в одном event loop, TelegramRetryAfter-паттерн (exa, 2026-08-16)
-- https://api-docs.deepseek.com/ — DeepSeek OpenAI-совместимый контракт (base_url, api_key, model, messages) — эталон для apinet.cloud-шлюза (exa, 2026-08-16)
-- https://docs.aiogram.dev/en/latest/ — aiogram 3.30.0 актуальна; сигнатуры BaseMiddleware/SendMessage подтверждены (webfetch, 2026-08-16)
+- aiogram 3.x docs — Filtering events / Magic filters / Middlewares: https://docs.aiogram.dev/en/latest/
+- aiogram GitHub Discussion #1550 (SkipHandler анти-паттерн): https://github.com/aiogram/aiogram/discussions/1550
+- aiogram GitHub Issue #208 (порядок хендлеров): https://github.com/aiogram/aiogram/issues/208
+- aiogram GitHub Issue #942 (явные фильтры): https://github.com/aiogram/aiogram/issues/942
+- grammY Flood Limits (глобальные лимиты Telegram per-bot): https://grammy.dev/advanced/flood
+- Telegram keyword monitoring 2026 (exclusions, rate limits): https://telega.to/blog/telegram-keyword-monitoring-bot-2026
+- Aiogram + Claude case study (тримминг, стриминг, Redis): https://johal.in/build-telegram-bot-python-313-aiogram-310-claude
+- LangChain RAG Telegram bot (per-user memory, MMR): https://www.youngju.dev/blog/chatbot/2026-03-03-telegram-langchain-rag-bot-guide.en
+- LLM_Memory (гибрид памяти, persona): https://github.com/ArhyPlayer/LLM_Memory
+- ai-microcore (стриминг edit_text, typing): https://github.com/Nayjest/ai-microcore
+- telebot-pb (mentions, multi-persona, bus, claiming): https://github.com/romanurban/telebot-pb
+- tg-spam (mentions-limit, similarity, reputation): https://github.com/umputun/tg-spam
+- censor-tg-bot (plugin ratelimit/keyword/regex): https://github.com/capcom6/censor-tg-bot
+- rspamd-telegram-bot (flood/repeat, reputation): https://github.com/akey098/rspamd-telegram-bot
+- Alya-Bot / TISM (persona, mood): https://github.com/Afdaan/Alya-Bot-Telegram , https://github.com/DisruptiveCollective/TISM
+- byeol (ReAct agent, внутридиалоговые команды): https://github.com/openmaya/byeol
+- LangChain short-term-memory (summarization): https://docs.langchain.com/oss/javascript/langchain/short-term-memory
+- **Epic 52 / T-412 (раздел 6):**
+- Telegram Bot API — InaccessibleMessage / deleteMessage / Privacy Mode: https://core.telegram.org/bots/api
+- Telegram Bots FAQ (privacy, «одно сообщение — один бот», чужие боты невидимы): https://core.telegram.org/bots/faq
+- Bot-to-bot communication (анти-петля на уровне платформы): https://core.telegram.org/api/bots/bot-to-bot
+- Bot API changelog (8.3: getMessage удалён): https://core.telegram.org/bots/api-changelog
+- tva.sg — scaling Telegram assistant (trigger-сет, silent-log контекста): https://www.tva.sg/insights/scaling-telegram-ai-assistant-solo-to-team
+- tva.sg — Hermes tuning (пустой ответ, реакция-ack, конкурентные триггеры): https://www.tva.sg/insights/tuning-hermes-style-agent-grows-with-your-project
+- Talon group chat (mention через entities, triggerWords, стриппинг триггера): https://talond.dev/blog/2026-05-01-group-chat/
+- OpenClaw — mention-only в группах: https://openclawdocs.com/channels/telegram/group-mentions/
+- Papercraft — боты в группах (privacy, force reply против): https://pcraft.dev/book/groups
+- aeqi mention-gating (двухслойный ingestion/execution): https://aeqi.ai/docs/patterns/mention-gating
+- Anthropic — context engineering (compaction, note-taking, бюджет): https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- OpenAI cookbook — session memory (trimming vs summarization, context poisoning): https://developers.openai.com/cookbook/examples/agents_sdk/session_memory
+- tianpan — context window cliff (rolling buffer, entity-preserving, supersession, бюджет): https://tianpan.co/blog/2026-04-19-context-window-cliff-long-conversation-strategies
+- niteagent — context window management (слои window/summary/priority, 75% триггер): https://niteagent.com/blog/2026-07-16-agent-context-window-management-guide/
+- youngju — multi-turn context management 2026 (типы памяти, Summary Buffer): https://www.youngju.dev/blog/chatbot/2026-03-04-chatbot-multi-turn-context-management-2026.en
+- bessavagner — pruning by summarization: https://bessavagner.com/blog/pruning-chat-context-by-summarization/
+- Mem0 — LLM chat history summarization (memory formation, decay, conflicts): https://mem0.ai/blog/llm-chat-history-summarization-guide-2025
+- kotodamai/telegram-persona (style_rules, contact/group profiles): https://github.com/kotodamai/telegram-persona
+- kotodamai/kotodamai-telegram (decision LLM, human simulation, consolidation 1800с): https://github.com/kotodamai/kotodamai-telegram
+- icarus (typing-индикатор, задержки, суммирующая память): https://github.com/Ycmelon/icarus
+- DIANA (layered SQLite memory, daily mood, факты о юзере): https://github.com/mattabott/diana
+- Tanya (SOUL.md, mood/state, heartbeat): https://github.com/opxiahub/tanya
+- openclaw-triage-gate (дешёвый триаж RESPOND/SKIP, fail-open): https://github.com/as3445/openclaw-triage-gate
+- GroupGPT (Intervention Judge, дешёвый триаж до дорогой LLM): https://arxiv.org/html/2603.01059
+- Discord AutoMod (allow_list, стратегии keyword-матчинга): https://docs.discord.com/developers/resources/auto-moderation
+- mavibot (match types, «Ignore triggers»): https://mavibot.ai/docs/chatbot-builder-setting-trigger-type
+- OpenAI — beyond rate limits (лимиты + кредиты одним waterfall): https://openai.com/index/beyond-rate-limits/
+- RunGuard — AutoGen cost control (circuit breaker, budget cap, циклы): https://runguard.dev/blog/autogen-cost-control-loop-detection.html
+- hashbot fuzzy mode (NFKC-нормализация имён): https://hashbot.com/docs/fuzzy-mode
+- StackOverflow — deleteMessage 400 (права, 48 часов): https://stackoverflow.com/questions/47064078/

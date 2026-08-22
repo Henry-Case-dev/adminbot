@@ -19,6 +19,8 @@ def _make_event():
     event.from_user.id = 479167456
     event.chat.id = -100123
     event.answer_animation = AsyncMock()
+    event.new_chat_members = None   # T-410: not a service message by default (MagicMock-safe)
+    event.left_chat_member = None   # T-410: not a service message by default (MagicMock-safe)
     return event
 
 
@@ -237,3 +239,116 @@ class TestMessageCounterMiddleware:
         handler.assert_called_once()
         assert result == "done"
         assert "GIF interval is 0" in caplog.text
+
+    # ── T-410 (Epic 52, Section 61.4.2): service-сообщения + data-флаг ──
+
+    @pytest.mark.asyncio
+    async def test_service_message_new_chat_members_skipped(self):
+        """T-410: new_chat_members → БЕЗ инкремента и БЕЗ гифки (чинит «гифка на вход»)."""
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        middleware = MessageCounterMiddleware(mock_db)
+        event = _make_event()
+        event.new_chat_members = [MagicMock()]
+        handler = AsyncMock(return_value="done")
+
+        data = {}
+        result = await middleware(handler, event, data)
+
+        mock_db.increment_and_get_count.assert_not_called()
+        event.answer_animation.assert_not_called()
+        handler.assert_called_once_with(event, data)
+        assert result == "done"
+        assert "slavik_gif_sent" not in data
+
+    @pytest.mark.asyncio
+    async def test_service_message_left_chat_member_skipped(self):
+        """T-410: left_chat_member → БЕЗ инкремента и БЕЗ гифки."""
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        middleware = MessageCounterMiddleware(mock_db)
+        event = _make_event()
+        event.left_chat_member = MagicMock()
+        handler = AsyncMock(return_value="done")
+
+        await middleware(handler, event, {})
+
+        mock_db.increment_and_get_count.assert_not_called()
+        event.answer_animation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_gif_sent_sets_data_flag(self, tmp_path):
+        """T-410: гифка реально отправлена → data['slavik_gif_sent'] is True."""
+        gif_file = tmp_path / "slavic_chlen.mp4"
+        gif_file.write_bytes(b"fake")
+        mod = _patched_settings(GIF_PATH=str(gif_file), GIF_INTERVAL=5)
+
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        with patch("services.message_counter.settings", mod):
+            middleware = MessageCounterMiddleware(mock_db)
+
+        event = _make_event()
+        data = {}
+        await middleware(AsyncMock(return_value="done"), event, data)
+
+        event.answer_animation.assert_called_once()
+        assert data.get("slavik_gif_sent") is True
+
+    @pytest.mark.asyncio
+    async def test_gif_missing_file_no_data_flag(self, tmp_path):
+        """T-410: файл отсутствует → гифка НЕ отправлена, флага НЕТ (иначе
+        сообщение осталось бы без реакции — Section 61.4.1)."""
+        missing = tmp_path / "nope" / "slavic_chlen.mp4"
+        mod = _patched_settings(GIF_PATH=str(missing), GIF_INTERVAL=5)
+
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        with patch("services.message_counter.settings", mod):
+            middleware = MessageCounterMiddleware(mock_db)
+
+        event = _make_event()
+        data = {}
+        await middleware(AsyncMock(return_value="done"), event, data)
+
+        event.answer_animation.assert_not_called()
+        assert "slavik_gif_sent" not in data
+
+    @pytest.mark.asyncio
+    async def test_gif_send_error_no_data_flag(self, tmp_path):
+        """T-410: ошибка отправки гифки → флага НЕТ."""
+        gif_file = tmp_path / "slavic_chlen.mp4"
+        gif_file.write_bytes(b"fake")
+        mod = _patched_settings(GIF_PATH=str(gif_file), GIF_INTERVAL=5)
+
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        event = _make_event()
+        event.answer_animation = AsyncMock(side_effect=Exception("Network error"))
+
+        with patch("services.message_counter.settings", mod):
+            middleware = MessageCounterMiddleware(mock_db)
+
+        data = {}
+        await middleware(AsyncMock(return_value="done"), event, data)
+
+        assert "slavik_gif_sent" not in data
+
+    @pytest.mark.asyncio
+    async def test_gif_interval_not_reached_no_flag(self):
+        """T-410: интервал не достигнут → гифки нет, флага нет."""
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=3)
+
+        middleware = MessageCounterMiddleware(mock_db)
+        event = _make_event()
+        data = {}
+        await middleware(AsyncMock(return_value="done"), event, data)
+
+        event.answer_animation.assert_not_called()
+        assert "slavik_gif_sent" not in data

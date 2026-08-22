@@ -8,6 +8,10 @@
   3. Fallback-текст: regex (?i)@username\b (старые клиенты без entities).
 Исключения (UNHANDLED, пропагация живёт): нет DI; from_user.id == bot.id;
 текст начинается с «/» (команды не перехватываются); пустой текст.
+H2 (review-fix): keyword-ветка «бот» НЕ триггерит на юзеров со своими
+роутерами/сценариями (alan 3 / kostik 2 — см. _BOTWORD_EXCLUDED_USER_IDS) —
+их сообщения уходят дальше; reply на бота / mention — осознанное обращение,
+работают как раньше.
 Каналы (channel-post) — вне скоупа; группы/супергруппы/ЛС работают
 (троттлинг защищает от спама, 58.5).
 """
@@ -17,6 +21,7 @@ import re
 from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
+from config.settings import settings
 from services.direct_chat_service import DirectChatService
 
 logger = logging.getLogger(__name__)
@@ -26,6 +31,20 @@ direct_chat_router = Router(name="direct_chat")
 _service = None            # DirectChatService (DI)
 _bot_id = None
 _bot_username = ""
+
+# T-411 (Epic 52, R52-4): keyword-триггеры «бот»-семьи (word-boundary).
+# «робот»/«работа»/«забота» — lookbehind блокирует; «ботва» — lookahead;
+# «ботохуета» матчится СВОИМ токеном бот+охуета. Сборка один раз на уровне модуля.
+# L3 (review-fix): «домен.бот»/«путь/бот» — '.'/'/' в lookbehind не триггерят.
+_BOTWORD_RE = re.compile(
+    r"(?i)(?<![0-9a-zа-яё_./])бот(?:ина|яра|ик|охуета|охуйня)?(?![0-9a-zа-яё_])"
+)
+
+# H2 (review-fix, Section 61.5.2): юзеры, за которыми закреплены свои роутеры/
+# сценарии (kostik 2, alan 3 и т.д.). Для них keyword-ветка «бот» НЕ триггерит
+# (0h возвращает UNHANDLED → их роутеры видят сообщение). Reply на бота и
+# mention (осознанное обращение) — работают как раньше.
+_BOTWORD_EXCLUDED_USER_IDS = {settings.ALAN_USER_ID, settings.KOSTIK_USER_ID}
 
 
 def setup_direct_chat(service: DirectChatService | None, bot_id: int | None,
@@ -49,7 +68,7 @@ def _has_bot_mention(message: types.Message) -> bool:
         etype = getattr(entity, "type", None)
         if etype == "mention":
             raw = entity.extract_from(text)
-            if raw.lstrip("@").lower() == _bot_username:
+            if raw.removeprefix("@").lower() == _bot_username:
                 return True
         elif etype == "text_mention":
             user = getattr(entity, "user", None)
@@ -59,7 +78,10 @@ def _has_bot_mention(message: types.Message) -> bool:
 
 
 def _is_direct_trigger(message: types.Message) -> bool:
-    """Триггеры 1-3 (58.4). Вызывается ПОСЛЕ исключений (команды/пустой текст)."""
+    """Триггеры 1-4 (58.4 + R52-4). Вызывается ПОСЛЕ исключений (команды/пустой текст).
+
+    Приоритет reply/mention ≥ keyword соблюдается автоматически (OR-ветки;
+    reply/mention дешевле и проверяются раньше)."""
     reply_to = message.reply_to_message
     if reply_to is not None:
         reply_from = getattr(reply_to, "from_user", None)
@@ -69,6 +91,15 @@ def _is_direct_trigger(message: types.Message) -> bool:
         return True
     text = message.text or ""
     if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", text):
+        return True
+    # T-411 (R52-4): keyword-ветка под флагом — «бот»/«ботохуета»/«ботина»/…
+    if settings.DIRECT_CHAT_BOTWORD_ENABLED and _BOTWORD_RE.search(text):
+        # H2 (review-fix): НЕ триггеримся на сообщения юзеров, за которыми
+        # закреплены свои роутеры (alan 3 / kostik 2) — их «бот»-сообщения
+        # уходят дальше по цепочке (0h → UNHANDLED). Reply/mention выше —
+        # осознанное обращение к боту, исключение ТОЛЬКО для keyword-ветки.
+        if message.from_user.id in _BOTWORD_EXCLUDED_USER_IDS:
+            return False
         return True
     return False
 

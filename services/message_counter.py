@@ -34,27 +34,40 @@ class MessageCounterMiddleware(BaseMiddleware):
         event: Message,
         data: dict[str, Any],
     ) -> Any:
+        # T-410 (Epic 52, Section 61.4.2-1): service-сообщения (join/leave) —
+        # БЕЗ инкремента счётчика и БЕЗ гифки (чинит «гифка на вход Славика»).
+        if getattr(event, "new_chat_members", None) or getattr(event, "left_chat_member", None):
+            return await handler(event, data)
+
         user_id = event.from_user.id
         chat_id = event.chat.id
 
         new_count = await self.db.increment_and_get_count(chat_id, user_id)
 
         if self.interval > 0 and new_count % self.interval == 0:
-            await self._send_gif(event, chat_id, new_count)
+            sent = await self._send_gif(event, chat_id, new_count)
+            if sent:
+                # T-410 (Section 61.4.1): флаг для slavik_catchall_handler —
+                # гифка уже отправлена → никаких других действий на это сообщение.
+                data["slavik_gif_sent"] = True
         elif self.interval <= 0:
             logger.warning("GIF interval is %s — GIF sending disabled", self.interval)
 
         return await handler(event, data)
 
-    async def _send_gif(self, event: Message, chat_id: int, new_count: int) -> None:
+    async def _send_gif(self, event: Message, chat_id: int, new_count: int) -> bool:
+        """Send GIF. Returns True if the animation was actually sent."""
         if not Path(self.gif_path).is_file():
             logger.warning("GIF file not found: %s, skipping", self.gif_path)
-            return
+            return False
         try:
             await event.answer_animation(animation=FSInputFile(self.gif_path))
         except FileNotFoundError as exc:
             logger.error("GIF file missing at send time | path=%s | error=%s", self.gif_path, exc)
+            return False
         except Exception:
             logger.error("GIF send failed | path=%s", self.gif_path, exc_info=True)
+            return False
         else:
             logger.info("GIF sent | path=%s | chat_id=%s | count=%s", self.gif_path, chat_id, new_count)
+            return True

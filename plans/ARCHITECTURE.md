@@ -3,7 +3,7 @@
 > **Версия:** v2.30.0 (прод) / целевой дизайн: v2.31.0 (Epic 33)
 > **Дата:** 2026-08-17
 > **Статус:** Архитектурный контракт. Секции 1–29: дизайн Epic 18–21 (реализованы и задеплоены). Секция 30: дизайн Epic 22 (v2.20.0) — IMPLEMENTED ✅. Секция 31: конвенция media/. Секция 32: дизайн Epic 23 (v2.21.0) — DONE & DEPLOYED ✅ (672 теста; коммит `756d237`, прод v2.21.0, PID 917681). Секция 33: дизайн Epic 24 «SmartModule: Summary» (v2.22.0) — IMPLEMENTED ✅ (T-174…T-189, ревью T-188-D APPROVED, 835 тестов; README обновлён). Секция 34: дизайн Epic 25 (v2.23.0-fix) — IMPLEMENTED ✅ (860 тестов, прод PID 923954). Секция 35: дизайн Epic 26 «GraphRAG» (v2.24.0) — IMPLEMENTED & DEPLOYED ✅ (939 тестов, прод PID 926618). Секция 36: дизайн Epic 27 (v2.25.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `1d7bed4`, 939 тестов, прод PID 934174). Секция 37: дизайн Epic 28 (v2.26.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `ac80ce8`, 995 тестов, прод PID 936542). Секция 38: дизайн Epic 29 (v2.27.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `7160a33`, 1002 теста, прод PID 937634). Секция 39: дизайн Epic 30 (v2.28.0) — IMPLEMENTED ✅ (прод v2.28.0, `714a4f6`). Секция 40: дизайн Epic 31 (v2.29.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `0f25c7e`, 1366 тестов, прод PID 941281). Секция 41: дизайн Epic 32 (v2.30.0) — IMPLEMENTED & DEPLOYED ✅ (коммит `2bad5ff`, 1392 теста, прод PID 942078). Секция 42: дизайн Epic 33 (v2.31.0) — DESIGN (@Architect, шаг 2/3); блокер D109 СНЯТ (промпты 42.5.1/42.5.2).
-> **Chore (2026-08-16):** media-задача — закоммитить и задеплоить `media/common/danger/danger_drone.mp4` (16-й файл danger-пула); конвенция media/ зафиксирована в секции 31.
+> **Статус (2026-08-23):** Section 61: дизайн Epic 52 (v2.37.0) — DESIGN (@Architect, D213/D214, T-408…T-417).
 > **Автор:** @Architect
 
 ---
@@ -32,6 +32,7 @@
 20. [40. Epic 31](#40-epic-31--summary-для-всех--setmycommands--таймаут-фразы-v2290) — /summary для всех + setMyCommands + таймаут-фразы (v2.29.0, IMPLEMENTED & DEPLOYED ✅)
 21. [41. Epic 32](#41-epic-32--гифка-славика--триггеры-оли-captionрепост--троттлинг-300с-v2300) — Гифка Славика + триггеры Оли (caption/репост) + троттлинг 300с (v2.30.0, НОВОЕ)
 22. [42. Epic 33](#42-epic-33--smartmodule-extension-factcheck--smartsearch--searchaggregator-v2310) — FactCheck + SmartSearch + SearchAggregator (v2.31.0, НОВОЕ; D109 resolved — промпты 42.5.1/42.5.2)
+23. [61. Epic 52](#61-epic-52--alan_repliescommonworkslavik-one-actiondirect-chat-keyworddead-page-delete-v2370) — ALAN_REPLIES + common/work + slavik one-action + direct_chat keyword + dead-page delete (v2.37.0, НОВОЕ)
 
 ---
 
@@ -12865,3 +12866,255 @@ await smart_cache.set(key, result)                                 # ПОСЛЕ 
 **Оценка:** Epic 48 ≈ 1.5d, Epic 49 ≈ 2d, Epic 50 ≈ 3.75d, Epic 51 ≈ 3d, релиз/деплой ≈ 1d. Итого ≈ 11-12d до v2.36.0.
 
 @Architect Epic 48-51 architecture ready (Sections 57-60, D193-D214: Epic 48 — degraded ОТМЕНЁН (56.6 помечен CANCELLED), финал summary = retry-once → raise → UX R13, удаляются SUMMARY_DEGRADED_*, 3 теста, правка 1; Epic 49 — окно deepseek-v4-flash 1M (гипотеза «окно» отклонена, приоритет — C0-символы), диагн-лог 4xx ERROR «LLM HTTP %d | url | request_len | content_chars | num_messages | body_4xx≤500», фикс = scrub C0 (кроме \n\t → пробел) + CHECKUP_MAX_INPUT_SYMBOLS=12000 в checkup_service, WARNING-уровни checkup.py:68/81, UX-сплит (CHECKUP_LLM_ERROR_PHRASES=4, «база подавилась логами» архивирована), эскалация — через ERROR+Betterstack без нового heartbeat; Epic 50 — DirectChat (роутер 0h, триггеры Reply/entities/fallback, DirectChatThrottle in-memory (3 заряда, полный рефетч через 300с), контексты Global 4000/Thread 6×2000/RAG sort_by_timestamp ASC, каноны VERBATIM R50-4/R50-7/R50-8, миграция user_version 1→2 идемпотентная: graph_facts CHECK+bot_direct_reply + target_user + tg_message_id (script миграции), memorize_facts(+target_user), TTL пусто→NULL, фильтр bot_direct_reply из чужих RAG и R26-3); Epic 51 — SmartCache SQLite (MD5(slug\0norm), TTL 1800с, лимит 1000, ленивая очистка, врезка в factcheck/search/youtube/web ДО ресурсоёмких ступеней, кэш только успешных генераций, reply на текущее сообщение), Prompt Caching — автоматический префикс-кэш DeepSeek, порядок всех генераторов УЖЕ RAG-first (переписывание запрещено), build_messages только для DirectChat + guard-тест system@0; релиз v2.36.0 — порядок 48→49→50→51→T-406 (миграция на остановленном боте)→T-407 (деплой+.env+пост-проверки), ожидаемый финал ~2125-2135 тестов, 0 регрессий, миграция только 1→2.)
+
+---
+
+## Section 61: Epic 52 — ALAN_REPLIES/common-work/slavik-one-action/direct_chat-keyword/dead-page-delete (v2.37.0)
+
+> **Дата:** 2026-08-23. **Статус:** DESIGN (@Architect). **Цель:** R52-1…R52-8 (backlog.md, T-408…T-417; board.md Epic 52). **Решения:** D213 (common: два флага), D214 (dead-page delete: InaccessibleMessage-детект). **Прод:** v2.36.0 (b394e1e, PID 1018603), baseline 2205 тестов. Пуш в **origin/master** (ветка проекта — master). Каноны промптов (R50-4/R50-7/R50-8, chat_prompts.py) НЕ трогаем; миграций БД НЕТ (аддитивные таблицы/ключи).
+
+### 61.1 Карта задач → файлы
+
+| Задача | Основные файлы | Env-флаги |
+|--------|----------------|-----------|
+| T-408 (ALAN_REPLIES) | `handlers/alan.py`, `config/settings.py`, `.env.example`, `tests/test_alan.py` | `ALAN_REPLIES_ENABLED` (true; прод false) |
+| T-409 (common/work) | `handlers/common.py`, `services/common_relay.py`, `config/settings.py` | `COMMON_WORK_MEDIA_ENABLED` (true; прод false), `COMMON_MEDIA_ENABLED` (true) |
+| T-410 (slavik one-action) | `services/message_counter.py`, `handlers/slavik.py` | — |
+| T-411 (direct_chat keyword) | `handlers/direct_chat.py`, `config/settings.py` | `DIRECT_CHAT_BOTWORD_ENABLED` (true) |
+| T-417 (dead-page delete) | `handlers/dead_page_delete.py` (НОВЫЙ), `handlers/dead_page_trigger.py`, `services/dead_page_relay.py`, `services/database.py` | — (пул фраз — константа) |
+| T-412 (ресёрч) | `plans/RESEARCH.md` (дополнение) | — |
+
+Все флаги — `_env_bool` (конвенция `*_ENABLED`, прецеденты `OLYA_ENABLED`/`SUMMARY_ENABLED`), default **true**; на проде выставляются только явно перечисленные (T-416).
+
+---
+
+### 61.2 T-408 — ALAN_REPLIES: перефраз + env-гейт (R52-1)
+
+#### 61.2.1 Пул фраз (handlers/alan.py, `ALAN_REPLIES`)
+
+- **УДАЛИТЬ (трейдинг):** блок «── Фьючерсы ──» целиком (4 фразы: «чё по фьючерсам сегодня? шорт или лонг?», «фьючерсы в плюс закрыл?», «график битка…», «а на фьючерсах сейчас вообще можно заработать?»); из «── Смешанные ──» — 4 фразы с рынком/фьючерсами/трейдерами; из «── Нейросети ──» — «…юзаешь для анализа рынка?» и «нейросети когда-нибудь заменят трейдеров?». Критерий «трейдинг-слова» (для теста): `фьючерс|биток|рынок|трейдер|график|шорт|лонг|биткоин|крипт`.
+- **ДОБАВИТЬ (новые темы, минимум 2–3 фразы каждая, ироничный тон в духе пула):** линукс/NixOS, нейрокластер, планшет, продажа SSD (кризис/рост цен), витамины Life Extension «100500%», 5-секундные прогулки с гантелями по коридору, уличный тренажёр + реванш за колени.
+- **ДОПОЛНИТЬ (существующие):** тренировки, лонгковид, нейросети, жим дьявола (той же тональностью; тема «колени» уже частично есть — «как там колени?» — новая фраза должна связывать колени с реваншем на уличном тренажёре, не дублируя).
+- Ограничение теста: пул ≥ 16 (текущий минимум, T-408-C не уменьшает), новые темы покрываются `test_topic_coverage`.
+
+#### 61.2.2 Гейт `ALAN_REPLIES_ENABLED`
+
+- **Место гейта:** ОДНА точка — ветка reply-блока внутри `alan_handler` (`handlers/alan.py:95`): `if settings.ALAN_REPLIES_ENABLED and count % interval == 0:`.
+- **Почему не точка входа хендлера:** F7v2 silence greeting (строки ~100–180, тот же хендлер) работает БЕЗУСЛОВНО — гейт на входе отключил бы и его. F7v2 использует собственные механизмы (`get/set_alan_last_message_ts` в `channel_state` + `_last_greeting` + `_send_greeting`), reply-блок с ними не связан.
+- **Счётчик `message_counters` НЕ ломаем:** `increment_and_get_count(chat_id, from_user.id)` вызывается ДО гейта и инкрементится всегда (при false тоже). Счётчик по (chat, user) — общий метод с F3-GIF-миддлварью Славика, но ключ по `user_id` → для Алана строку читает/пишет ТОЛЬКО `alan_handler`; кросс-влияния нет.
+- **Пропагация:** `return UNHANDLED` в конце хендлера сохраняется во всех ветках (в т.ч. при `interval <= 0` и `alan_db is None` — уже есть). При `ALAN_REPLIES_ENABLED=false` хендлер: инкремент → (reply молчит) → F7v2 работает → UNHANDLED.
+
+#### 61.2.3 Тесты (tests/test_alan.py)
+
+- `test_topic_coverage`: заменить `"фьючерс"` на новые темы (`никс|линукс`, `нейрокластер`, `планшет`, `ссд`, `витамин`, `тренажёр|гантел`, `колен`); сохранить старые (`тренировк`, `лонгковид`, `нейросет`, `жим дьявола`).
+- НОВЫЙ `test_no_trading_words`: в пуле НЕТ ни одного из трейдинг-слов (список выше).
+- НОВЫЙ `test_replies_disabled_flag`: `ALAN_REPLIES_ENABLED=False`, count кратен interval → `message.reply` НЕ вызван, инкремент вызван.
+- НОВЫЙ `test_f7v2_alive_when_replies_disabled` (интеграционный, feed_update или прямой вызов с моком `_send_greeting`): при false-флаге и истёкшем silence-пороге greeting-видео отправлено, reply НЕ отправлен.
+- Существующие тесты инкремента/интервала не трогаем (поведение по умолчанию true — идентично).
+
+---
+
+### 61.3 T-409 — common/work: два флага (R52-2, D213)
+
+#### 61.3.1 Флаги и точки гейтинга
+
+| Флаг | Default | Где | Место гейта | Поведение при false |
+|------|---------|-----|-------------|---------------------|
+| `COMMON_WORK_MEDIA_ENABLED` | true | `config/settings.py` (секция Common Service) | `handlers/common.py::work_handler` — ПЕРВАЯ строка хендлера, ДО проверки `_relay is None` | `return UNHANDLED` — work-медиа (`media/common/work`) не шлются; фильтр `WorkWordFilter` остаётся (хендлер зарегистрирован), триггеры распознаются |
+| `COMMON_MEDIA_ENABLED` | true | то же | `services/common_relay.py::send_common` — ПЕРВАЯ строка, ДО cooldown-слоёв | ранний `return` (silent no-op) — НИКАКИЕ common-медиа (otboy/danger/selfdev/work) не отправляются, без логики-исключений |
+
+**Сочетание флагов:**
+- `WORK=false, GLOBAL=true` → молчит только work; otboy/danger/selfdev работают.
+- `GLOBAL=false` (work любой) → молчит ВСЁ common-медиа (гейт в relay накрывает все 4 сабдира одной точкой).
+- **Почему гейты в разных местах:** точечный флаг — это фича (work-хендлер), глобальный — инфраструктура (единый вход `send_common`, который вызывают все 4 хендлера). Ранний return в `send_common` НЕ закрывает work-специфику обратно-совместимо (work_handler по-прежнему «работает» и при глобально выключенном relay тратит вызов вхолостую — это нормально, но точечный гейт обязан жить в хендлере, иначе нельзя выключить ТОЛЬКО work).
+- **Текстовое поведение:** у otboy/danger/selfdev/work нет текстовых веток — только медиа с reply+quote; регрессии текста нет. Хендлеры и сейчас возвращают `UNHANDLED` после отправки — при false пропагация семантически не меняется.
+
+#### 61.3.2 Контракты
+
+- `work_handler(message, matched_word) -> None` — при `COMMON_WORK_MEDIA_ENABLED=False`: `logger.info` + `return UNHANDLED` (не вызывать `_relay.send_common`).
+- `CommonRelay.send_common(...)` — при `COMMON_MEDIA_ENABLED=False`: INFO-лог + `return` (без изменения сигнатуры).
+
+#### 61.3.3 Тесты (tests/test_common.py)
+
+- Матрица: (work on/off) × (global on/off); off-случаи — `send_common` не вызван / не отправляет; on-случаи — прежнее поведение.
+- Изоляция: `WORK=false` → otboy/danger/selfdev всё ещё шлют (вызов `_relay.send_common` с subdir != "work" не блокируется).
+- `GLOBAL=false` → все 4 сабдира молчат (прямой вызов `send_common` для каждого subdir → send_* не вызван).
+- `settings.py`: оба флага `_env_bool`, default true; `.env.example` — оба ключа с комментариями (прод-значения указывает T-416).
+
+---
+
+### 61.4 T-410 — Славик: одно действие на сообщение (R52-3)
+
+#### 61.4.1 Механизм координации: data-флаг `slavik_gif_sent`
+
+**Контракт:**
+- **Кто выставляет:** `MessageCounterMiddleware.__call__` (`services/message_counter.py`) — после УСПЕШНОЙ отправки GIF: `data["slavik_gif_sent"] = True`. `_send_gif` меняет возврат `None → bool` (True = гифка реально отправлена; False = файл отсутствует/ошибка → флаг НЕ ставится, иначе сообщение осталось бы без реакции).
+- **Кто читает:** `slavik_catchall_handler` (`handlers/slavik.py`, Branch 1) — `if data.get("slavik_gif_sent"): return None` (гифка уже отправлена → никаких рандом-медиа/mimic/«пошёл нахуй»). Рекомендуемо: `kucha_handler` читает тот же флаг → `return UNHANDLED` (строгая семантика «одно действие», в т.ч. для редкого случая КУЧА+гифка; для не-Славы флаг ставится только когда гифка реально ушла — поведение «гифка вместо ДАЛБАЕБ» приемлемо).
+- **Гонки:** однопоточный event loop; `data` — словарь per-update (aiogram создаёт его для каждого события); между выставлением (миддлварь) и чтением (хендлер того же события) нет точек ожидания других событий → гонок нет. Между хендлерами одного роутера порядок гарантирован (миддлварь выполняется до фильтров/хендлеров).
+- **Чужие сообщения:** миддлварь видит ВСЕ сообщения, дошедшие до `slavik_router` (любой пользователь; инкремент и гифка идут по (chat, user) — существующее поведение F3). Флаг живёт только в `data` конкретного события: для не-Славы его никто не читает (catchall — под `UserIdFilter(SLAVIK_USER_ID)`), для Славы — срабатывает замещение. Фильтрация по Славе остаётся в хендлерах, НЕ в миддлвари (не менять!).
+
+#### 61.4.2 `services/message_counter.py` (миддлварь)
+
+1. **Skip service-сообщений:** в начале `__call__`: `if getattr(event, "new_chat_members", None) or getattr(event, "left_chat_member", None): return await handler(event, data)` — БЕЗ инкремента и БЕЗ гифки. Это убивает текущий баг «гифка на вход Славика» (join-сообщение доходит до slavik_router, т.к. `on_new_slava_member` возвращает UNHANDLED).
+2. **Флаг:** `sent = await self._send_gif(...)` → `if sent: data["slavik_gif_sent"] = True`.
+
+#### 61.4.3 `handlers/slavik.py::slavik_catchall_handler` — приоритет ровно одного действия
+
+| # | Ветка | Условие | Действие |
+|---|-------|---------|----------|
+| 0 | d_pages-репост | `MessageOriginChannel` из @d_pages | `return UNHANDLED` (существует, defense-in-depth — dead page = единственный ответ) |
+| 0.5 | service-сообщение | `message.new_chat_members or message.left_chat_member` | `return UNHANDLED` (join обрабатывает ТОЛЬКО `slava_presence` → «ДОЛБОЕБ ВЕРНУЛСЯ», без гифки/медиа) |
+| 1 | GIF отправлен | `data.get("slavik_gif_sent")` | `return None` (гифка уже ушла; рандом-медиа/mimic/«пошёл нахуй» НЕ выполняются; `slavic_photo_count_tick` НЕ тикает — GIF-сообщения не двигают фото-интервал) |
+| 2 | рандом-медиа | F8-интервал (`slavic_photo_count_tick`) | как сейчас: отправка медиа ЗАМЕЩАЕТ «пошёл нахуй» |
+| 3 | mimic | `_slavik_mimic_should_trigger` (мин. слов + кулдаун per-chat, `_slavik_mimic_last_sent`) | как сейчас: mimic ЗАМЕЩАЕТ «пошёл нахуй» (встраивается без изменений — условия уже в ветке, ниже фото) |
+| 4 | fallback | всегда | `message.reply("пошёл нахуй")` — ТОЛЬКО если ничего выше не сработало |
+
+Ветки 0.5 и 1 — вставка в начало существующей if/elif-цепи (код не переписывается, цепочка уже гарантирует «один ответ»).
+
+**Join-флоу (итог):** ChatMemberUpdated → `on_user_join` → «ДОЛБОЕБ ВЕРНУЛСЯ» (+ `signal_immediate_post`, но `DEAD_PAGE_POST_ON_JOIN` default False). Message-фоллбек `on_new_slava_member` → «ДОЛБОЕБ ВЕРНУЛСЯ» + UNHANDLED. Join-сообщение: миддлварь пропускает (п. 61.4.2-1), catchall отдаёт UNHANDLED (0.5) → гифки и рандом-медиа на входе НЕТ.
+
+**Dead page-репост (итог):** консьюмится `dead_page_router` (позиция 4, ДО slavik_router) → slavik_router его не видит; ветка 0 — страховка.
+
+#### 61.4.4 Тесты
+
+- `tests/test_message_counter.py`: service-сообщение (new_chat_members/left_chat_member) → ни инкремента, ни гифки; гифка отправлена → `data["slavik_gif_sent"] is True`; файл отсутствует → флага нет.
+- `tests/test_slavik_handlers.py`: GIF+«пошёл нахуй» НЕ вместе (флаг → reply не вызван); GIF+рандом НЕ вместе (photo_tick не тикает); приоритет-цепочка (0/0.5/1/2/3/4); join-интеграция (feed_update: join → ровно «ДОЛБОЕБ ВЕРНУЛСЯ», без гифки/медиа); dead page-репост → без ругани/медиа (существующий тест).
+
+---
+
+### 61.5 T-411 — direct_chat: keyword-триггеры (R52-4)
+
+#### 61.5.1 Список слов и word-boundary
+
+- `DIRECT_CHAT_BOTWORD_ENABLED` (default true) в `config/settings.py`.
+- Список (минимальный 5–7): `бот`, `ботик`, `ботяра`, `ботина`, `ботохуета`, `ботохуйня`.
+- Паттерн (регистронезависимый, границы слова — прецедент KuchaWordFilter/DangerWordFilter):
+  ```
+  (?i)(?<![0-9a-zа-яё_])бот(?:ина|яра|ик|охуета|охуйня)?(?![0-9a-zа-яё_])
+  ```
+  Проверка: `робот`/`работа`/`забота` — перед «бот» буква → lookbehind блокирует ✅; `ботва` — после «бот» буква → lookahead блокирует ✅; `ботохуета` — матчится СВОИМ токеном `бот+охуета`, голый «бот» внутри не срабатывает (lookahead на «о») ✅. Сборка `re.compile` на уровне модуля (один раз), search по `message.text`.
+- **Место:** `_is_direct_trigger` — четвёртая ветка OR (после reply/mention/fallback-@): `if settings.DIRECT_CHAT_BOTWORD_ENABLED and _BOTWORD_RE.search(text): return True`. Приоритет reply/mention ≥ keyword соблюдается автоматически (OR; ветка reply дешевле и проверяется раньше — читаемость, семантика одна). Проверка идёт ПОСЛЕ исключений (нет DI / бот / пусто / команды `/` — уже в `direct_chat_handler`).
+- **Ответ:** вызов `service.handle(bot, message, user)` — reply на вызвавшее сообщение уже реализован (`_reply(..., message.message_id)`, `direct_chat_service.py:113,123`). Каноны R50-4/R50-7/R50-8 НЕ меняются.
+
+#### 61.5.2 Бюджет LLM и приоритет роутеров
+
+- **Риск ««бот» в любом сообщении жжёт LLM»:** троттлинг УЖЕ есть — `DirectChatThrottle` (3 заряда / 300с per (chat,user), `CHAT_BURST_LIMIT`/`CHAT_COOLDOWN_SECONDS`) — keyword-вызовы проходят через ТОТ ЖЕ bucket → на (chat,user) максимум 3 генерации за 300с независимо от количества «бот» в сообщениях. **Достаточно** — дополнительный гейт не требуется (дизайн-решение); лимит пер-чатовый, спам из разных чатов одним юзером тоже режется (ключ bucket — (chat_id, user_id)).
+- **Ложные срабатывания:** word-boundary режет «робот»/«ботва»/«работа»/«забота»; само слово «бот» — осознанный триггер (запрос пользователя), принимаем; стоимость ошибки ограничена bucket'ом.
+- **Не перехватывать чужие сценарии:** роутер 0h стоит ПОСЛЕ 0a–0g (factcheck/search/youtube/web/checkup) — их триггеры консьюмятся раньше («бот, чекни сервак» → checkup, НЕ direct_chat — проверка в T-413-C). После 0h: admin_commands/info — только `/`-команды, которые direct_chat отдаёт UNHANDLED (гейт `text.startswith("/")`). Хендлер не-триггеров возвращает UNHANDLED (пропагация живёт) — прежнее поведение.
+- **Исключения keyword-ветки (review-fix, H2):** 0h стоит РАНЬШЕ роутеров kostik (2) и alan (3) — голый keyword «бот» в их сообщениях перехватывался бы 0h, ломая их сценарии (alan F7v2: `increment_and_get_count`/`set_alan_last_message_ts` не выполняются → сбивается таймер silence-greeting; kostik — не получает свои сообщения). Фикс: `_BOTWORD_EXCLUDED_USER_IDS = {settings.ALAN_USER_ID, settings.KOSTIK_USER_ID}` — для этих юзеров keyword-ветка `_is_direct_trigger` возвращает False → 0h → UNHANDLED, их роутеры видят сообщение. Исключение — ТОЛЬКО для keyword-ветки: reply на бота (`reply_to_message.from_user.id == bot.id`) и mention/`@username` остаются триггерами (осознанное обращение к боту).
+- **Взаимодействие с 0h-фоллбеком:** @-фоллбек и keyword не конфликтуют (оба — ветки одного `_is_direct_trigger`; первый матч → handle).
+
+#### 61.5.3 Тесты (tests/test_direct_chat.py)
+
+- Позитив: «бот», «ботохуета», «ботина», «ботяра», «ботик» → `service.handle` вызван, reply с `reply_to_message_id == message.message_id`.
+- Негатив: «робот», «ботва», «работа», «забота», «заботиться» → UNHANDLED, handle не вызван.
+- Флаг false → keyword-ветка молчит (reply/mention продолжают работать).
+- Интеграция: «бот, чекни сервак» → ответ checkup (0g), не direct_chat; приоритет 0a–0g над 0h.
+
+---
+
+### 61.6 T-417 — Dead page: детект удаления репоста Славиком (R52-8, D214)
+
+#### 61.6.1 Ограничение Bot API (дизайн-инвариант)
+
+Bot API НЕ присылает боту update об удалении сообщений в группах (`Update` не содержит delete-событий); `getMessage` удалён из Bot API 8.3 (в aiogram 3.29.1 отсутствует). **Активный probe невозможен.** Единственный детект — пассивный: когда кто-то делает reply/quote на УДАЛЁННОЕ сообщение, входящий update несёт `reply_to_message = InaccessibleMessage` (`chat`, `message_id` сохранены, `date == 0`, поля `from_user` НЕТ — подтверждено в aiogram 3.29.1 `inspect`-ом: `InaccessibleMessage.model_fields = {chat, message_id, date}`). Ограничение фиксируется в `plans/RESEARCH.md` (T-412). Следствие-плюс: `direct_chat._is_direct_trigger` для InaccessibleMessage безопасен (`getattr(reply_to, "from_user", None) is None`) — конфликтов с 0h нет.
+
+#### 61.6.2 БД: маппинг «репост Славика → dead page бота» (аддитивно, без миграций)
+
+Новая таблица в `_SCHEMA_SQL` (`CREATE TABLE IF NOT EXISTS` — идемпотентно при каждом старте; прецеденты `relay_album_map`/`smart_cache`):
+
+```sql
+CREATE TABLE IF NOT EXISTS dead_page_repost_map (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id       INTEGER NOT NULL,
+    repost_msg_id INTEGER NOT NULL,          -- message_id репоста Славика в группе
+    bot_msg_ids   TEXT    NOT NULL,          -- JSON-массив id dead page бота в группе
+    created_at    REAL    NOT NULL,          -- time.time()
+    UNIQUE (chat_id, repost_msg_id)
+);
+```
+(L4 review-fix: отдельный `CREATE INDEX idx_dprm_chat_repost` НЕ создаётся —
+`UNIQUE (chat_id, repost_msg_id)` авто-создаёт sqlite_autoindex, явный индекс
+дублирует.)
+
+Методы `DatabaseService` (все — в существующем стиле aiosqlite):
+- `record_dead_page_repost_map(chat_id, repost_msg_id, bot_msg_ids: list[int])` — `INSERT OR REPLACE`; перед записью ленивая TTL-очистка (`DELETE ... WHERE created_at < now - 86400`) + cap-очистка (оставить последние 500 по id). INFO-лог.
+- `get_dead_page_repost_map(chat_id, repost_msg_id) -> list[int] | None` — JSON-парсинг; None = маппинга нет.
+- `delete_dead_page_repost_map(chat_id, repost_msg_id)` — снять маппинг (срабатывание ровно один раз).
+
+Запись делается ТОЛЬКО в `dead_page_trigger.on_forward` (репост из @d_pages, целевой канал) — НЕ в scheduler/join-слот.
+
+#### 61.6.3 `services/dead_page_relay.py` — возврат id отправленных сообщений
+
+Контракт: `send_dead_page(chat_id, slot="repost") -> list[int] | None` (сейчас None). Возвращает id СООБЩЕНИЙ БОТА В ГРУППЕ:
+- Внутри: `_try_forward_from_channel` возвращает `(source_channel_msg_id, dest_ids)` (source-id нужен для анти-повтора `set_dead_page_last_sent`; dest_ids собираются из `bot.forward_message` → `sent.message_id` и `bot.forward_messages` → `[m.message_id for m in sent]` по всем путям: `_forward_single`/`_forward_album_post_send`/`_forward_with_heuristic`).
+- `_fallback_local_send` → тоже возвращает dest id (send_photo → Message.message_id).
+- Cooldown/ранний выход → `None`. `record_dead_page_post` остаётся без изменений.
+- Обратная совместимость: единственный вызывающий сейчас — `dead_page_trigger.on_forward` и `SchedulerService` (`slot="join"`, результат игнорируется — сигнатура меняется только для trigger'а).
+
+#### 61.6.4 Новый хендлер: `handlers/dead_page_delete.py`
+
+- `dead_page_delete_router` — catch-all message-хендлер (без фильтра-декоратора, ручные проверки) + `setup_dead_page_delete(db)`; регистрация в `bot.py` на позиции **4a** (сразу после `dead_page_router`, до `war_alert_router` 4b / `common_router` 4c / `slavik_router` 5).
+- **Логика (одно действие, цепочка возвратов):**
+  1. `reply_to = message.reply_to_message`; None или есть `from_user` (живое сообщение) → `UNHANDLED`.
+  2. `isinstance(reply_to, InaccessibleMessage)` ИЛИ `getattr(reply_to, "date", 1) == 0` → иначе `UNHANDLED`.
+  3. `message.from_user` None или `== _bot_id` → `UNHANDLED` (свои сообщения не триггерят; bot_id инжектится через setup, прецедент direct_chat).
+  4. `bot_ids = await _db.get_dead_page_repost_map(chat_id, reply_to.message_id)`; None → `UNHANDLED` (reply на удалённый НЕ-деадпейдж репост → пропагация живёт; матчинг ТОЛЬКО по маппингу, пересечений с другими хендлерами нет).
+  5. **Действие (а):** `try: await bot.delete_message(chat_id, bid)` для каждого id в маппинге → успех → `delete_dead_page_repost_map(...)` → `return None` (в чат ничего не слать). `except TelegramBadRequest/Forbidden (403)` → **Действие (б):** `await message.reply(random.choice(DEAD_PAGE_DELETE_PHRASES))` → `delete_dead_page_repost_map(...)` → `return None`. Частичный успех (часть удалена, часть 403) → фраза; маппинг снимается В ЛЮБОМ случае (ровно одно срабатывание на пару (чат, репост)).
+  6. Ошибки БД → WARNING-лог + `return None` (не спамить повторами).
+- **Пул `DEAD_PAGE_DELETE_PHRASES`** (модульная константа, 5+ фраз, токсичный тон «пошёл нахуй»-семейства, явное упоминание удаления репоста; пример-заготовка: «снёс репост мёртвой страницы? стыдно стало?», «удалил репост — испугался мёртвой страницы?» и т.п. — Builder формулирует финал).
+- **Почему consume (return None), а не UNHANDLED при срабатывании:** если Славик сам ответил на свой удалённый репост — иначе `slavik_router` дал бы «пошёл нахуй» (второе действие). Одно действие на сообщение (пересечение с T-410).
+- **Что НЕ триггерит:** reply на ЖИВОЙ репост (есть from_user → шаг 1); reply на удалённое сообщение, не бывшее dead-page репостом (нет маппинга → UNHANDLED); собственные сообщения бота; `quote`-вариант (в aiogram 3.29 reply-цитата приходит как `reply_to_message` — покрыт; чистый `message.quote` вне скоупа, фиксируется в RESEARCH).
+
+#### 61.6.5 Тесты (tests/test_dead_page_delete.py + test_dead_page_trigger.py)
+
+- Мок `InaccessibleMessage(chat=..., message_id=..., date=0)` в `reply_to_message`:
+  - (а) права есть → `bot.delete_message` вызван с id из маппинга, в чат ничего не отправлено, маппинг удалён;
+  - (б) `delete_message` кидает 403 → отправлена ОДНА фраза из пула с `reply_to_message_id` = вызвавшее сообщение, маппинг удалён;
+  - повторный update той же пары → UNHANDLED (маппинга нет);
+  - нет маппинга → UNHANDLED, другие хендлеры не тронуты;
+  - reply на живой репост (обычный Message) → UNHANDLED (не ломаем существующее);
+  - TTL/cap: запись с created_at старше 24ч удаляется при следующей записи.
+- `send_dead_page` возвращает dest-ids: forward path (мок `bot.forward_message`) и fallback path.
+- `dead_page_trigger.on_forward`: после репоста записан маппинг {chat_id, msg_id, bot_ids}.
+
+---
+
+### 61.7 T-412 — Ресёрч (R52-5): требования к @Researcher
+
+- **Движки (fallback-цепочка):** context7 (доки aiogram/python-telegram-bot) → при недоступности duckduckgo → exa → webfetch. Известно из истории: context7 MCP давал Invalid API key, duckduckgo — аномалии; рабочий стек был **exa + webfetch** (зафиксировано в шапке RESEARCH.md). Финальные источники — в RESEARCH.md.
+- **Темы:** (1) keyword-триггеры: word-boundary-паттерны для кириллицы, минимальные списки, ложные срабатывания («робот»/«ботва») — подтвердить паттерн 61.5.1; (2) анти-спам/троттлинг: достаточно ли token-bucket 3 заряда/300с per (chat,user) для keyword-триггера (рекомендации); (3) **детект удаления сообщений в группах**: подтвердить/опровергнуть D214 — нет delete-событий, getMessage удалён (Bot API 8.3), reply/quote на удалённое → `InaccessibleMessage` date==0 (возможности и границы, чистый `message.quote`).
+- **Файл:** `plans/RESEARCH.md` — ДОПОЛНИТЬ (НЕ перезаписывать): новый раздел «keyword-триггеры» + новый раздел «детект удаления сообщений в группах (InaccessibleMessage)»; обновить «Сводный чек-лист» и «Источники». Существующий раздел 3 (про «бот»/«ботохуета») — связать ссылками.
+
+---
+
+### 61.8 Новые env-переменные (сводно)
+
+| Переменная | Default | Прод .env (T-416) | Гейт в коде |
+|------------|---------|-------------------|-------------|
+| `ALAN_REPLIES_ENABLED` | true | **false** | `handlers/alan.py` (reply-блок) |
+| `COMMON_WORK_MEDIA_ENABLED` | true | **false** | `handlers/common.py::work_handler` |
+| `COMMON_MEDIA_ENABLED` | true | (не ставим) | `services/common_relay.py::send_common` |
+| `DIRECT_CHAT_BOTWORD_ENABLED` | true | (не ставим) | `handlers/direct_chat.py::_is_direct_trigger` |
+
+Все — `_env_bool`, все — в `.env.example` с комментариями. Конвенция: `*_ENABLED`, default true; false на проде — ТОЛЬКО первые два.
+
+---
+
+### 61.9 Порядок реализации для Builder + риски
+
+**Порядок (зависимости):** T-408 (изолирован) → T-409 (изолирован) → T-410 (ядро координации; T-417 зависит от его data-флага/цепочек, но не блокируется) → T-417 (новый роутер 4a + рефактор relay) → T-411 (изолирован, в конце — роутерная интеграция). Тесты пишутся вместе с каждой задачей (T-413 обобщает). Затем T-412 (Researcher) / T-413 (QA) / T-414 (Docs) / T-415+T-416 (DevOps: master, `.env` с бэкапом `.env.bak.epic52`, restart, smoke).
+
+| Риск | Вероятность | Влияние | Митигация |
+|------|-------------|---------|-----------|
+| `test_alan.py::test_topic_coverage` требует «фьючерс» → регрессия | Высокая | Среднее | Правка теста в ТОМ ЖЕ коммите (T-408-C) |
+| Гейт ALAN_REPLIES_ENABLED случайно заденет F7v2 | Низкая | Высокое | Гейт — только reply-блок; интеграционный тест F7v2 при false |
+| data-флаг прочитан хендлером другого события | Ничтожная | Среднее | `data` per-update; тест изоляции |
+| GIF-флаг при неуспешной отправке (файл отсутствует) | Средняя | Низкое | Флаг ставится только при реальной отправке (return bool из `_send_gif`) |
+| keyword «бот» жжёт LLM-бюджет | Средняя | Среднее | Тот же token-bucket (3/300с); приоритет 0a–0g > 0h; интеграционный тест «бот, чекни сервак» |
+| InaccessibleMessage не приходит на чистый quote | Средняя | Низкое | Primary-детект — reply_to_message; quote-вариант зафиксировать в RESEARCH как known-limitation |
+| 403 не ловится (другие ошибки delete) | Низкая | Низкое | try/except TelegramBadRequest/Forbidden; 404-класс «message not found» → считать удалённым (idempotent) |
+| Маппинг растёт без TTL | Низкая | Низкое | Ленивая TTL-очистка 24ч + cap 500 при каждой записи |
+| Двойное действие (фраза + «пошёл нахуй» от slavik_router) | Средняя | Среднее | Позиция роутера 4a ДО slavik; consume при срабатывании; снятие маппинга |
+
+**Критерии готовности:** полный pytest без регрессий (база 2205 + новые: T-408 ~4, T-409 ~6, T-410 ~8, T-411 ~8, T-417 ~10); каноны R50-4/R50-7/R50-8 VERBATIM; миграций БД нет (аддитивная таблица + CREATE IF NOT EXISTS); 0 трасбеков в journalctl после деплоя; smoke: (1) реплики Алана молчат при false, F7v2 жив; (2) Славик — одно действие, на join только «ДОЛБОЕБ ВЕРНУЛСЯ»; (3) direct_chat отвечает на «бот» с reply_to; (4) work-медиа молчит, otboy/danger живы; (5) удаление репоста dead page → бот удаляет свою dead page (или токсичная фраза).
