@@ -86,7 +86,8 @@ class TestDefaultInfoText:
     def test_covers_features(self):
         for marker in (
             "Гайд по фичам", "фактчек", "чекап", "кулдаун", "Checkup",
-            "youtu.be", "какой-то-сайт.ru",
+            "youtu.be", "какой-то-сайт.ru", "100500%", "пересаживается",
+            "ботяра",
         ):
             assert marker in DEFAULT_INFO_TEXT
 
