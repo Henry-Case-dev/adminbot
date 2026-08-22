@@ -6293,3 +6293,110 @@ CHAT_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 **Статус: Epic 53 — Шаг 6 (@Memory) ✅ (2026-08-23): IMPLEMENTED + REVIEWED (APPROVED) — 2354 passed / 0 failed (было 2302, +52). T-418…T-423 DONE ([x]); T-424/T-425/T-426 pending (@Docs/@DevOps). DEPLOY PENDING (@DevOps, Шаг 7: T-425 коммит+пуш origin/master, T-426 деплой v2.38.0). Фиксы ревью: H1 (on_failure при state==HALF_OPEN в except Exception direct_chat_service.py — CB не залипает), M1 (_FALLBACK_TIMEOUT_SECONDS=30.0, фоллбэк в asyncio.timeout, худший случай 60+30с), L3 (_failures = min(_failures+1, _threshold)). Итог расследования: устойчивые 502 apinet.cloud, ретраи не лечат (retry-storm), CB — основной фикс, фоллбэк опционален (env пусты на проде → поведение как раньше). ALAN_REPLIES: 5 тем × 5 фраз + пул вопросов (5) вместо alan.py:43 = 52 фразы, ALAN_REPLIES_ENABLED=false остаётся на проде. CHAT_LLM_DOWN_PHRASES (4) в smartmodule_phrases.py. 6 новых env: LLM_CB_* + LLM_FALLBACK_*. Инцидент «2026-08-23 direct_chat LLM 502» → RESOLVED (FIXED, DEPLOY PENDING). Боевой код НЕ закоммичен — прод остаётся v2.37.0 (56cccd6).**
 **Date: 2026-08-23**
+
+---
+
+## Epic 54: Включение фоллбэк-провайдера (прямой API DeepSeek) — 2026-08-23 🚧 IN PROGRESS (пользовательский запрос, Шаг 1 @PM, target v2.38.1 chore, БЕЗ изменений кода)
+
+> **Цель:** Конфигурационный эпик. Основной LLM-провайдер (apinet.cloud,
+> `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash`) ОСТАЁТСЯ.
+> Опциональный фоллбэк-провайдер (механика Epic 53, Section 62.4, уже в v2.38.0 `a8f82b1`)
+> ВКЛЮЧАЕТСЯ на проде тремя переменными `LLM_FALLBACK_*` — на ПРЯМОЙ API DeepSeek.
+> **Код менять НЕ нужно** — активируется существующая механика. Ключ пользователь дал.
+> **Исполнители:** @DevOps (T-427/T-428), @Architect (T-429), @Docs + @DevOps (T-430). Без @Orchestrator.
+> **Target:** v2.38.1 (chore, patch). **Baseline:** прод v2.38.0 (`a8f82b1`, PID 1052443), 2354 теста, Epics 1–53 ALL CLOSED.
+
+### Верифицированные решения (Шаг 0 @Memory, доки DeepSeek проверены)
+
+| # | Параметр | Значение | Комментарий |
+|---|----------|----------|-------------|
+| 1 | `LLM_FALLBACK_BASE_URL` | `https://api.deepseek.com` | канон доков DeepSeek; `/v1`-алиас тоже принимается |
+| 2 | `LLM_FALLBACK_MODEL` | `deepseek-v4-flash` | официальная модель, совпадает с primary; `deepseek-chat`/`deepseek-reasoner` ЗАРЕТИРОВАНЫ с 2026-07-24 — НЕ использовать |
+| 3 | `LLM_FALLBACK_API_KEY` | ключ задан пользователем | в планах/логах НЕ публиковать (R17), писать «ключ задан пользователем» |
+
+Граница механики: фоллбэк покрывает ТОЛЬКО `chat/completions` — embeddings остаются на apinet.cloud.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R54-1** | **Прод .env:** добавить 3 переменные `LLM_FALLBACK_*` с верифицированными значениями (таблица выше); ОБЯЗАТЕЛЬНЫЙ бэкап `.env.bak.epic54` ДО правки; первичные `LLM_BASE_URL`/`LLM_MODEL_NAME` (apinet.cloud) НЕ трогать; ключ не логировать и не публиковать. |
+| **R54-2** | **Верификация:** smoke-curl С СЕРВЕРА к `https://api.deepseek.com/chat/completions` с Bearer-ключом из .env → HTTP 200; `systemctl restart admin_bot` → active (running), НОВЫЙ PID (был 1052443); `journalctl -n 50` — 0 traceback. |
+| **R54-3** | **Документация:** ARCHITECTURE.md Section 62.4 — короткое дополнение о включении фоллбэка на проде (T-429, канон-текст ниже); README/MEMORY — упоминание, что фоллбэк включён (T-430). Код НЕ меняется. |
+
+### PM Decisions (зафиксированы 2026-08-23, Шаг 1 PM)
+
+| # | Решение |
+|---|---------|
+| **D218** | **Версия: v2.38.1 (chore, patch), а не v2.39.0.** Обоснование одной строкой: код и тесты не меняются — только прод-конфиг (.env) и доки, а включение фоллбэка — активация УЖЕ СУЩЕСТВУЮЩЕЙ механики Epic 53, поэтому patch-бамп chore-класса; семантика minor (v2.39.0) зарезервирована для релизов с изменениями кода. Коммит в любом случае только для планов/доков (если будут изменения); прод `.env` меняется напрямую. |
+| **D219** | **Значения env** — верифицированы (@Memory, доки DeepSeek): `LLM_FALLBACK_BASE_URL=https://api.deepseek.com`, `LLM_FALLBACK_MODEL=deepseek-v4-flash` (официальная; legacy НЕ использовать), `LLM_FALLBACK_API_KEY` — ключ пользователя (в планы/логи не публиковать, R17). Код-изменения НЕ требуются (подтверждение — T-429). |
+
+### Задачи
+
+### T-427 (@DevOps) — Настройка прод .env (R54-1, D219)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.25d.
+
+- [ ] T-427-A: бэкап `.env.bak.epic54` ДО правки; добавить 3 переменные: `LLM_FALLBACK_BASE_URL=https://api.deepseek.com`, `LLM_FALLBACK_MODEL=deepseek-v4-flash`, `LLM_FALLBACK_API_KEY=<ключ пользователя>`
+- [ ] T-427-B: проверить, что первичные `LLM_BASE_URL`/`LLM_MODEL_NAME`/`LLM_API_KEY` (apinet.cloud) НЕ тронуты; ключ не попадает в логи/планы/коммиты (R17)
+
+**DoD:** бэкап `.env.bak.epic54` существует; три переменные добавлены; apinet.cloud не изменён; ключ не засвечен в логах/планах.
+
+### T-428 (@DevOps) — Верификация ключа и фоллбэка (R54-2)
+
+**Приоритет:** P0. **Зависимости:** T-427. **Оценка:** 0.25d.
+
+- [ ] T-428-A: smoke-curl С СЕРВЕРА: `POST https://api.deepseek.com/chat/completions` с `Authorization: Bearer <ключ из .env>` (ключ подставлять из .env, НЕ инлайном в историю шелла) → HTTP 200
+- [ ] T-428-B: `systemctl restart admin_bot` → status active (running), НОВЫЙ PID (был 1052443); `journalctl -n 50` — 0 traceback; фоллбэк-конфигурация подхвачена (WARNING «LLM fallback … configured» при старте, без значения ключа)
+
+**DoD:** curl → 200; бот active (running) с новым PID; journalctl 0 traceback.
+
+### T-429 (@Architect) — Код-проверка + фиксация решения в ARCHITECTURE.md (R54-3, D219)
+
+**Приоритет:** P1. **Зависимости:** нет (параллельно T-427/T-428). **Оценка:** 0.1d.
+
+- [ ] T-429-A: подтвердить, что механика фоллбэка ПОЛНОСТЬЮ реализована в Epic 53 (v2.38.0: services/llm_client.py, Section 62.4) — код-изменения НЕ требуются; вынести вердикт в статус эпика
+- [ ] T-429-B: ARCHITECTURE.md Section 62.4 — короткое дополнение (канон-текст ниже) о включении фоллбэка на проде
+
+**DoD:** вердикт «код менять не нужно» зафиксирован; Section 62.4 дополнена канон-текстом.
+
+**Канон-текст для Section 62.4 (вставлять байт-в-байт):**
+
+> **Epic 54 (v2.38.1, chore, 2026-08-23): фоллбэк ВКЛЮЧЁН на проде.** Прод .env: `LLM_FALLBACK_BASE_URL=https://api.deepseek.com` (канон доков DeepSeek), `LLM_FALLBACK_MODEL=deepseek-v4-flash` (совпадает с primary; `deepseek-chat`/`deepseek-reasoner` заретированы 2026-07-24 — не использовать), `LLM_FALLBACK_API_KEY` — задан пользователем (значение не публикуется, R17). Код НЕ менялся — активирована существующая механика 62.4; верификация — smoke-curl 200 с сервера (T-428). Граница: фоллбэк покрывает только chat/completions — embeddings остаются на apinet.cloud.
+
+### T-430 (@Docs + @DevOps) — Деплой-отчёт + README/MEMORY (R54-3)
+
+**Приоритет:** P1. **Зависимости:** T-427…T-429. **Оценка:** 0.25d.
+
+- [ ] T-430-A (@Docs): README (changelog v2.38.1: фоллбэк DeepSeek включён на проде, иронично) + MEMORY (Epic 54, v2.38.1, упоминание включённого фоллбэка)
+- [ ] T-430-B (@DevOps): финальный деплой-отчёт в планах (новый PID, 0 traceback, curl 200); коммит планов/доков (если есть изменения) на русском (conventional) + пуш origin/master
+
+**DoD:** README/MEMORY упоминают включённый фоллбэк; Epic 54 помечен CLOSED; деплой-отчёт зафиксирован.
+
+### env-переменные (Epic 54)
+
+| Переменная | Дефолт | Прод .env (T-427) | Где |
+|-----------|--------|-------------------|-----|
+| `LLM_FALLBACK_BASE_URL` | `""` (пусто = выключен) | `https://api.deepseek.com` | уже в settings (Epic 53) — код не менять |
+| `LLM_FALLBACK_MODEL` | `""` | `deepseek-v4-flash` | уже в settings — код не менять |
+| `LLM_FALLBACK_API_KEY` | `""` | ключ задан пользователем (не публиковать) | уже в settings — код не менять |
+
+Первичные `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash`, `LLM_API_KEY` — БЕЗ изменений.
+
+### Риски (Epic 54)
+
+1. **Ключ утечёт в логи/планы/историю шелла** — ключ пишется ТОЛЬКО в прод .env; curl подставляет ключ из .env (не инлайном); в планы — только «ключ задан пользователем» (R17).
+2. **Legacy-модель по привычке** — `deepseek-chat`/`deepseek-reasoner` заретированы 2026-07-24; использовать ТОЛЬКО `deepseek-v4-flash` (D219).
+3. **Ожидание, что фоллбэк покрывает всё** — фоллбэк работает ТОЛЬКО для chat/completions; embeddings/другие вызовы остаются на apinet.cloud (граница задокументирована в 62.4).
+4. **Порча .env при правке** — обязательный бэкап `.env.bak.epic54` ДО правки (T-427-A); рестарт с 0 traceback — контрольная проверка (T-428-B).
+
+### Файлы (планируемые)
+
+`plans/backlog.md`, `plans/board.md` (этот эпик); `plans/ARCHITECTURE.md` (Section 62.4, T-429); `README.md`, `plans/MEMORY.md` (T-430). Прод `.env` (вне репо, напрямую на сервере).
+
+**НЕ трогать:** весь код (services/config/tests), `LLM_BASE_URL`/`LLM_MODEL_NAME`/`LLM_API_KEY` на проде, `.env.example` (переменные уже объявлены в Epic 53), миграций БД нет.
+
+---
+
+**Статус: Epic 54 — Шаг 1 (@PM) 🚧 (2026-08-23): PLANNING — T-427…T-430 занесены в backlog.md + board.md, target v2.38.1 (chore, D218), значения env верифицированы (D219). Код НЕ меняется. Далее — @DevOps (T-427/T-428) и @Architect (T-429) параллельно.**
+**Date: 2026-08-23**

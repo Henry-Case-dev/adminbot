@@ -6,7 +6,7 @@
 
 ## 🔧 In Progress
 
-### Epic 53: ALAN_REPLIES v2 + LLM 502 (direct_chat) + RESEARCH_HUMAN — ✅ IMPLEMENTED + REVIEWED (APPROVED) (пользовательский запрос, 2026-08-23, Шаг 6 @Memory, target v2.38.0, P0/P1, 2354 passed / 0 failed, DEPLOY PENDING @DevOps)
+### Epic 53: ALAN_REPLIES v2 + LLM 502 (direct_chat) + RESEARCH_HUMAN — ✅ DEPLOYED & CLOSED (v2.38.0, коммит `a8f82b1`, прод PID 1052443, 2354 тестов, 2026-08-23, Шаг 8 @Memory)
 
 > Полный трек — `plans/backlog.md` (Epic 53). Требования R53-1…R53-4, решения D215–D217.
 > П1 — ALAN_REPLIES v2: 5 новых тем (NixOS/Линукс, Продажа SSD, Витамины Life Extension,
@@ -27,11 +27,31 @@
 - [x] T-421 (@Builder, P0) — direct_chat: CB OPEN → без вызова LLM, фраза из CHAT_LLM_DOWN_PHRASES (новый пул, VERBATIM); R50-8 CHAT_ERROR_PHRASES не трогать; успех → сброс CB
 - [x] T-422 (@Builder + @QA, P0) — тесты: мок httpx (502×3 → LLMError; 502×2+успех; таймаут; CB OPEN без HTTP; фоллбэк on/off; лог 502), direct_chat CB-ветка, alan-полнота; полный pytest 0 регрессий (2354 passed / 0 failed)
 - [x] T-423 (@Docs, P2) — plans/RESEARCH_HUMAN.md: все рекомендации §6 (6.1–6.11 + P0/P1/P2 + чек-лист) простыми словами + [ ] чекбоксы; RESEARCH.md не трогать
-- [ ] T-424 (@Docs, P2) — README v2.38.0 (иронично) + MEMORY
-- [ ] T-425 (@DevOps, P1) — коммит на русском + пуш origin/master
-- [ ] T-426 (@DevOps, P1) — деплой v2.38.0: .env.bak.epic53, ПРОВЕРИТЬ ALAN_REPLIES_ENABLED=false (НЕ менять), LLM_FALLBACK_* не ставить; restart; journalctl 0 traceback; smoke (alan false, direct_chat, славик, checkup)
+- [x] T-424 (@Docs, P2) — README v2.38.0 (иронично) + MEMORY — **Done (Шаг 7, README v2.38.0)**
+- [x] T-425 (@DevOps, P1) — коммит на русском + пуш origin/master — **Done (Шаг 7, коммит `a8f82b1`, пуш 56cccd6..a8f82b1)**
+- [x] T-426 (@DevOps, P1) — деплой v2.38.0: .env.bak.epic53, ПРОВЕРИТЬ ALAN_REPLIES_ENABLED=false (НЕ менять), LLM_FALLBACK_* не ставить; restart; journalctl 0 traceback; smoke (alan false, direct_chat, славик, checkup) — **Done (Шаг 7, PID 1052443, 0 traceback)**
 
-**Updated:** 2026-08-23 — **Epic 53 ✅ IMPLEMENTED + REVIEWED (APPROVED, Шаг 6 @Memory)**: T-418…T-423 DONE ([x]); T-424/T-425/T-426 pending (@Docs/@DevOps). 2354 passed / 0 failed (было 2302, +52). DEPLOY PENDING (@DevOps, Шаг 7). Фиксы ревью: H1 (on_failure при HALF_OPEN), M1 (_FALLBACK_TIMEOUT_SECONDS=30.0, asyncio.timeout), L3 (_failures = min(+1, _threshold)). CB — основной фикс 502, фоллбэк опционален. ALAN_REPLIES_ENABLED=false остаётся. Инициация (Шаг 1 @PM ✅): зафиксированы R53-1…R53-4, решения D215 (старые темы ALAN сохраняются — контракты; 5 новых тем ≥4-5 фраз; alan.py:43 → пул вопросов; прод false остаётся), D216 (LLM 502: CB основной + фоллбэк опциональный + диаг-лог 502; health-check нет — CB покрывает дешевле), D217 (RESEARCH_HUMAN.md, RESEARCH.md не трогать); задачи T-418…T-426, target v2.38.0, baseline 2302; пуш origin/master (не main).
+**Updated:** 2026-08-23 — **Epic 53 ✅ DEPLOYED & CLOSED (v2.38.0, Шаг 8 @Memory)**: все T-418…T-426 DONE ([x]). Шаг 7 @DevOps: коммит `a8f82b1` + пуш origin/master (56cccd6..a8f82b1); деплой Fast-forward на прод — .env не менялся (ALAN_REPLIES_ENABLED=false сохранён, LLM_CB_*/LLM_FALLBACK_* на дефолтах), бэкап .env.bak.epic53, restart OK, PID 1052443, journalctl 0 traceback. 2354 passed / 0 failed. Инцидент 502 → RESOLVED (фикс задеплоен). Epics 1–53 ALL CLOSED.
+
+### Epic 54: Включение фоллбэк-провайдера (прямой API DeepSeek) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-23, Шаг 1 @PM ✅, target v2.38.1 chore, БЕЗ изменений кода)
+
+> Полный трек — `plans/backlog.md` (Epic 54). Решения D218/D219. Конфигурационный эпик:
+> основной LLM (apinet.cloud, deepseek-v4-flash) ОСТАЁТСЯ; опциональный фоллбэк (механика
+> Epic 53/62.4, уже в v2.38.0 `a8f82b1`) ВКЛЮЧАЕТСЯ на проде тремя переменными — прямой API
+> DeepSeek. Верифицировано (@Memory, доки DeepSeek): `LLM_FALLBACK_BASE_URL=https://api.deepseek.com`,
+> `LLM_FALLBACK_MODEL=deepseek-v4-flash` (официальная; `deepseek-chat`/`deepseek-reasoner`
+> заретированы 2026-07-24 — НЕ использовать); ключ — задан пользователем (в планах/логах
+> НЕ публиковать, R17). Код менять НЕ нужно. Версия: v2.38.1 (chore, patch) — без кода/тестов,
+> только прод-конфиг и доки. Коммит — только планы/доки (если есть); прод .env меняется напрямую.
+> Фоллбэк покрывает только chat/completions — embeddings остаются на apinet.cloud.
+> База: прод v2.38.0 (`a8f82b1`, PID 1052443), 2354 теста, Epics 1–53 ALL CLOSED. Без @Orchestrator.
+
+- [ ] T-427 (@DevOps, P0) — прод .env: бэкап `.env.bak.epic54` ДО правки; +`LLM_FALLBACK_BASE_URL`/`LLM_FALLBACK_MODEL`/`LLM_FALLBACK_API_KEY`; первичный apinet.cloud НЕ трогать; ключ не засветить (R17). **DoD:** бэкап есть, 3 переменные добавлены, ключ не в логах/планах.
+- [ ] T-428 (@DevOps, P0) — верификация: smoke-curl с сервера → `POST https://api.deepseek.com/chat/completions` Bearer из .env → 200; restart admin_bot → active (running), НОВЫЙ PID (был 1052443); journalctl 0 traceback. **DoD:** curl 200, новый PID, 0 traceback.
+- [ ] T-429 (@Architect, P1) — подтвердить «код менять не нужно» + ARCHITECTURE.md Section 62.4: короткое дополнение о включении фоллбэка на проде (канон-текст — в backlog T-429). **DoD:** вердикт зафиксирован, Section 62.4 дополнена.
+- [ ] T-430 (@Docs + @DevOps, P1) — деплой-отчёт + README changelog v2.38.1 + MEMORY (фоллбэк включён); коммит планов/доков на русском + пуш origin/master. **DoD:** доки актуализированы, Epic 54 CLOSED.
+
+**Updated:** 2026-08-23 — **Epic 54 создан (Шаг 1 @PM)**: target v2.38.1 (chore, D218), 4 задачи T-427…T-430, без изменений кода; значения env верифицированы (D219). Порядок: @DevOps T-427→T-428, @Architect T-429 параллельно; T-430 последней.
 
 ### Epic 48: Откат degraded-саммари (Summary: LLM или ничего) — 🚧 IN PROGRESS (одобрено пользователем, 2026-08-20, Шаг 1 @PM ✅, target v2.36.0, P0 — «в первую очередь»)
 
