@@ -4641,6 +4641,8 @@ llm откинулась, сгенерировать не вышло
 
 **Канон R44-1 (VERBATIM, байт-в-байт — слайс-эталон для тестов; HTML-теги расставит @Architect в Section 53, суть текста менять нельзя; Epic 56 T-437: раздел 6 — пользовательская версия, `<code>`→`<blockquote>`; Epic 57 T-442: `<blockquote>`→`<b><i><u>` (italic+подчёркивание+жирный), заголовки — эмуляция H1/H2 жирным; СУТЬ не менялась — fenced-блок ниже НЕ трогается):**
 
+**Пометка Epic 58 (T-447):** rich-разметка `<h1>`/`<h2>`/`<b><i>` (без `<u>`) — суть не менялась, fenced-блок ниже НЕ трогается.
+
 ```
 Гайд по фичам бота с выходом в сеть internet. Никаких слеш-команд, всё работает нативно прямо в диалоге.
 
@@ -6790,3 +6792,133 @@ CHAT_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 **Статус: Epic 57 — Шаг 6 (@Memory) ✅ (2026-08-23): IMPLEMENTED + REVIEWED (APPROVED WITH NOTES) — DEPLOY PENDING (@DevOps T-445). T-442..T-444 и T-446-A DONE ([x]); T-445 READY (@DevOps); T-446 — финализация после деплоя. T-443 (@Builder): интро→H1=`<b><u>`, 6 подзаголовков→H2=`<b>`, 27 цитат→`<b><i><u>`, текст verbatim (2270 симв. HEAD-strip == NEW-strip), канон-цепочка 5 мест синхронна, счётчики 34 b / 27 i / 28 u / 2 a, 91 сущность (<100), 2964 симв. (<4096 — 1 чанк), 2354 passed / 0 failed, git diff --check чист. T-444 (@Reviewer): ✅ APPROVED WITH NOTES — независимый ресёрч exa подтвердил D227 («This message is not supported» на Telegram Web — тело недоступно); handlers/info.py не менялся; Low-1 («ё» в «всё» — verbatim, не трогать), Low-2 (CRLF-артефакт win32, не влияет) — документальные, закрыты @Docs. T-446-A (@Docs): README v2.41.0 + MEMORY + board. Боевой код НЕ закоммичен — прод остаётся v2.40.0 (`1d9bf61`, PID 1054487), 2354 теста. Далее — Шаг 7 @DevOps (T-445). Без @Orchestrator.**
 **Date: 2026-08-23**
+
+---
+
+## Epic 58: /info → настоящий Rich Message (sendRichMessage; H1/H2 честные, цитаты → жирный+курсив) — 2026-08-24 🚧 IN PROGRESS (пользовательский запрос, Шаг 1 @PM, target v2.42.0)
+
+> **Цель:** Ревизия решения Epic 57 (D227). Пользователь утверждает: rich-формат СЕЙЧАС
+> читается ВСЕМИ клиентами (и десктоп, и мобильный видят статьи) → перейти на НАСТОЯЩИЕ
+> Rich Messages: (1) /info → `sendRichMessage` (Bot API 10.1/10.2, `InputRichMessage`),
+> (2) у примеров фраз-вызовов (27 цитат) убрать подчёркивание → жирный+курсив (`<b><i>`),
+> (3) у заголовка убрать подчёркивание, сделать ЧЕСТНЫЕ H1 (интро «Гайд по фичам…») и
+> H2 (6 нумерованных подзаголовков) — блок `RichBlockSectionHeading` / rich-HTML `<h1>`/`<h2>`.
+> Текст байт-в-байт НЕ менять — только разметка. Обязательный ресёрч (context7 →
+> duckduckgo → exa): точный синтаксис `InputRichMessage` для aiogram 3.29.1 (html или
+> blocks), лимиты длины rich, `<a href>`/`<b>`/`<i>` в rich-HTML, reply_to, поведение при
+> невалидном rich (какое исключение — для фолбека). Перепись `handlers/info.py`
+> (sendRichMessage + фолбек; /edit_info DM-превью — rich по вердикту T-447).
+> Канон-цепочка (5 мест) обновляется СИНХРОННО, иначе падают байт-в-байт тесты.
+> **Исполнители:** @Architect (T-447), @Builder (T-448), @Reviewer (T-449),
+> @DevOps (T-450), @Docs (T-451). Без @Orchestrator.
+> **Target:** v2.42.0 (minor — меняется код `handlers/info.py` + канон + тесты, D230).
+> **Baseline:** прод v2.41.0 (`ba91035`, PID 1062574), 2354 теста, Epics 1–57 ALL CLOSED.
+
+### Требования (Requirements — обязательный чек-лист)
+
+| # | Требование |
+|---|-----------|
+| **R58-1** | **Новая разметка /info (Rich Messages):** интро-строка «Гайд по фичам бота с выходом в сеть internet. Никаких слеш-команд, всё работает нативно прямо в диалоге.» → ЧЕСТНЫЙ H1 (без подчёркивания); 6 пронумерованных подзаголовков → ЧЕСТНЫЕ H2; 27 цитат → жирный+курсив (`<b><i>`, подчёркивание УБРАНО). Текст байт-в-байт НЕ менять — только разметка. |
+| **R58-2** | **Обязательный ресёрч (context7 → duckduckgo → exa):** точный синтаксис `InputRichMessage` для aiogram 3.29.1 (rich-HTML или `blocks`); лимиты длины rich (4096? больше?); поддержка `<a href>`/`<b>`/`<i>` в rich-HTML; передача `reply_to`; поведение при невалидном rich (какое исключение — для фолбека). Вердикт фиксирует @Architect (T-447). |
+| **R58-3** | **Перепись `handlers/info.py`:** `send_chunked_reply` (parse_mode HTML) → `sendRichMessage`; фолбек-стратегия по D231; `/edit_info` DM-превью — rich и/или валидация rich-разметки по вердикту T-447; chunking по лимитам rich. |
+| **R58-4** | **Канон-цепочка (5 мест) синхронно:** `services/info_service.py::DEFAULT_INFO_TEXT` (КАНОН) = `info_text.md` = `plans/ARCHITECTURE.md` Section 53.3 (python-блок + html-блок, + пометка Epic 58) = `plans/backlog.md` «Канон R44-1» (plain — суть без тегов НЕ меняется). Одним коммитом. |
+| **R58-5** | **Тесты:** баланс тегов (счётчики h1/h2/b/i, u=0), `test_no_unbalanced_special_chars` (strip-список), `test_covers_features` (маркеры — маркер «Гайд по фичам» должен выжить); НОВЫЕ тесты `test_info_handlers.py`: вызов `sendRichMessage` и фолбек (D231); полный pytest — 0 регрессий (2354+). |
+| **R58-6** | **Деплой:** бэкап `info_text.md.bak.epic58` ДО pull (серверный == HEAD `ba91035` — сверить); коммит (код+канон+тесты+планы, БЕЗ untracked mp4 `media/common/danger/danger_boom_gif-03.mp4`) + пуш origin/master; `git pull --ff-only`; restart; `journalctl -n 50` 0 traceback; smoke /info (grep-сверки). |
+| **R58-7** | **Документация:** README changelog v2.42.0 (иронично) + `plans/MEMORY.md` (Epic 58, v2.42.0). |
+
+### PM Decisions (зафиксированы 2026-08-24, Шаг 1 PM)
+
+| # | Решение |
+|---|---------|
+| **D229** | **Product-решение: переходим на НАСТОЯЩИЕ Rich Messages** (ревизия D227). Пользователь утверждает: rich-формат сейчас читается всеми клиентами (десктоп + мобильный). Риск деградации на старых клиентах («This message is not supported») остаётся в риск-реестре (принят product-ом); смягчение — возможный фолбек на обычный `sendMessage`+HTML при ошибке rich — стратегию решает @Architect (T-447, D231). |
+| **D230** | **Версия: v2.42.0 (minor), а не patch.** Прецедент D226 (Epic 57): меняется код (`handlers/info.py` + `DEFAULT_INFO_TEXT` в `services/info_service.py`) и тесты. Нумерация: Epic 58, задачи T-447+ (после T-446). |
+| **D231** | **Фолбек-стратегия:** при ошибке rich (невалидная разметка, rich-специфичное исключение API) — фолбек на `sendMessage` + `parse_mode="HTML"` (эмуляция Epic 57: H1=`<b><u>`, H2=`<b>`, цитаты=`<b><i><u>` остаётся как фолбек-канон). Какое исключение считать триггером фолбека — решает @Architect в T-447. |
+
+### Канон-цепочка (5 мест — обновлять СИНХРОННО, одним коммитом T-448)
+
+| # | Место | Действие |
+|---|-------|----------|
+| 1 | `services/info_service.py::DEFAULT_INFO_TEXT` | КАНОН — новая rich-разметка: интро→H1, 6 подзаголовков→H2, 27 цитат→`<b><i>` (без `<u>`) |
+| 2 | `info_text.md` (репо) | то же байт-в-байт (UTF-8/LF/без хвостового `\n`) |
+| 3 | `plans/ARCHITECTURE.md` Section 53.3 — python-блок | обновить (@Architect в T-447, + пометка Epic 58) |
+| 4 | `plans/ARCHITECTURE.md` Section 53.3 — html-блок | обновить (@Architect в T-447) |
+| 5 | `plans/backlog.md` «Канон R44-1» (fenced-блок БЕЗ тегов) | суть не меняется (plain, без тегов) — проверить, что не нужен апдейт (@Builder в T-448) |
+
+### Открытые вопросы для @Architect (закрыть в T-447)
+
+1. **Точный синтаксис `InputRichMessage` в aiogram 3.29.1:** rich-HTML (какие теги — `<h1>`…`<h6>`, `<b>`, `<i>`, `<a href>`) или `blocks` (`RichBlockSectionHeading`)? Какой вариант надёжнее рендерит H1/H2/цитаты и ссылки? Ключи `InputRichMessage{html|markdown|blocks}` — дословно из Bot API 10.1/10.2.
+2. **Лимиты длины rich:** 4096 символов как у sendMessage или больше (байты/символы/entity-лимиты)? Итог после снятия подчёркивания (~2964 симв. сейчас) — пересчитать; chunking: нужен ли и как дробить rich.
+3. **Поддержка форматирования в rich-HTML:** `<b>`, `<i>`, `<a href>` работают? Есть ли `<u>`/`<s>` — нужны ли нам (нет — цитаты без подчёркивания). Валидация спецсимволов `&`/`<`/`>` в rich-HTML та же, что в HTML parse mode?
+4. **Параметры `sendRichMessage`:** `chat_id`, `reply_to` (ReplyParameters), `parse_mode`-эквивалент, `disable_notification`; что возвращает метод; сигнатура aiogram `bot.send_rich_message(...)`.
+5. **Поведение при невалидном rich / ошибке API:** какое исключение бросает aiogram (`BadRequest`? rich-специфичный код ошибки?) — как отличить rich-ошибку от общей, чтобы сработал фолбек D231; телепорт rich-сообщения в группы/форварды — ограничения.
+6. **/edit_info DM-превью:** переводить превью на `sendRichMessage` или оставить HTML? Как валидировать пользовательские правки rich-разметки (try/except фолбека?); счётчики/маркеры тестов: баланс h1/h2/b/i (u=0), strip-список, маркер «Гайд по фичам» — полный перечень правок дословно.
+
+### Задачи
+
+### T-447 (@Architect) — ресёрч rich-синтаксиса + вердикт + новый канон Section 53.3 + фолбек-стратегия + правки тестов (R58-1…R58-5, D229/D231)
+
+**Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.5d.
+
+- [ ] T-447-A: ресёрч context7 → duckduckgo → exa: точный синтаксис `InputRichMessage` для aiogram 3.29.1 (html или blocks), лимиты длины rich (4096? больше?), `<a href>`/`<b>`/`<i>` в rich-HTML, `reply_to`, исключение при невалидном rich
+- [ ] T-447-B: вердикт по формату (rich-HTML vs blocks) + фолбек-стратегия D231 (какое исключение → фолбек на sendMessage+HTML; эмуляция Epic 57 — фолбек-канон)
+- [ ] T-447-C: новый канон rich-разметки в `plans/ARCHITECTURE.md` Section 53.3 (ОБА блока, + пометка Epic 58) + дизайн переписи `handlers/info.py` (sendRichMessage, chunking, /edit_info DM-превью rich)
+- [ ] T-447-D: перечень правок тестов дословно (баланс h1/h2/b/i, u=0; strip-список; маркеры — «Гайд по фичам» выживает; новые тесты sendRichMessage-вызова и фолбека); закрыть открытые вопросы 1–6
+
+**DoD:** вердикт зафиксирован (синтаксис InputRichMessage/лимиты/теги/reply_to/исключение); фолбек-стратегия D231 определена; Section 53.3 обновлена обоими блоками с пометкой Epic 58; дизайн handlers/info.py зафиксирован; правки тестов перечислены дословно; маркер «Гайд по фичам» подтверждён; вопросы 1–6 закрыты.
+
+### T-448 (@Builder) — Rich-разметка + канон-цепочка 5 мест + перепись handlers/info.py + тесты (R58-1/R58-3/R58-4/R58-5)
+
+**Приоритет:** P0. **Зависимости:** T-447. **Оценка:** 0.5d.
+
+- [ ] T-448-A: применить rich-разметку: интро → H1 (без `<u>`), 6 подзаголовков → H2, 27 цитат → `<b><i>` (без `<u>`); текст байт-в-байт НЕ менять
+- [ ] T-448-B: синхронизировать канон-цепочку 5 мест: `DEFAULT_INFO_TEXT`, `info_text.md`, ARCHITECTURE 53.3 (оба блока), backlog «Канон R44-1» (plain — суть без тегов не меняется)
+- [ ] T-448-C: переписать `handlers/info.py`: `sendRichMessage` + фолбек D231 (по дизайну T-447-B/C); /edit_info DM-превью; chunking
+- [ ] T-448-D: обновить/дописать тесты по T-447-D (баланс тегов, strip-список, маркеры; тесты sendRichMessage-вызова и фолбека)
+- [ ] T-448-E: полный pytest — 0 регрессий (2354+ passed / 0 failed); `git diff --check` чист
+
+**DoD:** rich-разметка применена (H1/H2, `<b><i>` без подчёркивания), текст не тронут; 5 мест канон-цепочки синхронны; handlers/info.py на sendRichMessage с фолбеком; тесты зелёные (вкл. sendRichMessage и фолбек); полный прогон 0 регрессий.
+
+### T-449 (@Reviewer) — Байт-в-байт сверка + дифф + rich-логика + ревью (R58-1/R58-4/R58-5)
+
+**Приоритет:** P0. **Зависимости:** T-448. **Оценка:** 0.25d.
+
+- [ ] T-449-A: байт-в-байт сверка 5 мест канон-цепочки; дифф — ТОЛЬКО разметка (текст не тронут); ревью rich-логики `handlers/info.py` (sendRichMessage, фолбек D231, chunking, /edit_info-валидация); полный прогон 0 регрессий; ревью APPROVED
+
+**DoD:** APPROVED; 5 мест синхронны байт-в-байт; дифф содержит только изменения разметки и handlers/info.py; rich-логика отревьюена; 0 регрессий.
+
+### T-450 (@DevOps) — Бэкап + коммит/пуш + деплой v2.42.0 (R58-6)
+
+**Приоритет:** P0. **Зависимости:** T-449. **Оценка:** 0.25d.
+
+- [ ] T-450-A: бэкап серверного `info_text.md.bak.epic58` ДО pull; сверка серверного файла == HEAD `ba91035`
+- [ ] T-450-B: коммит (код+канон+тесты+планы, БЕЗ untracked mp4 `media/common/danger/danger_boom_gif-03.mp4`) на русском (conventional commits, D123-стиль) + пуш **origin/master**
+- [ ] T-450-C: деплой: `git pull --ff-only`; `systemctl restart admin_bot` → active (running), новый PID; `journalctl -n 50` — 0 traceback
+- [ ] T-450-D: smoke /info — grep-сверки: h1 (интро), h2 (6 подзаголовков), 27 цитат b+i, u=0; вызов sendRichMessage в логах
+
+**DoD:** бэкап существует; коммит запушен (без mp4); pull ff; новый PID; 0 traceback; smoke /info OK.
+
+### T-451 (@Docs) — README v2.42.0 + MEMORY (R58-7)
+
+**Приоритет:** P1. **Зависимости:** T-450. **Оценка:** 0.25d.
+
+- [ ] T-451-A: README changelog v2.42.0 (иронично: настоящий Rich Message, честные H1/H2) + `plans/MEMORY.md` (Epic 58, v2.42.0)
+
+**DoD:** README/MEMORY актуализированы; Epic 58 помечен CLOSED в планах.
+
+### Риски (Epic 58)
+
+1. **Деградация на старых клиентах («This message is not supported»)** — риск принят product-ом (D229), остаётся в риск-реестре; смягчение — фолбек `sendMessage`+HTML при rich-ошибке (D231, T-447-B).
+2. **Лимиты длины rich:** пересчитать итог (< 4096 или лимит rich, T-447-A); при превышении — chunking rich по дизайну T-447.
+3. **Невалидный rich (пользовательские правки через /edit_info)** — валидация превью + фолбек (T-447-D).
+4. **aiogram 3.29.1** — `sendRichMessage` уже содержит (фактура Epic 57, T-442); апгрейд НЕ нужен (пин `aiogram>=3.7.0,<4.0.0` НЕ трогать).
+
+### Файлы (планируемые)
+
+`handlers/info.py` (sendRichMessage + фолбек + /edit_info превью), `services/info_service.py` (DEFAULT_INFO_TEXT — rich-разметка), `info_text.md` (то же), `plans/ARCHITECTURE.md` (Section 53.3, оба блока, пометка Epic 58), `plans/backlog.md` (этот эпик + проверка «Канон R44-1»), `tests/test_info_service.py` (баланс тегов/strip/маркеры), `tests/test_info_handlers.py` (sendRichMessage + фолбек), `README.md`, `plans/MEMORY.md` (T-451).
+
+**НЕ трогать:** пулы `INFO_*`, прод `.env`, `.env.example`, миграций БД нет. Untracked `media/common/danger/danger_boom_gif-03.mp4` в коммит НЕ попадает.
+
+---
+
+**Статус: Epic 58 — Шаг 1 (@PM) ✅ (2026-08-24): требования R58-1…R58-7, решения D229–D231 и задачи T-447…T-451 зафиксированы в backlog.md/board.md (Epic 58 🚧 IN PROGRESS, target v2.42.0, baseline: прод v2.41.0 `ba91035`, PID 1062574, 2354 теста, Epics 1–57 ALL CLOSED). Далее — Шаг 2 @Architect (T-447, ресёрч context7 → duckduckgo → exa). Без @Orchestrator.**
+**Date: 2026-08-24**

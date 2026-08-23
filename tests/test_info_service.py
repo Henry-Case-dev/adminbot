@@ -71,15 +71,20 @@ class TestDefaultInfoText:
         assert DEFAULT_INFO_TEXT == _arch_info_html_block()
 
     def test_html_tags_balanced(self):
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>")
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>")
-        assert DEFAULT_INFO_TEXT.count("<u>") == DEFAULT_INFO_TEXT.count("</u>")
-        assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>")
+        """Epic 58 (T-448): счётчики rich-канона — h1=1, h2=6, b=27, i=27, u=0, a=2."""
+        assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
+        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 6
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 27
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 27
+        assert DEFAULT_INFO_TEXT.count("<u>") == 0
+        assert DEFAULT_INFO_TEXT.count("</u>") == 0
+        assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
 
     def test_no_unbalanced_special_chars(self):
-        stripped = DEFAULT_INFO_TEXT.replace("<b>", "").replace("</b>", "")
+        stripped = DEFAULT_INFO_TEXT.replace("<h1>", "").replace("</h1>", "")
+        stripped = stripped.replace("<h2>", "").replace("</h2>", "")
+        stripped = stripped.replace("<b>", "").replace("</b>", "")
         stripped = stripped.replace("<i>", "").replace("</i>", "")
-        stripped = stripped.replace("<u>", "").replace("</u>", "")
         stripped = stripped.replace('<a href="https://youtu.be/">', "")
         stripped = stripped.replace('<a href="https://какой-то-сайт.ru">', "")
         stripped = stripped.replace("</a>", "")
