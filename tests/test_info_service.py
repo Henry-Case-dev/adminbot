@@ -72,12 +72,14 @@ class TestDefaultInfoText:
 
     def test_html_tags_balanced(self):
         assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>")
-        assert DEFAULT_INFO_TEXT.count("<blockquote>") == DEFAULT_INFO_TEXT.count("</blockquote>")
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>")
+        assert DEFAULT_INFO_TEXT.count("<u>") == DEFAULT_INFO_TEXT.count("</u>")
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>")
 
     def test_no_unbalanced_special_chars(self):
         stripped = DEFAULT_INFO_TEXT.replace("<b>", "").replace("</b>", "")
-        stripped = stripped.replace("<blockquote>", "").replace("</blockquote>", "")
+        stripped = stripped.replace("<i>", "").replace("</i>", "")
+        stripped = stripped.replace("<u>", "").replace("</u>", "")
         stripped = stripped.replace('<a href="https://youtu.be/">', "")
         stripped = stripped.replace('<a href="https://какой-то-сайт.ru">', "")
         stripped = stripped.replace("</a>", "")
