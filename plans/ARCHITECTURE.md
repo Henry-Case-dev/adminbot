@@ -14229,3 +14229,25 @@ CHAT_BOTWORD_PATTERN: str = _env_str(
 > server `.env`; в `.env.example` — плейсхолдер `your_key_here`.
 
 @Architect Epic 60 design ready — FINAL (T-458, Sections 63–67, D245–D249; вердикты T-459 из research_epic60.md ВШИТЫ): Фаза A (P0) — персистентный троттлинг в `throttle_state` (все 6 CooldownTracker + DirectChatThrottle + стачка; атомарный UPSERT ON CONFLICT … RETURNING, стена time.time, fail-open, рубильник, PRAGMA synchronous=NORMAL) + `bot_replies` в БД (TTL+LRU 3600с/200) + per-chat asyncio.Lock (после throttle/CB, таймаут 60с, пул CHAT_LOCK_BUSY_PHRASES) + идемпотентная миграция v3 (weight/status/last_confirmed_at/supersedes); Фаза B — дедуп КАНОН ≥0.95 noop / 0.85–0.95 supersede (invalidate+insert, обе версии хранятся) / <0.85 add, «свежий побеждает»=инвалидация, unconfirmed, бэкап VACUUM INTO + текстовый экспорт, embedding_cache (SHA-256, TTL 30д, cap 50k, ленивый last_used_at), метрики `<memory_health>` ДАННЫМИ в чекап (R42-6 нетронут), бегущий конспект 80% (lazy, БД+TTL 60м), tiktoken o200k_base (3 лимита, запас 1.15, usage-лог из API, саммари на 6ч); Фаза C — 🗿+молчание на пустой ответ во всех 7 пайплайнах (R13 не тронут; Q8 сигнатура реакции — открыта до реализации), edited-обновление bot_replies, молчание после 5 кулдаунов (персистентно), style_anchors (3 ответа, user-блок), /clear /persona /tone /forget (фразы VERBATIM), стриминг только саммари (placeholder+edit, 1.0/3.0с, not-modified/retry_after, деградация), ChatActionSender.typing(5.0) (авто-гашение, без паузы), temperature-пресеты (env + user_prefs), mood-блок (user-контекст, R50-4 нетронут), /forget+protected_facts; Фаза D — weight 0..1 + last_confirmed_at (+0.1/подтверждение, cap 1.0, floor 0.1), слияние эпизодов (фон, чек покрытия), time-decay 0.5^(Δдней/60) только в ранге, квота 50/чел, touch-продление TTL+LRU (lazy-sweep, NOT IN cap), int8+float-реранк с rebuild (dimensions не использовать), golden_questions.json + скрипт, MMR λ=0.6 fetch_k=20, карточки /persona (админ-права, R17), конфликты=supersede, периодический пересмотр, бюджеты direct_chat (4000 токенов, Target_User неприкосновенен); Фаза E — каноны п.20/49/63, CHAT_BOTWORD_PATTERN в settings (дефолт байт-в-байт), п.8 дедуп-кэш на smart_cache последним, сводка тест-правок (12 файлов + 7 новых), v2.43.0 и порядок деплоя. Вопросы 1–10 закрыты (63.0); открыт до реализации ТОЛЬКО вопрос 8 (сигнатура set_message_reaction — T-459 не покрыл; решает Builder T-469 первым шагом). T-460…T-499 → READY для @Builder (Шаг 4).
+
+---
+
+## Section 68 — Epic 64: контекстные бюджеты, embedding_cache f16, фоллбэк-ретраи (v2.44.0)
+
+@Architect (компакт, D253-D256):
+- **D253 (эмбеддинги):** кросс-модельный embed-фоллбэк ОТКЛОНЁН — векторы разных моделей
+  несовместимы по размерности и пространству (gemini-embedding-001=3072 vs nemotron=2048),
+  смешивание портит cosine-KNN. Схема: ретраи primary (_embed_api 3× уже есть) + graceful skip
+  (vec уходит в deferred, FTS5-фолбэк покрывает поиск). Полноценный резервный провайдер —
+  будущий эпик с namespacing'ом векторов по модели (решение пользователя: отложить).
+- **D254 (embedding_cache):** хранение float16 BLOB (struct '<Ne') вместо JSON (~46КБ→6144Б,
+  ×7.5); чтение dual-format (BLOB|legacy-JSON) + ленивая миграция при касании;
+  EMBED_CACHE_MAX_ROWS 20000 (стационар ~130МБ); INFO hit/miss лог — данные для решения
+  об откате кэша (EMBED_CACHE_ENABLED=false поддержан изначально).
+- **D255 (фоллбэк-чат):** _fallback_with_retries: до LLM_FALLBACK_MAX_RETRIES=2 повторов
+  транзиентных (429/5xx/транспорт), детерминированные не-200 мгновенно; общий бюджет
+  LLM_FALLBACK_TIMEOUT_SECONDS=120с; лог-контракт «LLM fallback failed | error=…» сохранён.
+- **D256 (обрезки контекста):** env-only (дефолты кода не тронуты): саммари 60000 ток.,
+  direct_chat CHAT_CONTEXT_BUDGET_TOKENS=24000 + окно 200, чекап 40000 симв.,
+  search/factcheck/youtube/webpage 8000 симв. Обрезается ТОЛЬКО user-контент
+  (история/память/RAG); system-промпты вне бюджетов. WAL-checkpoint(TRUNCATE) — джоб 6ч.

@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 
 _BODY_MAX_CHARS = 500   # Epic 49 (57.4) / Epic 53 (62.5): тело 4xx/5xx-ответа в диагн-логе
 
-# Epic 53 (62.1): худший случай generate = бюджет primary (60с) + фоллбэк без
-# таймаута (до 30с per-request) ≈ 90с — противоречит цели «сократить ожидание».
-# Фоллбэк ограничен фиксированным бюджетом 30с (как LLM_TIMEOUT).
-_FALLBACK_TIMEOUT_SECONDS = 30.0
+# Epic 53 (62.1): худший случай generate = бюджет primary + фоллбэк.
+# Epic 64: бюджет фоллбэка больше НЕ константа 30с — настройка
+# LLM_FALLBACK_TIMEOUT_SECONDS (дефолт 120с: реальный запрос к DeepSeek
+# занимает ~15с; при ретраях 30с не хватало даже на две попытки).
 
 
 class LLMError(Exception):
@@ -106,7 +106,10 @@ class LLMClient:
         self._backoff_cap = settings.LLM_RETRY_BACKOFF_CAP
         self._jitter_max = settings.LLM_RETRY_JITTER_MAX
         self._budget = settings.LLM_TOTAL_BUDGET
-        self._fallback_timeout = _FALLBACK_TIMEOUT_SECONDS
+        # Epic 64: бюджет фоллбэка — настройка (было жёстко 30с), плюс ретраи
+        # транзиентных отказов самого фоллбэка.
+        self._fallback_timeout = settings.LLM_FALLBACK_TIMEOUT_SECONDS
+        self._fallback_max_retries = settings.LLM_FALLBACK_MAX_RETRIES
         self._client: httpx.AsyncClient | None = None
         self._fallback_client: httpx.AsyncClient | None = None
 
@@ -295,6 +298,40 @@ class LLMClient:
         fallback_payload["model"] = self._fallback_model
         return await client.post(url, json=fallback_payload)
 
+    async def _fallback_with_retries(self, payload: dict) -> httpx.Response | None:
+        """Epic 64: фоллбэк с ретраями транзиентных отказов (429/5xx/транспорт).
+
+        Детерминированные не-200 (400/401/403/404…) НЕ ретраятся. По исчерпании
+        попыток логируется СТАРЫЙ формат «LLM fallback failed | error=…»
+        (диаг-контракт Betterstack) и возвращается None → вызывающий пробрасывает
+        ИСХОДНОЕ исключение primary.
+        """
+        total_attempts = self._fallback_max_retries + 1
+        last_error = "unknown"
+        for attempt in range(total_attempts):
+            if attempt > 0:
+                if self.backoff_base > 0:
+                    await asyncio.sleep(
+                        min(self.backoff_base * (2 ** (attempt - 1)),
+                            self._backoff_cap))
+                logger.warning(
+                    "LLM fallback retry | attempt=%d/%d | reason=%s",
+                    attempt + 1, total_attempts, last_error,
+                )
+            try:
+                async with asyncio.timeout(self._fallback_timeout):
+                    fb_resp = await self._post_fallback(payload)
+            except Exception as fb_exc:
+                last_error = f"{type(fb_exc).__name__}: {fb_exc}"
+                continue
+            if fb_resp.status_code == 200:
+                return fb_resp
+            last_error = f"status={fb_resp.status_code}"
+            if not (fb_resp.status_code == 429 or 500 <= fb_resp.status_code < 600):
+                break
+        logger.warning("LLM fallback failed | error=%s", last_error)
+        return None
+
     async def generate(self, messages: list[dict[str, str]],
                        temperature: float | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
@@ -316,19 +353,10 @@ class LLMClient:
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
             logger.warning("LLM fallback attempt | primary_error=%s", exc)
-            try:
-                async with asyncio.timeout(self._fallback_timeout):
-                    fallback_response = await self._post_fallback(payload)
-                    fallback_status = fallback_response.status_code
-            except Exception as fallback_exc:
-                logger.warning("LLM fallback failed | error=%s", fallback_exc)
+            fb_response = await self._fallback_with_retries(payload)
+            if fb_response is None:
                 raise exc from None
-            if fallback_status != 200:
-                logger.warning(
-                    "LLM fallback failed | error=status=%d", fallback_status
-                )
-                raise exc
-            response = fallback_response
+            response = fb_response
             logger.warning("LLM fallback OK | model=%s", self._fallback_model)
         try:
             data = response.json()

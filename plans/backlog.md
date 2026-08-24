@@ -7436,7 +7436,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-## Epic 63: Реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud) — 2026-08-24 ⏳ IN PROGRESS
+## Epic 63: Реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud) — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.43.3, коммит ffb0812, прод PID 1075674, 2026-08-24)
 
 > **Цель:** Пользователь отменил Вариант А (BYOK OpenRouter) и приказал вернуть основную
 > модель на `deepseek-v4-flash` от `apinet.cloud` с ключом `sk-lRCn…`.
@@ -7461,12 +7461,12 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 - **D252** — код НЕ меняется; `llm_client.py` читает `settings.LLM_*`; разница только в конфиге.
 
 ### Задачи
-- [ ] T-511 (@Builder, P0) — `config/settings.py` (строки 298-300): `LLM_BASE_URL` default → `https://apinet.cloud/v1`, `LLM_MODEL_NAME` default → `deepseek-v4-flash`; комментарий (строка 297) → `apinet.cloud (OpenAI-compatible) by default` — **R63-1**
-- [ ] T-512 (@Builder, P0) — `.env`: `LLM_API_KEY=sk-lRCn…`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash` (gitignored, коммитить нельзя) — **R63-2**
-- [ ] T-513 (@Builder, P0) — `.env.example` (строки 145-148): `LLM_API_KEY=your_key_here`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash`; комментарий → apinet.cloud — **R63-3**
-- [ ] T-514 (@Reviewer, P0) — ревью: `git diff --check` чист; `.env` НЕ в коммите; `.env.example`/`settings.py` синхронизированы; ключ НЕ всплыл в планах/коммитах; 0 регрессий — **DoD**
-- [ ] T-515 (@DevOps, P0) — коммит на русском (conventional) + пуш origin/master; ВКЛЮЧИТЬ untracked media (R63-5), БЕЗ `.env`/ключа; «chore(epic63): v2.43.3 — реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud, deepseek-v4-flash)» — **DoD**
-- [ ] T-516 (@DevOps, P0) — деплой: SSH nik@198.46.175.136 /var/www/admin_bot; бэкап `.env.bak.epic63`; `git pull --ff-only`; обновить server `.env` `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL_NAME` → apinet.cloud + ключ (LLM_FALLBACK_* НЕ трогать); `systemctl restart admin_bot`; `systemctl status`; 0 traceback; smoke curl `https://apinet.cloud/v1/models` с сервера — **DoD**
+- [x] T-511 (@Builder, P0) — `config/settings.py` (строки 298-300): `LLM_BASE_URL` default → `https://apinet.cloud/v1`, `LLM_MODEL_NAME` default → `deepseek-v4-flash`; комментарий (строка 297) → `apinet.cloud (OpenAI-compatible) by default` — **R63-1** — **✅ DONE** (2026-08-24)
+- [x] T-512 (@Builder, P0) — `.env`: `LLM_API_KEY=sk-lRCn…`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash` (gitignored, коммитить нельзя) — **R63-2** — **✅ DONE** (2026-08-24: локальный .env обновлён; ключ только в .env)
+- [x] T-513 (@Builder, P0) — `.env.example` (строки 145-148): `LLM_API_KEY=your_key_here`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash`; комментарий → apinet.cloud — **R63-3** — **✅ DONE** (2026-08-24)
+- [x] T-514 (@Reviewer, P0) — ревью: `git diff --check` чист; `.env` НЕ в коммите; `.env.example`/`settings.py` синхронизированы; ключ НЕ всплыл в планах/коммитах; 0 регрессий — **DoD** — **✅ DONE** (2026-08-24: Reviewer PASS — полный ключ `sk-lRCn…` НЕ в tracked-файлах: первоначально попал в backlog.md, замаскирован до коммита; 36 тестов settings 0 регрессий; README актуализирован под apinet.cloud)
+- [x] T-515 (@DevOps, P0) — коммит на русском (conventional) + пуш origin/master; ВКЛЮЧИТЬ untracked media (R63-5), БЕЗ `.env`/ключа; «chore(epic63): v2.43.3 — реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud, deepseek-v4-flash)» — **DoD** — **✅ DONE** (2026-08-24: коммит `ffb0812` запушен `c3a687b..ffb0812` origin/master; media/common/danger/danger_boom_gif-03.mp4 включён; .env НЕ коммитился)
+- [x] T-516 (@DevOps, P0) — деплой: SSH nik@198.46.175.136 /var/www/admin_bot; бэкап `.env.bak.epic63`; `git pull --ff-only`; обновить server `.env` `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL_NAME` → apinet.cloud + ключ (LLM_FALLBACK_* НЕ трогать); `systemctl restart admin_bot`; `systemctl status`; 0 traceback; smoke curl `https://apinet.cloud/v1/models` с сервера — **DoD** — **✅ DONE** (2026-08-24: pull ff `0cce75b..ffb0812`; бэкап `.env.bak.epic63`; server `.env` переписан на apinet.cloud (`sk-lRCn…`, `https://apinet.cloud/v1`, `deepseek-v4-flash`), LLM_FALLBACK_* (DeadDirectDeepSeek, 402) НЕ тронут; `systemctl restart admin_bot` → active (running) **PID 1075674** (был 1075476); journalctl **0 traceback**)
 
 ### Файлы
 - `config/settings.py` (LLM_BASE_URL/LLM_MODEL_NAME defaults → apinet.cloud)
@@ -7475,3 +7475,37 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 - `services/llm_client.py` — НЕ трогать (провайдер-агностик)
 
 **Date: 2026-08-24**
+
+---
+
+## Epic 64: Контекст без агрессивной обрезки + лечение embedding_cache + надёжность LLM — 2026-08-24 ⏳ IN PROGRESS
+
+> **Цель:** (1) фикс краша direct_chat sqlite3.Row.get (строка 675); (2) ослабить
+> обрезку контекста (саммари 26k→60k токенов, direct_chat 4k→24k, окно 100→200,
+> чекап 12k→40k симв., поиск/фактчек/youtube/web 4k→8k) — история и память входят
+> в обрезаемый user-контент, system-промпт НЕ режется; (3) ретраи фоллбэк-чата
+> (LLM_FALLBACK_MAX_RETRIES=2, бюджет 30с→120с); (4) embedding_cache: JSON ~46КБ/строку
+> → float16 BLOB 6144Б (×7.5), EMBED_CACHE_MAX_ROWS 50000→20000 (стационар ~130МБ
+> вместо ~2.3ГБ), ленивая миграция legacy-записей, hit-rate лог для решения
+> «нужен ли кэш»; (5) WAL-checkpoint(TRUNCATE) каждые 6ч в MemoryMaintenance;
+> (6) /summary command delete — WARNING без трейсбека.
+> **Отложено (бэклог-будущее):** полноценный резервный embed-провайдер через OpenRouter
+> /v1/embeddings (nvidia/llama-nemotron-embed-vl-1b-v2:free — QA-retrieval, мультитлингв)
+> требует namespacing векторов по модели (размерность/пространство несовместимы
+> с gemini-embedding-001/3072). Решение пользователя: отложить.
+> База: прод v2.43.3 (fb0812, PID 1075674), 2617 тестов. Target: **v2.44.0** (fix).
+> R17: ключи только в .env. Без @Orchestrator.
+
+### Требования и решения
+- **R64-1** — direct_chat_service.py:675: ow.get("timestamp") → ow["timestamp"] (sqlite3.Row).
+- **R64-2** — лимиты контекста через env (settings.py дефолты НЕ тронуты, кроме EMBED_CACHE_MAX_ROWS): SUMMARY_MAX_CONTEXT_TOKENS=60000, CHAT_GLOBAL_CONTEXT_LIMIT=200, CHAT_CONTEXT_BUDGET_TOKENS=24000, CHECKUP_MAX_INPUT_SYMBOLS=40000, SEARCH/FACTCHECK/YOUTUBE/WEBPAGE_MAX_SYMBOLS=8000.
+- **R64-3** — llm_client.py: _fallback_with_retries — ретраи транзиентных (429/5xx/транспорт), детерминированные не-200 без ретрая; лог-контракт «LLM fallback failed | error=…» сохранён; LLM_FALLBACK_TIMEOUT_SECONDS=120 (было 30с константа).
+- **R64-4** — summary_memory.py: _pack_vector/_unpack_vector float16 BLOB + обратная совместимость чтения JSON + ленивая миграция при касании + INFO hit/miss лог.
+- **R64-5** — settings.py: EMBED_CACHE_MAX_ROWS 50000→20000; DB_WAL_CHECKPOINT_ENABLED/HOURS=6; MemoryMaintenance job PRAGMA wal_checkpoint(TRUNCATE).
+- **R64-6** — handlers/summary.py: delete failed WARNING без exc_info (трейсбек aiogram не нужен).
+- **D253** — эмбеддинги: кросс-модельный фоллбэк отклонён (несовместимость векторных пространств портит KNN); схема «ретраи primary + graceful skip» (FTS5-фолбэк уже есть). Прогноз после фикса: текущие 24МБ кэша → ~3.5МБ; стационар ≤130МБ (vs 2.3ГБ).
+
+### Задачи
+- [x] T-517 (@Builder) — R64-1..R64-6 реализация — ✅ DONE (2617 passed / 0 failed)
+- [ ] T-518 (@Reviewer) — ревью diff
+- [ ] T-519 (@DevOps) — коммит+пуш; деплой: stop → миграция embedding_cache JSON→f16 + VACUUM + checkpoint → env-лимиты → start → verify

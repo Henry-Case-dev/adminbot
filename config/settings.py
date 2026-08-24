@@ -513,7 +513,20 @@ class Settings:
     # last_used_at (≥60с, без write-per-read). false → ровно старое поведение.
     EMBED_CACHE_ENABLED: bool = _env_bool("EMBED_CACHE_ENABLED", True)
     EMBED_CACHE_TTL_DAYS: int = _env_int_min("EMBED_CACHE_TTL_DAYS", 30, 1)
-    EMBED_CACHE_MAX_ROWS: int = _env_int_min("EMBED_CACHE_MAX_ROWS", 50000, 100)
+    # Epic 64: 50000 строк × ~6.5 КБ (float16 BLOB) ≈ стационар ~130 МБ;
+    # было 50000 × ~46 КБ (JSON) ≈ 2.3 ГБ — источник взрывного роста БД.
+    EMBED_CACHE_MAX_ROWS: int = _env_int_min("EMBED_CACHE_MAX_ROWS", 20000, 100)
+
+    # ── Epic 64: ретраи фоллбэка + обслуживание БД ────────────────
+    # Фоллбэк-чат: до N повторов транзиентных отказов (429/5xx/транспорт);
+    # общий бюджет одной фоллбэк-цепочки (было жёстко 30с — мало при 15с/запрос).
+    LLM_FALLBACK_MAX_RETRIES: int = _env_int_min("LLM_FALLBACK_MAX_RETRIES", 2, 0)
+    LLM_FALLBACK_TIMEOUT_SECONDS: float = _env_float_min(
+        "LLM_FALLBACK_TIMEOUT_SECONDS", 120.0, 1.0)
+    # Периодический SQLite WAL-checkpoint(TRUNCATE) — удержание -wal
+    # (наблюдался рост до 18 МБ без чекпоинта).
+    DB_WAL_CHECKPOINT_ENABLED: bool = _env_bool("DB_WAL_CHECKPOINT_ENABLED", True)
+    DB_WAL_CHECKPOINT_HOURS: int = _env_int_min("DB_WAL_CHECKPOINT_HOURS", 6, 1)
     # Метрики здоровья памяти в чекап (64.5): data-секция <memory_health> в
     # user-контенте; CHECKUP_SYSTEM_PROMPT (R42-6) НЕ меняется.
     CHECKUP_MEMORY_METRICS_ENABLED: bool = _env_bool("CHECKUP_MEMORY_METRICS_ENABLED", True)

@@ -228,10 +228,12 @@ async def _delete_command(message: types.Message) -> None:
             "[/summary] command deleted | chat=%s msg=%s",
             message.chat.id, message.message_id,
         )
-    except Exception:
+    except Exception as exc:
+        # Epic 64: без exc_info — трейсбек aiogram в лог не нужен,
+        # причина детерминирована (нет прав / старше 48ч).
         logger.warning(
-            "[/summary] command delete failed (no delete_messages right?) | chat=%s msg=%s",
-            message.chat.id, message.message_id, exc_info=True,
+            "[/summary] command delete failed (%s) | chat=%s msg=%s",
+            type(exc).__name__, message.chat.id, message.message_id,
         )
 
 

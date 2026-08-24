@@ -512,7 +512,9 @@ class TestEpic60PhaseBSettingsDefaults:
         assert s.MEMORY_BACKUP_HOUR == "05:00"
         assert s.EMBED_CACHE_ENABLED is True
         assert s.EMBED_CACHE_TTL_DAYS == 30
-        assert s.EMBED_CACHE_MAX_ROWS == 50000
+        # Epic 64: 20000 × ~6.5 КБ (float16 BLOB) ≈ ~130 МБ стационар
+        # (было 50000 × ~46 КБ JSON ≈ 2.3 ГБ — взрывной рост БД).
+        assert s.EMBED_CACHE_MAX_ROWS == 20000
         assert s.CHECKUP_MEMORY_METRICS_ENABLED is True
         assert s.CHAT_RUNNING_SUMMARY_ENABLED is True
         assert s.CHAT_CONTEXT_FILL_RATIO == 0.8

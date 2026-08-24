@@ -873,7 +873,12 @@ class TestEmbeddingCache:
         first = await memory._embed(["текст раз", "текст два"])
         second = await memory._embed(["текст раз", "текст два"])
         assert llm.embed_calls == 1
-        assert first == second
+        # Epic 64: кэш хранит float16 BLOB → чтение даёт half-float точность
+        # (0.1 → 0.099975…); для cosine-поиска разница ~1e-3 незначима.
+        flat_a = [x for vec in first for x in vec]
+        flat_b = [x for vec in second for x in vec]
+        assert len(flat_a) == len(flat_b)
+        assert all(abs(a - b) < 1e-2 for a, b in zip(flat_a, flat_b))
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM embedding_cache")
         assert (await cursor.fetchone())["c"] == 2

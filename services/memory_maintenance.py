@@ -41,6 +41,7 @@ class MemoryMaintenanceService:
 
     JOB_MERGE_ID = "graph_episode_merge"
     JOB_REVIEW_ID = "graph_review"
+    JOB_WAL_ID = "db_wal_checkpoint"   # Epic 64: удержание -wal от разрастания
 
     def __init__(self, db, memory, llm) -> None:
         self.db = db
@@ -65,16 +66,41 @@ class MemoryMaintenanceService:
                     timezone=settings.SUMMARY_TIMEZONE),
                 id=self.JOB_REVIEW_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
-        if settings.GRAPH_EPISODE_MERGE_ENABLED or settings.GRAPH_REVIEW_ENABLED:
+        # Epic 64: периодический WAL-checkpoint(TRUNCATE) — без него -wal
+        # разрастался (наблюдалось 18 МБ при БД 43 МБ).
+        if settings.DB_WAL_CHECKPOINT_ENABLED:
+            self._scheduler.add_job(
+                self._tick_wal_checkpoint,
+                IntervalTrigger(
+                    hours=settings.DB_WAL_CHECKPOINT_HOURS,
+                    timezone=settings.SUMMARY_TIMEZONE),
+                id=self.JOB_WAL_ID, replace_existing=True,
+                max_instances=1, coalesce=True)
+        if (settings.GRAPH_EPISODE_MERGE_ENABLED or settings.GRAPH_REVIEW_ENABLED
+                or settings.DB_WAL_CHECKPOINT_ENABLED):
             self._scheduler.start()
             logger.info(
-                "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd)",
+                "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, wal=%s/%dh)",
                 settings.GRAPH_EPISODE_MERGE_ENABLED,
                 settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS,
                 settings.GRAPH_REVIEW_ENABLED,
-                settings.GRAPH_REVIEW_INTERVAL_DAYS)
+                settings.GRAPH_REVIEW_INTERVAL_DAYS,
+                settings.DB_WAL_CHECKPOINT_ENABLED,
+                settings.DB_WAL_CHECKPOINT_HOURS)
         else:
-            logger.info("MemoryMaintenance disabled (both jobs off)")
+            logger.info("MemoryMaintenance disabled (all jobs off)")
+
+    async def _tick_wal_checkpoint(self) -> None:
+        """Epic 64: PRAGMA wal_checkpoint(TRUNCATE) — сброс -wal в основной файл."""
+        try:
+            cursor = await self.db.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            row = await cursor.fetchone()
+            await self.db.db.commit()
+            logger.info("WAL checkpoint done | busy=%s log_pages=%s checkpointed=%s",
+                        row[0] if row else "?", row[1] if row else "?",
+                        row[2] if row else "?")
+        except Exception:
+            logger.warning("WAL checkpoint failed", exc_info=True)
 
     async def _tick_merge(self) -> None:
         try:

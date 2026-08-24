@@ -672,7 +672,7 @@ class DirectChatService:
         if summary_text is not None:
             lines = [summary_text]
             for row in window:
-                if int(row.get("timestamp") or 0) <= window_end_ts:
+                if int(row["timestamp"] or 0) <= window_end_ts:
                     continue
                 text = row["text"] or ""
                 if not text:

@@ -822,7 +822,11 @@ class TestEpic53Fallback:
         # исходное исключение primary (primary url в тексте), не фоллбэка
         assert "server error 502 after 3 attempts" in str(ei.value)
         assert "https://api.test/v1/chat/completions" in str(ei.value)
-        assert state["n"] == 4                      # 3 primary + 1 фоллбэк
+        # Epic 64: фоллбэк ретраится (LLM_FALLBACK_MAX_RETRIES=2) →
+        # 3 primary + 3 фоллбэк-попытки = 6; итог — старый формат лога.
+        assert state["n"] == 6
+        assert any("LLM fallback retry | attempt=2/3 | reason=status=502" in r.message
+                   for r in caplog.records)
         assert any("LLM fallback failed | error=status=502" in r.message
                    for r in caplog.records)
 

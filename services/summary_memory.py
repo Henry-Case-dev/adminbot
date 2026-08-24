@@ -443,6 +443,29 @@ def build_rag_context(facts: list) -> str:
     return "\n".join(lines)
 
 
+def _pack_vector(vector: list[float]) -> bytes:
+    """Epic 64: упаковка вектора в float16 BLOB (6144 Б при dim=3072) вместо
+    JSON-строки (~46 КБ) — ×7.5 меньше на строку embedding_cache."""
+    return struct.pack(f"<{len(vector)}e", *vector)
+
+
+def _unpack_vector(raw) -> list[float] | None:
+    """Читает float16 BLOB (формат Epic 64) или JSON-строку (legacy до 64).
+    None → битая запись (пропустить → miss → вектор перезапишется из API)."""
+    if isinstance(raw, (bytes, bytearray)):
+        try:
+            return list(struct.unpack(f"<{len(raw) // 2}e", raw))
+        except struct.error:
+            return None
+    if isinstance(raw, str):
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+        return data if isinstance(data, list) else None
+    return None
+
+
 class MemoryManager:
     """Owns L1/L2 access and the L3 archive (text + optional vec0).
 
@@ -620,6 +643,8 @@ class MemoryManager:
         if not settings.EMBED_CACHE_ENABLED:
             return await self._embed_api(texts)
         cached, misses = await self._embed_cache_lookup(texts)
+        # Epic 64: hit-rate диагностика — данные для решения «нужен ли кэш».
+        logger.info("embed cache | hits=%d misses=%d", len(cached), len(misses))
         results: dict[str, list[float]] = dict(cached)
         if misses:
             fetched = await self._embed_api(misses)
@@ -666,10 +691,22 @@ class MemoryManager:
                 if row["dim"] != expected_dim:
                     continue                # dim-сдвиг (55.8) → miss, запишется заново
                 try:
-                    vector = json.loads(row["vector"])
+                    vector = _unpack_vector(row["vector"])
                 except (ValueError, TypeError):
                     continue
+                if vector is None:
+                    continue
                 by_hash[row["text_hash"]] = vector
+                if isinstance(row["vector"], str):
+                    # Epic 64: ленивая миграция legacy JSON → float16 BLOB.
+                    try:
+                        await self.db.db.execute(
+                            "UPDATE embedding_cache SET vector = ? "
+                            "WHERE text_hash = ?",
+                            (_pack_vector(vector), row["text_hash"]),
+                        )
+                    except Exception:
+                        pass
                 if now - row["last_used_at"] > _EMBED_TOUCH_SECONDS:
                     touch.append(row["text_hash"])
             if touch:
@@ -722,7 +759,7 @@ class MemoryManager:
                     "ON CONFLICT(text_hash) DO UPDATE SET "
                     "text = excluded.text, vector = excluded.vector, "
                     "dim = excluded.dim, last_used_at = excluded.last_used_at",
-                    (_embed_cache_key(text), text, json.dumps(vector),
+                    (_embed_cache_key(text), text, _pack_vector(vector),
                      len(vector), now, now),
                 )
             await self.db.db.commit()
