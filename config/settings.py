@@ -294,10 +294,10 @@ class Settings:
     OLYA_CAPTION_MENTION_ENABLED: bool = _env_bool("OLYA_CAPTION_MENTION_ENABLED", True)
 
     # ── SmartModule: Summary (Epic 24) ────────────────────────────
-    # LLM provider — OpenAI-compatible API (apinet.cloud hub by default).
+    # LLM provider — OpenAI-compatible API (OpenRouter by default).
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")                            # R5/D64
-    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://apinet.cloud/v1")
-    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "deepseek-v4-flash")
+    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "stealth/ox-alpha")
     EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
     LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 30.0)   # Epic 47 (56.4): 60.0 → 30.0 (per-request)
     # LLM_MAX_RETRIES сохраняется (default 2): число повторов, попыток = retries + 1 = 3.

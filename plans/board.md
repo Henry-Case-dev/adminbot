@@ -6,6 +6,25 @@
 
 ## 🔧 In Progress
 
+### Epic 62: Переключение LLM-провайдера на OpenRouter (apinet.cloud → OpenRouter) — 2026-08-24 🚧 IN PROGRESS (пользовательский запрос, Шаг 1 @PM ✅, target v2.43.2 chore, P0)
+
+> Полный трек — `plans/backlog.md` (Epic 62). Требования R62-1…R62-6, решение D251.
+> Переключить LLM-провайдера с apinet.cloud (DeepSeek, `deepseek-v4-flash`) na OpenRouter
+> (`stealth/ox-alpha`, `sk-or-v1-…`). Чисто конфигурационное изменение (v2.43.2, chore) —
+> код не меняется: `services/llm_client.py` провайдер-агностик (OpenAI-compatible API).
+> Embeddings (`gemini-embedding-001`) — НЕ меняются. Circuit breaker (Epic 53) и ретраи
+> (Epic 47) — через llm_client без изменений. Эквивалент: T-505 (.env прод), T-506
+> (.env.example + settings.py), T-507 (diff --check), T-508 (тесты 2617+), T-509
+> (коммит+пуш), T-510 (деплой). Без @Orchestrator.
+> **Target:** v2.43.2 (chore, patch). **Baseline:** 2617 тестов (0 регрессий).
+
+- [ ] T-505 (@DevOps, P0) — конфиг: `.env` прод → OpenRouter (бэкап `.env.bak.epic62`)
+- [ ] T-506 (@DevOps, P0) — `.env.example` + `config/settings.py`: дефолты → OpenRouter
+- [ ] T-507 (@Reviewer, P0) — `git diff --check` + ревью конфига
+- [ ] T-508 (@QA, P0) — тесты: 0 регрессий (база 2617)
+- [ ] T-509 (@DevOps, P0) — коммит + пуш (conventional, русский)
+- [ ] T-510 (@DevOps, P0) — деплой на прод (git pull, restart, smoke)
+
 ### Epic 61: Хотфикс: чекап-метрики + tiktoken на проде — ✅ DEPLOYED & CLOSED (v2.43.1, коммит 352afa1, прод PID 1072251, tiktoken 0.14.0, 2617 тестов, 2026-08-24)
 
 > Полный трек — `plans/backlog.md` (Epic 61). Требования R61-1…R61-3, решение D250.
