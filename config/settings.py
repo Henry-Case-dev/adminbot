@@ -527,6 +527,14 @@ class Settings:
     # (наблюдался рост до 18 МБ без чекпоинта).
     DB_WAL_CHECKPOINT_ENABLED: bool = _env_bool("DB_WAL_CHECKPOINT_ENABLED", True)
     DB_WAL_CHECKPOINT_HOURS: int = _env_int_min("DB_WAL_CHECKPOINT_HOURS", 6, 1)
+
+    # ── Epic 65: обогащение контекста + реранкинг поиска ──────────
+    # Окно последних сообщений чата вокруг цели (NAACL'22: +10 п.т.; SIGIR'26:
+    # большой контекст вредит → окно маленькое, блок маркирован НЕ-доказательства).
+    FACTCHECK_CONTEXT_MESSAGES: int = _env_int_min("FACTCHECK_CONTEXT_MESSAGES", 6, 0)
+    SEARCH_CONTEXT_MESSAGES: int = _env_int_min("SEARCH_CONTEXT_MESSAGES", 6, 0)
+    # LLM-реранкинг выдачи (Anthropic Contextual Retrieval: rerank до −67% промахов).
+    SEARCH_RERANK_ENABLED: bool = _env_bool("SEARCH_RERANK_ENABLED", True)
     # Метрики здоровья памяти в чекап (64.5): data-секция <memory_health> в
     # user-контенте; CHECKUP_SYSTEM_PROMPT (R42-6) НЕ меняется.
     CHECKUP_MEMORY_METRICS_ENABLED: bool = _env_bool("CHECKUP_MEMORY_METRICS_ENABLED", True)

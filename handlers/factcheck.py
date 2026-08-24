@@ -46,7 +46,23 @@ logger = logging.getLogger(__name__)
 
 factcheck_router = Router(name="factcheck")
 
+
+async def _fetch_chat_context(chat_id: int, limit: int) -> str:
+    """Epic 65: последние limit сообщений чата → <chat_context> блок.
+    Fail-open: любая ошибка БД → '' (старое поведение без контекста)."""
+    from services.chat_context import format_chat_context   # локальный импорт — без циклов
+    if _db is None or limit <= 0:
+        return ""
+    try:
+        rows = await _db.get_recent_messages(chat_id, limit)
+        return format_chat_context(rows)
+    except Exception:
+        logger.warning("[factcheck] chat context fetch failed | chat=%s",
+                       chat_id, exc_info=True)
+        return ""
+
 _service = None                                   # FactCheckService (DI)
+_db = None                                        # Database (Epic 65: chat_context DI)
 _cooldown = CooldownTracker(settings.FACTCHECK_COOLDOWN_SECONDS)
 
 _FACTCHECK_TRIGGER_RE = re.compile(r"^фактчек\b", re.IGNORECASE)   # слово целиком («фактчекинг» НЕ матчится)
@@ -56,9 +72,10 @@ _HINT_LEAD_RE = re.compile(r"^[\s,:;]+")
 def setup_factcheck(service, db=None) -> None:
     """DI: FactCheckService. Вызывается из bot.py on_startup (42.8).
     Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный кулдаун
-    (throttle_state, scope='factcheck')."""
-    global _service, _cooldown
+    (throttle_state, scope='factcheck'). Epic 65: db → окно chat_context."""
+    global _service, _cooldown, _db
     _service = service
+    _db = db
     _cooldown = make_cooldown(
         "factcheck", settings.FACTCHECK_COOLDOWN_SECONDS, db)
 
@@ -132,8 +149,11 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
+            chat_context = await _fetch_chat_context(message.chat.id,
+                                                     settings.FACTCHECK_CONTEXT_MESSAGES)
             verdict = await _service.check_claim(
-                target_text, user_hint, forward_source, chat_id=message.chat.id
+                target_text, user_hint, forward_source, chat_id=message.chat.id,
+                chat_context=chat_context or None,
             )
             await send_chunked_reply(bot, message.chat.id, verdict, target.message_id)
         await cache.set(cache_key, verdict)      # только успешная генерация (59.2)

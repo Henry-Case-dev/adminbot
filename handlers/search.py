@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 search_router = Router(name="smartsearch")
 
 _service = None                                   # SearchService (DI)
+_db = None                                        # Database (Epic 65: chat_context DI)
 _cooldown = CooldownTracker(settings.SEARCH_COOLDOWN_SECONDS)
 
 _SEARCH_PREFIX_RE = re.compile(r"^(?:найди|поищи|загугли)\b", re.IGNORECASE)
@@ -60,10 +61,26 @@ _SEARCH_QUERY_RE = re.compile(
 def setup_search(service, db=None) -> None:
     """DI: SearchService. Вызывается из bot.py on_startup (42.8).
     Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный кулдаун
-    (throttle_state, scope='search')."""
-    global _service, _cooldown
+    (throttle_state, scope='search'). Epic 65: db → окно chat_context."""
+    global _service, _cooldown, _db
     _service = service
+    _db = db
     _cooldown = make_cooldown("search", settings.SEARCH_COOLDOWN_SECONDS, db)
+
+
+async def _fetch_chat_context(chat_id: int, limit: int) -> str:
+    """Epic 65: последние limit сообщений чата → <chat_context> блок.
+    Fail-open: любая ошибка БД → '' (старое поведение без контекста)."""
+    from services.chat_context import format_chat_context   # локальный импорт — без циклов
+    if _db is None or limit <= 0:
+        return ""
+    try:
+        rows = await _db.get_recent_messages(chat_id, limit)
+        return format_chat_context(rows)
+    except Exception:
+        logger.warning("[smartsearch] chat context fetch failed | chat=%s",
+                       chat_id, exc_info=True)
+        return ""
 
 
 def _parse_search_query(raw: str) -> str | None:
@@ -107,7 +124,10 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
-            summary = await _service.research(query, chat_id=message.chat.id)
+            chat_context = await _fetch_chat_context(message.chat.id,
+                                                     settings.SEARCH_CONTEXT_MESSAGES)
+            summary = await _service.research(query, chat_id=message.chat.id,
+                                              chat_context=chat_context or None)
             await send_chunked_reply(bot, message.chat.id, summary, message.message_id)
         await cache.set(cache_key, summary)    # только успешная генерация (59.2)
         logger.info("[smartsearch] summary sent | chat=%s", message.chat.id)

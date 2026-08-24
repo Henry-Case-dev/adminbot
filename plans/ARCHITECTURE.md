@@ -14251,3 +14251,18 @@ CHAT_BOTWORD_PATTERN: str = _env_str(
   direct_chat CHAT_CONTEXT_BUDGET_TOKENS=24000 + окно 200, чекап 40000 симв.,
   search/factcheck/youtube/webpage 8000 симв. Обрезается ТОЛЬКО user-контент
   (история/память/RAG); system-промпты вне бюджетов. WAL-checkpoint(TRUNCATE) — джоб 6ч.
+
+---
+
+## Section 69 — Epic 65: chat_context обогащение + реранкинг + фокус саммари (v2.45.0, D258-D260)
+
+@Architect (компакт):
+- **D258 (chat_context):** окно последних N=6 сообщений (db.get_recent_messages, ASC) → блок
+  <chat_context note="…НЕ доказательства…"> сразу ПОСЛЕ <claim> (фактчек) / перед
+  <query> (поиск); потолок 2000 симв.; SYSTEM_PROMPT каноны (R42-5/R33) не тронуты —
+  инструкция живёт в атрибуте блока. Fetch fail-open (WARNING → '').
+- **D259 (реранкинг):** SEARCH_RERANK_ENABLED=true → LLM-фильтр выдачи компактным утилитарным
+  промптом (НЕ канон); guard _rerank_usable (≥300 симв. И короче оригинала) — иначе исходник;
+  любая ошибка реранка → WARNING → исходная выдача (fail-open).
+- **D260 (фокус):** «/summary про X» → focus ≤200 симв. → _apply_focus prepend <focus> в
+  начало user_content (важное к краям — SIGIR'26); system R11 VERBATIM; крон — без фокуса.

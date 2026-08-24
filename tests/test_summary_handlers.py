@@ -1,4 +1,4 @@
-﻿"""Tests for handlers/summary.py (T-184) + 13-router integration (T-188-B)."""
+"""Tests for handlers/summary.py (T-184) + 13-router integration (T-188-B)."""
 import asyncio
 import datetime
 import logging
@@ -427,7 +427,7 @@ class TestSummaryCommand:
 
         generator = MagicMock()
 
-        async def _generate(chat_id, manual=False):
+        async def _generate(chat_id, manual=False, focus=None):
             events.append("generate")
 
         generator.generate_and_send = AsyncMock(side_effect=_generate)
@@ -449,7 +449,7 @@ class TestSummaryCommand:
         assert events[0][0] == "send"
         assert events[0][1] in summary_mod._UX_ACK_VARIANTS
         assert events[1] == "generate"
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
 
     @pytest.mark.asyncio
     async def test_delete_called_before_ack_before_pipeline(self, make_message, setup_cleanup):
@@ -539,7 +539,7 @@ class TestSummaryCommand:
         with patch.object(summary_mod, "settings", mod):
             result = await cmd_summary(msg, bot=bot)
         assert result is None
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
 
     @pytest.mark.asyncio
     async def test_allowed_list_contains_user(self, make_message, setup_cleanup):
@@ -551,7 +551,7 @@ class TestSummaryCommand:
         msg = make_message(from_id=SLAVIK_ID, text="/summary", delete=AsyncMock())
         with patch.object(summary_mod, "settings", mod):
             await cmd_summary(msg, bot=bot)
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
 
     @pytest.mark.asyncio
     async def test_not_allowed_silently_absorbed(self, make_message, setup_cleanup, caplog):
@@ -590,7 +590,7 @@ class TestSummaryCommand:
         )
         with patch.object(summary_mod, "settings", mod):
             await cmd_summary(msg, bot=bot)
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
 
     @pytest.mark.asyncio
     async def test_admin_only_true_stranger_denied(
@@ -645,7 +645,7 @@ class TestSummaryCommand:
         msg = make_message(from_id=777, text="/summary", delete=AsyncMock())
         with patch.object(summary_mod, "settings", mod):
             await cmd_summary(msg, bot=bot)
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
 
     @pytest.mark.asyncio
     async def test_generator_not_initialized_ux(self, make_message, setup_cleanup):
@@ -684,7 +684,7 @@ class TestSummaryCommand:
         mod = replace(settings, ALLOWED_SUMMARY_IDS=())
         with patch.object(summary_mod, "settings", mod), caplog.at_level(logging.WARNING):
             await cmd_summary(msg, bot=bot)
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
         bot.send_message.assert_awaited_once()  # ack всё равно ушёл
         assert any("command delete failed" in r.message for r in caplog.records)
 
@@ -701,7 +701,7 @@ class TestSummaryCommand:
         with patch.object(summary_mod, "settings", mod):
             await cmd_summary(msg, bot=bot)
         msg.delete.assert_awaited_once()
-        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(CHAT_ID, manual=True, focus=None)
 
     def test_summary_router_has_command_handler(self):
         assert len(summary_router.message.handlers) >= 1
@@ -820,7 +820,7 @@ class TestRouterIntegration:
             update_type="message", event=message, bot=bot_mock
         )
 
-        generator.generate_and_send.assert_awaited_once_with(-1001, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(-1001, manual=True, focus=None)
         # B7: команда удалена (aiogram: delete → bot(DeleteMessage))
         assert bot_mock.await_count == 1
         assert bot_mock.await_args.args[0].__class__.__name__ == "DeleteMessage"
@@ -859,7 +859,7 @@ class TestRouterIntegration:
             update_type="message", event=message, bot=bot_mock
         )
 
-        generator.generate_and_send.assert_awaited_once_with(-1003, manual=True)
+        generator.generate_and_send.assert_awaited_once_with(-1003, manual=True, focus=None)
         # B7: удаление команды — единственный вызов bot-объекта
         assert bot_mock.await_count == 1
         assert bot_mock.await_args.args[0].__class__.__name__ == "DeleteMessage"

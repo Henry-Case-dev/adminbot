@@ -748,6 +748,21 @@ class DatabaseService:
         )
         return await cursor.fetchall()
 
+    async def get_recent_messages(self, chat_id: int, limit: int) -> list:
+        """Epic 65: ПОСЛЕДНИЕ limit сообщений чата, хронологически (ASC).
+        Для chat_context фактчека/поиска (обогащение контекста вокруг цели)."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
+            "is_forward, forward_source, tg_message_id "
+            "FROM smart_messages WHERE chat_id = ? "
+            "ORDER BY timestamp DESC LIMIT ?",
+            (chat_id, limit),
+        )
+        rows = await cursor.fetchall()
+        rows.reverse()                     # DESC-выборка → хронологический порядок
+        return rows
+
+
     async def get_smart_message_by_tg_id(self, chat_id: int, tg_message_id: int):
         """Epic 50 (58.7, D201): строка smart_messages по TG message_id
         (рекурсия reply-цепочек <Conversation_Thread>); None — нет записи."""

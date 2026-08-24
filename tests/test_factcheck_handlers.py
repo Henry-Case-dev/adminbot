@@ -343,7 +343,7 @@ class TestHandlerReplyTargets:
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
         await factcheck_mod.factcheck_handler(msg, bot=bot)
         service.check_claim.assert_awaited_once_with(
-            "содержание репоста", None, "Канал X @channelx Подпись", chat_id=CHAT_ID
+            "содержание репоста", None, "Канал X @channelx Подпись", chat_id=CHAT_ID, chat_context=None
         )
 
     @pytest.mark.asyncio
@@ -437,7 +437,7 @@ class TestAlbumCaptionBuffer:
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
         await factcheck_mod.factcheck_handler(msg, bot=bot)
         service.check_claim.assert_awaited_once_with(
-            "текст новости", None, None, chat_id=CHAT_ID
+            "текст новости", None, None, chat_id=CHAT_ID, chat_context=None
         )
         assert bot.send_message.await_args.args[1] == "вердикт: пиздеж"
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 71
@@ -516,5 +516,5 @@ class TestAlbumCaptionBuffer:
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
         await factcheck_mod.factcheck_handler(msg, bot=bot)
         service.check_claim.assert_awaited_once_with(
-            "глянь это", None, None, chat_id=CHAT_ID
+            "глянь это", None, None, chat_id=CHAT_ID, chat_context=None
         )

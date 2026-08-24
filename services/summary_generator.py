@@ -38,6 +38,18 @@ except ImportError:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
+
+def _apply_focus(user_content: str, focus: str | None) -> str:
+    """Epic 65 (pure): «/summary про X» → <focus> блок в начало user_content.
+    System-промпт R11 не трогаем — инструкция живёт в user-контенте."""
+    if not focus or not focus.strip():
+        return user_content
+    from services.summary_xml import escape_xml_text   # локально — без циклов
+    safe = escape_xml_text(focus.strip()[:200])
+    return ('<focus note="главная тема этой выжимки — подсвети в саммари всё, '
+            'что касается неё; остальное кратко">' + safe + "</focus>\n\n"
+            + user_content)
+
 _UX_LLM_FAILED = "не смог сделать саммари потому что упал апи"
 _UX_DB_FAILED = "база данных подавилась"
 _UX_GENERIC_FAILED = "не смог сделать саммари"
@@ -70,8 +82,10 @@ class SummaryGenerator:
         self.aliases = aliases
         self._lock = asyncio.Lock()
 
-    async def generate_and_send(self, chat_id: int, manual: bool = False) -> None:
-        """Entrypoint for /summary (manual=True) and cron (manual=False). B2/B5."""
+    async def generate_and_send(self, chat_id: int, manual: bool = False,
+                                focus: str | None = None) -> None:
+        """Entrypoint for /summary (manual=True) and cron (manual=False). B2/B5.
+        Epic 65: focus — тема из «/summary про X» (None = обычное саммари)."""
         if self._lock.locked():
             if manual:
                 await self._send_ux(chat_id, _UX_BUSY)          # B5: не стоять молча
@@ -79,9 +93,9 @@ class SummaryGenerator:
                 "summary: lock busy — queued | chat_id=%s manual=%s", chat_id, manual
             )
         async with self._lock:
-            await self._run(chat_id, manual)
+            await self._run(chat_id, manual, focus)
 
-    async def _run(self, chat_id: int, manual: bool) -> None:
+    async def _run(self, chat_id: int, manual: bool, focus: str | None = None) -> None:
         try:
             await self.memory.compress_and_purge(chat_id)
             rows = await self.memory.get_window_messages(chat_id)
@@ -123,6 +137,9 @@ class SummaryGenerator:
             user_content = self._compose_user_content(
                 xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
             )
+            # Epic 65: фокус «/summary про X» — блок в НАЧАЛО user_content
+            # (SIGIR'26: важное — к краям промпта). System-канон R11 НЕ тронут.
+            user_content = _apply_focus(user_content, focus)
             # Epic 60 (64.7, T-468): потолок-проверка user_content перед
             # generate — токены (SUMMARY_MAX_CONTEXT_TOKENS, срез С КОНЦА;
             # chars — fallback). Таймер 6ч/крон НЕ меняются.

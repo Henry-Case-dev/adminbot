@@ -258,10 +258,21 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
         await _safe_send(bot, message.chat.id, _UX_NOT_READY)
         return
     logger.info("[/summary] triggered | chat=%s user=%s", message.chat.id, user_id)
+    # Epic 65: «/summary про X» → фокус-тема (до 200 симв.), None = обычное саммари.
+    focus = None
+    raw_text = (message.text or "").strip()
+    if raw_text.lower().startswith("/summary"):
+        rest = raw_text[len("/summary"):]
+        if rest.startswith("@"):                       # /summary@botname …
+            _, _, rest = rest.partition(" ")
+        rest = rest.strip()
+        if rest:
+            focus = rest[:200]
+            logger.info("[/summary] focus | chat=%s | len=%d", message.chat.id, len(focus))
     await _delete_command(message)                                 # D81: удалить СРАЗУ, ДО ack
     await _safe_send(bot, message.chat.id, random.choice(_UX_ACK_VARIANTS))   # B1/D82: ack из пула
     logger.info("[/summary] ack sent | chat=%s", message.chat.id)
-    await _generator.generate_and_send(message.chat.id, manual=True)  # B2
+    await _generator.generate_and_send(message.chat.id, manual=True, focus=focus)  # B2
     return
 
 

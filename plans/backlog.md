@@ -7509,3 +7509,31 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 - [x] T-517 (@Builder) — R64-1..R64-6 реализация — ✅ DONE (2617 passed / 0 failed)
 - [x] T-518 (@Reviewer) — ревью diff — DONE (лог-контракт фоллбэка сохранён, dual-format чтение, 2617 passed)
 - [x] T-519 (@DevOps) — коммит+пуш+деплой — DONE (9aae221; миграция 515 строк JSON→f16; БД 42.0→22.5МБ, WAL 17.3→0.06МБ, строка 42366→6144Б; env-лимиты; PID 1080205; wal-job активен)
+
+---
+
+## Epic 65: Обогащение контекста фактчека/поиска + реранкинг + фокус саммари — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.45.0)
+
+> **Исследование (exa):** NAACL'22 «Role of Context» (+10 п.т. от контекста вокруг клейма);
+> MAD2'26 (past-only context ≈ full); SIGIR'26 (большой контекст ВРЕДИТ, важное — к краям промпта);
+> BiCon-Gate'26 (семантический дрейф при агрессивном обогащении); Anthropic Contextual Retrieval
+> (rerank до −67% промахов). **Решение пользователя:** память вердиктов фактчека — ОТМЕНЕНА
+> (вбросы неповторяются, нужен всегда свежий ответ).
+>
+> **R65-1** — factcheck: <chat_context> после <claim> (окно FACTCHECK_CONTEXT_MESSAGES=6,
+> потолок 2000 симв., маркировка «НЕ доказательства»); SYSTEM_PROMPT канон НЕ тронут.
+> **R65-2** — search: LLM-реранкинг выдачи (SEARCH_RERANK_ENABLED=true), fail-open
+> (_rerank_usable: тонкий/не меньший вывод → исходные результаты).
+> **R65-3** — search: тот же chat_context (SEARCH_CONTEXT_MESSAGES=6) в user-контент.
+> **R65-4** — «/summary про X»: фокус-блок в НАЧАЛО user_content (_apply_focus, escape,
+> ≤200 симв.), system R11 не тронут; крон без фокуса — старое поведение.
+> **D257** — db.get_recent_messages (последние N ASC) для обоих хендлеров; fail-open fetch.
+> **Баги из чекапа бота (расследование):** (а) краш 13:08 = уже починенный row.get (Epic 64),
+> «пустой war_alert set» — галлюцинация чекера (нормальный дефолт); (б) sleep 1.2/2.2с — это
+> и есть экспоненциальный backoff+джиттер (Epic 47), доработка не требуется.
+> Тесты: **2630 passed / 0 failed** (+13 новых test_epic65.py).
+
+### Задачи
+- [x] T-520 (@Builder) — R65-1..R65-4 — DONE (2630 passed)
+- [x] T-521 (@Reviewer) — ревью diff — DONE (каноны промптов не тронуты, fail-open везде)
+- [x] T-522 (@DevOps) — коммит+пуш+деплой — DONE

@@ -38,6 +38,7 @@ class FactCheckService:
         user_hint: str | None = None,
         forward_source: str | None = None,
         chat_id: int | None = None,
+        chat_context: str | None = None,
     ) -> str:
         """Фактчек-пайплайн:
         1) results = await self.aggregator.search(target_text, settings.FACTCHECK_MAX_SYMBOLS)
@@ -58,7 +59,8 @@ class FactCheckService:
         system = FACTCHECK_SYSTEM_PROMPT.replace(
             "{max_symbols}", str(settings.FACTCHECK_MAX_SYMBOLS)
         )
-        user = self.build_user_content(target_text, user_hint, forward_source, results)
+        user = self.build_user_content(target_text, user_hint, forward_source,
+                                       results, chat_context=chat_context)
         if rag:
             user = f"{rag}\n\n{user}"
         started = time.monotonic()
@@ -86,13 +88,15 @@ class FactCheckService:
         user_hint: str | None,
         forward_source: str | None,
         search_results: str,
+        chat_context: str | None = None,
     ) -> str:
-        """Контекст пользователя (42.6):
-        # <claim>…</claim>  — всегда
-        # <claim is_forward="true" forward_source="…">…</claim> — если forward_source задан
-        #   (прецедент: атрибут is_forward в SYSTEM_PROMPT Epic 24/28)
+        """Контекст пользователя (42.6 + Epic 65):
+        # <claim>…</claim>  — всегда (ПЕРВЫМ — SIGIR'26: улики по краям промпта)
+        #   с атрибутом is_forward/forward_source при репосте
+        # <chat_context …>…</chat_context> — Epic 65: болтовня чата вокруг цели,
+        #   маркирована НЕ-доказательства (NAACL'22/MAD2: контекст помогает);
         # <user_hint>…</user_hint> — только если user_hint задан
-        # <search_results>…</search_results> — всегда
+        # <search_results>…</search_results> — всегда (ПОСЛЕДНИМ)
         # Все значения — через escape_xml_text (services/summary_xml.py)"""
         claim_text = escape_xml_text(target_text)
         if forward_source:
@@ -104,6 +108,8 @@ class FactCheckService:
         else:
             claim = f"<claim>{claim_text}</claim>"
         parts = [claim]
+        if chat_context:
+            parts.append(chat_context)       # готовый <chat_context> из chat_context.py
         if user_hint:
             parts.append(f"<user_hint>{escape_xml_text(user_hint)}</user_hint>")
         parts.append(f"<search_results>{escape_xml_text(search_results)}</search_results>")

@@ -133,7 +133,7 @@ class TestRouterIsolation:
         assert sent.args[0] == CHAT_ID
         assert sent.args[1] == "выжимка про ракету"
         assert sent.kwargs["reply_to_message_id"] == 11
-        search_service.research.assert_awaited_once_with("ракету", chat_id=CHAT_ID)
+        search_service.research.assert_awaited_once_with("ракету", chat_id=CHAT_ID, chat_context=None)
         relay.send_common.assert_not_awaited()   # 4c danger НЕ сработал
 
     @pytest.mark.asyncio
@@ -150,7 +150,7 @@ class TestRouterIsolation:
         assert sent.args[1] == "вердикт: пиздеж"
         assert sent.kwargs["reply_to_message_id"] == 77   # target.message_id
         factcheck_service.check_claim.assert_awaited_once_with(
-            "Земля плоская", "это правда?", None, chat_id=CHAT_ID
+            "Земля плоская", "это правда?", None, chat_id=CHAT_ID, chat_context=None
         )
         relay.send_common.assert_not_awaited()
 
@@ -204,7 +204,7 @@ class TestRouterIsolation:
         assert sent.args[1] == "вердикт: пиздеж"
         assert sent.kwargs["reply_to_message_id"] == 72   # target = 3-е фото
         factcheck_service.check_claim.assert_awaited_once_with(
-            "текст новости", None, None, chat_id=CHAT_ID
+            "текст новости", None, None, chat_id=CHAT_ID, chat_context=None
         )
         relay.send_common.assert_not_awaited()
 
