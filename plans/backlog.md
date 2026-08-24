@@ -7430,6 +7430,48 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 **НЕ трогать:** `services/llm_client.py`, `EMBEDDING_MODEL_NAME` (gemini-embedding-001), circuit breaker / fallback env (Epic 53), каноны промптов (R11/R42-6/R46-2/R46-4/R50-4), `.env` в коммит не попадает, миграций БД — НЕТ.
 
 ---
-
 **Статус: Epic 62 — ✅ DEPLOYED & CLOSED (2026-08-24): переключение LLM-провайдера на OpenRouter завершено (DeepSeek `deepseek-v4-flash` → `stealth/ox-alpha`, `sk-or-v1-…`). v2.43.2 (chore, patch). Прод PID 1074264 (был 1072251). Коммит `0cce75b` запушен (`5d92e7f..0cce75b` origin/master). Без изменений кода — llm_client провайдер-агностик. T-505…T-510 ALL DONE. journalctl 0 traceback. Без @Orchestrator.**
+
+**Date: 2026-08-24**
+
+---
+
+## Epic 63: Реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud) — 2026-08-24 ⏳ IN PROGRESS
+
+> **Цель:** Пользователь отменил Вариант А (BYOK OpenRouter) и приказал вернуть основную
+> модель на `deepseek-v4-flash` от `apinet.cloud` с ключом `sk-lRCn…`.
+> Чисто конфигурационное изменение (v2.43.3, chore) — код не меняется
+> (`services/llm_client.py` провайдер-агностик, OpenAI-compatible API). Embeddings
+> (`gemini-embedding-001`) — НЕ меняются. Фоллбэк (`LLM_FALLBACK_*`, DeadDirectDeepSeek `api.deepseek.com`, 402)
+> — НЕ трогать (инструкция пользователя: «Фоллбэк не трогай, там действительно нет денег на балансе»).
+> Untracked media-файлы — включить в деплой (просьба пользователя: «untracked файлы в папке media
+> я добавляю вручную, они должны сразу попадать в прод при первой возможности»).
+> **Безопасность ключа (R17):** `sk-lRCn…` — только в `.env` (gitignored) и server `.env`; в
+> `.env.example` — плейсхолдер `your_key_here`; в коммиты/планы/логи НЕ попадает. Префикс `sk-lRCn`
+> ранее отмечался как потенциально утёкший в `backlog.md` (Epic 62, исправлено `c3a687b`) — рекомендовано
+> ротировать, но действуем по прямойл инструкции пользователя.
+> База: прод v2.43.2 (`0cce75b`, PID 1074264), 2617 тестов, Epics 1–62 ALL CLOSED. Target: **v2.43.3** (patch).
+
+### Требования и решения
+- **R63-1** — `config/settings.py`: дефолты `LLM_BASE_URL`→`https://apinet.cloud/v1`, `LLM_MODEL_NAME`→`deepseek-v4-flash` (откат к до-Epic-62 значениям).
+- **R63-2** — `.env` (локальный, gitignored): `LLM_API_KEY=sk-lRCn…`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash`.
+- **R63-3** — `.env.example`: дефолты `https://apinet.cloud/v1` / `deepseek-v4-flash`, `LLM_API_KEY=your_key_here` (плейсхолдер).
+- **R63-4** — Фоллбэк `LLM_FALLBACK_*` — НЕ трогать (DeadDirectDeepSeek, 402).
+- **R63-5** — Untracked media-файлы — включить в коммит деплоя (но НЕ `.env`).
+- **D252** — код НЕ меняется; `llm_client.py` читает `settings.LLM_*`; разница только в конфиге.
+
+### Задачи
+- [ ] T-511 (@Builder, P0) — `config/settings.py` (строки 298-300): `LLM_BASE_URL` default → `https://apinet.cloud/v1`, `LLM_MODEL_NAME` default → `deepseek-v4-flash`; комментарий (строка 297) → `apinet.cloud (OpenAI-compatible) by default` — **R63-1**
+- [ ] T-512 (@Builder, P0) — `.env`: `LLM_API_KEY=sk-lRCn…`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash` (gitignored, коммитить нельзя) — **R63-2**
+- [ ] T-513 (@Builder, P0) — `.env.example` (строки 145-148): `LLM_API_KEY=your_key_here`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash`; комментарий → apinet.cloud — **R63-3**
+- [ ] T-514 (@Reviewer, P0) — ревью: `git diff --check` чист; `.env` НЕ в коммите; `.env.example`/`settings.py` синхронизированы; ключ НЕ всплыл в планах/коммитах; 0 регрессий — **DoD**
+- [ ] T-515 (@DevOps, P0) — коммит на русском (conventional) + пуш origin/master; ВКЛЮЧИТЬ untracked media (R63-5), БЕЗ `.env`/ключа; «chore(epic63): v2.43.3 — реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud, deepseek-v4-flash)» — **DoD**
+- [ ] T-516 (@DevOps, P0) — деплой: SSH nik@198.46.175.136 /var/www/admin_bot; бэкап `.env.bak.epic63`; `git pull --ff-only`; обновить server `.env` `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL_NAME` → apinet.cloud + ключ (LLM_FALLBACK_* НЕ трогать); `systemctl restart admin_bot`; `systemctl status`; 0 traceback; smoke curl `https://apinet.cloud/v1/models` с сервера — **DoD**
+
+### Файлы
+- `config/settings.py` (LLM_BASE_URL/LLM_MODEL_NAME defaults → apinet.cloud)
+- `.env` (локальный, gitignored — правка ключа/url/модели)
+- `.env.example` (LLM_BASE_URL/LLM_MODEL_NAME/LLM_API_KEY → apinet.cloud + плейсхолдер)
+- `services/llm_client.py` — НЕ трогать (провайдер-агностик)
+
 **Date: 2026-08-24**

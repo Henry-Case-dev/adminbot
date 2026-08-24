@@ -6,6 +6,25 @@
 
 ## 🔧 In Progress
 
+### Epic 63: Реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud) — 2026-08-24 ⏳ IN PROGRESS (v2.43.3, реверт конфигурации)
+
+> Полный трек — `plans/backlog.md` (Epic 63). Требования R63-1…R63-5, решение D252.
+> Пользователь ОТМЕНИЛ Вариант А (BYOK OpenRouter) и приказал вернуть основную модель
+> на `deepseek-v4-flash` от `apinet.cloud` с ключом `sk-lRCn…`. Чисто конфигурационное
+> изменение (v2.43.3, chore) — код НЕ меняется: `services/llm_client.py` провайдер-агностик.
+> Embeddings (`gemini-embedding-001`) — НЕ меняются. Фоллбэк (`LLM_FALLBACK_*`, DeadDirectDeepSeek
+> `api.deepseek.com`, 402) — НЕ трогать (инструкция пользователя). Untracked media — включить
+> в деплой (просьба пользователя). Эквивалент: T-511 (settings.py), T-512 (.env), T-513
+> (.env.example), T-514 (ревью), T-515 (коммит+пуш), T-516 (деплой). Без @Orchestrator.
+> **Target:** v2.43.3 (chore, patch). **Baseline:** 2617 тестов (0 регрессий).
+
+- [ ] T-511 (@Builder, P0) — `config/settings.py`: дефолты `LLM_BASE_URL`→`https://apinet.cloud/v1`, `LLM_MODEL_NAME`→`deepseek-v4-flash` (R63-1)
+- [ ] T-512 (@Builder, P0) — `.env` (локальный, gitignored): `LLM_API_KEY=sk-lRCn…`, `LLM_BASE_URL=https://apinet.cloud/v1`, `LLM_MODEL_NAME=deepseek-v4-flash` (R63-2)
+- [ ] T-513 (@Builder, P0) — `.env.example`: дефолты apinet.cloud + `LLM_API_KEY=your_key_here` (плейсхолдер, R63-3)
+- [ ] T-514 (@Reviewer, P0) — ревью: ключ НЕ в коммите, конфиг корректен, `git diff --check` чист
+- [ ] T-515 (@DevOps, P0) — коммит (вкл. untracked media, БЕЗ ключа) + пуш origin/master
+- [ ] T-516 (@DevOps, P0) — деплой: git pull, server .env `LLM_*`→apinet.cloud + ключ, restart, status, 0 traceback
+
 ### Epic 62: Переключение LLM-провайдера на OpenRouter (apinet.cloud → OpenRouter) — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.43.2, коммит 0cce75b, прод PID 1074264, 2026-08-24)
 
 > Полный трек — `plans/backlog.md` (Epic 62). Требования R62-1…R62-6, решение D251.
