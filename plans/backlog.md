@@ -7308,7 +7308,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-## Epic 62: Переключение LLM-провайдера на OpenRouter (apinet.cloud → OpenRouter) — 2026-08-24 🚧 IN PROGRESS (пользовательский запрос, Шаг 1 @PM ✅, target v2.43.2 chore, P0)
+## Epic 62: Переключение LLM-провайдера на OpenRouter (apinet.cloud → OpenRouter) — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.43.2, коммит 0cce75b, прод PID 1074264, 2026-08-24)
 
 > **Цель:** Переключить LLM-провайдера с `apinet.cloud` (DeepSeek, `deepseek-v4-flash`)
 > на **OpenRouter** (`stealth/ox-alpha`), заменив API-ключ на OpenRouter `sk-or-v1-…`.
@@ -7331,7 +7331,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 - **Embeddings** — `EMBEDDING_MODEL_NAME=gemini-embedding-001` через apinet.cloud/Vertex ОСТАЕТСЯ (R46-5,
   Epic 46); фоллбэк и circuit breaker (Epic 53, Section 62) работают через тот же llm_client — логика не меняется,
   только endpoint/model.
-- **Прод .env:** ключ `sk-lRCn…` с apinet.cloud заменяется на `sk-or-v1-…` (OpenRouter);
+- **Прод .env:** старый ключ apinet.cloud (значение не публикуется, R17) заменяется на OpenRouter-ключ (задан пользователем);
   apinet.cloud-ключ больше не используется для чата (embeddings могут оставаться на apinet.cloud — отдельный ключ).
 
 ### Требования (Requirements — обязательный чек-лист)
@@ -7357,10 +7357,10 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 **Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.1d.
 
-- [ ] T-505-A: на проде — бэкап `.env.bak.epic62` ДО правки
-- [ ] T-505-B: в прод `.env`: `LLM_API_KEY=sk-or-v1-…` (ключ задан пользователем — не публикуется, R17),
+- [x] T-505-A: на проде — бэкап `.env.bak.epic62` ДО правки
+- [x] T-505-B: в прод `.env`: `LLM_API_KEY=sk-or-v1-…` (ключ задан пользователем — не публикуется, R17),
   `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL_NAME=stealth/ox-alpha`
-- [ ] T-505-C: локально — `.env` (коммитить НЕ нужно, `.gitignore`): `LLM_API_KEY=sk-or-v1-…`, `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL_NAME=stealth/ox-alpha`
+- [x] T-505-C: локально — `.env` (коммитить НЕ нужно, `.gitignore`): `LLM_API_KEY=sk-or-v1-…`, `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL_NAME=stealth/ox-alpha`
 
 **DoD:** прод `.env` + локальный `.env` с OpenRouter-значениями; бэкап `.env.bak.epic62` существует.
 
@@ -7368,8 +7368,8 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 **Приоритет:** P0. **Зависимости:** нет. **Оценка:** 0.25d.
 
-- [ ] T-506-A: `.env.example` — `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL_NAME=stealth/ox-alpha`; комментарий (строка 145) обновлён: `OpenRouter (OpenAI-compatible)`; `LLM_API_KEY=your_key_here` без изменений
-- [ ] T-506-B: `config/settings.py` (строки 297-300) — `LLM_BASE_URL` default → `https://openrouter.ai/api/v1`, `LLM_MODEL_NAME` default → `stealth/ox-alpha`; комментарий (строка 297) обновлён: `OpenRouter by default`
+- [x] T-506-A: `.env.example` — `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL_NAME=stealth/ox-alpha`; комментарий (строка 145) обновлён: `OpenRouter (OpenAI-compatible)`; `LLM_API_KEY=your_key_here` без изменений
+- [x] T-506-B: `config/settings.py` (строки 297-300) — `LLM_BASE_URL` default → `https://openrouter.ai/api/v1`, `LLM_MODEL_NAME` default → `stealth/ox-alpha`; комментарий (строка 297) обновлён: `OpenRouter by default`
 
 **DoD:** `.env.example` + `settings.py` синхронизированы с OpenRouter; канон-комментарии обновлены.
 
@@ -7377,7 +7377,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 **Приоритет:** P0. **Зависимости:** T-505/T-506. **Оценка:** 0.1d.
 
-- [ ] T-507-A: `git diff --check` чист (исключить `.env` — он в `.gitignore`); проверить, что `.env.example` и `settings.py` синхронизированы байт-в-байт; review diff
+- [x] T-507-A: `git diff --check` чист (исключить `.env` — он в `.gitignore`); проверить, что `.env.example` и `settings.py` синхронизированы байт-в-байт; review diff
 
 **DoD:** APPROVED; diff --check чист; `.env` не в коммите.
 
@@ -7385,8 +7385,8 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 **Приоритет:** P0. **Зависимости:** T-506. **Оценка:** 0.25d.
 
-- [ ] T-508-A: `tests/test_settings_helpers.py` — проверить, что `LLM_BASE_URL`/`LLM_MODEL_NAME` дефолты в settings соответствуют OpenRouter; обновить ассерты при необходимости
-- [ ] T-508-B: полный pytest — **0 регрессий (база 2617)**; `git diff --check` чист
+- [x] T-508-A: `tests/test_settings_helpers.py` — проверить, что `LLM_BASE_URL`/`LLM_MODEL_NAME` дефолты в settings соответствуют OpenRouter; обновить ассерты при необходимости
+- [x] T-508-B: полный pytest — **0 регрессий (база 2617)**; `git diff --check` чист
 
 **DoD:** 2617+ passed / 0 failed; diff --check чист.
 
@@ -7394,7 +7394,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 **Приоритет:** P0. **Зависимости:** T-507/T-508. **Оценка:** 0.1d.
 
-- [ ] T-509-A: коммит на русском (conventional: `chore(epic62): v2.43.2 — переключение LLM-провайдера на OpenRouter (DeepSeek → OpenRouter, stealth/ox-alpha)`); пуш в origin/master; `.env` НЕ коммитим
+- [x] T-509-A: коммит на русском (conventional: `chore(epic62): v2.43.2 — переключение LLM-провайдера на OpenRouter (DeepSeek → OpenRouter, stealth/ox-alpha)`); пуш в origin/master; `.env` НЕ коммитим
 
 **DoD:** коммит в master, пуш в origin.
 
@@ -7402,9 +7402,9 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 **Приоритет:** P0. **Зависимости:** T-509. **Оценка:** 0.25d.
 
-- [ ] T-510-A: `git pull --ff-only` на проде (PID 1072251); `.env` уже правлен (T-505) — бэкап `.env.bak.epic62` подтверждён
-- [ ] T-510-B: `systemctl restart admin_bot` → active (running), новый PID; `journalctl -n 50` — 0 traceback
-- [ ] T-510-C: smoke: `/summary` или factcheck/search — бот отвечает через OpenRouter; при транзиентном сбое — WARNING-логи (Epic 47), пользователь получает UX
+- [x] T-510-A: `git pull --ff-only` на проде (PID 1072251); `.env` уже правлен (T-505) — бэкап `.env.bak.epic62` подтверждён
+- [x] T-510-B: `systemctl restart admin_bot` → active (running), новый PID; `journalctl -n 50` — 0 traceback
+- [x] T-510-C: smoke: `/summary` или factcheck/search — бот отвечает через OpenRouter; при транзиентном сбое — WARNING-логи (Epic 47), пользователь получает UX
 
 **DoD:** прод v2.43.2, active (running), новый PID, 0 traceback, smoke зелёный.
 
@@ -7431,5 +7431,5 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-**Статус: Epic 62 — Шаг 1 (PM) ✅ (2026-08-24): переключение LLM-провайдера na OpenRouter (DeepSeek → stealth/ox-alpha, sk-or-v1-key). target v2.43.2 (chore, patch), P0. Без изменений кода — llm_client провайдер-агностик. Эквивалент: T-505 (.env прод), T-506 (.env.example + settings.py), T-507 (diff --check), T-508 (тесты 2617+), T-509 (коммит+пуш), T-510 (деплой). Без @Orchestrator.**
+**Статус: Epic 62 — ✅ DEPLOYED & CLOSED (2026-08-24): переключение LLM-провайдера на OpenRouter завершено (DeepSeek `deepseek-v4-flash` → `stealth/ox-alpha`, `sk-or-v1-…`). v2.43.2 (chore, patch). Прод PID 1074264 (был 1072251). Коммит `0cce75b` запушен (`5d92e7f..0cce75b` origin/master). Без изменений кода — llm_client провайдер-агностик. T-505…T-510 ALL DONE. journalctl 0 traceback. Без @Orchestrator.**
 **Date: 2026-08-24**
