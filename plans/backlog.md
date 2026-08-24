@@ -7083,7 +7083,7 @@ Epics 1–40 — см. исторические разделы выше и `boar
 
 ---
 
-## Epic 60: Полировка direct_chat + память + чекап (37 пунктов RESEARCH_HUMAN) — 2026-08-24 ✅ IMPLEMENTED + REVIEWED (APPROVED) — DEPLOY PENDING (@DevOps T-496/T-497, target v2.43.0)
+## Epic 60: Полировка direct_chat + память + чекап (37 пунктов RESEARCH_HUMAN) — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.43.0, коммит `9a47567`, прод PID 1071436, 2611 тестов)
 
 > **Цель:** Реализовать ВСЕ 37 пунктов `plans/RESEARCH_HUMAN.md`, отмеченных пользователем
 > `[х]` (галочки и комментарии — незакоммичены; см. D242): (1) direct_chat UX — персистентный
@@ -7213,9 +7213,9 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 | T-493 | @Docs | P1-правило | T-458 | п.63/R60-34: правило «не Mem0/Zep/Letta» в ARCHITECTURE/README | Правило задокументировано  **DONE** |
 | T-494 | @Builder + @Reviewer | P0 | T-460…T-493 | Полный pytest 0 регрессий (2360+) + конфликты с другими функциями + ревью | APPROVED; 0 регрессий; diff --check  **DONE** |
 | T-495 | @Docs | P1 | T-494 | README: только новые фичи (иронично), старые — при изменении | README актуален  **DONE** |
-| T-496 | @DevOps | P0 | T-494 | Коммит на русском + пуш origin/master; ВКЛЮЧИТЬ правки RESEARCH_HUMAN.md (D242); без mp4/.env/db | Коммит запушен; RESEARCH_HUMAN включён |
-| T-497 | @DevOps | P0 | T-496 | Деплой v2.43.0 (D244): бэкапы, pull ff, nano .env при необходимости, миграции, restart, status, 0 traceback, smoke | Прод v2.43.0, новый PID, 0 traceback |
-| T-498 | @Docs/PM | P1 | T-497 | MEMORY.md + board [x]; Epic 60 CLOSED; финальный человекочитаемый отчёт | Epic 60 CLOSED; отчёт пользователю |
+| T-496 | @DevOps | P0 | T-494 | Коммит на русском + пуш origin/master; ВКЛЮЧИТЬ правки RESEARCH_HUMAN.md (D242); без mp4/.env/db | Коммит запушен; RESEARCH_HUMAN включён  **DONE** (коммит `9a47567`, пуш `d555454..9a47567`, 73 файла, без mp4) |
+| T-497 | @DevOps | P0 | T-496 | Деплой v2.43.0 (D244): бэкапы, pull ff, nano .env при необходимости, миграции, restart, status, 0 traceback, smoke | Прод v2.43.0, новый PID, 0 traceback  **DONE** (PID 1071436, бэкап `.bak.epic60` ДО pull, .env не менялся, user_version=3) |
+| T-498 | @Docs/PM | P1 | T-497 | MEMORY.md + board [x]; Epic 60 CLOSED; финальный человекочитаемый отчёт | Epic 60 CLOSED; отчёт пользователю  **DONE** |
 | T-499 | @Builder | P1 (конец очереди) | T-460 | п.8/R60-35: дедуп+кэш одинаковых текстов подряд (ключ чат+человек+текст) | Повтор → один ответ/кэш; тесты  **DONE** |
 
 ### Риски (Epic 60)
@@ -7238,5 +7238,5 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-**Статус: Epic 60 — Шаги 2–6 завершены (2026-08-24): ✅ IMPLEMENTED + REVIEWED (APPROVED) — DEPLOY PENDING.** Реализованы все 37 пунктов RESEARCH_HUMAN (фазы A–E + п.8 в конец очереди): задачи T-458…T-495 и T-499 → **DONE**; Medium-фикс из ревью внесён. Тесты **2611 passed / 0 failed** (baseline 2360, +251), `git diff --check` чист. Открыты только: T-496 (@DevOps, коммит+пуш, ВКЛЮЧИТЬ правки RESEARCH_HUMAN по D242), T-497 (@DevOps, деплой v2.43.0 по D244) и T-498 (@Docs/PM, финальная синхронизация планов + отчёт) — выполнятся в этом релизе. Решения D235–D244 (PM, Шаг 1) согласованы с D245–D249 (@Architect, Sections 63–67 ARCHITECTURE.md). Без @Orchestrator.**
+**Статус: Epic 60 — ✅ DEPLOYED & CLOSED (2026-08-24).** Реализованы все 37 пунктов RESEARCH_HUMAN (фазы A–E + п.8 в конец очереди): задачи **T-458…T-499 → ALL DONE** (включая финализацию T-496/T-497/T-498). Тесты **2611 passed / 0 failed** (baseline 2360, +251), ревью APPROVED. Релиз: коммит `9a47567` «feat(epic60): v2.43.0 …» запушен (`d555454..9a47567` origin/master, 73 файла, без mp4); деплой успешен — pull ff на проде, бэкап `local_database.db.bak.epic60` ДО pull, .env не менялся, restart OK — новый **PID 1071436**, миграция v3 применена (user_version=3, таблицы v3 созданы, int8-индексы перестроены), journalctl **0 traceback**. Решения D235–D244 (PM, Шаг 1) согласованы с D245–D249 (@Architect, Sections 63–67 ARCHITECTURE.md). Epics 1–60 ALL CLOSED & DEPLOYED. Без @Orchestrator.**
 **Date: 2026-08-24**

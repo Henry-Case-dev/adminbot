@@ -6,7 +6,7 @@
 
 ## 🔧 In Progress
 
-### Epic 60: Полировка direct_chat + память + чекап (37 пунктов RESEARCH_HUMAN) — ✅ IMPLEMENTED + REVIEWED (APPROVED) — DEPLOY PENDING (@DevOps T-496/T-497, target v2.43.0)
+### Epic 60: Полировка direct_chat + память + чекап (37 пунктов RESEARCH_HUMAN) — ✅ DEPLOYED & CLOSED (v2.43.0, коммит 9a47567, прод PID 1071436, 2611 тестов, 2026-08-24)
 
 > Полный трек — `plans/backlog.md` (Epic 60). Требования R60-1…R60-35, решения D235–D244.
 > 37 пунктов `plans/RESEARCH_HUMAN.md`, отмеченных пользователем `[х]` (галочки + комментарии —
@@ -59,12 +59,12 @@
 - [x] T-493 (@Docs, P1-правило) — R60-34 (п.63): правило «не переезжать на Mem0/Zep/Letta» — зафиксировать в ARCHITECTURE/README. **DoD:** правило задокументировано. — **✅ DONE** (2026-08-24: реализовано, ревью APPROVED, тесты 2611 passed / 0 failed).
 - [x] T-494 (@Builder + @Reviewer, P0) — полный pytest 0 регрессий (2360+) + проверка конфликтов с другими функциями + ревью APPROVED. **DoD:** APPROVED; 0 регрессий; diff --check чист. — **✅ DONE** (2026-08-24: реализовано, ревью APPROVED, тесты 2611 passed / 0 failed).
 - [x] T-495 (@Docs, P1) — README: только новые фичи (иронично), старые — обновить если изменились; апдейты подробно не расписывать. **DoD:** README актуален. — **✅ DONE** (2026-08-24: реализовано, ревью APPROVED, тесты 2611 passed / 0 failed).
-- [ ] T-496 (@DevOps, P0) — коммит на русском + пуш origin/master; ВКЛЮЧИТЬ незакоммиченные правки RESEARCH_HUMAN.md (галочки [х] + комментарии пользователя); БЕЗ mp4/.env/db. **DoD:** коммит запушен; RESEARCH_HUMAN включён.
-- [ ] T-497 (@DevOps, P0) — деплой v2.43.0: SSH nik@198.46.175.136 /var/www/admin_bot; бэкапы .bak.epic60; git pull --ff-only; при необходимости nano .env (без указания — не менять); миграции (если есть) на остановленном боте; systemctl restart admin_bot; systemctl status; 0 traceback; smoke. **DoD:** прод v2.43.0, новый PID, 0 traceback.
-- [ ] T-498 (@Docs/PM, P1) — MEMORY.md + board [x]; Epic 60 CLOSED; финальный человекочитаемый отчёт. **DoD:** Epic 60 CLOSED; отчёт передан пользователю.
+- [x] T-496 (@DevOps, P0) — коммит на русском + пуш origin/master; ВКЛЮЧИТЬ незакоммиченные правки RESEARCH_HUMAN.md (галочки [х] + комментарии пользователя); БЕЗ mp4/.env/db. **DoD:** коммит запушен; RESEARCH_HUMAN включён. — **✅ DONE** (2026-08-24: коммит `9a47567` «feat(epic60): v2.43.0 — полировка direct_chat, памяти и чекапа: 37 пунктов RESEARCH_HUMAN», пуш `d555454..9a47567` origin/master, 73 файла, без mp4).
+- [x] T-497 (@DevOps, P0) — деплой v2.43.0: SSH nik@198.46.175.136 /var/www/admin_bot; бэкапы .bak.epic60; git pull --ff-only; при необходимости nano .env (без указания — не менять); миграции (если есть) на остановленном боте; systemctl restart admin_bot; systemctl status; 0 traceback; smoke. **DoD:** прод v2.43.0, новый PID, 0 traceback. — **✅ DONE** (2026-08-24: pull ff на проде; бэкап `local_database.db.bak.epic60` ДО pull; .env не менялся; restart OK — новый PID 1071436; миграция user_version=3 применена, таблицы v3 созданы, int8-индексы перестроены; journalctl 0 traceback).
+- [x] T-498 (@Docs/PM, P1) — MEMORY.md + board [x]; Epic 60 CLOSED; финальный человекочитаемый отчёт. **DoD:** Epic 60 CLOSED; отчёт передан пользователю. — **✅ DONE** (2026-08-24: MEMORY.md обновлён (v2.43.0 DEPLOYED), board/backlog актуализированы, Epic 60 CLOSED, отчёт передан пользователю).
 - [x] T-499 (@Builder, P1) — R60-35 (п.8): дедуп+кэш одинаковых текстов подряд (ключ «чат+человек+текст») — В КОНЕЦ очереди (комментарий пользователя: барьер троттлинг-таймеров уже есть). **DoD:** повторный одинаковый текст → один ответ/кэш; тесты. — **✅ DONE** (2026-08-24: реализовано, ревью APPROVED, тесты 2611 passed / 0 failed).
 
-**Updated:** 2026-08-24 — **Epic 60 открыт (Шаг 1 @PM ✅, target v2.43.0)**: 37 пунктов RESEARCH_HUMAN (галочки [х] + комментарии пользователя, незакоммичены — попадут в коммит T-496), требования R60-1…R60-35 (п.33+37 → одна фича «реакция 🗿»; п.43+58 → «метрики здоровья в чекап»; правила 20/49/63; п.8 — в конец очереди), задачи T-458…T-499. Фазы A (P0) → E. Дизайн — Sections 63–67 (59–62 заняты Epics 48–53). Epics 1–59 архивированы в ✅ Done. Без @Orchestrator.
+**Updated:** 2026-08-24 — **Epic 60 ✅ DEPLOYED & CLOSED (v2.43.0):** релиз задеплоен на прод — коммит `9a47567` «feat(epic60): v2.43.0 …» запушен (`d555454..9a47567` origin/master, 73 файла, без mp4), деплой успешен (pull ff, бэкап `local_database.db.bak.epic60` ДО pull, .env не менялся, restart OK — прод PID 1071436, миграция v3 применена — user_version=3, таблицы v3 созданы, int8-индексы перестроены, 0 traceback). Тесты 2611 passed / 0 failed, ревью APPROVED. Все задачи T-458…T-499 → [x]. Epics 1–60 ALL CLOSED & DEPLOYED. Без @Orchestrator.
 
 ## 🔍 In Review
 
