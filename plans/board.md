@@ -6,16 +6,20 @@
 
 ## 🔧 In Progress
 
-### Epic 64: Контекст + embedding_cache + LLM-надёжность — 2026-08-24 ⏳ IN PROGRESS (v2.44.0)
+### Epic 64: Контекст + embedding_cache + LLM-надёжность — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.44.0, коммит 9aae221, прод PID 1080205)
 
 > Полный трек — plans/backlog.md (Epic 64). Фикс краша direct_chat (sqlite3.Row.get, строка 675),
 > ослабление обрезки контекста (саммари 60k токенов, direct 24k, окно 100→200,
-> чекап 40k симв., поиск/фактчек/youtube/web 4k→8k), ретраи фоллбэка (2 retries, бюджет 120с),
-> embedding_cache float16 BLOB (46КБ→6КБ на запись, ×7.5; cap 50000→20000 строк ≈ стационар ~130МБ
+> чекап 40k симв., поиск/фактчек/youtube/web 4k→8k), ретраи фоллбэка (2 retries, бюджет 30с→120с),
+> embedding_cache float16 BLOB (46КБ→6КБ на запись, ×7.5; cap 50000→20000 ≈ стационар ~130МБ
 > вместо ~2.3ГБ), ленивая миграция legacy-JSON, hit-rate лог, WAL-checkpoint(TRUNCATE) каждые 6ч.
 > Резервный embed-провайдер OpenRouter (nemotron-embed:free) — ОТЛОЖЕН пользователем
 > (несовместимость размерностей/пространств с gemini-3072; отдельный будущий эпик).
-> T-517 Builder DONE (2617 passed). Target v2.44.0.
+>
+> **✅ DEPLOYED (2026-08-24):** коммит `9aae221` запушен; миграция на проде: 515 строк
+> JSON→float16, VACUUM + checkpoint — **БД 42.0→22.5МБ, WAL 17.3→0.06МБ**, строка кэша
+> 42366→6144 Б; env-лимиты прописаны; `MemoryMaintenance started (…, wal=True/6h)`;
+> active PID 1080205, 2617 tests passed. Прогноз: стационар кэша ≤130МБ (был тренд 2.3ГБ).
 
 ### Epic 63: Реверт LLM-провайдера на apinet.cloud (OpenRouter → apinet.cloud) — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.43.3, коммит ffb0812, прод PID 1075674, 2026-08-24)
 

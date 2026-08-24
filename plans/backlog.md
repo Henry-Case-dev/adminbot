@@ -1,4 +1,4 @@
-# AdminBot — Product Backlog
+﻿# AdminBot — Product Backlog
 
 ## Epic 1: Рефакторинг (Code Quality)
 - [x] T-001: Вынести API_TOKEN в .env / конфигурацию
@@ -7478,7 +7478,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-## Epic 64: Контекст без агрессивной обрезки + лечение embedding_cache + надёжность LLM — 2026-08-24 ⏳ IN PROGRESS
+## Epic 64: Контекст без агрессивной обрезки + лечение embedding_cache + надёжность LLM — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.44.0, коммит 9aae221, прод PID 1080205)
 
 > **Цель:** (1) фикс краша direct_chat sqlite3.Row.get (строка 675); (2) ослабить
 > обрезку контекста (саммари 26k→60k токенов, direct_chat 4k→24k, окно 100→200,
@@ -7507,5 +7507,5 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Задачи
 - [x] T-517 (@Builder) — R64-1..R64-6 реализация — ✅ DONE (2617 passed / 0 failed)
-- [ ] T-518 (@Reviewer) — ревью diff
-- [ ] T-519 (@DevOps) — коммит+пуш; деплой: stop → миграция embedding_cache JSON→f16 + VACUUM + checkpoint → env-лимиты → start → verify
+- [x] T-518 (@Reviewer) — ревью diff — DONE (лог-контракт фоллбэка сохранён, dual-format чтение, 2617 passed)
+- [x] T-519 (@DevOps) — коммит+пуш+деплой — DONE (9aae221; миграция 515 строк JSON→f16; БД 42.0→22.5МБ, WAL 17.3→0.06МБ, строка 42366→6144Б; env-лимиты; PID 1080205; wal-job активен)
