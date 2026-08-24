@@ -1,6 +1,8 @@
 """Epic 42 — CheckupService (Section 51.6): логи → LLM-отчёт → cleanup.
-Epic 60 (64.5, T-466): db+memory → data-секция <memory_health> в user-контенте
-(порядок: логи → метрики; единый потолок; R42-6 НЕ меняется)."""
+Epic 60 (64.5, T-466): db+memory → data-секция <memory_health> в user-контенте.
+Epic 61 (64.5 хотфикс, D250/T-501): секция метрик собирается ПЕРВОЙ с
+резервом длины (логи режутся до MAX_INPUT − len(секции) — метрики всегда
+живы); escape РОВНО ОДИН раз на финальной обёртке <system_logs>."""
 import logging
 import re
 import time
@@ -17,6 +19,11 @@ logger = logging.getLogger(__name__)
 # Epic 49 (Section 57.5, D196): C0-управляющие, кроме \n (переносы логов) и
 # \t; плюс DEL (0x7f). Каждый такой символ → ровно ОДИН пробел.
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+# Epic 61 (64.5 хотфикс, D250/T-500): потолок секции метрик ДО расчёта бюджета
+# логов (крайний случай «метрики разрослись»); бюджет логов гарантированно
+# ≥ CHECKUP_MAX_INPUT_SYMBOLS − (2000 + обвязка) ≈ 9970.
+_METRICS_MAX_SYMBOLS = 2000
 
 
 class CheckupService:
@@ -41,12 +48,11 @@ class CheckupService:
         if used_fallback:
             system += "\n\n" + CHECKUP_FALLBACK_NOTICE     # R42-2: ровно 1 раз
         # Epic 49 (57.5, D196): scrub C0 (гипотеза (б) — невалидные управляющие
-        # символы raw-логов) → потолок CHECKUP_MAX_INPUT_SYMBOLS (запас к окну
-        # модели) → escape. Единая точка — здесь, ДО escape_xml_text.
+        # символы raw-логов). Единая точка — здесь, ДО escape_xml_text.
         user_content = _CONTROL_CHARS_RE.sub(" ", logs_text)
-        # Epic 60 (64.5): метрики ПЕРЕД потолком — единый потолок для обеих
-        # секций; при переполнении режется ХВОСТ (метрики идут последними —
-        # логи всегда приоритетнее, 64.10.2).
+        # Epic 61 (64.5 хотфикс, D250): метрики СНАЧАЛА + резерв длины —
+        # потолок метрик ДО расчёта бюджета, затем логи режутся до
+        # (CHECKUP_MAX_INPUT_SYMBOLS − len(секции)) → метрики всегда живы.
         metrics = ""
         if self.metrics_enabled and self.db is not None:
             try:
@@ -54,15 +60,20 @@ class CheckupService:
             except Exception:
                 logger.warning("[checkup] memory metrics failed", exc_info=True)
                 metrics = ""
-        body = user_content
-        if metrics:
-            body += "\n\n<memory_health>\n" + escape_xml_text(metrics) + "\n</memory_health>"
-        if len(body) > settings.CHECKUP_MAX_INPUT_SYMBOLS:
+        if len(metrics) > _METRICS_MAX_SYMBOLS:
+            metrics = metrics[:_METRICS_MAX_SYMBOLS]
+        # БЕЗ предварительного escape (escape РОВНО ОДИН на обёртке ниже).
+        metrics_section = (
+            "\n\n<memory_health>\n" + metrics + "\n</memory_health>"
+        ) if metrics else ""
+        logs_budget = settings.CHECKUP_MAX_INPUT_SYMBOLS - len(metrics_section)
+        if len(user_content) > logs_budget:
             logger.warning(
                 "[checkup] input truncated | chars=%d -> %d",
-                len(body), settings.CHECKUP_MAX_INPUT_SYMBOLS,
+                len(user_content), logs_budget,
             )
-            body = body[:settings.CHECKUP_MAX_INPUT_SYMBOLS]
+            user_content = user_content[:logs_budget]
+        body = user_content + metrics_section
         user = f"<system_logs>{escape_xml_text(body)}</system_logs>"
         started = time.monotonic()
         raw = await self.llm.generate(

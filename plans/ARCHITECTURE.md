@@ -13598,24 +13598,37 @@ CREATE INDEX IF NOT EXISTS idx_embedding_cache_lru ON embedding_cache(last_used_
 - **Dim guard:** `dim != текущий` → не использовать (после dim-сдвига 55.8 старые векторы невалидны) и записать заново.
 - **Выключатель:** `EMBED_CACHE_ENABLED` (default true). Ошибки БД → WARNING → обычный вызов API (кэш не блокирует).
 
-### 64.5 Метрики здоровья памяти в чекап (R60-7, п.58+43, D240/D246, T-466)
+### 64.5 Метрики здоровья памяти в чекап (R60-7, п.58+43, D240/D246, T-466; хотфикс v2.43.1 — D250/T-500)
 
 - **Новый модуль `services/memory_health.py`:** `async def collect_metrics(db, memory) -> str` — возвращает готовый текстовый блок БЕЗ токсичности (токсичность добавит LLM по R42-6). Метрики (только дешёвые SELECT/статс, без LLM):
   - размеры таблиц: `smart_messages`, `smart_archive_facts`, `graph_facts` (+ по origin), `nodes`, `edges`, `smart_cache`, `throttle_state`, `embedding_cache`;
   - счётчики: фактов `unconfirmed`, фактов с истёкшим `expires_at <= now` (кандидаты на purge), дублей отсеяно (сумма `graph_fact_compressions`), записано фактов за сутки (created_at > now−86400);
   - векторы: `memory.vec_available`, dim, строки в `smart_archive`/`graph_facts_vec`;
   - диск: `shutil.disk_usage("/")` (free/total, stdlib — без subprocess), размер файла БД и `-wal` (`os.path.getsize`); RSS процесса — из `/proc/self/status` VmRSS (Linux-прод), при отсутствии — строка опускается.
-- **Подача в существующий чекап БЕЗ правки R42-6:** `CheckupService.checkup()` (`checkup_service.py:37-44`) — user-контент собирается так (порядок: логи → метрики; общий потолок и C0-scrub — для ОБЕИХ секций):
+- **Подача в существующий чекап БЕЗ правки R42-6:** `CheckupService.checkup()` (`checkup_service.py:37-44`) — user-контент собирается так. **ХОТФИКС D250/T-500 (v2.43.1) — метрики СНАЧАЛА + резерв длины, escape РОВНО ОДИН раз:** прод-дефект v2.43.0 — при логах journalctl-фолбэка ~20.5к символов единый потолок `CHECKUP_MAX_INPUT_SYMBOLS=12000` резал ХВОСТ (метрики аппендились после логов и всегда терялись: `[checkup] input truncated | chars=20506 -> 12000`), плюс двойное экранирование метрик (escape на строке сборки секции + повторный на финальной обёртке). Новый порядок: (a) `metrics = collect_metrics(...)` fail-open `""`; (б) секция метрик собирается БЕЗ предварительного escape; (в) метрики режутся до `min(len(metrics), 2000)` — простое правило крайнего случая; (г) бюджет логов = `CHECKUP_MAX_INPUT_SYMBOLS − len(metrics_section)` (при потолке 12000 и метриках ≤2000+обвязке бюджет ≥ ~9900 — инвариант «не меньше разумного минимума ~1000» выполняется автоматически, отдельного clamp не нужно); (д) логи scrub C0 → при превышении бюджета WARNING с честными числами `chars=N -> budget` и обрезка; (е) `body = logs + metrics_section`, ОДИН escape на финальной обёртке `<system_logs>`:
 
 ```python
-user_content = _CONTROL_CHARS_RE.sub(" ", logs_text)          # как сейчас
-metrics = await collect_metrics(db, memory) if metrics_enabled else ""
-body = user_content
-if metrics:
-    body += "\n\n<memory_health>\n" + escape_xml_text(metrics) + "\n</memory_health>"
-if len(body) > settings.CHECKUP_MAX_INPUT_SYMBOLS: ...         # единый потолок
-user = f"<system_logs>{escape_xml_text(body)}</system_logs>"   # тег НЕ меняется
+metrics = await collect_metrics(db, memory) if metrics_enabled else ""      # fail-open ""
+if len(metrics) > settings.CHECKUP_MEMORY_METRICS_MAX_SYMBOLS:              # 2000
+    metrics = metrics[:settings.CHECKUP_MEMORY_METRICS_MAX_SYMBOLS]         # простое правило крайнего случая
+metrics_section = ("\n\n<memory_health>\n" + metrics + "\n</memory_health>") if metrics else ""   # БЕЗ escape
+logs_budget = settings.CHECKUP_MAX_INPUT_SYMBOLS - len(metrics_section)     # резерв длины секции
+logs_text = _CONTROL_CHARS_RE.sub(" ", logs_text)                           # C0-scrub как сейчас
+if len(logs_text) > logs_budget:
+    logger.warning("[checkup] input truncated | chars=%d -> %d", len(logs_text), logs_budget)  # честные числа
+    logs_text = logs_text[:logs_budget]
+user = f"<system_logs>{escape_xml_text(logs_text + metrics_section)}</system_logs>"  # escape РОВНО ОДИН раз
 ```
+
+  **Крайние случаи (правило зафиксировано):** (1) метрики огромные (>2000 симв.) — режутся до `min(len, 2000)` ДО расчёта бюджета → бюджет логов гарантированно ≥ `CHECKUP_MAX_INPUT_SYMBOLS − (2000 + len("\n\n<memory_health>\n\n</memory_health>")) ≈ 9970`, метрики в payload всегда живы; (2) логи нулевые/пустые — WARNING не пишется, body = только `metrics_section` внутри `<system_logs>`; (3) метрики пустые (выключатель off / db=None / fail-open) — `budget = CHECKUP_MAX_INPUT_SYMBOLS`, поведение ПОБАЙТОВО прежнее (логи без секции, потолок как раньше). **Escape ровно один** — на финальной обёртке; предварительный `escape_xml_text(metrics)` на сборке секции УДАЛЁН (иначе `&amp;amp;`). **Каноны НЕ меняются:** R42-6 (CHECKUP_SYSTEM_PROMPT VERBATIM), R42-2, пулы fetcher-каскада; `<memory_health>` остаётся data-секцией в ТОМ ЖЕ сообщении.
+
+  **Тест-план хотфикса (T-501, сценарии (а)-(е), дословно):**
+  - **(а)** логи 20к+ → метрики присутствуют в финальном payload в пределах лимита;
+  - **(б)** логи короткие → без обрезки, метрики на месте;
+  - **(в)** metrics_enabled=false / db=None → ровно старое поведение;
+  - **(г)** collect_metrics падает → старое поведение + WARNING;
+  - **(д)** отсутствие двойного экранирования (амперсанды/угловые скобки в метриках экранируются ровно один раз);
+  - **(е)** лог truncation показывает реальные значения.
 
   Формат блока-данных (фиксированный, простой текст — LLM сам перескажет токсично):
 

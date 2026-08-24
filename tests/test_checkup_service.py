@@ -188,10 +188,9 @@ class TestEpic60MemoryMetrics:
         assert "memory_health" not in user
 
     @pytest.mark.asyncio
-    async def test_metrics_cut_first_on_overflow(self, mem_db, caplog):
-        """64.10.2: единый потолок режет ХВОСТ — логи приоритетнее метрик."""
-        import logging
-
+    async def test_metrics_survive_when_logs_at_limit(self, mem_db):
+        """Epic 61 хотфикс (D250/T-501): логи ровно в лимит → секция метрик
+        НЕ теряется (резерв длины), payload в пределах бюджета."""
         await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
         limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
         llm = MagicMock()
@@ -199,11 +198,10 @@ class TestEpic60MemoryMetrics:
         memory = MagicMock()
         memory.vec_available = False
         service = CheckupService(llm, db=mem_db, memory=memory)
-        with caplog.at_level(logging.WARNING):
-            await service.checkup("я" * limit, used_fallback=False)
+        await service.checkup("я" * limit, used_fallback=False)
         user = llm.generate.await_args.args[0][1]["content"]
-        assert user == f"<system_logs>{'я' * limit}</system_logs>"
-        assert "memory_health" not in user
+        assert "memory_health" in user          # метрики живы
+        assert "&lt;memory_health&gt;" in user  # экранированы один раз
 
     @pytest.mark.asyncio
     async def test_no_db_keeps_old_behavior(self, make_service):
@@ -212,3 +210,133 @@ class TestEpic60MemoryMetrics:
         await service.checkup("логи", used_fallback=False)
         user = llm.generate.await_args.args[0][1]["content"]
         assert user == "<system_logs>логи</system_logs>"
+
+
+class TestEpic61HotfixMetricsBudget:
+    """Epic 61 (64.5 хотфикс, D250/T-501): секция метрик с резервом длины —
+    метрики гарантированно живы; escape РОВНО ОДИН раз; без db/выключатель —
+    поведение ПОБАЙТОВО прежнее. Тест-план (а)-(е) Section 64.5."""
+
+    def _service(self, mem_db=None):
+        memory = None
+        if mem_db is not None:
+            memory = MagicMock()
+            memory.vec_available = False
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="отчёт")
+        return CheckupService(llm, db=mem_db, memory=memory), llm
+
+    @pytest.mark.asyncio
+    async def test_long_logs_metrics_survive_within_limit(self, mem_db, caplog):
+        """(а): логи ~20.5к → <memory_health> в payload ЦЕЛИКОМ (закрывающий
+        тег на месте), логи ужаты ровно до бюджета (лимит соблюдён ДО escape:
+        сам escape раздувает только теги секции и логи из «я» не содержит)."""
+        import logging
+
+        await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
+        service, llm = self._service(mem_db)
+        with caplog.at_level(logging.WARNING):
+            await service.checkup("я" * 20500, used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "&lt;memory_health&gt;" in user
+        assert "&lt;/memory_health&gt;" in user      # закрывающий тег на месте
+        assert "graph_facts: 1" in user              # содержимое не порезано
+        _, budget = next(r.args for r in caplog.records
+                         if "[checkup] input truncated" in r.message)
+        logs_part = user[len("<system_logs>"):
+                         user.index("&lt;memory_health&gt;") - 2]
+        assert len(logs_part) == budget              # логи ровно по бюджету
+        assert len(user) <= svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS \
+            + len("<system_logs></system_logs>") + 12   # +12: escape тегов
+
+    @pytest.mark.asyncio
+    async def test_short_logs_no_warning_metrics_present(self, mem_db, caplog):
+        """(б): короткие логи → без WARNING обрезки, метрики на месте."""
+        import logging
+
+        await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
+        service, llm = self._service(mem_db)
+        with caplog.at_level(logging.WARNING):
+            await service.checkup("короткие логи", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "&lt;memory_health&gt;" in user and "graph_facts: 1" in user
+        assert not any("input truncated" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_disabled_or_no_db_byte_identical_old_behavior(
+            self, mem_db, caplog):
+        """(в): metrics_enabled=False / db=None → payload идентичен эталону
+        старого поведения (в т.ч. при переполнении)."""
+        import logging
+
+        limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
+        logs = "я" * (limit + 500)
+        expected = f"<system_logs>{'я' * limit}</system_logs>"
+        for kwargs in ({"db": mem_db, "metrics_enabled": False}, {}):
+            llm = MagicMock()
+            llm.generate = AsyncMock(return_value="x")
+            service = CheckupService(llm, **kwargs)
+            with caplog.at_level(logging.WARNING):
+                await service.checkup(logs, used_fallback=False)
+            assert llm.generate.await_args.args[0][1]["content"] == expected
+            # прежний формат WARNING с прежними числами (бюджет = 12000)
+            rec = next(r for r in caplog.records
+                       if "[checkup] input truncated" in r.message)
+            assert rec.args == (len(logs), limit)
+            caplog.clear()
+
+    @pytest.mark.asyncio
+    async def test_collect_metrics_raises_fail_open(self, mem_db,
+                                                    monkeypatch, caplog):
+        """(г): collect_metrics бросает исключение → WARNING, payload БЕЗ
+        секции, поведение ПОБАЙТОВО прежнее."""
+        import logging
+
+        async def _boom(db, memory):
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(svc_mod, "collect_metrics", _boom)
+        service, llm = self._service(mem_db)
+        with caplog.at_level(logging.WARNING):
+            await service.checkup("логи", used_fallback=False)
+        assert any("[checkup] memory metrics failed" in r.message
+                   for r in caplog.records)
+        assert llm.generate.await_args.args[0][1]["content"] \
+            == "<system_logs>логи</system_logs>"
+
+    @pytest.mark.asyncio
+    async def test_metrics_escaped_exactly_once(self, mem_db, monkeypatch):
+        """(д): спецсимволы (& < >) в метриках экранируются ровно ОДИН раз
+        (нет &amp;amp; / &amp;amp;lt; и т.п.)."""
+        async def _fake(db, memory):
+            return "a & b < c > d"
+
+        monkeypatch.setattr(svc_mod, "collect_metrics", _fake)
+        service, llm = self._service(mem_db)
+        await service.checkup("логи & хвосты", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "a &amp; b &lt; c &gt; d" in user
+        assert "&amp;amp;" not in user and "&amp;lt;" not in user \
+            and "&amp;gt;" not in user
+
+    @pytest.mark.asyncio
+    async def test_truncation_warning_honest_numbers(self, mem_db, caplog):
+        """(е): при переполнении логов WARNING содержит реальные chars и
+        бюджет логов (MAX_INPUT − len(секции метрик)), а не общий лимит."""
+        import logging
+
+        await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
+        limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
+        logs_len = 20500
+        service, llm = self._service(mem_db)
+        with caplog.at_level(logging.WARNING):
+            await service.checkup("я" * logs_len, used_fallback=False)
+        rec = next(r for r in caplog.records
+                   if "[checkup] input truncated" in r.message)
+        chars, budget = rec.args
+        assert chars == logs_len
+        assert limit - 2000 <= budget < limit   # резерв длины секции учтён
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "&lt;/memory_health&gt;" in user
+        assert len(user) <= limit \
+            + len("<system_logs></system_logs>") + 12   # +12: escape тегов
