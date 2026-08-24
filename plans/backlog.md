@@ -7243,7 +7243,7 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-## Epic 61: Хотфикс: чекап-метрики + tiktoken на проде — 2026-08-24 🚧 IN PROGRESS (пользовательский запрос, пост-деплой дефекты v2.43.0, target v2.43.1)
+## Epic 61: Хотфикс: чекап-метрики + tiktoken на проде — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.43.1, коммит 352afa1, прод PID 1072251, tiktoken 0.14.0, 2617 тестов; пользовательский запрос, пост-деплой дефекты v2.43.0)
 
 > **Цель:** Устранить два прода-дефекта, выявленных по логам пользователя сразу после деплоя
 > v2.43.0 (`9a47567`, PID 1071436):
@@ -7282,11 +7282,11 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 | # | Исполнитель | Приоритет | Зависимости | Суть | DoD |
 |---|---|---|---|---|---|
-| T-500 | @Architect | P0 | нет | Минимальная правка дизайна Section 64.5 (plans/ARCHITECTURE.md): порядок сборки user-контента чекапа — сначала собрать секцию метрик, зарезервировать её длину, ЛОГИ обрезать до (CHECKUP_MAX_INPUT_SYMBOLS − len(секция метрик)), метрики гарантированно выживают; снять двойное экранирование (escape только один раз — на финальной обёртке); лог трекации правдивый. Не менять R42-6/R42-2 и канон-пулы | Section 64.5 обновлена; каноны зафиксированы; diff --check чист |
-| T-501 | @Builder | P0 | T-500 | Реализовать фикс в services/checkup_service.py + тесты: (а) логи 20к+ → метрики присутствуют в финальном payload в пределах лимита; (б) логи короткие → без обрезки, метрики на месте; (в) metrics_enabled=false / db=None → ровно старое поведение; (г) collect_metrics падает → старое поведение + WARNING; (д) отсутствие двойного экранирования (амперсанды/угловые скобки в метриках экранируются ровно один раз); (е) лог truncation показывает реальные значения | Все 6 сценариев покрыты тестами; полный pytest 0 регрессий (2611 база) |
-| T-502 | @DevOps | P0 | T-501, T-503 | На проде: venv/bin/pip install -r requirements.txt (или точечно tiktoken), верификация `venv/bin/python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"`; после пуша фикса — pull ff, рестарт, проверка: 0 traceback, WARNING token_counter исчез, новый PID | Прод v2.43.1, новый PID, 0 traceback, tiktoken работает |
-| T-503 | @Reviewer | P0 | T-501 | Ревью фикса + полный прогон | APPROVED; 0 регрессий; diff --check чист |
-| T-504 | @Docs/@PM | P1 | T-502 | README/MEMORY/board актуализация после деплоя (кратко) | Доки актуальны; Epic 61 CLOSED |
+| T-500 ✅ DONE | @Architect | P0 | нет | Минимальная правка дизайна Section 64.5 (plans/ARCHITECTURE.md): порядок сборки user-контента чекапа — сначала собрать секцию метрик, зарезервировать её длину, ЛОГИ обрезать до (CHECKUP_MAX_INPUT_SYMBOLS − len(секция метрик)), метрики гарантированно выживают; снять двойное экранирование (escape только один раз — на финальной обёртке); лог трекации правдивый. Не менять R42-6/R42-2 и канон-пулы | Section 64.5 обновлена; каноны зафиксированы; diff --check чист |
+| T-501 ✅ DONE | @Builder | P0 | T-500 | Реализовать фикс в services/checkup_service.py + тесты: (а) логи 20к+ → метрики присутствуют в финальном payload в пределах лимита; (б) логи короткие → без обрезки, метрики на месте; (в) metrics_enabled=false / db=None → ровно старое поведение; (г) collect_metrics падает → старое поведение + WARNING; (д) отсутствие двойного экранирования (амперсанды/угловые скобки в метриках экранируются ровно один раз); (е) лог truncation показывает реальные значения | Все 6 сценариев покрыты тестами; полный pytest 0 регрессий (2611 база) |
+| T-502 ✅ DONE | @DevOps | P0 | T-501, T-503 | На проде: venv/bin/pip install -r requirements.txt (или точечно tiktoken), верификация `venv/bin/python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"`; после пуша фикса — pull ff, рестарт, проверка: 0 traceback, WARNING token_counter исчез, новый PID | Прод v2.43.1, новый PID, 0 traceback, tiktoken работает |
+| T-503 ✅ DONE | @Reviewer | P0 | T-501 | Ревью фикса + полный прогон | APPROVED; 0 регрессий; diff --check чист |
+| T-504 ✅ DONE | @Docs/@PM | P1 | T-502 | README/MEMORY/board актуализация после деплоя (кратко) | Доки актуальны; Epic 61 CLOSED |
 
 ### Риски (Epic 61)
 
@@ -7303,5 +7303,5 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ---
 
-**Статус: Epic 61 — 🚧 IN PROGRESS (2026-08-24).** Задачи T-500…T-504 открыты. База: прод v2.43.0 (`9a47567`, PID 1071436), 2611 тестов, Epics 1–60 ALL CLOSED & DEPLOYED. Target: v2.43.1 (patch).**
+**Статус: Epic 61 — ✅ DEPLOYED & CLOSED (2026-08-24).** Задачи **T-500…T-504 → ALL DONE.** Коммит `352afa1` запушен (`e6bdbf2..352afa1` origin/master); деплой успешен: pip установил tiktoken 0.14.0 в venv прода (верификация o200k_base OK), pull ff `9a47567..352afa1`, рестарт OK — прод **PID 1072251** (был 1071436), journalctl **0 traceback / 0 WARNING «tiktoken unavailable» / 0 error**. Тесты 2617 passed / 0 failed, ревью APPROVED. R61-1…R61-3 выполнены. База была: прод v2.43.0 (`9a47567`, PID 1071436), 2611 тестов. Epics 1–61 ALL CLOSED & DEPLOYED. Без @Orchestrator.**
 **Date: 2026-08-24**
