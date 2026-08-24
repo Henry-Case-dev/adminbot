@@ -13,7 +13,7 @@ from aiogram.types import Chat, MessageOriginChannel
 from unittest.mock import AsyncMock, MagicMock
 
 from handlers import factcheck as factcheck_mod
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
@@ -254,6 +254,24 @@ class TestHandlerReplyTargets:
             and r.exc_info is not None
             for r in caplog.records
         )
+
+    @pytest.mark.asyncio
+    async def test_empty_answer_silence_with_moai(self, factcheck_cleanup, caplog):
+        """65.1 (T-469): пустой ответ модели → НЕТ сообщения (ни вердикта, ни
+        R13-фразы), есть реакция 🗿 на ЦЕЛЕВОЕ."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(
+            side_effect=LLMBadResponseError("factcheck: empty answer"))
+        factcheck_mod.setup_factcheck(service)
+        bot = AsyncMock()
+        target = _make_msg(text="текст", message_id=77)
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        with caplog.at_level(logging.WARNING):
+            await factcheck_mod.factcheck_handler(msg, bot=bot)
+        bot.send_message.assert_not_called()
+        bot.set_message_reaction.assert_awaited_once()
+        assert bot.set_message_reaction.await_args.args[:2] == (CHAT_ID, 77)
+        assert any("empty answer" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_empty_context_replies_to_target_without_search(self, factcheck_cleanup):

@@ -17,7 +17,12 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
+from services.persistent_throttling import (
+    cooldown_remaining,
+    cooldown_touch,
+    make_cooldown,
+)
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smart_cache import get_smart_cache
 from services.smartmodule_phrases import (
@@ -26,7 +31,13 @@ from services.smartmodule_phrases import (
     SEARCH_ERROR_PHRASES,
 )
 from services.smartmodule_throttling import CooldownTracker
-from services.smartmodule_utils import _reply, send_chunked_reply, throttle_phrase
+from services.smartmodule_utils import (
+    _reply,
+    react_moai,
+    send_chunked_reply,
+    throttle_phrase,
+)
+from services.typing_manager import typing_active
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +57,13 @@ _SEARCH_QUERY_RE = re.compile(
 )
 
 
-def setup_search(service) -> None:
-    """DI: SearchService. Вызывается из bot.py on_startup (42.8)."""
-    global _service
+def setup_search(service, db=None) -> None:
+    """DI: SearchService. Вызывается из bot.py on_startup (42.8).
+    Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный кулдаун
+    (throttle_state, scope='search')."""
+    global _service, _cooldown
     _service = service
+    _cooldown = make_cooldown("search", settings.SEARCH_COOLDOWN_SECONDS, db)
 
 
 def _parse_search_query(raw: str) -> str | None:
@@ -72,11 +86,11 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         return UNHANDLED                       # не триггер
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[smartsearch] triggered | chat=%s user=%s", message.chat.id, user_id)
-    remaining = _cooldown.remaining(message.chat.id, user_id)
+    remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → message.message_id (как ВСЕ ответы поиска)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return
-    _cooldown.touch(message.chat.id, user_id)
+    await cooldown_touch(_cooldown, message.chat.id, user_id)
     if not query:                              # 5.2 → БЕЗ обращения к поисковикам
         await _reply(bot, message.chat.id, random.choice(SEARCH_EMPTY_QUERY_PHRASES),
                      message.message_id)
@@ -91,10 +105,17 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         logger.info("[smartsearch] cache hit | chat=%s", message.chat.id)
         return
     try:
-        summary = await _service.research(query, chat_id=message.chat.id)
-        await send_chunked_reply(bot, message.chat.id, summary, message.message_id)
+        # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
+        async with typing_active(bot, message.chat.id):
+            summary = await _service.research(query, chat_id=message.chat.id)
+            await send_chunked_reply(bot, message.chat.id, summary, message.message_id)
         await cache.set(cache_key, summary)    # только успешная генерация (59.2)
         logger.info("[smartsearch] summary sent | chat=%s", message.chat.id)
+    except LLMBadResponseError as exc:
+        # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).
+        logger.warning("[smartsearch] empty answer — silence | chat=%s | error=%s",
+                       message.chat.id, exc)
+        await react_moai(bot, message.chat.id, message.message_id)
     except AllSearchEnginesFailedException:
         logger.exception("[smartsearch] search failed | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(SEARCH_ERROR_PHRASES),     # 5.4a

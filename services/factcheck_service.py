@@ -14,7 +14,7 @@ import time
 
 from config.settings import settings
 from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
-from services.llm_client import LLMClient
+from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
@@ -72,7 +72,13 @@ class FactCheckService:
             "factcheck LLM OK | out_chars=%d | latency_ms=%.0f",
             len(raw), (time.monotonic() - started) * 1000.0,
         )
-        return cleanup_llm_text(raw)
+        raw = cleanup_llm_text(raw)
+        if not raw.strip():
+            # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿
+            # (хендлер). LLMBadResponseError — подкласс LLMError, но ветка
+            # хендлера идёт ДО except LLMError (R13-эталоны не тронуты).
+            raise LLMBadResponseError("factcheck: empty answer")
+        return raw
 
     @staticmethod
     def build_user_content(

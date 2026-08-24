@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
+import re
 import time
 import aiosqlite
 from pathlib import Path
@@ -11,6 +12,10 @@ logger = logging.getLogger(__name__)
 _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
 _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
+_SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
+
+_EDGE_WEIGHT_CAP = 5             # Epic 60 (66.3/T-459 тема 5): подтверждение
+                                 # связи +инкремент, cap 5 — вес не растёт вечно
 
 
 def row_get(row, key, default=None):
@@ -188,10 +193,14 @@ class DatabaseService:
         self.db.row_factory = aiosqlite.Row
         await self.db.execute("PRAGMA journal_mode=WAL")
         await self.db.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
+        # Epic 60 (63.1, T-459 тема 9): single-writer — synchronous=NORMAL
+        # (WAL-журнал уже есть).
+        await self.db.execute("PRAGMA synchronous=NORMAL")
         await self.db.executescript(self._SCHEMA_SQL)
         await self.db.commit()
         await self._migrate_graphrag_v2()
         await self._migrate_direct_chat_v2()   # Epic 50 (58.7): user_version 1→2
+        await self._migrate_epic60_v3()        # Epic 60 (63.3): user_version 2→3
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -305,6 +314,84 @@ class DatabaseService:
             await self.db.commit()
         # (в)
         await self.db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION_DIRECT_CHAT}")
+        await self.db.commit()
+
+    async def _migrate_epic60_v3(self) -> None:
+        """Идемпотентная миграция Epic 60 (63.3, D245): user_version 2→3.
+        ТОЛЬКО CREATE/ALTER (никаких пересозданий с потерей данных; guard по
+        CREATE IF NOT EXISTS + try/except OperationalError на ALTER):
+        1. throttle_state (63.1) + индекс;
+        2. bot_replies (63.1 — персистентный _bot_replies, TTL+LRU);
+        3. user_prefs (65.5: tone-пресет; стачка живёт в throttle_state
+           scope='direct_silence' — 65.3);
+        4. embedding_cache (64.4);
+        5. chat_running_summary (64.6);
+        6. graph_fact_compressions (64.2 — лог сжатий);
+        7. protected_facts (65.10);
+        8. graph_facts: weight/status/last_confirmed_at (backfill=created_at,
+           66.3)/supersedes — НЕ пересоздавать CHECK (origins не меняются);
+        9. edges: created_at (backfill из strftime('%s', last_updated) — 66.3);
+        10. PRAGMA user_version = 3.
+        Повторный запуск — no-op. Прецеденты _migrate_graphrag_v2 /
+        _migrate_direct_chat_v2."""
+        await self.db.executescript(
+            "CREATE TABLE IF NOT EXISTS throttle_state ("
+            "scope TEXT NOT NULL, chat_id INTEGER NOT NULL, "
+            "user_id INTEGER NOT NULL, burst_left INTEGER, "
+            "last_ts REAL NOT NULL, "
+            "PRIMARY KEY (scope, chat_id, user_id)); "
+            "CREATE INDEX IF NOT EXISTS idx_throttle_state_ts "
+            "ON throttle_state(last_ts); "
+            "CREATE TABLE IF NOT EXISTS bot_replies ("
+            "chat_id INTEGER, tg_message_id INTEGER, text TEXT NOT NULL, "
+            "last_used_at REAL NOT NULL, "
+            "PRIMARY KEY (chat_id, tg_message_id)); "
+            "CREATE TABLE IF NOT EXISTS user_prefs ("
+            "chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, "
+            "tone_preset TEXT, PRIMARY KEY (chat_id, user_id)); "
+            "CREATE TABLE IF NOT EXISTS embedding_cache ("
+            "text_hash TEXT PRIMARY KEY, text TEXT NOT NULL, "
+            "vector TEXT NOT NULL, dim INTEGER NOT NULL, "
+            "created_at REAL NOT NULL, last_used_at REAL NOT NULL); "
+            "CREATE INDEX IF NOT EXISTS idx_embedding_cache_lru "
+            "ON embedding_cache(last_used_at); "
+            "CREATE TABLE IF NOT EXISTS chat_running_summary ("
+            "chat_id INTEGER PRIMARY KEY, summary TEXT NOT NULL, "
+            "window_start_ts INTEGER NOT NULL, window_end_ts INTEGER NOT NULL, "
+            "raw_count INTEGER NOT NULL, created_at REAL NOT NULL, "
+            "expires_at REAL NOT NULL); "
+            "CREATE TABLE IF NOT EXISTS graph_fact_compressions ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+            "fact_id INTEGER, fact_before TEXT NOT NULL, fact_after TEXT, "
+            "reason TEXT NOT NULL, created_at REAL NOT NULL); "
+            "CREATE TABLE IF NOT EXISTS protected_facts ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+            "user_name TEXT NOT NULL, fact TEXT NOT NULL, "
+            "created_at REAL NOT NULL, UNIQUE (chat_id, user_name, fact));"
+        )
+        await self.db.commit()
+        for sql in (
+            "ALTER TABLE graph_facts ADD COLUMN weight REAL NOT NULL DEFAULT 0.5",
+            "ALTER TABLE graph_facts ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmed'",
+            "ALTER TABLE graph_facts ADD COLUMN last_confirmed_at INTEGER",
+            "ALTER TABLE graph_facts ADD COLUMN supersedes INTEGER",
+            "ALTER TABLE edges ADD COLUMN created_at INTEGER",
+        ):
+            try:
+                await self.db.execute(sql)
+                await self.db.commit()
+            except aiosqlite.OperationalError:
+                pass                        # колонка уже есть (повторный запуск)
+        # backfill: last_confirmed_at = created_at (66.3); edges.created_at —
+        # из существующей колонки last_updated ('YYYY-MM-DD HH:MM:SS' UTC).
+        await self.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = created_at "
+            "WHERE last_confirmed_at IS NULL")
+        await self.db.execute(
+            "UPDATE edges SET created_at = CAST(strftime('%s', last_updated) AS INTEGER) "
+            "WHERE created_at IS NULL")
+        await self.db.commit()
+        await self.db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION_EPIC60}")
         await self.db.commit()
 
     async def close(self) -> None:
@@ -795,15 +882,19 @@ class DatabaseService:
 
         chat_id is taken from the source node (both nodes always belong to the
         same chat by construction). One statement → atomic. Epic 46 (55.3):
-        origin/expires_at записываются.
+        origin/expires_at записываются. Epic 60 (66.3, T-481): подтверждение
+        связи — +инкремент с cap 5 (T-459 тема 5: «+1 cap 5»), last_updated =
+        CURRENT_TIMESTAMP (сброс затухания).
         """
         await self.db.execute(
             "INSERT INTO edges (chat_id, source_id, target_id, relation_type, weight, "
             "origin, expires_at) "
             "SELECT chat_id, ?, ?, ?, ?, ?, ? FROM nodes WHERE id = ? "
             "ON CONFLICT(source_id, target_id, relation_type) DO UPDATE SET "
-            "weight = weight + excluded.weight, last_updated = CURRENT_TIMESTAMP",
-            (source_id, target_id, relation_type, weight_increment, origin, expires_at, source_id),
+            "weight = MIN(weight + excluded.weight, ?), "
+            "last_updated = CURRENT_TIMESTAMP",
+            (source_id, target_id, relation_type, weight_increment, origin,
+             expires_at, source_id, _EDGE_WEIGHT_CAP),
         )
         await self.db.commit()
 
@@ -878,14 +969,26 @@ class DatabaseService:
     # ── GraphRAG v2 (Epic 46, Section 55.3): graph_facts ─────────
 
     async def insert_graph_fact(self, chat_id, fact, origin, expires_at,
-                                target_user=None) -> int:
+                                target_user=None, status="confirmed",
+                                supersedes=None, weight=None) -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
-        ставится автоматически (int(time.time()))."""
+        ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
+        status ('confirmed' default | 'unconfirmed' — зона 0.85–0.95) и
+        supersedes (id инвалидированного предшественника). Epic 60 (66.1/66.3,
+        T-479/T-481): weight 0..1 (None → 0.5; вне [0,1] — кламп + WARNING),
+        last_confirmed_at = created_at (факт рождается подтверждённым)."""
+        w = 0.5 if weight is None else float(weight)
+        if not 0.0 <= w <= 1.0:
+            logger.warning("graph fact weight %s outside [0,1] — clamped (66.1)", w)
+            w = min(1.0, max(0.0, w))
+        now = int(time.time())
         cursor = await self.db.execute(
-            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, created_at, target_user) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (chat_id, fact, origin, expires_at, int(time.time()), target_user))
+            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, created_at, "
+            "target_user, status, supersedes, weight, last_confirmed_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (chat_id, fact, origin, expires_at, now, target_user,
+             status, supersedes, w, now))
         fact_id = cursor.lastrowid
         await self.db.execute(
             "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))
@@ -896,52 +999,561 @@ class DatabaseService:
                                      include_direct_reply=False) -> list:
         """FTS-фолбек RAG с ленивым TTL-фильтром (D175). Epic 50 (58.8, D206):
         include_direct_reply=False (default) → origin='bot_direct_reply' НЕ
-        подмешивается в чужие пайплайны; + created_at/target_user в SELECT."""
+        подмешивается в чужие пайплайны; + created_at/target_user в SELECT.
+        Epic 60 (64.2): статус-фильтр — unconfirmed-факты в RAG НЕ участвуют.
+        Epic 60 (66.3, T-481): + weight/last_confirmed_at — время-взвешивание
+        (пересортировка по w_eff) происходит в Python (SQL не меняем)."""
         sql = (
-            "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user FROM graph_facts_fts "
+            "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
+            "f.weight, f.last_confirmed_at FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
             "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
-            "AND (f.expires_at IS NULL OR f.expires_at > ?) ")
+            "AND (f.expires_at IS NULL OR f.expires_at > ?) "
+            "AND f.status = 'confirmed' ")
         if not include_direct_reply:
             sql += "AND f.origin != 'bot_direct_reply' "
         sql += "ORDER BY graph_facts_fts.rank LIMIT ?"
         cursor = await self.db.execute(sql, (match_query, chat_id, now_ts, limit))
         return await cursor.fetchall()
 
-    async def get_graph_fact_texts(self, fact_ids) -> list:
+    async def get_graph_fact_texts(self, fact_ids, status=None) -> list:
         """[(origin, fact, created_at), ...] в порядке fact_ids (порядок KNN
-        сохраняется). Epic 50 (58.7): + created_at/target_user (только SELECT)."""
+        сохраняется). Epic 50 (58.7): + created_at/target_user (только SELECT).
+        Epic 60 (64.2): status='confirmed' → unconfirmed исключаются из RAG."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
-        cursor = await self.db.execute(
-            f"SELECT id, fact, origin, created_at, target_user "
-            f"FROM graph_facts WHERE id IN ({placeholders})",
-            fact_ids)
+        sql = (f"SELECT id, fact, origin, created_at, target_user "
+               f"FROM graph_facts WHERE id IN ({placeholders})")
+        params: list = list(fact_ids)
+        if status:
+            sql += " AND status = ?"
+            params.append(status)
+        cursor = await self.db.execute(sql, params)
         by_id = {
             row["id"]: (row["origin"], row["fact"], row["created_at"])
             for row in await cursor.fetchall()
         }
         return [by_id[fid] for fid in fact_ids if fid in by_id]
 
-    async def purge_expired_graph_facts(self, chat_id) -> int:
+    async def purge_expired_graph_facts(self, chat_id=None) -> int:
         """Опциональный purge (D175, 55.1 #5): edges истёкших узлов → edges с
-        истёкшим expires_at → истёкшие nodes → истёкшие graph_facts (+FTS)."""
+        истёкшим expires_at → истёкшие nodes → истёкшие graph_facts (+FTS).
+        Epic 60 (66.11, T-489): chat_id=None → глобальный проход по всем чатам
+        (пересмотр); с chat_id — piggyback 55.1 #5 (без изменений)."""
         now = int(time.time())
+        chat_filter = "AND e.chat_id = ?" if chat_id is not None else ""
+        node_chat = "AND chat_id = ?" if chat_id is not None else ""
+        params = (now,) if chat_id is None else (now, chat_id)
         for side in ("source_id", "target_id"):
             await self.db.execute(
                 f"DELETE FROM edges WHERE id IN ("
                 f"SELECT e.id FROM edges e JOIN nodes n ON n.id = e.{side} "
-                "WHERE n.expires_at IS NOT NULL AND n.expires_at <= ?)", (now,))
+                f"WHERE n.expires_at IS NOT NULL AND n.expires_at <= ? "
+                f"{chat_filter})", params)
         await self.db.execute(
-            "DELETE FROM edges WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+            "DELETE FROM edges WHERE expires_at IS NOT NULL AND expires_at <= ?"
+            + node_chat,
+            params)
         await self.db.execute(
-            "DELETE FROM nodes WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+            "DELETE FROM nodes WHERE expires_at IS NOT NULL AND expires_at <= ?"
+            + node_chat,
+            params)
         await self.db.execute(
             "DELETE FROM graph_facts_fts WHERE rowid IN "
-            "(SELECT id FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?)",
-            (now,))
+            "(SELECT id FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?"
+            + node_chat + ")",
+            params)
         cursor = await self.db.execute(
-            "DELETE FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+            "DELETE FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?"
+            + node_chat,
+            params)
         await self.db.commit()
         return cursor.rowcount
+
+    # ── bot_replies (Epic 60, Section 63.1, T-460) ─────────────
+    # Персистентный аналог in-memory LRU _bot_replies (TTL 3600с лениво,
+    # cap 200 — паттерн TTL+LRU, T-459 тема 8). last_used_at — время записи
+    # (write-per-read запрещён: на чтении last_used_at НЕ обновляется — LRU
+    # движется только записями, как в старом OrderedDict).
+
+    _BOT_REPLIES_TTL_SECONDS = 3600.0   # 63.1
+    _BOT_REPLIES_CAP = 200              # 63.1
+
+    async def upsert_bot_reply(self, chat_id: int, tg_message_id: int,
+                               text: str, now: float) -> None:
+        """UPSERT текста ответа бота (63.1) + ленивый TTL-sweep + LRU-cap
+        (NOT IN … ORDER BY last_used_at DESC LIMIT N — тема 8)."""
+        await self.db.execute(
+            "DELETE FROM bot_replies WHERE last_used_at < ?",
+            (now - self._BOT_REPLIES_TTL_SECONDS,),
+        )
+        await self.db.execute(
+            "INSERT INTO bot_replies (chat_id, tg_message_id, text, last_used_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(chat_id, tg_message_id) DO UPDATE SET "
+            "text = excluded.text, last_used_at = excluded.last_used_at",
+            (chat_id, tg_message_id, text, now),
+        )
+        await self.db.execute(
+            "DELETE FROM bot_replies WHERE (chat_id, tg_message_id) NOT IN "
+            "(SELECT chat_id, tg_message_id FROM bot_replies "
+            "ORDER BY last_used_at DESC LIMIT ?)",
+            (self._BOT_REPLIES_CAP,),
+        )
+        await self.db.commit()
+
+    async def get_bot_reply(self, chat_id: int, tg_message_id: int,
+                            now: float) -> str | None:
+        """Текст ответа бота; None — нет записи. Протухший (> TTL) →
+        ленивый DELETE + None (тема 8)."""
+        cursor = await self.db.execute(
+            "SELECT text, last_used_at FROM bot_replies "
+            "WHERE chat_id = ? AND tg_message_id = ?",
+            (chat_id, tg_message_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        if now - row["last_used_at"] > self._BOT_REPLIES_TTL_SECONDS:
+            await self.db.execute(
+                "DELETE FROM bot_replies WHERE chat_id = ? AND tg_message_id = ?",
+                (chat_id, tg_message_id),
+            )
+            await self.db.commit()
+            return None
+        return row["text"]
+
+    # ── Epic 60 Фаза C (65.4/65.5/65.8/65.10) ─────────────────
+    # Стилевые якоря, пресеты тона (user_prefs), /clear, /forget,
+    # защищённые факты (protected_facts).
+
+    async def last_bot_replies(self, chat_id: int, limit: int, now: float) -> list[str]:
+        """65.4: последние (по last_used_at) НЕ протухшие ответы бота чата,
+        ASC (от старейшего к свежайшему) — для <style_anchors>."""
+        cursor = await self.db.execute(
+            "SELECT text FROM bot_replies "
+            "WHERE chat_id = ? AND last_used_at > ? "
+            "ORDER BY last_used_at DESC LIMIT ?",
+            (chat_id, now - self._BOT_REPLIES_TTL_SECONDS, limit),
+        )
+        return [row["text"] for row in (await cursor.fetchall())][::-1]
+
+    async def get_user_tone_preset(self, chat_id: int, user_id: int) -> str | None:
+        """65.8: tone_preset из user_prefs (None — нет записи)."""
+        cursor = await self.db.execute(
+            "SELECT tone_preset FROM user_prefs WHERE chat_id = ? AND user_id = ?",
+            (chat_id, user_id),
+        )
+        row = await cursor.fetchone()
+        return row["tone_preset"] if row is not None else None
+
+    async def set_user_tone_preset(self, chat_id: int, user_id: int,
+                                   preset: str) -> None:
+        """65.5/65.8: UPSERT tone_preset в user_prefs (/tone — единственная
+        команда записи)."""
+        await self.db.execute(
+            "INSERT INTO user_prefs (chat_id, user_id, tone_preset) "
+            "VALUES (?, ?, ?) "
+            "ON CONFLICT(chat_id, user_id) DO UPDATE SET "
+            "tone_preset = excluded.tone_preset",
+            (chat_id, user_id, preset),
+        )
+        await self.db.commit()
+
+    async def get_protected_facts(self, chat_id: int, user_name: str) -> list[str]:
+        """65.10: защищённые факты юзера (подмешиваются в контекст; /forget
+        их НЕ трогает). ASC по created_at (порядок записи)."""
+        cursor = await self.db.execute(
+            "SELECT fact FROM protected_facts "
+            "WHERE chat_id = ? AND user_name = ? ORDER BY created_at ASC, id ASC",
+            (chat_id, user_name),
+        )
+        return [row["fact"] for row in await cursor.fetchall()]
+
+    async def clear_direct_dialogue(self, chat_id: int, target_user: str) -> int:
+        """/clear (65.5): стереть цепочки чата (bot_replies) + graph_facts с
+        origin='bot_direct_reply' AND target_user=имя юзера (+FTS-строки).
+        chat_history-факты НЕ трогаем. Возвращает число удалённых фактов."""
+        await self.db.execute("DELETE FROM bot_replies WHERE chat_id = ?", (chat_id,))
+        cursor = await self.db.execute(
+            "SELECT id FROM graph_facts "
+            "WHERE chat_id = ? AND origin = 'bot_direct_reply' AND target_user = ?",
+            (chat_id, target_user),
+        )
+        fact_ids = [row["id"] for row in await cursor.fetchall()]
+        for fact_id in fact_ids:
+            await self.db.execute(
+                "DELETE FROM graph_facts_fts WHERE rowid = ?", (fact_id,))
+            await self.db.execute(
+                "DELETE FROM graph_facts WHERE id = ?", (fact_id,))
+        await self.db.commit()
+        return len(fact_ids)
+
+    @staticmethod
+    def _fts_forget_query(phrase: str) -> str:
+        """FTS5-prefix-запрос для /forget (прецедент build_fts_query из
+        summary_memory: `"слово"*` OR …; кавычки/`*` юзера вырезаны,
+        слова <2 симв. отброшены — unicode61 их не токенизирует)."""
+        cleaned = []
+        for word in re.findall(r"[0-9a-zа-яё]+", phrase.lower()):
+            word = word.replace('"', "").replace("*", "")
+            if len(word) >= 2:
+                cleaned.append(f'"{word}"*')
+        return " OR ".join(cleaned)
+
+    async def forget_direct_facts(self, chat_id: int, target_user: str,
+                                  phrase: str, now_ts: int) -> int:
+        """/forget (65.5/65.10): FTS-поиск по bot_direct_reply-фактам юзера →
+        DELETE + запись в graph_fact_compressions (reason='forget').
+        Защищённые факты (точное совпадение fact с protected_facts) НЕ
+        удаляются. Fail-open: ошибка FTS → WARNING + 0. Возвращает число
+        удалённых фактов."""
+        match_query = self._fts_forget_query(phrase)
+        if not match_query:
+            return 0
+        try:
+            cursor = await self.db.execute(
+                "SELECT f.id, f.fact FROM graph_facts_fts "
+                "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
+                "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
+                "AND f.origin = 'bot_direct_reply' AND f.target_user = ? "
+                "AND (f.expires_at IS NULL OR f.expires_at > ?) "
+                "AND NOT EXISTS (SELECT 1 FROM protected_facts p "
+                "WHERE p.chat_id = f.chat_id AND p.user_name = f.target_user "
+                "AND p.fact = f.fact)",
+                (match_query, chat_id, target_user, now_ts),
+            )
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning(
+                "direct: /forget FTS search failed — fail-open | chat=%s",
+                chat_id, exc_info=True)
+            return 0
+        for row in rows:
+            await self.db.execute(
+                "DELETE FROM graph_facts_fts WHERE rowid = ?", (row["id"],))
+            await self.db.execute(
+                "DELETE FROM graph_facts WHERE id = ?", (row["id"],))
+            await self.log_fact_compression(
+                chat_id, row["id"], row["fact"], None, "forget")
+        await self.db.commit()
+        return len(rows)
+
+    # ── Epic 60 Фаза B (64.1/64.2/64.6, T-462/T-463/T-467) ─────
+
+    @staticmethod
+    def _like_escape(value: str) -> str:
+        """Экранирование LIKE-паттерна (ESCAPE '!')."""
+        return (str(value).replace("!", "!!").replace("%", "!%").replace("_", "!_"))
+
+    async def find_graph_fact_exact(self, chat_id: int, key: str, now_ts: int):
+        """64.1: точный дубль — строка graph_facts того же чата с фактом
+        's p o' или 's p o (context)', не протухшая. Возвращает row
+        (id/fact/weight/status) или None."""
+        pattern = self._like_escape(key) + "%"
+        cursor = await self.db.execute(
+            "SELECT id, fact, weight, status, expires_at FROM graph_facts "
+            "WHERE chat_id = ? AND fact LIKE ? ESCAPE '!' "
+            "AND (expires_at IS NULL OR expires_at > ?) "
+            "ORDER BY created_at DESC LIMIT 5",
+            (chat_id, pattern, now_ts),
+        )
+        for row in await cursor.fetchall():
+            if row["fact"] == key or row["fact"].startswith(key + " ("):
+                return row
+        return None
+
+    async def confirm_graph_fact(self, fact_id: int, now_ts: int,
+                                 bonus: float) -> None:
+        """64.1/64.2: noop-подтверждение — weight += bonus (cap 1.0, floor
+        0.1), last_confirmed_at = now, status → 'confirmed'."""
+        await self.db.execute(
+            "UPDATE graph_facts SET "
+            "weight = MIN(MAX(weight + ?, 0.1), 1.0), "
+            "last_confirmed_at = ?, status = 'confirmed' WHERE id = ?",
+            (bonus, now_ts, fact_id),
+        )
+        await self.db.commit()
+
+    async def invalidate_graph_fact(self, fact_id: int, now_ts: int) -> None:
+        """64.2: инвалидация (НЕ удаление) — expires_at = now; vec-строка
+        удаляется (иначе KNN продолжил бы выдавать старый текст — TTL в
+        vec-таблице живёт своей копией)."""
+        await self.db.execute(
+            "UPDATE graph_facts SET expires_at = ? WHERE id = ?",
+            (now_ts, fact_id),
+        )
+        try:
+            await self.db.execute(
+                "DELETE FROM graph_facts_vec WHERE rowid = ?", (fact_id,)
+            )
+        except Exception:
+            pass                        # vec-таблицы может не быть (FTS-режим)
+        await self.db.commit()
+
+    async def log_fact_compression(self, chat_id: int, fact_id, fact_before: str,
+                                   fact_after, reason: str) -> None:
+        """64.2: журнал «что во что» (supersede/сжатие/forget/conflict) —
+        обратимость антиотравления. fact_id — id нового/пережившего факта."""
+        await self.db.execute(
+            "INSERT INTO graph_fact_compressions "
+            "(chat_id, fact_id, fact_before, fact_after, reason, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (chat_id, fact_id, fact_before, fact_after, reason, time.time()),
+        )
+        await self.db.commit()
+
+    async def get_graph_fact_rows(self, fact_ids: list) -> list:
+        """Строки graph_facts по id (для дедупа 64.1): id/fact/status/weight/
+        expires_at."""
+        if not fact_ids:
+            return []
+        placeholders = ",".join("?" for _ in fact_ids)
+        cursor = await self.db.execute(
+            f"SELECT id, fact, status, weight, expires_at FROM graph_facts "
+            f"WHERE id IN ({placeholders})", fact_ids,
+        )
+        return await cursor.fetchall()
+
+    async def get_running_summary(self, chat_id: int, now: float) -> dict | None:
+        """64.6: валидный конспект (expires_at > now) или None; просроченный —
+        ленивый DELETE (TTL RUNNING_SUMMARY_TTL_MINUTES)."""
+        cursor = await self.db.execute(
+            "SELECT summary, window_start_ts, window_end_ts, raw_count, "
+            "expires_at FROM chat_running_summary WHERE chat_id = ?",
+            (chat_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        if row["expires_at"] <= now:
+            await self.db.execute(
+                "DELETE FROM chat_running_summary WHERE chat_id = ?", (chat_id,)
+            )
+            await self.db.commit()
+            return None
+        return row
+
+    async def upsert_running_summary(self, chat_id: int, summary: str,
+                                     window_start_ts: int, window_end_ts: int,
+                                     raw_count: int, created_at: float,
+                                     expires_at: float) -> None:
+        """64.6: UPSERT конспекта (chat_id — PRIMARY KEY)."""
+        await self.db.execute(
+            "INSERT INTO chat_running_summary "
+            "(chat_id, summary, window_start_ts, window_end_ts, raw_count, "
+            "created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(chat_id) DO UPDATE SET "
+            "summary = excluded.summary, "
+            "window_start_ts = excluded.window_start_ts, "
+            "window_end_ts = excluded.window_end_ts, "
+            "raw_count = excluded.raw_count, "
+            "created_at = excluded.created_at, "
+            "expires_at = excluded.expires_at",
+            (chat_id, summary, window_start_ts, window_end_ts, raw_count,
+             created_at, expires_at),
+        )
+        await self.db.commit()
+
+    # ── Epic 60 Фаза D (66.1–66.12, T-479…T-490) ───────────────
+
+    async def get_graph_fact_records(self, fact_ids, status=None) -> list:
+        """66.1/66.3: полные строки graph_facts по id (id/fact/origin/
+        created_at/target_user/weight/status/last_confirmed_at) — для
+        weight×decay-ранжирования KNN-пути в Python. status-фильтр — как в
+        get_graph_fact_texts (64.2)."""
+        if not fact_ids:
+            return []
+        placeholders = ",".join("?" for _ in fact_ids)
+        sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
+               f"status, last_confirmed_at FROM graph_facts "
+               f"WHERE id IN ({placeholders})")
+        params: list = list(fact_ids)
+        if status:
+            sql += " AND status = ?"
+            params.append(status)
+        cursor = await self.db.execute(sql, params)
+        return await cursor.fetchall()
+
+    async def touch_graph_facts(self, fact_ids, extend_days: int,
+                                direct_ttl_days, archive_ttl_days: int,
+                                now_ts: int) -> int:
+        """66.5 (T-483): «используется — живёт» — RAG-hit продлевает
+        expires_at на extend_days, cap: не дальше created_at + 2 × базовый TTL
+        (вечное протухание невозможно). Только факты с expires_at NOT NULL
+        (chat_history/вечные не трогаем). Базовая TTL по origin: direct —
+        direct_ttl_days (None → пропуск), архивные — archive_ttl_days.
+        Обновление по id списком (батч, без write-per-read)."""
+        if not fact_ids:
+            return 0
+        placeholders = ",".join("?" for _ in fact_ids)
+        extend = extend_days * 86400.0
+        touched = 0
+        for origins, ttl_days in ((
+            ("'search_fact'", "'youtube_content'", "'web_content'"),
+            archive_ttl_days), (("'bot_direct_reply'",), direct_ttl_days)):
+            if ttl_days in (None, 0):
+                continue
+            origin_sql = ",".join(origins)
+            cursor = await self.db.execute(
+                f"UPDATE graph_facts SET expires_at = "
+                f"MIN(expires_at + ?, created_at + ?) "
+                f"WHERE id IN ({placeholders}) AND expires_at IS NOT NULL "
+                f"AND origin IN ({origin_sql})",
+                (extend, 2 * ttl_days * 86400.0, *fact_ids))
+            touched += cursor.rowcount
+        if touched:
+            await self.db.commit()
+        return touched
+
+    async def delete_graph_fact(self, fact_id: int) -> None:
+        """66.4/66.11: полное удаление факта — graph_facts_fts + vec-строка
+        (rowid == fact_id) + строка graph_facts."""
+        await self.db.execute(
+            "DELETE FROM graph_facts_fts WHERE rowid = ?", (fact_id,))
+        try:
+            await self.db.execute(
+                "DELETE FROM graph_facts_vec WHERE rowid = ?", (fact_id,))
+        except Exception:
+            pass                        # vec-таблицы может не быть (FTS-режим)
+        await self.db.execute(
+            "DELETE FROM graph_facts WHERE id = ?", (fact_id,))
+        await self.db.commit()
+
+    async def is_fact_protected(self, chat_id: int, fact_text: str) -> bool:
+        """65.10/66.2/66.10: факт совпадает с защищённым (по тексту, чат-скоп) —
+        дедуп/слияние/пересмотр его НЕ трогают."""
+        cursor = await self.db.execute(
+            "SELECT 1 FROM protected_facts WHERE chat_id = ? AND fact = ? LIMIT 1",
+            (chat_id, fact_text))
+        return await cursor.fetchone() is not None
+
+    async def get_quota_victim(self, chat_id: int, target_user: str, quota: int,
+                               now_ts: int):
+        """66.4 (T-482): вытеснение — при live-фактах юзера >= quota вернуть
+        самого лёгкого и старого: score = weight / (age_days + 1) MIN.
+        Защищённые факты — вне кандидатов на вытеснение (65.10). None — квота
+        не превышена / все кандидаты защищены."""
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts "
+            "WHERE chat_id = ? AND target_user = ? "
+            "AND (expires_at IS NULL OR expires_at > ?)",
+            (chat_id, target_user, now_ts))
+        if (await cursor.fetchone())["c"] < quota:
+            return None
+        cursor = await self.db.execute(
+            "SELECT id, fact FROM graph_facts "
+            "WHERE chat_id = ? AND target_user = ? "
+            "AND (expires_at IS NULL OR expires_at > ?) "
+            "AND NOT EXISTS (SELECT 1 FROM protected_facts p "
+            "WHERE p.chat_id = graph_facts.chat_id "
+            "AND p.user_name = graph_facts.target_user "
+            "AND p.fact = graph_facts.fact) "
+            "ORDER BY (weight / (((? - created_at) / 86400.0) + 1.0)) ASC, "
+            "id ASC LIMIT 1",
+            (chat_id, target_user, now_ts, now_ts))
+        return await cursor.fetchone()
+
+    async def get_live_graph_facts(self, chat_id: int, now_ts: int) -> list:
+        """66.2/66.11: живые (не протухшие) confirmed-факты чата для слияния/
+        пересмотра."""
+        cursor = await self.db.execute(
+            "SELECT id, fact, origin, expires_at, created_at, weight, "
+            "target_user, last_confirmed_at FROM graph_facts "
+            "WHERE chat_id = ? AND status = 'confirmed' "
+            "AND (expires_at IS NULL OR expires_at > ?)",
+            (chat_id, now_ts))
+        return await cursor.fetchall()
+
+    async def get_graph_chat_ids(self) -> list[int]:
+        """66.11: чаты, в которых есть graph_facts (пересмотр по всем)."""
+        cursor = await self.db.execute(
+            "SELECT DISTINCT chat_id FROM graph_facts")
+        return [row["chat_id"] for row in await cursor.fetchall()]
+
+    async def find_exact_dup_groups(self, chat_id: int, now_ts: int) -> list:
+        """66.11 (T-489): точные дубли (идентичный текст факта) живых
+        confirmed-фактов чата — группы ≥2 (для склейки пересмотром)."""
+        cursor = await self.db.execute(
+            "SELECT id, fact, weight, created_at FROM graph_facts "
+            "WHERE chat_id = ? AND status = 'confirmed' "
+            "AND (expires_at IS NULL OR expires_at > ?)",
+            (chat_id, now_ts))
+        groups: dict[str, list] = {}
+        for row in await cursor.fetchall():
+            key = str(row["fact"]).casefold().strip()
+            groups.setdefault(key, []).append(row)
+        return [rows for rows in groups.values() if len(rows) >= 2]
+
+    async def purge_unconfirmed_graph_facts(self, now_ts: int,
+                                            retention_days: int) -> int:
+        """66.11 (T-489): выброс unconfirmed старше retention (64.2) — по всем
+        чатам; vec/FTS-строки чистим вместе (иначе KNN выдавал бы текст)."""
+        cursor = await self.db.execute(
+            "SELECT id FROM graph_facts WHERE status = 'unconfirmed' "
+            "AND created_at <= ?",
+            (now_ts - retention_days * 86400,))
+        ids = [row["id"] for row in await cursor.fetchall()]
+        for fact_id in ids:
+            await self.db.execute(
+                "DELETE FROM graph_facts_fts WHERE rowid = ?", (fact_id,))
+            try:
+                await self.db.execute(
+                    "DELETE FROM graph_facts_vec WHERE rowid = ?", (fact_id,))
+            except Exception:
+                pass
+            await self.db.execute(
+                "DELETE FROM graph_facts WHERE id = ?", (fact_id,))
+        await self.db.commit()
+        return len(ids)
+
+    async def trim_compression_log(self, now: float, retention_days: int) -> int:
+        """66.11 (T-489): усечение graph_fact_compressions старше retention —
+        лог не растёт вечно."""
+        cursor = await self.db.execute(
+            "DELETE FROM graph_fact_compressions WHERE created_at < ?",
+            (now - retention_days * 86400.0,))
+        await self.db.commit()
+        return cursor.rowcount
+
+    async def get_persona_card(self, chat_id: int, name: str, limit: int,
+                               now_ts: int) -> dict:
+        """66.9 (T-487): карточка человека БЕЗ отдельной таблицы — агрегация:
+        прямые факты (target_user = имя, weight DESC) + связи графа (edges по
+        user-узлу с entity_name = имя, weight DESC). Без техдеталей (id/весов
+        в ответе нет)."""
+        cursor = await self.db.execute(
+            "SELECT fact FROM graph_facts "
+            "WHERE chat_id = ? AND target_user = ? AND status = 'confirmed' "
+            "AND (expires_at IS NULL OR expires_at > ?) "
+            "ORDER BY weight DESC, created_at DESC",
+            (chat_id, name, now_ts))
+        facts = [row["fact"] for row in await cursor.fetchall()]
+        cursor = await self.db.execute(
+            "SELECT e.relation_type, "
+            "s.entity_name AS source_name, t.entity_name AS target_name "
+            "FROM edges e "
+            "JOIN nodes s ON s.id = e.source_id "
+            "JOIN nodes t ON t.id = e.target_id "
+            "WHERE e.chat_id = ? "
+            "AND ((s.entity_name = ? AND s.entity_type = 'user') "
+            "OR (t.entity_name = ? AND t.entity_type = 'user')) "
+            "AND e.origin != 'bot_direct_reply' "
+            "AND s.origin != 'bot_direct_reply' AND t.origin != 'bot_direct_reply' "
+            "ORDER BY e.weight DESC, e.id DESC LIMIT ?",
+            (chat_id, name, name, limit))
+        links = [dict(row) for row in await cursor.fetchall()]
+        return {"facts": facts, "links": links}
+
+    async def get_persona_names(self, chat_id: int, now_ts: int) -> list:
+        """66.9: /persona list (только админ) — имена + счётчики прямых фактов
+        (живых, confirmed)."""
+        cursor = await self.db.execute(
+            "SELECT target_user AS name, COUNT(*) AS c FROM graph_facts "
+            "WHERE chat_id = ? AND target_user IS NOT NULL "
+            "AND status = 'confirmed' "
+            "AND (expires_at IS NULL OR expires_at > ?) "
+            "GROUP BY target_user ORDER BY name ASC",
+            (chat_id, now_ts))
+        return [(row["name"], row["c"]) for row in await cursor.fetchall()]

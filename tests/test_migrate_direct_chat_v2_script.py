@@ -3,7 +3,8 @@
 Создаёт старую БД (схема Epic 46: graph_facts без 'bot_direct_reply',
 smart_messages без tg_message_id, user_version=1) и запускает
 scripts/migrate_direct_chat_v2.py::_main с путём в argv →
-user_version==2, CHECK + target_user, tg_message_id, данные сохранены.
+CHECK + target_user, tg_message_id, данные сохранены. Epic 60 (63.3):
+initialize теперь применяет и v3 — финальный user_version == 3.
 """
 import asyncio
 import sqlite3
@@ -53,7 +54,8 @@ def test_migration_script_v1_to_v2(tmp_path, monkeypatch):
 
     conn = sqlite3.connect(str(path))
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        # Epic 60 (63.3): initialize каскадно применяет и v3 → финал 3.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
         sql = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
         ).fetchone()[0]
@@ -78,7 +80,8 @@ def test_migration_script_idempotent_second_run(tmp_path, monkeypatch):
 
     conn = sqlite3.connect(str(path))
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        # Epic 60 (63.3): initialize каскадно применяет и v3 → финал 3.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
         row = conn.execute("SELECT COUNT(*) FROM graph_facts").fetchone()
         assert row[0] == 1                      # строки не задвоены
     finally:

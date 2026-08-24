@@ -10,7 +10,7 @@ import pytest
 
 from config.settings import settings
 from services.factcheck_service import FactCheckService
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.search_aggregator import AllSearchEnginesFailedException
 
 
@@ -97,6 +97,15 @@ class TestCheckClaim:
         service, _, llm = self._service(None)
         llm.generate = AsyncMock(side_effect=LLMError("llm сдох"))
         with pytest.raises(LLMError):
+            await service.check_claim("текст")
+
+    @pytest.mark.asyncio
+    async def test_empty_answer_raises_bad_response(self):
+        """65.1 (T-469): пустой ответ модели (после cleanup) → LLMBadResponseError
+        (хендлер молчит + 🗿); обычный LLMError остаётся R13-веткой."""
+        service, _, llm = self._service(None)
+        llm.generate = AsyncMock(return_value="   ")
+        with pytest.raises(LLMBadResponseError):
             await service.check_claim("текст")
 
     @pytest.mark.asyncio

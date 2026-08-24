@@ -6,7 +6,7 @@ import sqlite3
 import time
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -550,7 +550,11 @@ class TestMemorizeFacts:
         assert [(r["entity_name"], r["entity_type"], r["origin"]) for r in nodes] == [
             ("ozon", "fact", "search_fact"), ("wildberries", "fact", "search_fact"),
         ]
-        expected_expiry = now + settings.GRAPH_FACT_TTL_DAYS * 86400
+        # Epic 60 (66.1, T-479): TTL = base × (0.5 + weight); search_fact →
+        # вес GRAPH_FACT_WEIGHT_ARCHIVE 0.4 → множитель 0.9.
+        expected_expiry = now + int(
+            settings.GRAPH_FACT_TTL_DAYS * 86400.0
+            * (0.5 + settings.GRAPH_FACT_WEIGHT_ARCHIVE))
         assert all(r["expires_at"] == expected_expiry for r in nodes)
 
         cursor = await db.db.execute(
@@ -910,7 +914,9 @@ class TestEpic50MemorizeDirectReply:
         cursor = await db.db.execute(
             "SELECT expires_at FROM graph_facts")
         row = await cursor.fetchone()
-        assert row["expires_at"] == now + 7 * 86400
+        # Epic 60 (66.1): TTL = base × (0.5 + weight); direct 0.7 → ×1.2.
+        assert row["expires_at"] == now + int(
+            7 * 86400.0 * (0.5 + settings.GRAPH_FACT_WEIGHT_DIRECT))
 
     @pytest.mark.asyncio
     async def test_direct_reply_rag_chronology_included(self, db, monkeypatch):
@@ -922,3 +928,639 @@ class TestEpic50MemorizeDirectReply:
         ctx = await memory.get_rag_context(
             -100, "дроны", include_direct_reply=True, sort_by_timestamp=True)
         assert "дроны летят на запад" in ctx
+
+
+class TestEpic60Dedup:
+    """Epic 60 (64.1/64.2, T-462/T-463): дедуп фактов при записи
+    (exact-noop, KNN-пороги ≥0.95/0.85–0.95/<0.85) + антиотравление
+    (supersede-инвалидация, журнал, unconfirmed в RAG не выдаётся)."""
+
+    @pytest.mark.asyncio
+    async def test_exact_dup_noop_confirms_weight_and_ts(self, db, monkeypatch):
+        """64.9 #1: memorize 2× одинаковый текст → 1 строка (noop),
+        weight +0.1 (cap 1.0), last_confirmed_at обновлён, status confirmed.
+        Epic 60 (66.1): стартовый вес search_fact = GRAPH_FACT_WEIGHT_ARCHIVE
+        (0.4); факт рождается подтверждённым (last_confirmed_at = created_at)."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        llm = FactsLLM(response=json.dumps([_fact()], ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute(
+            "SELECT weight, last_confirmed_at FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["weight"] == settings.GRAPH_FACT_WEIGHT_ARCHIVE
+        assert row["last_confirmed_at"] == now       # рождён подтверждённым
+
+        later = now + 500
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: later)
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 1                # НЕ дублируется
+        cursor = await db.db.execute(
+            "SELECT weight, last_confirmed_at, status FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["weight"] == settings.GRAPH_FACT_WEIGHT_ARCHIVE + \
+            settings.GRAPH_DEDUP_WEIGHT_BONUS
+        assert row["last_confirmed_at"] == later
+        assert row["status"] == "confirmed"
+
+        # cap 1.0: вес вплотную к потолку → noop не превышает
+        await db.db.execute("UPDATE graph_facts SET weight = 0.97")
+        await db.db.commit()
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute("SELECT weight FROM graph_facts")
+        assert (await cursor.fetchone())["weight"] == 1.0
+
+    @pytest.mark.asyncio
+    async def test_knn_thresholds_canon(self, db, monkeypatch):
+        """64.9 #2: мок-KNN — cosine ≥0.95 → noop (+вес); 0.85–0.95 →
+        supersede (старый expires_at=now, новый INSERT со supersedes,
+        2 строки, журнал); <0.85 → add."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        base_id = await db.insert_graph_fact(
+            -100, "озон доставляет быстрее чем wildberries", "search_fact",
+            now + 1000, weight=settings.GRAPH_FACT_WEIGHT_ARCHIVE)
+        llm = FactsLLM()
+        memory = MemoryManager(db, llm)
+        memory._vec_available = True
+        memory._dedup_knn = AsyncMock(
+            return_value=[{"fact_id": base_id, "distance": 0.0}])
+
+        # cosine 0.97 ≥ 0.95 → noop + подтверждение базового
+        llm.response = json.dumps([_fact(subject="озон", predicate="дешевле чем",
+                                          obj="wildberries")],
+                                  ensure_ascii=False)
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 1
+        cursor = await db.db.execute(
+            "SELECT weight FROM graph_facts WHERE id = ?", (base_id,))
+        assert (await cursor.fetchone())["weight"] == \
+            settings.GRAPH_FACT_WEIGHT_ARCHIVE + settings.GRAPH_DEDUP_WEIGHT_BONUS
+
+        # cosine 0.90 ∈ [0.85, 0.95) → supersede
+        memory._dedup_knn.return_value = [{"fact_id": base_id, "distance": 0.10}]
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute(
+            "SELECT id, fact, status, supersedes, expires_at "
+            "FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        assert len(rows) == 2                                      # обе версии хранятся
+        old, new = rows[0], rows[1]
+        assert old["id"] == base_id
+        assert old["expires_at"] == now                            # инвалидирован, НЕ удалён
+        assert new["status"] == "unconfirmed"
+        assert new["supersedes"] == base_id
+        assert new["fact"] == "озон дешевле чем wildberries"
+        cursor = await db.db.execute(
+            "SELECT fact_before, fact_after, reason FROM graph_fact_compressions")
+        log = await cursor.fetchone()
+        assert log["reason"] == "supersede"
+        assert log["fact_before"] == "озон доставляет быстрее чем wildberries"
+        assert log["fact_after"] == "озон дешевле чем wildberries"
+
+        # cosine 0.70 < 0.85 → add (обычная вставка, confirmed)
+        memory._dedup_knn.return_value = [{"fact_id": base_id, "distance": 0.30}]
+        llm.response = json.dumps([_fact(subject="озон", predicate="тише чем",
+                                          obj="wildberries")],
+                                  ensure_ascii=False)
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 3
+        cursor = await db.db.execute(
+            "SELECT status FROM graph_facts ORDER BY id DESC LIMIT 1")
+        assert (await cursor.fetchone())["status"] == "confirmed"
+
+    @pytest.mark.asyncio
+    async def test_vec_off_exact_only(self, db):
+        """64.9 #3: vec выключен → только точный дубль (семантические пороги
+        не применяются — честная деградация)."""
+        llm = FactsLLM()
+        memory = MemoryManager(db, llm)                 # _vec_available=False
+        llm.response = json.dumps([_fact(subject="озон",
+                                          predicate="доставляет быстрее чем",
+                                          obj="wildberries")],
+                                  ensure_ascii=False)
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        await memory.memorize_facts(-100, "текст", "search_fact")   # exact → noop
+        llm.response = json.dumps([_fact(subject="озон", predicate="дешевле чем",
+                                          obj="wildberries")],
+                                  ensure_ascii=False)
+        await memory.memorize_facts(-100, "текст", "search_fact")   # другой → add
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 2
+
+    @pytest.mark.asyncio
+    async def test_dedup_error_fact_written_as_before(self, db, monkeypatch, caplog):
+        """64.9 #3: ошибка дедуп-проверки → факт пишется как раньше (WARNING)."""
+        import logging
+
+        async def boom(*args, **kwargs):
+            raise sqlite3.OperationalError("дедуп сломался")
+
+        monkeypatch.setattr(db, "find_graph_fact_exact", boom)
+        llm = FactsLLM(response=json.dumps([_fact()], ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 1
+        assert any("dedup: check failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_dedup_disabled_old_behavior(self, db, monkeypatch):
+        """64.1: GRAPH_DEDUP_ENABLED=false → ровно старое поведение (дубли
+        пишутся)."""
+        llm = FactsLLM(response=json.dumps([_fact()], ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        mod = replace(settings, GRAPH_DEDUP_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 2
+
+    @pytest.mark.asyncio
+    async def test_unconfirmed_excluded_and_confirmed_on_repeat(self, db, monkeypatch):
+        """64.9 #4: unconfirmed в RAG не попадает (и FTS-путь, и vec-выборка
+        текстов); повторное появление → exact-noop → confirmed."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        base_id = await db.insert_graph_fact(
+            -100, "озон доставляет быстрее чем wildberries", "search_fact",
+            now + 1000)
+        llm = FactsLLM()
+        memory = MemoryManager(db, llm)
+        memory._vec_available = True
+        memory._dedup_knn = AsyncMock(
+            return_value=[{"fact_id": base_id, "distance": 0.10}])
+        llm.response = json.dumps([_fact(subject="озон",
+                                          predicate="закрыл магазины чем",
+                                          obj="wildberries")],
+                                  ensure_ascii=False)
+        await memory.memorize_facts(-100, "текст", "search_fact")
+
+        cursor = await db.db.execute(
+            "SELECT id, status FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        new_id = rows[-1]["id"]
+        assert rows[-1]["status"] == "unconfirmed"
+
+        # FTS-путь: unconfirmed не выдаётся
+        ctx = await memory.get_rag_context(-100, "закрыл")
+        assert "закрыл" not in ctx
+        # vec-путь: статус-фильтр при выборке текстов по KNN-id
+        assert await db.get_graph_fact_texts([new_id], status="confirmed") == []
+
+        # повторное появление → exact-noop → confirmed → снова в RAG
+        await memory.memorize_facts(-100, "текст", "search_fact")
+        cursor = await db.db.execute(
+            "SELECT status FROM graph_facts WHERE id = ?", (new_id,))
+        assert (await cursor.fetchone())["status"] == "confirmed"
+        ctx = await memory.get_rag_context(-100, "закрыл")
+        assert "закрыл" in ctx
+
+
+class TestEpic60PhaseD:
+    """Epic 60 Фаза D (66.1–66.12, T-479…T-490): веса значимости, time-decay,
+    touch (TTL+LRU), квота, MMR, int8+реранк, защита protected от дедупа."""
+
+    @pytest.mark.asyncio
+    async def test_weight_ranks_higher_first(self, db, monkeypatch):
+        """66.1: RAG-score = similarity × weight — тяжёлый факт выше лёгкого
+        (FTS-путь; оба свежие → decay одинаков)."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        await db.insert_graph_fact(-100, "тема ранжирование низкий приоритет",
+                                   "search_fact", now + 1000, weight=0.4)
+        await db.insert_graph_fact(-100, "тема ранжирование высокий приоритет",
+                                   "search_fact", now + 1000, weight=0.9)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "ранжирование")
+        assert ctx.index("высокий приоритет") < ctx.index("низкий приоритет")
+
+    @pytest.mark.asyncio
+    async def test_time_decay_fresh_beats_old_with_floor(self, db, monkeypatch):
+        """66.3: w_eff = weight × 0.5^(Δдней/60) от last_confirmed_at;
+        floor 0.1 — старый факт не выпадает из ранга полностью."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        half = int(settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS * 86400)
+        f_old = await db.insert_graph_fact(
+            -100, "затухание старый факт", "search_fact", now + 1000, weight=0.9)
+        f_new = await db.insert_graph_fact(
+            -100, "затухание свежий факт", "search_fact", now + 1000, weight=0.5)
+        f_ancient = await db.insert_graph_fact(
+            -100, "затухание древний факт", "search_fact", now + 1000, weight=0.9)
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? WHERE id = ?",
+            (now - half, f_old))
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? WHERE id = ?",
+            (now - 10 * 365 * 86400, f_ancient))
+        await db.db.commit()
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "затухание")
+        # свежий (0.5) выше полураспавшегося (0.45); древний — floor 0.1
+        assert ctx.index("свежий факт") < ctx.index("старый факт")
+        assert ctx.index("старый факт") < ctx.index("древний факт")
+
+    @pytest.mark.asyncio
+    async def test_touch_extends_expiry_with_cap(self, db, monkeypatch):
+        """66.5: RAG-hit продлевает expires_at на GRAPH_FACT_TOUCH_EXTEND_DAYS,
+        cap — created_at + 2 × базовый TTL; вечные факты не трогаются."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        extend = settings.GRAPH_FACT_TOUCH_EXTEND_DAYS * 86400
+        f1 = await db.insert_graph_fact(-100, "тач уникальный живой", "search_fact",
+                                        now + 1000)
+        await memory_ctx(db, FactsLLM(), "тач")     # RAG-hit → touch
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts WHERE id = ?", (f1,))
+        assert (await cursor.fetchone())["expires_at"] == now + 1000 + extend
+
+        # cap: создан 27 дней назад → потолок created + 28 дней.
+        f2 = await db.insert_graph_fact(-100, "тач уникальный старый", "search_fact",
+                                        now + 1000)
+        await db.db.execute(
+            "UPDATE graph_facts SET created_at = ?, last_confirmed_at = ? "
+            "WHERE id = ?", (now - 27 * 86400, now - 27 * 86400, f2))
+        await db.db.commit()
+        await memory_ctx(db, FactsLLM(), "тач")
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts WHERE id = ?", (f2,))
+        assert (await cursor.fetchone())["expires_at"] == \
+            (now - 27 * 86400) + 2 * settings.GRAPH_FACT_TTL_DAYS * 86400
+
+        # вечный (chat_history, expires NULL) — не трогается.
+        f3 = await db.insert_graph_fact(-100, "тач уникальный вечный",
+                                        "chat_history", None)
+        await memory_ctx(db, FactsLLM(), "тач")
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts WHERE id = ?", (f3,))
+        assert (await cursor.fetchone())["expires_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_touch_disabled_old_behavior(self, db, monkeypatch):
+        """66.5: GRAPH_FACT_TOUCH_ENABLED=false → ровно старое поведение."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        mod = replace(settings, GRAPH_FACT_TOUCH_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            await db.insert_graph_fact(-100, "нотач уникальный", "search_fact",
+                                       now + 1000)
+            await memory_ctx(db, FactsLLM(), "нотач")
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts")
+        assert (await cursor.fetchone())["expires_at"] == now + 1000
+
+    @pytest.mark.asyncio
+    async def test_quota_evicts_lightest_oldest(self, db, monkeypatch):
+        """66.4: сверх квоты вытесняется самый лёгкий и старый
+        (score = weight/(age_days+1)), журнал reason='quota'."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        f_keep = await db.insert_graph_fact(
+            -100, "квота вася любит дроны", "bot_direct_reply", None,
+            target_user="вася", weight=0.9)
+        f_victim = await db.insert_graph_fact(
+            -100, "квота вася имел привычку", "bot_direct_reply", None,
+            target_user="вася", weight=0.3)
+        await db.db.execute(
+            "UPDATE graph_facts SET created_at = ? WHERE id = ?",
+            (now - 200 * 86400, f_victim))
+        await db.db.commit()
+        mod = replace(settings, GRAPH_FACTS_PER_USER_QUOTA=2)
+        llm = FactsLLM(response=json.dumps([_fact(subject="квота", predicate="вася спросил про",
+                                                   obj="погоду сегодня")],
+                                          ensure_ascii=False))
+        with patch("services.summary_memory.settings", mod):
+            memory = MemoryManager(db, llm)
+            await memory.memorize_facts(-100, "текст", "bot_direct_reply",
+                                        target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT id FROM graph_facts WHERE target_user = 'вася'")
+        ids = {row["id"] for row in await cursor.fetchall()}
+        assert ids == {f_keep} | set(ids - {f_victim}) and f_victim not in ids
+        assert len(ids) == 2                       # вытеснение сохранило квоту
+        cursor = await db.db.execute(
+            "SELECT fact_id, reason FROM graph_fact_compressions "
+            "WHERE reason = 'quota'")
+        log = await cursor.fetchone()
+        assert log is not None and log["fact_id"] == f_victim
+
+    @pytest.mark.asyncio
+    async def test_quota_protected_never_evicted(self, db, monkeypatch):
+        """66.4 × 65.10: защищённый факт — вне кандидатов на вытеснение;
+        если все кандидаты защищены — квота мягко превышается."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        f_p = await db.insert_graph_fact(
+            -100, "квота вася защищённый факт", "bot_direct_reply", None,
+            target_user="вася", weight=0.3)
+        await db.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, 'вася', 'квота вася защищённый факт', ?)", (now,))
+        await db.db.commit()
+        mod = replace(settings, GRAPH_FACTS_PER_USER_QUOTA=1)
+        llm = FactsLLM(response=json.dumps([_fact(subject="квота", predicate="вася новый про",
+                                                   obj="скейт")],
+                                          ensure_ascii=False))
+        with patch("services.summary_memory.settings", mod):
+            memory = MemoryManager(db, llm)
+            await memory.memorize_facts(-100, "текст", "bot_direct_reply",
+                                        target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE target_user = 'вася'")
+        assert (await cursor.fetchone())["c"] == 2   # защищённый пережил
+
+    @pytest.mark.asyncio
+    async def test_quota_disabled_unlimited(self, db, monkeypatch):
+        """66.4: GRAPH_USER_QUOTA_ENABLED=false / квота 0 → без лимита."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        for i in range(3):
+            await db.insert_graph_fact(
+                -100, f"бесквота вася факт номер {i}", "bot_direct_reply", None,
+                target_user="вася")
+        mod = replace(settings, GRAPH_USER_QUOTA_ENABLED=False,
+                      GRAPH_FACTS_PER_USER_QUOTA=2)
+        llm = FactsLLM(response=json.dumps([_fact(subject="бесквота", predicate="вася ещё про",
+                                                   obj="самокат")],
+                                          ensure_ascii=False))
+        with patch("services.summary_memory.settings", mod):
+            memory = MemoryManager(db, llm)
+            await memory.memorize_facts(-100, "текст", "bot_direct_reply",
+                                        target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE target_user = 'вася'")
+        assert (await cursor.fetchone())["c"] == 4
+
+    @pytest.mark.asyncio
+    async def test_mmr_duplicates_do_not_fill_topk(self, db, monkeypatch):
+        """66.8: greedy MMR λ=0.6 — дубли-близнецы не занимают весь top-K;
+        диверсификация по float-векторам."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        f1 = await db.insert_graph_fact(-100, "ммр озон быстрее чем вб", "search_fact", None)
+        f2 = await db.insert_graph_fact(-100, "ммр озон быстрее чем вб точно", "search_fact", None)
+        f3 = await db.insert_graph_fact(-100, "ммр лето было жарким год", "search_fact", None)
+        memory = MemoryManager(db, FactsLLM())
+        memory._vec_available = True
+        v1 = [1.0, 0.0]
+        v3 = [0.0, 1.0]
+        memory._vec_candidates = AsyncMock(return_value=[
+            (f1, 0.99, list(v1)),
+            (f2, 0.98, list(v1)),                  # близнец f1
+            (f3, 0.60, list(v3)),
+        ])
+        rows = await memory._knn_graph_facts(-100, list(v1), 2)
+        facts = [fact for _, fact, _ in rows]
+        assert len(facts) == 2
+        assert any("быстрее" in fact for fact in facts)
+        assert any("жарким" in fact for fact in facts)      # разнообразие
+
+    @pytest.mark.asyncio
+    async def test_mmr_disabled_topk_by_relevance(self, db, monkeypatch):
+        """66.8: GRAPH_MMR_ENABLED=false → ровно top-k по rel (дубли наверху)."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        f1 = await db.insert_graph_fact(-100, "ммр выкл озон быстрее", "search_fact", None)
+        f2 = await db.insert_graph_fact(-100, "ммр выкл озон быстрее два", "search_fact", None)
+        memory = MemoryManager(db, FactsLLM())
+        memory._vec_available = True
+        v1 = [1.0, 0.0]
+        memory._vec_candidates = AsyncMock(return_value=[
+            (f1, 0.99, list(v1)), (f2, 0.98, list(v1))])
+        rows = await memory._knn_graph_facts(-100, list(v1), 2)
+        assert [fact for _, fact, _ in rows][0].endswith("быстрее")
+
+    @pytest.mark.asyncio
+    async def test_int8_schema_two_pass_and_rerank(self, db):
+        """66.6: vec-таблицы с embedding_i8; вставка в обе колонки; KNN по
+        int8 → реранк float — факты находятся."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        memory = MemoryManager(db, FactsLLM())
+        ok = await memory.initialize()
+        if not ok:
+            pytest.skip("sqlite-vec extension could not be loaded")
+        assert memory._vec_int8 is True
+        for table in ("smart_archive", "graph_facts_vec"):
+            cursor = await db.db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,))
+            assert "embedding_i8" in (await cursor.fetchone())["sql"]
+        fid = await db.insert_graph_fact(
+            -100, "инт8 озон доставляет быстрее", "search_fact", None)
+        await memory._save_graph_fact_embedding(fid, -100, "инт8 озон доставляет быстрее",
+                                                "search_fact", None)
+        cursor = await db.db.execute(
+            "SELECT embedding_i8 FROM graph_facts_vec WHERE rowid = ?", (fid,))
+        blob = (await cursor.fetchone())["embedding_i8"]
+        assert blob is not None and len(bytes(blob)) > 0
+        ctx = await memory.get_rag_context(-100, "озон доставляет")
+        assert "инт8 озон доставляет быстрее" in ctx
+
+    @pytest.mark.asyncio
+    async def test_int8_match_error_falls_back_to_float(
+            self, db, monkeypatch, caplog):
+        """T-505: исключение MATCH по int8-колонке (except-ветка
+        _vec_int8_rows) → гарантированный переход float-path с корректным
+        результатом + WARNING."""
+        import logging
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        memory = MemoryManager(db, FactsLLM())
+        ok = await memory.initialize()
+        if not ok:
+            pytest.skip("sqlite-vec extension could not be loaded")
+        assert memory._vec_int8 is True
+        fid = await db.insert_graph_fact(
+            -100, "фолбэк озон доставляет быстро", "search_fact", None)
+        await memory._save_graph_fact_embedding(
+            fid, -100, "фолбэк озон доставляет быстро", "search_fact", None)
+
+        original = db.db.execute
+
+        async def broken_i8(query, params=None):
+            if "embedding_i8" in str(query):
+                raise sqlite3.OperationalError(
+                    "unable to use function MATCH in the requested context")
+            return await original(query, params)
+
+        monkeypatch.setattr(db.db, "execute", broken_i8)
+        with caplog.at_level(logging.WARNING):
+            ctx = await memory.get_rag_context(-100, "озон доставляет")
+        assert any("int8 KNN failed" in r.message for r in caplog.records)
+        # float-path вернул корректный результат несмотря на смерть int8
+        assert "фолбэк озон доставляет быстро" in ctx
+
+    @pytest.mark.asyncio
+    async def test_int8_rebuild_from_float_only_table(self, db):
+        """66.6: существующая float-only таблица (Фаза B) → DROP+пересоздание
+        при старте; backfill восстанавливает векторы ИЗ КЭША (без API)."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        first = MemoryManager(db, FactsLLM(embed_vectors=[[0.1] * settings.EMBEDDING_DIM]))
+        if not await first.initialize():
+            pytest.skip("sqlite-vec extension could not be loaded")
+        fid = await db.insert_graph_fact(
+            -100, "ребилд озон вечный факт", "chat_history", None)
+        await first._save_graph_fact_embedding(
+            fid, -100, "ребилд озон вечный факт", "chat_history", None)
+        # Симулируем схему Фазы B: пересоздаём graph_facts_vec БЕЗ i8-колонки.
+        await db.db.execute("DROP TABLE graph_facts_vec")
+        from services.summary_memory import _GRAPH_VEC_TABLE_SQL
+        await db.db.execute(_GRAPH_VEC_TABLE_SQL.format(dim=settings.EMBEDDING_DIM))
+        await db.db.commit()
+
+        second = MemoryManager(db, FactsLLM(embed_vectors=[[0.1] * settings.EMBEDDING_DIM]))
+        ok = await second.initialize()
+        assert ok is True and second._vec_int8 is True
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts_vec")
+        # initialize уже запустил фоновый backfill (fire_and_forget) — ждём
+        # восстановления строки из кэша и проверяем i8-колонку.
+        for _ in range(50):
+            cursor = await db.db.execute(
+                "SELECT COUNT(*) AS c FROM graph_facts_vec")
+            if (await cursor.fetchone())["c"] == 1:
+                break
+            await asyncio.sleep(0.02)
+        cursor = await db.db.execute(
+            "SELECT embedding_i8 FROM graph_facts_vec WHERE rowid = ?", (fid,))
+        assert (await cursor.fetchone())["embedding_i8"] is not None
+
+    @pytest.mark.asyncio
+    async def test_vec_int8_disabled_float_only(self, db):
+        """66.6: VEC_INT8_ENABLED=false → float-only схема (без i8-колонки)."""
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+        mod = replace(settings, VEC_INT8_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            memory = MemoryManager(db, FactsLLM())
+            ok = await memory.initialize()
+            if not ok:
+                pytest.skip("sqlite-vec extension could not be loaded")
+            assert memory._vec_int8 is False
+            cursor = await db.db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts_vec'")
+            assert "embedding_i8" not in (await cursor.fetchone())["sql"]
+
+    @pytest.mark.asyncio
+    async def test_protected_fact_not_superseded_or_confirmed(self, db, monkeypatch):
+        """65.10/66.10 (T-488): дедуп НЕ трогает защищённый факт — ни noop-
+        подтверждение, ни supersede-инвалидацию; пишется как новый."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        base_text = "щит озон доставляет быстрее чем wildberries"
+        base_id = await db.insert_graph_fact(
+            -100, base_text, "search_fact", now + 1000)
+        await db.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, 'ozon', ?, ?)", (base_text, now))
+        await db.db.commit()
+        llm = FactsLLM(response=json.dumps([_fact()], ensure_ascii=False))
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "текст", "search_fact")   # exact-дубль защищён
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 2         # написан НОВЫМ, не noop
+        cursor = await db.db.execute(
+            "SELECT weight, expires_at FROM graph_facts WHERE id = ?", (base_id,))
+        row = await cursor.fetchone()
+        assert row["weight"] == 0.5                       # прямая вставка: дефолт, не подтверждён
+        assert row["expires_at"] == now + 1000              # не инвалидирован
+
+    @pytest.mark.asyncio
+    async def test_edge_decay_ranks_fresh_first(self, db, monkeypatch):
+        """66.3: рёбра — w_eff от last_updated; свежая связь выше давней
+        (SQL не меняем — пересортировка в Python)."""
+        a = await db.upsert_node(-100, "вася", "user")
+        b = await db.upsert_node(-100, "ракеты", "topic")
+        c = await db.upsert_node(-100, "луна", "topic")
+        stale = await db.upsert_edge(a, b, "фанатеет от")
+        fresh = await db.upsert_edge(a, c, "любит")
+        await db.db.execute(
+            "UPDATE edges SET last_updated = '2020-01-01 00:00:00' WHERE id = ?",
+            (stale,))
+        await db.db.commit()
+        memory = MemoryManager(db, FakeLLM())
+        facts = await memory.get_graph_facts(-100, [], [])
+        texts = " ".join(facts)
+        assert texts.index("(любит)") < texts.index("(фанатеет от)")
+
+
+async def memory_ctx(db, llm, query):
+    """Хелпер: get_rag_context на свежем MemoryManager (FTS-путь)."""
+    return await MemoryManager(db, llm).get_rag_context(-100, query)
+
+
+class TestCanonP20Guards:
+    """67.1 (T-491, правило п.20, D243/D249): токсичные фразы-ошибки (пулы
+    фраз) НИКОГДА не передаются в memorize_facts ни одним fire_and_forget-
+    хуком. Статический страж по образцу канон-тестов R46-2 — БЕЗ изменения
+    поведения."""
+
+    REPO_ROOT = Path(__file__).resolve().parents[1]
+
+    def _iter_sources(self):
+        for folder in ("services", "handlers"):
+            for path in sorted((self.REPO_ROOT / folder).glob("*.py")):
+                yield path
+        yield self.REPO_ROOT / "bot.py"
+
+    def _pool_values(self):
+        import services.smartmodule_phrases as phrases_mod
+        values = set()
+        for name in dir(phrases_mod):
+            if not name.isupper():
+                continue
+            pool = getattr(phrases_mod, name)
+            if isinstance(pool, tuple):
+                values.update(s for s in pool if isinstance(s, str))
+        return values
+
+    def test_phrase_pools_never_reach_memorize_facts(self):
+        import ast
+
+        pools = self._pool_values()
+        assert pools, "пулы фраз не найдены — страж потерял смысл"
+        violations = []
+        for path in self._iter_sources():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                name = getattr(func, "attr", None) or getattr(func, "id", None)
+                if name != "memorize_facts":
+                    continue
+                args = list(node.args) + [kw.value for kw in node.keywords]
+                for arg in args:
+                    if (isinstance(arg, ast.Constant)
+                            and isinstance(arg.value, str)
+                            and arg.value in pools):
+                        violations.append(f"{path.name}: literal from phrase pool")
+        assert not violations, violations
+
+    def test_pools_actually_cover_canon_sets(self):
+        """Санити: канонические пулы п.20 действительно в скане."""
+        from services.smartmodule_phrases import (
+            CHAT_COOLDOWN_PHRASES,
+            CHAT_ERROR_PHRASES,
+            CHAT_LLM_DOWN_PHRASES,
+            CHECKUP_LLM_ERROR_PHRASES,
+        )
+        pools = self._pool_values()
+        for phrase in (CHAT_ERROR_PHRASES + CHAT_COOLDOWN_PHRASES
+                       + CHAT_LLM_DOWN_PHRASES + CHECKUP_LLM_ERROR_PHRASES):
+            assert phrase in pools

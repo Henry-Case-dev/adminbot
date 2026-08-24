@@ -235,3 +235,104 @@ def _url_message(text="выжимка https://site.ru/article", message_id=11,
     msg.reply_to_message = None
     msg.forward_origin = None
     return msg
+
+
+class TestDirectDedupCache:
+    """Epic 60 Фаза E (67.4, T-499): дедуп-неймспейс direct_dedup.
+    Свой рубильник CHAT_DEDUP_ENABLED и свой TTL; SMART_CACHE_ENABLED=False
+    дедуп НЕ выключает (разные фичи)."""
+
+    @pytest.fixture
+    def cache(self, tmp_path):
+        return SmartCache(str(tmp_path / "dedup.db"))
+
+    def test_direct_dedup_slug_registered_and_normalized(self):
+        assert build_key("direct_dedup", "привет БОТ") == \
+            build_key("direct_dedup", "  привет бот  ")
+
+    def test_slug_does_not_collide_with_other_services(self):
+        assert build_key("direct_dedup", "x") != build_key("search", "x")
+
+    @pytest.mark.asyncio
+    async def test_roundtrip_and_empty_marker(self, cache):
+        key = build_key("direct_dedup", "привет бот")
+        assert await cache.get_dedup(key) is None          # первый раз
+        await cache.set_dedup(key, "")                     # маркер «ответа не было»
+        assert await cache.get_dedup(key) == ""
+        await cache.set_dedup(key, "ответ из кэша")
+        assert await cache.get_dedup(key) == "ответ из кэша"
+        await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_own_ttl_expiry(self, cache, monkeypatch):
+        clock = {"now": 1000.0}
+        monkeypatch.setattr("services.smart_cache.time.monotonic",
+                            lambda: clock["now"])
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, CHAT_DEDUP_TTL_SECONDS=10))
+        key = build_key("direct_dedup", "тот же текст")
+        await cache.set_dedup(key, "ответ")
+        clock["now"] += 5
+        assert await cache.get_dedup(key) == "ответ"
+        clock["now"] += 6                                  # > TTL 10с
+        assert await cache.get_dedup(key) is None
+        await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_disabled_flag_is_noop(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, CHAT_DEDUP_ENABLED=False))
+        db_file = tmp_path / "off.db"
+        c = SmartCache(str(db_file))
+        assert await c.get_dedup("k") is None
+        await c.set_dedup("k", "v")
+        assert await c.get_dedup("k") is None
+        assert not db_file.exists()                        # БД НЕ создаётся
+        await c.close()
+
+    @pytest.mark.asyncio
+    async def test_works_when_smart_cache_disabled(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, SMART_CACHE_ENABLED=False))
+        c = SmartCache(str(tmp_path / "mix.db"))
+        key = build_key("direct_dedup", "текст")
+        await c.set_dedup(key, "ответ мимо глобального рубильника")
+        assert await c.get_dedup(key) == "ответ мимо глобального рубильника"
+        # обычный Exact Match Cache при этом остаётся выключен
+        assert await c.get(key) is None
+        await c.set(key, "v")
+        assert await c.get(key) is None
+        await c.close()
+
+    @pytest.mark.asyncio
+    async def test_feature_flags_independent_both_directions(
+            self, tmp_path, monkeypatch):
+        """T-506: рубильники фич независимы в ОБЕ стороны:
+        SMART_CACHE_ENABLED=False + CHAT_DEDUP_ENABLED=True → dedup живёт,
+        обычный кэш мёртв; SMART_CACHE_ENABLED=True + CHAT_DEDUP_ENABLED=False
+        → dedup мёртв, обычный кэш живёт."""
+        key = build_key("direct_dedup", "текст")
+
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, SMART_CACHE_ENABLED=False,
+                    CHAT_DEDUP_ENABLED=True))
+        c1 = SmartCache(str(tmp_path / "dedup_alive.db"))
+        await c1.set_dedup(key, "дедуп жив")
+        assert await c1.get_dedup(key) == "дедуп жив"
+        assert await c1.get("k") is None            # EMC заглушен
+        await c1.close()
+
+        monkeypatch.setattr(
+            "services.smart_cache.settings",
+            replace(settings, SMART_CACHE_ENABLED=True,
+                    CHAT_DEDUP_ENABLED=False))
+        c2 = SmartCache(str(tmp_path / "emc_alive.db"))
+        await c2.set("k", "обычный жив")
+        assert await c2.get("k") == "обычный жив"
+        await c2.set_dedup(key, "не сохранится")
+        assert await c2.get_dedup(key) is None      # dedup заглушен
+        await c2.close()

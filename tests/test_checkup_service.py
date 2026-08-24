@@ -4,7 +4,10 @@ system.replace({max_symbols}) → llm.generate → cleanup_llm_text; скрыт�
 приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения ровно 1 раз при
 used_fallback; user = <system_logs>…</system_logs> (escape_xml_text);
 LLMError пробрасывается; пустые логи валидны.
+Epic 60 (64.5, T-466): db+memory → data-секция <memory_health> ДАННЫМИ
+(R42-6 НЕ меняется); без db — ровно старое поведение.
 """
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,7 +15,8 @@ import pytest
 from services import checkup_service as svc_mod
 from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE
 from services.checkup_service import CheckupService
-from services.llm_client import LLMError
+from services.database import DatabaseService
+from services.llm_client import LLMBadResponseError, LLMError
 
 
 @pytest.fixture
@@ -77,6 +81,14 @@ class TestCheckupService:
             await service.checkup("logs", used_fallback=False)
 
     @pytest.mark.asyncio
+    async def test_empty_answer_raises_bad_response(self, make_service):
+        """65.1 (T-469): пустой ответ (после cleanup) → LLMBadResponseError
+        (хендлер молчит + 🗿, ничего не шлёт)."""
+        service, llm = make_service(return_value="   ")
+        with pytest.raises(LLMBadResponseError):
+            await service.checkup("logs", used_fallback=False)
+
+    @pytest.mark.asyncio
     async def test_empty_logs_valid(self, make_service):
         """51.6: пустые логи («» от journalctl) валидны — не dead-пул."""
         service, llm = make_service()
@@ -129,3 +141,74 @@ class TestEpic49ScrubAndTruncate:
         await service.checkup("обычные логи без аномалий", used_fallback=False)
         user = llm.generate.await_args.args[0][1]["content"]
         assert user == "<system_logs>обычные логи без аномалий</system_logs>"
+
+
+@pytest.fixture
+def mem_db():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    d = DatabaseService(":memory:")
+    loop.run_until_complete(d.initialize())
+    yield d
+    loop.run_until_complete(d.close())
+    loop.close()
+
+
+class TestEpic60MemoryMetrics:
+    """Epic 60 (64.5/64.9 #7, T-466): метрики памяти ДАННЫМИ в user-контент;
+    system-сообщение (R42-6) остаётся каноном."""
+
+    @pytest.mark.asyncio
+    async def test_metrics_appended_after_logs(self, mem_db):
+        await mem_db.insert_graph_fact(-100, "озон быстрее чем вб",
+                                       "search_fact", None)
+        memory = MagicMock()
+        memory.vec_available = False
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="отчёт")
+        service = CheckupService(llm, db=mem_db, memory=memory)
+        await service.checkup("some logs", used_fallback=False)
+        messages = llm.generate.await_args.args[0]
+        system, user = messages[0], messages[1]
+        assert "{max_symbols}" not in system["content"]   # R42-6 канон не тронут
+        assert user["content"].startswith("<system_logs>")
+        assert "some logs" in user["content"]
+        assert "&lt;memory_health&gt;" in user["content"]   # секция экранирована
+        assert "graph_facts: 1" in user["content"]
+        assert user["content"].index("some logs") < user["content"].index("memory_health")
+
+    @pytest.mark.asyncio
+    async def test_metrics_disabled_no_section(self, mem_db):
+        await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="x")
+        service = CheckupService(llm, db=mem_db, metrics_enabled=False)
+        await service.checkup("logs", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "memory_health" not in user
+
+    @pytest.mark.asyncio
+    async def test_metrics_cut_first_on_overflow(self, mem_db, caplog):
+        """64.10.2: единый потолок режет ХВОСТ — логи приоритетнее метрик."""
+        import logging
+
+        await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
+        limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="x")
+        memory = MagicMock()
+        memory.vec_available = False
+        service = CheckupService(llm, db=mem_db, memory=memory)
+        with caplog.at_level(logging.WARNING):
+            await service.checkup("я" * limit, used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user == f"<system_logs>{'я' * limit}</system_logs>"
+        assert "memory_health" not in user
+
+    @pytest.mark.asyncio
+    async def test_no_db_keeps_old_behavior(self, make_service):
+        """DI: без db — user-контент ровно как раньше (метрики пустые)."""
+        service, llm = make_service()
+        await service.checkup("логи", used_fallback=False)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert user == "<system_logs>логи</system_logs>"

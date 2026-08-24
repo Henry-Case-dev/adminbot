@@ -1,13 +1,14 @@
 """Tests for services/summary_generator.py (T-186, Section 33.7)."""
+import dataclasses
 import logging
 import sqlite3
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiogram.exceptions import TelegramRetryAfter
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.summary_aliases import AliasResolver
 from services.summary_generator import SummaryGenerator
 from services.summary_xml import XmlGroundingBuilder
@@ -314,6 +315,171 @@ class TestSendChunked:
             await generator._send_chunked(-100, "х" * 5000)
         assert bot.send_message.await_count == 1
         assert any("exceeds 4096" in r.message for r in caplog.records)
+
+
+class TestStreaming:
+    """65.6 (T-474): стриминг ТОЛЬКО саммари — placeholder «…» →
+    инкрементальные edit_text; not-modified = success; retry_after → 1
+    повтор; >4096 → финал-edit + остаток БЕЗ дублей; прочая ошибка →
+    деградация в _send_chunked."""
+
+    def _gen(self, bot, monkeypatch):
+        monkeypatch.setattr(
+            "services.summary_generator.settings",
+            dataclasses.replace(settings, SUMMARY_STREAMING_ENABLED=True))
+        return SummaryGenerator(FakeMemory(), XmlGroundingBuilder(), FakeLLM(), bot)
+
+    def _bot(self, sent=None, chat_type="group"):
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.type = chat_type
+        bot.get_chat = AsyncMock(return_value=chat)
+        sent = sent if sent is not None else MagicMock()
+        sent.edit_text = AsyncMock()
+        bot.send_message = AsyncMock(return_value=sent)
+        return bot, sent
+
+    @pytest.mark.asyncio
+    async def test_short_text_single_edit_private_interval(self, no_sleep, monkeypatch):
+        bot, sent = self._bot(chat_type="private")
+        generator = self._gen(bot, monkeypatch)
+        await generator._send_streaming(-100, "короткий ответ")
+        bot.send_message.assert_awaited_once_with(-100, "…")
+        sent.edit_text.assert_awaited_once_with("короткий ответ")
+        no_sleep.assert_any_await(settings.SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE)
+
+    @pytest.mark.asyncio
+    async def test_group_chat_uses_group_interval(self, no_sleep, monkeypatch):
+        bot, sent = self._bot(chat_type="supergroup")
+        generator = self._gen(bot, monkeypatch)
+        await generator._send_streaming(-100, "короткий ответ")
+        no_sleep.assert_any_await(settings.SUMMARY_STREAM_EDIT_INTERVAL_GROUP)
+
+    @pytest.mark.asyncio
+    async def test_not_modified_is_success(self, no_sleep, monkeypatch, caplog):
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.type = "group"
+        bot.get_chat = AsyncMock(return_value=chat)
+        sent = MagicMock()
+        sent.edit_text = AsyncMock(side_effect=TelegramBadRequest(
+            method=None, message="Bad Request: message is not modified"))
+        bot.send_message = AsyncMock(return_value=sent)
+        generator = self._gen(bot, monkeypatch)
+        await generator._send_streaming(-100, "короткий ответ")   # НЕ падает
+        assert sent.edit_text.await_count == 1
+        bot.send_message.assert_awaited_once_with(-100, "…")
+
+    @pytest.mark.asyncio
+    async def test_retry_after_one_retry(self, no_sleep, monkeypatch):
+        bot, _ = self._bot()
+        sent = MagicMock()
+        retry = TelegramRetryAfter(method=None, message="retry", retry_after=3)
+        sent.edit_text = AsyncMock(side_effect=[retry, None])
+        bot.send_message = AsyncMock(return_value=sent)
+        generator = self._gen(bot, monkeypatch)
+        await generator._send_streaming(-100, "короткий ответ")
+        assert sent.edit_text.await_count == 2     # 1 сбой + РОВНО 1 повтор
+        no_sleep.assert_any_await(3)
+
+    @pytest.mark.asyncio
+    async def test_retry_after_then_drop_chunk(self, no_sleep, monkeypatch):
+        """retry_after → 1 повтор → снова сбой: чанк дропается, финальный edit
+        гарантирует полноту."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.type = "group"
+        bot.get_chat = AsyncMock(return_value=chat)
+        sent = MagicMock()
+        retry = TelegramRetryAfter(method=None, message="retry", retry_after=3)
+        sent.edit_text = AsyncMock(side_effect=[retry, RuntimeError("drop")])
+        bot.send_message = AsyncMock(return_value=sent)
+        generator = self._gen(bot, monkeypatch)
+        await generator._send_streaming(-100, "короткий ответ")
+        assert sent.edit_text.await_count == 3     # сбой + повтор + финал-edit
+        assert sent.edit_text.await_args.args[0] == "короткий ответ"
+
+    @pytest.mark.asyncio
+    async def test_mid_chunk_drop_final_edit_restores_fullness(
+            self, no_sleep, monkeypatch):
+        """T-507: потеря СРЕДНЕГО чанка (retry-after → повтор снова упал) при
+        многочанковом тексте — финальный edit восстанавливает полноту
+        acc[:4096], остаток уходит новыми сообщениями без дублей."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.type = "group"
+        bot.get_chat = AsyncMock(return_value=chat)
+        sent = MagicMock()
+        retry = TelegramRetryAfter(method=None, message="retry", retry_after=3)
+        # чанк0 ок; чанк1: сбой + неудачный повтор; финальный edit ок
+        sent.edit_text = AsyncMock(
+            side_effect=[None, retry, RuntimeError("drop"), None])
+        bot.send_message = AsyncMock(return_value=sent)
+        generator = self._gen(bot, monkeypatch)
+        text = " ".join(["б" * 500] * 12)          # ~6011 символов → 2 чанка
+        await generator._send_streaming(-100, text)
+        edits = [c.args[0] for c in sent.edit_text.await_args_list]
+        assert len(edits) == 4                     # чанк0 + сбой + повтор + финал
+        assert edits[0] == text[:4007]             # первый чанк дошёл
+        assert edits[-1] == text[:4096]            # полнота восстановлена
+        sent_messages = [c.args[1] for c in bot.send_message.await_args_list]
+        assert "".join(sent_messages[1:]) == text[4096:]   # остаток без дублей
+
+    @pytest.mark.asyncio
+    async def test_other_bad_request_degrades_to_chunked(self, no_sleep, monkeypatch, caplog):
+        bot, _ = self._bot()
+        sent = MagicMock()
+        sent.edit_text = AsyncMock(side_effect=TelegramBadRequest(
+            method=None, message="Bad Request: chat not found"))
+        bot.send_message = AsyncMock(return_value=sent)
+        generator = self._gen(bot, monkeypatch)
+        with caplog.at_level(logging.WARNING):
+            await generator._send_streaming(-100, "короткий ответ")
+        assert any("streaming edit failed" in r.message for r in caplog.records)
+        assert bot.send_message.await_count == 2          # «…» + деградация
+        assert bot.send_message.await_args.args[1] == "короткий ответ"
+
+    @pytest.mark.asyncio
+    async def test_over_4096_final_edit_and_remainder_without_dupes(self, no_sleep, monkeypatch):
+        bot, sent = self._bot(chat_type="private")
+        generator = self._gen(bot, monkeypatch)
+        text = " ".join(["б" * 500] * 12)                 # ~6000 символов → 2 чанка
+        await generator._send_streaming(-100, text)
+        sent_messages = [c.args[1] for c in bot.send_message.await_args_list]
+        assert sent_messages[0] == "…"
+        assert "".join(sent_messages[1:]) == text[4096:]  # остаток без дублей
+        # последний edit — первый кусок (промежуточный, с «…»; финальный edit
+        # не срабатывает: полнота уже достигнута — страховка только для drop-чанков)
+        assert sent.edit_text.await_args.args[0] == text[:4096] + "…"
+        # склейка чанков НЕ теряет пробелы на границе 4096
+        assert sent.edit_text.await_args_list[0].args[0] == text[:4007]
+
+
+class TestEmptyAnswerSilence:
+    """65.1 (T-469): пустой ответ саммари → молчание (ни заглушки, ни R13);
+    reaction для саммари не предусмотрена (message_id не передаётся)."""
+
+    @pytest.mark.asyncio
+    async def test_bad_response_silence_no_ux(self, no_sleep, caplog):
+        llm = FakeLLM(error=LLMBadResponseError("chat/completions: empty content"))
+        bot = AsyncMock()
+        generator = SummaryGenerator(
+            FakeMemory([_row()]), XmlGroundingBuilder(), llm, bot)
+        with caplog.at_level(logging.WARNING):
+            await generator.generate_and_send(-100, manual=True)
+        bot.send_message.assert_not_called()              # молчание гарантировано
+        assert any("empty answer" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_empty_silence_no_ux(self, no_sleep, caplog):
+        llm = FakeLLM(text="   ")                         # после cleanup — пусто
+        bot = AsyncMock()
+        generator = SummaryGenerator(
+            FakeMemory([_row()]), XmlGroundingBuilder(), llm, bot)
+        with caplog.at_level(logging.WARNING):
+            await generator.generate_and_send(-100, manual=True)
+        bot.send_message.assert_not_called()
+        assert any("empty answer" in r.message for r in caplog.records)
 
 
 class TestComposeUserContent:
@@ -698,3 +864,140 @@ class TestCleanupApplied:
             await generator.generate_and_send(-100)
         raw_logs = [r.message for r in caplog.records if "summary LLM raw response" in r.message]
         assert any("«ёлочкой»" in msg for msg in raw_logs)  # лог честный raw, до очистки
+
+
+@pytest.fixture
+def mem_db():
+    import asyncio as aio
+
+    from services.database import DatabaseService
+
+    loop = aio.new_event_loop()
+    aio.set_event_loop(loop)
+    d = DatabaseService(":memory:")
+    loop.run_until_complete(d.initialize())
+    yield d
+    loop.run_until_complete(d.close())
+    loop.close()
+
+
+class _SummaryLLM:
+    """Мини-LLM для конспекта: generate → «конспект»; embed — не нужен."""
+
+    def __init__(self):
+        self.generate_calls = 0
+        self.last_user = None
+
+    async def generate(self, messages):
+        self.generate_calls += 1
+        self.last_user = messages[1]["content"]
+        return "конспект окна"
+
+
+class TestEpic60RunningSummary:
+    """Epic 60 (64.6/64.9 #9, T-467): бегущий конспект — триггер при ≥80%
+    заполнения окна, ленивый (fire_and_forget), UPSERT в БД с TTL."""
+
+    def _collect_fire_forget(self, monkeypatch):
+        tasks = []
+
+        def sync_fire_and_forget(coro, tag):
+            tasks.append((coro, tag))
+
+        monkeypatch.setattr("services.summary_memory.fire_and_forget",
+                            sync_fire_and_forget)
+        return tasks
+
+    @pytest.mark.asyncio
+    async def test_fill_ratio_triggers_and_builds_summary(self, mem_db, monkeypatch):
+        from services.summary_memory import MemoryManager
+        import time
+
+        tasks = self._collect_fire_forget(monkeypatch)
+        now = int(time.time())
+        for i in range(400):                       # 0.8 × 500
+            await mem_db.save_smart_message(
+                1, -100, f"сообщение {i}", None, now - 3600 + i, "text", "вася")
+        llm = _SummaryLLM()
+        memory = MemoryManager(mem_db, llm)
+        rows = await memory.get_window_messages(-100)
+        assert len(rows) == 400
+        assert tasks and tasks[0][1] == "running_summary"
+        await tasks[0][0]                          # выполнить фоновую задачу
+        cursor = await mem_db.db.execute(
+            "SELECT summary, raw_count, window_start_ts, window_end_ts "
+            "FROM chat_running_summary WHERE chat_id = ?", (-100,))
+        row = await cursor.fetchone()
+        assert row is not None
+        assert row["summary"] == "конспект окна"
+        assert row["raw_count"] == 400
+        assert row["window_end_ts"] == now - 3600 + 399
+        assert llm.generate_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_below_ratio_no_trigger(self, mem_db, monkeypatch):
+        from services.summary_memory import MemoryManager
+        import time
+
+        tasks = self._collect_fire_forget(monkeypatch)
+        now = int(time.time())
+        for i in range(100):
+            await mem_db.save_smart_message(
+                1, -100, f"сообщение {i}", None, now - 3600 + i, "text", "вася")
+        memory = MemoryManager(mem_db, _SummaryLLM())
+        await memory.get_window_messages(-100)
+        assert tasks == []
+
+    @pytest.mark.asyncio
+    async def test_fresh_summary_blocks_retrigger(self, mem_db, monkeypatch):
+        from services.summary_memory import MemoryManager
+        import time
+
+        tasks = self._collect_fire_forget(monkeypatch)
+        now = int(time.time())
+        for i in range(400):
+            await mem_db.save_smart_message(
+                1, -100, f"сообщение {i}", None, now - 3600 + i, "text", "вася")
+        await mem_db.upsert_running_summary(
+            -100, "свежий конспект", now - 3600, now - 3600 + 399, 400,
+            time.time(), time.time() + 3600)
+        memory = MemoryManager(mem_db, _SummaryLLM())
+        await memory.get_window_messages(-100)
+        assert tasks == []                          # покрыт свежим конспектом
+
+    @pytest.mark.asyncio
+    async def test_disabled_no_trigger(self, mem_db, monkeypatch):
+        from dataclasses import replace
+        from unittest.mock import patch
+
+        from services.summary_memory import MemoryManager
+        import time
+
+        tasks = self._collect_fire_forget(monkeypatch)
+        now = int(time.time())
+        for i in range(400):
+            await mem_db.save_smart_message(
+                1, -100, f"сообщение {i}", None, now - 3600 + i, "text", "вася")
+        memory = MemoryManager(mem_db, _SummaryLLM())
+        mod = replace(settings, CHAT_RUNNING_SUMMARY_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            await memory.get_window_messages(-100)
+        assert tasks == []
+
+    @pytest.mark.asyncio
+    async def test_expired_summary_retriggers(self, mem_db, monkeypatch):
+        from services.summary_memory import MemoryManager
+        import time
+
+        tasks = self._collect_fire_forget(monkeypatch)
+        now = int(time.time())
+        for i in range(400):
+            await mem_db.save_smart_message(
+                1, -100, f"сообщение {i}", None, now - 3600 + i, "text", "вася")
+        await mem_db.upsert_running_summary(
+            -100, "протухший конспект", now - 3600, now - 3600 + 399, 400,
+            time.time() - 7200, time.time() - 3600)   # expires_at в прошлом
+        memory = MemoryManager(mem_db, _SummaryLLM())
+        await memory.get_window_messages(-100)
+        assert len(tasks) == 1                    # просрочен → пересборка
+        tasks[0][0].close()                       # конспект в этом тесте не нужен

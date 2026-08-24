@@ -12,6 +12,7 @@ from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
     CHAT_ERROR_PHRASES,
     CHAT_LLM_DOWN_PHRASES,
+    CHAT_LOCK_BUSY_PHRASES,
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
     CHECKUP_LLM_ERROR_PHRASES,
@@ -142,6 +143,13 @@ EXPECTED_CHAT_LLM_DOWN = (
     "перегрелся я, отдохну минут пять и снова буду умничать",
 )
 
+# Канон R60-2 (Epic 60, Section 63.4) — VERBATIM
+EXPECTED_CHAT_LOCK_BUSY = (
+    "я ещё думаю над прошлым вопросом, подожди пару секунд",
+    "не части, предыдущую мысль додумываю",
+    "моя единственная извилина занята, секунду",
+)
+
 # Каноны R43-4 (Epic 43, Section 52.5, дословно)
 EXPECTED_INFO_NO_DELETE_RIGHTS = (
     "какого хуя у меня нет прав удалять сообщения? выдай админку, шиз",
@@ -195,6 +203,7 @@ class TestPoolsVerbatim:
             (CHAT_COOLDOWN_PHRASES, EXPECTED_CHAT_COOLDOWN, "chat cooldown"),
             (CHAT_ERROR_PHRASES, EXPECTED_CHAT_ERROR, "chat error"),
             (CHAT_LLM_DOWN_PHRASES, EXPECTED_CHAT_LLM_DOWN, "chat llm down"),
+            (CHAT_LOCK_BUSY_PHRASES, EXPECTED_CHAT_LOCK_BUSY, "chat lock busy"),
             (INFO_NO_DELETE_RIGHTS_PHRASES, EXPECTED_INFO_NO_DELETE_RIGHTS, "info no delete"),
             (INFO_NOT_ADMIN_PHRASES, EXPECTED_INFO_NOT_ADMIN, "info not admin"),
             (INFO_BAD_MARKUP_PHRASES, EXPECTED_INFO_BAD_MARKUP, "info bad markup"),
@@ -241,6 +250,26 @@ class TestPoolsVerbatim:
         """R53-2 (62.2.3): CHAT_LLM_DOWN_PHRASES — 4 фразы, без дублей."""
         assert len(CHAT_LLM_DOWN_PHRASES) == 4
         assert len(set(CHAT_LLM_DOWN_PHRASES)) == 4
+
+
+class TestChatLockBusyPool:
+    """R60-2 (Section 63.4): CHAT_LOCK_BUSY_PHRASES — 3 фразы, строчные,
+    без маркдауна/эмодзи, без плейсхолдеров; отделён от R50-7/R50-8/R53-2."""
+
+    def test_pool_has_exactly_3_phrases_no_duplicates(self):
+        assert len(CHAT_LOCK_BUSY_PHRASES) == 3
+        assert len(set(CHAT_LOCK_BUSY_PHRASES)) == 3
+
+    def test_phrases_lowercase_no_emoji_no_placeholder(self):
+        for phrase in CHAT_LOCK_BUSY_PHRASES:
+            assert phrase == phrase.lower()
+            assert "{remaining_time}" not in phrase
+            assert not any(ord(ch) > 0x2000 for ch in phrase)
+
+    def test_pool_disjoint_from_other_direct_chat_pools(self):
+        assert not set(CHAT_LOCK_BUSY_PHRASES) & set(CHAT_COOLDOWN_PHRASES)
+        assert not set(CHAT_LOCK_BUSY_PHRASES) & set(CHAT_ERROR_PHRASES)
+        assert not set(CHAT_LOCK_BUSY_PHRASES) & set(CHAT_LLM_DOWN_PHRASES)
 
 
 class TestEpic53ChatLlmDownPool:

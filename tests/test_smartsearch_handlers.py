@@ -9,7 +9,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from unittest.mock import AsyncMock, MagicMock
 
 from handlers import search as search_mod
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
@@ -187,6 +187,24 @@ class TestHandler:
         await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
+
+    @pytest.mark.asyncio
+    async def test_empty_answer_silence_with_moai(self, search_cleanup, caplog):
+        """65.1 (T-469): пустой ответ модели → молчание + 🗿 (НЕ R13)."""
+        import logging
+
+        service = MagicMock()
+        service.research = AsyncMock(
+            side_effect=LLMBadResponseError("smartsearch: empty answer"))
+        search_mod.setup_search(service)
+        bot = AsyncMock()
+        msg = _make_msg(text="найди что-то", message_id=11)
+        with caplog.at_level(logging.WARNING):
+            await search_mod.smartsearch_handler(msg, bot=bot)
+        bot.send_message.assert_not_called()
+        bot.set_message_reaction.assert_awaited_once()
+        assert bot.set_message_reaction.await_args.args[:2] == (CHAT_ID, 11)
+        assert any("empty answer" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_non_trigger_returns_unhandled(self, search_cleanup):

@@ -458,3 +458,102 @@ class TestEpic53SettingsDefaults:
         assert any(
             "LLM_CB_COOLDOWN_SECONDS=-5.0 < 0.0" in r.message for r in caplog.records
         )
+
+_EPIC60B_KEYS = (
+    "GRAPH_DEDUP_ENABLED",
+    "GRAPH_DEDUP_SIMILARITY_HIGH",
+    "GRAPH_DEDUP_SIMILARITY_LOW",
+    "GRAPH_DEDUP_WEIGHT_BONUS",
+    "GRAPH_UNCONFIRMED_RETENTION_DAYS",
+    "MEMORY_BACKUP_ENABLED",
+    "MEMORY_BACKUP_DIR",
+    "MEMORY_BACKUP_KEEP",
+    "MEMORY_BACKUP_HOUR",
+    "EMBED_CACHE_ENABLED",
+    "EMBED_CACHE_TTL_DAYS",
+    "EMBED_CACHE_MAX_ROWS",
+    "CHECKUP_MEMORY_METRICS_ENABLED",
+    "CHAT_RUNNING_SUMMARY_ENABLED",
+    "CHAT_CONTEXT_FILL_RATIO",
+    "CHAT_RUNNING_SUMMARY_TAIL",
+    "RUNNING_SUMMARY_TTL_MINUTES",
+    "TOKENIZER_ENCODING",
+    "TOKEN_SAFETY_MULTIPLIER",
+    "CHAT_GLOBAL_CONTEXT_MAX_TOKENS",
+    "CHAT_THREAD_MAX_TOKENS",
+    "SUMMARY_MAX_CONTEXT_TOKENS",
+    "CHAT_GLOBAL_CONTEXT_MAX_CHARS",
+    "CHAT_THREAD_MAX_CHARS",
+    "SUMMARY_MAX_CONTEXT_CHARS",
+)
+
+
+class TestEpic60PhaseBSettingsDefaults:
+    """Epic 60 (64.8/64.9 #11): дефолты Фазы B + эффективные токенные лимиты."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in _EPIC60B_KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_defaults_without_env(self):
+        importlib.reload(settings_mod)
+        s = settings_mod.settings
+        assert s.GRAPH_DEDUP_ENABLED is True
+        assert s.GRAPH_DEDUP_SIMILARITY_HIGH == 0.95
+        assert s.GRAPH_DEDUP_SIMILARITY_LOW == 0.85
+        assert s.GRAPH_DEDUP_WEIGHT_BONUS == 0.1
+        assert s.GRAPH_UNCONFIRMED_RETENTION_DAYS == 14
+        assert s.MEMORY_BACKUP_ENABLED is True
+        assert s.MEMORY_BACKUP_DIR == "backups"
+        assert s.MEMORY_BACKUP_KEEP == 7
+        assert s.MEMORY_BACKUP_HOUR == "05:00"
+        assert s.EMBED_CACHE_ENABLED is True
+        assert s.EMBED_CACHE_TTL_DAYS == 30
+        assert s.EMBED_CACHE_MAX_ROWS == 50000
+        assert s.CHECKUP_MEMORY_METRICS_ENABLED is True
+        assert s.CHAT_RUNNING_SUMMARY_ENABLED is True
+        assert s.CHAT_CONTEXT_FILL_RATIO == 0.8
+        assert s.CHAT_RUNNING_SUMMARY_TAIL == 30
+        assert s.RUNNING_SUMMARY_TTL_MINUTES == 60
+        assert s.TOKENIZER_ENCODING == "o200k_base"
+        assert s.TOKEN_SAFETY_MULTIPLIER == 1.15
+        assert s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS is None
+        assert s.CHAT_THREAD_MAX_TOKENS is None
+        assert s.SUMMARY_MAX_CONTEXT_TOKENS is None
+
+    def test_effective_token_defaults(self):
+        """64.7: без env — эффективные токенные бюджеты 1000/500/30000."""
+        importlib.reload(settings_mod)
+        from services.token_counter import resolve_chat_limit
+        s = settings_mod.settings
+        assert resolve_chat_limit(
+            s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS, 1000,
+            "CHAT_GLOBAL_CONTEXT_MAX_CHARS", s.CHAT_GLOBAL_CONTEXT_MAX_CHARS,
+            "CHAT_GLOBAL_CONTEXT") == ("tokens", 1000)
+        assert resolve_chat_limit(
+            s.CHAT_THREAD_MAX_TOKENS, 500,
+            "CHAT_THREAD_MAX_CHARS", s.CHAT_THREAD_MAX_CHARS,
+            "CHAT_THREAD") == ("tokens", 500)
+        assert resolve_chat_limit(
+            s.SUMMARY_MAX_CONTEXT_TOKENS, 30000,
+            "SUMMARY_MAX_CONTEXT_CHARS", s.SUMMARY_MAX_CONTEXT_CHARS,
+            "SUMMARY_MAX_CONTEXT") == ("tokens", 30000)
+
+    def test_valid_values_parsed(self, monkeypatch):
+        monkeypatch.setenv("GRAPH_DEDUP_SIMILARITY_HIGH", "0.97")
+        monkeypatch.setenv("GRAPH_DEDUP_WEIGHT_BONUS", "0.2")
+        monkeypatch.setenv("EMBED_CACHE_TTL_DAYS", "60")
+        monkeypatch.setenv("MEMORY_BACKUP_KEEP", "10")
+        monkeypatch.setenv("RUNNING_SUMMARY_TTL_MINUTES", "90")
+        monkeypatch.setenv("CHAT_GLOBAL_CONTEXT_MAX_TOKENS", "2000")
+        importlib.reload(settings_mod)
+        s = settings_mod.settings
+        assert s.GRAPH_DEDUP_SIMILARITY_HIGH == 0.97
+        assert s.GRAPH_DEDUP_WEIGHT_BONUS == 0.2
+        assert s.EMBED_CACHE_TTL_DAYS == 60
+        assert s.MEMORY_BACKUP_KEEP == 10
+        assert s.RUNNING_SUMMARY_TTL_MINUTES == 90
+        assert s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS == 2000

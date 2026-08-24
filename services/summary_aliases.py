@@ -2,6 +2,9 @@
 
 Cascade: alias (JSON dict from SUMMARY_ALIASES) → nickname (first+last name)
 → username (without @) → user_id. '@' never appears in results.
+
+Epic 60 (66.9, T-487): canon_name — обратная карта «имя → канон-алиас» для
+привязки фактов графа к людям (карточки /persona агрегируются по канон-имени).
 """
 import json
 import logging
@@ -14,6 +17,7 @@ class AliasResolver:
 
     def __init__(self, raw_json: str):
         self._aliases: dict[str, str] = {}
+        self._by_name: dict[str, str] = {}
         self._cache: dict[tuple, str] = {}
         if raw_json:
             try:
@@ -28,6 +32,14 @@ class AliasResolver:
                 logger.warning(
                     "SUMMARY_ALIASES invalid JSON — aliases disabled: %r", raw_json
                 )
+        self._by_name = {value.casefold(): value for value in self._aliases.values()}
+
+    def canon_name(self, name: str) -> str:
+        """66.9 (T-487): имя → канон-алиас (обратная карта). Совпадение с
+        алиасом (регистронезависимо) → канон-написание алиаса; иначе — имя
+        как есть (normalize не трогаем — caller сам нормализует)."""
+        text = str(name or "").strip()
+        return self._by_name.get(text.casefold(), text)
 
     def resolve(
         self,

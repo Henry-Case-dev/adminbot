@@ -44,6 +44,8 @@ from services.summary_aliases import AliasResolver
 from services.summary_generator import SummaryGenerator
 from services.summary_memory import MemoryManager
 from services.summary_scheduler import SummarySchedulerService
+from services.memory_backup import MemoryBackupService
+from services.memory_maintenance import MemoryMaintenanceService
 from services.summary_xml import XmlGroundingBuilder
 from services.goodmorning_relay import GoodmorningRelay
 from services.goodmorning_scheduler import GoodmorningSchedulerService
@@ -64,7 +66,8 @@ from services.checkup_service import CheckupService
 from services.system_logs_fetcher import CheckupLogsFetcher
 from handlers.direct_chat import direct_chat_router, setup_direct_chat
 from services.direct_chat_service import DirectChatService
-from services.smart_cache import close_smart_cache
+from services.persistent_throttling import PersistentThrottle
+from services.smart_cache import close_smart_cache, get_smart_cache
 from handlers.info import info_router, setup_info
 from services.info_service import InfoService
 
@@ -96,6 +99,10 @@ _search_aggregator = None
 _web_extractor = None
 # SmartModule Checkup (Epic 42) — module-level ref for on_shutdown
 _checkup_fetcher = None
+# Memory backup (Epic 60, Section 64.3, T-464) — module-level ref for on_shutdown
+_memory_backup_service = None
+# Memory maintenance (Epic 60, Section 66.2/66.11, T-480/T-489) — merge+review
+_memory_maintenance_service = None
 
 
 async def on_startup():
@@ -150,13 +157,15 @@ async def on_startup():
             settings.LLM_MODEL_NAME,
             settings.EMBEDDING_MODEL_NAME,
         )
-        memory = MemoryManager(db, _llm_client)
+        aliases = AliasResolver(settings.SUMMARY_ALIASES)
+        # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
+        # людям по алиасам: канон-имена в фактах/узлах → карточки /persona).
+        memory = MemoryManager(db, _llm_client, aliases=aliases)
         vec_ok = await memory.initialize()
         logger.info(
             "SmartModule: sqlite-vec %s",
             "available" if vec_ok else "UNAVAILABLE — FTS5 fallback (R3)",
         )
-        aliases = AliasResolver(settings.SUMMARY_ALIASES)
         xml_builder = XmlGroundingBuilder()
         generator = SummaryGenerator(memory, xml_builder, _llm_client, bot, aliases)
         setup_summary(generator, db, aliases, bot.id)
@@ -168,8 +177,8 @@ async def on_startup():
         global _search_aggregator
         _search_aggregator = SearchAggregator()                 # ленивый httpx-клиент
         _search_aggregator.log_config()                         # D104: WARNING-и пустых ключей
-        setup_factcheck(FactCheckService(_search_aggregator, _llm_client, memory=memory))
-        setup_search(SearchService(_search_aggregator, _llm_client, memory=memory))
+        setup_factcheck(FactCheckService(_search_aggregator, _llm_client, memory=memory), db)
+        setup_search(SearchService(_search_aggregator, _llm_client, memory=memory), db)
         logger.info("SmartModule FactCheck + SmartSearch (Epic 33) initialized")
 
         # ── SmartModule: YouTube + Web (Epic 37) ──
@@ -177,8 +186,8 @@ async def on_startup():
         youtube_engine = YouTubeTranscriptEngine()
         _web_extractor = WebContentExtractor()
         _web_extractor.log_config()                         # WARNING пустых ключей (D104)
-        setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client, memory=memory))
-        setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory))
+        setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client, memory=memory), db)
+        setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory), db)
         logger.info("SmartModule YouTube + Web (Epic 37) initialized")
 
         # ── SmartModule: Checkup (Epic 42) ──
@@ -195,21 +204,54 @@ async def on_startup():
             "Checkup SQL API configured=%s (R17: только факт)",
             bool(settings.CHECKUP_BETTERSTACK_SQL_USER and settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
         )
-        setup_checkup(CheckupService(_llm_client), _checkup_fetcher)
+        setup_checkup(
+            CheckupService(_llm_client, db=db, memory=memory),
+            _checkup_fetcher, db)
         logger.info("SmartModule Checkup (Epic 42) initialized")
 
         # ── SmartModule: DirectChat (Epic 50, Section 58.4) ──
         bot_user = await bot.get_me()
+        # Epic 60 (63.1): рубильник THROTTLE_PERSISTENT_ENABLED → persistent
+        # token bucket (throttle_state); false → дефолт DirectChatService
+        # строит старый in-memory DirectChatThrottle.
+        throttle = None
+        if settings.THROTTLE_PERSISTENT_ENABLED:
+            throttle = PersistentThrottle(
+                settings.CHAT_BURST_LIMIT, settings.CHAT_COOLDOWN_SECONDS,
+                "direct_chat", db)
         setup_direct_chat(
             DirectChatService(
                 memory, db, _llm_client, aliases,
+                throttle=throttle,
                 bot_id=bot.id,
                 bot_username=(getattr(bot_user, "username", None) or "").lower(),
+                # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд
+                # (smart_cache, slug direct_dedup; рубильник CHAT_DEDUP_ENABLED).
+                cache=get_smart_cache(),
             ),
             bot.id,
             (getattr(bot_user, "username", None) or "").lower(),
         )
         logger.info("SmartModule DirectChat (Epic 50) initialized")
+
+        # ── Memory backup (Epic 60, Section 64.3, T-464) ──
+        # VACUUM INTO-бэкап + текстовый экспорт фактов, daily. Рубильник
+        # MEMORY_BACKUP_ENABLED; НЕ на остановленном боте (онлайн).
+        global _memory_backup_service
+        if settings.MEMORY_BACKUP_ENABLED:
+            _memory_backup_service = MemoryBackupService(db)
+            _memory_backup_service.start()
+            logger.info("MemoryBackup (Epic 60) initialized (daily %s %s)",
+                        settings.MEMORY_BACKUP_HOUR, settings.SUMMARY_TIMEZONE)
+        else:
+            logger.info("MemoryBackup disabled (MEMORY_BACKUP_ENABLED=False)")
+
+        # ── Memory maintenance (Epic 60, Section 66.2/66.11, T-480/T-489) ──
+        # Слияние эпизодов + периодический пересмотр фактов (MemoryJobStore).
+        global _memory_maintenance_service
+        _memory_maintenance_service = MemoryMaintenanceService(db, memory, _llm_client)
+        _memory_maintenance_service.start()
+        logger.info("MemoryMaintenance (Epic 60, Фаза D) initialized")
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
 
@@ -227,7 +269,7 @@ async def on_startup():
     # ── /info + /edit_info (Epic 43, D162) — БЕЗУСЛОВНО (LLM не нужен) ──
     info_service = InfoService(settings.INFO_TEXT_FILE)
     info_service.load()
-    setup_info(info_service)
+    setup_info(info_service, db)                 # Epic 60 (63.1): персистентный кулдаун
     logger.info("InfoService (Epic 43) initialized | file=%s", settings.INFO_TEXT_FILE)
 
     # ── Epic 31 (R31-2): меню команд (setMyCommands) — ДО dp.start_polling ──
@@ -352,6 +394,10 @@ async def on_shutdown():
         await _goodmorning_scheduler.shutdown()
     if _summary_service:
         await _summary_service.shutdown()
+    if _memory_backup_service:
+        await _memory_backup_service.shutdown()
+    if _memory_maintenance_service:
+        await _memory_maintenance_service.shutdown()
     if _llm_client:
         await _llm_client.close()
     if _search_aggregator:

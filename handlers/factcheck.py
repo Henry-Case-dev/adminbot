@@ -19,8 +19,13 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
 from handlers.summary import _extract_forward_source
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.media_group_buffer import get_media_group_caption
+from services.persistent_throttling import (
+    cooldown_remaining,
+    cooldown_touch,
+    make_cooldown,
+)
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smart_cache import get_smart_cache
 from services.smartmodule_phrases import (
@@ -29,7 +34,13 @@ from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
 )
 from services.smartmodule_throttling import CooldownTracker
-from services.smartmodule_utils import _reply, send_chunked_reply, throttle_phrase
+from services.smartmodule_utils import (
+    _reply,
+    react_moai,
+    send_chunked_reply,
+    throttle_phrase,
+)
+from services.typing_manager import typing_active
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +53,14 @@ _FACTCHECK_TRIGGER_RE = re.compile(r"^фактчек\b", re.IGNORECASE)   # сл
 _HINT_LEAD_RE = re.compile(r"^[\s,:;]+")
 
 
-def setup_factcheck(service) -> None:
-    """DI: FactCheckService. Вызывается из bot.py on_startup (42.8)."""
-    global _service
+def setup_factcheck(service, db=None) -> None:
+    """DI: FactCheckService. Вызывается из bot.py on_startup (42.8).
+    Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный кулдаун
+    (throttle_state, scope='factcheck')."""
+    global _service, _cooldown
     _service = service
+    _cooldown = make_cooldown(
+        "factcheck", settings.FACTCHECK_COOLDOWN_SECONDS, db)
 
 
 def _parse_trigger(message: types.Message) -> tuple[types.Message | None, str | None]:
@@ -92,11 +107,11 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if target is None:
         return UNHANDLED                       # не триггер → пропагация живёт
     logger.info("[factcheck] triggered | chat=%s user=%s", message.chat.id, user_id)
-    remaining = _cooldown.remaining(message.chat.id, user_id)
+    remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (message.message_id)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм (D107: троттлинг — на вызов)
-    _cooldown.touch(message.chat.id, user_id)  # слот сразу (42.4)
+    await cooldown_touch(_cooldown, message.chat.id, user_id)  # слот сразу (42.4)
     target_text = _extract_target_text(message, target)
     if not target_text:                        # 5.3 → РЕПЛАЙ НА ЦЕЛЕВОЕ, БЕЗ поиска
         await _reply(bot, message.chat.id, random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES),
@@ -115,12 +130,19 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         logger.info("[factcheck] cache hit | chat=%s", message.chat.id)
         return
     try:
-        verdict = await _service.check_claim(
-            target_text, user_hint, forward_source, chat_id=message.chat.id
-        )
-        await send_chunked_reply(bot, message.chat.id, verdict, target.message_id)
+        # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
+        async with typing_active(bot, message.chat.id):
+            verdict = await _service.check_claim(
+                target_text, user_hint, forward_source, chat_id=message.chat.id
+            )
+            await send_chunked_reply(bot, message.chat.id, verdict, target.message_id)
         await cache.set(cache_key, verdict)      # только успешная генерация (59.2)
         logger.info("[factcheck] verdict sent | chat=%s", message.chat.id)
+    except LLMBadResponseError as exc:
+        # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).
+        logger.warning("[factcheck] empty answer — silence | chat=%s | error=%s",
+                       message.chat.id, exc)
+        await react_moai(bot, message.chat.id, target.message_id)
     except AllSearchEnginesFailedException:
         logger.exception("[factcheck] search failed | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(FACTCHECK_ERROR_PHRASES),  # 5.4b → ЦЕЛЕВОЕ

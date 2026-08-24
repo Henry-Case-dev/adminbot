@@ -12,11 +12,24 @@ REVISE S1: entities — РЕАЛЬНЫЕ aiogram.types.MessageEntity (в 3.x у 
 from unittest.mock import AsyncMock, MagicMock
 
 import datetime
+import logging
 import pytest
 from aiogram.dispatcher.event.bases import UNHANDLED
+from aiogram.filters import CommandObject
 from aiogram.types import MessageEntity, User
 
+from config.settings import settings
 from handlers import direct_chat as dc_mod
+from services.smartmodule_phrases import (
+    CHAT_CLEAR_DONE_PHRASE,
+    CHAT_FORGET_DONE_PHRASE,
+    CHAT_FORGET_MISS_PHRASE,
+    CHAT_FORGET_NOARG_PHRASE,
+    CHAT_PERSONA_PHRASE,
+    CHAT_TONE_SET_PHRASES,
+    CHAT_TONE_SHOW_PHRASE,
+    CHAT_TONE_UNKNOWN_PHRASE,
+)
 
 BOT_ID = 12345
 BOT_USERNAME = "test_bot"
@@ -509,3 +522,271 @@ class TestBotwordPriorityIntegration:
         checkup_mod._service = None
         checkup_mod._fetcher = None
         dc_module.setup_direct_chat(None, None, None)
+
+
+class TestEditedMessage:
+    """65.2 (T-470): бот отредактировал СВОЁ сообщение → обновить bot_replies;
+    правка человеком → UNHANDLED, переотвечания нет."""
+
+    @pytest.fixture
+    def wire_edited(self):
+        service = MagicMock()
+        service.remember_bot_reply = AsyncMock()
+        dc_mod.setup_direct_chat(service, BOT_ID, BOT_USERNAME)
+        yield service
+        dc_mod.setup_direct_chat(None, None, None)
+
+    @pytest.mark.asyncio
+    async def test_bot_edit_updates_bot_replies(self, wire_edited):
+        msg = _msg(text="новый текст ответа бота", message_id=55)
+        msg.from_user.id = BOT_ID
+        result = await dc_mod.direct_chat_edited_handler(msg, bot=AsyncMock())
+        assert result is not UNHANDLED
+        wire_edited.remember_bot_reply.assert_awaited_once_with(
+            CHAT_ID, 55, "новый текст ответа бота")
+
+    @pytest.mark.asyncio
+    async def test_human_edit_unhandled(self, wire_edited):
+        msg = _msg(text="человек поправил себя", message_id=56)
+        result = await dc_mod.direct_chat_edited_handler(msg, bot=AsyncMock())
+        assert result is UNHANDLED
+        wire_edited.remember_bot_reply.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_edit_unhandled(self, wire_edited):
+        msg = _msg(text="   ", message_id=57)
+        msg.from_user.id = BOT_ID
+        result = await dc_mod.direct_chat_edited_handler(msg, bot=AsyncMock())
+        assert result is UNHANDLED
+        wire_edited.remember_bot_reply.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_service_unhandled(self):
+        dc_mod.setup_direct_chat(None, BOT_ID, BOT_USERNAME)
+        msg = _msg(text="текст", message_id=58)
+        msg.from_user.id = BOT_ID
+        result = await dc_mod.direct_chat_edited_handler(msg, bot=AsyncMock())
+        assert result is UNHANDLED
+        dc_mod.setup_direct_chat(None, None, None)
+
+
+class TestDialogCommands:
+    """65.5 (T-473): /clear /persona /tone /forget — фразы VERBATIM из
+    Section 65.5; Command-хендлеры регистрируются ВЫШЕ catch-all."""
+
+    @pytest.fixture
+    def wire_commands(self):
+        service = MagicMock()
+        service.get_tone_preset = AsyncMock(return_value=None)
+        service.set_tone_preset = AsyncMock()
+        service.clear_user_dialogue = AsyncMock(return_value=3)
+        service.forget_user_fact = AsyncMock(return_value=0)
+        dc_mod.setup_direct_chat(service, BOT_ID, BOT_USERNAME)
+        yield service
+        dc_mod.setup_direct_chat(None, None, None)
+
+    async def _run(self, handler, text="команда", command=None, bot=None):
+        msg = _msg(text=text)
+        kwargs = {}
+        if command is not None:
+            kwargs["command"] = command
+        return await handler(msg, bot=bot or AsyncMock(), **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_clear_replies_verbatim(self, wire_commands):
+        bot = AsyncMock()
+        result = await self._run(dc_mod.cmd_clear, bot=bot)
+        assert result is not UNHANDLED
+        wire_commands.clear_user_dialogue.assert_awaited_once()
+        assert bot.send_message.await_args.args[1] == CHAT_CLEAR_DONE_PHRASE
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_persona_default_tone(self, wire_commands):
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_persona, bot=bot)
+        expected = CHAT_PERSONA_PHRASE.replace("{tone}", "сбалансированный")
+        assert bot.send_message.await_args.args[1] == expected
+
+    @pytest.mark.asyncio
+    async def test_persona_stored_tone(self, wire_commands):
+        wire_commands.get_tone_preset = AsyncMock(return_value="chatty")
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_persona, bot=bot)
+        expected = CHAT_PERSONA_PHRASE.replace("{tone}", "болтливый")
+        assert bot.send_message.await_args.args[1] == expected
+
+    @pytest.mark.asyncio
+    async def test_tone_show_without_args(self, wire_commands):
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_tone, bot=bot,
+                        command=CommandObject(command="tone"))
+        expected = CHAT_TONE_SHOW_PHRASE.replace("{tone}", "сбалансированный")
+        assert bot.send_message.await_args.args[1] == expected
+        wire_commands.set_tone_preset.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_tone_set_chatty(self, wire_commands):
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_tone, bot=bot,
+                        command=CommandObject(command="tone", args="болтливый"))
+        wire_commands.set_tone_preset.assert_awaited_once_with(CHAT_ID, 10, "chatty")
+        assert bot.send_message.await_args.args[1] == CHAT_TONE_SET_PHRASES["chatty"]
+
+    @pytest.mark.asyncio
+    async def test_tone_unknown_word(self, wire_commands):
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_tone, bot=bot,
+                        command=CommandObject(command="tone", args="кринжовый"))
+        assert bot.send_message.await_args.args[1] == CHAT_TONE_UNKNOWN_PHRASE
+        wire_commands.set_tone_preset.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_forget_without_args(self, wire_commands):
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_forget, bot=bot,
+                        command=CommandObject(command="forget"))
+        assert bot.send_message.await_args.args[1] == CHAT_FORGET_NOARG_PHRASE
+        wire_commands.forget_user_fact.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_forget_miss(self, wire_commands):
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_forget, bot=bot,
+                        command=CommandObject(command="forget", args="про дроны"))
+        args = wire_commands.forget_user_fact.await_args.args
+        assert args[0] == CHAT_ID and args[2] == "про дроны"
+        assert bot.send_message.await_args.args[1] == CHAT_FORGET_MISS_PHRASE
+
+    @pytest.mark.asyncio
+    async def test_forget_done(self, wire_commands):
+        wire_commands.forget_user_fact = AsyncMock(return_value=2)
+        bot = AsyncMock()
+        await self._run(dc_mod.cmd_forget, bot=bot,
+                        command=CommandObject(command="forget", args="дроны"))
+        assert bot.send_message.await_args.args[1] == CHAT_FORGET_DONE_PHRASE
+
+    @pytest.mark.asyncio
+    async def test_commands_from_bot_user_unhandled(self, wire_commands):
+        msg = _msg(text="/clear")
+        msg.from_user.id = BOT_ID
+        result = await dc_mod.cmd_clear(msg, bot=AsyncMock())
+        assert result is UNHANDLED
+        wire_commands.clear_user_dialogue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_commands_without_from_user_unhandled(self, wire_commands):
+        msg = _msg(text="/clear")
+        msg.from_user = None
+        result = await dc_mod.cmd_clear(msg, bot=AsyncMock())
+        assert result is UNHANDLED
+        wire_commands.clear_user_dialogue.assert_not_called()
+
+
+class TestPersonaCardCommand:
+    """Epic 60 Фаза D (66.9, T-487): /persona <имя> — карточка; /persona list —
+    админ-список; права (своя/чужая/админ); пустая карточка — фраза VERBATIM."""
+
+    @pytest.fixture
+    def wire_card(self):
+        service = MagicMock()
+        service.get_tone_preset = AsyncMock(return_value=None)
+        service.build_persona_card = AsyncMock(return_value=None)
+        service.list_persona_names = AsyncMock(return_value=[])
+        service.persona_access = MagicMock(return_value=True)
+        dc_mod.setup_direct_chat(service, BOT_ID, BOT_USERNAME)
+        yield service
+        dc_mod.setup_direct_chat(None, None, None)
+
+    async def _run(self, handler, args=None, user_id=10):
+        msg = _msg(text="команда", user_id=user_id)
+        command = CommandObject(command="persona", args=args)
+        bot = AsyncMock()
+        return await handler(msg, bot=bot, command=command), bot
+
+    @pytest.mark.asyncio
+    async def test_no_args_shows_persona_tone(self, wire_card):
+        _, bot = await self._run(dc_mod.cmd_persona, args=None)
+        expected = CHAT_PERSONA_PHRASE.replace("{tone}", "сбалансированный")
+        assert bot.send_message.await_args.args[1] == expected
+        wire_card.build_persona_card.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_card_with_name(self, wire_card):
+        wire_card.build_persona_card = AsyncMock(
+            return_value="карточка: вася\nзнаю о тебе: 1 фактов, 0 связей\n1. факт")
+        _, bot = await self._run(dc_mod.cmd_persona, args="вася")
+        wire_card.persona_access.assert_called_once()
+        assert bot.send_message.await_args.args[1].startswith("карточка: вася")
+
+    @pytest.mark.asyncio
+    async def test_card_empty_verbatim_phrase(self, wire_card):
+        """66.9 VERBATIM: «в памяти про {имя} пока пусто, пусть хоть раз
+        нормально пообщается»."""
+        _, bot = await self._run(dc_mod.cmd_persona, args="петя")
+        sent = bot.send_message.await_args.args[1]
+        assert sent == ("в памяти про петя пока пусто, "
+                        "пусть хоть раз нормально пообщается")
+
+    @pytest.mark.asyncio
+    async def test_foreign_card_denied(self, wire_card):
+        """66.9/R17: чужую карточку видит только ADMIN_USER_ID."""
+        wire_card.persona_access = MagicMock(return_value=False)
+        _, bot = await self._run(dc_mod.cmd_persona, args="вася")
+        from services.smartmodule_phrases import CHAT_PERSONA_FOREIGN_PHRASE
+        assert bot.send_message.await_args.args[1] == CHAT_PERSONA_FOREIGN_PHRASE
+        wire_card.build_persona_card.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_list_denied_for_non_admin(self, wire_card):
+        from services.smartmodule_phrases import CHAT_PERSONA_ADMIN_ONLY_PHRASE
+        _, bot = await self._run(dc_mod.cmd_persona, args="list", user_id=999)
+        assert bot.send_message.await_args.args[1] == CHAT_PERSONA_ADMIN_ONLY_PHRASE
+        wire_card.list_persona_names.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_list_for_admin(self, wire_card):
+        wire_card.list_persona_names = AsyncMock(return_value=[("вася", 3)])
+        _, bot = await self._run(dc_mod.cmd_persona, args="list",
+                                 user_id=settings.ADMIN_USER_ID)
+        sent = bot.send_message.await_args.args[1]
+        assert "вася — 3 фактов" in sent
+
+    @pytest.mark.asyncio
+    async def test_list_empty_for_admin(self, wire_card):
+        from services.smartmodule_phrases import CHAT_PERSONA_LIST_EMPTY_PHRASE
+        _, bot = await self._run(dc_mod.cmd_persona, args="list",
+                                 user_id=settings.ADMIN_USER_ID)
+        assert bot.send_message.await_args.args[1] == CHAT_PERSONA_LIST_EMPTY_PHRASE
+
+
+class TestBotwordFromConfig:
+    """Epic 60 Фаза E (67.2, T-492, правило п.49): keyword-regex «бот»-семьи —
+    в конфиге CHAT_BOTWORD_PATTERN. Дефолт байт-в-байт равен старому литералу
+    (тесты 61.5 выше зелёные без правок); невалидный regex → WARNING + дефолт."""
+
+    LEGACY = r"(?i)(?<![0-9a-zа-яё_./])бот(?:ина|яра|ик|охуета|охуйня)?(?![0-9a-zа-яё_])"
+
+    def test_default_pattern_byte_for_byte_legacy(self):
+        assert settings.CHAT_BOTWORD_PATTERN == self.LEGACY
+        assert dc_mod._BOTWORD_PATTERN_DEFAULT == self.LEGACY
+        assert dc_mod._BOTWORD_RE.pattern == self.LEGACY
+
+    def test_custom_pattern_compiles(self):
+        rx = dc_mod._compile_botword(r"(?i)альфа")
+        assert rx.search("ну альфа и привет")
+        assert not rx.search("слышь, бот")
+
+    def test_invalid_regex_falls_back_to_default(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            rx = dc_mod._compile_botword("(?i)(?<бот")     # битый lookbehind
+        assert rx.pattern == dc_mod._BOTWORD_PATTERN_DEFAULT
+        assert any("CHAT_BOTWORD_PATTERN invalid" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_default_semantics_unchanged(self, wire):
+        """Дефолт из конфига триггит ровно как старый литерал."""
+        msg = _msg(text="слышь, бот")
+        assert await dc_mod.direct_chat_handler(msg, bot=MagicMock()) is None
+        wire.handle.assert_awaited_once()

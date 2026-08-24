@@ -13,15 +13,22 @@ import re
 import sqlite3
 import time
 
-from aiogram.exceptions import TelegramRetryAfter
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
 from services.database import row_get
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import SYSTEM_PROMPT
 from services.summary_xml import escape_xml_text
+from services.token_counter import (
+    count_tokens,
+    resolve_chat_limit,
+    safe_budget,
+    truncate_to_tokens,
+)
+from services.typing_manager import typing_active
 
 try:
     import aiosqlite
@@ -116,6 +123,25 @@ class SummaryGenerator:
             user_content = self._compose_user_content(
                 xml_context, l2_quotes, l3_facts, graph_facts, rag_context=rag_context
             )
+            # Epic 60 (64.7, T-468): потолок-проверка user_content перед
+            # generate — токены (SUMMARY_MAX_CONTEXT_TOKENS, срез С КОНЦА;
+            # chars — fallback). Таймер 6ч/крон НЕ меняются.
+            kind, limit = resolve_chat_limit(
+                settings.SUMMARY_MAX_CONTEXT_TOKENS, 30000,
+                "SUMMARY_MAX_CONTEXT_CHARS", settings.SUMMARY_MAX_CONTEXT_CHARS,
+                "SUMMARY_MAX_CONTEXT",
+            )
+            if kind == "tokens":
+                budget = safe_budget(limit)
+                if count_tokens(user_content) > budget:
+                    logger.warning(
+                        "summary: user content truncated | tokens=%d -> %d",
+                        count_tokens(user_content), budget)
+                    user_content = truncate_to_tokens(user_content, budget)
+            elif len(user_content) > limit:
+                logger.warning(
+                    "summary: user content truncated | chars=%d", len(user_content))
+                user_content = user_content[-limit:]
             max_symbols = settings.MAX_SUMMARY_PARTS * 4000 - 200
             # NOTE: {username} must stay literal in the prompt (R11), so we
             # substitute only {max_symbols} via replace, not str.format.
@@ -125,15 +151,32 @@ class SummaryGenerator:
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_content},
             ]
+            # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки (manual И
+            # cron — в чат всё равно пишется). Без искусственной паузы.
+            # Epic 60 (65.1, T-469): LLMBadResponseError (пустой ответ) —
+            # молчание ДО retry-once; R13-ветки не тронуты.
             try:
-                raw = await self.llm.generate(payload)
+                async with typing_active(self.bot, chat_id):
+                    raw = await self.llm.generate(payload)
+            except LLMBadResponseError as exc:
+                logger.warning(
+                    "summary: empty answer — silence | chat_id=%s | error=%s",
+                    chat_id, exc)
+                return                     # молчание: ни заглушки, ни реакции
             except LLMError as exc:
                 # Epic 47 (D189, 56.6): A — retry-once (пауза SUMMARY_RETRY_ONCE_PAUSE)
                 logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)
                 await asyncio.sleep(settings.SUMMARY_RETRY_ONCE_PAUSE)
                 try:
                     started = time.monotonic()   # latency_ms — только повторная попытка
-                    raw = await self.llm.generate(payload)
+                    async with typing_active(self.bot, chat_id):
+                        raw = await self.llm.generate(payload)
+                except LLMBadResponseError as exc:
+                    # 65.1: пустой ответ на повторе — тоже молчание.
+                    logger.warning(
+                        "summary: empty answer — silence | chat_id=%s | error=%s",
+                        chat_id, exc)
+                    return
                 except LLMError:
                     raise                       # C — UX R13 через внешний except
             latency_ms = (time.monotonic() - started) * 1000.0
@@ -142,8 +185,18 @@ class SummaryGenerator:
                 chat_id, len(raw), latency_ms, raw,
             )
             raw = cleanup_llm_text(raw)                   # Epic 28 (R28-3)
+            if not raw.strip():
+                # Epic 60 (65.1): после cleanup пусто → молчание (без реакции:
+                # message_id в manual-ветку не передаётся — 65.1).
+                logger.warning(
+                    "summary: empty answer after cleanup — silence | chat_id=%s",
+                    chat_id)
+                return
             text = self._ensure_shiz_postfix(raw, rows)
-            await self._send_chunked(chat_id, text)
+            if settings.SUMMARY_STREAMING_ENABLED:
+                await self._send_streaming(chat_id, text)   # Epic 60 (65.6, T-474)
+            else:
+                await self._send_chunked(chat_id, text)
         except LLMError as exc:
             logger.warning("summary: LLM failed | chat_id=%s | error=%s", chat_id, exc)
             await self._send_ux(chat_id, _UX_LLM_FAILED)
@@ -256,6 +309,69 @@ class SummaryGenerator:
         return "\n\n".join(parts)
 
     # ── Sending ───────────────────────────────────────────────
+
+    async def _send_streaming(self, chat_id: int, text: str) -> None:
+        """Epic 60 (65.6, T-474): стриминг ТОЛЬКО саммари — placeholder «…» →
+        инкрементальные edit_text с накоплением. Темп: приват 1.0с / группа
+        3.0с (get_chat; не узнали тип — консервативный групповой).
+        «message is not modified» = success; retry_after → сон + РОВНО 1
+        повтор, затем drop чанка (финальный edit гарантирует полноту);
+        «message is too long» → break в финал/остаток; прочая ошибка edit →
+        деградация в _send_chunked. Остаток >4096 — НОВЫМИ сообщениями без
+        дублей (сумма без потерь)."""
+        interval = settings.SUMMARY_STREAM_EDIT_INTERVAL_GROUP
+        try:
+            chat = await self.bot.get_chat(chat_id)
+            if getattr(chat, "type", "") == "private":
+                interval = settings.SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE
+        except Exception:
+            pass                            # не узнали тип — групповой темп
+        chunks = self._chunk_by_whitespace(text, 4096)
+        if not chunks:
+            logger.warning("summary: streaming — empty final text | chat_id=%s",
+                           chat_id)
+            return
+        sent = await self.bot.send_message(chat_id, "…")
+        acc, last_text = "", "…"
+        for index, chunk in enumerate(chunks):
+            # Накопление с разделителем: чанки режутся ПО пробелам (сам
+            # разделитель в чанк не входит) — склейка без пробела склеила бы
+            # слова на границе 4096. Нормализация пробелов — как в _chunk_by_whitespace.
+            acc = chunk if index == 0 else acc + " " + chunk
+            new_text = acc if len(acc) <= 4096 else acc[:4096].rstrip() + "…"
+            if new_text == last_text:
+                continue                    # защита «message is not modified»
+            try:
+                await sent.edit_text(new_text)
+                last_text = new_text
+            except TelegramRetryAfter as exc:       # сон + РОВНО 1 повтор, затем drop
+                await asyncio.sleep(exc.retry_after)
+                try:
+                    await sent.edit_text(new_text)
+                    last_text = new_text
+                except Exception:
+                    pass                    # финальный edit гарантирует полноту
+            except TelegramBadRequest as exc:
+                msg = getattr(exc, "message", "") or ""
+                if "message is not modified" in msg:
+                    last_text = new_text    # no-op → success (T-459 тема 3)
+                elif "message is too long" in msg:
+                    break                   # выходим в финал/остаток
+                else:
+                    logger.warning(
+                        "summary: streaming edit failed — degrade | chat_id=%s",
+                        chat_id)
+                    return await self._send_chunked(chat_id, text)
+            await asyncio.sleep(interval)
+        try:                                # финальный edit — полнота (без «…»)
+            if acc[:4096] != last_text.rstrip("…"):
+                await sent.edit_text(acc[:4096])
+        except Exception:
+            logger.warning("summary: streaming final edit failed | chat_id=%s",
+                           chat_id)
+        if len(text) > 4096:                # остаток — НОВЫМИ сообщениями (без дублей)
+            await self._send_chunked(chat_id, text[4096:])
+        logger.info("summary: streaming done | chat_id=%s", chat_id)
 
     async def _send_chunked(self, chat_id: int, text: str) -> None:
         chunks = self._chunk_by_whitespace(text, 4096)

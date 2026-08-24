@@ -35,7 +35,7 @@ class _SpyLLM:
         self.text = text
         self.messages = None
 
-    async def generate(self, messages):
+    async def generate(self, messages, temperature=None):
         self.messages = messages
         return self.text
 

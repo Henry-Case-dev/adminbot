@@ -256,6 +256,21 @@ class LLMClient:
                         "LLM request OK | url=%s | status=%d | latency_ms=%.0f | in=%d chars | out=%d chars",
                         url, status, latency_ms, request_len, len(response.content),
                     )
+                    # Epic 60 (64.7, T-468): фактический лимит — usage из
+                    # API-ответа (источник истины для бюджетов/метрик);
+                    # парсинг fail-open (нет usage в ответе → нет лога).
+                    try:
+                        data = response.json()
+                    except Exception:
+                        data = None
+                    if isinstance(data, dict):
+                        usage = data.get("usage")
+                        if isinstance(usage, dict):
+                            logger.info(
+                                "LLM usage in=%d out=%d",
+                                int(usage.get("prompt_tokens") or 0),
+                                int(usage.get("completion_tokens") or 0),
+                            )
                     return response
         except asyncio.TimeoutError:
             raise LLMTimeoutError(
@@ -280,14 +295,21 @@ class LLMClient:
         fallback_payload["model"] = self._fallback_model
         return await client.post(url, json=fallback_payload)
 
-    async def generate(self, messages: list[dict[str, str]]) -> str:
+    async def generate(self, messages: list[dict[str, str]],
+                       temperature: float | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
+
+        Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
+        ключ в payload НЕ добавляется (ровно старое поведение для всех
+        остальных вызовов; дефолт провайдера).
 
         Epic 53 (62.4): при LLMError primary (кроме LLMBadResponseError) и
         активном фоллбэке — 1 попытка на фоллбэке; фейл фоллбэка → проброс
         ИСХОДНОГО исключения primary (CB-классификация работает по классу).
         """
         payload = {"model": self._chat_model, "messages": messages}
+        if temperature is not None:
+            payload["temperature"] = temperature
         try:
             response = await self._post("/chat/completions", payload)
         except LLMError as exc:

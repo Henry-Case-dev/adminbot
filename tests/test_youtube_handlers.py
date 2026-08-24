@@ -4,12 +4,14 @@
 UNHANDLED, reply-таргеты: успех/5.6/5.5 → target.message_id (ЦЕЛЕВОЕ),
 троттлинг 5.1 → message.message_id (ВЫЗОВ).
 """
+import logging
+
 import pytest
 from aiogram.dispatcher.event.bases import UNHANDLED
 from unittest.mock import AsyncMock, MagicMock
 
 from handlers import youtube as youtube_mod
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     THROTTLE_PHRASES,
@@ -224,8 +226,6 @@ class TestHandler:
     @pytest.mark.asyncio
     async def test_llm_error_5_5_on_target(self, youtube_cleanup, caplog):
         """#34: LLMError → WARNING без exc_info + 5.5 на target."""
-        import logging
-
         service = MagicMock()
         service.summarize = AsyncMock(side_effect=LLMError("llm сдох"))
         youtube_mod.setup_youtube(service)
@@ -242,6 +242,24 @@ class TestHandler:
             and "| error=llm сдох" in r.message and r.exc_info is None
             for r in caplog.records
         )
+
+    @pytest.mark.asyncio
+    async def test_empty_answer_silence_with_moai(self, youtube_cleanup, caplog):
+        """65.1 (T-469): пустой ответ модели → молчание + 🗿 на ЦЕЛЕВОЕ (НЕ R13)."""
+        service = MagicMock()
+        service.summarize = AsyncMock(
+            side_effect=LLMBadResponseError("youtube summarizer: empty answer"))
+        youtube_mod.setup_youtube(service)
+        bot = AsyncMock()
+        target = _make_msg(text=YT_URL, message_id=77)
+        msg = _make_msg(text="поясни за видос", message_id=11,
+                        reply_to_message=target)
+        with caplog.at_level(logging.WARNING):
+            await youtube_mod.youtube_handler(msg, bot=bot)
+        bot.send_message.assert_not_called()
+        bot.set_message_reaction.assert_awaited_once()
+        assert bot.set_message_reaction.await_args.args[:2] == (CHAT_ID, 77)
+        assert any("empty answer" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_unexpected_error_5_5_on_target(self, youtube_cleanup, caplog):

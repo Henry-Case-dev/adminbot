@@ -28,6 +28,8 @@ _NORMALIZERS = {
     "search": "text",
     "youtube": "url",
     "web": "url",
+    # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд direct_chat.
+    "direct_dedup": "text",
 }
 
 _UTM_PREFIX = "utm_"
@@ -99,11 +101,24 @@ class SmartCache:
                 self._db = None
         return self._db
 
-    async def get(self, key: str) -> str | None:
-        """None = miss/просрочен/выключен. Просроченный → DELETE + None.
-        Ошибки БД — WARNING + miss (кэш НЕ роняет хендлер)."""
-        if not settings.SMART_CACHE_ENABLED:
-            return None
+    def _sweep_ttl(self) -> int:
+        """Порог ленивой чистки: максимум TTL АКТИВНЫХ фич (67.4) —
+        дедуп-строки не выметаются раньше своего TTL при маленьком
+        SMART_CACHE_TTL_SECONDS."""
+        ttls = []
+        if settings.SMART_CACHE_ENABLED:
+            ttls.append(settings.SMART_CACHE_TTL_SECONDS)
+        if settings.CHAT_DEDUP_ENABLED:
+            ttls.append(settings.CHAT_DEDUP_TTL_SECONDS)
+        return max(ttls) if ttls else settings.SMART_CACHE_TTL_SECONDS
+
+    def _active(self, dedup: bool) -> bool:
+        """Какой рубильник гейтит операцию: у дедупа — СВОЙ (67.4),
+        SMART_CACHE_ENABLED на него не влияет."""
+        return (settings.CHAT_DEDUP_ENABLED if dedup
+                else settings.SMART_CACHE_ENABLED)
+
+    async def _read(self, key: str, ttl_seconds: int) -> str | None:
         db = await self._ensure_db()
         if db is None:
             return None
@@ -115,7 +130,7 @@ class SmartCache:
                 logger.info("smart cache: miss | key=%s", key)
                 return None
             age = time.monotonic() - row["created_at"]
-            if age > settings.SMART_CACHE_TTL_SECONDS:
+            if age > ttl_seconds:
                 await db.execute("DELETE FROM smart_cache WHERE key = ?", (key,))
                 await db.commit()
                 logger.info("smart cache: expired | key=%s", key)
@@ -126,11 +141,7 @@ class SmartCache:
             logger.warning("smart cache: get failed | key=%s", key, exc_info=True)
             return None
 
-    async def set(self, key: str, payload: str) -> None:
-        """INSERT OR REPLACE + ленивая очистка: (1) истёкшие по TTL,
-        (2) > SMART_CACHE_MAX_ROWS → старейшие. Ошибки БД — WARNING + no-op."""
-        if not settings.SMART_CACHE_ENABLED:
-            return
+    async def _write(self, key: str, payload: str, ttl_seconds: int) -> None:
         db = await self._ensure_db()
         if db is None:
             return
@@ -138,7 +149,7 @@ class SmartCache:
             now = time.monotonic()
             await db.execute(
                 "DELETE FROM smart_cache WHERE created_at < ?",
-                (now - settings.SMART_CACHE_TTL_SECONDS,),
+                (now - ttl_seconds,),
             )
             await db.execute(
                 "INSERT OR REPLACE INTO smart_cache (key, payload, created_at) "
@@ -157,6 +168,37 @@ class SmartCache:
             logger.info("smart cache: set | key=%s", key)
         except Exception:
             logger.warning("smart cache: set failed | key=%s", key, exc_info=True)
+
+    async def get(self, key: str) -> str | None:
+        """None = miss/просрочен/выключен. Просроченный → DELETE + None.
+        Ошибки БД — WARNING + miss (кэш НЕ роняет хендлер)."""
+        if not settings.SMART_CACHE_ENABLED:
+            return None
+        return await self._read(key, settings.SMART_CACHE_TTL_SECONDS)
+
+    async def set(self, key: str, payload: str) -> None:
+        """INSERT OR REPLACE + ленивая очистка: (1) истёкшие по TTL,
+        (2) > SMART_CACHE_MAX_ROWS → старейшие. Ошибки БД — WARNING + no-op."""
+        if not settings.SMART_CACHE_ENABLED:
+            return
+        await self._write(key, payload, self._sweep_ttl())
+
+    # ── Epic 60 (67.4, T-499): дедуп direct_chat ─────────────────
+    # Свой рубильник CHAT_DEDUP_ENABLED и свой TTL; SMART_CACHE_ENABLED=False
+    # дедуп НЕ выключает (разные фичи). Payload — сохранённый ответ;
+    # "" — маркер «в прошлый раз ответа не было» → молчание.
+
+    async def get_dedup(self, key: str) -> str | None:
+        """Чтение дедуп-записи. None — первый раз/просрочено; "" — прошлый
+        раз без ответа (молчание); непустая строка — прошлый ответ."""
+        if not settings.CHAT_DEDUP_ENABLED:
+            return None
+        return await self._read(key, settings.CHAT_DEDUP_TTL_SECONDS)
+
+    async def set_dedup(self, key: str, payload: str) -> None:
+        if not settings.CHAT_DEDUP_ENABLED:
+            return
+        await self._write(key, payload, self._sweep_ttl())
 
     async def close(self) -> None:
         if self._db is not None:

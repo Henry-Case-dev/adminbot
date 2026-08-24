@@ -13377,3 +13377,831 @@ logger.error("LLM HTTP %d | url=%s | request_len=%d | content_chars=%d | num_mes
 **Порядок реализации для Builder:** T-420 (llm_client: классы `LLMServerError`/`LLMTransportError`, диаг-лог 5xx, фоллбэк-слой, settings/.env.example) → T-421 (`services/llm_circuit_breaker.py` + обёртка в direct_chat_service + пул `CHAT_LLM_DOWN_PHRASES`) → T-419 (alan-каноны 62.2.1/62.2.2) → T-422 (тесты пишутся с каждой задачей, финальный прогон). Первым — **T-420** (фундамент: без новых классов исключений CB неразличим).
 
 @Architect Epic 53 investigation + design ready (Section 62): 502 = устойчивый отказ apinet.cloud (рецидив Epic 47) — ретраи не спасают по построению (3 попытки в тот же URL, до ~35с инцидент / до 60с худший кейс на триггер); второй провайдер/ключ отсутствует (фоллбэк — опционально, env); локальный smoke невозможен (мок-тесты). Дизайн: CB (порог 3 транзиентных подряд — классы LLMServerError/LLMTransportError/LLMTimeoutError, кулдаун 300с, half-open 1 пробная) — обёртка в direct_chat_service, модуль llm_circuit_breaker.py, скоуп только direct_chat; фоллбэк в llm_client (все 3 env, 1 попытка без ретраев, кроме LLMBadResponseError, проброс исходного исключения); диаг-лог всех финальных 5xx с телом ≤500 (body_5xx, R17); CHAT_LLM_DOWN_PHRASES (4) отдельно от R50-8; CHAT_LLM_TIMEOUT НЕ вводим; каноны alan VERBATIM (5 тем × 2 новых + пул вопросов 5); 6 env-переменных, прод на дефолтах, ALAN_REPLIES_ENABLED=false остаётся. T-419…T-422 → READY.
+
+---
+
+## Section 63: Epic 60 Фаза A (P0) — персистентный троттлинг в БД (R60-1) + per-chat замок генерации (R60-2), миграция user_version 2→3 (v2.43.0)
+
+> **Дата:** 2026-08-24. **Статус:** DESIGN (@Architect, T-458). **Цель:** R60-1/R60-2 (backlog.md Epic 60; T-460/T-461). **Решения:** D245 (дизайн фазы A; реализует PM-решение D239). **Прод:** v2.42.1 (`d555454`, PID 1064777), baseline 2360 тестов, PRAGMA user_version = 2. Каноны R50-7/R50-8 (пулы кулдауна/ошибок DirectChat), R13 (UX-фразы), 62.3 (CB) НЕ трогаем. Фаза A — P0, но НЕ деплоится отдельно (D235: один релиз в конце эпика).
+
+### 63.0 Ответы на открытые вопросы backlog (1–10) — зафиксированы @Architect, T-458
+
+| # | Вопрос | Ответ (решение) |
+|---|---|---|
+| 1 | tiktoken: кодировка для deepseek-v4-flash | **ФИНАЛ (T-459): `o200k_base`** — лучшая компрессия кириллицы среди OpenAI-кодировок (рус. ≈ **0.3 токена/символ**; cl100k ≈ 0.45–0.5). tiktoken — ТОЛЬКО для упреждающего тримминга с запасом 10–15% (`TOKEN_SAFETY_MULTIPLIER=1.15`); фактические лимиты — по `usage.prompt_tokens` из ответа API (DeepSeek-токенизатор ≠ o200k, ±15%); дизайн — 64.7. |
+| 2 | R60-1: какие счётчики персистентны | **ВСЕ CooldownTracker смарт-модуля** (search/factcheck/youtube/web/checkup/info — 6 инстансов в handlers) **+ DirectChatThrottle token bucket + кулдаун-стачка (65.3)**. НЕ переносим: MediaGroupCaptionBuffer (легаси-медиа, не смарт-модуль), LLMCircuitBreaker (62.3 — принято in-memory), summary `asyncio.Lock` (потоковый, не счётчик). Дизайн — 63.1. |
+| 3 | R60-15 стриминг: лимиты editMessageText | **ФИНАЛ (T-459):** placeholder + `edit_text`; темп правок ~1/сек (приват) / ~3 сек (группы); правки численно НЕ лимитированы (лимит — по частоте); «message is not modified» → success (no-op); `retry_after` → сон + 1 повтор, затем drop чанка; 4096 → финализировать edit, остаток — новыми сообщениями; дизайн — 65.6. |
+| 4 | R60-16: typing живёт ~5с | **ФИНАЛ (T-459):** `ChatActionSender.typing(bot=bot, chat_id=chat_id, interval=5.0)` — готовый async-контекст-менеджер aiogram 3.29.1: сам переотправляет action каждые 5с до выхода из блока. Явный «сброс» НЕ нужен: индикатор гаснет сам ≤5с после выхода И немедленно при отправке ботом любого сообщения; BusinessConnection не нужен (только business-чаты); дизайн — 65.7. |
+| 5 | R60-28: entity_type для карточек | **Отдельная таблица НЕ нужна.** `nodes` CHECK уже содержит `'user'`; карточка человека = агрегация `nodes` (entity_type='user') + `edges` + `graph_facts` (target_user). Миграция v3 добавляет только веса/индексы/status, НЕ новую сущность (66.9). |
+| 6 | R60-25: формат сжатых векторов | **ФИНАЛ (T-459):** две колонки в vec0-таблицах — `embedding float[dim]` (канон) + `embedding_i8 int8[dim]` (`vec_quantize_int8`) для KNN с реранком точной cosine по float; backfill = rebuild таблицы (ALTER у virtual-таблиц НЕТ); параметр `dimensions` у провайдера НЕ использовать (гарантирован только у OpenAI text-embedding-3); дизайн — 66.6 (после T-465). |
+| 7 | R60-7: граница «то же сообщение vs подряд» | **Метрики — В ТОМ ЖЕ сообщении**, отдельной data-секцией `<memory_health>` в user-контенте чекапа (после `<system_logs>`); CHECKUP_SYSTEM_PROMPT (R42-6) не меняется — это ДАННЫЕ, не промпт (64.5, D240). |
+| 8 | R60-10: setMessageReaction в aiogram 3.29.1 | **ОТКРЫТО ДО РЕАЛИЗАЦИИ** (T-459 эту тему не покрыл). Дизайн (65.1): `types.ReactionTypeEmoji(emoji="🗿")` в try/except; Builder T-469 первым шагом проверяет сигнатуру `bot.set_message_reaction` в установленной версии aiogram; ЛЮБАЯ ошибка реакции → WARNING, молчание НЕ нарушается (гарантия — отсутствие send_message, реакция best-effort). |
+| 9 | R60-33: куда выносить `_BOTWORD_RE` | **В settings (env `CHAT_BOTWORD_PATTERN`)**, НЕ в `word_lists.py` (там словари слов для фильтров, не regex; word-boundary-семантика должна остаться в одном месте). Default байт-в-байт = текущий паттерн (67.2). |
+| 10 | R60-31: бюджеты — только direct_chat? | **direct_chat — в первую очередь** (единственный интерактивный LLM-пайплайн с жёстким UX); summary НЕ переписываем (R11-канон и свои MAX_CHARS остаются — переводим только лимиты в токены, 64.7); фоновые пайплайны (memorize/compress) бюджетам не подчиняются (66.12). |
+
+### 63.1 Персистентный троттлинг (R60-1, D245/D239, T-460)
+
+**Проблема:** рестарт обнуляет все кулдауны — флудер «перезаряжается» перезапуском. Сейчас: `CooldownTracker` (in-memory dict, `smartmodule_throttling.py`), `DirectChatThrottle` (dict, `direct_chat_service.py:47-70`), `MediaGroupCaptionBuffer`, `LLMCircuitBreaker`.
+
+**Решение — таблица `throttle_state` + `PersistentCooldownTracker`/`PersistentDirectChatThrottle`:**
+
+```sql
+-- миграция v3 (63.3): все слоты смарт-модуля в одной таблице
+CREATE TABLE IF NOT EXISTS throttle_state (
+    scope      TEXT    NOT NULL,   -- 'search'|'factcheck'|'youtube'|'web'|'checkup'|'info'|'direct_chat'|'direct_silence'
+    chat_id    INTEGER NOT NULL,
+    user_id    INTEGER NOT NULL,   -- 0 = per-chat слот (прецедент checkup._CHAT_SLOT)
+    burst_left INTEGER,            -- NULL = cooldown-стиль; N = token bucket; стачка (65.3) использует как счётчик
+    last_ts    REAL    NOT NULL,   -- time.time() (стена — переживает рестарт; monotonic НЕЛЬЗЯ)
+    PRIMARY KEY (scope, chat_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_throttle_state_ts ON throttle_state(last_ts);
+```
+
+- **Новый модуль `services/persistent_throttling.py`:** классы `PersistentCooldownTracker(cooldown_seconds, scope, db)` и `PersistentThrottle` с ТЕМИ ЖЕ сигнатурами, что у существующих, но async (`await tracker.remaining(chat_id, user_id)`, `await tracker.touch(...)`; `await throttle.allow(...)`). **Атомарность — ОДИН UPSERT (ФИНАЛ T-459 тема 9, эталон sl-map-web):** `INSERT INTO throttle_state (...) VALUES (...) ON CONFLICT(scope, chat_id, user_id) DO UPDATE SET burst_left = ..., last_ts = excluded.last_ts WHERE <refill/consume> RETURNING burst_left` — refill+consume в одном стейтменте; НЕТ строки в RETURNING → отказ. SELECT-then-UPDATE ЗАПРЕЩЁН (анти-паттерн — гонка при переплетении await'ов, T-459 тема 9). Cooldown-стиль = capacity 1, refill за cooldown; bucket = capacity `CHAT_BURST_LIMIT`, полный refill после cooldown (семантика DirectChatThrottle сохранена, состояние в БД). Прагмы: WAL + `busy_timeout=5000` уже есть; добавляется `PRAGMA synchronous=NORMAL` в `DatabaseService.initialize` (single-writer, T-459 тема 9); НЕ держать `await` внутри транзакций (только одиночные UPSERT-стейтменты).
+- **`_bot_replies` → персистентная таблица `bot_replies`** (контекст цепочек — тоже часть R60-1 «контекст и счётчики… в БД»; T-459 тема 8): `bot_replies (chat_id INTEGER, tg_message_id INTEGER, text TEXT NOT NULL, last_used_at REAL NOT NULL, PRIMARY KEY (chat_id, tg_message_id))`; TTL 3600с лениво (delete при чтении/записи) + LRU-cap 200: `DELETE WHERE (chat_id, tg_message_id) NOT IN (SELECT chat_id, tg_message_id FROM bot_replies ORDER BY last_used_at DESC LIMIT 200)` (паттерн TTL+LRU, T-459 тема 8). `DirectChatService.remember_bot_reply/get_bot_reply` становятся async (сигнатуры для хендлеров сохраняются); питают цепочки `<Conversation_Thread>` (58.6), edited-обновление (65.2) и стилевые якоря (65.4) — всё переживает рестарт.
+- **Точки подключения:** 6 хендлеров (`search/factcheck/youtube/web/checkup/info` — строка `_cooldown = CooldownTracker(...)` меняется на persistent-инстанс, DI через `setup_*`); `DirectChatService.__init__` — `throttle` kwarg уже инжектируем (`direct_chat_service.py:83`) → bot.py создаёт persistent-версию. `allow()` в `handle()` (`direct_chat_service.py:132`) становится `await self.throttle.allow(...)` — порядок веток НЕ меняется (кулдаун-фраза R50-7 остаётся первой).
+- **Флудер не «перезаряжается»:** last_ts на стене → после рестарта кулдаун продолжает течь. Сдвиг системных часов — принятый риск (прод на NTP; потеря одного кулдауна — не катастрофа).
+- **CB остаётся in-memory** (D216/62.3 — принято в Epic 53; порог 3 попытки восстанавливается за минуты, кулдаун 300с). `MediaGroupCaptionBuffer`/`summary._lock` НЕ переносим (не счётчики кулдаунов; LRU-буфер медиа — вне скоупа R60-1); `_bot_replies` — ПЕРЕНОСИМ (см. выше, контекст-данные).
+- **Выключатель:** `THROTTLE_PERSISTENT_ENABLED` (bool, default `true`). `false` → ровно старые in-memory инстансы (аварийный рубильник, прецедент SMART_CACHE_ENABLED). Ошибки БД в persistent-трекере → WARNING + пропуск кулдауна (fail-open — кэш/троттлинг НЕ должен ронять хендлер; прецедент SmartCache «Ошибки БД — WARNING + miss»).
+
+### 63.2 Per-chat замок генерации (R60-2, D245, T-461)
+
+**Проблема:** «бот бот бот» подряд → N параллельных `generate` в одном чате; ответы могут прийти вразнобой (апстрим не гарантирует порядок). Требование: одно обращение — одно раздумье, следующее ждёт.
+
+**Решение — asyncio.Lock per chat_id внутри `DirectChatService`:**
+
+```python
+# DirectChatService.__init__ (после _bot_replies):
+self._chat_locks: dict[int, asyncio.Lock] = {}
+self._chat_locks_guard = asyncio.Lock()          # словарь — под своим локом
+
+async def _get_chat_lock(self, chat_id: int) -> asyncio.Lock:
+    async with self._chat_locks_guard:
+        lock = self._chat_locks.get(chat_id)
+        if lock is None:
+            lock = self._chat_locks[chat_id] = asyncio.Lock()
+        return lock
+```
+
+- **Точка установки в `handle()`:** после throttle-ветки и CB-ветки (они мгновенные и НЕ должны стоять в очереди), вокруг секции `_build_user_content → llm.generate → отправка → memorize-хук`:
+
+```python
+lock = await self._get_chat_lock(chat_id)
+try:
+    async with asyncio.timeout(settings.CHAT_LOCK_WAIT_SECONDS):
+        await lock.acquire()
+except (asyncio.TimeoutError, TimeoutError):
+    logger.warning("[direct] lock wait timeout | chat=%s user=%s", chat_id, target_name)
+    await _reply(bot, chat_id, random.choice(CHAT_LOCK_BUSY_PHRASES), message.message_id)
+    return
+try:
+    ... текущее тело (150-168) ...
+finally:
+    lock.release()
+```
+
+- **Порядок ответов:** asyncio.Lock — FIFO (fair) в CPython → ответы уходят в порядке обращений (требование «в правильном порядке»).
+- **Не ломает троттлинг:** заряд списывается в `throttle.allow()` ДО замка (как сейчас, строка 132) → ожидание в очереди НЕ даёт бесплатных зарядов; флудер упрётся в кулдаун как раньше.
+- **Не ломает CB:** `allow_request()` остаётся ДО замка; `on_success/on_failure` — в тех же ветках (после ответа/в except), внутри замка — поведение 62.3.3 байт-в-байт.
+- **Таймаут ожидания:** `CHAT_LOCK_WAIT_SECONDS` (float, default **60.0** = LLM_TOTAL_BUDGET — худший случай одной генерации; прецедент SEARCH_COOLDOWN_SECONDS — секунды, не duration). Таймаут → НОВЫЙ пул `CHAT_LOCK_BUSY_PHRASES` (стиль CHAT_LLM_DOWN_PHRASES — человечный, строчные, без эмодзи; R50-7/R50-8 НЕ трогаем).
+- **Утечка замков:** словарь живёт вечно. Чистка — ленивая: в `_get_chat_lock`, если `len > 256` → удалить все незалоченные (`not lock.locked()`) (чаты умирают — прецедент LRU-стиля).
+- **Прецедент:** Epic 35 (alan_greeting per-chat lock) — конкурентные тесты T-461 пишутся по образцу.
+
+### 63.3 Миграция user_version 2→3 (R60-1, D245, T-460)
+
+- **`DatabaseService._migrate_epic60_v3()`** в `initialize()` ПОСЛЕ `_migrate_direct_chat_v2` (`database.py:194`), идемпотентная (guard по sqlite_master + PRAGMA; прецеденты `_migrate_graphrag_v2`/`_migrate_direct_chat_v2`):
+  1. `CREATE TABLE IF NOT EXISTS throttle_state` (63.1) + индекс;
+  2. `CREATE TABLE IF NOT EXISTS bot_replies` (63.1 — персистентный `_bot_replies`);
+  3. `CREATE TABLE IF NOT EXISTS user_prefs` (65.5: tone-пресет + cooldown-стачка);
+  4. `CREATE TABLE IF NOT EXISTS embedding_cache` (64.4);
+  5. `CREATE TABLE IF NOT EXISTS chat_running_summary` (64.6);
+  6. `CREATE TABLE IF NOT EXISTS graph_fact_compressions` (64.2 — лог сжатий);
+  7. `CREATE TABLE IF NOT EXISTS protected_facts` (65.10);
+  8. `graph_facts`: ALTER `ADD COLUMN weight REAL NOT NULL DEFAULT 0.5`; ALTER `ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmed'` (66.1/64.2); ALTER `ADD COLUMN last_confirmed_at INTEGER` (backfill = created_at — time-decay 66.3); ALTER `ADD COLUMN supersedes INTEGER` (цепочка supersede 64.1/64.2); НЕ пересоздавать CHECK (не меняем список origins — обходимся ALTER);
+  9. `edges`: ALTER `ADD COLUMN created_at INTEGER` (backfill из `strftime('%s', last_updated)` — 66.3);
+  10. `PRAGMA user_version = 3`.
+- **На остановленном боте (D239/D244):** миграция выполняется в `initialize()` при старте бота ДО регистрации поллеров — гонки нет по построению; для больших прод-БД при деплое T-497: `systemctl stop admin_bot` → скрипт `scripts/migrate_epic60_v3.py` (sudo sqlite3-прецедент Epic 46/50, БД root:developers 0644) → `systemctl start`. Идемпотентность: повторный запуск — no-op (все шаги guarded).
+- **Старые БД v2 → v3 в тестах:** фикстура пре-Epic-60 схемы (прецедент `test_graphrag_database.py:338`).
+
+### 63.4 Каноны VERBATIM (R60-2, D245) — для T-461
+
+Правила: строчные, без маркдауна/эмодзи, без оскорбления юзера (стиль CHAT_LLM_DOWN_PHRASES 62.2.3). Поместить в `services/smartmodule_phrases.py` после блока DirectChat:
+
+```python
+# DirectChat — очередь генерации занята (Epic 60, R60-2, VERBATIM из Section 63.4)
+CHAT_LOCK_BUSY_PHRASES: tuple[str, ...] = (
+    "я ещё думаю над прошлым вопросом, подожди пару секунд",
+    "не части, предыдущую мысль додумываю",
+    "моя единственная извилина занята, секунду",
+)
+```
+
+### 63.5 Env-сводка (Фаза A)
+
+| Переменная | Тип/паттерн | Дефолт | Прод .env |
+|---|---|---|---|
+| `THROTTLE_PERSISTENT_ENABLED` | `_env_bool` | `true` | не ставим |
+| `CHAT_LOCK_WAIT_SECONDS` | `_env_float_min` (min 0; секунды) | `60.0` | не ставим |
+| `CHAT_LOCK_MAX_ENTRIES` | `_env_int_min` (min 16) | `256` | не ставим |
+
+### 63.6 Тест-план (T-460/T-461)
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | tests/test_graphrag_database.py | `user_version == 3` после initialize; re-initialize идемпотентен (остаётся 3); данные сохранены | миграция (правка строк 381-394: 2 → 3) |
+| 2 | tests/test_database.py (НОВЫЙ блок) | v2-фикстура → initialize → все 8 таблиц v3 созданы; weight/status/last_confirmed_at/supersedes/created_at добавлены | схема |
+| 3 | tests/test_persistent_throttling.py (НОВЫЙ) | touch→remaining после «рестарта» (новый инстанс, та же БД) | кулдаун НЕ сброшен (стена) |
+| 4 | там же | атомарность UPSERT: параллельные await-ы не дают лишних зарядов (счётчик после N конкурентных allow ≤ capacity); fail-open при ошибке БД | UPSERT/WARNING |
+| 5 | tests/test_direct_chat.py TestDirectChatThrottle | persistent-версия: burst/cooldown после рестарта | bucket переживает рестарт (правка 167-209) |
+| 6 | tests/test_direct_chat.py TestBotRepliesLru | persistent-БД: TTL 3600 + cap 200; get после «рестарта» (новый сервис на той же БД) | `_bot_replies` переживает рестарт (правка 413-445) |
+| 7 | tests/test_direct_chat.py (НОВЫЙ TestChatLock) | 2 параллельных handle: llm.generate вызван НЕ параллельно (счётчик активных вызовов ≤1); ответы в порядке обращений; таймаут ожидания → CHAT_LOCK_BUSY_PHRASES | замок (прецедент Epic 35) |
+| 8 | tests/test_smartmodule_throttling.py | существующие тесты in-memory версии — зелёные (in-memory остаётся fallback-режимом) | 0 регрессий |
+| 9 | tests/test_smartmodule_phrases.py | новый пул: 3 фразы, строчные, без эмодзи | канон |
+| 10 | регрессия | полный pytest | 2360 + новые, 0 failed/skipped |
+
+### 63.7 Риски (Фаза A)
+
+1. **Стена vs monotonic:** переход на `time.time()` — при ручной перестановке часов кулдаун «утекает»; принято (NTP на проде, выигрыш персистентности больше).
+2. **DB-write на каждый триггер:** +1 INSERT на обращение — на SQLite с WAL это µs-операция; при деградации — рубильник `THROTTLE_PERSISTENT_ENABLED=false`.
+3. **Замок × CB-ветки:** замок ставится ПОСЛЕ CB → при OPEN очереди не копятся (мгновенная фраза). Следить, чтобы Builder не перенёс замок выше CB (тогда при падении апстрима юзеры стояли бы в очереди по 60с зря).
+4. **Миграция v3 на проде:** идемпотентность + только ALTER/CREATE (никаких пересозданий с потерей данных); smoke после деплоя — тест 1.
+
+**DoD (T-460):** счётчики не сбрасываются рестартом (тесты 3–5); миграция v3 идемпотентна (тесты 1–2); старые тесты зелёные; `git diff --check` чист. **DoD (T-461):** конкурентные тесты (тест 6) — генерация сериализована, порядок ответов сохранён; CHAT_LOCK_BUSY_PHRASES байт-в-байт; 0 регрессий.
+
+---
+
+## Section 64: Epic 60 Фаза B (P1) — память: дедуп, антиотравление, бэкап/экспорт, кэш эмбеддингов, метрики в чекап, бегущий конспект, токены (v2.43.0)
+
+> **Дата:** 2026-08-24. **Статус:** DESIGN (@Architect, T-458). **Цель:** R60-3…R60-9 (T-462…T-468). **Решения:** D246 (дизайн фазы B; реализует D240 — чекап без правки промпта). **Прод:** v2.42.1, 2360 тестов. Каноны R46-2 (FACT_EXTRACT_PROMPT), R46-4 (build_rag_context), R42-6 (CHECKUP_SYSTEM_PROMPT), R11 (SUMMARY prompt) НЕ трогаем.
+
+### 64.1 Дедуп фактов при записи (R60-3, п.52, D246, T-462)
+
+Точка вставки — `summary_memory.py::_memorize_facts_inner` (после `parse_fact_list`, до цикла сохранения фактов). Правила «добавить / supersede / пропустить» (приём Mem0 add/update/no-op — подсмотрено, НЕ переезжаем, D243/п.63):
+
+1. **Нормализация:** `_normalize_name` уже есть (`summary_memory.py:89`); полный факт-ключ — `f"{subject}|{predicate}|{object}"`.
+2. **Exact-дубль** (нормализованный ключ `subject|predicate|object` уже в `graph_facts` того же чата, не протухший) → **noop** + подтверждение: `weight += GRAPH_DEDUP_WEIGHT_BONUS` (66.1), `last_confirmed_at = now` (сброс затухания, 66.3). Новая строка НЕ создаётся (T-459 тема 6: хард-дедуп — MD5/нормализация).
+3. **Семантический сосед:** если `_vec_available` — KNN k=3 по `graph_facts_vec` (chat-фильтр, как `_knn_graph_facts`; сравнение с БЛИЖАЙШИМ кандидатом той же пары сущностей/чата — приём Graphiti); cosine = 1 − distance:
+   - `≥ GRAPH_DEDUP_SIMILARITY_HIGH` (**0.95**) → **noop** (семантический дубль) + подтверждение как в п.2;
+   - `≥ GRAPH_DEDUP_SIMILARITY_LOW` (**0.85**) и `< HIGH` → **обновление через supersede**: старый факт инвалидируется (`expires_at = now` — мгновенно исключается из RAG ленивым TTL-фильтром, НЕ удаляется), новый INSERT со `supersedes = id старого` и `status='unconfirmed'` (64.2); обе версии ХРАНЯТСЯ (T-459: «хранение обеих версий безопаснее мержа»);
+   - `< LOW` → **add** (обычная вставка).
+   FTS-фолбек (vec недоступен): только exact-дубль по п.2; семантические пороги не применяются (нет векторов — не сравниваем; честная деградация R3-стиля).
+4. **Пороги — ЕДИНЫЙ КАНОН (ФИНАЛ T-459 тема 6; применяется везде, где упомянут дедуп): ≥0.95 → noop; 0.85–0.95 → supersede (invalidate + insert); <0.85 → add.** Конфиг `GRAPH_DEDUP_SIMILARITY_HIGH=0.95`/`LOW=0.85`. Выключатель: `GRAPH_DEDUP_ENABLED` (default true; false → ровно старое поведение).
+5. **Метрики:** счётчик отсеянных дублей → `<memory_health>` (64.5). Не мешает батчу: дедуп per-fact, ошибка одной проверки → факт пишется как раньше (WARNING, прецедент 56.5).
+
+### 64.2 Антиотравление (R60-4, п.15, D246, T-463)
+
+- **Лог сжатий «что во что»** — таблица (миграция v3, 63.3):
+
+```sql
+CREATE TABLE IF NOT EXISTS graph_fact_compressions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id     INTEGER NOT NULL,
+    fact_id     INTEGER,              -- id нового/пережившего факта (NULL = удалён)
+    fact_before TEXT NOT NULL,        -- исходный текст (перезаписанный/слитый)
+    fact_after  TEXT,                 -- итоговый текст (NULL = просто удалён)
+    reason      TEXT NOT NULL,        -- 'dedup_update'|'episode_merge'|'forget'|'conflict'
+    created_at  REAL NOT NULL
+);
+```
+
+- **«Свежий побеждает» = supersede-цепочка (T-459 тема 6):** при конфликте в зоне 0.85–0.95 старый факт инвалидируется (`expires_at = now` — перестаёт выдаваться, НЕ удаляется), новый INSERT со `supersedes = id старого`; история — в `graph_fact_compressions` (reason='supersede', fact_before=старый, fact_after=новый). Прямой перезаписи текста НЕ происходит никогда — обе версии хранятся (обратимость; «свежий побеждает» = старый исключён из выдачи, а не стёрт).
+- **«Не подтверждено»:** колонка `graph_facts.status` (`'confirmed'` default | `'unconfirmed'`, миграция v3). Правило: новый факт из зоны 0.85–0.95 пишется со `status='unconfirmed'`; такие факты **не участвуют в RAG** (фильтр в `_knn_graph_facts` и `search_graph_facts_fts` — `AND status='confirmed'`, по образцу фильтра `origin`). Подтверждение: повторное появление этого факта (noop/подтверждение 64.1.2/3) → `status='confirmed'`. LLM-валидацию «противоречие или дополнение» на каждую запись НЕ делаем (T-459 тема 6 — LLM-джудж ненадёжен); зона 0.85–0.95 решается лениво фоновым пересмотром (66.11), который выбросит `unconfirmed` старше `GRAPH_UNCONFIRMED_RETENTION_DAYS` (default 14).
+- **Канон R46-2 НЕ трогаем** — экстрактор не меняется; вся логика — пост-обработка фактов в `_memorize_facts_inner`.
+
+### 64.3 Бэкап БД + текстовый экспорт фактов (R60-5, п.57, D246, T-464)
+
+- **Новый сервис `services/memory_backup.py` + APScheduler-джоб** (`MemoryBackupService`, daily в `MEMORY_BACKUP_HOUR` (default "05:00", TZ SUMMARY_TIMEZONE); MemoryJobStore, max_instances=1 — прецедент summary_scheduler). НЕ на остановленном боте (онлайн):
+  1. **Бэкап:** `VACUUM INTO` (SQLite ≥3.27; aiosqlite пробрасывает) → `{MEMORY_BACKUP_DIR}/local_database_{YYYYMMDD}.db`; VACUUM INTO недоступен (старый SQLite) → fallback: `sqlite3 .backup` через `asyncio.create_subprocess_exec` (прецедент journalctl в checkup). Ротация: хранить последние `MEMORY_BACKUP_KEEP` (default 7), старше — удалять.
+  2. **Текстовый экспорт:** `{MEMORY_BACKUP_DIR}/facts_{YYYYMMDD}.txt` — построчный дамп ЧИТАЕМЫЙ глазами (для ручной правки): `[chat_id] origin status weight subject predicate object (context)` из `graph_facts` + `[archive] [chat_id] fact` из `smart_archive_facts`, сортировка по created_at. UTF-8, простые строки, без JSON/экранирований (требование «читаемый глазами»).
+- **Ленивость:** обе операции пропускаются, если `graph_facts`+`smart_archive_facts` пусты (INFO). Ошибки — WARNING, НЕ роняют бота. Бэкап НЕ попадает в git (в .gitignore? прод-каталог вне репо — на проде `MEMORY_BACKUP_DIR=/var/www/admin_bot/backups` ставится в прод .env при деплое T-497).
+- **Выключатель:** `MEMORY_BACKUP_ENABLED` (default true; false → джоб не стартует).
+
+### 64.4 Кэш эмбеддингов (R60-6, п.60, D246, T-465)
+
+- **Таблица** (миграция v3):
+
+```sql
+CREATE TABLE IF NOT EXISTS embedding_cache (
+    text_hash    TEXT PRIMARY KEY,    -- SHA-256(casefold+strip(text)) — T-459 тема 8
+    text         TEXT NOT NULL,
+    vector       TEXT NOT NULL,       -- JSON list[float32] — КАНОН; int8 живёт ТОЛЬКО в vec-таблицах (66.6)
+    dim          INTEGER NOT NULL,
+    created_at   REAL NOT NULL,
+    last_used_at REAL NOT NULL        -- LRU-плечо (66.5); TTL = last_used_at + EMBED_CACHE_TTL_DAYS
+);
+CREATE INDEX IF NOT EXISTS idx_embedding_cache_lru ON embedding_cache(last_used_at);
+```
+
+- **Точка проверки — `MemoryManager._embed` (`summary_memory.py:450`):** перед `self.llm.embed(texts)` — батч-лукап `SELECT ... WHERE text_hash IN (...)`; только miss-тексты → API → write-back. Кэш покрывает ВСЕ вызовы `_embed` (probe/vector_search/memorize/backfill) автоматически — одна точка.
+- **Уважение TTL фактов + TTL+LRU (ФИНАЛ T-459 тема 8):** кэш-строка живёт `EMBED_CACHE_TTL_DAYS` (default **30** — покрывает GRAPH_FACT_TTL_DAYS 14 с запасом ×2); `last_used_at` продлевается при hit, НО обновляется ЛЕНИВО — только если старше 60с (без write-per-read); ленивый sweep истёкших (`DELETE WHERE last_used_at < now - TTL`) при чтении/записи + LRU-cap при записи: `COUNT(*) > EMBED_CACHE_MAX_ROWS` (default **50000**) → `DELETE WHERE text_hash NOT IN (SELECT text_hash ORDER BY last_used_at DESC LIMIT N)`. Протухший ФАКТ с живой кэш-строкой — безвреден (строку никто не запросит; её вычистит TTL).
+- **Dim guard:** `dim != текущий` → не использовать (после dim-сдвига 55.8 старые векторы невалидны) и записать заново.
+- **Выключатель:** `EMBED_CACHE_ENABLED` (default true). Ошибки БД → WARNING → обычный вызов API (кэш не блокирует).
+
+### 64.5 Метрики здоровья памяти в чекап (R60-7, п.58+43, D240/D246, T-466)
+
+- **Новый модуль `services/memory_health.py`:** `async def collect_metrics(db, memory) -> str` — возвращает готовый текстовый блок БЕЗ токсичности (токсичность добавит LLM по R42-6). Метрики (только дешёвые SELECT/статс, без LLM):
+  - размеры таблиц: `smart_messages`, `smart_archive_facts`, `graph_facts` (+ по origin), `nodes`, `edges`, `smart_cache`, `throttle_state`, `embedding_cache`;
+  - счётчики: фактов `unconfirmed`, фактов с истёкшим `expires_at <= now` (кандидаты на purge), дублей отсеяно (сумма `graph_fact_compressions`), записано фактов за сутки (created_at > now−86400);
+  - векторы: `memory.vec_available`, dim, строки в `smart_archive`/`graph_facts_vec`;
+  - диск: `shutil.disk_usage("/")` (free/total, stdlib — без subprocess), размер файла БД и `-wal` (`os.path.getsize`); RSS процесса — из `/proc/self/status` VmRSS (Linux-прод), при отсутствии — строка опускается.
+- **Подача в существующий чекап БЕЗ правки R42-6:** `CheckupService.checkup()` (`checkup_service.py:37-44`) — user-контент собирается так (порядок: логи → метрики; общий потолок и C0-scrub — для ОБЕИХ секций):
+
+```python
+user_content = _CONTROL_CHARS_RE.sub(" ", logs_text)          # как сейчас
+metrics = await collect_metrics(db, memory) if metrics_enabled else ""
+body = user_content
+if metrics:
+    body += "\n\n<memory_health>\n" + escape_xml_text(metrics) + "\n</memory_health>"
+if len(body) > settings.CHECKUP_MAX_INPUT_SYMBOLS: ...         # единый потолок
+user = f"<system_logs>{escape_xml_text(body)}</system_logs>"   # тег НЕ меняется
+```
+
+  Формат блока-данных (фиксированный, простой текст — LLM сам перескажет токсично):
+
+```
+graph_facts: 1234 (chat_history 800, bot_direct_reply 300, search_fact 134)
+graph_facts: просрочено 12, не подтверждено 3
+smart_archive_facts: 876
+smart_messages: 45678
+nodes: 210, edges: 345
+embedding_cache: 555 строк
+throttle_state: 89 строк
+vec: float32 dim=3072, строк 1200 (graph 400, archive 800)
+записано фактов за сутки: 45, дублей отсеяно: 34
+диск: свободно 12.3 GiB из 40 GiB
+бд: 84.2 MiB, wal: 1.1 MiB
+память процесса: rss 112 MiB
+```
+
+- **Вопрос 7 (граница сообщения):** метрики — В ТОМ ЖЕ сообщении (data-секция); «несколько сообщений подряд» не требуется — промпт R42-6 ограничивает ответ `CHECKUP_MAX_SYMBOLS` (3000), всё влезает.
+- **DI:** `CheckupService.__init__(llm, db=None, memory=None, metrics_enabled=settings.CHECKUP_MEMORY_METRICS_ENABLED)` — тестовые вызовы без db/memory работают как раньше (метрики пустые). `bot.py` передаёт `db` и `memory`. Пулы R42-2/3/4/5, fetcher-каскад, `CHECKUP_FALLBACK_NOTICE` — НЕ трогаем.
+- **Выключатель:** `CHECKUP_MEMORY_METRICS_ENABLED` (default true). R17: метрики без персональных данных (счётчики/размеры), карточки людей (66.9) в чекап НЕ попадают.
+
+### 64.6 Бегущий конспект при 80% заполнения (R60-8, п.11, D246, T-467)
+
+- **Таблица** (миграция v3):
+
+```sql
+CREATE TABLE IF NOT EXISTS chat_running_summary (
+    chat_id         INTEGER PRIMARY KEY,
+    summary         TEXT NOT NULL,
+    window_start_ts INTEGER NOT NULL,
+    window_end_ts   INTEGER NOT NULL,   -- последний покрытый конспектом ts
+    raw_count       INTEGER NOT NULL,
+    created_at      REAL NOT NULL,
+    expires_at      REAL NOT NULL       -- TTL RUNNING_SUMMARY_TTL_MINUTES
+);
+```
+
+- **Триггер — ленивый, в фоне:** проверка в `MemoryManager.get_window_messages` (одна точка, покрывает DirectChat и /summary): `len(rows) >= CHAT_CONTEXT_FILL_RATIO * SUMMARY_MAX_WINDOW_MESSAGES` (default 0.8×500=400) и нет свежего конспекта (expires_at > now и window_end_ts ≈ последний ts окна) → `fire_and_forget(self._build_running_summary(...), "running_summary")` — чат НЕ ждёт LLM.
+- **`_build_running_summary`:** берёт окно, ПОСЛЕДНИЕ `CHAT_RUNNING_SUMMARY_TAIL` (default 30, ТЗ 20–30) сообщений включаются ДОСЛОВНО в конспект-запрос tail-блоком; остальные — через существующий `COMPRESS_PROMPT` (канон R11-сосед — `COMPRESS_PROMPT` уже нетоксичный сжиматель, новый промпт НЕ вводим). LLMError → WARNING (fire_and_forget уже ловит). Результат → UPSERT в таблицу.
+- **Использование:** в `DirectChatService._build_global_context`: если есть валидный конспект, покрывающий `window_end_ts` — `<Global_Context>` = конспект + дословный хвост сообщений с ts > window_end_ts (из окна). Иначе — как сейчас. Потолок `CHAT_GLOBAL_CONTEXT_MAX_CHARS/TOKENS` (64.7) действует на итоговый блок.
+- **TTL:** `RUNNING_SUMMARY_TTL_MINUTES` (default **60**): конспект протухает быстрее окна (6ч) — контекст не «консервируется» надолго. Ленивое удаление просроченного при чтении. `CHAT_RUNNING_SUMMARY_ENABLED` (default true).
+
+### 64.7 Лимиты в токенах tiktoken (R60-9, п.10, D246, T-468 — вердикт T-459 применён)
+
+- **Новый модуль `services/token_counter.py`:** ленивый `import tiktoken`; `encoding = tiktoken.get_encoding(settings.TOKENIZER_ENCODING)`; `count_tokens(text) -> int`; `truncate_to_tokens(text, max_tokens) -> str` (срез ПО ТОКЕНАМ с конца строки, WARNING при обрезке). tiktoken не установлен (ImportError) → fallback `int(len(text) * 0.3)` (рус ≈ 0.3 токена/символ — T-459 тема 1) + одноразовый WARNING при старте (деградация R3-стиля; requirements.txt +tiktoken).
+- **Какие лимиты переводятся (символы → токены):**
+  - `CHAT_GLOBAL_CONTEXT_MAX_CHARS` (4000) → `CHAT_GLOBAL_CONTEXT_MAX_TOKENS` (default **1000** ≈ 4000 симв. кириллицы; новые блоки 64.6/65.4/65.9 считаются ВНУТРИ этого потолка);
+  - `CHAT_THREAD_MAX_CHARS` (2000) → `CHAT_THREAD_MAX_TOKENS` (default **500**);
+  - `SUMMARY_MAX_CONTEXT_CHARS` (120000) → `SUMMARY_MAX_CONTEXT_TOKENS` (default **30000**) — только как потолок-проверка user_content перед generate;
+  - `CHECKUP_MAX_INPUT_SYMBOLS` / `GRAPH_RAG_CONTEXT_MAX_CHARS` / `SEARCH/FACTCHECK/YOUTUBE/WEB_MAX_SYMBOLS` — ОСТАЮТСЯ символами (логи/не-чат; не трогаем — вне скоупа п.10).
+  - Старые `*_CHARS`-ключи сохраняются как верхний fallback (WARNING, если задан chars-лимит при отсутствии токенного).
+- **Саммари по времени НЕ меняется:** `SUMMARY_WINDOW_HOURS=6` и крон 0,6,12,18 остаются (оговорка пользователя). Токены меняют только ЛИМИТЫ СБОРКИ, не таймер.
+- **Кодировка (ФИНАЛ T-459 тема 1):** `TOKENIZER_ENCODING` default **`o200k_base`** (лучшая компрессия кириллицы: 1.96–2.3 токена/слово против 2.74–3.6 у cl100k); `TOKEN_SAFETY_MULTIPLIER=1.15` (запас 10–15% — токенизатор DeepSeek ≠ o200k, ±15%). **tiktoken — ТОЛЬКО для упреждающего тримминга**; фактические лимиты — по `usage.prompt_tokens/completion_tokens` из ответа API: `llm_client._post` дополняется INFO-логом `usage in=%d out=%d` (T-468) — источник истины для бюджетов и метрик (сверка при 64.5/66.12). `CHAT_CONTEXT_BUDGET_TOKENS` (66.12) — общий потолок поверх отдельных.
+
+### 64.8 Env-сводка (Фаза B)
+
+| Переменная | Дефолт | | Переменная | Дефолт |
+|---|---|---|---|---|
+| `GRAPH_DEDUP_ENABLED` | `true` | | `EMBED_CACHE_ENABLED` | `true` |
+| `GRAPH_DEDUP_SIMILARITY_HIGH` | `0.95` | | `EMBED_CACHE_TTL_DAYS` | `30` |
+| `GRAPH_DEDUP_SIMILARITY_LOW` | `0.85` | | `CHECKUP_MEMORY_METRICS_ENABLED` | `true` |
+| `GRAPH_DEDUP_WEIGHT_BONUS` | `0.1` | | `CHAT_RUNNING_SUMMARY_ENABLED` | `true` |
+| `MEMORY_BACKUP_ENABLED` | `true` | | `CHAT_CONTEXT_FILL_RATIO` | `0.8` |
+| `MEMORY_BACKUP_DIR` | `backups` | | `CHAT_RUNNING_SUMMARY_TAIL` | `30` |
+| `MEMORY_BACKUP_KEEP` | `7` | | `RUNNING_SUMMARY_TTL_MINUTES` | `60` |
+| `MEMORY_BACKUP_HOUR` | `05:00` | | `TOKENIZER_ENCODING` | `o200k_base` |
+| `GRAPH_UNCONFIRMED_RETENTION_DAYS` | `14` | | `TOKEN_SAFETY_MULTIPLIER` | `1.15` |
+| `CHAT_GLOBAL_CONTEXT_MAX_TOKENS` | `1000` | | `CHAT_THREAD_MAX_TOKENS` | `500` |
+| `SUMMARY_MAX_CONTEXT_TOKENS` | `30000` | | `EMBED_CACHE_MAX_ROWS` | `50000` |
+
+### 64.9 Тест-план (T-462…T-468)
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | tests/test_graphrag_memory.py | memorize 2× одинаковый текст → 1 строка (noop), weight +0.1, last_confirmed_at обновлён | exact-noop + подтверждение |
+| 2 | там же | мок-KNN: ≥0.95 → noop (+вес); 0.85–0.95 → supersede (старый expires_at=now, новый INSERT со supersedes, 2 строки); <0.85 → add | канон порогов |
+| 3 | там же | vec выключен → только точный дубль; ошибка дедупа → факт пишется как раньше | деградация |
+| 4 | там же | зона 0.85–0.95: новый факт status='unconfirmed', старый инвалидирован; unconfirmed в RAG не попадает (и vec-путь, и FTS-путь); повторное подтверждение → confirmed | антиотравление/supersede |
+| 5 | tests/test_summary_memory.py | `_embed` при двух одинаковых запросах → llm.embed вызван 1 раз (мок-счётчик); TTL-истёкшая кэш-строка → повторный вызов API | кэш эмбеддингов |
+| 6 | там же | dim-сдвиг → кэш не используется | guard |
+| 7 | tests/test_checkup_service.py | `collect_metrics` подаётся: user-контент содержит `<memory_health>` после `<system_logs>`; system-сообщение == CHECKUP_SYSTEM_PROMPT.replace (байт-в-байт — существующий тест test_checkup_prompts.py остаётся зелёным) | метрики-данные |
+| 8 | tests/test_checkup_handlers.py | полный поток чекапа с мок-metrcs | отчёт содержит данные |
+| 9 | tests/test_summary_generator.py | окно ≥80% → fire_and_forget конспекта (мок), в Global_Context попадает конспект + хвост | конспект |
+| 10 | tests/test_token_counter.py (НОВЫЙ) + test_llm_client.py | count/truncate (мок-кодировка); fallback chars×0.3; INFO-лог `usage in=%d out=%d` из API-ответа | счётчик + usage |
+| 11 | tests/test_settings_helpers.py | дефолты 64.8 | дефолты |
+| 12 | регрессия | полный pytest | 0 failed/skipped |
+
+### 64.10 Риски (Фаза B)
+
+1. **Дедуп-пороги** — канон T-459 (≥0.95 noop / 0.85–0.95 supersede / <0.85 add): ложный supersede не уничтожает данные (обе версии хранятся, старый лишь инвалидирован) — обратимо через `graph_fact_compressions`; рубильник `GRAPH_DEDUP_ENABLED=false`.
+2. **Чекап-контекст раздулся:** метрики ≤~1 КБ — в пределах `CHECKUP_MAX_INPUT_SYMBOLS=12000`; при переполнении единый потолок режет ХВОСТ (метрики идут последними) — логи всегда приоритетнее (порядок секций).
+3. **VACUUM INTO на проде** — при старом SQLite fallback на subprocess `.backup`; оба пути обёрнуты try/WARNING (T-464 обязан проверить версию SQLite на проде в smoke).
+4. **Конспект × дедуп × TTL** — три фоновые механики пишут в одни таблицы: все точки — в `_memorize_facts_inner`/`get_window_messages`, последовательность фаз обязательна (64.9.12).
+
+**DoD (T-462…T-468):** дубли не пишутся (тесты 1–3); журнал сжатия ведётся (1,4); бэкап-джоб + экспорт создают файлы и ротируют (новый тест test_memory_backup.py); повторный текст не дёргает API (5); чекап отвечает метриками, каноны/пулы не тронуты (7–8 + существующие эталон-тесты); конспект в БД с TTL (9); токены вместо символов в 3 лимитах, таймер 6ч сохранён (10–11 + test_summary_scheduler.py зелёный).
+
+---
+
+## Section 65: Epic 60 Фаза C (P1/P2) — direct_chat UX: 🗿-молчание, edited-цепочка, кулдаун-стачка, стилевые якоря, команды, стриминг саммари, typing, temperature, настроение, «забудь» (v2.43.0)
+
+> **Дата:** 2026-08-24. **Статус:** DESIGN (@Architect, T-458). **Цель:** R60-10…R60-19 (T-469…T-478). **Решения:** D247 (дизайн фазы C; реализует D238 — пользовательские дефолты). **Прод:** v2.42.1, 2360 тестов. Каноны R50-4 (CHAT_SYSTEM_PROMPT), R50-7/R50-8, R13 (UX-фразы), R46-2/R46-4 НЕ трогаем.
+
+### 65.1 Пустой ответ модели → молчание + 🗿 (R60-10, п.33+37, D247, T-469)
+
+**Скоуп — ВСЕ LLM-пайплайны смарт-модуля (7 точек `llm.generate`):** direct_chat (`direct_chat_service.py:153`), summary (`summary_generator.py:129/136`), factcheck (`factcheck_service.py:65`), search (`search_service.py:58`), youtube (`youtube_summarizer_service.py:63`), web (`web_summarizer_service.py:67`), checkup (`checkup_service.py:46`).
+
+- **Детект:** `llm_client.generate` уже бросает `LLMBadResponseError` на пустой контент (`llm_client.py:321-322`). Правило: `LLMBadResponseError` ИЛИ (`raw` получен, но `str(raw).strip() == ""` / `cleanup_llm_text(raw).strip() == ""`) → **путь молчания**: НЕ отправлять UX-заглушку, НЕ отправлять ничего текстом; вызвать `react_moai(...)` и выйти.
+- **Реакция** — новый helper в `services/smartmodule_utils.py`:
+
+```python
+async def react_moai(bot, chat_id: int, message_id: int | None) -> None:
+    """🗿 на триггер-сообщение (best-effort). НЕ бросает."""
+    if bot is None or message_id is None:
+        return
+    try:
+        await bot.set_message_reaction(
+            chat_id, message_id,
+            reaction=[types.ReactionTypeEmoji(emoji="🗿")], is_big=False)
+    except Exception:
+        logger.warning("SmartModule: moai reaction failed | chat=%s msg=%s",
+                       chat_id, message_id, exc_info=True)
+```
+
+  Вопрос 8 (сигнатура `set_message_reaction` в aiogram 3.29.1, падение при удалённом триггере) — **открыт до реализации** (T-459 эту тему не покрыл); Builder T-469 первым шагом проверяет сигнатуру метода в установленной версии. Дизайн выше: ЛЮБАЯ ошибка → WARNING, молчание НЕ нарушается (гарантия — отсутствие send_message, реакция best-effort).
+- **Где вставлять try/except:** существующие `except LLMError`-ветки НЕ трогаем (R13-фразы для «LLM сломался» ОСТАЮТСЯ — это другой случай: модель ЖИВА и ответила пустым). Добавляем ОТДЕЛЬНУЮ ветку `except LLMBadResponseError` (или проверку пустого `raw`) ДО `except LLMError` в каждом пайплайне: direct_chat — перед `except LLMError` (`direct_chat_service.py:169`), summary — перед `except LLMError` (`summary_generator.py:147`), фактчек/поиск/ютьюб/веб — аналогично, checkup — в `checkup_service.checkup` (пустой после `cleanup_llm_text` → молчание; хендлер ничего не шлёт).
+- **ВАЖНО — R13-эталоны байт-в-байт:** реакция ДОПОЛНЯЕТ, не заменяет UX-фразы ошибок. Тесты R13 (`test_smartmodule_phrases.py` и эталоны сервисов) остаются зелёными без изменений.
+- **Крон-саммари:** нет триггер-сообщения → `react_moai` пропускается (message_id None), просто WARNING + молчание; manual /summary — реакция на команду /summary (триггер-месседж есть в `generate_and_send`? НЕТ — message_id не передаётся; manual-ветка: молчание БЕЗ реакции (не закладываемся), cron: молчание. Реакция — только для пайплайнов с message_id в хендлере: direct_chat, factcheck, search, youtube, web, checkup).
+- **Молчание — гарантированное:** ни одна ветка пустого ответа не вызывает `_reply`/`send_message`.
+
+### 65.2 Бот отредактировал ответ → обновить цепочку (R60-11, п.38, D247, T-470)
+
+- **Хендлер в `handlers/direct_chat.py`:**
+
+```python
+@direct_chat_router.edited_message()
+async def direct_chat_edited_handler(message: types.Message, bot: Bot = None) -> None:
+    if _service is None or bot is None or _bot_id is None:
+        return UNHANDLED
+    if message.from_user is None or message.from_user.id != _bot_id:
+        return UNHANDLED      # правка ЧЕЛОВЕКОМ своего сообщения — НЕ переотвечаем (R60-11)
+    text = (message.text or message.caption or "").strip()
+    if not text:
+        return UNHANDLED
+    _service.remember_bot_reply(message.chat.id, message.message_id, text)  # async — UPSERT в bot_replies (63.1)
+```
+
+  Дизайн: только правки СОБСТВЕННЫХ сообщений бота; обновляем таблицу `bot_replies` (метод `remember_bot_reply` — теперь async idempotent-UPSERT по (chat_id, tg_message_id), 63.1). Цепочка `<Conversation_Thread>` при следующем обращении соберётся из свежего текста — «память цепочки не врёт». Правка человеком своего триггера — сознательно НЕ обрабатываем (UNHANDLED — пропагация живёт; других edited-хендлеров в проекте нет).
+- **Роутер тот же** (`direct_chat_router`), регистрация в bot.py не меняется (роутер включён целиком). Обновление — синхронный словарь, без БД (в БД бот-ответов нет — B9-стиль).
+
+### 65.3 Молчание после N кулдаунов подряд (R60-12, п.25, D247/D238, T-471)
+
+- **Счётчик стачки — персистентный** (вопрос 2): слот `throttle_state` с `scope='direct_silence'`, `user_id` — реальный юзер, `burst_left` — счётчик подряд. Логика в `DirectChatService.handle`, ветка `remaining > 0` (`direct_chat_service.py:133-139`):
+
+```python
+if remaining > 0:
+    streak = await self.silence_streak.bump(chat_id, user_id)   # +1, возврат нового значения
+    if streak >= settings.CHAT_SILENCE_AFTER_COOLDOWNS:          # default 5 (D238)
+        logger.warning("[direct] silent after %d cooldowns | chat=%s user=%s",
+                       streak, chat_id, target_name)
+        return                                                  # МОЛЧАНИЕ — без фразы R50-7
+    phrase = random.choice(CHAT_COOLDOWN_PHRASES).replace(...)   # как сейчас
+    await _reply(bot, chat_id, phrase, message.message_id)
+    logger.warning("[direct] cooldown | chat=%s user=%s remaining=%.0fs", ...)
+    return
+```
+
+- **Сброс стачки:** в ветке успешного допуска (`allow() == 0`): `await self.silence_streak.reset(chat_id, user_id)`. Также ленивый сброс по времени: `bump` обнуляет стачку, если `last_ts` старше `CHAT_COOLDOWN_SECONDS` (полное восстановление = «кулдауны уже не подряд»).
+- **Выключатель:** `CHAT_SILENCE_ENABLED` (default true; false → стачка не считается — ровно старое поведение). `CHAT_SILENCE_AFTER_COOLDOWNS` (int, default **5** — дефолт пользователя, D238; `<1 → 5` WARNING).
+- **Ветвление:** при достижении N — бот НЕ шлёт кулдаун-фразу вообще (требование «молчать»); WARNING в лог остаётся для наблюдаемости.
+
+### 65.4 Стилевые якоря (R60-13, п.28, D247, T-472)
+
+- **Точка:** `DirectChatService._build_user_content` (`direct_chat_service.py:196-216`) — НОВЫЙ блок ПОСЛЕ `<Conversation_Thread>` (порядок 58.9 расширяется: [map, RAG_Memory, Target_User, Global_Context, Thread, Style_Anchors]; статичное вверх — якоря ВНИЗУ как динамика):
+
+```python
+anchors = await self._build_style_anchors(chat_id)     # async — читает bot_replies (63.1)
+if anchors:
+    blocks.append(anchors)
+```
+
+- **Источник:** `_bot_replies` — теперь персистентная таблица `bot_replies` (63.1; TTL 3600/cap 200, методы async). Берём последние `CHAT_STYLE_ANCHORS_COUNT` (default **3**, ТЗ 2–3; min 1) ответов. Обрезаем каждый якорь до `CHAT_STYLE_ANCHOR_MAX_CHARS` (default 400).
+- **Формат VERBATIM** (строчные, без эмодзи; это user-блок, НЕ промпт — R50-4 неприкосновенен):
+
+```python
+async def _build_style_anchors(self, chat_id: int) -> str:
+    replies = await self._bot_replies.last_texts(       # 63.1: SELECT из bot_replies
+        chat_id, settings.CHAT_STYLE_ANCHORS_COUNT)
+    if not replies:
+        return ""
+    body = "\n".join(
+        f"{i}. {t[:settings.CHAT_STYLE_ANCHOR_MAX_CHARS]}"
+        for i, t in enumerate(replies, 1))
+    return f"<style_anchors>\nвот как ты отвечал недавно, держи тон:\n{body}\n</style_anchors>"
+```
+
+- **Выключатель:** `CHAT_STYLE_ANCHORS_ENABLED` (default true).
+
+### 65.5 Команды /clear /persona /tone /forget (R60-14, п.9, D247, T-473)
+
+- **Перехват:** в `handlers/direct_chat.py`, НОВЫЕ хендлеры с `Command`-фильтрами, регистрируются ВЫШЕ catch-all `direct_chat_handler` (aiogram внутри роутера идёт по порядку регистрации; catch-all с `startswith("/")→UNHANDLED` (`direct_chat.py:115-116`) НЕ изменится — команды перехватываются раньше, прочие `/`-команды по-прежнему пропагируются вниз к admin_commands/info).
+- **Скоуп:** per-user (память о юзере), работает в любом чате, где бот активен. `from_user is None or from_user.id == _bot_id → UNHANDLED`.
+- **/clear** — стереть текущий диалог с юзером: удалить `_bot_replies` чата (цепочки) + `graph_facts` с `origin='bot_direct_reply' AND target_user=имя юзера` (деструктивно для ДИАЛОГА, не для chat_history-фактов). Ответ VERBATIM: `всё, диалог с чистого листа, что было — быльём поросло`
+- **/persona** — без аргумента: показать текущие пресеты (персона + tone). Ответ VERBATIM: `я тот самый токсичный бот-абьюзер. тон: {tone}. настроение подстраиваю сам`. C аргументом-именем — карточка человека (66.9) — увязка с T-487 (обратная зависимость: T-473 реализует только «показать персону»; карточки добавляет T-487).
+- **/tone** — `/tone точный|сбалансированный|болтливый` → записать пресет юзеру в `user_prefs` (таблица миграции v3, 63.3); без аргумента — показать текущий. Ответы VERBATIM:
+  - установка: `понял, говорю точнее, без отсебятины` / `понял, вернул баланс` / `понял, добавил болтовни`
+  - показ: `тон: {точный|сбалансированный|болтливый}`
+  - кривой аргумент: `не знаю такого тона. есть точный, сбалансированный, болтливый`
+- **/forget** — `/forget <фраза>`: FTS-поиск по `graph_facts` (`origin='bot_direct_reply'` + target_user=имя; защищённые факты (65.10) пропускаются) → DELETE + запись в `graph_fact_compressions` (reason='forget'). Ответы VERBATIM:
+  - удалил ≥1: `забыл. если напомнишь — снова запомню`
+  - не нашёл: `в моей памяти про это пусто, может и не было`
+  - без аргумента: `напиши /forget и что именно забыть, а то я всё подряд сотру и стану глупым`
+- **Все фразы:** строчные, без эмодзи/маркдауна (стиль R13). Хранить в `services/smartmodule_phrases.py` (секция DirectChat) или в `handlers/direct_chat.py` как константы — решение: в `smartmodule_phrases.py` (единый канон-файл фраз; тест-эталон там же).
+
+### 65.6 Стриминг саммари (R60-15, п.31, D247/D238, T-474 — вердикт T-459 применён)
+
+- **Скоуп: ТОЛЬКО саммари** (`SummaryGenerator._send_chunked`, `summary_generator.py:260-274`) — «в качестве теста» (D238). Паттерн (ФИНАЛ T-459 тема 3, эталон deer-flow): **placeholder «…» → инкрементальные `edit_text`** с накоплением; правки численно НЕ лимитированы (лимит — по частоте), поэтому жёсткого потолка правок НЕТ — деградация только по ошибкам и по 4096:
+
+```python
+async def _send_streaming(self, chat_id: int, text: str) -> None:
+    interval = settings.SUMMARY_STREAM_EDIT_INTERVAL_GROUP           # default 3.0
+    try:
+        chat = await self.bot.get_chat(chat_id)                      # тип чата
+        if getattr(chat, "type", "") == "private":
+            interval = settings.SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE # default 1.0
+    except Exception:
+        pass                                # не узнали тип — консервативный групповой темп
+    chunks = self._chunk_by_whitespace(text, 4096)                   # существующий чанкинг
+    sent = await self.bot.send_message(chat_id, "…")                 # placeholder
+    acc, last_text = "", "…"
+    for chunk in chunks:
+        acc += chunk
+        new_text = acc if len(acc) <= 4096 else acc[:4096].rstrip() + "…"
+        if new_text == last_text:
+            continue                            # защита «message is not modified»
+        try:
+            await sent.edit_text(new_text)
+            last_text = new_text
+        except TelegramRetryAfter as exc:       # сон + РОВНО 1 повтор, затем drop чанка
+            await asyncio.sleep(exc.retry_after)
+            try:
+                await sent.edit_text(new_text)
+                last_text = new_text
+            except Exception:
+                pass                            # финальный edit гарантирует полноту
+        except TelegramBadRequest as exc:
+            msg = getattr(exc, "message", "") or ""
+            if "message is not modified" in msg:
+                last_text = new_text            # no-op → success (T-459 тема 3)
+            elif "message is too long" in msg:
+                break                           # выходим в финал/остаток
+            else:
+                logger.warning("summary: streaming edit failed — degrade | chat_id=%s", chat_id)
+                return await self._send_chunked(chat_id, text)       # деградация
+        await asyncio.sleep(interval)
+    try:                                        # финальный edit — полнота (без «…»)
+        if acc[:4096] != last_text.rstrip("…"):
+            await sent.edit_text(acc[:4096])
+    except Exception:
+        logger.warning("summary: streaming final edit failed | chat_id=%s", chat_id)
+    if len(text) > 4096:                        # остаток — НОВЫМИ сообщениями (без дублей)
+        await self._send_chunked(chat_id, text[4096:])
+```
+
+- **Темп правок (ФИНАЛ T-459):** `SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE=1.0` (приват), `SUMMARY_STREAM_EDIT_INTERVAL_GROUP=3.0` (группы — лимит ~20 правок/мин). Правки одного сообщения численно НЕ лимитированы; 4096 → финализировать edit (промежуточные усекаются с «…»), остаток — отдельными сообщениями (сумма без потерь и дублей).
+- **Выключатель:** `SUMMARY_STREAMING_ENABLED` (default **false** — тест-режим; D238). `MAX_SUMMARY_PARTS=1` — типичный ответ ≤4096, стриминг целиком в одном сообщении.
+
+### 65.7 Индикатор «печатает…» (R60-16, п.30, D247/D238, T-475 — вердикт T-459 применён)
+
+- **Решение (ФИНАЛ T-459 тема 2) — готовый `ChatActionSender` из aiogram 3.29.1**, своя фоновая задача НЕ пишется. Новый модуль `services/typing_manager.py` — тонкая обёртка:
+
+```python
+from aiogram.utils.chat_action import ChatActionSender
+
+def typing_active(bot, chat_id: int):
+    """async context manager 'typing…'. ChatActionSender сам шлёт action каждые
+    interval секунд до выхода из блока (T-459 тема 2). БЕЗ искусственной паузы."""
+    return ChatActionSender.typing(
+        bot=bot, chat_id=chat_id,
+        interval=settings.TYPING_INTERVAL_SECONDS,      # default 5.0 — под TG-таймаут 5с
+    )
+```
+
+  Использование в каждой LLM-точке: `async with typing_active(bot, chat_id): raw = await self.llm.generate(...)` — блок от отправки контекста в ИИ до отправки ответа (D238: старт — перед `generate`, стоп — выход по успеху/исключению).
+- **Сброс НЕ нужен (T-459):** индикатор гаснет сам — (а) ≤5с после последнего `sendChatAction` (выход из блока останавливает фоновую таску), (б) НЕМЕДЛЕННО при отправке ботом любого сообщения (включая фразу об ошибке). При зависшем LLM выход из блока происходит по `asyncio.TimeoutError` (LLM_TOTAL_BUDGET 60с в llm_client) — «вечно печатает» невозможен (риск 5 Epic 60 закрыт). `sendChatAction` не считается сообщением и не ест лимиты (T-459); BusinessConnection НЕ нужен (только business-чаты).
+- **Точки включения — все LLM-фичи с chat_id** (смарт-модуль): direct_chat (`handle`, вокруг generate), factcheck/search/youtube/web (сервисы), checkup (хендлер, вокруг `_service.checkup`), summary (`generate_and_send` вокруг generate — manual И cron; в чат всё равно пишется). НЕ включаем: фоновые memorize/compress/backfill (нет «печати» в чат), /info (не LLM). Ошибки `send_chat_action` внутри ChatActionSender — WARNING-лог, контекст продолжает работать.
+- **Выключатель:** `TYPING_INDICATOR_ENABLED` (default true; false → блоки не открываются — ровно старое поведение). `TYPING_INTERVAL_SECONDS` (float, default **5.0**).
+
+### 65.8 Temperature-пресеты (R60-17, п.32, D247, T-476)
+
+- **Конфиг-ключи:** `CHAT_TEMPERATURE_PRECISE` (default **0.0**), `CHAT_TEMPERATURE_BALANCED` (default **0.7**), `CHAT_TEMPERATURE_CHATTY` (default **1.0**), `CHAT_TEMPERATURE_PRESET_DEFAULT` (default `"balanced"`). Словарь пресетов — в settings (`точный`/`сбалансированный`/`болтливый` → 'precise'/'balanced'/'chatty').
+- **Применение:** `llm_client.generate(messages, temperature=...)` — НОВЫЙ опциональный kwarg (None → ключ НЕ добавляется в payload — ровно старое поведение для всех остальных вызовов). `DirectChatService.handle` передаёт пресет юзера из `user_prefs.tone_preset` (65.5) или дефолт. Другие пайплайны — без temperature (дефолт провайдера, не трогаем).
+- **Хранение пресета:** `user_prefs` (таблица миграции v3; PRIMARY KEY (chat_id, user_id), колонка `tone_preset TEXT`). /tone — единственная команда записи (65.5).
+
+### 65.9 Настроение собеседника (R60-18, п.34, D247, T-477)
+
+- **Системный промпт НЕ меняется (R50-4, требование D238).** Детект — эвристический (без LLM-вызова), по последнему сообщению `<Target_User>` (текст `query` в `handle`):
+  - `CHAT_MOOD_NEGATIVE_WORDS` (default: `бля,нахуй,заебал,сука,бесит,пидор,гандон,тупой`) → «зло»;
+  - `CHAT_MOOD_POSITIVE_WORDS` (default: `спс,спасибо,класс,топ,кайф,красава,супер`) → «радостно»;
+  - иначе блока нет (не гадаем).
+  - Списки — comma-separated env (правило п.49 соблюдено — НИКАКИХ списков в коде).
+- **Инъекция — user-контекст:** в `_build_user_content` блок ПОСЛЕ `<Target_User>` (до Global_Context). Формат VERBATIM (строчные):
+
+```python
+def _build_mood_block(self, query: str) -> str:
+    text = str(query or "").lower()
+    if any(w in text for w in _MOOD_NEGATIVE):  mood = "зло"
+    elif any(w in text for w in _MOOD_POSITIVE): mood = "радостно"
+    else: return ""
+    return (f"<mood>собеседник звучит {mood}, "
+            f"подстрой тон под это, но не переигрывай</mood>")
+```
+
+- **Выключатель:** `CHAT_MOOD_ENABLED` (default true). Это user-пресет/контекст, системные промпты не касаются (риск 3 Epic 60 — закрыт эталон-тестами R50-4).
+
+### 65.10 Явное «забудь» + защищённые факты + перезапись (R60-19, п.14, D247/D238, T-478)
+
+- **/forget** (65.5) — удаление конкретных фактов (запомненных неправильно). Перезапись = «/forget старое» + обычный диалог (бот перезапомнит через memorize); прямого «запомни так» НЕ вводим (память пишется из фактуры диалога — канон 55.5).
+- **Защищённые факты** — таблица (миграция v3):
+
+```sql
+CREATE TABLE IF NOT EXISTS protected_facts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id    INTEGER NOT NULL,
+    user_name  TEXT NOT NULL,          -- имя (канон-резолв алиасов)
+    fact       TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE (chat_id, user_name, fact)
+);
+```
+
+  Механика: `/forget` НЕ удаляет строки из `protected_facts`; дедуп (64.1: noop-подтверждение и supersede-инвалидация) и слияние (66.2) НЕ трогают факт, совпадающий с защищённым (защита от «отравления» через «свежий побеждает»). Интерфейс заполнения: отдельная команда НЕ вводится — защищённый факт пишется в `protected_facts` вручную/admin-скриптом (T-478 фиксирует канон: /forget не трогает protected; тест-стража).
+- **Карточки фактов юзера** (п.14 связка с п.17): просмотр `/persona <имя>` — 66.9 (T-487); перезапись через /forget — здесь.
+
+### 65.11 Env-сводка (Фаза C)
+
+| Переменная | Дефолт | | Переменная | Дефолт |
+|---|---|---|---|---|
+| `CHAT_SILENCE_ENABLED` | `true` | | `SUMMARY_STREAMING_ENABLED` | `false` |
+| `CHAT_SILENCE_AFTER_COOLDOWNS` | `5` (D238) | | `SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE` | `1.0` |
+| `CHAT_STYLE_ANCHORS_ENABLED` | `true` | | `SUMMARY_STREAM_EDIT_INTERVAL_GROUP` | `3.0` |
+| `CHAT_STYLE_ANCHORS_COUNT` | `3` | | `TYPING_INDICATOR_ENABLED` | `true` |
+| `CHAT_STYLE_ANCHOR_MAX_CHARS` | `400` | | `TYPING_INTERVAL_SECONDS` | `5.0` |
+| `CHAT_MOOD_ENABLED` | `true` | | `CHAT_MOOD_POSITIVE_WORDS` | (см. 65.9) |
+| `CHAT_MOOD_NEGATIVE_WORDS` | (см. 65.9) | | `CHAT_TEMPERATURE_PRECISE` | `0.0` |
+| `CHAT_TEMPERATURE_BALANCED` | `0.7` | | `CHAT_TEMPERATURE_CHATTY` | `1.0` |
+| `CHAT_TEMPERATURE_PRESET_DEFAULT` | `balanced` | | | |
+
+### 65.12 Тест-план (T-469…T-478)
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | tests/test_direct_chat.py | `LLMBadResponseError`/пустой raw → НЕТ send_message, `react_moai` вызван (мок bot), WARNING | 🗿-молчание |
+| 2 | tests/test_factcheck_service.py, test_smartsearch_service.py, test_youtube_summarizer_service.py, test_web_summarizer_service.py, test_checkup_service.py, test_summary_generator.py | пустой ответ → заглушка НЕ отправлена; R13-эталоны ошибок (существующие кейсы с LLMError) НЕ изменились | все 7 пайплайнов |
+| 3 | tests/test_smartmodule_utils.py | `react_moai`: успех; TelegramBadRequest → WARNING, без raise | best-effort |
+| 4 | tests/test_direct_chat_handlers.py | edited_message бота → `_bot_replies` обновлён (цепочка на следующем обращении содержит новый текст); правка человеком → UNHANDLED, переотвечания нет | R60-11 |
+| 5 | tests/test_direct_chat.py | 5 кулдаунов подряд → 6-й триггер: НЕТ сообщения (молчание), счётчик в БД; успешный допуск сбрасывает стачку | R60-12 |
+| 6 | там же | `_build_user_content` содержит `<style_anchors>` с последними 3 ответами (текст VERBATIM-шаблона) | R60-13 |
+| 7 | tests/test_direct_chat_handlers.py | /clear → фраза VERBATIM + факты bot_direct_reply удалены; /tone болтливый → user_prefs; /forget с фразой/без/мимо; /persona | 4 команды |
+| 8 | tests/test_llm_client.py | `generate(messages, temperature=0.0)` → payload содержит temperature; без kwarg → ключа нет | temperature |
+| 9 | tests/test_direct_chat.py | пресет юзера из user_prefs попадает в generate; mood-блок при «зло»/«радостно»/нейтрально | 65.8/65.9 |
+| 10 | tests/test_summary_generator.py | стриминг: placeholder «…» → edit чанк за чанком (интервал 1.0 приват / 3.0 группа — мок get_chat); not-modified → без ошибки; retry_after → 1 повтор; >4096 → финал-edit + остаток `_send_chunked` БЕЗ дублей; прочая ошибка edit → деградация | R60-15 |
+| 11 | tests/test_typing_manager.py (НОВЫЙ) | `typing_active` оборачивает ChatActionSender.typing (мок): вход → send_chat_action, выход → задача остановлена; TYPING_INDICATOR_ENABLED=false → блок не создаётся | R60-16 |
+| 12 | тесты-эталоны | `test_direct_chat_prompts.py` (R50-4 байт-в-байт), `test_smartmodule_phrases.py` (R13/R50-7/R50-8) — БЕЗ правок, зелёные | каноны |
+| 13 | регрессия | полный pytest | 0 failed/skipped |
+
+### 65.13 Риски (Фаза C)
+
+1. **R13-эталоны:** пустой ответ ≠ LLMError — Builder обязан добавлять ВЕТКУ, а не менять существующие except-ветки (тест 2 страхует все 7 пайплайнов).
+2. **Стриминг-лимиты Telegram** — темп 1/3 сек и not-modified/retry_after-обработка по вердикту T-459; деградация в `_send_chunked` в дизайне (риск 4 Epic 60 закрыт).
+3. **«Вечно печатает»** — выход из ChatActionSender-блока по любому исходу + авто-гашение Telegram (риск 5 Epic 60 закрыт).
+4. **Команды vs catch-all:** порядок регистрации хендлеров внутри роутера критичен (Command-хендлеры ВЫШЕ catch-all) — тест 7 это держит; другие `/`-команды (/summary и пр.) не затрагиваются (UNHANDLED-пропагация сохранена).
+5. **edited_message на каналах/удалениях:** хендлер только на `edited_message` с from_user==bot — объём событий мал; `InaccessibleMessage` не матчится (edited с media отсутствует — text-only, guard на пустой текст).
+
+**DoD (T-469…T-478):** 🗿-реакция + гарантированное молчание во всех 7 пайплайнах без слома R13-эталонов (тесты 1–3,12); цепочка правдива после правки (4); молчание после 5 кулдаунов, счётчик персистентен (5); секция якорей в контексте (6); 4 команды с фразами VERBATIM (7); temperature-пресеты через env + /tone (8–9); стриминг только саммари с деградацией (10); typing с продлением и сбросом (11); системные промпты байт-в-байт (12).
+
+---
+
+## Section 66: Epic 60 Фаза D (P2) — память: веса, слияние эпизодов, time-decay, квоты, TTL+LRU, сжатие векторов, золотые вопросы, MMR, профили, конфликты, пересмотр, бюджеты (v2.43.0)
+
+> **Дата:** 2026-08-24. **Статус:** DESIGN (@Architect, T-458). **Цель:** R60-20…R60-31 (T-479…T-490). **Решения:** D248 (дизайн фазы D). **Прод:** v2.42.1, 2360 тестов. Каноны R46-2/R46-4/R11/R50-4 НЕ трогаем. Все механики фазы D — аддитивные колонки/джобы поверх фазы B; порядок фаз строгий (P2 зависит от T-462).
+
+### 66.1 Веса значимости фактов (R60-20, п.53, D248, T-479)
+
+- **Колонка `graph_facts.weight REAL NOT NULL DEFAULT 0.5`** (шкала 0..1 — спецификация пользователя R60-20; валидация в Python: значения вне [0,1] клампится с WARNING). Рядом — `last_confirmed_at INTEGER` (backfill = created_at, миграция v3) — база для time-decay (66.3).
+- **Начальный вес по origin:** `chat_history` 0.5; `bot_direct_reply` **0.7** (личная просьба важнее фона); `search_fact`/`youtube_content`/`web_content` **0.4** (архивная справка). Конфиг: `GRAPH_FACT_WEIGHT_DIRECT` (0.7), `GRAPH_FACT_WEIGHT_ARCHIVE` (0.4).
+- **Подтверждение (T-459 тема 5):** noop/подтверждение (64.1.2/3) → `weight += GRAPH_DEDUP_WEIGHT_BONUS` (default 0.1 — масштаб 0..1, аналог «+1 cap 5» из T-459), cap 1.0, **floor 0.1** (факт не выпадает из ранга полностью) + `last_confirmed_at = now` (сброс затухания). Ручная перезапись через /forget+перезапоминание → новый факт с базовым весом.
+- **Влияние на выдачу:** RAG-score = `(1 − distance) × weight` при KNN-отборе (`_knn_graph_facts` — пересчёт в Python после выборки top-2K); FTS-фолбек — сортировка `ORDER BY rank` остаётся (веса в FTS не применимы — честная деградация).
+- **Влияние на TTL:** `expires_at = now + TTL × (0.5 + weight)` (важный 0.7 → ×1.2 TTL; архивный 0.4 → ×0.9). Точка — `_memorize_facts_inner` при расчёте expiry (для origin с TTL; chat_history — NULL вечно, direct — по CHAT_DIRECT_REPLY_TTL_DAYS).
+
+### 66.2 Слияние повторяющихся эпизодов (R60-21, п.54, D248, T-480 — зависит от T-462)
+
+- **Фоновая задача:** APScheduler, интервал `GRAPH_EPISODE_MERGE_INTERVAL_DAYS` (default **7** дней), отдельный джоб `MemoryMaintenanceService` (вместе с 66.11-пересмотром — ОДИН сервис `services/memory_maintenance.py`, два джоба; MemoryJobStore, max_instances=1).
+- **Алгоритм per-chat:** (1) взять `graph_facts` чата (не протухшие); (2) кластеризация по KNN-сходству (vec) либо точному subject+predicate (FTS-фолбек) — кластеры ≥2 фактов; (3) LLM-слияние: system = `COMPRESS_PROMPT` (существующий сжиматель — НОВЫЙ промпт НЕ вводим), user = «слей эти факты в один, ничего не потеряй: ...»; (4) **проверка «ничего не потерялось»**: слитый факт должен покрыть исходные — дешёвый чек: число уникальных токенов слитого ≥ 60% токенов исходных; не прошёл → пропуск кластера (WARNING), исходные живут; (5) вставка слитого + DELETE исходных + записи в `graph_fact_compressions` (reason='episode_merge', fact_before=все исходные).
+- **Пределы:** `GRAPH_EPISODE_MERGE_BATCH` (default 20 кластеров за прогон), `GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER` (default 5). LLMError → пропуск прогона (следующий цикл через 7 дней). Выключатель `GRAPH_EPISODE_MERGE_ENABLED` (default true).
+
+### 66.3 Time-decay связей графа (R60-22, п.55, D248, T-481)
+
+- **Формула (ФИНАЛ T-459 тема 5, при чтении):** `w_eff = weight × 0.5^(Δdays / GRAPH_TIME_DECAY_HALF_LIFE_DAYS)`, half_life default **60** дней (диапазон T-459 30–90); **floor 0.1** (`GRAPH_TIME_DECAY_FLOOR`). Δdays — от `last_confirmed_at` (факты; backfill = created_at, 63.3) / от `strftime('%s', last_updated)` (рёбра — существующая колонка; `edges.created_at` из 63.3 остаётся как отладочный бэкап). Новое подтверждение «сбрасывает» затухание (last_confirmed_at = now — 66.1).
+- **Decay — ТОЛЬКО множитель ранга при retrieval (T-459: «decay ≠ staleness»):** никаких удалений/инвалидаций по возрасту — устаревание фактов идёт через expires_at/invalidation (64.2/66.10); старый, но живой факт просто ранжируется ниже.
+- **Точка применения:** `database.get_top_edges`/`get_top_edges_all` остаются SQL (weight DESC), а время-взвешивание — в `MemoryManager.get_graph_facts` и `_knn_graph_facts`/`search_graph_facts_fts` (пересчёт в Python после выборки top-2×limit, пересортировка по w_eff DESC). SQL не меняем (FTS/KNN-стиль деградации проекта: пересчёт в Python).
+- Выключатель `GRAPH_TIME_DECAY_ENABLED` (default true).
+
+### 66.4 Квота памяти на человека (R60-23, п.56, D248, T-482 — зависит от T-479)
+
+- **Лимит фактов на человека:** `GRAPH_FACTS_PER_USER_QUOTA` (default **50**) — считается по `graph_facts` с `target_user = имя юзера` (прямые факты) + узлы `entity_type='user'`? ТОЛЬКО факты direct (target_user не NULL): «память на человека» = direct-память о нём. chat_history-факты не имеют target_user и не ограничиваются (это общий граф чата).
+- **Вытеснение:** при вставке direct-факта и count > quota → удалить факт с минимальным score `weight × (now − created_at обратно пропорционально)`: score = `weight / (age_days + 1)` — жертвуем самым лёгким и старым; удаление → `graph_fact_compressions` (reason='quota'). Выключатель `GRAPH_USER_QUOTA_ENABLED` (default true; 0 = без лимита).
+
+### 66.5 TTL+LRU автоочистка (R60-24, п.59, D248, T-483 — зависит от T-479)
+
+- **«Используется — живёт» (touch):** при RAG-hit факта (попал в `get_rag_context`/`vector_search` выдачу) — продлить `expires_at` на `GRAPH_FACT_TOUCH_EXTEND_DAYS` (default **7**), cap: не дальше `created_at + 2 × базовый TTL` (вечное протухание невозможно). Touch — в `_knn_graph_facts`/`search_graph_facts_fts` (обновление по id списком, батчем).
+- **LRU-плечо:** `embedding_cache.last_used_at` (64.4) — истёкшие/неиспользуемые кэш-строки вычищаются лениво; кэш TTL продлевается hit'ом до `EMBED_CACHE_TTL_DAYS`.
+- **TTL+LRU-канон (ФИНАЛ T-459 тема 8)** — единая схема для embedding_cache/bot_replies/throttle_state: (1) TTL — лениво: при чтении протухшего DELETE + sweep на записи (`DELETE WHERE <ts> < now - TTL`, индекс по времени); (2) LRU-cap — при записи, если `COUNT(*) > N`: `DELETE WHERE key NOT IN (SELECT key ORDER BY last_used_at DESC LIMIT N)`; (3) `last_used_at` при чтении обновлять ЛЕНИВО — только если старше 60с (без write-per-read); (4) WAL + один writer (63.1).
+- **Связка с таймером:** выброс неиспользуемых фактов — piggyback в существующий крон (55.1 #5: `purge_expired_graph_facts` при compress_and_purge, 4×/день + ручной /summary) + джоб 66.2/66.11. Отдельный планировщик НЕ вводим (прецедент 55.1 #5).
+- **Выключатель:** `GRAPH_FACT_TOUCH_ENABLED` (default true).
+
+### 66.6 Сжатие векторов (R60-25, п.61, D248, T-484 — зависит от T-465, ПОСЛЕ кэша эмбеддингов; вердикт T-459 применён)
+
+- **Формат (ФИНАЛ T-459 тема 7): int8 + float-канон.** vec0-таблицы (`smart_archive`, `graph_facts_vec`) пересоздаются с ДВУМЯ колонками: `embedding float[dim]` (канон) + `embedding_i8 int8[dim]` (coarse); вставка — `vec_quantize_int8(vector)` (функция sqlite-vec) в int8-колонку. **Поиск двухпроходный** (паттерн binary-quant docs): KNN `MATCH` по int8 с `k = limit × 4` → реранк точной cosine по float-колонке → top-k. Экономия 4× (float32 → int8), recall-потеря ~1–3% на нормализованных векторах — приемлемо для фактов (T-459).
+- **Backfill = rebuild таблицы** (virtual-таблицу нельзя ALTER — T-459): `CREATE TABLE <t>_v3 (embedding float[dim], embedding_i8 int8[dim], +метаданные)` → `INSERT INTO ... SELECT id, f, vec_quantize_int8(f) FROM ...` → RENAME → DROP old (образец R46-8/55.8). Кэш эмбеддингов (64.4) делает rebuild ДЕШЁВЫМ: квантизация из кэшированных float-векторов, БЕЗ повторных API-вызовов — в этом смысл порядка «ПОСЛЕ п.60».
+- **`dimensions` у провайдера НЕ использовать** (гарантирован только у OpenAI text-embedding-3 — T-459 тема 7); `EMBEDDING_DIM` не меняем, каноном храним полный dim.
+- **Выключатель:** `VEC_INT8_ENABLED` (default **true** — в составе rebuild миграции v3); false → float-only схема (ровно старое поведение). Диверсификация — по float-векторам (66.8).
+
+### 66.7 Золотые вопросы (R60-26, п.62, D248, T-485)
+
+- **Где хранятся:** `tests/golden_questions.json` (репо, НЕ прод-артефакт) — список `{question, expected_keywords[]}` (без личных данных, R17). Дефолтный набор: «что я просил запомнить про тренировки?», «какой у меня тон?» и т.п. — синтетические вопросы о механике памяти.
+- **Как прогоняются:** `scripts/run_golden_questions.py` (dev-машина): для каждого вопроса — вызов `MemoryManager.get_rag_context`/`vector_search` на тестовой БД → проверка вхождения ожидаемых ключевых фактов → отчёт PASS/FAIL. Прогон ОБЯЗАТЕЛЕН после каждого релиза, касающегося памяти (процедура T-497 smoke + ритуал после T-462/T-479/T-480/T-484). На проде НЕ выполняется.
+
+### 66.8 MMR разнообразие (R60-27, п.16, D248, T-486)
+
+- **Порядок применения (ФИНАЛ T-459 тема 4):** в `get_rag_context`/`_search_graph_facts`: (1) кандидаты = `GRAPH_MMR_FETCH_K` (default **20**, диапазон T-459 20–50) по сходству (KNN float-реранк 66.6 / FTS); (2) жадный MMR: `score = λ·sim(q,d) − (1−λ)·max_sim(d, уже отобранные)`, `λ = GRAPH_MMR_LAMBDA` (default **0.6** — канон T-459: слегка в сторону релевантности — факты должны отвечать на запрос); (3) отбор `limit` фактов (GRAPH_RAG_FACTS_LIMIT 10; T-459 рекомендует k=4–8 — настраивается тем же ключом); (4) если `sort_by_timestamp` (DirectChat) — стабильная сортировка created_at ASC ПОСЛЕ отбора (58.8-контракт не ломается). Сложность O(k×fetch_k) — тривиально, ~15 строк.
+- **Диверсификация — по float-векторам** (не по int8 — T-459 темы 4/7).
+- **Фолбек:** MMR только на vec-пути; FTS оставляет rank-порядок (деградация R3-стиля). Выключатель `GRAPH_MMR_ENABLED` (default true).
+
+### 66.9 Профили пользователей + карточки (R60-28, п.17, D248, T-487 — зависит от T-462)
+
+- **Без отдельной таблицы** (ответ на вопрос 5): карточка = агрегация существующего графа по `entity_name` (тип 'user') и `target_user`:
+  - `SELECT ... FROM graph_facts WHERE chat_id=? AND target_user=?` — прямые факты;
+  - `edges`/`nodes` по сущности — связи (общий граф чата).
+- **Просмотр:** `/persona <имя>` (65.5) — карточка: до 10 фактов (прямые + top-связи), без техдеталей. Права: свою карточку видит сам юзер; ЧУЖУЮ — только `ADMIN_USER_ID` (R17 — чувствительные данные, в /info/чекап НЕ публикуем; риск 9 Epic 60). Ответ пустой карточки VERBATIM: `в памяти про {имя} пока пусто, пусть хоть раз нормально пообщается`
+- **Редактирование:** `/forget <фраза>` (65.5) удаляет прямой факт; перезапись — через диалог (65.10). Admin-просмотр всех карточек: `/persona list` (только ADMIN_USER_ID) — список имён + счётчики фактов.
+- **Формат карточки VERBATIM** (строчные, без эмодзи):
+  ```
+  карточка: {имя}
+  знаю о тебе: {N} фактов, {M} связей
+  1. {факт}
+  2. ...
+  ```
+
+### 66.10 Протухание и «свежий побеждает» при конфликте (R60-29, п.18, D248, T-488 — зависит от T-462)
+
+- **Срок годности УЖЕ есть** (`expires_at`, D175) — НЕ ломаем. Конфликт решается ТОЛЬКО в точке дедупа (64.1) по канону T-459: ≥0.95 → noop (+подтверждение); **0.85–0.95 = «тот же слот, другое значение» → инвалидация старого (`expires_at = now`) + INSERT нового (`supersedes`) — ОБЕ версии хранятся** (T-459: «хранение обеих версий безопаснее мержа»); <0.85 → новый факт. Защищённый факт (65.10) не инвалидируется автоматически.
+- **Одновременное устаревание:** конфликт не решается деструктивно — вся история в логе сжатий + supersedes-цепочка; ручной откат возможен.
+- **Связь с 64.2:** противоречие (зона 0.85–0.95) → инвалидация + новый факт `status='unconfirmed'`, а не перезапись — «свежий побеждает» = старый исключён из выдачи, НЕ стёрт.
+
+### 66.11 Периодический пересмотр фактов (R60-30, п.19, D248, T-489 — зависит от T-462)
+
+- **Джоб `MemoryMaintenanceService.review`** (вместе с 66.2, интервал `GRAPH_REVIEW_INTERVAL_DAYS` default **3**): (1) склейка дублей — точные ключи subject|predicate|object (без LLM) и vec-кластеры ≥0.95 → keep самый тяжёлый (`weight`), остальные → `graph_fact_compressions` + DELETE; (2) выброс устаревшего — `expires_at <= now` (уже есть piggyback 55.1#5, здесь — глобальный проход по всем чатам); (3) выброс `unconfirmed` старше `GRAPH_UNCONFIRMED_RETENTION_DAYS` (64.2); (4) усечение `graph_fact_compressions` старше `GRAPH_COMPRESSION_LOG_RETENTION_DAYS` (default 90 — лог не растёт вечно).
+- **Не только «по сообщению»:** пересмотр идёт по расписанию БЕЗ входящего триггера (отличие от piggyback). Выключатель `GRAPH_REVIEW_ENABLED` (default true).
+
+### 66.12 Бюджеты контекста (R60-31, п.12, D248, T-490)
+
+- **Ответ на вопрос 10:** бюджеты применяются к **direct_chat** (интерактивный пайплайн); summary/фоновые пайплайны НЕ переписываются (R11-канон, свои MAX_CHARS; фоновые — вне бюджетов).
+- **Общий потолок:** `CHAT_CONTEXT_BUDGET_TOKENS` (default **4000**) — суммарный user-контент direct_chat (считается tiktoken, 64.7). Доли (конфиг `CHAT_BUDGET_*_RATIO`): system ~5% (факт, не управляем), Global_Context 30% → `CHAT_BUDGET_GLOBAL_RATIO` (default 0.30), Conversation_Thread 20% (0.20), RAG_Memory 15% (0.15), Target_User+mood 5% (0.05), Style_Anchors 5% (0.05), ответ 15–25% (0.20 — рекомендация, max_tokens не управляем), запас 10% (0.10 — незанятое).
+- **Реализация:** при сборке `_build_user_content` блоки обрезаются по своим токен-лимитам (`truncate_to_tokens` + WARNING); при превышении ОБЩЕГО бюджета — порядок урезания (сначала дешёвое): Style_Anchors → Global_Context → Thread → RAG_Memory → UserResolutionMap; **Target_User НЕ урезается никогда** (R50-1-канон обращения). Это «потолки сборки», НЕ новый промпт — R50-4 не трогаем (риск 3 Epic 60 закрыт эталон-тестами).
+- **Выключатель:** `CHAT_CONTEXT_BUDGETS_ENABLED` (default true; false → старые MAX_CHARS-потолки).
+
+### 66.13 Env-сводка (Фаза D)
+
+| Переменная | Дефолт | | Переменная | Дефолт |
+|---|---|---|---|---|
+| `GRAPH_FACT_WEIGHT_DIRECT` | `0.7` | | `GRAPH_MMR_ENABLED` | `true` |
+| `GRAPH_FACT_WEIGHT_ARCHIVE` | `0.4` | | `GRAPH_MMR_LAMBDA` | `0.6` |
+| `GRAPH_EPISODE_MERGE_ENABLED` | `true` | | `GRAPH_FACTS_PER_USER_QUOTA` | `50` |
+| `GRAPH_EPISODE_MERGE_INTERVAL_DAYS` | `7` | | `GRAPH_USER_QUOTA_ENABLED` | `true` |
+| `GRAPH_TIME_DECAY_ENABLED` | `true` | | `GRAPH_FACT_TOUCH_ENABLED` | `true` |
+| `GRAPH_TIME_DECAY_HALF_LIFE_DAYS` | `60` | | `GRAPH_FACT_TOUCH_EXTEND_DAYS` | `7` |
+| `GRAPH_REVIEW_ENABLED` | `true` | | `VEC_INT8_ENABLED` | `true` |
+| `GRAPH_REVIEW_INTERVAL_DAYS` | `3` | | `CHAT_CONTEXT_BUDGETS_ENABLED` | `true` |
+| `GRAPH_COMPRESSION_LOG_RETENTION_DAYS` | `90` | | `CHAT_CONTEXT_BUDGET_TOKENS` | `4000` |
+| `GRAPH_MMR_FETCH_K` | `20` | | `GRAPH_TIME_DECAY_FLOOR` | `0.1` |
+
+### 66.14 Тест-план (T-479…T-490)
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | tests/test_graphrag_database.py | v3: weight/status колонки, edges.created_at backfill | схема (правка фикстуры 338+) |
+| 2 | tests/test_graphrag_memory.py | вес по origin; noop-подтверждение → +0.1 (cap 1.0, floor 0.1, last_confirmed_at=now); TTL = base × (0.5+weight) | веса |
+| 3 | там же | RAG-score = sim×weight (мок-KNN); time-decay: w_eff = weight×0.5^(Δдней/60) от last_confirmed_at, floor 0.1, подтверждение сбрасывает затухание | 66.1/66.3 |
+| 4 | там же | слияние эпизодов: кластер → 1 факт, исходные в лог; «ничего не потерялось» не прошло → пропуск | 66.2 |
+| 5 | там же | квота: 51-й direct-факт вытесняет самый лёгкий/старый; touch продлевает expires_at с cap | 66.4/66.5 |
+| 6 | tests/test_summary_memory.py | embedding_cache: hit продлевает last_used_at лениво (≥60с); int8: vec-таблица с двумя колонками, KNN по int8 → реранк float; rebuild-backfill без повторных embed | 66.5/66.6 |
+| 7 | tests/test_golden_questions.py (НОВЫЙ) | прогон на синтетической БД → ожидаемые ключи найдены | 66.7 |
+| 8 | tests/test_graphrag_memory.py | MMR: λ=0.6, fetch 20 — дубли-близнецы не занимают весь top-K (разнообразие); диверсификация по float, не int8 | 66.8 |
+| 9 | там же | /persona карточка: своя видна, чужая — только админ; формат VERBATIM | 66.9 |
+| 10 | там же | конфликт-дубль → свежий текст + лог; protected не перезаписан; противоречие → unconfirmed | 66.10/64.2 |
+| 11 | там же | пересмотр: склейка точных дублей, выброс unconfirmed/истёкших, усечение лога | 66.11 |
+| 12 | tests/test_direct_chat.py | бюджеты: блоки обрезаны по долям; Target_User цел; порядок урезания | 66.12 |
+| 13 | регрессия | полный pytest | 0 failed/skipped |
+
+### 66.15 Риски (Фаза D)
+
+1. **Слияние эпизодов может «слить» смысл** — двойная защита (чек покрытия токенов + лог сжатий); при сомнениях Builder отключает `GRAPH_EPISODE_MERGE_ENABLED`.
+2. **Параметры канонов** — λ/пороги/half_life/интервалы зафиксированы вердиктами T-459 (64.1/66.3/66.6/66.8); конфигурируемость сохранена (все — env, см. 66.13).
+3. **Квоты × time-decay × TTL взаимодействуют:** порядок применения зафиксирован (дедуп → вес → квота → TTL-touch); тест 5 держит инвариант.
+4. **Профили — чувствительные данные:** /persona чужих карточек — только админ; в чекап/метрики карточки НЕ попадают (R17).
+
+**DoD (T-479…T-490):** веса в БД и выдаче (1–2); слияние в фоне с проверкой (4); time-decay (3); квота с вытеснением (5); touch продлевает жизнь в связке с таймером (5–6); сжатие после кэша с backfill (6); золотые вопросы + процедура (7); MMR (8); карточки + просмотр/правка (9); свежий побеждает только для дублей (10); джоб пересмотра (11); бюджеты в сборке direct_chat (12).
+
+---
+
+## Section 67: Epic 60 Фаза E — правила-каноны (п.20/49/63), вынос _BOTWORD_RE в конфиг, дедуп-кэш п.8 (последним), сводка тестовых правок, v2.43.0 и порядок деплоя (v2.43.0)
+
+> **Дата:** 2026-08-24. **Статус:** DESIGN (@Architect, T-458). **Цель:** R60-32…R60-35 (T-491/T-492/T-493/T-499) + сводка тест-правок + релиз (D235/D244). **Решения:** D249 (дизайн фазы E; фиксирует D243-канон и D244-деплой).
+
+### 67.1 Правило п.20 — мусор и фразы-ошибки не пишутся в память (R60-32, D243/D249, T-491)
+
+**Канон (фиксируется, поведение НЕ меняется):** memorize-хуки получают ТОЛЬКО сырую фактуру (сообщения/транскрипты/статьи/результаты поиска). Тексты ответов бота попадают в память ТОЛЬКО как `origin='bot_direct_reply'` (58.8, D205 — парой «запрос+ответ»), токсичные фразы-ошибки (`CHAT_ERROR_PHRASES`, `CHAT_COOLDOWN_PHRASES`, `CHAT_LLM_DOWN_PHRASES`, `CHECKUP_LLM_ERROR_PHRASES`, R13-пулы) — НИКОГДА не передаются в `memorize_facts` ни одним хуком. Защита — **тесты-стражи** (БЕЗ изменения поведения):
+
+- `tests/test_graphrag_memory.py` (НОВЫЙ): перебор всех пулов фраз → утверждение: ни один `fire_and_forget`-хук в коде не передаёт пул-строку в `memorize_facts` (статический тест по импортам/вызовам — по образцу канон-тестов R46-2);
+- `tests/test_summary_generator.py`: существующий тест хука summary (fire-and-forget c `_build_batch_text`) — остаётся, добавлен assertion «raw-батч, не ответы бота».
+
+### 67.2 Правило п.49 — списки слов только в конфиге; вынос _BOTWORD_RE (R60-33, D249, T-492)
+
+- **Решение (ответ на вопрос 9):** паттерн — в **settings** (`CHAT_BOTWORD_PATTERN`), НЕ в `word_lists.py` (там словари слов для фильтров `filters/*`; regex с word-boundary — контракт direct_chat и должен жить рядом с ним). Env-строка с regex безопасна как КОНФИГ-значение (не исполняемый код; компилируется один раз при импорте хендлера).
+- **Формат конфига:** raw-regex строка. Дефолт — **байт-в-байт** текущий паттерн (`direct_chat.py:39-41`):
+
+```python
+CHAT_BOTWORD_PATTERN: str = _env_str(
+    "CHAT_BOTWORD_PATTERN",
+    r"(?i)(?<![0-9a-zа-яё_./])бот(?:ина|яра|ик|охуета|охуйня)?(?![0-9a-zа-яё_])")
+```
+
+- **Обратная совместимость тестов 61.5:** компиляция в модуле хендлера: `try: _BOTWORD_RE = re.compile(settings.CHAT_BOTWORD_PATTERN) except re.error: WARNING + дефолт` (D104-стиль). Тесты 61.5 (word-boundary-семантика, исключённые юзеры) проходят БЕЗ правок — дефолт идентичен. `DIRECT_CHAT_BOTWORD_ENABLED` (R52-4) не трогаем.
+- **Кривой паттерн:** WARNING `CHAT_BOTWORD_PATTERN invalid regex — using default (D104)` + дефолт — бот не падает при старте.
+- **Границы правила:** все НОВЫЕ списки Epic 60 — только env (64/65/66: mood-слова, пресеты, словари) — канон п.49 соблюдён во всех секциях.
+
+### 67.3 Правило п.63 — не переезжаем на Mem0/Zep/Letta (R60-34, D249, T-493)
+
+**Канон:** схема памяти остаётся собственной (smart_messages L1/L2, smart_archive L3, nodes/edges/graph_facts GraphRAG, sqlite-vec). Внешние «память-как-сервис» (Mem0/Zep/Letta) НЕ внедряются. Из них подсматриваются ТОЛЬКО ПРИЁМЫ №52–55 (дедуп add/update/no-op — 64.1; веса — 66.1; слияние — 66.2; decay — 66.3) — реализованы в своих таблицах без внешних зависимостей. Фиксируется в README (T-495) и здесь; НОВЫХ зависимостей в requirements.txt кроме `tiktoken` (T-459) НЕ добавляется.
+
+### 67.4 п.8 — дедуп+кэш одинаковых текстов подряд (R60-35, D237/D249, T-499 — ПОСЛЕДНИМ)
+
+- **Ключ «чат+человек+текст»:** `MD5("direct_dedup\x00" + chat_id + "\x00" + user_id + "\x00" + normalize_text(text))` — в **существующей таблице `smart_cache`** (аддитивная; НОВЫЙ slug `direct_dedup`, normalizer `text` — расширение словаря `_NORMALIZERS` в `smart_cache.py:26-31`). Новая таблица НЕ нужна.
+- **Поведение:** повтор идентичного текста от того же юзера в том же чате в течение `CHAT_DEDUP_TTL_SECONDS` (default **300**): если в кэше есть СОХРАНЁННЫЙ ОТВЕТ (payload — текст прошлого ответа) → отправить его повторно (reply на новое сообщение, `remember_bot_reply` для нового id); если ответа в кэше нет (прошлый раз не ответили/молчание) → молчание. Первое вхождение — обычный поток; после успешной отправки ответа — `cache.set(key, answer)`.
+- **Точка:** `DirectChatService.handle` ПОСЛЕ замка/перед сборкой контекста (проверка кэша) и ПОСЛЕ успешной отправки (запись). Троттлинг остаётся первым (D237: барьер уже есть — дедуп НЕ заменяет троттлинг).
+- **Выключатель:** `CHAT_DEDUP_ENABLED` (default true). Дедуп-кэш использует SmartCache с отдельным TTL и собственным флагом; `SMART_CACHE_ENABLED=false` дедуп НЕ выключает (разные фичи, рубильник только свой).
+- **T-499 — последним (D237):** реализуется ПОСЛЕ T-460…T-498, на финальной стабилизации; не блокирует релиз (фича самодостаточна).
+
+### 67.5 Сводка тестовых правок (дословно по файлам — для T-494/Reviewer)
+
+| Файл | Суть правок |
+|---|---|
+| tests/test_graphrag_database.py | user_version 2 → 3 (строки 381-394, 402-428, 525-566); фикстура v3-схемы (338+); новые таблицы v3; edges.created_at backfill; weight/status колонки |
+| tests/test_database.py | +42 существующих не трогаем; добавлены schema-ассерты v3-таблиц (в свой класс) |
+| tests/test_migrate_direct_chat_v2_script.py | НЕ меняется (скрипт v2 остаётся легаси); НОВЫЙ tests/test_migrate_epic60_v3_script.py (v2→v3, данные сохранены, идемпотентность) |
+| tests/test_direct_chat.py | TestDirectChatThrottle → persistent (167-209); TestHandleFlow: lock-очередь, 🗿-ветка, стачка, якоря, бюджеты, дедуп-кэш; TestBotRepliesLru: edited-обновление |
+| tests/test_direct_chat_handlers.py | команды /clear /persona /tone /forget; edited_message; CHAT_BOTWORD_PATTERN (дефолт байт-в-байт, кривой → дефолт) |
+| tests/test_smartmodule_throttling.py | существующие (in-memory) зелёные; НОВЫЙ класс persistent |
+| tests/test_smartmodule_utils.py | react_moai (3 кейса) |
+| tests/test_smartmodule_phrases.py | +CHAT_LOCK_BUSY_PHRASES (3), команды-фразы 65.5, канон-проверки строчных/без эмодзи |
+| tests/test_llm_client.py | generate(messages, temperature=...) — payload-контракт (65.8); существующие без kwarg зелёные |
+| tests/test_checkup_service.py | <memory_health> в user-контенте; system R42-6 байт-в-байт (test_checkup_prompts.py НЕ меняется) |
+| tests/test_checkup_handlers.py | поток с метриками (мок collect_metrics) |
+| tests/test_summary_generator.py | стриминг send+edit (56 тестов остаются); конспект-80%; пустой ответ → молчание; typing-обёртка |
+| tests/test_summary_memory.py | кэш эмбеддингов, quantize, TTL-уважение |
+| tests/test_graphrag_memory.py | дедуп/антиотравление/веса/MMR/decay/квота/touch/слияние/пересмотр/карточки/стражи п.20 |
+| tests/test_smart_cache.py | новый slug direct_dedup + TTL (T-499) |
+| tests/test_settings_helpers.py | дефолты 63.5/64.8/65.11/66.13 |
+| НОВЫЕ файлы | test_persistent_throttling.py, test_token_counter.py, test_typing_manager.py, test_memory_backup.py, test_memory_health.py, test_golden_questions.py, test_migrate_epic60_v3_script.py |
+| НЕ трогаются | test_direct_chat_prompts.py (R50-4), test_summary_prompts.py (R11), test_checkup_prompts.py (R42-6), test_factcheck_prompts.py, test_smartsearch_prompts.py, test_youtube_prompts.py, test_web_prompts.py, test_payload_builder.py, test_llm_circuit_breaker.py, test_alan.py |
+
+### 67.6 Версия и порядок деплоя (D235/D244, T-496/T-497)
+
+- **Версия v2.43.0** (minor — новые фичи; прецеденты D230/D226). Один релиз в конце эпика (D235): фазы идут A → E последовательно, P0-фаза A деплоится ТОЛЬКО в составе v2.43.0 (без отдельного релиза).
+- **Порядок:** T-458/T-459 (дизайн+ресёрч) → T-460/T-461 (P0) → T-462…T-468 (B) → T-469…T-478 (C) → T-479…T-490 (D) → T-491/T-492/T-493 (правила) → T-499 (п.8, последним) → T-494 (ревью, полный pytest 2360+новые, 0 failed) → T-495 (README) → T-496 (коммит на русском, ВКЛЮЧИТЬ незакоммиченные RESEARCH_HUMAN.md как есть — D242, без mp4/.env/db) → T-497 (деплой D244: бэкапы `.bak.epic60`, `git pull --ff-only`, миграция v3 на остановленном боте — 63.3, `systemctl restart admin_bot`, 0 traceback, smoke: direct_chat + чекап с метриками + саммари) → T-498 (MEMORY/board, Epic 60 CLOSED, отчёт).
+- **НЕ трогать при деплое:** media-папка, `plans/RESEARCH.md`, прод `.env` без указания, untracked `danger_boom_gif-03.mp4` (в коммит НЕ включать), каноны (R50-4/R42-6/R11/R13/R46-2/R46-4/R50-7/R50-8/62.2/62.3).
+
+### 67.7 Риски (Фаза E)
+
+1. **Вынос regex в env:** кто-то сломает паттерн на проде → WARNING + дефолт (67.2) — бот не умирает; тест 61.5 держит дефолт.
+2. **Дедуп-кэш × троттлинг:** кэш-ветка проверяется ПОСЛЕ троттлинга — флудер не получает обход; D237-порядок (последним) снимает риск конфликта с фичами C.
+3. **Объём тест-правок:** 12 файлов правятся + 7 новых — Reviewer (T-494) гоняет эталон-канон-тесты отдельным блоком ДО полного прогона (прецедент Epic 53).
+
+**DoD (T-491/T-492/T-493/T-499):** канон п.20 зафиксирован + стражи (67.1); `_BOTWORD_RE` в конфиге с дефолтом байт-в-байт и 61.5-тестами зелёными (67.2); правило п.63 в README/ARCHITECTURE (67.3); дедуп-кэш «чат+человек+текст» на smart_cache с TTL, повтор → один ответ (67.4); сводка 67.5 передана T-494; v2.43.0, порядок деплоя — 67.6.
+
+---
+
+@Architect Epic 60 design ready — FINAL (T-458, Sections 63–67, D245–D249; вердикты T-459 из research_epic60.md ВШИТЫ): Фаза A (P0) — персистентный троттлинг в `throttle_state` (все 6 CooldownTracker + DirectChatThrottle + стачка; атомарный UPSERT ON CONFLICT … RETURNING, стена time.time, fail-open, рубильник, PRAGMA synchronous=NORMAL) + `bot_replies` в БД (TTL+LRU 3600с/200) + per-chat asyncio.Lock (после throttle/CB, таймаут 60с, пул CHAT_LOCK_BUSY_PHRASES) + идемпотентная миграция v3 (weight/status/last_confirmed_at/supersedes); Фаза B — дедуп КАНОН ≥0.95 noop / 0.85–0.95 supersede (invalidate+insert, обе версии хранятся) / <0.85 add, «свежий побеждает»=инвалидация, unconfirmed, бэкап VACUUM INTO + текстовый экспорт, embedding_cache (SHA-256, TTL 30д, cap 50k, ленивый last_used_at), метрики `<memory_health>` ДАННЫМИ в чекап (R42-6 нетронут), бегущий конспект 80% (lazy, БД+TTL 60м), tiktoken o200k_base (3 лимита, запас 1.15, usage-лог из API, саммари на 6ч); Фаза C — 🗿+молчание на пустой ответ во всех 7 пайплайнах (R13 не тронут; Q8 сигнатура реакции — открыта до реализации), edited-обновление bot_replies, молчание после 5 кулдаунов (персистентно), style_anchors (3 ответа, user-блок), /clear /persona /tone /forget (фразы VERBATIM), стриминг только саммари (placeholder+edit, 1.0/3.0с, not-modified/retry_after, деградация), ChatActionSender.typing(5.0) (авто-гашение, без паузы), temperature-пресеты (env + user_prefs), mood-блок (user-контекст, R50-4 нетронут), /forget+protected_facts; Фаза D — weight 0..1 + last_confirmed_at (+0.1/подтверждение, cap 1.0, floor 0.1), слияние эпизодов (фон, чек покрытия), time-decay 0.5^(Δдней/60) только в ранге, квота 50/чел, touch-продление TTL+LRU (lazy-sweep, NOT IN cap), int8+float-реранк с rebuild (dimensions не использовать), golden_questions.json + скрипт, MMR λ=0.6 fetch_k=20, карточки /persona (админ-права, R17), конфликты=supersede, периодический пересмотр, бюджеты direct_chat (4000 токенов, Target_User неприкосновенен); Фаза E — каноны п.20/49/63, CHAT_BOTWORD_PATTERN в settings (дефолт байт-в-байт), п.8 дедуп-кэш на smart_cache последним, сводка тест-правок (12 файлов + 7 новых), v2.43.0 и порядок деплоя. Вопросы 1–10 закрыты (63.0); открыт до реализации ТОЛЬКО вопрос 8 (сигнатура set_message_reaction — T-459 не покрыл; решает Builder T-469 первым шагом). T-460…T-499 → READY для @Builder (Шаг 4).

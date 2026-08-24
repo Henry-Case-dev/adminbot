@@ -7,11 +7,15 @@ send_chunked_reply: чанкинг ≤4096 по пробелам (прецеде
 SummaryGenerator._chunk_by_whitespace, существующий код НЕ меняем),
 reply_to_message_id ТОЛЬКО у первой части, TelegramRetryAfter → sleep + один
 повтор (прецедент _send_one_chunk).
+react_moai (Epic 60, 65.1, T-469): best-effort реакция 🗿 на триггер-сообщение
+при пустом ответе модели; НЕ бросает (молчание гарантировано отсутствием
+send_message — реакция только дополняет его).
 """
 import asyncio
 import logging
 import random
 
+from aiogram import types
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
@@ -24,6 +28,23 @@ logger = logging.getLogger(__name__)
 _CHUNK_LIMIT = 4096
 
 _REPLY_GONE_MARKER = "message to be replied not found"   # точная строка из прод-логов
+
+
+async def react_moai(bot, chat_id: int, message_id: int | None) -> None:
+    """🗿 на триггер-сообщение (best-effort, 65.1). НЕ бросает: любая ошибка
+    реакции (в т.ч. удалённый триггер) → WARNING, молчание НЕ нарушается.
+    Q8 (aiogram 3.29.1): Bot.set_message_reaction(chat_id, message_id,
+    reaction=[ReactionTypeEmoji], is_big=None) — сигнатура подтверждена
+    inspect-ом при реализации."""
+    if bot is None or message_id is None:
+        return
+    try:
+        await bot.set_message_reaction(
+            chat_id, message_id,
+            reaction=[types.ReactionTypeEmoji(emoji="🗿")], is_big=False)
+    except Exception:
+        logger.warning("SmartModule: moai reaction failed | chat=%s msg=%s",
+                       chat_id, message_id, exc_info=True)
 
 
 def _is_reply_target_gone(exc: TelegramBadRequest) -> bool:
@@ -44,8 +65,8 @@ async def _send_once(bot, chat_id: int, text: str,
       единый код для всех чанков, спец-логики по индексу НЕТ (не переусложнять);
     - parse_mode (Epic 43, 52.2) — опциональный kwarg, None → БЕЗ ключа
       (обратная совместимость существующих вызовов).
-    Возвращает отправленное Message (или None) — Epic 50: _bot_replies
-    DirectChatService хранит message_id ответа бота (58.6)."""
+    Возвращает отправленное Message (или None) — Epic 50: DirectChatService
+    хранит id ответа бота (bot_replies, 58.6)."""
     kwargs: dict = {}
     if parse_mode:
         kwargs["parse_mode"] = parse_mode
@@ -102,7 +123,7 @@ async def send_chunked_reply(
     parse_mode (Epic 43, 52.2) — опциональный kwarg для всех чанков
     (обратная совместимость: существующие вызовы без kwarg не меняются).
     Возвращает message_id ПЕРВОЙ (реплай-)части или None — Epic 50 (58.6):
-    _bot_replies DirectChatService хранит id ответа бота для цепочек reply."""
+    DirectChatService хранит id ответа бота (bot_replies) для цепочек reply."""
     chunks = SummaryGenerator._chunk_by_whitespace(text, _CHUNK_LIMIT)   # существующий код НЕ меняем
     if not chunks:
         logger.warning("SmartModule: empty final text | chat_id=%s", chat_id)

@@ -84,6 +84,41 @@ class TestGenerate:
         assert seen["payload"]["messages"] == [{"role": "user", "content": "q"}]
 
     @pytest.mark.asyncio
+    async def test_generate_with_temperature_in_payload(self, monkeypatch):
+        """65.8 (T-476): temperature=0.0 → ключ в payload."""
+        seen = {}
+
+        def handler(request):
+            seen["payload"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "ок"}}]},
+                request=request,
+            )
+
+        client = _make_client(handler, monkeypatch)
+        await client.generate([{"role": "user", "content": "q"}], temperature=0.0)
+        assert seen["payload"]["temperature"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_generate_without_temperature_no_key(self, monkeypatch):
+        """65.8: без kwarg → ключа temperature НЕТ (ровно старое поведение,
+        дефолт провайдера)."""
+        seen = {}
+
+        def handler(request):
+            seen["payload"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "ок"}}]},
+                request=request,
+            )
+
+        client = _make_client(handler, monkeypatch)
+        await client.generate([{"role": "user", "content": "q"}])
+        assert "temperature" not in seen["payload"]
+
+    @pytest.mark.asyncio
     async def test_generate_401_raises_auth(self, monkeypatch):
         client = _make_client(
             lambda request: httpx.Response(401, json={}, request=request), monkeypatch
@@ -940,3 +975,54 @@ class TestEpic53Fallback:
         await client.close()
         assert client._client is None
         assert client._fallback_client is None
+
+
+class TestEpic60UsageLog:
+    """Epic 60 (64.7/64.9 #10, T-468): INFO-лог usage in/out из API-ответа —
+    источник истины фактических токенов."""
+
+    @pytest.mark.asyncio
+    async def test_usage_logged_from_response(self, monkeypatch, caplog):
+        import logging
+
+        client = _make_client(
+            _json_handler({
+                "choices": [{"message": {"content": "ок"}}],
+                "usage": {"prompt_tokens": 120, "completion_tokens": 40},
+            }),
+            monkeypatch,
+        )
+        with caplog.at_level(logging.INFO):
+            text = await client.generate(
+                [{"role": "user", "content": "привет"}])
+        assert text == "ок"
+        assert any("LLM usage in=120 out=40" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_no_usage_no_log(self, monkeypatch, caplog):
+        import logging
+
+        client = _make_client(
+            _json_handler({"choices": [{"message": {"content": "ок"}}]}),
+            monkeypatch,
+        )
+        with caplog.at_level(logging.INFO):
+            await client.generate([{"role": "user", "content": "привет"}])
+        assert all("LLM usage" not in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_usage_in_only(self, monkeypatch, caplog):
+        import logging
+
+        client = _make_client(
+            _json_handler({
+                "data": [{"embedding": [0.1, 0.2]}],
+                "usage": {"prompt_tokens": 7, "total_tokens": 7},
+            }),
+            monkeypatch,
+        )
+        with caplog.at_level(logging.INFO):
+            vectors = await client.embed(["текст"])
+        assert vectors == [[0.1, 0.2]]
+        assert any("LLM usage in=7 out=0" in r.message for r in caplog.records)

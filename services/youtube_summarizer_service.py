@@ -16,7 +16,7 @@ import time
 from typing import Awaitable, Callable
 
 from config.settings import settings
-from services.llm_client import LLMClient
+from services.llm_client import LLMBadResponseError, LLMClient
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, _memorize_youtube, fire_and_forget
 from services.summary_xml import escape_xml_text
@@ -70,4 +70,8 @@ class YoutubeSummarizerService:
             "youtube summarizer LLM OK | out_chars=%d | latency_ms=%.0f",
             len(raw), (time.monotonic() - started) * 1000.0,
         )
-        return cleanup_llm_text(raw)
+        raw = cleanup_llm_text(raw)
+        if not raw.strip():
+            # Epic 60 (65.1, T-469): пустой ответ → молчание + 🗿 (хендлер).
+            raise LLMBadResponseError("youtube summarizer: empty answer")
+        return raw

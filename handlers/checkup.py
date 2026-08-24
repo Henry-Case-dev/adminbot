@@ -13,15 +13,26 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
+from services.persistent_throttling import (
+    cooldown_remaining,
+    cooldown_touch,
+    make_cooldown,
+)
 from services.smartmodule_phrases import (
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
     CHECKUP_LLM_ERROR_PHRASES,
 )
 from services.smartmodule_throttling import CooldownTracker
-from services.smartmodule_utils import _reply, send_chunked_reply, throttle_phrase
+from services.smartmodule_utils import (
+    _reply,
+    react_moai,
+    send_chunked_reply,
+    throttle_phrase,
+)
 from services.system_logs_fetcher import CheckupLogsUnavailableException
+from services.typing_manager import typing_active
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +51,15 @@ _CHECKUP_TRIGGER_RE = re.compile(
 )
 
 
-def setup_checkup(service, fetcher) -> None:
-    """DI: CheckupService + CheckupLogsFetcher. Вызывается из bot.py on_startup (51.9)."""
-    global _service, _fetcher
+def setup_checkup(service, fetcher, db=None) -> None:
+    """DI: CheckupService + CheckupLogsFetcher. Вызывается из bot.py
+    on_startup (51.9). Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED →
+    персистентный кулдаун (throttle_state, scope='checkup')."""
+    global _service, _fetcher, _cooldown
     _service = service
     _fetcher = fetcher
+    _cooldown = make_cooldown(
+        "checkup", settings.CHECKUP_COOLDOWN_SECONDS, db)
 
 
 @checkup_router.message()
@@ -56,12 +71,12 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         return UNHANDLED                       # не триггер → пропагация живёт
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[checkup] triggered | chat=%s user=%s", message.chat.id, user_id)
-    remaining = _cooldown.remaining(message.chat.id, _CHAT_SLOT)
+    remaining = await cooldown_remaining(_cooldown, message.chat.id, _CHAT_SLOT)
     if remaining > 0:                          # 5.1 → реплай на триггер
         await _reply(bot, message.chat.id, throttle_phrase(remaining),
                      message.message_id)
         return
-    _cooldown.touch(message.chat.id, _CHAT_SLOT)
+    await cooldown_touch(_cooldown, message.chat.id, _CHAT_SLOT)
     try:
         logs, used_fallback = await _fetcher.fetch()
     except CheckupLogsUnavailableException as exc:
@@ -76,9 +91,16 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, random.choice(CHECKUP_FALLBACK_PHRASES),
                      message.message_id)
     try:
-        report = await _service.checkup(logs, used_fallback)
-        await send_chunked_reply(bot, message.chat.id, report, message.message_id)
+        # Epic 60 (65.7, T-475): «печатает…» вокруг _service.checkup (65.7).
+        async with typing_active(bot, message.chat.id):
+            report = await _service.checkup(logs, used_fallback)
+            await send_chunked_reply(bot, message.chat.id, report, message.message_id)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
+    except LLMBadResponseError as exc:
+        # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).
+        logger.warning("[checkup] empty answer — silence | chat=%s | error=%s",
+                       message.chat.id, exc)
+        await react_moai(bot, message.chat.id, message.message_id)
     except LLMError as exc:
         # Epic 47/49 (D190/D199): WARNING без traceback (ожидаемая ветка)
         logger.warning("[checkup] LLM failed | chat=%s | error=%s",

@@ -5,7 +5,9 @@ TelegramRetryAfter → sleep + один повтор, chunk_delay между ч�
 _reply: best-effort. throttle_phrase: пул 5.1 + .replace-подстановка.
 Epic 34 (D112/D114, Section 43.4): _send_once — fallback «gone»-400 → ровно
 один повтор БЕЗ reply_to_message_id; прочие 400 — наверх.
+Epic 60 (65.1, T-469): react_moai — best-effort 🗿, НЕ бросает.
 """
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -304,3 +306,44 @@ class TestThrottlePhrase:
             p.replace("{remaining_time}", "1 мин 30 сек") for p in THROTTLE_PHRASES
         ]
         assert text in candidates
+
+
+class TestReactMoai:
+    """65.1 (T-469): реакция 🗿 — best-effort; любая ошибка → WARNING, без raise."""
+
+    @pytest.mark.asyncio
+    async def test_success_sends_reaction(self):
+        bot = AsyncMock()
+        await utils_mod.react_moai(bot, CHAT_ID, 77)
+        bot.set_message_reaction.assert_awaited_once()
+        call = bot.set_message_reaction.await_args
+        assert call.args[:2] == (CHAT_ID, 77)
+        reactions = call.kwargs["reaction"]
+        assert len(reactions) == 1
+        assert reactions[0].emoji == "🗿"
+        assert call.kwargs["is_big"] is False
+
+    @pytest.mark.asyncio
+    async def test_no_bot_or_no_message_id_noop(self):
+        bot = AsyncMock()
+        await utils_mod.react_moai(None, CHAT_ID, 77)
+        await utils_mod.react_moai(bot, CHAT_ID, None)
+        bot.set_message_reaction.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bad_request_warns_without_raise(self, caplog):
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(
+            side_effect=TelegramBadRequest(method=None, message="message not found")
+        )
+        with caplog.at_level(logging.WARNING):
+            await utils_mod.react_moai(bot, CHAT_ID, 77)   # НЕ бросает
+        assert any("moai reaction failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_warns_without_raise(self, caplog):
+        bot = AsyncMock()
+        bot.set_message_reaction = AsyncMock(side_effect=RuntimeError("boom"))
+        with caplog.at_level(logging.WARNING):
+            await utils_mod.react_moai(bot, CHAT_ID, 77)   # НЕ бросает
+        assert any("moai reaction failed" in r.message for r in caplog.records)

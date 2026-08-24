@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from config.settings import settings
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.youtube_summarizer_service import YoutubeSummarizerService
 from services.youtube_transcript_engine import YouTubeTranscriptUnavailableException
 
@@ -86,6 +86,14 @@ class TestSummarize:
         service, _, llm = _service()
         llm.generate = AsyncMock(side_effect=LLMError("llm сдох"))
         with pytest.raises(LLMError):
+            await service.summarize(VIDEO_ID)
+
+    @pytest.mark.asyncio
+    async def test_empty_answer_raises_bad_response(self):
+        """65.1 (T-469): пустой ответ модели (после cleanup) → LLMBadResponseError."""
+        service, _, llm = _service()
+        llm.generate = AsyncMock(return_value="   ")
+        with pytest.raises(LLMBadResponseError):
             await service.summarize(VIDEO_ID)
 
     @pytest.mark.asyncio

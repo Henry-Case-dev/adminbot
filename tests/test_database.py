@@ -408,3 +408,193 @@ class TestSmartModuleForward:
         for row in (window[0], raw[0], fts[0]):
             assert row["is_forward"] == 1
             assert row["forward_source"] == "Канал X"
+
+
+# ── Epic 60 (Section 63.3, T-460): миграция user_version 2→3 ────────
+
+_V2_GRAPH_FACTS_DDL = """CREATE TABLE graph_facts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id    INTEGER NOT NULL,
+    fact       TEXT NOT NULL,
+    origin     TEXT NOT NULL DEFAULT 'chat_history',
+    expires_at INTEGER,
+    created_at INTEGER NOT NULL,
+    target_user TEXT
+);"""
+
+_V2_EDGES_DDL = """CREATE TABLE edges (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id       INTEGER NOT NULL,
+    source_id     INTEGER NOT NULL,
+    target_id     INTEGER NOT NULL,
+    relation_type TEXT NOT NULL,
+    weight        INTEGER NOT NULL DEFAULT 1,
+    last_updated  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    origin        TEXT NOT NULL DEFAULT 'chat_history',
+    expires_at    INTEGER,
+    UNIQUE (source_id, target_id, relation_type)
+);"""
+
+
+def _create_v2_db(path):
+    """v2-фикстура (63.6 #2): пре-Epic-60 схема, user_version = 2."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(path))
+    conn.executescript(_V2_GRAPH_FACTS_DDL + _V2_EDGES_DDL)
+    conn.execute(
+        "INSERT INTO graph_facts (chat_id, fact, origin, created_at) "
+        "VALUES (-100, 'старый факт', 'chat_history', 1700000000)")
+    conn.execute(
+        "INSERT INTO edges (chat_id, source_id, target_id, relation_type, last_updated) "
+        "VALUES (-100, 1, 2, 'связь', '2024-01-01 00:00:00')")
+    conn.execute("PRAGMA user_version = 2")
+    conn.commit()
+    conn.close()
+
+
+class TestEpic60V3Migration:
+    @pytest.mark.asyncio
+    async def test_user_version_is_3_after_initialize(self, db):
+        """63.6 #1: PRAGMA user_version == 3 (Epic 46 → 1, Epic 50 → 2,
+        Epic 60/63.3 → 3)."""
+        cursor = await db.db.execute("PRAGMA user_version")
+        row = await cursor.fetchone()
+        assert row[0] == 3
+
+    @pytest.mark.asyncio
+    async def test_v3_tables_created(self, db):
+        """63.6 #2: все 8 таблиц v3 созданы на свежей БД."""
+        cursor = await db.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {row["name"] async for row in cursor}
+        assert {"throttle_state", "bot_replies", "user_prefs",
+                "embedding_cache", "chat_running_summary",
+                "graph_fact_compressions", "protected_facts"} <= tables
+
+    @pytest.mark.asyncio
+    async def test_v2_db_migrates_columns_and_backfill(self, tmp_path):
+        """v2-фикстура → initialize: weight/status/last_confirmed_at/supersedes/
+        created_at добавлены, backfill применён, данные сохранены."""
+        path = tmp_path / "v2.db"
+        _create_v2_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+
+        cursor = await d.db.execute("PRAGMA table_info(graph_facts)")
+        cols = {r["name"] for r in await cursor.fetchall()}
+        assert {"weight", "status", "last_confirmed_at", "supersedes"} <= cols
+
+        cursor = await d.db.execute(
+            "SELECT fact, weight, status, last_confirmed_at, supersedes "
+            "FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["fact"] == "старый факт"        # данные сохранены
+        assert row["weight"] == 0.5                # дефолт (66.1)
+        assert row["status"] == "confirmed"        # дефолт (66.1/64.2)
+        assert row["last_confirmed_at"] == 1700000000   # backfill = created_at
+        assert row["supersedes"] is None
+
+        cursor = await d.db.execute("PRAGMA table_info(edges)")
+        cols = {r["name"] for r in await cursor.fetchall()}
+        assert "created_at" in cols
+        cursor = await d.db.execute("SELECT created_at FROM edges")
+        row = await cursor.fetchone()
+        assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
+
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 3
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_reinitialize_is_idempotent_stays_3(self, tmp_path):
+        """63.6 #1/#4: повторный initialize — no-op (user_version остаётся 3,
+        данные не задвоены)."""
+        path = tmp_path / "reinit.db"
+        _create_v2_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+        await d.close()
+        await d.initialize()                       # «рестарт»
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 3
+        cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 1
+        cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
+        assert (await cursor.fetchone())["c"] == 0
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_throttle_state_shape(self, db):
+        """63.1: scope/chat_id/user_id — PK; burst_left NULL (cooldown-стиль);
+        last_ts REAL NOT NULL."""
+        cursor = await db.db.execute("PRAGMA table_info(throttle_state)")
+        cols = {r["name"]: r for r in await cursor.fetchall()}
+        assert set(cols) == {"scope", "chat_id", "user_id", "burst_left", "last_ts"}
+        assert cols["last_ts"]["notnull"] == 1
+
+    @pytest.mark.asyncio
+    async def test_bot_replies_shape(self, db):
+        """63.1: bot_replies — PK (chat_id, tg_message_id), text NOT NULL,
+        last_used_at REAL NOT NULL."""
+        cursor = await db.db.execute("PRAGMA table_info(bot_replies)")
+        cols = {r["name"]: r for r in await cursor.fetchall()}
+        assert set(cols) == {"chat_id", "tg_message_id", "text", "last_used_at"}
+        assert cols["text"]["notnull"] == 1
+        assert cols["last_used_at"]["notnull"] == 1
+
+    @pytest.mark.asyncio
+    async def test_synchronous_pragma_is_normal(self, db):
+        """63.1 (T-459 тема 9): PRAGMA synchronous=NORMAL в initialize."""
+        cursor = await db.db.execute("PRAGMA synchronous")
+        row = await cursor.fetchone()
+        assert row[0] in (1, "NORMAL")             # 1 = NORMAL
+
+
+# ── Epic 60 (63.1): bot_replies — TTL+LRU в БД ─────────────────────
+
+class TestBotRepliesTable:
+    @pytest.mark.asyncio
+    async def test_upsert_and_get_roundtrip(self, db):
+        await db.upsert_bot_reply(-100, 42, "ответ", 1000.0)
+        assert await db.get_bot_reply(-100, 42, 1001.0) == "ответ"
+
+    @pytest.mark.asyncio
+    async def test_get_missing_returns_none(self, db):
+        assert await db.get_bot_reply(-100, 999, 1000.0) is None
+
+    @pytest.mark.asyncio
+    async def test_ttl_lazy_delete_on_read(self, db):
+        await db.upsert_bot_reply(-100, 42, "ответ", 1000.0)
+        assert await db.get_bot_reply(-100, 42, 1000.0 + 3600.5) is None
+        assert await db.get_bot_reply(-100, 42, 1000.0 + 3600.5) is None
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM bot_replies WHERE chat_id = -100 AND tg_message_id = 42")
+        assert (await cursor.fetchone())["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_ttl_sweep_on_write(self, db):
+        await db.upsert_bot_reply(-100, 1, "старое", 1000.0)
+        await db.upsert_bot_reply(-100, 2, "свежее", 5000.0)   # sweep вычистит #1
+        assert await db.get_bot_reply(-100, 1, 5001.0) is None
+        assert await db.get_bot_reply(-100, 2, 5001.0) == "свежее"
+
+    @pytest.mark.asyncio
+    async def test_lru_cap_200(self, db):
+        for i in range(300):
+            await db.upsert_bot_reply(-100, i, f"ответ {i}", 1000.0 + i)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM bot_replies")
+        assert (await cursor.fetchone())["c"] == 200
+        assert await db.get_bot_reply(-100, 0, 2000.0) is None      # старейшее вытеснено
+        assert await db.get_bot_reply(-100, 299, 2000.0) == "ответ 299"
+
+    @pytest.mark.asyncio
+    async def test_upsert_updates_existing(self, db):
+        await db.upsert_bot_reply(-100, 42, "версия 1", 1000.0)
+        await db.upsert_bot_reply(-100, 42, "версия 2", 2000.0)
+        assert await db.get_bot_reply(-100, 42, 2001.0) == "версия 2"
+
+    @pytest.mark.asyncio
+    async def test_chat_isolation(self, db):
+        await db.upsert_bot_reply(-100, 42, "наш", 1000.0)
+        assert await db.get_bot_reply(-200, 42, 1001.0) is None

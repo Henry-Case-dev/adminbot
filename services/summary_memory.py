@@ -9,9 +9,13 @@ R46-2), гибридный RAG (build_rag_context, канон R46-4), fire_and_f
 фиксы диагностики 55.8 (_embed-ретраи, vec-реактивация, backfill).
 """
 import asyncio
+import calendar
+import hashlib
 import json
 import logging
+import math
 import re
+import struct
 import time
 
 from config.settings import settings
@@ -33,6 +37,21 @@ _GRAPH_VEC_TABLE_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS graph_facts_vec USING vec0("
     "embedding float[{dim}] distance_metric=cosine, +fact_id INTEGER, "
     "+chat_id INTEGER, +origin TEXT, +expires_at INTEGER)"
+)
+
+# Epic 60 (66.6, T-484): int8-схема — float-канон + int8-coarse (двухпроходный
+# поиск: грубый KNN по int8 → реранк точной cosine по float). Вставка —
+# vec_quantize_int8(vector, 'unit') (sqlite-vec 0.1.9).
+_VEC_TABLE_SQL_INT8 = (
+    "CREATE VIRTUAL TABLE IF NOT EXISTS smart_archive USING vec0("
+    "embedding float[{dim}] distance_metric=cosine, embedding_i8 int8[{dim}], "
+    "+fact_id INTEGER, +chat_id INTEGER)"
+)
+
+_GRAPH_VEC_TABLE_SQL_INT8 = (
+    "CREATE VIRTUAL TABLE IF NOT EXISTS graph_facts_vec USING vec0("
+    "embedding float[{dim}] distance_metric=cosine, embedding_i8 int8[{dim}], "
+    "+fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)"
 )
 
 # ── GraphRAG v2 (Epic 46, Sections 55.4/55.5/55.6/55.8) ───────────
@@ -68,6 +87,95 @@ _EMBED_RETRY_BACKOFF = 1.0           # сон backoff_base * 2**n
 _VEC_REACTIVATE_INTERVAL = 600.0     # re-probe не чаще раза в 10 мин
 _BACKFILL_BATCH = 50                 # батч backfill
 _BACKFILL_MAX_FACTS = 500            # потолок фактов за один вызов backfill
+
+# Epic 60 (64.4, T-465): кэш эмбеддингов — ленивый last_used_at только если
+# старше 60с (без write-per-read); LRU-cap и TTL — см. EMBED_CACHE_*.
+_EMBED_TOUCH_SECONDS = 60.0
+# Epic 60 (64.6, T-467): потолок head-текста в конспект-запрос (дефенсив,
+# окно 500×2000 симв в один prompt не влезает).
+_RUNNING_SUMMARY_HEAD_MAX_CHARS = 60000
+
+
+def _embed_cache_key(text: str) -> str:
+    """64.4: SHA-256(casefold + strip) — канон-ключ embedding_cache."""
+    return hashlib.sha256(str(text).casefold().strip().encode("utf-8")).hexdigest()
+
+
+# ── Epic 60 Фаза D (66.1/66.3/66.8, T-479/T-481/T-486) ─────────
+
+def _clamp_weight(value: float) -> float:
+    """66.1: вес 0..1; значения вне диапазона клампятся с WARNING."""
+    w = float(value)
+    if not 0.0 <= w <= 1.0:
+        logger.warning("graphrag weight %s outside [0,1] — clamped (66.1)", w)
+        return min(1.0, max(0.0, w))
+    return w
+
+
+def _origin_weight(source_type: str) -> float:
+    """66.1 (T-479): начальный вес по origin. chat_history 0.5 (канон);
+    bot_direct_reply — GRAPH_FACT_WEIGHT_DIRECT (личная просьба важнее фона);
+    архивные (search_fact/youtube_content/web_content) — GRAPH_FACT_WEIGHT_ARCHIVE."""
+    if source_type == "bot_direct_reply":
+        return _clamp_weight(settings.GRAPH_FACT_WEIGHT_DIRECT)
+    if source_type == "chat_history":
+        return 0.5
+    return _clamp_weight(settings.GRAPH_FACT_WEIGHT_ARCHIVE)
+
+
+def _effective_weight(weight, confirmed_at, now: int) -> float:
+    """66.3 (T-481): w_eff = weight × 0.5^(Δдней/half_life) от last_confirmed_at;
+    floor GRAPH_TIME_DECAY_FLOOR. Decay — ТОЛЬКО множитель ранга при чтении
+    (ничего не удаляется). Выключатель → weight как есть."""
+    if not settings.GRAPH_TIME_DECAY_ENABLED:
+        return float(weight or 0.5)
+    if confirmed_at is None:
+        confirmed_at = now
+    days = max(0.0, (now - confirmed_at) / 86400.0)
+    w_eff = float(weight or 0.5) * (0.5 ** (days / settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS))
+    return max(settings.GRAPH_TIME_DECAY_FLOOR, w_eff)
+
+
+def _cosine(a, b) -> float:
+    """Чистая cosine-сходство двух float-векторов (без numpy — R60-34)."""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = 0.0
+    norm_a = 0.0
+    norm_b = 0.0
+    for x, y in zip(a, b):
+        dot += x * y
+        norm_a += x * x
+        norm_b += y * y
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (math.sqrt(norm_a) * math.sqrt(norm_b))
+
+
+def _mmr_select(sims: list, limit: int, lam: float) -> list:
+    """66.8 (T-486): жадный MMR. sims: [(item, rel, vector), ...] — rel =
+    cosine(query, item) × w_eff (вес+затухание 66.1/66.3), vector — float-вектор
+    факта для диверсификации. score = λ·rel − (1−λ)·max_sim(item, выбранные).
+    Сначала самый релевантный, затем argmax по остатку. Сложность O(k×fetch_k)."""
+    if len(sims) <= limit:
+        return [item for item, _, _ in sims]
+    remaining = list(sims)
+    first = max(remaining, key=lambda s: s[1])
+    selected = [first]
+    remaining.remove(first)
+    while len(selected) < limit and remaining:
+        def score(candidate):
+            if candidate[2] is None:
+                diversity = 0.0
+            else:
+                others = [chosen[2] for chosen in selected if chosen[2] is not None]
+                diversity = (max(_cosine(candidate[2], vec) for vec in others)
+                             if others else 0.0)
+            return lam * candidate[1] - (1.0 - lam) * diversity
+        best = max(remaining, key=score)
+        selected.append(best)
+        remaining.remove(best)
+    return [item for item, _, _ in selected]
 
 _RAG_PREFIXES = {
     "search_fact": "[Из твоего прошлого поиска]: ",
@@ -342,14 +450,19 @@ class MemoryManager:
     после embed-фейла (re-probe раз в _VEC_REACTIVATE_INTERVAL), backfill.
     """
 
-    def __init__(self, db, llm) -> None:
+    def __init__(self, db, llm, aliases=None) -> None:
         self.db = db
         self.llm = llm
+        # Epic 60 (66.9, T-487): aliases — привязка фактов к людям по алиасам
+        # (канон-имена в фактах/узлах; карточки /persona агрегируются по ним).
+        self.aliases = aliases
         self._vec_available = False
         self._vec_dim = None
         self._vec_off_reason: str | None = None      # "extension" | "embed"
         self._embed_degraded_at = 0.0
         self._reactivate_lock = asyncio.Lock()
+        # Epic 60 (66.6, T-484): int8-coarse + float-реранк (VEC_INT8_ENABLED).
+        self._vec_int8 = False
 
     # ── Initialization (R3: graceful sqlite-vec load + self-heal) ──────────
 
@@ -430,14 +543,24 @@ class MemoryManager:
                 )
                 await self.db.db.execute("DROP TABLE smart_archive")
                 await self.db.db.execute("DROP TABLE IF EXISTS graph_facts_vec")
-            await self.db.db.execute(_VEC_TABLE_SQL.format(dim=actual_dim))
-            await self.db.db.execute(_GRAPH_VEC_TABLE_SQL.format(dim=actual_dim))
+            # Epic 60 (66.6, T-484): int8-схема — float-канон + int8-coarse.
+            # Существующая float-only таблица (Фаза B) → DROP + пересоздание;
+            # backfill — из кэша эмбеддингов (без повторных API-вызовов).
+            self._vec_int8 = bool(settings.VEC_INT8_ENABLED) and \
+                await self._probe_vec_int8()
+            await self._rebuild_vec_tables_if_needed()
+            await self.db.db.execute(
+                self._vec_table_sql(actual_dim))
+            await self.db.db.execute(
+                self._graph_vec_table_sql(actual_dim))
             await self.db.db.commit()
             self._vec_dim = actual_dim
             self._vec_available = True
             self._vec_off_reason = None
-            logger.info("SmartModule: sqlite-vec loaded (dim=%d)", actual_dim)
+            logger.info("SmartModule: sqlite-vec loaded (dim=%d, int8=%s)",
+                        actual_dim, self._vec_int8)
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
+            fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
             return True
         except Exception:
             self._vec_off_reason = "extension"
@@ -447,7 +570,64 @@ class MemoryManager:
             )
             return False
 
+    def _vec_table_sql(self, dim: int) -> str:
+        """66.6: DDL smart_archive — с int8-колонкой или float-only."""
+        template = _VEC_TABLE_SQL_INT8 if self._vec_int8 else _VEC_TABLE_SQL
+        return template.format(dim=dim)
+
+    def _graph_vec_table_sql(self, dim: int) -> str:
+        """66.6: DDL graph_facts_vec — с int8-колонкой или float-only."""
+        template = _GRAPH_VEC_TABLE_SQL_INT8 if self._vec_int8 else _GRAPH_VEC_TABLE_SQL
+        return template.format(dim=dim)
+
+    async def _probe_vec_int8(self) -> bool:
+        """66.6: дефенсив-проба vec_quantize_int8 (старые сборки sqlite-vec) —
+        нет функции → float-only схема (честная деградация)."""
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT vec_quantize_int8('[0.0]', 'unit')")
+            row = await cursor.fetchone()
+            return row is not None
+        except Exception:
+            logger.warning(
+                "SmartModule: vec_quantize_int8 unavailable — float-only (66.6)")
+            return False
+
+    async def _rebuild_vec_tables_if_needed(self) -> None:
+        """66.6: существующая float-only vec-таблица при включённом int8 →
+        DROP (ALTER у vec0 нет; shadow-таблицы RENAME не переносятся) +
+        пересоздание; данные восстанавливаются backfill'ом из кэша (64.4)."""
+        if not self._vec_int8:
+            return
+        for table in ("smart_archive", "graph_facts_vec"):
+            cursor = await self.db.db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,))
+            row = await cursor.fetchone()
+            if row and row["sql"] and "embedding_i8" not in row["sql"]:
+                logger.warning(
+                    "SmartModule: %s lacks embedding_i8 — rebuilding (66.6)", table)
+                await self.db.db.execute(f"DROP TABLE {table}")
+        await self.db.db.commit()
+
     async def _embed(self, texts) -> list[list[float]]:
+        """64.4 (T-465): embedding_cache — батч-лукап SHA-256 → miss → API →
+        write-back. Кэш покрывает ВСЕ вызовы _embed (probe/vector_search/
+        memorize/backfill) — одна точка. Ошибки кэша НЕ блокируют (WARNING →
+        обычный вызов API, 64.4). Ретраи 55.8 — внутри _embed_api.
+        EMBED_CACHE_ENABLED=false → ровно старое поведение."""
+        if not texts:
+            return []
+        if not settings.EMBED_CACHE_ENABLED:
+            return await self._embed_api(texts)
+        cached, misses = await self._embed_cache_lookup(texts)
+        results: dict[str, list[float]] = dict(cached)
+        if misses:
+            fetched = await self._embed_api(misses)
+            await self._embed_cache_store(misses, fetched)
+            results.update(zip(misses, fetched))
+        return [results[text] for text in texts]
+
+    async def _embed_api(self, texts) -> list[list[float]]:
         """R46-8 (55.8): ретраи 3× с backoff 1.0*2**n на любых ошибках embed
         (в т.ч. эпизодических 403) — поверх LLMClient-ретраев 429/5xx."""
         last_exc = None
@@ -459,6 +639,96 @@ class MemoryManager:
                 if attempt < _EMBED_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(_EMBED_RETRY_BACKOFF * (2 ** attempt))
         raise last_exc
+
+    async def _embed_cache_lookup(self, texts) -> tuple[dict, list]:
+        """Хиты {text: vector} + miss-тексты. НЕ бросает (любая ошибка БД →
+        WARNING → все miss → API). Ленивый TTL-sweep; last_used_at продлевается
+        ЛЕНИВО — только если старше _EMBED_TOUCH_SECONDS (64.4)."""
+        try:
+            now = time.time()
+            ttl_seconds = settings.EMBED_CACHE_TTL_DAYS * 86400.0
+            await self.db.db.execute(
+                "DELETE FROM embedding_cache WHERE last_used_at < ?",
+                (now - ttl_seconds,),
+            )
+            keys = [_embed_cache_key(text) for text in texts]
+            unique = list(dict.fromkeys(keys))
+            placeholders = ",".join("?" for _ in unique)
+            cursor = await self.db.db.execute(
+                f"SELECT text_hash, vector, dim, last_used_at FROM embedding_cache "
+                f"WHERE text_hash IN ({placeholders})", unique,
+            )
+            rows = await cursor.fetchall()
+            expected_dim = self._vec_dim or settings.EMBEDDING_DIM
+            by_hash: dict[str, list[float]] = {}
+            touch: list[str] = []
+            for row in rows:
+                if row["dim"] != expected_dim:
+                    continue                # dim-сдвиг (55.8) → miss, запишется заново
+                try:
+                    vector = json.loads(row["vector"])
+                except (ValueError, TypeError):
+                    continue
+                by_hash[row["text_hash"]] = vector
+                if now - row["last_used_at"] > _EMBED_TOUCH_SECONDS:
+                    touch.append(row["text_hash"])
+            if touch:
+                touch_ph = ",".join("?" for _ in touch)
+                await self.db.db.execute(
+                    f"UPDATE embedding_cache SET last_used_at = ? "
+                    f"WHERE text_hash IN ({touch_ph})", (now, *touch),
+                )
+            await self.db.db.commit()
+            cached: dict[str, list[float]] = {}
+            misses: list[str] = []
+            for text, key in zip(texts, keys):
+                if key in by_hash:
+                    cached[text] = by_hash[key]
+                else:
+                    misses.append(text)
+            return cached, misses
+        except Exception:
+            logger.warning(
+                "SmartModule: embedding cache lookup failed — API path",
+                exc_info=True,
+            )
+            return {}, list(texts)
+
+    async def _embed_cache_store(self, texts, vectors) -> None:
+        """Write-back + ленивый TTL-sweep + LRU-cap (EMBED_CACHE_MAX_ROWS).
+        НЕ бросает (WARNING — кэш не блокирует, 64.4). Кэш хранит float."""
+        try:
+            now = time.time()
+            ttl_seconds = settings.EMBED_CACHE_TTL_DAYS * 86400.0
+            await self.db.db.execute(
+                "DELETE FROM embedding_cache WHERE last_used_at < ?",
+                (now - ttl_seconds,),
+            )
+            cursor = await self.db.db.execute(
+                "SELECT COUNT(*) AS c FROM embedding_cache")
+            count = (await cursor.fetchone())["c"]
+            if count + len(texts) > settings.EMBED_CACHE_MAX_ROWS:
+                keep = max(0, settings.EMBED_CACHE_MAX_ROWS - len(texts))
+                await self.db.db.execute(
+                    "DELETE FROM embedding_cache WHERE text_hash NOT IN "
+                    "(SELECT text_hash FROM embedding_cache "
+                    "ORDER BY last_used_at DESC LIMIT ?)", (keep,),
+                )
+            for text, vector in zip(texts, vectors):
+                await self.db.db.execute(
+                    "INSERT INTO embedding_cache "
+                    "(text_hash, text, vector, dim, created_at, last_used_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?) "
+                    "ON CONFLICT(text_hash) DO UPDATE SET "
+                    "text = excluded.text, vector = excluded.vector, "
+                    "dim = excluded.dim, last_used_at = excluded.last_used_at",
+                    (_embed_cache_key(text), text, json.dumps(vector),
+                     len(vector), now, now),
+                )
+            await self.db.db.commit()
+        except Exception:
+            logger.warning("SmartModule: embedding cache store failed",
+                           exc_info=True)
 
     async def _ensure_vec_retry(self) -> bool:
         """55.8: если vec выключен ИЗ-ЗА EMBED-фейла (не extension) и прошёл
@@ -482,8 +752,11 @@ class MemoryManager:
             if actual_dim is None:
                 return False
             try:
-                await self.db.db.execute(_VEC_TABLE_SQL.format(dim=actual_dim))
-                await self.db.db.execute(_GRAPH_VEC_TABLE_SQL.format(dim=actual_dim))
+                self._vec_int8 = bool(settings.VEC_INT8_ENABLED) and \
+                    await self._probe_vec_int8()
+                await self._rebuild_vec_tables_if_needed()
+                await self.db.db.execute(self._vec_table_sql(actual_dim))
+                await self.db.db.execute(self._graph_vec_table_sql(actual_dim))
                 await self.db.db.commit()
             except Exception:
                 logger.warning("SmartModule: vec tables recreate failed", exc_info=True)
@@ -494,6 +767,7 @@ class MemoryManager:
             logger.info("SmartModule: vec reactivated after embed recovery | dim=%d",
                         actual_dim)
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
+            fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
             return True
 
     async def backfill_archive_vectors(self) -> int:
@@ -518,10 +792,30 @@ class MemoryManager:
                                    processed)
                     break
                 for row, vector in zip(batch, vectors):
-                    await self.db.db.execute(
-                        "INSERT INTO smart_archive(rowid, fact_id, chat_id, embedding) "
-                        "VALUES (?, ?, ?, ?)",
-                        (row["id"], row["id"], row["chat_id"], json.dumps(vector)))
+                    # Epic 60 (64.4): existence-check ПЕРЕД INSERT — гонка с
+                    # purge/параллельной записью (кэш эмбеддингов добавляет
+                    # DB-кругляки — бэкфилл может догнать уже вставленную или
+                    # уже удалённую строку; UNIQUE/orphan-дубль недопустимы).
+                    cursor = await self.db.db.execute(
+                        "SELECT id FROM smart_archive_facts WHERE id = ? "
+                        "AND id NOT IN (SELECT fact_id FROM smart_archive)",
+                        (row["id"],))
+                    if await cursor.fetchone() is None:
+                        continue
+                    # 66.6 (T-484): int8-схема — две колонки.
+                    if self._vec_int8:
+                        await self.db.db.execute(
+                            "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
+                            "embedding, embedding_i8) VALUES (?, ?, ?, ?, "
+                            "vec_quantize_int8(?, 'unit'))",
+                            (row["id"], row["id"], row["chat_id"],
+                             json.dumps(vector), json.dumps(vector)))
+                    else:
+                        await self.db.db.execute(
+                            "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
+                            "embedding) VALUES (?, ?, ?, ?)",
+                            (row["id"], row["id"], row["chat_id"],
+                             json.dumps(vector)))
                 await self.db.db.commit()
                 processed += len(batch)
             if processed:
@@ -531,6 +825,69 @@ class MemoryManager:
             logger.warning("SmartModule backfill: failed", exc_info=True)
             return 0
 
+    async def backfill_graph_fact_vectors(self) -> int:
+        """66.6 (T-484): re-embedding graph_facts без vec-строк (rebuild int8-
+        таблицы / dim-сдвиг). Кэш эмбеддингов (64.4) делает это дешёвым — БЕЗ
+        повторных API-вызовов. Те же батчи/потолок, что у архива (55.8). НЕ
+        бросает."""
+        if not self._vec_available:
+            return 0
+        try:
+            now = int(time.time())
+            cursor = await self.db.db.execute(
+                "SELECT id, fact, chat_id, origin, expires_at FROM graph_facts "
+                "WHERE id NOT IN (SELECT fact_id FROM graph_facts_vec) "
+                "AND (expires_at IS NULL OR expires_at > ?) LIMIT ?",
+                (now, _BACKFILL_MAX_FACTS))
+            rows = await cursor.fetchall()
+            processed = 0
+            for start in range(0, len(rows), _BACKFILL_BATCH):
+                batch = rows[start:start + _BACKFILL_BATCH]
+                try:
+                    vectors = await self._embed([row["fact"] for row in batch])
+                except Exception:
+                    logger.warning(
+                        "SmartModule graph backfill: embed failed — deferred | "
+                        "processed=%d", processed)
+                    break
+                for row, vector in zip(batch, vectors):
+                    cursor = await self.db.db.execute(
+                        "SELECT id FROM graph_facts WHERE id = ? "
+                        "AND id NOT IN (SELECT fact_id FROM graph_facts_vec)",
+                        (row["id"],))
+                    if await cursor.fetchone() is None:
+                        continue
+                    await self._insert_graph_vec_row(
+                        row["id"], row["chat_id"], row["fact"], row["origin"],
+                        row["expires_at"], vector)
+                await self.db.db.commit()
+                processed += len(batch)
+            if processed:
+                logger.info("SmartModule graph backfill: re-embedded %d facts",
+                            processed)
+            return processed
+        except Exception:
+            logger.warning("SmartModule graph backfill: failed", exc_info=True)
+            return 0
+
+    async def _insert_graph_vec_row(self, fact_id, chat_id, fact, origin,
+                                    expires_at, vector) -> None:
+        """66.6: INSERT vec-строки graph_facts_vec (float-канон + int8-coarse
+        при включённом int8)."""
+        if self._vec_int8:
+            await self.db.db.execute(
+                "INSERT INTO graph_facts_vec(rowid, fact_id, chat_id, origin, "
+                "expires_at, embedding, embedding_i8) VALUES (?, ?, ?, ?, ?, ?, "
+                "vec_quantize_int8(?, 'unit'))",
+                (fact_id, fact_id, chat_id, origin, expires_at,
+                 json.dumps(vector), json.dumps(vector)))
+        else:
+            await self.db.db.execute(
+                "INSERT INTO graph_facts_vec(rowid, fact_id, chat_id, origin, "
+                "expires_at, embedding) VALUES (?, ?, ?, ?, ?, ?)",
+                (fact_id, fact_id, chat_id, origin, expires_at,
+                 json.dumps(vector)))
+
     @property
     def vec_available(self) -> bool:
         return self._vec_available
@@ -538,7 +895,10 @@ class MemoryManager:
     # ── L1 window ──────────────────────────────────────────────
 
     async def get_window_messages(self, chat_id: int) -> list:
-        """L1: messages within SUMMARY_WINDOW_HOURS, one SQL pass."""
+        """L1: messages within SUMMARY_WINDOW_HOURS, one SQL pass.
+        Epic 60 (64.6, T-467): окно ≥ CHAT_CONTEXT_FILL_RATIO ×
+        SUMMARY_MAX_WINDOW_MESSAGES и нет свежего конспекта → fire-and-forget
+        бегущего конспекта (лениво, чат НЕ ждёт LLM)."""
         since = int(time.time()) - int(settings.SUMMARY_WINDOW_HOURS * 3600)
         rows = await self.db.get_smart_window(
             chat_id, since, settings.SUMMARY_MAX_WINDOW_MESSAGES
@@ -547,7 +907,55 @@ class MemoryManager:
             "SmartModule L1: window_size=%d | chat_id=%s | since_ts=%d",
             len(rows), chat_id, since,
         )
+        fill_threshold = int(settings.CHAT_CONTEXT_FILL_RATIO
+                             * settings.SUMMARY_MAX_WINDOW_MESSAGES)
+        if settings.CHAT_RUNNING_SUMMARY_ENABLED and rows and \
+                len(rows) >= fill_threshold:
+            try:
+                current = await self.db.get_running_summary(chat_id, time.time())
+                last_ts = rows[-1]["timestamp"]
+                if current is None or current["window_end_ts"] < last_ts:
+                    fire_and_forget(
+                        self._build_running_summary(chat_id, rows),
+                        "running_summary",
+                    )
+            except Exception:
+                logger.warning(
+                    "SmartModule L1: running summary trigger check failed | chat_id=%s",
+                    chat_id, exc_info=True,
+                )
         return rows
+
+    async def _build_running_summary(self, chat_id: int, rows: list) -> None:
+        """64.6 (T-467): head окна → COMPRESS_PROMPT (канон-сосед R11 — новый
+        промпт НЕ вводим); хвост CHAT_RUNNING_SUMMARY_TAIL — ДОСЛОВНО
+        tail-блоком в тот же запрос. Результат → UPSERT в chat_running_summary
+        (TTL RUNNING_SUMMARY_TTL_MINUTES). LLMError → WARNING (fire_and_forget
+        ловит). Вызывается ТОЛЬКО из fire_and_forget."""
+        tail = settings.CHAT_RUNNING_SUMMARY_TAIL
+        head, tail_rows = rows[:-tail], rows[-tail:]
+        if not head:
+            return                          # нечего сжимать — конспект не нужен
+        head_text = _build_batch_text(head, skip_empty=True)
+        if len(head_text) > _RUNNING_SUMMARY_HEAD_MAX_CHARS:
+            head_text = head_text[-_RUNNING_SUMMARY_HEAD_MAX_CHARS:]
+        tail_text = _build_batch_text(tail_rows, skip_empty=True)
+        user_content = head_text
+        if tail_text:
+            user_content += "\n\n=== последние сообщения дословно ===\n" + tail_text
+        raw = await self.llm.generate([
+            {"role": "system", "content": COMPRESS_PROMPT},
+            {"role": "user", "content": user_content}])
+        summary = str(raw or "").strip()
+        if not summary:
+            logger.warning("running summary: empty result | chat_id=%s", chat_id)
+            return
+        now = time.time()
+        await self.db.upsert_running_summary(
+            chat_id, summary, rows[0]["timestamp"], rows[-1]["timestamp"],
+            len(rows), now, now + settings.RUNNING_SUMMARY_TTL_MINUTES * 60.0)
+        logger.info("running summary: built | chat_id=%s | chars=%d",
+                    chat_id, len(summary))
 
     # ── L2 RAG (FTS5, no extra LLM call — A7) ──────────────────
 
@@ -596,7 +1004,51 @@ class MemoryManager:
     async def _search_archive_knn(self, chat_id: int, vector: list[float], limit: int) -> list[str]:
         # vec0 (0.1.x) не поддерживает JOIN внутри KNN-запроса — поэтому
         # KNN top-k выполняется отдельно, фильтр chat_id и выборка фактов — в Python.
+        # Epic 60 (66.6, T-484): int8 — грубый KNN k=limit×4 → реранк float →
+        # top-limit; float-only — ровно старый точный MATCH.
         embedding_json = json.dumps(vector)
+        if self._vec_int8:
+            try:
+                cursor = await self.db.db.execute(
+                    "SELECT fact_id, chat_id FROM smart_archive "
+                    "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
+                    (embedding_json, limit * 4))
+                rows = await cursor.fetchall()
+            except Exception:
+                logger.warning(
+                    "SmartModule L3: int8 KNN failed — float path", exc_info=True)
+                rows = None
+            if rows is not None:
+                ids = [row["fact_id"] for row in rows if row["chat_id"] == chat_id]
+                if ids:
+                    placeholders = ",".join("?" for _ in ids)
+                    cursor = await self.db.db.execute(
+                        f"SELECT rowid AS fact_id, embedding FROM smart_archive "
+                        f"WHERE rowid IN ({placeholders})", ids)
+                    vecs = {}
+                    for row in await cursor.fetchall():
+                        blob = row["embedding"]
+                        try:
+                            if isinstance(blob, str):
+                                vec = json.loads(blob)
+                            else:
+                                vec = list(struct.unpack(
+                                    f"<{len(bytes(blob)) // 4}f", bytes(blob)))
+                            vecs[row["fact_id"]] = vec
+                        except Exception:
+                            continue
+                    ranked = sorted(
+                        ((fid, _cosine(vector, vec)) for fid, vec in vecs.items()),
+                        key=lambda item: item[1], reverse=True)
+                    ids = [fid for fid, _ in ranked[:limit]]
+                    if ids:
+                        placeholders = ",".join("?" for _ in ids)
+                        cursor = await self.db.db.execute(
+                            f"SELECT id, fact FROM smart_archive_facts "
+                            f"WHERE id IN ({placeholders})", ids)
+                        by_id = {row["id"]: row["fact"]
+                                 for row in await cursor.fetchall()}
+                        return [by_id[fid] for fid in ids if fid in by_id]
         cursor = await self.db.db.execute(
             "SELECT fact_id, chat_id, distance FROM smart_archive "
             "WHERE embedding MATCH ? AND k = ?",
@@ -690,32 +1142,92 @@ class MemoryManager:
         # Epic 50 (58.8, D205): bot_direct_reply — TTL по CHAT_DIRECT_REPLY_TTL_DAYS
         # (пусто/0 → expires_at NULL, вечное — по ТЗ); chat_history — NULL;
         # остальные — GRAPH_FACT_TTL_DAYS (D175, без изменений).
+        # Epic 60 (66.1, T-479): вес по origin; TTL = base × (0.5 + weight) —
+        # важные факты живут дольше (прямой 0.7 → ×1.2; архивный 0.4 → ×0.9).
+        weight = _origin_weight(source_type)
         if source_type == "chat_history":
             expiry = None
         elif source_type == "bot_direct_reply":
             ttl_days = settings.CHAT_DIRECT_REPLY_TTL_DAYS
             expiry = None if ttl_days in (None, 0) else \
-                int(time.time()) + ttl_days * 86400
+                int(time.time() + ttl_days * 86400.0 * (0.5 + weight))
         else:
-            expiry = int(time.time()) + settings.GRAPH_FACT_TTL_DAYS * 86400
+            expiry = int(time.time()
+                         + settings.GRAPH_FACT_TTL_DAYS * 86400.0 * (0.5 + weight))
         saved = 0
         skipped = 0
+        deduped = 0
+        superseded = 0
         for i, fact in enumerate(facts, 1):
             try:
-                sid = await self.db.upsert_node(
-                    chat_id, fact["subject"], "fact", origin=source_type, expires_at=expiry)
-                oid = await self.db.upsert_node(
-                    chat_id, fact["object"], "fact", origin=source_type, expires_at=expiry)
-                await self.db.upsert_edge(
-                    sid, oid, fact["predicate"], origin=source_type, expires_at=expiry)
-                sentence = f"{fact['subject']} {fact['predicate']} {fact['object']}"
+                # Epic 60 (66.9, T-487): привязка к людям по алиасам —
+                # subject/object приводятся к канон-имени алиаса (карточки
+                # /persona агрегируются по одному имени).
+                subject = self._canon_fact_name(fact["subject"])
+                obj = self._canon_fact_name(fact["object"])
+                sentence = f"{subject} {fact['predicate']} {obj}"
                 if fact["context"]:
                     sentence += f" ({fact['context']})"
+                # ── 64.1/64.2 (T-462/T-463): дедуп перед записью ──
+                # Вектор для дедупа переиспользуется при сохранении
+                # vec-строки (второй вызов embed НЕ делаем). Ошибка embed →
+                # факт пишется как раньше (64.1.5).
+                vector = None
+                if settings.GRAPH_DEDUP_ENABLED and self._vec_available:
+                    try:
+                        vectors = await self._embed([sentence])
+                        if vectors and vectors[0]:
+                            vector = vectors[0]
+                    except Exception:
+                        logger.warning(
+                            "graphrag dedup: embed failed — check skipped | fact #%d", i)
+                dedup_fact = {"subject": subject, "predicate": fact["predicate"],
+                              "object": obj}
+                decision = await self._dedup_decide(chat_id, dedup_fact, sentence, vector)
+                if decision["action"] == "noop":
+                    await self.db.confirm_graph_fact(
+                        decision["old_id"], int(time.time()),
+                        settings.GRAPH_DEDUP_WEIGHT_BONUS)
+                    deduped += 1
+                    logger.info("graphrag dedup: noop | chat_id=%s | fact_id=%s",
+                                chat_id, decision["old_id"])
+                    continue
+                status = ("unconfirmed" if decision["action"] == "supersede"
+                          else "confirmed")
+                # Epic 60 (66.4, T-482): квота прямых фактов на человека —
+                # сверх лимита вытесняется самый лёгкий и старый.
+                if settings.GRAPH_USER_QUOTA_ENABLED and target_user and \
+                        settings.GRAPH_FACTS_PER_USER_QUOTA > 0:
+                    try:
+                        await self._enforce_user_quota(chat_id, target_user)
+                    except Exception:
+                        logger.warning(
+                            "graphrag quota: eviction failed — insert proceeds "
+                            "| chat_id=%s", chat_id, exc_info=True)
+                sid = await self.db.upsert_node(
+                    chat_id, subject, "fact", origin=source_type, expires_at=expiry)
+                oid = await self.db.upsert_node(
+                    chat_id, obj, "fact", origin=source_type, expires_at=expiry)
+                await self.db.upsert_edge(
+                    sid, oid, fact["predicate"], origin=source_type, expires_at=expiry)
                 fact_id = await self.db.insert_graph_fact(
-                    chat_id, sentence, source_type, expiry, target_user=target_user)
+                    chat_id, sentence, source_type, expiry, target_user=target_user,
+                    status=status, weight=weight,
+                    supersedes=(decision["old_id"]
+                                if decision["action"] == "supersede" else None))
+                if decision["action"] == "supersede":
+                    # свежий побеждает = инвалидация (НЕ перезапись); журнал
+                    # «что во что» — обратимость антиотравления (64.2)
+                    await self.db.invalidate_graph_fact(
+                        decision["old_id"], int(time.time()))
+                    await self.db.log_fact_compression(
+                        chat_id, fact_id, decision["old_text"], sentence,
+                        "supersede")
+                    superseded += 1
                 if self._vec_available:
                     await self._save_graph_fact_embedding(
-                        fact_id, chat_id, sentence, source_type, expiry)
+                        fact_id, chat_id, sentence, source_type, expiry,
+                        vector=vector)
                 saved += 1
             except Exception as exc:
                 # Epic 47 (D188, 56.5): один БД-сбой не роняет батч (per-fact)
@@ -723,18 +1235,110 @@ class MemoryManager:
                 logger.warning("graphrag memorize: fact #%d save skipped | error=%s",
                                i, exc)
                 continue
-        logger.info("graphrag memorize: saved=%d skipped=%d | chat_id=%s | source=%s",
-                    saved, skipped, chat_id, source_type)
+        logger.info(
+            "graphrag memorize: saved=%d skipped=%d deduped=%d superseded=%d "
+            "| chat_id=%s | source=%s",
+            saved, skipped, deduped, superseded, chat_id, source_type)
+
+    def _canon_fact_name(self, name: str) -> str:
+        """66.9 (T-487): имя → канон-алиас (обратная карта). Без aliases —
+        имя как есть (уже normalize в _validate_fact)."""
+        if self.aliases is None:
+            return name
+        return self.aliases.canon_name(name)
+
+    async def _enforce_user_quota(self, chat_id: int, target_user: str) -> None:
+        """66.4 (T-482): live-фактов юзера >= квоты → удалить факт с
+        минимальным score weight/(age_days+1) (жертвуем самым лёгким и старым);
+        журнал — graph_fact_compressions (reason='quota'). Защищённые факты не
+        кандидаты (65.10); если кандидатов нет (все защищены) — вытеснения
+        нет, квота мягко превышается один раз."""
+        quota = settings.GRAPH_FACTS_PER_USER_QUOTA
+        now = int(time.time())
+        victim = await self.db.get_quota_victim(chat_id, target_user, quota, now)
+        if victim is None:
+            return
+        await self.db.delete_graph_fact(victim["id"])
+        await self.db.log_fact_compression(
+            chat_id, victim["id"], victim["fact"], None, "quota")
+        logger.info(
+            "graphrag quota: evicted fact_id=%s | chat_id=%s | user=%s | quota=%d",
+            victim["id"], chat_id, target_user, quota)
+
+    async def _dedup_decide(self, chat_id: int, fact: dict, sentence: str,
+                            vector) -> dict:
+        """64.1 (T-462): exact-дубль ('s p o' / 's p o (ctx)') → noop; KNN k=3
+        (та же пара сущностей): cosine = 1 − distance; ≥ HIGH (0.95) → noop;
+        [LOW (0.85), HIGH) → supersede; < LOW → add. Вектора нет → только
+        exact (честная деградация R3-стиля). НЕ бросает: любая ошибка →
+        WARNING → add (64.1.5). Epic 60 (65.10/66.10, T-488): защищённый
+        факт дедуп НЕ трогает (ни noop-подтверждение, ни supersede-
+        инвалидация) — кандидат пропускается."""
+        try:
+            if not settings.GRAPH_DEDUP_ENABLED:
+                return {"action": "add", "old_id": None, "old_text": None}
+            key = f"{fact['subject']} {fact['predicate']} {fact['object']}"
+            exact = await self.db.find_graph_fact_exact(
+                chat_id, key, int(time.time()))
+            if exact is not None and \
+                    not await self.db.is_fact_protected(chat_id, exact["fact"]):
+                return {"action": "noop", "old_id": exact["id"],
+                        "old_text": exact["fact"]}
+            if vector is None or not self._vec_available:
+                return {"action": "add", "old_id": None, "old_text": None}
+            near = await self._dedup_knn(chat_id, vector)
+            rows = await self.db.get_graph_fact_rows(
+                [row["fact_id"] for row in near])
+            by_id = {row["id"]: row for row in rows}
+            for row in near:
+                candidate = by_id.get(row["fact_id"])
+                if candidate is None:
+                    continue
+                text = candidate["fact"] or ""
+                if fact["subject"] not in text or fact["object"] not in text:
+                    continue                    # не та пара сущностей
+                # 65.10/66.10: защищённый факт не инвалидируется/не
+                # подтверждается автоматически — пропускаем кандидата.
+                if await self.db.is_fact_protected(chat_id, text):
+                    continue
+                cosine = 1.0 - row["distance"]
+                if cosine >= settings.GRAPH_DEDUP_SIMILARITY_HIGH:
+                    return {"action": "noop", "old_id": candidate["id"],
+                            "old_text": text}
+                if cosine >= settings.GRAPH_DEDUP_SIMILARITY_LOW:
+                    return {"action": "supersede", "old_id": candidate["id"],
+                            "old_text": text}
+                return {"action": "add", "old_id": None, "old_text": None}
+            return {"action": "add", "old_id": None, "old_text": None}
+        except Exception:
+            logger.warning(
+                "graphrag dedup: check failed — fact added as before (64.1.5)",
+                exc_info=True,
+            )
+            return {"action": "add", "old_id": None, "old_text": None}
+
+    async def _dedup_knn(self, chat_id: int, vector: list[float]) -> list:
+        """64.1: KNN k=3 по graph_facts_vec (chat-фильтр + TTL). БЕЗ фильтров
+        origin/status — unconfirmed участвует как кандидат подтверждения."""
+        now = int(time.time())
+        cursor = await self.db.db.execute(
+            "SELECT fact_id, chat_id, expires_at, distance FROM graph_facts_vec "
+            "WHERE embedding MATCH ? AND k = ?",
+            (json.dumps(vector), 3))
+        return [
+            row for row in await cursor.fetchall()
+            if row["chat_id"] == chat_id
+            and (row["expires_at"] is None or row["expires_at"] > now)
+        ]
 
     async def _save_graph_fact_embedding(self, fact_id, chat_id, fact, origin,
-                                         expires_at) -> None:
+                                         expires_at, vector=None) -> None:
         try:
-            vectors = await self._embed([fact])          # ретраи 55.8
-            await self.db.db.execute(
-                "INSERT INTO graph_facts_vec(rowid, fact_id, chat_id, origin, "
-                "expires_at, embedding) VALUES (?, ?, ?, ?, ?, ?)",
-                (fact_id, fact_id, chat_id, origin, expires_at,
-                 json.dumps(vectors[0])))
+            if vector is None:
+                vectors = await self._embed([fact])          # ретраи 55.8 + кэш 64.4
+                vector = vectors[0]
+            await self._insert_graph_vec_row(fact_id, chat_id, fact, origin,
+                                             expires_at, vector)
             await self.db.db.commit()
         except Exception:
             logger.warning(
@@ -779,8 +1383,10 @@ class MemoryManager:
     async def _search_graph_facts(self, chat_id, query, limit,
                                   include_direct_reply=False) -> list:
         """[(origin, fact, created_at), ...]. Vec-путь: _ensure_vec_retry (55.8)
-        → KNN; фейл embed/vec → FTS-фолбек. Оба пустых → []. НЕ бросает.
-        Epic 50 (58.8, D206): default — фильтр origin='bot_direct_reply'."""
+        → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл embed/vec →
+        FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
+        'bot_direct_reply'. Epic 60 (66.3/66.5): FTS-путь — top-2×limit по
+        rank → пересортировка по w_eff DESC → touch (продление жизни)."""
         now = int(time.time())
         if await self._ensure_vec_retry():
             try:
@@ -799,33 +1405,189 @@ class MemoryManager:
         if not match_query:
             return []
         rows = await self.db.search_graph_facts_fts(
-            chat_id, match_query, limit, now, include_direct_reply=include_direct_reply)
-        return [(row["origin"], row["fact"], row["created_at"]) for row in rows]
+            chat_id, match_query, limit * 2, now, include_direct_reply=include_direct_reply)
+        if not rows:
+            return []
+        # 66.3 (T-481): время-взвешивание в Python (SQL-ранг не меняем);
+        # стабильная сортировка — равные w_eff сохраняют FTS-порядок.
+        ranked = sorted(
+            rows,
+            key=lambda r: _effective_weight(r["weight"], r["last_confirmed_at"], now),
+            reverse=True)
+        kept = ranked[:limit]
+        if kept and settings.GRAPH_FACT_TOUCH_ENABLED:
+            try:
+                await self.db.touch_graph_facts(
+                    [r["id"] for r in kept], settings.GRAPH_FACT_TOUCH_EXTEND_DAYS,
+                    settings.CHAT_DIRECT_REPLY_TTL_DAYS, settings.GRAPH_FACT_TTL_DAYS,
+                    now)
+            except Exception:
+                logger.warning("graphrag RAG: touch failed | chat_id=%s",
+                               chat_id, exc_info=True)
+        return [(row["origin"], row["fact"], row["created_at"]) for row in kept]
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
                                include_direct_reply=False) -> list:
+        """KNN-путь GraphRAG (55.6) + Epic 60:
+        - 66.6 (T-484): int8-coarse (k = fetch_k×4) → реранк точной cosine по
+          float-колонке → top-fetch_k; float-only — точный MATCH (как раньше);
+        - 66.8 (T-486): greedy MMR (λ, fetch_k) — диверсификация по float;
+        - 66.1/66.3 (T-479/T-481): rel = cosine × w_eff (вес + time-decay);
+        - 66.5 (T-483): touch — RAG-hit продлевает expires_at (батчем)."""
         now = int(time.time())
+        fetch_k = (max(limit, settings.GRAPH_MMR_FETCH_K)
+                   if settings.GRAPH_MMR_ENABLED else limit * 2)
+        ranked = await self._vec_candidates(
+            chat_id, vector, fetch_k, include_direct_reply, now)
+        ranked = ranked[:fetch_k]
+        if not ranked:
+            return []
+        records = await self.db.get_graph_fact_records(
+            [fid for fid, _, _ in ranked], status="confirmed")
+        by_id = {r["id"]: r for r in records}
+        sims: list = []
+        for fid, cosine, vec in ranked:
+            row = by_id.get(fid)
+            if row is None:
+                continue
+            w_eff = _effective_weight(row["weight"], row["last_confirmed_at"], now)
+            sims.append((fid, cosine * w_eff, vec))
+        if not sims:
+            return []
+        if settings.GRAPH_MMR_ENABLED:
+            if any(vec is None for _, _, vec in sims):
+                sims = await self._attach_vectors(sims)
+            chosen = _mmr_select(sims, limit, settings.GRAPH_MMR_LAMBDA)
+        else:
+            sims.sort(key=lambda s: s[1], reverse=True)
+            chosen = [s[0] for s in sims[:limit]]
+        if chosen and settings.GRAPH_FACT_TOUCH_ENABLED:
+            try:
+                await self.db.touch_graph_facts(
+                    chosen, settings.GRAPH_FACT_TOUCH_EXTEND_DAYS,
+                    settings.CHAT_DIRECT_REPLY_TTL_DAYS, settings.GRAPH_FACT_TTL_DAYS,
+                    now)
+            except Exception:
+                logger.warning("graphrag RAG: touch failed | chat_id=%s",
+                               chat_id, exc_info=True)
+        return [(by_id[f]["origin"], by_id[f]["fact"], by_id[f]["created_at"])
+                for f in chosen]
+
+    async def _vec_candidates(self, chat_id, vector, fetch_k,
+                              include_direct_reply, now) -> list:
+        """[(fact_id, cosine, float_vector|None), ...] по убыванию cosine.
+        int8-путь: грубый KNN → реранк по float (66.6); фейл int8 → float-MATCH
+        (точная дистанция). Float-only: точный MATCH k=fetch_k×2."""
+        if self._vec_int8:
+            rows = await self._vec_int8_rows(
+                chat_id, vector, fetch_k * 4, include_direct_reply, now)
+            if rows is not None:
+                return await self._rerank_by_float(vector, rows)
+        rows = await self._vec_float_rows(
+            chat_id, vector, fetch_k * 2, include_direct_reply, now)
+        return [(row["fact_id"], 1.0 - row["distance"], None) for row in rows]
+
+    async def _vec_int8_rows(self, chat_id, vector, k, include_direct_reply, now):
+        """66.6: грубый KNN по int8-колонке (query квантизуется в SQL).
+        Ошибка → None (float-fallback честная деградация)."""
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT fact_id, chat_id, origin, expires_at FROM graph_facts_vec "
+                "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
+                (json.dumps(vector), k))
+            return self._filter_vec_rows(
+                await cursor.fetchall(), chat_id, include_direct_reply, now)
+        except Exception:
+            logger.warning(
+                "graphrag RAG: int8 KNN failed — float path | chat_id=%s",
+                chat_id, exc_info=True)
+            return None
+
+    async def _vec_float_rows(self, chat_id, vector, k, include_direct_reply, now) -> list:
         cursor = await self.db.db.execute(
-            "SELECT fact_id, chat_id, origin, expires_at, distance FROM graph_facts_vec "
-            "WHERE embedding MATCH ? AND k = ?",
-            (json.dumps(vector), limit * 2))
-        rows = await cursor.fetchall()
-        kept = [
-            (row["fact_id"], row["origin"]) for row in rows
+            "SELECT fact_id, chat_id, origin, expires_at, distance "
+            "FROM graph_facts_vec WHERE embedding MATCH ? AND k = ?",
+            (json.dumps(vector), k))
+        return self._filter_vec_rows(
+            await cursor.fetchall(), chat_id, include_direct_reply, now)
+
+    @staticmethod
+    def _filter_vec_rows(rows, chat_id, include_direct_reply, now) -> list:
+        return [
+            row for row in rows
             if row["chat_id"] == chat_id
             and (include_direct_reply or row["origin"] != "bot_direct_reply")
             and (row["expires_at"] is None or row["expires_at"] > now)
-        ][:limit]
-        if not kept:
+        ]
+
+    async def _rerank_by_float(self, query: list[float], candidates: list) -> list:
+        """66.6: реранк кандидатов точной cosine по float-канону (векторы
+        читаются из vec-таблицы как float32-BLOB; фейл чтения → кандидат
+        пропускается)."""
+        ids = [row["fact_id"] for row in candidates]
+        if not ids:
             return []
-        return await self.db.get_graph_fact_texts([fid for fid, _ in kept])
+        placeholders = ",".join("?" for _ in ids)
+        cursor = await self.db.db.execute(
+            f"SELECT rowid AS fact_id, embedding FROM graph_facts_vec "
+            f"WHERE rowid IN ({placeholders})", ids)
+        vecs: dict[int, list[float]] = {}
+        for row in await cursor.fetchall():
+            blob = row["embedding"]
+            try:
+                if isinstance(blob, str):
+                    vec = json.loads(blob)
+                else:
+                    vec = list(struct.unpack(
+                        f"<{len(bytes(blob)) // 4}f", bytes(blob)))
+            except Exception:
+                continue
+            vecs[row["fact_id"]] = vec
+        ranked = []
+        for row in candidates:
+            vec = vecs.get(row["fact_id"])
+            if vec is None:
+                continue
+            ranked.append((row["fact_id"], _cosine(query, vec), vec))
+        ranked.sort(key=lambda item: item[1], reverse=True)
+        return ranked
+
+    async def _attach_vectors(self, sims: list) -> list:
+        """66.8: float-векторы кандидатов для pairwise-MMR (float-путь отдаёт
+        их лениво — один батч-SELECT)."""
+        ids = [fid for fid, _, vec in sims if vec is None]
+        if not ids:
+            return sims
+        placeholders = ",".join("?" for _ in ids)
+        cursor = await self.db.db.execute(
+            f"SELECT rowid AS fact_id, embedding FROM graph_facts_vec "
+            f"WHERE rowid IN ({placeholders})", ids)
+        vecs: dict[int, list[float]] = {}
+        for row in await cursor.fetchall():
+            blob = row["embedding"]
+            try:
+                if isinstance(blob, str):
+                    vec = json.loads(blob)
+                else:
+                    vec = list(struct.unpack(
+                        f"<{len(bytes(blob)) // 4}f", bytes(blob)))
+                vecs[row["fact_id"]] = vec
+            except Exception:
+                continue
+        return [
+            (fid, rel, vecs.get(fid) if vec is None else vec)
+            for fid, rel, vec in sims
+        ]
 
     # ── GraphRAG lookup for /summary (R26-3, D71) ───────────────
 
     async def get_graph_facts(
         self, chat_id: int, rows: list, keywords: list[str]
     ) -> list[str]:
-        """R26-3: детерминированный graph-поиск по сущностям окна L1 → строки справок."""
+        """R26-3: детерминированный graph-поиск по сущностям окна L1 → строки справок.
+        Epic 60 (66.3, T-481): time-decay рёбер — w_eff = weight ×
+        0.5^(Δдней/half_life) от last_updated (пересчёт в Python после выборки
+        top-2×limit, пересортировка по w_eff DESC; SQL не меняем)."""
         if not settings.GRAPH_RAG_ENABLED:
             return []
         try:
@@ -836,18 +1598,24 @@ class MemoryManager:
             ]
             topic_kws = [kw.lower() for kw in keywords[:2]]
             entity_ids = await self.db.match_nodes(chat_id, user_names, topic_kws)
+            limit = settings.GRAPH_TOP_EDGES_LIMIT
             if entity_ids:
                 edges = await self.db.get_top_edges(
-                    chat_id, entity_ids, settings.GRAPH_TOP_EDGES_LIMIT
+                    chat_id, entity_ids, limit * 2
                 )
                 if not edges:                       # сущности есть, но рёбер у них нет
                     edges = await self.db.get_top_edges_all(
-                        chat_id, settings.GRAPH_TOP_EDGES_LIMIT
+                        chat_id, limit * 2
                     )
             else:                                   # окно не сматчилось ни с одним узлом (холодный граф)
                 edges = await self.db.get_top_edges_all(
-                    chat_id, settings.GRAPH_TOP_EDGES_LIMIT
+                    chat_id, limit * 2
                 )
+            now = int(time.time())
+            edges = sorted(
+                edges,
+                key=lambda e: self._edge_effective_weight(e, now),
+                reverse=True)[:limit]
             facts = [self._format_graph_fact(e) for e in edges]
             logger.info("SmartModule graph: facts=%d | chat_id=%s", len(facts), chat_id)
             return facts
@@ -858,6 +1626,22 @@ class MemoryManager:
                 exc_info=True,
             )
             return []
+
+    @staticmethod
+    def _edge_effective_weight(row, now: int) -> float:
+        """66.3: эффективный вес ребра — weight × decay от last_updated
+        ('YYYY-MM-DD HH:MM:SS' UTC); кривой формат → без затухания."""
+        if not settings.GRAPH_TIME_DECAY_ENABLED:
+            return float(row["weight"] or 1)
+        try:
+            ts = calendar.timegm(time.strptime(
+                str(row["last_updated"]), "%Y-%m-%d %H:%M:%S"))
+        except (ValueError, TypeError, KeyError):
+            ts = now
+        days = max(0.0, (now - ts) / 86400.0)
+        w_eff = float(row["weight"] or 1) * \
+            (0.5 ** (days / settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS))
+        return max(settings.GRAPH_TIME_DECAY_FLOOR, w_eff)
 
     @staticmethod
     def _format_graph_fact(row) -> str:
@@ -951,11 +1735,19 @@ class MemoryManager:
         )
         triplets = parse_triplets(raw)
         for triplet in triplets:
+            # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
+            # (карточки /persona и связи графа агрегируются по одному имени).
+            subject = _normalize_name(triplet["subject"])
+            obj = _normalize_name(triplet["object"])
+            if triplet["subject_type"] == "user":
+                subject = self._canon_fact_name(subject)
+            if triplet["object_type"] == "user":
+                obj = self._canon_fact_name(obj)
             sid = await self.db.upsert_node(
-                chat_id, _normalize_name(triplet["subject"]), triplet["subject_type"]
+                chat_id, subject, triplet["subject_type"]
             )
             oid = await self.db.upsert_node(
-                chat_id, _normalize_name(triplet["object"]), triplet["object_type"]
+                chat_id, obj, triplet["object_type"]
             )
             await self.db.upsert_edge(
                 sid,
@@ -967,13 +1759,21 @@ class MemoryManager:
 
     async def _save_archive_embedding(self, chat_id: int, fact_id: int, fact: str) -> None:
         try:
-            vectors = await self.llm.embed([fact])
+            vectors = await self._embed([fact])          # кэш 64.4 + ретраи 55.8
             vector = vectors[0]
-            await self.db.db.execute(
-                "INSERT INTO smart_archive(rowid, fact_id, chat_id, embedding) "
-                "VALUES (?, ?, ?, ?)",
-                (fact_id, fact_id, chat_id, json.dumps(vector)),
-            )
+            if self._vec_int8:
+                await self.db.db.execute(
+                    "INSERT INTO smart_archive(rowid, fact_id, chat_id, "
+                    "embedding, embedding_i8) VALUES (?, ?, ?, ?, "
+                    "vec_quantize_int8(?, 'unit'))",
+                    (fact_id, fact_id, chat_id, json.dumps(vector),
+                     json.dumps(vector)))
+            else:
+                await self.db.db.execute(
+                    "INSERT INTO smart_archive(rowid, fact_id, chat_id, embedding) "
+                    "VALUES (?, ?, ?, ?)",
+                    (fact_id, fact_id, chat_id, json.dumps(vector)),
+                )
             await self.db.db.commit()
         except Exception as exc:
             message = str(exc).lower()

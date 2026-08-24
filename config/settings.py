@@ -448,6 +448,13 @@ class Settings:
     # «ботяра»/«ботик»/«ботохуйня» с word-boundary. false = keyword-ветка молчит
     # (reply на бота и mention работают как раньше).
     DIRECT_CHAT_BOTWORD_ENABLED: bool = _env_bool("DIRECT_CHAT_BOTWORD_ENABLED", True)
+    # Epic 60 Фаза E (67.2, T-492, правило п.49): keyword-regex «бот»-семьи —
+    # КОНФИГ, не код. Дефолт байт-в-байт равен старому литералу
+    # handlers/direct_chat.py (тесты 61.5 зелёные без правок); невалидный
+    # regex → WARNING + дефолт при импорте хендлера (бот не падает).
+    CHAT_BOTWORD_PATTERN: str = _env_str(
+        "CHAT_BOTWORD_PATTERN",
+        r"(?i)(?<![0-9a-zа-яё_./])бот(?:ина|яра|ик|охуета|охуйня)?(?![0-9a-zа-яё_])")
     # Последние сообщений чата для фона <Global_Context> (58.6).
     CHAT_GLOBAL_CONTEXT_LIMIT: int = _env_int("CHAT_GLOBAL_CONTEXT_LIMIT", 100)
     # Token Bucket: обращений подряд до кулдауна; <1 → дефолт 3 (WARNING).
@@ -471,6 +478,212 @@ class Settings:
     SMART_CACHE_TTL_SECONDS: int = _env_int_min("SMART_CACHE_TTL_SECONDS", 1800, 60)
     # Потолок строк таблицы smart_cache; <100 → дефолт 1000 (WARNING).
     SMART_CACHE_MAX_ROWS: int = _env_int_min("SMART_CACHE_MAX_ROWS", 1000, 100)
+
+    # ── Epic 60 Фаза A (Section 63.5, R60-1/R60-2) ─────────────
+    # Персистентный троттлинг (throttle_state/bot_replies, 63.1). false →
+    # ровно старые in-memory инстансы (аварийный рубильник, прецедент
+    # SMART_CACHE_ENABLED). Прод .env: не ставим (63.5).
+    THROTTLE_PERSISTENT_ENABLED: bool = _env_bool("THROTTLE_PERSISTENT_ENABLED", True)
+    # Таймаут ожидания per-chat замка генерации direct_chat (63.2), СЕКУНДЫ
+    # (float; прецедент SEARCH_COOLDOWN_SECONDS — не duration). <0 → дефолт
+    # 60.0 (WARNING). Таймаут → CHAT_LOCK_BUSY_PHRASES.
+    CHAT_LOCK_WAIT_SECONDS: float = _env_float_min("CHAT_LOCK_WAIT_SECONDS", 60.0, 0.0)
+    # Потолок словаря per-chat замков (ленивая чистка незалоченных); <16 →
+    # дефолт 256 (WARNING).
+    CHAT_LOCK_MAX_ENTRIES: int = _env_int_min("CHAT_LOCK_MAX_ENTRIES", 256, 16)
+
+    # ── Epic 60 Фаза B (Section 64.8, R60-3…R60-9) ─────────────
+    # Дедуп фактов при записи (64.1): cosine ≥ HIGH → noop (+подтверждение),
+    # [LOW, HIGH) → supersede (старый инвалидируется, новый unconfirmed),
+    # < LOW → add. Канон порогов — T-459 тема 6. false → ровно старое поведение.
+    GRAPH_DEDUP_ENABLED: bool = _env_bool("GRAPH_DEDUP_ENABLED", True)
+    GRAPH_DEDUP_SIMILARITY_HIGH: float = _env_float("GRAPH_DEDUP_SIMILARITY_HIGH", 0.95)
+    GRAPH_DEDUP_SIMILARITY_LOW: float = _env_float("GRAPH_DEDUP_SIMILARITY_LOW", 0.85)
+    # Бонус веса при noop-подтверждении (64.1.2): weight+bonus, cap 1.0, floor 0.1.
+    GRAPH_DEDUP_WEIGHT_BONUS: float = _env_float("GRAPH_DEDUP_WEIGHT_BONUS", 0.1)
+    # Антиотравление (64.2): unconfirmed-факты старше N дней выбросит ленивый
+    # фоновый пересмотр (66.11); в фазе B — только фильтр выдачи status='confirmed'.
+    GRAPH_UNCONFIRMED_RETENTION_DAYS: int = _env_int("GRAPH_UNCONFIRMED_RETENTION_DAYS", 14)
+    # Бэкап БД раз в день + текстовый экспорт фактов (64.3). false → джоб не стартует.
+    MEMORY_BACKUP_ENABLED: bool = _env_bool("MEMORY_BACKUP_ENABLED", True)
+    MEMORY_BACKUP_DIR: str = _env_str("MEMORY_BACKUP_DIR", "backups")
+    MEMORY_BACKUP_KEEP: int = _env_int_min("MEMORY_BACKUP_KEEP", 7, 1)
+    MEMORY_BACKUP_HOUR: str = _env_str("MEMORY_BACKUP_HOUR", "05:00")
+    # Кэш эмбеддингов (64.4): SHA-256-ключ, TTL дней, LRU-cap строк, ленивый
+    # last_used_at (≥60с, без write-per-read). false → ровно старое поведение.
+    EMBED_CACHE_ENABLED: bool = _env_bool("EMBED_CACHE_ENABLED", True)
+    EMBED_CACHE_TTL_DAYS: int = _env_int_min("EMBED_CACHE_TTL_DAYS", 30, 1)
+    EMBED_CACHE_MAX_ROWS: int = _env_int_min("EMBED_CACHE_MAX_ROWS", 50000, 100)
+    # Метрики здоровья памяти в чекап (64.5): data-секция <memory_health> в
+    # user-контенте; CHECKUP_SYSTEM_PROMPT (R42-6) НЕ меняется.
+    CHECKUP_MEMORY_METRICS_ENABLED: bool = _env_bool("CHECKUP_MEMORY_METRICS_ENABLED", True)
+    # Бегущий конспект (64.6): триггер при CHAT_CONTEXT_FILL_RATIO ×
+    # SUMMARY_MAX_WINDOW_MESSAGES; хвост CHAT_RUNNING_SUMMARY_TAIL дословно;
+    # TTL RUNNING_SUMMARY_TTL_MINUTES (быстрее окна 6ч — не консервирует контекст).
+    CHAT_RUNNING_SUMMARY_ENABLED: bool = _env_bool("CHAT_RUNNING_SUMMARY_ENABLED", True)
+    CHAT_CONTEXT_FILL_RATIO: float = _env_float("CHAT_CONTEXT_FILL_RATIO", 0.8)
+    CHAT_RUNNING_SUMMARY_TAIL: int = _env_int_min("CHAT_RUNNING_SUMMARY_TAIL", 30, 1)
+    RUNNING_SUMMARY_TTL_MINUTES: int = _env_int_min("RUNNING_SUMMARY_TTL_MINUTES", 60, 1)
+    # Токены tiktoken (64.7): упреждающий тримминг ТОЛЬКО 3 лимитов сборки
+    # direct_chat/summary; фактические лимиты — usage из API-ответа. Пустой
+    # токенный при заданном chars → chars-fallback (WARNING). См.
+    # services/token_counter.py (resolve_chat_limit).
+    TOKENIZER_ENCODING: str = _env_str("TOKENIZER_ENCODING", "o200k_base")
+    TOKEN_SAFETY_MULTIPLIER: float = _env_float_min("TOKEN_SAFETY_MULTIPLIER", 1.15, 1.0)
+    CHAT_GLOBAL_CONTEXT_MAX_TOKENS: int | None = _env_int_optional("CHAT_GLOBAL_CONTEXT_MAX_TOKENS", None)
+    CHAT_THREAD_MAX_TOKENS: int | None = _env_int_optional("CHAT_THREAD_MAX_TOKENS", None)
+    SUMMARY_MAX_CONTEXT_TOKENS: int | None = _env_int_optional("SUMMARY_MAX_CONTEXT_TOKENS", None)
+
+    # ── Epic 60 Фаза C (Section 65.11, R60-10…R60-19) ─────────
+    # Стачка кулдаунов direct_chat (65.3): N кулдаунов подряд → молчание без
+    # фразы. false → стачка не считается (ровно старое поведение).
+    CHAT_SILENCE_ENABLED: bool = _env_bool("CHAT_SILENCE_ENABLED", True)
+    # Кулдаунов подряд до молчания; <1 → дефолт 5 (WARNING).
+    CHAT_SILENCE_AFTER_COOLDOWNS: int = _env_int_min("CHAT_SILENCE_AFTER_COOLDOWNS", 5, 1)
+    # Стилевые якоря (65.4): секция <style_anchors> с последними ответами
+    # бота из bot_replies. false → секция не строится.
+    CHAT_STYLE_ANCHORS_ENABLED: bool = _env_bool("CHAT_STYLE_ANCHORS_ENABLED", True)
+    # Сколько последних ответов; <1 → дефолт 3 (WARNING).
+    CHAT_STYLE_ANCHORS_COUNT: int = _env_int_min("CHAT_STYLE_ANCHORS_COUNT", 3, 1)
+    # Обрезка одного якоря, символов; <1 → дефолт 400 (WARNING).
+    CHAT_STYLE_ANCHOR_MAX_CHARS: int = _env_int_min("CHAT_STYLE_ANCHOR_MAX_CHARS", 400, 1)
+    # Настроение собеседника (65.9): эвристика по словам → user-блок <mood>
+    # ПОСЛЕ <Target_User>. Системный промпт R50-4 НЕ меняется. Списки слов —
+    # comma-separated env (правило п.49).
+    CHAT_MOOD_ENABLED: bool = _env_bool("CHAT_MOOD_ENABLED", True)
+    CHAT_MOOD_NEGATIVE_WORDS: str = _env_str(
+        "CHAT_MOOD_NEGATIVE_WORDS",
+        "бля,нахуй,заебал,сука,бесит,пидор,гандон,тупой",
+    )
+    CHAT_MOOD_POSITIVE_WORDS: str = _env_str(
+        "CHAT_MOOD_POSITIVE_WORDS",
+        "спс,спасибо,класс,топ,кайф,красава,супер",
+    )
+    # Стриминг саммари (65.6): placeholder «…» → edit-чанки с троттлингом.
+    # false — ровно старая отправка (тест-режим, D238). Темп: приват/группа.
+    SUMMARY_STREAMING_ENABLED: bool = _env_bool("SUMMARY_STREAMING_ENABLED", False)
+    SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE: float = _env_float_min(
+        "SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE", 1.0, 0.0)
+    SUMMARY_STREAM_EDIT_INTERVAL_GROUP: float = _env_float_min(
+        "SUMMARY_STREAM_EDIT_INTERVAL_GROUP", 3.0, 0.0)
+    # Индикатор «печатает…» (65.7): ChatActionSender.typing вокруг LLM-точек,
+    # без искусственной паузы; гаснет сам (≤5с / при отправке сообщения).
+    TYPING_INDICATOR_ENABLED: bool = _env_bool("TYPING_INDICATOR_ENABLED", True)
+    TYPING_INTERVAL_SECONDS: float = _env_float("TYPING_INTERVAL_SECONDS", 5.0)
+    # Temperature-пресеты (65.8): точный/сбалансированный/болтливый →
+    # precise/balanced/chatty. Передаётся только direct_chat (другие
+    # пайплайны — дефолт провайдера, ключ в payload НЕ добавляется).
+    CHAT_TEMPERATURE_PRECISE: float = _env_float("CHAT_TEMPERATURE_PRECISE", 0.0)
+    CHAT_TEMPERATURE_BALANCED: float = _env_float("CHAT_TEMPERATURE_BALANCED", 0.7)
+    CHAT_TEMPERATURE_CHATTY: float = _env_float("CHAT_TEMPERATURE_CHATTY", 1.0)
+    CHAT_TEMPERATURE_PRESET_DEFAULT: str = _env_str("CHAT_TEMPERATURE_PRESET_DEFAULT", "balanced")
+
+    # ── Epic 60 Фаза D (Section 66.13, R60-20…R60-31) ─────────
+    # Веса значимости (66.1): стартовый вес по origin (chat_history — 0.5
+    # фиксированный канон); подтверждение — GRAPH_DEDUP_WEIGHT_BONUS (64.1);
+    # вес влияет на TTL: expires_at = now + TTL × (0.5 + weight).
+    GRAPH_FACT_WEIGHT_DIRECT: float = _env_float("GRAPH_FACT_WEIGHT_DIRECT", 0.7)
+    GRAPH_FACT_WEIGHT_ARCHIVE: float = _env_float("GRAPH_FACT_WEIGHT_ARCHIVE", 0.4)
+    # Слияние повторяющихся эпизодов (66.2): фоновая задача раз в N дней;
+    # пачка кластеров за прогон; потолок фактов в кластере. False = джоб молчит.
+    GRAPH_EPISODE_MERGE_ENABLED: bool = _env_bool("GRAPH_EPISODE_MERGE_ENABLED", True)
+    GRAPH_EPISODE_MERGE_INTERVAL_DAYS: int = _env_int_min(
+        "GRAPH_EPISODE_MERGE_INTERVAL_DAYS", 7, 1)
+    GRAPH_EPISODE_MERGE_BATCH: int = _env_int_min("GRAPH_EPISODE_MERGE_BATCH", 20, 1)
+    GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER: int = _env_int_min(
+        "GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER", 5, 2)
+    # Time-decay (66.3): w_eff = weight × 0.5^(Δдней/half_life) от
+    # last_confirmed_at; ТОЛЬКО множитель ранга при чтении (не удаление);
+    # floor — факт не выпадает из ранга полностью.
+    GRAPH_TIME_DECAY_ENABLED: bool = _env_bool("GRAPH_TIME_DECAY_ENABLED", True)
+    GRAPH_TIME_DECAY_HALF_LIFE_DAYS: float = _env_float_min(
+        "GRAPH_TIME_DECAY_HALF_LIFE_DAYS", 60.0, 1.0)
+    GRAPH_TIME_DECAY_FLOOR: float = _env_float_min("GRAPH_TIME_DECAY_FLOOR", 0.1, 0.0)
+    # Квота памяти на человека (66.4): лимит прямых фактов (target_user NOT
+    # NULL); сверх квоты вытесняется самый лёгкий и старый (weight/(age+1)).
+    # 0 = лимит выключен. False = квота не считается.
+    GRAPH_USER_QUOTA_ENABLED: bool = _env_bool("GRAPH_USER_QUOTA_ENABLED", True)
+    GRAPH_FACTS_PER_USER_QUOTA: int = _env_int_min("GRAPH_FACTS_PER_USER_QUOTA", 50, 0)
+    # TTL+LRU touch (66.5): RAG-hit факта продлевает expires_at на N дней,
+    # cap — created_at + 2 × базовый TTL (вечное протухание невозможно).
+    GRAPH_FACT_TOUCH_ENABLED: bool = _env_bool("GRAPH_FACT_TOUCH_ENABLED", True)
+    GRAPH_FACT_TOUCH_EXTEND_DAYS: int = _env_int_min("GRAPH_FACT_TOUCH_EXTEND_DAYS", 7, 1)
+    # Сжатие векторов (66.6): int8-колонка для грубого KNN + float-канон с
+    # реранком (двухпроходный поиск); backfill = rebuild из кэша эмбеддингов.
+    # False → float-only схема (ровно старое поведение).
+    VEC_INT8_ENABLED: bool = _env_bool("VEC_INT8_ENABLED", True)
+    # MMR-разнообразие (66.8): кандидаты GRAPH_MMR_FETCH_K → greedy MMR
+    # λ=GRAPH_MMR_LAMBDA → GRAPH_RAG_FACTS_LIMIT. Только vec-путь; FTS — rank.
+    GRAPH_MMR_ENABLED: bool = _env_bool("GRAPH_MMR_ENABLED", True)
+    GRAPH_MMR_LAMBDA: float = _env_float("GRAPH_MMR_LAMBDA", 0.6)
+    GRAPH_MMR_FETCH_K: int = _env_int_min("GRAPH_MMR_FETCH_K", 20, 1)
+    # Периодический пересмотр (66.11): склейка дублей, выброс истёкших/
+    # unconfirmed, усечение лога сжатий. False = джоб молчит.
+    GRAPH_REVIEW_ENABLED: bool = _env_bool("GRAPH_REVIEW_ENABLED", True)
+    GRAPH_REVIEW_INTERVAL_DAYS: int = _env_int_min("GRAPH_REVIEW_INTERVAL_DAYS", 3, 1)
+    GRAPH_COMPRESSION_LOG_RETENTION_DAYS: int = _env_int_min(
+        "GRAPH_COMPRESSION_LOG_RETENTION_DAYS", 90, 1)
+    # Бюджеты контекста direct_chat (66.12): доли от CHAT_CONTEXT_BUDGET_TOKENS
+    # (system ~5% не управляется; ответ/запас — рекомендации). False → старые
+    # MAX_CHARS/токен-потолки секций (64.7).
+    CHAT_CONTEXT_BUDGETS_ENABLED: bool = _env_bool("CHAT_CONTEXT_BUDGETS_ENABLED", True)
+    CHAT_CONTEXT_BUDGET_TOKENS: int = _env_int_min("CHAT_CONTEXT_BUDGET_TOKENS", 4000, 100)
+    CHAT_BUDGET_MAP_RATIO: float = _env_float("CHAT_BUDGET_MAP_RATIO", 0.05)
+    CHAT_BUDGET_GLOBAL_RATIO: float = _env_float("CHAT_BUDGET_GLOBAL_RATIO", 0.30)
+    CHAT_BUDGET_THREAD_RATIO: float = _env_float("CHAT_BUDGET_THREAD_RATIO", 0.20)
+    CHAT_BUDGET_RAG_RATIO: float = _env_float("CHAT_BUDGET_RAG_RATIO", 0.15)
+    CHAT_BUDGET_TARGET_RATIO: float = _env_float("CHAT_BUDGET_TARGET_RATIO", 0.05)
+    CHAT_BUDGET_ANCHORS_RATIO: float = _env_float("CHAT_BUDGET_ANCHORS_RATIO", 0.05)
+    CHAT_BUDGET_RESPONSE_RATIO: float = _env_float("CHAT_BUDGET_RESPONSE_RATIO", 0.20)
+    CHAT_BUDGET_RESERVE_RATIO: float = _env_float("CHAT_BUDGET_RESERVE_RATIO", 0.10)
+
+    # ── Epic 60 Фаза E (Section 67.4, R60-35, T-499 — последним) ──
+    # Дедуп одинаковых текстов подряд direct_chat (п.8): ключ
+    # «чат+человек+текст» в smart_cache (slug direct_dedup); повтор в течение
+    # TTL → повтор сохранённого ответа (или молчание, если в прошлый раз
+    # ответа не было). false → ровно старое поведение. Троттлинг остаётся
+    # ПЕРВЫМ барьером (D237); SMART_CACHE_ENABLED дедуп НЕ выключает
+    # (разные фичи, рубильник только свой).
+    CHAT_DEDUP_ENABLED: bool = _env_bool("CHAT_DEDUP_ENABLED", True)
+    # TTL дедуп-записи, сек; <1 → дефолт 300 (WARNING).
+    CHAT_DEDUP_TTL_SECONDS: int = _env_int_min("CHAT_DEDUP_TTL_SECONDS", 300, 1)
+
+    # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
+    # класса (dataclass не терпит mutable-полей по умолчанию). ───
+
+    def _normalize_tone_key(self, preset_key: str | None) -> str:
+        key = str(preset_key or "").strip().lower()
+        if not key:
+            key = str(self.CHAT_TEMPERATURE_PRESET_DEFAULT or "balanced").strip().lower()
+        return key
+
+    def tone_temperature(self, preset_key: str | None) -> float:
+        """65.8: temperature для пресета юзера (пусто → дефолт-пресет)."""
+        mapping = {
+            "precise": self.CHAT_TEMPERATURE_PRECISE,
+            "balanced": self.CHAT_TEMPERATURE_BALANCED,
+            "chatty": self.CHAT_TEMPERATURE_CHATTY,
+        }
+        return mapping.get(self._normalize_tone_key(preset_key),
+                           self.CHAT_TEMPERATURE_BALANCED)
+
+    def tone_display_name(self, preset_key: str | None) -> str:
+        """65.5: пресет → русское имя для фраз (/tone, /persona)."""
+        return Settings._TONE_WORD_BY_KEY.get(
+            self._normalize_tone_key(preset_key), "сбалансированный")
+
+    @classmethod
+    def tone_preset_key(cls, word: str) -> str | None:
+        """65.5: русское слово тона → ключ пресета; None — неизвестный."""
+        return Settings._TONE_KEY_BY_WORD.get(str(word or "").strip().lower())
+
+
+Settings._TONE_KEY_BY_WORD = {
+    "точный": "precise",
+    "сбалансированный": "balanced",
+    "болтливый": "chatty",
+}
+Settings._TONE_WORD_BY_KEY = {v: k for k, v in Settings._TONE_KEY_BY_WORD.items()}
 
 
 settings = Settings()

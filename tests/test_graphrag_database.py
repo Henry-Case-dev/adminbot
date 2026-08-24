@@ -141,13 +141,15 @@ class TestUpsertEdge:
 
     @pytest.mark.asyncio
     async def test_weight_increment_parameter(self, db):
+        """Epic 60 (66.3): подтверждение связи — +инкремент с cap 5
+        (T-459 тема 5: «+1 cap 5») — вес не растёт вечно."""
         sid = await db.upsert_node(-100, "вася", "user")
         oid = await db.upsert_node(-100, "петя", "user")
         await db.upsert_edge(sid, oid, "спорил с", weight_increment=5)
         await db.upsert_edge(sid, oid, "спорил с", weight_increment=5)
         cursor = await db.db.execute("SELECT weight FROM edges")
         row = await cursor.fetchone()
-        assert row["weight"] == 10
+        assert row["weight"] == 5                       # cap 5 (66.3)
 
     @pytest.mark.asyncio
     async def test_conflict_bumps_last_updated(self, db):
@@ -378,28 +380,29 @@ class TestGraphRagV2Migration:
             )
 
     @pytest.mark.asyncio
-    async def test_user_version_is_2_after_initialize(self, db):
-        """#2: PRAGMA user_version == 2 (Epic 46 → 1, Epic 50/58.7 → 2)."""
+    async def test_user_version_is_3_after_initialize(self, db):
+        """#2: PRAGMA user_version == 3 (Epic 46 → 1, Epic 50/58.7 → 2,
+        Epic 60/63.3 → 3)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 2
+        assert row[0] == 3
 
     @pytest.mark.asyncio
-    async def test_reinitialize_is_idempotent_user_version_stays_2(self, tmp_path):
-        """#2: повторный initialize идемпотентен (user_version остаётся 2)."""
+    async def test_reinitialize_is_idempotent_user_version_stays_3(self, tmp_path):
+        """#2: повторный initialize идемпотентен (user_version остаётся 3)."""
         d = DatabaseService(str(tmp_path / "mig2.db"))
         await d.initialize()
         await d.close()
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 2
+        assert row[0] == 3
         await d.close()
 
     @pytest.mark.asyncio
     async def test_old_db_migrated_data_kept_ids_preserved(self, tmp_path):
         """#3: старая БД (DDL до Epic 46) → initialize: колонки добавлены,
-        данные сохранены (id узлов те же), user_version 2."""
+        данные сохранены (id узлов те же), user_version 3 (Epic 60/63.3)."""
         path = tmp_path / "old.db"
         _create_old_db(path)
         d = DatabaseService(str(path))
@@ -427,7 +430,7 @@ class TestGraphRagV2Migration:
 
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 2
+        assert row[0] == 3
 
         # расширенный CHECK активен: 'fact' проходит, 'banana' — нет
         import aiosqlite
@@ -522,7 +525,8 @@ class TestGraphFacts:
     @pytest.mark.asyncio
     async def test_direct_chat_migration_columns_and_check(self, db):
         """Epic 50 (58.7, D201): graph_facts CHECK + 'bot_direct_reply' +
-        target_user; smart_messages.tg_message_id; user_version == 2."""
+        target_user; smart_messages.tg_message_id; user_version == 3
+        (Epic 60/63.3 — v2 поверх v1, v3 поверх v2)."""
         import aiosqlite
 
         cursor = await db.db.execute(
@@ -564,7 +568,7 @@ class TestGraphFacts:
         rows = await d.search_graph_facts_fts(-100, '"факт"*', 10, 1_800_000_000)
         assert any(r["fact"] == "факт до рестарта" for r in rows)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 2
+        assert (await cursor.fetchone())[0] == 3
         await d.close()
 
     @pytest.mark.asyncio

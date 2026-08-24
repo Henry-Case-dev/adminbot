@@ -859,3 +859,106 @@ class TestMemorizeResilience:
         match = [r for r in caplog.records
                  if r.message == "[graphrag hook] gen-tag failed"]
         assert match and any(r.exc_info for r in match)
+
+
+class TestEmbeddingCache:
+    """Epic 60 (64.4, T-465): embedding_cache — батч-лукап SHA-256 → miss →
+    API → write-back; TTL; dim-guard; fail-open."""
+
+    @pytest.mark.asyncio
+    async def test_repeat_text_hits_cache_single_api_call(self, db):
+        """64.9 #5: два одинаковых запроса → llm.embed вызван 1 раз."""
+        llm = FakeLLM()
+        memory = MemoryManager(db, llm)
+        first = await memory._embed(["текст раз", "текст два"])
+        second = await memory._embed(["текст раз", "текст два"])
+        assert llm.embed_calls == 1
+        assert first == second
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM embedding_cache")
+        assert (await cursor.fetchone())["c"] == 2
+
+    @pytest.mark.asyncio
+    async def test_partial_hit_only_miss_to_api(self, db):
+        llm = FakeLLM()
+        memory = MemoryManager(db, llm)
+        await memory._embed(["текст раз"])
+        assert llm.embed_calls == 1
+        vectors = await memory._embed(["текст раз", "текст два"])
+        assert llm.embed_calls == 2              # только miss ушёл в API
+        assert len(vectors) == 2
+        assert all(len(vector) == settings.EMBEDDING_DIM for vector in vectors)
+
+    @pytest.mark.asyncio
+    async def test_ttl_expired_refetches(self, db):
+        """64.9 #5: TTL-истёкшая кэш-строка → повторный вызов API."""
+        llm = FakeLLM()
+        memory = MemoryManager(db, llm)
+        await memory._embed(["текст раз"])
+        assert llm.embed_calls == 1
+        await db.db.execute(
+            "UPDATE embedding_cache SET last_used_at = last_used_at - 100 * 86400")
+        await db.db.commit()
+        await memory._embed(["текст раз"])
+        assert llm.embed_calls == 2              # строка протухла → API
+
+    @pytest.mark.asyncio
+    async def test_dim_guard_miss_on_shift(self, db):
+        """64.9 #6: dim-сдвиг → кэш не используется (miss → API → перезапись)."""
+        llm = FakeLLM()
+        memory = MemoryManager(db, llm)
+        await memory._embed(["текст раз"])
+        assert llm.embed_calls == 1
+        memory._vec_dim = 768                     # dim-сдвиг (55.8)
+        await memory._embed(["текст раз"])
+        assert llm.embed_calls == 2
+        cursor = await db.db.execute(
+            "SELECT dim FROM embedding_cache WHERE text_hash IN "
+            "(SELECT text_hash FROM embedding_cache LIMIT 1)")
+        row = await cursor.fetchone()
+        assert row["dim"] == settings.EMBEDDING_DIM   # фактический dim вектора
+
+    @pytest.mark.asyncio
+    async def test_cache_failure_falls_back_to_api(self, db, monkeypatch, caplog):
+        """64.4: ошибки БД кэша → WARNING → обычный вызов API."""
+        import logging
+
+        llm = FakeLLM()
+        memory = MemoryManager(db, llm)
+
+        async def boom(*args, **kwargs):
+            raise sqlite3.OperationalError("кэш сломался")
+
+        monkeypatch.setattr(memory.db.db, "execute", boom)
+        with caplog.at_level(logging.WARNING):
+            vectors = await memory._embed(["текст раз"])
+        assert llm.embed_calls == 1
+        assert vectors[0] == [0.1] * settings.EMBEDDING_DIM
+
+    @pytest.mark.asyncio
+    async def test_lru_cap_evicts_oldest(self, db):
+        """LRU-cap: EMBED_CACHE_MAX_ROWS=2 → третья запись вытесняет старейшую."""
+        mod = replace(settings, EMBED_CACHE_MAX_ROWS=2)
+        with patch("services.summary_memory.settings", mod):
+            llm = FakeLLM()
+            memory = MemoryManager(db, llm)
+            await memory._embed(["текст а"])
+            await memory._embed(["текст б"])
+            await memory._embed(["текст в"])
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM embedding_cache")
+        assert (await cursor.fetchone())["c"] == 2
+
+    @pytest.mark.asyncio
+    async def test_cache_disabled_direct_api(self, db):
+        """EMBED_CACHE_ENABLED=false → каждый вызов в API (старое поведение)."""
+        mod = replace(settings, EMBED_CACHE_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            llm = FakeLLM()
+            memory = MemoryManager(db, llm)
+            await memory._embed(["текст раз"])
+            await memory._embed(["текст раз"])
+            assert llm.embed_calls == 2
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM embedding_cache")
+        assert (await cursor.fetchone())["c"] == 0

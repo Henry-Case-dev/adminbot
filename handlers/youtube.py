@@ -12,7 +12,12 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
+from services.persistent_throttling import (
+    cooldown_remaining,
+    cooldown_touch,
+    make_cooldown,
+)
 from services.smart_cache import get_smart_cache
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
@@ -21,7 +26,13 @@ from services.smartmodule_phrases import (
 )
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_urls import extract_youtube_video_id
-from services.smartmodule_utils import _reply, send_chunked_reply, throttle_phrase
+from services.smartmodule_utils import (
+    _reply,
+    react_moai,
+    send_chunked_reply,
+    throttle_phrase,
+)
+from services.typing_manager import typing_active
 from services.youtube_transcript_engine import YouTubeTranscriptUnavailableException
 
 logger = logging.getLogger(__name__)
@@ -37,10 +48,14 @@ _YOUTUBE_TRIGGERS: tuple[str, ...] = (
 )
 
 
-def setup_youtube(service) -> None:
-    """DI: YoutubeSummarizerService. Вызывается из bot.py on_startup (46.10)."""
-    global _service
+def setup_youtube(service, db=None) -> None:
+    """DI: YoutubeSummarizerService. Вызывается из bot.py on_startup (46.10).
+    Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный кулдаун
+    (throttle_state, scope='youtube')."""
+    global _service, _cooldown
     _service = service
+    _cooldown = make_cooldown(
+        "youtube", settings.YOUTUBE_COOLDOWN_SECONDS, db)
 
 
 def _has_trigger(text: str) -> bool:
@@ -95,11 +110,11 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[youtube] triggered | chat=%s user=%s video_id=%r",   # R41-5
                 message.chat.id, user_id, video_id)
-    remaining = _cooldown.remaining(message.chat.id, user_id)
+    remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (D131/D107)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм
-    _cooldown.touch(message.chat.id, user_id)
+    await cooldown_touch(_cooldown, message.chat.id, user_id)
     text = (message.text or message.caption or "")   # Epic 46 (55.5): rag_query
     # Epic 51 (59.2, D210): Exact Match Cache по video_id (канонический
     # идентификатор — разные URL одной ссылки дают один ключ) — ДО
@@ -113,17 +128,24 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
                     message.chat.id, video_id)
         return
     try:
-        text_out = await _service.summarize(
-            video_id,
-            on_retry=_make_retry_notifier(bot, message.chat.id,
-                                          target.message_id),
-            chat_id=message.chat.id,
-            rag_query=text,
-        )
-        await send_chunked_reply(bot, message.chat.id, text_out, target.message_id)
+        # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
+        async with typing_active(bot, message.chat.id):
+            text_out = await _service.summarize(
+                video_id,
+                on_retry=_make_retry_notifier(bot, message.chat.id,
+                                              target.message_id),
+                chat_id=message.chat.id,
+                rag_query=text,
+            )
+            await send_chunked_reply(bot, message.chat.id, text_out, target.message_id)
         await cache.set(cache_key, text_out)      # только успешная генерация (59.2)
         logger.info("[youtube] summary sent | chat=%s video_id=%r",      # R41-5
                     message.chat.id, video_id)
+    except LLMBadResponseError as exc:
+        # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).
+        logger.warning("[youtube] empty answer — silence | chat=%s video_id=%r | error=%s",
+                       message.chat.id, video_id, exc)
+        await react_moai(bot, message.chat.id, target.message_id)
     except YouTubeTranscriptUnavailableException:
         logger.exception("[youtube] transcript failed | chat=%s video_id=%r",
                          message.chat.id, video_id)                       # R41-5

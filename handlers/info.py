@@ -19,6 +19,11 @@ from aiogram.filters import Command
 from aiogram.types import InputRichMessage, ReplyParameters
 
 from config.settings import settings
+from services.persistent_throttling import (
+    cooldown_remaining,
+    cooldown_touch,
+    make_cooldown,
+)
 from services.smartmodule_phrases import (
     INFO_BAD_MARKUP_PHRASES,
     INFO_EDIT_OK_PHRASES,
@@ -54,10 +59,13 @@ def _rich_to_legacy_html(text: str) -> str:
     return text
 
 
-def setup_info(service) -> None:
-    """DI: InfoService (файл уже загружен .load()). Вызывается из bot.py on_startup (52.9)."""
-    global _service
+def setup_info(service, db=None) -> None:
+    """DI: InfoService (файл уже загружен .load()). Вызывается из bot.py
+    on_startup (52.9). Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED →
+    персистентный кулдаун (throttle_state, scope='info')."""
+    global _service, _cooldown
     _service = service
+    _cooldown = make_cooldown("info", settings.INFO_COOLDOWN_SECONDS, db)
 
 
 @info_router.message(Command("info"))
@@ -78,12 +86,12 @@ async def cmd_info(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, random.choice(INFO_NO_DELETE_RIGHTS_PHRASES),
                      message.message_id)
         deleted = False                            # команда висит → справка РЕПЛАЕМ
-    remaining = _cooldown.remaining(message.chat.id, _CHAT_SLOT)
+    remaining = await cooldown_remaining(_cooldown, message.chat.id, _CHAT_SLOT)
     if remaining > 0:                              # 5.1 (D159)
         await _reply(bot, message.chat.id, throttle_phrase(remaining),
                      message.message_id)
         return
-    _cooldown.touch(message.chat.id, _CHAT_SLOT)
+    await cooldown_touch(_cooldown, message.chat.id, _CHAT_SLOT)
     text = _service.get_text()
     reply_parameters = (None if deleted
                         else ReplyParameters(message_id=message.message_id))

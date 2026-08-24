@@ -4,12 +4,14 @@
 «чекапчик» нет); кулдаун per-chat (слот (chat_id, 0)); ВСЕ ответы —
 реплаем на message.message_id; фолбек-фраза ДО checkup; DEAD/LLM-пулы.
 """
+import logging
+
 import pytest
 from aiogram.dispatcher.event.bases import UNHANDLED
 from unittest.mock import AsyncMock, MagicMock
 
 from handlers import checkup as checkup_mod
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.smartmodule_phrases import (
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
@@ -245,6 +247,25 @@ class TestCheckupHandler:
         await checkup_mod.checkup_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in CHECKUP_LLM_ERROR_PHRASES
 
+    @pytest.mark.asyncio
+    async def test_empty_answer_silence_with_moai(self, checkup_cleanup, caplog):
+        """65.1 (T-469): пустой ответ модели → НЕТ сообщения (ни отчёта, ни
+        R13-фразы), есть реакция 🗿 на триггер."""
+        service = MagicMock()
+        service.checkup = AsyncMock(
+            side_effect=LLMBadResponseError("checkup: empty answer"))
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("логи", False))
+        _wire(service, fetcher)
+        bot = AsyncMock()
+        msg = _make_msg(text="чекап", message_id=11)
+        with caplog.at_level(logging.WARNING):
+            await checkup_mod.checkup_handler(msg, bot=bot)
+        bot.send_message.assert_not_called()
+        bot.set_message_reaction.assert_awaited_once()
+        assert bot.set_message_reaction.await_args.args[:2] == (CHAT_ID, 11)
+        assert any("empty answer" in r.message for r in caplog.records)
+
 
 class TestEpic49LogLevels:
     """Epic 49 (57.6, D199): checkup.py:68/81 — WARNING без traceback."""
@@ -305,3 +326,32 @@ class TestEpic49LogLevels:
         assert reply in CHECKUP_LLM_ERROR_PHRASES
         assert "база подавилась логами" not in reply
         assert "база подавилась логами" not in CHECKUP_LLM_ERROR_PHRASES
+
+
+class TestEpic60MemoryMetricsFlow:
+    """Epic 60 (64.5/64.9 #8, T-466): полный поток чекапа с реальной БД —
+    метрики попадают в user-контент, отчёт доходит реплаем."""
+
+    @pytest.mark.asyncio
+    async def test_full_flow_with_metrics(self, checkup_cleanup):
+        from services.checkup_service import CheckupService
+        from services.database import DatabaseService
+
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        await db.insert_graph_fact(-100, "факт для метрик", "search_fact", None)
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="отчёт с данными")
+        service = CheckupService(llm, db=db, memory=None)
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("логи", False))
+        _wire(service, fetcher)
+        bot = AsyncMock()
+        msg = _make_msg(text="чекап", message_id=11)
+        await checkup_mod.checkup_handler(msg, bot=bot)
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "graph_facts: 1" in user
+        assert "&lt;memory_health&gt;" in user
+        assert bot.send_message.await_args.args[1] == "отчёт с данными"
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
+        await db.close()

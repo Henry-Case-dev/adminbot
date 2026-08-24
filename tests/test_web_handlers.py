@@ -5,12 +5,14 @@ UNHANDLED, reply-таргеты: успех/5.7/5.5 → target.message_id (ЦЕ�
 троттлинг 5.1 → message.message_id (ВЫЗОВ). extract_web_url НЕ отдаёт
 YouTube-URL в сервис (D128).
 """
+import logging
+
 import pytest
 from aiogram.dispatcher.event.bases import UNHANDLED
 from unittest.mock import AsyncMock, MagicMock
 
 from handlers import web as web_mod
-from services.llm_client import LLMError
+from services.llm_client import LLMBadResponseError, LLMError
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     THROTTLE_PHRASES,
@@ -224,6 +226,24 @@ class TestHandler:
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
         assert any("unexpected error" in r.message for r in caplog.records)
         assert any(r.exc_info for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_empty_answer_silence_with_moai(self, web_cleanup, caplog):
+        """65.1 (T-469): пустой ответ модели → молчание + 🗿 на ЦЕЛЕВОЕ (НЕ R13)."""
+        service = MagicMock()
+        service.summarize = AsyncMock(
+            side_effect=LLMBadResponseError("web summarizer: empty answer"))
+        web_mod.setup_web(service)
+        bot = AsyncMock()
+        target = _make_msg(text=WEB_URL, message_id=77)
+        msg = _make_msg(text="поясни за ссылку", message_id=11,
+                        reply_to_message=target)
+        with caplog.at_level(logging.WARNING):
+            await web_mod.web_handler(msg, bot=bot)
+        bot.send_message.assert_not_called()
+        bot.set_message_reaction.assert_awaited_once()
+        assert bot.set_message_reaction.await_args.args[:2] == (CHAT_ID, 77)
+        assert any("empty answer" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_throttle_5_1_on_call_service_not_called(
