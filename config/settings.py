@@ -669,6 +669,31 @@ class Settings:
     # TTL дедуп-записи, сек; <1 → дефолт 300 (WARNING).
     CHAT_DEDUP_TTL_SECONDS: int = _env_int_min("CHAT_DEDUP_TTL_SECONDS", 300, 1)
 
+    # ── Epic 66: Cobalt Downloader (Section 70) ──
+    # Рубильник фичи «скачай <url>». False = ровно v2.45.0 (облачная сессия,
+    # роутер не зарегистрирован). Прод: false, пока Docker не поднят (T-523).
+    DOWNLOAD_ENABLED: bool = _env_bool("DOWNLOAD_ENABLED", False)
+    # Кулдаун per-(chat,user), time-format s/m/h/d (D264).
+    DOWNLOAD_COOLDOWN: float = _env_duration("DOWNLOAD_COOLDOWN", "30m")
+    # Self-hosted cobalt (docker-compose, Section 70.2).
+    COBALT_API_URL: str = _env_str("COBALT_API_URL", "http://localhost:9000/")
+    # Локальный telegram-bot-api (docker-compose). Только при DOWNLOAD_ENABLED=True.
+    LOCAL_BOT_API_URL: str = _env_str("LOCAL_BOT_API_URL", "http://localhost:8081")
+    # Папка скачанных файлов на хосте (чистится автоматически после отправки).
+    DOWNLOAD_DIR: str = _env_str("DOWNLOAD_DIR", "media/downloads")
+
+    # ── Epic 67: VoiceTranscriber (Section 71) ──
+    # Рубильник транскрипции voice/video_note. False = роутер не регистрируется.
+    ENABLE_VOICE_TRANSCRIPTION: bool = _env_bool("ENABLE_VOICE_TRANSCRIPTION", True)
+    # Лимит длительности, сек; больше → TOO_LONG-фраза без скачивания файла.
+    VOICE_MAX_DURATION_SECONDS: int = _env_int("VOICE_MAX_DURATION_SECONDS", 600)
+    # Каскад Groq → OpenRouter. Секреты ТОЛЬКО в прод .env (R17): значение не
+    # логируется; пустой ключ = стратегия пропускается контроллером.
+    GROQ_API_KEY: str = _env_str("GROQ_API_KEY", "")
+    GROQ_TIMEOUT: float = _env_float("GROQ_TIMEOUT", 10.0)
+    OPENROUTER_API_KEY: str = _env_str("OPENROUTER_API_KEY", "")
+    OPENROUTER_TIMEOUT: float = _env_float("OPENROUTER_TIMEOUT", 15.0)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
 

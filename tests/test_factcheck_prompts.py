@@ -1,6 +1,6 @@
-"""Tests for services/factcheck_prompts.py (T-255-B, R33-6, D109 RESOLVED).
+"""Tests for services/factcheck_prompts.py (Epic 68, T-535, D269).
 
-Байт-в-байт с эталоном Section 42.5.1 (прецедент test_system_prompt_byte_for_byte);
+Байт-в-байт с эталоном Section 72.1 (прецедент test_system_prompt_byte_for_byte);
 {max_symbols} — единственный плейсхолдер; .replace-подстановка без KeyError.
 """
 import re
@@ -10,21 +10,19 @@ from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
 
 
 def _arch_factcheck_prompt() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 55.7.3 (эталон-блок; якорь
-    «## Section 55:» — ловушка «первого вхождения» D167)."""
+    """Эталон из plans/ARCHITECTURE.md Section 72.1 (Epic 68; fenced ```text
+    блок после якоря «## Section 72» — ловушка «первого вхождения» D167)."""
     lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
-    anchor = next(i for i, line in enumerate(lines) if line.startswith("## Section 55:"))
-    start = next(
+    anchor = next(i for i, line in enumerate(lines) if line.startswith("## Section 72"))
+    fence_start = next(
         i for i, line in enumerate(lines[anchor:], anchor)
-        if line.startswith("FACTCHECK_SYSTEM_PROMPT = ")
+        if line.strip() == "```text"
     )
-    end = next(
-        i for i, line in enumerate(lines[start:], start) if line.endswith('"""')
+    fence_end = next(
+        i for i, line in enumerate(lines[fence_start + 1:], fence_start + 1)
+        if line.strip() == "```"
     )
-    block = lines[start : end + 1]
-    block[0] = block[0][len('FACTCHECK_SYSTEM_PROMPT = """'):]
-    block[-1] = block[-1][:-3]
-    return "\n".join(block)
+    return "\n".join(lines[fence_start + 1 : fence_end])
 
 
 def _rag_instruction() -> str:
@@ -40,14 +38,14 @@ def _rag_instruction() -> str:
 EXPECTED_PROMPT = _arch_factcheck_prompt()
 RAG_INSTRUCTION = _rag_instruction()
 
-# R36-2 (D120, Section 45.2): блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» — дословно
+# Epic 68 (D269, Section 72.1): блок «ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА» — дословно
 # (дефисные/звёздочные маркеры сохраняются, осознанное решение D120).
 _VOLUME_BLOCK = (
     "ОБЪЕМ И ДИНАМИЧЕСКИЙ РАЗМЕР ОТВЕТА:\n"
     "- Максимальный жесткий потолок: {max_symbols} символов.\n"
     "- Длину ответа определяй сам по сложности темы:\n"
-    "  * Простой вопрос, очевидный фейк или односложный факт -> короткий язвительный ответ на 2-4 предложения (без размазывания соплей).\n"
-    "  * Сложная комплексная тема, спорный вброс или технический вопрос -> подробный разбор на пару абзацев с пруфами.\n"
+    "  * Простой наброс или очевидный бред -> короткий язвительный ответ на 2-4 предложения (без размазывания соплей).\n"
+    "  * Сложный философский спор или комплексный тейк -> подробный разбор на пару абзацев с железобетонной аргументацией.\n"
     "- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО лить воду, тянуть время и раздувать объем текста ради объема. Отвечай ровно столько, сколько нужно для сути."
 )
 
@@ -71,6 +69,32 @@ class TestFactcheckPrompt:
         жёсткая строка «строго до» удалена."""
         assert _VOLUME_BLOCK in FACTCHECK_SYSTEM_PROMPT
         assert "ОГРАНИЧЕНИЕ: длина ответа строго до" not in FACTCHECK_SYSTEM_PROMPT
+
+    def test_new_system_role_from_epic68(self):
+        """Epic 68 (T-535): новая роль — третейский судья срачей."""
+        assert "третейский судья в интернет-срачах" in FACTCHECK_SYSTEM_PROMPT
+        assert "циничным арбитром в спорах" in FACTCHECK_SYSTEM_PROMPT
+
+    def test_old_canon_removed(self):
+        """Epic 68 (72.2): старый канон фактчекера удалён."""
+        assert "объективно проверить достоверность" not in FACTCHECK_SYSTEM_PROMPT
+        assert "фейк, правда, полуправда" not in FACTCHECK_SYSTEM_PROMPT
+        assert "бот-абьюзер" not in FACTCHECK_SYSTEM_PROMPT
+        assert "СУТЬ АНАЛИЗА:" not in FACTCHECK_SYSTEM_PROMPT
+
+    def test_analysis_block_verbatim(self):
+        """Epic 68 (72.1): блок «СУТЬ АНАЛИЗА (СУДЕЙСТВО СРАЧЕЙ)» и его пункты."""
+        assert "СУТЬ АНАЛИЗА (СУДЕЙСТВО СРАЧЕЙ):" in FACTCHECK_SYSTEM_PROMPT
+        for marker in (
+            "- Принятие тейка:",
+            "- Анализ тезиса и логики:",
+            "- Умная фильтрация интернета (КРИТИЧНО):",
+            "- Вердикт:",
+            "- Аргументация:",
+        ):
+            assert marker in FACTCHECK_SYSTEM_PROMPT
+        assert "признай утверждение \"базой\"" in FACTCHECK_SYSTEM_PROMPT
+        assert "жидко обосрался" in FACTCHECK_SYSTEM_PROMPT
 
     def test_style_markers_from_tz(self):
         """R33-6: токсичный фактчекер, ленивая печать, запреты маркдауна/тире/ёлочек."""

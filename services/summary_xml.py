@@ -105,6 +105,10 @@ class XmlGroundingBuilder:
             return (text or "")[: settings.SUMMARY_MAX_MESSAGE_CHARS]
         description = _MEDIA_DESCRIPTIONS.get(media_type, "[медиа]")
         caption = (text or "").strip()
+        # Epic 67 (D267): у транскрибированных voice/video реальный текст уже
+        # в smart_messages.text — суффикс-плейсхолдер не добавляем.
+        if media_type in ("voice", "video") and caption:
+            return caption[: settings.SUMMARY_MAX_MESSAGE_CHARS]
         if caption:
             caption = caption[: settings.SUMMARY_MAX_MESSAGE_CHARS]
             return f"{caption} {description}"

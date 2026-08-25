@@ -724,6 +724,36 @@ class DatabaseService:
         await self.db.commit()
         return row_id
 
+    async def update_smart_message_text(self, chat_id: int, tg_message_id: int,
+                                        text: str) -> int:
+        """Epic 67 (Section 71.3, D267): инъекция транскрипта в smart_messages
+        вместо плейсхолдера «[голосовое]». Матч по (chat_id, tg_message_id);
+        возвращает число обновлённых строк (0 = observer не сохранил — no-op).
+        FTS-индекс пересобирается под новый текст."""
+        cursor = await self.db.execute(
+            "SELECT id, text FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
+            (chat_id, tg_message_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return 0
+        row_id = row["id"]
+        old_text = row["text"] or ""
+        await self.db.execute(
+            "UPDATE smart_messages SET text = ? WHERE id = ?", (text, row_id))
+        # FTS: DELETE несуществующего rowid в FTS5 даёт «malformed» — трогаем
+        # индекс только если строка там была (текст был непустой).
+        if old_text:
+            await self.db.execute(
+                "DELETE FROM smart_messages_fts WHERE rowid = ?", (row_id,))
+        if text:
+            await self.db.execute(
+                "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
+                (row_id, text),
+            )
+        await self.db.commit()
+        return 1
+
     async def get_smart_window(self, chat_id: int, since_ts: int, limit: int) -> list:
         """L1: messages within the generation window (timestamp >= since_ts), ASC order."""
         cursor = await self.db.execute(

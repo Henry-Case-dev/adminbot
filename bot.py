@@ -68,8 +68,20 @@ from handlers.direct_chat import direct_chat_router, setup_direct_chat
 from services.direct_chat_service import DirectChatService
 from services.persistent_throttling import PersistentThrottle
 from services.smart_cache import close_smart_cache, get_smart_cache
+# ── Epic 66 (D262): локальный Bot API для скачивания >50MB ──
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
+
 from handlers.info import info_router, setup_info
 from services.info_service import InfoService
+from tools.video_downloader import VideoDownloader
+from handlers.video_download import video_download_router, setup_video_download
+# ── Epic 67: VoiceTranscriber (Section 71) ──
+from SmartModule.service import VoiceTranscriber
+from handlers.voice_transcription import (
+    voice_transcription_router,
+    setup_voice_transcription,
+)
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -85,7 +97,15 @@ if logtail_token:
 logging.basicConfig(level=logging.INFO, handlers=handlers)
 logger = logging.getLogger(__name__)
 
-bot = Bot(token=settings.API_TOKEN)
+if settings.DOWNLOAD_ENABLED:
+    bot = Bot(
+        token=settings.API_TOKEN,
+        session=AiohttpSession(
+            api=TelegramAPIServer.from_base(settings.LOCAL_BOT_API_URL, is_local=True),
+        ),
+    )
+else:
+    bot = Bot(token=settings.API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # SmartModule (Epic 24) — module-level refs for on_shutdown
@@ -234,6 +254,20 @@ async def on_startup():
         )
         logger.info("SmartModule DirectChat (Epic 50) initialized")
 
+        # ── VoiceTranscriber (Epic 67, Section 71.6) — сервис зависит от
+        # memory/aliases; пустые ключи → стратегии пропустит контроллер ──
+        if settings.ENABLE_VOICE_TRANSCRIPTION:
+            voice_service = VoiceTranscriber()
+            setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
+            logger.info(
+                "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s)",
+                settings.VOICE_MAX_DURATION_SECONDS,
+                bool(settings.GROQ_API_KEY), bool(settings.OPENROUTER_API_KEY),
+            )
+        else:
+            logger.info(
+                "VoiceTranscriber disabled (ENABLE_VOICE_TRANSCRIPTION=False)")
+
         # ── Memory backup (Epic 60, Section 64.3, T-464) ──
         # VACUUM INTO-бэкап + текстовый экспорт фактов, daily. Рубильник
         # MEMORY_BACKUP_ENABLED; НЕ на остановленном боте (онлайн).
@@ -312,6 +346,10 @@ async def on_startup():
     if settings.SUMMARY_ENABLED:
         dp.include_router(direct_chat_router)
 
+    # 0i. Transcription (Epic 67, Section 71.3) — ПОСЛЕ observer 0a; UNHANDLED-стиль
+    if settings.SUMMARY_ENABLED and settings.ENABLE_VOICE_TRANSCRIPTION:
+        dp.include_router(voice_transcription_router)
+
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
 
@@ -356,6 +394,16 @@ async def on_startup():
         logger.info("Olya service enabled (cooldown=%.1fs)", settings.OLYA_COOLDOWN)
     else:
         logger.info("Olya service disabled (OLYA_ENABLED=False)")
+
+    # 4e. Video Download (Epic 66, Section 70.7) — триггер «скачай <url>»;
+    # консьюмит при триггере, НЕ-триггеры → UNHANDLED
+    if settings.DOWNLOAD_ENABLED:
+        downloader = VideoDownloader(settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
+        setup_video_download(downloader, db)
+        dp.include_router(video_download_router)
+        logger.info("VideoDownloader enabled (cobalt=%s)", settings.COBALT_API_URL)
+    else:
+        logger.info("VideoDownloader disabled (DOWNLOAD_ENABLED=False)")
 
     # 5. Slava router — user ID 479167456 (F3, F4 + catch-all; F5 moved to 4b)
     dp.include_router(slavik_router)

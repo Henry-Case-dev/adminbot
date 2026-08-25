@@ -68,7 +68,8 @@ FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 Верни строго JSON со списком фактов. Пример: [{"subject": "Ozon", "predicate": "доставляет быстрее чем", "object": "Wildberries", "context": "из-за большего количества складов"}]"""
 
 _FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content",
-                 "bot_direct_reply")   # Epic 50 (58.8, D205): + direct-ответы
+                 "bot_direct_reply",
+                 "voice_transcript")   # Epic 67: транскрипты voice/video_note
 _FACT_EXTRACT_MAX_CHARS = 8000      # tail текста, отправляемый экстрактору
 _FACT_MAX_NAME_CHARS = 100
 _FACT_MAX_PREDICATE_CHARS = 200

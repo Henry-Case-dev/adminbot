@@ -7537,3 +7537,112 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 - [x] T-520 (@Builder) — R65-1..R65-4 — DONE (2630 passed)
 - [x] T-521 (@Reviewer) — ревью diff — DONE (каноны промптов не тронуты, fail-open везде)
 - [x] T-522 (@DevOps) — коммит+пуш+деплой — DONE
+
+---
+
+## Epic 66: Cobalt Downloader + Local Bot API — 2026-08-25 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ
+
+> **Цель:** Пользователь просит «скачай <ссылка>» (прямой вызов или реплай на чужое сообщение) — бот
+> скачивает видео через Cobalt и отправляет в чат видеофайлом с поддержкой стриминга.
+>
+> **Архитектурные требования:**
+> - Сервис VideoDownloader — в ОТДЕЛЬНОМ пакете Tools/ (НЕ подмешивать в SmartModule).
+> - Локальный сервер Telegram Bot API + инстанс Cobalt — СТРОГО в изолированных Docker-контейнерах
+>   (docker-compose). Aiogram сессия: TelegramAPIServer.from_base('http://<api-server>:8081', is_local=True).
+>   Отправка через FSInputFile с абсолютным путем в общей Docker-папке.
+> - Глобальный asyncio.Lock() уровня сервиса: запрос к Cobalt (скачивание) строго ОДНО видео на весь
+>   сервер; yt-dlp метаданные ВНЕ лока; при занятом локе — фраза из пула «Занят».
+> - Флоу: ссылок >1 → «читаю ссылки…» → Inline-выбор видео (название до 40 символов) → выбор качества
+>   ВСЕГДА (уникальные разрешения из formats yt-dlp: 360p/720p/1080p) → после выбора СТРОГО удалить
+>   сообщение с клавиатурой (message.delete()), при TelegramBadRequest — перехват, фраза из пула ошибок
+>   прав, скачивание ПРОДОЛЖИТЬ → лок → Cobalt → отправка.
+> - Ответ строго реплаем, supports_streaming=True. Очистка скачанного файла через try...finally.
+> - Порядок роутеров в bot.py НЕ трогать; правило UNHANDLED для нетриггеров.
+> - Зависимости: docker-compose (T-523) ДО Bot API интеграции (T-526/T-527); ARCHITECTURE.md (T-525)
+>   ДО реализации. Без @Orchestrator.
+
+### Инфраструктура
+- [ ] T-523 (@DevOps, P0): docker-compose.yml — изолированные контейнеры telegram-bot-api (порт 8081) и cobalt; общая Docker-volume папка для скачанных файлов; healthcheck обоих сервисов; сам бот остается вне Docker (деплой git pull + systemctl)
+
+### Конфигурация
+- [ ] T-524 (@Builder, P1): config/settings.py + .env.example — COBALT_API_URL, DOWNLOAD_COOLDOWN=30m (парсер форматов m/h/s по паттерну parse_duration из Epic 21, дефолт 30m)
+
+### Проектирование
+- [ ] 👤 T-525 (@Architect, P0): Section ARCHITECTURE.md — пакет Tools/, VideoDownloader (контракты, структура), TelegramAPIServer.from_base(is_local=True), FSInputFile абсолютный путь, семантика глобального asyncio.Lock (Cobalt под локом / yt-dlp вне лока), флоу выбора ссылки и качества (Inline, ≤40 символов, уникальные разрешения formats), удаление клавиатуры + перехват TelegramBadRequest, cleanup try...finally. **DoD:** дизайн согласован с PM, READY FOR BUILDER
+
+### Реализация
+- [ ] T-526 (@Builder, P0, ←T-523/T-525): пакет Tools/services/video_downloader.py — VideoDownloader: запрос к Cobalt строго под глобальным asyncio.Lock (одно видео на весь сервер), yt-dlp метаданные и извлечение уникальных разрешений ВНЕ лока, загрузка файла в общую Docker-папку, удаление файла через try...finally
+- [ ] T-527 (@Builder, P0, ←T-525): handlers/video_download.py — триггер-регулярка начала строки (i): ^(скачай|загрузи|стяни|спизди|скачать); прямой вызов или реплай на чужое сообщение; ответ строго реплаем; пулы токсичных фраз random.choice ДОСЛОВНО (6 пулов: Кулдаун с {remaining_time} / Ошибка / Занят / Нет ссылки / Несколько ссылок / Ошибка прав); Inline-клавиатуры выбора видео и качества; message.delete() + перехват TelegramBadRequest (фраза из пула ошибок прав, скачивание продолжается); отправка FSInputFile supports_streaming=True; кулдаун DOWNLOAD_COOLDOWN per-user; регистрация в bot.py БЕЗ изменения порядка существующих роутеров
+
+### Ревью
+- [ ] T-528 (@Reviewer, P0, ←T-526/T-527): ревью Epic 66 — изоляция Tools от SmartModule, корректность TelegramAPIServer/is_local для ВСЕЙ aiogram-сессии (не сломать остальные фичи), семантика лока (нет гонок), секреты не в коде, diff --check чист
+
+---
+
+## Epic 67: Voice-to-Text транскрибация (SmartModule VoiceTranscriber) — 2026-08-25 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ
+
+> **Цель:** Бот автоматически расшифровывает голосовые и кружки без команд.
+>
+> **Архитектурные требования:**
+> - Подсервис VoiceTranscriber ВНУТРИ пакета SmartModule. Автосрабатывание без команд.
+> - Строго F.voice и F.video_note; игнорировать F.audio/F.document. Рубильник ENABLE_VOICE_TRANSCRIPTION=true.
+> - Паттерн Стратегия: абстрактный BaseTranscriber.transcribe; контроллер итерируется Primary→Fallback,
+>   замена сервиса за пару минут. Primary: Groq API whisper-large-v3 (таймаут 10с,
+>   client.audio.transcriptions.create). Fallback: OpenRouter thinkingmachines/inkling:free (таймаут 15с,
+>   мультимодальная chat.completions.create, аудио в Base64, системный промпт «СТРОГИЙ ФОРМАТ: Выведи
+>   только транскрипцию этого аудио без лишних слов. Никаких вступлений.»).
+> - ⚠️ OpenRouter одобрен пользователем ЯВНО как фолбэк-транскрибатор — это НЕ сценарий Epic 62/63
+>   (реверт LLM-чата на apinet.cloud); конфликт снят указанием пользователя.
+> - Стратегия ретраев СТРОГО: 1 попытка Primary → 1 попытка Fallback → токсичное сообщение.
+> - Формат ответа: реплай на оригинал, имя Алиас→Никнейм→Юзернейм→«Анонимус», формат «**Имя** 🗣: *текст*».
+> - Инъекция в память ОБЯЗАТЕЛЬНА: расшифровка в chat_history/RAG в XML:
+>   <MediaMessage type="voice" sender="Алиас" timestamp="...">текст</MediaMessage> (для кружков type="video_note").
+> - Ограничения: VOICE_MAX_DURATION_SECONDS=600; пустая строка от API → пул «тишина»; файл .ogg/.mp4
+>   во временной папке, удаление в finally в 100% случаев; ChatAction.TYPING во время работы.
+> - Observer summary.py позиция 0a и порядок роутеров НЕ трогать. Без @Orchestrator.
+
+### Проектирование
+- [ ] 👤 T-529 (@Architect, P0): Section ARCHITECTURE.md — VoiceTranscriber внутри SmartModule: паттерн Стратегия (BaseTranscriber.transcribe, контроллер Primary→Fallback, контракт замены сервиса), флоу хендлера, формат ответа и резолв имени, XML-инъекция <MediaMessage>, ограничения и cleanup, тест-план. **DoD:** READY FOR BUILDER
+
+### Конфигурация
+- [ ] T-530 (@Builder, P1): config/settings.py + .env.example — ENABLE_VOICE_TRANSCRIPTION=true, GROQ_API_KEY, OPENROUTER_API_KEY, VOICE_MAX_DURATION_SECONDS=600
+
+### Реализация
+- [ ] T-531 (@Builder, P0, ←T-529): BaseTranscriber (абстрактный transcribe) + GroqTranscriber (whisper-large-v3, таймаут 10с, client.audio.transcriptions.create) + OpenRouterFallbackTranscriber (thinkingmachines/inkling:free, таймаут 15с, chat.completions.create, аудио Base64 в messages, системный промпт дословно); контроллер: ровно 1 попытка Primary → ровно 1 попытка Fallback → исключение/пустой результат → токсичная фраза из пула
+- [ ] T-532 (@Builder, P0, ←T-529): хендлер автосрабатывания — фильтры строго F.voice | F.video_note (F.audio/F.document игнорируются), рубильник ENABLE_VOICE_TRANSCRIPTION, ChatAction.TYPING, проверка VOICE_MAX_DURATION_SECONDS → пул «Лимит длительности», скачивание .ogg/.mp4 во временную папку + удаление в finally в 100% случаев, пустая расшифровка → пул «Тишина», сбой обоих API → пул «Сбой» (3 пула дословно, random.choice), имя Алиас→Никнейм→Юзернейм→«Анонимус», ответ-реплай «**Имя** 🗣: *текст*», инъекция расшифровки в chat_history/RAG (<MediaMessage type="voice"/"video_note" sender="Алиас" timestamp="…">)
+
+### Ревью
+- [ ] T-533 (@Reviewer, P0, ←T-531/T-532): ревью Epic 67 — observer 0a не задет, порядок роутеров неизменен, стратегия заменяема за пару минут (нет утечек абстракций), temp-файлы не накапливаются, ключи только в .env
+
+---
+
+## Epic 68: FACTCHECK_SYSTEM_PROMPT — арбитраж интернет-срачей — 2026-08-25 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ
+
+> **Цель:** Полная замена блока СУТЬ АНАЛИЗА в FACTCHECK_SYSTEM_PROMPT под методологию арбитража
+> интернет-срачей + расширение системной роли (токсичный фактчекер-третейский судья).
+>
+> **Правила оформления (в новом промпте):** чередование регистра, дефисы вместо тире, кавычки "",
+> запрет маркдауна/эмодзи/списков, динамический объем по {max_symbols}, умная фильтрация поисковой
+> выдачи, вердикты «база»/«обосрался»/«посередине».
+>
+> **Важно:** новый текст промпта дан пользователем ДОСЛОВНО — Builder берет его из ARCHITECTURE.md
+> (эталон фиксирует @Architect). RAG-инструкция <bot_knowledge> из Epic 46 присутствует в
+> пользовательском тексте — СОХРАНИТЬ. Дисциплина D123: промпт + эталоны + тесты одним коммитом.
+> Без @Orchestrator.
+
+### Задачи
+- [ ] 👤 T-534 (@Architect, P0): внести новый текст FACTCHECK_SYSTEM_PROMPT пользователя ДОСЛОВНО в ARCHITECTURE.md как эталон: полная замена блока СУТЬ АНАЛИЗА + расширение системной роли; пометить заменяемый блок текущего промпта; проверить наличие и сохранность RAG-блока <bot_knowledge>. **DoD:** эталон зафиксирован байт-в-байт, READY FOR BUILDER
+- [ ] T-535 (@Builder, P0, ←T-534): заменить блок СУТЬ АНАЛИЗА + расширить системную роль в FACTCHECK_SYSTEM_PROMPT по эталону байт-в-байт; обновить эталоны-тесты (слайсы/плейсхолдеры {max_symbols}, вердикты); дисциплина D123 — промпт+эталоны+тесты готовятся ОДНИМ коммитом
+- [ ] T-536 (@Reviewer, P0, ←T-535): ревью Epic 68 — байт-в-байт соответствие эталону, <bot_knowledge> сохранён, {max_symbols} работает, вердикты на месте, канон R65-1 (<chat_context>) не задет
+
+---
+
+## Финальный цикл релиза v2.46.0 (после Epics 66–68) — 2026-08-25 🆕 Шаг 1 (PM ✅)
+
+> Обязательный финал: тесты → проверка конфликтов → README → коммит/пуш → деплой. Без @Orchestrator.
+
+- [ ] T-537 (@Builder + @Reviewer, P0, ←Epics 66–68): максимальное покрытие тестами новых модулей (Tools/video_downloader, voice_transcriber, factcheck prompt эталоны) + полный прогон pytest (база 2630), 0 регрессий. Тесты СТРОГО перед деплоем
+- [ ] T-538 (@Reviewer, P0, ←T-537): проверка конфликтов — порядок роутеров в bot.py не тронут, правило UNHANDLED соблюдено, observer 0a не задет, OpenRouter используется ТОЛЬКО как фолбэк-транскрибатор (LLM-чат остался на apinet.cloud, Epic 63), каноны R11/R42/R50 не тронуты кроме заменённого блока фактчека
+- [ ] T-539 (@Builder, P1): README.md — новые фичи ироничным тоном (Cobalt Downloader, Voice-to-Text, новый фактчек) + MEMORY.md bump v2.46.0
+- [ ] T-540 (@DevOps, P0, ←T-537/T-538): коммит на русском (conventional commits) + пуш origin/master; секреты (.env, GROQ_API_KEY, OPENROUTER_API_KEY) НЕ в коммите; git diff --check чист
+- [ ] T-541 (@DevOps, P0, ←T-540): деплой ssh nik@198.46.175.136:/var/www/admin_bot — git pull; обновление продового .env (+COBALT_API_URL, DOWNLOAD_COOLDOWN, ENABLE_VOICE_TRANSCRIPTION, GROQ_API_KEY, OPENROUTER_API_KEY, VOICE_MAX_DURATION_SECONDS; бэкап .bak.epic66-68); подъём docker-compose (telegram-bot-api + cobalt) на проде; systemctl restart admin_bot; systemctl status; journalctl 0 traceback; smoke: «скачай <ссылка>» (выбор качества → видео-реплай), голосовое → транскрипция + попадание в память, фактчек в новом стиле

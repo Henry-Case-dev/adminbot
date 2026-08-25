@@ -25,3 +25,8 @@ deploy_commands.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker runtime data (Epic 66, D263) — данные авторизации Bot API не в git;
+# сам каталог держим через docker/telegram-bot-api/.gitkeep
+docker/telegram-bot-api/*
+!docker/telegram-bot-api/.gitkeep

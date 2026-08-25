@@ -6,6 +6,78 @@
 
 ## 🔧 In Progress
 
+### Epic 66: Cobalt Downloader + Local Bot API — 2026-08-25 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.46.0)
+
+> Полный трек — plans/backlog.md (Epic 66). Пакет Tools/ (НЕ SmartModule): сервис VideoDownloader.
+> Локальный сервер Telegram Bot API + инстанс Cobalt — СТРОГО в изолированных Docker-контейнерах
+> (docker-compose); aiogram сессия через TelegramAPIServer.from_base(is_local=True), отправка
+> FSInputFile из общей Docker-папки. Глобальный asyncio.Lock — одно скачивание на весь сервер
+> (yt-dlp метаданные вне лока). Триггер-регулярка ^(скачай|загрузи|стяни|спизди|скачать) (i),
+> ответ строго реплаем, supports_streaming=True. Флоу: >1 ссылки → Inline-выбор видео (≤40 симв.)
+> → выбор качества (уникальные разрешения yt-dlp) → message.delete() с перехватом TelegramBadRequest
+> (фраза из пула ошибок прав, скачивание ПРОДОЛЖИТЬ). Кулдаун DOWNLOAD_COOLDOWN=30m (парсер m/h/s).
+> 6 пулов токсичных фраз random.choice дословно. Очистка файла try...finally. Без @Orchestrator.
+
+- [ ] T-523 (@DevOps, P0) — docker-compose.yml: изолированные контейнеры telegram-bot-api + cobalt, общая volume-папка, healthcheck (ДО Bot API интеграции)
+- [ ] T-524 (@Builder, P1) — settings.py + .env.example: COBALT_API_URL, DOWNLOAD_COOLDOWN (парсер m/h/s, дефолт 30m)
+- [ ] T-525 (@Architect, P0) — Section ARCHITECTURE.md: дизайн VideoDownloader/Tools + флоу + лок (ДО реализации)
+- [ ] T-526 (@Builder, P0, ←T-523/T-525) — пакет Tools/: VideoDownloader (лок Cobalt, yt-dlp вне лока, cleanup try...finally)
+- [ ] T-527 (@Builder, P0, ←T-525) — handlers/video_download.py: триггеры, пулы фраз, Inline-выбор, delete+TelegramBadRequest, отправка; bot.py без изменения порядка роутеров
+- [ ] T-528 (@Reviewer, P0, ←T-526/T-527) — ревью Epic 66 (изоляция Tools, семантика лока, секреты)
+
+### Epic 67: Voice-to-Text транскрибация (SmartModule VoiceTranscriber) — 2026-08-25 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.46.0)
+
+> Полный трек — plans/backlog.md (Epic 67). Подсервис VoiceTranscriber внутри SmartModule,
+> автосрабатывание без команд: строго F.voice | F.video_note (игнор F.audio/F.document).
+> Паттерн Стратегия: BaseTranscriber.transcribe → контроллер Primary→Fallback (замена сервиса за пару минут).
+> Primary: Groq whisper-large-v3 (таймаут 10с); Fallback: OpenRouter thinkingmachines/inkling:free
+> (таймаут 15с, аудио Base64) — OpenRouter ОДОБРЕН пользователем как фолбэк-транскрибатор
+> (НЕ сценарий Epic 62/63, конфликт снят явно). Ретраи СТРОГО 1 Primary → 1 Fallback → токсичная фраза.
+> Ответ-реплай **Имя** 🗣: *текст* (Алиас→Никнейм→Юзернейм→Анонимус); инъекция в chat_history/RAG:
+> <MediaMessage type="voice"/"video_note">…</MediaMessage>. Лимит VOICE_MAX_DURATION_SECONDS=600;
+> .ogg/.mp4 в tmp, удаление в finally в 100% случаев; ChatAction.TYPING; рубильник ENABLE_VOICE_TRANSCRIPTION.
+> 3 пула токсичных фраз дословно. Без @Orchestrator.
+
+- [ ] T-529 (@Architect, P0) — Section ARCHITECTURE.md: дизайн VoiceTranscriber (Стратегия, форматы, XML-инъекция) ДО реализации
+- [ ] T-530 (@Builder, P1) — конфиг: ENABLE_VOICE_TRANSCRIPTION, GROQ_API_KEY, OPENROUTER_API_KEY, VOICE_MAX_DURATION_SECONDS=600
+- [ ] T-531 (@Builder, P0, ←T-529) — BaseTranscriber + GroqPrimary + OpenRouterFallback (промпт дословно, стратегия ретраев)
+- [ ] T-532 (@Builder, P0, ←T-529) — хендлер автосрабатывания: фильтры, TYPING, лимиты, temp-cleanup finally, формат ответа, память, пулы фраз
+- [ ] T-533 (@Reviewer, P0, ←T-531/T-532) — ревью Epic 67 (observer 0a не задет, заменяемость стратегий, нет утечки temp-файлов)
+
+### Epic 68: FACTCHECK_SYSTEM_PROMPT — арбитраж интернет-срачей — 2026-08-25 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.46.0)
+
+> Полный трек — plans/backlog.md (Epic 68). Полная замена блока СУТЬ АНАЛИЗА + расширение системной роли
+> (токсичный фактчекер-третейский судья): чередование регистра, дефисы вместо тире, кавычки "",
+> запрет маркдауна/эмодзи/списков, динамический объем по {max_symbols}, умная фильтрация поисковой выдачи,
+> вердикты «база»/«обосрался»/«посередине». Новый текст пользователя — дословно в ARCHITECTURE.md;
+> RAG-инструкцию <bot_knowledge> из Epic 46 СОХРАНИТЬ. Дисциплина D123: промпт+эталоны+тесты одним коммитом.
+
+- [ ] T-534 (@Architect, P0) — эталон нового FACTCHECK_SYSTEM_PROMPT ДОСЛОВНО в ARCHITECTURE.md (+сохранить <bot_knowledge>)
+- [ ] T-535 (@Builder, P0, ←T-534) — замена блока по эталону байт-в-байт + эталоны-тесты (D123)
+- [ ] T-536 (@Reviewer, P0, ←T-535) — ревью: байт-в-байт, <bot_knowledge> сохранён, {max_symbols}, вердикты
+
+### Финальный цикл релиза v2.46.0 — после Epics 66–68 🆕 Шаг 1 (PM ✅)
+
+- [ ] T-537 (@Builder + @Reviewer, P0, ←все эпики) — максимальное покрытие тестами + полный прогон pytest (база 2630), 0 регрессий; тесты ДО деплоя
+- [ ] T-538 (@Reviewer, P0, ←T-537) — проверка конфликтов: порядок роутеров bot.py не тронут, UNHANDLED, observer 0a, OpenRouter только как транскрибатор-фолбэк
+- [ ] T-539 (@Builder, P1) — README.md (ироничный тон) + MEMORY.md bump v2.46.0
+- [ ] T-540 (@DevOps, P0, ←T-537/T-538) — коммит на русском (conventional commits) + пуш origin/master; секреты НЕ в коммите
+- [ ] T-541 (@DevOps, P0, ←T-540) — деплой ssh nik@198.46.175.136:/var/www/admin_bot: git pull, обновление .env (+COBALT_API_URL, DOWNLOAD_COOLDOWN, ENABLE_VOICE_TRANSCRIPTION, GROQ_API_KEY, OPENROUTER_API_KEY, VOICE_MAX_DURATION_SECONDS; бэкап .bak.epic66-68), подъём docker-compose на проде, systemctl restart/status admin_bot, journalctl 0 traceback, smoke (скачивание / войс / фактчек)
+
+## 🔍 In Review
+
+*(пусто)*
+
+## ✅ Done
+
+> **Epics 60–65 перенесены из In Progress при архивации (PM, 2026-08-25).** Полный трек каждого — plans/backlog.md. Сводка закрытий:
+> - **Epic 60** v2.43.0 (`9a47567`, PID 1071436, 2611 тестов) — полировка direct_chat/памяти/чекапа (37 пунктов RESEARCH_HUMAN).
+> - **Epic 61** v2.43.1 (`352afa1`, PID 1072251, 2617) — хотфикс чекап-метрик + tiktoken на проде.
+> - **Epic 62** v2.43.2 (`0cce75b`, PID 1074264) — LLM-провайдер → OpenRouter.
+> - **Epic 63** v2.43.3 (`ffb0812`, PID 1075674) — реверт LLM-провайдера → apinet.cloud.
+> - **Epic 64** v2.44.0 (`9aae221`, PID 1080205, 2617) — контекст без агрессивной обрезки + embedding_cache float16 + ретраи фоллбэка.
+> - **Epic 65** v2.45.0 (2630 тестов) — обогащение контекста фактчека/поиска + реранкинг + фокус /summary; память вердиктов ОТМЕНЕНА пользователем.
+
 ### Epic 64: Контекст + embedding_cache + LLM-надёжность — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.44.0, коммит 9aae221, прод PID 1080205)
 
 > Полный трек — plans/backlog.md (Epic 64). Фикс краша direct_chat (sqlite3.Row.get, строка 675),
@@ -146,11 +218,6 @@
 
 **Updated:** 2026-08-24 — **Epic 60 ✅ DEPLOYED & CLOSED (v2.43.0):** релиз задеплоен на прод — коммит `9a47567` «feat(epic60): v2.43.0 …» запушен (`d555454..9a47567` origin/master, 73 файла, без mp4), деплой успешен (pull ff, бэкап `local_database.db.bak.epic60` ДО pull, .env не менялся, restart OK — прод PID 1071436, миграция v3 применена — user_version=3, таблицы v3 созданы, int8-индексы перестроены, 0 traceback). Тесты 2611 passed / 0 failed, ревью APPROVED. Все задачи T-458…T-499 → [x]. Epics 1–60 ALL CLOSED & DEPLOYED. Без @Orchestrator.
 
-## 🔍 In Review
-
-*(пусто)*
-
-## ✅ Done
 
 ### Epics 41–59: АРХИВИРОВАНО ✅ (2026-08-24, Шаг 1 Epic 60 — ALL CLOSED & DEPLOYED, прод v2.42.1 `d555454`, PID 1064777, 2360 тестов)
 
