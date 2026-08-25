@@ -85,6 +85,36 @@
 - [ ] T-545 (@DevOps, P0, ←T-543/T-544) — DOWNLOAD_ENABLED=True в прод .env СТРОГО после рабочего telegram-bot-api; бэкап .bak.epic69; restart admin_bot; 0 traceback; smoke: скачивание + транскрибация на проде; коммит цикла + пуш (секреты НЕ в коммите)
 - [ ] T-546 (@Reviewer, P0, ←T-543/T-545) — ревью Epic 69 (канон=код, тесты под реальный aiogram API, порядок включения соблюдён, секреты не всплыли)
 
+### Epic 70: Активация скачивания видео на проде (Epic 66) — ключи получены — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> Полный трек — plans/backlog.md (Epic 70). Блокер снят: пользователь предоставил
+> TELEGRAM_API_ID и TELEGRAM_API_HASH. Порядок КРИТИЧЕН (наследие Epic 69): ключи в прод .env
+> (секреты НЕ в git) → `docker compose up -d telegram-bot-api` → проверка FDCA логина в логах
+> контейнера + `curl :8081` → DOWNLOAD_ENABLED=True СТРОГО ПОСЛЕДНИМ ШАГОМ → restart admin_bot →
+> smoke «скачай <ссылка>». Без @Orchestrator.
+
+- [ ] T-547 (@DevOps, P0) — прод .env: TELEGRAM_API_ID/HASH (бэкап .env.bak.epic70, секреты НЕ в git); docker compose up -d telegram-bot-api; FDCA логин в логах + curl :8081 отвечает
+- [ ] T-548 (@DevOps, P0, ←T-547) — DOWNLOAD_ENABLED=True СТРОГО последним шагом; restart admin_bot; journalctl 0 traceback; smoke «скачай <ссылка>» → видео-реплай
+
+### Epic 71: Обновление /info — новые фичи в справке — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> Полный трек — plans/backlog.md (Epic 71). Добавить в /info скачивание видео («скачай <ссылка>»)
+> и авторасшифровку голосовых и кружочков — СОХРАНЯЯ стиль справки (ироничные разделы <h2>,
+> триггеры жирным курсивом). ⚠️ КРИТИЧНО (research @Memory, D224): канон-цепочка 5 мест одним
+> коммитом — DEFAULT_INFO_TEXT (services/info_service.py), info_text.md, ARCHITECTURE.md Section
+> 53.3 (оба блока), plain-версия в backlog (R44-1), счётчики тегов в tests/test_info_service.py
+> И tests/test_info_handlers.py. Байт-в-байт дисциплина. Примечание: пример пользователя
+> «- /summary по Х» — иллюстрация формата кратких строк, НЕ требование слеш-команд (интро канона:
+> «никаких слеш-команд»). Без @Orchestrator.
+
+- [ ] 👤 T-549 (@Architect, P0) — архитектурный эталон нового текста /info ДО реализации: html-версия + plain-эталон для backlog R44-1; Section 53.3 оба блока; тест-план со счётчиками тегов
+- [ ] T-550 (@Builder, P0, ←T-549) — реализация 5 мест канона синхронно одним коммитом + счётчики тегов в обоих тест-файлах; полный pytest 0 регрессий
+- [ ] T-551 (@Reviewer, P0, ←T-550) — ревью Epic 71 (байт-в-байт 5 мест, стиль сохранён без слеш-команд, счётчики верны)
+
+### Финал цикла Epic 70–71 🆕 Шаг 1 (PM ✅)
+
+- [ ] T-552 (@DevOps, P0, ←T-548/T-551) — коммит цикла на русском + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot: git pull, бэкап info_text.md.bak.epic71, restart admin_bot, 0 traceback; smoke: /info с новыми разделами + «скачай <ссылка>»
+
 ## 🔍 In Review
 
 *(пусто)*

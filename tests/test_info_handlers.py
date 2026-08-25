@@ -6,7 +6,7 @@
 (rich 400 → legacy-HTML-эмуляция Epic 57 → plain), админ-гейт, rich-DM-превью
 (порядок preview→save), рендер-валидация (файл/кэш нетронуты), лимит 32768,
 OSError, пустой аргумент, init-гарды, _rich_to_legacy_html (счётчики эмуляции
-Epic 57: 0 h1/h2, 34 b, 28 u).
+Epic 71: 0 h1/h2, 39 b, 31 u).
 """
 import logging
 from unittest.mock import AsyncMock, MagicMock
@@ -88,13 +88,13 @@ class TestRichToLegacyHtml:
         result = info_mod._rich_to_legacy_html(DEFAULT_INFO_TEXT)
         assert "<h1>" not in result and "</h1>" not in result
         assert "<h2>" not in result and "</h2>" not in result
-        assert result.count("<b>") == 34
-        assert result.count("</b>") == 34
-        assert result.count("<b><i><u>") == 27
-        assert result.count("<u>") == 28
-        assert result.count("</u>") == 28
-        assert result.count("<i>") == 27
-        assert result.count("</i>") == 27
+        assert result.count("<b>") == 39
+        assert result.count("</b>") == 39
+        assert result.count("<b><i><u>") == 30
+        assert result.count("<u>") == 31
+        assert result.count("</u>") == 31
+        assert result.count("<i>") == 30
+        assert result.count("</i>") == 30
 
     def test_intro_h1_emulation_and_links_kept(self):
         result = info_mod._rich_to_legacy_html(DEFAULT_INFO_TEXT)
