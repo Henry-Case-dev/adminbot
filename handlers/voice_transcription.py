@@ -132,8 +132,9 @@ async def _process(message: types.Message, bot) -> None:
     fd, path = tempfile.mkstemp(prefix="vt_", suffix=suffix)
     os.close(fd)
     try:
-        tg_file = await bot.get_file(media.file_id)
-        await tg_file.download_to_drive(destination=path)
+        # Хотфикс v2.46.1 (Epic 69): Bot.download принимает file_id, сам
+        # делает get_file внутри (aiogram 3.x — File без IO-методов).
+        await bot.download(media.file_id, destination=path)
         await _safe_typing(bot, chat_id)          # индикация на время API-запросов
         try:
             text = await _service.transcribe_voice(path, audio_format)

@@ -64,6 +64,27 @@
 - [ ] T-540 (@DevOps, P0, ←T-537/T-538) — коммит на русском (conventional commits) + пуш origin/master; секреты НЕ в коммите
 - [ ] T-541 (@DevOps, P0, ←T-540) — деплой ssh nik@198.46.175.136:/var/www/admin_bot: git pull, обновление .env (+COBALT_API_URL, DOWNLOAD_COOLDOWN, ENABLE_VOICE_TRANSCRIPTION, GROQ_API_KEY, OPENROUTER_API_KEY, VOICE_MAX_DURATION_SECONDS; бэкап .bak.epic66-68), подъём docker-compose на проде, systemctl restart/status admin_bot, journalctl 0 traceback, smoke (скачивание / войс / фактчек)
 
+### Epic 69: Хотфикс v2.46.1 — фикс download_to_drive + Docker на проде — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> Полный трек — plans/backlog.md (Epic 69). Два прода-дефекта после v2.46.0:
+> (1) handlers/voice_transcription.py зовёт несуществующий tg_file.download_to_drive() → AttributeError,
+> голосовые не расшифровываются; фикс: await bot.download(media.file_id, destination=path)
+> (aiogram 3.29.1, метод на Bot); тесты test_voice_transcription.py замоканы под старый вызов —
+> обновить АТОМАРНО; канон ARCHITECTURE.md ~14586 с тем же багом синхронизировать ДО фикса.
+> (2) По прямому требованию пользователя: Docker + docker compose v2 на проде nik@198.46.175.136
+> (/var/www/admin_bot), контейнеры cobalt + telegram-bot-api из docker-compose.yml, DOWNLOAD_ENABLED=True,
+> рестарт и проверка бота. Блокер: TELEGRAM_API_ID/HASH пусты локально и в проде — DevOps ищет на
+> сервере (.env.bak*, другие проекты юзера); если нет — поднять что можно (cobalt без ключей) и
+> зафиксировать блокер. ⚠️ ПОРЯДОК КРИТИЧЕН: DOWNLOAD_ENABLED=True СТРОГО после успешного
+> docker compose up -d с рабочим telegram-bot-api — иначе бот ляжет при старте (import-time сессия).
+> Коммитит @DevOps в конце цикла. Без @Orchestrator.
+
+- [ ] T-542 (@Architect, P0) — канон ARCHITECTURE.md (~14586): ошибочный download_to_drive() → эталон `await bot.download(media.file_id, destination=path)` (ДО фикса кода)
+- [ ] T-543 (@Builder, P0, ←T-542) — фикс handlers/voice_transcription.py + АТОМАРНО моки tests/test_voice_transcription.py; полный pytest 0 регрессий (база 2630)
+- [ ] T-544 (@DevOps, P0) — прод: Docker + docker compose v2; поиск TELEGRAM_API_ID/HASH на сервере (.env.bak*, другие проекты); `docker compose up -d` cobalt + telegram-bot-api, healthcheck зелёные; ключей нет → поднять что можно + зафиксировать блокер
+- [ ] T-545 (@DevOps, P0, ←T-543/T-544) — DOWNLOAD_ENABLED=True в прод .env СТРОГО после рабочего telegram-bot-api; бэкап .bak.epic69; restart admin_bot; 0 traceback; smoke: скачивание + транскрибация на проде; коммит цикла + пуш (секреты НЕ в коммите)
+- [ ] T-546 (@Reviewer, P0, ←T-543/T-545) — ревью Epic 69 (канон=код, тесты под реальный aiogram API, порядок включения соблюдён, секреты не всплыли)
+
 ## 🔍 In Review
 
 *(пусто)*

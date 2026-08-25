@@ -7646,3 +7646,41 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 - [ ] T-539 (@Builder, P1): README.md — новые фичи ироничным тоном (Cobalt Downloader, Voice-to-Text, новый фактчек) + MEMORY.md bump v2.46.0
 - [ ] T-540 (@DevOps, P0, ←T-537/T-538): коммит на русском (conventional commits) + пуш origin/master; секреты (.env, GROQ_API_KEY, OPENROUTER_API_KEY) НЕ в коммите; git diff --check чист
 - [ ] T-541 (@DevOps, P0, ←T-540): деплой ssh nik@198.46.175.136:/var/www/admin_bot — git pull; обновление продового .env (+COBALT_API_URL, DOWNLOAD_COOLDOWN, ENABLE_VOICE_TRANSCRIPTION, GROQ_API_KEY, OPENROUTER_API_KEY, VOICE_MAX_DURATION_SECONDS; бэкап .bak.epic66-68); подъём docker-compose (telegram-bot-api + cobalt) на проде; systemctl restart admin_bot; systemctl status; journalctl 0 traceback; smoke: «скачай <ссылка>» (выбор качества → видео-реплай), голосовое → транскрипция + попадание в память, фактчек в новом стиле
+
+---
+
+## Epic 69: Хотфикс v2.46.1 — фикс download_to_drive + Docker на проде — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> **Цель:** Два прода-дефекта после деплоя v2.46.0:
+>
+> 1. **БАГ P0:** `handlers/voice_transcription.py` вызывает несуществующий `tg_file.download_to_drive()`
+>   → AttributeError при каждом голосовом — расшифровка не работает.
+>   Фикс: `await bot.download(media.file_id, destination=path)` (aiogram 3.29.1, метод на Bot).
+>   Тесты `tests/test_voice_transcription.py` замоканы под старый вызов — обновить АТОМАРНО с фиксом
+>   (код+тесты одним коммитом). Канон `ARCHITECTURE.md` (~строка 14586) содержит тот же ошибочный
+>   вызов — синхронизировать ДО фикса (канон всегда впереди кода).
+> 2. **ИНФРАСТРУКТУРА P0 (прямое требование пользователя):** установить Docker + docker compose v2
+>   на сервере nik@198.46.175.136 (/var/www/admin_bot), поднять контейнеры cobalt и telegram-bot-api
+>   из docker-compose.yml, выставить `DOWNLOAD_ENABLED=True`, перезапустить и проверить бота.
+>   **Блокер:** TELEGRAM_API_ID/TELEGRAM_API_HASH отсутствуют локально и в проде (добавлены пустыми).
+>   DevOps ищет их на сервере (.env.bak*, другие проекты юзера); если не найдёт — поднять что можно
+>   (cobalt ключей НЕ требует) и зафиксировать блокер для пользователя.
+>
+> **⚠️ ПОРЯДОК ВКЛЮЧЕНИЯ КРИТИЧЕН:** `DOWNLOAD_ENABLED=True` СТРОГО ТОЛЬКО после успешного
+> `docker compose up -d` с рабочим telegram-bot-api — иначе бот ляжет при старте
+> (import-time сессия через TelegramAPIServer.from_base(is_local=True)).
+> Коммитит @DevOps в конце цикла. Без @Orchestrator.
+
+### Требования и решения
+- **R69-1** — `handlers/voice_transcription.py`: заменить несуществующий вызов `tg_file.download_to_drive()` на `await bot.download(media.file_id, destination=path)` (aiogram 3.29.1 — метод на Bot).
+- **R69-2** — `tests/test_voice_transcription.py`: моки переписаны под новый вызов АТОМАРНО с фиксом (D123-дисциплина: код+тесты неделимы).
+- **R69-3** — `plans/ARCHITECTURE.md` (~14586): канон синхронизирован с фиксом ДО реализации.
+- **R69-4** — прод: Docker Engine + docker compose plugin v2 установлены; контейнеры cobalt и telegram-bot-api из docker-compose.yml подняты (`docker compose up -d`); healthcheck зелёные.
+- **R69-5** — прод `.env`: `DOWNLOAD_ENABLED=True` ТОЛЬКО после рабочего telegram-bot-api (иначе бот ляжет при старте); рестарт admin_bot; smoke скачивания и транскрибации на проде.
+
+### Задачи
+- [ ] 👤 T-542 (@Architect, P0): канон `plans/ARCHITECTURE.md` (~строка 14586) — заменить ошибочный `tg_file.download_to_drive()` на эталонный вызов `await bot.download(media.file_id, destination=path)` (aiogram 3.29.1, метод на Bot). **DoD:** канон синхронизирован, READY FOR BUILDER
+- [ ] T-543 (@Builder, P0, ←T-542): фикс `handlers/voice_transcription.py` — `tg_file.download_to_drive()` → `await bot.download(media.file_id, destination=path)`; АТОМАРНО обновить моки `tests/test_voice_transcription.py` под новый вызов; полный pytest 0 регрессий (база 2630)
+- [ ] T-544 (@DevOps, P0): на проде nik@198.46.175.136 (/var/www/admin_bot) — установить Docker Engine + docker compose v2; поиск TELEGRAM_API_ID/TELEGRAM_API_HASH на сервере (.env.bak*, другие проекты юзера); `docker compose up -d` — поднять cobalt и telegram-bot-api из docker-compose.yml, healthcheck зелёные; если ключи не найдены — поднять что можно (cobalt не требует ключей) и ЗАФИКСИРОВАТЬ блокер для пользователя
+- [ ] T-545 (@DevOps, P0, ←T-543/T-544): включение `DOWNLOAD_ENABLED=True` в прод `.env` СТРОГО после успешного `docker compose up -d` с рабочим telegram-bot-api (import-time сессия — иначе бот ляжет); бэкап `.bak.epic69`; `systemctl restart admin_bot`; status/journalctl 0 traceback; smoke на проде: «скачай <ссылка>» → видео-реплай, голосовое → транскрипция; коммит цикла на русском (conventional) + пуш origin/master (секреты НЕ в коммите)
+- [ ] T-546 (@Reviewer, P0, ←T-543/T-545): ревью Epic 69 — вызов `bot.download` соответствует канону ARCHITECTURE (байт-в-байт), тесты замоканы под реальный API aiogram 3.29.1, порядок включения DOWNLOAD_ENABLED соблюдён, секреты не всплыли в планах/коммитах, diff --check чист

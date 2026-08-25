@@ -14583,7 +14583,7 @@ async def on_voice(message: types.Message, bot: Bot = None):
 Порядок `_process`:
 1. Guard: `user is None` or `user.id == bot.id` → return. `duration > VOICE_MAX_DURATION_SECONDS` → реплай `VT_TOO_LONG_PHRASES`, return.
 2. Имя: переиспользуем каскад **AliasResolver.resolve(user.id, nickname=_build_nickname(user), username=user.username)** (services/summary_aliases.py — Алиас→Никнейм→Юзернейм→ID; `_build_nickname` — first_name+last_name, handlers/summary.py:137). DI через `setup_transcription(service, db, aliases, bot_id)` (паттерн setup_<x>).
-3. Temp-файл: `tempfile.mkstemp(suffix=".ogg"|"​.mp4")` → `file = await bot.get_file(msg.file_id)` → `await file.download_to_drive(destination=path)`. Расширение: voice→`.ogg`, video_note→`.mp4` (важно для input_audio.format и whisper).
+3. Temp-файл: `tempfile.mkstemp(suffix=".ogg"|"​.mp4")` → скачивание: `await bot.download(media.file_id, destination=path)` (aiogram 3.x — метод на Bot, принимает file_id или Downloadable; внутри сам делает get_file + download_file, учитывает `session.api.is_local` при локальном Bot API; двухшаговый вариант — `tg_file = await bot.get_file(...)` → `await bot.download_file(tg_file.file_path, destination=path)`). Явный get_file перед этим избыточен. Расширение: voice→`.ogg`, video_note→`.mp4` (важно для input_audio.format и whisper).
 4. `ChatActionSender(chat_id=..., action=ChatAction.TYPING)` вокруг транскрипции (прецедент TYPING_INDICATOR_ENABLED, 65.7).
 5. `service.transcribe(path)`; `finally: os.unlink(path)` — **удаление temp 100% исходов**.
 6. Пустой результат (`strip()==''`) → реплай `VT_SILENCE_PHRASES`, return. Оба API упали → `VT_ALL_FAILED_PHRASES`, return.
@@ -14596,6 +14596,8 @@ await message.reply(f"<b>{escaped_name}</b> 🗣: <i>{escaped_text}</i>", parse_
 ```
 
 **Формат (D268):** MarkdownV2-схема `**{name}** 🗣: *{text}*` реализована средствами **HTML** (`<b>`/`<i>` + `html.escape`) — прецедент parse_mode="HTML" в проекте ровно один (handlers/info.py:111), MarkdownV2-escape-утилит в кодовой базе нет; HTML-экранирование проще и не ломается на спецсимволах ников.
+
+**Урок (хотфикс v2.46.1, T-542):** pydantic-модели aiogram (`types.File` и др.) НЕ имеют IO-методов — `download_to_drive` в aiogram 3.x НЕ существует (AttributeError на проде v2.46.0). Скачивание файлов — только через методы Bot: `Bot.download(file, destination=...)` (принимает file_id или Downloadable, сам делает get_file внутри) или двухшаговый `Bot.download_file(file_path, destination=...)`; оба учитывают `session.api.is_local` (при локальном Bot API читают файл с диска). Эталон хендлера транскрипции: `await bot.download(media.file_id, destination=path)`.
 
 ### 71.5 Фразы (канон = КОД, синхронизировано @Reviewer v2.46.0; random.choice; VERBATIM)
 

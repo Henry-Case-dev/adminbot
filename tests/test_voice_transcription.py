@@ -81,9 +81,8 @@ def _make_msg(**kwargs):
 
 def _make_bot():
     bot = AsyncMock()
-    tg_file = MagicMock()
-    tg_file.download_to_drive = AsyncMock()
-    bot.get_file = AsyncMock(return_value=tg_file)
+    bot.get_file = AsyncMock()      # хендлер НЕ должен звать напрямую (T-543)
+    bot.download = AsyncMock()
     return bot
 
 
@@ -318,8 +317,7 @@ class TestTempCleanup:
     async def test_temp_removed_even_on_error(self, vt_env, tmp_file_path):
         """Ошибка скачивания → UNHANDLED без реплая, temp удалён в finally."""
         bot = _make_bot()
-        bot.get_file.return_value.download_to_drive.side_effect = \
-            RuntimeError("download boom")
+        bot.download.side_effect = RuntimeError("download boom")
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
@@ -332,6 +330,54 @@ class TestTempCleanup:
         msg = _make_msg(video_note=MagicMock(duration=10, file_id="f2"))
         await vt.voice_transcription_handler(msg, bot=_make_bot())
         assert tmp_file_path[0].endswith(".mp4")
+
+
+# ── 5b. Паттерн скачивания Bot.download (хотфикс v2.46.1, T-543) ────
+
+class TestBotDownloadPattern:
+    @pytest.mark.asyncio
+    async def test_download_called_with_file_id_and_destination(
+            self, vt_env, tmp_file_path):
+        """T-543: bot.download(media.file_id, destination=path), destination —
+        созданный mkstemp-путь."""
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        bot = _make_bot()
+        await vt.voice_transcription_handler(msg, bot=bot)
+        bot.download.assert_awaited_once()
+        args, kwargs = bot.download.await_args
+        assert args[0] == "f1"
+        assert kwargs["destination"] == tmp_file_path[0]
+
+    def test_handler_source_has_no_direct_get_file_or_legacy_call(self):
+        """Регрессия v2.46.1: в исходнике хендлера нет download_to_drive и
+        прямого get_file перед скачиванием (только bot.download)."""
+        import inspect
+        src = inspect.getsource(vt)
+        assert "download_to_drive" not in src
+        assert "bot.get_file" not in src
+        assert "bot.download(" in src
+
+    @pytest.mark.asyncio
+    async def test_no_direct_get_file_at_runtime(self, vt_env, tmp_file_path):
+        """Хендлер использует bot.download → get_file НЕ вызывается напрямую."""
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        bot = _make_bot()
+        await vt.voice_transcription_handler(msg, bot=bot)
+        bot.get_file.assert_not_called()
+        bot.download.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_temp_cleaned_up_when_bot_download_raises(
+            self, vt_env, tmp_file_path):
+        """Ошибка bot.download → UNHANDLED без реплая, temp удалён в finally."""
+        bot = _make_bot()
+        bot.download.side_effect = RuntimeError("download boom")
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        result = await vt.voice_transcription_handler(msg, bot=bot)
+        assert result is vt.UNHANDLED
+        assert len(tmp_file_path) == 1
+        assert not os.path.exists(tmp_file_path[0])
+        msg.reply.assert_not_called()
 
 
 # ── 6. БД: update_smart_message_text ────────────────────────────────
