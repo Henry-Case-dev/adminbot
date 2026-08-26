@@ -680,6 +680,10 @@ class Settings:
     COBALT_API_URL: str = _env_str("COBALT_API_URL", "http://localhost:9000/")
     # Локальный telegram-bot-api (docker-compose). Только при DOWNLOAD_ENABLED=True.
     LOCAL_BOT_API_URL: str = _env_str("LOCAL_BOT_API_URL", "http://localhost:8081")
+    # Epic 78 (T-578/D291): хост-путь data-dir локального telegram-bot-api
+    # (compose volume ./docker/telegram-bot-api:/var/lib/telegram-bot-api).
+    TELEGRAM_API_FILES_DIR: str = _env_str(
+        "TELEGRAM_API_FILES_DIR", "docker/telegram-bot-api")
     # Папка скачанных файлов на хосте (чистится автоматически после отправки).
     DOWNLOAD_DIR: str = _env_str("DOWNLOAD_DIR", "media/downloads")
     # Epic 77 (T-574): true = YouTube качаем локальным yt-dlp (+PO Token

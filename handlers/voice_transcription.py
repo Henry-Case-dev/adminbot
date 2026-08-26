@@ -14,13 +14,16 @@ finally на 100% путей. Имя отправителя — каскад Ali
 (Алиас → Никнейм → Юзернейм → ID); у форвардов — автор источника
 (_extract_forward_source, Epic 72 / Section 74.B).
 """
+import asyncio
 import html
 import logging
 import os
 import random
 import re
+import shutil
 import tempfile
 from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 
 from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -157,6 +160,48 @@ async def _safe_typing(bot, chat_id: int) -> None:
         pass
 
 
+async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
+    """Epic 78 (D292/Section 79): получить медиа во tmp-файл.
+    Гейт локального режима = settings.DOWNLOAD_ENABLED (D262 import-time
+    сессия с is_local=True). Локальный режим И относительный file_path →
+    копирование с диска из TELEGRAM_API_FILES_DIR/<bot_id>:<token>/
+    (root cause: локальный Bot API возвращает file_path ОТНОСИТЕЛЬНЫМ,
+    aiogram читает исходник относительно cwd → FileNotFoundError).
+    Файла нет / get_file упал / path абсолютный / облако → прежний
+    bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
+    Секреты (R17): строка '<bot_id>:<token>' нигде не логируется — в логах
+    только file_path-хвост или src.name."""
+    if not settings.DOWNLOAD_ENABLED:            # облачный режим: как раньше
+        await bot.download(media.file_id, destination=tmp_path)
+        return
+    file_path = None
+    try:
+        tg_file = await bot.get_file(media.file_id)
+        file_path = getattr(tg_file, "file_path", None)
+    except Exception as exc:
+        logger.warning("[transcribe] get_file failed | file_id=%s | %s",
+                       media.file_id, type(exc).__name__)
+    if (isinstance(file_path, str) and file_path
+            and not PurePosixPath(file_path).is_absolute()):
+        src = (Path(settings.TELEGRAM_API_FILES_DIR)
+               / f"{bot.id}:{settings.API_TOKEN}" / file_path)
+        try:
+            if src.resolve().is_relative_to(
+                    Path(settings.TELEGRAM_API_FILES_DIR).resolve()):
+                if src.exists():
+                    await asyncio.to_thread(shutil.copyfile, src, tmp_path)
+                    return
+                logger.warning(
+                    "[transcribe] local api file missing, fallback to "
+                    "download | path=%s", file_path)
+        except OSError as exc:
+            # R17: только имя файла и тип ошибки — сообщение OSError содержит
+            # ПОЛНЫЙ путь (<bot_id>:<token>), exc_info нельзя.
+            logger.warning("[transcribe] host copy failed | file=%s | %s",
+                           src.name, type(exc).__name__)
+    await bot.download(media.file_id, destination=tmp_path)
+
+
 async def _inject_memory(message: types.Message, name: str, text: str,
                          is_video_note: bool,
                          forward_source: str | None = None) -> None:
@@ -208,9 +253,9 @@ async def _process(message: types.Message, bot) -> None:
     fd, path = tempfile.mkstemp(prefix="vt_", suffix=suffix)
     os.close(fd)
     try:
-        # Хотфикс v2.46.1 (Epic 69): Bot.download принимает file_id, сам
-        # делает get_file внутри (aiogram 3.x — File без IO-методов).
-        await bot.download(media.file_id, destination=path)
+        # Хотфикс v2.46.1 (Epic 69) + Epic 78 (D292): при локальном Bot API
+        # файл берётся с диска хоста; иначе — прежний bot.download.
+        await _fetch_media_to_tmp(bot, media, path)
         await _safe_typing(bot, chat_id)          # индикация на время API-запросов
         try:
             text = await _service.transcribe_voice(path, audio_format)

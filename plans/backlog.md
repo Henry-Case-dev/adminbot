@@ -7998,3 +7998,41 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Инфраструктура и деплой
 - [ ] T-577 (@DevOps, P0, ←T-574/T-576): инфраструктура на проде nik@198.46.175.136 — (1) `apt install ffmpeg` (+ проверка `ffmpeg -version`); (2) docker-compose.yml: сервис `bgutil-ytdlp-pot-provider` (образ brainicism/bgutil-ytdlp-pot-provider, порт :4416) + `docker compose up -d` на проде, healthcheck зелёный; (3) venv: `pip install -U yt-dlp` + плагин `bgutil-ytdlp-pot-provider` (pip), верификация `yt-dlp --version` + загрузки плагина в verbose; (4) прод .env: `YTDLP_FOR_YOUTUBE=True` (бэкап `.bak.epic77`; секреты НЕ в git); (5) коммит цикла на русском (conventional commits) + пуш origin/master; git pull, restart admin_bot, journalctl 0 traceback; (6) сквозной smoke «скачай <yt>» 1080p И 2160p — **главный гейт: ненулевой файл** (2160p дополнительно доказывает ffmpeg merge bv+ba). Rollback: YTDLP_FOR_YOUTUBE=False + restart. Отчёт PM: размеры файлов, версии, вердикт гейта. **DoD:** ffmpeg установлен, bgutil-контейнер жив, плагин в venv, прод v2.48.0, оба smokes зелёные с ненулевыми файлами
+
+---
+
+## Epic 78: Хотфикс v2.48.x — транскрибация кружков/голосовых сломана на проде с локальным Bot API (FileNotFoundError «video_notes/file_0.mp4») — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> **Цель:** Починить транскрибацию кружков (video_note) и, вероятно, голосовых (voice)
+> на проде с включённым локальным Bot API: хендлер транскрипции падает
+> **FileNotFoundError «video_notes/file_0.mp4»**.
+>
+> **Root cause (факты от DevOps):**
+> - Локальный сервер Telegram Bot API возвращает **ОТНОСИТЕЛЬНЫЙ** `file_path`
+>   (например `video_notes/file_0.mp4`);
+> - aiogram при `is_local=True` читает исходник с диска **относительно cwd бота**,
+>   а файл фактически лежит в
+>   `/var/www/admin_bot/docker/telegram-bot-api/<bot_id>:<bot_token>/video_notes/file_0.mp4`;
+> - итого путь не резолвится → FileNotFoundError → расшифровки нет.
+>
+> **Направление решения (@Architect фиксирует финал):**
+> - новая настройка `TELEGRAM_API_FILES_DIR` (дефолт `docker/telegram-bot-api`);
+> - хелпер резолва пути: при локальном режиме и ОТНОСИТЕЛЬНОМ file_path →
+>   `<TELEGRAM_API_FILES_DIR>/<bot_id>:<bot_token>/<file_path>`;
+> - ветка копирования файла в tmp вместо `bot.download` для резолвнутого дискового пути;
+> - фолбэк на штатный `bot.download` для облачного режима (и если резолв не удался).
+>
+> Порядок: @Architect (дизайн ДО реализации) → @Builder → @Reviewer → @DevOps
+> (деплой + проверка кружка/голосового на проде). Без @Orchestrator.
+
+### Архитектурное решение
+- [ ] 👤 T-578 (@Architect, P0): краткий дизайн резолва пути ДО реализации — настройка `TELEGRAM_API_FILES_DIR` в settings.py + .env.example (дефолт `docker/telegram-bot-api`); хелпер резолва `<dir>/<bot_id>:<token>/<file_path>` при локальном режиме и относительном file_path (критерий «относительный», обработка существования/не-найденного); ветка копирования в tmp вместо `bot.download` (сохранить существующий cleanup try...finally и лимиты Epic 67); фолбэк `bot.download` для облачного режима; канон Section 79 ARCHITECTURE.md (новая секция); тест-план (относительный path + локальный режим → диск; абсолютный path; облачный режим → bot.download; резолв не удался → fallback). **DoD:** Section 79 зафиксирована, контракты определены, READY FOR BUILDER
+
+### Реализация
+- [ ] T-579 (@Builder, P0, ←T-578): реализация по решению T-578 — настройка + хелпер резолва + ветка копирования в tmp в handlers/voice_transcription.py (или вынесенный helper-модуль по дизайну); фолбэк `bot.download` для облачного режима без изменений существующего поведения; АТОМАРНО тесты tests/test_voice_transcription.py: относительный path при is_local → файл из TELEGRAM_API_FILES_DIR скопирован в tmp и расшифрован; абсолютный path → без ре-resolve; облачный режим → bot.download как раньше; резолв мимо диска → graceful fallback/ошибка; cleanup tmp в finally сохранён; полный pytest 0 регрессий. **DoD:** все сценарии покрыты, тесты зелёные
+
+### Ревью
+- [ ] T-580 (@Reviewer, P0, ←T-579): ревью Epic 78 — резолв только при is_local И относительном path (облачный режим байт-в-байт старое поведение); bot_token не логируется при сборке пути (`<bot_id>:<token>` — секрет НЕ всплывает в логах/ошибках); cleanup tmp гарантирован; канон Section 79 = коду; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой + проверка на проде
+- [ ] T-581 (@DevOps, P0, ←T-578/T-580): коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot: git pull, прод .env: `TELEGRAM_API_FILES_DIR=docker/telegram-bot-api` (бэкап `.bak.epic78`; проверить фактический путь `/var/www/admin_bot/docker/telegram-bot-api/<bot_id>:<bot_token>/`), restart admin_bot, journalctl 0 traceback; smoke на проде: отправить кружок → расшифровка приходит, отправить голосовое → расшифровка приходит; в логах нет FileNotFoundError «video_notes/*.mp4». Rollback: revert + restart. Отчёт PM: результаты обоих smokes. **DoD:** прод обновлён, кружок и голосовое расшифровываются, 0 traceback

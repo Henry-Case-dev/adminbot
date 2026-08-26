@@ -15277,3 +15277,38 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 | R-4: YouTube меняет PO Token требования → плагин/сервер требуют апдейта | Средняя, внешняя | версии в requirements/compose фиксируются слабо (>=); процедура: обновить pip-плагин + образ докера |
 
 ---
+
+## Section 79 — Epic 78: транскрибация кружков/голосовых при локальном Bot API — резолв host-пути вместо bot.download (v2.48.x, DESIGN, T-578)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect). **Root cause (прод-диагностика):** handlers/voice_transcription.py:213 вызывает `await bot.download(media.file_id, destination=path)`. При `is_local=True` aiogram читает ИСХОДНИК с диска по `tg_file.file_path` — который локальный Bot API возвращает **ОТНОСИТЕЛЬНЫМ** (`video_notes/file_0.mp4`) → FileNotFoundError относительно cwd бота. Реальный host-путь подтверждён: `/var/www/admin_bot/docker/telegram-bot-api/<bot_id>:<bot_token>/<file_path>` (compose volume `./docker/telegram-bot-api:/var/lib/telegram-bot-api`). Облачный режим (`DOWNLOAD_ENABLED=false`, LOCAL_BOT_API не задан) работает через HTTP — `bot.download` корректен и НЕ меняется.
+
+### 79.1 Решения
+
+1. **Настройка `TELEGRAM_API_FILES_DIR` (D291).** `config/settings.py`: `TELEGRAM_API_FILES_DIR: str = _env_str("TELEGRAM_API_FILES_DIR", "docker/telegram-bot-api")` в блоке Epic 66/67 (рядом с `LOCAL_BOT_API_URL`, settings.py:682) — корень data-dir локального Bot API на хосте (относительный путь резолвится от cwd бота; в проде cwd = `/var/www/admin_bot`). `.env.example`: строка после `LOCAL_BOT_API_URL` с комментарием «Epic 78 (T-578): хост-путь data-dir локального telegram-bot-api (compose volume ./docker/telegram-bot-api:/var/lib/telegram-bot-api)» + `TELEGRAM_API_FILES_DIR=docker/telegram-bot-api`. Признак локального режима УЖЕ есть и новый не вводится: **гейт = используется ли локальная сессия D262**, т.е. `settings.DOWNLOAD_ENABLED` (bot.py:100 строит сессию с `is_local=True` ровно при True; False → облачная сессия, поведение байт-в-байт прежнее).
+
+2. **Хелпер `_fetch_media_to_tmp(bot, media, tmp_path) -> None` (D292).** В handlers/voice_transcription.py (или рядом в том же модуле), вызывается в `_process` ВМЕСТО прямого `await bot.download(...)` на voice_transcription.py:213:
+   - **Локальный режим И file_path относительный:** получить `tg_file.file_path` через `await bot.get_file(media.file_id)`; если `settings.DOWNLOAD_ENABLED` и path НЕ абсолютный (`not PurePosixPath(file_path).is_absolute()` — file_path от Bot API всегда posix-стиль) → `src = Path(settings.TELEGRAM_API_FILES_DIR) / f"{bot.id}:{settings.API_TOKEN}" / file_path`. Path строится СТРОГО из config (никаких данных из file_path выше корня не поднимается — Path join с относительным file_path не может выйти за root при отсутствии ведущего `..`; на всякий случай резолвить и проверить `src.resolve().is_relative_to(root.resolve())`). Если `src.exists()` → скопировать в tmp_path: кружки малы — допустимо `shutil.copyfile` напрямую, но для единообразия больших файлов — `await asyncio.to_thread(shutil.copyfile, src, tmp_path)`;
+   - **src не найден / get_file упал** → fallback `await bot.download(media.file_id, destination=tmp_path)` как раньше — чтобы не сломаться при смене layout локального Bot API;
+   - **Облачный режим** (`DOWNLOAD_ENABLED=False`) → сразу `bot.download` как раньше, без get_file-двойного запроса.
+   Существующий `try/finally` cleanup tmp (voice_transcription.py:227–232) и лимиты Epic 67 (VOICE_MAX_DURATION_SECONDS) НЕ меняются.
+
+3. **Секреты (R17).** Строка `f"{bot.id}:{token}"` нигде НЕ логируется и НЕ попадает в исключения: все логи хелпера пишут только chat/user/file_path-хвост; при исключениях копирования логировать `src.name` без родительских каталогов.
+
+### 79.2 Тест-план
+
+| # | Кейс | Ожидание |
+|---|------|----------|
+| 1 | Локальный режим (`DOWNLOAD_ENABLED=True`) + относительный `file_path='video_notes/file_0.mp4'` + файл существует в `<dir>/<bot_id>:<token>/` | Файл скопирован в tmp, `bot.download` НЕ вызван, расшифровка прошла |
+| 2 | То же, но файла нет | Fallback: `bot.download` вызван (как раньше), ошибки нет |
+| 3 | Облачный режим (`DOWNLOAD_ENABLED=False`) | Сразу `bot.download`, get_file/резолв диска НЕ выполнялись |
+| 4 | Абсолютный `file_path` при локальном режиме | Без host-resolve — ветка `bot.download` (поведение aiogram для absolute не ломаем) |
+| 5 | Секреты: caplog на всех ветках хелпера | Токен и `bot.id:token` отсутствуют в логах |
+| 6 | Оба типа медиа: voice (.ogg) и video_note (.mp4) | Суффикс/формат tmp не меняются (Epic 67), обе ветки проходят |
+| 7 | Cleanup: любое исключение хелпера | tmp удалён существующим finally (voice_transcription.py:227–232) |
+| 8 | Полный pytest | 0 регрессий (тесты Sections 71/74 зелёные; моки `bot.download` в test_voice_transcription.py обновлены атомарно) |
+
+### 79.3 Примечание @DevOps
+
+Деплой НЕ требует изменений инфраструктуры: volume `./docker/telegram-bot-api:/var/lib/telegram-bot-api` уже существует; единственное действие — прод .env `TELEGRAM_API_FILES_DIR=docker/telegram-bot-api` (дефолт совпадает, можно не писать) + restart admin_bot + smoke: кружок → расшифровка есть, голосовое → расшифровка есть, в journalctl нет FileNotFoundError «video_notes/*.mp4».
+
+---
