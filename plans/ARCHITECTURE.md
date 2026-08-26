@@ -14836,28 +14836,52 @@ def build_ytdlp_base_opts() -> dict:
 - Прокси задан, но недоступен → yt-dlp бросает исключение → существующие пути: движок — каскад ретраев D151/D155 → фолбек transcript-api; probe — `DownloadError("probe failed: …")` (video_downloader.py:104). Отдельный health-check прокси НЕ вводим (KISS; недоступность проявится штатной ошибкой).
 - Логирование: в `probe` при непустом прокси — `logger.info("[videodl] probe | proxy=set")` (только факт, R17). Значение URL/креды нигде не логируются.
 
-#### 74.A.3 docker-compose.yml: cobalt через прокси (D271)
+#### 74.A.3 docker-compose.yml: cobalt через прокси (D271; hotfix v2.47.2 — host network)
+
+**Hotfix Epic 73 (v2.47.2, D271-ревизия):** прод-диагностика показала, что xray
+слушает ТОЛЬКО `127.0.0.1:10808` на хосте (его конфиг НЕ наш — им пользуется
+другой сервис, трогать нельзя). Из bridge-сети контейнер cobalt достигает хоста
+только через gateway `172.17.0.1:10808` → PORT_CLOSED → cobalt ходил на YouTube
+напрямую с IP сервера → `error.api.fetch.fail` («скачай» падал после выбора
+качества; probe при этом ок — yt-dlp работает на хосте).
+
+**Решение (минимально рискованное): `network_mode: "host"` для cobalt** — он
+живёт в сетевом стеке хоста и `127.0.0.1:10808` (xray) доступен ему напрямую.
+Без правок чужих сервисов. С host-сетью публикация портов (`ports:`) не
+работает/не нужна — `API_PORT=9000` слушает прямо на хосте; `extra_hosts:`
+(host.docker.internal) больше не нужен.
 
 ```yaml
   cobalt:
     # ... существующее без изменений ...
+    network_mode: "host"
     environment:
       API_URL: "http://localhost:9000/"
       API_PORT: "9000"
+      # Митигация host-сети ПРИМЕНЕНА: bind строго на loopback
+      # (docs/api-env-variables.md «networking vars», default 0.0.0.0) —
+      # 9000 недоступен с внешних интерфейсов хоста.
+      API_LISTEN_ADDRESS: "127.0.0.1"
       # Epic 72 (74.A): исходящий прокси для закачки YouTube (undici
       # EnvHttpProxyAgent; API_EXTERNAL_PROXY deprecated; SOCKS НЕ поддерживается)
       HTTP_PROXY: "${COBALT_HTTP_PROXY:-}"
       HTTPS_PROXY: "${COBALT_HTTP_PROXY:-}"
       NO_PROXY: "localhost,127.0.0.1"
-    extra_hosts:
-      # xray слушает на хосте 127.0.0.1:10808 — из контейнера это host-gateway
-      - "host.docker.internal:host-gateway"
 ```
 
-- `.env.example` (секция Epic 66, ~:458): `# Исходящий HTTP-прокси cobalt (Epic 72, Section 74.A). Пусто = напрямую.` + `COBALT_HTTP_PROXY=`.
-- Прод `.env` (DevOps, T-558, бэкап `.env.bak.epic72`): `COBALT_HTTP_PROXY=http://<user>:<pass>@host.docker.internal:10808`. **Креды — ТЕ ЖЕ, что inbound xray** (те же, что в `YOUTUBE_TRANSCRIPT_PROXY_URL=http://<user>:<pass>@127.0.0.1:10808`); отличается ТОЛЬКО хост: процесс бота ходит с хоста → `127.0.0.1`, контейнер cobalt → `host.docker.internal` (host-gateway). Формат идентичен `YOUTUBE_TRANSCRIPT_PROXY_URL` (basic-auth http://user:pass@host:port — undici EnvHttpProxyAgent парсит из коробки). R17/D148: секрет НЕ в git, НЕ в логах, только прод `.env`.
+- **BIND-адрес (сверено с доками):** у self-hosted cobalt ЕСТЬ переменная
+  `API_LISTEN_ADDRESS` (default `0.0.0.0`, docs/api-env-variables.md, раздел
+  «networking vars»); доки прямо описывают связку «host network + bind
+  loopback». **Митигация ПРИМЕНЕНА (продолжение hotfix v2.47.2):**
+  `API_LISTEN_ADDRESS: "127.0.0.1"` АКТИВЕН в compose — cobalt слушает только
+  loopback:9000, порт закрыт от внешнего мира без участия firewall'а.
+  Риск «9000 на всех интерфейсах» снят.
+- `.env.example` (секция Epic 66): `# Формат: http://user:pass@127.0.0.1:10808`
+  — хост снова loopback, т.к. cobalt в host-сети.
+- Прод `.env` (DevOps, T-558, бэкап `.env.bak.epic72`; hotfix v2.47.2 — хост обратно на loopback): `COBALT_HTTP_PROXY=http://<user>:<pass>@127.0.0.1:10808`. **Креды — ТЕ ЖЕ, что inbound xray** (те же, что в `YOUTUBE_TRANSCRIPT_PROXY_URL=http://<user>:<pass>@127.0.0.1:10808`); хост идентичен: cobalt в host network → 127.0.0.1 доступен напрямую (было `host.docker.internal` при bridge — см. hotfix-ревизию D271 выше). Формат идентичен `YOUTUBE_TRANSCRIPT_PROXY_URL` (basic-auth http://user:pass@host:port — undici EnvHttpProxyAgent парсит из коробки). R17/D148: секрет НЕ в git, НЕ в логах, только прод `.env`.
 - `NO_PROXY=localhost,127.0.0.1` обязателен: healthcheck (`wget http://127.0.0.1:9000/`) и внутренние callback'и API_URL не должны уходить в прокси.
 - Tunnel-URL, который cobalt возвращает боту, указывает на внешний CDN — стрим `_stream_to_file` идёт из хостового процесса МИМО контейнера/прокси (не ломается).
+- **DevOps-гейт host-сети (hotfix v2.47.2):** проверить egress IP cobalt через прокси (`docker exec adminbot-cobalt wget -qO- https://api.ipify.org` — должен вернуть IP VPN, не сервера); bind-митигация ПРИМЕНЕНА (`API_LISTEN_ADDRESS: "127.0.0.1"` активен в compose → 9000 слушает только loopback); firewall для 9000 опционален (defense in depth) — см. ОВ-5 ниже.
 
 #### 74.A.4 Приёмка блока A
 
@@ -15065,7 +15089,7 @@ Search (0d) reply-цель не читает вообще: запрос наби
 2. **ОВ-2:** расхождение «24 теста» (борд) vs 29 фактических (test_voice_transcription.py) — Builder фиксирует актуальное число при закрытии T-555.
 3. **ОВ-3:** экранирование в `wrap_media_fact`: предложено `html.escape(forward_source, quote=True)`; если экстрактор GraphRAG ожидает XML-escaped — заменить на `escape_xml_text(..., quote=True)`; выбрать ОДНО, покрыть тестом (sender остаётся legacy-неэкранированным — вне скоупа).
 4. **ОВ-4:** нужен ли backfill авторов для исторических расшифровок в БД — предложение Architect: НЕТ (работаем только с live-сообщениями; старые расшифровки фактчекаются по-старому).
-5. **ОВ-5:** firewalld/iptables прода: docker→host-gateway:10808 должен быть разрешён; DevOps проверяет `docker compose exec cobalt wget` через прокси до боевого smoke (гейт 74.A.4 п.2).
+5. **ОВ-5 (hotfix v2.47.2 — АКТУАЛЬНАЯ редакция):** cobalt теперь в `network_mode: "host"` → docker→host-gateway:10808 более НЕ используется; xray доступен через `127.0.0.1:10808` напрямую. Новый гейт DevOps: (а) egress IP cobalt через прокси = IP VPN, не сервера (`docker exec adminbot-cobalt wget -qO- https://api.ipify.org`); (б) bind-митигация ПРИМЕНЕНА: `API_LISTEN_ADDRESS: "127.0.0.1"` активен в compose → 9000 только loopback; firewall для 9000 не требуется (опционально — как defense in depth).
 
 **DoD Epic 72 (сводно):** оба yt-dlp-потребителя и Cobalt ходят через единый прокси-конфиг; секреты не в git/логах; форвард-расшифровка называет автора-источник (+метка пересылки, +атрибуты в GraphRAG-факте); direct_chat молчит на реплаях к расшифровкам, фактчек адресует клейм автору ГС; полный pytest 0 регрессий; `git diff --check` чист.
 

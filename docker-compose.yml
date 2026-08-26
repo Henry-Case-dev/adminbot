@@ -28,21 +28,28 @@ services:
     init: true
     read_only: true
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:9000:9000"
+    # Epic 73 hotfix (v2.47.2, Section 74.A/D271): xray слушает ТОЛЬКО
+    # 127.0.0.1:10808 на хосте (его конфиг не наш — трогать нельзя), из
+    # bridge-сети gateway 172.17.0.1:10808 → PORT_CLOSED → cobalt ходил на
+    # YouTube напрямую → error.api.fetch.fail. network_mode host кладёт cobalt
+    # в сетевой стек хоста: 127.0.0.1:10808 доступен напрямую.
+    # С host-сетью ports/extra_hosts не работают и не нужны:
+    # API_PORT=9000 слушает прямо на хосте.
+    network_mode: "host"
     environment:
       # единственный ОБЯЗАТЕЛЬНЫЙ env cobalt (docs/api-env-variables.md);
       # должен быть валидным URL, иначе tunnel'ы не работают
       API_URL: "http://localhost:9000/"
       API_PORT: "9000"
+      # Митигация host-сети ПРИМЕНЕНА: cobalt слушает ТОЛЬКО loopback:9000
+      # (docs/api-env-variables.md, «networking vars»: API_LISTEN_ADDRESS,
+      # default 0.0.0.0) — порт 9000 недоступен с внешних интерфейсов хоста.
+      API_LISTEN_ADDRESS: "127.0.0.1"
       # Epic 72 (74.A): исходящий прокси для закачки YouTube (undici
       # EnvHttpProxyAgent; API_EXTERNAL_PROXY deprecated; SOCKS НЕ поддерживается)
       HTTP_PROXY: "${COBALT_HTTP_PROXY:-}"
       HTTPS_PROXY: "${COBALT_HTTP_PROXY:-}"
       NO_PROXY: "localhost,127.0.0.1"
-    extra_hosts:
-      # xray слушает на хосте 127.0.0.1:10808 — из контейнера это host-gateway
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/ >/dev/null 2>&1 || exit 0"]
       interval: 30s
