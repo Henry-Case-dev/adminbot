@@ -65,11 +65,16 @@ def _has_trigger(text: str) -> bool:
 
 
 def _make_retry_notifier(bot, chat_id, target_message_id):
-    """R41-2/D156: on_retry-замыкание для движка — токсичная фраза из 5.8
-    реплаем на ЦЕЛЕВОЕ сообщение (target.message_id), прецедент Reply-To 5.6/5.5.
+    """R41-2/D156 + D298 (Epic 79): on_retry-замыкание для движка —
+    токсичная фраза из 5.8 реплаем на ЦЕЛЕВОЕ сообщение (target.message_id),
+    прецедент Reply-To 5.6/5.5. Антиспам: озвучиваем ТОЛЬКО первую
+    промежуточную попытку (attempt=1); 2..4 молчат — итоговые успех/провал
+    приходят одним сообщением и так.
     Best-effort: если таргет исчез (_reply бросит MessageToReplyNotFound) —
     каскад НЕ падает: движок глушит колбэк logger.exception (50.3)."""
     async def on_retry(attempt: int, max_attempts: int) -> None:
+        if attempt > 1:
+            return
         await _reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES),
                      target_message_id)
     return on_retry

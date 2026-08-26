@@ -15312,3 +15312,65 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 Деплой НЕ требует изменений инфраструктуры: volume `./docker/telegram-bot-api:/var/lib/telegram-bot-api` уже существует; единственное действие — прод .env `TELEGRAM_API_FILES_DIR=docker/telegram-bot-api` (дефолт совпадает, можно не писать) + restart admin_bot + smoke: кружок → расшифровка есть, голосовое → расшифровка есть, в journalctl нет FileNotFoundError «video_notes/*.mp4».
 
 ---
+
+## Section 80 — Epic 79: cookies-pipeline для yt-dlp (обход bot-check «Sign in to confirm») + антиспам ретрай-фраз (v2.49.0, DESIGN, T-583)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect). **Проблема:** YouTube bot-check «Sign in to confirm you're not a bot» валит ОБА пути: probe/скачивание (tools/video_downloader.py, yt-dlp) и выжимку (обе ветки каскада Epic 39/41 — yt-dlp-primary и transcript-api-фолбек). Датацентровый IP 198.46.175.136 заблокирован (серверная приёмка Epic 39: 0–1/4); прокси xray (Section 49) решает проблему частично/нестабильно. **Ключевой факт интеграции:** оба движка УЖЕ читают Netscape-cookies из существующего env `YOUTUBE_COOKIES_FILE` (settings.py:411, `_env_str`, ""; R17 — путь и содержимое НЕ логируются): `build_ytdlp_base_opts()` settings.py:746–758 → `opts['cookiefile']` (используется и transcript-engine `_ytdlp_opts`, и video_downloader), и `_transcript_api_kwargs` youtube_transcript_engine.py:317–327 → `kwargs['cookies']` (transcript-api 0.6.3 нативно ест Netscape). **Код движков НЕ трогается** — достаточно положить валидный файл по пути из env.
+
+### 80.1 Решения
+
+1. **D293 — основной режим экспорта: Playwright persistent_context (режим B).** Новый CLI-скрипт `tools/cookies_export.py` (по конвенции проекта: tools/ уже содержит video_downloader.py). Запуск: `python -m tools.cookies_export --mode playwright --profile chrome-profile --out media/srv_cookies.txt`. Механика:
+   - `playwright.sync_playwright()` → `p.chromium.launch_persistent_context(user_data_dir=<profile>, headless=True)`;
+   - `page.goto("https://www.youtube.com/robots.txt")` (лёгкая страница, триггерит установку кукис домена .youtube.com/.google.com);
+   - `context.cookies()` → конвертация каждой кукисы в строку Netscape-формата: `domain<TAB>include_subdomains<TAB>path<TAB>secure<TAB>expires<TAB>name<TAB=value>` (7 таб-разделённых полей; `include_subdomains = TRUE` если domain начинается с точки; `secure/expires` — `TRUE/FALSE`; session-cookie у Playwright `expires == -1` → пишем `0`; заголовочный комментарий `# Netscape HTTP Cookie File`);
+   - запись в `--out` + `os.chmod(out, 0o600)` (на POSIX; на Windows chmod но-op — реальный chmod делает @DevOps на сервере);
+   - `try/finally context.close()` — профиль не остаётся залоченным.
+   **Почему не режим A основным:** прямой `--cookies-from-browser chrome:<path>` читает SQLite без запуска браузера, но расшифровка значений работает только при шифровании basic-store/v10; на профилях Chrome 127+ (App-Bound Encryption, Windows v20) yt-dlp значения НЕ расшифрует, а на линукс-сервере нет keyring/kwallet для v10/v11 → режим A ненадёжен и зависит от версии Chrome на машине пользователя. Research-вердикт принят.
+
+2. **D294 — вспомогательный режим A (`--from-profile <path> --browser chrome`) — best-effort, НЕ основной.** Реализация через **subprocess**: `yt-dlp --cookies-from-browser chrome:<abs_path> --cookies <out> --skip-download "https://www.youtube.com/robots.txt"`. Уточнение по постановке задачи: yt-dlp ПИШЕТ файл `--cookies` после завершения извлечения (merge browser-jar → сохранение в cookiefile), поэтому трюк «оба флага одновременно» РАБОТАЕТ — это документированный способ экспорта. После процесса: валидация выхода (файл существует, ≥1 не-комментарийная строка с `.youtube.com` или `.google.com`, поля не пустые где ожидается) — иначе exit code ≠ 0 и подсказка «используйте --mode playwright». Если yt_dlp недоступен в PATH — ясная ошибка. Режим A — быстрая попытка «без тяжёлых зависимостей»; падение → канал B.
+
+3. **D295 — стратегия рефреша: refresh-on-failure, НЕ по расписанию.** Частый заход в профиль/повторный экспорт ВРЕДЕН: браузер/Google ротируют кукис при каждом заходе, а частые логины с датацентрового IP усиливают bot-check и риск блокировки throwaway-аккаунта. Экспорт выполняется РАЗОВО (при деплое) и повторно ТОЛЬКО по факту ошибки bot-check в проде (журнал: «Sign in to confirm» от движков). **Авто-вызов экспорта перед ретраем при bot-check — ЗАФИКСИРОВАН КАК FUTURE, сейчас НЕ делаем:** это тянет playwright в прод-venv бота (~300MB deps + Chromium), синхронный запуск из async-хендлера, отдельные секреты — несоразмерно задаче. Достаточно ручного ре-экспорта DevOps'ом.
+
+4. **D296 — интеграция БЕЗ новых env.** Используется существующий `YOUTUBE_COOKIES_FILE` (settings.py:411); прод `.env`: `YOUTUBE_COOKIES_FILE=media/srv_cookies.txt`. Никаких новых ключей Settings, `.env.example` не меняется (ключ уже есть со времён Epic 39). Код движков и settings — git diff чист по этим файлам.
+
+5. **D297 — chrome-profile пушится в репо (явное осознанное решение пользователя).** ⚠️ **Риск:** внутри профиля — auth-кукисы Google-аккаунта; компрометация репо = компрометация аккаунта. Обязательные меры: (а) **throwaway Google-аккаунт** — только он логинится в этот профиль, никаких личных/рабочих аккаунтов; (б) репо приватное; (в) `.gitignore` для `chrome-profile/` НЕ добавляем (юзер хочет спуллить на сервер); (г) после `git pull` на сервере — `chmod -R go-rwx chrome-profile/` и `chmod 600 media/srv_cookies.txt`; (д) R17: путь/содержимое cookies нигде не логируется (уже соблюдено движками: только «set/empty»).
+
+6. **D298 — антиспам ретрай-фраз (минимальный дифф).** `handlers/youtube.py::_make_retry_notifier` (:67–75): добавить гейт первой строкой замыкания:
+   ```python
+   async def on_retry(attempt: int, max_attempts: int) -> None:
+       if attempt > 1:
+           return
+       await _reply(bot, chat_id, random.choice(YOUTUBE_RETRY_PHRASES),
+                    target_message_id)
+   ```
+   Токсичная промежуточная фраза озвучивается ОДИН раз (attempt=1); попытки 2–4 молчат (backoff (1,2,4,8)с, `_notify_retry` зовётся перед sleep — 50.3); успех/финальный провал приходят одним итоговым сообщением и так (успех :140 / raise :152 движка). Канон фраз `services/smartmodule_phrases.py::YOUTUBE_RETRY_PHRASES` (пул 5.8) НЕ трогается. Остальной хендлер, сервис, движок — без изменений.
+
+### 80.2 Тест-план
+
+| # | Кейс | Ожидание |
+|---|------|----------|
+| 1 | Unit конвертера Playwright→Netscape: обычная кукиса (domain='.youtube.com') | Строка: `.youtube.com\tTRUE\t/\tTRUE\t<expires>\t<name>\t<value>` — ровно 7 таб-полей |
+| 2 | Session-cookie (`expires=-1` от Playwright) | В файле `0` в поле expires |
+| 3 | Domain без ведущей точки | Поле include_subdomains = `FALSE` |
+| 4 | Заголовок файла | Первая строка `# Netscape HTTP Cookie File` |
+| 5 | chmod: выходной файл | Права 600 выставлены (POSIX-путь; на CI/Windows — не падает) |
+| 6 | CLI: argparse `--mode {playwright,browser}` (дефолт `playwright` — режим B основной) / `--profile` / `--out` | Обязательные аргументы, дефолты по D293/D294; неверный mode → exit 2 |
+| 7 | Режим A: yt-dlp вернул пустой/битый файл | Exit ≠ 0, сообщение советует `--mode playwright` (валидация D294) |
+| 8 | Гейт нотифаера: `on_retry(1, 5)` | `_reply` вызван 1 раз с фразой из 5.8 |
+| 9 | Гейт нотифаера: `on_retry(2..4, 5)` | `_reply` НЕ вызван (тишина) |
+| 10 | Движки не тронуты | Существующие TestYtdlpPrimary/TestRetryCascade/тесты video_downloader зелёные без правок; grep: git diff не содержит services/, config/ |
+
+### 80.3 Чеклист @DevOps
+
+1. На сервере в прод-venv: `pip install playwright && playwright install chromium --with-deps` (~300MB — учесть место).
+2. `git pull --ff-only` (chrome-profile приходит из репо по D297) → `chmod -R go-rwx chrome-profile/`.
+3. Экспорт: `python -m tools.cookies_export --mode playwright --profile chrome-profile --out media/srv_cookies.txt` → проверить `head media/srv_cookies.txt` (есть строки `.youtube.com`) и `chmod 600 media/srv_cookies.txt`.
+4. Прод .env: бэкап `.env.bak.epic79` → `YOUTUBE_COOKIES_FILE=media/srv_cookies.txt`.
+5. Верификация застрявшего деплоя Epic 78 (MEMORY 2026-08-26f): git HEAD на сервере = `229ef98` или новее, фикс `_local_files_subdir(bot)` в коде прода, `systemctl status admin_bot` (PID был 1226433), journalctl с 10:27 UTC — 0 traceback.
+6. `sudo systemctl restart admin_bot` → journalctl: 0 traceback, маркер движков `proxy=set cookies=set`.
+7. Smoke на РЕАЛЬНЫХ видео (гейт Epic 79): выжимка («о чем видео <yt-url>» — транскрипт пришёл) + скачивание («скачай <yt-url>» — ненулевой файл); bot-check «Sign in to confirm» не валит ни то, ни другое. Антиспам: при сбое фраза озвучена один раз.
+8. Rollback: убрать/заккоментировать `YOUTUBE_COOKIES_FILE` в .env + revert коммита цикла + restart (движки корректно работают с cookies=empty — прецедент Epic 39).
+
+**DoD T-583:** Section 80 зафиксирована, выбран режим B как основной (D293), контракт CLI определён, тест-план и чеклист DevOps готовы — READY FOR BUILDER (T-584).
+
+---

@@ -8036,3 +8036,57 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Деплой + проверка на проде
 - [ ] T-581 (@DevOps, P0, ←T-578/T-580): коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot: git pull, прод .env: `TELEGRAM_API_FILES_DIR=docker/telegram-bot-api` (бэкап `.bak.epic78`; проверить фактический путь `/var/www/admin_bot/docker/telegram-bot-api/<bot_id>:<bot_token>/`), restart admin_bot, journalctl 0 traceback; smoke на проде: отправить кружок → расшифровка приходит, отправить голосовое → расшифровка приходит; в логах нет FileNotFoundError «video_notes/*.mp4». Rollback: revert + restart. Отчёт PM: результаты обоих smokes. **DoD:** прод обновлён, кружок и голосовое расшифровываются, 0 traceback
+
+---
+
+## Epic 79: Cookies-пайплайн для yt-dlp (обход YouTube bot-check «Sign in to confirm») + антиспам ретрай-фраз + верификация застрявшего деплоя — 2026-08-26 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.49.0)
+
+> **Цель:** Три направления от пользователя.
+>
+> **(A) COOKIES-PIPELINE ДЛЯ YT-DLP:** YouTube bot-check «Sign in to confirm
+> you're not a bot» валит И скачивание, И выжимку (транскрипты). Схема от пользователя:
+> папка `chrome-profile` пушится в репо, спуллится на сервер, headless-Chromium с
+> `--user-data-dir` заходит на youtube.com и экспортирует кукис в Netscape txt для
+> yt-dlp (`--cookies`). Research-уточнения для команды:
+> 1. **Прямой путь предпочтительнее где возможно:** `yt-dlp --cookies-from-browser
+>    chrome:<path>` читает SQLite БЕЗ запуска браузера, НО требует basic-store/v10 —
+>    на сервере нет keyring;
+> 2. **Playwright persistent_context схема** (`--user-data-dir chrome-profile`,
+>    headless-Chromium, экспорт Netscape txt) — резерв, если профиль зашифрован
+>    v11/app-bound;
+> 3. **Частый рефреш ВРЕДЕН** (ротация кукис от КАЖДОГО открытия youtube.com в обычном
+>    браузере) — стратегия «экспорт ОДИН раз, рефреш только ПО ФАКТУ ошибки»;
+> 4. **Безопасность:** в профиле auth Google-аккаунта — рекомендован throwaway,
+>    chmod 600; пользователь ОСОЗНАЛ риск и явно сказал пушить профиль в репо.
+>
+> **Интеграция:** `YOUTUBE_COOKIES_FILE` уже читается обоими движками через
+> `build_ytdlp_base_opts()` (settings.py:746–758) и `_transcript_api_kwargs`
+> (youtube_transcript_engine.py:317–327) — т.е. достаточно положить файл по пути из env!
+>
+> **(B) АНТИСПАМ РЕТРАЕВ:** `handlers/youtube.py::_make_retry_notifier` (:67–75) шлёт
+> фразу из `YOUTUBE_RETRY_PHRASES` на каждую из 5 попыток каскада (максимум 4 фразы за
+> запрос). Фикс: озвучивать ТОЛЬКО первую попытку (гейт `attempt > 1 → return`) либо
+> итоговый результат. Минимальный дифф.
+>
+> **(C) ВЕРИФИКАЦИЯ ЗАСТРЯВШЕГО ДЕПЛОЯ:** пользователь сообщил, что агент девопс
+> зациклился и процесс был прерван (упал интернет). @DevOps обязан верифицировать
+> фактическое состояние прода (HEAD=`229ef98`+?; фикс `_local_files_subdir` на месте?;
+> сервис healthy?) и докатить всё недокаченное.
+>
+> Порядок: @DevOps (верификация прода, параллельно) → @Architect (дизайн ДО реализации)
+> → @Builder → @Reviewer → @DevOps (инфра + cookies.txt + деплой + smoke). Без @Orchestrator.
+
+### Верификация прода (направление C, параллельно)
+- [ ] T-582 (@DevOps, P0, параллельно): верификация фактического состояния прода nik@198.46.175.136:/var/www/admin_bot после прерванного цикла Epic 78 — (1) git HEAD на сервере (ожидается `229ef98` или новее); (2) фикс `_local_files_subdir(bot)` присутствует в коде прода; (3) `TELEGRAM_API_FILES_DIR=docker/telegram-bot-api` в прод .env; (4) systemctl status admin_bot (PID был 1226433), journalctl с 10:27 UTC — 0 traceback, нет WARNING 'local api file missing'; (5) недокачанное (незакоммиченные правки, незавершённые шаги T-581) — ДОКАТИТЬ до полного состояния T-581; отчёт PM: HEAD, PID, чеклист, что докачено. **DoD:** прод в полном целевом состоянии Epic 78 (v2.48.2+), сервис healthy, 0 traceback
+
+### Архитектура и дизайн (направление A)
+- [ ] 👤 T-583 (@Architect, P0): дизайн cookies-pipeline по конвенции проекта ДО реализации — выбор пути: (i) прямой `yt-dlp --cookies-from-browser chrome:<path>` (SQLite без запуска браузера; ограничение basic-store/v10, на сервере нет keyring — проверить фактическую шифрованность профиля) vs (ii) Playwright persistent_context (headless-Chromium + `--user-data-dir chrome-profile` → экспорт Netscape txt) как резерв для v11/app-bound; скрипт/модуль спулла профиля + генерации cookies.txt (место в структуре проекта по конвенции); интеграция через существующий env `YOUTUBE_COOKIES_FILE` (settings.py:411, НЕ логируется R17) — код движков НЕ трогать, достаточно положить файл по пути из env; стратегия refresh-on-failure («экспорт один раз, рефреш по факту ошибки» — частый рефреш ВРЕДЕН из-за ротации кукис браузером); безопасность: throwaway Google-аккаунт рекомендован, chmod 600 на cookies.txt и chrome-profile, профиль пушится в репо ПО ЯВНОМУ осознанному решению пользователя (секреты токенов/ключей в репо всё равно НЕ попадают); канон Section 80 ARCHITECTURE.md; тест-план. **DoD:** Section 80 зафиксирована, выбран путь (i)/(ii)/гибрид, контракты скрипта определены, READY FOR BUILDER
+
+### Реализация (направления A + B)
+- [ ] T-584 (@Builder, P0, ←T-583): реализация + тесты — (A) скрипт/модуль cookies-pipeline по дизайну T-583 (спулл chrome-profile из репо, генерация cookies.txt в Netscape-формате по пути `YOUTUBE_COOKIES_FILE`, chmod 600; выбранный механизм экспорта); (B) антиспам ретраев МИНИМАЛЬНЫМ диффом: `handlers/youtube.py::_make_retry_notifier` (:67–75) — гейт озвучки только первой попытки каскада (`attempt > 1 → return`) либо итоговый результат по решению дизайнера; АТОМАРНО тесты (pipeline: генерация/формат/права; notifier: фраза только на attempt=1, тишина на 2–5, итоговый ответ один; регресс движков без cookies-файла); полный pytest 0 регрессий. **DoD:** оба направления покрыты тестами, зелёные
+
+### Ревью
+- [ ] T-585 (@Reviewer, P0, ←T-584): ревью Epic 79 — cookies-pipeline не трогает код движков (интеграция строго через env `YOUTUBE_COOKIES_FILE`); секреты Google-аккаунта НЕ всплывают в логах/тестах/каноне (R17); chmod 600 выставляется; стратегия refresh-on-failure соблюдена (нет периодического рефреша); антиспам-фикс минимальный дифф, поведение attempt=1 и итогового ответа сохранено; канон Section 80 = коду; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Инфраструктура + деплой + smoke
+- [ ] T-586 (@DevOps, P0, ←T-583/T-585): инфраструктура и деплой на проде nik@198.46.175.136 — (1) установка Playwright + headless-Chromium (или альтернативы по дизайну T-583) на проде; (2) спулл chrome-profile из репо на сервер, запуск генерации cookies.txt по пути из `YOUTUBE_COOKIES_FILE` (chmod 600; верифицировать, что оба движка подхватывают файл — маркеры в логах); (3) коммит цикла на русском (conventional commits) + пуш origin/master (chrome-profile пушится по явному решению пользователя; прочие секреты НЕ в коммите); (4) git pull, restart admin_bot, journalctl 0 traceback; (5) СКВОЗНОЙ smoke на РЕАЛЬНЫХ видео: выжимка (YouTube-транскрипт) + скачивание («скачай <yt>», ненулевой файл) — главный гейт: bot-check «Sign in to confirm» больше не валит ни то, ни другое; проверка антиспама: при сбое фраза озвучивается один раз; Rollback: убрать cookies-файл + revert + restart. Отчёт PM: результаты smokes, вердикт гейта. **DoD:** cookies.txt живой на проде, выжимка и скачивание работают, 0 traceback

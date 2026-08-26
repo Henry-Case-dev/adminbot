@@ -15,3 +15,6 @@ trafilatura>=2.2.0,<3.0
 tiktoken>=0.7.0
 openai>=1.40,<2
 bgutil-ytdlp-pot-provider>=1.0.0
+# Epic 79 (T-584): только для оффлайн-экспорта cookies (tools/cookies_export.py, режим B).
+# НЕ нужен в прод-venv бота. Движок ставится отдельно: playwright install chromium --with-deps
+playwright>=1.40

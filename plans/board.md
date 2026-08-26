@@ -247,6 +247,31 @@
 - [ ] T-580 (@Reviewer, P0, ←T-579) — ревью Epic 78 (резолв только при is_local + относительный path, бот-токен НЕ в логах/ошибках, cleanup гарантирован, Section 79 = коду)
 - [ ] T-581 (@DevOps, P0, ←T-578/T-580) — коммит+пуш; деплой: git pull, прод .env TELEGRAM_API_FILES_DIR=docker/telegram-bot-api (.bak.epic78), restart, 0 traceback; smoke: кружок → расшифровка есть, голосовое → расшифровка есть, в логах нет FileNotFoundError video_notes/*.mp4
 
+### Epic 79: Cookies-пайплайн для yt-dlp (обход YouTube bot-check «Sign in to confirm») + антиспам ретрай-фраз + верификация застрявшего деплоя — 2026-08-26 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.49.0)
+
+> Полный трек — plans/backlog.md (Epic 79). Три направления. **(A) Cookies:** YouTube
+> bot-check валит скачивание и выжимку; схема пользователя — chrome-profile пушится в репо,
+> спуллится на сервер, headless-Chromium экспортирует Netscape cookies.txt для yt-dlp.
+> Research: прямой путь `--cookies-from-browser chrome:<path>` (SQLite без браузера) требует
+> basic-store/v10 (keyring на сервере нет); Playwright persistent_context — резерв при
+> шифровании v11/app-bound; частый рефреш ВРЕДЕН (ротация от каждого открытия youtube в
+> браузере) → стратегия «экспорт один раз, рефреш по факту ошибки»; throwaway Google-аккаунт,
+> chmod 600, профиль пушится по осознанному решению пользователя. Интеграция: env
+> YOUTUBE_COOKIES_FILE уже читается обоими движками через build_ytdlp_base_opts /
+> _transcript_api_kwargs — достаточно положить файл по пути из env! **(B) Антиспам:**
+> handlers/youtube.py::_make_retry_notifier (:67–75) озвучивает фразу из
+> YOUTUBE_RETRY_PHRASES на каждую из 5 попыток каскада → гейт attempt>1 → return (или итоговый
+> результат), минимальный дифф. **(C)** @DevOps верифицирует прода после прерванного цикла
+> Epic 78 (HEAD=229ef98+, фикс _local_files_subdir на месте, сервис healthy) и докатит
+> недокатанное. Порядок: @DevOps (верификация, параллельно) → @Architect → @Builder →
+> @Reviewer → @DevOps (инфра + cookies.txt + деплой + smoke). Без @Orchestrator.
+
+- [ ] T-582 (@DevOps, P0, параллельно) — верификация прода после прерванного деплоя Epic 78: git HEAD (ожидается 229ef98 или новее), фикс _local_files_subdir(bot) в коде прода, TELEGRAM_API_FILES_DIR в .env, systemctl status/PID (был 1226433), journalctl с 10:27 UTC (0 traceback); недокатанное ДОКАТИТЬ до полного состояния T-581
+- [ ] 👤 T-583 (@Architect, P0) — дизайн cookies-pipeline ДО реализации: выбор пути (прямой cookies-from-browser vs Playwright persistent_context как резерв), скрипт/модуль по конвенции проекта, интеграция строго через env YOUTUBE_COOKIES_FILE (код движков НЕ трогать), refresh-on-failure стратегия, безопасность (throwaway, chmod 600), канон Section 80 ARCHITECTURE.md, тест-план
+- [ ] T-584 (@Builder, P0, ←T-583) — реализация + тесты: cookies-pipeline (спулл профиля, генерация Netscape cookies.txt по пути из env, chmod 600) + антиспам МИНИМАЛЬНЫМ диффом (_make_retry_notifier: фраза только на первой попытке либо итоговый результат); АТОМАРНО тесты; полный pytest 0 регрессий
+- [ ] T-585 (@Reviewer, P0, ←T-584) — ревью Epic 79 (движки не тронуты — интеграция только через env, секреты Google НЕ всплывают R17, chmod 600, нет периодического рефреша, антиспам-дифф минимален, Section 80 = коду)
+- [ ] T-586 (@DevOps, P0, ←T-583/T-585) — инфраструктура + деплой: Playwright/Chromium (или альтернатива) на проде, спулл chrome-profile, генерация cookies.txt по пути YOUTUBE_COOKIES_FILE (chmod 600), коммит+пуш, git pull, restart, 0 traceback; сквозной smoke на РЕАЛЬНЫХ видео: выжимка + скачивание (гейт: bot-check больше не валит ни то, ни другое), антиспам: фраза озвучивается один раз
+
 ## 🔍 In Review
 
 *(пусто)*
