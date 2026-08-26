@@ -15164,3 +15164,30 @@ Search (0d) reply-цель не читает вообще: запрос наби
 curl-проверка на проде ДО деплоя: POST на cobalt с `"videoQuality": "1080p"` → ожидаемо `400`; повтор с `"videoQuality": "1080"` + `Accept: application/json` → ожидаемо OK (`status: tunnel/redirect`). Подтверждает диагноз и закрывает вопрос «не сеть ли».
 
 ---
+
+## Section 77 — Epic 75: фикс «empty body from tunnel» — retry-once + диагностика пустого стрима (v2.47.4, DESIGN, T-568)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect). **Root cause (research):** `_stream_to_file` (tools/video_downloader.py:209-244) делает GET tunnel URL, получает статус <400, но 0 чанков → `DownloadError("empty body from tunnel")`. Известная проблема cobalt #1428: googlevideo временно банит выходной IP прокси; cobalt не может детектить это до начала стрима, бан бывает транзиентным (~минуты). Слепые зоны: при `written==0` не логируются `resp.status`, `Content-Length`, `Estimated-Content-Length`; ретрая нет.
+
+### 77.1 Решения
+
+1. **Retry-once для empty-body (D283).** В `_stream_to_file`: при `status < 400` и `written == 0` — ОДНА повторная попытка GET того же tunnel URL после задержки `asyncio.sleep(4)`. Если вторая попытка снова 0 байт → `DownloadError("empty body from tunnel (after retry)")`. Обоснование: #1428 транзиентный (~минуты), один ретрай через 4с ловит кратковременные сбои без шторма повторов; более длинная пауза/больше попыток не оправданы (юзер ждёт у индикатора, кулдаун и так 5m — Section 75). Ретрай ТОЛЬКО для случая empty-body: `http >= 400` ретраится как раньше НЕ будет (D282 — мгновенный `DownloadError` с телом ошибки), сетевые ошибки (`ClientConnectorError`/`TimeoutError`/`ClientError`) — тоже без ретрая (семантика классов CobaltServiceDownError/DownloadError сохраняется). Повтор использует тот же tmp_path — файл переоткрывается `"wb"` (truncate), хвост первой (пустой) попытки невозможен.
+2. **Диагностика written==0 (D284).** Перед ретраем И после финального фейла логировать WARNING `[videodl] tunnel empty body | attempt=%d | http_status=%d | content_length=%s | estimated_content_length=%s | content_type=%s | bytes_written=0 | gv_id=%s`: `resp.status`, заголовки `Content-Length` и `Estimated-Content-Length` (googlevideo отдаёт оценку размера именно там; отсутствие — `None`), `content-type`, written bytes. БЕЗ секретов: tunnel URL целиком НЕ логировать (подпись в query); вместо него — первые 8 символов query-параметра `id` (`gv_id`), этого достаточно для корреляции инцидентов. CL/ECL отличают «сервер обещал N байт, отдал 0» от «сервер честно сказал 0/ничего» — ключевой сигнал для диагноза IP-бана.
+3. **Таймауты двух попыток.** Каждая попытка — свой `aiohttp.ClientSession(timeout=_STREAM_TIMEOUT)` (`total=300`); таймаут применяется НА одну попытку, НЕ на пару. Худший случай: 2×300с + пауза 4с ≈ 604с — в пределах разумного «не более `_STREAM_TIMEOUT` ×2 + пауза»; отдельный внешний бюджет НЕ вводим (стрим до 2GB легитимно долгий, VD_MAX_BYTES; пер-чат замок уже защищает от параллельных скачиваний). Прогресс второй попытки считается заново с нуля (`written` сбрасывается).
+
+### 77.2 Тест-план (Builder)
+
+| # | Кейс | Ожидание |
+|---|------|----------|
+| 1 | Попытка 1 empty (0 чанков) → попытка 2 успешна | файл скачан, rename/finalize штатные, INFO `downloaded \| bytes=N`; ровно 2 GET, ровно 1 сон ~4с |
+| 2 | Обе попытки empty | `DownloadError("empty body from tunnel (after retry)")`; ровно 1 ретрай (2 GET суммарно, не больше); tmp-файл удалён |
+| 3 | Статус ≥400 на первой попытке | мгновенный `DownloadError("tunnel http …")` БЕЗ ретрая (D282-ветка) |
+| 4 | Логи при written==0 | WARNING содержит `http_status`, `content_length`, `estimated_content_length`, `content_type`, `bytes_written=0`, `gv_id` (8 симв.); полный URL/подпись в логах ОТСУТСТВУЮТ |
+| 5 | Сетевые ошибки без изменений | timeout/ClientConnectorError → прежние классы и тексты, без ретрая |
+| 6 | Полный pytest | 0 регрессий (все videodl-тесты Sections 70/74/76 зелёные) |
+
+### 77.3 @DevOps (диагностика IP-бана googlevideo, вне git)
+
+При повторении инцидента на сервере: (1) взять `gv_id` из лога `tunnel empty body` и повторить GET того же tunnel URL вручную curl'ом с сервера — подтвердить 0 байт при 200; (2) проверить выходной IP прокси (`curl -x $PROXY ifconfig.me`) и сравнить с прямым запросом без прокси — если без прокси стрим отдаёт байты, а через прокси нет → бан выходного IP googlevideo подтверждён; (3) повторить через ~5–10 минут — если восстановилось, транзиентность #1428 подтверждена (ретрай D283 был прав); (4) при устойчивом бане — ротация выходного IP прокси или жалоба провайдеру прокси; (5) сверить частоту `tunnel empty body` в Betterstack до/после деплоя v2.47.4 — метрика успеха фикса: доля вылеченных ретраем (attempt=2 успешен) видна прямо в логах.
+
+---

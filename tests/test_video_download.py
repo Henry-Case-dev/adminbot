@@ -5,10 +5,12 @@
 (TelegramBadRequest → продолжение), cleanup файла в finally.
 """
 import asyncio
+import logging
 import re
 import time
 from unittest.mock import AsyncMock, MagicMock
 
+import aiohttp
 import pytest
 
 from handlers import video_download as vd
@@ -19,6 +21,7 @@ from tools.video_download_phrases import (
     VD_NO_LINK_PHRASES,
 )
 from tools.video_downloader import (
+    CobaltServiceDownError,
     DownloadError,
     ProbeResult,
     VideoDownloader,
@@ -366,12 +369,13 @@ class TestTouchAfterProbe:
 
 class FakeCobaltResponse:
     def __init__(self, payload=None, status=200, chunks=(b"vid", b"eo"),
-                 text=None, content=None):
+                 text=None, content=None, headers=None):
         self._payload = payload
         self.status = status
         self._chunks = chunks
         self._text = text
         self._content_override = content
+        self.headers = headers or {}
 
     async def __aenter__(self):
         return self
@@ -805,3 +809,197 @@ class TestProbeOpts:
             await dl.probe(URL)
         assert any("proxy=set" in r.message for r in caplog.records)
         assert all(secret not in r.getMessage() for r in caplog.records)
+
+# ── Epic 75 (Section 77 / D283–D284): retry-once + диагностика empty body ──
+
+TUNNEL_URL = ("https://gv.example/videoplayback"
+              "?id=abcdef1234567890&sig=TOPSECRETSIGNATURE")
+
+EMPTY_HEADERS = {"Content-Length": "1048576",
+                 "Estimated-Content-Length": "1048576",
+                 "Content-Type": "video/mp4"}
+
+
+class _StreamResponse:
+    def __init__(self, status=200, chunks=(), headers=None):
+        self.status = status
+        self._chunks = chunks
+        self.headers = headers or {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    class _Content:
+        def __init__(self, chunks):
+            self._chunks = chunks
+
+        async def iter_chunked(self, size):
+            for chunk in self._chunks:
+                yield chunk
+
+    @property
+    def content(self):
+        return self._Content(self._chunks)
+
+
+class _StreamSession:
+    """Fake aiohttp.ClientSession для GET tunnel: очередь ответов/ошибок."""
+    queue = []
+    urls = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    def get(self, url):
+        type(self).urls.append(url)
+        item = type(self).queue.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+@pytest.fixture
+def stream_env(vd_env, monkeypatch):
+    """Downloader с существующим download_dir + патч ClientSession/sleep."""
+    vd_env._download_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", _StreamSession)
+    sleeps = []
+    real_sleep = asyncio.sleep
+
+    async def fake_sleep(delay, *args, **kwargs):
+        sleeps.append(delay)
+        await real_sleep(0)
+
+    monkeypatch.setattr("tools.video_downloader.asyncio.sleep", fake_sleep)
+    _StreamSession.queue = []
+    _StreamSession.urls = []
+    vd_env.sleeps = sleeps
+    return vd_env
+
+
+class TestEmptyBodyRetry:
+    @pytest.mark.asyncio
+    async def test_retry_once_recovers(self, stream_env):
+        """77.2 #1: попытка 1 empty → попытка 2 успешна: файл скачан,
+        ровно 2 GET того же URL, ровно 1 сон 4с."""
+        _StreamSession.queue = [
+            _StreamResponse(chunks=(), headers=EMPTY_HEADERS),
+            _StreamResponse(chunks=(b"fake", b"video")),
+        ]
+        path = await stream_env._stream_to_file(TUNNEL_URL, "retry vid.mp4")
+        assert path.exists()
+        assert path.name == "retry vid.mp4"
+        assert path.read_bytes() == b"fakevideo"
+        assert len(_StreamSession.urls) == 2
+        assert all(u == TUNNEL_URL for u in _StreamSession.urls)
+        assert stream_env.sleeps == [4.0]
+
+    @pytest.mark.asyncio
+    async def test_both_attempts_empty_error_after_retry_tmp_removed(
+            self, stream_env):
+        """77.2 #2: обе попытки empty → DownloadError "(after retry)",
+        ровно 1 ретрай (2 GET), tmp-файл удалён."""
+        _StreamSession.queue = [
+            _StreamResponse(chunks=(), headers=EMPTY_HEADERS),
+            _StreamResponse(chunks=(), headers=EMPTY_HEADERS),
+        ]
+        with pytest.raises(DownloadError,
+                           match=r"empty body from tunnel \(after retry\)"):
+            await stream_env._stream_to_file(TUNNEL_URL, None)
+        assert len(_StreamSession.urls) == 2
+        assert stream_env.sleeps == [4.0]
+        assert list(stream_env._download_dir.glob("vd_*.mp4")) == []
+
+    @pytest.mark.asyncio
+    async def test_http_4xx_no_retry(self, stream_env):
+        """77.2 #3: статус >=400 на первой попытке → мгновенный
+        DownloadError("tunnel http …") БЕЗ ретрая и без сна."""
+        _StreamSession.queue = [_StreamResponse(status=403)]
+        with pytest.raises(DownloadError, match=r"^tunnel http 403$"):
+            await stream_env._stream_to_file(TUNNEL_URL, None)
+        assert len(_StreamSession.urls) == 1
+        assert stream_env.sleeps == []
+
+    @pytest.mark.asyncio
+    async def test_diagnostics_logged_no_full_url_no_secret(
+            self, stream_env, caplog):
+        """77.2 #4 (D284): WARNING содержит attempt/http_status/CL/ECL/
+        content-type/bytes_written=0/gv_id (8 симв.); полный URL и подпись
+        в логах ОТСУТСТВУЮТ; полный gv id тоже не логируется."""
+        _StreamSession.queue = [
+            _StreamResponse(chunks=(), headers=EMPTY_HEADERS),
+            _StreamResponse(chunks=(), headers=EMPTY_HEADERS),
+        ]
+        with caplog.at_level(logging.WARNING,
+                             logger="tools.video_downloader"):
+            with pytest.raises(DownloadError):
+                await stream_env._stream_to_file(TUNNEL_URL, None)
+        texts = [r.getMessage() for r in caplog.records
+                 if "tunnel empty body" in r.getMessage()]
+        assert len(texts) == 2                      # перед ретраем и после фейла
+        assert any("attempt=1" in t for t in texts)
+        assert any("attempt=2" in t for t in texts)
+        joined = "\n".join(texts)
+        for fragment in ("http_status=200",
+                         "content_length=1048576",
+                         "estimated_content_length=1048576",
+                         "content_type=video/mp4",
+                         "bytes_written=0",
+                         "gv_id=abcdef12"):
+            assert fragment in joined, fragment
+        assert TUNNEL_URL not in joined             # полный URL не в логах
+        assert "TOPSECRETSIGNATURE" not in joined   # подпись не утекла
+        assert "abcdef1234567890" not in joined     # только первые 8 символов
+
+    @pytest.mark.asyncio
+    async def test_connector_error_unchanged_no_retry(self, stream_env):
+        """77.2 #5: сетевые ошибки без изменений — прежний класс/текст,
+        без ретрая (1 GET), без сна."""
+        key = MagicMock()
+        os_error = OSError("no route to host")
+        _StreamSession.queue = [aiohttp.ClientConnectorError(key, os_error)]
+        with pytest.raises(CobaltServiceDownError,
+                           match="tunnel unreachable"):
+            await stream_env._stream_to_file(TUNNEL_URL, None)
+        assert len(_StreamSession.urls) == 1
+        assert stream_env.sleeps == []
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_unchanged_no_retry(self, stream_env):
+        _StreamSession.queue = [asyncio.TimeoutError()]
+        with pytest.raises(DownloadError, match=r"^stream timeout$"):
+            await stream_env._stream_to_file(TUNNEL_URL, None)
+        assert len(_StreamSession.urls) == 1
+        assert stream_env.sleeps == []
+
+    @pytest.mark.asyncio
+    async def test_generic_client_error_unchanged_no_retry(self, stream_env):
+        _StreamSession.queue = [aiohttp.ClientPayloadError("chunk gone")]
+        with pytest.raises(DownloadError, match="stream transport error"):
+            await stream_env._stream_to_file(TUNNEL_URL, None)
+        assert len(_StreamSession.urls) == 1
+        assert stream_env.sleeps == []
+
+    @pytest.mark.asyncio
+    async def test_success_first_attempt_no_retry_no_warning(
+            self, stream_env, caplog):
+        """Нормальный стрим с первого раза — без ретрая и без WARNING."""
+        _StreamSession.queue = [_StreamResponse(chunks=(b"data",))]
+        with caplog.at_level(logging.WARNING,
+                             logger="tools.video_downloader"):
+            path = await stream_env._stream_to_file(TUNNEL_URL, "ok vid.mp4")
+        assert path.read_bytes() == b"data"
+        assert len(_StreamSession.urls) == 1
+        assert stream_env.sleeps == []
+        assert not [r for r in caplog.records
+                    if "tunnel empty body" in r.getMessage()]

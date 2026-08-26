@@ -178,6 +178,26 @@
 - [ ] T-566 (@Reviewer, P0, ←T-565) — ревью Epic 74 (enum без «p», нормализация ровно в одном месте, канон Section 70/74 = коду, секретов в логе нет, busy/tunnel не деградировали)
 - [ ] T-567 (@DevOps, P0, ←T-564/T-566) — серверное подтверждение диагноза (curl с "1080p" → 400, с "1080" → OK — вердикт root cause); коммит+пуш; деплой v2.47.3: git pull, restart, 0 traceback; smoke: сквозной через бота невозможен без Telegram → МИНИМУМ POST с тем же payload что у бота после фикса (+Accept) → tunnel; проверить docker logs cobalt на ошибки
 
+### Epic 75: Прод-баг «empty body from tunnel» (GET /tunnel → 200 с нулевым телом: retry-once + диагностика) — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0 (target v2.47.4)
+
+> Полный трек — plans/backlog.md (Epic 75). Прод-баг: POST к cobalt OK (tunnel URL
+> получен), но GET /tunnel отдаёт 200 с нулевым телом. Research: известная проблема
+> cobalt (github issue #1428) — googlevideo ВРЕМЕННО банит выходной IP (у нас =
+> xray-прокси из Epic 72), cobalt не может обнаружить это до начала стрима; состояние
+> часто временное. Слепые зоны кода: при written==0 не логируются status/Content-Length,
+> retry отсутствует. Решение (@Architect фиксирует финал): retry-once с задержкой ~4с
+> на empty body (транзиентность по #1428), расширенное логирование (tunnel status,
+> Content-Length, Estimated-Content-Length, written bytes), канон Section 77 (новая).
+> ГЛУБОКАЯ серверная диагностика @DevOps ДО и ПОСЛЕ деплоя; если xray IP забанен
+> googlevideo — зафиксировать как инфраструктурную причину + варианты (смена исходящего
+> IP xray / другой конфиг). Порядок: @DevOps (диагностика ДО, параллельно) → @Architect
+> → @Builder → @Reviewer → @DevOps (деплой + диагностика ПОСЛЕ). Без @Orchestrator.
+
+- [ ] 👤 T-568 (@Architect, P0) — дизайн ДО реализации: retry-once ~4с на empty body (точка ретрая, не ретраить 400/busy), формат логов (status, Content-Length, Estimated-Content-Length, written bytes), канон Section 77 ARCHITECTURE.md, тест-план
+- [ ] T-569 (@Builder, P0, ←T-568) — реализация (retry-once + расширенное логирование в tools/video_downloader.py) + АТОМАРНО тесты (empty→retry→OK; empty×2→ошибка; non-empty→без ретрая); полный pytest 0 регрессий
+- [ ] T-570 (@Reviewer, P0, ←T-569) — ревью Epic 75 (ретрай ровно один, без шторма на забаненный IP, логи без секретов, канон Section 77 = коду)
+- [ ] T-571 (@DevOps, P0, ←T-568/T-570; часть «ДО» — параллельно с T-568) — ГЛУБОКАЯ диагностика ДО: полный ручной флоу curl (POST → tunnel URL → скачать файл, замерить размер; повтор через несколько минут); docker logs adminbot-cobalt в момент ошибок; выходной IP xray (`curl -x ... ifconfig.me`) + доступность к youtube (бан?); IP забанен → инфраструктурная причина + варианты (смена исходящего IP xray / другой конфиг). ПОСЛЕ: коммит+пуш; деплой v2.47.4: git pull, restart, 0 traceback; smoke ПОЛНЫЙ ФЛОУ: POST → tunnel → файл ненулевого размера; ретраи в логах; финальный вердикт «код vs инфраструктура»
+
 ## 🔍 In Review
 
 *(пусто)*

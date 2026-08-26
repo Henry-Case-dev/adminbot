@@ -7904,3 +7904,43 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Деплой + серверное подтверждение диагноза
 - [ ] T-567 (@DevOps, P0, ←T-564/T-566): серверное подтверждение диагноза + деплой v2.47.3. Подтверждение (можно параллельно, до деплоя): curl на cobalt API с payload бота — `{"url":..., "videoQuality":"1080p", ...}` → ожидаемо HTTP 400; тот же curl с `"1080"` → OK (tunnel/redirect); вывод зафиксировать как вердикт root cause. Деплой: коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); прод nik@198.46.175.136:/var/www/admin_bot: git pull, restart admin_bot, status/journalctl 0 traceback; smoke: сквозной «скачай» через бота НЕВОЗМОЖЕН без Telegram-интеракции → МИНИМУМ: POST с тем же payload, что отправляет бот после фикса (videoQuality без «p» + Accept header) → ответ tunnel; проверить `docker logs cobalt` на ошибки после фикса. **DoD:** curl-вердикт 400-vs-OK зафиксирован, прод v2.47.3, POST-payload-smoke зелёный, docker logs cobalt чистые
+
+---
+
+## Epic 75: Прод-баг «empty body from tunnel» (GET /tunnel → 200 с нулевым телом: retry-once + диагностика + логирование) — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0 (target v2.47.4)
+
+> **Цель:** Починить прод-баг: POST к Cobalt проходит ОК (tunnel URL получен), но
+> `GET /tunnel` отдаёт **200 с нулевым телом** — юзер получает ошибку скачивания.
+> Target: **v2.47.4**.
+>
+> **Research (подтверждено PM):**
+> - Известная проблема Cobalt — **github issue #1428**: googlevideo ВРЕМЕННО банит
+>   выходной IP (у нас = xray-прокси из Epic 72); Cobalt не может обнаружить бан до
+>   начала стрима → отдаёт tunnel с пустым телом. Состояние ЧАСТО временное
+>   (бан снимается через минуты) → оправдан retry-once с короткой задержкой.
+> - Слепые зоны кода: при `written == 0` НЕ логируются status / Content-Length
+>   ответа туннеля; retry на empty body отсутствует.
+>
+> **Направление решения (@Architect фиксирует финал):**
+> - retry-once с короткой задержкой (~4с) при empty body (транзиентность по #1428);
+> - расширенное логирование: tunnel status, Content-Length,
+>   Estimated-Content-Length, written bytes (диагностика written==0);
+> - канон Section 77 ARCHITECTURE.md (новая секция) синхронно с кодом;
+> - ГЛУБОКАЯ серверная диагностика @DevOps ДО и ПОСЛЕ деплоя — если xray IP
+>   забанен googlevideo, зафиксировать как инфраструктурную причину и предложить
+>   варианты (смена исходящего IP xray / другой конфиг).
+>
+> Порядок: @DevOps (диагностика ДО, параллельно) → @Architect → @Builder → @Reviewer
+> → @DevOps (деплой + диагностика ПОСЛЕ). **НИ ОДНОЙ задачи на @Orchestrator.**
+
+### Архитектурное решение
+- [ ] 👤 T-568 (@Architect, P0): дизайн ДО реализации — зафиксировать: retry-once на empty body (задержка ~4с, транзиентность по cobalt#1428; точка ретрая в tools/video_downloader.py — после GET tunnel при written==0/нулевом Content-Length; НЕ ретраить при невалидном POST/400/busy); расширенное логирование туннеля (HTTP status, Content-Length, Estimated-Content-Length, скачано байт — единый формат лога для диагностики written==0); канон plans/ARCHITECTURE.md Section 77 (новая секция); тест-план (empty body → один ретрай → успех; два empty body подряд → ошибка юзеру; непустой body → без ретрая и без задержки). **DoD:** решение зафиксировано в ARCHITECTURE.md Section 77, READY FOR BUILDER
+
+### Реализация
+- [ ] T-569 (@Builder, P0, ←T-568): реализация по решению T-568 — retry-once (~4с задержка) при empty body в tools/video_downloader.py; расширенное логирование (tunnel status, Content-Length, Estimated-Content-Length, written bytes); АТОМАРНО тесты tests/test_video_download.py: empty→retry→OK, empty×2→ошибка, non-empty→без ретрая/задержки, формат лога, регресс tunnel/busy/timeout не деградировали; полный pytest 0 регрессий. **DoD:** транзиентный empty body самоисцеляется ретраем, диагностика written==0 видна в логах, тесты зелёные
+
+### Ревью
+- [ ] T-570 (@Reviewer, P0, ←T-569): ревью Epic 75 — ретрай ровно ОДИН (нет циклов/шторма на забаненный IP), задержка ~4с не блокирует хендлер сверх разумного, логирование без секретов, канон Section 77 = коду, чужие сценарии downloader (busy/timeout/tunnel-redirect) не затронуты; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой + глубокая серверная диагностика (ДО и ПОСЛЕ)
+- [ ] T-571 (@DevOps, P0, ←T-568/T-570): ГЛУБОКАЯ диагностика ДО и ПОСЛЕ деплоя на проде nik@198.46.175.136. **ДО (параллельно, можно с T-568):** (1) полный ручной флоу curl: POST к cobalt → получить tunnel URL → скачать файл curl'ом, ЗАМЕРИТЬ размер (ожидаемо 0 при баге); повторить флоу через несколько минут (проверка транзиентности по #1428); (2) `docker logs adminbot-cobalt` в момент ошибок (что cobalt говорит про googlevideo/tunnel); (3) проверить выходной IP xray: `curl -x <xray-proxy> ifconfig.me` и его доступность к youtube (бан googlevideo?) — ЕСЛИ IP ЗАБАНЕН: зафиксировать как ИНФРАСТРУКТУРНУЮ причину и предложить варианты (смена исходящего IP xray / другой конфиг прокси); **ПОСЛЕ (по завершении T-569/T-570):** (4) коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); прод: git pull, restart admin_bot, status/journalctl 0 traceback; smoke ПОЛНЫЙ ФЛОУ: POST → tunnel → скачивание файла с ненулевым размером (+ проверка ретрая в логах при воспроизведении empty body). **DoD:** диагностика ДО зафиксирована (размеры файлов, логи cobalt, вердикт по IP xray), прод v2.47.4, полный smoke зелёный, вердикт «код vs инфраструктура» зафиксирован в отчёте

@@ -13,6 +13,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 
@@ -35,6 +36,10 @@ VD_MAX_BYTES = 2_000_000_000
 # Epic 74 (D282): жёсткий лимит чтения ТЕЛА ошибки cobalt — тело приходит
 # по сети, его размер заранее неизвестен (нельзя resp.text() без потолка).
 _ERROR_BODY_MAX_BYTES = 1024
+
+# Section 77 (D283): пауза перед единственным ретраем empty-body
+# (cobalt #1428: транзиентный бан IP googlevideo, ~минуты).
+_EMPTY_BODY_RETRY_DELAY_SECONDS = 4.0
 
 _FILENAME_SANITIZE_RE = re.compile(r"[^\w.\- ]+")
 
@@ -208,32 +213,27 @@ class VideoDownloader:
 
     async def _stream_to_file(self, tunnel_url: str,
                               filename: str | None) -> Path:
-        """Стрим tunnel-URL во временный файл DOWNLOAD_DIR → rename."""
+        """Стрим tunnel-URL во временный файл DOWNLOAD_DIR → rename.
+        Section 77 (D283): при статусе <400 и 0 записанных байтах — ровно
+        ОДНА повторная попытка того же URL после паузы 4с; обе пустые →
+        DownloadError("empty body from tunnel (after retry)"). http >=400
+        и сетевые ошибки — без ретрая (семантика прежняя). Каждая попытка —
+        свой ClientSession(timeout=_STREAM_TIMEOUT), таймаут на одну попытку.
+        D284: при written==0 — WARNING-диагностика БЕЗ полного URL."""
         stamp = int(time.time())
         rand = secrets.token_hex(4)
         tmp_path = self._download_dir / f"vd_{stamp}_{rand}.mp4"
         try:
-            try:
-                async with aiohttp.ClientSession(timeout=_STREAM_TIMEOUT) as session:
-                    async with session.get(tunnel_url) as resp:
-                        if resp.status >= 400:
-                            raise DownloadError(f"tunnel http {resp.status}")
-                        written = 0
-                        with open(tmp_path, "wb") as fh:
-                            async for chunk in resp.content.iter_chunked(64 * 1024):
-                                written += len(chunk)
-                                if written > VD_MAX_BYTES:
-                                    raise DownloadTooBigError(
-                                        f"file exceeds {VD_MAX_BYTES} bytes")
-                                fh.write(chunk)
-            except aiohttp.ClientConnectorError as exc:
-                raise CobaltServiceDownError(f"tunnel unreachable: {exc}") from exc
-            except asyncio.TimeoutError as exc:
-                raise DownloadError("stream timeout") from exc
-            except aiohttp.ClientError as exc:
-                raise DownloadError(f"stream transport error: {exc}") from exc
+            written, meta = await self._stream_attempt(tunnel_url, tmp_path)
             if written == 0:
-                raise DownloadError("empty body from tunnel")
+                self._log_empty_body(tunnel_url, attempt=1, meta=meta)
+                await asyncio.sleep(_EMPTY_BODY_RETRY_DELAY_SECONDS)
+                written, meta = await self._stream_attempt(tunnel_url,
+                                                           tmp_path)
+                if written == 0:
+                    self._log_empty_body(tunnel_url, attempt=2, meta=meta)
+                    raise DownloadError(
+                        "empty body from tunnel (after retry)")
             final_path = self._finalize_name(tmp_path, filename)
             tmp_path.rename(final_path)
             logger.info("[videodl] downloaded | bytes=%d", written)
@@ -242,6 +242,51 @@ class VideoDownloader:
             # rename не удался / исключение до rename → временный файл не копим
             if tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
+
+    async def _stream_attempt(self, tunnel_url: str,
+                              tmp_path: Path) -> tuple[int, dict]:
+        """Одна попытка GET tunnel URL → стрим в tmp_path (truncate "wb").
+        Возвращает (written, метаданные для D284-диагностики)."""
+        try:
+            async with aiohttp.ClientSession(timeout=_STREAM_TIMEOUT) as session:
+                async with session.get(tunnel_url) as resp:
+                    if resp.status >= 400:
+                        raise DownloadError(f"tunnel http {resp.status}")
+                    headers = resp.headers
+                    written = 0
+                    with open(tmp_path, "wb") as fh:
+                        async for chunk in resp.content.iter_chunked(64 * 1024):
+                            written += len(chunk)
+                            if written > VD_MAX_BYTES:
+                                raise DownloadTooBigError(
+                                    f"file exceeds {VD_MAX_BYTES} bytes")
+                            fh.write(chunk)
+                    return written, {
+                        "http_status": resp.status,
+                        "content_length": headers.get("Content-Length"),
+                        "estimated_content_length":
+                            headers.get("Estimated-Content-Length"),
+                        "content_type": headers.get("Content-Type"),
+                    }
+        except aiohttp.ClientConnectorError as exc:
+            raise CobaltServiceDownError(f"tunnel unreachable: {exc}") from exc
+        except asyncio.TimeoutError as exc:
+            raise DownloadError("stream timeout") from exc
+        except aiohttp.ClientError as exc:
+            raise DownloadError(f"stream transport error: {exc}") from exc
+
+    @staticmethod
+    def _log_empty_body(tunnel_url: str, attempt: int, meta: dict) -> None:
+        """Section 77 (D284): диагностика written==0. Полный tunnel URL НЕ
+        логируем (подпись в query) — только первые 8 символов query-param
+        id (gv_id); CL/ECL отличают «обещал N, отдал 0» от «честно 0»."""
+        gv_id = parse_qs(urlsplit(tunnel_url).query).get("id", [""])[0][:8]
+        logger.warning(
+            "[videodl] tunnel empty body | attempt=%d | http_status=%d | "
+            "content_length=%s | estimated_content_length=%s | "
+            "content_type=%s | bytes_written=0 | gv_id=%s",
+            attempt, meta["http_status"], meta["content_length"],
+            meta["estimated_content_length"], meta["content_type"], gv_id)
 
     @staticmethod
     def _finalize_name(tmp_path: Path, filename: str | None) -> Path:
