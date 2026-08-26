@@ -673,8 +673,9 @@ class Settings:
     # Рубильник фичи «скачай <url>». False = ровно v2.45.0 (облачная сессия,
     # роутер не зарегистрирован). Прод: false, пока Docker не поднят (T-523).
     DOWNLOAD_ENABLED: bool = _env_bool("DOWNLOAD_ENABLED", False)
-    # Кулдаун per-(chat,user), time-format s/m/h/d (D264).
-    DOWNLOAD_COOLDOWN: float = _env_duration("DOWNLOAD_COOLDOWN", "30m")
+    # Кулдаун per-(chat,user), time-format s/m/h/d (D264; дефолт 5m с
+    # v2.47.2 — Section 75/D278).
+    DOWNLOAD_COOLDOWN: float = _env_duration("DOWNLOAD_COOLDOWN", "5m")
     # Self-hosted cobalt (docker-compose, Section 70.2).
     COBALT_API_URL: str = _env_str("COBALT_API_URL", "http://localhost:9000/")
     # Локальный telegram-bot-api (docker-compose). Только при DOWNLOAD_ENABLED=True.

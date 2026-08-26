@@ -174,7 +174,6 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
     if remaining > 0:
         await message.reply(_cooldown_phrase(remaining))           # consume
         return None
-    await cooldown_touch(_cooldown, chat_id, user_id)
 
     trigger_message_id = message.message_id
     if len(urls) == 1:
@@ -185,6 +184,8 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
                            chat_id, exc)
             await message.reply(random.choice(VD_ERROR_PHRASES))
             return None
+        # D279: touch только после успешного probe — fail не жжёт кулдаун.
+        await cooldown_touch(_cooldown, chat_id, user_id)
         _PENDING[(chat_id, user_id)] = {
             "urls": urls,
             "probes": [probe],
@@ -199,6 +200,10 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
     # Несколько ссылок → «читаю ссылки…» → titles → выбор видео.
     status = await message.reply("читаю ссылки...")
     probes = await asyncio.gather(*[_safe_probe(url) for url in urls])
+    # D279: частично битые ссылки — штатный UX (probe-фаза успешна, если
+    # есть хоть один непровалившийся результат); все битые → БЕЗ touch.
+    if any(p is not None for p in probes):
+        await cooldown_touch(_cooldown, chat_id, user_id)
     _PENDING[(chat_id, user_id)] = {
         "urls": urls,
         "probes": probes,

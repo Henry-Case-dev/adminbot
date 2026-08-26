@@ -4,6 +4,8 @@
 кулдаун с remaining_time, мок Cobalt (aiohttp), удаление клавиатуры
 (TelegramBadRequest → продолжение), cleanup файла в finally.
 """
+import asyncio
+import re
 import time
 from unittest.mock import AsyncMock, MagicMock
 
@@ -229,6 +231,135 @@ class TestCooldown:
         msg = _make_msg(f"скачай {URL}")
         await vd.video_download_handler(msg, bot=AsyncMock())
         msg.reply.assert_not_called()               # кулдауна нет → фразы нет
+
+
+# ── 5b. Epic 73 (75.2–75.3/D279): touch только после успешного probe ──
+
+class TestTouchAfterProbe:
+    @pytest.mark.asyncio
+    async def test_failed_probe_no_touch_and_retry_passes_gate(
+            self, vd_env, monkeypatch):
+        calls = []
+
+        async def flaky(url):
+            calls.append(url)
+            if len(calls) == 1:
+                raise DownloadError("yt-dlp boom")
+            return _probe()
+
+        monkeypatch.setattr(vd._downloader, "probe", flaky)
+        msg1 = _make_msg(f"скачай {URL}", message_id=101)
+        await vd.video_download_handler(msg1, bot=AsyncMock())
+        assert msg1.reply.call_args[0][0] in VD_ERROR_PHRASES
+        assert (CHAT_ID, USER_ID) not in vd._cooldown._last   # touch не звался
+
+        # немедленный ретрай проходит кулдаун-гейт без ожидания
+        msg2 = _make_msg(f"скачай {URL}", message_id=102)
+        bot2 = AsyncMock()
+        await vd.video_download_handler(msg2, bot=bot2)
+        msg2.reply.assert_not_called()
+        assert len(calls) == 2                       # дошли до probe повторно
+        assert bot2.send_message.await_count == 1    # меню качества ушло
+
+    @pytest.mark.asyncio
+    async def test_success_probe_touches_exactly_once(self, vd_env,
+                                                      monkeypatch):
+        touched = []
+        real_touch = vd.cooldown_touch
+
+        async def spy(tracker, chat_id, user_id):
+            touched.append((chat_id, user_id))
+            await real_touch(tracker, chat_id, user_id)
+
+        monkeypatch.setattr(vd, "cooldown_touch", spy)
+        probe_mock = AsyncMock(return_value=_probe())
+        monkeypatch.setattr(vd._downloader, "probe", probe_mock)
+
+        msg1 = _make_msg(f"скачай {URL}", message_id=101)
+        await vd.video_download_handler(msg1, bot=AsyncMock())
+        assert touched == [(CHAT_ID, USER_ID)]       # ровно один touch
+        assert (CHAT_ID, USER_ID) in vd._cooldown._last
+
+        # мгновенный повторный триггер → кулдаун активен, probe не дёргается
+        msg2 = _make_msg(f"скачай {URL}", message_id=102)
+        await vd.video_download_handler(msg2, bot=AsyncMock())
+        sent = msg2.reply.call_args[0][0]
+        assert any(p.split("{")[0] in sent for p in VD_COOLDOWN_PHRASES)
+        assert probe_mock.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_busy_callback_does_not_touch(self, vd_env):
+        vd._PENDING[(CHAT_ID, USER_ID)] = {
+            "urls": [URL], "probes": [_probe()], "selected": 0,
+            "trigger_message_id": 100,
+            "expires": time.monotonic() + 60,
+        }
+        await vd_env._lock.acquire()                 # чужое скачивание «идёт»
+        try:
+            cb = _make_cb("vd:720")
+            await vd.cb_pick_quality(cb, bot=AsyncMock())
+            assert cb.answer.call_args.kwargs.get("show_alert") is True
+            assert (CHAT_ID, USER_ID) not in vd._cooldown._last
+        finally:
+            vd_env._lock.release()
+
+    @pytest.mark.asyncio
+    async def test_multi_link_partial_success_touches(self, vd_env,
+                                                      monkeypatch):
+        """Частично битые ссылки ≠ провал probe-фазы: меню построено → touch."""
+
+        async def fake_probe(url):
+            if url == URL2:
+                raise DownloadError("bad link")
+            return _probe(title="Живое видео")
+
+        monkeypatch.setattr(vd._downloader, "probe", fake_probe)
+        bot = AsyncMock()
+        await vd.video_download_handler(
+            _make_msg(f"скачай {URL} и {URL2}"), bot=bot)
+        assert bot.edit_message_text.await_count == 1
+        assert (CHAT_ID, USER_ID) in vd._cooldown._last      # touch прозван
+
+    @pytest.mark.asyncio
+    async def test_multi_link_all_failed_no_touch(self, vd_env, monkeypatch):
+        async def fake_probe(url):
+            raise DownloadError("all dead")
+
+        monkeypatch.setattr(vd._downloader, "probe", fake_probe)
+        bot = AsyncMock()
+        await vd.video_download_handler(
+            _make_msg(f"скачай {URL} и {URL2}"), bot=bot)
+        assert (CHAT_ID, USER_ID) not in vd._cooldown._last  # БЕЗ touch
+
+    @pytest.mark.asyncio
+    async def test_remaining_time_counts_from_new_touch(self, vd_env,
+                                                        monkeypatch):
+        state = {"fail": True}
+
+        async def flaky(url):
+            if state["fail"]:
+                raise DownloadError("boom")
+            return _probe()
+
+        monkeypatch.setattr(vd._downloader, "probe", flaky)
+        t_first = time.monotonic()
+        await vd.video_download_handler(
+            _make_msg(f"скачай {URL}", message_id=101), bot=AsyncMock())
+        await asyncio.sleep(0.25)                    # пауза между попытками
+        state["fail"] = False
+        await vd.video_download_handler(
+            _make_msg(f"скачай {URL}", message_id=102), bot=AsyncMock())
+
+        # touch проставлен в момент УСПЕШНОГО probe, не первого триггера
+        touch_ts = vd._cooldown._last[(CHAT_ID, USER_ID)]
+        assert touch_ts - t_first >= 0.24
+
+        # фраза кулдауна отсчитывает remaining от нового touch (~полные 30м)
+        msg3 = _make_msg(f"скачай {URL}", message_id=103)
+        await vd.video_download_handler(msg3, bot=AsyncMock())
+        sent = msg3.reply.call_args[0][0]
+        minutes = int(re.search(r"(\d+) мин", sent).group(1))
+        assert minutes in (29, 30)
 
 
 # ── 6. Мок Cobalt (aiohttp): успех + ошибка ─────────────────────────

@@ -14411,7 +14411,7 @@ _URL_RE = re.compile(r"https?://\S+")
 Флоу:
 1. `_TRIGGER_RE.match(text)` не сматчился → `return UNHANDLED`. URL не найден → reply из `VD_NO_LINK_PHRASES`, return (consume).
 2. Несколько URL → реплай-статус «читаю ссылки...» → параллельный `probe()` всех ссылок (`asyncio.gather` + `_safe_probe`, битые ссылки дают `None`) → inline-меню выбора видео (кнопка на ссылку, `callback_data=f"vdv:{idx}"`); `probe=None` → подпись «ссылка N».
-3. Кулдаун per-(chat,user) `DOWNLOAD_COOLDOWN` (D264): активен → reply `VD_COOLDOWN_PHRASES` с `{remaining_time}` (форматируем «N мин M с»), return.
+3. Кулдаун per-(chat,user) `DOWNLOAD_COOLDOWN` (D264; семантика touch уточнена в Section 75/D279): активен → reply `VD_COOLDOWN_PHRASES` с `{remaining_time}` (форматируем «N мин M с»), return.
 4. `probe(url)` (70.4.1): ошибка yt-dlp → `VD_ERROR_PHRASES`, return. Успех → клавиатура качеств:
    `InlineKeyboardMarkup` рядами по 3: кнопки `{h}p` c `callback_data=f"vd:{h}"` (СХЕМА v2.46.0: выбор видео — отдельный префикс `vdv:<idx>`, выбор качества — `vd:<height>`; старая схема `vd:<idx>:<quality>` НЕ используется), заголовок = `title[:200]` + «выбери качество:», отправка **строго реплаем** (`reply_to_message_id`) с `disable_web_page_preview=True`.
    `_PENDING[(chat_id, user_id)] = {"urls": [...], "probes": [...], "selected": ..., "trigger_message_id", "expires": now+600}`; ленивая чистка протухших ключей при каждом обращении.
@@ -14474,7 +14474,7 @@ VD_TOO_BIG_PHRASES: tuple[str, ...] = (
 ```python
 # ── Epic 66: Cobalt Downloader (Section 70) ──
 DOWNLOAD_ENABLED: bool = _env_bool("DOWNLOAD_ENABLED", False)
-DOWNLOAD_COOLDOWN: float = _env_duration("DOWNLOAD_COOLDOWN", "30m")   # D264: s/m/h/d есть
+DOWNLOAD_COOLDOWN: float = _env_duration("DOWNLOAD_COOLDOWN", "5m")   # D264, дефолт 5m с v2.47.2 (Section 75/D278); s/m/h/d есть
 COBALT_API_URL: str = _env_str("COBALT_API_URL", "http://localhost:9000/")
 LOCAL_BOT_API_URL: str = _env_str("LOCAL_BOT_API_URL", "http://localhost:8081")
 DOWNLOAD_DIR: str = _env_str("DOWNLOAD_DIR", "media/downloads")
@@ -14745,8 +14745,8 @@ Builder заменяет **всю** константу `FACTCHECK_SYSTEM_PROMPT`
 # Рубильник фичи «скачай <url>». false = ровно v2.45.0 (облачная сессия,
 # роутер не зарегистрирован).
 DOWNLOAD_ENABLED=False
-# Кулдаун per-(chat,user), time-format s/m/h/d (D264).
-DOWNLOAD_COOLDOWN=30m
+# Кулдаун per-(chat,user), time-format s/m/h/d (D264; дефолт 5m с v2.47.2 — Section 75/D278).
+DOWNLOAD_COOLDOWN=5m
 # Self-hosted cobalt (docker-compose, Section 70.2).
 COBALT_API_URL=http://localhost:9000/
 # Локальный telegram-bot-api (docker-compose). Только при DOWNLOAD_ENABLED=True.
@@ -15068,5 +15068,51 @@ Search (0d) reply-цель не читает вообще: запрос наби
 5. **ОВ-5:** firewalld/iptables прода: docker→host-gateway:10808 должен быть разрешён; DevOps проверяет `docker compose exec cobalt wget` через прокси до боевого smoke (гейт 74.A.4 п.2).
 
 **DoD Epic 72 (сводно):** оба yt-dlp-потребителя и Cobalt ходят через единый прокси-конфиг; секреты не в git/логах; форвард-расшифровка называет автора-источник (+метка пересылки, +атрибуты в GraphRAG-факте); direct_chat молчит на реплаях к расшифровкам, фактчек адресует клейм автору ГС; полный pytest 0 регрессий; `git diff --check` чист.
+
+---
+
+## Section 75 — Epic 73: кулдаун скачивания 30m → 5m + фикс семантики cooldown_touch (v2.47.2, DESIGN, T-559)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect). **Источники:** research T-559 (cooldown per-(chat,user), глобальный asyncio.Lock, баг touch-до-probe). **Скоуп:** политика кулдауна VideoDownloader + порядок `cooldown_touch`. **Решения:** D278–D279. Очередь загрузок — отклонена (75.1).
+
+### 75.1 Политика кулдауна и отказ от очереди (D278)
+
+**Принято:** дефолт `DOWNLOAD_COOLDOWN` **30m → 5m**. Правки Builder'а (атомарно с 75.2):
+1. *config/settings.py:677* — `_env_duration("DOWNLOAD_COOLDOWN", "30m")` → `"5m"` (канон Section 70.8/73 обновлён).
+2. *.env.example* — ключ в Epic 66-секцию (~:451): `DOWNLOAD_COOLDOWN=5m` (сейчас в .env.example ОТСУТСТВУЕТ — единственный ключ Epic 66 без примера, добавляем).
+3. *README.md:517* — таблица: default `30m` → `5m`.
+
+**Обоснование цифры 5m:** конкуренцию за загрузку уже исключает глобальный `asyncio.Lock` (`DownloadBusyError` мгновенно, ~1–3 мин на файл) — кулдаун НЕ инструмент пропускной способности, а антиспам одного юзера (защита от спама триггером «скачай»). 30m карал юзера за чужую активность в чате; 5m достаточен чтобы пресечь флуд, и не бьёт по легитимному повтору после чужой загрузки. Пропускная способность не меняется (потолок задаёт лок: ~11–120 загр/час в зависимости от длительности файлов).
+
+**`0` (=disabled) отклонён:** при нуле неограниченные параллельные probe — multi-link ветка гонит `asyncio.gather(*[_safe_probe(url)])` БЕЗ лимита ссылок (handlers/video_download.py:201); злонамеренный/шустрый юзер положит yt-dlp/cobalt пачкой тяжёлых probe. Кулдаун — дешёвая страховка этого сценария.
+
+**Очередь НЕ вводим (отклонено):** для масштаба бота (1–2 чата) очередь избыточна — BUSY-попап `callback.answer(show_alert=True)` (Section 70.7 п.5) даёт мгновенный честный фидбек «занято, попробуй позже», а очередь добавила бы персистентное состояние, ретраи и UX-ожидание ради экономии одного клика. Пересмотр — только если появится статистика регулярных BUSY-отказов.
+
+### 75.2 Фикс семантики cooldown_touch (D279)
+
+**БАГ (research):** `await cooldown_touch(...)` стоит ДО probe (handlers/video_download.py:177) — неудачная попытка (yt-dlp fail → `VD_ERROR_PHRASES`, return) сжигает ВЕСЬ кулдаун, юзер не может ретраить.
+
+**Механика фикса (точные правки хендлера):**
+- **Где сейчас:** :173–177 — `cooldown_remaining` гейт → безусловный `cooldown_touch` → probe (:182).
+- **Куда переносится:** `touch` удаляется со старого места (:177) и вызывается ПОСЛЕ успешного probe:
+  - single-link: после `probe = await _downloader.probe(urls[0])` вернулся результат (перед записью `_PENDING[...]`, :188);
+  - multi-link: после завершения `asyncio.gather` (перед записью `_PENDING`, :202). Частично битые ссылки (`probe=None` → кнопка «ссылка N») — штатный UX, а НЕ провал probe-фазы: меню построено, кулдаун честно тикает.
+- **probe fail** (`DownloadError` → `VD_ERROR_PHRASES`, :183–187) → **БЕЗ touch**: юзер сразу ретраит.
+- **BUSY-случаи** (лок занят в `cb_pick_quality`:273–274, гонка `DownloadBusyError`:318–321) → **тоже без touch** — правило общее: **touch только после успешного probe**, callback-фаза кулдаун вообще не трогает (он ставится один раз в message-хендлере).
+- Инвариант: кулдаун = «штраф за успешный запуск пайплайна», а не «штраф за попытку».
+
+### 75.3 Тест-план (Builder, рядом с существующими тестами videodl)
+
+1. **fail probe → гейт открыт:** мок `_downloader.probe` бросает `DownloadError` → первый триггер получает `VD_ERROR_PHRASES`; немедленный повторный триггер проходит кулдаун-гейт (remaining==0) и снова доходит до probe.
+2. **success probe → touch проставлен:** probe ok → повторный триггер получает `VD_COOLDOWN_PHRASES` (кулдаун активен).
+3. **remaining_time от нового touch:** `{remaining_time}` во фразе отсчитывается от момента успешного probe, НЕ от первого (упавшего) триггера.
+4. **BUSY не жжёт кулдаун:** занятый лок при выборе качества → после освобождения лока триггер проходит гейт без ожидания.
+5. Полный pytest — 0 регрессий; `git diff --check` чист.
+
+### 75.4 @DevOps (прод-правка, вне git)
+
+Прод `.env`: `DOWNLOAD_COOLDOWN=30m` → `DOWNLOAD_COOLDOWN=5m`. Значение читается при старте (`make_cooldown`/`CooldownTracker` на setup, handlers/video_download.py:57/76) → **нужен рестарт контейнера бота**, hot-reload нет. Синхронизировать с деплоем v2.47.2 (правки settings.py/.env.example из 75.1 едут тем же релизом).
+
+**DoD Epic 73:** дефолт 5m во всех трёх местах (settings.py / .env.example / README), touch после успешного probe (обе ветки), тесты 75.3 зелёные, прод .env правлен + рестарт.
 
 ---

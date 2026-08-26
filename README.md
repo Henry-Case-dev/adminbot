@@ -514,7 +514,7 @@ docker compose ps             # проверить, что слуги на ме�
 | Переменная | Дефолт | Что меняет |
 |---|---|---|
 | `DOWNLOAD_ENABLED` | `False` | Рубильник фичи «скачай <url>». `False` = ровно старое поведение (облачная сессия, роутер не регистрируется). Для включения нужен Docker-стек (см. раздел выше) |
-| `DOWNLOAD_COOLDOWN` | `30m` | Кулдаун «скачай» на (чат, юзер) |
+| `DOWNLOAD_COOLDOWN` | `5m` | Кулдаун «скачай» на (чат, юзер) |
 | `COBALT_API_URL` | `http://localhost:9000/` | Адрес self-hosted cobalt из docker-compose |
 | `LOCAL_BOT_API_URL` | `http://localhost:8081` | Локальный telegram-bot-api. Нужен только при `DOWNLOAD_ENABLED=True`: большие видео через облачный Bot API не пролезают |
 | `DOWNLOAD_DIR` | `media/downloads` | Папка скачанных файлов (чистится автоматически после отправки) |
