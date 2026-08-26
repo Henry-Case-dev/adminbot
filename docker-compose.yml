@@ -55,3 +55,15 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # Epic 77 (D290): PO Token провайдер для yt-dlp (YouTube «Sign in to
+  # confirm…»). Плагин (pip-пакет bgutil-ytdlp-pot-provider в venv ХОСТА)
+  # ходит на http://127.0.0.1:4416 — дефолтный endpoint HTTP-режима,
+  # конфигурация не нужна. Порт строго на loopback хоста (конвенция
+  # проекта: сервисы наружу не публикуются).
+  bgutil-ytdlp-pot-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider
+    container_name: adminbot-bgutil-pot
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4416:4416"

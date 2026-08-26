@@ -7944,3 +7944,57 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Деплой + глубокая серверная диагностика (ДО и ПОСЛЕ)
 - [ ] T-571 (@DevOps, P0, ←T-568/T-570): ГЛУБОКАЯ диагностика ДО и ПОСЛЕ деплоя на проде nik@198.46.175.136. **ДО (параллельно, можно с T-568):** (1) полный ручной флоу curl: POST к cobalt → получить tunnel URL → скачать файл curl'ом, ЗАМЕРИТЬ размер (ожидаемо 0 при баге); повторить флоу через несколько минут (проверка транзиентности по #1428); (2) `docker logs adminbot-cobalt` в момент ошибок (что cobalt говорит про googlevideo/tunnel); (3) проверить выходной IP xray: `curl -x <xray-proxy> ifconfig.me` и его доступность к youtube (бан googlevideo?) — ЕСЛИ IP ЗАБАНЕН: зафиксировать как ИНФРАСТРУКТУРНУЮ причину и предложить варианты (смена исходящего IP xray / другой конфиг прокси); **ПОСЛЕ (по завершении T-569/T-570):** (4) коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); прод: git pull, restart admin_bot, status/journalctl 0 traceback; smoke ПОЛНЫЙ ФЛОУ: POST → tunnel → скачивание файла с ненулевым размером (+ проверка ретрая в логах при воспроизведении empty body). **DoD:** диагностика ДО зафиксирована (размеры файлов, логи cobalt, вердикт по IP xray), прод v2.47.4, полный smoke зелёный, вердикт «код vs инфраструктура» зафиксирован в отчёте
+
+---
+
+## Epic 76: Ops — ротация исходящего IP xray (новая VLESS Reality gRPC нода) — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0 (продолжение цикла v2.47.4)
+
+> **Цель:** Устранить инфраструктурную причину прод-бага Epic 75: устойчивый мягкий бан
+> googlevideo старого exit IP xray **195.181.173.207/.208** (AS60068) → заменить outbound
+> в `/usr/local/etc/xray/config.json` на новую VLESS Reality gRPC ноду пользователя.
+> Чисто серверная ops-задача (@DevOps), код НЕ трогается, git НЕ затрагивается.
+>
+> **Контекст (research @Memory 2026-08-26e):** бинарь `/usr/local/bin/xray` v26.3.27,
+> systemd `xray.service` (drop-in restart.conf); inbound http 127.0.0.1:10808 с Basic Auth
+> через settings.accounts (эмпирика: поле users молча игнорируется — при ротации НЕ ТРОГАТЬ);
+> креды дублируются в `/root/.xray_local_creds`. Оба потребителя (.env
+> YOUTUBE_TRANSCRIPT_PROXY_URL и docker-compose COBALT_HTTP_PROXY) НЕ меняются —
+> endpoint прокси остаётся прежним, меняется только outbound.
+>
+> **Безопасность (R17):** все значения новой ноды (uuid, sni, publicKey, shortId,
+> serviceName) существуют ТОЛЬКО на сервере — в git/репо/логи отчёта не попадают.
+
+### Ротация outbound + верификация
+- [ ] T-572 (@DevOps, P0): ротация исходящего IP xray на проде nik@198.46.175.136. Шаблон outbound (значения заполнять ТОЛЬКО на сервере, R17): protocol vless → settings.vnext[{address, port:443, users[{id:<uuid>, encryption:none, flow:"", level:0}]}] → streamSettings{network:"grpc", security:"reality", realitySettings{serverName:<sni>, fingerprint:"firefox", publicKey:<pbk>, shortId:<sid>}, grpcSettings{serviceName:<svc>, multiMode:false}}; flow ПУСТОЙ (vision/tcp only), mux выключен; pbk в v26.x = publicKey (если `-test` отвергнет — поле password, сверить эмпирически). Шаги: (1) бэкап `/usr/local/etc/xray/config.json` (+ `.env`, `.bak.rotation`); (2) правка outbound ТОЛЬКО на сервере (inbound/accounts НЕ трогать); (3) валидация `xray run -test -c /usr/local/etc/xray/config.json`; (4) `systemctl restart xray` + journalctl чистый; (5) верификация по чеклисту Epic 40: ipify через прокси = НОВЫЙ IP ≠ 195.181.173.x и ≠ 198.46.175.136; негатив-тест без Basic Auth → HTTP 407; smoke YouTube-движка (`/tmp/epic39_verify.py` ≥3/4 через прокси); smoke cobalt tunnel с ненулевым файлом (POST → tunnel → размер >0). Rollback: восстановить бэкап конфига + restart xray.service. Отчёт PM: новый IP (или маска), результаты чеклиста. **DoD:** новый exit IP подтверждён ipify, `-test` чистый, 407 негатив зелёный, YouTube-smoke ≥3/4, cobalt tunnel файл ненулевого размера, xray.service active, секреты не всплыли
+- [ ] T-573 (@DevOps, P0): ротация outbound xray на ноду Нью-Йорк — продолжение Epic 76 после итога T-572 (новая нода ams.298qu… вышла через ТУ ЖЕ забаненную googlevideo подсеть 195.181.173.0/24). VLESS Reality gRPC от того же провайдера; значения ТОЛЬКО на сервере R17 (uuid/sni/pbk/sid/serviceName не в git/логи). **ОБЯЗАТЕЛЬНЫЙ пре-чек ДО правки конфига:** `curl -x http://<creds>@127.0.0.1:10808 https://api.ipify.org` через ноду → exit IP должен быть ВНЕ 195.181.173.0/24; если внутри подсети — зафиксировать в отчёте и НЕ тратить время на smoke (прецедент MEMORY 2026-08-26). Шаги при прохождении пре-чека: бэкап `config.json.bak.rotation-2608` (уже существует) → замена outbound → `xray run -test` → restart xray.service. **Гейт успеха:** cobalt tunnel файл >0 байт (POST → tunnel → размер >0); доп: ipify подтверждает новый IP, негатив-тест 407. **Rollback:** `/usr/local/etc/xray/config.json.bak.rotation-2608` + restart xray.service. Отчёт PM: exit IP (маска), вердикт пре-чека, результат гейта
+
+---
+
+## Epic 77: YouTube через локальный yt-dlp + PO Token Provider (роутинг Cobalt ↔ yt-dlp) — 2026-08-26 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.48.0)
+
+> **Цель:** YouTube-скачивание сломано структурно: современные DASH-форматы YouTube под
+> SABR/PO-Token enforcement отдают пустой стрим ДАЖЕ с чистым IP (легаси работает).
+> Research-вердикт: cobalt 11.7.1 — последняя версия, проект спит, проблему не решает
+> (статический poToken). yt-dlp уже решил системно через PO Token Provider Framework
+> (плагин `bgutil-ytdlp-pot-provider`, GVS-токен per-video) — yt-dlp УЖЕ в проекте.
+>
+> **Решение:** YouTube-ссылки качать ЛОКАЛЬНЫМ yt-dlp (прокси из существующего
+> `build_ytdlp_base_opts()` + POT-плагин), Cobalt оставить для остальных платформ
+> (VK/Rutube/TikTok и т.д.). Инфраструктура: ffmpeg на сервере (merge видео+аудио
+> для 1440p/2160p), docker-контейнер `brainicism/bgutil-ytdlp-pot-provider` (:4416)
+> в compose, pip-плагин в venv, фолбэк/роутинг в `tools/video_downloader.py`.
+>
+> **Гейт-флаг:** YTDLP_FOR_YOUTUBE (рубильник роутинга). Порядок: @Architect (дизайн ДО
+> реализации) → @Builder → @Reviewer → @DevOps (инфра + сквозной smoke). Без @Orchestrator.
+
+### Архитектура и дизайн
+- [ ] 👤 T-574 (@Architect, P0): дизайн роутинга ДО реализации — детект YouTube URL (youtube.com/youtu.be/music.youtube + shorts; без ложных срабатываний на прочие платформы); yt-dlp download path с format selection по высоте (`bv*[height<=H]+ba/b`, merge → mp4); интеграция с существующим флоу лока/cleanup/отправки (глобальный asyncio.Lock, try...finally удаление файла, FSInputFile supports_streaming=True, Inline-выбор качества переиспользуется); гейт-флаг YTDLP_FOR_YOUTUBE (settings.py + .env.example); поведение при сбое yt-dlp (токсичная фраза из пула ошибок, кулдаун не сожжён — прецедент touch-after-probe Epic 73); канон Section 78 ARCHITECTURE.md; тест-план. **DoD:** Section 78 зафиксирована, контракты (детект URL, формат-селекшн, точки интеграции) определены
+
+### Реализация
+- [ ] T-575 (@Builder, P0, ←T-574): реализация + тесты — ветка yt-dlp в `tools/video_downloader.py` по решению T-574 (YtDlpYouTubeDownloader или эквивалент: base opts из build_ytdlp_base_opts() + POT через bgutil endpoint :4416, format selection по выбранной высоте, выходной файл → общий cleanup/отправка); детект YouTube URL в handlers/video_download.py до выбора провайдера; гейт YTDLP_FOR_YOUTUBE=False → ровно старое cobalt-поведение (0 изменений); АТОМАРНО тесты (детект URL позитив/негатив, гейт off → cobalt, гейт on → yt-dlp path, format string по высоте, сбой → фраза+кулдаун цел, cleanup в finally, регресс cobalt-сценариев Epics 66–75); полный pytest 0 регрессий. **DoD:** все сценарии покрыты, тесты зелёные
+
+### Ревью
+- [ ] T-576 (@Reviewer, P0, ←T-575): ревью Epic 77 — детект URL не ловит чужие платформы; гейт off = байт-в-байт старое поведение; лок семантика не сломана (yt-dlp под тем же asyncio.Lock или обоснованное исключение); cleanup гарантирован; секретов нет; канон Section 78 = коду; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Инфраструктура и деплой
+- [ ] T-577 (@DevOps, P0, ←T-574/T-576): инфраструктура на проде nik@198.46.175.136 — (1) `apt install ffmpeg` (+ проверка `ffmpeg -version`); (2) docker-compose.yml: сервис `bgutil-ytdlp-pot-provider` (образ brainicism/bgutil-ytdlp-pot-provider, порт :4416) + `docker compose up -d` на проде, healthcheck зелёный; (3) venv: `pip install -U yt-dlp` + плагин `bgutil-ytdlp-pot-provider` (pip), верификация `yt-dlp --version` + загрузки плагина в verbose; (4) прод .env: `YTDLP_FOR_YOUTUBE=True` (бэкап `.bak.epic77`; секреты НЕ в git); (5) коммит цикла на русском (conventional commits) + пуш origin/master; git pull, restart admin_bot, journalctl 0 traceback; (6) сквозной smoke «скачай <yt>» 1080p И 2160p — **главный гейт: ненулевой файл** (2160p дополнительно доказывает ffmpeg merge bv+ba). Rollback: YTDLP_FOR_YOUTUBE=False + restart. Отчёт PM: размеры файлов, версии, вердикт гейта. **DoD:** ffmpeg установлен, bgutil-контейнер жив, плагин в venv, прод v2.48.0, оба smokes зелёные с ненулевыми файлами

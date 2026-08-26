@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 
-from config.settings import build_ytdlp_base_opts
+from config.settings import build_ytdlp_base_opts, settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 _PROBE_TIMEOUT_SECONDS = 20.0
 _COBALT_POST_TIMEOUT = aiohttp.ClientTimeout(total=25, connect=10, sock_read=15)
 _STREAM_TIMEOUT = aiohttp.ClientTimeout(total=300)
+
+# Epic 77 (D287): таймаут yt-dlp-ветки скачивания (больше cobalt-ских
+# 300с×2, т.к. сюда входит merge ffmpeg; бюджет один на всю операцию).
+_YTDLP_DOWNLOAD_TIMEOUT_SECONDS = 900.0
+
+# Epic 77 (D286): ТОЛЬКО эти хосты идут в yt-dlp-ветку; остальные платформы
+# (vimeo, vk, …) — cobalt как раньше. Поддомены/подмена не матчатся.
+_YOUTUBE_HOSTS = frozenset({
+    "youtube.com", "www.youtube.com", "m.youtube.com",
+    "youtu.be", "music.youtube.com",
+})
 
 # Допустимые высоты (DESC); пересечение с найденными у источника.
 _ALLOWED_HEIGHTS: tuple[int, ...] = (2160, 1440, 1080, 720, 480, 360)
@@ -42,6 +53,10 @@ _ERROR_BODY_MAX_BYTES = 1024
 _EMPTY_BODY_RETRY_DELAY_SECONDS = 4.0
 
 _FILENAME_SANITIZE_RE = re.compile(r"[^\w.\- ]+")
+
+# Epic 77 (review-fix): инфикс промежуточных файлов yt-dlp при merge
+# (vd_*.f137.mp4 / vd_*.f140.m4a — YoutubeDL.py prepend_extension).
+_INTERMEDIATE_INFIX_RE = re.compile(r"\.f\d+\.[^.]+$")
 
 
 class DownloadError(Exception):
@@ -64,6 +79,22 @@ class CobaltServiceDownError(DownloadError):
 class ProbeResult:
     title: str
     qualities: tuple[str, ...]          # «360p»…«2160p», DESC
+
+
+def is_youtube_url(url: str) -> bool:
+    """Epic 77 (D286): YouTube-URL → yt-dlp-ветка, остальные → cobalt.
+
+    hostname (lowercase, без трейлинг точки) строго в _YOUTUBE_HOSTS;
+    scheme только http/https; любой парс-фейл/None-hostname → False.
+    """
+    try:
+        parts = urlsplit(str(url))
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https"):
+        return False
+    hostname = (parts.hostname or "").lower().rstrip(".")
+    return hostname in _YOUTUBE_HOSTS
 
 
 def unique_qualities(formats) -> tuple[str, ...]:
@@ -129,13 +160,99 @@ class VideoDownloader:
         return ProbeResult(title=str(title), qualities=qualities)
 
     async def download(self, url: str, quality: str) -> Path:
-        """Скачивание под ГЛОБАЛЬНЫМ локом. Занят → DownloadBusyError сразу."""
+        """Скачивание под ГЛОБАЛЬНЫМ локом. Занят → DownloadBusyError сразу.
+        Epic 77 (D288): YouTube + гейт on → yt-dlp-ветка; иначе cobalt.
+        Контракт (url, quality) -> Path НЕ меняется."""
         if self._lock.locked():
             raise DownloadBusyError("another download is running")
         async with self._lock:
             self._download_dir.mkdir(parents=True, exist_ok=True)
+            if settings.YTDLP_FOR_YOUTUBE and is_youtube_url(url):
+                return await self.download_ytdlp(url, quality)
             tunnel_url, filename = await self._request_tunnel(url, quality)
             return await self._stream_to_file(tunnel_url, filename)
+
+    async def download_ytdlp(self, url: str, quality: str) -> Path:
+        """Epic 77 (D287): YouTube через локальный yt-dlp (+POT-плагин).
+        Вызывается ИЗ download() под глобальным локом. Возвращает
+        ФАКТИЧЕСКИЙ post-merge путь (итоговый mp4).
+
+        Review-fix Epic 77: итоговый путь берётся из
+        info["requested_downloads"][-1]["filepath"] после
+        extract_info(download=True). progress_hooks "finished" стреляют
+        ТОЛЬКО на фазе скачивания и несут PRE-merge имена промежуточных
+        файлов (vd_*.f<id>.mp4 / vd_*.f<id>.m4a) — merged-файл там НЕ
+        появляется (merge = постпроцессор, см. YoutubeDL.py:3559-3577).
+        """
+        from yt_dlp import YoutubeDL              # ленивый тяжёлый импорт (D261)
+
+        quality_norm = self._normalize_quality(quality)
+        if quality_norm == "max":
+            format_selector = "bv[ext=mp4]+ba[ext=m4a]/bv+ba/b"
+        else:
+            h = int(quality_norm)
+            format_selector = (
+                f"bv[ext=mp4][height<={h}]+ba[ext=m4a]"
+                f"/bv[height<={h}]+ba/b[height<={h}]")
+        stamp = int(time.time())
+        rand = secrets.token_hex(4)
+        prefix = f"vd_{stamp}_{rand}"
+        outtmpl = str(self._download_dir / f"{prefix}.%(ext)s")
+
+        def _hook(d: dict) -> None:
+            if d.get("status") == "downloading" and \
+                    d.get("downloaded_bytes", 0) > VD_MAX_BYTES:
+                raise DownloadTooBigError(
+                    f"file exceeds {VD_MAX_BYTES} bytes")
+
+        opts = {**build_ytdlp_base_opts(), "format": format_selector,
+                "merge_output_format": "mp4", "outtmpl": outtmpl,
+                "noplaylist": True, "quiet": True, "noprogress": True,
+                "progress_hooks": [_hook]}
+
+        def _run() -> dict:
+            with YoutubeDL(opts) as ydl:
+                return ydl.extract_info(url, download=True)
+
+        ok = False
+        info: dict | None = None
+        try:
+            info = await asyncio.wait_for(
+                asyncio.to_thread(_run),
+                timeout=_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)
+            ok = True
+        except asyncio.TimeoutError as exc:
+            raise DownloadError(
+                f"yt-dlp timeout after "
+                f"{int(_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)}s") from exc
+        except DownloadTooBigError:
+            raise                       # TOO_BIG-пул фраз в хендлере (D288)
+        except Exception as exc:
+            raise DownloadError(f"yt-dlp failed: {exc}") from exc
+        finally:
+            # исключение (TooBig/таймаут/yt-dlp) → .part/.ytdl артефакты
+            # не копим (78.1 п.3)
+            if not ok:
+                for leftover in self._download_dir.glob(f"{prefix}.*"):
+                    leftover.unlink(missing_ok=True)
+
+        # Канонический post-merge путь: requested_downloads заполняется
+        # ПОСЛЕ постпроцессоров (merge) → filepath = итоговый файл.
+        requested = info.get("requested_downloads") if isinstance(
+            info, dict) else None
+        if isinstance(requested, list) and requested and \
+                isinstance(requested[-1], dict) and \
+                requested[-1].get("filepath"):
+            return Path(str(requested[-1]["filepath"]))
+        # Fallback: glob БЕЗ промежуточных (vd_*.f<id>.*, .part/.ytdl);
+        # ровно один кандидат → он итоговый, иначе неоднозначность → ошибка.
+        matches = sorted(
+            p for p in self._download_dir.glob(f"{prefix}.*")
+            if p.suffix not in (".part", ".ytdl")
+            and not _INTERMEDIATE_INFIX_RE.search(p.name))
+        if len(matches) == 1:
+            return matches[0]
+        raise DownloadError("yt-dlp finished but output file not found")
 
     async def _request_tunnel(self, url: str, quality: str) -> tuple[str, str | None]:
         """POST на Cobalt: {url, videoQuality, downloadMode:'auto'} → tunnel URL.

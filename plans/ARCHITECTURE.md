@@ -15188,6 +15188,92 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 
 ### 77.3 @DevOps (диагностика IP-бана googlevideo, вне git)
 
-При повторении инцидента на сервере: (1) взять `gv_id` из лога `tunnel empty body` и повторить GET того же tunnel URL вручную curl'ом с сервера — подтвердить 0 байт при 200; (2) проверить выходной IP прокси (`curl -x $PROXY ifconfig.me`) и сравнить с прямым запросом без прокси — если без прокси стрим отдаёт байты, а через прокси нет → бан выходного IP googlevideo подтверждён; (3) повторить через ~5–10 минут — если восстановилось, транзиентность #1428 подтверждена (ретрай D283 был прав); (4) при устойчивом бане — ротация выходного IP прокси или жалоба провайдеру прокси; (5) сверить частоту `tunnel empty body` в Betterstack до/после деплоя v2.47.4 — метрика успеха фикса: доля вылеченных ретраем (attempt=2 успешен) видна прямо в логах.
+При повторении инцидента на сервере: (1) взять `gv_id` из лога `tunnel empty body` и повторить GET того же tunnel URL вручную curl'ом с сервера — подтвердить 0 байт при 200; (2) проверить выходной IP прокси (`curl -x $PROXY ifconfig.me`) и сравнить с прямым запросом без прокси — если без прокси стрим отдаёт байты, а через прокси нет → бан выходной IP googlevideo подтверждён; (3) повторить через ~5–10 минут — если восстановилось, транзиентность #1428 подтверждена (ретрай D283 был прав); (4) при устойчивом бане — ротация выходного IP прокси или жалоба провайдеру прокси; (5) сверить частоту `tunnel empty body` в Betterstack до/после деплоя v2.47.4 — метрика успеха фикса: доля вылеченных ретраем (attempt=2 успешен) видна прямо в логах.
+
+---
+
+## Section 78 — Epic 77: YouTube через локальный yt-dlp (PO Token Provider) вместо cobalt (v2.48.0, DESIGN, T-574)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect). **Root cause (research):** cobalt на YouTube DASH-форматах отдаёт пустой стрим (SABR/PO-Token): Section 77 (D283/D284) лечил симптом ретраем, но причина системная — YouTube требует PO Token для googlevideo-URL, который cobalt не умеет добывать. yt-dlp решает это через **PO Token Provider Framework**: плагин `bgutil-ytdlp-pot-provider` (pip в venv хоста) + docker-сервис `brainicism/bgutil-ytdlp-pot-provider` (:4416 HTTP server mode). Проблема затрагивает ТОЛЬКО YouTube: остальные платформы cobalt качает штатно. Пулы фраз, флоу, локализация и cleanup-хендлер НЕ меняются — меняется только бэкенд скачивания внутри `VideoDownloader` (tools/video_downloader.py).
+
+### 78.1 Решения
+
+1. **Гейт `YTDLP_FOR_YOUTUBE` (D285).** `config/settings.py`: `YTDLP_FOR_YOUTUBE: bool = _env_bool("YTDLP_FOR_YOUTUBE", True)` рядом с блоком Epic 66 (после `DOWNLOAD_DIR`, settings.py:684). Дефолт **true** — yt-dlp путь основной, cobalt остаётся fallback-веткой для не-YouTube. `.env.example`: строка после `DOWNLOAD_DIR` — `# Epic 77 (T-574): true = YouTube качаем локальным yt-dlp (+PO Token провайдер :4416); false = возврат на cobalt для всего.` + `YTDLP_FOR_YOUTUBE=True`. Семантика рубильника: false → РОВНО прежнее поведение (всё через cobalt, включая YouTube) без правки кода.
+
+2. **Детект YouTube URL — `is_youtube_url()` (D286).** Модульная функция в tools/video_downloader.py: `urlsplit(url)` → `hostname` → lowercase, снять трейлинг точку → членство во `frozenset({"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com"})`; scheme только http/https; любой парс-фейл/None-hostname → False. Остальные платформы (vimeo, vk, …) → False → cobalt-ветка как раньше. Функция чистая, тестируется матрицей без сети.
+
+3. **Метод `download_ytdlp(url, quality)` (D287).** Внутри `VideoDownloader`; вызывается ИЗ `download()` под тем же глобальным локом (`self._lock`) — конкурентность «одно скачивание на процесс» сохранена (Section 70.4). Сигнатура `(url: str, quality: str) -> Path`.
+   - **Высота:** переиспользовать `_normalize_quality(quality)` (D280): `"1080p"/"1080"/1080` → `"1080"` → `h = int(...)`; `"max"` → селектор БЕЗ потолка высоты.
+   - **Точный format-selector (решение):**
+     - c высотой: `f"bv[ext=mp4][height<={h}]+ba[ext=m4a]/bv[height<={h}]+ba/b[height<={h}]"`;
+     - `max`: `"bv[ext=mp4]+ba[ext=m4a]/bv+ba/b"`.
+     Обоснование: приоритет mp4-видео + m4a-аудио (нативная пара для mp4-контейнера, минимум ремуксов); фоллбэк на любые `bv+ba` (merge всё равно сделает ffmpeg); последний термин `b[...]` — прогрессивный single-формат, если split-форматов нет. Плюс `'merge_output_format': 'mp4'` — контейнер результата ВСЕГДА mp4 независимо от исходных ext (webm/mkv-потоки ремуксятся ffmpeg'ом). Это гарантирует `send_video(supports_streaming=True)` без сюрпризов кодек-контейнера.
+   - **Полные opts:** `{**build_ytdlp_base_opts(), "format": <селектор>, "merge_output_format": "mp4", "outtmpl": <шаблон ниже>, "noplaylist": True, "quiet": True, "noprogress": True}`. Прокси/cookies наследуются от единого источника (74.A) — фикс «Sign in to confirm…» применяется автоматически.
+   - **Имя файла:** тот же паттерн, что у cobalt-ветки: `outtmpl = str(self._download_dir / f"vd_{stamp}_{rand}.%(ext)s")` (stamp+`secrets.token_hex(4)`). yt-dlp может отдать расширение, отличное от mp4, ДО merge — потому `%(ext)s`, а НЕ жёсткий `.mp4`.
+   - **Получение фактического пути (review-fix Epic 77):** итоговый post-merge путь берётся из `info["requested_downloads"][-1]["filepath"]` после `extract_info(url, download=True)` — это ЕДИНСТВЕННЫЙ надёжный источник: `progress_hooks` вызываются только на фазе скачивания и несут PRE-merge имена промежуточных файлов (`vd_*.f<id>.mp4` / `vd_*.f<id>.m4a`, YoutubeDL.py:3559–3570 prepend_extension), merged-файл в них НЕ приходит (merge = постпроцессор). Резервная стратегия: если `requested_downloads` пуст — glob `vd_{stamp}_{rand}.*`, ИСКЛЮЧАЯ промежуточные (`vd_*.f<id>.*`, `.part`/`.ytdl`); ровно один кандидат → вернуть; ноль/больше одного → `DownloadError`. Возвращается ФАКТИЧЕСКИЙ Path.
+   - **Лимит размера:** в том же hook при `status == "downloading"` проверять `d.get("downloaded_bytes", 0) > VD_MAX_BYTES` → `DownloadTooBigError` (паритет с cobalt-стримом, лимит 2 GB локального Bot API).
+   - **Выполнение:** синхронный `with YoutubeDL(opts) as ydl: ydl.extract_info(url, download=True)` в `asyncio.to_thread`, обёрнутый в `asyncio.wait_for(..., timeout=_YTDLP_DOWNLOAD_TIMEOUT_SECONDS=900)` (константа модуля; больше cobalt-ских 300с×2, т.к. сюда входит merge ffmpeg; бюджет один на всю операцию). Таймаут/любое исключение yt-dlp → `DownloadError` с текстом исключения (title/url целиком НЕ логируем — R17).
+   - **Cleanup частичного файла:** try/finally вокруг to_thread — при любом исключении удалить все `vd_{stamp}_{rand}.*` в DOWNLOAD_DIR (yt-dlp оставляет `.part`/`.ytdl` артефакты).
+
+4. **Интеграция в `download()` (D288).** Контракт НЕ меняется: `download(url, quality) -> Path`, хендлер `cb_pick_quality` (handlers/video_download.py:298) остаётся как есть. Вход в ветку — сразу после `mkdir` внутри лока:
+   ```python
+   if settings.YTDLP_FOR_YOUTUBE and is_youtube_url(url):
+       return await self._download_ytdlp_branch(url, quality)
+   tunnel_url, filename = await self._request_tunnel(url, quality)
+   return await self._stream_to_file(tunnel_url, filename)
+   ```
+   (приватный враппер нужен, чтобы cobalt-код не тащил импорт yt-dlp; ленивый тяжёлый импорт `from yt_dlp import YoutubeDL` — внутри метода, как уже сделано в `probe()`, D261). Классы ошибок сохраняются: `DownloadTooBigError` → TOO_BIG-пул фраз, прочие `DownloadError` → ERROR-пул — хендлеру не нужно знать про бэкенд.
+
+5. **Cleanup — сверен, изменений НЕТ (D289).** Хендлер удаляет файл в `finally` по фактическому пути: `path.exists() → path.unlink()` (handlers/video_download.py:332-335). yt-dlp-файл лежит в той же `DOWNLOAD_DIR` (`vd_*.mp4` после merge), `FSInputFile(str(path.absolute()))` работает одинаково. Единственное требование — возвращать именно итоговый post-merge путь (гарантия п.3): если вернуть pre-merge `.webm`, отправка уйдёт битой, а `.mp4` останется мусором. Тест на cleanup-path см. 78.2 #7.
+
+6. **Инфраструктура (D290).** docker-compose.yml — новый сервис ПОСЛЕ cobalt:
+   ```yaml
+   bgutil-ytdlp-pot-provider:
+     image: brainicism/bgutil-ytdlp-pot-provider
+     container_name: adminbot-bgutil-pot
+     restart: unless-stopped
+     ports:
+       - "127.0.0.1:4416:4416"
+   ```
+   Порт строго на loopback (конвенция проекта: бот — хостовой python-процесс, сервисы наружу не публикуются; network_mode host НЕ нужен — плагин ходит на `127.0.0.1:4416` дефолтным HTTP-режимом). **Плагин ставится pip'ом в venv хоста, НЕ в контейнер:** `pip install bgutil-ytdlp-pot-provider` в requirements.txt добавить `bgutil-ytdlp-pot-provider>=1.0.0`; yt-dlp подхватывает плагин автоматически из site-packages (default plugin dir), конфигурация не нужна — HTTP-mode endpoint `http://127.0.0.1:4416` является дефолтом плагина. Задокументировано здесь и в README-разделе деплоя (Builder обновляет).
+
+### 78.2 Тест-план (Builder)
+
+| # | Кейс | Ожидание |
+|---|------|----------|
+| 1 | Матрица `is_youtube_url`: `https://youtube.com/watch?v=x`, `www.youtube.com/shorts/…`, `m.youtube.com/…`, `https://youtu.be/abc`, `music.youtube.com/watch?v=x`, http/https | True для всех шести хостов |
+| 2 | Не-youtube: `vimeo.com/…`, `vk.com/video…`, `example.com`, мусор `"not a url"`, пусто, `ftp://youtube.com/x`, subdomain-подмена `evil-youtube.com`, `youtube.com.evil.com` | False → cobalt-ветка |
+| 3 | Гейт off: `YTDLP_FOR_YOUTUBE=false` + youtube-URL | `_request_tunnel` вызван (cobalt), `download_ytdlp` НЕ вызван |
+| 4 | Гейт on + youtube-URL | `download_ytdlp` вызван, `_request_tunnel` НЕ вызван; скачивание под глобальным локом (`busy` во время работы = True) |
+| 5 | Format-selector: quality `"720p"` → opts["format"] содержит `height<=720` И начинается с `bv[ext=mp4]`; `"1080"` (int-вход через D280) → `height<=1080`; `"max"` → селектор без height-фильтра |
+| 6 | opts: `noplaylist=True`, `quiet=True`, `merge_output_format="mp4"`, прокси из `build_ytdlp_base_opts()` проброшен (мок settings с proxy → ключ есть) |
+| 7 | Cleanup: yt-dlp вернул путь → файл удалён хендлер-паттерном `path.unlink()`; исключение в download_ytdlp → `vd_{stamp}_{rand}.*` (включая `.part`) отсутствуют в DOWNLOAD_DIR |
+| 8 | Post-merge путь: мок `extract_info` отдаёт `requested_downloads[-1]["filepath"]` = `.mp4` → возвращён именно он (не `.webm`); `requested_downloads` пуст + в каталоге промежуточные `vd_*.f<id>.*` и merged-файл → glob-fallback вернул merged (промежуточные исключены); fallback без кандидатов/с двумя → `DownloadError` |
+| 9 | Лимит: downloaded_bytes > VD_MAX_BYTES → `DownloadTooBigError` (хендлер отвечает TOO_BIG-фразой) |
+| 10 | Выполнение в потоке: YoutubeDL.extract_info вызван через to_thread (patch asyncio.to_thread или spy); таймаут 900с → DownloadError |
+| 11 | Полный pytest — 0 регрессий (тесты Sections 70/74/76/77 зелёные; существующие cobalt-кейсы не изменились) |
+
+### 78.3 Чеклист @DevOps
+
+| # | Шаг | Проверка |
+|---|-----|----------|
+| 1 | Установить **ffmpeg** на сервер (apt install ffmpeg) — обязателен для merge bv+ba | `ffmpeg -version` |
+| 2 | `docker compose pull && docker compose up -d bgutil-ytdlp-pot-provider` | `docker ps \| grep bgutil` |
+| 3 | Порт только на loopback | `ss -tlnp \| grep 4416` → только 127.0.0.1 |
+| 4 | Живость POT-сервера | `curl -s http://127.0.0.1:4416/ping` |
+| 5 | Зависимости в venv: `pip install -r requirements.txt` — строка `yt-dlp[default]>=2026.7.4` (extras тянет `yt-dlp-ejs` + requests/websockets, обязательные для YouTube в 2026.x) и `bgutil-ytdlp-pot-provider>=1.0.0` | `pip show bgutil-ytdlp-pot-provider yt-dlp-ejs`; `yt-dlp -v <yt-url>` → в логе загружен POT plugin И js challenge provider |
+| 6 | **JS-runtime (deno) на хосте** — yt-dlp 2026.x решает nsig/sig-челленджи YouTube через yt-dlp-ejs и требует JS-движок (deno включён по умолчанию; node/bun/quickjs — альтернативы). Без него — WARNING «No supported JavaScript runtime could be found» и деградация/отказ извлечения | `deno --version` (или `node --version`); `yt-dlp -v <yt-url>` без JS-runtime warnings |
+| 7 | `.env` прода: `YTDLP_FOR_YOUTUBE=true` (дефолт можно не писать; false = мгновенный откат на cobalt без деплоя) | — |
+| 8 | Поведение при недоступном POT-сервере (риск R-1): yt-dlp **деградирует** — WARNING вида `unable to extract POT token`/`falling back to … client`; часть видео скачается клиентами без POT (android/ios), часть упадёт «Sign in to confirm you're not a bot» → ERROR-фраза юзеру. Это ОЖИДАЕМОЕ поведение, НЕ баг плагина: диагностика начинается с `curl http://127.0.0.1:4416/ping` и `docker logs adminbot-bgutil-pot` |
+| 9 | Метрика успеха в Betterstack: доля `[videodl] downloaded` для youtube-URL до/после; рост `empty body from tunnel` на youtube должен уйти в ноль (cobalt остаётся только для не-youtube) |
+
+### 78.4 Риски
+
+| Риск | Вероятность | Митигация |
+|------|-------------|-----------|
+| R-1: POT-сервер лежит → деградация yt-dlp (см. 78.3 #7) | Средняя | restart: unless-stopped + healthcheck вручную; гейт `YTDLP_FOR_YOUTUBE=false` = мгновенный возврат на cobalt-путь без деплоя |
+| R-2: ffmpeg отсутствует на проде → merge падает на всех split-форматах; ИЛИ нет deno/JS-runtime / yt-dlp-ejs → извлечение YouTube деградирует | Средняя (забыты при деплое) | DevOps чеклист шаги 1/5/6 ДО включения гейта; селектор содержит терминальный `b[…]` (single-format без merge), но полагаться на него нельзя — считать ffmpeg обязательным |
+| R-3: yt-dlp медленнее cobalt (тот же трафик минуя tunnel-оптимизации) | Низкая | таймаут 900с с запасом; кулдаун 5m (Section 75) уже ограничивает частоту |
+| R-4: YouTube меняет PO Token требования → плагин/сервер требуют апдейта | Средняя, внешняя | версии в requirements/compose фиксируются слабо (>=); процедура: обновить pip-плагин + образ докера |
 
 ---

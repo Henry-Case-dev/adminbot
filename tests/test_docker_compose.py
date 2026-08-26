@@ -17,10 +17,15 @@ def _compose_text() -> str:
 
 
 def _cobalt_block() -> str:
-    """Текст сервиса cobalt до конца файла (он последний в compose)."""
+    """Текст сервиса cobalt до следующего top-level сервиса
+    (Epic 77 добавил bgutil-ytdlp-pot-provider после cobalt)."""
     text = _compose_text()
     start = text.index("  cobalt:")
-    return text[start:]
+    rest = text[start:]
+    next_svc = re.search(r"\n  \w[\w-]*:\r?\n", rest[len("  cobalt:"):])
+    if next_svc:
+        return rest[:next_svc.start() + 1]
+    return rest
 
 
 class TestCobaltProxyEnv:

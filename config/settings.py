@@ -682,6 +682,9 @@ class Settings:
     LOCAL_BOT_API_URL: str = _env_str("LOCAL_BOT_API_URL", "http://localhost:8081")
     # Папка скачанных файлов на хосте (чистится автоматически после отправки).
     DOWNLOAD_DIR: str = _env_str("DOWNLOAD_DIR", "media/downloads")
+    # Epic 77 (T-574): true = YouTube качаем локальным yt-dlp (+PO Token
+    # провайдер :4416); false = возврат на cobalt для всего.
+    YTDLP_FOR_YOUTUBE: bool = _env_bool("YTDLP_FOR_YOUTUBE", True)
 
     # ── Epic 67: VoiceTranscriber (Section 71) ──
     # Рубильник транскрипции voice/video_note. False = роутер не регистрируется.
