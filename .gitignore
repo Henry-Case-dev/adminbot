@@ -51,3 +51,6 @@ chrome-profile/Favicons-journal
 chrome-profile/History
 chrome-profile/History-journal
 chrome-profile/Sync Data/
+
+# Бот-профиль для экспорта кукис (создаётся интерактивным логином, секрет)
+bot-chrome-profile/
