@@ -518,3 +518,145 @@ class TestAlbumCaptionBuffer:
         service.check_claim.assert_awaited_once_with(
             "глянь это", None, None, chat_id=CHAT_ID, chat_context=None
         )
+
+
+# ── Epic 72 (74.C.3/D275): фактчек на расшифровке → автор исходного ГС ──
+
+from handlers import voice_transcription as vt_mod
+
+
+@pytest.fixture
+def transcription_bot_id(monkeypatch):
+    """Детектор 74.C требует vt._bot_id == id автора цели.
+    Восстанавливаем также _cooldown (setup_factcheck с db создаёт
+    PersistentCooldownTracker — teardown factcheck_cleanup ждёт in-memory)."""
+    monkeypatch.setattr(vt_mod, "_bot_id", 999)
+    monkeypatch.setattr(factcheck_mod, "_db", None)   # restore при teardown
+    old_cooldown = factcheck_mod._cooldown
+    yield
+    factcheck_mod._service = None
+    factcheck_mod._cooldown = old_cooldown
+
+
+def _transcription_target(message_id=77, text="Вася 🗣: заявление о дате",
+                          reply_to_message=None):
+    target = _make_msg(text=text, message_id=message_id,
+                       reply_to_message=reply_to_message)
+    target.from_user.id = 999                         # бот-автор расшифровки
+    return target
+
+
+class TestTranscriptionClaimAttribution:
+    @pytest.mark.asyncio
+    async def test_claim_clean_and_attributed_to_original_author(
+            self, factcheck_cleanup, transcription_bot_id):
+        """Клейм = текст после «🗣:»; forward_source = author_name из БД."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        db = MagicMock()
+        db.get_smart_message_by_tg_id = AsyncMock(
+            return_value={"forward_source": "", "author_name": "Гена"})
+        factcheck_mod.setup_factcheck(service, db=db)
+        orig_voice = _make_msg(message_id=555)
+        target = _transcription_target(reply_to_message=orig_voice)
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        service.check_claim.assert_awaited_once_with(
+            "заявление о дате", None, "Гена",
+            chat_id=CHAT_ID, chat_context=None)
+
+    @pytest.mark.asyncio
+    async def test_forward_source_preferred_over_author_name(
+            self, factcheck_cleanup, transcription_bot_id):
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        db = MagicMock()
+        db.get_smart_message_by_tg_id = AsyncMock(
+            return_value={"forward_source": "Канал X", "author_name": "Гена"})
+        factcheck_mod.setup_factcheck(service, db=db)
+        orig_voice = _make_msg(message_id=555)
+        target = _transcription_target(reply_to_message=orig_voice)
+        msg = _make_msg(text="фактчек", message_id=11,
+                        reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        assert service.check_claim.await_args.args[2] == "Канал X"
+
+    @pytest.mark.asyncio
+    async def test_missing_db_row_fail_open(
+            self, factcheck_cleanup, transcription_bot_id):
+        """Строки нет (TTL/observer молчал) → клейм чистый, без атрибуции."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        db = MagicMock()
+        db.get_smart_message_by_tg_id = AsyncMock(return_value=None)
+        factcheck_mod.setup_factcheck(service, db=db)
+        target = _transcription_target()
+        msg = _make_msg(text="фактчек", message_id=11,
+                        reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        args = service.check_claim.await_args.args
+        assert args[0] == "заявление о дате"
+        assert args[2] is None
+
+    @pytest.mark.asyncio
+    async def test_db_error_fail_open(
+            self, factcheck_cleanup, transcription_bot_id):
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        db = MagicMock()
+        db.get_smart_message_by_tg_id = AsyncMock(
+            side_effect=RuntimeError("db boom"))
+        factcheck_mod.setup_factcheck(service, db=db)
+        target = _transcription_target()
+        msg = _make_msg(text="фактчек", message_id=11,
+                        reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        assert service.check_claim.await_args.args[0] == "заявление о дате"
+        assert service.check_claim.await_args.args[2] is None
+
+    @pytest.mark.asyncio
+    async def test_no_db_di_still_cleans_claim(
+            self, factcheck_cleanup, transcription_bot_id):
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        factcheck_mod.setup_factcheck(service)
+        target = _transcription_target(text="Вася 🗣: голый клейм")
+        msg = _make_msg(text="фактчек", message_id=11,
+                        reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        args = service.check_claim.await_args.args
+        assert args[0] == "голый клейм"
+        assert args[2] is None
+
+    @pytest.mark.asyncio
+    async def test_regular_bot_reply_unchanged(
+            self, factcheck_cleanup, transcription_bot_id):
+        """Реплай на обычное сообщение бота (не расшифровка) — прежний путь."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        factcheck_mod.setup_factcheck(service)
+        target = _make_msg(text="обычное сообщение бота", message_id=77)
+        target.from_user.id = 999
+        msg = _make_msg(text="фактчек", message_id=11,
+                        reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        args = service.check_claim.await_args.args
+        assert args[0] == "обычное сообщение бота"
+        assert args[2] is None
+
+    @pytest.mark.asyncio
+    async def test_explicit_forward_of_target_wins(
+            self, factcheck_cleanup, transcription_bot_id):
+        """Явный user-forward цели имеет приоритет над автором ГС (D275)."""
+        service = MagicMock()
+        service.check_claim = AsyncMock(return_value="вердикт")
+        db = MagicMock()
+        db.get_smart_message_by_tg_id = AsyncMock(
+            return_value={"forward_source": "", "author_name": "Гена"})
+        factcheck_mod.setup_factcheck(service, db=db)
+        target = _make_msg(text="содержание репоста", message_id=77,
+                           forward_origin=_channel_origin())
+        msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
+        await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
+        assert service.check_claim.await_args.args == (
+            "содержание репоста", None, "Канал X @channelx Подпись")

@@ -28,6 +28,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import Command, CommandObject
 
 from config.settings import settings
+from handlers.voice_transcription import is_reply_to_transcription
 from services.direct_chat_service import DirectChatService
 from services.smartmodule_phrases import (
     CHAT_CLEAR_DONE_PHRASE,
@@ -122,6 +123,10 @@ def _is_direct_trigger(message: types.Message) -> bool:
     if reply_to is not None:
         reply_from = getattr(reply_to, "from_user", None)
         if reply_from is not None and reply_from.id == _bot_id:
+            # Epic 72 (74.C, T-556): расшифровка — НЕ direct chat; гейт даёт
+            # 0i транскрибировать голосовой реплай на неё штатно.
+            if is_reply_to_transcription(message):
+                return False
             return True
     if _has_bot_mention(message):
         return True

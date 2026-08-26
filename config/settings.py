@@ -733,3 +733,18 @@ Settings._TONE_WORD_BY_KEY = {v: k for k, v in Settings._TONE_KEY_BY_WORD.items(
 
 
 settings = Settings()
+
+
+def build_ytdlp_base_opts() -> dict:
+    """Epic 72 (Section 74.A): общие yt-dlp опции прокси/cookies — ЕДИНЫЙ
+    источник для services/youtube_transcript_engine.py и tools/video_downloader.py.
+    Пустые настройки → ключи отсутствуют (поведение «без прокси», D142).
+    R17: значения НЕ логируются."""
+    opts: dict = {}
+    proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
+    if proxy:
+        opts["proxy"] = proxy
+    cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
+    if cookies:
+        opts["cookiefile"] = cookies
+    return opts

@@ -430,3 +430,242 @@ class TestXmlBodyNoSuffix:
 def test_voice_transcript_in_fact_origins():
     from services.summary_memory import _FACT_ORIGINS
     assert "voice_transcript" in _FACT_ORIGINS
+
+
+# ── Epic 72 (74.B/D272): автор форварда в транскрипции ───────────────
+
+from aiogram.types import (
+    Chat,
+    MessageOriginChannel,
+    MessageOriginChat,
+    MessageOriginHiddenUser,
+    MessageOriginUser,
+    User,
+)
+
+
+def _origin_user(user_id=555, first_name="Олег", username="oleg_src"):
+    return MessageOriginUser(
+        type="user", date=1234567890,
+        sender_user=User(id=user_id, is_bot=False, first_name=first_name,
+                         username=username))
+
+
+def _origin_hidden(name="Скрытый Гость"):
+    return MessageOriginHiddenUser(
+        type="hidden_user", date=1234567890, sender_user_name=name)
+
+
+def _origin_channel(title="Канал X", username="channelx"):
+    return MessageOriginChannel(
+        type="channel", date=1234567890,
+        chat=Chat(id=-100999, type="channel", title=title, username=username),
+        message_id=42)
+
+
+def _origin_chat(title="Группа Y", username="groupy"):
+    return MessageOriginChat(
+        type="chat", date=1234567890,
+        sender_chat=Chat(id=-100888, type="group", title=title,
+                         username=username))
+
+
+@pytest.fixture
+def summary_aliases(monkeypatch):
+    """_extract_forward_source читает глобальную handlers.summary._aliases."""
+    from handlers import summary as summary_mod
+    resolver = MagicMock()
+    resolver.resolve = MagicMock(
+        side_effect=lambda uid, nickname=None, username=None:
+            nickname or "Анонимус")
+    monkeypatch.setattr(summary_mod, "_aliases", resolver)
+    return resolver
+
+
+class TestResolveTranscriptAuthor:
+    """Epic 72 (74.B.1/D272): каскад переиспользован из handlers/summary."""
+
+    def test_forward_from_user_resolves_via_alias_cascade(self, summary_aliases):
+        msg = _make_msg()
+        msg.forward_origin = _origin_user(first_name="Олег")
+        assert vt._resolve_transcript_author(msg) == "Олег"
+        summary_aliases.resolve.assert_called_once()
+
+    def test_forward_hidden_user_uses_sender_user_name(self, summary_aliases):
+        msg = _make_msg()
+        msg.forward_origin = _origin_hidden("Скрытый Гость")
+        assert vt._resolve_transcript_author(msg) == "Скрытый Гость"
+
+    def test_forward_channel_uses_title_and_username(self, summary_aliases):
+        msg = _make_msg()
+        msg.forward_origin = _origin_channel("Канал X", "channelx")
+        assert vt._resolve_transcript_author(msg) == "Канал X @channelx"
+
+    def test_forward_chat_uses_title(self, summary_aliases):
+        msg = _make_msg()
+        msg.forward_origin = _origin_chat("Группа Y", "groupy")
+        assert vt._resolve_transcript_author(msg) == "Группа Y @groupy"
+
+    def test_exotic_origin_falls_back_to_unknown(self, summary_aliases):
+        """Origin есть, извлечение вернуло None → локальная константа."""
+        msg = _make_msg()
+        msg.forward_origin = object()          # не MessageOrigin*
+        assert vt._resolve_transcript_author(msg) == "Неизвестный"
+        assert vt._VT_UNKNOWN_AUTHOR == "Неизвестный"
+
+    def test_origin_user_without_sender_unknown(self, summary_aliases):
+        msg = _make_msg()
+        msg.forward_origin = MessageOriginUser.model_construct(
+            type="user", date=1234567890, sender_user=None)
+        assert vt._resolve_transcript_author(msg) == "Неизвестный"
+
+    def test_no_origin_keeps_old_from_user_cascade(self, vt_env):
+        """Не-форвард → прежний каскад от from_user (D268-поведение)."""
+        msg = _make_msg()
+        assert msg.forward_origin is None
+        assert vt._resolve_transcript_author(msg) == "Вася"
+
+
+class TestForwardOutputFormat:
+    @pytest.mark.asyncio
+    async def test_forward_reply_has_forwarder_label(self, vt_env,
+                                                     tmp_file_path,
+                                                     summary_aliases):
+        """D272: <b>{автор}</b> (переслал {пересыльщик}) 🗣: <i>{text}</i>."""
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        msg.forward_origin = _origin_hidden("Скрытый Гость")
+        await vt.voice_transcription_handler(msg, bot=_make_bot())
+        args, kwargs = msg.reply.call_args
+        assert args[0] == ("<b>Скрытый Гость</b> (переслал Вася) "
+                           "🗣: <i>заглушка</i>")
+        assert kwargs["parse_mode"] == "HTML"
+
+    @pytest.mark.asyncio
+    async def test_non_forward_format_byte_identical(self, vt_env,
+                                                     tmp_file_path):
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        await vt.voice_transcription_handler(msg, bot=_make_bot())
+        args, _ = msg.reply.call_args
+        assert args[0] == "<b>Вася</b> 🗣: <i>заглушка</i>"
+
+    @pytest.mark.asyncio
+    async def test_forward_source_name_html_escaped(self, vt_env,
+                                                    tmp_file_path):
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        msg.forward_origin = _origin_hidden("<b>&Хакер")
+        await vt.voice_transcription_handler(msg, bot=_make_bot())
+        args, _ = msg.reply.call_args
+        assert "&lt;b&gt;&amp;Хакер" in args[0]
+        assert "<b>&Хакер" not in args[0]
+
+    @pytest.mark.asyncio
+    async def test_forward_channel_label(self, vt_env, tmp_file_path):
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        msg.forward_origin = _origin_channel()
+        await vt.voice_transcription_handler(msg, bot=_make_bot())
+        args, _ = msg.reply.call_args
+        assert args[0].startswith("<b>Канал X @channelx</b> (переслал Вася)")
+
+
+class TestWrapMediaFactForward:
+    """Epic 72 (74.B.3/D273): атрибуты forwarded/forward_from в факте."""
+
+    def test_forward_attributes_added_and_escaped(self):
+        tag = vt.wrap_media_fact("voice", "Слава", "текст",
+                                 forward_source='A<b>&"C')
+        assert 'forwarded="true"' in tag
+        assert 'forward_from="A&lt;b&gt;&amp;&quot;C"' in tag
+        # атрибуты внутри открывающего тега, до текста
+        assert tag.index('forward_from=') < tag.index(">текст<")
+
+    def test_default_no_forward_attributes(self):
+        tag = vt.wrap_media_fact("voice", "Слава", "текст")
+        assert "forwarded" not in tag
+        assert "forward_from" not in tag
+
+    @pytest.mark.asyncio
+    async def test_memorize_facts_carries_forward_attrs(self, vt_env,
+                                                        tmp_file_path):
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        msg.forward_origin = _origin_hidden("Скрытый Гость")
+        await vt.voice_transcription_handler(msg, bot=_make_bot())
+        await asyncio.sleep(0)
+        args, _ = vt._memory.memorize_facts.call_args
+        assert 'forwarded="true"' in args[1]
+        assert 'forward_from="Скрытый Гость"' in args[1]
+
+    @pytest.mark.asyncio
+    async def test_memorize_facts_plain_voice_no_attrs(self, vt_env,
+                                                       tmp_file_path):
+        msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
+        await vt.voice_transcription_handler(msg, bot=_make_bot())
+        await asyncio.sleep(0)
+        args, _ = vt._memory.memorize_facts.call_args
+        assert "forwarded" not in args[1]
+
+
+# ── Epic 72 (74.C/D274): детектор «reply на расшифровку» ─────────────
+
+class TestIsReplyToTranscription:
+    def _target(self, text="Вася 🗣: привет", user_id=999,
+                reply_to_message=None):
+        t = MagicMock()
+        t.text = text
+        t.from_user = MagicMock()
+        t.from_user.id = user_id
+        t.reply_to_message = reply_to_message
+        t.voice = None
+        t.video_note = None
+        return t
+
+    def _msg(self, target):
+        m = _make_msg(text="спасибо")
+        m.reply_to_message = target
+        return m
+
+    @pytest.mark.asyncio
+    async def test_true_by_anchor(self, vt_env):
+        assert vt.is_reply_to_transcription(self._msg(self._target()))
+
+    @pytest.mark.asyncio
+    async def test_true_for_forward_format_anchor(self, vt_env):
+        t = self._target("Вася (переслал Коля) 🗣: привет")
+        assert vt.is_reply_to_transcription(self._msg(t))
+
+    @pytest.mark.asyncio
+    async def test_false_for_foreign_user_target(self, vt_env):
+        t = self._target(user_id=111)
+        assert not vt.is_reply_to_transcription(self._msg(t))
+
+    @pytest.mark.asyncio
+    async def test_false_for_regular_bot_answer(self, vt_env):
+        t = self._target("держи ответ, брат")
+        assert not vt.is_reply_to_transcription(self._msg(t))
+
+    @pytest.mark.asyncio
+    async def test_structural_fallback_voice(self, vt_env):
+        orig = MagicMock()
+        orig.voice = MagicMock()
+        orig.video_note = None
+        t = self._target(text="", reply_to_message=orig)
+        assert vt.is_reply_to_transcription(self._msg(t))
+
+    @pytest.mark.asyncio
+    async def test_structural_fallback_video_note(self, vt_env):
+        orig = MagicMock()
+        orig.voice = None
+        orig.video_note = MagicMock()
+        t = self._target(text="", reply_to_message=orig)
+        assert vt.is_reply_to_transcription(self._msg(t))
+
+    @pytest.mark.asyncio
+    async def test_structural_fallback_requires_voice_chain(self, vt_env):
+        orig = MagicMock()
+        orig.voice = None
+        orig.video_note = None
+        t = self._target(text="", reply_to_message=orig)
+        assert not vt.is_reply_to_transcription(self._msg(t))
+
+    @pytest.mark.asyncio
+    async def test_false_without_reply(self, vt_env):
+        assert not vt.is_reply_to_transcription(_make_msg(text="привет"))

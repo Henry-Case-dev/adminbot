@@ -559,3 +559,45 @@ class TestEpic60PhaseBSettingsDefaults:
         assert s.MEMORY_BACKUP_KEEP == 10
         assert s.RUNNING_SUMMARY_TTL_MINUTES == 90
         assert s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS == 2000
+
+class TestBuildYtdlpBaseOpts:
+    """Epic 72 (74.A/D270): единый хелпер yt-dlp опций прокси/cookies.
+    Пустые настройки → ключи НЕ добавляются (D142-семантика «без прокси»)."""
+
+    _KEYS = ("YOUTUBE_TRANSCRIPT_PROXY_URL", "YOUTUBE_COOKIES_FILE")
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for key in self._KEYS:
+            monkeypatch.delenv(key, raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_empty_settings_no_keys(self):
+        importlib.reload(settings_mod)
+        assert settings_mod.build_ytdlp_base_opts() == {}
+
+    def test_proxy_only(self, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "http://u:p@127.0.0.1:10808")
+        importlib.reload(settings_mod)
+        assert settings_mod.build_ytdlp_base_opts() == {
+            "proxy": "http://u:p@127.0.0.1:10808"}
+
+    def test_cookies_only(self, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "/tmp/cookies.txt")
+        importlib.reload(settings_mod)
+        assert settings_mod.build_ytdlp_base_opts() == {
+            "cookiefile": "/tmp/cookies.txt"}
+
+    def test_both_set(self, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "http://h:1")
+        monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "/c.txt")
+        importlib.reload(settings_mod)
+        assert settings_mod.build_ytdlp_base_opts() == {
+            "proxy": "http://h:1", "cookiefile": "/c.txt"}
+
+    def test_whitespace_only_treated_as_empty(self, monkeypatch):
+        monkeypatch.setenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "   ")
+        monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "\t")
+        importlib.reload(settings_mod)
+        assert settings_mod.build_ytdlp_base_opts() == {}

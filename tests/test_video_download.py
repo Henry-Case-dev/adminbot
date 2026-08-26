@@ -455,3 +455,70 @@ class TestMultiLinkFlow:
         cb = _make_cb("vdv:5")
         await vd.cb_pick_video(cb, bot=AsyncMock())
         cb.answer.assert_awaited_with("эта менюха протухла")
+
+
+# ── Epic 72 (74.A/D270): probe прокидывает единый yt-dlp конфиг ──────
+
+class TestProbeOpts:
+    """probe использует build_ytdlp_base_opts() (прокси/cookies) — фикс прод-бага
+    «Sign in to confirm you're not a bot»; сеть не трогаем — мок YoutubeDL."""
+
+    class _FakeYDL:
+        last_opts = None
+
+        def __init__(self, opts):
+            type(self).last_opts = opts
+
+        def extract_info(self, url, download=False):
+            return {"title": "t",
+                    "formats": [{"vcodec": "h264", "height": 720}]}
+
+    def _patch_ytdlp(self, monkeypatch):
+        import sys
+        import types
+        fake = types.SimpleNamespace(YoutubeDL=self._FakeYDL)
+        monkeypatch.setitem(sys.modules, "yt_dlp", fake)
+
+    @pytest.mark.asyncio
+    async def test_probe_base_opts_passed(self, tmp_path, monkeypatch):
+        """Epic 72: opts = build_ytdlp_base_opts() + quiet/noplaylist."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts",
+                            lambda: {"proxy": "http://u:p@h:10808",
+                                     "cookiefile": "/c.txt"})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        result = await dl.probe(URL)
+        assert isinstance(result, ProbeResult)
+        opts = self._FakeYDL.last_opts
+        assert opts["proxy"] == "http://u:p@h:10808"
+        assert opts["cookiefile"] == "/c.txt"
+        assert opts["quiet"] is True
+        assert opts["noplaylist"] is True
+
+    @pytest.mark.asyncio
+    async def test_probe_without_settings_no_proxy_keys(
+            self, tmp_path, monkeypatch):
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        await dl.probe(URL)
+        assert "proxy" not in self._FakeYDL.last_opts
+        assert "cookiefile" not in self._FakeYDL.last_opts
+
+    @pytest.mark.asyncio
+    async def test_probe_proxy_set_logs_fact_only(
+            self, tmp_path, monkeypatch, caplog):
+        """74.A.2/R17: логируется только факт proxy=set, НЕ значение."""
+        import logging
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        secret = "http://user:supersecret@host:10808"
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts",
+                            lambda: {"proxy": secret})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with caplog.at_level(logging.INFO, logger="tools.video_downloader"):
+            await dl.probe(URL)
+        assert any("proxy=set" in r.message for r in caplog.records)
+        assert all(secret not in r.getMessage() for r in caplog.records)

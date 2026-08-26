@@ -7755,3 +7755,66 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 ## Финал цикла Epic 70–71: релиз + деплой 🆕 Шаг 1 (PM ✅)
 
 - [ ] T-552 (@DevOps, P0, ←T-548/T-551): коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot — git pull, бэкап `info_text.md.bak.epic71`, `systemctl restart admin_bot`, status/journalctl 0 traceback; финальный smoke: /info показывает новые разделы, «скачай <ссылка>» работает. **DoD:** прод обновлён, обе фичи живы
+
+---
+
+## Epic 72: Прокси для загрузки видео + транскрибация форвардов + гейты расшифровок — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> **Цель:** Три прода-проблемы + деплой. Target: **v2.47.1**.
+>
+> **A. ПРОКСИ ДЛЯ ЗАГРУЗКИ ВИДЕО (P0, прод-баг):** yt-dlp probe падает
+> «Sign in to confirm you're not a bot». Решение через существующий VPN/xray прокси
+> (`YOUTUBE_TRANSCRIPT_PROXY_URL`, формат `http://user:pass@127.0.0.1:10808`):
+> общий хелпер `build_ytdlp_base_opts()` (proxy + cookiefile) для
+> `services/youtube_transcript_engine.py` И `tools/video_downloader.py`;
+> cobalt `HTTP_PROXY` в docker-compose.yml (+`extra_hosts: host.docker.internal:host-gateway`,
+> `NO_PROXY`) — @Builder правит compose, @DevOps поднимет контейнер заново на проде;
+> smoke на проде обязателен.
+>
+> **B. ТРАНСКРИБАЦИЯ ФОРВАРДОВ (P0):** имя автора брать от источника форварда
+> (переиспользовать `_extract_forward_source` из handlers/summary.py; каскад
+> Алиас→Никнейм→Юзернейм без @→**«Неизвестный»** — ВНИМАНИЕ: текущий каскад даёт
+> «Анонимус» как последний fallback, пользователь требует «Неизвестный» для случая
+> полного отсутствия данных; уточнить у @Architect, где именно меняется fallback,
+> чтобы не сломать существующие вызовы `_extract_forward_source`); метка пересылки
+> в ответе бота И в памяти (`<MediaMessage>` должен фиксировать, что это форвард и от кого);
+> АТОМАРНО обновить канон plans/ARCHITECTURE.md Section 71 и тесты (24 шт).
+>
+> **C. ГЕЙТЫ НА РАСШИФРОВКАХ (P0):**
+> - direct_chat НЕ триггерится при reply на сообщение-расшифровку бота (детект по цепочке
+>   reply_to_message → `get_smart_message_by_tg_id` media_type voice/video_note;
+>   фолбэк — маркер 🗣, если цепочка порвана);
+> - фактчек/веб-поиск при реплае на расшифровку РАБОТАЮТ, но клейм атрибутируется
+>   изначальному автору голосового (достать author из smart_messages оригинала).
+>
+> **D. ДЕПЛОЙ (P0, @DevOps):** пуш, git pull на проде, СОХРАНИТЬ локальные правки
+> пользователя в `info_text.md` НА ПРОДЕ (юзер подтвердил: они легитимны — файл с репо
+> НЕ перезаписывать! при pull использовать stash/merge аккуратно или skip-worktree),
+> `docker compose up -d cobalt` с новым прокси-env, restart, полная проверка:
+> сквозной smoke скачивания YouTube-видео через прокси, транскрипция форварда, гейты.
+>
+> Распределение: @Architect (дизайн ДО реализации) → @Builder → @Reviewer → @DevOps.
+> **НИ ОДНОЙ задаче на @Orchestrator.**
+
+### Архитектурное проектирование
+- [ ] 👤 T-553 (@Architect, P0): дизайн всех трёх блоков ДО реализации:
+  - (A) контракт `build_ytdlp_base_opts()` — сигнатура, источник прокси/cookiefile, точки интеграции в youtube_transcript_engine.py и tools/video_downloader.py; изменения docker-compose.yml (cobalt HTTP_PROXY/NO_PROXY/extra_hosts host-gateway) — секрет прокси только из .env/compose-env, НЕ в git;
+  - (B) переиспользование `_extract_forward_source` (handlers/summary.py): как получить автора форварда без дублирования логики; решение по fallback «Анонимус»→«Неизвестный» (только для транскрипций или глобально — обосновать); формат метки пересылки в ответе бота и в `<MediaMessage ... forwarded_from="...">`;
+  - (C) детект «reply на расшифровку бота»: цепочка reply_to_message → get_smart_message_by_tg_id (media_type voice/video_note), фолбэк по маркеру 🗣; гейт direct_chat; атрибуция клейма фактчека/веб-поиска автору оригинального голосового из smart_messages;
+  - канон: план атомарного обновления ARCHITECTURE Section 71 (+ новые секции при необходимости) и тест-план (24 теста блока B).
+  **DoD:** эталоны зафиксированы в plans/ARCHITECTURE.md, READY FOR BUILDER
+
+### Реализация (A)
+- [ ] T-554 (@Builder, P0, ←T-553): хелпер `build_ytdlp_base_opts()` (общий модуль) — proxy + cookiefile; рефакторинг `services/youtube_transcript_engine.py` и `tools/video_downloader.py` на хелпер (дублирование конфигов убрать); `docker-compose.yml`: cobalt HTTP_PROXY + NO_PROXY + extra_hosts `host.docker.internal:host-gateway`; секрет прокси НЕ в git (.env/compose override); юнит-тесты хелпера. **DoD:** yt-dlp идёт через прокси в обоих модулях, diff --check чист
+
+### Реализация (B)
+- [ ] T-555 (@Builder, P0, ←T-553): транскрибация форвардов — автор из источника форварда через `_extract_forward_source`; каскад Алиас→Никнейм→Юзернейм без @→«Неизвестный»; метка пересылки в ответе бота («переслано от …») и в памяти `<MediaMessage type="voice"/"video_note" sender="..." forwarded_from="...">`; АТОМАРНО канон ARCHITECTURE Section 71 + 24 теста одним изменением; полный pytest 0 регрессий. **DoD:** форвард голосового расшифровывается с именем автора-источника
+
+### Реализация (C)
+- [ ] T-556 (@Builder, P0, ←T-553): гейты на расшифровках — (1) direct_chat молчит при reply на сообщение-расшифровку бота (детект по цепочке get_smart_message_by_tg_id media_type voice/video_note, фолбэк маркер 🗣 при порванной цепочке); (2) фактчек/веб-поиск при реплае на расшифровку работают, клейм атрибутируется изначальному автору голосового (author из smart_messages оригинала); тесты обоих гейтов + регресс (обычный reply на текстовые сообщения бота не затронут). **DoD:** гейты работают, полный pytest 0 регрессий
+
+### Ревью
+- [ ] T-557 (@Reviewer, P0, ←T-554/T-555/T-556): ревью Epic 72 — прокси-секреты не всплыли в git/compose-коммите; хелпере един для обоих модулей (нет дублей); канон Section 71 = коду (байт-в-байт), 24 теста соответствуют; гейт direct_chat не блокирует легитимные реплаи; fallback «Неизвестный» не сломал существующие вызовы `_extract_forward_source`; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой
+- [ ] T-558 (@DevOps, P0, ←T-557): деплой v2.47.1 — коммит цикла на русском (conventional commits) + пуш origin/master (секреты/пароль прокси НЕ в коммите); прод nik@198.46.175.136:/var/www/admin_bot: git pull С СОХРАНЕНИЕМ локальных правок пользователя в `info_text.md` (легитимны — НЕ перезаписывать файлом из репо; stash/pop или skip-worktree/skip, аккуратно); `docker compose up -d cobalt` с новым прокси-env (контейнер пересоздать); restart admin_bot; status/journalctl 0 traceback; ПОЛНЫЙ smoke: (1) «скачай <YouTube-ссылка>» сквозным прогоном через прокси (без «Sign in to confirm you're not a bot»), (2) транскрибация форварда голосового — имя автора-источника, (3) гейты: reply на расшифровку не триггерит direct_chat, фактчек по расшифровке клеймит автора голосового. **DoD:** прод v2.47.1, все три smokes зелёные

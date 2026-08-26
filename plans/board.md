@@ -115,6 +115,31 @@
 
 - [ ] T-552 (@DevOps, P0, ←T-548/T-551) — коммит цикла на русском + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot: git pull, бэкап info_text.md.bak.epic71, restart admin_bot, 0 traceback; smoke: /info с новыми разделами + «скачай <ссылка>»
 
+### Epic 72: Прокси для загрузки видео + транскрибация форвардов + гейты расшифровок — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0 (target v2.47.1)
+
+> Полный трек — plans/backlog.md (Epic 72). Три прода-проблемы + деплой.
+> **(A)** yt-dlp probe падает «Sign in to confirm you're not a bot» → общий хелпер
+> `build_ytdlp_base_opts()` (proxy `YOUTUBE_TRANSCRIPT_PROXY_URL` + cookiefile) для
+> youtube_transcript_engine.py И tools/video_downloader.py; cobalt HTTP_PROXY в
+> docker-compose.yml (+extra_hosts host.docker.internal:host-gateway, NO_PROXY);
+> **(B)** транскрибация форвардов: автор от источника форварда (переиспользовать
+> `_extract_forward_source` из summary.py; каскад Алиас→Никнейм→Юзернейм без @→
+> **«Неизвестный»** вместо «Анонимус»); метка пересылки в ответе и памяти
+> (<MediaMessage> фиксирует форвард и автора); канон ARCHITECTURE Section 71 + 24 теста АТОМАРНО;
+> **(C)** гейты: direct_chat молчит при reply на расшифровку бота (цепочка reply_to_message →
+> get_smart_message_by_tg_id media_type voice/video_note; фолбэк маркер 🗣), фактчек/веб-поиск
+> работают, но клейм атрибутируется автору оригинального голосового (smart_messages);
+> **(D)** деплой с СОХРАНЕНИЕМ локальных правок пользователя в info_text.md на проде
+> (НЕ перезаписывать файлом из репо!) + пересоздание cobalt с прокси-env + полный smoke.
+> Порядок: @Architect (дизайн ДО реализации) → @Builder → @Reviewer → @DevOps. Без @Orchestrator.
+
+- [ ] 👤 T-553 (@Architect, P0) — дизайн всех блоков ДО реализации: контракт build_ytdlp_base_opts() + compose-изменения (секрет НЕ в git); переиспользование _extract_forward_source + решение по fallback «Анонимус»→«Неизвестный»; формат метки форварда в ответе/<MediaMessage>; детект reply-на-расшифровку + атрибуция клейма; план атомарного обновления Section 71 + тест-план (24 теста)
+- [ ] T-554 (@Builder, P0, ←T-553) — блок A: build_ytdlp_base_opts() (proxy+cookiefile), рефакторинг youtube_transcript_engine.py + tools/video_downloader.py; docker-compose.yml: cobalt HTTP_PROXY/NO_PROXY/extra_hosts host-gateway; юнит-тесты
+- [ ] T-555 (@Builder, P0, ←T-553) — блок B: автор форварда через _extract_forward_source (каскад →«Неизвестный»), метка пересылки в ответе и <MediaMessage forwarded_from>; АТОМАРНО канон Section 71 + 24 теста; pytest 0 регрессий
+- [ ] T-556 (@Builder, P0, ←T-553) — блок C: direct_chat не триггерится при reply на расшифровку (детект по цепочке, фолбэк 🗣); фактчек/веб-поиск клеймят автора оригинального голосового из smart_messages; тесты + регресс
+- [ ] T-557 (@Reviewer, P0, ←T-554/T-555/T-556) — ревью Epic 72 (прокси-секреты не в git, хелпер един для обоих модулей, канон=код, гейт не блокирует легитимные реплаи, fallback не сломал существующие вызовы _extract_forward_source)
+- [ ] T-558 (@DevOps, P0, ←T-557) — деплой v2.47.1: коммит+пуш (пароль прокси НЕ в коммите); прод: git pull С СОХРАНЕНИЕМ локальных правок info_text.md на проде (stash/skip-worktree, НЕ перезаписывать!), docker compose up -d cobalt с новым прокси-env, restart admin_bot, 0 traceback; ПОЛНЫЙ smoke: YouTube-скачивание через прокси, транскрибация форварда (автор-источник), гейты
+
 ## 🔍 In Review
 
 *(пусто)*

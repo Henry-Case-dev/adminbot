@@ -15,6 +15,8 @@ from pathlib import Path
 
 import aiohttp
 
+from config.settings import build_ytdlp_base_opts
+
 logger = logging.getLogger(__name__)
 
 # Section 70.4: таймауты (yt-dlp синхронный — to_thread + wait_for).
@@ -89,11 +91,17 @@ class VideoDownloader:
         return self._lock.locked()
 
     async def probe(self, url: str) -> ProbeResult:
-        """Метаданные yt-dlp: title + список качеств. Вне глобального лока."""
+        """Метаданные yt-dlp: title + список качеств. Вне глобального лока.
+        Epic 72 (74.A/D270): прокси/cookies — единый build_ytdlp_base_opts()
+        (фикс прод-бага «Sign in to confirm you're not a bot» на probe)."""
         from yt_dlp import YoutubeDL              # ленивый тяжёлый импорт (D261)
 
+        base = build_ytdlp_base_opts()
+        if base.get("proxy"):                     # R17: только факт, НЕ значение
+            logger.info("[videodl] probe | proxy=set")
+
         def _extract() -> dict:
-            ydl = YoutubeDL({"quiet": True, "noplaylist": True})
+            ydl = YoutubeDL({**base, "quiet": True, "noplaylist": True})
             return ydl.extract_info(url, download=False)
 
         try:

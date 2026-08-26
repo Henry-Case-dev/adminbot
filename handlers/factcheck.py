@@ -19,6 +19,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
 from handlers.summary import _extract_forward_source
+from handlers.voice_transcription import _is_transcription_target
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_group_buffer import get_media_group_caption
 from services.persistent_throttling import (
@@ -115,6 +116,44 @@ def _extract_target_text(message: types.Message, target: types.Message) -> str |
     return raw if raw and not _FACTCHECK_TRIGGER_RE.match(raw) else None
 
 
+# ── Epic 72 (74.C.3, D275): фактчек на расшифровку ───────────────────
+
+_TRANSCRIPTION_CLAIM_RE = re.compile(r"🗣:\s?(.*)", re.DOTALL)
+
+
+def _transcription_claim_text(target: types.Message) -> str | None:
+    """Чистый клейм из текста расшифровки — всё после анкера «🗣:».
+    Telegram хранит .text БЕЗ html-разметки и уже декодированным
+    (&lt; → < при отправке), поэтому unescape не нужен. Нет анкера → None."""
+    m = _TRANSCRIPTION_CLAIM_RE.search(target.text or "")
+    claim = m.group(1).strip() if m else ""
+    return claim or None
+
+
+async def _transcription_forward_author(chat_id: int,
+                                        target: types.Message) -> str | None:
+    """Epic 72 (74.C.3, D275): автор оригинального голосового из smart_messages
+    (цепочка расшифровка→reply_to_message). Приоритет forward_source →
+    author_name. Fail-open: нет DI/нет цепочки/нет записи/ошибка БД → None
+    (= клейм без атрибуции, прежнее поведение)."""
+    orig_id = getattr(getattr(target, "reply_to_message", None),
+                      "message_id", None)
+    if _db is None or orig_id is None:
+        return None
+    try:
+        row = await _db.get_smart_message_by_tg_id(chat_id, orig_id)
+    except Exception:
+        logger.warning("[factcheck] transcription author lookup failed",
+                       exc_info=True)
+        return None
+    if row is None:
+        return None
+    try:
+        return row["forward_source"] or row["author_name"] or None
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
 @factcheck_router.message()
 async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
@@ -137,6 +176,16 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     forward_source = None
     if getattr(target, "forward_origin", None) is not None:
         forward_source = _extract_forward_source(target.forward_origin)  # reuse handlers/summary.py
+    # Epic 72 (74.C.3, D275): реплай на расшифровку → клейм адресуем автору
+    # исходного ГС; явный user-forward цели имеет приоритет (не регрессируем
+    # существующий репост-вариант). Fail-open: записи нет → без атрибуции.
+    if forward_source is None and _is_transcription_target(target):
+        claim = _transcription_claim_text(target)
+        if claim:
+            target_text = claim
+        author = await _transcription_forward_author(message.chat.id, target)
+        if author:
+            forward_source = author
     # Epic 51 (59.2, D210): Exact Match Cache — ДО ресурсоёмких ступеней
     # (поиск/LLM). Хит → reply на ТЕКУЩЕЕ сообщение, БЕЗ вызовов.
     cache = get_smart_cache()

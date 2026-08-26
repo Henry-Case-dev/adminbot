@@ -14587,6 +14587,7 @@ System prompt OpenRouter — ДОСЛОВНО (канон):
 **Инъекция в память (двойная, согласованная с `_MEDIA_DESCRIPTIONS`):**
 - **L2-строка:** после успешной транскрипции — `UPDATE smart_messages SET text=? WHERE chat_id=? AND message_id=?` (НОВЫЙ метод `db.update_smart_message_text(chat_id, message_id, text)`; message_id observer уже сохраняет — handlers/summary.py:194). Тогда `XmlGroundingBuilder._build_body` (services/summary_xml.py:103) перестаёт выводить плейсхолдер `[голосовое]`: для media_type='voice' с непустым text ветка caption выдаст `<текст> [голосовое]`... → **уточнение Builder:** в `_build_body` для `voice`/`video` с непустым text возвращать ТОЛЬКО текст (без суффикса-описания), для пустого — плейсхолдер как раньше. `_MEDIA_DESCRIPTIONS` сам словарь НЕ меняется.
 - **GraphRAG-факт:** `memory.memorize_facts(chat_id, transcript_text, source_type="voice_transcript")` fire_and_forget (прецедент `_memorize_youtube`, youtube_summarizer_service.py:52). Для этого в `_FACT_ORIGINS` (summary_memory.py) добавляется `"voice_transcript"` — иначе memorize молча пропустит (guard source_type). TTL — стандартный GRAPH_FACT_TTL_DAYS. RAG увидит модальность: экстрактор получает сырой транскрипт; sender прокидывать в начало raw_text: `f"Голосовое сообщение от {name}: {transcript}"`.
+- **GraphRAG-факт при форварде (Epic 72, Section 74.B.3/D273):** `wrap_media_fact(..., forward_source=...)` добавляет в `<MediaMessage …>` атрибуты `forwarded="true" forward_from="{автор источника}"` (html.escape quote=True — решение ОВ-3: XML-совместимо и консистентно с D268; escape_xml_text не требуется); сигнатура обратно совместима (default None) — обычные сообщения байт-в-байт прежние. L2-строка smart_messages уже несёт is_forward/forward_source от observer — это ДРУГОЙ слой, дубля нет.
 
 ### 71.4 Хендлер `SmartModule/handler.py` (или `handlers/transcription.py` — на усмотрение Builder, канон — рядом с сервисом в пакете)
 
@@ -14604,7 +14605,7 @@ async def on_voice(message: types.Message, bot: Bot = None):
 
 Порядок `_process`:
 1. Guard: `user is None` or `user.id == bot.id` → return. `duration > VOICE_MAX_DURATION_SECONDS` → реплай `VT_TOO_LONG_PHRASES`, return.
-2. Имя: переиспользуем каскад **AliasResolver.resolve(user.id, nickname=_build_nickname(user), username=user.username)** (services/summary_aliases.py — Алиас→Никнейм→Юзернейм→ID; `_build_nickname` — first_name+last_name, handlers/summary.py:137). DI через `setup_transcription(service, db, aliases, bot_id)` (паттерн setup_<x>).
+2. Имя (Epic 72 / Section 74.B, D272): `_resolve_transcript_author(message)` — если `message.forward_origin` есть → каскад `_extract_forward_source(origin)` из handlers/summary.py (переиспользуется ДОСЛОВНО, прецедент импорта handler→handler: handlers/factcheck.py:21; MessageOriginUser → AliasResolver Алиас→Никнейм→Юзернейм без @, HiddenUser → sender_user_name, Channel/Chat → title +@username/signature); извлечение не удалось (exotic-тип/битый origin) → ЛОКАЛЬНАЯ константа транскрипции `_VT_UNKNOWN_AUTHOR = "Неизвестный"` (глобальную замену в summary/observer НЕ делаем). Не-форвард → прежний каскад **AliasResolver.resolve(user.id, nickname=_build_nickname(user), username=user.username)** (services/summary_aliases.py — Алиас→Никнейм→Юзернейм→ID; `_build_nickname` — first_name+last_name, handlers/summary.py:137). DI через `setup_transcription(service, db, aliases, bot_id)` (паттерн setup_<x>); DI-замечание: `_extract_forward_source` читает глобальную `handlers.summary._aliases` — заполняется `setup_summary(...)` в on_startup ДО регистрации роутеров.
 3. Temp-файл: `tempfile.mkstemp(suffix=".ogg"|"​.mp4")` → скачивание: `await bot.download(media.file_id, destination=path)` (aiogram 3.x — метод на Bot, принимает file_id или Downloadable; внутри сам делает get_file + download_file, учитывает `session.api.is_local` при локальном Bot API; двухшаговый вариант — `tg_file = await bot.get_file(...)` → `await bot.download_file(tg_file.file_path, destination=path)`). Явный get_file перед этим избыточен. Расширение: voice→`.ogg`, video_note→`.mp4` (важно для input_audio.format и whisper).
 4. `ChatActionSender(chat_id=..., action=ChatAction.TYPING)` вокруг транскрипции (прецедент TYPING_INDICATOR_ENABLED, 65.7).
 5. `service.transcribe(path)`; `finally: os.unlink(path)` — **удаление temp 100% исходов**.
@@ -14618,6 +14619,8 @@ await message.reply(f"<b>{escaped_name}</b> 🗣: <i>{escaped_text}</i>", parse_
 ```
 
 **Формат (D268):** MarkdownV2-схема `**{name}** 🗣: *{text}*` реализована средствами **HTML** (`<b>`/`<i>` + `html.escape`) — прецедент parse_mode="HTML" в проекте ровно один (handlers/info.py:111), MarkdownV2-escape-утилит в кодовой базе нет; HTML-экранирование проще и не ломается на спецсимволах ников.
+
+**Формат форварда (D272, Epic 72 / Section 74.B):** `<b>{автор источника}</b> (переслал {пересыльщик}) 🗣: <i>{text}</i>` — жирным стоит АВТОР источника, `(переслал X)` называет пересыльщика; html.escape всех подставляемых имён (как у name/text). Анкер `🗣:` сохраняет позицию сразу после префикса — критично для детектора `is_reply_to_transcription` (74.C), матчатся оба формата (в plain-тексте цели: `{имя} 🗣: …` / `{имя} (переслал X) 🗣: …`). Без форварда — формат байт-в-байт прежний.
 
 **Урок (хотфикс v2.46.1, T-542):** pydantic-модели aiogram (`types.File` и др.) НЕ имеют IO-методов — `download_to_drive` в aiogram 3.x НЕ существует (AttributeError на проде v2.46.0). Скачивание файлов — только через методы Bot: `Bot.download(file, destination=...)` (принимает file_id или Downloadable, сам делает get_file внутри) или двухшаговый `Bot.download_file(file_path, destination=...)`; оба учитывают `session.api.is_local` (при локальном Bot API читают файл с диска). Эталон хендлера транскрипции: `await bot.download(media.file_id, destination=path)`.
 
@@ -14683,6 +14686,8 @@ if settings.ENABLE_VOICE_TRANSCRIPTION:
 | 6 | get_file/download упал | WARNING, молча (UNHANDLED); temp удалён в finally |
 | 7 | Свой голос (bot.id) | skip |
 | 8 | UPDATE smart_message_text: строка не найдена | no-op, INFO (observer мог не сохранить) |
+| 9 | Форвард, извлечение источника не удалось | автор «Неизвестный» (`_VT_UNKNOWN_AUTHOR`, D272); факт без forward_from |
+| 10 | Форвард от канала/чата | author = title (+@username/signature), метка «(переслал X)»; факт несёт `forwarded="true" forward_from="…"` (D273) |
 
 ---
 
@@ -14768,3 +14773,300 @@ OPENROUTER_API_KEY=
 
 ---
 
+
+## Section 74 — Epic 72: прокси для VideoDownloader/Cobalt + авторы форвардов в транскрипции + гейты direct_chat на расшифровках (v2.47.1, DESIGN, T-553…)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect, код не пишется). **Источники:** research @Memory 2026-08-26 (сущность «Research cycle 2026-08-26»), борд T-553…T-558. **Скоуп:** три блока — (A) yt-dlp probe + Cobalt через тот же прокси, что транскрипт-движок; (B) автор форварда в расшифровке + память; (C) гейты reply-на-расшифровку. **Решения:** D270–D277. Риски: R72-1…R72-3.
+
+### 74.0 Сверенные факты кода (@Architect, 2026-08-26)
+
+- `services/youtube_transcript_engine.py::_ytdlp_opts` (:174–195): `opts["proxy"]`/`opts["cookiefile"]` из `settings.YOUTUBE_TRANSCRIPT_PROXY_URL`/`YOUTUBE_COOKIES_FILE` (settings.py:408/411). ТЕ ЖЕ 4 строки дублируются ещё в `_transcript_api_kwargs` (:326–329) и логе `__init__` (:51–52).
+- `tools/video_downloader.py::probe` (:91–111): `YoutubeDL({"quiet": True, "noplaylist": True})` — БЕЗ прокси → прод-баг «Sign in to confirm you're not a bot». `_request_tunnel`/`_stream_to_file` ходят на Cobalt/tunnel из хостового python-процесса.
+- `docker-compose.yml::cobalt` (:25–42): только `API_URL`/`API_PORT`; нет proxy-env и `extra_hosts`.
+- `handlers/summary.py`: `_extract_forward_source` (:68–104) — готовый каскад MessageOriginUser→AliasResolver / HiddenUser→sender_user_name / Channel(title+@username+author_signature) / Chat(title+@username); observer пишет `is_forward`/`forward_source` в smart_messages (:180–194); `_detect_media_type` (:116–134): **video_note сохраняется как media_type=`'video'`** (НЕ `'video_note'`; объединён с обычным video), voice → `'voice'`.
+- `handlers/voice_transcription.py`: имя берётся ТОЛЬКО от `message.from_user` (:121–125); ответ `<b>{name}</b> 🗣: <i>{text}</i>` реплаем на голосовое (:161–162); `wrap_media_fact(media_type, sender, text)` (:71–77) без forward-атрибутов; в факты уходит `media_type='video_note'|'voice'` (:102) — handler-level нейминг, отличающийся от БД.
+- `services/summary_aliases.py::resolve` (:44–69): каскад Алиас→Никнейм→Юзернейм(без @)→**str(user_id)** — пустым НЕ бывает при валидном user_id.
+- `handlers/direct_chat.py::_is_direct_trigger` (:116–140): ветка «reply на любое сообщение бота» (:121–125) = True безусловно → цепляет голосовые-реплаи на расшифровки до роутера 0i.
+- Порядок роутеров: 0a observer → 0b summary → **0c factcheck** → **0d search** → … → **0h direct_chat** → **0i transcription**. Голосовой-реплай на расшифровку СЕЙЧАС перехватывается 0h раньше 0i.
+- `db.get_smart_message_by_tg_id(chat_id, tg_message_id)` (database.py:796) — существует, прецедент использования цепочек: `direct_chat_service._build_conversation_thread` (:713–758).
+- `FactCheckService.check_claim(target_text, user_hint, forward_source, chat_id, chat_context)` (factcheck_service.py:35): `forward_source` уже рендерится как `<claim is_forward="true" forward_source="…">` (:101–109) — ГОТОВАЯ точка атрибуции, сервис менять не нужно.
+- Импорт handler→handler — прецедент есть: `handlers/factcheck.py:21 from handlers.summary import _extract_forward_source`.
+- tests/test_voice_transcription.py: **29 тест-функций** (в борде фигурирует «24» — устаревшее число; см. 74.6/открытые вопросы).
+
+---
+
+### 74.A Блок A — единый прокси/cookies для yt-dlp probe + Cobalt
+
+#### 74.A.1 Хелпер `build_ytdlp_base_opts()` — место размещения (D270)
+
+**Принято: `config/settings.py`, module-level функция рядом с полями `YOUTUBE_TRANSCRIPT_PROXY_URL` (:408)/`YOUTUBE_COOKIES_FILE` (:411).**
+
+```python
+# config/settings.py — ПОСЛЕ создания экземпляра settings
+def build_ytdlp_base_opts() -> dict:
+    """Epic 72 (Section 74.A): общие yt-dlp опции прокси/cookies — ЕДИНЫЙ
+    источник для services/youtube_transcript_engine.py и tools/video_downloader.py.
+    Пустые настройки → ключи отсутствуют (поведение «без прокси», D142).
+    R17: значения НЕ логируются."""
+    opts: dict = {}
+    proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
+    if proxy:
+        opts["proxy"] = proxy
+    cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
+    if cookies:
+        opts["cookiefile"] = cookies
+    return opts
+```
+
+**Обоснование (варианты из ТЗ + альтернатива):**
+1. *Дублировать 4 строки в video_downloader* — ОТКЛОНЕНО: именно дрейф двух независимых копий конфига и породил прод-баг (движок чинили через прокси в Epic 39/40, probe забыли). Второе дублирование гарантирует третий инцидент.
+2. *Новый общий модуль* (`services/ytdlp_config.py`) — отклонено: (а) порождает вопрос направления импорта `tools/` → `services/` (tools/video_downloader.py сегодня НЕ импортирует services; смешение слоёв); (б) новый модуль ради 8 строк — лишний риск для ~2900 тестов.
+3. *config/settings.py* — минимально рискованный: settings — нижний слой без зависимостей, его импортируют ОБА потребителя уже сегодня (`youtube_transcript_engine` напрямую, `video_downloader` получит первый импорт `from config.settings import build_ytdlp_base_opts` — направление tools→config безопасно); функция не требует импорта yt_dlp (чистый dict); colocated с настройками, которые читает. Единственная цена — небольшое смешение «конфиг + фабрика опций», компенсируется docstring-ссылкой на Section 74.
+
+**Точки интеграции (все три копии конфига заменяются на хелпер):**
+1. `youtube_transcript_engine._ytdlp_opts` (:189–194): удалить блок proxy/cookiefile, в конце метода `opts.update(build_ytdlp_base_opts())`.
+2. `youtube_transcript_engine._transcript_api_kwargs` (:326–329): та же замена (прокси/cookies для transcript-api остаются из тех же settings — семантика неизменна, устраняется вторая копия).
+3. `tools/video_downloader.probe` (:95–97): `ydl = YoutubeDL({**build_ytdlp_base_opts(), "quiet": True, "noplaylist": True})`.
+
+Лог `__init__` движка (:51–56) НЕ трогается (это отдельное использование настроек, не дублирование opts).
+
+#### 74.A.2 Фолбэк-поведение (часть D270)
+
+- Прокси не задан (пусто) → ключей в opts нет → ровно текущее поведение обоих модулей (D142-семантика сохранена).
+- Прокси задан, но недоступен → yt-dlp бросает исключение → существующие пути: движок — каскад ретраев D151/D155 → фолбек transcript-api; probe — `DownloadError("probe failed: …")` (video_downloader.py:104). Отдельный health-check прокси НЕ вводим (KISS; недоступность проявится штатной ошибкой).
+- Логирование: в `probe` при непустом прокси — `logger.info("[videodl] probe | proxy=set")` (только факт, R17). Значение URL/креды нигде не логируются.
+
+#### 74.A.3 docker-compose.yml: cobalt через прокси (D271)
+
+```yaml
+  cobalt:
+    # ... существующее без изменений ...
+    environment:
+      API_URL: "http://localhost:9000/"
+      API_PORT: "9000"
+      # Epic 72 (74.A): исходящий прокси для закачки YouTube (undici
+      # EnvHttpProxyAgent; API_EXTERNAL_PROXY deprecated; SOCKS НЕ поддерживается)
+      HTTP_PROXY: "${COBALT_HTTP_PROXY:-}"
+      HTTPS_PROXY: "${COBALT_HTTP_PROXY:-}"
+      NO_PROXY: "localhost,127.0.0.1"
+    extra_hosts:
+      # xray слушает на хосте 127.0.0.1:10808 — из контейнера это host-gateway
+      - "host.docker.internal:host-gateway"
+```
+
+- `.env.example` (секция Epic 66, ~:458): `# Исходящий HTTP-прокси cobalt (Epic 72, Section 74.A). Пусто = напрямую.` + `COBALT_HTTP_PROXY=`.
+- Прод `.env` (DevOps, T-558, бэкап `.env.bak.epic72`): `COBALT_HTTP_PROXY=http://<user>:<pass>@host.docker.internal:10808`. **Креды — ТЕ ЖЕ, что inbound xray** (те же, что в `YOUTUBE_TRANSCRIPT_PROXY_URL=http://<user>:<pass>@127.0.0.1:10808`); отличается ТОЛЬКО хост: процесс бота ходит с хоста → `127.0.0.1`, контейнер cobalt → `host.docker.internal` (host-gateway). Формат идентичен `YOUTUBE_TRANSCRIPT_PROXY_URL` (basic-auth http://user:pass@host:port — undici EnvHttpProxyAgent парсит из коробки). R17/D148: секрет НЕ в git, НЕ в логах, только прод `.env`.
+- `NO_PROXY=localhost,127.0.0.1` обязателен: healthcheck (`wget http://127.0.0.1:9000/`) и внутренние callback'и API_URL не должны уходить в прокси.
+- Tunnel-URL, который cobalt возвращает боту, указывает на внешний CDN — стрим `_stream_to_file` идёт из хостового процесса МИМО контейнера/прокси (не ломается).
+
+#### 74.A.4 Приёмка блока A
+
+1. Юнит: `build_ytdlp_base_opts()` — пусто → `{}`; задано → `{proxy, cookiefile}` (tests/test_settings_helpers.py, прецедент :126–151); probe прокидывает opts (тесты test_video_download.py, сеть не трогаем — мок YoutubeDL захватывает opts).
+2. Деплой-гейт (T-558): `docker compose up -d cobalt` → healthcheck зелёный → smoke «скачай <url>» на видео, которое без прокси падает bot-check'ом; `docker compose exec cobalt wget -qO- http://127.0.0.1:9000/` OK (NO_PROXY работает).
+
+---
+
+### 74.B Блок B — авторы форвардов в транскрипции
+
+#### 74.B.1 Резолв автора (D272)
+
+Хелпер в `handlers/voice_transcription.py` (рядом с `_build_nickname`):
+
+```python
+_VT_UNKNOWN_AUTHOR = "Неизвестный"   # ЛОКАЛЬНАЯ константа транскрипции (см. ниже)
+
+def _resolve_transcript_author(message: types.Message) -> str:
+    origin = getattr(message, "forward_origin", None)
+    if origin is not None:
+        # прецедент импорта handler→handler: handlers/factcheck.py:21
+        return (_extract_forward_source(origin) or _VT_UNKNOWN_AUTHOR)
+    user = message.from_user                    # прежнее поведение (не-форвард)
+    return _aliases.resolve(
+        user.id, nickname=_build_nickname(user),
+        username=getattr(user, "username", None))
+```
+
+- Каскад переиспользуется ДОСЛОВНО из `handlers/summary.py::_extract_forward_source` — MessageOriginUser → AliasResolver (Алиас→Никнейм→Юзернейм без @), HiddenUser → sender_user_name, Channel/Chat → title (+@username/signature). НИКАКОЙ второй реализации каскада не создаём.
+- **«Неизвестный» vs «Анонимус»: локальная константа транскрипции**, глобальную замену в summary/observer НЕ делаем (пользователь просил именно про этот случай; observer продолжает писать пустой forward_source как раньше — смена канона наблюдателя — отдельный эпик). Ветка достижима, когда origin есть, но извлечение вернуло None (exotic-типы/битый origin).
+- Для MessageOriginUser resolve никогда не вернёт пустоту (fallback str(user_id)); «Неизвестный» — только для «совсем нет данных» (HiddenUser без имени, Channel без title).
+- DI-замечание: `_extract_forward_source` читает модульную глобальную `handlers.summary._aliases` — заполняется `setup_summary(...)` в bot.py on_startup ДО регистрации роутеров; зависимость задокументировать в докстринге хелпера.
+- В `_process`: `name = _resolve_transcript_author(message)` вместо прямого resolve from_user (:121–125).
+
+#### 74.B.2 Формат ответа (D272)
+
+- Без форварда — БЕЗ ИЗМЕНЕНИЙ: `<b>{name}</b> 🗣: <i>{text}</i>` (все существующие тесты формата живут).
+- Форвард:
+
+```python
+forwarder = _aliases.resolve(message.from_user.id, ...)   # кто нажал «переслать»
+f"<b>{name}</b> (переслал {html.escape(forwarder)}) 🗣: <i>{escaped_text}</i>"
+```
+
+Выбранный формат — лаконичный и однозначный: жирным стоит АВТОР источника, `(переслал X)` называет пересыльщика. Отклонены: `(переслано от {source})` после имени — двусмысленно (читается «источник = source», а источник уже в bold); метка строкой ПОСЛЕ текста — ломает копипаст и удлиняет ответ. **Анкер `🗣:` сохраняет позицию сразу после префикса** — это критично: фолбэк-детектор Секции C матчится на `🗣:` и не ломается новым форматом. html.escape на forwarder — как у name/text (D268).
+
+#### 74.B.3 Память (D273)
+
+```python
+def wrap_media_fact(media_type: str, sender: str, text: str,
+                    forward_source: str | None = None) -> str:
+    timestamp = datetime.now(timezone.utc).isoformat()
+    extra = ""
+    if forward_source:
+        extra = (f' forwarded="true"'
+                 f' forward_from="{html.escape(forward_source, quote=True)}"')
+    return (f'<MediaMessage type="{media_type}" sender="{sender}" '
+            f'timestamp="{timestamp}"{extra}>{text}</MediaMessage>')
+```
+
+- Сигнатура обратно совместима (default None) — существующие вызовы/тесты не падают.
+- В `_inject_memory` пробросить: `origin = getattr(message, "forward_origin", None)`; `forward_source=_extract_forward_source(origin) if origin else None` (то же значение, что пошло в label ответа — вычислить один раз в `_process` и передать параметром).
+- **Сверка дублей с observer:** L2-строка smart_messages УЖЕ содержит `is_forward`/`forward_source` (summary.py:180–193) — это ДРУГОЙ слой (строка саммари-L2 vs GraphRAG-факт); расширение обёртки факта дублем НЕ является. UPDATE `update_smart_message_text` НЕ меняется (форвард-атрибуты observer уже записал при сохранении голосового).
+- Экранирование: `html.escape(..., quote=True)` для forward_from (sender сегодня вставляется без экранирования — legacy, вне скоупа; см. открытый вопрос №4).
+
+#### 74.B.4 Канон Section 71 — план атомарного обновления
+
+Одним коммитом с блоком B (T-555):
+- **71.4 п.2** («Имя: переиспользуем каскад AliasResolver…») → заменить на контракт `_resolve_transcript_author` (74.B.1) + ссылка на D272.
+- **71.4 п.7** (формат ответа D268) → добавить форвард-вариант формата (74.B.2).
+- **71.3** («GraphRAG-факт») → дополнить атрибутами `forwarded`/`forward_from` (74.B.3).
+- **71.7 Edge cases** → добавить строки: №9 «форвард, извлечение источника не удалось» → автор «Неизвестный»; №10 «форвард от канала» → author=title канала.
+- 71.5 (фразы) и 71.6 (config) — без изменений.
+
+#### 74.B.5 Тест-план блока B (tests/test_voice_transcription.py — фактически 29 тестов, синхронизировать число в борде при закрытии T-555)
+
+| Действие | Класс/тест | Что проверяется |
+|---|---|---|
+| Меняется | TestOutputFormat | +2 кейса: форвард → метка `(переслал X)` между name и 🗣; не-форвард → формат байт-в-байт прежний |
+| Меняется | TestMemoryInjection.test_wrap_media_fact_format | +кейс с `forwarded="true" forward_from="…"`, +кейс без атрибутов (регресс default) |
+| Новый | TestResolveTranscriptAuthor (~7 тестов) | MessageOriginUser (алиас / ник / юзернейм без @); HiddenUser → sender_user_name; Channel → title(+signature); Chat → title; origin есть, извлечение пусто → «Неизвестный»; origin нет → старый каскад from_user |
+| Регресс | весь файл | 0 падений старых 29 |
+
+---
+
+### 74.C Блок C — гейты: reply на расшифровку
+
+#### 74.C.0 Ключевой факт о media_type (сверено кодом!)
+
+В smart_messages observer пишет video_note как **`media_type='video'`** (`_detect_media_type`, handlers/summary.py:122–123 — video_note слит с video). `'video_note'` существует ТОЛЬКО в wrap_media_fact (handler-level). Любые проверки по БД — строго `media_type in ('voice', 'video')`. (Побочный эффект: обычное видео и кружок в БД неразличимы — учтено в дизайне фолбэка ниже.)
+
+#### 74.C.1 Детектор `is_reply_to_transcription()` — СИНХРОННЫЙ, без БД (D274)
+
+Размещение: `handlers/voice_transcription.py` (канон — рядом с форматом ответа, который детектирует; импорт в direct_chat — прецедент factcheck→summary).
+
+```python
+# РЕАЛИЗАЦИЯ (D274, сверено @Reviewer с кодом): якорь в PLAIN-тексте цели.
+_TRANSCRIPTION_ANCHOR_RE = re.compile(r"^.+🗣:")
+
+def is_reply_to_transcription(message: types.Message) -> bool:
+    """True = юзер реплаит НА сообщение бота-расшифровку (Epic 72, 74.C).
+    Синхронный и без БД: вызывается из sync-хотпата _is_direct_trigger.
+    Primary — якорь формата D268/D272 («🗣:» после жирного имени);
+    structural-фолбэк — ТОЛЬКО если текст цели пуст (страховка на смену формата):
+    цель бота сама является реплаем на voice/video_note (reply-цепочка
+    доступна прямо в апдейте)."""
+    target = message.reply_to_message
+    if target is None:
+        return False
+    frm = getattr(target, "from_user", None)
+    if frm is None or _bot_id is None or frm.id != _bot_id:
+        return False
+    text = target.text or ""
+    if _TRANSCRIPTION_ANCHOR_RE.search(text):
+        return True
+    if not text.strip():                       # structural fallback
+        orig = getattr(target, "reply_to_message", None)
+        return orig is not None and (
+            getattr(orig, "voice", None) is not None
+            or getattr(orig, "video_note", None) is not None)
+    return False
+```
+
+**Отклонение реализации от DESIGN-сниппета (зафиксировано @Reviewer, T-557):** в DESIGN якорь был `<b>[^<]*</b>[^<]*🗣:` по HTML-разметке; при реализации выяснено, что Telegram присылает `reply_to_message.text` БЕЗ разметки (`parse_mode=HTML` влияет только на отправку), входящий `.text` уже декодирован — поэтому канон приведён к PLAIN-якорю `^.+🗣:` (реализация верна, DESIGN-сниппет нерабочий). Тот же факт учтён в 74.C.3: unescape для клейма НЕ нужен.
+
+Почему primary — паттерн текста, а не DB-цепочка: (а) `_is_direct_trigger` — sync-функция в sync-хотпате, async db.get_smart_message_by_tg_id туда без рефакторинга не втащить; (б) текст собственной цели ВСЕГДА присутствует в апдейте (Telegram присылает replied message целиком) — БД не нужна; (в) формат `🗣:` контролируем нами (74.B.2 сознательно сохраняет анкер). Structural-ветка покрывает гипотетическое исчезновение текста и требует ОДНОВРЕМЕННО bot-authored + цепочку на голосовое — ложные срабатывания практически исключены.
+
+Известная жертва (R72-3): бот в direct_chat может ответить реплаем на голосовое юзера; юзер реплаит ЭТОТ ответ голосовым → гейт подавит direct_chat, хотя целью была не расшифровка. Кейс редкий (нужно voice→бот-реплай→voice-реплай), цена ошибки — просто НЕ-ответ в чат (голосовое всё равно транскрибируется 0i); принимаем, документируем.
+
+#### 74.C.2 Гейт в direct_chat (T-556)
+
+`handlers/direct_chat.py::_is_direct_trigger` (:121–125), ветка reply-to-bot:
+
+```python
+if reply_from is not None and reply_from.id == _bot_id:
+    if is_reply_to_transcription(message):   # Epic 72 (74.C): расшифровка — НЕ direct chat
+        return False
+    return True
+```
+
+Остальные ветки (mention/@username/keyword) НЕ трогаются. Требование «reply голосовым НА расшифровку транскрибируется штатно» выполняется само: 0i ловит `F.voice|F.video_note` независимо от reply-цели, а с гейтом 0h перестаёт перехватывать апдейт раньше.
+
+#### 74.C.3 FactCheck: клейм адресуется автору исходного ГС (D275)
+
+Триггер «фактчек» реплаем на расшифровку (роутер 0c) сейчас парсит ВЕСЬ HTML-текст расшифровки как клейм без атрибуции. Минимально-кровное решение — переиспользовать ГОТОВЫЙ параметр `forward_source` из `check_claim` (рендерится как `<claim is_forward="true" forward_source="Имя">`, factcheck_service.py:101–109): сервис, промпт и Section 72 НЕ меняются.
+
+В `handlers/factcheck.py` после `_parse_trigger`:
+
+```python
+# РЕАЛИЗАЦИЯ (D275, сверено @Reviewer): .text цели — PLAIN (см. 74.C.1),
+# поэтому матч по <i>…</i> нерабочий; unescape НЕ нужен (уже декодировано).
+# Хелперы: _transcription_claim_text(target) -> str | None и
+# _transcription_forward_author(chat_id, target) -> str | None (fail-open).
+_TRANSCRIPTION_CLAIM_RE = re.compile(r"🗣:\s?(.*)", re.DOTALL)
+
+async def _transcription_claim(chat_id: int, target) -> tuple[str, str | None]:
+    """target — сообщение бота-расшифровки → (чистый текст клейма, автор оригинала).
+    Не-расшифровка → (target.text/caption как раньше, None). Fail-open:
+    любая ошибка → старое поведение (полный текст, без атрибута)."""
+    if not is_reply_to_transcription_by_target(target):   # вариант хелпера 74.C.1 для произвольного target
+        return _extract_target_text(...)                  # прежний путь
+    m = _TRANSCRIPTION_TEXT_RE.search(target.text or "")
+    # реализация: claim = m.group(1).strip() if m else None (без unescape — plain)
+    author = None
+    orig_id = getattr(getattr(target, "reply_to_message", None), "message_id", None)
+    if _db is not None and orig_id is not None:
+        try:
+            row = await _db.get_smart_message_by_tg_id(chat_id, orig_id)
+        except Exception:
+            row = None
+        if row is not None:
+            author = row["forward_source"] or row["author_name"] \
+                     or await _resolve_author_by_id(chat_id, row)   # aliases.resolve(row.user_id,…)
+    return claim_text, author
+```
+
+Далее в `factcheck_handler`: `target_text, transcript_author = await _transcription_claim(...)`; `if not forward_source and transcript_author: forward_source = transcript_author` (явный user-forward цели имеет приоритет — не регрессируем существующий репост-вариант). Если строка БД не найдена (расшифровка старше TTL/observer молчал) → клейм без атрибута = ровно текущее поведение (fail-open).
+
+Контракт ответа/таргеты (5.x, cache-key по target_text) НЕ меняются; cache-key естественно изменится для расшифровок (теперь чистый текст) — приемлемо, ключи контентные.
+
+#### 74.C.4 Search — без изменений (D276, non-goal)
+
+Search (0d) reply-цель не читает вообще: запрос набирается текстом («найди …»), атрибуция клейма для веб-поиска не имеет точки в контракте (`research(query, chat_context)`). Требование «не сломать» выполнено by design; атрибуция в search — осознанно за скоупом (если позже понадобится — тем же паттерном 74.C.3, отдельная задача).
+
+#### 74.C.5 Edge cases блока C
+
+| # | Кейс | Поведение |
+|---|---|---|
+| 1 | Юзер реплаит ГОЛОСОМ/кружком на расшифровку | 0h подавлен гейтом → 0i транскрибирует штатно |
+| 2 | Юзер реплаит ТЕКСТОМ на расшифровку (без триггеров) | direct_chat НЕ стартует (гейт), сообщение уходит в память как обычное |
+| 3 | «фактчек» реплаем на расшифровку | factcheck (0c): чистый клейм + `is_forward="true" forward_source=<автор ГС>` |
+| 4 | «найди …» реплаем на расшифровку | search без изменений |
+| 5 | Расшифровка не найдена в smart_messages | factcheck fail-open: полный текст, без атрибута |
+| 6 | Реплай на обычный ответ бота (не расшифровка) | direct_chat работает как раньше (якоря нет) |
+| 7 | Реплай на сообщение ДРУГОГО юзера | гейт не применяется (не bot-authored) |
+
+---
+
+### 74.D Сквозные риски и открытые вопросы для Builder
+
+**Риски:** R72-1 — пустая строка `HTTP_PROXY=""` при незаполненном `COBALT_HTTP_PROXY` может трактоваться undici EnvHttpProxyAgent иначе, чем unset (не подтверждено доками) → см. ОВ-1. R72-2 — anchor-regex связывает детектор 74.C.1 с форматом D268/D272; любое изменение формата ответа обязано править оба (тест-связка: формат-тест + детект-тест в одном PR). R72-3 — подавление direct_chat для «бот-реплай-на-голосовое → voice-реплай» (74.C.1, принятая жертва). R72-4 — креды прокси в прод `.env` дважды (YOUTUBE_* и COBALT_*) — DevOps держит синхронными при ротации.
+
+**Открытые вопросы (Builder решает/верифицирует, PM информируется):**
+1. **ОВ-1 (R72-1) — ЗАКРЫТ @Reviewer (T-557, сверка исходника undici `env-http-proxy-agent.js`):** `const HTTP_PROXY = httpProxy ?? process.env.http_proxy ?? process.env.HTTP_PROXY; if (HTTP_PROXY) { … }` — пустая строка FALSY → агент подменяется на прямой (non-proxying Agent), соединение напрямую. `${COBALT_HTTP_PROXY:-}` → `HTTP_PROXY=""` БЕЗОПАСНО: контейнер не падает, поведение идентично unset. Деплой-гейт (smoke без прокси на хосте без COBALT_HTTP_PROXY в .env) остаётся обязательным. Верификация на деплое (T-558 smoke); если пустая строка ломает агент — план Б: убрать HTTP(S)_PROXY из базового compose и прокидывать через `docker-compose.override.yml` на проде (секрет всё равно вне git).
+2. **ОВ-2:** расхождение «24 теста» (борд) vs 29 фактических (test_voice_transcription.py) — Builder фиксирует актуальное число при закрытии T-555.
+3. **ОВ-3:** экранирование в `wrap_media_fact`: предложено `html.escape(forward_source, quote=True)`; если экстрактор GraphRAG ожидает XML-escaped — заменить на `escape_xml_text(..., quote=True)`; выбрать ОДНО, покрыть тестом (sender остаётся legacy-неэкранированным — вне скоупа).
+4. **ОВ-4:** нужен ли backfill авторов для исторических расшифровок в БД — предложение Architect: НЕТ (работаем только с live-сообщениями; старые расшифровки фактчекаются по-старому).
+5. **ОВ-5:** firewalld/iptables прода: docker→host-gateway:10808 должен быть разрешён; DevOps проверяет `docker compose exec cobalt wget` через прокси до боевого smoke (гейт 74.A.4 п.2).
+
+**DoD Epic 72 (сводно):** оба yt-dlp-потребителя и Cobalt ходят через единый прокси-конфиг; секреты не в git/логах; форвард-расшифровка называет автора-источник (+метка пересылки, +атрибуты в GraphRAG-факте); direct_chat молчит на реплаях к расшифровкам, фактчек адресует клейм автору ГС; полный pytest 0 регрессий; `git diff --check` чист.
+
+---

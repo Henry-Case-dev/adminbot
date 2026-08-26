@@ -16,7 +16,7 @@ import shutil
 import tempfile
 from typing import Awaitable, Callable
 
-from config.settings import settings
+from config.settings import build_ytdlp_base_opts, settings
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -186,12 +186,8 @@ class YouTubeTranscriptEngine:
             "overwrites": True,
             "ignoreerrors": True,      # R41-1/D154: 429 на 'en' не валит ru
         }
-        proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
-        if proxy:
-            opts["proxy"] = proxy
-        cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
-        if cookies:
-            opts["cookiefile"] = cookies
+        # Epic 72 (74.A/D270): прокси/cookies — единый хелпер config.settings
+        opts.update(build_ytdlp_base_opts())
         return opts
 
     def _extract_ytdlp_segments(self, info: dict, video_id: str) -> list[dict]:
@@ -321,14 +317,14 @@ class YouTubeTranscriptEngine:
     def _transcript_api_kwargs(self) -> dict:
         """Прокси (requests-формат {"http": u, "https": u}) и cookies (путь к
         Netscape-файлу). Пусто → ПУСТОЙ dict: вызов list_transcripts(video_id)
-        идентичен 46.4 — существующие моки/тесты живы без правок."""
+        идентичен 46.4 — существующие моки/тесты живы без правок.
+        Epic 72 (74.A/D270): источник настроек — единый build_ytdlp_base_opts()."""
         kwargs = {}
-        proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
-        if proxy:
-            kwargs["proxies"] = {"http": proxy, "https": proxy}
-        cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
-        if cookies:
-            kwargs["cookies"] = cookies
+        base = build_ytdlp_base_opts()
+        if "proxy" in base:
+            kwargs["proxies"] = {"http": base["proxy"], "https": base["proxy"]}
+        if "cookiefile" in base:
+            kwargs["cookies"] = base["cookiefile"]
         return kwargs
 
     def _fetch_segments(self, video_id: str) -> list[dict]:

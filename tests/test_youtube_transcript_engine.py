@@ -397,6 +397,16 @@ def _mock_settings(monkeypatch, proxy="", cookies=""):
             YOUTUBE_COOKIES_FILE=cookies,
         ),
     )
+    # Epic 72 (74.A/D270): opts собираются хелпером config.settings —
+    # патчим импортированную в движок функцию теми же значениями.
+    monkeypatch.setattr(
+        engine_mod,
+        "build_ytdlp_base_opts",
+        lambda: {
+            **({"proxy": proxy} if proxy else {}),
+            **({"cookiefile": cookies} if cookies else {}),
+        },
+    )
 
 
 class TestYtdlpPrimary:
