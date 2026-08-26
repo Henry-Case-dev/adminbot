@@ -30,3 +30,24 @@ Thumbs.db
 # сам каталог держим через docker/telegram-bot-api/.gitkeep
 docker/telegram-bot-api/*
 !docker/telegram-bot-api/.gitkeep
+
+# Chrome profile (Epic 79): коммитим только auth-state для экспорта cookies.
+# Кэши/регенерируемый мусор не в git (в т.ч. файлы >100MB ломают push на GitHub)
+chrome-profile/Cache/
+chrome-profile/Code Cache/
+chrome-profile/GPUCache/
+chrome-profile/DawnGraphiteCache/
+chrome-profile/DawnWebGPUCache/
+chrome-profile/File System/
+chrome-profile/blob_storage/
+chrome-profile/Service Worker/CacheStorage/
+chrome-profile/JumpListIconsRecentClosed/
+chrome-profile/optimization_guide_hint_cache_store/
+chrome-profile/Shared Dictionary/
+chrome-profile/Segmentation Platform/
+# Файлы с живыми OAuth-токенами (GitHub Push Protection): в экспорт кукис не нужны
+chrome-profile/Favicons
+chrome-profile/Favicons-journal
+chrome-profile/History
+chrome-profile/History-journal
+chrome-profile/Sync Data/
