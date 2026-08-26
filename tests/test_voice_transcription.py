@@ -437,8 +437,12 @@ class TestEpic78LocalApiResolve:
         return files, copied
 
     def _src_path(self, files_dir, rel):
-        return str(files_dir / f"{self.BOT_ID}:{vt.settings.API_TOKEN}"
-                   / rel)
+        # Epic 78 hotfix: имя каталога строит сам хендлер (_local_files_subdir):
+        # токен уже может содержать '<bot_id>:' — задвоение недопустимо.
+        token = str(vt.settings.API_TOKEN)
+        prefix = f"{self.BOT_ID}:"
+        dirname = token if token.startswith(prefix) else prefix + token
+        return str(files_dir / dirname / rel)
 
     def _local_bot(self):
         bot = _make_bot()
@@ -520,7 +524,8 @@ class TestEpic78LocalApiResolve:
         """Кейс 5: токен и '<bot_id>:<token>' отсутствуют во всех логах
         (существующий файл / файл missing / копирование упало / облако)."""
         token = vt.settings.API_TOKEN
-        secret = f"{self.BOT_ID}:{token}"
+        prefix = f"{self.BOT_ID}:"
+        secret = token if token.startswith(prefix) else prefix + token
         files, copied = vsrc
         key_ok = self._src_path(local_mode, "music/ok.ogg")
         files[key_ok] = b"x"

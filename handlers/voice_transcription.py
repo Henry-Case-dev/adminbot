@@ -160,6 +160,22 @@ async def _safe_typing(bot, chat_id: int) -> None:
         pass
 
 
+def _local_files_subdir(bot) -> str:
+    """Epic 78 hotfix: имя каталога data-dir локального Bot API.
+
+    Prod-факт (2026-08-26): telegram-bot-api создаёт каталог с именем,
+    равным ПОЛНОМУ токену '<bot_id>:<secret>' — то есть ровно
+    settings.API_TOKEN. Продолжаем поддерживать и «голый» secret без
+    префикса на всякий случай (старые инсталляции/тестовые стенды).
+    Секрет нигде не логируется (R17).
+    """
+    token = str(settings.API_TOKEN)
+    prefix = f"{bot.id}:"
+    if token.startswith(prefix):
+        return token
+    return prefix + token
+
+
 async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
     """Epic 78 (D292/Section 79): получить медиа во tmp-файл.
     Гейт локального режима = settings.DOWNLOAD_ENABLED (D262 import-time
@@ -184,7 +200,7 @@ async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
     if (isinstance(file_path, str) and file_path
             and not PurePosixPath(file_path).is_absolute()):
         src = (Path(settings.TELEGRAM_API_FILES_DIR)
-               / f"{bot.id}:{settings.API_TOKEN}" / file_path)
+               / _local_files_subdir(bot) / file_path)
         try:
             if src.resolve().is_relative_to(
                     Path(settings.TELEGRAM_API_FILES_DIR).resolve()):
