@@ -6,6 +6,7 @@ yt-dlp-метаданные (probe) вне лока. Cleanup файла — на
 finally; сервис отдаёт Path и не владеет жизненным циклом после возврата.
 """
 import asyncio
+import json
 import logging
 import re
 import secrets
@@ -30,6 +31,10 @@ _FALLBACK_QUALITIES: tuple[str, ...] = ("1080p", "720p", "360p")
 
 # Section 70.8 #6: лимит локального Bot API (2 GB).
 VD_MAX_BYTES = 2_000_000_000
+
+# Epic 74 (D282): жёсткий лимит чтения ТЕЛА ошибки cobalt — тело приходит
+# по сети, его размер заранее неизвестен (нельзя resp.text() без потолка).
+_ERROR_BODY_MAX_BYTES = 1024
 
 _FILENAME_SANITIZE_RE = re.compile(r"[^\w.\- ]+")
 
@@ -128,13 +133,21 @@ class VideoDownloader:
             return await self._stream_to_file(tunnel_url, filename)
 
     async def _request_tunnel(self, url: str, quality: str) -> tuple[str, str | None]:
-        """POST на Cobalt: {url, videoQuality, downloadMode:'auto'} → tunnel URL."""
-        payload = {"url": url, "videoQuality": str(quality), "downloadMode": "auto"}
+        """POST на Cobalt: {url, videoQuality, downloadMode:'auto'} → tunnel URL.
+        Epic 74 (D280): качество нормализуется к enum БЕЗ «p» («1080p»→«1080»,
+        int → str, «max» как есть; мусор → DownloadError до похода в сеть).
+        D281: обязателен Accept: application/json. D282: тело ответа при
+        >=400 читается, error.code из JSON извлекается и логируется."""
+        quality_norm = self._normalize_quality(quality)
+        payload = {"url": url, "videoQuality": quality_norm,
+                   "downloadMode": "auto"}
         try:
             async with aiohttp.ClientSession(timeout=_COBALT_POST_TIMEOUT) as session:
-                async with session.post(self._cobalt_url, json=payload) as resp:
+                async with session.post(
+                        self._cobalt_url, json=payload,
+                        headers={"Accept": "application/json"}) as resp:
                     if resp.status >= 400:
-                        raise DownloadError(f"cobalt http {resp.status}")
+                        raise await self._http_error(resp)
                     data = await resp.json(content_type=None)
         except aiohttp.ClientConnectorError as exc:
             raise CobaltServiceDownError(f"cobalt unreachable: {exc}") from exc
@@ -152,6 +165,46 @@ class VideoDownloader:
             raise DownloadError(f"unsupported cobalt status: {status!r}")
         filename = data.get("filename") if isinstance(data.get("filename"), str) else None
         return str(tunnel), filename
+
+    @staticmethod
+    def _normalize_quality(quality) -> str:
+        """Epic 74 (D280): «1080p»/«1080»/1080 → «1080»; «max» как есть;
+        мусор → DownloadError БЕЗ похода в сеть."""
+        raw = str(quality)
+        text = raw.strip()
+        if text.lower() == "max":
+            return "max"
+        try:
+            return str(int(text.strip("pP")))
+        except ValueError:
+            raise DownloadError(f"invalid quality: {raw!r}") from None
+
+    @staticmethod
+    async def _http_error(resp) -> DownloadError:
+        """Epic 74 (D282): тело ответа при >=400 читается С ЖЁСТКИМ ЛИМИТОМ
+        (_ERROR_BODY_MAX_BYTES — тело сетевое, размер неизвестен; срез
+        сообщения [:500]), error.code из JSON извлекается, логируется и
+        включается в текст ошибки. Если тело нечитаемо (обрыв соединения при
+        чтении) — голый статус без тела, диагностика не теряется."""
+        try:
+            raw = await resp.content.read(_ERROR_BODY_MAX_BYTES)
+            body_full = raw.decode("utf-8", errors="replace")
+        except Exception as exc:  # обрыв чтения тела — статус всё равно важен
+            logger.error("[videodl] cobalt http %s | body unreadable: %s",
+                         resp.status, exc)
+            return DownloadError(f"cobalt http {resp.status}")
+        error_code = None
+        try:
+            parsed = json.loads(body_full)
+            if isinstance(parsed, dict) and isinstance(parsed.get("error"), dict):
+                error_code = parsed["error"].get("code")
+        except ValueError:
+            pass
+        body = body_full[:500]
+        logger.error("[videodl] cobalt http %s | code=%s | body=%s",
+                     resp.status, error_code or "-", body)
+        detail = error_code if error_code else body
+        return DownloadError(f"cobalt http {resp.status}: {detail}")
 
     async def _stream_to_file(self, tunnel_url: str,
                               filename: str | None) -> Path:

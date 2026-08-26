@@ -160,6 +160,24 @@
 - [ ] T-562 (@Reviewer, P0, ←T-560) — ревью Epic 73 (touch строго после probe и один раз, канон Section 70 = коду, дефолты синхронны в 3 местах, чужие кулдауны не затронуты)
 - [ ] T-563 (@DevOps, P0, ←T-561/T-562) — деплой v2.47.2: коммит+пуш; прод .env DOWNLOAD_COOLDOWN=5m (.bak.epic73); restart, 0 traceback; сквозной smoke: скачивание ок, битая ссылка → ретрай сразу проходит, повтор в пределах 5m → попап с remaining_time
 
+### Epic 74: Прод-баг «скачай» → выбор качества → cobalt http 400 (enum videoQuality + Accept + лог тела ошибки) — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0 (target v2.47.3)
+
+> Полный трек — plans/backlog.md (Epic 74). Root cause (подтверждено кодом): (1)
+> handlers/video_download.py:298 зовёт download(url, f"{quality}p") → tools/video_downloader.py:132
+> шлёт videoQuality="1080p" (с «p»), а API Cobalt ожидает enum БЕЗ суффикса («1080»/«2160»/…)
+> → стабильный HTTP 400 на каждом выборе качества; (2) отсутствует обязательный заголовок
+> Accept: application/json (:134–135); (3) при >=400 тело ответа Cobalt НЕ логируется
+> (:136–137, только «cobalt http {status}») — диагноз вслепую. Решение (@Architect фиксирует
+> финал): нормализация качества в downloader (контракт download(url, height: int) ЛИБО
+> нормализация строки — ОДИН слой), Accept header, лог error.code из тела при >=400,
+> канон Section 70/74 синхронно. Порядок: @Architect → @Builder → @Reviewer → @DevOps
+> (curl-подтверждение диагноза параллельно, деплой в конце). Без @Orchestrator.
+
+- [ ] 👤 T-564 (@Architect, P0) — краткий дизайн фикса ДО реализации: контракт качества (height: int vs нормализация строки — выбрать один, точку определить; вызов :298 поправить соответственно); Accept: application/json на POST; формат лога error.code из тела при >=400 (обрезка, без секретов — прецедент R49-1); канон Section 70/74 ARCHITECTURE.md; тест-план (~25 тестов)
+- [ ] T-565 (@Builder, P0, ←T-564) — реализация (нормализация качества + Accept header + лог error.code при >=400) + АТОМАРНО tests/test_video_download.py (~25 тестов: payload без «p», Accept присутствует, 400 → error.code в логе, регресс tunnel/busy/timeout); полный pytest 0 регрессий
+- [ ] T-566 (@Reviewer, P0, ←T-565) — ревью Epic 74 (enum без «p», нормализация ровно в одном месте, канон Section 70/74 = коду, секретов в логе нет, busy/tunnel не деградировали)
+- [ ] T-567 (@DevOps, P0, ←T-564/T-566) — серверное подтверждение диагноза (curl с "1080p" → 400, с "1080" → OK — вердикт root cause); коммит+пуш; деплой v2.47.3: git pull, restart, 0 traceback; smoke: сквозной через бота невозможен без Telegram → МИНИМУМ POST с тем же payload что у бота после фикса (+Accept) → tunnel; проверить docker logs cobalt на ошибки
+
 ## 🔍 In Review
 
 *(пусто)*

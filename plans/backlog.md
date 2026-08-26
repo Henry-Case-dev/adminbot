@@ -7864,3 +7864,43 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Деплой
 - [ ] T-563 (@DevOps, P0, ←T-561/T-562): деплой v2.47.2 — коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); прод nik@198.46.175.136:/var/www/admin_bot: git pull, прод .env: `DOWNLOAD_COOLDOWN=5m` (бэкап `.env.bak.epic73`), restart admin_bot, status/journalctl 0 traceback; сквозной smoke: (1) «скачай <yt>» полное скачивание, (2) неудачная попытка (битая ссылка) → повторная попытка СРАЗУ проходит (кулдаун не сожжён), (3) вторая попытка в пределах 5m → попап кулдауна с корректным remaining_time. **DoD:** прод v2.47.2, все smokes зелёные
+
+---
+
+## Epic 74: Прод-баг «скачай» → выбор качества → cobalt http 400 (enum videoQuality без «p» + Accept + логирование тела ошибки) — 2026-08-26 🆕 Шаг 1 (PM ✅) — P0
+
+> **Цель:** Починить прод-баг: после выбора качества Cobalt отвечает HTTP 400 и юзер
+> получает ошибку скачивания. Target: **v2.47.3**.
+>
+> **Root cause (research, подтверждено кодом PM):**
+> 1. `handlers/video_download.py:298` зовёт `_downloader.download(url, f"{quality}p")`
+>    → `tools/video_downloader.py:132` шлёт в payload `videoQuality: str(quality)` =
+>    **«1080p» (с суффиксом p)**, а API Cobalt ожидает enum БЕЗ суффикса:
+>    `"1080"/"2160"/...` → стабильный HTTP 400 на КАЖДОМ выборе качества.
+> 2. В `_request_tunnel` (:134–135) отсутствует обязательный заголовок
+>    `Accept: application/json`.
+> 3. При `resp.status >= 400` (:136–137) бросается `DownloadError(f"cobalt http {resp.status}")`
+>    БЕЗ логирования тела ответа → диагноз вслепую (диагностический пробел, прецедент R49-1).
+>
+> **Направление решения (@Architect фиксирует финал):**
+> - нормализация качества в downloader: контракт `download(url, height: int)`
+>   ЛИБО нормализация строки («1080p»→«1080») — выбрать одно, второй слой не дублировать;
+> - добавить заголовок `Accept: application/json` на POST к Cobalt;
+> - при >=400 логировать `error.code` из тела ответа Cobalt (обрезка, без секретов);
+> - канон Section 70/74 ARCHITECTURE.md обновить синхронно с кодом.
+>
+> Порядок: @Architect (дизайн ДО реализации) → @Builder → @Reviewer → @DevOps
+> (серверное подтверждение диагноза curl'ом можно параллельно, деплой в конце).
+> **НИ ОДНОЙ задачи на @Orchestrator.**
+
+### Архитектурное решение
+- [ ] 👤 T-564 (@Architect, P0): краткий дизайн фикса ДО реализации — зафиксировать: контракт качества (вариант A: `download(url, height: int)` + формирование payload внутри downloader; вариант B: нормализация строки «1080p»→«1080» на входе downloader — выбрать ОДИН, точку нормализации определить; callback `vd:<height>` уже передаёт число без «p», handlers/video_download.py:298 поправить соответственно); заголовок `Accept: application/json` на POST; формат диагностического лога при >=400 (тело ответа Cobalt, поле error.code, обрезка до безопасного лимита, секретов нет — прецедент R49-1/_4XX_BODY_MAX_CHARS); канон plans/ARCHITECTURE.md Section 70 (+ новая Section 74 при необходимости) обновить синхронно с кодом; тест-план (~25 атомарных тестов). **DoD:** решение зафиксировано в ARCHITECTURE.md, READY FOR BUILDER
+
+### Реализация
+- [ ] T-565 (@Builder, P0, ←T-564): реализация по решению T-564 — нормализация качества в `tools/video_downloader.py` (+ правка вызова handlers/video_download.py:298 если выбран контракт height: int); заголовок `Accept: application/json`; логирование `error.code` из тела ответа при >=400; АТОМАРНО тесты `tests/test_video_download.py` (~25 тестов): (1) payload videoQuality БЕЗ «p» («1080», не «1080p»); (2) нормализация «1080p»→«1080» / контракт height: int; (3) Accept header присутствует; (4) HTTP 400 → DownloadError + error.code из тела в логе; (5) регресс: tunnel/redirect статусы, busy-lock, transport/timeout ошибки не деградировали; полный pytest 0 регрессий. **DoD:** выбор качества на коде даёт валидный запрос к Cobalt, тесты зелёные
+
+### Ревью
+- [ ] T-566 (@Reviewer, P0, ←T-565): ревью Epic 74 — videoQuality строго enum без «p»; нормализация ровно в одном месте (нет двойного слоя); Accept header на месте; error.code логируется при >=400 без секретов; канон Section 70/74 = коду; чужие сценарии downloader (busy, timeout, tunnel) не затронуты; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой + серверное подтверждение диагноза
+- [ ] T-567 (@DevOps, P0, ←T-564/T-566): серверное подтверждение диагноза + деплой v2.47.3. Подтверждение (можно параллельно, до деплоя): curl на cobalt API с payload бота — `{"url":..., "videoQuality":"1080p", ...}` → ожидаемо HTTP 400; тот же curl с `"1080"` → OK (tunnel/redirect); вывод зафиксировать как вердикт root cause. Деплой: коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); прод nik@198.46.175.136:/var/www/admin_bot: git pull, restart admin_bot, status/journalctl 0 traceback; smoke: сквозной «скачай» через бота НЕВОЗМОЖЕН без Telegram-интеракции → МИНИМУМ: POST с тем же payload, что отправляет бот после фикса (videoQuality без «p» + Accept header) → ответ tunnel; проверить `docker logs cobalt` на ошибки после фикса. **DoD:** curl-вердикт 400-vs-OK зафиксирован, прод v2.47.3, POST-payload-smoke зелёный, docker logs cobalt чистые

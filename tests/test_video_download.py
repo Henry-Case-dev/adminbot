@@ -365,10 +365,13 @@ class TestTouchAfterProbe:
 # ── 6. Мок Cobalt (aiohttp): успех + ошибка ─────────────────────────
 
 class FakeCobaltResponse:
-    def __init__(self, payload=None, status=200, chunks=(b"vid", b"eo")):
+    def __init__(self, payload=None, status=200, chunks=(b"vid", b"eo"),
+                 text=None, content=None):
         self._payload = payload
         self.status = status
         self._chunks = chunks
+        self._text = text
+        self._content_override = content
 
     async def __aenter__(self):
         return self
@@ -379,17 +382,34 @@ class FakeCobaltResponse:
     async def json(self, content_type=None):
         return self._payload
 
+    async def text(self):
+        if self._text is not None:
+            return self._text
+        import json as _json
+        return _json.dumps(self._payload) if self._payload is not None else ""
+
     class _Content:
-        def __init__(self, chunks):
+        def __init__(self, chunks, text=None):
             self._chunks = chunks
+            self._text = text
 
         async def iter_chunked(self, size):
             for chunk in self._chunks:
                 yield chunk
 
+        async def read(self, n=-1):
+            # Epic 74: прод-код читает тело ошибки через content.read(лимит).
+            if self._text is not None:
+                data = self._text.encode("utf-8")
+            else:
+                data = b"".join(self._chunks)
+            return data if n < 0 else data[:n]
+
     @property
     def content(self):
-        return self._Content(self._chunks)
+        if self._content_override is not None:
+            return self._content_override
+        return self._Content(self._chunks, self._text)
 
 
 class FakeCobaltSession:
@@ -404,8 +424,10 @@ class FakeCobaltSession:
     async def __aexit__(self, *args):
         return False
 
-    def post(self, url, json=None):
+    def post(self, url, json=None, headers=None):
+        FakeCobaltSession.behavior["post_called"] = True
         FakeCobaltSession.behavior["post_payload"] = json
+        FakeCobaltSession.behavior["post_headers"] = headers
         resp = FakeCobaltSession.behavior["post_response"] or FakeCobaltResponse(
             payload={"status": "tunnel", "url": "http://tunnel/file.mp4"})
         return resp
@@ -421,13 +443,14 @@ class TestCobaltMocked:
         monkeypatch.setattr(
             "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
         FakeCobaltSession.behavior["post_payload"] = None
+        FakeCobaltSession.behavior["post_headers"] = None
         FakeCobaltSession.behavior["post_response"] = FakeCobaltResponse(
             payload={"status": "tunnel",
                      "url": "http://tunnel/video.mp4",
                      "filename": "cool video.mp4"})
         path = await vd_env.download(URL, "720p")
         payload = FakeCobaltSession.behavior["post_payload"]
-        assert payload == {"url": URL, "videoQuality": "720p",
+        assert payload == {"url": URL, "videoQuality": "720",
                            "downloadMode": "auto"}
         assert path.exists() and path.read_bytes() == b"fakevideo"
         path.unlink()
@@ -466,6 +489,135 @@ class TestCobaltMocked:
             assert kwargs.kwargs["reply_to_message_id"] == 100
         finally:
             vd._downloader = old
+
+
+# ── 6b. Epic 74 (D280–D282): нормализация качества, Accept, тело 400 ─
+
+@pytest.mark.asyncio
+async def test_epic74_payload_quality_normalized(vd_env, monkeypatch):
+    """D280: «1080p»/«1080»/1080 → videoQuality == «1080» в payload."""
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    FakeCobaltSession.behavior["post_response"] = None
+    for q in ("1080p", "1080", 1080):
+        FakeCobaltSession.behavior["post_called"] = False
+        await vd_env.download(URL, q)
+        payload = FakeCobaltSession.behavior["post_payload"]
+        assert payload["videoQuality"] == "1080", q
+
+
+@pytest.mark.asyncio
+async def test_epic74_accept_header_sent(vd_env, monkeypatch):
+    """D281: POST уходит с Accept: application/json."""
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    FakeCobaltSession.behavior["post_response"] = None
+    await vd_env.download(URL, "720p")
+    assert FakeCobaltSession.behavior["post_headers"] == {
+        "Accept": "application/json"}
+
+
+@pytest.mark.asyncio
+async def test_epic74_http400_json_body_error_code_in_message(
+        vd_env, monkeypatch, caplog):
+    """D282: 400 + JSON-тело → error.code в тексте DownloadError."""
+    import logging
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    FakeCobaltSession.behavior["post_response"] = FakeCobaltResponse(
+        status=400,
+        text='{"error":{"code":"error.api.quality.unavailable"}}')
+    with caplog.at_level(logging.ERROR,
+                         logger="tools.video_downloader"):
+        with pytest.raises(DownloadError) as exc_info:
+            await vd_env.download(URL, "1080")
+    msg = str(exc_info.value)
+    assert "cobalt http 400" in msg
+    assert "error.api.quality.unavailable" in msg
+    assert any("error.api.quality.unavailable" in r.getMessage()
+               for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_epic74_http400_non_json_body_raw_truncated_to_500(
+        vd_env, monkeypatch):
+    """D282: 400 + не-JSON тело → сырой текст в ошибке, обрезан до 500."""
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    raw = "x" * 900
+    FakeCobaltSession.behavior["post_response"] = FakeCobaltResponse(
+        status=400, text=raw)
+    with pytest.raises(DownloadError) as exc_info:
+        await vd_env.download(URL, "1080")
+    msg = str(exc_info.value)
+    assert "cobalt http 400" in msg
+    assert "x" * 500 in msg                 # первые 500 символов включены
+    assert "x" * 501 not in msg             # длиннее 500 — НЕ просочилось
+
+
+@pytest.mark.asyncio
+async def test_epic74_garbage_quality_fails_without_network(
+        vd_env, monkeypatch):
+    """D280: мусорное качество → DownloadError БЕЗ похода в сеть."""
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    FakeCobaltSession.behavior["post_called"] = False
+    with pytest.raises(DownloadError, match="invalid quality"):
+        await vd_env.download(URL, "abc")
+    assert FakeCobaltSession.behavior["post_called"] is False
+
+
+@pytest.mark.asyncio
+async def test_epic74_max_quality_passes_through(vd_env, monkeypatch):
+    """D280: «max» проходит как есть (без нормализации к числу)."""
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    FakeCobaltSession.behavior["post_response"] = None
+    await vd_env.download(URL, "max")
+    payload = FakeCobaltSession.behavior["post_payload"]
+    assert payload["videoQuality"] == "max"
+
+
+@pytest.mark.asyncio
+async def test_epic74_http400_body_read_is_bounded(
+        vd_env, monkeypatch, caplog):
+    """D282 (ревью): тело ошибки читается через content.read с лимитом —
+    гигантское тело НЕ читается целиком (resp.text() без потолка = OOM-риск),
+    в сообщении только первые 500 символов."""
+    import logging
+    import tools.video_downloader as vdm
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    raw = "y" * (vdm._ERROR_BODY_MAX_BYTES * 100)   # 100 KB при лимите 1 KB
+    FakeCobaltSession.behavior["post_response"] = FakeCobaltResponse(
+        status=413, text=raw)
+    with caplog.at_level(logging.ERROR,
+                         logger="tools.video_downloader"):
+        with pytest.raises(DownloadError) as exc_info:
+            await vd_env.download(URL, "1080")
+    msg = str(exc_info.value)
+    assert "cobalt http 413" in msg
+    assert len([c for c in msg if c == "y"]) <= 500   # не 100K «y»
+    assert any("cobalt http 413" in r.getMessage()
+               for r in caplog.records)
+
+
+class _BrokenContent:
+    async def read(self, n=-1):
+        raise ConnectionResetError("reset while reading error body")
+
+
+@pytest.mark.asyncio
+async def test_epic74_http_error_body_unreadable_bare_status_fallback(
+        vd_env, monkeypatch):
+    """D282 (ревью): обрыв соединения при чтении тела ошибки → DownloadError
+    со статусом БЕЗ тела, исключение не маскируется transport-ошибкой."""
+    monkeypatch.setattr(
+        "tools.video_downloader.aiohttp.ClientSession", FakeCobaltSession)
+    resp = FakeCobaltResponse(status=502, content=_BrokenContent())
+    FakeCobaltSession.behavior["post_response"] = resp
+    with pytest.raises(DownloadError, match=r"^cobalt http 502$"):
+        await vd_env.download(URL, "1080")
 
 
 # ── 7. Выбор качества: удаление клавиатуры ──────────────────────────

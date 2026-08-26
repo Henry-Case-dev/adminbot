@@ -15140,3 +15140,27 @@ Search (0d) reply-цель не читает вообще: запрос наби
 **DoD Epic 73:** дефолт 5m во всех трёх местах (settings.py / .env.example / README), touch после успешного probe (обе ветки), тесты 75.3 зелёные, прод .env правлен + рестарт.
 
 ---
+
+## Section 76 — Epic 74: фикс «cobalt http 400» — нормализация videoQuality + Accept + диагностика тела ошибки (v2.47.3, DESIGN, T-564)
+
+> **Дата:** 2026-08-26. **Статус:** DESIGN (@Architect). **Root cause (research):** `tools/video_downloader.py:132` шлёт `videoQuality="1080p"`, а API cobalt 11 ожидает enum БЕЗ суффикса `"p"`: `"360"/"480"/"720"/"1080"/"1440"/"2160"/"4320"/"max"` → 400 на любой выбор качества. Дополнительно: отсутствует обязательный по докам заголовок `Accept: application/json` (:134-135); при `resp.status >= 400` тело ответа не читается и не логируется (:136-137) — диагностика вслепую. Хендлер `cb_pick_quality` (handlers/video_downloader.py → handlers/video_download.py:298) зовёт `download(url, f"{quality}p")`, где `quality` уже int — источник «p».
+
+### 76.1 Решения
+
+1. **Нормализация качества ВНУТРИ downloader (D280).** `_request_tunnel()` (или вход в `download()`) принимает что угодно (`"1080p"`, `"1080"`, int `1080`) и нормализует к строке без суффикса: `str(quality)` → `.strip("pP")` → `str(int(...))`. Обоснование: НЕ менять контракт хендлера (`cb_pick_quality:298` остаётся как есть — минимальный дифф), downloader становится толерантным к формату. Защита от мусора: если после strip/`int()` значение не число → `DownloadError` с понятным текстом («invalid quality …»). Значение `"max"` пропускается как есть.
+2. **Заголовок Accept (D281).** В POST на cobalt добавить `headers={"Accept": "application/json"}` — обязателен по докам cobalt API; сейчас отсутствует (tools/video_downloader.py:134-135).
+3. **Диагностика ошибок HTTP (D282).** При `resp.status >= 400`: прочитать тело ответа С ЖЁСТКИМ ЛИМИТОМ `resp.content.read(_ERROR_BODY_MAX_BYTES=1024)` — тело сетевое, его размер неизвестен, `resp.text()` без потолка недопустим (OOM-риск; прецедент R49-1/_BODY_MAX_CHARS); декодировать utf-8/replace, срез сообщения `[:500]`; если тело парсится как JSON — извлечь и залогировать `error.code`; тело и код включить в текст `DownloadError` + лог. Если чтение тела оборвалось (ClientError при read) — голый статус без тела, диагностика статуса не теряется (не маскируется transport-ошибкой). Снимает «диагностику вслепую» (:136-137).
+
+### 76.2 Тест-план (Builder)
+
+1. **Payload без «p» для всех форматов входа:** `download(url, q)` для `q ∈ {"1080p", "1080", 1080}` → перехваченный payload содержит `videoQuality == "1080"` (без суффикса).
+2. **Accept присутствует:** POST отправлен с заголовком `Accept: application/json`.
+3. **HTTP 400 с телом ошибки:** мок ответа `{status_code: 400, body: '{"error":{"code":"error.api.quality.unavailable"}}'}` → `DownloadError` содержит статус И код из JSON; тело обрезано до 500 символов. Дополнительно (ревью): чтение тела ограничено `_ERROR_BODY_MAX_BYTES` (гигантское тело не читается целиком); обрыв при чтении тела → голый `cobalt http <status>` без маскировки.
+4. **Мусорное качество:** `download(url, "abc")` → `DownloadError("invalid quality ...")` БЕЗ похода в сеть (мок POST не вызван).
+5. Полный pytest — 0 регрессий (базлайн Section 75: все существующие videodl-тесты зелёные).
+
+### 76.3 @DevOps (подтверждение диагноза, вне git)
+
+curl-проверка на проде ДО деплоя: POST на cobalt с `"videoQuality": "1080p"` → ожидаемо `400`; повтор с `"videoQuality": "1080"` + `Accept: application/json` → ожидаемо OK (`status: tunnel/redirect`). Подтверждает диагноз и закрывает вопрос «не сеть ли».
+
+---
