@@ -59,11 +59,17 @@ services:
   # Epic 77 (D290): PO Token провайдер для yt-dlp (YouTube «Sign in to
   # confirm…»). Плагин (pip-пакет bgutil-ytdlp-pot-provider в venv ХОСТА)
   # ходит на http://127.0.0.1:4416 — дефолтный endpoint HTTP-режима,
-  # конфигурация не нужна. Порт строго на loopback хоста (конвенция
-  # проекта: сервисы наружу не публикуются).
+  # конфигурация не нужна.
+  # Hotfix v2.48.1 (Epic 77 deploy): yt-dlp ПЕРЕДАЁТ свой proxy (xray,
+  # 127.0.0.1:10808) плагину, а тот — серверу POT (PO Token привязан к
+  # exit IP → прокси обязателен). Из bridge-сети 127.0.0.1:10808 недостижим
+  # → ECONNREFUSED/timeout на BotGuard challenge (upstream issue #102:
+  # «local proxies … pass --net=host»). network_mode host кладёт контейнер
+  # в сетевой стек хоста — xray доступен напрямую. С host-сетью ports
+  # не работают и не нужны: 4416 слушает прямо на хосте; наружу НЕ светит
+  # (ufw default deny incoming, открыты только 22/443).
   bgutil-ytdlp-pot-provider:
     image: brainicism/bgutil-ytdlp-pot-provider
     container_name: adminbot-bgutil-pot
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:4416:4416"
+    network_mode: "host"
