@@ -212,13 +212,13 @@ class YouTubeTranscriptEngine:
             "overwrites": True,
             "ignoreerrors": True,      # R41-1/D154: 429 на 'en' не валит ru
         }
-        # D301 (81.4 F1, Epic 84): player_client — ТОЛЬКО те, что
-        # SUPPORTS_COOKIES=True. android/ios НЕ поддерживают cookies
-        # → скип cookiefile → bot-check «Sign in to confirm». web_safari
-        # + tv_downgraded — дефолты yt-dlp для аккаунта с cookies.
+        # D301 (Epic 84): player_client = "web" — требует PO Token (POT)
+        # через bgutil-ytdlp-pot-provider (docker :4416). web_safari/tv_downgraded
+        # НЕ поддерживают POT → bot-check «Sign in to confirm»/«The page needs
+        # to be reloaded». "web" + POT + resident proxy работает без cookies.
         # bgutil-ytdlp-pot-provider остаётся plugin auto-load.
         opts["extractor_args"] = {
-            "youtube": {"player_client": ["web_safari", "tv_downgraded"]}
+            "youtube": {"player_client": ["web"]}
         }
         # Epic 72 (74.A/D270): прокси/cookies — единый хелпер config.settings
         opts.update(build_ytdlp_base_opts())
