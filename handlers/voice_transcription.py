@@ -29,6 +29,8 @@ from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.enums import ChatAction
 
+import httpx
+
 from config.settings import settings
 from handlers.summary import _extract_forward_source
 from services.summary_memory import fire_and_forget
@@ -215,7 +217,73 @@ async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
             # ПОЛНЫЙ путь (<bot_id>:<token>), exc_info нельзя.
             logger.warning("[transcribe] host copy failed | file=%s | %s",
                            src.name, type(exc).__name__)
-    await bot.download(media.file_id, destination=tmp_path)
+    # Epic 79 hotfix (aiogram 3.31+ local mode): bot.download() в локальном
+    # режиме НЕ может скачать с облака — он всегда резольвит file_path через
+    # wrap_local_file.to_local() и падает FileNotFoundError. Обходной путь:
+    # скачать файл напрямую из Telegram Cloud Bot API по публичному URL
+    # https://api.telegram.org/file/bot<token>/<file_path>.
+    # R17: токен не логируется; tmp_path — абсолютный (tempfile.mkstemp).
+    await _download_file_from_cloud(bot, file_path, tmp_path, media.file_id)
+
+
+async def _download_file_from_cloud(bot, file_path: str | None, tmp_path: str,
+                                  file_id: str) -> None:
+    """Epic 79 hotfix (Section 79.4): fallback-скачок из Telegram Cloud.
+
+    В локальном режиме (settings.DOWNLOAD_ENABLED=True) aiogram 3.31.x
+    Bot.download() НЕ может скачать с облака: он всегда резольвит file_path
+    через wrap_local_file.to_local() и падает FileNotFoundError, если локальный
+    файл отсутствует на диске (новый video_note / voice не попал в volume
+    локального telegram-bot-api).
+
+    Bypass-способ: напрямую GET-им публичный URL Telegram Cloud
+    https://api.telegram.org/file/bot<token>/<file_path>.
+
+    R17: токен строится из bot.token (кэшируется aiogram) и НИКОГДА не
+    логируется. file_path логируется только в WARNING, tmp_path не логируется.
+    """
+    if file_path is None:
+        # get_file failed — пробуем bot.download как последний шанс
+        # (в облачном режиме он работает; в локальном может упасть, но
+        #  попытка лучше, чем молчать).
+        try:
+            await bot.download(file_id, destination=tmp_path)
+            return
+        except Exception as exc:
+            logger.warning("[transcribe] cloud fallback via bot.download "
+                           "failed | file_id=%s | %s", file_id,
+                           type(exc).__name__)
+            raise
+
+    # R17: bot.token доступен через Bot.token (aiogram >=3.0) или Bot._token
+    token = getattr(bot, "token", None)
+    if not token:
+        token = getattr(bot, "_token", None)
+    if not token:
+        token = getattr(getattr(bot, "session", None), "token", None)
+    if not token or ":" not in token:
+        raise RuntimeError("bot token not found for cloud download")
+    file_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream("GET", file_url) as resp:
+                resp.raise_for_status()
+                async with aiofiles_open(tmp_path) as f:
+                    async for chunk in resp.aiter_bytes(chunk_size=65536):
+                        await f.write(chunk)
+    except Exception as exc:
+        err_type = type(exc).__name__
+        # Не логируем токен и URL полностью — только тип ошибки и file_path.
+        logger.warning("[transcribe] cloud download failed | path=%s | %s",
+                       file_path, err_type)
+        raise
+
+
+async def aiofiles_open(path: str) -> "aiofiles.threadpool.AsyncFile":
+    """Lazy import aiofiles to avoid hard dep issues."""
+    import aiofiles
+    return await aiofiles.open(path, "wb")
 
 
 async def _inject_memory(message: types.Message, name: str, text: str,
