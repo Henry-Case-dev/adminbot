@@ -7507,7 +7507,9 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 > R17: ключи только в .env. Без @Orchestrator.
 
 ### Требования и решения
-- **R64-1** — direct_chat_service.py:675: ow.get("timestamp") → ow["timestamp"] (sqlite3.Row).
+- **R64-1** — direct_chat_service.py:675: 
+ow.get("timestamp") → 
+ow["timestamp"] (sqlite3.Row).
 - **R64-2** — лимиты контекста через env (settings.py дефолты НЕ тронуты, кроме EMBED_CACHE_MAX_ROWS): SUMMARY_MAX_CONTEXT_TOKENS=60000, CHAT_GLOBAL_CONTEXT_LIMIT=200, CHAT_CONTEXT_BUDGET_TOKENS=24000, CHECKUP_MAX_INPUT_SYMBOLS=40000, SEARCH/FACTCHECK/YOUTUBE/WEBPAGE_MAX_SYMBOLS=8000.
 - **R64-3** — llm_client.py: _fallback_with_retries — ретраи транзиентных (429/5xx/транспорт), детерминированные не-200 без ретрая; лог-контракт «LLM fallback failed | error=…» сохранён; LLM_FALLBACK_TIMEOUT_SECONDS=120 (было 30с константа).
 - **R64-4** — summary_memory.py: _pack_vector/_unpack_vector float16 BLOB + обратная совместимость чтения JSON + ленивая миграция при касании + INFO hit/miss лог.
@@ -8090,3 +8092,113 @@ R50-4 CHAT_SYSTEM_PROMPT VERBATIM; R42-6 CHECKUP_SYSTEM_PROMPT VERBATIM (ток�
 
 ### Инфраструктура + деплой + smoke
 - [ ] T-586 (@DevOps, P0, ←T-583/T-585): инфраструктура и деплой на проде nik@198.46.175.136 — (1) установка Playwright + headless-Chromium (или альтернативы по дизайну T-583) на проде; (2) спулл chrome-profile из репо на сервер, запуск генерации cookies.txt по пути из `YOUTUBE_COOKIES_FILE` (chmod 600; верифицировать, что оба движка подхватывают файл — маркеры в логах); (3) коммит цикла на русском (conventional commits) + пуш origin/master (chrome-profile пушится по явному решению пользователя; прочие секреты НЕ в коммите); (4) git pull, restart admin_bot, journalctl 0 traceback; (5) СКВОЗНОЙ smoke на РЕАЛЬНЫХ видео: выжимка (YouTube-транскрипт) + скачивание («скачай <yt>», ненулевой файл) — главный гейт: bot-check «Sign in to confirm» больше не валит ни то, ни другое; проверка антиспама: при сбое фраза озвучивается один раз; Rollback: убрать cookies-файл + revert + restart. Отчёт PM: результаты smokes, вердикт гейта. **DoD:** cookies.txt живой на проде, выжимка и скачивание работают, 0 traceback
+- [ ] T-587 (@DevOps, P0): завершение Epic 79 через РУЧНОЙ экспорт кукис пользователем — пользователь выгрузил cookies.txt браузерным расширением; файл лежит в корне репо ЛОКАЛЬНО, В GIT НЕ КОММИТИТЬ (добавить в .gitignore!). Шаги на проде nik@198.46.175.136:/var/www/admin_bot: (1) локально добавить `cookies.txt` в .gitignore и УБЕДИТЬСЯ, что файл не попал в индекс (`git status`/`git check-ignore`); (2) загрузить файл на сервер как `media/srv_cookies.txt` (scp/sftp), chmod 600; (3) в прод .env установить `YOUTUBE_COOKIES_FILE=media/srv_cookies.txt` (бэкап .env.bak.t587); (4) restart admin_bot, journalctl 0 traceback; (5) верифицировать маркер подхвата кукис движками (`cookies=set` в логах); (6) smoke на РЕАЛЬНЫХ видео **OsgmM2V-7bo** и **hRDSX1RLtnw**: выжимка LEN>0 И скачивание размер>0 по каждому. ⚠️ БЕЗОПАСНОСТЬ: файл содержит ЖИВЫЕ auth-кукис Google — НЕ логировать значения кукис, НЕ коммитить файл ни в каком виде, из терминала не выводить содержимое (только метаданные: размер, права). Rollback: убрать env + удалить media/srv_cookies.txt + restart. Отчёт PM: результаты обоих smokes, маркер, права файла. **DoD:** оба видео дают выжимку и скачивание без bot-check, cookies=set, 0 traceback, файл вне git
+
+---
+
+## Epic 80: YouTube снова не работает — диагностика root cause + фикс (yt-dlp extract_info → None, fallback transcript-api «Subtitles are disabled») — 2026-08-27 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.49.1)
+
+> **Цель:** Починить выжимку/транскрипты YouTube. Ошибка из логов: yt-dlp
+> `extract_info returned None` (status=-, body_bytes=-) → fallback
+> youtube-transcript-api `list_transcripts failed: Subtitles are disabled for this video` —
+> даже на видео, где субтитры точно есть. Примеры от пользователя:
+> `https://www.youtube.com/watch?v=4Zxu1T2hn_U` (реальные субтитры),
+> `https://www.youtube.com/watch?v=rnoG0oIFKHQ` (автогенерированные).
+> Контекст: cookies недавно активированы (Epic 79, media/srv_cookies.txt,
+> YOUTUBE_COOKIES_FILE), код движков не менялся, каскад yt-dlp (primary) →
+> transcript-api (fallback) уже читает cookiefile. Требуется RCA и фикс.
+>
+> **Гипотезы для проверки (не исчерпывающе):** (1) cookies.txt протух / невалиден /
+> содержит consent-состояние → bot-check; (2) yt-dlp требует PO-token / player-параметры
+> (после ужесточения YouTube `extract_info=None` типичен без них даже с куками);
+> (3) youtube-transcript-api НЕ получает cookies (fallback-ветка не пробрасывает cookiefile,
+> что даёт ложный «Subtitles are disabled» на видео с сабами); (4) версия yt-dlp /
+> регрессия или bot-контент-скрин «Sign in to confirm».
+>
+> Порядок: @Architect (RCA + дизайн Section 81) → @Builder → @Reviewer → @DevOps (деплой + smoke).
+> Без @Orchestrator.
+
+### Диагностика root cause (RCA)
+- [ ] 👤 T-588 (@Architect, P0): RCA + дизайн фикса ДО правки кода — воспроизвести на обоих видео; собрать `yt-dlp --verbose` (проверить причину `extract_info=None`, player-ответ, PO-token/блокировку), проверить валидность/свежесть media/srv_cookies.txt (Epic 79) и что оба движка реально подхватывают cookiefile (build_ytdlp_base_opts settings.py:746–758 + _transcript_api_kwargs youtube_transcript_engine.py:317–327); определить, пробрасывает ли fallback youtube-transcript-api cookies (вероятный источник ложного «Subtitles are disabled»); зафиксировать RCA + решение (refresh cookies / PO-token в yt-dlp opts / проброс cookies fallback / отдельная ветка ошибки extract_info=None) в Section 81 ARCHITECTURE.md; тест-план. **DoD:** RCA подтверждён (какая из гипотез), дизайн Section 81, READY FOR BUILDER
+
+### Реализация
+- [ ] T-589 (@Builder, P0, ←T-588): фикс по RCA — кандидаты: (a) проброс cookies в fallback youtube-transcript-api (если не проброшен) ИЛИ переход fallback на субтитры тем же yt-dlp; (b) добавление PO-token/player-client-параметров в yt-dlp opts; (c) refresh cookies при ошибке; (d) осмысленная обработка `extract_info=None` (отдельная ошибка вместо тихого None); АТОМАРНО тесты на каждый сценарий (на реальные ID не полагаться — моки/фикстуры); полный pytest 0 регрессий. **DoD:** сценарии покрыты, тесты зелёные
+
+### Ревью
+- [ ] T-590 (@Reviewer, P0, ←T-589): ревью Epic 80 — движки изменены минимально (НЕ трогая не-YouTube пути); cookies/секреты НЕ всплывают в логах/тестах (R17); нет регрессий yt-dlp для обычных видео; PO-token (если добавлен) зашит корректно/env-конфигурируемо; Section 81 = коду; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой + smoke
+- [ ] T-591 (@DevOps, P0, ←T-590): коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot: git pull, (при необходимости обновить cookies/PO-token на проде), restart, journalctl 0 traceback; СКВОЗНОЙ smoke на РЕАЛЬНЫХ видео **4Zxu1T2hn_U** (реальные сабы) и **rnoG0oIFKHQ** (автосабы): выжимка LEN>0 И скачивание размер>0 по каждому; верифицировать, что fallback больше не выдаёт «Subtitles are disabled» на видео с сабами. Rollback: revert + restart. Отчёт PM: HEAD, PID, версия, обе smoke. **DoD:** оба видео работают, 0 traceback
+
+---
+
+## Epic 81: Максимальная автоматизация снабжения cookies (yt-dlp / youtube-transcript-api) без ручного прокидывания — RESEARCH + BUILD + DEPLOY — 2026-08-27 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.50.0)
+
+> **Цель:** Заменить ручную передачу cookies.txt на максимально автоматизированный и
+> надёжный механизм. Пользователь не хочет периодического ручного прокидывания кукис.
+> ОБЯЗАТЕЛЬНО провести исследование поисковыми движками (Exa / Tavily / DuckDuckGo) на
+> предмет «идеального решения». Кандидаты из заявки: (1) живая сессия через Playwright
+> persistent_context, (2) авто-рефреш через headless-браузер, (3) прокси-сервис с
+> резидент-IP + обход bot-check, (4) yt-dlp PO Token + auth, (5) cookies-from-browser,
+> (6) self-healing refresh-on-failure (уже заложено в Epic 79).
+>
+> Критерии сравнения для research: надёжность (0 ложных bot-check), степень автоматизации
+> (0 ручного вмешательства после настройки), стоимость/сложность поддержки, отказоустойчивость
+> к ротации кукис и ужесточениям YouTube, безопасность (throwaway-аккаунт, секреты не в репо/логах).
+>
+> Порядок: @Researcher (research поисковиками) → @Architect (дизайн) → @Builder → @Reviewer → @DevOps (деплой).
+
+### Исследование (RESEARCH — поисковики)
+- [ ] T-592 (@Researcher, P1): исследование «идеального решения» через Exa / Tavily / DuckDuckGo — собрать и сравнить варианты (Playwright persistent_context живая сессия; headless-браузер авто-рефреш; прокси резидент-IP + bot-check обход; yt-dlp PO Token + auth; cookies-from-browser; self-healing refresh) по критериям выше; учесть ограничения сервера (headless-Chromium уже стоит, нет локального keyring, chrome-profile уже пушится); итог — сравнительная таблица + рекомендация (топ-1 с обоснованием, топ-2 fallback) + ссылки на источники; результат зафиксировать в разделе Epic 81 backlog (и/или отдельный research-файл). **DoD:** таблица вариантов, обоснованная рекомендация, ссылки
+
+### Архитектура и дизайн
+- [ ] 👤 T-593 (@Architect, P0, ←T-592): дизайн выбранного решения по конвенции проекта — скрипты/модули автоматизации (спулл/обновление cookies по расписанию или по факту ошибки, live-сессия если выбран Playwright); интеграция строго через env YOUTUBE_COOKIES_FILE (код движков НЕ трогать); стратегия refresh/self-healing; безопасность (throwaway-аккаунт, chmod 600, секреты вне репо/логов R17); контракты + канон Section 82 ARCHITECTURE.md; тест-план; критерии «0 ручного прокидывания». **DoD:** Section 82, контракты, READY FOR BUILDER
+
+### Реализация
+- [ ] T-594 (@Builder, P0, ←T-593): реализация автоматизации по дизайну T-593 (автоснабжение cookies для yt-dlp/transcript-api, self-healing refresh, планировщик/триггер по ошибке); АТОМАРНО тесты (генерация/ротация/права/fallback; движки подхватывают файл по env); полный pytest 0 регрессий. **DoD:** автоснабжение работает без ручного прокидывания, тесты зелёные
+
+### Ревью
+- [ ] T-595 (@Reviewer, P0, ←T-594): ревью Epic 81 — автоматизация НЕ трогает код движков (интеграция через env); секреты/auth не в репо и не в логах (R17); refresh self-healing устойчив к ротации и bot-check; нет бесконечных рефреш-циклов; Section 82 = коду; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой + smoke
+- [ ] T-596 (@DevOps, P0, ←T-595): деплой автоматизации на проде nik@198.46.175.136:/var/www/admin_bot — установка/настройка компонентов (Playwright/планировщик/прокси по дизайну), коммит+пуш, git pull, restart, journalctl 0 traceback; верифицировать self-healing (маркеры авто-обновления cookies в логах) и отсутствие необходимости ручного прокидывания; smoke на РЕАЛЬНЫХ видео (выжимка + скачивание) через интервал ротации. Rollback: откат на ручной механизм Epic 79 + restart. Отчёт PM: что автоматизировано, подтверждение «0 ручного прокидывания». **DoD:** cookies обновляются автоматически, выжимка/скачивание стабильны, 0 traceback
+
+---
+
+## Epic 82: Исследование подачи контекста для всех LLM-фич → отдельный документ plans/CONTEXT_RESEARCH.md (RESEARCH + DOC, БЕЗ кода) — 2026-08-27 🆕 Шаг 1 (PM ✅) — (target: нет, только документ)
+
+> **Цель:** Разобраться, как сейчас подаётся контекст всем LLM-фичам (direct_chat,
+> /summary, factcheck, direct reply, checkup и др.), найти скрытые конфликты, выпадение из
+> области видимости, путаницу имён. Известная проблема: бот иногда путает людей, теряет
+> нить/фокус разговора. Изучить мировые best practices (RAG, контекст-окна, деидентификация,
+> иерархическая память, summarization, sliding window, алиасы/entity-resolution и т.п.).
+> Итог — ОТДЕЛЬНЫЙ md-файл (plans/CONTEXT_RESEARCH.md) с ПРОНУМЕРОВАННЫМ списком вариантов
+> правок/фич, для каждого «что делает» + «зачем нужно» + чек-бокс `[ ]` (пользователь потом
+> проставит «x», выбрав что делать). БЕЗ кода.
+
+### Анализ текущего состояния + best practices
+- [ ] T-597 (@Researcher, P2): анализ подачи контекста во всех LLM-фичах — как собраны system/user-prompt (SYSTEM_PROMPT, _compose_user_content, <historical_graph_facts>, RAG-факты), имена/алиасы (services/summary_aliases.py AliasResolver, «User Resolution Map»), окна/обрезки (контекст-лимиты Epic 64/65), где теряется нить/путаются люди; параллельно исследовать best practices из мировых практик (RAG, контекст-окна, деидентификация/PII, иерархическая память, summarization, sliding window, алиасы/entity-resolution) — собрать источники. **DoD:** карта текущего состояния + список best practices со ссылками
+
+### Документ (plans/CONTEXT_RESEARCH.md)
+- [ ] T-598 (@Researcher, P2, ←T-597): создать plans/CONTEXT_RESEARCH.md — пронумерованный список вариантов правок/фич простыми словами, для каждого пункта «что делает» и «зачем нужно» + чек-бокс `[ ]` перед каждым (пользователь проставит «x»); сгруппировать по темам (контекст-окно/обрезка, имена/entity-resolution, память/RAG, деидентификация, summarization); НЕ писать код, НЕ менять src; сослаться на документ в backlog/board. **DoD:** файл создан, пункты пронумерованы с чек-боксами, готов к выбору пользователем
+
+---
+
+## Epic 83: info_text.md — синтакс-проверка (rich/HTML) → синхронизация канона → критическая прод-процедура — 2026-08-27 🆕 Шаг 1 (PM ✅) — ВЫСОКИЙ ПРИОРИТЕТ (target v2.49.1, chore)
+
+> **Цель:** Пользователь внёс правки в info_text.md (M info_text.md, +29/−22 строк — появились
+> теги <h4>/<h5>). Нужно: (1) проверить синтаксис — отдача идёт через rich_message
+> (InputRichMessage, handlers/info.py cmd_info) с HTML; канон DEFAULT_INFO_TEXT в
+> services/info_service.py должен оставаться БАЙТ-В-БАЙТ с info_text.md; (2) учесть legacy-фолбек
+> _rich_to_legacy_html (info.py:47–59) — сейчас транслирует только <h1>/<h2>, теги <h4>/<h5> им
+> НЕ обрабатываются; (3) КРИТИЧЕСКАЯ прод-процедура: прод info_text.md РАСХОДИТСЯ с git (пользователь
+> правил через /edit_info) — перед pull обязательно бэкап + checkout (ниже по шагам).
+
+### Синтакс-проверка + синхронизация канона
+- [ ] T-599 (@Builder, P1): синтакс-проверка info_text.md — валидность rich-HTML (теги <h4>/<h5> поддержаны RichMessage API Telegram? при legacy-фолбеке parse_mode="HTML" эти теги не обрабатываются _rich_to_legacy_html → корректно ли деградируют / не сломается ли отдача); при необходимости довести теги до поддерживаемого набора ИЛИ расширить _rich_to_legacy_html; главное: DEFAULT_INFO_TEXT в services/info_service.py привести к БАЙТ-В-БАЙТ равенству с info_text.md; обновить тесты test_info_service.py (байт-в-байт канон) и test_info_handlers.py (rich-рендер + legacy-фолбек для новых тегов); полный pytest 0 регрессий. **DoD:** info_text.md читается rich без падения, DEFAULT_INFO_TEXT == info_text.md байт-в-байт, тесты зелёные
+
+### Ревью
+- [ ] T-600 (@Reviewer, P1, ←T-599): ревью Epic 83 — DEFAULT_INFO_TEXT байт-в-байт == info_text.md; rich-отдача и legacy-фолбек корректны для фактического набора тегов (h1/h2/h4/h5) либо теги сведены к поддерживаемым осознанно; секретов в справке нет; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### КРИТИЧЕСКАЯ прод-процедура
+- [ ] T-601 (@DevOps, P1, ←T-600): коммит+пуш (info_text.md + канон + тесты); деплой по КРИТИЧЕСКОЙ процедуре на nik@198.46.175.136:/var/www/admin_bot, где прод info_text.md РАСХОДИТСЯ с git (правился через /edit_info): (1) `cp info_text.md info_text.md.bak.epic83` — сохранить прод-версию; (2) `git checkout -- info_text.md` — сбросить до git; (3) `git pull` (+при необходимости установить пакеты/применить миграции); (4) restart admin_bot, journalctl 0 traceback; (5) smoke: `/info` отдаёт rich-справку корректно (без падения в legacy/plain), `/edit_info <...>` превью в DM работает; (6) если прод-версия в .bak отличается от новой git-версии содержательно — отчёт PM с diff содержимого (не терять правки пользователя!). Rollback: восстановить .bak.epic83 + restart. **DoD:** /info рендерится (rich) без ошибок, 0 traceback, прод-правки не потеряны (бэкап есть), канон синхронизирован

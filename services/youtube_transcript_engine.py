@@ -1,4 +1,4 @@
-# services/youtube_transcript_engine.py (ПРАВКА, Epic 41, R41-1/R41-2/R41-3, Section 50.3)
+# services/youtube_transcript_engine.py (ПРАВКА, Epic 41, R41-1/R41-2/R41-3, Section 50.3; Epic 80/81, Section 81/82, D301/D312/D313)
 """Epic 37/39/41 — YouTube Transcript Engine (R37-3, 46.4; R39-1/2, 48; R41-1/2/3, 50).
 
 Epic 41: каскад с ретраями (4 ретрая = 5 попыток, D151), ru-first через
@@ -6,6 +6,15 @@ ignoreerrors (D154), классификация транзиентных фей�
 (D156), статус/размер тела в логах фолбека (D157). Контракт
 fetch_transcript(video_id, max_symbols) -> str расширяется ОПЦИОНАЛЬНЫМ
 kwarg on_retry=None (позиционная совместимость сохранена).
+
+Epic 80/81 (Section 81/82): (a) D301 — player_client/extractor_args только в
+_transcript_ytdlp_opts() (build_ytdlp_base_opts остаётся без POT/player_client
+— не-YouTube пути чисты); (b) D312 — миграция youtube-transcript-api 0.6.x →
+1.2.x: инстанс `YouTubeTranscriptApi(proxy_config=...)` + `.list(video_id)` +
+`transcript.fetch().to_raw_data()`; cookies в fallback НЕ пробрасываются; (c)
+D313 — resident-прокси Webshare через `_transcript_proxy_config()`
+(WebshareProxyConfig/GenericProxyConfig/None); RequestBlocked/IpBlocked →
+TRANSIENT, AgeRestricted/VideoUnplayable → PERMANENT.
 """
 import asyncio
 import json
@@ -22,6 +31,12 @@ try:
     from youtube_transcript_api import YouTubeTranscriptApi
 except ImportError:  # pragma: no cover — зависимость в requirements.txt
     YouTubeTranscriptApi = None
+
+try:  # youtube-transcript-api >=1.2.0 (Epic 81, D312)
+    from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
+except ImportError:  # pragma: no cover — 0.6.x не несёт модуль proxies
+    GenericProxyConfig = None
+    WebshareProxyConfig = None
 
 try:
     import yt_dlp
@@ -50,10 +65,21 @@ class YouTubeTranscriptEngine:
         on_startup), значения — НИКОГДА (R17)."""
         proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
         cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
-        logger.info(
-            "[youtube engine] config | proxy=%s | cookies=%s",
-            "set" if proxy else "empty", "set" if cookies else "empty",
+        resproxy = bool(
+            (settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME or "").strip()
+            and (settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD or "").strip()
         )
+        logger.info(
+            "[youtube engine] config | proxy=%s | cookies=%s | resproxy=%s",
+            "set" if proxy else "empty",
+            "set" if cookies else "empty",
+            "set" if resproxy else "empty",
+        )
+        if not resproxy:
+            logger.warning(
+                "[youtube engine] transcript-api resident proxy disabled "
+                "(resproxy=empty)"
+            )
         if yt_dlp is None:  # pragma: no cover
             logger.warning(
                 "[youtube engine] yt-dlp is not installed — every request "
@@ -185,6 +211,13 @@ class YouTubeTranscriptEngine:
             "socket_timeout": _YTDLP_SOCKET_TIMEOUT,
             "overwrites": True,
             "ignoreerrors": True,      # R41-1/D154: 429 на 'en' не валит ru
+        }
+        # D301 (81.4 F1): выровнять player_client в YouTube-ветке движка —
+        # бот-чек «Sign in to confirm»/silent None на текущем YouTube. ТОЛЬКО
+        # здесь (build_ytdlp_base_opts чистится — tools/video_downloader и
+        # cobalt НЕ меняются). bgutil-ytdlp-pot-provider остаётся plugin auto-load.
+        opts["extractor_args"] = {
+            "youtube": {"player_client": ["web", "android", "ios"]}
         }
         # Epic 72 (74.A/D270): прокси/cookies — единый хелпер config.settings
         opts.update(build_ytdlp_base_opts())

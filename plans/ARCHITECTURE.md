@@ -15374,3 +15374,218 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 **DoD T-583:** Section 80 зафиксирована, выбран режим B как основной (D293), контракт CLI определён, тест-план и чеклист DevOps готовы — READY FOR BUILDER (T-584).
 
 ---
+
+## Section 81 — Epic 80: YouTube снова не работает — yt-dlp extract_info→None + fallback transcript-api «Subtitles are disabled» (v2.49.1, P0, DESIGN, T-588)
+
+> **Дата:** 2026-08-27. **Статус:** DESIGN (@Architect). **Root cause (гипотеза-фаворит):** НЕ «протухли cookies». Каскад Epic 41 роняет ОБА движка по ДВУМ независимым причинам: (1) yt-dlp-ветка деплоит отстающую от пинна версию (локально 2026.7.4 при requirements `>=2026.8.19`) и не пробрасывает в `build_ytdlp_base_opts()` ни PO-token provider, ни `player_client`/`extractor_args` — на текущем YouTube это даёт `extract_info=None` (silent, из-за `ignoreerrors=True`, D154) с status=- и body_bytes=-; (2) fallback youtube-transcript-api 0.6.x даёт ЛОЖНЫЙ `Subtitles are disabled` на видео с сабами (библиотека бьёт не тот/устаревший путь даже при переданных cookies). Cookies при этом проброшены в ОБА движка корректно (гипотеза «не пробрасывает cookies» по коду НЕ подтверждается).
+
+### 81.1 Факты кода (проверено, 2026-08-27)
+
+- `config/settings.py:408/411` — `YOUTUBE_TRANSCRIPT_PROXY_URL` / `YOUTUBE_COOKIES_FILE` (оба `_env_str`, дефолт ""). `build_ytdlp_base_opts()` (settings.py:746–758) возвращает ТОЛЬКО `proxy` и `cookiefile` — **никаких `player_client` / `extractor_args` / `getpot` / JS-runtime опций**.
+- `services/youtube_transcript_engine.py`:
+  - `_ytdlp_opts()` (:174–191) = базовый dict + `build_ytdlp_base_opts()`; `ignoreerrors=True` (D154).
+  - `_fetch_ytdlp()` (:151–172): `ydl.extract_info(url, download=True)` → при `info is None` raise `YouTubeTranscriptUnavailableException("yt-dlp: extract_info returned None …")` (:166–169).
+  - `_is_transient()` (:423–424): текст `extract_info returned none` → **TRANSIENT** → 5 попыток каскада подряд (backoff 1/2/4/8с).
+  - `_transcript_api_kwargs()` (:317–328): `cookies = base['cookiefile']` — **cookies ПРОБРАСЫВАЮТСЯ в fallback**, ЕСЛИ `YOUTUBE_COOKIES_FILE` не пуст. `_fetch_segments()` (:330–351) зовёт `YouTubeTranscriptApi.list_transcripts(video_id, **kwargs)`.
+- `requirements.txt`: `youtube-transcript-api>=0.6.2,<1.0` (заперта на 0.6.x), `yt-dlp[default,curl-cffi]>=2026.8.19`, `bgutil-ytdlp-pot-provider>=1.0.0`. **Фактически установлено в venv: yt-dlp 2026.7.4, youtube-transcript-api 0.6.3** (отстаёт от пинна; bgutil-провайдер локально не накатан). `deno`/`node` на машине есть.
+- PO-token провайдер (`bgutil-ytdlp-pot-provider`) — plugin auto-load yt-dlp: НЕ требует явных opts, если накатан в прод-venv (завязан на Epic 77/78, docker `bgutil-ytdlp-pot-provider` :4416). Но transcript-engine на него НЕ полагается явно: если прод-venv его не содержит ИЛИ provider не отвечает, yt-dlp молча откатывается к клиентам без POT.
+
+### 81.2 Root cause — гипотезы a–d (приоритизировано)
+
+| Приоритет | Гипотеза | Оценка | Обоснование |
+|---|---|---|---|
+| **P0 (H1)** | yt-dlp отстаёт от пинна (2026.7.4 < 2026.8.19) + НЕ хватает POT/player_client/JS-runtime в transcript-engine | **ВЕРОЯТНА, фаворит** | `extract_info=None` с status=-/body_bytes=- — сигнатура silent-fail при `ignoreerrors=True`, а не «Sign in to confirm». Локальный venv ДОКАЗАЛ отставание версии; build_ytdlp_base_opts() не несёт player_client/POT |
+| P1 (H2) | youtube-transcript-api 0.6.x устарел → ЛОЖНЫЙ «Subtitles are disabled» на видео с сабами | ВЕРОЯТНА | 0.6.x при consent-странице/bot-check/новой watch-разметке классифицирует «нет треков» даже при свежих cookies; версия заперта `<1.0` |
+| P1 (H3) | cookies протухли / consent-state (Epic 79 экспорт был разовым) | ВОЗМОЖНА, проверяема | Тогда ОБА движка бьются в bot-check, но текст был бы «Sign in to confirm», а не «Subtitles are disabled» → как ГОЛОВНАЯ слабее H1/H2 |
+| P2 (H4) | IP-бан / бот-скрин вернулся (DC-IP 198.46.175.136) | ВОЗМОЖНА | Пересекается с H3; отсекается curl/verbose-тестами |
+
+**Итог RCA (D299):** комбинация H1 + H2. «cookies не пробрасываются в fallback» (заявка Epic 80, пункт 3) ПО КОДУ ОПРОВЕРГНУТА — проброс есть (условие: `YOUTUBE_COOKIES_FILE≠""`). Отдельного «Silent None»-бага нет: `extract_info=None` обрабатывается явно (raise) и корректно классифицируется транзиентно — но диагностически глух (теряется player-ответ).
+
+### 81.3 Диагностический план (на проде, ДО кода — D300)
+
+1. Версии: `pip show yt-dlp youtube-transcript-api bgutil-ytdlp-pot-provider` на проде. Ожидание: yt-dlp ≥2026.8.19. Если 2026.7.x/ниже — H1 подтверждена (нужен `pip install -r requirements.txt`).
+2. JS-runtime: `deno --version` / `node --version`; `yt-dlp -v --print-traffic <url>` → слушать WARNING `No supported JavaScript runtime` / `Unable to extract POT token` / `falling back to … client`.
+3. Ручной yt-dlp (вне бота): `yt-dlp -v --cookies media/srv_cookies.txt --write-subs --write-auto-subs --sub-langs ru,en https://www.youtube.com/watch?v=4Zxu1T2hn_U` и `rnoG0oIFKHQ`. Смотреть: возвращается ли None, `playabilityStatus`, ошибка PO-token, требует ли подпись. Повторить БЕЗ cookies для контраста.
+4. Свежесть cookies: `head media/srv_cookies.txt` (есть `.youtube.com`/SAPISID), права 600; при подозрении — свежий `python -m tools.cookies_export --mode playwright --profile chrome-profile --out media/srv_cookies.txt` и повтор шага 3.
+5. transcript-api в изоляции: python-однострочник с `YouTubeTranscriptApi.list_transcripts("4Zxu1T2hn_U", cookies="media/srv_cookies.txt", proxies={…})` → воспроизвести «Subtitles are disabled»; затем БЕЗ cookies и со свежими cookies; сверить версию библиотеки.
+6. curl consent/bot-check: `curl -s -b media/srv_cookies.txt -A "<UA>" "https://www.youtube.com/watch?v=4Zxu1T2hn_U" | grep -c "playabilityStatus\\|LOGIN_REQUIRED\\|consent"`.
+
+### 81.4 Решения / кандидатские фиксы (приоритеты)
+
+1. **D301 — F1 (P0): пробросить player_client/PO-token в transcript-engine.** Расширить yt-dlp opts для YouTube-ветки движка (НЕ трогая не-YouTube пути): `extractor_args={"youtube": {"player_client": ["web","android","ios"]}}` + `player_client="default"`-страховку, ИЛИ явно задействовать bgutil-POT (если прод-venv его несёт) через opt `getpot`. Модифицировать ТОЛЬКО `build_ytdlp_base_opts()`-потребителя в `_ytdlp_opts()` (или новый `build_ytdlp_transcript_opts()`), чтобы `tools/video_downloader.py` и cobalt-туннель НЕ изменились (требование Epic 80 «минимальный дифф»).
+2. **D302 — F2 (P0): выровнять yt-dlp на проде до пинна (≥2026.8.19) + JS-runtime.** `pip install -r requirements.txt` в прод-venv (yt-dlp-ejs приедет extras `[default]`; при необходимости поставить `deno` — см. 78.3 #6). Это снимает большую часть H1 без изменения кода.
+3. **D303 — F3 (P1): починить fallback-сабы.** Вариант (рекомендуемый): перевести fallback на тот же yt-dlp вместо youtube-transcript-api (subtitleslangs=приоритет, отдельный вызов), избавившись от 0.6.x. Вариант B (если оставляем transcript-api): ослабить пинн и переехать на актуальную версию (`>=0.6.2,<1.0` → свежая), верифицировав, что `cookies=` реально пробрасывается и что ложный «Subtitles are disabled» исчезает на 4Zxu1T2hn_U/rnoG0oIFKHQ.
+4. **D304 — F4 (P1, обходной): refresh cookies.** Немедленный ручной re-export (Epic 79) НЕ является фиксом, но лечит H3/H4, если диагностика на них укажет. self-healing refresh-on-failure — FUTURE, передаётся в Epic 81 (D295).
+5. **D305 — F5 (P2): диагностичность `extract_info=None`.** Отдельная ошибка/класс + логирование player-ответа/playabilityStatus (первые ~300 симв.) вместо глухого None — чтобы следующая регрессия диагностировалась без ручного `-v`.
+
+### 81.5 Тест-план
+
+| # | Кейс | Ожидание |
+|---|------|----------|
+| 1 | `_ytdlp_opts()` после F1 | opts содержат `extractor_args`/`player_client`; `build_ytdlp_base_opts()` НЕ содержит их (не-YouTube пути чисты) |
+| 2 | Unittest мок `extract_info` возвращает dict | сегменты извлечены, ошибок нет (старый путь жив) |
+| 3 | Unittest мок `extract_info` возвращает None | raise отдельным классом (F5) с player-ответом в тексте; `_is_transient`=True (5 попыток) |
+| 4 | Fallback F3 на yt-dlp: мок движка | сабы приходят без youtube-transcript-api (не вызывается) |
+| 5 | Fallback F3 вариант B (0.6.x): мок `list_transcripts(cookies=…)` | cookies переданы; на фейковом «disabled» — корректная ошибка |
+| 6 | video_downloader/tunnel НЕ тронуты | `TestYtdlpPrimary`/`TestRetryCascade`/video_downloader-тесты зелёные; grep git diff: tools/, non-YouTube пути чисты |
+| 7 | РЕГРЕССИЯ | полный pytest — 0 failed/skipped |
+
+### 81.6 Чеклист @DevOps
+
+1. `pip show yt-dlp youtube-transcript-api bgutil-ytdlp-pot-provider` → сверить с D302/D303.
+2. `pip install -r requirements.txt` в прод-venv (+ при необходимости `deno`); `yt-dlp -v <yt-url>` — нет WARNING JS-runtime/POT.
+3. При H3/H4: fresh `python -m tools.cookies_export --mode playwright …` + `chmod 600`.
+4. `git pull` → `sudo systemctl restart admin_bot` → journalctl 0 traceback.
+5. Сквозной smoke на **4Zxu1T2hn_U** (реальные сабы) и **rnoG0oIFKHQ** (автосабы): выжимка LEN>0 И скачивание размер>0; fallback больше НЕ печатает «Subtitles are disabled» на видео с сабами.
+6. Rollback: revert коммита цикла + restart (движки корректно работают при cookies=empty — прецедент Epic 39).
+
+**DoD T-588:** RCA зафиксирован (D299: H1+H2), диагностический план определён (D300), фиксы приоритизированы (D301–D305) — READY FOR BUILDER (T-589).
+
+---
+
+## Section 82 — Epic 81: автоматизация cookies/аутентификации YouTube — PO Token (yt-dlp) + resident-прокси Webshare (transcript-api), «0 ручного прокидывания» (v2.50.0, ВЫСОКИЙ, DESIGN, T-593)
+
+> **Дата:** 2026-08-27. **Статус:** DESIGN (@Architect). **Вердикт:** требование «никому не придётся периодически прокидывать cookies» выполняется за счёт того, что cookies ВЫВОДЯТСЯ из hot-path целиком — а не «автоматизируется их снабжение». Проблема распадается на две НЕЗАВИСИМЫЕ подзадачи, и обе НЕ лечатся cookies: (1) yt-dlp-ветка (primary) устойчива через **PO Token provider `bgutil-ytdlp-pot-provider`** (уже в проекте: docker :4416, plugin auto-load; POT генерится on-demand, НЕ протухает, headless); (2) youtube-transcript-api (fallback) — «Subtitles are disabled» = IP-бан датацентрового диапазона (issues #303/#395), лечится **resident-прокси Webshare** через `WebshareProxyConfig` (v1.0+), а НЕ cookies (cookie-auth в библиотеке СЛОМАН / «currently not available»). Отсюда следствия: (a) ОБЯЗАТЕЛЬНАЯ миграция transcript-api 0.6.x→1.2.x (breaking: `get_transcript()`/`list_transcripts()` → `fetch()`/`list()`, новые `RequestBlocked`/`IpBlocked`/`AgeRestricted`); (b) новая env-пара резидент-прокси; (c) fallback-цепочка POT(bgutil)→getpot-wpc→Playwright(offline). Ограничение backlog «интеграция только через env `YOUTUBE_COOKIES_FILE`, код движков НЕ трогать» ПЕРЕСМОТРЕНО research'ом: миграция 1.2.x влечёт минимальную замену call-site'ов ИСКЛЮЧИТЕЛЬНО в `services/youtube_transcript_engine.py` (video_downloader/cobalt НЕ трогаем).
+
+### 82.1 Факты кода (проверено, 2026-08-27)
+
+- **Версии в venv (локально):** `youtube-transcript-api 0.6.3` (pin `>=0.6.2,<1.0`), `yt-dlp 2026.7.4` (pin `>=2026.8.19` — отстаёт, см. D302), `playwright 1.62.0`; `bgutil-ytdlp-pot-provider` в venv НЕ накатан — работает docker-образом (`docker-compose.yml` сервис `bgutil-ytdlp-pot-provider` :4416, `network_mode: host`).
+- **Call-site'ы transcript-api в `services/youtube_transcript_engine.py` (меняются миграцией):**
+  - `_transcript_api_kwargs()` (:317–328) — сейчас возвращает `proxies` (requests-формат) + `cookies` из `build_ytdlp_base_opts()`.
+  - `_fetch_segments()` (:330–351) — `YouTubeTranscriptApi.list_transcripts(video_id, **kwargs)` → `_pick_transcript(...)` → `transcript.fetch()`.
+  - `_pick_transcript()` (:354–382) — `find_manually_created_transcript` / `find_generated_transcript` / `next(t for t in transcript_list if t.is_generated)`.
+  - `_is_transient()` (:411–458) — имена 0.6.x `TranscriptsDisabled, NoTranscriptAvailable, NoTranscriptFound, InvalidVideoId`.
+- `config/settings.py`: `YOUTUBE_TRANSCRIPT_PROXY_URL` (:408), `YOUTUBE_COOKIES_FILE` (:411); `build_ytdlp_base_opts()` (:746–758) несёт ТОЛЬКО `proxy`/`cookiefile`.
+- yt-dlp 1.x-эквивалент API подтверждён: `YouTubeTranscriptApi(proxy_config=...)` инстанцируется (НЕ статик), `.list(video_id)`→`TranscriptList`, `Transcript.fetch()`→`FetchedTranscript` (list-like, `to_raw_data()`→`[{'text','start','duration'}]` — ровно контракт нашего `_format`); `find_*_transcript` и атрибут `is_generated` СОХРАНЕНЫ; устаревшие статики `list_transcripts`/`get_transcript` НЕ подхватывают constructor-config (`proxy_config`) — ловушка.
+
+### 82.2 Верховный вердикт архитектуры + статус cookies (D310/D311)
+
+1. **D310 — двухдвижковая архитектура, cookies ВНЕ hot-path.** yt-dlp остаётся единственным primary; против «Sign in to confirm» его страхует PO Token provider, а НЕ cookies (прецедент Epic 77/78 + F1/F2 из Section 81: `player_client`/JS-runtime выравниваются, ПОТ не требует ручного снабжения и не протухает). youtube-transcript-api остаётся fallback; его «Subtitles are disabled» лечит resident-прокси Webshare (ротация пула >30M IP), а не cookies. Итог для пользователя: при правильной настройке ни один из путей не требует периодической ручной передачи cookies.txt.
+2. **D311 — cookies.txt (`YOUTUBE_COOKIES_FILE`) → ОПЦИОНАЛЬНЫЙ не-DC fallback.** Не удаляем ключ (backward-compat, Epic 79 pipeline `tools/cookies_export.py` сохраняется как аварийный офлайн-инструмент), но: (а) yt-dlp в hot-path больше не зависит от cookies (PO Token делает основную работу; cookies остаются запасным `cookiefile`, если PO отключён/недоступен); (б) в transcript-api cookies НЕ пробрасываются вовсе — в 1.2.x это deprecated и обескуражено (README: «NOT RECOMMENDED … account will be banned»). `_transcript_api_kwargs()` больше не подмешивает `cookies` в вызов.
+
+### 82.3 План миграции youtube-transcript-api 0.6.3 → 1.2.x (D312)
+
+> Точные замены в `services/youtube_transcript_engine.py` (только этот файл; `tools/video_downloader.py`/cobalt НЕ трогаем — прецедент D301 «минимальный дифф»).
+
+1. **D312 — механические замены API:**
+   - `from youtube_transcript_api import YouTubeTranscriptApi` — остаётся; добавляется `from youtube_transcript_api.proxies import WebshareProxyConfig, GenericProxyConfig`.
+   - `YouTubeTranscriptApi.list_transcripts(video_id, **kwargs)` (статик) → инстанцировать АПИ-объект ОДИН раз (лениво в `__init__`/`_fetch_segments`): `self._api = YouTubeTranscriptApi(proxy_config=<config или None>)`, далее `self._api.list(video_id)`. Статик `list_transcripts` ЗАПРЕЩЁН (не подхватывает proxy_config).
+   - `transcript_list.find_manually_created_transcript([...])` / `.find_generated_transcript([...])` — БЕЗ изменений (методы `TranscriptList` сохранены); итерация `for t in transcript_list if t.is_generated` — БЕЗ изменений (атрибут `is_generated` жив).
+   - `transcript.fetch()` — имя сохранено, НО возврат теперь `FetchedTranscript` (не `list[dict]`): обернуть `segments = transcript.fetch().to_raw_data()` → `[{'text','start','duration'}]` (наш `_format` контракт сохранён, `_normalize_*` не трогаем).
+   - `_transcript_api_kwargs()` — ЗАМЕНЯЕТСЯ новым `_transcript_proxy_config()` (см. D313): возвращает `WebshareProxyConfig`/`GenericProxyConfig`/`None`, но НЕ `cookies` и НЕ `proxies`.
+   - Исключения в `_is_transient()`: заменить кортеж 0.6.x на 1.2.x. `TranscriptsDisabled`, `NoTranscriptFound` — PERMANENT (остаются); `NoTranscriptAvailable`/`InvalidVideoId` — УБРАТЬ (переименованы/упразднены, заменить на новые эквиваленты); ДОБАВИТЬ `RequestBlocked`/`IpBlocked` → **TRANSIENT** (ротация прокси даёт новый IP — ретрай может пройти), `AgeRestricted`/`VideoUnplayable` → **PERMANENT** (только Playwright-резерв, не ретрай).
+   - `requirements.txt`: `youtube-transcript-api>=0.6.2,<1.0` → `youtube-transcript-api>=1.2.0,<2.0`.
+
+### 82.4 Новая конфигурация env (D313) — resident-прокси Webshare
+
+1. **D313 — env-контракт + проброс в движок.**
+   - Новые ключи (R17: значения НИКОГДА не логируются, только факт `configured`): `YOUTUBE_TRANSCRIPT_PROXY_USERNAME` / `YOUTUBE_TRANSCRIPT_PROXY_PASSWORD` (обязательная пара для Webshare; идентификаторы «Proxy Username/Password» из dashboard.webshare.io, НЕ аккаунтные), опционально `YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS` (CSV кодов стран, напр. `de,us` → `filter_ip_locations`), `YOUTUBE_TRANSCRIPT_PROXY_DOMAIN` / `YOUTUBE_TRANSCRIPT_PROXY_PORT` / `YOUTUBE_TRANSCRIPT_PROXY_RETRIES` (оверрайды не-Webshare/тонкой настройки).
+   - **Проброс:** новый helper `_transcript_proxy_config()` в движке (НЕ в `build_ytdlp_base_opts()` — тот про yt-dlp). Логика: заданы username+password → `WebshareProxyConfig(proxy_username=…, proxy_password=…, filter_ip_locations=…)`; задан ТОЛЬКО legacy `YOUTUBE_TRANSCRIPT_PROXY_URL` → `GenericProxyConfig(httpUrl=url, httpsUrl=url)` (обратная совместимость Epic 39/72); пусто → `None` (без прокси, WARNING `resproxy=empty`). `-rotate`-суффикс НЕ добавляем руками — библиотека делает это сама (подтверждено issue #421).
+   - **Приоритет над `YOUTUBE_TRANSCRIPT_PROXY_URL`:** новая пара username/password ВЫИГРЫВАЕТ как резидент-решение; единый `YOUTUBE_TRANSCRIPT_PROXY_URL` продолжает питать BOTH legacy `proxies` и yt-dlp `proxy` (D142/D270 не ломаются).
+
+### 82.5 Fallback-цепочка отказоустойчивости (D314)
+
+1. **D314 — полная цепочка на трёх уровнях, поверх каскада Epic 41 (D151):**
+   - **Уровень 0 (каскад движков, БЕЗ изменений):** попытка = yt-dlp → transcript-api; транзиентный фейл → ретрай (backoff 1/2/4/8, максимум 5 попыток). Формат/truncate не меняются.
+   - **Уровень 1 (yt-dlp против bot-check):** (а) `bgutil-ytdlp-pot-provider` (:4416, docker) — ОСНОВНОЙ, self-hosted, headless, ПОТ не протухает; (б) при недоступности bgutil (контейнер упал/ECONNREFUSED) — опциональный `yt-dlp-getpot-wpc` (браузерный POT через nodriver, канонический fallback от авторов bgutil) — НЕ ставится по умолчанию (см. D315); (в) возврат НЕ-YouTube путей: `build_ytdlp_base_opts()` не несёт POT/player_client (прецедент D301 — скачивание/cobalt чисты). При отказе (а)+(б) yt-dlp молча откатывается на клиентов без POT — тогда срабатывает диагностика «Sign in to confirm»→transient→уровень 0 ретрай→transcript-api.
+   - **Уровень 2 (transcript-api против IP-бан):** Webshare resident-прокси с `retriesWhenBlocked` (default 10) ротирует пул IP на каждый блок; `RequestBlocked`/`IpBlocked` маркированы TRANSIENT в `_is_transient` (D312) → каскад уровня 0 перепробует.
+   - **Уровень 3 (Playwright offline-резерв, НЕ в hot-path):** `persistent_context` + авто-логин throwaway-аккаунтом — ТОЛЬКО для age-restricted (`AgeRestricted`/`VideoUnplayable`), строго офлайн/вручную (ToS-риск, CAPTCHA), НЕ фоновый рефреш-цикл.
+   - **Совместимость с «0 ручного прокидывания»:** ни один уровень не требует ручной передачи cookies — все либо self-hosted PO (не протухает), либо платный резидент-прокси (ротация), либо разовый офлайн-логин.
+
+### 82.6 Зависимости requirements.txt + прод-установка (D315)
+
+1. **D315 — правки зависимостей и прод-компоненты.**
+   - `requirements.txt` (единственная обязательная правка зависимостей): `youtube-transcript-api>=0.6.2,<1.0` → `youtube-transcript-api>=1.2.0,<2.0`.
+   - yt-dlp: пин `>=2026.8.19` ОСТАЁТСЯ; прод выравнивается по D302 (`pip install -r requirements.txt`; JS-runtime уже D302/Section 80).
+   - `bgutil-ytdlp-pot-provider`: ОСТАЁТСЯ, работает docker-образом (:4416) — в прод-venv Python-пакет НЕ обязателен (сервер приходит контейнером). Альтернативный script-режим требует `deno` на ХОСТЕ (не потребитель): установить **только если** отказываемся от docker-образа.
+   - `yt-dlp-getpot-wpc` (fallback уровня 1б): НЕ в основной requirements; ставится НА ПРОДЕ ЯВНО и только по решению DevOps, если bgutil недостаточно (тянет nodriver + браузер).
+   - `playwright>=1.40` (прод 1.62.0): остаётся как OFFLINE-инструмент Epic 79; движок ставится отдельно `playwright install chromium --with-deps`; в прод-venv БОТА не нужен (комментарий в requirements уже отражает). `deno`/`node` для transcript-api НЕ нужны (библиотека чистый HTTP).
+   - Секреты: `YOUTUBE_TRANSCRIPT_PROXY_USERNAME/PASSWORD` — ТОЛЬКО в прод `.env` (R17), в `.env.example` не пишутся.
+
+### 82.7 Риски (D316)
+
+1. **D316 — реестр рисков.**
+   - **ToS/бан аккаунта (Playwright авто-логин):** только throwaway-аккаунт, только офлайн-резерв age-restricted, НЕ фоновый рефреш-цикл (иначе CAPTCHA → блокировка). T-595 explicitly проверяет «нет бесконечных рефреш-циклов».
+   - **Webshare обязателен «Residential» (НЕ «Proxy Server»/«Static Residential»):** free-tier/серверные IP банятся YouTube'ом почти сразу (issue #552) — критерий приёмки по D313.
+   - **PO Token привязан к exit IP:** смена xray exit IP (Section 49) → нужен пере-ген POT (bgutil кэширует); наблюдать за «Sign in to confirm» после ротации прокси (прецедент Epic 77 deploy).
+   - **Breaking API 1.2.x:** все моки/тесты на `list_transcripts`/`get_transcript` поломаются — переписать на `.list()`/`.fetch()`/`.to_raw_data()` (тест-план 82.8); риск «статик не подхватывает proxy_config» — тест-кейс.
+   - **Latency resident-прокси:** ротация даёт вариацию RTT; укладывается в `_YTDLP_SOCKET_TIMEOUT`/retries уровне 0.
+   - **Стоимость:** Webshare/резидент — платный; показатель TCO фиксируется в отчёте DevOps T-596.
+
+### 82.8 Тест-план + smoke (D317)
+
+| # | Кейс | Ожидание |
+|---|---|---|
+| 1 | `_transcript_proxy_config()` с username/password | `WebshareProxyConfig` с `filter_ip_locations`; значения НЕ логируются (только `configured`) |
+| 2 | `_transcript_proxy_config()` пусто / только `YOUTUBE_TRANSCRIPT_PROXY_URL` | `None` / `GenericProxyConfig`; WARNING `resproxy=empty` при пустом |
+| 3 | `_fetch_segments`: мок `api.list(video_id)` → `Transcript.fetch().to_raw_data()` | сегменты `[{'text','start','duration'}]` → `_format`; `cookies`/`proxies` в вызов НЕ переданы |
+| 4 | `_is_transient`: `RequestBlocked`/`IpBlocked` | TRANSIENT (ретрай); `AgeRestricted`/`VideoUnplayable` → PERMANENT (каскад НЕ ретраит) |
+| 5 | `_is_transient`: старые имена 0.6.x (`NoTranscriptAvailable`/`InvalidVideoId`) | убраны/нет ложных PERMANENT; `TranscriptsDisabled`/`NoTranscriptFound` — PERMANENT |
+| 6 | регрессия video_downloader/cobalt | `TestYtdlpPrimary`/`TestRetryCascade`/video_downloader-тесты зелёные; `build_ytdlp_base_opts()` без POT/player_client (D301) |
+| 7 | РЕГРЕССИЯ | полный pytest — 0 failed/skipped |
+
+**Smoke на проде (T-596):** три видео — **4Zxu1T2hn_U** (manual сабы), **rnoG0oIFKHQ** (автосабы), **7rvvKJxSVk8** (регресс/edge): выжимка LEN>0 И скачивание размер>0; fallback НЕ печатает «Subtitles are disabled» на видео с сабами; журнал старта `[youtube engine] config | proxy=… | resproxy=set`; маркер авто-обновления/ротации в логах присутствует; подтверждение «0 ручного прокидывания» (без `python -m tools.cookies_export` между прогонами). Rollback: вернуть `youtube-transcript-api<1.0` + revert `youtube_transcript_engine.py` + очистить `YOUTUBE_TRANSCRIPT_PROXY_*` в .env + restart (движки при пустых прокси/cookies работают — прецедент Epic 39).
+
+**DoD T-593:** верховный вердикт + статус cookies зафиксирован (D310/D311), план миграции transcript-api 0.6→1.2 с перечнем замен (D312), env-контракт резидент-прокси (D313), fallback-цепочка (D314), зависимости и прод-установка (D315), риски (D316), тест-план + smoke (D317) — READY FOR BUILDER (T-594).
+
+---
+
+## Section 83 — Epic 83: info_text.md — синтакс-проверка (rich/HTML) + синхронизация канона DEFAULT_INFO_TEXT + критическая прод-процедура (v2.49.1, P1, chore, DESIGN, T-599)
+
+> **Дата:** 2026-08-27. **Статус:** DESIGN (@Architect). **Вердикт:** синтаксис info_text.md ВАЛИДЕН для основного rich-пути (все использованные теги h1/h2/h4/h5/b/i/a входят в «Rich HTML style» Bot API 10.x, и все — сбалансированы/парны), НО: (1) теги `<h4>`/`<h5>` НЕ обрабатываются legacy-фолбеком `_rich_to_legacy_html` (информация: info.py:47–59 транслирует только h1/h2) → в фолбеке деградируют; (2) `DEFAULT_INFO_TEXT` в services/info_service.py РАСХОДИТСЯ с файлом на диске (НЕ байт-в-байт); (3) прод info_text.md правился через /edit_info и РАСХОДИТСЯ с git.
+
+### 83.1 Факты рендеринга (проверено, 2026-08-27)
+
+- **Основной путь (rich):** `handlers/info.py::cmd_info` → `bot.send_rich_message(chat, InputRichMessage(html=text))` (:98–101). `/edit_info` превью — тот же `send_rich_message(ADMIN, InputRichMessage(html=new_text))` (:151–153) → валидация ДО сохранения (D163): TelegramBadRequest → «плохой markup», файл/кэш не трогаем.
+- **Фолбек:** rich отвергнут (TelegramBadRequest) → `_rich_to_legacy_html(text)` (:47–59) → `send_chunked_reply(..., parse_mode="HTML")` → при неудаче plain (:112–120). `_rich_to_legacy_html` **эмулирует ТОЛЬКО** `<h1>→<b><u>…</u></b>` и `<h2>→<b>…</b>` (+ шаг 3 bl/i/u); `<h3>/<h4>/<h5>/<h6>` НЕ обрабатываются.
+- **Поддерживаемый набор Rich HTML style (Bot API 10.1+, «Rich HTML style»):** `<h1>…<h6>` (ВСЕ шесть уровней), `<b>/<strong>`, `<i>/<em>`, `<u>/<ins>`, `<s>/<strike>/<del>`, `<code>`, `<mark>`, `<sub>`, `<sup>`, `<tg-spoiler>`, `<a href=…>`, `<p>`, `<pre>`, `<footer>`, `<blockquote>` и пр. → `<h4>`/`<h5>` ВАЛИДНЫ в rich-режиме.
+- **Legacy `parse_mode="HTML"`:** заголовочных тегов НЕ поддерживает вообще (ни h1–h6) → эмуляция h1/h2 руками и есть суть `_rich_to_legacy_html`.
+
+### 83.2 Вердикт по синтаксису info_text.md (D306)
+
+| Проверка | Результат |
+|---|---|
+| Баланс парных тегов | **ОК** — h1 1/1, h2 9/9, h4 30/30, h5 9/9, b 32/32, i 32/32, a 2/2; висячих/несбалансированных НЕТ |
+| Допустимость тегов (rich) | **ОК** — h1/h2/h4/h5/b/i/a все из «Rich HTML style» → rich не падает |
+| Риск legacy-фолбека | **НЕ ОК** — `<h4>` (30) и `<h5>` (9) НЕ эмулируются → в фолбеке структура теряется (h5-обёртки тела и h4-инлайн-ключи); как bold/heading НЕ рендерятся |
+| Семантика | **Сомнительно (не падение)** — `<h4>` внутри `<h5>` использует блок-заголовок как inline-эмфазу ключа; `<h5>` оборачивает всё тело секции (блок-в-блок). Rich-парсер допустит (до 16 уровней вложенности), но визуально непредсказуемо |
+| Канон | **НАРУШЕН** — `DEFAULT_INFO_TEXT` (8×h2, без h4/h5, b/i=30) ≠ info_text.md (9×h2, 30×h4, 9×h5, b/i=32; добавлена секция «9. Саммари чата») |
+
+**Вывод:** код не падает на rich; под вопросом — деградация в legacy-фолбеке и рассинхрон канона. Рекомендация: свести теги к поддерживаемому набору (или расширить `_rich_to_legacy_html`), и привести `DEFAULT_INFO_TEXT` к байт-в-байт равенству с итоговым info_text.md.
+
+### 83.3 Решения
+
+1. **D306 — канон байт-в-байт.** `DEFAULT_INFO_TEXT` в `services/info_service.py` := итоговое содержимое info_text.md (UTF-8), плюс слайс-эталон в `test_info_service.py` (прецедент R11): файл читается и сравнивается с константой байт-в-байт.
+2. **D307 — нормализация тегов h4/h5.** Основной путь (рекомендуемый): (а) `<h5>…</h5>` (обёртка тела секции) → plain (без обёртки); (б) `<h4><b><i>…</i></b></h4>` (inline-ключи) → `<b><i>…</i></b>`; (в) `h1/h2` и `<a href=…>` оставить как есть. Альтернатива B (если пользователь требует сохранения визуала h4/h5 в rich): расширить `_rich_to_legacy_html` на h3–h6 (эмуляция `→<b>…</b>` или `<b><u>…</u></b>`) ДО шага 3. Решение приоритетов: A предпочтительнее (меньше спецлогики, фолбек детерминирован, канон не усложняется).
+3. **D308 — КРИТИЧЕСКАЯ прод-процедура (канон «5 мест байт-в-байт»).** Прод info_text.md РАСХОДИТСЯ с git (правился через /edit_info). Порядок строгий — см. 83.5. Ключ: бэкап прод-версии ДО checkout, чтобы не потерять правки пользователя.
+4. **D309 — тест-план** — см. 83.4.
+
+### 83.4 Тест-план
+
+| # | Файл | Кейс | Ожидание |
+|---|---|---|---|
+| 1 | test_info_service.py | байт-в-байт | `DEFAULT_INFO_TEXT` == содержимое info_text.md (read bytes, UTF-8) |
+| 2 | test_info_service.py | load() из файла с h4/h5 (после нормализации) | кэш == канон; файл без изменений |
+| 3 | test_info_handlers.py | rich-рендер фактического набора тегов | `send_rich_message` вызван с `InputRichMessage(html=…)`, нет падения |
+| 4 | test_info_handlers.py | legacy-фолбек (TelegramBadRequest от rich) | `_rich_to_legacy_html` даёт legacy без `<h4>/<h5>`; send_chunked_reply с parse_mode="HTML" не падает; plain-фолбек при повторном BadRequest |
+| 5 | test_info_handlers.py | `_rich_to_legacy_html` h4/h5 | после D307 (A) — тегов h4/h5 нет во входе; (B) — h3–h6 эмулированы |
+| 6 | РЕГРЕССИЯ | полный pytest | 0 failed/skipped |
+
+### 83.5 КРИТИЧЕСКАЯ прод-процедура (@DevOps, канон из 5 шагов)
+
+Прод (nik@198.46.175.136:/var/www/admin_bot) — info_text.md расходится с git. Строго по шагам:
+
+```bash
+# (1) БЭКАП прод-версии (правки пользователя через /edit_info НЕ теряем)
+cp info_text.md info_text.md.bak.epic83
+# (2) сброс отдачи до git-версии
+git checkout -- info_text.md
+# (3) подтянуть цикл (info_text.md + канон + тесты)
+git pull
+# (4) restart
+sudo systemctl restart admin_bot
+```
+
+(5) Smoke: `/info` отдаёт rich без падения в legacy/plain; `/edit_info <текст>` превью в DM работает. Если `info_text.md.bak.epic83` СОДЕРЖАТЕЛЬНО отличается от новой git-версии — отчёт PM с diff (правки пользователя не теряются). Rollback: `cp info_text.md.bak.epic83 info_text.md` + restart.
+
+**DoD T-599:** вердикт синтаксиса зафиксирован (D306), нормализация тегов определена (D307), прод-процедура оформлена каноном (D308), тест-план готов (D309) — READY FOR BUILDER (T-599) и DevOps (T-601).

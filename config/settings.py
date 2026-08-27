@@ -409,6 +409,18 @@ class Settings:
     # Путь к Netscape-файлу cookies (yt-dlp cookiefile; transcript-api cookies=).
     # Пусто = без cookies. R17: значение НЕ логируется.
     YOUTUBE_COOKIES_FILE: str = _env_str("YOUTUBE_COOKIES_FILE", "")
+    # Epic 81 (Section 82, D313): resident-прокси Webshare для transcript-api.
+    # Пара «Proxy Username/Password» из dashboard.webshare.io (НЕ аккаунтные
+    # логин/пароль). R17: значения НИКОГДА не логируются (только факт configured).
+    YOUTUBE_TRANSCRIPT_PROXY_USERNAME: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_USERNAME", "")
+    YOUTUBE_TRANSCRIPT_PROXY_PASSWORD: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_PASSWORD", "")
+    # CSV-коды стран (напр. "de,us") → Webshare filter_ip_locations. Пусто = без фильтра.
+    YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS", "")
+    # Не-Webshare оверрайды (GenericProxyConfig http://domain:port). Пусто = не используются.
+    YOUTUBE_TRANSCRIPT_PROXY_DOMAIN: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_DOMAIN", "")
+    YOUTUBE_TRANSCRIPT_PROXY_PORT: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_PORT", "")
+    # Webshare retries_when_blocked (int). Пусто = дефолт библиотеки.
+    YOUTUBE_TRANSCRIPT_PROXY_RETRIES: str = _env_str("YOUTUBE_TRANSCRIPT_PROXY_RETRIES", "")
 
     # ── SmartModule: Checkup (Epic 42) ────────────────────────────
     # Кулдаун per-chat в СЕКУНДАХ (float; прецедент SEARCH_COOLDOWN_SECONDS —
