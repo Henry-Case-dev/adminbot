@@ -212,12 +212,13 @@ class YouTubeTranscriptEngine:
             "overwrites": True,
             "ignoreerrors": True,      # R41-1/D154: 429 на 'en' не валит ru
         }
-        # D301 (81.4 F1): выровнять player_client в YouTube-ветке движка —
-        # бот-чек «Sign in to confirm»/silent None на текущем YouTube. ТОЛЬКО
-        # здесь (build_ytdlp_base_opts чистится — tools/video_downloader и
-        # cobalt НЕ меняются). bgutil-ytdlp-pot-provider остаётся plugin auto-load.
+        # D301 (81.4 F1, Epic 84): player_client — ТОЛЬКО те, что
+        # SUPPORTS_COOKIES=True. android/ios НЕ поддерживают cookies
+        # → скип cookiefile → bot-check «Sign in to confirm». web_safari
+        # + tv_downgraded — дефолты yt-dlp для аккаунта с cookies.
+        # bgutil-ytdlp-pot-provider остаётся plugin auto-load.
         opts["extractor_args"] = {
-            "youtube": {"player_client": ["web", "android", "ios"]}
+            "youtube": {"player_client": ["web_safari", "tv_downgraded"]}
         }
         # Epic 72 (74.A/D270): прокси/cookies — единый хелпер config.settings
         opts.update(build_ytdlp_base_opts())
@@ -347,37 +348,71 @@ class YouTubeTranscriptEngine:
 
     # ── Фолбек: youtube-transcript-api (R39-2, D140) ────────────
 
-    def _transcript_api_kwargs(self) -> dict:
-        """Прокси (requests-формат {"http": u, "https": u}) и cookies (путь к
-        Netscape-файлу). Пусто → ПУСТОЙ dict: вызов list_transcripts(video_id)
-        идентичен 46.4 — существующие моки/тесты живы без правок.
-        Epic 72 (74.A/D270): источник настроек — единый build_ytdlp_base_opts()."""
-        kwargs = {}
-        base = build_ytdlp_base_opts()
-        if "proxy" in base:
-            kwargs["proxies"] = {"http": base["proxy"], "https": base["proxy"]}
-        if "cookiefile" in base:
-            kwargs["cookies"] = base["cookiefile"]
-        return kwargs
+    def _transcript_proxy_config(self):
+        """Epic 84 (D320): proxy_config для YouTubeTranscriptApi 1.2.x.
+        Приоритет: (1) webshare-формат если LOCATIONS, (2) generic с auth если
+        USERNAME+PASSWORD, (3) generic без auth если DOMAIN+PORT.
+        Пусто → None (без прокси). R17: значения НЕ логируются."""
+        username = (settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME or "").strip()
+        password = (settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD or "").strip()
+        domain = (settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN or "").strip()
+        port = (settings.YOUTUBE_TRANSCRIPT_PROXY_PORT or "").strip()
+        locations = (settings.YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS or "").strip()
+
+        if locations and username and password:
+            # Webshare-формат: filter_ip_locations
+            try:
+                return WebshareProxyConfig(
+                    proxy_username=username,
+                    proxy_password=password,
+                    filter_ip_locations=[x.strip() for x in locations.split(",") if x.strip()],
+                )
+            except Exception:
+                pass
+
+        if domain and port:
+            proxy_url = f"http://{domain}:{port}"
+            if username and password:
+                proxy_url = f"http://{username}:{password}@{domain}:{port}"
+            try:
+                return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+            except Exception:
+                pass
+
+        return None  # без прокси
 
     def _fetch_segments(self, video_id: str) -> list[dict]:
-        """Как 46.4 + прокидывание proxies/cookies в list_transcripts
-        (сессия с ними доходит до fetch() — проверено по исходникам 0.6.3)."""
+        """Epic 84 (D319): YouTubeTranscriptApi 1.2.x — instance с proxy_config,
+        .list(video_id), .find_transcript(), .fetch().to_raw_data().
+        _pick_transcript() без изменений (TranscriptList 1.2.x сохраняет
+        find_generated_transcript/find_manually_created_transcript)."""
         if YouTubeTranscriptApi is None:  # pragma: no cover
             raise YouTubeTranscriptUnavailableException(
                 "youtube-transcript-api is not installed"
             )
         try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(
-                video_id, **self._transcript_api_kwargs()
-            )
+            proxy_cfg = self._transcript_proxy_config()
+            api = YouTubeTranscriptApi(proxy_config=proxy_cfg) if proxy_cfg \
+                else YouTubeTranscriptApi()
+            transcript_list = api.list(video_id)
         except Exception as exc:
+            # D319: RequestBlocked/IpBlocked → TRANSIENT, AgeRestricted → PERMANENT
+            exc_name = type(exc).__name__
+            if exc_name in ("RequestBlocked", "IpBlocked"):
+                raise YouTubeTranscriptUnavailableException(
+                    f"list failed (TRANSIENT) | video_id={video_id!r} ({exc})"
+                ) from exc
+            if exc_name == "AgeRestricted":
+                raise YouTubeTranscriptUnavailableException(
+                    f"list failed (PERMANENT) | video_id={video_id!r} ({exc})"
+                ) from exc
             raise YouTubeTranscriptUnavailableException(
-                f"list_transcripts failed | video_id={video_id!r} ({exc})"
+                f"list failed | video_id={video_id!r} ({exc})"
             ) from exc
         transcript = self._pick_transcript(transcript_list, video_id)
         try:
-            return transcript.fetch()
+            fetched = transcript.fetch()
+            return fetched.to_raw_data()
         except Exception as exc:
             raise YouTubeTranscriptUnavailableException(
                 f"transcript fetch failed | video_id={video_id!r} ({exc})"
