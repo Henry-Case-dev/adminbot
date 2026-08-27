@@ -344,6 +344,20 @@
 - [ ] T-604 (@Reviewer, P0, ←T-603) — строгий аудит: player_client не сломал не-YouTube, 1.2.x API корректен, секреты R17, Section 81.4/82.2/82.3 = коду
 - [ ] T-605 (@DevOps, P0, ←T-604) — деплой на прод + smoke на реальных YouTube-видео (выжимка + скачивание), 0 traceback
 
+### Hotfix (post-aiogram 3.31 upgrade) — video_note/voice download FileNotFoundError
+
+> После апгрейда aiogram 3.29.1→3.31.0 (rich_message ClientDecodeError fix) транскрибация
+> video_note/voice перестала работать в локальном режиме (DOWNLOAD_ENABLED=True):
+> aiogram 3.31.x `bot.download()` с `is_local=True` всегда резольвит `file_path` через
+> `wrap_local_file.to_local()` → `FileNotFoundError`, когда локальный файл отсутствует
+> на диске. Ранний fallback `bot.download()` (Epic 78 T-578) больше не работает.
+> Фикс: bypass aiogram local-mode через прямой httpx-скачок из Telegram Cloud
+> (`https://api.telegram.org/file/bot<token>/<file_path>`).
+> - [x] T-607 (@Builder, P0) — реализация `_download_file_from_cloud()` в voice_transcription.py
+> - [x] T-608 (@Builder, P0, ←T-607) — синтакс-проверка + commit `bc71efd` + push
+> - [ ] T-609 (@DevOps, P0, ←T-608) — деплой на прод: git pull, restart admin_bot, 0 traceback;
+>   smoke: 3 кружочка подряд → расшифровка есть; файлы не в логах
+
 ## 🔍 In Review
 
 *(пусто)*
