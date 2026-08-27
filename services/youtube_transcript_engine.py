@@ -217,6 +217,14 @@ class YouTubeTranscriptEngine:
         # НЕ поддерживают POT → bot-check «Sign in to confirm»/«The page needs
         # to be reloaded». "web" + POT + resident proxy работает без cookies.
         # bgutil-ytdlp-pot-provider остаётся plugin auto-load.
+        # D301 (Epic 84): player_client = "web" — требует PO Token (POT)
+        # через bgutil-ytdlp-pot-provider (docker :4416). web_safari/tv_downgraded
+        # НЕ поддерживают POT → bot-check «Sign in to confirm»/«The page needs
+        # to be reloaded». "web" + POT + resident proxy работает без cookies.
+        # bgutil-ytdlp-pot-provider остаётся plugin auto-load.
+        # Важно: "web" client НЕ возвращает downloadable formats (SABR forcing),
+        # поэтому extract_info() с process=True падает с "Requested format is
+        # not available". Используем process=False + ручной парсинг subtitles.
         opts["extractor_args"] = {
             "youtube": {"player_client": ["web"]}
         }
@@ -352,7 +360,8 @@ class YouTubeTranscriptEngine:
         """Epic 84 (D320): proxy_config для YouTubeTranscriptApi 1.2.x.
         Приоритет: (1) webshare-формат если LOCATIONS, (2) generic с auth если
         USERNAME+PASSWORD, (3) generic без auth если DOMAIN+PORT.
-        Пусто → None (без прокси). R17: значения НЕ логируются."""
+        Пусто → None (без прокси). R17: значения НЕ логируются.
+        GenericProxyConfig: http_proxy_auth=HTTPProxyAuth(username, password)"""
         username = (settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME or "").strip()
         password = (settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD or "").strip()
         domain = (settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN or "").strip()
@@ -372,10 +381,18 @@ class YouTubeTranscriptEngine:
 
         if domain and port:
             proxy_url = f"http://{domain}:{port}"
+            proxy_auth = None
             if username and password:
-                proxy_url = f"http://{username}:{password}@{domain}:{port}"
+                try:
+                    from requests.auth import HTTPProxyAuth
+                    proxy_auth = HTTPProxyAuth(username, password)
+                except ImportError:
+                    proxy_url = f"http://{username}:{password}@{domain}:{port}"
             try:
-                return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+                return GenericProxyConfig(
+                    http_url=proxy_url, https_url=proxy_url,
+                    http_proxy_auth=proxy_auth, https_proxy_auth=proxy_auth,
+                )
             except Exception:
                 pass
 
