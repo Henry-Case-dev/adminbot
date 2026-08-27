@@ -15412,7 +15412,7 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 
 ### 81.4 Решения / кандидатские фиксы (приоритеты)
 
-1. **D301 — F1 (P0): пробросить player_client/PO-token в transcript-engine.** Расширить yt-dlp opts для YouTube-ветки движка (НЕ трогая не-YouTube пути): `extractor_args={"youtube": {"player_client": ["web","android","ios"]}}` + `player_client="default"`-страховку, ИЛИ явно задействовать bgutil-POT (если прод-venv его несёт) через opt `getpot`. Модифицировать ТОЛЬКО `build_ytdlp_base_opts()`-потребителя в `_ytdlp_opts()` (или новый `build_ytdlp_transcript_opts()`), чтобы `tools/video_downloader.py` и cobalt-туннель НЕ изменились (требование Epic 80 «минимальный дифф»).
+1. **D301 — F1 (P0): пробросить player_client/PO-token в transcript-engine.** Расширить yt-dlp opts для YouTube-ветки движка (НЕ трогая не-YouTube пути): `extractor_args={"youtube": {"player_client": ["web_safari", "tv_downgraded"]}}` + `player_client="default"`-страховку, ИЛИ явно задействовать bgutil-POT (если прод-venv его несёт) через opt `getpot`. **WHY `["web_safari", "tv_downgraded"]`:** android/ios не поддерживают cookies (`SUPPORTS_COOKIES: False`) — yt-dlp скипает `cookiefile` для этих клиентов, что ведёт к bot-check «Sign in to confirm». `web_safari` + `tv_downgraded` — дефолты google_granted для аккаунта с cookies; поддерживают `SUPPORTS_COOKIES: True`. Модифицировать ТОЛЬКО `build_ytdlp_base_opts()`-потребителя в `_ytdlp_opts()` (или новый `build_ytdlp_transcript_opts()`), чтобы `tools/video_downloader.py` и cobalt-туннель НЕ изменились (требование Epic 80 «минимальный дифф»).
 2. **D302 — F2 (P0): выровнять yt-dlp на проде до пинна (≥2026.8.19) + JS-runtime.** `pip install -r requirements.txt` в прод-venv (yt-dlp-ejs приедет extras `[default]`; при необходимости поставить `deno` — см. 78.3 #6). Это снимает большую часть H1 без изменения кода.
 3. **D303 — F3 (P1): починить fallback-сабы.** Вариант (рекомендуемый): перевести fallback на тот же yt-dlp вместо youtube-transcript-api (subtitleslangs=приоритет, отдельный вызов), избавившись от 0.6.x. Вариант B (если оставляем transcript-api): ослабить пинн и переехать на актуальную версию (`>=0.6.2,<1.0` → свежая), верифицировав, что `cookies=` реально пробрасывается и что ложный «Subtitles are disabled» исчезает на 4Zxu1T2hn_U/rnoG0oIFKHQ.
 4. **D304 — F4 (P1, обходной): refresh cookies.** Немедленный ручной re-export (Epic 79) НЕ является фиксом, но лечит H3/H4, если диагностика на них укажет. self-healing refresh-on-failure — FUTURE, передаётся в Epic 81 (D295).
@@ -15462,8 +15462,9 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 
 1. **D310 — двухдвижковая архитектура, cookies ВНЕ hot-path.** yt-dlp остаётся единственным primary; против «Sign in to confirm» его страхует PO Token provider, а НЕ cookies (прецедент Epic 77/78 + F1/F2 из Section 81: `player_client`/JS-runtime выравниваются, ПОТ не требует ручного снабжения и не протухает). youtube-transcript-api остаётся fallback; его «Subtitles are disabled» лечит resident-прокси Webshare (ротация пула >30M IP), а не cookies. Итог для пользователя: при правильной настройке ни один из путей не требует периодической ручной передачи cookies.txt.
 2. **D311 — cookies.txt (`YOUTUBE_COOKIES_FILE`) → ОПЦИОНАЛЬНЫЙ не-DC fallback.** Не удаляем ключ (backward-compat, Epic 79 pipeline `tools/cookies_export.py` сохраняется как аварийный офлайн-инструмент), но: (а) yt-dlp в hot-path больше не зависит от cookies (PO Token делает основную работу; cookies остаются запасным `cookiefile`, если PO отключён/недоступен); (б) в transcript-api cookies НЕ пробрасываются вовсе — в 1.2.x это deprecated и обескуражено (README: «NOT RECOMMENDED … account will be banned»). `_transcript_api_kwargs()` больше не подмешивает `cookies` в вызов.
+3. **D318 — `_transcript_api_kwargs()`: убрать `cookies` из kwargs при 1.2.x.** `_transcript_api_kwargs()` больше НЕ подмешивает `cookies=base['cookiefile']` в вызов: youtube-transcript-api 1.2.x помечает cookie-auth как `# Cookie auth has been temporarily disabled` — проброс cookies в `list()`/`fetch()` НЕ поддерживается и ведёт к предупреждению/ошибке. Прокси теперь передаётся через `proxy_config=` (см. D320), а не через `proxies=` dict. `_transcript_api_kwargs()` заменяется на `_transcript_proxy_config()` (см. D320). `YOUTUBE_COOKIES_FILE` остаётся только для yt-dlp (primary path).
 
-### 82.3 План миграции youtube-transcript-api 0.6.3 → 1.2.x (D312)
+### 82.3 План миграции youtube-transcript-api 0.6.3 → 1.2.x (D312, D319, D320)
 
 > Точные замены в `services/youtube_transcript_engine.py` (только этот файл; `tools/video_downloader.py`/cobalt НЕ трогаем — прецедент D301 «минимальный дифф»).
 
@@ -15475,6 +15476,20 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
    - `_transcript_api_kwargs()` — ЗАМЕНЯЕТСЯ новым `_transcript_proxy_config()` (см. D313): возвращает `WebshareProxyConfig`/`GenericProxyConfig`/`None`, но НЕ `cookies` и НЕ `proxies`.
    - Исключения в `_is_transient()`: заменить кортеж 0.6.x на 1.2.x. `TranscriptsDisabled`, `NoTranscriptFound` — PERMANENT (остаются); `NoTranscriptAvailable`/`InvalidVideoId` — УБРАТЬ (переименованы/упразднены, заменить на новые эквиваленты); ДОБАВИТЬ `RequestBlocked`/`IpBlocked` → **TRANSIENT** (ротация прокси даёт новый IP — ретрай может пройти), `AgeRestricted`/`VideoUnplayable` → **PERMANENT** (только Playwright-резерв, не ретрай).
    - `requirements.txt`: `youtube-transcript-api>=0.6.2,<1.0` → `youtube-transcript-api>=1.2.0,<2.0`.
+
+2. **D319 — финальный контракт `_fetch_segments()` для 1.2.x (уточнение D312).**
+   - `YouTubeTranscriptApi.list_transcripts(video_id, **kwargs)` → `self._api.list(video_id)`: инстанс `self._api = YouTubeTranscriptApi(proxy_config=...)` создаётся лениво в `_fetch_segments()`; kwargs больше не передаются — прокси идёт через `proxy_config`, cookies удалены (D318).
+   - `_pick_transcript()` — БЕЗ изменений: методы `find_generated_transcript()`, `find_manually_created_transcript()` существуют в `TranscriptList` 1.2.x.
+   - `transcript.fetch()` → `transcript.fetch().to_raw_data()`: 1.2.x возвращает `FetchedTranscript` (объект), а не `list[dict]`; `to_raw_data()` даёт `[{'text','start','duration'}]` — контракт `_format` сохранён.
+   - Исключения в `_is_transient()`: `RequestBlocked`/`IpBlocked` → **TRANSIENT** (ротация прокси даёт новый IP, ретрай может пройти); `AgeRestricted` → **PERMANENT** (только Playwright-резерв, не ретрай); `TranscriptsDisabled`/`NoTranscriptFound` → PERMANENT (остаются); `NoTranscriptAvailable`/`InvalidVideoId` — УБРАТЬ (упразднены в 1.2.x).
+
+3. **D320 — реализация `_transcript_proxy_config()` (проброс в движок, альтернатива D313).** Новый helper в `services/youtube_transcript_engine.py` (НЕ в `build_ytdlp_base_opts()` — тот про yt-dlp). Логика:
+   - Если `YOUTUBE_TRANSCRIPT_PROXY_USERNAME` и `YOUTUBE_TRANSCRIPT_PROXY_PASSWORD` непустые → `GenericProxyConfig(http_url=f"http://{username}:{password}@{domain}:{port}", https_url=f"https://{username}:{password}@{domain}:{port}")` с username:password@domain:port.
+   - Если `YOUTUBE_TRANSCRIPT_PROXY_DOMAIN` и `YOUTUBE_TRANSCRIPT_PROXY_PORT` непустые (но username/password пусты) → `GenericProxyConfig(http_url=f"http://{domain}:{port}", https_url=f"https://{domain}:{port}")` (без auth).
+   - Если `YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS` непустая → `WebshareProxyConfig(proxy_username=..., proxy_password=..., filter_ip_locations=...)` (Webshare-специфичный, с ротацией пула).
+   - Иначе → `None` (без прокси, WARNING `resproxy=empty`).
+   - **R17:** НИ ОДИН из этих env не логируется в открытую (только факт `configured`/`empty`).
+   - **Важно:** `YOUTUBE_TRANSCRIPT_PROXY_URL` из xray (Section 49) НЕ используется для transcript-api — остаётся только для yt-dlp (`build_ytdlp_base_opts()`).
 
 ### 82.4 Новая конфигурация env (D313) — resident-прокси Webshare
 

@@ -8201,4 +8201,39 @@ ow["timestamp"] (sqlite3.Row).
 - [ ] T-600 (@Reviewer, P1, ←T-599): ревью Epic 83 — DEFAULT_INFO_TEXT байт-в-байт == info_text.md; rich-отдача и legacy-фолбек корректны для фактического набора тегов (h1/h2/h4/h5) либо теги сведены к поддерживаемым осознанно; секретов в справке нет; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
 
 ### КРИТИЧЕСКАЯ прод-процедура
-- [ ] T-601 (@DevOps, P1, ←T-600): коммит+пуш (info_text.md + канон + тесты); деплой по КРИТИЧЕСКОЙ процедуре на nik@198.46.175.136:/var/www/admin_bot, где прод info_text.md РАСХОДИТСЯ с git (правился через /edit_info): (1) `cp info_text.md info_text.md.bak.epic83` — сохранить прод-версию; (2) `git checkout -- info_text.md` — сбросить до git; (3) `git pull` (+при необходимости установить пакеты/применить миграции); (4) restart admin_bot, journalctl 0 traceback; (5) smoke: `/info` отдаёт rich-справку корректно (без падения в legacy/plain), `/edit_info <...>` превью в DM работает; (6) если прод-версия в .bak отличается от новой git-версии содержательно — отчёт PM с diff содержимого (не терять правки пользователя!). Rollback: восстановить .bak.epic83 + restart. **DoD:** /info рендерится (rich) без ошибок, 0 traceback, прод-правки не потеряны (бэкап есть), канон синхронизирован
+---
+
+## Epic 84: YouTube fix — завершить миграцию transcript-api 1.2.x + починить yt-dlp cookies/POT — 2026-08-27 🆕 Шаг 1 (PM ✅) — P0-crit (target v2.50.1)
+
+> **ИНЦИДЕНТ:** После деплоя Epic 80-83 (коммит `76a6f1f`) YouTube-сервисы не работают.
+> **(1) yt-dlp:** `extract_info returns None` — реальная ошибка: «Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies». **(2) transcript-api:** `type object 'YouTubeTranscriptApi' has no attribute 'list_transcripts'` — код вызывает старый API, удалённый в 1.2.4.
+>
+> **ROOT CAUSES (из исследования + аудита):**
+> 1. `player_client = ["web", "android", "ios"]` — android/ios НЕ поддерживают cookies, скипаются. Нужно `["web_safari", "tv_downgraded"]`
+> 2. `_fetch_segments()` вызывает `YouTubeTranscriptApi.list_transcripts()` — удалён в 1.2.4. Нужно `YouTubeTranscriptApi(proxy_config=...).list(video_id)...find_transcript()...fetch().to_raw_data()`
+> 3. `_transcript_proxy_config()` не реализован — только в докстринге, но не в коде
+> 4. `_transcript_api_kwargs()` возвращает `proxies` и `cookies` — в 1.2.x cookies не поддерживаются, прокси через `proxy_config=`
+> 5. Cookies на сервере (`srv_cookies.txt`) могут быть протухшими
+> 6. bgutil-ytdlp-pot-provider работает (генерирует POT), но неясно, подключается ли он к yt-dlp
+>
+> **Порядок:** @Architect → @Builder → @Reviewer → @DevOps (smoke на реальных видео). Без @Orchestrator.
+
+### Дизайн фикса
+- [ ] 👤 T-602 (@Architect, P0, ←T-588/T-593): дополнить Section 81.4 (player_client — зафиксировать `["web_safari", "tv_downgraded"]`), Section 82.2 (transcript_api 1.2.x — новый API `YouTubeTranscriptApi(proxy_config=...).list(video_id)...find_transcript()...fetch().to_raw_data()`), Section 82.3 (реализация `_transcript_proxy_config()` — возвращает GenericProxyConfig/WebshareProxyConfig/None). **DoD:** Sections 81.4/82.2/82.3 обновлены, READY FOR BUILDER
+
+### Реализация
+- [ ] T-603 (@Builder, P0, ←T-602): 5 подзадач:
+  - (a) player_client: `["web", "android", "ios"]` → `["web_safari", "tv_downgraded"]` в `build_ytdlp_base_opts()` / `_ytdlp_opts()`
+  - (b) `_fetch_segments()`: `YouTubeTranscriptApi.list_transcripts()` → `YouTubeTranscriptApi(proxy_config=...).list(video_id).find_transcript(...).fetch().to_raw_data()`
+  - (c) `_transcript_proxy_config()`: реализовать метод, возвращающий `GenericProxyConfig` / `WebshareProxyConfig` / `None` на основе env-переменных
+  - (d) `_transcript_api_kwargs()`: убрать `cookies` (не поддерживается в 1.2.x), прокси через `proxy_config=` (используя `_transcript_proxy_config()`)
+  - (e) Убедиться, что bgutil POT plugin загружается (проверка verbose, `--getpot` в test-вызове yt-dlp)
+  - АТОМАРНО тесты на каждый сценарий; полный pytest 0 регрессий. **DoD:** все 5 подзадач реализованы, тесты зелёные
+
+### Ревью
+- [ ] T-604 (@Reviewer, P0, ←T-603): строгий аудит кода — player_client не сломал не-YouTube пути; transcript-api 1.2.x API вызывается корректно; proxy_config не содержит секретов в логах (R17); cookies убраны из kwargs (не поддерживаются в 1.2.x); POT plugin верифицирован; Section 81.4/82.2/82.3 = коду; diff --check чист; полный pytest APPROVED. **DoD:** APPROVED
+
+### Деплой + smoke
+- [ ] T-605 (@DevOps, P0, ←T-604): коммит цикла на русском (conventional commits) + пуш origin/master (секреты НЕ в коммите); деплой nik@198.46.175.136:/var/www/admin_bot: git pull, обновить .env при необходимости, restart, journalctl 0 traceback; СКВОЗНОЙ smoke на РЕАЛЬНЫХ видео: выжимка LEN>0 И скачивание размер>0; верифицировать, что transcript-api больше не падает `AttributeError: list_transcripts`. Rollback: revert + restart. Отчёт PM: HEAD, PID, версия, smoke status. **DoD:** оба YouTube-сервиса работают, 0 traceback
+
+**Файлы для изменения:** `services/youtube_transcript_engine.py` (T-602/T-603), `config/settings.py` (T-602), `services/build_ytdlp_base_opts()` в `video_downloader.py`/`youtube_engine.py` (T-603-a), `tests/test_youtube_transcript.py` (T-603), `tests/test_youtube_engine.py` (T-603), `plans/ARCHITECTURE.md` (T-602)

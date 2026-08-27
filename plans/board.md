@@ -325,6 +325,25 @@
 - [ ] T-600 (@Reviewer, P1, ←T-599) — ревью Epic 83 (байт-в-байт, rich+legacy корректны, секретов нет)
 - [ ] T-601 (@DevOps, P1, ←T-600) — КРИТИЧЕСКАЯ прод-процедура: `cp info_text.md info_text.md.bak.epic83` → `git checkout -- info_text.md` → `git pull` → restart; smoke /info (rich) + /edit_info превью; прод-правки НЕ потерять (бэкап + отчёт PM)
 
+### Epic 84: YouTube fix — завершить миграцию transcript-api 1.2.x + починить yt-dlp cookies/POT — 2026-08-27 🆕 Шаг 1 (PM ✅) — P0-crit (target v2.50.1)
+
+> **ИНЦИДЕНТ:** После деплоя Epic 80-83 (коммит `76a6f1f`) YouTube-сервисы не работают:
+> yt-dlp `extract_info returns None` («Sign in to confirm you're not a bot»), transcript-api
+> `AttributeError: type object 'YouTubeTranscriptApi' has no attribute 'list_transcripts'`
+> (старый API, удалён в 1.2.4). **Root causes:** (1) player_client android/ios не
+> поддерживают cookies → `["web_safari", "tv_downgraded"]`; (2) `_fetch_segments()` вызывает
+> `list_transcripts()` — удалён, нужен `YouTubeTranscriptApi(proxy_config=...).list(video_id)`;
+> (3) `_transcript_proxy_config()` не реализован; (4) `_transcript_api_kwargs()` шлёт cookies
+> (не поддерживаются в 1.2.x); (5) cookies на сервере протухли; (6) bgutil POT plugin не
+> подключён к yt-dlp.
+>
+> Полный трек — plans/backlog.md (Epic 84). Порядок: @Architect → @Builder → @Reviewer → @DevOps.
+
+- [ ] 👤 T-602 (@Architect, P0) — Section 81.4 (player_client: web_safari/tv_downgraded), Section 82.2 (transcript-api 1.2.x API), Section 82.3 (proxy_config реализация)
+- [ ] T-603 (@Builder, P0, ←T-602) — (a) player_client fix; (b) _fetch_segments → 1.2.x API; (c) _transcript_proxy_config() реализация; (d) _transcript_api_kwargs: убрать cookies, proxy через proxy_config; (e) POT plugin верификация; АТОМАРНО тесты, pytest 0 регрессий
+- [ ] T-604 (@Reviewer, P0, ←T-603) — строгий аудит: player_client не сломал не-YouTube, 1.2.x API корректен, секреты R17, Section 81.4/82.2/82.3 = коду
+- [ ] T-605 (@DevOps, P0, ←T-604) — деплой на прод + smoke на реальных YouTube-видео (выжимка + скачивание), 0 traceback
+
 ## 🔍 In Review
 
 *(пусто)*
