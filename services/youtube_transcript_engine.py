@@ -358,43 +358,24 @@ class YouTubeTranscriptEngine:
 
     def _transcript_proxy_config(self):
         """Epic 84 (D320): proxy_config для YouTubeTranscriptApi 1.2.x.
-        Приоритет: (1) webshare-формат если LOCATIONS, (2) generic с auth если
-        USERNAME+PASSWORD, (3) generic без auth если DOMAIN+PORT.
-        Пусто → None (без прокси). R17: значения НЕ логируются.
-        GenericProxyConfig: http_proxy_auth=HTTPProxyAuth(username, password)"""
+        GenericProxyConfig с URL-embedded auth (http://user:pass@host:port).
+        Приоритет: (1) username+password+domain+port → generic с auth,
+        (2) domain+port → generic без auth, (3) webshare locations → None.
+        Пусто → None (без прокси). R17: значения НЕ логируются."""
         username = (settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME or "").strip()
         password = (settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD or "").strip()
         domain = (settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN or "").strip()
         port = (settings.YOUTUBE_TRANSCRIPT_PROXY_PORT or "").strip()
-        locations = (settings.YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS or "").strip()
-
-        if locations and username and password:
-            # Webshare-формат: filter_ip_locations
-            try:
-                return WebshareProxyConfig(
-                    proxy_username=username,
-                    proxy_password=password,
-                    filter_ip_locations=[x.strip() for x in locations.split(",") if x.strip()],
-                )
-            except Exception:
-                pass
 
         if domain and port:
             proxy_url = f"http://{domain}:{port}"
-            proxy_auth = None
             if username and password:
-                try:
-                    from requests.auth import HTTPProxyAuth
-                    proxy_auth = HTTPProxyAuth(username, password)
-                except ImportError:
-                    proxy_url = f"http://{username}:{password}@{domain}:{port}"
+                proxy_url = f"http://{username}:{password}@{domain}:{port}"
             try:
-                return GenericProxyConfig(
-                    http_url=proxy_url, https_url=proxy_url,
-                    http_proxy_auth=proxy_auth, https_proxy_auth=proxy_auth,
-                )
+                return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
             except Exception:
-                pass
+                logger.exception("[youtube engine] failed to create GenericProxyConfig")
+                return None
 
         return None  # без прокси
 
