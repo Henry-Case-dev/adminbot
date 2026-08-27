@@ -8,6 +8,7 @@ EmptyTranscript. Выбор фраз — хендлер (прецедент Yout
 """
 import asyncio
 import logging
+from pathlib import Path
 
 from SmartModule.transcriber import GroqTranscriber, OpenRouterTranscriber
 
@@ -21,9 +22,19 @@ class TranscriptionError(Exception):
 class TranscriptionUnavailable(TranscriptionError):
     """Все стратегии упали (API-ошибка или таймаут) → пул VT_ALL_FAILED_PHRASES."""
 
+    def __init__(self, file_path: str):
+        # R17: логируем только имя файла (tempfile prefix `vt_`), не путь.
+        safe_name = Path(file_path).name
+        super().__init__(safe_name)
+
 
 class EmptyTranscript(TranscriptionError):
     """Сервисы ответили без ошибок, но текст пуст (strip()=='') → VT_SILENCE_PHRASES."""
+
+    def __init__(self, file_path: str):
+        # R17: логируем только имя файла (tempfile prefix `vt_`), не путь.
+        safe_name = Path(file_path).name
+        super().__init__(safe_name)
 
 
 class VoiceTranscriber:
