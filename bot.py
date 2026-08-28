@@ -256,13 +256,17 @@ async def on_startup():
 
         # ── VoiceTranscriber (Epic 67, Section 71.6) — сервис зависит от
         # memory/aliases; пустые ключи → стратегии пропустит контроллер ──
+        # Epic 79.5 (D295): max_concurrency из настроек для защиты Groq Free Tier.
         if settings.ENABLE_VOICE_TRANSCRIPTION:
-            voice_service = VoiceTranscriber()
+            voice_service = VoiceTranscriber(
+                max_concurrency=settings.GROQ_MAX_CONCURRENCY)
             setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
             logger.info(
-                "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s)",
+                "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s, "
+                "max_concurrency=%d)",
                 settings.VOICE_MAX_DURATION_SECONDS,
                 bool(settings.GROQ_API_KEY), bool(settings.OPENROUTER_API_KEY),
+                settings.GROQ_MAX_CONCURRENCY,
             )
         else:
             logger.info(

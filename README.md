@@ -522,10 +522,13 @@ docker compose ps             # проверить, что слуги на ме�
 | `TELEGRAM_API_HASH` | *(пусто)* | То же самое, hash. Тоже секрет |
 | `ENABLE_VOICE_TRANSCRIPTION` | `True` | Рубильник расшифровки голосовых и кружочков. `False` = бот делает вид, что не слушал |
 | `VOICE_MAX_DURATION_SECONDS` | `600` | Потолок длительности войса/кружочка, сек. Длиннее — не качаем и не извиняемся |
-| `GROQ_TIMEOUT` | `10` | Таймаут запроса к Groq, сек. Один прогон, без ретраев — дальше сразу фолбэк |
+| `GROQ_TIMEOUT` | `10` | Таймаут запроса к Groq, сек. Retry: exponential backoff (2s→4s→8s) + honor `Retry-After` header для 429 |
 | `OPENROUTER_TIMEOUT` | `15` | Таймаут запасного распознавателя OpenRouter, сек |
 | `GROQ_API_KEY` | *(пусто)* | Ключ Groq (основной распознаватель, whisper-large-v3). Секрет: только в `.env`. Пусто = уровень каскада пропущен |
 | `OPENROUTER_API_KEY` | *(пусто)* | Ключ OpenRouter (запасной распознаватель). Секрет: только в `.env`. Пусто = остаётся только Groq |
+| `GROQ_MAX_CONCURRENCY` | `1` | Очередь для конкурентных запросов (asyncio.Semaphore). 1 = строго последовательно (Free Tier 30 RPM) |
+| `GROQ_MIN_INTERVAL` | `2.0` | Минимальный интервал между запросами к Groq, сек (30 RPM = 1 req/2s) |
+| `GROQ_MAX_RETRIES` | `3` | Количество retry на 429 (exponential backoff 2s→4s→8s + Retry-After) |
 
 ### SmartCache — кэш умных ответов (3)
 

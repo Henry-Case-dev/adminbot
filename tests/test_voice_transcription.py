@@ -24,6 +24,7 @@ from SmartModule.service import (
     TranscriptionUnavailable,
     VoiceTranscriber,
 )
+from SmartModule.transcriber.base import BaseTranscriber
 
 CHAT_ID = -1001234567890
 USER_ID = 111
@@ -187,6 +188,42 @@ class TestServiceStrategy:
         assert f("/tmp/vt_x.mp4") == "m4a"
         assert f("/tmp/vt_x.ogg") == "ogg"
         assert f("/tmp/vt_x") == "ogg"
+
+    # ── Epic 79.5 (D295): rate limiting + очередь ───────────────────────
+
+    @pytest.mark.asyncio
+    async def test_concurrent_requests_serialized(self):
+        """Epic 79.5: max_concurrency=1 → запросы выполняются строго
+        последовательно (semaphore), а не параллельно."""
+        import time as _time
+
+        calls = []
+
+        class SlowTranscriber(BaseTranscriber):
+            name = "slow"
+            timeout = 5.0
+
+            @property
+            def available(self):
+                return True
+
+            async def transcribe(self, file_path: str) -> str:
+                calls.append(_time.monotonic())
+                await asyncio.sleep(0.5)  # имитация LLM-запроса
+                return "ok"
+
+        service = VoiceTranscriber(
+            strategies=(SlowTranscriber(),), max_concurrency=1)
+        # 3 одновременных запроса
+        results = await asyncio.gather(*[
+            service.transcribe_voice("/tmp/fake", "ogg") for _ in range(3)
+        ])
+        assert all(r == "ok" for r in results)
+        assert len(calls) == 3
+        # Интервалы между началом вызовов должны быть >= 0.5s (сериализованы)
+        intervals = [calls[i + 1] - calls[i] for i in range(len(calls) - 1)]
+        for iv in intervals:
+            assert iv >= 0.45  # небольшая темерь для flakiness
 
 
 # ── 2. Хендлер: пулы фраз и фильтры ─────────────────────────────────

@@ -711,6 +711,14 @@ class Settings:
     # логируется; пустой ключ = стратегия пропускается контроллером.
     GROQ_API_KEY: str = _env_str("GROQ_API_KEY", "")
     GROQ_TIMEOUT: float = _env_float("GROQ_TIMEOUT", 10.0)
+    # Epic 79.5 (D295): rate limiting для Groq Free Tier (30 RPM = 1 req/2s,
+    # whisper 20 RPM). MAX_CONCURRENCY очередь через asyncio.Semaphore;
+    # MIN_INTERVAL минимальный интервал между запросами к Groq (сек);
+    # MAX_RETRIES попыток с экспоненциальным backoff (2s→4s→8s) + honor
+    # Retry-After header для 429.
+    GROQ_MAX_CONCURRENCY: int = _env_int("GROQ_MAX_CONCURRENCY", 1)
+    GROQ_MIN_INTERVAL: float = _env_float("GROQ_MIN_INTERVAL", 2.0)
+    GROQ_MAX_RETRIES: int = _env_int("GROQ_MAX_RETRIES", 3)
     OPENROUTER_API_KEY: str = _env_str("OPENROUTER_API_KEY", "")
     OPENROUTER_TIMEOUT: float = _env_float("OPENROUTER_TIMEOUT", 15.0)
 

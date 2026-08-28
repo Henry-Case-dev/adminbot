@@ -355,8 +355,10 @@
 > (`https://api.telegram.org/file/bot<token>/<file_path>`).
 > - [x] T-607 (@Builder, P0) — реализация `_download_file_from_cloud()` в voice_transcription.py
 > - [x] T-608 (@Builder, P0, ←T-607) — синтакс-проверка + commit `bc71efd` + push
-> - [ ] T-609 (@DevOps, P0, ←T-608) — деплой на прод: git pull, restart admin_bot, 0 traceback;
+> - [x] T-609 (@DevOps, P0, ←T-608) — деплой на прод: git pull, restart admin_bot, 0 traceback;
 >   smoke: 3 кружочка подряд → расшифровка есть; файлы не в логах
+> - [x] T-610 (@Builder, P0, ←T-609) — R17 hotfix: sanitize TranscriptionUnavailable/EmptyTranscript
+>   error messages (логировался полный /tmp/vt_*.mp4 путь); commit `9adaca1`
 
 ## 🔍 In Review
 
