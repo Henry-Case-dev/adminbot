@@ -5,6 +5,10 @@ https://openrouter.ai/docs/guides/overview/multimodal/audio — контент-�
 {"type": "input_audio", "input_audio": {"data": <base64>, "format": <fmt>}},
 где data — СЫРОЙ base64 БЕЗ префикса data URI (схема STTInputAudio:
 «Base64-encoded audio data (raw bytes, not a data URI)»).
+
+Epic 79.6 (D296): fallback модель сменена с thinkingmachines/inkling:free
+(agentic-harness-only → постоянный 403) на nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+(free, поддерживает audio input, НЕ agentic-restricted, принимает wav/mp3 аудио).
 """
 import base64
 import logging
@@ -18,7 +22,7 @@ from SmartModule.transcriber.base import BaseTranscriber
 logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_TRANSCRIBE_MODEL = "thinkingmachines/inkling:free"
+OPENROUTER_TRANSCRIBE_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
 # Канон Section 71.2, VERBATIM.
 _SYSTEM_PROMPT = (
