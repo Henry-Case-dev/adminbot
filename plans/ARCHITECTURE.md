@@ -15912,3 +15912,225 @@ CREATE INDEX IF NOT EXISTS idx_uptime_events_ts ON uptime_events (ts);
 5. **Маскировка ключей подтверждена** — роли без `keys` видят configured/last4: в `/api/config` (R5, 84.5) и в LLM-карточках `/api/status` (84.11.2).
 
 **Фазы 84.9 (дельта):** Фаза 1 — DDL + `uptime_events`; Фаза 3 — `log_ring`, `status_service`, `/api/status*`; Фаза 4 — вкладка «📊 Статус»; Фаза 5 — psutil в requirements + aiogram >=3.31 + тесты.
+
+---
+
+## 84.12 Полная миграция параметров: ВСЕ регулируемые ключи .env → bot_settings (ДЕЛЬТА №2, решения человека 30.08.2026)
+
+> **НОВОЕ ТРЕБОВАНИЕ №1:** в админку переносятся **АБСОЛЮТНО ВСЕ** регулируемые параметры проекта (не только 4 категории из 84.3); значения и ключи из текущего прод `.env` переносятся тоже — при запуске фичи бот должен иметь **ТЕ ЖЕ настройки, что сейчас**.
+
+### 84.12.1 Инвентаризация `config/settings.py` (разведка, факты)
+
+- **246 полей** frozen-dataclass `Settings`; каждое поле — env-управляемое (дефолт в коде + переопределение из `.env`).
+- `.env.example` — **~170 ключей**; локальный dev `.env` — **42 ключа**; прод `.env` — полнее (каждый эпик дописывал блоки; точная сверка — шаг миграции на проде, оценка 60–90 ключей).
+- **Канонические категории bot_settings (расширение 84.3):** `prompts`, `models`, `keys`, `limits`, `flags`, `reactions`, `content`. Ключ в PG — dotted: `{category}.{snake_name}` (напр. `limits.search_max_symbols`, `keys.groq`, `flags.summary_enabled`, `models.llm_base_url`, `reactions.alan_reply_interval`, `content.info_how_it_works`).
+
+**Группировка по категориям (названия ключей, БЕЗ значений):**
+
+| Категория | Состав (примеры ключей) | ≈Кол-во | Чувствительность |
+|---|---|---|---|
+| `prompts` | системные промпты factcheck/search/summary/checkup/direct_chat + extract/compress (сейчас — КОДОВЫЕ каноны в `services/*_prompts.py`, в .env их НЕТ) | ~7 | нет (но каноны!) |
+| `models` | `llm_base_url`, `llm_model_name`, `embedding_model_name`, `embedding_dim`, `llm_timeout`, `llm_max_retries`, `llm_retry_backoff_*`, `llm_total_budget`, `llm_fallback_base_url/model`, `llm_fallback_max_retries/timeout_seconds`, `llm_cb_*` (3), `groq_timeout/max_concurrency/min_interval/max_retries`, `openrouter_timeout`, `checkup_betterstack_sql_host/table/query`, `tokenizer_encoding`, `token_safety_multiplier`, `llm_cb_cooldown_seconds` | ~26 | нет (URL-ы — не секрет) |
+| `keys` | `llm_api_key`, `llm_fallback_api_key`, `tavily_api_key`, `exa_api_key`, `groq_api_key`, `openrouter_api_key`, `checkup_betterstack_sql_user/password` | ~8 | **СЕКРЕТЫ** |
+| `limits` | `search/factcheck/youtube/webpage/checkup_max_symbols`, `checkup_max_input_symbols`, `search/factcheck/youtube/webpage/checkup/info_cooldown_seconds`, `summary_throttle_seconds`, `summary_*` (~18: window/retention/max_parts/max_window/max_message/max_context_chars/tokens/rag_l2/l3/compress_batch/chunk_delay/retry_once_pause/streaming_*), `chat_*` (~20: burst/cooldown/global_context/thread/dedup/lock/budget_*/silence/style_anchors), `graph_*` (~25: ttl/limits/dedup/mmr/time_decay/quota/review/merge), `voice_max_duration_seconds`, `download_cooldown`, `smart_cache_*`, `embed_cache_*`, `db_wal_checkpoint_hours`, `memory_backup_*`, коулдауны реакций (dead_page/danger/common/selfdev/work/olya/mimic/slavik_mimic/alan_greeting) | ~90 | нет |
+| `flags` | `summary_enabled`, `direct_chat_botword_enabled`, `enable_voice_transcription`, `graph_rag_enabled`, `smart_cache_enabled`, `throttle_persistent_enabled`, `download_enabled`, `ytdlp_for_youtube`, `chat_silence_enabled`, `chat_style_anchors_enabled`, `chat_mood_enabled`, `chat_running_summary_enabled`, `chat_dedup_enabled`, `chat_context_budgets_enabled`, `summary_streaming_enabled`, `typing_indicator_enabled`, `search_rerank_enabled`, `checkup_memory_metrics_enabled`, `graph_dedup_enabled`, `graph_episode_merge_enabled`, `graph_time_decay_enabled`, `graph_user_quota_enabled`, `graph_fact_touch_enabled`, `graph_review_enabled`, `vec_int8_enabled`, `graph_mmr_enabled`, `memory_backup_enabled`, `embed_cache_enabled`, `db_wal_checkpoint_enabled`, `llm_cb_enabled`, `common_*_enabled`, `olya_*_enabled`, `mimic_forwards_enabled`, `alan_replies_enabled`, `dead_page_post_on_join`, `summary_admin_only` | ~35 | нет |
+| `reactions` | `alan_*` (user_id/username/reply_interval/silence_greeting_hours/greeting_dir/cooldown), `kostik_*`, `slavik_user_id`, `slavic_*`, `mimic_*`, `olya_*` (user_id/caption/media_type/saveasbot_*), `dead_page_*` (channels/relay/dir), `war_*` (channel_ids/usernames/replies), `danger_words`, `gif_*`, `goodmorning_*` (time/tz/targets/dir), `chat_mood_negative/positive_words`, `chat_botword_pattern`, `summary_aliases`, `summary_target_chat_ids`, `allowed_summary_ids`, `chat_temperature_*` (4), `admin_user_id`, user-id-константы | ~45 | нет (id-списки/слова) |
+| `content` | `info.how_it_works` (84.13) | 1 | нет |
+| **НЕ переносим (`infra` — остаётся в .env)** | `api_token` (**СЕКРЕТ**), `db_path`, `media_base`, `postgres_dsn` (**СЕКРЕТ**), `web_port`, `telegram_api_id/hash` (**СЕКРЕТ**), `sentry_dsn` (**СЕКРЕТ**), `logtail_source_token` (**СЕКРЕТ**), `cobalt_api_url`, `local_bot_api_url`, `telegram_api_files_dir`, `download_dir`, `info_text_file`, `checkup_journalctl_cmd`, `log_ring_max_entries`, `uptime_events_retention_hours` | ~15 | см. |
+
+**Чувствительные группы (маскировка/доступ — обязательны):** LLM/поиск/транскриб-ключи (`llm_api_key`, `llm_fallback_api_key`, `tavily_api_key`, `exa_api_key`, `groq_api_key`, `openrouter_api_key`, `checkup_betterstack_sql_user/password`) — категория `keys`; **прокси** (`youtube_transcript_proxy_url` — содержит user:pass в URL, `youtube_transcript_proxy_username/password`, `cobalt_http_proxy`) — категория `keys` (подкатегория proxy); **cookies** (`youtube_cookies_file` — путь к Netscape-файлу; сам файл вне git); **токены** (`api_token`, `sentry_dsn`, `logtail_source_token`, `telegram_api_id/hash`, `postgres_dsn`) — остаются в .env.
+
+### 84.12.2 `scripts/migrate_env_to_pg.py` (расширение контракта T-614)
+
+**Контракт (полный экспорт вместо 4 категорий из 84.3):**
+- Вход: путь к прод `.env` (`--env-file`, дефолт CWD `.env` — на проде запускается из `/var/www/admin_bot`). Эффективное значение = `settings`-дефолт, переопределённый env-строкой (ровно логика `Settings`).
+- **Каталог-реестр параметров** (единый для скрипта, `/api/roles/tree` 84.14 и фронта): `{settings-поле → (category, title_ru, type: str|int|float|bool|duration|json|secret, secret: bool)}`. Каталог — в `services/param_catalog.py` (НЕ дублировать в трёх местах).
+- Экспорт **ВСЕХ** 246 полей минус `infra`-исключения (таблица 84.12.1). `--only-category cats` (фильтр), `--exclude prefix,...` (доп. исключения).
+- **Идемпотентность:** `INSERT ... ON CONFLICT (key) DO NOTHING`; `--force` → `DO UPDATE SET value=excluded.value, updated_at=now()` (перезапись существующих); `--dry-run` — печать плана без записи (key, category, источник env|default; для secret — только `configured`).
+- **R17:** значения секретов НИКОГДА не печатаются (ни в dry-run, ни в логах скрипта); итоговый отчёт — счётчики по категориям.
+- Запуск: `python scripts/migrate_env_to_pg.py --dry-run` → сверка отчёта → `python scripts/migrate_env_to_pg.py` (без --force; повторный запуск — no-op).
+
+### 84.12.3 Гарантия «бот при старте фичи имеет те же настройки, что сейчас»
+
+1. **Порядок на проде (деплой-чеклист, Фаза 0):** `docker compose up -d postgres` → healthcheck → `migrate_env_to_pg.py --dry-run` (сверка) → `migrate_env_to_pg.py` (**сид ДО первого запуска бота с фичей**) → `systemctl restart admin_bot` → smoke: бот работает идентично (значения в PG == бывшим значениям .env).
+2. **Belt-and-suspenders:** `ConfigCache.init()` на пустой таблице `bot_settings` самозасевает категории prompts/models/limits/flags/reactions из `settings`-дефолтов (без секретов: ключ категории `keys`, отсутствующий в PG, = «уровень каскада выключен» — ровно старое поведение пустого env). Гарантия: даже при пропущенном шаге миграции бот стартует на дефолтах, а не падает (R6).
+3. **Сверка после:** `GET /api/config` (под admin) визуально сходится с бывшим .env; `SELECT count(*) FROM bot_settings` — счётчик категорий == отчёту миграции.
+
+### 84.12.4 Хранение секретов в JSONB: осознанное решение
+
+**Решение: открытый текст в JSONB (v1).** Обоснование: (1) PostgreSQL слушает только `127.0.0.1:5432` (docker-compose 84.8, конвенция проекта) — сетевой поверхности нет; (2) шифрование at-rest требует мастер-ключа, который сам должен жить в `.env` → кольцевая зависимость без реального выигрыша на одном VPS; (3) **обязательные митигации** (входят в DoD): маскировка в API/UI — `GET /api/config` и `/api/status` отдают секреты только ролям с правом на **конкретный ключ** (84.14), иначе `{"configured":true,"last4":"…"}`; `sanitize()` в `log_ring`/Logtail (84.11.1, список секретов расширен на proxy/cookies/`postgres_dsn`); значения никогда не пишутся в логи; `--force`-перезаписи логируются с `updated_by`. **Задел:** при требовании человека — Fernet-шифрование категории `keys` (ключ из .env, миграция on-read) — спроектировано как отдельная маленькая задача, в v1 не входит.
+
+---
+
+## 84.13 «Как это работает» — rich-текст из info_text.md в миниаппе (ДЕЛЬТА №2, требование человека №2)
+
+> Доступна ВСЕМ пользователям (как Статус), редактировать может ТОЛЬКО admin.
+
+### 84.13.1 Разведка (факты из кода)
+
+- Файл: `info_text.md` в корне репо (путь — env `INFO_TEXT_FILE`, дефолт `"info_text.md"`); кодировка UTF-8, LF.
+- Читает `services/info_service.py::InfoService` (`.load()` при старте → кэш в память; `get_text()`; `save_text()` перезаписывает файл+кэш).
+- Команды: `handlers/info.py` (router `info`, регистрируется БЕЗУСЛОВНО, D162): `/info` — delete → кулдаун per-chat (300с) → **rich-HTML** через `sendRichMessage` (`InputRichMessage(html=text)`), фолбеки: legacy-HTML (`_rich_to_legacy_html`) → plain. `/edit_info` — ТОЛЬКО `settings.ADMIN_USER_ID`, DM-превью rich-рендер-валидация (D163), лимит `_RICH_TEXT_LIMIT=32768`.
+- Формат сейчас (контекст Epic 83): rich-HTML — `<h1>` ×1, `<h2>` ×9, `<h4>`/`<h5>` внутри секций, `<b>/<i>/<a>`; канон «5 мест» (`DEFAULT_INFO_TEXT` = `info_text.md` = ARCHITECTURE 53.3 = backlog R44-1) **уже нарушен** (83.2) — Epic 85 фиксирует новый источник истины: **БД**.
+
+### 84.13.2 Модель данных и сид
+
+- Ключ bot_settings: **`info.how_it_works`**, категория `content`, value JSONB:
+  ```json
+  {"html": "<h1>…</h1>", "updated_at": "2026-08-30T…", "updated_by": 5885953495}
+  ```
+- **Сид при первом старте:** ключа нет → прочитать `info_text.md` (текущий файл на проде == содержимому, которое пользователи видят сейчас) → записать в PG (`updated_by = ADMIN_USER_ID`, `updated_at = now()`). После сида **источник истины — БД/ConfigCache**; `info_text.md` остаётся legacy-фолбеком (PG down, R6) и target'ом `/edit_info` (совместимость).
+- `DEFAULT_INFO_TEXT` остаётся код-каноном ТОЛЬКО для самого первого запуска без файла и без PG.
+
+### 84.13.3 Чтение в боте
+
+- `InfoService.get_text()` (горячий путь `/info`) читает: `ConfigCache.get('info.how_it_works')` → `.html` → иначе файловый кэш → иначе `DEFAULT_INFO_TEXT`. Кулдаун/rich-отправка/фолбеки (handlers/info.py) БЕЗ изменений.
+- `save_text()` — единственная точка записи: обновляет файл + in-memory кэш + (если кэш доступен) `cache.set('info.how_it_works', …)` — `/edit_info` и веб-POST сходятся в одной функции.
+
+### 84.13.4 Эндпоинты (дельта в матрицу 84.5)
+
+| Метод/путь | Право | Ответ |
+|---|---|---|
+| `GET /api/info` | валидный initData, **любая роль, БЕЗ `requires_permission`** (RBAC-исключение как Статус) | `{"key":"info.how_it_works","html":"…","updated_at":"…","updated_by":…}` (updated_by — только факт/маска; не раскрывать лишнее) |
+| `POST /api/info` | `requires_permission('edit_info')` — по сиду только admin | тело `{"html":"…"}` (лимит 32768, прецедент `_RICH_TEXT_LIMIT` 53.3; пусто → 422) → `{"key","updated_at","updated_by":<telegram_id из initData>}` |
+
+### 84.13.5 Фронтенд (подсекция/вкладка «Как это работает»)
+
+- Вкладка **видна ВСЕМ** (исключение из computed-фильтрации вкладок — вместе с «📊 Статус», 84.11.5); для юзера без роли — только чтение.
+- Рендер: `v-html` в glass-карточке (84.7). **Безопасность v-html:** контент пишет ТОЛЬКО admin (trusted-автор; TMA-слой не пропускает посторонних к POST — `requires_permission`), НО для защиты от случайной битой разметки/инъекции вставить **DOMPurify** перед `v-html` (`https://cdn.jsdelivr.net/npm/dompurify@3`, глобал `DOMPurify`, `DOMPurify.sanitize(html)`; при недоступности CDN — деградация на сырой рендер с WARNING в консоль, страница не падает).
+- Режим редактирования — только при праве `edit_info` (или wildcard): textarea + кнопка «Предпросмотр» (тот же v-html-рендер после DOMPurify) + «Сохранить» → POST /api/info; успех → обновить state + тост. Для остальных — read-only.
+
+---
+
+## 84.14 RBAC v2: гранулярные права (ДЕЛЬТА №2, требование человека №3)
+
+> Кастомные роли; чекбоксами отмечаются секции и параметры ВПЛОТЬ ДО отдельных параметров и ключей; существующие роли редактируются так же.
+
+### 84.14.1 Схема permissions (замена плоского массива из 84.3)
+
+DDL (правка 84.3): `permissions JSONB NOT NULL DEFAULT '{}'` (вместо `DEFAULT '[]'`). Структура:
+
+```json
+{
+  "sections": ["limits", "prompts", "models", "keys", "access"],
+  "params":   ["limits.search_max_symbols", "limits.chat_cooldown_seconds"],
+  "keys":     ["keys.groq", "keys.tavily"],
+  "actions":  ["control.restart", "control.stop", "control.start", "edit_info"],
+  "wildcard": false
+}
+```
+
+**Единый неймспейс идентификаторов прав:** `section.<id>` (в `sections` — голый id), `param.<category>.<key>` (полный ключ bot_settings), `key.<category>.<key>` (конкретный ключ категории `keys`; `key.keys.*`/секция `keys` = все ключи), `action.<id>` (`control.restart|stop|start`, `edit_info`; в массиве `actions` — голый id без префикса).
+
+### 84.14.2 Правила матчинга `requires_permission(perm)` (deps.py)
+
+Порядок проверки:
+1. `wildcard == true` → **да** (всё);
+2. **точное совпадение:** `perm` присутствует в соответствующей группе (`edit_info` → `actions`; `limits.search_max_symbols` → `params`; `keys.groq` → `keys`; `access` → `sections`);
+3. **родительская секция покрывает вложенные права:** `param.<cat>.*` покрыт секцией `<cat>` в `sections`; любой ключ категории `keys` покрыт секцией `keys`; `action.*` НЕ покрывается секциями (control — не секция; только явные actions или wildcard);
+4. иначе → **403**.
+
+### 84.14.3 Сид ролей v2 (замена 84.3; бот_admins КРИТИЧНЫЕ telegram_id БЕЗ изменений)
+
+```sql
+INSERT INTO bot_roles (role_name, permissions, is_custom) VALUES
+  ('admin',     '{"wildcard": true}', false),
+  ('moderator', '{"sections": ["limits"], "actions": ["control.restart", "control.stop", "control.start"]}', false),
+  ('user',      '{}', false);
+```
+(требование №4: кнопки control — admin + moderator; требование №2: edit_info — только admin через wildcard.)
+
+### 84.14.4 API ролей (дельта 84.5)
+
+- `GET /api/roles` (право `access`) → `[{role_name, permissions{…}, is_custom}]`.
+- **`GET /api/roles/tree`** (право `access`) → **ДЕРЕВО доступных прав** из `param_catalog` (84.12.2): `{sections:[{id, title, params:[{key,title,type,secret}], keys:[{key,title}]}], actions:[{id,title}]}` — источник для чекбокс-конструктора.
+- `POST /api/roles` (право `access`) → upsert `{role_name, permissions{…}, is_custom}`. **Правка ЛЮБОЙ роли разрешена, включая системные** (требование №3; старый 409 для `is_custom=false` отменяется). Guard'ы: (a) нельзя оставить систему **без роли с `wildcard:true`** (иначе лок-аут) — 409; (b) валидация идентификаторов против каталога (неизвестный id → 422); (c) `is_custom` остаётся флагом происхождения (не меняется клиентом, сервер сохраняет).
+- `POST /api/admins`/`remove` — без изменений (последний admin → 409, 84.5).
+
+### 84.14.5 Правило видимости вкладок (фронт, дельта 84.7)
+
+Вкладка видна, если у роли есть **хотя бы одно право внутри неё** (секция/param/key/action, включая покрытие по 84.14.2); внутри вкладки действия гейтятся по своим правам (кнопки control — отдельно, кнопка «Редактировать» в «Как это работает» — `edit_info`). **Исключения (всегда видимы):** «📊 Статус» (84.11) и «Как это работает» (84.13).
+
+---
+
+## 84.15 Управление жизненным циклом бота: /api/control/* (ДЕЛЬТА №2, требование человека №4)
+
+> Кнопки restart/stop/start в секции Статус; Статус доступен всем, кнопки — ТОЛЬКО admin и moderator.
+
+### 84.15.1 Разведка запуска (факты)
+
+- **Прод:** Ubuntu 24.04, `nik@198.46.175.136:/var/www/admin_bot`, venv, systemd-юнит **`admin_bot`** (WorkingDirectory `/var/www/admin_bot`), управление — `sudo systemctl start|stop|restart|status admin_bot` (deploy_commands.txt). journalctl БЕЗ sudo для `nik` работает (`usermod -aG systemd-journal`, Epic 42). `Restart=always` у `admin_bot` **НЕ подтверждён** (у xray — есть, Epic 40; проверить `systemctl cat admin_bot` на проде). **Pre-existing:** graceful shutdown по SIGTERM сломан (~90–95с → SIGKILL, TimeoutStopSec=90; backlog-кандидат «бот не отвечает на SIGTERM»); рекомендация MEMORY: TimeoutStopSec=30.
+- **Локально (Windows):** без systemd; запуск `python bot.py` вручную (dev-режим).
+
+### 84.15.2 Эндпоинты (дельта 84.5)
+
+| Метод/путь | Право | Ответ |
+|---|---|---|
+| `POST /api/control/restart` | `requires_permission('control.restart')` | **202 Accepted** `{"action":"restart","scheduled_in_seconds":2,"mode":"systemd\|dev"}`; дебаунс → 429; dev-start → 409 |
+| `POST /api/control/stop` | `requires_permission('control.stop')` | 202 `{"action":"stop",…}` |
+| `POST /api/control/start` | `requires_permission('control.start')` | 202 `{"action":"start",…}`; в dev-режиме → **409** `{"detail":"start недоступен в dev-режиме"}` |
+
+### 84.15.3 Права на systemctl: решение проблемы (выбор и обоснование)
+
+Процесс бота = `nik`; `systemctl` без sudo требует polkit-авторизации. **Выбор: polkit-правило** (НЕ sudoers, НЕ Setuid-обёртка). Обоснование: (1) точный скоуп — только юнит `admin_bot.service`, только verbs `restart|stop|start`; (2) нет нового root-бинаря (Setuid = дополнительный вектор атаки); (3) sudoers NOPASSWD — рабочий, но грубее (позволяет все команды, требует правки sudoers). Drop-in (создаёт @DevOps при деплое):
+
+```
+/etc/polkit-1/rules.d/50-adminbot-control.rules:
+polkit.addRule(function(action, subject) {
+  if (action.id == "org.freedesktop.systemd1.manage-units"
+      && subject.user == "nik"
+      && action.lookup("unit") == "admin_bot.service"
+      && ["restart","stop","start"].indexOf(action.lookup("verb")) >= 0)
+    return polkit.Result.YES;
+});
+```
+Верификация при деплое: из-под `nik` БЕЗ sudo `systemctl stop admin_bot` (→ inactive) и сразу `systemctl start admin_bot` (→ active) — позитив + негатив-тест другого юнита (должен быть отказ). Фолбек, если polkit не сработает: sudoers-строка `nik ALL=(root) NOPASSWD: /usr/bin/systemctl restart admin_bot, /usr/bin/systemctl stop admin_bot, /usr/bin/systemctl start admin_bot`.
+
+### 84.15.4 Механика `services/control_service.py`
+
+- **Режим:** автоопределение `mode`: Linux + `/run/systemd/system` + `shutil.which('systemctl')` → `systemd`; иначе `dev` (переопределение env `CONTROL_MODE`).
+- **Безопасная последовательность (systemd):**
+  1. дебаунс: ≥30с между любыми control-вызовами (in-memory, общий счётчик) → 429;
+  2. аудит в ring-buffer (84.11.1) + journal: `[control] action=restart by=<telegram_id> mode=systemd`;
+  3. **немедленный 202**;
+  4. отложенное выполнение `asyncio.sleep(2.0)` (ответ успевает уйти);
+  5. **restart:** spawn отвязанный subprocess `systemctl restart admin_bot` (`start_new_session=True`, не ждать) → systemd шлёт текущему процессу SIGTERM → наш SIGTERM-handler (84.15.6) делает graceful shutdown. **stop:** флаг-файл `.adminbot_keep_stopped` (рабочая директория, вне git) + subprocess `systemctl stop admin_bot` — явный stop побеждает `Restart=always`; флаг-файл — страховка от рестарт-петли (проверяется при старте бота: если есть — мгновенный exit 0). **start:** subprocess `systemctl start admin_bot`; стартующий процесс удаляет флаг-файл.
+- **dev-режим (Windows, без systemd):** `restart` = graceful exit c exit code 0 + WARNING «перезапустите python bot.py вручную» (опция `CONTROL_DEV_RESTART=execv` — самоперезапуск через `os.execv(sys.executable, …)` — обсуждено: ломает интерактивный запуск; дефолт `exit`); `stop` = graceful exit; `start` = 409.
+- **UI (дельта 84.11.5, карточка «Бот»):** три кнопки, видимость — по правам action (admin+moderator по сиду); модальное подтверждение `Telegram.WebApp.showConfirm(…)`; после ответа — кнопки disabled на 30с (дебаунс-зеркало); после restart/stop — баннер «бот перезапускается/остановлен, соединение может прерваться». Аудит доступен всем в /api/status/logs.
+
+### 84.15.5 Graceful shutdown (закрывает pre-existing «SIGTERM ~90с»)
+
+`webapp.py`/`bot.py`: `loop.add_signal_handler(SIGTERM, …)` (и `SIGINT`) → `asyncio.Event` → `polling.cancel()` → `server.should_exit = True` → `await on_shutdown()` (закрытие PG-пула, APScheduler, http-клиентов, smart_cache) → exit 0 ≤10с. Плюс рекомендация @DevOps: `TimeoutStopSec=30` в юните admin_bot. **Зависимость:** без этого фикса restart/stop будут ждать SIGKILL ~90с.
+
+---
+
+## 84.16 Дельта №2: отражение в смежных блоках + DoD + задачи для @PM
+
+### 84.16.1 Отражение в смежных блоках (сводка дельт)
+
+- **84.5 REST (дельта №2):** `GET /api/info` (публичный TMA) · `POST /api/info` (`edit_info`) · `POST /api/control/restart|stop|start` (`control.*`) · `GET /api/roles/tree` (`access`); коды 429 (control-дебаунс), 409 (dev-start / последняя wildcard-роль), 422 (неизвестный id права / пустой html).
+- **84.6 Безопасность:** `/api/info` GET — как `/api/status` (только `get_tma_user`); `POST /api/info` — `edit_info`; `/api/control/*` — `control.*` actions; маскировка `keys` уточнена: значение видит ТОЛЬКО роль с правом на **конкретный ключ** (`keys.<k>`/секция `keys`/wildcard), иначе configured/last4 (R5, 84.12.4); `sanitize()` расширен (proxy/cookies/`postgres_dsn`).
+- **84.7 Фронтенд:** вкладка «Как это работает» (84.13.5); гранулярный конструктор ролей — **дерево чекбоксов** из `/api/roles/tree` (секции → параметры → ключи → действия; чек секции отмечает дочерние, частичный чек = indeterminate); кнопки control в Статусе с условной видимостью (84.15.4).
+- **84.9 Фазы:** Фаза 0 — миграция ДО первого старта (84.12.3); Фаза 1 — DDL v2 (`permissions JSONB '{}'`) + сид v2 + `param_catalog` + полный `migrate_env_to_pg.py`; Фаза 3 — `/api/info`, `/api/control/*`, `/api/roles/tree`, `control_service`, SIGTERM-handler; Фаза 4 — вкладка «Как это работает» + дерево-конструктор + control-кнопки; Фаза 5 — polkit-правило, тесты, деплой.
+
+### 84.16.2 DoD 84.10 (дополнение, пп. 11–16)
+
+11. `migrate_env_to_pg.py`: dry-run/force/idempotency/--only-category; секреты не печатаются; отчёт по категориям (тест).
+12. Сид `info.how_it_works` из info_text.md; `/info` читает из ConfigCache; PG down → файловый фолбек (тест); POST /api/info — 401/403/422/200-матрица + updated_by из initData.
+13. RBAC v2: матчинг (exact/секция/wildcard), сид v2, guard последней wildcard-роли, `/api/roles/tree` из каталога (тесты).
+14. `/api/control/*`: 202 + отложенное выполнение (фейк-тайм), дебаунс 429, dev-режим 409/exit, флаг-файл stop (тесты с мокнутым subprocess).
+15. Graceful shutdown: SIGTERM → on_shutdown ≤10с (тест); полный pytest 0 регрессий; `git diff --check` чист.
+16. Прод-верификация: polkit-правило работает из-под `nik` без sudo; кнопки видны admin+moderator, НЕ user; «Как это работает» видна всем; бот после restart жив (новый PID, 0 traceback).
+
+### 84.16.3 Рекомендуемые новые задачи для @PM (темы с зависимостями; backlog.md/board.md НЕ трогаю)
+
+1. **RBAC v2 (permissions-объект + matching + сид v2 + param_catalog)** — КРИТИЧНО ДО T-616/T-617 (deps/roles иначе переделывать); ←T-612/T-613.
+2. **Полная миграция (расширение T-614):** полный экспорт 246 параметров, --dry-run/--force/--only-category/--exclude, реестр-каталог `param_catalog.py` — ←T-612/T-613; идёт с п.1 (общий каталог).
+3. **info.how_it_works:** сид из info_text.md + InfoService→ConfigCache + `/api/info` GET/POST — ←T-613/T-615/T-617.
+4. **Фронт «Как это работает»** (v-html + DOMPurify, admin-редактор с превью) — ←п.3/T-621.
+5. **Фронт дерево-конструктор ролей** (чекбоксы по `/api/roles/tree`) — ←п.1/T-621.
+6. **control_service + `/api/control/*`** (202/дебаунс/флаг-файл/dev-режим) — ←T-615/T-616; требует п.7.
+7. **Graceful shutdown (SIGTERM-handler + TimeoutStopSec=30)** — независим (pre-existing фикс), но restart/stop без него ждут SIGKILL ~90с.
+8. **@DevOps: polkit-правило 50-adminbot-control.rules + верификация без sudo + проверка `Restart=always` юнита** — ←п.6.
+9. **Фронт control-кнопок в Статусе** (confirm/дебаунс-зеркало/баннер) — ←п.6/T-632.
+10. **Тесты/ревью/деплой-дельта:** DoD 84.16.2 пп.11–16; деплой-чеклист с миграцией ДО первого старта (84.12.3).

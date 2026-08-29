@@ -364,15 +364,15 @@
 
 ## ⏸ Ready — ждёт подтверждения человека
 
-### Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 (PM ✅) — ⛔ HARD STOP (target v2.51.0)
+### Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 + 4b + 4c «Дельта №2» (PM ✅) — ⛔ HARD STOP (target v2.51.0)
 
 > ⛔ **HARD STOP:** Epic 85 НЕ стартует до явной команды человека «Начинаем кодинг».
 > Перед стартом — чек-лист `plans/HUMAN_SETUP_GUIDE.md` (MCP-серверы, BotFather menu button →
 > `https://embody-grafted-ritalin.ngrok-free.dev/web/`, ngrok на :8000, `docker compose up -d postgres`,
 > `.env`: `API_TOKEN`/`POSTGRES_DSN`/`WEB_PORT=8000`).
 >
-> Полный трек — `plans/backlog.md` (Epic 85). Канон — `plans/ARCHITECTURE.md` Section 84 (DESIGN ✅,
-> @Architect шаг 3/3, фазы 84.9, DoD 84.10). PostgreSQL 16 (`postgres:16-alpine`,
+> Полный трек — `plans/backlog.md` (Epic 85). Канон — `plans/ARCHITECTURE.md` Section 84 + 84.11 + 84.12–84.16 «Дельта №2» (DESIGN ✅,
+> @Architect шаг 3/3, фазы 84.9, DoD 84.10 + 84.16.2). PostgreSQL 16 (`postgres:16-alpine`,
 > `max_connections=50`, `shared_buffers=128MB`, volume, 127.0.0.1:5432); таблицы bot_settings /
 > bot_roles / bot_admins; **КРИТИЧНЫЙ СИД:** 5885953495→admin, 1313107079→moderator, 134812796→moderator;
 > ConfigCache (hot-reload без рестарта); FastAPI в одном event loop с Aiogram (`server.serve()` +
@@ -387,6 +387,14 @@
 > доступна ВСЕМ валидным TMA-юзерам (RBAC-исключение, без `requires_permission`); aiogram >=3.31;
 > GraphRAG на SQLite — вне скоупа (→ Epic 86 future); маскировка ключей confirmed (configured/last4);
 > srv_cookies.txt не нужен, plans/ коммитится.
+>
+> **Дельта №2 (Шаг 4c @PM, 4 требования человека 30.08.2026):** (1) полная миграция ВСЕХ регулируемых
+> параметров env → админка (246 полей, каталог `param_catalog.py`, `--dry-run/--force/--only-category/--exclude`,
+> идемпотентный upsert, сид ДО первого старта; канон 84.12); (2) «Как это работает» — `info.how_it_works`
+> в БД, публичный GET /api/info, POST только admin (`edit_info`); 84.13; (3) RBAC v2 гранулярный —
+> permissions-объект + неймспейс section./param./key./action. + чекбокс-дерево из `/api/roles/tree`,
+> правка любых ролей (84.14); (4) control restart/stop/start в Статусе (admin+moderator), polkit без sudo,
+> флаг-файл stop, SIGTERM-фикс (84.15). Задачи T-635…T-647. HARD STOP сохраняется.
 
 - [ ] T-611 (@Builder, P0) — docker-compose: postgres 16-alpine (max_connections=50, shared_buffers=128MB, volume, 127.0.0.1:5432, healthcheck pg_isready) + .env.example POSTGRES_DSN/WEB_PORT
 - [ ] T-612 (@Builder, P0, ←T-611) — services/pg_db.py: идемпотентный DDL (3 таблицы) + сид ролей + КРИТИЧНЫЕ telegram_id + стартовый bot_settings
@@ -412,6 +420,19 @@
 - [ ] T-632 (@Builder, P0, ←T-620/T-621/T-631) — фронт: 6-я вкладка «📊 Статус» ВСЕГДА видима; карточки Бот/Сервер/LLM; Chart.js v4 CDN график аптайма (spanGaps:false); лог-вьюер ERROR/WARN + копирование
 - [ ] T-633 (@Builder, P0, ←T-622/T-631/T-632) — тесты Status: публичность /api/status* (роль [], без роли, 401), sanitize-маскировка, uptime_events+heartbeat+очистка, кэш health-check; полный pytest 0 регрессий
 - [ ] T-634 (@Builder, P1, ←T-626/T-629) — requirements += psutil>=5.9; .env.example += LOG_RING_MAX_ENTRIES/UPTIME_EVENTS_RETENTION_HOURS; test_docker_compose при необходимости
+- [ ] T-635 (@Builder, P0, ←T-612/T-613; ⚠ КРИТИЧНО ДО T-616/T-617) — RBAC v2: DDL permissions JSONB '{}' + неймспейс + сид v2 (admin wildcard / moderator limits+control / user {}) + матчинг exact→секция→wildcard в requires_permission + guard последней wildcard (409)
+- [ ] T-636 (@Builder, P0, ←T-612/T-613) — services/param_catalog.py: каталог-реестр ВСЕХ 246 параметров (category/title_ru/type/secret), infra-исключения category=None; единый источник для миграции и /api/roles/tree
+- [ ] T-637 (@Builder, P1, ←T-612/T-613/T-636) — расширение migrate_env_to_pg.py: полный экспорт 246 ключей, --dry-run/--force/--only-category/--exclude, идемпотентный upsert, R17, самозасев дефолтов ConfigCache
+- [ ] T-638 (@Builder, P0, ←T-613/T-615/T-617) — info.how_it_works: сид из info_text.md + InfoService→ConfigCache (файл=фолбек) + GET /api/info (публичный) + POST /api/info (edit_info, 32768, 422)
+- [ ] T-639 (@Builder, P0, ←T-638/T-621) — фронт «Как это работает»: вкладка видна ВСЕМ; v-html + DOMPurify CDN; админ-редактор textarea+превью+сохранить (POST /api/info)
+- [ ] T-640 (@Builder, P0, ←T-635/T-636/T-617/T-621) — конструктор ролей v2: GET /api/roles/tree из каталога + чекбокс-дерево (indeterminate), создание кастомных + правка существующих ролей, видимость вкладок при ≥1 праве
+- [ ] T-641 (@Builder, P0, ←T-615/T-616/T-642) — services/control_service.py + POST /api/control/restart|stop|start: 202 + sleep(2) + systemctl (start_new_session), дебаунс 30с→429, флаг-файл .adminbot_keep_stopped, dev 409/exit, аудит
+- [ ] T-642 (@Builder, P0, независим) — graceful shutdown (pre-existing фикс): SIGTERM/SIGINT handler → polling.cancel → server.should_exit → on_shutdown ≤10с
+- [ ] T-643 (@DevOps, P0, ←T-641) — polkit-правило 50-adminbot-control.rules (nik, admin_bot.service, restart/stop/start) + верификация без sudo + Restart=always проверка + TimeoutStopSec=30; фолбек sudoers NOPASSWD
+- [ ] T-644 (@Builder, P0, ←T-641/T-632) — фронт control-кнопок в «📊 Статус»: видимость admin+moderator, showConfirm, disabled 30с, баннер после restart/stop
+- [ ] T-645 (@Builder, P0, ←T-635/T-637/T-638/T-641/T-644) — тесты дельты №2: RBAC v2 матчинг, миграция, /api/info, control (моки systemctl), SIGTERM, маскировка per-key; полный pytest 0 регрессий
+- [ ] T-646 (@Reviewer, P0, ←T-645) — ревью-дельта T-623: Section 84.12–84.16 = коду (RBAC v2, каталог, миграция, info, control, sanitize расширен); APPROVED
+- [ ] T-647 (@DevOps, P0, ←T-646/T-643) — деплой-дельта T-625: миграция ДО первого старта (dry-run → migrate → restart); smoke: /api/info публичен, control restart 202+новый PID, кнопки admin+moderator, «Как это работает» всем
 
 ## 🔍 In Review
 
@@ -428,7 +449,7 @@
 > - **Epic 65** v2.45.0 (2630 тестов) — обогащение контекста фактчека/поиска + реранкинг + фокус /summary; память вердиктов ОТМЕНЕНА пользователем.
 >
 > **Epics 66–84** — НЕ архивированы: ведутся в колонке «In Progress» (T-523…T-605, hotfix T-607…T-610; Epics 66–82 распланированы/в работе, 83–84 на деплое/в работе) — полный трек `plans/backlog.md`.
-> **Epic 85** (TMA Admin Dashboard & Dynamic RBAC, T-611…T-634) — в колонке «⏸ Ready», HARD STOP до команды человека. **Epic 86** (GraphRAG → PostgreSQL) — future/planned, в колонке «📋 Backlog».
+> **Epic 85** (TMA Admin Dashboard & Dynamic RBAC, T-611…T-647) — в колонке «⏸ Ready», HARD STOP до команды человека. **Epic 86** (GraphRAG → PostgreSQL) — future/planned, в колонке «📋 Backlog».
 
 ### Epic 64: Контекст + embedding_cache + LLM-надёжность — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.44.0, коммит 9aae221, прод PID 1080205)
 
