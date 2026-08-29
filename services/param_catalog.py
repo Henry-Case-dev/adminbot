@@ -16,6 +16,7 @@ content; None = infra — НЕ мигрируется и НЕ попадает �
 Ключ в PG — dotted: {category}.{snake_name} (84.12.1).
 """
 import dataclasses
+import json
 import logging
 
 from config.settings import Settings
@@ -461,6 +462,82 @@ def known_param_keys() -> set[str]:
 def known_secret_keys() -> set[str]:
     """Полные ключи категории keys (для валидации keys-группы)."""
     return {s.pg_key for s in REGISTRY.values() if s.category == CATEGORY_KEYS}
+
+
+def normalize_value(pg_key: str, value):
+    """ХОТФИКС (прод-инцидент 86b3d3a): нормализация значения bot_settings по
+    типу каталога. asyncpg отдаёт jsonb как СТРОКУ (json-кодек не
+    зарегистрирован) — без каста '10' (str) ломает арифметику/сравнения
+    (TypeError '<=' str/int в handlers/alan.py). Неизвестные каталогу ключи —
+    as-is, никогда не падаем."""
+    if value is None:
+        return None
+    spec = get_by_pg_key(pg_key)
+    if spec is None:
+        return value
+    try:
+        return _cast_to_type(spec, value)
+    except Exception:
+        logger.warning("[catalog] нормализация не удалась | key=%s | type=%s",
+                       pg_key, spec.type, exc_info=True)
+        return value
+
+
+def _cast_to_type(spec: ParamSpec, value):
+    """Каст значения к типу каталога (строгий, с защитой от мусора)."""
+    if spec.type == "int":
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        if isinstance(value, str):
+            s = value.strip()
+            if s.lstrip("-").isdigit():
+                return int(s)
+            try:
+                f = float(s)
+                return int(f) if f.is_integer() else value
+            except ValueError:
+                return value
+        return value
+    if spec.type == "float":
+        if isinstance(value, bool):
+            return float(value)
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value.strip())
+            except ValueError:
+                return value
+        return value
+    if spec.type == "bool":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
+        if isinstance(value, str):
+            s = value.strip().strip('"\'').lower()
+            if s in ("true", "1", "yes", "on"):
+                return True
+            if s in ("false", "0", "no", "off", ""):
+                return False
+            return value
+        return value
+    if spec.type == "json":
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except ValueError:
+                logger.warning("[catalog] json-значение не парсится (оставлено "
+                               "как есть) | key=%s", spec.pg_key)
+                return value
+        if isinstance(value, (tuple, set)):
+            return list(value)   # единообразие с coerce_catalog_value (pg_db)
+        return value
+    return value
 
 
 def iter_migratable() -> list[ParamSpec]:

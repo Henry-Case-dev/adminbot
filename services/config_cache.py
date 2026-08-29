@@ -22,6 +22,7 @@ import json
 import logging
 
 from config.settings import settings
+from services.param_catalog import normalize_value
 from services.permissions import Permissions
 from services.pg_db import PgDatabase
 
@@ -127,7 +128,10 @@ class ConfigCache:
             admin_rows = await conn.fetch(
                 "SELECT telegram_id, role_name, added_by, created_at "
                 "FROM bot_admins")
-        settings_map = {r["key"]: r["value"] for r in settings_rows}
+        settings_map = {
+            r["key"]: normalize_value(r["key"], r["value"])
+            for r in settings_rows
+        }
         settings_updated = {
             r["key"]: _iso(r.get("updated_at")) for r in settings_rows}
         roles_map = {
@@ -226,7 +230,10 @@ class ConfigCache:
     # ── запись ─────────────────────────────────────────────────────────────
 
     async def set(self, key: str, value, category: str) -> None:
-        """Апсерт bot_settings: PG + in-memory (asyncio.Lock)."""
+        """Апсерт bot_settings: PG + in-memory (asyncio.Lock).
+        ХОТФИКС: значение нормализуется по типу каталога — единообразие
+        при hot-reload (API уже типизирует, но не доверяем форме)."""
+        value = normalize_value(key, value)
         async with self._lock:
             self._settings[key] = value
             self._settings_updated_at.pop(key, None)   # in-memory → null
