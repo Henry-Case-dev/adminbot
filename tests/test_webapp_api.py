@@ -614,6 +614,70 @@ class TestDebugConfigEndpoint:
         assert body["item"]["source"] == "settings-fallback"
 
 
+class TestQuotedJsonbRoles:
+    """ПРОД-ИНЦИДЕНТ (B): bot_roles.permissions (jsonb) приходит СТРОКОЙ
+    '{"wildcard": true}' — после фикса админ получает wildcard, /api/me
+    отдаёт permissions ОБЪЕКТОМ, /api/debug/config → 200 (не 403)."""
+
+    @pytest.fixture
+    def quoted_client(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(deps_mod, "settings",
+                            types.SimpleNamespace(API_TOKEN=TEST_TOKEN))
+        monkeypatch.setattr(
+            "services.info_service.settings",
+            types.SimpleNamespace(INFO_TEXT_FILE=str(tmp_path / "i.md"),
+                                  ADMIN_USER_ID=ADMIN_ID))
+        conn = _FakeConn(
+            settings_rows=[
+                {"key": "models.llm_base_url",
+                 "value": '"https://apinet.cloud/v1"', "category": "models",
+                 "updated_at": None},
+            ],
+            role_rows=[
+                # permissions — СТРОКА JSON-текста, как из jsonb без кодека
+                {"role_name": "admin",
+                 "permissions": '{"wildcard": true}', "is_custom": False},
+                {"role_name": "user", "permissions": '{}',
+                 "is_custom": False},
+            ],
+            admin_rows=[
+                {"telegram_id": ADMIN_ID, "role_name": "admin",
+                 "added_by": None, "created_at": None},
+            ],
+        )
+        cache = ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0)
+        app = create_app(cache)
+        with TestClient(app) as test_client:
+            test_client.cache = cache
+            yield test_client
+
+    def test_me_returns_permissions_object(self, quoted_client):
+        resp = quoted_client.get("/api/me", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert isinstance(body["permissions"], dict), body["permissions"]
+        assert body["permissions"] == {"wildcard": True}
+        assert body["role_name"] == "admin"
+
+    def test_debug_config_200_for_admin_with_string_permissions(
+            self, quoted_client):
+        """B: раньше wildcard терялся → 403 на /api/debug/config."""
+        resp = quoted_client.get("/api/debug/config", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["meta"]["pid"] > 0
+
+    def test_config_values_unquoted_for_admin(self, quoted_client):
+        resp = quoted_client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i for i in resp.json()["items"]}
+        assert items["models.llm_base_url"]["value"] == "https://apinet.cloud/v1"
+
+    def test_roles_endpoint_permissions_object(self, quoted_client):
+        resp = quoted_client.get("/api/roles", headers=_hdr(ADMIN_ID))
+        roles = {r["role_name"]: r for r in resp.json()["roles"]}
+        assert roles["admin"]["permissions"] == {"wildcard": True}
+        assert isinstance(roles["admin"]["permissions"], dict)
+
+
 class TestStatic:
     def test_root_redirects_to_web(self, client):
         resp = client.get("/", follow_redirects=False)

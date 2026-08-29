@@ -43,6 +43,33 @@ def _iso(value) -> str | None:
     return str(value)
 
 
+def _coerce_json(value):
+    """ПРОД-ИНЦИДЕНТ (B): jsonb-колонка может прийти СТРОКОЙ JSON-текста
+    ('{"wildcard": true}') — распаковать; мусор → {} (не падаем)."""
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            logger.warning("[config_cache] permissions-jsonb не распакован "
+                           "(оставлен {}) | raw=%r", value[:120])
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+        return {}
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _coerce_bool(value) -> bool:
+    """jsonb-bool строкой ('false') → bool; защита от bool('false')==True."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "on")
+    return bool(value)
+
+
 def _deleted_count(result: str | None) -> bool:
     """F17: строгий разбор command-tag «DELETE n» (никакого split()[-1])."""
     parts = (result or "").split()
@@ -140,12 +167,13 @@ class ConfigCache:
         }
         settings_updated = {
             r["key"]: _iso(r.get("updated_at")) for r in settings_rows}
-        roles_map = {
-            r["role_name"]: {
-                "permissions": r["permissions"], "is_custom": r["is_custom"],
+        roles_map = {}
+        for r in role_rows:
+            perms = _coerce_json(r["permissions"])   # B: jsonb строкой → объект
+            roles_map[r["role_name"]] = {
+                "permissions": perms,
+                "is_custom": _coerce_bool(r["is_custom"]),
             }
-            for r in role_rows
-        }
         admins_map = {r["telegram_id"]: r["role_name"] for r in admin_rows}
         admins_full = {
             r["telegram_id"]: {

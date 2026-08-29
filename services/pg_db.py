@@ -144,6 +144,27 @@ def resolve_code_source(source: str):
     return getattr(module, attr)
 
 
+# ── ПРОД-ИНЦИДЕНТ (A): asyncpg отдаёт jsonb СТРОКОЙ JSON-текста (с кавычками).
+# Каноническое решение — кодеки json/jsonb на КАЖДОМ соединении пула:
+# читаем объекты (dict/list/str/int) вместо сериализованных строк.
+# Encoder ИДЕМПОТЕНТНЫЙ: str (уже JSON, напр. json.dumps в INSERT-ах) проходит
+# как есть — миграция/сиды не задваивают кавычки. ────────────────────────────
+
+def _json_encoder(value) -> str:
+    """Сериализация параметра: str — как есть (уже JSON), иначе json.dumps."""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value)
+
+
+async def _init_connection(conn: asyncpg.Connection) -> None:
+    """Init-колбэк пула (и прямых соединений): регистрация кодеков json/jsonb."""
+    for codec in ("json", "jsonb"):
+        await conn.set_type_codec(
+            codec, encoder=_json_encoder, decoder=json.loads,
+            schema="pg_catalog")
+
+
 class PgDatabase:
     """asyncpg-пул + идемпотентный DDL/сиды. Без ORM (84.3)."""
 
@@ -161,7 +182,8 @@ class PgDatabase:
         return self._pool
 
     async def connect(self) -> None:
-        """Создать пул (min 1, max 10). Инъекция пула — для юнит-тестов."""
+        """Создать пул (min 1, max 10). Инъекция пула — для юнит-тестов.
+        init-колбэк: json/jsonb-кодеки на каждом соединении пула."""
         if self._pool is not None:
             self._connected = True
             return
@@ -171,9 +193,10 @@ class PgDatabase:
         self._pool = await asyncpg.create_pool(
             self._dsn, min_size=1, max_size=10,
             command_timeout=10,
+            init=_init_connection,
         )
         self._connected = True
-        logger.info("[pg_db] asyncpg pool created")
+        logger.info("[pg_db] asyncpg pool created (json/jsonb codecs)")
 
     async def init(self, seed_settings: bool = True) -> None:
         """DDL + сиды. Идемпотентно (повторный запуск без ошибок).

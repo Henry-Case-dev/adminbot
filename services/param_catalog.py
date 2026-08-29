@@ -537,6 +537,20 @@ def _cast_to_type(spec: ParamSpec, value):
         if isinstance(value, (tuple, set)):
             return list(value)   # единообразие с coerce_catalog_value (pg_db)
         return value
+    if spec.type == "str":
+        # ПРОД-ИНЦИДЕНТ (A, defense-in-depth): jsonb-значение может прийти
+        # строкой JSON-текста В КАВЫЧКАХ ('"https://apinet.cloud/v1"').
+        # Если распаковка даёт str — возвращаем её (ключи/URL без кавычек).
+        if isinstance(value, str):
+            s = value.strip()
+            if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+                try:
+                    inner = json.loads(s)
+                    if isinstance(inner, str):
+                        return inner
+                except ValueError:
+                    pass
+        return value
     return value
 
 

@@ -232,3 +232,60 @@ class TestSetNormalization:
         await cache.set("reactions.goodmorning_target_chat_ids", (1, 2),
                         "reactions")
         assert cache.get("reactions.goodmorning_target_chat_ids") == [1, 2]
+
+
+class TestQuotedJsonbStrings:
+    """ПРОД-ИНЦИДЕНТ (A): jsonb приходит строкой JSON-текста В КАВЫЧКАХ
+    ('"https://apinet.cloud/v1"', '"sk-..."') — defense-in-depth в
+    normalize_value распаковывает str-значения."""
+
+    QUOTED_ROWS = [
+        {"key": "models.llm_base_url", "value": '"https://apinet.cloud/v1"',
+         "category": "models", "updated_at": None},
+        {"key": "models.llm_model_name", "value": '"deepseek-v4-flash"',
+         "category": "models", "updated_at": None},
+        {"key": "keys.groq_api_key", "value": '"gsk_secret_quoted"',
+         "category": "keys", "updated_at": None},
+        {"key": "flags.summary_enabled", "value": '"true"',
+         "category": "flags", "updated_at": None},
+    ]
+
+    @pytest.mark.asyncio
+    async def test_load_all_unquotes_strings(self, monkeypatch):
+        import types
+        monkeypatch.setattr(
+            "services.config_cache.settings",
+            types.SimpleNamespace(INFO_TEXT_FILE="нет.md", ADMIN_USER_ID=1))
+        cache = ConfigCache(pg=_FakePg(_FakeConn(self.QUOTED_ROWS)),
+                            retry_attempts=1, retry_delay=0)
+        await cache.init()
+        assert cache.get("models.llm_base_url") == "https://apinet.cloud/v1"
+        assert cache.get("models.llm_model_name") == "deepseek-v4-flash"
+        assert cache.get("keys.groq_api_key") == "gsk_secret_quoted"
+        assert cache.get("flags.summary_enabled") is True   # bool-каст
+
+    def test_hot_get_unquotes_via_second_guard(self):
+        from services.param_catalog import normalize_value
+        assert normalize_value("models.llm_base_url",
+                               '"https://apinet.cloud/v1"') \
+            == "https://apinet.cloud/v1"
+        assert normalize_value("keys.groq_api_key", '"gsk_abc"') == "gsk_abc"
+        # не-JSON-строка с кавычками-символами не портится
+        assert normalize_value("models.llm_base_url", 'что-то "в кавычках"') \
+            == 'что-то "в кавычках"'
+
+    def test_llm_client_key_unquoted_via_hot(self):
+        """Конечный эффект: LLM-клиент получает ключ БЕЗ кавычек."""
+        from services.llm_client import LLMClient
+
+        class _StrCache:
+            pg_available = False
+
+            def get(self, key, default=None):
+                if key == "keys.llm_api_key":
+                    return '"sk_real_key_1234"'
+                return default
+
+        hot.set_config_cache(_StrCache())
+        client = LLMClient("https://x", "fallback", "m", "e")
+        assert client._current_api_key() == "sk_real_key_1234"

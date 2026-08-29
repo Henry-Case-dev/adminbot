@@ -256,9 +256,38 @@ class TestConnectDegradation:
         db = PgDatabase(dsn="postgresql://u:p@127.0.0.1/x")
         await db.connect()
         assert db.pool is fake_pool
-        create_pool.assert_awaited_once_with(
-            "postgresql://u:p@127.0.0.1/x",
-            min_size=1, max_size=10, command_timeout=10)
+        kwargs = create_pool.await_args.kwargs
+        assert kwargs["min_size"] == 1
+        assert kwargs["max_size"] == 10
+        assert kwargs["command_timeout"] == 10
+        # ПРОД-ИНЦИДЕНТ (A): init-колбэк с json/jsonb-кодеками
+        assert callable(kwargs["init"])
+
+
+class TestJsonCodecs:
+    """ПРОД-ИНЦИДЕНТ (A): json/jsonb-кодеки на каждом соединении пула."""
+
+    def test_encoder_idempotent_for_json_strings(self):
+        """str (уже JSON, напр. json.dumps в INSERT) проходит КАК ЕСТЬ —
+        миграция/сиды не задваивают кавычки; объекты сериализуются."""
+        assert pg_mod._json_encoder('{"a": 1}') == '{"a": 1}'
+        assert pg_mod._json_encoder("plain") == "plain"
+        assert pg_mod._json_encoder({"a": 1}) == '{"a": 1}'
+        assert pg_mod._json_encoder(42) == "42"
+
+    @pytest.mark.asyncio
+    async def test_init_connection_registers_codecs(self):
+        from unittest.mock import AsyncMock
+        conn = AsyncMock()
+        await pg_mod._init_connection(conn)
+        assert conn.set_type_codec.await_count == 2
+        calls = conn.set_type_codec.await_args_list
+        for i, codec in enumerate(("json", "jsonb")):
+            args, kwargs = calls[i]
+            assert args[0] == codec
+            assert kwargs["encoder"] is pg_mod._json_encoder
+            assert kwargs["decoder"].__name__ == "loads"
+            assert kwargs["schema"] == "pg_catalog"
 
     def test_dsn_property(self, monkeypatch):
         monkeypatch.setenv("POSTGRES_DSN", "postgresql://u:p@h/db")
