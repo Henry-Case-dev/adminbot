@@ -16213,3 +16213,226 @@ polkit.addRule(function(action, subject) {
   (query_id `AAHdF6IQAAAAAN0XohDhrOrc`, user id 279058397,
   auth_date 1662771648, hash `c501b71e…2b2`) подтверждён тестом против
   алгоритма aiogram — эталон подписи, а не собственный генератор.
+
+---
+
+## 84.18 In-Memory State Dump (/debug_config) — ДЕЛЬТА, требование человека 30.08.2026
+
+> Скрытый диагностический инструмент: команда `/debug_config [key]` (Telegram)
+> и `GET /api/debug/config?key=` (Mini App/curl) возвращают **ТЕКУЩИЕ значения
+> переменных из ОПЕРАТИВНОЙ ПАМЯТИ** работающего инстанса (ConfigCache), а НЕ
+> из PostgreSQL. Цель — диагностика инцидента «Mini App обновил PostgreSQL,
+> но бот работает на старых значениях из-за кэша» (stale-cache, 84.4-hot-reload).
+
+### 84.18.1 Разведка (факты из кода)
+
+- `services/config_cache.py` — RAM-хранилище: `_settings: dict[str, object]`
+  (атомарная замена словаря под `asyncio.Lock`), `get()/get_all()/
+  is_initialized/pg_available/get_updated_at(key)`; `_settings_updated_at`
+  — время записи ИЗ PG (in-memory set → None). **Нет** поля «когда RAM в
+  последний раз загружена из PG» — добавляем `_loaded_at` (84.18.8).
+- `services/hot_config.py` — горячие точки читают через `hot.get(key, default)`:
+  кэша нет → settings-дефолт (R1); ключа нет в кэше → settings-дефолт; ключ
+  есть → значение из RAM. `get_config_cache()` даёт глобальный кэш из
+  handler'а (прецедент: `services/info_service.py:149`).
+- `handlers/admin_commands.py` — паттерны для скрытых команд: НЕ в
+  `set_my_commands` (D95, `services/bot_commands.py`), допуск по
+  `settings.ADMIN_USER_ID`, автоудаление команды `_delete_command()`.
+- `services/permissions.py` — `requires_permission(perms, required)`: `wildcard`
+  → True ДО всяких групп (правило 1, 84.14.2); `ACTIONS_TREE` — реестр
+  действий (добавляем `debug.config`, 84.18.8). Сид v2 (84.14.3): роль
+  `admin` = `{"wildcard": true}`.
+- `web/api/deps.py` — фабрика `requires_permission(required)` уже
+  wildcard-aware; все `/api/*` — за `get_tma_user` (initData, 84.6).
+- Прецедент маскировки **F10** (84.17): `/api/status` ключи LLM — ВСЕГДА
+  только `{configured, last4}`. Для debug-дампа принимаем эту БОЛЕЕ строгую
+  политику (не как `/api/config` с полным значением по праву на ключ).
+- `config/settings.py:767` — `APP_VERSION = "2.51.0"` (версия кода для meta).
+
+### 84.18.2 Механика доступа (точная)
+
+Сервисная функция `is_debug_admin(cache, telegram_id) -> bool` в новом модуле
+`services/debug_config.py` (НЕ в config_cache/permissions — те остаются
+чистыми; debug-логика — отдельный тонкий слой). Порядок проверки:
+
+1. `cache is None` **или** `not cache.pg_available` **или** `not cache.admins()`
+   (R6-деградация: bot_admins в RAM пуст) → фолбек `telegram_id ==
+   settings.ADMIN_USER_ID` (паттерн admin_commands.py — бот остаётся
+   диагностируемым без PG);
+2. `telegram_id` не в `cache.admins()` → отказ;
+3. wildcard-право роли → допуск (по сиду — только `admin`);
+4. `match_permission(perms, "action.debug.config")` → допуск (точечное право
+   из конструктора ролей, 84.14.4; не выдано → только wildcard-админ).
+
+API-сторона использует штатную фабрику
+`Depends(requires_permission("action.debug.config"))` — wildcard проходит
+автоматически (84.14.2), дублирующей логики нет.
+
+### 84.18.3 Дамп-билдер `services/debug_config.py`
+
+`build_dump(cache, key: str | None = None) -> dict` — читает ТОЛЬКО RAM
+(`cache.get_all()` / `cache.get_updated_at()`), никаких SQL. Схема ответа:
+
+```json
+{
+  "meta": {
+    "is_initialized": true,
+    "pg_available": true,
+    "keys_total": 42,
+    "cache_loaded_at": "2026-08-30T12:00:00+00:00",
+    "app_version": "2.51.0",
+    "pid": 12345,
+    "generated_at": "2026-08-30T12:30:00+00:00"
+  },
+  "items": [
+    {"key": "limits.search_max_symbols", "category": "limits",
+     "source": "memory-cache", "type": "int", "secret": false,
+     "value": 8000, "updated_at": "2026-08-30T11:59:03+00:00"},
+    {"key": "keys.groq", "category": "keys",
+     "source": "memory-cache", "type": "str", "secret": true,
+     "value": {"configured": true, "last4": "abc1"},
+     "updated_at": null}
+  ]
+}
+```
+
+`?key=` → `{"meta": {…}, "item": {…}}` (одна запись). `meta` доказывает,
+что читается именно RAM живого процесса: `keys_total` = число ключей в
+RAM-словаре, `cache_loaded_at` = время последней загрузки RAM из PG,
+`pid` = текущий инстанс, `app_version` = версия кода.
+
+**Семантика `source`** (главный диагностический признак):
+
+| source | Определение | Что видит `hot.get` |
+|---|---|---|
+| `memory-cache` | ключ присутствует в RAM-словаре ConfigCache | значение из RAM |
+| `settings-fallback` | ключа НЕТ в RAM; есть settings-дефолт (param_catalog: `settings_field`/`env_name`) | settings-значение (показываем, маскируя секреты) |
+| `missing` | нет ни в RAM, ни в settings/каталоге | `None` |
+
+`type` — из `param_catalog` (`get_by_pg_key(key).type`); для ключа вне
+каталога — python `type(value).__name__`. `updated_at` — из
+`cache.get_updated_at(key)` (время записи в PG; `null` = ключ записан
+in-memory при PG down, F18-путь, либо отсутствует).
+
+**Маскировка (единообразно с 84.12.4/F10):** `secret = spec.secret or
+category == "keys"`; секрет → ТОЛЬКО `{"configured": bool, "last4": str|None}`
+— полное значение НЕ раскрывается никому, включая wildcard-админа. Длинные
+не-секретные значения (промпты, rich-HTML) в Telegram-выводе обрезаются до
+200 символов + `…` (с полем `value_len`), в JSON отдаются целиком.
+
+### 84.18.4 Telegram-команда `/debug_config [key]`
+
+Новый router `handlers/debug_config.py` (`debug_config_router`); регистрация в
+`bot.py` сразу после `admin_commands_router` (командные фильтры, конфликтов нет).
+
+- **Скрытая:** НЕ добавляется в `set_my_commands` (D95 — меню «/» не
+  раскрывает существование; прецедент /deadpage, /alangreet).
+- **Только DM** (`F.chat.type == "private"`) и **только `is_debug_admin`**
+  (84.18.2); не-админ → молчаливый отказ + debug-лог (паттерн
+  admin_commands.py). Сообщение команды удаляется (`_delete_command`).
+- **С ключом:** `<pre>`-блок: key, source, type, value (с маскировкой),
+  updated_at; `parse_mode="HTML"`.
+- **Без ключа:** сводка по категориям: meta-блок (is_initialized, pg_available,
+  keys_total, cache_loaded_at, app_version, pid) + список ключей с source и
+  маскированными значениями; при длине > 4000 символов — разбиение на
+  несколько сообщений по категориям (лимит Telegram 4096).
+
+### 84.18.5 Эндпоинт `GET /api/debug/config` (дельта 84.5)
+
+| Метод/путь | Право | Ответ |
+|---|---|---|
+| `GET /api/debug/config?key=<key>` | `requires_permission('action.debug.config')` (wildcard проходит) | 200 — JSON-дамп из RAM (84.18.3); без `key` — все ключи; 401 — нет/невалидный initData (84.6); 403 — нет права |
+
+Удобен для проверки из Mini App/curl:
+`curl -H "X-Telegram-Init-Data: <initData>" "https://<домен>/api/debug/config?key=limits.search_max_symbols"`.
+
+### 84.18.6 Безопасность
+
+- Секреты — только `configured/last4`, НИКОМУ (строже `/api/config`, который
+  отдаёт полный ключ при праве на конкретный ключ: debug-цель — «изменилось
+  или нет», полное значение не требуется).
+- Доступ: wildcard-админ или точечное право `debug.config`; фолбек на
+  `ADMIN_USER_ID` — только при деградации PG; команда скрыта и только в DM.
+- Дамп — чистое чтение RAM: не ходит в БД, не вызывает `reload()`, не может
+  повредить кэш или спровоцировать инвалидацию.
+
+### 84.18.7 Тестовая процедура (для человека)
+
+1. В Mini App изменить параметр (например, `limits.search_max_symbols`) → сохранить.
+2. В DM боту: `/debug_config limits.search_max_symbols`.
+3. Значение обновилось + `source=memory-cache` + свежий `updated_at` →
+   цепочка «Mini App → PG → инвалидация кэша → RAM» работает.
+4. Значение НЕ обновилось — смотреть `source` и `meta.cache_loaded_at`:
+   - `source=settings-fallback` → ключа вообще нет в RAM (проблема загрузки/
+     `set_config_cache`, не инвалидации);
+   - `source=memory-cache`, но `cache_loaded_at` старый → `reload()` не
+     произошёл после записи в PG (сломана инвалидация кэша);
+   - `updated_at=null` → ключ записан in-memory при PG down (F18-путь, значение
+     не персистентно).
+
+### 84.18.8 Дельта в существующие блоки + DoD + задачи для @PM
+
+- **config_cache.py:** поле `_loaded_at: str | None` (ISO UTC), выставляется в
+  `_load_all()` под lock — время последней загрузки RAM из PG; property
+  `loaded_at`; `None` при старте без PG.
+- **permissions.py:** в `ACTIONS_TREE` добавить
+  `{"id": "debug.config", "title": "In-Memory State Dump (/debug_config)"}`
+  (появится в чекбокс-конструкторе ролей; `ACTION_IDS` обновится автоматически).
+- **bot.py:** `dp.include_router(debug_config_router)` (после
+  `admin_commands_router`); **routes.py:** эндпоинт 84.18.5; **bot_commands.py:**
+  без изменений (команда скрыта).
+- **DoD 84.16.2 (дополнение, пп. 17–19):** 17. `/debug_config` — только
+  wildcard-админ/DM, скрыта из меню, маскировка секретов, source-семантика
+  (тесты на все 3 источника). 18. `GET /api/debug/config` — 401/403/200-матрица;
+  дамп идентичен бот-версии и читает только RAM (тест: прямая правка БД дамп
+  не меняет; `cache.set()` → меняет). 19. ngrok-юнит (84.19) проверен на проде:
+  `/api/health` через домен отдаёт ok и после перезагрузки сервера.
+- **Задачи @PM (backlog.md/board.md НЕ трогаю):** T-DEBUG-1 (services/debug_config
+  + handler + endpoint + тесты) ←T-613/T-617; T-DEBUG-2 (@DevOps: ngrok.service
+  enable --now + проверка домена) — независима.
+
+---
+
+## 84.19 Постоянный ngrok-туннель (systemd) — ДЕЛЬТА, требование человека 30.08.2026
+
+> Static-domain туннель `embody-grafted-ritalin.ngrok-free.dev` должен жить
+> постоянно и переживать рестарты сервера — юнит systemd `ngrok.service`.
+
+### 84.19.1 Юнит `/etc/systemd/system/ngrok.service`
+
+```ini
+[Unit]
+Description=ngrok tunnel (adminbot TMA, static domain)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nik
+ExecStart=/usr/bin/ngrok http --domain=embody-grafted-ritalin.ngrok-free.dev 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- **Авторизация authtoken (один раз, вне git):**
+  `sudo -u nik ngrok config add-authtoken <NGROK_AUTHTOKEN>` → пишет
+  `~nik/.config/ngrok/ngrok.yml` (0600). Юнит работает под `User=nik`,
+  поэтому токен обязан лежать в конфиге именно nik (токен root-конфига
+  не подхватится). Альтернатива — `Environment=NGROK_AUTHTOKEN=…` в юните
+  (менее предпочтительно: читается через `systemctl cat`).
+- **Активация:** `sudo systemctl daemon-reload && sudo systemctl enable --now ngrok`.
+- **Проверка домена:** `curl https://embody-grafted-ritalin.ngrok-free.dev/api/health`
+  → `{"status":"ok"}` (84.5: health БЕЗ auth — специально для ngrok/мониторинга).
+- **Терминация:** туннель терминируется на `127.0.0.1:8000` сервера (uvicorn
+  внутри бота, 84.2); TLS терминируется на стороне ngrok — бот остаётся
+  plain-HTTP на localhost, менять привязку uvicorn не нужно.
+- **Замечания:** (1) free-план ngrok — ОДИН туннель на статический домен;
+  второй `ngrok http` на тот же домен упадёт и `Restart=always` зациклит юнит
+  → юнит должен быть ровно один, дубликаты — только на другие домены;
+  (2) лимит free — ~40 conn/min и 1 ГБ/мес; (3) без живого туннеля домен не
+  резолвится — Mini App недоступен при остановленном ngrok (рекомендуется
+  внешний health-мониторинг домена); (4) рестарт `admin_bot` на туннель не
+  влияет — ngrok живёт своим юнитом; (5) `network-online.target` + Restart
+  покрывают гонку «ngrok стартовал раньше сети».

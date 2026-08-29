@@ -21,6 +21,7 @@ from services.config_cache import (
     ConfigCacheUnavailableError,
     _INFO_KEY,
 )
+from services.debug_config import build_dump
 from services.param_catalog import (
     CATEGORIES,
     CATEGORY_KEYS,
@@ -572,3 +573,18 @@ async def control_start(
                     Depends(requires_permission("action.control.start"))],
 ):
     return await _run_control(request, "start", user)
+
+
+# ── In-Memory State Dump (84.18.5, T-656): GET /api/debug/config ────────────
+
+@api_router.get("/debug/config")
+async def get_debug_config(
+    request: Request,
+    user: Annotated[WebAppUser,
+                    Depends(requires_permission("action.debug.config"))],
+    key: str | None = Query(default=None),
+):
+    """84.18.5: JSON-дамп RAM-кэша (не PostgreSQL). Право action.debug.config
+    (wildcard-админ проходит через 84.14.2); 401/403 — штатно."""
+    cache: ConfigCache = get_cache(request)
+    return build_dump(cache, key=key)

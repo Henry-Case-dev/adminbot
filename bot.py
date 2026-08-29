@@ -84,6 +84,7 @@ from aiogram.client.telegram import TelegramAPIServer
 
 from handlers.info import info_router, setup_info
 from services.info_service import InfoService
+from handlers.debug_config import debug_config_router
 from tools.video_downloader import VideoDownloader
 from handlers.video_download import video_download_router, setup_video_download
 # ── Epic 67: VoiceTranscriber (Section 71) ──
@@ -374,6 +375,10 @@ async def on_startup():
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
+
+    # 0a. /debug_config (84.18, T-656) — скрытая диагностика RAM-кэша; DM-only,
+    # допуск is_debug_admin (wildcard/action.debug.config/ADMIN_USER_ID-фолбек)
+    dp.include_router(debug_config_router)
 
     # 0h. /info + /edit_info (Epic 43) — БЕЗУСЛОВНО (D162), command-based
     dp.include_router(info_router)

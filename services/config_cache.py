@@ -69,6 +69,7 @@ class ConfigCache:
         self._lock = asyncio.Lock()
         self._settings: dict[str, object] = {}
         self._settings_updated_at: dict[str, str | None] = {}
+        self._loaded_at: str | None = None          # 84.18.8: время загрузки RAM из PG
         self._roles: dict[str, dict] = {}          # role_name → {permissions, is_custom}
         self._permissions: dict[str, Permissions] = {}
         self._admins: dict[int, str] = {}          # telegram_id → role_name
@@ -88,6 +89,11 @@ class ConfigCache:
     @property
     def is_initialized(self) -> bool:
         return self._initialized
+
+    @property
+    def loaded_at(self) -> str | None:
+        """84.18.8: ISO-время последней загрузки RAM из PG (None — PG down)."""
+        return self._loaded_at
 
     async def init(self) -> None:
         """Загрузка при старте (R6: PG down → WARNING, бот НЕ блокируется)."""
@@ -153,6 +159,8 @@ class ConfigCache:
         async with self._lock:
             self._settings = settings_map
             self._settings_updated_at = settings_updated
+            self._loaded_at = datetime.datetime.now(
+                datetime.timezone.utc).isoformat()   # 84.18.8
             self._roles = roles_map
             self._admins = admins_map
             self._admins_full = admins_full

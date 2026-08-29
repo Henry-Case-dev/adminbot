@@ -445,7 +445,7 @@ class TestRoles:
             and "access" in section_ids
         action_ids = {a["id"] for a in body["actions"]}
         assert action_ids == {"edit_info", "control.restart", "control.stop",
-                              "control.start"}
+                              "control.start", "debug.config"}
         limits = next(s for s in body["sections"] if s["id"] == "limits")
         assert any(p["key"] == "limits.search_max_symbols"
                    for p in limits["params"])
@@ -534,6 +534,84 @@ class TestControlRouteEdge:
         client.app.state.control = None
         resp = client.post("/api/control/restart", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 503
+
+
+class TestDebugConfigEndpoint:
+    """84.18.5 / DoD п.18: 401/403/200-матрица; дамп читает ТОЛЬКО RAM:
+    прямая правка «БД» дамп не меняет, cache.set() — меняет; маскировка."""
+
+    def test_401_without_init_data(self, client):
+        assert client.get("/api/debug/config").status_code == 401
+
+    def test_403_for_non_admin(self, client):
+        resp = client.get("/api/debug/config", headers=_hdr(USER_ID))
+        assert resp.status_code == 403
+        # moderator тоже не имеет debug.config (только control.* + limits)
+        resp = client.get("/api/debug/config", headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_200_admin_wildcard(self, client):
+        resp = client.get("/api/debug/config", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["meta"]["pid"] > 0
+        assert body["meta"]["app_version"]
+        assert "keys_total" in body["meta"]
+        items = {i["key"]: i for i in body["items"]}
+        assert items["limits.search_max_symbols"]["source"] == "memory-cache"
+
+    def test_200_role_with_debug_action_right(self, client):
+        client.cache._roles["debugger"] = {
+            "permissions": {"actions": ["debug.config"]}, "is_custom": True}
+        client.cache._permissions["debugger"] = Permissions.from_dict(
+            {"actions": ["debug.config"]})
+        client.cache._admins[777] = "debugger"
+        resp = client.get("/api/debug/config", headers=_hdr(777))
+        assert resp.status_code == 200
+
+    def test_secrets_masked_even_for_admin(self, client):
+        resp = client.get("/api/debug/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i for i in resp.json()["items"]}
+        key_item = items["keys.groq_api_key"]
+        assert key_item["value"] == {"configured": True, "last4": "1234"}
+        assert "gsk_secret_key" not in str(resp.json())
+
+    def test_dump_not_changed_by_direct_db_write(self, client):
+        """Дамп — RAM: правка строк «БД» (fake rows) НЕ меняет дамп."""
+        before = client.cache.get("limits.search_max_symbols")
+        # имитация прямой записи в PG в обход кэша
+        client.cache._pg._pool._conn._settings_rows = [
+            {"key": "limits.search_max_symbols", "value": 999999,
+             "category": "limits", "updated_at": None}]
+        resp = client.get("/api/debug/config",
+                          params={"key": "limits.search_max_symbols"},
+                          headers=_hdr(ADMIN_ID))
+        assert resp.json()["item"]["value"] == before
+
+    def test_dump_changes_after_cache_set(self, client):
+        """DoD п.18: cache.set() → RAM обновлён → дамп меняется."""
+        import asyncio
+
+        async def _set():
+            await client.cache.set("limits.search_max_symbols", 424242,
+                                   "limits")
+
+        asyncio.run(_set())
+        resp = client.get("/api/debug/config",
+                          params={"key": "limits.search_max_symbols"},
+                          headers=_hdr(ADMIN_ID))
+        assert resp.json()["item"]["value"] == 424242
+        assert resp.json()["item"]["source"] == "memory-cache"
+
+    def test_key_filter_and_settings_fallback(self, client):
+        resp = client.get("/api/debug/config",
+                          params={"key": "limits.factcheck_max_symbols"},
+                          headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "item" in body and "items" not in body
+        # ключа нет в RAM фикстуры → settings-fallback
+        assert body["item"]["source"] == "settings-fallback"
 
 
 class TestStatic:

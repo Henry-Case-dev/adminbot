@@ -42,6 +42,8 @@ ACTIONS_TREE: tuple[dict[str, str], ...] = (
     {"id": "control.restart", "title": "Перезапуск бота"},
     {"id": "control.stop", "title": "Остановка бота"},
     {"id": "control.start", "title": "Запуск бота"},
+    # 84.18.8 (T-656): диагностический дамп RAM-кэша
+    {"id": "debug.config", "title": "In-Memory State Dump (/debug_config)"},
 )
 
 ACTION_IDS: frozenset[str] = frozenset(a["id"] for a in ACTIONS_TREE)

@@ -142,7 +142,7 @@ class TestActionsTree:
     def test_edit_info_and_control_mapped(self):
         ids = {a["id"] for a in ACTIONS_TREE}
         assert ids == {"edit_info", "control.restart", "control.stop",
-                       "control.start"}
+                       "control.start", "debug.config"}
         for action in ACTIONS_TREE:
             assert action["title"]
 
