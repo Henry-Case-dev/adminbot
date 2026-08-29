@@ -87,3 +87,68 @@ class TestEnvExample:
         из прод .env; формат-пример живёт в .env.example (комментарий)."""
         text = _compose_text()
         assert re.search(r"https?://\S+@", text) is None
+
+    def test_epic85_env_keys_documented(self):
+        """T-611: .env.example дополнен ключами Epic 85 без удаления старых."""
+        text = (ROOT / ".env.example").read_text(encoding="utf-8")
+        for key in ("POSTGRES_DSN=", "POSTGRES_PASSWORD=", "WEB_PORT=8000",
+                    "LOG_RING_MAX_ENTRIES=1000",
+                    "UPTIME_EVENTS_RETENTION_HOURS=72"):
+            assert key in text, key
+        # существующие ключи сохранены
+        for key in ("API_TOKEN=", "COBALT_HTTP_PROXY=", "GROQ_API_KEY=",
+                    "DB_PATH=", "TELEGRAM_API_ID="):
+            assert key in text, key
+
+
+def _postgres_block() -> str:
+    """Текст сервиса postgres (последний сервис, до блока volumes)."""
+    text = _compose_text()
+    start = text.index("  postgres:")
+    rest = text[start:]
+    volumes_idx = rest.index("\nvolumes:")
+    return rest[:volumes_idx]
+
+
+class TestPostgresService:
+    """Epic 85 (T-611, канон 84.8): postgres 16-alpine, порт ТОЛЬКО
+    127.0.0.1:5432, healthcheck pg_isready, volume объявлен, существующие
+    сервисы не затронуты."""
+
+    def test_image_and_command(self):
+        block = _postgres_block()
+        assert "image: postgres:16-alpine" in block
+        assert "postgres -c max_connections=50 -c shared_buffers=128MB" in block
+
+    def test_port_binds_loopback_only(self):
+        block = _postgres_block()
+        assert 'ports:' in block
+        assert '"127.0.0.1:5432:5432"' in block
+        assert "5432:5432" not in block.replace('"127.0.0.1:5432:5432"', "")
+
+    def test_env_with_required_password(self):
+        block = _postgres_block()
+        assert 'POSTGRES_DB: "${POSTGRES_DB:-adminbot}"' in block
+        assert 'POSTGRES_USER: "${POSTGRES_USER:-adminbot}"' in block
+        assert 'POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?required}"' in block
+
+    def test_healthcheck_pg_isready(self):
+        block = _postgres_block()
+        assert "pg_isready" in block
+        assert "interval: 10s" in block
+        assert "retries: 5" in block
+
+    def test_volume_declared(self):
+        text = _compose_text()
+        assert "adminbot_pgdata:/var/lib/postgresql/data" in text
+        assert re.search(r"^volumes:\s*$", text, re.MULTILINE)
+        assert re.search(r"^\s{2}adminbot_pgdata:\s*$", text, re.MULTILINE)
+
+    def test_existing_services_untouched(self):
+        text = _compose_text()
+        assert 'image: aiogram/telegram-bot-api:latest' in text
+        assert 'image: ghcr.io/imputnet/cobalt:11' in text
+        assert "brainicism/bgutil-ytdlp-pot-provider" in text
+
+    def test_no_password_literal_in_compose(self):
+        assert "your_postgres_password" not in _compose_text()

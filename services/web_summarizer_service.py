@@ -15,6 +15,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
@@ -48,17 +49,18 @@ class WebSummarizerService:
         5) return cleanup_llm_text(raw)          # R37-7, ПОСТОЯННО
         Raises: WebContentExtractionFailedException / LLMError —
         пробрасываются."""
-        markdown = await self.extractor.extract(
-            url, settings.WEBPAGE_MAX_SYMBOLS
-        )
+        # T-619: лимит и промпт — горячие точки (фолбек settings)
+        max_symbols = hot.get("limits.webpage_max_symbols",
+                              settings.WEBPAGE_MAX_SYMBOLS)
+        system_prompt = hot.get("prompts.webpage_system_prompt",
+                                WEBPAGE_SYSTEM_PROMPT)
+        markdown = await self.extractor.extract(url, max_symbols)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 self.memory.memorize_facts(chat_id, markdown, "web_content"), "web")
         rag = await self.memory.get_rag_context(chat_id, rag_query) if (
             self.memory and chat_id is not None and rag_query) else ""
-        system = WEBPAGE_SYSTEM_PROMPT.replace(
-            "{max_symbols}", str(settings.WEBPAGE_MAX_SYMBOLS)
-        )
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         user = (f"{rag}\n\n" if rag else "") + (
             f'<webpage url="{escape_xml_text(url, quote=True)}">\n'
             f"{escape_xml_text(markdown)}\n</webpage>"

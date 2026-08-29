@@ -8240,12 +8240,28 @@ ow["timestamp"] (sqlite3.Row).
 
 ---
 
-## Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 + Шаг 4b «Дельта» + Шаг 4c «Дельта №2» (PM ✅, решения человека 1–5 + 4 требования) — ⛔ HARD STOP (target v2.51.0)
+## Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 + Шаг 4b «Дельта» + Шаг 4c «Дельта №2» (PM ✅, решения человека 1–5 + 4 требования) — ▶ In Progress (старт 30.08.2026, команда человека «Начинаем кодинг» получена) (target v2.51.0)
 
-> ⛔ **HARD STOP:** Epic 85 НЕ стартует до явной команды человека «Начинаем кодинг» (шаг 5 пайплайна).
-> Перед стартом человек выполняет `plans/HUMAN_SETUP_GUIDE.md` (MCP-серверы, BotFather menu button →
-> `https://embody-grafted-ritalin.ngrok-free.dev/web/`, ngrok на :8000, `docker compose up -d postgres`,
-> `.env`: `API_TOKEN` / `POSTGRES_DSN` / `WEB_PORT=8000`).
+> ✅ **HARD STOP СНЯТ — In Progress (старт 30.08.2026, команда человека «Начинаем кодинг» получена).**
+> **Порядок фаз:** бэкенд → фронтенд → тесты → ревью → деплой. **Setup-статус:** BotFather настроен
+> (menu button → `https://embody-grafted-ritalin.ngrok-free.dev/web/`), MCP-серверы подключены;
+> пункт гайда «docker compose up -d postgres + .env (POSTGRES_DSN / WEB_PORT=8000)» на сервере
+> выполняет @DevOps (локально — T-611). Доступы передаются @DevOps отдельно, в планах НЕ фиксируются.
+>
+> **Финальные требования человека (30.08.2026, финальный этап — после закрытия всех задач):**
+> 1. **Качество:** максимальное покрытие тестами; полный прогон pytest; перепроверка логики;
+>    проверка отсутствия конфликтов с другими функциями бота.
+> 2. **README.md** — обновить, сохраняя ироничный тон.
+> 3. **Релиз:** коммит в основную ветку на русском по всем правилам (conventional commits) + push.
+> 4. **Деплой на сервер по чек-листу:** ssh → git pull → правка `.env` (`POSTGRES_DSN`,
+>    `WEB_PORT=8000`, `POSTGRES_PASSWORD`; старые ключи НЕ удалять до конца миграции) →
+>    `docker compose up -d postgres` (дождаться healthy) → `python scripts/migrate_env_to_pg.py --dry-run` →
+>    реальный запуск миграции → polkit-правило `/etc/polkit-1/rules.d/50-adminbot-control.rules` →
+>    `sudo systemctl restart admin_bot` → `sudo systemctl status admin_bot`.
+> 5. **Финальный человекочитаемый отчёт** о проделанной работе.
+>
+> *(Пп. 1–5 ложатся на существующие задачи: тесты T-622/T-633/T-645, README T-624, деплой T-625/T-647 +
+> T-643 polkit; чек-лист п.4 уточняет T-625/T-647 — `POSTGRES_PASSWORD` в `.env` и порядок restart/status.)*
 >
 > **Дельта 30.08.2026 — решения человека (Шаг 4b @PM):**
 > 1. **Новое требование:** вкладка «📊 Статус» (health dashboard: uptime/polling/ошибки/версия, CPU/RAM/disk/load, LLM-провайдеры + health-check, график аптайма, логи с ERROR/WARN и копируемым текстом) — доступна АБСОЛЮТНО ВСЕМ валидным TMA-юзерам (RBAC-исключение, initData обязателен).

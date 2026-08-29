@@ -18,11 +18,14 @@ R17: API ключ и URL никогда не логируются. Ошибки 
 import asyncio
 import base64
 import logging
+import time
 from pathlib import Path
 
 from openai import AsyncOpenAI
 
 from config.settings import settings
+from services import hot_config as hot
+from services.status_service import status as status_service
 from SmartModule.transcriber.base import BaseTranscriber
 
 logger = logging.getLogger(__name__)
@@ -52,18 +55,29 @@ class OpenRouterTranscriber(BaseTranscriber):
     name = "openrouter"
 
     def __init__(self, api_key: str | None = None) -> None:
-        self._api_key = settings.OPENROUTER_API_KEY if api_key is None else api_key
+        # T-619 (84.4): ключ — горячая точка на КАЖДЫЙ вызов (фолбек settings)
+        self._default_key = settings.OPENROUTER_API_KEY if api_key is None else api_key
         self.timeout = settings.OPENROUTER_TIMEOUT
         self._max_retries = OPENROUTER_MAX_RETRIES
-        self._client: AsyncOpenAI | None = (
-            AsyncOpenAI(
-                base_url=OPENROUTER_BASE_URL,
-                api_key=self._api_key,
-                timeout=self.timeout,
-            )
-            if self._api_key
-            else None
+        self._client: AsyncOpenAI | None = self._build_client()
+
+    def _current_api_key(self) -> str:
+        return hot.get("keys.openrouter_api_key", self._default_key) or ""
+
+    def _build_client(self) -> AsyncOpenAI | None:
+        key = self._current_api_key()
+        if not key:
+            return None
+        return AsyncOpenAI(
+            base_url=OPENROUTER_BASE_URL,
+            api_key=key,
+            timeout=self.timeout,
         )
+
+    def _refresh_client(self) -> None:
+        """T-619: ключ изменился → пересоздать клиент (hot-reload)."""
+        if self._client is None or self._current_api_key() != self._default_key:
+            self._client = self._build_client()
 
     @property
     def available(self) -> bool:
@@ -107,6 +121,8 @@ class OpenRouterTranscriber(BaseTranscriber):
         return False
 
     async def transcribe(self, file_path: str) -> str:
+        # T-619: клиент перечитывается при смене ключа (hot-reload)
+        self._refresh_client()
         if self._client is None:
             raise RuntimeError(
                 "OpenRouterTranscriber: OPENROUTER_API_KEY is not configured")
@@ -127,12 +143,16 @@ class OpenRouterTranscriber(BaseTranscriber):
         # Epic 79.6 (D296): retry на 403/400 — openrouter/free роутер выберет
         # другую модель из free пула при повторном запросе.
         for attempt in range(1, self._max_retries + 1):
+            started = time.monotonic()
             try:
                 response = await self._client.chat.completions.create(
                     model=OPENROUTER_TRANSCRIBE_MODEL,
                     messages=messages,
                 )
                 content = response.choices[0].message.content if response.choices else None
+                # Epic 85 (84.11.2): замер латентности для /api/status
+                status_service.record_llm(
+                    "openrouter", (time.monotonic() - started) * 1000.0)
                 return content or ""
             except Exception as exc:
                 if self._is_retryable_error(exc) and attempt < self._max_retries:

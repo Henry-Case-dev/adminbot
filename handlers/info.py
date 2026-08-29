@@ -19,7 +19,9 @@ from aiogram.filters import Command
 from aiogram.types import InputRichMessage, ReplyParameters
 
 from config.settings import settings
+from services import hot_config as hot
 from services.persistent_throttling import (
+    cooldown_refresh,
     cooldown_remaining,
     cooldown_touch,
     make_cooldown,
@@ -86,6 +88,9 @@ async def cmd_info(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, random.choice(INFO_NO_DELETE_RIGHTS_PHRASES),
                      message.message_id)
         deleted = False                            # команда висит → справка РЕПЛАЕМ
+    # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+    cooldown_refresh(_cooldown, hot.get("limits.info_cooldown_seconds",
+                                        settings.INFO_COOLDOWN_SECONDS))
     remaining = await cooldown_remaining(_cooldown, message.chat.id, _CHAT_SLOT)
     if remaining > 0:                              # 5.1 (D159)
         await _reply(bot, message.chat.id, throttle_phrase(remaining),

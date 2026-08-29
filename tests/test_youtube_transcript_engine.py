@@ -92,6 +92,16 @@ class JSONDecodeError(Exception):
     pass
 
 
+class _FakeFetched:
+    """FetchedTranscript-subset (1.2.x): .to_raw_data() → список сегментов."""
+
+    def __init__(self, segments):
+        self._segments = segments
+
+    def to_raw_data(self):
+        return self._segments
+
+
 class _FakeTranscript:
     def __init__(self, language_code, generated, segments=None):
         self.language_code = language_code
@@ -101,7 +111,7 @@ class _FakeTranscript:
         ]
 
     def fetch(self):
-        return self._segments
+        return _FakeFetched(self._segments)
 
 
 class _FakeTranscriptList:
@@ -128,13 +138,15 @@ class _FakeTranscriptList:
 
 
 class _FakeApi:
-    """YouTubeTranscriptApi (0.6.x): list_transcripts → TranscriptList."""
+    """YouTubeTranscriptApi (1.2.x, D319): инстанс с proxy_config + .list()."""
 
     result = None
 
-    @classmethod
-    def list_transcripts(cls, video_id):
-        return cls.result
+    def __init__(self, proxy_config=None):
+        self.proxy_config = proxy_config
+
+    def list(self, video_id):
+        return self.result
 
 
 def _segments(*pairs):
@@ -225,8 +237,7 @@ class TestFetchErrors:
     )
     def test_list_transcripts_error_wrapped(self, monkeypatch, exc):
         class _FailingApi(_FakeApi):
-            @classmethod
-            def list_transcripts(cls, video_id):
+            def list(self, video_id):
                 raise exc
 
         monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _FailingApi)
@@ -364,14 +375,13 @@ class _FakeYDL:
 
 
 class _CapturingApi(_FakeApi):
-    """list_transcripts с захватом kwargs (proxies/cookies, 48.6 #7/#8)."""
+    """1.2.x (D319/D320): __init__ захватывает proxy_config."""
 
-    last_kwargs = None
+    last_proxy_config = None
 
-    @classmethod
-    def list_transcripts(cls, video_id, **kwargs):
-        _CapturingApi.last_kwargs = kwargs
-        return cls.result
+    def __init__(self, proxy_config=None):
+        super().__init__(proxy_config)
+        _CapturingApi.last_proxy_config = proxy_config
 
 
 def _json3_file(tmp_path, events, name="subs.json3"):
@@ -388,13 +398,20 @@ def _ytdlp_info(manual=None, auto=None, requested=None):
     }
 
 
-def _mock_settings(monkeypatch, proxy="", cookies=""):
+def _mock_settings(monkeypatch, proxy="", cookies="", webshare=None):
+    """webshare: {username, password, domain, port} — поля resident-прокси
+    (Epic 81, D313/D320); пустые = без прокси."""
+    webshare = webshare or {}
     monkeypatch.setattr(
         engine_mod,
         "settings",
         types.SimpleNamespace(
             YOUTUBE_TRANSCRIPT_PROXY_URL=proxy,
             YOUTUBE_COOKIES_FILE=cookies,
+            YOUTUBE_TRANSCRIPT_PROXY_USERNAME=webshare.get("username", ""),
+            YOUTUBE_TRANSCRIPT_PROXY_PASSWORD=webshare.get("password", ""),
+            YOUTUBE_TRANSCRIPT_PROXY_DOMAIN=webshare.get("domain", ""),
+            YOUTUBE_TRANSCRIPT_PROXY_PORT=webshare.get("port", ""),
         ),
     )
     # Epic 72 (74.A/D270): opts собираются хелпером config.settings —
@@ -419,7 +436,7 @@ class TestYtdlpPrimary:
         _FakeYDL.last_opts = None
         _FakeYDL.extract_result = None
         _FakeYDL.extract_error = None
-        _CapturingApi.last_kwargs = None
+        _CapturingApi.last_proxy_config = None
         monkeypatch.setattr(
             engine_mod, "yt_dlp", types.SimpleNamespace(YoutubeDL=_FakeYDL)
         )
@@ -527,7 +544,8 @@ class TestYtdlpPrimary:
 
     @pytest.mark.asyncio
     async def test_proxy_and_cookies_passed_to_transcript_api(self, monkeypatch):
-        """#7: yt-dlp raise + непустые настройки → list_transcripts с kwargs."""
+        """#7 (D312/D319): URL-прокси/cookies — ТОЛЬКО yt-dlp; transcript-api
+        proxy_config из Webshare-полей (пусто → None), cookies НЕ пробрасываются."""
         _FakeYDL.extract_error = RuntimeError("boom")
 
         class _Api(_CapturingApi):
@@ -537,11 +555,47 @@ class TestYtdlpPrimary:
 
         monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
         _mock_settings(monkeypatch, proxy="http://pr:8080", cookies="/tmp/c.txt")
+        result = await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
+        assert result == "[00:05] привет"
+        assert _CapturingApi.last_proxy_config is None
+
+    @pytest.mark.asyncio
+    async def test_webshare_credentials_build_transcript_api_proxy_config(
+        self, monkeypatch
+    ):
+        """#7b (D320): username+password+domain+port → GenericProxyConfig с
+        auth в URL; domain+port без кредов → GenericProxyConfig без auth."""
+        _FakeYDL.extract_error = RuntimeError("boom")
+
+        class _FakeGenericProxyConfig:
+            last_kwargs = None
+
+            def __init__(self, **kwargs):
+                _FakeGenericProxyConfig.last_kwargs = kwargs
+
+        monkeypatch.setattr(engine_mod, "GenericProxyConfig", _FakeGenericProxyConfig)
+
+        class _Api(_CapturingApi):
+            result = _FakeTranscriptList(
+                [_FakeTranscript("ru", False, _segments(("привет", 5.0)))]
+            )
+
+        monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
+        _mock_settings(
+            monkeypatch,
+            webshare={
+                "username": "u",
+                "password": "p",
+                "domain": "pr.example",
+                "port": "8080",
+            },
+        )
         await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
-        assert _CapturingApi.last_kwargs == {
-            "proxies": {"http": "http://pr:8080", "https": "http://pr:8080"},
-            "cookies": "/tmp/c.txt",
+        assert _FakeGenericProxyConfig.last_kwargs == {
+            "http_url": "http://u:p@pr.example:8080",
+            "https_url": "http://u:p@pr.example:8080",
         }
+        assert _CapturingApi.last_proxy_config is not None
 
     @pytest.mark.asyncio
     async def test_empty_settings_no_ytdlp_proxy_keys(self, tmp_path):
@@ -560,7 +614,7 @@ class TestYtdlpPrimary:
 
     @pytest.mark.asyncio
     async def test_empty_settings_no_transcript_api_kwargs(self, monkeypatch):
-        """#8: пустые настройки → list_transcripts БЕЗ kwargs (регрессия: моки 46.4 живы)."""
+        """#8 (D319): пустые настройки → YouTubeTranscriptApi БЕЗ proxy_config."""
         _FakeYDL.extract_error = RuntimeError("boom")
 
         class _Api(_CapturingApi):
@@ -570,7 +624,7 @@ class TestYtdlpPrimary:
 
         monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
         await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
-        assert _CapturingApi.last_kwargs == {}
+        assert _CapturingApi.last_proxy_config is None
 
     @pytest.mark.parametrize(
         "manual_langs,auto_langs,requested_langs,expected_lang",
@@ -696,9 +750,10 @@ class TestYtdlpPrimary:
 
 
 class TestProxyUrlWithCredentials:
-    """T-310-B (Section 49.4, Epic 40): страховочный тест — URL прокси, в т.ч.
+    """T-310-B (Section 49.4, Epic 40) + дельта D319/D320: URL прокси, в т.ч.
     с basic-auth userinfo http://user:pass@127.0.0.1:10808, пробрасывается БЕЗ
-    изменений и без валидации в opts['proxy'] и оба ключа proxies; пусто → ключи
+    изменений и без валидации в opts['proxy'] (yt-dlp); в transcript-api
+    proxy_config НЕ попадает (конфиг строится из Webshare-полей); пусто → ключи
     proxy отсутствуют; userinfo алфавита [A-Za-z0-9_-] разбирается urlsplit
     (механизм, на котором urllib3 строит Proxy-Authorization). Без сети и без
     реальных кредов — только плейсхолдеры."""
@@ -724,9 +779,11 @@ class TestProxyUrlWithCredentials:
     def test_proxy_url_passed_verbatim_to_both_proxies_keys(
         self, monkeypatch, proxy_url
     ):
+        """D320: URL-прокси (даже с userinfo) в transcript-api proxy_config НЕ
+        попадает — конфиг строится ТОЛЬКО из Webshare-полей; для URL-прокси
+        остаётся yt-dlp opts (проверено в test_proxy_url_passed_verbatim_to_ytdlp_opts)."""
         _mock_settings(monkeypatch, proxy=proxy_url)
-        kwargs = YouTubeTranscriptEngine()._transcript_api_kwargs()
-        assert kwargs["proxies"] == {"http": proxy_url, "https": proxy_url}
+        assert YouTubeTranscriptEngine()._transcript_proxy_config() is None
 
     def test_userinfo_urlsplit_for_safe_alphabet(self):
         """user/pass алфавита [A-Za-z0-9_-] (49.6): urlsplit разбирает userinfo."""
@@ -739,7 +796,7 @@ class TestProxyUrlWithCredentials:
 
     def test_empty_proxy_no_transcript_api_proxies(self, monkeypatch):
         _mock_settings(monkeypatch, proxy="")
-        assert "proxies" not in YouTubeTranscriptEngine()._transcript_api_kwargs()
+        assert YouTubeTranscriptEngine()._transcript_proxy_config() is None
 
 
 class TestNormalizers:
@@ -1081,13 +1138,15 @@ class TestInfoNone:
 
         class _Api(_FakeApi):
             @classmethod
-            def list_transcripts(cls, video_id):
+            def list(cls, video_id):
                 api_calls["n"] += 1
                 if api_calls["n"] == 1:
                     raise TooManyRequests("too many")
-                return _FakeTranscriptList(
-                    [_FakeTranscript("ru", False, _segments(("привет", 5.0)))]
-                )
+                return cls.result
+
+        _Api.result = _FakeTranscriptList(
+            [_FakeTranscript("ru", False, _segments(("привет", 5.0)))]
+        )
 
         monkeypatch.setattr(engine_mod, "YouTubeTranscriptApi", _Api)
         sleep_mock = AsyncMock()

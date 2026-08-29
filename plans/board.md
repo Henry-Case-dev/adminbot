@@ -362,14 +362,14 @@
 > - [x] T-610 (@Builder, P0, ←T-609) — R17 hotfix: sanitize TranscriptionUnavailable/EmptyTranscript
 >   error messages (логировался полный /tmp/vt_*.mp4 путь); commit `9adaca1`
 
-## ⏸ Ready — ждёт подтверждения человека
+### Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 + 4b + 4c «Дельта №2» (PM ✅) — ▶ In Progress (старт 30.08.2026, команда человека «Начинаем кодинг» получена) (target v2.51.0)
 
-### Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 + 4b + 4c «Дельта №2» (PM ✅) — ⛔ HARD STOP (target v2.51.0)
-
-> ⛔ **HARD STOP:** Epic 85 НЕ стартует до явной команды человека «Начинаем кодинг».
-> Перед стартом — чек-лист `plans/HUMAN_SETUP_GUIDE.md` (MCP-серверы, BotFather menu button →
-> `https://embody-grafted-ritalin.ngrok-free.dev/web/`, ngrok на :8000, `docker compose up -d postgres`,
-> `.env`: `API_TOKEN`/`POSTGRES_DSN`/`WEB_PORT=8000`).
+> ✅ **HARD STOP СНЯТ 30.08.2026** — команда человека «Начинаем кодинг» получена, фаза реализации началась.
+> **Порядок фаз: бэкенд → фронтенд → тесты → ревью → деплой.** BotFather настроен (menu button →
+> `https://embody-grafted-ritalin.ngrok-free.dev/web/`), MCP-серверы подключены; docker/.env на сервере
+> (postgres + `POSTGRES_DSN`/`WEB_PORT=8000`) выполняет @DevOps. Доступы передаются @DevOps отдельно
+> (в планах НЕ фиксируются). Финальные требования человека (тесты, README, коммит+push, деплой-чеклист,
+> отчёт) — `plans/backlog.md` (Epic 85, блок «Финальные требования человека»).
 >
 > Полный трек — `plans/backlog.md` (Epic 85). Канон — `plans/ARCHITECTURE.md` Section 84 + 84.11 + 84.12–84.16 «Дельта №2» (DESIGN ✅,
 > @Architect шаг 3/3, фазы 84.9, DoD 84.10 + 84.16.2). PostgreSQL 16 (`postgres:16-alpine`,
@@ -394,7 +394,7 @@
 > в БД, публичный GET /api/info, POST только admin (`edit_info`); 84.13; (3) RBAC v2 гранулярный —
 > permissions-объект + неймспейс section./param./key./action. + чекбокс-дерево из `/api/roles/tree`,
 > правка любых ролей (84.14); (4) control restart/stop/start в Статусе (admin+moderator), polkit без sudo,
-> флаг-файл stop, SIGTERM-фикс (84.15). Задачи T-635…T-647. HARD STOP сохраняется.
+> флаг-файл stop, SIGTERM-фикс (84.15). Задачи T-635…T-647.
 
 - [ ] T-611 (@Builder, P0) — docker-compose: postgres 16-alpine (max_connections=50, shared_buffers=128MB, volume, 127.0.0.1:5432, healthcheck pg_isready) + .env.example POSTGRES_DSN/WEB_PORT
 - [ ] T-612 (@Builder, P0, ←T-611) — services/pg_db.py: идемпотентный DDL (3 таблицы) + сид ролей + КРИТИЧНЫЕ telegram_id + стартовый bot_settings
@@ -434,6 +434,10 @@
 - [ ] T-646 (@Reviewer, P0, ←T-645) — ревью-дельта T-623: Section 84.12–84.16 = коду (RBAC v2, каталог, миграция, info, control, sanitize расширен); APPROVED
 - [ ] T-647 (@DevOps, P0, ←T-646/T-643) — деплой-дельта T-625: миграция ДО первого старта (dry-run → migrate → restart); smoke: /api/info публичен, control restart 202+новый PID, кнопки admin+moderator, «Как это работает» всем
 
+## ⏸ Ready — ждёт подтверждения человека
+
+*(пусто)*
+
 ## 🔍 In Review
 
 *(пусто)*
@@ -449,7 +453,7 @@
 > - **Epic 65** v2.45.0 (2630 тестов) — обогащение контекста фактчека/поиска + реранкинг + фокус /summary; память вердиктов ОТМЕНЕНА пользователем.
 >
 > **Epics 66–84** — НЕ архивированы: ведутся в колонке «In Progress» (T-523…T-605, hotfix T-607…T-610; Epics 66–82 распланированы/в работе, 83–84 на деплое/в работе) — полный трек `plans/backlog.md`.
-> **Epic 85** (TMA Admin Dashboard & Dynamic RBAC, T-611…T-647) — в колонке «⏸ Ready», HARD STOP до команды человека. **Epic 86** (GraphRAG → PostgreSQL) — future/planned, в колонке «📋 Backlog».
+> **Epic 85** (TMA Admin Dashboard & Dynamic RBAC, T-611…T-647) — в колонке «🔧 In Progress» (старт 30.08.2026, HARD STOP снят командой человека «Начинаем кодинг»). **Epic 86** (GraphRAG → PostgreSQL) — future/planned, в колонке «📋 Backlog».
 
 ### Epic 64: Контекст + embedding_cache + LLM-надёжность — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.44.0, коммит 9aae221, прод PID 1080205)
 

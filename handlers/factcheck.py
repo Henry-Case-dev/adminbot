@@ -20,9 +20,11 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from handlers.summary import _extract_forward_source
 from handlers.voice_transcription import _is_transcription_target
+from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_group_buffer import get_media_group_caption
 from services.persistent_throttling import (
+    cooldown_refresh,
     cooldown_remaining,
     cooldown_touch,
     make_cooldown,
@@ -163,6 +165,9 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if target is None:
         return UNHANDLED                       # не триггер → пропагация живёт
     logger.info("[factcheck] triggered | chat=%s user=%s", message.chat.id, user_id)
+    # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+    cooldown_refresh(_cooldown, hot.get("limits.factcheck_cooldown_seconds",
+                                        settings.FACTCHECK_COOLDOWN_SECONDS))
     remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (message.message_id)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)

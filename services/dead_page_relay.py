@@ -4,6 +4,7 @@ import random
 from aiogram import Bot
 from aiogram.types import FSInputFile
 from config.settings import settings
+from services import hot_config as hot
 from services.database import DatabaseService
 from services.media_picker import MediaService
 
@@ -94,12 +95,13 @@ class DeadPageRelay:
         """
         logger.info(f"[dead_page] === Triggered for chat {chat_id}, slot={slot} ===")
 
-        if await self.db.was_dead_page_recently(
-            chat_id, settings.DEAD_PAGE_COOLDOWN
-        ):
+        # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+        cooldown = hot.get("limits.dead_page_cooldown",
+                           settings.DEAD_PAGE_COOLDOWN)
+        if await self.db.was_dead_page_recently(chat_id, cooldown):
             logger.info(
                 f"[dead_page] SKIP chat {chat_id}: cooldown active "
-                f"({settings.DEAD_PAGE_COOLDOWN}s)"
+                f"({cooldown}s)"
             )
             return None
 
@@ -676,7 +678,8 @@ class DeadPageRelay:
             logger.error(f"[dead_page] Fallback FAILED: no local media — {e}")
             return None
 
-        max_chars = settings.DEAD_PAGE_CAPTION_MAX_CHARS
+        max_chars = hot.get("limits.dead_page_caption_max_chars",
+                            settings.DEAD_PAGE_CAPTION_MAX_CHARS)
         caption = text[:max_chars]
         overflow = text[max_chars:] if len(text) > max_chars else ""
 

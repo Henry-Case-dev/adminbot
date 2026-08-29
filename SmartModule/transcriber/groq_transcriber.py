@@ -11,6 +11,8 @@ import time
 from openai import AsyncOpenAI
 
 from config.settings import settings
+from services import hot_config as hot
+from services.status_service import status as status_service
 from SmartModule.transcriber.base import BaseTranscriber
 
 logger = logging.getLogger(__name__)
@@ -28,22 +30,35 @@ class GroqTranscriber(BaseTranscriber):
     name = "groq"
 
     def __init__(self, api_key: str | None = None) -> None:
-        self._api_key = settings.GROQ_API_KEY if api_key is None else api_key
+        # T-619 (84.4): ключ — горячая точка на КАЖДЫЙ вызов (фолбек settings)
+        self._default_key = settings.GROQ_API_KEY if api_key is None else api_key
         self.timeout = settings.GROQ_TIMEOUT
         self._max_retries = settings.GROQ_MAX_RETRIES
         self._min_interval = settings.GROQ_MIN_INTERVAL
         self._last_request_time: float = 0.0
         # AsyncOpenAI(api_key="") кидает OpenAIError — клиент строим только
         # при наличии ключа; пустой ключ = стратегия недоступна.
-        self._client: AsyncOpenAI | None = (
-            AsyncOpenAI(
-                base_url=GROQ_BASE_URL,
-                api_key=self._api_key,
-                timeout=self.timeout,
-            )
-            if self._api_key
-            else None
+        self._client: AsyncOpenAI | None = self._build_client()
+
+    def _current_api_key(self) -> str:
+        return hot.get("keys.groq_api_key", self._default_key) or ""
+
+    def _build_client(self) -> AsyncOpenAI | None:
+        key = self._current_api_key()
+        if not key:
+            return None
+        return AsyncOpenAI(
+            base_url=GROQ_BASE_URL,
+            api_key=key,
+            timeout=self.timeout,
         )
+
+    def _refresh_client(self) -> None:
+        """T-619: ключ изменился → пересоздать клиент (hot-reload)."""
+        key = self._current_api_key()
+        if self._client is not None and key == self._default_key:
+            return
+        self._client = self._build_client()
 
     @property
     def available(self) -> bool:
@@ -83,7 +98,9 @@ class GroqTranscriber(BaseTranscriber):
 
         R17: API ключ никогда не логируется. Ошибки логируются как тип
         исключения + retry-after (если есть), без URL или тела ответа.
+        T-619: клиент перечитывается при смене ключа (hot-reload).
         """
+        self._refresh_client()
         if self._client is None:
             raise RuntimeError("GroqTranscriber: GROQ_API_KEY is not configured")
 
@@ -92,10 +109,14 @@ class GroqTranscriber(BaseTranscriber):
             attempts += 1
             await self._sleep_with_interval()
             self._last_request_time = time.monotonic()
+            started = time.monotonic()
             try:
                 with open(file_path, "rb") as fh:
                     response = await self._client.audio.transcriptions.create(
                         model=GROQ_TRANSCRIBE_MODEL, file=fh)
+                # Epic 85 (84.11.2): замер латентности для /api/status
+                status_service.record_llm(
+                    "groq", (time.monotonic() - started) * 1000.0)
                 return getattr(response, "text", "") or ""
             except Exception as exc:
                 # 429 Too Many Requests → honor Retry-After или экспоненциальный backoff

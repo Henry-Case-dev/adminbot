@@ -24,10 +24,19 @@ import time
 import httpx
 
 from config.settings import settings
+from services import hot_config as hot
+from services.status_service import status as status_service
 
 logger = logging.getLogger(__name__)
 
 _BODY_MAX_CHARS = 500   # Epic 49 (57.4) / Epic 53 (62.5): тело 4xx/5xx-ответа в диагн-логе
+
+
+async def _aclose(client: httpx.AsyncClient) -> None:
+    try:
+        await client.aclose()
+    except Exception:  # pragma: no cover — закрытие старого клиента не критично
+        pass
 
 # Epic 53 (62.1): худший случай generate = бюджет primary + фоллбэк.
 # Epic 64: бюджет фоллбэка больше НЕ константа 30с — настройка
@@ -111,23 +120,53 @@ class LLMClient:
         self._fallback_timeout = settings.LLM_FALLBACK_TIMEOUT_SECONDS
         self._fallback_max_retries = settings.LLM_FALLBACK_MAX_RETRIES
         self._client: httpx.AsyncClient | None = None
+        self._client_key: str | None = None
         self._fallback_client: httpx.AsyncClient | None = None
+        self._fallback_key: str | None = None
+
+    def _current_api_key(self) -> str:
+        """T-619 (84.4): ключ читается из ConfigCache на ВЫЗОВ; ключа нет в
+        БД → значение из .env/settings (ровно старое поведение до миграции)."""
+        return hot.get("keys.llm_api_key", self._api_key) or ""
+
+    def _current_fallback_key(self) -> str:
+        return hot.get("keys.llm_fallback_api_key",
+                       self._fallback_api_key) or ""
+
+    @staticmethod
+    def _close_async(client: httpx.AsyncClient) -> None:
+        """Закрытие старого клиента при смене ключа (fire-and-forget)."""
+        try:
+            asyncio.create_task(_aclose(client))
+        except RuntimeError:
+            pass                     # нет running loop — GC подберёт
 
     def _get_client(self) -> httpx.AsyncClient:
+        key = self._current_api_key()
+        if self._client is not None and key != self._client_key:
+            self._close_async(self._client)
+            self._client = None
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self._timeout, connect=10.0),
-                headers={"Authorization": f"Bearer {self._api_key}"},
+                headers={"Authorization": f"Bearer {key}"},
             )
+            self._client_key = key
         return self._client
 
     def _get_fallback_client(self) -> httpx.AsyncClient:
-        """Epic 53 (62.4): ленивый клиент фоллбэка, тот же таймаут-срез."""
+        """Epic 53 (62.4): ленивый клиент фоллбэка, тот же таймаут-срез.
+        T-619: ключ фоллбэка — горячая точка (пересоздание при смене)."""
+        key = self._current_fallback_key()
+        if self._fallback_client is not None and key != self._fallback_key:
+            self._close_async(self._fallback_client)
+            self._fallback_client = None
         if self._fallback_client is None:
             self._fallback_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self._timeout, connect=10.0),
-                headers={"Authorization": f"Bearer {self._fallback_api_key}"},
+                headers={"Authorization": f"Bearer {key}"},
             )
+            self._fallback_key = key
         return self._fallback_client
 
     async def close(self) -> None:
@@ -211,6 +250,10 @@ class LLMClient:
 
                     status = response.status_code
                     latency_ms = (time.monotonic() - started) * 1000.0
+                    # Epic 85 (84.11.2): замер латентности для /api/status
+                    status_service.record_llm(
+                        "deepseek", latency_ms,
+                        None if status < 500 else f"status={status}")
                     if status in (408, 425, 429) or 500 <= status < 600:
                         if attempt < self._max_retries:
                             sleep = self._sleep_seconds(attempt, status, response.headers)

@@ -1,14 +1,18 @@
 """Epic 43 — InfoService (R43-2, Section 52.3): info_text.md + кэш в память.
 
-Чтение при старте; запись ТОЛЬКО через save_text() (вызывается хендлером
-ПОСЛЕ успешной рендер-валидации превью — D163). Файла нет/пустой → канон
-DEFAULT_INFO_TEXT записывается на диск. IO-ошибка чтения → WARNING + кэш =
-канон (файл НЕ перезаписываем). Sync-IO оправдан: файл ~1-2 КБ, пути —
-только старт и редкие правки админа (не горячий event-loop путь).
+Epic 85 (84.13, T-638): источник истины — БД/ConfigCache (ключ
+content.info_how_it_works, сидится ConfigCache.init при первом старте из
+info_text.md); get_text() читает ConfigCache → файловый кэш → DEFAULT_INFO_TEXT
+(legacy-фолбек при PG down, R6). save_text() — единственная точка записи:
+файл + in-memory кэш + ConfigCache (хендлер /edit_info и веб-POST /api/info
+сходятся в ней). Файла нет/пустой → канон DEFAULT_INFO_TEXT записывается на
+диск. IO-ошибка чтения → WARNING + кэш = канон (файл НЕ перезаписываем).
 """
+import datetime
 import logging
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +68,16 @@ DEFAULT_INFO_TEXT = """<h1>Гайд по фичам бота. Никаких с�
 - Кулдаун между каждым вызовом на одного юзера - по дефолту 5 минут.
 - Может путать Никит и Глебов</h5>"""
 
+INFO_KEY = "content.info_how_it_works"
+
 
 class InfoService:
-    def __init__(self, file_path: str = settings.INFO_TEXT_FILE) -> None:
-        self._file_path = file_path
+    def __init__(self, file_path: str | None = None) -> None:
+        # Путь резолвится в момент ВЫЗОВА (не в дефолте сигнатуры): default-
+        # выражения функций фиксируются при определении класса — monkeypatch
+        # settings в тестах и единый источник для web-POST (F5) работают.
+        self._file_path = file_path if file_path is not None \
+            else settings.INFO_TEXT_FILE
         self._cache: str | None = None
 
     def load(self) -> None:
@@ -96,17 +106,53 @@ class InfoService:
                                self._file_path)
 
     def get_text(self) -> str:
-        return self._cache if self._cache is not None else DEFAULT_INFO_TEXT
+        """84.13.3 (T-638): ConfigCache → файловый кэш → DEFAULT_INFO_TEXT.
+        Источник истины — БД; при PG down/нет ключа — legacy-фолбек (R6)."""
+        cached_value = hot.get(INFO_KEY)
+        if isinstance(cached_value, dict):
+            html = cached_value.get("html")
+            if isinstance(html, str) and html.strip():
+                return html
+        if self._cache is not None:
+            return self._cache
+        return DEFAULT_INFO_TEXT
 
     def save_text(self, text: str) -> None:
-        """Перезапись файла + кэш. ВЫЗЫВАТЬ ТОЛЬКО ПОСЛЕ успешного превью (D163).
-        OSError — НАВЕРХ (хендлер шлёт пул, кэш остаётся старым)."""
+        """Перезапись файла + кэш + ConfigCache (84.13.3: единственная точка
+        записи — /edit_info и веб-POST сходятся здесь). ВЫЗЫВАТЬ ТОЛЬКО ПОСЛЕ
+        успешного превью (D163). OSError — НАВЕРХ (хендлер шлёт пул, кэш
+        остаётся старым)."""
         with open(self._file_path, "w", encoding="utf-8") as fh:
             fh.write(text)
         self._cache = text
         logger.info("[info service] info_text.md updated | file=%s | chars=%d",
                     self._file_path, len(text))
+        value = {
+            "html": text,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "updated_by": settings.ADMIN_USER_ID,
+        }
+        _save_to_cache_safely(value)
 
     def _write_default(self) -> None:
         with open(self._file_path, "w", encoding="utf-8") as fh:
             fh.write(DEFAULT_INFO_TEXT)
+
+
+def _save_to_cache_safely(value: dict) -> None:
+    """T-638: запись в ConfigCache — только если кэш поднят и это async-контекст
+    не сломает sync-поток: хендлер /edit_info вызывает save_text из async —
+    создаём таску; в тестах/без loop — пропускаем (файл уже источник)."""
+    import asyncio
+
+    async def _set():
+        cache = hot.get_config_cache()
+        if cache is None or not cache.pg_available:
+            return
+        await cache.set(INFO_KEY, value, "content")
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    asyncio.create_task(_set())

@@ -12,8 +12,10 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
+from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
+    cooldown_refresh,
     cooldown_remaining,
     cooldown_touch,
     make_cooldown,
@@ -115,6 +117,9 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[youtube] triggered | chat=%s user=%s video_id=%r",   # R41-5
                 message.chat.id, user_id, video_id)
+    # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+    cooldown_refresh(_cooldown, hot.get("limits.youtube_cooldown_seconds",
+                                        settings.YOUTUBE_COOLDOWN_SECONDS))
     remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (D131/D107)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)

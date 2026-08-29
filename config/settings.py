@@ -762,6 +762,10 @@ Settings._TONE_WORD_BY_KEY = {v: k for k, v in Settings._TONE_KEY_BY_WORD.items(
 
 settings = Settings()
 
+# Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
+# с changelog MEMORY.md при релизах).
+APP_VERSION = "2.51.0"
+
 
 def build_ytdlp_base_opts() -> dict:
     """Epic 72 (Section 74.A): общие yt-dlp опции прокси/cookies — ЕДИНЫЙ

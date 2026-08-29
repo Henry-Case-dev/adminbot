@@ -1,13 +1,23 @@
 import asyncio
+import contextlib
 import logging
 import os
+import signal
 
 import sentry_sdk
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from logtail import LogtailHandler
+import uvicorn
 
 from config.settings import settings
+from services.config_cache import ConfigCache
+from services.control_service import ControlService
+from services.hot_config import set_config_cache
+from services.log_ring import LogRingHandler
+from services.status_service import status
+from services.uptime_heartbeat import UptimeHeartbeatService
+from web.app import create_app
 
 # Initialize Sentry error tracking (Better Stack)
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -97,6 +107,12 @@ if logtail_token:
 logging.basicConfig(level=logging.INFO, handlers=handlers)
 logger = logging.getLogger(__name__)
 
+# ── Epic 85 (84.11.1, T-628): in-memory ring-buffer логов для /api/status/logs.
+# На root-logger рядом с basicConfig; маскировка секретов в emit (R17).
+log_ring_handler = LogRingHandler()
+log_ring_handler.setLevel(logging.DEBUG)
+logging.getLogger().addHandler(log_ring_handler)
+
 if settings.DOWNLOAD_ENABLED:
     bot = Bot(
         token=settings.API_TOKEN,
@@ -123,6 +139,8 @@ _checkup_fetcher = None
 _memory_backup_service = None
 # Memory maintenance (Epic 60, Section 66.2/66.11, T-480/T-489) — merge+review
 _memory_maintenance_service = None
+# Uptime heartbeat (Epic 85, 84.11.3, T-630) — module-level ref for on_shutdown
+_uptime_heartbeat = None
 
 
 async def on_startup():
@@ -442,6 +460,8 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup resources on bot shutdown."""
     logger.info("Bot shutting down...")
+    if _uptime_heartbeat:
+        await _uptime_heartbeat.shutdown()
     if _goodmorning_scheduler:
         await _goodmorning_scheduler.shutdown()
     if _summary_service:
@@ -462,13 +482,101 @@ async def on_shutdown():
 
 
 async def main():
+    # ── Epic 85 (84.15.4): флаг-файл stop. Обнаружен → удаляем (F12: обычный
+    # ручной старт чистит следы прошлого stop) → мгновенный exit 0 — страховка
+    # от рестарт-петли Restart=always (exit 0 = успех, systemd НЕ ретраит).
+    if ControlService.flag_file_exists():
+        logger.warning("[control] flag-file %s обнаружен — удалён, "
+                       "мгновенный exit 0", ControlService.FLAG_FILE_NAME)
+        ControlService().remove_flag_file()
+        return
+
+    # ── Epic 85 (84.11.2): started_at — первая строка main().
+    status.mark_started()
+
+    # ── Epic 85 (84.4): ConfigCache ДО on_startup — горячие точки (T-619)
+    # видят кэш; PG down → WARNING, бот работает на settings-дефолтах (R6).
+    cache = ConfigCache()
+    await cache.init()
+    set_config_cache(cache)
+
     await on_startup()
     logger.info("Bot started, listening for messages...")
     print("Бот запущен и слушает чат...")
+
+    # ── Epic 85 (84.11.3, T-630): heartbeat аптайма (60с) + автоочистка.
+    global _uptime_heartbeat
+    _uptime_heartbeat = UptimeHeartbeatService(pg=cache.pg)
+    _uptime_heartbeat.start()
+
+    # ── Epic 85 (84.4, T-615): ОДИН event loop — uvicorn.server.serve() +
+    # polling-таска. uvicorn.run() и потоки ЗАПРЕЩЕНЫ (R2).
+    stop_event = asyncio.Event()
+    server_holder: list[uvicorn.Server | None] = [None]
+
+    def request_shutdown() -> None:
+        """F1 (84.15.4): dev restart/stop = graceful exit — должен ОСТАНАВЛИВАТЬ
+        и polling, и uvicorn: stop_event (watcher) + server.should_exit
+        (иначе serve() живёт вечно и колбэк никого не останавливает)."""
+        stop_event.set()
+        if server_holder[0] is not None:
+            server_holder[0].should_exit = True
+
+    control = ControlService(request_shutdown=request_shutdown)
+    app = create_app(cache, control=control)
+    web_port = int(os.getenv("WEB_PORT", "8000"))
+    server = uvicorn.Server(uvicorn.Config(
+        app, host="127.0.0.1", port=web_port,
+        loop="auto",            # R3: asyncio на Windows-деве, uvloop на проде
+        log_level="warning",
+    ))
+    server_holder[0] = server
+    polling = asyncio.create_task(dp.start_polling(bot))
+    status.set_polling_state("polling")
+
+    def _watch_polling(task: asyncio.Task) -> None:
+        """84.11.2: state polling_error — задача polling done() с exception."""
+        if task.cancelled():
+            status.set_polling_state("stopped")   # штатная остановка (SIGTERM)
+            return
+        exc = task.exception()
+        status.set_polling_state("polling_error" if exc is not None
+                                 else "stopped")
+        if exc is not None:
+            logger.error("polling task crashed", exc_info=exc)
+
+    polling.add_done_callback(_watch_polling)
+
+    # ── Graceful shutdown (84.15.5/T-642): SIGTERM/SIGINT → корректная
+    # остановка ≤10с (polling.cancel + on_shutdown + PG-пул).
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except (NotImplementedError, ValueError):
+            pass                     # Windows: SIGTERM недоступен — только SIGINT
+    watcher = asyncio.create_task(stop_event.wait())
+
     try:
-        await dp.start_polling(bot)
+        await server.serve()
     finally:
+        stop_event.set()
+        polling.cancel()
+        watcher.cancel()
+        try:
+            await polling
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            # polling уже упал ДО остановки — не роняем main (state
+            # polling_error выставлен в _watch_polling, R6: бот отдаёт статус)
+            logger.error("polling finished with error during shutdown",
+                         exc_info=True)
+        with contextlib.suppress(asyncio.CancelledError):
+            await watcher
+        server.should_exit = True
         await on_shutdown()
+        await cache.close()
 
 
 if __name__ == '__main__':

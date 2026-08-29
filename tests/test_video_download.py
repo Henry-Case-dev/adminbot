@@ -345,6 +345,12 @@ class TestTouchAfterProbe:
             return _probe()
 
         monkeypatch.setattr(vd._downloader, "probe", flaky)
+        # T-619: кулдаун перечитывается из конфига (hot.get) — значения
+        # подменяем консистентно с трекером (30m).
+        import types
+        monkeypatch.setattr(
+            vd, "settings",
+            types.SimpleNamespace(DOWNLOAD_COOLDOWN=1800.0))
         t_first = time.monotonic()
         await vd.video_download_handler(
             _make_msg(f"скачай {URL}", message_id=101), bot=AsyncMock())

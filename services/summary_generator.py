@@ -16,6 +16,7 @@ import time
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
+from services import hot_config as hot
 from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError
 from services.summary_cleanup import cleanup_llm_text
@@ -159,10 +160,13 @@ class SummaryGenerator:
                 logger.warning(
                     "summary: user content truncated | chars=%d", len(user_content))
                 user_content = user_content[-limit:]
-            max_symbols = settings.MAX_SUMMARY_PARTS * 4000 - 200
+            max_symbols = hot.get("limits.max_summary_parts",
+                                  settings.MAX_SUMMARY_PARTS) * 4000 - 200
             # NOTE: {username} must stay literal in the prompt (R11), so we
             # substitute only {max_symbols} via replace, not str.format.
-            system = SYSTEM_PROMPT.replace("{max_symbols}", str(max_symbols))
+            # T-619: промпт саммари — горячая точка (фолбек код-канона).
+            summary_prompt = hot.get("prompts.summary_system_prompt", SYSTEM_PROMPT)
+            system = summary_prompt.replace("{max_symbols}", str(max_symbols))
             started = time.monotonic()
             payload = [
                 {"role": "system", "content": system},
@@ -210,7 +214,8 @@ class SummaryGenerator:
                     chat_id)
                 return
             text = self._ensure_shiz_postfix(raw, rows)
-            if settings.SUMMARY_STREAMING_ENABLED:
+            if hot.get("flags.summary_streaming_enabled",
+                       settings.SUMMARY_STREAMING_ENABLED):
                 await self._send_streaming(chat_id, text)   # Epic 60 (65.6, T-474)
             else:
                 await self._send_chunked(chat_id, text)

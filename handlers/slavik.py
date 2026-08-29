@@ -8,6 +8,7 @@ from aiogram.types import FSInputFile, MessageOriginChannel
 from filters.user_id import UserIdFilter
 from filters.kucha_word import KuchaWordFilter
 from config.settings import settings
+from services import hot_config as hot
 from services.mimic_transform import mimic_transform, count_words
 
 logger = logging.getLogger(__name__)
@@ -125,14 +126,19 @@ def _slavik_mimic_should_trigger(
     """Check mimic conditions for Slavik: word count, cooldown, forward gate (D52).
 
     Returns True if mimic should fire instead of the default reply.
+    T-619: параметры мимикрии — горячие точки (фолбек settings).
     """
-    if is_forwarded and not settings.MIMIC_FORWARDS_ENABLED:
+    if is_forwarded and not hot.get("flags.mimic_forwards_enabled",
+                                    settings.MIMIC_FORWARDS_ENABLED):
         return False  # D52: mimic пропускается → дальше Branch 3 «пошёл нахуй»
-    if settings.SLAVIK_MIMIC_MIN_WORDS < 0:
+    min_words = hot.get("limits.slavik_mimic_min_words",
+                        settings.SLAVIK_MIMIC_MIN_WORDS)
+    if min_words < 0:
         return False
-    if count_words(text) <= settings.SLAVIK_MIMIC_MIN_WORDS:
+    if count_words(text) <= min_words:
         return False
-    cooldown = settings.SLAVIK_MIMIC_COOLDOWN
+    cooldown = hot.get("limits.slavik_mimic_cooldown",
+                       settings.SLAVIK_MIMIC_COOLDOWN)
     if cooldown > 0:
         last = _slavik_mimic_last_sent.get(chat_id)
         if last is not None and (time.monotonic() - last) < cooldown:
@@ -199,27 +205,30 @@ async def slavik_catchall_handler(message: types.Message, data: dict | None = No
         return None
 
     # ── Branch 2: Photo interval (F8) — random media from SLAVIC_RANDOM_DIR ──
-    if _db is not None and settings.SLAVIC_PHOTO_INTERVAL > 0:
+    # T-619: интервал фото — горячая точка (фолбек settings)
+    photo_interval = hot.get("limits.slavic_photo_interval",
+                             settings.SLAVIC_PHOTO_INTERVAL)
+    if _db is not None and photo_interval > 0:
         logger.debug(
             "Slavic photo logic: _db=%s SLAVIC_PHOTO_INTERVAL=%d",
             type(_db).__name__ if _db is not None else "None",
-            settings.SLAVIC_PHOTO_INTERVAL,
+            photo_interval,
         )
         try:
             chat_id = message.chat.id
             should_send = await _db.slavic_photo_count_tick(
-                chat_id, settings.SLAVIC_PHOTO_INTERVAL
+                chat_id, photo_interval
             )
             logger.debug(
                 "Slavic photo: tick result=%s | chat_id=%d | interval=%d",
                 should_send,
                 chat_id,
-                settings.SLAVIC_PHOTO_INTERVAL,
+                photo_interval,
             )
             if should_send:
                 logger.info(
                     "Slavic Photo: interval reached | interval=%d | user_id=%d | chat_id=%d",
-                    settings.SLAVIC_PHOTO_INTERVAL,
+                    photo_interval,
                     message.from_user.id,
                     chat_id,
                 )

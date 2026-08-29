@@ -15,6 +15,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 
 from filters.user_id import UserIdFilter
 from config.settings import settings
+from services import hot_config as hot
 from services.database import DatabaseService
 from handlers.alan_greeting import _send_greeting, _last_greeting, _get_greeting_lock
 
@@ -120,7 +121,7 @@ async def alan_handler(message: types.Message) -> None:
     if alan_db is None:
         return UNHANDLED
 
-    interval = settings.ALAN_REPLY_INTERVAL
+    interval = hot.get("limits.alan_reply_interval", settings.ALAN_REPLY_INTERVAL)
     if interval <= 0:
         logger.warning("ALAN_REPLY_INTERVAL is %d — replies disabled", interval)
         return UNHANDLED
@@ -131,13 +132,18 @@ async def alan_handler(message: types.Message) -> None:
 
     # T-408 (Epic 52): гейт ALAN_REPLIES_ENABLED закрывает ТОЛЬКО reply-блок.
     # Счётчик инкрементится ВСЕГДА (выше гейта); F7v2 silence greeting ниже — БЕЗУСЛОВНО.
-    if settings.ALAN_REPLIES_ENABLED and count % interval == 0:
+    # T-619: флаг/интервалы — горячие точки (фолбек settings).
+    if hot.get("flags.alan_replies_enabled", settings.ALAN_REPLIES_ENABLED) \
+            and count % interval == 0:
         reply_text = random.choice(ALAN_REPLIES)
         logger.debug("Alan reply #%d in chat %d: %s", count, message.chat.id, reply_text)
         await message.reply(reply_text)
 
     # ── F7v2: Silence Greeting (Epic 11) ──
-    silence_hours = settings.ALAN_SILENCE_GREETING_HOURS
+    silence_hours = hot.get("limits.alan_silence_greeting_hours",
+                            settings.ALAN_SILENCE_GREETING_HOURS)
+    greeting_cooldown = hot.get("limits.alan_greeting_cooldown",
+                                settings.ALAN_GREETING_COOLDOWN)
     if silence_hours <= 0:
         logger.debug(
             "F7v2: ALAN_SILENCE_GREETING_HOURS=%.1f — silence greeting disabled",
@@ -159,12 +165,12 @@ async def alan_handler(message: types.Message) -> None:
                         cooldown_ok = True
                         if chat_id in _last_greeting:
                             since_last = now - _last_greeting[chat_id]
-                            if since_last < settings.ALAN_GREETING_COOLDOWN:
+                            if since_last < greeting_cooldown:
                                 cooldown_ok = False
                                 logger.info(
                                     "F7v2: silence greeting for chat %d suppressed by shared cooldown "
                                     "(%.1fs since last greeting, cooldown=%ds)",
-                                    chat_id, since_last, settings.ALAN_GREETING_COOLDOWN,
+                                    chat_id, since_last, greeting_cooldown,
                                 )
 
                         if cooldown_ok:

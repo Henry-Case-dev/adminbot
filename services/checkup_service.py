@@ -8,6 +8,7 @@ import re
 import time
 
 from config.settings import settings
+from services import hot_config as hot
 from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PROMPT
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.memory_health import collect_metrics
@@ -42,9 +43,16 @@ class CheckupService:
     async def checkup(self, logs_text: str, used_fallback: bool) -> str:
         """logs_text = результат fetcher.fetch(); used_fallback → скрытая
         приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4)."""
-        system = CHECKUP_SYSTEM_PROMPT.replace(
-            "{max_symbols}", str(settings.CHECKUP_MAX_SYMBOLS)
-        )
+        # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
+        system_prompt = hot.get("prompts.checkup_system_prompt",
+                                CHECKUP_SYSTEM_PROMPT)
+        max_symbols = hot.get("limits.checkup_max_symbols",
+                              settings.CHECKUP_MAX_SYMBOLS)
+        max_input = hot.get("limits.checkup_max_input_symbols",
+                            settings.CHECKUP_MAX_INPUT_SYMBOLS)
+        metrics_enabled = hot.get("flags.checkup_memory_metrics_enabled",
+                                  self.metrics_enabled)
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         if used_fallback:
             system += "\n\n" + CHECKUP_FALLBACK_NOTICE     # R42-2: ровно 1 раз
         # Epic 49 (57.5, D196): scrub C0 (гипотеза (б) — невалидные управляющие
@@ -54,7 +62,7 @@ class CheckupService:
         # потолок метрик ДО расчёта бюджета, затем логи режутся до
         # (CHECKUP_MAX_INPUT_SYMBOLS − len(секции)) → метрики всегда живы.
         metrics = ""
-        if self.metrics_enabled and self.db is not None:
+        if metrics_enabled and self.db is not None:
             try:
                 metrics = await collect_metrics(self.db, self.memory)
             except Exception:
@@ -66,7 +74,7 @@ class CheckupService:
         metrics_section = (
             "\n\n<memory_health>\n" + metrics + "\n</memory_health>"
         ) if metrics else ""
-        logs_budget = settings.CHECKUP_MAX_INPUT_SYMBOLS - len(metrics_section)
+        logs_budget = max_input - len(metrics_section)
         if len(user_content) > logs_budget:
             logger.warning(
                 "[checkup] input truncated | chars=%d -> %d",

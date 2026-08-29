@@ -37,6 +37,7 @@ import re
 import time
 
 from config.settings import settings
+from services import hot_config as hot
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.llm_client import (
     LLMBadResponseError,
@@ -185,7 +186,8 @@ class DirectChatService:
                 lock = self._chat_locks[chat_id] = asyncio.Lock()
             self._chat_lock_pending[lock] = (
                 self._chat_lock_pending.get(lock, 0) + 1)
-            if len(self._chat_locks) > settings.CHAT_LOCK_MAX_ENTRIES:
+            if len(self._chat_locks) > hot.get("limits.chat_lock_max_entries",
+                                               settings.CHAT_LOCK_MAX_ENTRIES):
                 for cid, candidate in list(self._chat_locks.items()):
                     if cid == chat_id or candidate.locked():
                         continue
@@ -221,9 +223,11 @@ class DirectChatService:
         if remaining > 0:
             # Epic 60 (65.3, T-471): стачка кулдаунов подряд → при достижении
             # CHAT_SILENCE_AFTER_COOLDOWNS — МОЛЧАНИЕ (без фразы R50-7).
-            if settings.CHAT_SILENCE_ENABLED:
+            # T-619: флаги — горячие точки (фолбек settings).
+            if hot.get("flags.chat_silence_enabled", settings.CHAT_SILENCE_ENABLED):
                 streak = await self.silence_streak.bump(chat_id, user_id)
-                if streak >= settings.CHAT_SILENCE_AFTER_COOLDOWNS:
+                if streak >= hot.get("limits.chat_silence_after_cooldowns",
+                                     settings.CHAT_SILENCE_AFTER_COOLDOWNS):
                     logger.warning(
                         "[direct] silent after %d cooldowns | chat=%s user=%s",
                         streak, chat_id, target_name)
@@ -235,7 +239,7 @@ class DirectChatService:
                            chat_id, target_name, remaining)
             return
         # Epic 60 (65.3): успешный допуск сбрасывает стачку.
-        if settings.CHAT_SILENCE_ENABLED:
+        if hot.get("flags.chat_silence_enabled", settings.CHAT_SILENCE_ENABLED):
             await self.silence_streak.reset(chat_id, user_id)
         logger.info("[direct] triggered | chat=%s user=%s", chat_id, target_name)
         # Epic 53 (62.3.3): CB OPEN → БЕЗ вызова LLM (0 запросов в апстрим),
@@ -251,7 +255,9 @@ class DirectChatService:
         # не стоят в очереди); таймаут ожидания → CHAT_LOCK_BUSY_PHRASES.
         lock = await self._get_chat_lock(chat_id)
         try:
-            async with asyncio.timeout(settings.CHAT_LOCK_WAIT_SECONDS):
+            async with asyncio.timeout(
+                    hot.get("limits.chat_lock_wait_seconds",
+                            settings.CHAT_LOCK_WAIT_SECONDS)):
                 await lock.acquire()
         except (asyncio.TimeoutError, TimeoutError):
             self._drop_chat_lock_pending(lock)   # T-501: бронь снята
@@ -270,7 +276,9 @@ class DirectChatService:
             # payload — сохранённый ответ → повторная отправка; "" — прошлый
             # раз без ответа → молчание; None (первый раз/TTL истёк) — обычный
             # поток. Внутри try/finally: ранний return обязан отпустить замок.
-            if self._cache is not None and settings.CHAT_DEDUP_ENABLED and query:
+            if self._cache is not None and hot.get(
+                    "flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED) \
+                    and query:
                 dedup_key = hashlib.md5(
                     f"direct_dedup\x00{chat_id}\x00{user_id}\x00"
                     f"{normalize_text(query)}".encode("utf-8")
@@ -290,7 +298,10 @@ class DirectChatService:
                                     chat_id, target_name)
                     return
             user_blocks = await self._build_user_content(chat_id, message, target_name)
-            payload = build_messages(CHAT_SYSTEM_PROMPT, user_blocks)
+            # T-619: системный промпт — горячая точка (фолбек код-канона)
+            system_prompt = hot.get("prompts.direct_chat_system_prompt",
+                                    CHAT_SYSTEM_PROMPT)
+            payload = build_messages(system_prompt, user_blocks)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
             # или дефолт. Другие пайплайны — без temperature (65.8).
             temperature = settings.tone_temperature(
@@ -388,7 +399,8 @@ class DirectChatService:
         if protected:
             blocks.append(("protected", protected))
         # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
-        if settings.CHAT_MOOD_ENABLED:
+        # T-619: флаг и слова настроения — горячие точки (фолбек settings).
+        if hot.get("flags.chat_mood_enabled", settings.CHAT_MOOD_ENABLED):
             mood = self._build_mood_block((message.text or ""))
             if mood:
                 blocks.append(("mood", mood))
@@ -414,16 +426,25 @@ class DirectChatService:
         ОБЩЕГО бюджета — порядок урезания (сначала дешёвое): Style_Anchors →
         Global_Context → Thread → RAG_Memory → UserResolutionMap.
         Выключено → ровно старые потолки секций (64.7)."""
-        if not settings.CHAT_CONTEXT_BUDGETS_ENABLED:
+        # T-619: бюджеты — горячие точки (фолбек settings)
+        if not hot.get("flags.chat_context_budgets_enabled",
+                       settings.CHAT_CONTEXT_BUDGETS_ENABLED):
             return [text for _, text in blocks]
-        budget = settings.CHAT_CONTEXT_BUDGET_TOKENS
+        budget = hot.get("limits.chat_context_budget_tokens",
+                         settings.CHAT_CONTEXT_BUDGET_TOKENS)
         limits = {
-            "map": max(1, int(budget * settings.CHAT_BUDGET_MAP_RATIO)),
-            "rag": max(1, int(budget * settings.CHAT_BUDGET_RAG_RATIO)),
-            "target": max(1, int(budget * settings.CHAT_BUDGET_TARGET_RATIO)),
-            "global": max(1, int(budget * settings.CHAT_BUDGET_GLOBAL_RATIO)),
-            "thread": max(1, int(budget * settings.CHAT_BUDGET_THREAD_RATIO)),
-            "anchors": max(1, int(budget * settings.CHAT_BUDGET_ANCHORS_RATIO)),
+            "map": max(1, int(budget * hot.get(
+                "limits.chat_budget_map_ratio", settings.CHAT_BUDGET_MAP_RATIO))),
+            "rag": max(1, int(budget * hot.get(
+                "limits.chat_budget_rag_ratio", settings.CHAT_BUDGET_RAG_RATIO))),
+            "target": max(1, int(budget * hot.get(
+                "limits.chat_budget_target_ratio", settings.CHAT_BUDGET_TARGET_RATIO))),
+            "global": max(1, int(budget * hot.get(
+                "limits.chat_budget_global_ratio", settings.CHAT_BUDGET_GLOBAL_RATIO))),
+            "thread": max(1, int(budget * hot.get(
+                "limits.chat_budget_thread_ratio", settings.CHAT_BUDGET_THREAD_RATIO))),
+            "anchors": max(1, int(budget * hot.get(
+                "limits.chat_budget_anchors_ratio", settings.CHAT_BUDGET_ANCHORS_RATIO))),
         }
 
         def truncate(kind: str, text: str) -> str:
@@ -496,30 +517,39 @@ class DirectChatService:
         """65.4: секция <style_anchors> из последних ответов бота (bot_replies,
         ASC). VERBATIM-шаблон; user-блок — R50-4 неприкосновенен. Fail-open:
         ошибка БД → WARNING + без секции."""
-        if not settings.CHAT_STYLE_ANCHORS_ENABLED:
+        if not hot.get("flags.chat_style_anchors_enabled",
+                       settings.CHAT_STYLE_ANCHORS_ENABLED):
             return ""
         try:
             replies = await self.db.last_bot_replies(
-                chat_id, settings.CHAT_STYLE_ANCHORS_COUNT, time.time())
+                chat_id, hot.get("limits.chat_style_anchors_count",
+                                 settings.CHAT_STYLE_ANCHORS_COUNT),
+                time.time())
         except Exception:
             logger.warning("direct: style anchors read failed | chat=%s",
                            chat_id, exc_info=True)
             return ""
         if not replies:
             return ""
+        anchor_cap = hot.get("limits.chat_style_anchor_max_chars",
+                             settings.CHAT_STYLE_ANCHOR_MAX_CHARS)
         body = "\n".join(
-            f"{i}. {t[:settings.CHAT_STYLE_ANCHOR_MAX_CHARS]}"
-            for i, t in enumerate(replies, 1))
+            f"{i}. {t[:anchor_cap]}" for i, t in enumerate(replies, 1))
         return f"<style_anchors>\nвот как ты отвечал недавно, держи тон:\n{body}\n</style_anchors>"
 
     def _build_mood_block(self, query: str) -> str:
         """65.9: лёгкая эвристика по словам (без LLM-вызова). Блок ПОСЛЕ
-        <Target_User>; системный промпт R50-4 НЕ меняется ни на байт."""
+        <Target_User>; системный промпт R50-4 НЕ меняется ни на байт.
+        T-619: слова настроения — горячая точка (фолбек settings)."""
         text = str(query or "").lower()
+        negative = _parse_mood_words(hot.get(
+            "reactions.chat_mood_negative_words", settings.CHAT_MOOD_NEGATIVE_WORDS))
+        positive = _parse_mood_words(hot.get(
+            "reactions.chat_mood_positive_words", settings.CHAT_MOOD_POSITIVE_WORDS))
         mood = None
-        if any(w in text for w in self._mood_negative):
+        if any(w in text for w in negative):
             mood = "зло"
-        elif any(w in text for w in self._mood_positive):
+        elif any(w in text for w in positive):
             mood = "радостно"
         if mood is None:
             return ""
@@ -660,7 +690,8 @@ class DirectChatService:
         (CHAT_GLOBAL_CONTEXT_MAX_TOKENS, срез С КОНЦА; chars — fallback)."""
         summary_text = None
         window_end_ts = None
-        if settings.CHAT_RUNNING_SUMMARY_ENABLED:
+        if hot.get("flags.chat_running_summary_enabled",
+                   settings.CHAT_RUNNING_SUMMARY_ENABLED):
             try:
                 row = await self.db.get_running_summary(chat_id, time.time())
                 if row is not None:
@@ -682,7 +713,8 @@ class DirectChatService:
                 lines.append(f"{name}: {text}")
             body = "\n".join(lines)
         else:
-            recent = window[-settings.CHAT_GLOBAL_CONTEXT_LIMIT:]
+            recent = window[-hot.get("limits.chat_global_context_limit",
+                                     settings.CHAT_GLOBAL_CONTEXT_LIMIT):]
             lines = []
             for row in recent:
                 text = row["text"] or ""
@@ -719,7 +751,8 @@ class DirectChatService:
         chain: list[tuple[str, str]] = []
         current_id = message.message_id
         seen: set[int] = set()
-        for _ in range(settings.CHAT_THREAD_MAX_DEPTH):
+        for _ in range(hot.get("limits.chat_thread_max_depth",
+                               settings.CHAT_THREAD_MAX_DEPTH)):
             if current_id is None or current_id in seen:
                 break
             seen.add(current_id)

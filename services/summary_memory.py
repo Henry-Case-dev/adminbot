@@ -20,6 +20,7 @@ import time
 
 from config.settings import settings
 from services.database import row_get
+from services import hot_config as hot
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
@@ -947,7 +948,9 @@ class MemoryManager:
         )
         fill_threshold = int(settings.CHAT_CONTEXT_FILL_RATIO
                              * settings.SUMMARY_MAX_WINDOW_MESSAGES)
-        if settings.CHAT_RUNNING_SUMMARY_ENABLED and rows and \
+        # T-619: флаг бегущего конспекта — горячая точка (фолбек settings)
+        if hot.get("flags.chat_running_summary_enabled",
+                   settings.CHAT_RUNNING_SUMMARY_ENABLED) and rows and \
                 len(rows) >= fill_threshold:
             try:
                 current = await self.db.get_running_summary(chat_id, time.time())

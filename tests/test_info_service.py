@@ -1,93 +1,53 @@
 """Tests for services/info_service.py (T-339-A/B #15-24, Sections 52.3/53.3/53.7).
 
 ФС-моки: tmp_path + явный путь конструктора. Канон DEFAULT_INFO_TEXT —
-байт-в-байт с Section 53.3 (python + html блоки, якорь «### 53.3»); суть —
-verbatim R44-1 (strip-теги == fenced-блок backlog); инициализация дефолтом;
-load/save/кэш; save_text переживает «рестарт» (новый инстанс на том же пути).
+байт-в-байт с info_text.md (Epic 83, T-599/D306; 84.13: файл — сид-источник
+для PG); rich-структура h1/h2/h4/h5 валидна; суть — R44-1 (полная структура
+секций 1..9); инициализация дефолтом; load/save/кэш; save_text переживает
+«рестарт» (новый инстанс на том же пути).
 """
 import logging
-import re
 from pathlib import Path
 
 import pytest
 
 from services.info_service import DEFAULT_INFO_TEXT, InfoService
 
-_ARCH_53_ANCHOR = "### 53.3 "
-
-
-def _arch_default_info() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 53.3 (python-блок КАНОНА)."""
-    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
-    anchor = next(i for i, line in enumerate(lines) if line.startswith(_ARCH_53_ANCHOR))
-    start = next(
-        i for i, line in enumerate(lines[anchor:], anchor)
-        if line.startswith("DEFAULT_INFO_TEXT = ")
-    )
-    end = next(
-        i for i, line in enumerate(lines[start:], start) if line.endswith('"""')
-    )
-    block = lines[start : end + 1]
-    block[0] = block[0][len('DEFAULT_INFO_TEXT = """'):]
-    block[-1] = block[-1][:-3]
-    return "\n".join(block)
-
-
-def _arch_info_html_block() -> str:
-    """Кросс-эталон: html-блок Section 53.3 (ПЕРВЫЙ ```html ПОСЛЕ якоря)."""
-    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
-    anchor = next(i for i, line in enumerate(lines) if line.startswith(_ARCH_53_ANCHOR))
-    start = next(
-        i for i, line in enumerate(lines[anchor:], anchor) if line.strip() == "```html"
-    )
-    end = next(
-        i for i, line in enumerate(lines[start + 1:], start + 1)
-        if line.strip() == "```"
-    )
-    return "\n".join(lines[start + 1 : end])
-
-
-def _backlog_r44_1_text() -> str:
-    """Verbatim-эталон СУТИ: fenced-блок канона R44-1 в plans/backlog.md."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
-    anchor = next(i for i, line in enumerate(lines) if "Канон R44-1" in line)
-    start = next(
-        i for i, line in enumerate(lines[anchor:], anchor) if line.strip() == "```"
-    ) + 1
-    end = next(
-        i for i, line in enumerate(lines[start:], start) if line.strip() == "```"
-    )
-    return "\n".join(lines[start:end])
-
 
 class TestDefaultInfoText:
-    """#20-24: DEFAULT_INFO_TEXT == канону 53.3 байт-в-байт; валидный HTML;
-    суть verbatim R44-1."""
+    """#20-24 (дельта Epic 83, T-599/D306): DEFAULT_INFO_TEXT == живой канон
+    info_text.md байт-в-байт (84.13: он же — сид-источник для PG); валидный
+    rich-HTML; полная структура секций 1..9."""
 
-    def test_byte_for_byte_with_architecture(self):
-        assert DEFAULT_INFO_TEXT == _arch_default_info()
+    def test_byte_for_byte_with_info_text_file(self):
+        assert (
+            DEFAULT_INFO_TEXT
+            == Path("info_text.md").read_text(encoding="utf-8")
+        )
 
-    def test_byte_for_byte_with_html_block(self):
-        assert DEFAULT_INFO_TEXT == _arch_info_html_block()
+    def test_rich_structure_complete(self):
+        """#20: rich-разметка Epic 83: h1=1, h2=9, h4=30 (инлайн-акценты),
+        h5=9 (тела секций) — счётчики сбалансированы."""
+        assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
+        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 9
+        assert DEFAULT_INFO_TEXT.count("<h4>") == DEFAULT_INFO_TEXT.count("</h4>") == 30
+        assert DEFAULT_INFO_TEXT.count("<h5>") == DEFAULT_INFO_TEXT.count("</h5>") == 9
 
     def test_html_tags_balanced(self):
-        """Epic 71 (T-550): счётчики rich-канона — h1=1, h2=8, b=30, i=30, u=0, a=2."""
-        assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
-        assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 8
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 30
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 30
+        """Epic 71 (T-550): счётчики rich-канона — b=32, i=32, u=0, a=2."""
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 32
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 32
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
 
     def test_no_unbalanced_special_chars(self):
-        stripped = DEFAULT_INFO_TEXT.replace("<h1>", "").replace("</h1>", "")
-        stripped = stripped.replace("<h2>", "").replace("</h2>", "")
-        stripped = stripped.replace("<b>", "").replace("</b>", "")
-        stripped = stripped.replace("<i>", "").replace("</i>", "")
-        stripped = stripped.replace('<a href="https://youtu.be/">', "")
-        stripped = stripped.replace('<a href="https://какой-то-сайт.ru">', "")
-        stripped = stripped.replace("</a>", "")
+        stripped = DEFAULT_INFO_TEXT
+        for tag in ("<h1>", "</h1>", "<h2>", "</h2>", "<h4>", "</h4>",
+                    "<h5>", "</h5>", "<b>", "</b>", "<i>", "</i>",
+                    '<a href="https://youtu.be/">',
+                    '<a href="https://какой-то-сайт.ru">', "</a>"):
+            stripped = stripped.replace(tag, "")
         assert "&" not in stripped and "<" not in stripped and ">" not in stripped
 
     def test_covers_features(self):
@@ -99,8 +59,10 @@ class TestDefaultInfoText:
             assert marker in DEFAULT_INFO_TEXT
 
     def test_canon_matches_backlog_r44_1_essence(self):
-        """#24: снятие всех тегов == verbatim-канону R44-1 (вопрос 6)."""
-        assert re.sub(r"<[^>]+>", "", DEFAULT_INFO_TEXT) == _backlog_r44_1_text()
+        """#24 (дельта Epic 83): снятие всех тегов сохраняет полную структуру
+        секций 1..9 (суть R44-1; живой канон — info_text.md)."""
+        for i in range(1, 10):
+            assert f"<h2>{i}." in DEFAULT_INFO_TEXT
 
 
 class TestInfoServiceFs:

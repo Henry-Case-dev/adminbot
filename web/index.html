@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>AdminBot — Админка</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            card: '#2b2b40',
+            accent: '#8b5cf6',
+            accent2: '#3b82f6',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* ═══ Epic 85 (84.7) — CSS-канон ═══ */
+    [v-cloak] { display: none; }
+
+    :root {
+      --card-bg: rgba(43, 43, 64, 0.55);
+      --card-border: 1px solid rgba(255, 255, 255, 0.08);
+      --accent-grad: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      color: #e5e5f0;
+    }
+
+    body {
+      background: linear-gradient(-45deg, #1a1033, #312e81, #4c1d95, #0f172a);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+      background-attachment: fixed;
+    }
+    @keyframes gradient {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body { animation: none; }
+    }
+
+    /* Glass-карточки (84.7): полупрозрачные — фон просвечивает */
+    .card {
+      background: rgba(43, 43, 64, 0.55);
+      backdrop-filter: blur(20px) saturate(140%);
+      -webkit-backdrop-filter: blur(20px) saturate(140%);
+      border: var(--card-border);
+      border-radius: 1rem;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+    .card-solid {
+      background: rgba(43, 43, 64, 0.8);
+    }
+
+    /* Активные кнопки/выделения — фиолетово-синий градиент */
+    .btn-accent {
+      background: var(--accent-grad);
+      color: #fff;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.55rem 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .btn-accent:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-accent:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.06);
+      border: var(--card-border);
+      border-radius: 0.75rem;
+      padding: 0.5rem 0.9rem;
+      color: #dcdcee;
+      cursor: pointer;
+      transition: background 0.12s ease;
+    }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+    .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-danger {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #fff;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      width: 100%;
+      text-align: left;
+      padding: 0.65rem 0.9rem;
+      border-radius: 0.75rem;
+      color: #b9b9d4;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 0.92rem;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .tab-btn:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+    .tab-btn.active {
+      background: var(--accent-grad);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 4px 18px rgba(139, 92, 246, 0.35);
+    }
+
+    .field {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: var(--card-border);
+      border-radius: 0.6rem;
+      padding: 0.5rem 0.7rem;
+      color: #e5e5f0;
+      outline: none;
+      font-size: 0.9rem;
+    }
+    .field:focus { border-color: #8b5cf6; }
+    textarea.field { font-family: ui-monospace, Consolas, monospace; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .badge-ok    { background: rgba(34, 197, 94, 0.18);  color: #4ade80; }
+    .badge-warn  { background: rgba(234, 179, 8, 0.18);  color: #facc15; }
+    .badge-err   { background: rgba(239, 68, 68, 0.18);  color: #f87171; }
+    .badge-info  { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+    .badge-muted { background: rgba(255, 255, 255, 0.08); color: #9ca3af; }
+
+    .progress {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+    .progress > div {
+      height: 100%;
+      background: var(--accent-grad);
+      transition: width 0.4s ease;
+    }
+
+    /* Логи */
+    .log-row { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; }
+    .log-row:hover { background: rgba(255, 255, 255, 0.04); }
+    .log-exc {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.72rem;
+      white-space: pre-wrap;
+      color: #fca5a5;
+    }
+
+    /* Тосты */
+    .toast-wrap {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-width: 340px;
+    }
+    .toast {
+      padding: 0.7rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.85rem;
+      animation: toast-in 0.25s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      border: var(--card-border);
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .toast-ok    { background: rgba(22, 101, 52, 0.9);   color: #dcfce7; }
+    .toast-err   { background: rgba(127, 29, 29, 0.92);  color: #fee2e2; }
+    .toast-warn  { background: rgba(113, 63, 18, 0.92);  color: #fef3c7; }
+
+    /* Модалка */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    /* Дерево чекбоксов */
+    .tree-child { padding-left: 1.25rem; border-left: 1px solid rgba(255,255,255,0.1); margin-left: 0.4rem; }
+    .tree-node label { display: flex; align-items: center; gap: 0.45rem; padding: 0.14rem 0; cursor: pointer; font-size: 0.85rem; }
+    .tree-node input[type='checkbox'] { accent-color: #8b5cf6; width: 15px; height: 15px; cursor: pointer; }
+
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+    /* Мобильный сайдбар */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        z-index: 40;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        width: 260px;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" v-cloak>
+    <div class="min-h-screen flex">
+      <!-- Сайдбар -->
+      <aside class="sidebar card-solid p-3 flex flex-col gap-1 w-64 shrink-0 md:static"
+             :class="{ open: sidebarOpen }" style="border-radius:0;">
+        <div class="px-2 py-3 text-lg font-bold">
+          <span class="text-transparent bg-clip-text" style="background-image: var(--accent-grad);">AdminBot</span>
+          <span class="text-xs text-gray-400 block">Панель управления</span>
+        </div>
+        <button v-for="tab in visibleTabs" :key="tab.id"
+                class="tab-btn" :class="{ active: activeTab === tab.id }"
+                @click="setTab(tab.id)">
+          <span>{{ tab.icon }}</span><span>{{ tab.label }}</span>
+        </button>
+        <div class="mt-auto px-2 py-3 text-xs text-gray-500">
+          <div v-if="me">Роль: <b class="text-gray-300">{{ me.role_name }}</b></div>
+          <div v-else-if="authError" class="text-red-400">{{ authError }}</div>
+        </div>
+      </aside>
+      <div v-if="sidebarOpen" class="sidebar-backdrop md:hidden" @click="sidebarOpen = false"></div>
+
+      <!-- Основная область -->
+      <div class="flex-1 min-w-0 flex flex-col">
+        <header class="card-solid px-4 py-3 flex items-center gap-3" style="border-radius:0;">
+          <button class="btn-ghost md:hidden" @click="sidebarOpen = !sidebarOpen">☰</button>
+          <div class="text-sm font-semibold">{{ currentTabLabel }}</div>
+          <div class="ml-auto flex items-center gap-2 text-sm">
+            <span v-if="me" class="text-gray-300">
+              {{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}
+            </span>
+            <span v-if="me" class="badge badge-info">{{ me.role_name }}</span>
+          </div>
+        </header>
+
+        <!-- Баннеры -->
+        <div v-if="controlBanner" class="px-4 pt-3">
+          <div class="card p-3 text-sm" :class="controlBanner.kind === 'err' ? 'text-red-300' : 'text-yellow-200'">
+            {{ controlBanner.text }}
+          </div>
+        </div>
+
+        <main class="p-4 grid gap-4 grid-cols-1"
+              style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
+          <!-- ═══ 🧠 Промпты ═══ -->
+          <template v-if="activeTab === 'prompts'">
+            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
+            <div v-else-if="!canViewTab('prompts')" class="card p-6 text-gray-400 col-span-full">Нет доступа к промптам.</div>
+            <div v-for="item in configByCategory('prompts')" :key="item.key" class="card p-4">
+              <div class="text-sm font-semibold mb-1">{{ item.title }}</div>
+              <div class="text-xs text-gray-500 mb-2 font-mono">{{ item.key }}</div>
+              <textarea class="field scroll-thin" rows="7" v-model="item.value"></textarea>
+              <div class="mt-2 flex justify-end">
+                <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                        @click="saveConfigItem(item)">
+                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                </button>
+              </div>
+            </div>
+            <div v-if="!configLoading && configByCategory('prompts').length === 0" class="card p-6 text-gray-400 col-span-full">
+              Промпты ещё не загружены в базу (категория пустая).
+            </div>
+          </template>
+
+          <!-- ═══ ⚙️ Модели и Провайдеры ═══ -->
+          <template v-if="activeTab === 'models'">
+            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
+            <div v-else-if="!canViewTab('models')" class="card p-6 text-gray-400 col-span-full">Нет доступа к моделям.</div>
+            <div v-for="item in configByCategory('models')" :key="item.key" class="card p-4">
+              <div class="text-sm font-semibold mb-1">{{ item.title }}</div>
+              <div class="text-xs text-gray-500 mb-2 font-mono">{{ item.key }}</div>
+              <input class="field" :type="inputType(item)" v-model="item.value">
+              <div class="mt-2 flex justify-end">
+                <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                        @click="saveConfigItem(item)">
+                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- ═══ 🔑 API Ключи ═══ -->
+          <template v-if="activeTab === 'keys'">
+            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
+            <div v-else-if="!canViewTab('keys')" class="card p-6 text-gray-400 col-span-full">Нет доступа к ключам.</div>
+            <div v-for="item in configByCategory('keys')" :key="item.key" class="card p-4">
+              <div class="text-sm font-semibold mb-1">{{ item.title }}</div>
+              <div class="text-xs text-gray-500 mb-2 font-mono">{{ item.key }}</div>
+              <div class="mb-2">
+                <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
+                <span v-else class="badge badge-muted">не настроен</span>
+              </div>
+              <input class="field" type="password" autocomplete="off"
+                     :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
+                     v-model="keyDrafts[item.key]">
+              <div class="mt-2 flex justify-end">
+                <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                        @click="saveKeyItem(item)">
+                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить ключ' }}
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- ═══ 🚦 Лимиты и Модули ═══ -->
+          <template v-if="activeTab === 'limits'">
+            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
+            <div v-else-if="!canViewTab('limits')" class="card p-6 text-gray-400 col-span-full">Нет доступа к лимитам.</div>
+            <template v-for="item in limitsAndFlags">
+              <div :key="item.key" class="card p-4" style="min-width:0;">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold">{{ item.title }}</div>
+                    <div class="text-xs text-gray-500 font-mono truncate">{{ item.key }}</div>
+                  </div>
+                  <label v-if="item.type === 'bool'" class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" class="sr-only peer" v-model="item.value"
+                           @change="saveConfigItem(item)">
+                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                  </label>
+                  <input v-else class="field w-28 shrink-0 text-right" :type="inputType(item)" v-model="item.value">
+                </div>
+                <div class="mt-2 flex justify-end" v-if="item.type !== 'bool'">
+                  <button class="btn-accent text-xs" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                          @click="saveConfigItem(item)">
+                    {{ saving.has(item.key) ? '…' : 'Сохранить' }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </template>
+
+          <!-- ═══ 👥 Управление доступом ═══ -->
+          <template v-if="activeTab === 'access'">
+            <div v-if="!canViewTab('access')" class="card p-6 text-gray-400 col-span-full">
+              Управление доступом доступно только ролям с правом «access».
+            </div>
+            <template v-else>
+              <!-- Админы -->
+              <div class="card p-4">
+                <div class="text-sm font-bold mb-2">Администраторы</div>
+                <div v-if="adminsLoading" class="spinner"></div>
+                <div v-else>
+                  <div v-for="admin in admins" :key="admin.telegram_id"
+                       class="flex items-center justify-between py-1.5 border-b border-white/5 text-sm">
+                    <div>
+                      <b class="font-mono">{{ admin.telegram_id }}</b>
+                      <span class="badge badge-info ml-2">{{ admin.role_name }}</span>
+                    </div>
+                    <button class="btn-ghost text-xs text-red-300" @click="removeAdmin(admin.telegram_id)">Удалить</button>
+                  </div>
+                  <div v-if="admins.length === 0" class="text-gray-500 text-sm py-2">Список пуст.</div>
+                </div>
+                <div class="mt-3 flex gap-2">
+                  <input class="field flex-1" type="number" placeholder="Telegram ID" v-model="newAdminId">
+                  <select class="field w-36" v-model="newAdminRole">
+                    <option v-for="role in rolesList" :key="role.role_name" :value="role.role_name">{{ role.role_name }}</option>
+                  </select>
+                  <button class="btn-accent text-sm" @click="addAdmin()">Назначить</button>
+                </div>
+              </div>
+
+              <!-- Роли -->
+              <div class="card p-4">
+                <div class="text-sm font-bold mb-2">Роли</div>
+                <div v-if="rolesLoading" class="spinner"></div>
+                <div v-else>
+                  <div v-for="role in rolesList" :key="role.role_name"
+                       class="flex items-center justify-between py-1.5 border-b border-white/5 text-sm">
+                    <div class="flex items-center gap-2">
+                      <b>{{ role.role_name }}</b>
+                      <span v-if="role.permissions && role.permissions.wildcard" class="badge badge-warn">wildcard</span>
+                      <span v-else-if="role.permissions && Object.keys(role.permissions).length === 0" class="badge badge-muted">пусто</span>
+                      <span class="badge badge-muted" v-if="role.is_custom">custom</span>
+                    </div>
+                    <button class="btn-ghost text-xs" @click="openRoleEditor(role)">Редактировать</button>
+                  </div>
+                </div>
+                <div class="mt-3 flex gap-2">
+                  <input class="field flex-1" placeholder="Имя новой роли" v-model="newRoleName">
+                  <button class="btn-accent text-sm" @click="createRole()">Создать</button>
+                </div>
+              </div>
+            </template>
+          </template>
+
+          <!-- ═══ 📊 Статус ═══ -->
+          <template v-if="activeTab === 'status'">
+            <!-- F15: 401 — заглушка «сессия устарела» вместо вечного спиннера -->
+            <div v-if="statusError" class="card p-6 text-yellow-200 col-span-full">
+              {{ statusError }}
+            </div>
+            <template v-if="!statusError">
+            <!-- Бот -->
+            <div class="card p-4">
+              <div class="text-sm font-bold mb-2">🤖 Бот</div>
+              <div v-if="!statusData" class="spinner"></div>
+              <div v-else class="text-sm space-y-1.5">
+                <div>Аптайм: <b>{{ humanizeUptime(statusData.bot.uptime_seconds) }}</b></div>
+                <div>Состояние: <span class="badge" :class="stateBadge(statusData.bot.state)">{{ statusData.bot.state }}</span></div>
+                <div>Режим: <b>{{ statusData.bot.mode }}</b> · версия <b>v{{ statusData.bot.version }}</b></div>
+                <div>Ошибок с момента старта: <b :class="statusData.bot.errors_total ? 'text-red-400' : ''">{{ statusData.bot.errors_total }}</b></div>
+                <div class="flex gap-2 pt-2">
+                  <button v-if="hasPerm('action.control.restart')" class="btn-ghost text-sm"
+                          :disabled="controlLocked" @click="requestControl('restart')">
+                    🔄 {{ controlLocked ? controlLockSeconds + 'с' : 'Рестарт' }}
+                  </button>
+                  <button v-if="hasPerm('action.control.stop')" class="btn-ghost text-sm"
+                          :disabled="controlLocked" @click="requestControl('stop')">
+                    ⏹ {{ controlLocked ? controlLockSeconds + 'с' : 'Стоп' }}
+                  </button>
+                  <button v-if="hasPerm('action.control.start')" class="btn-ghost text-sm"
+                          :disabled="controlLocked" @click="requestControl('start')">
+                    ▶ {{ controlLocked ? controlLockSeconds + 'с' : 'Старт' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Сервер -->
+            <div class="card p-4">
+              <div class="text-sm font-bold mb-2">🖥 Сервер</div>
+              <div v-if="!statusData" class="spinner"></div>
+              <div v-else class="text-sm space-y-2">
+                <div>
+                  <div class="flex justify-between text-xs text-gray-400"><span>CPU</span><span>{{ statusData.server.cpu_percent ?? '—' }}%</span></div>
+                  <div class="progress"><div :style="{ width: (statusData.server.cpu_percent || 0) + '%' }"></div></div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-xs text-gray-400">
+                    <span>RAM</span>
+                    <span>{{ fmtBytes(statusData.server.memory.used) }} / {{ fmtBytes(statusData.server.memory.total) }} ({{ statusData.server.memory.percent }}%)</span>
+                  </div>
+                  <div class="progress"><div :style="{ width: statusData.server.memory.percent + '%' }"></div></div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-xs text-gray-400">
+                    <span>Диск</span>
+                    <span>{{ fmtBytes(statusData.server.disk.used) }} / {{ fmtBytes(statusData.server.disk.total) }} ({{ statusData.server.disk.percent }}%)</span>
+                  </div>
+                  <div class="progress"><div :style="{ width: statusData.server.disk.percent + '%' }"></div></div>
+                </div>
+                <div class="text-xs text-gray-400">Load: {{ statusData.server.loadavg ? statusData.server.loadavg.map(x => x.toFixed(2)).join(' / ') : '—' }}</div>
+                <div class="text-xs text-gray-400">PID {{ statusData.server.process.pid }} · RSS {{ statusData.server.process.rss_mb }} МБ · потоков {{ statusData.server.process.threads }}</div>
+              </div>
+            </div>
+
+            <!-- LLM -->
+            <div v-for="card in (statusData ? statusData.llm : [])" :key="card.provider" class="card p-4">
+              <div class="text-sm font-bold mb-1">🧠 {{ card.provider }}</div>
+              <div class="text-xs text-gray-400 mb-2">{{ card.model }}</div>
+              <div class="text-sm space-y-1">
+                <div>
+                  Ключ:
+                  <span v-if="card.key.configured" class="badge badge-ok">configured</span>
+                  <span v-else class="badge badge-muted">нет</span>
+                  <span v-if="card.key.last4" class="badge badge-info ml-1">••••{{ card.key.last4 }}</span>
+                </div>
+                <div>Задержка: <b>{{ card.last_latency_ms != null ? Math.round(card.last_latency_ms) + ' мс' : '—' }}</b></div>
+                <div>
+                  Health:
+                  <span class="badge" :class="healthBadge(card.health)">{{ card.health.status }}</span>
+                  <span v-if="card.health.http_status" class="text-xs text-gray-400 ml-1">HTTP {{ card.health.http_status }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- График аптайма -->
+            <div class="card p-4" style="grid-column: 1 / -1;">
+              <div class="text-sm font-bold mb-2">📈 Аптайм (24ч, бакеты 5 мин)</div>
+              <div v-if="!statusData" class="spinner"></div>
+              <div v-else-if="statusData.uptime.buckets.length === 0" class="text-gray-500 text-sm">Нет данных аптайма.</div>
+              <canvas v-else ref="uptimeCanvas" height="90"></canvas>
+            </div>
+
+            <!-- Логи -->
+            <div class="card p-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <div class="text-sm font-bold">📜 Логи</div>
+                <select class="field w-32" v-model="logLevel">
+                  <option v-for="lvl in ['ALL','DEBUG','INFO','WARNING','ERROR','CRITICAL']" :key="lvl" :value="lvl">{{ lvl }}</option>
+                </select>
+                <button class="btn-ghost text-sm" @click="loadLogs()">Обновить</button>
+                <span class="text-xs text-gray-500">показано {{ logs.length }} из {{ logsCount }}</span>
+                <button class="btn-ghost text-xs ml-auto" @click="copyAllLogs()">Копировать всё</button>
+              </div>
+              <div class="text-xs mb-2">
+                <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
+                <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
+              </div>
+              <div class="max-h-96 overflow-y-auto scroll-thin">
+                <div v-if="logsLoading" class="spinner my-4"></div>
+                <div v-else-if="logs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
+                <div v-for="(log, i) in logs" :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
+                     @click="log.expanded = !log.expanded">
+                  <div class="flex items-start gap-2 flex-wrap">
+                    <span class="badge shrink-0" :class="levelBadge(log.level)">{{ log.level }}</span>
+                    <span class="text-gray-500 shrink-0">{{ fmtLogTs(log.ts) }}</span>
+                    <span class="text-gray-400 shrink-0">{{ log.logger }}</span>
+                    <span class="text-gray-200 flex-1 break-all">{{ log.message }}</span>
+                    <button class="btn-ghost text-xs shrink-0" @click.stop="copyText(logText(log))">Скопировать</button>
+                  </div>
+                  <pre v-if="log.expanded && log.exc_text" class="log-exc mt-1">{{ log.exc_text }}</pre>
+                </div>
+              </div>
+            </div>
+            </template>
+          </template>
+
+          <!-- ═══ ℹ️ Как это работает ═══ -->
+          <template v-if="activeTab === 'info'">
+            <div class="card p-5" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                <div class="text-sm font-bold">ℹ️ Как это работает</div>
+                <span v-if="infoMeta && infoMeta.updated_at" class="text-xs text-gray-500">
+                  обновлено {{ fmtLogTs(infoMeta.updated_at) }}
+                </span>
+                <div class="ml-auto flex gap-2">
+                  <button v-if="canEditInfo" class="btn-ghost text-sm" @click="toggleInfoEditor()">
+                    {{ editingInfo ? 'Просмотр' : 'Редактировать' }}
+                  </button>
+                </div>
+              </div>
+              <div v-if="infoLoading" class="spinner my-6"></div>
+              <template v-else>
+                <template v-if="!editingInfo">
+                  <div class="info-html text-sm leading-relaxed" v-html="sanitizedInfoHtml"></div>
+                </template>
+                <template v-else>
+                  <div class="text-xs text-gray-500 mb-1">{{ infoDraft.length }} / 32768 символов</div>
+                  <textarea class="field scroll-thin" rows="12" v-model="infoDraft" :maxlength="32768"></textarea>
+                  <div class="mt-2 flex gap-2 flex-wrap">
+                    <button class="btn-ghost text-sm" @click="infoPreviewing = !infoPreviewing">
+                      {{ infoPreviewing ? 'Скрыть предпросмотр' : 'Предпросмотр' }}
+                    </button>
+                    <button class="btn-accent text-sm" :disabled="!infoDraft.trim()"
+                            @click="saveInfo()">Сохранить</button>
+                  </div>
+                  <div v-if="infoPreviewing" class="info-html text-sm leading-relaxed mt-3 card p-4"
+                       v-html="sanitizeHtml(infoDraft)"></div>
+                </template>
+              </template>
+            </div>
+          </template>
+        </main>
+      </div>
+    </div>
+
+    <!-- Модалка подтверждения control -->
+    <div v-if="confirmAction" class="modal-backdrop" @click.self="confirmAction = null">
+      <div class="card card-solid p-5 max-w-sm w-full">
+        <div class="text-base font-bold mb-2">Подтверждение</div>
+        <div class="text-sm text-gray-300 mb-4">{{ confirmText }}</div>
+        <div class="flex justify-end gap-2">
+          <button class="btn-ghost text-sm" @click="confirmAction = null">Отмена</button>
+          <button class="btn-danger text-sm" @click="confirmControl()">Выполнить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модалка редактора ролей -->
+    <div v-if="roleEditor.open" class="modal-backdrop" @click.self="closeRoleEditor()">
+      <div class="card card-solid p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto scroll-thin">
+        <div class="text-base font-bold mb-1">Роль «{{ roleEditor.roleName }}»</div>
+        <div class="text-xs text-gray-500 mb-3">Отметьте права; чек секции отмечает всё внутри, частичный чек = indeterminate.</div>
+        <div v-if="roleEditor.loading" class="spinner my-4"></div>
+        <div v-else class="tree-node space-y-2">
+          <div v-if="roleEditor.wildcard" class="badge badge-warn mb-2">Роль имеет полный доступ (wildcard)</div>
+          <div v-for="section in roleEditor.sections" :key="section.id" class="tree-root">
+            <label>
+              <input type="checkbox" :checked="section.checked"
+                     :class="{ 'is-indeterminate': section.indeterminate }"
+                     :ref="el => setIndeterminate(el, section.indeterminate)"
+                     @change="toggleSection(section)">
+              <b>{{ section.title }}</b> <span class="text-gray-500 text-xs">{{ section.id }}</span>
+            </label>
+            <div class="tree-child">
+              <div v-for="param in section.params" :key="param.key">
+                <label>
+                  <input type="checkbox" :checked="param.checked" @change="toggleNode(param)">
+                  <span>{{ param.title }}</span>
+                  <span class="text-gray-500 text-xs font-mono">{{ param.key }}</span>
+                  <span v-if="param.secret" class="badge badge-muted">секрет</span>
+                </label>
+              </div>
+              <div v-for="keyNode in section.keys" :key="keyNode.key">
+                <label>
+                  <input type="checkbox" :checked="keyNode.checked" @change="toggleNode(keyNode)">
+                  <span>{{ keyNode.title }}</span>
+                  <span class="text-gray-500 text-xs font-mono">{{ keyNode.key }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-white/10">
+            <div class="text-sm font-bold mb-1">Действия</div>
+            <div v-for="action in roleEditor.actions" :key="action.id">
+              <label>
+                <input type="checkbox" :checked="action.checked" @change="toggleNode(action)">
+                <span>{{ action.title }}</span>
+                <span class="text-gray-500 text-xs font-mono">{{ action.id }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button class="btn-ghost text-sm" @click="closeRoleEditor()">Закрыть</button>
+          <button class="btn-accent text-sm" :disabled="roleEditor.saving"
+                  @click="saveRole()">{{ roleEditor.saving ? 'Сохранение…' : 'Сохранить роль' }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Тосты -->
+    <div class="toast-wrap">
+      <div v-for="toast in toasts" :key="toast.id" class="toast" :class="'toast-' + toast.kind">
+        {{ toast.text }}
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="/web/app.js"></script>
+  <script>
+    if (window.Telegram && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      Telegram.WebApp.setHeaderColor('#1a1033');
+    }
+  </script>
+</body>
+</html>

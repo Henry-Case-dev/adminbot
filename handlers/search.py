@@ -17,8 +17,10 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
+from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
+    cooldown_refresh,
     cooldown_remaining,
     cooldown_touch,
     make_cooldown,
@@ -103,6 +105,9 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         return UNHANDLED                       # не триггер
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[smartsearch] triggered | chat=%s user=%s", message.chat.id, user_id)
+    # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+    cooldown_refresh(_cooldown, hot.get("limits.search_cooldown_seconds",
+                                        settings.SEARCH_COOLDOWN_SECONDS))
     remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
     if remaining > 0:                          # 5.1 → message.message_id (как ВСЕ ответы поиска)
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)

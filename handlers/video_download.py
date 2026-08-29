@@ -24,7 +24,9 @@ from aiogram.types import FSInputFile, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config.settings import settings
+from services import hot_config as hot
 from services.persistent_throttling import (
+    cooldown_refresh,
     cooldown_remaining,
     cooldown_touch,
     make_cooldown,
@@ -170,6 +172,9 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
         await message.reply(random.choice(VD_NO_LINK_PHRASES))     # consume
         return None
 
+    # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+    cooldown_refresh(_cooldown, hot.get("limits.download_cooldown",
+                                        settings.DOWNLOAD_COOLDOWN))
     remaining = await cooldown_remaining(_cooldown, chat_id, user_id)
     if remaining > 0:
         await message.reply(_cooldown_phrase(remaining))           # consume

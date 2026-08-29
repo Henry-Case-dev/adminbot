@@ -14,6 +14,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
 from services.search_prompts import SEARCH_SYSTEM_PROMPT
@@ -62,8 +63,14 @@ class SearchService:
         4) raw = await self.llm.generate([{system}, {user}])
         5) return cleanup_llm_text(raw)          # R33-7
         Raises: AllSearchEnginesFailedException / LLMError — пробрасываются."""
-        results = await self.aggregator.search(query, settings.SEARCH_MAX_SYMBOLS)
-        if settings.SEARCH_RERANK_ENABLED and results.strip():
+        # T-619: лимит/флаг реранка/промпт — горячие точки (фолбек settings)
+        max_symbols = hot.get("limits.search_max_symbols",
+                              settings.SEARCH_MAX_SYMBOLS)
+        system_prompt = hot.get("prompts.search_system_prompt",
+                                SEARCH_SYSTEM_PROMPT)
+        results = await self.aggregator.search(query, max_symbols)
+        if hot.get("flags.search_rerank_enabled", settings.SEARCH_RERANK_ENABLED) \
+                and results.strip():
             results = await self._rerank_results(query, results)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
@@ -71,9 +78,7 @@ class SearchService:
             rag = await self.memory.get_rag_context(chat_id, query)   # 55.6, никогда не бросает
         else:
             rag = ""
-        system = SEARCH_SYSTEM_PROMPT.replace(
-            "{max_symbols}", str(settings.SEARCH_MAX_SYMBOLS)
-        )
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         ctx_block = f"{chat_context}\n\n" if chat_context else ""
         user = (f"{rag}\n\n" if rag else "") + ctx_block + (
             f"<query>{escape_xml_text(query)}</query>\n\n"

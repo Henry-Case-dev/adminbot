@@ -16,6 +16,7 @@ from aiogram import Router, types
 
 from filters.user_id import UserIdFilter
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,10 @@ KOSTIK_REPLIES = [
 
 @kostik_router.message(UserIdFilter(settings.KOSTIK_USER_ID))
 async def kostik_handler(message: types.Message) -> None:
-    """Reply to Kostik with configurable probability using random phrase."""
-    prob = settings.KOSTIK_REPLY_PROBABILITY
+    """Reply to Kostik with configurable probability using random phrase.
+    T-619: вероятность — горячая точка (фолбек settings)."""
+    prob = hot.get("limits.kostik_reply_probability",
+                   settings.KOSTIK_REPLY_PROBABILITY)
 
     if prob <= 0.0:
         return

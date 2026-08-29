@@ -13,6 +13,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import hot_config as hot
 from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
@@ -41,24 +42,25 @@ class FactCheckService:
         chat_context: str | None = None,
     ) -> str:
         """Фактчек-пайплайн:
-        1) results = await self.aggregator.search(target_text, settings.FACTCHECK_MAX_SYMBOLS)
-        2) system = FACTCHECK_SYSTEM_PROMPT.replace("{max_symbols}", str(settings.FACTCHECK_MAX_SYMBOLS))
+        1) results = await self.aggregator.search(target_text, max_symbols)
+        2) system = FACTCHECK_SYSTEM_PROMPT.replace("{max_symbols}", str(max_symbols))
         3) user = [rag] self.build_user_content(target_text, user_hint, forward_source, results)
         4) raw = await self.llm.generate([{system}, {user}])
         5) return cleanup_llm_text(raw)          # R33-7, ПОСТОЯННО
         Raises: AllSearchEnginesFailedException (поиск) / LLMError (LLM) — пробрасываются в хендлер."""
-        results = await self.aggregator.search(
-            target_text, settings.FACTCHECK_MAX_SYMBOLS
-        )
+        # T-619: лимит и промпт — горячие точки (ConfigCache с settings-фолбеком)
+        max_symbols = hot.get("limits.factcheck_max_symbols",
+                              settings.FACTCHECK_MAX_SYMBOLS)
+        system_prompt = hot.get("prompts.factcheck_system_prompt",
+                                FACTCHECK_SYSTEM_PROMPT)
+        results = await self.aggregator.search(target_text, max_symbols)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 self.memory.memorize_facts(chat_id, results, "search_fact"), "factcheck")
             rag = await self.memory.get_rag_context(chat_id, target_text)
         else:
             rag = ""
-        system = FACTCHECK_SYSTEM_PROMPT.replace(
-            "{max_symbols}", str(settings.FACTCHECK_MAX_SYMBOLS)
-        )
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         user = self.build_user_content(target_text, user_hint, forward_source,
                                        results, chat_context=chat_context)
         if rag:

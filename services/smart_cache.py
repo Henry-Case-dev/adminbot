@@ -20,6 +20,7 @@ import urllib.parse
 import aiosqlite
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -104,19 +105,22 @@ class SmartCache:
     def _sweep_ttl(self) -> int:
         """Порог ленивой чистки: максимум TTL АКТИВНЫХ фич (67.4) —
         дедуп-строки не выметаются раньше своего TTL при маленьком
-        SMART_CACHE_TTL_SECONDS."""
+        SMART_CACHE_TTL_SECONDS. T-619: рубильники — горячие точки."""
         ttls = []
-        if settings.SMART_CACHE_ENABLED:
-            ttls.append(settings.SMART_CACHE_TTL_SECONDS)
-        if settings.CHAT_DEDUP_ENABLED:
-            ttls.append(settings.CHAT_DEDUP_TTL_SECONDS)
+        if hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
+            ttls.append(hot.get("limits.smart_cache_ttl_seconds",
+                                settings.SMART_CACHE_TTL_SECONDS))
+        if hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
+            ttls.append(hot.get("limits.chat_dedup_ttl_seconds",
+                                settings.CHAT_DEDUP_TTL_SECONDS))
         return max(ttls) if ttls else settings.SMART_CACHE_TTL_SECONDS
 
     def _active(self, dedup: bool) -> bool:
         """Какой рубильник гейтит операцию: у дедупа — СВОЙ (67.4),
-        SMART_CACHE_ENABLED на него не влияет."""
-        return (settings.CHAT_DEDUP_ENABLED if dedup
-                else settings.SMART_CACHE_ENABLED)
+        SMART_CACHE_ENABLED на него не влияет. T-619: горячие точки."""
+        if dedup:
+            return hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED)
+        return hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED)
 
     async def _read(self, key: str, ttl_seconds: int) -> str | None:
         db = await self._ensure_db()
@@ -179,7 +183,7 @@ class SmartCache:
     async def set(self, key: str, payload: str) -> None:
         """INSERT OR REPLACE + ленивая очистка: (1) истёкшие по TTL,
         (2) > SMART_CACHE_MAX_ROWS → старейшие. Ошибки БД — WARNING + no-op."""
-        if not settings.SMART_CACHE_ENABLED:
+        if not hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
             return
         await self._write(key, payload, self._sweep_ttl())
 
@@ -190,13 +194,15 @@ class SmartCache:
 
     async def get_dedup(self, key: str) -> str | None:
         """Чтение дедуп-записи. None — первый раз/просрочено; "" — прошлый
-        раз без ответа (молчание); непустая строка — прошлый ответ."""
-        if not settings.CHAT_DEDUP_ENABLED:
+        раз без ответа (молчание); непустая строка — прошлый ответ.
+        T-619: флаг/TTL — горячие точки (фолбек settings)."""
+        if not hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
             return None
-        return await self._read(key, settings.CHAT_DEDUP_TTL_SECONDS)
+        return await self._read(key, hot.get("limits.chat_dedup_ttl_seconds",
+                                             settings.CHAT_DEDUP_TTL_SECONDS))
 
     async def set_dedup(self, key: str, payload: str) -> None:
-        if not settings.CHAT_DEDUP_ENABLED:
+        if not hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
             return
         await self._write(key, payload, self._sweep_ttl())
 

@@ -235,6 +235,15 @@ def make_cooldown(scope: str, cooldown_seconds: float, db):
     return CooldownTracker(cooldown_seconds)
 
 
+def cooldown_refresh(tracker, cooldown_seconds: float) -> None:
+    """T-619 (84.4): актуализировать интервал кулдауна ПЕРЕД проверкой —
+    значение из ConfigCache (hot.get) с фолбеком на settings; после
+    POST /api/config следующий запрос уже с новым интервалом.
+    Совместим с CooldownTracker и PersistentCooldownTracker."""
+    if hasattr(tracker, "_cooldown"):
+        tracker._cooldown = cooldown_seconds
+
+
 async def cooldown_remaining(tracker, chat_id: int, user_id: int) -> float:
     """Хендлер-helper: принимает и sync- (in-memory fallback), и async-
     (persistent) трекер. `await` только если результат — корутина."""

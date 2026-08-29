@@ -16,6 +16,7 @@ import time
 from typing import Awaitable, Callable
 
 from config.settings import settings
+from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, _memorize_youtube, fire_and_forget
@@ -44,17 +45,20 @@ class YoutubeSummarizerService:
     ) -> str:
         """R41-2/D156: on_retry пробрасывается в движок как есть
         (None — ретраи без уведомлений). Остальной пайплайн — 46.8/55.5."""
+        # T-619: лимит и промпт — горячие точки (фолбек settings)
+        max_symbols = hot.get("limits.youtube_max_symbols",
+                              settings.YOUTUBE_MAX_SYMBOLS)
+        system_prompt = hot.get("prompts.youtube_system_prompt",
+                                YOUTUBE_SYSTEM_PROMPT)
         transcript = await self.engine.fetch_transcript(
-            video_id, settings.YOUTUBE_MAX_SYMBOLS, on_retry=on_retry
+            video_id, max_symbols, on_retry=on_retry
         )
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 _memorize_youtube(self.memory, chat_id, transcript), "youtube")
         rag = await self.memory.get_rag_context(chat_id, rag_query) if (
             self.memory and chat_id is not None and rag_query) else ""
-        system = YOUTUBE_SYSTEM_PROMPT.replace(
-            "{max_symbols}", str(settings.YOUTUBE_MAX_SYMBOLS)
-        )
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
         user = (f"{rag}\n\n" if rag else "") + (
             f"<video_id>{video_id}</video_id>\n\n"
             f"<transcript>{escape_xml_text(transcript)}</transcript>"

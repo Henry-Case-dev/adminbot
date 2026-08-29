@@ -73,3 +73,29 @@ services:
     container_name: adminbot-bgutil-pot
     restart: unless-stopped
     network_mode: "host"
+
+  # Epic 85 (84.8): PostgreSQL 16 для TMA Admin Dashboard (bot_settings/
+  # bot_roles/bot_admins/uptime_events). Порт ТОЛЬКО на 127.0.0.1 (конвенция
+  # проекта: наружу светят только 22/443). Пароль — из прод .env
+  # (${POSTGRES_PASSWORD:?required}); секреты в git НЕ попадают.
+  postgres:
+    image: postgres:16-alpine
+    container_name: adminbot-postgres
+    restart: unless-stopped
+    command: postgres -c max_connections=50 -c shared_buffers=128MB
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-adminbot}"
+      POSTGRES_USER: "${POSTGRES_USER:-adminbot}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?required}"
+    volumes:
+      - adminbot_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-adminbot} -d ${POSTGRES_DB:-adminbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  adminbot_pgdata:
