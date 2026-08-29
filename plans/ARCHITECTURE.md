@@ -15604,3 +15604,311 @@ sudo systemctl restart admin_bot
 (5) Smoke: `/info` отдаёт rich без падения в legacy/plain; `/edit_info <текст>` превью в DM работает. Если `info_text.md.bak.epic83` СОДЕРЖАТЕЛЬНО отличается от новой git-версии — отчёт PM с diff (правки пользователя не теряются). Rollback: `cp info_text.md.bak.epic83 info_text.md` + restart.
 
 **DoD T-599:** вердикт синтаксиса зафиксирован (D306), нормализация тегов определена (D307), прод-процедура оформлена каноном (D308), тест-план готов (D309) — READY FOR BUILDER (T-599) и DevOps (T-601).
+
+---
+
+# 84. Epic — Telegram Mini App Admin Dashboard, Dynamic RBAC & UI
+
+> **Статус:** DESIGN (@Architect, шаг 3/3). **HARD STOP** — код пишется только после явной команды человека (шаг 5 пайплайна).
+> **Дельта 30.08.2026 (решения человека 1–5):** добавлена **84.11 Status/Health Dashboard** («📊 Статус» доступен ВСЕМ ролям); aiogram **>=3.31** — обязательное обновление; GraphRAG остаётся на SQLite (вне скоупа Epic 85); маскировка ключей confirmed (configured/last4); media/srv_cookies.txt не нужен.
+> **Дата:** 2026-08-30
+> **Целевая версия:** v2.50.0 (условно; назначит PM)
+
+## 84.1 Резюме ресерча (ключевые выводы + источники)
+
+**a) FastAPI + Aiogram 3.x в одном процессе/event loop.**
+- Канонический паттерн: запускать uvicorn программно через `uvicorn.Server(config).serve()` из уже работающего async-контекста, а polling aiogram — фоновой таской `asyncio.create_task()` в ТОМ ЖЕ loop. `uvicorn.run()` внутри корутины падает (`asyncio.run() cannot be called from a running event loop`); потоки ломают aiogram (`Task attached to a different loop`).
+- Источники: https://stackoverflow.com/questions/73055856 (FastAPI+aiogram one event loop), https://stackoverflow.com/questions/76142431 (разбор ошибок двух loop, рецепт `server.serve()`), https://uvicorn.org/#config-and-server-instances (официальный рецепт uvicorn в работающем loop), https://community.latenode.com/t/26622 (живой кейс aiogram+FastAPI в одном loop).
+- Вывод: один `asyncio.run(main())`; `polling = create_task(dp.start_polling(bot))`; `await server.serve()`; в `finally` — cancel polling + `on_shutdown()`.
+
+**b) Валидация initData Telegram WebApp (Python).**
+- Официальный алгоритм: `data_check_string` = все пары `key=value` кроме `hash`, отсортированные по ключу, склеенные `\n`; `secret_key = HMAC_SHA256(key="WebAppData", msg=BOT_TOKEN)`; ожидаемый `hash = hex(HMAC_SHA256(data_check_string, secret_key))`; плюс проверка свежести `auth_date` (Unix timestamp).
+- Источники: https://core.telegram.org/bots/webapps (поле `initData`, прямое предупреждение «WARNING: Validate data from this field before using it»), https://docs.telegram-mini-apps.com/platform/init-data (пошаговый алгоритм, примеры), https://docs.aiogram.dev/en/v3.24.0/utils/web_app.html.
+- **Подтверждено локально:** в venv (aiogram 3.29.1) есть `aiogram.utils.web_app.safe_parse_webapp_init_data(token, init_data)` — используем её вместо ручного HMAC.
+
+**c) Vue 3 + Tailwind CDN, zero-build, визуал.**
+- Vue 3: global build `https://unpkg.com/vue@3/dist/vue.global.prod.js` → `Vue.createApp({data, methods, computed}).mount('#app')` (Options API без SFC). Tailwind: Play CDN `https://cdn.tailwindcss.com` (v3) или `https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4` (v4), кастом через `tailwind.config` / `<style type="text/tailwindcss">`.
+- Источники: https://vuejs.org/guide/quick-start#using-vue-from-cdn, https://tailwindcss.com/docs/installation/play-cdn, https://asifr.com/vue/ (zero-build шаблон).
+- Анимированный градиент (канон из EPIC): `background: linear-gradient(-45deg, …); background-size: 400% 400%; animation: gradient 15s ease infinite;` + `@keyframes` переключения `background-position` 0%→100%→0%. Источник: https://javascript.plainenglish.io/7-css-gradient-background-animations-that-wow-users-7bc8583955c7.
+- Glassmorphism: полупрозрачный фон + `backdrop-filter: blur(20px) saturate(140%)` + тонкая светлая рамка; карточки пропускают анимацию фона. Источники: https://codefronts.com/motion/css-gradient-animation/css-glassmorphism-moving-backdrop/ (blur+blob-паттерн), https://gosnippets.com/tailwind/glassmorphism-bento-grid-saas-dashboard-card (Tailwind-вариант).
+- MatDash-паттерн: тёмная тема, левый сайдбар, верхний хэдер, grid карточек; базовый цвет карточки `#2b2b40` → в glass-версии `rgba(43,43,64,0.55)`.
+
+## 84.2 Разведка кодовой базы (находки, риски)
+
+**Находки:**
+- Вход: `bot.py` → `asyncio.run(main())` → `on_startup()` (инициализация SQLite-БД + ~20 сервисов) → `dp.start_polling(bot)` → `on_shutdown()`. Режим — **polling**, один процесс.
+- aiogram в venv **3.29.1** (requirements: `>=3.31.0,<4.0.0` — venv отстаёт от ограничения; `safe_parse_webapp_init_data` уже есть). **Решение человека (30.08.2026):** aiogram обновить до **>=3.31** (последняя стабильная 3.x) — обязательная задача EPIC: `pip install -U "aiogram>=3.31,<4"` в Фазе 5 + полный pytest после апгрейда (DoD 84.10 п.10).
+- Конфиг: `config/settings.py` — frozen dataclass `Settings` (~100 полей), грузится из `.env` **в момент импорта**; сервисы читают `settings.X` при конструировании. Для динамики нужен ConfigCache + чтение в горячих точках.
+- БД: SQLite (`aiosqlite`, `services/database.py`, `PRAGMA user_version`-миграции в коде). **Нет** SQLAlchemy/asyncpg. PostgreSQL — новый компонент; решение: **asyncpg напрямую** (без ORM, 3 таблицы, минимальные зависимости).
+- `docker-compose.yml`: 3 сервиса (telegram-bot-api, cobalt, bgutil pot-provider); конвенция «порты только на 127.0.0.1»; бот — хост-процесс под systemd `admin_bot`. Postgres добавляем 4-м сервисом, порт `127.0.0.1:5432`.
+- Деплой: прод `198.46.175.136:/var/www/admin_bot`, systemd-юнит `admin_bot`, paramiko-скрипты `deploy_*.py` в корне. Web-порт 8000 (uvicorn внутри бота), ngrok-домен готов.
+- Тесты: pytest + pytest-asyncio, 100+ файлов; `tests/test_docker_compose.py` (нужно дополнить postgres-сервисом); `tests/conftest.py` — добавить ConfigCache-стаб.
+- `plans/ARCHITECTURE.md` — append-контракт секций 1–83 (настоящая секция — 84).
+
+**Риски и митигации:**
+| Риск | Митигация |
+|---|---|
+| R1. `settings` — снапшот при импорте; массовая переписка кода | Фазная миграция (84.8); `settings` остаётся источником дефолтов; кэш читается только в горячих точках |
+| R2. Два event loop | Один `asyncio.run`; uvicorn только через `server.serve()` |
+| R3. uvloop недоступен на Windows-деве | uvicorn `loop="auto"` (asyncio на Windows, uvloop на Linux-проде — ок) |
+| R4. Play CDN Tailwind в проде | Приемлемо (внутренний дашборд, HTTPS-домен); fallback — скомпилированный CSS в `web/vendor/` |
+| R5. Секреты (API-ключи) в БД | GET /api/config маскирует keys-категорию для ролей без права `keys` (только факт configured + last4) |
+| R6. PG недоступен при старте бота | ConfigCache.init() с retry-циклом и WARNING; SQLite-функциональность бота не блокируется |
+| R7. Регрессии тестов | Расширить conftest; полный pytest в DoD |
+| R8. Открытие дашборда вне Telegram | Все /api-маршруты требуют валидный initData — это фича безопасности |
+| R9. psutil отсутствует в зависимостях | Добавить `psutil>=5.9` в requirements.txt (Фаза 5); `getloadavg()` есть только на Linux — на Windows-деве `null` (фронт рисует «—») |
+| R10. Ring-buffer логов теряется при рестарте | Приемлемо: раздел показывает «последние логи» с момента старта; история аптайма персистентна в PG (`uptime_events`, 84.11.3) |
+
+**Границы скоупа (решения человека, 30.08.2026):** (1) GraphRAG остаётся на SQLite — **ВНЕ скоупа Epic 85**; миграция GraphRAG → PostgreSQL — отдельный будущий эпик (в Epic 85 в PG появляются ТОЛЬКО таблицы из 84.3 + `uptime_events` из 84.11.3). (2) `media/srv_cookies.txt` не нужен (в git не попадёт). (3) Файлы `plans/` коммитятся. (4) aiogram >=3.31 — обязательное обновление (см. находки выше). (5) Маскировка ключей: роли без права `keys` видят только configured/last4 — и в `/api/config` (R5), и в LLM-карточках `/api/status` (84.11.2).
+
+## 84.3 Схема БД (PostgreSQL 16, asyncpg)
+
+DDL (идемпотентный, выполняется при старте `services/pg_db.py`):
+
+```sql
+CREATE TABLE IF NOT EXISTS bot_settings (
+    key        TEXT PRIMARY KEY,
+    value      JSONB NOT NULL,
+    category   TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_bot_settings_category ON bot_settings (category);
+
+CREATE TABLE IF NOT EXISTS bot_roles (
+    role_name   TEXT PRIMARY KEY,
+    permissions JSONB NOT NULL DEFAULT '[]',
+    is_custom   BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS bot_admins (
+    telegram_id BIGINT PRIMARY KEY,
+    role_name   TEXT NOT NULL REFERENCES bot_roles (role_name)
+                ON UPDATE CASCADE ON DELETE RESTRICT,
+    added_by    BIGINT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_bot_admins_role ON bot_admins (role_name);
+```
+
+**Миграции:** raw SQL при старте (`CREATE TABLE IF NOT EXISTS`), сид — `INSERT … ON CONFLICT DO NOTHING`. Alembic не вводим (проект без ORM; 3 таблицы; конвенция проекта — миграции в коде, прецедент `PRAGMA user_version`).
+
+**Сид bot_settings** (значения = текущие прод-значения из .env/settings.py; точный экспорт — скрипт `scripts/migrate_env_to_pg.py`, 84.8):
+- `prompts`: `factcheck_system_prompt`, `direct_chat_system_prompt` (R50-4), `summary_system_prompt`, `checkup_system_prompt`.
+- `models`: `llm_base_url` (`https://apinet.cloud/v1`), `llm_model_name` (`deepseek-v4-flash`), `embedding_model_name` (`gemini-embedding-001`), `llm_fallback_base_url`, `llm_fallback_model` (пустые).
+- `keys`: `llm_api_key`, `groq_api_key`, `openrouter_api_key`, `tavily_api_key`, `exa_api_key` (значения из прод .env; пусто = уровень каскада выключен).
+- `limits`: `search_max_symbols`, `factcheck_max_symbols`, `youtube_max_symbols`, `webpage_max_symbols` (8000), `checkup_max_symbols` (3000), `checkup_max_input_symbols` (40000), `summary_max_context_tokens` (60000), `chat_context_budget_tokens` (24000), `voice_max_duration_seconds` (600), cooldown-значения (search/factcheck/youtube/webpage/checkup 300с, `summary_throttle_seconds` 60с).
+- `flags`: `summary_enabled`, `direct_chat_botword_enabled`, `voice_transcription_enabled`, `factcheck_enabled`, `search_enabled`, `youtube_enabled`, `web_enabled`.
+
+**Сид bot_roles:**
+```sql
+INSERT INTO bot_roles (role_name, permissions, is_custom) VALUES
+  ('admin',     '["prompts","models","keys","limits","access"]', false),
+  ('moderator', '["limits"]', false),
+  ('user',      '[]', false);
+```
+
+**Сид bot_admins (КРИТИЧНО):**
+```sql
+INSERT INTO bot_admins (telegram_id, role_name, added_by) VALUES
+  (5885953495, 'admin',     NULL),
+  (1313107079, 'moderator', NULL),
+  (134812796,  'moderator', NULL);
+```
+
+**Решение об именах прав:** модульные имена (`prompts`, `models`, `keys`, `limits`, `access`) — канон; `requires_permission("prompts")` проверяет вхождение в JSON-массив роли. Категория `flags` защищается правом `limits` (общий «Лимиты и Модули»).
+
+## 84.4 ConfigCache + один event loop
+
+`services/config_cache.py`:
+```python
+class ConfigCache:
+    def __init__(self, dsn: str): ...
+    async def init(self) -> None                     # retry-loop + WARNING (R6); грузит bot_settings → dict[key, JSON]
+    def get(self, key: str, default=None)            # sync-чтение словаря
+    async def set(self, key: str, value, category: str) -> None  # upsert PG + in-memory (asyncio.Lock)
+    async def get_permissions(self, telegram_id: int) -> list[str]  # bot_admins JOIN bot_roles → permissions
+    async def reload(self) -> None
+```
+Кэш ролей/админов тоже in-memory (таблицы маленькие; обновляется при POST /api/admins|/api/roles).
+
+**Порядок старта (переработка `main()` в bot.py или новый `webapp.py`):**
+```
+asyncio.run(main()):
+  cache = ConfigCache(POSTGRES_DSN); await cache.init()
+  await on_startup(cache)                    # существующая инициализация + инъекция кэша в сервисы
+  app = create_app(cache)                    # FastAPI-фабрика; app.state.cache = cache (общий объект aiogram+FastAPI)
+  server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=WEB_PORT))
+  polling = asyncio.create_task(dp.start_polling(bot))
+  try: await server.serve()
+  finally: polling.cancel(); await on_shutdown()
+```
+**Применение правил без рестарта:** горячие точки бота читают `cache.get(...)` на каждое использование — промпты (сборка контекста factcheck/direct_chat/summary/checkup), лимиты символов, cooldown-ы (троттлы создаются/перечитываются на запрос), API-ключи (LLMClient берёт ключ из кэша на вызов), флаги модулей (проверка в обработчике). POST /api/config → `cache.set` → следующее обращение бота уже с новым значением.
+
+## 84.5 REST API (все маршруты под /api; заголовок `X-Telegram-Init-Data` обязателен)
+
+| Метод/путь | Право | Тело запроса → ответ |
+|---|---|---|
+| `GET /api/health` | без auth | → `{"status":"ok"}` (для ngrok/мониторинга) |
+| `GET /api/me` | валидный initData | → `{telegram_id, role_name, permissions[], is_custom}`; нет роли → 403 `{"detail":"no role","permissions":[]}` |
+| `GET /api/config` | любая роль | → `[{key, value, category, updated_at}]`; категория `keys` без права `keys` → `{"configured":true,"last4":"…"}` |
+| `POST /api/config` | по категории: prompts/models/keys→свои; limits,flags→`limits` | `{items:[{key,value,category}]}` → `{updated:[keys]}` |
+| `GET /api/admins` | `access` | → `[{telegram_id, role_name, added_by, created_at}]` |
+| `POST /api/admins` | `access` | `{telegram_id, role_name}` (upsert) → `{telegram_id, role_name}`; несуществующая роль → 422 |
+| `POST /api/admins/remove` | `access` | `{telegram_id}` → `{removed:true}`; последний admin — guard 409 |
+| `GET /api/roles` | `access` | → `[{role_name, permissions[], is_custom}]` |
+| `POST /api/roles` | `access` | `{role_name, permissions[], is_custom=true}` (upsert кастомной) → роль; правка системной (is_custom=false) → 409 |
+| `GET /api/status` | валидный initData, **любая роль — БЕЗ `requires_permission`** (RBAC-исключение, 84.11) | → сводка bot/server/llm/uptime (84.11.4) |
+| `GET /api/status/logs?level=&limit=` | валидный initData, **любая роль — БЕЗ `requires_permission`** (84.11) | → `{count, logs:[{ts,level,logger,message,exc_text}]}` из ring-buffer (84.11.1) |
+
+Коды ошибок: 400 (bad JSON), **401** (невалидный initData/auth_date), **403** (нет права), 404 (нет ключа/админа/роли), 409 (конфликт), 422 (невалидные поля), 500.
+
+## 84.6 Безопасность
+
+`web/api/deps.py`:
+- `get_tma_user(request, x_telegram_init_data: str = Header(...))` → `aiogram.utils.web_app.safe_parse_webapp_init_data(token=settings.API_TOKEN, init_data=…)` (ValueError → 401). Дополнительно: `now - auth_date > 86400` → 401 (свежесть 24 ч).
+- Из parsed `user.id` → `cache.get_permissions()` → в `request.state`.
+- `requires_permission(perm: str)` — фабрика FastAPI-dependency: нет права → 403.
+- GET-политика: `/api/me`, `/api/status`, `/api/status/logs` — любой валидный TMA-юзер (Status — RBAC-исключение, 84.11); `/api/config` — любая роль с маскировкой секретов; `/api/admins`, `/api/roles` — только `access`.
+- BOT_TOKEN для HMAC — из `.env` (`API_TOKEN`), единственный источник.
+
+## 84.7 Статика и фронтенд (zero-build)
+
+- Монтирование: `app.mount("/web", StaticFiles(directory="web", html=True))` + `GET /` → RedirectResponse(`/web/`).
+- Файлы: `web/index.html`, `web/app.js`, `web/style.css`.
+- `index.html`: `vue.global.prod.js` (unpkg), Tailwind Play CDN (`cdn.tailwindcss.com`), `Telegram.WebApp.ready()`/`expand()`, `tailwind.config` с кастомными цветами (фон `#2b2b40`, акценты `#8b5cf6` фиолетовый / `#3b82f6` синий).
+- `app.js` (Options API): `data` {activeTab, me, config, admins, roles}; `mounted` → `/api/me` → computed-список вкладок по `permissions`; fetch-обёртка добавляет `X-Telegram-Init-Data = Telegram.WebApp.initData` ко всем запросам; вкладки: 🧠 Промпты (textarea-карточки), ⚙️ Модели и Провайдеры, 🔑 API Ключи (маскированные input), 🚦 Лимиты и Модули (числа + toggle-флаги), 👥 Управление доступом (таблица админов + форма добавления + конструктор ролей чекбоксами), 📊 Статус (84.11; **ВСЕГДА видима** — RBAC-исключение).
+- CSS-план (КРИТИЧНО по EPIC): body `linear-gradient(-45deg, #1a1033, #312e81, #4c1d95, #0f172a)`, `background-size: 400% 400%`, `animation: gradient 15s ease infinite`; `@keyframes gradient` — сдвиг `background-position` 0%↔100%; `prefers-reduced-motion` отключает анимацию. Карточки: `background: rgba(43,43,64,0.55)`, `backdrop-filter: blur(20px) saturate(140%)` (+`-webkit-`), `border: 1px solid rgba(255,255,255,0.08)`, `border-radius: 1rem` (rounded-xl/2xl), `box-shadow: 0 8px 30px rgba(0,0,0,.35)`. Активные кнопки: `linear-gradient(135deg, #8b5cf6, #3b82f6)`. Layout: сайдбар слева, хэдер сверху, main-grid `repeat(auto-fill, minmax(320px, 1fr))`; `Telegram.WebApp.setHeaderColor`.
+
+## 84.8 docker-compose (добавление сервиса)
+
+```yaml
+  postgres:
+    image: postgres:16-alpine
+    container_name: adminbot-postgres
+    restart: unless-stopped
+    command: postgres -c max_connections=50 -c shared_buffers=128MB
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-adminbot}"
+      POSTGRES_USER: "${POSTGRES_USER:-adminbot}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?required}"
+    volumes:
+      - adminbot_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-adminbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  adminbot_pgdata:
+```
+`.env` (новые ключи): `POSTGRES_DSN=postgresql://adminbot:<pass>@127.0.0.1:5432/adminbot`, `WEB_PORT=8000`. Конвенция «только 127.0.0.1» сохранена.
+
+## 84.9 План миграции .env → PostgreSQL (фазы)
+
+- **Фаза 0:** `docker compose up -d postgres`; добавить `POSTGRES_DSN`/`WEB_PORT` в .env.
+- **Фаза 1:** `services/pg_db.py` (DDL+сид), `ConfigCache`, скрипт `scripts/migrate_env_to_pg.py` (однократный идемпотентный экспорт текущих значений прод .env в `bot_settings`).
+- **Фаза 2:** интеграция кэша в `bot.py` (84.4); инъекция кэша в горячие точки (промпты, лимиты, cooldowns, ключи, флаги). `settings.py` остаётся дефолтами.
+- **Фаза 3:** FastAPI-фабрика `create_app`, deps (84.6), REST (84.5), статика `/web`.
+- **Фаза 4:** фронтенд `web/` (84.7).
+- **Фаза 5:** тесты + деплой.
+- **Правило R1:** каждый параметр переводится на кэш независимо; до перевода поведение = дефолт из `settings`. В `.env` остаются ТОЛЬКО инфраструктурные/секретные: `API_TOKEN`, `POSTGRES_DSN`, `WEB_PORT`, `DB_PATH` (sqlite), `TELEGRAM_API_ID/HASH`, `SENTRY_DSN`, `LOGTAIL_SOURCE_TOKEN`, cobalt-прокси.
+
+## 84.10 DoD
+
+1. HMAC-валидация на известном векторе из https://docs.telegram-mini-apps.com/platform/init-data (юнит-тест).
+2. `requires_permission` и 403/401-матрица; сид-набор (роли+КРИТИЧНЫЕ telegram_id) проверяется тестом.
+3. `ConfigCache` upsert/маскировка; `/api/me` по трём ролям.
+4. Регрессия: полный pytest зелёный; `test_docker_compose.py` дополнен postgres-сервисом.
+5. Human Setup Guide выполнен человеком (планы ниже) → HARD STOP → команда человека → PM (декомпозиция).
+6. `/api/status` — сводка bot/server/llm/uptime корректна; LLM-ключи без права `keys` → `{configured, last4}` (юнит-тест).
+7. `/api/status/logs` — фильтр `level`/`limit`; `sanitize()` маскирует секреты (юнит-тест: Bearer-токен, `sk-`-префикс, литерал API_TOKEN).
+8. `LogRingHandler` — maxlen, exc_text, счётчик `errors_total` (юнит-тест).
+9. `uptime_events`: DDL идемпотентен, heartbeat пишет строку, автоочистка 72ч (тест).
+10. aiogram >=3.31 установлен в venv; полный pytest зелёный после апгрейда (решение человека п.3).
+
+---
+
+## 84.11 Status/Health Dashboard — раздел «📊 Статус» (ДЕЛЬТА, решения человека 30.08.2026)
+
+> НОВОЕ ТРЕБОВАНИЕ: раздел с ВСЕМИ показателями здоровья доступен АБСОЛЮТНО ВСЕМ валидным TMA-юзерам (любая роль, включая пустые права `[]`). **Исключение из RBAC-скрытия вкладок** (84.7); TMA-авторизация по initData остаётся обязательной (401 без неё).
+
+### 84.11.1 Источник логов: in-memory ring buffer (НЕ Logtail API)
+
+**Разведка (факты из кодовой базы):** логи пишутся ТОЛЬКО в консоль (systemd journal на проде) и, при `LOGTAIL_SOURCE_TOKEN`, в Better Stack Logtail (`bot.py`: `logging.basicConfig(level=INFO, handlers=[StreamHandler, LogtailHandler?])`); Sentry — только ошибки (`sentry_sdk.init` по `SENTRY_DSN`). **Файлов логов нет** (нет FileHandler/TimedRotatingFileHandler). Все ~80 модулей — `logging.getLogger(__name__)`.
+
+**Решение:** `services/log_ring.py` — `LogRingHandler(logging.Handler)` на root-logger + `collections.deque(maxlen=LOG_RING_MAX_ENTRIES)` (дефолт **1000**, env `LOG_RING_MAX_ENTRIES`). Подключается в `bot.py` рядом с `basicConfig`. Отказ от запросов к Logtail API из TMA: (a) 0 сетевых вызовов и задержек; (b) не раскрываем `LOGTAIL_SOURCE_TOKEN` в веб-слое; (c) нет rate-limit/квот Better Stack.
+
+Структура записи (одна строка на LogRecord):
+```json
+{"ts": "2026-08-30T12:34:56+05:00", "level": "ERROR", "logger": "services.llm_client",
+ "message": "LLM server error 500 after 3 attempts", "exc_text": "Traceback…" | null}
+```
+- `exc_text` — из `record.exc_info` через `traceback.format_exception`, усекается до 4000 символов; без исключения — `null`.
+- `Filter` отбрасывает логгеры `logtail*` (иначе бесконечная рекурсия с LogtailHandler).
+- Счётчик ошибок для /api/status: `errors_total` = накопленное число записей level >= ERROR с момента старта.
+
+**Маскировка секретов (правило замены; применяется в `emit` ДО записи в буфер; тот же фильтр — на сообщения в Logtail):** `sanitize(text)`:
+1. литеральные значения известных секретов (`API_TOKEN`, `llm_api_key`, `groq_api_key`, `openrouter_api_key`, `tavily_api_key`, `exa_api_key`, пароль из `POSTGRES_DSN`) → `"***"` (самое надёжное — точная замена);
+2. `Authorization: Bearer <токен>` → `Bearer ***`;
+3. префиксные паттерны `sk-…`, `gsk_…`, `or-…`, `tvly-…` → первые 4 символа + `***`;
+4. URI-креды `://user:pass@` → `://***@`.
+Канон R17: в логах — только факт configured, никогда значения.
+
+### 84.11.2 Метрики (`services/status_service.py`, singleton `status`)
+
+- **Сервер — psutil** (НОВАЯ зависимость `psutil>=5.9` в requirements, Фаза 5): `cpu_percent`, `virtual_memory`, `disk_usage("/")`, `getloadavg()` (Linux; на Windows-деве отсутствует → `null`), `psutil.Process(os.getpid())` → rss_mb/threads/cpu.
+- **Бот:** `started_at = time.monotonic()` первой строкой `main()`; `uptime = now - started_at`; `state` = `"starting"` | `"polling"` | `"polling_error"` (задача polling `done()` с exception); `mode` = `"polling"` + `local_api: bool` (`settings.DOWNLOAD_ENABLED`); `version` — новая константа `APP_VERSION` (заводится в `config/settings.py` или `webapp.py`; синхронизировать с changelog MEMORY.md при релизах); `errors_total` — из 84.11.1.
+- **LLM — реестр из ConfigCache** (категории `models`/`keys`, 84.3):
+  1. `deepseek` — `llm_base_url` (apinet.cloud) + `llm_model_name` (+ фоллбэк `LLM_FALLBACK_*`, если настроен);
+  2. `groq` — `groq_api_key` + модель транскрибера (whisper);
+  3. `openrouter` — `openrouter_api_key` + модель транскрибера.
+  Поля карточки: `provider`, `model`, `key:{configured, last4}` (**без права `keys` — только configured/last4, решение 5**), `last_latency_ms`, `health:{ok, http_status, latency_ms, checked_at}`.
+- **Замер латентности:** `LLMClient._post` и транскриберы (groq/openrouter) вызывают `status.record_llm(provider, latency_ms, error)` (time.monotonic до/после запроса; `status_service` не импортирует `llm_client` — циклических зависимостей нет).
+- **Health-check (лёгкий, без генераций):** `GET {base}/models` (OpenAI-совместимо у всех трёх провайдеров) с таймаутом 5с; выполняется только по запросу /api/status, результат кэшируется 60с — «навязчивых» пингов нет.
+
+### 84.11.3 График аптайма: таблица `uptime_events` в PostgreSQL
+
+**Выбор PG-таблицы вместо in-memory истории.** Обоснование: (1) in-memory история теряется при рестарте — а рестарт это ровно то, что график должен показать (разрыв = downtime); (2) 24–72ч сырых точек в памяти растут бесконтрольно; (3) PostgreSQL уже вводится Epic 85 (84.3), 4-я таблица почти бесплатна; (4) APScheduler уже в стеке (goodmorning/memory_backup/memory_maintenance) — heartbeat на `AsyncIOScheduler` в том же loop.
+
+```sql
+CREATE TABLE IF NOT EXISTS uptime_events (
+    id      BIGSERIAL PRIMARY KEY,
+    ts      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    status  TEXT NOT NULL DEFAULT 'up'
+);
+CREATE INDEX IF NOT EXISTS idx_uptime_events_ts ON uptime_events (ts);
+```
+
+- **Heartbeat:** APScheduler-джоб `interval=60s` → `INSERT INTO uptime_events DEFAULT VALUES`; ретраи до 3; при устойчивой ошибке PG — WARNING (бот жив, R6).
+- **Автоочистка:** тот же джоб раз в час: `DELETE FROM uptime_events WHERE ts < now() - interval '72 hours'` (ретенция — env `UPTIME_EVENTS_RETENTION_HOURS`, дефолт 72).
+- **Отдача:** /api/status агрегирует в 5-минутные бакеты за 24ч (`date_trunc`/GROUP BY) → `{buckets:[{ts,status}], since, until}` (≤288 точек). «down» в таблицу не пишется (процесс мёртв) — разрыв на графике и есть downtime.
+
+### 84.11.4 Эндпоинты (добавлены в схему 84.5)
+
+| Метод/путь | Право | Ответ |
+|---|---|---|
+| `GET /api/status` | валидный initData, **любая роль, БЕЗ `requires_permission`** | `{bot:{uptime_seconds,state,mode,version,errors_total}, server:{cpu_percent,memory:{total,used,percent},disk:{total,used,percent},loadavg,process:{pid,rss_mb,threads}}, llm:[{provider,model,key,last_latency_ms,health}], uptime:{buckets,since,until}}` |
+| `GET /api/status/logs?level=ERROR&limit=200` | валидный initData, **любая роль, БЕЗ `requires_permission`** | `{count, logs:[{ts,level,logger,message,exc_text}]}` — от новых к старым; `level` — ALL/DEBUG/INFO/WARNING/ERROR/CRITICAL (регистронезависимо); `limit` 1–1000, дефолт 200 |
+
+Оба маршрута: только `get_tma_user` (401 при невалидном initData); секреты замаскированы уже в буфере (84.11.1) — отдаём как есть. Это **исключение из RBAC-скрытия** — решение человека п.1.
+
+### 84.11.5 Фронтенд (вкладка «📊 Статус»)
+
+- 6-я вкладка сайдбара **ВСЕГДА в списке** (исключение из computed-фильтрации вкладок по permissions в `app.js`; даже при 403 «no role» вкладка видна, контент — заглушка 403).
+- Grid-карточки (`repeat(auto-fill, minmax(320px, 1fr))`, glass-стиль 84.7): **Бот** (uptime humanized, badge state, mode, version, errors_total), **Сервер** (CPU/RAM/disk — progress-бары, loadavg, PID/rss), **LLM** (карточка на провайдера: provider+model, badge ключа configured/`••••last4`, last_latency_ms, health ok/fail).
+- **График аптайма: Chart.js v4 UMD** — `https://cdn.jsdelivr.net/npm/chart.js@4` (глобал `Chart`), линейный график по бакетам, `spanGaps:false` (разрыв = downtime), подпись оси X — время.
+- **Лог-вьюер:** фильтр по уровню (select), отдельные секции **ERROR** и **WARN** с количеством (подсвечены), список записей моноширинным шрифтом, клик раскрывает `exc_text`; кнопка «Копировать» на запись и «Копировать всё» — `navigator.clipboard.writeText` (в Telegram WebApp работает по HTTPS).
+- Автообновление: /api/status poll каждые 30с; логи — по открытию вкладки/кнопке «Обновить» (не поллить, чтобы не грузить ring-buffer).
+
+### 84.11.6 Отражение решений человека 1–5
+
+1. **Статус всем ролям** — 84.11.4/84.11.5 (RBAC-исключение, initData обязателен).
+2. **media/srv_cookies.txt не нужен** (в git не попадёт); файлы `plans/` коммитятся — зафиксировано (84.2, «Границы скоупа»).
+3. **aiogram >=3.31** — обязательная задача: `pip install -U "aiogram>=3.31,<4"` (Фаза 5) + полный pytest после апгрейда (84.2, DoD 84.10 п.10).
+4. **GraphRAG остаётся на SQLite — ВНЕ скоупа Epic 85**; миграция GraphRAG → PostgreSQL — отдельный будущий эпик. Граница: Epic 85 не трогает GraphRAG-таблицы `services/database.py`; в PG появляются ТОЛЬКО таблицы 84.3 + `uptime_events` (84.2, «Границы скоупа»).
+5. **Маскировка ключей подтверждена** — роли без `keys` видят configured/last4: в `/api/config` (R5, 84.5) и в LLM-карточках `/api/status` (84.11.2).
+
+**Фазы 84.9 (дельта):** Фаза 1 — DDL + `uptime_events`; Фаза 3 — `log_ring`, `status_service`, `/api/status*`; Фаза 4 — вкладка «📊 Статус»; Фаза 5 — psutil в requirements + aiogram >=3.31 + тесты.

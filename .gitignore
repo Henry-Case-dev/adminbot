@@ -57,3 +57,8 @@ bot-chrome-profile/
 
 # Живые auth-кукис YouTube (T-587): НЕ коммитить никогда
 cookies.txt
+# Cookies серверного бота: НЕ коммитить никогда
+srv_cookies.txt
+
+# Chrome profile: целиком вне git — кэши, сессии, cookies, логины (Epic 85)
+chrome-profile/

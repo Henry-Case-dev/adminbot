@@ -2,7 +2,9 @@
 
 ## 📋 Backlog
 
-*(пусто)*
+### Epic 86: GraphRAG → PostgreSQL — future/planned (вне Epic 85)
+
+> Миграция GraphRAG с SQLite (`services/database.py`) на PostgreSQL 16 — отдельный будущий эпик по решению человека (30.08.2026). Задач пока нет; DESIGN @Architect + аппрув человека после Epic 85. Полный трек — `plans/backlog.md` (Epic 86).
 
 ## 🔧 In Progress
 
@@ -360,6 +362,57 @@
 > - [x] T-610 (@Builder, P0, ←T-609) — R17 hotfix: sanitize TranscriptionUnavailable/EmptyTranscript
 >   error messages (логировался полный /tmp/vt_*.mp4 путь); commit `9adaca1`
 
+## ⏸ Ready — ждёт подтверждения человека
+
+### Epic 85: TMA Admin Dashboard & Dynamic RBAC — 2026-08-30 🆕 Шаг 4 (PM ✅) — ⛔ HARD STOP (target v2.51.0)
+
+> ⛔ **HARD STOP:** Epic 85 НЕ стартует до явной команды человека «Начинаем кодинг».
+> Перед стартом — чек-лист `plans/HUMAN_SETUP_GUIDE.md` (MCP-серверы, BotFather menu button →
+> `https://embody-grafted-ritalin.ngrok-free.dev/web/`, ngrok на :8000, `docker compose up -d postgres`,
+> `.env`: `API_TOKEN`/`POSTGRES_DSN`/`WEB_PORT=8000`).
+>
+> Полный трек — `plans/backlog.md` (Epic 85). Канон — `plans/ARCHITECTURE.md` Section 84 (DESIGN ✅,
+> @Architect шаг 3/3, фазы 84.9, DoD 84.10). PostgreSQL 16 (`postgres:16-alpine`,
+> `max_connections=50`, `shared_buffers=128MB`, volume, 127.0.0.1:5432); таблицы bot_settings /
+> bot_roles / bot_admins; **КРИТИЧНЫЙ СИД:** 5885953495→admin, 1313107079→moderator, 134812796→moderator;
+> ConfigCache (hot-reload без рестарта); FastAPI в одном event loop с Aiogram (`server.serve()` +
+> `create_task(polling)`); TMA-auth (`safe_parse_webapp_init_data`, `X-Telegram-Init-Data`, свежесть 24 ч);
+> REST `/api/health|me|config|admins|roles` (+маскировка keys); статика `/web`; фронт zero-build
+> (Vue 3 + Tailwind CDN, MatDash, КРИТИЧНО анимированный градиент 400% 400% / 15s + glassmorphism,
+> 5 вкладок, RBAC-скрытие сайдбара, конструктор ролей); миграция .env → ConfigCache в горячих точках
+> (R1). Порядок: @Builder → @Reviewer → @DevOps. **Без @Orchestrator.**
+>
+> **Дельта 30.08.2026 (Шаг 4b @PM, решения человека 1–5):** вкладка «📊 Статус» (health dashboard:
+> бот/server/LLM, Chart.js-график аптайма по `uptime_events`, лог-вьюер ERROR/WARN + копирование) —
+> доступна ВСЕМ валидным TMA-юзерам (RBAC-исключение, без `requires_permission`); aiogram >=3.31;
+> GraphRAG на SQLite — вне скоупа (→ Epic 86 future); маскировка ключей confirmed (configured/last4);
+> srv_cookies.txt не нужен, plans/ коммитится.
+
+- [ ] T-611 (@Builder, P0) — docker-compose: postgres 16-alpine (max_connections=50, shared_buffers=128MB, volume, 127.0.0.1:5432, healthcheck pg_isready) + .env.example POSTGRES_DSN/WEB_PORT
+- [ ] T-612 (@Builder, P0, ←T-611) — services/pg_db.py: идемпотентный DDL (3 таблицы) + сид ролей + КРИТИЧНЫЕ telegram_id + стартовый bot_settings
+- [ ] T-613 (@Builder, P0, ←T-611) — services/config_cache.py: ConfigCache (init/retry R6, get/set/upsert, get_permissions, reload)
+- [ ] T-614 (@Builder, P1, ←T-612/T-613) — scripts/migrate_env_to_pg.py (однократный экспорт .env → bot_settings, --dry-run)
+- [ ] T-615 (@Builder, P0, ←T-613) — bot.py: один event loop (uvicorn server.serve() + polling create_task; app.state.cache; graceful shutdown)
+- [ ] T-616 (@Builder, P0, ←T-615) — web/api/deps.py: get_tma_user (safe_parse_webapp_init_data, свежесть 24 ч) + requires_permission
+- [ ] T-617 (@Builder, P0, ←T-615/T-616) — REST: /api/health|me|config|admins|admins/remove|roles; маскировка keys; матрица ошибок 400–500
+- [ ] T-618 (@Builder, P1, ←T-615) — статика /web (StaticFiles html=True) + редирект / → /web/
+- [ ] T-619 (@Builder, P0, ←T-613) — миграция горячих точек с .env на ConfigCache (промпты/лимиты/cooldowns/ключи/флаги; settings = дефолты, R1)
+- [ ] T-620 (@Builder, P0, ←T-618) — фронт: каркас MatDash + КРИТИЧНЫЙ анимированный градиент (400% 400% / 15s ease infinite) + glassmorphism-карточки
+- [ ] T-621 (@Builder, P0, ←T-617/T-620) — 5 вкладок + RBAC-скрытие сайдбара по /api/me + конструктор ролей (чекбоксы)
+- [ ] T-622 (@Builder, P0, ←T-617/T-619/T-621) — тесты: HMAC-вектор, 401/403, сид (КРИТИЧНЫЕ id), ConfigCache upsert/маскировка, /api/me по 3 ролям, hot-reload, test_docker_compose+postgres, conftest-стаб; полный pytest 0 регрессий
+- [ ] T-623 (@Reviewer, P0, ←T-622) — ревью Epic 85 (Section 84 = коду, секреты R5/R17, один loop R2, PG-down R6, RBAC)
+- [ ] T-624 (@Builder, P1, ←T-623) — README/MEMORY/ARCHITECTURE (Section 84 → IMPLEMENTED), v2.51.0
+- [ ] T-625 (@DevOps, P0, ←T-623) — деплой: postgres up + asyncpg/psutil + .env (бэкап .bak.epic85) + migrate_env_to_pg + restart; smoke /health + /api/status + /web/ + TMA-кнопка «Админка» + вкладка 📊 Статус (проверка человеком)
+- [ ] T-626 (@Builder, P0) — aiogram >=3.31,<4: pip install -U + requirements + полный pytest (~2630) + фиксы несовместимостей 3.29→3.31
+- [ ] T-627 (@Builder, P0, ←T-612) — pg_db.py: таблица uptime_events (id/ts/status) + idx_uptime_events_ts (84.11.3)
+- [ ] T-628 (@Builder, P0, ←T-615/T-626) — services/log_ring.py: LogRingHandler (deque 1000, env LOG_RING_MAX_ENTRIES) + sanitize секретов (R17) + errors_total; подключение в bot.py
+- [ ] T-629 (@Builder, P0, ←T-613/T-615/T-628) — services/status_service.py: метрики бот/сервер (psutil)/LLM-реестр (configured/last4) + health-check GET {base}/models (кэш 60с) + record_llm; APP_VERSION
+- [ ] T-630 (@Builder, P0, ←T-612/T-615/T-627) — heartbeat APScheduler 60с → uptime_events + автоочистка 72ч (env UPTIME_EVENTS_RETENTION_HOURS); PG down → WARNING, бот жив (R6)
+- [ ] T-631 (@Builder, P0, ←T-616/T-629/T-630) — GET /api/status + /api/status/logs?level=&limit=: только get_tma_user, БЕЗ requires_permission (RBAC-исключение); бакеты 5 мин/24ч
+- [ ] T-632 (@Builder, P0, ←T-620/T-621/T-631) — фронт: 6-я вкладка «📊 Статус» ВСЕГДА видима; карточки Бот/Сервер/LLM; Chart.js v4 CDN график аптайма (spanGaps:false); лог-вьюер ERROR/WARN + копирование
+- [ ] T-633 (@Builder, P0, ←T-622/T-631/T-632) — тесты Status: публичность /api/status* (роль [], без роли, 401), sanitize-маскировка, uptime_events+heartbeat+очистка, кэш health-check; полный pytest 0 регрессий
+- [ ] T-634 (@Builder, P1, ←T-626/T-629) — requirements += psutil>=5.9; .env.example += LOG_RING_MAX_ENTRIES/UPTIME_EVENTS_RETENTION_HOURS; test_docker_compose при необходимости
+
 ## 🔍 In Review
 
 *(пусто)*
@@ -373,6 +426,9 @@
 > - **Epic 63** v2.43.3 (`ffb0812`, PID 1075674) — реверт LLM-провайдера → apinet.cloud.
 > - **Epic 64** v2.44.0 (`9aae221`, PID 1080205, 2617) — контекст без агрессивной обрезки + embedding_cache float16 + ретраи фоллбэка.
 > - **Epic 65** v2.45.0 (2630 тестов) — обогащение контекста фактчека/поиска + реранкинг + фокус /summary; память вердиктов ОТМЕНЕНА пользователем.
+>
+> **Epics 66–84** — НЕ архивированы: ведутся в колонке «In Progress» (T-523…T-605, hotfix T-607…T-610; Epics 66–82 распланированы/в работе, 83–84 на деплое/в работе) — полный трек `plans/backlog.md`.
+> **Epic 85** (TMA Admin Dashboard & Dynamic RBAC, T-611…T-634) — в колонке «⏸ Ready», HARD STOP до команды человека. **Epic 86** (GraphRAG → PostgreSQL) — future/planned, в колонке «📋 Backlog».
 
 ### Epic 64: Контекст + embedding_cache + LLM-надёжность — 2026-08-24 ✅ DEPLOYED & CLOSED (v2.44.0, коммит 9aae221, прод PID 1080205)
 
