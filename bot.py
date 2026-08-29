@@ -529,6 +529,10 @@ async def main():
         app, host="127.0.0.1", port=web_port,
         loop="auto",            # R3: asyncio на Windows-деве, uvloop на проде
         log_level="warning",
+        log_config=None,        # hotfix 30.08.2026: НЕ запускать дефолтный
+        # dictConfig uvicorn — его _clearExistingHandlers → logging.shutdown()
+        # закрывает LogtailHandler и дедлочит с logtail-флашером (прод-инцидент
+        # Epic 85: процесс «active», но polling/webapp/heartbeat не стартуют).
     ))
     server_holder[0] = server
     polling = asyncio.create_task(dp.start_polling(bot))
