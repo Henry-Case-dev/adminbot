@@ -1,64 +1,56 @@
-# Python
+# ── Секреты и чувствительные данные ──────────────────────────────
+.env
+.env.bak*
+.env.*
+!.env.example
+check_remote_bot.py
+deploy_*.py
+*.pem
+id_rsa*
+id_ed25519*
+media/*cookies*
+*cookies*.txt
+*.cookies
+deploy_result.json
+# Локальная БД (переписка/пользователи) и файлы деплой-команд — не в git
+*.db
+deploy_commands.txt
+
+# ── Python ────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 dist/
 build/
 
-# Environment
-.env
-.venv/
-*.db
+# ── Логи ──────────────────────────────────────────────────────────
+logs/
+*.log
 
-# IDE
-.vscode/
+# ── Браузерные профили (куки, сессии, логины) ────────────────────
+chrome-profile/
+bot-chrome-profile/
+
+# ── Бэкапы и временные файлы ──────────────────────────────────────
+backups/
+*.swp
+*.tmp
+
+# ── IDE / ОС ──────────────────────────────────────────────────────
 .idea/
-
-# Testing
-.pytest_cache/
-htmlcov/
-.coverage
-
-# Deploy
-deploy_commands.txt
-
-# OS
+.vscode/
 .DS_Store
 Thumbs.db
 
-# Docker runtime data (Epic 66, D263) — данные авторизации Bot API не в git;
-# сам каталог держим через docker/telegram-bot-api/.gitkeep
+# ── Docker runtime data (Epic 66, D263) ────────────────────────────
+# данные авторизации Bot API не в git; сам каталог держим через .gitkeep
 docker/telegram-bot-api/*
 !docker/telegram-bot-api/.gitkeep
-
-# Chrome profile (Epic 79): коммитим только auth-state для экспорта cookies.
-# Кэши/регенерируемый мусор не в git (в т.ч. файлы >100MB ломают push на GitHub)
-chrome-profile/Cache/
-chrome-profile/Code Cache/
-chrome-profile/GPUCache/
-chrome-profile/DawnGraphiteCache/
-chrome-profile/DawnWebGPUCache/
-chrome-profile/File System/
-chrome-profile/blob_storage/
-chrome-profile/Service Worker/CacheStorage/
-chrome-profile/JumpListIconsRecentClosed/
-chrome-profile/optimization_guide_hint_cache_store/
-chrome-profile/Shared Dictionary/
-chrome-profile/Segmentation Platform/
-# Файлы с живыми OAuth-токенами (GitHub Push Protection): в экспорт кукис не нужны
-chrome-profile/Favicons
-chrome-profile/Favicons-journal
-chrome-profile/History
-chrome-profile/History-journal
-chrome-profile/Sync Data/
-
-# ���-������� ��� �������� ����� (�������� ������������� �������, ������)
-bot-chrome-profile/
-
-# Живые auth-кукис YouTube (T-587): НЕ коммитить никогда
-cookies.txt
-# Cookies серверного бота: НЕ коммитить никогда
-srv_cookies.txt
-
-# Chrome profile: целиком вне git — кэши, сессии, cookies, логины (Epic 85)
-chrome-profile/
