@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 import httpx
+from typing import Callable
 
 from config.settings import build_ytdlp_base_opts, settings
 
@@ -228,26 +229,34 @@ class VideoDownloader:
         logger.info("[videodl] probed | qualities=%s", qualities)   # title/url НЕ логируем целиком
         return ProbeResult(title=str(title), qualities=qualities)
 
-    async def download(self, url: str, quality: str) -> Path:
+    async def download(self, url: str, quality: str,
+                       progress_cb: Callable[[dict], None] | None = None) -> Path:
         """Скачивание под ГЛОБАЛЬНЫМ локом. Занят → DownloadBusyError сразу.
         Epic 77 (D288): YouTube + гейт on → yt-dlp-ветка; иначе cobalt.
-        Контракт (url, quality) -> Path НЕ меняется."""
+        Контракт (url, quality) -> Path НЕ меняется. 84.23 (D303):
+        progress_cb — колбэк прогресса (raw dict yt-dlp/синтетика direct),
+        не влияет на результат и на исключения."""
         if self._lock.locked():
             raise DownloadBusyError("another download is running")
         async with self._lock:
             self._download_dir.mkdir(parents=True, exist_ok=True)
             # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
             if is_direct_media_url(url):
-                return await self.download_direct(url)
+                return await self.download_direct(url, progress_cb=progress_cb)
             if settings.YTDLP_FOR_YOUTUBE and is_youtube_url(url):
-                return await self.download_ytdlp(url, quality)
+                return await self.download_ytdlp(url, quality,
+                                                 progress_cb=progress_cb)
             tunnel_url, filename = await self._request_tunnel(url, quality)
             return await self._stream_to_file(tunnel_url, filename)
 
-    async def download_direct(self, url: str) -> Path:
+    async def download_direct(self, url: str,
+                              progress_cb: Callable[[dict], None] | None = None) -> Path:
         """Прямой стрим медиа-файла (mp4/webm/…): httpx с браузерным UA;
         при 403 — повтор с Referer (2ch.su и пр.); байты > _DIRECT_MAX_BYTES →
-        DownloadTooBigError. Возвращает путь к сохранённому файлу."""
+        DownloadTooBigError. Возвращает путь к сохранённому файлу.
+        84.23: progress_cb вызывается на каждом чанке с синтетическим dict
+        (status/downloaded_bytes/total_bytes из Content-Length; speed/eta —
+        None, т.к. стрим не даёт оценку скорости)."""
         stamp = int(time.time())
         rand = secrets.token_hex(4)
         ext = _direct_ext(url)
@@ -275,6 +284,14 @@ class VideoDownloader:
                             raise DownloadError(
                                 f"direct download HTTP {resp.status_code}"
                                 f" | url={url}")
+                        try:
+                            _cl_get = getattr(getattr(resp, "headers", None),
+                                              "get", None)
+                            total = int(_cl_get("content-length")) \
+                                if _cl_get else None
+                            total = total or None
+                        except (ValueError, TypeError):
+                            total = None
                         size = 0
                         with open(out_path, "wb") as fh:
                             async for chunk in resp.aiter_bytes(65536):
@@ -286,6 +303,19 @@ class VideoDownloader:
                                         f"file exceeds {_DIRECT_MAX_BYTES}"
                                         f" bytes | url={url}")
                                 fh.write(chunk)
+                                if progress_cb is not None:
+                                    try:
+                                        progress_cb({
+                                            "status": "downloading",
+                                            "downloaded_bytes": size,
+                                            "total_bytes": total,
+                                            "speed": None,
+                                            "eta": None,
+                                        })
+                                    except Exception:
+                                        logger.debug(
+                                            "[videodl] progress_cb failed",
+                                            exc_info=True)
                 logger.info("[videodl] direct downloaded | url=%s | "
                             "bytes=%d | ext=%s", url, size, ext)
                 return out_path
@@ -317,7 +347,8 @@ class VideoDownloader:
             f"/bv[ext=mp4][height<={h}]+ba[ext=m4a]"
             f"/bv[height<={h}]+ba/b[height<={h}]")
 
-    async def download_ytdlp(self, url: str, quality: str) -> Path:
+    async def download_ytdlp(self, url: str, quality: str,
+                             progress_cb: Callable[[dict], None] | None = None) -> Path:
         """Epic 77 (D287): YouTube через локальный yt-dlp (+POT-плагин).
         Вызывается ИЗ download() под глобальным локом. Возвращает
         ФАКТИЧЕСКИЙ post-merge путь (итоговый mp4).
@@ -334,6 +365,9 @@ class VideoDownloader:
         Диагностика DevOps (wX4OiGISNlY): HDR10-m3u8-форматы (633/636) в SABR
         приходят ПОВРЕЖДЁННЫМИ → ffmpeg «Invalid data found». Селекторы с
         [protocol^=https] предпочитают прямые CDN-ссылки битым HLS.
+
+        84.23 (D303): progress_cb — колбэк прогресса; вызывается из хука
+        (поток to_thread) с raw dict; ошибки колбэка НЕ роняют скачивание.
         """
         from yt_dlp import YoutubeDL              # ленивый тяжёлый импорт (D261)
 
@@ -366,6 +400,13 @@ class VideoDownloader:
                     d.get("downloaded_bytes", 0) > VD_MAX_BYTES:
                 raise DownloadTooBigError(
                     f"file exceeds {VD_MAX_BYTES} bytes")
+            if progress_cb is not None:
+                try:
+                    progress_cb(d)
+                except Exception:
+                    # 84.23: колбэк прогресса не должен ронять скачивание
+                    logger.debug("[videodl] progress_cb failed",
+                                 exc_info=True)
 
         def _build_opts(extractor_args: dict | None, merge: bool,
                         format_sel: str) -> dict:

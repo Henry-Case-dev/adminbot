@@ -149,7 +149,7 @@ class TestGateOn:
         seen_busy = []
         out = tmp_path / "downloads" / "done.mp4"
 
-        async def fake_branch(url, quality):
+        async def fake_branch(url, quality, progress_cb=None):
             seen_busy.append(dl.busy)        # лок держится ВО время ветки
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(b"v")

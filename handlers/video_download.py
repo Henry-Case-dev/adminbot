@@ -32,6 +32,12 @@ from services.persistent_throttling import (
     cooldown_touch,
     make_cooldown,
 )
+from services.progress_reporter import (
+    ProgressReporter,
+    get_active,
+    register,
+    unregister,
+)
 from services.smartmodule_throttling import CooldownTracker, format_remaining_time
 from tools.video_download_phrases import (
     VD_BUSY_PHRASES,
@@ -198,30 +204,43 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
             await message.reply(_cooldown_phrase(remaining))
             return None
         trigger_message_id = message.message_id
+        # 84.23 (D303): прогресс-бар и для direct-стрима (синтетический
+        # прогресс из download_direct: bytes/percent по Content-Length).
+        reporter = ProgressReporter(bot, chat_id,
+                                    trigger_message_id=trigger_message_id)
+        register(chat_id, reporter)
         path = None
         try:
-            path = await _downloader.download(urls[0], "direct")
+            await reporter.start("⏳ Скачивание…")
+            path = await _downloader.download(urls[0], "direct",
+                                              progress_cb=reporter.on_progress)
+            await reporter.finish("✅ Файл готов, отправляю…")
             await _send_file(bot, chat_id, path, trigger_message_id,
                              title=None)
+            await reporter.close()
         except DownloadTooBigError as exc:
             logger.warning("[videodl] too big | chat=%s | url=%s | %s",
                            chat_id, urls[0], exc)
-            await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                    VD_TOO_BIG_PHRASES)
+            if not await reporter.fail(random.choice(VD_TOO_BIG_PHRASES)):
+                await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                        VD_TOO_BIG_PHRASES)
         except DownloadUnavailableError as exc:
             logger.warning("[videodl] unavailable | chat=%s | url=%s | %s",
                            chat_id, urls[0], exc)
-            await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                    VD_UNAVAILABLE_PHRASES)
+            if not await reporter.fail(random.choice(VD_UNAVAILABLE_PHRASES)):
+                await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                        VD_UNAVAILABLE_PHRASES)
         except Exception as exc:
             logger.warning("[videodl] download failed | chat=%s | url=%s | "
                            "quality=direct | error=%s", chat_id, urls[0], exc)
-            await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                    VD_ERROR_PHRASES)
+            if not await reporter.fail(random.choice(VD_ERROR_PHRASES)):
+                await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                        VD_ERROR_PHRASES)
         finally:
             # B1: файл не копим при ЛЮБОМ исходе (прецедент cb_pick_quality)
             if path is not None and path.exists():
                 path.unlink(missing_ok=True)
+            unregister(chat_id)
         return None
 
     # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
@@ -332,7 +351,8 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
         await callback.answer("эта менюха протухла")
         return
     # Лок занят → BUSY без ожидания (answer, не спамим чат — Section 70.8 #3).
-    if _downloader.busy:
+    # 84.23: chat уже с активным прогресс-баром — тоже BUSY (реестр).
+    if _downloader.busy or get_active(chat_id) is not None:
         await callback.answer(random.choice(VD_BUSY_PHRASES), show_alert=True)
         return
     await callback.answer()                     # ack
@@ -345,6 +365,11 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
     await _delete_keyboard(bot, chat_id, trigger_message_id, callback.message)
     _PENDING.pop((chat_id, user_id), None)
 
+    # 84.23 (D303): прогресс-бар — одно сообщение, троттлинг 2с.
+    reporter = ProgressReporter(bot, chat_id,
+                                trigger_message_id=trigger_message_id)
+    register(chat_id, reporter)
+
     try:
         await bot.send_chat_action(chat_id, "upload_video")
     except TelegramBadRequest:
@@ -352,7 +377,10 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
 
     path = None
     try:
-        path = await _downloader.download(url, f"{quality}p")
+        await reporter.start("⏳ Скачивание…")
+        path = await _downloader.download(url, f"{quality}p",
+                                          progress_cb=reporter.on_progress)
+        await reporter.finish("✅ Файл готов, отправляю…")
         file = FSInputFile(str(path.absolute()))
         try:
             await bot.send_video(
@@ -368,35 +396,43 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
                 supports_streaming=True, caption=(title or "")[:1024])
         logger.info("[videodl] sent | chat=%s user=%s quality=%sp",
                     chat_id, user_id, quality)
+        # 84.23.4: статус-сообщение исчезает, остаётся только медиа
+        await reporter.close()
     except DownloadTooBigError as exc:
         logger.warning("[videodl] too big | chat=%s | error=%s", chat_id, exc)
-        await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                VD_TOO_BIG_PHRASES)
+        if not await reporter.fail(random.choice(VD_TOO_BIG_PHRASES)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_TOO_BIG_PHRASES)
     except CobaltServiceDownError as exc:
         logger.warning("[videodl] service down | chat=%s | error=%s",
                        chat_id, exc)
-        await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                VD_SERVICE_DOWN_PHRASES)
+        if not await reporter.fail(random.choice(VD_SERVICE_DOWN_PHRASES)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_SERVICE_DOWN_PHRASES)
     except DownloadBusyError as exc:            # гонка между busy-проверкой и локом
         logger.warning("[videodl] busy race | chat=%s", chat_id)
-        await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                VD_BUSY_PHRASES)
+        if not await reporter.fail(random.choice(VD_BUSY_PHRASES)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_BUSY_PHRASES)
     except DownloadUnavailableError as exc:
         # Прод-хотфикс: понятная причина (возраст/вход/DRM/live).
         logger.warning("[videodl] unavailable | chat=%s | url=%s | %s",
                        chat_id, url, exc)
-        await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                VD_UNAVAILABLE_PHRASES)
+        if not await reporter.fail(random.choice(VD_UNAVAILABLE_PHRASES)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_UNAVAILABLE_PHRASES)
     except Exception as exc:
         logger.warning("[videodl] download failed | chat=%s | url=%s | "
                        "quality=%s | error=%s", chat_id, url, f"{quality}p",
                        exc)
-        await _safe_error_reply(bot, chat_id, trigger_message_id,
-                                VD_ERROR_PHRASES)
+        if not await reporter.fail(random.choice(VD_ERROR_PHRASES)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_ERROR_PHRASES)
     finally:
         # Cleanup ЛЮБОГО исхода (Section 70.4 п.4): файл не копится.
         if path is not None and path.exists():
             path.unlink(missing_ok=True)
+        unregister(chat_id)
 
 
 def _parse_int_suffix(data: str | None, prefix: str) -> int | None:

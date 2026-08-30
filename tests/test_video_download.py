@@ -19,10 +19,13 @@ from tools.video_download_phrases import (
     VD_COOLDOWN_PHRASES,
     VD_ERROR_PHRASES,
     VD_NO_LINK_PHRASES,
+    VD_RIGHTS_ERROR_PHRASES,
+    VD_TOO_BIG_PHRASES,
 )
 from tools.video_downloader import (
     CobaltServiceDownError,
     DownloadError,
+    DownloadTooBigError,
     ProbeResult,
     VideoDownloader,
     unique_qualities,
@@ -485,7 +488,7 @@ class TestCobaltMocked:
         class _BrokenDownloader:
             busy = False
 
-            async def download(self, url, quality):
+            async def download(self, url, quality, progress_cb=None):
                 raise DownloadError("cobalt error")
 
         old = vd._downloader
@@ -494,9 +497,12 @@ class TestCobaltMocked:
             bot = AsyncMock()
             cb = _make_cb("vd:720")
             await vd.cb_pick_quality(cb, bot=bot)
-            kwargs = bot.send_message.call_args
-            assert kwargs.args[1] in VD_ERROR_PHRASES
-            assert kwargs.kwargs["reply_to_message_id"] == 100
+            # F1: fail применён через прогресс-сообщение (мок-бот стартует
+            # бар с message_id=1) → ERROR-фраза в правке, НЕ в реплае
+            err_edits = [c.args[2] for c in
+                         bot.edit_message_text.call_args_list]
+            assert any(t in VD_ERROR_PHRASES for t in err_edits)
+            assert bot.edit_message_text.call_args.args[0] == CHAT_ID
         finally:
             vd._downloader = old
 
@@ -678,10 +684,12 @@ class TestKeyboardDelete:
         cb = _make_cb("vd:360", message=kb_msg)
         await vd.cb_pick_quality(cb, bot=bot)
         kb_msg.delete.assert_awaited_once()
-        # RIGHTS_ERROR реплай ушёл на триггер...
+        # RIGHTS_ERROR реплай ушёл на триггер (прогресс-бар — тоже reply,
+        # поэтому фильтр по фразе, а не по reply_to_message_id)
         rights_sent = [
             c for c in bot.send_message.call_args_list
             if c.kwargs.get("reply_to_message_id") == 100
+            and c.args[1] in VD_RIGHTS_ERROR_PHRASES
         ]
         assert len(rights_sent) == 1
         # ...и скачивание ПРОДОЛЖИЛОСЬ: видео отправлено
@@ -699,16 +707,127 @@ class TestCleanupFinally:
         f.write_bytes(b"z" * 16)
         vd._downloader.download = AsyncMock(return_value=f)
         _seed_pending()
-        bot = AsyncMock()
-        bot.send_chat_action = AsyncMock()
-        bot.send_video = AsyncMock(side_effect=RuntimeError("network gone"))
+
+        class _Bot:
+            """send_message отдаёт реальный message_id → прогресс-бар
+            применён; send_video падает → ошибка показана ЧЕРЕЗ бар."""
+            def __init__(self):
+                self.send_chat_action = AsyncMock()
+                self.send_video = AsyncMock(side_effect=RuntimeError(
+                    "network gone"))
+                self.send_message = AsyncMock(return_value=MagicMock(
+                    message_id=42))
+                self.edit_message_text = AsyncMock()
+                self.delete_message = AsyncMock()
+
+        bot = _Bot()
         cb = _make_cb("vd:720")
         await vd.cb_pick_quality(cb, bot=bot)
         assert not f.exists(), "файл обязан удаляться даже при ошибке отправки"
-        # и юзер получил ERROR-фразу
-        assert any(
-            c.args[1] in VD_ERROR_PHRASES
-            for c in bot.send_message.call_args_list)
+        # F1: fail применён (репортер жив) → отдельный _safe_error_reply НЕ шлётся
+        err_edits = [c.args[2] for c in bot.edit_message_text.call_args_list]
+        assert any(t in VD_ERROR_PHRASES for t in err_edits)
+        sent = [c.args[1] for c in bot.send_message.call_args_list]
+        assert sent == ["⏳ Скачивание…"]
+        assert bot.delete_message.await_count == 0   # сообщение с ошибкой живёт
+
+    @pytest.mark.asyncio
+    async def test_start_broken_falls_back_to_error_reply(self, vd_env):
+        """F1: старт прогресс-бара сломан (send_message падает) →
+        reporter.fail() == False → _safe_error_reply доставляет ошибку."""
+        from aiogram.exceptions import TelegramBadRequest
+        from aiogram.methods import TelegramMethod
+        from services import progress_reporter as pr
+        pr._active.clear()
+        vd._downloader.download = AsyncMock(
+            side_effect=DownloadError("boom"))
+
+        class _Bot:
+            def __init__(self):
+                self.send_chat_action = AsyncMock()
+                self.send_video = AsyncMock()
+                self.send_message = AsyncMock(side_effect=TelegramBadRequest(
+                    method=MagicMock(spec=TelegramMethod),
+                    message="not enough rights"))
+                self.edit_message_text = AsyncMock()
+                self.delete_message = AsyncMock()
+
+        _seed_pending()
+        bot = _Bot()
+        cb = _make_cb("vd:720")
+        await vd.cb_pick_quality(cb, bot=bot)
+        assert pr.get_active(CHAT_ID) is None
+        # ошибка доставлена обычным реплаем (прогресс-сообщения нет)
+        sent = [c.args[1] for c in bot.send_message.call_args_list]
+        assert any(t in VD_ERROR_PHRASES for t in sent)
+
+
+# ── 84.23 (D303): прогресс-бар в хендлере ───────────────────────────
+
+class TestProgressBarHandler:
+    """cb_pick_quality/direct: репортер создан → fail/close → реестр чист."""
+
+    class _MockBot:
+        def __init__(self):
+            self.send_chat_action = AsyncMock()
+            self.send_video = AsyncMock()
+            self.send_message = AsyncMock(return_value=MagicMock(
+                message_id=42))
+            self.edit_message_text = AsyncMock()
+            self.delete_message = AsyncMock()
+
+    @pytest.mark.asyncio
+    async def test_quality_callback_reporter_success_lifecycle(
+            self, vd_env, tmp_path):
+        """Успех: «⏳ Скачивание…» отправлено, файл отправлен, прогресс-
+        сообщение УДАЛЕНО, реестр очищен."""
+        from services import progress_reporter as pr
+        pr._active.clear()
+        f = tmp_path / "ok.mp4"
+        f.write_bytes(b"x")
+        vd._downloader.download = AsyncMock(return_value=f)
+        _seed_pending()
+        bot = self._MockBot()
+        cb = _make_cb("vd:720")
+        await vd.cb_pick_quality(cb, bot=bot)
+        assert pr.get_active(CHAT_ID) is None
+        assert bot.send_message.call_args.args[1] == "⏳ Скачивание…"
+        assert bot.send_video.await_count == 1
+        assert bot.delete_message.await_count == 1
+        assert bot.delete_message.call_args.args[0] == CHAT_ID
+        assert not f.exists()            # cleanup в finally
+
+    @pytest.mark.asyncio
+    async def test_quality_callback_error_calls_fail(self, vd_env, tmp_path):
+        """Ошибка: репортер.fail с текстом ошибки (правка), сообщение с
+        ошибкой НЕ удаляется, реестр очищен."""
+        from services import progress_reporter as pr
+        pr._active.clear()
+        vd._downloader.download = AsyncMock(
+            side_effect=DownloadError("boom"))
+        _seed_pending()
+        bot = self._MockBot()
+        cb = _make_cb("vd:720")
+        await vd.cb_pick_quality(cb, bot=bot)
+        assert pr.get_active(CHAT_ID) is None
+        edit_texts = [c.args[2] for c in bot.edit_message_text.call_args_list]
+        assert any(t in VD_ERROR_PHRASES for t in edit_texts)
+        assert bot.delete_message.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_quality_callback_too_big_fails_reporter(self, vd_env):
+        """TooBig: fail с TOO_BIG-фразой, реестр очищен."""
+        from services import progress_reporter as pr
+        pr._active.clear()
+        vd._downloader.download = AsyncMock(
+            side_effect=DownloadTooBigError("too big"))
+        _seed_pending()
+        bot = self._MockBot()
+        cb = _make_cb("vd:720")
+        await vd.cb_pick_quality(cb, bot=bot)
+        assert pr.get_active(CHAT_ID) is None
+        edit_texts = [c.args[2] for c in bot.edit_message_text.call_args_list]
+        assert any(t in VD_TOO_BIG_PHRASES for t in edit_texts)
 
 
 # ── 9. Multi-link flow: выбор видео → выбор качества ────────────────
@@ -1189,6 +1308,97 @@ class TestYtdlpDownloadHotfix:
         assert "возрастное ограничение" in str(excinfo.value)
 
     @pytest.mark.asyncio
+    async def test_progress_cb_called_from_hook(self, tmp_path, monkeypatch):
+        """84.23 (D303): fake-yt-dlp дергает progress_hooks → progress_cb
+        получил raw dict (status/downloaded/total/eta/title)."""
+        from tools import video_downloader as vdm
+        captured = []
+
+        class _FakeYDL_Hook:
+            last_hook = None
+
+            def __init__(self, opts):
+                type(self).last_hook = opts["progress_hooks"][0]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def extract_info(self, url, download=True):
+                type(self).last_hook({
+                    "status": "downloading",
+                    "downloaded_bytes": 1024,
+                    "total_bytes": 2048,
+                    "speed": 512,
+                    "eta": 3,
+                    "info_dict": {"title": "t"}})
+                type(self).last_hook({"status": "finished"})
+                return {"title": "t", "requested_downloads": [
+                    {"filepath": "/tmp/x.mp4"}]}
+
+        import sys
+        import types
+        monkeypatch.setitem(
+            sys.modules, "yt_dlp",
+            types.SimpleNamespace(YoutubeDL=_FakeYDL_Hook))
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p",
+                                progress_cb=captured.append)
+        assert [c["status"] for c in captured] == ["downloading", "finished"]
+        assert captured[0]["downloaded_bytes"] == 1024
+        assert captured[0]["total_bytes"] == 2048
+        assert captured[0]["eta"] == 3
+        assert captured[0]["info_dict"]["title"] == "t"
+
+    @pytest.mark.asyncio
+    async def test_direct_progress_cb_synthetic(self, tmp_path, monkeypatch):
+        """84.23: download_direct вызывает progress_cb с синтетическим
+        dict (bytes из стрима + total из Content-Length)."""
+        from tools import video_downloader as vdm
+        captured = []
+
+        class _Resp:
+            status_code = 200
+            headers = {"content-length": "6"}
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def aiter_bytes(self, n):
+                async def _gen():
+                    yield b"aaa"
+                    yield b"bbb"
+                return _gen()
+
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def stream(self, method, url, headers=None):
+                return _Resp()
+
+        monkeypatch.setattr(vdm.httpx, "AsyncClient", _Client)
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        await dl.download_direct("https://2ch.su/a.mp4",
+                                 progress_cb=captured.append)
+        assert [c["status"] for c in captured] == \
+            ["downloading", "downloading"]
+        assert captured[-1]["downloaded_bytes"] == 6
+        assert captured[-1]["total_bytes"] == 6
+
+    @pytest.mark.asyncio
     async def test_innocent_sign_in_phrase_in_description_ok(
             self, tmp_path, monkeypatch):
         """M1: «how to sign in to our site» в описании — НЕ недоступность
@@ -1595,6 +1805,9 @@ class TestDirectMedia:
         assert bot.send_video.await_count == 1
         leftovers = list((tmp_path / "downloads").glob("vd_*"))
         assert leftovers == [], f"файл не удалён: {leftovers}"
+        # 84.23: direct-ветка тоже регистрирует репортер и чистит реестр
+        from services import progress_reporter as pr
+        assert pr.get_active(CHAT_ID) is None
 
 
 class TestNativeMedia:

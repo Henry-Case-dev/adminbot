@@ -575,18 +575,21 @@ class TestBuildYtdlpBaseOpts:
 
     def test_empty_settings_no_keys(self):
         importlib.reload(settings_mod)
-        assert settings_mod.build_ytdlp_base_opts() == {}
+        # cachedir=False — всегда (84.23, HTTP-кэш yt-dlp отключён)
+        assert settings_mod.build_ytdlp_base_opts() == {"cachedir": False}
 
     def test_proxy_only(self, monkeypatch):
         monkeypatch.setenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "http://u:p@127.0.0.1:10808")
         importlib.reload(settings_mod)
         assert settings_mod.build_ytdlp_base_opts() == {
+            "cachedir": False,
             "proxy": "http://u:p@127.0.0.1:10808"}
 
     def test_cookies_only(self, monkeypatch):
         monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "/tmp/cookies.txt")
         importlib.reload(settings_mod)
         assert settings_mod.build_ytdlp_base_opts() == {
+            "cachedir": False,
             "cookiefile": "/tmp/cookies.txt"}
 
     def test_both_set(self, monkeypatch):
@@ -594,10 +597,10 @@ class TestBuildYtdlpBaseOpts:
         monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "/c.txt")
         importlib.reload(settings_mod)
         assert settings_mod.build_ytdlp_base_opts() == {
-            "proxy": "http://h:1", "cookiefile": "/c.txt"}
+            "cachedir": False, "proxy": "http://h:1", "cookiefile": "/c.txt"}
 
     def test_whitespace_only_treated_as_empty(self, monkeypatch):
         monkeypatch.setenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "   ")
         monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "\t")
         importlib.reload(settings_mod)
-        assert settings_mod.build_ytdlp_base_opts() == {}
+        assert settings_mod.build_ytdlp_base_opts() == {"cachedir": False}

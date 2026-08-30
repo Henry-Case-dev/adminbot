@@ -779,6 +779,9 @@ def build_ytdlp_base_opts() -> dict:
     (фоновые токены off — блокирующие, чтобы не пропустить бот-чек).
     При отсутствии настройки — ключи НЕ добавляются (старое поведение)."""
     opts: dict = {}
+    # 84.23 (D303): HTTP-кэш yt-dlp отключаем — прогресс-бар и ретраи
+    # клиентов без него (кэш только копит диск/память; зависимостей нет).
+    opts["cachedir"] = False
     proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
     if proxy:
         opts["proxy"] = proxy
