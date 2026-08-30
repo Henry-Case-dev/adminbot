@@ -286,7 +286,15 @@
           </div>
         </div>
 
-        <main class="p-4 grid gap-4 grid-cols-1"
+        <!-- Блокирующая заглушка: нет Telegram-контекста (фин. DevOps) -->
+        <div v-if="authLocked" class="px-4 pt-4">
+          <div class="card p-6 text-yellow-200 text-sm">
+            <div class="mb-3">{{ authError }}</div>
+            <button class="btn-accent text-sm" @click="retryInitData()">Попробовать снова</button>
+          </div>
+        </div>
+
+        <main v-else class="p-4 grid gap-4 grid-cols-1"
               style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
           <!-- ═══ 🧠 Промпты ═══ -->
           <template v-if="activeTab === 'prompts'">

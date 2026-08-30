@@ -13,6 +13,7 @@ bot_admins (ConfigCache), матчинг services/permissions.py (84.14.2); не
 """
 import json
 import logging
+import math
 import os
 import time
 from typing import Annotated
@@ -27,7 +28,25 @@ from services.permissions import (
     requires_permission as match_permission,
 )
 
-_AUTH_MAX_AGE_SECONDS = 86400   # 24 ч (84.6)
+def _tma_auth_max_age() -> float:
+    """Максимальная свежесть initData в секундах (фин. доработка DevOps):
+    TMA_AUTH_MAX_AGE из env, default 86400 (24 ч); 0/отрицательное — НЕ
+    проверять свежесть (отладка/безопасные окружения); nan/inf/мусор →
+    default (ревью-LOW)."""
+    raw = os.getenv("TMA_AUTH_MAX_AGE")
+    if raw is None:
+        return 86400.0
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("[tma-auth] TMA_AUTH_MAX_AGE кривой (%r) → default 86400",
+                       raw)
+        return 86400.0
+    if not math.isfinite(value):
+        logger.warning("[tma-auth] TMA_AUTH_MAX_AGE не конечное (%r) → "
+                       "default 86400", raw)
+        return 86400.0
+    return value
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +89,8 @@ async def get_tma_user(
         init_data = await _init_data_from_json_body(request)
     if not init_data:
         _tma_trace(valid=False, err="missing init data",
-                   init_data_len=0, src="none")
+                   init_data_len=0, src="none",
+                   path=request.url.path)
         raise HTTPException(status_code=401, detail="missing init data")
     try:
         parsed = safe_parse_webapp_init_data(
@@ -78,21 +98,25 @@ async def get_tma_user(
     except ValueError:
         _tma_trace(valid=False, err="invalid init data",
                    init_data_len=len(init_data),
-                   src=_init_data_src(request, x_telegram_init_data))
+                   src=_init_data_src(request, x_telegram_init_data),
+                   path=request.url.path)
         raise HTTPException(status_code=401, detail="invalid init data")
     if parsed.user is None:
         _tma_trace(valid=False, err="no user in init data",
                    init_data_len=len(init_data),
-                   src=_init_data_src(request, x_telegram_init_data))
+                   src=_init_data_src(request, x_telegram_init_data),
+                   path=request.url.path)
         raise HTTPException(status_code=401, detail="no user in init data")
     auth_date = parsed.auth_date
     auth_ts = auth_date.timestamp() if hasattr(auth_date, "timestamp") \
         else (auth_date or 0)
     age = time.time() - auth_ts
-    if age > _AUTH_MAX_AGE_SECONDS:
+    max_age = _tma_auth_max_age()
+    if max_age > 0 and age > max_age:
         _tma_trace(valid=False, err="expired", age=age,
                    init_data_len=len(init_data),
-                   src=_init_data_src(request, x_telegram_init_data))
+                   src=_init_data_src(request, x_telegram_init_data),
+                   path=request.url.path)
         raise HTTPException(status_code=401, detail="init data expired")
     src = _init_data_src(request, x_telegram_init_data)
     role = None
@@ -122,10 +146,11 @@ def _init_data_src(request: Request, header_value: str | None) -> str:
 def _tma_trace(valid: bool, err: str | None = None, user: int | None = None,
                role: str | None = None, age: float | None = None,
                init_data_len: int = 0, src: str = "?",
-               perm: str | None = None) -> None:
+               perm: str | None = None, path: str | None = None) -> None:
     """84.21.4: диагностический лог авторизации ЗА ФЛАГОМ DEBUG_TMA_TRACE.
     БЕЗ содержимого initData (R17): только длина/результат; роль/пермишены —
-    для диагностики «прав нет»."""
+    для диагностики «прав нет»; path — без query (секреты/initData не
+    логировать)."""
     if os.getenv("DEBUG_TMA_TRACE") != "1":
         return
     if valid:
@@ -136,9 +161,9 @@ def _tma_trace(valid: bool, err: str | None = None, user: int | None = None,
             init_data_len)
     else:
         logger.info(
-            "[tma-auth] src=%s valid=False reason=%r age=%s init_data_len=%s",
-            src, err, round(age, 1) if age is not None else "?",
-            init_data_len)
+            "[tma-auth] src=%s valid=False reason=%r age=%s init_data_len=%s "
+            "path=%s", src, err, round(age, 1) if age is not None else "?",
+            init_data_len, path or "-")
 
 
 async def tma_context(

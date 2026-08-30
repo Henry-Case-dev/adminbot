@@ -315,7 +315,7 @@ python scripts/migrate_env_to_pg.py               # перенести по-на
 # 3. Рестарт бота — и всё.
 ```
 
-- Кнопка миниаппа задаётся в BotFather (`/setmenubutton`) на адрес `https://embody-grafted-ritalin.ngrok-free.dev/web/`.
+- Кнопка миниаппа задаётся в BotFather (`/setmenubutton`) на адрес `https://admin-bot.duckdns.org/web/`.
 - Секреты в базе хранятся открытым текстом, но PostgreSQL слушает только `127.0.0.1`, в API ключи отдаются только как «configured/last4», а в логи — только факт, никогда значение. Паранойя включена.
 - Админка общается с ботом тем же процессом: FastAPI крутится внутри `bot.py` в одном event loop с polling'ом. Никаких лишних сервисов — бот теперь ещё и веб-сервер, примите и смиритесь.
 

@@ -28,6 +28,7 @@
         sidebarOpen: false,
         me: null,
         authError: null,
+        authLocked: false,
         // config
         configItems: [],
         configLoading: false,
@@ -123,6 +124,14 @@
 
     mounted: function () {
       var self = this;
+      // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
+      // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
+      if (!this.hasInitData()) {
+        this.authError = 'Миниапп открыт без Telegram-контекста — ' +
+          'откройте админку через кнопку меню в боте';
+        this.authLocked = true;
+        return;
+      }
       this.loadMe().then(function () {
         self.loadConfig();
         if (self.canViewTab('access')) {
@@ -130,11 +139,61 @@
           self.loadRoles();
         }
       });
+      // Опц. рекомендация ревью: контекст Telegram может появиться ПОЗЖЕ
+      // готовности WebView — подписываемся на событие ready (дебаунс —
+      // флаг retriedOnce, чтобы не дублировать запросы).
+      if (window.Telegram && Telegram.WebApp && Telegram.WebApp.onEvent) {
+        Telegram.WebApp.onEvent('ready', function () {
+          self.retryInitData();
+        });
+      }
     },
 
     methods: {
+      hasInitData: function () {
+        try {
+          return !!(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData);
+        } catch (e) {
+          return false;
+        }
+      },
+
+      retryInitData: function () {
+        var self = this;
+        if (!this.hasInitData()) {
+          // контекст так и не появился — снова блокирующая заглушка
+          this.authLocked = true;
+          this.authError = 'Миниапп открыт без Telegram-контекста — ' +
+            'откройте админку через кнопку меню в боте';
+          return;
+        }
+        this.authLocked = false;
+        this.authError = null;
+        this.loadMe().then(function () {
+          var me = self.me;
+          if (!me) {
+            // /api/me не вернул юзера (401/пусто) — контекст есть, но не
+            // авторизован; не спамить API — блокируем с баннером.
+            self.authLocked = true;
+            self.authError = 'Не удалось авторизоваться (initData). ' +
+              'Откройте админку заново из Telegram.';
+            return;
+          }
+          self.loadConfig();
+          if (self.canViewTab('access')) {
+            self.loadAdmins();
+            self.loadRoles();
+          }
+        });
+      },
+
       // ═══ API-обёртка (84.6: X-Telegram-Init-Data на каждый запрос) ═══
       api: async function (path, options) {
+        // Без Telegram-контекста запросы бессмысленны (401 вхолостую) —
+        // заглушка вместо спама в API (фин. доработка DevOps).
+        if (this.authLocked || !this.hasInitData()) {
+          throw new ApiError(401, 'no telegram context');
+        }
         options = options || {};
         options.headers = Object.assign({}, options.headers || {});
         if (!options.headers['Content-Type'] && options.body) {

@@ -374,6 +374,138 @@ class TestTmaTrace:
         assert "tma-auth" not in buffer.getvalue()
 
 
+class TestTmaAuthMaxAge:
+    """Фин. доработка DevOps: TMA_AUTH_MAX_AGE — свежесть initData."""
+
+    def _app(self, fake_cache):
+        app = _app(fake_cache)
+        from web.api.deps import get_tma_user
+
+        @app.get("/t")
+        async def t(user=Depends(get_tma_user)):
+            return {"id": user.id}
+
+        return app
+
+    def test_default_24h(self, monkeypatch, fake_cache):
+        monkeypatch.delenv("TMA_AUTH_MAX_AGE", raising=False)
+        client = TestClient(self._app(fake_cache))
+        stale = make_init_data(TEST_TOKEN, auth_date=int(time.time()) - 90000)
+        assert client.get("/t", headers={"X-Telegram-Init-Data": stale}) \
+            .status_code == 401
+
+    def test_small_max_age_expires(self, monkeypatch, fake_cache):
+        monkeypatch.setenv("TMA_AUTH_MAX_AGE", "10")
+        client = TestClient(self._app(fake_cache))
+        old = make_init_data(TEST_TOKEN, auth_date=int(time.time()) - 60)
+        assert client.get("/t", headers={"X-Telegram-Init-Data": old}) \
+            .status_code == 401
+
+    def test_zero_disables_freshness_check(self, monkeypatch, fake_cache):
+        monkeypatch.setenv("TMA_AUTH_MAX_AGE", "0")
+        client = TestClient(self._app(fake_cache))
+        # auth_date 2022 — просрочен, но max_age=0 → свежесть не проверяется
+        stale = make_init_data(TEST_TOKEN, auth_date=1652249232)
+        resp = client.get("/t", headers={"X-Telegram-Init-Data": stale})
+        assert resp.status_code == 200
+
+    def test_broken_value_falls_back_to_default(self, monkeypatch, fake_cache):
+        monkeypatch.setenv("TMA_AUTH_MAX_AGE", "мусор")
+        client = TestClient(self._app(fake_cache))
+        stale = make_init_data(TEST_TOKEN, auth_date=int(time.time()) - 90000)
+        assert client.get("/t", headers={"X-Telegram-Init-Data": stale}) \
+            .status_code == 401
+
+
+class TestTracePath:
+    """path в fail-логе (без query)."""
+
+    def test_fail_log_contains_path(self, fake_cache, monkeypatch):
+        monkeypatch.setenv("DEBUG_TMA_TRACE", "1")
+        app = _app(fake_cache)
+        from web.api.deps import get_tma_user
+
+        @app.get("/api/trace/path")
+        async def t(user=Depends(get_tma_user)):
+            return {}
+
+        client = TestClient(app)
+        with caplog_helper() as buffer:
+            client.get("/api/trace/path")   # no initData → missing
+        logs = buffer.getvalue()
+        assert "tma-auth" in logs
+        assert "path=/api/trace/path" in logs
+
+
+class TestFrontNoContext:
+    """Фин. доработка: заглушка без Telegram-контекста вместо 401-спама.
+    Проверяем НЕ строковые совпадения имён, а реальный код: в retryInitData
+    обязаны быть var self = this, self.loadConfig, блокировка при !me."""
+
+    def _src(self):
+        src = open("web/app.js", encoding="utf-8").read()
+        # вырезать тело retryInitData
+        start = src.index("retryInitData: function")
+        end = src.index("},", start)
+        return src[start:end], src
+
+    def test_retry_binds_self_and_config(self):
+        body, _ = self._src()
+        assert "var self = this" in body
+        assert "self.loadConfig()" in body
+        assert "self.canViewTab('access')" in body
+        assert "self.loadAdmins()" in body
+        assert "self.loadRoles()" in body
+
+    def test_retry_locks_when_me_missing(self):
+        body, _ = self._src()
+        assert "if (!me)" in body
+        assert "self.authLocked = true" in body
+        assert "self.authError" in body
+
+    def test_retry_locks_without_context(self):
+        body, _ = self._src()
+        assert "if (!this.hasInitData())" in body
+        assert "без Telegram-контекста" in body
+
+    def test_mounted_subscribes_to_ready_event(self):
+        _, src = self._src()
+        assert "Telegram.WebApp.onEvent('ready'" in src
+
+    def test_index_has_locked_banner(self):
+        src = open("web/index.html", encoding="utf-8").read()
+        assert 'v-if="authLocked"' in src
+        assert "Попробовать снова" in src
+
+
+class TestTmaAuthMaxAgeFinite:
+    """nan/inf в TMA_AUTH_MAX_AGE → default 86400 (ревью-LOW)."""
+
+    def _app(self, fake_cache):
+        app = _app(fake_cache)
+        from web.api.deps import get_tma_user
+
+        @app.get("/t")
+        async def t(user=Depends(get_tma_user)):
+            return {"id": user.id}
+
+        return app
+
+    def test_nan_falls_back(self, monkeypatch, fake_cache):
+        monkeypatch.setenv("TMA_AUTH_MAX_AGE", "nan")
+        client = TestClient(self._app(fake_cache))
+        stale = make_init_data(TEST_TOKEN, auth_date=int(time.time()) - 90000)
+        assert client.get("/t", headers={"X-Telegram-Init-Data": stale}) \
+            .status_code == 401
+
+    def test_inf_falls_back(self, monkeypatch, fake_cache):
+        monkeypatch.setenv("TMA_AUTH_MAX_AGE", "inf")
+        client = TestClient(self._app(fake_cache))
+        stale = make_init_data(TEST_TOKEN, auth_date=int(time.time()) - 90000)
+        assert client.get("/t", headers={"X-Telegram-Init-Data": stale}) \
+            .status_code == 401
+
+
 class TestOfficialHmacVector:
     """F9: ОПУБЛИКОВАННЫЙ вектор из официальной документации Telegram
     (https://docs.telegram-mini-apps.com/platform/init-data):
