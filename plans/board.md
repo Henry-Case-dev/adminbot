@@ -25,9 +25,8 @@
 - [ ] T-654 (@Builder, P3) — документировать NaN/inf
 - [ ] T-655 (@Builder, P2, верификация @DevOps) — честный graceful shutdown по SIGTERM (aiogram перехватывает сигнал → uvicorn без should_exit → SIGKILL по TimeoutStopSec=30)
 
-> 🆕 **Follow-up от человека (30.08.2026):** T-656 (@Builder, `/debug_config` In-Memory State Dump) и
-> T-657 (@DevOps, ngrok systemd) — НЕ в бэклоге: вынесены в колонку «🔧 In Progress» (полный трек —
-> `plans/backlog.md`, блок «Новые follow-up задачи от человека»). Без @Orchestrator.
+> 🆕 **Follow-up от человека (30.08.2026):** T-656…T-661 — НЕ в бэклоге: вынесены в колонку «🔧 In Progress»
+> (полный трек — `plans/backlog.md`, блок «Новые follow-up задачи от человека» → «Волна 2»). Без @Orchestrator.
 
 ## 🔧 In Progress
 
@@ -385,13 +384,19 @@
 > - [x] T-610 (@Builder, P0, ←T-609) — R17 hotfix: sanitize TranscriptionUnavailable/EmptyTranscript
 >   error messages (логировался полный /tmp/vt_*.mp4 путь); commit `9adaca1`
 
-### Epic 85: Follow-up задачи от человека (30.08.2026) — T-656 / T-657 🆕 (P1)
+### Epic 85: Follow-up задачи от человека (30.08.2026) — T-656…T-661 🆕 (P1)
 
 > Полный трек — `plans/backlog.md` (блок «Пост-деплойный бэклог Epic 85» → «Новые follow-up задачи от
 > человека (30.08.2026)»). Без @Orchestrator. T-657 снимает блокер ngrok-туннеля из «📋 Backlog».
 
 - [ ] T-656 (@Builder, P1, Ready) — «In-Memory State Dump»: скрытая команда `/debug_config` (+ опционально `GET /api/debug/config`) — ТЕКУЩИЕ значения из ОПЕРАТИВНОЙ ПАМЯТИ работающего инстанса (ConfigCache в RAM), НЕ из БД; только админ (telegram_id 5885953495); секреты маскируются; тип значения + источник (кэш vs settings-фолбек); тесты. Независима; после реализации — деплой @DevOps (коммит в master на русском + push + git pull + `systemctl restart admin_bot` + проверка `/debug_config` на проде)
 - [ ] T-657 (@DevOps, P1, In Progress) — ngrok как постоянная systemd-служба на 198.46.175.136: apt-репо ngrok + install, `ngrok config add-authtoken`, юнит `/etc/systemd/system/ngrok.service` (ExecStart=`/usr/bin/ngrok http --domain=embody-grafted-ritalin.ngrok-free.dev 8000`, Restart=always, User=nik), daemon-reload, enable --now, status — active; HTTPS-домен отвечает (проверка `/api/health` через туннель)
+
+#### Волна 2 (30.08.2026): T-658…T-661
+- [ ] T-658 (@Builder, P1, Ready, ←T-656) — редизайн /debug_config: без параметра — список `KEY = value` (env-имя, секреты masked, без лишней воды), недавно изменённые в начале (по updated_at из кэша); с параметром — `/debug_config SEARCH_MAX_SYMBOLS` (env-имя, case-insensitive, фолбек на pg-ключ), эквивалент `GET /api/debug/config?key=`; доступ/маскировка не меняются; деплой @DevOps после T-658/T-661
+- [ ] T-659 (@DevOps, P1, In Progress, ←T-657, решение @Architect) — убрать ngrok interstitial в TMA Mini App: DuckDNS бесплатный поддомен + Let's Encrypt + nginx-прокси на VPS (вероятно; подтвердить у Архитектора) или другое бесплатное решение; после — обновление URL в BotFather (шаги для человека)
+- [ ] T-660 (@DevOps, P1, In Progress) — инцидент «админка UI без данных, только 2 вкладки, спиннеры»: сервер — git pull, uvicorn access-логи (GET /api/me и др., статусы реальных клиентов 200/401/403), версия app.js на сервере и через туннель, рестарт при необходимости; итог: root cause + фикс
+- [ ] T-661 (@Builder, P1, Ready, ←T-660) — обход кэша WebView: версионирование статики (?v=), Cache-Control заголовки для index.html/app.js (StaticFiles headers), клиенты получают актуальный JS; деплой @DevOps после T-658/T-661
 
 
 ## ⏸ Ready — ждёт подтверждения человека

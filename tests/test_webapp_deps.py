@@ -11,9 +11,11 @@ Telegram ID → пустая user-роль.
 import hashlib
 import hmac
 import json
+import logging
 import time
 import types
 import urllib.parse
+from contextlib import contextmanager
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -23,6 +25,24 @@ from services.config_cache import ConfigCache
 from services.permissions import Permissions
 
 TEST_TOKEN = "123456:TEST_TOKEN_FOR_HMAC_VECTOR"
+
+
+@contextmanager
+def caplog_helper():
+    """Поймать INFO-логи (tma-auth) на время запроса (список строк)."""
+    import io
+    buffer = io.StringIO()
+    handler = logging.StreamHandler(buffer)
+    handler.setLevel(logging.INFO)
+    logger_deps = logging.getLogger("web.api.deps")
+    logger_deps.setLevel(logging.INFO)
+    logger_deps.addHandler(handler)
+    try:
+        yield buffer
+    finally:
+        logger_deps.removeHandler(handler)
+        handler.close()
+
 
 # ── инициализация моков без импорта deps-модуля наверх ──────────────────────
 from web.api import deps as deps_mod  # noqa: E402
@@ -293,6 +313,65 @@ class TestMaskingHelper:
                                   "limits.search_max_symbols")
         # неизвестный ID → нет
         assert not can_view_key_value(fake_cache, 777, "keys.groq_api_key")
+
+
+class TestTmaTrace:
+    """84.21.4: диагностический лог авторизации ЗА ФЛАГОМ DEBUG_TMA_TRACE
+    (без содержимого initData — только длина/результат)."""
+
+    def _app_with_trace(self, fake_cache, monkeypatch):
+        monkeypatch.setenv("DEBUG_TMA_TRACE", "1")
+        app = _app(fake_cache)
+        from web.api.deps import get_tma_user
+
+        @app.get("/t")
+        async def t(user=Depends(get_tma_user)):
+            return {"id": user.id}
+
+        return app
+
+    def test_trace_logged_on_success(self, fake_cache, monkeypatch):
+        app = self._app_with_trace(fake_cache, monkeypatch)
+        client = TestClient(app)
+        with caplog_helper() as buffer:
+            resp = client.get("/t",
+                              headers={"X-Telegram-Init-Data":
+                                       make_init_data(TEST_TOKEN)})
+        assert resp.status_code == 200
+        logs = buffer.getvalue()
+        assert "tma-auth" in logs and "valid=True" in logs
+        # 3: роль/пермишены/источник в трассировке
+        assert "role=admin" in logs
+        assert "perm=wildcard" in logs
+        assert "src=header" in logs
+
+    def test_trace_logged_on_expired(self, fake_cache, monkeypatch):
+        app = self._app_with_trace(fake_cache, monkeypatch)
+        client = TestClient(app)
+        with caplog_helper() as buffer:
+            stale = make_init_data(TEST_TOKEN,
+                                   auth_date=int(time.time()) - 90000)
+            resp = client.get("/t",
+                              headers={"X-Telegram-Init-Data": stale})
+        assert resp.status_code == 401
+        logs = buffer.getvalue()
+        assert "tma-auth" in logs and "expired" in logs
+        assert "src=header" in logs
+
+    def test_trace_disabled_by_default(self, fake_cache, monkeypatch):
+        monkeypatch.delenv("DEBUG_TMA_TRACE", raising=False)
+        app = _app(fake_cache)
+        from web.api.deps import get_tma_user
+
+        @app.get("/t")
+        async def t(user=Depends(get_tma_user)):
+            return {"id": user.id}
+
+        client = TestClient(app)
+        with caplog_helper() as buffer:
+            client.get("/t", headers={"X-Telegram-Init-Data":
+                                      make_init_data(TEST_TOKEN)})
+        assert "tma-auth" not in buffer.getvalue()
 
 
 class TestOfficialHmacVector:

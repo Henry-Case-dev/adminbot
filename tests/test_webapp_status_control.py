@@ -133,6 +133,25 @@ class TestStatusEndpoint:
     def test_status_requires_tma_auth(self, client):
         assert client.get("/api/status").status_code == 401
 
+    def test_status_500_on_builder_failure(self, client, monkeypatch):
+        """84.21.1: билдер упал → 500 (не вечный спиннер на фронте)."""
+        async def _boom(cache=None):
+            raise RuntimeError("snapshot exploded")
+
+        from services.status_service import status as status_singleton
+        monkeypatch.setattr(status_singleton, "build_snapshot", _boom)
+        with TestClient(client.app, raise_server_exceptions=False) as raw:
+            resp = raw.get("/api/status", headers=_hdr(USER_ID))
+        assert resp.status_code == 500
+
+    def test_front_has_error_copy_for_any_non_ok(self):
+        """84.21.1: в app.js loadStatus есть текст для не-401/не-403 ошибок."""
+        src = open("web/app.js", encoding="utf-8").read()
+        assert "Не удалось получить статус сервера" in src
+
+    def test_status_requires_tma_auth(self, client):
+        assert client.get("/api/status").status_code == 401
+
     def test_status_llm_keys_masked(self, client):
         resp = client.get("/api/status", headers=_hdr(USER_ID))
         cards = resp.json()["llm"]

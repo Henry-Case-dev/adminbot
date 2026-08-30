@@ -21,7 +21,11 @@ from services.config_cache import (
     ConfigCacheUnavailableError,
     _INFO_KEY,
 )
-from services.debug_config import build_dump
+from services.debug_config import (
+    build_dump,
+    is_pg_only,
+    resolve_param_key,
+)
 from services.param_catalog import (
     CATEGORIES,
     CATEGORY_KEYS,
@@ -584,7 +588,28 @@ async def get_debug_config(
                     Depends(requires_permission("action.debug.config"))],
     key: str | None = Query(default=None),
 ):
-    """84.18.5: JSON-дамп RAM-кэша (не PostgreSQL). Право action.debug.config
-    (wildcard-админ проходит через 84.14.2); 401/403 — штатно."""
+    """84.20.4: JSON-дамп RAM-кэша (не PostgreSQL). key принимает env-имя
+    (case-insensitive), settings_field и pg-ключ — через resolve_param_key;
+    неизвестный ключ → 404. Право action.debug.config; 401/403 — штатно."""
     cache: ConfigCache = get_cache(request)
-    return build_dump(cache, key=key)
+    if key:
+        spec = resolve_param_key(key)
+        if spec is None:
+            raise HTTPException(status_code=404,
+                                detail=f"не найден: {key}")
+        dump = build_dump(cache, key=spec.pg_key)
+        item = dump["item"]
+        item["name"] = spec.env_name or spec.settings_field or item["key"]
+        if is_pg_only(spec):
+            item["pg_only"] = True
+        return {"meta": dump["meta"], "item": item}
+    dump = build_dump(cache)
+    for item in dump["items"]:
+        spec = get_by_pg_key(item["key"])
+        if spec is None:
+            item["name"] = item["key"]
+            continue
+        item["name"] = spec.env_name or spec.settings_field or item["key"]
+        if is_pg_only(spec):
+            item["pg_only"] = True
+    return dump

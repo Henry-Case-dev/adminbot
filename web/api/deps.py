@@ -12,6 +12,8 @@ bot_admins (ConfigCache), матчинг services/permissions.py (84.14.2); не
 права): для /api/me|/api/status — ОК, для POST — 403 (84.6).
 """
 import json
+import logging
+import os
 import time
 from typing import Annotated
 
@@ -26,6 +28,8 @@ from services.permissions import (
 )
 
 _AUTH_MAX_AGE_SECONDS = 86400   # 24 ч (84.6)
+
+logger = logging.getLogger(__name__)
 
 
 def get_cache(request: Request) -> ConfigCache:
@@ -65,20 +69,76 @@ async def get_tma_user(
     if not init_data:
         init_data = await _init_data_from_json_body(request)
     if not init_data:
+        _tma_trace(valid=False, err="missing init data",
+                   init_data_len=0, src="none")
         raise HTTPException(status_code=401, detail="missing init data")
     try:
         parsed = safe_parse_webapp_init_data(
             token=settings.API_TOKEN, init_data=init_data)
     except ValueError:
+        _tma_trace(valid=False, err="invalid init data",
+                   init_data_len=len(init_data),
+                   src=_init_data_src(request, x_telegram_init_data))
         raise HTTPException(status_code=401, detail="invalid init data")
     if parsed.user is None:
+        _tma_trace(valid=False, err="no user in init data",
+                   init_data_len=len(init_data),
+                   src=_init_data_src(request, x_telegram_init_data))
         raise HTTPException(status_code=401, detail="no user in init data")
     auth_date = parsed.auth_date
     auth_ts = auth_date.timestamp() if hasattr(auth_date, "timestamp") \
         else (auth_date or 0)
-    if time.time() - auth_ts > _AUTH_MAX_AGE_SECONDS:
+    age = time.time() - auth_ts
+    if age > _AUTH_MAX_AGE_SECONDS:
+        _tma_trace(valid=False, err="expired", age=age,
+                   init_data_len=len(init_data),
+                   src=_init_data_src(request, x_telegram_init_data))
         raise HTTPException(status_code=401, detail="init data expired")
+    src = _init_data_src(request, x_telegram_init_data)
+    role = None
+    perm = None
+    cache_attr = getattr(request.app.state, "cache", None)
+    if cache_attr is not None:
+        role = cache_attr.get_role(parsed.user.id) or "user"
+        perms = _user_permissions(cache_attr, parsed.user.id)
+        perm = "wildcard" if perms.wildcard else (
+            "actions" if perms.actions else
+            ("sections" if perms.sections else "none"))
+    _tma_trace(valid=True, user=parsed.user.id,
+               age=age, init_data_len=len(init_data),
+               src=src, role=role, perm=perm)
     return parsed.user
+
+
+def _init_data_src(request: Request, header_value: str | None) -> str:
+    """Источник initData для диагностического трейса (84.21.4)."""
+    if header_value:
+        return "header"
+    if request.query_params.get("initData"):
+        return "query"
+    return "body"
+
+
+def _tma_trace(valid: bool, err: str | None = None, user: int | None = None,
+               role: str | None = None, age: float | None = None,
+               init_data_len: int = 0, src: str = "?",
+               perm: str | None = None) -> None:
+    """84.21.4: диагностический лог авторизации ЗА ФЛАГОМ DEBUG_TMA_TRACE.
+    БЕЗ содержимого initData (R17): только длина/результат; роль/пермишены —
+    для диагностики «прав нет»."""
+    if os.getenv("DEBUG_TMA_TRACE") != "1":
+        return
+    if valid:
+        logger.info(
+            "[tma-auth] src=%s user=%s role=%s perm=%s valid=True age=%ss "
+            "init_data_len=%s", src, user, role or "?",
+            perm or "-", round(age, 1) if age is not None else "?",
+            init_data_len)
+    else:
+        logger.info(
+            "[tma-auth] src=%s valid=False reason=%r age=%s init_data_len=%s",
+            src, err, round(age, 1) if age is not None else "?",
+            init_data_len)
 
 
 async def tma_context(

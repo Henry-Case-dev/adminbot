@@ -613,6 +613,35 @@ class TestDebugConfigEndpoint:
         # ключа нет в RAM фикстуры → settings-fallback
         assert body["item"]["source"] == "settings-fallback"
 
+    def test_key_env_name_resolves(self, client):
+        """84.20.4: key=SEARCH_MAX_SYMBOLS (env-имя, upper) → 200 + item.name."""
+        for raw in ("SEARCH_MAX_SYMBOLS", "search_max_symbols"):
+            resp = client.get("/api/debug/config",
+                              params={"key": raw},
+                              headers=_hdr(ADMIN_ID))
+            assert resp.status_code == 200, raw
+            body = resp.json()
+            assert body["item"]["key"] == "limits.search_max_symbols"
+            assert body["item"]["name"] == "SEARCH_MAX_SYMBOLS"
+
+    def test_key_unknown_404(self, client):
+        resp = client.get("/api/debug/config",
+                          params={"key": "НЕ_СУЩЕСТВУЕТ"},
+                          headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 404
+        assert "не найден" in resp.json()["detail"]
+
+    def test_full_dump_names_present(self, client):
+        resp = client.get("/api/debug/config", headers=_hdr(ADMIN_ID))
+        items = resp.json()["items"]
+        assert items
+        by_key = {i["key"]: i for i in items}
+        assert by_key["limits.search_max_symbols"]["name"] \
+            == "SEARCH_MAX_SYMBOLS"
+        assert by_key["keys.groq_api_key"]["name"] == "GROQ_API_KEY"
+        # pg-флаг для content-ключа
+        assert by_key["content.info_how_it_works"].get("pg_only") is True
+
 
 class TestQuotedJsonbRoles:
     """ПРОД-ИНЦИДЕНТ (B): bot_roles.permissions (jsonb) приходит СТРОКОЙ
@@ -719,3 +748,30 @@ class TestStatic:
         """T-618-заглушка заменена полным фронтендом фазы 4."""
         resp = client.get("/web/")
         assert "Админка скоро будет" not in resp.text
+
+    def test_index_version_query_param(self, client):
+        """84.21.2: app.js подключается с ?v=__APP_VERSION__ → реальная версия."""
+        resp = client.get("/web/")
+        text = resp.text
+        assert "__APP_VERSION__" not in text              # заглушка заменена
+        assert "/web/app.js?v=2.51.0" in text
+
+    def test_cache_control_headers(self, client):
+        """84.21.2: html/js — no-cache; остальное — public max-age."""
+        html = client.get("/web/")
+        app_js = client.get("/web/app.js")
+        assert "no-cache" in html.headers["cache-control"]
+        assert "no-cache, no-store, must-revalidate" in app_js.headers["cache-control"]
+
+    def test_cache_control_on_304(self, client):
+        """Блокер ревью: Cache-Control одинаков на 200 и 304
+        (If-None-Match + ETag → 304, заголовок НЕ теряется)."""
+        first = client.get("/web/app.js")
+        etag = first.headers.get("etag")
+        assert etag, "Starlette должен отдавать ETag"
+        resp = client.get("/web/app.js", headers={"If-None-Match": etag})
+        assert resp.status_code == 304
+        assert "no-cache, no-store, must-revalidate" \
+            in resp.headers.get("cache-control", "")
+        # обычные файлы (без no-cache) — тоже header на 304
+        image = None  # картинок нет в web/ — проверяем только js-кейс

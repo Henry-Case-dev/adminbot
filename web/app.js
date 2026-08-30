@@ -527,9 +527,15 @@
           this.statusData = await this.api('/api/status');
           this.statusError = null;
         } catch (e) {
-          // F15: 401 — честная заглушка «сессия устарела», а не вечный спиннер
+          // 84.21.1: ошибка на ЛЮБОЙ не-OK (401/403/500/502/…), чтобы не
+          // было вечных спиннеров; 401 — понятное сообщение, 403 — заглушка.
           if (e.status === 401) {
             this.statusError = 'Сессия устарела — откройте админку заново из Telegram.';
+          } else if (e.status === 403) {
+            this.statusError = 'Доступ запрещён (403) — недостаточно прав для Статуса.';
+          } else {
+            this.statusError = 'Не удалось получить статус сервера (' +
+              (e.status ? 'HTTP ' + e.status : 'ошибка сети') + ').';
           }
         }
         this.$nextTick(this.renderUptimeChart);

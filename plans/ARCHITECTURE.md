@@ -16436,3 +16436,313 @@ WantedBy=multi-user.target
   внешний health-мониторинг домена); (4) рестарт `admin_bot` на туннель не
   влияет — ngrok живёт своим юнитом; (5) `network-online.target` + Restart
   покрывают гонку «ngrok стартовал раньше сети».
+
+## 84.20 `/debug_config` v2 (чистый формат) — ДЕЛЬТА, требование человека 30.08.2026
+
+> Требование: без параметра — СПИСКОМ все параметры в формате `key = value`,
+> без воды; в начале — недавно изменённый параметр; вызов по одному параметру —
+> `/debug_config SEARCH_MAX_SYMBOLS` (env-стиль имени, а не pg-ключ).
+> Маскировка/доступ (F10, action.debug.config, wildcard-фолбек) — НЕ меняются.
+
+### 84.20.1 Разведка (факты кода)
+
+* `services/param_catalog.py`: у каждой записи ЕСТЬ и `settings_field`, и
+  `env_name` (для env-only — `env_name` при `settings_field=None`; для PG-only
+  prompts/content — оба `None`, но есть `pg_id`/`pg_key`). `REGISTRY` индексируется
+  именем `settings_field or env_name or pg_key` — резолв `SEARCH_MAX_SYMBOLS`
+  реализуется как `REGISTRY.get(name)`; для pg-ключей — `get_by_pg_key()`.
+* `services/debug_config.py` — тонкий слой ПОВЕРХ catalog/cache (контракт 84.18:
+  «те модули не трогаем») → всю резолв-логику кладём СЮДА (новая функция
+  `resolve_param_key()` + `display_name()`), param_catalog не патчим.
+* `services/config_cache.py` — `get_updated_at(key)` ЕСТЬ (строка 262): читает
+  `_settings_updated_at` из PG; после `set()` in-memory (без PG) ключ получает
+  `None` (поп в строке 275). «Недавно изменённый» = max по `updated_at`
+  (None игнорируются; всё None → строка-маркер не выводится).
+* Имена полей Settings и env-имён в проекте — SCREAMING_SNAKE_UPPER; резолв
+  делаем case-insensitive (приводим к верхнему регистру), лишний UI-фактор
+  исключён: и `SEARCH_MAX_SYMBOLS`, и `search_max_symbols` одинаково резолвятся.
+* Кат. `keys`-секреты — только `{configured, last4}` (F10, даже для wildcard).
+* `<pre>`-чанкинг ≤4000 симв. + `html.escape` ДО чанковки (HIGH-1) — сохраняем
+  как есть; меняется ТОЛЬКО формат строк.
+
+### 84.20.2 Резолвер и display-имя (новый helper, services/debug_config.py)
+
+```python
+def _by_name_ci() -> dict[str, ParamSpec]:
+    # name.lower() → spec для settings_field/env_name (REGISTRY.keys())
+    ...
+def resolve_param_key(raw: str) -> ParamSpec | None:
+    """raw — env-имя (case-insensitive) | settings_field | pg-ключ → spec."""
+    spec = _by_name_ci().get(raw.strip().lower()) or get_by_pg_key(raw.strip())
+    return spec
+def display_name(spec: ParamSpec) -> str:
+    return spec.env_name or spec.settings_field or spec.pg_key   # PG-only → pg-ключ
+```
+
+Правила имени (одна на строку):
+* env-стиль: `spec.env_name or spec.settings_field` (для 99% совпадает — env);
+* PG-only (prompts.*, content.*): оба `None` → `spec.pg_key`
+  (`content.info_how_it_works`); в выводе помечается суффиксом `[pg]` — чтобы
+  было видно, что это не env-ключ;
+* неизвестное имя → `не найден: <raw>` (текст-сообщение, не exception).
+
+### 84.20.3 Формат вывода `/debug_config` (без параметра)
+
+```
+meta: pid=12345 | v=2.51.0 | pg=1 | keys=87 | loaded_at=... | generated_at=...
+* SEARCH_MAX_SYMBOLS = 4000 [updated 2026-08-30T12:34:56+00:00]
+LLM_BASE_URL = https://apinet.cloud/v1
+LLM_API_KEY = configured••••c2x5
+...
+content.info_how_it_works = [pg] {'html': '...'}        ← sorted, одна строка/ключ
+```
+
+* строка 1 — КОМПАКТНАЯ meta (одна строка; обязательный след RAM-диагностики
+  84.18: source/updated_at/pid — то, что в старом формате занимало 5 строк);
+* если есть хоть один ключ с non-None `updated_at` — ПЕРЕД списком добавляется
+  строка `* KEY = value [updated ISO]` (максимум updated_at; при равенстве —
+  алфавитный порядок); метка `*` = «недавно изменён»;
+* дальше — `KEY = value` для всех keys, sort по имени (env-имя), БЕЗ блока
+  `source=/type=/value=` на каждую строку (это была «вода»);
+* секреты: `KEY = configured••••1234` | `KEY = not configured` (F10; полного
+  значения НЕТ даже в JSON-пути);
+* длинные значения (str/представление) — обрезка 200 симв. + `…[len=N]`
+  (84.18.3 остаётся; для безлимитных используем JSON-путь `/api/debug/config`);
+* чанкинг ≤4000 симв. в `<pre>` — как в 84.18.4.
+
+`/debug_config SEARCH_MAX_SYMBOLS` — резолв `resolve_param_key(args[1])`
+(принимает и env-имя, и pg-ключ, без регистра):
+```
+SEARCH_MAX_SYMBOLS = 4000
+```
+плюс meta-строка сверху (та же, что и в полном дампе — источник/updated_at
+важны при расследовании stale-кэша). 404-случай (неизвестный ключ) — текст
+`не найден: X` (вместо RSS-шумного `<pre>`), и команду не «молчим».
+
+### 84.20.4 GET /api/debug/config (дельта 84.18.5)
+
+* `key` опционально: сначала `resolve_param_key(key)` (env-имя, case-insens.),
+  затем фолбек на pg-ключ, затем существующий `build_dump(cache, key)`.
+* Ответ для единичного ключа добавляет поле `name` (display-имя) — фронту не
+  придётся знать pg-ключ. Полный JSON-дамп — без изменений + `name` в item.
+* Маскировка секретов и права (`action.debug.config`) — без изменений.
+
+### 84.20.5 Изменяемые точки (для @Builder)
+
+| Файл | Что меняется |
+| --- | --- |
+| `services/debug_config.py` | + `resolve_param_key()`, `display_name()`, `_by_name_ci()`; `build_dump` → item += `name`; + `format_line()`/`format_meta()` (v2-рендер) |
+| `handlers/debug_config.py` | рендер v2 (`KEY = value`), линия-маркер `*`, новый формат секретов, 404-текст |
+| `web/api/routes.py` | `/debug/config` — key-резолв через `resolve_param_key` |
+| `tests/test_param_catalog.py` | + резолв-тесты (`resolve_param_key('SEARCH_MAX_SYMBOLS')`, регистр, pg-фолбек, PG-only → display_name = pg_key, секреты, «не найден») |
+
+### 84.20.6 Тест-план
+
+1. `/debug_config` без аргумента — ровно одна `meta:`-строка; `*`-строка = max
+   updated_at; имена — env-стиль; секреты — `configured••••NNNN`.
+2. `/debug_config search_max_symbols` — тот же резолв (case-insensitive).
+3. `/debug_config content.info_how_it_works` — отображается как `[pg]`.
+4. URL-кодировка/эмодзи/`<b>` в prompts.* — не роняют `TelegramBadRequest
+   (html.escape, HIGH-1)`, чанки ≤4000.
+5. `GET /api/debug/config?key=SEARCH_MAX_SYMBOLS` — 200 + item.name.
+6. `GET /api/debug/config?key=несуществующий` — 404 (либо 200 с item==null —
+   выбрать семантику: строго 404).
+
+## 84.21 Обход кэша WebView + диагностика прав («2 вкладки + спиннеры») — ДЕЛЬТА, требование человека 30.08.2026
+
+> Симптом: фронт показывает ТОЛЬКО вкладки «📊 Статус» и «ℹ️ Как это работает»
+> (это всегда-видимые; RBAC-остальные скрыты) + вечные спиннеры. Бэкенд по
+> тестам отдаёт permissions-объект. Подозрения человека: кэш WebView
+> (старый app.js), 401 от реального initData, CORS/статик-заголовки.
+
+### 84.21.1 Факты кода (проверено)
+
+* `web/app.js:91` `visibleTabs` = `tab.always || canViewTab(tab.id)`; `always`
+  есть только у status/info. Если `/api/me` вернул `permissions={}` (или
+  `me=null` → `permissions={}`) — сайдбар ровно из 2 вкладок. Это НЕ кэш —
+  это отсутствующее право (или 401 → `me=null` без `authError`).
+* Сетевой путь: `/api/me` 401 → `loadMe` ставит `me=null`, `authError` выставится
+  в `api()` (строка 152), но в шаблоне `authError` рендерится только внизу
+  сайдбара — легко не заметить. `visibleTabs` не пересчитывается, а `setTab`
+  для скрытой вкладки невозможен → «только 2 вкладки».
+* Спиннеры: `loadStatus` ставит `statusError` ТОЛЬКО при 401 (F15); при 500/502
+  (или HTML-ответе от прокси) `statusData` остаётся `null` → вечный спиннер
+  (это отдельный дефект шаблона — чинится в этой же дельте: статус-ошибка
+  на ЛЮБУЮ не-OK, не только 401).
+* `index.html:672` — `<script src="/web/app.js"></script>` БЕЗ версионного
+  query-параметра; Telegram WebView (Android WebView / WKWebView) кэширует
+  HTML/JS как обычный браузер → старый `app.js` возможен; но старый app.js
+  показывал бы СТАРЫЙ сайдбар (все вкладки), а не 2 новые — кэш-версия
+  объясняет «старый функционал», а не «думали, что старый».
+* `web/app.py:45` — `StaticFiles(directory="web", html=True)` БЕЗ заголовков:
+  Starlette по умолчанию отдаёт `ETag`+`Last-Modified` (FileResponse) — 304
+  работает, но при отсутствии `?v=` пере-валидация не инициируется, если
+  WebView закэшировал без корректной проверки; явного `Cache-Control` нет.
+  Параметра `headers` у `StaticFiles` НЕТ (подтверждено по исходникам Starlette)
+  → только подкласс: перекрыть `file_response()` и добавить `Cache-Control`.
+* CORS: фронт и API на одном хосте (same-origin), CORS-заголовки не нужны;
+  «CORS» в брекет-ценностях человека не причина — но проверить, что ngrok не
+  режет заголовки при посредничестве (пункт 84.22: его отключаем).
+* `bot.py:536` — `uvicorn.Config(..., log_level="warning", log_config=None)`
+  → достоверных access-логов нет: default access_log с `log_config=None`
+  в эту архитектуру logging не попадает (и диктует R-гонку с LogtailHandler).
+
+### 84.21.2 Дизайн: версионирование статики + заголовки кэша
+
+1. `index.html`: `<script src="/web/app.js?v=__APP_VERSION__">` (заглушка).
+   Отдача index.html — через FastAPI-маршрут: `GET /web/` и `/web/index.html`
+   рендерят шаблон из `web/index.html` с подстановкой `APP_VERSION`
+   (читается 1 раз at startup, кэш в памяти; zero-build сохраняется).
+   Прямой доступ к `app.js` вне HTML остаётся — но с заголовками ниже.
+2. Подкласс `CacheControlStaticFiles(StaticFiles)` — перегрузка `file_response()`:
+   * `index.html`, `app.js` (+ `.css`): `Cache-Control: no-cache`
+     (ре-валидация через ETag при каждом входе) — Telegram WebView получает
+     304 на неизменные, свежий файл при релизе;
+   * прочее (картинки): `public, max-age=86400`.
+3. `?v=` = страховка №2 и задел на future `max-age+immutable` с хэш-именами
+   (когда начнём конкатенацию — переход не сломает клиентов).
+4. Русские подписи/CDN-скрипты (Vue, tailwind, chart.js) — без изменений
+   (вне нашего кэша).
+5. `Telegram.WebApp.ready()` — остаётся как есть (84.7); `?v=` не мешает.
+
+### 84.21.3 Дизайн: диагностика прав (что фиксируем и как)
+
+Порядок диагностики (последовательная логика — каждый шаг отсекает гипотезу):
+
+| # | Гипотеза | Как проверить на проде (без кода) | Чем фиксируется |
+| --- | --- | --- | --- |
+| 1 | реальный 401 (initData) | `GET /api/me` из WebView → в DevTools/консоли смотреть статус; D-детализация 401 уже есть: `missing init data` / `invalid init data` / `no user in init data` / `init data expired` (deps.py:68,73,75,80) | ответ с деталью 401 |
+| 2 | роль «user» (пустые пермишены) | `/api/me` 200 → `role_name`; если не `admin`/wildcard — в `bot_admins` нет telegram_id или роль без прав | `role_name`+`permissions` |
+| 3 | старый app.js в WebView | в консоль фронта добавить `console.log('build', '<APP_VERSION>')`? — нет: версия видна в `?v=` (с 84.21.2) и в шапке api ответа `meta.app_version`; визуально — сайдбар со «Старым» набором | `?v=` в Network |
+| 4 | 500/502 (спиннеры) | `/api/status` из DevTools: код HTTP; `loadStatus` теперь пишет `statusError` on ANY !ok (фикс из 84.21.1) | код + сообщение |
+
+ЧТО СДЕЛАТЬ (без кода, до праздника): после мержа 84.20, если симптомы
+остаются — проверить `/api/me&role_name`, сравнить с `bot_admins` в PG:
+```sql
+SELECT telegram_id, role_name FROM bot_admins ORDER BY telegram_id;
+SELECT role_name, permissions FROM bot_roles;
+```
+(Админ отсутствует → роль «user» → permissions `{}` → 2 вкладки. Именно этот
+сценарий НЕ отлавливается нашими crafted-тестами, где initData подписан для
+тестового ID.)
+
+### 84.21.4 Диагностический лог авторизации (temporary, за флагом)
+
+`web/api/deps.py:get_tma_user` — одна DEBUG-строка при `os.getenv("DEBUG_TMA_TRACE")=="1"`:
+```
+[tma-auth] src=header|query|body ok=true user=123 role=admin perm=wildcard age=32s
+[tma-auth] src=header ok=false reason=expired age=90000s (client=tdesktop|ios)
+```
+Причина: `bot.py:536` конфиг не гарантирует uvicorn access-log → «журнала
+запросов нет». За флагом — никому не мешает, снимает раз и навсегда вопрос
+«это 401 или прав нет». Отключение — по факту расследования.
+
+### 84.21.5 Изменяемые точки (@Builder)
+
+| Файл | Что меняется |
+| --- | --- |
+| `web/app.py` | `CacheControlStaticFiles` (headers для html/js/css), маршрут `/web/` с подстановкой `__APP_VERSION__` |
+| `web/index.html` | `app.js?v=__APP_VERSION__` |
+| `web/app.js` | `loadStatus` — `statusError` для ЛЮБОЙ ошибки (не только 401) |
+| `web/api/deps.py` | DEBUG-TRACE строка по флагу `DEBUG_TMA_TRACE` |
+| `config/settings.py` | env `DEBUG_TMA_TRACE: bool = False` (или os.getenv — без Settings) |
+
+Тесты: `test_webapp_api.py` — GET /web/ содержит `?v=2.51.0` и Cache-Control
+на app.js (`no-cache`); `test_webapp_status_control.py` — statusError на 500.
+
+## 84.22 Удаление ngrok interstitial — итог ресерча + выбранный вариант (ДЕЛЬТА, требование человека 30.08.2026)
+
+### 84.22.1 Результат ресерча (официальные источники)
+
+**А. ngrok free: interstitial ОТКЛЮЧИТЬ НЕЛЬЗЯ.** Подтверждено:
+* ERR_NGROK_6024 + `free-plan-limits`: интерстициал — на ВСЕМ HTML-трафике
+  free; убирается только (a) клиентским заголовком `ngrok-skip-browser-warning`
+  (любое значение), (b) нестандартным User-Agent, (c) платной подпиской.
+  Телеграм-WebView послать эти заголовки не может (WebView — Chromium/WKWebView
+  клиента; мы контролируем только сервер/JS-запросы — а запросы из fetch()
+  уже НЕ-HTML и с браузерным UA — интерстициал всё равно появляется
+  на document load). Cookie «Visit site» прикрывает что-то только на 7 дней
+  и требует ручного клика — требование «в т.ч. первый заход» НЕ выполняется.
+  Источники: ngrok.com/docs/errors/err_ngrok_6024, ngrok.com/docs/pricing-limits/free-plan-limits, ngrok.com/blog/how-ngrok-actively-combats-phishing-attacks.
+* Paid: Hobbyist $10/mo (ngrok-branded домен, без интерстициала) или
+  Pay-as-you-go — «No Interstitial page on HTTP/S endpoints».
+  Источник: ngrok.com/pricing, ngrok.com/docs/pricing-limits.
+* Custom domain (let's say `app.adminbot.ru`) требует PAYG + свои NS —
+  на free НЕЛЬЗЯ.
+
+**Б. Альтернативы без интерстициала (сравнение):**
+
+| Вариант | Интерст. | URL | Free | Совместимо с TMA | Итог |
+| --- | --- | --- | --- | --- | --- |
+| ngrok free | ✅ ЕСТЬ | статич. (dev-домен) | да | ❌ | отклонён |
+| ngrok paid ($8–10) | ❌ нет | статич. | нет | ✅ | план Б |
+| **DuckDNS + Let's Encrypt + Caddy/nginx на том же VPS** | ❌ нет | **стабильный** `*.duckdns.org` | **100%** | ✅ | **ВЫБРАН** |
+| Cloudflare Tunnel (named) | ❌ нет | стабильный, но нужен CNAME-домен в CF | туннель да, домен CF-NS | ✅ | план В (нужен своё домен) |
+| Cloudflare quick (trycloudflare) | ❌ нет | СЛУЧАЙНЫЙ (меняется при рестарте) | да | ❌ | отклонён (URL не стабилен) |
+| localtunnel/loca.lt | ✅ ЕСТЬ (Friendly Reminder + пароль IP) | стаб. поддомен | да | ❌ | отклонён |
+| Serveo / pinggy | ❌/ⓘ — оба имеют лимиты/нестабильность | случайный/платный стаб. | ч | ⚠️ | не рассматривается |
+| trapdoor.sh / Tunnelmole (марковано no-interstitial) | ⓘ маркетинговые заявления | — | ? | ⚠️ | не для прода |
+
+**В. Почему Cloudflare Tunnel + DuckDNS НЕ подходят вместе:** для named-туннеля
+нужен CNAME `<tunnel-id>.cfargotunnel.com` в Cloudflare-зоне (Partial Setup
+тоже требует CNAME у внешнего DNS-провайдера; DuckDNS позволяет только
+A/AAAA/TXT для своих поддоменов, CNAME на поддоменах duckdns.org НЕ
+поддерживается — см. faqs duckdns.org; cfargotunnel.com CNAME вне CF-зоны
+не проксирует). Проще и на 0 ₽ — поддомен DuckDNS + Caddy на VPS.
+
+### 84.22.2 Выбранный вариант: DuckDNS + Caddy (Let's Encrypt) — шаги для @DevOps
+
+Предпосылки: тот же VPS (systemd-юнит `admin_bot` уже живёт, User=nik),
+uvicorn слушает `127.0.0.1:8000` (WEB_PORT, 84.15/84.19). Порт 80/443 свободны
+(ngrok не занимает локальные порты — процесс-туннель на on-порт не влияет).
+Если порт 80 закрыт фаерволом — открыть; для HTTP-01 нужен 80.
+
+1. DuckDNS (5 минут, бесплатно):
+   - `https://www.duckdns.org` → login via GitHub/Git → subdomain
+     `adminbot.<nick>.duckdns.org` → token → установить duckdns-крон:
+     `*/5 * * * * curl -ks "https://www.duckdns.org/update?domains=adminbot&token=TOKEN&ip="`
+     (VPS со статичным IP — может хватить однократной установки A-записи вручную).
+2. Caddy (или nginx + certbot — на выбор DevOps, Caddy проще):
+   ```
+   apt install caddy   # Ubuntu/Debian; binary с официального репо caddyserver.com
+   ```
+   `/etc/caddy/Caddyfile`:
+   ```
+   adminbot.nickname.duckdns.org {
+       reverse_proxy 127.0.0.1:8000
+   }
+   ```
+   `systemctl enable --now caddy` → Let's Encrypt aut-hook: серт выдан
+   автоматически (HTTP-01 → redirect 443).
+3. Проверка: `curl -k https://adminbot.nickname.duckdns.org/api/health` →
+   `{"status":"ok"}`; браузер по новому URL — БЕЗ предупреждений; открыть
+   URL → видно `?v=2.51.0` (после 84.21) — флаг кэш-диагностики.
+4. Отключение ngrok: `sudo systemctl disable --now ngrok` (+ удалить юнит
+   `ngrok.service` после недели стабильной работы нового URL).
+5. BotFather: `/mybot` → `Bot Settings` → `Menu Button` → URL нового домена
+   (это редактирует Telegram-запись — сделать ОТ ИМЕНИ человека).
+   Заодно — Webhook/Menu между ботом и админкой не завязан на ngrok, ничего
+   больше менять не нужно.
+6. Опционально (гигиена): в `web/app.py` убрать ничего не надо; rate-лимиты
+   20k req/мес/1GB (free ngrok) исчезли — заголовки теперь прямо с VPS.
+
+### 84.22.3 Что нужно от человека
+
+1. Создать DuckDNS-поддомен (или отдать готовый токен/поддомен — @DevOps
+   по инструкции не может создать от его GitHub).
+2. Обновить URL в BotFather (кнопка/Menu Button — новый URL).
+3. (опционально) Выбрать paid-ngrok как план Б, если DuckDNS-поддомен
+   нежелателен (тогда пункты 1–2 отпадают; требуется оплата).
+
+### 84.22.4 Риски
+
+* DNS TTL duckdns.org — до 60 сек; изменения в BotFather — мгновенно,
+  после первого клика телеграм предлагает перезапуск.
+* Let's Encrypt лимиты (50 серт/нед на домен) — при перевыпусках не проблемно;
+  если порт 80 закрыт — цепочка: certbot DNS-01 (duckdns TXT API) или
+  Caddy + старый ngrok до открытия 80.
+* Смена URL в BotFather = старое окно/витрина «эмbgöd-grafted-ritalin» больше
+  не открывает TMA — упоминание в 84.21.1: новый URL обязателен в сообщениях
+  бота (строка «Админка» в /start, кнопки).
+* Потерять на VPS uptime: health-мониторинг прежний (`/api/health` — без auth,
+  84.5), упоминания об этом в 84.19 сохраняются.

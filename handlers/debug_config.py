@@ -1,14 +1,12 @@
-"""Epic 85 (84.18.4, T-656) — скрытая команда /debug_config [key].
+"""Epic 85 (84.18.4/84.20, T-656/T-658) — скрытая команда /debug_config [key].
 
 Только в DM, только для is_debug_admin() (84.18.2: wildcard-роль или право
 action.debug.config; деградация PG → фолбек settings.ADMIN_USER_ID). Команда
-НЕ входит в set_my_commands (D95 — меню «/» не раскрывает существование);
-сообщение команды удаляется. Вывод — <pre>-блоки с разбиением ≤4000 символов
-на чанк (лимит Telegram 4096 с запасом на <pre>-обёртку); ЛЮБОЕ значение
-(строка/repr(dict/json)) обрезается до 200 символов + value_len (84.18.3);
-все значения проходят html.escape ОДНОЙ точкой ДО чанковки (HIGH-1:
-content.info_how_it_works — dict с HTML, prompts.* — строки с <b>/& —
-не должны ронять TelegramBadRequest). Секреты — только configured/last4.
+НЕ входит в set_my_commands (D95); сообщение команды удаляется. Формат v2
+(84.20.3): одна компактная meta-строка + строки `KEY = value`;
+`/debug_config SEARCH_MAX_SYMBOLS` (env-имя, case-insensitive) — одна
+строка; неизвестный ключ → «не найден: X». Чанкинг ≤4000 символов в <pre>
+с html.escape ДО чанковки (HIGH-1); секреты — только configured••••last4.
 """
 import html as html_mod
 import logging
@@ -17,9 +15,10 @@ from aiogram import F, Router, types
 from aiogram.filters import Command
 
 from services.debug_config import (
-    _TG_TRUNCATE_CHARS,
     build_dump,
+    build_lines,
     is_debug_admin,
+    resolve_param_key,
 )
 from services.hot_config import get_config_cache
 
@@ -37,30 +36,6 @@ async def _delete_command(message: types.Message) -> None:
     except Exception:
         logger.debug("[/debug_config] delete failed | chat=%s",
                      message.chat.id)
-
-
-def _format_value(item: dict) -> str:
-    """HIGH-1: обрезка ЛЮБОГО представления значения (строка и repr
-    dict/json/…) до 200 символов + value_len; секреты — configured/last4."""
-    value = item["value"]
-    if item["secret"]:
-        return ("configured" if value.get("configured") else "not configured") \
-            + (f" (last4: {value['last4']})" if value.get("last4") else "")
-    if isinstance(value, str):
-        text = value
-        full_len = item.get("value_len") or len(value)
-    else:
-        text = repr(value)
-        full_len = len(text)
-    if len(text) > _TG_TRUNCATE_CHARS:
-        return text[:_TG_TRUNCATE_CHARS] + f"… [len={full_len}]"
-    return text
-
-
-def _render_key_line(item: dict) -> str:
-    return (f"{item['key']} | source={item['source']} | type={item['type']} "
-            f"| updated_at={item['updated_at']}\n"
-            f"    value={_format_value(item)}")
 
 
 def _chunk_lines(lines: list[str], chunk: int = _SPLIT_CHUNK) -> list[str]:
@@ -87,7 +62,7 @@ def _chunk_lines(lines: list[str], chunk: int = _SPLIT_CHUNK) -> list[str]:
 
 @debug_config_router.message(Command("debug_config"), F.chat.type == "private")
 async def cmd_debug_config(message: types.Message) -> None:
-    """DM-only, admin-only; сообщение удаляется; вывод <pre>-блоками."""
+    """DM-only, admin-only; сообщение удаляется; вывод v2 <pre>-блоками."""
     user_id = message.from_user.id if message.from_user else 0
     cache = get_config_cache()
     if not is_debug_admin(cache, user_id):
@@ -95,32 +70,22 @@ async def cmd_debug_config(message: types.Message) -> None:
         return
     await _delete_command(message)
     args = (message.text or "").split(maxsplit=1)
-    key = args[1].strip() if len(args) > 1 else ""
-    dump = build_dump(cache, key=key or None)
-    meta = dump["meta"]
-    header = (
-        f"In-Memory State Dump\n"
-        f"pid={meta['pid']} | version={meta['app_version']} | "
-        f"initialized={meta['is_initialized']} | pg={meta['pg_available']}\n"
-        f"keys_total={meta['keys_total']} | "
-        f"cache_loaded_at={meta['cache_loaded_at']}\n"
-        f"generated_at={meta['generated_at']}\n"
-        + ("─" * 40)
-    )
-    if "item" in dump:
-        body_lines = [_render_key_line(dump["item"])]
+    raw = args[1].strip() if len(args) > 1 else ""
+    if raw:
+        # 84.20.2: env-имя / settings_field / pg-ключ (case-insensitive)
+        spec = resolve_param_key(raw)
+        if spec is None:
+            await message.answer(f"не найден: {raw}")
+            logger.info("[/debug_config] not found | by=%s | raw=%r",
+                        user_id, raw)
+            return
+        lines = build_lines(cache, key=spec.pg_key)
     else:
-        body_lines = [
-            _render_key_line(item)
-            for item in dump["items"]
-        ]
-    # HIGH-1: html.escape — ОДНА точка, ДО чанковки (экранирование не меняет
-    # \n; чанк ≤ 4000 экранированных символов → сообщение ≤ 4000+<pre>-обёртка
-    # < 4096 при любом содержимом).
-    escaped_lines = [html_mod.escape(line) for line in [header] + body_lines]
-    chunks = _chunk_lines(escaped_lines)
+        lines = build_lines(cache)
+    escaped = [html_mod.escape(line) for line in lines]
+    chunks = _chunk_lines(escaped)
     for chunk in chunks:
         await message.answer(
             f"<pre>{chunk}</pre>", parse_mode="HTML")
-    logger.info("[/debug_config] dump sent | by=%s | keys=%d",
-                user_id, len(dump.get("items", [1])))
+    logger.info("[/debug_config] dump sent | by=%s | lines=%d",
+                user_id, len(lines))
