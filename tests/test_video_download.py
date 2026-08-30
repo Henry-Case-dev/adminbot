@@ -1009,3 +1009,114 @@ class TestEmptyBodyRetry:
         assert stream_env.sleeps == []
         assert not [r for r in caplog.records
                     if "tunnel empty body" in r.getMessage()]
+
+
+# ── Прод-хотфикс 30.08.2026: yt-dlp merge «Invalid data found…» ─────────────
+
+class TestYtdlpDownloadHotfix:
+    """Ретрай с резервным player_client, URL/фаза в ошибке, диск-чек,
+    ffmpeg-чек при старте."""
+
+    class _FakeYDL:
+        last_opts = None
+        calls = []
+        result = None
+        exc = None
+        fail_first = False
+
+        def __init__(self, opts):
+            type(self).last_opts = opts
+            type(self).calls.append(opts)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def extract_info(self, url, download=False):
+            if type(self).fail_first and len(type(self).calls) == 1:
+                raise type(self).exc
+            if type(self).exc is not None and not type(self).fail_first:
+                raise type(self).exc
+            return {"title": "t", "requested_downloads": [
+                {"filepath": "/tmp/x.mp4"}]}
+
+    def _patch_ytdlp(self, monkeypatch):
+        import sys
+        import types
+        fake = types.SimpleNamespace(YoutubeDL=self._FakeYDL)
+        monkeypatch.setitem(sys.modules, "yt_dlp", fake)
+
+    @pytest.mark.asyncio
+    async def test_retry_with_android_player_client(
+            self, tmp_path, monkeypatch, caplog):
+        """Первый вызов падает (merge/postprocess), второй — с
+        extractor_args youtube:player_client=android → успех."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = RuntimeError(
+            "ERROR: Postprocessing: Error opening input files: "
+            "Invalid data found when processing input")
+        self._FakeYDL.fail_first = True
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with caplog.at_level(logging.WARNING):
+            path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ",
+                                           "720p")
+        assert path.name == "x.mp4"     # успешный повтор (фейк-файлpath)
+        assert len(self._FakeYDL.calls) == 2
+        retry_opts = self._FakeYDL.calls[1]
+        assert retry_opts["extractor_args"] == {
+            "youtube": {"player_client": ["android", "default"]}}
+        assert any("retry with player_client" in r.getMessage()
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_failure_includes_url_and_phase(
+            self, tmp_path, monkeypatch, caplog):
+        """Ошибка yt-dlp оборачивается с url и фазой (диагностика)."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = RuntimeError("boom postprocess")
+        self._FakeYDL.fail_first = False     # оба вызова (и ретрай) падают
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        msg = str(excinfo.value)
+        assert "https://youtu.be/dQw4w9WgXcQ" in msg
+        assert "phase=" in msg
+
+    @pytest.mark.asyncio
+    async def test_low_disk_warns(self, tmp_path, monkeypatch, caplog):
+        """Диск-чек: free < 500 МБ → WARNING с URL (не блокирует)."""
+        import shutil
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = None
+        self._FakeYDL.fail_first = False
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+
+        class _Usage:
+            free = 100 * 1024 * 1024
+
+        monkeypatch.setattr(vdm.shutil, "disk_usage", lambda p: _Usage())
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with caplog.at_level(logging.WARNING):
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert any("low disk" in r.getMessage() and "youtu.be" in r.getMessage()
+                   for r in caplog.records)
+
+    def test_ffmpeg_missing_warns_on_setup(self, monkeypatch, caplog):
+        """ffmpeg отсутствует в PATH → WARNING при setup_video_download."""
+        import shutil
+        from handlers import video_download as vd_mod
+        monkeypatch.setattr(shutil, "which", lambda name: None)
+        with caplog.at_level(logging.WARNING):
+            vd_mod.setup_video_download(None)
+        assert any("ffmpeg НЕ найден" in r.getMessage()
+                   for r in caplog.records)

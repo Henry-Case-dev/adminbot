@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import secrets
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +30,14 @@ _STREAM_TIMEOUT = aiohttp.ClientTimeout(total=300)
 # Epic 77 (D287): таймаут yt-dlp-ветки скачивания (больше cobalt-ских
 # 300с×2, т.к. сюда входит merge ffmpeg; бюджет один на всю операцию).
 _YTDLP_DOWNLOAD_TIMEOUT_SECONDS = 900.0
+
+# Прод-инцидент 30.08.2026 «Invalid data found when processing input»:
+# устаревший yt-dlp + форс-изменения YouTube (SABR/403, issue #17456) →
+# битые CDN-фрагменты → ffmpeg-merge падает. Ретрай с резервным
+# player_client (android) — один повтор только при ошибке.
+_FALLBACK_PLAYER_CLIENT = ("android", "default")
+# Минимальный свободный диск перед загрузкой (WARNING, не блокируем).
+_MIN_FREE_DISK_BYTES = 500 * 1024 * 1024
 
 # Epic 77 (D286): ТОЛЬКО эти хосты идут в yt-dlp-ветку; остальные платформы
 # (vimeo, vk, …) — cobalt как раньше. Поддомены/подмена не матчатся.
@@ -183,6 +192,11 @@ class VideoDownloader:
         ТОЛЬКО на фазе скачивания и несут PRE-merge имена промежуточных
         файлов (vd_*.f<id>.mp4 / vd_*.f<id>.m4a) — merged-файл там НЕ
         появляется (merge = постпроцессор, см. YoutubeDL.py:3559-3577).
+
+        Прод-хотфикс 30.08.2026: перед загрузкой — диск-чек (WARNING);
+        при ошибке yt-dlp — ОДИН повтор с резервным player_client=android
+        (YouTube форсит SABR/403 для web/tv — битые фрагменты ломают
+        ffmpeg-merge «Invalid data found when processing input»).
         """
         from yt_dlp import YoutubeDL              # ленивый тяжёлый импорт (D261)
 
@@ -199,36 +213,69 @@ class VideoDownloader:
         prefix = f"vd_{stamp}_{rand}"
         outtmpl = str(self._download_dir / f"{prefix}.%(ext)s")
 
+        # Диск-чек (не блокируем — только WARNING для диагностики).
+        self._download_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            usage = shutil.disk_usage(self._download_dir)
+            if usage.free < _MIN_FREE_DISK_BYTES:
+                logger.warning(
+                    "[videodl] low disk | free=%d MB | url=%s",
+                    usage.free // (1024 * 1024), url)
+        except OSError:
+            logger.warning("[videodl] disk_usage failed | dir=%s",
+                           self._download_dir, exc_info=True)
+
         def _hook(d: dict) -> None:
             if d.get("status") == "downloading" and \
                     d.get("downloaded_bytes", 0) > VD_MAX_BYTES:
                 raise DownloadTooBigError(
                     f"file exceeds {VD_MAX_BYTES} bytes")
 
-        opts = {**build_ytdlp_base_opts(), "format": format_selector,
-                "merge_output_format": "mp4", "outtmpl": outtmpl,
-                "noplaylist": True, "quiet": True, "noprogress": True,
-                "progress_hooks": [_hook]}
-
-        def _run() -> dict:
+        def _run(extractor_args: dict | None) -> dict:
+            opts = {**build_ytdlp_base_opts(), "format": format_selector,
+                    "merge_output_format": "mp4", "outtmpl": outtmpl,
+                    "noplaylist": True, "quiet": True, "noprogress": True,
+                    "progress_hooks": [_hook]}
+            if extractor_args:
+                opts["extractor_args"] = extractor_args
             with YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=True)
+
+        async def _attempt(extractor_args: dict | None, phase: str):
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(_run, extractor_args),
+                    timeout=_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)
+            except asyncio.TimeoutError as exc:
+                raise DownloadError(
+                    f"yt-dlp timeout after "
+                    f"{int(_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)}s"
+                    f" | url={url} | phase={phase}") from exc
+            except DownloadTooBigError:
+                raise                       # TOO_BIG-пул фраз в хендлере (D288)
+            except Exception as exc:
+                raise DownloadError(
+                    f"yt-dlp failed: {exc} | url={url} | phase={phase}") \
+                    from exc
 
         ok = False
         info: dict | None = None
         try:
-            info = await asyncio.wait_for(
-                asyncio.to_thread(_run),
-                timeout=_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)
+            info = await _attempt(None, "download")
             ok = True
-        except asyncio.TimeoutError as exc:
-            raise DownloadError(
-                f"yt-dlp timeout after "
-                f"{int(_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)}s") from exc
-        except DownloadTooBigError:
-            raise                       # TOO_BIG-пул фраз в хендлере (D288)
-        except Exception as exc:
-            raise DownloadError(f"yt-dlp failed: {exc}") from exc
+        except DownloadError as exc:
+            # Прод-хотфикс: повтор с резервным player_client (android).
+            # Только одна попытка — экономим; не ретраим TooBig/таймаут.
+            logger.warning(
+                "[videodl] yt-dlp failed → retry with player_client=%s "
+                "| url=%s | err=%s", _FALLBACK_PLAYER_CLIENT[0], url, exc)
+            try:
+                info = await _attempt(
+                    {"youtube": {"player_client": list(_FALLBACK_PLAYER_CLIENT)}},
+                    "retry-android")
+                ok = True
+            except DownloadError:
+                raise
         finally:
             # исключение (TooBig/таймаут/yt-dlp) → .part/.ytdl артефакты
             # не копим (78.1 п.3)

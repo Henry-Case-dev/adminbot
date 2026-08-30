@@ -65,7 +65,7 @@ def bot_module(monkeypatch):
 
     import config.settings as settings_mod
 
-    monkeypatch.setenv("API_TOKEN", "***")
+    monkeypatch.setenv("API_TOKEN", "123456:TEST_TOKEN_FOR_MAIN_FLOW_ABCDE")
     monkeypatch.delenv("LOGTAIL_SOURCE_TOKEN", raising=False)
     # settings — снапшот env на момент импорта: при совместном прогоне модуль
     # уже в кэше с пустым токеном → пересоздаём Settings (reload-паттерн

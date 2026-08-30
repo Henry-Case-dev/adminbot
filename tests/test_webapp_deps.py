@@ -519,7 +519,7 @@ class TestOfficialHmacVector:
     Проверяем алгоритм aiogram (check_webapp_signature) на этом векторе —
     сверка с публичным эталоном, а не с собственным генератором."""
 
-    VECTOR_TOKEN = "***"
+    VECTOR_TOKEN = "5768337691:AAH5YkoiEuPk8-FZa32hStHTqXiLPtAEhx8"
     VECTOR_HASH = ("c501b71e775f74ce10e377dea85a7ea24ecd640b223ea86d"
                    "fe453e0eaed2e2b2")
 

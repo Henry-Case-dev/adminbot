@@ -71,7 +71,13 @@ _QUALITY_ROW_SIZE = 3
 def setup_video_download(downloader: VideoDownloader, db=None) -> None:
     """DI: VideoDownloader. Вызывается из bot.py on_startup (70.7).
     Dual-layer cooldown (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный
-    трекер (throttle_state, scope='video_download'), иначе in-memory."""
+    трекер (throttle_state, scope='video_download'), иначе in-memory.
+    Прод-хотфикс 30.08.2026: ffmpeg-чек при старте (WARNING, если нет —
+    merge yt-dlp (postprocess) будет падать с «Invalid data found…»)."""
+    import shutil
+    if shutil.which("ffmpeg") is None:
+        logger.warning("[videodl] ffmpeg НЕ найден в PATH — merge yt-dlp "
+                       "(postprocess) будет падать (Invalid data found)")
     global _downloader, _cooldown
     _downloader = downloader
     _cooldown = make_cooldown(
@@ -330,8 +336,9 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
         await _safe_error_reply(bot, chat_id, trigger_message_id,
                                 VD_BUSY_PHRASES)
     except Exception as exc:
-        logger.warning("[videodl] download failed | chat=%s | error=%s",
-                       chat_id, exc)
+        logger.warning("[videodl] download failed | chat=%s | url=%s | "
+                       "quality=%s | error=%s", chat_id, url, f"{quality}p",
+                       exc)
         await _safe_error_reply(bot, chat_id, trigger_message_id,
                                 VD_ERROR_PHRASES)
     finally:
