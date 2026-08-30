@@ -313,7 +313,7 @@ WORD_MAP = {
     r'\bщ[ая]\b': 'ся', r'\bвообще\b': 'вафе', r'\bваще\b': 'вафе',
     r'\bвообще-?то\b': 'вафе-то', r'\bбольше\b': 'бофе', r'\bбольшие\b': 'бофые',
     r'\bконечно\b': 'канефна', r'\bпожалуйста\b': 'пазяста',
-    r'\bздравствуйт?е?\b': 'длатути', r'\bхочу\b': 'хатю', 
+    r'\bздравствуйт?е?\b': 'длатути', r'\bхочу\b': 'хатю',
 }
 
 SUBSTR_MAP = {
@@ -384,7 +384,7 @@ WORD_MAP = {
     r'\bщ[ая]\b': 'ся', r'\bвообще\b': 'вафе', r'\bваще\b': 'вафе',
     r'\bвообще-?то\b': 'вафе-то', r'\bбольше\b': 'бофе', r'\bбольшие\b': 'бофые',
     r'\bконечно\b': 'канефна', r'\bпожалуйста\b': 'пазяста',
-    r'\bздравствуйт?е?\b': 'длатути', r'\bхочу\b': 'хатю', 
+    r'\bздравствуйт?е?\b': 'длатути', r'\bхочу\b': 'хатю',
 }
 
 SUBSTR_MAP = {
@@ -12600,7 +12600,7 @@ CHAT_SYSTEM_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 3. Разрешен мат и сленг. Будь грубым, но по факту.
 
 ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
-Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. 
+Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ.
 Не объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
 ```
 
@@ -15276,6 +15276,23 @@ curl-проверка на проде ДО деплоя: POST на cobalt с `"v
 | R-3: yt-dlp медленнее cobalt (тот же трафик минуя tunnel-оптимизации) | Низкая | таймаут 900с с запасом; кулдаун 5m (Section 75) уже ограничивает частоту |
 | R-4: YouTube меняет PO Token требования → плагин/сервер требуют апдейта | Средняя, внешняя | версии в requirements/compose фиксируются слабо (>=); процедура: обновить pip-плагин + образ докера |
 
+### 78.5 Канон надёжности (прод-хотфикс 30.08.2026 + ревью B1–B3/M1–M2/F1–F5; IMPLEMENTED, @Builder)
+
+> **Дата:** 2026-08-30/31. **Статус:** IMPLEMENTED. Прод-инцидент «Invalid data found when processing input» (wX4OiGISNlY): HDR10-m3u8-форматы (633/636) в SABR приходят ПОВРЕЖДЁННЫМИ; диагностика DevOps показала, что android-клиент отдаёт OK, POT ни при чём. Ниже — действующий канон кода (tools/video_downloader.py, handlers/video_download.py), обновляемый при изменении.
+
+1. **Format-selectors (с 30.08.2026):** приоритет `[protocol^=https]` (прямые CDN-ссылки вместо битых HLS/m3u8):
+   - `max`: `bv[ext=mp4][protocol^=https]+ba[ext=m4a]/bv[ext=mp4]+ba[ext=m4a]/bv+ba/b`
+   - высота `h`: `bv[ext=mp4][height<=H][protocol^=https]+ba[ext=m4a]/bv[ext=mp4][height<=H]+ba[ext=m4a]/bv[height<=H]+ba/b[height<=H]`
+   - Формируются методом `_format_selector()`; селекторы 78.1 п.3 УСТАРЕЛИ — заменены protocol-вариантами.
+2. **Ретрай player_client (B-ретрай):** `_FALLBACK_PLAYER_CLIENTS = ("android", "web_safari", "tv", "ios", "mweb")` — БЕЗ `default` (default → visionos/web с битыми HLS). Перебор до `_MAX_YTDLP_ATTEMPTS = 3` реальных загрузок: первая попытка (дефолт, merge) + merge-фолбек (если задействован) + оставшиеся клиенты. Бюджет: `attempts_left = max(0, _MAX_YTDLP_ATTEMPTS - 1 - (1 if ok else 0) - (1 if merge_fallback_used else 0))` (B3). Каждый ретрай логируется WARNING с `player_client`.
+3. **Merge-фолбек:** при постпроцессинговой ошибке (`_is_postprocess_error`: "postprocess"/"error opening input"/"invalid data found"/"ffmpeg") — повтор БЕЗ merge: `merge_output_format` не ставится, формат `b[ext=mp4]/b/best` (один прогрессивный файл). Флаг `merge_fallback_used` учитывается в бюджете (B3).
+4. **Уборка промежуточных файлов (M2, F1):** `_purge_temp(keep)` — удаляет ВСЕ `vd_{stamp}_{rand}.*` кроме итогового `keep` (сравнение `.resolve()`); вызывается БЕЗУСЛОВНО: в `finally` попыток (и при успехе — merge-фолбек оставляет `.f137.mp4`/`.f140.m4a`, и при ошибке — всё удаляется), в canonical-возврате, в glob-fallback-возврате и ПЕРЕД обоими `raise DownloadError("yt-dlp finished but output file not found")` (F1: ноль/несколько кандидатов — каталог тоже чистится). `_final_of(info)` извлекает итоговый filepath из `requested_downloads[-1]`.
+5. **DownloadUnavailableError (понятные ошибки):** `_raise_unavailable(info)` — age_limit>0 / availability+description с маркерами входа / is_live / DRM-форматы (format_note: drc/premium/cenc/widevine). `_AVAILABILITY_SIGN_IN_MARKERS` (M1) — ТОЛЬКО полные фразы: `"sign in to confirm you're not a bot"`, `"confirm you're not a bot"`, `"confirm you are not a bot"` (голый «sign in» даёт ложные срабатывания — например, «how to sign in to our site» в описании). В `_attempt()` (F4) та же проверка единым кортежем + `"login_required" in text`. Класс маппится в пул `VD_UNAVAILABLE_PHRASES` в хендлере.
+6. **POT (не конфликтует с ретраями):** `build_ytdlp_base_opts()` при `YTDLP_POT_PROVIDER` (напр. `bgutil:http`) несёт `extractor_args youtube: {pot_provider, pot_token_background:["false"]}`. Retry-opts МЕРЖАТСЯ с базовыми (B2): `base_ea = opts.get("extractor_args") or {}`; `youtube_ea = dict(base_ea.get("youtube") or {})`; `youtube_ea.update(extractor_args.get("youtube") or {})` — player_client ретрая перезаписывает свой ключ, pot_provider сохраняется. НЕ полная замена.
+7. **Direct-медиа (замечание чекапа):** `is_direct_media_url(url)` — расширение `.mp4/.webm/.mov/.mkv/.avi/.gif` в конце path (query/fragment допустимы). Одна прямая ссылка → `download_direct()`: httpx-стрим с браузерным UA, при 403 повтор с `Referer: https://2ch.su/` (пул `_DIRECT_REFERRERS`), лимит `_DIRECT_MAX_BYTES = 2 ГБ` → `DownloadTooBigError`. В хендлере — СРАЗУ скачивание+отправка (БЕЗ quality-меню), try/finally с `path.unlink()` (B1). Утечки исключены: `unlink` в `except httpx.HTTPError` (обрыв стрима) и при `status_code >= 400` (B1).
+8. **Нативное TG-видео:** триггер «скачай» без ссылок, но с `video`/`document` в апдейте → `bot.get_file` → temp → `send_video` (фолбек `send_document`); лимит 2 ГБ; ошибки — понятные (`VD_ERROR_PHRASES`). Конфликтов с транскрибацией нет (video_note/voice — другой путь).
+9. **Прочее:** `_FORMAT_UNSUPPORTED_HINTS` удалён (мёртв, F3); `pytest-timeout>=2.3.0` добавлен в requirements.txt (F5) — полный прогон `--timeout=90 --timeout-method=thread`. Прогресс-бар НЕ реализован (план 84.23).
+
 ---
 
 ## Section 79 — Epic 78: транскрибация кружков/голосовых при локальном Bot API — резолв host-пути вместо bot.download (v2.48.x, DESIGN, T-578)
@@ -16746,3 +16763,172 @@ uvicorn слушает `127.0.0.1:8000` (WEB_PORT, 84.15/84.19). Порт 80/443
   бота (строка «Админка» в /start, кнопки).
 * Потерять на VPS uptime: health-мониторинг прежний (`/api/health` — без auth,
   84.5), упоминания об этом в 84.19 сохраняются.
+
+
+## 84.23 Прогресс-бар скачивания видео (план) — ДЕЛЬТА, требование человека 30.08.2026
+
+> Проблема: при выборе качества (callback vd:<quality>) скачивание идёт в фоне
+> (asyncio.to_thread + глобальный lock 70.4), юзер видит только chat_action
+> «upload_video» и НЕ понимает, идёт ли загрузка вообще. Нужен живой прогресс.
+> Это ПЛАН (research @Architect 30.08.2026), НЕ реализация — задачу @Builder
+> не создавать до явного подтверждения.
+
+### 84.23.0 Исследование (резюме; источники в RESEARCH)
+
+* yt-dlp отдаёт progress_hooks — синхронный колбэк из рабочего потока на каждом
+  чанке. Поля dict: status («downloading»/«finished»/«error»), downloaded_bytes,
+  total_bytes / total_bytes_estimate (total_bytes может отсутствовать!),
+  speed, eta, elapsed, filename, info_dict (title и т.п.). См. docs
+  (yt-dlp README, «progress hooks») и примеры на GitHub (vgvr0/
+  Telegram-Youtube-Twitter-TikTok-Downloader, Mr-Sunglasses/opentgytbot,
+  antlis/tg-media-bot, iytdl) + Хабр-разбор «Асинхронный загрузчик видео на
+  aiogram 3 и yt-dlp» (habr.com/ru/articles/1026238/).
+* Из хука нельзя await message.edit_text(...) напрямую — хук исполняется в
+  рабочем потоке to_thread, там нет event loop. Единственный правильный мост —
+  asyncio.run_coroutine_threadsafe(корутина, loop) (Хабр-статья; в yt-dlp issue
+  #3122 и #6070 та же тема — partial/lambda для передачи аргументов в хук и
+  queue для проброса наружу).
+* Telegram: editMessageText лимитирован ~1 правкой/сек на чат (частые правки →
+  429 Too Many Requests + flood-ban); правка сообщения возможна только 48 часов
+  с момента отправки. Правки идут в те же чат-лимиты, что и сообщения.
+* Паттерны: (а) правка ОДНОГО сообщения-прогресса (не спам новыми), (б)
+  троттлинг по времени (не чаще 1 раз/2 сек) ИЛИ по шагу % (каждые 5-10%),
+  (в) same-text guard — текст не изменился → не дёргать API, (г) все ошибки
+  правки — в try/except (сообщение удалено/не изменилось/429 — прогресс не
+  должен ронять задачу), (д) очередь/монитор-цикл (opentgytbot: цикл раз в
+  1.5с читает task.progress; iytdl — свой ProgressReporter).
+
+### 84.23.1 Стадия 0: хук прогресса в VideoDownloader
+
+Файлы: tools/video_downloader.py.
+
+* В VideoDownloader.download(url, quality) и download_ytdlp(url, quality)
+  добавить необязательный параметр progress_cb: Callable[[dict], None] | None.
+  Контракт «(url, quality) -> Path» сохраняется — колбэк не влияет на результат.
+* В _run() (опции YoutubeDL) хук расширяется: сначала существующая проверка
+  TooBig (не трогать), затем progress_cb(d) — передаёт сырой dict от yt-dlp.
+  Cobalt-ветка (_stream_to_file) — прогресс % НЕ даёт; в ней колбэк вызывать
+  вручную с synthetic-dict (downloaded_bytes + total_bytes из Content-Length,
+  status=«downloading») либо индетерминированный режим («скачано X МБ»).
+* Троттлинг ПЕРЕНОСИТСЯ в сам хук/репортер (84.23.2), НЕ в yt-dlp (он дергает
+  хук на каждом чанке: у маленьких файлов 2-5 вызовов, у больших — сотни).
+
+### 84.23.2 Стадия 1: формат строки прогресса
+
+Файлы: tools/video_downloader.py или services/progress_reporter.py (новый,
+  предпочтительно — по аналогии с log_ring/статус-сервисом).
+
+* Однострочный renderer format_progress(d: dict, title: str | None) -> str:
+  `█████░░░░░ 54% | 12.3/22.5 МБ | 2.1 МБ/с | ETA 5с | Название видео`.
+  Бар из 10 блоков █/░ (юникод моноширинный, без emoji-квадратов — выравнивание
+  в Telegram одинаковое для █/░); percent = downloaded/total (или estimate);
+  total_bytes отсутствует → строка без процентов и без бара: «⬇️ Скачано
+  12.3 МБ» — фолбек «индетерминированный» режим (для платформ без
+  Content-Length и для merge-фазы).
+* title — из info_dict.get("title"), обрезать до ~60 символов; длинные имена
+  не ломают ширину строки (одна строка, перенос по необходимости).
+* Статусы: «downloading» → строка выше; «finished» → «⏳ Обработка (ffmpeg
+  merge)…» (merge идёт ПОСЛЕ finished-хука, финальный файл появляется только
+  после постпроцессора — см. comment в download_ytdlp про
+  requested_downloads/filepath); «error» → текст ошибки.
+
+### 84.23.3 Стадия 2: отправка и правка прогресс-сообщения
+
+Файлы: handlers/video_download.py (+ возможно services/progress_reporter.py).
+
+* Класс ProgressReporter (callable, __call__(d: dict)):
+  * Принимает bot, chat_id, trigger_message_id; при первом вызове отправляет
+    bot.send_message(chat_id, «⏳ Скачивание…») (reply на trigger-сообщение —
+    как _safe_error_reply) и запоминает message_id.
+  * Троттлинг: не чаще 1 правки / 2 сек (порог настраивается в config из БД,
+    hot.get("video_download.progress_interval", 2.0)) ИЛИ пропуск, если текст
+    не изменился (same-text guard). Дополнительно: при достижении 100% — сразу.
+  * Правка: bot.edit_message_text(chat_id, message_id, text), ВЕСЬ блок в
+    try/except Exception (не падаем на 429/удалённом сообщении; при
+    TelegramBadRequest «message is not modified» — пропустить, это норма).
+  * Мост потоков: хук вызывается из потока to_thread → репортер либо кладёт
+    текст в queue.Queue + task-воркер на loop, либо вызывает
+    asyncio.run_coroutine_threadsafe(coro, loop) (Хабр-решение; в проекте loop
+    один — aiogram + FastAPI в том же цикле).
+* Вызов в cb_pick_quality: перед _downloader.download(...) создаётся репортер,
+  передаётся как progress_cb. chat_action «upload_video» оставить как есть
+  (он же продолжает показывать активность во время отправки файла).
+
+### 84.23.4 Стадия 3: завершение
+
+Файлы: handlers/video_download.py.
+
+* После успешного download: edit_message_text(..., «✅ Файл готов, отправляю…»),
+  затем send_video (существующий код), после успешной отправки —
+  delete_message(chat_id, progress_message_id) (паттерн «статус-сообщение
+  исчезает, остаётся только медиа» — IkromjonAliev1177/VideoDownloaderBot) —
+  ЛИБО заменить на финальный текст «Файл отправлен 🎬» (решение на вкус; delete
+  чище, но теряется диагностика; см. 84.23.6 про рестарт).
+* Прогресс-сообщение вплетается в существующий try/except: во все ветки ошибок
+  (TooBig/CobaltDown/Busy/Generic) добавить правку прогресс-сообщения на текст
+  ошибки (или delete, если сообщения ещё нет).
+
+### 84.23.5 Стадия 4: ошибка/отмена
+
+Файлы: handlers/video_download.py, tools/video_downloader.py.
+
+* Ошибка: правка прогресс-сообщения на короткий текст ошибки из пулов фраз
+  (VD_*_PHRASES, уже есть) + оставить это сообщение (не удалять — юзер должен
+  видеть, ЧТО пошло не так; отдельный _safe_error_reply не дублировать).
+* Отмена (опционально, НЕ в первой итерации): инлайн-кнопка «⛔ Отмена» в
+  прогресс-сообщении (callback vdc:<task_id>); в VideoDownloader — asyncio.Event
+  отмены, который хук проверяет на чанке. ВАЖНО: поднятие исключения из
+  progress_hooks — РАБОЧИЙ механизм (уже используется для TooBig), но его не
+  должен перехватывать try/except репортера.
+* Рестарт бота во время загрузки: прогресс-сообщение «зависает» в чате (см.
+  84.23.6).
+
+### 84.23.6 Стадия 5: конкурентность и жизненный цикл
+
+Файлы: handlers/video_download.py (или services/progress_reporter.py).
+
+* Сейчас глобальный lock (70.4) = ОДНО скачивание на процесс → конкурентность
+  тривиальна. НО реестр репортеров всё равно делать словарём
+  {chat_id: ProgressReporter} под asyncio.Lock: (а) юзер может успеть нажать
+  vd: дважды (вторая попытка — BUSY, но прогресс-сообщение от старой задачи
+  должно пережить), (б) upload-фаза send_video идёт после download, (в) будущий
+  отказ от глобального лока (очередь) не потребует переделки.
+* Несколько задач на чат: НЕ поддерживаем параллельно (глобальный lock). Если
+  когда-то появится очередь — на каждый task_id своё сообщение, реестр
+  {chat_id: {task_id: reporter}}, правки идут по message_id задачи.
+* Очистка: в finally cb_pick_quality — реестр.pop(chat_id); при успехе —
+  delete прогресс-сообщения; при ошибке — заменить текст, из реестра удалить.
+* Перезапуск бота: in-memory реестр теряется, прогресс-сообщения «висят» в
+  чатах (лимит правки 48ч уже неактуален — правок не будет). ПЕРВАЯ итерация:
+  принять, старые сообщения не трогаем и не чистим. Опционально позже —
+  таблица progress_messages в DB, чистка на on_startup.
+
+### 84.23.7 Стадия 6: ограничения и фолбеки
+
+* Flood control: троттлинг 2 сек + same-text guard + try/except на 429. При 429
+  с retry_after — не плодить задачи: пропустить правку (следующая через 2 сек).
+* 48-часовой лимит правки: практически недостижим (таймаут загрузки 900с из
+  _YTDLP_DOWNLOAD_TIMEOUT_SECONDS), но delete в 84.23.4 снимает вопрос хвостов.
+* Маленькие файлы: 2-5 вызовов хука — троттлинг не мешает, прогресс мелькнёт
+  1-2 раза; это ок.
+* total_bytes = None (платформы без Content-Length, HLS-стримы, YouTube-merge):
+  индетерминированный режим (см. 84.23.2).
+* Несетевые фазы (ffmpeg merge, send_video): прогресс-бар их НЕ покрывает;
+  прогресс загрузки в Telegram (upload) в эту дельту не добавлять — сложность/
+  выгода плохие, chat_action продолжает показывать активность.
+
+### 84.23.8 Что нужно от человека
+
+* Ничего технического. Одно UX-решение: удалять прогресс-сообщение после
+  успеха ИЛИ заменять финальным текстом (рекомендация — удалять).
+
+### 84.23.9 Риски
+
+* 429 flood при слишком частых правках — лечится троттлингом; не гонять правки
+  чаще 1/сек на чат ни в каком режиме.
+* Репортер из потока to_thread — риск гонок/RuntimeError; строго через
+  run_coroutine_threadsafe (или queue + task-воркер на loop), никаких
+  asyncio.new_event_loop() внутри хука.
+* Поднятие исключения из progress_hooks (TooBig) уже есть — новый код не должен
+  проглатывать DownloadTooBigError внутри try/except репортера.
+* «Зависшие» прогресс-сообщения после рестарта — приняты (84.23.6).

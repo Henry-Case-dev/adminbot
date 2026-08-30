@@ -228,8 +228,15 @@ class YouTubeTranscriptEngine:
         opts["extractor_args"] = {
             "youtube": {"player_client": ["web"]}
         }
-        # Epic 72 (74.A/D270): прокси/cookies — единый хелпер config.settings
+        # Epic 72 (74.A/D270): прокси/cookies (+POT-провайдер, если задан
+        # YTDLP_POT_PROVIDER) — единый хелпер config.settings
         opts.update(build_ytdlp_base_opts())
+        # Прод-хотфикс: base может нести extractor_args (pot_provider) —
+        # МЕРЖИМ в наш player_client (иначе player_client=web перекроется).
+        base_ea = opts.get("extractor_args") or {}
+        youtube_ea = dict(base_ea.get("youtube") or {})
+        youtube_ea["player_client"] = ["web"]
+        opts["extractor_args"] = {"youtube": youtube_ea}
         return opts
 
     def _extract_ytdlp_segments(self, info: dict, video_id: str) -> list[dict]:

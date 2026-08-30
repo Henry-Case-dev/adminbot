@@ -771,7 +771,13 @@ def build_ytdlp_base_opts() -> dict:
     """Epic 72 (Section 74.A): общие yt-dlp опции прокси/cookies — ЕДИНЫЙ
     источник для services/youtube_transcript_engine.py и tools/video_downloader.py.
     Пустые настройки → ключи отсутствуют (поведение «без прокси», D142).
-    R17: значения НЕ логируются."""
+    R17: значения НЕ логируются.
+
+    Прод-хотфикс 30.08.2026: POT-провайдер (bgutil-ytdlp-pot-provider, docker
+    :4416). Настройка YTDLP_POT_PROVIDER (напр. 'bgutil:http') — при заданной
+    в extractor_args youtube добавляются pot_provider + pot_token_background
+    (фоновые токены off — блокирующие, чтобы не пропустить бот-чек).
+    При отсутствии настройки — ключи НЕ добавляются (старое поведение)."""
     opts: dict = {}
     proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
     if proxy:
@@ -779,4 +785,12 @@ def build_ytdlp_base_opts() -> dict:
     cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
     if cookies:
         opts["cookiefile"] = cookies
+    pot = os.getenv("YTDLP_POT_PROVIDER", "").strip()
+    if pot:
+        opts["extractor_args"] = {
+            "youtube": {
+                "pot_provider": [pot],
+                "pot_token_background": ["false"],
+            }
+        }
     return opts

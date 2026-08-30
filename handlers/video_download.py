@@ -16,6 +16,7 @@ import logging
 import random
 import re
 import time
+from pathlib import Path
 
 from aiogram import Bot, F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -41,14 +42,17 @@ from tools.video_download_phrases import (
     VD_RIGHTS_ERROR_PHRASES,
     VD_SERVICE_DOWN_PHRASES,
     VD_TOO_BIG_PHRASES,
+    VD_UNAVAILABLE_PHRASES,
 )
 from tools.video_downloader import (
     CobaltServiceDownError,
     DownloadBusyError,
     DownloadError,
     DownloadTooBigError,
+    DownloadUnavailableError,
     ProbeResult,
     VideoDownloader,
+    is_direct_media_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -175,7 +179,49 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
 
     urls = _extract_urls(message)
     if not urls:
-        await message.reply(random.choice(VD_NO_LINK_PHRASES))     # consume
+        # Замечание чекапа: нативное TG-видео («скачай <видео-сообщение>»)
+        video = getattr(message, "video", None) or getattr(
+            message, "document", None)
+        if video is not None and isinstance(getattr(video, "file_id", None),
+                                            str):
+            await _handle_native_media(bot, message, video)
+        else:
+            await message.reply(random.choice(VD_NO_LINK_PHRASES))  # consume
+        return None
+
+    # Замечание чекапа: прямые медиа-ссылки — сразу скачиваем без quality-меню
+    if len(urls) == 1 and is_direct_media_url(urls[0]):
+        cooldown_refresh(_cooldown, hot.get("limits.download_cooldown",
+                                            settings.DOWNLOAD_COOLDOWN))
+        remaining = await cooldown_remaining(_cooldown, chat_id, user_id)
+        if remaining > 0:
+            await message.reply(_cooldown_phrase(remaining))
+            return None
+        trigger_message_id = message.message_id
+        path = None
+        try:
+            path = await _downloader.download(urls[0], "direct")
+            await _send_file(bot, chat_id, path, trigger_message_id,
+                             title=None)
+        except DownloadTooBigError as exc:
+            logger.warning("[videodl] too big | chat=%s | url=%s | %s",
+                           chat_id, urls[0], exc)
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_TOO_BIG_PHRASES)
+        except DownloadUnavailableError as exc:
+            logger.warning("[videodl] unavailable | chat=%s | url=%s | %s",
+                           chat_id, urls[0], exc)
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_UNAVAILABLE_PHRASES)
+        except Exception as exc:
+            logger.warning("[videodl] download failed | chat=%s | url=%s | "
+                           "quality=direct | error=%s", chat_id, urls[0], exc)
+            await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                    VD_ERROR_PHRASES)
+        finally:
+            # B1: файл не копим при ЛЮБОМ исходе (прецедент cb_pick_quality)
+            if path is not None and path.exists():
+                path.unlink(missing_ok=True)
         return None
 
     # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
@@ -335,6 +381,12 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
         logger.warning("[videodl] busy race | chat=%s", chat_id)
         await _safe_error_reply(bot, chat_id, trigger_message_id,
                                 VD_BUSY_PHRASES)
+    except DownloadUnavailableError as exc:
+        # Прод-хотфикс: понятная причина (возраст/вход/DRM/live).
+        logger.warning("[videodl] unavailable | chat=%s | url=%s | %s",
+                       chat_id, url, exc)
+        await _safe_error_reply(bot, chat_id, trigger_message_id,
+                                VD_UNAVAILABLE_PHRASES)
     except Exception as exc:
         logger.warning("[videodl] download failed | chat=%s | url=%s | "
                        "quality=%s | error=%s", chat_id, url, f"{quality}p",
@@ -364,3 +416,67 @@ async def _safe_error_reply(bot: Bot, chat_id: int, trigger_message_id: int,
             await bot.send_message(chat_id, random.choice(phrases))
         except TelegramBadRequest:
             pass
+
+
+async def _send_file(bot: Bot, chat_id: int, path: Path,
+                     trigger_message_id: int | None,
+                     title: str | None) -> None:
+    """Отправка скачанного файла (видео/документ) с реплаем на триггер.
+    Файл НЕ удаляется здесь — очистка в finally у вызывающего."""
+    from aiogram.types import FSInputFile
+    file = FSInputFile(str(path.absolute()))
+    caption = (title or "")[:1024] if title else None
+    try:
+        if trigger_message_id:
+            await bot.send_video(
+                chat_id, file, supports_streaming=True, caption=caption,
+                reply_to_message_id=trigger_message_id)
+        else:
+            await bot.send_video(chat_id, file, supports_streaming=True,
+                                 caption=caption)
+    except TelegramBadRequest:
+        # таргет реплая исчез / тип не видео — шлём документом
+        try:
+            await bot.send_document(
+                chat_id, FSInputFile(str(path.absolute())),
+                reply_to_message_id=trigger_message_id,
+                caption=caption)
+        except TelegramBadRequest:
+            await bot.send_document(chat_id,
+                                    FSInputFile(str(path.absolute())))
+    logger.info("[videodl] sent | chat=%s | file=%s", chat_id, path.name)
+
+
+async def _handle_native_media(bot: Bot, message: types.Message,
+                               media) -> None:
+    """Замечание чекапа: «скачай <видео/документ-сообщение>» — без ссылок.
+    bot.get_file → temp → отправить как видео/документ. Ошибки — понятные."""
+    from pathlib import Path
+    user_id = message.from_user.id if message.from_user else 0
+    chat_id = message.chat.id
+    tmp_path = None
+    try:
+        f = await bot.get_file(media.file_id)
+        ext = Path(f.file_path or "").suffix.lstrip(".").lower() or "bin"
+        tmp_path = Path(f"/tmp/vd_native_{time.time()}_{user_id}.{ext}")
+        data = await bot.download_file(f.file_path)
+        tmp_path.write_bytes(data.read())
+        size = tmp_path.stat().st_size
+        if size > 2_000_000_000:
+            tmp_path.unlink(missing_ok=True)
+            await message.reply(random.choice(VD_TOO_BIG_PHRASES))
+            return
+        await message.reply(
+            f"нативное видео: {size // (1024 * 1024)} МБ, пересылаю...")
+        await bot.send_video(chat_id, FSInputFile(str(tmp_path.absolute())),
+                             supports_streaming=True)
+        logger.info("[videodl] native media re-sent | chat=%s | bytes=%d",
+                    chat_id, size)
+    except Exception as exc:
+        logger.warning("[videodl] native media failed | chat=%s | error=%s",
+                       chat_id, exc)
+        await _safe_error_reply(bot, chat_id, message.message_id,
+                                VD_ERROR_PHRASES)
+    finally:
+        if tmp_path is not None and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)

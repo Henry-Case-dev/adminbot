@@ -1039,6 +1039,8 @@ class TestYtdlpDownloadHotfix:
                 raise type(self).exc
             if type(self).exc is not None and not type(self).fail_first:
                 raise type(self).exc
+            if type(self).result is not None:
+                return type(self).result
             return {"title": "t", "requested_downloads": [
                 {"filepath": "/tmp/x.mp4"}]}
 
@@ -1051,15 +1053,14 @@ class TestYtdlpDownloadHotfix:
     @pytest.mark.asyncio
     async def test_retry_with_android_player_client(
             self, tmp_path, monkeypatch, caplog):
-        """Первый вызов падает (merge/postprocess), второй — с
-        extractor_args youtube:player_client=android → успех."""
+        """Первый вызов падает (не-postprocess, напр. 403) → перебор
+        клиентов: второй с player_client=android → успех."""
         from tools import video_downloader as vdm
         self._patch_ytdlp(monkeypatch)
         self._FakeYDL.calls = []
-        self._FakeYDL.exc = RuntimeError(
-            "ERROR: Postprocessing: Error opening input files: "
-            "Invalid data found when processing input")
+        self._FakeYDL.exc = RuntimeError("HTTP Error 403: Forbidden")
         self._FakeYDL.fail_first = True
+        self._FakeYDL.result = None
         monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
         dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
         with caplog.at_level(logging.WARNING):
@@ -1069,9 +1070,236 @@ class TestYtdlpDownloadHotfix:
         assert len(self._FakeYDL.calls) == 2
         retry_opts = self._FakeYDL.calls[1]
         assert retry_opts["extractor_args"] == {
-            "youtube": {"player_client": ["android", "default"]}}
+            "youtube": {"player_client": ["android"]}}
         assert any("retry with player_client" in r.getMessage()
                    for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_retry_keeps_pot_from_base_opts(
+            self, tmp_path, monkeypatch):
+        """B2: retry-опции МЕРЖАТ extractor_args с базовыми — pot_provider/
+        pot_token_background из build_ytdlp_base_opts сохраняются, добавляется
+        player_client ретрая (без полной замены)."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = RuntimeError("HTTP Error 403: Forbidden")
+        self._FakeYDL.fail_first = True
+        self._FakeYDL.result = None
+
+        def _base_with_pot():
+            return {"extractor_args": {
+                "youtube": {"pot_provider": ["bgutil:http"],
+                            "pot_token_background": ["false"]}}}
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", _base_with_pot)
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert len(self._FakeYDL.calls) == 2
+        retry_opts = self._FakeYDL.calls[1]
+        assert retry_opts["extractor_args"]["youtube"] == {
+            "pot_provider": ["bgutil:http"],
+            "pot_token_background": ["false"],
+            "player_client": ["android"]}
+
+    @pytest.mark.asyncio
+    async def test_attempt_budget_includes_merge_fallback(
+            self, tmp_path, monkeypatch):
+        """B3: первый fail (постпроцессинг) + merge-фолбек + ретрай-клиенты —
+        суммарно НЕ более _MAX_YTDLP_ATTEMPTS реальных загрузок (3)."""
+        from tools import video_downloader as vdm
+
+        class _FakeAlwaysFail:
+            calls = []
+
+            def __init__(self, opts):
+                type(self).calls.append(opts)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def extract_info(self, url, download=False):
+                raise RuntimeError(
+                    "ERROR: Postprocessing: Error opening input files: "
+                    "Invalid data found when processing input")
+
+        fake = _FakeAlwaysFail
+        fake.calls = []
+        import sys
+        import types
+        monkeypatch.setitem(
+            sys.modules, "yt_dlp",
+            types.SimpleNamespace(YoutubeDL=fake))
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadError):
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        # 1-я попытка + merge-фолбек + 1 ретрай-клиент = 3, не 4
+        assert len(fake.calls) == 3
+        assert "merge_output_format" not in fake.calls[1]
+        assert fake.calls[1]["format"] == "b[ext=mp4]/b/best"
+        assert fake.calls[2]["extractor_args"]["youtube"] == {
+            "player_client": ["android"]}
+
+    @pytest.mark.asyncio
+    async def test_merge_fallback_on_postprocess_error(
+            self, tmp_path, monkeypatch, caplog):
+        """Постпроцессинг-ошибка → merge-фолбек: повтор БЕЗ merge, формат
+        'b[ext=mp4]/b/best', один файл → успех."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = RuntimeError(
+            "ERROR: Postprocessing: Error opening input files: "
+            "Invalid data found when processing input")
+        self._FakeYDL.fail_first = True    # первая попытка падает
+        self._FakeYDL.result = None
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with caplog.at_level(logging.WARNING):
+            path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ",
+                                           "720p")
+        assert path.name == "x.mp4"
+        assert len(self._FakeYDL.calls) == 2
+        fallback_opts = self._FakeYDL.calls[1]
+        assert "merge_output_format" not in fallback_opts   # merge-фолбек
+        assert fallback_opts["format"] == "b[ext=mp4]/b/best"
+        assert any("merge-фолбек" in r.getMessage() or
+                   "merge-fallback" in r.getMessage()
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_age_restrict_raises_unavailable(
+            self, tmp_path, monkeypatch):
+        """Детект недоступности: age_limit > 0 → DownloadUnavailableError."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = None
+        self._FakeYDL.fail_first = False
+        self._FakeYDL.result = {"title": "t", "age_limit": 18,
+                                "requested_downloads": [
+                                    {"filepath": "/tmp/x.mp4"}]}
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadUnavailableError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert "возрастное ограничение" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_innocent_sign_in_phrase_in_description_ok(
+            self, tmp_path, monkeypatch):
+        """M1: «how to sign in to our site» в описании — НЕ недоступность
+        (ложно-положительный детект устранён): скачивание проходит."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = None
+        self._FakeYDL.fail_first = False
+        self._FakeYDL.result = {
+            "title": "t",
+            "description": "learn how to sign in to our site",
+            "requested_downloads": [{"filepath": "/tmp/x.mp4"}]}
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ",
+                                       "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_full_sign_in_phrase_raises_unavailable(
+            self, tmp_path, monkeypatch):
+        """M1: ПОЛНАЯ фраза бот-проверки в описании/availability →
+        DownloadUnavailableError (детект по полной фразе работает)."""
+        from tools import video_downloader as vdm
+        self._patch_ytdlp(monkeypatch)
+        self._FakeYDL.calls = []
+        self._FakeYDL.exc = None
+        self._FakeYDL.fail_first = False
+        self._FakeYDL.result = {
+            "title": "t",
+            "description": "please sign in to confirm you're not a bot",
+            "requested_downloads": [{"filepath": "/tmp/x.mp4"}]}
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadUnavailableError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert "вход в аккаунт" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_merge_fallback_success_cleans_intermediates(
+            self, tmp_path, monkeypatch):
+        """M2: успешный merge-фолбек (wX4OiGISNlY-сценарий) — промежуточные
+        vd_*.f137.mp4 / vd_*.f140.m4a удалены, итоговый файл цел."""
+        from tools import video_downloader as vdm
+        from pathlib import Path
+        written = []
+
+        class _FakeYDL_M2:
+            calls = []
+
+            def __init__(self, opts):
+                type(self).calls.append(opts)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def extract_info(self, url, download=False):
+                opts = type(self).calls[-1]
+                if len(type(self).calls) == 1:
+                    # 1-я попытка (с merge): промежуточные уже записаны,
+                    # потом падение на постпроцессинге (merge ffmpeg).
+                    prefix = Path(opts["outtmpl"]).stem
+                    base = Path(opts["outtmpl"].replace("%(ext)s", "mp4"))
+                    for suffix in (".f137.mp4", ".f140.m4a"):
+                        p = base.parent / f"{prefix}{suffix}"
+                        p.write_bytes(b"x")
+                        written.append(p)
+                    raise RuntimeError(
+                        "ERROR: Postprocessing: Error opening input files: "
+                        "Invalid data found when processing input")
+                # merge-фолбек: итоговый файл (без merge) записан.
+                final = Path(opts["outtmpl"].replace("%(ext)s", "mp4"))
+                final.write_bytes(b"final")
+                return {"title": "t", "requested_downloads": [
+                    {"filepath": str(final)}]}
+
+        _FakeYDL_M2.calls = []
+        import sys
+        import types
+        monkeypatch.setitem(
+            sys.modules, "yt_dlp",
+            types.SimpleNamespace(YoutubeDL=_FakeYDL_M2))
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ",
+                                       "720p")
+        assert path.read_bytes() == b"final"
+        for p in written:
+            assert not p.exists(), f"промежуточный файл остался: {p}"
+        assert path.exists()
+
+    def test_pot_options_from_env(self, monkeypatch):
+        """POT-провайдер из env: YTDLP_POT_PROVIDER=bgutil:http →
+        build_ytdlp_base_opts несёт extractor_args youtube pot_provider."""
+        import config.settings as settings_mod
+        monkeypatch.setenv("YTDLP_POT_PROVIDER", "bgutil:http")
+        opts = settings_mod.build_ytdlp_base_opts()
+        assert opts["extractor_args"] == {
+            "youtube": {"pot_provider": ["bgutil:http"],
+                        "pot_token_background": ["false"]}}
+
+    def test_pot_absent_by_default(self, monkeypatch):
+        """Без настройки — POT-ключей НЕТ."""
+        import config.settings as settings_mod
+        monkeypatch.delenv("YTDLP_POT_PROVIDER", raising=False)
+        opts = settings_mod.build_ytdlp_base_opts()
+        assert "extractor_args" not in opts
 
     @pytest.mark.asyncio
     async def test_failure_includes_url_and_phase(
@@ -1082,6 +1310,7 @@ class TestYtdlpDownloadHotfix:
         self._FakeYDL.calls = []
         self._FakeYDL.exc = RuntimeError("boom postprocess")
         self._FakeYDL.fail_first = False     # оба вызова (и ретрай) падают
+        self._FakeYDL.result = None
         monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
         dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
         with pytest.raises(vdm.DownloadError) as excinfo:
@@ -1099,6 +1328,7 @@ class TestYtdlpDownloadHotfix:
         self._FakeYDL.calls = []
         self._FakeYDL.exc = None
         self._FakeYDL.fail_first = False
+        self._FakeYDL.result = None
         monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
 
         class _Usage:
@@ -1120,3 +1350,279 @@ class TestYtdlpDownloadHotfix:
             vd_mod.setup_video_download(None)
         assert any("ffmpeg НЕ найден" in r.getMessage()
                    for r in caplog.records)
+
+
+# ── Прод-фикс 30.08.2026 (диагностика DevOps): протокол-фильтр, sign-in,
+#    direct-медиа, нативное TG-видео ─────────────────────────────────────────
+
+class TestSelectorProtocolFilter:
+    """1b: селекторы предпочитают прямые CDN-ссылки битым HLS (wX4OiGISNlY)."""
+
+    def test_selector_has_protocol_https(self):
+        from tools.video_downloader import VideoDownloader
+        dl = VideoDownloader("http://localhost:9000/", "d")
+        # первый приоритет обоих селекторов содержит [protocol^=https]
+        for quality, expect in (("max", "bv[ext=mp4][protocol^=https]+ba"),
+                                ("720",
+                                 "bv[ext=mp4][height<=720][protocol^=https]+ba")):
+            sel = dl._format_selector(quality)
+            assert sel.startswith(expect), sel
+
+
+class TestSignInError:
+    """1c: бот-проверка → понятная ошибка DownloadUnavailableError."""
+
+    class _SignInYDL:
+        calls = []
+
+        def __init__(self, opts):
+            type(self).calls.append(opts)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def extract_info(self, url, download=False):
+            raise RuntimeError(
+                "ERROR: unable to download video data: HTTP Error 403: "
+                "Sign in to confirm you're not a bot")
+
+    @pytest.mark.asyncio
+    async def test_sign_in_raises_unavailable(self, tmp_path, monkeypatch):
+        import sys
+        import types
+        from tools import video_downloader as vdm
+        fake = types.SimpleNamespace(YoutubeDL=self._SignInYDL)
+        monkeypatch.setitem(sys.modules, "yt_dlp", fake)
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadUnavailableError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert "бот-проверка" in str(excinfo.value)
+
+
+class TestDirectMedia:
+    """2: прямые медиа-ссылки — детект и стрим-даунлоад."""
+
+    def test_direct_media_detection(self):
+        from tools.video_downloader import is_direct_media_url
+        assert is_direct_media_url("https://x/a.mp4")
+        assert is_direct_media_url("https://x/a.mp4?token=123")
+        assert is_direct_media_url("https://x/a.webm#frag")
+        assert is_direct_media_url("https://x/a.MOV")
+        assert not is_direct_media_url("https://x/a.mp4/other")
+        assert not is_direct_media_url("https://x/watch?v=1")
+        assert not is_direct_media_url("https://x/a.txt")
+
+    @pytest.mark.asyncio
+    async def test_direct_download_success(self, tmp_path, monkeypatch):
+        from tools import video_downloader as vdm
+        chunks = [b"data1", b"data2"]
+
+        class _Resp:
+            """Объект-«ответ»: status_code + aiter_bytes + async-CM (его
+            возвращает client.stream в download_direct)."""
+            status_code = 200
+
+            def __init__(self, status, chunks):
+                self.status_code = status
+                self._chunks = chunks
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def aiter_bytes(self, n):
+                async def _gen():
+                    for c in self._chunks:
+                        yield c
+                return _gen()
+
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+        calls = {"n": 0}
+
+        def _stream(self, method, url, headers=None):   # sync: async-with CM
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _Resp(403, [])
+            return _Resp(200, chunks)
+
+        _Client.stream = _stream
+        monkeypatch.setattr(vdm.httpx, "AsyncClient", _Client)
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        path = await dl.download_direct("https://2ch.su/a.mp4?t=1")
+        assert path.read_bytes() == b"data1data2"
+        assert calls["n"] == 2        # 403 → referer-retry → успех
+
+    @pytest.mark.asyncio
+    async def test_direct_download_all_403_fails(self, tmp_path, monkeypatch):
+        from tools import video_downloader as vdm
+
+        class _Resp:
+            status_code = 403
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def aiter_bytes(self, n):
+                async def _gen():
+                    if False:
+                        yield b""
+                return _gen()
+
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def stream(self, method, url, headers=None):
+                return _Resp()
+
+        monkeypatch.setattr(vdm.httpx, "AsyncClient", _Client)
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadError):
+            await dl.download_direct("https://2ch.su/a.mp4")
+
+    @pytest.mark.asyncio
+    async def test_direct_download_interrupt_removes_partial_file(
+            self, tmp_path, monkeypatch):
+        """B1: обрыв стрима (httpx.HTTPError) в середине загрузки →
+        частично записанный файл НЕ остаётся на диске."""
+        from tools import video_downloader as vdm
+
+        class _Resp:
+            status_code = 200
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def aiter_bytes(self, n):
+                async def _gen():
+                    yield b"partial-data"
+                    raise vdm.httpx.HTTPError("connection reset by peer")
+                return _gen()
+
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def stream(self, method, url, headers=None):
+                return _Resp()
+
+        monkeypatch.setattr(vdm.httpx, "AsyncClient", _Client)
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        with pytest.raises(vdm.DownloadError):
+            await dl.download_direct("https://2ch.su/a.mp4")
+        leftovers = list((tmp_path / "d").glob("vd_*"))
+        assert leftovers == [], f"частичный файл остался: {leftovers}"
+
+    @pytest.mark.asyncio
+    async def test_direct_handler_unlinks_file_after_send(
+            self, vd_env, tmp_path, monkeypatch):
+        """B1: direct-ветка хендлера — файл существует на диске во время
+        отправки и УДАЛЯЕТСЯ в finally после неё (прецедент
+        cb_pick_quality)."""
+        from tools import video_downloader as vdm
+
+        class _Resp:
+            status_code = 200
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def aiter_bytes(self, n):
+                async def _gen():
+                    yield b"hello"
+                    yield b"-direct"
+                return _gen()
+
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def stream(self, method, url, headers=None):
+                return _Resp()
+
+        monkeypatch.setattr(vdm.httpx, "AsyncClient", _Client)
+
+        class _Bot:
+            def __init__(self):
+                self.send_video = AsyncMock()
+
+        bot = _Bot()
+        msg = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+                        chat_type="private")
+        await vd.video_download_handler(msg, bot=bot)
+        assert bot.send_video.await_count == 1
+        leftovers = list((tmp_path / "downloads").glob("vd_*"))
+        assert leftovers == [], f"файл не удалён: {leftovers}"
+
+
+class TestNativeMedia:
+    """3: «скачай <видео-сообщение>» — bot.get_file → temp → send_video."""
+
+    @pytest.mark.asyncio
+    async def test_native_video_flow(self, tmp_path, monkeypatch):
+        from io import BytesIO
+        from types import SimpleNamespace
+
+        from handlers import video_download as vd_mod
+        from tools import video_downloader as vdm
+
+        vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
+                                                 str(tmp_path))
+        file_info = SimpleNamespace(file_path="video/file.mp4")
+
+        class _Bot:
+            def __init__(self):
+                self.get_file = AsyncMock(return_value=file_info)
+                self.download_file = AsyncMock(return_value=BytesIO(b"DATA"))
+                self.send_video = AsyncMock()
+                self.send_message = AsyncMock()
+
+        bot = _Bot()
+        msg = _make_msg("скачай", chat_type="private")
+        msg.video = SimpleNamespace(file_id="fid123")
+        await vd_mod.video_download_handler(msg, bot=bot)
+        assert bot.get_file.await_count == 1
+        assert bot.send_video.await_count == 1
+        vd_mod._downloader = None

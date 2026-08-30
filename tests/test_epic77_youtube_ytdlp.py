@@ -193,7 +193,8 @@ class TestFormatSelector:
                                                monkeypatch):
         await self._run(dl, monkeypatch, "720p")
         fmt = FakeYoutubeDL.last_opts["format"]
-        assert fmt == ("bv[ext=mp4][height<=720]+ba[ext=m4a]"
+        assert fmt == ("bv[ext=mp4][height<=720][protocol^=https]+ba[ext=m4a]"
+                       "/bv[ext=mp4][height<=720]+ba[ext=m4a]"
                        "/bv[height<=720]+ba/b[height<=720]")
         assert fmt.startswith("bv[ext=mp4]")
 
@@ -207,7 +208,8 @@ class TestFormatSelector:
     async def test_max_no_height_filter(self, dl, tmp_path, monkeypatch):
         await self._run(dl, monkeypatch, "max")
         fmt = FakeYoutubeDL.last_opts["format"]
-        assert fmt == "bv[ext=mp4]+ba[ext=m4a]/bv+ba/b"
+        assert fmt == ("bv[ext=mp4][protocol^=https]+ba[ext=m4a]"
+                       "/bv[ext=mp4]+ba[ext=m4a]/bv+ba/b")
         assert "height<=" not in fmt
 
 
@@ -324,6 +326,26 @@ class TestFinalPath:
         with pytest.raises(DownloadError,
                            match="output file not found"):
             await dl.download_ytdlp(YT_URL, "720p")
+        # F1: при неоднозначности каталог чистится (edge-дыра M2)
+        assert list(dl._download_dir.glob("vd_*")) == []
+
+    @pytest.mark.asyncio
+    async def test_glob_fallback_zero_files_error_purges(self, dl,
+                                                         monkeypatch):
+        """F1: zero-case — итоговый файл не записан → ошибка, каталог
+        остаётся чистым (никаких .f*/мусора)."""
+        _install_fake_ytdlp(monkeypatch)
+        FakeYoutubeDL.behavior["finalize"] = False
+
+        def download_writes_nothing(self_ydl, urls=None, download=True):
+            pass
+
+        monkeypatch.setattr(FakeYoutubeDL, "extract_info",
+                            download_writes_nothing)
+        with pytest.raises(DownloadError,
+                           match="output file not found"):
+            await dl.download_ytdlp(YT_URL, "720p")
+        assert list(dl._download_dir.glob("vd_*")) == []
 
 
 # ── 78.2 #9: лимит размера через progress-hook ──────────────────────

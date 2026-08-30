@@ -17,10 +17,22 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
+import httpx
 
 from config.settings import build_ytdlp_base_opts, settings
 
 logger = logging.getLogger(__name__)
+
+# Прямые медиа-ссылки (замечание чекапа): расширение в конце URL (с учётом
+# query) → не yt-dlp/cobalt, а прямой стрим.
+_DIRECT_MEDIA_RE = re.compile(
+    r"\.(mp4|webm|mov|mkv|avi|gif)(?:[?#]|$)", re.IGNORECASE)
+# Браузерный UA + рефереры для ретрая 403 (2ch.su и др.).
+_DIRECT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+              "AppleWebKit/537.36 (KHTML, like Gecko) "
+              "Chrome/126.0 Safari/537.36")
+_DIRECT_REFERRERS = ("https://2ch.su/",)
+_DIRECT_MAX_BYTES = 2_000_000_000
 
 # Section 70.4: таймауты (yt-dlp синхронный — to_thread + wait_for).
 _PROBE_TIMEOUT_SECONDS = 20.0
@@ -34,10 +46,22 @@ _YTDLP_DOWNLOAD_TIMEOUT_SECONDS = 900.0
 # Прод-инцидент 30.08.2026 «Invalid data found when processing input»:
 # устаревший yt-dlp + форс-изменения YouTube (SABR/403, issue #17456) →
 # битые CDN-фрагменты → ffmpeg-merge падает. Ретрай с резервным
-# player_client (android) — один повтор только при ошибке.
-_FALLBACK_PLAYER_CLIENT = ("android", "default")
+# player_client — перебор по очереди до первого успеха.
+_FALLBACK_PLAYER_CLIENTS = ("android", "web_safari", "tv", "ios", "mweb")
+# Максимум ПОПЫТОК (загрузок) на одно видео: дефолт + до 2 резервных клиентов.
+_MAX_YTDLP_ATTEMPTS = 3
 # Минимальный свободный диск перед загрузкой (WARNING, не блокируем).
 _MIN_FREE_DISK_BYTES = 500 * 1024 * 1024
+
+# Признаки недоступности видео (детект до скачивания — понятная ошибка
+# вместо «Invalid data…»). M1: ТОЛЬКО полные фразы бот-проверки — голый
+# «sign in» даёт ложные срабатывания (например, «how to sign in to our
+# site» в описании).
+_AVAILABILITY_SIGN_IN_MARKERS = (
+    "sign in to confirm you're not a bot",
+    "confirm you're not a bot",
+    "confirm you are not a bot")
+_DRM_NOTE_MARKERS = ("drc", "premium", "cenc", "widevine")
 
 # Epic 77 (D286): ТОЛЬКО эти хосты идут в yt-dlp-ветку; остальные платформы
 # (vimeo, vk, …) — cobalt как раньше. Поддомены/подмена не матчатся.
@@ -68,6 +92,13 @@ _FILENAME_SANITIZE_RE = re.compile(r"[^\w.\- ]+")
 _INTERMEDIATE_INFIX_RE = re.compile(r"\.f\d+\.[^.]+$")
 
 
+def _is_postprocess_error(text: str) -> bool:
+    """Маркер падения на постпроцессинге (ffmpeg merge) — для merge-фолбека."""
+    lowered = str(text).lower()
+    return ("postprocess" in lowered or "error opening input" in lowered
+            or "invalid data found" in lowered or "ffmpeg" in lowered)
+
+
 class DownloadError(Exception):
     """Общая ошибка скачивания (yt-dlp/Cobalt/стрим) — пул VD_ERROR_PHRASES."""
 
@@ -82,6 +113,11 @@ class DownloadTooBigError(DownloadError):
 
 class CobaltServiceDownError(DownloadError):
     """Cobalt недоступен (ConnectError) — пул VD_SERVICE_DOWN_PHRASES."""
+
+
+class DownloadUnavailableError(DownloadError):
+    """Видео недоступно: возрастное ограничение / требуется вход / DRM /
+    live. Понятное русское сообщение пользователю (пул VD_UNAVAILABLE_PHRASES)."""
 
 
 @dataclass(frozen=True)
@@ -104,6 +140,30 @@ def is_youtube_url(url: str) -> bool:
         return False
     hostname = (parts.hostname or "").lower().rstrip(".")
     return hostname in _YOUTUBE_HOSTS
+
+
+def is_direct_media_url(url: str) -> bool:
+    """Замечание чекапа: прямая медиа-ссылка (mp4/webm/mov/mkv/avi/gif)
+    с расширением в КОНЦЕ URL (с учётом query/фрагмента) → стрим-даунлоад.
+    Схема http/https; путь (до ?/#) заканчивается расширением."""
+    try:
+        parts = urlsplit(str(url))
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https") or not parts.path:
+        return False
+    return bool(_DIRECT_MEDIA_RE.search(parts.path))
+
+
+def _direct_ext(url: str) -> str:
+    """Расширение из пути URL (без query); дефолт mp4."""
+    try:
+        path = urlsplit(str(url)).path
+    except ValueError:
+        path = ""
+    suffix = Path(path).suffix.lstrip(".").lower()
+    return suffix if suffix in ("mp4", "webm", "mov", "mkv", "avi", "gif") \
+        else "mp4"
 
 
 def unique_qualities(formats) -> tuple[str, ...]:
@@ -176,10 +236,86 @@ class VideoDownloader:
             raise DownloadBusyError("another download is running")
         async with self._lock:
             self._download_dir.mkdir(parents=True, exist_ok=True)
+            # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
+            if is_direct_media_url(url):
+                return await self.download_direct(url)
             if settings.YTDLP_FOR_YOUTUBE and is_youtube_url(url):
                 return await self.download_ytdlp(url, quality)
             tunnel_url, filename = await self._request_tunnel(url, quality)
             return await self._stream_to_file(tunnel_url, filename)
+
+    async def download_direct(self, url: str) -> Path:
+        """Прямой стрим медиа-файла (mp4/webm/…): httpx с браузерным UA;
+        при 403 — повтор с Referer (2ch.su и пр.); байты > _DIRECT_MAX_BYTES →
+        DownloadTooBigError. Возвращает путь к сохранённому файлу."""
+        stamp = int(time.time())
+        rand = secrets.token_hex(4)
+        ext = _direct_ext(url)
+        self._download_dir.mkdir(parents=True, exist_ok=True)
+        out_path = self._download_dir / f"vd_{stamp}_{rand}.{ext}"
+        headers = {"User-Agent": _DIRECT_UA}
+        attempts = [headers] + [
+            {**headers, "Referer": ref} for ref in _DIRECT_REFERRERS]
+        last_status: int | None = None
+        for attempt_headers in attempts:
+            try:
+                async with httpx.AsyncClient(
+                        timeout=httpx.Timeout(60.0, connect=15.0),
+                        follow_redirects=True) as client:
+                    async with client.stream(
+                            "GET", url, headers=attempt_headers) as resp:
+                        if resp.status_code == 403:
+                            last_status = 403
+                            logger.warning(
+                                "[videodl] direct 403 → retry with referer "
+                                "| url=%s", url)
+                            continue
+                        if resp.status_code >= 400:
+                            out_path.unlink(missing_ok=True)
+                            raise DownloadError(
+                                f"direct download HTTP {resp.status_code}"
+                                f" | url={url}")
+                        size = 0
+                        with open(out_path, "wb") as fh:
+                            async for chunk in resp.aiter_bytes(65536):
+                                size += len(chunk)
+                                if size > _DIRECT_MAX_BYTES:
+                                    fh.close()
+                                    out_path.unlink(missing_ok=True)
+                                    raise DownloadTooBigError(
+                                        f"file exceeds {_DIRECT_MAX_BYTES}"
+                                        f" bytes | url={url}")
+                                fh.write(chunk)
+                logger.info("[videodl] direct downloaded | url=%s | "
+                            "bytes=%d | ext=%s", url, size, ext)
+                return out_path
+            except DownloadTooBigError:
+                raise
+            except httpx.HTTPError as exc:
+                # B1: частично записанный файл (обрыв в середине стрима) —
+                # не оставляем на диске.
+                out_path.unlink(missing_ok=True)
+                raise DownloadError(
+                    f"direct download failed: {exc} | url={url}") from exc
+        out_path.unlink(missing_ok=True)
+        raise DownloadError(
+            f"direct download 403 (все referer-попытки) | url={url}"
+            if last_status == 403 else f"direct download failed | url={url}")
+
+    @staticmethod
+    def _format_selector(quality: str) -> str:
+        """Селектор форматов с приоритетом прямых CDN-ссылок ([protocol^=https])
+        над битыми HLS/m3u8 (wX4OiGISNlY — SABR-эксперимент ломает HDR10)."""
+        quality_norm = quality
+        if quality_norm == "max":
+            return (
+                "bv[ext=mp4][protocol^=https]+ba[ext=m4a]"
+                "/bv[ext=mp4]+ba[ext=m4a]/bv+ba/b")
+        h = int(quality_norm)
+        return (
+            f"bv[ext=mp4][height<={h}][protocol^=https]+ba[ext=m4a]"
+            f"/bv[ext=mp4][height<={h}]+ba[ext=m4a]"
+            f"/bv[height<={h}]+ba/b[height<={h}]")
 
     async def download_ytdlp(self, url: str, quality: str) -> Path:
         """Epic 77 (D287): YouTube через локальный yt-dlp (+POT-плагин).
@@ -194,20 +330,20 @@ class VideoDownloader:
         появляется (merge = постпроцессор, см. YoutubeDL.py:3559-3577).
 
         Прод-хотфикс 30.08.2026: перед загрузкой — диск-чек (WARNING);
-        при ошибке yt-dlp — ОДИН повтор с резервным player_client=android
-        (YouTube форсит SABR/403 для web/tv — битые фрагменты ломают
-        ffmpeg-merge «Invalid data found when processing input»).
+        при ошибке yt-dlp — перебор резервных player_client (android первым).
+        Диагностика DevOps (wX4OiGISNlY): HDR10-m3u8-форматы (633/636) в SABR
+        приходят ПОВРЕЖДЁННЫМИ → ffmpeg «Invalid data found». Селекторы с
+        [protocol^=https] предпочитают прямые CDN-ссылки битым HLS.
         """
         from yt_dlp import YoutubeDL              # ленивый тяжёлый импорт (D261)
 
         quality_norm = self._normalize_quality(quality)
         if quality_norm == "max":
-            format_selector = "bv[ext=mp4]+ba[ext=m4a]/bv+ba/b"
+            h = None
         else:
             h = int(quality_norm)
-            format_selector = (
-                f"bv[ext=mp4][height<={h}]+ba[ext=m4a]"
-                f"/bv[height<={h}]+ba/b[height<={h}]")
+        format_selector = self._format_selector(
+            "max" if h is None else str(h))
         stamp = int(time.time())
         rand = secrets.token_hex(4)
         prefix = f"vd_{stamp}_{rand}"
@@ -231,20 +367,36 @@ class VideoDownloader:
                 raise DownloadTooBigError(
                     f"file exceeds {VD_MAX_BYTES} bytes")
 
-        def _run(extractor_args: dict | None) -> dict:
-            opts = {**build_ytdlp_base_opts(), "format": format_selector,
-                    "merge_output_format": "mp4", "outtmpl": outtmpl,
+        def _build_opts(extractor_args: dict | None, merge: bool,
+                        format_sel: str) -> dict:
+            opts = {**build_ytdlp_base_opts(), "format": format_sel,
+                    "outtmpl": outtmpl,
                     "noplaylist": True, "quiet": True, "noprogress": True,
                     "progress_hooks": [_hook]}
+            if merge:
+                opts["merge_output_format"] = "mp4"
+            # B2: extractor_args МЕРЖАТСЯ с базовыми (потенциальный
+            # pot_provider/pot_token_background из build_ytdlp_base_opts
+            # сохраняются; player_client ретрая перезаписывает свой ключ).
+            base_ea = opts.get("extractor_args") or {}
+            youtube_ea = dict(base_ea.get("youtube") or {})
             if extractor_args:
-                opts["extractor_args"] = extractor_args
-            with YoutubeDL(opts) as ydl:
+                youtube_ea.update(extractor_args.get("youtube") or {})
+            if youtube_ea:
+                opts["extractor_args"] = {"youtube": youtube_ea}
+            return opts
+
+        def _run(extractor_args: dict | None, merge: bool,
+                 format_sel: str) -> dict:
+            with YoutubeDL(_build_opts(extractor_args, merge, format_sel)) \
+                    as ydl:
                 return ydl.extract_info(url, download=True)
 
-        async def _attempt(extractor_args: dict | None, phase: str):
+        async def _attempt(extractor_args: dict | None, merge: bool,
+                           format_sel: str, phase: str):
             try:
                 return await asyncio.wait_for(
-                    asyncio.to_thread(_run, extractor_args),
+                    asyncio.to_thread(_run, extractor_args, merge, format_sel),
                     timeout=_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)
             except asyncio.TimeoutError as exc:
                 raise DownloadError(
@@ -254,34 +406,133 @@ class VideoDownloader:
             except DownloadTooBigError:
                 raise                       # TOO_BIG-пул фраз в хендлере (D288)
             except Exception as exc:
+                # Прод-хотфикс: бот-проверка/LOGIN_REQUIRED → понятная ошибка
+                text = str(exc).lower()
+                if any(m in text for m in _AVAILABILITY_SIGN_IN_MARKERS) \
+                        or "login_required" in text:
+                    raise DownloadUnavailableError(
+                        "YouTube требует подтверждения (бот-проверка) — "
+                        f"попробуйте позже или другой источник | url={url}") \
+                        from exc
                 raise DownloadError(
                     f"yt-dlp failed: {exc} | url={url} | phase={phase}") \
                     from exc
 
+        def _raise_unavailable(info: dict) -> None:
+            """Детект недоступности (c): age-рестрикт/Sign-in/DRM/live →
+            понятная ошибка пользователю."""
+            age_limit = info.get("age_limit") or 0
+            availability = str(info.get("availability") or "")
+            desc = str(info.get("description") or "")
+            lower = (availability + "\n" + desc).lower()
+            if age_limit > 0:
+                raise DownloadUnavailableError(
+                    f"видео недоступно: возрастное ограничение "
+                    f"(age_limit={age_limit}) | url={url}")
+            if any(m in lower for m in _AVAILABILITY_SIGN_IN_MARKERS):
+                raise DownloadUnavailableError(
+                    f"видео недоступно: требуется вход в аккаунт / "
+                    f"подтверждение «не робот» | url={url}")
+            if info.get("is_live"):
+                raise DownloadUnavailableError(
+                    f"видео недоступно: прямая трансляция | url={url}")
+            drm = False
+            for fmt in info.get("formats") or []:
+                note = str((fmt or {}).get("format_note") or "").lower()
+                if any(m in note for m in _DRM_NOTE_MARKERS):
+                    drm = True
+                    break
+            if drm:
+                raise DownloadUnavailableError(
+                    f"видео недоступно: защищено DRM | url={url}")
+
+        # M2 (утечка .f* при успешном merge-фолбеке): уборка промежуточных
+        # файлов (vd_*.f<id>.*, *.part, *.ytdl) выполняется БЕЗУСЛОВНО —
+        # и при успехе, и при ошибке; итоговый файл (keep) сохраняется.
+        def _final_of(info_: dict | None) -> Path | None:
+            """Итоговый файл из requested_downloads (если yt-dlp его дал)."""
+            requested = info_.get("requested_downloads") if isinstance(
+                info_, dict) else None
+            if isinstance(requested, list) and requested and \
+                    isinstance(requested[-1], dict) and \
+                    requested[-1].get("filepath"):
+                return Path(str(requested[-1]["filepath"]))
+            return None
+
+        def _purge_temp(keep: Path | None) -> None:
+            """Удалить все {prefix}.* кроме keep (промежуточные .f<id>.*,
+            .part, .ytdl и т.п.)."""
+            for leftover in self._download_dir.glob(f"{prefix}.*"):
+                if keep is not None and \
+                        leftover.resolve() == keep.resolve():
+                    continue
+                leftover.unlink(missing_ok=True)
+
         ok = False
+        merge_fallback_used = False
         info: dict | None = None
+        last_err: DownloadError | None = None
+
+        # Первая попытка: дефолт (клиент по умолчанию, merge, целевое качество).
         try:
-            info = await _attempt(None, "download")
+            info = await _attempt(None, True, format_selector, "download")
             ok = True
         except DownloadError as exc:
-            # Прод-хотфикс: повтор с резервным player_client (android).
-            # Только одна попытка — экономим; не ретраим TooBig/таймаут.
-            logger.warning(
-                "[videodl] yt-dlp failed → retry with player_client=%s "
-                "| url=%s | err=%s", _FALLBACK_PLAYER_CLIENT[0], url, exc)
-            try:
-                info = await _attempt(
-                    {"youtube": {"player_client": list(_FALLBACK_PLAYER_CLIENT)}},
-                    "retry-android")
-                ok = True
-            except DownloadError:
-                raise
+            last_err = exc
+            # Merge-фолбек (d): если падение на постпроцессинге (ffmpeg/
+            # merge/Invalid data) — повтор БЕЗ merge, один файл.
+            err_text = str(exc)
+            if _is_postprocess_error(err_text):
+                merge_fallback_used = True
+                logger.warning(
+                    "[videodl] merge-фолбек (без merge) | url=%s | err=%s",
+                    url, err_text)
+                try:
+                    info = await _attempt(
+                        None, False, "b[ext=mp4]/b/best", "no-merge")
+                    ok = True
+                except DownloadError as exc2:
+                    last_err = exc2
+            # Резервные клиенты (b): перебор по очереди, до _MAX_YTDLP_ATTEMPTS
+            # загрузок всего (дефолт и merge-фолбек уже потрачены).
+            attempts_left = max(0, _MAX_YTDLP_ATTEMPTS - 1
+                                - (1 if ok else 0)
+                                - (1 if merge_fallback_used else 0))
+            for client in _FALLBACK_PLAYER_CLIENTS:
+                if ok or attempts_left <= 0:
+                    break
+                logger.warning(
+                    "[videodl] retry with player_client=%s | url=%s | "
+                    "err=%s", client, url, last_err)
+                try:
+                    info = await _attempt(
+                        {"youtube": {"player_client": [client]}},
+                        True, format_selector, f"retry-{client}")
+                    ok = True
+                except DownloadError as exc2:
+                    last_err = exc2
+                    attempts_left -= 1
         finally:
-            # исключение (TooBig/таймаут/yt-dlp) → .part/.ytdl артефакты
-            # не копим (78.1 п.3)
+            # M2: уборка БЕЗУСЛОВНА — и при успехе (merge-фолбек оставляет
+            # .f137.mp4/.f140.m4a), и при ошибке; итоговый файл сохраняется.
             if not ok:
-                for leftover in self._download_dir.glob(f"{prefix}.*"):
-                    leftover.unlink(missing_ok=True)
+                _purge_temp(None)
+            else:
+                keep = _final_of(info)
+                if keep is not None:
+                    _purge_temp(keep)
+        if not ok:
+            raise last_err if last_err is not None else DownloadError(
+                f"yt-dlp failed | url={url}")
+
+        # Детект недоступности (c): возрастное ограничение / Sign-in / DRM /
+        # live → понятная ошибка вместо «Invalid data…».
+        if isinstance(info, dict):
+            try:
+                _raise_unavailable(info)
+            except DownloadUnavailableError:
+                _purge_temp(None)
+                raise
 
         # Канонический post-merge путь: requested_downloads заполняется
         # ПОСЛЕ постпроцессоров (merge) → filepath = итоговый файл.
@@ -290,7 +541,9 @@ class VideoDownloader:
         if isinstance(requested, list) and requested and \
                 isinstance(requested[-1], dict) and \
                 requested[-1].get("filepath"):
-            return Path(str(requested[-1]["filepath"]))
+            final_path = Path(str(requested[-1]["filepath"]))
+            _purge_temp(final_path)
+            return final_path
         # Fallback: glob БЕЗ промежуточных (vd_*.f<id>.*, .part/.ytdl);
         # ровно один кандидат → он итоговый, иначе неоднозначность → ошибка.
         matches = sorted(
@@ -298,7 +551,11 @@ class VideoDownloader:
             if p.suffix not in (".part", ".ytdl")
             and not _INTERMEDIATE_INFIX_RE.search(p.name))
         if len(matches) == 1:
+            _purge_temp(matches[0])
             return matches[0]
+        # F1: edge-дыра M2 — при неоднозначности/отсутствии итогового файла
+        # тоже чистим каталог (никаких .f*/.part на диске).
+        _purge_temp(None)
         raise DownloadError("yt-dlp finished but output file not found")
 
     async def _request_tunnel(self, url: str, quality: str) -> tuple[str, str | None]:

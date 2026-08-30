@@ -7,6 +7,9 @@ uvicorn>=0.30
 psutil>=5.9
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+# F5: таймауты тестов (полный прогон: --timeout=90 --timeout-method=thread) —
+# без этого зависающий сетевой тест может вешать весь прогон.
+pytest-timeout>=2.3.0
 sentry-sdk==2.64.0
 logtail-python==0.4.0
 httpx>=0.27
