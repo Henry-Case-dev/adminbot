@@ -656,15 +656,29 @@ class MemoryManager:
 
     async def _embed_api(self, texts) -> list[list[float]]:
         """R46-8 (55.8): ретраи 3× с backoff 1.0*2**n на любых ошибках embed
-        (в т.ч. эпизодических 403) — поверх LLMClient-ретраев 429/5xx."""
+        (в т.ч. эпизодических 403) — поверх LLMClient-ретраев 429/5xx.
+        Задача 3 (01.09.2026): диаг-логи попыток — тип/код ошибки (у
+        LLMAuthError теперь есть обрезанное тело провайдера) + провайдер;
+        финальный фейл логируется ERROR и пробрасывается (KNN→FTS-каскад
+        решает деградацию ниже по стеку)."""
         last_exc = None
         for attempt in range(_EMBED_RETRY_ATTEMPTS):
             try:
                 return await self.llm.embed(texts)
             except Exception as exc:
                 last_exc = exc
+                logger.warning(
+                    "embed attempt failed | attempt=%d/%d | error=%s",
+                    attempt + 1, _EMBED_RETRY_ATTEMPTS,
+                    f"{type(exc).__name__}: {exc}",
+                )
                 if attempt < _EMBED_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(_EMBED_RETRY_BACKOFF * (2 ** attempt))
+        logger.error(
+            "embed failed after %d attempts | error=%s",
+            _EMBED_RETRY_ATTEMPTS,
+            f"{type(last_exc).__name__}: {last_exc}",
+        )
         raise last_exc
 
     async def _embed_cache_lookup(self, texts) -> tuple[dict, list]:

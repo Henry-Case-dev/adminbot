@@ -62,7 +62,29 @@ _AVAILABILITY_SIGN_IN_MARKERS = (
     "sign in to confirm you're not a bot",
     "confirm you're not a bot",
     "confirm you are not a bot")
-_DRM_NOTE_MARKERS = ("drc", "premium", "cenc", "widevine")
+def _format_is_drm(fmt: dict) -> bool:
+    """Надёжный DRM-детект формата (ресерч 01.09.2026, yt-dlp issues #7396/
+    #12563/#13410, docs extractor/common.py).
+
+    ТОЛЬКО форматы, НЕ title/description/availability:
+    - `has_drm is True` — каноническое поле yt-dlp (с 2023; 'maybe' НЕ считаем:
+      это «потенциально DRM, надо проверить», yt-dlp сам тестирует такие
+      форматы через check-formats);
+    - непустой `licenseInfos` — маркер youtube.py ('This video is DRM
+      protected', streamingData.licenseInfos);
+    - 'drm'/'Premium' в format_note (напр. 616 'Premium' — maybe-DRM из #7396).
+
+    Ревью-фикс: 'drc' (format_note/format_id) УДАЛЁН ПОЛНОСТЬЮ — это Dynamic
+    Range Compression (нормализация громкости, аудио '139-drc', 'low, DRC'),
+    НЕ DRM; именно он давал ложный «защищено DRM» на Shorts/музыке
+    (z0dOKy6BeC4: has_drm=0, licenseInfos=0 у всех форматов).
+    """
+    if fmt.get("has_drm") is True:
+        return True
+    if fmt.get("licenseInfos"):
+        return True
+    note = str(fmt.get("format_note") or "").lower()
+    return "drm" in note or "premium" in note
 
 # Epic 77 (D286): ТОЛЬКО эти хосты идут в yt-dlp-ветку; остальные платформы
 # (vimeo, vk, …) — cobalt как раньше. Поддомены/подмена не матчатся.
@@ -477,13 +499,20 @@ class VideoDownloader:
             if info.get("is_live"):
                 raise DownloadUnavailableError(
                     f"видео недоступно: прямая трансляция | url={url}")
-            drm = False
+            # DRM (прод-баг 01.09.2026): НЕ сканируем title/description/
+            # availability; только форматы (has_drm/licenseInfos/note+id
+            # маркеры). Unavailable — ТОЛЬКО если DRM-форматы есть, а
+            # свободных НЕТ (Shorts с 'low, DRC' аудио качается нормально).
+            drm_formats = 0
+            free_formats = 0
             for fmt in info.get("formats") or []:
-                note = str((fmt or {}).get("format_note") or "").lower()
-                if any(m in note for m in _DRM_NOTE_MARKERS):
-                    drm = True
-                    break
-            if drm:
+                if isinstance(fmt, dict) and _format_is_drm(fmt):
+                    drm_formats += 1
+                else:
+                    free_formats += 1
+            has_video_license = bool(info.get("licenseInfos"))
+            if (drm_formats and not free_formats) or \
+                    (not (info.get("formats")) and has_video_license):
                 raise DownloadUnavailableError(
                     f"видео недоступно: защищено DRM | url={url}")
 

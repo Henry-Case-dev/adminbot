@@ -1613,6 +1613,173 @@ class TestSignInError:
         assert "бот-проверка" in str(excinfo.value)
 
 
+class TestDrmDetect:
+    """Прод-баг 01.09.2026: ложный «защищено DRM» — аудио-форматы YouTube
+    с DRC (Dynamic Range Compression: format_note 'low, DRC', format_id
+    '139-drc') НЕ являются DRM. Рецепт (ресерч): DRM только по форматам —
+    has_drm is True / licenseInfos / 'drm'|'Premium' в format_note; title/
+    description/availability НЕ сканируются; unavailable только когда
+    DRM-форматы есть, а свободных нет."""
+
+    def _run(self, tmp_path, monkeypatch, info: dict):
+        """Запуск download_ytdlp с fake-yt-dlp, возвращающим info."""
+        import sys
+        import types
+        from tools import video_downloader as vdm
+
+        class _FakeYDL:
+            def __init__(self, opts):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def extract_info(self, url, download=True):
+                return info
+
+        monkeypatch.setitem(
+            sys.modules, "yt_dlp", types.SimpleNamespace(YoutubeDL=_FakeYDL))
+        monkeypatch.setattr(vdm, "build_ytdlp_base_opts", lambda: {})
+        dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
+        return dl
+
+    def _info(self, formats, **kw):
+        base = {"title": "t", "requested_downloads": [
+            {"filepath": "/tmp/x.mp4"}]}
+        base["formats"] = formats
+        base.update(kw)
+        return base
+
+    @pytest.mark.asyncio
+    async def test_shorts_drc_audio_not_drm(self, tmp_path, monkeypatch):
+        """Воспроизведение бага: Shorts-подобный info с 'low, DRC'/
+        'medium, DRC' аудио (format_id *-drc) + свободные форматы →
+        НЕ unavailable, скачивается."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "137", "ext": "mp4", "format_note": "DASH video"},
+            {"format_id": "139-drc", "ext": "m4a", "format_note": "low, DRC"},
+            {"format_id": "140-drc", "ext": "m4a", "format_note": "medium, DRC"},
+            {"format_id": "249-drc", "ext": "webm", "format_note": "low, DRC"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_drc_only_audio_still_free_video_ok(self, tmp_path,
+                                                      monkeypatch):
+        """Даже если ВСЕ аудио-форматы DRC — есть свободное видео →
+        скачивание идёт (правило «свободных нет»)."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "137", "ext": "mp4", "format_note": "DASH video"},
+            {"format_id": "139-drc", "ext": "m4a", "format_note": "low, DRC"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_all_audio_drc_only_not_unavailable(self, tmp_path,
+                                                      monkeypatch):
+        """Ревью-фикс 3: audio-only видео, ВСЕ форматы *-drc (format_id и
+        format_note 'DRC') → drm=0, свободные = все → НЕ unavailable
+        ('drc' полностью убран из DRM-маркеров)."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "139-drc", "ext": "m4a", "format_note": "low, DRC"},
+            {"format_id": "140-drc", "ext": "m4a", "format_note": "medium, DRC"},
+            {"format_id": "249-drc", "ext": "webm", "format_note": "low, DRC"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_has_drm_true_raises_unavailable(self, tmp_path,
+                                                   monkeypatch):
+        """Канон: формат с has_drm=True и без свободных → DRM."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "drc", "has_drm": True, "ext": "mp4"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        with pytest.raises(vdm.DownloadUnavailableError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert "защищено DRM" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_license_infos_no_free_formats_raises(self, tmp_path,
+                                                        monkeypatch):
+        """licenseInfos на видео-уровне + НЕТ форматов вовсе → DRM
+        (как youtube.py: 'This video is DRM protected')."""
+        from tools import video_downloader as vdm
+        info = self._info([], licenseInfos=[{"name": "widevine"}])
+        dl = self._run(tmp_path, monkeypatch, info)
+        with pytest.raises(vdm.DownloadUnavailableError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert "защищено DRM" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_format_license_infos_and_free_formats_ok(self, tmp_path,
+                                                            monkeypatch):
+        """Формат с licenseInfos + свободные форматы → НЕ unavailable."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "137", "ext": "mp4",
+             "licenseInfos": [{"name": "widevine"}]},
+            {"format_id": "136", "ext": "mp4"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_description_with_drm_word_not_blocking(self, tmp_path,
+                                                          monkeypatch):
+        """Слово 'DRM' в описании/availability → НЕ unavailable
+        (title/description/availability не сканируются)."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "137", "ext": "mp4", "format_note": "DASH video"},
+        ], description="watch this DRM free video!", availability="public")
+        dl = self._run(tmp_path, monkeypatch, info)
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_has_drm_maybe_not_blocking(self, tmp_path, monkeypatch):
+        """has_drm='maybe' (потенциальный DRM, yt-dlp проверит сам через
+        check-formats) → НЕ unavailable."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "616", "ext": "mp4", "has_drm": "maybe",
+             "format_note": "DASH video"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        path = await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert path.name == "x.mp4"
+
+    @pytest.mark.asyncio
+    async def test_premium_note_all_formats_raises(self, tmp_path,
+                                                   monkeypatch):
+        """Все форматы с 'Premium'/'DRM' в format_note, свободных нет →
+        unavailable."""
+        from tools import video_downloader as vdm
+        info = self._info([
+            {"format_id": "616", "ext": "mp4", "format_note": "Premium"},
+            {"format_id": "617", "ext": "mp4", "format_note": "DRM, HDR"},
+        ])
+        dl = self._run(tmp_path, monkeypatch, info)
+        with pytest.raises(vdm.DownloadUnavailableError) as excinfo:
+            await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
+        assert "защищено DRM" in str(excinfo.value)
+
+
 class TestDirectMedia:
     """2: прямые медиа-ссылки — детект и стрим-даунлоад."""
 

@@ -19,6 +19,7 @@ direct_chat_service (llm_client о нём НЕ знает — контракт 6
 import asyncio
 import logging
 import random
+import re
 import time
 
 import httpx
@@ -30,6 +31,48 @@ from services.status_service import status as status_service
 logger = logging.getLogger(__name__)
 
 _BODY_MAX_CHARS = 500   # Epic 49 (57.4) / Epic 53 (62.5): тело 4xx/5xx-ответа в диагн-логе
+_AUTH_BODY_MAX_CHARS = 200   # Задача 2 (01.09.2026): тело 401/403 в LLMAuthError
+
+# R17: маскировка потенциальных секретов в телах ошибок провайдера.
+# (а) ключ-значение: api key/key/token/secret/authorization (пробел допустим,
+# \b-границы) + (б) известные префиксы ключей в ЛЮБОМ контексте
+# (sk-/sk-or-/gsk_/tvly-/xoxb- и т.п.) + (в) Bearer <токен>.
+# JSON-форма (ревью-блокер 01.09.2026): '"key" : "value"' — опциональная
+# кавычка ДО двоеточия тоже в сепараторе; значение в кавычках — целиком.
+# Ревью-фикс: re.IGNORECASE — bearer/basic в любом регистре + Token/Api-Key
+# (контракт log_ring.py, там Bearer уже IGNORECASE). \b сохраняет guard:
+# 'pot_token'/'access_token' НЕ маскируются (граница слова).
+_SECRET_PAIR_RE = re.compile(
+    r'(\b(?:api[\s_-]?key|key|token|secret|authorization)\b)'
+    r'(\s*"?\s*[:=]\s*"?)(?!Bearer\b|Basic\b)([^"\s,}]{4,})',
+    re.IGNORECASE)
+_SECRET_VALUE_RE = re.compile(
+    r'(?<![A-Za-z0-9])(?:sk|gsk|tvly|xoxb)[_-][A-Za-z0-9_-]{8,}',
+    re.IGNORECASE)
+_BEARER_RE = re.compile(r'(\bBearer\s+)[^\s,}"\']+', re.IGNORECASE)
+_BASIC_RE = re.compile(r'(\bBasic\s+)[^\s,}"\']+', re.IGNORECASE)
+
+
+def _mask_secrets(text: str) -> str:
+    """Маскировка секретов (R17): Bearer/Basic <токен> (сначала — иначе
+    пара authorization: Bearer … съест 'Bearer' как значение), пары
+    ключ=значение (в т.ч. JSON-форма '"key": "value"'), префикс-ключи
+    (sk-…/gsk_…/tvly-…/xoxb-…) → ***. Префикс bearer/basic сохраняется
+    в исходном регистре (контракт log_ring.py)."""
+    masked = _BEARER_RE.sub(r"\1***", text)
+    masked = _BASIC_RE.sub(r"\1***", masked)
+    masked = _SECRET_PAIR_RE.sub(r"\1\2***", masked)
+    return _SECRET_VALUE_RE.sub("***", masked)
+
+
+def _sanitize_snippet(text: str, max_chars: int = _AUTH_BODY_MAX_CHARS) -> str:
+    """Обрезанное (≤200) тело ответа с маскировкой секретов — для
+    LLMAuthError/диаг-логов 401/403 (R17). Пусто/не str → ""."""
+    if not text:
+        return ""
+    masked = _mask_secrets(text)
+    masked = masked.replace("\n", " ").replace("\r", " ").strip()
+    return masked[:max_chars]
 
 
 async def _aclose(client: httpx.AsyncClient) -> None:
@@ -285,7 +328,18 @@ class LLMClient:
                             f"{total_attempts} attempts: {url}"
                         )
                     if status in (401, 403):
-                        raise LLMAuthError(f"LLM auth failed ({status}): {url}")
+                        # Задача 2 (01.09.2026): диаг-лог + тело в исключении
+                        # (обрезанное, секреты замаскированы — R17), чтобы
+                        # 403 «insufficient balance» был диагностируемым.
+                        snippet = _sanitize_snippet(response.text)
+                        logger.error(
+                            "LLM HTTP %d | url=%s | body_auth=%r",
+                            status, url, snippet,
+                        )
+                        raise LLMAuthError(
+                            f"LLM auth failed ({status}): {url}"
+                            f"{f' | body={snippet}' if snippet else ''}"
+                        )
                     if status >= 400:
                         # Epic 49 (57.4, D197): детерминированное отклонение провайдера —
                         # инцидентный сигнал в Betterstack. R17: url без query/секретов,
@@ -328,17 +382,19 @@ class LLMClient:
             )
         raise LLMError(f"LLM request failed after retries: {url}")
 
-    async def _post_fallback(self, payload: dict) -> httpx.Response:
+    async def _post_fallback(self, payload: dict, path: str = "/chat/completions",
+                             model: str | None = None) -> httpx.Response:
         """Epic 53 (62.4): РОВНО одна попытка на фоллбэке, БЕЗ ретраев.
 
-        Тот же messages-payload, model заменён на LLM_FALLBACK_MODEL.
+        Тот же payload, model заменён на LLM_FALLBACK_MODEL (или переданную —
+        для /embeddings используется primary embed-модель на фоллбэк-базе).
         Ошибки (транспорт/не-2xx) разбирает вызывающий — проброс исходного
         исключения primary.
         """
         client = self._get_fallback_client()
-        url = f"{self._fallback_base_url.rstrip('/')}/chat/completions"
+        url = f"{self._fallback_base_url.rstrip('/')}{path}"
         fallback_payload = dict(payload)
-        fallback_payload["model"] = self._fallback_model
+        fallback_payload["model"] = model or self._fallback_model
         return await client.post(url, json=fallback_payload)
 
     async def _fallback_with_retries(self, payload: dict) -> httpx.Response | None:
@@ -419,13 +475,49 @@ class LLMClient:
         return content
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """POST /embeddings → data[i].embedding. Raises LLMError on any failure (R3)."""
+        """POST /embeddings → data[i].embedding. Raises LLMError on any failure (R3).
+
+        Задача 3 (01.09.2026): при LLMError primary (кроме LLMBadResponseError)
+        и активном фоллбэке — ОДНА попытка на фоллбэк-провайдере
+        (POST {fallback}/embeddings, primary embed-модель); фейл фоллбэка →
+        проброс ИСХОДНОГО исключения primary (KNN→FTS-каскад в
+        summary_memory решает деградацию). Диаг-логи — код ответа в
+        LLMAuthError (тело) / WARNING попытки."""
         if not texts:
             return []
-        response = await self._post(
-            "/embeddings",
-            {"model": self._embed_model, "input": texts},
-        )
+        try:
+            response = await self._post(
+                "/embeddings",
+                {"model": self._embed_model, "input": texts},
+            )
+        except LLMError as exc:
+            if not self._fallback_active or isinstance(exc, LLMBadResponseError):
+                raise
+            logger.warning(
+                "LLM embed fallback attempt | primary_error=%s",
+                f"{type(exc).__name__}: {exc}",
+            )
+            try:
+                async with asyncio.timeout(self._fallback_timeout):
+                    fb_response = await self._post_fallback(
+                        {"model": self._embed_model, "input": texts},
+                        path="/embeddings",
+                        model=self._embed_model,
+                    )
+            except Exception:
+                fb_response = None
+            if fb_response is None or fb_response.status_code != 200:
+                # Ревью-фикс 4: сохраняем старый контракт BetterStack —
+                # маркер «LLM fallback failed | error=…», доп. поля.
+                logger.warning(
+                    "LLM fallback failed | error=%s | fallback=%s | status=%s",
+                    f"status={getattr(fb_response, 'status_code', 'no-response')}",
+                    self._fallback_base_url.rstrip("/"),
+                    getattr(fb_response, "status_code", "no-response"),
+                )
+                raise exc from None
+            response = fb_response
+            logger.warning("LLM embed fallback OK | model=%s", self._embed_model)
         try:
             data = response.json()
         except ValueError as exc:

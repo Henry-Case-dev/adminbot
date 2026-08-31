@@ -271,6 +271,66 @@ class TestEmbed:
         with pytest.raises(LLMError):
             await client.embed(["a"])
 
+    @pytest.mark.asyncio
+    async def test_embed_fallback_after_primary_403(self, monkeypatch, caplog):
+        """Задача 3: primary 403 → ОДНА попытка на фоллбэк-провайдере
+        (/embeddings, embed-модель) → успех."""
+        import logging
+        seen = {}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                seen["fb_url"] = str(request.url)
+                seen["fb_payload"] = json.loads(request.content)
+                return httpx.Response(
+                    200, json={"data": [{"embedding": [9.9]}]},
+                    request=request)
+            return httpx.Response(
+                403, text='{"error":{"message":"insufficient balance"}}',
+                request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              fallback_base_url="https://fallback.test/v1",
+                              fallback_model="fb-model",
+                              fallback_api_key="fb-key")
+        with caplog.at_level(logging.WARNING):
+            vectors = await client.embed(["текст"])
+        assert vectors == [[9.9]]
+        assert seen["fb_url"] == "https://fallback.test/v1/embeddings"
+        assert seen["fb_payload"]["model"] == "embed-model"
+        assert any("LLM embed fallback attempt" in r.message
+                   for r in caplog.records)
+        assert any("LLM embed fallback OK" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_failure_raises_original(self, monkeypatch,
+                                                          caplog):
+        """Задача 3: фоллбэк тоже не смог (404 — нет /embeddings) → проброс
+        ИСХОДНОГО исключения primary + WARNING-диагностика."""
+        import logging
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                return httpx.Response(404, json={}, request=request)
+            return httpx.Response(
+                403, text='{"error":{"message":"insufficient balance"}}',
+                request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              fallback_base_url="https://fallback.test/v1",
+                              fallback_model="fb-model",
+                              fallback_api_key="fb-key")
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMAuthError) as ei:
+                await client.embed(["текст"])
+        assert "LLM auth failed (403)" in str(ei.value)
+        assert "insufficient balance" in str(ei.value)
+        # ревью-фикс 4: старый контракт BetterStack «LLM fallback failed»
+        assert any("LLM fallback failed | error=status=404" in r.message
+                   and "status=404" in r.message
+                   for r in caplog.records)
+
 
 class TestMisc:
     @pytest.mark.asyncio
@@ -622,7 +682,9 @@ class TestEpic49DiagnosticLog:
         assert "x" * 500 in record.message
 
     @pytest.mark.asyncio
-    async def test_401_403_no_body_log(self, monkeypatch, caplog):
+    async def test_401_403_no_body_4xx_log(self, monkeypatch, caplog):
+        """Задача 2 (01.09.2026): 401/403 логируются отдельным body_auth=
+        (санитизированное обрезанное тело), НО не через body_4xx."""
         import logging
 
         def handler(request):
@@ -633,6 +695,112 @@ class TestEpic49DiagnosticLog:
             with pytest.raises(LLMAuthError):
                 await client.generate([{"role": "user", "content": "q"}])
         assert not any("body_4xx" in r.message for r in caplog.records)   # R17
+        assert any("body_auth='unauthorized body'" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_auth_error_contains_sanitized_body_snippet(self, monkeypatch):
+        """Задача 2: 403 с телом {'error':{'message':'insufficient balance'}}
+        → LLMAuthError содержит обрезанный сниппет; секреты замаскированы."""
+        from services.llm_client import _sanitize_snippet
+
+        def handler(request):
+            return httpx.Response(
+                403,
+                text='{"error": {"message": "insufficient balance", '
+                     '"api_key": "sk-1234567890abcdef"}}',
+                request=request)
+
+        client = _make_client(handler, monkeypatch)
+        with pytest.raises(LLMAuthError) as ei:
+            await client.generate([{"role": "user", "content": "q"}])
+        assert "LLM auth failed (403)" in str(ei.value)
+        assert "insufficient balance" in str(ei.value)
+        assert "sk-1234567890abcdef" not in str(ei.value)   # R17: замаскирован
+        assert _sanitize_snippet("api_key=sk-1234567890abcdef") == \
+            "api_key=***"
+        assert _sanitize_snippet("token: abcdefgh123456") == "token: ***"
+        assert _sanitize_snippet("просто текст") == "просто текст"
+        assert _sanitize_snippet("x" * 300) == "x" * 200
+
+    def test_mask_secrets_openai_style(self):
+        """Ревью-фикс 1: OpenAI-стиль «Incorrect API key provided:
+        sk-proj-…» — префикс-ключ маскируется в любом контексте."""
+        from services.llm_client import _sanitize_snippet
+        text = "Incorrect API key provided: sk-proj-abc123XYZ890"
+        out = _sanitize_snippet(text)
+        assert "sk-proj-abc123XYZ890" not in out
+        assert "sk-proj-" not in out
+
+    def test_mask_secrets_json_form(self):
+        """Ревью-блокер: JSON-форма '"key": "value"' — кавычки вокруг
+        ключа и значения; JWT-подобные токены; Basic-авторизация."""
+        from services.llm_client import _sanitize_snippet
+        assert _sanitize_snippet('"token": "abcdefgh123456"') == \
+            '"token": "***"'
+        assert _sanitize_snippet('"api_key": "abcdefgh1234567890"') == \
+            '"api_key": "***"'
+        assert _sanitize_snippet('"token":"abcdefgh123456"') == \
+            '"token":"***"'
+        assert _sanitize_snippet('"token" : "abcdefgh123456"') == \
+            '"token" : "***"'
+        # Basic-авторизация (base64 user:pass) маскируется целиком
+        out = _sanitize_snippet(
+            '"authorization": "Basic dXNlcjpwYXNzd29yZA=="')
+        assert "dXNlcjpwYXNzd29yZA==" not in out
+        assert "Basic ***" in out
+        # JWT-подобный токен в паре token=
+        jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        assert jwt not in _sanitize_snippet(f'"token": "{jwt}"')
+        # контроль: authorization: Bearer sk-live-… — Bearer-путь не сломан
+        assert "Bearer ***" in _sanitize_snippet(
+            "authorization: Bearer sk-live-1234567890")
+        assert "sk-live-1234567890" not in _sanitize_snippet(
+            "authorization: Bearer sk-live-1234567890")
+
+    def test_mask_secrets_lowercase_bearer_basic(self):
+        """Ревью-фикс: lowercase 'bearer'/'basic' (re.IGNORECASE, контракт
+        log_ring.py); pot_token не маскируется; JSON-формы живы."""
+        from services.llm_client import _sanitize_snippet
+        # lowercase bearer → токен маскирован полностью
+        out = _sanitize_snippet("authorization: bearer sk-live-1234567890")
+        assert "sk-live-1234567890" not in out
+        assert "bearer ***" in out
+        # lowercase basic → base64 маскирован
+        out = _sanitize_snippet(
+            "authorization: basic dXNlcjpwYXNzd29yZA==")
+        assert "dXNlcjpwYXNzd29yZA==" not in out
+        assert "basic ***" in out
+        # МЕШАННЫЙ регистр
+        out = _sanitize_snippet("Authorization: Bearer TOKEN-1234567890")
+        assert "TOKEN-1234567890" not in out
+        # контроль: pot_token/access_token НЕ маскируются
+        assert _sanitize_snippet("pot_token=abc") == "pot_token=abc"
+        assert _sanitize_snippet("pot_token=abcdefgh123456") == \
+            "pot_token=abcdefgh123456"
+        assert _sanitize_snippet("access_token=abcdefgh123456") == \
+            "access_token=abcdefgh123456"
+        # JSON-формы по-прежнему маскируются
+        assert _sanitize_snippet('"token": "abcdefgh123456"') == \
+            '"token": "***"'
+        assert _sanitize_snippet('"Api-Key": "abcdefgh123456"') == \
+            '"Api-Key": "***"'
+
+    def test_mask_secrets_key_types_and_spaces(self):
+        """Префикс-ключи gsk_/tvly_/xoxb-; пробел в 'api key'; порог
+        значений ≥4; 'Bearer sk-live-…' в произвольном тексте."""
+        from services.llm_client import _sanitize_snippet
+        assert "gsk_abcdefgh123456" not in _sanitize_snippet(
+            "gsk_abcdefgh123456 bad key")
+        assert "tvly-abcdef12345678" not in _sanitize_snippet(
+            "token tvly-abcdef12345678 here")
+        assert "xoxb-abcdefgh123456" not in _sanitize_snippet(
+            "xoxb-abcdefgh123456")
+        # пробел между 'api' и 'key' допустим
+        assert _sanitize_snippet("api key: qwerty123456") == \
+            "api key: ***"
+        # короткие значения (≤4) парой НЕ маскируются
+        assert _sanitize_snippet("token: abc") == "token: abc"
 
     @pytest.mark.asyncio
     async def test_other_4xx_also_logged(self, monkeypatch, caplog):
