@@ -16941,3 +16941,272 @@ uvicorn слушает `127.0.0.1:8000` (WEB_PORT, 84.15/84.19). Порт 80/443
 * Поднятие исключения из progress_hooks (TooBig) уже есть — новый код не должен
   проглатывать DownloadTooBigError внутри try/except репортера.
 * «Зависшие» прогресс-сообщения после рестарта — приняты (84.23.6).
+
+---
+
+## 84.24 Группировка и описания параметров админки — ДЕЛЬТА, требование человека 02.09.2026
+
+> **Суть:** разделы «Лимиты и Модули», «API Ключи», «Модели», «Промпты» содержат
+> 265 параметров одной плоской лентой. Дизайн: логические группы-карточки
+> (заголовок + описание группы) и у КАЖДОГО параметра простое описание «на что
+> влияет» — понятное не-технарю. Это ДИЗАЙН (без кода приложения).
+
+### 84.24.0 Факты кода (зафиксировано)
+
+* **Маппинг вкладок → категорий** (web/app.js:9-17, зафиксирован):
+
+| Вкладка (id) | label | categories |
+|---|---|---|
+| `prompts` | 🧠 Промпты | `prompts` |
+| `models` | ⚙️ Модели и Провайдеры | `models` |
+| `keys` | 🔑 API Ключи | `keys` |
+| `limits` | 🚦 Лимиты и Модули | `limits`, `flags` |
+| `access` | 👥 Управление доступом | `access` |
+| `status` / `info` | — | always |
+
+* **`reactions` НЕ привязана ни к одной вкладке** — параметры категории
+  `reactions` сегодня фронтом НЕ рендерятся. Дизайн групп для неё готов
+  (84.24.2), рендер тот же, как только появится вкладка (рекомендация —
+  отдельная вкладка «🎭 Персоны и медиа» или расширение «Лимиты и Модули»).
+* **Каталог** (services/param_catalog.py, 265 записей, проверено скриптом):
+  prompts=9, models=26, keys=16, limits=115, flags=41, reactions=36, content=1,
+  infra=21 (category=None — вне вкладок).
+* **Текущий рендер** (web/index.html): карточка на каждый параметр, порядок —
+  серверный `sorted()` по ключу; подписи `title_ru` уже есть, описаний нет.
+* **GET /api/config** (web/api/routes.py:182-203) уже отдаёт `key/value/
+  category/secret/title/type/updated_at`; изменения — только ДОБАВОЧНЫЕ поля.
+
+### 84.24.1 Новые поля каталога (group / description)
+
+```python
+@dataclasses.dataclass(frozen=True)
+class GroupSpec:
+    id: str            # slug, глобально уникальный: "{category}_{noun}"
+    category: str      # категория bot_settings (промпты/модели/...)
+    title_ru: str      # заголовок группы («Персонажи: Алан и Костик»)
+    description: str   # 1-2 предложения простым русским, без жаргона
+    order: int         # порядок рендера ВНУТРИ категории (1, 2, 3...)
+```
+
+* `ParamSpec` += `group: str = ""` (id группы) и `description: str = ""`
+  (1-2 предложения «что делает / на что влияет»).
+* `GROUPS: tuple[GroupSpec, ...]` — единый реестр групп; helper
+  `groups_by_category(category) -> list[GroupSpec]` (sorted by `order`).
+* **Правило полноты:** КАЖДЫЙ spec с `category is not None` обязан иметь
+  `group` из `GROUPS` и непустой `description` (тест, 84.24.7). Инфра
+  (category=None) полей не получает — во вкладках не показывается.
+* **Правило id:** `{category}_{noun}` — уникален глобально (вкладки не
+  пересекаются, но ключи карточек фронта уникальны в DOM).
+
+### 84.24.2 Схема групп по категориям (полная, все 265 записей покрыты)
+
+**🧠 prompts (9 параметров → 8 групп):**
+
+| id | Заголовок | Описание группы | Ключи (pg_key) |
+|---|---|---|---|
+| `prompts_factcheck` | Фактчек | Как бот проверяет факты и оформляет проверку. | `prompts.factcheck_system_prompt` |
+| `prompts_search` | Поиск | Как бот ищет в интернете и формулирует ответ. | `prompts.search_system_prompt` |
+| `prompts_checkup` | Чек-ап | Инструкция для ежемесячной сводки о здоровье сервера и памяти. | `prompts.checkup_system_prompt` |
+| `prompts_direct_chat` | Прямой чат | Характер и правила ответов бота в прямом общении. | `prompts.direct_chat_system_prompt` |
+| `prompts_summary` | Саммари | Как бот пересказывает разговоры и каналы. | `prompts.summary_system_prompt` |
+| `prompts_youtube` | YouTube | Пересказ видео по ссылке. | `prompts.youtube_system_prompt` |
+| `prompts_web` | Веб-страницы | Пересказ страниц по ссылке. | `prompts.webpage_system_prompt` |
+| `prompts_memory` | Память и граф знаний | Промпты извлечения и сжатия фактов для долгой памяти. | `prompts.extract_system_prompt`, `prompts.compress_system_prompt` |
+
+**⚙️ models (26 параметров → 7 групп):**
+
+| id | Заголовок | Описание группы | Ключи |
+|---|---|---|---|
+| `models_main` | Основная модель | Главная нейросеть бота: адрес и название модели. | `models.llm_base_url`, `models.llm_model_name` |
+| `models_fallback` | Фолбэк-модель | Запасная нейросеть — когда основная недоступна. | `models.llm_fallback_base_url`, `models.llm_fallback_model`, `models.llm_fallback_max_retries`, `models.llm_fallback_timeout_seconds` |
+| `models_embeddings` | Эмбеддинги и токены | Модель «отпечатков» текста для поиска по памяти + подсчёт длины. | `models.embedding_model_name`, `models.embedding_dim`, `models.tokenizer_encoding`, `models.token_safety_multiplier` |
+| `models_llm_timeouts` | Таймауты и повторы | Сколько ждать ответ нейросети и как повторять при сбоях. | `models.llm_timeout`, `models.llm_max_retries`, `models.llm_retry_backoff_base`, `models.llm_retry_backoff_cap`, `models.llm_retry_jitter_max` |
+| `models_llm_guard` | Бюджет и защита от сбоев | Страховка от зависших запросов: жёсткий лимит и «рубильник». | `models.llm_total_budget`, `models.llm_cb_failure_threshold`, `models.llm_cb_cooldown_seconds` |
+| `models_extra_providers` | Дополнительные провайдеры | Groq — голосовые, OpenRouter — пересказы видео. | `models.groq_timeout`, `models.groq_max_concurrency`, `models.groq_min_interval`, `models.groq_max_retries`, `models.openrouter_timeout` |
+| `models_checkup` | Чек-ап (Betterstack) | Откуда бот берёт метрики сервера для чекапа. | `models.checkup_betterstack_sql_host`, `models.checkup_betterstack_sql_table`, `models.checkup_betterstack_sql_query` |
+
+**🔑 keys (16 параметров → 6 групп):**
+
+| id | Заголовок | Описание группы | Ключи |
+|---|---|---|---|
+| `keys_llm` | Основной LLM | Пароли доступа к основной и запасной нейросети. | `keys.llm_api_key`, `keys.llm_fallback_api_key` |
+| `keys_groq` | Groq | Ключ распознавания голосовых. | `keys.groq_api_key` |
+| `keys_openrouter` | OpenRouter | Ключ пересказов видео и страниц. | `keys.openrouter_api_key` |
+| `keys_search` | Поиск: Exa и Tavily | Ключи интернет-поиска. | `keys.tavily_api_key`, `keys.exa_api_key` |
+| `keys_betterstack` | Логи и чек-ап | Логин и пароль SQL-базы для чекапа. | `keys.checkup_betterstack_sql_user`, `keys.checkup_betterstack_sql_password` |
+| `keys_youtube` | YouTube: прокси и cookies | Прокси и cookies для субтитров YouTube. | `keys.youtube_transcript_proxy_url`, `keys.youtube_transcript_proxy_username`, `keys.youtube_transcript_proxy_password`, `keys.youtube_transcript_proxy_domain`, `keys.youtube_transcript_proxy_port`, `keys.youtube_transcript_proxy_locations`, `keys.youtube_transcript_proxy_retries`, `keys.youtube_cookies_file` |
+
+**🚦 limits (115 параметров → 18 групп):**
+
+| id | Заголовок | Описание группы | Ключи |
+|---|---|---|---|
+| `limits_persons` | Персонажи: Алан и Костик | Частота ответов Алана и Костика, приветствия Алана. | `limits.alan_reply_interval`, `limits.kostik_reply_probability`, `limits.alan_greeting_cooldown`, `limits.alan_silence_greeting_hours` |
+| `limits_media` | Медиа-реакции | Частота гифок/фото, паузы common-медиа, Оля, скачивание, войсы. | `limits.gif_interval`, `limits.slavic_photo_interval`, `limits.common_cooldown`, `limits.danger_cooldown`, `limits.selfdev_cooldown`, `limits.work_cooldown`, `limits.olya_cooldown`, `limits.download_cooldown`, `limits.voice_max_duration_seconds` |
+| `limits_mimic` | Мимикрия | Правила передразнивания: минимальная длина и паузы. | `limits.mimic_min_words`, `limits.mimic_cooldown`, `limits.slavik_mimic_min_words`, `limits.slavik_mimic_cooldown` |
+| `limits_deadpage` | Dead page | Подписи, паузы и повторы постов dead page. | `limits.dead_page_caption_max_chars`, `limits.dead_page_cooldown`, `limits.dead_page_max_forward_retries` |
+| `limits_cooldowns` | Кулдауны модулей | Паузы между срабатываниями: поиск, фактчек, YouTube, веб, чекап, /info. | `limits.search_cooldown_seconds`, `limits.factcheck_cooldown_seconds`, `limits.youtube_cooldown_seconds`, `limits.webpage_cooldown_seconds`, `limits.checkup_cooldown_seconds`, `limits.info_cooldown_seconds` |
+| `limits_summary` | Саммари | Окно сбора, длина ответа, лимиты и паузы генерации. | `limits.summary_window_hours`, `limits.max_summary_parts`, `limits.summary_timezone`, `limits.summary_throttle_seconds`, `limits.summary_chunk_delay`, `limits.summary_max_window_messages`, `limits.summary_max_message_chars`, `limits.summary_max_context_chars`, `limits.summary_max_context_tokens`, `limits.summary_rag_l2_limit`, `limits.summary_rag_l3_limit`, `limits.summary_compress_batch`, `limits.summary_retry_once_pause`, `limits.summary_stream_edit_interval_private`, `limits.summary_stream_edit_interval_group` |
+| `limits_search` | Поиск: лимиты | Длина ответа и окно контекста поиска. | `limits.search_max_symbols`, `limits.search_context_messages` |
+| `limits_factcheck` | Фактчек: лимиты | Длина ответа и окно контекста фактчека. | `limits.factcheck_max_symbols`, `limits.factcheck_context_messages` |
+| `limits_checkup` | Чек-ап: лимиты | Длина ответа и потолок входящих данных. | `limits.checkup_max_symbols`, `limits.checkup_max_input_symbols` |
+| `limits_youtube_web` | YouTube и веб: лимиты | Длина пересказов. | `limits.youtube_max_symbols`, `limits.webpage_max_symbols` |
+| `limits_chat` | Прямой чат: контекст | Окно контекста, треды, кулдауны, замки, TTL. | `limits.chat_global_context_limit`, `limits.chat_global_context_max_chars`, `limits.chat_global_context_max_tokens`, `limits.chat_thread_max_depth`, `limits.chat_thread_max_chars`, `limits.chat_thread_max_tokens`, `limits.chat_context_fill_ratio`, `limits.chat_direct_reply_ttl_days`, `limits.chat_running_summary_tail`, `limits.running_summary_ttl_minutes`, `limits.chat_cooldown_seconds`, `limits.chat_burst_limit`, `limits.chat_lock_wait_seconds`, `limits.chat_lock_max_entries`, `limits.chat_dedup_ttl_seconds` |
+| `limits_chat_behavior` | Прямой чат: поведение | Молчание после кулдаунов, стилевые якоря, «печатает…». | `limits.chat_silence_after_cooldowns`, `limits.chat_style_anchors_count`, `limits.chat_style_anchor_max_chars`, `limits.typing_interval_seconds` |
+| `limits_chat_budgets` | Прямой чат: бюджеты токенов | Как контекст делится между блоками (карта/тред/RAG/…). | `limits.chat_context_budget_tokens`, `limits.chat_budget_map_ratio`, `limits.chat_budget_global_ratio`, `limits.chat_budget_thread_ratio`, `limits.chat_budget_rag_ratio`, `limits.chat_budget_target_ratio`, `limits.chat_budget_anchors_ratio`, `limits.chat_budget_response_ratio`, `limits.chat_budget_reserve_ratio` |
+| `limits_temperature` | Температура ответов | Насколько свободно и креативно отвечает прямой чат. | `limits.chat_temperature_precise`, `limits.chat_temperature_balanced`, `limits.chat_temperature_chatty`, `limits.chat_temperature_preset_default` |
+| `limits_memory` | Память | Сроки хранения сообщений, фактов, бэкапов, кэша. | `limits.full_memory_retention_days`, `limits.archive_memory_retention_days`, `limits.memory_backup_keep`, `limits.memory_backup_hour`, `limits.embed_cache_ttl_days`, `limits.embed_cache_max_rows` |
+| `limits_graph` | Граф знаний | Веса фактов, дедуп, слияние эпизодов, TTL, квоты памяти. | `limits.graph_edge_weight_increment`, `limits.graph_top_edges_limit`, `limits.graph_extract_max_triplets`, `limits.graph_fact_ttl_days`, `limits.graph_rag_facts_limit`, `limits.graph_rag_context_max_chars`, `limits.graph_memorize_max_batch_retries`, `limits.graph_memorize_batch_retry_backoff`, `limits.graph_dedup_similarity_high`, `limits.graph_dedup_similarity_low`, `limits.graph_dedup_weight_bonus`, `limits.graph_unconfirmed_retention_days`, `limits.graph_fact_weight_direct`, `limits.graph_fact_weight_archive`, `limits.graph_episode_merge_interval_days`, `limits.graph_episode_merge_batch`, `limits.graph_episode_merge_max_facts_per_cluster`, `limits.graph_time_decay_half_life_days`, `limits.graph_time_decay_floor`, `limits.graph_facts_per_user_quota`, `limits.graph_fact_touch_extend_days`, `limits.graph_mmr_lambda`, `limits.graph_mmr_fetch_k`, `limits.graph_review_interval_days`, `limits.graph_compression_log_retention_days` |
+| `limits_smart_cache` | Умный кэш | Сколько хранить готовые ответы и как много строк. | `limits.smart_cache_ttl_seconds`, `limits.smart_cache_max_rows` |
+| `limits_service` | Служебное | Технические интервалы — обычно не трогать. | `limits.db_wal_checkpoint_hours` |
+
+**🚩 flags (41 параметр → 5 групп):**
+
+| id | Заголовок | Описание группы | Ключи |
+|---|---|---|---|
+| `flags_modules` | Модули (вкл/выкл) | Рубильники функций бота целиком. | `flags.summary_enabled`, `flags.direct_chat_botword_enabled`, `flags.enable_voice_transcription`, `flags.download_enabled`, `flags.ytdlp_for_youtube`, `flags.smart_cache_enabled`, `flags.throttle_persistent_enabled`, `flags.search_rerank_enabled`, `flags.checkup_memory_metrics_enabled` |
+| `flags_media` | Медиа и Оля | Капшены, репосты, реакция Оли на видео, common-медиа. | `flags.common_media_enabled`, `flags.common_work_media_enabled`, `flags.olya_enabled`, `flags.olya_caption_enabled`, `flags.olya_repost_enabled`, `flags.olya_always_send`, `flags.olya_caption_mention_enabled`, `flags.mimic_forwards_enabled` |
+| `flags_memory` | Память и граф знаний | Механизмы запоминания: извлечение, дедуп, бэкапы, кэш. | `flags.graph_rag_enabled`, `flags.graph_dedup_enabled`, `flags.graph_episode_merge_enabled`, `flags.graph_time_decay_enabled`, `flags.graph_user_quota_enabled`, `flags.graph_fact_touch_enabled`, `flags.graph_review_enabled`, `flags.vec_int8_enabled`, `flags.graph_mmr_enabled`, `flags.memory_backup_enabled`, `flags.embed_cache_enabled` |
+| `flags_chat_behavior` | Поведение в чате | Стиль ответов, настроение, дедуп, индикатор набора, доступ к саммари. | `flags.chat_silence_enabled`, `flags.chat_style_anchors_enabled`, `flags.chat_mood_enabled`, `flags.chat_running_summary_enabled`, `flags.chat_dedup_enabled`, `flags.chat_context_budgets_enabled`, `flags.summary_streaming_enabled`, `flags.typing_indicator_enabled`, `flags.alan_replies_enabled`, `flags.dead_page_post_on_join`, `flags.summary_admin_only` |
+| `flags_service` | Служебное | Технические рубильники (БД, защита LLM) — обычно не трогать. | `flags.db_wal_checkpoint_enabled`, `flags.llm_cb_enabled` |
+
+**🎭 reactions (36 параметров → 12 групп; вкладки пока нет — схема готова):**
+
+| id | Заголовок | Описание группы | Ключи |
+|---|---|---|---|
+| `reactions_persons` | Персоны (ID) | Telegram ID Алана, Костика, Славика, Оли и админа. | `reactions.slavik_user_id`, `reactions.kostik_user_id`, `reactions.alan_user_id`, `reactions.admin_user_id`, `reactions.olya_user_id`, `reactions.alan_username` |
+| `reactions_deadpage` | Dead page | Канал-источник, relay-канал, папка медиа. | `reactions.dead_page_source_channel_username`, `reactions.dead_page_source_channel_id`, `reactions.dead_page_relay_channel_id`, `reactions.dead_page_dir` |
+| `reactions_slavik` | Славик | Папки рандомных фото и файл гифки. | `reactions.slavic_random_dir`, `reactions.slavic_photo_path`, `reactions.gif_path` |
+| `reactions_alan` | Алан | Папка видео-приветствий. | `reactions.alan_greeting_dir` |
+| `reactions_war` | War-алерты | Каналы, юзернеймы и фразы алертов. | `reactions.war_channel_ids`, `reactions.war_channel_usernames`, `reactions.war_replies` |
+| `reactions_common` | Common-медиа | Базовая папка и список danger-слов. | `reactions.common_media_base`, `reactions.danger_words` |
+| `reactions_goodmorning` | Утренняя рассылка | Время, часовой пояс, чаты, папка медиа. | `reactions.goodmorning_time`, `reactions.goodmorning_tz`, `reactions.goodmorning_target_chat_ids`, `reactions.goodmorning_media_dir` |
+| `reactions_mimic` | Мимикрия | Кого передразнивать (ID «жертв»). | `reactions.mimic_victim_user_ids` |
+| `reactions_olya` | Оля | Папка медиа, капшены, SaveAsBot. | `reactions.olya_media_base`, `reactions.olya_saveasbot_channel_ids`, `reactions.olya_saveasbot_user_ids`, `reactions.olya_caption_text`, `reactions.olya_media_type` |
+| `reactions_summary` | Саммари | Кому доступно /summary, алиасы имён, чаты. | `reactions.allowed_summary_ids`, `reactions.summary_aliases`, `reactions.summary_target_chat_ids` |
+| `reactions_chat` | Прямой чат | Слова-триггеры и слова настроения. | `reactions.chat_botword_pattern`, `reactions.chat_mood_negative_words`, `reactions.chat_mood_positive_words` |
+| `reactions_memory` | Память | Папка бэкапов памяти. | `reactions.memory_backup_dir` |
+
+**📄 content (1 параметр → 1 группа):** `content_info` «Как это работает» —
+текст справки для пользователей → `content.info_how_it_works`.
+
+**Итого: 57 групп, покрытие 100% (244 записи категорий + 21 infra вне групп).**
+
+### 84.24.3 Контракт API: GET /api/config (обратная совместимость)
+
+Только ДОБАВОЧНЫЕ поля; старый фронт продолжает работать (игнорирует новые).
+
+```json
+{
+  "groups": [
+    {"id": "limits_persons", "category": "limits", "title": "Персонажи: Алан и Костик",
+     "description": "Частота ответов Алана и Костика, приветствия Алана.", "order": 1}
+  ],
+  "items": [
+    {"key": "limits.alan_reply_interval", "value": 10, "category": "limits",
+     "title": "Интервал ответа Алана (сообщений)", "type": "int", "secret": false,
+     "group": "limits_persons",
+     "description": "Через сколько сообщений Алан отвечает. 10 — примерно каждое десятое.",
+     "updated_at": null}
+  ]
+}
+```
+
+* `items[]`: добавляются `group` (id группы) и `description` (простое описание
+  параметра). Для ключей без spec (будущие PG-ключи) — `group: ""`,
+  `description: ""` (фронт складывает их в карточку «Прочее»).
+* `groups[]`: метаданные групп (все категории сразу; фронт фильтрует по своей
+  вкладке). Сортировка групп — по `order`.
+* **Сортировка items:** меняется с `sorted(key)` на
+  `(category, group.order, title_ru)` — сервер отдаёт уже в нужном порядке,
+  фронт не пересортировывает. Параметры внутри группы — по `title_ru`.
+* GET /api/roles/tree и POST /api/config НЕ меняются (права висят на pg_key,
+  группы на права не влияют).
+
+### 84.24.4 План фронта (структура рендера)
+
+1. **Группировка:** computed `groupedByCategory(cat)` — из `configItems` собирает
+   `{group_id: {meta, items[]}}` по полю `item.group`; порядок — из `groups[]`
+   (server order), параметры внутри — в порядке прихода (уже отсортированы).
+2. **Рендер (index.html):** вместо плоской ленты — карточка-группа:
+   * шапка: `group.title` (жирный) + `group.description` (мелкий серый);
+   * внутри — существующие карточки параметров, под `item.title` добавляется
+     `item.description` мелким текстом (`<div class="text-xs text-gray-500">`),
+     для компактности в `limits`/`flags` — `<details>`-раскрывашка описания
+     (по умолчанию свёрнута), в prompts/keys — видна всегда.
+   * незаполненные группы (нет параметров) не рендерятся; параметры с пустым
+     `group` — в карточке «Прочее» в конце вкладки.
+3. **Поиск-фильтр (опционален, шаг 2):** input в шапке вкладки, фильтр по
+   `title`/`description`/`key`; группы с 0 совпадений скрываются.
+4. **Логика редактирования НЕ меняется** (`saveConfigItem`, `saveKeyItem`,
+   `keyDrafts`, маскировка ключей — как есть); меняется только раскладка.
+5. **RBAC:** видимость карточек не трогаем — права по-прежнему проверяются
+   `canEditConfig(item.key)` на кнопке Сохранить.
+
+### 84.24.5 Правила написания описаний (тон для @Builder)
+
+1. 1-2 коротких предложения, простой русский, БЕЗ жаргона: «backoff» →
+   «пауза перед повтором», «top-K» → «сколько фактов берём», «TTL» →
+   «срок жизни».
+2. Начинать с глагола/вопроса: «Через сколько…», «Как часто…», «Включает…»,
+   «Ограничивает…», «Сколько…», «Максимальная длина…».
+3. Всегда указывать, НА ЧТО влияет у пользователя: «ответ будет короче/длиннее»,
+   «бот будет реже/чаще отвечать», «дороже по токенам».
+4. Где уместно — простой совет: «меньше — быстрее и дешевле», «обычно не
+   трогать», «0 — никогда, 1 — всегда».
+5. Единицы измерения НЕ повторять (уже в `title_ru`: «, сек», «, символов»).
+6. Для ключей — что за сервис и зачем нужен; ссылку на кабинет получения
+   давать только если она канонична (console.groq.com и т.п.).
+7. Не пересказывать title_ru, а дополнять его «следствием».
+
+### 84.24.6 Образцы описаний (эталонные, 8 типовых параметров)
+
+| Параметр | Тип | Описание (образец) |
+|---|---|---|
+| `limits.search_cooldown_seconds` | кулдаун | «Пауза между поисковыми запросами. Больше — бот реже ищет в интернете и меньше нагружает поисковые сервисы.» |
+| `limits.search_max_symbols` | лимит символов | «Максимальная длина ответа поиска. Больше — ответ подробнее, но генерируется дольше и дороже.» |
+| `flags.summary_enabled` | флаг модуля | «Включает и выключает саммари целиком. Выключено — бот не делает пересказы разговоров.» |
+| `keys.groq_api_key` | ключ | «Ключ сервиса Groq — им бот распознаёт голосовые сообщения. Получить: console.groq.com.» |
+| `models.llm_model_name` | модель | «Название основной модели бота. От неё зависит качество и скорость почти всех ответов.» |
+| `prompts.search_system_prompt` | промпт | «Инструкция нейросети при поиске: как формулировать ответ. Изменения применяются сразу после сохранения.» |
+| `limits.kostik_reply_probability` | вероятность | «Шанс, что Костик ответит на сообщение. 0 — никогда, 1 — на каждое.» |
+| `limits.chat_temperature_chatty` | температура | «Насколько вольные ответы в прямом чате. Больше — креативнее и непредсказуемее, меньше — суше и по делу.» |
+
+### 84.24.7 Изменяемые точки (@Builder)
+
+> **Статус: IMPLEMENTED (03.09.2026, @Builder)** — все 5 точек реализованы:
+> каталог (GroupSpec+GROUPS=57, group/description на всех 244 параметрах
+> категорий), API (groups[]+group/description+сортировка (category,order,title)),
+> фронт (groupedByCategory, «Прочее», поиск-фильтр, <details> для limits/flags,
+> описания видны в prompts/keys/models), тесты полноты (test_param_catalog/
+> test_webapp_api/test_webapp_deps).
+
+| Файл | Что меняется |
+|---|---|
+| `services/param_catalog.py` | `GroupSpec`, `GROUPS` (57 групп), поля `group`/`description` в `ParamSpec` и во всех кортежах `_PROMPTS/_KEYS/_MODELS/_FLAGS/_LIMITS/_REACTIONS/_CONTENT`, helper `groups_by_category()`, `group_order()` |
+| `web/api/routes.py` | `get_config`: `"groups"` в ответе + `group`/`description` в items + новая сортировка `(category, order, title)` |
+| `web/index.html` | рендер группами (84.24.4) |
+| `web/app.js` | computed-группировка `groupedByCategory`; (опц. шаг 2) поиск-фильтр |
+| `tests/test_param_catalog.py` | тесты полноты групп/описаний (ниже) |
+| `tests/test_webapp_api.py` | тест контракта `/api/config` (groups + поля + сортировка) |
+
+### 84.24.8 Тест-план
+
+* Каждый spec с category → `group` ∈ `GROUPS` и непустой `description`.
+* Каждый `GroupSpec.id` начинается с `{category}_`, уникален, `order` уникален
+  внутри категории; `GROUPS` покрывают все категории (включая reactions/content).
+* Всё покрыто: ни одного параметра без группы (счётчик 244 = сумма по группам).
+* `/api/config`: items содержат `group`/`description`; `groups[]` отсортированы
+  по `order`; items отсортированы `(category, order, title)`; старые поля
+  (key/value/category/title/type/secret) не изменились.
+* Регрессия: полный pytest (3264 теста) — изменения API additive.
+
+### 84.24.9 Риски
+
+* Большие группы (`limits_graph` — 25 параметров) могут снова выглядеть
+  «простынёй» — допустимо: описания параметров внутри снимают вопрос
+  «что это»; дальнейшая декомпозиция — за рамками.
+* Сортировка по `title_ru` (кириллица, Python cmp) стабильна, но при
+  одинаковых title порядок недетерминирован — по необходимости добавить
+  `pg_key` как вторичный ключ.
+* Рендер 115 карточек лимитов в один проход — уже работает; группы добавляют
+  только шапки (не перформанс-риск).

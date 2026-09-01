@@ -12,7 +12,14 @@ import pytest
 
 from config.settings import Settings
 from services import param_catalog as pc
-from services.param_catalog import ParamSpec, REGISTRY, iter_migratable, iter_pg_only
+from services.param_catalog import (
+    CATEGORIES,
+    GROUPS,
+    ParamSpec,
+    REGISTRY,
+    iter_migratable,
+    iter_pg_only,
+)
 
 
 class TestCompleteness:
@@ -154,3 +161,65 @@ class TestPromptsContentPgOnly:
         assert "models.llm_base_url" in by_key
         assert "reactions.admin_user_id" in by_key
         assert by_key["keys.groq_api_key"].secret
+
+
+class TestGroups8424:
+    """84.24 (02.09.2026): полнота групп и описаний (244 параметра категорий)."""
+
+    def test_every_categorized_param_has_group_and_description(self):
+        missing = [
+            (s.pg_key, s.category)
+            for s in REGISTRY.values()
+            if s.category is not None
+            and (not s.group or not s.description.strip())
+        ]
+        assert missing == []
+
+    def test_group_ids_all_valid_and_prefixed(self):
+        ids = {g.id for g in GROUPS}
+        for s in REGISTRY.values():
+            if s.category is not None:
+                assert s.group in ids, f"нет группы {s.group} для {s.pg_key}"
+                assert s.group.startswith(s.category + "_"), s.group
+
+    def test_group_ids_unique(self):
+        ids = [g.id for g in GROUPS]
+        assert len(ids) == len(set(ids))
+
+    def test_groups_cover_all_categories_and_count_57(self):
+        assert len(GROUPS) == 57
+        categories_in_groups = {g.category for g in GROUPS}
+        assert categories_in_groups == set(CATEGORIES)
+
+    def test_orders_unique_within_category(self):
+        from collections import Counter
+        dup = {k: v for k, v in Counter(
+            (g.category, g.order) for g in GROUPS).items() if v > 1}
+        assert dup == {}
+
+    def test_group_fields_nonempty(self):
+        for g in GROUPS:
+            assert g.title_ru.strip()
+            assert g.description.strip()
+            assert g.order >= 1
+
+    def test_groups_by_category_sorted_and_get_group(self):
+        for cat in CATEGORIES:
+            lst = pc.groups_by_category(cat)
+            assert lst == sorted(lst, key=lambda g: g.order)
+            if lst:
+                assert pc.get_group(lst[0].id) is lst[0]
+        assert pc.get_group("no_such_group") is None
+        assert pc.group_order("no_such_group") == 999
+        assert pc.group_order("limits_persons") == 1
+
+    def test_group_counts_match_design(self):
+        """84.24.2: количество групп и параметров по категориям."""
+        counts = {cat: 0 for cat in CATEGORIES}
+        for s in REGISTRY.values():
+            if s.category is not None:
+                counts[s.category] += 1
+        assert counts == {"prompts": 9, "models": 26, "keys": 16,
+                          "limits": 115, "flags": 41, "reactions": 36,
+                          "content": 1}
+        assert {g.category for g in GROUPS} >= set(CATEGORIES)

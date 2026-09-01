@@ -29,7 +29,9 @@ from services.debug_config import (
 from services.param_catalog import (
     CATEGORIES,
     CATEGORY_KEYS,
+    GROUPS,
     get_by_pg_key,
+    group_order,
     known_param_keys,
     known_secret_keys,
     known_sections,
@@ -184,8 +186,10 @@ async def get_config(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """84.5: любая роль; секреты маскируются (84.12.4). Плюс title/type из
-    param_catalog — фронту для рендера форм (84.7: подписи на русском)."""
+    """84.5: любая роль; секреты маскируются (84.12.4 + 2026-09-03: всегда
+    {configured,last4}). Плюс title/type из param_catalog — фронту для
+    рендера форм (84.7). 84.24 (02.09.2026): groups[] + group/description
+    в items; сортировка (category, group.order, title_ru)."""
     cache: ConfigCache = get_cache(request)
     items = []
     for key, value in sorted(cache.get_all().items()):
@@ -199,8 +203,23 @@ async def get_config(
                       "title": spec.title_ru if spec else key,
                       "type": spec.type if spec else "str",
                       # F7: updated_at из PG; in-memory/деградация — null
-                      "updated_at": cache.get_updated_at(key)})
-    return {"items": items}
+                      "updated_at": cache.get_updated_at(key),
+                      # 84.24: группа и простое описание (для ключей без
+                      # spec — пустые; фронт складывает в «Прочее»)
+                      "group": spec.group if spec else "",
+                      "description": spec.description if spec else ""})
+    # 84.24.3: сортировка (category, group.order, title_ru)
+    items.sort(key=lambda it: (it["category"], group_order(it["group"]),
+                               it["title"]))
+    # 84.24.3: метаданные групп для категорий, присутствующих в items
+    present = {it["category"] for it in items}
+    groups = [
+        {"id": g.id, "category": g.category, "title": g.title_ru,
+         "description": g.description, "order": g.order}
+        for g in GROUPS if g.category in present
+    ]
+    groups.sort(key=lambda g: g["order"])
+    return {"items": items, "groups": groups}
 
 
 @api_router.post("/config")

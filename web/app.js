@@ -31,6 +31,8 @@
         authLocked: false,
         // config
         configItems: [],
+        configGroups: [],          // 84.24: метаданные групп (с сервера)
+        configSearch: '',          // 84.24: фильтр по title/description/key
         configLoading: false,
         saving: new Set(),
         keyDrafts: {},
@@ -93,11 +95,6 @@
         var self = this;
         return this.tabs.filter(function (tab) {
           return tab.always || self.canViewTab(tab.id);
-        });
-      },
-      limitsAndFlags: function () {
-        return this.configItems.filter(function (item) {
-          return item.category === 'limits' || item.category === 'flags';
         });
       },
       errorLogs: function () {
@@ -244,6 +241,8 @@
         var self = this;
         this.activeTab = id;
         this.sidebarOpen = false;
+        // 84.24-ревью: поиск не переносится между вкладками
+        if (this.configSearch) this.configSearch = '';
         if (id === 'status') {
           this.loadStatus();
           this.loadLogs();
@@ -337,6 +336,7 @@
         try {
           var data = await this.api('/api/config');
           this.configItems = data.items || [];
+          this.configGroups = data.groups || [];
           this.configItems.forEach(function (item) {
             if (item.type === 'json' && typeof item.value === 'object' && item.value !== null) {
               item.value = JSON.stringify(item.value, null, 2);
@@ -357,6 +357,63 @@
 
       configByCategory: function (cat) {
         return this.configItems.filter(function (item) { return item.category === cat; });
+      },
+
+      // 84.24: группы для вкладки: [{meta, items[]}]; порядок — из
+      // серверных groups[] (order), параметры без group → «Прочее» в конце.
+      // Поиск-фильтр по title/description/key скрывает пустые группы.
+      groupedByCategory: function (cat) {
+        var self = this;
+        var items = this.configByCategory(cat);
+        var q = (this.configSearch || '').trim().toLowerCase();
+        if (q) {
+          items = items.filter(function (it) {
+            return (it.title || '').toLowerCase().indexOf(q) >= 0
+              || (it.description || '').toLowerCase().indexOf(q) >= 0
+              || (it.key || '').toLowerCase().indexOf(q) >= 0;
+          });
+        }
+        var order = {};
+        var byId = {};
+        this.configGroups.forEach(function (g) {
+          order[g.id] = g.order;
+          byId[g.id] = g;
+        });
+        var grouped = items.reduce(function (acc, it) {
+          var gid = it.group || '';
+          if (!acc[gid]) {
+            acc[gid] = {
+              id: gid,
+              meta: gid ? (byId[gid] || null) : null,
+              items: [],
+            };
+          }
+          acc[gid].items.push(it);
+          return acc;
+        }, {});
+        var result = Object.keys(grouped).map(function (gid) {
+          return grouped[gid];
+        });
+        result.sort(function (a, b) {
+          if (a.id === '' && b.id === '') return 0;
+          if (a.id === '') return 1;               // «Прочее» — в конец
+          if (b.id === '') return -1;
+          var oa = a.meta ? a.meta.order : 999;
+          var ob = b.meta ? b.meta.order : 999;
+          return oa - ob;
+        });
+        // параметры внутри группы уже отсортированы сервером
+        return result;
+      },
+
+      groupTitle: function (grp) {
+        return (grp.meta && grp.meta.title) || 'Прочее';
+      },
+      groupDescription: function (grp) {
+        return (grp.meta && grp.meta.description) || '';
+      },
+      clearConfigSearch: function () {
+        this.configSearch = '';
       },
 
       inputType: function (item) {

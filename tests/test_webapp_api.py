@@ -222,6 +222,57 @@ class TestConfigMasking:
         assert items["limits.search_max_symbols"]["value"] == 8000
 
 
+class TestConfigGroups8424:
+    """84.24 (02.09.2026): groups[] + group/description в items + сортировка."""
+
+    def test_groups_metadata_in_response(self, client):
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        data = resp.json()
+        groups = {g["id"]: g for g in data["groups"]}
+        # категории, присутствующие в items (fixture: limits/keys/models/content)
+        assert "limits_persons" in groups
+        assert "keys_llm" in groups
+        assert "models_main" in groups
+        assert "content_info" in groups
+        g = groups["limits_persons"]
+        assert g["title"] == "Персонажи: Алан и Костик"
+        assert g["category"] == "limits"
+        assert g["order"] == 1
+        assert g["description"].strip()
+        # сортировка по order
+        orders = [g["order"] for g in data["groups"]]
+        assert orders == sorted(orders)
+
+    def test_items_have_group_and_description(self, client):
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i for i in resp.json()["items"]}
+        it = items["limits.search_max_symbols"]
+        assert it["group"] == "limits_search"
+        assert it["description"].strip()
+        assert it["title"] == "Длина ответа поиска, символов"
+        assert it["type"] == "int"
+        assert it["secret"] is False
+        assert "value" in it and "category" in it      # старые поля живы
+
+    def test_items_sorted_by_category_group_order_title(self, client):
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = resp.json()["items"]
+        # ключи стабильной сортировки (категория, порядок группы, title)
+        order_key = []
+        for it in items:
+            g = next((x for x in resp.json()["groups"] if x["id"] == it["group"]), None)
+            order_key.append((it["category"], g["order"] if g else 999, it["title"]))
+        assert order_key == sorted(order_key)
+
+    def test_secret_items_masked_and_grouped(self, client):
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i for i in resp.json()["items"]}
+        key_item = items["keys.groq_api_key"]
+        assert key_item["group"] == "keys_groq"
+        assert key_item["value"] == {"configured": True, "last4": "1234"}
+        assert "gsk_secret_key_1234" not in resp.text
+
+
 class TestConfigPost:
     def test_admin_can_update_and_hot_reload(self, client):
         resp = client.post("/api/config",

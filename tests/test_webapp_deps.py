@@ -538,6 +538,28 @@ class TestFrontFixes:
         assert "@change=\"saveConfigItem(item)\"" in open(
             "web/index.html", encoding="utf-8").read()
 
+    def test_grouping_logic_present(self):
+        """84.24: фронт группирует параметры по item.group с порядком из
+        groups[]; параметры без группы — «Прочее» в конце."""
+        src = open("web/app.js", encoding="utf-8").read()
+        assert "groupedByCategory: function" in src
+        assert "configGroups" in src
+        assert "groupTitle: function" in src
+        assert "'Прочее'" in src
+        assert "configSearch" in src
+        assert "clearConfigSearch: function" in src
+        html = open("web/index.html", encoding="utf-8").read()
+        assert "Поиск по параметрам…" in html
+        assert "groupedByCategory('limits')" in html
+        assert "groupedByCategory('flags')" in html
+        # описания: limits/flags — раскрывашка, prompts/keys/models — видно
+        assert "<summary class=\"cursor-pointer select-none text-gray-500\">Что это?</summary>" in html
+        assert "item.description" in html
+        # 84.24-ревью: пустое состояние поиска; сброс поиска при setTab
+        assert "Ничего не найдено по запросу" in html
+        assert "if (this.configSearch) this.configSearch = ''" in src
+        assert "limitsAndFlags" not in src        # мёртвый computed удалён
+
 
 class TestOfficialHmacVector:
     """F9: ОПУБЛИКОВАННЫЙ вектор из официальной документации Telegram
