@@ -130,7 +130,7 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
             chat_context = await _fetch_chat_context(message.chat.id,
-                                                     settings.SEARCH_CONTEXT_MESSAGES)
+                                                     hot.get("limits.search_context_messages", settings.SEARCH_CONTEXT_MESSAGES))
             summary = await _service.research(query, chat_id=message.chat.id,
                                               chat_context=chat_context or None)
             await send_chunked_reply(bot, message.chat.id, summary, message.message_id)

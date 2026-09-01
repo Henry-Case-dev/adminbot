@@ -23,6 +23,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import Command
 
 from config.settings import settings
+from services import hot_config as hot
 from services.media_group_buffer import record_media_group_message
 from services.summary_throttling import ThrottlingMiddleware
 
@@ -105,12 +106,20 @@ def _extract_forward_source(origin) -> str | None:
 
 
 def setup_summary(generator, db=None, aliases=None, bot_id=None) -> None:
-    """Inject dependencies. Called from bot.py on_startup() (33.9)."""
+    """Inject dependencies. Called from bot.py on_startup() (33.9) — ПОСЛЕ
+    set_config_cache. Middleware /summary регистрируется ЗДЕСЬ (не на
+    module-level): ThrottlingMiddleware создаётся с живым значением из кэша
+    (значение из админки), а не бейкдится при импорте (N1)."""
     global _generator, _db, _aliases, _bot_id
     _generator = generator
     _db = db
     _aliases = aliases
     _bot_id = bot_id
+    # N1: регистрация строго один раз (идемпотентный guard — повторный
+    # setup_summary не дублирует middleware).
+    if not getattr(summary_router.message, "_throttle_registered", False):
+        summary_router.message.outer_middleware(ThrottlingMiddleware())
+        summary_router.message._throttle_registered = True
 
 
 def _detect_media_type(message: types.Message) -> str:
@@ -245,11 +254,11 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
     # true  → разрешён ТОЛЬКО ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется);
     # false → старая логика: пусто = всем, список = только перечисленным.
     # Denied — silent absorb (R9/D62): не удаляем, не отвечаем, только INFO-лог.
-    if settings.SUMMARY_ADMIN_ONLY and user_id != settings.ADMIN_USER_ID:
+    if hot.get("flags.summary_admin_only", settings.SUMMARY_ADMIN_ONLY) and user_id != settings.ADMIN_USER_ID:
         logger.info("[/summary] denied | user=%s (SUMMARY_ADMIN_ONLY)", user_id)
         return
-    allowed = settings.ALLOWED_SUMMARY_IDS
-    if not settings.SUMMARY_ADMIN_ONLY and allowed and user_id not in allowed:
+    allowed = hot.get("reactions.allowed_summary_ids", settings.ALLOWED_SUMMARY_IDS)
+    if not hot.get("flags.summary_admin_only", settings.SUMMARY_ADMIN_ONLY) and allowed and user_id not in allowed:
         logger.info("[/summary] denied | user=%s not in ALLOWED_SUMMARY_IDS", user_id)
         return
     if _generator is None:
@@ -274,6 +283,3 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
     logger.info("[/summary] ack sent | chat=%s", message.chat.id)
     await _generator.generate_and_send(message.chat.id, manual=True, focus=focus)  # B2
     return
-
-
-summary_router.message.outer_middleware(ThrottlingMiddleware())

@@ -21,15 +21,16 @@ from contextlib import nullcontext
 from aiogram.utils.chat_action import ChatActionSender
 
 from config.settings import settings
+from services import hot_config as hot
 
 
 def typing_active(bot, chat_id: int):
     """async context manager 'typing…' (65.7). ChatActionSender сам шлёт
     action каждые TYPING_INTERVAL_SECONDS до выхода из блока."""
-    if bot is None or not settings.TYPING_INDICATOR_ENABLED:
+    if bot is None or not hot.get("flags.typing_indicator_enabled", settings.TYPING_INDICATOR_ENABLED):
         return nullcontext()
     return ChatActionSender.typing(
         bot=bot,
         chat_id=chat_id,
-        interval=settings.TYPING_INTERVAL_SECONDS,
+        interval=hot.get("limits.typing_interval_seconds", settings.TYPING_INTERVAL_SECONDS),
     )

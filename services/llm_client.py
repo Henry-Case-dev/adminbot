@@ -136,13 +136,20 @@ class LLMClient:
         self._api_key = api_key
         self._chat_model = chat_model
         self._embed_model = embed_model
-        self._timeout = timeout
-        self._max_retries = max_retries
+        # Миграция read-пути (2026-09-03): таймауты/ретраи читаются через
+        # hot.get ВНУТРИ __init__ (в дефолтах бейкдились при импорте) —
+        # значения из админки действуют при создании клиента.
+        self._timeout = hot.get("models.llm_timeout", timeout)
+        self._max_retries = hot.get("models.llm_max_retries", max_retries)
         # Epic 53 (62.4): фоллбэк активен ТОЛЬКО при всех трёх параметрах;
         # частичная конфигурация → WARNING (R17: только факты, без значений),
         # пустые env = ровно старое поведение.
-        self._fallback_base_url = (fallback_base_url or "").strip()
-        self._fallback_model = (fallback_model or "").strip()
+        self._fallback_base_url = (hot.get("models.llm_fallback_base_url",
+                                           fallback_base_url)
+                                   or fallback_base_url or "").strip()
+        self._fallback_model = (hot.get("models.llm_fallback_model",
+                                        fallback_model)
+                                or fallback_model or "").strip()
         self._fallback_api_key = (fallback_api_key or "").strip()
         configured = (bool(self._fallback_base_url), bool(self._fallback_model),
                       bool(self._fallback_api_key))
@@ -154,14 +161,14 @@ class LLMClient:
             )
         # Epic 47 (D186): backoff base/cap/jitter + total budget (56.3/56.4).
         # Test-hook: tests may set `client.backoff_base = 0` → сон 0 (jitter тоже 0).
-        self.backoff_base = settings.LLM_RETRY_BACKOFF_BASE
-        self._backoff_cap = settings.LLM_RETRY_BACKOFF_CAP
-        self._jitter_max = settings.LLM_RETRY_JITTER_MAX
-        self._budget = settings.LLM_TOTAL_BUDGET
+        self.backoff_base = hot.get("models.llm_retry_backoff_base", settings.LLM_RETRY_BACKOFF_BASE)
+        self._backoff_cap = hot.get("models.llm_retry_backoff_cap", settings.LLM_RETRY_BACKOFF_CAP)
+        self._jitter_max = hot.get("models.llm_retry_jitter_max", settings.LLM_RETRY_JITTER_MAX)
+        self._budget = hot.get("models.llm_total_budget", settings.LLM_TOTAL_BUDGET)
         # Epic 64: бюджет фоллбэка — настройка (было жёстко 30с), плюс ретраи
         # транзиентных отказов самого фоллбэка.
-        self._fallback_timeout = settings.LLM_FALLBACK_TIMEOUT_SECONDS
-        self._fallback_max_retries = settings.LLM_FALLBACK_MAX_RETRIES
+        self._fallback_timeout = hot.get("models.llm_fallback_timeout_seconds", settings.LLM_FALLBACK_TIMEOUT_SECONDS)
+        self._fallback_max_retries = hot.get("models.llm_fallback_max_retries", settings.LLM_FALLBACK_MAX_RETRIES)
         self._client: httpx.AsyncClient | None = None
         self._client_key: str | None = None
         self._fallback_client: httpx.AsyncClient | None = None

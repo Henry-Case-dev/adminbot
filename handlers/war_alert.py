@@ -20,6 +20,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 
 from config.settings import settings
+from services import hot_config as hot
 from filters.target_channel import TargetChannelFilter
 from filters.user_id import UserIdFilter
 from filters.danger_word import DangerWordFilter
@@ -41,7 +42,7 @@ _DEFAULT_WAR_REPLIES: list[str] = [
 
 def _load_replies() -> list[str]:
     """Load war replies from env or use defaults. Supports comma-separated env var."""
-    env_val = settings.WAR_REPLIES
+    env_val = hot.get("reactions.war_replies", settings.WAR_REPLIES)
     if env_val:
         parts = [r.strip() for r in env_val.split(",") if r.strip()]
         if parts:
@@ -51,11 +52,16 @@ def _load_replies() -> list[str]:
     return list(_DEFAULT_WAR_REPLIES)
 
 
-WAR_REPLIES: list[str] = _load_replies()
+# P2 (ревью миграции): WAR_REPLIES загружается в setup_war_alert (on_startup,
+# ПОСЛЕ set_config_cache) — live-at-startup; здесь — дефолт до setup.
+WAR_REPLIES: list[str] = list(_DEFAULT_WAR_REPLIES)
 
 
 def setup_war_alert() -> None:
-    """Initialize war alert module. Called from bot.on_startup()."""
+    """Initialize war alert module. Called from bot.on_startup() (после
+    set_config_cache — значения из админки применяются при старте)."""
+    global WAR_REPLIES
+    WAR_REPLIES = _load_replies()
     logger.info(
         "War Alert initialized: %d replies, %d channel IDs (%s), %d channel usernames (%s)",
         len(WAR_REPLIES),
@@ -68,10 +74,13 @@ def setup_war_alert() -> None:
 
 # ── Channel match helpers ──
 
-def _parse_int_list(raw: str) -> list[int]:
-    """Parse comma-separated list of integers."""
+def _parse_int_list(raw) -> list[int]:
+    """Parse comma-separated list of integers. N6: list/tuple-значение из кэша
+    тоже принимается (join по запятой)."""
     if not raw:
         return []
+    if not isinstance(raw, str):
+        raw = ",".join(str(x) for x in raw)
     result: list[int] = []
     for part in raw.split(","):
         part = part.strip()
@@ -83,22 +92,31 @@ def _parse_int_list(raw: str) -> list[int]:
     return result
 
 
-def _parse_str_list(raw: str) -> list[str]:
-    """Parse comma-separated list of strings."""
+def _parse_str_list(raw) -> list[str]:
+    """Parse comma-separated list of strings. N6: list/tuple-значение тоже."""
     if not raw:
         return []
+    if not isinstance(raw, str):
+        raw = ",".join(str(x) for x in raw)
     return [s.strip().lower() for s in raw.split(",") if s.strip()]
 
 
-# Module-level target channel sets for TargetChannelFilter
-_target_channel_ids_set: set[int] = set(_parse_int_list(settings.WAR_CHANNEL_IDS))
-_target_channel_usernames_set: set[str] = set(_parse_str_list(settings.WAR_CHANNEL_USERNAMES))
+# Module-level target channel sets for TargetChannelFilter.
+# N3 (ЧЕСТНО): значение из админки НЕ применяется без рефакторинга фильтров —
+# декораторы (TargetChannelFilter ниже, UserIdFilter в war_keyword_handler)
+# захватывают эти объекты при импорте; на КАЖДОМ старте здесь — фолбек
+# settings (кэш ещё не засеян). Live-применение требует переделки фильтров
+# на динамическое чтение hot.get (зафиксировано в отчёте Builder).
+_target_channel_ids_set: set[int] = set(_parse_int_list(hot.get("reactions.war_channel_ids", settings.WAR_CHANNEL_IDS)))
+_target_channel_usernames_set: set[str] = set(_parse_str_list(hot.get("reactions.war_channel_usernames", settings.WAR_CHANNEL_USERNAMES)))
 
 
 # ── Handler 1: Slava's own (non-forwarded) keywords ──
 
 @war_alert_router.message(
-    UserIdFilter(settings.SLAVIK_USER_ID),
+    # N3 (ЧЕСТНО): импорт-time декоратор — значение из админки НЕ применяется
+    # без рефакторинга фильтра; на каждом старте — фолбек settings.
+    UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)),
     DangerWordFilter(),
 )
 async def war_keyword_handler(message: types.Message):

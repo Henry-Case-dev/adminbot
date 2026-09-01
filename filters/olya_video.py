@@ -8,6 +8,7 @@ from aiogram.enums import ContentType
 from aiogram.filters import BaseFilter
 from aiogram.types import MessageOriginChannel, MessageOriginUser
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -30,24 +31,29 @@ class OlyaVideoFilter(BaseFilter):
     """Filter: message is video/photo from configured Olya user, with SaveAsBot detection."""
 
     async def __call__(self, message: types.Message) -> dict | bool:
-        if not settings.OLYA_ENABLED:
+        # Миграция read-пути (2026-09-03): горячие точки — изменение в
+        # админке применяется без рестарта; фолбек на settings (R1).
+        if not hot.get("flags.olya_enabled", settings.OLYA_ENABLED):
             return False
 
-        if message.from_user is None or message.from_user.id != settings.OLYA_USER_ID:
+        if message.from_user is None or message.from_user.id != hot.get(
+                "reactions.olya_user_id", settings.OLYA_USER_ID):
             return False
 
         content_type = message.content_type
-        if settings.OLYA_MEDIA_TYPE == "video":
+        media_type = hot.get("reactions.olya_media_type",
+                             settings.OLYA_MEDIA_TYPE)
+        if media_type == "video":
             if content_type != ContentType.VIDEO:
                 return False
-        elif settings.OLYA_MEDIA_TYPE == "photo":
+        elif media_type == "photo":
             if content_type != ContentType.PHOTO:
                 return False
-        elif settings.OLYA_MEDIA_TYPE == "any":
+        elif media_type == "any":
             if content_type not in (ContentType.VIDEO, ContentType.PHOTO):
                 return False
 
-        if settings.OLYA_ALWAYS_SEND:
+        if hot.get("flags.olya_always_send", settings.OLYA_ALWAYS_SEND):
             return {
                 "is_saveasbot": False,
                 "matched_caption": False,
@@ -56,21 +62,31 @@ class OlyaVideoFilter(BaseFilter):
         matched_caption = False
         is_saveasbot = False
 
-        if settings.OLYA_CAPTION_ENABLED and message.caption:
+        caption_enabled = hot.get("flags.olya_caption_enabled",
+                                  settings.OLYA_CAPTION_ENABLED)
+        if caption_enabled and message.caption:
             norm_caption = _normalize_caption(message.caption)
-            norm_expected = _normalize_caption(settings.OLYA_CAPTION_TEXT)
+            norm_expected = _normalize_caption(hot.get(
+                "reactions.olya_caption_text", settings.OLYA_CAPTION_TEXT))
             if norm_expected in norm_caption:
                 matched_caption = True
-            elif settings.OLYA_CAPTION_MENTION_ENABLED and "@saveasbot" in norm_caption:
+            elif hot.get("flags.olya_caption_mention_enabled",
+                         settings.OLYA_CAPTION_MENTION_ENABLED) \
+                    and "@saveasbot" in norm_caption:
                 matched_caption = True
 
-        if settings.OLYA_REPOST_ENABLED and message.forward_origin:
+        if hot.get("flags.olya_repost_enabled",
+                   settings.OLYA_REPOST_ENABLED) and message.forward_origin:
             origin = message.forward_origin
             if isinstance(origin, MessageOriginChannel):
-                if origin.chat.id in settings.OLYA_SAVEASBOT_CHANNEL_IDS:
+                if origin.chat.id in hot.get(
+                        "reactions.olya_saveasbot_channel_ids",
+                        settings.OLYA_SAVEASBOT_CHANNEL_IDS):
                     is_saveasbot = True
             elif isinstance(origin, MessageOriginUser):
-                if origin.sender_user.id in settings.OLYA_SAVEASBOT_USER_IDS:
+                if origin.sender_user.id in hot.get(
+                        "reactions.olya_saveasbot_user_ids",
+                        settings.OLYA_SAVEASBOT_USER_IDS):
                     is_saveasbot = True
             else:
                 logger.info("Olya: unexpected forward origin type | type=%s", type(origin).__name__)

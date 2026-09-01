@@ -19,6 +19,7 @@ from aiogram import types
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
+from services import hot_config as hot
 from services.smartmodule_phrases import THROTTLE_PHRASES
 from services.smartmodule_throttling import format_remaining_time
 from services.summary_generator import SummaryGenerator   # только статический метод
@@ -124,6 +125,8 @@ async def send_chunked_reply(
     (обратная совместимость: существующие вызовы без kwarg не меняются).
     Возвращает message_id ПЕРВОЙ (реплай-)части или None — Epic 50 (58.6):
     DirectChatService хранит id ответа бота (bot_replies) для цепочек reply."""
+    # Миграция read-пути: пауза между чанками из админки (не бейкдится в дефолте)
+    chunk_delay = hot.get("limits.summary_chunk_delay", chunk_delay)
     chunks = SummaryGenerator._chunk_by_whitespace(text, _CHUNK_LIMIT)   # существующий код НЕ меняем
     if not chunks:
         logger.warning("SmartModule: empty final text | chat_id=%s", chat_id)

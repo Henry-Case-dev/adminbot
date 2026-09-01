@@ -201,7 +201,7 @@ def _parse_mimic_victim_ids() -> list[int]:
     """Parse comma-separated MIMIC_VICTIM_USER_IDS into a list of ints.
     Returns empty list if disabled (empty string or only 0).
     """
-    raw = settings.MIMIC_VICTIM_USER_IDS.strip()
+    raw = hot.get("reactions.mimic_victim_user_ids", settings.MIMIC_VICTIM_USER_IDS).strip()
     if not raw:
         return []
     ids = []
@@ -230,7 +230,7 @@ async def mimic_handler(message: types.Message) -> None:
     if not _VICTIM_IDS:  # disabled
         return
     # ── D52 (Epic 22): репосты не передразниваем (если не включено явно) ──
-    if message.forward_origin is not None and not settings.MIMIC_FORWARDS_ENABLED:
+    if message.forward_origin is not None and not hot.get("flags.mimic_forwards_enabled", settings.MIMIC_FORWARDS_ENABLED):
         logger.debug(
             "Mimic: forwarded message — skipping (MIMIC_FORWARDS_ENABLED=False) | "
             "chat_id=%s | message_id=%s",

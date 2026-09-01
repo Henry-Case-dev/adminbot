@@ -16,6 +16,7 @@ import logging
 from aiogram.filters import BaseFilter
 from aiogram.types import Message
 from config.settings import settings
+from services import hot_config as hot
 from filters.word_lists import DANGER_WORDS, DANGER_PHRASES
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,11 @@ class DangerWordFilter(BaseFilter):
         if words is not None:
             self._words = words
         else:
-            self._words = _parse_danger_words(settings.DANGER_WORDS)
+            # Миграция read-пути: значение из админки (reactions.danger_words)
+            # в приоритете над env; компиляция при старте — эффект после
+            # рестарта (фильтр конструируется один раз).
+            self._words = _parse_danger_words(hot.get(
+                "reactions.danger_words", settings.DANGER_WORDS))
         self._patterns = _build_danger_patterns(self._words)
         # D55: фразы ВСЕГДА из дефолтов word_lists.py — env-оверрайда нет
         self._phrase_patterns = _build_phrase_patterns(DANGER_PHRASES)

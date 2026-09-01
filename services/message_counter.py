@@ -6,6 +6,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import FSInputFile, Message
 
 from config.settings import settings
+from services import hot_config as hot
 from services.database import DatabaseService
 
 logger = logging.getLogger(__name__)
@@ -17,15 +18,15 @@ class MessageCounterMiddleware(BaseMiddleware):
 
     On every message from a user on this router:
       1. Increments the DB counter for (chat_id, user_id).
-      2. If new count is divisible by interval (settings.GIF_INTERVAL),
-         sends GIF (settings.GIF_PATH) as animation.
+      2. If new count is divisible by interval (hot.get("limits.gif_interval", settings.GIF_INTERVAL)),
+         sends GIF (hot.get("reactions.gif_path", settings.GIF_PATH)) as animation.
       3. Passes to next handler (does NOT consume the update).
     """
 
     def __init__(self, db: DatabaseService) -> None:
         self.db = db
-        self.gif_path: str = settings.GIF_PATH
-        self.interval: int = settings.GIF_INTERVAL
+        self.gif_path: str = hot.get("reactions.gif_path", settings.GIF_PATH)
+        self.interval: int = hot.get("limits.gif_interval", settings.GIF_INTERVAL)
         super().__init__()
 
     async def __call__(

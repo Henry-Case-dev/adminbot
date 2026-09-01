@@ -30,6 +30,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.enums import ChatAction
 
 from config.settings import settings
+from services import hot_config as hot
 from handlers.summary import _extract_forward_source
 from services.summary_memory import fire_and_forget
 from SmartModule.phrases import (
@@ -178,7 +179,7 @@ def _local_files_subdir(bot) -> str:
 
 async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
     """Epic 78 (D292/Section 79): получить медиа во tmp-файл.
-    Гейт локального режима = settings.DOWNLOAD_ENABLED (D262 import-time
+    Гейт локального режима = hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED) (D262 import-time
     сессия с is_local=True). Локальный режим И относительный file_path →
     копирование с диска из TELEGRAM_API_FILES_DIR/<bot_id>:<token>/
     (root cause: локальный Bot API возвращает file_path ОТНОСИТЕЛЬНЫМ,
@@ -187,7 +188,7 @@ async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
     bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
     Секреты (R17): строка '<bot_id>:<token>' нигде не логируется — в логах
     только file_path-хвост или src.name."""
-    if not settings.DOWNLOAD_ENABLED:            # облачный режим: как раньше
+    if not hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):            # облачный режим: как раньше
         await bot.download(media.file_id, destination=tmp_path)
         return
     # Epic 78 (D292): локальный Bot API возвращает относительный file_path,
@@ -271,7 +272,7 @@ async def _process(message: types.Message, bot) -> None:
     if media is None:
         return
     duration = getattr(media, "duration", 0) or 0
-    if duration > settings.VOICE_MAX_DURATION_SECONDS:
+    if duration > hot.get("limits.voice_max_duration_seconds", settings.VOICE_MAX_DURATION_SECONDS):
         # Edge case #4: файл НЕ качаем.
         await message.reply(random.choice(VT_TOO_LONG_PHRASES))
         return

@@ -9,6 +9,7 @@ import re
 from xml.sax.saxutils import escape as _xml_escape
 
 from config.settings import settings
+from services import hot_config as hot
 from services.database import row_get
 from services.summary_aliases import AliasResolver
 
@@ -59,12 +60,12 @@ class XmlGroundingBuilder:
 
         parts = ["<chat_history>"]
         total_chars = 0
-        for row in messages[: settings.SUMMARY_MAX_WINDOW_MESSAGES]:
+        for row in messages[: hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES)]:
             element = self._build_element(row, aliases)
-            if total_chars + len(element) > settings.SUMMARY_MAX_CONTEXT_CHARS:
+            if total_chars + len(element) > hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS):
                 logger.warning(
                     "XML context: hard cap %d chars reached, stopping at %d messages",
-                    settings.SUMMARY_MAX_CONTEXT_CHARS, len(parts) - 1,
+                    hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS), len(parts) - 1,
                 )
                 break
             parts.append(element)
@@ -102,14 +103,14 @@ class XmlGroundingBuilder:
 
     def _build_body(self, text: str | None, media_type: str) -> str:
         if media_type == "text":
-            return (text or "")[: settings.SUMMARY_MAX_MESSAGE_CHARS]
+            return (text or "")[: hot.get("limits.summary_max_message_chars", settings.SUMMARY_MAX_MESSAGE_CHARS)]
         description = _MEDIA_DESCRIPTIONS.get(media_type, "[медиа]")
         caption = (text or "").strip()
         # Epic 67 (D267): у транскрибированных voice/video реальный текст уже
         # в smart_messages.text — суффикс-плейсхолдер не добавляем.
         if media_type in ("voice", "video") and caption:
-            return caption[: settings.SUMMARY_MAX_MESSAGE_CHARS]
+            return caption[: hot.get("limits.summary_max_message_chars", settings.SUMMARY_MAX_MESSAGE_CHARS)]
         if caption:
-            caption = caption[: settings.SUMMARY_MAX_MESSAGE_CHARS]
+            caption = caption[: hot.get("limits.summary_max_message_chars", settings.SUMMARY_MAX_MESSAGE_CHARS)]
             return f"{caption} {description}"
         return description

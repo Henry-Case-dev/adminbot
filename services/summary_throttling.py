@@ -18,6 +18,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,13 @@ def _parse_command(text: str) -> tuple[str, str | None]:
 class ThrottlingMiddleware(BaseMiddleware):
     """Drops repeated /summary commands within the throttle window (reply-фраза вместо тишины, Epic 31)."""
 
-    def __init__(self, throttle_seconds: float = settings.SUMMARY_THROTTLE_SECONDS) -> None:
+    def __init__(self, throttle_seconds: float | None = None) -> None:
+        # N1: middleware создаётся в setup_summary() (on_startup, ПОСЛЕ
+        # set_config_cache) — hot.get читает живое значение из кэша (не
+        # бейкдится при импорте). None → фолбек на settings.
+        if throttle_seconds is None:
+            throttle_seconds = hot.get("limits.summary_throttle_seconds",
+                                       settings.SUMMARY_THROTTLE_SECONDS)
         self._throttle_seconds = throttle_seconds
         self._last: dict[tuple[int, int], float] = {}
 

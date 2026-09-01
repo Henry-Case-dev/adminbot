@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ class SchedulerService:
             post_on_join: Override DEAD_PAGE_POST_ON_JOIN (default: from settings)
         """
         self.relay = relay
-        self.target_user_id = target_user_id or settings.SLAVIK_USER_ID
-        self.post_on_join = post_on_join if post_on_join is not None else settings.DEAD_PAGE_POST_ON_JOIN
+        self.target_user_id = target_user_id or hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)
+        self.post_on_join = post_on_join if post_on_join is not None else hot.get("flags.dead_page_post_on_join", settings.DEAD_PAGE_POST_ON_JOIN)
         self._last_join_post: float = 0
     
     async def run(self) -> None:

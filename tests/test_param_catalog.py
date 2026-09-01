@@ -32,7 +32,8 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        assert len(fields) == 243
+        # 244: 243 + WEBAPP_URL (Задание B, 2026-09-03) — каталог infra пополнен
+        assert len(fields) == 244
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 

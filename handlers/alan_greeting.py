@@ -17,6 +17,7 @@ from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
 from aiogram.types import FSInputFile
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ _VIDEO_EXTENSIONS = {".mp4", ".MP4", ".avi", ".AVI", ".mov", ".MOV", ".webm", ".
 
 
 def _pick_random_greeting() -> str | None:
-    greeting_dir = settings.ALAN_GREETING_DIR
+    greeting_dir = hot.get("reactions.alan_greeting_dir", settings.ALAN_GREETING_DIR)
     logger.debug("Scanning greeting directory: %s", greeting_dir)
 
     if not os.path.isdir(greeting_dir):
@@ -70,11 +71,11 @@ async def _send_greeting(bot, chat_id: int) -> bool:
         return False
 
     try:
-        logger.debug("Sending video %s to chat %d with caption '%s'", video_path, chat_id, settings.ALAN_USERNAME)
+        logger.debug("Sending video %s to chat %d with caption '%s'", video_path, chat_id, hot.get("reactions.alan_username", settings.ALAN_USERNAME))
         await bot.send_video(
             chat_id=chat_id,
             video=FSInputFile(video_path),
-            caption=settings.ALAN_USERNAME,
+            caption=hot.get("reactions.alan_username", settings.ALAN_USERNAME),
         )
         logger.info("Greeting video sent successfully to chat %d", chat_id)
         return True
@@ -87,7 +88,9 @@ async def _send_greeting(bot, chat_id: int) -> bool:
     ChatMemberUpdatedFilter(
         member_status_changed=IS_NOT_MEMBER >> IS_MEMBER
     ),
-    lambda event: event.new_chat_member.user.id == settings.ALAN_USER_ID,
+    # N3 (ЧЕСТНО): импорт-time lambda в декораторе — значение из админки НЕ
+    # применяется без рефакторинга фильтра; на каждом старте — фолбек settings.
+    lambda event: event.new_chat_member.user.id == hot.get("reactions.alan_user_id", settings.ALAN_USER_ID),
 )
 async def on_alan_join(event: types.ChatMemberUpdated):
     """F7: Detect when Alan joins the chat and send greeting video."""
@@ -96,8 +99,8 @@ async def on_alan_join(event: types.ChatMemberUpdated):
 
     logger.info("ChatMemberUpdated: user %d joined chat %d", user.id, chat_id)
 
-    if user.id != settings.ALAN_USER_ID:
-        logger.info("User %d is not Alan (%d), skipping greeting", user.id, settings.ALAN_USER_ID)
+    if user.id != hot.get("reactions.alan_user_id", settings.ALAN_USER_ID):
+        logger.info("User %d is not Alan (%d), skipping greeting", user.id, hot.get("reactions.alan_user_id", settings.ALAN_USER_ID))
         return UNHANDLED
 
     logger.info("Alan (id=%d) joined chat %d — detected via ChatMemberUpdated", user.id, chat_id)
@@ -106,9 +109,9 @@ async def on_alan_join(event: types.ChatMemberUpdated):
         now = time.time()
         if chat_id in _last_greeting:
             elapsed = now - _last_greeting[chat_id]
-            if elapsed < settings.ALAN_GREETING_COOLDOWN:
+            if elapsed < hot.get("limits.alan_greeting_cooldown", settings.ALAN_GREETING_COOLDOWN):
                 logger.info("Greeting for chat %d suppressed (cooldown: %.1fs remaining)",
-                           chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
+                           chat_id, hot.get("limits.alan_greeting_cooldown", settings.ALAN_GREETING_COOLDOWN) - elapsed)
                 return
 
         _last_greeting[chat_id] = time.time()
@@ -125,17 +128,17 @@ async def on_alan_new_member(message: types.Message):
 
     chat_id = message.chat.id
 
-    if any(u.id == settings.ALAN_USER_ID for u in message.new_chat_members):
+    if any(u.id == hot.get("reactions.alan_user_id", settings.ALAN_USER_ID) for u in message.new_chat_members):
         logger.info("Alan (id=%d) joined chat %d — detected via new_chat_members fallback",
-                   settings.ALAN_USER_ID, chat_id)
+                   hot.get("reactions.alan_user_id", settings.ALAN_USER_ID), chat_id)
 
         async with _get_greeting_lock(chat_id):
             now = time.time()
             if chat_id in _last_greeting:
                 elapsed = now - _last_greeting[chat_id]
-                if elapsed < settings.ALAN_GREETING_COOLDOWN:
+                if elapsed < hot.get("limits.alan_greeting_cooldown", settings.ALAN_GREETING_COOLDOWN):
                     logger.info("Greeting for chat %d suppressed via new_chat_members (cooldown: %.1fs remaining)",
-                               chat_id, settings.ALAN_GREETING_COOLDOWN - elapsed)
+                               chat_id, hot.get("limits.alan_greeting_cooldown", settings.ALAN_GREETING_COOLDOWN) - elapsed)
                     return UNHANDLED
 
             _last_greeting[chat_id] = time.time()

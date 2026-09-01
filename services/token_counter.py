@@ -15,6 +15,7 @@ import logging
 import os
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ _ENCODINGS: dict[str, object] = {}
 
 
 def _get_encoding():
-    """tiktoken-кодировка для settings.TOKENIZER_ENCODING; None — fallback."""
-    name = settings.TOKENIZER_ENCODING
+    """tiktoken-кодировка для hot.get("models.tokenizer_encoding", settings.TOKENIZER_ENCODING); None — fallback."""
+    name = hot.get("models.tokenizer_encoding", settings.TOKENIZER_ENCODING)
     if name in _ENCODINGS:
         return _ENCODINGS[name] or None
     encoding = None
@@ -87,7 +88,7 @@ def truncate_to_tokens(text: str, max_tokens: int) -> str:
 
 def safe_budget(max_tokens: int) -> int:
     """Запас TOKEN_SAFETY_MULTIPLIER (токенизатор DeepSeek ≠ o200k, ±15%)."""
-    return max(1, int(max_tokens / settings.TOKEN_SAFETY_MULTIPLIER))
+    return max(1, int(max_tokens / hot.get("models.token_safety_multiplier", settings.TOKEN_SAFETY_MULTIPLIER)))
 
 
 def resolve_chat_limit(token_value, token_default: int, chars_env: str,

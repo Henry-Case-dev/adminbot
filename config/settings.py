@@ -141,6 +141,11 @@ class Settings:
     DB_PATH: str = os.getenv("DB_PATH", "local_database.db")
     MEDIA_BASE: str = os.getenv("MEDIA_BASE", "media")
 
+    # Задание B (2026-09-03): URL Telegram Mini App — команда /menu открывает
+    # его кнопкой WebApp. Прод: https://admin-bot.duckdns.org/web/ (Caddy).
+    WEBAPP_URL: str = os.getenv("WEBAPP_URL",
+                                "https://admin-bot.duckdns.org/web/")
+
     # User IDs (now configurable via env)
     SLAVIK_USER_ID: int = _env_int("SLAVIK_USER_ID", 479167456)
     KOSTIK_USER_ID: int = _env_int("KOSTIK_USER_ID", 350803143)

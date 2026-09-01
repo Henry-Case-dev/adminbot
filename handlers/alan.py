@@ -115,7 +115,9 @@ def setup_alan(db: DatabaseService) -> None:
     alan_db = db
 
 
-@alan_router.message(UserIdFilter(settings.ALAN_USER_ID))
+# N3 (ЧЕСТНО): импорт-time декоратор — значение из админки НЕ применяется
+# без рефакторинга фильтра; на каждом старте — фолбек settings.
+@alan_router.message(UserIdFilter(hot.get("reactions.alan_user_id", settings.ALAN_USER_ID)))
 async def alan_handler(message: types.Message) -> None:
     """Count Alan's messages and reply with random phrase every N messages."""
     if alan_db is None:

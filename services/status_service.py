@@ -275,7 +275,7 @@ class StatusService:
                 "state": self.state,
                 "mode": "polling",
                 # F11: local_api — признак локального Bot API (DOWNLOAD_ENABLED)
-                "local_api": bool(settings.DOWNLOAD_ENABLED),
+                "local_api": bool(hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED)),
                 "version": self.version,
                 "errors_total": get_log_ring().get_errors_total(),
                 "started_at": self.started_at,

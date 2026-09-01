@@ -204,7 +204,7 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
             chat_context = await _fetch_chat_context(message.chat.id,
-                                                     settings.FACTCHECK_CONTEXT_MESSAGES)
+                                                     hot.get("limits.factcheck_context_messages", settings.FACTCHECK_CONTEXT_MESSAGES))
             verdict = await _service.check_claim(
                 target_text, user_hint, forward_source, chat_id=message.chat.id,
                 chat_context=chat_context or None,

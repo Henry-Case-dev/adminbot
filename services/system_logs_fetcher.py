@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import httpx
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +58,19 @@ class CheckupLogsFetcher:
         journalctl_cmd: str = settings.CHECKUP_JOURNALCTL_CMD,
         transport: httpx.AsyncBaseTransport | None = None,   # тесты: MockTransport
     ) -> None:
-        self._sql_host = sql_host
-        self._sql_user = sql_user
-        self._sql_password = sql_password
-        self._sql_table = sql_table
-        self._sql_query = sql_query
+        # Миграция read-пути: параметры Betterstack SQL из админки — приоритет
+        # над env (в дефолтах бейкдились бы при импорте). R17: значения не
+        # логируются, только факты.
+        self._sql_host = hot.get("models.checkup_betterstack_sql_host",
+                                 sql_host) or ""
+        self._sql_user = hot.get("keys.checkup_betterstack_sql_user",
+                                 sql_user) or ""
+        self._sql_password = hot.get("keys.checkup_betterstack_sql_password",
+                                     sql_password) or ""
+        self._sql_table = hot.get("models.checkup_betterstack_sql_table",
+                                  sql_table) or ""
+        self._sql_query = hot.get("models.checkup_betterstack_sql_query",
+                                  sql_query) or ""
         self._journalctl_cmd = journalctl_cmd
         self._transport = transport
         self._client: httpx.AsyncClient | None = None

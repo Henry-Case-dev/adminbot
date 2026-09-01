@@ -71,11 +71,11 @@ class CommonRelay:
             danger_cooldown_seconds: Danger-specific cooldown in seconds (0 = no extra restriction).
             selfdev_cooldown_seconds: Selfdev-specific cooldown in seconds (Epic 30, 0 = no extra restriction).
             work_cooldown_seconds: Work-specific cooldown in seconds (Epic 30, 0 = no extra restriction).
-            media_base: Base directory for media files (default: settings.COMMON_MEDIA_BASE).
+            media_base: Base directory for media files (default: hot.get("reactions.common_media_base", settings.COMMON_MEDIA_BASE)).
         """
         self._bot = bot
         self._cooldown_seconds = cooldown_seconds
-        self._media_base = media_base or settings.COMMON_MEDIA_BASE
+        self._media_base = media_base or hot.get("reactions.common_media_base", settings.COMMON_MEDIA_BASE)
         self._cooldowns: dict[int, float] = {}
         # Epic 30 (39.5): generic пер-сабдир cooldown-слой (Layer 1)
         self._subdir_cooldown_seconds: dict[str, float] = {

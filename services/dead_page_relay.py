@@ -80,8 +80,8 @@ class DeadPageRelay:
         self.bot = bot
         self.db = db
         self.media = media
-        self.relay_channel_id = settings.DEAD_PAGE_RELAY_CHANNEL_ID
-        self.max_retries = settings.DEAD_PAGE_MAX_FORWARD_RETRIES
+        self.relay_channel_id = hot.get("reactions.dead_page_relay_channel_id", settings.DEAD_PAGE_RELAY_CHANNEL_ID)
+        self.max_retries = hot.get("limits.dead_page_max_forward_retries", settings.DEAD_PAGE_MAX_FORWARD_RETRIES)
 
     # ── Public API ──────────────────────────────────────────────
 

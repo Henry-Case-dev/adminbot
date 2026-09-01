@@ -12,6 +12,7 @@ import time
 import httpx
 
 from config.settings import settings
+from services import hot_config as hot
 
 try:
     import trafilatura
@@ -42,8 +43,11 @@ class WebContentExtractor:
         tavily_api_key: str = settings.TAVILY_API_KEY,
         exa_api_key: str = settings.EXA_API_KEY,
     ) -> None:
-        self._tavily_api_key = tavily_api_key
-        self._exa_api_key = exa_api_key
+        # Миграция read-пути: ключи из админки (keys.tavily/exa) — приоритет
+        # над env (в дефолтах бейкдились бы при импорте).
+        self._tavily_api_key = hot.get("keys.tavily_api_key",
+                                       tavily_api_key) or ""
+        self._exa_api_key = hot.get("keys.exa_api_key", exa_api_key) or ""
         self._client: httpx.AsyncClient | None = None
 
     def _get_client(self) -> httpx.AsyncClient:

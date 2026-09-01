@@ -16,11 +16,15 @@ logger = logging.getLogger(__name__)
 _COMMANDS: tuple[BotCommand, ...] = (
     BotCommand(
         command="summary",
-        description="Саммари чата — прочитай, что ты пропустил, ленивец",
+        description="Пересказ последнего дня в личных сообщениях, если включены",
     ),
     BotCommand(
         command="info",
-        description="Справка по фичам бота",      # Epic 43 (R43-1)
+        description="Справка о боте",      # Epic 43 (R43-1)
+    ),
+    BotCommand(
+        command="menu",
+        description="Меню бота — открыть мини-апп",   # Задание B (2026-09-03)
     ),
 )
 

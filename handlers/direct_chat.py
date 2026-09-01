@@ -28,6 +28,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import Command, CommandObject
 
 from config.settings import settings
+from services import hot_config as hot
 from handlers.voice_transcription import is_reply_to_transcription
 from services.direct_chat_service import DirectChatService
 from services.smartmodule_phrases import (
@@ -75,13 +76,13 @@ def _compile_botword(pattern: str) -> "re.Pattern[str]":
         return re.compile(_BOTWORD_PATTERN_DEFAULT)
 
 
-_BOTWORD_RE = _compile_botword(settings.CHAT_BOTWORD_PATTERN)
+_BOTWORD_RE = _compile_botword(hot.get("reactions.chat_botword_pattern", settings.CHAT_BOTWORD_PATTERN))
 
 # H2 (review-fix, Section 61.5.2): юзеры, за которыми закреплены свои роутеры/
 # сценарии (kostik 2, alan 3 и т.д.). Для них keyword-ветка «бот» НЕ триггерит
 # (0h возвращает UNHANDLED → их роутеры видят сообщение). Reply на бота и
 # mention (осознанное обращение) — работают как раньше.
-_BOTWORD_EXCLUDED_USER_IDS = {settings.ALAN_USER_ID, settings.KOSTIK_USER_ID}
+_BOTWORD_EXCLUDED_USER_IDS = {hot.get("reactions.alan_user_id", settings.ALAN_USER_ID), hot.get("reactions.kostik_user_id", settings.KOSTIK_USER_ID)}
 
 
 def setup_direct_chat(service: DirectChatService | None, bot_id: int | None,
@@ -134,7 +135,7 @@ def _is_direct_trigger(message: types.Message) -> bool:
     if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", text):
         return True
     # T-411 (R52-4): keyword-ветка под флагом — «бот»/«ботохуета»/«ботина»/…
-    if settings.DIRECT_CHAT_BOTWORD_ENABLED and _BOTWORD_RE.search(text):
+    if hot.get("flags.direct_chat_botword_enabled", settings.DIRECT_CHAT_BOTWORD_ENABLED) and _BOTWORD_RE.search(text):
         # H2 (review-fix): НЕ триггеримся на сообщения юзеров, за которыми
         # закреплены свои роутеры (alan 3 / kostik 2) — их «бот»-сообщения
         # уходят дальше по цепочке (0h → UNHANDLED). Reply/mention выше —

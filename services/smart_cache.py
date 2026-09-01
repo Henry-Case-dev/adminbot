@@ -162,11 +162,11 @@ class SmartCache:
             )
             cursor = await db.execute("SELECT COUNT(*) AS c FROM smart_cache")
             row = await cursor.fetchone()
-            if row["c"] > settings.SMART_CACHE_MAX_ROWS:
+            if row["c"] > hot.get("limits.smart_cache_max_rows", settings.SMART_CACHE_MAX_ROWS):
                 await db.execute(
                     "DELETE FROM smart_cache WHERE key IN ("
                     "SELECT key FROM smart_cache ORDER BY created_at ASC LIMIT ?)",
-                    (row["c"] - settings.SMART_CACHE_MAX_ROWS,),
+                    (row["c"] - hot.get("limits.smart_cache_max_rows", settings.SMART_CACHE_MAX_ROWS),),
                 )
             await db.commit()
             logger.info("smart cache: set | key=%s", key)

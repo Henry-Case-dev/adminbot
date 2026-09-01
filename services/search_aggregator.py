@@ -18,6 +18,7 @@ from typing import Awaitable, Callable
 import httpx
 
 from config.settings import settings
+from services import hot_config as hot
 
 try:
     from duckduckgo_search import DDGS
@@ -44,8 +45,11 @@ class SearchAggregator:
         ddg_timeout: float = 15.0,
         max_results: int = 5,
     ) -> None:
-        self._tavily_api_key = tavily_api_key
-        self._exa_api_key = exa_api_key
+        # Миграция read-пути: ключи из админки (keys.tavily/exa) — в приоритете
+        # над env; в дефолтах бейкдились бы при импорте.
+        self._tavily_api_key = hot.get("keys.tavily_api_key",
+                                       tavily_api_key) or ""
+        self._exa_api_key = hot.get("keys.exa_api_key", exa_api_key) or ""
         self._tavily_timeout = tavily_timeout
         self._exa_timeout = exa_timeout
         self._ddg_timeout = ddg_timeout

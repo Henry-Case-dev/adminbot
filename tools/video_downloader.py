@@ -6,6 +6,7 @@ yt-dlp-метаданные (probe) вне лока. Cleanup файла — на
 finally; сервис отдаёт Path и не владеет жизненным циклом после возврата.
 """
 import asyncio
+from services import hot_config as hot
 import json
 import logging
 import re
@@ -265,7 +266,7 @@ class VideoDownloader:
             # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
             if is_direct_media_url(url):
                 return await self.download_direct(url, progress_cb=progress_cb)
-            if settings.YTDLP_FOR_YOUTUBE and is_youtube_url(url):
+            if hot.get("flags.ytdlp_for_youtube", settings.YTDLP_FOR_YOUTUBE) and is_youtube_url(url):
                 return await self.download_ytdlp(url, quality,
                                                  progress_cb=progress_cb)
             tunnel_url, filename = await self._request_tunnel(url, quality)

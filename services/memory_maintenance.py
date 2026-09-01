@@ -23,6 +23,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
+from services import hot_config as hot
 from services.llm_client import LLMError
 from services.summary_memory import _TOKEN_RE
 from services.summary_prompts import COMPRESS_PROMPT
@@ -47,46 +48,46 @@ class MemoryMaintenanceService:
         self.db = db
         self.memory = memory
         self.llm = llm
-        self._scheduler = AsyncIOScheduler(timezone=settings.SUMMARY_TIMEZONE)
+        self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
     def start(self) -> None:
-        if settings.GRAPH_EPISODE_MERGE_ENABLED:
+        if hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED):
             self._scheduler.add_job(
                 self._tick_merge,
                 IntervalTrigger(
-                    days=settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS,
-                    timezone=settings.SUMMARY_TIMEZONE),
+                    days=hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
+                    timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_MERGE_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
-        if settings.GRAPH_REVIEW_ENABLED:
+        if hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED):
             self._scheduler.add_job(
                 self._tick_review,
                 IntervalTrigger(
-                    days=settings.GRAPH_REVIEW_INTERVAL_DAYS,
-                    timezone=settings.SUMMARY_TIMEZONE),
+                    days=hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
+                    timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_REVIEW_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
         # Epic 64: периодический WAL-checkpoint(TRUNCATE) — без него -wal
         # разрастался (наблюдалось 18 МБ при БД 43 МБ).
-        if settings.DB_WAL_CHECKPOINT_ENABLED:
+        if hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED):
             self._scheduler.add_job(
                 self._tick_wal_checkpoint,
                 IntervalTrigger(
-                    hours=settings.DB_WAL_CHECKPOINT_HOURS,
-                    timezone=settings.SUMMARY_TIMEZONE),
+                    hours=hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS),
+                    timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_WAL_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
-        if (settings.GRAPH_EPISODE_MERGE_ENABLED or settings.GRAPH_REVIEW_ENABLED
-                or settings.DB_WAL_CHECKPOINT_ENABLED):
+        if (hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED) or hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED)
+                or hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED)):
             self._scheduler.start()
             logger.info(
                 "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, wal=%s/%dh)",
-                settings.GRAPH_EPISODE_MERGE_ENABLED,
-                settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS,
-                settings.GRAPH_REVIEW_ENABLED,
-                settings.GRAPH_REVIEW_INTERVAL_DAYS,
-                settings.DB_WAL_CHECKPOINT_ENABLED,
-                settings.DB_WAL_CHECKPOINT_HOURS)
+                hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED),
+                hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
+                hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED),
+                hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
+                hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED),
+                hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS))
         else:
             logger.info("MemoryMaintenance disabled (all jobs off)")
 
@@ -122,7 +123,7 @@ class MemoryMaintenanceService:
     async def merge_episodes(self) -> int:
         """Слияние по всем чатам; потолок GRAPH_EPISODE_MERGE_BATCH кластеров
         за прогон. Возвращает число слитых кластеров."""
-        budget = settings.GRAPH_EPISODE_MERGE_BATCH
+        budget = hot.get("limits.graph_episode_merge_batch", settings.GRAPH_EPISODE_MERGE_BATCH)
         merged_total = 0
         for chat_id in await self.db.get_graph_chat_ids():
             if budget <= 0:
@@ -148,7 +149,7 @@ class MemoryMaintenanceService:
         for cluster in clusters:
             if merged >= budget:
                 break
-            cluster = cluster[:settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER]
+            cluster = cluster[:hot.get("limits.graph_episode_merge_max_facts_per_cluster", settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER)]
             if len(cluster) < 2:
                 continue
             if await self._merge_cluster(chat_id, cluster, now):
@@ -160,7 +161,7 @@ class MemoryMaintenanceService:
         _MERGE_CLUSTER_SIM) или точный subject+predicate (FTS-фолбек — первые
         два слова факта). Union-find; размер кластера ограничен
         GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER."""
-        cap = settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER
+        cap = hot.get("limits.graph_episode_merge_max_facts_per_cluster", settings.GRAPH_EPISODE_MERGE_MAX_FACTS_PER_CLUSTER)
         if self.memory._vec_available:
             pairs = []
             try:
@@ -291,9 +292,9 @@ class MemoryMaintenanceService:
                 await self._glue_vec_dups(chat_id, now)
         expired = await self.db.purge_expired_graph_facts()
         unconfirmed = await self.db.purge_unconfirmed_graph_facts(
-            now, settings.GRAPH_UNCONFIRMED_RETENTION_DAYS)
+            now, hot.get("limits.graph_unconfirmed_retention_days", settings.GRAPH_UNCONFIRMED_RETENTION_DAYS))
         trimmed = await self.db.trim_compression_log(
-            time.time(), settings.GRAPH_COMPRESSION_LOG_RETENTION_DAYS)
+            time.time(), hot.get("limits.graph_compression_log_retention_days", settings.GRAPH_COMPRESSION_LOG_RETENTION_DAYS))
         logger.info(
             "graph review: expired=%d unconfirmed=%d log_trimmed=%d",
             expired, unconfirmed, trimmed)

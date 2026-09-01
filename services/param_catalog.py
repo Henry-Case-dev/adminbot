@@ -257,6 +257,7 @@ _INFRA: list[tuple] = [
     ("API_TOKEN", "Токен Telegram-бота", "str", True),
     ("DB_PATH", "Путь к SQLite-БД", "str", False),
     ("MEDIA_BASE", "Корневая папка медиа", "str", False),
+    ("WEBAPP_URL", "URL Telegram Mini App (команда /menu)", "str", False),
     ("COBALT_API_URL", "URL self-hosted cobalt", "str", False),
     ("LOCAL_BOT_API_URL", "URL локального telegram-bot-api", "str", False),
     ("TELEGRAM_API_FILES_DIR", "Хост-путь data-dir telegram-bot-api", "str", False),

@@ -117,16 +117,16 @@ class DirectChatService:
         self.llm = llm
         self.aliases = aliases
         self.throttle = throttle or DirectChatThrottle(
-            settings.CHAT_BURST_LIMIT, settings.CHAT_COOLDOWN_SECONDS)
+            hot.get("limits.chat_burst_limit", settings.CHAT_BURST_LIMIT), hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS))
         self.bot_id = bot_id
         self.bot_username = (bot_username or "").lower()
         # Epic 53 (62.3.3): CB-обёртка direct_chat. breaker инжектируем для
         # тестов; None → автогенерация из settings (LLM_CB_ENABLED).
         self._breaker = breaker if breaker is not None else (
             LLMCircuitBreaker(
-                settings.LLM_CB_FAILURE_THRESHOLD,
-                settings.LLM_CB_COOLDOWN_SECONDS,
-            ) if settings.LLM_CB_ENABLED else None
+                hot.get("models.llm_cb_failure_threshold", settings.LLM_CB_FAILURE_THRESHOLD),
+                hot.get("models.llm_cb_cooldown_seconds", settings.LLM_CB_COOLDOWN_SECONDS),
+            ) if hot.get("flags.llm_cb_enabled", settings.LLM_CB_ENABLED) else None
         )
         # Epic 60 (63.2, T-461): per-chat замки генерации. Словарь — под
         # своим локом; ленивая чистка незалоченных при переполнении.
@@ -139,8 +139,8 @@ class DirectChatService:
         # Epic 60 (65.3, T-471): стачка кулдаунов (throttle_state scope=
         # 'direct_silence'); persistent при рубильнике Фазы A, иначе — memory.
         self.silence_streak = SilenceStreak(
-            settings.CHAT_COOLDOWN_SECONDS,
-            db if settings.THROTTLE_PERSISTENT_ENABLED else None)
+            hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
+            db if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED) else None)
         # Epic 60 (65.9, T-477): слова настроения — comma-separated env
         # (правило п.49: никаких списков в коде).
         self._mood_negative = _parse_mood_words(settings.CHAT_MOOD_NEGATIVE_WORDS)
@@ -727,8 +727,8 @@ class DirectChatService:
                 return ""
             body = "\n".join(lines)
         kind, limit = resolve_chat_limit(
-            settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS, 1000,
-            "CHAT_GLOBAL_CONTEXT_MAX_CHARS", settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS,
+            hot.get("limits.chat_global_context_max_tokens", settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS), 1000,
+            "CHAT_GLOBAL_CONTEXT_MAX_CHARS", hot.get("limits.chat_global_context_max_chars", settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS),
             "CHAT_GLOBAL_CONTEXT",
         )
         if kind == "tokens":
@@ -775,8 +775,8 @@ class DirectChatService:
         lines = [f"{name}: {text}" for name, text in reversed(chain)]
         body = "\n".join(lines)
         kind, limit = resolve_chat_limit(
-            settings.CHAT_THREAD_MAX_TOKENS, 500,
-            "CHAT_THREAD_MAX_CHARS", settings.CHAT_THREAD_MAX_CHARS,
+            hot.get("limits.chat_thread_max_tokens", settings.CHAT_THREAD_MAX_TOKENS), 500,
+            "CHAT_THREAD_MAX_CHARS", hot.get("limits.chat_thread_max_chars", settings.CHAT_THREAD_MAX_CHARS),
             "CHAT_THREAD",
         )
         if kind == "tokens":

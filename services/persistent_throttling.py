@@ -31,6 +31,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import hot_config as hot
 from services.smartmodule_throttling import CooldownTracker
 
 logger = logging.getLogger(__name__)
@@ -230,7 +231,7 @@ def make_cooldown(scope: str, cooldown_seconds: float, db):
     """63.1: рубильник THROTTLE_PERSISTENT_ENABLED. true + db → persistent;
     false/нет db → ровно старый in-memory CooldownTracker (аварийный режим,
     прецедент SMART_CACHE_ENABLED)."""
-    if settings.THROTTLE_PERSISTENT_ENABLED and db is not None:
+    if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED) and db is not None:
         return PersistentCooldownTracker(cooldown_seconds, scope, db)
     return CooldownTracker(cooldown_seconds)
 

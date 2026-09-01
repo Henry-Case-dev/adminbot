@@ -11,6 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +25,13 @@ class SummarySchedulerService:
         self._generator = generator
         self._db = db
         # MemoryJobStore only (default) — persistent stores break on pickle
-        self._scheduler = AsyncIOScheduler(timezone=settings.SUMMARY_TIMEZONE)
+        self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
     def start(self) -> None:
         self._scheduler.add_job(
             self._tick,
             CronTrigger(
-                hour="0,6,12,18", minute=0, timezone=settings.SUMMARY_TIMEZONE
+                hour="0,6,12,18", minute=0, timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
             ),
             id=self.JOB_ID,
             replace_existing=True,
@@ -40,11 +41,11 @@ class SummarySchedulerService:
         self._scheduler.start()
         logger.info(
             "SmartModule scheduler started (cron 0,6,12,18 %s)",
-            settings.SUMMARY_TIMEZONE,
+            hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE),
         )
 
     async def _tick(self) -> None:
-        target = settings.SUMMARY_TARGET_CHAT_IDS or await self._db.get_smart_chat_ids()
+        target = hot.get("reactions.summary_target_chat_ids", settings.SUMMARY_TARGET_CHAT_IDS) or await self._db.get_smart_chat_ids()
         for chat_id in target:
             await self._generator.generate_and_send(chat_id)
 

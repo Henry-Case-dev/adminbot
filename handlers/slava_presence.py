@@ -3,6 +3,7 @@ from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ async def on_user_join(event: types.ChatMemberUpdated):
     user = event.new_chat_member.user
     chat_id = event.chat.id
     
-    if user.id != settings.SLAVIK_USER_ID:
+    if user.id != hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID):
         return UNHANDLED
     
     logger.info(f"Slava joined chat {chat_id}")
@@ -57,7 +58,7 @@ async def on_user_leave(event: types.ChatMemberUpdated):
     user = event.old_chat_member.user
     chat_id = event.chat.id
     
-    if user.id != settings.SLAVIK_USER_ID:
+    if user.id != hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID):
         return UNHANDLED
     
     logger.info(f"Slava left chat {chat_id}")
@@ -72,9 +73,9 @@ async def on_new_slava_member(message: types.Message):
     if not message.new_chat_members:
         return UNHANDLED
     
-    if any(u.id == settings.SLAVIK_USER_ID for u in message.new_chat_members):
+    if any(u.id == hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID) for u in message.new_chat_members):
         chat_id = message.chat.id
-        user_id = settings.SLAVIK_USER_ID
+        user_id = hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)
         
         logger.info(f"Slava joined chat {chat_id} (via new_chat_members)")
         

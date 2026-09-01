@@ -17,6 +17,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class MemoryBackupService:
 
     def __init__(self, db) -> None:
         self._db = db
-        self._scheduler = AsyncIOScheduler(timezone=settings.SUMMARY_TIMEZONE)
+        self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
     @staticmethod
     def _parse_hour(value: str) -> tuple[int, int]:
@@ -44,11 +45,11 @@ class MemoryBackupService:
             return 5, 0
 
     def start(self) -> None:
-        hour, minute = self._parse_hour(settings.MEMORY_BACKUP_HOUR)
+        hour, minute = self._parse_hour(hot.get("limits.memory_backup_hour", settings.MEMORY_BACKUP_HOUR))
         self._scheduler.add_job(
             self._tick,
             CronTrigger(hour=hour, minute=minute,
-                        timezone=settings.SUMMARY_TIMEZONE),
+                        timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
             id=self.JOB_ID,
             replace_existing=True,
             max_instances=1,
@@ -57,7 +58,7 @@ class MemoryBackupService:
         self._scheduler.start()
         logger.info(
             "MemoryBackup scheduler started (daily %s %s)",
-            settings.MEMORY_BACKUP_HOUR, settings.SUMMARY_TIMEZONE,
+            hot.get("limits.memory_backup_hour", settings.MEMORY_BACKUP_HOUR), hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE),
         )
 
     async def shutdown(self) -> None:
@@ -85,7 +86,7 @@ class MemoryBackupService:
         if not row or not row[0]:
             logger.info("memory_backup: memory empty — backup/export skipped")
             return
-        directory = Path(settings.MEMORY_BACKUP_DIR)
+        directory = Path(hot.get("reactions.memory_backup_dir", settings.MEMORY_BACKUP_DIR))
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -171,7 +172,7 @@ class MemoryBackupService:
                      if path.name.startswith(prefix)),
                     key=lambda p: p.name,
                 )
-                for old in files[:-settings.MEMORY_BACKUP_KEEP]:
+                for old in files[:-hot.get("limits.memory_backup_keep", settings.MEMORY_BACKUP_KEEP)]:
                     try:
                         old.unlink()
                         logger.info("memory_backup: rotated out %s", old.name)

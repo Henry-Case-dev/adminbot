@@ -60,7 +60,7 @@ def _pick_random_slavik_media() -> tuple[Path, str] | None:
 
     Returns (filepath, media_type) or None if directory is empty/missing.
     """
-    media_dir = Path(settings.SLAVIC_RANDOM_DIR)
+    media_dir = Path(hot.get("reactions.slavic_random_dir", settings.SLAVIC_RANDOM_DIR))
     if not media_dir.exists():
         logger.warning("Slavic Photo: directory not found: %s", media_dir)
         return None
@@ -159,7 +159,7 @@ async def kucha_handler(message: types.Message, data: dict | None = None):
 # Handler 2: Catch-all — priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4)
 # Note: F5 (war words) moved to war_alert_router at position 4b (Epic 10)
 # Note: F6 (slavic photo) — every N replies, send slavic_na_litso.jpg (Epic 12)
-@slavik_router.message(UserIdFilter(settings.SLAVIK_USER_ID))
+@slavik_router.message(UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)))
 async def slavik_catchall_handler(message: types.Message, data: dict | None = None):
     """Reply to Slava. Priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4).
 
@@ -177,8 +177,8 @@ async def slavik_catchall_handler(message: types.Message, data: dict | None = No
     # если событие всё же дошло сюда — уступить, dead page должен быть ЕДИНСТВЕННЫМ ответом.
     origin = message.forward_origin
     if isinstance(origin, MessageOriginChannel):
-        src_username = settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME
-        src_id = settings.DEAD_PAGE_SOURCE_CHANNEL_ID
+        src_username = hot.get("reactions.dead_page_source_channel_username", settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME)
+        src_id = hot.get("reactions.dead_page_source_channel_id", settings.DEAD_PAGE_SOURCE_CHANNEL_ID)
         if (src_username and origin.chat.username == src_username) or (
             src_id and origin.chat.id == src_id
         ):
@@ -243,7 +243,7 @@ async def slavik_catchall_handler(message: types.Message, data: dict | None = No
                     )
                     return
                 # Fallback: deprecated SLAVIC_PHOTO_PATH (single file)
-                fallback_path = settings.SLAVIC_PHOTO_PATH
+                fallback_path = hot.get("reactions.slavic_photo_path", settings.SLAVIC_PHOTO_PATH)
                 if fallback_path and Path(fallback_path).exists():
                     logger.info(
                         "Slavic Photo: fallback to deprecated path %s", fallback_path
@@ -255,7 +255,7 @@ async def slavik_catchall_handler(message: types.Message, data: dict | None = No
                 else:
                     logger.warning(
                         "Slavic Photo: no media found in %s and fallback not available",
-                        settings.SLAVIC_RANDOM_DIR,
+                        hot.get("reactions.slavic_random_dir", settings.SLAVIC_RANDOM_DIR),
                     )
         except Exception:
             logger.exception(

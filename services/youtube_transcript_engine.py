@@ -17,6 +17,7 @@ D313 — resident-прокси Webshare через `_transcript_proxy_config()`
 TRANSIENT, AgeRestricted/VideoUnplayable → PERMANENT.
 """
 import asyncio
+from services import hot_config as hot
 import json
 import logging
 import os
@@ -63,11 +64,11 @@ class YouTubeTranscriptEngine:
     def __init__(self) -> None:
         """D144: факт конфигурации логируется ОДИН раз при создании (bot.py
         on_startup), значения — НИКОГДА (R17)."""
-        proxy = (settings.YOUTUBE_TRANSCRIPT_PROXY_URL or "").strip()
-        cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
+        proxy = (hot.get("keys.youtube_transcript_proxy_url", settings.YOUTUBE_TRANSCRIPT_PROXY_URL) or "").strip()
+        cookies = (hot.get("keys.youtube_cookies_file", settings.YOUTUBE_COOKIES_FILE) or "").strip()
         resproxy = bool(
-            (settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME or "").strip()
-            and (settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD or "").strip()
+            (hot.get("keys.youtube_transcript_proxy_username", settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME) or "").strip()
+            and (hot.get("keys.youtube_transcript_proxy_password", settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD) or "").strip()
         )
         logger.info(
             "[youtube engine] config | proxy=%s | cookies=%s | resproxy=%s",
@@ -369,10 +370,10 @@ class YouTubeTranscriptEngine:
         Приоритет: (1) username+password+domain+port → generic с auth,
         (2) domain+port → generic без auth, (3) webshare locations → None.
         Пусто → None (без прокси). R17: значения НЕ логируются."""
-        username = (settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME or "").strip()
-        password = (settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD or "").strip()
-        domain = (settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN or "").strip()
-        port = (settings.YOUTUBE_TRANSCRIPT_PROXY_PORT or "").strip()
+        username = (hot.get("keys.youtube_transcript_proxy_username", settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME) or "").strip()
+        password = (hot.get("keys.youtube_transcript_proxy_password", settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD) or "").strip()
+        domain = (hot.get("keys.youtube_transcript_proxy_domain", settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN) or "").strip()
+        port = (hot.get("keys.youtube_transcript_proxy_port", settings.YOUTUBE_TRANSCRIPT_PROXY_PORT) or "").strip()
 
         if domain and port:
             proxy_url = f"http://{domain}:{port}"
@@ -380,8 +381,13 @@ class YouTubeTranscriptEngine:
                 proxy_url = f"http://{username}:{password}@{domain}:{port}"
             try:
                 return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
-            except Exception:
-                logger.exception("[youtube engine] failed to create GenericProxyConfig")
+            except Exception as exc:
+                # N5 (R17): НЕ logger.exception — raw traceback может нести
+                # proxy_url с user:pass; только sanitize-строка, без exc_info.
+                from services.log_ring import sanitize as _sanitize_log
+                logger.error(
+                    "[youtube engine] failed to create GenericProxyConfig "
+                    "| exc=%s", _sanitize_log(str(exc))[:200])
                 return None
 
         return None  # без прокси

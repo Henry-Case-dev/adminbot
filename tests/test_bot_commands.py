@@ -7,15 +7,16 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 
 from services.bot_commands import _COMMANDS, setup_bot_commands
 
-_DESCRIPTION = "Саммари чата — прочитай, что ты пропустил, ленивец"
-_INFO_DESCRIPTION = "Справка по фичам бота"
+_DESCRIPTION = "Пересказ последнего дня в личных сообщениях, если включены"
+_INFO_DESCRIPTION = "Справка о боте"
+_MENU_DESCRIPTION = "Меню бота — открыть мини-апп"
 
 
 class TestCommandsTuple:
-    """D95 + Epic 43 (T-338-B): /summary + /info (append, порядок не тронут)."""
+    """D95 + Epic 43 (T-338-B) + Задание B: /summary + /info + /menu (append)."""
 
     def test_commands_contains_summary_and_info(self):
-        assert len(_COMMANDS) == 2
+        assert len(_COMMANDS) == 3
         cmd = _COMMANDS[0]
         assert isinstance(cmd, BotCommand)
         assert cmd.command == "summary"
@@ -24,6 +25,9 @@ class TestCommandsTuple:
         assert isinstance(info, BotCommand)
         assert info.command == "info"
         assert info.description == _INFO_DESCRIPTION
+        menu = _COMMANDS[2]
+        assert menu.command == "menu"
+        assert menu.description == _MENU_DESCRIPTION
 
 
 class TestSetupBotCommands:
@@ -37,17 +41,19 @@ class TestSetupBotCommands:
         bot.set_my_commands.assert_awaited_once()
         kwargs = bot.set_my_commands.await_args.kwargs
         commands = kwargs["commands"]
-        assert len(commands) == 2
+        assert len(commands) == 3
         assert isinstance(commands[0], BotCommand)
         assert commands[0].command == "summary"
         assert commands[0].description == _DESCRIPTION
         assert commands[1].command == "info"
         assert commands[1].description == _INFO_DESCRIPTION
+        assert commands[2].command == "menu"
+        assert commands[2].description == _MENU_DESCRIPTION
         assert isinstance(kwargs.get("scope"), BotCommandScopeDefault)
         assert kwargs.get("language_code") is None
         assert any("set_my_commands ok" in r.message for r in caplog.records)
         assert any(
-            "['summary', 'info']" in r.message for r in caplog.records
+            "['summary', 'info', 'menu']" in r.message for r in caplog.records
         )
 
     @pytest.mark.asyncio

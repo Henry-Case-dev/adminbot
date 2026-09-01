@@ -32,9 +32,9 @@ class GroqTranscriber(BaseTranscriber):
     def __init__(self, api_key: str | None = None) -> None:
         # T-619 (84.4): ключ — горячая точка на КАЖДЫЙ вызов (фолбек settings)
         self._default_key = settings.GROQ_API_KEY if api_key is None else api_key
-        self.timeout = settings.GROQ_TIMEOUT
-        self._max_retries = settings.GROQ_MAX_RETRIES
-        self._min_interval = settings.GROQ_MIN_INTERVAL
+        self.timeout = hot.get("models.groq_timeout", settings.GROQ_TIMEOUT)
+        self._max_retries = hot.get("models.groq_max_retries", settings.GROQ_MAX_RETRIES)
+        self._min_interval = hot.get("models.groq_min_interval", settings.GROQ_MIN_INTERVAL)
         self._last_request_time: float = 0.0
         # AsyncOpenAI(api_key="") кидает OpenAIError — клиент строим только
         # при наличии ключа; пустой ключ = стратегия недоступна.

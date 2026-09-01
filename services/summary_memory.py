@@ -119,23 +119,29 @@ def _origin_weight(source_type: str) -> float:
     bot_direct_reply — GRAPH_FACT_WEIGHT_DIRECT (личная просьба важнее фона);
     архивные (search_fact/youtube_content/web_content) — GRAPH_FACT_WEIGHT_ARCHIVE."""
     if source_type == "bot_direct_reply":
-        return _clamp_weight(settings.GRAPH_FACT_WEIGHT_DIRECT)
+        return _clamp_weight(hot.get("limits.graph_fact_weight_direct", settings.GRAPH_FACT_WEIGHT_DIRECT))
     if source_type == "chat_history":
         return 0.5
-    return _clamp_weight(settings.GRAPH_FACT_WEIGHT_ARCHIVE)
+    return _clamp_weight(hot.get("limits.graph_fact_weight_archive", settings.GRAPH_FACT_WEIGHT_ARCHIVE))
 
 
 def _effective_weight(weight, confirmed_at, now: int) -> float:
     """66.3 (T-481): w_eff = weight × 0.5^(Δдней/half_life) от last_confirmed_at;
     floor GRAPH_TIME_DECAY_FLOOR. Decay — ТОЛЬКО множитель ранга при чтении
     (ничего не удаляется). Выключатель → weight как есть."""
-    if not settings.GRAPH_TIME_DECAY_ENABLED:
+    if not hot.get("flags.graph_time_decay_enabled", settings.GRAPH_TIME_DECAY_ENABLED):
         return float(weight or 0.5)
     if confirmed_at is None:
         confirmed_at = now
     days = max(0.0, (now - confirmed_at) / 86400.0)
-    w_eff = float(weight or 0.5) * (0.5 ** (days / settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS))
-    return max(settings.GRAPH_TIME_DECAY_FLOOR, w_eff)
+    # N2: half_life в знаменателе — 0/NULL не даёт ZeroDivisionError (max 1)
+    half_life = max(1.0, hot.get(
+        "limits.graph_time_decay_half_life_days",
+        settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS) or 1.0)
+    w_eff = float(weight or 0.5) * (0.5 ** (days / half_life))
+    # N4: floor — or 0 по смыслу (пол не может быть None)
+    return max(hot.get("limits.graph_time_decay_floor",
+                       settings.GRAPH_TIME_DECAY_FLOOR) or 0.0, w_eff)
 
 
 def _cosine(a, b) -> float:
@@ -240,7 +246,7 @@ def parse_triplets(raw: str) -> list[dict]:
             skipped += 1
             continue
         triplets.append(triplet)
-        if len(triplets) >= settings.GRAPH_EXTRACT_MAX_TRIPLETS:
+        if len(triplets) >= (hot.get("limits.graph_extract_max_triplets", settings.GRAPH_EXTRACT_MAX_TRIPLETS) or 0):
             break
     if skipped:
         logger.warning("graph extract: skipped %d invalid triplets", skipped)
@@ -356,7 +362,7 @@ def parse_fact_list(raw: str) -> list[dict]:
         if fact is None:
             continue
         facts.append(fact)
-        if len(facts) >= settings.GRAPH_EXTRACT_MAX_TRIPLETS:
+        if len(facts) >= (hot.get("limits.graph_extract_max_triplets", settings.GRAPH_EXTRACT_MAX_TRIPLETS) or 0):
             break
     return facts
 
@@ -541,10 +547,10 @@ class MemoryManager:
                 self._vec_off_reason = "embed"
                 self._embed_degraded_at = time.monotonic()
                 return False
-            if actual_dim != int(settings.EMBEDDING_DIM):
+            if actual_dim != int(hot.get("models.embedding_dim", settings.EMBEDDING_DIM)):
                 logger.warning(
                     "SmartModule: EMBEDDING_DIM=%s != actual API dim=%d — using actual",
-                    settings.EMBEDDING_DIM, actual_dim,
+                    hot.get("models.embedding_dim", settings.EMBEDDING_DIM), actual_dim,
                 )
             stored_dim = None
             cursor = await self.db.db.execute(
@@ -571,7 +577,7 @@ class MemoryManager:
             # Epic 60 (66.6, T-484): int8-схема — float-канон + int8-coarse.
             # Существующая float-only таблица (Фаза B) → DROP + пересоздание;
             # backfill — из кэша эмбеддингов (без повторных API-вызовов).
-            self._vec_int8 = bool(settings.VEC_INT8_ENABLED) and \
+            self._vec_int8 = bool(hot.get("flags.vec_int8_enabled", settings.VEC_INT8_ENABLED)) and \
                 await self._probe_vec_int8()
             await self._rebuild_vec_tables_if_needed()
             await self.db.db.execute(
@@ -642,7 +648,7 @@ class MemoryManager:
         EMBED_CACHE_ENABLED=false → ровно старое поведение."""
         if not texts:
             return []
-        if not settings.EMBED_CACHE_ENABLED:
+        if not hot.get("flags.embed_cache_enabled", settings.EMBED_CACHE_ENABLED):
             return await self._embed_api(texts)
         cached, misses = await self._embed_cache_lookup(texts)
         # Epic 64: hit-rate диагностика — данные для решения «нужен ли кэш».
@@ -687,7 +693,7 @@ class MemoryManager:
         ЛЕНИВО — только если старше _EMBED_TOUCH_SECONDS (64.4)."""
         try:
             now = time.time()
-            ttl_seconds = settings.EMBED_CACHE_TTL_DAYS * 86400.0
+            ttl_seconds = (hot.get("limits.embed_cache_ttl_days", settings.EMBED_CACHE_TTL_DAYS) or 0) * 86400.0
             await self.db.db.execute(
                 "DELETE FROM embedding_cache WHERE last_used_at < ?",
                 (now - ttl_seconds,),
@@ -700,7 +706,7 @@ class MemoryManager:
                 f"WHERE text_hash IN ({placeholders})", unique,
             )
             rows = await cursor.fetchall()
-            expected_dim = self._vec_dim or settings.EMBEDDING_DIM
+            expected_dim = self._vec_dim or hot.get("models.embedding_dim", settings.EMBEDDING_DIM)
             by_hash: dict[str, list[float]] = {}
             touch: list[str] = []
             for row in rows:
@@ -752,7 +758,7 @@ class MemoryManager:
         НЕ бросает (WARNING — кэш не блокирует, 64.4). Кэш хранит float."""
         try:
             now = time.time()
-            ttl_seconds = settings.EMBED_CACHE_TTL_DAYS * 86400.0
+            ttl_seconds = (hot.get("limits.embed_cache_ttl_days", settings.EMBED_CACHE_TTL_DAYS) or 0) * 86400.0
             await self.db.db.execute(
                 "DELETE FROM embedding_cache WHERE last_used_at < ?",
                 (now - ttl_seconds,),
@@ -760,8 +766,8 @@ class MemoryManager:
             cursor = await self.db.db.execute(
                 "SELECT COUNT(*) AS c FROM embedding_cache")
             count = (await cursor.fetchone())["c"]
-            if count + len(texts) > settings.EMBED_CACHE_MAX_ROWS:
-                keep = max(0, settings.EMBED_CACHE_MAX_ROWS - len(texts))
+            if count + len(texts) > (hot.get("limits.embed_cache_max_rows", settings.EMBED_CACHE_MAX_ROWS) or 0):
+                keep = max(0, (hot.get("limits.embed_cache_max_rows", settings.EMBED_CACHE_MAX_ROWS) or 0) - len(texts))
                 await self.db.db.execute(
                     "DELETE FROM embedding_cache WHERE text_hash NOT IN "
                     "(SELECT text_hash FROM embedding_cache "
@@ -805,7 +811,7 @@ class MemoryManager:
             if actual_dim is None:
                 return False
             try:
-                self._vec_int8 = bool(settings.VEC_INT8_ENABLED) and \
+                self._vec_int8 = bool(hot.get("flags.vec_int8_enabled", settings.VEC_INT8_ENABLED)) and \
                     await self._probe_vec_int8()
                 await self._rebuild_vec_tables_if_needed()
                 await self.db.db.execute(self._vec_table_sql(actual_dim))
@@ -952,16 +958,18 @@ class MemoryManager:
         Epic 60 (64.6, T-467): окно ≥ CHAT_CONTEXT_FILL_RATIO ×
         SUMMARY_MAX_WINDOW_MESSAGES и нет свежего конспекта → fire-and-forget
         бегущего конспекта (лениво, чат НЕ ждёт LLM)."""
-        since = int(time.time()) - int(settings.SUMMARY_WINDOW_HOURS * 3600)
+        # N4: window_hours — or 0 (None из кэша → 0 = без окна, не падаем)
+        since = int(time.time()) - int((hot.get(
+            "limits.summary_window_hours", settings.SUMMARY_WINDOW_HOURS) or 0) * 3600)
         rows = await self.db.get_smart_window(
-            chat_id, since, settings.SUMMARY_MAX_WINDOW_MESSAGES
+            chat_id, since, (hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES) or 0)
         )
         logger.info(
             "SmartModule L1: window_size=%d | chat_id=%s | since_ts=%d",
             len(rows), chat_id, since,
         )
-        fill_threshold = int(settings.CHAT_CONTEXT_FILL_RATIO
-                             * settings.SUMMARY_MAX_WINDOW_MESSAGES)
+        fill_threshold = int(hot.get("limits.chat_context_fill_ratio", settings.CHAT_CONTEXT_FILL_RATIO)
+                             * (hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES) or 0))
         # T-619: флаг бегущего конспекта — горячая точка (фолбек settings)
         if hot.get("flags.chat_running_summary_enabled",
                    settings.CHAT_RUNNING_SUMMARY_ENABLED) and rows and \
@@ -987,7 +995,7 @@ class MemoryManager:
         tail-блоком в тот же запрос. Результат → UPSERT в chat_running_summary
         (TTL RUNNING_SUMMARY_TTL_MINUTES). LLMError → WARNING (fire_and_forget
         ловит). Вызывается ТОЛЬКО из fire_and_forget."""
-        tail = settings.CHAT_RUNNING_SUMMARY_TAIL
+        tail = (hot.get("limits.chat_running_summary_tail", settings.CHAT_RUNNING_SUMMARY_TAIL) or 0)
         head, tail_rows = rows[:-tail], rows[-tail:]
         if not head:
             return                          # нечего сжимать — конспект не нужен
@@ -1008,7 +1016,7 @@ class MemoryManager:
         now = time.time()
         await self.db.upsert_running_summary(
             chat_id, summary, rows[0]["timestamp"], rows[-1]["timestamp"],
-            len(rows), now, now + settings.RUNNING_SUMMARY_TTL_MINUTES * 60.0)
+            len(rows), now, now + (hot.get("limits.running_summary_ttl_minutes", settings.RUNNING_SUMMARY_TTL_MINUTES) or 0) * 60.0)
         logger.info("running summary: built | chat_id=%s | chars=%d",
                     chat_id, len(summary))
 
@@ -1140,7 +1148,7 @@ class MemoryManager:
         NULL (вечно); остальные → now + GRAPH_FACT_TTL_DAYS*86400 (D175).
         Epic 50 (58.8, D205): source_type='bot_direct_reply' + target_user;
         TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто/0 → expires_at NULL, вечное)."""
-        if not settings.GRAPH_RAG_ENABLED:
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return
         if source_type not in _FACT_ORIGINS:
             logger.warning("graphrag memorize: unknown source_type=%r — skipped", source_type)
@@ -1167,7 +1175,7 @@ class MemoryManager:
         сон GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF * 2**attempt (default 2.0/4.0).
         Канон FACT_EXTRACT_PROMPT (R46-2) — байт-в-байт, НЕ трогать.
         """
-        max_retry = settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES
+        max_retry = (hot.get("limits.graph_memorize_max_batch_retries", settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES) or 0)
         for attempt in range(max_retry + 1):
             try:
                 return await self.llm.generate([
@@ -1178,7 +1186,7 @@ class MemoryManager:
                     logger.info("graphrag memorize: extract retry | attempt=%d/%d | error=%s",
                                 attempt + 1, max_retry + 1, exc)
                     await asyncio.sleep(
-                        settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF * (2 ** attempt))
+                        (hot.get("limits.graph_memorize_batch_retry_backoff", settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF) or 0) * (2 ** attempt))
                     continue
                 raise exc
 
@@ -1203,12 +1211,12 @@ class MemoryManager:
         if source_type == "chat_history":
             expiry = None
         elif source_type == "bot_direct_reply":
-            ttl_days = settings.CHAT_DIRECT_REPLY_TTL_DAYS
+            ttl_days = (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0)
             expiry = None if ttl_days in (None, 0) else \
                 int(time.time() + ttl_days * 86400.0 * (0.5 + weight))
         else:
             expiry = int(time.time()
-                         + settings.GRAPH_FACT_TTL_DAYS * 86400.0 * (0.5 + weight))
+                         + (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0) * 86400.0 * (0.5 + weight))
         saved = 0
         skipped = 0
         deduped = 0
@@ -1228,7 +1236,7 @@ class MemoryManager:
                 # vec-строки (второй вызов embed НЕ делаем). Ошибка embed →
                 # факт пишется как раньше (64.1.5).
                 vector = None
-                if settings.GRAPH_DEDUP_ENABLED and self._vec_available:
+                if hot.get("flags.graph_dedup_enabled", settings.GRAPH_DEDUP_ENABLED) and self._vec_available:
                     try:
                         vectors = await self._embed([sentence])
                         if vectors and vectors[0]:
@@ -1242,7 +1250,7 @@ class MemoryManager:
                 if decision["action"] == "noop":
                     await self.db.confirm_graph_fact(
                         decision["old_id"], int(time.time()),
-                        settings.GRAPH_DEDUP_WEIGHT_BONUS)
+                        (hot.get("limits.graph_dedup_weight_bonus", settings.GRAPH_DEDUP_WEIGHT_BONUS) or 0))
                     deduped += 1
                     logger.info("graphrag dedup: noop | chat_id=%s | fact_id=%s",
                                 chat_id, decision["old_id"])
@@ -1251,8 +1259,8 @@ class MemoryManager:
                           else "confirmed")
                 # Epic 60 (66.4, T-482): квота прямых фактов на человека —
                 # сверх лимита вытесняется самый лёгкий и старый.
-                if settings.GRAPH_USER_QUOTA_ENABLED and target_user and \
-                        settings.GRAPH_FACTS_PER_USER_QUOTA > 0:
+                if hot.get("flags.graph_user_quota_enabled", settings.GRAPH_USER_QUOTA_ENABLED) and target_user and \
+                        (hot.get("limits.graph_facts_per_user_quota", settings.GRAPH_FACTS_PER_USER_QUOTA) or 0) > 0:
                     try:
                         await self._enforce_user_quota(chat_id, target_user)
                     except Exception:
@@ -1308,7 +1316,7 @@ class MemoryManager:
         журнал — graph_fact_compressions (reason='quota'). Защищённые факты не
         кандидаты (65.10); если кандидатов нет (все защищены) — вытеснения
         нет, квота мягко превышается один раз."""
-        quota = settings.GRAPH_FACTS_PER_USER_QUOTA
+        quota = (hot.get("limits.graph_facts_per_user_quota", settings.GRAPH_FACTS_PER_USER_QUOTA) or 0)
         now = int(time.time())
         victim = await self.db.get_quota_victim(chat_id, target_user, quota, now)
         if victim is None:
@@ -1330,7 +1338,7 @@ class MemoryManager:
         факт дедуп НЕ трогает (ни noop-подтверждение, ни supersede-
         инвалидация) — кандидат пропускается."""
         try:
-            if not settings.GRAPH_DEDUP_ENABLED:
+            if not hot.get("flags.graph_dedup_enabled", settings.GRAPH_DEDUP_ENABLED):
                 return {"action": "add", "old_id": None, "old_text": None}
             key = f"{fact['subject']} {fact['predicate']} {fact['object']}"
             exact = await self.db.find_graph_fact_exact(
@@ -1357,10 +1365,10 @@ class MemoryManager:
                 if await self.db.is_fact_protected(chat_id, text):
                     continue
                 cosine = 1.0 - row["distance"]
-                if cosine >= settings.GRAPH_DEDUP_SIMILARITY_HIGH:
+                if cosine >= (hot.get("limits.graph_dedup_similarity_high", settings.GRAPH_DEDUP_SIMILARITY_HIGH) or 0):
                     return {"action": "noop", "old_id": candidate["id"],
                             "old_text": text}
-                if cosine >= settings.GRAPH_DEDUP_SIMILARITY_LOW:
+                if cosine >= (hot.get("limits.graph_dedup_similarity_low", settings.GRAPH_DEDUP_SIMILARITY_LOW) or 0):
                     return {"action": "supersede", "old_id": candidate["id"],
                             "old_text": text}
                 return {"action": "add", "old_id": None, "old_text": None}
@@ -1413,11 +1421,11 @@ class MemoryManager:
         <RAG_Memory>); include_direct_reply=True — origin='bot_direct_reply'
         участвует (default False: direct-флуд не подмешивается в чужие
         пайплайны)."""
-        if not settings.GRAPH_RAG_ENABLED:
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return ""
         try:
             facts = await self._search_graph_facts(
-                chat_id, str(query or ""), settings.GRAPH_RAG_FACTS_LIMIT,
+                chat_id, str(query or ""), (hot.get("limits.graph_rag_facts_limit", settings.GRAPH_RAG_FACTS_LIMIT) or 0),
                 include_direct_reply=include_direct_reply)
         except Exception:
             logger.warning("graphrag RAG: search failed — empty context | chat_id=%s",
@@ -1426,10 +1434,10 @@ class MemoryManager:
         if sort_by_timestamp:
             facts = sorted(facts, key=lambda f: f[2] or 0)   # стабильная сортировка, ASC
         context = build_rag_context([(origin, fact) for origin, fact, _ in facts])
-        if context and len(context) > settings.GRAPH_RAG_CONTEXT_MAX_CHARS:
+        if context and len(context) > (hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0):
             logger.warning("graphrag RAG: context truncated to %d chars | chat_id=%s",
-                           settings.GRAPH_RAG_CONTEXT_MAX_CHARS, chat_id)
-            context = context[:settings.GRAPH_RAG_CONTEXT_MAX_CHARS]
+                           (hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0), chat_id)
+            context = context[:(hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0)]
         if context:
             logger.info("graphrag RAG: facts=%d | chat_id=%s | chars=%d",
                         len(facts), chat_id, len(context))
@@ -1470,11 +1478,11 @@ class MemoryManager:
             key=lambda r: _effective_weight(r["weight"], r["last_confirmed_at"], now),
             reverse=True)
         kept = ranked[:limit]
-        if kept and settings.GRAPH_FACT_TOUCH_ENABLED:
+        if kept and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
             try:
                 await self.db.touch_graph_facts(
-                    [r["id"] for r in kept], settings.GRAPH_FACT_TOUCH_EXTEND_DAYS,
-                    settings.CHAT_DIRECT_REPLY_TTL_DAYS, settings.GRAPH_FACT_TTL_DAYS,
+                    [r["id"] for r in kept], (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
+                    (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
                     now)
             except Exception:
                 logger.warning("graphrag RAG: touch failed | chat_id=%s",
@@ -1490,8 +1498,8 @@ class MemoryManager:
         - 66.1/66.3 (T-479/T-481): rel = cosine × w_eff (вес + time-decay);
         - 66.5 (T-483): touch — RAG-hit продлевает expires_at (батчем)."""
         now = int(time.time())
-        fetch_k = (max(limit, settings.GRAPH_MMR_FETCH_K)
-                   if settings.GRAPH_MMR_ENABLED else limit * 2)
+        fetch_k = (max(limit, (hot.get("limits.graph_mmr_fetch_k", settings.GRAPH_MMR_FETCH_K) or 0))
+                   if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED) else limit * 2)
         ranked = await self._vec_candidates(
             chat_id, vector, fetch_k, include_direct_reply, now)
         ranked = ranked[:fetch_k]
@@ -1509,18 +1517,18 @@ class MemoryManager:
             sims.append((fid, cosine * w_eff, vec))
         if not sims:
             return []
-        if settings.GRAPH_MMR_ENABLED:
+        if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED):
             if any(vec is None for _, _, vec in sims):
                 sims = await self._attach_vectors(sims)
-            chosen = _mmr_select(sims, limit, settings.GRAPH_MMR_LAMBDA)
+            chosen = _mmr_select(sims, limit, (hot.get("limits.graph_mmr_lambda", settings.GRAPH_MMR_LAMBDA) or 0))
         else:
             sims.sort(key=lambda s: s[1], reverse=True)
             chosen = [s[0] for s in sims[:limit]]
-        if chosen and settings.GRAPH_FACT_TOUCH_ENABLED:
+        if chosen and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
             try:
                 await self.db.touch_graph_facts(
-                    chosen, settings.GRAPH_FACT_TOUCH_EXTEND_DAYS,
-                    settings.CHAT_DIRECT_REPLY_TTL_DAYS, settings.GRAPH_FACT_TTL_DAYS,
+                    chosen, (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
+                    (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
                     now)
             except Exception:
                 logger.warning("graphrag RAG: touch failed | chat_id=%s",
@@ -1643,7 +1651,7 @@ class MemoryManager:
         Epic 60 (66.3, T-481): time-decay рёбер — w_eff = weight ×
         0.5^(Δдней/half_life) от last_updated (пересчёт в Python после выборки
         top-2×limit, пересортировка по w_eff DESC; SQL не меняем)."""
-        if not settings.GRAPH_RAG_ENABLED:
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
             user_names = [
@@ -1653,7 +1661,7 @@ class MemoryManager:
             ]
             topic_kws = [kw.lower() for kw in keywords[:2]]
             entity_ids = await self.db.match_nodes(chat_id, user_names, topic_kws)
-            limit = settings.GRAPH_TOP_EDGES_LIMIT
+            limit = (hot.get("limits.graph_top_edges_limit", settings.GRAPH_TOP_EDGES_LIMIT) or 0)
             if entity_ids:
                 edges = await self.db.get_top_edges(
                     chat_id, entity_ids, limit * 2
@@ -1686,7 +1694,7 @@ class MemoryManager:
     def _edge_effective_weight(row, now: int) -> float:
         """66.3: эффективный вес ребра — weight × decay от last_updated
         ('YYYY-MM-DD HH:MM:SS' UTC); кривой формат → без затухания."""
-        if not settings.GRAPH_TIME_DECAY_ENABLED:
+        if not hot.get("flags.graph_time_decay_enabled", settings.GRAPH_TIME_DECAY_ENABLED):
             return float(row["weight"] or 1)
         try:
             ts = calendar.timegm(time.strptime(
@@ -1694,9 +1702,14 @@ class MemoryManager:
         except (ValueError, TypeError, KeyError):
             ts = now
         days = max(0.0, (now - ts) / 86400.0)
-        w_eff = float(row["weight"] or 1) * \
-            (0.5 ** (days / settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS))
-        return max(settings.GRAPH_TIME_DECAY_FLOOR, w_eff)
+        # N2/N4: half_life в знаменателе — 0/NULL → max(1) (без ZeroDivision);
+        # floor — or 0 по смыслу.
+        half_life = max(1.0, hot.get(
+            "limits.graph_time_decay_half_life_days",
+            settings.GRAPH_TIME_DECAY_HALF_LIFE_DAYS) or 1.0)
+        w_eff = float(row["weight"] or 1) * (0.5 ** (days / half_life))
+        return max(hot.get("limits.graph_time_decay_floor",
+                           settings.GRAPH_TIME_DECAY_FLOOR) or 0.0, w_eff)
 
     @staticmethod
     def _format_graph_fact(row) -> str:
@@ -1709,8 +1722,8 @@ class MemoryManager:
     # ── L3 compression + retention (A5: called only under generator lock) ──
 
     async def compress_and_purge(self, chat_id: int) -> None:
-        cutoff = int(time.time()) - settings.FULL_MEMORY_RETENTION_DAYS * 86400
-        batch_size = settings.SUMMARY_COMPRESS_BATCH
+        cutoff = int(time.time()) - (hot.get("limits.full_memory_retention_days", settings.FULL_MEMORY_RETENTION_DAYS) or 0) * 86400
+        batch_size = (hot.get("limits.summary_compress_batch", settings.SUMMARY_COMPRESS_BATCH) or 0)
         processed = 0
         while True:
             batch = await self.db.get_smart_raw(chat_id, cutoff, batch_size)
@@ -1725,7 +1738,7 @@ class MemoryManager:
                         chat_id,
                     )
                     break
-                if settings.GRAPH_RAG_ENABLED:                       # D69: False → ровно старое поведение
+                if hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):                       # D69: False → ровно старое поведение
                     await self._extract_and_save_graph(chat_id, batch)  # LLM-вызов №2 + nodes/edges (D68)
                 now = int(time.time())
                 for fact in facts:
@@ -1808,7 +1821,7 @@ class MemoryManager:
                 sid,
                 oid,
                 _normalize_name(triplet["predicate"]),
-                weight_increment=settings.GRAPH_EDGE_WEIGHT_INCREMENT,
+                weight_increment=(hot.get("limits.graph_edge_weight_increment", settings.GRAPH_EDGE_WEIGHT_INCREMENT) or 0),
             )
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
 
@@ -1846,7 +1859,7 @@ class MemoryManager:
                 )
 
     async def _purge_archive(self, chat_id: int) -> None:
-        archive_cutoff = int(time.time()) - settings.ARCHIVE_MEMORY_RETENTION_DAYS * 86400
+        archive_cutoff = int(time.time()) - (hot.get("limits.archive_memory_retention_days", settings.ARCHIVE_MEMORY_RETENTION_DAYS) or 0) * 86400
         if self._vec_available:
             try:
                 # vec0: документированная форма удаления — rowid IN (...).

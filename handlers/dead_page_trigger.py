@@ -6,6 +6,7 @@ from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 from config.settings import settings
+from services import hot_config as hot
 from filters.user_id import UserIdFilter
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,9 @@ def setup_dead_page(relay, db):
 
 @dead_page_router.message(
     F.forward_origin,
-    UserIdFilter(settings.SLAVIK_USER_ID),  # D53: только репосты Славы
+    # N3 (ЧЕСТНО): импорт-time декоратор — значение из админки НЕ применяется
+    # без рефакторинга фильтра; на каждом старте — фолбек settings.
+    UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)),  # D53: только репосты Славы
 )
 async def on_forward(message: types.Message):
     origin = message.forward_origin
@@ -66,8 +69,8 @@ async def on_forward(message: types.Message):
         logger.debug(f"Forward origin is not a channel: {type(origin).__name__}")
         return UNHANDLED
     
-    source_username = settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME
-    source_id = settings.DEAD_PAGE_SOURCE_CHANNEL_ID
+    source_username = hot.get("reactions.dead_page_source_channel_username", settings.DEAD_PAGE_SOURCE_CHANNEL_USERNAME)
+    source_id = hot.get("reactions.dead_page_source_channel_id", settings.DEAD_PAGE_SOURCE_CHANNEL_ID)
     
     is_target = False
     

@@ -37,7 +37,7 @@ KOSTIK_REPLIES = [
 ]
 
 
-@kostik_router.message(UserIdFilter(settings.KOSTIK_USER_ID))
+@kostik_router.message(UserIdFilter(hot.get("reactions.kostik_user_id", settings.KOSTIK_USER_ID)))
 async def kostik_handler(message: types.Message) -> None:
     """Reply to Kostik with configurable probability using random phrase.
     T-619: вероятность — горячая точка (фолбек settings)."""

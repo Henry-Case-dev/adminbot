@@ -57,7 +57,7 @@ class OpenRouterTranscriber(BaseTranscriber):
     def __init__(self, api_key: str | None = None) -> None:
         # T-619 (84.4): ключ — горячая точка на КАЖДЫЙ вызов (фолбек settings)
         self._default_key = settings.OPENROUTER_API_KEY if api_key is None else api_key
-        self.timeout = settings.OPENROUTER_TIMEOUT
+        self.timeout = hot.get("models.openrouter_timeout", settings.OPENROUTER_TIMEOUT)
         self._max_retries = OPENROUTER_MAX_RETRIES
         self._client: AsyncOpenAI | None = self._build_client()
 

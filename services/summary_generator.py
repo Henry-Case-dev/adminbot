@@ -111,7 +111,7 @@ class SummaryGenerator:
             xml_context = self.xml.build(rows, self.aliases)
             keywords = self._extract_keywords(rows)
             l2_rows = await self.memory.search_long_term(
-                chat_id, keywords, settings.SUMMARY_RAG_L2_LIMIT
+                chat_id, keywords, hot.get("limits.summary_rag_l2_limit", settings.SUMMARY_RAG_L2_LIMIT)
             )
             l2_quotes = [
                 self._format_l2_quote(row)
@@ -119,7 +119,7 @@ class SummaryGenerator:
                 if row["text"]
             ]
             l3_facts = await self.memory.vector_search(
-                chat_id, " ".join(keywords), settings.SUMMARY_RAG_L3_LIMIT
+                chat_id, " ".join(keywords), hot.get("limits.summary_rag_l3_limit", settings.SUMMARY_RAG_L3_LIMIT)
             )
             try:
                 graph_facts = await self.memory.get_graph_facts(chat_id, rows, keywords)
@@ -129,7 +129,7 @@ class SummaryGenerator:
                     chat_id, exc_info=True,
                 )
                 graph_facts = []
-            if settings.GRAPH_RAG_ENABLED:
+            if hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
                 fire_and_forget(
                     self.memory.memorize_facts(
                         chat_id, _build_batch_text(rows, skip_empty=True), "chat_history"),
@@ -145,8 +145,8 @@ class SummaryGenerator:
             # generate — токены (SUMMARY_MAX_CONTEXT_TOKENS, срез С КОНЦА;
             # chars — fallback). Таймер 6ч/крон НЕ меняются.
             kind, limit = resolve_chat_limit(
-                settings.SUMMARY_MAX_CONTEXT_TOKENS, 30000,
-                "SUMMARY_MAX_CONTEXT_CHARS", settings.SUMMARY_MAX_CONTEXT_CHARS,
+                hot.get("limits.summary_max_context_tokens", settings.SUMMARY_MAX_CONTEXT_TOKENS), 30000,
+                "SUMMARY_MAX_CONTEXT_CHARS", hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS),
                 "SUMMARY_MAX_CONTEXT",
             )
             if kind == "tokens":
@@ -187,7 +187,7 @@ class SummaryGenerator:
             except LLMError as exc:
                 # Epic 47 (D189, 56.6): A — retry-once (пауза SUMMARY_RETRY_ONCE_PAUSE)
                 logger.warning("summary: LLM failed — retry-once | chat_id=%s", chat_id)
-                await asyncio.sleep(settings.SUMMARY_RETRY_ONCE_PAUSE)
+                await asyncio.sleep(hot.get("limits.summary_retry_once_pause", settings.SUMMARY_RETRY_ONCE_PAUSE))
                 try:
                     started = time.monotonic()   # latency_ms — только повторная попытка
                     async with typing_active(self.bot, chat_id):
@@ -341,11 +341,11 @@ class SummaryGenerator:
         «message is too long» → break в финал/остаток; прочая ошибка edit →
         деградация в _send_chunked. Остаток >4096 — НОВЫМИ сообщениями без
         дублей (сумма без потерь)."""
-        interval = settings.SUMMARY_STREAM_EDIT_INTERVAL_GROUP
+        interval = hot.get("limits.summary_stream_edit_interval_group", settings.SUMMARY_STREAM_EDIT_INTERVAL_GROUP)
         try:
             chat = await self.bot.get_chat(chat_id)
             if getattr(chat, "type", "") == "private":
-                interval = settings.SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE
+                interval = hot.get("limits.summary_stream_edit_interval_private", settings.SUMMARY_STREAM_EDIT_INTERVAL_PRIVATE)
         except Exception:
             pass                            # не узнали тип — групповой темп
         chunks = self._chunk_by_whitespace(text, 4096)
@@ -408,7 +408,7 @@ class SummaryGenerator:
                 )
             await self._send_one_chunk(chat_id, chunk)
             if index < len(chunks) - 1:
-                await asyncio.sleep(settings.SUMMARY_CHUNK_DELAY)
+                await asyncio.sleep(hot.get("limits.summary_chunk_delay", settings.SUMMARY_CHUNK_DELAY))
         logger.info("summary: chunks_sent=%d | chat_id=%s", len(chunks), chat_id)
 
     async def _send_one_chunk(self, chat_id: int, chunk: str) -> None:

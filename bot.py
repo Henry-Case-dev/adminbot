@@ -11,6 +11,7 @@ from logtail import LogtailHandler
 import uvicorn
 
 from config.settings import settings
+from services import hot_config as hot
 from services.config_cache import ConfigCache
 from services.control_service import ControlService
 from services.hot_config import set_config_cache
@@ -47,6 +48,7 @@ from handlers.war_alert import war_alert_router, setup_war_alert
 from handlers.common import common_router, setup_common, setup_common_mimic
 from handlers.olya import olya_router, setup_olya
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
+from handlers.menu import menu_router
 from services.olya_relay import OlyaRelay
 from handlers.summary import summary_observer_router, summary_router, setup_summary
 from services.llm_client import LLMClient
@@ -117,7 +119,7 @@ _log_ring_singleton.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(_log_ring_singleton)
 log_ring_handler = _log_ring_singleton
 
-if settings.DOWNLOAD_ENABLED:
+if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
     bot = Bot(
         token=settings.API_TOKEN,
         session=AiohttpSession(
@@ -154,8 +156,8 @@ async def on_startup():
     logger.info("Database initialized")
 
     # Create relay and scheduler
-    relay = DeadPageRelay(bot, db, MediaService(media_base=settings.DEAD_PAGE_DIR))
-    scheduler = SchedulerService(relay=relay, target_user_id=settings.SLAVIK_USER_ID)
+    relay = DeadPageRelay(bot, db, MediaService(media_base=hot.get("reactions.dead_page_dir", settings.DEAD_PAGE_DIR)))
+    scheduler = SchedulerService(relay=relay, target_user_id=hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID))
     logger.info("DeadPageRelay and Scheduler created")
 
     # Inject dependencies
@@ -168,17 +170,17 @@ async def on_startup():
     
     common_relay = CommonRelay(
         bot,
-        cooldown_seconds=settings.COMMON_COOLDOWN,
-        danger_cooldown_seconds=settings.DANGER_COOLDOWN,
-        selfdev_cooldown_seconds=settings.SELFDEV_COOLDOWN,
-        work_cooldown_seconds=settings.WORK_COOLDOWN,
+        cooldown_seconds=hot.get("limits.common_cooldown", settings.COMMON_COOLDOWN),
+        danger_cooldown_seconds=hot.get("limits.danger_cooldown", settings.DANGER_COOLDOWN),
+        selfdev_cooldown_seconds=hot.get("limits.selfdev_cooldown", settings.SELFDEV_COOLDOWN),
+        work_cooldown_seconds=hot.get("limits.work_cooldown", settings.WORK_COOLDOWN),
     )
     setup_common(common_relay)
     logger.info("Common Service (Epic 15) initialized")
 
     mimic_relay = MimicRelay(
-        min_words=settings.MIMIC_MIN_WORDS,
-        cooldown_seconds=settings.MIMIC_COOLDOWN,
+        min_words=hot.get("limits.mimic_min_words", settings.MIMIC_MIN_WORDS),
+        cooldown_seconds=hot.get("limits.mimic_cooldown", settings.MIMIC_COOLDOWN),
     )
     setup_common_mimic(mimic_relay)
     logger.info("Mimic Service (Epic 18) initialized")
@@ -192,14 +194,14 @@ async def on_startup():
 
     # ── SmartModule: Summary (Epic 24) ──────────────────────
     global _summary_service, _llm_client
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         _llm_client = LLMClient(
-            settings.LLM_BASE_URL,
-            settings.LLM_API_KEY,
-            settings.LLM_MODEL_NAME,
-            settings.EMBEDDING_MODEL_NAME,
+            hot.get("models.llm_base_url", settings.LLM_BASE_URL),
+            hot.get("keys.llm_api_key", settings.LLM_API_KEY),
+            hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
+            hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
         )
-        aliases = AliasResolver(settings.SUMMARY_ALIASES)
+        aliases = AliasResolver(hot.get("reactions.summary_aliases", settings.SUMMARY_ALIASES))
         # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
         # людям по алиасам: канон-имена в фактах/узлах → карточки /persona).
         memory = MemoryManager(db, _llm_client, aliases=aliases)
@@ -213,7 +215,7 @@ async def on_startup():
         setup_summary(generator, db, aliases, bot.id)
         _summary_service = SummarySchedulerService(generator, db)
         _summary_service.start()  # BEFORE dp.start_polling (RESEARCH §c)
-        logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", settings.SUMMARY_TIMEZONE)
+        logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
         # ── SmartModule: FactCheck + SmartSearch (Epic 33) ──
         global _search_aggregator
@@ -235,16 +237,16 @@ async def on_startup():
         # ── SmartModule: Checkup (Epic 42) ──
         global _checkup_fetcher
         _checkup_fetcher = CheckupLogsFetcher(
-            sql_host=settings.CHECKUP_BETTERSTACK_SQL_HOST,
-            sql_user=settings.CHECKUP_BETTERSTACK_SQL_USER,
-            sql_password=settings.CHECKUP_BETTERSTACK_SQL_PASSWORD,
-            sql_table=settings.CHECKUP_BETTERSTACK_SQL_TABLE,
-            sql_query=settings.CHECKUP_BETTERSTACK_SQL_QUERY,
+            sql_host=hot.get("models.checkup_betterstack_sql_host", settings.CHECKUP_BETTERSTACK_SQL_HOST),
+            sql_user=hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER),
+            sql_password=hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
+            sql_table=hot.get("models.checkup_betterstack_sql_table", settings.CHECKUP_BETTERSTACK_SQL_TABLE),
+            sql_query=hot.get("models.checkup_betterstack_sql_query", settings.CHECKUP_BETTERSTACK_SQL_QUERY),
             journalctl_cmd=settings.CHECKUP_JOURNALCTL_CMD,
         )
         logger.info(
             "Checkup SQL API configured=%s (R17: только факт)",
-            bool(settings.CHECKUP_BETTERSTACK_SQL_USER and settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
+            bool(hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER) and hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD)),
         )
         setup_checkup(
             CheckupService(_llm_client, db=db, memory=memory),
@@ -257,9 +259,9 @@ async def on_startup():
         # token bucket (throttle_state); false → дефолт DirectChatService
         # строит старый in-memory DirectChatThrottle.
         throttle = None
-        if settings.THROTTLE_PERSISTENT_ENABLED:
+        if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED):
             throttle = PersistentThrottle(
-                settings.CHAT_BURST_LIMIT, settings.CHAT_COOLDOWN_SECONDS,
+                hot.get("limits.chat_burst_limit", settings.CHAT_BURST_LIMIT), hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
                 "direct_chat", db)
         setup_direct_chat(
             DirectChatService(
@@ -279,16 +281,16 @@ async def on_startup():
         # ── VoiceTranscriber (Epic 67, Section 71.6) — сервис зависит от
         # memory/aliases; пустые ключи → стратегии пропустит контроллер ──
         # Epic 79.5 (D295): max_concurrency из настроек для защиты Groq Free Tier.
-        if settings.ENABLE_VOICE_TRANSCRIPTION:
+        if hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
             voice_service = VoiceTranscriber(
-                max_concurrency=settings.GROQ_MAX_CONCURRENCY)
+                max_concurrency=hot.get("models.groq_max_concurrency", settings.GROQ_MAX_CONCURRENCY))
             setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
             logger.info(
                 "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s, "
                 "max_concurrency=%d)",
-                settings.VOICE_MAX_DURATION_SECONDS,
-                bool(settings.GROQ_API_KEY), bool(settings.OPENROUTER_API_KEY),
-                settings.GROQ_MAX_CONCURRENCY,
+                hot.get("limits.voice_max_duration_seconds", settings.VOICE_MAX_DURATION_SECONDS),
+                bool(hot.get("keys.groq_api_key", settings.GROQ_API_KEY)), bool(hot.get("keys.openrouter_api_key", settings.OPENROUTER_API_KEY)),
+                hot.get("models.groq_max_concurrency", settings.GROQ_MAX_CONCURRENCY),
             )
         else:
             logger.info(
@@ -298,11 +300,11 @@ async def on_startup():
         # VACUUM INTO-бэкап + текстовый экспорт фактов, daily. Рубильник
         # MEMORY_BACKUP_ENABLED; НЕ на остановленном боте (онлайн).
         global _memory_backup_service
-        if settings.MEMORY_BACKUP_ENABLED:
+        if hot.get("flags.memory_backup_enabled", settings.MEMORY_BACKUP_ENABLED):
             _memory_backup_service = MemoryBackupService(db)
             _memory_backup_service.start()
             logger.info("MemoryBackup (Epic 60) initialized (daily %s %s)",
-                        settings.MEMORY_BACKUP_HOUR, settings.SUMMARY_TIMEZONE)
+                        hot.get("limits.memory_backup_hour", settings.MEMORY_BACKUP_HOUR), hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
         else:
             logger.info("MemoryBackup disabled (MEMORY_BACKUP_ENABLED=False)")
 
@@ -317,12 +319,12 @@ async def on_startup():
 
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
     global _goodmorning_scheduler
-    goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=settings.GOODMORNING_MEDIA_DIR)
+    goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=hot.get("reactions.goodmorning_media_dir", settings.GOODMORNING_MEDIA_DIR))
     _goodmorning_scheduler = GoodmorningSchedulerService(
         relay=goodmorning_relay,
-        time_str=settings.GOODMORNING_TIME,
-        tz=settings.GOODMORNING_TZ,
-        target_chat_ids=settings.GOODMORNING_TARGET_CHAT_IDS,
+        time_str=hot.get("reactions.goodmorning_time", settings.GOODMORNING_TIME),
+        tz=hot.get("reactions.goodmorning_tz", settings.GOODMORNING_TZ),
+        target_chat_ids=hot.get("reactions.goodmorning_target_chat_ids", settings.GOODMORNING_TARGET_CHAT_IDS),
     )
     _goodmorning_scheduler.start()  # ДО dp.start_polling; пустые targets → WARNING, no-op
 
@@ -340,44 +342,45 @@ async def on_startup():
     # ═══════════════════════════════════════════════════════════
 
     # 0a. SmartModule observer (Epic 24) — catch-all, saves ALL messages, returns UNHANDLED
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(summary_observer_router)
 
     # 0b. SmartModule /summary (Epic 24) — BEFORE admin_commands and catch-all 5/6
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(summary_router)
 
     # 0c. SmartModule FactCheck (Epic 33) — reply с «фактчек»; консьюмит, НЕ-триггеры → UNHANDLED
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(factcheck_router)
 
     # 0d. SmartModule SmartSearch (Epic 33) — «найди/поищи/загугли»; консьюмит, НЕ-триггеры → UNHANDLED
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(search_router)
 
     # 0e. SmartModule YouTube (Epic 37) — YT-URL + триггер; консьюмит, НЕ-триггеры → UNHANDLED
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(youtube_router)
 
     # 0f. SmartModule Web (Epic 37) — веб-URL + триггер; консьюмит, НЕ-триггеры → UNHANDLED
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(web_router)
 
     # 0g. SmartModule Checkup (Epic 42) — триггер-фразы; консьюмит, НЕ-триггеры → UNHANDLED
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(checkup_router)
 
     # 0h. SmartModule DirectChat (Epic 50, Section 58.4) — Reply-на-бота/упоминание;
     # позиция ПОСЛЕ 0g checkup, ДО admin_commands. Observer-стиль.
-    if settings.SUMMARY_ENABLED:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
         dp.include_router(direct_chat_router)
 
     # 0i. Transcription (Epic 67, Section 71.3) — ПОСЛЕ observer 0a; UNHANDLED-стиль
-    if settings.SUMMARY_ENABLED and settings.ENABLE_VOICE_TRANSCRIPTION:
+    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED) and hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
         dp.include_router(voice_transcription_router)
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
+    dp.include_router(menu_router)
 
     # 0a. /debug_config (84.18, T-656) — скрытая диагностика RAM-кэша; DM-only,
     # допуск is_debug_admin (wildcard/action.debug.config/ADMIN_USER_ID-фолбек)
@@ -413,21 +416,21 @@ async def on_startup():
     dp.include_router(common_router)
 
     # 4d. Olya Service (Epic 19) — video from @ole4444444ka → random media (plain send)
-    if settings.OLYA_ENABLED:
+    if hot.get("flags.olya_enabled", settings.OLYA_ENABLED):
         olya_relay = OlyaRelay(
             bot=bot,
-            cooldown_seconds=settings.OLYA_COOLDOWN,
-            media_base=settings.OLYA_MEDIA_BASE,
+            cooldown_seconds=hot.get("limits.olya_cooldown", settings.OLYA_COOLDOWN),
+            media_base=hot.get("reactions.olya_media_base", settings.OLYA_MEDIA_BASE),
         )
         setup_olya(olya_relay)
         dp.include_router(olya_router)
-        logger.info("Olya service enabled (cooldown=%.1fs)", settings.OLYA_COOLDOWN)
+        logger.info("Olya service enabled (cooldown=%.1fs)", hot.get("limits.olya_cooldown", settings.OLYA_COOLDOWN))
     else:
         logger.info("Olya service disabled (OLYA_ENABLED=False)")
 
     # 4e. Video Download (Epic 66, Section 70.7) — триггер «скачай <url>»;
     # консьюмит при триггере, НЕ-триггеры → UNHANDLED
-    if settings.DOWNLOAD_ENABLED:
+    if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
         downloader = VideoDownloader(settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
         setup_video_download(downloader, db)
         dp.include_router(video_download_router)
@@ -444,7 +447,7 @@ async def on_startup():
     logger.info("All routers registered (v2.4.0)")
 
     # ── Epic 14: Relay channel media group tracker ──
-    @dp.channel_post(F.chat.id == settings.DEAD_PAGE_RELAY_CHANNEL_ID)
+    @dp.channel_post(F.chat.id == hot.get("reactions.dead_page_relay_channel_id", settings.DEAD_PAGE_RELAY_CHANNEL_ID))
     async def track_relay_post(message: types.Message):
         """Track media_group_id for relay channel posts to enable album-aware forwarding."""
         if message.media_group_id:
