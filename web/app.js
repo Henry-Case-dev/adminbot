@@ -133,11 +133,17 @@
         return;
       }
       this.loadMe().then(function () {
+        if (!self.me) return;             // 401/пусто — блокировка выше
         self.loadConfig();
         if (self.canViewTab('access')) {
           self.loadAdmins();
           self.loadRoles();
         }
+        // ФИКС 2026-09-03: данные АКТИВНОЙ вкладки (по умолчанию 'status')
+        // не грузились до первого переключения — loaders вызывались только
+        // в setTab. Теперь после успешной авторизации вызываем per-tab
+        // loader активной вкладки (loadStatus+loadLogs+polling для 'status').
+        self.setTab(self.activeTab);
       });
       // Опц. рекомендация ревью: контекст Telegram может появиться ПОЗЖЕ
       // готовности WebView — подписываемся на событие ready (дебаунс —
@@ -184,6 +190,8 @@
             self.loadAdmins();
             self.loadRoles();
           }
+          // ФИКС 2026-09-03: автозагрузка активной вкладки (как в mounted)
+          self.setTab(self.activeTab);
         });
       },
 
@@ -378,11 +386,21 @@
         }
       },
 
+      // ФИКС 2026-09-03: статус ключа единой функцией — сервер отдаёт
+      // {configured, last4} (без права на значение) ЛИБО саму строку
+      // (право на значение/админ) — обе формы считаются «настроен»,
+      // пустая строка/None → «не настроен».
       isKeyConfigured: function (item) {
-        return item.value && item.value.configured;
+        var v = item.value;
+        if (v == null || v === '') return false;
+        if (typeof v === 'object') return !!v.configured;
+        return true;                       // непустая строка-значение
       },
       last4: function (item) {
-        return (item.value && item.value.last4) || '';
+        var v = item.value;
+        if (v && typeof v === 'object') return v.last4 || '';
+        if (v && typeof v === 'string') return '••••';   // значение видно, хвост не показываем
+        return '';
       },
       saveKeyItem: async function (item) {
         var value = (this.keyDrafts[item.key] || '').trim();

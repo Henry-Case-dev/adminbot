@@ -178,12 +178,16 @@ class TestHealthAndMe:
 
 
 class TestConfigMasking:
-    """84.12.4: значения секретов — только configured/last4 (без права)."""
+    """84.12.4 + ФИКС 2026-09-03: значения секретов — ЕДИНЫЙ контракт:
+    {"configured","last4"} для ВСЕХ ролей (полное значение не отдаём даже
+    админу; замена ключа — только через POST /api/config)."""
 
-    def test_admin_sees_full_secret(self, client):
+    def test_admin_sees_masked_secret_too(self, client):
         resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
         items = {i["key"]: i for i in resp.json()["items"]}
-        assert items["keys.groq_api_key"]["value"] == "gsk_secret_key_1234"
+        key_item = items["keys.groq_api_key"]
+        assert key_item["value"] == {"configured": True, "last4": "1234"}
+        assert "gsk_secret_key_1234" not in json.dumps(resp.json())
 
     def test_moderator_sees_masked_secret(self, client):
         resp = client.get("/api/config", headers=_hdr(MODERATOR_ID))
@@ -198,6 +202,19 @@ class TestConfigMasking:
         resp = client.get("/api/config", headers=_hdr(USER_ID))
         items = {i["key"]: i for i in resp.json()["items"]}
         assert items["keys.groq_api_key"]["value"]["configured"] is True
+
+    def test_no_secret_strings_anywhere_in_response(self, client):
+        """ФИКС: во всём ответе /api/config нет значений-строк с полными
+        ключами (sk_/gsk_ префиксы и известные секреты)."""
+        for role in (ADMIN_ID, MODERATOR_ID, USER_ID):
+            resp = client.get("/api/config", headers=_hdr(role))
+            blob = resp.text
+            assert "gsk_secret_key_1234" not in blob
+            items = {i["key"]: i for i in resp.json()["items"]}
+            for item in items.values():
+                if item.get("secret"):
+                    assert isinstance(item["value"], dict)
+                    assert set(item["value"]) <= {"configured", "last4"}
 
     def test_non_secret_visible_to_all(self, client):
         resp = client.get("/api/config", headers=_hdr(USER_ID))

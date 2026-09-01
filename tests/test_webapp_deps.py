@@ -506,6 +506,39 @@ class TestTmaAuthMaxAgeFinite:
             .status_code == 401
 
 
+class TestFrontFixes:
+    """ФИКСЫ фронта 2026-09-03 — статические проверки кода (JS-тестов в
+    проекте нет; node --check в CI-отчёте Builder)."""
+
+    def test_mounted_autoloads_active_tab(self):
+        src = open("web/app.js", encoding="utf-8").read()
+        # ФИКС 1: после успешного auth вызывается per-tab loader активной
+        # вкладки (было: loaders только в setTab → статус до переключения
+        # не грузился). Встречается в mounted И retryInitData.
+        assert src.count("self.setTab(self.activeTab)") >= 2
+
+    def test_is_key_configured_handles_string_value(self):
+        src = open("web/app.js", encoding="utf-8").read()
+        # ФИКС 4: ключ как строка (право на значение/админ) = «настроен»
+        assert "typeof v === 'object'" in src
+        assert "typeof v === 'string'" in src
+        assert "return !!v.configured" in src
+
+    def test_select_dark_styling_present(self):
+        src = open("web/index.html", encoding="utf-8").read()
+        # ФИКС 6: native <select> на тёмном фоне (было: белый UA-стиль)
+        assert "select.field {" in src
+        assert "background-color: #2b2b40" in src
+        assert "select.field option {" in src
+
+    def test_toggle_sends_items_payload(self):
+        src = open("web/app.js", encoding="utf-8").read()
+        # ФИКС 5: тумблер bool @change → saveConfigItem → POST {items:[{key,value}]}
+        assert "JSON.stringify({ items: [{ key: item.key, value: value }] })" in src
+        assert "@change=\"saveConfigItem(item)\"" in open(
+            "web/index.html", encoding="utf-8").read()
+
+
 class TestOfficialHmacVector:
     """F9: ОПУБЛИКОВАННЫЙ вектор из официальной документации Telegram
     (https://docs.telegram-mini-apps.com/platform/init-data):

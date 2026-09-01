@@ -150,8 +150,31 @@ class TestSnapshot:
         assert bot["version"]
         assert bot["uptime_seconds"] >= 0
         assert bot["errors_total"] >= 0
-        assert snapshot["uptime"]["buckets"] == []
-        assert snapshot["uptime"]["last_heartbeat"] is None
+        # ФИКС 2026-09-03: пустые uptime_events → НЕ [], а минимальные
+        # бакеты (два последних слота 'down') + generated_at — фронт видит
+        # осмысленный график вместо «плоско/нет данных».
+        assert len(snapshot["uptime"]["buckets"]) == 2
+        assert all(b["status"] == "down" for b in snapshot["uptime"]["buckets"])
+        assert snapshot["uptime"]["generated_at"]
+        for b in snapshot["uptime"]["buckets"]:
+            assert "ts" in b
+            assert "status" in b
+
+    @pytest.mark.asyncio
+    async def test_uptime_empty_rows_minimal_buckets(self, monkeypatch):
+        """ФИКС 2026-09-03: uptime_events пуст → два 5-мин бакета
+        status='down' (последние слоты) + generated_at; формат {ts,status}."""
+        svc = StatusService()
+        svc.mark_started()
+        cache = _FakeCache(pg=_FakePg())
+        snapshot = await self._build(svc, cache, monkeypatch)
+        up = snapshot["uptime"]
+        assert len(up["buckets"]) == 2
+        for b in up["buckets"]:
+            assert b["status"] == "down"
+            assert b["ts"].endswith("+00:00") or "T" in b["ts"]
+        assert up["generated_at"]
+        assert up["last_heartbeat"] == up["buckets"][-1]["ts"]
 
     @pytest.mark.asyncio
     async def test_llm_cards_masked_keys(self, monkeypatch):

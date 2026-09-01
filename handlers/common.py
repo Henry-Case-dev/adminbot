@@ -22,6 +22,7 @@ from aiogram import Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
+from services import hot_config as hot
 from filters.danger_word import DangerWordFilter
 from filters.otboy_word import OtboyWordFilter
 from filters.selfdev_word import SelfdevWordFilter
@@ -156,7 +157,11 @@ async def work_handler(
     # T-409 (Epic 52, D213): точечный гейт work-медиа — ПЕРВАЯ строка, ДО проверки _relay.
     # false → work-медиа не шлются, хендлер остаётся зарегистрированным (триггеры живы),
     # UNHANDLED — пропагация не ломается.
-    if not settings.COMMON_WORK_MEDIA_ENABLED:
+    # ФИКС 2026-09-03: выключатель work-медиа — горячая точка
+    # (hot.get с фолбеком на settings): переключение «Медиа work-подсервиса»
+    # в веб-админке (flags.common_work_media_enabled) применяется БЕЗ рестарта.
+    if not hot.get("flags.common_work_media_enabled",
+                   settings.COMMON_WORK_MEDIA_ENABLED):
         logger.info(
             "Common Service: work media disabled (COMMON_WORK_MEDIA_ENABLED=False) | "
             "chat_id=%s | message_id=%s",

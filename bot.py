@@ -14,7 +14,7 @@ from config.settings import settings
 from services.config_cache import ConfigCache
 from services.control_service import ControlService
 from services.hot_config import set_config_cache
-from services.log_ring import LogRingHandler
+from services.log_ring import log_ring as _log_ring_singleton
 from services.status_service import status
 from services.uptime_heartbeat import UptimeHeartbeatService
 from web.app import create_app
@@ -110,9 +110,12 @@ logger = logging.getLogger(__name__)
 
 # ── Epic 85 (84.11.1, T-628): in-memory ring-buffer логов для /api/status/logs.
 # На root-logger рядом с basicConfig; маскировка секретов в emit (R17).
-log_ring_handler = LogRingHandler()
-log_ring_handler.setLevel(logging.DEBUG)
-logging.getLogger().addHandler(log_ring_handler)
+# ВАЖНО (фикс 2026-09-03): подключаем МОДУЛЬНЫЙ синглтон services.log_ring.log_ring
+# (routes/status_service читают get_log_ring() — тот же объект); ранее здесь
+# создавался НОВЫЙ LogRingHandler(), а API читал пустой синглтон → «логи пустые».
+_log_ring_singleton.setLevel(logging.DEBUG)
+logging.getLogger().addHandler(_log_ring_singleton)
+log_ring_handler = _log_ring_singleton
 
 if settings.DOWNLOAD_ENABLED:
     bot = Bot(

@@ -252,6 +252,22 @@ class StatusService:
         from services.log_ring import get_log_ring
         now = datetime.datetime.now(datetime.timezone.utc)
         buckets = self._bucketize(list(uptime_rows))
+        # ФИКС (2026-09-03): uptime_events пуст/недоступен (PG down, робот
+        # только-только поднялся) → НЕ отдаём пустой список (фронт показывал
+        # «Нет данных» и плоский график), а минимально-осмысленные бакеты:
+        # два последних 5-мин слота со status='down' (heartbeat не было).
+        # + generated_at — момент формирования сводки (диагностика).
+        if not buckets:
+            bucket_seconds = _UPTIME_BUCKET_SECONDS
+            last_slot = int(now.timestamp() // bucket_seconds) * bucket_seconds
+            buckets = [
+                {"ts": datetime.datetime.fromtimestamp(
+                    last_slot - 2 * bucket_seconds,
+                    datetime.timezone.utc).isoformat(), "status": "down"},
+                {"ts": datetime.datetime.fromtimestamp(
+                    last_slot - bucket_seconds,
+                    datetime.timezone.utc).isoformat(), "status": "down"},
+            ]
         return {
             "bot": {
                 "uptime_seconds": round(time.monotonic()
@@ -272,6 +288,7 @@ class StatusService:
                 "since": (now - datetime.timedelta(
                     seconds=_UPTIME_WINDOW_SECONDS)).isoformat(),
                 "until": now.isoformat(),
+                "generated_at": now.isoformat(),
             },
         }
 

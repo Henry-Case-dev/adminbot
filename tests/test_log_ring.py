@@ -195,3 +195,27 @@ class TestHandler:
         assert LogRingHandler().maxlen == 5
         monkeypatch.setenv("LOG_RING_MAX_ENTRIES", "мусор")
         assert LogRingHandler().maxlen == 1000
+
+
+def test_module_singleton_receives_records_when_attached():
+    """ФИКС 2026-09-03: МОДУЛЬНЫЙ синглтон get_log_ring() — тот же объект,
+    что бот подключает к root (раньше bot.py создавал НОВЫЙ LogRingHandler,
+    а API читал пустой синглтон → «логи пустые»). Проверяем: attach к
+    root → emit → записи в синглтоне."""
+    import logging as _logging
+
+    from services.log_ring import get_log_ring
+    ring = get_log_ring()
+    root = _logging.getLogger()
+    attached = ring not in root.handlers
+    if attached:
+        ring.setLevel(_logging.DEBUG)
+        root.addHandler(ring)
+    try:
+        uniq = "ring-singleton-probe-20260903"
+        _logging.getLogger("adminbot.singleton_probe").warning(uniq)
+        assert any(e["message"] == uniq
+                   for e in ring.get_entries(level="ALL"))
+    finally:
+        if attached:
+            root.removeHandler(ring)

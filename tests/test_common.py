@@ -1712,6 +1712,65 @@ class TestCommonMediaFlags:
         result = await work_handler(msg, matched_word="устал")
 
         assert result is UNHANDLED
+
+    @pytest.mark.asyncio
+    async def test_work_flag_from_hot_cache_true(self):
+        """ФИКС 2026-09-03: work-флаг читается через hot.get —
+        значение True из ConfigCache (веб-админка) применяется даже при
+        settings=False (env)."""
+        import handlers.common as common_mod
+        from services import hot_config as hot
+
+        class _Cache:
+            def __init__(self, data):
+                self._data = data
+
+            def get(self, key, default=None):
+                return self._data.get(key, default)
+
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+        old_cache = hot._cache
+        hot.set_config_cache(_Cache({"flags.common_work_media_enabled": True}))
+        try:
+            mod = replace(settings, COMMON_WORK_MEDIA_ENABLED=False)
+            with patch.object(common_mod, "settings", mod):
+                from handlers.common import work_handler
+                msg = make_message(text="устал", chat_id=-100789,
+                                   message_id=555)
+                result = await work_handler(msg, matched_word="устал")
+            assert result is UNHANDLED
+            mock_relay.send_common.assert_called_once()   # hot=True победил
+        finally:
+            hot.set_config_cache(old_cache)
+
+    @pytest.mark.asyncio
+    async def test_work_flag_absent_from_hot_falls_back_to_settings(self):
+        """ФИКС: флага НЕТ в кэше → фолбек на settings (default=True) →
+        relay вызывается."""
+        from services import hot_config as hot
+
+        class _Cache:
+            def __init__(self, data):
+                self._data = data
+
+            def get(self, key, default=None):
+                return self._data.get(key, default)
+
+        mock_relay = MagicMock()
+        mock_relay.send_common = AsyncMock()
+        setup_common(mock_relay)
+        old_cache = hot._cache
+        hot.set_config_cache(_Cache({}))
+        try:
+            from handlers.common import work_handler
+            msg = make_message(text="устал", chat_id=-100789, message_id=555)
+            result = await work_handler(msg, matched_word="устал")
+            assert result is UNHANDLED
+            mock_relay.send_common.assert_called_once()
+        finally:
+            hot.set_config_cache(old_cache)
         mock_relay.send_common.assert_called_once_with(
             chat_id=-100789,
             message_id=555,

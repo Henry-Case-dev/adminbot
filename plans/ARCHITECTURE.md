@@ -16213,6 +16213,14 @@ polkit.addRule(function(action, subject) {
   всегда только `{configured, last4}` — полное значение не отдаётся НИКОМУ
   (даже ролям с правом keys). Осознанно безопаснее; полный ключ доступен
   только в `/api/config` при праве на конкретный ключ.
+  - **F10-D (дельта 2026-09-03, фикс A):** ЕДИНЫЙ контракт секретов
+    распространён и на `GET /api/config` — для всех предметов с
+    `secret=True` ответ ВСЕГДА `value = {"configured": bool, "last4":
+    str|None}`, полная строка не отдаётся ДАЖЕ admin/wildcard
+    (`can_view_key_value`-ветка удалена из `_mask_secret`); замена ключа —
+    только через `POST /api/config` (право key.<cat>.<key>, значение
+    пишется в БД). Фронт (app.js `isKeyConfigured`) принимает обе формы —
+    для новых ответов актуален dict-контракт.
 - **F13.** `POST /api/control/start` циркулярен после `stop` (процесс мёртв,
   некому слушать HTTP). Старт после полной остановки — вручную: SSH +
   `systemctl start admin_bot`. Зафиксировано также в README.

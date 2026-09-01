@@ -138,11 +138,14 @@ def _coerce_value(spec, raw) -> Any:
 
 
 def _mask_secret(value, telegram_id: int, pg_key: str, cache: ConfigCache) -> dict:
-    """84.12.4: значение секрета — только configured/last4 (без права)."""
+    """84.12.4 + ФИКС 2026-09-03: ЕДИНЫЙ контракт — секреты ВСЕГДА отдаются
+    как {"configured": bool, "last4": str|None}; полное значение (даже для
+    admin/wildcard) в фронт НЕ отдаём — замена только через POST /api/config."""
     if not value:
         return {"configured": False, "last4": None}
-    if can_view_key_value(cache, telegram_id, pg_key):
-        return value
+    if isinstance(value, dict) and set(value) <= {"configured", "last4"}:
+        return {"configured": bool(value.get("configured")),
+                "last4": value.get("last4")}
     return {"configured": True, "last4": str(value)[-4:]}
 
 

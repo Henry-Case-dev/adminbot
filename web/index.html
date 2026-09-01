@@ -140,6 +140,17 @@
     }
     .field:focus { border-color: #8b5cf6; }
     textarea.field { font-family: ui-monospace, Consolas, monospace; }
+    /* ФИКС 2026-09-03: native <select> игнорирует полупрозрачный фон/.field →
+       открывался БЕЛЫМ (UA-стиль); жёсткий тёмный фон + светлый текст
+       соглаcован с карточками (#2b2b40). */
+    select.field {
+      background-color: #2b2b40;
+      color: #e5e5f0;
+    }
+    select.field option {
+      background-color: #2b2b40;
+      color: #e5e5f0;
+    }
 
     .badge {
       display: inline-block;

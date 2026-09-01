@@ -27,6 +27,7 @@ from aiogram import Bot
 from aiogram.types import FSInputFile, ReplyParameters
 
 from config.settings import settings
+from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +244,10 @@ class CommonRelay:
 
         # T-409 (Epic 52, D213): глобальный рубильник ВСЕХ common-медиа.
         # Единая точка — send_common вызывают все 4 хендлера (otboy/danger/selfdev/work).
-        if not settings.COMMON_MEDIA_ENABLED:
+        # ФИКС 2026-09-03: горячая точка flags.common_media_enabled (фолбек
+        # на settings) — «Все common-медиа» из веб-админки без рестарта.
+        if not hot.get("flags.common_media_enabled",
+                       settings.COMMON_MEDIA_ENABLED):
             logger.info(
                 "CommonRelay: media disabled (COMMON_MEDIA_ENABLED=False) | "
                 "subdir=%s | chat_id=%s",
