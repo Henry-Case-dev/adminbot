@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>AdminBot — Админка</title>
+  <!-- Официальный Telegram MiniApp SDK: БЕЗ него window.Telegram отсутствует
+       → initData никогда не появляется → authLocked-баннер на всех клиентах
+       (инцидент «Миниапп открыт без Telegram-контекста»). Синхронный, ДО
+       vue/app.js — Telegram.WebApp доступен к моменту init приложения. -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {

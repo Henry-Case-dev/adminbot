@@ -728,6 +728,11 @@ class TestStatic:
         assert "animation: gradient 15s ease infinite" in text
         assert "backdrop-filter: blur(20px) saturate(140%)" in text
         assert "Telegram.WebApp" in text
+        # Инцидент «Миниапп открыт без Telegram-контекста»: официальный
+        # SDK ОБЯЗАН грузиться — без telegram-web-app.js window.Telegram
+        # отсутствует → initData никогда не появляется → authLocked.
+        assert ('<script src="https://telegram.org/js/'
+                'telegram-web-app.js"></script>') in text
 
     def test_web_app_js_served(self, client):
         resp = client.get("/web/app.js")
