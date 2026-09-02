@@ -187,8 +187,10 @@ class TestGroups8424:
         ids = [g.id for g in GROUPS]
         assert len(ids) == len(set(ids))
 
-    def test_groups_cover_all_categories_and_count_57(self):
-        assert len(GROUPS) == 57
+    def test_groups_cover_all_categories_and_count_59(self):
+        # 57 (84.24.2) + limits_user_aliases + limits_youtube_proxy (задачи
+        # 1/2 от 2026-09-03: алиасы и proxy-настройки переехали в limits)
+        assert len(GROUPS) == 59
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -215,12 +217,13 @@ class TestGroups8424:
         assert pc.group_order("limits_persons") == 1
 
     def test_group_counts_match_design(self):
-        """84.24.2: количество групп и параметров по категориям."""
+        """84.24.2 + дельты (2026-09-03): количества по категориям
+        (4 proxy-параметра и алиасы переехали из keys/reactions в limits)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 9, "models": 26, "keys": 16,
-                          "limits": 115, "flags": 41, "reactions": 36,
+        assert counts == {"prompts": 9, "models": 26, "keys": 12,
+                          "limits": 120, "flags": 41, "reactions": 35,
                           "content": 1}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

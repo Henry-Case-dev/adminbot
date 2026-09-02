@@ -228,17 +228,17 @@ class TestRunDryRun:
         code1 = await _run(["--only-category", "keys"])
         assert code1 == 0
         inserts1 = [q for q in conn.queries if "bot_settings" in q[0]]
-        assert len(inserts1) == 16  # 16 ключей категории keys
+        assert len(inserts1) == 12  # 12 ключей категории keys
         assert all("DO NOTHING" in q[0] for q in inserts1)
 
-        # повторный запуск БЕЗ --force: все 16 уже существуют → skipped
+        # повторный запуск БЕЗ --force: все 12 уже существуют → skipped
         conn2 = _FakeConn(results=["INSERT 0 0"])
         pool2 = _FakePool(conn2)
         monkeypatch.setattr("services.pg_db.PgDatabase",
                             lambda *a, **kw: _FakePg(pool=pool2))
         code2 = await _run(["--only-category", "keys"])
         assert code2 == 0
-        assert len(conn2.queries) == 16  # DO NOTHING — но без дублей
+        assert len(conn2.queries) == 12  # DO NOTHING — но без дублей
 
     @pytest.mark.asyncio
     async def test_force_uses_update_sql(self, monkeypatch):

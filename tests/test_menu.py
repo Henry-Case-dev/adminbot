@@ -43,16 +43,46 @@ class TestMenuCommand:
         assert button.web_app.url == "https://admin-bot.duckdns.org/web/"
 
     @pytest.mark.asyncio
-    async def test_menu_works_in_supergroup(self):
-        """A: супергруппа — та же кнопка, без ошибок."""
-        for chat_type in ("supergroup", "group", "channel"):
+    async def test_menu_group_gets_hint_instead_of_webapp_button(self):
+        """ФИКС: в группах web_app-кнопки НЕ поддерживаются (BUTTON_TYPE_INVALID)
+        → текст-подсказка БЕЗ web_app-кнопки."""
+        from aiogram.types import User
+        for chat_type in ("supergroup", "group"):
             msg = _make_msg(from_id=555, chat_id=-100999888,
                             chat_type=chat_type)
+            msg.bot = MagicMock()
+            msg.bot.me = AsyncMock(return_value=User(
+                id=42, is_bot=True, first_name="PERM", username="PERMsoc_bot"))
             await menu_command(msg)
             msg.reply.assert_awaited_once()
-            button = msg.reply.call_args.kwargs[
-                "reply_markup"].inline_keyboard[0][0]
-            assert button.web_app is not None
+            kwargs = msg.reply.call_args.kwargs
+            assert "reply_markup" not in kwargs      # клавиатуры НЕТ
+            text = msg.reply.call_args.args[0]
+            assert "личке" in text
+            assert "@PERMsoc_bot" in text            # из bot.me(), не хардкод
+
+    @pytest.mark.asyncio
+    async def test_menu_group_with_mention_falls_back(self):
+        """/menu@PERMsoc_bot в группе — тот же fallback (без web_app-кнопки)."""
+        from aiogram.types import User
+        msg = _make_msg(text="/menu@PERMsoc_bot", from_id=555,
+                        chat_id=-100999888, chat_type="supergroup")
+        msg.bot = MagicMock()
+        msg.bot.me = AsyncMock(return_value=User(
+            id=42, is_bot=True, first_name="PERM", username="PERMsoc_bot"))
+        await menu_command(msg)
+        assert "reply_markup" not in msg.reply.call_args.kwargs
+        assert "личке" in msg.reply.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_menu_group_hint_without_bot_username(self):
+        """Без юзернейма бота (bot.me бросил/None) — подсказка без @, без
+        ошибок."""
+        msg = _make_msg(from_id=555, chat_id=-100999888, chat_type="group")
+        msg.bot = None                      # в тестах bot может отсутствовать
+        await menu_command(msg)
+        assert "reply_markup" not in msg.reply.call_args.kwargs
+        assert "личке" in msg.reply.call_args.args[0]
 
     @pytest.mark.asyncio
     async def test_menu_url_from_settings(self):

@@ -15,23 +15,29 @@ logger = logging.getLogger(__name__)
 class AliasResolver:
     """Resolves participant display names for the summary context."""
 
-    def __init__(self, raw_json: str):
+    def __init__(self, raw_json):
+        """Принимает строку JSON (env) или dict (hot.get-кэш: json-тип каталога
+        коэрсится в dict) — оба варианта заводятся без ошибок."""
         self._aliases: dict[str, str] = {}
         self._by_name: dict[str, str] = {}
         self._cache: dict[tuple, str] = {}
         if raw_json:
-            try:
-                data = json.loads(raw_json)
-                if not isinstance(data, dict):
+            if isinstance(raw_json, dict):
+                data = raw_json
+            else:
+                try:
+                    data = json.loads(raw_json)
+                except (ValueError, TypeError):
                     logger.warning(
-                        "SUMMARY_ALIASES is not a JSON object — aliases disabled"
-                    )
-                else:
-                    self._aliases = {str(k): str(v) for k, v in data.items()}
-            except (ValueError, TypeError):
+                        "SUMMARY_ALIASES invalid JSON — aliases disabled: %r",
+                        raw_json)
+                    data = None
+            if not isinstance(data, dict):
                 logger.warning(
-                    "SUMMARY_ALIASES invalid JSON — aliases disabled: %r", raw_json
+                    "SUMMARY_ALIASES is not a JSON object — aliases disabled"
                 )
+            else:
+                self._aliases = {str(k): str(v) for k, v in data.items()}
         self._by_name = {value.casefold(): value for value in self._aliases.values()}
 
     def canon_name(self, name: str) -> str:

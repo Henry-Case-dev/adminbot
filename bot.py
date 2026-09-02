@@ -201,7 +201,7 @@ async def on_startup():
             hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
             hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
         )
-        aliases = AliasResolver(hot.get("reactions.summary_aliases", settings.SUMMARY_ALIASES))
+        aliases = AliasResolver(hot.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
         # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
         # людям по алиасам: канон-имена в фактах/узлах → карточки /persona).
         memory = MemoryManager(db, _llm_client, aliases=aliases)

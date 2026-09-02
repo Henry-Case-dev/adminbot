@@ -131,9 +131,25 @@ def coerce_catalog_value(spec: ParamSpec, value):
     if spec.type == "bool":
         return bool(value)
     if spec.type == "int":
-        return int(value)
+        # Толерантно (2026-09-03): пустая строка/мусор → None, не падаем
+        # (напр. YOUTUBE_TRANSCRIPT_PROXY_RETRIES уходит в сид как "").
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return None
     if spec.type == "float":
-        return float(value)
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
     return value
 
 

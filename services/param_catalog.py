@@ -85,7 +85,7 @@ class GroupSpec:
     order: int         # порядок рендера ВНУТРИ категории (1, 2, 3...)
 
 
-# ── 84.24.2: реестр групп (57 шт.; покрытие 244 параметров категорий) ────────
+# ── 84.24.2: реестр групп (59 шт.; покрытие 244 параметров категорий) ────────
 GROUPS: tuple[GroupSpec, ...] = (
     # prompts (8)
     GroupSpec("prompts_factcheck", "prompts", "Фактчек",
@@ -169,6 +169,10 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Сколько хранить готовые ответы и как много строк.", 17),
     GroupSpec("limits_service", "limits", "Служебное",
               "Технические интервалы — обычно не трогать.", 18),
+    GroupSpec("limits_user_aliases", "limits", "Имена людей",
+              "Как бот обращается к людям: алиас → имя → никнейм.", 19),
+    GroupSpec("limits_youtube_proxy", "limits", "YouTube: прокси",
+              "Настройки прокси для субтитров YouTube (коды стран, повторы).", 20),
     # flags (5)
     GroupSpec("flags_modules", "flags", "Модули (вкл/выкл)",
               "Рубильники функций бота целиком.", 1),
@@ -308,14 +312,6 @@ _KEYS: list[tuple] = [
      "Логин резидент-прокси Webshare для субтитров. Получить: webshare.io."),
     ("YOUTUBE_TRANSCRIPT_PROXY_PASSWORD", "Пароль resident-прокси Webshare", "str", True, "keys_youtube",
      "Пароль резидент-прокси Webshare для субтитров. Получить: webshare.io."),
-    ("YOUTUBE_TRANSCRIPT_PROXY_DOMAIN", "Домен прокси-оверрайда", "str", False, "keys_youtube",
-     "Домен прокси, если используете не Webshare. Пусто — берётся стандартный."),
-    ("YOUTUBE_TRANSCRIPT_PROXY_PORT", "Порт прокси-оверрайда", "str", False, "keys_youtube",
-     "Порт прокси, если используете не Webshare. Пусто — берётся стандартный."),
-    ("YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS", "CSV-коды стран Webshare", "str", False, "keys_youtube",
-     "Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений."),
-    ("YOUTUBE_TRANSCRIPT_PROXY_RETRIES", "Retries_when_blocked Webshare", "str", False, "keys_youtube",
-     "Сколько раз повторять запрос субтитров, если прокси заблокировали. Больше — надёжнее, но медленнее."),
     ("YOUTUBE_COOKIES_FILE", "Путь к cookies-файлу YouTube (Netscape)", "str", True, "keys_youtube",
      "Файл с cookies браузера для YouTube — помогает получать субтитры. Обновляется вручную при протухании."),
 ]
@@ -693,6 +689,16 @@ _LIMITS: list[tuple] = [
      "Запасной резерв бюджета. Больше — запас на непредвиденное."),
     ("CHAT_DEDUP_TTL_SECONDS", "TTL дедуп-записи, сек", "int", "limits_chat",
      "Как долго помнить одинаковые сообщения подряд. Больше — дольше дедуп."),
+    ("SUMMARY_ALIASES", "JSON-словарь алиасов имён", "json", "limits_user_aliases",
+     "Как бот обращается к людям: алиас → имя → никнейм. Формат JSON: {\"<telegram-id>\": \"<алиас>\"} — например {\"138811255\": \"Алан\"}."),
+    ("YOUTUBE_TRANSCRIPT_PROXY_DOMAIN", "Домен прокси-оверрайда", "str", "limits_youtube_proxy",
+     "Домен прокси, если используете не Webshare. Пусто — берётся стандартный."),
+    ("YOUTUBE_TRANSCRIPT_PROXY_PORT", "Порт прокси-оверрайда", "str", "limits_youtube_proxy",
+     "Порт прокси, если используете не Webshare. Пусто — берётся стандартный."),
+    ("YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS", "CSV-коды стран Webshare", "str", "limits_youtube_proxy",
+     "Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений."),
+    ("YOUTUBE_TRANSCRIPT_PROXY_RETRIES", "Повторы при блокировке (Webshare)", "int", "limits_youtube_proxy",
+     "Сколько раз повторять запрос субтитров, если прокси заблокировали. Больше — надёжнее, но медленнее."),
     ("DOWNLOAD_COOLDOWN", "Кулдаун скачивания, сек", "float", "limits_media",
      "Пауза между командами скачивания. Больше — реже можно качать."),
     ("VOICE_MAX_DURATION_SECONDS", "Макс. длительность войса, сек", "int", "limits_media",
@@ -762,8 +768,6 @@ _REACTIONS: list[tuple] = [
      "Чем отвечает Оля: видео, фото и так далее."),
     ("ALLOWED_SUMMARY_IDS", "Список ID для /summary", "json", "reactions_summary",
      "Кому доступен /summary, если включён «только админ»."),
-    ("SUMMARY_ALIASES", "JSON-словарь алиасов имён", "json", "reactions_summary",
-     "Как переименовывать людей в пересказах. Формат: имя → алиас."),
     ("SUMMARY_TARGET_CHAT_IDS", "Список чатов саммари", "json", "reactions_summary",
      "В каких чатах собирать пересказы. Список ID."),
     ("CHAT_BOTWORD_PATTERN", "Regex-триггер «бот»-семьи", "str", "reactions_chat",

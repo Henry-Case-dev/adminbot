@@ -372,8 +372,8 @@ class YouTubeTranscriptEngine:
         Пусто → None (без прокси). R17: значения НЕ логируются."""
         username = (hot.get("keys.youtube_transcript_proxy_username", settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME) or "").strip()
         password = (hot.get("keys.youtube_transcript_proxy_password", settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD) or "").strip()
-        domain = (hot.get("keys.youtube_transcript_proxy_domain", settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN) or "").strip()
-        port = (hot.get("keys.youtube_transcript_proxy_port", settings.YOUTUBE_TRANSCRIPT_PROXY_PORT) or "").strip()
+        domain = (hot.get("limits.youtube_transcript_proxy_domain", settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN) or "").strip()
+        port = (hot.get("limits.youtube_transcript_proxy_port", settings.YOUTUBE_TRANSCRIPT_PROXY_PORT) or "").strip()
 
         if domain and port:
             proxy_url = f"http://{domain}:{port}"

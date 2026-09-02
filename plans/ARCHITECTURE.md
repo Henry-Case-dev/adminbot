@@ -15952,7 +15952,7 @@ CREATE INDEX IF NOT EXISTS idx_uptime_events_ts ON uptime_events (ts);
 | `keys` | `llm_api_key`, `llm_fallback_api_key`, `tavily_api_key`, `exa_api_key`, `groq_api_key`, `openrouter_api_key`, `checkup_betterstack_sql_user/password` | ~8 | **СЕКРЕТЫ** |
 | `limits` | `search/factcheck/youtube/webpage/checkup_max_symbols`, `checkup_max_input_symbols`, `search/factcheck/youtube/webpage/checkup/info_cooldown_seconds`, `summary_throttle_seconds`, `summary_*` (~18: window/retention/max_parts/max_window/max_message/max_context_chars/tokens/rag_l2/l3/compress_batch/chunk_delay/retry_once_pause/streaming_*), `chat_*` (~20: burst/cooldown/global_context/thread/dedup/lock/budget_*/silence/style_anchors), `graph_*` (~25: ttl/limits/dedup/mmr/time_decay/quota/review/merge), `voice_max_duration_seconds`, `download_cooldown`, `smart_cache_*`, `embed_cache_*`, `db_wal_checkpoint_hours`, `memory_backup_*`, коулдауны реакций (dead_page/danger/common/selfdev/work/olya/mimic/slavik_mimic/alan_greeting) | ~90 | нет |
 | `flags` | `summary_enabled`, `direct_chat_botword_enabled`, `enable_voice_transcription`, `graph_rag_enabled`, `smart_cache_enabled`, `throttle_persistent_enabled`, `download_enabled`, `ytdlp_for_youtube`, `chat_silence_enabled`, `chat_style_anchors_enabled`, `chat_mood_enabled`, `chat_running_summary_enabled`, `chat_dedup_enabled`, `chat_context_budgets_enabled`, `summary_streaming_enabled`, `typing_indicator_enabled`, `search_rerank_enabled`, `checkup_memory_metrics_enabled`, `graph_dedup_enabled`, `graph_episode_merge_enabled`, `graph_time_decay_enabled`, `graph_user_quota_enabled`, `graph_fact_touch_enabled`, `graph_review_enabled`, `vec_int8_enabled`, `graph_mmr_enabled`, `memory_backup_enabled`, `embed_cache_enabled`, `db_wal_checkpoint_enabled`, `llm_cb_enabled`, `common_*_enabled`, `olya_*_enabled`, `mimic_forwards_enabled`, `alan_replies_enabled`, `dead_page_post_on_join`, `summary_admin_only` | ~35 | нет |
-| `reactions` | `alan_*` (user_id/username/reply_interval/silence_greeting_hours/greeting_dir/cooldown), `kostik_*`, `slavik_user_id`, `slavic_*`, `mimic_*`, `olya_*` (user_id/caption/media_type/saveasbot_*), `dead_page_*` (channels/relay/dir), `war_*` (channel_ids/usernames/replies), `danger_words`, `gif_*`, `goodmorning_*` (time/tz/targets/dir), `chat_mood_negative/positive_words`, `chat_botword_pattern`, `summary_aliases`, `summary_target_chat_ids`, `allowed_summary_ids`, `chat_temperature_*` (4), `admin_user_id`, user-id-константы | ~45 | нет (id-списки/слова) |
+| `reactions` | `alan_*` (user_id/username/reply_interval/silence_greeting_hours/greeting_dir/cooldown), `kostik_*`, `slavik_user_id`, `slavic_*`, `mimic_*`, `olya_*` (user_id/caption/media_type/saveasbot_*), `dead_page_*` (channels/relay/dir), `war_*` (channel_ids/usernames/replies), `danger_words`, `gif_*`, `goodmorning_*` (time/tz/targets/dir), `chat_mood_negative/positive_words`, `chat_botword_pattern`, `summary_target_chat_ids`, `allowed_summary_ids`, `chat_temperature_*` (4), `admin_user_id`, user-id-константы | ~45 | нет (id-списки/слова) |
 | `content` | `info.how_it_works` (84.13) | 1 | нет |
 | **НЕ переносим (`infra` — остаётся в .env)** | `api_token` (**СЕКРЕТ**), `db_path`, `media_base`, `postgres_dsn` (**СЕКРЕТ**), `web_port`, `telegram_api_id/hash` (**СЕКРЕТ**), `sentry_dsn` (**СЕКРЕТ**), `logtail_source_token` (**СЕКРЕТ**), `cobalt_api_url`, `local_bot_api_url`, `telegram_api_files_dir`, `download_dir`, `info_text_file`, `checkup_journalctl_cmd`, `log_ring_max_entries`, `uptime_events_retention_hours` | ~15 | см. |
 
@@ -17025,7 +17025,7 @@ class GroupSpec:
 | `models_extra_providers` | Дополнительные провайдеры | Groq — голосовые, OpenRouter — пересказы видео. | `models.groq_timeout`, `models.groq_max_concurrency`, `models.groq_min_interval`, `models.groq_max_retries`, `models.openrouter_timeout` |
 | `models_checkup` | Чек-ап (Betterstack) | Откуда бот берёт метрики сервера для чекапа. | `models.checkup_betterstack_sql_host`, `models.checkup_betterstack_sql_table`, `models.checkup_betterstack_sql_query` |
 
-**🔑 keys (16 параметров → 6 групп):**
+**🔑 keys (12 параметров → 6 групп):**
 
 | id | Заголовок | Описание группы | Ключи |
 |---|---|---|---|
@@ -17034,9 +17034,11 @@ class GroupSpec:
 | `keys_openrouter` | OpenRouter | Ключ пересказов видео и страниц. | `keys.openrouter_api_key` |
 | `keys_search` | Поиск: Exa и Tavily | Ключи интернет-поиска. | `keys.tavily_api_key`, `keys.exa_api_key` |
 | `keys_betterstack` | Логи и чек-ап | Логин и пароль SQL-базы для чекапа. | `keys.checkup_betterstack_sql_user`, `keys.checkup_betterstack_sql_password` |
-| `keys_youtube` | YouTube: прокси и cookies | Прокси и cookies для субтитров YouTube. | `keys.youtube_transcript_proxy_url`, `keys.youtube_transcript_proxy_username`, `keys.youtube_transcript_proxy_password`, `keys.youtube_transcript_proxy_domain`, `keys.youtube_transcript_proxy_port`, `keys.youtube_transcript_proxy_locations`, `keys.youtube_transcript_proxy_retries`, `keys.youtube_cookies_file` |
+| `keys_youtube` | YouTube: прокси и cookies | Прокси (user:pass) и cookies для субтитров YouTube. | `keys.youtube_transcript_proxy_url`, `keys.youtube_transcript_proxy_username`, `keys.youtube_transcript_proxy_password`, `keys.youtube_cookies_file` |
 
-**🚦 limits (115 параметров → 18 групп):**
+> **Дельта 2026-09-03:** не-секретные прокси-параметры (`domain`/`port`/`locations`/`retries`) перенесены в limits — группа `limits_youtube_proxy`.
+
+**🚦 limits (120 параметров → 20 групп):**
 
 | id | Заголовок | Описание группы | Ключи |
 |---|---|---|---|
@@ -17058,6 +17060,8 @@ class GroupSpec:
 | `limits_graph` | Граф знаний | Веса фактов, дедуп, слияние эпизодов, TTL, квоты памяти. | `limits.graph_edge_weight_increment`, `limits.graph_top_edges_limit`, `limits.graph_extract_max_triplets`, `limits.graph_fact_ttl_days`, `limits.graph_rag_facts_limit`, `limits.graph_rag_context_max_chars`, `limits.graph_memorize_max_batch_retries`, `limits.graph_memorize_batch_retry_backoff`, `limits.graph_dedup_similarity_high`, `limits.graph_dedup_similarity_low`, `limits.graph_dedup_weight_bonus`, `limits.graph_unconfirmed_retention_days`, `limits.graph_fact_weight_direct`, `limits.graph_fact_weight_archive`, `limits.graph_episode_merge_interval_days`, `limits.graph_episode_merge_batch`, `limits.graph_episode_merge_max_facts_per_cluster`, `limits.graph_time_decay_half_life_days`, `limits.graph_time_decay_floor`, `limits.graph_facts_per_user_quota`, `limits.graph_fact_touch_extend_days`, `limits.graph_mmr_lambda`, `limits.graph_mmr_fetch_k`, `limits.graph_review_interval_days`, `limits.graph_compression_log_retention_days` |
 | `limits_smart_cache` | Умный кэш | Сколько хранить готовые ответы и как много строк. | `limits.smart_cache_ttl_seconds`, `limits.smart_cache_max_rows` |
 | `limits_service` | Служебное | Технические интервалы — обычно не трогать. | `limits.db_wal_checkpoint_hours` |
+| `limits_user_aliases` | Имена людей | Как бот обращается к людям: алиас → имя → никнейм. | `limits.summary_aliases` |
+| `limits_youtube_proxy` | YouTube: прокси | Настройки прокси для субтитров YouTube (коды стран, повторы). | `limits.youtube_transcript_proxy_domain`, `limits.youtube_transcript_proxy_port`, `limits.youtube_transcript_proxy_locations`, `limits.youtube_transcript_proxy_retries` |
 
 **🚩 flags (41 параметр → 5 групп):**
 
@@ -17069,7 +17073,7 @@ class GroupSpec:
 | `flags_chat_behavior` | Поведение в чате | Стиль ответов, настроение, дедуп, индикатор набора, доступ к саммари. | `flags.chat_silence_enabled`, `flags.chat_style_anchors_enabled`, `flags.chat_mood_enabled`, `flags.chat_running_summary_enabled`, `flags.chat_dedup_enabled`, `flags.chat_context_budgets_enabled`, `flags.summary_streaming_enabled`, `flags.typing_indicator_enabled`, `flags.alan_replies_enabled`, `flags.dead_page_post_on_join`, `flags.summary_admin_only` |
 | `flags_service` | Служебное | Технические рубильники (БД, защита LLM) — обычно не трогать. | `flags.db_wal_checkpoint_enabled`, `flags.llm_cb_enabled` |
 
-**🎭 reactions (36 параметров → 12 групп; вкладки пока нет — схема готова):**
+**🎭 reactions (35 параметров → 12 групп; вкладки пока нет — схема готова):**
 
 | id | Заголовок | Описание группы | Ключи |
 |---|---|---|---|
@@ -17082,14 +17086,17 @@ class GroupSpec:
 | `reactions_goodmorning` | Утренняя рассылка | Время, часовой пояс, чаты, папка медиа. | `reactions.goodmorning_time`, `reactions.goodmorning_tz`, `reactions.goodmorning_target_chat_ids`, `reactions.goodmorning_media_dir` |
 | `reactions_mimic` | Мимикрия | Кого передразнивать (ID «жертв»). | `reactions.mimic_victim_user_ids` |
 | `reactions_olya` | Оля | Папка медиа, капшены, SaveAsBot. | `reactions.olya_media_base`, `reactions.olya_saveasbot_channel_ids`, `reactions.olya_saveasbot_user_ids`, `reactions.olya_caption_text`, `reactions.olya_media_type` |
-| `reactions_summary` | Саммари | Кому доступно /summary, алиасы имён, чаты. | `reactions.allowed_summary_ids`, `reactions.summary_aliases`, `reactions.summary_target_chat_ids` |
+| `reactions_summary` | Саммари | Кому доступно /summary, алиасы имён, чаты. | `reactions.allowed_summary_ids`, `reactions.summary_target_chat_ids` |
 | `reactions_chat` | Прямой чат | Слова-триггеры и слова настроения. | `reactions.chat_botword_pattern`, `reactions.chat_mood_negative_words`, `reactions.chat_mood_positive_words` |
 | `reactions_memory` | Память | Папка бэкапов памяти. | `reactions.memory_backup_dir` |
+
+> **Дельта 2026-09-03:** `summary_aliases` перенесён в limits (`limits.summary_aliases`, группа `limits_user_aliases`) — настройка видна в «Лимиты и Модули».
 
 **📄 content (1 параметр → 1 группа):** `content_info` «Как это работает» —
 текст справки для пользователей → `content.info_how_it_works`.
 
-**Итого: 57 групп, покрытие 100% (244 записи категорий + 21 infra вне групп).**
+**Итого: 59 групп, покрытие 100% (244 записи категорий + 21 infra вне групп).**
+*(дельта 2026-09-03: +limits_user_aliases, +limits_youtube_proxy; keys 16→12, limits 115→120, reactions 36→35)*
 
 ### 84.24.3 Контракт API: GET /api/config (обратная совместимость)
 
@@ -17182,7 +17189,7 @@ class GroupSpec:
 
 | Файл | Что меняется |
 |---|---|
-| `services/param_catalog.py` | `GroupSpec`, `GROUPS` (57 групп), поля `group`/`description` в `ParamSpec` и во всех кортежах `_PROMPTS/_KEYS/_MODELS/_FLAGS/_LIMITS/_REACTIONS/_CONTENT`, helper `groups_by_category()`, `group_order()` |
+| `services/param_catalog.py` | `GroupSpec`, `GROUPS` (59 групп), поля `group`/`description` в `ParamSpec` и во всех кортежах `_PROMPTS/_KEYS/_MODELS/_FLAGS/_LIMITS/_REACTIONS/_CONTENT`, helper `groups_by_category()`, `group_order()` |
 | `web/api/routes.py` | `get_config`: `"groups"` в ответе + `group`/`description` в items + новая сортировка `(category, order, title)` |
 | `web/index.html` | рендер группами (84.24.4) |
 | `web/app.js` | computed-группировка `groupedByCategory`; (опц. шаг 2) поиск-фильтр |

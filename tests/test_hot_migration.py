@@ -162,7 +162,77 @@ class TestWarAlertHot:
         assert "фраза1" in str(raw)
 
 
-# ── 7. dead_page: retries/relay-канал из кэша ────────────────────────────────
+# ── 12. Алиасы (Задача 1): ключ limits.summary_aliases через hot.get ────────
+
+class TestAliasesHot:
+    def test_alias_resolver_accepts_dict_from_cache(self):
+        """hot.get (json-тип) отдаёт dict — AliasResolver заводится."""
+        from services.summary_aliases import AliasResolver
+        r = AliasResolver({"138811255": "Алан", "350803143": "Костик"})
+        assert r.resolve(138811255, "Иван", "ivan_dev") == "Алан"
+
+    def test_alias_priority_alias_over_nickname_over_username(self):
+        """Резолв-приоритет: алиас → никнейм → юзернейм → id."""
+        from services.summary_aliases import AliasResolver
+        r = AliasResolver("""{"111": "Аля"}""")
+        assert r.resolve(111, "Женя", "zhenya") == "Аля"
+        r2 = AliasResolver("{}")
+        assert r2.resolve(222, "Никита", "nikita") == "Никита"
+        assert r2.resolve(333, None, "@nikita") == "nikita"
+        assert r2.resolve(444, None, None) == "444"
+
+    def test_aliases_key_in_catalog_limits(self, hot_cache):
+        """Каталог: SUMMARY_ALIASES → limits.summary_aliases (виден в настройках)."""
+        from services import param_catalog as pc
+        import config.settings as st
+        spec = pc.get("SUMMARY_ALIASES")
+        assert spec is not None
+        spec2 = pc.get_by_pg_key("limits.summary_aliases")
+        assert spec2 is not None
+        assert spec2.category == "limits"
+        assert spec2.group == "limits_user_aliases"
+        assert "алиас" in (spec2.description or "").lower()
+        # hot.get с dict-кэшем возвращает dict (резолвер это принимает)
+        hot_cache.set({"limits.summary_aliases": {"111": "Аля"}})
+        from services import hot_config as hot
+        raw = hot.get("limits.summary_aliases", st.settings.SUMMARY_ALIASES)
+        if isinstance(raw, dict):
+            from services.summary_aliases import AliasResolver
+            assert AliasResolver(raw).resolve(111, None, None) == "Аля"
+
+
+# ── 13. Задача 2: перенос youtube-proxy параметров в limits ─────────────────
+
+class TestYoutubeProxyCatalogMove:
+    def test_retries_and_proxy_params_in_limits(self):
+        from services import param_catalog as pc
+        for field, key in [
+            ("YOUTUBE_TRANSCRIPT_PROXY_RETRIES",
+             "limits.youtube_transcript_proxy_retries"),
+            ("YOUTUBE_TRANSCRIPT_PROXY_DOMAIN",
+             "limits.youtube_transcript_proxy_domain"),
+            ("YOUTUBE_TRANSCRIPT_PROXY_PORT",
+             "limits.youtube_transcript_proxy_port"),
+            ("YOUTUBE_TRANSCRIPT_PROXY_LOCATIONS",
+             "limits.youtube_transcript_proxy_locations"),
+        ]:
+            spec = pc.get(field)
+            assert spec is not None, field
+            assert spec.category == "limits", field
+            assert spec.group == "limits_youtube_proxy", field
+            assert spec.description.strip(), field
+        retries = pc.get("YOUTUBE_TRANSCRIPT_PROXY_RETRIES")
+        assert retries.type == "int"
+        assert retries.secret is False
+        # секрет-пара остаётся в keys
+        assert pc.get("YOUTUBE_TRANSCRIPT_PROXY_PASSWORD").category == "keys"
+        assert pc.get("YOUTUBE_TRANSCRIPT_PROXY_URL").category == "keys"
+
+    def test_group_registry_has_new_groups(self):
+        from services.param_catalog import groups_by_category
+        ids = [g.id for g in groups_by_category("limits")]
+        assert "limits_user_aliases" in ids
+        assert "limits_youtube_proxy" in ids
 
 class TestDeadPageHot:
     def test_relay_max_retries_from_cache(self, hot_cache):
