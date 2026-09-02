@@ -787,9 +787,19 @@
   <script src="/web/app.js?v=__APP_VERSION__"></script>
   <script>
     if (window.Telegram && Telegram.WebApp) {
+      // Задание B (2026-09-03): тема миниаппа — согласуем с тёмной темой
+      // админки; цвета из themeParams Telegram-клиента с фолбэком на палитру
+      // админки (#2b2b40 карточки, #14141f фон). setBottomBarColor — Bot API
+      // 7.10+ (guard). Саму инлайн-кнопку бота клиент рисует по своей теме —
+      // из бота её цвет/форму изменить нельзя (ресерч, core.telegram.org).
+      var _tp = Telegram.WebApp.themeParams || {};
       Telegram.WebApp.ready();
       Telegram.WebApp.expand();
-      Telegram.WebApp.setHeaderColor('#1a1033');
+      Telegram.WebApp.setHeaderColor(_tp.header_bg_color || '#2b2b40');
+      Telegram.WebApp.setBackgroundColor(_tp.bg_color || '#14141f');
+      if (typeof Telegram.WebApp.setBottomBarColor === 'function') {
+        Telegram.WebApp.setBottomBarColor(_tp.bottom_bar_bg_color || '#2b2b40');
+      }
     }
   </script>
 </body>

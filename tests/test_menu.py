@@ -12,12 +12,14 @@ import pytest
 from handlers.menu import menu_command, menu_router
 
 
-def _make_msg(from_id=777, text="/menu", chat_id=-1001234567890):
+def _make_msg(from_id=777, text="/menu", chat_id=-1001234567890,
+              chat_type="private"):
     msg = MagicMock()
     msg.text = text
     msg.message_id = 1
     msg.chat = MagicMock()
     msg.chat.id = chat_id
+    msg.chat.type = chat_type
     msg.from_user = MagicMock()
     msg.from_user.id = from_id
     msg.reply = AsyncMock()
@@ -36,9 +38,21 @@ class TestMenuCommand:
         assert call.kwargs["reply_markup"] is not None
         markup = call.kwargs["reply_markup"]
         button = markup.inline_keyboard[0][0]
-        assert button.text == "Меню бота"
+        assert button.text == "🛠 Меню бота"
         assert button.web_app is not None
         assert button.web_app.url == "https://admin-bot.duckdns.org/web/"
+
+    @pytest.mark.asyncio
+    async def test_menu_works_in_supergroup(self):
+        """A: супергруппа — та же кнопка, без ошибок."""
+        for chat_type in ("supergroup", "group", "channel"):
+            msg = _make_msg(from_id=555, chat_id=-100999888,
+                            chat_type=chat_type)
+            await menu_command(msg)
+            msg.reply.assert_awaited_once()
+            button = msg.reply.call_args.kwargs[
+                "reply_markup"].inline_keyboard[0][0]
+            assert button.web_app is not None
 
     @pytest.mark.asyncio
     async def test_menu_url_from_settings(self):
@@ -78,3 +92,46 @@ class TestMenuCommand:
 
     def test_router_object_sane(self):
         assert menu_router.name == "menu"
+
+    def test_no_chat_type_filter(self):
+        """A: в обработчике /menu НЕТ фильтра F.chat.type — работает в группах."""
+        src = open("handlers/menu.py", encoding="utf-8").read()
+        assert "F.chat.type" not in src
+
+    @pytest.mark.asyncio
+    async def test_command_filter_matches_mention(self):
+        """Ревью: Command("menu") матчит и /menu, и /menu@username (группы с
+        privacy mode); чужой @username — НЕ матчит."""
+        from datetime import datetime, timezone
+        from aiogram.filters import Command
+        from aiogram.types import Chat, Message, User
+
+        def _real_msg(text):
+            return Message(
+                message_id=1,
+                date=datetime.now(timezone.utc),
+                chat=Chat(id=-100, type="supergroup"),
+                from_user=User(id=1, is_bot=False, first_name="x"),
+                text=text,
+            )
+
+        filt = Command("menu")
+        bot = MagicMock()
+        bot.username = "PERMsoc_bot"
+        bot.me = AsyncMock(return_value=User(
+            id=42, is_bot=True, first_name="PERM", username="PERMsoc_bot"))
+        assert await filt(_real_msg("/menu"), bot)
+        assert await filt(_real_msg("/menu@PERMsoc_bot"), bot)
+        assert not await filt(_real_msg("/menu@other_bot"), bot)
+        assert not await filt(_real_msg("/menu2"), bot)
+        assert not await filt(_real_msg("просто текст"), bot)
+
+    def test_theme_colors_in_miniapp(self):
+        """B: миниапп применяет Telegram.WebApp-тему (themeParams + фолбэки)."""
+        src = open("web/index.html", encoding="utf-8").read()
+        assert "Telegram.WebApp.setHeaderColor(" in src
+        assert "themeParams" in src
+        assert "setBackgroundColor(" in src
+        assert "setBottomBarColor" in src
+        assert "'#2b2b40'" in src          # фолбэк-палитра админки
+        assert "Telegram.WebApp.ready()" in src
