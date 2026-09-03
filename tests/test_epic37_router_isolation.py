@@ -82,7 +82,7 @@ def env(db, integration_cleanup):
     setup_summary(None, db, AliasResolver(""), bot_id=None)
 
     youtube_service = MagicMock()
-    youtube_service.summarize = AsyncMock(return_value="выжимка видоса")
+    youtube_service.summarize_cascade = AsyncMock(return_value="выжимка видоса")
     setup_youtube(youtube_service)
 
     web_service = MagicMock()
@@ -118,11 +118,11 @@ class TestRouterIsolation:
         sent = bot.send_message.await_args
         assert sent.args[1] == "выжимка видоса"
         assert sent.kwargs["reply_to_message_id"] == 11
-        youtube_service.summarize.assert_awaited_once()
-        assert youtube_service.summarize.await_args.args[0] == "dQw4w9WgXcQ"
-        assert "on_retry" in youtube_service.summarize.await_args.kwargs
-        assert youtube_service.summarize.await_args.kwargs["chat_id"] == CHAT_ID
-        assert youtube_service.summarize.await_args.kwargs["rag_query"] == f"{YT_URL} че за видос"
+        youtube_service.summarize_cascade.assert_awaited_once()
+        assert youtube_service.summarize_cascade.await_args.args[0] == "dQw4w9WgXcQ"
+        assert "on_retry" in youtube_service.summarize_cascade.await_args.kwargs
+        assert youtube_service.summarize_cascade.await_args.kwargs["chat_id"] == CHAT_ID
+        assert youtube_service.summarize_cascade.await_args.kwargs["rag_query"] == f"{YT_URL} че за видос"
         web_service.summarize.assert_not_awaited()
         relay.send_common.assert_not_awaited()
 
@@ -140,7 +140,7 @@ class TestRouterIsolation:
         web_service.summarize.assert_awaited_once_with(
             WEB_URL, chat_id=CHAT_ID, rag_query=f"{WEB_URL} выжимка"
         )
-        youtube_service.summarize.assert_not_awaited()
+        youtube_service.summarize_cascade.assert_not_awaited()
         relay.send_common.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -163,7 +163,7 @@ class TestRouterIsolation:
         await dp.feed_update(bot, Update(update_id=4, message=message))
 
         bot.send_message.assert_not_awaited()
-        youtube_service.summarize.assert_not_awaited()
+        youtube_service.summarize_cascade.assert_not_awaited()
         web_service.summarize.assert_not_awaited()
         relay.send_common.assert_not_awaited()
         rows = await db.get_smart_window(CHAT_ID, 0, 10)
@@ -175,13 +175,13 @@ class TestRouterIsolation:
         dp, bot, db, relay, youtube_service, web_service = env
         first_yt = _make_message(1, f"{YT_URL} че за видос", message_id=11)
         await dp.feed_update(bot, Update(update_id=5, message=first_yt))
-        assert youtube_service.summarize.await_count == 1
+        assert youtube_service.summarize_cascade.await_count == 1
 
         web_message = _make_message(1, f"{WEB_URL} выжимка", message_id=12)
         await dp.feed_update(bot, Update(update_id=6, message=web_message))
 
         assert web_service.summarize.await_count == 1   # web НЕ затроттлен
-        assert youtube_service.summarize.await_count == 1
+        assert youtube_service.summarize_cascade.await_count == 1
         sent_texts = [c.args[1] for c in bot.send_message.await_args_list]
         assert "выжимка статьи" in sent_texts
         assert not any(
@@ -199,7 +199,7 @@ class TestRouterIsolation:
         second_yt = _make_message(1, f"{YT_URL} че за видос", message_id=22)
         await dp.feed_update(bot, Update(update_id=8, message=second_yt))
 
-        assert youtube_service.summarize.await_count == 1  # сервис НЕ вызван 2-й раз
+        assert youtube_service.summarize_cascade.await_count == 1  # сервис НЕ вызван 2-й раз
         throttle_reply = bot.send_message.await_args
         assert throttle_reply.kwargs["reply_to_message_id"] == 22   # 5.1 → на ВЫЗОВ
         assert any(
@@ -216,5 +216,5 @@ class TestRouterIsolation:
 
         relay.send_common.assert_awaited_once()
         assert relay.send_common.await_args.kwargs["subdir"] == "danger"
-        youtube_service.summarize.assert_not_awaited()
+        youtube_service.summarize_cascade.assert_not_awaited()
         web_service.summarize.assert_not_awaited()

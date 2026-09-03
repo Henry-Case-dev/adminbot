@@ -140,7 +140,11 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
-            text_out = await _service.summarize(
+            # Эпик 04.09.2026 (3.2): каскад L1 (видео-модель) → L2 (запасная) →
+            # L3 (субтитры). Ошибки L1/L2 в хендлер НЕ приходят (молчаливая
+            # деградация внутри сервиса); try/except ниже покрывает только
+            # финальный провал ВСЕГО каскада (L3).
+            text_out = await _service.summarize_cascade(
                 video_id,
                 on_retry=_make_retry_notifier(bot, message.chat.id,
                                               target.message_id),

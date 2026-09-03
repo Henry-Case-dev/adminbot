@@ -72,6 +72,7 @@ from handlers.web import web_router, setup_web
 from services.web_content_extractor import WebContentExtractor
 from services.youtube_transcript_engine import YouTubeTranscriptEngine
 from services.youtube_summarizer_service import YoutubeSummarizerService
+from services.video_cascade_client import OpenRouterVideoClient
 from services.web_summarizer_service import WebSummarizerService
 from handlers.checkup import checkup_router, setup_checkup
 from services.checkup_service import CheckupService
@@ -230,7 +231,12 @@ async def on_startup():
         youtube_engine = YouTubeTranscriptEngine()
         _web_extractor = WebContentExtractor()
         _web_extractor.log_config()                         # WARNING пустых ключей (D104)
-        setup_youtube(YoutubeSummarizerService(youtube_engine, _llm_client, memory=memory), db)
+        # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
+        # video_url). Ключ пуст → video_client.available=False → ровно старое
+        # поведение (субтитры), WARNING в каскаде.
+        setup_youtube(YoutubeSummarizerService(
+            youtube_engine, _llm_client, memory=memory,
+            video_client=OpenRouterVideoClient()), db)
         setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory), db)
         logger.info("SmartModule YouTube + Web (Epic 37) initialized")
 

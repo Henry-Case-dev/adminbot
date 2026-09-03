@@ -727,6 +727,16 @@ class Settings:
     OPENROUTER_API_KEY: str = _env_str("OPENROUTER_API_KEY", "")
     OPENROUTER_TIMEOUT: float = _env_float("OPENROUTER_TIMEOUT", 15.0)
 
+    # ── Видео-выжимка (каскад OpenRouter video_url, эпик 04.09.2026) ──
+    # Модели, которые «смотрят» сам ролик: L1 первичная, L2 запасная,
+    # затем — старый путь субтитров (L3).
+    VIDEO_PRIMARY_MODEL: str = _env_str("VIDEO_PRIMARY_MODEL", "minimax/minimax-m3:free")
+    VIDEO_FALLBACK_MODEL: str = _env_str("VIDEO_FALLBACK_MODEL", "google/gemma-4-31b-it:free")
+    # Таймаут ОДНОГО мультимодального запроса видео (скачивание ролика +
+    # инференс free-моделью заметно дольше обычного чата; прецедент
+    # LLM_FALLBACK_TIMEOUT_SECONDS).
+    VIDEO_TIMEOUT_SECONDS: float = _env_float_min("VIDEO_TIMEOUT_SECONDS", 120.0, 5.0)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
 
