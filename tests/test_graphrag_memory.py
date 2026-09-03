@@ -502,8 +502,9 @@ def _fact(subject="Ozon", predicate="доставляет быстрее чем"
 
 
 def _backlog_fact_extract_prompt() -> str:
-    """Канон R46-2 из backlog (якорь «Канон R46-2 — промпт-экстрактор»)."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    """Канон R46-2 из plans/docs/canon/backlog.md
+    (якорь «Канон R46-2 — промпт-экстрактор»)."""
+    lines = Path("plans/docs/canon/backlog.md").read_text(encoding="utf-8").splitlines()
     start = next(
         i for i, line in enumerate(lines)
         if line.startswith("**Канон R46-2 — промпт-экстрактор")

@@ -9,26 +9,32 @@ from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT, SYSTEM_PRO
 
 
 def _backlog_system_prompt() -> str:
-    """Extract the verbatim prompt from plans/backlog.md Epic 29 (lines 1518-1539)."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
-    # Lines are 1-indexed: 1518..1539 (22 lines, R11 v4 — Epic 29;
-    # нумерация пунктов 1–6 — Epic 30/D90, T-230)
-    return "\n".join(lines[1517:1539])
+    """Extract the verbatim prompt from plans/docs/canon/backlog.md
+    (блок R11, бывш. backlog.md 1518–1539; якорь «### Системный промпт (R11»)."""
+    lines = Path("plans/docs/canon/backlog.md").read_text(encoding="utf-8").splitlines()
+    header = next(i for i, line in enumerate(lines)
+                  if line.startswith("### Системный промпт (R11"))
+    fence = next(i for i, line in enumerate(lines[header:], header)
+                 if line.strip() == "```")
+    end = next(i for i, line in enumerate(lines[fence + 1:], fence + 1)
+               if line.strip() == "```")
+    return "\n".join(lines[fence + 1:end])
 
 
 def _rag_instruction() -> str:
-    """Канон R46-4 — инструкция (VERBATIM из backlog, якорь «> «Если в блоке
-    <bot_knowledge>», strip «> « и «»»)."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    """Канон R46-4 — инструкция (VERBATIM из plans/docs/canon/backlog.md, якорь
+    «> «Если в блоке <bot_knowledge>», strip «> « и «»»)."""
+    lines = Path("plans/docs/canon/backlog.md").read_text(encoding="utf-8").splitlines()
     for line in lines:
         if line.startswith("> «Если в блоке <bot_knowledge>"):
             return line[len("> «"):][:-1]
-    raise AssertionError("канон R46-4 не найден в backlog")
+    raise AssertionError("канон R46-4 не найден в canon/backlog.md")
 
 
 def _arch_extract_prompt() -> str:
-    """Extract the verbatim EXTRACT_PROMPT from plans/ARCHITECTURE.md Section 35.3."""
-    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    """Extract the verbatim EXTRACT_PROMPT from plans/docs/canon/architecture.md
+    (блок EXTRACT_PROMPT, бывш. Section 35.3)."""
+    lines = Path("plans/docs/canon/architecture.md").read_text(encoding="utf-8").splitlines()
     start = next(i for i, line in enumerate(lines) if line.startswith("EXTRACT_PROMPT = "))
     end = next(
         i for i, line in enumerate(lines[start:], start) if line.endswith('"""')

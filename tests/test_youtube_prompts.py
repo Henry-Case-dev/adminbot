@@ -10,9 +10,9 @@ from services.youtube_prompts import YOUTUBE_SYSTEM_PROMPT
 
 
 def _arch_youtube_prompt() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 55.7.4 (эталон-блок; якорь
-    «## Section 55:» — ловушка «первого вхождения» D167)."""
-    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    """Эталон из plans/docs/canon/architecture.md (блок YOUTUBE_SYSTEM_PROMPT после
+    якоря «## Section 55:» — ловушка «первого вхождения» D167; бывш. Section 55.7.4)."""
+    lines = Path("plans/docs/canon/architecture.md").read_text(encoding="utf-8").splitlines()
     anchor = next(i for i, line in enumerate(lines) if line.startswith("## Section 55:"))
     start = next(
         i for i, line in enumerate(lines[anchor:], anchor)
@@ -28,13 +28,13 @@ def _arch_youtube_prompt() -> str:
 
 
 def _rag_instruction() -> str:
-    """Канон R46-4 — инструкция (VERBATIM из backlog, якорь «> «Если в блоке
-    <bot_knowledge>», strip «> « и «»»)."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    """Канон R46-4 — инструкция (VERBATIM из plans/docs/canon/backlog.md, якорь
+    «> «Если в блоке <bot_knowledge>», strip «> « и «»»)."""
+    lines = Path("plans/docs/canon/backlog.md").read_text(encoding="utf-8").splitlines()
     for line in lines:
         if line.startswith("> «Если в блоке <bot_knowledge>"):
             return line[len("> «"):][:-1]
-    raise AssertionError("канон R46-4 не найден в backlog")
+    raise AssertionError("канон R46-4 не найден в canon/backlog.md")
 
 
 EXPECTED_PROMPT = _arch_youtube_prompt()

@@ -10,9 +10,10 @@ from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
 
 
 def _arch_factcheck_prompt() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 72.1 (Epic 68; fenced ```text
-    блок после якоря «## Section 72» — ловушка «первого вхождения» D167)."""
-    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    """Эталон из plans/docs/canon/architecture.md (фенс-блок ```text после
+    якоря «## Section 72» — ловушка «первого вхождения» D167; бывш. Section 72.1,
+    Epic 68)."""
+    lines = Path("plans/docs/canon/architecture.md").read_text(encoding="utf-8").splitlines()
     anchor = next(i for i, line in enumerate(lines) if line.startswith("## Section 72"))
     fence_start = next(
         i for i, line in enumerate(lines[anchor:], anchor)
@@ -26,13 +27,13 @@ def _arch_factcheck_prompt() -> str:
 
 
 def _rag_instruction() -> str:
-    """Канон R46-4 — инструкция (VERBATIM из backlog, якорь «> «Если в блоке
-    <bot_knowledge>», strip «> « и «»»)."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    """Канон R46-4 — инструкция (VERBATIM из plans/docs/canon/backlog.md, якорь
+    «> «Если в блоке <bot_knowledge>», strip «> « и «»»)."""
+    lines = Path("plans/docs/canon/backlog.md").read_text(encoding="utf-8").splitlines()
     for line in lines:
         if line.startswith("> «Если в блоке <bot_knowledge>"):
             return line[len("> «"):][:-1]
-    raise AssertionError("канон R46-4 не найден в backlog")
+    raise AssertionError("канон R46-4 не найден в canon/backlog.md")
 
 
 EXPECTED_PROMPT = _arch_factcheck_prompt()

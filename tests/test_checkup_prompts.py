@@ -12,8 +12,9 @@ from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PRO
 
 
 def _arch_checkup_prompt() -> str:
-    """Эталон из plans/ARCHITECTURE.md Section 51.4 (эталон-блок)."""
-    lines = Path("plans/ARCHITECTURE.md").read_text(encoding="utf-8").splitlines()
+    """Эталон из plans/docs/canon/architecture.md (блок CHECKUP_SYSTEM_PROMPT,
+    бывш. Section 51.4)."""
+    lines = Path("plans/docs/canon/architecture.md").read_text(encoding="utf-8").splitlines()
     start = next(
         i for i, line in enumerate(lines) if line.startswith("CHECKUP_SYSTEM_PROMPT = ")
     )
@@ -27,8 +28,9 @@ def _arch_checkup_prompt() -> str:
 
 
 def _backlog_r42_6_prompt() -> str:
-    """Кросс-эталон: ячейка R42-6 плана (литеральные \\n → переносы строк)."""
-    lines = Path("plans/backlog.md").read_text(encoding="utf-8").splitlines()
+    """Кросс-эталон: ячейка R42-6 из plans/docs/canon/backlog.md
+    (литеральные \\n → переносы строк)."""
+    lines = Path("plans/docs/canon/backlog.md").read_text(encoding="utf-8").splitlines()
     line = next(l for l in lines if "| **R42-6** |" in l)
     payload = line.split("): `", 1)[1]
     assert payload.endswith("` |"), payload[-10:]
