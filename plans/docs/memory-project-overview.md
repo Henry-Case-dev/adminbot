@@ -29,8 +29,18 @@
 
 ## Открыто на человеке
 
-- F-3: ротация токена бота (BotFather /revoke), revoke GitHub PAT, приватизация репозитория, ротация ключей (T-665); username скам-сообщения → вердикт утечка/фейк (T-666).
+- F-3: username скам-сообщения → вердикт утечка/фейк (T-666).
 - F-2: контрольное открытие мини-аппа из Telegram ([tma-auth] valid=True role=admin).
 - F-4: живая проверка всех вкладок админки (десктоп/Android/Nekogram).
 - F-6: подтверждение эффекта алиасов в живом чате.
 - Ссылки на фичи: `features/scam-incident-security-followup/`, `features/admin-debug-webview/`, `features/frontend-admin-bugfixes/`, `features/user-aliases-admin/`.
+
+## Активный эпик (2026-09-04): мультимодальная саммаризация + Tool Calling + фиксы реакций + UX/UI админки
+
+- Воркфлоу OpenSpec (шаги 0–9). **Шаги 0–1 выполнены (04.09)**: Memory sync + планирование @PM — `plans/features/multimodal-summarization-tools-reactions-ui/tasks.md` (T1–T34), запись добавлена в `plans/backlog.md`; следующий шаг: @Architect → `spec.md`.
+- **Статус после Шага 3 (Memory sync, 04.09): Шаги 0–2 выполнены, дизайн готов** — `plans/features/multimodal-summarization-tools-reactions-ui/spec.md` (~672 стр., FR-1..FR-29, NFR-1..NFR-6, AC-1.x..AC-5.x) создан @Architect; KG обновлён (файловые сущности + relations); **далее: @Builder → реализация T1–T34**.
+- Часть 1 — каскадная мультимодальная выжимка видео: OpenRouter `video_url`, primary `minimax/minimax-m3:free`, fallback `google/gemma-4-31b-it:free`, затем фолбэк на субтитры.
+- Часть 2 — Tool Calling в подсервисе `smartmodule`: tools `execute_web_search`, `query_chat_memory`.
+- Часть 3 — фиксы реакций: тумблеры `reactions.vasya_enabled` / `reactions.kucha_enabled` (default `false`), `flags.mimic_enabled=false`, `reactions.alan_mimic_enabled=false`, `reactions.slavik_user_id`; переименование Alan → Леха.
+- Часть 4 — UX/UI рефакторинг Vue админки: группировка разделов, Key-Value редактор для `limits.summary_aliases`, нейминг Леха.
+- KG: сущность `epic: multimodal-summarization-tools-reactions-ui` + агенты (PM/Architect/Builder/Reviewer/DevOps/Memory), relations `assigned to`; observation на AdminBot.
