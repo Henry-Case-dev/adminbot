@@ -20,10 +20,22 @@ def _make_mock_settings(**kwargs):
         "DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "d_pages"
     )
     s.DEAD_PAGE_SOURCE_CHANNEL_ID = kwargs.get("DEAD_PAGE_SOURCE_CHANNEL_ID", 0)
+    s.KUCHA_ENABLED = kwargs.get("KUCHA_ENABLED", True)
     return s
 
 
 class TestKuchaHandler:
+    """Эпик 04.09.2026 (3.4.2): реакции.kucha_enabled включён — прежнее
+    поведение («ДАЛБАЕБ», уважение data-флага гифки)."""
+
+    @pytest.fixture(autouse=True)
+    def _kucha_enabled(self, monkeypatch):
+        import handlers.slavik as slavik_module
+        monkeypatch.setattr(
+            slavik_module, "settings",
+            _make_mock_settings(KUCHA_ENABLED=True),
+        )
+
     @pytest.mark.asyncio
     async def test_replies_dalbaeb(self, make_message):
         msg = make_message(479167456, text="КУЧА денег")
@@ -44,6 +56,35 @@ class TestKuchaHandler:
         msg = make_message(479167456, text="КУЧА денег")
         await kucha_handler(msg, data={})
         msg.reply.assert_called_once_with("ДАЛБАЕБ")
+
+
+class TestKuchaGateDisabled:
+    """Эпик 04.09.2026 (FR-18/FR-19): тумблер выключен (default false) →
+    UNHANDLED (для Славика — catch-all ниже по роутеру, для остальных —
+    тишина); «ДАЛБАЕБ» не шлётся, гифка Славика от тумблера не зависит."""
+
+    @pytest.fixture(autouse=True)
+    def _kucha_disabled(self, monkeypatch):
+        import handlers.slavik as slavik_module
+        monkeypatch.setattr(
+            slavik_module, "settings",
+            _make_mock_settings(KUCHA_ENABLED=False),
+        )
+
+    @pytest.mark.asyncio
+    async def test_kucha_disabled_silent(self, make_message):
+        msg = make_message(479167456, text="КУЧА денег")
+        result = await kucha_handler(msg)
+        assert result is UNHANDLED
+        msg.reply.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_kucha_disabled_ignores_gif_flag(self, make_message):
+        """Выключенный тумблер — раньше data-флага: даже с флагом молчит."""
+        msg = make_message(479167456, text="КУЧА денег")
+        result = await kucha_handler(msg, data={"slavik_gif_sent": True})
+        assert result is UNHANDLED
+        msg.reply.assert_not_called()
 
 
 class TestSlavikCatchall:
@@ -278,12 +319,15 @@ class TestSlavicPhotoHandler:
             slavik_module._db = original_db
 
     @pytest.mark.asyncio
-    async def test_kucha_handler_unaffected(self, make_message):
+    async def test_kucha_handler_unaffected(self, make_message, monkeypatch):
         """KUCHA handler should not depend on _db."""
         import handlers.slavik as slavik_module
         original_db = slavik_module._db
         slavik_module._db = None
         try:
+            monkeypatch.setattr(
+                slavik_module, "settings",
+                _make_mock_settings(KUCHA_ENABLED=True))
             msg = make_message(479167456, text="КУЧА денег")
             await kucha_handler(msg)
             msg.reply.assert_called_once_with("ДАЛБАЕБ")

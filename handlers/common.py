@@ -229,6 +229,21 @@ async def mimic_handler(message: types.Message) -> None:
     """Mimic feature: if victim wrote >N words and cooldown elapsed → mimic reply."""
     if not _VICTIM_IDS:  # disabled
         return
+    # ── Эпик 04.09.2026 (3.4.3): гейты мимикрии — ПОСЛЕ проверки списка жертв,
+    # ДО проверок репоста/relay. flags.mimic_enabled — глобальный рубильник
+    # common-мимикрии (славячий mimic в handlers/slavik.py им НЕ управляется);
+    # reactions.alan_mimic_enabled — дополнительное разрешение на Леху (нужны
+    # ОБА флага; других жертв не касается).
+    user_id = message.from_user.id if message.from_user else 0
+    if not hot.get("flags.mimic_enabled", settings.MIMIC_ENABLED):
+        logger.debug("mimic: disabled (flags.mimic_enabled=False) | user=%s",
+                     user_id)
+        return UNHANDLED
+    alan_user_id = hot.get("reactions.alan_user_id", settings.ALAN_USER_ID)
+    if user_id == alan_user_id and not hot.get(
+            "reactions.alan_mimic_enabled", settings.ALAN_MIMIC_ENABLED):
+        logger.debug("mimic: alan-mimic disabled | user=%s", user_id)
+        return UNHANDLED
     # ── D52 (Epic 22): репосты не передразниваем (если не включено явно) ──
     if message.forward_origin is not None and not hot.get("flags.mimic_forwards_enabled", settings.MIMIC_FORWARDS_ENABLED):
         logger.debug(

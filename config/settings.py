@@ -278,6 +278,16 @@ class Settings:
     # Cooldown in seconds between Slavik mimic replies (per chat).
     SLAVIK_MIMIC_COOLDOWN: float = _env_duration("SLAVIK_MIMIC_COOLDOWN", "60s")
 
+    # ── Реакции-тумблеры (эпик 04.09.2026, default false — безопасный деплой) ──
+    # «Вася → АДМИН / админ → ВАСЯ» (handlers/vasya.py).
+    VASYA_ENABLED: bool = _env_bool("VASYA_ENABLED", False)
+    # «куча → ДАЛБАЕБ» (handlers/slavik.py kucha_handler).
+    KUCHA_ENABLED: bool = _env_bool("KUCHA_ENABLED", False)
+    # Глобальный рубильник мимикрии common (НЕ трогает славячий mimic в slavik.py).
+    MIMIC_ENABLED: bool = _env_bool("MIMIC_ENABLED", False)
+    # Дополнительное разрешение мимикрии именно на Леху (нужны оба флага).
+    ALAN_MIMIC_ENABLED: bool = _env_bool("ALAN_MIMIC_ENABLED", False)
+
     # ── Olya service (Epic 19) ──────────────────────────────────────────
     OLYA_ENABLED: bool = _env_bool("OLYA_ENABLED", True)
     OLYA_USER_ID: int = _env_int("OLYA_USER_ID", 834424825)

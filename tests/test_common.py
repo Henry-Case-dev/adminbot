@@ -1314,7 +1314,11 @@ class TestCommonRelayDualCooldown:
 
 
 class TestMimicForwardsGate:
-    """D52 (Epic 22): mimic_handler skips forwarded messages unless enabled."""
+    """D52 (Epic 22): mimic_handler skips forwarded messages unless enabled.
+
+    Эпик 04.09.2026 (3.4.3): флаг flags.mimic_enabled (default false) —
+    рубильник включён в фикстуре (жертва 111 ≠ Леха: alan-тумблер не нужен).
+    """
 
     @pytest.fixture(autouse=True)
     def _reset(self):
@@ -1326,18 +1330,20 @@ class TestMimicForwardsGate:
         mock_relay.send_mimic = AsyncMock()
         mock_relay.mark_sent = MagicMock()
         setup_common_mimic(mock_relay)
-        yield common_mod, mock_relay
+        mod = replace(settings, MIMIC_ENABLED=True, ALAN_MIMIC_ENABLED=True)
+        yield common_mod, mock_relay, mod
         setup_common_mimic(None)
         common_mod._VICTIM_IDS = original_ids
 
     @pytest.mark.asyncio
     async def test_forwarded_off_returns_unhandled(self, _reset):
         """forwarded + MIMIC_FORWARDS_ENABLED=False (default) → UNHANDLED, no mimic."""
-        common_mod, mock_relay = _reset
+        common_mod, mock_relay, mod = _reset
         msg = make_message(text="раз два три четыре пять шесть", from_id=111)
         msg.forward_origin = MagicMock()
 
-        result = await mimic_handler(msg)
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(msg)
 
         assert result is UNHANDLED
         mock_relay.send_mimic.assert_not_called()
@@ -1345,11 +1351,12 @@ class TestMimicForwardsGate:
     @pytest.mark.asyncio
     async def test_ordinary_message_mimics(self, _reset):
         """Ordinary (not forwarded) message → mimic works as before."""
-        common_mod, mock_relay = _reset
+        common_mod, mock_relay, mod = _reset
         msg = make_message(text="раз два три четыре пять шесть", from_id=111)
         msg.forward_origin = None
 
-        result = await mimic_handler(msg)
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(msg)
 
         assert result is UNHANDLED
         mock_relay.send_mimic.assert_called_once()
@@ -1357,8 +1364,8 @@ class TestMimicForwardsGate:
     @pytest.mark.asyncio
     async def test_forwarded_on_mimics(self, _reset):
         """forwarded + MIMIC_FORWARDS_ENABLED=True → mimic fires."""
-        common_mod, mock_relay = _reset
-        mod = replace(settings, MIMIC_FORWARDS_ENABLED=True)
+        common_mod, mock_relay, mod = _reset
+        mod = replace(mod, MIMIC_FORWARDS_ENABLED=True)
         msg = make_message(text="раз два три четыре пять шесть", from_id=111)
         msg.forward_origin = MagicMock()
 
@@ -1371,8 +1378,8 @@ class TestMimicForwardsGate:
     @pytest.mark.asyncio
     async def test_forwarded_on_without_content_skips(self, _reset):
         """forwarded + enabled but no text/caption → skip, no send."""
-        common_mod, mock_relay = _reset
-        mod = replace(settings, MIMIC_FORWARDS_ENABLED=True)
+        common_mod, mock_relay, mod = _reset
+        mod = replace(mod, MIMIC_FORWARDS_ENABLED=True)
         msg = make_message(text=None, caption=None, from_id=111)
         msg.forward_origin = MagicMock()
 
@@ -1381,6 +1388,73 @@ class TestMimicForwardsGate:
 
         assert result is None
         mock_relay.send_mimic.assert_not_called()
+
+
+class TestMimicGateFlags:
+    """Эпик 04.09.2026 (3.4.3): flags.mimic_enabled (глобальный рубильник
+    common-мимикрии) + reactions.alan_mimic_enabled (доп. разрешение на Леху;
+    для Лехи нужны ОБА флага, других жертв тумблер не касается)."""
+
+    @pytest.fixture(autouse=True)
+    def _reset(self):
+        import handlers.common as common_mod
+        original_ids = common_mod._VICTIM_IDS
+        common_mod._VICTIM_IDS = [111, settings.ALAN_USER_ID]
+        mock_relay = MagicMock()
+        mock_relay.should_trigger = MagicMock(return_value=True)
+        mock_relay.send_mimic = AsyncMock()
+        mock_relay.mark_sent = MagicMock()
+        setup_common_mimic(mock_relay)
+        yield common_mod, mock_relay
+        setup_common_mimic(None)
+        common_mod._VICTIM_IDS = original_ids
+
+    def _msg(self, from_id: int):
+        msg = make_message(text="раз два три четыре пять шесть", from_id=from_id)
+        msg.forward_origin = None
+        return msg
+
+    @pytest.mark.asyncio
+    async def test_mimic_disabled_silent_for_any_victim(self, _reset):
+        """flags.mimic_enabled=False (default) → UNHANDLED, никого не
+        передразнивает (в т.ч. Леху)."""
+        common_mod, mock_relay = _reset
+        mod = replace(settings, MIMIC_ENABLED=False, ALAN_MIMIC_ENABLED=True)
+        with patch.object(common_mod, "settings", mod):
+            for victim in (111, settings.ALAN_USER_ID):
+                result = await mimic_handler(self._msg(victim))
+                assert result is UNHANDLED
+        mock_relay.send_mimic.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_alan_mimic_needs_both_flags(self, _reset):
+        """Жертва = Леха: mimic_enabled=True + alan_mimic_enabled=False →
+        UNHANDLED (нужны ОБА флага)."""
+        common_mod, mock_relay = _reset
+        mod = replace(settings, MIMIC_ENABLED=True, ALAN_MIMIC_ENABLED=False)
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(self._msg(settings.ALAN_USER_ID))
+        assert result is UNHANDLED
+        mock_relay.send_mimic.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_alan_mimic_with_both_flags_fires(self, _reset):
+        common_mod, mock_relay = _reset
+        mod = replace(settings, MIMIC_ENABLED=True, ALAN_MIMIC_ENABLED=True)
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(self._msg(settings.ALAN_USER_ID))
+        assert result is UNHANDLED
+        mock_relay.send_mimic.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_other_victim_does_not_need_alan_flag(self, _reset):
+        """Жертва ≠ Леха: достаточно flags.mimic_enabled."""
+        common_mod, mock_relay = _reset
+        mod = replace(settings, MIMIC_ENABLED=True, ALAN_MIMIC_ENABLED=False)
+        with patch.object(common_mod, "settings", mod):
+            result = await mimic_handler(self._msg(111))
+        assert result is UNHANDLED
+        mock_relay.send_mimic.assert_called_once()
 
 
 # ═══════════════════════════════════════════════════════════════════

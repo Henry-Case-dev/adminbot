@@ -153,6 +153,13 @@ async def kucha_handler(message: types.Message, data: dict | None = None):
     # уже ушла (data-флаг от миддлвари), ДАЛБАЕБ не шлём.
     if (data or {}).get("slavik_gif_sent"):
         return UNHANDLED
+    # Эпик 04.09.2026 (3.4.2): тумблер reactions.kucha_enabled (default false).
+    # Выключен → UNHANDLED: славячий юзер уйдёт в catch-all (mimic/«пошёл
+    # нахуй»), остальные — тишина; гифка Славика от тумблера НЕ зависит.
+    if not hot.get("reactions.kucha_enabled", settings.KUCHA_ENABLED):
+        logger.info("kucha: disabled (reactions.kucha_enabled=False) | chat=%s",
+                    message.chat.id)
+        return UNHANDLED
     await message.reply("ДАЛБАЕБ")
 
 

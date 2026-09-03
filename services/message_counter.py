@@ -41,6 +41,13 @@ class MessageCounterMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         user_id = event.from_user.id
+        # Эпик 04.09.2026 (3.4.4): slavic_chlen.mp4 — строго Славику. Чужой
+        # счёт не тикает и гифка не шлётся; data-флаг "slavik_gif_sent"
+        # ставится только при фактической отправке Славику (hot.get — фолбек
+        # settings, как остальные горячие точки этого роутера).
+        slavik_id = hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)
+        if user_id != slavik_id:
+            return await handler(event, data)
         chat_id = event.chat.id
 
         new_count = await self.db.increment_and_get_count(chat_id, user_id)

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from config.settings import settings
+from services import hot_config as hot
 from services.message_counter import MessageCounterMiddleware
 from services.database import DatabaseService
 
@@ -352,3 +353,78 @@ class TestMessageCounterMiddleware:
 
         event.answer_animation.assert_not_called()
         assert "slavik_gif_sent" not in data
+
+    # ── Эпик 04.09.2026 (3.4.4): slavic_chlen.mp4 — строго Славику ──
+
+    @pytest.mark.asyncio
+    async def test_non_slavik_no_increment_no_gif(self):
+        """Не-Славик: счётчик НЕ тикает, гифка НЕ шлётся (даже на интервале),
+        data-флаг не ставится — гейт ДО инкремента."""
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        middleware = MessageCounterMiddleware(mock_db)
+        event = _make_event()
+        event.from_user.id = 111222333          # НЕ славик (479167456)
+        handler = AsyncMock(return_value="done")
+        data = {}
+
+        result = await middleware(handler, event, data)
+
+        mock_db.increment_and_get_count.assert_not_called()
+        event.answer_animation.assert_not_called()
+        handler.assert_called_once_with(event, data)
+        assert result == "done"
+        assert "slavik_gif_sent" not in data
+
+    @pytest.mark.asyncio
+    async def test_non_slavik_even_on_interval_boundary_no_gif(self, tmp_path):
+        """Не-Славик на границе интервала (count=5 при interval=5): гифки нет."""
+        gif_file = tmp_path / "slavic_chlen.mp4"
+        gif_file.write_bytes(b"fake")
+        mod = _patched_settings(GIF_PATH=str(gif_file), GIF_INTERVAL=5)
+
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        with patch("services.message_counter.settings", mod):
+            middleware = MessageCounterMiddleware(mock_db)
+
+        event = _make_event()
+        event.from_user.id = 111222333
+        data = {}
+        await middleware(AsyncMock(return_value="done"), event, data)
+
+        mock_db.increment_and_get_count.assert_not_called()
+        event.answer_animation.assert_not_called()
+        assert "slavik_gif_sent" not in data
+
+    @pytest.mark.asyncio
+    async def test_slavik_user_id_hot_override_gate(self, tmp_path):
+        """Славик определяется горячей точкой reactions.slavik_user_id:
+        кастомизированный ID НЕ получает гифку, пока славиком не назначен."""
+        gif_file = tmp_path / "slavic_chlen.mp4"
+        gif_file.write_bytes(b"fake")
+        mod = _patched_settings(GIF_PATH=str(gif_file), GIF_INTERVAL=5,
+                                SLAVIK_USER_ID=479167456)
+
+        mock_db = AsyncMock(spec=DatabaseService)
+        mock_db.increment_and_get_count = AsyncMock(return_value=5)
+
+        class _FakeCache:
+            def get(self, key, default):
+                return 777888999 if key == "reactions.slavik_user_id" else default
+
+        old_cache = hot.get_config_cache()
+        hot.set_config_cache(_FakeCache())
+        try:
+            with patch("services.message_counter.settings", mod):
+                middleware = MessageCounterMiddleware(mock_db)
+            event = _make_event()               # дефолт славик 479167456
+            event.from_user.id = 777888999      # «настоящий» славик по каталогу
+            await middleware(AsyncMock(return_value="done"), event, {})
+            mock_db.increment_and_get_count.assert_called_once_with(
+                -100123, 777888999)
+            event.answer_animation.assert_called_once()
+        finally:
+            hot.set_config_cache(old_cache)
