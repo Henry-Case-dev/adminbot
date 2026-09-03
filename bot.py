@@ -269,6 +269,11 @@ async def on_startup():
             throttle = PersistentThrottle(
                 hot.get("limits.chat_burst_limit", settings.CHAT_BURST_LIMIT), hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
                 "direct_chat", db)
+        # Эпик 04.09.2026 (3.3, FR-17): инструменты только в direct_chat —
+        # поиск через SearchAggregator, память через MemoryManager.
+        from services.tool_router import ToolDeps, ToolRouter
+        _tool_router = ToolRouter(ToolDeps(
+            search=_search_aggregator, memory=memory, aliases=aliases))
         setup_direct_chat(
             DirectChatService(
                 memory, db, _llm_client, aliases,
@@ -278,6 +283,7 @@ async def on_startup():
                 # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд
                 # (smart_cache, slug direct_dedup; рубильник CHAT_DEDUP_ENABLED).
                 cache=get_smart_cache(),
+                tool_router=_tool_router,
             ),
             bot.id,
             (getattr(bot_user, "username", None) or "").lower(),

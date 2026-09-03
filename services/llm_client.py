@@ -22,6 +22,8 @@ import random
 import re
 import time
 
+from dataclasses import dataclass
+
 import httpx
 
 from config.settings import settings
@@ -115,6 +117,31 @@ class LLMTransportError(LLMError):
 
 class LLMBadResponseError(LLMError):
     """Malformed JSON or missing content in a 2xx response."""
+
+
+# ── Эпик 04.09.2026 (3.3): результат generate_chat (Tool Calling) ──────────
+
+@dataclass(frozen=True)
+class LLMToolCall:
+    """Один tool_call из ответа модели (3.3)."""
+
+    id: str            # tool_call_id для role:"tool"
+    name: str
+    arguments: str     # JSON-строка аргументов (парсит исполнитель)
+
+    def as_openai_dict(self) -> dict:
+        """Сериализация для повторного запроса (assistant.tool_calls)."""
+        return {"id": self.id, "type": "function",
+                "function": {"name": self.name, "arguments": self.arguments}}
+
+
+@dataclass(frozen=True)
+class LLMChatResult:
+    """Разобранный ответ /chat/completions (generate_chat)."""
+
+    content: str | None        # текст финального ответа (None при tool_calls)
+    tool_calls: list[LLMToolCall] | None
+    finish_reason: str | None
 
 
 class LLMClient:
@@ -449,6 +476,9 @@ class LLMClient:
         Epic 53 (62.4): при LLMError primary (кроме LLMBadResponseError) и
         активном фоллбэке — 1 попытка на фоллбэке; фейл фоллбэка → проброс
         ИСХОДНОГО исключения primary (CB-классификация работает по классу).
+
+        Эпик 04.09.2026 (3.3): контракт {model, messages[, temperature]}
+        НЕ меняется — tools уходят ТОЛЬКО новым generate_chat (FR-10).
         """
         payload = {"model": self._chat_model, "messages": messages}
         if temperature is not None:
@@ -480,6 +510,86 @@ class LLMClient:
             "LLM generate OK | model=%s | out_chars=%d", self._chat_model, len(content)
         )
         return content
+
+    async def generate_chat(self, messages, *, temperature: float | None = None,
+                            tools: list[dict] | None = None,
+                            tool_choice: str | dict = "auto") -> "LLMChatResult":
+        """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
+
+        Контракт {model, messages}: температура — как в generate (None →
+        ключа нет); tools/tool_choice добавляются в payload ТОЛЬКО когда
+        tools передан. Ретраи/фоллбэк _post/_fallback_with_retries — как в
+        generate (payload сквозной). Парсинг: content (может быть None при
+        tool_calls) + tool_calls + finish_reason. Легаси generate() НЕ
+        меняется (0 регрессий, FR-10/AC-2.1).
+        """
+        payload = {"model": self._chat_model, "messages": messages}
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if tools is not None:
+            payload["tools"] = tools
+            payload["tool_choice"] = tool_choice
+        try:
+            response = await self._post("/chat/completions", payload)
+        except LLMError as exc:
+            if not self._fallback_active or isinstance(exc, LLMBadResponseError):
+                raise
+            logger.warning("LLM fallback attempt | primary_error=%s", exc)
+            fb_response = await self._fallback_with_retries(payload)
+            if fb_response is None:
+                raise exc from None
+            response = fb_response
+            logger.warning("LLM fallback OK | model=%s", self._fallback_model)
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise LLMBadResponseError("chat/completions: invalid JSON response") from exc
+        try:
+            choice = data["choices"][0]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMBadResponseError(
+                "chat/completions: no choices[0] in response"
+            ) from exc
+        message = choice.get("message") or {}
+        content = message.get("content")
+        tool_calls = None
+        raw_calls = message.get("tool_calls")
+        if raw_calls:
+            parsed = []
+            for call in raw_calls:
+                try:
+                    function = call.get("function") or {}
+                    name = str(function.get("name", "") or "").strip()
+                    if not name:
+                        logger.warning(
+                            "LLM generate_chat: malformed tool_call skipped | model=%s",
+                            self._chat_model)
+                        continue
+                    parsed.append(LLMToolCall(
+                        id=str(call.get("id", "")),
+                        name=name,
+                        arguments=str(function.get("arguments", "") or ""),
+                    ))
+                except (KeyError, TypeError, AttributeError):
+                    logger.warning(
+                        "LLM generate_chat: malformed tool_call skipped | model=%s",
+                        self._chat_model)
+            if parsed:
+                tool_calls = parsed
+        if content is None and not tool_calls:
+            raise LLMBadResponseError("chat/completions: empty content (no tool_calls)")
+        logger.info(
+            "LLM generate_chat OK | model=%s | out_chars=%s | tool_calls=%d",
+            self._chat_model,
+            len(str(content)) if content is not None else "-",
+            len(tool_calls) if tool_calls else 0,
+        )
+        content_text = content if (isinstance(content, str) and content.strip()) else None
+        return LLMChatResult(
+            content=content_text,
+            tool_calls=tool_calls,
+            finish_reason=choice.get("finish_reason"),
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """POST /embeddings → data[i].embedding. Raises LLMError on any failure (R3).

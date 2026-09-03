@@ -208,7 +208,7 @@ def _thread_row(tg_id, user_id=10, author_name="вася", text="сообщен�
 
 def _make_service(memory=None, db=None, llm=None, aliases=None, throttle=None,
                   bot_id=12345, bot_username="test_bot", breaker=None,
-                  cache=None):
+                  cache=None, tool_router=None):
     return DirectChatService(
         memory or FakeMemory(),
         db or FakeDB(),
@@ -219,6 +219,7 @@ def _make_service(memory=None, db=None, llm=None, aliases=None, throttle=None,
         bot_username=bot_username,
         breaker=breaker,
         cache=cache,
+        tool_router=tool_router,
     )
 
 
@@ -1795,6 +1796,95 @@ class TestHandleDedup:
         await service.handle(bot, _message(text="спам", message_id=2), _user())
         assert llm.call_count == 1                 # до дедупа слои не дошли
         assert bot.send_message.await_count > before   # cooldown-фраза R50-7
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Эпик 04.09.2026 (3.3, FR-17): direct_chat с настроенным tool_router —
+# цикл chat_with_tools вместо generate; tool_router=None — старое поведение.
+# ═══════════════════════════════════════════════════════════════════
+
+
+class _ToolsLLM:
+    """FakeLLM + generate_chat: первый вызов отдаёт tool_calls, второй — текст."""
+
+    def __init__(self, final_text="итоговый ответ"):
+        self.final_text = final_text
+        self.call_count = 0
+        self.seen_tools = None
+
+    async def generate_chat(self, messages, *, temperature=None, tools=None,
+                            tool_choice="auto"):
+        self.call_count += 1
+        self.seen_tools = tools
+        if self.call_count == 1:
+            from services.llm_client import LLMChatResult, LLMToolCall
+            return LLMChatResult(
+                content=None,
+                tool_calls=[LLMToolCall(id="call_1", name="execute_web_search",
+                                        arguments='{"query": "новости"}')],
+                finish_reason="tool_calls")
+        from services.llm_client import LLMChatResult
+        return LLMChatResult(content=self.final_text, tool_calls=None,
+                             finish_reason="stop")
+
+    async def generate(self, messages, temperature=None):
+        raise AssertionError("generate не должен зваться при живом tools-цикле")
+
+
+class _FakeToolRouter:
+    def __init__(self):
+        self.calls = []
+
+    async def dispatch(self, name, arguments, ctx):
+        self.calls.append((name, arguments, ctx.chat_id))
+        return "данные поиска"
+
+
+class TestDirectChatToolCalling:
+    @pytest.mark.asyncio
+    async def test_tool_router_enabled_runs_loop_and_replies(self, fake_time):
+        """Настроенный tool_router → chat_with_tools: инструмент отработал,
+        финальный текст ушёл юзеру обычным reply."""
+        llm = _ToolsLLM(final_text="вот данные: новости такие")
+        router = _FakeToolRouter()
+        memory = FakeMemory(window=[])
+        service = _make_service(memory=memory, llm=llm, tool_router=router)
+        bot = _bot()
+        msg = _message(text="бот, загугли новости", message_id=77)
+        await service.handle(bot, msg, msg.from_user)
+        assert router.calls == [("execute_web_search", {"query": "новости"},
+                                 CHAT_ID)]
+        assert llm.call_count == 2                    # tools-раунд + финал
+        assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
+        assert bot.send_message.await_args.args[1] == "вот данные: новости такие"
+
+    @pytest.mark.asyncio
+    async def test_tool_router_none_plain_generate(self, fake_time):
+        """tool_router=None → старый вызов generate (без tools): ровно одно
+        обращение к модели, инструменты не объявляются."""
+        llm = FakeLLM(text="обычный ответ")
+        service = _make_service(llm=llm)              # tool_router=None
+        bot = _bot()
+        await service.handle(bot, _message(message_id=1), _user())
+        assert llm.call_count == 1
+        assert bot.send_message.await_args.args[1] == "обычный ответ"
+
+    @pytest.mark.asyncio
+    async def test_tool_round_failure_sends_error_phrase(self, fake_time):
+        """Сбой LLM во время tools-раунда → существующая фраза CHAT_ERROR_PHRASES
+        (классы ошибок те же; юзер не видит деталей инструментов)."""
+
+        class _FailingToolsLLM(_ToolsLLM):
+            async def generate_chat(self, messages, *, temperature=None,
+                                    tools=None, tool_choice="auto"):
+                from services.llm_client import LLMServerError
+                raise LLMServerError("LLM server error 503 after 3 attempts: u")
+
+        service = _make_service(llm=_FailingToolsLLM(),
+                                tool_router=_FakeToolRouter())
+        bot = _bot()
+        await service.handle(bot, _message(message_id=1), _user())
+        assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
 
 
 def sync_fire_forget_helper(tasks):

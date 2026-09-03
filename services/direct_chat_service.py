@@ -66,6 +66,9 @@ from services.token_counter import (
     safe_budget,
     truncate_to_tokens,
 )
+from services.tool_loop import chat_with_tools
+from services.tool_router import ToolContext
+from services.tool_schemas import TOOL_CALLING_TOOLS
 from services.typing_manager import typing_active
 
 logger = logging.getLogger(__name__)
@@ -111,11 +114,15 @@ class DirectChatService:
 
     def __init__(self, memory, db, llm, aliases, throttle=None,
                  bot_id: int | None = None, bot_username: str | None = None,
-                 breaker=None, cache=None) -> None:
+                 breaker=None, cache=None, tool_router=None) -> None:
         self.memory = memory
         self.db = db
         self.llm = llm
         self.aliases = aliases
+        # Эпик 04.09.2026 (3.3, FR-17): tool_router=None → ровно старое
+        # поведение (generate без tools); настроен — диалог идёт через
+        # chat_with_tools (цикл tool_calls, финальный текст как обычно).
+        self.tool_router = tool_router
         self.throttle = throttle or DirectChatThrottle(
             hot.get("limits.chat_burst_limit", settings.CHAT_BURST_LIMIT), hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS))
         self.bot_id = bot_id
@@ -307,9 +314,20 @@ class DirectChatService:
             temperature = settings.tone_temperature(
                 await self._get_tone_preset(chat_id, user_id))
             # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки, без паузы.
+            # Эпик 04.09.2026 (3.3): при настроенном tool_router генерация идёт
+            # циклом chat_with_tools (модель сама решает вызвать инструменты);
+            # ошибки/пустые финалы — те же классы, ветки except ниже без правок.
             try:
                 async with typing_active(bot, chat_id):
-                    raw = await self.llm.generate(payload, temperature=temperature)
+                    if self.tool_router is not None:
+                        raw = await chat_with_tools(
+                            self.llm, payload, tools=TOOL_CALLING_TOOLS,
+                            router=self.tool_router,
+                            ctx=ToolContext(chat_id, query),
+                            temperature=temperature)
+                    else:
+                        raw = await self.llm.generate(payload,
+                                                      temperature=temperature)
             except LLMBadResponseError as exc:
                 # Epic 60 (65.1, T-469): модель ЖИВА, но ответила пустым →
                 # молчание + 🗿 (НЕ R13-фраза, НЕ заглушка). Ветка ДО

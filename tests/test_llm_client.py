@@ -1198,3 +1198,150 @@ class TestEpic60UsageLog:
             vectors = await client.embed(["текст"])
         assert vectors == [[0.1, 0.2]]
         assert any("LLM usage in=7 out=0" in r.message for r in caplog.records)
+
+
+# ── Эпик 04.09.2026 (3.3, AC-2.1): generate_chat — tools/tool_choice в
+# payload, парсинг content + tool_calls; легаси generate() без изменений. ──
+
+
+class TestGenerateChat:
+    def _handler(self, seen):
+        def handler(request):
+            seen["payload"] = json.loads(request.content)
+            return httpx.Response(200, json=seen["response"], request=request)
+
+        return handler
+
+    @pytest.mark.asyncio
+    async def test_tools_and_tool_choice_in_payload(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {"content": "финал"}}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        tools = [{"type": "function",
+                  "function": {"name": "execute_web_search"}}]
+        result = await client.generate_chat(
+            [{"role": "user", "content": "q"}],
+            tools=tools, tool_choice="auto")
+        assert result.content == "финал"
+        assert result.tool_calls is None
+        assert seen["payload"]["tools"] == tools
+        assert seen["payload"]["tool_choice"] == "auto"
+        assert seen["payload"]["model"] == "chat-model"
+
+    @pytest.mark.asyncio
+    async def test_no_tools_no_tool_keys_in_payload(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {"content": "ок"}}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        result = await client.generate_chat([{"role": "user", "content": "q"}])
+        assert result.content == "ок"
+        assert "tools" not in seen["payload"]
+        assert "tool_choice" not in seen["payload"]
+
+    @pytest.mark.asyncio
+    async def test_temperature_none_not_added(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {"content": "ок"}}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        await client.generate_chat([{"role": "user", "content": "q"}],
+                                   tools=[{"type": "function"}])
+        assert "temperature" not in seen["payload"]
+
+    @pytest.mark.asyncio
+    async def test_parses_tool_calls(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {
+            "content": None,
+            "tool_calls": [{"id": "call_1", "type": "function",
+                            "function": {"name": "execute_web_search",
+                                         "arguments": '{"query": "x"}'}}],
+        }, "finish_reason": "tool_calls"}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        result = await client.generate_chat(
+            [{"role": "user", "content": "q"}], tools=[{"type": "function"}])
+        assert result.content is None
+        assert result.finish_reason == "tool_calls"
+        assert result.tool_calls and len(result.tool_calls) == 1
+        tc = result.tool_calls[0]
+        assert tc.id == "call_1"
+        assert tc.name == "execute_web_search"
+        assert tc.arguments == '{"query": "x"}'
+        assert tc.as_openai_dict()["id"] == "call_1"
+
+    @pytest.mark.asyncio
+    async def test_parses_tool_calls_with_text_content(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {
+            "content": "сначала мысль",
+            "tool_calls": [{"id": "call_1", "type": "function",
+                            "function": {"name": "query_chat_memory",
+                                         "arguments": "{}"}}],
+        }}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        result = await client.generate_chat(
+            [{"role": "user", "content": "q"}], tools=[{"type": "function"}])
+        assert result.content == "сначала мысль"
+        assert result.tool_calls and len(result.tool_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_content_no_tool_calls_raises(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {"content": None}}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        with pytest.raises(LLMBadResponseError):
+            await client.generate_chat(
+                [{"role": "user", "content": "q"}],
+                tools=[{"type": "function"}])
+
+    @pytest.mark.asyncio
+    async def test_malformed_tool_call_skipped(self, monkeypatch):
+        seen = {}
+        seen["response"] = {"choices": [{"message": {
+            "content": None,
+            "tool_calls": [{"id": "call_1", "type": "function",
+                            "function": {"name": "x", "arguments": "{}"}},
+                           {"id": "call_2"}]}}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        result = await client.generate_chat(
+            [{"role": "user", "content": "q"}], tools=[{"type": "function"}])
+        assert result.tool_calls and len(result.tool_calls) == 1
+        assert result.tool_calls[0].id == "call_1"
+
+    @pytest.mark.asyncio
+    async def test_generate_unchanged_with_tools_available(self, monkeypatch):
+        """0-регрессий: generate() не кладёт tools, даже если клиент умеет
+        generate_chat (разные методы, общий _post)."""
+        seen = {}
+        seen["response"] = {"choices": [{"message": {"content": "ок"}}]}
+        client = _make_client(self._handler(seen), monkeypatch)
+        text = await client.generate([{"role": "user", "content": "q"}])
+        assert text == "ок"
+        assert "tools" not in seen["payload"]
+        assert "tool_choice" not in seen["payload"]
+
+    @pytest.mark.asyncio
+    async def test_generate_chat_uses_fallback_on_5xx(self, monkeypatch, caplog):
+        """generate_chat повторяет фоллбэк-контракт generate (62.4)."""
+        import logging
+        state = {"n": 0, "fb": 0}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                state["fb"] += 1
+                return httpx.Response(
+                    200,
+                    json={"choices": [{"message": {"content": "ответ фоллбэка"}}]},
+                    request=request)
+            state["n"] += 1
+            return httpx.Response(502, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=0,
+                              fallback_base_url="https://fallback.test/v1",
+                              fallback_model="fb-model",
+                              fallback_api_key="fb-key")
+        with caplog.at_level(logging.WARNING):
+            result = await client.generate_chat(
+                [{"role": "user", "content": "q"}],
+                tools=[{"type": "function"}])
+        assert result.content == "ответ фоллбэка"
+        assert state["fb"] == 1
