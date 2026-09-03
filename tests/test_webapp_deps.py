@@ -540,9 +540,13 @@ class TestFrontFixes:
 
     def test_grouping_logic_present(self):
         """84.24: фронт группирует параметры по item.group с порядком из
-        groups[]; параметры без группы — «Прочее» в конце."""
+        groups[]; параметры без группы — «Прочее» в конце. После рефакторинга
+        T25/3.5.1 пять категорийных шаблонов схлопнуты: группировка живёт в
+        groupedForTab() (+ tabSourceForItem для правил sources вкладки) под
+        generic-рендером index.html по currentTabGroups — проверяем его."""
         src = open("web/app.js", encoding="utf-8").read()
-        assert "groupedByCategory: function" in src
+        assert "groupedForTab: function" in src
+        assert "tabSourceForItem: function" in src
         assert "configGroups" in src
         assert "groupTitle: function" in src
         assert "'Прочее'" in src
@@ -550,8 +554,7 @@ class TestFrontFixes:
         assert "clearConfigSearch: function" in src
         html = open("web/index.html", encoding="utf-8").read()
         assert "Поиск по параметрам…" in html
-        assert "groupedByCategory('limits')" in html
-        assert "groupedByCategory('flags')" in html
+        assert "currentTabGroups" in html       # generic-рендер групп вкладки
         # описания: limits/flags — раскрывашка, prompts/keys/models — видно
         assert "<summary class=\"cursor-pointer select-none text-gray-500\">Что это?</summary>" in html
         assert "item.description" in html

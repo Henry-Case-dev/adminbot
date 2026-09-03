@@ -472,10 +472,10 @@ class DatabaseService:
         )
         await self.db.commit()
 
-    # ── Alan Activity ──────────────────────────────────
+    # ── Леха activity (код-ключи alan_last_msg:* не переименовываются) ──
 
     async def get_alan_last_message_ts(self, chat_id: int) -> float | None:
-        """Get the timestamp of Alan's last message in a chat."""
+        """Get the timestamp of Леха's last message in a chat."""
         key = f"alan_last_msg:{chat_id}"
         cursor = await self.db.execute(
             "SELECT value FROM channel_state WHERE key = ?", (key,)
@@ -489,7 +489,7 @@ class DatabaseService:
         return None
 
     async def set_alan_last_message_ts(self, chat_id: int, timestamp: float) -> None:
-        """Record the timestamp of Alan's last message in a chat."""
+        """Record the timestamp of Леха's last message in a chat."""
         key = f"alan_last_msg:{chat_id}"
         await self.db.execute(
             "INSERT OR REPLACE INTO channel_state (key, value) VALUES (?, ?)",

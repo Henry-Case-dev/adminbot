@@ -151,10 +151,10 @@ class Settings:
     KOSTIK_USER_ID: int = _env_int("KOSTIK_USER_ID", 350803143)
     ALAN_USER_ID: int = _env_int("ALAN_USER_ID", 138811255)
 
-    # Alan reply interval — every N messages, bot replies with random phrase
+    # Леха (ранее «Алан», код-идентификаторы не переименовывались) — reply interval
     ALAN_REPLY_INTERVAL: int = _env_int("ALAN_REPLY_INTERVAL", 10)
 
-    # Epic 52 (T-408): выключатель reply-блока Алана. false → reply молчит,
+    # Epic 52 (T-408): выключатель reply-блока Лехи. false → reply молчит,
     # счётчик продолжает инкрементиться, F7v2 silence greeting работает БЕЗУСЛОВНО.
     ALAN_REPLIES_ENABLED: bool = _env_bool("ALAN_REPLIES_ENABLED", True)
 
@@ -187,12 +187,13 @@ class Settings:
     # Dead page media directory
     DEAD_PAGE_DIR: str = os.getenv("DEAD_PAGE_DIR", "media/dead_page")
 
-    # Alan greeting video (F7)
+    # Alan greeting video (F7) — код-идентификатор сохранён (совместимость).
     ALAN_USERNAME: str = os.getenv("ALAN_USERNAME", "@Alan_Z")
     ALAN_GREETING_DIR: str = os.getenv("ALAN_GREETING_DIR", "media/leha_greeting")
     ALAN_GREETING_COOLDOWN: int = _env_int("ALAN_GREETING_COOLDOWN", 10)
 
-    # Alan silence greeting — send greeting video when Alan was silent >= N hours (0.0 = disabled)
+    # Alan silence greeting — Леха молчит >= N часов → видео-приветствие
+    # (0.0 = выключено).
     ALAN_SILENCE_GREETING_HOURS: float = _env_float("ALAN_SILENCE_GREETING_HOURS", 6.0)
 
     # Admin test commands (Epic 10)

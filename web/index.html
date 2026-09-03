@@ -139,6 +139,8 @@
       font-size: 0.9rem;
     }
     .field:focus { border-color: #8b5cf6; }
+    /* KV-редактор (3.5.2): дубль/пустое поле пары */
+    .field.kv-bad { border-color: rgba(239, 68, 68, 0.75); }
     textarea.field { font-family: ui-monospace, Consolas, monospace; }
     /* ФИКС 2026-09-03: native <select> игнорирует полупрозрачный фон/.field →
        открывался БЕЛЫМ (UA-стиль); жёсткий тёмный фон + светлый текст
@@ -312,188 +314,114 @@
 
         <main v-else class="p-4 grid gap-4 grid-cols-1"
               style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
-          <!-- ═══ 🧠 Промпты ═══ -->
-          <template v-if="activeTab === 'prompts'">
+          <!-- ═══ Конфиг-вкладки: LLM Провайдеры / Промпты / Лимиты /
+               Память и RAG / Реакции и Триггеры — ОДИН generic-рендер по
+               sources (3.5.1); карточки-группы приходят с сервера. ═══ -->
+          <template v-if="currentTabIsConfig">
             <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
-            <div v-else-if="!canViewTab('prompts')" class="card p-6 text-gray-400 col-span-full">Нет доступа к промптам.</div>
-            <template v-else>
-              <div class="card p-3 col-span-full flex items-center gap-2">
-                <input class="field flex-1" placeholder="Поиск по промптам…" v-model="configSearch">
-                <button v-if="configSearch" class="btn-ghost text-xs shrink-0" @click="clearConfigSearch()">✕</button>
-              </div>
-              <div v-for="grp in groupedByCategory('prompts')" :key="'p' + grp.id" class="card p-4 col-span-full">
-                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
-                <div class="grid gap-3 md:grid-cols-2">
-                  <div v-for="item in grp.items" :key="item.key" class="card p-4" style="min-width:0;">
-                    <div class="text-sm font-semibold mb-1">{{ item.title }}</div>
-                    <div class="text-xs text-gray-500 mb-1 font-mono">{{ item.key }}</div>
-                    <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                    <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
-                    <div class="mt-2 flex justify-end">
-                      <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                              @click="saveConfigItem(item)">
-                        {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div v-if="configByCategory('prompts').length === 0" class="card p-6 text-gray-400 col-span-full">
-                Промпты ещё не загружены в базу (категория пустая).
-              </div>
-              <div v-else-if="groupedByCategory('prompts').length === 0" class="card p-6 text-gray-400 col-span-full">
-                Ничего не найдено по запросу «{{ configSearch }}».
-              </div>
-            </template>
-          </template>
-
-          <!-- ═══ ⚙️ Модели и Провайдеры ═══ -->
-          <template v-if="activeTab === 'models'">
-            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
-            <div v-else-if="!canViewTab('models')" class="card p-6 text-gray-400 col-span-full">Нет доступа к моделям.</div>
-            <template v-else>
-              <div class="card p-3 col-span-full flex items-center gap-2">
-                <input class="field flex-1" placeholder="Поиск по моделям…" v-model="configSearch">
-                <button v-if="configSearch" class="btn-ghost text-xs shrink-0" @click="clearConfigSearch()">✕</button>
-              </div>
-              <div v-for="grp in groupedByCategory('models')" :key="'m' + grp.id" class="card p-4 col-span-full">
-                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
-                <div class="grid gap-3 md:grid-cols-2">
-                  <div v-for="item in grp.items" :key="item.key" class="card p-4" style="min-width:0;">
-                    <div class="text-sm font-semibold mb-1">{{ item.title }}</div>
-                    <div class="text-xs text-gray-500 mb-1 font-mono">{{ item.key }}</div>
-                    <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                    <input class="field" :type="inputType(item)" v-model="item.value">
-                    <div class="mt-2 flex justify-end">
-                      <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                              @click="saveConfigItem(item)">
-                        {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div v-if="groupedByCategory('models').length === 0" class="card p-6 text-gray-400 col-span-full">
-                Ничего не найдено по запросу «{{ configSearch }}».
-              </div>
-            </template>
-          </template>
-
-          <!-- ═══ 🔑 API Ключи ═══ -->
-          <template v-if="activeTab === 'keys'">
-            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
-            <div v-else-if="!canViewTab('keys')" class="card p-6 text-gray-400 col-span-full">Нет доступа к ключам.</div>
-            <template v-else>
-              <div class="card p-3 col-span-full flex items-center gap-2">
-                <input class="field flex-1" placeholder="Поиск по ключам…" v-model="configSearch">
-                <button v-if="configSearch" class="btn-ghost text-xs shrink-0" @click="clearConfigSearch()">✕</button>
-              </div>
-              <div v-for="grp in groupedByCategory('keys')" :key="'k' + grp.id" class="card p-4 col-span-full">
-                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
-                <div class="grid gap-3 md:grid-cols-2">
-                  <div v-for="item in grp.items" :key="item.key" class="card p-4" style="min-width:0;">
-                    <div class="text-sm font-semibold mb-1">{{ item.title }}</div>
-                    <div class="text-xs text-gray-500 mb-1 font-mono">{{ item.key }}</div>
-                    <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                    <div class="mb-2">
-                      <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
-                      <span v-else class="badge badge-muted">не настроен</span>
-                    </div>
-                    <input class="field" type="password" autocomplete="off"
-                           :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
-                           v-model="keyDrafts[item.key]">
-                    <div class="mt-2 flex justify-end">
-                      <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                              @click="saveKeyItem(item)">
-                        {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить ключ' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div v-if="groupedByCategory('keys').length === 0" class="card p-6 text-gray-400 col-span-full">
-                Ничего не найдено по запросу «{{ configSearch }}».
-              </div>
-            </template>
-          </template>
-
-          <!-- ═══ 🚦 Лимиты и Модули ═══ -->
-          <template v-if="activeTab === 'limits'">
-            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
-            <div v-else-if="!canViewTab('limits')" class="card p-6 text-gray-400 col-span-full">Нет доступа к лимитам.</div>
+            <div v-else-if="!canViewTab(activeTab)" class="card p-6 text-gray-400 col-span-full">
+              Нет доступа к параметрам этой вкладки.
+            </div>
             <template v-else>
               <div class="card p-3 col-span-full flex items-center gap-2">
                 <input class="field flex-1" placeholder="Поиск по параметрам…" v-model="configSearch">
                 <button v-if="configSearch" class="btn-ghost text-xs shrink-0" @click="clearConfigSearch()">✕</button>
               </div>
-              <div v-for="grp in groupedByCategory('limits')" :key="'l' + grp.id" class="card p-4 col-span-full">
-                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
-                <div class="grid gap-3 md:grid-cols-2">
-                  <div v-for="item in grp.items" :key="item.key" class="card p-4" style="min-width:0;">
-                    <div class="flex items-center justify-between gap-3">
-                      <div class="min-w-0">
-                        <div class="text-sm font-semibold">{{ item.title }}</div>
-                        <div class="text-xs text-gray-500 font-mono truncate">{{ item.key }}</div>
-                      </div>
-                      <label v-if="item.type === 'bool'" class="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input type="checkbox" class="sr-only peer" v-model="item.value"
-                               @change="saveConfigItem(item)">
-                        <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                        <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                      </label>
-                      <input v-else class="field w-28 shrink-0 text-right" :type="inputType(item)" v-model="item.value">
-                    </div>
-                    <details class="mt-2 text-xs text-gray-400">
-                      <summary class="cursor-pointer select-none text-gray-500">Что это?</summary>
-                      <div class="mt-1">{{ item.description }}</div>
-                    </details>
-                    <div class="mt-2 flex justify-end" v-if="item.type !== 'bool'">
-                      <button class="btn-accent text-xs" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
-                              @click="saveConfigItem(item)">
-                        {{ saving.has(item.key) ? '…' : 'Сохранить' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div v-if="currentTabItemCount === 0" class="card p-6 text-gray-400 col-span-full">
+                Параметры этой вкладки ещё не загружены в базу (вкладка пустая).
               </div>
-              <div v-for="grp in groupedByCategory('flags')" :key="'f' + grp.id" class="card p-4 col-span-full">
-                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
-                <div class="grid gap-3 md:grid-cols-2">
-                  <div v-for="item in grp.items" :key="item.key" class="card p-4" style="min-width:0;">
-                    <div class="flex items-center justify-between gap-3">
-                      <div class="min-w-0">
-                        <div class="text-sm font-semibold">{{ item.title }}</div>
-                        <div class="text-xs text-gray-500 font-mono truncate">{{ item.key }}</div>
-                      </div>
-                      <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input type="checkbox" class="sr-only peer" v-model="item.value"
-                               @change="saveConfigItem(item)">
-                        <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                        <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                      </label>
-                    </div>
-                    <details class="mt-2 text-xs text-gray-400">
-                      <summary class="cursor-pointer select-none text-gray-500">Что это?</summary>
-                      <div class="mt-1">{{ item.description }}</div>
-                    </details>
-                  </div>
-                </div>
-              </div>
-              <div v-if="groupedByCategory('limits').length === 0 && groupedByCategory('flags').length === 0"
-                   class="card p-6 text-gray-400 col-span-full">
+              <div v-else-if="currentTabGroups.length === 0" class="card p-6 text-gray-400 col-span-full">
                 Ничего не найдено по запросу «{{ configSearch }}».
+              </div>
+              <div v-for="grp in currentTabGroups" :key="grp.uid" class="card p-4 col-span-full">
+                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
+                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
+                <div class="grid gap-3 md:grid-cols-2">
+                  <div v-for="item in grp.items" :key="item.key" class="card p-4" style="min-width:0;">
+                    <!-- bool → тумблер с автосейвом -->
+                    <template v-if="item.type === 'bool'">
+                      <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                          <div class="text-sm font-semibold">{{ item.title }}</div>
+                          <div class="text-xs text-gray-500 font-mono truncate">{{ item.key }}</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                 :disabled="!canEditConfig(item.key)"
+                                 @change="saveConfigItem(item)">
+                          <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                          <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                        </label>
+                      </div>
+                      <details class="mt-2 text-xs text-gray-400">
+                        <summary class="cursor-pointer select-none text-gray-500">Что это?</summary>
+                        <div class="mt-1">{{ item.description }}</div>
+                      </details>
+                    </template>
+                    <template v-else-if="item.widget === 'keyvalue'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <kv-editor :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
+                    </template>
+                    <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
+                                v-model="item.value"></textarea>
+                      <div class="mt-2 flex justify-end">
+                        <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                @click="saveConfigItem(item)">
+                          {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                        </button>
+                      </div>
+                    </template>
+                    <template v-else-if="item.category === 'keys' || item.secret">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <div class="mb-2">
+                        <span v-if="isKeyConfigured(item)" class="badge badge-ok">configured ••••{{ last4(item) }}</span>
+                        <span v-else class="badge badge-muted">не настроен</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <input class="field flex-1 min-w-0" autocomplete="off"
+                               :type="keyReveal[item.key] ? 'text' : 'password'"
+                               :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
+                               v-model="keyDrafts[item.key]">
+                        <button class="btn-ghost text-xs shrink-0"
+                                :title="keyReveal[item.key] ? 'Скрыть ключ' : 'Показать ключ'"
+                                @click="toggleKeyReveal(item.key)">
+                          {{ keyReveal[item.key] ? '🙈' : '👁' }}
+                        </button>
+                      </div>
+                      <div class="mt-2 flex justify-end">
+                        <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                @click="saveKeyItem(item)">
+                          {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить ключ' }}
+                        </button>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <input class="field" :type="inputType(item)" v-model="item.value">
+                      <div class="mt-2 flex justify-end">
+                        <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                @click="saveConfigItem(item)">
+                          {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </div>
             </template>
           </template>
-
-          <!-- ═══ 👥 Управление доступом ═══ -->
-          <template v-if="activeTab === 'access'">
+          <template v-else-if="activeTab === 'access'">
+            <!-- ═══ 👥 Управление доступом ═══ -->
             <div v-if="!canViewTab('access')" class="card p-6 text-gray-400 col-span-full">
               Управление доступом доступно только ролям с правом «access».
             </div>
@@ -545,9 +473,8 @@
               </div>
             </template>
           </template>
-
-          <!-- ═══ 📊 Статус ═══ -->
-          <template v-if="activeTab === 'status'">
+          <template v-else-if="activeTab === 'status'">
+            <!-- ═══ 📊 Статус ═══ -->
             <!-- F15: 401 — заглушка «сессия устарела» вместо вечного спиннера -->
             <div v-if="statusError" class="card p-6 text-yellow-200 col-span-full">
               {{ statusError }}
@@ -668,9 +595,8 @@
             </div>
             </template>
           </template>
-
-          <!-- ═══ ℹ️ Как это работает ═══ -->
-          <template v-if="activeTab === 'info'">
+          <template v-else-if="activeTab === 'info'">
+            <!-- ═══ ℹ️ Как это работает ═══ -->
             <div class="card p-5" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-3">
                 <div class="text-sm font-bold">ℹ️ Как это работает</div>
@@ -780,6 +706,45 @@
       </div>
     </div>
   </div>
+
+  <!-- KV-редактор (3.5.2): шаблон компонента kv-editor для полей c
+       widget='keyvalue' (limits.summary_aliases и любые будущие пары).
+       Компонент зарегистрирован в web/app.js (provide/inject: root). -->
+  <script type="text/x-template" id="kv-editor-tpl">
+    <div>
+      <div v-if="pairs.length === 0" class="text-xs text-gray-500 mb-1">
+        Пар пока нет — добавьте первую.
+      </div>
+      <div v-for="(pair, i) in pairs" :key="'kv' + i" class="flex items-center gap-2 mb-1.5">
+        <input class="field flex-1 min-w-0" type="text"
+               placeholder="Например 138811255" title="Telegram ID"
+               :disabled="!canEdit" v-model="pair.id"
+               :class="{ 'kv-bad': idBad(pair.id) || emptyField(pair) === 'id' }">
+        <input class="field flex-1 min-w-0" type="text"
+               placeholder="Например Леха" title="Имя"
+               :disabled="!canEdit" v-model="pair.name"
+               :class="{ 'kv-bad': emptyField(pair) === 'name' }">
+        <button class="btn-ghost text-xs shrink-0" title="Удалить пару"
+                :disabled="!canEdit" @click="removeRow(i)">🗑</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs mt-1">
+        <button class="btn-ghost text-xs" :disabled="!canEdit || pairs.length >= maxPairs"
+                @click="addRow()">+ Добавить имя</button>
+        <span v-if="pairs.length >= maxPairs" class="text-yellow-300">
+          Лимит {{ maxPairs }} строк
+        </span>
+        <span v-if="issueText" class="badge badge-err">{{ issueText }}</span>
+        <span v-else-if="warnText" class="badge badge-warn">{{ warnText }}</span>
+      </div>
+      <div class="mt-2 flex justify-end">
+        <button class="btn-accent text-sm"
+                :disabled="!canEdit || !!issueText || root.saving.has(item.key)"
+                @click="save()">
+          {{ root.saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+        </button>
+      </div>
+    </div>
+  </script>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>

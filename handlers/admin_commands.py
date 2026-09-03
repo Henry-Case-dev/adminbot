@@ -1,7 +1,7 @@
 """Epic 10 — Admin test commands.
 
 /deadpage — manually trigger DeadPageRelay.send_dead_page()
-/alangreet — manually trigger Alan greeting video (_send_greeting)
+/alangreet — manually trigger Леха greeting video (_send_greeting)
 /mimic    — test mimic_transform with optional text
 
 DM: anyone can use. Groups: admin-only (ADMIN_USER_ID).
@@ -105,7 +105,7 @@ async def cmd_mimic_group(message: types.Message):
 
 @admin_commands_router.message(Command("alangreet"), F.chat.type == "private")
 async def cmd_alangreet_dm(message: types.Message):
-    """DM: anyone can trigger Alan greeting video."""
+    """DM: anyone can trigger Леха greeting video."""
     await _delete_command(message)
     from handlers.alan_greeting import _send_greeting
     chat_id = message.chat.id
@@ -115,7 +115,7 @@ async def cmd_alangreet_dm(message: types.Message):
 
 @admin_commands_router.message(Command("alangreet"), F.chat.type != "private")
 async def cmd_alangreet_group(message: types.Message):
-    """Group: admin-only. Trigger Alan greeting video."""
+    """Group: admin-only. Trigger Леха greeting video."""
     if message.from_user.id != settings.ADMIN_USER_ID:
         logger.debug("[/alangreet] Non-admin %d rejected in chat %d",
                      message.from_user.id, message.chat.id)

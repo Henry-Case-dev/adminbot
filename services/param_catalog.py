@@ -59,6 +59,9 @@ class ParamSpec:
     description: str = ""
     code_source: str | None = None  # "module.attr" — код-канон (prompts)
     pg_id: str | None = None        # явный PG-ключ (PG-only записи)
+    # Эпик 04.09.2026 (3.1/FR-28): признак виджета рендера для фронта.
+    # "" (дефолт) | "keyvalue" (JSON-объект «ключ→значение» — KV-редактор).
+    widget: str = ""
 
     @property
     def pg_key(self) -> str:
@@ -85,7 +88,7 @@ class GroupSpec:
     order: int         # порядок рендера ВНУТРИ категории (1, 2, 3...)
 
 
-# ── 84.24.2: реестр групп (59 шт.; покрытие 244 параметров категорий) ────────
+# ── 84.24.2: реестр групп (61 шт.; покрытие 252 параметров категорий) ────────
 GROUPS: tuple[GroupSpec, ...] = (
     # prompts (8)
     GroupSpec("prompts_factcheck", "prompts", "Фактчек",
@@ -104,7 +107,7 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Пересказ страниц по ссылке.", 7),
     GroupSpec("prompts_memory", "prompts", "Память и граф знаний",
               "Промпты извлечения и сжатия фактов для долгой памяти.", 8),
-    # models (7)
+    # models (8)
     GroupSpec("models_main", "models", "Основная модель",
               "Главная нейросеть бота: адрес и название модели.", 1),
     GroupSpec("models_fallback", "models", "Фолбэк-модель",
@@ -119,6 +122,8 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Groq — голосовые, OpenRouter — пересказы видео.", 6),
     GroupSpec("models_checkup", "models", "Чек-ап (Betterstack)",
               "Откуда бот берёт метрики сервера для чекапа.", 7),
+    GroupSpec("models_video_summary", "models", "Видео-выжимка (OpenRouter)",
+              "Модели, которые смотрят видео сами, и таймаут выжимки.", 8),
     # keys (6)
     GroupSpec("keys_llm", "keys", "Основной LLM",
               "Пароли доступа к основной и запасной нейросети.", 1),
@@ -132,9 +137,9 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Логин и пароль SQL-базы для чекапа.", 5),
     GroupSpec("keys_youtube", "keys", "YouTube: прокси и cookies",
               "Прокси и cookies для субтитров YouTube.", 6),
-    # limits (18)
-    GroupSpec("limits_persons", "limits", "Персонажи: Алан и Костик",
-              "Частота ответов Алана и Костика, приветствия Алана.", 1),
+    # limits (20)
+    GroupSpec("limits_persons", "limits", "Персонажи: Леха и Костик",
+              "Частота ответов Лехи и Костика, приветствия Лехи.", 1),
     GroupSpec("limits_media", "limits", "Медиа-реакции",
               "Частота гифок/фото, паузы common-медиа, Оля, скачивание, войсы.", 2),
     GroupSpec("limits_mimic", "limits", "Мимикрия",
@@ -184,14 +189,14 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Стиль ответов, настроение, дедуп, индикатор набора, доступ к саммари.", 4),
     GroupSpec("flags_service", "flags", "Служебное",
               "Технические рубильники (БД, защита LLM) — обычно не трогать.", 5),
-    # reactions (12)
+    # reactions (13)
     GroupSpec("reactions_persons", "reactions", "Персоны (ID)",
-              "Telegram ID Алана, Костика, Славика, Оли и админа.", 1),
+              "Telegram ID Лехи, Костика, Славика, Оли и админа.", 1),
     GroupSpec("reactions_deadpage", "reactions", "Dead page",
               "Канал-источник, relay-канал, папка медиа.", 2),
     GroupSpec("reactions_slavik", "reactions", "Славик",
               "Папки рандомных фото и файл гифки.", 3),
-    GroupSpec("reactions_alan", "reactions", "Алан",
+    GroupSpec("reactions_alan", "reactions", "Леха",
               "Папка видео-приветствий.", 4),
     GroupSpec("reactions_war", "reactions", "War-алерты",
               "Каналы, юзернеймы и фразы алертов.", 5),
@@ -209,6 +214,8 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Слова-триггеры и слова настроения.", 11),
     GroupSpec("reactions_memory", "reactions", "Память",
               "Папка бэкапов памяти.", 12),
+    GroupSpec("reactions_word_reactions", "reactions", "Словесные реакции",
+              "Тумблеры текстовых реакций: „Вася ↔ АДМИН” и „куча → ДАЛБАЕБ”.", 13),
     # content (1)
     GroupSpec("content_info", "content", "Как это работает",
               "Текст справки для пользователей.", 1),
@@ -242,6 +249,9 @@ _PROMPTS: list[tuple] = [
     ("prompts.youtube_system_prompt", "Системный промпт пересказа YouTube",
      "services.youtube_prompts.YOUTUBE_SYSTEM_PROMPT", "prompts_youtube",
      "Инструкция нейросети при пересказе видео по ссылке. Изменения применяются сразу после сохранения."),
+    ("prompts.youtube_video_system_prompt", "Системный промпт пересказа видео (мультимодально)",
+     "services.youtube_prompts.YOUTUBE_VIDEO_SYSTEM_PROMPT", "prompts_youtube",
+     "Инструкция нейросети при пересказе видео, когда модель смотрит само видео (без субтитров)."),
     ("prompts.webpage_system_prompt", "Системный промпт пересказа веб-страниц",
      "services.web_prompts.WEBPAGE_SYSTEM_PROMPT", "prompts_web",
      "Инструкция нейросети при пересказе страницы по ссылке. Изменения применяются сразу после сохранения."),
@@ -371,6 +381,12 @@ _MODELS: list[tuple] = [
      "Сколько раз повторить распознавание при сбое. Больше — надёжнее, дольше ждать."),
     ("OPENROUTER_TIMEOUT", "Таймаут OpenRouter, сек", "float", "models_extra_providers",
      "Сколько ждать ответ OpenRouter при пересказах. Больше — меньше сбоев на медленных моделях."),
+    ("VIDEO_PRIMARY_MODEL", "Первичная видео-модель (OpenRouter)", "str", "models_video_summary",
+     "Модель, которая первой пробует „посмотреть” само видео через OpenRouter. Если упала — пробуется запасная, затем субтитры."),
+    ("VIDEO_FALLBACK_MODEL", "Запасная видео-модель (OpenRouter)", "str", "models_video_summary",
+     "Используется, когда первичная видео-модель недоступна. Упала — бот пересказывает по субтитрам."),
+    ("VIDEO_TIMEOUT_SECONDS", "Таймаут видео-запроса, сек", "float", "models_video_summary",
+     "Сколько ждать ответ мультимодальной модели на видео. Больше — реже сбои, но дольше тишина."),
 ]
 
 # ── flags: рубильники модулей ───────────────────────────────────────────────
@@ -452,8 +468,10 @@ _FLAGS: list[tuple] = [
      "Включает реакцию на упоминание SaveAsBot в подписи Оли. Выключено — упоминание игнорируется."),
     ("MIMIC_FORWARDS_ENABLED", "Мимикрировать репосты", "flags_media",
      "Бот передразнивает и обычные, и пересланные сообщения. Выключено — только обычные."),
-    ("ALAN_REPLIES_ENABLED", "Reply-блок Алана", "flags_chat_behavior",
-     "Алан отвечает в ответ на сообщения. Выключено — Алан не отвечает."),
+    ("MIMIC_ENABLED", "Мимикрия включена", "flags_media",
+     "Главный рубильник передразниваний common (список „жертв” — в „Реакции и Триггеры” → „Мимикрия”). Выключено — бот никого не передразнивает (кроме мимикрии Славика — она на своём переключателе)."),
+    ("ALAN_REPLIES_ENABLED", "Reply-блок Лехи", "flags_chat_behavior",
+     "Леха отвечает в ответ на сообщения. Выключено — Леха не отвечает."),
     ("DEAD_PAGE_POST_ON_JOIN", "Триггер dead page при join", "flags_chat_behavior",
      "Бот постит dead page при вступлении участника. Выключено — постится только по команде."),
     ("SUMMARY_ADMIN_ONLY", "Саммари только для админа", "flags_chat_behavior",
@@ -463,8 +481,8 @@ _FLAGS: list[tuple] = [
 # ── limits: числа/таймауты/кулдауны/бюджеты ─────────────────────────────────
 # (field, title_ru, type, group, description)
 _LIMITS: list[tuple] = [
-    ("ALAN_REPLY_INTERVAL", "Интервал ответа Алана (сообщений)", "int", "limits_persons",
-     "Через сколько сообщений Алан отвечает. 10 — примерно каждое десятое."),
+    ("ALAN_REPLY_INTERVAL", "Интервал ответа Лехи (сообщений)", "int", "limits_persons",
+     "Через сколько сообщений Леха отвечает. 10 — примерно каждое десятое."),
     ("KOSTIK_REPLY_PROBABILITY", "Вероятность ответа Костика", "float", "limits_persons",
      "Шанс, что Костик ответит на сообщение. 0 — никогда, 1 — на каждое."),
     ("DEAD_PAGE_CAPTION_MAX_CHARS", "Макс. символов капшна dead page", "int", "limits_deadpage",
@@ -475,10 +493,10 @@ _LIMITS: list[tuple] = [
      "Сколько раз бот подбирает другой пост, если не нашёл подходящий. Больше — надёжнее."),
     ("GIF_INTERVAL", "Интервал гифки (сообщений)", "int", "limits_media",
      "Через сколько сообщений бот кидает гифку. Меньше — чаще гифки."),
-    ("ALAN_GREETING_COOLDOWN", "Кулдаун приветствия Алана, сек", "int", "limits_persons",
-     "Как часто Алан здоровается. Больше — реже приветствия."),
-    ("ALAN_SILENCE_GREETING_HOURS", "Порог тишины Алана, часов", "float", "limits_persons",
-     "Сколько тишины в чате, чтобы Алан поприветствовал снова. Больше — реже приветствия."),
+    ("ALAN_GREETING_COOLDOWN", "Кулдаун приветствия Лехи, сек", "int", "limits_persons",
+     "Как часто Леха здоровается. Больше — реже приветствия."),
+    ("ALAN_SILENCE_GREETING_HOURS", "Порог тишины Лехи, часов", "float", "limits_persons",
+     "Сколько тишины в чате, чтобы Леха поприветствовал снова. Больше — реже приветствия."),
     ("SLAVIC_PHOTO_INTERVAL", "Интервал фото Славика (сообщений)", "int", "limits_media",
      "Через сколько сообщений Славик кидает фото. Меньше — чаще фото."),
     ("COMMON_COOLDOWN", "Общий кулдаун common-медиа, сек", "float", "limits_media",
@@ -499,7 +517,7 @@ _LIMITS: list[tuple] = [
      "Пауза между передразниваниями Славика. Больше — реже мимикрия."),
     ("OLYA_COOLDOWN", "Кулдаун Оли, сек", "float", "limits_media",
      "Пауза между реакциями на видео Оли. Больше — реже реакции."),
-    ("SUMMARY_WINDOW_HOURS", "Окно генерации саммари, часов", "float", "limits_summary",
+    ("SUMMARY_WINDOW_HOURS", "Окно генерации саммари, часов", "float", "limits_memory",
      "За какой период брать сообщения для пересказа. Больше — шире охват, но дороже."),
     ("FULL_MEMORY_RETENTION_DAYS", "Хранение сырых сообщений, дней", "int", "limits_memory",
      "Сколько дней хранить исходные сообщения. Больше — память полнее, но тяжелее."),
@@ -513,15 +531,15 @@ _LIMITS: list[tuple] = [
      "Минимальная пауза между запросами пересказа. Больше — реже можно просить."),
     ("SUMMARY_CHUNK_DELAY", "Пауза между чанками саммари, сек", "float", "limits_summary",
      "Пауза между частями длинного пересказа. Больше — мягче для лимитов, дольше ответ."),
-    ("SUMMARY_MAX_WINDOW_MESSAGES", "Кап окна L1 (сообщений)", "int", "limits_summary",
+    ("SUMMARY_MAX_WINDOW_MESSAGES", "Кап окна L1 (сообщений)", "int", "limits_memory",
      "Сколько сообщений максимум берётся в пересказ. Больше — полнее, но дороже."),
     ("SUMMARY_MAX_MESSAGE_CHARS", "Кап одного сообщения, символов", "int", "limits_summary",
      "Максимальная длина одного сообщения в пересказе. Больше — учитываются длинные сообщения."),
     ("SUMMARY_MAX_CONTEXT_CHARS", "Кап контекста, символов", "int", "limits_summary",
      "Потолок текста, отдаваемого нейросети. Больше — точнее, но дороже и медленнее."),
-    ("SUMMARY_RAG_L2_LIMIT", "Лимит RAG L2", "int", "limits_summary",
+    ("SUMMARY_RAG_L2_LIMIT", "Лимит RAG L2", "int", "limits_graph",
      "Сколько фактов памяти берётся на втором уровне. Больше — контекстнее, дороже."),
-    ("SUMMARY_RAG_L3_LIMIT", "Лимит RAG L3", "int", "limits_summary",
+    ("SUMMARY_RAG_L3_LIMIT", "Лимит RAG L3", "int", "limits_graph",
      "Сколько фактов памяти берётся на третьем уровне. Больше — точнее, дороже."),
     ("SUMMARY_COMPRESS_BATCH", "Размер пачки сжатия L3", "int", "limits_summary",
      "Сколько сообщений сжимается за раз. Больше — быстрее, но грубее."),
@@ -689,8 +707,11 @@ _LIMITS: list[tuple] = [
      "Запасной резерв бюджета. Больше — запас на непредвиденное."),
     ("CHAT_DEDUP_TTL_SECONDS", "TTL дедуп-записи, сек", "int", "limits_chat",
      "Как долго помнить одинаковые сообщения подряд. Больше — дольше дедуп."),
+    # SUMMARY_ALIASES — 6-элементная запись: последний элемент widget
+    # («keyvalue» → KV-редактор пар «Telegram ID → имя» на фронте, FR-28).
     ("SUMMARY_ALIASES", "JSON-словарь алиасов имён", "json", "limits_user_aliases",
-     "Как бот обращается к людям: алиас → имя → никнейм. Формат JSON: {\"<telegram-id>\": \"<алиас>\"} — например {\"138811255\": \"Алан\"}."),
+     "Как бот обращается к людям: алиас → имя → никнейм. Пары ID → имя — например {\"138811255\": \"Леха\"}.",
+     "keyvalue"),
     ("YOUTUBE_TRANSCRIPT_PROXY_DOMAIN", "Домен прокси-оверрайда", "str", "limits_youtube_proxy",
      "Домен прокси, если используете не Webshare. Пусто — берётся стандартный."),
     ("YOUTUBE_TRANSCRIPT_PROXY_PORT", "Порт прокси-оверрайда", "str", "limits_youtube_proxy",
@@ -712,8 +733,8 @@ _REACTIONS: list[tuple] = [
      "Telegram ID Славика — по нему бот понимает, чьи сообщения «славиковские»."),
     ("KOSTIK_USER_ID", "Telegram ID Костика", "int", "reactions_persons",
      "Telegram ID Костика — для его ответов и мимикрии."),
-    ("ALAN_USER_ID", "Telegram ID Алана", "int", "reactions_persons",
-     "Telegram ID Алана — для приветствий и reply-блока."),
+    ("ALAN_USER_ID", "Telegram ID Лехи", "int", "reactions_persons",
+     "Telegram ID Лехи — для приветствий и reply-блока."),
     ("ADMIN_USER_ID", "Telegram ID админа", "int", "reactions_persons",
      "Telegram ID администратора — для особых прав и реакций."),
     ("DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "Канал-источник dead page (@d_pages)", "str", "reactions_deadpage",
@@ -724,10 +745,10 @@ _REACTIONS: list[tuple] = [
      "Куда бот пересылает посты dead page."),
     ("DEAD_PAGE_DIR", "Папка медиа dead page", "str", "reactions_deadpage",
      "Папка с медиа для постов dead page. Относительно корня медиа."),
-    ("ALAN_USERNAME", "Юзернейм Алана", "str", "reactions_persons",
-     "Юзернейм Алана — для упоминаний и фильтров."),
-    ("ALAN_GREETING_DIR", "Папка приветствий Алана", "str", "reactions_alan",
-     "Папка с видео-приветствиями Алана. Относительно корня медиа."),
+    ("ALAN_USERNAME", "Юзернейм Лехи", "str", "reactions_persons",
+     "Юзернейм Лехи — для упоминаний и фильтров."),
+    ("ALAN_GREETING_DIR", "Папка приветствий Лехи", "str", "reactions_alan",
+     "Папка с видео-приветствиями Лехи. Относительно корня медиа."),
     ("WAR_CHANNEL_IDS", "CSV ID каналов war-алертов", "str", "reactions_war",
      "Каналы, где бот следит за военными алертами. Через запятую."),
     ("WAR_CHANNEL_USERNAMES", "CSV юзернеймов war-алертов", "str", "reactions_war",
@@ -754,6 +775,12 @@ _REACTIONS: list[tuple] = [
      "Папка с медиа для утренней рассылки. Относительно корня медиа."),
     ("MIMIC_VICTIM_USER_IDS", "CSV ID жертв мимикрии", "str", "reactions_mimic",
      "Кого передразнивает бот. Через запятую."),
+    ("ALAN_MIMIC_ENABLED", "Мимикрия Лехи", "bool", "reactions_mimic",
+     "Передразнивать сообщения Лехи (нужно также включить общий рубильник „Мимикрия включена”). Других „жертв” из списка этот тумблер не касается."),
+    ("VASYA_ENABLED", "Реакция „Вася → АДМИН”", "bool", "reactions_word_reactions",
+     "Кто-то написал „Вася” — бот отвечает „АДМИН”; кто-то написал „админ” — бот отвечает „ВАСЯ”. Выключено — реакция молчит."),
+    ("KUCHA_ENABLED", "Реакция „куча → ДАЛБАЕБ”", "bool", "reactions_word_reactions",
+     "Кто-то написал „куча” — бот отвечает „ДАЛБАЕБ”. Выключено — реакции нет (гифка Славика работает независимо)."),
     ("OLYA_USER_ID", "Telegram ID Оли", "int", "reactions_persons",
      "Telegram ID Оли — для реакций на её видео."),
     ("OLYA_MEDIA_BASE", "Папка медиа Оли", "str", "reactions_olya",
@@ -811,9 +838,13 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(field, field, CATEGORY_FLAGS, title, "bool",
                       group=group, description=desc))
     for row in _LIMITS:
-        field, title, typ, group, desc = row
+        if len(row) == 6:      # (field, title, type, group, desc, widget)
+            field, title, typ, group, desc, widget = row
+        else:
+            field, title, typ, group, desc = row
+            widget = ""
         add(ParamSpec(field, field, CATEGORY_LIMITS, title, typ,
-                      group=group, description=desc))
+                      group=group, description=desc, widget=widget))
     for row in _REACTIONS:
         field, title, typ, group, desc = row
         add(ParamSpec(field, field, CATEGORY_REACTIONS, title, typ,
@@ -869,6 +900,98 @@ def group_order(group_id: str) -> int:
     """84.24.1: order группы (для сортировки items; неизвестная — 999)."""
     g = _GROUPS_BY_ID.get(group_id)
     return g.order if g else 999
+
+
+# ── Эпик 04.09.2026 (3.5.1, FR-25/FR-27): маппинг вкладок админки ───────────
+# Бэк-контракт для фронта (TABS) и теста-аудита «каждая группа ровно на одной
+# конфиг-вкладке». Правило: (категория, выбор групп) где выбор —
+#   None                     → вся категория;
+#   frozenset({группы})      → ровно перечисленные группы;
+#   ("except", frozenset)    → вся категория, кроме перечисленных групп.
+# Конфиг-вкладки покрывают ВСЕ группы категорий models/keys/prompts/limits/
+# flags/reactions ровно один раз (не-конфиг вкладки «Доступы»/«Статус»/
+# «Как это работает» здесь не участвуют).
+TAB_LLM_PROVIDERS = "llm_providers"
+TAB_PROMPTS = "prompts"
+TAB_LIMITS = "limits"
+TAB_MEMORY_RAG = "memory_rag"
+TAB_REACTIONS_TRIGGERS = "reactions_triggers"
+
+CONFIG_TAB_TITLES: dict[str, str] = {
+    TAB_LLM_PROVIDERS: "LLM Провайдеры",
+    TAB_PROMPTS: "Промпты",
+    TAB_LIMITS: "Лимиты",
+    TAB_MEMORY_RAG: "Память и RAG",
+    TAB_REACTIONS_TRIGGERS: "Реакции и Триггеры",
+}
+
+_GROUPS_LIMITS_MEMORY_GRAPH = frozenset({"limits_memory", "limits_graph"})
+_GROUPS_FLAGS_MEDIA_MEMORY = frozenset({"flags_memory", "flags_media"})
+
+TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
+    (TAB_LLM_PROVIDERS, (
+        (CATEGORY_MODELS, None),
+        (CATEGORY_KEYS, None),
+    )),
+    (TAB_PROMPTS, (
+        (CATEGORY_PROMPTS, None),
+    )),
+    (TAB_LIMITS, (
+        (CATEGORY_LIMITS, ("except", _GROUPS_LIMITS_MEMORY_GRAPH)),
+        (CATEGORY_FLAGS, ("except", _GROUPS_FLAGS_MEDIA_MEMORY)),
+    )),
+    (TAB_MEMORY_RAG, (
+        (CATEGORY_LIMITS, frozenset({"limits_memory", "limits_graph"})),
+        (CATEGORY_FLAGS, frozenset({"flags_memory"})),
+    )),
+    (TAB_REACTIONS_TRIGGERS, (
+        (CATEGORY_REACTIONS, None),
+        (CATEGORY_FLAGS, frozenset({"flags_media"})),
+    )),
+)
+
+_TAB_BY_GROUP: dict[str, str] = {}
+
+
+def _resolve_tab_groups(category: str, rule: object) -> frozenset[str]:
+    """Группы категории по правилу (None / frozenset / ("except", set))."""
+    all_groups = frozenset(g.id for g in _GROUPS_BY_CATEGORY.get(category, ()))
+    if rule is None:
+        return all_groups
+    if isinstance(rule, frozenset):
+        return rule & all_groups
+    kind, excluded = rule
+    if kind == "except":
+        return all_groups - excluded
+    return all_groups
+
+
+for _tab_id, _tab_rules in TAB_RULES:
+    for _category, _rule in _tab_rules:
+        for _gid in _resolve_tab_groups(_category, _rule):
+            _prev = _TAB_BY_GROUP.get(_gid)
+            if _prev is not None and _prev != _tab_id:
+                raise ValueError(
+                    f"duplicate tab assignment for group {_gid}: {_prev} vs {_tab_id}")
+            _TAB_BY_GROUP[_gid] = _tab_id
+
+
+def tab_group_ids(tab_id: str) -> frozenset[str]:
+    """3.5.1: группы, рендерящиеся на конфиг-вкладке (для аудита/фронта)."""
+    return frozenset(gid for gid, tab in _TAB_BY_GROUP.items() if tab == tab_id)
+
+
+def group_tab(group_id: str) -> str | None:
+    """3.5.1: вкладка группы (None — группа не конфиг-вкладки)."""
+    return _TAB_BY_GROUP.get(group_id)
+
+
+def config_tab_sources(tab_id: str) -> list[tuple[str, object]]:
+    """3.5.1: правила-источники вкладки (категория, выбор групп) — для фронта."""
+    for _tid, rules in TAB_RULES:
+        if _tid == tab_id:
+            return list(rules)
+    return []
 
 
 def known_sections() -> set[str]:

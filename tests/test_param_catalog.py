@@ -32,8 +32,10 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        # 244: 243 + WEBAPP_URL (Задание B, 2026-09-03) — каталог infra пополнен
-        assert len(fields) == 244
+        # 251: 244 + VIDEO_PRIMARY_MODEL/VIDEO_FALLBACK_MODEL/VIDEO_TIMEOUT_SECONDS
+        # + VASYA_ENABLED/KUCHA_ENABLED/MIMIC_ENABLED/ALAN_MIMIC_ENABLED
+        # (эпик 04.09.2026) — каталог пополнен парно
+        assert len(fields) == 251
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -128,7 +130,7 @@ class TestPromptsContentPgOnly:
     def test_prompts_are_pg_only_with_code_source(self):
         prompts = [s for s in REGISTRY.values()
                    if s.category == pc.CATEGORY_PROMPTS]
-        assert len(prompts) == 9
+        assert len(prompts) == 10   # + prompts.youtube_video_system_prompt (04.09.2026)
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -187,10 +189,10 @@ class TestGroups8424:
         ids = [g.id for g in GROUPS]
         assert len(ids) == len(set(ids))
 
-    def test_groups_cover_all_categories_and_count_59(self):
-        # 57 (84.24.2) + limits_user_aliases + limits_youtube_proxy (задачи
-        # 1/2 от 2026-09-03: алиасы и proxy-настройки переехали в limits)
-        assert len(GROUPS) == 59
+    def test_groups_cover_all_categories_and_count_61(self):
+        # 59 (84.24.2 + задачи 1/2 от 2026-09-03) + models_video_summary +
+        # reactions_word_reactions (эпик 04.09.2026)
+        assert len(GROUPS) == 61
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -217,13 +219,13 @@ class TestGroups8424:
         assert pc.group_order("limits_persons") == 1
 
     def test_group_counts_match_design(self):
-        """84.24.2 + дельты (2026-09-03): количества по категориям
-        (4 proxy-параметра и алиасы переехали из keys/reactions в limits)."""
+        """84.24.2 + дельты (2026-09-03) + эпик 04.09.2026 (модели-видео,
+        тумблеры реакций/мимикрии, видео-промпт)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 9, "models": 26, "keys": 12,
-                          "limits": 120, "flags": 41, "reactions": 35,
+        assert counts == {"prompts": 10, "models": 29, "keys": 12,
+                          "limits": 120, "flags": 42, "reactions": 38,
                           "content": 1}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

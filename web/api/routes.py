@@ -207,7 +207,10 @@ async def get_config(
                       # 84.24: группа и простое описание (для ключей без
                       # spec — пустые; фронт складывает в «Прочее»)
                       "group": spec.group if spec else "",
-                      "description": spec.description if spec else ""})
+                      "description": spec.description if spec else "",
+                      # Эпик 04.09.2026 (3.1/FR-28): виджет рендера (""
+                      # дефолт | "keyvalue" — KV-редактор пар)
+                      "widget": spec.widget if spec else ""})
     # 84.24.3: сортировка (category, group.order, title_ru)
     items.sort(key=lambda it: (it["category"], group_order(it["group"]),
                                it["title"]))

@@ -235,7 +235,7 @@ class TestConfigGroups8424:
         assert "models_main" in groups
         assert "content_info" in groups
         g = groups["limits_persons"]
-        assert g["title"] == "Персонажи: Алан и Костик"
+        assert g["title"] == "Персонажи: Леха и Костик"   # эпик 04.09.2026
         assert g["category"] == "limits"
         assert g["order"] == 1
         assert g["description"].strip()
@@ -271,6 +271,34 @@ class TestConfigGroups8424:
         assert key_item["group"] == "keys_groq"
         assert key_item["value"] == {"configured": True, "last4": "1234"}
         assert "gsk_secret_key_1234" not in resp.text
+
+    def test_items_have_widget_field(self, client):
+        """Эпик 04.09.2026 (FR-28): GET /api/config отдаёт widget у каждого
+        item ("" дефолт; "keyvalue" — KV-редактор summary_aliases)."""
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i for i in resp.json()["items"]}
+        it = items["limits.search_max_symbols"]
+        assert it["widget"] == ""
+        # у всех items поле widget присутствует
+        assert all("widget" in i for i in resp.json()["items"])
+
+    def test_summary_aliases_widget_keyvalue_and_json_roundtrip(self, client):
+        """FR-28: summary_aliases отдаётся с widget=keyvalue; POST объектом
+        JSON сохраняет dict (json-тип каталога), значение горячо читается."""
+        aliases = {"138811255": "Леха", "350803143": "Костик"}
+        resp = client.post("/api/config",
+                           json={"items": [{"key": "limits.summary_aliases",
+                                            "value": aliases}]},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json() == {"updated": ["limits.summary_aliases"]}
+        stored = client.cache.get("limits.summary_aliases")
+        assert stored == aliases                      # dict, не строка
+        assert isinstance(stored, dict)
+        resp2 = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        item = {i["key"]: i for i in resp2.json()["items"]}["limits.summary_aliases"]
+        assert item["widget"] == "keyvalue"
+        assert item["value"] == aliases
 
 
 class TestConfigPost:

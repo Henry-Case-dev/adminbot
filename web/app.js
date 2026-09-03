@@ -2,25 +2,74 @@
  * Vue 3 Options API (global build), zero-build. Все запросы — через api()
  * с заголовком X-Telegram-Init-Data (84.6). 401 → сессия устарела;
  * 403 → запрет. Вкладки «📊 Статус» и «ℹ️ Как это работает» видны ВСЕГДА.
+ *
+ * Эпик 04.09.2026 (3.5.1): конфиг-вкладки декларативны и повторяют серверный
+ * контракт TAB_RULES (services/param_catalog.py): id вкладок — TAB_*,
+ * заголовки — CONFIG_TAB_TITLES, sources — правила «категория → группы».
+ * Каждая конфиг-вкладка рендерится ОДНИМ generic-шаблоном (index.html) по
+ * groupedForTab() — 5 старых категорийных шаблонов схлопнуты.
  */
 (function () {
   'use strict';
 
+  // ═══ Вкладки (3.5.1; зеркало TAB_RULES/CONFIG_TAB_TITLES бэка) ═══
+  // sources: [{category, groups|null|except:[...]}] — groups = белый список
+  // групп категории, except = вся категория кроме перечисленного, null = вся.
   var TABS = [
-    { id: 'prompts', icon: '🧠', label: 'Промпты', categories: ['prompts'] },
-    { id: 'models', icon: '⚙️', label: 'Модели и Провайдеры', categories: ['models'] },
-    { id: 'keys', icon: '🔑', label: 'API Ключи', categories: ['keys'] },
-    { id: 'limits', icon: '🚦', label: 'Лимиты и Модули', categories: ['limits', 'flags'] },
-    { id: 'access', icon: '👥', label: 'Управление доступом', categories: ['access'] },
-    { id: 'status', icon: '📊', label: 'Статус', always: true },
-    { id: 'info', icon: 'ℹ️', label: 'Как это работает', always: true },
+    { id: 'llm_providers', icon: '🤖', label: 'LLM Провайдеры', type: 'config',
+      sources: [
+        { category: 'models', groups: null },
+        { category: 'keys', groups: null },
+      ] },
+    { id: 'prompts', icon: '🧠', label: 'Промпты', type: 'config',
+      sources: [
+        { category: 'prompts', groups: null },
+      ] },
+    { id: 'limits', icon: '🚦', label: 'Лимиты', type: 'config',
+      sources: [
+        { category: 'limits', except: ['limits_memory', 'limits_graph'] },
+        { category: 'flags', except: ['flags_memory', 'flags_media'] },
+      ] },
+    { id: 'memory_rag', icon: '🗄️', label: 'Память и RAG', type: 'config',
+      sources: [
+        { category: 'limits', groups: ['limits_memory', 'limits_graph'] },
+        { category: 'flags', groups: ['flags_memory'] },
+      ] },
+    { id: 'reactions_triggers', icon: '🎭', label: 'Реакции и Триггеры', type: 'config',
+      sources: [
+        { category: 'reactions', groups: null },
+        { category: 'flags', groups: ['flags_media'] },
+      ] },
+    { id: 'access', icon: '👥', label: 'Доступы', type: 'access', categories: ['access'] },
+    { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true },
+    { id: 'info', icon: 'ℹ️', label: 'Как это работает', type: 'info', always: true },
   ];
 
   var LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
 
   function arr(x) { return Array.isArray(x) ? x : []; }
 
-  Vue.createApp({
+  // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
+  // либо уникальные категории источников (конфиг вкладки).
+  function tabCategories(tab) {
+    if (!tab || !tab.sources) return arr(tab && tab.categories);
+    var out = [];
+    tab.sources.forEach(function (s) {
+      if (out.indexOf(s.category) < 0) out.push(s.category);
+    });
+    return out;
+  }
+
+  // 3.5.2: id считается числовым, если целиком из цифр (иначе null).
+  // Используется warnText KV-редактора («нечисловые ID сохранятся как
+  // строки»). Сортировка пар — НЕ здесь: sync() сохраняет порядок объекта.
+  function numericId(id) {
+    var s = String(id).trim();
+    if (!/^\d+$/.test(s)) return null;
+    return parseInt(s, 10);
+  }
+
+  var app = Vue.createApp({
     data: function () {
       return {
         tabs: TABS,
@@ -36,6 +85,7 @@
         configLoading: false,
         saving: new Set(),
         keyDrafts: {},
+        keyReveal: {},           // 3.5.1: показать/скрыть маску ключа (по item.key)
         // access
         admins: [],
         adminsLoading: false,
@@ -83,8 +133,25 @@
 
     computed: {
       currentTabLabel: function () {
-        var tab = this.tabs.find(function (t) { return t.id === this.activeTab; }, this);
+        var tab = this.currentTab;
         return tab ? tab.label : '';
+      },
+      currentTab: function () {
+        return this.tabs.find(function (t) { return t.id === this.activeTab; }, this) || null;
+      },
+      // 3.5.1: активная вкладка — конфиг (generic-рендер по sources)
+      currentTabIsConfig: function () {
+        var t = this.currentTab;
+        return !!(t && t.type === 'config');
+      },
+      // 3.5.1: группы активной конфиг-вкладки (для generic-шаблона)
+      currentTabGroups: function () {
+        var t = this.currentTab;
+        return (t && t.type === 'config') ? this.groupedForTab(t) : [];
+      },
+      currentTabItemCount: function () {
+        var t = this.currentTab;
+        return (t && t.type === 'config') ? this.tabItemCount(t) : 0;
       },
       permissions: function () {
         return (this.me && this.me.permissions) ? this.me.permissions : {};
@@ -243,6 +310,11 @@
         this.sidebarOpen = false;
         // 84.24-ревью: поиск не переносится между вкладками
         if (this.configSearch) this.configSearch = '';
+        // 3.5.1 (UX): скролл контента в начало при переключении вкладки
+        this.$nextTick(function () {
+          var sc = document.scrollingElement || document.documentElement;
+          if (sc) sc.scrollTop = 0;
+        });
         if (id === 'status') {
           this.loadStatus();
           this.loadLogs();
@@ -257,7 +329,10 @@
           this.loadAdmins();
           this.loadRoles();
         }
-        if (['prompts', 'models', 'keys', 'limits'].indexOf(id) >= 0 && !this.configItems.length) {
+        // 3.5.1: конфиг-вкладки (generic-рендер) — данные общие для всех;
+        // первый показ любой из них грузит /api/config целиком.
+        var tab = this.currentTab;
+        if (tab && tab.type === 'config' && !this.configItems.length) {
           self.loadConfig();
         }
       },
@@ -297,8 +372,9 @@
         var p = this.permissions;
         if (p.wildcard) return true;
         var sections = arr(p.sections), params = arr(p.params), keys = arr(p.keys);
-        for (var i = 0; i < tab.categories.length; i++) {
-          var cat = tab.categories[i];
+        var cats = tabCategories(tab);
+        for (var i = 0; i < cats.length; i++) {
+          var cat = cats[i];
           if (cat === 'access') {
             if (sections.indexOf('access') >= 0) return true;
             continue;
@@ -338,10 +414,17 @@
           this.configItems = data.items || [];
           this.configGroups = data.groups || [];
           this.configItems.forEach(function (item) {
-            if (item.type === 'json' && typeof item.value === 'object' && item.value !== null) {
+            // 3.5.1/FR-28: widget отсутствует у старого сервера — дефолт '';
+            // json с widget='keyvalue' НЕ строкифайм (остаётся объектом для
+            // KV-редактора), остальные json — textarea-текст как раньше.
+            if (!item.widget) item.widget = '';
+            if (item.type === 'json' && !item.widget &&
+                typeof item.value === 'object' && item.value !== null) {
               item.value = JSON.stringify(item.value, null, 2);
             }
           });
+          // 3.5.2: после перезагрузки KV-редакторы (компоненты) сами
+          // пересоберут пары из item.value — внешних черновиков нет.
         } catch (e) {
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо
           // общего «Не удалось загрузить конфигурацию».
@@ -355,49 +438,74 @@
         }
       },
 
-      configByCategory: function (cat) {
-        return this.configItems.filter(function (item) { return item.category === cat; });
+      // 3.5.1: проходят ли item правила источника вкладки (зеркало
+      // TAB_RULES: groups=белый список | except=вся категория кроме | null=вся).
+      itemMatchesSource: function (item, source) {
+        if (!source || source.category !== item.category) return false;
+        if (source.groups) return source.groups.indexOf(item.group) >= 0;
+        if (source.except) return source.except.indexOf(item.group) < 0;
+        return true;                                  // null → вся категория
       },
-
-      // 84.24: группы для вкладки: [{meta, items[]}]; порядок — из
-      // серверных groups[] (order), параметры без group → «Прочее» в конце.
-      // Поиск-фильтр по title/description/key скрывает пустые группы.
-      groupedByCategory: function (cat) {
+      tabSourceForItem: function (tab, item) {
         var self = this;
-        var items = this.configByCategory(cat);
-        var q = (this.configSearch || '').trim().toLowerCase();
-        if (q) {
-          items = items.filter(function (it) {
-            return (it.title || '').toLowerCase().indexOf(q) >= 0
-              || (it.description || '').toLowerCase().indexOf(q) >= 0
-              || (it.key || '').toLowerCase().indexOf(q) >= 0;
-          });
+        var srcs = (tab && tab.sources) || [];
+        for (var i = 0; i < srcs.length; i++) {
+          if (self.itemMatchesSource(item, srcs[i])) return srcs[i];
         }
-        var order = {};
+        return null;
+      },
+      // Количество параметров вкладки БЕЗ поиска (для пустых состояний).
+      tabItemCount: function (tab) {
+        var self = this;
+        return this.configItems.reduce(function (n, it) {
+          return self.tabSourceForItem(tab, it) ? n + 1 : n;
+        }, 0);
+      },
+      // Группы-«витрины» активной конфиг-вкладки: [{id, meta, category,
+      // items[]}]. Категории вкладки идут по порядку sources (модели →
+      // ключи, лимиты → флаги, реакции → флаги), внутри — group.order;
+      // параметры без group → «Прочее» в конце. Поиск-фильтр как раньше.
+      groupedForTab: function (tab) {
+        var self = this;
+        if (!tab || !tab.sources) return [];
+        var q = (this.configSearch || '').trim().toLowerCase();
+        var items = this.configItems.filter(function (it) {
+          if (!self.tabSourceForItem(tab, it)) return false;
+          if (!q) return true;
+          return (it.title || '').toLowerCase().indexOf(q) >= 0
+            || (it.description || '').toLowerCase().indexOf(q) >= 0
+            || (it.key || '').toLowerCase().indexOf(q) >= 0;
+        });
         var byId = {};
+        var rank = {};
+        tab.sources.forEach(function (s, i) { rank[s.category] = i; });
         this.configGroups.forEach(function (g) {
-          order[g.id] = g.order;
           byId[g.id] = g;
+          if (!(g.category in rank)) rank[g.category] = 99;
         });
         var grouped = items.reduce(function (acc, it) {
           var gid = it.group || '';
-          if (!acc[gid]) {
-            acc[gid] = {
+          var uid = it.category + '/' + gid;
+          if (!acc[uid]) {
+            acc[uid] = {
+              uid: uid,            // уникальный ключ витрины для v-for
               id: gid,
+              category: it.category,
               meta: gid ? (byId[gid] || null) : null,
               items: [],
             };
           }
-          acc[gid].items.push(it);
+          acc[uid].items.push(it);
           return acc;
         }, {});
-        var result = Object.keys(grouped).map(function (gid) {
-          return grouped[gid];
-        });
+        var result = Object.keys(grouped).map(function (k) { return grouped[k]; });
         result.sort(function (a, b) {
           if (a.id === '' && b.id === '') return 0;
           if (a.id === '') return 1;               // «Прочее» — в конец
           if (b.id === '') return -1;
+          var ra = rank[a.category] != null ? rank[a.category] : 99;
+          var rb = rank[b.category] != null ? rank[b.category] : 99;
+          if (ra !== rb) return ra - rb;
           var oa = a.meta ? a.meta.order : 999;
           var ob = b.meta ? b.meta.order : 999;
           return oa - ob;
@@ -415,6 +523,10 @@
       clearConfigSearch: function () {
         this.configSearch = '';
       },
+      // 3.5.1: маска секрета с кнопкой показать (per-key, keyReveal)
+      toggleKeyReveal: function (key) {
+        this.keyReveal[key] = !this.keyReveal[key];
+      },
 
       inputType: function (item) {
         if (item.type === 'int' || item.type === 'float') return 'number';
@@ -423,7 +535,17 @@
 
       saveConfigItem: async function (item) {
         var value = item.value;
-        if (item.type === 'int') value = parseInt(value, 10);
+        if (item.type === 'json') {
+          // 3.5.1: json без widget редактируется текстом JSON → парсим.
+          if (typeof value === 'string') {
+            try {
+              value = JSON.parse(value);
+            } catch (e) {
+              this.toast('Невалидный JSON в ' + item.key, 'err');
+              return;
+            }
+          }
+        } else if (item.type === 'int') value = parseInt(value, 10);
         else if (item.type === 'float') value = parseFloat(value);
         if (value === null || value === '' || isNaN(value)) {
           this.toast('Некорректное значение для ' + item.key, 'err');
@@ -880,11 +1002,138 @@
       },
     },
 
+    // 3.5.2: KV-редактор (kv-editor) получает доступ к корню — api/toast/
+    // saving/loadConfig из компонента (provide/inject).
+    provide: function () {
+      return { root: this };
+    },
+
     beforeUnmount: function () {
       this.stopStatusPolling();
       if (this.controlTimer) clearInterval(this.controlTimer);
     },
-  }).mount('#app');
+  });
+
+  // ═══ KV-редактор (3.5.2/FR-24-25): поля c widget='keyvalue' ═══
+  // Пары «Telegram ID → имя» в локальном массиве; рендер — x-template
+  // #kv-editor-tpl (index.html). Сборка объекта при сохранении, POST как
+  // у saveKeyItem, перезагрузка loadConfig() после успеха.
+  app.component('kv-editor', {
+    name: 'kv-editor',
+    inject: ['root'],
+    props: {
+      item: { type: Object, required: true },
+      canEdit: { type: Boolean, default: false },
+    },
+    data: function () {
+      return { pairs: [], maxPairs: 200 };
+    },
+    created: function () { this.sync(); },
+    watch: {
+      'item.value': function () { this.sync(); },
+    },
+    computed: {
+      // id непустой в одной паре при пустом имени (или наоборот) — ошибка
+      partialRows: function () {
+        return this.pairs.filter(function (p) {
+          return (String(p.id).trim() === '') !== (String(p.name).trim() === '');
+        });
+      },
+      dupId: function () {
+        var seen = {};
+        for (var i = 0; i < this.pairs.length; i++) {
+          var id = String(this.pairs[i].id).trim();
+          if (!id) continue;
+          if (seen[id]) return id;
+          seen[id] = true;
+        }
+        return '';
+      },
+      // Критичная ошибка — Save disabled и подсветка
+      issueText: function () {
+        if (this.partialRows.length) return 'Заполните ID и имя в каждой строке';
+        if (this.dupId) return 'Дублируется Telegram ID: ' + this.dupId;
+        return '';
+      },
+      // Предупреждение (не блок): id не выглядят числами (могут быть и не
+      // user_id — например, другие ключи словаря)
+      warnText: function () {
+        for (var i = 0; i < this.pairs.length; i++) {
+          var id = String(this.pairs[i].id).trim();
+          if (id && numericId(id) === null) {
+            return 'Есть нечисловые ID — сохранятся как строки';
+          }
+        }
+        return '';
+      },
+    },
+    methods: {
+      // Инициализация/пересборка пар из объекта-значения item.value
+      sync: function () {
+        var raw = this.item && this.item.value;
+        var src = {};
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) src = raw;
+        var pairs = Object.keys(src).map(function (k) {
+          return { id: String(k), name: String(src[k] == null ? '' : src[k]) };
+        });
+        // 3.5.2/W2: порядок объекта-значения сохраняется (как в JSON/PG),
+        // без сортировки; новые строки добавляются в конец (addRow).
+        this.pairs = pairs;
+      },
+      addRow: function () {
+        if (this.pairs.length >= this.maxPairs) {
+          this.root.toast('Слишком много строк (максимум ' + this.maxPairs + ')', 'warn');
+          return;
+        }
+        this.pairs.push({ id: '', name: '' });
+      },
+      removeRow: function (i) {
+        this.pairs.splice(i, 1);
+      },
+      idBad: function (id) {
+        var v = String(id).trim();
+        return !!v && v === this.dupId;
+      },
+      // Частично заполненная пара: вернуть имя пустого поля ('id'/'name'),
+      // иначе '' (для подсветки в шаблоне).
+      emptyField: function (p) {
+        var id = String(p.id).trim(), name = String(p.name).trim();
+        if (!id && name) return 'id';
+        if (id && !name) return 'name';
+        return '';
+      },
+      save: async function () {
+        if (this.issueText) {
+          this.root.toast(this.issueText, 'err');
+          return;
+        }
+        var obj = {};
+        this.pairs.forEach(function (p) {
+          var id = String(p.id).trim();
+          var name = String(p.name).trim();
+          if (!id && !name) return;        // пустая строка → игнорируется
+          obj[id] = name;
+        });
+        var key = this.item.key;
+        this.root.saving.add(key);
+        try {
+          await this.root.api('/api/config', {
+            method: 'POST',
+            body: JSON.stringify({ items: [{ key: key, value: obj }] }),
+          });
+          this.root.toast('Сохранено: ' + (this.item.title || key), 'ok');
+          await this.root.loadConfig();
+        } catch (e) {
+          this.root.toast('Ошибка сохранения: ' + e.message, 'err');
+        } finally {
+          this.root.saving.delete(key);
+        }
+      },
+    },
+    template: '#kv-editor-tpl',
+  });
+
+  app.mount('#app');
 
   function ApiError(status, message) {
     this.status = status;
