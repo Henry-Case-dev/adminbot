@@ -152,6 +152,10 @@ _memory_backup_service = None
 _memory_maintenance_service = None
 # Uptime heartbeat (Epic 85, 84.11.3, T-630) — module-level ref for on_shutdown
 _uptime_heartbeat = None
+# Раунд 3 (T-688): ОБЩИЙ VideoDownloader — создаётся в summary-блоке (0e
+# ссылочные ветки НЕ гейтятся flags.download_enabled), переиспользуется
+# роутером 4e «скачай» (один глобальный лок скачивания на процесс).
+_shared_video_downloader = None
 
 
 async def on_startup():
@@ -159,6 +163,15 @@ async def on_startup():
     db = DatabaseService(settings.DB_PATH)
     await db.initialize()
     logger.info("Database initialized")
+
+    # Раунд 3 (3.1, T-687): ленивая TTL-чистка каталога временных публикаций
+    # при старте (NFR-2: каталог не копится). Файлы сами протухнут по mtime,
+    # но после долгого простоя остатки убираем сразу.
+    from services import media_share
+    try:
+        await asyncio.to_thread(media_share.cleanup_expired)
+    except Exception:
+        logger.warning("[media_share] startup cleanup failed", exc_info=True)
 
     # Create relay and scheduler
     relay = DeadPageRelay(bot, db, MediaService(media_base=hot.get("reactions.dead_page_dir", settings.DEAD_PAGE_DIR)))
@@ -244,7 +257,14 @@ async def on_startup():
         voice_service = VoiceTranscriber(
             max_concurrency=hot.get("models.groq_max_concurrency",
                                     settings.GROQ_MAX_CONCURRENCY))
-        setup_youtube_video_media(voice_service, db, aliases, memory, bot.id)
+        # Раунд 3 (T-688): общий VideoDownloader для ссылочных веток 0e
+        # (прямые ссылки/платформы) и роутера 4e «скачай» — лёгкий, клиенты
+        # ленивые (D261); лок скачивания один на процесс (гонок нет).
+        global _shared_video_downloader
+        _shared_video_downloader = VideoDownloader(
+            settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
+        setup_youtube_video_media(voice_service, db, aliases, memory, bot.id,
+                                  downloader=_shared_video_downloader)
         # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
         # video_url). Ключ пуст → video_client.available=False → ровно старое
         # поведение (субтитры), WARNING в каскаде.
@@ -457,7 +477,10 @@ async def on_startup():
     # 4e. Video Download (Epic 66, Section 70.7) — триггер «скачай <url>»;
     # консьюмит при триггере, НЕ-триггеры → UNHANDLED
     if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
-        downloader = VideoDownloader(settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
+        # Раунд 3 (T-688): ОБЩИЙ инстанс со ссылочными ветками 0e (создан в
+        # summary-блоке) — один глобальный лок скачивания на процесс.
+        downloader = _shared_video_downloader or VideoDownloader(
+            settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
         setup_video_download(downloader, db)
         dp.include_router(video_download_router)
         logger.info("VideoDownloader enabled (cobalt=%s)", settings.COBALT_API_URL)
@@ -624,7 +647,6 @@ async def main():
         server.should_exit = True
         await on_shutdown()
         await cache.close()
-
 
 if __name__ == '__main__':
     asyncio.run(main())

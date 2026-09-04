@@ -31,3 +31,11 @@ def extract_web_url(text: str) -> str | None:
             continue          # D128: YouTube-URL — в веб-парсер не уходит
         return candidate.rstrip(_TRAILING_PUNCT) or None
     return None
+
+
+def extract_urls(text: str) -> list[str]:
+    """Раунд 3 (T-688): ВСЕ http(s)-URL из текста в порядке появления, с
+    чисткой хвостовой пунктуации. Общий для 0e-классификатора видео-ссылок
+    (прецедент handlers/video_download._URL_RE, без дублирования)."""
+    return [m.group(0).rstrip(_TRAILING_PUNCT)
+            for m in _WEB_URL_RE.finditer(str(text or ""))]

@@ -88,7 +88,7 @@ class GroupSpec:
     order: int         # порядок рендера ВНУТРИ категории (1, 2, 3...)
 
 
-# ── 84.24.2: реестр групп (61 шт.; покрытие 252 параметров категорий) ────────
+# ── 84.24.2: реестр групп (63 шт.; покрытие параметров категорий) ────────────
 GROUPS: tuple[GroupSpec, ...] = (
     # prompts (8)
     GroupSpec("prompts_factcheck", "prompts", "Фактчек",
@@ -124,7 +124,7 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Откуда бот берёт метрики сервера для чекапа.", 7),
     GroupSpec("models_video_summary", "models", "Видео-выжимка (OpenRouter)",
               "Модели, которые смотрят видео сами, и таймаут выжимки.", 8),
-    # keys (6)
+    # keys (7)
     GroupSpec("keys_llm", "keys", "Основной LLM",
               "Пароли доступа к основной и запасной нейросети.", 1),
     GroupSpec("keys_groq", "keys", "Groq",
@@ -137,6 +137,8 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Логин и пароль SQL-базы для чекапа.", 5),
     GroupSpec("keys_youtube", "keys", "YouTube: прокси и cookies",
               "Прокси и cookies для субтитров YouTube.", 6),
+    GroupSpec("keys_media", "keys", "Медиа-шара",
+              "Секрет подписи временных ссылок на видео (раунд 3).", 7),
     # limits (20)
     GroupSpec("limits_persons", "limits", "Персонажи: Леха и Костик",
               "Частота ответов Лехи и Костика, приветствия Лехи.", 1),
@@ -216,9 +218,11 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Папка бэкапов памяти.", 12),
     GroupSpec("reactions_word_reactions", "reactions", "Словесные реакции",
               "Тумблеры текстовых реакций: „Вася ↔ АДМИН” и „куча → ДАЛБАЕБ”.", 13),
-    # content (1)
+    # content (2)
     GroupSpec("content_info", "content", "Как это работает",
               "Текст справки для пользователей.", 1),
+    GroupSpec("content_media", "content", "Медиа-шара",
+              "Каталог временных публикаций видео и внешний URL (раунд 3).", 2),
 )
 
 
@@ -263,6 +267,15 @@ _CONTENT: list[tuple] = [
     ("content.info_how_it_works", "Текст «Как это работает» (rich-HTML)",
      "content_info",
      "Справка для пользователей админки. Разметка HTML — можно картинки и ссылки."),
+]
+
+# ── content: поля Settings (раунд 3 — каталог медиа-шары) ──────────────────
+# (field, title_ru, type, group, description)
+_CONTENT_SETTINGS: list[tuple] = [
+    ("MEDIA_SHARE_DIR", "Каталог временной публикации видео", "str", "content_media",
+     "Папка, куда копируются видео для пересказа «по кадрам» (вне web-статики). Относительно корня проекта."),
+    ("MEDIA_PUBLIC_BASE_URL", "Внешний базовый URL /media", "str", "content_media",
+     "Публичный домен, через который OpenRouter видит опубликованные видео (Caddy → FastAPI)."),
 ]
 
 # ── infra: остаётся в .env (84.12.1); category=None — НЕ мигрируется ───────
@@ -324,6 +337,8 @@ _KEYS: list[tuple] = [
      "Пароль резидент-прокси Webshare для субтитров. Получить: webshare.io."),
     ("YOUTUBE_COOKIES_FILE", "Путь к cookies-файлу YouTube (Netscape)", "str", True, "keys_youtube",
      "Файл с cookies браузера для YouTube — помогает получать субтитры. Обновляется вручную при протухании."),
+    ("MEDIA_SHARE_SECRET", "Секрет подписи /media-ссылок", "str", True, "keys_media",
+     "Секрет HMAC-подписи временных URL на опубликованные видео (раунд 3). ПУСТО = публикация выключена — видео пересказываются по звуку (STT). Получить: свой генератор случайных строк."),
 ]
 
 # ── models: провайдеры/модели/таймауты/ретраи (не секреты) ──────────────────
@@ -596,7 +611,7 @@ _LIMITS: list[tuple] = [
     ("CHAT_COOLDOWN_SECONDS", "Кулдаун direct_chat, сек", "float", "limits_chat",
      "Пауза между ответами в прямом чате. Больше — бот реже отвечает."),
     ("CHAT_DIRECT_REPLY_TTL_DAYS", "TTL bot_direct_reply-фактов, дней", "int", "limits_chat",
-     "Сколько дней помнить, что бот уже отвечал человеку. Больше — дольше помнит."),
+     "Сколько дней помнить, что бот уже отвечал человеку. Пусто = 30 (дефолт), 0 = вечно. Больше — дольше помнит."),
     ("CHAT_GLOBAL_CONTEXT_MAX_CHARS", "Потолок <Global_Context>, символов", "int", "limits_chat",
      "Максимальный размер фона разговора. Больше — точнее, но дороже."),
     ("CHAT_THREAD_MAX_DEPTH", "Глубина <Conversation_Thread>", "int", "limits_chat",
@@ -730,6 +745,19 @@ _LIMITS: list[tuple] = [
     ("VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS", "Макс. длительность видео для расшифровки, сек",
      "int", "limits_media",
      "Видео длиннее не расшифровывается. Telegram отдаёт длительность для видео-сообщений; у документов проверки длительности нет."),
+    # ── Раунд 3 (видео-пайплайн): медиа-шара + STT-надёжность ──
+    ("MEDIA_SHARE_TTL_SECONDS", "TTL опубликованного видео, сек", "int", "limits_media",
+     "Сколько секунд OpenRouter может «посмотреть» ролик по временной ссылке. Меньше 60 игнорируется (900)."),
+    ("MEDIA_SHARE_MAX_MB", "Потолок публикации видео, МБ", "int", "limits_media",
+     "Файл больше не публикуется — пересказ честно уходит на STT/фразы. Больше — тяжелее мультимодалка."),
+    ("VIDEO_STT_TIMEOUT_SECONDS", "Таймаут STT видео, сек", "float", "limits_media",
+     "Сколько ждать ОДНУ стратегию распознавания для видео-файлов (перекрывает Groq/OpenRouter таймауты). Голосовые не трогает."),
+    ("VIDEO_SUMMARY_MIN_CHARS", "Мин. символов транскрипта для выжимки", "int", "limits_media",
+     "Короче транскрипта выжимка не строится — честная фраза «нет речи». Больше — строже."),
+    ("STT_GROQ_MAX_UPLOAD_MB", "Потолок загрузки Groq STT, МБ", "int", "limits_media",
+     "Файл больше Groq-стратегия пропускается (лимит upload). Больше — риск HTTP 400."),
+    ("STT_OPENROUTER_MAX_UPLOAD_MB", "Потолок загрузки OpenRouter STT, МБ", "int", "limits_media",
+     "Файл больше OpenRouter-стратегия пропускается (base64 input_audio). Больше — риск HTTP 400."),
 ]
 
 # ── reactions: id-списки, слова, пути, названия (не секреты) ────────────────
@@ -854,6 +882,10 @@ def _build_registry() -> dict[str, ParamSpec]:
     for row in _REACTIONS:
         field, title, typ, group, desc = row
         add(ParamSpec(field, field, CATEGORY_REACTIONS, title, typ,
+                      group=group, description=desc))
+    for row in _CONTENT_SETTINGS:
+        field, title, typ, group, desc = row
+        add(ParamSpec(field, field, CATEGORY_CONTENT, title, typ,
                       group=group, description=desc))
     for spec_id, title, code_source, group, desc in _PROMPTS:
         add(ParamSpec(None, None, CATEGORY_PROMPTS, title, "str",

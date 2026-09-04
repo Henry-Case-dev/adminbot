@@ -32,9 +32,12 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        # 253: 251 + VIDEO_TRANSCRIBE_MAX_SIZE_MB/VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS
-        # (bugfix 04.09.2026, Часть 1 — нативные TG-видео) — каталог пополнен парно
-        assert len(fields) == 253
+        # 262: 253 + 9 (раунд 3 — медиа-шара + STT-надёжность:
+        # MEDIA_SHARE_SECRET/DIR/TTL_SECONDS/PUBLIC_BASE_URL/MAX_MB,
+        # VIDEO_STT_TIMEOUT_SECONDS/VIDEO_SUMMARY_MIN_CHARS,
+        # STT_GROQ_MAX_UPLOAD_MB/STT_OPENROUTER_MAX_UPLOAD_MB) — каталог
+        # пополнен парно
+        assert len(fields) == 262
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -188,10 +191,12 @@ class TestGroups8424:
         ids = [g.id for g in GROUPS]
         assert len(ids) == len(set(ids))
 
-    def test_groups_cover_all_categories_and_count_61(self):
-        # 59 (84.24.2 + задачи 1/2 от 2026-09-03) + models_video_summary +
-        # reactions_word_reactions (эпик 04.09.2026)
-        assert len(GROUPS) == 61
+    def test_groups_cover_all_categories_and_count_63(self):
+        # 61 (84.24.2 + задачи 1/2 от 2026-09-03) + models_video_summary +
+        # reactions_word_reactions (эпик 04.09.2026) + keys_media/content_media
+        # (раунд 3, T-687 — медиа-шара); имя актуализировано fix-раундом
+        # 04.09 (m7): 61 → 63
+        assert len(GROUPS) == 63
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -220,12 +225,13 @@ class TestGroups8424:
     def test_group_counts_match_design(self):
         """84.24.2 + дельты (2026-09-03) + эпик 04.09.2026 (модели-видео,
         тумблеры реакций/мимикрии, видео-промпт) + bugfix 04.09.2026
-        (limits +2: расшифровка нативных TG-видео)."""
+        (limits +2: расшифровка нативных TG-видео) + раунд 3 (медиа-шара:
+        keys +1 / limits +6 / content +2 — T-687)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 29, "keys": 12,
-                          "limits": 122, "flags": 42, "reactions": 38,
-                          "content": 1}
+        assert counts == {"prompts": 10, "models": 29, "keys": 13,
+                          "limits": 128, "flags": 42, "reactions": 38,
+                          "content": 3}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

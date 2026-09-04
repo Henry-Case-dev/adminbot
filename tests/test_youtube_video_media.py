@@ -26,7 +26,9 @@ CHAT_ID = -1001234567890
 USER_ID = 111
 MEDIA_MSG_ID = 77
 
-_TRANSCRIPT = "текст расшифровки"
+_TRANSCRIPT = ("текст расшифровки, которого достаточно для честной выжимки, "
+               "потому что в ролике реально что-то говорят без умолку "
+               "и пересказывать есть из чего, вот.")
 
 
 @pytest.fixture
@@ -283,16 +285,17 @@ class TestMediaLimits:
         await youtube_mod.youtube_handler(msg, bot=bot)
         bot.download.assert_awaited()
         transcriber.transcribe_voice.assert_awaited_once_with(
-            tmp_file_path[0], "mp4")
+            tmp_file_path[0], "mp4", timeout=120.0)
 
 
 # ── 3. Выдача: сырой текст vs LLM-выжимка (FR-6/AC-1.5) ──────────────
 
 class TestMediaOutput:
     @pytest.mark.asyncio
-    async def test_transcript_trigger_raw_text_chunked(self, yv_cleanup,
-                                                       tmp_file_path):
-        """«транскрипт» → сырой текст реплаем на медиа-сообщение (чанки)."""
+    async def test_transcript_trigger_html_chunked(self, yv_cleanup,
+                                                   tmp_file_path):
+        """«транскрипт» → HTML-первая часть как у кружков (3.3): лейбл-bold,
+        🗣:-якорь, текст в <i>; реплай на медиа-сообщение, parse_mode=HTML."""
         db = MagicMock()
         db.update_smart_message_text = AsyncMock(return_value=1)
         memory = MagicMock()
@@ -304,14 +307,15 @@ class TestMediaOutput:
         await youtube_mod.youtube_handler(msg, bot=bot)
         svc.summarize_transcript.assert_not_called()
         args, kwargs = bot.send_message.await_args
-        assert args[1].startswith("Вася 🗣:")
-        assert _TRANSCRIPT in args[1]
+        assert args[1] == f"<b>Вася</b> 🗣: <i>{_TRANSCRIPT}</i>"
+        assert kwargs.get("parse_mode") == "HTML"
         assert kwargs.get("reply_to_message_id") == 11
 
     @pytest.mark.asyncio
     async def test_other_triggers_llm_summary(self, yv_cleanup,
                                               tmp_file_path):
-        """«че за видос» → summarize_transcript (канон на файле) → ответ."""
+        """«че за видос» → summarize_transcript (канон на файле, БЕЗ RAG —
+        раунд 3) → ответ."""
         db = MagicMock()
         db.update_smart_message_text = AsyncMock(return_value=1)
         memory = MagicMock()
@@ -324,7 +328,7 @@ class TestMediaOutput:
         svc.summarize_transcript.assert_awaited_once()
         kwargs = svc.summarize_transcript.await_args.kwargs
         assert kwargs["chat_id"] == CHAT_ID
-        assert kwargs["rag_query"] == "че за видос"
+        assert "rag_query" not in kwargs       # честная выжимка без RAG (3.4)
         assert kwargs["transcript"] == _TRANSCRIPT
         assert bot.send_message.await_args.args[1] == "выжимка видоса"
 
@@ -353,7 +357,7 @@ class TestMediaOutput:
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1].startswith(
-            "Скрытый Гость 🗣:")
+            "<b>Скрытый Гость</b> (переслал Вася) 🗣:")
 
     @pytest.mark.asyncio
     async def test_caption_trigger_on_own_video(self, yv_cleanup,
@@ -503,7 +507,8 @@ class TestMediaMemory:
         msg = _make_media_msg(text="транскрипт", video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
-        assert bot.send_message.await_args.args[1].startswith("Вася 🗣:")
+        assert bot.send_message.await_args.args[1] == (
+            f"<b>Вася</b> 🗣: <i>{_TRANSCRIPT}</i>")
 
 
 # ── 6. Document-медиа и reply (AC-1.2) ────────────────────────────────
@@ -523,7 +528,8 @@ class TestDocumentMedia:
         await youtube_mod.youtube_handler(msg, bot=bot)
         transcriber.transcribe_voice.assert_awaited_once()
         bot.download.assert_awaited()
-        assert bot.send_message.await_args.args[1].endswith(_TRANSCRIPT)
+        assert bot.send_message.await_args.args[1] == (
+            f"<b>Вася</b> 🗣: <i>{_TRANSCRIPT}</i>")
 
     @pytest.mark.asyncio
     async def test_document_no_mime_by_name_transcribed(self, yv_cleanup,
@@ -645,7 +651,7 @@ class TestReactionIsolation:
 
         sent = _sent_texts(bot)
         assert len(sent) == 1, sent
-        assert sent[0].startswith("Славик 🗣:")
+        assert sent[0].startswith("<b>Славик</b> 🗣:")
         assert "пошёл нахуй" not in sent[0]
 
     @pytest.mark.asyncio

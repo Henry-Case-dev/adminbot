@@ -33,6 +33,7 @@ from services.smartmodule_phrases import (
     VIDEO_MEDIA_TOO_BIG_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
     VIDEO_MEDIA_UNAVAILABLE_PHRASES,
+    VIDEO_NO_SPEECH_PHRASES,
 )
 
 # Каноны R33-5 (backlog, дословно)
@@ -528,14 +529,15 @@ class TestPlaceholderSubstitution:
 # ── Bugfix 04.09.2026 (Часть 1, 5.9–5.12): пулы нативных TG-видео ────
 
 class TestVideoMediaPools:
-    """5.9–5.12 (ФР-3/ФР-8): пулы видео-файлов — disjoint между собой и со
-    всеми существующими, строчные, без эмодзи/маркдауна (стиль-канон)."""
+    """5.9–5.13 (ФР-3/ФР-8 + раунд 3/FR-B9): пулы видео-файлов — disjoint
+    между собой и со всеми существующими, строчные, без эмодзи/маркдауна."""
 
     VIDEO_POOLS = (
         VIDEO_MEDIA_TOO_LONG_PHRASES,
         VIDEO_MEDIA_TOO_BIG_PHRASES,
         VIDEO_MEDIA_UNAVAILABLE_PHRASES,
         VIDEO_MEDIA_EMPTY_PHRASES,
+        VIDEO_NO_SPEECH_PHRASES,
     )
 
     def test_pool_sizes_no_duplicates(self):
@@ -547,6 +549,9 @@ class TestVideoMediaPools:
         assert len(set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)) == 3
         assert len(VIDEO_MEDIA_EMPTY_PHRASES) == 3
         assert len(set(VIDEO_MEDIA_EMPTY_PHRASES)) == 3
+        # 5.13 (раунд 3): «немое» видео — честная фраза
+        assert len(VIDEO_NO_SPEECH_PHRASES) == 3
+        assert len(set(VIDEO_NO_SPEECH_PHRASES)) == 3
 
     def test_pools_disjoint_from_each_other(self):
         for i, pool in enumerate(self.VIDEO_POOLS):

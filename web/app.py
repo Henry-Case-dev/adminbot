@@ -14,18 +14,29 @@ __APP_VERSION__ → актуальная версия (только в `?v=` у 
 рование без хэш-имён). / → /web/.
 """
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import APP_VERSION
 from services.config_cache import ConfigCache
+from services import media_share
 
 logger = logging.getLogger(__name__)
 
 _VERSION_TAG = "__APP_VERSION__"
+
+# Раунд 3 (T-687): MIME по расширению опубликованного файла (3.1).
+_EXT_MEDIA_TYPES = {
+    "mp4": "video/mp4",
+    "webm": "video/webm",
+    "mov": "video/quicktime",
+    "mkv": "video/x-matroska",
+    "avi": "video/x-msvideo",
+}
 
 
 class CacheControlStaticFiles(StaticFiles):
@@ -100,10 +111,49 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     async def root():
         return RedirectResponse(url="/web/")
 
+    # ── Раунд 3 (T-687): GET /media/{file_id}?e=&s= — подписанная отдача
+    # временно опубликованных видео (3.1, FR-B2). БЕЗ TMA-авторизации:
+    # безопасность — uuid-имя + HMAC-подпись + TTL (случайный id не
+    # перебирается). 403 — битая подпись/просрочка; 404 — нет файла /
+    # мусорный id (маска-404 как у /api — traversal невозможен структурно).
+    @app.get("/media/{file_id}", include_in_schema=False)
+    async def media_file(file_id: str, e: str = "", s: str = ""):
+        if not media_share._SHARE_FILE_RE.match(file_id):
+            return _media_404()
+        try:
+            expires = int(e)
+        except (TypeError, ValueError):
+            return _media_403()
+        if int(time.time()) > expires:
+            return _media_403()
+        if not media_share.verify(file_id, expires, s):
+            return _media_403()
+        path = media_share._share_dir() / file_id
+        if not path.exists():
+            return _media_404()
+        ext = file_id.rsplit(".", 1)[-1].lower()
+        return FileResponse(
+            path,
+            media_type=_EXT_MEDIA_TYPES.get(ext, "application/octet-stream"),
+            headers={"Content-Disposition": f'inline; filename="{file_id}"'},
+        )
+
     app.mount("/web", CacheControlStaticFiles(directory="web"),
               name="web")
 
     return app
+
+
+def _media_404():
+    """Маска-404: не светим разницей «мусорный id / файла нет» (FR-B2)."""
+    from fastapi.responses import Response
+    return Response(status_code=404)
+
+
+def _media_403():
+    """Просрочка/битая подпись → 403 (не перебираем по времени)."""
+    from fastapi.responses import Response
+    return Response(status_code=403)
 
 
 def _html_response(text: str):

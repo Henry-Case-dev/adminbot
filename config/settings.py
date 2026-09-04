@@ -755,6 +755,19 @@ class Settings:
     # LLM_FALLBACK_TIMEOUT_SECONDS).
     VIDEO_TIMEOUT_SECONDS: float = _env_float_min("VIDEO_TIMEOUT_SECONDS", 120.0, 5.0)
 
+    # ── Публикация временных медиа для мультимодалки (раунд 3, T-687) ──
+    # Секрет подписи /media-URL. ПУСТО = публикация ОТКЛЮЧЕНА (fallback на STT).
+    # Отдельный env (R17): НЕ деривим от API_TOKEN/LLM-ключей.
+    MEDIA_SHARE_SECRET: str = os.getenv("MEDIA_SHARE_SECRET", "")
+    MEDIA_SHARE_DIR: str = os.getenv("MEDIA_SHARE_DIR", "media/share")
+    # TTL опубликованного файла, сек; <60 → дефолт 900 (WARNING).
+    MEDIA_SHARE_TTL_SECONDS: int = _env_int_min("MEDIA_SHARE_TTL_SECONDS", 900, 60)
+    # Внешний базовый URL для сборки абсолютного video_url (отдаёт Caddy → FastAPI).
+    MEDIA_PUBLIC_BASE_URL: str = _env_str("MEDIA_PUBLIC_BASE_URL",
+                                           "https://admin-bot.duckdns.org")
+    # Потолок публикации: файл больше → не публикуем (WARNING; fallback STT/фраза).
+    MEDIA_SHARE_MAX_MB: int = _env_int("MEDIA_SHARE_MAX_MB", 200)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
 

@@ -160,6 +160,14 @@ class TestHealthAndMe:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
+    def test_media_endpoint_not_under_tma_auth_and_masks_junk(self, client):
+        """Раунд 3 (T-687/FR-B2): GET /media — БЕЗ TMA-авторизации (подпись+
+        TTL+uuid); мусорный file_id → маска-404 (не 401/500, без traversal)."""
+        assert client.get("/media/не-валид.mp4").status_code == 404
+        assert client.get("/media/../etc/passwd").status_code == 404
+        assert client.get("/media/%2e%2e/x.mp4").status_code == 404
+        assert client.get("/media/" + "f" * 32 + ".gif").status_code == 404
+
     def test_me_admin(self, client):
         resp = client.get("/api/me", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200

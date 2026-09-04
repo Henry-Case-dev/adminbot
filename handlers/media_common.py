@@ -74,3 +74,51 @@ def wrap_media_fact(media_type: str, sender: str, text: str,
                  f' forward_from="{html.escape(forward_source, quote=True)}"')
     return (f'<MediaMessage type="{media_type}" sender="{sender}" '
             f'timestamp="{timestamp}"{extra}>{text}</MediaMessage>')
+
+
+def _resolve_author_from_user(user) -> str:
+    """Раунд 3 (3.3): автор по from_user (ссылочные kind видео-запросов) —
+    каскад AliasResolver (Алиас → Никнейм → Юзернейм), БЕЗ форвард-меток.
+    None-user → MEDIA_UNKNOWN_AUTHOR (страховка, R17-безопасно)."""
+    if user is None:
+        return MEDIA_UNKNOWN_AUTHOR
+    if _aliases is None:
+        return _build_nickname(user) or MEDIA_UNKNOWN_AUTHOR
+    return _aliases.resolve(
+        user.id,
+        nickname=_build_nickname(user),
+        username=getattr(user, "username", None),
+    )
+
+
+# Раунд 3 (3.3, T-690): формат «транскрипт» как у кружков (D268/D272-эталон).
+# Первая часть всегда ≤ ~4030 символов ДО резки (запас под лейбл/HTML-теги) —
+# эскейп ПОСЛЕ резки, стыки чанков не рвут разметку (каждый чанк
+# экранируется/оборачивается отдельно).
+_TRANSCRIPT_FIRST_CHUNK_MAX = 4030
+
+
+def split_transcript_first(text: str) -> tuple[str, str]:
+    """(первый кусок ≤ _TRANSCRIPT_FIRST_CHUNK_MAX, остаток): резка по
+    последнему переносу/пробелу до границы; нет — жёсткая граница.
+    Возвращает остаток с убранными ведущими пробелами ('' — всё влезло)."""
+    raw = str(text or "")
+    if len(raw) <= _TRANSCRIPT_FIRST_CHUNK_MAX:
+        return raw, ""
+    cut = max(raw.rfind("\n", 0, _TRANSCRIPT_FIRST_CHUNK_MAX),
+              raw.rfind(" ", 0, _TRANSCRIPT_FIRST_CHUNK_MAX))
+    if cut <= 0:
+        cut = _TRANSCRIPT_FIRST_CHUNK_MAX
+    return raw[:cut], raw[cut:].lstrip()
+
+
+def format_transcript_html(name: str, text: str,
+                           forwarder: str | None = None) -> str:
+    """D268/D272-эталон кружков: '<b>{name}</b> {(переслал {f})} 🗣:
+    <i>{text}</i>'. html.escape для ВСЕХ полей; якорь детектора 74.C («🗣:»)
+    в plain-представлении сохраняется. forwarder — имя переславшего
+    (у форвардов; None — без скобки)."""
+    label = f"<b>{html.escape(name)}</b>"
+    if forwarder:
+        label += f" (переслал {html.escape(forwarder)})"
+    return f"{label} 🗣: <i>{html.escape(text)}</i>"

@@ -175,3 +175,86 @@ class TestGraphRagV2Hooks:
         memory.llm.generate = AsyncMock(side_effect=LLMError("сжатие упало"))
         await _memorize_youtube(memory, -100, long_text)   # не бросает
         memory.memorize_facts.assert_not_called()
+
+
+# ── Раунд 3 (3.2.1/3.4, T-689/T-691): файловый каскад и честная выжимка ──
+
+class TestSummarizeMediaUrl:
+    """summarize_media_url: L1→L2 цикл по произвольному video_url БЕЗ RAG;
+    провал обеих → VideoLevelError (хендлер деградирует на STT)."""
+
+    def _video_service(self):
+        engine = MagicMock()
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка")
+        memory = MagicMock()
+        memory.get_rag_context = AsyncMock(return_value="<context/>")
+        video_client = MagicMock()
+        video_client.available = True
+        video_client.summarize = AsyncMock(return_value="по кадрам")
+        service = YoutubeSummarizerService(engine, llm, memory=memory,
+                                           video_client=video_client)
+        return service, video_client
+
+    @pytest.mark.asyncio
+    async def test_l1_success_no_rag_prefix(self):
+        """L1 успех; user БЕЗ RAG-префикса (memory.get_rag_context НЕ зван)."""
+        service, vc = self._video_service()
+        out = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/media/abc.mp4", label="tg-file")
+        assert out == "по кадрам"
+        call = vc.summarize.await_args.kwargs
+        assert call["video_url"] == "https://x/media/abc.mp4"
+        user = call["user_text"]
+        assert "<video_id>tg-file</video_id>" in user
+        assert "<context" not in user
+        service.memory.get_rag_context.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_l1_empty_l2_success(self):
+        from services.video_cascade_client import VideoLevelError
+        service, vc = self._video_service()
+        vc.summarize = AsyncMock(
+            side_effect=[VideoLevelError("empty content"), "фолбэк-уровень"])
+        assert await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/a.mp4") == "фолбэк-уровень"
+
+    @pytest.mark.asyncio
+    async def test_both_fail_raises_video_level_error(self):
+        from services.video_cascade_client import VideoLevelError
+        service, vc = self._video_service()
+        vc.summarize = AsyncMock(side_effect=VideoLevelError("status=403"))
+        with pytest.raises(VideoLevelError):
+            await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/a.mp4")
+        assert vc.summarize.await_count == 2      # L1 и L2 попробованы
+
+    @pytest.mark.asyncio
+    async def test_disabled_video_client_raises_immediately(self):
+        from services.video_cascade_client import VideoLevelError
+        service, vc = self._video_service()
+        service.video_client = None
+        with pytest.raises(VideoLevelError):
+            await service.summarize_media_url(
+                chat_id=-100, video_url="https://x/a.mp4")
+
+
+class TestSummarizeTranscriptNoRag:
+    """3.4/FR-B9: файловая выжимка — RAG-подмес убран; memory не вызывается."""
+
+    @pytest.mark.asyncio
+    async def test_no_rag_context_in_user_content(self):
+        engine = MagicMock()
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value="выжимка")
+        memory = MagicMock()
+        memory.get_rag_context = AsyncMock(return_value="<context/>")
+        service = YoutubeSummarizerService(engine, llm, memory=memory)
+        out = await service.summarize_transcript(
+            chat_id=-100, transcript="много речи про ролик")
+        assert out == "выжимка"
+        memory.get_rag_context.assert_not_called()
+        user = llm.generate.await_args.args[0][1]["content"]
+        assert "<context" not in user
+        assert "<video_id>tg-file</video_id>" in user
+        assert "<transcript>много речи про ролик</transcript>" in user

@@ -183,28 +183,24 @@ class YoutubeSummarizerService:
             raise LLMBadResponseError("youtube summarizer: empty answer")
         return raw
 
-    async def summarize_transcript(self, *, chat_id: int, rag_query: str,
+    async def summarize_transcript(self, *, chat_id: int,
                                    transcript: str) -> str:
         """Bugfix 04.09.2026 (Часть 1, FR-6): выжимка по расшифровке
         ЛОКАЛЬНОГО видео-файла (нативные TG-видео). Канон — тот же
         prompts.youtube_system_prompt (текстовая расшифровка). Возвращает
-        cleanup-текст; пустой ответ → LLMBadResponseError (хендлер молчит+🗿)."""
+        cleanup-текст; пустой ответ → LLMBadResponseError (хендлер молчит+🗿).
+
+        Раунд 3 (FR-B9/T-691): «честная выжимка» — RAG-подмес из user-контента
+        УБРАН полностью (источник «о чём видео» — только сам транскрипт;
+        поведение 02:45 «ответ про память» исключено). chat_id сохранён в
+        сигнатуре (совместимость вызовов)."""
         max_symbols = hot.get("limits.youtube_max_symbols",
                               settings.YOUTUBE_MAX_SYMBOLS)
         system_prompt = hot.get("prompts.youtube_system_prompt",
                                 YOUTUBE_SYSTEM_PROMPT)
-        rag = ""
-        if self.memory is not None and chat_id is not None and rag_query:
-            try:
-                rag = await self.memory.get_rag_context(chat_id, rag_query)
-            except Exception:
-                logger.warning(
-                    "[video cascade] file-summary rag failed — fail-open | "
-                    "chat_id=%s", chat_id, exc_info=True)
         capped = str(transcript or "")[:max_symbols]   # прецедент: движок режет
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
-        user = ((f"{rag}\n\n" if rag else "") +
-                "<video_id>tg-file</video_id>\n\n"
+        user = ("<video_id>tg-file</video_id>\n\n"
                 f"<transcript>{escape_xml_text(capped)}</transcript>")
         started = time.monotonic()
         raw = await self.llm.generate([
@@ -219,3 +215,70 @@ class YoutubeSummarizerService:
         if not raw.strip():
             raise LLMBadResponseError("youtube file summary: empty answer")
         return raw
+
+    async def summarize_media_url(self, *, chat_id: int, video_url: str,
+                                  label: str = "tg-file") -> str:
+        """Раунд 3 (3.2.1, T-689): L1→L2 мультимодального каскада по
+        ПРОИЗВОЛЬНОМУ video_url (опубликованный файл / прямая ссылка).
+        Субтитров (L3) нет — провал обеих моделей = VideoLevelError наружу
+        (хендлер делает STT-фолбек). RAG-контекст НЕ подмешивается (B5:
+        честная выжимка — только по реальному контенту видео).
+        Логи: R17 — URL/подпись не логируются, только label-хвост."""
+        max_symbols = hot.get("limits.youtube_max_symbols",
+                              settings.YOUTUBE_MAX_SYMBOLS)
+        timeout = hot.get("models.video_timeout_seconds",
+                          settings.VIDEO_TIMEOUT_SECONDS)
+        if self.video_client is None or not self.video_client.available:
+            logger.warning(
+                "[video cascade] file L1/L2 disabled (no openrouter key) "
+                "| label=%s", label)
+            raise VideoLevelError("no openrouter key")
+        video_system = hot.get("prompts.youtube_video_system_prompt",
+                               YOUTUBE_VIDEO_SYSTEM_PROMPT)
+        system = video_system.replace("{max_symbols}", str(max_symbols))
+        user = (f"<video_id>{label}</video_id>\n\n"
+                "посмотри ролик по ссылке и перескажи, что в нём происходит.")
+        last_reason = "file cascade empty"
+        for level, key, settings_attr in (
+                ("L1", "models.video_primary_model", settings.VIDEO_PRIMARY_MODEL),
+                ("L2", "models.video_fallback_model", settings.VIDEO_FALLBACK_MODEL),
+        ):
+            model = str(hot.get(key, settings_attr) or "").strip()
+            if not model:                             # пусто = ступень отключена
+                logger.warning(
+                    "[video cascade] %s skipped (empty model) | label=%s",
+                    level, label)
+                continue
+            started = time.monotonic()
+            try:
+                raw = await asyncio.wait_for(
+                    self.video_client.summarize(
+                        model=model, video_url=video_url,
+                        system_prompt=system, user_text=user, timeout=timeout),
+                    timeout=timeout)
+            except VideoLevelError as exc:
+                last_reason = str(exc)
+                logger.warning(
+                    "[video cascade] %s failed → next | model=%s label=%s "
+                    "| reason=%s", level, model, label, exc)
+                continue
+            except asyncio.TimeoutError:
+                last_reason = "timeout"
+                logger.warning(
+                    "[video cascade] %s timeout (%.0fs) → next | model=%s "
+                    "label=%s", level, timeout, model, label)
+                continue
+            text = cleanup_llm_text(raw)
+            if not text.strip():
+                last_reason = "empty answer"
+                logger.warning(
+                    "[video cascade] %s empty answer → next | model=%s label=%s",
+                    level, model, label)
+                continue
+            logger.info(                                # R41-5
+                "[video cascade] file OK | level=%s model=%s label=%s "
+                "out_chars=%d latency_ms=%.0f",
+                level, model, label, len(text),
+                (time.monotonic() - started) * 1000.0)
+            return text                                # успех L1/L2
+        raise VideoLevelError(f"{last_reason} | label={label}")
