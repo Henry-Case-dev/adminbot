@@ -44,3 +44,14 @@
 - Часть 3 — фиксы реакций: тумблеры `reactions.vasya_enabled` / `reactions.kucha_enabled` (default `false`), `flags.mimic_enabled=false`, `reactions.alan_mimic_enabled=false`, `reactions.slavik_user_id`; переименование Alan → Леха.
 - Часть 4 — UX/UI рефакторинг Vue админки: группировка разделов, Key-Value редактор для `limits.summary_aliases`, нейминг Леха.
 - KG: сущность `epic: multimodal-summarization-tools-reactions-ui` + агенты (PM/Architect/Builder/Reviewer/DevOps/Memory), relations `assigned to`; observation на AdminBot.
+- **ВЫПОЛНЕНО (04.09.2026)**: все шаги 0–9 завершены — коммиты e3e7fd5..ae9b4f8 (7 шт., пуш 780e8d7..e3e7fd5), pytest 3447 passed / 0 failed, деплой active (e3e7fd5, health HTTP 200), архив в `plans/archive/multimodal-summarization-tools-reactions-ui/` ({spec.md,tasks.md}), ARCHITECTURE.md §13, backlog.md «Выполнен и заархивирован», README обновлён (Леха, новые параметры); APP_VERSION не менялась — 2.51.0.
+
+## Активный bugfix-раунд (04.09.2026): видео-транскрипты + Tool Calling
+
+- Воркфлоу OpenSpec (шаги 0–9). **Статус: Step 0 — контекст-синк @Memory + диагностика (04.09.2026)**; KG: сущность `bugfix: video-transcript-and-tool-calling` (bugfix-epic) + relations `assigned to` (PM/Architect/Builder/Reviewer/DevOps/Memory) и `concerns` (AdminBot).
+- Контекст: предыдущий эпик `multimodal-summarization-tools-reactions-ui` завершён и задеплоен (ae9b4f8..e3e7fd5, 3447 passed, бот active); рабочие директории и прод — без изменений (сервер 198.46.175.136, `/var/www/admin_bot`, systemd `admin_bot`).
+- **Проблема 1 (видео)**: команды «транскрипт»/«че за видос» не реагируют на обычное Telegram-видео (тестировано на видео из репоста); перепроверить, что видео по прямым ссылкам/нативные видео скачиваются штатно (не в обход yt-dlp/cobalt).
+- **Проблема 2 (tool calling)**: запрос «бот, сколько раз в чате упоминался бензин» НЕ вызывает инструмент `query_chat_memory` (несколько вызовов, ошибок в логах нет) — проверить, прописаны ли инструменты в промптах; то же для поиска `execute_web_search`.
+- **Проблема 3 (DevOps)**: закоммитить всё незакоммиченное, запушить и задеплоить на сервер 198.46.175.136.
+- Следующий шаг: @Orchestrator → распределение по ролям; @PM планирование (Step 1), затем диагностика проблем 1–2.
+- **Step 3 Memory sync (04.09.2026): Steps 1–2 выполнены** — `plans/features/tg-video-tool-calling-fixes/tasks.md` (T-667..T-685, создан @PM, запись в `plans/backlog.md`) + `plans/features/tg-video-tool-calling-fixes/spec.md` (@Architect, дизайн частей 1/1b/2 готов, AC-1.x..AC-3.x) — **далее @Builder** (реализация T-668..T-682, затем @Reviewer). KG обновлён: файловые сущности `tasks.md`/`spec.md` + relations (`PM created`, `Architect created`, `includes`, `designed_by`, `implements`).
