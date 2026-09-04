@@ -166,10 +166,38 @@ def is_youtube_url(url: str) -> bool:
     return hostname in _YOUTUBE_HOSTS
 
 
+# Платформы, чьи ссылки НИКОГДА не являются прямым медиа-файлом, даже если
+# путь оканчивается расширением (CDN/редирект/HTML-просмотр): стрим не
+# даст файл → такие URL уходят в yt-dlp/cobalt как раньше.
+# (Bugfix 04.09.2026, Часть 1b, FR-11; dot-граница, поддомены ловятся.)
+_PLATFORM_HOST_SUFFIXES = frozenset({
+    "youtube.com", "youtu.be", "tiktok.com", "instagram.com",
+    "facebook.com", "fb.watch", "vk.com", "twitter.com", "x.com",
+    "rutube.ru", "vimeo.com", "ok.ru", "twitch.tv", "kick.com",
+    "dzen.ru", "vine.co", "reddit.com",
+})
+
+
+def _is_platform_url(url: str) -> bool:
+    """hostname == суффикс или оканчивается на '.суффикс' (поддомены)."""
+    try:
+        parts = urlsplit(str(url))
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower().rstrip(".")
+    if not host:
+        return False
+    return any(host == s or host.endswith("." + s) for s in _PLATFORM_HOST_SUFFIXES)
+
+
 def is_direct_media_url(url: str) -> bool:
     """Замечание чекапа: прямая медиа-ссылка (mp4/webm/mov/mkv/avi/gif)
     с расширением в КОНЦЕ URL (с учётом query/фрагмента) → стрим-даунлоад.
-    Схема http/https; путь (до ?/#) заканчивается расширением."""
+    Схема http/https; путь (до ?/#) заканчивается расширением.
+    Bugfix 04.09.2026 (FR-11): известные платформы НИКОГДА не считаются
+    прямым медиа (даже с .mp4 в пути) — их обслуживают yt-dlp/cobalt."""
+    if _is_platform_url(url):
+        return False
     try:
         parts = urlsplit(str(url))
     except ValueError:

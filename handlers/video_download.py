@@ -13,8 +13,10 @@ supports_streaming=True; файл удаляется в finally при ЛЮБО�
 """
 import asyncio
 import logging
+import os
 import random
 import re
+import tempfile
 import time
 from pathlib import Path
 
@@ -119,6 +121,37 @@ def _extract_urls(message: types.Message) -> list[str]:
     return urls
 
 
+# Bugfix 04.09.2026 (Часть 1b, FR-12): квалификация медиа реплая — та же,
+# что в handlers/youtube.py 3.1.1 (видео-документ: mime video/*; без mime —
+# по расширению file_name; voice/video_note/audio НЕ подходят).
+_VIDEO_DOC_EXTENSIONS = ("mp4", "webm", "mov", "mkv", "avi")
+
+
+def _document_is_video(doc) -> bool:
+    """Document → видео: mime video/*; mime пуст/None → расширение file_name;
+    mime задан и не video/* → НЕ видео (mime авторитетнее имени)."""
+    mime = str(getattr(doc, "mime_type", "") or "").strip().lower()
+    if mime:
+        return mime.startswith("video/")
+    name = str(getattr(doc, "file_name", "") or "").lower()
+    return any(name.endswith("." + ext) for ext in _VIDEO_DOC_EXTENSIONS)
+
+
+def _reply_video_media(message: types.Message):
+    """Видео-медиа из reply_target (video | документ video/* по mime/имени)
+    → объект медиа для пересылки; None — не видео/нет реплая."""
+    reply_target = getattr(message, "reply_to_message", None)
+    if reply_target is None:
+        return None
+    video = getattr(reply_target, "video", None)
+    if video is not None and isinstance(getattr(video, "file_id", None), str):
+        return video
+    document = getattr(reply_target, "document", None)
+    if document is not None and _document_is_video(document):
+        return document
+    return None
+
+
 def _get_pending(chat_id: int, user_id: int) -> dict | None:
     """Ленивая чистка протухших ключей (Section 70.5 п.4) + выдача слота."""
     now = time.monotonic()
@@ -192,7 +225,15 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
                                             str):
             await _handle_native_media(bot, message, video)
         else:
-            await message.reply(random.choice(VD_NO_LINK_PHRASES))  # consume
+            # Bugfix 04.09.2026 (Часть 1b, FR-12): реплай «скачай» на чужое
+            # видео-сообщение/документ (в т.ч. репосты — те же поля, mime
+            # video/* либо имя-расширение) без ссылок → нативная пересылка;
+            # voice/video_note/audio НЕ квалифицируются (как в youtube 3.1.1).
+            reply_media = _reply_video_media(message)
+            if reply_media is not None:
+                await _handle_native_media(bot, message, reply_media)
+            else:
+                await message.reply(random.choice(VD_NO_LINK_PHRASES))  # consume
         return None
 
     # Замечание чекапа: прямые медиа-ссылки — сразу скачиваем без quality-меню
@@ -212,6 +253,10 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
         path = None
         try:
             await reporter.start("⏳ Скачивание…")
+            # Bugfix 04.09.2026 (Часть 1b, FR-13/D279): успешный старт
+            # скачивания жжёт кулдаун; провал ДО старта (except-ветки ниже)
+            # touch НЕ вызывает (fail не жжёт кулдаун).
+            await cooldown_touch(_cooldown, chat_id, user_id)
             path = await _downloader.download(urls[0], "direct",
                                               progress_cb=reporter.on_progress)
             await reporter.finish("✅ Файл готов, отправляю…")
@@ -486,25 +531,26 @@ async def _send_file(bot: Bot, chat_id: int, path: Path,
 async def _handle_native_media(bot: Bot, message: types.Message,
                                media) -> None:
     """Замечание чекапа: «скачай <видео/документ-сообщение>» — без ссылок.
-    bot.get_file → temp → отправить как видео/документ. Ошибки — понятные."""
-    from pathlib import Path
-    user_id = message.from_user.id if message.from_user else 0
+    Bugfix 04.09.2026 (Часть 1b, FR-12): скачивание через общий
+    services.media_download.fetch_media_to_tmp (локальный Bot API — копия
+    с диска; облако — bot.download), tmp-уборка в finally. Ошибки — понятные."""
+    from services.media_download import fetch_media_to_tmp
     chat_id = message.chat.id
     tmp_path = None
     try:
-        f = await bot.get_file(media.file_id)
-        ext = Path(f.file_path or "").suffix.lstrip(".").lower() or "bin"
-        tmp_path = Path(f"/tmp/vd_native_{time.time()}_{user_id}.{ext}")
-        data = await bot.download_file(f.file_path)
-        tmp_path.write_bytes(data.read())
-        size = tmp_path.stat().st_size
+        ext = _native_media_ext(media)
+        fd, tmp_path = tempfile.mkstemp(prefix=f"vd_native_{int(time.time())}_",
+                                        suffix=f".{ext}")
+        os.close(fd)
+        await fetch_media_to_tmp(bot, media, tmp_path)
+        size = os.path.getsize(tmp_path)
         if size > 2_000_000_000:
-            tmp_path.unlink(missing_ok=True)
+            os.unlink(tmp_path)
             await message.reply(random.choice(VD_TOO_BIG_PHRASES))
             return
         await message.reply(
             f"нативное видео: {size // (1024 * 1024)} МБ, пересылаю...")
-        await bot.send_video(chat_id, FSInputFile(str(tmp_path.absolute())),
+        await bot.send_video(chat_id, FSInputFile(str(tmp_path)),
                              supports_streaming=True)
         logger.info("[videodl] native media re-sent | chat=%s | bytes=%d",
                     chat_id, size)
@@ -514,5 +560,21 @@ async def _handle_native_media(bot: Bot, message: types.Message,
         await _safe_error_reply(bot, chat_id, message.message_id,
                                 VD_ERROR_PHRASES)
     finally:
-        if tmp_path is not None and tmp_path.exists():
-            tmp_path.unlink(missing_ok=True)
+        if tmp_path is not None and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def _native_media_ext(media) -> str:
+    """Расширение tmp-файла нативного медиа: document — по file_name,
+    иначе по mime_type; дефолт mp4 (контейнер TG-видео); неизвестно → bin."""
+    name = str(getattr(media, "file_name", "") or "").lower()
+    suffix = Path(name).suffix.lstrip(".").lower()
+    if suffix:
+        return suffix if suffix != "jpeg" else "jpg"
+    mime = str(getattr(media, "mime_type", "") or "").lower()
+    mapping = {"video/mp4": "mp4", "video/webm": "webm",
+               "video/x-matroska": "mkv", "video/quicktime": "mov",
+               "video/avi": "avi", "video/x-msvideo": "avi"}
+    if mime in mapping:
+        return mapping[mime]
+    return "bin"

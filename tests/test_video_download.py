@@ -1793,6 +1793,42 @@ class TestDirectMedia:
         assert not is_direct_media_url("https://x/watch?v=1")
         assert not is_direct_media_url("https://x/a.txt")
 
+    def test_platform_urls_never_direct_even_with_extension(self):
+        """Bugfix 04.09.2026 (Часть 1b, FR-11/AC-2.1): известные платформы
+        НЕ считаются прямым медиа, даже если путь оканчивается .mp4 и есть
+        query/фрагмент после расширения."""
+        from tools.video_downloader import is_direct_media_url
+        assert not is_direct_media_url("https://tiktok.com/@u/video/7/file.mp4")
+        assert not is_direct_media_url("https://tiktok.com/@u/video/7/file.mp4?x=1")
+        assert not is_direct_media_url("https://www.youtube.com/shorts/abc.mp4")
+        assert not is_direct_media_url("https://youtu.be/abc.mp4")
+        assert not is_direct_media_url("https://m.youtube.com/watch?v=X.mp4")
+        assert not is_direct_media_url("https://x.com/i/videos/x.mp4")
+        assert not is_direct_media_url("https://twitter.com/i/videos/x.mp4")
+        assert not is_direct_media_url("https://rutube.ru/video/x.mp4")
+        assert not is_direct_media_url("https://vk.com/video-1_2.mp4")
+        assert not is_direct_media_url("https://instagram.com/reel/x.mp4")
+        assert not is_direct_media_url("https://facebook.com/watch/x.mp4")
+        assert not is_direct_media_url("https://fb.watch/x.mp4")
+        assert not is_direct_media_url("https://ok.ru/video/x.mp4")
+        assert not is_direct_media_url("https://twitch.tv/videos/x.mp4")
+        assert not is_direct_media_url("https://kick.com/x.mp4")
+        assert not is_direct_media_url("https://dzen.ru/video/watch/x.mp4")
+        assert not is_direct_media_url("https://vine.co/v/x.mp4")
+        assert not is_direct_media_url("https://reddit.com/r/x/comments/y.mp4")
+        assert not is_direct_media_url("https://vimeo.com/x.mp4?download=1#t")
+
+    def test_platform_suffix_masking_does_not_fire(self):
+        """AC-2.1: суффикс-маскировка НЕ ловится — не-платформа с .mp4
+        остаётся прямым медиа; «youtube.com.evil.com» не оканчивается на
+        '.youtube.com'."""
+        from tools.video_downloader import is_direct_media_url
+        assert is_direct_media_url("https://evil.example.com/v.mp4")
+        assert is_direct_media_url("https://youtube.com.evil.com/x.mp4")
+        assert is_direct_media_url("https://notvk.com/v.mp4")
+        assert is_direct_media_url("https://x.compat.ru/v.mp4")
+        assert is_direct_media_url("https://myyoutubestorage.com/v.mp4")
+
     @pytest.mark.asyncio
     async def test_direct_download_success(self, tmp_path, monkeypatch):
         from tools import video_downloader as vdm
@@ -1976,13 +2012,120 @@ class TestDirectMedia:
         from services import progress_reporter as pr
         assert pr.get_active(CHAT_ID) is None
 
+    # ── Bugfix 04.09.2026 (Часть 1b, FR-13/AC-2.3): cooldown в direct-ветке ──
+
+    @pytest.mark.asyncio
+    async def test_direct_success_touches_cooldown_exactly_once(
+            self, vd_env, tmp_path, monkeypatch):
+        """Успешный старт direct-скачивания жжёт кулдаун ровно один раз;
+        повторный триггер в кулдауне → фраза, скачивание не стартует."""
+        from tools import video_downloader as vdm
+
+        class _Resp:
+            status_code = 200
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def aiter_bytes(self, n):
+                async def _gen():
+                    yield b"hello"
+                return _gen()
+
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def stream(self, method, url, headers=None):
+                return _Resp()
+
+        monkeypatch.setattr(vdm.httpx, "AsyncClient", _Client)
+
+        touched = []
+        real_touch = vd.cooldown_touch
+
+        async def spy(tracker, chat_id, user_id):
+            touched.append((chat_id, user_id))
+            await real_touch(tracker, chat_id, user_id)
+
+        monkeypatch.setattr(vd, "cooldown_touch", spy)
+
+        class _Bot:
+            def __init__(self):
+                self.send_video = AsyncMock()
+                self.send_message = AsyncMock()
+
+        bot = _Bot()
+        msg1 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+                         chat_type="private")
+        await vd.video_download_handler(msg1, bot=bot)
+        assert bot.send_video.await_count == 1
+        assert touched == [(CHAT_ID, USER_ID)]        # ровно один touch
+
+        # мгновенный повтор → кулдаун активен → фраза, без второго скачивания
+        bot2 = _Bot()
+        msg2 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+                         chat_type="private")
+        await vd.video_download_handler(msg2, bot=bot2)
+        assert bot2.send_video.await_count == 0
+        sent = msg2.reply.call_args[0][0]
+        assert any(p.split("{")[0] in sent for p in VD_COOLDOWN_PHRASES), sent
+
+    @pytest.mark.asyncio
+    async def test_direct_failure_before_start_no_touch(
+            self, vd_env, tmp_path, monkeypatch):
+        """Провал ДО старта скачивания (репортер не смог даже начать статус)
+        → touch НЕ вызван; повторный запрос проходит кулдаун-гейт (D279)."""
+        from services.progress_reporter import ProgressReporter
+
+        async def _start_boom(self, text):
+            raise RuntimeError("api недоступен")
+
+        monkeypatch.setattr(ProgressReporter, "start", _start_boom)
+
+        class _Bot:
+            def __init__(self):
+                self.send_video = AsyncMock()
+                self.send_message = AsyncMock()
+
+        bot = _Bot()
+        msg1 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+                         chat_type="private")
+        await vd.video_download_handler(msg1, bot=bot)
+        assert bot.send_video.await_count == 0
+        assert (CHAT_ID, USER_ID) not in vd._cooldown._last   # touch НЕ зван
+
+        # повтор без ожидания → не фраза кулдауна (гейт не сработал)
+        bot2 = _Bot()
+        msg2 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+                         chat_type="private")
+        await vd.video_download_handler(msg2, bot=bot2)
+        assert (CHAT_ID, USER_ID) not in vd._cooldown._last   # всё ещё без touch
+        sent2 = (msg2.reply.call_args.args[0]
+                 if msg2.reply.call_args else "")
+        if not sent2 and bot2.send_message.await_args:
+            sent2 = bot2.send_message.await_args.args[1]
+        assert not any(p.split("{")[0] in sent2 for p in VD_COOLDOWN_PHRASES)
+
 
 class TestNativeMedia:
-    """3: «скачай <видео-сообщение>» — bot.get_file → temp → send_video."""
+    """3: «скачай <видео-сообщение>» — fetch_media_to_tmp → temp → send_video.
+    Bugfix 04.09.2026 (Часть 1b, FR-12): скачивание через общий
+    services.media_download.fetch_media_to_tmp (облако — bot.download;
+    локальный режим — копия с диска), tmp-уборка в finally."""
 
     @pytest.mark.asyncio
     async def test_native_video_flow(self, tmp_path, monkeypatch):
-        from io import BytesIO
+        from pathlib import Path
         from types import SimpleNamespace
 
         from handlers import video_download as vd_mod
@@ -1990,12 +2133,13 @@ class TestNativeMedia:
 
         vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
                                                  str(tmp_path))
-        file_info = SimpleNamespace(file_path="video/file.mp4")
+
+        async def _fake_download(file_id, destination=None):
+            Path(destination).write_bytes(b"DATA" * 100)
 
         class _Bot:
             def __init__(self):
-                self.get_file = AsyncMock(return_value=file_info)
-                self.download_file = AsyncMock(return_value=BytesIO(b"DATA"))
+                self.download = AsyncMock(side_effect=_fake_download)
                 self.send_video = AsyncMock()
                 self.send_message = AsyncMock()
 
@@ -2003,6 +2147,101 @@ class TestNativeMedia:
         msg = _make_msg("скачай", chat_type="private")
         msg.video = SimpleNamespace(file_id="fid123")
         await vd_mod.video_download_handler(msg, bot=bot)
-        assert bot.get_file.await_count == 1
+        assert bot.download.await_count == 1
         assert bot.send_video.await_count == 1
+        vd_mod._downloader = None
+
+    @pytest.mark.asyncio
+    async def test_reply_scachay_on_foreign_video(self, tmp_path, monkeypatch):
+        """Bugfix 04.09.2026 (FR-12): реплай «скачай» на чужое видео без
+        ссылок → нативная пересылка по медиа реплая (а не VD_NO_LINK)."""
+        from pathlib import Path
+        from types import SimpleNamespace
+
+        from handlers import video_download as vd_mod
+        from tools import video_downloader as vdm
+
+        vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
+                                                 str(tmp_path))
+
+        async def _fake_download(file_id, destination=None):
+            Path(destination).write_bytes(b"DATA" * 100)
+
+        class _Bot:
+            def __init__(self):
+                self.download = AsyncMock(side_effect=_fake_download)
+                self.send_video = AsyncMock()
+                self.send_message = AsyncMock()
+
+        bot = _Bot()
+        target = _make_msg("видео без ссылок", message_id=55, chat_type="private")
+        target.video = SimpleNamespace(file_id="foreign_fid", file_name=None)
+        msg = _make_msg("скачай", message_id=56, chat_type="private")
+        msg.video = None
+        msg.reply_to_message = target
+        await vd_mod.video_download_handler(msg, bot=bot)
+        assert bot.download.await_count == 1
+        assert bot.send_video.await_count == 1
+        assert msg.reply.await_count == 1        # «нативное видео: N МБ…»
+        vd_mod._downloader = None
+
+    @pytest.mark.asyncio
+    async def test_reply_scachay_on_video_document(self, tmp_path, monkeypatch):
+        """FR-12: реплай «скачай» на документ с mime video/* → пересылка."""
+        from pathlib import Path
+        from types import SimpleNamespace
+
+        from handlers import video_download as vd_mod
+        from tools import video_downloader as vdm
+
+        vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
+                                                 str(tmp_path))
+
+        async def _fake_download(file_id, destination=None):
+            Path(destination).write_bytes(b"DATA" * 100)
+
+        class _Bot:
+            def __init__(self):
+                self.download = AsyncMock(side_effect=_fake_download)
+                self.send_video = AsyncMock()
+                self.send_message = AsyncMock()
+
+        bot = _Bot()
+        target = _make_msg("документ", message_id=66, chat_type="private")
+        target.document = SimpleNamespace(
+            file_id="doc_fid", mime_type="video/mp4", file_name="ролик.mp4")
+        msg = _make_msg("скачай", message_id=67, chat_type="private")
+        msg.video = None
+        msg.document = None
+        msg.reply_to_message = target
+        await vd_mod.video_download_handler(msg, bot=bot)
+        assert bot.download.await_count == 1
+        assert bot.send_video.await_count == 1
+        vd_mod._downloader = None
+
+    @pytest.mark.asyncio
+    async def test_reply_scachay_on_voice_still_no_link_phrase(
+            self, tmp_path, monkeypatch):
+        """FR-12: voice/video_note в реплае НЕ квалифицируются → прежняя
+        фраза VD_NO_LINK_PHRASES (consume)."""
+        from handlers import video_download as vd_mod
+        from tools import video_downloader as vdm
+
+        vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
+                                                 str(tmp_path))
+        bot = AsyncMock()
+        bot.send_video = AsyncMock()
+        bot.send_message = AsyncMock()
+        target = _make_msg("войс", message_id=77, chat_type="private")
+        target.voice = MagicMock(file_id="voice_fid")
+        target.video = None
+        target.document = None
+        msg = _make_msg("скачай", message_id=78, chat_type="private")
+        msg.video = None
+        msg.document = None
+        msg.reply_to_message = target
+        await vd_mod.video_download_handler(msg, bot=bot)
+        assert bot.send_video.await_count == 0
+        replied = msg.reply.call_args.args[0]
+        assert replied in VD_NO_LINK_PHRASES
         vd_mod._downloader = None
