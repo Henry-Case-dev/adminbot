@@ -124,6 +124,25 @@ _log_ring_singleton.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(_log_ring_singleton)
 log_ring_handler = _log_ring_singleton
 
+# ── Раунд 3 (3.8, T-700): стартовая диагностика logtail. Маркер пишется и в
+# консоль, и в log_ring → виден в journald и /api/status/logs («слушает ли
+# хендлер»). logtail-python 0.4.0: буфер Queue 1000, raise_exceptions=False,
+# drop_extra_events=True (тихие потери) — сверять journald vs BetterStack
+# (@DevOps T-701). Инициализация ЕДИНАЯ (хендлер добавлен выше, дублей нет).
+# fix-round 04.09 (M3): блок ПОСЛЕ подключения log_ring (строки выше) —
+# раньше маркер уходил ДО attach и не попадал в /api/status/logs.
+logtail_version = "?"
+try:
+    from importlib import metadata as _md
+    logtail_version = _md.version("logtail-python")
+except Exception:
+    pass
+if logtail_token:
+    logger.info("[logtail] attached | token_len=%d | logtail=%s",
+                len(logtail_token), logtail_version)
+else:
+    logger.warning("[logtail] skipped (no LOGTAIL_SOURCE_TOKEN)")
+
 if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
     bot = Bot(
         token=settings.API_TOKEN,
@@ -660,6 +679,19 @@ async def main():
         server.should_exit = True
         await on_shutdown()
         await cache.close()
+        # ── Раунд 3 (3.8, T-700): мягкое закрытие логов — САМЫЙ конец
+        # процесса (после on_shutdown/cache.close, в финальном finally):
+        # logging.shutdown() делает close() всех хендлеров → logtail флашит
+        # очередь. НЕ вызываем в on_shutdown/до выхода асинхронных задач
+        # (hotfix uvicorn dictConfig — shutdown на СТАРТЕ дедлочил флашер).
+        # SIGKILL/TimeoutStopSec обойти нельзя (потеря буфера до 1000
+        # событий — документированное поведение logtail 0.4.0).
+        logger.info("[logtail] shutdown flush")
+        try:
+            logging.shutdown()
+        except Exception:
+            pass
+
 
 if __name__ == '__main__':
     asyncio.run(main())
