@@ -717,14 +717,19 @@ class TestStyleAnchorsAndMood:
         d = DatabaseService(":memory:")
         await d.initialize()
         service = _make_service(db=d)
-        for i in range(4):
-            await service.remember_bot_reply(CHAT_ID, i, f"ответ {i}")
+        replies = ["норм отвечаю", "сцуко, ну держи", "да блин, всё пучком",
+                   "короче, работает"]
+        for i, text in enumerate(replies):
+            await service.remember_bot_reply(CHAT_ID, i, text)
             fake_time["now"] += 1.0
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         anchors = next(b for b in blocks if b.startswith("<style_anchors>"))
-        assert "вот как ты отвечал недавно, держи тон:" in anchors
-        assert "1. ответ 1" in anchors and "3. ответ 3" in anchors
-        assert "ответ 0" not in anchors           # последние 3 (default)
+        # Раунд 3 (3.7/C1): новый текст инструкции (эталон байт-в-байт)
+        assert ("подражай общей интонации этих ответов, но НЕ копируй "
+                "дословно и не начинай каждый ответ с одного и того же "
+                "слова:" in anchors)
+        assert "1. сцуко, ну держи" in anchors and "3. короче, работает" in anchors
+        assert "норм отвечаю" not in anchors      # последние 3 (default count)
         await d.close()
 
     @pytest.mark.asyncio
@@ -749,6 +754,86 @@ class TestStyleAnchorsAndMood:
         service = _make_service(db=FakeDB())
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         assert all("<style_anchors>" not in b for b in blocks)
+
+    # ── Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors ──
+
+    def test_normalize_first_word(self):
+        service = _make_service()
+        norm = service._normalize_first_word
+        assert norm("Сцуко, бля!") == "сцуко"
+        assert norm("  Давай норм") == "давай"
+        assert norm("а ну-ка") == ""              # < _STICKY_MIN_WORD_LEN
+        assert norm("«сука» в начале") == ""      # пунктуация-префикс не слово
+        assert norm("") == ""
+
+    def test_detect_sticky_prefixes(self):
+        window = ["сцуко, ну держи", "сцуко, вот опять", "норм отвечаю",
+                  "сцуко, хватит", "да норм"]
+        sticky = DirectChatService._detect_sticky(window)
+        assert sticky == {"сцуко"}
+        # единичный префикс — НЕ залипший
+        assert DirectChatService._detect_sticky(
+            ["сцуко, раз", "норм два", "так три", "ну четыре", "да пять"]
+        ) == set()
+
+    @pytest.mark.asyncio
+    async def test_style_anchors_sticky_replies_excluded(self, fake_time,
+                                                         monkeypatch):
+        """AC-C1: >=2 из последних count начинаются с одного слова («сцуко») →
+        такие ответы исключаются; в якоря попадают старые различные."""
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_STYLE_ANCHORS_COUNT=3, CHAT_STYLE_ANCHOR_MAX_CHARS=400))
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        service = _make_service(db=d)
+        replies = ["норм, первое дело", "сцуко, раз", "сцуко, два",
+                   "сцуко, три", "да норм, свежее"]
+        for i, text in enumerate(replies):
+            await service.remember_bot_reply(CHAT_ID, i, text)
+            fake_time["now"] += 1.0
+        anchors = await service._build_style_anchors(CHAT_ID)
+        # «сцуко»-ответы (2 из последних 3) исключены; остаются различные
+        assert "сцуко" not in anchors
+        assert "да норм, свежее" in anchors
+        assert "норм, первое дело" in anchors
+        assert anchors.startswith("<style_anchors>")
+
+    @pytest.mark.asyncio
+    async def test_style_anchors_all_sticky_empty_section(self, fake_time,
+                                                          monkeypatch):
+        """AC-C1: ВСЕ последние ответы залипли одним словом (count=3) →
+        секция не строится (безопаснее, чем модель-«попугай»)."""
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_STYLE_ANCHORS_COUNT=3))
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        service = _make_service(db=d)
+        for i in range(5):
+            await service.remember_bot_reply(CHAT_ID, i, f"сцуко, ответ {i}")
+            fake_time["now"] += 1.0
+        assert await service._build_style_anchors(CHAT_ID) == ""
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_style_anchors_single_prefix_not_excluded(self, fake_time,
+                                                            monkeypatch):
+        """AC-C1 edge: префикс встретился 1 раз из count — НЕ «запрет мата»,
+        ответ остаётся в якорях (только де-залипание)."""
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_STYLE_ANCHORS_COUNT=3))
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        service = _make_service(db=d)
+        replies = ["сцуко, редкий гость", "норм отвечаю", "да ладно тебе"]
+        for i, text in enumerate(replies):
+            await service.remember_bot_reply(CHAT_ID, i, text)
+            fake_time["now"] += 1.0
+        anchors = await service._build_style_anchors(CHAT_ID)
+        assert "сцуко, редкий гость" in anchors
+        await d.close()
 
     def test_mood_block_negative(self):
         service = _make_service()

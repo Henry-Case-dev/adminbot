@@ -333,7 +333,8 @@ class TestEpic4851SettingsDefaults:
         assert settings_mod.settings.CHAT_GLOBAL_CONTEXT_LIMIT == 100
         assert settings_mod.settings.CHAT_BURST_LIMIT == 3
         assert settings_mod.settings.CHAT_COOLDOWN_SECONDS == 300.0
-        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS is None
+        # раунд 3 (FR-C2): кодовый дефолт 30 (пусто/отсутствие), 0 = вечно
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS == 30
         assert settings_mod.settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS == 4000
         assert settings_mod.settings.CHAT_THREAD_MAX_DEPTH == 6
         assert settings_mod.settings.CHAT_THREAD_MAX_CHARS == 2000
@@ -366,17 +367,23 @@ class TestEpic4851SettingsDefaults:
         assert settings_mod.settings.SMART_CACHE_TTL_SECONDS == 900
         assert settings_mod.settings.SMART_CACHE_MAX_ROWS == 500
 
-    def test_empty_ttl_days_means_none(self, monkeypatch):
-        """CHAT_DIRECT_REPLY_TTL_DAYS="" → None (вечное хранение, R50-2)."""
+    def test_empty_ttl_days_means_default_30(self, monkeypatch):
+        """CHAT_DIRECT_REPLY_TTL_DAYS="" → 30 (кодовый дефолт раунда 3)."""
         monkeypatch.setenv("CHAT_DIRECT_REPLY_TTL_DAYS", "")
         importlib.reload(settings_mod)
-        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS is None
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS == 30
+
+    def test_zero_ttl_days_means_eternal(self, monkeypatch):
+        """CHAT_DIRECT_REPLY_TTL_DAYS=0 → 0 (вечно, expires_at NULL)."""
+        monkeypatch.setenv("CHAT_DIRECT_REPLY_TTL_DAYS", "0")
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS == 0
 
     def test_crooked_ttl_days_warns_and_defaults(self, monkeypatch, caplog):
         monkeypatch.setenv("CHAT_DIRECT_REPLY_TTL_DAYS", "каша")
         with caplog.at_level(logging.WARNING):
             importlib.reload(settings_mod)
-        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS is None
+        assert settings_mod.settings.CHAT_DIRECT_REPLY_TTL_DAYS == 30
         assert any("CHAT_DIRECT_REPLY_TTL_DAYS" in r.message for r in caplog.records)
 
     def test_below_min_falls_back_with_warning(self, monkeypatch, caplog):

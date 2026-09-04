@@ -1010,3 +1010,102 @@ class TestEmbeddingCache:
         cursor = await db.db.execute(
             "SELECT COUNT(*) AS c FROM embedding_cache")
         assert (await cursor.fetchone())["c"] == 0
+
+
+# ── Раунд 3 (3.7/C2, T-697): TTL bot_direct_reply — миграция PG-дефолта и
+# backfill существующих NULL-фактов (идемпотентный).
+
+class TestDirectReplyTtlMigration:
+    """migrate_direct_reply_ttl_default (FR-C2): PG-NULL/пусто → 30 (set
+    вызван); 0/число → не тронут; ключ отсутствует / PG down → skip."""
+
+    class _Cache:
+        def __init__(self, value="__missing__", pg=True):
+            self._value = value
+            self.pg_available = pg
+            self.calls = []
+
+        def get(self, key):
+            if self._value == "__missing__":
+                return None
+            return self._value
+
+        async def set(self, key, value, category):
+            self.calls.append((key, value, category))
+
+    @pytest.mark.asyncio
+    async def test_null_value_set_to_30(self):
+        from services.summary_memory import migrate_direct_reply_ttl_default
+        cache = self._Cache(value=None)
+        assert await migrate_direct_reply_ttl_default(cache) is True
+        assert cache.calls == [
+            ("limits.chat_direct_reply_ttl_days", 30, "limits")]
+
+    @pytest.mark.asyncio
+    async def test_empty_string_value_set_to_30(self):
+        from services.summary_memory import migrate_direct_reply_ttl_default
+        cache = self._Cache(value="")
+        assert await migrate_direct_reply_ttl_default(cache) is True
+
+    @pytest.mark.asyncio
+    async def test_zero_and_number_untouched(self):
+        from services.summary_memory import migrate_direct_reply_ttl_default
+        for value in (0, 7, "7"):
+            cache = self._Cache(value=value)
+            assert await migrate_direct_reply_ttl_default(cache) is False
+            assert cache.calls == []
+
+    @pytest.mark.asyncio
+    async def test_missing_key_and_pg_down_skip(self):
+        from services.summary_memory import migrate_direct_reply_ttl_default
+        # PG down → skip (R6); отсутствующий ключ неразличим с NULL —
+        # миграция ставит 30 (сид сделал бы то же самое)
+        assert await migrate_direct_reply_ttl_default(
+            self._Cache(value=None, pg=False)) is False
+        assert await migrate_direct_reply_ttl_default(
+            self._Cache(value="__missing__")) is True
+
+
+class TestDirectReplyTtlBackfill:
+    @pytest.mark.asyncio
+    async def test_backfill_null_rows_gets_expires_at(self, db, monkeypatch):
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        for origin, created in (
+                ("bot_direct_reply", now - 40 * 86400),     # старше 29д → created+30д
+                ("bot_direct_reply", now - 5 * 86400),      # свежий → min(..., now)
+                ("chat_history", now),                       # не трогаем
+        ):
+            await db.db.execute(
+                "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, "
+                "created_at, weight, status, last_confirmed_at) "
+                "VALUES (-100, ?, ?, NULL, ?, 0.7, 'confirmed', ?)",
+                (f"факт {origin}", origin, created, created))
+        await db.db.commit()
+        memory = MemoryManager(db, FakeLLM(extract_response="[]"))
+        rows = await memory.backfill_direct_reply_ttl()
+        assert rows == 2
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts WHERE origin = 'bot_direct_reply' "
+            "ORDER BY created_at")
+        rows_out = [r["expires_at"] for r in await cursor.fetchall()]
+        # expires_at = min(created_at + 30д, now): старый → created+30д; свежий → now
+        assert rows_out[0] == (now - 40 * 86400) + 30 * 86400
+        assert rows_out[1] == now
+        # повторный запуск — no-op (NULL-строк больше нет)
+        assert await memory.backfill_direct_reply_ttl() == 0
+
+    @pytest.mark.asyncio
+    async def test_backfill_zero_ttl_is_noop(self, db, monkeypatch):
+        mod = replace(settings, CHAT_DIRECT_REPLY_TTL_DAYS=0)
+        with patch("services.summary_memory.settings", mod):
+            await db.db.execute(
+                "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, "
+                "created_at) VALUES (-100, 'вечный', 'bot_direct_reply', NULL, "
+                "1700000000)")
+            await db.db.commit()
+            memory = MemoryManager(db, FakeLLM(extract_response="[]"))
+            assert await memory.backfill_direct_reply_ttl() == 0
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts WHERE origin = 'bot_direct_reply'")
+        assert (await cursor.fetchone())["expires_at"] is None

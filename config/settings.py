@@ -489,8 +489,9 @@ class Settings:
     CHAT_BURST_LIMIT: int = _env_int_min("CHAT_BURST_LIMIT", 3, 1)
     # Полное восстановление зарядов после последнего допущенного обращения, сек.
     CHAT_COOLDOWN_SECONDS: float = _env_float_min("CHAT_COOLDOWN_SECONDS", 300.0, 0.0)
-    # TTL памяти bot_direct_reply-фактов, дней; пусто/0 = expires_at NULL (вечное).
-    CHAT_DIRECT_REPLY_TTL_DAYS: int | None = _env_int_optional("CHAT_DIRECT_REPLY_TTL_DAYS", None)
+    # TTL памяти bot_direct_reply-фактов, дней; пусто/отсутствие → 30 (кодовый
+    # дефолт раунда 3, FR-C2); явный 0 = expires_at NULL (вечное, по ТЗ).
+    CHAT_DIRECT_REPLY_TTL_DAYS: int | None = _env_int_optional("CHAT_DIRECT_REPLY_TTL_DAYS", 30)
     # Потолок символов <Global_Context>; <500 → дефолт 4000 (WARNING).
     CHAT_GLOBAL_CONTEXT_MAX_CHARS: int = _env_int_min("CHAT_GLOBAL_CONTEXT_MAX_CHARS", 4000, 500)
     # Глубина рекурсии <Conversation_Thread> (reply-цепочка); <1 → дефолт 6.

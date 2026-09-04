@@ -409,6 +409,43 @@ def fire_and_forget(coro, tag: str) -> None:
     asyncio.create_task(_run())
 
 
+# ── Раунд 3 (3.7/C2, T-697): TTL bot_direct_reply ──────────────────────
+
+_DIRECT_REPLY_TTL_KEY = "limits.chat_direct_reply_ttl_days"
+_DIRECT_REPLY_TTL_DEFAULT = 30
+
+
+async def migrate_direct_reply_ttl_default(cache) -> bool:
+    """FR-C2 (T-697): миграция прод-значения PG по образцу
+    migrate_direct_chat_prompt_if_legacy (chat_prompts.py): легаси-сид
+    (NULL/пусто) → 30; значение 0 или число (явный выбор/уже мигрировано) →
+    не трогаем. Отсутствующий ключ неразличим с NULL (cache.get → None) —
+    ставим 30 и в этом случае (сид ConfigCache сделал бы то же самое).
+    PG down → skip (R6). True = значение обновлено."""
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[ttl_migration] skip: PG недоступен")
+        return False
+    current = cache.get(_DIRECT_REPLY_TTL_KEY)
+    if current is None:
+        await cache.set(_DIRECT_REPLY_TTL_KEY, _DIRECT_REPLY_TTL_DEFAULT,
+                        "limits")
+        logger.info("[ttl_migration] ключ отсутствует/NULL — сид 30")
+        return True
+    if isinstance(current, str) and not str(current).strip():
+        await cache.set(_DIRECT_REPLY_TTL_KEY, _DIRECT_REPLY_TTL_DEFAULT,
+                        "limits")
+        logger.info("[ttl_migration] легаси-пусто заменён на %d",
+                    _DIRECT_REPLY_TTL_DEFAULT)
+        return True
+    if str(current).strip().lower() in ("none", "null"):
+        await cache.set(_DIRECT_REPLY_TTL_KEY, _DIRECT_REPLY_TTL_DEFAULT,
+                        "limits")
+        logger.info("[ttl_migration] легаси-NULL заменён на %d",
+                    _DIRECT_REPLY_TTL_DEFAULT)
+        return True
+    return False
+
+
 async def _memorize_youtube(memory, chat_id: int, transcript: str) -> None:
     """<= _YOUTUBE_MEMORIZE_MAX_CHARS → memorize сырых субтитров; иначе —
     сжатая НЕТОКСИЧНАЯ выжимка через _MEMORIZE_COMPRESS_PROMPT (ВНУТРИ фоновой
@@ -1659,6 +1696,34 @@ class MemoryManager:
         ]
 
     # ── GraphRAG lookup for /summary (R26-3, D71) ───────────────
+
+    async def backfill_direct_reply_ttl(self) -> int:
+        """FR-C2 (T-697): идемпотентный backfill существующих NULL-фактов:
+        origin='bot_direct_reply' AND expires_at IS NULL →
+        expires_at = min(created_at + ttl*86400, now) при ttl>0 (0/None →
+        no-op — вечные по явному выбору). Повторный старт безвреден (NULL-строк
+        больше нет). Лог '[graphrag] bot_direct_reply backfill | rows=%d'."""
+        ttl_days = (hot.get("limits.chat_direct_reply_ttl_days",
+                            settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0)
+        if not ttl_days or ttl_days <= 0:
+            return 0
+        try:
+            now = int(time.time())
+            cursor = await self.db.db.execute(
+                "UPDATE graph_facts SET expires_at = "
+                "MIN(created_at + ?, ?) "
+                "WHERE origin = 'bot_direct_reply' AND expires_at IS NULL",
+                (int(ttl_days) * 86400, now))
+            rows = cursor.rowcount
+            if rows:
+                await self.db.db.commit()
+                logger.info("[graphrag] bot_direct_reply backfill | rows=%d",
+                            rows)
+            return rows
+        except Exception:
+            logger.warning(
+                "[graphrag] bot_direct_reply backfill failed", exc_info=True)
+            return 0
 
     async def get_graph_facts(
         self, chat_id: int, rows: list, keywords: list[str]

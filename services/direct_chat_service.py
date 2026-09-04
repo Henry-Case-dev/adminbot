@@ -74,6 +74,10 @@ from services.typing_manager import typing_active
 logger = logging.getLogger(__name__)
 
 _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 фактов/связей
+# Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
+_STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
+_STICKY_MIN_WORD_LEN = 3         # короче — не «слово-префикс» (a/и/в…)
+_STICKY_MIN_FREQ = 2             # >=2 из окна = залипший префикс
 _BLOCK_RE = re.compile(          # 66.12: блок «<Tag>\n…\n</Tag>» (тело для обрезки)
     r"^(<[A-Za-z_]+>\n)(.*)(\n</[A-Za-z_]+>)\s*$", re.DOTALL)
 
@@ -531,29 +535,72 @@ class DirectChatService:
 
     # ── Epic 60 Фаза C (65.4/65.9/65.10): якоря, настроение, защита ──
 
+    @staticmethod
+    def _normalize_first_word(text: str) -> str:
+        """3.7/C1: первое слово ответа (lower, без пунктуации); пусто/короче
+        _STICKY_MIN_WORD_LEN → не «слово-префикс»."""
+        m = re.match(r"\s*([а-яёa-z0-9]+)", str(text).lower())
+        word = m.group(1) if m else ""
+        return word if len(word) >= _STICKY_MIN_WORD_LEN else ""
+
+    @staticmethod
+    def _detect_sticky(window) -> set[str]:
+        """3.7/C1: первые слова с частотой >= _STICKY_MIN_FREQ в окне
+        последних ответов → «залипшие» префиксы (исключаются из якорей)."""
+        from collections import Counter
+        prefixes = [DirectChatService._normalize_first_word(t)
+                    for t in window]
+        counts = Counter(p for p in prefixes if p)
+        return {word for word, cnt in counts.items()
+                if cnt >= _STICKY_MIN_FREQ}
+
     async def _build_style_anchors(self, chat_id: int) -> str:
         """65.4: секция <style_anchors> из последних ответов бота (bot_replies,
-        ASC). VERBATIM-шаблон; user-блок — R50-4 неприкосновенен. Fail-open:
-        ошибка БД → WARNING + без секции."""
+        ASC). Раунд 3 (3.7/C1): анти-залипание — если >=2 из последних `count`
+        начинаются с одного и того же первого слова («сцуко,» и пр.), такие
+        ответы НЕ попадают в якоря (выбираются более старые различные из
+        буфера _STYLE_ANCHOR_LOOKBACK; повтор-префиксы исключаются);
+        не осталось ни одного → секции нет (безопаснее, чем модель-«попугай»).
+        Инструкция смягчена: «держи общую интонацию, НЕ копируй дословно, не
+        начинай каждый ответ с одного и того же слова». VERBATIM-шаблон в
+        тестах; user-блок — R50-4 неприкосновенен. Fail-open: ошибка БД →
+        WARNING + без секции."""
         if not hot.get("flags.chat_style_anchors_enabled",
                        settings.CHAT_STYLE_ANCHORS_ENABLED):
             return ""
         try:
+            count = hot.get("limits.chat_style_anchors_count",
+                            settings.CHAT_STYLE_ANCHORS_COUNT)
             replies = await self.db.last_bot_replies(
-                chat_id, hot.get("limits.chat_style_anchors_count",
-                                 settings.CHAT_STYLE_ANCHORS_COUNT),
-                time.time())
+                chat_id, count + _STYLE_ANCHOR_LOOKBACK, time.time())
         except Exception:
             logger.warning("direct: style anchors read failed | chat=%s",
                            chat_id, exc_info=True)
             return ""
         if not replies:
             return ""
+        sticky = self._detect_sticky(replies[-count:])
+        selected: list[str] = []
+        used_prefixes: set[str] = set()
+        for text in reversed(replies):                 # свежие → старые
+            if len(selected) >= count:
+                break
+            first = self._normalize_first_word(text)
+            if first and (first in sticky or first in used_prefixes):
+                continue                               # залипший/повтор
+            if first:
+                used_prefixes.add(first)
+            selected.append(text)
+        if not selected:
+            return ""
+        selected.reverse()                             # хронология ASC
         anchor_cap = hot.get("limits.chat_style_anchor_max_chars",
                              settings.CHAT_STYLE_ANCHOR_MAX_CHARS)
         body = "\n".join(
-            f"{i}. {t[:anchor_cap]}" for i, t in enumerate(replies, 1))
-        return f"<style_anchors>\nвот как ты отвечал недавно, держи тон:\n{body}\n</style_anchors>"
+            f"{i}. {t[:anchor_cap]}" for i, t in enumerate(selected, 1))
+        return (f"<style_anchors>\nподражай общей интонации этих ответов, "
+                f"но НЕ копируй дословно и не начинай каждый ответ с одного "
+                f"и того же слова:\n{body}\n</style_anchors>")
 
     def _build_mood_block(self, query: str) -> str:
         """65.9: лёгкая эвристика по словам (без LLM-вызова). Блок ПОСЛЕ

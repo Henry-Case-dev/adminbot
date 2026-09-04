@@ -881,10 +881,13 @@ class TestEpic50RagFlags:
 
 class TestEpic50MemorizeDirectReply:
     """Epic 50 (58.8, D205): memorize с origin='bot_direct_reply' + target_user;
-    TTL — CHAT_DIRECT_REPLY_TTL_DAYS (пусто → expires_at NULL)."""
+    раунд 3 (3.7/C2): TTL — CHAT_DIRECT_REPLY_TTL_DAYS (кодовый дефолт 30;
+    явный 0 = expires_at NULL, вечное)."""
 
     @pytest.mark.asyncio
-    async def test_direct_reply_writes_metadata_and_no_ttl_by_default(self, db, monkeypatch):
+    async def test_direct_reply_gets_default_ttl_30_days(self, db, monkeypatch):
+        """FR-C2: без .env-оверрайда новое bot_direct_reply-памятование получает
+        expires_at ≈ now + 30д × (0.5 + weight) (вес direct 0.7 → ×1.2)."""
         now = 1_800_000_000
         monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
         llm = FactsLLM(response=json.dumps(
@@ -898,7 +901,26 @@ class TestEpic50MemorizeDirectReply:
         row = await cursor.fetchone()
         assert row["origin"] == "bot_direct_reply"
         assert row["target_user"] == "вася"
-        assert row["expires_at"] is None          # TTL пусто → вечное (по ТЗ)
+        assert row["expires_at"] == now + int(
+            30 * 86400.0 * (0.5 + settings.GRAPH_FACT_WEIGHT_DIRECT))
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_ttl_zero_is_eternal(self, db, monkeypatch):
+        """FR-C2: явный TTL=0 (вечно) уважается — expires_at NULL."""
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        mod = replace(settings, CHAT_DIRECT_REPLY_TTL_DAYS=0)
+        with patch("services.summary_memory.settings", mod):
+            llm = FactsLLM(response=json.dumps(
+                [_fact(subject="вася", predicate="спросил про", obj="дроны")],
+                ensure_ascii=False))
+            memory = MemoryManager(db, llm)
+            await memory.memorize_facts(-100, "текст", "bot_direct_reply",
+                                        target_user="вася")
+        cursor = await db.db.execute(
+            "SELECT expires_at FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["expires_at"] is None
 
     @pytest.mark.asyncio
     async def test_direct_reply_ttl_when_configured(self, db, monkeypatch):

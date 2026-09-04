@@ -265,6 +265,14 @@ async def on_startup():
             settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
         setup_youtube_video_media(voice_service, db, aliases, memory, bot.id,
                                   downloader=_shared_video_downloader)
+        # Раунд 3 (3.7/C2, T-697): backfill expires_at существующих
+        # bot_direct_reply-фактов без TTL (идемпотентно; NULL-строк больше
+        # нет после первого старта). Fail-open.
+        try:
+            await memory.backfill_direct_reply_ttl()
+        except Exception:
+            logger.warning("[graphrag] bot_direct_reply backfill skipped",
+                           exc_info=True)
         # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
         # video_url). Ключ пуст → video_client.available=False → ровно старое
         # поведение (субтитры), WARNING в каскаде.
@@ -565,6 +573,11 @@ async def main():
     # трогаем; PG down / ключ отсутствует → skip с логом [prompt_migration]).
     from services.chat_prompts import migrate_direct_chat_prompt_if_legacy
     await migrate_direct_chat_prompt_if_legacy(cache)
+
+    # ── Раунд 3 (3.7/C2, T-697): легаси-NULL TTL bot_direct_reply в PG → 30
+    # (сид поставит 30, если ключа нет; 0/число — явный выбор, не трогаем).
+    from services.summary_memory import migrate_direct_reply_ttl_default
+    await migrate_direct_reply_ttl_default(cache)
 
     await on_startup()
     logger.info("Bot started, listening for messages...")
