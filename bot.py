@@ -211,7 +211,8 @@ async def on_startup():
     logger.info("Database initialized")
 
     # ── Раунд 5 (3.2.3/4.6.3, T-733): идемпотентный инжект лора чата
-    # 2661910336 (protected_facts chat-level + graph_facts user_memory + FTS).
+    # (экспорт-конференция 2661910336 → runtime chat_id -1002661910336;
+    # protected_facts chat-level + graph_facts user_memory + FTS).
     # Миграция v6 уже применена в db.initialize() — инжект после неё безопасен.
     # БЕЗУСЛОВЕН (вне summary-гейта): лор ставится при любом флаге. Fail-open:
     # ошибка → WARNING, старт бота НЕ роняем (вторая гарантия после DevOps T-743).

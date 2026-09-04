@@ -3,7 +3,7 @@
 Покрытие: константа лора (непустая, ключевые слова из spec Приложения A);
 первый вызов ensure — inserted=2 (protected_facts chat-level + graph_facts
 origin='user_memory' + FTS-строка по rowid); повторный — inserted=0/skipped=2
-(тот же dict-контракт); get_protected_facts(2661910336, <любой>) возвращает
+(тот же dict-контракт); get_protected_facts(-1002661910336, <любой>) возвращает
 лор; persona-карточка включает чат-лор первой строкой (дельта 4.6.2);
 fail-open при ошибке БД.
 """
@@ -51,6 +51,13 @@ class TestChatLoreConstant:
     def test_no_surrounding_newlines(self):
         assert not CHAT_LORE_2661910336.endswith("\n")
         assert not CHAT_LORE_2661910336.startswith("\n")
+
+    def test_target_chat_id_is_runtime_supergroup(self):
+        """Hotfix 05.09.2026: runtime-чат приватной супергруппы в БД =
+        -100 + id экспорта (aiogram private_supergroup). Под +2661910336
+        контексты чата (message.chat.id = -1002661910336) лор НЕ читают."""
+        assert CHAT_LORE_TARGET_CHAT_ID == -1002661910336
+        assert CHAT_LORE_TARGET_CHAT_ID < 0
 
 
 class TestEnsureChatLore:

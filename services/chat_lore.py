@@ -3,7 +3,9 @@
 protected_facts (чат-уровень, user_name NULL — виден всем юзерам чата в
 <protected_facts>) + graph_facts (origin='user_memory', вечно; FTS-строка
 пишется insert_graph_fact; vec-строка добирается ленивым backfill при
-старте). Дата: 04.09.2026.
+старте). 2661910336 — id из экспортов Telegram; runtime-чат супергруппы
+(ключ памяти в БД) — -1002661910336 (см. CHAT_LORE_TARGET_CHAT_ID).
+Дата: 04.09.2026; hotfix 05.09.2026 (runtime chat_id).
 """
 import logging
 import time
@@ -12,7 +14,11 @@ from services.database import DatabaseService
 
 logger = logging.getLogger(__name__)
 
-CHAT_LORE_TARGET_CHAT_ID = 2661910336
+# Runtime-чат приватной супергруппы = -100 + id экспорта (aiogram: private_supergroup
+# id = -100<id>). В экспортах Telegram id указан БЕЗ -100 (2661910336), поэтому
+# константа ниже — runtime-вариант: лор инжектится под chat_id, который бот видит
+# в апдейтах (message.chat.id) и под которым читает контексты чата из БД.
+CHAT_LORE_TARGET_CHAT_ID = -1002661910336
 
 # ДОСЛОВНЫЙ текст юзера (04.09.2026, раунд 5, пункт 2; spec Приложение A) —
 # НЕ редактировать: один абзац, «ее» и «(тм)» как в оригинале.
