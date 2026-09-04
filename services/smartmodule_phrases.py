@@ -232,3 +232,29 @@ VIDEO_NO_SPEECH_PHRASES: tuple[str, ...] = (
     "пара слов на весь видос — выжимку строить не из чего",
     "разборчивой речи в видео нет, я пас на пересказ",
 )
+
+# ── Раунд 4 (T-709, FR-C1): маркеры отказных ответов видео-моделей (L1/L2) ──
+# Матч ПО НОРМАЛИЗОВАННОМУ тексту (lower, без пунктуации/апострофов/звёздочек).
+# Маркеры хранятся уже в нормализованной форме (can't → cant). Голых
+# «не вижу»/«не могу» НЕТ — только сочетания с видео/ролик/доступ/получить/
+# загрузить (низкий риск ложных срабатываний); порог ниже ловит остатки.
+VIDEO_REFUSAL_MIN_CHARS = 15     # ответ короче порога — не выжимка, отказ
+VIDEO_REFUSAL_MARKERS: tuple[str, ...] = (
+    # RU
+    "не вижу видео", "не вижу ролик", "не вижу видеоролик",
+    "не могу посмотреть видео", "не могу посмотреть ролик",
+    "не могу просмотреть", "не могу открыть видео", "не могу получить доступ",
+    "не имею доступа к видео", "нет доступа к видео", "видео недоступно",
+    "ролик недоступен", "видео не загрузилось", "не загрузилось видео",
+    "не получил видео", "не могу обработать видео", "не могу разобрать видео",
+    "не могу посмотреть сам ролик",
+    # EN (в нормализованной форме — без апострофов)
+    "no video", "no video content",
+    "cant see the video", "cannot see the video", "cant watch the video",
+    "cannot watch the video", "cant view the video", "cannot view the video",
+    "dont have access", "do not have access", "no access to the video",
+    "unable to view", "unable to watch", "cannot access the video",
+    "cant access the video", "video is not available", "video is unavailable",
+    "failed to process the video", "couldnt load the video",
+    "i cant view the video", "i cannot view the video",
+)

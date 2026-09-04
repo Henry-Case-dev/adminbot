@@ -191,7 +191,7 @@ class TestSummarizeMediaUrl:
         memory.get_rag_context = AsyncMock(return_value="<context/>")
         video_client = MagicMock()
         video_client.available = True
-        video_client.summarize = AsyncMock(return_value="по кадрам")
+        video_client.summarize = AsyncMock(return_value="по кадрам человек идёт по улице")
         service = YoutubeSummarizerService(engine, llm, memory=memory,
                                            video_client=video_client)
         return service, video_client
@@ -202,7 +202,7 @@ class TestSummarizeMediaUrl:
         service, vc = self._video_service()
         out = await service.summarize_media_url(
             chat_id=-100, video_url="https://x/media/abc.mp4", label="tg-file")
-        assert out == "по кадрам"
+        assert out == "по кадрам человек идёт по улице"
         call = vc.summarize.await_args.kwargs
         assert call["video_url"] == "https://x/media/abc.mp4"
         user = call["user_text"]
@@ -215,9 +215,11 @@ class TestSummarizeMediaUrl:
         from services.video_cascade_client import VideoLevelError
         service, vc = self._video_service()
         vc.summarize = AsyncMock(
-            side_effect=[VideoLevelError("empty content"), "фолбэк-уровень"])
+            side_effect=[VideoLevelError("empty content"),
+                         "фолбэк-выжимка по кадрам из ролика"])
         assert await service.summarize_media_url(
-            chat_id=-100, video_url="https://x/a.mp4") == "фолбэк-уровень"
+            chat_id=-100, video_url="https://x/a.mp4") \
+            == "фолбэк-выжимка по кадрам из ролика"
 
     @pytest.mark.asyncio
     async def test_both_fail_raises_video_level_error(self):

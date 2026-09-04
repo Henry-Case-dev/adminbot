@@ -19,12 +19,17 @@ None content — VideoLevelError('empty content'). Все исключения �
 """
 import asyncio
 import logging
+import re
 import time
 
 from openai import AsyncOpenAI
 
 from config.settings import settings
 from services import hot_config as hot
+from services.smartmodule_phrases import (
+    VIDEO_REFUSAL_MARKERS,
+    VIDEO_REFUSAL_MIN_CHARS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,37 @@ _LEVEL_RETRY_BACKOFF = 2.0
 
 # Транзиентные статусы для повтора уровня (429/5xx; остальное — сразу вниз).
 _TRANSIENT_429 = 429
+
+# ── Раунд 4 (T-709, FR-C1, spec 3.2.2): детект отказных ответов ────────────
+# Чистые функции над cleanup_llm_text-результатом: free-роуты OpenRouter не
+# гарантируют доставку видео → модели отвечают «не вижу видео»/короткими
+# заглушками вместо выжимки. Детект работает в КАСКАДАХ (не здесь) — здесь
+# единая точка нормализации+поиска для обоих каскадов (FR-C1).
+
+_REFUSAL_STRIP_RE = re.compile(r"[^\w\s]+", re.UNICODE)   # пунктуация/звёздочки
+_REFUSAL_CONTRACTION_RE = re.compile(r"(?<=\w)['`´’](?=\w)")   # can't → cant
+
+
+def normalize_for_refusal(text: str) -> str:
+    """Нормализованная форма для маркерного матча: lower, без пунктуации,
+    апострофы ВНУТРИ слов удаляются без пробела (can't → cant), остальная
+    пунктуация/звёздочки — в пробел (схлопывание делает каскадный join)."""
+    s = _REFUSAL_CONTRACTION_RE.sub("", str(text or ""))
+    return _REFUSAL_STRIP_RE.sub(" ", s).lower()
+
+
+def is_refusal_response(text: str) -> bool:
+    """True — ответ модели похож на отказ/заглушку («не вижу видео» и т.п.).
+
+    Пустота сюда НЕ попадает (обрабатывается ДО — 'empty answer'); текст
+    короче VIDEO_REFUSAL_MIN_CHARS после нормализации — не выжимка (отказ);
+    иначе — substring-матч маркеров по нормализованному тексту."""
+    s = " ".join(normalize_for_refusal(text).split())
+    if not s:
+        return False                     # пустота обрабатывается ДО (empty answer)
+    if len(s) < VIDEO_REFUSAL_MIN_CHARS:
+        return True                      # короче порога — не выжимка (заглушка)
+    return any(m in s for m in VIDEO_REFUSAL_MARKERS)
 
 
 class VideoLevelError(Exception):

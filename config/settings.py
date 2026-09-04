@@ -748,9 +748,12 @@ class Settings:
 
     # ── Видео-выжимка (каскад OpenRouter video_url, эпик 04.09.2026) ──
     # Модели, которые «смотрят» сам ролик: L1 первичная, L2 запасная,
-    # затем — старый путь субтитров (L3).
-    VIDEO_PRIMARY_MODEL: str = _env_str("VIDEO_PRIMARY_MODEL", "minimax/minimax-m3:free")
-    VIDEO_FALLBACK_MODEL: str = _env_str("VIDEO_FALLBACK_MODEL", "google/gemma-4-31b-it:free")
+    # затем — старый путь субтитров (L3). Раунд 4 (T-710): дефолты по живому
+    # каталогу OR (04.09.2026) — nemotron единственная free с audio+video;
+    # minimax-m3 видит кадры (контекст 1M); gemma-4-31b AI Studio не берёт
+    # прямые .mp4 — остаётся доступной как hot-значение (код/роуты не удалены).
+    VIDEO_PRIMARY_MODEL: str = _env_str("VIDEO_PRIMARY_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")
+    VIDEO_FALLBACK_MODEL: str = _env_str("VIDEO_FALLBACK_MODEL", "minimax/minimax-m3:free")
     # Таймаут ОДНОГО мультимодального запроса видео (скачивание ролика +
     # инференс free-моделью заметно дольше обычного чата; прецедент
     # LLM_FALLBACK_TIMEOUT_SECONDS).

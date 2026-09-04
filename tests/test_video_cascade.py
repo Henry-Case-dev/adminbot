@@ -17,7 +17,12 @@ import pytest
 from config.settings import settings
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError
-from services.video_cascade_client import OpenRouterVideoClient, VideoLevelError
+from services.video_cascade_client import (
+    OpenRouterVideoClient,
+    VideoLevelError,
+    is_refusal_response,
+    normalize_for_refusal,
+)
 from services.youtube_summarizer_service import (
     YoutubeSummarizerService,
     _canonical_youtube_url,
@@ -218,7 +223,7 @@ class TestSummarizeCascade:
 
     @pytest.mark.asyncio
     async def test_l1_ok_uses_primary_model_and_canonical_url(self):
-        vc = self._video_mock(text="ок")
+        vc = self._video_mock(text="выжимка из видео по кадрам")
         service, _, _ = _cascade_service(vc)
         await service.summarize_cascade(VIDEO_ID)
         kwargs = vc.summarize.await_args.kwargs
@@ -310,7 +315,7 @@ class TestSummarizeCascade:
     async def test_rag_prefix_used_when_memory_present(self):
         memory = MagicMock()
         memory.get_rag_context = AsyncMock(return_value="<RAG>факты</RAG>")
-        vc = self._video_mock(text="ок")
+        vc = self._video_mock(text="выжимка по кадрам с RAG-фоном")
         service, _, _ = _cascade_service(vc, memory=memory)
         await service.summarize_cascade(VIDEO_ID, chat_id=-100,
                                         rag_query="че за видос")
@@ -325,7 +330,7 @@ class TestSummarizeCascade:
                    side_effect=lambda coro, tag: spy.append(coro)):
             memory = MagicMock()
             memory.get_rag_context = AsyncMock(return_value="")
-            vc = self._video_mock(text="ок")
+            vc = self._video_mock(text="выжимка по кадрам без RAG")
             service, _, _ = _cascade_service(vc, memory=memory)
             await service.summarize_cascade(VIDEO_ID, chat_id=-100,
                                             rag_query="q")
@@ -333,10 +338,13 @@ class TestSummarizeCascade:
 
     @pytest.mark.asyncio
     async def test_cleanup_applied_to_l1_output(self):
-        vc = self._video_mock(text="«ёлочки» — тире")
+        """cleanup_llm_text на пути L1; текст после cleanup ≥ порога 15 — не
+        отказ (эталон с «ёлочками»/тире как в живых выжимках)."""
+        vc = self._video_mock(text="«ёлочки» и тире — длинный пересказ ролика")
         service, _, _ = _cascade_service(vc)
         result = await service.summarize_cascade(VIDEO_ID)
-        assert result == '"ёлочки" - тире'
+        assert result == '"ёлочки" и тире - длинный пересказ ролика'
+        assert vc.summarize.await_count == 1
 
     @pytest.mark.asyncio
     async def test_empty_model_skips_level(self, monkeypatch):
@@ -350,10 +358,10 @@ class TestSummarizeCascade:
         old_cache = hot.get_config_cache()
         hot.set_config_cache(_FakeCache())
         try:
-            vc = self._video_mock(text="ок")
+            vc = self._video_mock(text="выжимка от запасной модели по кадрам")
             service, _, _ = _cascade_service(vc)
             result = await service.summarize_cascade(VIDEO_ID)
-            assert result == "ок"
+            assert result == "выжимка от запасной модели по кадрам"
             # L1 пропущен, сработал L2
             calls = [c.kwargs["model"] for c in vc.summarize.await_args_list]
             assert calls == [settings.VIDEO_FALLBACK_MODEL]
@@ -367,3 +375,201 @@ class TestSummarizeCascade:
         assert YOUTUBE_VIDEO_SYSTEM_PROMPT == YOUTUBE_SYSTEM_PROMPT.replace(
             "по предоставленной текстовой расшифровке (субтитрам)",
             "по самому видео (ты видишь кадры и слышишь звук)")
+
+
+# ── Раунд 4 (T-709, AC-C1): маркерный детект отказных ответов ───────────────
+
+class TestIsRefusalResponse:
+    """Таблица маркеров (RU/EN, регистры, пунктуация, **…**-обёртка)."""
+
+    @pytest.mark.parametrize("text", [
+        # RU
+        "не вижу видео, пришли ссылку ещё раз",
+        "Я не вижу ролик в этом сообщении",
+        "не вижу видеоролик, файл повреждён",
+        "не могу посмотреть видео по этой ссылке",
+        "не могу посмотреть ролик, доступа нет",
+        "извини, не могу просмотреть этот файл",
+        "не могу открыть видео, формат не поддерживается",
+        "не могу получить доступ к этому видео",
+        "не имею доступа к видео, попробуй переслать",
+        "нет доступа к видео, ссылка битая",
+        "видео недоступно для моей модели",
+        "этот ролик недоступен, я пас",
+        "видео не загрузилось, попробуй позже",
+        "не загрузилось видео, сеть подвела",
+        "не получил видео, пришли ещё раз",
+        "не могу обработать видео, слишком длинное",
+        "не могу разобрать видео без звука",
+        "не могу посмотреть сам ролик, только картинку",
+        "**не вижу видео**, попробуй переслать файл",
+        "НЕ МОГУ ПРОСМОТРЕТЬ ВИДЕО!",
+        # EN (с апострофами/тире — нормализуются)
+        "there is no video content in your message",
+        "I can't see the video, please resend it",
+        "I cannot see the video at all",
+        "i can't watch the video from this url",
+        "cannot watch the video, unsupported format",
+        "i cant view the video in this message",
+        "cannot view the video, no media received",
+        "i don't have access to any video",
+        "do not have access to the video file",
+        "no access to the video, sorry",
+        "unable to view the video content",
+        "unable to watch video from this link",
+        "cannot access the video, try again later",
+        "cant access the video, file missing",
+        "video is not available for processing",
+        "the video is unavailable, sorry",
+        "failed to process the video, try another file",
+        "couldn't load the video from the url",
+        "i can't view the video, send it as a file",
+        "i cannot view the video, resend please",
+    ])
+    def test_refusal_markers_detected(self, text):
+        assert is_refusal_response(text) is True, text
+
+    @pytest.mark.parametrize("text", [
+        # содержательные ответы ≥15 символов без маркеров — НЕ отказы
+        "в ролике мужик спорит с котом про еду, кот побеждает",
+        "краткая выжимка: мем с собакой, все смеются",
+        "не вижу смысла спорить — видео просто про монтаж",
+        "не могу не отметить, что в кадре отличный свет",
+        "смешной ролик про то, как котик гоняет шарик",
+    ])
+    def test_non_refusal_responses(self, text):
+        assert is_refusal_response(text) is False, text
+
+    def test_short_text_is_refusal(self):
+        """Короче 15 символов после нормализации — заглушка, не выжимка."""
+        assert is_refusal_response("просто смешной ролик") is False  # ровно 17
+        assert is_refusal_response("мем с котом") is True            # 11 симв.
+        assert is_refusal_response("а" * 14) is True                 # 14 → True
+        assert is_refusal_response("а" * 15) is False                # 15 → False
+        assert is_refusal_response("   ***   мем   ***  ") is True   # после норм.
+
+    def test_empty_and_punct_handled(self):
+        assert is_refusal_response("") is False     # пустота — ДО детекта
+        assert is_refusal_response("   ") is False
+        assert is_refusal_response(None) is False   # type: ignore[arg-type]
+
+    def test_normalize_for_refusal(self):
+        assert normalize_for_refusal("I can't see the video!") == \
+            "i cant see the video "
+        assert " ".join(normalize_for_refusal("**НЕ ВИЖУ ВИДЕО**").split()) == \
+            "не вижу видео"
+        assert " ".join(normalize_for_refusal("много   пробелов").split()) == \
+            "много пробелов"
+
+    def test_asterisk_wrapped_marker_detected(self):
+        """**…**-обёртка из живого ответа free-роута → отказ."""
+        assert is_refusal_response("**не вижу видео**, попробуй переслать") \
+            is True
+
+
+# ── Раунд 4 (T-709, AC-C2): отказы в каскаде → следующий уровень/фолбек ────
+
+class TestCascadeRefusals:
+    def _video_mock(self, *answers):
+        """answers: список ответов уровней по порядку (text | Exception)."""
+        vc = MagicMock()
+        vc.available = True
+        effects = []
+        for a in answers:
+            if isinstance(a, Exception):
+                effects.append(a)
+            else:
+                effects.append(a)
+        vc.summarize = AsyncMock(side_effect=effects)
+        return vc
+
+    @pytest.mark.asyncio
+    async def test_l1_refusal_l2_success(self, caplog):
+        """Отказ на L1 → пробуется L2; юзер получает выжимку L2 (не отказ)."""
+        import logging
+        vc = self._video_mock("не вижу видео, пришли файл ещё раз",
+                              "выжимка по кадрам от minimax")
+        service, engine, _ = _cascade_service(vc)
+        with caplog.at_level(logging.WARNING):
+            result = await service.summarize_cascade(VIDEO_ID)
+        assert result == "выжимка по кадрам от minimax"
+        assert vc.summarize.await_count == 2
+        models = [c.kwargs["model"] for c in vc.summarize.await_args_list]
+        assert models == [settings.VIDEO_PRIMARY_MODEL,
+                          settings.VIDEO_FALLBACK_MODEL]
+        engine.fetch_transcript.assert_not_called()
+        assert any("[video cascade] L1 refusal → next" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_l1_refusal_l2_refusal_goes_to_subtitles(self):
+        """Оба уровня отказали (YouTube-URL) → L3-субтитры (фолбек)."""
+        vc = self._video_mock("не вижу видео", "cannot see the video at all")
+        service, engine, llm = _cascade_service(vc)
+        result = await service.summarize_cascade(VIDEO_ID)
+        assert result == "выжимка по субтитрам"
+        assert vc.summarize.await_count == 2
+        engine.fetch_transcript.assert_awaited_once()
+        llm.generate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_media_url_l1_refusal_l2_success(self):
+        vc = self._video_mock("не могу просмотреть видео",
+                              "по кадрам: человек идёт по улице")
+        service, _, _ = _cascade_service(vc)
+        result = await service.summarize_media_url(
+            chat_id=-100, video_url="https://x/y.mp4", label="tg-file")
+        assert result == "по кадрам: человек идёт по улице"
+
+    @pytest.mark.asyncio
+    async def test_media_url_both_refusal_raises_video_level_error(self, caplog):
+        """Файловый каскад: L1+L2 отказали → VideoLevelError c 'refusal'
+        (хендлер youtube.py:587-590 делает STT-фолбек)."""
+        import logging
+        vc = self._video_mock("не вижу видео, пришли файл",
+                              "i cannot view the video, resend")
+        service, _, _ = _cascade_service(vc)
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(VideoLevelError) as ei:
+                await service.summarize_media_url(
+                    chat_id=-100, video_url="https://x/y.mp4", label="tg-file")
+        assert "refusal" in str(ei.value)
+        assert any("refusal → next" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_short_stub_treated_as_refusal(self):
+        """Короткая заглушка (<15 симв.) L1 → L2 (как отказ)."""
+        vc = self._video_mock("мем с котом", "развёрнутая выжимка по кадрам")
+        service, _, _ = _cascade_service(vc)
+        result = await service.summarize_cascade(VIDEO_ID)
+        assert result == "развёрнутая выжимка по кадрам"
+        assert vc.summarize.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_normal_shortish_answer_not_refusal(self):
+        """Легитимный короткий (но ≥15) ответ не уводит на следующий уровень."""
+        vc = self._video_mock("просто смешной ролик с котом и собакой")
+        service, engine, _ = _cascade_service(vc)
+        result = await service.summarize_cascade(VIDEO_ID)
+        assert result == "просто смешной ролик с котом и собакой"
+        engine.fetch_transcript.assert_not_called()
+
+
+# ── Раунд 4 (T-710, AC-C3): дефолты видео-моделей ──────────────────────────
+
+class TestVideoModelDefaults:
+    def test_default_model_strings(self):
+        """AC-C3: дефолты по живому каталогу OpenRouter (04.09.2026)."""
+        assert settings.VIDEO_PRIMARY_MODEL == \
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+        assert settings.VIDEO_FALLBACK_MODEL == "minimax/minimax-m3:free"
+
+    def test_settings_catalog_description_updated(self):
+        """Каталог-описания актуализированы (немotron audio+video)."""
+        from services.param_catalog import get_by_pg_key
+        primary = get_by_pg_key("models.video_primary_model")
+        fallback = get_by_pg_key("models.video_fallback_model")
+        assert primary is not None and fallback is not None
+        assert "nemotron" in primary.description.lower()
+        assert "minimax" in fallback.description.lower()

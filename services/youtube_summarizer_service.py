@@ -29,7 +29,11 @@ from services.llm_client import LLMBadResponseError, LLMClient
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, _memorize_youtube, fire_and_forget
 from services.summary_xml import escape_xml_text
-from services.video_cascade_client import OpenRouterVideoClient, VideoLevelError
+from services.video_cascade_client import (
+    OpenRouterVideoClient,
+    VideoLevelError,
+    is_refusal_response,
+)
 from services.youtube_prompts import (
     YOUTUBE_SYSTEM_PROMPT,
     YOUTUBE_VIDEO_SYSTEM_PROMPT,
@@ -126,6 +130,14 @@ class YoutubeSummarizerService:
                 logger.warning(
                     "[video cascade] %s empty answer → next | model=%s video_id=%r",
                     level, model, video_id)
+                continue
+            if is_refusal_response(text):
+                # Раунд 4 (T-709, FR-C2): «не вижу видео»/короткая заглушка —
+                # НЕ выжимка. Отказной текст юзеру НЕ уходит: следующий уровень
+                # (L2), после исчерпания — субтитры L3.
+                logger.warning(
+                    "[video cascade] %s refusal → next | model=%s "
+                    "video_id=%r", level, model, video_id)
                 continue
             logger.info(                                # R41-5
                 "[video cascade] OK | level=%s model=%s video_id=%r "
@@ -274,6 +286,15 @@ class YoutubeSummarizerService:
                 logger.warning(
                     "[video cascade] %s empty answer → next | model=%s label=%s",
                     level, model, label)
+                continue
+            if is_refusal_response(text):
+                # Раунд 4 (T-709, FR-C2): файловый каскад — отказ уровня НЕ
+                # выжимка; исчерпание L1+L2 → VideoLevelError('refusal …') →
+                # хендлер youtube.py делает STT-фолбек (отказ юзеру не уходит).
+                last_reason = "refusal"
+                logger.warning(
+                    "[video cascade] %s refusal → next | model=%s "
+                    "label=%s", level, model, label)
                 continue
             logger.info(                                # R41-5
                 "[video cascade] file OK | level=%s model=%s label=%s "
