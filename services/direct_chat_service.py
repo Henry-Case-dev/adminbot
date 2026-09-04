@@ -37,6 +37,7 @@ import re
 import time
 
 from config.settings import settings
+from services import chat_access
 from services import hot_config as hot
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.llm_client import (
@@ -679,6 +680,70 @@ class DirectChatService:
         except Exception:
             logger.warning("direct: /forget failed | chat=%s", chat_id, exc_info=True)
             return 0
+
+    # ── Раунд 4 (T-712/T-715, FR-D1/FR-D4/FR-D5, spec 3.4.4): ──────────
+    # Память-команды «запомни/забудь» (origin='user_memory'). RBAC: админ/
+    # модер — всегда (target_user NULL → факт чата / весь чат); юзер — только
+    # при флаге flags.memory_commands_user_enabled (иначе "denied").
+
+    _MEMORY_FACT_MAX_CHARS = 500   # spec 3.4.2: кап аргумента «запомни» (спам)
+
+    async def remember_user_fact(self, chat_id: int, user, fact_text: str) -> str:
+        """«запомни» → "saved" | "duplicate" | "denied" | "error" (fail-open).
+        Привилегия: admin/mod — всегда, target_user=None (факт чата); юзер —
+        только при флаге, target_user=канон-имя (алиас-резолв _resolve_name).
+        ttl — hot limits.memory_commands_remember_ttl_days (дефолт settings,
+        365; 0/пусто = вечно). Аргумент схлопывается и усекается до 500
+        символов (усечение — INFO-лог)."""
+        fact_text = " ".join(str(fact_text or "").split())
+        if len(fact_text) > self._MEMORY_FACT_MAX_CHARS:
+            fact_text = fact_text[:self._MEMORY_FACT_MAX_CHARS]
+            logger.info("[user_memory] факт усечён до %d символов | chat=%s",
+                        self._MEMORY_FACT_MAX_CHARS, chat_id)
+        if not fact_text:
+            return "error"
+        if chat_access.privilege(user.id) == "user":
+            if not hot.get("flags.memory_commands_user_enabled",
+                           settings.MEMORY_COMMANDS_USER_ENABLED):
+                return "denied"
+            target_user = self._resolve_name(user)
+        else:
+            target_user = None
+        try:
+            return await self.memory.remember_user_fact(
+                chat_id, fact_text, target_user=target_user,
+                ttl_days=hot.get("limits.memory_commands_remember_ttl_days",
+                                 settings.MEMORY_COMMANDS_REMEMBER_TTL_DAYS))
+        except Exception:
+            logger.warning(
+                "[user_memory] remember failed | chat=%s user=%s",
+                chat_id, user.id, exc_info=True)
+            return "error"
+
+    async def forget_user_facts(self, chat_id: int, user,
+                                phrase: str) -> tuple[str, int, str]:
+        """«забудь» → ("ok"|"denied"|"error", removed, query). Scope: юзер
+        (флаг on) — свои факты (target_user=канон-имя); админ/модер — весь
+        чат (target_user любой). Слова — до 5 по >=3 симв (AND-семантика).
+        Fail-open → 0. protected_facts в выборку не попадают (БД-грань)."""
+        if chat_access.privilege(user.id) == "user":
+            if not hot.get("flags.memory_commands_user_enabled",
+                           settings.MEMORY_COMMANDS_USER_ENABLED):
+                return "denied", 0, ""
+            target_user = self._resolve_name(user)
+        else:
+            target_user = None
+        query = " ".join(str(phrase or "").split())
+        try:
+            words = self.db._memory_forget_words(query)
+            removed = await self.db.forget_memory_facts(
+                chat_id, words, target_user=target_user, now_ts=int(time.time()))
+            return "ok", removed, query
+        except Exception:
+            logger.warning(
+                "[user_memory] forget failed | chat=%s user=%s",
+                chat_id, user.id, exc_info=True)
+            return "error", 0, ""
 
     # ── Epic 60 Фаза D (66.9, T-487): карточки пользователей ─────
 

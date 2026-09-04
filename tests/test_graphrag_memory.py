@@ -731,6 +731,107 @@ class TestBuildRagContext:
         assert "  <user_gossip></user_gossip>" in ctx
 
 
+class TestGetRagContextDates:
+    """Раунд 4 (T-724, AC-F2): get_rag_context возвращает даты (FTS-путь)."""
+
+    @pytest.mark.asyncio
+    async def test_rag_context_renders_created_at_date(self, db, monkeypatch):
+        """«что было N-числа» — факт в контексте с датой из created_at."""
+        fixed = 1716163200   # 2024-05-20 00:00:00 UTC
+        monkeypatch.setattr("services.database.time.time", lambda: fixed)
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: fixed)
+        await db.insert_graph_fact(-100, "озон быстрее чем вб",
+                                   "chat_history", None)
+        await db.insert_graph_fact(-100, "озон развозит посылки за день",
+                                   "search_fact", fixed + 100)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(-100, "озон")
+        assert "[2024-05-20] озон быстрее чем вб" in ctx
+        # знаниевый факт — дата ПЕРЕД origin-префиксом
+        assert "[2024-05-20] [Из твоего прошлого поиска]: " in ctx
+
+    @pytest.mark.asyncio
+    async def test_direct_reply_fact_date_rendered_too(self, db, monkeypatch):
+        """include_direct_reply — тот же дата-рендер для bot_direct_reply."""
+        now = int(time.time())
+        monkeypatch.setattr("services.database.time.time", lambda: now)
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        # токен 'погода' присутствует дословно (FTS без стемминга)
+        await db.insert_graph_fact(-100, "погода сегодня будет солнечной",
+                                   "bot_direct_reply", None)
+        memory = MemoryManager(db, FactsLLM())
+        ctx = await memory.get_rag_context(
+            -100, "погода", include_direct_reply=True)
+        expected = time.strftime("[%Y-%m-%d] ", time.gmtime(now))
+        assert expected in ctx
+        assert "погода сегодня будет солнечной" in ctx
+
+
+class TestBuildRagContextDates:
+    """Раунд 4 (T-724, AC-F1): дата-префиксы '[%Y-%m-%d] ' (UTC) для
+    3-кортежей (origin, fact, created_at); legacy-2-кортежи без дат."""
+
+    TS = 1716163200   # 2024-05-20 00:00:00 UTC
+
+    def test_chat_history_date_prefix_inside_user_gossip(self):
+        ctx = build_rag_context(
+            [("chat_history", "вася спорил с петей", self.TS)])
+        assert ctx == (
+            "<context>\n"
+            "  <user_gossip>[2024-05-20] вася спорил с петей</user_gossip>\n"
+            "  <bot_knowledge></bot_knowledge>\n"
+            "</context>"
+        )
+
+    def test_knowledge_date_before_origin_prefix(self):
+        ctx = build_rag_context(
+            [("search_fact", "Ozon быстрее чем вб", self.TS)])
+        assert ("[2024-05-20] [Из твоего прошлого поиска]: "
+                "Ozon быстрее чем вб") in ctx
+
+    def test_web_content_date_before_origin_prefix(self):
+        ctx = build_rag_context(
+            [("web_content", "текст статьи", self.TS)])
+        assert "[2024-05-20] [Из статьи]: текст статьи" in ctx
+
+    def test_zero_and_none_created_at_no_prefix(self):
+        for ts in (0, None):
+            ctx = build_rag_context([("chat_history", "без даты", ts)])
+            assert "  <user_gossip>без даты</user_gossip>" in ctx
+            assert "[20" not in ctx
+
+    def test_legacy_two_tuples_still_no_date(self):
+        ctx = build_rag_context(
+            [("chat_history", "легаси-сплетня"),
+             ("search_fact", "легаси-факт")])
+        assert "  <user_gossip>легаси-сплетня</user_gossip>" in ctx
+        assert "[Из твоего прошлого поиска]: легаси-факт" in ctx
+        assert "[2024-" not in ctx
+
+    def test_mixed_two_and_three_tuples(self):
+        facts = [
+            ("chat_history", "старая запись без даты"),
+            ("chat_history", "новая запись с датой", self.TS),
+        ]
+        ctx = build_rag_context(facts)
+        assert "  <user_gossip>старая запись без даты\n" \
+               "[2024-05-20] новая запись с датой</user_gossip>" in ctx
+
+    def test_garbage_created_at_no_crash(self):
+        ctx = build_rag_context([("chat_history", "мусор", "not-a-number"),
+                                 ("chat_history", "норм", self.TS)])
+        assert "мусор" in ctx
+        assert "[2024-05-20] норм" in ctx
+
+    def test_bot_knowledge_empty_kept_with_dated_gossip(self):
+        ctx = build_rag_context(
+            [("chat_history", "сплетня", self.TS),
+             ("youtube_content", "видеофакт", self.TS)])
+        assert "  <user_gossip>[2024-05-20] сплетня</user_gossip>" in ctx
+        assert ("  <bot_knowledge>[2024-05-20] [Из видео, которое кидали "
+                "ранее]: видеофакт</bot_knowledge>") in ctx
+
+
 class TestGetRagContext:
     @pytest.mark.asyncio
     async def test_ttl_expired_not_in_context_fts_path(self, db, monkeypatch):

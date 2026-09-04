@@ -10,6 +10,7 @@ R46-2), гибридный RAG (build_rag_context, канон R46-4), fire_and_f
 """
 import asyncio
 import calendar
+import datetime
 import hashlib
 import json
 import logging
@@ -71,7 +72,8 @@ FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 _FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content",
                  "bot_direct_reply",
                  "voice_transcript",   # Epic 67: транскрипты voice/video_note
-                 "video_transcript")   # Bugfix 04.09.2026 (Часть 1): TG-видео
+                 "video_transcript",   # Bugfix 04.09.2026 (Часть 1): TG-видео
+                 "user_memory")        # Раунд 4 (T-713, 3.4.3): «запомни»-команды
 _FACT_EXTRACT_MAX_CHARS = 8000      # tail текста, отправляемый экстрактору
 _FACT_MAX_NAME_CHARS = 100
 _FACT_MAX_PREDICATE_CHARS = 200
@@ -118,11 +120,14 @@ def _clamp_weight(value: float) -> float:
 def _origin_weight(source_type: str) -> float:
     """66.1 (T-479): начальный вес по origin. chat_history 0.5 (канон);
     bot_direct_reply — GRAPH_FACT_WEIGHT_DIRECT (личная просьба важнее фона);
-    архивные (search_fact/youtube_content/web_content) — GRAPH_FACT_WEIGHT_ARCHIVE."""
+    архивные (search_fact/youtube_content/web_content) — GRAPH_FACT_WEIGHT_ARCHIVE.
+    user_memory (раунд 4, T-713): явная команда «запомни» — вес 1.0 (максимум)."""
     if source_type == "bot_direct_reply":
         return _clamp_weight(hot.get("limits.graph_fact_weight_direct", settings.GRAPH_FACT_WEIGHT_DIRECT))
     if source_type == "chat_history":
         return 0.5
+    if source_type == "user_memory":
+        return 1.0
     return _clamp_weight(hot.get("limits.graph_fact_weight_archive", settings.GRAPH_FACT_WEIGHT_ARCHIVE))
 
 
@@ -468,18 +473,37 @@ async def _memorize_youtube(memory, chat_id: int, transcript: str) -> None:
         logger.warning("[graphrag hook] youtube compress failed", exc_info=True)
 
 
+def _date_prefix(created_at) -> str:
+    """Раунд 4 (T-724, FR-F1, spec 3.6): '[%Y-%m-%d] ' из unix-ts (UTC);
+    None/0/пусто → ''. Никогда не бросает (RAG не роняет мусорным ts)."""
+    if not created_at:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(created_at), datetime.timezone.utc).strftime("[%Y-%m-%d] ")
+    except (ValueError, OSError, OverflowError):
+        return ""
+
+
 def build_rag_context(facts: list) -> str:
     """R46-4 (55.6): КАНОН-структура `<context>/<user_gossip>/<bot_knowledge>`.
-    facts: [(origin, fact), ...]. chat_history → user_gossip БЕЗ префикса;
-    остальные → bot_knowledge с канон-префиксами (unknown origin — без префикса).
-    escape_xml_text ОБЯЗАТЕЛЕН (summary_xml). Пустые факты → "". Формат
-    байт-в-байт (два пробела отступа; пустой блок — `<block></block>`)."""
-    gossip = [escape_xml_text(fact) for origin, fact in facts
-              if origin == "chat_history"]
-    knowledge = [
-        _RAG_PREFIXES.get(origin, "") + escape_xml_text(fact)
-        for origin, fact in facts if origin != "chat_history"
-    ]
+    facts: (origin, fact) — БЕЗ даты (legacy, старые вызовы/тесты) ИЛИ
+    (origin, fact, created_at) — дата-префикс '[%Y-%m-%d] ' (UTC) ПЕРЕД текстом
+    (gossip: chat_history → user_gossip) и ПЕРЕД origin-префиксом (knowledge:
+    остальные origin → bot_knowledge; unknown origin — без префикса). Дата
+    добавляется ВСЕМ origin, где created_at есть. escape_xml_text ОБЯЗАТЕЛЕН
+    (summary_xml). Пустые факты → "". Формат байт-в-байт (два пробела отступа;
+    пустой блок — `<block></block>`); legacy-2-кортежи — ровно как раньше."""
+    gossip, knowledge = [], []
+    for item in facts:
+        origin = item[0]
+        fact = item[1]
+        date = _date_prefix(item[2]) if len(item) >= 3 else ""
+        text = escape_xml_text(fact)
+        if origin == "chat_history":
+            gossip.append(date + text)
+        else:
+            knowledge.append(date + _RAG_PREFIXES.get(origin, "") + text)
     if not gossip and not knowledge:
         return ""
     lines = ["<context>",
@@ -1461,6 +1485,61 @@ class MemoryManager:
                 "[graphrag] embed failed — fact saved text-only | fact_id=%d",
                 fact_id, exc_info=True)
 
+    # ── Раунд 4 (T-713, FR-D2, spec 3.4.3): «запомни» — user_memory ──
+
+    async def remember_user_fact(self, chat_id: int, fact: str, *,
+                                 target_user: str | None = None,
+                                 ttl_days: int | None = 365) -> str:
+        """Память-команда «запомни»: факт ВЕРБАТИМ (без LLM-экстракции —
+        memorize_facts НЕ используется) → graph_facts origin='user_memory',
+        weight=1.0, status='confirmed'. target_user — канон-имя автора
+        (юзер) или None (админ/модер → факт чата). ttl_days: 0/None → вечно
+        (expires_at NULL), иначе now + ttl_days*86400 (множитель (0.5+weight)
+        НЕ применяется — TTL задан прямо). Exact-дедуп по
+        (chat_id, origin, target_user IS NOT DISTINCT FROM, lower(fact)),
+        живые строки → «duplicate» (повторно НЕ вставляем). FTS-строка —
+        внутри insert_graph_fact; vec-строка — fail-open при embed-сбое
+        (WARNING, FTS жив; иначе добирает ленивый backfill на старте).
+        user_memory НЕ создаёт nodes/edges (прямой INSERT, не граф-триплет).
+        Возвращает "saved" | "duplicate"."""
+        fact = " ".join(str(fact or "").split())
+        if not fact:
+            return "duplicate"                  # пусто — noop (parse уже отсеял)
+        expiry = (None if ttl_days in (None, 0)
+                  else int(time.time() + int(ttl_days) * 86400))
+        now = int(time.time())
+        try:
+            # Exact-дедуп (3.4.3/FR-D2): тот же scope (target_user IS NOT
+            # DISTINCT FROM — NULL-факт чата общий) и тот же текст. lower()
+            # в SQLite не фолдит кириллицу → сравнение casefold в Python
+            # (факт НЕ должен задваиваться при разнице регистра).
+            cursor = await self.db.db.execute(
+                "SELECT fact FROM graph_facts "
+                "WHERE chat_id = ? AND origin = 'user_memory' "
+                "AND (target_user IS ? OR target_user IS NULL) "
+                "AND (expires_at IS NULL OR expires_at > ?) LIMIT 100",
+                (chat_id, target_user, now))
+            needle = fact.casefold()
+            for row in await cursor.fetchall():
+                if str(row["fact"] or "").casefold() == needle:
+                    return "duplicate"
+            fact_id = await self.db.insert_graph_fact(
+                chat_id, fact, "user_memory", expiry,
+                target_user=target_user, weight=1.0)
+            if self._vec_available:
+                await self._save_graph_fact_embedding(
+                    fact_id, chat_id, fact, "user_memory", expiry)
+            logger.info(
+                "[user_memory] remember | chat_id=%s | target_user=%r | "
+                "ttl_days=%s | fact_id=%d", chat_id, target_user, ttl_days,
+                fact_id)
+            return "saved"
+        except Exception:
+            logger.warning(
+                "[user_memory] remember failed — fail-open | chat_id=%s",
+                chat_id, exc_info=True)
+            raise
+
     # ── GraphRAG v2: гибридный RAG (Epic 46, Section 55.6) ────────
 
     async def get_rag_context(self, chat_id: int, query: str, *,
@@ -1486,7 +1565,9 @@ class MemoryManager:
             return ""
         if sort_by_timestamp:
             facts = sorted(facts, key=lambda f: f[2] or 0)   # стабильная сортировка, ASC
-        context = build_rag_context([(origin, fact) for origin, fact, _ in facts])
+        # Раунд 4 (T-724, FR-F1): рендер 3-кортежей (origin, fact, created_at) —
+        # дата-префикс '[%Y-%m-%d] ' в контексте («что было N-числа» через RAG).
+        context = build_rag_context(facts)
         if context and len(context) > (hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0):
             logger.warning("graphrag RAG: context truncated to %d chars | chat_id=%s",
                            (hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0), chat_id)

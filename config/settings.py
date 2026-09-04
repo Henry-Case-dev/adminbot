@@ -394,6 +394,12 @@ class Settings:
     # Жёсткий потолок символов XML-контекста RAG (truncate с WARNING).
     GRAPH_RAG_CONTEXT_MAX_CHARS: int = _env_int("GRAPH_RAG_CONTEXT_MAX_CHARS", 2000)
 
+    # ── Раунд 4 (T-715, FR-D5): память-команды «запомни/забудь» для участников ──
+    # False = команды работают только у админа/модератора (юзеру — фраза-отказ).
+    MEMORY_COMMANDS_USER_ENABLED: bool = _env_bool("MEMORY_COMMANDS_USER_ENABLED", False)
+    # Срок «запомни» (origin user_memory), дней; 0 = вечно (экспирация выключена).
+    MEMORY_COMMANDS_REMEMBER_TTL_DAYS: int = _env_int("MEMORY_COMMANDS_REMEMBER_TTL_DAYS", 365)
+
     # ── SmartModule: FactCheck + SmartSearch (Epic 33, D104) ─────
     # Ключи поисковиков. Пусто = уровень каскада отключён (WARNING при старте).
     # Секреты — ТОЛЬКО в .env (R17): не в коде, не в .env.example.

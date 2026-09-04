@@ -13,6 +13,13 @@ from services.smartmodule_phrases import (
     CHAT_ERROR_PHRASES,
     CHAT_LLM_DOWN_PHRASES,
     CHAT_LOCK_BUSY_PHRASES,
+    CHAT_MEMORY_ALREADY_KNOWN_PHRASES,
+    CHAT_MEMORY_CMD_DENIED_PHRASES,
+    CHAT_MEMORY_FORGET_NOARG_PHRASES,
+    CHAT_MEMORY_FORGOT_DONE_PHRASE,
+    CHAT_MEMORY_FORGOT_NONE_PHRASES,
+    CHAT_MEMORY_REMEMBERED_PHRASE,
+    CHAT_MEMORY_TOO_SHORT_PHRASES,
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
     CHECKUP_LLM_ERROR_PHRASES,
@@ -589,3 +596,94 @@ class TestVideoMediaPools:
                 assert phrase == phrase.lower()
                 assert "{remaining_time}" not in phrase
                 assert not any(0x1F000 <= ord(ch) <= 0x1FAFF for ch in phrase)
+
+
+# ── Раунд 4 (T-716, FR-D6, spec 3.4.7): пулы память-команд «запомни/забудь» ──
+
+class TestChatMemoryPhrasePools:
+    """CHAT_MEMORY_*: пулы disjoint между собой и со всеми существующими
+    (стиль test_direct_chat_prompts.py:122-142); строчные, без эмодзи/
+    маркдауна; одиночные строки-каноны из spec 3.4.7; denied ≥ 2 (NFR-6)."""
+
+    POOLS = (
+        CHAT_MEMORY_ALREADY_KNOWN_PHRASES,
+        CHAT_MEMORY_FORGOT_NONE_PHRASES,
+        CHAT_MEMORY_FORGET_NOARG_PHRASES,
+        CHAT_MEMORY_TOO_SHORT_PHRASES,
+        CHAT_MEMORY_CMD_DENIED_PHRASES,
+    )
+
+    def test_singletons_match_spec(self):
+        assert CHAT_MEMORY_REMEMBERED_PHRASE == "запомнил: {факт}"
+        assert CHAT_MEMORY_FORGOT_DONE_PHRASE == \
+            'забыл {n} фактов про "{запрос}"'
+
+    def test_pool_sizes_no_duplicates(self):
+        for pool in self.POOLS:
+            assert len(pool) >= 2
+            assert len(set(pool)) == len(pool)
+        assert len(CHAT_MEMORY_CMD_DENIED_PHRASES) >= 2    # NFR-6
+
+    def test_pools_disjoint_from_each_other(self):
+        for i, pool in enumerate(self.POOLS):
+            for other in self.POOLS[i + 1:]:
+                assert not set(pool) & set(other)
+
+    def test_pools_disjoint_from_all_existing(self):
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+            | set(YOUTUBE_ERROR_PHRASES)
+            | set(WEB_ERROR_PHRASES)
+            | set(YOUTUBE_RETRY_PHRASES)
+            | set(CHECKUP_FALLBACK_PHRASES)
+            | set(CHECKUP_DEAD_PHRASES)
+            | set(CHECKUP_LLM_ERROR_PHRASES)
+            | set(CHAT_COOLDOWN_PHRASES)
+            | set(CHAT_ERROR_PHRASES)
+            | set(CHAT_LLM_DOWN_PHRASES)
+            | set(CHAT_LOCK_BUSY_PHRASES)
+            | set(INFO_NO_DELETE_RIGHTS_PHRASES)
+            | set(INFO_NOT_ADMIN_PHRASES)
+            | set(INFO_BAD_MARKUP_PHRASES)
+            | set(INFO_EDIT_OK_PHRASES)
+            | set(VIDEO_MEDIA_TOO_LONG_PHRASES)
+            | set(VIDEO_MEDIA_TOO_BIG_PHRASES)
+            | set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)
+            | set(VIDEO_MEDIA_EMPTY_PHRASES)
+            | set(VIDEO_NO_SPEECH_PHRASES)
+        )
+        for pool in self.POOLS:
+            assert not set(pool) & existing
+
+    def test_singletons_disjoint_from_pools(self):
+        """Одиночные строки-каноны не повторяются ни в одном пуле."""
+        singles = {
+            CHAT_MEMORY_REMEMBERED_PHRASE,
+            CHAT_MEMORY_FORGOT_DONE_PHRASE,
+        }
+        all_pool_phrases = set().union(*(set(p) for p in self.POOLS))
+        assert not singles & all_pool_phrases
+
+    def test_style_lowercase_no_emoji_no_markdown(self):
+        for phrase in CHAT_MEMORY_REMEMBERED_PHRASE, CHAT_MEMORY_FORGOT_DONE_PHRASE:
+            assert phrase == phrase.lower()
+        for pool in self.POOLS:
+            for phrase in pool:
+                assert phrase == phrase.lower()
+                assert not any(0x1F000 <= ord(ch) <= 0x1FAFF for ch in phrase)
+                assert not any(sym in phrase for sym in ("**", "_", "`"))
+
+    def test_placeholders(self):
+        assert "{факт}" in CHAT_MEMORY_REMEMBERED_PHRASE
+        assert "{n}" in CHAT_MEMORY_FORGOT_DONE_PHRASE
+        assert "{запрос}" in CHAT_MEMORY_FORGOT_DONE_PHRASE
+        for phrase in CHAT_MEMORY_FORGOT_NONE_PHRASES:
+            assert "{запрос}" in phrase
+        for pool in self.POOLS:
+            for phrase in pool:
+                assert "{remaining_time}" not in phrase

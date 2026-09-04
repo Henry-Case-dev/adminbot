@@ -258,3 +258,30 @@ VIDEO_REFUSAL_MARKERS: tuple[str, ...] = (
     "failed to process the video", "couldnt load the video",
     "i cant view the video", "i cannot view the video",
 )
+
+# ── Раунд 4 (T-716, FR-D6, spec 3.4.7): память-команды «запомни/забудь» ──
+# Строчные, без эмодзи/маркдауна — стиль R13/CHAT_FORGET_*; {…} — .replace.
+# {факт} — запомненный текст; {n} — число удалённых; {запрос} — аргумент.
+CHAT_MEMORY_REMEMBERED_PHRASE = "запомнил: {факт}"
+CHAT_MEMORY_ALREADY_KNOWN_PHRASES: tuple[str, ...] = (
+    "это я уже знал, без толку повторять",
+    "такое уже в памяти есть, не дублирую",
+)
+CHAT_MEMORY_FORGOT_DONE_PHRASE = "забыл {n} фактов про \"{запрос}\""
+CHAT_MEMORY_FORGOT_NONE_PHRASES: tuple[str, ...] = (
+    "в памяти про \"{запрос}\" ничего не нашёл",
+    "не помню, чтобы запоминал про \"{запрос}\"",
+)
+CHAT_MEMORY_FORGET_NOARG_PHRASES: tuple[str, ...] = (
+    "забудь что именно? напиши \"бот, забудь <что>\"",
+    "скажи, что забыть, а то я не экстрасенс",
+)
+CHAT_MEMORY_TOO_SHORT_PHRASES: tuple[str, ...] = (
+    "коротковато, уточни, что запомнить или забыть",
+    "это слишком расплывчато, напиши конкретнее",
+)
+CHAT_MEMORY_CMD_DENIED_PHRASES: tuple[str, ...] = (
+    "команды памяти для меня закрыты, это привилегия админов",
+    "запоминать и забывать за тебя я не уполномочен",
+    "тумблер память-команд для участников выключен, не в обиду",
+)

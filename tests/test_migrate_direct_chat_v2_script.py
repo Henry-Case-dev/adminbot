@@ -54,8 +54,8 @@ def test_migration_script_v1_to_v2(tmp_path, monkeypatch):
 
     conn = sqlite3.connect(str(path))
     try:
-        # Epic 60 (63.3): initialize каскадно применяет и v3 → финал 3.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        # Epic 60 (63.3 + раунд 4): initialize каскадно применяет v3+v5 → финал 5.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         sql = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
         ).fetchone()[0]
@@ -80,8 +80,8 @@ def test_migration_script_idempotent_second_run(tmp_path, monkeypatch):
 
     conn = sqlite3.connect(str(path))
     try:
-        # Epic 60 (63.3): initialize каскадно применяет и v3 → финал 3.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        # Epic 60 (63.3 + раунд 4): initialize каскадно применяет v3+v5 → финал 5.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         row = conn.execute("SELECT COUNT(*) FROM graph_facts").fetchone()
         assert row[0] == 1                      # строки не задвоены
     finally:

@@ -21,6 +21,7 @@ bot_replies (правки людей НЕ переотвечаем); коман�
 порядку регистрации; прочие «/»-команды по-прежнему UNHANDLED вниз).
 """
 import logging
+import random
 import re
 
 from aiogram import Bot, Router, types
@@ -33,9 +34,17 @@ from handlers.voice_transcription import is_reply_to_transcription
 from services.direct_chat_service import DirectChatService
 from services.smartmodule_phrases import (
     CHAT_CLEAR_DONE_PHRASE,
+    CHAT_ERROR_PHRASES,
     CHAT_FORGET_DONE_PHRASE,
     CHAT_FORGET_MISS_PHRASE,
     CHAT_FORGET_NOARG_PHRASE,
+    CHAT_MEMORY_ALREADY_KNOWN_PHRASES,
+    CHAT_MEMORY_CMD_DENIED_PHRASES,
+    CHAT_MEMORY_FORGET_NOARG_PHRASES,
+    CHAT_MEMORY_FORGOT_DONE_PHRASE,
+    CHAT_MEMORY_FORGOT_NONE_PHRASES,
+    CHAT_MEMORY_REMEMBERED_PHRASE,
+    CHAT_MEMORY_TOO_SHORT_PHRASES,
     CHAT_PERSONA_ADMIN_ONLY_PHRASE,
     CHAT_PERSONA_EMPTY_PHRASE,
     CHAT_PERSONA_FOREIGN_PHRASE,
@@ -287,6 +296,111 @@ async def direct_chat_edited_handler(message: types.Message, bot: Bot = None) ->
     await _service.remember_bot_reply(message.chat.id, message.message_id, text)
 
 
+# ── Раунд 4 (T-712, FR-D1, spec 3.4.2): память-команды «запомни/забудь» ──
+# Отдельный роутер НЕ регистрируется: команда ищется в начале сообщения ПОСЛЕ
+# срабатывания direct-chat-триггера (reply на бота / mention / «бот»-слово) —
+# консистентно с direct_chat, ложных срабатываний на обычных сообщениях нет.
+# Fix-раунд 4 (M-1/M-4): regex-эталоны — байт-в-байт spec 3.4.2: forget
+# нормирован ТОЛЬКО «забудь» («забыть/удали из памяти/выкинь из памяти» —
+# обычный LLM-диалог, НЕ команда: ответ модели не теряется); remember
+# требует разделитель `\s*[,:]?\s+` — «запомни:бензин» без пробела не команда.
+_PEER_PREFIX_RE = re.compile(
+    r"^(?:(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?\s+)+", re.IGNORECASE)
+_MEMORY_FACT_MAX_CHARS = 500      # spec 3.4.2: кап аргумента «запомни» (спам)
+_CMD_REMEMBER_RE = re.compile(
+    r"^(?:запомни|запомнить|запиши)\s*[,:]?\s+(.+)$", re.IGNORECASE)
+_CMD_FORGET_RE = re.compile(r"^забудь\s*[:]?\s*(.*)$", re.IGNORECASE)
+
+
+def _parse_memory_command(raw: str) -> tuple[str, str] | None:
+    """('remember'|'forget'|'forget_noarg'|'too_short', arg). Ищет команду в
+    начале сообщения (после необязательного обращения «бот…»/«@ник» с
+    разделителем). None — не команда (обычный direct_chat, LLM-путь).
+    remember-аргумент обязателен (нет «запомни» без текста); «забудь» без
+    аргумента → forget_noarg (help-фраза, consumed); forget-аргумент «всё»
+    (casefold) → forget_noarg (spec 3.4.8: «забудь всё» намеренно НЕ
+    реализуем — help-фраза, consumed, ничего не удаляется); аргумент < 3
+    симв → too_short."""
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    while True:
+        m = _PEER_PREFIX_RE.match(text)
+        if not m:
+            break
+        text = text[m.end():].strip()
+    for rx, kind in ((_CMD_REMEMBER_RE, "remember"),
+                     (_CMD_FORGET_RE, "forget")):
+        m = rx.match(text)
+        if not m:
+            continue
+        arg = m.group(1).strip()
+        if kind == "forget" and (not arg or arg.casefold() == "всё"):
+            return "forget_noarg", ""
+        if len(arg) < 3:
+            return "too_short", ""
+        return kind, arg
+    return None
+
+
+async def _handle_memory_command(bot: Bot, message: types.Message,
+                                 kind: str, arg: str) -> None:
+    """Ветка память-команд (consumed — `service.handle` НЕ вызывается;
+    троттлинг/кулдаун/LLM не задействованы). RBAC/тумблер — в сервисном
+    слое; здесь — вызов + фраза из пула (spec 3.4.2/3.4.7)."""
+    if _service is None:
+        return
+    chat_id = message.chat.id
+    user = message.from_user
+    phrase = None
+    try:
+        if kind == "remember":
+            # spec 3.4.2: аргумент — схлопывание пробелов + cap 500 (спам).
+            # Усечение ДО вызова сервиса: фраза-подтверждение показывает ровно
+            # сохранённый текст (сервисный кап — второй рубеж).
+            fact_text = " ".join(arg.split())[:_MEMORY_FACT_MAX_CHARS]
+            if fact_text != arg:
+                logger.info(
+                    "[user_memory] remember arg truncated to %d chars | chat=%s",
+                    _MEMORY_FACT_MAX_CHARS, chat_id)
+            result = await _service.remember_user_fact(chat_id, user, fact_text)
+            if result == "saved":
+                phrase = CHAT_MEMORY_REMEMBERED_PHRASE.replace(
+                    "{факт}", fact_text)
+            elif result == "duplicate":
+                phrase = random.choice(CHAT_MEMORY_ALREADY_KNOWN_PHRASES)
+            elif result == "denied":
+                phrase = random.choice(CHAT_MEMORY_CMD_DENIED_PHRASES)
+            else:
+                phrase = random.choice(CHAT_ERROR_PHRASES)
+        elif kind == "forget":
+            code, removed, query = await _service.forget_user_facts(
+                chat_id, user, arg)
+            if code == "denied":
+                phrase = random.choice(CHAT_MEMORY_CMD_DENIED_PHRASES)
+            elif code == "error":
+                phrase = random.choice(CHAT_ERROR_PHRASES)
+            elif removed > 0:
+                phrase = (CHAT_MEMORY_FORGOT_DONE_PHRASE
+                          .replace("{n}", str(removed))
+                          .replace("{запрос}", query))
+            else:
+                phrase = random.choice(CHAT_MEMORY_FORGOT_NONE_PHRASES).replace(
+                    "{запрос}", query)
+        elif kind == "forget_noarg":
+            phrase = random.choice(CHAT_MEMORY_FORGET_NOARG_PHRASES)
+        else:                                    # too_short
+            phrase = random.choice(CHAT_MEMORY_TOO_SHORT_PHRASES)
+    except Exception:
+        logger.warning("[user_memory] command handling failed | chat=%s kind=%s",
+                       chat_id, kind, exc_info=True)
+        phrase = random.choice(CHAT_ERROR_PHRASES)
+    if phrase:
+        await _reply(bot, chat_id, phrase, message.message_id)
+    logger.info("[direct] memory command | chat=%s user=%s kind=%s consumed",
+                chat_id, user.id if user is not None else None, kind)
+
+
 @direct_chat_router.message()
 async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None or _bot_id is None:
@@ -299,5 +413,12 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
         return UNHANDLED                       # команды не перехватываются
     if not _is_direct_trigger(message):
         return UNHANDLED                       # не триггер → пропагация живёт
+    # Раунд 4 (T-712, FR-D1): память-команды — ПОСЛЕ триггера, ДО handle.
+    # Распознанный синтаксис → ответ/подтверждение + consumed (в LLM НЕ
+    # уходит; команды работают даже при активном кулдауне диалога).
+    parsed = _parse_memory_command(text)
+    if parsed is not None:
+        kind, arg = parsed
+        return await _handle_memory_command(bot, message, kind, arg)
     await _service.handle(bot, message, user)
     return

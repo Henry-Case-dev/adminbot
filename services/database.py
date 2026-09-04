@@ -14,13 +14,17 @@ _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
 _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
 _SCHEMA_VERSION_VIDEO_ORIGINS = 4  # Раунд 3 (3.6/B7): user_version 3→4
+_SCHEMA_VERSION_USER_MEMORY = 5  # Раунд 4 (T-713, 3.4.3): user_version 4→5
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
-# месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграция v4).
+# месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
 # Включает ВНЕШНИЕ скобки списка IN (формат вставки в «CHECK (origin IN %s)»).
+# user_memory (раунд 4, T-713/FR-D2): память-команды «запомни» — явные факты
+# юзера/чата, без LLM-экстракции (graph_facts достаточно, nodes/edges НЕ
+# создаются — см. spec 3.4.3 п.5).
 _GRAPH_FACT_ORIGINS_SQL = (
     "('chat_history', 'search_fact', 'youtube_content', 'web_content', "
-    "'bot_direct_reply', 'voice_transcript', 'video_transcript')"
+    "'bot_direct_reply', 'voice_transcript', 'video_transcript', 'user_memory')"
 )
 
 _EDGE_WEIGHT_CAP = 5             # Epic 60 (66.3/T-459 тема 5): подтверждение
@@ -213,6 +217,7 @@ class DatabaseService:
         await self._migrate_direct_chat_v2()   # Epic 50 (58.7): user_version 1→2
         await self._migrate_epic60_v3()        # Epic 60 (63.3): user_version 2→3
         await self._migrate_video_origins_v4() # Раунд 3 (3.6/B7): user_version 3→4
+        await self._migrate_user_memory_v5()   # Раунд 4 (T-713): user_version 4→5
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -453,6 +458,53 @@ class DatabaseService:
             await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_VIDEO_ORIGINS}")
+        await self.db.commit()
+
+    async def _migrate_user_memory_v5(self) -> None:
+        """Раунд 4 (T-713, spec 3.4.3): CHECK graph_facts.origin + 'user_memory'
+        через пересоздание с сохранением ВСЕХ колонок (точная копия паттерна
+        _migrate_video_origins_v4): guard по sqlite_master ('user_memory' ещё
+        не в CHECK) → ALTER RENAME + CREATE (origin-список из
+        _GRAPH_FACT_ORIGINS_SQL — единое место) + INSERT…SELECT + DROP old +
+        индексы; PRAGMA user_version = 5. Повторный запуск — no-op. FTS5
+        graph_facts_fts НЕ пересоздаётся (rowid сохранены — прецедент D201).
+        Новых таблиц нет. PostgreSQL-схемы graph_facts по-прежнему НЕТ
+        (pg_db.py — только bot_settings/роли/админы/uptime_events); при
+        реализации эпика 86 origin-список синхронизировать."""
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "user_memory" not in row["sql"]:
+            logger.info(
+                "[database] migration v5: graph_facts origins rebuild "
+                "(user_memory)")
+            await self.db.executescript(
+                "ALTER TABLE graph_facts RENAME TO graph_facts_old; "
+                "CREATE TABLE graph_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "fact TEXT NOT NULL, "
+                "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
+                + _GRAPH_FACT_ORIGINS_SQL + "), "
+                "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT, "
+                "weight REAL NOT NULL DEFAULT 0.5, "
+                "status TEXT NOT NULL DEFAULT 'confirmed', "
+                "last_confirmed_at INTEGER, supersedes INTEGER); "
+                "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+                "created_at, target_user, weight, status, last_confirmed_at, "
+                "supersedes) "
+                "SELECT id, chat_id, fact, origin, expires_at, created_at, "
+                "target_user, weight, status, last_confirmed_at, supersedes "
+                "FROM graph_facts_old; "
+                "DROP TABLE graph_facts_old; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin "
+                "ON graph_facts(chat_id, origin); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user "
+                "ON graph_facts(chat_id, target_user);"
+            )
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_USER_MEMORY}")
         await self.db.commit()
 
     async def close(self) -> None:
@@ -1366,6 +1418,76 @@ class DatabaseService:
                 chat_id, row["id"], row["fact"], None, "forget")
         await self.db.commit()
         return len(rows)
+
+    # ── Раунд 4 (T-714, FR-D3, spec 3.4.5): «забудь» — user_memory ──
+
+    @staticmethod
+    def _memory_forget_words(phrase: str) -> list[str]:
+        """Слова запроса «забудь»: [0-9a-zа-яё]+ из lower(phrase), длина >= 3,
+        срез до 5 (AND-семантика; fail-open → [])."""
+        return [
+            w for w in re.findall(r"[0-9a-zа-яё]+", str(phrase or "").lower())
+            if len(w) >= 3
+        ][:5]
+
+    async def forget_memory_facts(self, chat_id: int, words: list[str],
+                                  target_user: str | None = None,
+                                  now_ts: int = 0) -> int:
+        """«забудь» (T-714/FR-D3): ТОЛЬКО origin='user_memory'. words — слова
+        запроса (>=3 симв, до 5). FTS-prefix первого слова (fail-open → 0) →
+        кандидаты; Python-фильтр: КАЖДОЕ слово содержится в lower(fact) (AND).
+        target_user None → весь чат; иначе — свои факты юзера (scope по
+        канон-имени). Удаление: graph_facts_fts → graph_facts → best-effort
+        graph_facts_vec (vec-таблицы может не быть — FTS-режим); на каждый
+        удалённый факт — журнал graph_fact_compressions (reason='user_forget').
+        protected_facts в выборку НЕ попадают (отдельная таблица; запрос
+        ограничен origin='user_memory'). Повторный вызов безвреден.
+        Граница: chat_history/bot_direct_reply/прочее НЕ трогаются."""
+        if now_ts <= 0:
+            now_ts = int(time.time())
+        words = [w for w in (words or []) if len(w) >= 3][:5]
+        if not words:
+            return 0
+        match_query = f'"{words[0]}"*'
+        sql = (
+            "SELECT f.id, f.fact FROM graph_facts_fts "
+            "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
+            "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
+            "AND f.origin = 'user_memory' "
+            "AND (f.expires_at IS NULL OR f.expires_at > ?) ")
+        params: list = [match_query, chat_id, now_ts]
+        if target_user is not None:
+            sql += "AND f.target_user = ? "
+            params.append(target_user)
+        sql += "LIMIT 500"
+        try:
+            cursor = await self.db.execute(sql, params)
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning(
+                "direct: «забудь» FTS search failed — fail-open | chat=%s",
+                chat_id, exc_info=True)
+            return 0
+        removed = 0
+        for row in rows:
+            fact_lower = str(row["fact"] or "").lower()
+            if not all(w in fact_lower for w in words):
+                continue
+            await self.db.execute(
+                "DELETE FROM graph_facts_fts WHERE rowid = ?", (row["id"],))
+            await self.db.execute(
+                "DELETE FROM graph_facts WHERE id = ?", (row["id"],))
+            try:
+                await self.db.execute(
+                    "DELETE FROM graph_facts_vec WHERE rowid = ?", (row["id"],)
+                )
+            except Exception:
+                pass                        # vec-таблицы может не быть (FTS-режим)
+            await self.log_fact_compression(
+                chat_id, row["id"], row["fact"], None, "user_forget")
+            removed += 1
+        await self.db.commit()
+        return removed
 
     # ── Epic 60 Фаза B (64.1/64.2/64.6, T-462/T-463/T-467) ─────
 

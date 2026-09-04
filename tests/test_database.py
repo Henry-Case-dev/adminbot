@@ -502,11 +502,12 @@ def _create_v2_db(path):
 class TestEpic60V3Migration:
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """63.6 #1 + раунд 3 (3.6/B7): PRAGMA user_version == 4 (Epic 46 → 1,
-        Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4)."""
+        """63.6 #1 + раунд 3/4: PRAGMA user_version == 5 (Epic 46 → 1,
+        Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4, раунд 4:
+        user_memory-origins CHECK → 5)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 4
+        assert row[0] == 5
 
     @pytest.mark.asyncio
     async def test_v3_tables_created(self, db):
@@ -549,13 +550,13 @@ class TestEpic60V3Migration:
         assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 4     # раунд 3: 3→4 (B7)
+        assert (await cursor.fetchone())[0] == 5     # раунд 3/4: 3→5 (B7 + v5)
         await d.close()
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_stays_3(self, tmp_path):
         """63.6 #1/#4 + раунд 3: повторный initialize — no-op (user_version
-        остаётся 4, данные не задвоены)."""
+        остаётся 5, данные не задвоены)."""
         path = tmp_path / "reinit.db"
         _create_v2_db(path)
         d = DatabaseService(str(path))
@@ -563,7 +564,7 @@ class TestEpic60V3Migration:
         await d.close()
         await d.initialize()                       # «рестарт»
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 4
+        assert (await cursor.fetchone())[0] == 5
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
@@ -685,8 +686,9 @@ def _create_v3_db(path):
 
 class TestVideoOriginsMigrationV4:
     """3.6/B7 (T-693, AC-B9): старая схема → v4 с сохранением id/весов;
-    INSERT voice_transcript/video_transcript успешен; user_version=4;
-    повторный запуск no-op; факт виден в get_rag_context."""
+    INSERT voice_transcript/video_transcript успешен; user_version=5 (каскад
+    v4→v5 раунда 4, T-713); повторный запуск no-op; факт виден в
+    get_rag_context."""
 
     @pytest.mark.asyncio
     async def test_v3_db_migrates_to_v4_preserving_rows(self, tmp_path):
@@ -696,7 +698,7 @@ class TestVideoOriginsMigrationV4:
         await d.initialize()
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 4
+        assert (await cursor.fetchone())[0] == 5
         # schema содержит новые origins
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
@@ -745,7 +747,7 @@ class TestVideoOriginsMigrationV4:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 4
+        assert (await cursor.fetchone())[0] == 5
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # данные не задвоены
         await d.close()
