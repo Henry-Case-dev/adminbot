@@ -3,12 +3,17 @@
 Байт-в-байт с эталоном Section 51.4 (прецедент test_factcheck_prompts) +
 кросс-проверка с планом backlog R42-6; {max_symbols} — единственный
 плейсхолдер; .replace-подстановка без KeyError; CHECKUP_FALLBACK_NOTICE
-дословно (R42-2).
+дословно (R42-2). Раунд 5 (T-737): п.1 → «торопливое письмо»; PREV-слепок
+HEAD 68fb03e (spec 5.3.2); запрещённые старые фразы отсутствуют (5.3.4).
 """
 import re
 from pathlib import Path
 
-from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PROMPT
+from services.checkup_prompts import (
+    CHECKUP_FALLBACK_NOTICE,
+    CHECKUP_SYSTEM_PROMPT,
+    PREV_CHECKUP_SYSTEM_PROMPT,
+)
 
 
 def _arch_checkup_prompt() -> str:
@@ -68,13 +73,30 @@ class TestCheckupPrompt:
 
     def test_style_markers_from_tz(self):
         assert "токсичный, саркастичный DevOps-инженер" in CHECKUP_SYSTEM_PROMPT
-        assert "Имитируй ленивую печать" in CHECKUP_SYSTEM_PROMPT
+        assert "Имитируй торопливое письмо" in CHECKUP_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in CHECKUP_SYSTEM_PROMPT
         assert (
             "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)"
             in CHECKUP_SYSTEM_PROMPT
         )
         assert "переводи техническую инфу на человеческо-токсичный язык" in CHECKUP_SYSTEM_PROMPT
+
+    def test_round5_casing_and_typography(self):
+        """Раунд 5 (T-737): п.1 «торопливое письмо»; старые формулировки
+        отсутствуют (spec 5.3.4)."""
+        assert ("1. Имитируй торопливое письмо: иногда начинай предложения "
+                "с маленькой буквы. Пиши небрежно." in CHECKUP_SYSTEM_PROMPT)
+        assert "Имитируй ленивую печать" not in CHECKUP_SYSTEM_PROMPT
+        assert "чередуй заглавные и строчные" not in CHECKUP_SYSTEM_PROMPT
+
+    def test_prev_snapshot_is_before_round5(self):
+        """PREV-слепок == HEAD 68fb03e (spec 5.3.2): старая фраза есть,
+        новый канон от неё отличается."""
+        assert PREV_CHECKUP_SYSTEM_PROMPT != CHECKUP_SYSTEM_PROMPT
+        assert ("1. Имитируй ленивую печать: чередуй заглавные и строчные "
+                "буквы в начале предложений. Пиши небрежно."
+                in PREV_CHECKUP_SYSTEM_PROMPT)
+        assert "Имитируй торопливое письмо" not in PREV_CHECKUP_SYSTEM_PROMPT
 
 
 class TestFallbackNotice:

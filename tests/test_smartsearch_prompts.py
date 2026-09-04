@@ -1,12 +1,14 @@
 """Tests for services/search_prompts.py (T-255-B, R33-6, D109 RESOLVED).
 
 Байт-в-байт с эталоном Section 42.5.2; {max_symbols} — единственный
-плейсхолдер; .replace-подстановка без KeyError.
+плейсхолдер; .replace-подстановка без KeyError. Раунд 5 (T-738): п.1 →
+«торопливое письмо»; PREV-слепок HEAD 68fb03e (spec 5.3.2); запрещённые
+старые фразы отсутствуют (5.3.4).
 """
 import re
 from pathlib import Path
 
-from services.search_prompts import SEARCH_SYSTEM_PROMPT
+from services.search_prompts import PREV_SEARCH_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT
 
 
 def _arch_search_prompt() -> str:
@@ -76,9 +78,25 @@ class TestSearchPrompt:
         """R33-6: токсичный исследователь, ленивая печать, запреты."""
         assert "токсичный, циничный участник чата" in SEARCH_SYSTEM_PROMPT
         assert "выжимку сути, обоссав автора запроса за лень или тупость" in SEARCH_SYSTEM_PROMPT
-        assert "Имитируй ленивую печать" in SEARCH_SYSTEM_PROMPT
+        assert "Имитируй торопливое письмо" in SEARCH_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in SEARCH_SYSTEM_PROMPT
         assert "Поясни тему глубоко и без воды" in SEARCH_SYSTEM_PROMPT
+
+    def test_round5_casing_and_typography(self):
+        """Раунд 5 (T-738): п.1 «торопливое письмо»; старые формулировки
+        отсутствуют (spec 5.3.4)."""
+        assert ("1. Имитируй торопливое письмо: иногда начинай предложения "
+                "с маленькой буквы. Пиши небрежно." in SEARCH_SYSTEM_PROMPT)
+        assert "Имитируй ленивую печать" not in SEARCH_SYSTEM_PROMPT
+        assert "чередуй заглавные и строчные" not in SEARCH_SYSTEM_PROMPT
+
+    def test_prev_snapshot_is_before_round5(self):
+        """PREV-слепок == HEAD 68fb03e (spec 5.3.2)."""
+        assert PREV_SEARCH_SYSTEM_PROMPT != SEARCH_SYSTEM_PROMPT
+        assert ("1. Имитируй ленивую печать: чередуй заглавные и строчные "
+                "буквы в начале предложений. Пиши небрежно."
+                in PREV_SEARCH_SYSTEM_PROMPT)
+        assert "Имитируй торопливое письмо" not in PREV_SEARCH_SYSTEM_PROMPT
 
     def test_ends_with_rag_instruction(self):
         """55.7.2: канон-инструкция R46-4 — последний абзац промпта."""

@@ -2,11 +2,19 @@
 
 Байт-в-байт с эталоном Section 46.7.1 (прецедент test_factcheck_prompts.py);
 {max_symbols} — единственный плейсхолдер; .replace-подстановка без KeyError.
+Раунд 5 (T-738): п.1 → «торопливое письмо» в ОБЕИХ константах (YOUTUBE +
+YOUTUBE_VIDEO); PREV-слепки HEAD 68fb03e (spec 5.3.2); запрещённые старые
+фразы отсутствуют (5.3.4).
 """
 import re
 from pathlib import Path
 
-from services.youtube_prompts import YOUTUBE_SYSTEM_PROMPT
+from services.youtube_prompts import (
+    PREV_YOUTUBE_SYSTEM_PROMPT,
+    PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT,
+    YOUTUBE_SYSTEM_PROMPT,
+    YOUTUBE_VIDEO_SYSTEM_PROMPT,
+)
 
 
 def _arch_youtube_prompt() -> str:
@@ -59,12 +67,30 @@ class TestYoutubePrompt:
         """R37-6: токсичный саркастичный участник чата, ленивая печать,
         запреты маркдауна/тире/ёлочек."""
         assert "токсичный, саркастичный участник чата" in YOUTUBE_SYSTEM_PROMPT
-        assert "Имитируй ленивую печать" in YOUTUBE_SYSTEM_PROMPT
+        assert "Имитируй торопливое письмо" in YOUTUBE_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in YOUTUBE_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in YOUTUBE_SYSTEM_PROMPT
         assert "сплошной текст с разделением на абзацы" in YOUTUBE_SYSTEM_PROMPT
         assert "едкую, плотную выжимку видео" in YOUTUBE_SYSTEM_PROMPT
         assert "о чем реально пиздит автор" in YOUTUBE_SYSTEM_PROMPT
+
+    def test_round5_casing_and_typography(self):
+        """Раунд 5 (T-738): п.1 «торопливое письмо»; старые формулировки
+        отсутствуют (spec 5.3.4)."""
+        for prompt in (YOUTUBE_SYSTEM_PROMPT, YOUTUBE_VIDEO_SYSTEM_PROMPT):
+            assert ("1. Имитируй торопливое письмо: иногда начинай "
+                    "предложения с маленькой буквы. Пиши небрежно." in prompt)
+            assert "Имитируй ленивую печать" not in prompt
+            assert "чередуй заглавные и строчные" not in prompt
+
+    def test_prev_snapshots_are_before_round5(self):
+        """PREV-слепки == HEAD 68fb03e (spec 5.3.2), обе константы."""
+        assert PREV_YOUTUBE_SYSTEM_PROMPT != YOUTUBE_SYSTEM_PROMPT
+        assert PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT != YOUTUBE_VIDEO_SYSTEM_PROMPT
+        for prev in (PREV_YOUTUBE_SYSTEM_PROMPT, PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT):
+            assert ("1. Имитируй ленивую печать: чередуй заглавные и строчные "
+                    "буквы в начале предложений. Пиши небрежно." in prev)
+            assert "Имитируй торопливое письмо" not in prev
 
     def test_ends_with_rag_instruction(self):
         """55.7.4: канон-инструкция R46-4 — последний абзац промпта."""

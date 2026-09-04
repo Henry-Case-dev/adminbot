@@ -2,11 +2,13 @@
 
 Байт-в-байт с эталоном Section 46.7.2 (прецедент test_factcheck_prompts.py);
 {max_symbols} — единственный плейсхолдер; .replace-подстановка без KeyError.
+Раунд 5 (T-738): п.1 → «торопливое письмо»; PREV-слепок HEAD 68fb03e
+(spec 5.3.2); запрещённые старые фразы отсутствуют (5.3.4).
 """
 import re
 from pathlib import Path
 
-from services.web_prompts import WEBPAGE_SYSTEM_PROMPT
+from services.web_prompts import PREV_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT
 
 
 def _arch_web_prompt() -> str:
@@ -59,12 +61,28 @@ class TestWebpagePrompt:
         """R37-6: токсичный ироничный участник чата, ленивая печать,
         запреты маркдауна/тире/ёлочек."""
         assert "токсичный, ироничный участник чата" in WEBPAGE_SYSTEM_PROMPT
-        assert "Имитируй ленивую печать" in WEBPAGE_SYSTEM_PROMPT
+        assert "Имитируй торопливое письмо" in WEBPAGE_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in WEBPAGE_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in WEBPAGE_SYSTEM_PROMPT
         assert "сплошной текст с разделением на абзацы" in WEBPAGE_SYSTEM_PROMPT
         assert "выжимку содержимого веб-страницы" in WEBPAGE_SYSTEM_PROMPT
         assert "Саркастично оцени полезность материала" in WEBPAGE_SYSTEM_PROMPT
+
+    def test_round5_casing_and_typography(self):
+        """Раунд 5 (T-738): п.1 «торопливое письмо»; старые формулировки
+        отсутствуют (spec 5.3.4)."""
+        assert ("1. Имитируй торопливое письмо: иногда начинай предложения "
+                "с маленькой буквы. Пиши небрежно." in WEBPAGE_SYSTEM_PROMPT)
+        assert "Имитируй ленивую печать" not in WEBPAGE_SYSTEM_PROMPT
+        assert "чередуй заглавные и строчные" not in WEBPAGE_SYSTEM_PROMPT
+
+    def test_prev_snapshot_is_before_round5(self):
+        """PREV-слепок == HEAD 68fb03e (spec 5.3.2)."""
+        assert PREV_WEBPAGE_SYSTEM_PROMPT != WEBPAGE_SYSTEM_PROMPT
+        assert ("1. Имитируй ленивую печать: чередуй заглавные и строчные "
+                "буквы в начале предложений. Пиши небрежно."
+                in PREV_WEBPAGE_SYSTEM_PROMPT)
+        assert "Имитируй торопливое письмо" not in PREV_WEBPAGE_SYSTEM_PROMPT
 
     def test_ends_with_rag_instruction(self):
         """55.7.5: канон-инструкция R46-4 — последний абзац промпта."""

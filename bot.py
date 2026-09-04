@@ -626,11 +626,12 @@ async def main():
     await cache.init()
     set_config_cache(cache)
 
-    # ── Bugfix 04.09.2026 (Часть 2, FR-17): авто-миграция канона промпта
-    # direct_chat (прод-значение == легаси → новый канон; кастом юзера НЕ
-    # трогаем; PG down / ключ отсутствует → skip с логом [prompt_migration]).
-    from services.chat_prompts import migrate_direct_chat_prompt_if_legacy
-    await migrate_direct_chat_prompt_if_legacy(cache)
+    # ── Раунд 5 (T-740, spec 3.3.4): авто-миграция канонов промптов в PG
+    # (9 ключей; канон → новый канон; кастом юзера НЕ трогаем; PG down /
+    # ключ отсутствует → skip с логом [prompt_migration]). Заменяет
+    # migrate_direct_chat_prompt_if_legacy (удалена из chat_prompts.py).
+    from services.prompt_migrations import migrate_prompt_canons
+    await migrate_prompt_canons(cache)
 
     # ── Раунд 3 (3.7/C2, T-697): легаси-NULL TTL bot_direct_reply в PG → 30
     # (сид поставит 30, если ключа нет; 0/число — явный выбор, не трогаем).

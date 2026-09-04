@@ -1,11 +1,21 @@
 """T-182-A / T-217-B / T-223-D / T-230 / T-365-B: SYSTEM_PROMPT byte-for-byte
-against the backlog requirement (R11 v4 + канон-инструкция R46-4, 55.7.1)."""
+against the backlog requirement (R11 v4 + канон-инструкция R46-4, 55.7.1).
+Раунд 5 (T-736): п.1 «торопливое письмо» + п.7 TYPO; PREV-слепки HEAD 68fb03e
+(spec 5.3.2); запрещённые старые фразы отсутствуют (5.3.4); COMPRESS — тот же
+фрагмент-клауза в нижнем регистре.
+"""
 import re
 from pathlib import Path
 
 import pytest
 
-from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT, SYSTEM_PROMPT
+from services.summary_prompts import (
+    COMPRESS_PROMPT,
+    EXTRACT_PROMPT,
+    PREV_COMPRESS_PROMPT,
+    PREV_SUMMARY_SYSTEM_PROMPT,
+    SYSTEM_PROMPT,
+)
 
 
 def _backlog_system_prompt() -> str:
@@ -87,7 +97,7 @@ class TestSystemPrompt:
         assert "самым главным шизом объявляется" in SYSTEM_PROMPT
 
     def test_rules_5_6_present(self):
-        """T-217/T-223/T-230: правила 5 (имена/алиасы из author) и 6 (репосты) живы в v4 (нумерация 1–6, D90)."""
+        """T-217/T-223/T-230: правила 5 (имена/алиасы из author) и 6 (репосты) живы в v4 (нумерация 1–7, D90 + раунд 5)."""
         assert "5. Имена участников:" in SYSTEM_PROMPT
         assert "6. Репосты:" in SYSTEM_PROMPT
         assert 'is_forward="true"' in SYSTEM_PROMPT
@@ -104,15 +114,41 @@ class TestSystemPrompt:
         assert "склоняй его как обычно" in SYSTEM_PROMPT
 
     def test_numbering_sequential(self):
-        """D90/T-230: последовательная нумерация 1–6 (зазор «1,2,4,5,6,7» исправлен)."""
-        assert "1. Имитируй ленивую печать:" in SYSTEM_PROMPT
+        """D90/T-230 + раунд 5 (T-736): последовательная нумерация 1–7
+        (п.7 — типографика, следующий свободный номер без перенумерации)."""
+        assert "1. Имитируй торопливое письмо:" in SYSTEM_PROMPT
         assert "2. Пунктуация:" in SYSTEM_PROMPT
         assert "3. Ограничения форматов" in SYSTEM_PROMPT
         assert "4. Структура:" in SYSTEM_PROMPT
         assert "5. Имена участников:" in SYSTEM_PROMPT
         assert "6. Репосты:" in SYSTEM_PROMPT
-        # В блоке ПРАВИЛ пункта 7 больше нет
-        assert "7. " not in SYSTEM_PROMPT.split("ЗАДАЧА:")[0]
+        assert "7. Типографика:" in SYSTEM_PROMPT
+        # В блоке ПРАВИЛ пункта 8 больше нет
+        assert "8. " not in SYSTEM_PROMPT.split("ЗАДАЧА:")[0]
+
+    def test_round5_typo_and_casing(self):
+        """Раунд 5 (T-736): п.7 TYPO (полная эталонная строка) + п.1
+        «торопливое письмо»; старые формулировки отсутствуют (5.3.4)."""
+        assert ("7. Типографика: только короткие дефисы (-) и обычные двойные "
+                'кавычки (""). КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и '
+                "кавычки-елочки («»)." in SYSTEM_PROMPT)
+        assert ("1. Имитируй торопливое письмо: иногда начинай предложения "
+                "с маленькой буквы. Текст должен быть читаемым, но выглядеть "
+                "небрежно." in SYSTEM_PROMPT)
+        assert "чередуй заглавные и строчные" not in SYSTEM_PROMPT
+        assert "Не пиши всё только с маленькой буквы" not in SYSTEM_PROMPT
+
+    def test_prev_snapshots_are_before_round5(self):
+        """PREV-слепки == HEAD 68fb03e (spec 5.3.2): старые фразы есть,
+        новый канон от них отличается."""
+        assert PREV_SUMMARY_SYSTEM_PROMPT != SYSTEM_PROMPT
+        assert ("Имитируй ленивую печать: чередуй заглавные и строчные буквы "
+                "в начале предложений случайным образом" in
+                PREV_SUMMARY_SYSTEM_PROMPT)
+        assert "Не пиши всё только с маленькой буквы" in PREV_SUMMARY_SYSTEM_PROMPT
+        assert "7. Типографика:" not in PREV_SUMMARY_SYSTEM_PROMPT
+        assert PREV_COMPRESS_PROMPT != COMPRESS_PROMPT
+        assert "пиши с маленькой буквы." in PREV_COMPRESS_PROMPT
 
 
 class TestCompressPrompt:
@@ -125,6 +161,15 @@ class TestCompressPrompt:
     def test_compress_prompt_style(self):
         assert "с маленькой буквы" in COMPRESS_PROMPT
         assert "сжиматель истории чата" in COMPRESS_PROMPT
+
+    def test_round5_typo_and_casing(self):
+        """Раунд 5 (T-736): TYPO-клауза и «торопливое письмо» в нижнем
+        регистре; старая строгая фраза «пиши с маленькой буквы» исчезла."""
+        assert ("не используй нумерацию, маркдаун, смайлы, кавычки-елочки («»)"
+                " и длинные тире (—)." in COMPRESS_PROMPT)
+        assert ("иногда начинай предложения с маленькой буквы, имитируя "
+                "торопливое письмо." in COMPRESS_PROMPT)
+        assert "пиши с маленькой буквы" not in COMPRESS_PROMPT
 
 
 class TestExtractPrompt:

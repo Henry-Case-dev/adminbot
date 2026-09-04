@@ -2,11 +2,16 @@
 
 Байт-в-байт с эталоном Section 72.1 (прецедент test_system_prompt_byte_for_byte);
 {max_symbols} — единственный плейсхолдер; .replace-подстановка без KeyError.
+Раунд 5 (T-737): п.1 → «торопливое письмо»; PREV-слепок HEAD 68fb03e
+(spec 5.3.2); запрещённые старые фразы отсутствуют (5.3.4).
 """
 import re
 from pathlib import Path
 
-from services.factcheck_prompts import FACTCHECK_SYSTEM_PROMPT
+from services.factcheck_prompts import (
+    FACTCHECK_SYSTEM_PROMPT,
+    PREV_FACTCHECK_SYSTEM_PROMPT,
+)
 
 
 def _arch_factcheck_prompt() -> str:
@@ -100,10 +105,26 @@ class TestFactcheckPrompt:
     def test_style_markers_from_tz(self):
         """R33-6: токсичный фактчекер, ленивая печать, запреты маркдауна/тире/ёлочек."""
         assert "токсичный, ироничный фактчекер" in FACTCHECK_SYSTEM_PROMPT
-        assert "Имитируй ленивую печать" in FACTCHECK_SYSTEM_PROMPT
+        assert "Имитируй торопливое письмо" in FACTCHECK_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in FACTCHECK_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in FACTCHECK_SYSTEM_PROMPT
         assert "сплошной текст с разделением на абзацы" in FACTCHECK_SYSTEM_PROMPT
+
+    def test_round5_casing_and_typography(self):
+        """Раунд 5 (T-737): п.1 «торопливое письмо»; старые формулировки
+        отсутствуют (spec 5.3.4)."""
+        assert ("1. Имитируй торопливое письмо: иногда начинай предложения "
+                "с маленькой буквы. Пиши небрежно." in FACTCHECK_SYSTEM_PROMPT)
+        assert "Имитируй ленивую печать" not in FACTCHECK_SYSTEM_PROMPT
+        assert "чередуй заглавные и строчные" not in FACTCHECK_SYSTEM_PROMPT
+
+    def test_prev_snapshot_is_before_round5(self):
+        """PREV-слепок == HEAD 68fb03e (spec 5.3.2)."""
+        assert PREV_FACTCHECK_SYSTEM_PROMPT != FACTCHECK_SYSTEM_PROMPT
+        assert ("1. Имитируй ленивую печать: чередуй заглавные и строчные "
+                "буквы в начале предложений. Пиши небрежно."
+                in PREV_FACTCHECK_SYSTEM_PROMPT)
+        assert "Имитируй торопливое письмо" not in PREV_FACTCHECK_SYSTEM_PROMPT
 
     def test_ends_with_rag_instruction(self):
         """55.7.3: канон-инструкция R46-4 — последний абзац промпта."""

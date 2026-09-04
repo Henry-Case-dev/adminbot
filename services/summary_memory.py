@@ -422,7 +422,8 @@ _DIRECT_REPLY_TTL_DEFAULT = 30
 
 async def migrate_direct_reply_ttl_default(cache) -> bool:
     """FR-C2 (T-697): миграция прод-значения PG по образцу
-    migrate_direct_chat_prompt_if_legacy (chat_prompts.py): легаси-сид
+    migrate_prompt_canons (services/prompt_migrations.py, раунд 5; ранее —
+    migrate_direct_chat_prompt_if_legacy в chat_prompts.py): легаси-сид
     (NULL/пусто) → 30; значение 0 или число (явный выбор/уже мигрировано) →
     не трогаем. Отсутствующий ключ неразличим с NULL (cache.get → None) —
     ставим 30 и в этом случае (сид ConfigCache сделал бы то же самое).
