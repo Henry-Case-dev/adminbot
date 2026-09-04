@@ -381,22 +381,23 @@ class TestGraphRagV2Migration:
 
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """#2: PRAGMA user_version == 5 (Epic 46 → 1, Epic 50/58.7 → 2,
-        Epic 60/63.3 → 3, видео-origins → 4, user_memory-origins → 5)."""
+        """#2: PRAGMA user_version == 6 (Epic 46 → 1, Epic 50/58.7 → 2,
+        Epic 60/63.3 → 3, видео-origins → 4, user_memory-origins → 5,
+        protected_facts chat-level → 6 — раунд 5)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 5
+        assert row[0] == 6
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_user_version_stays_3(self, tmp_path):
-        """#2: повторный initialize идемпотентен (user_version остаётся 5)."""
+        """#2: повторный initialize идемпотентен (user_version остаётся 6)."""
         d = DatabaseService(str(tmp_path / "mig2.db"))
         await d.initialize()
         await d.close()
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 5
+        assert row[0] == 6
         await d.close()
 
     @pytest.mark.asyncio
@@ -430,7 +431,7 @@ class TestGraphRagV2Migration:
 
         cursor = await d.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 5                      # каскад до v5 (раунд 4)
+        assert row[0] == 6                      # каскад до v6 (раунды 4/5)
 
         # расширенный CHECK активен: 'fact' проходит, 'banana' — нет
         import aiosqlite
@@ -568,7 +569,7 @@ class TestGraphFacts:
         rows = await d.search_graph_facts_fts(-100, '"факт"*', 10, 1_800_000_000)
         assert any(r["fact"] == "факт до рестарта" for r in rows)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 5    # каскад v2…v5 (раунд 4)
+        assert (await cursor.fetchone())[0] == 6    # каскад v2…v6 (раунды 4/5)
         await d.close()
 
     @pytest.mark.asyncio

@@ -152,7 +152,8 @@ class FakeDB:
         self.tone_preset = preset
         self.tone_sets.append((chat_id, user_id, preset))
 
-    async def get_protected_facts(self, chat_id, user_name):
+    async def get_protected_facts(self, chat_id, user_name,
+                                  include_chat_level=True):
         return []
 
     async def clear_direct_dialogue(self, chat_id, target_user):
@@ -882,6 +883,30 @@ class TestStyleAnchorsAndMood:
         # чужой юзер → секции нет
         blocks_other = await service._build_user_content(CHAT_ID, _message(), "петя")
         assert all("<protected_facts>" not in b for b in blocks_other)
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_chat_level_fact_visible_to_everyone(self, fake_time):
+        """Раунд 5 (T-732): чат-уровневый protected-факт (user_name NULL —
+        лор чата) виден ВСЕМ юзерам чата в <protected_facts>."""
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        await d.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (?, NULL, 'конфа пермская, из джаббера', 1.0)",
+            (CHAT_ID,))
+        await d.db.commit()
+        service = _make_service(db=d)
+        for name in ("вася", "петя"):
+            blocks = await service._build_user_content(
+                CHAT_ID, _message(), name)
+            protected = next(b for b in blocks
+                             if b.startswith("<protected_facts>"))
+            assert "конфа пермская, из джаббера" in protected
+        # user-факты других юзеров по-прежнему не видны (include False-путь)
+        blocks_other = await service._build_user_content(
+            CHAT_ID, _message(), "вася")
+        assert any(b.startswith("<protected_facts>") for b in blocks_other)
         await d.close()
 
 

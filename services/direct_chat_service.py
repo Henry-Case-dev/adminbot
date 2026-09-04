@@ -624,9 +624,12 @@ class DirectChatService:
 
     async def _build_protected_facts(self, chat_id: int, target_name: str) -> str:
         """65.10: защищённые факты подмешиваются в контекст (карточки-слоты —
-        не размазываются при сжатии). Fail-open → без секции."""
+        не размазываются при сжатии). Fail-open → без секции.
+        Раунд 5 (T-732): include_chat_level=True — чат-лор виден ВСЕМ юзерам
+        чата ВСЕГДА (65.10 + раунд 5)."""
         try:
-            facts = await self.db.get_protected_facts(chat_id, target_name)
+            facts = await self.db.get_protected_facts(
+                chat_id, target_name, include_chat_level=True)
         except Exception:
             logger.warning("direct: protected facts read failed | chat=%s",
                            chat_id, exc_info=True)
@@ -768,7 +771,12 @@ class DirectChatService:
         try:
             card = await self.db.get_persona_card(
                 chat_id, canon, _PERSONA_MAX_ITEMS, time.time())
-            protected = await self.db.get_protected_facts(chat_id, canon)
+            # Раунд 5 (T-732, дельта 4.6.2): include_chat_level=True — чат-лор
+            # включается в карточку (решение владельца: «уместно: лор чата
+            # в карточке»); идёт первыми строками списка, формат 66.9 VERBATIM
+            # и счётчик N (одна строка на чат) не меняются.
+            protected = await self.db.get_protected_facts(
+                chat_id, canon, include_chat_level=True)
         except Exception:
             logger.warning("direct: persona card read failed | chat=%s name=%s",
                            chat_id, name, exc_info=True)

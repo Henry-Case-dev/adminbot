@@ -210,6 +210,18 @@ async def on_startup():
     await db.initialize()
     logger.info("Database initialized")
 
+    # ── Раунд 5 (3.2.3/4.6.3, T-733): идемпотентный инжект лора чата
+    # 2661910336 (protected_facts chat-level + graph_facts user_memory + FTS).
+    # Миграция v6 уже применена в db.initialize() — инжект после неё безопасен.
+    # БЕЗУСЛОВЕН (вне summary-гейта): лор ставится при любом флаге. Fail-open:
+    # ошибка → WARNING, старт бота НЕ роняем (вторая гарантия после DevOps T-743).
+    from services.chat_lore import ensure_chat_lore
+    try:
+        result = await ensure_chat_lore(db)
+        logger.info("[chat_lore] startup ensure | %s", result)
+    except Exception:  # fail-open: старт не роняем
+        logger.warning("[chat_lore] startup ensure failed", exc_info=True)
+
     # Раунд 3 (3.1, T-687): ленивая TTL-чистка каталога временных публикаций
     # при старте (NFR-2: каталог не копится). Файлы сами протухнут по mtime,
     # но после долгого простоя остатки убираем сразу.

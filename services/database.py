@@ -15,6 +15,7 @@ _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
 _SCHEMA_VERSION_VIDEO_ORIGINS = 4  # Раунд 3 (3.6/B7): user_version 3→4
 _SCHEMA_VERSION_USER_MEMORY = 5  # Раунд 4 (T-713, 3.4.3): user_version 4→5
+_SCHEMA_VERSION_CHAT_PROTECTED_FACTS = 6  # Раунд 5 (T-731, 3.2.1): 5→6
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -218,6 +219,7 @@ class DatabaseService:
         await self._migrate_epic60_v3()        # Epic 60 (63.3): user_version 2→3
         await self._migrate_video_origins_v4() # Раунд 3 (3.6/B7): user_version 3→4
         await self._migrate_user_memory_v5()   # Раунд 4 (T-713): user_version 4→5
+        await self._migrate_chat_protected_facts_v6()  # Раунд 5 (T-731): 5→6
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -505,6 +507,47 @@ class DatabaseService:
             await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_USER_MEMORY}")
+        await self.db.commit()
+
+    async def _migrate_chat_protected_facts_v6(self) -> None:
+        """Раунд 5 (T-731, spec 3.2.1, FR-C1): protected_facts.user_name →
+        nullable (чат-уровневые факты — «лор чата», user_name NULL, видны всем
+        юзерам чата) через пересоздание с сохранением id (прецедент D201 /
+        _migrate_user_memory_v5): guard по sqlite_master ('user_name TEXT NOT
+        NULL' ещё в CREATE) → ALTER RENAME + CREATE (user_name TEXT без NOT
+        NULL; UNIQUE (chat_id, user_name, fact) сохраняется) + частичный
+        уникальный индекс idx_protected_facts_chat_level (чат-уровневые
+        уникальны по (chat_id, fact): в SQLite NULL != NULL, обычный UNIQUE
+        их не защищает от дублей) + INSERT…SELECT + DROP old; PRAGMA
+        user_version = 6. Повторный запуск — no-op (guard false → только
+        PRAGMA). Старые данные — только user_name NOT NULL → конфликтов при
+        копировании нет; id сохраняются (FTS/ссылки не затронуты).
+        CREATE в _migrate_epic60_v3 НЕ меняется (свежая БД проходит v3→v6;
+        rebuild пустой таблицы — дешёвый)."""
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='protected_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "user_name TEXT NOT NULL" in row["sql"]:
+            logger.info(
+                "[database] migration v6: protected_facts rebuild "
+                "(chat-level user_name NULL)")
+            await self.db.executescript(
+                "ALTER TABLE protected_facts RENAME TO protected_facts_old; "
+                "CREATE TABLE protected_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "user_name TEXT, fact TEXT NOT NULL, created_at REAL NOT NULL, "
+                "UNIQUE (chat_id, user_name, fact)); "
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_protected_facts_chat_level "
+                "ON protected_facts(chat_id, fact) WHERE user_name IS NULL; "
+                "INSERT INTO protected_facts (id, chat_id, user_name, fact, created_at) "
+                "SELECT id, chat_id, user_name, fact, created_at "
+                "FROM protected_facts_old; "
+                "DROP TABLE protected_facts_old;"
+            )
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_CHAT_PROTECTED_FACTS}")
         await self.db.commit()
 
     async def close(self) -> None:
@@ -1340,14 +1383,25 @@ class DatabaseService:
         )
         await self.db.commit()
 
-    async def get_protected_facts(self, chat_id: int, user_name: str) -> list[str]:
+    async def get_protected_facts(self, chat_id: int, user_name: str,
+                                  include_chat_level: bool = True) -> list[str]:
         """65.10: защищённые факты юзера (подмешиваются в контекст; /forget
-        их НЕ трогает). ASC по created_at (порядок записи)."""
-        cursor = await self.db.execute(
-            "SELECT fact FROM protected_facts "
-            "WHERE chat_id = ? AND user_name = ? ORDER BY created_at ASC, id ASC",
-            (chat_id, user_name),
-        )
+        их НЕ трогает). include_chat_level=True (default, раунд 5/T-732):
+        + чат-уровневые факты (user_name IS NULL — «лор чата»), они идут
+        ПЕРВЫМИ (не тонут при обрезке блока). False — старое поведение
+        (только user_name = ?). Порядок: чат-уровневые → ASC по created_at, id."""
+        if include_chat_level:
+            cursor = await self.db.execute(
+                "SELECT fact FROM protected_facts "
+                "WHERE chat_id = ? AND (user_name = ? OR user_name IS NULL) "
+                "ORDER BY (user_name IS NULL) DESC, created_at ASC, id ASC",
+                (chat_id, user_name))
+        else:
+            cursor = await self.db.execute(
+                "SELECT fact FROM protected_facts "
+                "WHERE chat_id = ? AND user_name = ? "
+                "ORDER BY created_at ASC, id ASC",
+                (chat_id, user_name))
         return [row["fact"] for row in await cursor.fetchall()]
 
     async def clear_direct_dialogue(self, chat_id: int, target_user: str) -> int:

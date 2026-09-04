@@ -502,12 +502,13 @@ def _create_v2_db(path):
 class TestEpic60V3Migration:
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """63.6 #1 + раунд 3/4: PRAGMA user_version == 5 (Epic 46 → 1,
+        """63.6 #1 + раунды 3/4/5: PRAGMA user_version == 6 (Epic 46 → 1,
         Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4, раунд 4:
-        user_memory-origins CHECK → 5)."""
+        user_memory-origins CHECK → 5, раунд 5: protected_facts chat-level
+        (user_name NULL) → 6)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 5
+        assert row[0] == 6
 
     @pytest.mark.asyncio
     async def test_v3_tables_created(self, db):
@@ -550,13 +551,13 @@ class TestEpic60V3Migration:
         assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 5     # раунд 3/4: 3→5 (B7 + v5)
+        assert (await cursor.fetchone())[0] == 6     # раунды 3-5: 3→6 (B7+v5+v6)
         await d.close()
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_stays_3(self, tmp_path):
-        """63.6 #1/#4 + раунд 3: повторный initialize — no-op (user_version
-        остаётся 5, данные не задвоены)."""
+        """63.6 #1/#4 + раунды 3-5: повторный initialize — no-op (user_version
+        остаётся 6, данные не задвоены)."""
         path = tmp_path / "reinit.db"
         _create_v2_db(path)
         d = DatabaseService(str(path))
@@ -564,7 +565,7 @@ class TestEpic60V3Migration:
         await d.close()
         await d.initialize()                       # «рестарт»
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 5
+        assert (await cursor.fetchone())[0] == 6
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
@@ -686,9 +687,9 @@ def _create_v3_db(path):
 
 class TestVideoOriginsMigrationV4:
     """3.6/B7 (T-693, AC-B9): старая схема → v4 с сохранением id/весов;
-    INSERT voice_transcript/video_transcript успешен; user_version=5 (каскад
-    v4→v5 раунда 4, T-713); повторный запуск no-op; факт виден в
-    get_rag_context."""
+    INSERT voice_transcript/video_transcript успешен; user_version=6 (каскад
+    v4→v5 раунда 4, T-713 → v6 раунда 5, T-731); повторный запуск no-op;
+    факт виден в get_rag_context."""
 
     @pytest.mark.asyncio
     async def test_v3_db_migrates_to_v4_preserving_rows(self, tmp_path):
@@ -698,7 +699,7 @@ class TestVideoOriginsMigrationV4:
         await d.initialize()
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 5
+        assert (await cursor.fetchone())[0] == 6
         # schema содержит новые origins
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
@@ -747,7 +748,170 @@ class TestVideoOriginsMigrationV4:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 5
+        assert (await cursor.fetchone())[0] == 6
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # данные не задвоены
+        await d.close()
+
+
+# ── Раунд 5 (T-731, spec 3.2.1/5.2.1, FR-C1): миграция v6 ────────────────
+# protected_facts.user_name → nullable (чат-уровневые факты, user_name NULL) +
+# частичный уникальный индекс idx_protected_facts_chat_level; повторный
+# запуск — no-op; PRAGMA user_version = 6.
+
+_V5_PROTECTED_FACTS_DDL = """CREATE TABLE protected_facts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL,
+    user_name TEXT NOT NULL,
+    fact TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE (chat_id, user_name, fact)
+);"""
+
+_V5_GRAPH_FACTS_DDL = """CREATE TABLE graph_facts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL,
+    fact TEXT NOT NULL,
+    origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
+    ('chat_history', 'search_fact', 'youtube_content', 'web_content',
+     'bot_direct_reply', 'voice_transcript', 'video_transcript',
+     'user_memory')),
+    expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT,
+    weight REAL NOT NULL DEFAULT 0.5,
+    status TEXT NOT NULL DEFAULT 'confirmed',
+    last_confirmed_at INTEGER, supersedes INTEGER
+);"""
+
+
+def _create_v5_db(path):
+    """v5-фикстура (раунд 5): пре-v6 схема — protected_facts с
+    user_name TEXT NOT NULL + пер-юзерные строки; user_version = 5."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(path))
+    conn.executescript(_V5_GRAPH_FACTS_DDL + _V5_PROTECTED_FACTS_DDL)
+    conn.execute(
+        "INSERT INTO protected_facts (id, chat_id, user_name, fact, created_at) "
+        "VALUES (11, -100, 'вася', 'день рождения 5 мая', 1.0), "
+        "(12, -100, 'петя', 'аллергия на кошек', 2.0)")
+    conn.execute("PRAGMA user_version = 5")
+    conn.commit()
+    conn.close()
+
+
+class TestChatProtectedFactsV6Migration:
+    @pytest.mark.asyncio
+    async def test_v5_db_migrates_preserving_rows_and_ids(self, tmp_path):
+        path = tmp_path / "v5.db"
+        _create_v5_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+        # данные сохранены, id не изменились
+        cursor = await d.db.execute(
+            "SELECT id, chat_id, user_name, fact FROM protected_facts "
+            "ORDER BY id")
+        rows = await cursor.fetchall()
+        assert [(r["id"], r["user_name"], r["fact"]) for r in rows] == [
+            (11, "вася", "день рождения 5 мая"),
+            (12, "петя", "аллергия на кошек"),
+        ]
+        # user_name — nullable (NOT NULL снят)
+        cursor = await d.db.execute("PRAGMA table_info(protected_facts)")
+        cols = {r["name"]: r for r in await cursor.fetchall()}
+        assert cols["user_name"]["notnull"] == 0
+        assert cols["fact"]["notnull"] == 1
+        # UNIQUE (chat_id, user_name, fact) сохранён
+        cursor = await d.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='protected_facts'")
+        assert "UNIQUE (chat_id, user_name, fact)" in (await cursor.fetchone())["sql"]
+        # частичный уникальный индекс существует
+        cursor = await d.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND name='idx_protected_facts_chat_level'")
+        assert (await cursor.fetchone()) is not None
+        # PRAGMA user_version = 6
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 6
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_chat_level_insert_allowed_and_unique(self, tmp_path):
+        """user_name NULL принимается; дубль (chat_id, fact) падает на
+        частичном индексе; INSERT OR IGNORE поглощает дубль."""
+        import aiosqlite
+
+        path = tmp_path / "v5b.db"
+        _create_v5_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+        await d.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, NULL, 'лор чата', 3.0)")
+        await d.db.commit()
+        with pytest.raises(aiosqlite.IntegrityError):
+            await d.db.execute(
+                "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+                "VALUES (-100, NULL, 'лор чата', 4.0)")
+        # UNIQUE(chat_id, user_name, fact): тот же лор под ПЕР-юзерным именем — ок
+        await d.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, 'вася', 'лор чата', 5.0)")
+        await d.db.commit()
+        # OR IGNORE: повторный chat-level инжект — строка не добавится
+        res = await d.db.execute(
+            "INSERT OR IGNORE INTO protected_facts "
+            "(chat_id, user_name, fact, created_at) VALUES (-100, NULL, 'лор чата', 6.0)")
+        assert res.rowcount == 0
+        await d.db.commit()
+        cursor = await d.db.execute(
+            "SELECT COUNT(*) AS c FROM protected_facts WHERE chat_id = -100 "
+            "AND user_name IS NULL AND fact = 'лор чата'")
+        assert (await cursor.fetchone())["c"] == 1
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_v6_reinitialize_is_noop(self, tmp_path):
+        path = tmp_path / "v5c.db"
+        _create_v5_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+        await d.close()
+        await d.initialize()                        # «рестарт» — no-op
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 6
+        cursor = await d.db.execute("SELECT COUNT(*) AS c FROM protected_facts")
+        assert (await cursor.fetchone())["c"] == 2  # строки не задвоены
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_get_protected_facts_include_chat_level_matrix(self, tmp_path):
+        """T-732 (spec 5.2.2): chat-level факты видны при ЛЮБОМ user_name,
+        первыми; False — только свои user-факты; порядок ASC по датам."""
+        path = tmp_path / "matrix.db"
+        d = DatabaseService(str(path))
+        await d.initialize()
+        for user, fact, ts in (
+            ("вася", "васин старый факт", 1.0),
+            ("петя", "петин факт", 2.0),
+            ("вася", "васин свежий факт", 3.0),
+        ):
+            await d.db.execute(
+                "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+                "VALUES (?, ?, ?, ?)", (-100, user, fact, ts))
+        await d.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, NULL, 'лор чата', 10.0)")
+        await d.db.commit()
+        # True: чат-лор при ЛЮБОМ юзере + только свои user-факты; лор первый
+        both = await d.get_protected_facts(-100, "вася")
+        assert both[0] == "лор чата"
+        assert set(both[1:]) == {"васин старый факт", "васин свежий факт"}
+        assert both[1:] == ["васин старый факт", "васин свежий факт"]  # ASC
+        other = await d.get_protected_facts(-100, "петя")
+        assert other == ["лор чата", "петин факт"]
+        # False: только свои
+        own_only = await d.get_protected_facts(-100, "вася",
+                                               include_chat_level=False)
+        assert own_only == ["васин старый факт", "васин свежий факт"]
+        assert await d.get_protected_facts(-100, "петя",
+                                           include_chat_level=False) == ["петин факт"]
         await d.close()
