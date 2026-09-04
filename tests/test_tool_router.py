@@ -221,7 +221,125 @@ class TestQueryChatMemory:
         long_text = "буква " * 2000
         rows = [_row(user_id=10, text=long_text, ts=int(time.time()))]
         memory.search_long_term = AsyncMock(return_value=rows)
+        memory.count_mentions = AsyncMock(
+            return_value={"count": 1, "first_seen": 1, "last_seen": 2})
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "query_chat_memory", {"query": "x"}, _ctx())
         assert len(out) <= 3510
+
+
+class TestQueryChatMemoryCount:
+    """Bugfix 04.09.2026 (Часть 2, FR-19/AC-3.5): в выводе query_chat_memory
+    — счётчик совпадений и диапазон дат (заголовок «Найдено N упоминаний»);
+    count=0 → честная фраза; сбой count → fail-open (сниппеты без заголовка);
+    last_day-лейбл; sqlite3.Row-строки нормализуются (T-678 прод-баг)."""
+
+    @pytest.mark.asyncio
+    async def test_header_with_count_and_period(self):
+        memory = MagicMock()
+        now = int(time.time())
+        rows = [_row(user_id=10, text="бензин вчера", ts=now - 100)]
+        memory.search_long_term = AsyncMock(return_value=rows)
+        memory.count_mentions = AsyncMock(
+            return_value={"count": 5, "first_seen": now - 5 * 86400,
+                          "last_seen": now - 100})
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "query_chat_memory",
+            {"query": "бензин", "time_range": "last_week"}, _ctx())
+        assert "Найдено 5 упоминаний «бензин» за неделю" in out
+        assert "бензин вчера" in out
+        memory.count_mentions.assert_awaited_once()
+        args, kwargs = memory.count_mentions.await_args
+        assert args[0] == CHAT_ID
+        assert args[1] == ["бензин"]
+        assert kwargs.get("since_ts", 0) > 0   # since_ts окна (не 0)
+
+    @pytest.mark.asyncio
+    async def test_header_all_time_with_dates(self):
+        memory = MagicMock()
+        now = int(time.time())
+        rows = [_row(user_id=10, text="раз", ts=now - 100)]
+        memory.search_long_term = AsyncMock(return_value=rows)
+        memory.count_mentions = AsyncMock(
+            return_value={"count": 2, "first_seen": now - 86400,
+                          "last_seen": now - 100})
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "query_chat_memory", {"query": "раз", "time_range": "all"}, _ctx())
+        assert "Найдено 2 упоминаний «раз» за всё время" in out
+        assert "(с " in out and " по " in out
+
+    @pytest.mark.asyncio
+    async def test_count_zero_but_rows_empty_honest_phrase(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        memory.count_mentions = AsyncMock(
+            return_value={"count": 0, "first_seen": None, "last_seen": None})
+        memory.vector_search = AsyncMock(return_value=[])
+        memory.get_rag_context = AsyncMock(return_value="")
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "query_chat_memory", {"query": "ничего", "time_range": "all"},
+            _ctx())
+        assert "в памяти ничего не найдено" in out
+        assert not out.startswith("Найдено")
+
+    @pytest.mark.asyncio
+    async def test_count_failure_fail_open_without_header(self, caplog):
+        import logging
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            _row(user_id=10, text="строка есть", ts=int(time.time()))])
+        memory.count_mentions = AsyncMock(side_effect=RuntimeError("БД упала"))
+        router = ToolRouter(_deps(memory=memory))
+        with caplog.at_level(logging.WARNING):
+            out = await router.dispatch(
+                "query_chat_memory", {"query": "x", "time_range": "all"},
+                _ctx())
+        assert "строка есть" in out
+        assert not out.startswith("Найдено")
+        assert any("count failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_last_day_label(self):
+        memory = MagicMock()
+        now = int(time.time())
+        rows = [_row(user_id=10, text="свежий бензин", ts=now - 100)]
+        memory.search_long_term = AsyncMock(return_value=rows)
+        memory.count_mentions = AsyncMock(
+            return_value={"count": 1, "first_seen": now - 100,
+                          "last_seen": now - 100})
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "query_chat_memory",
+            {"query": "бензин", "time_range": "last_day"}, _ctx())
+        assert "Найдено 1 упоминаний «бензин» за сутки" in out
+        memory.vector_search.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sqlite_row_rows_normalized(self):
+        """T-678 (прод-лог): search_long_term отдаёт aiosqlite.Row без .get —
+        нормализация в dict не даёт инструменту упасть."""
+        import sqlite3
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT 10 AS user_id, 'вася' AS author_name, "
+                "'про бензин' AS text, ? AS timestamp",
+                (int(time.time()) - 100,)).fetchone()
+        finally:
+            conn.close()
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[row])
+        memory.count_mentions = AsyncMock(
+            return_value={"count": 1, "first_seen": row["timestamp"],
+                          "last_seen": row["timestamp"]})
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "query_chat_memory", {"query": "бензин", "time_range": "all"},
+            _ctx())
+        assert "про бензин" in out
+        assert "Найдено 1 упоминаний" in out

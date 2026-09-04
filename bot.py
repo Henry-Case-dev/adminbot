@@ -537,6 +537,12 @@ async def main():
     await cache.init()
     set_config_cache(cache)
 
+    # ── Bugfix 04.09.2026 (Часть 2, FR-17): авто-миграция канона промпта
+    # direct_chat (прод-значение == легаси → новый канон; кастом юзера НЕ
+    # трогаем; PG down / ключ отсутствует → skip с логом [prompt_migration]).
+    from services.chat_prompts import migrate_direct_chat_prompt_if_legacy
+    await migrate_direct_chat_prompt_if_legacy(cache)
+
     await on_startup()
     logger.info("Bot started, listening for messages...")
     print("Бот запущен и слушает чат...")

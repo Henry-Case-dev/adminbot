@@ -877,6 +877,27 @@ class DatabaseService:
         )
         return await cursor.fetchall()
 
+    async def search_messages_fts_count(self, chat_id: int, match_query: str,
+                                        since_ts: int = 0) -> dict:
+        """(count, first_seen, last_seen) по FTS-совпадениям smart_messages.
+        since_ts>0 — окно по timestamp (в SQL, не пост-фильтр top-N).
+        Bugfix-раунд 04.09.2026 (Часть 2, FR-19): точный счётчик для
+        query_chat_memory (строки режутся top-40 по rank ДО фильтра окна —
+        точное «N раз в окне» из выборки не извлекается)."""
+        sql = ("SELECT COUNT(*) AS cnt, MIN(m.timestamp) AS first_ts, "
+               "MAX(m.timestamp) AS last_ts FROM smart_messages m "
+               "WHERE m.chat_id = ? AND m.id IN "
+               "(SELECT rowid FROM smart_messages_fts WHERE smart_messages_fts MATCH ?)")
+        params: list = [chat_id, match_query]
+        if since_ts:
+            sql += " AND m.timestamp >= ?"
+            params.append(since_ts)
+        cursor = await self.db.execute(sql, tuple(params))
+        row = await cursor.fetchone()
+        return {"count": int(row["cnt"] or 0) if row else 0,
+                "first_seen": row["first_ts"] if row else None,
+                "last_seen": row["last_ts"] if row else None}
+
     async def search_archive_fts(self, chat_id: int, match_query: str, limit: int) -> list[str]:
         """L3 фоллбек: FTS5 search over archive facts, ordered by rank."""
         cursor = await self.db.execute(

@@ -320,6 +320,49 @@ class TestSearchLongTerm:
         assert rows[0]["text"] == "секрет чата сто"
 
 
+class TestCountMentions:
+    """Bugfix 04.09.2026 (Часть 2, AC-3.6): count_mentions — точный счётчик
+    FTS-совпадений + диапазон дат (для query_chat_memory)."""
+
+    @pytest.mark.asyncio
+    async def test_count_with_dates(self, db):
+        await _save(db, -100, "бензин подорожал вчера", 1000)
+        await _save(db, -100, "опять бензин", 3000)
+        await _save(db, -100, "ни слова про бензин не скажу", 2000)
+        memory = MemoryManager(db, FakeLLM())
+        stats = await memory.count_mentions(-100, ["бензин"])
+        assert stats == {"count": 3, "first_seen": 1000, "last_seen": 3000}
+
+    @pytest.mark.asyncio
+    async def test_count_respects_since_window(self, db):
+        await _save(db, -100, "бензин старый", 1000)
+        await _save(db, -100, "бензин свежий", 3000)
+        memory = MemoryManager(db, FakeLLM())
+        stats = await memory.count_mentions(-100, ["бензин"], since_ts=2000)
+        assert stats["count"] == 1
+        assert stats["first_seen"] == 3000
+
+    @pytest.mark.asyncio
+    async def test_no_keywords_returns_none(self, db):
+        memory = MemoryManager(db, FakeLLM())
+        assert await memory.count_mentions(-100, []) is None
+
+    @pytest.mark.asyncio
+    async def test_no_matches_zero(self, db):
+        await _save(db, -100, "про другое", 1000)
+        memory = MemoryManager(db, FakeLLM())
+        stats = await memory.count_mentions(-100, ["небывальщина"])
+        assert stats["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_chat_isolation(self, db):
+        await _save(db, -100, "бензин тут", 1000)
+        await _save(db, -200, "бензин чужой", 1001)
+        memory = MemoryManager(db, FakeLLM())
+        stats = await memory.count_mentions(-100, ["бензин"])
+        assert stats["count"] == 1
+
+
 class TestVectorSearchFallback:
     @pytest.mark.asyncio
     async def test_vec_unavailable_uses_fts(self, db):

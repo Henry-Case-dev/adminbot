@@ -42,5 +42,20 @@ class TestToolSchemas:
         assert time_range["enum"] == ["last_day", "last_week", "last_month", "all"]
         assert time_range["default"] == "all"
 
+    # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
+    def test_query_chat_memory_description_covers_count_questions(self):
+        desc = TOOL_QUERY_CHAT_MEMORY["function"]["description"]
+        assert "сколько раз" in desc
+        assert "ПЕРВЫМ" in desc
+        assert "статистика" in desc
+        assert "диапазон дат" in desc
+
+    def test_execute_web_search_description_covers_fresh_data(self):
+        desc = TOOL_EXECUTE_WEB_SEARCH["function"]["description"]
+        assert "новости" in desc
+        assert "свежие" in desc
+        assert "проверка" in desc
+        assert "в памяти" in desc
+
     def test_all_tools_list_is_mutable_snapshot(self):
         assert len(TOOL_CALLING_TOOLS) == 2

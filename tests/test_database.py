@@ -322,6 +322,52 @@ class TestSmartModuleDatabase:
         assert len(rows) == 1
         assert rows[0]["text"] == "секрет"
 
+    # ── Bugfix 04.09.2026 (Часть 2, AC-3.6): FTS-count для query_chat_memory ──
+
+    @pytest.mark.asyncio
+    async def test_search_messages_fts_count_basic(self, db):
+        await db.save_smart_message(1, -100, "бензин подорожал", None, 1000,
+                                    "text", "вася")
+        await db.save_smart_message(2, -100, "опять про бензин", None, 2000,
+                                    "text", "петя")
+        await db.save_smart_message(3, -100, "не про топливо", None, 3000,
+                                    "text", "иван")
+        stats = await db.search_messages_fts_count(-100, '"бензин"*')
+        assert stats["count"] == 2
+        assert stats["first_seen"] == 1000
+        assert stats["last_seen"] == 2000
+
+    @pytest.mark.asyncio
+    async def test_search_messages_fts_count_since_window(self, db):
+        await db.save_smart_message(1, -100, "бензин старый", None, 1000,
+                                    "text", "вася")
+        await db.save_smart_message(2, -100, "бензин свежий", None, 3000,
+                                    "text", "петя")
+        stats = await db.search_messages_fts_count(-100, '"бензин"*',
+                                                   since_ts=2000)
+        assert stats["count"] == 1
+        assert stats["first_seen"] == 3000
+        assert stats["last_seen"] == 3000
+
+    @pytest.mark.asyncio
+    async def test_search_messages_fts_count_no_matches(self, db):
+        await db.save_smart_message(1, -100, "совсем другое", None, 1000,
+                                    "text", "вася")
+        stats = await db.search_messages_fts_count(-100, '"отсутствует"*')
+        assert stats["count"] == 0
+        assert stats["first_seen"] is None
+        assert stats["last_seen"] is None
+
+    @pytest.mark.asyncio
+    async def test_search_messages_fts_count_chat_isolation(self, db):
+        await db.save_smart_message(1, -100, "бензин тут", None, 1000,
+                                    "text", "вася")
+        await db.save_smart_message(2, -200, "бензин чужой", None, 2000,
+                                    "text", "петя")
+        stats = await db.search_messages_fts_count(-100, '"бензин"*')
+        assert stats["count"] == 1
+
+
     @pytest.mark.asyncio
     async def test_get_smart_chat_ids(self, db):
         await db.save_smart_message(1, -100, "а", None, 1, "text", "х")

@@ -34,6 +34,15 @@ _TIME_RANGE_SECONDS = {
     "all": 0,
 }
 
+# Bugfix 04.09.2026 (Часть 2, 3.3(г)): человечные лейблы окна для заголовка
+# счётчика query_chat_memory.
+_TIME_RANGE_LABELS = {
+    "last_day": "за сутки",
+    "last_week": "за неделю",
+    "last_month": "за месяц",
+    "all": "за всё время",
+}
+
 _TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
 
 
@@ -140,6 +149,9 @@ class ToolRouter:
         # 1. FTS по L1-сообщениям (search_long_term) с пост-фильтром окна.
         rows = await self.deps.memory.search_long_term(
             ctx.chat_id, keywords(query), limit=_MEMORY_FTS_LIMIT)
+        # T-678 (прод-лог): реальные строки — aiosqlite.Row, у которого НЕТ
+        # .get (AttributeError в проде) → нормализация в dict ДО обработки.
+        rows = [dict(row) for row in rows]
         for row in rows:
             ts = _format_timestamp(row.get("timestamp"))
             if since and int(row.get("timestamp") or 0) < since:
@@ -149,6 +161,18 @@ class ToolRouter:
             text = str(row.get("text") or "").strip()
             if text:
                 lines.append(f"[{name}{stamp}]: {text}")
+
+        # 1b. Счётчик + диапазон дат (best-effort; ошибка не роняет результат).
+        stats = None
+        try:
+            stats = await self.deps.memory.count_mentions(
+                ctx.chat_id, keywords(query), since_ts=since)
+        except Exception:
+            logger.warning("[tools] query_chat_memory count failed | query=%r",
+                           query, exc_info=True)
+        if isinstance(stats, dict) and stats.get("count"):
+            logger.info("[tools] query_chat_memory | query=%r | count=%d | since_ts=%d",
+                        query, stats["count"], since)
 
         # 2. Векторный поиск по фактам архива/графа (только широкие окна).
         if not lines and time_range in ("last_month", "all"):
@@ -162,9 +186,20 @@ class ToolRouter:
             if rag and str(rag).strip():
                 lines.append(str(rag).strip())
 
-        if not lines:
+        if not lines and not (isinstance(stats, dict) and stats.get("count")):
             return f"По запросу «{query}» в памяти ничего не найдено."
-        return _truncate("\n".join(lines), _MEMORY_MAX_SYMBOLS)
+        parts: list[str] = []
+        if isinstance(stats, dict) and stats.get("count"):
+            period = _TIME_RANGE_LABELS.get(time_range, "за всё время")
+            stamp = ""
+            if stats.get("first_seen") or stats.get("last_seen"):
+                first = _format_timestamp(stats.get("first_seen"))
+                last = _format_timestamp(stats.get("last_seen"))
+                if first and last and first != last:
+                    stamp = f" (с {first} по {last})"
+            parts.append(f"Найдено {stats['count']} упоминаний «{query}» {period}{stamp}")
+        parts.extend(lines)
+        return _truncate("\n".join(parts), _MEMORY_MAX_SYMBOLS)
 
     # ── helpers ───────────────────────────────────────────────────
 

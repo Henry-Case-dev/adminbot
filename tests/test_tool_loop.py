@@ -234,3 +234,38 @@ class TestChatWithTools:
         assert out == "ответ"
         tool = llm.all_messages[1][-1]
         assert tool["content"].startswith("ОШИБКА execute_web_search")
+
+    @pytest.mark.asyncio
+    async def test_query_chat_memory_count_reaches_model(self):
+        """Bugfix 04.09.2026 (Часть 2, AC-3.7): реальный ToolRouter c count →
+        роль tool несёт «Найдено N упоминаний …» → финальный текст с числом."""
+        import time
+        from unittest.mock import AsyncMock, MagicMock
+
+        from services.tool_router import ToolContext, ToolDeps, ToolRouter
+
+        now = int(time.time())
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            {"user_id": 10, "author_name": "вася", "text": "бензин опять",
+             "timestamp": now - 100}])
+        memory.vector_search = AsyncMock(return_value=[])
+        memory.get_rag_context = AsyncMock(return_value="")
+        memory.count_mentions = AsyncMock(return_value={
+            "count": 7, "first_seen": now - 9000, "last_seen": now - 100})
+        router = ToolRouter(ToolDeps(search=MagicMock(), memory=memory,
+                                     aliases=None))
+        llm = FakeLLM([
+            LLMChatResult(content=None, tool_calls=[
+                LLMToolCall(id="mc1", name="query_chat_memory",
+                            arguments='{"query": "бензин"}')],
+                finish_reason="tool_calls"),
+            _text("упоминали 7 раз"),
+        ])
+        ctx = ToolContext(-1001234567890, "сколько раз упоминали бензин?")
+        out = await chat_with_tools(llm, MESSAGES, tools=[], router=router,
+                                    ctx=ctx)
+        assert out == "упоминали 7 раз"
+        tool = llm.all_messages[1][-1]
+        assert tool["role"] == "tool"
+        assert "Найдено 7 упоминаний «бензин» за всё время" in tool["content"]

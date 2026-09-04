@@ -70,7 +70,8 @@ FACT_EXTRACT_PROMPT = """СИСТЕМНАЯ РОЛЬ:
 
 _FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content",
                  "bot_direct_reply",
-                 "voice_transcript")   # Epic 67: транскрипты voice/video_note
+                 "voice_transcript",   # Epic 67: транскрипты voice/video_note
+                 "video_transcript")   # Bugfix 04.09.2026 (Часть 1): TG-видео
 _FACT_EXTRACT_MAX_CHARS = 8000      # tail текста, отправляемый экстрактору
 _FACT_MAX_NAME_CHARS = 100
 _FACT_MAX_PREDICATE_CHARS = 200
@@ -1033,6 +1034,21 @@ class MemoryManager:
             len(rows), chat_id, len(query),
         )
         return rows
+
+    async def count_mentions(self, chat_id: int, keywords_: list[str],
+                             since_ts: int = 0) -> dict | None:
+        """Счётчик совпадений по тем же токенам, что search_long_term.
+        None — пустой FTS-запрос (нечего считать). Ошибки БД — наружу
+        (ToolRouter ловит → fail-open текст). Bugfix 04.09.2026 (Часть 2,
+        FR-19): точный count + диапазон дат для query_chat_memory."""
+        query = build_fts_query(keywords_)
+        if not query:
+            return None
+        try:
+            return await self.db.search_messages_fts_count(chat_id, query, since_ts)
+        except Exception:
+            logger.warning("SmartModule L2: count failed | chat_id=%s", chat_id, exc_info=True)
+            raise
 
     # ── L3 vector search (vec0 KNN → FTS5 fallback, R3/D60) ────
 
