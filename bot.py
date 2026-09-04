@@ -7,11 +7,11 @@ import signal
 import sentry_sdk
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.fsm.storage.memory import MemoryStorage
-from logtail import LogtailHandler
 import uvicorn
 
 from config.settings import settings
 from services import hot_config as hot
+from services.betterstack_handler import BetterStackHandler
 from services.config_cache import ConfigCache
 from services.control_service import ControlService
 from services.hot_config import set_config_cache
@@ -107,12 +107,25 @@ formatter = logging.Formatter(log_format)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-logtail_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
+# ── Раунд 4 (T-706, spec 3.1.6, FR-B5): собственный BetterStackHandler вместо
+# logtail-python 0.4.0 (тихие потери: Queue-Full → dropcount без лога, ошибки
+# только print в flusher). Чтение токена: BETTERSTACK_SOURCE_TOKEN предпочтителен,
+# LOGTAIL_SOURCE_TOKEN остаётся обратно-совместимым алиасом (прод-.env не
+# требует мгновенной правки). Формат фрейма — logtail-совместимый (3.1.2).
+betterstack_token = (os.getenv("BETTERSTACK_SOURCE_TOKEN")
+                     or os.getenv("LOGTAIL_SOURCE_TOKEN"))
 handlers = [console_handler]
-if logtail_token:
-    handlers.append(LogtailHandler(source_token=logtail_token))
+if betterstack_token:
+    handlers.append(BetterStackHandler(source_token=betterstack_token,
+                                       level=logging.INFO))
 
 logging.basicConfig(level=logging.INFO, handlers=handlers)
+
+# ── Раунд 4 (T-707, spec FR-B4): aiogram.event логирует КАЖДЫЙ апдейт на INFO
+# («Update id=… is/not handled», aiogram 3.31 dispatcher.py:174-185) → спам в
+# панели BetterStack. WARNING/ERROR-событий в этом логгере нет — ничего
+# полезного не теряется. Уровень root INFO сохраняется.
+logging.getLogger("aiogram.event").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # ── Epic 85 (84.11.1, T-628): in-memory ring-buffer логов для /api/status/logs.
@@ -124,24 +137,16 @@ _log_ring_singleton.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(_log_ring_singleton)
 log_ring_handler = _log_ring_singleton
 
-# ── Раунд 3 (3.8, T-700): стартовая диагностика logtail. Маркер пишется и в
-# консоль, и в log_ring → виден в journald и /api/status/logs («слушает ли
-# хендлер»). logtail-python 0.4.0: буфер Queue 1000, raise_exceptions=False,
-# drop_extra_events=True (тихие потери) — сверять journald vs BetterStack
-# (@DevOps T-701). Инициализация ЕДИНАЯ (хендлер добавлен выше, дублей нет).
-# fix-round 04.09 (M3): блок ПОСЛЕ подключения log_ring (строки выше) —
-# раньше маркер уходил ДО attach и не попадал в /api/status/logs.
-logtail_version = "?"
-try:
-    from importlib import metadata as _md
-    logtail_version = _md.version("logtail-python")
-except Exception:
-    pass
-if logtail_token:
-    logger.info("[logtail] attached | token_len=%d | logtail=%s",
-                len(logtail_token), logtail_version)
+# ── Раунд 4 (3.1.6/3.1.8, T-706): стартовая диагностика BetterStack. Маркер
+# пишется ПОСЛЕ подключения log_ring (выше) — виден и в journald, и в
+# /api/status/logs («слушает ли хендлер», аналог T-700). Первым событием маркер
+# уходит и в панель BetterStack (live-проверка). Токен НЕ логируется — только
+# token_len (R17/NFR-3). Счётчики/журнал ошибок — в самом хендлере.
+if betterstack_token:
+    logger.info("[betterstack] attached | token_len=%d | handler=own-v1",
+                len(betterstack_token))
 else:
-    logger.warning("[logtail] skipped (no LOGTAIL_SOURCE_TOKEN)")
+    logger.warning("[betterstack] skipped (no BETTERSTACK_SOURCE_TOKEN)")
 
 if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
     bot = Bot(
@@ -679,14 +684,12 @@ async def main():
         server.should_exit = True
         await on_shutdown()
         await cache.close()
-        # ── Раунд 3 (3.8, T-700): мягкое закрытие логов — САМЫЙ конец
+        # ── Раунд 4 (3.1.6/3.1.4, FR-B3): мягкое закрытие логов — САМЫЙ конец
         # процесса (после on_shutdown/cache.close, в финальном finally):
-        # logging.shutdown() делает close() всех хендлеров → logtail флашит
-        # очередь. НЕ вызываем в on_shutdown/до выхода асинхронных задач
-        # (hotfix uvicorn dictConfig — shutdown на СТАРТЕ дедлочил флашер).
-        # SIGKILL/TimeoutStopSec обойти нельзя (потеря буфера до 1000
-        # событий — документированное поведение logtail 0.4.0).
-        logger.info("[logtail] shutdown flush")
+        # logging.shutdown() делает close() всех хендлеров → BetterStackHandler
+        # досылает остаток буфера (≤2000 событий; SIGKILL/TimeoutStopSec —
+        # документированная потеря буфера, как было с logtail).
+        logger.info("[betterstack] shutdown flush")
         try:
             logging.shutdown()
         except Exception:
