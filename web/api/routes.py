@@ -28,7 +28,9 @@ from services.debug_config import (
 )
 from services.param_catalog import (
     CATEGORIES,
+    CATEGORY_CONTENT,
     CATEGORY_KEYS,
+    CATEGORY_PROMPTS,
     GROUPS,
     get_by_pg_key,
     group_order,
@@ -260,6 +262,16 @@ async def post_config(
         except ValueError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
+        # Раунд 4 (T-719, FR-E2, spec 3.5.2): единая точка валидации пустых
+        # prompts/content (защищает ЛЮБЫХ клиентов, не только фронт). Пустая
+        # модель/ключ (models/keys/limits/reactions) — легитимна (ступень
+        # отключена / очистка ключа), не трогаем.
+        if spec.type == "str" and spec.category in (CATEGORY_PROMPTS,
+                                                    CATEGORY_CONTENT):
+            if not isinstance(value, str) or not value.strip():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: промпт не может быть пустым")
         await cache.set(item.key, value, spec.category)
         updated.append(item.key)
         logger.info("[api] config updated | key=%s | by=%s", item.key, user.id)

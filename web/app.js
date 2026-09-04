@@ -545,10 +545,32 @@
               return;
             }
           }
-        } else if (item.type === 'int') value = parseInt(value, 10);
-        else if (item.type === 'float') value = parseFloat(value);
-        if (value === null || value === '' || isNaN(value)) {
+        } else if (item.type === 'int') {
+          // Раунд 4 (T-718): числовые проверки — ТОЛЬКО для int/float
+          // (раньше isNaN('текст') === true ломал str-поля).
+          value = parseInt(value, 10);
+          if (!isFinite(value)) {
+            this.toast('Некорректное значение для ' + item.key, 'err');
+            return;
+          }
+        } else if (item.type === 'float') {
+          value = parseFloat(value);
+          if (!isFinite(value)) {
+            this.toast('Некорректное значение для ' + item.key, 'err');
+            return;
+          }
+        } else if (item.type === 'bool') {
+          value = !!value;               // чекбокс — как раньше (защитная ветка)
+        } else if (value === null || value === undefined) {
           this.toast('Некорректное значение для ' + item.key, 'err');
+          return;
+        }
+        // Раунд 4 (T-719): str-поле категории prompts/content не может быть
+        // пустым (сервер дублирует 422 — единая точка валидации, FR-E2).
+        if (item.type === 'str' && typeof value === 'string'
+            && (item.category === 'prompts' || item.category === 'content')
+            && !value.trim()) {
+          this.toast('Промпт не может быть пустым: ' + item.title, 'err');
           return;
         }
         this.saving.add(item.key);

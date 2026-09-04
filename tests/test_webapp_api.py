@@ -411,6 +411,73 @@ class TestConfigPost:
         assert resp.status_code == 503
 
 
+class TestPromptsValidationRound4:
+    """Раунд 4 (T-719/T-720, FR-E2/FR-E3, spec 3.5.2): серверный 422 пустых
+    prompts/content; промпты с кавычками/переносами/HTML — байт-в-байт;
+    пустая '' у models — валидна (ступень отключена)."""
+
+    PROMPT_KEY = "prompts.factcheck_system_prompt"
+
+    def test_prompt_with_quotes_newlines_html_saved_byte_for_byte(self, client):
+        text = ('Проверяй факты. Отвечай с "кавычками" и «ёлочками».\n'
+                "Вторая строка: <b>жирный</b> & спецсимволы — как есть.\n"
+                "Третья: 'одинарные' и `обратные` кавычки.")
+        resp = client.post("/api/config",
+                           json={"items": [{"key": self.PROMPT_KEY,
+                                            "value": text}]},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200, resp.text
+        assert resp.json() == {"updated": [self.PROMPT_KEY]}
+        assert client.cache.get(self.PROMPT_KEY) == text
+
+    def test_empty_prompt_422(self, client):
+        resp = client.post("/api/config",
+                           json={"items": [{"key": self.PROMPT_KEY,
+                                            "value": ""}]},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 422
+        assert "не может быть пустым" in resp.json()["detail"]
+        assert client.cache.get(self.PROMPT_KEY) is None
+
+    def test_whitespace_prompt_422(self, client):
+        resp = client.post("/api/config",
+                           json={"items": [{"key": self.PROMPT_KEY,
+                                            "value": "   \n\t  "}]},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 422
+        assert "не может быть пустым" in resp.json()["detail"]
+
+    def test_null_prompt_value_422(self, client):
+        """null → _coerce ValueError (существующий путь) → 422."""
+        resp = client.post("/api/config",
+                           json={"items": [{"key": self.PROMPT_KEY,
+                                            "value": None}]},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 422
+
+    def test_empty_model_string_is_valid(self, client):
+        """AC-E2: пустая '' у models.video_primary_model → 200 (ступень
+        отключена — легитимный сценарий youtube_summarizer_service)."""
+        key = "models.video_primary_model"
+        resp = client.post("/api/config",
+                           json={"items": [{"key": key, "value": ""}]},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200, resp.text
+        assert client.cache.get(key) == ""
+
+    def test_prompts_tab_render_str_and_category(self, client):
+        """Фронт знает category=prompts и type=str (для тоста E1)."""
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        items = {i["key"]: i for i in resp.json()["items"]}
+        item = items.get(self.PROMPT_KEY)
+        # сид-ключа в фикстуре нет — items содержит только строки PG-фикстуры;
+        # при отсутствии — проверяем каталог напрямую (фронт-контракт).
+        from services.param_catalog import get_by_pg_key
+        spec = get_by_pg_key(self.PROMPT_KEY)
+        assert spec is not None and spec.type == "str"
+        assert spec.category == "prompts"
+
+
 class TestAdmins:
     def test_get_admins_access_only(self, client):
         assert client.get("/api/admins", headers=_hdr(USER_ID)).status_code == 403
