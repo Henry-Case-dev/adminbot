@@ -56,6 +56,13 @@ def _make_msg(text=None, caption=None, message_id=1, user_id=1,
     msg.from_user = MagicMock()
     msg.from_user.id = user_id
     msg.reply_to_message = reply_to_message
+    # Bugfix 04.09.2026 (Часть 1): медиа-детекция 0e — MagicMock без явного
+    # None авто-создаёт .video/.document (ложная квалификация).
+    msg.video = None
+    msg.document = None
+    msg.voice = None
+    msg.video_note = None
+    msg.audio = None
     return msg
 
 

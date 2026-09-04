@@ -723,6 +723,13 @@ class Settings:
     ENABLE_VOICE_TRANSCRIPTION: bool = _env_bool("ENABLE_VOICE_TRANSCRIPTION", True)
     # Лимит длительности, сек; больше → TOO_LONG-фраза без скачивания файла.
     VOICE_MAX_DURATION_SECONDS: int = _env_int("VOICE_MAX_DURATION_SECONDS", 600)
+
+    # ── Расшифровка нативных TG-видео (04.09.2026, Часть 1) ──
+    # Мягкие дефолты; перед деплоем Builder сверяет фактические лимиты
+    # Groq whisper upload / OpenRouter input_audio (см. Открытые вопросы).
+    VIDEO_TRANSCRIBE_MAX_SIZE_MB: int = _env_int("VIDEO_TRANSCRIBE_MAX_SIZE_MB", 50)
+    VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS: int = _env_int(
+        "VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS", 600)
     # Каскад Groq → OpenRouter. Секреты ТОЛЬКО в прод .env (R17): значение не
     # логируется; пустой ключ = стратегия пропускается контроллером.
     GROQ_API_KEY: str = _env_str("GROQ_API_KEY", "")

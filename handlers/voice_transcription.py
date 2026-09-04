@@ -20,10 +20,8 @@ import logging
 import os
 import random
 import re
-import shutil
 import tempfile
-from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -32,6 +30,20 @@ from aiogram.enums import ChatAction
 from config.settings import settings
 from services import hot_config as hot
 from handlers.summary import _extract_forward_source
+# Bugfix 04.09.2026 (Часть 1): общие хелперы автора/факта — из media_common
+# (реэкспорт теми же именами: внешние точки/тесты не меняются);
+# скачивание — общий модуль services/media_download.
+from handlers.media_common import (
+    MEDIA_UNKNOWN_AUTHOR,
+    _build_nickname,
+    _resolve_transcript_author,
+    set_media_aliases,
+    wrap_media_fact,
+)
+from services.media_download import (
+    fetch_media_to_tmp as _fetch_media_to_tmp,
+    local_files_subdir as _local_files_subdir,
+)
 from services.summary_memory import fire_and_forget
 from SmartModule.phrases import (
     VT_ALL_FAILED_PHRASES,
@@ -45,6 +57,9 @@ from SmartModule.service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Совместимость: константа «Неизвестный» доступна под прежним именем.
+_VT_UNKNOWN_AUTHOR = MEDIA_UNKNOWN_AUTHOR
 
 voice_transcription_router = Router(name="voice_transcription")
 
@@ -64,58 +79,7 @@ def setup_voice_transcription(service: VoiceTranscriber, db=None, aliases=None,
     _aliases = aliases
     _memory = memory
     _bot_id = bot_id
-
-
-def _build_nickname(user) -> str | None:
-    """Прецедент handlers/summary.py:137 — first_name+last_name."""
-    parts = []
-    for attr in ("first_name", "last_name"):
-        value = getattr(user, attr, None)
-        if isinstance(value, str) and value.strip():
-            parts.append(value.strip())
-    return " ".join(parts) if parts else None
-
-
-_VT_UNKNOWN_AUTHOR = "Неизвестный"   # Epic 72 (74.B/D272): ЛОКАЛЬНАЯ константа
-
-
-def _resolve_transcript_author(message: types.Message) -> str:
-    """Epic 72 (74.B.1, D272): автор для лейбла расшифровки.
-    Форвард → каскад _extract_forward_source (handlers/summary.py,
-    прецедент импорта handler→handler: handlers/factcheck.py:21):
-    MessageOriginUser → AliasResolver (Алиас→Никнейм→Юзернейм без @),
-    HiddenUser → sender_user_name, Channel/Chat → title (+@username).
-    Извлечение не удалось (exotic-тип/битый origin) → «Неизвестный»
-    (локальная константа транскрипции; summary/observer НЕ затронуты).
-    Не-форвард → прежний каскад от from_user (D268-поведение).
-    DI: _extract_forward_source читает глобальную handlers.summary._aliases —
-    заполняется setup_summary(...) в bot.py on_startup ДО регистрации роутеров."""
-    origin = getattr(message, "forward_origin", None)
-    if origin is not None:
-        return (_extract_forward_source(origin) or _VT_UNKNOWN_AUTHOR)
-    user = message.from_user
-    return _aliases.resolve(
-        user.id,
-        nickname=_build_nickname(user),
-        username=getattr(user, "username", None),
-    )
-
-
-def wrap_media_fact(media_type: str, sender: str, text: str,
-                    forward_source: str | None = None) -> str:
-    """Обёртка транскрипта для GraphRAG-экстрактора (D267):
-    '<MediaMessage type="voice" sender="..." timestamp="<ISO8601 UTC>">...</MediaMessage>'.
-    Epic 72 (74.B.3, D273): у форвардов добавляются атрибуты
-    forwarded="true" forward_from="{автор источника}" (html.escape quote=True —
-    ОВ-3: XML-совместимо и консистентно с D268; ОВ-3 решён в пользу html.escape).
-    """
-    timestamp = datetime.now(timezone.utc).isoformat()
-    extra = ""
-    if forward_source:
-        extra = (f' forwarded="true"'
-                 f' forward_from="{html.escape(forward_source, quote=True)}"')
-    return (f'<MediaMessage type="{media_type}" sender="{sender}" '
-            f'timestamp="{timestamp}"{extra}>{text}</MediaMessage>')
+    set_media_aliases(aliases)
 
 
 # ── Epic 72 (74.C, D274): детектор «reply на расшифровку» ────────────
@@ -159,84 +123,6 @@ async def _safe_typing(bot, chat_id: int) -> None:
         await bot.send_chat_action(chat_id, ChatAction.TYPING)
     except Exception:
         pass
-
-
-def _local_files_subdir(bot) -> str:
-    """Epic 78 hotfix: имя каталога data-dir локального Bot API.
-
-    Prod-факт (2026-08-26): telegram-bot-api создаёт каталог с именем,
-    равным ПОЛНОМУ токену '<bot_id>:<secret>' — то есть ровно
-    settings.API_TOKEN. Продолжаем поддерживать и «голый» secret без
-    префикса на всякий случай (старые инсталляции/тестовые стенды).
-    Секрет нигде не логируется (R17).
-    """
-    token = str(settings.API_TOKEN)
-    prefix = f"{bot.id}:"
-    if token.startswith(prefix):
-        return token
-    return prefix + token
-
-
-async def _fetch_media_to_tmp(bot, media, tmp_path) -> None:
-    """Epic 78 (D292/Section 79): получить медиа во tmp-файл.
-    Гейт локального режима = hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED) (D262 import-time
-    сессия с is_local=True). Локальный режим И относительный file_path →
-    копирование с диска из TELEGRAM_API_FILES_DIR/<bot_id>:<token>/
-    (root cause: локальный Bot API возвращает file_path ОТНОСИТЕЛЬНЫМ,
-    aiogram читает исходник относительно cwd → FileNotFoundError).
-    Файла нет / get_file упал / path абсолютный / облако → прежний
-    bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
-    Секреты (R17): строка '<bot_id>:<token>' нигде не логируется — в логах
-    только file_path-хвост или src.name."""
-    if not hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):            # облачный режим: как раньше
-        await bot.download(media.file_id, destination=tmp_path)
-        return
-    # Epic 78 (D292): локальный Bot API возвращает относительный file_path,
-    # файл лежит на диске в TELEGRAM_API_FILES_DIR/<bot_id>:<token>/.
-    # Epic 79 hotfix (aiogram 3.31+ race): get_file может вернуть file_path
-    # ДО того, как локальный API закеширует файл на диск — src.exists() False,
-    # а bot.download() в is_local=True падает FileNotFoundError.
-    # Исправление: retry с задержкой (локальный API успевает за ~1-2с), после
-    # чего — bot.download (fallback для облачного режима).
-    # R17: строка '<bot_id>:<token>' нигде не логируется.
-    max_attempts = 3
-    for attempt in range(1, max_attempts + 1):
-        file_path = None
-        try:
-            tg_file = await bot.get_file(media.file_id)
-            file_path = getattr(tg_file, "file_path", None)
-        except Exception as exc:
-            logger.warning("[transcribe] get_file failed (attempt %d/%d) | "
-                           "file_id=%s | %s", attempt, max_attempts,
-                           media.file_id, type(exc).__name__)
-        if (isinstance(file_path, str) and file_path
-                and not PurePosixPath(file_path).is_absolute()):
-            src = (Path(settings.TELEGRAM_API_FILES_DIR)
-                   / _local_files_subdir(bot) / file_path)
-            try:
-                if src.resolve().is_relative_to(
-                        Path(settings.TELEGRAM_API_FILES_DIR).resolve()):
-                    if src.exists():
-                        await asyncio.to_thread(
-                            shutil.copyfile, src, tmp_path)
-                        return
-                    logger.warning(
-                        "[transcribe] local api file missing (attempt %d/%d)"
-                        " | path=%s", attempt, max_attempts, file_path)
-            except OSError as exc:
-                # R17: только имя файла и тип ошибки — сообщение OSError
-                # содержит ПОЛНЫЙ путь (<bot_id>:<token>), exc_info нельзя.
-                logger.warning("[transcribe] host copy failed | file=%s | %s",
-                               src.name, type(exc).__name__)
-        if attempt < max_attempts:
-            await asyncio.sleep(1.0)
-    # Все retry исчерпаны. Последняя попытка: bot.download.
-    # В локальном режиме (is_local=True) падает FileNotFoundError, если файл
-    # всё ещё не на диске — но попытка лучше, чем молчание + 0 ответ.
-    logger.warning("[transcribe] local file unavailable after %d attempts | "
-                   "file_id=%s | falling back to bot.download",
-                   max_attempts, media.file_id)
-    await bot.download(media.file_id, destination=tmp_path)
 
 
 async def _inject_memory(message: types.Message, name: str, text: str,

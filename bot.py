@@ -67,7 +67,11 @@ from handlers.search import search_router, setup_search
 from services.search_aggregator import SearchAggregator
 from services.factcheck_service import FactCheckService
 from services.search_service import SearchService
-from handlers.youtube import youtube_router, setup_youtube
+from handlers.youtube import (
+    setup_youtube,
+    setup_youtube_video_media,
+    youtube_router,
+)
 from handlers.web import web_router, setup_web
 from services.web_content_extractor import WebContentExtractor
 from services.youtube_transcript_engine import YouTubeTranscriptEngine
@@ -231,6 +235,16 @@ async def on_startup():
         youtube_engine = YouTubeTranscriptEngine()
         _web_extractor = WebContentExtractor()
         _web_extractor.log_config()                         # WARNING пустых ключей (D104)
+        # Bugfix 04.09.2026 (Часть 1): ЕДИНЫЙ инстанс VoiceTranscriber —
+        # общий asyncio.Semaphore (D295) для голосовых/кружочков (0i) и
+        # нативных TG-видео (медиа-ветка 0e). Инстанс создаётся ВНУТРИ
+        # summary-блока независимо от enable_voice_transcription (ключи пусты →
+        # стратегии skip); поведение voice-роутера не меняется. Порядок
+        # регистрации роутеров ниже НЕ трогаем.
+        voice_service = VoiceTranscriber(
+            max_concurrency=hot.get("models.groq_max_concurrency",
+                                    settings.GROQ_MAX_CONCURRENCY))
+        setup_youtube_video_media(voice_service, db, aliases, memory, bot.id)
         # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
         # video_url). Ключ пуст → video_client.available=False → ровно старое
         # поведение (субтитры), WARNING в каскаде.
@@ -293,9 +307,9 @@ async def on_startup():
         # ── VoiceTranscriber (Epic 67, Section 71.6) — сервис зависит от
         # memory/aliases; пустые ключи → стратегии пропустит контроллер ──
         # Epic 79.5 (D295): max_concurrency из настроек для защиты Groq Free Tier.
+        # Bugfix 04.09.2026 (Часть 1): инстанс ЕДИНЫЙ с медиа-веткой youtube
+        # (создан выше, в блоке YouTube) — здесь только регистрация роутера 0i.
         if hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
-            voice_service = VoiceTranscriber(
-                max_concurrency=hot.get("models.groq_max_concurrency", settings.GROQ_MAX_CONCURRENCY))
             setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
             logger.info(
                 "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s, "

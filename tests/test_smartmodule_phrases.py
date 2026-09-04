@@ -29,6 +29,10 @@ from services.smartmodule_phrases import (
     WEB_ERROR_PHRASES,
     YOUTUBE_ERROR_PHRASES,
     YOUTUBE_RETRY_PHRASES,
+    VIDEO_MEDIA_EMPTY_PHRASES,
+    VIDEO_MEDIA_TOO_BIG_PHRASES,
+    VIDEO_MEDIA_TOO_LONG_PHRASES,
+    VIDEO_MEDIA_UNAVAILABLE_PHRASES,
 )
 
 # Каноны R33-5 (backlog, дословно)
@@ -519,3 +523,64 @@ class TestPlaceholderSubstitution:
             substituted = phrase.replace("{remaining_time}", "5 мин")
             assert "{remaining_time}" not in substituted
             assert "5 мин" in substituted
+
+
+# ── Bugfix 04.09.2026 (Часть 1, 5.9–5.12): пулы нативных TG-видео ────
+
+class TestVideoMediaPools:
+    """5.9–5.12 (ФР-3/ФР-8): пулы видео-файлов — disjoint между собой и со
+    всеми существующими, строчные, без эмодзи/маркдауна (стиль-канон)."""
+
+    VIDEO_POOLS = (
+        VIDEO_MEDIA_TOO_LONG_PHRASES,
+        VIDEO_MEDIA_TOO_BIG_PHRASES,
+        VIDEO_MEDIA_UNAVAILABLE_PHRASES,
+        VIDEO_MEDIA_EMPTY_PHRASES,
+    )
+
+    def test_pool_sizes_no_duplicates(self):
+        assert len(VIDEO_MEDIA_TOO_LONG_PHRASES) == 4
+        assert len(set(VIDEO_MEDIA_TOO_LONG_PHRASES)) == 4
+        assert len(VIDEO_MEDIA_TOO_BIG_PHRASES) == 3
+        assert len(set(VIDEO_MEDIA_TOO_BIG_PHRASES)) == 3
+        assert len(VIDEO_MEDIA_UNAVAILABLE_PHRASES) == 3
+        assert len(set(VIDEO_MEDIA_UNAVAILABLE_PHRASES)) == 3
+        assert len(VIDEO_MEDIA_EMPTY_PHRASES) == 3
+        assert len(set(VIDEO_MEDIA_EMPTY_PHRASES)) == 3
+
+    def test_pools_disjoint_from_each_other(self):
+        for i, pool in enumerate(self.VIDEO_POOLS):
+            for other in self.VIDEO_POOLS[i + 1:]:
+                assert not set(pool) & set(other)
+
+    def test_pools_disjoint_from_all_existing(self):
+        existing = (
+            set(THROTTLE_PHRASES)
+            | set(SEARCH_EMPTY_QUERY_PHRASES)
+            | set(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+            | set(SEARCH_ERROR_PHRASES)
+            | set(FACTCHECK_ERROR_PHRASES)
+            | set(LLM_ERROR_PHRASES)
+            | set(YOUTUBE_ERROR_PHRASES)
+            | set(WEB_ERROR_PHRASES)
+            | set(YOUTUBE_RETRY_PHRASES)
+            | set(CHECKUP_FALLBACK_PHRASES)
+            | set(CHECKUP_DEAD_PHRASES)
+            | set(CHECKUP_LLM_ERROR_PHRASES)
+            | set(CHAT_COOLDOWN_PHRASES)
+            | set(CHAT_ERROR_PHRASES)
+            | set(CHAT_LLM_DOWN_PHRASES)
+            | set(INFO_NO_DELETE_RIGHTS_PHRASES)
+            | set(INFO_NOT_ADMIN_PHRASES)
+            | set(INFO_BAD_MARKUP_PHRASES)
+            | set(INFO_EDIT_OK_PHRASES)
+        )
+        for pool in self.VIDEO_POOLS:
+            assert not set(pool) & existing
+
+    def test_style_lowercase_no_emoji_no_placeholder(self):
+        for pool in self.VIDEO_POOLS:
+            for phrase in pool:
+                assert phrase == phrase.lower()
+                assert "{remaining_time}" not in phrase
+                assert not any(0x1F000 <= ord(ch) <= 0x1FAFF for ch in phrase)

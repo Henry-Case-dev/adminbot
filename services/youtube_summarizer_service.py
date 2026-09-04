@@ -182,3 +182,40 @@ class YoutubeSummarizerService:
             # Epic 60 (65.1, T-469): пустой ответ → молчание + 🗿 (хендлер).
             raise LLMBadResponseError("youtube summarizer: empty answer")
         return raw
+
+    async def summarize_transcript(self, *, chat_id: int, rag_query: str,
+                                   transcript: str) -> str:
+        """Bugfix 04.09.2026 (Часть 1, FR-6): выжимка по расшифровке
+        ЛОКАЛЬНОГО видео-файла (нативные TG-видео). Канон — тот же
+        prompts.youtube_system_prompt (текстовая расшифровка). Возвращает
+        cleanup-текст; пустой ответ → LLMBadResponseError (хендлер молчит+🗿)."""
+        max_symbols = hot.get("limits.youtube_max_symbols",
+                              settings.YOUTUBE_MAX_SYMBOLS)
+        system_prompt = hot.get("prompts.youtube_system_prompt",
+                                YOUTUBE_SYSTEM_PROMPT)
+        rag = ""
+        if self.memory is not None and chat_id is not None and rag_query:
+            try:
+                rag = await self.memory.get_rag_context(chat_id, rag_query)
+            except Exception:
+                logger.warning(
+                    "[video cascade] file-summary rag failed — fail-open | "
+                    "chat_id=%s", chat_id, exc_info=True)
+        capped = str(transcript or "")[:max_symbols]   # прецедент: движок режет
+        system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        user = ((f"{rag}\n\n" if rag else "") +
+                "<video_id>tg-file</video_id>\n\n"
+                f"<transcript>{escape_xml_text(capped)}</transcript>")
+        started = time.monotonic()
+        raw = await self.llm.generate([
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}])
+        logger.info(
+            "youtube file-summary LLM OK | in_chars=%d out_chars=%d | "
+            "latency_ms=%.0f", len(capped), len(raw),
+            (time.monotonic() - started) * 1000.0,
+        )
+        raw = cleanup_llm_text(raw)
+        if not raw.strip():
+            raise LLMBadResponseError("youtube file summary: empty answer")
+        return raw

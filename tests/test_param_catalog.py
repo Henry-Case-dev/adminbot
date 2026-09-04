@@ -32,10 +32,9 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        # 251: 244 + VIDEO_PRIMARY_MODEL/VIDEO_FALLBACK_MODEL/VIDEO_TIMEOUT_SECONDS
-        # + VASYA_ENABLED/KUCHA_ENABLED/MIMIC_ENABLED/ALAN_MIMIC_ENABLED
-        # (эпик 04.09.2026) — каталог пополнен парно
-        assert len(fields) == 251
+        # 253: 251 + VIDEO_TRANSCRIBE_MAX_SIZE_MB/VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS
+        # (bugfix 04.09.2026, Часть 1 — нативные TG-видео) — каталог пополнен парно
+        assert len(fields) == 253
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -220,12 +219,13 @@ class TestGroups8424:
 
     def test_group_counts_match_design(self):
         """84.24.2 + дельты (2026-09-03) + эпик 04.09.2026 (модели-видео,
-        тумблеры реакций/мимикрии, видео-промпт)."""
+        тумблеры реакций/мимикрии, видео-промпт) + bugfix 04.09.2026
+        (limits +2: расшифровка нативных TG-видео)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 29, "keys": 12,
-                          "limits": 120, "flags": 42, "reactions": 38,
+                          "limits": 122, "flags": 42, "reactions": 38,
                           "content": 1}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

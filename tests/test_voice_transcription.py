@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from handlers import voice_transcription as vt
+from services import media_download as md
 from SmartModule.phrases import (
     VT_ALL_FAILED_PHRASES,
     VT_SILENCE_PHRASES,
@@ -388,14 +389,18 @@ class TestBotDownloadPattern:
         assert kwargs["destination"] == tmp_file_path[0]
 
     def test_handler_source_has_no_legacy_call(self):
-        """Регрессия v2.46.1 (+ Epic 78 T-579): в исходнике хендлера нет
-        download_to_drive; скачивание через bot.download / хелпер
-        _fetch_media_to_tmp (get_file теперь легитимен ТОЛЬКО внутри хелпера)."""
+        """Регрессия v2.46.1 (+ Epic 78 T-579) и Bugfix 04.09.2026 (Часть 1,
+        T-669): в исходнике хендлера нет download_to_drive; скачивание — через
+        общий хелпер services/media_download (fetch_media_to_tmp; get_file
+        легитимен ТОЛЬКО внутри него)."""
         import inspect
         src = inspect.getsource(vt)
         assert "download_to_drive" not in src
-        assert "bot.download(" in src
+        assert "download_to_drive" not in inspect.getsource(md)
         assert "_fetch_media_to_tmp" in src
+        assert "services.media_download" in src
+        assert "def fetch_media_to_tmp" in inspect.getsource(md)
+        assert "bot.download(" in inspect.getsource(md)
 
     @pytest.mark.asyncio
     async def test_no_direct_get_file_at_runtime(self, vt_env, tmp_file_path):
@@ -441,9 +446,13 @@ class TestEpic78LocalApiResolve:
     @pytest.fixture
     def local_mode(self, tmp_path, monkeypatch):
         files_dir = tmp_path / "tgapi"
-        monkeypatch.setattr(vt, "settings", self._cfg(
+        cfg = self._cfg(
             DOWNLOAD_ENABLED=True,
-            TELEGRAM_API_FILES_DIR=str(files_dir)))
+            TELEGRAM_API_FILES_DIR=str(files_dir))
+        # Bugfix 04.09.2026 (Часть 1): хелпер скачивания теперь в
+        # services.media_download — патчим settings ОБОИХ модулей.
+        monkeypatch.setattr(vt, "settings", cfg)
+        monkeypatch.setattr(md, "settings", cfg)
         return files_dir
 
     @pytest.fixture
@@ -451,7 +460,7 @@ class TestEpic78LocalApiResolve:
         """Виртуальный файл(ы) внутри '<dir>/<bot_id>:<token>/'. На Windows
         ':' в имени каталога запрещён, поэтому FS-слой подменяется ТОЧЕЧНО
         (только пути под TELEGRAM_API_FILES_DIR): Path.exists и
-        shutil.copyfile хелпера."""
+        shutil.copyfile хелпера (services.media_download)."""
         files = {}                       # str(abs_path) -> bytes
         copied = {}                      # str(abs_src) -> str(dst)
         root = str(local_mode)
@@ -470,7 +479,7 @@ class TestEpic78LocalApiResolve:
                 fh.write(files[str(src)])
 
         monkeypatch.setattr(Path, "exists", fake_exists)
-        monkeypatch.setattr(vt.shutil, "copyfile", fake_copyfile)
+        monkeypatch.setattr(md.shutil, "copyfile", fake_copyfile)
         return files, copied
 
     def _src_path(self, files_dir, rel):
@@ -530,7 +539,9 @@ class TestEpic78LocalApiResolve:
             self, vt_env, tmp_file_path, monkeypatch):
         """Кейс 3: DOWNLOAD_ENABLED=False → сразу bot.download, get_file и
         резолв диска не выполняются."""
-        monkeypatch.setattr(vt, "settings", self._cfg(DOWNLOAD_ENABLED=False))
+        cfg = self._cfg(DOWNLOAD_ENABLED=False)
+        monkeypatch.setattr(vt, "settings", cfg)
+        monkeypatch.setattr(md, "settings", cfg)
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         bot = _make_bot()
         result = await vt.voice_transcription_handler(msg, bot=bot)
@@ -573,7 +584,6 @@ class TestEpic78LocalApiResolve:
         def _boom_copy(src, dst):
             raise OSError(f"boom {src}")
 
-        import handlers.voice_transcription as vt_mod
         bot = self._local_bot()
 
         with caplog.at_level(logging.DEBUG,
@@ -588,14 +598,14 @@ class TestEpic78LocalApiResolve:
             await vt.voice_transcription_handler(m2, bot=bot)
             # C: копирование упало → fallback download (тоже падает)
             bot.download.side_effect = RuntimeError("dl boom")
-            prev_copyfile = vt_mod.shutil.copyfile
-            vt_mod.shutil.copyfile = _boom_copy
+            prev_copyfile = md.shutil.copyfile
+            md.shutil.copyfile = _boom_copy
             try:
                 m3 = _make_msg(voice=MagicMock(duration=10, file_id="c"))
                 bot.get_file.return_value = self._tg_file("music/ok.ogg")
                 await vt.voice_transcription_handler(m3, bot=bot)
             finally:
-                vt_mod.shutil.copyfile = prev_copyfile
+                md.shutil.copyfile = prev_copyfile
             bot.download.side_effect = None
             # D: get_file упал → fallback download
             bot.get_file.side_effect = RuntimeError("api boom")
@@ -603,8 +613,9 @@ class TestEpic78LocalApiResolve:
             await vt.voice_transcription_handler(m4, bot=bot)
             bot.get_file.side_effect = None
             # E: облачный режим
-            monkeypatch.setattr(vt, "settings",
-                                self._cfg(DOWNLOAD_ENABLED=False))
+            cfg_cloud = self._cfg(DOWNLOAD_ENABLED=False)
+            monkeypatch.setattr(vt, "settings", cfg_cloud)
+            monkeypatch.setattr(md, "settings", cfg_cloud)
             m5 = _make_msg(voice=MagicMock(duration=10, file_id="e"))
             await vt.voice_transcription_handler(m5, bot=_make_bot())
 
@@ -653,7 +664,7 @@ class TestEpic78LocalApiResolve:
         def _boom_copy(src, dst):
             raise OSError("copy failed")
 
-        monkeypatch.setattr(vt.shutil, "copyfile", _boom_copy)
+        monkeypatch.setattr(md.shutil, "copyfile", _boom_copy)
         bot = self._local_bot()
         bot.download.side_effect = RuntimeError("download boom")
         bot.get_file.return_value = self._tg_file("music/file_7.ogg")
