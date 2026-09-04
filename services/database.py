@@ -16,6 +16,8 @@ _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
 _SCHEMA_VERSION_VIDEO_ORIGINS = 4  # Раунд 3 (3.6/B7): user_version 3→4
 _SCHEMA_VERSION_USER_MEMORY = 5  # Раунд 4 (T-713, 3.4.3): user_version 4→5
 _SCHEMA_VERSION_CHAT_PROTECTED_FACTS = 6  # Раунд 5 (T-731, 3.2.1): 5→6
+_SCHEMA_VERSION_HISTORY_IMPORT = 7  # Фаза 2 (T-758): 6→7 (message_timestamp +
+                                    # history_import + smart_messages.import_key)
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -23,9 +25,12 @@ _SCHEMA_VERSION_CHAT_PROTECTED_FACTS = 6  # Раунд 5 (T-731, 3.2.1): 5→6
 # user_memory (раунд 4, T-713/FR-D2): память-команды «запомни» — явные факты
 # юзера/чата, без LLM-экстракции (graph_facts достаточно, nodes/edges НЕ
 # создаются — см. spec 3.4.3 п.5).
+# history_import (фаза 2, T-758): импортированные GraphRAG-факты истории —
+# вес 0.3, expires_at NULL (вечно), message_timestamp = дата сообщения.
 _GRAPH_FACT_ORIGINS_SQL = (
     "('chat_history', 'search_fact', 'youtube_content', 'web_content', "
-    "'bot_direct_reply', 'voice_transcript', 'video_transcript', 'user_memory')"
+    "'bot_direct_reply', 'voice_transcript', 'video_transcript', 'user_memory', "
+    "'history_import')"
 )
 
 _EDGE_WEIGHT_CAP = 5             # Epic 60 (66.3/T-459 тема 5): подтверждение
@@ -220,6 +225,7 @@ class DatabaseService:
         await self._migrate_video_origins_v4() # Раунд 3 (3.6/B7): user_version 3→4
         await self._migrate_user_memory_v5()   # Раунд 4 (T-713): user_version 4→5
         await self._migrate_chat_protected_facts_v6()  # Раунд 5 (T-731): 5→6
+        await self._migrate_history_import_v7()  # Фаза 2 (T-758): 6→7
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -548,6 +554,103 @@ class DatabaseService:
             await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_CHAT_PROTECTED_FACTS}")
+        await self.db.commit()
+
+    async def _migrate_history_import_v7(self) -> None:
+        """Фаза 2 (T-758, spec 3.4/FR-6): user_version 6→7. Три независимые
+        части, каждая идемпотентная (повторный запуск — no-op, только PRAGMA):
+
+        (а) graph_facts rebuild по паттерну _migrate_user_memory_v5 (D201):
+        + колонка message_timestamp INTEGER (nullable), CHECK origin +=
+        'history_import' (список из _GRAPH_FACT_ORIGINS_SQL — единое место),
+        все 11 существующих колонок сохраняются, INSERT…SELECT копирует
+        message_timestamp = NULL → backfill = created_at (рендер COALESCE не
+        меняет вывода для существующих фактов); индексы (chat_origin,
+        target_user) воссоздаются; + частичный UNIQUE-индекс
+        idx_graph_facts_history_import (chat_id, fact, message_timestamp) WHERE
+        origin='history_import' AND message_timestamp IS NOT NULL —
+        идемпотентность Graph-этапа/переноса дельты. FTS5 graph_facts_fts НЕ
+        пересоздаётся (rowid сохранены — прецедент D201/v4/v5). GUARD по
+        колонке message_timestamp (в sqlite_master CREATE-тексте): свежая БД
+        после v5-rebuild уже содержит 'history_import' в CHECK (константа
+        пополнена), но НЕ колонку — guard по origin не сработал бы.
+
+        (б) smart_messages: import_key TEXT + history_processed INTEGER NOT
+        NULL DEFAULT 0 — только ALTER-веткой (CREATE TABLE не трогаем;
+        прецедент tg_message_id) + частичные индексы:
+        idx_smart_messages_import_key (UNIQUE, WHERE import_key IS NOT NULL —
+        идемпотентность FTS-импорта) и idx_smart_messages_history_pending
+        (chat_id, history_processed, WHERE history_processed = 0 — выборка
+        пачек Graph-воркера). Внешняя FTS5 smart_messages_fts не затрагивается
+        (rebuild не происходит — rowid валидны).
+
+        (в) PRAGMA user_version = 7.
+        """
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "message_timestamp" not in row["sql"]:
+            logger.info(
+                "[database] migration v7: graph_facts rebuild "
+                "(message_timestamp + history_import origin)")
+            await self.db.executescript(
+                "ALTER TABLE graph_facts RENAME TO graph_facts_old; "
+                "CREATE TABLE graph_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "fact TEXT NOT NULL, "
+                "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
+                + _GRAPH_FACT_ORIGINS_SQL + "), "
+                "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT, "
+                "weight REAL NOT NULL DEFAULT 0.5, "
+                "status TEXT NOT NULL DEFAULT 'confirmed', "
+                "last_confirmed_at INTEGER, supersedes INTEGER, "
+                "message_timestamp INTEGER); "
+                "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+                "created_at, target_user, weight, status, last_confirmed_at, "
+                "supersedes, message_timestamp) "
+                "SELECT id, chat_id, fact, origin, expires_at, created_at, "
+                "target_user, weight, status, last_confirmed_at, supersedes, NULL "
+                "FROM graph_facts_old; "
+                "DROP TABLE graph_facts_old; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin "
+                "ON graph_facts(chat_id, origin); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user "
+                "ON graph_facts(chat_id, target_user);"
+            )
+            # backfill: существующие факты рендерятся как раньше (COALESCE)
+            await self.db.execute(
+                "UPDATE graph_facts SET message_timestamp = created_at "
+                "WHERE message_timestamp IS NULL")
+            await self.db.commit()
+        # частичный UNIQUE-индекс идемпотентности (после backfill — guard)
+        await self.db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_graph_facts_history_import "
+            "ON graph_facts(chat_id, fact, message_timestamp) "
+            "WHERE origin='history_import' AND message_timestamp IS NOT NULL")
+        await self.db.commit()
+        # (б) smart_messages: ALTER-ветка (как tg_message_id; fresh CREATE не трогаем)
+        for alter_sql in (
+            "ALTER TABLE smart_messages ADD COLUMN import_key TEXT",
+            "ALTER TABLE smart_messages ADD COLUMN history_processed "
+            "INTEGER NOT NULL DEFAULT 0",
+        ):
+            try:
+                await self.db.execute(alter_sql)
+                await self.db.commit()
+            except aiosqlite.OperationalError:
+                pass                        # колонка уже есть (повторный запуск)
+        await self.db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_smart_messages_import_key "
+            "ON smart_messages(import_key) WHERE import_key IS NOT NULL")
+        await self.db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_smart_messages_history_pending "
+            "ON smart_messages(chat_id, history_processed) "
+            "WHERE history_processed = 0")
+        await self.db.commit()
+        # (в)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_HISTORY_IMPORT}")
         await self.db.commit()
 
     async def close(self) -> None:

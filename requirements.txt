@@ -25,3 +25,7 @@ bgutil-ytdlp-pot-provider>=1.0.0
 # Epic 79 (T-584): только для оффлайн-экспорта cookies (tools/cookies_export.py, режим B).
 # НЕ нужен в прод-venv бота. Движок ставится отдельно: playwright install chromium --with-deps
 playwright>=1.40
+# Фаза 2 (импорт истории чатов, T-748): потоковый разбор JSON-экспортов Telegram
+# (RAM-лимит сервера 961 МБ — json.load целого файла запрещён) + прогресс-бары CLI.
+ijson>=3.3
+tqdm>=4.66

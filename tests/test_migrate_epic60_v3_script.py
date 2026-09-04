@@ -1,4 +1,4 @@
-﻿"""Epic 60 (63.3, D245): smoke-тест скрипта миграции 2→3.
+"""Epic 60 (63.3, D245): smoke-тест скрипта миграции 2→3.
 
 Создаёт v2-БД (пре-Epic-60 схема: graph_facts без weight/status/...,
 edges без created_at, user_version=2) и запускает
@@ -59,7 +59,7 @@ def test_migration_script_v2_to_v3(tmp_path, monkeypatch):
 
     conn = sqlite3.connect(str(path))
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         tables = {r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
         assert {"throttle_state", "bot_replies", "user_prefs",
@@ -90,7 +90,7 @@ def test_migration_script_idempotent_second_run(tmp_path, monkeypatch):
 
     conn = sqlite3.connect(str(path))
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         row = conn.execute("SELECT COUNT(*) FROM graph_facts").fetchone()
         assert row[0] == 1                      # строки не задвоены
         row = conn.execute("SELECT COUNT(*) FROM edges").fetchone()

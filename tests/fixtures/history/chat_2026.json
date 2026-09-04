@@ -1,0 +1,123 @@
+{
+  "name": "Live Chat",
+  "type": "private_supergroup",
+  "id": 2661910336,
+  "messages": [
+    {
+      "id": -100,
+      "type": "service",
+      "date": "2026-01-05T12:00:00",
+      "date_unixtime": "1767567600",
+      "actor": "Admin",
+      "actor_id": "user5885953495",
+      "action": "pin_message",
+      "text": "",
+      "text_entities": []
+    },
+    {
+      "id": -101,
+      "type": "message",
+      "date": "2026-01-05T12:01:00",
+      "date_unixtime": "1767567660",
+      "from": "Первый",
+      "from_id": "user111",
+      "text": "привет, как дела",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "привет, как дела"
+        }
+      ]
+    },
+    {
+      "id": -102,
+      "type": "message",
+      "date": "2026-01-05T12:02:00",
+      "date_unixtime": "1767567720",
+      "from": "Второй",
+      "from_id": "user222",
+      "text": "",
+      "text_entities": []
+    },
+    {
+      "id": -103,
+      "type": "message",
+      "date": "2026-01-05T12:03:00",
+      "date_unixtime": "1767567780",
+      "from": "Первый",
+      "from_id": "user111",
+      "text": [
+        {
+          "type": "plain",
+          "text": "куски "
+        },
+        {
+          "type": "bold",
+          "text": "текста"
+        },
+        " хвост"
+      ],
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "куски "
+        },
+        {
+          "type": "bold",
+          "text": "текста"
+        },
+        {
+          "type": "plain",
+          "text": " хвост"
+        }
+      ]
+    },
+    {
+      "id": -104,
+      "type": "message",
+      "date": "2026-01-05T12:04:00",
+      "date_unixtime": "1767567840",
+      "from": "Канал-постинг",
+      "from_id": "channel999",
+      "text": "пост канала",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "пост канала"
+        }
+      ]
+    },
+    {
+      "id": -105,
+      "type": "message",
+      "date": "2026-01-05T12:05:00",
+      "date_unixtime": "1767567900",
+      "from": "Первый",
+      "from_id": "user111",
+      "text": "",
+      "text_entities": [],
+      "file": "(File not included. Change data exporting settings to download.)",
+      "media_type": "animation",
+      "mime_type": "video/mp4",
+      "duration_seconds": 1
+    },
+    {
+      "id": -106,
+      "type": "message",
+      "date": "2026-01-05T12:06:00",
+      "date_unixtime": "1767567960",
+      "from": "Второй",
+      "from_id": "user222",
+      "text": "вот фото",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "вот фото"
+        }
+      ],
+      "forwarded_from": "Канал X",
+      "photo": "(File not included. Change data exporting settings to download.)",
+      "reply_to_message_id": -101
+    }
+  ]
+}

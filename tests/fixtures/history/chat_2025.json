@@ -1,0 +1,55 @@
+{
+  "name": "Live Chat",
+  "type": "private_supergroup",
+  "id": 2661910336,
+  "messages": [
+    {
+      "id": -101,
+      "type": "message",
+      "date": "2026-01-05T12:01:00",
+      "date_unixtime": "1767567660",
+      "from": "Первый",
+      "from_id": "user111",
+      "text": "привет, как дела",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "привет, как дела"
+        }
+      ]
+    },
+    {
+      "id": -106,
+      "type": "message",
+      "date": "2026-01-05T12:06:00",
+      "date_unixtime": "1767567960",
+      "from": "Второй",
+      "from_id": "user222",
+      "text": "вот фото",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "вот фото"
+        }
+      ],
+      "forwarded_from": "Канал X",
+      "photo": "(File not included. Change data exporting settings to download.)",
+      "reply_to_message_id": -101
+    },
+    {
+      "id": -107,
+      "type": "message",
+      "date": "2026-01-05T12:07:00",
+      "date_unixtime": "1767568020",
+      "from": "Третий",
+      "from_id": "user333",
+      "text": "уникальное сообщение второго файла",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "уникальное сообщение второго файла"
+        }
+      ]
+    }
+  ]
+}

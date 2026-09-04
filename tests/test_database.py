@@ -502,13 +502,14 @@ def _create_v2_db(path):
 class TestEpic60V3Migration:
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """63.6 #1 + раунды 3/4/5: PRAGMA user_version == 6 (Epic 46 → 1,
-        Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4, раунд 4:
+        """63.6 #1 + раунды 3/4/5 + фаза 2: PRAGMA user_version == 7 (Epic 46
+        → 1, Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4, раунд 4:
         user_memory-origins CHECK → 5, раунд 5: protected_facts chat-level
-        (user_name NULL) → 6)."""
+        (user_name NULL) → 6, фаза 2: message_timestamp/history_import →
+        7)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 6
+        assert row[0] == 7
 
     @pytest.mark.asyncio
     async def test_v3_tables_created(self, db):
@@ -551,13 +552,13 @@ class TestEpic60V3Migration:
         assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 6     # раунды 3-5: 3→6 (B7+v5+v6)
+        assert (await cursor.fetchone())[0] == 7     # каскад 3→7 (v5/v6/v7)
         await d.close()
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_stays_3(self, tmp_path):
-        """63.6 #1/#4 + раунды 3-5: повторный initialize — no-op (user_version
-        остаётся 6, данные не задвоены)."""
+        """63.6 #1/#4 + раунды 3-5 + фаза 2: повторный initialize — no-op
+        (user_version остаётся 7, данные не задвоены)."""
         path = tmp_path / "reinit.db"
         _create_v2_db(path)
         d = DatabaseService(str(path))
@@ -565,7 +566,7 @@ class TestEpic60V3Migration:
         await d.close()
         await d.initialize()                       # «рестарт»
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 6
+        assert (await cursor.fetchone())[0] == 7
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
@@ -699,7 +700,7 @@ class TestVideoOriginsMigrationV4:
         await d.initialize()
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 6
+        assert (await cursor.fetchone())[0] == 7
         # schema содержит новые origins
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
@@ -748,7 +749,7 @@ class TestVideoOriginsMigrationV4:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 6
+        assert (await cursor.fetchone())[0] == 7    # каскад до v7 (раунды 4/5 + фаза 2)
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # данные не задвоены
         await d.close()
@@ -828,9 +829,9 @@ class TestChatProtectedFactsV6Migration:
             "SELECT name FROM sqlite_master WHERE type='index' "
             "AND name='idx_protected_facts_chat_level'")
         assert (await cursor.fetchone()) is not None
-        # PRAGMA user_version = 6
+        # PRAGMA user_version = 7 (каскад v5→v6→v7)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 6
+        assert (await cursor.fetchone())[0] == 7
         await d.close()
 
     @pytest.mark.asyncio
@@ -877,7 +878,7 @@ class TestChatProtectedFactsV6Migration:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 6
+        assert (await cursor.fetchone())[0] == 7
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM protected_facts")
         assert (await cursor.fetchone())["c"] == 2  # строки не задвоены
         await d.close()
