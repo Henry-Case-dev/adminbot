@@ -38,9 +38,9 @@ AdminBot — юмористический Telegram-бот «товарищ» д�
 
 Эталоны промптов живут ТОЛЬКО в `plans/docs/canon/`:
 
-- `docs/canon/backlog.md`: R11 (summary SYSTEM_PROMPT, 22 строки), R42-6 (CHECKUP_SYSTEM_PROMPT), R46-2 (промпт-экстрактор), R46-4 (XML-шаблон + инструкция «Если в блоке <bot_knowledge>…» во все системные промпты).
-- `docs/canon/architecture.md`: EXTRACT/CHECKUP/SEARCH/YOUTUBE/WEBPAGE/FACTCHECK (Sections 35.3/51.4/55.7/72.1).
-- Прочие каноны: R50-4 CHAT_SYSTEM_PROMPT, пулы R50-7/8 и R42-2/3/4/5, R11 SUMMARY UX-фразы (R13), D224 цепочка /info (`DEFAULT_INFO_TEXT` = `info_text.md` = ARCH 53.3 = R44-1), `info_text.md` как сид-источник (84.13), media/-политика, R17.
+- `docs/canon/backlog.md`: R11 (summary SYSTEM_PROMPT, 22 строки + п.7 TYPO раунда 5), R42-6 (CHECKUP_SYSTEM_PROMPT), R46-2 (промпт-экстрактор), R46-4 (XML-шаблон + инструкция «Если в блоке <bot_knowledge>…» во все системные промпты); COMPRESS_PROMPT (раунд 5).
+- `docs/canon/architecture.md`: EXTRACT/CHECKUP/SEARCH/YOUTUBE/WEBPAGE/FACTCHECK (Sections 35.3/51.4/55.7/72.1); раунд 5: + YOUTUBE_VIDEO_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT (R50-4, текущий канон), PREV_CHAT_SYSTEM_PROMPT (слепок раунда 4), LEGACY_CHAT_SYSTEM_PROMPT (слепок раунда 2).
+- Прочие каноны: R50-4 CHAT_SYSTEM_PROMPT (+ PREV_/LEGACY_-слепки для авто-миграции PG, services/prompt_migrations.py), пулы R50-7/8 и R42-2/3/4/5, R11 SUMMARY UX-фразы (R13), D224 цепочка /info (`DEFAULT_INFO_TEXT` = `info_text.md` = ARCH 53.3 = R44-1), `info_text.md` как сид-источник (84.13), media/-политика, R17.
 
 Правка эталона = правка константы в коде + эталон + тесты одним коммитом.
 
