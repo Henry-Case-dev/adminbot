@@ -1355,25 +1355,47 @@ class DatabaseService:
 
     async def insert_graph_fact(self, chat_id, fact, origin, expires_at,
                                 target_user=None, status="confirmed",
-                                supersedes=None, weight=None) -> int:
+                                supersedes=None, weight=None,
+                                message_timestamp: int | None = None,
+                                or_ignore: bool = False) -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
         ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
         status ('confirmed' default | 'unconfirmed' — зона 0.85–0.95) и
         supersedes (id инвалидированного предшественника). Epic 60 (66.1/66.3,
         T-479/T-481): weight 0..1 (None → 0.5; вне [0,1] — кламп + WARNING),
-        last_confirmed_at = created_at (факт рождается подтверждённым)."""
+        last_confirmed_at = created_at (факт рождается подтверждённым).
+        Фаза 2 (T-758, spec 3.4): message_timestamp — дата сообщения-источника
+        (Graph-воркер истории; origin='history_import'); None для live-вызовов
+        (поведение не меняется; рендер COALESCE использует created_at).
+        Фаза 2 (T-763, Graph-воркер): or_ignore=True → INSERT OR IGNORE:
+        дубль по частичному UNIQUE-индексу idx_graph_facts_history_import
+        (chat_id, fact, message_timestamp, origin='history_import') молча
+        пропускается → возврат 0 и БЕЗ FTS-строки (FTS5 external content не
+        знает о дублях rowid — edge 5 spec; идемпотентность повторных
+        прогонов/переноса дельты FR-10). Live-путь (or_ignore=False) —
+        ровно прежний INSERT (дубль → IntegrityError, как и раньше)."""
         w = 0.5 if weight is None else float(weight)
         if not 0.0 <= w <= 1.0:
             logger.warning("graph fact weight %s outside [0,1] — clamped (66.1)", w)
             w = min(1.0, max(0.0, w))
         now = int(time.time())
+        insert_sql = (
+            "INSERT OR IGNORE INTO graph_facts "
+            if or_ignore else
+            "INSERT INTO graph_facts ")
         cursor = await self.db.execute(
-            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, created_at, "
-            "target_user, status, supersedes, weight, last_confirmed_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            insert_sql +
+            "(chat_id, fact, origin, expires_at, created_at, "
+            "target_user, status, supersedes, weight, last_confirmed_at, "
+            "message_timestamp) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (chat_id, fact, origin, expires_at, now, target_user,
-             status, supersedes, w, now))
+             status, supersedes, w, now, message_timestamp))
+        if cursor.rowcount == 0:
+            # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
+            # коммитить нечего
+            return 0
         fact_id = cursor.lastrowid
         await self.db.execute(
             "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))

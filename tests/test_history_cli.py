@@ -96,6 +96,34 @@ class TestCliFts:
         assert proc.returncode != 0
         assert "не найден" in (proc.stderr + proc.stdout)
 
+    def test_graph_dry_run_counts_nothing_written(self, tmp_path):
+        """--mode graph --dry-run (часть B, T-761): подсчёт кандидатов/пачек
+        без записи и без LLM; отчёт печатается; БД не меняется."""
+        db = str(tmp_path / "graph.db")
+        first = _run("import_history", "--mode", "fts",
+                     "--files", CHAT_2026, CHAT_2025, "--db", db,
+                     "--no-vacuum")
+        assert first.returncode == 0, first.stderr
+        before = _sqlite_rows(db)
+        proc = _run("import_history", "--mode", "graph", "--db", db,
+                    "--dry-run", "--embed-mode", "skip",
+                    "--fact-density", "0.5", "--min-fact-chars", "1")
+        assert proc.returncode == 0, proc.stderr
+        assert "Graph-этап" in proc.stdout
+        assert "dry-run" in proc.stdout
+        assert "кандидатов 5" in proc.stdout
+        assert "пачек 1" in proc.stdout
+        assert "LLM/embed-вызовы НЕ выполнялись" in proc.stdout
+        assert _sqlite_rows(db) == before == 6
+        import sqlite3
+        conn = sqlite3.connect(db)
+        try:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM graph_facts").fetchone()[0]
+            assert count == 0
+        finally:
+            conn.close()
+
     def test_foreign_chat_filtered_by_target_chat(self, tmp_path):
         """Весь импорт идёт под --target-chat (экспортные файлы без chat_id
         на уровне сообщений; чужой чат-таргет не мешает записи)."""
