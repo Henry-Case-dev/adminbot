@@ -128,6 +128,8 @@ def client(monkeypatch, tmp_path):
                        "updated_at": "2026-08-30T00:00:00+00:00",
                        "updated_by": ADMIN_ID},
              "category": "content"},
+            {"key": "memory.infinite_retention", "value": False,
+             "category": "memory", "updated_at": None},
         ],
         role_rows=[
             {"role_name": "admin", "permissions": {"wildcard": True},
@@ -307,6 +309,63 @@ class TestConfigGroups8424:
         item = {i["key"]: i for i in resp2.json()["items"]}["limits.summary_aliases"]
         assert item["widget"] == "keyvalue"
         assert item["value"] == aliases
+
+
+class TestMemoryRetentionToggle:
+    """Фаза 2 (T-755): memory.infinite_retention в GET /api/config, POST-toggle
+    админом, moderator — 403 (нет секции memory), секция «Память» в ролях."""
+
+    def _get_item(self, client):
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        return {i["key"]: i for i in resp.json()["items"]} \
+            ["memory.infinite_retention"]
+
+    def test_get_returns_bool_with_metadata(self, client):
+        item = self._get_item(client)
+        assert item["value"] is False
+        assert item["type"] == "bool"
+        assert item["category"] == "memory"
+        assert item["group"] == "memory_infinite"
+        assert item["title"] == "Бессрочное хранение памяти"
+        assert "бессрочно" in (item["description"] or "").lower()
+        assert item["secret"] is False
+        groups = {g["id"]: g for g in
+                  client.get("/api/config", headers=_hdr(ADMIN_ID))
+                  .json()["groups"]}
+        assert groups["memory_infinite"]["title"] == "Бессрочное хранение"
+        assert groups["memory_infinite"]["category"] == "memory"
+
+    def test_post_admin_toggles_true(self, client):
+        resp = client.post(
+            "/api/config",
+            json={"items": [{"key": "memory.infinite_retention",
+                             "value": True}]},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json() == {"updated": ["memory.infinite_retention"]}
+        assert client.cache.get("memory.infinite_retention") is True
+        assert self._get_item(client)["value"] is True
+
+    def test_post_moderator_denied_403(self, client):
+        resp = client.post(
+            "/api/config",
+            json={"items": [{"key": "memory.infinite_retention",
+                             "value": True}]},
+            headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_roles_tree_has_memory_section(self, client):
+        resp = client.get("/api/roles/tree", headers=_hdr(ADMIN_ID))
+        body = resp.json()
+        sections = {s["id"]: s for s in body["sections"]}
+        memory = sections["memory"]
+        assert memory["title"] == "Память"
+        keys = [p["key"] for p in memory["params"]]
+        assert "memory.infinite_retention" in keys
+        item = next(p for p in memory["params"]
+                    if p["key"] == "memory.infinite_retention")
+        assert item["type"] == "bool"
 
 
 class TestConfigPost:

@@ -32,10 +32,9 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        # 264: 262 + 2 (раунд 4 — память-команды «запомни/забудь»:
-        # MEMORY_COMMANDS_USER_ENABLED/MEMORY_COMMANDS_REMEMBER_TTL_DAYS,
-        # T-715) — каталог пополнен парно
-        assert len(fields) == 264
+        # 265: 264 + 1 (фаза 2, T-755 — бессрочное хранение памяти:
+        # INFINITE_RETENTION) — каталог пополнен парно
+        assert len(fields) == 265
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -193,8 +192,8 @@ class TestGroups8424:
         # 61 (84.24.2 + задачи 1/2 от 2026-09-03) + models_video_summary +
         # reactions_word_reactions (эпик 04.09.2026) + keys_media/content_media
         # (раунд 3, T-687 — медиа-шара); имя актуализировано fix-раундом
-        # 04.09 (m7): 61 → 63
-        assert len(GROUPS) == 63
+        # 04.09 (m7): 61 → 63; фаза 2 (T-755): 63 → 64 (+ memory_infinite)
+        assert len(GROUPS) == 64
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -225,12 +224,13 @@ class TestGroups8424:
         тумблеры реакций/мимикрии, видео-промпт) + bugfix 04.09.2026
         (limits +2: расшифровка нативных TG-видео) + раунд 3 (медиа-шара:
         keys +1 / limits +6 / content +2 — T-687) + раунд 4 (T-715:
-        flags +1 / limits +1 — память-команды)."""
+        flags +1 / limits +1 — память-команды) + фаза 2 (T-755:
+        memory +1 — бессрочное хранение)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 29, "keys": 13,
                           "limits": 129, "flags": 43, "reactions": 38,
-                          "content": 3}
+                          "content": 3, "memory": 1}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

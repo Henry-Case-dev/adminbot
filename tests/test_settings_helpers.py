@@ -611,3 +611,30 @@ class TestBuildYtdlpBaseOpts:
         monkeypatch.setenv("YOUTUBE_COOKIES_FILE", "\t")
         importlib.reload(settings_mod)
         assert settings_mod.build_ytdlp_base_opts() == {"cachedir": False}
+
+
+class TestInfiniteRetentionEnv:
+    """Фаза 2 (T-755): settings.INFINITE_RETENTION — env-дефолт False,
+    валидные true-значения парсятся _env_bool (seed/тесты полноты)."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        monkeypatch.delenv("INFINITE_RETENTION", raising=False)
+        yield
+        importlib.reload(settings_mod)   # вернуть продовый инстанс
+
+    def test_default_false_without_env(self, monkeypatch):
+        importlib.reload(settings_mod)
+        assert settings_mod.settings.INFINITE_RETENTION is False
+
+    def test_true_forms(self, monkeypatch):
+        for raw in ("true", "True", "1", "on", "yes"):
+            monkeypatch.setenv("INFINITE_RETENTION", raw)
+            importlib.reload(settings_mod)
+            assert settings_mod.settings.INFINITE_RETENTION is True, raw
+
+    def test_false_forms(self, monkeypatch):
+        for raw in ("false", "0", "off", ""):
+            monkeypatch.setenv("INFINITE_RETENTION", raw)
+            importlib.reload(settings_mod)
+            assert settings_mod.settings.INFINITE_RETENTION is False, raw

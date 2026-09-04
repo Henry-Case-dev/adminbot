@@ -3,10 +3,10 @@
 Идемпотентный DDL при старте (CREATE TABLE IF NOT EXISTS) + сиды
 (INSERT … ON CONFLICT DO NOTHING): роли v2 (84.14.3), КРИТИЧНЫЕ telegram_id
 (84.3), стартовый bot_settings по каталогу services/param_catalog.py
-(84.12.3 belt-and-suspenders: дефолты категорий models/limits/flags/reactions
-из settings + prompts из код-канонов; секреты НЕ сидятся — пусто = уровень
-каскада выключен, ровно старое поведение пустого .env). Существующие значения
-bot_settings НИКОГДА не перезаписываются (ON CONFLICT DO NOTHING).
+(84.12.3 belt-and-suspenders: дефолты категорий models/limits/flags/reactions/
+memory из settings + prompts из код-канонов; секреты НЕ сидятся — пусто =
+уровень каскада выключен, ровно старое поведение пустого .env). Существующие
+значения bot_settings НИКОГДА не перезаписываются (ON CONFLICT DO NOTHING).
 """
 import importlib
 import json
@@ -19,6 +19,7 @@ from config.settings import settings
 from services.param_catalog import (
     CATEGORY_FLAGS,
     CATEGORY_LIMITS,
+    CATEGORY_MEMORY,
     CATEGORY_MODELS,
     CATEGORY_PROMPTS,
     CATEGORY_REACTIONS,
@@ -107,9 +108,10 @@ INSERT_SETTING_SQL = """
 """
 
 # Категории belt-and-suspenders сида дефолтов (84.12.3): БЕЗ ключей-секретов.
+# memory (фаза 2, T-755): стартовый сид memory.infinite_retention=false.
 SEED_CATEGORIES: frozenset[str] = frozenset(
     {CATEGORY_PROMPTS, CATEGORY_MODELS, CATEGORY_LIMITS, CATEGORY_FLAGS,
-     CATEGORY_REACTIONS}
+     CATEGORY_REACTIONS, CATEGORY_MEMORY}
 )
 
 

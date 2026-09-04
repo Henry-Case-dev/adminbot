@@ -7,6 +7,26 @@ L3: compressed archive facts + sqlite-vec KNN with mandatory FTS5 fallback.
 Epic 46 (Section 55): GraphRAG v2 — memorize_facts (Fact Extractor, канон
 R46-2), гибридный RAG (build_rag_context, канон R46-4), fire_and_forget-хуки,
 фиксы диагностики 55.8 (_embed-ретраи, vec-реактивация, backfill).
+
+Фаза 2 (импорт истории, T-756): тумблер memory.infinite_retention — список
+точек-гейтов (самодокументация; ON = «сырьё и факты памяти не удаляются и
+не сжимаются по TTL/ретенции», для исторического импорта):
+  G1  compress_and_purge — extract-only ветка: _extract_and_save_graph по
+      пачкам старых сообщений БЕЗ сжатия/удаления сырья и БЕЗ записи
+      smart_archive; пачки импортированных строк (import_key IS NOT NULL)
+      исключаются из extract (get_smart_raw exclude_imported=True) — их
+      графом пополняет только Graph-воркер (history_processed);
+      обработанные live-строки помечаются history_processed=1
+      (mark_smart_messages_processed) — выборка extract берёт
+      history_processed=0 AND import_key IS NULL (общая колонка с воркером,
+      наборы строк дизъюнктны: воркер — import_key IS NOT NULL);
+  G2  _purge_archive — skip (no-op; архив живёт до OFF);
+  G3  database.purge_expired_graph_facts — return 0 (гейт в db-слое);
+  G4  database.purge_unconfirmed_graph_facts — return 0 (гейт в db-слое);
+  G5  database.trim_compression_log — return 0 (гейт в db-слое);
+  G6  memory_maintenance.review — фазы expired/unconfirmed/trim скипаются
+      самими гейтами G3-G5; merge-фазы (слияние, не удаление) работают.
+Явные команды «забудь»/«/clear» работают всегда (гейтов не имеют).
 """
 import asyncio
 import calendar
@@ -1622,7 +1642,9 @@ class MemoryManager:
             except Exception:
                 logger.warning("graphrag RAG: touch failed | chat_id=%s",
                                chat_id, exc_info=True)
-        return [(row["origin"], row["fact"], row["created_at"]) for row in kept]
+        # Фаза 2 (T-759): рендер ts = COALESCE(message_timestamp, created_at) —
+        # импортированные факты показывают дату сообщения-источника.
+        return [(row["origin"], row["fact"], row["rag_ts"]) for row in kept]
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
                                include_direct_reply=False) -> list:
@@ -1668,7 +1690,10 @@ class MemoryManager:
             except Exception:
                 logger.warning("graphrag RAG: touch failed | chat_id=%s",
                                chat_id, exc_info=True)
-        return [(by_id[f]["origin"], by_id[f]["fact"], by_id[f]["created_at"])
+        # Фаза 2 (T-759): KNN-путь — ts = message_timestamp or created_at
+        # (импортированные факты: дата сообщения, не дата импорта).
+        return [(by_id[f]["origin"], by_id[f]["fact"],
+                 by_id[f]["message_timestamp"] or by_id[f]["created_at"])
                 for f in chosen]
 
     async def _vec_candidates(self, chat_id, vector, fetch_k,
@@ -1885,6 +1910,16 @@ class MemoryManager:
     # ── L3 compression + retention (A5: called only under generator lock) ──
 
     async def compress_and_purge(self, chat_id: int) -> None:
+        """L3-компрессия + retention (крон 4×/день + ручной /summary).
+        Фаза 2 (T-756, G1): memory.infinite_retention ON → extract-only ветка
+        (_compress_purge_extract_only): граф пополняется nodes/edges по
+        пачкам старых сообщений БЕЗ сжатия, БЕЗ удаления сырья и БЕЗ записи
+        smart_archive; импортированные строки (import_key IS NOT NULL) из
+        extract исключаются (их графом пополняет Graph-воркер). OFF — ровно
+        текущий код (сжатие → smart_archive+extract → DELETE сырья)."""
+        if hot.get("memory.infinite_retention", settings.INFINITE_RETENTION):
+            await self._compress_purge_extract_only(chat_id)
+            return
         cutoff = int(time.time()) - (hot.get("limits.full_memory_retention_days", settings.FULL_MEMORY_RETENTION_DAYS) or 0) * 86400
         batch_size = (hot.get("limits.summary_compress_batch", settings.SUMMARY_COMPRESS_BATCH) or 0)
         processed = 0
@@ -1932,6 +1967,73 @@ class MemoryManager:
             logger.warning(
                 "graphrag purge: expired-facts purge failed | chat_id=%s",
                 chat_id, exc_info=True,
+            )
+
+    async def _compress_purge_extract_only(self, chat_id: int) -> None:
+        """G1 (T-756): extract-only ветка при memory.infinite_retention ON —
+        сырьё живёт вечно (L1/FTS по всей истории), граф пополняется
+        nodes/edges из пачек старых сообщений. smart_archive НЕ пишется,
+        пачки НЕ удаляются, _purge_archive НЕ вызывается (гейт G2),
+        purge-гейты G3-G5 живут в db-слое. Импортированные строки
+        (import_key IS NOT NULL) в выборку не попадают — их графом пополняет
+        только Graph-воркер истории (history_processed), параллельная
+        крон-LLM-экстракция по ним исключена (дубли/двойные деньги).
+
+        Маркер обработанности (fix B-раунда): выборка берёт только
+        history_processed = 0 (exclude_processed), после успешной экстракции
+        окна строки помечаются history_processed=1
+        (db.mark_smart_messages_processed — только live, import_key IS NULL)
+        — иначе live-строки старше cutoff пере-экстрактились бы каждым
+        кроном 4×/день вечно (инфляция весов рёбер). С Graph-воркером
+        колонка общая, НО наборы строк дизъюнктны: воркер берёт/помечает
+        import_key IS NOT NULL, extract-only — import_key IS NULL.
+
+        No-op при flags.graph_rag_enabled OFF (fix B-раунда): extract_enabled
+        вычислен ниже → ранний выход БЕЗ маркировки history_processed — иначе
+        при ≥batch_size необработанных live-строк старше cutoff был бы
+        бесконечный busy-loop (строки не помечаются/не удаляются, выход
+        только по len(ids) < batch_size). Строки остаются непомеченными —
+        при включении graph-флага экстракция возобновится с той же выборки
+        (exclude_processed=True отдаст их снова). Без экстракции маркер НЕ
+        ставится."""
+        cutoff = int(time.time()) - (hot.get("limits.full_memory_retention_days", settings.FULL_MEMORY_RETENTION_DAYS) or 0) * 86400
+        batch_size = (hot.get("limits.summary_compress_batch", settings.SUMMARY_COMPRESS_BATCH) or 0)
+        extract_enabled = hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED)
+        if not extract_enabled:
+            logger.debug(
+                "SmartModule L3 (retention ON): extract-only no-op — "
+                "flags.graph_rag_enabled OFF, строки не помечаются (экстракция "
+                "возобновится при включении флага) | chat_id=%s",
+                chat_id,
+            )
+            return
+        processed = 0
+        while True:
+            batch = await self.db.get_smart_raw(
+                chat_id, cutoff, batch_size, exclude_imported=True,
+                exclude_processed=True)
+            if not batch:
+                break
+            ids = [row["id"] for row in batch]
+            try:
+                await self._extract_and_save_graph(chat_id, batch)
+            except Exception:
+                logger.exception(
+                    "SmartModule L3 (retention ON): extract failed — batch kept, "
+                    "pipeline continues | chat_id=%s",
+                    chat_id,
+                )
+                break
+            # успешная экстракция окна → маркер (повторный крон не
+            # пере-экстрактит; новые строки после маркера — экстрактятся)
+            await self.db.mark_smart_messages_processed(chat_id, ids)
+            processed += len(ids)
+            if len(ids) < batch_size:
+                break
+        if processed:
+            logger.info(
+                "SmartModule L3 (retention ON): extract-only %d messages kept "
+                "(no compression) | chat_id=%s", processed, chat_id
             )
 
     async def _compress_batch(self, batch: list) -> list[str]:
@@ -2022,6 +2124,10 @@ class MemoryManager:
                 )
 
     async def _purge_archive(self, chat_id: int) -> None:
+        """G2 (T-756): memory.infinite_retention ON → skip (архивные факты не
+        удаляются по ретенции; живут до OFF). OFF — ровно текущее поведение."""
+        if hot.get("memory.infinite_retention", settings.INFINITE_RETENTION):
+            return
         archive_cutoff = int(time.time()) - (hot.get("limits.archive_memory_retention_days", settings.ARCHIVE_MEMORY_RETENTION_DAYS) or 0) * 86400
         if self._vec_available:
             try:

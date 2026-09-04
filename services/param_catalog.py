@@ -8,12 +8,15 @@
 
 Каждая запись ParamSpec: settings-поле (или None для env-only/PG-only ключей),
 env-имя, категория bot_settings (prompts|models|keys|limits|flags|reactions|
-content; None = infra — НЕ мигрируется и НЕ попадает в дерево прав), русский
-заголовок, тип (str|int|float|bool|json), флаг секретности (R17: значения
-секретов никогда не печатаются), опциональный code_source для prompts
-(«module.attr» — код-канон, в .env их нет; сид при старте ConfigCache).
+content|memory; None = infra — НЕ мигрируется и НЕ попадает в дерево прав),
+русский заголовок, тип (str|int|float|bool|json), флаг секретности (R17:
+значения секретов никогда не печатаются), опциональный code_source для
+prompts («module.attr» — код-канон, в .env их нет; сид при старте ConfigCache).
 
 Ключ в PG — dotted: {category}.{snake_name} (84.12.1).
+
+memory (фаза 2, T-755): бессрочное хранение памяти — тумблер
+memory.infinite_retention (категория «Память», группа memory_infinite).
 """
 import dataclasses
 import json
@@ -31,6 +34,8 @@ CATEGORY_LIMITS = "limits"
 CATEGORY_FLAGS = "flags"
 CATEGORY_REACTIONS = "reactions"
 CATEGORY_CONTENT = "content"
+# Фаза 2 (T-755): бессрочное хранение памяти (memory.infinite_retention).
+CATEGORY_MEMORY = "memory"
 
 CATEGORIES: tuple[str, ...] = (
     CATEGORY_PROMPTS,
@@ -40,6 +45,7 @@ CATEGORIES: tuple[str, ...] = (
     CATEGORY_FLAGS,
     CATEGORY_REACTIONS,
     CATEGORY_CONTENT,
+    CATEGORY_MEMORY,
 )
 
 
@@ -223,6 +229,10 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Текст справки для пользователей.", 1),
     GroupSpec("content_media", "content", "Медиа-шара",
               "Каталог временных публикаций видео и внешний URL (раунд 3).", 2),
+    # memory (1; фаза 2, T-755)
+    GroupSpec("memory_infinite", "memory", "Бессрочное хранение",
+              "Хранение памяти без сроков годности: сырьё и факты не удаляются "
+              "и не сжимаются по TTL/ретенции (для исторического импорта).", 1),
 )
 
 
@@ -846,6 +856,16 @@ _REACTIONS: list[tuple] = [
 ]
 
 
+# ── memory: бессрочное хранение (фаза 2, T-755) ────────────────────────────
+# (field, title_ru, type, group, description)
+_MEMORY: list[tuple] = [
+    ("INFINITE_RETENTION", "Бессрочное хранение памяти", "bool",
+     "memory_infinite",
+     "Отключает сжатие/удаление сырья и TTL-очистки памяти: всё хранится "
+     "бессрочно (импорт истории)."),
+]
+
+
 def _build_registry() -> dict[str, ParamSpec]:
     """Единый реестр: ключ — settings_field (или env_name для env-only)."""
     registry: dict[str, ParamSpec] = {}
@@ -898,6 +918,10 @@ def _build_registry() -> dict[str, ParamSpec]:
     for spec_id, title, group, desc in _CONTENT:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "json",
                       pg_id=spec_id, group=group, description=desc))
+    for field, title, typ, group, desc in _MEMORY:
+        add(ParamSpec(field, field, CATEGORY_MEMORY, title, typ,
+                      group=group, description=desc,
+                      pg_id=f"{CATEGORY_MEMORY}.infinite_retention"))
     return registry
 
 
@@ -985,6 +1009,7 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     (TAB_MEMORY_RAG, (
         (CATEGORY_LIMITS, frozenset({"limits_memory", "limits_graph"})),
         (CATEGORY_FLAGS, frozenset({"flags_memory"})),
+        (CATEGORY_MEMORY, None),
     )),
     (TAB_REACTIONS_TRIGGERS, (
         (CATEGORY_REACTIONS, None),

@@ -34,6 +34,7 @@
       sources: [
         { category: 'limits', groups: ['limits_memory', 'limits_graph'] },
         { category: 'flags', groups: ['flags_memory'] },
+        { category: 'memory', groups: null },
       ] },
     { id: 'reactions_triggers', icon: '🎭', label: 'Реакции и Триггеры', type: 'config',
       sources: [

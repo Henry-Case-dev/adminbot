@@ -400,6 +400,13 @@ class Settings:
     # Срок «запомни» (origin user_memory), дней; 0 = вечно (экспирация выключена).
     MEMORY_COMMANDS_REMEMBER_TTL_DAYS: int = _env_int("MEMORY_COMMANDS_REMEMBER_TTL_DAYS", 365)
 
+    # ── Фаза 2 (импорт истории, T-755): бессрочное хранение памяти ──────────
+    # True = все TTL/retention-очистки памяти пропускаются (сырьё и факты не
+    # удаляются и не сжимаются по сроку годности — для исторического импорта).
+    # Управляется админкой (memory.infinite_retention, категория memory);
+    # env нужен для сида каталога/тестов полноты (env_name обязан совпадать).
+    INFINITE_RETENTION: bool = _env_bool("INFINITE_RETENTION", False)
+
     # ── SmartModule: FactCheck + SmartSearch (Epic 33, D104) ─────
     # Ключи поисковиков. Пусто = уровень каскада отключён (WARNING при старте).
     # Секреты — ТОЛЬКО в .env (R17): не в коде, не в .env.example.

@@ -539,6 +539,7 @@ def _category_title(category: str) -> str:
         "flags": "Флаги модулей",
         "reactions": "Реакции и персоны",
         "content": "Контент",
+        "memory": "Память",
     }.get(category, category)
 
 

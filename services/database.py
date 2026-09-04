@@ -7,7 +7,36 @@ import time
 import aiosqlite
 from pathlib import Path
 
+from config.settings import settings
+from services import hot_config as hot
+
 logger = logging.getLogger(__name__)
+
+# ── Тумблер memory.infinite_retention (фаза 2, T-756): гейты TTL/retention ──
+# ON = «сырьё и факты памяти не удаляются и не сжимаются по TTL/ретенции»
+# (для исторического импорта). Список точек-гейтов (самодокументация):
+#   G1 summary_memory.compress_and_purge — extract-only ветка (без сжатия/
+#      удаления/архива); пачки импортированных строк (import_key IS NOT NULL)
+#      исключаются из extract (get_smart_raw exclude_imported=True);
+#      обработанные live-строки помечаются history_processed=1
+#      (mark_smart_messages_processed) — повторный крон не пере-экстрактит;
+#   G2 summary_memory._purge_archive — skip (архив живёт до OFF);
+#   G3 database.purge_expired_graph_facts (:1261) — return 0 без SQL;
+#   G4 database.purge_unconfirmed_graph_facts (:1792) — return 0;
+#   G5 database.trim_compression_log (:1814) — return 0;
+#   G6 memory_maintenance.review — фазы expired/unconfirmed/trim скипаются
+#      самими гейтами G3-G5 (merge-фазы — слияние, не удаление — работают).
+# Явные команды «забудь»/«/clear» работают всегда (гейтов не имеют).
+# Чтение: hot.get("memory.infinite_retention", settings.INFINITE_RETENTION).
+# Импорт hot_config циклов не создаёт: hot_config → param_catalog →
+# config.settings; param_catalog не импортирует database.py.
+
+_RETENTION_PG_KEY = "memory.infinite_retention"
+
+
+def _infinite_retention_on() -> bool:
+    """ON-состояние тумблера бессрочного хранения (фолбэк False без кэша)."""
+    return bool(hot.get(_RETENTION_PG_KEY, settings.INFINITE_RETENTION))
 
 _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
@@ -1026,15 +1055,27 @@ class DatabaseService:
         rows.reverse()
         return rows
 
-    async def get_smart_raw(self, chat_id: int, older_than_ts: int, limit: int) -> list:
-        """L2/сжатие: messages older than the cutoff timestamp, ASC order."""
-        cursor = await self.db.execute(
-            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source, tg_message_id "
+    async def get_smart_raw(self, chat_id: int, older_than_ts: int, limit: int,
+                            exclude_imported: bool = False,
+                            exclude_processed: bool = False) -> list:
+        """L2/сжатие: messages older than the cutoff timestamp, ASC order.
+        Фаза 2 (T-756, G1): exclude_imported=True → + AND import_key IS NULL
+        (импортированные строки графом пополняются ТОЛЬКО Graph-воркером по
+        history_processed — крон-LLM-экстракция по ним не гоняется);
+        exclude_processed=True → + AND history_processed = 0 (extract-only:
+        live-строки после успешной экстракции помечаются
+        mark_smart_messages_processed — повторный крон их не пере-экстрактит)."""
+        sql = (
+            "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, "
+            "author_name, is_forward, forward_source, tg_message_id "
             "FROM smart_messages WHERE chat_id = ? AND timestamp < ? "
-            "ORDER BY timestamp ASC LIMIT ?",
-            (chat_id, older_than_ts, limit),
         )
+        if exclude_imported:
+            sql += "AND import_key IS NULL "
+        if exclude_processed:
+            sql += "AND history_processed = 0 "
+        sql += "ORDER BY timestamp ASC LIMIT ?"
+        cursor = await self.db.execute(sql, (chat_id, older_than_ts, limit))
         return await cursor.fetchall()
 
     async def get_recent_messages(self, chat_id: int, limit: int) -> list:
@@ -1093,6 +1134,25 @@ class DatabaseService:
             f"DELETE FROM smart_messages WHERE chat_id = ? AND id IN ({placeholders})",
             [chat_id, *ids],
         )
+        await self.db.commit()
+        return cursor.rowcount
+
+    async def mark_smart_messages_processed(self, chat_id: int,
+                                            ids: list[int]) -> int:
+        """Фаза 2 (T-756/G1, fix): маркер обработанности live-строк
+        (history_processed=1) ПОСЛЕ успешной extract-only экстракции окна —
+        повторный крон (4×/день) не пере-экстрактит те же строки вечно
+        (инфляция весов рёбер). Только live-строки (import_key IS NULL):
+        выборка extract-ветки и выборка Graph-воркера (import_key IS NOT
+        NULL AND history_processed = 0) не пересекаются. Returns count."""
+        if not ids:
+            return 0
+        placeholders = ",".join("?" for _ in ids)
+        cursor = await self.db.execute(
+            f"UPDATE smart_messages SET history_processed = 1 "
+            f"WHERE chat_id = ? AND import_key IS NULL "
+            f"AND id IN ({placeholders})",
+            [chat_id, *ids])
         await self.db.commit()
         return cursor.rowcount
 
@@ -1330,7 +1390,9 @@ class DatabaseService:
         (пересортировка по w_eff) происходит в Python (SQL не меняем)."""
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
-            "f.weight, f.last_confirmed_at FROM graph_facts_fts "
+            "f.weight, f.last_confirmed_at, f.message_timestamp, "
+            "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
+            "FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
             "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
             "AND (f.expires_at IS NULL OR f.expires_at > ?) "
@@ -1342,21 +1404,24 @@ class DatabaseService:
         return await cursor.fetchall()
 
     async def get_graph_fact_texts(self, fact_ids, status=None) -> list:
-        """[(origin, fact, created_at), ...] в порядке fact_ids (порядок KNN
-        сохраняется). Epic 50 (58.7): + created_at/target_user (только SELECT).
+        """[(origin, fact, ts), ...] в порядке fact_ids (порядок KNN
+        сохраняется). ts = message_timestamp or created_at (фаза 2, T-759:
+        дата-рендер COALESCE — импортированные факты с датой сообщения).
+        Epic 50 (58.7): + created_at/target_user (только SELECT).
         Epic 60 (64.2): status='confirmed' → unconfirmed исключаются из RAG."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
-        sql = (f"SELECT id, fact, origin, created_at, target_user "
-               f"FROM graph_facts WHERE id IN ({placeholders})")
+        sql = (f"SELECT id, fact, origin, created_at, target_user, "
+               f"message_timestamp FROM graph_facts WHERE id IN ({placeholders})")
         params: list = list(fact_ids)
         if status:
             sql += " AND status = ?"
             params.append(status)
         cursor = await self.db.execute(sql, params)
         by_id = {
-            row["id"]: (row["origin"], row["fact"], row["created_at"])
+            row["id"]: (row["origin"], row["fact"],
+                        row["message_timestamp"] or row["created_at"])
             for row in await cursor.fetchall()
         }
         return [by_id[fid] for fid in fact_ids if fid in by_id]
@@ -1365,7 +1430,15 @@ class DatabaseService:
         """Опциональный purge (D175, 55.1 #5): edges истёкших узлов → edges с
         истёкшим expires_at → истёкшие nodes → истёкшие graph_facts (+FTS).
         Epic 60 (66.11, T-489): chat_id=None → глобальный проход по всем чатам
-        (пересмотр); с chat_id — piggyback 55.1 #5 (без изменений)."""
+        (пересмотр); с chat_id — piggyback 55.1 #5 (без изменений).
+        Фаза 2 (T-756, гейт G3): memory.infinite_retention ON → return 0
+        без SQL (TTL-факты не удаляются; единая точка — покрывает всех
+        вызывающих: compress_and_purge :1930 и memory_maintenance.review)."""
+        if _infinite_retention_on():
+            logger.info(
+                "[database] purge_expired_graph_facts skipped — "
+                "memory.infinite_retention ON (T-756)")
+            return 0
         now = int(time.time())
         chat_filter = "AND e.chat_id = ?" if chat_id is not None else ""
         node_chat = "AND chat_id = ?" if chat_id is not None else ""
@@ -1768,12 +1841,13 @@ class DatabaseService:
         """66.1/66.3: полные строки graph_facts по id (id/fact/origin/
         created_at/target_user/weight/status/last_confirmed_at) — для
         weight×decay-ранжирования KNN-пути в Python. status-фильтр — как в
-        get_graph_fact_texts (64.2)."""
+        get_graph_fact_texts (64.2). Фаза 2 (T-759): + message_timestamp
+        (рендер COALESCE делает вызывающий — _knn_graph_facts)."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
-               f"status, last_confirmed_at FROM graph_facts "
+               f"status, last_confirmed_at, message_timestamp FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)
         if status:
@@ -1895,7 +1969,14 @@ class DatabaseService:
     async def purge_unconfirmed_graph_facts(self, now_ts: int,
                                             retention_days: int) -> int:
         """66.11 (T-489): выброс unconfirmed старше retention (64.2) — по всем
-        чатам; vec/FTS-строки чистим вместе (иначе KNN выдавал бы текст)."""
+        чатам; vec/FTS-строки чистим вместе (иначе KNN выдавал бы текст).
+        Фаза 2 (T-756, гейт G4): memory.infinite_retention ON → return 0
+        без SQL."""
+        if _infinite_retention_on():
+            logger.info(
+                "[database] purge_unconfirmed_graph_facts skipped — "
+                "memory.infinite_retention ON (T-756)")
+            return 0
         cursor = await self.db.execute(
             "SELECT id FROM graph_facts WHERE status = 'unconfirmed' "
             "AND created_at <= ?",
@@ -1916,7 +1997,13 @@ class DatabaseService:
 
     async def trim_compression_log(self, now: float, retention_days: int) -> int:
         """66.11 (T-489): усечение graph_fact_compressions старше retention —
-        лог не растёт вечно."""
+        лог не растёт вечно. Фаза 2 (T-756, гейт G5): memory.infinite_retention
+        ON → return 0 без SQL."""
+        if _infinite_retention_on():
+            logger.info(
+                "[database] trim_compression_log skipped — "
+                "memory.infinite_retention ON (T-756)")
+            return 0
         cursor = await self.db.execute(
             "DELETE FROM graph_fact_compressions WHERE created_at < ?",
             (now - retention_days * 86400.0,))
