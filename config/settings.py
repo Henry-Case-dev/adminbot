@@ -768,6 +768,17 @@ class Settings:
     # Потолок публикации: файл больше → не публикуем (WARNING; fallback STT/фраза).
     MEDIA_SHARE_MAX_MB: int = _env_int("MEDIA_SHARE_MAX_MB", 200)
 
+    # ── Видео-выжимка и STT (раунд 3, T-689/T-691/T-692) ──
+    # Таймаут ОДНОЙ STT-стратегии для видео-файлов (перекрывает groq/openrouter
+    # таймауты на вызов; голосовые НЕ трогают).
+    VIDEO_STT_TIMEOUT_SECONDS: float = _env_float_min("VIDEO_STT_TIMEOUT_SECONDS", 120.0, 5.0)
+    # Мин. длина транскрипта для «честной выжимки» (иначе фраза «нет речи»).
+    VIDEO_SUMMARY_MIN_CHARS: int = _env_int_min("VIDEO_SUMMARY_MIN_CHARS", 100, 1)
+    # Размерные гейты STT-провайдеров (Builder сверяет с фактическими лимитами
+    # ДО деплоя): Groq upload ~25МБ; OpenRouter input_audio base64 — консервативно 20МБ.
+    STT_GROQ_MAX_UPLOAD_MB: int = _env_int("STT_GROQ_MAX_UPLOAD_MB", 25)
+    STT_OPENROUTER_MAX_UPLOAD_MB: int = _env_int("STT_OPENROUTER_MAX_UPLOAD_MB", 20)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
 

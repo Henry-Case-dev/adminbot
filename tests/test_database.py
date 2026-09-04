@@ -502,11 +502,11 @@ def _create_v2_db(path):
 class TestEpic60V3Migration:
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """63.6 #1: PRAGMA user_version == 3 (Epic 46 → 1, Epic 50 → 2,
-        Epic 60/63.3 → 3)."""
+        """63.6 #1 + раунд 3 (3.6/B7): PRAGMA user_version == 4 (Epic 46 → 1,
+        Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 3
+        assert row[0] == 4
 
     @pytest.mark.asyncio
     async def test_v3_tables_created(self, db):
@@ -549,13 +549,13 @@ class TestEpic60V3Migration:
         assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 3
+        assert (await cursor.fetchone())[0] == 4     # раунд 3: 3→4 (B7)
         await d.close()
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_stays_3(self, tmp_path):
-        """63.6 #1/#4: повторный initialize — no-op (user_version остаётся 3,
-        данные не задвоены)."""
+        """63.6 #1/#4 + раунд 3: повторный initialize — no-op (user_version
+        остаётся 4, данные не задвоены)."""
         path = tmp_path / "reinit.db"
         _create_v2_db(path)
         d = DatabaseService(str(path))
@@ -563,7 +563,7 @@ class TestEpic60V3Migration:
         await d.close()
         await d.initialize()                       # «рестарт»
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 3
+        assert (await cursor.fetchone())[0] == 4
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
@@ -644,3 +644,108 @@ class TestBotRepliesTable:
     async def test_chat_isolation(self, db):
         await db.upsert_bot_reply(-100, 42, "наш", 1000.0)
         assert await db.get_bot_reply(-200, 42, 1001.0) is None
+
+
+# Раунд 3 (3.6/B7, T-693): CHECK graph_facts.origin — voice/video_transcript
+# (пересоздание с сохранением id/весов, user_version 3→4, повтор — no-op).
+
+_V3_GRAPH_FACTS_DDL = """CREATE TABLE graph_facts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id    INTEGER NOT NULL,
+    fact       TEXT NOT NULL,
+    origin     TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
+               ('chat_history', 'search_fact', 'youtube_content', 'web_content',
+                'bot_direct_reply')),
+    expires_at INTEGER,
+    created_at INTEGER NOT NULL,
+    target_user TEXT,
+    weight REAL NOT NULL DEFAULT 0.5,
+    status TEXT NOT NULL DEFAULT 'confirmed',
+    last_confirmed_at INTEGER,
+    supersedes INTEGER
+);"""
+
+
+def _create_v3_db(path):
+    """v3-фикстура (раунд 3): пре-B7 схема graph_facts (без voice/video),
+    user_version = 3, один факт с весом/статусом."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(path))
+    conn.executescript(_V3_GRAPH_FACTS_DDL)
+    conn.execute(
+        "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+        "created_at, target_user, weight, status, last_confirmed_at, supersedes) "
+        "VALUES (7, -100, 'факт до миграции', 'chat_history', NULL, "
+        "1700000000, 'вася', 0.7, 'confirmed', 1700000000, NULL)")
+    conn.execute("PRAGMA user_version = 3")
+    conn.commit()
+    conn.close()
+
+
+class TestVideoOriginsMigrationV4:
+    """3.6/B7 (T-693, AC-B9): старая схема → v4 с сохранением id/весов;
+    INSERT voice_transcript/video_transcript успешен; user_version=4;
+    повторный запуск no-op; факт виден в get_rag_context."""
+
+    @pytest.mark.asyncio
+    async def test_v3_db_migrates_to_v4_preserving_rows(self, tmp_path):
+        path = tmp_path / "v3.db"
+        _create_v3_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 4
+        # schema содержит новые origins
+        cursor = await d.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
+        sql = (await cursor.fetchone())["sql"]
+        assert "video_transcript" in sql
+        assert "voice_transcript" in sql
+        # данные сохранены (id 7, вес/статус целы)
+        cursor = await d.db.execute(
+            "SELECT id, fact, origin, weight, status FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["id"] == 7
+        assert row["fact"] == "факт до миграции"
+        assert row["weight"] == 0.7
+        assert row["status"] == "confirmed"
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_v4_insert_voice_and_video_origins_ok(self, db):
+        fact_id1 = await db.insert_graph_fact(
+            -100, "кружок: вася говорил про борщ", "voice_transcript", None)
+        fact_id2 = await db.insert_graph_fact(
+            -100, "видео: в ролике показывают сервер", "video_transcript", None)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE origin IN "
+            "('voice_transcript', 'video_transcript')")
+        assert (await cursor.fetchone())["c"] == 2
+        assert fact_id1 > 0 and fact_id2 > fact_id1
+
+    @pytest.mark.asyncio
+    async def test_v4_fact_reachable_via_fts_rag(self, db):
+        """AC-B9: факт новых origins попадает в FTS-путь get_rag_context
+        (search_graph_facts_fts — без origin-фильтра)."""
+        await db.insert_graph_fact(
+            -100, "ролик про дрессировку собаки породы шпиц",
+            "video_transcript", None)
+        rows = await db.search_graph_facts_fts(
+            -100, '"шпиц"*', 5, int(time.time()))
+        assert rows and rows[0]["origin"] == "video_transcript"
+
+    @pytest.mark.asyncio
+    async def test_reinitialize_v4_is_noop(self, tmp_path):
+        path = tmp_path / "v4.db"
+        _create_v3_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+        await d.close()
+        await d.initialize()                        # «рестарт» — no-op
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 4
+        cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 1  # данные не задвоены
+        await d.close()

@@ -1,4 +1,4 @@
-"""Epic 50 (58.7, D201; REVISE S1): smoke-тест скрипта миграции 1→2.
+﻿"""Epic 50 (58.7, D201; REVISE S1): smoke-тест скрипта миграции 1→2.
 
 Создаёт старую БД (схема Epic 46: graph_facts без 'bot_direct_reply',
 smart_messages без tg_message_id, user_version=1) и запускает
@@ -55,7 +55,7 @@ def test_migration_script_v1_to_v2(tmp_path, monkeypatch):
     conn = sqlite3.connect(str(path))
     try:
         # Epic 60 (63.3): initialize каскадно применяет и v3 → финал 3.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
         sql = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
         ).fetchone()[0]
@@ -81,7 +81,7 @@ def test_migration_script_idempotent_second_run(tmp_path, monkeypatch):
     conn = sqlite3.connect(str(path))
     try:
         # Epic 60 (63.3): initialize каскадно применяет и v3 → финал 3.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
         row = conn.execute("SELECT COUNT(*) FROM graph_facts").fetchone()
         assert row[0] == 1                      # строки не задвоены
     finally:

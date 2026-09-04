@@ -46,7 +46,7 @@ class FakeTranscriber:
     def available(self):
         return True
 
-    async def transcribe(self, file_path):
+    async def transcribe(self, file_path, *, timeout=None):
         self.calls.append(file_path)
         if self._error is not None:
             raise self._error
@@ -208,7 +208,7 @@ class TestServiceStrategy:
             def available(self):
                 return True
 
-            async def transcribe(self, file_path: str) -> str:
+            async def transcribe(self, file_path: str, *, timeout=None) -> str:
                 calls.append(_time.monotonic())
                 await asyncio.sleep(0.5)  # имитация LLM-запроса
                 return "ok"

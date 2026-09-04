@@ -35,6 +35,9 @@ class GroqTranscriber(BaseTranscriber):
         self.timeout = hot.get("models.groq_timeout", settings.GROQ_TIMEOUT)
         self._max_retries = hot.get("models.groq_max_retries", settings.GROQ_MAX_RETRIES)
         self._min_interval = hot.get("models.groq_min_interval", settings.GROQ_MIN_INTERVAL)
+        # Раунд 3 (T-692): размерный гейт upload (HTTP 400 защита).
+        self.max_upload_mb = float(hot.get("limits.stt_groq_max_upload_mb",
+                                           settings.STT_GROQ_MAX_UPLOAD_MB) or 0)
         self._last_request_time: float = 0.0
         # AsyncOpenAI(api_key="") кидает OpenAIError — клиент строим только
         # при наличии ключа; пустой ключ = стратегия недоступна.
@@ -93,16 +96,20 @@ class GroqTranscriber(BaseTranscriber):
         if wait > 0:
             await asyncio.sleep(wait)
 
-    async def transcribe(self, file_path: str) -> str:
+    async def transcribe(self, file_path: str, *,
+                         timeout: float | None = None) -> str:
         """С retry на 429 (exponential backoff + honor Retry-After).
 
         R17: API ключ никогда не логируется. Ошибки логируются как тип
         исключения + retry-after (если есть), без URL или тела ответа.
         T-619: клиент перечитывается при смене ключа (hot-reload).
+        Раунд 3 (T-692): timeout — per-request таймаут SDK (None → self.timeout);
+        видео-вызовы передают limits.video_stt_timeout_seconds (120).
         """
         self._refresh_client()
         if self._client is None:
             raise RuntimeError("GroqTranscriber: GROQ_API_KEY is not configured")
+        effective = float(timeout) if timeout is not None else float(self.timeout)
 
         attempts = 0
         while True:
@@ -113,7 +120,7 @@ class GroqTranscriber(BaseTranscriber):
             try:
                 with open(file_path, "rb") as fh:
                     response = await self._client.audio.transcriptions.create(
-                        model=GROQ_TRANSCRIBE_MODEL, file=fh)
+                        model=GROQ_TRANSCRIBE_MODEL, file=fh, timeout=effective)
                 # Epic 85 (84.11.2): замер латентности для /api/status
                 status_service.record_llm(
                     "groq", (time.monotonic() - started) * 1000.0)

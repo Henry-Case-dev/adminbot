@@ -59,6 +59,9 @@ class OpenRouterTranscriber(BaseTranscriber):
         self._default_key = settings.OPENROUTER_API_KEY if api_key is None else api_key
         self.timeout = hot.get("models.openrouter_timeout", settings.OPENROUTER_TIMEOUT)
         self._max_retries = OPENROUTER_MAX_RETRIES
+        # Раунд 3 (T-692): размерный гейт upload (HTTP 400 base64-защита).
+        self.max_upload_mb = float(hot.get("limits.stt_openrouter_max_upload_mb",
+                                           settings.STT_OPENROUTER_MAX_UPLOAD_MB) or 0)
         self._client: AsyncOpenAI | None = self._build_client()
 
     def _current_api_key(self) -> str:
@@ -120,13 +123,15 @@ class OpenRouterTranscriber(BaseTranscriber):
             return True  # безопасно: retry на любые 403/400 от роутера
         return False
 
-    async def transcribe(self, file_path: str) -> str:
+    async def transcribe(self, file_path: str, *,
+                         timeout: float | None = None) -> str:
         # T-619: клиент перечитывается при смене ключа (hot-reload)
         self._refresh_client()
         if self._client is None:
             raise RuntimeError(
                 "OpenRouterTranscriber: OPENROUTER_API_KEY is not configured")
 
+        effective = float(timeout) if timeout is not None else float(self.timeout)
         raw = Path(file_path).read_bytes()
         audio_b64 = base64.b64encode(raw).decode("ascii")
         messages = [
@@ -148,6 +153,7 @@ class OpenRouterTranscriber(BaseTranscriber):
                 response = await self._client.chat.completions.create(
                     model=OPENROUTER_TRANSCRIBE_MODEL,
                     messages=messages,
+                    timeout=effective,
                 )
                 content = response.choices[0].message.content if response.choices else None
                 # Epic 85 (84.11.2): замер латентности для /api/status

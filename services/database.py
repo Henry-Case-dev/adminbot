@@ -13,6 +13,15 @@ _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём д
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
 _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
+_SCHEMA_VERSION_VIDEO_ORIGINS = 4  # Раунд 3 (3.6/B7): user_version 3→4
+
+# Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
+# месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграция v4).
+# Включает ВНЕШНИЕ скобки списка IN (формат вставки в «CHECK (origin IN %s)»).
+_GRAPH_FACT_ORIGINS_SQL = (
+    "('chat_history', 'search_fact', 'youtube_content', 'web_content', "
+    "'bot_direct_reply', 'voice_transcript', 'video_transcript')"
+)
 
 _EDGE_WEIGHT_CAP = 5             # Epic 60 (66.3/T-459 тема 5): подтверждение
                                  # связи +инкремент, cap 5 — вес не растёт вечно
@@ -138,14 +147,16 @@ class DatabaseService:
         -- GraphRAG v2 (Epic 46, Section 55.3): факты гибридного RAG
         -- (origin/expires_at — ТЗ R46-1; TTL-исключение — ленивое WHERE, D175;
         -- Epic 50 (58.7): CHECK + 'bot_direct_reply' и target_user — пересоздание
-        -- в _migrate_direct_chat_v2 для старых БД)
+        -- в _migrate_direct_chat_v2 для старых БД;
+        -- Раунд 3 (3.6/B7): + 'voice_transcript'/'video_transcript' (Epic 67
+        -- кружочки и видео-инъекции молча скипались — CHECK их не пускал))
         CREATE TABLE IF NOT EXISTS graph_facts (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id    INTEGER NOT NULL,
             fact       TEXT NOT NULL,
             origin     TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
                        ('chat_history', 'search_fact', 'youtube_content', 'web_content',
-                        'bot_direct_reply')),
+                        'bot_direct_reply', 'voice_transcript', 'video_transcript')),
             expires_at INTEGER,
             created_at INTEGER NOT NULL,
             target_user TEXT
@@ -201,6 +212,7 @@ class DatabaseService:
         await self._migrate_graphrag_v2()
         await self._migrate_direct_chat_v2()   # Epic 50 (58.7): user_version 1→2
         await self._migrate_epic60_v3()        # Epic 60 (63.3): user_version 2→3
+        await self._migrate_video_origins_v4() # Раунд 3 (3.6/B7): user_version 3→4
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -302,8 +314,7 @@ class DatabaseService:
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
                 "fact TEXT NOT NULL, "
                 "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
-                "('chat_history','search_fact','youtube_content','web_content',"
-                "'bot_direct_reply')), "
+                + _GRAPH_FACT_ORIGINS_SQL + "), "
                 "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT); "
                 "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, created_at, target_user) "
                 "SELECT id, chat_id, fact, origin, expires_at, created_at, NULL FROM graph_facts_old; "
@@ -392,6 +403,56 @@ class DatabaseService:
             "WHERE created_at IS NULL")
         await self.db.commit()
         await self.db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION_EPIC60}")
+        await self.db.commit()
+
+    async def _migrate_video_origins_v4(self) -> None:
+        """Раунд 3 (3.6/B7, T-693): CHECK graph_facts.origin + 'voice_transcript'/
+        'video_transcript' через пересоздание с сохранением ВСЕХ колонок
+        (id, chat_id, fact, origin, expires_at, created_at, target_user,
+        weight, status, last_confirmed_at, supersedes — статусы/веса Epic 60
+        добавлялись отдельными ALTER, в rebuild включаем) + INSERT…SELECT +
+        DROP old + индексы; PRAGMA user_version = 4. Повторный запуск — no-op
+        (guard '"video_transcript" not in sql' + PRAGMA). FTS5 graph_facts_fts
+        НЕ пересоздаётся (content-таблица пересоздана с теми же rowid —
+        прецедент D201; content='graph_facts' резолвится динамически).
+        Заметка (3.6): PostgreSQL-схемы graph_facts СЕЙЧАС НЕТ (pg_db.py —
+        только bot_settings/bot_roles/bot_admins/uptime_events); эпик 86
+        «GraphRAG→PG» — будущий, при его реализации origin-список
+        синхронизировать."""
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "video_transcript" not in row["sql"]:
+            logger.info(
+                "[database] migration v4: graph_facts origins rebuild "
+                "(voice/video_transcript)")
+            await self.db.executescript(
+                "ALTER TABLE graph_facts RENAME TO graph_facts_old; "
+                "CREATE TABLE graph_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "fact TEXT NOT NULL, "
+                "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
+                + _GRAPH_FACT_ORIGINS_SQL + "), "
+                "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT, "
+                "weight REAL NOT NULL DEFAULT 0.5, "
+                "status TEXT NOT NULL DEFAULT 'confirmed', "
+                "last_confirmed_at INTEGER, supersedes INTEGER); "
+                "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+                "created_at, target_user, weight, status, last_confirmed_at, "
+                "supersedes) "
+                "SELECT id, chat_id, fact, origin, expires_at, created_at, "
+                "target_user, weight, status, last_confirmed_at, supersedes "
+                "FROM graph_facts_old; "
+                "DROP TABLE graph_facts_old; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin "
+                "ON graph_facts(chat_id, origin); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user "
+                "ON graph_facts(chat_id, target_user);"
+            )
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_VIDEO_ORIGINS}")
         await self.db.commit()
 
     async def close(self) -> None:
