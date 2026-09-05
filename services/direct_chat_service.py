@@ -119,7 +119,8 @@ class DirectChatService:
 
     def __init__(self, memory, db, llm, aliases, throttle=None,
                  bot_id: int | None = None, bot_username: str | None = None,
-                 breaker=None, cache=None, tool_router=None) -> None:
+                 breaker=None, cache=None, tool_router=None,
+                 chat_lore_cache=None) -> None:
         self.memory = memory
         self.db = db
         self.llm = llm
@@ -161,6 +162,11 @@ class DirectChatService:
         # инжектится из bot.py (get_smart_cache()); None → фича неактивна
         # (прецедент DI-тестов), env-рубильник CHAT_DEDUP_ENABLED — свой.
         self._cache = cache
+        # Раунд 7 (chat-lore-management-v2, T-781/F1): PG-лор чатов —
+        # опциональный ChatLoreCache (None → выключено → старое поведение;
+        # тесты и вызовы без инжекта не меняются; spec §3.9).
+        self.chat_lore_cache = chat_lore_cache
+        self._lore_cache_errors = 0       # дедуп WARNING (раз в 50 попыток)
 
     # ── bot_replies (персистентная таблица; TTL 3600/cap 200 — 63.1) ──
 
@@ -418,9 +424,18 @@ class DirectChatService:
             blocks.append(("rag", f"<RAG_Memory>\n{rag}\n</RAG_Memory>"))
         blocks.append(("target", f"<Target_User>{escape_xml_text(target_name)}</Target_User>"))
         # Epic 60 (65.10, T-478): защищённые факты — сразу после Target_User.
-        protected = await self._build_protected_facts(chat_id, target_name)
+        # Раунд 7 (T-781/F1, Q1): PG-лор (ChatLoreCache) — состояние ДО
+        # сборки protected: при активном PG-лоре SQLite chat-level канал
+        # (user_name IS NULL — легаси-лор раунда 5) целиком исключается
+        # (include_chat_level=False) — текст константы не задвоится; блок
+        # <chat_lore> идёт СРАЗУ ПОСЛЕ <protected_facts> (spec §3.9).
+        lore_active, lore_inner = await self._chat_lore_state(chat_id)
+        protected = await self._build_protected_facts(
+            chat_id, target_name, include_chat_level=not lore_active)
         if protected:
             blocks.append(("protected", protected))
+        if lore_inner:
+            blocks.append(("lore", f"<chat_lore>\n{lore_inner}\n</chat_lore>"))
         # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
         # T-619: флаг и слова настроения — горячие точки (фолбек settings).
         if hot.get("flags.chat_mood_enabled", settings.CHAT_MOOD_ENABLED):
@@ -622,14 +637,17 @@ class DirectChatService:
         return (f"<mood>собеседник звучит {mood}, "
                 f"подстрой тон под это, но не переигрывай</mood>")
 
-    async def _build_protected_facts(self, chat_id: int, target_name: str) -> str:
+    async def _build_protected_facts(self, chat_id: int, target_name: str,
+                                     include_chat_level: bool = True) -> str:
         """65.10: защищённые факты подмешиваются в контекст (карточки-слоты —
         не размазываются при сжатии). Fail-open → без секции.
         Раунд 5 (T-732): include_chat_level=True — чат-лор виден ВСЕМ юзерам
-        чата ВСЕГДА (65.10 + раунд 5)."""
+        чата ВСЕГДА (65.10 + раунд 5). Раунд 7 (T-781/F1): при активном
+        PG-лоре вызывающий передаёт include_chat_level=False — SQLite
+        chat-level канал не дублируется (дедуп ТОЛЬКО на чтении, Q1)."""
         try:
             facts = await self.db.get_protected_facts(
-                chat_id, target_name, include_chat_level=True)
+                chat_id, target_name, include_chat_level=include_chat_level)
         except Exception:
             logger.warning("direct: protected facts read failed | chat=%s",
                            chat_id, exc_info=True)
@@ -639,6 +657,60 @@ class DirectChatService:
         body = "\n".join(f"- {escape_xml_text(fact)}" for fact in facts)
         return (f"<protected_facts>\nважные факты, помни о них всегда:\n"
                 f"{body}\n</protected_facts>")
+
+    # ── Раунд 7 (T-781/F1): PG-лор чатов — состояние инжекта (spec §3.9) ──
+
+    async def _chat_lore_state(self, chat_id: int) -> tuple[bool, str]:
+        """Состояние PG-лора чата: `(lore_active, inner)` — inner —
+        экранированный текст блока (manual + `---` + auto, cap
+        limits.lore_inject_max_chars, авто-текст режется первым, маркер
+        «…[обрезано]»; БЕЗ тегов <chat_lore> — обёртку добавляет вызов).
+
+        Правила (Q1/§3.9):
+          * flags.lore_inject_enabled=false ИЛИ cache не инжектирован →
+            (False, "") — ровно старое поведение;
+          * исключение/PG down → WARNING с дедупом (раз в 50 попыток) →
+            (False, "") (fail-open: SQLite-легаси работает);
+          * профиля нет / not is_active / оба поля пусты → (False, "");
+          * иначе → (True, inner) — cap ДО инжекта, блок не режется
+            контекст-бюджетом (_apply_context_budget: kind "lore" вне
+            лимитов и порядка урезания)."""
+        if not hot.get("flags.lore_inject_enabled",
+                       settings.LORE_INJECT_ENABLED):
+            return False, ""
+        cache = self.chat_lore_cache
+        if cache is None:
+            return False, ""
+        try:
+            profile = await cache.get(chat_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self._lore_cache_errors += 1
+            if self._lore_cache_errors % 50 == 1:
+                logger.warning(
+                    "direct: chat lore cache failed — fail-open (пусто) | "
+                    "chat=%s", chat_id, exc_info=True)
+            return False, ""
+        if profile is None or not profile.is_active:
+            return False, ""
+        manual = (profile.manual_lore or "").strip()
+        auto = (profile.auto_lore or "").strip()
+        if not manual and not auto:
+            return False, ""
+        from services.lore_prompts import format_lore_block
+        cap = int(hot.get("limits.lore_inject_max_chars",
+                          settings.LORE_INJECT_MAX_CHARS) or 0)
+        # экранирование ДО cap: XML-спецсимволы не ломают блок; cap считается
+        # по экранированной форме (spec §3.6: содержимое экранируется)
+        block = format_lore_block(escape_xml_text(manual),
+                                  escape_xml_text(auto), cap)
+        if not block:
+            return False, ""
+        inner = block[len("<chat_lore>\n"):]
+        if inner.endswith("\n</chat_lore>"):
+            inner = inner[: -len("\n</chat_lore>")]
+        return True, inner
 
     # ── Epic 60 Фаза C (65.5/65.8): команды /clear /persona /tone /forget ──
 
@@ -775,17 +847,24 @@ class DirectChatService:
             # включается в карточку (решение владельца: «уместно: лор чата
             # в карточке»); идёт первыми строками списка, формат 66.9 VERBATIM
             # и счётчик N (одна строка на чат) не меняются.
+            # Раунд 7 (T-781/F1, spec §3.9): при активном PG-лоре SQLite
+            # chat-level канал исключается (include_chat_level=False), текст
+            # PG-лора добавляется ПЕРВОЙ «строкой» списка (многострочный
+            # текст одним элементом; счётчик «знаю о тебе» считает лор как
+            # +1); при неактивном PG-лоре — ровно как в раунде 5.
+            lore_active, lore_inner = await self._chat_lore_state(chat_id)
             protected = await self.db.get_protected_facts(
-                chat_id, canon, include_chat_level=True)
+                chat_id, canon, include_chat_level=not lore_active)
         except Exception:
             logger.warning("direct: persona card read failed | chat=%s name=%s",
                            chat_id, name, exc_info=True)
             return None
         facts = card["facts"]
         links = card["links"]
-        n = len(facts) + len(protected)
+        lore_lines = [lore_inner] if lore_inner else []
+        n = len(facts) + len(protected) + len(lore_lines)
         m = len(links)
-        lines = list(protected) + list(facts)
+        lines = lore_lines + list(protected) + list(facts)
         lines += [f"{link['source_name']} ({link['relation_type']}) "
                   f"{link['target_name']}" for link in links]
         lines = lines[:_PERSONA_MAX_ITEMS]

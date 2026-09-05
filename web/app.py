@@ -94,6 +94,10 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
 
     from web.api.routes import api_router
     app.include_router(api_router, prefix="/api")
+    # Раунд 7 (chat-lore-management-v2, T-779, E1): раздел «Лор чатов».
+    # Отдельный APIRouter (spec §3.8) — включение рядом с api_router.
+    from web.api.chat_lore import chat_lore_router
+    app.include_router(chat_lore_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
 

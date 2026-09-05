@@ -408,6 +408,9 @@ async def on_startup():
                 # (smart_cache, slug direct_dedup; рубильник CHAT_DEDUP_ENABLED).
                 cache=get_smart_cache(),
                 tool_router=_tool_router,
+                # Раунд 7 (T-781/F1): ChatLoreCache — инжект PG-лора в
+                # контекст; None (PG down/ранний старт) → старое поведение.
+                chat_lore_cache=get_lore_cache(),
             ),
             bot.id,
             (getattr(bot_user, "username", None) or "").lower(),
