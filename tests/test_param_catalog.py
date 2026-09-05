@@ -32,9 +32,10 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        # 270: 265 + 5 (embed-фоллбэк EMBEDDING_FALLBACK_* — раунд 5) —
+        # 271: 265 + 5 (embed-фоллбэк EMBEDDING_FALLBACK_* — раунд 5) +
+        # 1 (EMBEDDING_FALLBACK_API_KEY_2 — каскад ключей, задача 1) —
         # каталог пополнен парно
-        assert len(fields) == 270
+        assert len(fields) == 271
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -66,6 +67,7 @@ class TestInfraExcluded:
         "INFO_TEXT_FILE", "CHECKUP_JOURNALCTL_CMD",
         # embed-фоллбэк (раунд 5): EMBEDDING_FALLBACK_* — infra (.env)
         "EMBEDDING_FALLBACK_BASE_URL", "EMBEDDING_FALLBACK_API_KEY",
+        "EMBEDDING_FALLBACK_API_KEY_2",
         "EMBEDDING_FALLBACK_MODEL", "EMBEDDING_FALLBACK_TIMEOUT_SECONDS",
         "EMBEDDING_FALLBACK_MAX_RETRIES",
         # env-only
@@ -109,6 +111,8 @@ class TestSecrets:
         "COBALT_HTTP_PROXY",
         # embed-фоллбэк (раунд 5): ключ Google AI Studio — секрет (R17)
         "EMBEDDING_FALLBACK_API_KEY",
+        # каскад ключей embed-фоллбэка (задача 1): второй ключ — тоже секрет
+        "EMBEDDING_FALLBACK_API_KEY_2",
     }
 
     def test_secret_flags(self):

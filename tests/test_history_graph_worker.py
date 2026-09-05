@@ -29,6 +29,7 @@ from tools.history_import.llm_worker import (
     GraphWorker,
     HistoryLLMClient,
     HistoryLLMError,
+    humanize_embed_error,
     parse_facts_json,
     run_vec_backfill,
 )
@@ -564,13 +565,18 @@ class TestEmbedClientFallback:
     """Раунд 5: embed-фоллбэк EMBEDDING_FALLBACK_* в EmbedClient воркера:
     одна попытка POST {fb}/embeddings после EmbedError primary."""
 
-    def _client(self, fake, *, embed_fallback_model=None, **kw) -> EmbedClient:
+    def _client(self, fake, *, embed_fallback_model=None,
+                embed_fallback_api_key_2=None, **kw) -> EmbedClient:
         client = EmbedClient(
             base_url="https://embed.test/v1", api_key="sk-primary",
             model="gemini-x", timeout=5,
             embed_fallback_base_url="https://fallback.test/v1",
             embed_fallback_api_key="sk-fb",
-            embed_fallback_model=embed_fallback_model, **kw)
+            embed_fallback_model=embed_fallback_model,
+            embed_fallback_api_key_2=(
+                embed_fallback_api_key_2
+                if embed_fallback_api_key_2 is not None else ""),
+            **kw)
         _swap_http(client, fake)
         client._fb_client = fake          # ленивый фоллбэк-клиент — тоже fake
         return client
@@ -620,7 +626,7 @@ class TestEmbedClientFallback:
             base_url="https://embed.test/v1", api_key="sk-primary",
             model="gemini-x", timeout=5,
             embed_fallback_base_url="https://fallback.test/v1",
-            embed_fallback_api_key="")
+            embed_fallback_api_key="", embed_fallback_api_key_2="")
         _swap_http(client, fake)
         try:
             assert client._fb_active is False
@@ -693,6 +699,209 @@ class TestEmbedClientFallback:
         finally:
             await client.aclose()
         assert "embed fallback вернул 0 векторов на 1 текстов" in str(ei.value)
+
+
+class _FakeEmbedKeyCascade:
+    """Каскад двух ключей EmbedClient: primary всегда 403 (embed.test),
+    статус фоллбэка выбирается по Bearer ключа (fallback.test)."""
+
+    def __init__(self, key_statuses: dict[str, int]):
+        self.key_statuses = key_statuses
+        self.urls: list[str] = []
+        self.sent: list[dict] = []
+        self.headers_seen: list[dict] = []
+        self.calls_by_key: dict[str, int] = {}
+
+    async def post(self, url: str, json: dict, headers=None):
+        self.urls.append(url)
+        self.sent.append(json)
+        self.headers_seen.append(headers)
+        request = httpx.Request("POST", url)
+        if "fallback.test" in url:
+            auth = (headers or {}).get("Authorization", "")
+            key = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
+            self.calls_by_key[key] = self.calls_by_key.get(key, 0) + 1
+            status = self.key_statuses.get(key, 200)
+            if status != 200:
+                return httpx.Response(status, json={"error": "x"},
+                                      request=request)
+            texts = json.get("input") or []
+            return httpx.Response(
+                200,
+                json={"data": [{"embedding": [0.5] * _EMBED_DIM}
+                               for _ in texts]},
+                request=request)
+        return httpx.Response(403, json={"error": "quota"}, request=request)
+
+
+class TestEmbedClientKeyCascade:
+    """Задача 1 (2026-09-05): каскад второго ключа в EmbedClient воркера —
+    одна попытка на ключ (POST с Bearer ключа в headers запроса), успех →
+    векторы; все фейлы → EmbedError с причинами по ключам."""
+
+    def _client(self, fake, **kw) -> EmbedClient:
+        return TestEmbedClientFallback()._client(
+            fake, embed_fallback_api_key_2="sk-fb-2", **kw)
+
+    @pytest.mark.asyncio
+    async def test_key1_403_then_key2_200(self, caplog):
+        """key1 403 → key2 200 → векторы; по одному запросу на ключ;
+        INFO-лог успеха с key_idx=1; Bearer ключа — заголовком запроса."""
+        import logging
+        fake = _FakeEmbedKeyCascade({"sk-fb": 403, "sk-fb-2": 200})
+        client = self._client(fake)
+        try:
+            assert client._fb_api_keys == ["sk-fb", "sk-fb-2"]
+            with caplog.at_level(logging.INFO):
+                vectors = await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert vectors == [[0.5] * _EMBED_DIM]
+        assert fake.calls_by_key == {"sk-fb": 1, "sk-fb-2": 1}
+        assert fake.urls[0] == "https://embed.test/v1/embeddings"
+        assert fake.urls[1:] == ["https://fallback.test/v1/embeddings",
+                                 "https://fallback.test/v1/embeddings"]
+        assert fake.headers_seen[1] == {"Authorization": "Bearer sk-fb"}
+        assert fake.headers_seen[2] == {"Authorization": "Bearer sk-fb-2"}
+        assert any(
+            "history graph: embed fallback OK | model=gemini-x | "
+            "primary_error=EmbedError: embed HTTP 403" in r.message
+            and "| key_idx=1" in r.message
+            for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_key1_200_key2_not_called(self, caplog):
+        """key1 200 → key2 НЕ вызывается; OK-лог с key_idx=0."""
+        import logging
+        fake = _FakeEmbedKeyCascade({"sk-fb": 200, "sk-fb-2": 200})
+        client = self._client(fake)
+        try:
+            with caplog.at_level(logging.INFO):
+                vectors = await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert vectors == [[0.5] * _EMBED_DIM]
+        assert fake.calls_by_key == {"sk-fb": 1}
+        assert any("key_idx=0" in r.message for r in caplog.records)
+        assert not any("key_idx=1" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_all_keys_fail_raises_with_reasons_per_key(self, caplog):
+        """Оба ключа 403 → ровно 1 запрос на ключ; EmbedError с причинами по
+        ключам (key0=…; key1=…), reason-атрибут (человеческий текст);
+        WARNING с человеческим объяснением + подсказкой Ctrl+C."""
+        import logging
+        fake = _FakeEmbedKeyCascade({"sk-fb": 403, "sk-fb-2": 403})
+        client = self._client(fake)
+        try:
+            with caplog.at_level(logging.WARNING):
+                with pytest.raises(EmbedError) as ei:
+                    await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert fake.calls_by_key == {"sk-fb": 1, "sk-fb-2": 1}
+        msg = str(ei.value)
+        assert "embed primary+fallback failed | primary: EmbedError: " \
+               "embed HTTP 403" in msg
+        assert "| fallback: key0=status=403; key1=status=403" in msg
+        assert ei.value.reason is not None and "403" in ei.value.reason
+        assert any("history graph: embed fallback exhausted" in r.message
+                   and "403" in r.message and "Ctrl+C" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_cascade_inactive_without_any_key(self):
+        """Без ключей (оба пусты) → _fb_active False → проброс исходного
+        EmbedError primary, запросов на фоллбэк нет."""
+        fake = _FakeEmbedKeyCascade({})
+        client = EmbedClient(
+            base_url="https://embed.test/v1", api_key="sk-primary",
+            model="gemini-x", timeout=5,
+            embed_fallback_base_url="https://fallback.test/v1",
+            embed_fallback_api_key="", embed_fallback_api_key_2="")
+        _swap_http(client, fake)
+        try:
+            assert client._fb_api_keys == []
+            assert client._fb_active is False
+            with pytest.raises(EmbedError) as ei:
+                await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert "embed HTTP 403" in str(ei.value)
+        assert fake.urls == ["https://embed.test/v1/embeddings"]
+
+
+class TestWorkerHumanizeErrors:
+    """Задача 2 (2026-09-05): humanize_embed_error (llm_worker) — маппинг
+    кодов; EmbedError несёт reason; пачка с LLM-ошибкой получает текст с
+    причиной и судьбой пачки."""
+
+    def test_humanize_401(self):
+        text = humanize_embed_error(
+            EmbedError("embed HTTP 401: bad key"))
+        assert "(401)" in text and "проверьте" in text
+
+    def test_humanize_403(self):
+        text = humanize_embed_error(
+            EmbedError("embed HTTP 403: quota exceeded"))
+        assert "(403)" in text and "квота" in text
+
+    def test_humanize_429(self):
+        text = humanize_embed_error(
+            EmbedError("embed HTTP 429 (попытка 1)"))
+        assert "(429)" in text and "Рейт-лимит" in text
+
+    def test_humanize_5xx(self):
+        text = humanize_embed_error(
+            EmbedError("embed HTTP 503 (попытка 2)"))
+        assert "5xx" in text
+
+    def test_humanize_transport_network(self):
+        text = humanize_embed_error(
+            EmbedError("embed транспорт недоступен (попытка 2): "
+                       "ConnectError: нет соединения"))
+        assert "Сеть недоступна" in text
+
+    def test_humanize_timeout(self):
+        text = humanize_embed_error(
+            httpx.ReadTimeout("чтение зависло",
+                              request=httpx.Request("POST", "https://x")))
+        assert "Таймаут" in text
+
+    def test_humanize_bad_json(self):
+        text = humanize_embed_error(
+            EmbedError("embed ответ без data[].embedding: 'data'"))
+        assert "распознан" in text
+
+    def test_humanize_unknown_default(self):
+        text = humanize_embed_error(EmbedError("странная ошибка"))
+        assert "Облачный API недоступен" in text
+
+    def test_humanize_history_llm_http(self):
+        text = humanize_embed_error(HistoryLLMError("LLM HTTP 503 (попытка 1)"))
+        assert "5xx" in text
+
+    def test_embed_error_carries_reason_attribute(self):
+        err = EmbedError("embed primary+fallback failed",
+                         reason="Рейт-лимит (429) — воркер ждёт и повторит")
+        assert err.reason is not None
+        assert "429" in err.reason
+
+    @pytest.mark.asyncio
+    async def test_batch_llm_error_text_has_reason_and_retry_note(
+            self, tmp_path):
+        """Пачка с LLM-ошибкой (без --skip-errors): HistoryLLMError с
+        причиной и пометкой «пачка … повторится при следующем запуске»."""
+        db = await _make_db(tmp_path, _text_rows(6))
+        worker = await _make_worker(
+            db, llm=FakeLLM(error=HistoryLLMError("LLM HTTP 503 (попытка 1)")),
+            fact_density=0.5)
+        with pytest.raises(HistoryLLMError) as ei:
+            await worker.run()
+        msg = str(ei.value)
+        assert "пачка 1:" in msg
+        assert "повторена при следующем запуске" in msg
+        assert "нестабилен" in msg   # человеческая причина (5xx)
 
 
 # ── воркер: пачки/факты/resume ──────────────────────────────────────

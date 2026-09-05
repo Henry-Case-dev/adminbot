@@ -99,7 +99,72 @@ class HistoryLLMError(Exception):
 
 
 class EmbedError(Exception):
-    """Фатальная ошибка API-эмбеддинга (после ретраев)."""
+    """Фатальная ошибка API-эмбеддинга (после ретраев/исчерпания каскада)."""
+
+    def __init__(self, message: str, *, reason: str | None = None) -> None:
+        super().__init__(message)
+        # Задача 2 (2026-09-05): человекочитаемая причина (русский текст для
+        # консоли) — проставляется при фейле ВСЕХ ключей каскада.
+        self.reason = reason
+
+
+# ── Задача 2 (2026-09-05): человекочитаемая причина embed/LLM-сбоя ─────────
+# Статус извлекается из текста исключения (наши форматы: «HTTP 403»,
+# «server error 502», «auth failed (401)», «status=429»…) или атрибута;
+# затем классификация по типу/тексту. Русская строка — для WARNING-логов
+# воркера и печати в консоли вместо голого исключения.
+
+_HTTP_STATUS_IN_MSG_RE = re.compile(
+    r"\b(?:HTTP\s+|server error |auth failed \(|status=|rate limited \()(\d{3})\b")
+_EMBED_TIMEOUT_RE = re.compile(
+    r"timed? ?out|timeout|таймаут|завис", re.IGNORECASE)
+_EMBED_TRANSPORT_RE = re.compile(
+    r"transport|транспорт|соединение|connect|read error|недоступ", re.IGNORECASE)
+
+
+def _embed_error_status(exc: BaseException) -> int | None:
+    """HTTP-статус причины из атрибута исключения либо его текста."""
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int) and 100 <= status < 1000:
+        return status
+    match = _HTTP_STATUS_IN_MSG_RE.search(str(exc))
+    return int(match.group(1)) if match else None
+
+
+def humanize_embed_error(exc: BaseException) -> str:
+    """Понятная русская причина embed/LLM-сбоя: 401/403/429/5xx по
+    статус-коду из текста/атрибутов исключения, затем таймаут/транспорт/
+    битый ответ по типу и тексту. Незнакомое → общая строка (тип/код
+    остаются в тексте исходного исключения, если он печатается рядом)."""
+    status = _embed_error_status(exc)
+    if status == 401:
+        return ("Ключ API не принят (401) — проверьте LLM_API_KEY и запасные "
+                "ключи эмбеддинга (EMBEDDING_FALLBACK_API_KEY(_2)) в .env")
+    if status == 403:
+        return ("Доступ запрещён (403): квота исчерпана или ключ без прав на "
+                "эмбеддинги — пробуется запасной ключ; если исчерпаны все "
+                "ключи — проверьте их в .env")
+    if status == 429:
+        return ("Рейт-лимит (429) — воркер ждёт и повторит; если повторяется "
+                "часто — снизьте --embed-concurrency")
+    if status is not None and 500 <= status < 600:
+        return "Облачный API нестабилен (5xx) — повтор с паузой"
+    text = str(exc)
+    name = type(exc).__name__.lower()
+    if (isinstance(exc, (httpx.TimeoutException, TimeoutError))
+            or "timeout" in name or _EMBED_TIMEOUT_RE.search(text)):
+        return "Таймаут облачного API — повтор с паузой"
+    if (isinstance(exc, httpx.TransportError)
+            or "transport" in name or _EMBED_TRANSPORT_RE.search(text)):
+        return "Сеть недоступна — проверьте соединение"
+    if "json" in text.lower() or "data[].embedding" in text \
+            or "вернул" in text.lower():
+        return ("Ответ API не распознан (битый JSON, нет data[].embedding "
+                "или неверное число векторов в ответе)")
+    if status is not None and 400 <= status < 500:
+        return (f"API отклонил запрос (HTTP {status}) — проверьте "
+                f"конфигурацию/модель (.env EMBEDDING_*)")
+    return "Облачный API недоступен — см. детали выше"
 
 
 # ── Парсинг ответа LLM ───────────────────────────────────────────────
@@ -392,7 +457,8 @@ class EmbedClient:
                  max_retries: int = _EMBED_MAX_RETRIES,
                  embed_fallback_base_url: str | None = None,
                  embed_fallback_api_key: str | None = None,
-                 embed_fallback_model: str | None = None):
+                 embed_fallback_model: str | None = None,
+                 embed_fallback_api_key_2: str | None = None):
         self.base_url = (base_url or settings.LLM_BASE_URL).rstrip("/")
         self.api_key = api_key if api_key is not None else settings.LLM_API_KEY
         self.model = model or settings.EMBEDDING_MODEL_NAME
@@ -404,9 +470,11 @@ class EmbedClient:
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout), follow_redirects=True)
         self._sem = asyncio.Semaphore(self.concurrency)
-        # Embed-фоллбэк EMBEDDING_FALLBACK_* (как LLMClient бота): одна
-        # попытка на фоллбэке после EmbedError primary. Активен ТОЛЬКО при
-        # base_url + api_key; пустая модель → primary embed-модель.
+        # Embed-фоллбэк EMBEDDING_FALLBACK_* (как LLMClient бота): попытки на
+        # фоллбэке после EmbedError primary. Активен ТОЛЬКО при base_url +
+        # >=1 ключе; пустая модель → primary embed-модель. Задача 1: каскад
+        # ключей [key1, key2, …] (пустые отбрасываются; R17: значения ключей
+        # НИКОГДА не логируются).
         self._fb_base_url = (
             settings.EMBEDDING_FALLBACK_BASE_URL
             if embed_fallback_base_url is None else embed_fallback_base_url
@@ -415,6 +483,12 @@ class EmbedClient:
             settings.EMBEDDING_FALLBACK_API_KEY
             if embed_fallback_api_key is None else embed_fallback_api_key
         ) or ""
+        fb_key_2 = (
+            settings.EMBEDDING_FALLBACK_API_KEY_2
+            if embed_fallback_api_key_2 is None else embed_fallback_api_key_2
+        ) or ""
+        self._fb_api_keys = [key for key in (self._fb_api_key, fb_key_2)
+                             if key]
         self._fb_model = (
             (settings.EMBEDDING_FALLBACK_MODEL
              if embed_fallback_model is None else embed_fallback_model)
@@ -422,7 +496,7 @@ class EmbedClient:
         ).strip() or self.model
         self._fb_url = (f"{self._fb_base_url}/embeddings"
                         if self._fb_base_url else "")
-        self._fb_active = bool(self._fb_base_url) and bool(self._fb_api_key)
+        self._fb_active = bool(self._fb_base_url) and bool(self._fb_api_keys)
         self._fb_client: httpx.AsyncClient | None = None
 
     async def aclose(self) -> None:
@@ -450,10 +524,12 @@ class EmbedClient:
         return [vector for chunk in results for vector in chunk]
 
     async def _embed_chunk(self, chunk: list[str]) -> list[list[float]]:
-        """Чанк: primary (ретраи 429/5xx/транспорт) → EmbedError → одна
-        попытка embed-фоллбэка (EMBEDDING_FALLBACK_*); фейл фоллбэка →
+        """Чанк: primary (ретраи 429/5xx/транспорт) → EmbedError → КАСКАД
+        ключей embed-фоллбэка (EMBEDDING_FALLBACK_*; одна попытка на ключ,
+        Bearer ключа — заголовком конкретного запроса); фейл всех ключей →
         EmbedError «embed primary+fallback failed | primary: … | fallback: …»
-        (пачка НЕ помечается — факты остаются текстом, no_vec)."""
+        (причины по ключам; пачка НЕ помечается — факты остаются текстом,
+        no_vec)."""
         async with self._sem:
             try:
                 return await self._embed_chunk_primary(chunk)
@@ -461,44 +537,74 @@ class EmbedClient:
                 if not self._fb_active:
                     raise
                 primary_desc = f"{type(primary_exc).__name__}: {primary_exc}"
-                fb_resp = None
-                fb_desc = "no-response"
-                try:
-                    fb_resp = await self._post_embed_fallback(chunk)
-                except Exception as fb_exc:
-                    fb_desc = f"{type(fb_exc).__name__}: {fb_exc}"
-                if fb_resp is None or fb_resp.status_code != 200:
+                per_key_desc: list[str] = []
+                for idx, key in enumerate(self._fb_api_keys):
+                    fb_resp = None
+                    fb_desc = "no-response"
+                    try:
+                        fb_resp = await self._post_embed_fallback(chunk,
+                                                                  api_key=key)
+                    except Exception as fb_exc:
+                        fb_desc = f"{type(fb_exc).__name__}: {fb_exc}"
+                    if fb_resp is not None and fb_resp.status_code == 200:
+                        try:
+                            data = fb_resp.json()
+                            vectors = [item["embedding"]
+                                       for item in data["data"]]
+                        except (ValueError, KeyError, TypeError) as parse_exc:
+                            fb_desc = f"bad response: {parse_exc}"
+                            per_key_desc.append(fb_desc)
+                            logger.warning(
+                                "history graph: embed fallback key %d failed "
+                                "| %s", idx, fb_desc)
+                            continue
+                        if len(vectors) != len(chunk):
+                            fb_desc = (
+                                f"embed fallback вернул {len(vectors)} "
+                                f"векторов на {len(chunk)} текстов")
+                            per_key_desc.append(fb_desc)
+                            logger.warning(
+                                "history graph: embed fallback key %d failed "
+                                "| %s", idx, fb_desc)
+                            continue
+                        logger.info(
+                            "history graph: embed fallback OK | model=%s | "
+                            "primary_error=%s | key_idx=%d",
+                            self._fb_model, primary_desc, idx)
+                        return vectors
                     if fb_resp is not None and fb_resp.status_code != 200:
                         fb_desc = f"status={fb_resp.status_code}"
+                    per_key_desc.append(fb_desc)
                     logger.warning(
-                        "history graph: embed fallback failed | primary=%s | "
-                        "fallback=%s", primary_desc, fb_desc)
-                    raise EmbedError(
-                        "embed primary+fallback failed | "
-                        f"primary: {primary_desc} | fallback: {fb_desc}"
-                    ) from primary_exc
-                try:
-                    data = fb_resp.json()
-                    vectors = [item["embedding"] for item in data["data"]]
-                except (ValueError, KeyError, TypeError) as parse_exc:
-                    raise EmbedError(
-                        f"embed fallback bad response: {parse_exc}"
-                    ) from parse_exc
-                if len(vectors) != len(chunk):
-                    raise EmbedError(
-                        f"embed fallback вернул {len(vectors)} векторов на "
-                        f"{len(chunk)} текстов")
-                logger.info(
-                    "history graph: embed fallback OK | model=%s | "
-                    "primary_error=%s", self._fb_model, primary_desc)
-                return vectors
+                        "history graph: embed fallback key %d failed | %s",
+                        idx, fb_desc)
+                if len(per_key_desc) == 1:
+                    fb_summary = per_key_desc[0]
+                else:
+                    fb_summary = "; ".join(
+                        f"key{i}={desc}" for i, desc in enumerate(per_key_desc))
+                human_reason = humanize_embed_error(primary_exc)
+                logger.warning(
+                    "history graph: embed fallback failed | primary=%s | "
+                    "fallback=%s", primary_desc, fb_summary)
+                # Задача 2: человеческое объяснение + рекомендация паузы
+                # (прогресс пишется по факту обработанных пачек).
+                logger.warning(
+                    "history graph: embed fallback exhausted — %s. Процесс "
+                    "можно поставить на паузу: Ctrl+C — прогресс сохранён, "
+                    "повторный запуск продолжит с чекпоинта", human_reason)
+                raise EmbedError(
+                    "embed primary+fallback failed | "
+                    f"primary: {primary_desc} | fallback: {fb_summary}",
+                    reason=human_reason,
+                ) from primary_exc
 
-    async def _post_embed_fallback(self, chunk: list[str]) -> httpx.Response:
-        """РОВНО одна попытка POST {fb}/embeddings (свой Bearer при ключе)."""
+    async def _post_embed_fallback(self, chunk: list[str],
+                                   api_key: str) -> httpx.Response:
+        """РОВНО одна попытка POST {fb}/embeddings; Bearer <api_key> ключа
+        каскада — заголовок конкретного запроса (клиент общий, без auth)."""
         client = self._get_fb_client()
-        headers = {}
-        if self._fb_api_key:
-            headers["Authorization"] = f"Bearer {self._fb_api_key}"
+        headers = {"Authorization": f"Bearer {api_key}"}
         response = await client.post(
             self._fb_url,
             json={"model": self._fb_model, "input": chunk},
@@ -507,6 +613,9 @@ class EmbedClient:
         return response
 
     def _get_fb_client(self) -> httpx.AsyncClient:
+        """Ленивый ОБЩИЙ клиент embed-фоллбэка БЕЗ auth: ключ каскада —
+        заголовком каждого запроса (_post_embed_fallback), один клиент
+        переиспользуется всеми ключами."""
         if self._fb_client is None:
             self._fb_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self.timeout), follow_redirects=True)
@@ -882,10 +991,13 @@ class GraphWorker:
             try:
                 vectors = await self.embed_client.embed(
                     [t for _, t in todo])
-            except EmbedError:
+            except EmbedError as exc:
+                # Задача 2: человекочитаемая причина (403/429/сеть/…)
                 logger.warning(
                     "history graph: embed batch failed — %d фактов останутся "
-                    "текстом (no_vec)", len(todo))
+                    "текстом (no_vec); reason=%s",
+                    len(todo),
+                    exc.reason or humanize_embed_error(exc))
                 vectors = [None] * len(todo)
             for (index, text), vector in zip(todo, vectors):
                 if vector:
@@ -987,7 +1099,8 @@ class GraphWorker:
     async def _process_batch(self, batch: list) -> bool:
         """Пачка: LLM → факты (+vec). Возвращает True = успех (вызывающий
         помечает окно); False = скип при --skip-errors (НЕ помечено —
-        повтор след. запуском); ошибка без --skip-errors → HistoryLLMError."""
+        повтор след. запуском); ошибка без --skip-errors → HistoryLLMError
+        с причиной и пометкой, что пачка повторится след. запуском."""
         try:
             user_content = prompts.build_history_user_prompt(batch)
             triples = await self.llm.extract(
@@ -1000,8 +1113,12 @@ class GraphWorker:
                     "повторится след. запуском): %s",
                     self.stats["batches"], exc)
                 return False
+            # Задача 2: причина (LLM недоступен/битый JSON) + судьба пачки
+            reason = humanize_embed_error(exc)
             raise HistoryLLMError(
-                f"пачка {self.stats['batches']}: {exc}") from exc
+                f"пачка {self.stats['batches']}: {exc} — пачка НЕ помечена "
+                f"и будет повторена при следующем запуске (LLM-этап: "
+                f"{reason})") from exc
         triples = triples[:self.max_facts_per_batch]
         await self._save_batch_facts(triples, message_ts=max(
             row["timestamp"] for row in batch))

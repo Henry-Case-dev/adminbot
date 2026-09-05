@@ -119,6 +119,65 @@ class LLMBadResponseError(LLMError):
     """Malformed JSON or missing content in a 2xx response."""
 
 
+# ── Задача 2 (2026-09-05): человекочитаемая причина embed/LLM-сбоя ─────────
+# Статус извлекается из текста исключения (наши форматы: «HTTP 403»,
+# «server error 502», «auth failed (401)», «status=429»…) или атрибута;
+# затем классификация по типу/тексту. Русская строка — для WARNING-логов
+# фоллбэка и печати в консоли вместо голого исключения.
+
+_HTTP_STATUS_IN_MSG_RE = re.compile(
+    r"\b(?:HTTP\s+|server error |auth failed \(|status=|rate limited \()(\d{3})\b")
+_EMBED_TIMEOUT_RE = re.compile(
+    r"timed? ?out|timeout|таймаут|завис", re.IGNORECASE)
+_EMBED_TRANSPORT_RE = re.compile(
+    r"transport|транспорт|соединение|connect|read error|недоступ", re.IGNORECASE)
+
+
+def _embed_error_status(exc: BaseException) -> int | None:
+    """HTTP-статус причины из атрибута исключения либо его текста."""
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int) and 100 <= status < 1000:
+        return status
+    match = _HTTP_STATUS_IN_MSG_RE.search(str(exc))
+    return int(match.group(1)) if match else None
+
+
+def humanize_embed_error(exc: BaseException) -> str:
+    """Понятная русская причина embed-сбоя: 401/403/429/5xx по статус-коду
+    из текста/атрибутов исключения, затем таймаут/транспорт/битый ответ
+    по типу и тексту. Незнакомое → общая строка (тип/код остаются в тексте
+    исходного исключения, если оно печатается рядом)."""
+    status = _embed_error_status(exc)
+    if status == 401:
+        return ("Ключ API не принят (401) — проверьте LLM_API_KEY и запасные "
+                "ключи эмбеддинга (EMBEDDING_FALLBACK_API_KEY(_2)) в .env")
+    if status == 403:
+        return ("Доступ запрещён (403): квота исчерпана или ключ без прав на "
+                "эмбеддинги — пробуется запасной ключ; если исчерпаны все "
+                "ключи — проверьте их в .env")
+    if status == 429:
+        return ("Рейт-лимит (429) — воркер ждёт и повторит; если повторяется "
+                "часто — снизьте --embed-concurrency")
+    if status is not None and 500 <= status < 600:
+        return "Облачный API нестабилен (5xx) — повтор с паузой"
+    text = str(exc)
+    name = type(exc).__name__.lower()
+    if (isinstance(exc, (httpx.TimeoutException, TimeoutError))
+            or "timeout" in name or _EMBED_TIMEOUT_RE.search(text)):
+        return "Таймаут облачного API — повтор с паузой"
+    if (isinstance(exc, httpx.TransportError)
+            or "transport" in name or _EMBED_TRANSPORT_RE.search(text)):
+        return "Сеть недоступна — проверьте соединение"
+    if isinstance(exc, LLMBadResponseError) or "json" in text.lower() \
+            or "data[].embedding" in text:
+        return ("Ответ API не распознан (битый JSON или нет "
+                "data[].embedding в ответе)")
+    if status is not None and 400 <= status < 500:
+        return (f"API отклонил запрос (HTTP {status}) — проверьте "
+                f"конфигурацию/модель (.env EMBEDDING_*)")
+    return "Облачный API недоступен — см. детали выше"
+
+
 # ── Эпик 04.09.2026 (3.3): результат generate_chat (Tool Calling) ──────────
 
 @dataclass(frozen=True)
@@ -162,6 +221,9 @@ class LLMClient:
         # LLM_FALLBACK_* (62.4) — только для /embeddings.
         embed_fallback_base_url: str = settings.EMBEDDING_FALLBACK_BASE_URL,
         embed_fallback_api_key: str = settings.EMBEDDING_FALLBACK_API_KEY,
+        # Задача 1 (2026-09-05): второй слой ключа каскада (Google AI Studio,
+        # запасной аккаунт) — тот же endpoint/модель; ключи пробуются по очереди.
+        embed_fallback_api_key_2: str = settings.EMBEDDING_FALLBACK_API_KEY_2,
         embed_fallback_model: str = settings.EMBEDDING_FALLBACK_MODEL,
         embed_fallback_timeout: float = settings.EMBEDDING_FALLBACK_TIMEOUT_SECONDS,
         embed_fallback_max_retries: int = settings.EMBEDDING_FALLBACK_MAX_RETRIES,
@@ -203,17 +265,23 @@ class LLMClient:
         # транзиентных отказов самого фоллбэка.
         self._fallback_timeout = hot.get("models.llm_fallback_timeout_seconds", settings.LLM_FALLBACK_TIMEOUT_SECONDS)
         self._fallback_max_retries = hot.get("models.llm_fallback_max_retries", settings.LLM_FALLBACK_MAX_RETRIES)
-        # Embed-фоллбэк (раунд 5): активен ТОЛЬКО при base_url + api_key;
+        # Embed-фоллбэк (раунд 5): активен ТОЛЬКО при base_url + >=1 ключе;
         # пустая модель → primary embed-модель. Параметры infra (категория
         # None в param_catalog) — горячего каталога/admin-кэша у них НЕТ.
+        # Задача 1: упорядоченный список ключей каскада [key1, key2, …]
+        # (пустые отбрасываются); значение НИКОГДА не логируется (R17).
         self._embed_fallback_base_url = (embed_fallback_base_url or "").strip()
         self._embed_fallback_api_key = (embed_fallback_api_key or "").strip()
+        self._embed_fallback_api_key_2 = (embed_fallback_api_key_2 or "").strip()
+        self._embed_fallback_api_keys = [
+            key for key in (self._embed_fallback_api_key,
+                            self._embed_fallback_api_key_2) if key]
         self._embed_fallback_model = ((embed_fallback_model or "").strip()
                                       or self._embed_model)
         self._embed_fallback_timeout = embed_fallback_timeout
         self._embed_fallback_max_retries = embed_fallback_max_retries
         self._embed_fallback_active = bool(self._embed_fallback_base_url) and \
-            bool(self._embed_fallback_api_key)
+            bool(self._embed_fallback_api_keys)
         self._client: httpx.AsyncClient | None = None
         self._client_key: str | None = None
         self._fallback_client: httpx.AsyncClient | None = None
@@ -266,16 +334,16 @@ class LLMClient:
         return self._fallback_client
 
     def _get_embed_fallback_client(self) -> httpx.AsyncClient:
-        """Ленивый клиент embed-фоллбэка: свой Bearer-ключ
-        (EMBEDDING_FALLBACK_API_KEY), per-request таймаут
+        """Ленивый ОБЩИЙ клиент embed-фоллбэка БЕЗ auth на уровне клиента:
+        Bearer-ключ каскада ставится заголовком КОНКРЕТНОГО запроса
+        (_post_embed_fallback) — один клиент переиспользуется всеми ключами
+        (headers per-request безопасны). Per-request таймаут
         EMBEDDING_FALLBACK_TIMEOUT_SECONDS (паттерн _get_client, без hot-ротации
         — ключ infra, только .env)."""
         if self._embed_fallback_client is None:
             self._embed_fallback_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self._embed_fallback_timeout,
                                        connect=10.0),
-                headers={"Authorization":
-                         f"Bearer {self._embed_fallback_api_key}"},
             )
         return self._embed_fallback_client
 
@@ -501,25 +569,31 @@ class LLMClient:
         logger.warning("LLM fallback failed | error=%s", last_error)
         return None
 
-    async def _post_embed_fallback(self, payload: dict) -> httpx.Response:
-        """Одна попытка POST {embed_fallback}/embeddings на клиенте
-        embed-фоллбэка; model — _embed_fallback_model (пустая при
-        конструировании → primary embed-модель)."""
+    async def _post_embed_fallback(self, payload: dict,
+                                   api_key: str) -> httpx.Response:
+        """Одна попытка POST {embed_fallback}/embeddings на ОБЩЕМ клиенте
+        embed-фоллбэка; Bearer <api_key> каскада — заголовок конкретного
+        запроса (клиент без auth, ключей в нём нет). model —
+        _embed_fallback_model (пустая при конструировании → primary
+        embed-модель)."""
         client = self._get_embed_fallback_client()
         url = f"{self._embed_fallback_base_url.rstrip('/')}/embeddings"
         fallback_payload = dict(payload)
         fallback_payload["model"] = self._embed_fallback_model
-        return await client.post(url, json=fallback_payload)
+        return await client.post(
+            url, json=fallback_payload,
+            headers={"Authorization": f"Bearer {api_key}"})
 
     async def _embed_fallback_with_retries(self,
-                                           payload: dict) -> httpx.Response | None:
-        """Embed-фоллбэк с ретраями транзиентных отказов
+                                           payload: dict,
+                                           api_key: str) -> httpx.Response | None:
+        """Embed-фоллбэк ОДНИМ ключом каскада с ретраями транзиентных отказов
         (429/5xx/транспорт; EMBEDDING_FALLBACK_MAX_RETRIES), общий таймаут
         попытки EMBEDDING_FALLBACK_TIMEOUT_SECONDS (asyncio.timeout).
         Детерминированные не-200 (400/401/403/404…) НЕ ретраятся (break).
         По исчерпании попыток — WARNING «LLM fallback failed | kind=embed |
-        error=…» (диаг-контракт Betterstack) и None → вызывающий пробрасывает
-        ИСХОДНОЕ исключение primary."""
+        error=…» (диаг-контракт Betterstack) и None → вызывающий пробует
+        следующий ключ каскада либо пробрасывает ИСХОДНОЕ исключение primary."""
         total_attempts = self._embed_fallback_max_retries + 1
         last_error = "unknown"
         for attempt in range(total_attempts):
@@ -533,7 +607,7 @@ class LLMClient:
                     attempt + 1, total_attempts, last_error)
             try:
                 async with asyncio.timeout(self._embed_fallback_timeout):
-                    fb_resp = await self._post_embed_fallback(payload)
+                    fb_resp = await self._post_embed_fallback(payload, api_key)
             except Exception as fb_exc:
                 last_error = f"{type(fb_exc).__name__}: {fb_exc}"
                 continue
@@ -676,10 +750,11 @@ class LLMClient:
 
         Embed-фоллбэк (EMBEDDING_FALLBACK_*, независим от chat-фоллбэка
         62.4): при LLMError primary (кроме LLMBadResponseError) и активном
-        embed-фоллбэке — попытки на {EMBEDDING_FALLBACK_BASE_URL}/embeddings
-        с ретраями транзиентных отказов (EMBEDDING_FALLBACK_MAX_RETRIES);
-        фейл фоллбэка → проброс ИСХОДНОГО исключения primary (KNN→FTS-каскад
-        в summary_memory решает деградацию)."""
+        embed-фоллбэке — КАСКАД по ключам: каждый ключ (с ретраями
+        транзиентных отказов EMBEDDING_FALLBACK_MAX_RETRIES) на
+        {EMBEDDING_FALLBACK_BASE_URL}/embeddings; фейл ВСЕХ ключей → проброс
+        ИСХОДНОГО исключения primary (KNN→FTS-каскад в summary_memory решает
+        деградацию)."""
         if not texts:
             return []
         try:
@@ -690,17 +765,29 @@ class LLMClient:
         except LLMError as exc:
             if not self._embed_fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
-            logger.warning(
-                "LLM embed fallback attempt | primary_error=%s",
-                f"{type(exc).__name__}: {exc}",
-            )
-            fb_response = await self._embed_fallback_with_retries(
-                {"input": texts})
+            fb_response = None
+            fb_idx = 0
+            for idx, key in enumerate(self._embed_fallback_api_keys):
+                logger.warning(
+                    "LLM embed fallback attempt | key_idx=%d | primary_error=%s",
+                    idx, f"{type(exc).__name__}: {exc}",
+                )
+                fb_response = await self._embed_fallback_with_retries(
+                    {"input": texts}, api_key=key)
+                if fb_response is not None:
+                    fb_idx = idx
+                    break
+                logger.warning("LLM embed fallback key %d failed", idx)
             if fb_response is None:
+                # Задача 2: человекочитаемая причина + рекомендация (консоль)
+                logger.warning(
+                    "LLM embed fallback exhausted | keys=%d | reason=%s",
+                    len(self._embed_fallback_api_keys),
+                    humanize_embed_error(exc))
                 raise exc from None
             response = fb_response
-            logger.warning("LLM embed fallback OK | model=%s",
-                           self._embed_fallback_model)
+            logger.warning("LLM embed fallback OK | model=%s | key_idx=%d",
+                           self._embed_fallback_model, fb_idx)
         try:
             data = response.json()
         except ValueError as exc:

@@ -331,6 +331,12 @@ class Settings:
     EMBEDDING_FALLBACK_API_KEY: str = (
         os.getenv("EMBEDDING_FALLBACK_API_KEY")
         or os.getenv("GEMINI_FALLBACK_API_KEY", ""))
+    # Задача 1 (2026-09-05): ВТОРОЙ запасной ключ embed-фоллбэка (Google AI
+    # Studio, запасной аккаунт — тот же endpoint/модель). Каскад пробует ключи
+    # по очереди. Легаси-алиас: GEMINI_FALLBACK_API_KEY_2.
+    EMBEDDING_FALLBACK_API_KEY_2: str = (
+        os.getenv("EMBEDDING_FALLBACK_API_KEY_2")
+        or os.getenv("GEMINI_FALLBACK_API_KEY_2", ""))
     EMBEDDING_FALLBACK_MODEL: str = _env_str("EMBEDDING_FALLBACK_MODEL", "")
     EMBEDDING_FALLBACK_TIMEOUT_SECONDS: float = _env_float_min(
         "EMBEDDING_FALLBACK_TIMEOUT_SECONDS", 60.0, 1.0)

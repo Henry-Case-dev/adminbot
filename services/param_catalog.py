@@ -305,6 +305,7 @@ _INFRA: list[tuple] = [
     # /embeddings — когда основной провайдер не отдаёт эмбеддинги (403-квоты).
     ("EMBEDDING_FALLBACK_BASE_URL", "Базовый URL embed-фоллбэка", "str", False),
     ("EMBEDDING_FALLBACK_API_KEY", "Ключ embed-фоллбэка (Google AI Studio)", "str", True),
+    ("EMBEDDING_FALLBACK_API_KEY_2", "Ключ эмбеддинг-фоллбэка 2 (Google AI Studio, запасной аккаунт)", "str", True),
     ("EMBEDDING_FALLBACK_MODEL", "Модель embed-фоллбэка", "str", False),
     ("EMBEDDING_FALLBACK_TIMEOUT_SECONDS", "Таймаут embed-фоллбэка, сек", "float", False),
     ("EMBEDDING_FALLBACK_MAX_RETRIES", "Ретраи embed-фоллбэка", "int", False),
