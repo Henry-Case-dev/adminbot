@@ -229,6 +229,24 @@
       padding: 1rem;
     }
 
+    /* Лор чатов (round 7, spec §3.10/E2): read-only авто-лор и инфо-строка */
+    .lore-auto-area {
+      background: rgba(120, 53, 15, 0.16);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #f3e2b8;
+    }
+    .lore-memory {
+      background: rgba(0, 0, 0, 0.22);
+    }
+    .lore-diff-line {
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
     /* Дерево чекбоксов */
     .tree-child { padding-left: 1.25rem; border-left: 1px solid rgba(255,255,255,0.1); margin-left: 0.4rem; }
     .tree-node label { display: flex; align-items: center; gap: 0.45rem; padding: 0.14rem 0; cursor: pointer; font-size: 0.85rem; }
@@ -473,6 +491,256 @@
               </div>
             </template>
           </template>
+          <template v-else-if="activeTab === 'chat_lore'">
+            <!-- ═══ 📜 Лор чатов (round 7, spec §3.10/E2) ═══ -->
+            <div v-if="!canViewTab('chat_lore')" class="card p-6 text-gray-400 col-span-full">
+              Нет доступа к чатам лора — вкладка доступна глобальному админу,
+              ролям с секцией «chat_lore» и админам конкретных чатов.
+            </div>
+            <template v-else>
+              <div class="flex flex-col lg:flex-row gap-4 items-start"
+                   style="grid-column: 1 / -1;">
+                <!-- Селектор чатов (слева) -->
+                <div class="card p-3 w-full lg:w-72 shrink-0 lg:flex lg:flex-col">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="text-sm font-bold">Чаты</div>
+                    <span class="text-xs text-gray-500">{{ chatLoreChats.length }}</span>
+                    <button class="btn-ghost text-xs ml-auto shrink-0"
+                            title="Обновить список чатов" :disabled="chatLoreLoading"
+                            @click="loadChats()">⟳</button>
+                  </div>
+                  <div v-if="chatLoreLoading" class="spinner my-4"></div>
+                  <div v-else-if="chatLoreChats.length === 0"
+                       class="text-xs text-gray-500 py-3">
+                    Нет чатов с доступом. Профили создаются автоматически, когда
+                    бот входит в чат.
+                  </div>
+                  <div v-else class="flex flex-col gap-1 lg:max-h-[62vh]
+                                     overflow-y-auto scroll-thin pr-1">
+                    <button v-for="c in chatLoreChats" :key="c.chat_id" type="button"
+                            class="text-left rounded-lg px-2 py-1.5 border text-xs"
+                            :class="chatLoreSelectedId === c.chat_id
+                              ? 'bg-violet-600/30 border-violet-500/60'
+                              : 'border-white/10 hover:bg-white/5'"
+                            @click="loadProfile(c.chat_id)">
+                      <span class="font-mono">{{ c.chat_id }}</span>
+                      <span class="badge badge-ok ml-1" v-if="c.is_active">активен</span>
+                      <span class="badge badge-warn ml-1" v-else>неактивен</span>
+                      <div class="mt-1 flex gap-1">
+                        <span class="badge badge-info" v-if="c.has_manual">ручной</span>
+                        <span class="badge badge-muted" v-if="c.has_auto">авто</span>
+                      </div>
+                      <div class="text-xs text-gray-500 truncate mt-1">
+                        {{ c.manual_preview || c.auto_preview || 'лор пуст' }}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Карточка выбранного чата (справа) -->
+                <div class="flex-1 min-w-0 w-full space-y-4">
+                  <div v-if="chatLoreProfileLoading && !chatLoreProfile"
+                       class="card p-8"><div class="spinner"></div></div>
+                  <div v-else-if="chatLoreError" class="card p-6 text-sm text-gray-300">
+                    {{ chatLoreError }}
+                    <div class="mt-3 flex gap-2">
+                      <button v-if="chatLoreSelectedId != null"
+                              class="btn-ghost text-sm"
+                              @click="loadProfile(chatLoreSelectedId)">Повторить</button>
+                      <button class="btn-ghost text-sm" @click="loadChats()">Список чатов</button>
+                    </div>
+                  </div>
+                  <div v-else-if="!chatLoreProfile" class="card p-6 text-gray-400 text-sm">
+                    Выберите чат слева — здесь появится профиль лора.
+                  </div>
+                  <template v-else>
+                    <!-- Шапка профиля -->
+                    <div class="card p-4">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-sm font-bold font-mono">
+                          Профиль чата {{ chatLoreProfile.chat_id }}
+                        </span>
+                        <span class="badge"
+                              :class="chatLoreProfile.is_active ? 'badge-ok' : 'badge-warn'">
+                          {{ chatLoreProfile.is_active
+                              ? 'активен' : 'неактивен — бот не в чате' }}
+                        </span>
+                        <span class="badge badge-muted">
+                          обновлено {{ fmtLogTs(chatLoreProfile.updated_at) }}
+                        </span>
+                        <button class="btn-ghost text-xs ml-auto"
+                                @click="loadHistory()">История изменений</button>
+                      </div>
+                    </div>
+
+                    <!-- Ручной лор (FR-2: независим от авто-лора) -->
+                    <div class="card p-4">
+                      <div class="flex items-center gap-2 mb-2">
+                        <div class="text-sm font-bold">📝 Ручной лор</div>
+                        <span class="badge badge-info">ручной</span>
+                        <span class="text-xs text-gray-500 ml-auto">
+                          {{ loreManual.length }} / 4000
+                        </span>
+                      </div>
+                      <textarea class="field scroll-thin" rows="6" maxlength="4000"
+                                v-model="loreManual"
+                                placeholder="Постоянный лор чата: ключевые люди и статусы, мемы, устоявшийся вайб…"></textarea>
+                      <div class="mt-2 flex justify-end">
+                        <button class="btn-accent text-sm" :disabled="chatLoreBusy"
+                                @click="saveManual()">
+                          {{ chatLoreSaving ? 'Сохранение…' : 'Сохранить' }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Авто-лор (read-only: пишется только воркером) -->
+                    <div class="card p-4">
+                      <div class="flex items-center gap-2 mb-2">
+                        <div class="text-sm font-bold">🤖 Авто-лор</div>
+                        <span class="badge badge-warn">AI</span>
+                        <span v-if="chatLoreProfile.last_auto_at" class="badge badge-muted">
+                          авто-обновление {{ fmtLogTs(chatLoreProfile.last_auto_at) }}
+                        </span>
+                        <span v-else class="badge badge-muted">ещё не генерировался</span>
+                      </div>
+                      <textarea class="field scroll-thin lore-auto-area" rows="6"
+                                readonly v-model="loreAuto"
+                                placeholder="Авто-лор пуст. Включите автогенерацию и нажмите «Сгенерировать сейчас» — воркер соберёт выжимку из сообщений чата."></textarea>
+                      <div class="mt-3 flex items-center gap-2 flex-wrap">
+                        <!-- AC-10: «Сгенерировать сейчас» только при auto_enabled -->
+                        <button v-if="chatLoreProfile.auto_enabled"
+                                class="btn-accent text-sm" :disabled="chatLoreBusy"
+                                @click="generateNow()">
+                          {{ chatLoreGenerating ? 'Генерация…' : 'Сгенерировать сейчас' }}
+                        </button>
+                        <span v-else class="text-xs text-gray-500">
+                          Автогенерация выключена — для ручного запуска включите её
+                          в настройках ниже.
+                        </span>
+                        <button class="btn-danger text-sm" :disabled="chatLoreBusy"
+                                @click="clearAuto()">Очистить авто-лор</button>
+                      </div>
+                      <div class="text-xs text-gray-500 mt-2">
+                        Ручная правка не трогает и не выключает авто-лор (поля
+                        независимы).
+                      </div>
+                    </div>
+
+                    <!-- Настройки автогенерации -->
+                    <div class="card p-4">
+                      <div class="text-sm font-bold mb-3">⚙️ Настройки автогенерации</div>
+                      <div class="grid gap-3 md:grid-cols-2">
+                        <div class="flex items-center justify-between gap-3 md:col-span-2">
+                          <div>
+                            <div class="text-sm">Автогенерация</div>
+                            <div class="text-xs text-gray-500">
+                              Периодический прогон воркера по сообщениям чата
+                            </div>
+                          </div>
+                          <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" class="sr-only peer"
+                                   v-model="loreSettings.auto_enabled">
+                            <div class="w-11 h-6 rounded-full peer bg-white/10
+                                 peer-checked:bg-violet-600 transition-colors"></div>
+                            <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white
+                                 transition-transform peer-checked:translate-x-5"></div>
+                          </label>
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">
+                            Период между прогонами, часов
+                          </label>
+                          <input class="field mt-1" type="number" min="1" max="720"
+                                 step="1" v-model.number="loreSettings.auto_period_hours">
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">
+                            Окно сообщений, часов
+                          </label>
+                          <input class="field mt-1" type="number" min="1" max="720"
+                                 step="1" v-model.number="loreSettings.auto_window_hours">
+                        </div>
+                      </div>
+                      <div class="mt-3 flex justify-end">
+                        <button class="btn-accent text-sm" :disabled="chatLoreBusy"
+                                @click="saveSettings()">Сохранить настройки</button>
+                      </div>
+                    </div>
+
+                    <!-- Что попадает в память бота (визуальная склейка) -->
+                    <div class="card p-4">
+                      <div class="text-sm font-bold mb-1">В память бота уходит</div>
+                      <div class="text-xs text-gray-500 mb-2">
+                        Ручной и авто-лор склеиваются разделителем и добавляются
+                        в контекст диалога сразу после защищённых фактов
+                        (при включённом инжекте).
+                      </div>
+                      <div class="lore-memory rounded-lg p-2 text-xs font-mono
+                            text-gray-300 max-h-32 overflow-y-auto scroll-thin
+                            whitespace-pre-wrap">
+                        {{ loreMemoryPreview
+                            || 'Лор пуст — блок в контекст не добавляется.' }}
+                      </div>
+                    </div>
+
+                    <!-- C2: переезд чата (remap, D5/Q9) — только глобальный admin -->
+                    <div class="card p-4" v-if="isGlobalAdmin">
+                      <div class="text-sm font-bold mb-1">🚚 Переезд чата</div>
+                      <div class="text-xs text-gray-500 mb-3">
+                        Привязать лор и админов этого чата к новому chat_id
+                        (например, после пересоздания чата в Telegram). Старый
+                        профиль будет удалён, история переедет со всеми данными.
+                      </div>
+                      <div class="flex gap-2">
+                        <input class="field flex-1" type="number" step="1"
+                               v-model.number="remapNewChatId"
+                               placeholder="новый chat_id">
+                        <button class="btn-danger text-sm shrink-0"
+                                :disabled="remapBusy || adminsBusy"
+                                @click="remapChat()">
+                          {{ remapBusy ? 'Перепривязка…' : 'Перепривязать' }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- C2: администраторы чата (chat_admins, D8/Q6) —
+                         только глобальный admin -->
+                    <div class="card p-4" v-if="isGlobalAdmin">
+                      <div class="text-sm font-bold mb-1">👑 Администраторы чата</div>
+                      <div class="text-xs text-gray-500 mb-3">
+                        Telegram-id, которым вкладка «Лор чатов» доступна для
+                        этого чата без глобальной роли (per-chat admin).
+                      </div>
+                      <div class="flex gap-2 mb-2">
+                        <input class="field flex-1" type="number" step="1"
+                               v-model.number="newChatAdminId"
+                               placeholder="telegram_id">
+                        <button class="btn-accent text-sm shrink-0"
+                                :disabled="adminsBusy || remapBusy"
+                                @click="addChatAdmin()">Добавить</button>
+                      </div>
+                      <div v-if="adminsBusy && chatAdmins.length === 0"
+                           class="spinner my-2"></div>
+                      <div v-else-if="chatAdmins.length === 0"
+                           class="text-xs text-gray-500 py-2">
+                        Админов нет — доступ только у глобального админа.
+                      </div>
+                      <div v-else class="flex flex-col gap-1">
+                        <div v-for="a in chatAdmins" :key="a"
+                             class="flex items-center gap-2 rounded-lg border
+                                    border-white/10 px-2 py-1">
+                          <span class="font-mono text-sm flex-1">{{ a }}</span>
+                          <button class="btn-ghost text-xs shrink-0"
+                                  :disabled="adminsBusy"
+                                  @click="removeChatAdmin(a)">Удалить</button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </template>
           <template v-else-if="activeTab === 'status'">
             <!-- ═══ 📊 Статус ═══ -->
             <!-- F15: 401 — заглушка «сессия устарела» вместо вечного спиннера -->
@@ -695,6 +963,89 @@
           <button class="btn-ghost text-sm" @click="closeRoleEditor()">Закрыть</button>
           <button class="btn-accent text-sm" :disabled="roleEditor.saving"
                   @click="saveRole()">{{ roleEditor.saving ? 'Сохранение…' : 'Сохранить роль' }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- История изменений лора (timeline DESC, spec §3.10/Q7) -->
+    <div v-if="chatLoreHistoryOpen" class="modal-backdrop" @click.self="closeLoreHistory()">
+      <div class="card card-solid p-5 w-full max-w-2xl max-h-[85vh] flex flex-col">
+        <div class="flex items-center gap-2 mb-1 shrink-0">
+          <div class="text-base font-bold">📜 История изменений</div>
+          <span v-if="chatLoreProfile" class="text-xs text-gray-500 font-mono">
+            чат {{ chatLoreProfile.chat_id }}
+          </span>
+          <button class="btn-ghost text-xs ml-auto" :disabled="chatLoreHistoryLoading"
+                  @click="loadHistory()">⟳</button>
+        </div>
+        <div class="text-xs text-gray-500 mb-3 shrink-0">
+          последние 100 записей, новые сверху
+        </div>
+        <div class="overflow-y-auto scroll-thin -mr-2 pr-2">
+          <div v-if="chatLoreHistoryLoading" class="spinner my-6"></div>
+          <div v-else-if="chatLoreHistory.length === 0"
+               class="text-sm text-gray-500 py-4">Записей нет.</div>
+          <div v-for="(row, i) in chatLoreHistory" :key="i"
+               class="border-b border-white/10 py-3">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="text-xs text-gray-500">{{ fmtLogTs(row.created_at) }}</span>
+              <span class="badge badge-info">{{ loreFieldLabel(row.field) }}</span>
+              <span class="badge"
+                    :class="row.is_ai ? 'badge-muted' : 'badge-warn'">
+                {{ changedByLabel(row) }}
+              </span>
+            </div>
+            <div class="grid gap-2 md:grid-cols-2">
+              <div>
+                <div class="text-xs text-gray-500 mb-1">было</div>
+                <div class="bg-black/20 rounded-lg p-2 max-h-40
+                            overflow-y-auto scroll-thin">
+                  <span v-if="!row.diff.old.length"
+                        class="text-xs text-gray-600">(пусто)</span>
+                  <span v-for="(l, li) in row.diff.old" :key="li"
+                        class="lore-diff-line"
+                        :class="l.del ? 'text-red-400' : 'text-gray-400'">
+                    {{ l.del ? '− ' : '' }}{{ l.text }}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 mb-1">стало</div>
+                <div class="bg-black/20 rounded-lg p-2 max-h-40
+                            overflow-y-auto scroll-thin">
+                  <span v-if="!row.diff.new.length"
+                        class="text-xs text-gray-600">(пусто)</span>
+                  <span v-for="(l, li) in row.diff.new" :key="li"
+                        class="lore-diff-line"
+                        :class="l.add ? 'text-green-400' : 'text-gray-400'">
+                    {{ l.add ? '+ ' : '' }}{{ l.text }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end shrink-0">
+          <button class="btn-ghost text-sm" @click="closeLoreHistory()">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 409 optimistic-lock лора (Q8): профиль изменён — перезагрузить? -->
+    <div v-if="chatLore409" class="modal-backdrop" @click.self="cancelLoreReload()">
+      <div class="card card-solid p-5 max-w-sm w-full">
+        <div class="text-base font-bold mb-2">Профиль изменён — перезагрузить?</div>
+        <div class="text-sm text-gray-300 mb-1">
+          Лор этого чата обновился с момента загрузки (параллельная правка
+          другого админа или авто-воркер). Несохранённые правки будут потеряны.
+        </div>
+        <div v-if="chatLore409.current_updated_at" class="text-xs text-gray-500 mb-3">
+          актуальная метка:
+          <span class="font-mono">{{ chatLore409.current_updated_at }}</span>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button class="btn-ghost text-sm" @click="cancelLoreReload()">Отмена</button>
+          <button class="btn-accent text-sm" @click="confirmLoreReload()">Перезагрузить</button>
         </div>
       </div>
     </div>

@@ -42,6 +42,10 @@
         { category: 'flags', groups: ['flags_media'] },
       ] },
     { id: 'access', icon: '👥', label: 'Доступы', type: 'access', categories: ['access'] },
+    // Раунд 7 (chat-lore-management-v2, spec §3.10/E2): «Лор чатов» — НЕ
+    // config-вкладка: свой рендер (index.html) и своя ветка видимости
+    // canViewTab (Q6: секция chat_lore / wildcard / непустой probe-список).
+    { id: 'chat_lore', icon: '📜', label: 'Лор чатов', type: 'chat_lore' },
     { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true },
     { id: 'info', icon: 'ℹ️', label: 'Как это работает', type: 'info', always: true },
   ];
@@ -105,6 +109,32 @@
           sections: [],
           actions: [],
         },
+        // chat_lore (round 7, spec §3.10/E2)
+        chatLoreChats: [],             // доступные чаты (селектор слева)
+        chatLoreLoading: false,        // загрузка списка чатов
+        chatLoreProfile: null,         // профиль выбранного чата (ответ API)
+        chatLoreSelectedId: null,
+        chatLoreProfileLoading: false,
+        chatLoreError: '',             // ошибка профиля (карточка справа)
+        chatLoreSaving: false,         // short-операции (manual/settings/clear)
+        chatLoreGenerating: false,     // «Сгенерировать сейчас» (LLM, минуты)
+        chatLoreHistory: [],           // timeline истории (модалка, DESC)
+        chatLoreHistoryOpen: false,
+        chatLoreHistoryLoading: false,
+        chatLore409: null,             // Q8: {code:'conflict', current_updated_at}
+        // C2 (D5/D8/Q9): переезд чата и per-chat админы — глобальный admin
+        remapNewChatId: '',            // новый chat_id для «Переезда чата»
+        remapBusy: false,              // POST remap в процессе
+        chatAdmins: [],                // telegram_id админов выбранного чата
+        newChatAdminId: '',            // ввод telegram_id нового админа
+        adminsBusy: false,             // список/мутация админов в процессе
+        loreManual: '',                // черновик ручного лора (textarea)
+        loreAuto: '',                  // авто-лор (read-only textarea)
+        loreSettings: {                // настройки авто-генерации (форма)
+          auto_enabled: true,
+          auto_period_hours: 24,
+          auto_window_hours: 24,
+        },
         // status
         statusData: null,
         statusError: null,
@@ -157,6 +187,28 @@
       permissions: function () {
         return (this.me && this.me.permissions) ? this.me.permissions : {};
       },
+      // chat_lore (3.10): глобальный admin = роль admin || wildcard; remap и
+      // управление chat_admins (D5/D8/Q9) видны в UI только ему (C2)
+      isGlobalAdmin: function () {
+        return !!(this.me && (this.me.role_name === 'admin'
+          || (this.me.permissions && this.me.permissions.wildcard)));
+      },
+      // 3.10: любая операция лора в процессе — блокировка кнопок-мутаций
+      chatLoreBusy: function () {
+        return this.chatLoreProfileLoading
+          || this.chatLoreSaving || this.chatLoreGenerating;
+      },
+      // 3.10: визуальная склейка «ручной + авто» для инфо-строки (превью)
+      loreMemoryPreview: function () {
+        var manual = (this.loreManual || '').trim();
+        var auto = (this.loreAuto || '').trim();
+        var parts = [];
+        if (manual) parts.push(manual);
+        if (manual && auto) parts.push('---');
+        if (auto) parts.push(auto);
+        if (!parts.length) return '';
+        return this.truncateLore(parts.join('\n'), 300);
+      },
       // F4 (84.14.5): сайдбар показывает ТОЛЬКО доступные вкладки;
       // «Статус» и «Как это работает» — всегда (RBAC-исключения).
       visibleTabs: function () {
@@ -203,6 +255,12 @@
         if (self.canViewTab('access')) {
           self.loadAdmins();
           self.loadRoles();
+        }
+        // 3.10 (Q6): probe-список «Лор чатов» — без секции chat_lore вкладка
+        // видна только при непустом списке (per-chat админ); пустой список
+        // вкладку НЕ показывает. 403/503 в probe — молча (вкладка скрыта).
+        if (!self.hasPerm('section.chat_lore')) {
+          self.loadChats(true);
         }
         // ФИКС 2026-09-03: данные АКТИВНОЙ вкладки (по умолчанию 'status')
         // не грузились до первого переключения — loaders вызывались только
@@ -254,6 +312,11 @@
           if (self.canViewTab('access')) {
             self.loadAdmins();
             self.loadRoles();
+          }
+          // 3.10 (Q6): probe-список «Лор чатов» — без секции chat_lore
+          // вкладка видна только при непустом списке (per-chat админ).
+          if (!self.hasPerm('section.chat_lore')) {
+            self.loadChats(true);
           }
           // ФИКС 2026-09-03: автозагрузка активной вкладки (как в mounted)
           self.setTab(self.activeTab);
@@ -330,6 +393,12 @@
           this.loadAdmins();
           this.loadRoles();
         }
+        // 3.10: «Лор чатов» — при первом показе грузим список чатов (для
+        // ролей с секцией; per-chat админы уже прошли probe в mounted).
+        if (id === 'chat_lore' && this.hasPerm('section.chat_lore')
+            && !this.chatLoreChats.length && !this.chatLoreLoading) {
+          this.loadChats();
+        }
         // 3.5.1: конфиг-вкладки (generic-рендер) — данные общие для всех;
         // первый показ любой из них грузит /api/config целиком.
         var tab = this.currentTab;
@@ -372,6 +441,11 @@
         if (tab.always) return true;
         var p = this.permissions;
         if (p.wildcard) return true;
+        // 3.10 (Q6): «Лор чатов» — секция chat_lore ИЛИ непустой
+        // probe-список (per-chat админы без секции; пустой НЕ показываем).
+        if (tab.type === 'chat_lore') {
+          return this.hasPerm('section.chat_lore') || this.chatLoreChats.length > 0;
+        }
         var sections = arr(p.sections), params = arr(p.params), keys = arr(p.keys);
         var cats = tabCategories(tab);
         for (var i = 0; i < cats.length; i++) {
@@ -1023,6 +1097,438 @@
           this.toast('Ошибка: ' + e.message, 'err');
         }
       },
+
+      // ═══ Лор чатов (round 7, spec §3.10/E2; Q6/Q8) ═══
+      loreErrText: function (e) {
+        var d = e && e.message;
+        if (d && typeof d === 'object') {
+          if (d.code) return 'код: ' + d.code;
+          return String(d);
+        }
+        return d ? String(d) : ('HTTP ' + ((e && e.status) || '?'));
+      },
+
+      // Список доступных чатов (probe для юзеров без секции — раскрывает
+      // вкладку per-chat админам; см. canViewTab/3.10).
+      loadChats: async function (probe) {
+        var self = this;
+        this.chatLoreLoading = true;
+        try {
+          var data = await this.api('/api/chat_lore/chats');
+          this.chatLoreChats = Array.isArray(data) ? data : [];
+          this.chatLoreError = '';
+          // текущий чат «пропал» из списка (403/remap) — сбрасываем профиль;
+          // иначе авто-выбор первого чата (удобно per-chat админу с одним)
+          var found = this.chatLoreSelectedId != null
+            && this.chatLoreChats.some(function (c) {
+              return c.chat_id === self.chatLoreSelectedId;
+            });
+          if (!found) {
+            this.chatLoreSelectedId = null;
+            this.chatLoreProfile = null;
+          }
+          if (this.chatLoreSelectedId == null && this.chatLoreChats.length) {
+            this.loadProfile(this.chatLoreChats[0].chat_id);
+          }
+        } catch (e) {
+          if (e.status === 403) {
+            // 403 в probe — молча: вкладка просто остаётся скрытой (Q6)
+            this.chatLoreChats = [];
+            this.chatLoreSelectedId = null;
+            this.chatLoreProfile = null;
+            if (!probe) this.toast('Нет доступа к чатам лора', 'warn');
+          } else if (e.status !== 401 && !probe) {
+            this.toast('Не удалось загрузить список чатов: '
+              + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.chatLoreLoading = false;
+        }
+      },
+
+      loadProfile: async function (chatId) {
+        if (chatId == null || chatId === '') return;
+        this.chatLoreProfileLoading = true;
+        this.chatLoreError = '';
+        try {
+          var p = await this.api('/api/chat_lore/' + chatId);
+          this.applyLoreProfile(p);
+          // C2: список админов грузим вместе с профилем (глобальный admin —
+          // остальным секции remap/админов в шаблоне не видны)
+          if (this.isGlobalAdmin) this.loadChatAdmins(p.chat_id);
+        } catch (e) {
+          // неудачная загрузка не оставляет «протухший» профиль на экране
+          this.chatLoreProfile = null;
+          this.chatAdmins = [];
+          if (e.status === 404) {
+            this.chatLoreError = 'Профиль чата ' + chatId + ' не найден (404).';
+          } else if (e.status === 403) {
+            this.chatLoreError = 'Нет доступа к профилю чата ' + chatId + ' (403).';
+          } else if (e.status !== 401) {
+            this.chatLoreError = 'Не удалось загрузить профиль чата: '
+              + this.loreErrText(e);
+          }
+        } finally {
+          this.chatLoreProfileLoading = false;
+        }
+      },
+
+      // Применение профиля из API к форме. preserveDrafts=true — не трогать
+      // черновики текстов (ручной лор могли редактировать в этот момент):
+      // используется после saveSettings/clearAuto/авто-прогона.
+      applyLoreProfile: function (p, preserveDrafts) {
+        if (!p) return;
+        this.chatLoreProfile = p;
+        this.chatLoreSelectedId = p.chat_id;
+        this.loreSettings = {
+          auto_enabled: !!p.auto_enabled,
+          auto_period_hours: p.auto_period_hours != null ? p.auto_period_hours : 24,
+          auto_window_hours: p.auto_window_hours != null ? p.auto_window_hours : 24,
+        };
+        if (!preserveDrafts) {
+          this.loreManual = p.manual_lore || '';
+          this.loreAuto = p.auto_lore || '';
+        }
+      },
+
+      saveManual: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || this.chatLoreBusy) return;
+        if ((this.loreManual || '').length > 4000) {
+          this.toast('Ручной лор не длиннее 4000 символов', 'warn');
+          return;
+        }
+        this.chatLoreSaving = true;
+        try {
+          var saved = await this.api('/api/chat_lore/' + p.chat_id, {
+            method: 'PUT',
+            body: JSON.stringify({
+              manual_lore: this.loreManual || '',
+              updated_at: p.updated_at,       // Q8: optimistic-метка в теле
+            }),
+          });
+          this.applyLoreProfile(saved);
+          this.toast('Ручной лор сохранён', 'ok');
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.chatLore409 = e.message;     // → модалка «Перезагрузить?»
+            return;
+          }
+          this.toast('Ошибка сохранения: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.chatLoreSaving = false;
+        }
+      },
+
+      saveSettings: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || this.chatLoreBusy) return;
+        var period = parseInt(this.loreSettings.auto_period_hours, 10);
+        var win = parseInt(this.loreSettings.auto_window_hours, 10);
+        if (!isFinite(period) || period < 1 || period > 720
+            || !isFinite(win) || win < 1 || win > 720) {
+          this.toast('Период и окно — числа от 1 до 720 часов', 'warn');
+          return;
+        }
+        this.chatLoreSaving = true;
+        try {
+          var saved = await this.api(
+            '/api/chat_lore/' + p.chat_id + '/settings', {
+              method: 'PUT',
+              body: JSON.stringify({
+                auto_enabled: !!this.loreSettings.auto_enabled,
+                auto_period_hours: period,
+                auto_window_hours: win,
+                updated_at: p.updated_at,
+              }),
+            });
+          this.applyLoreProfile(saved, true);
+          this.toast('Настройки автогенерации сохранены', 'ok');
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.chatLore409 = e.message;
+            return;
+          }
+          this.toast('Ошибка сохранения настроек: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.chatLoreSaving = false;
+        }
+      },
+
+      generateNow: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || this.chatLoreBusy) return;
+        if (!p.auto_enabled) {
+          this.toast('Автогенерация выключена — включите её в настройках', 'warn');
+          return;
+        }
+        this.chatLoreGenerating = true;
+        try {
+          var res = (await this.api(
+            '/api/chat_lore/' + p.chat_id + '/generate',
+            { method: 'POST', body: '{}' })) || {};
+          if (res.status === 'ok') {
+            this.toast(res.changed
+              ? 'Авто-лор обновлён'
+              : 'Авто-лор без изменений (UNCHANGED)', 'ok');
+          } else if (res.reason === 'quiet_window') {
+            this.toast('Мало осмысленных сообщений в окне — генерация пропущена', 'warn');
+          } else {
+            this.toast('Генерация пропущена: ' + (res.reason || '—'), 'warn');
+          }
+          // авто-прогон мог изменить auto_lore/last_auto_at — перечитываем
+          // профиль; черновик ручного текста при этом не трогаем
+          try {
+            var fresh = await this.api('/api/chat_lore/' + p.chat_id);
+            if (fresh) {
+              this.applyLoreProfile(fresh, true);
+              this.loreAuto = fresh.auto_lore || '';
+            }
+          } catch (e2) { /* некритично — подтянется при следующем выборе чата */ }
+        } catch (e) {
+          var code = e.status === 409 && e.message ? e.message.code : null;
+          if (code === 'auto_disabled') {
+            this.toast('Автогенерация выключена для чата', 'warn');
+          } else if (code === 'locked') {
+            this.toast('Прогон уже выполняется — попробуйте чуть позже', 'warn');
+          } else if (code === 'conflict') {
+            this.chatLore409 = e.message;
+          } else {
+            this.toast('Ошибка генерации: ' + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.chatLoreGenerating = false;
+        }
+      },
+
+      clearAuto: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || this.chatLoreBusy) return;
+        if (!window.confirm('Очистить авто-лор чата ' + p.chat_id
+            + '? Прошлый текст останется в истории изменений.')) return;
+        this.chatLoreSaving = true;
+        try {
+          var saved = await this.api(
+            '/api/chat_lore/' + p.chat_id + '/clear_auto',
+            { method: 'POST', body: '{}' });
+          this.applyLoreProfile(saved, true);
+          this.loreAuto = saved.auto_lore || '';
+          this.toast('Авто-лор очищен', 'ok');
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.chatLore409 = e.message;
+            return;
+          }
+          this.toast('Ошибка очистки: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.chatLoreSaving = false;
+        }
+      },
+
+      loadHistory: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || this.chatLoreHistoryLoading) return;
+        this.chatLoreHistoryOpen = true;
+        this.chatLoreHistoryLoading = true;
+        this.chatLoreHistory = [];
+        try {
+          var rows = await this.api(
+            '/api/chat_lore/' + p.chat_id + '/history?limit=100');
+          // diff-строки считаем один раз при загрузке (old/new → красное/зелёное)
+          this.chatLoreHistory = (Array.isArray(rows) ? rows : []).map(
+            function (r) {
+              r.diff = this.diffLines(r.old_value, r.new_value);
+              return r;
+            }, this);
+        } catch (e) {
+          if (e.status !== 401 && e.status !== 403) {
+            this.toast('Не удалось загрузить историю: ' + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.chatLoreHistoryLoading = false;
+        }
+      },
+      closeLoreHistory: function () {
+        this.chatLoreHistoryOpen = false;
+      },
+      // Q8: 409-модалка «Профиль изменён — перезагрузить?» → повторный GET
+      confirmLoreReload: function () {
+        var target = this.chatLoreSelectedId
+          || (this.chatLoreProfile && this.chatLoreProfile.chat_id);
+        this.chatLore409 = null;
+        if (target != null) this.loadProfile(target);
+      },
+      cancelLoreReload: function () {
+        this.chatLore409 = null;
+      },
+
+      // ═══ Переезд чата и per-chat админы (C2: D5/D8/Q9, глобальный admin) ═══
+
+      // POST /chat_lore/{id}/remap {new_chat_id} — merge-семантика: лор и
+      // админы переезжают на новый chat_id, старый профиль удаляется.
+      remapChat: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || !this.isGlobalAdmin || this.remapBusy || this.adminsBusy) return;
+        var newId = parseInt(this.remapNewChatId, 10);
+        if (String(this.remapNewChatId).trim() === '' || !isFinite(newId)) {
+          this.toast('Укажите новый chat_id (число)', 'warn');
+          return;
+        }
+        if (newId === p.chat_id) {
+          this.toast('Новый chat_id совпадает с текущим', 'warn');
+          return;
+        }
+        if (!window.confirm('Перенести лор/админов на новый chat_id? Старый профиль будет удалён')) return;
+        this.remapBusy = true;
+        try {
+          var res = await this.api('/api/chat_lore/' + p.chat_id + '/remap', {
+            method: 'POST',
+            body: JSON.stringify({ new_chat_id: newId }),
+          });
+          this.remapNewChatId = '';
+          if (res && res.status === 'ok') {
+            this.toast('Чат ' + p.chat_id + (res.merged
+              ? ' объединён с ' + newId : ' переехал в ' + newId), 'ok');
+          }
+          this.chatAdmins = [];
+          // старый chat_id исчез из списка — перечитываем и выбираем новый
+          await this.loadChats();
+          var found = this.chatLoreChats.some(function (c) {
+            return c.chat_id === newId;
+          });
+          if (found) this.loadProfile(newId);
+        } catch (e) {
+          if (e.status === 422) {
+            this.toast('Новый chat_id совпадает с текущим (422)', 'warn');
+          } else {
+            this.toast('Ошибка переезда: ' + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.remapBusy = false;
+        }
+      },
+
+      // GET /chat_lore/admins?chat_id=… — плоский список telegram_id (по
+      // факту API: store.list_chat_admins → list[int], ORDER BY telegram_id).
+      loadChatAdmins: async function (chatId) {
+        if (chatId == null || chatId === '') return;
+        this.adminsBusy = true;
+        try {
+          var data = await this.api('/api/chat_lore/admins?chat_id=' + chatId);
+          this.chatAdmins = Array.isArray(data) ? data : [];
+        } catch (e) {
+          this.chatAdmins = [];
+          if (e.status !== 401 && e.status !== 403) {
+            this.toast('Не удалось загрузить админов чата: '
+              + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.adminsBusy = false;
+        }
+      },
+
+      // POST /chat_lore/admins {chat_id, telegram_id} (только глобальный admin)
+      addChatAdmin: async function () {
+        var p = this.chatLoreProfile;
+        if (!p || !this.isGlobalAdmin || this.adminsBusy || this.remapBusy) return;
+        var tid = parseInt(this.newChatAdminId, 10);
+        if (String(this.newChatAdminId).trim() === '' || !isFinite(tid)
+            || tid <= 0) {
+          this.toast('Укажите telegram_id (число)', 'warn');
+          return;
+        }
+        this.adminsBusy = true;
+        try {
+          var res = await this.api('/api/chat_lore/admins', {
+            method: 'POST',
+            body: JSON.stringify({ chat_id: p.chat_id, telegram_id: tid }),
+          });
+          if (res && res.added === false) {
+            this.toast('telegram_id ' + tid + ' уже админ чата', 'warn');
+          } else {
+            this.toast('Админ ' + tid + ' добавлен', 'ok');
+            this.newChatAdminId = '';
+          }
+          await this.loadChatAdmins(p.chat_id);
+        } catch (e) {
+          this.toast('Ошибка добавления админа: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.adminsBusy = false;
+        }
+      },
+
+      // DELETE /chat_lore/admins?chat_id=…&telegram_id=… (глобальный admin)
+      removeChatAdmin: async function (telegramId) {
+        var p = this.chatLoreProfile;
+        if (!p || !this.isGlobalAdmin || this.adminsBusy || this.remapBusy) return;
+        if (!window.confirm('Удалить админа чата ' + telegramId + ' из ' + p.chat_id + '?')) return;
+        this.adminsBusy = true;
+        try {
+          var res = await this.api(
+            '/api/chat_lore/admins?chat_id=' + p.chat_id
+            + '&telegram_id=' + telegramId,
+            { method: 'DELETE' });
+          this.toast(res && res.removed === false
+            ? 'Админ уже удалён'
+            : 'Админ ' + telegramId + ' удалён', 'ok');
+          await this.loadChatAdmins(p.chat_id);
+        } catch (e) {
+          this.toast('Ошибка удаления админа: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.adminsBusy = false;
+        }
+      },
+      loreFieldLabel: function (field) {
+        var map = {
+          manual: 'ручной лор', auto: 'авто-лор',
+          auto_enabled: 'автогенерация', auto_period_hours: 'период',
+          auto_window_hours: 'окно', remap: 'переезд',
+          chat_admin: 'админ чата',
+        };
+        return map[field] || field;
+      },
+      changedByLabel: function (row) {
+        if (row && row.is_ai) return 'бот/ИИ';
+        return 'telegram_id: '
+          + (row && row.changed_by != null ? row.changed_by : '?');
+      },
+      truncateLore: function (text, cap) {
+        var t = String(text == null ? '' : text);
+        if (t.length <= cap) return t;
+        return t.slice(0, cap).replace(/\s+$/, '') + '\n…[обрезано]';
+      },
+      // Простейший построчный diff old/new БЕЗ библиотек (3.10): строки,
+      // которые есть только в old → del (красным), только в new → add.
+      diffLines: function (oldText, newText) {
+        var self = this;
+        var splitCut = function (t) {
+          var lines = self.truncateLore(t, 300).split('\n');
+          if (lines.length === 1 && lines[0] === '') return [];
+          return lines;
+        };
+        var oldLines = splitCut(oldText), newLines = splitCut(newText);
+        var oldSet = {}, newSet = {};
+        oldLines.forEach(function (l) { oldSet[l] = true; });
+        newLines.forEach(function (l) { newSet[l] = true; });
+        return {
+          old: oldLines.map(function (l) {
+            return { text: l, del: !newSet[l] };
+          }),
+          new: newLines.map(function (l) {
+            return { text: l, add: !oldSet[l] };
+          }),
+        };
+      },
+      // Алиасы имён C-части (loadLoreChats/saveLoreManual/…) — поведение
+      // то же; spec §3.10 использует краткие имена выше.
+      loadLoreChats: function (probe) { return this.loadChats(probe); },
+      selectLoreChat: function (chatId) { return this.loadProfile(chatId); },
+      saveLoreManual: function () { return this.saveManual(); },
+      saveLoreSettings: function () { return this.saveSettings(); },
+      loreGenerate: function () { return this.generateNow(); },
+      loreClearAuto: function () { return this.clearAuto(); },
+      loreLoadHistory: function () { return this.loadHistory(); },
+      openLoreHistory: function () { return this.loadHistory(); },
     },
 
     // 3.5.2: KV-редактор (kv-editor) получает доступ к корню — api/toast/
