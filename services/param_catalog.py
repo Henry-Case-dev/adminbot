@@ -301,6 +301,13 @@ _INFRA: list[tuple] = [
     ("DOWNLOAD_DIR", "Папка скачанных файлов", "str", False),
     ("INFO_TEXT_FILE", "Путь к info_text.md", "str", False),
     ("CHECKUP_JOURNALCTL_CMD", "Команда journalctl для чекапа", "str", False),
+    # Embed-фоллбэк (EMBEDDING_FALLBACK_*): Google AI Studio OpenAI-совместимый
+    # /embeddings — когда основной провайдер не отдаёт эмбеддинги (403-квоты).
+    ("EMBEDDING_FALLBACK_BASE_URL", "Базовый URL embed-фоллбэка", "str", False),
+    ("EMBEDDING_FALLBACK_API_KEY", "Ключ embed-фоллбэка (Google AI Studio)", "str", True),
+    ("EMBEDDING_FALLBACK_MODEL", "Модель embed-фоллбэка", "str", False),
+    ("EMBEDDING_FALLBACK_TIMEOUT_SECONDS", "Таймаут embed-фоллбэка, сек", "float", False),
+    ("EMBEDDING_FALLBACK_MAX_RETRIES", "Ретраи embed-фоллбэка", "int", False),
 ]
 
 # env-only infra (вне dataclass Settings): compose/инфраструктура Epic 85

@@ -158,6 +158,13 @@ class LLMClient:
         fallback_base_url: str = settings.LLM_FALLBACK_BASE_URL,
         fallback_model: str = settings.LLM_FALLBACK_MODEL,
         fallback_api_key: str = settings.LLM_FALLBACK_API_KEY,
+        # Embed-фоллбэк (EMBEDDING_FALLBACK_*): НЕЗАВИСИМ от chat-фоллбэка
+        # LLM_FALLBACK_* (62.4) — только для /embeddings.
+        embed_fallback_base_url: str = settings.EMBEDDING_FALLBACK_BASE_URL,
+        embed_fallback_api_key: str = settings.EMBEDDING_FALLBACK_API_KEY,
+        embed_fallback_model: str = settings.EMBEDDING_FALLBACK_MODEL,
+        embed_fallback_timeout: float = settings.EMBEDDING_FALLBACK_TIMEOUT_SECONDS,
+        embed_fallback_max_retries: int = settings.EMBEDDING_FALLBACK_MAX_RETRIES,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -196,10 +203,22 @@ class LLMClient:
         # транзиентных отказов самого фоллбэка.
         self._fallback_timeout = hot.get("models.llm_fallback_timeout_seconds", settings.LLM_FALLBACK_TIMEOUT_SECONDS)
         self._fallback_max_retries = hot.get("models.llm_fallback_max_retries", settings.LLM_FALLBACK_MAX_RETRIES)
+        # Embed-фоллбэк (раунд 5): активен ТОЛЬКО при base_url + api_key;
+        # пустая модель → primary embed-модель. Параметры infra (категория
+        # None в param_catalog) — горячего каталога/admin-кэша у них НЕТ.
+        self._embed_fallback_base_url = (embed_fallback_base_url or "").strip()
+        self._embed_fallback_api_key = (embed_fallback_api_key or "").strip()
+        self._embed_fallback_model = ((embed_fallback_model or "").strip()
+                                      or self._embed_model)
+        self._embed_fallback_timeout = embed_fallback_timeout
+        self._embed_fallback_max_retries = embed_fallback_max_retries
+        self._embed_fallback_active = bool(self._embed_fallback_base_url) and \
+            bool(self._embed_fallback_api_key)
         self._client: httpx.AsyncClient | None = None
         self._client_key: str | None = None
         self._fallback_client: httpx.AsyncClient | None = None
         self._fallback_key: str | None = None
+        self._embed_fallback_client: httpx.AsyncClient | None = None
 
     def _current_api_key(self) -> str:
         """T-619 (84.4): ключ читается из ConfigCache на ВЫЗОВ; ключа нет в
@@ -246,6 +265,20 @@ class LLMClient:
             self._fallback_key = key
         return self._fallback_client
 
+    def _get_embed_fallback_client(self) -> httpx.AsyncClient:
+        """Ленивый клиент embed-фоллбэка: свой Bearer-ключ
+        (EMBEDDING_FALLBACK_API_KEY), per-request таймаут
+        EMBEDDING_FALLBACK_TIMEOUT_SECONDS (паттерн _get_client, без hot-ротации
+        — ключ infra, только .env)."""
+        if self._embed_fallback_client is None:
+            self._embed_fallback_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._embed_fallback_timeout,
+                                       connect=10.0),
+                headers={"Authorization":
+                         f"Bearer {self._embed_fallback_api_key}"},
+            )
+        return self._embed_fallback_client
+
     async def close(self) -> None:
         if self._client is not None:
             await self._client.aclose()
@@ -253,6 +286,9 @@ class LLMClient:
         if self._fallback_client is not None:
             await self._fallback_client.aclose()
             self._fallback_client = None
+        if self._embed_fallback_client is not None:
+            await self._embed_fallback_client.aclose()
+            self._embed_fallback_client = None
 
     def _sleep_seconds(
         self,
@@ -465,6 +501,50 @@ class LLMClient:
         logger.warning("LLM fallback failed | error=%s", last_error)
         return None
 
+    async def _post_embed_fallback(self, payload: dict) -> httpx.Response:
+        """Одна попытка POST {embed_fallback}/embeddings на клиенте
+        embed-фоллбэка; model — _embed_fallback_model (пустая при
+        конструировании → primary embed-модель)."""
+        client = self._get_embed_fallback_client()
+        url = f"{self._embed_fallback_base_url.rstrip('/')}/embeddings"
+        fallback_payload = dict(payload)
+        fallback_payload["model"] = self._embed_fallback_model
+        return await client.post(url, json=fallback_payload)
+
+    async def _embed_fallback_with_retries(self,
+                                           payload: dict) -> httpx.Response | None:
+        """Embed-фоллбэк с ретраями транзиентных отказов
+        (429/5xx/транспорт; EMBEDDING_FALLBACK_MAX_RETRIES), общий таймаут
+        попытки EMBEDDING_FALLBACK_TIMEOUT_SECONDS (asyncio.timeout).
+        Детерминированные не-200 (400/401/403/404…) НЕ ретраятся (break).
+        По исчерпании попыток — WARNING «LLM fallback failed | kind=embed |
+        error=…» (диаг-контракт Betterstack) и None → вызывающий пробрасывает
+        ИСХОДНОЕ исключение primary."""
+        total_attempts = self._embed_fallback_max_retries + 1
+        last_error = "unknown"
+        for attempt in range(total_attempts):
+            if attempt > 0:
+                if self.backoff_base > 0:
+                    await asyncio.sleep(
+                        min(self.backoff_base * (2 ** (attempt - 1)),
+                            self._backoff_cap))
+                logger.warning(
+                    "LLM embed fallback retry | attempt=%d/%d | reason=%s",
+                    attempt + 1, total_attempts, last_error)
+            try:
+                async with asyncio.timeout(self._embed_fallback_timeout):
+                    fb_resp = await self._post_embed_fallback(payload)
+            except Exception as fb_exc:
+                last_error = f"{type(fb_exc).__name__}: {fb_exc}"
+                continue
+            if fb_resp.status_code == 200:
+                return fb_resp
+            last_error = f"status={fb_resp.status_code}"
+            if not (fb_resp.status_code == 429 or 500 <= fb_resp.status_code < 600):
+                break
+        logger.warning("LLM fallback failed | kind=embed | error=%s", last_error)
+        return None
+
     async def generate(self, messages: list[dict[str, str]],
                        temperature: float | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
@@ -594,12 +674,12 @@ class LLMClient:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """POST /embeddings → data[i].embedding. Raises LLMError on any failure (R3).
 
-        Задача 3 (01.09.2026): при LLMError primary (кроме LLMBadResponseError)
-        и активном фоллбэке — ОДНА попытка на фоллбэк-провайдере
-        (POST {fallback}/embeddings, primary embed-модель); фейл фоллбэка →
-        проброс ИСХОДНОГО исключения primary (KNN→FTS-каскад в
-        summary_memory решает деградацию). Диаг-логи — код ответа в
-        LLMAuthError (тело) / WARNING попытки."""
+        Embed-фоллбэк (EMBEDDING_FALLBACK_*, независим от chat-фоллбэка
+        62.4): при LLMError primary (кроме LLMBadResponseError) и активном
+        embed-фоллбэке — попытки на {EMBEDDING_FALLBACK_BASE_URL}/embeddings
+        с ретраями транзиентных отказов (EMBEDDING_FALLBACK_MAX_RETRIES);
+        фейл фоллбэка → проброс ИСХОДНОГО исключения primary (KNN→FTS-каскад
+        в summary_memory решает деградацию)."""
         if not texts:
             return []
         try:
@@ -608,33 +688,19 @@ class LLMClient:
                 {"model": self._embed_model, "input": texts},
             )
         except LLMError as exc:
-            if not self._fallback_active or isinstance(exc, LLMBadResponseError):
+            if not self._embed_fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
             logger.warning(
                 "LLM embed fallback attempt | primary_error=%s",
                 f"{type(exc).__name__}: {exc}",
             )
-            try:
-                async with asyncio.timeout(self._fallback_timeout):
-                    fb_response = await self._post_fallback(
-                        {"model": self._embed_model, "input": texts},
-                        path="/embeddings",
-                        model=self._embed_model,
-                    )
-            except Exception:
-                fb_response = None
-            if fb_response is None or fb_response.status_code != 200:
-                # Ревью-фикс 4: сохраняем старый контракт BetterStack —
-                # маркер «LLM fallback failed | error=…», доп. поля.
-                logger.warning(
-                    "LLM fallback failed | error=%s | fallback=%s | status=%s",
-                    f"status={getattr(fb_response, 'status_code', 'no-response')}",
-                    self._fallback_base_url.rstrip("/"),
-                    getattr(fb_response, "status_code", "no-response"),
-                )
+            fb_response = await self._embed_fallback_with_retries(
+                {"input": texts})
+            if fb_response is None:
                 raise exc from None
             response = fb_response
-            logger.warning("LLM embed fallback OK | model=%s", self._embed_model)
+            logger.warning("LLM embed fallback OK | model=%s",
+                           self._embed_fallback_model)
         try:
             data = response.json()
         except ValueError as exc:

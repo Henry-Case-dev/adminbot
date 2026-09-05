@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from config.settings import settings
@@ -1688,3 +1689,94 @@ class TestCanonP20Guards:
         for phrase in (CHAT_ERROR_PHRASES + CHAT_COOLDOWN_PHRASES
                        + CHAT_LLM_DOWN_PHRASES + CHECKUP_LLM_ERROR_PHRASES):
             assert phrase in pools
+
+# -- # ── Раунд 5: интеграция embed-фоллбэка EMBEDDING_FALLBACK_* ──────────────
+
+
+class TestEmbedFallbackIntegration:
+    """Интеграция: НАСТОЯЩИЙ LLMClient (httpx.MockTransport): primary
+    /embeddings → 403 «quota» → embed-фоллбэк (200, dim=EMBEDDING_DIM) →
+    факт «запомни» получает vec-строку. Ключи фиктивные."""
+
+    @pytest.mark.asyncio
+    async def test_primary_403_quota_embed_fallback_200_writes_vectors(
+            self, db, monkeypatch, caplog):
+        import logging
+
+        try:
+            import sqlite_vec  # noqa: F401
+        except ImportError:
+            pytest.skip("sqlite-vec not installed")
+
+        from services.llm_client import LLMClient
+
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
+        seen = {"primary_embeddings": 0, "fb_embeddings": 0,
+                "chat_completions": 0}
+
+        def handler(request):
+            url = str(request.url)
+            if "fallback.test" in url:
+                seen["fb_embeddings"] += 1
+                payload = json.loads(request.content)
+                texts = payload.get("input") or []
+                return httpx.Response(
+                    200,
+                    json={"data": [{"embedding": [0.25] * settings.EMBEDDING_DIM}
+                                   for _ in texts]},
+                    request=request)
+            if url.endswith("/embeddings"):
+                seen["primary_embeddings"] += 1
+                return httpx.Response(
+                    403,
+                    text='{"error": {"message": "You exceeded your current '
+                         'quota, please check your plan"}}',
+                    request=request)
+            seen["chat_completions"] += 1
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "[]"}}]},
+                request=request)
+
+        transport = httpx.MockTransport(handler)
+        original = httpx.AsyncClient
+
+        def factory(**kw):
+            return original(transport=transport, **kw)
+
+        monkeypatch.setattr("services.llm_client.httpx.AsyncClient", factory)
+        client = LLMClient(
+            "https://primary.test/v1", "sk-primary", "chat-model",
+            "embed-model",
+            embed_fallback_base_url="https://fallback.test/v1",
+            embed_fallback_api_key="sk-fb")
+        memory = MemoryManager(db, client)
+        try:
+            ok = await memory.initialize()
+            if not ok:
+                pytest.skip("sqlite-vec extension could not be loaded")
+            assert memory._vec_available is True
+            with caplog.at_level(logging.WARNING):
+                result = await memory.remember_user_fact(
+                    -100, "озон доставляет быстрее чем вайлдберриз",
+                    target_user="вася")
+            assert result == "saved"
+        finally:
+            await client.close()
+        # primary embed 403 каждый раз, эмбеддинги пришли с фоллбэка
+        assert seen["primary_embeddings"] >= 2        # probe + факт
+        assert seen["fb_embeddings"] >= 2
+        assert seen["chat_completions"] == 0
+        assert any("LLM embed fallback attempt" in r.message
+                   for r in caplog.records)
+        assert any("LLM embed fallback OK" in r.message
+                   for r in caplog.records)
+        # vec-строка факта записана (int8-колонка = dim байт)
+        cursor = await db.db.execute(
+            "SELECT embedding_i8 FROM graph_facts_vec")
+        row = await cursor.fetchone()
+        assert row is not None
+        assert len(bytes(row["embedding_i8"])) == settings.EMBEDDING_DIM
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts "
+            "WHERE origin = 'user_memory'")
+        assert (await cursor.fetchone())["c"] == 1

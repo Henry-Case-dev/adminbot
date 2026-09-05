@@ -319,6 +319,23 @@ class Settings:
     # LLM_MAX_RETRIES сохраняется (default 2): число повторов, попыток = retries + 1 = 3.
     LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
     EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 3072)   # Epic 46 (D177): gemini-embedding-001 = 3072
+    # ── Embed-фоллбэк (Google AI Studio OpenAI-совместимый /v1beta/openai) ──
+    # Включается, когда основной LLM-провайдер не отдаёт /embeddings
+    # (403-квоты и пр.). Активен ТОЛЬКО при заданных base_url + api_key
+    # (пустая модель → EMBEDDING_MODEL_NAME). R17: ключ — только в .env
+    # (EMBEDDING_FALLBACK_API_KEY либо устаревший GEMINI_FALLBACK_API_KEY),
+    # значение НИКОГДА не логируется (только факт configured).
+    EMBEDDING_FALLBACK_BASE_URL: str = _env_str(
+        "EMBEDDING_FALLBACK_BASE_URL",
+        "https://generativelanguage.googleapis.com/v1beta/openai")
+    EMBEDDING_FALLBACK_API_KEY: str = (
+        os.getenv("EMBEDDING_FALLBACK_API_KEY")
+        or os.getenv("GEMINI_FALLBACK_API_KEY", ""))
+    EMBEDDING_FALLBACK_MODEL: str = _env_str("EMBEDDING_FALLBACK_MODEL", "")
+    EMBEDDING_FALLBACK_TIMEOUT_SECONDS: float = _env_float_min(
+        "EMBEDDING_FALLBACK_TIMEOUT_SECONDS", 60.0, 1.0)
+    EMBEDDING_FALLBACK_MAX_RETRIES: int = _env_int_min(
+        "EMBEDDING_FALLBACK_MAX_RETRIES", 1, 0)
     # ── LLM resilience (Epic 47, Section 56, D191) ──
     LLM_RETRY_BACKOFF_BASE: float = _env_float_min("LLM_RETRY_BACKOFF_BASE", 1.0, 0.0)
     LLM_RETRY_BACKOFF_CAP: float = _env_float_min("LLM_RETRY_BACKOFF_CAP", 8.0, 0.0)

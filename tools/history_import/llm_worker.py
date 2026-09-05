@@ -389,7 +389,10 @@ class EmbedClient:
                  concurrency: int = DEFAULT_EMBED_CONCURRENCY,
                  batch_size: int = _EMBED_BATCH_SIZE,
                  timeout: float = _EMBED_TIMEOUT_S,
-                 max_retries: int = _EMBED_MAX_RETRIES):
+                 max_retries: int = _EMBED_MAX_RETRIES,
+                 embed_fallback_base_url: str | None = None,
+                 embed_fallback_api_key: str | None = None,
+                 embed_fallback_model: str | None = None):
         self.base_url = (base_url or settings.LLM_BASE_URL).rstrip("/")
         self.api_key = api_key if api_key is not None else settings.LLM_API_KEY
         self.model = model or settings.EMBEDDING_MODEL_NAME
@@ -401,12 +404,38 @@ class EmbedClient:
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout), follow_redirects=True)
         self._sem = asyncio.Semaphore(self.concurrency)
+        # Embed-фоллбэк EMBEDDING_FALLBACK_* (как LLMClient бота): одна
+        # попытка на фоллбэке после EmbedError primary. Активен ТОЛЬКО при
+        # base_url + api_key; пустая модель → primary embed-модель.
+        self._fb_base_url = (
+            settings.EMBEDDING_FALLBACK_BASE_URL
+            if embed_fallback_base_url is None else embed_fallback_base_url
+        ).rstrip("/") or ""
+        self._fb_api_key = (
+            settings.EMBEDDING_FALLBACK_API_KEY
+            if embed_fallback_api_key is None else embed_fallback_api_key
+        ) or ""
+        self._fb_model = (
+            (settings.EMBEDDING_FALLBACK_MODEL
+             if embed_fallback_model is None else embed_fallback_model)
+            or ""
+        ).strip() or self.model
+        self._fb_url = (f"{self._fb_base_url}/embeddings"
+                        if self._fb_base_url else "")
+        self._fb_active = bool(self._fb_base_url) and bool(self._fb_api_key)
+        self._fb_client: httpx.AsyncClient | None = None
 
     async def aclose(self) -> None:
         try:
             await self._client.aclose()
         except Exception:  # pragma: no cover
             pass
+        if self._fb_client is not None:
+            try:
+                await self._fb_client.aclose()
+            except Exception:  # pragma: no cover
+                pass
+            self._fb_client = None
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Векторы для текстов в ИСХОДНОМ порядке. Ретраи внутри чанка
@@ -421,45 +450,109 @@ class EmbedClient:
         return [vector for chunk in results for vector in chunk]
 
     async def _embed_chunk(self, chunk: list[str]) -> list[list[float]]:
+        """Чанк: primary (ретраи 429/5xx/транспорт) → EmbedError → одна
+        попытка embed-фоллбэка (EMBEDDING_FALLBACK_*); фейл фоллбэка →
+        EmbedError «embed primary+fallback failed | primary: … | fallback: …»
+        (пачка НЕ помечается — факты остаются текстом, no_vec)."""
         async with self._sem:
-            last_exc: Exception | None = None
-            for attempt in range(1 + self.max_retries):
+            try:
+                return await self._embed_chunk_primary(chunk)
+            except EmbedError as primary_exc:
+                if not self._fb_active:
+                    raise
+                primary_desc = f"{type(primary_exc).__name__}: {primary_exc}"
+                fb_resp = None
+                fb_desc = "no-response"
                 try:
-                    response = await self._client.post(
-                        self.url,
-                        json={"model": self.model, "input": chunk},
-                        headers=self._headers())
-                    await response.aread()
-                except (httpx.TransportError, httpx.TimeoutException) as exc:
-                    last_exc = EmbedError(
-                        f"embed транспорт недоступен (попытка {attempt + 1}): "
-                        f"{exc}")
-                    await self._sleep_backoff(attempt)
-                    continue
-                if response.status_code in (408, 425, 429) or response.status_code >= 500:
-                    last_exc = EmbedError(
-                        f"embed HTTP {response.status_code} "
-                        f"(попытка {attempt + 1})")
-                    await self._sleep_backoff(attempt)
-                    continue
-                if response.status_code != 200:
+                    fb_resp = await self._post_embed_fallback(chunk)
+                except Exception as fb_exc:
+                    fb_desc = f"{type(fb_exc).__name__}: {fb_exc}"
+                if fb_resp is None or fb_resp.status_code != 200:
+                    if fb_resp is not None and fb_resp.status_code != 200:
+                        fb_desc = f"status={fb_resp.status_code}"
+                    logger.warning(
+                        "history graph: embed fallback failed | primary=%s | "
+                        "fallback=%s", primary_desc, fb_desc)
                     raise EmbedError(
-                        f"embed HTTP {response.status_code}: "
-                        f"{response.text[:300]}")
+                        "embed primary+fallback failed | "
+                        f"primary: {primary_desc} | fallback: {fb_desc}"
+                    ) from primary_exc
                 try:
-                    data = response.json()
+                    data = fb_resp.json()
                     vectors = [item["embedding"] for item in data["data"]]
-                except (ValueError, KeyError, TypeError) as exc:
+                except (ValueError, KeyError, TypeError) as parse_exc:
                     raise EmbedError(
-                        f"embed ответ без data[].embedding: {exc}") from exc
+                        f"embed fallback bad response: {parse_exc}"
+                    ) from parse_exc
                 if len(vectors) != len(chunk):
                     raise EmbedError(
-                        f"embed вернул {len(vectors)} векторов на "
-                        f"{len(chunk)} текстов — повторная попытка")
+                        f"embed fallback вернул {len(vectors)} векторов на "
+                        f"{len(chunk)} текстов")
+                logger.info(
+                    "history graph: embed fallback OK | model=%s | "
+                    "primary_error=%s", self._fb_model, primary_desc)
                 return vectors
-            if last_exc is not None:
-                raise last_exc
-            raise EmbedError("embed недоступен: все попытки исчерпаны")
+
+    async def _post_embed_fallback(self, chunk: list[str]) -> httpx.Response:
+        """РОВНО одна попытка POST {fb}/embeddings (свой Bearer при ключе)."""
+        client = self._get_fb_client()
+        headers = {}
+        if self._fb_api_key:
+            headers["Authorization"] = f"Bearer {self._fb_api_key}"
+        response = await client.post(
+            self._fb_url,
+            json={"model": self._fb_model, "input": chunk},
+            headers=headers)
+        await response.aread()
+        return response
+
+    def _get_fb_client(self) -> httpx.AsyncClient:
+        if self._fb_client is None:
+            self._fb_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self.timeout), follow_redirects=True)
+        return self._fb_client
+
+    async def _embed_chunk_primary(self, chunk: list[str]) -> list[list[float]]:
+        """Ретраи внутри чанка (429/5xx/транспорт); фатальные 4xx/битый ответ
+        → EmbedError. Семафор держит вызывающий _embed_chunk."""
+        last_exc: Exception | None = None
+        for attempt in range(1 + self.max_retries):
+            try:
+                response = await self._client.post(
+                    self.url,
+                    json={"model": self.model, "input": chunk},
+                    headers=self._headers())
+                await response.aread()
+            except (httpx.TransportError, httpx.TimeoutException) as exc:
+                last_exc = EmbedError(
+                    f"embed транспорт недоступен (попытка {attempt + 1}): "
+                    f"{exc}")
+                await self._sleep_backoff(attempt)
+                continue
+            if response.status_code in (408, 425, 429) or response.status_code >= 500:
+                last_exc = EmbedError(
+                    f"embed HTTP {response.status_code} "
+                    f"(попытка {attempt + 1})")
+                await self._sleep_backoff(attempt)
+                continue
+            if response.status_code != 200:
+                raise EmbedError(
+                    f"embed HTTP {response.status_code}: "
+                    f"{response.text[:300]}")
+            try:
+                data = response.json()
+                vectors = [item["embedding"] for item in data["data"]]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise EmbedError(
+                    f"embed ответ без data[].embedding: {exc}") from exc
+            if len(vectors) != len(chunk):
+                raise EmbedError(
+                    f"embed вернул {len(vectors)} векторов на "
+                    f"{len(chunk)} текстов — повторная попытка")
+            return vectors
+        if last_exc is not None:
+            raise last_exc
+        raise EmbedError("embed недоступен: все попытки исчерпаны")
 
     def _headers(self) -> dict:
         if self.api_key:

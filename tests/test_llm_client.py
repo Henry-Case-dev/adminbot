@@ -22,9 +22,13 @@ from services.llm_client import (
 
 def _make_client(handler, monkeypatch,
                  fallback_base_url="", fallback_model="", fallback_api_key="",
+                 embed_fallback_base_url="", embed_fallback_api_key="",
+                 embed_fallback_model="",
                  **kwargs):
     """LLMClient backed by httpx.MockTransport; backoff sleeps disabled.
-    Epic 53: фоллбэк-параметры — явные инжект-параметры (изоляция от env)."""
+    Epic 53: фоллбэк-параметры — явные инжект-параметры (изоляция от env).
+    Embed-фоллбэк EMBEDDING_FALLBACK_* — пустые kwargs по умолчанию
+    (неактивен, изоляция от env/дефолтов settings)."""
     transport = httpx.MockTransport(handler)
     original = httpx.AsyncClient
 
@@ -37,6 +41,9 @@ def _make_client(handler, monkeypatch,
         fallback_base_url=fallback_base_url,
         fallback_model=fallback_model,
         fallback_api_key=fallback_api_key,
+        embed_fallback_base_url=embed_fallback_base_url,
+        embed_fallback_api_key=embed_fallback_api_key,
+        embed_fallback_model=embed_fallback_model,
         **kwargs,
     )
     client.backoff_base = 0
@@ -273,14 +280,15 @@ class TestEmbed:
 
     @pytest.mark.asyncio
     async def test_embed_fallback_after_primary_403(self, monkeypatch, caplog):
-        """Задача 3: primary 403 → ОДНА попытка на фоллбэк-провайдере
-        (/embeddings, embed-модель) → успех."""
+        """Раунд 5: primary 403 → embed-фоллбэк EMBEDDING_FALLBACK_*
+        (/embeddings; пустая модель → primary embed-модель) → успех."""
         import logging
         seen = {}
 
         def handler(request):
             if "fallback.test" in str(request.url):
                 seen["fb_url"] = str(request.url)
+                seen["fb_auth"] = request.headers.get("authorization")
                 seen["fb_payload"] = json.loads(request.content)
                 return httpx.Response(
                     200, json={"data": [{"embedding": [9.9]}]},
@@ -290,14 +298,15 @@ class TestEmbed:
                 request=request)
 
         client = _make_client(handler, monkeypatch,
-                              fallback_base_url="https://fallback.test/v1",
-                              fallback_model="fb-model",
-                              fallback_api_key="fb-key")
+                              embed_fallback_base_url="https://fallback.test/v1",
+                              embed_fallback_api_key="fb-key")
         with caplog.at_level(logging.WARNING):
             vectors = await client.embed(["текст"])
         assert vectors == [[9.9]]
         assert seen["fb_url"] == "https://fallback.test/v1/embeddings"
+        assert seen["fb_auth"] == "Bearer fb-key"
         assert seen["fb_payload"]["model"] == "embed-model"
+        assert seen["fb_payload"]["input"] == ["текст"]
         assert any("LLM embed fallback attempt" in r.message
                    for r in caplog.records)
         assert any("LLM embed fallback OK" in r.message
@@ -306,30 +315,295 @@ class TestEmbed:
     @pytest.mark.asyncio
     async def test_embed_fallback_failure_raises_original(self, monkeypatch,
                                                           caplog):
-        """Задача 3: фоллбэк тоже не смог (404 — нет /embeddings) → проброс
-        ИСХОДНОГО исключения primary + WARNING-диагностика."""
+        """Раунд 5: фоллбэк тоже не смог (404 — детерминированный 4xx, БЕЗ
+        ретраев) → проброс ИСХОДНОГО исключения primary + WARNING-диагностика
+        «LLM fallback failed | kind=embed | error=status=404»."""
         import logging
+        state = {"fb": 0}
 
         def handler(request):
             if "fallback.test" in str(request.url):
+                state["fb"] += 1
                 return httpx.Response(404, json={}, request=request)
             return httpx.Response(
                 403, text='{"error":{"message":"insufficient balance"}}',
                 request=request)
 
         client = _make_client(handler, monkeypatch,
-                              fallback_base_url="https://fallback.test/v1",
-                              fallback_model="fb-model",
-                              fallback_api_key="fb-key")
+                              embed_fallback_base_url="https://fallback.test/v1",
+                              embed_fallback_api_key="fb-key")
         with caplog.at_level(logging.WARNING):
             with pytest.raises(LLMAuthError) as ei:
                 await client.embed(["текст"])
         assert "LLM auth failed (403)" in str(ei.value)
         assert "insufficient balance" in str(ei.value)
-        # ревью-фикс 4: старый контракт BetterStack «LLM fallback failed»
-        assert any("LLM fallback failed | error=status=404" in r.message
-                   and "status=404" in r.message
+        # детерминированный 4xx — РОВНО одна попытка (без ретраев)
+        assert state["fb"] == 1
+        # контракт BetterStack: маркер kind=embed
+        assert any("LLM fallback failed | kind=embed | error=status=404"
+                   in r.message for r in caplog.records)
+
+    # ── Раунд 5: embed-фоллбэк EMBEDDING_FALLBACK_* (10 кейсов) ──────────
+
+    def _fb_handler(self, seen, fb_status=200, fb_body=None):
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                seen["fb"] = seen.get("fb", 0) + 1
+                seen["fb_url"] = str(request.url)
+                seen["fb_auth"] = request.headers.get("authorization")
+                seen["fb_payload"] = json.loads(request.content)
+                if fb_status != 200:
+                    return httpx.Response(fb_status, json={}, request=request)
+                return httpx.Response(
+                    200,
+                    json=fb_body if fb_body is not None
+                    else {"data": [{"embedding": [7.7]}]},
+                    request=request)
+            seen["primary"] = seen.get("primary", 0) + 1
+            return httpx.Response(
+                403, text='{"error":{"message":"quota exceeded"}}',
+                request=request)
+
+        return handler
+
+    def _auth_client(self, handler, monkeypatch, **kw) -> LLMClient:
+        client = _make_client(
+            handler, monkeypatch,
+            embed_fallback_base_url="https://fallback.test/v1",
+            embed_fallback_api_key="fb-key", **kw)
+        return client
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_active_with_base_and_key_only(self,
+                                                                monkeypatch,
+                                                                caplog):
+        """Кейс 1: active = base_url + api_key (модель не нужна); пустая
+        модель резолвится в primary embed-модель (URL/payload/auth + логи)."""
+        import logging
+        seen = {}
+        client = self._auth_client(self._fb_handler(seen), monkeypatch)
+        assert client._embed_fallback_active is True
+        assert client._embed_fallback_model == "embed-model"
+        with caplog.at_level(logging.WARNING):
+            vectors = await client.embed(["текст"])
+        assert vectors == [[7.7]]
+        assert seen["primary"] == 1
+        assert seen["fb"] == 1
+        assert seen["fb_url"] == "https://fallback.test/v1/embeddings"
+        assert seen["fb_auth"] == "Bearer fb-key"
+        assert seen["fb_payload"] == {"model": "embed-model",
+                                      "input": ["текст"]}
+        assert any("LLM embed fallback attempt" in r.message
                    for r in caplog.records)
+        assert any("LLM embed fallback OK | model=embed-model" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_explicit_model(self, monkeypatch, caplog):
+        """Кейс 2: заданная модель фоллбэка → в payload И в OK-логе."""
+        import logging
+        seen = {}
+        client = self._auth_client(
+            self._fb_handler(seen), monkeypatch,
+            embed_fallback_model="gemini-fallback-2")
+        assert client._embed_fallback_model == "gemini-fallback-2"
+        with caplog.at_level(logging.WARNING):
+            vectors = await client.embed(["текст"])
+        assert vectors == [[7.7]]
+        assert seen["fb_payload"]["model"] == "gemini-fallback-2"
+        assert any("LLM embed fallback OK | model=gemini-fallback-2"
+                   in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_inactive_without_key(self, monkeypatch,
+                                                       caplog):
+        """Кейс 3: задан ТОЛЬКО base_url (нет ключа) → inactive → проброс
+        исходного исключения primary, фоллбэк НЕ вызывается, клиент НЕ создан."""
+        import logging
+        seen = {}
+        state = {"primary": 0}
+
+        def handler(request):
+            state["primary"] += 1
+            return httpx.Response(
+                403, text='{"error":{"message":"quota"}}', request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              embed_fallback_base_url="https://fallback.test/v1")
+        assert client._embed_fallback_active is False
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMAuthError):
+                await client.embed(["текст"])
+        assert state["primary"] == 1
+        assert not seen
+        assert client._embed_fallback_client is None
+        assert not any("LLM fallback" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_inactive_without_base(self, monkeypatch):
+        """Кейс 4: задан ТОЛЬКО ключ (нет base_url) → inactive → проброс."""
+        state = {"n": 0}
+
+        def handler(request):
+            state["n"] += 1
+            return httpx.Response(403, json={}, request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              embed_fallback_api_key="fb-key")
+        assert client._embed_fallback_active is False
+        with pytest.raises(LLMAuthError):
+            await client.embed(["текст"])
+        assert state["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_embed_bad_response_skips_fallback(self, monkeypatch):
+        """Кейс 5: LLMBadResponseError на primary → фоллбэк НЕ вызывается."""
+        state = {"primary": 0}
+
+        def handler(request):
+            state["primary"] += 1
+            return httpx.Response(200, text="не json", request=request)
+
+        client = self._auth_client(handler, monkeypatch)
+        with pytest.raises(LLMBadResponseError):
+            await client.embed(["текст"])
+        assert state["primary"] == 1
+        assert client._embed_fallback_client is None
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_404_single_attempt_no_retry(self,
+                                                              monkeypatch,
+                                                              caplog):
+        """Кейс 6: фоллбэк 404 (детерминированный) → мгновенный break,
+        РОВНО одна попытка, проброс исходного + лог kind=embed."""
+        import logging
+        seen = {}
+        client = self._auth_client(
+            self._fb_handler(seen, fb_status=404), monkeypatch)
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMAuthError) as ei:
+                await client.embed(["текст"])
+        assert "LLM auth failed (403)" in str(ei.value)
+        assert seen["fb"] == 1
+        assert any("LLM fallback failed | kind=embed | error=status=404"
+                   in r.message for r in caplog.records)
+        assert not any("LLM embed fallback retry" in r.message
+                       for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_429_retry_then_success(self, monkeypatch,
+                                                         caplog):
+        """Кейс 7: фоллбэк 429 → ретрай (EMBEDDING_FALLBACK_MAX_RETRIES=1,
+        попытка 2/2) → успех; лог «LLM embed fallback retry | attempt=2/2»."""
+        import logging
+        state = {"fb": 0}
+        seen = {}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                state["fb"] += 1
+                if state["fb"] == 1:
+                    return httpx.Response(429, json={}, request=request)
+                return httpx.Response(
+                    200, json={"data": [{"embedding": [3.3]}]}, request=request)
+            return httpx.Response(403, json={}, request=request)
+
+        client = self._auth_client(handler, monkeypatch,
+                                   embed_fallback_max_retries=1)
+        with caplog.at_level(logging.WARNING):
+            vectors = await client.embed(["текст"])
+        assert vectors == [[3.3]]
+        assert state["fb"] == 2
+        assert any("LLM embed fallback retry | attempt=2/2 | reason=status=429"
+                   in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_429_exhaustion_raises_original(
+            self, monkeypatch, caplog):
+        """Кейс 8: фоллбэк 429 на всех попытках (1+1) → проброс исходного +
+        финальный WARNING kind=embed."""
+        import logging
+        state = {"fb": 0}
+        seen = {}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                state["fb"] += 1
+                return httpx.Response(429, json={}, request=request)
+            return httpx.Response(
+                403, text='{"error":{"message":"quota"}}', request=request)
+
+        client = self._auth_client(handler, monkeypatch,
+                                   embed_fallback_max_retries=1)
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMAuthError):
+                await client.embed(["текст"])
+        assert state["fb"] == 2
+        assert any("LLM fallback failed | kind=embed | error=status=429"
+                   in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_transport_retries_then_original(
+            self, monkeypatch, caplog):
+        """Кейс 9: транспортный фейл фоллбэка → ретраи; после исчерпания —
+        проброс исходного; причина в логе ретрая."""
+        import logging
+        state = {"fb": 0}
+
+        def handler(request):
+            if "fallback.test" in str(request.url):
+                state["fb"] += 1
+                raise httpx.ConnectError("fb недоступен", request=request)
+            return httpx.Response(403, json={}, request=request)
+
+        client = self._auth_client(handler, monkeypatch,
+                                   embed_fallback_max_retries=1)
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMAuthError):
+                await client.embed(["текст"])
+        assert state["fb"] == 2
+        assert any("LLM embed fallback retry | attempt=2/2" in r.message
+                   and "reason=ConnectError" in r.message
+                   for r in caplog.records)
+        assert any("LLM fallback failed | kind=embed | error=ConnectError"
+                   in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_embed_fallback_bounded_by_timeout(self, monkeypatch,
+                                                     caplog):
+        """Кейс 9: зависший фоллбэк обрезается asyncio.timeout
+        (EMBEDDING_FALLBACK_TIMEOUT_SECONDS на попытку) → проброс исходного
+        исключения primary."""
+        import logging
+
+        async def handler(request):
+            if "fallback.test" in str(request.url):
+                await asyncio.sleep(5)
+                return httpx.Response(
+                    200, json={"data": [{"embedding": [1.1]}]}, request=request)
+            return httpx.Response(403, json={}, request=request)
+
+        client = self._auth_client(handler, monkeypatch,
+                                   embed_fallback_max_retries=1)
+        client._embed_fallback_timeout = 0.05
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(LLMAuthError):
+                await client.embed(["текст"])
+        assert any("LLM embed fallback retry | attempt=2/2" in r.message
+                   and "reason=TimeoutError" in r.message
+                   for r in caplog.records)
+        assert any("LLM fallback failed | kind=embed | error=TimeoutError"
+                   in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_close_closes_embed_fallback_client(self, monkeypatch):
+        """Кейс 10: close() закрывает ленивый клиент embed-фоллбэка."""
+        seen = {}
+        client = self._auth_client(self._fb_handler(seen), monkeypatch)
+        assert await client.embed(["текст"]) == [[7.7]]
+        assert client._embed_fallback_client is not None
+        await client.close()
+        assert client._embed_fallback_client is None
 
 
 class TestMisc:

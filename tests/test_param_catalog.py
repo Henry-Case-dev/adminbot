@@ -32,9 +32,9 @@ class TestCompleteness:
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
-        # 265: 264 + 1 (фаза 2, T-755 — бессрочное хранение памяти:
-        # INFINITE_RETENTION) — каталог пополнен парно
-        assert len(fields) == 265
+        # 270: 265 + 5 (embed-фоллбэк EMBEDDING_FALLBACK_* — раунд 5) —
+        # каталог пополнен парно
+        assert len(fields) == 270
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -64,6 +64,10 @@ class TestInfraExcluded:
         "API_TOKEN", "DB_PATH", "MEDIA_BASE", "COBALT_API_URL",
         "LOCAL_BOT_API_URL", "TELEGRAM_API_FILES_DIR", "DOWNLOAD_DIR",
         "INFO_TEXT_FILE", "CHECKUP_JOURNALCTL_CMD",
+        # embed-фоллбэк (раунд 5): EMBEDDING_FALLBACK_* — infra (.env)
+        "EMBEDDING_FALLBACK_BASE_URL", "EMBEDDING_FALLBACK_API_KEY",
+        "EMBEDDING_FALLBACK_MODEL", "EMBEDDING_FALLBACK_TIMEOUT_SECONDS",
+        "EMBEDDING_FALLBACK_MAX_RETRIES",
         # env-only
         "POSTGRES_DSN", "POSTGRES_PASSWORD", "POSTGRES_DB", "POSTGRES_USER",
         "WEB_PORT", "LOG_RING_MAX_ENTRIES", "UPTIME_EVENTS_RETENTION_HOURS",
@@ -103,6 +107,8 @@ class TestSecrets:
         "API_TOKEN", "POSTGRES_DSN", "POSTGRES_PASSWORD", "SENTRY_DSN",
         "LOGTAIL_SOURCE_TOKEN", "TELEGRAM_API_ID", "TELEGRAM_API_HASH",
         "COBALT_HTTP_PROXY",
+        # embed-фоллбэк (раунд 5): ключ Google AI Studio — секрет (R17)
+        "EMBEDDING_FALLBACK_API_KEY",
     }
 
     def test_secret_flags(self):

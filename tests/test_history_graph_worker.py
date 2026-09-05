@@ -515,6 +515,186 @@ class TestEmbedClient:
         assert len(fake.sent) == 1            # фатальный 4xx — без ретраев
 
 
+class _FakeEmbedFailover:
+    """Роутинг primary ↔ фоллбэк по URL (fallback.test): один fake на оба
+    клиента EmbedClient (_client и ленивый _fb_client)."""
+
+    def __init__(self, fb_status: int = 200, fb_body=None,
+                 fb_exc: Exception | None = None,
+                 primary_status: int = 403):
+        self.fb_status = fb_status
+        self.fb_body = fb_body
+        self.fb_exc = fb_exc
+        self.primary_status = primary_status
+        self.urls: list[str] = []
+        self.sent: list[dict] = []
+        self.headers_seen: list[dict] = []
+
+    async def post(self, url: str, json: dict, headers=None):
+        self.urls.append(url)
+        self.sent.append(json)
+        self.headers_seen.append(headers)
+        request = httpx.Request("POST", url)
+        if "fallback.test" in url:
+            if self.fb_exc is not None:
+                raise self.fb_exc
+            if self.fb_status != 200:
+                return httpx.Response(self.fb_status,
+                                      json={"error": "x"}, request=request)
+            if self.fb_body is not None:
+                return httpx.Response(200, json=self.fb_body, request=request)
+            texts = json.get("input") or []
+            return httpx.Response(
+                200,
+                json={"data": [{"embedding": [0.5] * _EMBED_DIM}
+                               for _ in texts]},
+                request=request)
+        if self.primary_status != 200:
+            return httpx.Response(self.primary_status,
+                                  json={"error": "quota"}, request=request)
+        texts = json.get("input") or []
+        return httpx.Response(
+            200,
+            json={"data": [{"embedding": [0.25] * _EMBED_DIM}
+                           for _ in texts]},
+            request=request)
+
+
+class TestEmbedClientFallback:
+    """Раунд 5: embed-фоллбэк EMBEDDING_FALLBACK_* в EmbedClient воркера:
+    одна попытка POST {fb}/embeddings после EmbedError primary."""
+
+    def _client(self, fake, *, embed_fallback_model=None, **kw) -> EmbedClient:
+        client = EmbedClient(
+            base_url="https://embed.test/v1", api_key="sk-primary",
+            model="gemini-x", timeout=5,
+            embed_fallback_base_url="https://fallback.test/v1",
+            embed_fallback_api_key="sk-fb",
+            embed_fallback_model=embed_fallback_model, **kw)
+        _swap_http(client, fake)
+        client._fb_client = fake          # ленивый фоллбэк-клиент — тоже fake
+        return client
+
+    @pytest.mark.asyncio
+    async def test_fallback_after_fatal_primary_403(self, caplog):
+        """Primary 403 (фатальный 4xx) → одна попытка на фоллбэке → векторы;
+        модель пустая → primary embed-модель; INFO-лог с primary_error."""
+        import logging
+        fake = _FakeEmbedFailover()
+        client = self._client(fake)
+        try:
+            with caplog.at_level(logging.INFO):
+                vectors = await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert vectors == [[0.5] * _EMBED_DIM]
+        assert fake.urls == ["https://embed.test/v1/embeddings",
+                             "https://fallback.test/v1/embeddings"]
+        assert fake.sent[0]["model"] == "gemini-x"
+        assert fake.sent[1] == {"model": "gemini-x", "input": ["текст"]}
+        assert fake.headers_seen[1] == {"Authorization": "Bearer sk-fb"}
+        assert any(
+            "history graph: embed fallback OK | model=gemini-x | "
+            "primary_error=EmbedError: embed HTTP 403" in r.message
+            for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_explicit_model_kwarg(self):
+        """Заданная embed_fallback_model → в payload фоллбэка."""
+        fake = _FakeEmbedFailover()
+        client = self._client(fake, embed_fallback_model="gemini-fb")
+        try:
+            assert client._fb_model == "gemini-fb"
+            await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert fake.sent[1]["model"] == "gemini-fb"
+
+    @pytest.mark.asyncio
+    async def test_fallback_inactive_no_key_raises_primary(self, caplog):
+        """Ключ пуст (явно "") → _fb_active False → проброс исходного
+        EmbedError primary, фоллбэк-URL не вызывается."""
+        import logging
+        fake = _FakeEmbedFailover()
+        client = EmbedClient(
+            base_url="https://embed.test/v1", api_key="sk-primary",
+            model="gemini-x", timeout=5,
+            embed_fallback_base_url="https://fallback.test/v1",
+            embed_fallback_api_key="")
+        _swap_http(client, fake)
+        try:
+            assert client._fb_active is False
+            with caplog.at_level(logging.WARNING):
+                with pytest.raises(EmbedError) as ei:
+                    await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert "embed HTTP 403" in str(ei.value)
+        assert fake.urls == ["https://embed.test/v1/embeddings"]
+        assert not any("embed fallback" in r.message
+                       for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_http_error_warns_and_raises_combined(self, caplog):
+        """Фоллбэк 500 → WARNING «embed fallback failed | primary=… |
+        fallback=status=500» + EmbedError «embed primary+fallback failed»."""
+        import logging
+        fake = _FakeEmbedFailover(fb_status=500)
+        client = self._client(fake)
+        try:
+            with caplog.at_level(logging.WARNING):
+                with pytest.raises(EmbedError) as ei:
+                    await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        msg = str(ei.value)
+        assert "embed primary+fallback failed | primary: EmbedError: " \
+               "embed HTTP 403" in msg
+        assert "| fallback: status=500" in msg
+        assert any("history graph: embed fallback failed | "
+                   "primary=EmbedError: embed HTTP 403" in r.message
+                   and "| fallback=status=500" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_transport_error_warns_and_raises_combined(
+            self, caplog):
+        """Транспортный фейл фоллбэка → WARNING (fallback=ConnectError: …)
+        + EmbedError «embed primary+fallback failed»."""
+        import logging
+        fake = _FakeEmbedFailover(
+            fb_exc=httpx.ConnectError("fb недоступен",
+                                      request=httpx.Request("POST", "https://x")))
+        client = self._client(fake)
+        try:
+            with caplog.at_level(logging.WARNING):
+                with pytest.raises(EmbedError) as ei:
+                    await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        msg = str(ei.value)
+        assert "embed primary+fallback failed | primary: EmbedError: " \
+               "embed HTTP 403" in msg
+        assert "| fallback: ConnectError: fb недоступен" in msg
+        assert any("history graph: embed fallback failed | "
+                   "primary=EmbedError: embed HTTP 403" in r.message
+                   and "fallback=ConnectError: fb недоступен" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_fallback_bad_body_len_mismatch_raises(self):
+        """Фоллбэк 200, но data[] с числом векторов ≠ числу текстов → EmbedError
+        (len-проверка ответа фоллбэка)."""
+        fake = _FakeEmbedFailover(fb_body={"data": []})
+        client = self._client(fake)
+        try:
+            with pytest.raises(EmbedError) as ei:
+                await client.embed(["текст"])
+        finally:
+            await client.aclose()
+        assert "embed fallback вернул 0 векторов на 1 текстов" in str(ei.value)
+
+
 # ── воркер: пачки/факты/resume ──────────────────────────────────────
 
 class TestGraphWorker:
