@@ -30,6 +30,7 @@ from tools.history_import.llm_worker import (
     HistoryLLMClient,
     HistoryLLMError,
     humanize_embed_error,
+    humanize_history_llm_error,
     parse_facts_json,
     run_vec_backfill,
 )
@@ -216,8 +217,9 @@ class TestPromptAndParsing:
 
     def test_parse_facts_robust(self):
         """Фенс-код/конверт/голый массив/мусор вокруг — принимаются;
-        битый JSON → ошибка (пачка к ретраю); пустой — []; мусорные элементы
-        отбрасываются (subject==object, не-строки, длинный context)."""
+        ОДНО-строчные формы (не-JSON/пусто) → [] (НЕ ошибка); мусорные
+        элементы отбрасываются (subject==object, не-строки, длинный
+        context, пустые predicate/object — qwen-сюрприз «object": ""»)."""
         good = ('```json\n{"facts": [{"subject": "вася", '
                 '"predicate": "купил в марте 2025", "object": "дрон", '
                 '"context": "из-за скидки"}]}\n```')
@@ -229,10 +231,10 @@ class TestPromptAndParsing:
         assert len(parse_facts_json(noisy)) == 1
         assert parse_facts_json('{"facts": []}') == []
         assert parse_facts_json("[]") == []
-        with pytest.raises(HistoryLLMError):
-            parse_facts_json("извините, я не смог")
-        with pytest.raises(HistoryLLMError):
-            parse_facts_json("")
+        # Задача 1: не-JSON/пусто → [] («нет фактов» — НЕ ошибка)
+        assert parse_facts_json("извините, я не смог") == []
+        assert parse_facts_json("") == []
+        assert parse_facts_json(None) == []
         mixed = ('[{"subject": "x", "predicate": "=", "object": "x"}, '
                  '{"subject": 1, "predicate": "p", "object": "o"}, '
                  '{"subject": "с", "predicate": "делает", "object": "о", '
@@ -240,6 +242,47 @@ class TestPromptAndParsing:
         facts = parse_facts_json(mixed)
         assert len(facts) == 1 and facts[0]["subject"] == "с"
         assert len(facts[0]["context"]) <= prompts.HISTORY_MAX_CONTEXT_CHARS
+
+    def test_parse_facts_wrappers_and_fact_strings(self):
+        """Задача 1: все разумные формы — {"facts"|"fact"|"data"|"result"}:
+        обёртки, одиночный объект вместо массива, {"fact": "строка"}."""
+        array = parse_facts_json('[{"subject": "a", "predicate": "любит", '
+                                 '"object": "b"}]')
+        assert array[0]["predicate"] == "любит"
+        for wrapper, key in (("facts", "играет в"), ("data", "смотрит"),
+                             ("result", "рисует")):
+            raw = '{"%s": [{"subject": "петя", "predicate": "%s", ' \
+                  '"object": "x"}]}' % (wrapper, key)
+            facts = parse_facts_json(raw)
+            assert len(facts) == 1 and facts[0]["predicate"] == key, wrapper
+        assert parse_facts_json('{"fact": [{"subject": "a", "predicate": "p", '
+                                '"object": "o"}]}')[0]["subject"] == "a"
+        # одиночный объект вместо массива ({...} вместо [{...}])
+        single = parse_facts_json('{"facts": {"subject": "a", "predicate": '
+                                  '"уехал в", "object": "деревню"}}')
+        assert len(single) == 1 and single[0]["object"] == "деревню"
+        # {"fact": "строка"} — факт целиком; вернуть список строк
+        fact_items = parse_facts_json('{"fact": [{"fact": "вася купил дрон"}, '
+                                      '{"fact": "  петя  уехал  "}, '
+                                      '{"fact": "   "}]}')
+        assert fact_items == ["вася купил дрон", "петя уехал"]
+        assert parse_facts_json('{"fact": "алина любит рынок"}') == \
+            ["алина любит рынок"]
+
+    def test_parse_facts_empty_triplets_filtered(self):
+        """Задача 1(ж): null/пустые поля триплетов (qwen «object": ""») —
+        фильтруются, массив не падает; валидные рядом сохраняются."""
+        raw = ('{"facts": [{"subject": "Alina", "predicate": '
+               '"считает спекуляцию рынком", "object": "", "context": ""}, '
+               '{"subject": "вася", "predicate": null, "object": "x"}, '
+               '{"subject": "петя", "predicate": "переехал в", '
+               '"object": "город"}]}')
+        facts = parse_facts_json(raw)
+        assert len(facts) == 1
+        assert facts[0]["subject"] == "петя"
+        assert parse_facts_json(
+            '{"facts": [{"subject": "Alina", "predicate": "считает", '
+            '"object": ""}]}') == []
 
 
 # ── транспорты LLM: формирование запроса ────────────────────────────
@@ -365,19 +408,19 @@ class TestLLMTransports:
             await c3.aclose()
 
     @pytest.mark.asyncio
-    async def test_broken_json_retries_then_raises(self):
-        """Битый JSON: одна повторная попытка ТЕМ ЖЕ запросом → после —
-        HistoryLLMError (пачку воркер не помечает)."""
+    async def test_garbage_json_means_no_facts(self):
+        """Задача 1: не-JSON content — «нет фактов» ([]), БЕЗ ретрая и БЕЗ
+        ошибки (парсер больше не падает на мусоре; пачка пойдёт дальше)."""
         llm = self._client(transport="openai")
-        fake = _FakeHttp([_openai_resp("не JSON вовсе")] * 3)
+        fake = _FakeHttp([_openai_resp("не JSON вовсе")])
         _swap_http(llm, fake)
         try:
-            with pytest.raises(HistoryLLMError):
-                await llm.extract("пачка")
+            facts = await llm.extract("пачка")
         finally:
             await llm.aclose()
-        assert len(fake.sent) == 2           # 1 попытка + 1 json-retry
-        assert fake.sent[0] == fake.sent[1]  # тело не менялось (temp=0)
+        assert facts == []
+        assert len(fake.sent) == 1           # попытка не расходуется на ретрай
+        assert fake.sent[0] == fake.sent[0]
 
     @pytest.mark.asyncio
     async def test_empty_content_hint_and_retry(self):
@@ -878,8 +921,39 @@ class TestWorkerHumanizeErrors:
         assert "Облачный API недоступен" in text
 
     def test_humanize_history_llm_http(self):
-        text = humanize_embed_error(HistoryLLMError("LLM HTTP 503 (попытка 1)"))
-        assert "5xx" in text
+        """Задача 3: HistoryLLMError (локальная LLM) — РАЗДЕЛЬНЫЙ текст:
+        про Ollama, НЕ про эмбеддинги."""
+        text = humanize_history_llm_error(
+            HistoryLLMError("LLM HTTP 503 (попытка 1)"))
+        assert "Ollama" in text and "503" in text
+        assert "data[].embedding" not in text
+
+    def test_humanize_history_llm_transport(self):
+        text = humanize_history_llm_error(
+            HistoryLLMError("LLM транспорт недоступен (попытка 2): "
+                            "ConnectError: нет соединения"))
+        assert "Ollama недоступна" in text
+
+    def test_humanize_history_llm_parse_error(self):
+        """Задача 3(а): парсинг фактов — каноническая фраза «не удалось
+        разобрать как список фактов» БЕЗ упоминания embedding."""
+        text = humanize_history_llm_error(
+            HistoryLLMError("LLM ответ — не JSON-массив фактов: «пробел»"))
+        assert "не удалось разобрать как список фактов" in text
+        assert "пачка пропущена" in text
+        assert "embedding" not in text.lower()
+
+    def test_humanize_history_and_embed_are_separate(self):
+        """Задача 3(в): HistoryLLMError и EmbedError humanize-ятся раздельно
+        (парсинг фактов ≠ эмбеддинги), их тексты НЕ пересекаются."""
+        hist = humanize_history_llm_error(
+            HistoryLLMError("LLM ответ — не JSON-массив фактов"))
+        embed = humanize_embed_error(
+            EmbedError("embed ответ без data[].embedding: 'data'"))
+        assert "не удалось разобрать" in hist
+        assert "data[].embedding" in embed
+        assert "embedding" not in hist.lower()
+        assert "не удалось разобрать" not in embed
 
     def test_embed_error_carries_reason_attribute(self):
         err = EmbedError("embed primary+fallback failed",
@@ -888,20 +962,69 @@ class TestWorkerHumanizeErrors:
         assert "429" in err.reason
 
     @pytest.mark.asyncio
-    async def test_batch_llm_error_text_has_reason_and_retry_note(
-            self, tmp_path):
-        """Пачка с LLM-ошибкой (без --skip-errors): HistoryLLMError с
-        причиной и пометкой «пачка … повторится при следующем запуске»."""
-        db = await _make_db(tmp_path, _text_rows(6))
-        worker = await _make_worker(
-            db, llm=FakeLLM(error=HistoryLLMError("LLM HTTP 503 (попытка 1)")),
-            fact_density=0.5)
+    async def test_five_consecutive_errors_stop(self, tmp_path):
+        """Задача 2(б): 5 ошибок пачек ПОДРЯД (без --skip-errors) → стоп с
+        человеческим сообщением («стабильно отвечает ошибкой», прогресс
+        сохранён, упавшие пачки НЕ помечены)."""
+        db = await _make_db(tmp_path, _text_rows(30))
+        llm = FakeLLM(error=HistoryLLMError(
+            "LLM ответ — не JSON-массив фактов: «пробел»"))
+        worker = await _make_worker(db, llm=llm, fact_density=1.0,
+                                    batch_size=4)
         with pytest.raises(HistoryLLMError) as ei:
             await worker.run()
         msg = str(ei.value)
-        assert "пачка 1:" in msg
-        assert "повторена при следующем запуске" in msg
-        assert "нестабилен" in msg   # человеческая причина (5xx)
+        assert "стабильно отвечает ошибкой" in msg
+        assert "прогресс сохранён" in msg
+        assert "НЕ помечены" in msg
+        assert len(llm.calls) == 5
+        # пачки (и оценённые строки) не помечены — повторятся след. запуском
+        assert (await _fetch_all(
+            db, "SELECT COUNT(*) AS c FROM smart_messages "
+                "WHERE chat_id = ? AND history_processed = 0",
+            (CHAT,)))[0]["c"] > 0
+        assert (await _fetch_all(
+            db, "SELECT COUNT(*) AS c FROM graph_facts"))[0]["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_errors_then_success_continues(self, tmp_path, caplog):
+        """Задача 2(б): 2 ошибки подряд → пачки пропускаются (WARNING «пачка
+        N пропущена»), НЕ помечаются, процесс идёт дальше; после успеха
+        счётчик сбрасывается — факты записываются, прогон завершается."""
+        import logging
+        caplog.set_level(logging.WARNING, logger="tools.history_import")
+        db = await _make_db(tmp_path, _text_rows(40))
+
+        class FlakyLLM(FakeLLM):
+            def __init__(self):
+                super().__init__()
+                self.n = 0
+
+            async def extract(self, user_content, max_facts=8):
+                self.n += 1
+                if self.n <= 2:
+                    raise HistoryLLMError("LLM ответ — не JSON-массив фактов")
+                return [{"subject": "вася", "predicate": "чинит",
+                         "object": "сервер"}]
+
+        llm = FlakyLLM()
+        worker = await _make_worker(db, llm=llm, fact_density=0.5,
+                                    batch_size=4)
+        stats = await worker.run()
+        assert stats["batches"] == 5
+        assert stats["llm_errors"] == 2
+        assert stats["facts_inserted"] == 3
+        assert "пачка 1 пропущена" in caplog.text
+        assert "пачка 2 пропущена" in caplog.text
+        # пачки с ошибками (первая: id 2,4,6,8; вторая: id 10,12,14,16) НЕ
+        # помечены; успешные (3-5) — помечены
+        remain = await _fetch_all(
+            db, "SELECT id FROM smart_messages WHERE history_processed = 0")
+        assert {2, 4, 6, 8, 10, 12, 14, 16} <= {r["id"] for r in remain}
+        done = await _fetch_all(
+            db, "SELECT id FROM smart_messages WHERE history_processed = 1")
+        assert {18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40} \
+            <= {r["id"] for r in done}
 
 
 # ── воркер: пачки/факты/resume ──────────────────────────────────────
@@ -1011,14 +1134,16 @@ class TestGraphWorker:
 
     @pytest.mark.asyncio
     async def test_broken_json_batch_not_marked_and_retried(self, tmp_path):
-        """Битый JSON после ретраев → пачка НЕ помечена; следующий запуск с
-        рабочим LLM обрабатывает — факты появляются ровно один раз."""
+        """Задача 2: одиночный LLM-фейл пачки (без --skip-errors) — пачка НЕ
+        помечена, ПРОГОН ЗАВЕРШАЕТСЯ (не фатал!); следующий запуск с рабочим
+        LLM обрабатывает — факты появляются ровно один раз."""
         db = await _make_db(tmp_path, _text_rows(6))
         worker = await _make_worker(
             db, llm=FakeLLM(error=HistoryLLMError("LLM умер")),
             fact_density=0.5)
-        with pytest.raises(HistoryLLMError):
-            await worker.run()
+        stats = await worker.run()          # НЕ raises
+        assert stats["llm_errors"] == 1
+        assert stats["done"] is False       # остались непомеченные кандидаты
         assert (await _fetch_all(
             db, "SELECT COUNT(*) AS c FROM smart_messages "
                 "WHERE history_processed = 1"))[0]["c"] == 0

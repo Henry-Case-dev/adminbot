@@ -29,10 +29,12 @@
 4. после успеха пачки помечаются ТОЛЬКО фактически обработанные строки
    (`UPDATE smart_messages SET history_processed=1 WHERE id IN (…)` —
    диапазонов НЕТ). Density-пропуски (id % K != 0) и короткие тексты в
-   выборку не попадают НИКОГДА — их добивает _sweep_remaining в конце
-   полного прогона (без ошибок и без --limit). Пачка с ошибкой LLM НЕ
-   помечается — курсор в прогоне двигается дальше (--skip-errors),
-   следующий запуск (курсор сбрасывается) повторит.
+    выборку не попадают НИКОГДА — их добивает _sweep_remaining в конце
+    полного прогона (без ошибок и без --limit). Пачка с ошибкой LLM НЕ
+    помечается и НЕ фатальна (WARNING + пропуск, курсор двигается дальше,
+    следующий запуск повторит); стоп — ТОЛЬКО при N ошибках ПОДРЯД (N=5,
+    без --skip-errors — «модель стабильно отвечает ошибкой») или --strict
+    (нет в CLI; --skip-errors отключает счётчик и продолжает всегда).
 
 Два транспорта LLM (Q5): 'openai' (дефолт, POST {endpoint}/chat/completions
 с response_format json_object + think-выключение) и 'ollama' (POST
@@ -88,6 +90,13 @@ _VEC_BACKFILL_CHUNK = 50      # фактов на один проход дого
 _EMBED_PROBE_TEXT = "probe"   # стартовый пробник (как у бота) — проверка
                               # доступности API и dim == dim таблицы
 _WORKER_LOG_EVERY_BATCHES = 100   # INFO раз в N пачек
+
+# Задача «не-фатальность пачек» (2026-09-05): сколько ошибок пачек ПОДРЯД
+# (без --skip-errors) → стоп прогона. 1–2 ошибки — пачка пропускается (НЕ
+# помечается), процесс продолжается (это локальная модель, сбои одиночные);
+# 5 подряд — похоже на системный сбой (Ollama встала/формат сломан): стоп
+# с человеческой подсказкой (упавшие пачки повторятся след. запуском).
+LLM_FAILURES_BEFORE_STOP = 5
 
 # Регулярки устойчивого парсинга JSON-ответа LLM.
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
@@ -167,7 +176,62 @@ def humanize_embed_error(exc: BaseException) -> str:
     return "Облачный API недоступен — см. детали выше"
 
 
+def humanize_history_llm_error(exc: BaseException) -> str:
+    """Понятная русская причина сбоя ЛОКАЛЬНОЙ LLM Graph-этапа: HTTP-статус
+    Ollama, транспорт, пустой content (думание), неразобранный JSON-факт.
+    ОТДЕЛЬНО от humanize_embed_error (та — для EmbedError и ТОЛЬКО про
+    эмбеддинги: data[].embedding/число векторов; сюда её слова не текут)."""
+    text = str(exc)
+    status = _embed_error_status(exc)
+    if status is not None and 500 <= status < 600:
+        return (f"Ollama нестабильна (HTTP {status}) — проверьте процесс "
+                f"/ модель (ollama serve)")
+    if (isinstance(exc, (httpx.TimeoutException, TimeoutError))
+            or _EMBED_TIMEOUT_RE.search(text)
+            or _EMBED_TRANSPORT_RE.search(text)):
+        return ("Ollama недоступна — проверьте ollama serve и эндпоинт "
+                "--endpoint")
+    if "пустой content" in text or "думание" in text:
+        return ("модель вернула пустой ответ — похоже, думание qwen3.5 не "
+                "выключено (попробуйте --think-off-mode reasoning_effort)")
+    if "json" in text.lower() or "фактов" in text.lower() \
+            or "разобрать" in text.lower() or "content" in text.lower():
+        return ("Ответ модели не удалось разобрать как список фактов — "
+                "пачка пропущена и будет повторена")
+    if status is not None and status >= 400:
+        return (f"Ollama отклонила запрос (HTTP {status}) — проверьте "
+                f"название модели --model")
+    return ("Локальная LLM недоступна/стабильно отвечает ошибкой — "
+            "проверьте Ollama и формат ответа модели")
+
+
 # ── Парсинг ответа LLM ───────────────────────────────────────────────
+
+# Ключи-конверты {{"facts"|"fact"|"data"|"result": […]}} — модели часто
+# оборачивают список фактов (или одиночный факт) в объект (В т.ч. qwen).
+_WRAPPER_KEYS = ("facts", "fact", "data", "result")
+
+
+def _clean_str(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _item_fact(item) -> dict | str | None:
+    """Элемент списка фактов: триплет {subject,predicate,object,context?} →
+    валидный dict (пустые триплеты → None); объект со строковым ключом
+    "fact" → строка-факт целиком («устойчивость» к qwen-сюрпризу: модель
+    может вернуть {"fact": "…"} вместо триплета)."""
+    if isinstance(item, dict):
+        fact = item.get("fact")
+        if isinstance(fact, str):
+            cleaned = _clean_str(fact)
+            return cleaned or None
+        return _validate_history_fact(item)
+    if isinstance(item, str):
+        cleaned = _clean_str(item)
+        return cleaned or None
+    return None
+
 
 def _validate_history_fact(item) -> dict | None:
     """Валидация триплета {subject, predicate, object, context?}: строки,
@@ -203,23 +267,30 @@ def _validate_history_fact(item) -> dict | None:
             "context": ctx[:prompts.HISTORY_MAX_CONTEXT_CHARS]}
 
 
-def parse_facts_json(raw: str) -> list[dict]:
-    """Устойчивый парсер JSON-массива фактов из content LLM.
+def parse_facts_json(raw: str) -> list[dict | str]:
+    """Устойчивый парсер ответа LLM (Graph-этап) — НИКОГДА не падает.
 
-    Принимает: обёртку ```json …```, объект-конверт {"facts": […]}, голый
-    массив […]; извлекается первый '[' … последний ']'. Валидный JSON, но
-    без списка фактов (напр. {"facts": []}) → []. Битый/не-JSON → RAISE
-    HistoryLLMError (пачка к ретраю/ошибке — см. воркер)."""
-    if not raw or _EMPTY_RE.match(str(raw)):
-        raise HistoryLLMError("LLM ответ пуст (пустой content)")
+    Принимает ВСЕ разумные формы: (а) JSON-массив объектов; (б) конверт
+    {{"facts"|"fact"|"data"|"result": […]}} — разворачивается (модели часто
+    оборачивают); (в) объекты с ключом "fact" (строка) — факт целиком;
+    (г) триплеты {{subject, predicate, object, context?}} — валидируются
+    (как live _validate_fact; пустые/недостоверные поля → отсев);
+    (д) ```json …``` фенс-обёртка снимается; (е) текст до/после массива —
+    берётся первый '[' … последний ']'. Не-JSON/мусор → [] («нет фактов» —
+    НЕ ошибка: пачка считается пустой, воркер продолжает; в отличие от
+    старого поведения, TRUE-ошибок парсинга больше нет)."""
+    if not raw:
+        return []
     text = str(raw).strip()
     text = _JSON_FENCE_RE.sub("", text).strip()
+    if not text:
+        return []
     data = None
     try:
         data = json.loads(text)
     except (ValueError, TypeError):
         pass
-    if data is None:
+    if not isinstance(data, (dict, list)):
         # устойчивое извлечение массива: первый '[' … последний ']'
         start = text.find("[")
         end = text.rfind("]")
@@ -229,18 +300,21 @@ def parse_facts_json(raw: str) -> list[dict]:
             except (ValueError, TypeError):
                 data = None
     if isinstance(data, dict):
-        facts = data.get("facts")
-        if isinstance(facts, list):
-            data = facts
-        else:
-            data = None
-    if data is None and not isinstance(data, list):
-        snippet = text[:200].replace("\n", " ")
-        raise HistoryLLMError(
-            f"LLM ответ — не JSON-массив фактов: «{snippet}…»")
+        for key in _WRAPPER_KEYS:
+            if key in data:
+                data = data[key]
+                break
+    if isinstance(data, str):
+        cleaned = _clean_str(data)
+        return [cleaned] if cleaned else []
+    if isinstance(data, dict):
+        fact = _item_fact(data)
+        return [fact] if fact is not None else []
+    if not isinstance(data, list):
+        return []
     out = []
     for item in data:
-        fact = _validate_history_fact(item)
+        fact = _item_fact(item)
         if fact is not None:
             out.append(fact)
     return out
@@ -736,6 +810,7 @@ class GraphWorker:
                  min_fact_chars: int = DEFAULT_MIN_FACT_CHARS,
                  embed_mode: str = "api",   # api|skip
                  skip_errors: bool = False,
+                 llm_failures_before_stop: int = LLM_FAILURES_BEFORE_STOP,
                  progress=None):
         self.db_path = db_path
         self.llm = llm
@@ -746,6 +821,10 @@ class GraphWorker:
         self.min_fact_chars = max(0, int(min_fact_chars))
         self.embed_mode = embed_mode if embed_mode in ("api", "skip") else "api"
         self.skip_errors = skip_errors
+        # защита «модель стабильно отвечает ошибкой»: N ошибок пачек ПОДРЯД
+        # без --skip-errors → стоп (пачки НЕ помечены — повторятся след.
+        # запуском); 1–2 ошибки — просто пропуск и продолжение.
+        self.llm_failures_before_stop = max(1, int(llm_failures_before_stop))
         self.progress = progress
         # K-шаг density-семплизации (детерминированный модуль id).
         # Код-обоснование: K = round(1/density) — сообщение участвует в
@@ -933,7 +1012,13 @@ class GraphWorker:
         conn = self._svc.db
         texts_to_embed: list[str] = []
         for triplet in triples:
-            fact = fact_sentence(triplet)
+            if isinstance(triplet, str):
+                # факт-строка целиком ({"fact": "…"} из ответа LLM)
+                fact = triplet.strip()
+                if not fact:
+                    continue
+            else:
+                fact = fact_sentence(triplet)
             fact_id = await self._svc.insert_graph_fact(
                 chat_id=self.chat_id, fact=fact, origin="history_import",
                 expires_at=None, target_user=None, weight=HISTORY_IMPORT_WEIGHT,
@@ -1029,6 +1114,9 @@ class GraphWorker:
         limit = int(limit_batches) if limit_batches else 0
         self._cursor: tuple[int, int] | None = None
         completed = False
+        # Задача «не-фатальность пачек»: ошибка пачки — WARNING + пропуск
+        # (без пометки), счётчик ПОДРЯД; N подряд (без --skip-errors) — стоп.
+        consecutive_errors = 0
         try:
             while True:
                 batch = await self._fetch_batch()
@@ -1041,17 +1129,36 @@ class GraphWorker:
                 n = len(batch)
                 self.stats["batches"] += 1
                 self.stats["selected_msgs"] += n
-                ok = await self._process_batch(batch)
+                ok, batch_exc = await self._process_batch(batch)
                 if ok:
+                    consecutive_errors = 0
                     # факты записаны — помечаем ТОЛЬКО строки пачки
                     # (id IN; resume без потерь/дублей)
                     await self._mark_batch_processed(batch)
                 else:
-                    # скип (--skip-errors): НЕ помечаем — двигаем курсор
-                    # дальше, след. запуск (курсор сбрасывается в None)
-                    # повторит упавшую пачку
+                    # пропуск (без пометки): двигаем курсор дальше, след.
+                    # запуск (курсор сбрасывается) повторит упавшую пачку
+                    consecutive_errors += 1
                     last = batch[-1]
                     self._cursor = (int(last["timestamp"]), int(last["id"]))
+                    if (not self.skip_errors
+                            and consecutive_errors
+                            >= self.llm_failures_before_stop):
+                        reason = (humanize_history_llm_error(batch_exc)
+                                  if batch_exc is not None
+                                  else "ошибка LLM-этапа (без деталей)")
+                        stop = HistoryLLMError(
+                            f"модель стабильно отвечает ошибкой "
+                            f"({consecutive_errors} пачек подряд: {reason}) "
+                            f"— проверьте Ollama и формат ответа, затем "
+                            f"перезапустите: прогресс сохранён, упавшие "
+                            f"пачки НЕ помечены и будут повторены")
+                        # человекочитаемая причина (печать в manage.py)
+                        stop.reason = (
+                            f"стоп: {consecutive_errors} ошибок LLM подряд. "
+                            f"{reason} — проверьте Ollama и формат ответа, "
+                            f"затем перезапустите: прогресс сохранён")
+                        raise stop
                 if self.stats["batches"] % _WORKER_LOG_EVERY_BATCHES == 0:
                     elapsed = time.monotonic() - started
                     msg_rate = (self.stats["selected_msgs"] / max(1.0, elapsed)
@@ -1096,33 +1203,29 @@ class GraphWorker:
         self.stats["vec"]["reason"] = (self.vec["reason"] or "ok")
         return self.stats
 
-    async def _process_batch(self, batch: list) -> bool:
-        """Пачка: LLM → факты (+vec). Возвращает True = успех (вызывающий
-        помечает окно); False = скип при --skip-errors (НЕ помечено —
-        повтор след. запуском); ошибка без --skip-errors → HistoryLLMError
-        с причиной и пометкой, что пачка повторится след. запуском."""
+    async def _process_batch(self, batch: list) -> tuple[bool, Exception | None]:
+        """Пачка: LLM → факты (+vec). Возвращает (успех, ошибка):
+        (True, None) — факты записаны, вызывающий помечает окно;
+        (False, exc) — пачка пропущена: WARNING с человеческой причиной,
+        НЕ помечена (повтор след. запуском), ПРОЦЕСС ПРОДОЛЖАЕТ (ошибка
+        НЕ фатальна; стоп — только при N ошибках подряд в run())."""
         try:
             user_content = prompts.build_history_user_prompt(batch)
             triples = await self.llm.extract(
                 user_content, max_facts=self.max_facts_per_batch)
         except HistoryLLMError as exc:
             self.stats["llm_errors"] += 1
-            if self.skip_errors:
-                logger.warning(
-                    "history graph: пачка %d пропущена (НЕ помечена; "
-                    "повторится след. запуском): %s",
-                    self.stats["batches"], exc)
-                return False
-            # Задача 2: причина (LLM недоступен/битый JSON) + судьба пачки
-            reason = humanize_embed_error(exc)
-            raise HistoryLLMError(
-                f"пачка {self.stats['batches']}: {exc} — пачка НЕ помечена "
-                f"и будет повторена при следующем запуске (LLM-этап: "
-                f"{reason})") from exc
+            reason = getattr(exc, "reason", None) \
+                or humanize_history_llm_error(exc)
+            logger.warning(
+                "history graph: пачка %d пропущена: %s — будет повторена "
+                "при следующем запуске (Ctrl+C безопасен)",
+                self.stats["batches"], reason)
+            return False, exc
         triples = triples[:self.max_facts_per_batch]
         await self._save_batch_facts(triples, message_ts=max(
             row["timestamp"] for row in batch))
-        return True
+        return True, None
 
 
 async def run_vec_backfill(db_path: str, *, embed_client: EmbedClient,

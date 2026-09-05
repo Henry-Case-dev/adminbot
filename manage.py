@@ -334,7 +334,8 @@ def _cmd_import_history_graph(args) -> int:
 
     from tools.history_import.llm_worker import (
         EmbedClient, EmbedError, GraphWorker, HistoryLLMClient,
-        HistoryLLMError, humanize_embed_error, run_vec_backfill,
+        HistoryLLMError, humanize_embed_error, humanize_history_llm_error,
+        run_vec_backfill,
     )
 
     db_path = args.db or settings.DB_PATH
@@ -431,9 +432,17 @@ def _cmd_import_history_graph(args) -> int:
             pass
         return _KI_EXIT_CODE
     except (EmbedError, HistoryLLMError) as exc:
-        # Задача 2: человекочитаемая причина вместо голого исключения
-        # (тип/код сохранены в тексте).
-        reason = getattr(exc, "reason", None) or humanize_embed_error(exc)
+        # Задача 3: причину человекочитаемо — РАЗДЕЛЬНО: HistoryLLMError —
+        # про парсинг фактов/локальную LLM (humanize_history_llm_error),
+        # EmbedError — про эмбеддинги (humanize_embed_error; тип/код
+        # сохранены в тексте). Стоп-ошибка (5 подряд) несёт готовый
+        # человеческий текст в exc.reason.
+        if isinstance(exc, HistoryLLMError):
+            reason = getattr(exc, "reason", None) \
+                or humanize_history_llm_error(exc)
+        else:
+            reason = getattr(exc, "reason", None) \
+                or humanize_embed_error(exc)
         print(f"ошибка Graph-этапа: {reason} | тип={type(exc).__name__} | "
               f"детали: {exc}", file=sys.stderr)
         try:
@@ -566,10 +575,11 @@ def build_parser() -> argparse.ArgumentParser:
                      help=f"--mode graph: параллельных embed-запросов "
                           f"(дефолт: {GRAPH_DEFAULT_EMBED_CONCURRENCY})")
     imp.add_argument("--skip-errors", action="store_true",
-                     help="--mode graph: битые пачки (LLM-ошибка после "
-                          "ретраев) пропускать с WARNING и НЕ помечать "
-                          "(повторятся след. запуском); без флага — стоп "
-                          "с ошибкой")
+                     help="--mode graph: битые пачки (LLM-ошибка/битый "
+                          "JSON после ретраев) пропускать с WARNING и НЕ "
+                          "помечать (повторятся след. запуском); пачки "
+                          "и так НЕ фатальны — без флага стоп только после "
+                          "5 ошибок ПОДРЯД, с флагом — продолжаем всегда")
     imp.add_argument("--vec-backfill", action="store_true",
                      help="--mode graph: подрежим догонки векторов — фактам "
                           "origin='history_import' без vec-строки (после "

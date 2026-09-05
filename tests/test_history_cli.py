@@ -189,6 +189,27 @@ class TestCliGraphHumanizedErrors:
         assert "(403)" in err          # человеческая причина вместо голого exc
         assert "тип=EmbedError" in err
 
+    def test_history_llm_error_top_level_humanized_separately(
+            self, tmp_path, capsys, monkeypatch):
+        """Задача 3(в): HistoryLLMError верхнего уровня — текст про парсинг
+        фактов (НЕ про эмбеддинги): никакого «data[].embedding» в выводе."""
+        from tools.history_import.llm_worker import HistoryLLMError
+        import manage as mg
+
+        def raiser(coro):
+            coro.close()
+            raise HistoryLLMError(
+                "LLM ответ — не JSON-массив фактов: «мысли модели»")
+
+        monkeypatch.setattr(mg.asyncio, "run", raiser)
+        code = mg.main(self._graph_args(tmp_path))
+        assert code == 1
+        err = capsys.readouterr().err
+        assert "ошибка Graph-этапа" in err
+        assert "не удалось разобрать как список фактов" in err
+        assert "data[].embedding" not in err
+        assert "тип=HistoryLLMError" in err
+
     def test_unknown_error_keeps_plain_message(self, tmp_path, capsys,
                                                monkeypatch):
         import manage as mg
