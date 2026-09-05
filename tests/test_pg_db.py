@@ -97,7 +97,8 @@ class TestDdl:
         await db.init()          # идемпотентность: повтор без ошибок
         create_tables = [q for q in conn.queries
                          if "CREATE TABLE" in q[0]]
-        assert len(create_tables) == 4 * 2  # 4 таблицы × 2 запуска (T-627)
+        # 4 таблицы базовых + 4 таблицы лора чатов (раунд 7, T-771) × 2 запуска
+        assert len(create_tables) == 8 * 2
 
     @pytest.mark.asyncio
     async def test_init_without_seed_settings_no_settings_insert(self, fake_pool):

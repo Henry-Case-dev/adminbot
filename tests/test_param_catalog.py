@@ -33,9 +33,10 @@ class TestCompleteness:
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
         # 271: 265 + 5 (embed-фоллбэк EMBEDDING_FALLBACK_* — раунд 5) +
-        # 1 (EMBEDDING_FALLBACK_API_KEY_2 — каскад ключей, задача 1) —
+        # 1 (EMBEDDING_FALLBACK_API_KEY_2 — каскад ключей, задача 1) +
+        # 11 (раунд 7, T-776: LORE_* — лор чатов, spec §3.11) —
         # каталог пополнен парно
-        assert len(fields) == 271
+        assert len(fields) == 282
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -202,8 +203,9 @@ class TestGroups8424:
         # 61 (84.24.2 + задачи 1/2 от 2026-09-03) + models_video_summary +
         # reactions_word_reactions (эпик 04.09.2026) + keys_media/content_media
         # (раунд 3, T-687 — медиа-шара); имя актуализировано fix-раундом
-        # 04.09 (m7): 61 → 63; фаза 2 (T-755): 63 → 64 (+ memory_infinite)
-        assert len(GROUPS) == 64
+        # 04.09 (m7): 61 → 63; фаза 2 (T-755): 63 → 64 (+ memory_infinite);
+        # раунд 7 (T-776): 64 → 66 (+ limits_lore, flags_lore — лор чатов)
+        assert len(GROUPS) == 66
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -235,12 +237,13 @@ class TestGroups8424:
         (limits +2: расшифровка нативных TG-видео) + раунд 3 (медиа-шара:
         keys +1 / limits +6 / content +2 — T-687) + раунд 4 (T-715:
         flags +1 / limits +1 — память-команды) + фаза 2 (T-755:
-        memory +1 — бессрочное хранение)."""
+        memory +1 — бессрочное хранение) + раунд 7 (T-776: limits +8 /
+        flags +3 — лор чатов, spec §3.11)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 29, "keys": 13,
-                          "limits": 129, "flags": 43, "reactions": 38,
+                          "limits": 137, "flags": 46, "reactions": 38,
                           "content": 3, "memory": 1}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

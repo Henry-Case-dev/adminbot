@@ -819,9 +819,25 @@ class Settings:
     STT_GROQ_MAX_UPLOAD_MB: int = _env_int("STT_GROQ_MAX_UPLOAD_MB", 25)
     STT_OPENROUTER_MAX_UPLOAD_MB: int = _env_int("STT_OPENROUTER_MAX_UPLOAD_MB", 20)
 
+    # ── Раунд 7 (chat-lore-management-v2, T-776): авто-лор чатов ──────────
+    # Парные поля Settings для REGISTRY-записей limits.lore_*/flags.lore_*
+    # (spec §3.11): дефолты сидятся в bot_settings при pg.init(); env-чтение
+    # дефолтами не ломает (.env.example НЕ меняем — I1, новых env нет).
+    # Воркер планирует тик-цикл; hot.get(key, settings.<FIELD>) везде.
+    LORE_WORKER_ENABLED: bool = _env_bool("LORE_WORKER_ENABLED", True)
+    LORE_AUTO_ENABLED: bool = _env_bool("LORE_AUTO_ENABLED", True)
+    LORE_INJECT_ENABLED: bool = _env_bool("LORE_INJECT_ENABLED", True)
+    LORE_MIN_MESSAGES: int = _env_int("LORE_MIN_MESSAGES", 15)
+    LORE_MIN_MESSAGE_CHARS: int = _env_int("LORE_MIN_MESSAGE_CHARS", 20)
+    LORE_WINDOW_MAX_MESSAGES: int = _env_int("LORE_WINDOW_MAX_MESSAGES", 300)
+    LORE_WINDOW_MAX_CHARS: int = _env_int("LORE_WINDOW_MAX_CHARS", 20000)
+    LORE_MAX_WORDS: int = _env_int("LORE_MAX_WORDS", 150)
+    LORE_INJECT_MAX_CHARS: int = _env_int("LORE_INJECT_MAX_CHARS", 3000)
+    LORE_TICK_MINUTES: int = _env_int("LORE_TICK_MINUTES", 30)
+    LORE_GENERATE_COOLDOWN: int = _env_int("LORE_GENERATE_COOLDOWN", 60)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
-
     def _normalize_tone_key(self, preset_key: str | None) -> str:
         key = str(preset_key or "").strip().lower()
         if not key:

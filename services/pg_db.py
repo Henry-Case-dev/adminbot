@@ -67,6 +67,57 @@ DDL_STATEMENTS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_uptime_events_ts ON uptime_events (ts)",
+    # ── Раунд 7 (chat-lore-management-v2, T-771): PG-профили чатов ──
+    # Manual/auto-лор независимы; авто-воркер пишет только auto_lore;
+    # last_auto_at — маркер последнего УСПЕШНОГО авто-прогона (NULL = ещё нет);
+    # updated_at — optimistic-метка (обновляется на любое изменение строки).
+    # Без FK между новыми таблицами (единый стиль; схема по spec §3.2).
+    """
+    CREATE TABLE IF NOT EXISTS chat_profiles (
+        chat_id           BIGINT PRIMARY KEY,
+        manual_lore       TEXT NOT NULL DEFAULT '',
+        auto_lore         TEXT NOT NULL DEFAULT '',
+        auto_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
+        auto_period_hours INTEGER NOT NULL DEFAULT 24,
+        auto_window_hours INTEGER NOT NULL DEFAULT 24,
+        is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+        last_auto_at      TIMESTAMPTZ,
+        updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_lore_history (
+        id         BIGSERIAL PRIMARY KEY,
+        chat_id    BIGINT NOT NULL,
+        field      TEXT NOT NULL CHECK (field IN
+                   ('manual','auto','auto_enabled','auto_period_hours',
+                    'auto_window_hours','remap','chat_admin')),
+        changed_by BIGINT,
+        old_value  TEXT NOT NULL DEFAULT '',
+        new_value  TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_chat_lore_history_chat_ts"
+    " ON chat_lore_history (chat_id, created_at DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS chat_links (
+        old_chat_id BIGINT PRIMARY KEY,
+        new_chat_id BIGINT NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_chat_links_new_chat"
+    " ON chat_links (new_chat_id)",
+    """
+    CREATE TABLE IF NOT EXISTS chat_admins (
+        chat_id     BIGINT NOT NULL,
+        telegram_id BIGINT NOT NULL,
+        added_by    BIGINT,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (chat_id, telegram_id)
+    )
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────
@@ -227,7 +278,7 @@ class PgDatabase:
         async with self._pool.acquire() as conn:
             for statement in DDL_STATEMENTS:
                 await conn.execute(statement)
-            logger.info("[pg_db] DDL ok (4 таблицы + индексы)")
+            logger.info("[pg_db] DDL ok (8 таблиц + индексы)")
             await self._seed_roles(conn)
             await self._seed_admins(conn)
             if seed_settings:
