@@ -726,6 +726,21 @@ class Settings:
     CHAT_BUDGET_RESPONSE_RATIO: float = _env_float("CHAT_BUDGET_RESPONSE_RATIO", 0.20)
     CHAT_BUDGET_RESERVE_RATIO: float = _env_float("CHAT_BUDGET_RESERVE_RATIO", 0.10)
 
+    # ── Раунд 8 (Context-Layer X-Features, spec §3.G2, T-793…T-810) ──
+    # Карта участников по активности (C2): период агрегата и cap карты.
+    CHAT_MAP_PARTICIPANTS_HOURS: int = _env_int("CHAT_MAP_PARTICIPANTS_HOURS", 24)
+    CHAT_MAP_PARTICIPANTS_CAP: int = _env_int("CHAT_MAP_PARTICIPANTS_CAP", 150)
+    # Ходы в <Conversation_Branch> (D4, без LLM).
+    CHAT_BRANCH_CONTEXT_HOPS: int = _env_int("CHAT_BRANCH_CONTEXT_HOPS", 3)
+    # Кап <Current_Question> по символам (D1, защита от спама).
+    CHAT_CURRENT_QUESTION_MAX_CHARS: int = _env_int("CHAT_CURRENT_QUESTION_MAX_CHARS", 800)
+    # Доля бюджета <Conversation_Branch> (B2).
+    CHAT_BUDGET_BRANCH_RATIO: float = _env_float("CHAT_BUDGET_BRANCH_RATIO", 0.03)
+    # Importance-удержание verbatim (E1): строки с маркерами важности
+    # (имя из карты / «бот» / кавычки / число / «?» / ≥3 слов) при урезании
+    # Global_Context не режутся первыми. false → ровно старое поведение.
+    CHAT_IMPORTANCE_KEEP_ENABLED: bool = _env_bool("CHAT_IMPORTANCE_KEEP_ENABLED", True)
+
     # ── Epic 60 Фаза E (Section 67.4, R60-35, T-499 — последним) ──
     # Дедуп одинаковых текстов подряд direct_chat (п.8): ключ
     # «чат+человек+текст» в smart_cache (slug direct_dedup); повтор в течение

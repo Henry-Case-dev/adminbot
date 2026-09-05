@@ -28,6 +28,32 @@ Epic 60 (Section 65, Фаза C, T-469…T-478): 🗿-молчание на пу
 Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карточка человека
 из графа (66.9); бюджеты контекста — доли от CHAT_CONTEXT_BUDGET_TOKENS с
 порядком урезания (66.12); порядок секций и промпты НЕ меняются.
+
+Раунд 8 (Context-Layer X-Features, spec.md; T-791…T-803 частично):
+  * B2 (T-791): реордер user-блока «важное к концу» — map → branch → rag →
+    global → thread → target → protected → lore → mood → current → anchors →
+    sandwich; бюджет на effective-базе (неприкосновенные: target/protected/
+    lore/current/sandwich), новая доля branch, порядок урезания
+    anchors→rag→thread→global(keep-head)→map.
+  * C1/C3/C5 (T-792/T-794/T-796): uid-рендеры «{имя} [{uid}]» / «{имя} [bot]»
+    во внутренних строках (global/thread/branch) и <Target_User>; карта
+    остаётся «{имя} — {uid}»; дискриминатор коллизий display-имён —
+    ТОЛЬКО на рендере контекста (чистые пути суффиксов не содержат).
+  * C2 (T-793): карта по активным участникам (24 ч) + участники окна.
+  * C6 (T-797): memorize-хук «кто спрашивал» + пост-фаза: факты про третьих
+    лиц (subject/object из карты участников) не приписываются спрашивающему.
+  * D1 (T-798): блок <Current_Question> (срез префикса «бот/@ник», кап).
+  * D3/D4 (T-800/T-801): thread сквозь бот-ответы (bot_reply_parents) +
+    <Conversation_Branch> (reply-ветка ≥ 2 ходов, без LLM).
+  * D5 (T-802): метки-строки свежести в начале <Global_Context>.
+  * D2/E1 (T-799/T-803): global держит голову (конспект не режется первым),
+    importance-удержание verbatim-строк (флаг chat_importance_keep_enabled).
+  * E2/E4 (T-804/T-806): инжект level-2 («широкий фон: …», keep-end кап) в
+    <Global_Context> при L1+L2; конспект читается без TTL-смерти.
+  * F1-F4 (T-807…T-810): direct-RAG — факты rel-порядка (get_rag_facts),
+    словарный дедуп против <Global_Context> (dedup_rag_vs_global),
+    origin-метки «[{label}] {date}» (origin_labels), опциональный LLM-реранк
+    (flags.chat_rag_rerank_enabled, fail-open).
 """
 import asyncio
 import hashlib
@@ -66,6 +92,7 @@ from services.token_counter import (
     resolve_chat_limit,
     safe_budget,
     truncate_to_tokens,
+    truncate_to_tokens_keep_head,
 )
 from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext
@@ -81,11 +108,137 @@ _STICKY_MIN_WORD_LEN = 3         # короче — не «слово-префи
 _STICKY_MIN_FREQ = 2             # >=2 из окна = залипший префикс
 _BLOCK_RE = re.compile(          # 66.12: блок «<Tag>\n…\n</Tag>» (тело для обрезки)
     r"^(<[A-Za-z_]+>\n)(.*)(\n</[A-Za-z_]+>)\s*$", re.DOTALL)
+# Раунд 8 (B2/FR-23, п.25): sandwich-строка — финальное напоминание в конце
+# user-блока (последняя строка контента; в лимиты бюджета НЕ входит).
+_SANDWICH_REMINDER = (
+    "отвечай коротко, по делу, на последний вопрос (<Current_Question>); "
+    "людей называй именами из карты, без скобок и номеров")
+# Раунд 8 (D1/T-798): срез префикса обращения «бот(:)»/«@ник(:)» в начале
+# сообщения для <Current_Question> (зеркало _PEER_PREFIX_RE хендлера
+# handlers/direct_chat.py:307-308; поведение память-команд не меняется).
+_PEER_PREFIX_RE = re.compile(
+    r"^(?:(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?\s+)+", re.IGNORECASE)
 
 
 def _parse_mood_words(raw: str) -> tuple[str, ...]:
     """65.9: comma-separated env → кортеж слов (нижний регистр)."""
     return tuple(w.strip().lower() for w in str(raw or "").split(",") if w.strip())
+
+
+def _strip_direct_prefix(text: str) -> str:
+    """Раунд 8 (D1/T-798): текст запроса после срезания обращения к боту —
+    «бот(:)», «@никнейм(:)» и пробелов в начале (тот же цикл, что хендлер
+    память-команд). Остаток ровно равный обращению («бот», «бот,», «@ник»)
+    → "" (блок <Current_Question> не рендерится)."""
+    s = str(text or "").strip()
+    while True:
+        m = _PEER_PREFIX_RE.match(s)
+        if not m:
+            break
+        s = s[m.end():].strip()
+    if re.fullmatch(r"(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?", s, re.IGNORECASE):
+        return ""
+    return s
+
+
+def _speaker_tag(name: str, uid, *, is_bot: bool = False,
+                 suffix: str = "") -> str:
+    """Раунд 8 (§3.0/C1): display-строка участника для внутренних рендеров —
+    «{имя}{суффикс} [{uid}]» (бот — «{имя} [bot]»). uid None/0 → без скобки.
+    suffix — дискриминатор коллизии (C3), пуст при отсутствии коллизии."""
+    rendered = f"{name}{suffix}"
+    if is_bot:
+        return f"{rendered} [bot]"
+    if uid not in (None, 0):
+        return f"{rendered} [{uid}]"
+    return rendered
+
+
+def _collision_suffix(uid: int, username: str | None = None) -> str:
+    """Раунд 8 (C3/T-794): дискриминатор для второго и последующих участников
+    с одинаковым display: « ({username})» без @ — если юзернейм известен;
+    иначе « (#{последние 4 цифры uid})». Чистые пути суффиксов не содержат —
+    дискриминация ТОЛЬКО на этапе рендера контекста (NFR-2)."""
+    if username:
+        return f" ({str(username).lstrip('@')})"
+    return f" (#{str(uid)[-4:]})"
+
+
+def _line_markers(line: str, names: frozenset[str]) -> frozenset[str]:
+    """Раунд 8 (E1/T-803): маркеры важности строки (без LLM) — по
+    содержательной части (после speaker-префикса «имя: »), чтобы имя автора
+    не делало «важными» любые реплики:
+      name   — display/канон участника карты в тексте;
+      bot    — «бот»/«[bot]»;
+      quote  — кавычки/елочки/апострофы-цитата;
+      number — содержит число;
+      qmark  — заканчивается на «?»;
+      long   — ≥ 3 слов.
+    Возвращает подмножество маркеров."""
+    text = str(line or "")
+    idx = text.find(":")
+    content = text[idx + 1:].strip() if idx != -1 else text
+    markers: set[str] = set()
+    low = content.casefold()
+    if any(n in low for n in names):
+        markers.add("name")
+    if "бот" in low or "[bot]" in low:
+        markers.add("bot")
+    if any(q in content for q in ('"', "«", "»", "“", "”", "'")):
+        markers.add("quote")
+    if re.search(r"\d", content):
+        markers.add("number")
+    if content.rstrip().endswith("?"):
+        markers.add("qmark")
+    if len(content.split()) >= 3:
+        markers.add("long")
+    return frozenset(markers)
+
+
+def trim_verbatim_lines(lines: list[str], max_units: int, *,
+                        names: frozenset[str] = frozenset(),
+                        keep_important: bool = True,
+                        measure=None) -> list[str]:
+    """Раунд 8 (E1/T-803): обрезка verbatim-строк ДО лимита с importance-
+    удержанием (порядок ASC сохраняется, строки НЕ переупорядочиваются).
+    Жертва — всегда со стороны НАЧАЛА диапазона (старое):
+      1) самая старая строка без маркеров («шум»);
+      2) самая старая с ровно одним слабым маркером (число/«?»/≥3 слов);
+      3) самая старая строка вообще (дальше — резерв токен-обрезания головы).
+    keep_important=False → ровно старое поведение: срез с начала списка до
+    лимита (без маркер-фильтра). measure — count_tokens (токены) или len
+    (символы, chars-ветка D2)."""
+    if measure is None:
+        measure = count_tokens
+    kept = list(lines)
+    if not keep_important:
+        while kept and measure("\n".join(kept)) > max_units:
+            kept.pop(0)
+        return kept
+    strong = frozenset(("name", "bot", "quote"))
+    weak = frozenset(("number", "qmark", "long"))
+
+    def bucket(line: str) -> int:
+        markers = _line_markers(line, names)
+        if not markers:
+            return 0                      # шум — первым
+        if not (markers & strong) and len(markers & weak) == 1:
+            return 1                      # ровно один слабый маркер
+        return 2                          # сильные/неоднозначные — последними
+
+    while kept and measure("\n".join(kept)) > max_units:
+        for target in (0, 1, 2):
+            victim_idx = None
+            for i, line in enumerate(kept):
+                if bucket(line) == target:
+                    victim_idx = i
+                    break
+            if victim_idx is not None:
+                kept.pop(victim_idx)
+                break
+        else:
+            kept.pop(0)                   # теоретически недостижимо
+    return kept
 
 
 class DirectChatThrottle:
@@ -170,15 +323,34 @@ class DirectChatService:
 
     # ── bot_replies (персистентная таблица; TTL 3600/cap 200 — 63.1) ──
 
-    async def remember_bot_reply(self, chat_id: int, tg_message_id: int, text: str) -> None:
+    async def remember_bot_reply(self, chat_id: int, tg_message_id: int,
+                                 text: str,
+                                 parent_tg_message_id: int | None = None) -> None:
         """UPSERT ответа бота в bot_replies ПОСЛЕ успешной отправки (58.6).
+        Раунд 8 (D3/T-800): + parent-линк «на какое сообщение отвечал бот»
+        (bot_reply_parents) — thread-walk продолжает цепочку сквозь бот-ответы.
         Fail-open: ошибка БД — WARNING, цепочка просто не запомнится."""
         try:
             await self.db.upsert_bot_reply(chat_id, tg_message_id, text, time.time())
+            await self.db.set_bot_reply_parent(
+                chat_id, tg_message_id, parent_tg_message_id, time.time())
         except Exception:
             logger.warning(
                 "direct: bot_replies persist failed | chat=%s msg=%s",
                 chat_id, tg_message_id, exc_info=True)
+
+    async def _bot_reply_parent(self, chat_id: int,
+                                tg_message_id: int) -> int | None:
+        """Раунд 8 (D3): parent-сообщение бот-ответа (ленивый TTL в БД).
+        Fail-open → None (цепочка оборвётся на боте — обратная совместимость)."""
+        try:
+            return await self.db.get_bot_reply_parent(
+                chat_id, tg_message_id, time.time())
+        except Exception:
+            logger.warning(
+                "direct: bot_reply_parents read failed | chat=%s msg=%s",
+                chat_id, tg_message_id, exc_info=True)
+            return None
 
     async def get_bot_reply(self, chat_id: int, tg_message_id: int) -> str | None:
         """Текст ответа бота из bot_replies (ленивый TTL на чтении).
@@ -308,14 +480,19 @@ class DirectChatService:
                         replay_id = await send_chunked_reply(
                             bot, chat_id, cached, message.message_id)
                         if replay_id is not None:
-                            await self.remember_bot_reply(chat_id, replay_id, cached)
+                            # D3/T-800: parent = сообщение, на которое реплика
+                            await self.remember_bot_reply(
+                                chat_id, replay_id, cached,
+                                parent_tg_message_id=message.message_id)
                         logger.info("[direct] dedup replay | chat=%s user=%s",
                                     chat_id, target_name)
                     else:
                         logger.info("[direct] dedup silence | chat=%s user=%s",
                                     chat_id, target_name)
                     return
-            user_blocks = await self._build_user_content(chat_id, message, target_name)
+            user_blocks = await self._build_user_content(
+                chat_id, message, target_name,
+                target_user_id=(user_id or None))
             # T-619: системный промпт — горячая точка (фолбек код-канона)
             system_prompt = hot.get("prompts.direct_chat_system_prompt",
                                     CHAT_SYSTEM_PROMPT)
@@ -358,13 +535,17 @@ class DirectChatService:
             sent_id = await send_chunked_reply(bot, chat_id, answer, message.message_id)
             if sent_id is not None:
                 answer_text = answer
-                await self.remember_bot_reply(chat_id, sent_id, answer)
+                # D3/T-800: parent = сообщение, на которое бот ответил
+                await self.remember_bot_reply(
+                    chat_id, sent_id, answer,
+                    parent_tg_message_id=message.message_id)
                 # REVISE S2: memorize ТОЛЬКО ПОСЛЕ успешной отправки (58.8) —
-                # fire-and-forget внутри гейта sent_id
+                # fire-and-forget внутри гейта sent_id. Раунд 8 (C6/T-797):
+                # wrapper с пост-фазой «факты про третьих лиц не приписываются
+                # спрашивающему» (target_user уже = канон автора запроса).
                 fire_and_forget(
-                    self.memory.memorize_facts(
-                        chat_id, f"{query}\n{answer}", "bot_direct_reply",
-                        target_user=target_name),
+                    self._memorize_direct_reply(chat_id, query, answer,
+                                                target_name),
                     "direct")
             logger.info("[direct] reply sent | chat=%s user=%s", chat_id, target_name)
             # Epic 53 (62.3.3): успех (в т.ч. фоллбэка) → полный сброс CB.
@@ -405,24 +586,47 @@ class DirectChatService:
 
     # ── Context Partitioning (58.6) ─────────────────────────────
 
-    async def _build_user_content(self, chat_id: int, message, target_name: str) -> list[str]:
-        """Порядок 58.9/59.3 + 65.4/65.9/65.10: [map, RAG_Memory, Target_User,
-        Protected_Facts, Mood, Global_Context, Thread, Style_Anchors];
-        статичное вверх, динамика вниз; <Target_User> — динамика.
-        Epic 60 (66.12, T-490): бюджеты контекста — per-block токен-потолки от
-        CHAT_CONTEXT_BUDGET_TOKENS + порядок урезания; порядок секций и
-        промпты НЕ меняются; <Target_User> не урезается никогда (R50-1)."""
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None) -> list[str]:
+        """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
+        «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
+        target → protected → lore → mood → current → anchors → sandwich.
+        Статика вверх, критичное (target/protected/current) ближе к концу.
+        Раунд 8 (C5/T-796): <Target_User> с uid автора запроса (NFR-2: скобки
+        только в контекстных блоках direct_chat). Порядок регистрации
+        роутеров/хендлеров НЕ меняется — меняется только эта сборка.
+        Раунд 8 (F2/T-808): двухпроходность — <Global_Context> собирается
+        РАНЬШЕ <RAG_Memory> (текст фона нужен для словарного дедупа RAG),
+        контент-порядок blocks (rag → global) не меняется."""
         window = await self.memory.get_window_messages(chat_id)
+        # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
+        # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(window, active)
         blocks: list[tuple[str, str]] = []
-        alias_map = self._build_alias_map(window)
+        alias_map = self._alias_map_block(roster)
         if alias_map:
             blocks.append(("map", alias_map))
-        rag = await self.memory.get_rag_context(
-            chat_id, (message.text or ""),
-            sort_by_timestamp=True, include_direct_reply=True)
-        if rag:
-            blocks.append(("rag", f"<RAG_Memory>\n{rag}\n</RAG_Memory>"))
-        blocks.append(("target", f"<Target_User>{escape_xml_text(target_name)}</Target_User>"))
+        # Раунд 8 (D4/T-801): итог reply-ветки над фоном — без LLM, только
+        # для reply-триггера с цепочкой ≥ 2 ходов (полный Thread — ниже).
+        chain = await self._collect_thread_chain(chat_id, message)
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            branch = self._render_branch(chain, suffix_map)
+            if branch:
+                blocks.append(("branch", branch))
+        global_ctx = await self._build_global_context(
+            chat_id, window, roster, suffix_map)
+        if global_ctx:
+            blocks.append(("global", global_ctx))
+        thread = self._render_thread(chain, suffix_map)
+        if thread:
+            blocks.append(("thread", thread))
+        # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
+        target_block = (f"<Target_User>{escape_xml_text(target_name)}"
+                        f"{_speaker_tag('', target_user_id)}"
+                        f"</Target_User>")
+        blocks.append(("target", target_block))
         # Epic 60 (65.10, T-478): защищённые факты — сразу после Target_User.
         # Раунд 7 (T-781/F1, Q1): PG-лор (ChatLoreCache) — состояние ДО
         # сборки protected: при активном PG-лоре SQLite chat-level канал
@@ -442,27 +646,158 @@ class DirectChatService:
             mood = self._build_mood_block((message.text or ""))
             if mood:
                 blocks.append(("mood", mood))
-        global_ctx = await self._build_global_context(chat_id, window)
-        if global_ctx:
-            blocks.append(("global", global_ctx))
-        thread = await self._build_conversation_thread(chat_id, message)
-        if thread:
-            blocks.append(("thread", thread))
-        # Epic 60 (65.4, T-472): стилевые якоря — ПОСЛЕ Thread (динамика вниз).
+        # Раунд 8 (D1/T-798): <Current_Question> — текущее сообщение после
+        # среза префикса «бот/@ник»; кап по символам; пусто → без блока.
+        current = self._render_current_question(message)
+        if current:
+            blocks.append(("current", current))
+        # Epic 60 (65.4, T-472): стилевые якоря — у конца (форма, не содержание).
         anchors = await self._build_style_anchors(chat_id)
         if anchors:
             blocks.append(("anchors", anchors))
-        # 66.12 (T-490): потолки сборки (порядок блоков НЕ меняется).
+        # Раунд 8 (B2/FR-23, п.25): sandwich-напоминание — последней строкой
+        # user-контента (только если контент вообще есть).
+        if blocks:
+            blocks.append(("sandwich", _SANDWICH_REMINDER))
         return self._apply_context_budget(blocks)
+
+    def _render_current_question(self, message) -> str:
+        """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
+        текущего сообщения после среза обращения «бот(@ник):»; cap
+        limits.chat_current_question_max_chars (default 800); НЕ режется
+        бюджетом (kind вне лимитов). Пустой после среза — без блока."""
+        stripped = _strip_direct_prefix(message.text or "")
+        if not stripped:
+            return ""
+        cap = int(hot.get("limits.chat_current_question_max_chars",
+                          settings.CHAT_CURRENT_QUESTION_MAX_CHARS) or 0) \
+            or 800
+        return (f"<Current_Question>\n"
+                f"{escape_xml_text(stripped[:cap])}\n"
+                f"</Current_Question>")
+
+    @staticmethod
+    def _is_reply_trigger(message) -> bool:
+        """Раунд 8 (D4/T-801): сообщение — reply (есть reply_to_message)."""
+        return getattr(message, "reply_to_message", None) is not None
+
+    # ── Раунд 8: memorize-хук с пост-фазой атрибуции (C6/T-797) ──
+
+    async def _memorize_direct_reply(self, chat_id: int, query: str,
+                                     answer: str, asker_canon: str) -> None:
+        """C6: memorize_facts (target_user = канон автора запроса — «кто
+        спрашивал», как и было) + пост-фаза: subject/object фактов,
+        совпадающие с участниками карты чата, НЕ остаются на спрашивающем —
+        target_user переназначается тому участнику (факты о третьих лицах
+        не засоряют карточку и квоту спрашивающего). Fail-open: ошибка БД →
+        WARNING, факты остаются записанными (NFR-6)."""
+        before_id = None
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT COALESCE(MAX(id), 0) FROM graph_facts "
+                "WHERE chat_id = ? AND origin = 'bot_direct_reply'",
+                (chat_id,))
+            row = await cursor.fetchone()
+            before_id = int(row[0]) if row is not None else 0
+        except Exception:
+            logger.warning(
+                "direct: fact batch bound failed — reassign skipped | chat=%s",
+                chat_id, exc_info=True)
+            before_id = None
+        await self.memory.memorize_facts(
+            chat_id, f"{query}\n{answer}", "bot_direct_reply",
+            target_user=asker_canon)
+        if before_id is None:
+            return
+        try:
+            await self._reassign_fact_owners(chat_id, asker_canon, before_id)
+        except Exception:
+            logger.warning(
+                "direct: fact owner reassign failed — facts stay on asker "
+                "| chat=%s user=%s", chat_id, asker_canon, exc_info=True)
+
+    async def _reassign_fact_owners(self, chat_id: int, asker_canon: str,
+                                    min_id: int) -> None:
+        """C6/T-797: пост-фаза переназначения target_user (без доп. LLM).
+        Для каждого факта батча (id > min_id, origin='bot_direct_reply',
+        target_user = asker_canon): subject-канон из начала факта — канон
+        другого участника карты → запись на него; иначе object-канон
+        (subject не участник) → на него; иначе факт остаётся на
+        спрашивающем (темы/общие слова). Ошибка БД на факте — WARNING,
+        факт остаётся (fail-open)."""
+        participants = await self._active_participants(chat_id)
+        canons = {self.aliases.canon_name(name) for _, name
+                  in self._participant_roster([], participants)[0]}
+        canons = {c for c in canons if c}
+        canons.add(asker_canon)
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT id, fact FROM graph_facts "
+                "WHERE chat_id = ? AND id > ? AND origin = 'bot_direct_reply' "
+                "AND target_user = ?",
+                (chat_id, min_id, asker_canon))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("direct: fact owner reassign read failed | chat=%s",
+                           chat_id, exc_info=True)
+            return
+        for row in rows:
+            owner = self._fact_owner_canon(str(row["fact"] or ""),
+                                           canons, asker_canon)
+            if owner is None or owner.casefold() == asker_canon.casefold():
+                continue
+            try:
+                await self.db.db.execute(
+                    "UPDATE graph_facts SET target_user = ? WHERE id = ?",
+                    (owner, row["id"]))
+                await self.db.db.commit()
+            except Exception:
+                logger.warning(
+                    "direct: fact owner UPDATE failed — fact stays | fact_id=%s",
+                    row["id"], exc_info=True)
+
+    @staticmethod
+    def _fact_owner_canon(sentence: str, canons: frozenset | set,
+                          asker_canon: str) -> str | None:
+        """C6: канон-владелец факта из предложения «subject predicate object
+        (context)»: (1) канон-участник в НАЧАЛЕ предложения (subject),
+        отличный от asker; (2) иначе — канон-участник в тексте (object) при
+        subject-НЕ-участнике; (3) иначе None — факт остаётся спрашивающему.
+        Совпадения — по casefold, участники отсортированы по длине (длинное
+        имя не «съедается» префиксом короткого)."""
+        text = str(sentence or "")
+        low = text.casefold()
+        members = sorted((str(c) for c in canons if str(c)),
+                         key=lambda c: len(c), reverse=True)
+        subject = None
+        for canon in members:
+            prefix = canon.casefold()
+            if low == prefix or low.startswith(prefix + " "):
+                subject = canon
+                break
+        if subject is not None:
+            if subject.casefold() != asker_canon.casefold():
+                return subject
+            return None
+        for canon in members:
+            if canon.casefold() == asker_canon.casefold():
+                continue
+            if canon.casefold() in low:
+                return canon
+        return None
 
     # ── Epic 60 Фаза D (66.12, T-490): бюджеты контекста ─────────
 
     def _apply_context_budget(self, blocks: list[tuple[str, str]]) -> list[str]:
-        """Доли CHAT_CONTEXT_BUDGET_TOKENS: map/global/thread/rag/target+mood/
-        anchors (66.12). Target_User и protected_facts НЕ урезаются. Сначала
-        per-block потолки (truncate_to_tokens + WARNING), затем при превышении
-        ОБЩЕГО бюджета — порядок урезания (сначала дешёвое): Style_Anchors →
-        Global_Context → Thread → RAG_Memory → UserResolutionMap.
+        """Доли CHAT_CONTEXT_BUDGET_TOKENS (Раунд 8, B2/D2/T-791/T-799,
+        spec §3.B2): map/rag/global/thread/anchors + новая доля branch (0.03)
+        — от effective_budget = max(1, budget − fixed_tokens), где fixed =
+        неприкосновенные kinds: target, protected, lore, current, sandwich
+        (вне per-block лимитов и вне порядка урезания). mood делит долю
+        target на той же effective-базе (как раньше) и в общем цикле не
+        участвует. Порядок урезания при превышении ОБЩЕГО бюджета (новая
+        важность, D2/E1): Style_Anchors → RAG → Thread → Global(keep-head:
+        конспект-голова держится, режется конец) → Map (карта — последняя).
         Выключено → ровно старые потолки секций (64.7)."""
         # T-619: бюджеты — горячие точки (фолбек settings)
         if not hot.get("flags.chat_context_budgets_enabled",
@@ -470,25 +805,42 @@ class DirectChatService:
             return [text for _, text in blocks]
         budget = hot.get("limits.chat_context_budget_tokens",
                          settings.CHAT_CONTEXT_BUDGET_TOKENS)
+        uncuttable = ("target", "protected", "lore", "current", "sandwich")
+        fixed_tokens = sum(count_tokens(text) for kind, text in blocks
+                           if kind in uncuttable)
+        effective = max(1, budget - fixed_tokens)
+
+        def share(key: str, default_ratio: float) -> int:
+            return max(1, int(effective * hot.get(key, default_ratio)))
+
         limits = {
-            "map": max(1, int(budget * hot.get(
-                "limits.chat_budget_map_ratio", settings.CHAT_BUDGET_MAP_RATIO))),
-            "rag": max(1, int(budget * hot.get(
-                "limits.chat_budget_rag_ratio", settings.CHAT_BUDGET_RAG_RATIO))),
-            "target": max(1, int(budget * hot.get(
-                "limits.chat_budget_target_ratio", settings.CHAT_BUDGET_TARGET_RATIO))),
-            "global": max(1, int(budget * hot.get(
-                "limits.chat_budget_global_ratio", settings.CHAT_BUDGET_GLOBAL_RATIO))),
-            "thread": max(1, int(budget * hot.get(
-                "limits.chat_budget_thread_ratio", settings.CHAT_BUDGET_THREAD_RATIO))),
-            "anchors": max(1, int(budget * hot.get(
-                "limits.chat_budget_anchors_ratio", settings.CHAT_BUDGET_ANCHORS_RATIO))),
+            "map": share("limits.chat_budget_map_ratio",
+                         settings.CHAT_BUDGET_MAP_RATIO),
+            "rag": share("limits.chat_budget_rag_ratio",
+                         settings.CHAT_BUDGET_RAG_RATIO),
+            "global": share("limits.chat_budget_global_ratio",
+                            settings.CHAT_BUDGET_GLOBAL_RATIO),
+            "thread": share("limits.chat_budget_thread_ratio",
+                            settings.CHAT_BUDGET_THREAD_RATIO),
+            "anchors": share("limits.chat_budget_anchors_ratio",
+                             settings.CHAT_BUDGET_ANCHORS_RATIO),
+            # Раунд 8 (T-791): доля <Conversation_Branch> (0.03); в общем
+            # порядке урезания branch НЕ участвует (компактный по построению).
+            "branch": max(1, int(effective * hot.get(
+                "limits.chat_budget_branch_ratio",
+                settings.CHAT_BUDGET_BRANCH_RATIO))),
+            # Доля «target+mood» — живёт только для mood (target неприкосновенен).
+            "target": share("limits.chat_budget_target_ratio",
+                            settings.CHAT_BUDGET_TARGET_RATIO),
         }
+        # global-пол: под общим давлением global не опускается ниже своей доли
+        # (D2.4: конспект-минимум, порядок жертв tail → L1(keep-head)).
+        global_floor = limits["global"]
 
         def truncate(kind: str, text: str) -> str:
             if text is None or kind not in limits or limits[kind] <= 0:
                 return text
-            truncated = self._truncate_block(text, limits[kind])
+            truncated = self._truncate_block(text, limits[kind], kind=kind)
             if truncated != text:
                 logger.warning(
                     "direct: budget truncation | block=%s | tokens=%d -> %d",
@@ -496,24 +848,27 @@ class DirectChatService:
             return truncated
 
         texts = {kind: text for kind, text in blocks}
-        # target+mood делят долю target; Target_User неприкосновенен.
+        # mood делит долю target на effective-базе; Target_User неприкосновенен.
         if "mood" in texts:
             target_tokens = count_tokens(texts.get("target", ""))
             mood_limit = max(0, limits["target"] - target_tokens)
             mood_before = count_tokens(texts["mood"])
             if mood_before > mood_limit:
-                texts["mood"] = self._truncate_block(texts["mood"], mood_limit)
+                texts["mood"] = self._truncate_block(
+                    texts["mood"], mood_limit, kind="mood")
                 logger.warning(
                     "direct: budget truncation | block=mood | tokens=%d -> %d",
                     mood_before, count_tokens(texts["mood"]))
-        for kind in ("map", "rag", "global", "thread", "anchors"):
+        for kind in ("map", "rag", "global", "thread", "branch", "anchors"):
             if kind in texts:
                 texts[kind] = truncate(kind, texts[kind])
 
         total = sum(count_tokens(text) for text in texts.values())
         if total > budget:
             # Порядок урезания (сначала дешёвое), геометрическими шагами.
-            order = ("anchors", "global", "thread", "rag", "map")
+            # global режется keep-head (конспект держится) и не опускается
+            # ниже своей доли (D2.4/E1); map — последняя (карта атрибуции).
+            order = ("anchors", "rag", "thread", "global", "map")
             for _ in range(20):
                 if total <= budget:
                     break
@@ -523,18 +878,26 @@ class DirectChatService:
                         break
                     if kind not in texts or limits[kind] <= 0:
                         continue
-                    limits[kind] = max(0, limits[kind] // 2)
-                    texts[kind] = self._truncate_block(texts[kind], limits[kind])
-                    total = sum(count_tokens(text) for text in texts.values())
+                    if kind == "global":
+                        limits[kind] = max(global_floor, limits[kind] // 2)
+                    else:
+                        limits[kind] = max(0, limits[kind] // 2)
+                    texts[kind] = self._truncate_block(
+                        texts[kind], limits[kind], kind=kind)
+                    total = sum(count_tokens(text)
+                                for text in texts.values())
                     progress = True
                 if not progress:
                     break
         return [texts[kind] for kind, _ in blocks if texts[kind]]
 
-    def _truncate_block(self, block: str, limit_tokens: int) -> str:
+    def _truncate_block(self, block: str, limit_tokens: int,
+                        kind: str = "") -> str:
         """66.12: обрезка блока по токенам с сохранением ОТКРЫВАЮЩЕГО и
-        закрывающего тегов (тело режется С КОНЦА — свежие строки важнее,
-        прецедент 64.7)."""
+        закрывающего тегов. Раунд 8 (D2/T-799): для kind='global' — keep-head
+        (тело режется С НАЧАЛА — конспект-голова держится, verbatim-хвост
+        отдаётся первым, spec §3.D2/Q8); остальные kinds — как сегодня
+        (keep-end: свежие строки важнее, прецедент 64.7)."""
         text = str(block or "")
         if count_tokens(text) <= limit_tokens:
             return text
@@ -546,7 +909,12 @@ class DirectChatService:
             inner_budget = limit_tokens - count_tokens(opening) - count_tokens(closing)
             if inner_budget <= 0:
                 return opening + closing.lstrip("\n")
+            if kind == "global":
+                return opening + truncate_to_tokens_keep_head(
+                    body, inner_budget) + closing
             return opening + truncate_to_tokens(body, inner_budget) + closing
+        if kind == "global":
+            return truncate_to_tokens_keep_head(text, limit_tokens)
         return truncate_to_tokens(text, limit_tokens)
 
     # ── Epic 60 Фаза C (65.4/65.9/65.10): якоря, настроение, защита ──
@@ -883,29 +1251,131 @@ class DirectChatService:
                            chat_id, exc_info=True)
             return []
 
-    def _build_alias_map(self, window: list) -> str:
-        """User Resolution Map (R51-2): «имя — user_id» по участникам окна
-        Global_Context (алиасы.resolve); блок в НАЧАЛЕ user-контента (D211)."""
-        names: dict[int, str] = {}
-        for row in window:
-            uid = row["user_id"]
-            if uid is None:
-                continue
-            if uid not in names:
-                names[uid] = self.aliases.resolve(
-                    uid, (row["author_name"] or None), None)
-        if not names:
+    # ── Участники и карта (Раунд 8: C2/T-793 активные, C3/T-794 дискриминатор) ──
+
+    def _build_alias_map(self, window: list,
+                         participants: list | None = None) -> str:
+        """User Resolution Map (R51-2): «имя — user_id» (алиасы.resolve);
+        блок в НАЧАЛЕ user-контента (D211). Раунд 8 (C2/T-793): источник —
+        активные участники (limits.chat_map_participants_hours) + участники
+        окна; формат строки «{имя} — {uid}» сохранён (Q1: в карте uid
+        «столбцом», скобки избыточны). Fail-open: participants пусто/ошибка —
+        поведение только-окно (регресс)."""
+        roster, _ = self._participant_roster(window, participants)
+        return self._alias_map_block(roster)
+
+    @staticmethod
+    def _alias_map_block(roster: list[tuple[int, str]]) -> str:
+        """Строки карты из готового roster (C2.3: урезание «с конца списка» —
+        менее активные строки)."""
+        if not roster:
             return ""
-        lines = [f"{name} — {uid}" for uid, name in names.items()]
+        lines = [f"{display} — {uid}" for uid, display in roster]
         return "<UserResolutionMap>\n" + "\n".join(lines) + "\n</UserResolutionMap>"
 
-    async def _build_global_context(self, chat_id: int, window: list) -> str:
+    async def _active_participants(self, chat_id: int) -> list:
+        """Раунд 8 (C2/T-793): SQL-агрегат активных участников чата за
+        limits.chat_map_participants_hours (default 24 ч) по smart_messages
+        (индекс idx_smart_messages_chat_ts уже есть; новый DDL НЕ вводим).
+        Порядок — активность (cnt DESC, uid ASC — в SQL). Fail-open → []
+        (только окно; NFR-6)."""
+        try:
+            hours = int(hot.get("limits.chat_map_participants_hours",
+                                settings.CHAT_MAP_PARTICIPANTS_HOURS) or 24)
+            cap = int(hot.get("limits.chat_map_participants_cap",
+                              settings.CHAT_MAP_PARTICIPANTS_CAP) or 0) or 150
+            since = int(time.time()) - hours * 3600
+            return await self.db.get_active_participants(chat_id, since, cap)
+        except Exception:
+            logger.warning(
+                "direct: active participants failed — window only | chat=%s",
+                chat_id, exc_info=True)
+            return []
+
+    def _participant_roster(self, window: list,
+                            participants: list | None = None
+                            ) -> tuple[list[tuple[int, str]], dict[int, str]]:
+        """Раунд 8 (C2/C3/T-793/T-794): (roster, suffix_map) для карты и
+        внутренних рендеров. roster — [(uid, display)] в порядке активности
+        (participants, cnt DESC); окно-участники — на своих активных
+        позициях (author_name первого встреченного в окне), внеоконные
+        активные дополняют; при пустых participants — порядок окна (как
+        сегодня, fail-open). Cap limits.chat_map_participants_cap (150).
+        suffix_map — uid → дискриминатор коллизии display.casefold() (C3):
+        второй+ участник по uid ASC получает суффикс « (username)»/« (#хвост)»;
+        ТОЛЬКО на рендере контекста — чистые пути его не видят (NFR-2)."""
+        cap = int(hot.get("limits.chat_map_participants_cap",
+                          settings.CHAT_MAP_PARTICIPANTS_CAP) or 0) or 150
+        window_authors: dict[int, str] = {}
+        for row in window:
+            uid = row["user_id"]
+            if uid in (None, 0) or uid in window_authors:
+                continue
+            window_authors[uid] = row["author_name"] or None
+        if participants:
+            extras: dict[int, str] = {}
+            for row in participants:
+                uid = row["user_id"]
+                if uid in (None, 0) or uid in window_authors:
+                    continue
+                extras[uid] = row["author_name"] or None
+            uids = [uid for uid in (row["user_id"] for row in participants)
+                    if uid not in (None, 0)
+                    and (uid in window_authors or uid in extras)]
+        else:
+            uids = [uid for uid in window_authors]
+        uids = uids[:cap]
+        displays: dict[int, str] = {}
+        for uid in uids:
+            author = window_authors.get(uid)
+            if author is None:
+                author = extras.get(uid) if participants else None
+            displays[uid] = self.aliases.resolve(uid, author, None)
+        collisions: dict[str, list[int]] = {}
+        for uid, name in displays.items():
+            collisions.setdefault(str(name).casefold(), []).append(uid)
+        suffix_map: dict[int, str] = {}
+        for group in collisions.values():
+            if len(group) < 2:
+                continue
+            for uid in sorted(group)[1:]:
+                suffix_map[uid] = _collision_suffix(uid)
+        roster = [(uid, f"{displays[uid]}{suffix_map.get(uid, '')}")
+                  for uid in uids]
+        return roster, suffix_map
+
+    # ── <RAG_Memory> direct-пути (Раунд 8: F1/T-807, F2/T-808, F3/T-809,
+    #    F4/T-810 — факты по релевантности, дедуп ↔ фон, origin-метки,
+    #    опциональный LLM-реранк) ─────────────────────────────────
+
+    # ── <Global_Context> (Раунд 8: D2/T-799 keep-head + E1/T-803 importance,
+    #    D5/T-802 метки-строки, C1/T-792 uid-рендеры) ────────────
+
+    async def _build_global_context(self, chat_id: int, window: list,
+                                    roster: list | None = None,
+                                    suffix_map: dict[int, str] | None = None
+                                    ) -> str:
         """Последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений (окно уже ASC),
-        «[имя]: текст». Epic 60 (64.6, T-467): валидный бегущий конспект →
-        <Global_Context> = конспект + дословный хвост сообщений с
-        ts > window_end_ts. Epic 60 (64.7, T-468): потолок — токены
-        (CHAT_GLOBAL_CONTEXT_MAX_TOKENS, срез С КОНЦА; chars — fallback)."""
+        «{имя} [{uid}]: текст» (C1). Epic 60 (64.6): валидный бегущий конспект
+        → конспект + дословный хвост (ts > window_end_ts). Раунд 8 (D2/Q8):
+        внутренний потолок — keep-head-семантика: verbatim-хвост режется
+        первым (importance-удержание E1), конспект — последним (срез головы
+        truncate_to_tokens_keep_head); chars-ветка — тот же порядок шагов.
+        Раунд 8 (D5/T-802): первая строка body — метка-строка объёма
+        («фон: конспект из N сообщений…» / «фон: дословно последние N…»).
+        Раунд 8 (E2/T-804): при наличии L1 и level-2 (широкий фон) строка
+        L2 с меткой «широкий фон:» — ПЕРВОЙ строкой body (кап
+        limits.chat_level2_max_chars, keep-end; в иерархии бюджетных жертв
+        L2 жертвуется последней — голова body). Раунд 8 (E4/T-806):
+        конспект читается без TTL-смерти (get_running_summary не удаляет
+        по expires_at — тихий чат держит конспект до пересборки по
+        заполнению).
+        roster/suffix_map — участники карты текущего рендера (C2/C3):
+        суффиксы-дискриминаторы строк и имена для importance-маркеров E1."""
+        roster = roster or []
+        suffix_map = suffix_map or {}
         summary_text = None
+        raw_count = 0
         window_end_ts = None
         if hot.get("flags.chat_running_summary_enabled",
                    settings.CHAT_RUNNING_SUMMARY_ENABLED):
@@ -913,63 +1383,106 @@ class DirectChatService:
                 row = await self.db.get_running_summary(chat_id, time.time())
                 if row is not None:
                     summary_text = row["summary"]
+                    raw_count = int(row["raw_count"] or 0)
                     window_end_ts = row["window_end_ts"]
             except Exception:
                 logger.warning("direct: running summary read failed | chat=%s",
                                chat_id, exc_info=True)
+        head: list[str] = []
+        tail: list[str] = []
         if summary_text is not None:
-            lines = [summary_text]
+            head.append(f"фон: конспект из {raw_count} сообщений, "
+                        f"ниже дословно свежий хвост")
+            head.append(summary_text)
             for row in window:
                 if int(row["timestamp"] or 0) <= window_end_ts:
                     continue
                 text = row["text"] or ""
                 if not text:
                     continue
-                name = self.aliases.resolve(
-                    int(row["user_id"] or 0), (row["author_name"] or None), None)
-                lines.append(f"{name}: {text}")
-            body = "\n".join(lines)
+                name, uid = self._row_speaker(row)
+                tail.append(f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: {text}")
         else:
             recent = window[-hot.get("limits.chat_global_context_limit",
                                      settings.CHAT_GLOBAL_CONTEXT_LIMIT):]
-            lines = []
             for row in recent:
                 text = row["text"] or ""
                 if not text:
                     continue
-                name = self.aliases.resolve(
-                    int(row["user_id"] or 0), (row["author_name"] or None), None)
-                lines.append(f"{name}: {text}")
-            if not lines:
+                name, uid = self._row_speaker(row)
+                tail.append(f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: {text}")
+            if not tail:
                 return ""
-            body = "\n".join(lines)
+            # D5: метка verbatim-режима — по отобранной ветке окна
+            # (n = число строк после среза recent-ветки).
+            head.append(f"фон: дословно последние {len(tail)} сообщений")
         kind, limit = resolve_chat_limit(
             hot.get("limits.chat_global_context_max_tokens", settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS), 1000,
             "CHAT_GLOBAL_CONTEXT_MAX_CHARS", hot.get("limits.chat_global_context_max_chars", settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS),
             "CHAT_GLOBAL_CONTEXT",
         )
-        if kind == "tokens":
-            budget = safe_budget(limit)
-            if count_tokens(body) > budget:
-                logger.warning("direct: global context truncated | tokens=%d -> %d",
-                               count_tokens(body), budget)
-                body = truncate_to_tokens(body, budget)
-        elif len(body) > limit:
-            logger.warning("direct: global context truncated | chars=%d", len(body))
-            body = body[:limit]
+        measure = count_tokens if kind == "tokens" else len
+        keep_important = bool(hot.get(
+            "flags.chat_importance_keep_enabled",
+            settings.CHAT_IMPORTANCE_KEEP_ENABLED))
+        # E1: имена для маркеров важности — display-имена участников карты
+        # текущего рендера (casefold; канон-имена фактов не нужны — строки
+        # рендера несут display).
+        names = frozenset(str(display).casefold()
+                          for _, display in roster)
+        budget = safe_budget(limit) if kind == "tokens" else limit
+        if measure("\n".join(head + tail)) > budget:
+            logger.warning("direct: global context truncated | %s=%d -> %d",
+                           kind, measure("\n".join(head + tail)), budget)
+            tail = trim_verbatim_lines(
+                tail, max(0, budget - measure("\n".join(head))),
+                names=names, keep_important=keep_important, measure=measure)
+            if measure("\n".join(head + tail)) > budget:
+                # резерв: keep-head по всему body (конец режется — конспект
+                # держится); метка-строка («широкий фон: …»/«фон: …»)
+                # сохраняется первой.
+                body = "\n".join(head + tail)
+                if kind == "tokens":
+                    body = truncate_to_tokens_keep_head(body, max(1, budget))
+                else:
+                    body = body[:budget]
+                lines = body.split("\n")
+                if lines and lines[0].startswith(("широкий фон: ", "фон: ")):
+                    head = [lines[0]]
+                    tail = [ln for ln in lines[1:] if ln.strip()]
+                else:
+                    head, tail = [], [ln for ln in lines if ln.strip()]
+        body = "\n".join(head + tail)
         return f"<Global_Context>\n{escape_xml_text(body)}\n</Global_Context>"
 
-    async def _build_conversation_thread(self, chat_id: int, message) -> str:
+    def _row_speaker(self, row) -> tuple[str, int | None]:
+        """(display-имя, uid) строки окна: резолв существующим каскадом
+        алиас → никнейм → юзернейм (без изменений; uid — только добавка
+        рендера)."""
+        uid = row["user_id"]
+        name = self.aliases.resolve(
+            int(uid or 0), (row["author_name"] or None), None)
+        return name, uid
+
+    # ── <Conversation_Thread> / <Conversation_Branch> (Раунд 8: D3/T-800,
+    #    D4/T-801 — цепочка сквозь бот-ответы, итог ветки без LLM) ──
+
+    async def _collect_thread_chain(self, chat_id: int, message) -> list:
         """Рекурсивная цепочка reply по tg_message_id (глубина
         CHAT_THREAD_MAX_DEPTH): user-сообщения из БД (observer сохраняет все),
-        бот-сообщения из bot_replies (Epic 60, 63.1 — персистентная таблица);
-        при обрыве (нет reply_to_id/не найдено/TTL истёк) — стоп.
-        Рендер сверху-вниз."""
-        chain: list[tuple[str, str]] = []
-        current_id = message.message_id
+        бот-сообщения из bot_replies (Epic 60, 63.1). Раунд 8 (D3/T-800):
+        на бот-сообщении цепочка НЕ обрывается — текст добавляется и ход
+        продолжается от parent-сообщения (bot_reply_parents); break — только
+        терминальный: нет reply_to_id / не найдено / parent нет или протух /
+        глубина исчерпана / сообщение уже в seen.
+        Возвращает [(uid, display-имя, text, is_bot)] — от ТЕКУЩЕГО
+        сообщения (самое свежее первое) к корню."""
+        depth = int(hot.get("limits.chat_thread_max_depth",
+                            settings.CHAT_THREAD_MAX_DEPTH) or 0)
+        chain: list[tuple[int | None, str, str, bool]] = []
+        current_id = getattr(message, "message_id", None)
         seen: set[int] = set()
-        for _ in range(hot.get("limits.chat_thread_max_depth",
-                               settings.CHAT_THREAD_MAX_DEPTH)):
+        for _ in range(max(1, depth)):
             if current_id is None or current_id in seen:
                 break
             seen.add(current_id)
@@ -977,19 +1490,37 @@ class DirectChatService:
             if row is not None:
                 text = row["text"] or ""
                 if text:
-                    name = self.aliases.resolve(
-                        int(row["user_id"] or 0), (row["author_name"] or None), None)
-                    chain.append((name, text))
+                    name, uid = self._row_speaker(row)
+                    chain.append((uid, name, text, False))
                 current_id = row["reply_to_id"]
                 continue
             bot_text = await self.get_bot_reply(chat_id, current_id)
             if bot_text is not None:
-                chain.append((self._resolve_bot_name(), bot_text))
-                break                      # бот-сообщение — конец цепочки
+                chain.append((None, self._resolve_bot_name(), bot_text, True))
+                parent = await self._bot_reply_parent(chat_id, current_id)
+                if parent is None:
+                    break
+                current_id = parent
+                continue
             break                          # обрыв: нет reply_to_id/не найдено
+        return chain
+
+    def _chain_line(self, item, suffix_map: dict[int, str]) -> str:
+        """Рендер одного хода цепочки (C1): «{имя}{дискр} [{uid}]: {текст}»,
+        бот-ход — «{имя} [bot]: {текст}»."""
+        uid, name, text, is_bot = item
+        if is_bot:
+            return f"{_speaker_tag(name, None, is_bot=True)}: {text}"
+        return (f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: "
+                f"{text}")
+
+    def _render_thread(self, chain: list, suffix_map: dict[int, str]) -> str:
+        """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
+        verbatim-диалог не участвует в importance-удержании E1)."""
         if not chain:
             return ""
-        lines = [f"{name}: {text}" for name, text in reversed(chain)]
+        lines = [self._chain_line(item, suffix_map)
+                 for item in reversed(chain)]
         body = "\n".join(lines)
         kind, limit = resolve_chat_limit(
             hot.get("limits.chat_thread_max_tokens", settings.CHAT_THREAD_MAX_TOKENS), 500,
@@ -1006,6 +1537,28 @@ class DirectChatService:
             logger.warning("direct: thread truncated | chars=%d", len(body))
             body = body[:limit]
         return f"<Conversation_Thread>\n{escape_xml_text(body)}\n</Conversation_Thread>"
+
+    def _render_branch(self, chain: list, suffix_map: dict[int, str]) -> str:
+        """Раунд 8 (D4/T-801): <Conversation_Branch> — компактный итог
+        reply-ветки: последние limits.chat_branch_context_hops (default 3)
+        ходов уже собранной цепочки (без LLM, без повторного walk). Полный
+        <Conversation_Thread> рендерится ниже. Вызывается только для
+        reply-триггера и цепочки глубины ≥ 2."""
+        if not chain:
+            return ""
+        hops = int(hot.get("limits.chat_branch_context_hops",
+                           settings.CHAT_BRANCH_CONTEXT_HOPS) or 0) or 3
+        fresh = list(reversed(chain[:max(1, hops)]))     # ASC: старое → новое
+        lines = [self._chain_line(item, suffix_map) for item in fresh]
+        body = "\n".join(lines)
+        return (f"<Conversation_Branch>\n"
+                f"{escape_xml_text(body)}\n</Conversation_Branch>")
+
+    async def _build_conversation_thread(self, chat_id: int, message) -> str:
+        """Публичная сборка <Conversation_Thread> (58.6): цепочка reply от
+        текущего сообщения (D3: сквозь бот-ответы по bot_reply_parents)."""
+        chain = await self._collect_thread_chain(chat_id, message)
+        return self._render_thread(chain, {})
 
     # ── Имена (R50-1, каскад Алиас → Никнейм → Юзернейм, БЕЗ '@') ──
 

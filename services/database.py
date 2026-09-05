@@ -230,6 +230,19 @@ class DatabaseService:
             created_at    REAL    NOT NULL,          -- time.time()
             UNIQUE (chat_id, repost_msg_id)
         );
+
+        -- ── Раунд 8 (Context-Layer X-Features, spec §3.G1, T-800/T-804) ──
+        -- Аддитивные структуры, user_version НЕ поднимается (RUNTIME WARNING,
+        -- NFR-4). bot_reply_parents: parent-линк «бот-ответ → на какое сообщение
+        -- отвечал» — Conversation_Thread ходит СКВОЗЬ бот-сообщения без
+        -- миграции v8; TTL/LRU — тот же паттерн, что bot_replies (63.1).
+        CREATE TABLE IF NOT EXISTS bot_reply_parents (
+            chat_id INTEGER NOT NULL,
+            tg_message_id INTEGER NOT NULL,
+            parent_tg_message_id INTEGER,
+            last_used_at REAL NOT NULL,
+            PRIMARY KEY (chat_id, tg_message_id)
+        );
     """
     
     def __init__(self, db_path: str):
@@ -1543,6 +1556,83 @@ class DatabaseService:
             await self.db.commit()
             return None
         return row["text"]
+
+    # ── bot_reply_parents (Раунд 8, spec §3.G1/D3, T-800) ─────────
+    # Parent-линк «бот-ответ → сообщение, на которое отвечал» — thread-walk
+    # продолжает цепочку сквозь бот-сообщения. Тот же TTL/LRU-паттерн, что
+    # bot_replies (63.1): ленивый TTL на чтении, cap на записи.
+
+    async def set_bot_reply_parent(self, chat_id: int, tg_message_id: int,
+                                   parent_tg_message_id: int | None,
+                                   now: float) -> None:
+        """Запись parent-линка (UPSERT + TTL-sweep + LRU-cap — паттерн
+        upsert_bot_reply). parent=None (edit-путь, родитель неизвестен) →
+        no-op: существующая строка линка НЕ перезаписывается (D3/Q9)."""
+        if parent_tg_message_id is None:
+            return
+        await self.db.execute(
+            "DELETE FROM bot_reply_parents WHERE last_used_at < ?",
+            (now - self._BOT_REPLIES_TTL_SECONDS,),
+        )
+        await self.db.execute(
+            "INSERT INTO bot_reply_parents "
+            "(chat_id, tg_message_id, parent_tg_message_id, last_used_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(chat_id, tg_message_id) DO UPDATE SET "
+            "parent_tg_message_id = excluded.parent_tg_message_id, "
+            "last_used_at = excluded.last_used_at",
+            (chat_id, tg_message_id, parent_tg_message_id, now),
+        )
+        await self.db.execute(
+            "DELETE FROM bot_reply_parents WHERE (chat_id, tg_message_id) NOT IN "
+            "(SELECT chat_id, tg_message_id FROM bot_reply_parents "
+            "ORDER BY last_used_at DESC LIMIT ?)",
+            (self._BOT_REPLIES_CAP,),
+        )
+        await self.db.commit()
+
+    async def get_bot_reply_parent(self, chat_id: int, tg_message_id: int,
+                                   now: float) -> int | None:
+        """Parent-сообщение бот-ответа; None — нет линка/протух. Протухший
+        (> TTL) → ленивый DELETE + None (паттерн get_bot_reply)."""
+        cursor = await self.db.execute(
+            "SELECT parent_tg_message_id, last_used_at FROM bot_reply_parents "
+            "WHERE chat_id = ? AND tg_message_id = ?",
+            (chat_id, tg_message_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        if now - row["last_used_at"] > self._BOT_REPLIES_TTL_SECONDS:
+            await self.db.execute(
+                "DELETE FROM bot_reply_parents "
+                "WHERE chat_id = ? AND tg_message_id = ?",
+                (chat_id, tg_message_id),
+            )
+            await self.db.commit()
+            return None
+        return row["parent_tg_message_id"]
+
+    # ── Активные участники (Раунд 8, spec §3.C2, T-793) ──────────
+    # UserResolutionMap строится не только по окну, но и по активным
+    # участникам за limits.chat_map_participants_hours: SQL-агрегат по
+    # smart_messages. Существующий индекс idx_smart_messages_chat_ts
+    # (chat_id, timestamp) покрывает диапазон; GROUP BY/ORDER по cap ≤ 150 —
+    # дешёвый temp b-tree (новый индекс НЕ создаём — RUNTIME WARNING).
+
+    async def get_active_participants(self, chat_id: int, since_ts: int,
+                                      cap: int) -> list:
+        """Участники чата за период: user_id + MAX(author_name) (последний
+        канон-самописей) + счётчик сообщений, ORDER BY cnt DESC, user_id ASC
+        (стабильно), LIMIT cap."""
+        cursor = await self.db.execute(
+            "SELECT user_id, MAX(author_name) AS author_name, COUNT(*) AS cnt "
+            "FROM smart_messages "
+            "WHERE chat_id = ? AND timestamp >= ? AND user_id IS NOT NULL "
+            "GROUP BY user_id ORDER BY cnt DESC, user_id ASC LIMIT ?",
+            (chat_id, since_ts, cap),
+        )
+        return await cursor.fetchall()
 
     # ── Epic 60 Фаза C (65.4/65.5/65.8/65.10) ─────────────────
     # Стилевые якоря, пресеты тона (user_prefs), /clear, /forget,

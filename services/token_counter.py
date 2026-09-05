@@ -86,6 +86,36 @@ def truncate_to_tokens(text: str, max_tokens: int) -> str:
     return text[-int(max_tokens / _CHARS_PER_TOKEN):]
 
 
+def truncate_to_tokens_keep_head(text: str, max_tokens: int) -> str:
+    """Раунд 8 (T-799/D2, spec 3.D2): срез ПО ТОКЕНАМ с НАЧАЛА строки —
+    первые max_tokens токенов («держать голову»: конспект сверху
+    Global_Context переживает обрезку, первым режется конец — свежий
+    verbatim-хвост). WARNING при обрезке. max_tokens < 1 → "". fallback —
+    голова по символам (max_tokens / 0.3)."""
+    text = str(text or "")
+    if not text or max_tokens < 1:
+        return ""
+    encoding = _get_encoding()
+    if encoding is not None:
+        tokens = encoding.encode(text)
+        if len(tokens) <= max_tokens:
+            return text
+        try:
+            kept = encoding.decode(tokens[:max_tokens])
+        except Exception:
+            logger.warning(
+                "token_counter: decode failed — chars fallback head slice")
+            return text[:int(max_tokens / _CHARS_PER_TOKEN)]
+        logger.warning("token_counter: keep-head truncated to %d tokens (was %d)",
+                       max_tokens, len(tokens))
+        return kept
+    if int(len(text) * _CHARS_PER_TOKEN) <= max_tokens:
+        return text
+    logger.warning("token_counter: keep-head truncated to %d tokens (chars fallback)",
+                   max_tokens)
+    return text[:int(max_tokens / _CHARS_PER_TOKEN)]
+
+
 def safe_budget(max_tokens: int) -> int:
     """Запас TOKEN_SAFETY_MULTIPLIER (токенизатор DeepSeek ≠ o200k, ±15%)."""
     return max(1, int(max_tokens / hot.get("models.token_safety_multiplier", settings.TOKEN_SAFETY_MULTIPLIER)))

@@ -162,7 +162,11 @@ class TestSystemPromptGuard:
         bot.send_message = AsyncMock(return_value=sent)
         await service.handle(bot, msg, msg.from_user)
         _assert_system_at_zero(llm)
-        assert llm.messages[0]["content"].startswith("СИСТЕМНАЯ РОЛЬ:")
+        # канон раунда 8 (T-790): первый абзац «как читать блоки», блоки
+        # СИСТЕМНАЯ РОЛЬ/ПРИОРИТЕТЫ/ИНСТРУМЕНТЫ/ограничение сохранены
+        assert llm.messages[0]["content"].startswith("КАК ЧИТАТЬ КОНТЕКСТ:")
+        assert "СИСТЕМНАЯ РОЛЬ:" in llm.messages[0]["content"]
+        assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" in llm.messages[0]["content"]
 
     @pytest.mark.asyncio
     async def test_memory_compress_batch(self):

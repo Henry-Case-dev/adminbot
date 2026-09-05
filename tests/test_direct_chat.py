@@ -1,4 +1,4 @@
-"""Epic 50 (R50-3/R50-7, Section 58.5/58.6): DirectChatThrottle (token bucket)
+﻿"""Epic 50 (R50-3/R50-7, Section 58.5/58.6): DirectChatThrottle (token bucket)
 и DirectChatService (context partitioning, handle-поток, memorize-хук).
 Epic 60 (Section 63.1/63.2, T-460/T-461): persistent-троттлинг
 (PersistentThrottle), bot_replies в БД, per-chat замок генерации.
@@ -7,6 +7,7 @@ Epic 60 (Section 65, T-469/T-471/T-472/T-476/T-477): 🗿-молчание, ст
 import asyncio
 import dataclasses
 import logging
+import re
 import time
 from unittest.mock import AsyncMock, MagicMock
 
@@ -93,6 +94,9 @@ def _message(text="привет, бот", message_id=100, user=None, chat_id=CHA
     m.chat = MagicMock()
     m.chat.id = chat_id
     m.from_user = user if user is not None else _user()
+    # Раунд 8 (D4/T-801): reply-маркер триггера <Conversation_Branch> —
+    # у обычного сообщения его нет (MagicMock без явного поля авто-создал бы).
+    m.reply_to_message = None
     return m
 
 
@@ -104,22 +108,49 @@ def _bot():
     return bot
 
 
+def _block_tag(block: str) -> str:
+    """Первая строка-тег блока для сравнения порядка (sandwich — без тега)."""
+    if block.startswith("отвечай коротко"):
+        return "<sandwich>"
+    m = re.match(r"<[A-Za-z_]+>", block)
+    return m.group(0) if m else block.split("\n", 1)[0][:24]
+
+
 class FakeMemory:
-    def __init__(self, window=None, rag="", memorize_error=None):
+    """Раунд 8 (F1-F4/T-807-T-810): direct-путь ходит в memory через
+    get_rag_facts (список 3-кортежей rel-порядка) + rerank_rag_facts
+    (LLM-фильтр; вызов записывается — флаг проверяет direct-слой)."""
+
+    def __init__(self, window=None, rag="", rag_facts=None,
+                 memorize_error=None):
         self.window = window if window is not None else []
         self.rag = rag
-        self.rag_calls = []
-        self.memorized = []
+        self.rag_facts = rag_facts               # None → производное от rag
         self.memorize_error = memorize_error
+        self.rag_facts_calls = []
+        self.rerank_calls = []
+        self.memorized = []
 
     async def get_window_messages(self, chat_id):
         return self.window
 
     async def get_rag_context(self, chat_id, query, *, sort_by_timestamp=False,
                               include_direct_reply=False):
-        self.rag_calls.append(
-            (chat_id, query, sort_by_timestamp, include_direct_reply))
+        self.rag_facts_calls.append(("ctx", chat_id, query, sort_by_timestamp,
+                                     include_direct_reply))
         return self.rag
+
+    async def get_rag_facts(self, chat_id, query, *,
+                            include_direct_reply=False):
+        self.rag_facts_calls.append(
+            (chat_id, query, include_direct_reply))
+        if self.rag_facts is not None:
+            return list(self.rag_facts)
+        return [("chat_history", self.rag, None)] if self.rag else []
+
+    async def rerank_rag_facts(self, query, facts):
+        self.rerank_calls.append((query, len(facts)))
+        return list(facts)
 
     async def memorize_facts(self, chat_id, raw_text, source_type, target_user=None):
         if self.memorize_error:
@@ -367,7 +398,10 @@ class TestDirectChatThrottleInMemory:
 
 
 class TestContextPartitioning:
-    """58.10 #6/#7: порядок секций, escape, лимиты, RAG-флаги."""
+    """58.10 #6/#7: порядок секций, escape, лимиты, RAG-флаги.
+    Раунд 8 (B2/T-791, spec §3.B2): реордер «важное к концу» — map → rag →
+    global → thread → target → current → … → sandwich; uid-рендеры строк
+    (C1/T-792)."""
 
     @pytest.mark.asyncio
     async def test_section_order_and_flags(self, fake_time):
@@ -375,20 +409,64 @@ class TestContextPartitioning:
             _window_row(user_id=10, author_name="вася", text="привет"),
             _window_row(user_id=20, author_name="петя", text="как дела"),
         ]
-        memory = FakeMemory(window=window, rag="<context>фон</context>")
+        memory = FakeMemory(window=window, rag="фон из памяти")
         db = FakeDB({100: _thread_row(100, user_id=10, author_name="вася",
                                       text="расскажи про дроны", reply_to_id=None)})
         service = _make_service(memory=memory, db=db)
         msg = _message(text="расскажи про дроны")
         blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        # Раунд 8 (§3.B2): map → rag → global → thread → target → current;
+        # sandwich — последняя строка (блоки, которых нет, пропущены).
         assert blocks[0].startswith("<UserResolutionMap>")
         assert blocks[1].startswith("<RAG_Memory>")
-        assert blocks[2] == "<Target_User>вася</Target_User>"
-        assert blocks[3].startswith("<Global_Context>")
-        assert blocks[4].startswith("<Conversation_Thread>")
-        # RAG-флаги: sort_by_timestamp + include_direct_reply — только DirectChat
-        assert memory.rag_calls == [(CHAT_ID, "расскажи про дроны", True, True)]
-        assert "вася: привет" in blocks[3] and "петя: как дела" in blocks[3]
+        assert blocks[2].startswith("<Global_Context>")
+        assert blocks[3].startswith("<Conversation_Thread>")
+        assert blocks[4] == "<Target_User>вася</Target_User>"
+        assert blocks[5].startswith("<Current_Question>")
+        assert blocks[-1].startswith("отвечай коротко, по делу")
+        # Раунд 8 (F1/T-807): RAG-факты direct — rel-порядок memory
+        # (sort_by_timestamp на direct-пути больше не передаётся);
+        # include_direct_reply=True — только DirectChat.
+        assert memory.rag_facts_calls == [
+            (CHAT_ID, "расскажи про дроны", True)]
+        assert memory.rerank_calls == []           # флаг реранка off (default)
+        # F3/T-809: direct-рендер с origin-меткой («[чат] …»)
+        assert blocks[1] == "<RAG_Memory>\n[чат] фон из памяти\n</RAG_Memory>"
+        # C1/T-792: uid-рендеры строк Global_Context («имя [uid]: текст»)
+        assert "вася [10]: привет" in blocks[2]
+        assert "петя [20]: как дела" in blocks[2]
+
+    @pytest.mark.asyncio
+    async def test_sandwich_last_and_order_with_all_blocks(self, fake_time):
+        """Раунд 8 (п.24/п.25/FR-22/FR-23): полный порядок §3.B2 — map →
+        rag → global → thread → target → protected → mood → current →
+        anchors → sandwich-строка в самом конце."""
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        await d.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (?, 'вася', 'день рождения 5 мая', 1.0)", (CHAT_ID,))
+        await d.db.commit()
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="спросил", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=100)
+        await d.upsert_bot_reply(CHAT_ID, 1, "норм отвечаю", 1000.0)
+        window = [_window_row(user_id=10, author_name="вася", text="привет"),
+                  _window_row(user_id=20, author_name="петя", text="как дела")]
+        memory = FakeMemory(window=window, rag="<context>фон</context>")
+        service = _make_service(memory=memory, db=d)
+        msg = _message(text="нахуй это всё бесит")
+        blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        kinds = [_block_tag(b) for b in blocks]
+        expected = ["<UserResolutionMap>", "<RAG_Memory>", "<Global_Context>",
+                    "<Conversation_Thread>", "<Target_User>",
+                    "<protected_facts>", "<mood>", "<Current_Question>",
+                    "<style_anchors>"]
+        positions = [kinds.index(k) for k in expected]
+        assert positions == sorted(positions)       # строгий порядок «важное к концу»
+        assert blocks[-1].startswith("отвечай коротко, по делу")
+        assert kinds[-2] == "<style_anchors>"       # anchors перед sandwich
+        await d.close()
 
     @pytest.mark.asyncio
     async def test_xml_escape_applied(self, fake_time):
@@ -397,7 +475,7 @@ class TestContextPartitioning:
         service = _make_service(memory=memory)
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "старое имя: 1 &lt; 2 &amp; 3" in global_block
+        assert "старое имя [10]: 1 &lt; 2 &amp; 3" in global_block
         assert "1 < 2" not in global_block
 
     @pytest.mark.asyncio
@@ -409,8 +487,9 @@ class TestContextPartitioning:
 
     @pytest.mark.asyncio
     async def test_global_context_truncated_with_warning(self, fake_time, caplog):
-        """64.7: потолок <Global_Context> — токены (срез С КОНЦА — хвост окна
-        сохраняется, старейшее отрезается), WARNING при обрезке."""
+        """Раунд 8 (D2/T-799): потолок <Global_Context> — keep-head с
+        importance-удержанием: под давлением первыми жертвуются шумные строки
+        со стороны начала (старое), метка-строка объёма держится; WARNING."""
         from config.settings import settings
 
         window = [_window_row(text="х" * settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS + "!"),
@@ -421,8 +500,9 @@ class TestContextPartitioning:
             blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
-        assert body.count("х") < settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS  # старейшее отрезано
-        assert "конец" in body                       # хвост (свежайшее) сохранён
+        assert body.startswith("фон: дословно последние 2 сообщений")  # D5-метка
+        assert "конец" in body                       # свежайшая строка держится
+        assert body.count("х") < settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS  # шум выпал
         assert any("global context truncated" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
@@ -436,7 +516,9 @@ class TestContextPartitioning:
         await service.remember_bot_reply(CHAT_ID, 50, "я твой кошмар")
         blocks = await service._build_user_content(CHAT_ID, _message(text="ты кто?"), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
-        assert thread.index("test_bot: я твой кошмар") < thread.index("вася: ты кто?")
+        # C1/T-792: бот-строка «{имя} [bot]: {текст}», юзер — «{имя} [{uid}]: …»
+        assert thread.index("test_bot [bot]: я твой кошмар") < \
+            thread.index("вася [10]: ты кто?")
         await d.close()
 
     @pytest.mark.asyncio
@@ -451,7 +533,7 @@ class TestContextPartitioning:
         blocks = await service._build_user_content(CHAT_ID, _message(message_id=100), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
         from config.settings import settings
-        assert thread.count("вася: сообщение") == settings.CHAT_THREAD_MAX_DEPTH
+        assert thread.count("вася [10]: сообщение") == settings.CHAT_THREAD_MAX_DEPTH
         assert "сообщение 91" not in thread       # глубина 6, дальше — стоп
 
     @pytest.mark.asyncio
@@ -459,6 +541,371 @@ class TestContextPartitioning:
         service = _make_service(db=FakeDB({}))
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         assert all("<Conversation_Thread>" not in b for b in blocks)
+
+
+class TestRound8RendersAndParticipants:
+    """Раунд 8 (C1/C2/C3/C5/T-792…T-796): uid-рендеры строк и Target_User,
+    карта по активным участникам (вне окна — в периоде), cap, дискриминатор
+    коллизий имён только во внутренних рендерах (NFR-2)."""
+
+    async def _db(self):
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        return d
+
+    @pytest.mark.asyncio
+    async def test_target_user_block_with_uid(self, fake_time):
+        """C5/T-796: <Target_User>{имя} [{uid}]</Target_User> — uid автора
+        запроса; без uid (None/0) — без скобки (§3.0)."""
+        service = _make_service(memory=FakeMemory(window=[]))
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(), "вася", target_user_id=10)
+        target = next(b for b in blocks if b.startswith("<Target_User>"))
+        assert target == "<Target_User>вася [10]</Target_User>"
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(), "вася", target_user_id=0)
+        target = next(b for b in blocks if b.startswith("<Target_User>"))
+        assert target == "<Target_User>вася</Target_User>"
+
+    @pytest.mark.asyncio
+    async def test_global_lines_without_uid_for_anonymous(self, fake_time):
+        """C1: строка анонима/канала (user_id None) — без скобки [uid]."""
+        window = [{"user_id": None, "author_name": "канал",
+                   "text": "анонс", "timestamp": 100, "media_type": "text",
+                   "reply_to_id": None, "tg_message_id": None},
+                  _window_row(user_id=10, author_name="вася",
+                              text="спросил")]
+        service = _make_service(memory=FakeMemory(window=window))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        assert "канал: анонс" in global_block
+        assert "канал [None]" not in global_block and "[None]" not in global_block
+        assert "вася [10]: спросил" in global_block
+
+    @pytest.mark.asyncio
+    async def test_active_participant_outside_window_in_map(self, fake_time):
+        """C2/T-793: участник, молчавший дольше окна, но в пределах периода
+        (limits.chat_map_participants_hours) — есть в карте."""
+        d = await self._db()
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="привет", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=1)
+        await d.save_smart_message(
+            user_id=20, chat_id=CHAT_ID, text="давно писал", reply_to_id=None,
+            timestamp=50, media_type="text", author_name="петя", message_id=2)
+        # окно (FakeMemory) знает только васю — петя вне окна
+        window = [_window_row(user_id=10, author_name="вася", text="привет")]
+        service = _make_service(db=d, memory=FakeMemory(window=window))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        assert blocks[0].startswith("<UserResolutionMap>")
+        assert "вася — 10" in blocks[0]
+        assert "петя — 20" in blocks[0]            # вне окна, но в периоде
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_active_participants_ordered_by_activity(self, fake_time):
+        """C2.3: порядок карты — по убыванию активности (cnt DESC, uid ASC)."""
+        d = await self._db()
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="1", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=1)
+        for i in range(3):
+            await d.save_smart_message(
+                user_id=20, chat_id=CHAT_ID, text=f"петя {i}", reply_to_id=None,
+                timestamp=100 + i, media_type="text", author_name="петя",
+                message_id=10 + i)
+        window = [_window_row(user_id=10, author_name="вася", text="1")]
+        service = _make_service(db=d, memory=FakeMemory(window=window))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        assert blocks[0].index("петя — 20") < blocks[0].index("вася — 10")
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_map_cap_limits_rows(self, fake_time, monkeypatch):
+        """C2: cap limits.chat_map_participants_cap ограничивает карту."""
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_MAP_PARTICIPANTS_CAP=1))
+        d = await self._db()
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="привет", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=1)
+        await d.save_smart_message(
+            user_id=20, chat_id=CHAT_ID, text="привет", reply_to_id=None,
+            timestamp=101, media_type="text", author_name="петя", message_id=2)
+        window = [_window_row(user_id=10, author_name="вася", text="привет"),
+                  _window_row(user_id=20, author_name="петя", text="привет")]
+        service = _make_service(db=d, memory=FakeMemory(window=window))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        assert blocks[0].startswith("<UserResolutionMap>")
+        assert blocks[0].count("\n") == 2         # одна строка + теги
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_map_and_render_collision_discriminator(self, fake_time):
+        """C3/T-794: два разных uid с одинаковым display → второй (по uid ASC)
+        получает суффикс « (#хвост)» в карте и строках; каскад-резолв для
+        чистовых путей суффикс НЕ содержит (NFR-2)."""
+        window = [
+            _window_row(user_id=2, author_name="саша", text="реплика саши"),
+            _window_row(user_id=1, author_name="саша", text="другая реплика"),
+        ]
+        service = _make_service(memory=FakeMemory(window=window))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        assert blocks[0].startswith("<UserResolutionMap>")
+        # суффикс у ВТОРОГО по uid ASC (uid=2); первый — без суффикса
+        assert "саша (#2) — 2" in blocks[0]
+        assert "саша — 1" in blocks[0]
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        assert "саша (#2) [2]: реплика саши" in global_block
+        assert "саша [1]: другая реплика" in global_block
+        # чистый путь: каскад resolve НЕ тронут суффиксами
+        assert service.aliases.resolve(2, "саша", None) == "саша"
+        assert service._resolve_name(
+            _user(user_id=2, first_name="Саша", last_name=None)) == "Саша"
+
+    @pytest.mark.asyncio
+    async def test_discriminator_does_not_leak_into_clean_renders(self, fake_time):
+        """C3/NFR-2: карта и внутренние строки несут суффиксы, но чистые
+        пути (карточка/persona/resolve/canon) их не содержат."""
+        d = await self._db()
+        await d.insert_graph_fact(
+            CHAT_ID, "саша любит дроны", "bot_direct_reply", None,
+            target_user="Саша")
+        service = _make_service(db=d)
+        assert service._resolve_name(
+            _user(user_id=2, first_name="Саша", last_name=None)) == "Саша"
+        card = await service.build_persona_card(CHAT_ID, "Саша")
+        assert card is not None
+        assert "саша любит дроны" in card
+        assert "(#2)" not in card
+        await d.close()
+
+
+class TestRound8CurrentQuestionAndBranch:
+    """Раунд 8 (D1/T-798, D4/T-801): блок <Current_Question>, компактный
+    <Conversation_Branch> над фоном (без LLM)."""
+
+    @pytest.mark.asyncio
+    async def test_current_question_block_and_prefix_strip(self, fake_time):
+        service = _make_service(memory=FakeMemory(window=[]))
+        msg = _message(text="бот, расскажи про дроны")
+        blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        current = next(b for b in blocks if b.startswith("<Current_Question>"))
+        assert current == "<Current_Question>\nрасскажи про дроны\n</Current_Question>"
+        msg = _message(text="@test_bot: как дела?")
+        blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        current = next(b for b in blocks if b.startswith("<Current_Question>"))
+        assert "как дела?" in current and "@test_bot" not in current
+
+    @pytest.mark.asyncio
+    async def test_current_question_omitted_when_empty(self, fake_time):
+        service = _make_service(memory=FakeMemory(window=[]))
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(text="бот"), "вася")
+        # блок отсутствует (sandwich-строка упоминает тег в тексте — не считаем)
+        assert all(not b.startswith("<Current_Question>") for b in blocks)
+        assert blocks[-1].startswith("отвечай коротко")
+
+    @pytest.mark.asyncio
+    async def test_current_question_cap_and_escape(self, fake_time, monkeypatch):
+        service = _make_service(memory=FakeMemory(window=[]))
+        # escape в блоке (полный текст, дефолтный кап)
+        msg = _message(text="расскажи про <дроны> и & роботов")
+        blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        current = next(b for b in blocks if b.startswith("<Current_Question>"))
+        assert "&lt;дроны&gt;" in current and "&amp;" in current
+        assert "расскажи про <дроны>" not in current
+        # кап по символам ДО escape
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_CURRENT_QUESTION_MAX_CHARS=10))
+        msg = _message(text="бот, очень длинный вопрос про дроны и всё такое")
+        blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        current = next(b for b in blocks if b.startswith("<Current_Question>"))
+        inner = current[len("<Current_Question>\n"):-len("\n</Current_Question>")]
+        assert len(inner) == 10 and inner == "очень длин"
+
+    @pytest.mark.asyncio
+    async def test_current_question_before_anchors_after_mood(self, fake_time):
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        await d.upsert_bot_reply(CHAT_ID, 1, "норм отвечаю", 1000.0)
+        service = _make_service(db=d)
+        msg = _message(text="нахуй это всё, расскажи про дроны")
+        blocks = await service._build_user_content(CHAT_ID, msg, "вася")
+        kinds = [_block_tag(b) for b in blocks]
+        assert kinds.index("<Current_Question>") < kinds.index("<style_anchors>")
+        assert kinds.index("<mood>") < kinds.index("<Current_Question>")
+        await d.close()
+
+    async def _reply_chain_db(self):
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        # 40 (вася, старый вопрос) ← бот-ответ 50 ← 100 (петя, текущий)
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="а что там с дронами?",
+            reply_to_id=None, timestamp=100, media_type="text",
+            author_name="вася", message_id=40)
+        await d.save_smart_message(
+            user_id=20, chat_id=CHAT_ID, text="вот теперь про дроны",
+            reply_to_id=50, timestamp=300, media_type="text",
+            author_name="петя", message_id=100)
+        service = _make_service(db=d)
+        await service.remember_bot_reply(
+            CHAT_ID, 50, "дроны летят нормально",
+            parent_tg_message_id=40)
+        return d
+
+    @pytest.mark.asyncio
+    async def test_branch_block_rendered_for_reply_chain(self, fake_time):
+        d = await self._reply_chain_db()
+        service = _make_service(db=d)
+        msg = _message(message_id=100, text="вот теперь про дроны")
+        msg.reply_to_message = MagicMock()          # reply-триггер
+        blocks = await service._build_user_content(CHAT_ID, msg, "петя")
+        kinds = [_block_tag(b) for b in blocks]
+        assert "<Conversation_Branch>" in kinds
+        # позиция: сразу после map (над RAG/фоном); полный Thread ниже
+        assert kinds[0] == "<UserResolutionMap>"
+        assert kinds[1] == "<Conversation_Branch>"
+        assert kinds.index("<Conversation_Branch>") < \
+            kinds.index("<Conversation_Thread>")
+        branch = next(b for b in blocks
+                      if b.startswith("<Conversation_Branch>"))
+        assert "вася [10]: а что там с дронами?" in branch
+        assert "test_bot [bot]: дроны летят нормально" in branch
+        assert "петя [20]: вот теперь про дроны" in branch
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_no_branch_for_plain_message(self, fake_time):
+        d = await self._reply_chain_db()
+        service = _make_service(db=d)
+        msg = _message(message_id=100, text="вот теперь про дроны")
+        # без reply_to_message — обычное сообщение
+        blocks = await service._build_user_content(CHAT_ID, msg, "петя")
+        assert all("<Conversation_Branch>" not in b for b in blocks)
+        # полный Thread рендерится как обычно
+        assert any("<Conversation_Thread>" in b for b in blocks)
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_branch_capped_by_hops(self, fake_time, monkeypatch):
+        """D4: <Conversation_Branch> — последние limits.chat_branch_context_hops
+        ходов цепочки."""
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_BRANCH_CONTEXT_HOPS=1))
+        d = await self._reply_chain_db()
+        service = _make_service(db=d)
+        msg = _message(message_id=100, text="вот теперь про дроны")
+        msg.reply_to_message = MagicMock()
+        blocks = await service._build_user_content(CHAT_ID, msg, "петя")
+        branch = next(b for b in blocks
+                      if b.startswith("<Conversation_Branch>"))
+        assert "петя [20]: вот теперь про дроны" in branch
+        assert "вася [10]" not in branch and "test_bot" not in branch
+        await d.close()
+
+
+class TestRound8ThreadThroughBot:
+    """Раунд 8 (D3/T-800): Conversation_Thread НЕ рвётся на бот-сообщениях —
+    цепочка идёт сквозь bot_reply_parents; обрыв только терминальный."""
+
+    async def _full_chain_db(self):
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        # 30(вася) → бот40(parent 30) → 50(петя) → бот60(parent 50) → 70(юзер)
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="ты кто?", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=30)
+        await d.save_smart_message(
+            user_id=20, chat_id=CHAT_ID, text="а почему так?",
+            reply_to_id=40, timestamp=200, media_type="text",
+            author_name="петя", message_id=50)
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="вот это новости",
+            reply_to_id=60, timestamp=300, media_type="text",
+            author_name="вася", message_id=70)
+        service = _make_service(db=d)
+        await service.remember_bot_reply(
+            CHAT_ID, 40, "я твой кошмар", parent_tg_message_id=30)
+        await service.remember_bot_reply(
+            CHAT_ID, 60, "потому что так надо", parent_tg_message_id=50)
+        return d
+
+    @pytest.mark.asyncio
+    async def test_thread_full_chain_through_bot_replies(self, fake_time):
+        """юзер→бот→юзер→бот — полная цепочка (без обрыва на боте)."""
+        d = await self._full_chain_db()
+        service = _make_service(db=d)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(message_id=70, text="вот это новости"), "вася")
+        thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
+        assert thread.index("вася [10]: ты кто?") < \
+            thread.index("test_bot [bot]: я твой кошмар")
+        assert thread.index("test_bot [bot]: я твой кошмар") < \
+            thread.index("петя [20]: а почему так?")
+        assert thread.index("петя [20]: а почему так?") < \
+            thread.index("test_bot [bot]: потому что так надо")
+        assert thread.index("test_bot [bot]: потому что так надо") < \
+            thread.index("вася [10]: вот это новости")
+        assert thread.count("[bot]:") == 2
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_thread_breaks_without_parent_link(self, fake_time):
+        """D3/Edge-case 4: бот-ответ без parent-линка (легаси) — цепочка
+        обрывается на боте ровно как раньше (обратная совместимость)."""
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="ты кто?", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=30)
+        await d.save_smart_message(
+            user_id=20, chat_id=CHAT_ID, text="а почему так?",
+            reply_to_id=40, timestamp=200, media_type="text",
+            author_name="петя", message_id=50)
+        service = _make_service(db=d)
+        await service.remember_bot_reply(CHAT_ID, 40, "я твой кошмар")
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(message_id=50, text="а почему так?"), "петя")
+        thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
+        assert "test_bot [bot]: я твой кошмар" in thread
+        assert "вася [10]: ты кто?" not in thread    # parent нет — стоп на боте
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_thread_break_after_ttl_expiry(self, fake_time):
+        """D3: протухшие записи бота (TTL 3600) — терминальный обрыв на
+        бот-сообщении (как если бы parent/текста не было)."""
+        d = await self._full_chain_db()
+        fake_time["now"] += 4000.0                   # > TTL 3600
+        service = _make_service(db=d)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(message_id=70, text="вот это новости"), "вася")
+        thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
+        assert "вася [10]: вот это новости" in thread   # текущее сообщение
+        assert "ты кто?" not in thread
+        assert "я твой кошмар" not in thread            # протухло по TTL
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_handle_records_bot_reply_parent(self, fake_time):
+        """D3/T-800: handle() пишет parent-линк «бот-ответ → сообщение, на
+        которое отвечал» — цепочка продолжается через бот на следующем ходу."""
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        await d.save_smart_message(
+            user_id=10, chat_id=CHAT_ID, text="первый вопрос",
+            reply_to_id=None, timestamp=100, media_type="text",
+            author_name="вася", message_id=77)
+        service = _make_service(db=d, memory=FakeMemory(window=[]))
+        await service.handle(
+            _bot(), _message(message_id=77, text="первый вопрос"), _user())
+        assert await service._bot_reply_parent(CHAT_ID, 999) == 77
+        await d.close()
 
 
 class TestHandleFlow:
@@ -1463,13 +1910,20 @@ class TestCircuitBreakerIntegration:
 
 
 class SummaryDB:
-    """FakeDB + бегущий конспект (64.6)."""
+    """FakeDB + бегущий конспект (64.6). Раунд 8 (D5/T-802): строка несёт
+    raw_count (метка объёма «фон: конспект из N сообщений…»).
+    Раунд 8 (E2/T-804): get_summary_level — уровень 2 (широкий фон), None —
+    уровня нет (инжект L2 не выполняется)."""
 
-    def __init__(self, summary=None):
+    def __init__(self, summary=None, level2=None):
         self.summary = summary          # dict | None
+        self.level2 = level2            # dict | None (chat_summary_levels)
 
     async def get_running_summary(self, chat_id, now):
         return self.summary
+
+    async def get_summary_level(self, chat_id, level):
+        return self.level2
 
     async def get_smart_message_by_tg_id(self, chat_id, tg_message_id):
         return None
@@ -1477,12 +1931,14 @@ class SummaryDB:
 
 class TestEpic60RunningSummaryContext:
     """Epic 60 (64.6, T-467): <Global_Context> = конспект + дословный хвост
-    сообщений с ts > window_end_ts."""
+    сообщений с ts > window_end_ts. Раунд 8 (D2/D5/T-799/T-802): голова
+    (метка + конспект) держится при обрезке, хвост режется первым; метка
+    объёма — первая строка body."""
 
     @pytest.mark.asyncio
     async def test_global_context_uses_summary_plus_tail(self, fake_time):
         summary = {"summary": "суть окна: спорили про дроны",
-                   "window_end_ts": 200}
+                   "window_end_ts": 200, "raw_count": 3}
         window = [
             _window_row(ts=100, text="старое сообщение"),
             _window_row(ts=200, text="последнее покрытое"),
@@ -1492,10 +1948,35 @@ class TestEpic60RunningSummaryContext:
                                 db=SummaryDB(summary))
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "суть окна: спорили про дроны" in global_block
-        assert "новое сообщение" in global_block
-        assert "старое сообщение" not in global_block
-        assert "последнее покрытое" not in global_block
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        # D5: метка summary-режима первой строкой (каноническая форма)
+        assert body.split("\n")[0] == \
+            "фон: конспект из 3 сообщений, ниже дословно свежий хвост"
+        assert "суть окна: спорили про дроны" in body
+        assert "новое сообщение" in body
+        assert "старое сообщение" not in body
+        assert "последнее покрытое" not in body
+
+    @pytest.mark.asyncio
+    async def test_summary_kept_when_tail_trimmed(self, fake_time, caplog):
+        """D2/T-799: под внутренним давлением первым режется verbatim-хвост
+        (после summary), конспект-голова остаётся."""
+        summary = {"summary": "суть окна: спорили про дроны",
+                   "window_end_ts": 100, "raw_count": 1}
+        tail = [f"хвостовая реплика {i} очень длинная чтобы переполнить лимит токенов в блоке фона" * 40
+                for i in range(6)]
+        window = ([_window_row(ts=50, text="покрытое")] +
+                  [_window_row(ts=200 + i, text=t) for i, t in enumerate(tail)])
+        service = _make_service(memory=FakeMemory(window=window),
+                                db=SummaryDB(summary))
+        with caplog.at_level(logging.WARNING):
+            blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        assert "фон: конспект из 1 сообщений, ниже дословно свежий хвост" in body
+        assert "суть окна: спорили про дроны" in body    # конспект держится
+        assert any("global context truncated" in r.message
+                   for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_no_summary_falls_back_to_recent_window(self, fake_time):
@@ -1504,7 +1985,10 @@ class TestEpic60RunningSummaryContext:
                                 db=SummaryDB(None))
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "обычное сообщение" in global_block
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        # D5: verbatim-метка — первая строка
+        assert body.split("\n")[0] == "фон: дословно последние 1 сообщений"
+        assert "обычное сообщение" in body
 
     @pytest.mark.asyncio
     async def test_summary_db_error_falls_back(self, fake_time, caplog):
@@ -1514,6 +1998,9 @@ class TestEpic60RunningSummaryContext:
         class BrokenSummaryDB:
             async def get_running_summary(self, chat_id, now):
                 raise RuntimeError("бд упала")
+
+            async def get_summary_level(self, chat_id, level):
+                return None
 
             async def get_smart_message_by_tg_id(self, chat_id, tg_message_id):
                 return None
@@ -1527,6 +2014,184 @@ class TestEpic60RunningSummaryContext:
         assert "обычное сообщение" in global_block
         assert any("running summary read failed" in r.message
                    for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_level2_injected_first_line_with_l1(self, fake_time):
+        """E2/T-804: при наличии L1 и level-2 строка «широкий фон: …» —
+        ПЕРВАЯ строка body <Global_Context>, затем метка summary-режима."""
+        summary = {"summary": "суть окна: спорили про дроны",
+                   "window_end_ts": 200, "raw_count": 3}
+        level2 = {"summary": "раньше спорили про ракеты и запуски",
+                  "msg_count_highwater": 500}
+        window = [
+            _window_row(ts=100, text="старое сообщение"),
+            _window_row(ts=200, text="последнее покрытое"),
+            _window_row(ts=300, text="новое сообщение"),
+        ]
+        service = _make_service(memory=FakeMemory(window=window),
+                                db=SummaryDB(summary, level2))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        lines = body.split("\n")
+        assert lines[0] == \
+            "широкий фон: раньше спорили про ракеты и запуски"
+        assert lines[1] == \
+            "фон: конспект из 3 сообщений, ниже дословно свежий хвост"
+        assert "суть окна: спорили про дроны" in body
+        assert "новое сообщение" in body
+
+    @pytest.mark.asyncio
+    async def test_level2_not_injected_without_l1(self, fake_time):
+        """E2: level-2 инжектится ТОЛЬКО вместе с L1 (без конспекта — только
+        verbatim-фон; широкая строка не выводится)."""
+        level2 = {"summary": "широкий фон: раньше спорили про ракеты",
+                  "msg_count_highwater": 500}
+        window = [_window_row(ts=300, text="обычное сообщение")]
+        service = _make_service(memory=FakeMemory(window=window),
+                                db=SummaryDB(None, level2))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        assert "широкий фон" not in body
+        assert body.split("\n")[0] == "фон: дословно последние 1 сообщений"
+
+    @pytest.mark.asyncio
+    async def test_level2_capped_by_max_chars_keep_end(self, fake_time,
+                                                       monkeypatch):
+        """E2: кап limits.chat_level2_max_chars — обрезание keep-end (свежий
+        конец L2 ближе к текущему окну)."""
+        import dataclasses as _dc
+
+        mod = _dc.replace(settings, CHAT_LEVEL2_MAX_CHARS=40)
+        monkeypatch.setattr("services.direct_chat_service.settings", mod)
+        level2_text = "начало-маркер " + "м" * 100 + " конец-маркер"
+        summary = {"summary": "суть окна", "window_end_ts": 100, "raw_count": 1}
+        level2 = {"summary": level2_text, "msg_count_highwater": 500}
+        window = [_window_row(ts=200, text="новое сообщение")]
+        service = _make_service(memory=FakeMemory(window=window),
+                                db=SummaryDB(summary, level2))
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        assert "конец-маркер" in body.split("\n")[0]   # keep-end: хвост L2
+        assert "начало-маркер" not in body              # голова обрезана
+
+    @pytest.mark.asyncio
+    async def test_level2_db_error_fail_open_keeps_l1(self, fake_time, caplog):
+        """E2/NFR-6: ошибка чтения level-2 → WARNING, конспект L1 как был."""
+        import logging
+
+        class L2BrokenDB(SummaryDB):
+            async def get_summary_level(self, chat_id, level):
+                raise RuntimeError("бд упала")
+
+        summary = {"summary": "суть окна: спорили про дроны",
+                   "window_end_ts": 100, "raw_count": 2}
+        window = [_window_row(ts=100, text="покрытое"),
+                  _window_row(ts=200, text="свежее")]
+        service = _make_service(memory=FakeMemory(window=window),
+                                db=L2BrokenDB(summary))
+        with caplog.at_level(logging.WARNING):
+            blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        assert body.startswith("фон: конспект из 2 сообщений")
+        assert "суть окна: спорили про дроны" in body
+        assert any("level2 read failed" in r.message for r in caplog.records)
+
+
+class TestRagDirectPipeline:
+    """Раунд 8 (F2/T-808, F4/T-810): direct-сборка <RAG_Memory> — словарный
+    дедуп фактов против текста <Global_Context>; LLM-реранк вызывается
+    ТОЛЬКО при flags.chat_rag_rerank_enabled=True (default off — 0 вызовов),
+    ошибка реранка → исходные факты (fail-open)."""
+
+    @pytest.mark.asyncio
+    async def test_rag_fact_duplicating_tail_dropped(self, fake_time):
+        window = [_window_row(user_id=10, author_name="вася",
+                              text="вася купил новый айфон за сто тысяч")]
+        rag_facts = [
+            ("chat_history", "вася купил новый айфон", None),
+            ("search_fact", "про дроны вчера обсуждали", None),
+        ]
+        memory = FakeMemory(window=window, rag_facts=rag_facts)
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert "купил новый айфон" not in rag_block    # дубль хвоста выпал
+        assert "[поиск] про дроны вчера обсуждали" in rag_block
+
+    @pytest.mark.asyncio
+    async def test_close_rag_fact_survives_dedup(self, fake_time):
+        """Близкий, но не покрытый факт (0.75 < 0.8) остаётся в блоке."""
+        window = [_window_row(user_id=10, author_name="вася",
+                              text="вася купил новый айфон за сто тысяч")]
+        rag_facts = [("chat_history", "вася купил новый айфон и чехол", None)]
+        memory = FakeMemory(window=window, rag_facts=rag_facts)
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert "вася купил новый айфон и чехол" in rag_block
+
+    @pytest.mark.asyncio
+    async def test_all_rag_deduped_block_omitted(self, fake_time):
+        window = [_window_row(user_id=10, author_name="вася",
+                              text="вася купил новый айфон за сто тысяч")]
+        rag_facts = [("chat_history", "вася купил новый айфон", None)]
+        memory = FakeMemory(window=window, rag_facts=rag_facts)
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
+        assert all("<RAG_Memory>" not in b for b in blocks)
+
+    @pytest.mark.asyncio
+    async def test_rerank_off_by_default_zero_calls(self, fake_time):
+        memory = FakeMemory(
+            window=[_window_row()],
+            rag_facts=[("chat_history", "про дроны вчера", None)])
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(text="дроны"), "вася")
+        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert "про дроны вчера" in rag_block
+        assert memory.rerank_calls == []       # флаг off → 0 LLM-вызовов
+
+    @pytest.mark.asyncio
+    async def test_rerank_on_calls_memory_filter(self, fake_time, monkeypatch):
+        import dataclasses as _dc
+
+        mod = _dc.replace(settings, CHAT_RAG_RERANK_ENABLED=True)
+        monkeypatch.setattr("services.direct_chat_service.settings", mod)
+        memory = FakeMemory(
+            window=[_window_row()],
+            rag_facts=[("chat_history", "про дроны вчера", None),
+                       ("search_fact", "про дроны в поиске", None)])
+        service = _make_service(memory=memory)
+        await service._build_user_content(
+            CHAT_ID, _message(text="дроны"), "вася")
+        assert len(memory.rerank_calls) == 1
+        assert memory.rerank_calls[0][0] == "дроны"
+
+    @pytest.mark.asyncio
+    async def test_rerank_error_fail_open_keeps_facts(self, fake_time,
+                                                      monkeypatch):
+        import dataclasses as _dc
+
+        mod = _dc.replace(settings, CHAT_RAG_RERANK_ENABLED=True)
+        monkeypatch.setattr("services.direct_chat_service.settings", mod)
+
+        class BoomMemory(FakeMemory):
+            async def rerank_rag_facts(self, query, facts):
+                raise RuntimeError("llm упал")
+
+        memory = BoomMemory(
+            window=[_window_row()],
+            rag_facts=[("chat_history", "про дроны вчера", None)])
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(text="дроны"), "вася")
+        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert "про дроны вчера" in rag_block       # fail-open
 
 
 class TestPersonaCard:
@@ -1709,6 +2374,321 @@ class TestContextBudgets:
         monkeypatch.setattr("services.direct_chat_service.settings", mod)
         result = svc._apply_context_budget(blocks)
         assert result[0] == blocks[0][1]           # без обрезки бюджетами
+
+
+class TestRound8ContextBudgets:
+    """Раунд 8 (B2/D2/T-791/T-799, spec §3.B2): effective-база бюджета
+    (неприкосновенные target/protected/lore/current/sandwich вне лимитов и
+    вне порядка урезания), новая доля branch, порядок урезания anchors →
+    rag → thread → global(keep-head) → map; mood делит долю target."""
+
+    def _svc(self):
+        return _make_service()
+
+    def test_uncuttable_kinds_never_truncated(self):
+        svc = self._svc()
+        target = "<Target_User>" + "оченьдлинноебессмысленноемя" * 400 + "</Target_User>"
+        current = "<Current_Question>\n" + "вопрос " * 20000 + "\n</Current_Question>"
+        protected = "<protected_facts>\nважные факты:\n- " + "факт " * 20000 + "\n</protected_facts>"
+        lore = "<chat_lore>\n" + "лор " * 20000 + "\n</chat_lore>"
+        sandwich = "отвечай коротко " * 20000
+        blocks = [
+            ("target", target), ("current", current),
+            ("protected", protected), ("lore", lore),
+            ("sandwich", sandwich),
+        ]
+        result = svc._apply_context_budget(blocks)
+        texts = {kind: text for (kind, _), text in zip(blocks, result)}
+        # неприкосновенные kinds вне лимитов и вне порядка урезания — целы
+        assert texts["target"] == target
+        assert texts["current"] == current
+        assert texts["protected"] == protected
+        assert texts["lore"] == lore
+        assert texts["sandwich"] == sandwich
+
+    def test_effective_base_reduces_cuttable_shares(self):
+        """B2: лимиты долей считаются от effective = max(1, budget − fixed):
+        большой неприкосновенный блок ужимает доли режущихся."""
+        svc = self._svc()
+        from services.token_counter import count_tokens
+
+        def _big(tokens: int) -> str:
+            unit = "текстовыйнаполнитель "
+            text = ""
+            while count_tokens(text) < tokens:
+                text += unit
+            return text
+
+        big_map = f"<UserResolutionMap>\n{_big(4000)}\n</UserResolutionMap>"
+        small_target = "<Target_User>вася</Target_User>"
+        # (1) без fixed → доля от полного бюджета
+        result = svc._apply_context_budget([("map", big_map)])
+        full = count_tokens(result[0])
+        # (2) с большим (но влезающим) fixed → effective заметно меньше
+        fixed = f"<Target_User>{_big(1200)}</Target_User>"
+        result2 = svc._apply_context_budget([("map", big_map),
+                                             ("target", fixed)])
+        texts2 = {kind: text for (kind, _), text in
+                  zip([("map", big_map), ("target", fixed)], result2)}
+        assert texts2["target"] == fixed               # неприкосновенный цел
+        assert count_tokens(texts2["map"]) < full      # доля от effective
+
+    def test_reduction_order_anchors_rag_thread_global_map(self):
+        svc = self._svc()
+        budget = settings.CHAT_CONTEXT_BUDGET_TOKENS
+        filler = "текстовыйнаполнитель " * (budget * 3)
+        blocks = [
+            ("target", "<Target_User>вася</Target_User>"),
+            ("map", f"<UserResolutionMap>\n{filler}\n</UserResolutionMap>"),
+            ("rag", f"<RAG_Memory>\n{filler}\n</RAG_Memory>"),
+            ("global", f"<Global_Context>\n{filler}\n</Global_Context>"),
+            ("thread", f"<Conversation_Thread>\n{filler}\n</Conversation_Thread>"),
+            ("anchors", f"<style_anchors>\n{filler}\n</style_anchors>"),
+        ]
+        result = svc._apply_context_budget(blocks)
+        texts = {kind: text for (kind, _), text in zip(blocks, result)}
+        from services.token_counter import count_tokens
+        # первым дешёвое: anchors урезаны сильнее всех режущихся
+        anchors_t = count_tokens(texts["anchors"]) if texts["anchors"] else 0
+        map_t = count_tokens(texts["map"])
+        assert anchors_t <= map_t
+        assert texts["map"].startswith("<UserResolutionMap>")
+        assert texts["global"].startswith("<Global_Context>")
+
+    def test_global_keep_head_vs_thread_keep_end(self):
+        """D2: урезание kind=global держит голову (конец body режется),
+        thread/map — keep-end (как сегодня)."""
+        svc = self._svc()
+        head = "AAAA-начало-конспекта " * 300
+        tail = "BBBB-свежий-хвост " * 300
+        global_block = f"<Global_Context>\n{head}{tail}\n</Global_Context>"
+        from services.token_counter import count_tokens
+        limit = count_tokens(f"<Global_Context>\n{head}\n</Global_Context>") + 5
+        cut = svc._truncate_block(global_block, limit, kind="global")
+        assert "AAAA-начало-конспекта" in cut       # голова держится
+        assert "BBBB-свежий-хвост" not in cut       # конец режется первым
+        thread_block = f"<Conversation_Thread>\n{head}{tail}\n</Conversation_Thread>"
+        cut_t = svc._truncate_block(thread_block, limit, kind="thread")
+        assert "AAAA-начало-конспекта" not in cut_t  # keep-end: старое режется
+        assert "BBBB-свежий-хвост" in cut_t
+
+    def test_branch_share_applied(self, monkeypatch):
+        """B2: доля branch = limits.chat_budget_branch_ratio от effective."""
+        svc = self._svc()
+        big = "<Conversation_Branch>\n" + "ход " * 20000 + "\n</Conversation_Branch>"
+        result = svc._apply_context_budget([("branch", big)])
+        from services.token_counter import count_tokens
+        share = settings.CHAT_CONTEXT_BUDGET_TOKENS * \
+            settings.CHAT_BUDGET_BRANCH_RATIO
+        assert count_tokens(result[0]) <= share + 10
+
+    def test_sandwich_not_added_by_budget(self):
+        """B2/FR-23: sandwich добавляется в сборке (не бюджетом) — бюджет
+        просто не режет kind вне лимитов; пустой список не ломается."""
+        svc = self._svc()
+        assert svc._apply_context_budget([]) == []
+
+
+class TestRound8Importance:
+    """Раунд 8 (E1/T-803): importance-удержание verbatim-строк — маркеры
+    без LLM (имя из карты / «бот» / кавычки / число / «?» / ≥3 слов);
+    флаг chat_importance_keep_enabled off → старое поведение."""
+
+    def test_line_markers_matrix(self):
+        from services.direct_chat_service import _line_markers
+        names = frozenset(("вася", "саша"))
+        assert _line_markers("петя: вася принёс торт", names) == {"name", "long"}
+        assert _line_markers("петя: бот вчера отвечал", names) == {"bot", "long"}
+        assert _line_markers("петя: он сказал \"да\"", names) == {"quote", "long"}
+        assert _line_markers("петя: цифра 42", names) == {"number"}
+        assert _line_markers("петя: 42", names) == {"number"}
+        assert "qmark" in _line_markers("петя: а ты кто?", names)
+        assert "long" in _line_markers("петя: а ты кто?", names)
+        assert _line_markers("петя: лол", names) == frozenset()      # шум
+        assert _line_markers("петя: лол кек", names) == frozenset()
+
+    def test_trim_keeps_important_drops_noise_from_old(self):
+        from services.direct_chat_service import trim_verbatim_lines
+        lines = [
+            "петя: лол",                        # шум (старая)
+            "петя: 42",                         # слабый (ровно один маркер: число)
+            "петя: вася принёс торт",           # сильный (имя в тексте)
+            "петя: кек",                        # шум (новая)
+        ]
+        # chars-мера для детерминизма
+        kept = trim_verbatim_lines(lines, 22, names=frozenset(("вася",)),
+                                   measure=len)
+        assert kept == ["петя: вася принёс торт"]  # шум+слабый выпали, strong жив
+        kept2 = trim_verbatim_lines(lines, 35, names=frozenset(("вася",)),
+                                    measure=len)
+        assert kept2 == ["петя: 42", "петя: вася принёс торт"]  # шум выпал первым
+        # порядок ASC не меняется
+        kept3 = trim_verbatim_lines(lines, 60, names=frozenset(("вася",)),
+                                    measure=len)
+        assert kept3 == lines
+
+    def test_trim_weak_markers_drop_after_noise(self):
+        from services.direct_chat_service import trim_verbatim_lines
+        lines = [
+            "петя: лол",                    # шум
+            "петя: хватит уже спорить",     # слабый (≥3 слов, ровно один)
+            "петя: вася принёс торт",       # сильный
+        ]
+        kept = trim_verbatim_lines(lines, 22, names=frozenset(("вася",)),
+                                   measure=len)
+        # шум ушёл первым, потом слабый; сильный остался
+        assert kept == ["петя: вася принёс торт"]
+
+    def test_trim_flag_off_old_behavior(self):
+        from services.direct_chat_service import trim_verbatim_lines
+        lines = [
+            "петя: лол",
+            "петя: завтра в 12",
+            "петя: вася принёс торт",
+            "петя: кек",
+        ]
+        kept = trim_verbatim_lines(lines, 45, names=frozenset(("вася",)),
+                                   keep_important=False, measure=len)
+        # старое поведение: жертвы со стороны начала, маркеры НЕ влияют
+        assert kept == ["петя: вася принёс торт", "петя: кек"]
+        assert "петя: лол" not in kept
+        # с включённым удержанием при том же давлении шум ушёл бы первым
+        kept_on = trim_verbatim_lines(lines, 45, names=frozenset(("вася",)),
+                                      keep_important=True, measure=len)
+        assert kept_on == ["петя: завтра в 12", "петя: вася принёс торт"]
+
+    @pytest.mark.asyncio
+    async def test_global_keeps_important_lines_under_pressure(self, fake_time,
+                                                               caplog,
+                                                               monkeypatch):
+        """E1.4(а): при урезании global verbatim-хвоста шумные строки
+        выпадают первыми, важные (числа/длина/имя) держатся."""
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_GLOBAL_CONTEXT_MAX_TOKENS=300))
+        important = ("завтра в 12 идём смотреть дроны очень круто потому что "
+                     "вася сказал это точно")            # name+number+long
+        window = []
+        for i in range(40):
+            text = important if i % 2 == 0 else "лол"
+            row = _window_row(user_id=10, author_name="старое имя",
+                              text=text, ts=100 + i)
+            window.append(row)
+        window[-1] = _window_row(user_id=10, author_name="старое имя",
+                                 text="угу", ts=100 + len(window))
+        memory = FakeMemory(window=window)
+        service = _make_service(memory=memory)
+        with caplog.at_level(logging.WARNING):
+            blocks = await service._build_user_content(
+                CHAT_ID, _message(), "вася")
+        global_block = next(b for b in blocks
+                            if b.startswith("<Global_Context>"))
+        body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
+        assert important in body                    # важное держится
+        assert "угу" not in body                    # свежий шум — жертва
+        assert body.count("лол") == 0               # весь шум выпал
+        assert any("global context truncated" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_importance_flag_off_old_behavior(self, fake_time,
+                                                    monkeypatch):
+        """E1.3: флаг chat_importance_keep_enabled off → trim без маркер-
+        фильтра (срез со стороны начала, ровно старое поведение)."""
+        from services.direct_chat_service import trim_verbatim_lines
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_IMPORTANCE_KEEP_ENABLED=False))
+        lines = [
+            "петя: лол",
+            "петя: завтра в 12",
+            "петя: вася принёс торт",
+            "петя: кек",
+        ]
+        # флаг off: и в _build_global_context, и в чистой функции
+        kept = trim_verbatim_lines(
+            lines, 45, names=frozenset(("вася",)),
+            keep_important=False, measure=len)
+        # жертвы со стороны начала, маркеры НЕ влияют
+        assert kept == ["петя: вася принёс торт", "петя: кек"]
+        assert trim_verbatim_lines(lines, 45, names=frozenset(("вася",)),
+                                   keep_important=False, measure=len) == \
+            ["петя: вася принёс торт", "петя: кек"]
+
+
+class TestRound8FactAttribution:
+    """Раунд 8 (C6/T-797): memorize-хук «кто спрашивал» + пост-фаза — факт
+    про третье лицо НЕ приписывается спрашивающему (target_user → subject)."""
+
+    async def _db(self):
+        d = DatabaseService(":memory:")
+        await d.initialize()
+        return d
+
+    async def _participants(self, d):
+        for uid, author in ((10, "вася"), (20, "саша"), (30, "петя")):
+            await d.save_smart_message(
+                user_id=uid, chat_id=CHAT_ID, text="реплика",
+                reply_to_id=None, timestamp=100, media_type="text",
+                author_name=author, message_id=uid)
+
+    @pytest.mark.asyncio
+    async def test_fact_about_third_person_not_attributed_to_asker(self,
+                                                                    fake_time):
+        """Петя спросил про Васю → факт с subject=вася записывается на васю
+        (target_user=вася), карточка/квота спрашивающего не засоряется."""
+        d = await self._db()
+        await self._participants(d)
+        # батч «после min_id=0», записанный на Петю (asker)
+        await d.insert_graph_fact(
+            CHAT_ID, "вася любит дроны", "bot_direct_reply", None,
+            target_user="петя")
+        await d.insert_graph_fact(
+            CHAT_ID, "саша купил машину", "bot_direct_reply", None,
+            target_user="петя")
+        await d.insert_graph_fact(
+            CHAT_ID, "проект переезжает в офис", "bot_direct_reply", None,
+            target_user="петя")                    # тема — остаётся Пете
+        await d.insert_graph_fact(
+            CHAT_ID, "петя любит пиво", "bot_direct_reply", None,
+            target_user="петя")                    # self-факт — остаётся Пете
+        service = _make_service(db=d)
+        await service._reassign_fact_owners(CHAT_ID, "петя", min_id=0)
+        cursor = await d.db.execute(
+            "SELECT fact, target_user FROM graph_facts "
+            "WHERE chat_id = ? ORDER BY id", (CHAT_ID,))
+        rows = {row["fact"]: row["target_user"] for row in await cursor.fetchall()}
+        assert rows["вася любит дроны"] == "вася"      # третье лицо → ему
+        assert rows["саша купил машину"] == "саша"
+        assert rows["проект переезжает в офис"] == "петя"   # тема остаётся
+        assert rows["петя любит пиво"] == "петя"            # self остаётся
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_memorize_direct_reply_wrapper_keeps_path(self, fake_time,
+                                                            monkeypatch):
+        """C6: handle-путь — memorize_facts зовётся с target_user=канон
+        спрашивающего; пост-фаза fail-open (FakeDB без graph) не роняет."""
+        tasks = []
+
+        def sync_fire_and_forget(coro, tag):
+            tasks.append(coro)
+
+        monkeypatch.setattr("services.direct_chat_service.fire_and_forget",
+                            sync_fire_and_forget)
+        memory = FakeMemory(window=[_window_row()])
+        llm = FakeLLM(text="короткий ответ бота")
+        aliases = AliasResolver('{"10": "вася"}')
+        service = _make_service(memory=memory, llm=llm, aliases=aliases)
+        bot = _bot()
+        msg = _message(text="расскажи про себя", message_id=77)
+        await service.handle(bot, msg, msg.from_user)
+        assert tasks
+        await tasks[0]                               # wrapper отработал без падения
+        assert memory.memorized[0]["source"] == "bot_direct_reply"
+        assert memory.memorized[0]["target_user"] == "вася"
+        assert memory.memorized[0]["raw"] == "расскажи про себя\nкороткий ответ бота"
+        assert bot.send_message.await_args.args[1] == "короткий ответ бота"
 
 
 class TestCanonP20MemoryGuards:

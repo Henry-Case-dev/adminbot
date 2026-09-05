@@ -649,6 +649,101 @@ class TestBotRepliesTable:
         assert await db.get_bot_reply(-200, 42, 1001.0) is None
 
 
+# ── Раунд 8 (spec §3.G1/D3, T-800): bot_reply_parents — TTL+LRU ─────
+
+class TestBotReplyParentsTable:
+    """D3/T-800: parent-линк «бот-ответ → сообщение» — тот же паттерн
+    TTL+LRU, что bot_replies; user_version остаётся 7 (NFR-4)."""
+
+    @pytest.mark.asyncio
+    async def test_shape(self, db):
+        cursor = await db.db.execute("PRAGMA table_info(bot_reply_parents)")
+        cols = {r["name"]: r for r in await cursor.fetchall()}
+        assert set(cols) == {"chat_id", "tg_message_id",
+                             "parent_tg_message_id", "last_used_at"}
+        cursor = await db.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 7     # v8 НЕ вводится
+
+    @pytest.mark.asyncio
+    async def test_set_and_get_roundtrip(self, db):
+        await db.set_bot_reply_parent(-100, 42, 7, 1000.0)
+        assert await db.get_bot_reply_parent(-100, 42, 1001.0) == 7
+
+    @pytest.mark.asyncio
+    async def test_set_none_is_noop(self, db):
+        """edited-путь: parent=None — строка не создаётся и существующая
+        НЕ перезаписывается NULL (D3)."""
+        await db.set_bot_reply_parent(-100, 42, 7, 1000.0)
+        await db.set_bot_reply_parent(-100, 42, None, 2000.0)
+        assert await db.get_bot_reply_parent(-100, 42, 2001.0) == 7
+        await db.set_bot_reply_parent(-100, 43, None, 2000.0)
+        assert await db.get_bot_reply_parent(-100, 43, 2001.0) is None
+
+    @pytest.mark.asyncio
+    async def test_ttl_lazy_delete_on_read(self, db):
+        await db.set_bot_reply_parent(-100, 42, 7, 1000.0)
+        assert await db.get_bot_reply_parent(-100, 42, 1000.0 + 3600.5) is None
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM bot_reply_parents "
+            "WHERE chat_id = -100 AND tg_message_id = 42")
+        assert (await cursor.fetchone())["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_lru_cap_and_sweep(self, db):
+        for i in range(300):
+            await db.set_bot_reply_parent(-100, i, i - 1, 1000.0 + i)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM bot_reply_parents")
+        assert (await cursor.fetchone())["c"] == 200
+        assert await db.get_bot_reply_parent(-100, 0, 2000.0) is None
+        assert await db.get_bot_reply_parent(-100, 299, 2000.0) == 298
+
+
+# ── Раунд 8 (spec §3.C2, T-793): активные участники ───────────────
+
+class TestActiveParticipants:
+    """C2/T-793: SQL-агрегат участников за период — user_id + MAX(author_name)
+    + счётчик, порядок cnt DESC/uid ASC, cap."""
+
+    @pytest.mark.asyncio
+    async def test_aggregate_order_and_author(self, db):
+        await db.save_smart_message(
+            user_id=10, chat_id=-100, text="раз", reply_to_id=None,
+            timestamp=100, media_type="text", author_name="вася", message_id=1)
+        await db.save_smart_message(
+            user_id=20, chat_id=-100, text="раз", reply_to_id=None,
+            timestamp=101, media_type="text", author_name="петя", message_id=2)
+        await db.save_smart_message(
+            user_id=20, chat_id=-100, text="два", reply_to_id=None,
+            timestamp=102, media_type="text", author_name="петя", message_id=3)
+        await db.save_smart_message(
+            user_id=20, chat_id=-100, text="три", reply_to_id=None,
+            timestamp=103, media_type="text", author_name="петя пупкин",
+            message_id=4)
+        rows = await db.get_active_participants(-100, since_ts=50, cap=150)
+        assert [(r["user_id"], r["author_name"], r["cnt"]) for r in rows] == \
+            [(20, "петя пупкин", 3), (10, "вася", 1)]    # MAX(author_name)
+
+    @pytest.mark.asyncio
+    async def test_since_ts_filters_and_cap(self, db):
+        await db.save_smart_message(
+            user_id=10, chat_id=-100, text="старое", reply_to_id=None,
+            timestamp=10, media_type="text", author_name="вася", message_id=1)
+        for i, uid in enumerate((11, 12, 13), 1):
+            await db.save_smart_message(
+                user_id=uid, chat_id=-100, text="свежее", reply_to_id=None,
+                timestamp=100 + i, media_type="text", author_name=f"имя{uid}",
+                message_id=10 + i)
+        rows = await db.get_active_participants(-100, since_ts=100, cap=2)
+        assert [r["user_id"] for r in rows] == [11, 12]   # cap работает
+        # user_id IS NULL (канал/аноним) в карту не попадает
+        await db.save_smart_message(
+            user_id=None, chat_id=-100, text="анонс", reply_to_id=None,
+            timestamp=200, media_type="text", author_name="канал", message_id=99)
+        rows = await db.get_active_participants(-100, since_ts=50, cap=150)
+        assert 99 not in [r["user_id"] for r in rows]
+
+
 # Раунд 3 (3.6/B7, T-693): CHECK graph_facts.origin — voice/video_transcript
 # (пересоздание с сохранением id/весов, user_version 3→4, повтор — no-op).
 
@@ -916,3 +1011,7 @@ class TestChatProtectedFactsV6Migration:
         assert await d.get_protected_facts(-100, "петя",
                                            include_chat_level=False) == ["петин факт"]
         await d.close()
+
+
+# ── Раунд 8 (spec §3.G1/E2/E4, T-804/T-806): уровни конспекта ──────────────
+
