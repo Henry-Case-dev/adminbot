@@ -140,3 +140,64 @@ class TestCliFts:
             assert chats == {-100999}
         finally:
             conn.close()
+
+
+class TestCliGraphHumanizedErrors:
+    """Задача 2 (2026-09-05): человекочитаемые ошибки/останов Graph-этапа.
+
+    Прямые unit-проверки manage.main: Ctrl+C → заметка + exit 130 (БЕЗ
+    трейсбека); EmbedError верхнего уровня → печать humanize-причины.
+    (Реальный SIGINT через subprocess не гоняется — обработчик покрыт
+    вызовом main с подменой точки входа.)"""
+
+    @staticmethod
+    def _graph_args(tmp_path) -> list[str]:
+        return ["import_history", "--mode", "graph",
+                "--db", str(tmp_path / "g.db"), "--embed-mode", "skip"]
+
+    def test_keyboard_interrupt_notice_and_exit_130(self, tmp_path, capsys,
+                                                    monkeypatch):
+        import manage as mg
+
+        def raiser(coro):
+            coro.close()
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(mg.asyncio, "run", raiser)
+        code = mg.main(self._graph_args(tmp_path))
+        assert code == 130
+        out = capsys.readouterr()
+        assert "Пауза в любой момент: Ctrl+C (прогресс сохраняется)" \
+            in out.out
+        assert "Остановлено вручную (Ctrl+C)" in out.err
+        assert "Traceback" not in out.err
+
+    def test_embed_error_top_level_printed_humanized(self, tmp_path, capsys,
+                                                     monkeypatch):
+        from tools.history_import.llm_worker import EmbedError
+        import manage as mg
+
+        def raiser(coro):
+            coro.close()
+            raise EmbedError("embed HTTP 403: quota exceeded")
+
+        monkeypatch.setattr(mg.asyncio, "run", raiser)
+        code = mg.main(self._graph_args(tmp_path))
+        assert code == 1
+        err = capsys.readouterr().err
+        assert "ошибка Graph-этапа" in err
+        assert "(403)" in err          # человеческая причина вместо голого exc
+        assert "тип=EmbedError" in err
+
+    def test_unknown_error_keeps_plain_message(self, tmp_path, capsys,
+                                               monkeypatch):
+        import manage as mg
+
+        def raiser(coro):
+            coro.close()
+            raise RuntimeError("неожиданный сбой")
+
+        monkeypatch.setattr(mg.asyncio, "run", raiser)
+        code = mg.main(self._graph_args(tmp_path))
+        assert code == 1
+        assert "RuntimeError" in capsys.readouterr().err

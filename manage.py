@@ -56,6 +56,13 @@ GRAPH_DEFAULT_EMBED_CONCURRENCY = 8
 # 10.08.2025.json на пересечении 31.03–10.08.2025 (INSERT OR IGNORE).
 _FRESH_FIRST_PRIORITY = ("2026", "10.08.2025", "10.2024")
 
+# Задача 2 (2026-09-05): единая консольная фраза ручного останова (Ctrl+C).
+# Прогресс Graph-этапа пишется по факту обработанных пачек → повторный
+# запуск продолжает с чекпоинта (history_processed=0/1).
+_KI_NOTICE = ("⏸ Остановлено вручную (Ctrl+C). Прогресс сохранён: "
+              "повторный запуск продолжит с места остановки.")
+_KI_EXIT_CODE = 130                 # 128 + SIGINT
+
 
 def _scope_priority(name: str) -> tuple:
     """Ключ сортировки файлов: свежие экспорты раньше (приоритет дедупа)."""
@@ -326,7 +333,8 @@ def _cmd_import_history_graph(args) -> int:
     from tqdm import tqdm
 
     from tools.history_import.llm_worker import (
-        EmbedClient, GraphWorker, HistoryLLMClient, run_vec_backfill,
+        EmbedClient, EmbedError, GraphWorker, HistoryLLMClient,
+        HistoryLLMError, humanize_embed_error, run_vec_backfill,
     )
 
     db_path = args.db or settings.DB_PATH
@@ -378,6 +386,9 @@ def _cmd_import_history_graph(args) -> int:
               "прерывание Ctrl+C безопасно — повторный запуск продолжит")
     if args.skip_errors:
         print("режим: --skip-errors (битые пачки пропускаются, НЕ помечаются)")
+    if not args.dry_run:
+        # Задача 2: подсказка паузы в начале прогона (Ctrl+C — безопасно).
+        print(f"Пауза в любой момент: Ctrl+C (прогресс сохраняется)")
 
     if args.dry_run:
         stats = asyncio.run(_dry_run_graph(db_path, args))
@@ -412,16 +423,27 @@ def _cmd_import_history_graph(args) -> int:
     try:
         stats = asyncio.run(_run())
     except KeyboardInterrupt:
-        print("\nпрервано (Ctrl+C): обработанные пачки помечены "
-              "processed=1 — повторный запуск продолжит с места", 
-              file=sys.stderr)
+        # Задача 2: единая фраза останова + exit-код 130 (без трейсбека).
+        print(f"\n{_KI_NOTICE}", file=sys.stderr)
+        try:
+            progress.close()
+        except Exception:
+            pass
+        return _KI_EXIT_CODE
+    except (EmbedError, HistoryLLMError) as exc:
+        # Задача 2: человекочитаемая причина вместо голого исключения
+        # (тип/код сохранены в тексте).
+        reason = getattr(exc, "reason", None) or humanize_embed_error(exc)
+        print(f"ошибка Graph-этапа: {reason} | тип={type(exc).__name__} | "
+              f"детали: {exc}", file=sys.stderr)
         try:
             progress.close()
         except Exception:
             pass
         return 1
     except Exception as exc:
-        print(f"ошибка Graph-этапа: {exc}", file=sys.stderr)
+        print(f"ошибка Graph-этапа: {type(exc).__name__}: {exc}",
+              file=sys.stderr)
         try:
             progress.close()
         except Exception:
@@ -561,12 +583,18 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
         except Exception:
             pass            # не-файловый поток (pytest-каптура и т.п.)
-    args = build_parser().parse_args(argv)
-    if args.command != "import_history":
-        return 2
-    if args.mode == "graph":
-        return _cmd_import_history_graph(args)
-    return _cmd_import_history_fts(args)
+    try:
+        args = build_parser().parse_args(argv)
+        if args.command != "import_history":
+            return 2
+        if args.mode == "graph":
+            return _cmd_import_history_graph(args)
+        return _cmd_import_history_fts(args)
+    except KeyboardInterrupt:
+        # Задача 2: ручной останов — понятная фраза + exit 130, БЕЗ трейсбека
+        # (прогресс пачек/чекпоинты сохранены — повторный запуск продолжит).
+        print(f"\n{_KI_NOTICE}", file=sys.stderr)
+        return _KI_EXIT_CODE
 
 
 if __name__ == "__main__":
