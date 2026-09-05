@@ -19,10 +19,8 @@ FR-B3 (завершение): close() — stop → join → flush() остатк
 потоке; вызывается logging.shutdown() из bot.py finally. NFR-1: emit никогда
 не бросает (короткий lock; ошибки отправки живут в модульном логгере).
 
-Раунд 5 (T-727..T-729): эвристики/диагностика без изменения чтения токена —
-looks_like_sentry_public_key (DSN-pubkey-детект), betterstack_source_env_name
-(имя переменной-источника для attached-маркера), подсказка в тексте WARNING
-при status=401 (_HINT_401; rate-gate ≤1/60с сохраняется).
+Токен — строго os.getenv("LOGTAIL_SOURCE_TOKEN") (bot.py), один на Errors и
+Logs; содержимое токена не проверяется (никаких эвристик/сравнений с DSN).
 """
 import datetime
 import json
@@ -44,33 +42,11 @@ _RATE_LIMIT_SECONDS = 60.0     # анти-спам журнала ошибок/�
 _RETRY_PAUSE_SECONDS = 1.0     # пауза перед единственным повтором батча
 _USER_AGENT = "adminbot/own-v1"
 
-# Раунд 5 (T-729, spec 3.1.3, FR-B3): подсказка при HTTP 401 — битый токен.
-# R17: значения токена/URL в текст НЕ попадают — только слова-подсказки.
-_HINT_401 = ("подсказка: проверьте BETTERSTACK_SOURCE_TOKEN/.env — это должен "
-             "быть Source Token (BetterStack → Logs → Sources), "
-             "а не Sentry DSN public key")
-
-
-def looks_like_sentry_public_key(token: str, sentry_dsn: str) -> bool:
-    """Раунд 5 (T-727, spec 3.1.1, FR-B1): токен — это public key из Sentry DSN
-    (значение между https:// и @), а не Source Token из BetterStack →
-    Logs → Sources. Пустые входы → False."""
-    if not token or not sentry_dsn:
-        return False
-    return f"https://{token}@" in sentry_dsn
-
-
-def betterstack_source_env_name(better_var: str | None,
-                                logtail_var: str | None) -> str | None:
-    """Раунд 5 (T-728, spec 3.1.2, FR-B2): имя env-переменной, реально давшей
-    токен (R17: имя, не значение). BETTERSTACK_SOURCE_TOKEN приоритетнее;
-    иначе LOGTAIL_SOURCE_TOKEN; пустые значения игнорируются (как `or`
-    при чтении токена в bot.py)."""
-    if better_var:
-        return "BETTERSTACK_SOURCE_TOKEN"
-    if logtail_var:
-        return "LOGTAIL_SOURCE_TOKEN"
-    return None
+# Подсказка при HTTP 401 — нейтральная (битый source token; Sentry DSN ни при
+# чём — у BetterStack Errors и Logs один общий токен). R17: значения токена/URL
+# в текст НЕ попадают — только слова-подсказки.
+_HINT_401 = ("подсказка: проверьте LOGTAIL_SOURCE_TOKEN/.env — это должен "
+             "быть Source Token из BetterStack → Logs → Sources")
 
 
 def _rel_file(pathname: str) -> str:
@@ -246,9 +222,9 @@ class BetterStackHandler(logging.Handler):
             logger.info("[betterstack] send ok | recovered | streak=%d", streak)
 
     def _mark_failed(self, reason: str, n: int) -> None:
-        """Раунд 5 (T-729): при 401 текст WARNING дополняется подсказкой
-        (Source Token из Logs → Sources, не Sentry DSN public key); rate-gate
-        ≤1/60с сохраняется; 429/5xx/транспорт — без изменений."""
+        """При 401 текст WARNING дополняется нейтральной подсказкой
+        (проверьте source token); rate-gate ≤1/60с сохраняется; 429/5xx/
+        транспорт — без изменений."""
         if reason == "status=401":
             reason = f"status=401 | {_HINT_401}"
         with self._lock:

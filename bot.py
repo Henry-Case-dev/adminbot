@@ -11,11 +11,7 @@ import uvicorn
 
 from config.settings import settings
 from services import hot_config as hot
-from services.betterstack_handler import (
-    BetterStackHandler,
-    betterstack_source_env_name,
-    looks_like_sentry_public_key,
-)
+from services.betterstack_handler import BetterStackHandler
 from services.config_cache import ConfigCache
 from services.control_service import ControlService
 from services.hot_config import set_config_cache
@@ -113,11 +109,10 @@ console_handler.setFormatter(formatter)
 
 # ── Раунд 4 (T-706, spec 3.1.6, FR-B5): собственный BetterStackHandler вместо
 # logtail-python 0.4.0 (тихие потери: Queue-Full → dropcount без лога, ошибки
-# только print в flusher). Чтение токена: BETTERSTACK_SOURCE_TOKEN предпочтителен,
-# LOGTAIL_SOURCE_TOKEN остаётся обратно-совместимым алиасом (прод-.env не
-# требует мгновенной правки). Формат фрейма — logtail-совместимый (3.1.2).
-betterstack_token = (os.getenv("BETTERSTACK_SOURCE_TOKEN")
-                     or os.getenv("LOGTAIL_SOURCE_TOKEN"))
+# только print в flusher). Чтение токена: строго LOGTAIL_SOURCE_TOKEN — один
+# токен общий для BetterStack Errors и Logs. Формат фрейма — logtail-совместимый
+# (3.1.2). Содержимое токена не проверяется (совпадение с SENTRY_DSN — норма).
+betterstack_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
 handlers = [console_handler]
 if betterstack_token:
     handlers.append(BetterStackHandler(source_token=betterstack_token,
@@ -141,34 +136,16 @@ _log_ring_singleton.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(_log_ring_singleton)
 log_ring_handler = _log_ring_singleton
 
-# ── Раунд 5 (T-727, spec 3.1.1, FR-B1): эвристика «токен похож на Sentry DSN
-# public key». Прод-инцидент 401: в LOGTAIL_SOURCE_TOKEN был вставлен public
-# key из SENTRY_DSN (байт-в-байт == значению между https:// и @), а не Source
-# Token из BetterStack → Logs → Sources. Чтение токена НЕ меняем («код по
-# токенам больше не меняем») — только диагностика. R17: значение в лог не
-# попадает, только факт WARNING. Вызов ПОСЛЕ подключения log_ring (лог виден
-# и в journald, и в /api/status/logs), ДО attached/skipped-маркера.
-if betterstack_token and looks_like_sentry_public_key(
-        betterstack_token, sentry_dsn):
-    logger.warning(
-        "[betterstack] токен похож на Sentry DSN public key, а не на "
-        "Source Token из Logs → Sources — см. отчёт юзера раунда 5")
-
 # ── Раунд 4 (3.1.6/3.1.8, T-706): стартовая диагностика BetterStack. Маркер
 # пишется ПОСЛЕ подключения log_ring (выше) — виден и в journald, и в
 # /api/status/logs («слушает ли хендлер», аналог T-700). Первым событием маркер
 # уходит и в панель BetterStack (live-проверка). Токен НЕ логируется — только
 # token_len (R17/NFR-3). Счётчики/журнал ошибок — в самом хендлере.
-# Раунд 5 (T-728, spec 3.1.2, FR-B2): маркер дополнен from= — ИМЯ env-
-# переменной-источника (не значение; R17).
-bs_from = betterstack_source_env_name(
-    os.getenv("BETTERSTACK_SOURCE_TOKEN"),
-    os.getenv("LOGTAIL_SOURCE_TOKEN"))
-if bs_from:
-    logger.info("[betterstack] attached | token_len=%d | handler=own-v1 | from=%s",
-                len(betterstack_token), bs_from)
+if betterstack_token:
+    logger.info("[betterstack] attached | token_len=%d | handler=own-v1",
+                len(betterstack_token))
 else:
-    logger.warning("[betterstack] skipped (no BETTERSTACK_SOURCE_TOKEN)")
+    logger.warning("[betterstack] skipped (no LOGTAIL_SOURCE_TOKEN)")
 
 if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
     bot = Bot(
