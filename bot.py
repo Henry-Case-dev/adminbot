@@ -100,6 +100,18 @@ from handlers.voice_transcription import (
     voice_transcription_router,
     setup_voice_transcription,
 )
+# ── Раунд 7: Chat Lore v2 (PG-профили чатов) — B5: DI/startup/shutdown ──
+from services.chat_lore_store import ChatLoreStore
+from services.lore_cache import ChatLoreCache
+from services.lore_notify import LoreNotify
+from services.lore_runtime import (
+    get_lore_cache,
+    get_lore_notify,
+    get_lore_store,
+    set_lore_components,
+)
+from services.lore_worker import LoreWorker
+from handlers.chat_lifecycle import chat_lifecycle_router, setup_chat_lifecycle
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -179,6 +191,10 @@ _uptime_heartbeat = None
 # ссылочные ветки НЕ гейтятся flags.download_enabled), переиспользуется
 # роутером 4e «скачай» (один глобальный лок скачивания на процесс).
 _shared_video_downloader = None
+# Раунд 7 (chat-lore-management-v2) — refs for on_shutdown: NOTIFY-слушатель
+# и авто-воркер лора чатов (PG-профили; B5).
+_lore_notify = None
+_lore_worker = None
 
 
 async def on_startup():
@@ -199,6 +215,36 @@ async def on_startup():
         logger.info("[chat_lore] startup ensure | %s", result)
     except Exception:  # fail-open: старт не роняем
         logger.warning("[chat_lore] startup ensure failed", exc_info=True)
+
+    # ── Раунд 7 (chat-lore-management-v2, T-773/T-774, B3/B4): PG-лор чатов.
+    # Store/Cache/NOTIFY-слушатель — ДО summary-блока (инжект direct_chat
+    # получает ChatLoreCache из runtime). Fail-open (NFR-2): PG недоступен →
+    # WARNING, бот жив на settings-дефолтах; компоненты не установлены →
+    # ровно старое поведение (SQLite-легаси-лор).
+    global _lore_notify
+    pg = hot.get_config_cache()
+    pg = pg.pg if pg is not None else None
+    if pg is not None and getattr(pg, "dsn", None):
+        try:
+            lore_store = ChatLoreStore(pg)
+            lore_cache = ChatLoreCache(lore_store)
+            _lore_notify = LoreNotify(lore_cache, dsn=pg.dsn)
+            asyncio.create_task(_lore_notify.start())
+            # runtime доступен с этого момента: API-роуты web/api/chat_lore.py
+            # и инжект direct_chat (в summary-блоке ниже) читают компоненты
+            # из services.lore_runtime (B5).
+            set_lore_components(store=lore_store, cache=lore_cache,
+                                notify=_lore_notify)
+            logger.info(
+                "[lore] store/cache/notify initialized (LISTEN lore_updated)")
+        except Exception:
+            logger.warning(
+                "[lore] store/cache/notify init failed — fail-open (старое "
+                "поведение инжекта)", exc_info=True)
+    else:
+        logger.warning(
+            "[lore] PostgreSQL недоступен — PG-лор выключен (fail-open, "
+            "SQLite-легаси активен)")
 
     # Раунд 3 (3.1, T-687): ленивая TTL-чистка каталога временных публикаций
     # при старте (NFR-2: каталог не копится). Файлы сами протухнут по mtime,
@@ -407,6 +453,35 @@ async def on_startup():
     else:
         logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
 
+    # ── Раунд 7 (chat-lore-management-v2, T-776/T-775, C2/B5): воркер
+    # авто-лора + runtime/handlers-DI. Вне summary-гейта: LLMClient при
+    # выключенном summary создаётся свой (ленивый, ключи не проверяет);
+    # start() сам решает по flags.lore_worker_enabled (джоб не
+    # регистрируется). Fail-open: PG/компонентов нет → WARNING.
+    global _lore_worker
+    lore_store = get_lore_store()
+    if lore_store is not None:
+        try:
+            lore_llm = _llm_client or LLMClient(
+                hot.get("models.llm_base_url", settings.LLM_BASE_URL),
+                hot.get("keys.llm_api_key", settings.LLM_API_KEY),
+                hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
+                hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+            )
+            _lore_worker = LoreWorker(
+                lore_store, cache=get_lore_cache(), db=db,
+                llm=lore_llm, bot_id=bot.id, pg=lore_store.pg)
+            await _lore_worker.start()
+            set_lore_components(
+                store=lore_store, cache=get_lore_cache(),
+                notify=get_lore_notify(), worker=_lore_worker)
+            setup_chat_lifecycle(lore_store, bot_id=bot.id)
+            logger.info("LoreWorker (раунд 7) initialized")
+        except Exception:
+            logger.warning(
+                "[lore] worker init failed — fail-open (PG-лор выключен)",
+                exc_info=True)
+
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
     global _goodmorning_scheduler
     goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=hot.get("reactions.goodmorning_media_dir", settings.GOODMORNING_MEDIA_DIR))
@@ -484,6 +559,12 @@ async def on_startup():
 
     # 1b. ChatMemberUpdated handler (F7: Alan greeting video)
     dp.include_router(alan_greeting_router)
+
+    # 1c. ChatMemberUpdated handler (раунд 7, T-777/T-778): lifecycle чатов —
+    # my_chat_member ТОЛЬКО по событиям самого бота (узкий фильтр в
+    # handlers/chat_lifecycle.py; чужие → UNHANDLED) + migrate_to_chat_id.
+    # Инклуд-добавка рядом с slava_presence; порядок существующих не менять.
+    dp.include_router(chat_lifecycle_router)
 
     # 2. Kostik router — user ID 350803143
     dp.include_router(kostik_router)
@@ -564,6 +645,10 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup resources on bot shutdown."""
     logger.info("Bot shutting down...")
+    if _lore_worker:
+        await _lore_worker.stop()
+    if _lore_notify:
+        await _lore_notify.stop()
     if _uptime_heartbeat:
         await _uptime_heartbeat.shutdown()
     if _goodmorning_scheduler:
