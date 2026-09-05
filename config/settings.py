@@ -740,6 +740,20 @@ class Settings:
     # (имя из карты / «бот» / кавычки / число / «?» / ≥3 слов) при урезании
     # Global_Context не режутся первыми. false → ровно старое поведение.
     CHAT_IMPORTANCE_KEEP_ENABLED: bool = _env_bool("CHAT_IMPORTANCE_KEEP_ENABLED", True)
+    # Уровни конспекта (E2, T-804): порог raw_count prev-L1 для сжатия L1→L2
+    # (progressive summarization) и кап инжекта L2 в Global_Context, символов.
+    CHAT_LEVEL2_MIN_RAW_COUNT: int = _env_int("CHAT_LEVEL2_MIN_RAW_COUNT", 250)
+    CHAT_LEVEL2_MAX_CHARS: int = _env_int("CHAT_LEVEL2_MAX_CHARS", 1500)
+    # Дедуп RAG ↔ Global_Context (F2, T-808): доля токенов факта, найденных в
+    # одной строке фона/конспекта, при которой факт считается дублем.
+    CHAT_RAG_DEDUP_OVERLAP_RATIO: float = _env_float("CHAT_RAG_DEDUP_OVERLAP_RATIO", 0.8)
+    # Purge-гейты (E3, T-805): TTL-purge не удаляет факт, если его вес ≥
+    # порога ИЛИ последнее подтверждение (last_confirmed_at) свежее N дней;
+    # expires_at NULL (вечные) не удаляются и так.
+    GRAPH_PURGE_PROTECT_WEIGHT: float = _env_float("GRAPH_PURGE_PROTECT_WEIGHT", 0.8)
+    GRAPH_PURGE_PROTECT_DAYS: int = _env_int("GRAPH_PURGE_PROTECT_DAYS", 3)
+    # LLM-реранк top-k RAG в direct (F4, T-810): флаг off → 0 лишних LLM-вызовов.
+    CHAT_RAG_RERANK_ENABLED: bool = _env_bool("CHAT_RAG_RERANK_ENABLED", False)
 
     # ── Epic 60 Фаза E (Section 67.4, R60-35, T-499 — последним) ──
     # Дедуп одинаковых текстов подряд direct_chat (п.8): ключ

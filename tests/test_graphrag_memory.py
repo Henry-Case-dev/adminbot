@@ -14,12 +14,14 @@ import pytest
 from config.settings import settings
 from services.database import DatabaseService
 from services.llm_client import LLMError
+from services.summary_aliases import AliasResolver
 from services.summary_memory import (
     FACT_EXTRACT_PROMPT,
     GraphExtractionError,
     MemoryManager,
     _normalize_name,
     build_rag_context,
+    dedup_rag_vs_global,
     parse_triplets,
 )
 from services.summary_prompts import EXTRACT_PROMPT
@@ -1353,9 +1355,11 @@ class TestEpic60PhaseD:
         f_victim = await db.insert_graph_fact(
             -100, "квота вася имел привычку", "bot_direct_reply", None,
             target_user="вася", weight=0.3)
+        # Раунд 8 (E3/T-805): подтверждение жертвы тоже старим — свежий
+        # last_confirmed_at (== created_at при рождении) защищает от eviction.
         await db.db.execute(
-            "UPDATE graph_facts SET created_at = ? WHERE id = ?",
-            (now - 200 * 86400, f_victim))
+            "UPDATE graph_facts SET created_at = ?, last_confirmed_at = ? "
+            "WHERE id = ?", (now - 200 * 86400, now - 200 * 86400, f_victim))
         await db.db.commit()
         mod = replace(settings, GRAPH_FACTS_PER_USER_QUOTA=2)
         llm = FactsLLM(response=json.dumps([_fact(subject="квота", predicate="вася спросил про",
@@ -1780,3 +1784,354 @@ class TestEmbedFallbackIntegration:
             "SELECT COUNT(*) AS c FROM graph_facts "
             "WHERE origin = 'user_memory'")
         assert (await cursor.fetchone())["c"] == 1
+
+
+# ── Раунд 8 (C4/T-795, spec §3.C4/Q4): канон-привязка фактов по карте чата ──
+
+class TestMemorizeParticipantCanonMap:
+    """C4/T-795: subject/object факта, совпавшие с display-именем участника
+    карты чата (последний автор-ник за limits.chat_map_participants_hours),
+    приводятся к канон-имени участника (алиас через AliasResolver). Смена
+    ника с алиасом факты не теряет; без алиаса — новые пишутся по карте
+    (канон == display), миграции нет — поведение фиксируется."""
+
+    @pytest.mark.asyncio
+    async def test_fact_bound_to_alias_canon_not_display(self, db):
+        """Смена ника при наличии алиаса: факт про «Саша Пупкин» (новый ник)
+        привязывается к канону «саша», а не к новому дисплей-имени."""
+        aliases = AliasResolver('{"10": "саша"}')
+        now = int(time.time())
+        await db.save_smart_message(
+            10, -100, "я сменил ник, теперь Саша Пупкин", None, now,
+            "text", "Саша Пупкин")
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="Саша Пупкин", predicate="купил", obj="новый телефон")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm, aliases=aliases)
+        await memory.memorize_facts(-100, "текст", "bot_direct_reply")
+        cursor = await db.db.execute("SELECT fact FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["fact"] == "саша купил новый телефон"
+
+    @pytest.mark.asyncio
+    async def test_object_side_rebound_too(self, db):
+        """Переназначение работает и для object-стороны факта."""
+        aliases = AliasResolver('{"10": "петя"}')
+        now = int(time.time())
+        await db.save_smart_message(
+            10, -100, "сообщение", None, now, "text", "Пётр Петрович")
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="вася", predicate="договорился встретиться с",
+                   obj="Пётр Петрович")], ensure_ascii=False))
+        memory = MemoryManager(db, llm, aliases=aliases)
+        await memory.memorize_facts(-100, "текст", "bot_direct_reply")
+        cursor = await db.db.execute("SELECT fact FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["fact"] == "вася договорился встретиться с петя"
+
+    @pytest.mark.asyncio
+    async def test_no_alias_nick_change_fixed_behavior(self, db):
+        """Без алиаса: канон == display — факт пишется под тем именем, что
+        извлёк экстрактор (миграция старых фактов запрещена, Q4 п.3)."""
+        aliases = AliasResolver("{}")
+        now = int(time.time())
+        await db.save_smart_message(
+            10, -100, "сообщение", None, now, "text", "Саша Новый")
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="Саша Новый", predicate="рассказал", obj="новость")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm, aliases=aliases)
+        await memory.memorize_facts(-100, "текст", "bot_direct_reply")
+        cursor = await db.db.execute("SELECT fact FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["fact"] == "саша новый рассказал новость"
+
+    @pytest.mark.asyncio
+    async def test_participant_outside_period_not_remapped(self, db):
+        """Участник молчал дольше периода карты (24 ч) — в мапе его нет:
+        факт остаётся под канон-именем алиаса (66.9), дисплей не вмешивается."""
+        aliases = AliasResolver('{"10": "саша"}')
+        old = int(time.time()) - 40 * 3600       # вне 24-часового периода
+        await db.save_smart_message(
+            10, -100, "старое сообщение", None, old, "text", "Саша Старый")
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="Саша Старый", predicate="был", obj="в отпуске")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm, aliases=aliases)
+        await memory.memorize_facts(-100, "текст", "bot_direct_reply")
+        cursor = await db.db.execute("SELECT fact FROM graph_facts")
+        row = await cursor.fetchone()
+        # «Саша Старый» не в периоде → не сматчен; канон-алиас не совпал → как есть
+        assert row["fact"] == "саша старый был в отпуске"
+
+    @pytest.mark.asyncio
+    async def test_map_error_fail_open_keeps_facts(self, db, monkeypatch):
+        """Ошибка БД на карте участников → факты пишутся как раньше (fail-open)."""
+        aliases = AliasResolver('{"10": "саша"}')
+        now = int(time.time())
+        await db.save_smart_message(
+            10, -100, "сообщение", None, now, "text", "Саша Пупкин")
+
+        async def broken(chat_id, since_ts, cap):
+            raise RuntimeError("бд упала")
+
+        monkeypatch.setattr(db, "get_active_participants", broken)
+        llm = FactsLLM(response=json.dumps(
+            [_fact(subject="Саша Пупкин", predicate="купил", obj="машину")],
+            ensure_ascii=False))
+        memory = MemoryManager(db, llm, aliases=aliases)
+        await memory.memorize_facts(-100, "текст", "bot_direct_reply")
+        cursor = await db.db.execute("SELECT fact FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["fact"] == "саша пупкин купил машину"   # карта не нужна — как раньше
+
+
+# ── Раунд 8 (F1/T-807, spec §3.F1): direct-RAG в rel-порядке ────────────────
+
+class TestGetRagFactsF1:
+    """F1/T-807: get_rag_facts (direct-путь) отдаёт факты в порядке
+    РЕЛЕВАНТНОСТИ (что вернул _search_graph_facts — KNN rel = cosine×w_eff /
+    FTS w_eff), а НЕ по created_at; легаси get_rag_context sort_by_timestamp
+    (search/factcheck) не изменён."""
+
+    @pytest.mark.asyncio
+    async def test_facts_keep_relevance_order_not_created_at(self, db, monkeypatch):
+        memory = MemoryManager(db, FactsLLM())
+        ranked = [("chat_history", "поздний по дате факт", 300),
+                  ("search_fact", "ранний по дате факт", 100),
+                  ("web_content", "средний по дате факт", 200)]
+        calls = []
+
+        async def fake_search(chat_id, query, limit, include_direct_reply=False):
+            calls.append((chat_id, query, limit, include_direct_reply))
+            return list(ranked)
+
+        monkeypatch.setattr(memory, "_search_graph_facts", fake_search)
+        facts = await memory.get_rag_facts(
+            -100, "запрос", include_direct_reply=True)
+        # порядок rel сохранён (даты в фактах перемешаны — хроно-сортировки нет)
+        assert facts == ranked
+        assert calls == [(-100, "запрос", settings.GRAPH_RAG_FACTS_LIMIT, True)]
+
+    @pytest.mark.asyncio
+    async def test_rag_context_sort_true_still_sorts_by_created_at(self, db,
+                                                                   monkeypatch):
+        """sort_by_timestamp=True (search/factcheck) — стабильный ASC-таймлайн;
+        default False — порядок поиска как есть."""
+        memory = MemoryManager(db, FactsLLM())
+        ranked = [("youtube_content", "поздний по дате факт", 300),
+                  ("search_fact", "ранний по дате факт", 100),
+                  ("web_content", "средний по дате факт", 200)]
+
+        async def fake_search(chat_id, query, limit, include_direct_reply=False):
+            return list(ranked)
+
+        monkeypatch.setattr(memory, "_search_graph_facts", fake_search)
+        ctx_ts = await memory.get_rag_context(-100, "запрос", sort_by_timestamp=True)
+        assert (ctx_ts.index("ранний по дате факт")
+                < ctx_ts.index("средний по дате факт")
+                < ctx_ts.index("поздний по дате факт"))
+        ctx_rel = await memory.get_rag_context(-100, "запрос")
+        assert (ctx_rel.index("поздний по дате факт")
+                < ctx_rel.index("ранний по дате факт"))   # rel-порядок
+
+    @pytest.mark.asyncio
+    async def test_fail_open_returns_empty(self, db, monkeypatch):
+        memory = MemoryManager(db, FactsLLM())
+
+        async def broken(chat_id, query, limit, include_direct_reply=False):
+            raise RuntimeError("поиск упал")
+
+        monkeypatch.setattr(memory, "_search_graph_facts", broken)
+        assert await memory.get_rag_facts(-100, "запрос") == []
+
+    @pytest.mark.asyncio
+    async def test_disabled_flag_returns_empty(self, db):
+        memory = MemoryManager(db, FactsLLM())
+        mod = replace(settings, GRAPH_RAG_ENABLED=False)
+        with patch("services.summary_memory.settings", mod):
+            assert await memory.get_rag_facts(-100, "запрос") == []
+
+
+# ── Раунд 8 (F2/T-808, spec §3.F2): словарный дедуп RAG ↔ Global_Context ────
+
+class TestDedupRagVsGlobalF2:
+    """F2/T-808: факт исключается из RAG-блока, если его слова «покрываются»
+    одной строкой фона (доля >= 0.8 при длине факта >= 3 токенов)."""
+
+    def test_verbatim_duplicate_of_tail_line_dropped(self):
+        facts = [("chat_history", "вася купил новый айфон", 100),
+                 ("search_fact", "петя продал свою машину", 200)]
+        global_text = (
+            "фон: дословно последние 2 сообщений\n"
+            "старое имя [10]: вася купил новый айфон\n"
+            "другое имя [20]: совсем другая тема")
+        kept = dedup_rag_vs_global(facts, global_text)
+        assert kept == [facts[1]]
+
+    def test_close_but_different_facts_kept(self):
+        facts = [("chat_history", "вася купил новый айфон и чехол", 100)]
+        # строка фона покрывает только 4 из 6 слов факта (0.67 < 0.8)
+        global_text = "вася [10]: вася купил новый айфон"
+        assert dedup_rag_vs_global(facts, global_text) == facts
+
+    def test_threshold_boundary_080_drops_079_keeps(self):
+        tokens = [f"слово{i}" for i in range(100)]
+        fact_text = " ".join(tokens)
+        facts = [("chat_history", fact_text, 100)]
+        under = " ".join(tokens[:79])          # 79/100 = 0.79 → остаётся
+        assert dedup_rag_vs_global(facts, "line1\n" + under + " x") == facts
+        at = " ".join(tokens[:80])             # 80/100 = 0.8 → дубль
+        assert dedup_rag_vs_global(facts, "line1\n" + at + " x") == []
+
+    def test_short_facts_never_deduplicated(self):
+        facts = [("chat_history", "вася купил", 100)]     # 2 токена < 3
+        global_text = "вася [10]: вася купил новый айфон"
+        assert dedup_rag_vs_global(facts, global_text) == facts
+
+    def test_no_global_text_keeps_all(self):
+        facts = [("chat_history", "вася купил новый айфон", 100)]
+        assert dedup_rag_vs_global(facts, "") == facts
+        assert dedup_rag_vs_global(facts, None) == facts
+
+    def test_order_preserved_and_casefold_normalized(self):
+        facts = [("chat_history", "ВАСЯ КУПИЛ НОВЫЙ АЙФОН", 1),
+                 ("search_fact", "отдельная тема про дроны", 2)]
+        global_text = "история [10]: вася купил новый айфон"
+        kept = dedup_rag_vs_global(facts, global_text)
+        assert [f[1] for f in kept] == ["отдельная тема про дроны"]
+
+    def test_custom_ratio_param(self):
+        facts = [("chat_history", "а б в г д е ж", 100)]   # 7 токенов
+        global_text = "line: а б в г д х"                  # покрытие 5/7 ≈ 0.71
+        assert dedup_rag_vs_global(facts, global_text,
+                                   overlap_ratio=0.7) == []
+        assert dedup_rag_vs_global(facts, global_text,
+                                   overlap_ratio=0.75) == facts
+
+
+# ── Раунд 8 (F3/T-809, spec §3.F3): origin-метки direct-рендера ─────────────
+
+class TestOriginLabelsF3:
+    """F3/T-809: build_rag_context(facts, origin_labels=True) — строки в
+    едином формате '[{label}] {date_prefix}{текст}' (метки _ORIGIN_LABELS);
+    дефолт False — легаси-структура byte-for-byte (тесты выше не тронуты)."""
+
+    TS = 1716163200   # 2024-05-20 00:00:00 UTC
+
+    def test_labeled_flat_format(self):
+        facts = [("chat_history", "вася спорил с петей", self.TS),
+                 ("search_fact", "озон быстрее чем вб", self.TS)]
+        assert build_rag_context(facts, origin_labels=True) == (
+            "[чат] [2024-05-20] вася спорил с петей\n"
+            "[поиск] [2024-05-20] озон быстрее чем вб"
+        )
+
+    def test_all_origin_labels(self):
+        cases = [
+            ("chat_history", "чат"), ("bot_direct_reply", "личный диалог"),
+            ("search_fact", "поиск"), ("youtube_content", "видео"),
+            ("web_content", "статья"), ("voice_transcript", "голосовое"),
+            ("video_transcript", "видео"), ("user_memory", "запомнено"),
+            ("history_import", "история"),
+        ]
+        for origin, label in cases:
+            line = build_rag_context([(origin, "факт")], origin_labels=True)
+            assert line == f"[{label}] факт", origin
+
+    def test_unknown_origin_label_is_origin(self):
+        assert build_rag_context(
+            [("alien_origin", "x")], origin_labels=True) == "[alien_origin] x"
+
+    def test_no_date_when_created_at_missing(self):
+        assert build_rag_context(
+            [("chat_history", "без даты")], origin_labels=True) == "[чат] без даты"
+
+    def test_empty_facts_returns_empty(self):
+        assert build_rag_context([], origin_labels=True) == ""
+
+    def test_xml_escape_applied(self):
+        ctx = build_rag_context(
+            [("chat_history", "a < b & c")], origin_labels=True)
+        assert ctx == "[чат] a &lt; b &amp; c"
+
+    def test_legacy_default_unchanged(self):
+        facts = [("chat_history", "вася спорил с петей", self.TS)]
+        assert build_rag_context(facts) == (
+            "<context>\n"
+            "  <user_gossip>[2024-05-20] вася спорил с петей</user_gossip>\n"
+            "  <bot_knowledge></bot_knowledge>\n"
+            "</context>"
+        )
+
+
+# ── Раунд 8 (F4/T-810, spec §3.F4): LLM-реранк RAG-фактов ───────────────────
+
+class _RerankLLM:
+    def __init__(self, response="2, 1", error=None):
+        self.response = response
+        self.error = error
+        self.calls = 0
+        self.last_user = None
+
+    async def generate(self, messages):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        self.last_user = messages[1]["content"]
+        return self.response
+
+
+class TestChatRagRerankF4:
+    """F4/T-810 (по образцу search_service._rerank_results): номера из LLM-
+    ответа оставляют соответствующие факты в ИСХОДНОМ rel-порядке; мусор/
+    пусто/LLM-ошибка → исходный список (fail-open)."""
+
+    FACTS = [("chat_history", "про дроны вчера", 100),
+             ("search_fact", "про дроны в поиске", 200),
+             ("web_content", "про погоду завтра", 300)]
+
+    def _memory(self, llm=None):
+        return MemoryManager(None, llm or _RerankLLM())
+
+    @pytest.mark.asyncio
+    async def test_selected_numbers_keep_original_order(self):
+        llm = _RerankLLM(response="3, 1")
+        memory = self._memory(llm)
+        kept = await memory.rerank_rag_facts("дроны", list(self.FACTS))
+        assert kept == [self.FACTS[0], self.FACTS[2]]
+        assert llm.calls == 1
+        assert "1. [чат] [1970-01-01] про дроны вчера" in llm.last_user
+
+    @pytest.mark.asyncio
+    async def test_single_number_keeps_only_that_fact(self):
+        llm = _RerankLLM(response="2")
+        kept = await self._memory(llm).rerank_rag_facts("дроны", list(self.FACTS))
+        assert kept == [self.FACTS[1]]
+
+    @pytest.mark.asyncio
+    async def test_out_of_range_numbers_ignored(self):
+        llm = _RerankLLM(response="2, 99, 0")
+        kept = await self._memory(llm).rerank_rag_facts("дроны", list(self.FACTS))
+        assert kept == [self.FACTS[1]]
+
+    @pytest.mark.asyncio
+    async def test_garbage_response_fail_open(self):
+        for response in ("", "никаких номеров", "abc", "0", "  "):
+            llm = _RerankLLM(response=response)
+            kept = await self._memory(llm).rerank_rag_facts("дроны",
+                                                            list(self.FACTS))
+            assert kept == list(self.FACTS), response
+
+    @pytest.mark.asyncio
+    async def test_llm_error_fail_open(self):
+        llm = _RerankLLM(error=LLMError("упало"))
+        kept = await self._memory(llm).rerank_rag_facts("дроны", list(self.FACTS))
+        assert kept == list(self.FACTS)
+        assert llm.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_facts_no_llm_call(self):
+        llm = _RerankLLM()
+        assert await self._memory(llm).rerank_rag_facts("дроны", []) == []
+        assert llm.calls == 0

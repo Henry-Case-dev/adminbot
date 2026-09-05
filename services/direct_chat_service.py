@@ -85,7 +85,7 @@ from services.smartmodule_phrases import (
 from services.smartmodule_throttling import format_remaining_time
 from services.smartmodule_utils import _reply, react_moai, send_chunked_reply
 from services.smart_cache import normalize_text
-from services.summary_memory import fire_and_forget
+from services.summary_memory import build_rag_context, dedup_rag_vs_global, fire_and_forget
 from services.summary_xml import escape_xml_text
 from services.token_counter import (
     count_tokens,
@@ -615,8 +615,12 @@ class DirectChatService:
             branch = self._render_branch(chain, suffix_map)
             if branch:
                 blocks.append(("branch", branch))
+        # F2: global считается раньше RAG (тело фона — для словарного дедупа).
         global_ctx = await self._build_global_context(
             chat_id, window, roster, suffix_map)
+        rag_block = await self._build_rag_block(chat_id, message, global_ctx)
+        if rag_block:
+            blocks.append(("rag", rag_block))
         if global_ctx:
             blocks.append(("global", global_ctx))
         thread = self._render_thread(chain, suffix_map)
@@ -1348,6 +1352,62 @@ class DirectChatService:
     #    F4/T-810 — факты по релевантности, дедуп ↔ фон, origin-метки,
     #    опциональный LLM-реранк) ─────────────────────────────────
 
+    async def _build_rag_block(self, chat_id: int, message,
+                               global_ctx: str) -> str:
+        """Блок `<RAG_Memory>` direct-пути (F1-F4):
+        F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
+            rel = cosine × w_eff + MMR / FTS w_eff DESC), БЕЗ хроно-
+            сортировки (sort_by_timestamp остался только у легаси
+            get_rag_context — search/factcheck не тронуты);
+        F2 — словарный дедуп фактов против текста <Global_Context>
+            (dedup_rag_vs_global, порог limits.chat_rag_dedup_overlap_ratio);
+        F4 — при flags.chat_rag_rerank_enabled=True: LLM-фильтр top-k
+            (memory.rerank_rag_facts, fail-open); off → 0 вызовов;
+        F3 — рендер с origin-метками «[{label}] {date} текст» (build_rag_context
+            origin_labels=True). Fail-open: любая ошибка/пусто → "" (блок не
+            рендерится, WARNING — NFR-6); RAG выключен → "" (регресс
+            test_empty_rag_section_omitted)."""
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
+            return ""
+        query = getattr(message, "text", None) or ""
+        try:
+            facts = await self.memory.get_rag_facts(
+                chat_id, query, include_direct_reply=True)
+        except Exception:
+            logger.warning("direct: rag facts failed — no rag block | chat=%s",
+                           chat_id, exc_info=True)
+            return ""
+        if not facts:
+            return ""
+        # F2: дубли конспекта/verbatim-хвоста фона из RAG-блока исключаются
+        # (никогда не бросает — fail-open внутри).
+        kept = dedup_rag_vs_global(facts, global_ctx)
+        if not kept:
+            return ""
+        # F4: флаг off → 0 лишних LLM-вызовов (ранний выход ДО сериализации).
+        if hot.get("flags.chat_rag_rerank_enabled",
+                   settings.CHAT_RAG_RERANK_ENABLED):
+            try:
+                kept = await self.memory.rerank_rag_facts(query, kept)
+            except Exception:
+                logger.warning(
+                    "direct: rag rerank failed — original facts | chat=%s",
+                    chat_id, exc_info=True)
+        if not kept:
+            return ""
+        # F3: единый формат строки с origin-меткой; дата — внутри факта.
+        content = build_rag_context(kept, origin_labels=True)
+        cap = int(hot.get("limits.graph_rag_context_max_chars",
+                          settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0)
+        if cap and len(content) > cap:
+            logger.warning("direct: rag context truncated to %d chars | chat=%s",
+                           cap, chat_id)
+            content = content[:cap]
+        if not content:
+            return ""
+        logger.info("direct: rag block | facts=%d | chat=%s", len(kept), chat_id)
+        return f"<RAG_Memory>\n{content}\n</RAG_Memory>"
+
     # ── <Global_Context> (Раунд 8: D2/T-799 keep-head + E1/T-803 importance,
     #    D5/T-802 метки-строки, C1/T-792 uid-рендеры) ────────────
 
@@ -1377,6 +1437,7 @@ class DirectChatService:
         summary_text = None
         raw_count = 0
         window_end_ts = None
+        level2_text = None
         if hot.get("flags.chat_running_summary_enabled",
                    settings.CHAT_RUNNING_SUMMARY_ENABLED):
             try:
@@ -1385,12 +1446,37 @@ class DirectChatService:
                     summary_text = row["summary"]
                     raw_count = int(row["raw_count"] or 0)
                     window_end_ts = row["window_end_ts"]
+                if summary_text is not None:
+                    # E2: level-2 инжектится ТОЛЬКО вместе с L1 (строка L2 —
+                    # сжатие ПРЕДЫДУЩЕГО L1). Ошибка/отсутствие уровня —
+                    # fail-open: без строки, конспект как был.
+                    try:
+                        l2 = await self.db.get_summary_level(chat_id, 2)
+                        if l2 is not None and (l2["summary"] or "").strip():
+                            level2_text = str(l2["summary"]).strip()
+                            cap2 = int(hot.get(
+                                "limits.chat_level2_max_chars",
+                                settings.CHAT_LEVEL2_MAX_CHARS) or 0)
+                            if cap2 and len(level2_text) > cap2:
+                                logger.warning(
+                                    "direct: level2 capped to %d chars | chat=%s",
+                                    cap2, chat_id)
+                                level2_text = level2_text[-cap2:]
+                    except Exception:
+                        logger.warning(
+                            "direct: level2 read failed — without L2 row "
+                            "| chat=%s", chat_id, exc_info=True)
             except Exception:
                 logger.warning("direct: running summary read failed | chat=%s",
                                chat_id, exc_info=True)
         head: list[str] = []
         tail: list[str] = []
         if summary_text is not None:
+            # E2/D5: «широкий фон:» + L2 первой строкой body (метка-префикс),
+            # затем метка summary-режима (возраст НЕ вводим — конспект живёт
+            # по заполнению окна, Q11/E4) и сам конспект L1.
+            if level2_text:
+                head.append("широкий фон: " + level2_text)
             head.append(f"фон: конспект из {raw_count} сообщений, "
                         f"ниже дословно свежий хвост")
             head.append(summary_text)

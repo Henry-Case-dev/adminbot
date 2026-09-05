@@ -597,7 +597,10 @@ class TestGraphFacts:
 
     @pytest.mark.asyncio
     async def test_purge_expired_graph_facts(self, db, monkeypatch):
-        """#6: purge: истёкшие nodes/edges/facts удалены, живые остались."""
+        """#6: purge: истёкшие nodes/edges/facts удалены, живые остались.
+        Раунд 8 (E3/T-805): «мёртвый факт» — слабый (вес 0.5 < порога 0.8) и
+        с давним подтверждением (last_confirmed_at старше 3 дней) → кандидат
+        на удаление; живые/вечные — не кандидаты."""
         now = 1_800_000_000
         monkeypatch.setattr("services.database.time.time", lambda: now)
         dead_exp = now - 100
@@ -622,6 +625,12 @@ class TestGraphFacts:
         await db.insert_graph_fact(-100, "мёртвый факт", "search_fact", dead_exp)
         await db.insert_graph_fact(-100, "живой факт", "web_content", live_exp)
         await db.insert_graph_fact(-100, "вечный факт", "chat_history", None)
+        # E3: слабый истёкший факт рождается с last_confirmed_at == created_at
+        # (свежее 3 дней → защищён) — старим подтверждение, кандидатность вернулась
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? "
+            "WHERE fact = 'мёртвый факт'", (now - 4 * 86400,))
+        await db.db.commit()
 
         deleted = await db.purge_expired_graph_facts(-100)
         assert deleted == 1            # только graph_facts (rowcount последнего DELETE)

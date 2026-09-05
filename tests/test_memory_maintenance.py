@@ -186,14 +186,20 @@ class TestReview:
 
     @pytest.mark.asyncio
     async def test_expired_purged_globally(self, db):
-        """66.11 #2: истёкшие выбрасываются глобальным проходом (без chat_id)."""
+        """66.11 #2: истёкшие выбрасываются глобальным проходом (без chat_id).
+        Раунд 8 (E3/T-805): слабые истёкшие факты рождаются со свежим
+        last_confirmed_at (защита «недавнее подтверждение») — старим его,
+        кандидатность на TTL-purge возвращается."""
         now = int(time.time())
-        await db.insert_graph_fact(
-            -100, "мёртвый факт чата один", "search_fact", now - 100)
-        await db.insert_graph_fact(
-            -200, "мёртвый факт чата два", "search_fact", now - 100)
+        for chat in (-100, -200):
+            fid = await db.insert_graph_fact(
+                chat, f"мёртвый факт чата {chat}", "search_fact", now - 100)
+            await db.db.execute(
+                "UPDATE graph_facts SET last_confirmed_at = ? WHERE id = ?",
+                (now - 10 * 86400, fid))
         await db.insert_graph_fact(
             -100, "живой вечный факт", "chat_history", None)
+        await db.db.commit()
         svc, _ = _service(db, MergeLLM())
         await svc.review()
         cursor = await db.db.execute(

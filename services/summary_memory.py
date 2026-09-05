@@ -217,6 +217,30 @@ _RAG_PREFIXES = {
     "web_content": "[Из статьи]: ",
 }
 
+# Раунд 8 (F3/T-809, spec §3.F3.1): origin-метки direct-рендера RAG — рядом
+# с _RAG_PREFIXES (легаси), значения _RAG_PREFIXES НЕ меняются. Формат строки
+# direct: "[{label}] {date_prefix}{текст}"; неизвестный origin — сам origin.
+_ORIGIN_LABELS = {
+    "chat_history": "чат",
+    "bot_direct_reply": "личный диалог",
+    "search_fact": "поиск",
+    "youtube_content": "видео",
+    "web_content": "статья",
+    "voice_transcript": "голосовое",
+    "video_transcript": "видео",
+    "user_memory": "запомнено",
+    "history_import": "история",
+}
+
+# Раунд 8 (F4/T-810, spec §3.F4.2): компактный утилитарный промпт LLM-реранка
+# RAG-фактов direct (по образцу search_service Epic 65) — НЕ канон, вне PG.
+_CHAT_RAG_RERANK_SYSTEM_PROMPT = (
+    "Ты — фильтр фактов памяти для ответа в чате. Тебе даны запрос и "
+    "нумерованный список фактов. Верни ТОЛЬКО номера фактов, реально "
+    "релевантных запросу, через запятую. Ничего не комментируй. Если "
+    "релевантного нет — верни 0."
+)
+
 # ── GraphRAG (Epic 26, Section 35) ──────────────────────────────
 
 _GRAPH_EXTRACT_MAX_CHARS = 8000      # tail of the batch text sent to extraction (Q5)
@@ -506,7 +530,19 @@ def _date_prefix(created_at) -> str:
         return ""
 
 
-def build_rag_context(facts: list) -> str:
+def _format_origin_labeled_line(item) -> str:
+    """Раунд 8 (F3/T-809, spec §3.F3.1): одна строка direct-рендера RAG —
+    '[{label}] {date_prefix}{текст}' (label из _ORIGIN_LABELS; неизвестный
+    origin — сам origin; date_prefix — существующий '[%Y-%m-%d] '). Текст —
+    через escape_xml_text (как легаси-рендер build_rag_context)."""
+    origin = item[0]
+    fact = item[1]
+    date = _date_prefix(item[2]) if len(item) >= 3 else ""
+    label = _ORIGIN_LABELS.get(origin, origin)
+    return f"[{label}] {date}{escape_xml_text(fact)}"
+
+
+def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
     """R46-4 (55.6): КАНОН-структура `<context>/<user_gossip>/<bot_knowledge>`.
     facts: (origin, fact) — БЕЗ даты (legacy, старые вызовы/тесты) ИЛИ
     (origin, fact, created_at) — дата-префикс '[%Y-%m-%d] ' (UTC) ПЕРЕД текстом
@@ -514,7 +550,16 @@ def build_rag_context(facts: list) -> str:
     остальные origin → bot_knowledge; unknown origin — без префикса). Дата
     добавляется ВСЕМ origin, где created_at есть. escape_xml_text ОБЯЗАТЕЛЕН
     (summary_xml). Пустые факты → "". Формат байт-в-байт (два пробела отступа;
-    пустой блок — `<block></block>`); legacy-2-кортежи — ровно как раньше."""
+    пустой блок — `<block></block>`); legacy-2-кортежи — ровно как раньше.
+    Раунд 8 (F3/T-809): origin_labels=True → строки в едином формате
+    '[{label}] {date_prefix}{текст}' (_format_origin_labeled_line) БЕЗ
+    устаревшей группировки user_gossip/bot_knowledge — direct-рендер
+    `<RAG_Memory>` (модель видит источник напрямую); дефолт False — легаси
+    структура byte-for-byte без изменений (search/factcheck/тесты)."""
+    if origin_labels:
+        if not facts:
+            return ""
+        return "\n".join(_format_origin_labeled_line(item) for item in facts)
     gossip, knowledge = [], []
     for item in facts:
         origin = item[0]
@@ -532,6 +577,51 @@ def build_rag_context(facts: list) -> str:
              "  <bot_knowledge>" + "\n".join(knowledge) + "</bot_knowledge>",
              "</context>"]
     return "\n".join(lines)
+
+
+def _fact_tokens(text) -> set[str]:
+    """F2 (T-808): нормализованные токены факта/строки фона для словарного
+    дедупа (regex-токены, casefold) — нормализация 'lower, без дат-префиксов'."""
+    return set(_TOKEN_RE.findall(str(text or "").casefold()))
+
+
+def dedup_rag_vs_global(facts: list, global_text: str,
+                        *, overlap_ratio: float | None = None) -> list:
+    """Раунд 8 (F2/T-808, spec §3.F2): отфильтровать RAG-3-кортежи
+    (origin, fact, created_at), чей текст «покрывается» строкой
+    Global_Context (конспект/verbatim-хвост): доля токенов факта, найденных
+    в ОДНОЙ строке фона, >= limits.chat_rag_dedup_overlap_ratio (default 0.8)
+    при длине факта >= 3 токенов → дубль (детерминированный словарный метод;
+    embedding-вариант отклонён — словарного покрытия достаточно). Исходный
+    порядок rel сохраняется. Чистая функция, никогда не бросает (любая
+    ошибка/кривой аргумент → факты остаются, WARNING — NFR-6 fail-open)."""
+    if overlap_ratio is None:
+        overlap_ratio = float(hot.get(
+            "limits.chat_rag_dedup_overlap_ratio",
+            settings.CHAT_RAG_DEDUP_OVERLAP_RATIO) or 0.8)
+    try:
+        if not facts or not str(global_text or "").strip():
+            return list(facts)
+        lines = [ln for ln in str(global_text).split("\n") if ln.strip()]
+        if not lines:
+            return list(facts)
+        line_tokens = [_fact_tokens(ln) for ln in lines]
+        kept: list = []
+        for item in facts:
+            fact_text = item[1] if isinstance(item, (tuple, list)) and \
+                len(item) >= 2 else None
+            tokens = _fact_tokens(fact_text)
+            if len(tokens) < 3:
+                kept.append(item)                 # короткие факты не дедупим
+                continue
+            covered = max(len(tokens & lt) / len(tokens) for lt in line_tokens)
+            if covered < overlap_ratio:
+                kept.append(item)
+        return kept
+    except Exception:
+        logger.warning(
+            "graphrag RAG: dedup vs global failed — facts kept (F2)", exc_info=True)
+        return list(facts)
 
 
 def _pack_vector(vector: list[float]) -> bytes:
@@ -1076,8 +1166,21 @@ class MemoryManager:
         """64.6 (T-467): head окна → COMPRESS_PROMPT (канон-сосед R11 — новый
         промпт НЕ вводим); хвост CHAT_RUNNING_SUMMARY_TAIL — ДОСЛОВНО
         tail-блоком в тот же запрос. Результат → UPSERT в chat_running_summary
-        (TTL RUNNING_SUMMARY_TTL_MINUTES). LLMError → WARNING (fire_and_forget
-        ловит). Вызывается ТОЛЬКО из fire_and_forget."""
+        (TTL RUNNING_SUMMARY_TTL_MINUTES — пишется, при чтении НЕ «убивает»,
+        E4/T-806). LLMError → WARNING (fire_and_forget ловит). Вызывается
+        ТОЛЬКО из fire_and_forget.
+        Раунд 8 (E2/T-804, spec §3.E2.2): ПРЕДЫДУЩИЙ level-1 читается ДО
+        upsert (после перезаписи его уже не достать), а после успешного
+        upsert ПРЕДЫДУЩИЙ L1 сжимается в level 2 (wide) отдельной
+        fire-and-forget-задачей _build_level2 — progressive summarization."""
+        # E2: prev-L1 (до перезаписи) — кандидат на сжатие в level 2.
+        prev_l1 = None
+        try:
+            prev_l1 = await self.db.get_running_summary(chat_id, time.time())
+        except Exception:
+            logger.warning(
+                "running summary: prev-L1 read failed — level2 skipped "
+                "| chat_id=%s", chat_id, exc_info=True)
         tail = (hot.get("limits.chat_running_summary_tail", settings.CHAT_RUNNING_SUMMARY_TAIL) or 0)
         head, tail_rows = rows[:-tail], rows[-tail:]
         if not head:
@@ -1089,8 +1192,9 @@ class MemoryManager:
         user_content = head_text
         if tail_text:
             user_content += "\n\n=== последние сообщения дословно ===\n" + tail_text
+        compress_prompt = hot.get("prompts.compress_system_prompt", COMPRESS_PROMPT)
         raw = await self.llm.generate([
-            {"role": "system", "content": COMPRESS_PROMPT},
+            {"role": "system", "content": compress_prompt},
             {"role": "user", "content": user_content}])
         summary = str(raw or "").strip()
         if not summary:
@@ -1102,6 +1206,58 @@ class MemoryManager:
             len(rows), now, now + (hot.get("limits.running_summary_ttl_minutes", settings.RUNNING_SUMMARY_TTL_MINUTES) or 0) * 60.0)
         logger.info("running summary: built | chat_id=%s | chars=%d",
                     chat_id, len(summary))
+        # E2/T-804: ПРЕДЫДУЩИЙ L1 (до перезаписи) — кандидат на сжатие в
+        # level 2 (wide); порог raw_count и highwater-условие проверяются
+        # внутри _build_level2 (до LLM-вызова). Первый конспект чата
+        # (prev_l1 is None) L2 не строит — сжимать нечего.
+        if prev_l1 is not None:
+            fire_and_forget(self._build_level2(chat_id, prev_l1), "level2")
+
+    async def _build_level2(self, chat_id: int, prev_l1_row: dict) -> None:
+        """E2/T-804 (spec §3.E2.2): сжатие ПРЕДЫДУЩЕГО level-1 в level 2
+        («широкий фон», chat_summary_levels) тем же COMPRESS_PROMPT (единый
+        compress-канон — новая константа/миграция НЕ вводятся, Q13); user =
+        текст prev-l1 конспекта. Условия запуска (здесь, ДО LLM):
+        prev_l1.raw_count >= limits.chat_level2_min_raw_count (default 250)
+        И (existing level-2 отсутствует ИЛИ его msg_count_highwater <
+        prev_l1.raw_count — меньшим окном L2 не перезаписывается). Результат
+        (непустой, ≤ 10 строк) → UPSERT (level=2) с msg_count_highwater =
+        prev_l1.raw_count. Пустой/LLMError/ошибка БД → WARNING, без записи
+        (fail-open, NFR-6). Вызывается ТОЛЬКО из fire_and_forget."""
+        try:
+            raw_count = int(prev_l1_row["raw_count"] or 0)
+            min_raw = int(hot.get("limits.chat_level2_min_raw_count",
+                                  settings.CHAT_LEVEL2_MIN_RAW_COUNT) or 0)
+            if raw_count < (min_raw or 250):
+                return
+            existing = await self.db.get_summary_level(chat_id, 2)
+            if existing is not None and \
+                    int(existing["msg_count_highwater"] or 0) >= raw_count:
+                return
+            summary = str((await self.llm.generate([
+                {"role": "system", "content": hot.get(
+                    "prompts.compress_system_prompt", COMPRESS_PROMPT)},
+                {"role": "user", "content": str(prev_l1_row["summary"] or "")}
+            ])) or "").strip()
+            if not summary:
+                logger.warning(
+                    "level2: empty compress result — no write | chat_id=%s",
+                    chat_id)
+                return
+            lines = summary.split("\n")
+            if len(lines) > 10:
+                logger.warning(
+                    "level2: compress result %d lines — capped to 10 | chat_id=%s",
+                    len(lines), chat_id)
+                summary = "\n".join(lines[:10])
+            await self.db.upsert_summary_level(
+                chat_id, 2, summary, time.time(), raw_count)
+            logger.info("level2: built | chat_id=%s | chars=%d",
+                        chat_id, len(summary))
+        except Exception:
+            logger.warning(
+                "level2: build failed — no write | chat_id=%s",
+                chat_id, exc_info=True)
 
     # ── L2 RAG (FTS5, no extra LLM call — A7) ──────────────────
 
@@ -1300,6 +1456,22 @@ class MemoryManager:
             logger.info("graphrag memorize: 0 facts | chat_id=%s | source=%s",
                         chat_id, source_type)
             return
+        # Раунд 8 (C4/T-795, spec §3.C4/Q4): «карта дисплеев» чата — участники
+        # за limits.chat_map_participants_hours (тот же C2-запрос, что карта
+        # UserResolutionMap). Subject/object факта, совпавшие (casefold) с
+        # дисплей-именем участника, приводятся к канон-имени участника
+        # (resolve-результат: алиас, если он есть; иначе его display). Чинит
+        # привязку, когда nickname сменился при наличии алиаса. Смена ника
+        # БЕЗ алиаса — факты не мигрируют (миграция запрещена): новые пишутся
+        # по карте (канон == display), старое имя остаётся у старых фактов.
+        # Ошибка БД на карте → факты пишутся ровно как раньше (fail-open).
+        display_canons: dict[str, str] = {}
+        try:
+            display_canons = await self._participant_display_canons(chat_id)
+        except Exception:
+            logger.warning(
+                "graphrag memorize: participant map failed — canon only "
+                "| chat_id=%s | source=%s", chat_id, source_type, exc_info=True)
         # Epic 50 (58.8, D205): bot_direct_reply — TTL по CHAT_DIRECT_REPLY_TTL_DAYS
         # (пусто/0 → expires_at NULL, вечное — по ТЗ); chat_history — NULL;
         # остальные — GRAPH_FACT_TTL_DAYS (D175, без изменений).
@@ -1324,8 +1496,12 @@ class MemoryManager:
                 # Epic 60 (66.9, T-487): привязка к людям по алиасам —
                 # subject/object приводятся к канон-имени алиаса (карточки
                 # /persona агрегируются по одному имени).
+                # Раунд 8 (C4/T-795): + карта дисплеев чата — display-имя
+                # участника → канон (смена ника при наличии алиаса).
                 subject = self._canon_fact_name(fact["subject"])
                 obj = self._canon_fact_name(fact["object"])
+                subject = display_canons.get(subject.casefold(), subject)
+                obj = display_canons.get(obj.casefold(), obj)
                 sentence = f"{subject} {fact['predicate']} {obj}"
                 if fact["context"]:
                     sentence += f" ({fact['context']})"
@@ -1407,6 +1583,37 @@ class MemoryManager:
         if self.aliases is None:
             return name
         return self.aliases.canon_name(name)
+
+    async def _participant_display_canons(self, chat_id: int) -> dict[str, str]:
+        """C4/T-795 (spec §3.C4.1-2): «карта дисплеев» чата для привязки
+        фактов — участники за limits.chat_map_participants_hours (тот же
+        db.get_active_participants, что C2-карта). Ключи (casefold):
+        последний автор-ник участника из карты (MAX(author_name) — то, что
+        LLM видел в тексте) и его display (resolve-результат: алиас при
+        наличии, иначе сам ник); значение — канон участника (resolve-результат
+        через алиасы). Совпадение канона с самим собой не пишется (no-op).
+        Без aliases канон == display — мапа пуста (поведение до раунда 8)."""
+        hours = int(hot.get("limits.chat_map_participants_hours",
+                            settings.CHAT_MAP_PARTICIPANTS_HOURS) or 24)
+        cap = int(hot.get("limits.chat_map_participants_cap",
+                          settings.CHAT_MAP_PARTICIPANTS_CAP) or 0) or 150
+        since = int(time.time()) - hours * 3600
+        rows = await self.db.get_active_participants(chat_id, since, cap)
+        mapping: dict[str, str] = {}
+        for row in rows:
+            uid = row["user_id"]
+            raw = str(row["author_name"] or "").strip()
+            if uid in (None, 0) or not raw:
+                continue
+            if self.aliases is not None:
+                canon = self.aliases.resolve(int(uid), raw, None)
+            else:
+                canon = raw
+            canon_key = canon.casefold()
+            for key in {raw.casefold(), canon_key}:
+                if key and key != canon_key:
+                    mapping[key] = canon
+        return mapping
 
     async def _enforce_user_quota(self, chat_id: int, target_user: str) -> None:
         """66.4 (T-482): live-фактов юзера >= квоты → удалить факт с
@@ -1597,6 +1804,68 @@ class MemoryManager:
             logger.info("graphrag RAG: facts=%d | chat_id=%s | chars=%d",
                         len(facts), chat_id, len(context))
         return context
+
+    # ── RAG-факты direct-пути (Раунд 8: F1/T-807, F2/T-808, F4/T-810) ──
+
+    async def get_rag_facts(self, chat_id: int, query: str, *,
+                            include_direct_reply: bool = False) -> list:
+        """F1/T-807 (spec §3.F1): кандидаты RAG direct-пути как список
+        3-кортежей (origin, fact, created_at) в порядке РЕЛЕВАНТНОСТИ —
+        KNN: rel = cosine × w_eff + MMR (_knn_graph_facts); FTS-фолбек:
+        w_eff DESC. Хронологическая сортировка sort_by_timestamp НЕ
+        применяется (она осталась только у get_rag_context для
+        search/factcheck/скриптов — те пути не тронуты; даты остаются
+        ВНУТРИ каждого факта для рендера). Никогда не бросает: выключенный
+        RAG/любая ошибка → [] (WARNING)."""
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
+            return []
+        try:
+            return await self._search_graph_facts(
+                chat_id, str(query or ""),
+                (hot.get("limits.graph_rag_facts_limit",
+                         settings.GRAPH_RAG_FACTS_LIMIT) or 0),
+                include_direct_reply=include_direct_reply)
+        except Exception:
+            logger.warning(
+                "graphrag RAG: facts search failed — empty list | chat_id=%s",
+                chat_id, exc_info=True)
+            return []
+
+    async def rerank_rag_facts(self, query: str, facts: list) -> list:
+        """F4/T-810 (spec §3.F4, образец search_service._rerank_results Epic 65):
+        LLM-фильтр кандидатов direct-RAG после F1/F2, ПЕРЕД рендером.
+        Кандидаты сериализуются нумерованным списком '1. [{label}] {date}
+        {text}' (формат F3); ответ парсится regex «\\d+»; выжившие факты
+        сохраняют исходный rel-порядок, остальные отбрасываются. Fail-open:
+        LLM-ошибка/пустой/кривой ответ → исходный список (WARNING, NFR-6).
+        Вызывается ТОЛЬКО при flags.chat_rag_rerank_enabled=True (проверку
+        делает direct-путь ДО сериализации — off → 0 лишних LLM-вызовов)."""
+        if not facts:
+            return facts
+        candidates = "\n".join(
+            f"{i}. {_format_origin_labeled_line(item)}"
+            for i, item in enumerate(facts, 1))
+        try:
+            raw = await self.llm.generate([
+                {"role": "system", "content": _CHAT_RAG_RERANK_SYSTEM_PROMPT},
+                {"role": "user", "content": (
+                    f"<query>{escape_xml_text(str(query or ''))}</query>\n\n"
+                    f"<candidates>\n{candidates}\n</candidates>")},
+            ])
+        except Exception as exc:
+            logger.warning(
+                "graphrag RAG: chat rerank failed — original facts | error=%s",
+                exc)
+            return facts
+        picked = {int(n) for n in re.findall(r"\d+", str(raw or ""))
+                  if 1 <= int(n) <= len(facts)}
+        if not picked:
+            logger.info(
+                "graphrag RAG: chat rerank parsed no numbers — original facts")
+            return facts
+        logger.info("graphrag RAG: chat rerank OK | %d -> %d facts",
+                    len(facts), len(picked))
+        return [item for i, item in enumerate(facts, 1) if i in picked]
 
     async def _search_graph_facts(self, chat_id, query, limit,
                                   include_direct_reply=False) -> list:

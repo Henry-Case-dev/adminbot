@@ -985,7 +985,12 @@ class TestEpic60RunningSummary:
         assert tasks == []
 
     @pytest.mark.asyncio
-    async def test_expired_summary_retriggers(self, mem_db, monkeypatch):
+    async def test_expired_summary_stays_then_retriggers_on_new_messages(
+            self, mem_db, monkeypatch):
+        """Раунд 8 (E4/T-806, spec §3.E4): истёкший по TTL конспект при ЧТЕНИИ
+        не «умирает» (get_running_summary без lazy-DELETE) — тихий чат держит
+        его в Global_Context; пересборка идёт по ЗАПОЛНЕНИЮ окна новыми
+        сообщениями (window_end_ts < last_ts), а не по TTL."""
         from services.summary_memory import MemoryManager
         import time
 
@@ -998,6 +1003,17 @@ class TestEpic60RunningSummary:
             -100, "протухший конспект", now - 3600, now - 3600 + 399, 400,
             time.time() - 7200, time.time() - 3600)   # expires_at в прошлом
         memory = MemoryManager(mem_db, _SummaryLLM())
+        # тихий чат: тех же сообщений — пересборки нет, строка на месте
         await memory.get_window_messages(-100)
-        assert len(tasks) == 1                    # просрочен → пересборка
+        assert tasks == []
+        cursor = await mem_db.db.execute(
+            "SELECT summary FROM chat_running_summary WHERE chat_id = ?", (-100,))
+        row = await cursor.fetchone()
+        assert row is not None
+        assert row["summary"] == "протухший конспект"
+        # новое сообщение заполнило окно → пересборка по заполнению
+        await mem_db.save_smart_message(
+            1, -100, "свежее сообщение", None, now, "text", "вася")
+        await memory.get_window_messages(-100)
+        assert len(tasks) == 1
         tasks[0][0].close()                       # конспект в этом тесте не нужен

@@ -1015,3 +1015,247 @@ class TestChatProtectedFactsV6Migration:
 
 # ── Раунд 8 (spec §3.G1/E2/E4, T-804/T-806): уровни конспекта ──────────────
 
+class TestSummaryLevelsTable:
+    """E2/T-804: chat_summary_levels — аддитивная таблица (CREATE IF NOT
+    EXISTS в _SCHEMA_SQL, user_version НЕ поднимается — NFR-4); UPSERT/чтение
+    уровней; чтение L1 (chat_running_summary) без TTL-смерти (E4/T-806)."""
+
+    @pytest.mark.asyncio
+    async def test_round8_tables_created_and_version_stays_7(self, db):
+        cursor = await db.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {r["name"] async for r in cursor}
+        assert {"bot_reply_parents", "chat_summary_levels"} <= tables
+        cursor = await db.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 7
+
+    @pytest.mark.asyncio
+    async def test_level_upsert_and_get_roundtrip(self, db):
+        assert await db.get_summary_level(-100, 2) is None
+        await db.upsert_summary_level(
+            -100, 2, "широкий фон: спорили о дронах", 100.0, 300)
+        row = await db.get_summary_level(-100, 2)
+        assert row["summary"] == "широкий фон: спорили о дронах"
+        assert row["msg_count_highwater"] == 300
+        # перезапись уровня (новая сборка) — PK chat_id+level
+        await db.upsert_summary_level(-100, 2, "новая версия L2", 200.0, 450)
+        row = await db.get_summary_level(-100, 2)
+        assert row["summary"] == "новая версия L2"
+        assert row["msg_count_highwater"] == 450
+        assert await db.get_summary_level(-200, 2) is None    # чужой чат
+
+    @pytest.mark.asyncio
+    async def test_levels_are_per_chat_per_level(self, db):
+        await db.upsert_summary_level(-100, 1, "уровень один", 1.0, 10)
+        await db.upsert_summary_level(-100, 2, "уровень два", 2.0, 20)
+        await db.upsert_summary_level(-200, 2, "другой чат", 3.0, 30)
+        assert (await db.get_summary_level(-100, 1))["summary"] == "уровень один"
+        assert (await db.get_summary_level(-100, 2))["summary"] == "уровень два"
+        assert (await db.get_summary_level(-200, 2))["summary"] == "другой чат"
+        assert await db.get_summary_level(-100, 3) is None
+
+    @pytest.mark.asyncio
+    async def test_expired_running_summary_stays_visible_e4(self, db):
+        """E4/T-806: get_running_summary возвращает строку при ЛЮБОМ
+        expires_at и НЕ удаляет её (ленивый TTL-DELETE убран) — тихий чат
+        держит конспект в контексте до пересборки по заполнению."""
+        await db.upsert_running_summary(-100, "старый конспект", 100, 200, 50,
+                                        300.0, 350.0)
+        row = await db.get_running_summary(-100, 400.0)   # expires_at прошёл
+        assert row is not None
+        assert row["summary"] == "старый конспект"
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM chat_running_summary WHERE chat_id = ?",
+            (-100,))
+        assert (await cursor.fetchone())["c"] == 1         # строка жива
+        assert await db.get_running_summary(-200, 400.0) is None
+
+
+# ── Раунд 8 (spec §3.E3, T-805): purge/quota-гейты защищённого множества ──
+
+class _PurgeSeedMixin:
+    NOW = 1_800_000_000
+
+    def _old(self, days):
+        return self.NOW - int(days * 86400)
+
+    async def _insert_fact(self, db, fact, *, weight=0.5, expires_at,
+                           confirmed_at=None):
+        """Прямой INSERT факта чата -100 (вес/expires/last_confirmed_at
+        задаются явно — insert_graph_fact рождает подтверждение «сейчас»)."""
+        cursor = await db.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, "
+            "created_at, target_user, status, supersedes, weight, "
+            "last_confirmed_at, message_timestamp) "
+            "VALUES (-100, ?, 'bot_direct_reply', ?, ?, 'вася', "
+            "'confirmed', NULL, ?, ?, NULL)",
+            (fact, expires_at, self.NOW, weight,
+             self.NOW if confirmed_at is None else confirmed_at))
+        fid = cursor.lastrowid
+        await db.db.execute(
+            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+            (fid, fact))
+        await db.db.commit()
+        return fid
+
+    async def _live_ids(self, db, ids):
+        return [t[1] for t in await db.get_graph_fact_texts(ids)]
+
+
+class TestGraphPurgeProtectE3(_PurgeSeedMixin):
+    """E3/T-805 (spec §3.E3.2): TTL-purge НЕ удаляет истёкший факт, если он
+    высоковесный (weight >= 0.8) ИЛИ недавно подтверждён (last_confirmed_at
+    свежее 3 дней) ИЛИ текст совпадает с protected_facts; вечные
+    (expires_at NULL) не кандидаты; слабые протухшие удаляются; границы
+    порогов фиксируются."""
+
+    @pytest.mark.asyncio
+    async def test_purge_keeps_protected_set_and_deletes_weak(self, db, monkeypatch):
+        monkeypatch.setattr("services.database.time.time", lambda: self.NOW)
+        weak = await self._insert_fact(db, "слабый протухший",
+                                       expires_at=self._old(10),
+                                       confirmed_at=self._old(10))
+        heavy = await self._insert_fact(db, "тяжёлый протухший",
+                                        weight=1.0, expires_at=self._old(10))
+        confirmed = await self._insert_fact(db, "недавно подтверждённый",
+                                            expires_at=self._old(10),
+                                            confirmed_at=self._old(2))
+        eternal = await self._insert_fact(db, "вечный", expires_at=None)
+        as_protected = await self._insert_fact(
+            db, "текст из protected", expires_at=self._old(10),
+            confirmed_at=self._old(10))
+        await db.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, 'вася', 'текст из protected', 1.0)")
+        await db.db.commit()
+        deleted = await db.purge_expired_graph_facts(-100)
+        assert deleted == 1                       # только слабый протухший
+        assert set(await self._live_ids(
+            db, [weak, heavy, confirmed, eternal, as_protected])) == {
+            "тяжёлый протухший", "недавно подтверждённый", "вечный",
+            "текст из protected"}
+
+    @pytest.mark.asyncio
+    async def test_purge_weight_boundary_079_kept_080(self, db, monkeypatch):
+        monkeypatch.setattr("services.database.time.time", lambda: self.NOW)
+        below = await self._insert_fact(db, "вес 0.79", weight=0.79,
+                                        expires_at=self._old(10),
+                                        confirmed_at=self._old(10))
+        at = await self._insert_fact(db, "вес 0.8", weight=0.8,
+                                     expires_at=self._old(10),
+                                     confirmed_at=self._old(10))
+        assert await db.purge_expired_graph_facts(-100) == 1
+        assert await self._live_ids(db, [below, at]) == ["вес 0.8"]
+
+    @pytest.mark.asyncio
+    async def test_purge_confirm_boundary_3_days(self, db, monkeypatch):
+        monkeypatch.setattr("services.database.time.time", lambda: self.NOW)
+        fresh = await self._insert_fact(db, "подтверждён 2 дня назад",
+                                        expires_at=self._old(10),
+                                        confirmed_at=self._old(2))
+        stale = await self._insert_fact(db, "подтверждён 4 дня назад",
+                                        expires_at=self._old(10),
+                                        confirmed_at=self._old(4))
+        edge = await self._insert_fact(db, "подтверждён ровно 3 дня назад",
+                                       expires_at=self._old(10),
+                                       confirmed_at=self._old(3))
+        assert await db.purge_expired_graph_facts(-100) == 1
+        assert set(await self._live_ids(db, [fresh, stale, edge])) == {
+            "подтверждён 2 дня назад", "подтверждён ровно 3 дня назад"}
+
+    @pytest.mark.asyncio
+    async def test_global_purge_respects_chat_scope(self, db, monkeypatch):
+        monkeypatch.setattr("services.database.time.time", lambda: self.NOW)
+        cursor = await db.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, "
+            "created_at, target_user, status, supersedes, weight, "
+            "last_confirmed_at, message_timestamp) "
+            "VALUES (-777, 'чужой слабый факт', 'bot_direct_reply', ?, ?, "
+            "'петя', 'confirmed', NULL, 0.5, ?, NULL)",
+            (self._old(10), self.NOW, self._old(10)))
+        fid = cursor.lastrowid
+        await db.db.execute(
+            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+            (fid, "чужой слабый факт"))
+        await db.db.commit()
+        deleted = await db.purge_expired_graph_facts()    # глобальный проход
+        assert deleted == 1
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE chat_id = -777")
+        assert (await cursor.fetchone())["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_protected_facts_table_survives_all_purge_paths(self, db):
+        """E3.1-инвариант: protected_facts (отдельная таблица) не удаляется
+        ни одним purge/eviction путём db-слоя."""
+        await db.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, created_at) "
+            "VALUES (-100, 'вася', 'защищённый факт', 1.0)")
+        await db.db.commit()
+        old = int(time.time()) - 100 * 86400
+        await db.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, expires_at, "
+            "created_at, target_user, status, supersedes, weight, "
+            "last_confirmed_at) VALUES (-100, 'живой', 'chat_history', NULL, "
+            "?, 'вася', 'confirmed', NULL, 0.5, ?)", (old, old))
+        await db.db.commit()
+        await db.purge_expired_graph_facts(-100)
+        await db.purge_unconfirmed_graph_facts(int(time.time()), 1)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM protected_facts WHERE chat_id = -100")
+        assert (await cursor.fetchone())["c"] == 1
+
+
+class TestQuotaVictimProtectE3(_PurgeSeedMixin):
+    """E3/T-805: get_quota_victim не выбирает жертву из защищённого
+    множества (вес >= 0.8 / свежее подтверждение) — расширение
+    существующего исключения protected_facts."""
+
+    @pytest.mark.asyncio
+    async def test_victim_skips_high_weight(self, db):
+        now = int(time.time())
+        for i, (fact, weight) in enumerate((("самый лёгкий", 0.3),
+                                            ("средний", 0.5),
+                                            ("тяжёлый", 1.0))):
+            await db.insert_graph_fact(-100, fact, "bot_direct_reply",
+                                       now + 86400, target_user="вася",
+                                       weight=weight)
+            await db.db.execute(
+                "UPDATE graph_facts SET last_confirmed_at = ? WHERE fact = ?",
+                (now - 30 * 86400, fact))
+        await db.db.commit()
+        victim = await db.get_quota_victim(-100, "вася", 3, now)
+        assert victim is not None
+        assert victim["fact"] == "самый лёгкий"     # тяжёлый (1.0) не жертва
+
+    @pytest.mark.asyncio
+    async def test_victim_skips_recently_confirmed(self, db):
+        now = int(time.time())
+        for i, (fact, weight) in enumerate((("старый лёгкий", 0.3),
+                                            ("свежеподтверждённый", 0.3),
+                                            ("ещё один", 0.5))):
+            await db.insert_graph_fact(-100, fact, "bot_direct_reply",
+                                       now + 86400, target_user="вася",
+                                       weight=weight)
+        # «свежеподтверждённый» — дедуп-hit вчера (защита 3 дня)
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? "
+            "WHERE fact = 'свежеподтверждённый'", (now - 86400,))
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? "
+            "WHERE fact IN ('старый лёгкий', 'ещё один')",
+            (now - 30 * 86400,))
+        await db.db.commit()
+        victim = await db.get_quota_victim(-100, "вася", 3, now)
+        assert victim["fact"] == "старый лёгкий"    # свежий не жертва
+
+    @pytest.mark.asyncio
+    async def test_victim_none_when_all_protected(self, db):
+        now = int(time.time())
+        for fact in ("а", "б", "в"):
+            await db.insert_graph_fact(-100, fact, "bot_direct_reply",
+                                       now + 86400, target_user="вася",
+                                       weight=1.0)
+        await db.db.commit()
+        # квота превышена (3 >= 3), но все кандидаты защищены → None
+        assert await db.get_quota_victim(-100, "вася", 3, now) is None

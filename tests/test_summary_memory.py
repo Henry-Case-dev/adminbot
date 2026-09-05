@@ -530,11 +530,17 @@ class TestCompressAndPurge:
     @pytest.mark.asyncio
     async def test_compress_and_purge_purges_expired_graph_facts(self, db):
         """Epic 46 (55.1 #5, D175): piggyback — истёкшие GraphRAG v2-факты
-        удаляются в хвосте compress_and_purge; живые (expires_at NULL) остаются."""
+        удаляются в хвосте compress_and_purge; живые (expires_at NULL) остаются.
+        Раунд 8 (E3/T-805): «истёкший факт» слабый (вес 0.5) и с давним
+        подтверждением — кандидат; свежие/вечные — защищены."""
         expired_id = await db.insert_graph_fact(
             -100, "истёкший факт", "search_fact", int(time.time()) - 100)
         live_id = await db.insert_graph_fact(
             -100, "живой факт", "chat_history", None)
+        await db.db.execute(
+            "UPDATE graph_facts SET last_confirmed_at = ? WHERE id = ?",
+            (int(time.time()) - 30 * 86400, expired_id))
+        await db.db.commit()
         memory = MemoryManager(db, FakeLLM())
         await memory.compress_and_purge(-100)
         texts = await db.get_graph_fact_texts([expired_id, live_id])
@@ -1115,3 +1121,124 @@ class TestDirectReplyTtlBackfill:
         cursor = await db.db.execute(
             "SELECT expires_at FROM graph_facts WHERE origin = 'bot_direct_reply'")
         assert (await cursor.fetchone())["expires_at"] is None
+
+
+# ── Раунд 8 (E2/T-804, spec §3.E2): уровни конспекта L1→L2 ──────────────────
+
+class TestSummaryLevelsBuild:
+    """E2/T-804: ПРЕДЫДУЩИЙ level-1 сжимается в level 2 (chat_summary_levels)
+    тем же COMPRESS_PROMPT: порог raw_count (250), highwater-условие
+    (меньшим окном не перезаписываем), ≤ 10 строк, fail-open."""
+
+    @pytest.mark.asyncio
+    async def test_level2_written_above_threshold(self, db):
+        llm = FakeLLM(facts="широкий фон: спорили о дронах\nпотом о деньгах")
+        memory = MemoryManager(db, llm)
+        await memory._build_level2(
+            -100, {"raw_count": 300, "summary": "старый L1 конспект"})
+        row = await db.get_summary_level(-100, 2)
+        assert row is not None
+        assert row["summary"] == "широкий фон: спорили о дронах\nпотом о деньгах"
+        assert row["msg_count_highwater"] == 300
+        assert llm.generate_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_level2_skipped_below_threshold(self, db):
+        llm = FakeLLM(facts="широкий фон")
+        memory = MemoryManager(db, llm)
+        await memory._build_level2(-100, {"raw_count": 100, "summary": "l1"})
+        assert await db.get_summary_level(-100, 2) is None
+        assert llm.generate_calls == 0                  # LLM не вызывался
+
+    @pytest.mark.asyncio
+    async def test_level2_not_overwritten_by_smaller_highwater(self, db):
+        await db.upsert_summary_level(-100, 2, "старый широкий", 1.0, 500)
+        llm = FakeLLM(facts="новый широкий")
+        memory = MemoryManager(db, llm)
+        # existing highwater 500 >= prev raw 450 → пересборка не нужна
+        await memory._build_level2(-100, {"raw_count": 450, "summary": "l1"})
+        row = await db.get_summary_level(-100, 2)
+        assert row["summary"] == "старый широкий"
+        assert llm.generate_calls == 0
+        # prev raw вырос (600 > 500) → L2 пересобирается
+        await memory._build_level2(-100, {"raw_count": 600, "summary": "l1"})
+        row = await db.get_summary_level(-100, 2)
+        assert row["summary"] == "новый широкий"
+        assert row["msg_count_highwater"] == 600
+
+    @pytest.mark.asyncio
+    async def test_level2_llm_error_no_write(self, db, caplog):
+        import logging
+
+        memory = MemoryManager(db, FakeLLM(facts="x", fail_generate=True))
+        with caplog.at_level(logging.WARNING):
+            await memory._build_level2(-100, {"raw_count": 400, "summary": "l1"})
+        assert await db.get_summary_level(-100, 2) is None
+        assert any("level2: build failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_level2_empty_result_no_write(self, db, caplog):
+        import logging
+
+        memory = MemoryManager(db, FakeLLM(facts="   \n "))
+        with caplog.at_level(logging.WARNING):
+            await memory._build_level2(-100, {"raw_count": 400, "summary": "l1"})
+        assert await db.get_summary_level(-100, 2) is None
+        assert any("level2: empty compress result" in r.message
+                   for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_level2_result_capped_to_10_lines(self, db):
+        llm = FakeLLM(facts="\n".join(f"строка {i}" for i in range(15)))
+        memory = MemoryManager(db, llm)
+        await memory._build_level2(-100, {"raw_count": 400, "summary": "l1"})
+        row = await db.get_summary_level(-100, 2)
+        assert len(row["summary"].split("\n")) == 10
+        assert row["summary"].endswith("строка 9")
+
+    @pytest.mark.asyncio
+    async def test_running_summary_rebuild_spawns_level2(self, db, monkeypatch):
+        """E2-интеграция: пересборка L1 (после успешного upsert) планирует
+        сжатие ПРЕДЫДУЩЕГО L1 в level 2 отдельной fire-and-forget-задачей."""
+        tasks = []
+
+        def sync_fire_and_forget(coro, tag):
+            tasks.append((coro, tag))
+
+        monkeypatch.setattr("services.summary_memory.fire_and_forget",
+                            sync_fire_and_forget)
+        now = int(time.time())
+        rows = [{"timestamp": now - 3600 + i, "text": f"сообщение {i}",
+                 "author_name": "вася"} for i in range(400)]
+        # ПРЕДЫДУЩИЙ L1 (350 сообщений) — кандидат на сжатие в level 2
+        await db.upsert_running_summary(
+            -100, "старый конспект окна", now - 3600, now - 3600 + 349, 350,
+            now - 3600, now - 3600 + 3000)
+        llm = FakeLLM(facts="свежий конспект")
+        memory = MemoryManager(db, llm)
+        await memory._build_running_summary(-100, rows)
+        assert [t[1] for t in tasks] == ["level2"]       # ровно одна задача L2
+        await tasks[0][0]                                # выполнить сжатие
+        level2 = await db.get_summary_level(-100, 2)
+        assert level2 is not None
+        assert level2["summary"] == "свежий конспект"
+        assert level2["msg_count_highwater"] == 350       # raw_count prev-L1
+
+    @pytest.mark.asyncio
+    async def test_first_l1_build_no_level2(self, db, monkeypatch):
+        """Первый конспект чата (prev-L1 нет) L2 не строит — сжимать нечего."""
+        tasks = []
+
+        def sync_fire_and_forget(coro, tag):
+            tasks.append((coro, tag))
+
+        monkeypatch.setattr("services.summary_memory.fire_and_forget",
+                            sync_fire_and_forget)
+        now = int(time.time())
+        rows = [{"timestamp": now - 3600 + i, "text": f"сообщение {i}",
+                 "author_name": "вася"} for i in range(400)]
+        llm = FakeLLM(facts="первый конспект")
+        memory = MemoryManager(db, llm)
+        await memory._build_running_summary(-100, rows)
+        assert tasks == []
+        assert await db.get_summary_level(-100, 2) is None

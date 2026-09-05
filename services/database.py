@@ -243,6 +243,19 @@ class DatabaseService:
             last_used_at REAL NOT NULL,
             PRIMARY KEY (chat_id, tg_message_id)
         );
+        -- chat_summary_levels (E2/T-804): уровни конспекта — level 1 =
+        -- chat_running_summary (широкий не строится из него), level 2 =
+        -- «широкий фон» (сжатие ПРЕДЫДУЩЕГО L1 тем же COMPRESS_PROMPT).
+        -- msg_count_highwater — raw_count prev-L1 на момент сборки; перезапись
+        -- L2 меньшим окном запрещена (highwater-условие). TTL уровня не вводится.
+        CREATE TABLE IF NOT EXISTS chat_summary_levels (
+            chat_id INTEGER NOT NULL,
+            level INTEGER NOT NULL,
+            summary TEXT NOT NULL,
+            updated_at REAL NOT NULL,
+            msg_count_highwater INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (chat_id, level)
+        );
     """
     
     def __init__(self, db_path: str):
@@ -1468,16 +1481,44 @@ class DatabaseService:
         (пересмотр); с chat_id — piggyback 55.1 #5 (без изменений).
         Фаза 2 (T-756, гейт G3): memory.infinite_retention ON → return 0
         без SQL (TTL-факты не удаляются; единая точка — покрывает всех
-        вызывающих: compress_and_purge :1930 и memory_maintenance.review)."""
+        вызывающих: compress_and_purge :1930 и memory_maintenance.review).
+        Раунд 8 (E3/T-805, spec §3.E3): гейт защиты graph_facts-строк —
+        истёкший факт НЕ удаляется, если выполнено хотя бы одно:
+          - вес >= limits.graph_purge_protect_weight (default 0.8) — защищает
+            user_memory 1.0 и «вечные» origin, не трогая chat_history 0.5 /
+            bot_direct_reply 0.7 (веса по _origin_weight);
+          - last_confirmed_at свежее limits.graph_purge_protect_days
+            (default 3 дня; подтверждение = недавний дедуп-hit);
+          - текст факта совпадает с protected_facts (защищённый факт);
+          - expires_at IS NULL (вечные — и не кандидаты по условию).
+        FTS-строки чистятся тем же предикатом (иначе защищённый факт
+        потерял бы поиск). nodes/edges — общий граф без per-fact-атрибуции,
+        их expires_at-каскад не меняется."""
         if _infinite_retention_on():
             logger.info(
                 "[database] purge_expired_graph_facts skipped — "
                 "memory.infinite_retention ON (T-756)")
             return 0
         now = int(time.time())
+        protect_weight = float(hot.get(
+            "limits.graph_purge_protect_weight",
+            settings.GRAPH_PURGE_PROTECT_WEIGHT) or 0.8)
+        protect_days = int(hot.get(
+            "limits.graph_purge_protect_days",
+            settings.GRAPH_PURGE_PROTECT_DAYS) or 0) or 3
+        protect_cutoff = now - protect_days * 86400
         chat_filter = "AND e.chat_id = ?" if chat_id is not None else ""
         node_chat = "AND chat_id = ?" if chat_id is not None else ""
         params = (now,) if chat_id is None else (now, chat_id)
+        # E3: предикат «факт — кандидат на удаление» (истёкший, слабый,
+        # давно не подтверждённый, не защищённый текстом).
+        fact_candidate = (
+            "expires_at IS NOT NULL AND expires_at <= ? AND "
+            "NOT (weight >= ? OR "
+            "(last_confirmed_at IS NOT NULL AND last_confirmed_at >= ?) OR "
+            "EXISTS (SELECT 1 FROM protected_facts p "
+            "WHERE p.chat_id = graph_facts.chat_id AND p.fact = graph_facts.fact))"
+        )
         for side in ("source_id", "target_id"):
             await self.db.execute(
                 f"DELETE FROM edges WHERE id IN ("
@@ -1492,15 +1533,15 @@ class DatabaseService:
             "DELETE FROM nodes WHERE expires_at IS NOT NULL AND expires_at <= ?"
             + node_chat,
             params)
+        fact_params = (now, protect_weight, protect_cutoff) + \
+            (() if chat_id is None else (chat_id,))
         await self.db.execute(
             "DELETE FROM graph_facts_fts WHERE rowid IN "
-            "(SELECT id FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?"
-            + node_chat + ")",
-            params)
+            f"(SELECT id FROM graph_facts WHERE {fact_candidate}{node_chat})",
+            fact_params)
         cursor = await self.db.execute(
-            "DELETE FROM graph_facts WHERE expires_at IS NOT NULL AND expires_at <= ?"
-            + node_chat,
-            params)
+            f"DELETE FROM graph_facts WHERE {fact_candidate}{node_chat}",
+            fact_params)
         await self.db.commit()
         return cursor.rowcount
 
@@ -1908,21 +1949,21 @@ class DatabaseService:
         return await cursor.fetchall()
 
     async def get_running_summary(self, chat_id: int, now: float) -> dict | None:
-        """64.6: валидный конспект (expires_at > now) или None; просроченный —
-        ленивый DELETE (TTL RUNNING_SUMMARY_TTL_MINUTES)."""
+        """64.6: конспект чата (chat_running_summary) или None — нет строки.
+        Раунд 8 (E4/T-806, Q11): expires_at при ЧТЕНИИ НЕ «убивает» конспект —
+        lazy-DELETE по TTL убран (в тихом чате конспект живёт и остаётся в
+        Global_Context; пересборка — по заполнению окна новыми сообщениями,
+        триггер get_window_messages). expires_at продолжает писаться
+        (диагностика/запасной механизм), колонки не меняются. Раунд 8
+        (D5/T-802): SELECT несёт created_at (для логов; метке объёма нужен
+        raw_count — уже был в выборке)."""
         cursor = await self.db.execute(
             "SELECT summary, window_start_ts, window_end_ts, raw_count, "
-            "expires_at FROM chat_running_summary WHERE chat_id = ?",
+            "created_at, expires_at FROM chat_running_summary WHERE chat_id = ?",
             (chat_id,),
         )
         row = await cursor.fetchone()
         if row is None:
-            return None
-        if row["expires_at"] <= now:
-            await self.db.execute(
-                "DELETE FROM chat_running_summary WHERE chat_id = ?", (chat_id,)
-            )
-            await self.db.commit()
             return None
         return row
 
@@ -1944,6 +1985,36 @@ class DatabaseService:
             "expires_at = excluded.expires_at",
             (chat_id, summary, window_start_ts, window_end_ts, raw_count,
              created_at, expires_at),
+        )
+        await self.db.commit()
+
+    # ── Уровни конспекта (Раунд 8, spec §3.E2, T-804) ─────────
+    # chat_summary_levels: level 2 = «широкий фон» — сжатие ПРЕДЫДУЩЕГО level 1
+    # (running_summary) тем же COMPRESS_PROMPT. msg_count_highwater защищает
+    # от перезаписи более узким окном. TTL уровня не вводится (E2.4).
+
+    async def get_summary_level(self, chat_id: int, level: int) -> dict | None:
+        """E2/T-804: строка уровня конспекта (None — уровня нет)."""
+        cursor = await self.db.execute(
+            "SELECT summary, updated_at, msg_count_highwater "
+            "FROM chat_summary_levels WHERE chat_id = ? AND level = ?",
+            (chat_id, level),
+        )
+        return await cursor.fetchone()
+
+    async def upsert_summary_level(self, chat_id: int, level: int,
+                                   summary: str, updated_at: float,
+                                   msg_count_highwater: int) -> None:
+        """E2/T-804: UPSERT уровня конспекта (PK chat_id+level)."""
+        await self.db.execute(
+            "INSERT INTO chat_summary_levels "
+            "(chat_id, level, summary, updated_at, msg_count_highwater) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(chat_id, level) DO UPDATE SET "
+            "summary = excluded.summary, "
+            "updated_at = excluded.updated_at, "
+            "msg_count_highwater = excluded.msg_count_highwater",
+            (chat_id, level, summary, updated_at, msg_count_highwater),
         )
         await self.db.commit()
 
@@ -2025,8 +2096,19 @@ class DatabaseService:
                                now_ts: int):
         """66.4 (T-482): вытеснение — при live-фактах юзера >= quota вернуть
         самого лёгкого и старого: score = weight / (age_days + 1) MIN.
-        Защищённые факты — вне кандидатов на вытеснение (65.10). None — квота
+        Защищённые факты — вне кандидатов на вытеснение (65.10).
+        Раунд 8 (E3/T-805): расширение защищённого множества — высоковесные
+        (weight >= limits.graph_purge_protect_weight) и недавно подтверждённые
+        (last_confirmed_at свежее limits.graph_purge_protect_days) тоже не
+        выбираются жертвой (гейт purge/eviction spec §3.E3.2). None — квота
         не превышена / все кандидаты защищены."""
+        protect_weight = float(hot.get(
+            "limits.graph_purge_protect_weight",
+            settings.GRAPH_PURGE_PROTECT_WEIGHT) or 0.8)
+        protect_days = int(hot.get(
+            "limits.graph_purge_protect_days",
+            settings.GRAPH_PURGE_PROTECT_DAYS) or 0) or 3
+        protect_cutoff = now_ts - protect_days * 86400
         cursor = await self.db.execute(
             "SELECT COUNT(*) AS c FROM graph_facts "
             "WHERE chat_id = ? AND target_user = ? "
@@ -2042,9 +2124,12 @@ class DatabaseService:
             "WHERE p.chat_id = graph_facts.chat_id "
             "AND p.user_name = graph_facts.target_user "
             "AND p.fact = graph_facts.fact) "
+            "AND NOT (weight >= ? OR "
+            "(last_confirmed_at IS NOT NULL AND last_confirmed_at >= ?)) "
             "ORDER BY (weight / (((? - created_at) / 86400.0) + 1.0)) ASC, "
             "id ASC LIMIT 1",
-            (chat_id, target_user, now_ts, now_ts))
+            (chat_id, target_user, now_ts, protect_weight, protect_cutoff,
+             now_ts))
         return await cursor.fetchone()
 
     async def get_live_graph_facts(self, chat_id: int, now_ts: int) -> list:

@@ -165,6 +165,14 @@ class TestDatabaseGates:
             -100, "истёкший факт", "search_fact", _old_ts(days=100) - 1000)
         live = await db.insert_graph_fact(
             -100, "живой факт", "chat_history", None)
+        # Раунд 8 (E3/T-805): слабый факт рождается со свежим last_confirmed_at
+        # (== created_at — защита «недавнее подтверждение») — старим и его,
+        # и created_at: кандидатность на TTL-purge возвращается.
+        await db.db.execute(
+            "UPDATE graph_facts SET created_at = ?, last_confirmed_at = ? "
+            "WHERE id = ?", (_old_ts(days=100) - 1000, _old_ts(days=100) - 1000,
+                             expired))
+        await db.db.commit()
         return expired, live
 
     @pytest.mark.asyncio

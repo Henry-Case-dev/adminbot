@@ -34,9 +34,11 @@ class TestCompleteness:
         fields = {f.name for f in dataclasses.fields(Settings)}
         # 271: 265 + 5 (embed-фоллбэк EMBEDDING_FALLBACK_* — раунд 5) +
         # 1 (EMBEDDING_FALLBACK_API_KEY_2 — каскад ключей, задача 1) +
-        # 11 (раунд 7, T-776: LORE_* — лор чатов, spec §3.11) —
-        # каталог пополнен парно
-        assert len(fields) == 282
+        # 11 (раунд 7, T-776: LORE_* — лор чатов, spec §3.11) +
+        # 6 (раунд 8, T-793/T-798/T-801/T-803: контекст-слой, spec §3.G2) +
+        # 6 (раунд 8, T-804/T-805/T-808/T-810: уровни L2, дедуп RAG,
+        #   purge-гейты, LLM-реранк, spec §3.G2) — каталог пополнен парно
+        assert len(fields) == 294
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -238,12 +240,15 @@ class TestGroups8424:
         keys +1 / limits +6 / content +2 — T-687) + раунд 4 (T-715:
         flags +1 / limits +1 — память-команды) + фаза 2 (T-755:
         memory +1 — бессрочное хранение) + раунд 7 (T-776: limits +8 /
-        flags +3 — лор чатов, spec §3.11)."""
+        flags +3 — лор чатов, spec §3.11) + раунд 8 (T-793/T-798/T-801/
+        T-803: limits +5 / flags +1 — контекст-слой, spec §3.G2) + раунд 8
+        (T-804/T-805/T-808/T-810: limits +5 / flags +1 — уровни конспекта,
+        дедуп RAG, purge-гейты, LLM-реранк, spec §3.G2)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 29, "keys": 13,
-                          "limits": 137, "flags": 46, "reactions": 38,
+                          "limits": 147, "flags": 48, "reactions": 38,
                           "content": 3, "memory": 1}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
