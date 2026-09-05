@@ -26,16 +26,18 @@ from services.lore_prompts import (
 class TestCanon:
     def test_merge_prompt_canon_rules(self):
         text = LORE_MERGE_SYSTEM_PROMPT
-        assert "архивариус чата" in text
-        assert "сохрани всё постоянное" in text
-        assert "ключевые люди и их статусы" in text
-        assert "перепиши устаревшее" in text
-        assert "Игнорируй микро-события" in text
-        assert "разовые шутки, бытовые реплики" in text
-        assert "1-3 абзаца" in text
-        assert "{max_words}" in text
+        assert "архивариус многолетнего чата" in text
+        assert "дистилляция" in text
+        assert "вечной летописи" in text
+        assert "КРУПНЕЕ" in text
+        assert "крупнейшие события и вехи" in text
+        assert "громкие конфликты и примирения" in text
+        assert "мемы, традиции" in text
+        assert "ключевые имена и роли" in text
+        assert "2-4 абзаца" in text
+        assert "Максимум {max_words} слов" in text
         assert "UNCHANGED" in text
-        assert "Не используй кавычки-ёлочки и длинные тире" in text
+        assert "без кавычек-ёлочек и длинных тире" in text
 
     def test_init_prompt_canon_rules(self):
         text = LORE_INIT_SYSTEM_PROMPT
@@ -53,7 +55,7 @@ class TestCanon:
 
     def test_format_placeholder(self):
         merged = LORE_MERGE_SYSTEM_PROMPT.format(max_words=150)
-        assert "максимум 150 слов" in merged
+        assert "Максимум 150 слов" in merged
         assert "{max_words}" not in merged
         init = LORE_INIT_SYSTEM_PROMPT.format(max_words=80)
         assert "максимум 80 слов" in init
