@@ -1,11 +1,16 @@
 """Раунд 5 (T-740/T-741, spec 5.3.3, FR-D3/FR-D4) — авто-миграция канонов
 промптов (services/prompt_migrations.py).
 
+Раунд 8 (T-790, Context-Layer X-Features): direct_chat — три ступени
+LEGACY→new, PREV→new, PREV_R8→new (PREV_R8 — слепок канона раунда 5,
+HEAD b198d13).
+
 Покрытие (мок-cache): все 9 ключей PROMPT_MIGRATIONS — prev→new обновляет
-(set(key, new, "prompts") + INFO); direct_chat — LEGACY→new и PREV→new (две
-ступени); current == new → no-op; кастом юзера → skip + WARNING (не трогаем);
-None → skip (сид сделает своё); PG down / cache None → skip; возврат отчёта;
-prompts.extract_system_prompt НЕ входит; фиксированный порядок итерации.
+(set(key, new, "prompts") + INFO); direct_chat — LEGACY→new, PREV→new и
+PREV_R8→new (три ступени); current == new → no-op; кастом юзера → skip +
+WARNING (не трогаем); None → skip (сид сделает своё); PG down / cache None →
+skip; возврат отчёта; prompts.extract_system_prompt НЕ входит; фиксированный
+порядок итерации.
 """
 import logging
 
@@ -15,6 +20,7 @@ from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
+    PREV_R8_CHAT_SYSTEM_PROMPT,
 )
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
@@ -103,10 +109,13 @@ class TestPromptMigrationsCatalog:
         """prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)."""
         assert "prompts.extract_system_prompt" not in PROMPT_MIGRATIONS
 
-    def test_direct_chat_two_steps_legacy_then_prev(self):
+    def test_direct_chat_three_steps_legacy_then_prev_then_prev_r8(self):
+        """Раунд 8: третья ступень (PREV_R8 → новый канон); LEGACY/PREV
+        ступени сохранены и указывают на тот же новый канон."""
         steps = PROMPT_MIGRATIONS["prompts.direct_chat_system_prompt"]
         assert steps == [(LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-                         (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+                         (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+                         (PREV_R8_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
 
     def test_catalog_points_to_new_canons(self):
         """new во всех ступенях == канону раунда 5 (байт-сверка со спека)."""
@@ -127,6 +136,19 @@ class TestMigratePromptCanons:
         assert report == {key: "updated" for key in _ALL_KEYS}
         assert cache.set_calls == [
             (key, _NEW_BY_KEY[key], "prompts") for key in _ALL_KEYS]
+
+    @pytest.mark.asyncio
+    async def test_direct_chat_prev_r8_step_updates(self):
+        """Прод мог отстать на канон раунда 5 (PREV_R8, слепок HEAD b198d13)
+        → третья ступень обновляет до нового канона раунда 8."""
+        cache = FakeCache(values={
+            "prompts.direct_chat_system_prompt":
+                PREV_R8_CHAT_SYSTEM_PROMPT})
+        report = await migrate_prompt_canons(cache)
+        assert report == {"prompts.direct_chat_system_prompt": "updated"}
+        assert cache.set_calls == [
+            ("prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
+             "prompts")]
 
     @pytest.mark.asyncio
     async def test_direct_chat_legacy_step_updates(self):

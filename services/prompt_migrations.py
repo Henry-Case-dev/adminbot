@@ -1,5 +1,10 @@
 """Раунд 5 (T-740, spec 3.3.4, FR-D3): авто-миграция канонов промптов в PG.
 
+Раунд 8 (T-790, Context-Layer X-Features): для prompts.direct_chat_system_prompt
+добавлена третья ступень (PREV_R8_CHAT_SYSTEM_PROMPT → новый канон раунда 8);
+существующие ступени (LEGACY→новый, PREV→новый) сохранены и указывают на новый
+CHAT_SYSTEM_PROMPT автоматически.
+
 Заменяет migrate_direct_chat_prompt_if_legacy (удалена из chat_prompts.py):
 для каждого PG-ключа prompts.* текущее значение == одному из предыдущих
 канонов (PREV_*-слепки / LEGACY) → upsert новым каноном; == новому канону →
@@ -17,6 +22,7 @@ from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
+    PREV_R8_CHAT_SYSTEM_PROMPT,
 )
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
@@ -52,7 +58,8 @@ logger = logging.getLogger(__name__)
 PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.direct_chat_system_prompt": [
         (LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-        (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        (PREV_R8_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [(PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT)],
     "prompts.compress_system_prompt": [(PREV_COMPRESS_PROMPT, COMPRESS_PROMPT)],
     "prompts.checkup_system_prompt": [
