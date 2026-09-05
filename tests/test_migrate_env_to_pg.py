@@ -24,6 +24,16 @@ from scripts.migrate_env_to_pg import (
 from config.settings import settings
 
 
+@pytest.fixture(autouse=True)
+def _no_real_env_load(monkeypatch):
+    """_run() грузит боевой .env (load_dotenv override=True) — в pytest-сессии
+    это НАВСЕГДА засоряет os.environ (override) и ломает .env-изоляцию других
+    модулей (корневой conftest: ADMINBOT_SKIP_DOTENV). Тесты проверяют
+    план/SQL/счётчики, не реальные значения env — загрузку выключаем."""
+    monkeypatch.setattr("scripts.migrate_env_to_pg.load_dotenv",
+                        lambda *a, **kw: False)
+
+
 def _fake_settings(**overrides) -> types.SimpleNamespace:
     """Снапшот Settings с переопределёнными полями (settings — frozen)."""
     values = {f.name: getattr(settings, f.name)

@@ -59,7 +59,8 @@ class TestHeartbeat:
             ("INSERT INTO uptime_events (status) VALUES ('up')", ())]
 
     @pytest.mark.asyncio
-    async def test_heartbeat_retries_and_does_not_raise(self, caplog):
+    async def test_heartbeat_retries_and_does_not_raise(self, caplog, monkeypatch):
+        monkeypatch.setattr("services.uptime_heartbeat._HEARTBEAT_RETRY_DELAY", 0.01)
         conn = _FakeConn(fail=True)
         svc = UptimeHeartbeatService(pg=_FakePg(conn))
         with caplog.at_level(logging.WARNING):

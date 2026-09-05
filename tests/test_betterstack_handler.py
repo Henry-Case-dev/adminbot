@@ -181,6 +181,10 @@ class TestPosting:
     def test_network_error_rate_limited_to_one_warning(self, handler, caplog,
                                                        monkeypatch):
         """(б): два сбоя подряд (<60с) → ОДНА WARNING-строка в журнале."""
+        # пауза перед повтором батча (_stop.wait) — реально 1.0s на каждый
+        # flush; здесь важны счётчики WARNING, не время.
+        monkeypatch.setattr("services.betterstack_handler._RETRY_PAUSE_SECONDS", 0.01)
+
         def boom(request, timeout=None):
             raise TimeoutError("deadline")
 

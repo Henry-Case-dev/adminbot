@@ -39,6 +39,21 @@ CHAT = -1002661910336
 BASE_TS = 1_700_000_000          # 2023-11-14 22:13:20 UTC
 _EMBED_DIM = settings.EMBEDDING_DIM
 
+_real_sleep = asyncio.sleep
+
+
+def _cut_backoff_sleeps(monkeypatch) -> None:
+    """Срезать реальные backoff-паузы llm_worker-ретраев (1.5/2.0/3.0s ×
+    попытка). Тесты проверяют ЧИСЛО запросов/попыток, а не время; короткие
+    паузы (<1s: 0.03s-имитация конкуренции) сохраняем — иначе ломается
+    тайминговое утверждение про 3 волны."""
+
+    async def _sleep(delay):
+        if delay < 1.0:
+            await _real_sleep(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", _sleep)
+
 
 # ── помощники данных ────────────────────────────────────────────────
 
@@ -436,8 +451,9 @@ class TestLLMTransports:
         assert len(fake.sent) == 2
 
     @pytest.mark.asyncio
-    async def test_transport_retries_on_http_error(self):
+    async def test_transport_retries_on_http_error(self, monkeypatch):
         """503 → backoff-ретраи; после исчерпания — HistoryLLMError."""
+        _cut_backoff_sleeps(monkeypatch)
         llm = self._client(transport="openai")
         llm.retries = 2
         fake = _FakeHttp([{"error": "down"}], status=503)
@@ -502,9 +518,10 @@ class TestEmbedClient:
         assert fake2.headers_seen[0] in (None, {})
 
     @pytest.mark.asyncio
-    async def test_concurrency_limited_and_retries(self):
+    async def test_concurrency_limited_and_retries(self, monkeypatch):
         """Конкурентность не превышает лимит; 5xx ретраится; фатальный 4xx —
         сразу EmbedError (без ретраев)."""
+        _cut_backoff_sleeps(monkeypatch)
         import time as _time
 
         class _SlowHttp(_FakeEmbedHttp):

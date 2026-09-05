@@ -5,7 +5,13 @@ import sys
 import traceback
 
 from dotenv import load_dotenv
-load_dotenv()
+
+# pytest: корневой conftest ставит ADMINBOT_SKIP_DOTENV=1 — не засорять
+# os.environ боевым .env для остальных модулей сессии (порядок импорта
+# модулей ≠ порядок тестов). Ручной запуск (python tests/test_monitoring_smoke.py)
+# работает как раньше.
+if os.getenv("ADMINBOT_SKIP_DOTENV") != "1":
+    load_dotenv()
 
 import sentry_sdk
 from logtail import LogtailHandler

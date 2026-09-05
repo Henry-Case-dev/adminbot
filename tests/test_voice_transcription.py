@@ -31,6 +31,22 @@ CHAT_ID = -1001234567890
 USER_ID = 111
 
 
+@pytest.fixture(autouse=True)
+def _fast_retry_pauses(monkeypatch):
+    """Хендлер/хелперы спят реально между ретраями: fetch_media_to_tmp —
+    1.0s ×2 на каждый missing-файл (Epic 79 hotfix), повтор стратегии —
+    2.0s (SmartModule.service). Тесты проверяют ЛОГИКУ (число попыток,
+    fallback, логи), не реальное время; короткие паузы (sleep(0)-yield,
+    0.03-0.5s имитации) сохраняем как есть."""
+    real_sleep = asyncio.sleep
+
+    async def _sleep(delay):
+        if delay < 1.0:
+            await real_sleep(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", _sleep)
+
+
 # ── Фейки стратегий ─────────────────────────────────────────────────
 
 class FakeTranscriber:
@@ -446,9 +462,13 @@ class TestEpic78LocalApiResolve:
     @pytest.fixture
     def local_mode(self, tmp_path, monkeypatch):
         files_dir = tmp_path / "tgapi"
+        # API_TOKEN — тестовый фиктивный секрет: с .env-изоляцией
+        # (корневой conftest: ADMINBOT_SKIP_DOTENV) реального токена в
+        # окружении нет, а тестам «секрет не логируется» нужен непустой.
         cfg = self._cfg(
             DOWNLOAD_ENABLED=True,
-            TELEGRAM_API_FILES_DIR=str(files_dir))
+            TELEGRAM_API_FILES_DIR=str(files_dir),
+            API_TOKEN=f"{self.BOT_ID}:vt-test-secret-4242")
         # Bugfix 04.09.2026 (Часть 1): хелпер скачивания теперь в
         # services.media_download — патчим settings ОБОИХ модулей.
         monkeypatch.setattr(vt, "settings", cfg)

@@ -154,9 +154,11 @@ class TestSelfHeal:
         assert llm.embed_calls == 0
 
     @pytest.mark.asyncio
-    async def test_probe_embed_failure_falls_back_without_crash(self, db, caplog):
+    async def test_probe_embed_failure_falls_back_without_crash(self, db, caplog, monkeypatch):
         """Probe падает (LLM-ошибка) → старт ок, FTS5, WARNING."""
         import logging
+
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
 
         try:
             import sqlite_vec  # noqa: F401
@@ -250,9 +252,11 @@ class TestSelfHeal:
         assert any("dimension mismatch on INSERT" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_insert_other_error_keeps_vec(self, db, caplog):
+    async def test_insert_other_error_keeps_vec(self, db, caplog, monkeypatch):
         """Обычная ошибка embed/INSERT не гасит vec (факт остаётся в FTS5)."""
         import logging
+
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
 
         memory = MemoryManager(db, FakeLLM(fail_embed=True))
         memory._vec_available = True
@@ -376,7 +380,8 @@ class TestVectorSearchFallback:
         assert llm.embed_calls == 0  # LLM не дёргался
 
     @pytest.mark.asyncio
-    async def test_embed_fails_uses_fts(self, db):
+    async def test_embed_fails_uses_fts(self, db, monkeypatch):
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
         await db.save_archive_fact(-100, "факт про полёты", 1)
         memory = MemoryManager(db, FakeLLM(fail_embed=True))
         memory._vec_available = True
@@ -468,7 +473,8 @@ class TestCompressAndPurge:
         assert remaining == ["свежий факт"]
 
     @pytest.mark.asyncio
-    async def test_vec_embed_failure_fact_stays_in_fts(self, db):
+    async def test_vec_embed_failure_fact_stays_in_fts(self, db, monkeypatch):
+        monkeypatch.setattr("services.summary_memory._EMBED_RETRY_BACKOFF", 0)
         old = int(time.time()) - 40 * 86400
         await _save(db, -100, "старьё про войну", old)
         memory = MemoryManager(db, FakeLLM(facts="сжатый факт", fail_embed=True))

@@ -3,7 +3,10 @@ import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
-load_dotenv()
+# Тесты/CI не должны видеть боевой .env: корневой conftest.py ставит
+# ADMINBOT_SKIP_DOTENV=1 до импорта настроек → load_dotenv пропускается.
+if os.getenv("ADMINBOT_SKIP_DOTENV") != "1":
+    load_dotenv()
 
 
 def _env_int(key: str, default: int) -> int:

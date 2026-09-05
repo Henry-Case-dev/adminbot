@@ -21,6 +21,21 @@ from SmartModule.service import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _fast_transient_retry_pause(monkeypatch):
+    """Транзиентный повтор стратегии (SmartModule.service) спит реальные
+    2.0s (_TRANSCRIBE_RETRY_BACKOFF); тесты проверяют ЧИСЛО вызовов
+    стратегий, не реальное время — длинные паузы срезаем, короткие
+    (yield-семантику asyncio) не трогаем."""
+    real_sleep = asyncio.sleep
+
+    async def _sleep(delay):
+        if delay < 1.0:
+            await real_sleep(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", _sleep)
+
+
 class _Strategy:
     """Записывает вызовы (file_path, timeout) и разыгрывает сценарий."""
 

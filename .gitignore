@@ -14,6 +14,9 @@ media/*cookies*
 deploy_result.json
 # Локальная БД (переписка/пользователи) и файлы деплой-команд — не в git
 *.db
+# SQLite WAL/SHM runtime-файлы (в т.ч. воркера импорта истории) — не в git
+*.db-wal
+*.db-shm
 deploy_commands.txt
 
 # ── Python ────────────────────────────────────────────────────────
