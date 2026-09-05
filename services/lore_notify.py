@@ -45,8 +45,15 @@ class LoreNotify:
         self._stop = False
 
     async def _connect_default(self) -> asyncpg.Connection:
-        """Прямое соединение по DSN (кодеки json/jsonb — как у пула)."""
-        return await asyncpg.connect(self._dsn, init=self._init_fn)
+        """Прямое соединение по DSN (кодеки json/jsonb — как у пула).
+
+        ВАЖНО: `init` есть только у asyncpg.create_pool — у connect такого
+        параметра нет (TypeError на любой версии asyncpg), поэтому кодеки
+        применяем вручную сразу после connect, до первого запроса."""
+        conn = await asyncpg.connect(self._dsn)
+        if self._init_fn is not None:
+            await self._init_fn(conn)
+        return conn
 
     # ── lifecycle ──────────────────────────────────────────────────────────
 

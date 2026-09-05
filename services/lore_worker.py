@@ -339,7 +339,10 @@ class LoreWorker:
                or os.getenv("POSTGRES_DSN"))
         if not dsn:
             raise RuntimeError("POSTGRES_DSN пуст — advisory lock невозможен")
-        return await asyncpg.connect(dsn, init=pg_db_module._init_connection)
+        # init= у asyncpg есть только у create_pool; кодеки применяем вручную.
+        conn = await asyncpg.connect(dsn)
+        await pg_db_module._init_connection(conn)
+        return conn
 
     # ── окно + merge-контекст + LLM + запись ──────────────────────────────
 
