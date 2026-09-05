@@ -174,6 +174,21 @@ def _iso(value) -> str | None:
     return str(value)
 
 
+def _parse_ts(value) -> datetime | None:
+    """ISO-строка клиента → datetime для asyncpg-параметра `$N::timestamptz`.
+
+    asyncpg НЕ принимает str для timestamptz (прод-DataError → 500): фронт
+    шлёт ISO-строку (`2026-09-05T16:30:51.034356+00:00` / `Z`-суффикс), в
+    asyncpg уходит datetime (таймзона-осторожно: `Z` → `+00:00`).
+    datetime/None — как есть; не-ISO мусор → ValueError с понятным текстом."""
+    if value is None or not isinstance(value, str):
+        return value
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"invalid updated_at timestamp: {value!r}") from exc
+
+
 def _to_profile(row) -> LoreProfile:
     """Строка PG (asyncpg Record/dict) → frozen LoreProfile (метки ISO)."""
     return LoreProfile(
@@ -327,7 +342,7 @@ class ChatLoreStore:
                     raise ChatLoreConflict(chat_id, None)
                 if expected_updated_at is not None:
                     sql = SET_MANUAL_LOCKED_SQL
-                    args = (chat_id, text, expected_updated_at)
+                    args = (chat_id, text, _parse_ts(expected_updated_at))
                 else:
                     sql = SET_MANUAL_SQL
                     args = (chat_id, text)
@@ -459,7 +474,7 @@ class ChatLoreStore:
                 sql = ("UPDATE chat_profiles SET " + ", ".join(set_parts)
                        + ", updated_at = now() WHERE chat_id = $1")
                 if expected_updated_at is not None:
-                    args.append(expected_updated_at)
+                    args.append(_parse_ts(expected_updated_at))
                     sql += f" AND updated_at = ${len(args)}::timestamptz"
                 sql += " RETURNING *"
                 updated = await conn.fetchrow(sql, *args)
@@ -534,7 +549,8 @@ class ChatLoreStore:
                         old.auto_period_hours,
                         old.auto_window_hours,
                         old.is_active or new.is_active,
-                        _max_ts(old.last_auto_at, new.last_auto_at),
+                        _parse_ts(_max_ts(old.last_auto_at,
+                                          new.last_auto_at)),
                     )
                     await conn.execute(DELETE_PROFILE_SQL, resolved_old)
                     await conn.execute(COPY_ADMINS_SQL, new_chat_id,

@@ -14,6 +14,7 @@ migrate_profile (чистый перенос + merge по Q9 + admins + исто
 """
 import copy
 import re
+from datetime import datetime, timezone
 
 import pytest
 
@@ -21,6 +22,7 @@ from services import pg_db as pg_mod
 from services.chat_lore_store import (
     ChatLoreConflict,
     ChatLoreStore,
+    _parse_ts,
 )
 from services.pg_db import DDL_STATEMENTS
 
@@ -304,7 +306,8 @@ class _FakeConn:
         if row is None:
             return None, False
         lock = re.search(r"AND updated_at = \$(\d+)::timestamptz", sql)
-        if lock and str(args[int(lock.group(1)) - 1]) != row["updated_at"]:
+        if lock and _ts_norm(args[int(lock.group(1)) - 1]) != \
+                _ts_norm(row["updated_at"]):
             return None, False
         if "SET chat_id = $1" in sql:                 # MOVE (чистый перенос)
             new_id = args[0]
@@ -325,6 +328,8 @@ class _FakeConn:
             elif raw.startswith("$"):
                 arg_index = int(re.match(r"\$(\d+)", raw).group(1)) - 1
                 value = args[arg_index]
+                if isinstance(value, datetime):         # $8::timestamptz
+                    value = value.isoformat()
                 row[field] = "" if value is None and field in (
                     "manual_lore", "auto_lore") else value
             elif raw == "NULL":
@@ -407,6 +412,17 @@ def _ts() -> str:
     return "2026-09-06T10:00:00+00:00"
 
 
+def _ts_norm(value):
+    """Метка к datetime-сравнению: фейк хранит ISO-строки, а store (после
+    _parse_ts) шлёт datetime — сравнение как в реальном PG (timestamptz)."""
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return str(value)
+
+
 def make_store(conn: _FakeConn) -> ChatLoreStore:
     return ChatLoreStore(_FakePg(pool=_FakePool(conn)))
 
@@ -420,6 +436,33 @@ def store():
 def conn_store():
     conn = _FakeConn()
     return conn, make_store(conn)
+
+
+# ── _parse_ts: ISO-строка клиента → datetime (asyncpg $N::timestamptz) ──────
+
+class TestParseTs:
+    """Прод-фикс: asyncpg не принимает str для ::timestamptz (DataError →
+    500); фронт шлёт ISO-строки → store обязан конвертировать в datetime."""
+
+    def test_iso_with_offset_returns_datetime(self):
+        dt = _parse_ts("2026-09-05T16:30:51.034356+00:00")
+        assert isinstance(dt, datetime)
+        assert dt == datetime(2026, 9, 5, 16, 30, 51, 34356,
+                              tzinfo=timezone.utc)
+
+    def test_iso_with_z_returns_datetime(self):
+        dt = _parse_ts("2026-09-05T16:30:51Z")
+        assert isinstance(dt, datetime)
+        assert dt == datetime(2026, 9, 5, 16, 30, 51, tzinfo=timezone.utc)
+
+    def test_none_and_non_string_passthrough(self):
+        assert _parse_ts(None) is None
+        src = datetime(2026, 9, 5, 12, 0, tzinfo=timezone.utc)
+        assert _parse_ts(src) is src
+
+    def test_garbage_raises_value_error(self):
+        with pytest.raises(ValueError, match="invalid updated_at timestamp"):
+            _parse_ts("не-ISO-мусор")
 
 
 # ── CRUD профиля ────────────────────────────────────────────────────────────
@@ -535,6 +578,25 @@ class TestManualUpdate:
         await store.ensure_profile(7)
         p = await store.update_manual(7, "алиас-правка", changed_by=1)
         assert p.manual_lore == "алиас-правка"
+
+    @pytest.mark.asyncio
+    async def test_set_manual_iso_expected_passes_datetime_to_sql(self,
+                                                                  conn_store):
+        """ISO-строка expected_updated_at → в asyncpg $3::timestamptz уходит
+        datetime (продакшен-фикс: str-параметр = DataError → HTTP 500)."""
+        conn, store = conn_store
+        p = await store.ensure_profile(7)
+        assert p.updated_at == "2026-09-06T10:00:01+00:00"
+        await store.set_manual(
+            7, "правка", changed_by=111,
+            expected_updated_at="2026-09-06T10:00:01+00:00")
+        locked = [q[1] for q in conn.queries
+                  if "AND updated_at = $3::timestamptz" in q[0]]
+        assert len(locked) == 1
+        assert locked[0][0] == 7 and locked[0][1] == "правка"
+        assert isinstance(locked[0][2], datetime)
+        assert locked[0][2] == _ts_norm("2026-09-06T10:00:01+00:00")
+        assert conn.profiles[7]["manual_lore"] == "правка"
 
 
 # ── set_auto / mark_auto_done / clear_auto ──────────────────────────────────
@@ -661,6 +723,20 @@ class TestUpdateSettings:
                 expected_updated_at=p.updated_at)
         assert ei.value.current_updated_at == conn.profiles[7]["updated_at"]
         assert conn.profiles[7]["auto_enabled"] is True  # не применено
+
+    @pytest.mark.asyncio
+    async def test_settings_iso_expected_passes_datetime_to_sql(self,
+                                                                conn_store):
+        """ISO-string expected_updated_at → datetime в asyncpg-аргументах."""
+        conn, store = conn_store
+        p = await store.ensure_profile(7)
+        await store.update_settings(
+            7, auto_period_hours=48, changed_by=111,
+            expected_updated_at=p.updated_at)
+        locked = [q[1] for q in conn.queries if "::timestamptz" in q[0]]
+        assert len(locked) == 1
+        assert isinstance(locked[0][-1], datetime)
+        assert locked[0][-1] == _ts_norm(p.updated_at)
 
 
 # ── set_active (lifecycle, без истории) ─────────────────────────────────────
@@ -870,6 +946,21 @@ class TestMigrateProfile:
         await store.migrate_profile(-1000, -2000)
         assert conn.profiles[-2000]["last_auto_at"] == \
             "2026-09-05T00:00:00+00:00"
+
+    @pytest.mark.asyncio
+    async def test_merge_last_auto_at_iso_passes_datetime_to_sql(self,
+                                                                 conn_store):
+        """ISO-строки last_auto_at (из _max_ts) → datetime в $8::timestamptz."""
+        conn, store = conn_store
+        conn.profiles[-1000] = _profile_row(
+            -1000, last_auto_at="2026-09-01T00:00:00+00:00")
+        conn.profiles[-2000] = _profile_row(
+            -2000, last_auto_at="2026-09-05T00:00:00+00:00")
+        await store.migrate_profile(-1000, -2000)
+        merge = [q[1] for q in conn.queries if "last_auto_at = $8" in q[0]]
+        assert len(merge) == 1
+        assert isinstance(merge[0][7], datetime)
+        assert merge[0][7] == _ts_norm("2026-09-05T00:00:00+00:00")
 
     @pytest.mark.asyncio
     async def test_merge_enabled_and_active_or(self, conn_store):
