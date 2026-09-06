@@ -868,6 +868,38 @@ class Settings:
     LORE_TICK_MINUTES: int = _env_int("LORE_TICK_MINUTES", 30)
     LORE_GENERATE_COOLDOWN: int = _env_int("LORE_GENERATE_COOLDOWN", 60)
 
+    # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-816/T-817): отношения ─────
+    # Парные поля Settings для REGISTRY-записей limits.relations_*/flags
+    # (группа limits_relations/flags_relations): дефолты сидятся в
+    # bot_settings при pg.init(); env-чтение дефолтами не ломает.
+    # relations_tone_enabled — ГЛОБАЛЬНЫЙ рубильник тона по стадиям
+    # (default FALSE, Q12); per-chat тумблер — колонка PG relations_enabled.
+    RELATIONS_TONE_ENABLED: bool = _env_bool("RELATIONS_TONE_ENABLED", False)
+    RELATIONS_ACQUAINTANCE_MIN_MSG: int = _env_int(
+        "RELATIONS_ACQUAINTANCE_MIN_MSG", 10)
+    RELATIONS_ACQUAINTANCE_MIN_DAYS: int = _env_int(
+        "RELATIONS_ACQUAINTANCE_MIN_DAYS", 7)
+    RELATIONS_REGULAR_MIN_MSG: int = _env_int("RELATIONS_REGULAR_MIN_MSG", 200)
+    RELATIONS_REGULAR_MIN_DAYS: int = _env_int(
+        "RELATIONS_REGULAR_MIN_DAYS", 90)
+    RELATIONS_VETERAN_MIN_MSG: int = _env_int(
+        "RELATIONS_VETERAN_MIN_MSG", 1000)
+    RELATIONS_VETERAN_MIN_DAYS: int = _env_int(
+        "RELATIONS_VETERAN_MIN_DAYS", 365)
+    RELATIONS_HOLD_ABSENT_DAYS: int = _env_int("RELATIONS_HOLD_ABSENT_DAYS", 60)
+    RELATIONS_STAGE_CHANGE_MIN_DAYS: int = _env_int(
+        "RELATIONS_STAGE_CHANGE_MIN_DAYS", 30)
+    RELATIONS_DOWNGRADE_MSG_30D: int = _env_int(
+        "RELATIONS_DOWNGRADE_MSG_30D", 10)
+    RELATIONS_DECAY_HALF_LIFE_DAYS: int = _env_int(
+        "RELATIONS_DECAY_HALF_LIFE_DAYS", 14)
+    RELATIONS_RECALC_TTL_MINUTES: int = _env_int(
+        "RELATIONS_RECALC_TTL_MINUTES", 5)
+    RELATIONS_SCAN_MAX_ROWS: int = _env_int("RELATIONS_SCAN_MAX_ROWS", 50000)
+    RELATIONS_INJECT_MAX_CHARS: int = _env_int(
+        "RELATIONS_INJECT_MAX_CHARS", 600)
+    RELATIONS_API_MAX_USERS: int = _env_int("RELATIONS_API_MAX_USERS", 150)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
     def _normalize_tone_key(self, preset_key: str | None) -> str:

@@ -114,6 +114,7 @@ class FakeChatStore:
 
     async def update_settings(self, chat_id, *, auto_enabled=None,
                               auto_period_hours=None, auto_window_hours=None,
+                              relations_enabled=None,
                               changed_by=None, expected_updated_at=None):
         profile = self.profiles.get(chat_id)
         if profile is None:
@@ -128,6 +129,8 @@ class FakeChatStore:
                        if auto_period_hours is None else auto_period_hours,
                        auto_window_hours=profile.auto_window_hours
                        if auto_window_hours is None else auto_window_hours,
+                       relations_enabled=profile.relations_enabled
+                       if relations_enabled is None else relations_enabled,
                        updated_at=_next_ts())
         self.profiles[chat_id] = new
         return new

@@ -118,6 +118,22 @@ DDL_STATEMENTS: tuple[str, ...] = (
         PRIMARY KEY (chat_id, telegram_id)
     )
     """,
+    # ── Раунд 9 (AGI Memory, spec §3.1.3, T-818): отношения ──
+    # Два аддитивных оператора (RUNTIME WARNING: PG-дельта эпика — ТОЛЬКО
+    # они). CREATE TABLE IF NOT EXISTS НЕ добавит колонки существующей
+    # таблице — нужен ALTER ... ADD COLUMN IF NOT EXISTS (PG поддерживает;
+    # идемпотентно на существующей БД и на новой).
+    # relations — map str(user_id) → {manual_stage, note, updated_by,
+    # updated_at} (Q1; аудит правки внутри JSONB — D-2, chat_lore_history
+    # НЕ трогаем); relations_enabled — per-chat тумблер тона (D-3).
+    """
+    ALTER TABLE chat_profiles
+        ADD COLUMN IF NOT EXISTS relations JSONB NOT NULL DEFAULT '{}'::jsonb
+    """,
+    """
+    ALTER TABLE chat_profiles
+        ADD COLUMN IF NOT EXISTS relations_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────

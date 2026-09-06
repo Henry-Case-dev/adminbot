@@ -33,7 +33,12 @@ _WARN_EVERY_SECONDS = 60.0      # дедуп WARNING при недоступно
 
 @dataclasses.dataclass(frozen=True)
 class LoreProfile:
-    """Профиль лора чата (spec §3.3): frozen; строки ISO-8601 UTC."""
+    """Профиль лора чата (spec §3.3): frozen; строки ISO-8601 UTC.
+
+    Раунд 9 (AGI Memory, T-818): + relations (map str(user_id) →
+    {"manual_stage", "note", "updated_by", "updated_at"}) и
+    relations_enabled (per-chat тумблер тона по стадиям, D-3).
+    """
 
     chat_id: int
     manual_lore: str
@@ -44,6 +49,8 @@ class LoreProfile:
     is_active: bool
     last_auto_at: str | None
     updated_at: str
+    relations: dict = dataclasses.field(default_factory=dict)
+    relations_enabled: bool = False
 
     def to_dict(self) -> dict:
         """Полный объект профиля (поля §3.2) — для API/сериализации."""

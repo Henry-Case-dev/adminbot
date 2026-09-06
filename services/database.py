@@ -9,6 +9,8 @@ from pathlib import Path
 
 from config.settings import settings
 from services import hot_config as hot
+from services.user_relations import decay_weight, decide_stage, \
+    relations_limits, stage_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ def _infinite_retention_on() -> bool:
     return bool(hot.get(_RETENTION_PG_KEY, settings.INFINITE_RETENTION))
 
 _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
+_REFRESH_ACTIVE_CAP = 5000       # recalc_chat_users: потолок участников окна
 _SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
 _SCHEMA_VERSION_DIRECT_CHAT = 2  # Epic 50 (58.7): user_version 1→2
 _SCHEMA_VERSION_EPIC60 = 3       # Epic 60 (63.3): user_version 2→3
@@ -256,6 +259,36 @@ class DatabaseService:
             msg_count_highwater INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (chat_id, level)
         );
+
+        -- ── Раунд 9 (AGI Memory, spec §3.1.1, T-816): users_meta ────────
+        -- Карточка «отношений» участника чата. Аддитивно, CREATE IF NOT
+        -- EXISTS, user_version НЕ поднимается (RUNTIME WARNING; образец
+        -- bot_reply_parents/chat_summary_levels выше).
+        -- first_seen/last_seen — по всей истории чата (агрегат refresh;
+        -- first_seen импортированных «стариков» уходит в 2024 — цель
+        -- фичи, Q5); msg_count — счётчик-касание (touch, +1 на сообщение),
+        -- refresh перезаписывает авторитетным all-time COUNT(*);
+        -- active_days/activity_score — 30д-окно с decay 0.5^((now-ts)/14д);
+        -- relationship_stage — АВТО-стадия (manual живёт в PG relations);
+        -- last_stage_change — маркер анти-отката (§3.1.2);
+        -- last_recalc_at — TTL-метка ленивого пересчёта
+        -- (limits.relations_recalc_ttl_minutes).
+        CREATE TABLE IF NOT EXISTS users_meta (
+            chat_id            INTEGER NOT NULL,
+            user_id            INTEGER NOT NULL,
+            first_seen         INTEGER,              -- unix ts первого сообщения
+            last_seen          INTEGER,              -- unix ts последнего сообщения
+            msg_count          INTEGER NOT NULL DEFAULT 0,   -- всего (touch/refresh)
+            active_days        INTEGER NOT NULL DEFAULT 0,   -- уникальных дней в 30д-окне
+            activity_score     REAL    NOT NULL DEFAULT 0,   -- Σ 0.5^((now-ts)/half-life) за 30д
+            relationship_stage TEXT    NOT NULL DEFAULT 'stranger',  -- авто-стадия (manual в PG)
+            last_stage_change  INTEGER,               -- unix ts последнего изменения стадии
+            last_recalc_at     INTEGER NOT NULL DEFAULT 0,   -- unix ts пересчёта (TTL-метка)
+            PRIMARY KEY (chat_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_users_meta_chat_last
+            ON users_meta (chat_id, last_seen DESC);
+
     """
     
     def __init__(self, db_path: str):
@@ -1035,6 +1068,17 @@ class DatabaseService:
                 "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
                 (row_id, text),
             )
+        # Раунд 9 (spec §3.1.1, T-816): «касание» users_meta на сообщение
+        # юзера. 1 UPSERT по PK (~1 мс), внутри текущей транзакции (commit
+        # ниже). fail-open: сбой НЕ роняет сохранение (NFR-4/NFR-7); импорт
+        # истории (user_id NULL) и бот-строки сюда не попадают.
+        if user_id is not None:
+            try:
+                await self.touch_user_meta(chat_id, user_id, timestamp)
+            except Exception:
+                logger.warning(
+                    "[database] touch_user_meta failed — fail-open | "
+                    "chat_id=%s user_id=%s", chat_id, user_id, exc_info=True)
         await self.db.commit()
         return row_id
 
@@ -1674,6 +1718,218 @@ class DatabaseService:
             (chat_id, since_ts, cap),
         )
         return await cursor.fetchall()
+
+    # ── users_meta: отношения (Раунд 9, spec §3.1.1/§3.1.2, T-816/T-817) ──
+    # «Считаемое» участника чата. Пересчёт — SQL-агрегаты по smart_messages
+    # (образец get_active_participants; покрыт idx_smart_messages_chat_ts) +
+    # Python-decay по ts окна; touch — инкремент на сообщение (горячий путь,
+    # см. save_smart_message). Единственное соединение WAL, короткие
+    # транзакции; метод всегда возвращает число строк.
+
+    async def get_users_meta(self, chat_id: int, user_ids=None,
+                             limit: int | None = None) -> list[dict]:
+        """Строки users_meta чата (user_ids — фильтр-подмножество);
+        ORDER BY last_seen DESC, стабильно по user_id (None last)."""
+        params: list = [chat_id]
+        sql = "SELECT * FROM users_meta WHERE chat_id = ?"
+        if user_ids is not None:
+            ids = [int(uid) for uid in user_ids if uid]
+            if not ids:
+                return []
+            sql += " AND user_id IN (%s)" % ",".join("?" * len(ids))
+            params.extend(ids)
+        sql += " ORDER BY last_seen DESC, user_id ASC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        cursor = await self.db.execute(sql, params)
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_user_meta(self, chat_id: int, user_id: int) -> dict | None:
+        """Строка users_meta одного юзера (None — нет записи)."""
+        rows = await self.get_users_meta(chat_id, [user_id])
+        return rows[0] if rows else None
+
+    async def touch_user_meta(self, chat_id: int, user_id: int, ts: int) -> None:
+        """«Касание» на сообщение юзера (spec §3.1.1): новая строка с
+        first_seen=ts/last_seen=ts/msg_count=1; существующая — last_seen
+        растёт (max), first_seen — минимум (min), msg_count+1. Коммит в
+        конце (в save_smart_message лишний коммит — no-op)."""
+        await self.db.execute(
+            "INSERT INTO users_meta "
+            "(chat_id, user_id, first_seen, last_seen, msg_count, "
+            "last_recalc_at) VALUES (?, ?, ?, ?, 1, 0) "
+            "ON CONFLICT(chat_id, user_id) DO UPDATE SET "
+            "first_seen = min(first_seen, excluded.first_seen), "
+            "last_seen = max(last_seen, excluded.last_seen), "
+            "msg_count = msg_count + 1",
+            (chat_id, user_id, ts, ts),
+        )
+        await self.db.commit()
+
+    async def refresh_users_meta(self, chat_id: int, user_ids=None, *,
+                                 now: int | None = None) -> int:
+        """Полный пересчёт карточек чата/подмножества (spec §3.1.1).
+
+        Один SQL-агрегат по smart_messages (all-time: total/first_ts/last_ts
+        + 30д-окно msg30/active_days30 — «старики» импорта корректно выходят
+        на veteran, Q5) + лёгкий SELECT ts окна для activity_score
+        (Σ 0.5**((now−ts)/half_life), 14д; окно 30д, при переполнении
+        relations_scan_max_rows — сжатие вдвое до 3 итераций) → батч-UPSERT
+        с правилом стадии и анти-откатом §3.1.2 (decide_stage). last_recalc_at
+        = now. Возврат — число обновлённых строк. Пустой user_ids → 0."""
+        if user_ids is not None:
+            ids = [int(uid) for uid in user_ids if uid]
+            if not ids:
+                return 0
+        else:
+            ids = None
+        now = int(now) if now is not None else int(time.time())
+        limits = relations_limits()
+        win30 = now - 30 * 86400
+        in_clause = ""
+        args: list = [win30, win30, chat_id]
+        if ids is not None:
+            in_clause = " AND user_id IN (%s)" % ",".join("?" * len(ids))
+            args.extend(ids)
+        if ids is None:
+            tail = " GROUP BY user_id ORDER BY msg30 DESC, user_id ASC LIMIT ?"
+            args.append(int(limits["api_max_users"]))
+        else:
+            tail = " GROUP BY user_id ORDER BY msg30 DESC, user_id ASC"
+        sql = (
+            "SELECT user_id, COUNT(*) AS total, MIN(timestamp) AS first_ts, "
+            "MAX(timestamp) AS last_ts, "
+            "COUNT(CASE WHEN timestamp >= ? THEN 1 END) AS msg30, "
+            "COUNT(DISTINCT CASE WHEN timestamp >= ? THEN timestamp / 86400 "
+            "END) AS active_days30 "   # целочисленное деление SQLite
+            "FROM smart_messages "
+            "WHERE chat_id = ? AND user_id IS NOT NULL" + in_clause + tail)
+        cursor = await self.db.execute(sql, args)
+        rows = await cursor.fetchall()
+        if not rows:
+            return 0
+        stored = {row["user_id"]: row
+                  for row in await self.get_users_meta(chat_id)}
+        decay = await self._fetch_decay_ts(chat_id, win30, now, ids, limits)
+        half_life = float(limits["decay_half_life_days"])
+        upserts: list[tuple] = []
+        for row in rows:
+            uid = row["user_id"]
+            first_ts = row["first_ts"]
+            last_ts = row["last_ts"]
+            total = int(row["total"])
+            msg30 = int(row["msg30"])
+            prev = stored.get(uid) or {}
+            candidate = stage_candidate(
+                total, max(0, now - first_ts) // 86400,
+                acquaintance_min_msg=int(limits["acquaintance_min_msg"]),
+                acquaintance_min_days=int(limits["acquaintance_min_days"]),
+                regular_min_msg=int(limits["regular_min_msg"]),
+                regular_min_days=int(limits["regular_min_days"]),
+                veteran_min_msg=int(limits["veteran_min_msg"]),
+                veteran_min_days=int(limits["veteran_min_days"]),
+            )
+            stage, changed = decide_stage(
+                prev.get("relationship_stage") or "stranger", candidate,
+                now=now, last_seen=last_ts,
+                last_stage_change=prev.get("last_stage_change"),
+                msg_30d=msg30,
+                hold_absent_days=int(limits["hold_absent_days"]),
+                stage_change_min_days=int(limits["stage_change_min_days"]),
+                downgrade_msg_30d=int(limits["downgrade_msg_30d"]),
+            )
+            score = sum(
+                decay_weight(now, ts, half_life) for ts in decay.get(uid, ()))
+            upserts.append((
+                chat_id, uid, first_ts, last_ts, total,
+                int(row["active_days30"]), score, stage,
+                now if changed else prev.get("last_stage_change"), now,
+            ))
+        await self.db.executemany(
+            "INSERT INTO users_meta (chat_id, user_id, first_seen, last_seen, "
+            "msg_count, active_days, activity_score, relationship_stage, "
+            "last_stage_change, last_recalc_at) VALUES (?, ?, ?, ?, ?, ?, ?, "
+            "?, ?, ?) "
+            "ON CONFLICT(chat_id, user_id) DO UPDATE SET "
+            "first_seen = excluded.first_seen, last_seen = excluded.last_seen, "
+            "msg_count = excluded.msg_count, active_days = excluded.active_days, "
+            "activity_score = excluded.activity_score, "
+            "relationship_stage = excluded.relationship_stage, "
+            "last_stage_change = excluded.last_stage_change, "
+            "last_recalc_at = excluded.last_recalc_at",
+            upserts,
+        )
+        await self.db.commit()
+        return len(upserts)
+
+    async def count_user_msg30(self, chat_id: int, user_id: int, *,
+                               now: int | None = None) -> int:
+        """Фикс-раунд (D-14): COUNT сообщений юзера за 30д-окно — для
+        карточки `<user_relations>` («N сообщ. за 30 дней»). Отдельный лёгкий
+        агрегат (значение не хранится в users_meta — состав колонок §3.1.1
+        без изменений); вызывается только на редком пути инжекта (гейты
+        relations_tone_enabled + per-chat)."""
+        win = (int(now) if now is not None else int(time.time())) - 30 * 86400
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) FROM smart_messages "
+            "WHERE chat_id = ? AND user_id = ? AND timestamp >= ?",
+            (chat_id, int(user_id), win))
+        row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    async def recalc_user_meta(self, chat_id: int, user_id: int, *,
+                               now: int | None = None) -> int:
+        """Пересчёт карточки одного юзера (удобная обёртка refresh)."""
+        return await self.refresh_users_meta(chat_id, [user_id], now=now)
+
+    async def recalc_chat_users(self, chat_id: int, *,
+                                now: int | None = None) -> int:
+        """Пересчёт активных участников (get_active_participants, окно 30д)
+        + всех, у кого уже есть строка users_meta."""
+        now = int(now) if now is not None else int(time.time())
+        active = await self.get_active_participants(chat_id, now - 30 * 86400,
+                                                    cap=_REFRESH_ACTIVE_CAP)
+        ids = {row["user_id"] for row in active}
+        ids.update(row["user_id"]
+                   for row in await self.get_users_meta(chat_id))
+        if not ids:
+            return 0
+        return await self.refresh_users_meta(chat_id, sorted(ids), now=now)
+
+    async def _fetch_decay_ts(self, chat_id: int, win_start: int, now: int,
+                              ids, limits) -> dict[int, list[int]]:
+        """ts сообщений окна для decay: {user_id: [ts, ...]}. При строках
+        окна > limits.relations_scan_max_rows окно сжимается вдвое (до 3
+        итераций) — вклад отброшенных < 0.35 и затухает (деградация
+        осознанная, spec §3.1.1)."""
+        in_clause = ""
+        args: list = [chat_id, win_start]
+        if ids is not None:
+            in_clause = " AND user_id IN (%s)" % ",".join("?" * len(ids))
+            args.extend(ids)
+        scan_max = int(limits["scan_max_rows"])
+        length = now - win_start
+        window = win_start
+        for _ in range(3):
+            args[1] = window
+            cursor = await self.db.execute(
+                "SELECT COUNT(*) FROM smart_messages "
+                "WHERE chat_id = ? AND user_id IS NOT NULL AND timestamp >= ?"
+                + in_clause, args)
+            count = (await cursor.fetchone())[0]
+            if count is not None and int(count) <= scan_max:
+                break
+            length = max(86400, length // 2)   # сжатие окна вдвое
+            window = now - length
+        cursor = await self.db.execute(
+            "SELECT user_id, timestamp FROM smart_messages "
+            "WHERE chat_id = ? AND user_id IS NOT NULL AND timestamp >= ?"
+            + in_clause, args)
+        ts_by_user: dict[int, list[int]] = {}
+        async for row in cursor:
+            ts_by_user.setdefault(row["user_id"], []).append(row["timestamp"])
+        return ts_by_user
 
     # ── Epic 60 Фаза C (65.4/65.5/65.8/65.10) ─────────────────
     # Стилевые якоря, пресеты тона (user_prefs), /clear, /forget,

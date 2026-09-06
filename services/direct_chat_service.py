@@ -54,8 +54,18 @@ Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карто�
     словарный дедуп против <Global_Context> (dedup_rag_vs_global),
     origin-метки «[{label}] {date}» (origin_labels), опциональный LLM-реранк
     (flags.chat_rag_rerank_enabled, fail-open).
+
+Раунд 9 (AGI Memory, spec §3.1.4/Q3, T-819/B4): инжект `<user_relations>` —
+строка отношений собеседника (стадия/активность/заметка админа) сразу после
+<Target_User>, kind "relations" в uncuttable (вне контекст-бюджета), cap
+limits.relations_inject_max_chars (600) до инжекта. Гейты: глобальный флаг
+flags.relations_tone_enabled И per-chat relations_enabled из PG-профиля
+(кэш); только группы (chat_id<0, D-12); RelationsService — лениво из
+lore_runtime (не установлен/ошибка → блока нет, 0 влияния на поведение).
+Канон R9 (§3.2.2) уже описывает блок и тон по стадиям.
 """
 import asyncio
+import datetime
 import hashlib
 import logging
 import random
@@ -98,9 +108,12 @@ from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext
 from services.tool_schemas import TOOL_CALLING_TOOLS
 from services.typing_manager import typing_active
+from services.user_relations import STAGE_RU
 
 logger = logging.getLogger(__name__)
 
+# Раунд 9 (B4/T-819): маркер обрезания <user_relations> по кап-символам.
+_RELATIONS_CUT_MARKER = "…[обрезано]"
 _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 фактов/связей
 # Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
 _STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
@@ -591,14 +604,19 @@ class DirectChatService:
                                   target_user_id: int | None = None) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
-        target → protected → lore → mood → current → anchors → sandwich.
-        Статика вверх, критичное (target/protected/current) ближе к концу.
-        Раунд 8 (C5/T-796): <Target_User> с uid автора запроса (NFR-2: скобки
-        только в контекстных блоках direct_chat). Порядок регистрации
-        роутеров/хендлеров НЕ меняется — меняется только эта сборка.
-        Раунд 8 (F2/T-808): двухпроходность — <Global_Context> собирается
-        РАНЬШЕ <RAG_Memory> (текст фона нужен для словарного дедупа RAG),
-        контент-порядок blocks (rag → global) не меняется."""
+        target → relations → protected → lore → mood → current → anchors →
+        sandwich. Статика вверх, критичное (target/relations/protected/
+        current) ближе к концу. Раунд 9 (T-819/B4, spec §3.1.4): блок
+        <user_relations> (kind "relations") — СРАЗУ ПОСЛЕ ("target", …), до
+        protected/lore; кап по символам — до инжекта; uncuttable (вне
+        контекст-бюджета). Раунд 8 (C5/T-796): <Target_User> с uid автора
+        запроса (NFR-2: скобки только в контекстных блоках direct_chat).
+        Порядок регистрации роутеров/хендлеров НЕ меняется — меняется только
+        эта сборка. Раунд 8 (F2/T-808): двухпроходность — <Global_Context>
+        собирается РАНЬШЕ <RAG_Memory> (текст фона нужен для словарного
+        дедупа RAG), контент-порядок blocks (rag → global) не меняется.
+        Раунд 9 (E1/T-826, spec §3.5.1): маркер «золотых» (kind "nostalgia")
+        встаёт ПОСЛЕ relations, до mood (подсказка «важное к концу»)."""
         window = await self.memory.get_window_messages(chat_id)
         # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
         # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
@@ -631,6 +649,14 @@ class DirectChatService:
                         f"{_speaker_tag('', target_user_id)}"
                         f"</Target_User>")
         blocks.append(("target", target_block))
+        # Раунд 9 (AGI Memory, B4/T-819, spec §3.1.4/Q3): <user_relations> —
+        # СРАЗУ ПОСЛЕ ("target", …) и ДО protected/lore (гейты: глобальный
+        # флаг И per-chat relations_enabled; RelationsService из lore_runtime;
+        # fail-open: пусто/не установлен → блока нет).
+        relations_block = await self._build_user_relations(
+            chat_id, target_user_id, target_name)
+        if relations_block:
+            blocks.append(("relations", relations_block))
         # Epic 60 (65.10, T-478): защищённые факты — сразу после Target_User.
         # Раунд 7 (T-781/F1, Q1): PG-лор (ChatLoreCache) — состояние ДО
         # сборки protected: при активном PG-лоре SQLite chat-level канал
@@ -684,6 +710,86 @@ class DirectChatService:
     def _is_reply_trigger(message) -> bool:
         """Раунд 8 (D4/T-801): сообщение — reply (есть reply_to_message)."""
         return getattr(message, "reply_to_message", None) is not None
+
+    async def _build_user_relations(self, chat_id: int,
+                                    target_user_id: int | None,
+                                    target_name: str) -> str:
+        """Блок `<user_relations>` — карточка ЦЕЛЕВОГО собеседника (D-14,
+        фикс-раунд: компактная строка вместо списка активных юзеров):
+        `{Имя}: {стадия_ru}, в чате с {first_seen:ГГГГ-ММ}, {N} сообщ. за
+        30 дней` (+ суффикс «(ручная пометка админа)» при manual-стадии;
+        + «| пометка: {note}» если есть заметка админа).
+        Гейты (0 влияния на поведение при любом «нет»): только группы
+        (chat_id < 0, D-12); глобальный флаг flags.relations_tone_enabled;
+        per-chat relations_enabled из PG-профиля (кэш; нет профиля/ошибка →
+        нет); RelationsService лениво из lore_runtime (не установлен → нет).
+        Cap limits.relations_inject_max_chars (600) ДО инжекта (маркер
+        «…[обрезано]»); kind "relations" uncuttable в _apply_context_budget.
+        Fail-open: любая ошибка → "" (WARNING, диалог жив)."""
+        if chat_id >= 0:
+            return ""
+        if not hot.get("flags.relations_tone_enabled",
+                       settings.RELATIONS_TONE_ENABLED):
+            return ""
+        if target_user_id in (None, 0):
+            return ""
+        from services import lore_runtime
+        service = lore_runtime.get_relations_service()
+        if service is None:
+            return ""
+        try:
+            cache = self.chat_lore_cache or lore_runtime.get_lore_cache()
+            profile = await cache.get(chat_id) if cache is not None else None
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "direct: relations profile gate failed — блок не строится | "
+                "chat=%s", chat_id, exc_info=True)
+            return ""
+        if profile is None or not getattr(profile, "relations_enabled", False):
+            return ""
+        try:
+            relation = await service.get_user_relation(
+                chat_id, int(target_user_id))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "direct: relations read failed — блок не строится | chat=%s",
+                chat_id, exc_info=True)
+            return ""
+        if not relation:
+            return ""
+        stage = str(relation.get("stage") or "stranger")
+        stage_ru = STAGE_RU.get(stage, stage)
+        if relation.get("stage_manual"):
+            stage_ru = f"{stage_ru} (ручная пометка админа)"
+        name = escape_xml_text(str(target_name or "").strip()) \
+            or str(relation.get("user_id") or target_user_id)
+        line = f"{name}: {stage_ru}"
+        first_seen = relation.get("first_seen")
+        try:
+            fs = int(first_seen)
+            fs_month = datetime.datetime.fromtimestamp(fs).strftime("%Y-%m")
+        except (TypeError, ValueError, OSError, OverflowError):
+            fs_month = None
+        if fs_month:
+            line = f"{line}, в чате с {fs_month}"
+        msg30 = int(relation.get("msg30") or 0)
+        line = f"{line}, {msg30} сообщ. за 30 дней"
+        note = relation.get("note")
+        if note:
+            line = f"{line} | пометка: {escape_xml_text(str(note))}"
+        opening, closing = "<user_relations>", "</user_relations>"
+        cap = int(hot.get("limits.relations_inject_max_chars",
+                          settings.RELATIONS_INJECT_MAX_CHARS) or 0) \
+            or 600
+        if len(opening) + len(line) + len(closing) > cap:
+            room = max(0, cap - len(opening) - len(closing)
+                       - len(_RELATIONS_CUT_MARKER))
+            line = line[:room].rstrip() + _RELATIONS_CUT_MARKER
+        return f"{opening}{line}{closing}"
 
     # ── Раунд 8: memorize-хук с пост-фазой атрибуции (C6/T-797) ──
 
@@ -796,12 +902,15 @@ class DirectChatService:
         """Доли CHAT_CONTEXT_BUDGET_TOKENS (Раунд 8, B2/D2/T-791/T-799,
         spec §3.B2): map/rag/global/thread/anchors + новая доля branch (0.03)
         — от effective_budget = max(1, budget − fixed_tokens), где fixed =
-        неприкосновенные kinds: target, protected, lore, current, sandwich
-        (вне per-block лимитов и вне порядка урезания). mood делит долю
-        target на той же effective-базе (как раньше) и в общем цикле не
+        неприкосновенные kinds: target, protected, lore, current, sandwich,
+        relations (раунд 9, T-819: relations в uncuttable — spec §3.1.4/Q3;
+        защита от раздувания — кап limits.relations_inject_max_chars ДО
+        инжекта) (вне per-block лимитов и вне порядка урезания). mood делит
+        долю target на той же effective-базе (как раньше) и в общем цикле не
         участвует. Порядок урезания при превышении ОБЩЕГО бюджета (новая
         важность, D2/E1): Style_Anchors → RAG → Thread → Global(keep-head:
-        конспект-голова держится, режется конец) → Map (карта — последняя).
+        конспект-голова держится, режется конец) → Map → Nostalgia-маркер
+        (E1/T-826: участвует последним — маленький фикс-кап до инжекта).
         Выключено → ровно старые потолки секций (64.7)."""
         # T-619: бюджеты — горячие точки (фолбек settings)
         if not hot.get("flags.chat_context_budgets_enabled",
@@ -809,7 +918,8 @@ class DirectChatService:
             return [text for _, text in blocks]
         budget = hot.get("limits.chat_context_budget_tokens",
                          settings.CHAT_CONTEXT_BUDGET_TOKENS)
-        uncuttable = ("target", "protected", "lore", "current", "sandwich")
+        uncuttable = ("target", "relations", "protected", "lore", "current",
+                      "sandwich")
         fixed_tokens = sum(count_tokens(text) for kind, text in blocks
                            if kind in uncuttable)
         effective = max(1, budget - fixed_tokens)

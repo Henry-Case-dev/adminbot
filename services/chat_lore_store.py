@@ -22,8 +22,9 @@
 текущий updated_at = None). Пул отсутствует (PG down) → `ChatLorePgUnavailable`
 (fail-open решается уровнем выше).
 """
+import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from services.lore_cache import LoreProfile
 
@@ -31,9 +32,12 @@ logger = logging.getLogger(__name__)
 
 # ── SQL (идемпотентные, параметризованные; $N — позиционные аргументы) ──────
 
+# Раунд 9 (T-818): + relations (JSONB-карта ручных стадий/заметок, Q1) и
+# relations_enabled (per-chat тумблер тона по стадиям, D-3).
 _PROFILE_COLS = (
     "chat_id", "manual_lore", "auto_lore", "auto_enabled", "auto_period_hours",
     "auto_window_hours", "is_active", "last_auto_at", "updated_at",
+    "relations", "relations_enabled",
 )
 _PROFILE_SELECT = "SELECT {cols} FROM chat_profiles WHERE chat_id = $1"
 
@@ -80,6 +84,29 @@ INSERT_HISTORY_SQL = (
 )
 
 NOTIFY_SQL = "SELECT pg_notify('lore_updated', $1)"
+
+# Раунд 9 (T-818): relations — Python-merge + UPDATE целиком с optimistic-
+# меткой (spec §3.1.3: простое решение — без вложенного jsonb_set; история
+# правки — внутри JSONB-значения: updated_by/updated_at per user, D-2).
+SET_RELATIONS_SQL = (
+    "UPDATE chat_profiles SET relations = $2::jsonb, updated_at = now() "
+    "WHERE chat_id = $1 RETURNING *"
+)
+SET_RELATIONS_LOCKED_SQL = (
+    "UPDATE chat_profiles SET relations = $2::jsonb, updated_at = now() "
+    "WHERE chat_id = $1 AND updated_at = $3::timestamptz RETURNING *"
+)
+SET_RELATIONS_ENABLED_SQL = (
+    "UPDATE chat_profiles SET relations_enabled = $2, updated_at = now() "
+    "WHERE chat_id = $1 RETURNING *"
+)
+SET_RELATIONS_ENABLED_LOCKED_SQL = (
+    "UPDATE chat_profiles SET relations_enabled = $2, updated_at = now() "
+    "WHERE chat_id = $1 AND updated_at = $3::timestamptz RETURNING *"
+)
+
+# Ручные стадии админа (spec §3.1.1/Q1: manual ?? auto в инжекте).
+MANUAL_STAGES = ("stranger", "acquaintance", "regular", "veteran")
 
 UPSERT_LINK_SQL = (
     "INSERT INTO chat_links (old_chat_id, new_chat_id) VALUES ($1, $2) "
@@ -189,6 +216,21 @@ def _parse_ts(value) -> datetime | None:
         raise ValueError(f"invalid updated_at timestamp: {value!r}") from exc
 
 
+def _load_relations(value) -> dict:
+    """JSONB relations → dict (пустой/нулевой/уже dict — как есть)."""
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str):
+        try:
+            loaded = json.loads(value)
+        except ValueError:
+            return {}
+        return loaded if isinstance(loaded, dict) else {}
+    return {}
+
+
 def _to_profile(row) -> LoreProfile:
     """Строка PG (asyncpg Record/dict) → frozen LoreProfile (метки ISO)."""
     return LoreProfile(
@@ -201,6 +243,8 @@ def _to_profile(row) -> LoreProfile:
         is_active=bool(row["is_active"]),
         last_auto_at=_iso(row.get("last_auto_at")),
         updated_at=_iso(row["updated_at"]),
+        relations=_load_relations(row.get("relations")),
+        relations_enabled=bool(row.get("relations_enabled") or False),
     )
 
 
@@ -431,19 +475,24 @@ class ChatLoreStore:
         self, chat_id: int, *, auto_enabled: bool | None = None,
         auto_period_hours: int | None = None,
         auto_window_hours: int | None = None,
+        relations_enabled: bool | None = None,
         changed_by: int | None = None,
         expected_updated_at: str | None = None,
     ) -> LoreProfile:
         """Частичное обновление настроек. История — ПО-ПОЛЕВОЙ строкой на
         каждое реально изменённое поле (field='auto_enabled'|'auto_period_hours'|
-        'auto_window_hours'). Ни одно поле не изменилось → ни UPDATE, ни
-        истории, ни NOTIFY (возврат текущего профиля). Optimistic-метка →
-        ChatLoreConflict."""
+        'auto_window_hours'). relations_enabled (раунд 9, D-3/§3.6.1) —
+        per-chat тумблер тона по стадиям: история НЕ пишется (D-2: CHECK
+        chat_lore_history.field не содержит 'relations_enabled'), аудит — как
+        у set_relations_enabled (БЕЗ истории; прецедент set_active/lifecycle).
+        Ни одно поле не изменилось → ни UPDATE, ни истории, ни NOTIFY
+        (возврат текущего профиля). Optimistic-метка → ChatLoreConflict."""
         pool = self._pool()
         candidates = (
             ("auto_enabled", auto_enabled),
             ("auto_period_hours", auto_period_hours),
             ("auto_window_hours", auto_window_hours),
+            ("relations_enabled", relations_enabled),
         )
         async with pool.acquire() as conn:
             async with conn.transaction():
@@ -486,11 +535,179 @@ class ChatLoreStore:
                         chat_id, _iso(current["updated_at"])
                         if current is not None else None)
                 for name, old_value, new_value in changed:
+                    if name == "relations_enabled":
+                        continue          # D-2: истории для тумблера нет
                     await conn.execute(
                         INSERT_HISTORY_SQL, chat_id, name, changed_by,
                         str(old_value), str(new_value))
                 await conn.execute(NOTIFY_SQL, str(chat_id))
         return _to_profile(updated)
+
+    # ── relations (Раунд 9, spec §3.1.3, T-818): manual-стадии/заметки ────
+    # JSONB-карта chat_profiles.relations: str(user_id) →
+    # {"manual_stage", "note", "updated_by", "updated_at"}. Все методы:
+    # резолв chat_id как у get_profile; пул нет → ChatLorePgUnavailable;
+    # профиля нет → GET пусто / PUT/DELETE/тумблер — ensure INSERT
+    # дефолтного профиля (spec §3.1.3), optimistic-метка по updated_at →
+    # 409 (ChatLoreConflict); NOTIFY lore_updated внутри транзакции.
+    # История field НЕ пишется (D-2: CHECK chat_lore_history не содержит
+    # 'relations') — аудит каждой правки внутри JSONB.
+
+    async def get_relations(self, chat_id: int) -> dict:
+        """Копия JSONB-карты отношений профиля; профиля нет → {} (fail-open)."""
+        pool = self._pool()
+        async with pool.acquire() as conn:
+            resolved = await self._resolve_on(conn, chat_id)
+            row = await conn.fetchrow(
+                _PROFILE_SELECT.format(cols="chat_id, relations"), resolved)
+        if row is None:
+            return {}
+        return _load_relations(row.get("relations"))
+
+    async def get_relation_manual(self, chat_id: int,
+                                  user_id: int) -> dict | None:
+        """Запись ручной пометки одного юзера ({manual_stage, note,
+        updated_by, updated_at}); нет профиля/юзера → None."""
+        relations = await self.get_relations(chat_id)
+        entry = relations.get(str(user_id))
+        if not isinstance(entry, dict):
+            return None
+        return dict(entry)
+
+    async def put_relation(
+        self, chat_id: int, user_id: int, *, stage: str | None = None,
+        note: str | None = None, expected_updated_at: str | None = None,
+        updated_by: int | None = None,
+    ) -> LoreProfile:
+        """Установить ручную пометку юзера (spec §3.1.3; Q1).
+
+        stage: 'stranger'|'acquaintance'|'regular'|'veteran' → manual_stage;
+        'auto'/None → ручная стадия сбрасывается (manual_stage=null). Ключ
+        юзера удаляется целиком (сброс на авто, и стадия, и заметка), когда
+        stage в (None, 'auto') И note пуст. Python-merge + UPDATE целиком
+        с optimistic-WHERE (expected_updated_at) в транзакции; 0 строк →
+        ChatLoreConflict(chat_id, current_updated_at). NOTIFY. Возврат —
+        обновлённый профиль."""
+        return await self._put_relation(
+            chat_id, user_id, stage=stage, note=note,
+            expected_updated_at=expected_updated_at, updated_by=updated_by)
+
+    async def _put_relation(
+        self, chat_id: int, user_id: int, *, stage: str | None,
+        note: str | None, expected_updated_at: str | None,
+        updated_by: int | None) -> LoreProfile:
+        pool = self._pool()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                resolved = await self._resolve_on(conn, chat_id)
+                old = await conn.fetchrow(
+                    _PROFILE_SELECT.format(cols=", ".join(_PROFILE_COLS)),
+                    resolved)
+                if old is None:
+                    # ensure_profile-семантика (spec §3.1.3): INSERT дефолтного
+                    # профиля (auto-лор-эффектов не создаёт), затем запись.
+                    await conn.execute(INSERT_DEFAULT_PROFILE, resolved)
+                    old = await conn.fetchrow(
+                        _PROFILE_SELECT.format(
+                            cols=", ".join(_PROFILE_COLS)), resolved)
+                    if old is None:
+                        raise ChatLoreConflict(chat_id, None)
+                profile = _to_profile(old)
+                relations = dict(profile.relations)
+                remove = (stage in (None, "auto") and not note)
+                if remove:
+                    relations.pop(str(user_id), None)
+                else:
+                    value: dict = {
+                        "manual_stage": stage
+                        if stage in MANUAL_STAGES else None,
+                        "note": note or None,
+                        "updated_by": updated_by,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    relations[str(user_id)] = value
+                row = await self._update_relations(
+                    conn, resolved, relations, expected_updated_at)
+                await conn.execute(NOTIFY_SQL, str(resolved))
+        return _to_profile(row)
+
+    async def delete_relation(self, chat_id: int, user_id: int, *,
+                              expected_updated_at: str | None = None,
+                              ) -> LoreProfile:
+        """Сброс юзера на авто: удаление ключа из relations (тот же
+        optimistic-паттерн; профиля нет → ChatLoreConflict)."""
+        return await self._put_relation(
+            chat_id, user_id, stage="auto", note=None,
+            expected_updated_at=expected_updated_at, updated_by=None)
+
+    async def set_relation_manual(self, chat_id: int, user_id: int, *,
+                                  stage_manual: str | None = None,
+                                  note: str | None = None,
+                                  changed_by: int | None = None,
+                                  expected_updated_at: str | None = None,
+                                  ) -> LoreProfile:
+        """Алиас put_relation (имя из сессии-ТЗ): stage_manual = stage,
+        changed_by = updated_by (telegram_id админа — в JSONB-аудит)."""
+        return await self._put_relation(
+            chat_id, user_id, stage=stage_manual, note=note,
+            expected_updated_at=expected_updated_at, updated_by=changed_by)
+
+    async def _update_relations(self, conn, chat_id: int, relations: dict,
+                                expected_updated_at: str | None):
+        """UPDATE chat_profiles.relations (Python-merge) с optimistic-меткой
+        и повторной проверкой конфликта при 0 строк."""
+        sql = SET_RELATIONS_LOCKED_SQL if expected_updated_at is not None \
+            else SET_RELATIONS_SQL
+        args: list = [chat_id, json.dumps(relations)]
+        if expected_updated_at is not None:
+            args.append(_parse_ts(expected_updated_at))
+        row = await conn.fetchrow(sql, *args)
+        if row is None:
+            current = await conn.fetchrow(
+                _PROFILE_SELECT.format(cols=", ".join(_PROFILE_COLS)),
+                chat_id)
+            raise ChatLoreConflict(
+                chat_id, _iso(current["updated_at"])
+                if current is not None else None)
+        return row
+
+    async def set_relations_enabled(self, chat_id: int, enabled: bool, *,
+                                    expected_updated_at: str | None = None,
+                                    ) -> LoreProfile:
+        """Per-chat тумблер тона по стадиям (колонка relations_enabled, D-3).
+        Optimistic по updated_at; БЕЗ истории (паттерн set_active/lifecycle);
+        NOTIFY. Профиля нет — ensure (INSERT дефолтного профиля), затем
+        optimistic-гейт (клиент с устаревшей меткой получит 409)."""
+        pool = self._pool()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                resolved = await self._resolve_on(conn, chat_id)
+                old = await conn.fetchrow(
+                    _PROFILE_SELECT.format(cols="chat_id, updated_at"),
+                    resolved)
+                if old is None:
+                    await conn.execute(INSERT_DEFAULT_PROFILE, resolved)
+                    old = await conn.fetchrow(
+                        _PROFILE_SELECT.format(cols="chat_id, updated_at"),
+                        resolved)
+                    if old is None:
+                        raise ChatLoreConflict(chat_id, None)
+                sql = SET_RELATIONS_ENABLED_LOCKED_SQL \
+                    if expected_updated_at is not None \
+                    else SET_RELATIONS_ENABLED_SQL
+                args: list = [resolved, bool(enabled)]
+                if expected_updated_at is not None:
+                    args.append(_parse_ts(expected_updated_at))
+                row = await conn.fetchrow(sql, *args)
+                if row is None:
+                    current = await conn.fetchrow(
+                        _PROFILE_SELECT.format(
+                            cols=", ".join(_PROFILE_COLS)), resolved)
+                    raise ChatLoreConflict(
+                        chat_id, _iso(current["updated_at"])
+                        if current is not None else None)
+                await conn.execute(NOTIFY_SQL, str(resolved))
+        return _to_profile(row)
 
     async def set_active(self, chat_id: int, is_active: bool) -> None:
         """Lifecycle-апсерт is_active (без истории, без optimistic-метки);

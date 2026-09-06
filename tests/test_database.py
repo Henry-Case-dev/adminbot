@@ -1259,3 +1259,14 @@ class TestQuotaVictimProtectE3(_PurgeSeedMixin):
         await db.db.commit()
         # квота превышена (3 >= 3), но все кандидаты защищены → None
         assert await db.get_quota_victim(-100, "вася", 3, now) is None
+    async def test_count_user_msg30_window(self, db):
+        chat, uid = -779, 10
+        now = int(time.time())
+        await db.db.executemany(
+            "INSERT INTO smart_messages (user_id, chat_id, timestamp, "
+            "media_type) VALUES (?, ?, ?, 'text')",
+            [(uid, chat, now - 5 * 86400), (uid, chat, now - 10 * 86400),
+             (uid, chat, now - 40 * 86400)])          # вне 30д-окна
+        await db.db.commit()
+        assert await db.count_user_msg30(chat, uid, now=now) == 2
+        assert await db.count_user_msg30(chat, 999, now=now) == 0

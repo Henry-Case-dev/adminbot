@@ -94,7 +94,7 @@ class GroupSpec:
     order: int         # порядок рендера ВНУТРИ категории (1, 2, 3...)
 
 
-# ── 84.24.2: реестр групп (66 шт.; покрытие параметров категорий) ────────────
+# ── 84.24.2: реестр групп (68 шт.; покрытие параметров категорий) ────────────
 GROUPS: tuple[GroupSpec, ...] = (
     # prompts (8)
     GroupSpec("prompts_factcheck", "prompts", "Фактчек",
@@ -189,6 +189,10 @@ GROUPS: tuple[GroupSpec, ...] = (
     # limits (21; раунд 7, T-776): лор чатов
     GroupSpec("limits_lore", "limits", "Лор чатов",
               "Авто-лор: пороги окна, генерация, инжект в контекст.", 21),
+    # limits (22; раунд 9, T-816/T-817): отношения (A-Life)
+    GroupSpec("limits_relations", "limits", "Отношения",
+              "Стадии участников: пороги msg/дней, decay, анти-откат, "
+              "пересчёт и капы инжекта.", 22),
     # flags (6)
     GroupSpec("flags_modules", "flags", "Модули (вкл/выкл)",
               "Рубильники функций бота целиком.", 1),
@@ -203,6 +207,9 @@ GROUPS: tuple[GroupSpec, ...] = (
     # flags (6; раунд 7, T-776): лор чатов
     GroupSpec("flags_lore", "flags", "Лор чатов",
               "Рубильники лора чатов: воркер, авто-генерация, инжект.", 6),
+    # flags (7; раунд 9, T-816/T-817): отношения (A-Life)
+    GroupSpec("flags_relations", "flags", "Отношения",
+              "Глобальный рубильник тона по стадиям участников.", 7),
     # reactions (13)
     GroupSpec("reactions_persons", "reactions", "Персоны (ID)",
               "Telegram ID Лехи, Костика, Славика, Оли и админа.", 1),
@@ -528,6 +535,11 @@ _FLAGS: list[tuple] = [
      "Разрешает авто-прогоны генерации лора по расписанию. Выключено — генерация только вручную («Сгенерировать сейчас»)."),
     ("LORE_INJECT_ENABLED", "Лор чатов: инжект в контекст", "flags_lore",
      "Добавляет блок лора в контекст прямого чата. Выключено — ровно старое поведение (SQLite-легаси)."),
+    # ── Раунд 9 (T-816/T-817, spec §3.6.4/Q12): отношения — рубильники ──
+    ("RELATIONS_TONE_ENABLED", "Отношения: тон по стадиям", "flags_relations",
+     "Глобальный рубильник тона по стадиям участников (блок <user_relations> "
+     "в контекст прямого чата). Выключено (дефолт) — 0 влияния на поведение; "
+     "per-chat включается колонкой relations_enabled профиля в «Лор чатов»."),
 ]
 
 # ── limits: числа/таймауты/кулдауны/бюджеты ─────────────────────────────────
@@ -835,6 +847,35 @@ _LIMITS: list[tuple] = [
      "Как часто фоновый воркер проверяет чаты на необходимость генерации, минут."),
     ("LORE_GENERATE_COOLDOWN", "Лор чатов: пауза между прогонами", "int", "limits_lore",
      "Минимальная пауза между генерациями одного чата, секунд (ручная генерация игнорирует)."),
+    # ── Раунд 9 (T-816/T-817, spec §3.6.4): отношения — пороги/периоды ──
+    ("RELATIONS_ACQUAINTANCE_MIN_MSG", "Знакомый: мин. сообщений", "int", "limits_relations",
+     "Порог msg_total для стадии acquaintance (в паре с мин. днями в чате)."),
+    ("RELATIONS_ACQUAINTANCE_MIN_DAYS", "Знакомый: мин. дней в чате", "int", "limits_relations",
+     "Порог дней с первого сообщения для acquaintance."),
+    ("RELATIONS_REGULAR_MIN_MSG", "Свой: мин. сообщений", "int", "limits_relations",
+     "Порог msg_total для стадии regular."),
+    ("RELATIONS_REGULAR_MIN_DAYS", "Свой: мин. дней в чате", "int", "limits_relations",
+     "Порог дней с первого сообщения для regular."),
+    ("RELATIONS_VETERAN_MIN_MSG", "Ветеран: мин. сообщений", "int", "limits_relations",
+     "Порог msg_total для стадии veteran (1000)."),
+    ("RELATIONS_VETERAN_MIN_DAYS", "Ветеран: мин. дней в чате", "int", "limits_relations",
+     "Порог дней с первого сообщения для veteran (365)."),
+    ("RELATIONS_HOLD_ABSENT_DAYS", "Держать стадию при отсутствии, дней", "int", "limits_relations",
+     "Отсутствие дольше этого срока — стадия НЕ понижается (падает только активность)."),
+    ("RELATIONS_STAGE_CHANGE_MIN_DAYS", "Понижение не чаще, дней", "int", "limits_relations",
+     "Минимальный интервал между понижениями стадии (анти-откат)."),
+    ("RELATIONS_DOWNGRADE_MSG_30D", "Понижение только при сообщений/30д", "int", "limits_relations",
+     "Понижение возможно, только если сообщений за 30 дней меньше порога."),
+    ("RELATIONS_DECAY_HALF_LIFE_DAYS", "Полураспад активности, дней", "int", "limits_relations",
+     "Период, за который вклад сообщения в activity_score падает вдвое."),
+    ("RELATIONS_RECALC_TTL_MINUTES", "Пересчёт карточек не чаще, минут", "int", "limits_relations",
+     "TTL ленивого пересчёта users_meta (по last_recalc_at)."),
+    ("RELATIONS_SCAN_MAX_ROWS", "Потолок строк окна скана", "int", "limits_relations",
+     "Строк окна decay > порога — окно сжимается вдвое (до 3 итераций)."),
+    ("RELATIONS_INJECT_MAX_CHARS", "Кап инжекта <user_relations>, символов", "int", "limits_relations",
+     "Потолок символов блока отношений в контексте (600; блок uncuttable бюджетом)."),
+    ("RELATIONS_API_MAX_USERS", "Потолок юзеров API-списка", "int", "limits_relations",
+     "Лимит refresh/GET relations без явного списка (топ по активности)."),
 ]
 
 # ── reactions: id-списки, слова, пути, названия (не секреты) ────────────────
