@@ -246,6 +246,10 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("memory_infinite", "memory", "Бессрочное хранение",
               "Хранение памяти без сроков годности: сырьё и факты не удаляются "
               "и не сжимаются по TTL/ретенции (для исторического импорта).", 1),
+    # memory (2; раунд 9, T-824/T-825, spec §3.6.4/Q11): «сон» (beliefs)
+    GroupSpec("memory_dream", "memory", "Синтез (сон)",
+              "DreamWorker: рубильник, окно сна, пороги кластеров и суточные "
+              "бюджеты дистилляций/токенов (денежный лимит).", 2),
 )
 
 
@@ -988,6 +992,58 @@ _MEMORY: list[tuple] = [
      "memory_infinite",
      "Отключает сжатие/удаление сырья и TTL-очистки памяти: всё хранится "
      "бессрочно (импорт истории)."),
+    # ── Раунд 9 (T-824/T-825, spec §3.6.4): «сон» (группа memory_dream) ──
+    # dotted-ключи memory.dream_* (прецедент memory.infinite_retention);
+    # дефолты консервативные (Q12: dream_enabled off).
+    ("DREAM_ENABLED", "Сон: синтез убеждений (DreamWorker)", "bool",
+     "memory_dream",
+     "Рубильник фонового DreamWorker: из повторяющихся фактов чата модель "
+     "делает устойчивые убеждения (beliefs). Выключено (дефолт) — тик не "
+     "регистрируется, 0 влияния."),
+    ("DREAM_TICK_MINUTES", "Сон: период тика, минут", "int", "memory_dream",
+     "Как часто воркер проверяет чаты на новые факты (60; часовой тик — "
+     "первая проверка внутри окна дистилляций 4-6 local даёт «сон» при "
+     "старте в любое время суток)."),
+    ("DREAM_WINDOW_START_HOUR", "Сон: окно дистилляций с (час local)", "int",
+     "memory_dream",
+     "Дистилляции (LLM-деньги) только в local-часы [start, end); вне окна "
+     "тик делает бесплатную кластеризацию (4)."),
+    ("DREAM_WINDOW_END_HOUR", "Сон: окно дистилляций до (час local)", "int",
+     "memory_dream",
+     "Конец окна дистилляций (6)."),
+    ("DREAM_INITIAL_WINDOW_HOURS", "Сон: окно прогрева, часов", "int",
+     "memory_dream",
+     "Первый «сон» чата без watermark берёт факты за этот период (168 = "
+     "неделя — история импорта не захлёбывает первый прогон)."),
+    ("DREAM_MIN_NEW_FACTS_PER_CHAT", "Сон: мин. новых фактов для чата", "int",
+     "memory_dream",
+     "Чат-кандидат тика — только при новых фактах не меньше порога (5)."),
+    ("DREAM_MAX_CHATS_PER_RUN", "Сон: максимум чатов за тик", "int",
+     "memory_dream",
+     "Потолок чатов одного тика (10), топ по числу новых фактов."),
+    ("DREAM_QUIET_CHECK_MINUTES", "Сон: тишина перед тиком, минут", "int",
+     "memory_dream",
+     "«Не пик»: чат с сообщениями за последние N минут пропускается (30)."),
+    ("DREAM_CLUSTER_OVERLAP_TOKENS", "Сон: общих токенов для кластера", "int",
+     "memory_dream",
+     "Жадная кластеризация: факт входит в первый кластер с N общими "
+     "значимыми токенами/именами (2)."),
+    ("DREAM_REPEAT_THRESHOLD", "Сон: повторяемость кластера (членов)", "int",
+     "memory_dream",
+     "Кластер идёт в дистилляцию при членах не меньше порога (3)."),
+    ("DREAM_IMPORTANCE_SUM_THRESHOLD", "Сон: Σ важности кластера", "int",
+     "memory_dream",
+     "Кластер идёт в дистилляцию при сумме importance не меньше порога (12)."),
+    ("DREAM_MAX_CLUSTERS_PER_RUN", "Сон: кластеров в дистилляцию за тик",
+     "int", "memory_dream",
+     "Потолок кластеров на тик (5), топ по сумме важности."),
+    ("DREAM_DISTILLATIONS_PER_DAY", "Сон: дистилляций в сутки", "int",
+     "memory_dream",
+     "Глобальный суточный лимит успешных синтезов (30; по memory_dream_log)."),
+    ("DREAM_TOKENS_PER_DAY", "Сон: токенов в сутки (денежный)", "int",
+     "memory_dream",
+     "Глобальный суточный бюджет оценки токенов LLM-вызовов (60000; "
+     "max(1, len/4) промпта+ответа, сумма по memory_dream_log)."),
 ]
 
 
@@ -1046,7 +1102,7 @@ def _build_registry() -> dict[str, ParamSpec]:
     for field, title, typ, group, desc in _MEMORY:
         add(ParamSpec(field, field, CATEGORY_MEMORY, title, typ,
                       group=group, description=desc,
-                      pg_id=f"{CATEGORY_MEMORY}.infinite_retention"))
+                      pg_id=f"{CATEGORY_MEMORY}.{field.lower()}"))
     return registry
 
 

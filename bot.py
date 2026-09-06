@@ -112,6 +112,8 @@ from services.lore_runtime import (
 )
 from services.lore_worker import LoreWorker
 from handlers.chat_lifecycle import chat_lifecycle_router, setup_chat_lifecycle
+# ── Раунд 9: DreamWorker («сон», beliefs) — вне summary-гейта (T-824/T-825)
+from services.dream_worker import DreamWorker
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -195,6 +197,9 @@ _shared_video_downloader = None
 # и авто-воркер лора чатов (PG-профили; B5).
 _lore_notify = None
 _lore_worker = None
+# Раунд 9 (AGI Memory, T-824/T-825) — refs for on_shutdown: DreamWorker
+# («сон», beliefs из повторяющихся фактов; SQLite-состояние).
+_dream_worker = None
 
 
 async def on_startup():
@@ -485,6 +490,32 @@ async def on_startup():
                 "[lore] worker init failed — fail-open (PG-лор выключен)",
                 exc_info=True)
 
+    # ── Раунд 9 (AGI Memory, spec §3.4.1, T-824/T-825): DreamWorker («сон»).
+    # Вне summary-гейта, как LoreWorker: при выключенном summary — свой
+    # LLMClient (образец выше), memory=None (beliefs живут текстом+FTS —
+    # эмбеддинг деградирует как в бою). Джоб регистрируется ТОЛЬКО при
+    # memory.dream_enabled (default false); ручной run_once работает всегда.
+    # Fail-open: ошибка инициализации → WARNING, бот жив.
+    global _dream_worker
+    _dream_worker = None
+    try:
+        dream_llm = _llm_client or LLMClient(
+            hot.get("models.llm_base_url", settings.LLM_BASE_URL),
+            hot.get("keys.llm_api_key", settings.LLM_API_KEY),
+            hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
+            hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+        )
+        if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
+            _dream_worker = DreamWorker(db, memory=memory, llm=dream_llm)
+        else:
+            _dream_worker = DreamWorker(db, memory=None, llm=dream_llm)
+        _dream_worker.start()
+        logger.info("DreamWorker (раунд 9) initialized")
+    except Exception:
+        logger.warning(
+            "[dream] worker init failed — fail-open (сон выключен)",
+            exc_info=True)
+
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
     global _goodmorning_scheduler
     goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=hot.get("reactions.goodmorning_media_dir", settings.GOODMORNING_MEDIA_DIR))
@@ -648,6 +679,8 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup resources on bot shutdown."""
     logger.info("Bot shutting down...")
+    if _dream_worker:
+        await _dream_worker.stop()
     if _lore_worker:
         await _lore_worker.stop()
     if _lore_notify:

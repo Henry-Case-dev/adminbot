@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import time
 import pytest
-from services.database import DatabaseService
+from services.database import DatabaseService, rule_importance
 
 
 @pytest.fixture
@@ -502,14 +502,15 @@ def _create_v2_db(path):
 class TestEpic60V3Migration:
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
-        """63.6 #1 + раунды 3/4/5 + фаза 2: PRAGMA user_version == 7 (Epic 46
-        → 1, Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4, раунд 4:
-        user_memory-origins CHECK → 5, раунд 5: protected_facts chat-level
-        (user_name NULL) → 6, фаза 2: message_timestamp/history_import →
-        7)."""
+        """63.6 #1 + раунды 3/4/5 + фазы 2/раунд 9: PRAGMA user_version == 8
+        (Epic 46 → 1, Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4,
+        раунд 4: user_memory-origins CHECK → 5, раунд 5: protected_facts
+        chat-level (user_name NULL) → 6, фаза 2: message_timestamp/
+        history_import → 7, раунд 9 (AGI Memory): importance/kind →
+        8)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 7
+        assert row[0] == 8
 
     @pytest.mark.asyncio
     async def test_v3_tables_created(self, db):
@@ -552,13 +553,13 @@ class TestEpic60V3Migration:
         assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7     # каскад 3→7 (v5/v6/v7)
+        assert (await cursor.fetchone())[0] == 8     # каскад 3→8 (v4..v8)
         await d.close()
 
     @pytest.mark.asyncio
     async def test_reinitialize_is_idempotent_stays_3(self, tmp_path):
-        """63.6 #1/#4 + раунды 3-5 + фаза 2: повторный initialize — no-op
-        (user_version остаётся 7, данные не задвоены)."""
+        """63.6 #1/#4 + раунды 3-5 + фазы 2/раунд 9: повторный initialize —
+        no-op (user_version остаётся 8, данные не задвоены)."""
         path = tmp_path / "reinit.db"
         _create_v2_db(path)
         d = DatabaseService(str(path))
@@ -566,7 +567,7 @@ class TestEpic60V3Migration:
         await d.close()
         await d.initialize()                       # «рестарт»
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
@@ -653,7 +654,8 @@ class TestBotRepliesTable:
 
 class TestBotReplyParentsTable:
     """D3/T-800: parent-линк «бот-ответ → сообщение» — тот же паттерн
-    TTL+LRU, что bot_replies; user_version остаётся 7 (NFR-4)."""
+    TTL+LRU, что bot_replies; аддитивная таблица НЕ поднимает user_version
+    (текущая версия схемы после раунда 9 — 8, AGI Memory v8)."""
 
     @pytest.mark.asyncio
     async def test_shape(self, db):
@@ -662,7 +664,7 @@ class TestBotReplyParentsTable:
         assert set(cols) == {"chat_id", "tg_message_id",
                              "parent_tg_message_id", "last_used_at"}
         cursor = await db.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7     # v8 НЕ вводится
+        assert (await cursor.fetchone())[0] == 8     # v8 (AGI Memory)
 
     @pytest.mark.asyncio
     async def test_set_and_get_roundtrip(self, db):
@@ -783,8 +785,9 @@ def _create_v3_db(path):
 
 class TestVideoOriginsMigrationV4:
     """3.6/B7 (T-693, AC-B9): старая схема → v4 с сохранением id/весов;
-    INSERT voice_transcript/video_transcript успешен; user_version=6 (каскад
-    v4→v5 раунда 4, T-713 → v6 раунда 5, T-731); повторный запуск no-op;
+    INSERT voice_transcript/video_transcript успешен; user_version=8 (каскад
+    v4→v5 раунда 4, T-713 → v6 раунда 5, T-731 → v7 фаза 2 → v8 раунд 9);
+    повторный запуск no-op;
     факт виден в get_rag_context."""
 
     @pytest.mark.asyncio
@@ -795,7 +798,7 @@ class TestVideoOriginsMigrationV4:
         await d.initialize()
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
         # schema содержит новые origins
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
@@ -844,7 +847,7 @@ class TestVideoOriginsMigrationV4:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7    # каскад до v7 (раунды 4/5 + фаза 2)
+        assert (await cursor.fetchone())[0] == 8    # каскад до v8 (раунд 9)
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # данные не задвоены
         await d.close()
@@ -924,9 +927,9 @@ class TestChatProtectedFactsV6Migration:
             "SELECT name FROM sqlite_master WHERE type='index' "
             "AND name='idx_protected_facts_chat_level'")
         assert (await cursor.fetchone()) is not None
-        # PRAGMA user_version = 7 (каскад v5→v6→v7)
+        # PRAGMA user_version = 8 (каскад v5→v6→v7→v8)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
         await d.close()
 
     @pytest.mark.asyncio
@@ -973,7 +976,7 @@ class TestChatProtectedFactsV6Migration:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM protected_facts")
         assert (await cursor.fetchone())["c"] == 2  # строки не задвоены
         await d.close()
@@ -1021,13 +1024,15 @@ class TestSummaryLevelsTable:
     уровней; чтение L1 (chat_running_summary) без TTL-смерти (E4/T-806)."""
 
     @pytest.mark.asyncio
-    async def test_round8_tables_created_and_version_stays_7(self, db):
+    async def test_round8_tables_created_and_version_is_8(self, db):
+        """Раунд 8-таблицы аддитивны; версия схемы — 8 (AGI Memory v8,
+        раунд 9; сами аддитивные таблицы user_version НЕ поднимают)."""
         cursor = await db.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")
-        tables = {r["name"] async for r in cursor}
+        tables = {row["name"] async for row in cursor}
         assert {"bot_reply_parents", "chat_summary_levels"} <= tables
         cursor = await db.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
 
     @pytest.mark.asyncio
     async def test_level_upsert_and_get_roundtrip(self, db):
@@ -1259,6 +1264,249 @@ class TestQuotaVictimProtectE3(_PurgeSeedMixin):
         await db.db.commit()
         # квота превышена (3 >= 3), но все кандидаты защищены → None
         assert await db.get_quota_victim(-100, "вася", 3, now) is None
+
+
+# ── Раунд 9 (AGI Memory, spec §3.3.1/§3.3.2, T-822/T-823): миграция v8 ────
+
+# Точная v7-схема graph_facts (после фазы 2): 9 origins, БЕЗ v8-колонок.
+_V7_GRAPH_FACTS_DDL = """CREATE TABLE graph_facts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL,
+    fact TEXT NOT NULL,
+    origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN
+    ('chat_history', 'search_fact', 'youtube_content', 'web_content',
+     'bot_direct_reply', 'voice_transcript', 'video_transcript',
+     'user_memory', 'history_import')),
+    expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT,
+    weight REAL NOT NULL DEFAULT 0.5,
+    status TEXT NOT NULL DEFAULT 'confirmed',
+    last_confirmed_at INTEGER, supersedes INTEGER,
+    message_timestamp INTEGER
+);"""
+
+
+def _create_v7_db(path):
+    """v7-фикстура (раунд 9): факты разных origins/длин с FTS-строками,
+    user_version = 7 (миграция v8 — последняя ступень каскада)."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(path))
+    conn.executescript(_V7_GRAPH_FACTS_DDL + """
+        CREATE VIRTUAL TABLE graph_facts_fts USING fts5(
+            fact, content='graph_facts', content_rowid='id', tokenize='unicode61');
+        CREATE INDEX idx_graph_facts_chat_origin ON graph_facts(chat_id, origin);
+        CREATE INDEX idx_graph_facts_target_user ON graph_facts(chat_id, target_user);
+        CREATE UNIQUE INDEX idx_graph_facts_history_import
+            ON graph_facts(chat_id, fact, message_timestamp)
+            WHERE origin='history_import' AND message_timestamp IS NOT NULL;
+    """)
+    conn.execute(
+        "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+        "created_at, target_user, weight, status, last_confirmed_at, "
+        "supersedes, message_timestamp) VALUES "
+        "(7, -100, 'вася переехал в москву', 'chat_history', NULL, "
+        "1700000000, 'вася', 0.7, 'confirmed', 1700000000, NULL, 1700000000),"
+        "(8, -100, 'вася переехал в москву ' || 'очень длинное продолжение "
+        "истории про переезд и ремонт новой квартиры у метро, которую вася "
+        "долго выбирал и обставлял мебелью ' || 'и ещё одно очень длинное "
+        "продолжение истории про переезд и ремонт новой квартиры у метро, "
+        "которую вася долго выбирал и обставлял мебелью', 'chat_history', "
+        "NULL, 1700000000, 'вася', 0.7, 'confirmed', 1700000000, NULL, "
+        "1700000000),"
+        "(9, -100, 'петя не любит кошек', 'user_memory', NULL, 1700000000, "
+        "'петя', 1.0, 'confirmed', 1700000000, NULL, NULL)")
+    conn.execute(
+        "INSERT INTO graph_facts_fts(rowid, fact) SELECT id, fact FROM "
+        "graph_facts")
+    conn.execute("PRAGMA user_version = 7")
+    conn.commit()
+    conn.close()
+
+
+class TestAgiMemoryV8Migration:
+    """D1/T-822 (spec §3.3.1/FR-8, AC-3): v7 → v8 — rebuild graph_facts с
+    сохранением id/данных (FTS5 валиден без пересоздания), новые колонки
+    с дефолтами, CHECK включает derived_belief, backfill importance по
+    правилу [1..10], индексы chat_kind/beliefs, PRAGMA=8, повтор — no-op."""
+
+    @pytest.mark.asyncio
+    async def test_v7_db_migrates_preserving_rows_fts_and_columns(
+            self, tmp_path):
+        path = tmp_path / "v7.db"
+        _create_v7_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+
+        # данные сохранены, id целы
+        cursor = await d.db.execute(
+            "SELECT id, fact, origin, importance, kind, source_ids, "
+            "belief_meta, message_timestamp FROM graph_facts ORDER BY id")
+        rows = await cursor.fetchall()
+        assert [(r["id"], r["origin"]) for r in rows] == \
+            [(7, "chat_history"), (8, "chat_history"), (9, "user_memory")]
+        assert rows[0]["fact"] == "вася переехал в москву"
+        assert len(rows[1]["fact"]) >= 200          # длинный факт (8)
+        # новые колонки: дефолт kind='fact', importance по backfill-правилу
+        # (chat_history=4; длинный текст (8) +1 → 5; user_memory=6)
+        assert [(r["kind"], r["importance"]) for r in rows] == \
+            [("fact", 4), ("fact", 5), ("fact", 6)]
+        assert all(r["source_ids"] is None for r in rows)
+        assert all(r["belief_meta"] is None for r in rows)
+        assert rows[0]["message_timestamp"] == 1700000000  # v7-колонка цела
+        # CHECK origin расширен
+        cursor = await d.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            "AND name='graph_facts'")
+        sql = (await cursor.fetchone())["sql"]
+        assert "derived_belief" in sql
+        assert "kind IN ('fact','belief')" in sql
+        # индексы v8
+        cursor = await d.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
+            "('idx_graph_facts_chat_kind', 'idx_graph_facts_beliefs', "
+            "'idx_graph_facts_history_import')")
+        names = {r["name"] for r in await cursor.fetchall()}
+        assert {"idx_graph_facts_chat_kind", "idx_graph_facts_beliefs",
+                "idx_graph_facts_history_import"} <= names
+        # FTS валиден БЕЗ пересоздания (rowid сохранены)
+        found = await d.search_graph_facts_fts(
+            -100, '"москву"*', 5, 2_000_000_000)
+        assert any(r["id"] == 7 for r in found)
+        # PRAGMA user_version = 8
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 8
+        # v8-origin проходит CHECK (после rebuild)
+        fid = await d.insert_graph_fact(
+            -100, "вася всегда платит за всех в баре", "derived_belief", None,
+            weight=0.6, importance=9, kind="belief", source_ids="[7,8]",
+            belief_meta='{"cluster_id": 1}')
+        cursor = await d.db.execute(
+            "SELECT kind, importance, weight, source_ids FROM graph_facts "
+            "WHERE id = ?", (fid,))
+        row = await cursor.fetchone()
+        assert row["kind"] == "belief"
+        assert row["importance"] == 9
+        assert row["weight"] == 0.6
+        assert row["source_ids"] == "[7,8]"
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_reinitialize_v8_is_noop(self, tmp_path):
+        path = tmp_path / "v7b.db"
+        _create_v7_db(path)
+        d = DatabaseService(str(path))
+        await d.initialize()
+        await d.close()
+        await d.initialize()                        # «рестарт» — no-op
+        cursor = await d.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 8
+        cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        assert (await cursor.fetchone())["c"] == 3  # строки не задвоены
+        cursor = await d.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            "AND name='graph_facts'")
+        assert "importance" in (await cursor.fetchone())["sql"]
+        await d.close()
+
+    @pytest.mark.asyncio
+    async def test_v8_fresh_db_has_dream_tables(self, db):
+        """Аддитивные dream_state/memory_dream_log — CREATE IF NOT EXISTS в
+        init (user_version НЕ поднимается сверх 8)."""
+        cursor = await db.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
+            "('dream_state', 'memory_dream_log')")
+        assert {r["name"] for r in await cursor.fetchall()} == \
+            {"dream_state", "memory_dream_log"}
+        cursor = await db.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == 8
+        cursor = await db.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            "AND name='dream_state'")
+        assert "last_processed_fact_id" in (await cursor.fetchone())["sql"]
+
+    @pytest.mark.asyncio
+    async def test_dream_state_and_log_roundtrip(self, db):
+        await db.set_dream_state(-100, last_run_at=1000,
+                                 last_processed_fact_id=42)
+        state = await db.get_dream_state(-100)
+        assert state["last_run_at"] == 1000
+        assert state["last_processed_fact_id"] == 42
+        await db.set_dream_state(-100, last_run_at=2000,
+                                 last_processed_fact_id=99)   # upsert
+        state = await db.get_dream_state(-100)
+        assert (state["last_run_at"], state["last_processed_fact_id"]) == \
+            (2000, 99)
+        assert await db.get_dream_state(-200) is None
+        log_id = await db.log_dream_event(
+            -100, 2000, kind="distilled", cluster_id=1, source_ids="[7,8]",
+            belief_id=50, tokens=120, status="ok")
+        assert log_id > 0
+        assert await db.count_dream_log(1500, kind="distilled") == 1
+        assert await db.count_dream_log(2001, kind="distilled") == 0
+        assert await db.sum_dream_log_tokens(1500) == 120
+        cursor = await db.db.execute(
+            "SELECT status, belief_id FROM memory_dream_log WHERE id = ?",
+            (log_id,))
+        row = await cursor.fetchone()
+        assert (row["status"], row["belief_id"]) == ("ok", 50)
+
+    @pytest.mark.asyncio
+    async def test_rule_importance_boundaries(self):
+        """D2/T-823 (spec §3.3.2): база по origin + бонусы, clamp 1..10."""
+        assert rule_importance("user_memory", "короткий") == 6
+        assert rule_importance("chat_history", "короткий") == 4
+        assert rule_importance("history_import", "короткий") == 2
+        assert rule_importance("bot_direct_reply", "короткий") == 3
+        assert rule_importance("voice_transcript", "короткий") == 2
+        assert rule_importance("search_fact", "короткий") == 3
+        assert rule_importance("youtube_content", "короткий") == 3
+        # +1 год (regex \b(19|20)\d{2}\b)
+        assert rule_importance("chat_history", "в 2024 году всё было иначе") == 5
+        # +1 число ≥ 3 цифр
+        assert rule_importance("chat_history", "номер 987654") == 5
+        # +1 длина ≥ 200 символов (только длина)
+        assert rule_importance("history_import", "x" * 300) == 3
+        # бонусы суммируются (база 6 + год/число + длина = максимум правила 8)
+        assert rule_importance("user_memory", "код 123456 " + "z" * 500) == 8
+        assert rule_importance("chat_history", "в 2024 году " + "y" * 300) == 6
+        # никогда не 0 (неизвестный origin — clamp снизу 1)
+        assert rule_importance("derived_belief", "обычный текст") == 1
+        assert rule_importance("", "") == 1
+
+    @pytest.mark.asyncio
+    async def test_insert_graph_fact_writes_importance_defaults(self, db):
+        """D2: importance None → правило (никогда не 0); kind/дефолты."""
+        fid = await db.insert_graph_fact(-100, "вася любит борщ",
+                                         "chat_history", None)
+        cursor = await db.db.execute(
+            "SELECT importance, kind, source_ids, belief_meta FROM "
+            "graph_facts WHERE id = ?", (fid,))
+        row = await cursor.fetchone()
+        assert row["importance"] == 4
+        assert row["kind"] == "fact"
+        assert row["source_ids"] is None
+        assert row["belief_meta"] is None
+        # явные значения — clamp 1..10
+        fid2 = await db.insert_graph_fact(
+            -100, "убеждение о васe", "derived_belief", None,
+            importance=999, kind="belief", source_ids="[]",
+            belief_meta='{"a":1}')
+        cursor = await db.db.execute(
+            "SELECT importance, kind FROM graph_facts WHERE id = ?", (fid2,))
+        row = await cursor.fetchone()
+        assert row["importance"] == 10
+        assert row["kind"] == "belief"
+        # FTS-строка пишется как раньше (belief участвует в поиске)
+        found = await db.search_graph_facts_fts(-100, '"убеждение"*', 5,
+                                                int(time.time()) + 1)
+        assert any(r["id"] == fid2 for r in found)
+
+    @pytest.mark.asyncio
+    async def test_origin_labels_include_derived_belief(self):
+        """spec §3.4.7: метка direct-рендера beliefs."""
+        from services.summary_memory import _ORIGIN_LABELS
+        assert _ORIGIN_LABELS["derived_belief"] == "убеждение"
+
+
 class TestDigGraphNames:
     """Фикс-раунд (major-2, spec §3.2.1 п.4): имена из графа для
     dig_into_lore — BFS по nodes/edges + фолбэк target_user."""

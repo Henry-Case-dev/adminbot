@@ -50,6 +50,9 @@ _SCHEMA_VERSION_USER_MEMORY = 5  # Раунд 4 (T-713, 3.4.3): user_version 4�
 _SCHEMA_VERSION_CHAT_PROTECTED_FACTS = 6  # Раунд 5 (T-731, 3.2.1): 5→6
 _SCHEMA_VERSION_HISTORY_IMPORT = 7  # Фаза 2 (T-758): 6→7 (message_timestamp +
                                     # history_import + smart_messages.import_key)
+_SCHEMA_VERSION_AGI_MEMORY = 8  # Раунд 9 (T-822, spec §3.3.1): 7→8 —
+                                # graph_facts rebuild (importance/source_ids/
+                                # kind/belief_meta + origin 'derived_belief')
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -59,11 +62,43 @@ _SCHEMA_VERSION_HISTORY_IMPORT = 7  # Фаза 2 (T-758): 6→7 (message_timesta
 # создаются — см. spec 3.4.3 п.5).
 # history_import (фаза 2, T-758): импортированные GraphRAG-факты истории —
 # вес 0.3, expires_at NULL (вечно), message_timestamp = дата сообщения.
+# derived_belief (раунд 9, T-822, spec §3.3.1): убеждения DreamWorker
+# («сон») — единый CHECK; вступает в силу при rebuild graph_facts (v8).
 _GRAPH_FACT_ORIGINS_SQL = (
     "('chat_history', 'search_fact', 'youtube_content', 'web_content', "
     "'bot_direct_reply', 'voice_transcript', 'video_transcript', 'user_memory', "
-    "'history_import')"
+    "'history_import', 'derived_belief')"
 )
+
+# Раунд 9 (AGI Memory, spec §3.3.2, T-823): importance-правило БЕЗ LLM на
+# записи фактов (единая точка — insert_graph_fact при importance=None).
+# База по origin (§3.3.2; derived_belief через правило НЕ ходит — DreamWorker
+# передаёт явный importance) + бонусы: +1 текст содержит год/число ≥3 цифр,
+# +1 длина ≥200 симв.; clamp 1..10 — записываемые факты никогда не 0 (Q8).
+_IMPORTANCE_BASE = {
+    "user_memory": 6,
+    "chat_history": 4,
+    "bot_direct_reply": 3,
+    "history_import": 2,
+    "voice_transcript": 2,
+    "video_transcript": 2,
+    "youtube_content": 3,
+    "web_content": 3,
+    "search_fact": 3,
+}
+_RE_YEAR_OR_NUM3 = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{3,}\b")
+
+
+def rule_importance(origin: str, fact: str) -> int:
+    """Правило важности §3.3.2: база по origin + бонусы (год/число ≥3 цифр,
+    длина ≥200 симв.), clamp 1..10. Чистая функция (тесты границ/дефолтов)."""
+    base = int(_IMPORTANCE_BASE.get(str(origin or ""), 0))
+    text = str(fact or "")
+    if _RE_YEAR_OR_NUM3.search(text):
+        base += 1
+    if len(text) >= 200:
+        base += 1
+    return max(1, min(10, base))
 
 _EDGE_WEIGHT_CAP = 5             # Epic 60 (66.3/T-459 тема 5): подтверждение
                                  # связи +инкремент, cap 5 — вес не растёт вечно
@@ -289,6 +324,34 @@ class DatabaseService:
         CREATE INDEX IF NOT EXISTS idx_users_meta_chat_last
             ON users_meta (chat_id, last_seen DESC);
 
+        -- ── Раунд 9 (AGI Memory, spec §3.4.1, T-824): «сон» — DreamWorker ──
+        -- Аддитивные структуры, user_version НЕ поднимается (RUNTIME WARNING;
+        -- образец bot_reply_parents выше). dream_state — watermark «сна» per
+        -- chat (PK chat_id; §3.4.2): last_run_at — unix ts последнего тика,
+        -- last_processed_fact_id — max обработанный graph_facts.id чата
+        -- (двигается только по успеху полного тик-батча чата).
+        CREATE TABLE IF NOT EXISTS dream_state (
+            chat_id INTEGER PRIMARY KEY,
+            last_run_at INTEGER,
+            last_processed_fact_id INTEGER NOT NULL DEFAULT 0
+        );
+        -- memory_dream_log — аудит «снов» (D-13): одна строка на тик-чат
+        -- (kind='run', cluster_id NULL) + одна строка на попытку дистилляции
+        -- (kind='distilled' | 'skipped' | 'error'); status:
+        -- 'ok'/'unchanged'/'error'/'window_skip'. tokens — оценка
+        -- max(1, len/4) промпта+ответа (денежный суточный бюджет §3.4.4
+        -- считается суммой по этой колонке за local-сутки).
+        CREATE TABLE IF NOT EXISTS memory_dream_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            run_at INTEGER NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'run',
+            cluster_id INTEGER,
+            source_ids TEXT,
+            belief_id INTEGER,
+            tokens INTEGER NOT NULL DEFAULT 0,
+            status TEXT
+        );
     """
     
     def __init__(self, db_path: str):
@@ -314,6 +377,7 @@ class DatabaseService:
         await self._migrate_user_memory_v5()   # Раунд 4 (T-713): user_version 4→5
         await self._migrate_chat_protected_facts_v6()  # Раунд 5 (T-731): 5→6
         await self._migrate_history_import_v7()  # Фаза 2 (T-758): 6→7
+        await self._migrate_agi_memory_v8()  # Раунд 9 (T-822): 7→8
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -739,6 +803,83 @@ class DatabaseService:
         # (в)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_HISTORY_IMPORT}")
+        await self.db.commit()
+
+    async def _migrate_agi_memory_v8(self) -> None:
+        """Раунд 9 (T-822, spec §3.3.1/FR-8, AC-3): user_version 7→8.
+
+        rebuild graph_facts по образцу _migrate_history_import_v7 (guard по
+        sqlite_master): 12 существующих колонок сохраняются + новые
+        `importance INTEGER NOT NULL DEFAULT 0`, `source_ids TEXT`,
+        `kind TEXT NOT NULL DEFAULT 'fact' CHECK(kind IN ('fact','belief'))`,
+        `belief_meta TEXT`; CHECK origin расширяется 'derived_belief'
+        (список _GRAPH_FACT_ORIGINS_SQL — единое место). id сохраняются —
+        FTS5 graph_facts_fts НЕ пересоздаётся (rowid валидны). После
+        INSERT…SELECT: backfill importance правилом §3.3.2 БЕЗ LLM (два
+        UPDATE: (а) база по origin CASE, (б) +1 при length(fact)>=200 c
+        MIN(10,…) — clamp); DROP legacy; индексы v7 повторяются + новые
+        idx_graph_facts_chat_kind (chat_id, kind) и частичный
+        idx_graph_facts_beliefs (chat_id) WHERE kind='belief'
+        (сон/ностальгия/API). PRAGMA user_version = 8. Повторный запуск —
+        no-op (guard: 'importance' уже в CREATE-тексте)."""
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "importance" not in row["sql"]:
+            logger.info(
+                "[database] migration v8: graph_facts rebuild "
+                "(importance/source_ids/kind/belief_meta + derived_belief)")
+            await self.db.executescript(
+                "ALTER TABLE graph_facts RENAME TO graph_facts_v8_legacy; "
+                "CREATE TABLE graph_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "fact TEXT NOT NULL, "
+                "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
+                + _GRAPH_FACT_ORIGINS_SQL + "), "
+                "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT, "
+                "weight REAL NOT NULL DEFAULT 0.5, "
+                "status TEXT NOT NULL DEFAULT 'confirmed', "
+                "last_confirmed_at INTEGER, supersedes INTEGER, "
+                "message_timestamp INTEGER, "
+                "importance INTEGER NOT NULL DEFAULT 0, "
+                "source_ids TEXT, "
+                "kind TEXT NOT NULL DEFAULT 'fact' "
+                "CHECK (kind IN ('fact','belief')), "
+                "belief_meta TEXT); "
+                "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+                "created_at, target_user, weight, status, last_confirmed_at, "
+                "supersedes, message_timestamp) "
+                "SELECT id, chat_id, fact, origin, expires_at, created_at, "
+                "target_user, weight, status, last_confirmed_at, supersedes, "
+                "message_timestamp FROM graph_facts_v8_legacy; "
+                "DROP TABLE graph_facts_v8_legacy; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin "
+                "ON graph_facts(chat_id, origin); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user "
+                "ON graph_facts(chat_id, target_user); "
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_graph_facts_history_import "
+                "ON graph_facts(chat_id, fact, message_timestamp) "
+                "WHERE origin='history_import' AND message_timestamp IS NOT NULL; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_kind "
+                "ON graph_facts(chat_id, kind); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_beliefs "
+                "ON graph_facts(chat_id) WHERE kind='belief';"
+            )
+            # (а) база по origin (§3.3.2); (б) +1 длина ≥200 (clamp MIN)
+            await self.db.execute(
+                "UPDATE graph_facts SET importance = CASE origin "
+                "WHEN 'user_memory' THEN 6 WHEN 'chat_history' THEN 4 "
+                "WHEN 'history_import' THEN 2 WHEN 'bot_direct_reply' THEN 3 "
+                "WHEN 'voice_transcript' THEN 2 WHEN 'video_transcript' THEN 2 "
+                "WHEN 'search_fact' THEN 3 WHEN 'youtube_content' THEN 3 "
+                "WHEN 'web_content' THEN 3 END")
+            await self.db.execute(
+                "UPDATE graph_facts SET importance = MIN(10, importance + 1) "
+                "WHERE length(fact) >= 200")
+            await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_AGI_MEMORY}")
         await self.db.commit()
 
     async def close(self) -> None:
@@ -1427,7 +1568,11 @@ class DatabaseService:
                                 target_user=None, status="confirmed",
                                 supersedes=None, weight=None,
                                 message_timestamp: int | None = None,
-                                or_ignore: bool = False) -> int:
+                                or_ignore: bool = False,
+                                importance: int | None = None,
+                                source_ids: str | None = None,
+                                kind: str | None = None,
+                                belief_meta: str | None = None) -> int:
         """Факт-строка (+FTS-индекс). Возвращает id. Epic 50 (58.8, D205):
         target_user — имя обращающегося (origin='bot_direct_reply'); created_at
         ставится автоматически (int(time.time())). Epic 60 (64.1/64.2):
@@ -1444,11 +1589,20 @@ class DatabaseService:
         пропускается → возврат 0 и БЕЗ FTS-строки (FTS5 external content не
         знает о дублях rowid — edge 5 spec; идемпотентность повторных
         прогонов/переноса дельты FR-10). Live-путь (or_ignore=False) —
-        ровно прежний INSERT (дубль → IntegrityError, как и раньше)."""
+        ровно прежний INSERT (дубль → IntegrityError, как и раньше).
+        Раунд 9 (T-822/T-823, spec §3.3.1/§3.3.2): + колонки v8.
+        importance=None → правило rule_importance (никогда не 0 на записи,
+        Q8); явный importance — clamp 1..10. kind: None → 'fact'
+        ('belief' — только DreamWorker). source_ids — JSON-массив id
+        фактов-источников, belief_meta — JSON-метаданные (только beliefs).
+        Существующие вызовы НЕ меняются (дефолты)."""
         w = 0.5 if weight is None else float(weight)
         if not 0.0 <= w <= 1.0:
             logger.warning("graph fact weight %s outside [0,1] — clamped (66.1)", w)
             w = min(1.0, max(0.0, w))
+        imp = (rule_importance(origin, str(fact or "")) if importance is None
+               else max(1, min(10, int(importance))))
+        k = "belief" if kind == "belief" else "fact"
         now = int(time.time())
         insert_sql = (
             "INSERT OR IGNORE INTO graph_facts "
@@ -1458,10 +1612,11 @@ class DatabaseService:
             insert_sql +
             "(chat_id, fact, origin, expires_at, created_at, "
             "target_user, status, supersedes, weight, last_confirmed_at, "
-            "message_timestamp) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "message_timestamp, importance, kind, source_ids, belief_meta) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (chat_id, fact, origin, expires_at, now, target_user,
-             status, supersedes, w, now, message_timestamp))
+             status, supersedes, w, now, message_timestamp, imp, k,
+             source_ids, belief_meta))
         if cursor.rowcount == 0:
             # дубль (INSERT OR IGNORE) — FTS-строку НЕ пишем (edge 5),
             # коммитить нечего
@@ -1471,6 +1626,258 @@ class DatabaseService:
             "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)", (fact_id, fact))
         await self.db.commit()
         return fact_id
+
+    # ── Раунд 9 (AGI Memory, spec §3.4, T-824/T-825): «сон» (DreamWorker) ──
+    # Watermark/аудит-таблицы — dream_state/memory_dream_log (CREATE IF NOT
+    # EXISTS в _SCHEMA_SQL). Короткие транзакции, одно соединение WAL.
+    # Всё состояние per chat_id (NFR-3); глобальные суточные бюджеты —
+    # агрегатами по memory_dream_log за local-сутки (§3.4.4).
+
+    async def get_dream_state(self, chat_id: int) -> dict | None:
+        """Watermark-строка чата (dream_state) или None (тик ещё не был)."""
+        cursor = await self.db.execute(
+            "SELECT chat_id, last_run_at, last_processed_fact_id "
+            "FROM dream_state WHERE chat_id = ?", (chat_id,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def set_dream_state(self, chat_id: int, *, last_run_at: int,
+                              last_processed_fact_id: int) -> None:
+        """UPSERT watermark «сна» чата (конец успешного тик-батча, §3.4.2)."""
+        await self.db.execute(
+            "INSERT INTO dream_state (chat_id, last_run_at, last_processed_fact_id) "
+            "VALUES (?, ?, ?) "
+            "ON CONFLICT(chat_id) DO UPDATE SET "
+            "last_run_at = excluded.last_run_at, "
+            "last_processed_fact_id = excluded.last_processed_fact_id",
+            (chat_id, int(last_run_at), int(last_processed_fact_id)))
+        await self.db.commit()
+
+    async def get_dream_candidate_chats(self, now_ts: int, *, origins,
+                                        initial_window_hours: int,
+                                        min_new_facts: int, max_chats: int,
+                                        quiet_after_ts: int | None = None
+                                        ) -> list[dict]:
+        """Чаты-кандидаты тика (Q9/§3.4.2): новые confirmed kind='fact'
+        (id > watermark для чатов со строкой dream_state; created_at в окне
+        прогрева — для чатов БЕЗ строки), новых ≥ min_new_facts; сортировка
+        по числу новых DESC, лимит max_chats. quiet_after_ts — «не пик»:
+        чат с сообщениями в окне тишины исключается (smart_messages)."""
+        in_origins = ",".join("?" * len(origins))
+        sql = (
+            "SELECT f.chat_id AS chat_id, COUNT(*) AS new_count, "
+            "MAX(f.id) AS max_fact_id FROM graph_facts f "
+            "LEFT JOIN dream_state ds ON ds.chat_id = f.chat_id "
+            "WHERE f.status = 'confirmed' AND f.kind = 'fact' "
+            f"AND f.origin IN ({in_origins}) "
+            "AND (f.expires_at IS NULL OR f.expires_at > ?) "
+            "AND ((ds.chat_id IS NOT NULL "
+            "AND f.id > ds.last_processed_fact_id) "
+            "OR (ds.chat_id IS NULL AND f.created_at >= ?)) "
+        )
+        params: list = [*origins, now_ts,
+                        now_ts - int(initial_window_hours) * 3600]
+        if quiet_after_ts is not None:
+            sql += ("AND NOT EXISTS (SELECT 1 FROM smart_messages s "
+                    "WHERE s.chat_id = f.chat_id AND s.timestamp >= ?) ")
+            params.append(int(quiet_after_ts))
+        sql += ("GROUP BY f.chat_id HAVING COUNT(*) >= ? "
+                "ORDER BY new_count DESC, f.chat_id ASC LIMIT ?")
+        params.extend([int(min_new_facts), int(max_chats)])
+        cursor = await self.db.execute(sql, params)
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_dream_candidates(self, chat_id: int, now_ts: int, *,
+                                   origins, since_id: int = 0,
+                                   since_ts: int | None = None,
+                                   limit: int = 1000) -> list:
+        """Кандидаты чата: confirmed kind='fact' живые в списке origins,
+        id ASC. since_id>0 → новые после watermark (id > since_id); иначе —
+        created_at >= since_ts (окно прогрева первого «сна», §3.4.2).
+        Лимит строк — потолок одного тик-батча чата (хвост доберёт
+        следующий тик: watermark двигается до MAX обработанного)."""
+        in_origins = ",".join("?" * len(origins))
+        sql = (
+            "SELECT id, fact, origin, created_at, message_timestamp, "
+            "importance, weight FROM graph_facts "
+            "WHERE chat_id = ? AND status = 'confirmed' AND kind = 'fact' "
+            f"AND origin IN ({in_origins}) "
+            "AND (expires_at IS NULL OR expires_at > ?) "
+        )
+        params: list = [chat_id, *origins, now_ts]
+        if since_id and int(since_id) > 0:
+            sql += "AND id > ? "
+            params.append(int(since_id))
+        else:
+            sql += "AND created_at >= ? "
+            params.append(int(since_ts or 0))
+        sql += "ORDER BY id ASC LIMIT ?"
+        params.append(int(limit))
+        cursor = await self.db.execute(sql, params)
+        return [dict(row) for row in await cursor.fetchall()]
+
+    # ── Раунд 9 (фикс-раунд, spec §3.2.1 п.4/major-2): имена из графа ─────
+    # Источник ИМЁН для FTS dig_into_lore: BFS по nodes/edges (имена людей/
+    # тем из графа знаний) + фолбэк target_user фактов. Best-effort:
+    # методы НЕ бросают (пусто при ошибке/пустом графе).
+
+    async def dig_graph_related_names(self, chat_id: int, seed_terms,
+                                      *, max_depth: int = 2,
+                                      cap: int = 40) -> list[str]:
+        """BFS по рёбрам графа от узлов, чьи entity_name (casefold) содержат
+        токен из seed_terms (len >= 4): возвращает имена узлов уровней 0..N
+        (N = max_depth, hop = одно ребро), до cap имён. Пусто — узлы/рёбра
+        не найдены. НЕ бросает (любая ошибка → [])."""
+        seeds = sorted({str(t).casefold().strip()
+                        for t in (seed_terms or [])
+                        if len(str(t).strip()) >= 4})
+        if not seeds or int(max_depth) < 1:
+            return []
+        try:
+            like = " OR ".join("entity_name LIKE ?" for _ in seeds)
+            cursor = await self.db.execute(
+                "SELECT id, entity_name FROM nodes WHERE chat_id = ? AND "
+                f"({like}) LIMIT ?",
+                [chat_id] + [f"%{s}%" for s in seeds] + [int(cap)])
+            start_rows = [dict(row) for row in await cursor.fetchall()]
+            if not start_rows:
+                return []
+            names: list[str] = []
+            seen_ids: set[int] = set()
+            for row in start_rows:
+                name = str(row.get("entity_name") or "").strip()
+                if name and name not in names:
+                    names.append(name)
+                seen_ids.add(int(row["id"]))
+            layer_ids = {int(r["id"]) for r in start_rows}
+            for _ in range(min(int(max_depth), 5)):
+                if not layer_ids:
+                    break
+                if len(names) >= int(cap):
+                    break
+                placeholders = ",".join("?" * len(layer_ids))
+                cursor = await self.db.execute(
+                    "SELECT e.target_id AS nid, n.entity_name AS ename "
+                    "FROM edges e JOIN nodes n ON n.id = e.target_id "
+                    "WHERE e.chat_id = ? AND e.source_id IN (" +
+                    placeholders + ") AND n.entity_name IS NOT NULL "
+                    "AND n.entity_name != '' LIMIT ?",
+                    [chat_id] + sorted(layer_ids) + [int(cap)])
+                rows = await cursor.fetchall()
+                next_ids: set[int] = set()
+                for row in rows:
+                    nid = int(row["nid"])
+                    if nid in seen_ids:
+                        continue
+                    seen_ids.add(nid)
+                    next_ids.add(nid)
+                    name = str(row["ename"] or "").strip()
+                    if name and name not in names:
+                        names.append(name)
+                    if len(names) >= int(cap):
+                        break
+                layer_ids = next_ids
+            return names
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[database] dig_graph_related_names failed — empty | "
+                "chat=%s", chat_id, exc_info=True)
+            return []
+
+    async def dig_fallback_target_names(self, chat_id: int, seed_terms,
+                                        cap: int = 300) -> list[str]:
+        """Фолбэк spec п.4: DISTINCT target_user фактов чата (confirmed,
+        непустые), чьи имена (casefold) содержат токен из seed_terms.
+        Best-effort — ошибка/пусто → []."""
+        seeds = {str(t).casefold().strip()
+                 for t in (seed_terms or []) if str(t).strip()}
+        if not seeds:
+            return []
+        try:
+            cursor = await self.db.execute(
+                "SELECT DISTINCT target_user FROM graph_facts "
+                "WHERE chat_id = ? AND status = 'confirmed' "
+                "AND target_user IS NOT NULL AND length(target_user) > 1 "
+                "LIMIT ?", (chat_id, int(cap)))
+            rows = await cursor.fetchall()
+            out: list[str] = []
+            for row in rows:
+                name = str(row["target_user"] or "").strip()
+                low = name.casefold()
+                if any(s in low for s in seeds) and name not in out:
+                    out.append(name)
+            return out
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[database] dig_fallback_target_names failed — empty | "
+                "chat=%s", chat_id, exc_info=True)
+            return []
+
+    async def get_chat_protected_texts(self, chat_id: int) -> list[str]:
+        """Тексты protected_facts чата (chat-level user_name NULL + per-user) —
+        гейт protected-семантики кандидатов «сна» (§3.4.3; до 500 текстов)."""
+        cursor = await self.db.execute(
+            "SELECT fact FROM protected_facts WHERE chat_id = ?", (chat_id,))
+        return [str(row["fact"] or "") for row in await cursor.fetchall()]
+
+    async def log_dream_event(self, chat_id: int, run_at: int, *, kind: str,
+                              cluster_id: int | None = None,
+                              source_ids: str | None = None,
+                              belief_id: int | None = None,
+                              tokens: int = 0,
+                              status: str | None = None) -> int:
+        """Строка аудита memory_dream_log (D-13/§3.4.6). kind: 'run' на
+        тик-чат; 'distilled'/'skipped'/'error' на попытку дистилляции."""
+        cursor = await self.db.execute(
+            "INSERT INTO memory_dream_log "
+            "(chat_id, run_at, kind, cluster_id, source_ids, belief_id, "
+            "tokens, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (chat_id, int(run_at), kind, cluster_id, source_ids, belief_id,
+             int(tokens or 0), status))
+        await self.db.commit()
+        return cursor.lastrowid
+
+    async def count_dream_log(self, since_ts: int, *, kind: str) -> int:
+        """Счётчик строк лога за local-сутки (суточный бюджет §3.4.4:
+        дистилляции считаются по kind='distilled')."""
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM memory_dream_log "
+            "WHERE kind = ? AND run_at >= ?", (kind, int(since_ts)))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def sum_dream_log_tokens(self, since_ts: int) -> int:
+        """Оценка токенов за local-сутки (денежный бюджет §3.4.4): сумма
+        memory_dream_log.tokens (max(1, len/4) промпта+ответа)."""
+        cursor = await self.db.execute(
+            "SELECT COALESCE(SUM(tokens), 0) AS s FROM memory_dream_log "
+            "WHERE run_at >= ?", (int(since_ts),))
+        row = await cursor.fetchone()
+        return int(row["s"]) if row else 0
+
+    async def list_beliefs_for_supersede(self, chat_id: int,
+                                         limit: int = 20) -> list:
+        """Живые beliefs чата для supersede-поиска (§3.4.6/D-6): kind='belief',
+        confirmed, supersedes IS NULL; свежие первыми (created_at DESC)."""
+        cursor = await self.db.execute(
+            "SELECT id, fact FROM graph_facts "
+            "WHERE chat_id = ? AND kind = 'belief' AND status = 'confirmed' "
+            "AND supersedes IS NULL "
+            "ORDER BY created_at DESC, id DESC LIMIT ?", (chat_id, limit))
+        return await cursor.fetchall()
+
+    async def mark_belief_superseded(self, old_id: int, new_id: int) -> None:
+        """Новый belief заменил старый того же чата/темы (D-6): старый
+        остаётся (status не меняется — RAG ранжит), supersedes фиксирует
+        замену (spec §3.4.6)."""
+        await self.db.execute(
+            "UPDATE graph_facts SET supersedes = ? WHERE id = ?",
+            (int(new_id), int(old_id)))
+        await self.db.commit()
 
     async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts,
                                      include_direct_reply=False) -> list:

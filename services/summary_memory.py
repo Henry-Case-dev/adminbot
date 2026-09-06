@@ -230,6 +230,7 @@ _ORIGIN_LABELS = {
     "video_transcript": "видео",
     "user_memory": "запомнено",
     "history_import": "история",
+    "derived_belief": "убеждение",
 }
 
 # Раунд 8 (F4/T-810, spec §3.F4.2): компактный утилитарный промпт LLM-реранка

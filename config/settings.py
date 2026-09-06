@@ -918,6 +918,37 @@ class Settings:
     DIG_YEAR_BACK_WINDOW_DAYS: int = _env_int(
         "DIG_YEAR_BACK_WINDOW_DAYS", 2)
 
+    # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-824/T-825): «сон» ──────────
+    # Парные Settings-поля для REGISTRY-записей категории memory (группа
+    # memory_dream; dotted-ключи memory.dream_* — прецедент
+    # memory.infinite_retention). DREAM_ENABLED — рубильник DreamWorker
+    # (default FALSE, Q12: боевые подфичи off); остальные — лимиты тика:
+    # окно сна [dream_window_start_hour, dream_window_end_hour) local,
+    # окно прогрева первого «сна» dream_initial_window_hours, «не пик»
+    # dream_quiet_check_minutes, пороги кластеров/бюджеты в сутки
+    # (дистилляции и токены = денежный лимит, §3.4.4).
+    # Фикс-раунд (D-20): период тика — МИНУТЫ (dream_tick_minutes=60, часовой
+    # тик): дистилляции происходят при первом тике внутри окна [4, 6) local,
+    # старт воркера в любое время суток больше не пропускает «сон» на 24ч.
+    DREAM_ENABLED: bool = _env_bool("DREAM_ENABLED", False)
+    DREAM_TICK_MINUTES: int = _env_int("DREAM_TICK_MINUTES", 60)
+    DREAM_WINDOW_START_HOUR: int = _env_int("DREAM_WINDOW_START_HOUR", 4)
+    DREAM_WINDOW_END_HOUR: int = _env_int("DREAM_WINDOW_END_HOUR", 6)
+    DREAM_INITIAL_WINDOW_HOURS: int = _env_int("DREAM_INITIAL_WINDOW_HOURS", 168)
+    DREAM_MIN_NEW_FACTS_PER_CHAT: int = _env_int(
+        "DREAM_MIN_NEW_FACTS_PER_CHAT", 5)
+    DREAM_MAX_CHATS_PER_RUN: int = _env_int("DREAM_MAX_CHATS_PER_RUN", 10)
+    DREAM_QUIET_CHECK_MINUTES: int = _env_int("DREAM_QUIET_CHECK_MINUTES", 30)
+    DREAM_CLUSTER_OVERLAP_TOKENS: int = _env_int(
+        "DREAM_CLUSTER_OVERLAP_TOKENS", 2)
+    DREAM_REPEAT_THRESHOLD: int = _env_int("DREAM_REPEAT_THRESHOLD", 3)
+    DREAM_IMPORTANCE_SUM_THRESHOLD: int = _env_int(
+        "DREAM_IMPORTANCE_SUM_THRESHOLD", 12)
+    DREAM_MAX_CLUSTERS_PER_RUN: int = _env_int("DREAM_MAX_CLUSTERS_PER_RUN", 5)
+    DREAM_DISTILLATIONS_PER_DAY: int = _env_int(
+        "DREAM_DISTILLATIONS_PER_DAY", 30)
+    DREAM_TOKENS_PER_DAY: int = _env_int("DREAM_TOKENS_PER_DAY", 60000)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
     def _normalize_tone_key(self, preset_key: str | None) -> str:

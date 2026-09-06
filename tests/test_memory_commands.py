@@ -437,7 +437,8 @@ class TestRememberStore:
 
     @pytest.mark.asyncio
     async def test_migration_v5_from_v4_preserves_rows(self, tmp_path):
-        """AC-D3: v4-БД → v5: данные/id сохранены, user_version=5, no-op."""
+        """AC-D3: v4-БД → v5: данные/id сохранены, user_version=8 (каскад
+        v5→v6→v7→v8 раунда 9), no-op."""
         import sqlite3
 
         path = tmp_path / "v4.db"
@@ -466,7 +467,7 @@ class TestRememberStore:
         d = DatabaseService(str(path))
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
         assert "user_memory" in (await cursor.fetchone())["sql"]
@@ -478,7 +479,7 @@ class TestRememberStore:
         # повторный запуск — no-op
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 7
+        assert (await cursor.fetchone())[0] == 8
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         await d.close()

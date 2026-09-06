@@ -60,11 +60,13 @@ class TestTabMappingAudit:
         assert cats(TAB_REACTIONS_TRIGGERS) == {"reactions", "flags"}
 
     def test_composition_of_memory_rag_tab(self):
-        """3.5.1/фаза 2 (T-755): «Память и RAG» = limits_memory +
-        limits_graph + flags_memory + memory_infinite (категория memory —
+        """3.5.1/фаза 2 (T-755) + раунд 9 (T-824/T-825, T-826/T-827): «Память
+        и RAG» = limits_memory + limits_graph + flags_memory + категория
+        memory целиком (memory_infinite + memory_dream + memory_nostalgia —
         зеркало web/app.js)."""
         assert tab_group_ids(TAB_MEMORY_RAG) == {
-            "limits_memory", "limits_graph", "flags_memory", "memory_infinite"}
+            "limits_memory", "limits_graph", "flags_memory",
+            "memory_infinite", "memory_dream", "memory_nostalgia"}
 
     def test_composition_of_reactions_tab(self):
         """3.5.1: «Реакции и Триггеры» = все 13 групп reactions + flags_media."""

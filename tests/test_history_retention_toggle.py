@@ -135,7 +135,13 @@ class TestCatalogSeed:
         assert group.category == "memory"
         assert group.title_ru == "Бессрочное хранение"
         assert pc.CATEGORY_MEMORY in pc.CATEGORIES
-        assert pc.groups_by_category("memory") == [group]
+        # раунд 9 (T-824/T-825, T-826/T-827): в категории memory группы
+        # memory_dream («сон») и memory_nostalgia («ностальгия») — порядок
+        # 1, 2, 3
+        groups = pc.groups_by_category("memory")
+        assert [g.id for g in groups] == ["memory_infinite", "memory_dream",
+                                          "memory_nostalgia"]
+        assert group in groups
         assert pc.settings_field_coverage() == (set(), set())
 
     def test_seed_categories_include_memory(self):
@@ -421,4 +427,3 @@ class TestReviewToggle:
         assert len(rows) == 1
         assert rows[0]["weight"] == 0.9
         assert a != b
-
