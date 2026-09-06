@@ -37,8 +37,15 @@ class TestCompleteness:
         # 11 (раунд 7, T-776: LORE_* — лор чатов, spec §3.11) +
         # 6 (раунд 8, T-793/T-798/T-801/T-803: контекст-слой, spec §3.G2) +
         # 6 (раунд 8, T-804/T-805/T-808/T-810: уровни L2, дедуп RAG,
-        #   purge-гейты, LLM-реранк, spec §3.G2) — каталог пополнен парно
-        assert len(fields) == 294
+        #   purge-гейты, LLM-реранк, spec §3.G2) + 15 (раунд 9, T-816/T-817:
+        #   RELATIONS_* — отношения, spec §3.6.4) + 14 (раунд 9, T-824/T-825:
+        #   DREAM_* — «сон», spec §3.6.4, категория memory) + 17 (раунд 9,
+        #   T-826/T-827: NOSTALGIA_* — ностальгия A/B, spec §3.6.4,
+        #   категория memory) + 2 (раунд N, T-839: SMARTMODULE_CONCURRENCY_*
+        #   — параллельность smart module, группа limits_chat) + 7 (раунд 9,
+        #   фикс-раунд: DIG_ENABLED/DIG_PRE_GATE_ENABLED + 5 limits.dig_* —
+        #   dig_into_lore, spec §3.6.4) — каталог пополнен
+        assert len(fields) == 349
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -206,8 +213,12 @@ class TestGroups8424:
         # reactions_word_reactions (эпик 04.09.2026) + keys_media/content_media
         # (раунд 3, T-687 — медиа-шара); имя актуализировано fix-раундом
         # 04.09 (m7): 61 → 63; фаза 2 (T-755): 63 → 64 (+ memory_infinite);
-        # раунд 7 (T-776): 64 → 66 (+ limits_lore, flags_lore — лор чатов)
-        assert len(GROUPS) == 66
+        # раунд 7 (T-776): 64 → 66 (+ limits_lore, flags_lore — лор чатов);
+        # раунд 9 (T-816/T-817): 66 → 68 (+ limits_relations, flags_relations);
+        # раунд 9 (T-824/T-825): 68 → 69 (+ memory_dream — «сон», spec §3.6.4);
+        # раунд 9 (T-826/T-827): 69 → 70 (+ memory_nostalgia — «ностальгия»,
+        # spec §3.6.4/Q11)
+        assert len(GROUPS) == 70
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -243,12 +254,66 @@ class TestGroups8424:
         flags +3 — лор чатов, spec §3.11) + раунд 8 (T-793/T-798/T-801/
         T-803: limits +5 / flags +1 — контекст-слой, spec §3.G2) + раунд 8
         (T-804/T-805/T-808/T-810: limits +5 / flags +1 — уровни конспекта,
-        дедуп RAG, purge-гейты, LLM-реранк, spec §3.G2)."""
+        дедуп RAG, purge-гейты, LLM-реранк, spec §3.G2) + раунд 9
+        (T-816/T-817: limits +14 / flags +1 — отношения, spec §3.6.4) +
+        раунд 9 (T-824/T-825: memory +14 — «сон», spec §3.6.4) +
+        раунд 9 (T-826/T-827: memory +17 — «ностальгия» слои A/B, spec
+        §3.6.4/Q11) + раунд N (T-839: limits +2 — параллельность smart
+        module, группа limits_chat) + раунд 9 (фикс-раунд: limits +5 /
+        flags +2 — dig_into_lore, spec §3.6.4/Q11, группы flags_memory/
+        limits_memory)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 29, "keys": 13,
-                          "limits": 147, "flags": 48, "reactions": 38,
-                          "content": 3, "memory": 1}
+                          "limits": 168, "flags": 51, "reactions": 38,
+                          "content": 3, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
+
+
+class TestDigCatalog:
+    """Раунд 9 (фикс-раунд major-5, spec §3.6.4/Q11): REGISTRY dig_into_lore —
+    2 флага (flags_memory) + 5 лимитов (limits_memory); дефолты Settings ==
+    спека; ключи на вкладке «Память и RAG»."""
+
+    EXPECTED_LIMITS = {
+        "DIG_MAX_SNIPPETS": 8,
+        "DIG_MAX_FACTS": 3,
+        "DIG_MAX_SYMBOLS": 3500,
+        "DIG_GRAPH_HOP_DEPTH": 2,
+        "DIG_YEAR_BACK_WINDOW_DAYS": 2,
+    }
+
+    def test_dig_flags_registered_and_defaults(self):
+        s = Settings()
+        assert s.DIG_ENABLED is True              # Q12/D-11: тул доступен
+        assert s.DIG_PRE_GATE_ENABLED is False    # D-11: пре-гейт off
+        for field, default in self.EXPECTED_LIMITS.items():
+            assert getattr(s, field) == default, field
+        flag_keys = [k for k, spec in REGISTRY.items()
+                     if spec.group == "flags_memory" and k.startswith("DIG_")]
+        assert sorted(flag_keys) == ["DIG_ENABLED", "DIG_PRE_GATE_ENABLED"]
+        for field in ("DIG_ENABLED", "DIG_PRE_GATE_ENABLED"):
+            spec = pc.get(field)
+            assert spec.category == pc.CATEGORY_FLAGS
+            assert spec.pg_key == f"flags.{field.lower()}"
+
+    def test_dig_limits_group_memory_and_tab(self):
+        for field in self.EXPECTED_LIMITS:
+            spec = pc.get(field)
+            assert spec is not None and spec.category == pc.CATEGORY_LIMITS
+            assert spec.group == "limits_memory"
+            assert spec.pg_key == f"limits.{field.lower()}"
+        assert pc.group_tab("limits_memory") == pc.TAB_MEMORY_RAG
+        assert pc.group_tab("flags_memory") == pc.TAB_MEMORY_RAG
+
+    def test_dream_tick_minutes_replaces_hours(self):
+        """D-20: период тика «сна» — минуты (60); старого hours-ключа нет."""
+        spec = pc.get("DREAM_TICK_MINUTES")
+        assert spec is not None
+        assert spec.pg_key == "memory.dream_tick_minutes"
+        assert spec.type == "int"
+        assert Settings().DREAM_TICK_MINUTES == 60
+        assert pc.get("DREAM_TICK_HOURS") is None
+        assert pc.get_by_pg_key("memory.dream_tick_hours") is None

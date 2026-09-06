@@ -16,9 +16,14 @@ Epic 53 (Section 62.3.3, D216): CB-обёртка LLMCircuitBreaker — OPEN →
 CHAT_LLM_DOWN_PHRASES БЕЗ вызова LLM; транзиентные классы инкрементят CB;
 успех (в т.ч. фоллбэка) сбрасывает CB. Скоуп — только direct_chat.
 
-Epic 60 (Section 63.2, R60-2, T-461): per-chat asyncio.Lock вокруг генерации
+Epic 60 (Section 63.2, R60-2, T-461): per-chat замок вокруг генерации
 ПОСЛЕ throttle/CB-веток (мгновенные — не стоят в очереди); таймаут
 CHAT_LOCK_WAIT_SECONDS → CHAT_LOCK_BUSY_PHRASES; FIFO → порядок ответов.
+Раунд N (T-839/T-840): per-chat asyncio.Lock заменён на пул семафоров
+services/smartmodule_concurrency (ChatConcurrencyPool) — до N параллельных
+генераций одного чата (limits.smartmodule_concurrency_per_chat, 1 = строгая
+очередь как раньше); таймаут ожидания по-прежнему CHAT_LOCK_WAIT_SECONDS →
+CHAT_LOCK_BUSY_PHRASES.
 
 Epic 60 (Section 65, Фаза C, T-469…T-478): 🗿-молчание на пустой ответ
 (65.1), стачка кулдаунов → молчание (65.3), <style_anchors> (65.4), команды
@@ -87,6 +92,7 @@ from services.llm_client import (
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.payload_builder import build_messages
 from services.persistent_throttling import SilenceStreak
+from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
     CHAT_ERROR_PHRASES,
@@ -311,7 +317,7 @@ class DirectChatService:
     def __init__(self, memory, db, llm, aliases, throttle=None,
                  bot_id: int | None = None, bot_username: str | None = None,
                  breaker=None, cache=None, tool_router=None,
-                 chat_lore_cache=None) -> None:
+                 chat_lore_cache=None, concurrency_pool=None) -> None:
         self.memory = memory
         self.db = db
         self.llm = llm
@@ -332,14 +338,12 @@ class DirectChatService:
                 hot.get("models.llm_cb_cooldown_seconds", settings.LLM_CB_COOLDOWN_SECONDS),
             ) if hot.get("flags.llm_cb_enabled", settings.LLM_CB_ENABLED) else None
         )
-        # Epic 60 (63.2, T-461): per-chat замки генерации. Словарь — под
-        # своим локом; ленивая чистка незалоченных при переполнении.
-        # T-501: pending-счётчик ожидантов per-lock (инкремент ДО выхода из
-        # guard) — ленивая чистка не выселяет лок, на котором корутина ещё
-        # не успела войти в acquire (иначе гонка: два «владельца» чата).
-        self._chat_locks: dict[int, asyncio.Lock] = {}
-        self._chat_locks_guard = asyncio.Lock()
-        self._chat_lock_pending: dict[asyncio.Lock, int] = {}
+        # Раунд N (T-839/T-840): per-chat пул семафоров генерации — замена
+        # R60-2-лока (T-461). Синглтон по умолчанию (общий с summary/
+        # хендлерами smart module); DI для тестов. N — limits.
+        # smartmodule_concurrency_per_chat (1 = строгая очередь как раньше).
+        self._concurrency = (concurrency_pool if concurrency_pool is not None
+                             else get_smartmodule_concurrency_pool())
         # Epic 60 (65.3, T-471): стачка кулдаунов (throttle_state scope=
         # 'direct_silence'); persistent при рубильнике Фазы A, иначе — memory.
         self.silence_streak = SilenceStreak(
@@ -401,40 +405,6 @@ class DirectChatService:
                 chat_id, tg_message_id, exc_info=True)
             return None
 
-    # ── Per-chat замок генерации (R60-2, 63.2, T-461) ──────────────
-
-    async def _get_chat_lock(self, chat_id: int) -> asyncio.Lock:
-        """asyncio.Lock per chat_id (FIFO → порядок ответов). Чистка ленивая:
-        при len > CHAT_LOCK_MAX_ENTRIES — удалить незалоченные БЕЗ ожидающих
-        (T-501: pending>0 — корутина вышла из guard, но ещё не вошла в
-        acquire; eviction такого лока подменил бы объект → два владельца)."""
-        async with self._chat_locks_guard:
-            lock = self._chat_locks.get(chat_id)
-            if lock is None:
-                lock = self._chat_locks[chat_id] = asyncio.Lock()
-            self._chat_lock_pending[lock] = (
-                self._chat_lock_pending.get(lock, 0) + 1)
-            if len(self._chat_locks) > hot.get("limits.chat_lock_max_entries",
-                                               settings.CHAT_LOCK_MAX_ENTRIES):
-                for cid, candidate in list(self._chat_locks.items()):
-                    if cid == chat_id or candidate.locked():
-                        continue
-                    if self._chat_lock_pending.get(candidate, 0) > 0:
-                        continue
-                    del self._chat_locks[cid]
-                    self._chat_lock_pending.pop(candidate, None)
-            return lock
-
-    def _drop_chat_lock_pending(self, lock: asyncio.Lock) -> None:
-        """T-501: снять одну бронь ожиданта. Вызывается после разрешения
-        acquire-попытки: успех → лок уже locked() (чистке не подлежит),
-        таймаут → корутина ушла. Нулевой счётчик удаляется."""
-        remaining = self._chat_lock_pending.get(lock, 0) - 1
-        if remaining > 0:
-            self._chat_lock_pending[lock] = remaining
-        else:
-            self._chat_lock_pending.pop(lock, None)
-
     # ── Поток хендлера (58.4) ─────────────────────────────────
 
     async def handle(self, bot, message, user) -> None:
@@ -479,22 +449,20 @@ class DirectChatService:
             await _reply(bot, chat_id, random.choice(CHAT_LLM_DOWN_PHRASES),
                          message.message_id)
             return
-        # Epic 60 (63.2, T-461): замок ПОСЛЕ throttle/CB-веток (мгновенные,
-        # не стоят в очереди); таймаут ожидания → CHAT_LOCK_BUSY_PHRASES.
-        lock = await self._get_chat_lock(chat_id)
-        try:
-            async with asyncio.timeout(
-                    hot.get("limits.chat_lock_wait_seconds",
-                            settings.CHAT_LOCK_WAIT_SECONDS)):
-                await lock.acquire()
-        except (asyncio.TimeoutError, TimeoutError):
-            self._drop_chat_lock_pending(lock)   # T-501: бронь снята
+        # Epic 60 (63.2, T-461) — раунд N (T-840): слот пула ПОСЛЕ
+        # throttle/CB-веток (мгновенные, не стоят в очереди); таймаут
+        # ожидания → CHAT_LOCK_BUSY_PHRASES. Текст лога сохранён
+        # («lock wait timeout») — грепается тестами/мониторингом.
+        permit = await self._concurrency.try_acquire(
+            chat_id,
+            timeout=hot.get("limits.chat_lock_wait_seconds",
+                            settings.CHAT_LOCK_WAIT_SECONDS))
+        if permit is None:
             logger.warning("direct: lock wait timeout | chat=%s user=%s",
                            chat_id, target_name)
             await _reply(bot, chat_id, random.choice(CHAT_LOCK_BUSY_PHRASES),
                          message.message_id)
             return
-        self._drop_chat_lock_pending(lock)   # успех: лок locked(), чистке не подлежит
         answer_text: str | None = None
         dedup_key = None
         try:
@@ -623,7 +591,7 @@ class DirectChatService:
             if self._breaker is not None and self._breaker.state == STATE_HALF_OPEN:
                 self._breaker.on_failure()
         finally:
-            lock.release()
+            permit.release()   # раунд N (T-840): слот пула возвращён
             # Epic 60 (67.4, T-499): исход попытки — в дедуп-кэш: успешный
             # ответ → payload-ответ (повтор получит его из кэша); ЛЮБОЙ
             # неуспех (🗿-пустой/LLMError/исключение/send fail) → маркер ""

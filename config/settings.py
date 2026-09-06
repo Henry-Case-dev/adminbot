@@ -559,6 +559,16 @@ class Settings:
     # Потолок словаря per-chat замков (ленивая чистка незалоченных); <16 →
     # дефолт 256 (WARNING).
     CHAT_LOCK_MAX_ENTRIES: int = _env_int_min("CHAT_LOCK_MAX_ENTRIES", 256, 16)
+    # Параллельность LLM-генераций smart module на чат (замена per-chat замка
+    # direct_chat и глобального лока summary на per-chat пул семафоров);
+    # <1 → дефолт 3 (WARNING). 1 = строгая очередь (как раньше).
+    SMARTMODULE_CONCURRENCY_PER_CHAT: int = _env_int_min(
+        "SMARTMODULE_CONCURRENCY_PER_CHAT", 3, 1)
+    # Таймаут ожидания слота пула в хендлерах smart module (search/factcheck/
+    # youtube/web/checkup), СЕКУНДЫ (float). Таймаут → SMARTMODULE_BUSY_PHRASES.
+    # direct_chat продолжает использовать CHAT_LOCK_WAIT_SECONDS.
+    SMARTMODULE_CONCURRENCY_WAIT_SECONDS: float = _env_float_min(
+        "SMARTMODULE_CONCURRENCY_WAIT_SECONDS", 60.0, 0.0)
 
     # ── Epic 60 Фаза B (Section 64.8, R60-3…R60-9) ─────────────
     # Дедуп фактов при записи (64.1): cosine ≥ HIGH → noop (+подтверждение),

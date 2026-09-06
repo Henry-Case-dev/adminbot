@@ -22,7 +22,15 @@ from services.persistent_throttling import (
     make_cooldown,
 )
 from services.smart_cache import get_smart_cache
-from services.smartmodule_phrases import LLM_ERROR_PHRASES, WEB_ERROR_PHRASES
+from services.smartmodule_concurrency import (
+    get_smartmodule_concurrency_pool,
+    smartmodule_wait_seconds,
+)
+from services.smartmodule_phrases import (
+    LLM_ERROR_PHRASES,
+    SMARTMODULE_BUSY_PHRASES,
+    WEB_ERROR_PHRASES,
+)
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_urls import extract_web_url
 from services.smartmodule_utils import (
@@ -115,6 +123,18 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, cached, message.message_id)
         logger.info("[web] cache hit | chat=%s", message.chat.id)
         return
+    # Раунд N (T-841): слот пула per-chat перед LLM-вызовом summarize
+    # (cache-hit выше — быстрый путь БЕЗ пула). Таймаут → busy-фраза.
+    pool = get_smartmodule_concurrency_pool()
+    permit = await pool.try_acquire(message.chat.id,
+                                    timeout=smartmodule_wait_seconds())
+    if permit is None:
+        logger.warning("[web] concurrency slot timeout | chat=%s",
+                       message.chat.id)
+        await _reply(bot, message.chat.id,
+                     random.choice(SMARTMODULE_BUSY_PHRASES),
+                     message.message_id)
+        return
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
@@ -142,3 +162,5 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         logger.exception("[web] unexpected error | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
                      target.message_id)
+    finally:
+        permit.release()

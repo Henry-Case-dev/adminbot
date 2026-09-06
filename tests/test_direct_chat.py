@@ -1547,12 +1547,32 @@ class RecordingLLM:
 
 
 class TestChatLock:
-    """63.6 #7 (T-461, R60-2): per-chat замок — генерация сериализована,
-    порядок ответов сохранён (FIFO), таймаут → CHAT_LOCK_BUSY_PHRASES
-    (прецедент Epic 35 alan_greeting)."""
+    """63.6 #7 (T-461, R60-2) — раунд N (T-840): per-chat пул семафоров
+    вместо замка. При N=1 (limits.smartmodule_concurrency_per_chat=1) —
+    строгая очередь как раньше: генерация сериализована, порядок ответов
+    сохранён (FIFO), таймаут → CHAT_LOCK_BUSY_PHRASES. Поведение N>1 —
+    tests/test_direct_chat_concurrency.py."""
+
+    @pytest.fixture
+    def serial_pool(self, monkeypatch):
+        """Чистый синглтон пула со строгой очередью (N=1) на время теста."""
+        import config.settings as settings_module
+        from services import smartmodule_concurrency as smc
+        from services.smartmodule_concurrency import (
+            reset_smartmodule_concurrency_pool,
+        )
+        monkeypatch.setattr(
+            smc, "settings",
+            settings_module.Settings(
+                SMARTMODULE_CONCURRENCY_PER_CHAT=1,
+                SMARTMODULE_CONCURRENCY_WAIT_SECONDS=60.0))
+        reset_smartmodule_concurrency_pool()
+        yield
+        reset_smartmodule_concurrency_pool()
 
     @pytest.mark.asyncio
-    async def test_parallel_handles_serialized_and_ordered(self, fake_time):
+    async def test_parallel_handles_serialized_and_ordered(self, fake_time,
+                                                           serial_pool):
         llm = RecordingLLM()
         service = _make_service(llm=llm, throttle=DirectChatThrottle(10, 300.0))
 
@@ -1560,11 +1580,13 @@ class TestChatLock:
             await service.handle(_bot(), _message(message_id=mid), _user())
 
         await asyncio.gather(run(1), run(2), run(3))
-        assert llm.max_active == 1          # генерация НЕ параллельна
+        assert llm.max_active == 1          # генерация НЕ параллельна (N=1)
         assert llm.order == [1, 2, 3]       # FIFO: ответы в порядке обращений
 
     @pytest.mark.asyncio
-    async def test_lock_wait_timeout_sends_busy_phrase(self, fake_time, monkeypatch):
+    async def test_lock_wait_timeout_sends_busy_phrase(self, fake_time,
+                                                       monkeypatch,
+                                                       serial_pool):
         import config.settings as settings_module
         monkeypatch.setattr(
             "services.direct_chat_service.settings",
@@ -1588,7 +1610,7 @@ class TestChatLock:
         assert bot1.send_message.await_args.args[1] == gated.text   # первая не пострадала
 
     @pytest.mark.asyncio
-    async def test_different_chats_not_blocked(self, fake_time):
+    async def test_different_chats_not_blocked(self, fake_time, serial_pool):
         gated = GatedLLM(text="думаю")
         service = _make_service(llm=gated, throttle=DirectChatThrottle(10, 300.0))
         other_chat = -999
@@ -1612,8 +1634,8 @@ class TestChatLock:
         await asyncio.gather(task1, task2)
 
     @pytest.mark.asyncio
-    async def test_cooldown_not_blocked_by_lock(self, fake_time):
-        """63.2: кулдаун-фразы мгновенные — НЕ стоят в очереди за замком."""
+    async def test_cooldown_not_blocked_by_lock(self, fake_time, serial_pool):
+        """63.2: кулдаун-фразы мгновенные — НЕ стоят в очереди за пулом."""
         gated = GatedLLM(text="думаю")
         service = _make_service(
             llm=gated, throttle=DirectChatThrottle(2, 300.0))
@@ -1628,7 +1650,7 @@ class TestChatLock:
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert gated.call_count == 1
-        task2 = asyncio.ensure_future(run_second())   # заряд 2 списан → встаёт на замок
+        task2 = asyncio.ensure_future(run_second())   # заряд 2 списан → встаёт на слот
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         bot3 = _bot()
@@ -1639,53 +1661,13 @@ class TestChatLock:
         await asyncio.gather(task1, task2)
 
     @pytest.mark.asyncio
-    async def test_lock_released_after_llm_error(self, fake_time):
-        """Замок освобождается и при падении генерации (finally)."""
+    async def test_lock_released_after_llm_error(self, fake_time, serial_pool):
+        """Слот пула освобождается и при падении генерации (finally)."""
         llm = FakeLLM(error=LLMError("апи сдохло"))
         service = _make_service(llm=llm, throttle=DirectChatThrottle(10, 300.0))
         await service.handle(_bot(), _message(message_id=1), _user())
         await service.handle(_bot(), _message(message_id=2), _user())
-        assert llm.call_count == 2              # второй вызов НЕ завис на замке
-
-    @pytest.mark.asyncio
-    async def test_lock_cleanup_when_over_capacity(self, fake_time, monkeypatch):
-        """63.2: len > CHAT_LOCK_MAX_ENTRIES → незалоченные без ожидающих
-        удаляются (T-501: прямой вызов _get_chat_lock оставляет бронь —
-        снимаем её, как это делает боевой handle() после acquire)."""
-        import config.settings as settings_module
-        monkeypatch.setattr(
-            "services.direct_chat_service.settings",
-            settings_module.Settings(CHAT_LOCK_MAX_ENTRIES=16))
-        service = _make_service(throttle=DirectChatThrottle(1000, 300.0))
-        for chat in range(20):
-            lock = await service._get_chat_lock(chat)
-            service._drop_chat_lock_pending(lock)
-        assert len(service._chat_locks) <= 16
-        lock = await service._get_chat_lock(CHAT_ID)   # свежий — доступен
-        service._drop_chat_lock_pending(lock)
-        assert not lock.locked()
-
-    @pytest.mark.asyncio
-    async def test_eviction_skips_lock_with_pending_waiter(
-            self, fake_time, monkeypatch):
-        """T-501 регрессия eviction-гонки: корутина X получила лок L чата A
-        (вышла из guard, ещё НЕ вошла в acquire — окно гонки), Y чистит
-        переполнение — лок с ожидающим НЕ выселяется; повторный
-        _get_chat_lock(A) возвращает ТОТ ЖЕ объект (иначе X и Z — два
-        владельца одного чата одновременно)."""
-        import config.settings as settings_module
-        monkeypatch.setattr(
-            "services.direct_chat_service.settings",
-            settings_module.Settings(CHAT_LOCK_MAX_ENTRIES=16))
-        service = _make_service(throttle=DirectChatThrottle(1000, 300.0))
-        victim = await service._get_chat_lock(CHAT_ID)
-        assert not victim.locked()          # X ещё НЕ в acquire (окно гонки)
-        for chat in range(20):              # перелив → ленивая чистка под Y
-            other = await service._get_chat_lock(chat)
-            service._drop_chat_lock_pending(other)
-        assert service._chat_locks.get(CHAT_ID) is victim   # не выселен
-        again = await service._get_chat_lock(CHAT_ID)
-        assert again is victim              # Z получает тот же объект замка
+        assert llm.call_count == 2              # второй вызов НЕ завис на пуле
 
 
 @pytest.fixture

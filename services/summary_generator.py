@@ -4,8 +4,15 @@ L3 compress → L1 window → XML → L2 RAG → L3 vectors → LLM → postproc
 (shiz postfix, 4096-chunking with TelegramRetryAfter handling) → send.
 
 Epic 25 (B2/B4/B5): `generate_and_send(chat_id, manual=False)` — manual calls
-(/summary) get UX replies for empty window and busy lock; cron stays quiet
+(/summary) get UX replies for empty window and busy slot; cron stays quiet
 (no ack, no empty-window UX, INFO logs instead). Error UX (R13) is sent to both.
+
+Раунд N (T-841): глобальный asyncio.Lock (A5) заменён на per-chat пул
+services/smartmodule_concurrency — чат A больше не блокирует чат B; в одном
+чате до limits.smartmodule_concurrency_per_chat параллельных саммари (крон и
+ручной /summary ходят через пул по chat_id). Busy-семантика B5 сохранена:
+manual при занятом чате получает _UX_BUSY и встаёт в очередь, крон молчит
+(INFO «summary: lock busy — queued»).
 """
 import asyncio
 import logging
@@ -22,6 +29,7 @@ from services.llm_client import LLMBadResponseError, LLMError
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import _build_batch_text, fire_and_forget
 from services.summary_prompts import SYSTEM_PROMPT
+from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.summary_xml import escape_xml_text
 from services.token_counter import (
     count_tokens,
@@ -73,28 +81,39 @@ _STOPWORDS = frozenset({
 
 
 class SummaryGenerator:
-    """Runs the whole summary pipeline; serialized by a shared asyncio.Lock (A5)."""
+    """Runs the whole summary pipeline; per-chat pool of permits (T-841)
+    вместо глобального asyncio.Lock (A5) — разные чаты параллельны."""
 
-    def __init__(self, memory, xml, llm, bot, aliases=None) -> None:
+    def __init__(self, memory, xml, llm, bot, aliases=None,
+                 concurrency_pool=None) -> None:
         self.memory = memory
         self.xml = xml
         self.llm = llm
         self.bot = bot
         self.aliases = aliases
-        self._lock = asyncio.Lock()
+        self._pool = (concurrency_pool if concurrency_pool is not None
+                      else get_smartmodule_concurrency_pool())
 
     async def generate_and_send(self, chat_id: int, manual: bool = False,
                                 focus: str | None = None) -> None:
         """Entrypoint for /summary (manual=True) and cron (manual=False). B2/B5.
-        Epic 65: focus — тема из «/summary про X» (None = обычное саммари)."""
-        if self._lock.locked():
+        Epic 65: focus — тема из «/summary про X» (None = обычное саммари).
+        Раунд N (T-841): слот пула per-chat; занят → busy-фраза (manual) +
+        лог, затем очередь (как раньше у глобального лока B5)."""
+        # Проба без ожидания: занят ли слот этого чата (B5-семантика).
+        permit = await self._pool.try_acquire(chat_id, timeout=0.0)
+        if permit is None:
             if manual:
                 await self._send_ux(chat_id, _UX_BUSY)          # B5: не стоять молча
             logger.info(
                 "summary: lock busy — queued | chat_id=%s manual=%s", chat_id, manual
             )
-        async with self._lock:
+            # Очередь, как раньше async with lock (без таймаута).
+            permit = await self._pool.acquire(chat_id)
+        try:
             await self._run(chat_id, manual, focus)
+        finally:
+            permit.release()
 
     async def _run(self, chat_id: int, manual: bool, focus: str | None = None) -> None:
         try:

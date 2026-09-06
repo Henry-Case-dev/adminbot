@@ -57,8 +57,13 @@ from services.persistent_throttling import (
     make_cooldown,
 )
 from services.smart_cache import get_smart_cache
+from services.smartmodule_concurrency import (
+    get_smartmodule_concurrency_pool,
+    smartmodule_wait_seconds,
+)
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
+    SMARTMODULE_BUSY_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
     VIDEO_MEDIA_TOO_BIG_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
@@ -947,6 +952,18 @@ async def _process_youtube_summary(bot, message: types.Message,
         logger.info("[youtube] cache hit | chat=%s video_id=%r",
                     message.chat.id, video_id)
         return
+    # Раунд N (T-841): слот пула per-chat перед LLM-каскадом summarize_cascade
+    # (cache-hit выше — быстрый путь БЕЗ пула). Таймаут → busy-фраза на ВЫЗОВ.
+    pool = get_smartmodule_concurrency_pool()
+    permit = await pool.try_acquire(message.chat.id,
+                                    timeout=smartmodule_wait_seconds())
+    if permit is None:
+        logger.warning("[youtube] concurrency slot timeout | chat=%s "
+                       "video_id=%r", message.chat.id, video_id)
+        await _reply(bot, message.chat.id,
+                     random.choice(SMARTMODULE_BUSY_PHRASES),
+                     message.message_id)
+        return
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
@@ -986,6 +1003,8 @@ async def _process_youtube_summary(bot, message: types.Message,
                          message.chat.id, video_id)                       # R41-5
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
                      target.message_id)
+    finally:
+        permit.release()
 
 
 @youtube_router.message()
@@ -1008,16 +1027,37 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
         return                                # консьюм
     await cooldown_touch(_cooldown, message.chat.id, user_id)
     if request.kind == "youtube" and request.mode == "summary":
-        # URL-ветка Части 1 — байт-в-байт (T-688)
+        # URL-ветка Части 1 — байт-в-байт (T-688); слот пула — внутри
+        # _process_youtube_summary ПОСЛЕ cache-check (быстрый путь без пула).
         await _process_youtube_summary(bot, message, request.source,
                                        request.video_id)
         return
-    if request.kind == "youtube":
-        await _process_youtube_transcript(bot, message, request)
-        return
-    if request.kind == "native":
-        # Медиа-ветка (консьюм; в smart_cache НЕ пишем — у файла нет
-        # стабильного канонического ключа, FR-10; кулдаун общий уже touch'нут).
-        await _process_video_media(bot, message, request)
-        return
-    await _process_url_media(bot, message, request)
+    # Раунд N (T-841): url/native-ветки mode=summary несут LLM-каскад
+    # (L1/L2 + выжимка) — весь поток под слотом пула per-chat; транскрипт-
+    # ветки (субтитры/STT, без LLM) пул НЕ используют (STT-семафор свой).
+    permit = None
+    if request.mode == "summary":
+        pool = get_smartmodule_concurrency_pool()
+        permit = await pool.try_acquire(message.chat.id,
+                                        timeout=smartmodule_wait_seconds())
+        if permit is None:
+            logger.warning("[youtube] concurrency slot timeout | chat=%s "
+                           "kind=%s", message.chat.id, request.kind)
+            await _reply(bot, message.chat.id,
+                         random.choice(SMARTMODULE_BUSY_PHRASES),
+                         message.message_id)
+            return
+    try:
+        if request.kind == "youtube":
+            await _process_youtube_transcript(bot, message, request)
+            return
+        if request.kind == "native":
+            # Медиа-ветка (консьюм; в smart_cache НЕ пишем — у файла нет
+            # стабильного канонического ключа, FR-10; кулдаун общий уже
+            # touch'нут).
+            await _process_video_media(bot, message, request)
+            return
+        await _process_url_media(bot, message, request)
+    finally:
+        if permit is not None:
+            permit.release()

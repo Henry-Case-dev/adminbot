@@ -21,10 +21,15 @@ from services.persistent_throttling import (
     cooldown_touch,
     make_cooldown,
 )
+from services.smartmodule_concurrency import (
+    get_smartmodule_concurrency_pool,
+    smartmodule_wait_seconds,
+)
 from services.smartmodule_phrases import (
     CHECKUP_DEAD_PHRASES,
     CHECKUP_FALLBACK_PHRASES,
     CHECKUP_LLM_ERROR_PHRASES,
+    SMARTMODULE_BUSY_PHRASES,
 )
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_utils import (
@@ -95,6 +100,18 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         logger.warning("[checkup] fallback phrase sent | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(CHECKUP_FALLBACK_PHRASES),
                      message.message_id)
+    # Раунд N (T-841): слот пула per-chat перед LLM-вызовом checkup
+    # (fetch логов выше — сетевой шаг, в пул не входит). Таймаут → busy-фраза.
+    pool = get_smartmodule_concurrency_pool()
+    permit = await pool.try_acquire(message.chat.id,
+                                    timeout=smartmodule_wait_seconds())
+    if permit is None:
+        logger.warning("[checkup] concurrency slot timeout | chat=%s",
+                       message.chat.id)
+        await _reply(bot, message.chat.id,
+                     random.choice(SMARTMODULE_BUSY_PHRASES),
+                     message.message_id)
+        return
     try:
         # Epic 60 (65.7, T-475): «печатает…» вокруг _service.checkup (65.7).
         async with typing_active(bot, message.chat.id):
@@ -116,3 +133,5 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         logger.exception("[checkup] unexpected error | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(CHECKUP_LLM_ERROR_PHRASES),
                      message.message_id)
+    finally:
+        permit.release()

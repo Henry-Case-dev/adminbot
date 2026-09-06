@@ -31,10 +31,15 @@ from services.persistent_throttling import (
 )
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smart_cache import get_smart_cache
+from services.smartmodule_concurrency import (
+    get_smartmodule_concurrency_pool,
+    smartmodule_wait_seconds,
+)
 from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
     LLM_ERROR_PHRASES,
+    SMARTMODULE_BUSY_PHRASES,
 )
 from services.smartmodule_throttling import CooldownTracker
 from services.smartmodule_utils import (
@@ -200,6 +205,19 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, cached, message.message_id)
         logger.info("[factcheck] cache hit | chat=%s", message.chat.id)
         return
+    # Раунд N (T-841): слот пула per-chat перед LLM-вызовом check_claim
+    # (cache-hit и пустой-контекст выше — быстрые пути БЕЗ пула). Таймаут →
+    # SMARTMODULE_BUSY_PHRASES (реплай на ВЫЗОВ, как 5.1).
+    pool = get_smartmodule_concurrency_pool()
+    permit = await pool.try_acquire(message.chat.id,
+                                    timeout=smartmodule_wait_seconds())
+    if permit is None:
+        logger.warning("[factcheck] concurrency slot timeout | chat=%s",
+                       message.chat.id)
+        await _reply(bot, message.chat.id,
+                     random.choice(SMARTMODULE_BUSY_PHRASES),
+                     message.message_id)
+        return
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
@@ -230,3 +248,5 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         logger.exception("[factcheck] unexpected error | chat=%s", message.chat.id)
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),       # 5.5 → ЦЕЛЕВОЕ
                      target.message_id)
+    finally:
+        permit.release()

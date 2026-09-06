@@ -1,4 +1,5 @@
 """Tests for services/summary_generator.py (T-186, Section 33.7)."""
+import asyncio
 import dataclasses
 import logging
 import sqlite3
@@ -24,6 +25,26 @@ def no_sleep(monkeypatch):
     fake.Lock = real_asyncio.Lock
     monkeypatch.setattr("services.summary_generator.asyncio", fake)
     return fake.sleep
+
+
+@pytest.fixture
+def busy_chat_pool(monkeypatch):
+    """Раунд N (T-841): чистый синглтон пула с N=1 (строгая очередь) —
+    чат можно детерминированно занять одним acquire() для busy-кейсов."""
+    import config.settings as settings_module
+    from services import smartmodule_concurrency as smc
+    from services.smartmodule_concurrency import (
+        get_smartmodule_concurrency_pool,
+        reset_smartmodule_concurrency_pool,
+    )
+    monkeypatch.setattr(
+        smc, "settings",
+        settings_module.Settings(
+            SMARTMODULE_CONCURRENCY_PER_CHAT=1,
+            SMARTMODULE_CONCURRENCY_WAIT_SECONDS=60.0))
+    reset_smartmodule_concurrency_pool()
+    yield get_smartmodule_concurrency_pool()
+    reset_smartmodule_concurrency_pool()
 
 
 class FakeMemory:
@@ -692,74 +713,67 @@ class TestManualFlag:
         assert llm.messages is None
 
     @pytest.mark.asyncio
-    async def test_lock_busy_manual_sends_busy_ux_then_queues(self, no_sleep):
+    async def test_lock_busy_manual_sends_busy_ux_then_queues(self, no_sleep,
+                                                              busy_chat_pool):
+        """Раунд N (T-841): чат занят (N=1, слот держит holder) → manual
+        получает _UX_BUSY и встаёт в очередь; после release — генерирует."""
         memory = FakeMemory(rows=[_row()])
         bot = AsyncMock()
         generator = _make_generator(memory, FakeLLM(), bot)
-
-        class FakeLock:
-            def locked(self):
-                return True
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                return False
-
-        generator._lock = FakeLock()
-        await generator.generate_and_send(-100, manual=True)
+        holder = await busy_chat_pool.acquire(-100)    # чат занят
+        task = asyncio.ensure_future(
+            generator.generate_and_send(-100, manual=True))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
         texts = [call.args[1] for call in bot.send_message.await_args_list]
         assert texts[0] == "уже делаю саммари, подожди"
+        holder.release()
+        await task
+        texts = [call.args[1] for call in bot.send_message.await_args_list]
         assert any("самым главным шизом" in t for t in texts)
 
     @pytest.mark.asyncio
-    async def test_lock_busy_cron_no_ux(self, no_sleep, caplog):
+    async def test_lock_busy_cron_no_ux(self, no_sleep, caplog,
+                                        busy_chat_pool):
         import logging
 
         memory = FakeMemory(rows=[_row()])
         bot = AsyncMock()
         generator = _make_generator(memory, FakeLLM(), bot)
-
-        class FakeLock:
-            def locked(self):
-                return True
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                return False
-
-        generator._lock = FakeLock()
+        holder = await busy_chat_pool.acquire(-100)    # чат занят
         with caplog.at_level(logging.INFO):
-            await generator.generate_and_send(-100)
+            task = asyncio.ensure_future(generator.generate_and_send(-100))
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            texts = [call.args[1] for call in bot.send_message.await_args_list]
+            assert not texts or all("уже делаю" not in t for t in texts)
+            assert any("lock busy" in r.message for r in caplog.records)
+            holder.release()
+            await task
         texts = [call.args[1] for call in bot.send_message.await_args_list]
-        assert texts and all("уже делаю" not in t for t in texts)
-        assert any("lock busy" in r.message for r in caplog.records)
+        assert any("самым главным шизом" in t for t in texts)
 
     @pytest.mark.asyncio
-    async def test_lock_busy_logged_with_manual(self, no_sleep, caplog):
+    async def test_lock_busy_logged_with_manual(self, no_sleep, caplog,
+                                                busy_chat_pool):
         import logging
 
         memory = FakeMemory(rows=[_row()])
-        generator = _make_generator(memory, FakeLLM(), AsyncMock())
-
-        class FakeLock:
-            def locked(self):
-                return True
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                return False
-
-        generator._lock = FakeLock()
+        bot = AsyncMock()
+        generator = _make_generator(memory, FakeLLM(), bot)
+        holder = await busy_chat_pool.acquire(-100)    # чат занят
         with caplog.at_level(logging.INFO):
-            await generator.generate_and_send(-100, manual=True)
-        assert any("lock busy — queued" in r.message and "manual=True" in r.message
-                   for r in caplog.records)
+            task = asyncio.ensure_future(
+                generator.generate_and_send(-100, manual=True))
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            assert any("lock busy — queued" in r.message and "manual=True"
+                       in r.message for r in caplog.records)
+            holder.release()
+            await task
 
 
 # ── Epic 28 (T-214/T-218): репост-маркер, ре-резолв, cleanup ───

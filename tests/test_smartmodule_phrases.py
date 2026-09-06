@@ -32,6 +32,7 @@ from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     SEARCH_EMPTY_QUERY_PHRASES,
     SEARCH_ERROR_PHRASES,
+    SMARTMODULE_BUSY_PHRASES,
     THROTTLE_PHRASES,
     WEB_ERROR_PHRASES,
     YOUTUBE_ERROR_PHRASES,
@@ -162,6 +163,14 @@ EXPECTED_CHAT_LOCK_BUSY = (
     "моя единственная извилина занята, секунду",
 )
 
+# Раунд N (T-841) — новый пул: слот per-chat пула исчерпан (не из ТЗ —
+# стиль CHAT_LOCK_BUSY_PHRASES: строчные, без эмодзи/маркдауна).
+EXPECTED_SMARTMODULE_BUSY = (
+    "бот уже думает над другим вопросом в этом чате, подожди",
+    "в этом чате и так куча генераций бежит, дай им закончить",
+    "мозги заняты другими запросами, вернись через минуту",
+)
+
 # Каноны R43-4 (Epic 43, Section 52.5, дословно)
 EXPECTED_INFO_NO_DELETE_RIGHTS = (
     "какого хуя у меня нет прав удалять сообщения? выдай админку, шиз",
@@ -282,6 +291,32 @@ class TestChatLockBusyPool:
         assert not set(CHAT_LOCK_BUSY_PHRASES) & set(CHAT_COOLDOWN_PHRASES)
         assert not set(CHAT_LOCK_BUSY_PHRASES) & set(CHAT_ERROR_PHRASES)
         assert not set(CHAT_LOCK_BUSY_PHRASES) & set(CHAT_LLM_DOWN_PHRASES)
+
+
+class TestSmartmoduleBusyPool:
+    """Раунд N (T-841): SMARTMODULE_BUSY_PHRASES — 3 фразы, строчные,
+    без эмодзи/плейсхолдеров; отделён от CHAT_LOCK_BUSY и соседей."""
+
+    def test_pool_matches_expected_verbatim(self):
+        assert SMARTMODULE_BUSY_PHRASES == EXPECTED_SMARTMODULE_BUSY
+
+    def test_pool_has_exactly_3_phrases_no_duplicates(self):
+        assert len(SMARTMODULE_BUSY_PHRASES) == 3
+        assert len(set(SMARTMODULE_BUSY_PHRASES)) == 3
+
+    def test_phrases_lowercase_no_emoji_no_placeholder(self):
+        for phrase in SMARTMODULE_BUSY_PHRASES:
+            assert phrase == phrase.lower()
+            assert "{remaining_time}" not in phrase
+            assert not any(ord(ch) > 0x2000 for ch in phrase)
+
+    def test_pool_disjoint_from_neighbours(self):
+        assert not set(SMARTMODULE_BUSY_PHRASES) & set(CHAT_LOCK_BUSY_PHRASES)
+        assert not set(SMARTMODULE_BUSY_PHRASES) & set(CHAT_COOLDOWN_PHRASES)
+        assert not set(SMARTMODULE_BUSY_PHRASES) & set(CHAT_ERROR_PHRASES)
+        assert not set(SMARTMODULE_BUSY_PHRASES) & set(CHAT_LLM_DOWN_PHRASES)
+        assert not set(SMARTMODULE_BUSY_PHRASES) & set(LLM_ERROR_PHRASES)
+        assert not set(SMARTMODULE_BUSY_PHRASES) & set(THROTTLE_PHRASES)
 
 
 class TestEpic53ChatLlmDownPool:
@@ -647,6 +682,7 @@ class TestChatMemoryPhrasePools:
             | set(CHAT_ERROR_PHRASES)
             | set(CHAT_LLM_DOWN_PHRASES)
             | set(CHAT_LOCK_BUSY_PHRASES)
+            | set(SMARTMODULE_BUSY_PHRASES)
             | set(INFO_NO_DELETE_RIGHTS_PHRASES)
             | set(INFO_NOT_ADMIN_PHRASES)
             | set(INFO_BAD_MARKUP_PHRASES)
