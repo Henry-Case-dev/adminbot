@@ -1,5 +1,13 @@
 """Раунд 7 (chat-lore-management-v2, T-779, E1) — REST «Лор чатов» /api/chat_lore.
 
+Раунд 9 (AGI Memory, spec §3.6.1, T-828/F1/F2) — relations-эндпоинты в этом
+же модуле (общие helpers _components/can_access_chat/_conflict; отдельный
+файл НЕ заводим — D-решение §3.6.1): GET список участников (SQLite-скоры
+users_meta через RelationsService из lore_runtime — Q2 + PG manual из
+chat_profiles.relations), PUT/DELETE ручной пометки юзера (optimistic 409
+по updated_at профиля), PUT тумблер relations_enabled. История правок —
+внутри JSONB (D-2), НЕ в chat_lore_history.
+
 APIRouter (включение в web/app.py рядом с api_router, prefix="/api"); ВСЕ
 эндпоинты под `Depends(get_tma_user)` + матрица доступа Q6 (spec §3.8):
 
@@ -18,7 +26,8 @@ DI: store/cache/worker — из services.lore_runtime (set_lore_components в
 bot.py on_startup); компонент не установлен / PG недоступен → 503.
 """
 import logging
-from typing import Annotated
+import time
+from typing import Annotated, Literal
 
 from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -38,6 +47,8 @@ _MANUAL_MAX_CHARS = 4000            # FR-2: cap ручной правки (422)
 _PERIOD_MIN = 1                     # auto_period_hours/auto_window_hours
 _PERIOD_MAX = 720                   # валидация 1..720 (422; spec §3.8)
 _PREVIEW_CHARS = 80                 # превью в списке чатов
+_RELATION_NOTE_MAX = 4000           # F2: cap заметки отношений (422)
+_RELATIONS_LIST_MAX = 100           # F2: потолок строк списка отношений
 
 
 # ── Pydantic-модели ─────────────────────────────────────────────────────────
@@ -53,7 +64,53 @@ class SettingsUpdate(BaseModel):
         default=None, ge=_PERIOD_MIN, le=_PERIOD_MAX)
     auto_window_hours: int | None = Field(
         default=None, ge=_PERIOD_MIN, le=_PERIOD_MAX)
+    # Раунд 9 (F2, spec §3.6.1/D-3): per-chat тумблер тона по стадиям —
+    # колонка relations_enabled; история НЕ пишется (D-2).
+    relations_enabled: bool | None = None
     updated_at: str                  # Q8: обязательна в теле
+
+
+# ── Раунд 9 (T-828/F2, spec §3.6.1): relations ──────────────────────────────
+# Ручная пометка {manual_stage, note} живёт в PG chat_profiles.relations
+# (Q1); правки — store-методами с optimistic-409 по updated_at профиля.
+# stage_manual: 'auto' → сброс на авто (удаление ключа при пустой заметке);
+# иначе стадия из MANUAL_STAGES (422 вне enum).
+RelationStage = Literal["auto", "stranger", "acquaintance", "regular",
+                        "veteran"]
+
+
+class RelationUpsert(BaseModel):
+    """PUT /chat_lore/{chat_id}/relations — user_id в теле (сессионная
+    форма F2); сегментный вариант PUT /{user_id} — RelationStageBody."""
+    user_id: int | None = Field(default=None, gt=0)
+    stage_manual: RelationStage | None = None
+    note: str | None = Field(default=None, max_length=_RELATION_NOTE_MAX)
+    updated_at: str
+
+
+class RelationStageBody(BaseModel):
+    """PUT /chat_lore/{chat_id}/relations/{user_id} (spec §3.6.1/T-828)."""
+    stage_manual: RelationStage | None = None
+    note: str | None = Field(default=None, max_length=_RELATION_NOTE_MAX)
+    updated_at: str
+
+
+class RelationRemove(BaseModel):
+    """DELETE — user_id в теле (сессионная форма); сегментный вариант —
+    только updated_at."""
+    user_id: int | None = Field(default=None, gt=0)
+    updated_at: str
+
+
+class RelationStageRemove(BaseModel):
+    """DELETE /chat_lore/{chat_id}/relations/{user_id} (spec §3.6.1)."""
+    updated_at: str
+
+
+class RelationsEnabledBody(BaseModel):
+    """PUT /chat_lore/{chat_id}/relations_enabled {enabled, updated_at}."""
+    enabled: bool
+    updated_at: str
 
 
 class RemapRequest(BaseModel):
@@ -307,7 +364,8 @@ async def update_settings(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
     """Настройки авто-генерации (по-полевая история; 409 optimistic;
-    period/window 1..720 → 422)."""
+    period/window 1..720 → 422). Раунд 9 (F2/§3.6.1): relations_enabled —
+    per-chat тумблер тона по стадиям (БЕЗ истории, D-2; 409 по updated_at)."""
     cache = get_cache(request)
     store, _cache_c, _worker = _components()
     await _require_chat(cache, store, user, chat_id)
@@ -317,6 +375,7 @@ async def update_settings(
             auto_enabled=payload.auto_enabled,
             auto_period_hours=payload.auto_period_hours,
             auto_window_hours=payload.auto_window_hours,
+            relations_enabled=payload.relations_enabled,
             changed_by=user.id,
             expected_updated_at=payload.updated_at)
     except ChatLoreConflict as exc:
@@ -443,4 +502,198 @@ async def get_history(
         }
         for r in rows
     ]
+
+
+# ═══ Раунд 9 (AGI Memory, spec §3.6.1/Q2, T-828/F2): relations ═════════════
+
+def _db_component() -> tuple:
+    """(db, relations_service) из lore_runtime (Q2): db None → SQLite-часть
+    пуста (fail-open); None-компоненты ловят вызывающие."""
+    return lore_runtime.get_lore_db(), lore_runtime.get_relations_service()
+
+
+@chat_lore_router.get("/chat_lore/{chat_id}/relations")
+async def list_relations(
+    chat_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Список участников чата с отношениями (spec §3.6.1): SQLite-скоры/
+    авто-стадии (users_meta через RelationsService — refresh топ-N по
+    limits.relations_api_max_users) + PG manual-стадии/заметки (relations
+    JSONB, мерж по str(user_id)); имя — каскад aliases. Сортировка —
+    activity_score DESC (None/0 в конце), cap _RELATIONS_LIST_MAX (100).
+    Права — can_access_chat; 404 — профиля чата нет; PG down → 503."""
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    profile = await _profile_or_404(store, chat_id)
+    db, relations_service = _db_component()
+    users: list = []
+    if relations_service is not None and db is not None:
+        try:
+            names = await _participant_names(db, chat_id)
+            snapshot = await relations_service.get_relations_snapshot(
+                chat_id, names=names or None)
+            users = [dict(u) for u in snapshot]
+        except Exception:
+            logger.warning(
+                "[relations] SQLite-чтение не удалось — список пуст | "
+                "chat_id=%s", chat_id, exc_info=True)
+            users = []
+    users.sort(key=lambda u: (not bool(u.get("activity_score")),
+                              -(float(u.get("activity_score") or 0.0)),
+                              int(u.get("user_id") or 0)))
+    return {
+        "chat_id": chat_id,
+        "relations_enabled": bool(profile.relations_enabled),
+        "users": users[:_RELATIONS_LIST_MAX],
+    }
+
+
+async def _participant_names(db, chat_id: int) -> dict | None:
+    """{user_id: display} из последних авторов сообщений чата (best-effort;
+    поверх — каскад aliases в RelationsService; пусто → None = uid)."""
+    try:
+        rows = await db.get_active_participants(
+            chat_id, int(time.time()) - 30 * 86400, 200)
+        names = {int(r["user_id"]): str(r["author_name"]).strip()
+                 for r in rows if r.get("user_id") and str(
+                     r.get("author_name") or "").strip()}
+    except Exception:
+        logger.warning(
+            "[relations] имена участников недоступны — uid fallback | "
+            "chat_id=%s", chat_id, exc_info=True)
+        return None
+    return names or None
+
+
+async def _save_relation(cache, store, user, chat_id: int,
+                         user_id: int, stage_manual, note: str | None,
+                         updated_at: str) -> dict:
+    """Общая реализация PUT relations: stage_manual 'auto'/None → сброс на
+    авто (удаление ключа при пустой заметке — store.put_relation);
+    иначе — ручная стадия + заметка (updated_by=telegram_id в JSONB-аудит,
+    D-2). 409 optimistic → _conflict; 503 PG."""
+    await _require_chat(cache, store, user, chat_id)
+    stage = None if stage_manual in (None, "auto") else stage_manual
+    try:
+        profile = await store.put_relation(
+            chat_id, user_id, stage=stage, note=note,
+            expected_updated_at=updated_at, updated_by=user.id)
+    except ChatLoreConflict as exc:
+        raise _conflict(exc) from exc
+    except ChatLorePgUnavailable as exc:
+        raise _pg_guard(exc) from exc
+    return profile.to_dict()
+
+
+# PUT /chat_lore/{chat_id}/relations — user_id в теле (форма F2-сессии)
+@chat_lore_router.put("/chat_lore/{chat_id}/relations")
+async def put_relation_body(
+    chat_id: int,
+    payload: RelationUpsert,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Ручная пометка юзера {user_id, stage_manual, note} (форма F2)."""
+    if payload.user_id is None:
+        raise HTTPException(status_code=422, detail="user_id обязателен")
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    return await _save_relation(cache, store, user, chat_id,
+                                payload.user_id, payload.stage_manual,
+                                payload.note, payload.updated_at)
+
+
+# PUT /chat_lore/{chat_id}/relations/{user_id} (spec §3.6.1/T-828)
+@chat_lore_router.put("/chat_lore/{chat_id}/relations/{user_id}")
+async def put_relation_path(
+    chat_id: int,
+    user_id: int,
+    payload: RelationStageBody,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Ручная пометка юзера {stage_manual, note, updated_at} — сегментная
+    форма (spec). user_id вне (0, …] → 422."""
+    if user_id <= 0:
+        raise HTTPException(status_code=422, detail="user_id вне диапазона")
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    return await _save_relation(cache, store, user, chat_id, user_id,
+                                payload.stage_manual, payload.note,
+                                payload.updated_at)
+
+
+# DELETE /chat_lore/{chat_id}/relations — user_id в теле (форма F2)
+@chat_lore_router.delete("/chat_lore/{chat_id}/relations")
+async def delete_relation_body(
+    chat_id: int,
+    payload: RelationRemove,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Сброс юзера на авто (удаление ключа relations; 409 optimistic)."""
+    if payload.user_id is None:
+        raise HTTPException(status_code=422, detail="user_id обязателен")
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    return await _delete_relation(cache, store, user, chat_id,
+                                  payload.user_id, payload.updated_at)
+
+
+# DELETE /chat_lore/{chat_id}/relations/{user_id} (spec §3.6.1/T-828)
+@chat_lore_router.delete("/chat_lore/{chat_id}/relations/{user_id}")
+async def delete_relation_path(
+    chat_id: int,
+    user_id: int,
+    payload: RelationStageRemove,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Сброс юзера на авто — сегментная форма (spec)."""
+    if user_id <= 0:
+        raise HTTPException(status_code=422, detail="user_id вне диапазона")
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    return await _delete_relation(cache, store, user, chat_id, user_id,
+                                  payload.updated_at)
+
+
+async def _delete_relation(cache, store, user, chat_id: int, user_id: int,
+                           updated_at: str) -> dict:
+    await _require_chat(cache, store, user, chat_id)
+    try:
+        profile = await store.delete_relation(
+            chat_id, user_id, expected_updated_at=updated_at)
+    except ChatLoreConflict as exc:
+        raise _conflict(exc) from exc
+    except ChatLorePgUnavailable as exc:
+        raise _pg_guard(exc) from exc
+    return profile.to_dict()
+
+
+# PUT /chat_lore/{chat_id}/relations_enabled (D-3/§3.6.1: тумблер per-chat)
+@chat_lore_router.put("/chat_lore/{chat_id}/relations_enabled")
+async def set_relations_enabled(
+    chat_id: int,
+    payload: RelationsEnabledBody,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Включение/выключение тона по стадиям для чата (БЕЗ истории, D-2;
+    optimistic 409 по updated_at профиля). Профиля нет → ensure-профиль
+    (store.set_relations_enabled). Ответ — обновлённый профиль."""
+    cache = get_cache(request)
+    store, _cache_c, _worker = _components()
+    await _require_chat(cache, store, user, chat_id)
+    try:
+        profile = await store.set_relations_enabled(
+            chat_id, payload.enabled, expected_updated_at=payload.updated_at)
+    except ChatLoreConflict as exc:
+        raise _conflict(exc) from exc
+    except ChatLorePgUnavailable as exc:
+        raise _pg_guard(exc) from exc
+    return profile.to_dict()
 

@@ -1900,6 +1900,78 @@ class DatabaseService:
             (int(new_id), int(old_id)))
         await self.db.commit()
 
+    # ── API beliefs/логи (Раунд 9, spec §3.6.2, T-829/F2): read-only
+    #    методы для web/api/memory_agi.py + мягкое удаление (D-7) ─────────
+
+    async def list_recent_beliefs(self, chat_id: int | None = None,
+                                   limit: int = 50) -> list:
+        """Последние beliefs (kind='belief', DESC по id) для TMA «Синтез
+        (сон)» (spec §3.6.2). chat_id=None → все чаты; v8-колонки
+        importance/source_ids/belief_meta в SELECT (парсит API)."""
+        cols = ("id, chat_id, fact, origin, status, supersedes, weight, "
+                "importance, source_ids, belief_meta, created_at")
+        if chat_id is None:
+            cursor = await self.db.execute(
+                "SELECT " + cols + " FROM graph_facts WHERE kind = 'belief' "
+                "ORDER BY id DESC LIMIT ?", (int(limit),))
+        else:
+            cursor = await self.db.execute(
+                "SELECT " + cols + " FROM graph_facts "
+                "WHERE kind = 'belief' AND chat_id = ? "
+                "ORDER BY id DESC LIMIT ?", (int(chat_id), int(limit)))
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_graph_fact(self, fact_id: int) -> dict | None:
+        """Строка graph_facts по id (для beliefs-эндпоинтов: DELETE/protect
+        — проверка kind='belief'; 404 при отсутствии)."""
+        cursor = await self.db.execute(
+            "SELECT id, chat_id, fact, kind, status FROM graph_facts "
+            "WHERE id = ?", (int(fact_id),))
+        row = await cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    async def soft_delete_belief(self, fact_id: int) -> bool:
+        """Мягкое удаление belief (spec §3.4.8/D-7): status='unconfirmed',
+        last_confirmed_at=NULL — belief исключается из RAG (status-фильтр
+        confirmed везде), вычищается существующим review-воркером.
+        Hard-delete не делаем (согласованность FTS5/vec0). True — удалён;
+        False — id нет/не belief (404 в API)."""
+        cursor = await self.db.execute(
+            "UPDATE graph_facts SET status = 'unconfirmed', "
+            "last_confirmed_at = NULL WHERE id = ? AND kind = 'belief'",
+            (int(fact_id),))
+        await self.db.commit()
+        return bool(cursor.rowcount)
+
+    async def protect_belief_text(self, chat_id: int, text: str) -> bool:
+        """«Сделать protected» (spec §3.4.8): текст belief → protected_facts
+        чата (user_name NULL — chat-level, INSERT OR IGNORE на уникальном
+        индексе чат-уровня v6). True — строка добавлена; False — уже была.
+        Belief остаётся в графе; гейт «сна» (§3.4.3) его больше не тронет."""
+        cursor = await self.db.execute(
+            "INSERT OR IGNORE INTO protected_facts "
+            "(chat_id, user_name, fact, created_at) VALUES (?, NULL, ?, ?)",
+            (int(chat_id), str(text), int(time.time())))
+        await self.db.commit()
+        return bool(cursor.rowcount)
+
+    async def recent_dream_log(self, limit: int = 100,
+                               chat_id: int | None = None) -> list:
+        """Последние строки memory_dream_log (TMA «последние сны», spec
+        §3.6.2): DESC по id; chat_id — фильтр чата (None — все чаты)."""
+        if chat_id is None:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, run_at, kind, cluster_id, source_ids, "
+                "belief_id, tokens, status FROM memory_dream_log "
+                "ORDER BY id DESC LIMIT ?", (int(limit),))
+        else:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, run_at, kind, cluster_id, source_ids, "
+                "belief_id, tokens, status FROM memory_dream_log "
+                "WHERE chat_id = ? ORDER BY id DESC LIMIT ?",
+                (int(chat_id), int(limit)))
+        return [dict(row) for row in await cursor.fetchall()]
+
     # ── ностальгия (Раунд 9, spec §3.5.2, T-827/E2): nostalgia_log и
     #    SQLite-хелперы условий тика/кандидатов ──────────────────────────
 

@@ -98,6 +98,10 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # Отдельный APIRouter (spec §3.8) — включение рядом с api_router.
     from web.api.chat_lore import chat_lore_router
     app.include_router(chat_lore_router, prefix="/api")
+    # Раунд 9 (AGI Memory, spec §3.6.2, T-829/F2): «Сон»/«Ностальгия» API —
+    # ручной запуск воркеров + логи (только глобальный admin).
+    from web.api.memory_agi import memory_router
+    app.include_router(memory_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
 

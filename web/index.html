@@ -436,6 +436,109 @@
                   </div>
                 </div>
               </div>
+              <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): мини-блоки
+                   «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером,
+                   только на вкладке «Память и RAG» (глобальный admin;
+                   GET-логи консервативно — admin, spec §3.6.2). -->
+              <div v-if="activeTab === 'memory_rag' && isGlobalAdmin"
+                   class="space-y-4" style="grid-column: 1 / -1;">
+                <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
+                <div class="card p-4">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="text-sm font-bold">🧠 Синтез (сон)</div>
+                    <span class="text-xs text-gray-500">
+                      дистилляция повторяющихся фактов в убеждения (beliefs)
+                    </span>
+                    <button class="btn-ghost text-xs ml-auto shrink-0"
+                            :disabled="memoryRagBusy"
+                            @click="loadDreamBeliefs(); loadDreamLog()">⟳</button>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap mb-3">
+                    <button class="btn-accent text-sm" :disabled="dreamBusy
+                            || memoryRagBusy" @click="runDreamNow()">
+                      {{ dreamBusy ? 'Запуск…' : 'Запустить синтез сейчас' }}
+                    </button>
+                    <span class="text-xs text-gray-500">
+                      Работает при выключенном флаге «Сон: включён» тоже;
+                      ночные тики идут только в окне 4–6 local.
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500 font-bold mb-1">Последние убеждения</div>
+                  <div v-if="dreamBeliefs.length === 0"
+                       class="text-xs text-gray-500 py-2">
+                    Пока пусто — синтез ещё не давал убеждений (включите
+                    «Сон» в настройках выше или запустите вручную).
+                  </div>
+                  <div v-else class="flex flex-col gap-1.5">
+                    <div v-for="b in dreamBeliefs" :key="b.id"
+                         class="rounded-lg border border-white/10 px-2 py-1.5">
+                      <div class="flex items-center gap-2 flex-wrap text-xs">
+                        <span class="text-gray-500 shrink-0">{{ fmtTs(b.created_at) }}</span>
+                        <span class="badge badge-info">важность {{ b.importance }}</span>
+                        <span class="badge badge-muted">источников {{ b.source_ids.length }}</span>
+                        <span class="badge badge-ok" v-if="b.status === 'confirmed'">confirmed</span>
+                        <span class="badge badge-warn" v-else>{{ b.status }}</span>
+                        <button class="btn-ghost text-xs ml-auto shrink-0"
+                                title="Сделать protected (не дистиллировать)"
+                                :disabled="memoryRagBusy"
+                                @click="dreamProtect(b)">🛡 защитить</button>
+                        <button class="btn-danger text-xs shrink-0"
+                                title="Мягкое удаление (убрать из контекста)"
+                                :disabled="memoryRagBusy"
+                                @click="dreamDelete(b)">🗑</button>
+                      </div>
+                      <div class="text-sm mt-1" :title="b.fact">{{ b.fact }}</div>
+                    </div>
+                  </div>
+                  <details class="mt-3 text-xs">
+                    <summary class="cursor-pointer select-none text-gray-500">
+                      Последние сны (лог дистилляций)
+                    </summary>
+                    <div v-if="dreamLog.length === 0"
+                         class="text-gray-500 py-1">Лог пуст.</div>
+                    <div v-else class="flex flex-col gap-1 pt-1">
+                      <div v-for="l in dreamLog" :key="l.id"
+                           class="flex items-center gap-2 flex-wrap text-xs">
+                        <span class="text-gray-500 shrink-0">{{ fmtTs(l.run_at) }}</span>
+                        <span class="badge" :class="l.status === 'ok'
+                          ? (l.kind === 'distilled' ? 'badge-ok' : 'badge-muted')
+                          : 'badge-warn'">{{ l.kind }}</span>
+                        <span class="text-gray-400">чат {{ l.chat_id }}</span>
+                        <span class="text-gray-500 ml-auto">{{ l.status }}</span>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
+                <!-- Ностальгия: последние срабатывания слоя B -->
+                <div class="card p-4">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="text-sm font-bold">🌟 Ностальгия</div>
+                    <span class="text-xs text-gray-500">слой B — «кстати…» в тихих чатах</span>
+                    <button class="btn-ghost text-xs ml-auto shrink-0"
+                            :disabled="memoryRagBusy"
+                            @click="loadNostalgiaLog()">⟳</button>
+                  </div>
+                  <div v-if="nostalgiaLog.length === 0"
+                       class="text-xs text-gray-500 py-2">
+                    Пока пусто — срабатываний не было (флаг «Ностальгия:
+                    включён» off или ещё не было поводов).
+                  </div>
+                  <div v-else class="flex flex-col gap-1.5">
+                    <div v-for="n in nostalgiaLog" :key="n.id"
+                         class="flex items-center gap-2 flex-wrap text-xs
+                                rounded-lg border border-white/10 px-2 py-1">
+                      <span class="text-gray-500 shrink-0">{{ fmtTs(n.ts) }}</span>
+                      <span class="badge" :class="n.status === 'sent'
+                        ? 'badge-ok' : (n.status === 'error'
+                          ? 'badge-err' : 'badge-warn')">{{ n.status }}</span>
+                      <span class="text-gray-400">чат {{ n.chat_id }} · {{ n.kind }}</span>
+                      <span v-if="n.meta && n.meta.reason" class="text-gray-500 ml-auto">
+                        причина: {{ n.meta.reason }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </template>
           </template>
           <template v-else-if="activeTab === 'access'">
@@ -664,6 +767,89 @@
                       <div class="mt-3 flex justify-end">
                         <button class="btn-accent text-sm" :disabled="chatLoreBusy"
                                 @click="saveSettings()">Сохранить настройки</button>
+                      </div>
+                    </div>
+
+                    <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-830/F3): 👥
+                         Участники и отношения — авто-стадии (SQLite-скоры) +
+                         ручные пометки админа (PG relations JSONB). -->
+                    <div class="card p-4">
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <div class="text-sm font-bold">👥 Участники и отношения</div>
+                        <span class="badge badge-info ml-auto"
+                              v-if="relationsBusy && chatRelations.length === 0">загрузка…</span>
+                        <button class="btn-ghost text-xs shrink-0"
+                                :disabled="relationsBusy"
+                                @click="loadRelations(chatLoreProfile.chat_id)">⟳</button>
+                      </div>
+                      <div class="text-xs text-gray-500 mb-3">
+                        Авто-стадия считается по активности в чате; ручная
+                        пометка админа приоритетнее расчёта (влияет на тон
+                        ответов бота при включённом флаге ниже).
+                      </div>
+                      <div class="flex items-center justify-between gap-3
+                                  rounded-lg border border-white/10 px-3 py-2 mb-3">
+                        <div>
+                          <div class="text-sm">Влиять на тон бота (relations_enabled)</div>
+                          <div class="text-xs text-gray-500">
+                            Блок отношений участников добавляется в контекст
+                            диалога (глобальный флаг — вкладка «Лимиты»)
+                          </div>
+                        </div>
+                        <label class="relative inline-flex items-center
+                                       cursor-pointer shrink-0">
+                          <input type="checkbox" class="sr-only peer"
+                                 :checked="relationsEnabled"
+                                 :disabled="relationsBusy"
+                                 @change="onRelationsToggle($event)">
+                          <div class="w-11 h-6 rounded-full peer bg-white/10
+                                       peer-checked:bg-violet-600 transition-colors"></div>
+                          <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white
+                                       transition-transform peer-checked:translate-x-5"></div>
+                        </label>
+                      </div>
+                      <div v-if="chatRelations.length === 0"
+                           class="text-xs text-gray-500 py-2">
+                        Участников пока нет — карточки появятся после первых
+                        сообщений в чате.
+                      </div>
+                      <div v-else class="max-h-80 overflow-y-auto scroll-thin pr-1">
+                        <div v-for="u in chatRelations" :key="u.user_id"
+                             class="rounded-lg border border-white/10 px-2 py-1.5 mb-1.5">
+                          <div class="flex items-center gap-2 flex-wrap text-sm">
+                            <span class="font-semibold min-w-0 truncate">{{ u.name }}</span>
+                            <span class="text-xs text-gray-500 font-mono">{{ u.user_id }}</span>
+                            <span class="badge badge-info">{{ stageRu(u.stage_auto) }} (авто)</span>
+                            <span class="badge badge-muted" v-if="u.stage_manual">
+                              ручная: {{ stageRu(u.stage_manual) }}
+                            </span>
+                            <span class="text-xs text-gray-400">
+                              скор {{ Number(u.activity_score).toFixed(1) }}
+                              · {{ u.msg_count }} сообщ.
+                            </span>
+                            <span class="text-xs text-gray-500 ml-auto"
+                                  v-if="u.last_seen">активен {{ fmtTs(u.last_seen) }}</span>
+                          </div>
+                          <div class="mt-1.5 flex items-center gap-2 flex-wrap">
+                            <select class="field w-40" v-model="u.draft_stage"
+                                    :disabled="relationsBusy">
+                              <option value="auto">— авто</option>
+                              <option v-for="s in ['stranger','acquaintance','regular','veteran']"
+                                      :key="s" :value="s">{{ stageRu(s) }}</option>
+                            </select>
+                            <input class="field flex-1 min-w-0" type="text"
+                                   v-model="u.draft_note"
+                                   :disabled="relationsBusy" maxlength="4000"
+                                   placeholder="заметка админа (необязательно)">
+                            <button class="btn-accent text-xs shrink-0"
+                                    :disabled="relationsBusy"
+                                    @click="saveRelationManual(u)">💾</button>
+                            <button class="btn-danger text-xs shrink-0"
+                                    :disabled="relationsBusy"
+                                    title="Сбросить на авто — стирает стадию и заметку"
+                                    @click="removeRelationManual(u)">Сброс</button>
+                          </div>
+                        </div>
                       </div>
                     </div>
 

@@ -122,6 +122,19 @@
         chatLoreHistoryOpen: false,
         chatLoreHistoryLoading: false,
         chatLore409: null,             // Q8: {code:'conflict', current_updated_at}
+        // Раунд 9 (AGI Memory, spec §3.6.3, T-830/F3): «Участники и
+        // отношения» в «Лор чатов» (relations-блок карточки чата).
+        relationsEnabled: false,       // per-chat тумблер relations_enabled
+        chatRelations: [],             // строки GET /chat_lore/{id}/relations
+        relationsBusy: false,          // загрузка/сохранение отношений
+        relationDraft: null,           // {user_id, stage_manual, note} в работе
+        // Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): «Синтез (сон)» и
+        // «Ностальгия» — мини-блоки вкладки «Память и RAG» (глобальный admin).
+        dreamBusy: false,              // POST /api/memory/dream/run в процессе
+        memoryRagBusy: false,          // прочие операции блоков памяти
+        dreamBeliefs: [],              // последние beliefs (GET)
+        dreamLog: [],                  // последние строки memory_dream_log
+        nostalgiaLog: [],              // последние срабатывания (GET nostalgia)
         // C2 (D5/D8/Q9): переезд чата и per-chat админы — глобальный admin
         remapNewChatId: '',            // новый chat_id для «Переезда чата»
         remapBusy: false,              // POST remap в процессе
@@ -398,6 +411,15 @@
         if (id === 'chat_lore' && this.hasPerm('section.chat_lore')
             && !this.chatLoreChats.length && !this.chatLoreLoading) {
           this.loadChats();
+        }
+        // Раунд 9 (T-831/F4): «Память и RAG» — мини-блоки «Синтез (сон)»/
+        // «Ностальгия» под generic-списком (глобальный admin; GET-логи —
+        // консервативно только admin, spec §3.6.2).
+        if (id === 'memory_rag' && this.isGlobalAdmin
+            && !this.dreamBeliefs.length && !this.nostalgiaLog.length
+            && !this.memoryRagBusy) {
+          this.loadDreamBeliefs();
+          this.loadNostalgiaLog();
         }
         // 3.5.1: конфиг-вкладки (generic-рендер) — данные общие для всех;
         // первый показ любой из них грузит /api/config целиком.
@@ -991,6 +1013,19 @@
         if (isNaN(d.getTime())) return String(ts).slice(0, 19).replace('T', ' ');
         return d.toLocaleString('ru-RU', { hour12: false });
       },
+      // Раунд 9: формат unix-секунд (users_meta/graph_facts/logs в секундах)
+      fmtTs: function (ts) {
+        if (!ts) return '—';
+        return this.fmtLogTs(new Date(ts * 1000));
+      },
+      // Раунд 9: русская подпись стадии отношений (спец. зеркало STAGE_RU)
+      stageRu: function (stage) {
+        var map = {
+          stranger: 'нюфаг', acquaintance: 'знакомый',
+          regular: 'свой', veteran: 'ветеран',
+        };
+        return map[stage] || stage || '—';
+      },
       logText: function (log) {
         return [log.ts, log.level, log.logger, log.message,
                 log.exc_text ? '\n' + log.exc_text : ''].join(' | ');
@@ -1156,10 +1191,14 @@
           // C2: список админов грузим вместе с профилем (глобальный admin —
           // остальным секции remap/админов в шаблоне не видны)
           if (this.isGlobalAdmin) this.loadChatAdmins(p.chat_id);
+          // F3 (раунд 9): участники и отношения — при каждом выборе чата
+          this.loadRelations(p.chat_id);
         } catch (e) {
           // неудачная загрузка не оставляет «протухший» профиль на экране
           this.chatLoreProfile = null;
           this.chatAdmins = [];
+          this.chatRelations = [];
+          this.relationsEnabled = false;
           if (e.status === 404) {
             this.chatLoreError = 'Профиль чата ' + chatId + ' не найден (404).';
           } else if (e.status === 403) {
@@ -1361,6 +1400,259 @@
       cancelLoreReload: function () {
         this.chatLore409 = null;
       },
+
+      // ═══ Раунд 9 (AGI Memory, spec §3.6.1/§3.6.3, T-830/F3): отношения ═══
+
+      // GET /chat_lore/{id}/relations: SQLite-скоры/авто-стадии (users_meta)
+      // + PG manual (relations JSONB); строим черновики строки для правки.
+      loadRelations: async function (chatId) {
+        if (chatId == null || chatId === '') return;
+        this.relationsBusy = true;
+        try {
+          var data = await this.api('/api/chat_lore/' + chatId + '/relations');
+          this.relationsEnabled = !!(data && data.relations_enabled);
+          var rows = Array.isArray(data && data.users) ? data.users : [];
+          rows.forEach(function (u) {
+            u.draft_stage = u.stage_manual || 'auto';
+            u.draft_note = u.note || '';
+          });
+          this.chatRelations = rows;
+        } catch (e) {
+          this.chatRelations = [];
+          if (e.status === 404) {
+            this.chatRelations = [];
+          } else if (e.status !== 401 && e.status !== 403) {
+            this.toast('Не удалось загрузить отношения: '
+              + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.relationsBusy = false;
+        }
+      },
+
+      // PUT /chat_lore/{id}/relations {user_id, stage_manual, note} —
+      // ручная стадия админа (manual ?? auto в инжекте); 409 optimistic.
+      saveRelationManual: async function (row) {
+        var p = this.chatLoreProfile;
+        if (!p || !row || this.relationsBusy) return;
+        this.relationsBusy = true;
+        this.relationDraft = {
+          user_id: row.user_id,
+          stage_manual: row.draft_stage,
+          note: row.draft_note,
+        };
+        try {
+          var saved = await this.api(
+            '/api/chat_lore/' + p.chat_id + '/relations', {
+              method: 'PUT',
+              body: JSON.stringify({
+                user_id: row.user_id,
+                stage_manual: this.relationDraft.stage_manual,
+                note: this.relationDraft.note || null,
+                updated_at: p.updated_at,       // optimistic-метка в теле
+              }),
+            });
+          this.applyLoreProfile(saved, true);   // свежие relations/метка
+          await this.loadRelations(p.chat_id);
+          this.toast('Пометка участника сохранена', 'ok');
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.chatLore409 = e.message;       // → модалка «Перезагрузить?»
+            return;
+          }
+          if (e.status === 422) {
+            this.toast('Стадия вне списка допустимых (422)', 'warn');
+          } else {
+            this.toast('Ошибка сохранения пометки: ' + this.loreErrText(e),
+              'err');
+          }
+        } finally {
+          this.relationsBusy = false;
+        }
+      },
+
+      // DELETE /chat_lore/{id}/relations {user_id, updated_at} — сброс на
+      // авто (стирает и стадию, и заметку; spec §3.6.3 «сброс»).
+      removeRelationManual: async function (row) {
+        var p = this.chatLoreProfile;
+        if (!p || !row || this.relationsBusy) return;
+        this.relationsBusy = true;
+        try {
+          var saved = await this.api(
+            '/api/chat_lore/' + p.chat_id + '/relations', {
+              method: 'DELETE',
+              body: JSON.stringify({
+                user_id: row.user_id,
+                updated_at: p.updated_at,
+              }),
+            });
+          this.applyLoreProfile(saved, true);
+          await this.loadRelations(p.chat_id);
+          this.toast('Участник возвращён на авто-стадию', 'ok');
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.chatLore409 = e.message;
+            return;
+          }
+          this.toast('Ошибка сброса пометки: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.relationsBusy = false;
+        }
+      },
+
+      // PUT /chat_lore/{id}/relations_enabled {enabled, updated_at} —
+      // per-chat тумблер «Влиять на тон бота» (D-3; БЕЗ истории).
+      onRelationsToggle: function (ev) {
+        this.toggleRelationsEnabled(!!ev.target.checked);
+      },
+      toggleRelationsEnabled: async function (want) {
+        var p = this.chatLoreProfile;
+        if (!p || this.relationsBusy) return;
+        var previous = this.relationsEnabled;
+        this.relationsBusy = true;
+        try {
+          var saved = await this.api(
+            '/api/chat_lore/' + p.chat_id + '/relations_enabled', {
+              method: 'PUT',
+              body: JSON.stringify({
+                enabled: !!want,
+                updated_at: p.updated_at,
+              }),
+            });
+          this.applyLoreProfile(saved, true);
+          this.relationsEnabled = !!saved.relations_enabled;
+          this.toast(this.relationsEnabled
+            ? 'Тон по стадиям включён для чата'
+            : 'Тон по стадиям выключен', 'ok');
+        } catch (e) {
+          this.relationsEnabled = previous;
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.chatLore409 = e.message;       // reload подтянет и relations
+            return;
+          }
+          this.toast('Ошибка переключения: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.relationsBusy = false;
+        }
+      },
+
+      // Алиасы имён spec §3.6.3 (saveRelation/resetRelation/saveRelationsToggle)
+      saveRelation: function (row) { return this.saveRelationManual(row); },
+      resetRelation: function (row) { return this.removeRelationManual(row); },
+      saveRelationsToggle: function () { return this.toggleRelationsEnabled(); },
+
+      // ═══ Раунд 9 (AGI Memory, spec §3.6.2/§3.6.3, T-831/F4): «Сон» ═══
+
+      // GET /api/memory/dream/beliefs — последние убеждения (карточки).
+      loadDreamBeliefs: async function () {
+        this.memoryRagBusy = true;
+        try {
+          var data = await this.api('/api/memory/dream/beliefs?limit=20');
+          this.dreamBeliefs = Array.isArray(data) ? data : [];
+        } catch (e) {
+          this.dreamBeliefs = [];
+          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
+            this.toast('Не удалось загрузить убеждения: ' + e.message, 'err');
+          }
+        } finally {
+          this.memoryRagBusy = false;
+        }
+      },
+
+      // POST /api/memory/dream/run — ручной «синтез сейчас» (202/409/503);
+      // флаг dream_enabled не требуется (спец. ручной запуск, D-5).
+      runDreamNow: async function () {
+        if (this.dreamBusy) return;
+        this.dreamBusy = true;
+        var self = this;
+        try {
+          await this.api('/api/memory/dream/run', { method: 'POST',
+            body: JSON.stringify({}) });
+          this.toast('Синтез запущен в фоне — результат появится в списке '
+            + 'убеждений', 'ok');
+          setTimeout(function () {   // прогресс LLM-прогона — минуты; обновим
+            self.loadDreamBeliefs();
+            self.loadDreamLog();
+          }, 3000);
+        } catch (e) {
+          var code = (e.status === 409 && e.message) ? e.message.code : null;
+          if (code === 'already_running') {
+            this.toast('Синтез уже выполняется — подождите', 'warn');
+          } else if (e.status === 503) {
+            this.toast('Воркер сна недоступен (503)', 'warn');
+          } else {
+            this.toast('Ошибка запуска синтеза: ' + e.message, 'err');
+          }
+        } finally {
+          this.dreamBusy = false;
+        }
+      },
+
+      // DELETE /api/memory/dream/beliefs/{id} — мягкое удаление (D-7).
+      dreamDelete: async function (belief) {
+        if (!belief || !window.confirm('Удалить убеждение (мягко)? Оно '
+            + 'перестанет попадать в контекст.')) return;
+        this.memoryRagBusy = true;
+        try {
+          await this.api('/api/memory/dream/beliefs/' + belief.id,
+            { method: 'DELETE' });
+          this.toast('Убеждение удалено (мягко)', 'ok');
+          await this.loadDreamBeliefs();
+        } catch (e) {
+          this.toast('Ошибка удаления: ' + e.message, 'err');
+        } finally {
+          this.memoryRagBusy = false;
+        }
+      },
+
+      // POST /api/memory/dream/beliefs/{id}/protect — в protected_facts чата.
+      dreamProtect: async function (belief) {
+        if (!belief || this.memoryRagBusy) return;
+        this.memoryRagBusy = true;
+        try {
+          var res = await this.api(
+            '/api/memory/dream/beliefs/' + belief.id + '/protect',
+            { method: 'POST', body: '{}' });
+          this.toast(res && res.protected
+            ? 'Убеждение защищено от синтеза'
+            : 'Уже было в защищённых', 'ok');
+          await this.loadDreamBeliefs();
+        } catch (e) {
+          this.toast('Ошибка защиты: ' + e.message, 'err');
+        } finally {
+          this.memoryRagBusy = false;
+        }
+      },
+
+      // GET /api/memory/dream/log — «последние сны» (аудит).
+      loadDreamLog: async function () {
+        try {
+          var data = await this.api('/api/memory/dream/log?limit=20');
+          this.dreamLog = Array.isArray(data) ? data : [];
+        } catch (e) {
+          this.dreamLog = [];
+          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
+            this.toast('Не удалось загрузить лог снов: ' + e.message, 'err');
+          }
+        }
+      },
+
+      // GET /api/memory/nostalgia/log — «последние срабатывания».
+      loadNostalgiaLog: async function () {
+        try {
+          var data = await this.api('/api/memory/nostalgia/log?limit=20');
+          this.nostalgiaLog = Array.isArray(data) ? data : [];
+        } catch (e) {
+          this.nostalgiaLog = [];
+          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
+            this.toast('Не удалось загрузить ностальгию: ' + e.message, 'err');
+          }
+        }
+      },
+
+      // Алиасы spec §3.6.3 (имена фронт-аудита G4)
+      dreamBeliefsLoader: function () { return this.loadDreamBeliefs(); },
+      nostalgiaLogLoader: function () { return this.loadNostalgiaLog(); },
 
       // ═══ Переезд чата и per-chat админы (C2: D5/D8/Q9, глобальный admin) ═══
 

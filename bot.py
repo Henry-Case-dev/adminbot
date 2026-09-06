@@ -116,6 +116,9 @@ from handlers.chat_lifecycle import chat_lifecycle_router, setup_chat_lifecycle
 from services.dream_worker import DreamWorker
 # ── Раунд 9: NostalgiaWorker (слой B ностальгии, T-827/E2)
 from services.nostalgia_worker import NostalgiaWorker
+# ── Раунд 9 (AGI Memory, T-828/F1, spec §3.6.1/Q2): RelationsService —
+#    ленивый пересчёт users_meta + manual-мерж из PG (инжект B4/web-api F2)
+from services.user_relations import RelationsService
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -205,6 +208,9 @@ _dream_worker = None
 # Раунд 9 (AGI Memory, T-827/E2) — refs for on_shutdown: NostalgiaWorker
 # (слой B ностальгии; SQLite-состояние + bot для отправок).
 _nostalgia_worker = None
+# Раунд 9 (AGI Memory, T-828/F1) — refs: RelationsService (runtime-компонент
+# для web-api relations и инжекта <user_relations>).
+_relations_service = None
 
 
 async def on_startup():
@@ -547,6 +553,35 @@ async def on_startup():
         logger.warning(
             "[nostalgia] worker init failed — fail-open (ностальгия "
             "выключена)", exc_info=True)
+
+    # ── Раунд 9 (AGI Memory, spec §3.6.1/Q2, T-828/F1): db + relations +
+    # воркеры в runtime — для web-api (relations-скоры users_meta через
+    # get_lore_db(); ручной запуск/логи «сна»/ностальгии через
+    # get_dream_worker()/get_nostalgia_worker()). RelationsService: SQLite-
+    # часть (users_meta) работает всегда (db инициализирован выше); PG-
+    # часть (manual) — через store/cache из runtime (None при PG down →
+    # manual пусто, fail-open NFR-4); aliases — из summary-блока (иначе
+    # None: имена = uid). Fail-open: ошибка → WARNING, API-части пусты/503.
+    global _relations_service
+    _relations_service = None
+    try:
+        relations_aliases = aliases if hot.get(
+            "flags.summary_enabled", settings.SUMMARY_ENABLED) else None
+        _relations_service = RelationsService(
+            db=db, aliases=relations_aliases,
+            store=get_lore_store(), cache=get_lore_cache())
+        set_lore_components(
+            store=get_lore_store(), cache=get_lore_cache(),
+            notify=get_lore_notify(), worker=_lore_worker,
+            db=db, relations=_relations_service,
+            dream=_dream_worker, nostalgia=_nostalgia_worker)
+        logger.info(
+            "RelationsService + db + dream/nostalgia workers (раунд 9) "
+            "initialized")
+    except Exception:
+        logger.warning(
+            "[relations] runtime init failed — fail-open (SQLite-часть API "
+            "пуста, 503 у воркеров)", exc_info=True)
 
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
     global _goodmorning_scheduler
