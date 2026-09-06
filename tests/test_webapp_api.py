@@ -955,7 +955,8 @@ class TestStatic:
         assert "dompurify" in text
         assert "chart.js" in text
         assert "linear-gradient(-45deg" in text          # анимированный фон
-        assert "animation: gradient 15s ease infinite" in text
+        # UI-полировка TMA: анимация фона ускорена 15s → 8s
+        assert "animation: gradient 8s ease infinite" in text
         assert "backdrop-filter: blur(20px) saturate(140%)" in text
         assert "Telegram.WebApp" in text
         # Инцидент «Миниапп открыт без Telegram-контекста»: официальный

@@ -163,7 +163,8 @@ async def health():
 
 @api_router.get("/me")
 async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)]):
-    """84.5: {telegram_id, username, role_name, permissions, is_custom}."""
+    """84.5: {telegram_id, username, first_name, last_name, photo_url,
+    role_name, permissions, is_custom} (UI-полировка: + last_name/photo_url)."""
     cache: ConfigCache = get_cache(request)
     role_name = cache.get_role(user.id)
     if role_name is None:
@@ -175,6 +176,10 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
         "telegram_id": user.id,
         "username": user.username,
         "first_name": user.first_name,
+        # UI-полировка TMA: last_name/photo_url (WebAppUser-поля initData;
+        # photo_url может быть None — фронт тогда берёт /api/avatar/user/*)
+        "last_name": user.last_name,
+        "photo_url": user.photo_url,
         "role_name": role_name,
         "permissions": permissions,
         "is_custom": is_custom,

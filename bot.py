@@ -19,6 +19,8 @@ from services.log_ring import log_ring as _log_ring_singleton
 from services.status_service import status
 from services.uptime_heartbeat import UptimeHeartbeatService
 from web.app import create_app
+# UI-полировка TMA: Bot для web-api (аватар-прокси / обогащение chat_lore).
+from services.web_runtime import set_web_bot
 
 # Initialize Sentry error tracking (Better Stack)
 sentry_dsn = os.getenv("SENTRY_DSN")
@@ -829,6 +831,9 @@ async def main():
             server_holder[0].should_exit = True
 
     control = ControlService(request_shutdown=request_shutdown)
+    # UI-полировка TMA: web-api ходит в Bot API через единый runtime-держатель
+    # (аватар-прокси /api/avatar/* и обогащение /api/chat_lore title/username).
+    set_web_bot(bot)
     app = create_app(cache, control=control)
     web_port = int(os.getenv("WEB_PORT", "8000"))
     server = uvicorn.Server(uvicorn.Config(

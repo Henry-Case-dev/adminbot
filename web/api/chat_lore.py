@@ -38,6 +38,9 @@ from services import lore_runtime
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.permissions import Permissions
 from web.api.deps import get_cache, get_tma_user
+# UI-полировка TMA: RAM-кэши обогащения (title/фото чата, username/фото
+# участника) — те же TTL-словари, что у аватар-прокси (web/api/avatars.py).
+from web.api.avatars import chat_display_info, user_display_info
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,9 @@ _PERIOD_MAX = 720                   # валидация 1..720 (422; spec §3.8
 _PREVIEW_CHARS = 80                 # превью в списке чатов
 _RELATION_NOTE_MAX = 4000           # F2: cap заметки отношений (422)
 _RELATIONS_LIST_MAX = 100           # F2: потолок строк списка отношений
+_RELATIONS_ENRICH_TOP = 30          # UI-полировка: Bot API-обогащение
+# (username/фото) только для первых 30 строк (топ по activity); остальным —
+# null (UI показывает строку без аватара). Кэши 1ч.
 
 
 # ── Pydantic-модели ─────────────────────────────────────────────────────────
@@ -236,9 +242,15 @@ async def list_chats(
             except ChatLorePgUnavailable as exc:
                 raise _pg_guard(exc) from exc
         profiles = accessible
-    return [
-        {
+    # UI-полировка TMA: title/photo_file_id — best-effort через Bot API
+    # (RAM-кэш 1ч в web/api/avatars.py); ошибка/нет бота → None-поля.
+    enriched = []
+    for p in profiles:
+        info = await chat_display_info(p.chat_id)
+        enriched.append({
             "chat_id": p.chat_id,
+            "title": info["title"],
+            "photo_file_id": info["photo_file_id"],
             "manual_preview": _preview(p.manual_lore),
             "auto_preview": _preview(p.auto_lore),
             "has_manual": bool((p.manual_lore or "").strip()),
@@ -246,9 +258,8 @@ async def list_chats(
             "auto_enabled": p.auto_enabled,
             "is_active": p.is_active,
             "updated_at": p.updated_at,
-        }
-        for p in profiles
-    ]
+        })
+    return enriched
 
 
 # ── /chat_lore/admins (только глобальный admin на POST/DELETE) ──────────────
@@ -544,6 +555,17 @@ async def list_relations(
     users.sort(key=lambda u: (not bool(u.get("activity_score")),
                               -(float(u.get("activity_score") or 0.0)),
                               int(u.get("user_id") or 0)))
+    # UI-полировка TMA: username/photo_file_id — Bot API-обогащение ТОЛЬКО
+    # для первых _RELATIONS_ENRICH_TOP строк списка (топ по activity;
+    # get_chat_member + getUserProfilePhotos, RAM-кэши 1ч); остальным — null
+    # (UI покажет строку без аватара). Никаких 100 одновременных вызовов.
+    for u in users[:_RELATIONS_ENRICH_TOP]:
+        meta = await user_display_info(chat_id, int(u.get("user_id") or 0))
+        u["username"] = meta["username"]
+        u["photo_file_id"] = meta["photo_file_id"]
+    for u in users[_RELATIONS_ENRICH_TOP:]:
+        u["username"] = None
+        u["photo_file_id"] = None
     return {
         "chat_id": chat_id,
         "relations_enabled": bool(profile.relations_enabled),

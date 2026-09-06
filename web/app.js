@@ -52,6 +52,17 @@
 
   var LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
 
+  // UI-полировка TMA (fix-раунд ревью): blob-аватары через прокси.
+  // Прямой <img :src="'/api/avatar/...'"> НЕ работает: картинку грузит
+  // браузер БЕЗ X-Telegram-Init-Data → 401. avatarUrl() ходит fetch'ем с
+  // заголовком initData → blob → URL.createObjectURL; URL кладётся в
+  // реактивное поле (chat.avatarUrl/u.avatarUrl/meAvatarUrl), img рисуется
+  // только через v-if. Кэш {kind:id → objectURL} — ТОЛЬКО успешные загрузки
+  // (негатив не кэшируем: ре-рендер/ре-авторизация смогут попробовать
+  // снова); лимит ~200 URL, при переполнении revoke самого старого.
+  var _avatarCache = new Map();
+  var _AVATAR_CACHE_MAX = 200;
+
   function arr(x) { return Array.isArray(x) ? x : []; }
 
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
@@ -83,6 +94,12 @@
         me: null,
         authError: null,
         authLocked: false,
+        // UI-полировка TMA: meAvatarUrl — URL аватара текущего юзера (CDN
+        // photo_url из initData либо blob через прокси avatarUrl) и флаг
+        // полноэкранного режима TMA (кнопка ⛶ в шапке). Кэш blob-URL —
+        // модульный _avatarCache (см. выше в файле) — реактивность не нужна.
+        meAvatarUrl: '',
+        isFullscreen: false,
         // config
         configItems: [],
         configGroups: [],          // 84.24: метаданные групп (с сервера)
@@ -372,6 +389,96 @@
         return data;
       },
 
+      // ═══ UI-полировка TMA: аватары (fix-раунд — blob-fetch) ═══
+      // Прямой <img src="/api/avatar/..."> ловит 401 (браузер грузит
+      // картинку без X-Telegram-Init-Data). Вместо этого avatarUrl():
+      // fetch прокси с заголовком initData → blob → createObjectURL;
+      // результат кладётся в реактивное поле объекта и img рисуется по
+      // v-if. Ошибка (401/404/сеть) → null: img не показываем вовсе.
+      avatarUrl: async function (kind, id) {
+        if (kind == null || id == null) return null;
+        var key = kind + ':' + id;
+        var hit = _avatarCache.get(key);
+        if (hit) return hit;
+        var initData = '';
+        try {
+          initData = (window.Telegram && Telegram.WebApp
+            && Telegram.WebApp.initData) || '';
+        } catch (e) { initData = ''; }
+        if (!initData) return null;      // вне Telegram-контекста — нет фото
+        var resp = null;
+        try {
+          resp = await fetch('/api/avatar/' + kind + '/' + id, {
+            headers: { 'X-Telegram-Init-Data': initData },
+          });
+        } catch (e) { return null; }
+        if (!resp.ok) return null;       // 401/404/5xx — фото нет (не кэш)
+        try {
+          var blob = await resp.blob();
+          var url = URL.createObjectURL(blob);
+          _avatarCache.set(key, url);
+          if (_avatarCache.size > _AVATAR_CACHE_MAX) {
+            var oldestKey = _avatarCache.keys().next().value;
+            if (oldestKey != null) {
+              var oldUrl = _avatarCache.get(oldestKey);
+              _avatarCache.delete(oldestKey);
+              try { if (oldUrl) URL.revokeObjectURL(oldUrl); } catch (e2) {}
+            }
+          }
+          return url;
+        } catch (e) { return null; }
+      },
+
+      // Загрузка аватара в реактивное поле obj.avatarUrl (строки списков
+      // чатов/участников). Вызывается из loadChats/loadRelations — img
+      // показывается через v-if="…photo_file_id != null && ….avatarUrl".
+      loadAvatar: async function (kind, id, obj) {
+        var url = await this.avatarUrl(kind, id);
+        if (obj) obj.avatarUrl = url;
+        return url;
+      },
+
+      // Шапка: аватар текущего юзера. CDN me.photo_url (initData) — сразу;
+      // если photo_url нет — blob через прокси avatarUrl('user', …).
+      // Повторный вызов (после loadMe/ре-авторизации) сбрасывает поле —
+      // аватар может появиться, даже если раньше не загрузился.
+      refreshMeAvatar: function () {
+        var self = this;
+        var me = this.me;
+        this.meAvatarUrl = '';
+        if (!me || me.telegram_id == null) return;
+        if (me.photo_url) {
+          this.meAvatarUrl = me.photo_url;   // CDN; onerror → фолбек ниже
+          return;
+        }
+        this.loadAvatar('user', me.telegram_id).then(function (url) {
+          if (url && self.me) self.meAvatarUrl = url;
+        });
+      },
+
+      // @error аватара в шапке: CDN photo_url умер → фолбек на прокси
+      // Bot API (blob); blob тоже не удался → meAvatarUrl='' прячет img
+      // (следующий refreshMeAvatar после loadMe попробует снова).
+      onMeAvatarError: function () {
+        var self = this;
+        var me = this.me;
+        var viaCdn = !!(me && me.photo_url
+          && this.meAvatarUrl === me.photo_url);
+        this.meAvatarUrl = '';
+        if (!me || !viaCdn) return;
+        this.loadAvatar('user', me.telegram_id).then(function (url) {
+          if (url && self.me) self.meAvatarUrl = url;
+        });
+      },
+
+      // @error аватаров в списках: сброс поля → v-if убирает битый img;
+      // при следующей загрузке списка loadAvatar поставит URL снова (если
+      // фото появилось/серверный негатив-кэш 1ч протух). Не style.display:
+      // тот не дал бы img показаться при ре-рендере.
+      avatarError: function (obj) {
+        if (obj) obj.avatarUrl = null;
+      },
+
       toast: function (text, kind) {
         var self = this;
         var id = Date.now() + Math.random();
@@ -427,6 +534,36 @@
         if (tab && tab.type === 'config' && !this.configItems.length) {
           self.loadConfig();
         }
+      },
+
+      // ═══ TMA-кнопки шапки (UI-полировка) ═══
+      closeApp: function () {
+        // Закрытие миниаппа через SDK; вне Telegram (нет WebApp.close) —
+        // просто сворачиваем мобильный сайдбар.
+        var closed = false;
+        try {
+          if (window.Telegram && Telegram.WebApp && Telegram.WebApp.close) {
+            Telegram.WebApp.close();
+            closed = true;
+          }
+        } catch (e) { /* старый SDK/вне TG — фолбек ниже */ }
+        if (!closed) this.sidebarOpen = false;
+      },
+
+      toggleFullscreen: function () {
+        // Полноэкранный режим TMA (⛶): request/exitFullscreen обёрнуты в
+        // try/catch (SDK без поддержки/вне TG — бездействие). Флаг —
+        // локальный оптимистичный тоггл (события fullscreenChanged не ждём).
+        try {
+          var wa = window.Telegram && Telegram.WebApp;
+          if (!wa) return;
+          if (this.isFullscreen) {
+            if (wa.exitFullscreen) wa.exitFullscreen();
+          } else {
+            if (wa.requestFullscreen) wa.requestFullscreen();
+          }
+          this.isFullscreen = !this.isFullscreen;
+        } catch (e) { /* вне TG/старый SDK — молча */ }
       },
 
       // ═══ Права (84.14.2 — зеркало requires_permission) ═══
@@ -498,6 +635,9 @@
         try {
           this.me = await this.api('/api/me');
           this.authError = null;
+          // UI-полировка TMA: свежий аватар (CDN photo_url / blob-прокси);
+          // после ошибок поле сбрасывается — img может появиться вновь
+          this.refreshMeAvatar();
         } catch (e) {
           if (e.status === 401) { /* authError уже выставлен */ }
           this.me = null;
@@ -1151,6 +1291,21 @@
         try {
           var data = await this.api('/api/chat_lore/chats');
           this.chatLoreChats = Array.isArray(data) ? data : [];
+          // UI-полировка TMA: сервер отдаёт title best-effort (бот может
+          // быть недоступен/чат без заголовка) — подставляем читаемый
+          // дефолт, чтобы список чатов не пустовал заголовками
+          this.chatLoreChats.forEach(function (c) {
+            if (c && !c.title) c.title = 'Чат ' + c.chat_id;
+          });
+          // UI-полировка TMA (fix-раунд): аватары чатов — blob через прокси
+          // (fetch с X-Telegram-Init-Data; прямой <img src=/api/avatar/*> —
+          // 401). Только для строк с photo_file_id != null (сервер сказал,
+          // что фото есть) — меньше пустых 404-запросов в прокси.
+          this.chatLoreChats.forEach(function (c) {
+            if (c && c.chat_id != null && c.photo_file_id != null) {
+              self.loadAvatar('chat', c.chat_id, c);
+            }
+          });
           this.chatLoreError = '';
           // текущий чат «пропал» из списка (403/remap) — сбрасываем профиль;
           // иначе авто-выбор первого чата (удобно per-chat админу с одним)
@@ -1407,6 +1562,7 @@
       // + PG manual (relations JSONB); строим черновики строки для правки.
       loadRelations: async function (chatId) {
         if (chatId == null || chatId === '') return;
+        var self = this;
         this.relationsBusy = true;
         try {
           var data = await this.api('/api/chat_lore/' + chatId + '/relations');
@@ -1417,6 +1573,14 @@
             u.draft_note = u.note || '';
           });
           this.chatRelations = rows;
+          // UI-полировка TMA (fix-раунд): аватары участников — blob через
+          // прокси avatarUrl('user', …); photo_file_id == null (нет фото по
+          // версии сервера/вне топ-30) → img вообще не рисуем.
+          this.chatRelations.forEach(function (u) {
+            if (u && u.user_id != null && u.photo_file_id != null) {
+              self.loadAvatar('user', u.user_id, u);
+            }
+          });
         } catch (e) {
           this.chatRelations = [];
           if (e.status === 404) {

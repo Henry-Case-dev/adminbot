@@ -45,7 +45,7 @@
     body {
       background: linear-gradient(-45deg, #1a1033, #312e81, #4c1d95, #0f172a);
       background-size: 400% 400%;
-      animation: gradient 15s ease infinite;
+      animation: gradient 8s ease infinite;   /* UI-полировка: чуть быстрее */
       background-attachment: fixed;
     }
     @keyframes gradient {
@@ -265,6 +265,15 @@
     .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
+    /* UI-полировка TMA: прилипающая шапка (непрозрачнее обычной card-solid,
+       чтобы контент не просвечивал сквозь неё при скролле) */
+    .header-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(43, 43, 64, 0.96);
+    }
+
     /* Мобильный сайдбар */
     @media (max-width: 768px) {
       .sidebar {
@@ -286,9 +295,14 @@
       <!-- Сайдбар -->
       <aside class="sidebar card-solid p-3 flex flex-col gap-1 w-64 shrink-0 md:static"
              :class="{ open: sidebarOpen }" style="border-radius:0;">
-        <div class="px-2 py-3 text-lg font-bold">
-          <span class="text-transparent bg-clip-text" style="background-image: var(--accent-grad);">AdminBot</span>
-          <span class="text-xs text-gray-400 block">Панель управления</span>
+        <div class="px-2 py-3 text-lg font-bold flex items-start gap-2">
+          <div class="min-w-0">
+            <span class="text-transparent bg-clip-text" style="background-image: var(--accent-grad);">AdminBot</span>
+            <span class="text-xs text-gray-400 block">Панель управления</span>
+          </div>
+          <button class="btn-ghost md:hidden text-xs px-2 ml-auto shrink-0"
+                  title="Закрыть меню"
+                  @click="sidebarOpen = false">✕</button>
         </div>
         <button v-for="tab in visibleTabs" :key="tab.id"
                 class="tab-btn" :class="{ active: activeTab === tab.id }"
@@ -304,14 +318,26 @@
 
       <!-- Основная область -->
       <div class="flex-1 min-w-0 flex flex-col">
-        <header class="card-solid px-4 py-3 flex items-center gap-3" style="border-radius:0;">
-          <button class="btn-ghost md:hidden" @click="sidebarOpen = !sidebarOpen">☰</button>
-          <div class="text-sm font-semibold">{{ currentTabLabel }}</div>
+        <header class="header-sticky card-solid px-4 py-3 flex items-center gap-3"
+                style="border-radius:0;">
+          <button class="btn-ghost md:hidden" title="Меню"
+                  @click="sidebarOpen = !sidebarOpen">☰</button>
+          <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
           <div class="ml-auto flex items-center gap-2 text-sm">
-            <span v-if="me" class="text-gray-300">
-              {{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}
-            </span>
+            <!-- UI-полировка TMA: аватар текущего юзера — CDN photo_url из
+                 initData (me.photo_url) сразу; иначе — blob через прокси
+                 avatarUrl('user', …); @error CDN → фолбек на прокси -->
+            <img v-if="me && meAvatarUrl" :src="meAvatarUrl" alt=""
+                 class="w-8 h-8 rounded-full object-cover shrink-0 border border-white/15"
+                 @error="onMeAvatarError()">
+            <span v-if="me" class="text-gray-300">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
             <span v-if="me" class="badge badge-info">{{ me.role_name }}</span>
+            <!-- Полноэкранный режим TMA (⛶) и закрытие миниаппа (✕) -->
+            <button v-if="me" class="btn-ghost text-sm px-2 shrink-0"
+                    :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
+                    @click="toggleFullscreen()">⛶</button>
+            <button class="btn-ghost text-sm px-2 shrink-0" title="Закрыть"
+                    @click="closeApp()">✕</button>
           </div>
         </header>
 
@@ -621,21 +647,35 @@
                   <div v-else class="flex flex-col gap-1 lg:max-h-[62vh]
                                      overflow-y-auto scroll-thin pr-1">
                     <button v-for="c in chatLoreChats" :key="c.chat_id" type="button"
-                            class="text-left rounded-lg px-2 py-1.5 border text-xs"
+                            class="text-left rounded-lg px-2 py-1.5 border text-xs w-full flex items-start gap-2"
                             :class="chatLoreSelectedId === c.chat_id
                               ? 'bg-violet-600/30 border-violet-500/60'
                               : 'border-white/10 hover:bg-white/5'"
                             @click="loadProfile(c.chat_id)">
-                      <span class="font-mono">{{ c.chat_id }}</span>
-                      <span class="badge badge-ok ml-1" v-if="c.is_active">активен</span>
-                      <span class="badge badge-warn ml-1" v-else>неактивен</span>
-                      <div class="mt-1 flex gap-1">
-                        <span class="badge badge-info" v-if="c.has_manual">ручной</span>
-                        <span class="badge badge-muted" v-if="c.has_auto">авто</span>
-                      </div>
-                      <div class="text-xs text-gray-500 truncate mt-1">
-                        {{ c.manual_preview || c.auto_preview || 'лор пуст' }}
-                      </div>
+                      <!-- UI-полировка TMA: аватар чата — blob через прокси
+                           avatarUrl (прямой src=/api/avatar — 401 без
+                           initData-заголовка); v-if гейтит photo_file_id:
+                           сервер сказал «фото нет» → img не рисуем вовсе -->
+                      <img v-if="c.photo_file_id != null && c.avatarUrl"
+                           :src="c.avatarUrl" alt=""
+                           class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
+                           loading="lazy"
+                           @error="avatarError(c)">
+                      <span class="flex-1 min-w-0">
+                        <span class="flex items-center gap-1 flex-wrap">
+                          <span class="font-semibold truncate">{{ c.title || ('Чат ' + c.chat_id) }}</span>
+                          <span class="badge badge-ok" v-if="c.is_active">активен</span>
+                          <span class="badge badge-warn" v-else>неактивен</span>
+                        </span>
+                        <span class="text-xs text-gray-500 font-mono block">{{ c.chat_id }}</span>
+                        <span class="mt-0.5 flex gap-1">
+                          <span class="badge badge-info" v-if="c.has_manual">ручной</span>
+                          <span class="badge badge-muted" v-if="c.has_auto">авто</span>
+                        </span>
+                        <span class="text-xs text-gray-500 truncate block mt-0.5">
+                          {{ c.manual_preview || c.auto_preview || 'лор пуст' }}
+                        </span>
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -817,7 +857,19 @@
                         <div v-for="u in chatRelations" :key="u.user_id"
                              class="rounded-lg border border-white/10 px-2 py-1.5 mb-1.5">
                           <div class="flex items-center gap-2 flex-wrap text-sm">
-                            <span class="font-semibold min-w-0 truncate">{{ u.name }}</span>
+                            <!-- UI-полировка TMA: аватар участника — blob
+                                 через прокси avatarUrl (fetch с initData);
+                                 v-if гейтит photo_file_id: нет фото по версии
+                                 сервера → img не рисуем вовсе -->
+                            <img v-if="u.photo_file_id != null && u.avatarUrl"
+                                 :src="u.avatarUrl" alt=""
+                                 class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
+                                 loading="lazy"
+                                 @error="avatarError(u)">
+                            <span class="flex flex-col min-w-0 leading-tight">
+                              <span class="font-semibold truncate">{{ u.name }}</span>
+                              <span v-if="u.username" class="text-xs text-gray-500 truncate">@{{ u.username }}</span>
+                            </span>
                             <span class="text-xs text-gray-500 font-mono">{{ u.user_id }}</span>
                             <span class="badge badge-info">{{ stageRu(u.stage_auto) }} (авто)</span>
                             <span class="badge badge-muted" v-if="u.stage_manual">
