@@ -352,6 +352,27 @@ class DatabaseService:
             tokens INTEGER NOT NULL DEFAULT 0,
             status TEXT
         );
+        -- ── Раунд 9 (AGI Memory, spec §3.5.2, T-827): ностальгия ──────────
+        -- Аудит срабатываний слоя B (NostalgiaWorker). Аддитивно, CREATE IF
+        -- NOT EXISTS, user_version НЕ поднимается (образцы выше; RUNTIME
+        -- WARNING). Одна строка на событие тика чата ПОСЛЕ «дорогих» шагов
+        -- (candidate/threshold/llm/send — spec §3.5.3); дешёвые гейты
+        -- (тишина/quiet hours/cooldown/лимиты) строк НЕ пишут.
+        -- kind: 'year_back' | 'golden' | 'none'; fact_id — graph_facts.id
+        -- для 'golden'; status: 'sent' | 'skipped' | 'error';
+        -- meta — JSON {reason, candidate_text, ...}.
+        CREATE TABLE IF NOT EXISTS nostalgia_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            ts INTEGER NOT NULL,                 -- unix ts события
+            kind TEXT NOT NULL DEFAULT 'golden', -- 'year_back' | 'golden' | 'none'
+            fact_id INTEGER,                     -- graph_facts.id (для 'golden')
+            status TEXT NOT NULL,                -- 'sent' | 'skipped' | 'error'
+            meta TEXT,                           -- JSON: reason, candidate_text, llm_skipped
+            created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_nostalgia_log_chat_ts
+            ON nostalgia_log (chat_id, ts);
     """
     
     def __init__(self, db_path: str):
@@ -1878,6 +1899,158 @@ class DatabaseService:
             "UPDATE graph_facts SET supersedes = ? WHERE id = ?",
             (int(new_id), int(old_id)))
         await self.db.commit()
+
+    # ── ностальгия (Раунд 9, spec §3.5.2, T-827/E2): nostalgia_log и
+    #    SQLite-хелперы условий тика/кандидатов ──────────────────────────
+
+    async def log_nostalgia(self, chat_id: int, ts: int, *, kind: str = "golden",
+                            fact_id: int | None = None,
+                            status: str = "skipped",
+                            meta: str | None = None) -> int:
+        """Строка аудита nostalgia_log (§3.5.2): событие «дорогого» шага тика
+        (candidate/threshold/llm/send). kind: 'year_back'|'golden'|'none';
+        status: 'sent'|'skipped'|'error'; meta — JSON-строка (reason и пр.)."""
+        cursor = await self.db.execute(
+            "INSERT INTO nostalgia_log "
+            "(chat_id, ts, kind, fact_id, status, meta, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (int(chat_id), int(ts), kind, fact_id, status, meta, int(ts)))
+        await self.db.commit()
+        return cursor.lastrowid
+
+    async def count_nostalgia_sent_since(self, chat_id: int,
+                                          since_ts: int) -> int:
+        """Счётчик status='sent' чата за период (local-сутки — дневной лимит
+        §3.5.3 п.5: лимит тратят ТОЛЬКО отправки)."""
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM nostalgia_log "
+            "WHERE chat_id = ? AND status = 'sent' AND ts >= ?",
+            (int(chat_id), int(since_ts)))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def recent_nostalgia_sent(self, chat_id: int, since_ts: int | None,
+                                    limit: int) -> list:
+        """Последние status='sent' чата (ts DESC). since_ts=None → по всей
+        истории (cooldown §3.5.3 п.4); окно 24 ч — Q14 (неотвеченные)."""
+        if since_ts is not None:
+            cursor = await self.db.execute(
+                "SELECT id, ts, kind, fact_id, status, meta FROM nostalgia_log "
+                "WHERE chat_id = ? AND status = 'sent' AND ts >= ? "
+                "ORDER BY ts DESC, id DESC LIMIT ?",
+                (int(chat_id), int(since_ts), int(limit)))
+        else:
+            cursor = await self.db.execute(
+                "SELECT id, ts, kind, fact_id, status, meta FROM nostalgia_log "
+                "WHERE chat_id = ? AND status = 'sent' "
+                "ORDER BY ts DESC, id DESC LIMIT ?",
+                (int(chat_id), int(limit)))
+        return await cursor.fetchall()
+
+    async def recent_nostalgia_log(self, chat_id: int | None = None,
+                                   limit: int = 100) -> list:
+        """Последние строки nostalgia_log ЛЮБЫХ статусов (TMA «последние
+        срабатывания», spec §3.6.2): DESC по id; chat_id=None → все чаты.
+        meta — JSON-строка (парсит вызывающий)."""
+        if chat_id is None:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, ts, kind, fact_id, status, meta "
+                "FROM nostalgia_log ORDER BY id DESC LIMIT ?",
+                (int(limit),))
+        else:
+            cursor = await self.db.execute(
+                "SELECT id, chat_id, ts, kind, fact_id, status, meta "
+                "FROM nostalgia_log WHERE chat_id = ? "
+                "ORDER BY id DESC LIMIT ?", (int(chat_id), int(limit)))
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_last_user_message_ts(self, chat_id: int,
+                                       bot_id: int | None) -> int | None:
+        """ts последнего ЮЗЕРСКОГО сообщения чата (бот исключён — §3.5.3
+        п.7/п.15: бот-строки в smart_messages не пишутся, но фильтр
+        обязателен — импорт истории). None → у юзеров истории нет вовсе."""
+        cursor = await self.db.execute(
+            "SELECT MAX(timestamp) AS ts FROM smart_messages "
+            "WHERE chat_id = ? AND user_id IS NOT NULL AND user_id != ?",
+            (int(chat_id), int(bot_id or 0)))
+        row = await cursor.fetchone()
+        if row is None or row["ts"] is None:
+            return None
+        return int(row["ts"])
+
+    async def count_user_messages_after(self, chat_id: int,
+                                        bot_id: int | None,
+                                        after_ts: int) -> int:
+        """Юзерских сообщений ПОСЛЕ ts (Q14-«отвеченность»: импортированные
+        строки user_id NULL и бот-сообщения не считаются)."""
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM smart_messages "
+            "WHERE chat_id = ? AND user_id IS NOT NULL AND user_id != ? "
+            "AND timestamp > ?",
+            (int(chat_id), int(bot_id or 0), int(after_ts)))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def get_year_back_messages(self, chat_id: int, ts_from: int,
+                                     ts_to: int, center_ts: int,
+                                     limit: int = 3) -> list:
+        """Кандидаты «N лет назад в этот день» (§3.5.2): smart_messages чата
+        с timestamp ∈ [ts_from, ts_to] (год назад ± окно), непустой текст.
+        Строки импорта истории (user_id NULL) участвуют — главный источник
+        год-назад-контента (edge 7); бот-строки в smart_messages не пишутся
+        (observer). Ближайшие к center_ts (abs) — первыми, ≤ limit строк."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, timestamp, author_name "
+            "FROM smart_messages "
+            "WHERE chat_id = ? AND timestamp BETWEEN ? AND ? "
+            "AND text IS NOT NULL AND TRIM(text) != '' "
+            "ORDER BY ABS(timestamp - ?) ASC, id ASC LIMIT ?",
+            (int(chat_id), int(ts_from), int(ts_to), int(center_ts),
+             int(limit)))
+        return await cursor.fetchall()
+
+    async def get_recent_user_messages(self, chat_id: int,
+                                       bot_id: int | None,
+                                       limit: int = 5) -> list:
+        """Последние limit ЮЗЕРСКИХ сообщений чата (ts DESC) — «последняя
+        тема диалога» для «золотых» кандидатов (§3.5.2). Непустой текст."""
+        cursor = await self.db.execute(
+            "SELECT id, user_id, chat_id, text, timestamp, author_name "
+            "FROM smart_messages "
+            "WHERE chat_id = ? AND user_id IS NOT NULL AND user_id != ? "
+            "AND text IS NOT NULL AND TRIM(text) != '' "
+            "ORDER BY timestamp DESC, id DESC LIMIT ?",
+            (int(chat_id), int(bot_id or 0), int(limit)))
+        return await cursor.fetchall()
+
+    async def search_golden_facts_fts(self, chat_id, match_query, limit,
+                                      now_ts, *, min_importance,
+                                      max_age_ts) -> list:
+        """FTS-поиск «золотых» фактов (§3.5.1/E1, §3.5.2/E2): тот же путь,
+        что search_graph_facts_fts, но с SQL-фильтром золотых —
+        `f.kind='fact'` (beliefs исключены: даты события нет) И
+        `f.importance >= min_importance` И
+        `COALESCE(f.message_timestamp, f.created_at) < max_age_ts`
+        (давность ≥ порога). Отбирает по рангу; importance/kind/ts в SELECT
+        для рендера/весов вызывающего."""
+        sql = (
+            "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
+            "f.weight, f.last_confirmed_at, f.message_timestamp, f.importance, "
+            "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
+            "FROM graph_facts_fts "
+            "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
+            "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
+            "AND (f.expires_at IS NULL OR f.expires_at > ?) "
+            "AND f.status = 'confirmed' AND f.kind = 'fact' "
+            "AND f.importance >= ? "
+            "AND COALESCE(f.message_timestamp, f.created_at) < ? "
+            "AND f.origin != 'bot_direct_reply' "
+            "ORDER BY graph_facts_fts.rank LIMIT ?")
+        cursor = await self.db.execute(
+            sql, (match_query, chat_id, now_ts, int(min_importance),
+                  int(max_age_ts), int(limit)))
+        return await cursor.fetchall()
+
 
     async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts,
                                      include_direct_reply=False) -> list:

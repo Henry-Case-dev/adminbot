@@ -949,6 +949,42 @@ class Settings:
         "DREAM_DISTILLATIONS_PER_DAY", 30)
     DREAM_TOKENS_PER_DAY: int = _env_int("DREAM_TOKENS_PER_DAY", 60000)
 
+    # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-826/T-827): ностальгия ──
+    # Парные Settings-поля для REGISTRY-записей категории memory (группа
+    # memory_nostalgia; dotted-ключи memory.nostalgia_* — тот же прецедент,
+    # что memory.dream_*). NOSTALGIA_ENABLED — рубильник слоя B
+    # (NostalgiaWorker), NOSTALGIA_LAYER_A_ENABLED — слоя A (маркер «золотых»
+    # при ответе); оба default FALSE (Q12: боевые подфичи off). Остальные —
+    # лимиты тика: тишина/quiet hours/cooldown/пауза/дневной лимит,
+    # порог «золотых» (давность/importance) и агрессивность (0..1 — порог
+    # срабатывания 0.3 + aggressiveness*0.5, §3.5.2).
+    NOSTALGIA_ENABLED: bool = _env_bool("NOSTALGIA_ENABLED", False)
+    NOSTALGIA_LAYER_A_ENABLED: bool = _env_bool(
+        "NOSTALGIA_LAYER_A_ENABLED", False)
+    NOSTALGIA_TICK_MINUTES: int = _env_int("NOSTALGIA_TICK_MINUTES", 60)
+    NOSTALGIA_MIN_SILENCE_MINUTES: int = _env_int(
+        "NOSTALGIA_MIN_SILENCE_MINUTES", 45)
+    NOSTALGIA_QUIET_START_HOUR: int = _env_int(
+        "NOSTALGIA_QUIET_START_HOUR", 23)
+    NOSTALGIA_QUIET_END_HOUR: int = _env_int("NOSTALGIA_QUIET_END_HOUR", 8)
+    NOSTALGIA_COOLDOWN_HOURS: int = _env_int("NOSTALGIA_COOLDOWN_HOURS", 12)
+    NOSTALGIA_PAUSE_HOURS: int = _env_int("NOSTALGIA_PAUSE_HOURS", 24)
+    NOSTALGIA_UNANSWERED_MAX: int = _env_int("NOSTALGIA_UNANSWERED_MAX", 2)
+    NOSTALGIA_MAX_PER_DAY: int = _env_int("NOSTALGIA_MAX_PER_DAY", 3)
+    NOSTALGIA_GOLDEN_MIN_DAYS: int = _env_int(
+        "NOSTALGIA_GOLDEN_MIN_DAYS", 60)
+    NOSTALGIA_GOLDEN_MIN_IMPORTANCE: int = _env_int(
+        "NOSTALGIA_GOLDEN_MIN_IMPORTANCE", 5)
+    NOSTALGIA_LAYER_A_MAX_HINTS: int = _env_int(
+        "NOSTALGIA_LAYER_A_MAX_HINTS", 1)
+    NOSTALGIA_HINT_MAX_CHARS: int = _env_int(
+        "NOSTALGIA_HINT_MAX_CHARS", 300)
+    NOSTALGIA_YEAR_BACK_DAYS_WINDOW: int = _env_int(
+        "NOSTALGIA_YEAR_BACK_DAYS_WINDOW", 2)
+    NOSTALGIA_AGGRESSIVENESS: float = _env_float(
+        "NOSTALGIA_AGGRESSIVENESS", 0.3)
+    NOSTALGIA_MAX_SEND_CHARS: int = _env_int("NOSTALGIA_MAX_SEND_CHARS", 400)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
     def _normalize_tone_key(self, preset_key: str | None) -> str:

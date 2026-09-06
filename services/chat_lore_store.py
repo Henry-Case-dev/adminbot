@@ -164,6 +164,12 @@ LIST_ACTIVE_CHATS_SQL = (
     "SELECT chat_id FROM chat_profiles WHERE is_active AND auto_enabled "
     "ORDER BY chat_id"
 )
+# Раунд 9 (Q13, spec §3.5.3, T-827): read-only список активных чатов для
+# ностальгии — ТОЛЬКО is_active (list_active_chats НЕ переиспользуем: у него
+# AND auto_enabled — семантика лора).
+LIST_ACTIVE_CHAT_IDS_SQL = (
+    "SELECT chat_id FROM chat_profiles WHERE is_active ORDER BY chat_id"
+)
 HISTORY_SQL = (
     "SELECT id, chat_id, field, changed_by, old_value, new_value, created_at "
     "FROM chat_lore_history WHERE chat_id = $1 "
@@ -347,6 +353,17 @@ class ChatLoreStore:
         pool = self._pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(LIST_ACTIVE_CHATS_SQL)
+        return [r["chat_id"] for r in rows]
+
+    async def list_active_chat_ids(self) -> list[int]:
+        """Раунд 9 (Q13/§3.5.3, T-827): chat_id ВСЕХ активных профилей
+        (SELECT ... WHERE is_active) — список чатов слоя B ностальгии.
+        Read-only; от list_active_chats отличается отсутствием
+        auto_enabled (семантика лора не нужна). PG down → исключение
+        (воркер: тик no-op, WARNING)."""
+        pool = self._pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(LIST_ACTIVE_CHAT_IDS_SQL)
         return [r["chat_id"] for r in rows]
 
     async def ensure_profile(self, chat_id: int) -> LoreProfile:

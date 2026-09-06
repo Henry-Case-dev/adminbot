@@ -114,6 +114,8 @@ from services.lore_worker import LoreWorker
 from handlers.chat_lifecycle import chat_lifecycle_router, setup_chat_lifecycle
 # ── Раунд 9: DreamWorker («сон», beliefs) — вне summary-гейта (T-824/T-825)
 from services.dream_worker import DreamWorker
+# ── Раунд 9: NostalgiaWorker (слой B ностальгии, T-827/E2)
+from services.nostalgia_worker import NostalgiaWorker
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 formatter = logging.Formatter(log_format)
@@ -200,6 +202,9 @@ _lore_worker = None
 # Раунд 9 (AGI Memory, T-824/T-825) — refs for on_shutdown: DreamWorker
 # («сон», beliefs из повторяющихся фактов; SQLite-состояние).
 _dream_worker = None
+# Раунд 9 (AGI Memory, T-827/E2) — refs for on_shutdown: NostalgiaWorker
+# (слой B ностальгии; SQLite-состояние + bot для отправок).
+_nostalgia_worker = None
 
 
 async def on_startup():
@@ -516,6 +521,33 @@ async def on_startup():
             "[dream] worker init failed — fail-open (сон выключен)",
             exc_info=True)
 
+    # ── Раунд 9 (AGI Memory, spec §3.5.5, T-827/E2): NostalgiaWorker.
+    # ПОСЛЕ DreamWorker, вне summary-гейта; при выключенном summary — свой
+    # LLMClient (образец выше); memory=None → слой «золотых» деградирует
+    # (остаётся «год назад»). Джоб регистрируется ТОЛЬКО при
+    # memory.nostalgia_enabled (default false); ручной run_once работает
+    # всегда. Чат-список — активные PG-профили (store из lore_runtime;
+    # store отсутствует → воркер жив, чатов нет — no-op Q13). Fail-open.
+    global _nostalgia_worker
+    _nostalgia_worker = None
+    try:
+        nostalgia_llm = _llm_client or LLMClient(
+            hot.get("models.llm_base_url", settings.LLM_BASE_URL),
+            hot.get("keys.llm_api_key", settings.LLM_API_KEY),
+            hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
+            hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+        )
+        _nostalgia_worker = NostalgiaWorker(
+            db, memory=memory if hot.get("flags.summary_enabled",
+                                         settings.SUMMARY_ENABLED) else None,
+            store=lore_store, llm=nostalgia_llm, bot=bot, bot_id=bot.id)
+        _nostalgia_worker.start()
+        logger.info("NostalgiaWorker (раунд 9) initialized")
+    except Exception:
+        logger.warning(
+            "[nostalgia] worker init failed — fail-open (ностальгия "
+            "выключена)", exc_info=True)
+
     # ── Goodmorning (Epic 30) — без роутера (D91): чистый планировщик-сервис ──
     global _goodmorning_scheduler
     goodmorning_relay = GoodmorningRelay(bot=bot, media_dir=hot.get("reactions.goodmorning_media_dir", settings.GOODMORNING_MEDIA_DIR))
@@ -679,6 +711,8 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup resources on bot shutdown."""
     logger.info("Bot shutting down...")
+    if _nostalgia_worker:
+        await _nostalgia_worker.stop()
     if _dream_worker:
         await _dream_worker.stop()
     if _lore_worker:

@@ -1868,6 +1868,42 @@ class MemoryManager:
                     len(facts), len(picked))
         return [item for i, item in enumerate(facts, 1) if i in picked]
 
+    async def fetch_golden_facts(self, chat_id: int, query: str, *,
+                                 min_importance: int, min_age_days: int,
+                                 limit: int) -> list:
+        """«Золотые» факты чата (Раунд 9, spec §3.5.1/E1, §3.5.2/E2):
+        старые (давность ≥ min_age_days по COALESCE(message_timestamp,
+        created_at)) важные (importance ≥ min_importance) confirmed
+        kind='fact' чата, релевантные query (FTS-матч тем же путём
+        search_graph_facts_fts, но с SQL-фильтром золотых в database.py;
+        beliefs исключены на SQL: kind='fact' — у убеждений нет даты
+        события). Порядок — по FTS-рангу (дешёвый текстовый матч темы).
+
+        Возвращает список dict {id, fact, origin, created_at, rag_ts,
+        importance, weight, ...} (первые `limit`). НИКОГДА не бросает:
+        выключенный RAG/пустой query/ошибка → [] (WARNING, NFR-6)."""
+        if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
+            return []
+        if not str(query or "").strip():
+            return []
+        try:
+            now = int(time.time())
+            keywords = _TOKEN_RE.findall(str(query).lower())
+            match_query = build_fts_query(keywords)
+            if not match_query:
+                return []
+            rows = await self.db.search_golden_facts_fts(
+                chat_id, match_query,
+                max(1, int(limit or 1)) * 2, now,
+                min_importance=max(1, int(min_importance or 0)),
+                max_age_ts=now - max(0, int(min_age_days or 0)) * 86400)
+            return [dict(r) for r in rows[: max(1, int(limit or 1))]]
+        except Exception:
+            logger.warning(
+                "graphrag: golden facts search failed — empty list | "
+                "chat_id=%s", chat_id, exc_info=True)
+            return []
+
     async def _search_graph_facts(self, chat_id, query, limit,
                                   include_direct_reply=False) -> list:
         """[(origin, fact, created_at), ...]. Vec-путь: _ensure_vec_retry (55.8)

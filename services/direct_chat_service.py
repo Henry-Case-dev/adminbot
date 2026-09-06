@@ -34,7 +34,8 @@ Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карто�
     global → thread → target → protected → lore → mood → current → anchors →
     sandwich; бюджет на effective-базе (неприкосновенные: target/protected/
     lore/current/sandwich), новая доля branch, порядок урезания
-    anchors→rag→thread→global(keep-head)→map.
+    anchors→rag→thread→global(keep-head)→map→nostalgia (маркер слоя A —
+    последним, раунд 9 E1/T-826).
   * C1/C3/C5 (T-792/T-794/T-796): uid-рендеры «{имя} [{uid}]» / «{имя} [bot]»
     во внутренних строках (global/thread/branch) и <Target_User>; карта
     остаётся «{имя} — {uid}»; дискриминатор коллизий display-имён —
@@ -109,6 +110,7 @@ from services.tool_router import ToolContext
 from services.tool_schemas import TOOL_CALLING_TOOLS
 from services.typing_manager import typing_active
 from services.user_relations import STAGE_RU
+from services.nostalgia_prompts import format_nostalgia_hint
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +126,13 @@ _NOSTALGIA_MARKERS_RE = re.compile(
 # Потолок инжекта <dig_result> (спека §3.2.3; dig уже режет 3500 сам —
 # страховка для результатов не-dig веток).
 _DIG_RESULT_MAX_CHARS = 3600
+# Раунд 9 (E1/T-826, spec §3.5.1): доля блок-маркера ностальгии в бюджете
+# урезания — константа (REGISTRY-ключа в spec §3.6.4 нет): блок маленький
+# (фикс-кап 300 симв. ДО инжекта), в общем порядке урезания участвует
+# ПОСЛЕДНИМ (после map), при давлении режется целиком.
+_NOSTALGIA_BUDGET_RATIO = 0.02
+
+
 _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 фактов/связей
 # Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
 _STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
@@ -661,7 +670,10 @@ class DirectChatService:
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
         global_ctx = await self._build_global_context(
             chat_id, window, roster, suffix_map)
-        rag_block = await self._build_rag_block(chat_id, message, global_ctx)
+        # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
+        # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx)
         if rag_block:
             blocks.append(("rag", rag_block))
         if global_ctx:
@@ -695,6 +707,11 @@ class DirectChatService:
             blocks.append(("protected", protected))
         if lore_inner:
             blocks.append(("lore", f"<chat_lore>\n{lore_inner}\n</chat_lore>"))
+        # Раунд 9 (E1/T-826, spec §3.5.1): ностальгия-маркер — в user-контент
+        # ПОСЛЕ relations, до mood (compact: фикс-кап до инжекта, в общем
+        # порядке урезания участвует последним — _apply_context_budget).
+        if nostalgia_hint:
+            blocks.append(("nostalgia", nostalgia_hint))
         # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
         # T-619: флаг и слова настроения — горячие точки (фолбек settings).
         if hot.get("flags.chat_mood_enabled", settings.CHAT_MOOD_ENABLED):
@@ -1030,6 +1047,9 @@ class DirectChatService:
             # Доля «target+mood» — живёт только для mood (target неприкосновенен).
             "target": share("limits.chat_budget_target_ratio",
                             settings.CHAT_BUDGET_TARGET_RATIO),
+            # Раунд 9 (E1/T-826): маркер ностальгии — крошечная доля (блок
+            # компактный по построению); участвует в общем урезании ПОСЛЕДНИМ.
+            "nostalgia": max(1, int(effective * _NOSTALGIA_BUDGET_RATIO)),
         }
         # global-пол: под общим давлением global не опускается ниже своей доли
         # (D2.4: конспект-минимум, порядок жертв tail → L1(keep-head)).
@@ -1065,8 +1085,11 @@ class DirectChatService:
         if total > budget:
             # Порядок урезания (сначала дешёвое), геометрическими шагами.
             # global режется keep-head (конспект держится) и не опускается
-            # ниже своей доли (D2.4/E1); map — последняя (карта атрибуции).
-            order = ("anchors", "rag", "thread", "global", "map")
+            # ниже своей доли (D2.4/E1); map — предпоследняя (карта
+            # атрибуции); nostalgia — ПОСЛЕДНЯЯ (E1/T-826: маркер отдаётся
+            # лишь когда всё остальное уже сжато).
+            order = ("anchors", "rag", "thread", "global", "map",
+                     "nostalgia")
             for _ in range(20):
                 if total <= budget:
                     break
@@ -1547,7 +1570,7 @@ class DirectChatService:
     #    опциональный LLM-реранк) ─────────────────────────────────
 
     async def _build_rag_block(self, chat_id: int, message,
-                               global_ctx: str) -> str:
+                               global_ctx: str) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
             rel = cosine × w_eff + MMR / FTS w_eff DESC), БЕЗ хроно-
@@ -1560,9 +1583,14 @@ class DirectChatService:
         F3 — рендер с origin-метками «[{label}] {date} текст» (build_rag_context
             origin_labels=True). Fail-open: любая ошибка/пусто → "" (блок не
             рендерится, WARNING — NFR-6); RAG выключен → "" (регресс
-            test_empty_rag_section_omitted)."""
+            test_empty_rag_section_omitted).
+        Раунд 9 (E1/T-826, spec §3.5.1): возвращает (rag_block, nostalgia_hint)
+        — hint «золотых» считается ПОСЛЕ F2-дедупа и F4-реранка, ДО рендера
+        (передаётся в user-контент блоком kind "nostalgia" ПОСЛЕ relations/
+        до mood); гейты: флаг memory.nostalgia_layer_a_enabled, чат группой
+        (chat_id < 0, D-12), query есть, kept непуст."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
-            return ""
+            return "", ""
         query = getattr(message, "text", None) or ""
         try:
             facts = await self.memory.get_rag_facts(
@@ -1570,14 +1598,14 @@ class DirectChatService:
         except Exception:
             logger.warning("direct: rag facts failed — no rag block | chat=%s",
                            chat_id, exc_info=True)
-            return ""
+            return "", ""
         if not facts:
-            return ""
+            return "", ""
         # F2: дубли конспекта/verbatim-хвоста фона из RAG-блока исключаются
         # (никогда не бросает — fail-open внутри).
         kept = dedup_rag_vs_global(facts, global_ctx)
         if not kept:
-            return ""
+            return "", ""
         # F4: флаг off → 0 лишних LLM-вызовов (ранний выход ДО сериализации).
         if hot.get("flags.chat_rag_rerank_enabled",
                    settings.CHAT_RAG_RERANK_ENABLED):
@@ -1588,7 +1616,13 @@ class DirectChatService:
                     "direct: rag rerank failed — original facts | chat=%s",
                     chat_id, exc_info=True)
         if not kept:
-            return ""
+            return "", ""
+        # E1: «золотой» маркер — после отбора, ДО рендера (0 LLM-вызовов).
+        hint = ""
+        if query and chat_id < 0 and hot.get(
+                "memory.nostalgia_layer_a_enabled",
+                settings.NOSTALGIA_LAYER_A_ENABLED):
+            hint = await self._build_nostalgia_hint(chat_id, query, kept)
         # F3: единый формат строки с origin-меткой; дата — внутри факта.
         content = build_rag_context(kept, origin_labels=True)
         cap = int(hot.get("limits.graph_rag_context_max_chars",
@@ -1598,9 +1632,54 @@ class DirectChatService:
                            cap, chat_id)
             content = content[:cap]
         if not content:
-            return ""
+            return "", ""
         logger.info("direct: rag block | facts=%d | chat=%s", len(kept), chat_id)
-        return f"<RAG_Memory>\n{content}\n</RAG_Memory>"
+        return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
+
+    # ── Раунд 9 (AGI Memory, E1/T-826, spec §3.5.1): маркер «золотых» ──
+
+    async def _build_nostalgia_hint(self, chat_id: int, query: str,
+                                    kept: list) -> str:
+        """Строка-маркер слоя A (spec §3.5.1): «золотой» факт чата по теме
+        запроса (fetch_golden_facts: kind='fact', importance ≥
+        nostalgia_golden_min_importance, давность ≥ nostalgia_golden_min_days
+        по COALESCE(message_timestamp, created_at), FTS-матч). Факт уже в
+        `kept` (RAG-блоке) — маркера нет (нет нового сигнала). Максимум
+        nostalgia_layer_a_max_hints (1); фикс-кап nostalgia_hint_max_chars
+        (300) — внутри format_nostalgia_hint ДО инжекта. 0 добавочных
+        LLM-вызовов; ошибка/пусто → "" (WARNING, диалог жив — NFR-4)."""
+        try:
+            golden = await self.memory.fetch_golden_facts(
+                chat_id, query,
+                min_importance=int(hot.get(
+                    "memory.nostalgia_golden_min_importance",
+                    settings.NOSTALGIA_GOLDEN_MIN_IMPORTANCE) or 0),
+                min_age_days=int(hot.get(
+                    "memory.nostalgia_golden_min_days",
+                    settings.NOSTALGIA_GOLDEN_MIN_DAYS) or 0),
+                limit=max(1, int(hot.get(
+                    "memory.nostalgia_layer_a_max_hints",
+                    settings.NOSTALGIA_LAYER_A_MAX_HINTS) or 1)))
+        except Exception:
+            logger.warning(
+                "direct: nostalgia hint failed — no hint | chat=%s",
+                chat_id, exc_info=True)
+            return ""
+        if not golden:
+            return ""
+        cap = int(hot.get("memory.nostalgia_hint_max_chars",
+                          settings.NOSTALGIA_HINT_MAX_CHARS) or 0) or 300
+        kept_texts = {str(f[1]).strip().casefold() for f in (kept or [])
+                      if len(f) > 1}
+        for row in golden:
+            text = str(row.get("fact") or "").strip()
+            if not text:
+                continue
+            if text.casefold() in kept_texts:
+                continue
+            return format_nostalgia_hint(
+                text, row.get("rag_ts") or row.get("created_at"), cap)
+        return ""
 
     # ── <Global_Context> (Раунд 8: D2/T-799 keep-head + E1/T-803 importance,
     #    D5/T-802 метки-строки, C1/T-792 uid-рендеры) ────────────
