@@ -1,5 +1,7 @@
 # Memory: Project Overview (актуальные факты)
 
+> Прод-статус (06.09.2026, раунд 9 / AGI Memory): SQLite `user_version` = **8** (миграция v8: graph_facts rebuild с importance/source_ids/kind/belief_meta + origin `derived_belief`; 10557 фактов сохранено), аддитивные таблицы `users_meta`/`dream_state`/`memory_dream_log`/`nostalgia_log` созданы; PG `chat_profiles` + колонки `relations` (JSONB) / `relations_enabled`; канон direct_chat — R9 (prompt_migration). Воркеры раунда 9 (Dream/Nostalgia) зарегистрированы с флагами off — 0 влияния; dig_into_lore доступен модели (flags.dig_enabled=true). Бэкап: `/home/nik/backups_adminbot/local_database_20260906_111233_pre_v8.db`.
+
 Консолидация «живых» фактов из MEMORY.md (прежний `plans/MEMORY.md`, удалён 03.09.2026; журналы эпиков — в git-истории как история).
 
 ## Стек (актуально)
