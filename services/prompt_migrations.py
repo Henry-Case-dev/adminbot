@@ -5,6 +5,10 @@
 существующие ступени (LEGACY→новый, PREV→новый) сохранены и указывают на новый
 CHAT_SYSTEM_PROMPT автоматически.
 
+Раунд 9 (AGI Memory, T-821, spec §3.2.2): четвёртая ступень direct_chat
+(PREV_R9_CHAT_SYSTEM_PROMPT — слепок канона раунда 8, HEAD 84c4887 → канон
+раунда 9); PREV_R8-ступень указывает на новый канон автоматически.
+
 Заменяет migrate_direct_chat_prompt_if_legacy (удалена из chat_prompts.py):
 для каждого PG-ключа prompts.* текущее значение == одному из предыдущих
 канонов (PREV_*-слепки / LEGACY) → upsert новым каноном; == новому канону →
@@ -23,6 +27,7 @@ from services.chat_prompts import (
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
+    PREV_R9_CHAT_SYSTEM_PROMPT,
 )
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
@@ -59,7 +64,8 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.direct_chat_system_prompt": [
         (LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-        (PREV_R8_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_R8_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        (PREV_R9_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [(PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT)],
     "prompts.compress_system_prompt": [(PREV_COMPRESS_PROMPT, COMPRESS_PROMPT)],
     "prompts.checkup_system_prompt": [

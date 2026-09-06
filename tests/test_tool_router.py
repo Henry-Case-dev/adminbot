@@ -343,3 +343,429 @@ class TestQueryChatMemoryCount:
             _ctx())
         assert "про бензин" in out
         assert "Найдено 1 упоминаний" in out
+
+# ── Раунд 9 (AGI Memory, T-820, spec §3.2.1): dig_into_lore ────────────────
+
+class TestDigIntoLore:
+    """dig_into_lore: FTS-сниппеты L1 с датами + факты графа; пост-фильтры
+    year/person; режимы messages/facts/both; «ничего не нашёл»; НЕ бросает;
+    лимит 3500; флаг dig_enabled."""
+
+    @staticmethod
+    def _dig_row(user_id=10, author_name="вася", text="текст", ts=None):
+        return {"user_id": user_id, "author_name": author_name, "text": text,
+                "timestamp": ts}
+
+    @pytest.mark.asyncio
+    async def test_registered_in_dispatch(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        memory.db = None                       # факты-этап отключён
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "как мы тогда"}, _ctx())
+        assert "ничего не нашёл" in out
+
+    @pytest.mark.asyncio
+    async def test_mode_messages_renders_dated_snippets(self):
+        memory = MagicMock()
+        import datetime as _dt
+        ts = int(_dt.datetime(2024, 5, 1).timestamp())
+        memory.search_long_term = AsyncMock(return_value=[
+            self._dig_row(user_id=10, author_name="вася",
+                          text="ездили тогда на море", ts=ts)])
+        memory.db = None                       # факты-этап отключён
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore",
+            {"query": "море", "mode": "messages", "year": 2024}, _ctx())
+        assert out.startswith("сообщения:")
+        assert "[вася 2024-05-01]: ездили тогда на море" in out
+        assert "факты:" not in out
+
+    @pytest.mark.asyncio
+    async def test_year_filter_applies_to_snippets(self):
+        memory = MagicMock()
+        import datetime as _dt
+        rows = [
+            self._dig_row(user_id=1, text="в 2023 писали", ts=int(
+                _dt.datetime(2023, 6, 1).timestamp())),
+            self._dig_row(user_id=1, text="в 2024 писали", ts=int(
+                _dt.datetime(2024, 6, 1).timestamp())),
+            self._dig_row(user_id=1, text="в 2025 писали", ts=int(
+                _dt.datetime(2025, 6, 1).timestamp())),
+        ]
+        memory.search_long_term = AsyncMock(return_value=rows)
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "писали", "mode": "messages",
+                              "year": 2024}, _ctx())
+        assert "в 2024 писали" in out
+        assert "в 2023 писали" not in out
+        assert "в 2025 писали" not in out
+
+    @pytest.mark.asyncio
+    async def test_person_alias_filters_by_user_id(self):
+        memory = MagicMock()
+        rows = [
+            self._dig_row(user_id=138811255, author_name="Леха",
+                          text="леха писал про лето", ts=int(time.time()) - 10),
+            self._dig_row(user_id=10, author_name="вася",
+                          text="и вася про лето", ts=int(time.time()) - 5),
+        ]
+        memory.search_long_term = AsyncMock(return_value=rows)
+        memory.db = None
+        aliases = AliasResolver('{"138811255": "Леха", "10": "Вася"}')
+        router = ToolRouter(_deps(memory=memory, aliases=aliases))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "лето", "person": "Леха",
+                              "mode": "messages"}, _ctx())
+        assert "леха писал про лето" in out
+        assert "и вася про лето" not in out
+
+    @pytest.mark.asyncio
+    async def test_mode_facts_only(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        db = MagicMock()
+        db.search_graph_facts_fts = AsyncMock(return_value=[{
+            "id": 1, "fact": "Леха тогда купил машину", "origin": "chat_history",
+            "created_at": 1, "target_user": "Леха", "weight": 0.5,
+            "last_confirmed_at": 1, "message_timestamp": 1,
+            "rag_ts": int(time.time()) - 3600}])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "машина", "mode": "facts"}, _ctx())
+        assert out.startswith("факты:")
+        assert "Леха тогда купил машину" in out
+        memory.search_long_term.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mode_facts_renders_dated_prefix(self):
+        """D-9/§3.2.1 п.6: факт графа рендерится «факт ГГГГ-ММ-ДД: текст»
+        (дата rag_ts = COALESCE(message_timestamp, created_at))."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        import datetime as _dt
+        ts = int(_dt.datetime(2023, 3, 15).timestamp())
+        db = MagicMock()
+        db.search_graph_facts_fts = AsyncMock(return_value=[{
+            "id": 1, "fact": "Леха тогда купил машину", "origin": "chat_history",
+            "created_at": ts, "target_user": "Леха", "weight": 0.5,
+            "last_confirmed_at": 1, "message_timestamp": None,
+            "rag_ts": ts}])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "машина", "mode": "facts"}, _ctx())
+        assert out.startswith("факты:")
+        assert "факт 2023-03-15: Леха тогда купил машину" in out
+        assert "[2023-03-15]" not in out
+
+    @pytest.mark.asyncio
+    async def test_mode_facts_without_date_renders_bare_text(self):
+        """Без даты (rag_ts=0) факт рендерится голым текстом, без префикса."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        db = MagicMock()
+        db.search_graph_facts_fts = AsyncMock(return_value=[{
+            "id": 1, "fact": "факт без даты", "origin": "chat_history",
+            "created_at": 0, "target_user": None, "weight": 0.5,
+            "last_confirmed_at": 0, "message_timestamp": 0, "rag_ts": 0}])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "без даты", "mode": "facts"}, _ctx())
+        assert "факт без даты" in out
+        assert out.split("факты:")[1].strip() == "факт без даты"
+        assert not out.split("факты:")[1].strip().startswith("факт 1970-")
+
+    @pytest.mark.asyncio
+    async def test_mode_both_has_both_sections(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            self._dig_row(text="про поездку в переписке", ts=int(time.time()))])
+        db = MagicMock()
+        db.search_graph_facts_fts = AsyncMock(return_value=[{
+            "id": 1, "fact": "факт: поездка была в 2024", "origin": "chat_history",
+            "created_at": 1, "target_user": None, "weight": 0.5,
+            "last_confirmed_at": 1, "message_timestamp": 1,
+            "rag_ts": int(time.time()) - 3600}])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "поездка", "mode": "both"}, _ctx())
+        assert out.index("сообщения:") < out.index("факты:")
+        assert "про поездку в переписке" in out
+        assert "факт: поездка была в 2024" in out
+
+    @pytest.mark.asyncio
+    async def test_empty_returns_nothing_found(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "чего-то древнего", "mode": "both"},
+            _ctx())
+        assert "ничего не нашёл по запросу" in out
+        assert not out.startswith("ОШИБКА")
+
+    @pytest.mark.asyncio
+    async def test_bad_mode_defaults_to_both(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            self._dig_row(text="нашлось", ts=int(time.time()))])
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "нашлось", "mode": "картинки"}, _ctx())
+        assert "нашлось" in out
+
+    @pytest.mark.asyncio
+    async def test_error_stage_returns_error_text(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(
+            side_effect=RuntimeError("БД упала"))
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "x", "mode": "messages"}, _ctx())
+        assert "ОШИБКА dig_into_lore" in out
+
+    @pytest.mark.asyncio
+    async def test_messages_error_keeps_facts_section(self):
+        """Ошибка этапа сообщений не роняет факты (spec: ошибка этапа →
+        WARNING + секция пуста, рамка не бросает)."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(
+            side_effect=RuntimeError("fts down"))
+        db = MagicMock()
+        db.search_graph_facts_fts = AsyncMock(return_value=[{
+            "id": 1, "fact": "факт выжил", "origin": "chat_history",
+            "created_at": 1, "target_user": None, "weight": 0.5,
+            "last_confirmed_at": 1, "message_timestamp": 1,
+            "rag_ts": int(time.time()) - 100}])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "факт выжил", "mode": "both"}, _ctx())
+        assert "факты:" in out and "факт выжил" in out
+        assert "сообщения:" not in out
+
+    @pytest.mark.asyncio
+    async def test_result_truncated_to_3500(self):
+        memory = MagicMock()
+        long_text = "буква " * 2000
+        memory.search_long_term = AsyncMock(return_value=[
+            self._dig_row(text=long_text, ts=int(time.time()))])
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "x", "mode": "messages"}, _ctx())
+        assert len(out) <= 3600
+
+    @pytest.mark.asyncio
+    async def test_year_out_of_range_ignored(self):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            self._dig_row(text="недавнее", ts=int(time.time()))])
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "недавнее", "mode": "messages",
+                              "year": 1800}, _ctx())
+        assert "недавнее" in out
+
+    @pytest.mark.asyncio
+    async def test_flag_off_returns_disabled(self, monkeypatch):
+        from services import hot_config as hot
+        class _FakeHotCache:
+            def get(self, key, default=None):
+                return {"flags.dig_enabled": False}.get(key, default)
+        monkeypatch.setattr(hot, "_cache", _FakeHotCache())
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "x"}, _ctx())
+        assert out == "Инструмент dig_into_lore отключен."
+
+
+class TestDigFixRound:
+    """Фикс-раунд (major-2): «N лет назад» из query без year (год = now.year
+    − N); расширение ключей именами из графа (BFS по nodes/edges с глубиной
+    limits.dig_graph_hop_depth, фолбэк target_user); лимиты читаются через
+    hot (dig_max_symbols/snippets/facts)."""
+
+    @staticmethod
+    def _rows_by_year(*rows):
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=list(rows))
+        memory.db = None
+        return memory
+
+    @staticmethod
+    def _ts(year, month=6, day=1):
+        import datetime as _dt
+        return int(_dt.datetime(year, month, day).timestamp())
+
+    @pytest.mark.asyncio
+    async def test_years_ago_phrase_sets_year(self):
+        """«2 года назад» без year → год now.year − 2; сниппеты того года
+        в выдаче, соседних лет — нет."""
+        now_year = 2026   # фиксируем фактом из контекста раунда (runtime)
+        year = now_year - 2
+        memory = MagicMock()
+        rows = [
+            {"user_id": 1, "author_name": "вася", "text": "старое",
+             "timestamp": self._ts(year)},
+            {"user_id": 1, "author_name": "вася", "text": "совсем новое",
+             "timestamp": self._ts(now_year - 1)},
+            {"user_id": 1, "author_name": "вася", "text": "древнее",
+             "timestamp": self._ts(now_year - 3)},
+        ]
+        memory.search_long_term = AsyncMock(return_value=rows)
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore",
+            {"query": f"как мы ездили 2 года назад", "mode": "messages"},
+            _ctx())
+        assert "старое" in out
+        assert "совсем новое" not in out
+        assert "древнее" not in out
+
+    @pytest.mark.asyncio
+    async def test_word_years_ago_paruvsneskolko(self):
+        """«пару/несколько лет назад» без числа → N = 2/3."""
+        now_year = 2026
+        for phrase, n in (("пару", 2), ("несколько", 3)):
+            target = now_year - n
+            memory = MagicMock()
+            rows = [
+                {"user_id": 1, "author_name": "вася", "text": "цель",
+                 "timestamp": self._ts(target)},
+                {"user_id": 1, "author_name": "вася", "text": "мимо",
+                 "timestamp": self._ts(now_year)},
+            ]
+            memory.search_long_term = AsyncMock(return_value=rows)
+            memory.db = None
+            router = ToolRouter(_deps(memory=memory))
+            out = await router.dispatch(
+                "dig_into_lore",
+                {"query": f"расскажи про {phrase} лет назад", "mode": "messages"},
+                _ctx())
+            assert "цель" in out, phrase
+            assert "мимо" not in out, phrase
+
+    @pytest.mark.asyncio
+    async def test_graph_names_bfs_expands_query_tokens(self):
+        """BFS по графу (nodes/edges) даёт имена — они уходят OR-токенами в
+        FTS (search_long_term получает расширенный merged)."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            {"user_id": 7, "author_name": "антон", "text": "антон был на море",
+             "timestamp": int(time.time())}])
+        db = MagicMock()
+        db.dig_graph_related_names = AsyncMock(return_value=["антон", "марина"])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "поездка на море", "mode": "messages"},
+            _ctx())
+        args, kwargs = memory.search_long_term.await_args
+        merged = args[1]
+        assert "антон" in merged
+        assert "марина" in merged
+        db.dig_graph_related_names.assert_awaited_once()
+        assert db.dig_graph_related_names.await_args.kwargs["max_depth"] == 2
+        assert "антон был на море" in out
+
+    @pytest.mark.asyncio
+    async def test_person_expands_related_names_via_graph(self):
+        """person задан (алиаса нет — без user_id-фильтра): seeds = формы
+        имени person; связанные имена из графа расширяют FTS-запрос
+        (сообщение от другого участника про связанного человека — в
+        выдаче: OR-токен связанного имени)."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            {"user_id": 8, "author_name": "петя",
+             "text": "петя ездил с василием на рыбалку",
+             "timestamp": int(time.time())}])
+        db = MagicMock()
+        db.dig_graph_related_names = AsyncMock(return_value=["василий"])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "рыбалка", "person": "Вася",
+                              "mode": "messages"}, _ctx())
+        args, kwargs = memory.search_long_term.await_args
+        merged = args[1]
+        assert "василий" in merged
+        assert "петя ездил с василием на рыбалку" in out
+
+    @pytest.mark.asyncio
+    async def test_graph_empty_falls_back_to_target_user(self):
+        """BFS пуст (узлы/рёбра не нашли) → фолбэк target_user: имена из
+        фактов чата, содержащие токен person."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            {"user_id": 8, "author_name": "петя",
+             "text": "петя вспоминал василия на рыбалке",
+             "timestamp": int(time.time())}])
+        db = MagicMock()
+        db.dig_graph_related_names = AsyncMock(return_value=[])
+        db.dig_fallback_target_names = AsyncMock(return_value=["василий"])
+        memory.db = db
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "рыбалка", "person": "Вася",
+                              "mode": "messages"}, _ctx())
+        db.dig_fallback_target_names.assert_awaited_once()
+        args, kwargs = memory.search_long_term.await_args
+        assert "василий" in args[1]
+        assert "петя вспоминал василия на рыбалке" in out
+
+    @pytest.mark.asyncio
+    async def test_graph_db_missing_is_fail_open(self):
+        """memory.db None (нет графа) → ничего не падает, имена не
+        расширяются, выдача как раньше."""
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            {"user_id": 1, "author_name": "вася", "text": "нашлось",
+             "timestamp": int(time.time())}])
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "нашлось", "mode": "messages"}, _ctx())
+        assert "нашлось" in out
+
+    @pytest.mark.asyncio
+    async def test_limits_read_via_hot_and_symbols_limit(self, monkeypatch):
+        """limits.dig_max_symbols/snippets/facts читаются через hot
+        (фикс-раунд major-5: REGISTRY-ключи, не код-константы)."""
+        from services import hot_config as hot
+        class _FakeHotCache:
+            def __init__(self, values):
+                self._values = values
+            def get(self, key, default=None):
+                return self._values.get(key, default)
+        monkeypatch.setattr(hot, "_cache", _FakeHotCache({
+            "limits.dig_max_symbols": 500,
+            "limits.dig_max_snippets": 1,
+            "limits.dig_max_facts": 1,
+        }))
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            {"user_id": 1, "author_name": "вася",
+             "text": "длинный сниппет " + "буква " * 300,
+             "timestamp": int(time.time())}])
+        memory.db = None
+        router = ToolRouter(_deps(memory=memory))
+        out = await router.dispatch(
+            "dig_into_lore", {"query": "длинный", "mode": "messages"}, _ctx())
+        # truncate = limit символов + многоточие
+        assert len(out) <= 501

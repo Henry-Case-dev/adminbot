@@ -1,15 +1,22 @@
 """Epic 50 (R50-4/R50-7/R50-8, Section 58.2): каноны VERBATIM.
 
-CHAT_SYSTEM_PROMPT — байт-в-байт эталон канона (раунд 8, Context-Layer
-X-Features T-790, spec 3.B1: первый абзац КАК ЧИТАТЬ КОНТЕКСТ — «как читать
-блоки», блок ПРИОРИТЕТЫ, запрет вывода служебных номеров); слепок канона
-раунда 5 (HEAD b198d13, байт-в-байт) сохранён как
-PREV_R8_CHAT_SYSTEM_PROMPT; LEGACY_CHAT_SYSTEM_PROMPT — канон раунда 2
-(эталон Section 58.2, НЕ меняется); PREV_CHAT_SYSTEM_PROMPT — слепок канона
-раунда 4 (HEAD 68fb03e ДО правки раунда 5, для авто-миграции PG); пулы
-кулдауна/ошибок — поэлементно (прецедент R11/R42-6). Миграция PG-канонов
-(раунд 5/раунд 8) — в tests/test_prompt_migrations.py (migrate_prompt_canons:
-direct_chat — три ступени LEGACY/PREV/PREV_R8 → новый канон).
+CHAT_SYSTEM_PROMPT — байт-в-байт эталон канона (раунд 9, AGI Memory T-821,
+spec §3.2.2; фикс-раунд major-3/D-15: + <user_relations> в КАК ЧИТАТЬ КОНТЕКСТ
+(дефис, не длинное тире), ОТНОШЕНИЯ списком 5 пунктов, третий пункт
+ИНСТРУМЕНТЫ dig_into_lore; п.5 ПРИОРИТЕТЫ удалён — dig-контракт ровно в
+ИНСТРУМЕНТАХ); слепок канона раунда 8 (HEAD 84c4887, байт-в-байт) сохранён
+как PREV_R9_CHAT_SYSTEM_PROMPT; слепок канона раунда 5 (HEAD b198d13, байт-в-байт)
+сохранён как PREV_R8_CHAT_SYSTEM_PROMPT; LEGACY_CHAT_SYSTEM_PROMPT — канон
+раунда 2 (эталон Section 58.2, НЕ меняется); PREV_CHAT_SYSTEM_PROMPT — слепок
+канона раунда 4 (HEAD 68fb03e ДО правки раунда 5, для авто-миграции PG); пулы
+кулдаунов/ошибок — поэлементно (прецедент R11/R42-6). Миграция PG-канонов
+(раунд 5/раунд 8/раунд 9) — в tests/test_prompt_migrations.py
+(migrate_prompt_canons: direct_chat — четыре ступени LEGACY/PREV/PREV_R8/
+PREV_R9 → новый канон).
+
+Мини-фикс (D-16, канон НЕ задеплоен): ИНСТРУМЕНТЫ п.3 execute_web_search +
+финальная фраза «Для вопросов о прошлом чата его не используй.» — эталон
+R9 (ниже) обновлён, слепок PREV_R9 не тронут.
 """
 import re
 
@@ -18,6 +25,7 @@ from services.chat_prompts import (
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
+    PREV_R9_CHAT_SYSTEM_PROMPT,
 )
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
@@ -92,8 +100,9 @@ _PREV_R8_CHAT_SYSTEM_PROMPT_REFERENCE = """СИСТЕМНАЯ РОЛЬ:
 ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
 Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
 
-# Эталон нового канона (раунд 8, T-790, spec 3.B1) — байт-в-байт.
-_CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
+# Эталон слепка канона раунда 8 (HEAD 84c4887, до правок раунда 9; бывший
+# эталон канона раунда 8) — байт-в-байт.
+_PREV_R9_CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
 Твой контекст разбит на блоки-теги. <UserResolutionMap> — кто есть кто в чате; рядом с именем в квадратных скобках стоит служебный номер человека. <Global_Context> — фон беседы: конспект и недавние сообщения. <Conversation_Thread> — история вашего текущего диалога с тем, кто тебя зовёт. <Conversation_Branch> — самые свежие ходы этой ветки. <RAG_Memory> — старые факты и разговоры из памяти, там бывают и давние события с датами. <Current_Question> — сообщение, на которое ты отвечаешь сейчас. <Target_User> — кто к тебе обращается. <Protected_Facts> и <chat_lore> — важные факты, помни о них всегда. Теги не цитируй дословно, только используй по смыслу. Служебные номера в квадратных скобках не выводи и не упоминай в ответе — людей называй только именами.
 
 СИСТЕМНАЯ РОЛЬ:
@@ -119,6 +128,45 @@ _CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
 ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
 Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
 
+# Эталон нового канона (раунд 9, AGI Memory T-821, spec §3.2.2; фикс-раунд
+# major-3/D-15: ОТНОШЕНИЯ списком 5 пунктов, dig-контракт только в
+# ИНСТРУМЕНТАХ; мини-фикс D-16: п.3 execute_web_search + фраза «прошлое
+# чата») — байт-в-байт.
+_CHAT_SYSTEM_PROMPT_REFERENCE = """КАК ЧИТАТЬ КОНТЕКСТ:
+Твой контекст разбит на блоки-теги. <UserResolutionMap> — кто есть кто в чате; рядом с именем в квадратных скобках стоит служебный номер человека. <Global_Context> — фон беседы: конспект и недавние сообщения. <Conversation_Thread> — история вашего текущего диалога с тем, кто тебя зовёт. <Conversation_Branch> — самые свежие ходы этой ветки. <RAG_Memory> — старые факты и разговоры из памяти, там бывают и давние события с датами. <Current_Question> — сообщение, на которое ты отвечаешь сейчас. <Target_User> — кто к тебе обращается. <Protected_Facts> и <chat_lore> — важные факты, помни о них всегда. <user_relations> - твои отношения с участниками чата (стадия и активность). Теги не цитируй дословно, только используй по смыслу. Служебные номера в квадратных скобках не выводи и не упоминай в ответе — людей называй только именами.
+
+СИСТЕМНАЯ РОЛЬ:
+Ты — токсичный, саркастичный и циничный участник чата (бот-абьюзер). Ты отвечаешь на прямые обращения пользователя (<Target_User>).
+
+ПРИОРИТЕТЫ:
+1. Отвечай только на <Current_Question>.
+2. <Conversation_Thread> и <Conversation_Branch> важнее <Global_Context>: ваш диалог — правда для ответа, фон — только подсказка.
+3. При конфликте фактов верь более свежему.
+4. Не путай людей: разные имена в <UserResolutionMap> — разные люди, даже если имена похожи.
+
+ОТНОШЕНИЯ:
+В блоке <user_relations> - отношения с тем, кто сейчас пишет (стадия и активность).
+1. Своему или знакомому отвечай как обычно.
+2. Ветерану чата - теплее, с отсылками к общему прошлому.
+3. Новичку - короче, без глубоких отсылок к лору.
+4. Если у собеседника есть ручная пометка админа - она важнее расчёта, не спорь с ней.
+5. Не упоминай сам блок и стадии в ответе.
+
+ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ:
+1. Имитируй торопливое письмо: иногда начинай предложения с маленькой буквы. Без форматирования (никакого маркдауна).
+2. Типографика: только короткие дефисы (-) и обычные двойные кавычки (""). КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»).
+3. Разрешен мат и сленг. Будь грубым, но по факту.
+
+ИНСТРУМЕНТЫ:
+У тебя есть инструменты — используй их, когда ответ требует данных, которых нет в контексте:
+1. query_chat_memory — история и факты этого чата. Вызывай ПЕРВЫМ при вопросах про прошлое: «сколько раз упоминалось слово или тема», «когда это было», «кто говорил», любая статистика чата. Результат инструмента содержит число совпадений и даты — цифры бери только из него.
+2. dig_into_lore - датированные выдержки из старой переписки и факты графа. Вызывай ПЕРВЫМ и ОБЯЗАТЕЛЬНО до ответа, когда юзер вспоминает: помнишь/а помните/как мы тогда/год назад/в 2024/что было с (именем)/кто был тот. В запросе передавай год и имя, если они названы. Не отвечай по памяти, пока не посмотришь результат копания.
+3. execute_web_search — свежие внешние данные: новости, проверка фактов в интернете, то, чего нет в контексте и памяти. Для вопросов о прошлом чата его не используй.
+Вызвал инструмент — отвечай строго по его результату. Не выдумывай цифры и факты, которых нет в контексте или в результате инструмента.
+
+ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧЕСКИ ВАЖНО):
+Ты должен отвечать ОЧЕНЬ коротко. Твой ответ должен состоять СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ. \nНе объясняй свои мысли, не пиши списки. Максимум пара язвительных фраз. Если напишешь больше двух предложений — система упадет."""
+
 _EXPECTED_COOLDOWN = (
     "ты заебал спамить, я пошел курить на {remaining_time}",
     "лимит тупых вопросов исчерпан, отдыхай {remaining_time}",
@@ -137,6 +185,11 @@ class TestChatSystemPromptCanon:
     def test_byte_for_byte(self):
         assert CHAT_SYSTEM_PROMPT == _CHAT_SYSTEM_PROMPT_REFERENCE
 
+    def test_prev_r9_snapshot_matches_round8_canon(self):
+        """Раунд 9: PREV_R9 == слепок канона раунда 8 (HEAD 84c4887,
+        свежий срез из git: бывший CHAT_SYSTEM_PROMPT)."""
+        assert PREV_R9_CHAT_SYSTEM_PROMPT == _PREV_R9_CHAT_SYSTEM_PROMPT_REFERENCE
+
     def test_prev_r8_snapshot_matches_round5_canon(self):
         """PREV_R8 == слепок канона раунда 5 (HEAD b198d13, свежий срез
         из git: бывший CHAT_SYSTEM_PROMPT)."""
@@ -149,12 +202,25 @@ class TestChatSystemPromptCanon:
         assert LEGACY_CHAT_SYSTEM_PROMPT == _LEGACY_CHAT_SYSTEM_PROMPT_REFERENCE
 
     def test_new_differs_from_prev_and_legacy(self):
+        assert CHAT_SYSTEM_PROMPT != PREV_R9_CHAT_SYSTEM_PROMPT
         assert CHAT_SYSTEM_PROMPT != PREV_R8_CHAT_SYSTEM_PROMPT
         assert CHAT_SYSTEM_PROMPT != PREV_CHAT_SYSTEM_PROMPT
         assert CHAT_SYSTEM_PROMPT != LEGACY_CHAT_SYSTEM_PROMPT
+        assert PREV_R9_CHAT_SYSTEM_PROMPT != PREV_R8_CHAT_SYSTEM_PROMPT
+        assert PREV_R9_CHAT_SYSTEM_PROMPT != PREV_CHAT_SYSTEM_PROMPT
+        assert PREV_R9_CHAT_SYSTEM_PROMPT != LEGACY_CHAT_SYSTEM_PROMPT
         assert PREV_R8_CHAT_SYSTEM_PROMPT != PREV_CHAT_SYSTEM_PROMPT
         assert PREV_R8_CHAT_SYSTEM_PROMPT != LEGACY_CHAT_SYSTEM_PROMPT
         assert PREV_CHAT_SYSTEM_PROMPT != LEGACY_CHAT_SYSTEM_PROMPT
+
+    def test_prev_r9_is_really_before_round9(self):
+        """Раунд 9: слепок PREV_R9 == канон раунда 8 — без <user_relations>,
+        без ОТНОШЕНИЯ и без dig_into_lore."""
+        assert "КАК ЧИТАТЬ КОНТЕКСТ" in PREV_R9_CHAT_SYSTEM_PROMPT
+        assert "ПРИОРИТЕТЫ" in PREV_R9_CHAT_SYSTEM_PROMPT
+        assert "<user_relations>" not in PREV_R9_CHAT_SYSTEM_PROMPT
+        assert "ОТНОШЕНИЯ" not in PREV_R9_CHAT_SYSTEM_PROMPT
+        assert "dig_into_lore" not in PREV_R9_CHAT_SYSTEM_PROMPT
 
     def test_prev_snapshot_is_really_before_round5(self):
         """Раунд 5 (spec 5.3.2): PREV-слепок содержит старые фразы канона
@@ -206,14 +272,16 @@ class TestChatSystemPromptCanon:
 
     def test_contains_read_context_rule(self):
         """Раунд 8 (FR-21/п.23): первый абзац «как читать блоки» — каждый
-        блок-тег с назначением, теги не цитируются дословно."""
+        блок-тег с назначением, теги не цитируются дословно. Раунд 9 (R9):
+        + <user_relations> в списке тегов."""
         canon = CHAT_SYSTEM_PROMPT
         lines = canon.splitlines()
         assert lines[0] == "КАК ЧИТАТЬ КОНТЕКСТ:"
         assert lines[1].startswith("Твой контекст разбит на блоки-теги.")
         for tag in ("UserResolutionMap", "Global_Context", "Conversation_Thread",
                     "Conversation_Branch", "RAG_Memory", "Current_Question",
-                    "Target_User", "Protected_Facts", "chat_lore"):
+                    "Target_User", "Protected_Facts", "chat_lore",
+                    "user_relations"):
             assert "<%s>" % tag in lines[1]
         assert "Теги не цитируй дословно, только используй по смыслу." in canon
 
@@ -266,15 +334,93 @@ class TestChatSystemPromptCanon:
         assert re.findall(r"\{(\w+)\}", LEGACY_CHAT_SYSTEM_PROMPT) == []
         assert re.findall(r"\{(\w+)\}", PREV_CHAT_SYSTEM_PROMPT) == []
         assert re.findall(r"\{(\w+)\}", PREV_R8_CHAT_SYSTEM_PROMPT) == []
+        assert re.findall(r"\{(\w+)\}", PREV_R9_CHAT_SYSTEM_PROMPT) == []
 
     def test_no_trailing_newline(self):
         assert not CHAT_SYSTEM_PROMPT.endswith("\n")
         assert not LEGACY_CHAT_SYSTEM_PROMPT.endswith("\n")
         assert not PREV_CHAT_SYSTEM_PROMPT.endswith("\n")
         assert not PREV_R8_CHAT_SYSTEM_PROMPT.endswith("\n")
+        assert not PREV_R9_CHAT_SYSTEM_PROMPT.endswith("\n")
 
     def test_short_answer_limit_preserved(self):
         assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" in CHAT_SYSTEM_PROMPT
+
+    # ── Раунд 9 (AGI Memory, T-821, spec §3.2.2): dig_into_lore + ОТНОШЕНИЯ ──
+
+    def test_r9_priorities_have_no_dig_trigger(self):
+        """Фикс-раунд (major-3/D-15): ПРИОРИТЕТЫ БЕЗ изменений (ровно 4
+        пункта раунда 8) — dig-контракт живёт в одном месте: ИНСТРУМЕНТЫ п.2."""
+        priorities = (CHAT_SYSTEM_PROMPT.split("ПРИОРИТЕТЫ:")[1]
+                      .split("ОТНОШЕНИЯ:")[0])
+        assert "5." not in priorities
+        assert "dig_into_lore" not in priorities
+        assert ("4. Не путай людей: разные имена в <UserResolutionMap> — "
+                "разные люди, даже если имена похожи.") in priorities
+
+    def test_r9_relations_tone_block(self):
+        """ОТНОШЕНИЯ между ПРИОРИТЕТЫ и ПРАВИЛА ОФОРМЛЕНИЯ (B4): 5 пунктов
+        списком (D-15) — своему/знакомому как обычно, ветерану теплее,
+        новичку короче, ручная пометка админа важнее расчёта, блок/стадии
+        не упоминать."""
+        assert "ОТНОШЕНИЯ:" in CHAT_SYSTEM_PROMPT
+        relations = (CHAT_SYSTEM_PROMPT.split("ОТНОШЕНИЯ:")[1]
+                     .split("ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ:")[0])
+        assert "1. Своему или знакомому отвечай как обычно." in relations
+        assert "2. Ветерану чата - теплее, с отсылками к общему прошлому." \
+            in relations
+        assert "3. Новичку - короче, без глубоких отсылок к лору." in relations
+        assert ("4. Если у собеседника есть ручная пометка админа - она "
+                "важнее расчёта, не спорь с ней.") in relations
+        assert "5. Не упоминай сам блок и стадии в ответе." in relations
+        # блок идёт строго ДО правил оформления (порядок секций)
+        assert (CHAT_SYSTEM_PROMPT.index("ОТНОШЕНИЯ:")
+                < CHAT_SYSTEM_PROMPT.index("ПРАВИЛА ОФОРМЛЕНИЯ И СТИЛЬ:"))
+        assert (CHAT_SYSTEM_PROMPT.index("ПРИОРИТЕТЫ:")
+                < CHAT_SYSTEM_PROMPT.index("ОТНОШЕНИЯ:"))
+
+    def test_r9_tools_include_dig_second(self):
+        """ИНСТРУМЕНТЫ: query_chat_memory → dig_into_lore → execute_web_search
+        (ностальгия сначала копает память, а не веб)."""
+        tools = (CHAT_SYSTEM_PROMPT.split("ИНСТРУМЕНТЫ:")[1]
+                 .split("ГЛАВНОЕ ОГРАНИЧЕНИЕ")[0])
+        assert tools.index("1. query_chat_memory") \
+            < tools.index("2. dig_into_lore") \
+            < tools.index("3. execute_web_search")
+        assert ("dig_into_lore - датированные выдержки из старой переписки "
+                "и факты графа." in tools)
+
+    def test_r9_dig_contract_triggers(self):
+        """Контракт dig (spec §3.2.2(в) п.2): словесные триггеры ностальгии и
+        «ДО ответа»."""
+        dig_line = next(l for l in CHAT_SYSTEM_PROMPT.splitlines()
+                        if l.startswith("2. dig_into_lore"))
+        for trigger in ("помнишь", "а помните", "как мы тогда", "год назад",
+                        "в 2024", "кто был тот", "ПЕРВЫМ", "ОБЯЗАТЕЛЬНО"):
+            assert trigger in dig_line, trigger
+        assert "Не отвечай по памяти" in dig_line
+
+    def test_r9_new_lines_have_no_fancy_quotes_or_emdash(self):
+        """Типографическая дисциплина (раунд 5): новые строки R9
+        (вставка <user_relations> в «как читать», ОТНОШЕНИЯ, п.2
+        ИНСТРУМЕНТЫ) — без ёлочек и без «—» (перенесённые строки с
+        примерами сохранены, как в R8)."""
+        # вставка в «как читать»: только сегмент от <user_relations> до
+        # «Теги не цитируй» (в строке есть и R8-эм-тире других тегов)
+        intro = next(l for l in CHAT_SYSTEM_PROMPT.splitlines()
+                     if "<user_relations>" in l)
+        segment = intro[intro.index("<user_relations>"):intro.index("Теги не цитируй")]
+        assert "«" not in segment and "»" not in segment
+        assert "—" not in segment
+        assert " - " in segment
+        for frag in ("1. Своему или знакомому отвечай", "2. dig_into_lore"):
+            line = next(l for l in CHAT_SYSTEM_PROMPT.splitlines()
+                        if l.startswith(frag))
+            assert "«" not in line and "»" not in line
+            assert "—" not in line
+        dig_line = next(l for l in CHAT_SYSTEM_PROMPT.splitlines()
+                        if l.startswith("2. dig_into_lore"))
+        assert " - " in dig_line
 
 
 class TestChatPoolsCanon:

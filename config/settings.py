@@ -900,6 +900,24 @@ class Settings:
         "RELATIONS_INJECT_MAX_CHARS", 600)
     RELATIONS_API_MAX_USERS: int = _env_int("RELATIONS_API_MAX_USERS", 150)
 
+    # ── Раунд 9 (AGI Memory, spec §3.6.4/Q11, фикс-раунд): dig_into_lore ────
+    # Парные Settings-поля REGISTRY-записей flags.dig_*/limits.dig_*
+    # (группы flags_memory/limits_memory — вкладка «Память и RAG»): дефолты
+    # сидятся в bot_settings при pg.init(); env-чтение дефолтами не ломает
+    # (.env.example НЕ меняем — I1, новых env нет; прецедент LORE_*/RELATIONS_*).
+    # DIG_ENABLED — тул доступен модели (default true, Q12/D-11: раунды
+    # тратит только по вызову); DIG_PRE_GATE_ENABLED — код-пре-гейт маркеров
+    # ностальгии перед генерацией (default false); лимиты — потолки выдачи
+    # (сниппеты/факты/символы), глубина граф-обхода имён, окно «N лет назад».
+    DIG_ENABLED: bool = _env_bool("DIG_ENABLED", True)
+    DIG_PRE_GATE_ENABLED: bool = _env_bool("DIG_PRE_GATE_ENABLED", False)
+    DIG_MAX_SNIPPETS: int = _env_int("DIG_MAX_SNIPPETS", 8)
+    DIG_MAX_FACTS: int = _env_int("DIG_MAX_FACTS", 3)
+    DIG_MAX_SYMBOLS: int = _env_int("DIG_MAX_SYMBOLS", 3500)
+    DIG_GRAPH_HOP_DEPTH: int = _env_int("DIG_GRAPH_HOP_DEPTH", 2)
+    DIG_YEAR_BACK_WINDOW_DAYS: int = _env_int(
+        "DIG_YEAR_BACK_WINDOW_DAYS", 2)
+
     # ── 65.8/65.5: словарь пресетов (канон D247). Определяется ПОСЛЕ
     # класса (dataclass не терпит mutable-полей по умолчанию). ───
     def _normalize_tone_key(self, preset_key: str | None) -> str:

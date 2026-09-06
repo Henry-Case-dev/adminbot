@@ -2977,6 +2977,111 @@ class TestDirectChatToolCalling:
         assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
 
 
+class TestDirectChatDigPreGate:
+    """Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
+    маркеров ностальгии. Маркер в сообщении + flags.dig_pre_gate_enabled →
+    dig_into_lore вызван ДО генерации, <dig_result> инжектится ПЕРЕД
+    <Target_User>; флаг off / нет маркера → ничего."""
+
+    @staticmethod
+    def _hot_cache(monkeypatch, values):
+        from services import hot_config as hot
+
+        class _FakeHotCache:
+            def __init__(self, values):
+                self._values = dict(values or {})
+
+            def get(self, key, default=None):
+                return self._values.get(key, default)
+
+        monkeypatch.setattr(hot, "_cache", _FakeHotCache(values))
+
+    def _capture_router(self, result="[вася 2024-05-12]: тогда и гуляли"):
+        class _CaptureRouter:
+            def __init__(self):
+                self.calls = []
+                self.result = result
+
+            async def dispatch(self, name, arguments, ctx):
+                self.calls.append((name, dict(arguments), ctx.chat_id))
+                return self.result
+
+        return _CaptureRouter()
+
+    async def _run(self, monkeypatch, text, router, flags=None,
+                   chat_id=CHAT_ID):
+        captured = {}
+
+        async def _fake_chat_with_tools(llm, payload, *, tools, router, ctx,
+                                        temperature):
+            captured["payload"] = payload
+            return "готовый ответ"
+
+        self._hot_cache(monkeypatch, flags or {})
+        monkeypatch.setattr("services.direct_chat_service.chat_with_tools",
+                            _fake_chat_with_tools)
+        service = _make_service(llm=FakeLLM(), tool_router=router)
+        bot = _bot()
+        user = _user()
+        await service.handle(bot, _message(text=text, user=user), user)
+        content = captured["payload"][1]["content"]
+        return content, router
+
+    @pytest.mark.asyncio
+    async def test_marker_flag_on_calls_dig_before_target(self, monkeypatch,
+                                                          fake_time):
+        router = self._capture_router()
+        content, router = await self._run(
+            monkeypatch, "бот, помнишь как мы тогда гуляли в 2024?",
+            router, flags={"flags.dig_pre_gate_enabled": True})
+        assert router.calls and router.calls[0][0] == "dig_into_lore"
+        assert router.calls[0][1]["query"] == \
+            "бот, помнишь как мы тогда гуляли в 2024?"
+        assert content.index("<dig_result>") \
+            < content.index("<Target_User>")
+        assert "[вася 2024-05-12]: тогда и гуляли" in content
+
+    @pytest.mark.asyncio
+    async def test_flag_off_no_dig_no_block(self, monkeypatch, fake_time):
+        router = self._capture_router()
+        content, router = await self._run(
+            monkeypatch, "бот, помнишь как мы тогда гуляли?",
+            router, flags={"flags.dig_pre_gate_enabled": False})
+        assert router.calls == []
+        assert "<dig_result>" not in content
+
+    @pytest.mark.asyncio
+    async def test_no_markers_flag_on_no_dig(self, monkeypatch, fake_time):
+        router = self._capture_router()
+        content, router = await self._run(
+            monkeypatch, "бот, что по планам на вечер?",
+            router, flags={"flags.dig_pre_gate_enabled": True})
+        assert router.calls == []
+        assert "<dig_result>" not in content
+
+    @pytest.mark.asyncio
+    async def test_default_flag_off_ignores_markers(self, monkeypatch,
+                                                    fake_time):
+        """Дефолт settings: флаг off (Q12/D-11) — без явного включения
+        пре-гейт молчит даже при маркере."""
+        router = self._capture_router()
+        content, router = await self._run(
+            monkeypatch, "бот, а было же лето в 2023...", router)
+        assert router.calls == []
+        assert "<dig_result>" not in content
+
+    @pytest.mark.asyncio
+    async def test_disabled_or_error_dig_result_not_injected(
+            self, monkeypatch, fake_time):
+        router = self._capture_router(
+            result="Инструмент dig_into_lore отключен.")
+        content, router = await self._run(
+            monkeypatch, "бот, помнишь тот поход?",
+            router, flags={"flags.dig_pre_gate_enabled": True})
+        assert router.calls and router.calls[0][0] == "dig_into_lore"
+        assert "<dig_result>" not in content
+
+
 def sync_fire_forget_helper(tasks):
     def sync_fire_and_forget(coro, tag):
         tasks.append(coro)

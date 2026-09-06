@@ -114,6 +114,16 @@ logger = logging.getLogger(__name__)
 
 # Раунд 9 (B4/T-819): маркер обрезания <user_relations> по кап-символам.
 _RELATIONS_CUT_MARKER = "…[обрезано]"
+# Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): маркеры ностальгии
+# для пре-гейта dig (флаг flags.dig_pre_gate_enabled, default false). Regex
+# по тексту сообщения (без границ слов — «как мы тогда гуляли» и т.п.);
+# «в 20\d\d» — упоминание года («в 2024»).
+_NOSTALGIA_MARKERS_RE = re.compile(
+    r"помнишь|помните|как мы тогда|как вы тогда|год назад|лет назад|"
+    r"в 20\d\d|кто был тот|а было же|когда-то", re.IGNORECASE)
+# Потолок инжекта <dig_result> (спека §3.2.3; dig уже режет 3500 сам —
+# страховка для результатов не-dig веток).
+_DIG_RESULT_MAX_CHARS = 3600
 _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 фактов/связей
 # Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
 _STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
@@ -136,6 +146,12 @@ _PEER_PREFIX_RE = re.compile(
 def _parse_mood_words(raw: str) -> tuple[str, ...]:
     """65.9: comma-separated env → кортеж слов (нижний регистр)."""
     return tuple(w.strip().lower() for w in str(raw or "").split(",") if w.strip())
+
+
+def _nostalgia_markers(text: str) -> bool:
+    """Раунд 9 (фикс-раунд major-1, spec §3.2.3): есть ли в сообщении маркер
+    ностальгии (помнишь, как мы тогда, год назад, «в 20XX» и т.п.)."""
+    return bool(_NOSTALGIA_MARKERS_RE.search(str(text or "")))
 
 
 def _strip_direct_prefix(text: str) -> str:
@@ -506,6 +522,15 @@ class DirectChatService:
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
                 target_user_id=(user_id or None))
+            # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): пре-гейт
+            # маркеров ностальгии — принудительный dig ДО генерации, результат
+            # в <dig_result> ПЕРЕД <Target_User> (флаг off/нет маркера/нет
+            # роутера → ничего; раунды TOOL_MAX_ROUNDS не тратятся).
+            if self.tool_router is not None:
+                dig_block = await self._dig_pre_gate_block(chat_id, query)
+                if dig_block:
+                    user_blocks = self._insert_dig_result(user_blocks,
+                                                          dig_block)
             # T-619: системный промпт — горячая точка (фолбек код-канона)
             system_prompt = hot.get("prompts.direct_chat_system_prompt",
                                     CHAT_SYSTEM_PROMPT)
@@ -710,6 +735,65 @@ class DirectChatService:
     def _is_reply_trigger(message) -> bool:
         """Раунд 8 (D4/T-801): сообщение — reply (есть reply_to_message)."""
         return getattr(message, "reply_to_message", None) is not None
+
+    # ── Раунд 9 (AGI Memory, T-819/B4, spec §3.1.4/Q3): <user_relations> ──
+
+    async def _dig_pre_gate_block(self, chat_id: int, query: str) -> str:
+        """Пре-гейт маркеров ностальгии (major-1, spec §3.2.3): маркер в
+        сообщении И флаг flags.dig_pre_gate_enabled (default false) →
+        dig_into_lore через роутер (dispatch по имени, как модель) →
+        блок `<dig_result>\n…\n</dig_result>`. Ничего (""): флаг off, нет
+        маркера, нет роутера, пустой/служебный результат («отключен»/
+        «ОШИБКА …»/пусто). Fail-open — никогда не бросает."""
+        if not hot.get("flags.dig_pre_gate_enabled",
+                       settings.DIG_PRE_GATE_ENABLED):
+            return ""
+        text = str(query or "").strip()
+        if not text or not _nostalgia_markers(text):
+            return ""
+        router = self.tool_router
+        if router is None or not hasattr(router, "dispatch"):
+            return ""
+        try:
+            raw = await router.dispatch(
+                "dig_into_lore",
+                {"query": text, "mode": "both"},
+                ToolContext(chat_id, text))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "direct: dig pre-gate failed — блок не строится | chat=%s",
+                chat_id, exc_info=True)
+            return ""
+        result = str(raw or "").strip()
+        if not result:
+            return ""
+        if result.startswith("ОШИБКА") \
+                or "отключен" in result.lower():
+            logger.info(
+                "direct: dig pre-gate служебный ответ — без инжекта | chat=%s",
+                chat_id)
+            return ""
+        if len(result) > _DIG_RESULT_MAX_CHARS:
+            result = result[:_DIG_RESULT_MAX_CHARS].rstrip() + "…"
+        return f"<dig_result>\n{result}\n</dig_result>"
+
+    @staticmethod
+    def _insert_dig_result(user_blocks: list[str], dig_block: str
+                           ) -> list[str]:
+        """Блок <dig_result> ПЕРЕД <Target_User> (spec §3.2.3: «важное к
+        концу», но результат копания должен быть виден до адресата-блока)."""
+        if not dig_block:
+            return user_blocks
+        target_idx = next(
+            (i for i, b in enumerate(user_blocks)
+             if b.startswith("<Target_User>")), None)
+        if target_idx is None:
+            return list(user_blocks) + [dig_block]
+        blocks = list(user_blocks)
+        blocks.insert(target_idx, dig_block)
+        return blocks
 
     async def _build_user_relations(self, chat_id: int,
                                     target_user_id: int | None,

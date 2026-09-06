@@ -1259,6 +1259,64 @@ class TestQuotaVictimProtectE3(_PurgeSeedMixin):
         await db.db.commit()
         # квота превышена (3 >= 3), но все кандидаты защищены → None
         assert await db.get_quota_victim(-100, "вася", 3, now) is None
+class TestDigGraphNames:
+    """Фикс-раунд (major-2, spec §3.2.1 п.4): имена из графа для
+    dig_into_lore — BFS по nodes/edges + фолбэк target_user."""
+
+    async def _seed_graph(self, db):
+        """Узлы: вася — антон (ребро), антон — марина (ребро); петя один."""
+        chat = -777
+        cursor = await db.db.executemany(
+            "INSERT INTO nodes (chat_id, entity_name, entity_type, origin) "
+            "VALUES (?, ?, 'user', 'chat_history')",
+            [(chat, "вася"), (chat, "антон"), (chat, "марина"),
+             (chat, "петя")])
+        await db.db.commit()
+        cursor = await db.db.execute(
+            "SELECT id, entity_name FROM nodes WHERE chat_id = ? ORDER BY id",
+            (chat,))
+        by_name = {row["entity_name"]: row["id"] for row in await cursor.fetchall()}
+        await db.db.executemany(
+            "INSERT INTO edges (chat_id, source_id, target_id, relation_type, "
+            "weight, origin) VALUES (?, ?, ?, 'friend', 1, 'chat_history')",
+            [(chat, by_name["вася"], by_name["антон"]),
+             (chat, by_name["антон"], by_name["марина"]),
+             (chat, by_name["вася"], by_name["петя"])])
+        await db.db.commit()
+        return chat, by_name
+
+    @pytest.mark.asyncio
+    async def test_bfs_names_within_depth(self, db):
+        chat, _ = await self._seed_graph(db)
+        names = await db.dig_graph_related_names(chat, ["вася"], max_depth=1)
+        assert names[:1] == ["вася"]                    # стартовый узел
+        assert "антон" in names and "петя" in names     # соседи 1-го хопа
+        assert "марина" not in names                    # 2-й хоп — вне depth
+        names2 = await db.dig_graph_related_names(chat, ["вася"], max_depth=2)
+        assert "марина" in names2                       # глубина 2 достаёт
+
+    @pytest.mark.asyncio
+    async def test_bfs_no_match_empty(self, db):
+        chat, _ = await self._seed_graph(db)
+        assert await db.dig_graph_related_names(chat, ["зефир"]) == []
+        assert await db.dig_graph_related_names(chat, []) == []
+
+    @pytest.mark.asyncio
+    async def test_fallback_target_user_names(self, db):
+        chat = -778
+        await db.insert_graph_fact(chat, "про василия и рыбалку",
+                                   "chat_history", None, status="confirmed",
+                                   target_user="василий")
+        await db.insert_graph_fact(chat, "про марину", "chat_history", None,
+                                   status="confirmed", target_user="марина")
+        await db.insert_graph_fact(chat, "без имени", "chat_history", None,
+                                   status="unconfirmed",
+                                   target_user="василий")
+        names = await db.dig_fallback_target_names(chat, ["василий"])
+        assert names == ["василий"]
+        assert await db.dig_fallback_target_names(chat, ["неттокена"]) == []
+
+    @pytest.mark.asyncio
     async def test_count_user_msg30_window(self, db):
         chat, uid = -779, 10
         now = int(time.time())
