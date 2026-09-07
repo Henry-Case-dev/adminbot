@@ -528,6 +528,27 @@
         return url;
       },
 
+      // Hotfix-R10 (аватары вне серверного топ-50): ленивый догруз — НЕ
+      // батч-запрос всех аватаров разом (NFR F-8): стаггер 300мс между
+      // вызовами. Отрицательный ответ (нет фото/404) — u.avatarSkipped,
+      // повторные обходы листа не перезапрашивают; до результата/негатива
+      // в листе фолбэк-инициал (avatarInitial) и img по v-if="u.avatarUrl".
+      loadRelationAvatarsLazy: function (rows) {
+        var self = this;
+        var missing = (rows || []).filter(function (u) {
+          return u && u.user_id != null && u.photo_file_id == null
+            && !u.avatarUrl && !u.avatarSkipped;
+        });
+        missing.forEach(function (u, idx) {
+          setTimeout(function () {
+            if (u.avatarUrl || u.avatarSkipped) return;
+            self.loadAvatar('user', u.user_id, u).then(function (url) {
+              if (!url) u.avatarSkipped = true;
+            });
+          }, (idx + 1) * 300);
+        });
+      },
+
       // Шапка: аватар текущего юзера. CDN me.photo_url (initData) — сразу;
       // если photo_url нет — blob через прокси avatarUrl('user', …).
       // Повторный вызов (после loadMe/ре-авторизации) сбрасывает поле —
@@ -641,6 +662,12 @@
         this.loadKeyStatus();
         if (this.accessMy && !this.accessMy.is_global_admin) {
           this.loadLocalAdmins();
+        }
+        // Hotfix-R10 («Модули и Фичи»): гейты/пермсок — per chat; при смене
+        // «Весь бот» ↔ чат на этой вкладке перечитываем (иначе стейл-флаги).
+        if (this.activeTab === 'modules_feats'
+            && this.canViewTab('modules_feats')) {
+          this.loadGateInfo();
         }
       },
       isChatContext: function () {
@@ -865,6 +892,12 @@
         } finally {
           this.oversightBusy = false;
         }
+      },
+      // Hotfix-R10 («Модули и Фичи» без выбранного чата): Opt-In-сводка из
+      // Oversight-данных (кэш 60 сек; пусто — незаметно не выводится).
+      optInCount: function () {
+        var rows = (this.oversightData && this.oversightData.chats) || [];
+        return rows.filter(function (c) { return !!c.gates_opt_in; }).length;
       },
       oversightRows: function () {
         var self = this;
@@ -1167,6 +1200,26 @@
       },
       itemAdvanced: function (item) {
         return item && item.progressive_level === 'advanced';
+      },
+      // Hotfix-R10 (пустые вкладки Промпты/Лимиты/LLM/Память/Реакции/Доступы):
+      // шаблон звал basicItems/advancedItems — методов не было → TypeError в
+      // рендере → Vue удалял всю конфиг-ветку (вкладки пустые). Методы —
+      // зеркало itemAdvanced (Базовые = НЕ advanced, Расширенные = advanced).
+      // Hotfix-R10: isAdminIdHidden фильтруется ЗДЕСЬ — v-if вместе с v-for
+      // на одном элементе в Vue 3 не работал (item вне области v-if).
+      basicItems: function (grp) {
+        var self = this;
+        if (!grp || !grp.items) return [];
+        return grp.items.filter(function (i) {
+          return !self.itemAdvanced(i) && !self.isAdminIdHidden(i);
+        });
+      },
+      advancedItems: function (grp) {
+        var self = this;
+        if (!grp || !grp.items) return [];
+        return grp.items.filter(function (i) {
+          return self.itemAdvanced(i) && !self.isAdminIdHidden(i);
+        });
       },
 
       canEditConfig: function (key) {
@@ -1696,11 +1749,13 @@
             '/api/status/logs?level=' + encodeURIComponent(this.logLevel) + '&limit=200');
           this.logs = (data.logs || []).map(function (l) { l.expanded = false; return l; });
           this.logsCount = data.count || 0;
-          // F-8 (T-871): автоскролл к низу при новых записях
+          // F-8 (T-871): автоскролл при новых записях. Hotfix-R10: сервер
+          // отдаёт НОВЫЕ СВЕРХУ (entries[-limit:][::-1]) — скроллим в ВЕРХ
+          // (panel.scrollHeight — старый скролл на ОЛД-записи внизу).
           var self = this;
           this.$nextTick(function () {
             var panel = self.$refs.logPanel;
-            if (panel) panel.scrollTop = panel.scrollHeight;
+            if (panel) panel.scrollTop = 0;
           });
         } catch (e) { this.logs = []; }
         finally { this.logsLoading = false; }
@@ -1739,8 +1794,19 @@
           await navigator.clipboard.writeText(text);
           this.toast('Скопировано', 'ok');
         } catch (e) {
+          // Hotfix-R10 (TMA): fallback-`textarea` ранее добавлялся в body
+          // как есть — видимый пустой блок ломал раскладку в Telegram
+          // WebView. Теперь off-screen (fixed, вне экрана, без размеров).
           var ta = document.createElement('textarea');
           ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          ta.style.top = '0';
+          ta.style.width = '1px';
+          ta.style.height = '1px';
+          ta.style.opacity = '0';
+          ta.style.pointerEvents = 'none';
           document.body.appendChild(ta);
           ta.select();
           try { document.execCommand('copy'); this.toast('Скопировано', 'ok'); }
@@ -2183,13 +2249,15 @@
           });
           this.chatRelations = rows;
           // UI-полировка TMA (fix-раунд): аватары участников — blob через
-          // прокси avatarUrl('user', …); photo_file_id == null (нет фото по
-          // версии сервера/вне топ-30) → img вообще не рисуем.
+          // прокси avatarUrl('user', …); photo_file_id != null (сервер
+          // обогатил топ-50) — сразу; остальным — ленивый догруз
+          // (стаггер 300мс, см. loadRelationAvatarsLazy, Hotfix-R10).
           this.chatRelations.forEach(function (u) {
             if (u && u.user_id != null && u.photo_file_id != null) {
               self.loadAvatar('user', u.user_id, u);
             }
           });
+          this.loadRelationAvatarsLazy(rows);
         } catch (e) {
           this.chatRelations = [];
           if (e.status === 404) {

@@ -29,6 +29,43 @@ class TestHeaderAndLogs:
         assert "break-all" in html
         assert "max-height: 320px" in html
 
+    def test_log_row_click_copies(self):
+        """Hotfix-R10: клик по строке лога = копировать
+        (@click="copyText(logText(log))"); per-line-кнопки «Скопировать»
+        больше нет (осталась одна «Копировать всё»)."""
+        html = _html()
+        assert '@click="copyText(logText(log))"' in html
+        assert ">Скопировать</button>" not in html
+        assert "Копировать всё" in html
+        assert "log-row" in html
+
+    def test_log_row_expander_separate(self):
+        """Hotfix-R10: разворачивание exc-трейса — отдельный компактный
+        глиф (log-toggle, @click.stop) — не конфликтует с copy-кликом."""
+        html = _html()
+        assert "log-toggle" in html
+        assert '@click.stop="log.expanded = !log.expanded"' in html
+        assert "log.exc_text" in html
+
+    def test_logs_autoscroll_to_top(self):
+        """Hotfix-R10: сервер отдаёт НОВЫЕ СВЕРХУ (entries[-limit:][::-1]);
+        автоскролл — panel.scrollTop = 0 (не scrollHeight к старым)."""
+        js = _js()
+        # «panel.scrollHeight» остался только в комментарии — сам вызов
+        # scrollBottom отсутствует
+        assert "panel.scrollTop = 0;" in js
+        assert "panel.scrollTop = panel.scrollHeight;" not in js
+
+    def test_copy_fallback_offscreen(self):
+        """Hotfix-R10: fallback-копирования (execCommand) — textarea
+        off-screen (fixed, left:-9999px, opacity:0, без размеров), чтобы
+        в Telegram WebView не ломался layout."""
+        js = _js()
+        assert "style.left" in js
+        assert "'-9999px'" in js
+        assert "style.opacity = '0'" in js
+        assert "style.pointerEvents = 'none'" in js
+
 
 class TestRelations:
     def test_resolve_relation_name(self):
@@ -74,8 +111,11 @@ class TestAdminIdMove:
         assert "reactions.admin_user_id" in js
 
     def test_not_rendered_in_reactions_item(self):
+        js = _js()
+        assert "isAdminIdHidden" in js
+        assert "!self.isAdminIdHidden" in js
         html = _html()
-        assert "!isAdminIdHidden(item)" in html
+        assert "!isAdminIdHidden(item)" not in html
 
     def test_rendered_in_access(self):
         html = _html()

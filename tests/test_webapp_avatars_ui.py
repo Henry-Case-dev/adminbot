@@ -6,7 +6,8 @@ GET /api/avatar/{kind}/{tid} (web/api/avatars.py: chat big_file_id / user
 get_user_profile_photos, download в BytesIO, image/jpeg + Cache-Control
 max-age=86400, RAM-TTL-кэш 1ч/500 записей, 404 на ошибки), включение
 router в web/app.py и обогащение /api/chat_lore (title/photo_file_id чата
-и username/photo_file_id участников — только топ-30). Негативы
+и username/photo_file_id участников — только топ-50; остальным None — фронт
+догружает лениво с стаггером 300мс, Hotfix-R10). Негативы
 обогащения (ошибка Bot API / нет фото) тоже пишутся в RAM-кэш
 (fix-раунд: chat_display_info/user_display_info не долбят Bot API).
 
@@ -110,11 +111,12 @@ class TestAvatarBackendAudit:
         assert '"title": info["title"]' in src
         assert '"photo_file_id": info["photo_file_id"]' in src
 
-    def test_relations_enrich_only_top30(self):
-        """username/фото — только первые _RELATIONS_ENRICH_TOP (30) строк;
-        остальным — null (UI без аватара). Никаких сотен Bot API-вызовов."""
+    def test_relations_enrich_only_top50(self):
+        """username/фото — первые _RELATIONS_ENRICH_TOP (Hotfix-R10: 50)
+        строк; остальным — None (фронт догружает лениво со стаггером —
+        loadRelationAvatarsLazy). Никаких сотен Bot API-вызовов (кэш 1ч)."""
         src = _Static.read("web/api/chat_lore.py")
-        assert "_RELATIONS_ENRICH_TOP = 30" in src
+        assert "_RELATIONS_ENRICH_TOP = 50" in src
         assert "user_display_info(chat_id, int(u.get(\"user_id\") or 0))" in src
         assert 'u["username"] = None' in src
         assert 'u["photo_file_id"] = None' in src
@@ -124,6 +126,19 @@ class TestAvatarBackendAudit:
         assert "bot.get_chat_member(chat_id, user_id)" in src
         assert "get_user_profile_photos(user_id, limit=1)" in src
         assert "get_web_bot()" in src
+
+    def test_relations_alias_resolver_unconditional(self):
+        """Hotfix-R10 (имена = raw-ID): chat_lore.py строит AliasResolver
+        напрямую из hot-кэша — НЕ через RelationsService.aliases (тот
+        гейтится flags.summary_enabled в bot.py); при выключенном саммари
+        имена участников остаются alias → username → name-map → id."""
+        src = _Static.read("web/api/chat_lore.py")
+        assert "from services.summary_aliases import AliasResolver" in src
+        assert ('cache.get("limits.summary_aliases", '
+                'settings.SUMMARY_ALIASES)' in src)
+        assert "alias_resolver.resolve(uid, None, None)" in src
+        assert 'u["name"] = str(alias)' in src
+        assert 'u["name"] = str(u["username"]).lstrip("@")' in src
 
     # ══ fix-раунд: негатив-кэш обогащения (ошибки тоже пишутся в кэш) ══
 
@@ -256,14 +271,22 @@ class TestAvatarFrontAudit:
     def test_lists_load_avatars_after_fetch(self):
         """loadChats/loadRelations: после получения списка вызывают
         loadAvatar для строк с photo_file_id != null (blob-URL в реактивное
-        поле); для photo_file_id == null прокси не запрашиваем вовсе."""
+        поле); для photo_file_id == null прокси НЕ запрашиваем вовсе.
+        Hotfix-R10: loadRelations дополнительно вызывает ленивый догруз
+        loadRelationAvatarsLazy (стаггер 300мс; негатив → avatarSkipped)."""
         src = _Static.read("web/app.js")
+        assert _Static.has_method(src, "loadRelationAvatarsLazy")
+        lazy = _Static.body(src, "loadRelationAvatarsLazy")
+        assert "* 300" in lazy
+        assert "avatarSkipped" in lazy
+        assert "self.loadAvatar('user', u.user_id, u)" in lazy
         body = _Static.body(src, "loadChats")
         assert "c.photo_file_id != null" in body
         assert "self.loadAvatar('chat', c.chat_id, c)" in body
         body = _Static.body(src, "loadRelations")
         assert "u.photo_file_id != null" in body
         assert "self.loadAvatar('user', u.user_id, u)" in body
+        assert "this.loadRelationAvatarsLazy(rows)" in body
 
     # ══ fix-раунд: index.html — v-if + @error вместо прямых src ══
 
@@ -299,13 +322,18 @@ class TestAvatarFrontAudit:
         assert ':src="c.avatarUrl"' in html
         assert '@error="avatarError(c)"' in html
 
-    def test_relation_avatar_gated_by_photo_file_id(self):
-        """Аватар участника: аналогично чатам — v-if по photo_file_id
-        и avatarUrl, @error → avatarError(u)."""
+    def test_relation_avatar_gated_by_avatar_url(self):
+        """Hotfix-R10: аватар участника — v-if="u.avatarUrl" (серверный
+        photo_file_id может быть None — вне топ-50; ленивый догруз ставит
+        URL, до результата/негатива в листе фолбэк-инициал — avatarInitial);
+        @error → avatarError(u). Аватар чата по-прежнему гейтится
+        photo_file_id (список чатов без ленивого догруза)."""
         html = _Static.read("web/index.html")
-        assert 'v-if="u.photo_file_id != null && u.avatarUrl"' in html
+        assert 'v-if="u.avatarUrl"' in html
         assert ':src="u.avatarUrl"' in html
         assert '@error="avatarError(u)"' in html
+        assert 'v-if="c.photo_file_id != null && c.avatarUrl"' in html
+        assert "avatarInitial(u)" in html
 
     def test_chat_item_shows_title_and_id(self):
         html = _Static.read("web/index.html")
@@ -343,8 +371,10 @@ class TestAvatarFrontAudit:
         assert "gradient 15s" not in html
 
     def test_relations_enrich_fields_in_app_js(self):
-        """Фронт опирается на username/photo_file_id сервера (top-30);
-        у остальных photo_file_id=null — img не рисуется вовсе."""
+        """Фронт опирается на username/photo_file_id сервера (топ-50);
+        у остальных photo_file_id=null — ленивый догруз аватар-прокси
+        (loadRelationAvatarsLazy, Hotfix-R10); фолбэк-инициал до результата."""
         src = _Static.read("web/app.js")
         assert "loadRelations: async function" in src
+        assert "loadRelationAvatarsLazy" in src
         assert "stageRu(u.stage_auto)" in _Static.read("web/index.html")

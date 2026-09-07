@@ -37,6 +37,7 @@ from config.settings import settings
 from services import lore_runtime
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.permissions import Permissions
+from services.summary_aliases import AliasResolver
 from web.api.deps import get_cache, get_tma_user
 # UI-полировка TMA: RAM-кэши обогащения (title/фото чата, username/фото
 # участника) — те же TTL-словари, что у аватар-прокси (web/api/avatars.py).
@@ -52,9 +53,12 @@ _PERIOD_MAX = 720                   # валидация 1..720 (422; spec §3.8
 _PREVIEW_CHARS = 80                 # превью в списке чатов
 _RELATION_NOTE_MAX = 4000           # F2: cap заметки отношений (422)
 _RELATIONS_LIST_MAX = 100           # F2: потолок строк списка отношений
-_RELATIONS_ENRICH_TOP = 30          # UI-полировка: Bot API-обогащение
-# (username/фото) только для первых 30 строк (топ по activity); остальным —
-# null (UI показывает строку без аватара). Кэши 1ч.
+_RELATIONS_ENRICH_TOP = 50          # Hotfix-R10 (raw-имена/нет аватаров):
+# UI-полировка: Bot API-обогащение (username/фото) для первых 50 строк
+# (топ по activity); остальным — None, аватар лениво догружает фронт
+# (client avatarUrl с стаггер 300мс, негатив-кэш прокси 1ч — NFR ок).
+# Кэши обогащения — 1ч, как раньше (к 30 не возвращаемся: юзер жаловался
+# на сплошные ID/инициалы без аватаров при 30+ участниках).
 
 
 # ── Pydantic-модели ─────────────────────────────────────────────────────────
@@ -540,7 +544,14 @@ async def list_relations(
     await _require_chat(cache, store, user, chat_id)
     profile = await _profile_or_404(store, chat_id)
     db, relations_service = _db_component()
+    # Hotfix-R10 (имена = raw-ID): алиасы привязываем НАПРЯМУЮ из hot-кэша
+    # (то же зеркало bot.py:322), НЕ через RelationsService.aliases — тот
+    # гейтится flags.summary_enabled (bot.py:570-571) и при выключенном
+    # саммари список участников без алиасов уходил в чистые ID.
+    alias_resolver = AliasResolver(
+        cache.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
     users: list = []
+    names = None
     if relations_service is not None and db is not None:
         try:
             names = await _participant_names(db, chat_id)
@@ -557,8 +568,9 @@ async def list_relations(
                               int(u.get("user_id") or 0)))
     # UI-полировка TMA: username/photo_file_id — Bot API-обогащение ТОЛЬКО
     # для первых _RELATIONS_ENRICH_TOP строк списка (топ по activity;
-    # get_chat_member + getUserProfilePhotos, RAM-кэши 1ч); остальным — null
-    # (UI покажет строку без аватара). Никаких 100 одновременных вызовов.
+    # get_chat_member + getUserProfilePhotos, RAM-кэши 1ч); остальным — None
+    # (фронт лениво догружает аватар с стаггером). Никаких 100 одновременных
+    # вызовов.
     for u in users[:_RELATIONS_ENRICH_TOP]:
         meta = await user_display_info(chat_id, int(u.get("user_id") or 0))
         u["username"] = meta["username"]
@@ -566,6 +578,20 @@ async def list_relations(
     for u in users[_RELATIONS_ENRICH_TOP:]:
         u["username"] = None
         u["photo_file_id"] = None
+    # Hotfix-R10 (имя участника): каскад alias → nickname (name-map из
+    # _participant_names) → username → user_id. Alias wins над name-map
+    # (пользователь сказал: алиасы/ник/юзернейм вместо ID); nickname wins
+    # над username (для топ-50 username установлен, ник должен выигрывать;
+    # 51+ юзеров с username=None получают ник из name-map).
+    for u in users:
+        uid = int(u.get("user_id") or 0)
+        alias = alias_resolver.resolve(uid, None, None)
+        if str(alias) != str(uid):
+            u["name"] = str(alias)
+        elif names is not None and uid in names:
+            u["name"] = str(names[uid]).strip()
+        elif u.get("username"):
+            u["name"] = str(u["username"]).lstrip("@")
     return {
         "chat_id": chat_id,
         "relations_enabled": bool(profile.relations_enabled),

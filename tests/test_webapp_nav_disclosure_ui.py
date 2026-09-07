@@ -61,6 +61,19 @@ class TestProgressiveDisclosure:
         assert "expandOpen" in js
         assert "toggleExpand" in js
 
+    def test_basic_advanced_items_methods(self):
+        """Hotfix-R10: шаблон звал basicItems/advancedItems (index.html
+        v-for по группам) — методов не было → TypeError в рендере → Vue
+        удалял всю конфиг-ветку (вкладки Промпты/Лимиты/LLM/Память/Реакции/
+        Доступы пустые). Методы обязаны существовать (зеркало itemAdvanced)."""
+        js = _js()
+        assert "basicItems" in js
+        assert "advancedItems" in js
+        assert "itemAdvanced" in js
+        html = _html()
+        assert "basicItems(grp)" in html
+        assert "advancedItems(grp)" in html
+
     def test_registry_has_progressive_level(self):
         assert hasattr(pc.ParamSpec, "progressive_level")
 
@@ -76,6 +89,24 @@ class TestModulesFeats:
         assert "Тяжёлые фичи" in html
         assert "Функции PERMsoc" in html
         assert "Бюджет фона" in html
+
+    def test_modules_budget_always_rendered(self):
+        """Hotfix-R10 («Модули и Фичи» пустые при „Весь бот“): весь контент
+        был за v-if='activeChatId == null' — global admin без выбранного чата
+        видел только плейсхолдер. Бюджет фона (глобальный) теперь ВНЕ
+        чатового гейта; тяжёлые фичи/PERMsoc — карточки всегда
+        (без чата — заметка + сводка Opt-In)."""
+        html = _html()
+        assert "v-else-if=\"activeTab === 'modules_feats'\"" in html
+        # комментарий ветки упоминает старый гейт — ищем РЕАЛЬНЫЙ v-if
+        budget = html.index("📊 Бюджет фона — глобальная карточка")
+        gate_at = html.rindex('v-if="activeChatId == null"')
+        assert budget < gate_at, "бюджет должен рендериться до чатового гейта"
+        assert "Выберите чат в шапке — тяжёлые модули" in html
+        assert "optInCount()" in html
+        assert "master" in html
+        js = _js()
+        assert "optInCount" in js
 
 
 class TestF8Regression:

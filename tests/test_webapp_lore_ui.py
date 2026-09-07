@@ -80,6 +80,27 @@ class TestChatLoreFrontAudit:
         assert "История изменений" in html
         assert "В память бота уходит" in html
 
+    def test_panel_scroll_containers(self):
+        """Hotfix-R10: панель «Лор чатов» — жёсткая высота со скроллом
+        внутри на всех брейкпоинтах (раньше только lg:max-h у селектора,
+        страница без ограничения): h-[calc(100dvh-…)] на мобилке и
+        lg-h-[calc(100vh-…)] на десктопе, внутренние колонки max-h-full."""
+        html = self._html()
+        assert "h-[calc(100dvh-8.5rem)]" in html
+        assert "lg:h-[calc(100vh-7.5rem)]" in html
+        assert "max-h-full" in html
+        assert "max-h-[38vh]" in html
+
+    def test_fullscreen_mode_class(self):
+        """Hotfix-R10: isFullscreen — класс на корне (fullscreen-mode:
+        height:100dvh, overflow:hidden), панель лора заполняет экран."""
+        html, _css = self._html(), None
+        assert ":class=\"{ 'fullscreen-mode': isFullscreen }\"" in html
+        css = open("web/index.html", encoding="utf-8").read()
+        assert ".fullscreen-mode" in css
+        assert "height: 100dvh" in css
+        assert "overflow: hidden" in css
+
     # ── методы app.js ──────────────────────────────────────────────────────
 
     def test_methods_present(self):

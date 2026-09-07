@@ -186,16 +186,35 @@
     }
 
     /* Логи */
-    .log-row { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; }
+    /* Hotfix-R10: fontSize снижен (0.78 → 0.7rem) — длинные строки
+       «Running job …» на мобилках не разлетались на 5+ строк и не
+       вылезали из контейнера */
+    .log-row { font-family: ui-monospace, Consolas, monospace; font-size: 0.7rem; }
     .log-row:hover { background: rgba(255, 255, 255, 0.04); }
+    /* expander стека в логах (Hotfix-R10): компактный, без фона кнопки */
+    .log-toggle {
+      font-size: 0.7rem;
+      line-height: 1.25;
+      color: rgba(156, 163, 175, 0.9);
+      cursor: pointer;
+      user-select: none;
+      padding: 0 2px;
+      background: none;
+      border: 0;
+    }
+    .log-toggle:hover { color: #e5e7eb; }
     /* Раунд 10 (F-8 T-871): компактные логи — pre code, thin-scroll, fixed height */
     .log-panel {
       max-height: 320px;
       overflow-y: auto;
     }
+    /* Hotfix-R10 (мобилки/TMA): не выше половины экрана */
+    @media (max-width: 768px) {
+      .log-panel { max-height: 50dvh; }
+    }
     .log-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       white-space: pre-wrap;
       word-break: break-all;
       line-height: 1.25;
@@ -298,6 +317,14 @@
       background: rgba(43, 43, 64, 0.96);
     }
 
+    /* Hotfix-R10 (панель «Лор чатов» не влезала в экран TMA/мобилку):
+       в полноэкранном режиме (⛶, isFullscreen) корень — высота экрана
+       без прокрутки страницы (скроллится сама панель лора) */
+    .fullscreen-mode {
+      height: 100dvh;
+      overflow: hidden;
+    }
+
     /* Мобильный сайдбар */
     @media (max-width: 768px) {
       .sidebar {
@@ -315,7 +342,7 @@
 </head>
 <body>
   <div id="app" v-cloak>
-    <div class="min-h-screen flex">
+    <div class="min-h-screen flex" :class="{ 'fullscreen-mode': isFullscreen }">
       <!-- Сайдбар -->
       <aside class="sidebar card-solid p-3 flex flex-col gap-1 w-64 shrink-0 md:static"
              :class="{ open: sidebarOpen }" style="border-radius:0;">
@@ -433,7 +460,7 @@
                      localStorage adminbot.expand:<tab>; закрыт по умолчанию).
                      Скрытые (min-ролями) параметры НЕ рендерятся вовсе. -->
                 <div class="grid gap-3 md:grid-cols-2">
-                  <div v-for="item in basicItems(grp)" v-if="!isAdminIdHidden(item)"
+                  <div v-for="item in basicItems(grp)"
                        :key="item.key" class="card p-4" style="min-width:0;">
                     <!-- Раунд 10 (F-7 T-855/T-868): роль-пикер (gear, global
                          admin) + бейджи «чат»/«скрыт» + сброс на глобальное -->
@@ -540,7 +567,6 @@
                   </summary>
                   <div class="grid gap-3 md:grid-cols-2 mt-3">
                     <div v-for="item in advancedItems(grp)"
-                         v-if="!isAdminIdHidden(item)"
                          :key="item.key" class="card p-4" style="min-width:0;">
                       <div class="flex items-center gap-2 min-w-0 mb-1">
                         <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
@@ -744,129 +770,156 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'modules_feats'">
-            <!-- ═══ 🧩 Модули и Фичи (F-10 E1/E2 + F-9 D1) ═══ -->
-            <div v-if="activeChatId == null" class="card p-6 text-gray-400 col-span-full">
-              Выберите чат в шапке — модули включаются per chat (Opt-In).
-            </div>
-            <template v-else>
-              <div class="card p-4 col-span-full">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <div class="text-sm font-bold">🧠 Тяжёлые фичи</div>
-                  <span class="text-xs text-gray-500">
-                    {{ activeChatTitle }} ({{ activeChatId }})
-                  </span>
-                  <span class="badge ml-auto" :class="gateInfo && gateInfo.opt_in
-                        ? 'badge-ok' : 'badge-muted'">
-                    Opt-In: {{ gateInfo && gateInfo.opt_in ? 'включено' : 'выключено' }}
-                  </span>
-                  <button class="btn-ghost text-xs" :disabled="gatesBusy"
-                          @click="loadGateInfo()">⟳</button>
+            <!-- ═══ 🧩 Модули и Фичи (F-10 E1/E2 + F-9 D1) ═══
+                 Hotfix-R10: весь контент был за гейтом
+                 v-if="activeChatId == null" → при «Весь бот» (global admin,
+                 чат не выбран) вкладка пустая («ГДЕ??????»). Теперь:
+                 «Бюджет фона» (глобальный) — ВСЕГДА; «Тяжёлые фичи» и
+                 «Функции PERMsoc» — карточки ВСЕГДА (без чата — компактная
+                 заметка/мастер-хинт, с чатом — полные переключатели). -->
+            <!-- 📊 Бюджет фона — глобальная карточка (вне чатового гейта) -->
+            <div class="card p-4 col-span-full">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <div class="text-sm font-bold">📊 Бюджет фона</div>
+                <span class="text-xs text-gray-500">
+                  день {{ budgetInfo && budgetInfo.day }} · {{ budgetInfo && budgetInfo.timezone }}
+                </span>
+                <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
+                        @click="loadBudgetInfo()">⟳</button>
+              </div>
+              <div v-if="budgetBusy" class="spinner my-3"></div>
+              <div v-else-if="budgetInfo" class="grid gap-3 md:grid-cols-2">
+                <div>
+                  <div class="text-xs font-bold mb-1">Глобально (все чаты)</div>
+                  <div class="text-xs text-gray-400 mb-1">вызовы: {{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</div>
+                  <div class="progress mb-2"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+                  <div class="text-xs text-gray-400">токены: {{ budgetInfo.global.tokens.used }} / {{ budgetInfo.global.tokens.limit }}</div>
+                  <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.tokens) * 100) + '%' }"></div></div>
                 </div>
-                <div class="text-xs text-gray-500 mb-3">
-                  Сон (Dream) · Ностальгия · Авто-лор — включаются ЯВНО
-                  (глобальный или локальный админ); при Opt-In OFF бот
-                  отвечает, но фоновые фичи молчат.
+                <div v-if="isChatContext()">
+                  <div class="text-xs font-bold mb-1">Этот чат</div>
+                  <template v-if="budgetInfo.chats && budgetInfo.chats.length">
+                    <div v-for="chunk in budgetInfo.chats" :key="chunk.scope"
+                         class="mb-2">
+                      <div class="text-xs text-gray-400">вызовы: {{ chunk.calls.used }} / {{ chunk.calls.limit }}</div>
+                      <div class="progress mb-1"><div :style="{ width: (budgetRatio(chunk.calls) * 100) + '%' }"></div></div>
+                      <div class="text-xs text-gray-400">токены: {{ chunk.tokens.used }} / {{ chunk.tokens.limit }}</div>
+                      <div class="progress"><div :style="{ width: (budgetRatio(chunk.tokens) * 100) + '%' }"></div></div>
+                    </div>
+                  </template>
+                  <div v-else class="text-xs text-gray-500">День не начат — счёт пуст.</div>
                 </div>
-                <div v-if="gatesBusy" class="spinner my-3"></div>
-                <div v-else-if="gateInfo" class="flex flex-col gap-2">
-                  <div v-for="(enabled, feature) in gateInfo.gates"
-                       :key="feature"
-                       class="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2">
-                    <span class="text-sm font-semibold">{{ feature }}</span>
-                    <span class="badge ml-auto" :class="enabled ? 'badge-ok' : 'badge-muted'">
-                      {{ enabled ? 'ON' : 'OFF' }}
-                    </span>
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                      <input type="checkbox" class="sr-only peer" :checked="!!enabled"
-                             :disabled="whoCanToggle(feature) !== 'global'
-                                        ? !isGlobalAdmin : false"
-                             @change="toggleGate(feature, $event.target.checked)">
-                      <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                    </label>
-                  </div>
+                <div v-else>
+                  <div class="text-xs font-bold mb-1">Этот чат</div>
+                  <div class="text-xs text-gray-500">«Весь бот» — выберите чат
+                    в шапке, чтобы видеть его бюджет (глобальный — слева).</div>
                 </div>
-                <div v-else class="text-xs text-gray-500">
-                  Гейты недоступны (нет чата/нет прав). Локальный админ
-                  видит read-only без переключателей тяжёлого вне доступа.
+                <div class="col-span-full text-xs text-gray-500">
+                  Деградация (порядок падения): {{ (budgetInfo.priorities || []).join(' → ') }}
                 </div>
               </div>
+              <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
+            </div>
 
-              <div class="card p-4 col-span-full">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
-                  <span class="badge" :class="gateInfo && gateInfo.gates
-                        && gateInfo.gates.permsoc ? 'badge-ok' : 'badge-muted'">
-                    master: {{ gateInfo && gateInfo.gates
-                        && gateInfo.gates.permsoc ? 'ON' : 'OFF' }}
+            <!-- 🧠 Тяжёлые фичи: без чата — заметка + сводка Opt-In -->
+            <div v-if="activeChatId == null" class="card p-4 col-span-full">
+              <div class="text-sm font-bold mb-1">🧠 Тяжёлые фичи</div>
+              <div class="text-xs text-gray-500">
+                Выберите чат в шапке — тяжёлые модули (Сон · Ностальгия ·
+                Авто-лор) включаются per chat (Opt-In). Глобальный или
+                локальный админ включает их ЯВНО; при Opt-In OFF бот
+                отвечает, но фоновые фичи молчат.
+              </div>
+              <div v-if="oversightData && oversightData.chats" class="text-xs text-gray-400 mt-2">
+                Сводка Oversight: Opt-In включён в
+                {{ optInCount() }} из {{ (oversightData.chats || []).length }} чатов.
+              </div>
+            </div>
+            <div v-else class="card p-4 col-span-full">
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="text-sm font-bold">🧠 Тяжёлые фичи</div>
+                <span class="text-xs text-gray-500">
+                  {{ activeChatTitle }} ({{ activeChatId }})
+                </span>
+                <span class="badge ml-auto" :class="gateInfo && gateInfo.opt_in
+                      ? 'badge-ok' : 'badge-muted'">
+                  Opt-In: {{ gateInfo && gateInfo.opt_in ? 'включено' : 'выключено' }}
+                </span>
+                <button class="btn-ghost text-xs" :disabled="gatesBusy"
+                        @click="loadGateInfo()">⟳</button>
+              </div>
+              <div class="text-xs text-gray-500 mb-3">
+                Сон (Dream) · Ностальгия · Авто-лор — включаются ЯВНО
+                (глобальный или локальный админ); при Opt-In OFF бот
+                отвечает, но фоновые фичи молчат.
+              </div>
+              <div v-if="gatesBusy" class="spinner my-3"></div>
+              <div v-else-if="gateInfo" class="flex flex-col gap-2">
+                <div v-for="(enabled, feature) in gateInfo.gates"
+                     :key="feature"
+                     class="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2">
+                  <span class="text-sm font-semibold">{{ feature }}</span>
+                  <span class="badge ml-auto" :class="enabled ? 'badge-ok' : 'badge-muted'">
+                    {{ enabled ? 'ON' : 'OFF' }}
                   </span>
-                  <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-auto">
-                    <input type="checkbox" class="sr-only peer"
-                           :checked="!!(gateInfo && gateInfo.gates && gateInfo.gates.permsoc)"
-                           :disabled="!isGlobalAdmin || gatesBusy"
-                           @change="togglePermsoc($event.target.checked)">
+                  <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" class="sr-only peer" :checked="!!enabled"
+                           :disabled="whoCanToggle(feature) !== 'global'
+                                      ? !isGlobalAdmin : false"
+                           @change="toggleGate(feature, $event.target.checked)">
                     <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
                     <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
                   </label>
-                  <span class="text-xs text-gray-500">(только global admin)</span>
-                </div>
-                <div class="text-xs text-gray-500 mb-2">
-                  5 персон-триггеров: Славик, Костя, Леха/Алан, Оля,
-                  передразнивания. Master OFF — все 5 молчат в этом чате.
-                </div>
-                <div class="grid gap-2 md:grid-cols-2">
-                  <div class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2"
-                       v-for="module in ['slavik','kostik','alan','olya','mimic']" :key="module">
-                    <span class="text-sm font-semibold">{{ module }}</span>
-                    <span class="badge" :class="module === 'slavik' || module === 'kostik'
-                          || module === 'alan' ? 'badge-info' : 'badge-muted'">
-                      {{ (gateInfo && gateInfo.gates && gateInfo.gates.permsoc)
-                          ? (module === 'slavik' || module === 'kostik' || module === 'alan'
-                              ? 'derived (master)' : 'под-флаг')
-                          : 'OFF (master)' }}
-                    </span>
-                  </div>
                 </div>
               </div>
+              <div v-else class="text-xs text-gray-500">
+                Гейты недоступны (нет чата/нет прав). Локальный админ
+                видит read-only без переключателей тяжёлого вне доступа.
+              </div>
+            </div>
 
-              <div class="card p-4 col-span-full">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold">📊 Бюджет фона</div>
-                  <span class="text-xs text-gray-500">
-                    день {{ budgetInfo && budgetInfo.day }} · {{ budgetInfo && budgetInfo.timezone }}
-                  </span>
-                  <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
-                          @click="loadBudgetInfo()">⟳</button>
-                </div>
-                <div v-if="budgetBusy" class="spinner my-3"></div>
-                <div v-else-if="budgetInfo" class="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <div class="text-xs font-bold mb-1">Глобально (все чаты)</div>
-                    <div class="text-xs text-gray-400 mb-1">вызовы: {{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</div>
-                    <div class="progress mb-2"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
-                    <div class="text-xs text-gray-400">токены: {{ budgetInfo.global.tokens.used }} / {{ budgetInfo.global.tokens.limit }}</div>
-                    <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.tokens) * 100) + '%' }"></div></div>
-                  </div>
-                  <div>
-                    <div class="text-xs font-bold mb-1">Этот чат</div>
-                    <template v-if="budgetInfo.chats && budgetInfo.chats.length">
-                      <div v-for="chunk in budgetInfo.chats" :key="chunk.scope"
-                           class="mb-2">
-                        <div class="text-xs text-gray-400">вызовы: {{ chunk.calls.used }} / {{ chunk.calls.limit }}</div>
-                        <div class="progress mb-1"><div :style="{ width: (budgetRatio(chunk.calls) * 100) + '%' }"></div></div>
-                        <div class="text-xs text-gray-400">токены: {{ chunk.tokens.used }} / {{ chunk.tokens.limit }}</div>
-                        <div class="progress"><div :style="{ width: (budgetRatio(chunk.tokens) * 100) + '%' }"></div></div>
-                      </div>
-                    </template>
-                    <div v-else class="text-xs text-gray-500">День не начат — счёт пуст.</div>
-                  </div>
-                  <div class="col-span-full text-xs text-gray-500">
-                    Деградация (порядок падения): {{ (budgetInfo.priorities || []).join(' → ') }}
-                  </div>
-                </div>
-                <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
+            <!-- 🎭 Функции PERMsoc: мастер-карточка ВСЕГДА; список модулей
+                 чата — при выбранном чате -->
+            <div class="card p-4 col-span-full">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
+                <span class="badge" :class="gateInfo && gateInfo.gates
+                      && gateInfo.gates.permsoc ? 'badge-ok' : 'badge-muted'">
+                  master: {{ gateInfo && gateInfo.gates
+                      && gateInfo.gates.permsoc ? 'ON' : 'OFF' }}
+                </span>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-auto">
+                  <input type="checkbox" class="sr-only peer"
+                         :checked="!!(gateInfo && gateInfo.gates && gateInfo.gates.permsoc)"
+                         :disabled="!isGlobalAdmin || gatesBusy || !isChatContext()"
+                         @change="togglePermsoc($event.target.checked)">
+                  <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                  <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                </label>
+                <span class="text-xs text-gray-500">(только global admin)</span>
               </div>
-            </template>
+              <div class="text-xs text-gray-500 mb-2">
+                5 персон-триггеров: Славик, Костя, Леха/Алан, Оля,
+                передразнивания. Master OFF — все 5 молчат в этом чате.
+              </div>
+              <div v-if="!isChatContext()" class="text-xs text-gray-500">
+                Тумблер — per chat (указывает чат в шапке; «Весь бот» — только
+                сводка). Мастер-статус показывается для выбранного чата.
+              </div>
+              <div v-else class="grid gap-2 md:grid-cols-2">
+                <div class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2"
+                     v-for="module in ['slavik','kostik','alan','olya','mimic']" :key="module">
+                  <span class="text-sm font-semibold">{{ module }}</span>
+                  <span class="badge" :class="module === 'slavik' || module === 'kostik'
+                        || module === 'alan' ? 'badge-info' : 'badge-muted'">
+                    {{ (gateInfo && gateInfo.gates && gateInfo.gates.permsoc)
+                        ? (module === 'slavik' || module === 'kostik' || module === 'alan'
+                            ? 'derived (master)' : 'под-флаг')
+                        : 'OFF (master)' }}
+                  </span>
+                </div>
+              </div>
+            </div>
           </template>
           <template v-else-if="activeTab === 'oversight'">
             <!-- ═══ 🛰️ Oversight (F-12 C1/C2) — только global admin ═══ -->
@@ -1102,10 +1155,16 @@
               ролям с секцией «chat_lore» и админам конкретных чатов.
             </div>
             <template v-else>
-              <div class="flex flex-col lg:flex-row gap-4 items-start"
+              <!-- Hotfix-R10: жёсткая высота панели (скролл внутри, а не
+                   страница): h=[calc(100dvh-8.5rem)] на мобилке,
+                   lg=[calc(100vh-7.5rem)] на десктопе; колонки —
+                   max-h-full + overflow (left-селектор и right-профиль) -->
+              <div class="flex flex-col lg:flex-row gap-4 items-start min-h-0
+                          h-[calc(100dvh-8.5rem)] lg:h-[calc(100vh-7.5rem)]"
                    style="grid-column: 1 / -1;">
                 <!-- Селектор чатов (слева) -->
-                <div class="card p-3 w-full lg:w-72 shrink-0 lg:flex lg:flex-col">
+                <div class="card p-3 w-full lg:w-72 shrink-0 lg:flex lg:flex-col
+                            min-h-0 max-h-[38vh] lg:max-h-full overflow-y-auto scroll-thin">
                   <div class="flex items-center gap-2 mb-2">
                     <div class="text-sm font-bold">Чаты</div>
                     <span class="text-xs text-gray-500">{{ chatLoreChats.length }}</span>
@@ -1119,8 +1178,7 @@
                     Нет чатов с доступом. Профили создаются автоматически, когда
                     бот входит в чат.
                   </div>
-                  <div v-else class="flex flex-col gap-1 lg:max-h-[62vh]
-                                     overflow-y-auto scroll-thin pr-1">
+                  <div v-else class="flex flex-col gap-1 pr-1">
                     <button v-for="c in chatLoreChats" :key="c.chat_id" type="button"
                             class="text-left rounded-lg px-2 py-1.5 border text-xs w-full flex items-start gap-2"
                             :class="chatLoreSelectedId === c.chat_id
@@ -1155,8 +1213,10 @@
                   </div>
                 </div>
 
-                <!-- Карточка выбранного чата (справа) -->
-                <div class="flex-1 min-w-0 w-full space-y-4">
+                <!-- Карточка выбранного чата (справа): свой скролл при
+                     высотной панели (Hotfix-R10) -->
+                <div class="flex-1 min-w-0 w-full space-y-4 min-h-0 max-h-full
+                            overflow-y-auto scroll-thin pr-1">
                   <div v-if="chatLoreProfileLoading && !chatLoreProfile"
                        class="card p-8"><div class="spinner"></div></div>
                   <div v-else-if="chatLoreError" class="card p-6 text-sm text-gray-300">
@@ -1337,11 +1397,12 @@
                         <div v-for="u in chatRelations" :key="u.user_id"
                              class="rounded-lg border border-white/10 px-2 py-1.5 mb-1.5">
                           <div class="flex items-center gap-2 flex-wrap text-sm">
-                            <!-- UI-полировка TMA: аватар участника — blob
-                                 через прокси avatarUrl (fetch с initData);
-                                 v-if гейтит photo_file_id: нет фото по версии
-                                 сервера → img не рисуем вовсе -->
-                            <img v-if="u.photo_file_id != null && u.avatarUrl"
+                            <!-- Hotfix-R10 (аватары): v-if по avatarUrl —
+                                 серверный photo_file_id мог быть None (вне
+                                 топ-50/не обогащён) — ленивый догруз
+                                 loadRelationAvatarsLazy ставит URL; до
+                                 результата/негатива — фолбэк-инициал -->
+                            <img v-if="u.avatarUrl"
                                  :src="u.avatarUrl" alt=""
                                  class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
                                  loading="lazy"
@@ -1571,19 +1632,25 @@
                 <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
               </div>
               <!-- Раунд 10 (F-8 T-871): <pre><code>-моно, компактный скролл,
-                   автоскролл к низу при новых записях (nextTick → scrollTop) -->
+                   автоскролл к ВЕРХУ при новых записях (nextTick → scrollTop,
+                   Hotfix-R10: сервер отдаёт новые сверху). Hotfix-R10:
+                   клик по строке = копировать; expander — маленький глиф
+                   слева (@click.stop), «Скопировать» per-line убран. -->
               <div class="log-panel scroll-thin" ref="logPanel">
                 <div v-if="logsLoading" class="spinner my-4"></div>
                 <div v-else-if="logs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
                 <pre v-else class="log-code break-all"><code><template v-for="(log, i) in logs">
                   <span :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
-                        @click="log.expanded = !log.expanded">
+                        title="Клик — копировать строку" @click="copyText(logText(log))">
                     <span class="flex items-start gap-2 flex-wrap">
+                      <button class="log-toggle shrink-0" title="Развернуть/свернуть стек"
+                              @click.stop="log.expanded = !log.expanded">
+                        {{ log.expanded && log.exc_text ? '▾' : '▸' }}
+                      </button>
                       <span class="badge shrink-0" :class="levelBadge(log.level)">{{ log.level }}</span>
                       <span class="text-gray-500 shrink-0">{{ fmtLogTs(log.ts) }}</span>
                       <span class="text-gray-400 shrink-0">{{ log.logger }}</span>
-                      <span class="text-gray-200 flex-1 break-all">{{ log.message }}</span>
-                      <button class="btn-ghost text-xs shrink-0" @click.stop="copyText(logText(log))">Скопировать</button>
+                      <span class="text-gray-200 flex-1 min-w-0 break-all">{{ log.message }}</span>
                     </span>
                     <span v-if="log.expanded && log.exc_text" class="log-exc block mt-1">{{ log.exc_text }}</span>
                   </span>
