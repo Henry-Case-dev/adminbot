@@ -11,6 +11,7 @@
 Только stdout (без секретов).
 """
 import asyncio
+import os
 import sys
 
 from services import chat_params, feature_gates
@@ -45,8 +46,7 @@ async def global_flag_values(pg=None) -> dict[str, bool]:
 
 
 async def main() -> int:
-    from config.settings import settings
-    pg = PgDatabase(dsn=settings.POSTGRES_DSN)
+    pg = PgDatabase(dsn=os.getenv("POSTGRES_DSN"))
     await pg.connect()
     if pg.pool is None:
         print("[backfill_gates] PostgreSQL недоступен — skip")

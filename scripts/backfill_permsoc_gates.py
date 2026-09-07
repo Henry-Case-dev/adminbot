@@ -11,6 +11,7 @@
 только stdout (без значений ключей/секретов).
 """
 import asyncio
+import os
 import sys
 
 from services import chat_params
@@ -21,8 +22,7 @@ YARY_CHAT_ID = -1002661910336
 
 
 async def main() -> int:
-    from config.settings import settings
-    pg = PgDatabase(dsn=settings.POSTGRES_DSN)
+    pg = PgDatabase(dsn=os.getenv("POSTGRES_DSN"))
     await pg.connect()
     if pg.pool is None:
         print("[backfill_permsoc] PostgreSQL недоступен — skip")
