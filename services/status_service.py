@@ -45,6 +45,15 @@ def _mask_key(key: str | None) -> dict:
     return {"configured": bool(value), "last4": value[-4:] if value else None}
 
 
+def _mask_key_for_role(key: str | None, is_global_admin: bool) -> dict:
+    """ФИКС S2 (F-7 §1.2-2): глобальный admin — {configured,last4};
+    local admin/moderator/user — {configured} БЕЗ last4 (маску не отдаём)."""
+    if is_global_admin:
+        return _mask_key(key)
+    value = bool((key or "").strip())
+    return {"configured": value}
+
+
 class StatusService:
     """Сводка здоровья бота/сервера/LLM/аптайма."""
 
@@ -239,8 +248,14 @@ class StatusService:
 
     # ── полная сводка для /api/status ──────────────────────────────────────
 
-    async def build_snapshot(self, cache=None) -> dict:
-        """{bot, server, llm, uptime} по 84.11.4. pg — из cache (если есть)."""
+    async def build_snapshot(self, cache=None, *, ctx=None,
+                             chat_id: int | None = None) -> dict:
+        """{bot, server, llm, uptime, permsoc} по 84.11.4 + F-9 §6.
+
+        ФИКС S2 (F-7 §1.2-2): маска ключей зависит от роли — `ctx`
+        (AccessCtx): is_global_admin видит {configured,last4}, остальные —
+        только {configured}. ctx=None (fail-open) → НЕ отдаём last4."""
+        is_global_admin = bool(ctx is not None and ctx.is_global_admin)
         uptime_rows: list = []
         if cache is not None and hasattr(cache, "pg"):
             uptime_rows = await self.fetch_uptime_rows(cache.pg)
@@ -248,7 +263,9 @@ class StatusService:
         # суммарно ≤ max(таймаут 5с, кэш-хиты), а не N×5с.
         providers = self.llm_registry()
         cards = await asyncio.gather(
-            *(self._build_llm_card(p) for p in providers))
+            *(self._build_llm_card(p, is_global_admin=is_global_admin)
+              for p in providers))
+        permsoc = await self.permsoc_telemetry(chat_id)
         from services.log_ring import get_log_ring
         now = datetime.datetime.now(datetime.timezone.utc)
         buckets = self._bucketize(list(uptime_rows))
@@ -282,6 +299,7 @@ class StatusService:
             },
             "server": self._server_metrics(),
             "llm": cards,
+            "permsoc": permsoc,
             "uptime": {
                 "buckets": buckets,
                 "last_heartbeat": buckets[-1]["ts"] if buckets else None,
@@ -292,17 +310,64 @@ class StatusService:
             },
         }
 
-    async def _build_llm_card(self, provider: dict) -> dict:
-        """Карточка провайдера: key={configured,last4} + health + latency."""
+    async def _build_llm_card(self, provider: dict, *,
+                              is_global_admin: bool = False) -> dict:
+        """Карточка провайдера: key={configured[,last4]} + health + latency.
+        Маска — по роли (фикс S2; last4 только глобальному админу)."""
         health = await self._check_health(provider["base_url"],
                                           provider["key"] or "")
         return {
             "provider": provider["provider"],
             "model": provider["model"],
-            "key": _mask_key(provider["key"]),
+            "key": _mask_key_for_role(provider["key"], is_global_admin),
             "last_latency_ms": self._llm_latency.get(provider["provider"]),
             "health": health,
         }
+
+    @staticmethod
+    async def permsoc_telemetry(chat_id: int | None = None) -> dict:
+        """F-9 §6: телеметрия «N из M» модулей PERMsoc для текущего чат-контекста
+        (без секретов/ключей). Реестр модулей — PERMSOC_MODULES; состояние —
+        эффективное (master AND под-флаг; модули без под-флага — derived от
+        master). Решение по alan не затрагивается: считаем по текущему
+        effective-режиму реестра."""
+        try:
+            from services import permsoc
+        except Exception:
+            return {"master": False, "enabled": 0, "total": 0,
+                    "modules": {}}
+        modules = permsoc.PERMSOC_MODULES
+        states: dict[str, bool] = {m.module_id: False for m in modules}
+        master = False
+        try:
+            if chat_id is not None:
+                master = await permsoc.master_enabled(chat_id)
+                for m in modules:
+                    if master:
+                        states[m.module_id] = bool(
+                            await permsoc.module_enabled(chat_id, m.module_id))
+            else:
+                from services import hot_config as hot
+                master = bool(hot.get("flags.permsoc_enabled",
+                                      permsoc.master_flag_default()))
+                for m in modules:
+                    if not master:
+                        continue
+                    if m.sub_flag_key is None:
+                        states[m.module_id] = True
+                    else:
+                        states[m.module_id] = bool(hot.get(
+                            m.sub_flag_key,
+                            permsoc.DEFAULT_SUB_FLAGS.get(
+                                m.sub_flag_key, False)))
+        except Exception:
+            logger.warning(
+                "[status] permsoc telemetry failed — fail-open zeros",
+                exc_info=True)
+            master = False
+        enabled = sum(1 for v in states.values() if v)
+        return {"master": master, "enabled": enabled,
+                "total": len(states), "modules": states}
 
 
 status = StatusService()

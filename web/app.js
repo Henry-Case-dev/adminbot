@@ -17,38 +17,61 @@
   // групп категории, except = вся категория кроме перечисленного, null = вся.
   var TABS = [
     { id: 'llm_providers', icon: '🤖', label: 'LLM Провайдеры', type: 'config',
+      menu: 'ai',
       sources: [
         { category: 'models', groups: null },
         { category: 'keys', groups: null },
       ] },
-    { id: 'prompts', icon: '🧠', label: 'Промпты', type: 'config',
+    { id: 'prompts', icon: '🧠', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
         { category: 'prompts', groups: null },
       ] },
-    { id: 'limits', icon: '🚦', label: 'Лимиты', type: 'config',
+    { id: 'limits', icon: '🚦', label: 'Лимиты', type: 'config', menu: 'ai',
       sources: [
         { category: 'limits', except: ['limits_memory', 'limits_graph'] },
         { category: 'flags', except: ['flags_memory', 'flags_media'] },
       ] },
     { id: 'memory_rag', icon: '🗄️', label: 'Память и RAG', type: 'config',
+      menu: 'ai',
       sources: [
         { category: 'limits', groups: ['limits_memory', 'limits_graph'] },
         { category: 'flags', groups: ['flags_memory'] },
         { category: 'memory', groups: null },
       ] },
     { id: 'reactions_triggers', icon: '🎭', label: 'Реакции и Триггеры', type: 'config',
+      menu: 'modules',
       sources: [
         { category: 'reactions', groups: null },
         { category: 'flags', groups: ['flags_media'] },
       ] },
-    { id: 'access', icon: '👥', label: 'Доступы', type: 'access', categories: ['access'] },
+    { id: 'modules_feats', icon: '🧩', label: 'Модули и Фичи', type: 'modules',
+      menu: 'modules' },
+    { id: 'access', icon: '👥', label: 'Доступы', type: 'access',
+      categories: ['access'], menu: 'access' },
     // Раунд 7 (chat-lore-management-v2, spec §3.10/E2): «Лор чатов» — НЕ
     // config-вкладка: свой рендер (index.html) и своя ветка видимости
     // canViewTab (Q6: секция chat_lore / wildcard / непустой probe-список).
-    { id: 'chat_lore', icon: '📜', label: 'Лор чатов', type: 'chat_lore' },
-    { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true },
-    { id: 'info', icon: 'ℹ️', label: 'Как это работает', type: 'info', always: true },
+    { id: 'chat_lore', icon: '📜', label: 'Лор чатов', type: 'chat_lore',
+      menu: 'chat_profile' },
+    { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true,
+      menu: 'home' },
+    { id: 'info', icon: 'ℹ️', label: 'Как это работает', type: 'info',
+      always: true, menu: 'home' },
+    // Раунд 10 (F-12): точка интеграции Oversight (только global admin).
+    { id: 'oversight', icon: '🛰️', label: 'Oversight', type: 'oversight',
+      menu: 'home' },
   ];
+
+  // Раунд 10 (F-11 §2, Q1): группировка вкладок — 5 меню-секций
+  // (лёгкий тег menu у TABS + порядок; НЕ новый массив ссылок).
+  var MENU_ORDER = ['home', 'chat_profile', 'modules', 'ai', 'access'];
+  var MENU_LABELS = {
+    home: 'Главная',
+    chat_profile: 'Чат-Профиль',
+    modules: 'Модули и Фичи',
+    ai: 'Настройки AI',
+    access: 'Доступы и Роли',
+  };
 
   var LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
 
@@ -90,10 +113,50 @@
       return {
         tabs: TABS,
         activeTab: 'status',
+        activeMenu: 'home',      // F-11: активная меню-секция
+        menuOrder: MENU_ORDER,
+        menuLabels: MENU_LABELS,
+        expand: {},              // F-11: localStorage adminbot.expand:<tab>
         sidebarOpen: false,
         me: null,
         authError: null,
         authLocked: false,
+        // Раунд 10 (F-7 T-854, F-7 T-906): контекст чата — активный `activeChatId`
+        // (persist localStorage 'adminbot.active_chat_id'), api() добавляет
+        // X-Chat-Id; NULL → ровно старое поведение (глобальный конфиг).
+        activeChatId: null,
+        accessChats: [],              // GET /api/access/chats (селектор F-11)
+        accessMy: null,               // GET /api/access/me
+        activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
+        // Роль-пикер (F-7 T-855): модалка per-param min-ролей (global admin)
+        permPickerOpen: false,
+        permPickerItem: null,
+        permPicker: { view_min_role: 'user', edit_min_role: 'moderator', hidden_from_local: false },
+        permPickerSaving: false,
+        // BYOK-UI (F-7 T-856): ключ чата — для локального админа
+        ownKeyDraft: '',
+        ownKeySaving: false,
+        keyStatusOwn: null,           // GET /api/config/keys/status
+        // «Доступы и Роли» (F-7 T-857): локальные админы активного чата
+        chatLocalAdmins: [],
+        chatLocalAdminsBusy: false,
+        newLocalAdminId: '',
+        newLocalAdminRole: 'local_admin',
+        // Раунд 10 (F-10 E1/F-9 D1): «Модули и Фичи» — gates + бюджет фона
+        modulesBusy: false,
+        gateInfo: null,          // GET /api/chat/{id}/gates
+        gatesBusy: false,
+        budgetInfo: null,        // GET /api/workers/budget
+        budgetBusy: false,
+        permsocBusy: false,
+        // Раунд 10 (F-12 C1/C2): Oversight-дашборд (global admin)
+        oversightData: null,     // GET /api/oversight/summary
+        oversightBusy: false,
+        oversightSearch: '',
+        oversightSort: 'chat_id',
+        oversightDetail: null,   // модалка деталей чата
+        oversightDetailBusy: false,
+        oversightOpBusy: false,
         // UI-полировка TMA: meAvatarUrl — URL аватара текущего юзера (CDN
         // photo_url из initData либо blob через прокси avatarUrl) и флаг
         // полноэкранного режима TMA (кнопка ⛶ в шапке). Кэш blob-URL —
@@ -105,6 +168,7 @@
         configGroups: [],          // 84.24: метаданные групп (с сервера)
         configSearch: '',          // 84.24: фильтр по title/description/key
         configLoading: false,
+        configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
         saving: new Set(),
         keyDrafts: {},
         keyReveal: {},           // 3.5.1: показать/скрыть маску ключа (по item.key)
@@ -228,6 +292,14 @@
         return this.chatLoreProfileLoading
           || this.chatLoreSaving || this.chatLoreGenerating;
       },
+      // F-11 (Q1): вкладки меню-секции (по видимости canViewTab)
+      menuTabs: function () {
+        var self = this;
+        return this.tabs.filter(function (t) {
+          return t.menu === self.activeMenu
+            && (t.always || self.canViewTab(t.id));
+        });
+      },
       // 3.10: визуальная склейка «ручной + авто» для инфо-строки (превью)
       loreMemoryPreview: function () {
         var manual = (this.loreManual || '').trim();
@@ -281,7 +353,16 @@
       }
       this.loadMe().then(function () {
         if (!self.me) return;             // 401/пусто — блокировка выше
-        self.loadConfig();
+        // Контекст чата (activeChatId) — ДО loadConfig: первый рендер сразу
+        // в per-chat слое (F-7 T-854); без контекста — старый глобальный вид.
+        self.loadAccessCtx().then(function () {
+          self.loadConfig();
+          self.loadKeyStatus();
+          if (self.canViewTab('access')) self.loadLocalAdmins();
+        });
+        if (self.isGlobalAdmin) {
+          self.loadOversight();     // F-12: сводка (кэш сервера 60с)
+        }
         if (self.canViewTab('access')) {
           self.loadAdmins();
           self.loadRoles();
@@ -338,7 +419,11 @@
               'Откройте админку заново из Telegram.';
             return;
           }
-          self.loadConfig();
+          self.loadAccessCtx().then(function () {
+            self.loadConfig();
+            self.loadKeyStatus();
+            if (self.canViewTab('access')) self.loadLocalAdmins();
+          });
           if (self.canViewTab('access')) {
             self.loadAdmins();
             self.loadRoles();
@@ -354,6 +439,8 @@
       },
 
       // ═══ API-обёртка (84.6: X-Telegram-Init-Data на каждый запрос) ═══
+      // Раунд 10 (F-7 T-854): активный чат → заголовок X-Chat-Id (контекст
+      // per-chat слоя chat_params; NULL → старый глобальный вид).
       api: async function (path, options) {
         // Без Telegram-контекста запросы бессмысленны (401 вхолостую) —
         // заглушка вместо спама в API (фин. доработка DevOps).
@@ -364,6 +451,9 @@
         options.headers = Object.assign({}, options.headers || {});
         if (!options.headers['Content-Type'] && options.body) {
           options.headers['Content-Type'] = 'application/json';
+        }
+        if (this.activeChatId != null) {
+          options.headers['X-Chat-Id'] = String(this.activeChatId);
         }
         var initData = '';
         try {
@@ -488,10 +578,423 @@
         }, 4200);
       },
 
+      // ═══ Раунд 10 (F-7 T-854): контекст чата ═══
+      // activeChatId: persist localStorage; NULL = «Весь бот» (глобальный).
+      loadAccessCtx: async function () {
+        try {
+          var data = await this.api('/api/access/me');
+          this.accessMy = data;
+          var chats = await this.api('/api/access/chats');
+          this.accessChats = Array.isArray(chats) ? chats : [];
+          var saved = localStorage.getItem('adminbot.active_chat_id');
+          var savedOk = saved != null
+            && this.accessChats.some(function (c) {
+              return String(c.chat_id) === String(saved);
+            });
+          if (savedOk) {
+            this.activeChatId = parseInt(saved, 10);
+          } else if (saved != null) {
+            localStorage.removeItem('adminbot.active_chat_id');
+            this.activeChatId = null;
+          }
+          // Локальный админ/mod-грант без глобального режима → первый доступный
+          if (this.activeChatId == null && !data.is_global_admin
+              && this.accessChats.length) {
+            this.activeChatId = this.accessChats[0].chat_id;
+          }
+          this.syncActiveChatTitle();
+        } catch (e) {
+          // фолбэк: часть-1 не выкатана / 403 — глобальный режим (старое)
+          this.accessChats = [];
+          this.accessMy = null;
+          if (this.activeChatId != null) {
+            this.activeChatId = null;
+          }
+          this.syncActiveChatTitle();
+        }
+      },
+      syncActiveChatTitle: function () {
+        var self = this;
+        if (this.activeChatId == null) {
+          this.activeChatTitle = 'Весь бот';
+          return;
+        }
+        var found = this.accessChats.find(function (c) {
+          return c.chat_id === self.activeChatId;
+        });
+        this.activeChatTitle = (found && found.title)
+          || ('Чат ' + this.activeChatId);
+      },
+      setActiveChat: function (chatId) {
+        var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
+        if (id === this.activeChatId) return;
+        this.activeChatId = id;
+        if (id == null) {
+          localStorage.removeItem('adminbot.active_chat_id');
+        } else {
+          localStorage.setItem('adminbot.active_chat_id', String(id));
+        }
+        this.syncActiveChatTitle();
+        // перерисовка конфиг-вкладок/профиля (activeChatChanged-событие)
+        this.configItems = [];
+        this.loadConfig();
+        this.loadKeyStatus();
+        if (this.accessMy && !this.accessMy.is_global_admin) {
+          this.loadLocalAdmins();
+        }
+      },
+      isChatContext: function () {
+        return this.activeChatId != null;
+      },
+
+      // ═══ Роль-пикер (F-7 T-855): per-param min-роли (global admin) ═══
+      openPermPicker: function (item) {
+        this.permPickerItem = item;
+        this.permPicker = {
+          view_min_role: item.view_min_role || 'user',
+          edit_min_role: item.edit_min_role || 'moderator',
+          hidden_from_local: !!item.hidden_from_local,
+        };
+        this.permPickerOpen = true;
+      },
+      closePermPicker: function () {
+        this.permPickerOpen = false;
+        this.permPickerItem = null;
+      },
+      savePermPicker: async function () {
+        var item = this.permPickerItem;
+        if (!item) return;
+        this.permPickerSaving = true;
+        try {
+          await this.api('/api/access/param_permissions/' + encodeURIComponent(item.key), {
+            method: 'PUT',
+            body: JSON.stringify(this.permPicker),
+          });
+          item.hidden_from_local = !!this.permPicker.hidden_from_local;
+          item.view_min_role = this.permPicker.view_min_role;
+          item.edit_min_role = this.permPicker.edit_min_role;
+          this.toast('Права ключа сохранены: ' + item.title, 'ok');
+          this.closePermPicker();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        } finally {
+          this.permPickerSaving = false;
+        }
+      },
+
+      // ═══ BYOK-UI (F-7 T-856): свой ключ чата ═══
+      loadKeyStatus: async function () {
+        if (this.activeChatId == null) {
+          this.keyStatusOwn = null;
+          return;
+        }
+        try {
+          var data = await this.api('/api/config/keys/status');
+          this.keyStatusOwn = data;
+        } catch (e) {
+          this.keyStatusOwn = null;
+        }
+      },
+      saveOwnKey: async function () {
+        var value = (this.ownKeyDraft || '').trim();
+        if (!value) {
+          this.toast('Введите новый ключ чата', 'warn');
+          return;
+        }
+        this.ownKeySaving = true;
+        try {
+          await this.api('/api/config/keys/own', {
+            method: 'PUT',
+            body: JSON.stringify({ key_name: 'keys.llm_api_key', value: value }),
+          });
+          this.ownKeyDraft = '';
+          this.toast('Ключ чата сохранён', 'ok');
+          await this.loadKeyStatus();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        } finally {
+          this.ownKeySaving = false;
+        }
+      },
+      deleteOwnKey: async function () {
+        if (!window.confirm('Удалить ключ чата? Чат вернётся к глобальному ключу (если разрешён).')) return;
+        this.ownKeySaving = true;
+        try {
+          await this.api('/api/config/keys/own/keys.llm_api_key', { method: 'DELETE' });
+          this.toast('Ключ чата удалён', 'ok');
+          await this.loadKeyStatus();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        } finally {
+          this.ownKeySaving = false;
+        }
+      },
+
+      // ═══ «Доступы и Роли» (F-7 T-857): локальные админы активного чата ═══
+      loadLocalAdmins: async function () {
+        if (this.activeChatId == null) {
+          this.chatLocalAdmins = [];
+          return;
+        }
+        this.chatLocalAdminsBusy = true;
+        try {
+          var data = await this.api('/api/chat_lore/admins?chat_id=' + this.activeChatId);
+          var self = this;
+          this.chatLocalAdmins = (Array.isArray(data) ? data : []).map(function (r) {
+            return { telegram_id: r, role_name: 'local_admin' };
+          });
+        } catch (e) {
+          this.chatLocalAdmins = [];
+        } finally {
+          this.chatLocalAdminsBusy = false;
+        }
+      },
+      addLocalAdmin: async function () {
+        var tid = parseInt(this.newLocalAdminId, 10);
+        if (!tid) { this.toast('Введите Telegram ID', 'warn'); return; }
+        try {
+          await this.api('/api/access/chats/' + this.activeChatId + '/admins', {
+            method: 'POST',
+            body: JSON.stringify({ telegram_id: tid, role_name: this.newLocalAdminRole }),
+          });
+          this.toast('Локальный админ добавлен: ' + tid, 'ok');
+          this.newLocalAdminId = '';
+          await this.loadLocalAdmins();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+      removeLocalAdmin: async function (tid) {
+        if (!window.confirm('Удалить локального админа ' + tid + ' из чата?')) return;
+        try {
+          await this.api('/api/access/chats/' + this.activeChatId + '/admins/' + tid, { method: 'DELETE' });
+          this.toast('Удалён: ' + tid, 'ok');
+          await this.loadLocalAdmins();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+
+      // ═══ Раунд 10 (F-10 E1/F-9 D1): «Модули и Фичи» ═══
+      // Gates чата (тяжёлые 3 + permsoc master) + Opt-In + бюджет фона.
+      loadGateInfo: async function () {
+        if (this.activeChatId == null) {
+          this.gateInfo = null;
+          return;
+        }
+        this.gatesBusy = true;
+        try {
+          this.gateInfo = await this.api(
+            '/api/chat/' + this.activeChatId + '/gates');
+        } catch (e) {
+          this.gateInfo = null;
+        } finally {
+          this.gatesBusy = false;
+        }
+      },
+      loadBudgetInfo: async function () {
+        this.budgetBusy = true;
+        try {
+          this.budgetInfo = await this.api('/api/workers/budget');
+        } catch (e) {
+          this.budgetInfo = null;
+        } finally {
+          this.budgetBusy = false;
+        }
+      },
+      loadModules: async function () {
+        if (this.modulesBusy) return;
+        this.modulesBusy = true;
+        try {
+          await Promise.all([this.loadGateInfo(), this.loadBudgetInfo()]);
+        } finally {
+          this.modulesBusy = false;
+        }
+      },
+      // toggle тяжёлого гейта (PUT /api/chat/{id}/gates; 409-протокол)
+      toggleGate: async function (feature, enabled) {
+        if (this.activeChatId == null) return;
+        this.gatesBusy = true;
+        try {
+          await this.api('/api/chat/' + this.activeChatId + '/gates', {
+            method: 'PUT',
+            body: JSON.stringify({ feature: feature, enabled: !!enabled }),
+          });
+          this.toast((enabled ? 'Включено: ' : 'Выключено: ') + feature, 'ok');
+          await this.loadGateInfo();
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.toast('Конфликт версии (409) — обновлено', 'warn');
+            this.loadGateInfo();
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          this.gatesBusy = false;
+        }
+      },
+      // master PERMsoc (только global admin; локальный — read-only)
+      togglePermsoc: async function (enabled) {
+        this.permsocBusy = true;
+        try {
+          await this.toggleGate('permsoc', enabled);
+        } finally {
+          this.permsocBusy = false;
+        }
+      },
+      whoCanToggle: function (feature) {
+        var who = (this.gateInfo && this.gateInfo.who_can_toggle) || {};
+        return who[feature] || 'global';
+      },
+      // бюджет: прогресс-бары (usage/limit в долях; guard нулей)
+      budgetRatio: function (pair) {
+        if (!pair || !pair.limit) return 0;
+        return Math.min(1, (pair.used || 0) / pair.limit);
+      },
+
+      // ═══ Раунд 10 (F-12 C1/C2): Oversight (global admin) ═══
+      loadOversight: async function () {
+        this.oversightBusy = true;
+        try {
+          this.oversightData = await this.api('/api/oversight/summary');
+        } catch (e) {
+          this.oversightData = null;
+          if (e.status !== 401 && e.status !== 403) {
+            this.toast('Не удалось загрузить сводку: ' + e.message, 'err');
+          }
+        } finally {
+          this.oversightBusy = false;
+        }
+      },
+      oversightRows: function () {
+        var self = this;
+        var q = (this.oversightSearch || '').trim().toLowerCase();
+        var rows = (this.oversightData && this.oversightData.chats) || [];
+        if (q) {
+          rows = rows.filter(function (c) {
+            return String(c.chat_id).indexOf(q) >= 0
+              || (c.title || '').toLowerCase().indexOf(q) >= 0
+              || (c.key_status || '').toLowerCase().indexOf(q) >= 0;
+          });
+        }
+        var sort = this.oversightSort;
+        rows = rows.slice().sort(function (a, b) {
+          var va = a[sort], vb = b[sort];
+          if (typeof va === 'boolean') va = va ? 1 : 0;
+          if (typeof vb === 'boolean') vb = vb ? 1 : 0;
+          if (va == null) va = 0;
+          if (vb == null) vb = 0;
+          if (va === vb) return (a.chat_id || 0) - (b.chat_id || 0);
+          return va > vb ? -1 : 1;    // активные/opt-in/Pеки выше — интуитивно
+        });
+        return rows;
+      },
+      keyStatusRu: function (status) {
+        return { own: 'свой ключ', global: 'глобальный',
+                 forbidden: 'запрещён', none: 'нет' }[status] || status;
+      },
+      openChatDetails: async function (chatId) {
+        this.oversightDetailBusy = true;
+        try {
+          this.oversightDetail = await this.api('/api/oversight/chat/' + chatId);
+        } catch (e) {
+          this.oversightDetail = null;
+          this.toast('Ошибка деталей: ' + e.message, 'err');
+        } finally {
+          this.oversightDetailBusy = false;
+        }
+      },
+      closeChatDetails: function () {
+        this.oversightDetail = null;
+      },
+      toggleKillswitch: async function (feature, target) {
+        var chat = this.oversightDetail;
+        if (!chat) return;
+        if (!window.confirm('Фича «' + feature + '» ' + (target ? 'включится'
+                            : 'выключится') + ' для чата — продолжить?')) return;
+        this.oversightOpBusy = true;
+        try {
+          var res = await this.api(
+            '/api/oversight/chat/' + chat.chat_id + '/killswitch', {
+              method: 'POST',
+              body: JSON.stringify({ feature: feature, enabled: !!target,
+                                     expected_updated_at: null }),
+            });
+          this.toast((res.enabled ? 'Включено' : 'Выключено') + ': '
+                     + feature, 'ok');
+          await this.loadOversight();
+          await this.openChatDetails(chat.chat_id);
+        } catch (e) {
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — обновите детали', 'warn');
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          this.oversightOpBusy = false;
+        }
+      },
+      toggleGlobalKey: async function (allow) {
+        var chat = this.oversightDetail;
+        if (!chat) return;
+        if (!window.confirm(allow
+            ? 'Разрешить глобальный ключ для чата?'
+            : 'Если у чата нет своего ключа — бот перестанет использовать '
+              + 'глобальные ключи (или отвечать). Продолжить?')) return;
+        this.oversightOpBusy = true;
+        try {
+          await this.api('/api/oversight/chat/' + chat.chat_id + '/global_key', {
+            method: 'POST',
+            body: JSON.stringify({ allow: !!allow }),
+          });
+          this.toast(allow ? 'Глобальный ключ разрешён'
+                     : 'Глобальный ключ запрещён', 'ok');
+          await this.loadOversight();
+          await this.openChatDetails(chat.chat_id);
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        } finally {
+          this.oversightOpBusy = false;
+        }
+      },
+
+      // ═══ Индикатор «переопределено чатом» (F-7 T-868) ═══
+      itemOverriddenByChat: function (item) {
+        return this.isChatContext() && item && item.chat_source === 'chat';
+      },
+      resetChatOverride: async function (item) {
+        if (!window.confirm('Сбросить «' + item.title + '» на глобальное значение для этого чата?')) return;
+        this.saving.add(item.key);
+        try {
+          await this.api('/api/config/chat/' + encodeURIComponent(item.key), {
+            method: 'DELETE',
+          });
+          this.toast('Сброшено на глобальное: ' + item.title, 'ok');
+          await this.loadConfig();
+          await this.loadKeyStatus();
+        } catch (e) {
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — перезагрузите конфигурацию', 'warn');
+            this.loadConfig();
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          this.saving.delete(item.key);
+        }
+      },
+
       setTab: function (id) {
         var self = this;
         this.activeTab = id;
         this.sidebarOpen = false;
+        // F-11: синхрон активной меню-секции
+        var target = this.tabs.find(function (t) { return t.id === id; });
+        if (target && target.menu) this.activeMenu = target.menu;
+        if (id === 'modules_feats' && this.canViewTab('modules_feats')
+            && !this.gateInfo && !this.modulesBusy) {
+          this.loadModules();
+        }
         // 84.24-ревью: поиск не переносится между вкладками
         if (this.configSearch) this.configSearch = '';
         // 3.5.1 (UX): скролл контента в начало при переключении вкладки
@@ -605,6 +1108,17 @@
         if (tab.type === 'chat_lore') {
           return this.hasPerm('section.chat_lore') || this.chatLoreChats.length > 0;
         }
+        // Раунд 10 (F-11 Q1 / F-12): Oversight — только global admin;
+        // modules_feats — реакции/флаги секции либо локальный админ чата.
+        if (tab.type === 'oversight') {
+          return this.isGlobalAdmin;
+        }
+        if (tab.type === 'modules') {
+          return this.hasPerm('section.reactions')
+            || this.hasPerm('section.flags')
+            || this.hasPerm('section.chat_lore')
+            || this.isGlobalAdmin || this.isLocalAdminCtx();
+        }
         var sections = arr(p.sections), params = arr(p.params), keys = arr(p.keys);
         var cats = tabCategories(tab);
         for (var i = 0; i < cats.length; i++) {
@@ -618,6 +1132,41 @@
           if (cat === 'keys' && keys.length) return true;
         }
         return false;
+      },
+
+      // Раунд 10 (F-11 Q1): локальный админ/мод-грант активного чата
+      isLocalAdminCtx: function () {
+        return !!(this.accessMy && this.accessMy.is_local_admin);
+      },
+
+      // F-11 (Q1): меню — setMenu(m) → первый доступный таб секции
+      setMenu: function (menuId) {
+        this.activeMenu = menuId;
+        var first = null;
+        for (var i = 0; i < this.tabs.length; i++) {
+          var t = this.tabs[i];
+          if (t.menu === menuId && (t.always || this.canViewTab(t.id))) {
+            first = t;
+            break;
+          }
+        }
+        if (first) this.setTab(first.id);
+      },
+
+      // F-11 (4.2): аккордеон «Расширенные» — localStorage adminbot.expand:<tab>
+      expandOpen: function (tabId) {
+        try {
+          return localStorage.getItem('adminbot.expand:' + tabId) === '1';
+        } catch (e) { return false; }
+      },
+      toggleExpand: function (tabId) {
+        try {
+          var cur = localStorage.getItem('adminbot.expand:' + tabId) === '1';
+          localStorage.setItem('adminbot.expand:' + tabId, cur ? '' : '1');
+        } catch (e) {}
+      },
+      itemAdvanced: function (item) {
+        return item && item.progressive_level === 'advanced';
       },
 
       canEditConfig: function (key) {
@@ -650,6 +1199,8 @@
           var data = await this.api('/api/config');
           this.configItems = data.items || [];
           this.configGroups = data.groups || [];
+          this.configChatUpdatedAt = data.updated_at != null
+            ? data.updated_at : null;   // optimistic-метка чата (409-протокол)
           this.configItems.forEach(function (item) {
             // 3.5.1/FR-28: widget отсутствует у старого сервера — дефолт '';
             // json с widget='keyvalue' НЕ строкифайм (остаётся объектом для
@@ -814,11 +1365,18 @@
         try {
           await this.api('/api/config', {
             method: 'POST',
-            body: JSON.stringify({ items: [{ key: item.key, value: value }] }),
+            body: JSON.stringify({ items: [{ key: item.key, value: value }],
+                                   updated_at: this.configChatUpdatedAt }),
           });
           this.toast('Сохранено: ' + item.title, 'ok');
+          await this.loadConfig();
         } catch (e) {
-          this.toast('Ошибка сохранения: ' + e.message, 'err');
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
+            this.loadConfig();
+          } else {
+            this.toast('Ошибка сохранения: ' + e.message, 'err');
+          }
         } finally {
           this.saving.delete(item.key);
         }
@@ -1138,6 +1696,12 @@
             '/api/status/logs?level=' + encodeURIComponent(this.logLevel) + '&limit=200');
           this.logs = (data.logs || []).map(function (l) { l.expanded = false; return l; });
           this.logsCount = data.count || 0;
+          // F-8 (T-871): автоскролл к низу при новых записях
+          var self = this;
+          this.$nextTick(function () {
+            var panel = self.$refs.logPanel;
+            if (panel) panel.scrollTop = panel.scrollHeight;
+          });
         } catch (e) { this.logs = []; }
         finally { this.logsLoading = false; }
       },
@@ -1554,6 +2118,51 @@
       },
       cancelLoreReload: function () {
         this.chatLore409 = null;
+      },
+
+      // ═══ Раунд 10 (F-8 T-872/T-873): отношения — имена/аватары ═══
+      // Резолв имени участника (спец T-872): Alias (limits.summary_aliases)
+      // → nickname → username → фолбэк user_id. Аватар: /api/avatar-прокси
+      // + фолбэк-инициал первой буквы имени.
+      summaryAliasesMap: function () {
+        var item = this.configItems.find(function (it) {
+          return it.key === 'limits.summary_aliases';
+        });
+        var v = item && item.value;
+        return (v && typeof v === 'object') ? v : {};
+      },
+      resolveRelationName: function (u) {
+        if (!u || u.user_id == null) return '';
+        var aliases = this.summaryAliasesMap();
+        var alias = aliases[String(u.user_id)];
+        if (alias) return String(alias);
+        if (u.name) return String(u.name);
+        if (u.username) return '@' + String(u.username);
+        return String(u.user_id);
+      },
+      avatarInitial: function (u) {
+        var name = this.resolveRelationName(u);
+        return (name.charAt(0) || '?').toUpperCase();
+      },
+      // F-8 (T-873): имя чата из локального кэша списка + chat_id мелким
+      chatProfileTitle: function () {
+        var p = this.chatLoreProfile;
+        if (!p) return '';
+        var found = this.chatLoreChats.find(function (c) {
+          return c.chat_id === p.chat_id;
+        });
+        return (found && found.title) || ('Чат ' + p.chat_id);
+      },
+      // F-8 (T-876): «Telegram ID админа» (reactions.admin_user_id) перенесён
+      // из «Реакций и Триггеров» в «Доступы» — данные/ключ НЕ меняются.
+      isAdminIdHidden: function (item) {
+        return this.activeTab === 'reactions_triggers'
+          && item && item.key === 'reactions.admin_user_id';
+      },
+      adminIdItem: function () {
+        return this.configItems.find(function (it) {
+          return it.key === 'reactions.admin_user_id';
+        }) || null;
       },
 
       // ═══ Раунд 9 (AGI Memory, spec §3.6.1/§3.6.3, T-830/F3): отношения ═══

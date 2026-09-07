@@ -25,12 +25,16 @@ from tests.test_chat_lore_store import _FakeConn, make_store
 class TestRelationsDdl:
     def test_two_idempotent_alters_present(self):
         alters = [s for s in DDL_STATEMENTS if "ALTER TABLE chat_profiles" in s]
-        assert len(alters) == 2
+        # раунд 9: relations/relations_enabled + раунд 10 (F-7 §4.1/F-10 §2):
+        # chat_params/gates_opt_in — аддитивные операторы в одной связке
+        assert len(alters) == 4
         assert "ADD COLUMN IF NOT EXISTS relations JSONB NOT NULL DEFAULT" \
             in alters[0]
         assert "ADD COLUMN IF NOT EXISTS relations_enabled BOOLEAN" \
             in alters[1]
         assert "NOT NULL DEFAULT FALSE" in alters[1]
+        assert "ADD COLUMN IF NOT EXISTS chat_params JSONB" in alters[2]
+        assert "ADD COLUMN IF NOT EXISTS gates_opt_in BOOLEAN" in alters[3]
 
     def test_create_does_not_claim_new_columns(self):
         """CREATE chat_profiles без relations — колонки даёт только ALTER

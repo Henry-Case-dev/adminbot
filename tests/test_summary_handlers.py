@@ -1,4 +1,4 @@
-"""Tests for handlers/summary.py (T-184) + 13-router integration (T-188-B)."""
+﻿"""Tests for handlers/summary.py (T-184) + 13-router integration (T-188-B)."""
 import asyncio
 import datetime
 import logging
@@ -907,3 +907,24 @@ class TestRouterIntegration:
         routers = _collect_routers()
         assert len(routers) == 14
         assert len(set(id(r) for r in routers)) == 14
+
+
+# Раунд 10 (F-9): PERMsoc-гейт — для router-интеграционных тестов мастер ON
+# (hot-кэш с flags.permsoc_enabled=True; дефолт ТЕПЕРЬ False — без мока
+# пермsoc-триггеры молчат, что и проверяется в изолированных кейсах).
+# ВАЖНО: chain-кэш — существующие ключи (кucha/junk/…) не затираются.
+@pytest.fixture(autouse=True)
+def _permsoc_master_on(monkeypatch):
+    from services import hot_config as hot
+
+    _prev = getattr(hot, "_cache", None)
+
+    class _ChainCache:
+        def get(self, key, default=None):
+            if key == "flags.permsoc_enabled":
+                return True
+            if _prev is not None and hasattr(_prev, "get"):
+                return _prev.get(key, default)
+            return default
+
+    monkeypatch.setattr(hot, "_cache", _ChainCache())

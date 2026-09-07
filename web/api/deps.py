@@ -195,6 +195,30 @@ def requires_permission(required: str):
     return dependency
 
 
+def requires_global_admin():
+    """Раунд 10 (F-12 §4, Q3): глобальный админ — role_type global_admin
+    или wildcard (добавка-гейт; существующие сигнатуры не меняются)."""
+
+    async def dependency(
+        request: Request,
+        user: Annotated[WebAppUser, Depends(get_tma_user)],
+    ) -> WebAppUser:
+        cache: ConfigCache = get_cache(request)
+        perms = _user_permissions(cache, user.id)
+        role = cache.get_role(user.id)
+        from services.roles import role_type_of
+        role_type = role_type_of(role, cache.roles().get(role),
+                                 cache.roles().get(role or "").get("role_type")
+                                 if (role and cache.roles().get(role)) else None)
+        if not (perms.wildcard or role_type == "global_admin"
+                or role == "admin"):
+            raise HTTPException(status_code=403,
+                                detail="только для глобального админа")
+        return user
+
+    return dependency
+
+
 def can_view_key_value(cache: ConfigCache, telegram_id: int,
                        pg_key: str) -> bool:
     """84.12.4: полное значение ключа видит ТОЛЬКО роль с правом на

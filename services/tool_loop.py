@@ -16,6 +16,7 @@ from services.llm_client import (
     LLMBadResponseError,
     LLMError,
     LLMToolCall,
+    NoApiKeyForChat,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,26 +27,33 @@ _TOOL_CALLS_PER_ROUND_MAX = 2   # защита от спама вызовов о
 
 async def chat_with_tools(llm, messages: list[dict], *,
                           tools: list[dict], router, ctx,
-                          temperature: float | None = None) -> str:
+                          temperature: float | None = None,
+                          chat_id: int | None = None) -> str:
     """→ финальный текст. При невозможности tool-режима — обычный ответ без tools.
 
     Исключения наружу: LLMError (провайдер/раунд > 0), LLMBadResponseError
     (пустой финал / лимит раундов без текста) — обрабатываются существующими
     except-ветками direct_chat (пустой ответ → молчание + 🗿, FR-14).
+    Раунд 10 (F-7 §5.2): chat_id пробрасывается в generate/generate_chat
+    (BYOK-резолв ключа чата); NoApiKeyForChat уходит выше не перехватываясь.
     """
     payload_messages = copy.deepcopy(messages)
     for round_index in range(TOOL_MAX_ROUNDS):
         try:
             result = await llm.generate_chat(payload_messages,
                                              temperature=temperature,
-                                             tools=tools, tool_choice="auto")
+                                             tools=tools, tool_choice="auto",
+                                             chat_id=chat_id)
+        except NoApiKeyForChat:
+            raise
         except LLMError as exc:                 # провайдер не умеет tools
             if round_index == 0:
                 logger.warning(
                     "[tools] provider rejected tools — plain answer | error=%s",
                     exc)
                 # degrade: 1 обычный вызов БЕЗ tools (FR-15, AC-2.5)
-                return await llm.generate(messages, temperature=temperature)
+                return await llm.generate(messages, temperature=temperature,
+                                          chat_id=chat_id)
             raise
         if not result.tool_calls:
             text = (result.content or "").strip()

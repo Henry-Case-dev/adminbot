@@ -28,6 +28,9 @@ from filters.otboy_word import OtboyWordFilter
 from filters.selfdev_word import SelfdevWordFilter
 from filters.user_id import UserIdFilter
 from filters.work_word import WorkWordFilter
+# Раунд 10 (F-9 B5): «Передразнивания» — модуль плагина PERMsoc (гейт по
+# чату-сообщению, у самого mimic_handler).
+from services.permsoc import PermsocGateFilter
 
 if TYPE_CHECKING:
     from services.common_relay import CommonRelay
@@ -197,6 +200,18 @@ async def work_handler(
 # ── Mimic handler (§3.1) ──────────────────────────────────
 
 
+async def _mimic_flag(message, key: str, default) -> bool:
+    """Раунд 10 (F-9 §3): под-флаг через hot_chat; fail-open → default."""
+    chat_id = getattr(getattr(message, "chat", None), "id", None)
+    if chat_id is None:
+        return bool(default)
+    try:
+        from services.chat_params import get_chat_param
+        return bool(await get_chat_param(chat_id, key, default))
+    except Exception:
+        return bool(default)
+
+
 def _parse_mimic_victim_ids() -> list[int]:
     """Parse comma-separated MIMIC_VICTIM_USER_IDS into a list of ints.
     Returns empty list if disabled (empty string or only 0).
@@ -224,7 +239,7 @@ _VICTIM_IDS = _parse_mimic_victim_ids()
 _MIMIC_USER_IDS = tuple(_VICTIM_IDS) if _VICTIM_IDS else (0,)
 
 
-@common_router.message(UserIdFilter(*_MIMIC_USER_IDS))
+@common_router.message(PermsocGateFilter("mimic"), UserIdFilter(*_MIMIC_USER_IDS))
 async def mimic_handler(message: types.Message) -> None:
     """Mimic feature: if victim wrote >N words and cooldown elapsed → mimic reply."""
     if not _VICTIM_IDS:  # disabled
@@ -234,14 +249,17 @@ async def mimic_handler(message: types.Message) -> None:
     # common-мимикрии (славячий mimic в handlers/slavik.py им НЕ управляется);
     # reactions.alan_mimic_enabled — дополнительное разрешение на Леху (нужны
     # ОБА флага; других жертв не касается).
+    # Раунд 10 (F-9 §3): оба флага — через hot_chat (per-chat слой).
     user_id = message.from_user.id if message.from_user else 0
-    if not hot.get("flags.mimic_enabled", settings.MIMIC_ENABLED):
+    if not await _mimic_flag(message, "flags.mimic_enabled",
+                             settings.MIMIC_ENABLED):
         logger.debug("mimic: disabled (flags.mimic_enabled=False) | user=%s",
                      user_id)
         return UNHANDLED
     alan_user_id = hot.get("reactions.alan_user_id", settings.ALAN_USER_ID)
-    if user_id == alan_user_id and not hot.get(
-            "reactions.alan_mimic_enabled", settings.ALAN_MIMIC_ENABLED):
+    if user_id == alan_user_id and not await _mimic_flag(
+            message, "reactions.alan_mimic_enabled",
+            settings.ALAN_MIMIC_ENABLED):
         logger.debug("mimic: alan-mimic disabled | user=%s", user_id)
         return UNHANDLED
     # ── D52 (Epic 22): репосты не передразниваем (если не включено явно) ──

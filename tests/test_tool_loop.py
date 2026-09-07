@@ -1,4 +1,4 @@
-"""Эпик 04.09.2026 (3.3, T-17/AC-2.2/AC-2.3/AC-2.5) — цикл tool_calls.
+﻿"""Эпик 04.09.2026 (3.3, T-17/AC-2.2/AC-2.3/AC-2.5) — цикл tool_calls.
 
 Round-trip: модель вернула tool_calls → инструменты исполнены (по одному,
 последовательно) → сообщения role:"tool" с корректными tool_call_id →
@@ -30,14 +30,14 @@ class FakeLLM:
         self.all_messages = []
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto"):
+                            tool_choice="auto", chat_id=None):
         self.all_messages.append(copy.deepcopy(messages))
         assert tools is not None, "generate_chat без tools — сломанный тест"
         if not self._answers:
             raise AssertionError("не хватило запланированных ответов")
         return self._answers.pop(0)
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         self.generated_plain += 1
         self.all_messages.append(copy.deepcopy(messages))
         return self.plain_text
@@ -166,7 +166,8 @@ class TestChatWithTools:
                 self.plain_text = "обычный ответ без инструментов"
 
             async def generate_chat(self, messages, *, temperature=None,
-                                    tools=None, tool_choice="auto"):
+                                    tools=None, tool_choice="auto",
+                                    chat_id=None):
                 raise LLMError("HTTP 400: provider does not support tools")
 
         llm = RejectingLLM()

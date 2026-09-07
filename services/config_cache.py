@@ -157,7 +157,8 @@ class ConfigCache:
             settings_rows = await conn.fetch(
                 "SELECT key, value, category, updated_at FROM bot_settings")
             role_rows = await conn.fetch(
-                "SELECT role_name, permissions, is_custom FROM bot_roles")
+                "SELECT role_name, permissions, is_custom, role_type "
+                "FROM bot_roles")
             admin_rows = await conn.fetch(
                 "SELECT telegram_id, role_name, added_by, created_at "
                 "FROM bot_admins")
@@ -173,6 +174,8 @@ class ConfigCache:
             roles_map[r["role_name"]] = {
                 "permissions": perms,
                 "is_custom": _coerce_bool(r["is_custom"]),
+                # Раунд 10 (F-7 §2.1): роль-тип встроенных ролей (NULL=custom).
+                "role_type": r.get("role_type"),
             }
         admins_map = {r["telegram_id"]: r["role_name"] for r in admin_rows}
         admins_full = {

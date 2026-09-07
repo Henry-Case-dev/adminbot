@@ -202,7 +202,7 @@ class FakeLLM:
         self.call_count = 0
         self.temperature = None
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         self.call_count += 1
         self.messages = messages
         self.temperature = temperature
@@ -220,7 +220,7 @@ class GatedLLM:
         self.enter = asyncio.Event()
         self.call_count = 0
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         self.call_count += 1
         await self.enter.wait()
         return self.text
@@ -1537,7 +1537,7 @@ class RecordingLLM:
         self.max_active = 0
         self.order = []
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         self.active += 1
         self.max_active = max(self.max_active, self.active)
         self.order.append(len(self.order) + 1)
@@ -2885,7 +2885,7 @@ class _ToolsLLM:
         self.seen_tools = None
 
     async def generate_chat(self, messages, *, temperature=None, tools=None,
-                            tool_choice="auto"):
+                            tool_choice="auto", chat_id=None):
         self.call_count += 1
         self.seen_tools = tools
         if self.call_count == 1:
@@ -2899,7 +2899,7 @@ class _ToolsLLM:
         return LLMChatResult(content=self.final_text, tool_calls=None,
                              finish_reason="stop")
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         raise AssertionError("generate не должен зваться при живом tools-цикле")
 
 
@@ -2948,7 +2948,8 @@ class TestDirectChatToolCalling:
 
         class _FailingToolsLLM(_ToolsLLM):
             async def generate_chat(self, messages, *, temperature=None,
-                                    tools=None, tool_choice="auto"):
+                                    tools=None, tool_choice="auto",
+                                    chat_id=None):
                 from services.llm_client import LLMServerError
                 raise LLMServerError("LLM server error 503 after 3 attempts: u")
 
@@ -2995,7 +2996,7 @@ class TestDirectChatDigPreGate:
         captured = {}
 
         async def _fake_chat_with_tools(llm, payload, *, tools, router, ctx,
-                                        temperature):
+                                        temperature, chat_id=None):
             captured["payload"] = payload
             return "готовый ответ"
 

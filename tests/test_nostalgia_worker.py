@@ -106,6 +106,12 @@ def _worker(db, llm=None, *, values=None, monkeypatch=None, bot=None,
         bot_id=BOT_ID)
     if values:
         _hot_cache(monkeypatch, values)
+    else:
+        # Раунд 10 (F-10 §6): см. test_dream_worker — глобальный флаг ON
+        # для фоновых кейсов (иначе gates chain скинет чат при тике);
+        # НЕ перезаписываем кэш, заданный до _worker.
+        if getattr(hot, "_cache", None) is None:
+            _hot_cache(monkeypatch, {"memory.nostalgia_enabled": True})
     return w
 
 
@@ -159,8 +165,11 @@ class TestGates:
         assert await _log_rows(db) == []
 
     @pytest.mark.asyncio
-    async def test_flag_off_job_not_registered_but_run_once_works(
+    async def test_flag_off_job_not_registered_and_run_once_skipped(
             self, db, monkeypatch):
+        """ФИКС R5 (F-10 §6): флаг/гейт off → джоб не регистрируется И
+        ручной run_once теперь скипается (kill-switch стопит ручные
+        запуски; carve-out удалён)."""
         _patch_time(monkeypatch)
         _hot_cache(monkeypatch, {"memory.nostalgia_enabled": False})
         await _add_user_msg(db, "давно молчим", ts=NOW - 3 * 3600)
@@ -172,13 +181,10 @@ class TestGates:
         assert w._scheduler.get_jobs() == []
         assert w._scheduler.running is False
         result = await w.run_once(CHAT_ID)
-        assert result["status"] == "ok"
-        assert result["sent"] == 1
-        assert llm.calls and llm.calls[0][0][0]["content"] == \
-            NOSTALGIA_PROMPT.format(max_words=60)
-        sent = [r for r in await _log_rows(db) if r["status"] == "sent"]
-        assert len(sent) == 1
-        assert sent[0]["kind"] == "year_back"
+        assert result["sent"] == 0                  # gate nostalgia → skip
+        assert llm.calls == []
+        rows = await _log_rows(db)
+        assert not any(r["status"] == "sent" for r in rows)
 
     @pytest.mark.asyncio
     async def test_silence_too_short_skip(self, db, monkeypatch):
@@ -379,7 +385,8 @@ class TestCandidatesAndThreshold:
     @pytest.mark.asyncio
     async def test_aggressiveness_raises_threshold(self, db, monkeypatch):
         _patch_time(monkeypatch)
-        _hot_cache(monkeypatch, {"memory.nostalgia_aggressiveness": 1.0})
+        _hot_cache(monkeypatch, {"memory.nostalgia_aggressiveness": 1.0,
+                                 "memory.nostalgia_enabled": True})
         await _add_user_msg(db, "тишина", ts=NOW - 30 * 3600)
         await _add_user_msg(db, "год назад текст для кандидата",
                             ts=NOW - 365 * 86400 + 3000)
@@ -480,7 +487,8 @@ class TestLLMAndSend:
     async def test_send_text_capped_at_max_send_chars(self, db,
                                                       monkeypatch):
         _patch_time(monkeypatch)
-        _hot_cache(monkeypatch, {"memory.nostalgia_max_send_chars": 40})
+        _hot_cache(monkeypatch, {"memory.nostalgia_max_send_chars": 40,
+                                 "memory.nostalgia_enabled": True})
         await self._candidate_setup(db)
         llm = _FakeLLM("слово " * 100)
         bot = _FakeBot()

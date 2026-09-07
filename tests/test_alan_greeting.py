@@ -1,4 +1,4 @@
-"""Tests for Alan greeting video (F7).
+﻿"""Tests for Alan greeting video (F7).
 
 Tests cover:
   - Alan join via ChatMemberUpdated sends video with @Alan_Z caption
@@ -428,3 +428,24 @@ class TestAlanGreetingRace:
             await asyncio.gather(on_alan_join(event), alan_handler(msg))
 
         assert len(sends) == 1
+
+
+# Раунд 10 (F-9): PERMsoc-гейт — для router-интеграционных тестов мастер ON
+# (hot-кэш с flags.permsoc_enabled=True; дефолт ТЕПЕРЬ False — без мока
+# пермsoc-триггеры молчат, что и проверяется в изолированных кейсах).
+# ВАЖНО: chain-кэш — существующие ключи (кucha/junk/…) не затираются.
+@pytest.fixture(autouse=True)
+def _permsoc_master_on(monkeypatch):
+    from services import hot_config as hot
+
+    _prev = getattr(hot, "_cache", None)
+
+    class _ChainCache:
+        def get(self, key, default=None):
+            if key == "flags.permsoc_enabled":
+                return True
+            if _prev is not None and hasattr(_prev, "get"):
+                return _prev.get(key, default)
+            return default
+
+    monkeypatch.setattr(hot, "_cache", _ChainCache())

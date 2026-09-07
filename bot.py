@@ -795,6 +795,13 @@ async def main():
     cache = ConfigCache()
     await cache.init()
     set_config_cache(cache)
+    # ── Раунд 10 (F-7 §4.3): per-chat слой chat_params (кэш + NOTIFY). ──
+    # Рядом с ConfigCache; PG down → кэш fail-open (пустой), бот жив.
+    from services.chat_params import ChatParamsCache, set_chat_params_cache
+    set_chat_params_cache(ChatParamsCache(cache.pg))
+    # ── Раунд 10 (F-10 §5): runtime-PG для worker_budget (воркеры/API). ──
+    from services.worker_budget import set_worker_budget_pg
+    set_worker_budget_pg(cache.pg)
 
     # ── Раунд 5 (T-740, spec 3.3.4): авто-миграция канонов промптов в PG
     # (9 ключей; канон → новый канон; кастом юзера НЕ трогаем; PG down /

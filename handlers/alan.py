@@ -18,6 +18,8 @@ from config.settings import settings
 from services import hot_config as hot
 from services.database import DatabaseService
 from handlers.alan_greeting import _send_greeting, _last_greeting, _get_greeting_lock
+# Раунд 10 (F-9 B3): «Леха/Алан» — модуль плагина PERMsoc (гейт первой).
+from services.permsoc import PermsocGateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +119,8 @@ def setup_alan(db: DatabaseService) -> None:
 
 # N3 (ЧЕСТНО): импорт-time декоратор — значение из админки НЕ применяется
 # без рефакторинга фильтра; на каждом старте — фолбек settings.
-@alan_router.message(UserIdFilter(hot.get("reactions.alan_user_id", settings.ALAN_USER_ID)))
+@alan_router.message(PermsocGateFilter("alan"),
+                     UserIdFilter(hot.get("reactions.alan_user_id", settings.ALAN_USER_ID)))
 async def alan_handler(message: types.Message) -> None:
     """Count Alan's messages and reply with random phrase every N messages."""
     if alan_db is None:

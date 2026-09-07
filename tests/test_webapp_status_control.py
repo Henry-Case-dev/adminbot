@@ -125,7 +125,9 @@ class TestStatusEndpoint:
             resp = client.get("/api/status", headers=_hdr(uid))
             assert resp.status_code == 200, uid
             body = resp.json()
-            assert set(body) == {"bot", "server", "llm", "uptime"}
+            # ФИКС S2/F-9 §6: + permsoc-телеметрия (N из M) в сводке
+            assert set(body) == {"bot", "server", "llm", "uptime", "permsoc"}
+            assert body["permsoc"]["total"] == 5
             assert body["bot"]["mode"] == "polling"
             assert body["bot"]["version"]
             assert body["server"]["cpu_percent"] == 3.0
@@ -153,15 +155,19 @@ class TestStatusEndpoint:
         assert client.get("/api/status").status_code == 401
 
     def test_status_llm_keys_masked(self, client):
-        resp = client.get("/api/status", headers=_hdr(USER_ID))
-        cards = resp.json()["llm"]
-        assert cards
-        for card in cards:
-            key = card["key"]
-            assert set(key) == {"configured", "last4"}
-            health = card["health"]
-            assert set(health) >= {"ok", "status", "http_status",
-                                   "latency_ms", "checked_at"}
+        resp_admin = client.get("/api/status", headers=_hdr(ADMIN_ID))
+        resp_user = client.get("/api/status", headers=_hdr(USER_ID))
+        for resp, expected in ((resp_admin, {"configured", "last4"}),
+                               (resp_user, {"configured"})):
+            cards = resp.json()["llm"]
+            assert cards
+            for card in cards:
+                key = card["key"]
+                # ФИКС S2: last4 — только глобальному админу
+                assert set(key) == expected
+                health = card["health"]
+                assert set(health) >= {"ok", "status", "http_status",
+                                       "latency_ms", "checked_at"}
 
 
 class TestStatusLogsEndpoint:

@@ -353,18 +353,31 @@ class TestProfileGates:
             await conn.close()
 
     @pytest.mark.asyncio
-    async def test_manual_ignores_period_and_flag(self, tmp_path, monkeypatch):
+    async def test_manual_ignores_period_but_respects_gates(self, tmp_path,
+                                                            monkeypatch):
         conn = await _open_db(tmp_path)
         try:
             await _seed_busy_chat(conn)
             fresh = (datetime.now(timezone.utc) - timedelta(hours=1)
                      ).isoformat()
+            # ФИКС R5: гейт-флаг OFF применяется и к manual («Сгенерировать
+            # сейчас») — kill-switch стопит ручные запуски.
             _hot_cache(monkeypatch, {"flags.lore_auto_enabled": False})
             store = FakeStore({CHAT_ID: make_profile(last_auto_at=fresh)})
             llm = FakeLLM()
             worker, _ = _worker(store, conn, llm)
             result = await worker.generate_for_chat(CHAT_ID, manual=True)
-            assert result["status"] == "ok"          # manual вне периода
+            assert result == {"status": "skipped",
+                              "reason": "auto_flag_disabled"}
+            assert llm.call_count == 0
+            # гейт ON → manual вне периода работает (Q4-семантика сохранена)
+            _hot_cache(monkeypatch, {"flags.lore_auto_enabled": True})
+            store2 = FakeStore({CHAT_ID: make_profile(last_auto_at=fresh)})
+            llm2 = FakeLLM()
+            worker2, _ = _worker(store2, conn, llm2)
+            result2 = await worker2.generate_for_chat(CHAT_ID, manual=True)
+            assert result2["status"] == "ok"        # manual вне периода
+            assert llm2.call_count == 1
         finally:
             await conn.close()
 

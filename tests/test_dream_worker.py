@@ -70,6 +70,14 @@ def _worker(db, llm, *, values=None, monkeypatch=None):
     worker = DreamWorker(db, memory=None, llm=llm)
     if values:
         _hot_cache(monkeypatch, values)
+    else:
+        # Раунд 10 (F-10 §6): фоновые тесты без явного values — глобальный
+        # флаг включён (как в проде для работающего воркера), иначе
+        # gates_enabled (chain: гейт → флаг → False) скинет чат. НЕ
+        # перезаписываем уже установленный кэш (тесты задают свои ключи
+        # через _hot_cache ДО _worker).
+        if getattr(hot, "_cache", None) is None:
+            _hot_cache(monkeypatch, {"memory.dream_enabled": True})
     return worker
 
 
@@ -147,10 +155,11 @@ class TestTickRegistration:
             await worker.stop()
 
     @pytest.mark.asyncio
-    async def test_flag_off_no_job_and_run_once_still_works(self, db,
-                                                            monkeypatch):
-        """Флаг off → джоб не регистрируется; РУЧНОЙ run_once работает
-        (spec §3.6.2: ручной запуск не зависит от flags.dream_enabled)."""
+    async def test_flag_off_no_job_and_run_once_skipped(self, db,
+                                                        monkeypatch):
+        """ФИКС R5 (F-10 §6): глобальный флаг/гейт off → джоб не
+        регистрируется И ручной run_once теперь скипается (kill-switch
+        останавливает и ручные запуски — carve-out удалён)."""
         _hot_cache(monkeypatch, {"memory.dream_enabled": False})
         llm = _FakeLLM(_ANS_A)
         worker = DreamWorker(db, llm=llm)
@@ -159,9 +168,8 @@ class TestTickRegistration:
         assert worker._scheduler.get_job(DreamWorker.JOB_DREAM_ID) is None
         await _add_batch(db, 3, ("вася", "платит", "в баре"))
         res = await worker.run_once(CHAT_ID)
-        assert res["status"] == "ok"
-        assert res["distilled"] == 1
-        assert len(llm.calls) == 1
+        assert res["distilled"] == 0        # gate dream → skip до LLM
+        assert llm.calls == []
 
     @pytest.mark.asyncio
     async def test_tick_trigger_is_minute_based(self, db, monkeypatch):
@@ -373,8 +381,11 @@ class TestWindowAndBudgets:
         обнуляется (по run_at >= начало новых суток)."""
         import services.dream_worker as dw
         # лимит 6: near-limit (< 5 остатка) срабатывает после 2 дистилляций
+        # ФИКС R5: гейты применяются и к ручному run_once — явный глобальный
+        # флаг ON (иначе gate chain скинет чат).
         _hot_cache(monkeypatch,
-                   {"memory.dream_distillations_per_day": 6})
+                   {"memory.dream_distillations_per_day": 6,
+                    "memory.dream_enabled": True})
         llm = _FakeLLM(_ANS_A, _ANS_B, _ANS_A, _ANS_B)
         worker = _worker(db, llm, monkeypatch=monkeypatch)
         # три кластера в одном чате (по 3 факта, importance 4)
@@ -401,7 +412,9 @@ class TestWindowAndBudgets:
             self, db, monkeypatch):
         """Токенный бюджет: «почти у предела» (<5000 остатка) — тик
         завершается заранее после первого вызова (деньги ограничены)."""
-        _hot_cache(monkeypatch, {"memory.dream_tokens_per_day": 5000})
+        # ФИКС R5 (см. выше): явный глобальный флаг ON.
+        _hot_cache(monkeypatch, {"memory.dream_tokens_per_day": 5000,
+                                 "memory.dream_enabled": True})
         llm = _FakeLLM(_ANS_A, _ANS_B)
         worker = _worker(db, llm, monkeypatch=monkeypatch)
         await _add_batch(db, 3, ("вася", "платит", "в баре"))

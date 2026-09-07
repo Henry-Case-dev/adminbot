@@ -126,11 +126,12 @@ class TestUptimeBuckets:
 
 
 class TestSnapshot:
-    async def _build(self, svc, cache, monkeypatch):
+    async def _build(self, svc, cache, monkeypatch, is_global_admin=False):
         monkeypatch.setattr(
             "services.status_service.StatusService._server_metrics",
             staticmethod(lambda: {"cpu_percent": 1.0}))
-        return await svc.build_snapshot(cache)
+        ctx = types.SimpleNamespace(is_global_admin=is_global_admin)
+        return await svc.build_snapshot(cache, ctx=ctx)
 
     @pytest.mark.asyncio
     async def test_snapshot_structure(self, monkeypatch):
@@ -143,7 +144,7 @@ class TestSnapshot:
         svc.set_polling_state("polling")
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch)
-        assert set(snapshot) == {"bot", "server", "llm", "uptime"}
+        assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc"}
         bot = snapshot["bot"]
         assert bot["state"] == "polling"
         assert bot["mode"] == "polling"
@@ -185,7 +186,8 @@ class TestSnapshot:
         }))
         svc = StatusService()
         cache = _FakeCache(pg=_FakePg())
-        snapshot = await self._build(svc, cache, monkeypatch)
+        snapshot = await self._build(svc, cache, monkeypatch,
+                                     is_global_admin=True)
         cards = {c["provider"]: c for c in snapshot["llm"]}
         assert set(cards) >= {"deepseek", "groq", "openrouter"}
         assert cards["deepseek"]["model"]
@@ -199,6 +201,54 @@ class TestSnapshot:
         for card in cards.values():
             assert "sk_deepseek" not in str(card)
             assert "gsk_groq_secret" not in str(card)
+
+    @pytest.mark.asyncio
+    async def test_llm_cards_no_last4_for_readonly_roles(self, monkeypatch):
+        """ФИКС S2 (F-7 §1.2-2): read-only роли (local admin/moderator/user)
+        видят только {configured} — last4 глобальных ключей НЕ отдаются."""
+        hot.set_config_cache(_FakeCache({
+            "keys.llm_api_key": "sk_deepseek_123456",
+            "keys.groq_api_key": "gsk_groq_secret_abc",
+            "keys.openrouter_api_key": "",
+        }))
+        svc = StatusService()
+        cache = _FakeCache(pg=_FakePg())
+        snapshot = await self._build(svc, cache, monkeypatch,
+                                     is_global_admin=False)
+        cards = {c["provider"]: c for c in snapshot["llm"]}
+        assert cards["deepseek"]["key"] == {"configured": True}
+        assert cards["groq"]["key"] == {"configured": True}
+        assert cards["openrouter"]["key"] == {"configured": False}
+        for card in cards.values():
+            assert "last4" not in card["key"]
+            assert "sk_deepseek" not in str(card)
+        # fail-open: ctx=None → тоже без last4 (защита по умолчанию)
+        snapshot2 = await svc.build_snapshot(cache)
+        assert "last4" not in snapshot2["llm"][0]["key"]
+
+    @pytest.mark.asyncio
+    async def test_permsoc_telemetry_chat_context(self, monkeypatch):
+        """F-9 §6: «N из M» модулей PERMsoc для контекста чата (по
+        effective-состояниям реестра; решение alan не затрагивается)."""
+        svc = StatusService()
+
+        async def fake_master(chat_id):
+            return True
+
+        async def fake_module(chat_id, module_id):
+            return module_id != "mimic"
+
+        monkeypatch.setattr("services.permsoc.master_enabled", fake_master)
+        monkeypatch.setattr("services.permsoc.module_enabled", fake_module)
+        tele = await svc.permsoc_telemetry(-100)
+        assert tele["master"] is True
+        assert tele["total"] == 5
+        assert tele["enabled"] == 4
+        assert tele["modules"]["alan"] is True
+        assert tele["modules"]["mimic"] is False
+        # без чата: глобальный слой
+        tele2 = await svc.permsoc_telemetry(None)
+        assert tele2["total"] == 5
 
     @pytest.mark.asyncio
     async def test_health_not_configured(self, monkeypatch):

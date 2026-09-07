@@ -1,4 +1,4 @@
-"""Epic 22 / D53 — integration: приветствие > dead page > «пошёл нахуй».
+﻿"""Epic 22 / D53 — integration: приветствие > dead page > «пошёл нахуй».
 
 Covers the answer race for Slava:
   - join event → exactly one answer («ДОЛБОЕБ ВЕРНУЛСЯ»), no dead page;
@@ -176,3 +176,24 @@ class TestSlavikJoinPriority:
         bot_mock.send_message.assert_called_once()
         assert bot_mock.send_message.call_args.kwargs["text"] == "ДОЛБОЕБ ВЕРНУЛСЯ"
         mock_relay.send_dead_page.assert_not_called()
+
+
+# Раунд 10 (F-9): PERMsoc-гейт — для router-интеграционных тестов мастер ON
+# (hot-кэш с flags.permsoc_enabled=True; дефолт ТЕПЕРЬ False — без мока
+# пермsoc-триггеры молчат, что и проверяется в изолированных кейсах).
+# ВАЖНО: chain-кэш — существующие ключи (кucha/junk/…) не затираются.
+@pytest.fixture(autouse=True)
+def _permsoc_master_on(monkeypatch):
+    from services import hot_config as hot
+
+    _prev = getattr(hot, "_cache", None)
+
+    class _ChainCache:
+        def get(self, key, default=None):
+            if key == "flags.permsoc_enabled":
+                return True
+            if _prev is not None and hasattr(_prev, "get"):
+                return _prev.get(key, default)
+            return default
+
+    monkeypatch.setattr(hot, "_cache", _ChainCache())

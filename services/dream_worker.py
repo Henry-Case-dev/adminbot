@@ -63,6 +63,43 @@ from services.dream_prompts import (
     parse_distill_answer,
 )
 
+
+def _tick_jitter(base_minutes: int) -> int:
+    """Случайный сдвиг тика (worker_budget.jitter_safe ≤ interval/3);
+    0 — если jitter явно не задан (тесты/конфиг без ключа)."""
+    import random
+    try:
+        from services import worker_budget
+        if not worker_budget.jitter_active():
+            return 0
+        return random.randint(0, worker_budget.jitter_safe(base_minutes))
+    except Exception:
+        return 0
+
+
+async def _dream_budget_ok(chat_id: int, user_text: str) -> bool:
+    """F-10 §5: consume до LLM-вызова дистилляции — global + chat:<id>
+    (calls 1 + tokens est); любое False → budget-скип. Fail-open внутри
+    consume (PG down → True). ФИКС R4: приоритетная деградация по
+    global-лимиту (dream падает первым до consume — allowed_workers)."""
+    from services import worker_budget
+    if not await worker_budget.global_degradation_allows("dream"):
+        logger.warning(
+            "[dream] skip: global budget exhausted — degradation dream | "
+            "chat=%s", chat_id)
+        return False
+    est = worker_budget.estimate_tokens(user_text)
+    ok = await worker_budget.consume(None, "global", "llm_calls", 1)
+    if ok:
+        ok = await worker_budget.consume(None, "global", "llm_tokens", est)
+    if ok:
+        ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                         "llm_calls", 1)
+    if ok:
+        ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                         "llm_tokens", est)
+    return ok
+
 logger = logging.getLogger(__name__)
 
 _DREAM_BELIEF_WEIGHT = 0.6       # spec §3.4.6: вес belief (константа)
@@ -179,11 +216,15 @@ class DreamWorker:
         if not self._key("enabled", settings.DREAM_ENABLED):
             logger.info("DreamWorker disabled (memory.dream_enabled off)")
             return
+        # Раунд 10 (F-10 §5.2): jitter тика (случайный сдвиг ≤ интервал/3)
+        # — ТОЛЬКО при явном ключе worker_budget_jitter_minutes.
+        base_minutes = int(self._key("tick_minutes",
+                                     settings.DREAM_TICK_MINUTES) or 60)
+        tick_minutes = base_minutes + _tick_jitter(base_minutes)
         self._scheduler.add_job(
             self._tick,
             IntervalTrigger(
-                minutes=self._key("tick_minutes",
-                                  settings.DREAM_TICK_MINUTES),
+                minutes=tick_minutes,
                 timezone=self._tz_name),
             id=self.JOB_DREAM_ID, replace_existing=True,
             max_instances=1, coalesce=True)
@@ -351,6 +392,23 @@ class DreamWorker:
                         "| facts=%d", chat_id, len(rows))
             await self._finish_chat(chat_id, now, rows)   # все факты отобраны
             return out
+        # Раунд 10 (F-10 §6): тяжёлый гейт dream — kill-switch
+        # (chat gates[dream] → глобальный флаг → False); skip-аудит —
+        # memory_dream_log status='budget_skip' (прецедент). ФИКС R5:
+        # гейт применяется и к ручному run_once (F-10 §6 БЕЗ carve-out) —
+        # kill-switch останавливает и ручные запуски.
+        try:
+            from services.feature_gates import gates_enabled
+            if not await gates_enabled(chat_id, "dream"):
+                logger.warning(
+                    "[dream] WARNING skip: gate dream | chat_id=%s",
+                    chat_id)
+                await self.db.log_dream_event(
+                    chat_id, run_at, kind="skipped", status="budget_skip")
+                return out
+        except Exception:
+            logger.warning("[dream] gate check failed — fail-open | "
+                           "chat_id=%s", chat_id, exc_info=True)
         day_start = _day_start_ts(now, self._tz_name)
         distilled_today = await self.db.count_dream_log(
             day_start, kind="distilled")
@@ -395,6 +453,10 @@ class DreamWorker:
                 chat_id, run_at, cluster, cluster_id)
             out["clusters"] += 1
             tokens_today += tokens_used
+            if outcome == "budget":
+                out["budget_stop"] = True     # F-10: day-budget скип чата
+                abnormal = "budget"
+                break
             if outcome == "error":
                 out["errors"] += 1
                 abnormal = "error"
@@ -508,6 +570,17 @@ class DreamWorker:
         prompt_text = DREAM_DISTILL_PROMPT + "\n" + user_text
         messages = [{"role": "system", "content": DREAM_DISTILL_PROMPT},
                     {"role": "user", "content": user_text}]
+        # Раунд 10 (F-10 §5/§6): consume до LLM-вызова дистилляции
+        # (global + chat:<id>); False → memory_dream_log status='budget_skip'.
+        if not await _dream_budget_ok(chat_id, user_text):
+            await self.db.log_dream_event(
+                chat_id, run_at, kind="skipped", cluster_id=cluster_id,
+                source_ids=json.dumps(source_ids, ensure_ascii=False),
+                tokens=0, status="budget_skip")
+            logger.warning(
+                "[dream] WARNING skip: budget dream | chat_id=%s "
+                "| cluster=%d", chat_id, cluster_id)
+            return "budget", 0, False
         raw, tokens = await self._llm_once(messages, prompt_text)
         if raw is None:
             await self.db.log_dream_event(

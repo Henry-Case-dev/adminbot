@@ -106,6 +106,22 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # bot из services.web_runtime; отдельный router рядом с остальными.
     from web.api.avatars import avatar_router
     app.include_router(avatar_router, prefix="/api")
+    # Раунд 10 (F-7 §6, E1): /api/access/* (доступы, гранты, per-param
+    # права) — добавка рядом с остальными (существующие сигнатуры
+    # web/api/deps.py не меняются).
+    # ВАЖНО: включаем с СОБСТВЕННЫМИ префиксами (/api/access, /api/oversight,
+    # /api/chat/.., /api/workers/..) — иначе пути перекрывают существующие
+    # /api/me и /api/summary routes.py (порядок include после api_router).
+    from web.api.access import access_router
+    app.include_router(access_router, prefix="/api/access")
+    # Раунд 10 (F-10 §7, D3): гейты + воркер-бюджет API (прецедент
+    # chat_lore_router — рядом с api_router).
+    from web.api.gates import budget_router, gates_router
+    app.include_router(gates_router, prefix="/api")
+    app.include_router(budget_router, prefix="/api")
+    # Раунд 10 (F-12 §4, Q3): Oversight API (только global admin).
+    from web.api.oversight import oversight_router
+    app.include_router(oversight_router, prefix="/api/oversight")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
 

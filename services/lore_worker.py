@@ -44,6 +44,7 @@ coalesce=True)`; джоб регистрируется и планировщик
 import asyncio
 import logging
 import os
+import random
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -55,6 +56,43 @@ from config.settings import settings
 from services import hot_config as hot
 from services.chat_lore import CHAT_LORE_2661910336
 from services.llm_client import LLMError
+
+
+def _jitter(base_minutes: int) -> int:
+    """Случайный сдвиг тика от limits.worker_budget_jitter_minutes
+    (капнуто ≤ interval/3 — worker_budget.jitter_safe); 0 — если jitter
+    явно не задан (тесты/конфиг без ключа)."""
+    try:
+        from services import worker_budget
+        if not worker_budget.jitter_active():
+            return 0
+        return random.randint(0, worker_budget.jitter_safe(base_minutes))
+    except Exception:
+        return 0
+
+
+async def _budget_ok(chat_id: int, tokens_estimate: int,
+                     worker_id: str = "lore") -> bool:
+    """F-10 §5: consume global (calls 1 + tokens) и chat:<id>; любое False →
+    скип. Fail-open сам consume (PG down → True). ФИКС R4: приоритетная
+    деградация по global-лимиту (allowed_workers) до consume."""
+    from services import worker_budget
+    if not await worker_budget.global_degradation_allows(worker_id):
+        logger.warning(
+            "[lore_worker] skip: global budget exhausted — degradation %s | "
+            "chat=%s", worker_id, chat_id)
+        return False
+    ok = await worker_budget.consume(None, "global", "llm_calls", 1)
+    if ok:
+        ok = await worker_budget.consume(None, "global", "llm_tokens",
+                                         tokens_estimate)
+    if ok:
+        ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                         "llm_calls", 1)
+    if ok:
+        ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                         "llm_tokens", tokens_estimate)
+    return ok
 from services.lore_prompts import (
     LORE_INIT_SYSTEM_PROMPT,
     LORE_MERGE_SYSTEM_PROMPT,
@@ -165,11 +203,15 @@ class LoreWorker:
         if self._scheduler is None:
             tz = hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
             self._scheduler = AsyncIOScheduler(timezone=tz)
+        # Раунд 10 (F-10 §5.2): jitter тика — случайный сдвиг ≤ interval/3
+        # (риск 10.4: шире интервала → частота падает вдвое).
+        base_minutes = int(hot.get("limits.lore_tick_minutes",
+                                   settings.LORE_TICK_MINUTES) or 30)
+        tick_minutes = base_minutes + _jitter(base_minutes)
         self._scheduler.add_job(
             self.tick,
             IntervalTrigger(
-                minutes=hot.get("limits.lore_tick_minutes",
-                                settings.LORE_TICK_MINUTES),
+                minutes=tick_minutes,
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=_JOB_ID, replace_existing=True,
@@ -253,10 +295,27 @@ class LoreWorker:
             # строгий скип (тумблер): авто-тик токены не тратит; «Сгенерировать
             # сейчас» при выключенном отсекается на API (409 auto_disabled)
             return {"status": "skipped", "reason": "auto_disabled"}
+        # ФИКС R5 (F-10 §6): гейты (глобальный флаг + chat-gate lore_auto)
+        # применяются и к РУЧНОМУ запуску «Сгенерировать сейчас» — kill-switch
+        # стопит и ручные прогоны (спецификация БЕЗ carve-out).
+        if not hot.get("flags.lore_auto_enabled",
+                       settings.LORE_AUTO_ENABLED):
+            return {"status": "skipped", "reason": "auto_flag_disabled"}
+        # Раунд 10 (F-10 §6): префильтр тяжёлого гейта lore_auto
+        # (kill-switch override: gates[feature] → глобальный флаг →
+        # False); WARNING skip без записи истории.
+        try:
+            from services.feature_gates import gates_enabled
+            if not await gates_enabled(chat_id, "lore_auto"):
+                logger.info(
+                    "[lore_worker] skip | chat=%s | reason=gate_lore_auto "
+                    "(WARNING skip: gate lore_auto)", chat_id)
+                return {"status": "skipped", "reason": "gate_lore_auto"}
+        except Exception:
+            logger.warning(
+                "[lore_worker] gate check failed — fail-open | chat=%s",
+                chat_id, exc_info=True)
         if not manual:
-            if not hot.get("flags.lore_auto_enabled",
-                           settings.LORE_AUTO_ENABLED):
-                return {"status": "skipped", "reason": "auto_flag_disabled"}
             if not _due_at(profile.last_auto_at, profile.auto_period_hours,
                            datetime.now(timezone.utc)):
                 return {"status": "skipped", "reason": "period_not_due"}
@@ -266,8 +325,8 @@ class LoreWorker:
             if done_mono is not None and \
                     time.monotonic() - done_mono < float(cooldown or 0):
                 return {"status": "skipped", "reason": "cooldown"}
-        # manual: период/флаги не проверяются, cooldown игнорируется (Q4);
-        # auto_enabled при manual тоже обязателен (FR-4 → 409 на API).
+        # manual: период/cooldown не проверяются (Q4), auto_enabled/гейты —
+        # обязательны всегда (R5).
 
         # Прогон — по АКТУАЛЬНОМУ id (резолв chat_links уже внутри
         # store.get_profile; spec §3.5: окно/запись/лок — по resolved):
@@ -390,6 +449,15 @@ class LoreWorker:
             system = LORE_INIT_SYSTEM_PROMPT.format(max_words=max_words)
             user = build_init_user(lines, window_hours=window_hours,
                                    facts=facts)
+        # Раунд 10 (F-10 §5): суточный бюджет фона — consume ДО LLM-вызова
+        # (global + chat:<id>); False → skip, история НЕ пишется (WARNING).
+        from services import worker_budget
+        if not await _budget_ok(chat_id,
+                                worker_budget.estimate_tokens(user)):
+            logger.warning(
+                "[lore_worker] WARNING skip: budget lore_auto | chat=%s",
+                chat_id)
+            return {"status": "skipped", "reason": "budget_skip"}
         raw = await self._llm.generate([
             {"role": "system", "content": system},
             {"role": "user", "content": user},

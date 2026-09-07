@@ -1,4 +1,4 @@
-"""Раунд N (T-840/T-842): direct_chat на per-chat пуле семафоров вместо
+﻿"""Раунд N (T-840/T-842): direct_chat на per-chat пуле семафоров вместо
 замка R60-2. Ключевые регрессии:
   * N=2: два handle ОДНОГО чата выполняются параллельно (раньше — строго
     последовательно per-chat локом); третий ждёт слот / получает busy-фразу;
@@ -141,7 +141,7 @@ class GateLLM:
         self.active = 0
         self.max_active = 0
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         self.call_count += 1
         self.active += 1
         self.max_active = max(self.max_active, self.active)

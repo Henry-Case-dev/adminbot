@@ -17,6 +17,8 @@ from aiogram import Router, types
 from filters.user_id import UserIdFilter
 from config.settings import settings
 from services import hot_config as hot
+# Раунд 10 (F-9 B2): «Костя» — модуль плагина PERMsoc (гейт первой).
+from services.permsoc import PermsocGateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,8 @@ KOSTIK_REPLIES = [
 ]
 
 
-@kostik_router.message(UserIdFilter(hot.get("reactions.kostik_user_id", settings.KOSTIK_USER_ID)))
+@kostik_router.message(PermsocGateFilter("kostik"),
+                       UserIdFilter(hot.get("reactions.kostik_user_id", settings.KOSTIK_USER_ID)))
 async def kostik_handler(message: types.Message) -> None:
     """Reply to Kostik with configurable probability using random phrase.
     T-619: вероятность — горячая точка (фолбек settings)."""

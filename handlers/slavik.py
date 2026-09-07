@@ -10,6 +10,9 @@ from filters.kucha_word import KuchaWordFilter
 from config.settings import settings
 from services import hot_config as hot
 from services.mimic_transform import mimic_transform, count_words
+# Раунд 10 (F-9 B2): плагин-гейт 5 персон-триггеров (замену фильтра
+# НЕ делаем — PermsocGateFilter первым, UserIdFilter остаётся вторым).
+from services.permsoc import PermsocGateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +169,8 @@ async def kucha_handler(message: types.Message, data: dict | None = None):
 # Handler 2: Catch-all — priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4)
 # Note: F5 (war words) moved to war_alert_router at position 4b (Epic 10)
 # Note: F6 (slavic photo) — every N replies, send slavic_na_litso.jpg (Epic 12)
-@slavik_router.message(UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)))
+@slavik_router.message(PermsocGateFilter("slavik"),
+                       UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)))
 async def slavik_catchall_handler(message: types.Message, data: dict | None = None):
     """Reply to Slava. Priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4).
 

@@ -81,6 +81,7 @@ import time
 from config.settings import settings
 from services import chat_access
 from services import hot_config as hot
+from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.llm_client import (
     LLMBadResponseError,
@@ -88,6 +89,7 @@ from services.llm_client import (
     LLMServerError,
     LLMTimeoutError,
     LLMTransportError,
+    NoApiKeyForChat,
 )
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.payload_builder import build_messages
@@ -508,9 +510,15 @@ class DirectChatService:
                 if dig_block:
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
-            # T-619: системный промпт — горячая точка (фолбек код-канона)
-            system_prompt = hot.get("prompts.direct_chat_system_prompt",
-                                    CHAT_SYSTEM_PROMPT)
+            # T-619: системный промпт — горячая точка (фолбек код-канона).
+            # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
+            # канон) — «Использовать мой» локального админа работает ТОЛЬКО
+            # в его чате; fail-open: PG down → глобальный.
+            from services.chat_params import get_chat_param as _cpg
+            system_prompt = await _cpg(
+                chat_id, "prompts.direct_chat_system_prompt",
+                hot.get("prompts.direct_chat_system_prompt",
+                        CHAT_SYSTEM_PROMPT))
             payload = build_messages(system_prompt, user_blocks)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
             # или дефолт. Другие пайплайны — без temperature (65.8).
@@ -527,10 +535,22 @@ class DirectChatService:
                             self.llm, payload, tools=TOOL_CALLING_TOOLS,
                             router=self.tool_router,
                             ctx=ToolContext(chat_id, query),
-                            temperature=temperature)
+                            temperature=temperature, chat_id=chat_id)
                     else:
                         raw = await self.llm.generate(payload,
-                                                      temperature=temperature)
+                                                      temperature=temperature,
+                                                      chat_id=chat_id)
+            except NoApiKeyForChat as exc:
+                # Раунд 10 (F-7 §5.2): у чата нет своего ключа, глобальный
+                # запрещён/исчерпан → sandbox-фраза content.no_key_reply
+                # (LLM НЕ вызывается; тишины нет — R16).
+                logger.warning(
+                    "[direct] no key — sandbox answer | chat=%s | reason=%s",
+                    chat_id, exc.reason)
+                reply_phrase = hot.get(
+                    "content.no_key_reply", DEFAULT_NO_KEY_REPLY)
+                await _reply(bot, chat_id, reply_phrase, message.message_id)
+                return
             except LLMBadResponseError as exc:
                 # Epic 60 (65.1, T-469): модель ЖИВА, но ответила пустым →
                 # молчание + 🗿 (НЕ R13-фраза, НЕ заглушка). Ветка ДО

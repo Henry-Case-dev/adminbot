@@ -68,14 +68,62 @@ async def on_bot_joined(event: types.ChatMemberUpdated):
     logger.info("[chat_lifecycle] bot joined | chat_id=%s | status=%s",
                 chat_id, event.new_chat_member.status)
     try:
+        existed = False
         if _store is not None:
+            existed = await _store.get_profile(chat_id) is not None
             await _store.upsert_profile_on_join(chat_id)
             await _store.set_active(chat_id, True)
+        # ── Раунд 10 (F-9 T-884 / F-10 T-893): жёсткий Opt-In для НОВЫХ
+        # чатов (профиля НЕ было). gates-пространство пусто/отсутствует →
+        # явные дефолты: permsoc=false (F-9) + тяжёлые dream/nostalgia/
+        # lore_auto=false (F-10); gates_opt_in — дефолт колонки (=false).
+        # Существующие профили НЕ трогаем (их поведение — бэкфил-скрипты
+        # Q3 деплоя); повторный вход (гейты уже записаны) — no-op.
+        if not existed:
+            await ensure_gates_defaults(chat_id)
     except Exception:
         logger.warning(
             "[chat_lifecycle] join upsert failed — fail-open | chat_id=%s",
             chat_id, exc_info=True)
     return None
+
+
+async def ensure_gates_defaults(chat_id: int) -> None:
+    """Единый патч gates при вступлении бота (F-9 + F-10 в ОДНОМ вызове
+    set_chat_params — риск-гонка §8-правило: не делать два UPDATE)."""
+    try:
+        from services import chat_params
+        pg = None
+        cache = _global_cache()
+        if cache is not None:
+            pg = getattr(cache, "pg", None)
+        if pg is None:
+            return
+        root = await chat_params.get_all_chat_params(chat_id)
+        gates = root.get("gates") or {}
+        if gates:
+            return                     # уже записаны (в т.ч. частично)
+        await chat_params.set_chat_params(
+            chat_id,
+            {"gates": {"permsoc": False, "dream": False,
+                       "nostalgia": False, "lore_auto": False},
+             "meta": {"updated_by": None, "note": "gates defaults (join)"}},
+            changed_by=None, pg=pg, history_field="gates")
+        logger.info(
+            "[chat_lifecycle] gates defaults written | chat_id=%s "
+            "(permsoc=dream=nostalgia=lore_auto=false)", chat_id)
+    except Exception:
+        logger.warning(
+            "[chat_lifecycle] gates defaults failed — fail-open | chat_id=%s",
+            chat_id, exc_info=True)
+
+
+def _global_cache():
+    try:
+        from services import hot_config as hot
+        return hot.get_config_cache()
+    except Exception:
+        return None
 
 
 @chat_lifecycle_router.chat_member(

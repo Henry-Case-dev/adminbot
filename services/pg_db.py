@@ -134,22 +134,113 @@ DDL_STATEMENTS: tuple[str, ...] = (
     ALTER TABLE chat_profiles
         ADD COLUMN IF NOT EXISTS relations_enabled BOOLEAN NOT NULL DEFAULT FALSE
     """,
+    # ── Раунд 10 (multi-chat-rbac-byok, F-7 spec §2.1/§3/§4.1/§5.1) ──────────
+    # Аддитивные дельты: role_type (NULL=custom), role_name per-chat-гранта,
+    # chat_params (слой per-chat overrides + gates + keys-мета + meta),
+    # param_permissions (per-param min-роли view/edit, отдельная таблица —
+    # НЕ runtime-конфиг, в ConfigCache не попадает), chat_keys (BYOK,
+    # ключи чатов — ТОЛЬКО whitelist keys.llm_api_key), chat_usage
+    # (суточный счётчик бюджета глобального ключа), CHECK-расширение
+    # chat_lore_history.field (chat_params/chat_keys/gates) — DROP+ADD
+    # в одной связке (идемпотентно: повторный DROP IF EXISTS — no-op).
+    """
+    ALTER TABLE bot_roles
+        ADD COLUMN IF NOT EXISTS role_type TEXT
+    """,
+    """
+    ALTER TABLE chat_admins
+        ADD COLUMN IF NOT EXISTS role_name TEXT NOT NULL DEFAULT 'local_admin'
+    """,
+    """
+    ALTER TABLE chat_profiles
+        ADD COLUMN IF NOT EXISTS chat_params JSONB NOT NULL DEFAULT '{}'::jsonb
+    """,
+    """
+    ALTER TABLE chat_profiles
+        ADD COLUMN IF NOT EXISTS gates_opt_in BOOLEAN NOT NULL DEFAULT FALSE
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS param_permissions (
+        key        TEXT PRIMARY KEY,
+        value      JSONB NOT NULL DEFAULT '{}',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_keys (
+        chat_id    BIGINT NOT NULL,
+        key_name   TEXT NOT NULL,
+        key_value  TEXT NOT NULL,
+        key_hint   TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (chat_id, key_name)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_usage (
+        chat_id BIGINT NOT NULL,
+        day     DATE NOT NULL,
+        metric  TEXT NOT NULL,
+        used    BIGINT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (chat_id, day, metric)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS worker_budget (
+        day        DATE NOT NULL,
+        scope      TEXT NOT NULL,
+        metric     TEXT NOT NULL,
+        used       BIGINT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (day, scope, metric)
+    )
+    """,
+    """
+    ALTER TABLE chat_lore_history DROP CONSTRAINT IF EXISTS chat_lore_history_field_check
+    """,
+    """
+    ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check
+        CHECK (field IN ('manual','auto','auto_enabled','auto_period_hours',
+                         'auto_window_hours','remap','chat_admin','chat_params',
+                         'chat_keys','gates'))
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────
 # Роли v2 (84.14.3): permissions-объект вместо плоского массива 84.3.
+# Раунд 10 (F-7 §2.1): role_type-сиды — 4 встроенные роли (role_type
+# семантический маркер; существующие admin/moderator/user НЕ
+# перезаписываются — role_type дополняется отдельным UPDATE, см.
+# _seed_role_types), + НОВАЯ строка local_admin (пресет без wildcard,
+# без keys/echo-секций; промпты — через per-chat override «Использовать мой»).
+LOCAL_ADMIN_PRESET_JSON: dict = {
+    "sections": ["limits", "flags", "reactions", "content", "chat_lore"],
+    "actions": [],
+}
+
 DEFAULT_ROLES: tuple[dict, ...] = (
-    {"role_name": "admin", "permissions": {"wildcard": True}, "is_custom": False},
+    {"role_name": "admin", "permissions": {"wildcard": True},
+     "is_custom": False, "role_type": "global_admin"},
     {
         "role_name": "moderator",
         "permissions": {
             "sections": ["limits"],
             "actions": ["control.restart", "control.stop", "control.start"],
         },
-        "is_custom": False,
+        "is_custom": False, "role_type": "moderator",
     },
-    {"role_name": "user", "permissions": {}, "is_custom": False},
+    {"role_name": "user", "permissions": {}, "is_custom": False,
+     "role_type": "user"},
+    {"role_name": "local_admin", "permissions": LOCAL_ADMIN_PRESET_JSON,
+     "is_custom": False, "role_type": "local_admin"},
 )
+
+UPDATE_ROLE_TYPE_SQL = """
+    UPDATE bot_roles SET role_type = $1, is_custom = false
+    WHERE role_name = $2 AND role_type IS NULL
+"""
 
 # КРИТИЧНО (84.3/84.14.3): telegram_id БЕЗ изменений.
 DEFAULT_ADMINS: tuple[tuple[int, str], ...] = (
@@ -308,6 +399,10 @@ class PgDatabase:
                 json.dumps(role["permissions"]),
                 role["is_custom"],
             )
+            role_type = role.get("role_type")
+            if role_type is not None:
+                await conn.execute(
+                    UPDATE_ROLE_TYPE_SQL, role_type, role["role_name"])
         logger.info("[pg_db] roles seeded: %s",
                     [r["role_name"] for r in DEFAULT_ROLES])
 

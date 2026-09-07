@@ -1,4 +1,4 @@
-"""Epic 51 (R51-2/R51-4в, Section 59.3, D211): payload-билдер.
+﻿"""Epic 51 (R51-2/R51-4в, Section 59.3, D211): payload-билдер.
 
 build_messages: system на индексе 0, user = "\n\n".join(блоков) в порядке.
 Guard-тест (59.5 #9): у ВСЕХ LLM-генераторов messages[0]["role"] == "system"
@@ -35,7 +35,7 @@ class _SpyLLM:
         self.text = text
         self.messages = None
 
-    async def generate(self, messages, temperature=None):
+    async def generate(self, messages, temperature=None, chat_id=None):
         self.messages = messages
         return self.text
 

@@ -382,6 +382,28 @@ class Settings:
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
+    # ── Раунд 10 (F-10 §5.1): локальная таймзона дня бюджетов фона ──
+    WORKER_BUDGET_TZ: str = os.getenv("WORKER_BUDGET_TZ", "Asia/Yekaterinburg")
+    # ── Раунд 10 (F-7 §5.2): суточные бюджеты глобального ключа на чат ──
+    CHAT_GLOBAL_KEY_BUDGET_TOKENS: int = _env_int(
+        "CHAT_GLOBAL_KEY_BUDGET_TOKENS", 100000)
+    CHAT_GLOBAL_KEY_BUDGET_REQUESTS: int = _env_int(
+        "CHAT_GLOBAL_KEY_BUDGET_REQUESTS", 25)
+    # ── Раунд 10 (F-10 §5.2): суточные бюджеты фоновых воркеров ──
+    WORKER_DAILY_LLM_CALLS_GLOBAL: int = _env_int(
+        "WORKER_DAILY_LLM_CALLS_GLOBAL", 200)
+    WORKER_DAILY_LLM_TOKENS_GLOBAL: int = _env_int(
+        "WORKER_DAILY_LLM_TOKENS_GLOBAL", 500000)
+    WORKER_DAILY_LLM_CALLS_PER_CHAT: int = _env_int(
+        "WORKER_DAILY_LLM_CALLS_PER_CHAT", 35)
+    WORKER_DAILY_LLM_TOKENS_PER_CHAT: int = _env_int(
+        "WORKER_DAILY_LLM_TOKENS_PER_CHAT", 100000)
+    WORKER_PRIORITY_ORDER: str = os.getenv(
+        "WORKER_PRIORITY_ORDER", "nostalgia,lore,dream")
+    WORKER_BUDGET_JITTER_MINUTES: int = _env_int(
+        "WORKER_BUDGET_JITTER_MINUTES", 5)
+    # ── Раунд 10 (F-9 §3): мастер-тумблер «Функции PERMsoc» (дефолт FALSE) ──
+    PERMSOC_ENABLED: bool = _env_bool("PERMSOC_ENABLED", False)
     # Пусто = /summary разрешена всем (R9/D62).
     ALLOWED_SUMMARY_IDS: tuple[int, ...] = _env_int_tuple("ALLOWED_SUMMARY_IDS", ())
     # Epic 31 (D94): true = /summary только для ADMIN_USER_ID (ALLOWED_SUMMARY_IDS

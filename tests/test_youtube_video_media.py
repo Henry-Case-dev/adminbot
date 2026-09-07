@@ -1,4 +1,4 @@
-"""Bugfix 04.09.2026 (Часть 1, AC-1.2…AC-1.6) — медиа-ветка youtube.py:
+﻿"""Bugfix 04.09.2026 (Часть 1, AC-1.2…AC-1.6) — медиа-ветка youtube.py:
 нативные TG-видео (video/document video/*, включая репосты) по триггерам
 «транскрипт/че за видос/…» БЕЗ YouTube-URL → VoiceTranscriber → сырой текст /
 LLM-выжимка; лимиты ДО скачивания; деградация; двойная инъекция памяти;
@@ -611,7 +611,14 @@ def reaction_env(yv_cleanup):
     _setup(db=db, memory=memory)
 
     old_cache = hot.get_config_cache()
-    hot.set_config_cache(None)
+
+    class _PermsocCache:   # Раунд 10 (F-9): master ON для реакции-кейсов
+        def get(self, key, default=None):
+            if key == "flags.permsoc_enabled":
+                return True
+            return default
+
+    hot.set_config_cache(_PermsocCache())
 
     dp = Dispatcher()
     for router in routers:
@@ -670,3 +677,23 @@ class TestReactionIsolation:
 
         sent = _sent_texts(bot)
         assert sent == ["пошёл нахуй"]
+
+# Раунд 10 (F-9): PERMsoc-гейт — для router-интеграционных тестов мастер ON
+# (hot-кэш с flags.permsoc_enabled=True; дефолт ТЕПЕРЬ False — без мока
+# пермsoc-триггеры молчат, что и проверяется в изолированных кейсах).
+# ВАЖНО: chain-кэш — существующие ключи (кucha/junk/…) не затираются.
+@pytest.fixture(autouse=True)
+def _permsoc_master_on(monkeypatch):
+    from services import hot_config as hot
+
+    _prev = getattr(hot, "_cache", None)
+
+    class _ChainCache:
+        def get(self, key, default=None):
+            if key == "flags.permsoc_enabled":
+                return True
+            if _prev is not None and hasattr(_prev, "get"):
+                return _prev.get(key, default)
+            return default
+
+    monkeypatch.setattr(hot, "_cache", _ChainCache())

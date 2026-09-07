@@ -10,12 +10,14 @@ import json
 import logging
 from typing import Any, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aiogram.utils.web_app import WebAppUser
 
-from services import param_catalog
+from services import access as access_srv
+from services import chat_keys, chat_params, chat_usage, param_catalog
+from services import roles as roles_srv
 from services.config_cache import (
     ConfigCache,
     ConfigCacheUnavailableError,
@@ -37,6 +39,7 @@ from services.param_catalog import (
     known_param_keys,
     known_secret_keys,
     known_sections,
+    resolve_progressive_level,
 )
 from services.permissions import (
     ACTION_IDS,
@@ -73,6 +76,8 @@ class ConfigItemUpdate(BaseModel):
 
 class ConfigUpdateRequest(BaseModel):
     items: list[ConfigItemUpdate]
+    # Раунд 10 (F-7 §6): optimistic-метка чата при X-Chat-Id (409-протокол).
+    updated_at: str | None = None
 
 
 class AdminUpsert(BaseModel):
@@ -92,6 +97,23 @@ class RoleUpsert(BaseModel):
 
 class InfoUpdate(BaseModel):
     html: str
+
+
+class ConfigChatDelete(BaseModel):
+    key: str
+
+
+class ChatKeyBody(BaseModel):
+    key_name: str
+    value: str = ""
+
+
+class ChatKeyDelete(BaseModel):
+    key_name: str
+
+
+class ChatKeysStatus(BaseModel):
+    pass
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -139,6 +161,18 @@ def _coerce_value(spec, raw) -> Any:
     if isinstance(raw, str):
         return raw
     return str(raw)
+
+
+def _chat_id_or_none(x_chat_id: str | None) -> int | None:
+    """X-Chat-Id: прозрачный заголовок; мусор → 422; отсутствует → None
+    (ровно старое поведение — глобальный конфиг, F-7 §6)."""
+    if x_chat_id is None:
+        return None
+    try:
+        return int(x_chat_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422,
+                            detail="X-Chat-Id — целое число")
 
 
 def _mask_secret(value, telegram_id: int, pg_key: str, cache: ConfigCache) -> dict:
@@ -192,21 +226,73 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
 async def get_config(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """84.5: любая роль; секреты маскируются (84.12.4 + 2026-09-03: всегда
     {configured,last4}). Плюс title/type из param_catalog — фронту для
     рендера форм (84.7). 84.24 (02.09.2026): groups[] + group/description
-    в items; сортировка (category, group.order, title_ru)."""
+    в items; сортировка (category, group.order, title_ru).
+    Раунд 10 (F-7 §6): X-Chat-Id → слой чата: per-param фильтры
+    (can_view_param: hidden_from_local/min-роль view; keys-секция для
+    локального админа — полностью исключается), значения = chat_params
+    (overrides) → глобал → дефолт; 403 «нет доступа к чату»."""
     cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    ctx = None
+    chat_root: dict = {}
+    db_overrides: dict = {}
+    try:
+        db_overrides = await access_srv.db_override_map(cache.pg)
+    except Exception:
+        db_overrides = {}
+    if chat_id is not None:
+        ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+        if not access_srv.can_access_chat(ctx):
+            raise HTTPException(status_code=403, detail="нет доступа к чату")
+        chat_root = await chat_params.get_all_chat_params(chat_id)
+    else:
+        # F-7 §1.2-2: глобальный путь тоже требует роль-контекст — иначе
+        # секрет-ключи (в т.ч. {configured,last4} global key) были видны
+        # любой TMA-роли (фикс S1).
+        ctx = await roles_srv.access_for(user.id, cache=cache)
     items = []
     for key, value in sorted(cache.get_all().items()):
         spec = get_by_pg_key(key)
         category = spec.category if spec else key.split(".")[0]
         secret = bool(spec.secret) if spec else category == CATEGORY_KEYS
+        if chat_id is not None and ctx is not None:
+            # F-7 §6: фильтр видимости per-chat (hidden/min-роль view);
+            # keys-секция: локальному админу — полностью исключается
+            if secret and not ctx.is_global_admin:
+                continue
+            matrix = access_srv.effective_matrix(
+                key, db_overrides.get(key),
+                (chat_root.get("perm_overrides") or {}).get(key))
+            if not access_srv.can_view_param(ctx, matrix):
+                continue
+        elif ctx is not None:
+            # ФИКС S1 (F-7 §1.2-2/§3.1): на ГЛОБАЛЬНОМ пути ключи-секреты
+            # отдаются только глобальному админу; local/moderator/user не
+            # видят глобальный ключ НИ в каком виде (в т.ч. без last4).
+            if secret and not ctx.is_global_admin:
+                continue
+        chat_source = ""
+        matrix = access_srv.effective_matrix(
+            key, db_overrides.get(key),
+            (chat_root.get("perm_overrides") or {}).get(key)
+            if chat_id is not None else None)
         if secret:
             value = _mask_secret(value, user.id, key, cache)
+        elif chat_id is not None:
+            overrides = chat_root.get("overrides") or {}
+            if key in overrides:
+                is_per_chat = bool(spec.per_chat) if spec else False
+                if is_per_chat:
+                    value = overrides[key]
+                    chat_source = "chat"
         items.append({"key": key, "value": value, "category": category,
                       "secret": secret,
+                      "chat_source": chat_source,
                       "title": spec.title_ru if spec else key,
                       "type": spec.type if spec else "str",
                       # F7: updated_at из PG; in-memory/деградация — null
@@ -217,7 +303,20 @@ async def get_config(
                       "description": spec.description if spec else "",
                       # Эпик 04.09.2026 (3.1/FR-28): виджет рендера (""
                       # дефолт | "keyvalue" — KV-редактор пар)
-                      "widget": spec.widget if spec else ""})
+                      "widget": spec.widget if spec else "",
+                      # Раунд 10 (F-7 §4.4/F-11 §4.1): per-chat-граница и
+                      # уровень прогрессивного раскрытия (без значений)
+                      "per_chat": bool(spec.per_chat) if spec else False,
+                      "progressive_level":
+                          resolve_progressive_level(spec) if spec else "basic",
+                      # min-роли (эффективная матрица) — для роль-пикера TMA
+                      "view_min_role": matrix.get("view_min_role", "user"),
+                      "edit_min_role": matrix.get("edit_min_role",
+                                                  "moderator"),
+                      "hidden_from_local": bool(
+                          matrix.get("hidden_from_local", False)),
+                      "chat_updated_at": chat_root.get("meta", {}).get(
+                          "updated_at") if chat_id is not None else None})
     # 84.24.3: сортировка (category, group.order, title_ru)
     items.sort(key=lambda it: (it["category"], group_order(it["group"]),
                                it["title"]))
@@ -229,7 +328,16 @@ async def get_config(
         for g in GROUPS if g.category in present
     ]
     groups.sort(key=lambda g: g["order"])
-    return {"items": items, "groups": groups}
+    out = {"items": items, "groups": groups}
+    if chat_id is not None:
+        out["chat_id"] = chat_id
+        out["updated_at"] = await chat_params.get_chat_updated_at(chat_id)
+        out["ctx"] = {
+            "role_chat": ctx.role_chat if ctx else None,
+            "is_local_admin": bool(ctx and ctx.is_local_admin),
+            "is_global_admin": bool(ctx and ctx.is_global_admin),
+        }
+    return out
 
 
 @api_router.post("/config")
@@ -237,20 +345,268 @@ async def post_config(
     request: Request,
     payload: ConfigUpdateRequest,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """84.5: право — на КАЖДЫЙ ключ (param./key.<категория>.<ключ> покрывается
-    секцией категории / конкретным правом; пустая роль → 403 на каждый ключ)."""
+    секцией категории / конкретным правом; пустая роль → 403 на каждый ключ).
+
+    Раунд 10 (F-7 §6): X-Chat-Id → запись в chat_params (атомарная, в ОДНУ
+    операцию set_chat_params с полной валидацией ДО записи): keys.* → 422
+    (это путь chat_keys, не сюда); per_chat=False → 422 «ключ нельзя
+    переносить на уровень чата»; per-param min-роли (can_edit_param по
+    матрице чата: local admin/moderator — per-параметры, global admin —
+    всё); optimistic 409; hidden_from_local запись локальным → 403."""
     cache: ConfigCache = get_cache(request)
     if not payload.items:
         raise HTTPException(status_code=422, detail="items пуст")
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        return await _post_config_global(request, payload, user)
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not access_srv.can_access_chat(ctx):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    try:
+        db_overrides = await access_srv.db_override_map(cache.pg)
+    except Exception:
+        db_overrides = {}
+    root = await chat_params.get_all_chat_params(chat_id)
+    chat_overrides = dict(root.get("perm_overrides") or {})
+    patch_overrides = {}
+    for item in payload.items:
+        spec = get_by_pg_key(item.key)
+        if spec is None or spec.category is None:
+            raise HTTPException(status_code=422,
+                                detail=f"неизвестный ключ: {item.key}")
+        if spec.category == CATEGORY_KEYS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: ключ-секрет задаётся через "
+                       "/api/config/keys/own (BYOK-путь)")
+        if not spec.per_chat:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: ключ нельзя переносить на уровень чата")
+        matrix = access_srv.effective_matrix(
+            item.key, db_overrides.get(item.key),
+            chat_overrides.get(item.key))
+        if not access_srv.can_edit_param(ctx, matrix):
+            raise HTTPException(status_code=403,
+                                detail=f"нет права на {item.key}")
+        if matrix.get("hidden_from_local") and not ctx.is_global_admin:
+            raise HTTPException(status_code=403,
+                                detail=f"{item.key} скрыт от локальных админов")
+        try:
+            value = _coerce_value(spec, item.value)
+        except ValueError as exc:
+            raise HTTPException(status_code=422,
+                                detail=f"{item.key}: {exc}")
+        if spec.type == "str" and spec.category in (CATEGORY_PROMPTS,
+                                                    CATEGORY_CONTENT):
+            if not isinstance(value, str) or not value.strip():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: промпт не может быть пустым")
+        patch_overrides[item.key] = value
+    if not patch_overrides:
+        raise HTTPException(status_code=422, detail="items пуст")
+    new_overrides = dict(chat_overrides)
+    new_overrides.update(patch_overrides)
+    meta = dict(root.get("meta") or {})
+    meta["updated_by"] = user.id
+    try:
+        new_root = await chat_params.set_chat_params(
+            chat_id, {"overrides": new_overrides, "meta": meta},
+            changed_by=user.id, pg=cache.pg,
+            expected_updated_at=payload.updated_at)
+    except chat_params.ChatParamsConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict",
+                    "current_updated_at": exc.current_updated_at})
+    logger.info("[api] config chat updated | chat=%s | keys=%d | by=%s",
+                chat_id, len(patch_overrides), user.id)
+    return {"updated": sorted(patch_overrides),
+            "chat_id": chat_id,
+            "updated_at": await chat_params.get_chat_updated_at(chat_id)}
+
+
+@api_router.get("/config/params-meta")
+async def get_params_meta(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Раунд 10 (F-7 §4.4): мета-каталог {pg_key: {per_chat,
+    progressive_level, group, title, type, secret_mask}} — без значений
+    секретов (для TMA-витрины и F-11 прогрессивного раскрытия)."""
+    items = {}
+    for spec_key in sorted(param_catalog.REGISTRY):
+        spec = param_catalog.REGISTRY[spec_key]
+        if spec.category is None:
+            continue
+        items[spec.pg_key] = {
+            "per_chat": bool(spec.per_chat),
+            "progressive_level": resolve_progressive_level(spec),
+            "group": spec.group,
+            "title": spec.title_ru,
+            "type": spec.type,
+            "secret_mask": bool(spec.secret or spec.category == CATEGORY_KEYS),
+        }
+    return {"items": items}
+
+
+@api_router.get("/config/keys/own")
+async def config_keys_own(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Раунд 10 (F-7 §6): маски СОБСТВЕННЫХ ключей чата (R17: никогда raw).
+    Права: local admin чата / global admin."""
+    cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not (ctx.is_global_admin or ctx.is_local_admin):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    return {"keys": await chat_keys.list_own_keys(cache.pg, chat_id)}
+
+
+@api_router.put("/config/keys/own")
+async def config_keys_own_put(
+    request: Request,
+    payload: ChatKeyBody,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Раунд 10 (F-7 §6): запись BYOK-ключа чата (insert-or-replace).
+    422 key_name вне whitelist; 403 чужие права; маска в ответе (R17)."""
+    cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not (ctx.is_global_admin or ctx.is_local_admin):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    try:
+        mask = await chat_keys.set_chat_key(cache.pg, chat_id,
+                                            payload.key_name, payload.value,
+                                            changed_by=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    logger.info("[api] chat key upsert | chat=%s | key=%s | by=%s",
+                chat_id, payload.key_name, user.id)
+    return mask
+
+
+@api_router.delete("/config/keys/own/{key_name}")
+async def config_keys_own_delete(
+    key_name: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Раунд 10 (F-7 §6): удаление BYOK-ключа чата."""
+    cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not (ctx.is_global_admin or ctx.is_local_admin):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    try:
+        removed = await chat_keys.delete_chat_key(cache.pg, chat_id,
+                                                  key_name, changed_by=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"removed": removed}
+
+
+@api_router.get("/config/keys/status")
+async def config_keys_status(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Раунд 10 (F-7 §6): статусы ключей чата. Глобальный ключ в поле
+    `global` — ТОЛЬКО для global admin (локальный его НЕ видит — §1.2-2)."""
+    cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not access_srv.can_access_chat(ctx):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    root = await chat_params.get_all_chat_params(chat_id)
+    own = {r["key_name"]: r for r in
+           await chat_keys.list_own_keys(cache.pg, chat_id)}
+    allow_global = bool((root.get("keys") or {}).get("allow_global", True))
+    global_key_value = cache.get_all().get("keys.llm_api_key")
+    out = {
+        "own": own,
+        "allow_global": allow_global,
+        "budgets": await chat_usage.key_status(cache.pg, chat_id),
+    }
+    if ctx.is_global_admin:
+        out["global"] = _mask_secret(global_key_value, user.id,
+                                     "keys.llm_api_key", cache)
+    return out
+
+
+@api_router.delete("/config/chat/{key}")
+async def delete_chat_param(
+    key: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Раунд 10 (F-7 §6): сброс override чата на глобальный
+    (jsonb_remove('overrides', key)); 404 — override отсутствует;
+    403 — чужие права; 409 optimistic."""
+    cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not (ctx.is_global_admin or ctx.is_local_admin):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    root = await chat_params.get_all_chat_params(chat_id)
+    overrides = dict(root.get("overrides") or {})
+    if key not in overrides:
+        raise HTTPException(status_code=404,
+                            detail=f"нет override: {key}")
+    overrides.pop(key, None)
+    try:
+        await chat_params.set_chat_params(
+            chat_id, {"overrides": overrides,
+                      "meta": {"updated_by": user.id}},
+            changed_by=user.id, pg=cache.pg)
+    except chat_params.ChatParamsConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict",
+                    "current_updated_at": exc.current_updated_at})
+    logger.info("[api] chat param reset | chat=%s | key=%s | by=%s",
+                chat_id, key, user.id)
+    return {"reset": key, "chat_id": chat_id}
+
+
+async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
+                              user: WebAppUser) -> dict:
+    """Старый глобальный путь (no X-Chat-Id) — без изменений ровно."""
+    cache: ConfigCache = get_cache(request)
     updated = []
     for item in payload.items:
         spec = get_by_pg_key(item.key)
         if spec is None or spec.category is None:
             raise HTTPException(status_code=422,
                                 detail=f"неизвестный ключ: {item.key}")
-        # F2: keys-категория — право key.<cat>.<key>; остальные — param.<cat>.<key>
-        # (конкретное право в params/keys или покрытие секцией, 84.14.2).
         if spec.category == CATEGORY_KEYS:
             allowed = can_view_key_value(cache, user.id, item.key)
         else:
@@ -259,7 +615,6 @@ async def post_config(
             raise HTTPException(status_code=403,
                                 detail=f"нет права на {item.key}")
         if not cache.pg_available:
-            # F18: без PG значение не персистентно — честный 503 (как RBAC-опы)
             raise HTTPException(status_code=503,
                                 detail="PostgreSQL недоступен (R6)")
         try:
@@ -267,10 +622,6 @@ async def post_config(
         except ValueError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
-        # Раунд 4 (T-719, FR-E2, spec 3.5.2): единая точка валидации пустых
-        # prompts/content (защищает ЛЮБЫХ клиентов, не только фронт). Пустая
-        # модель/ключ (models/keys/limits/reactions) — легитимна (ступень
-        # отключена / очистка ключа), не трогаем.
         if spec.type == "str" and spec.category in (CATEGORY_PROMPTS,
                                                     CATEGORY_CONTENT):
             if not isinstance(value, str) or not value.strip():
@@ -554,12 +905,22 @@ def _category_title(category: str) -> str:
 async def get_status(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """Сводка bot/server/llm/uptime. БЕЗ requires_permission (84.11 —
-    RBAC-исключение); ключи LLM — только configured/last4 (решение 5)."""
+    RBAC-исключение); ключи LLM — только configured/last4 для global admin,
+    {configured} для остальных (фикс S2, F-7 §1.2-2). X-Chat-Id (опц.) —
+    F-9 §6 телеметрия PERMsoc для контекста чата."""
     from services.status_service import status
+    from services import roles as roles_srv
     cache: ConfigCache = get_cache(request)
-    return await status.build_snapshot(cache)
+    chat_id = _chat_id_or_none(x_chat_id)
+    ctx = None
+    try:
+        ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    except Exception:
+        ctx = None
+    return await status.build_snapshot(cache, ctx=ctx, chat_id=chat_id)
 
 
 @api_router.get("/status/logs")

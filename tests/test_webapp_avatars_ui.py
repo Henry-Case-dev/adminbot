@@ -315,8 +315,10 @@ class TestAvatarFrontAudit:
 
     def test_relation_row_shows_username_caption(self):
         html = _Static.read("web/index.html")
-        assert "@{{ u.username }}" in html
-        assert "v-if=\"u.username\"" in html
+        # F-8 (T-872): имя — через resolveRelationName; @username — только
+        # если имя не вышло из username (иначе дубль)
+        assert "resolveRelationName(u)" in html
+        assert "u.username" in html
 
     def test_close_and_fullscreen_buttons(self):
         """✕ в шапке (@click closeApp) и в мобильном сайдбаре
@@ -333,7 +335,7 @@ class TestAvatarFrontAudit:
         assert ".header-sticky" in html            # CSS-правило
         assert "position: sticky" in html
         assert "z-index: 40" in html
-        assert 'class="header-sticky card-solid' in html
+        assert 'class="main-header header-sticky card-solid' in html
 
     def test_gradient_animation_8s(self):
         html = _Static.read("web/index.html")

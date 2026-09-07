@@ -25,6 +25,7 @@ TEST_TOKEN = "123456:TEST_TOKEN_FOR_API_TESTS"
 ADMIN_ID = 5885953495
 MODERATOR_ID = 1313107079
 USER_ID = 999999999
+LOCAL_ADMIN_ID = 424242424
 
 
 def make_init_data(user_id: int = ADMIN_ID) -> str:
@@ -121,6 +122,8 @@ def client(monkeypatch, tmp_path):
              "category": "limits", "updated_at": "2026-08-30T01:00:00+00:00"},
             {"key": "keys.groq_api_key", "value": "gsk_secret_key_1234",
              "category": "keys", "updated_at": None},
+            {"key": "keys.llm_api_key", "value": "sk_deepseek_123456",
+             "category": "keys", "updated_at": None},
             {"key": "models.llm_timeout", "value": 30.0, "category": "models",
              "updated_at": None},
             {"key": "content.info_how_it_works",
@@ -147,6 +150,48 @@ def client(monkeypatch, tmp_path):
             {"telegram_id": MODERATOR_ID, "role_name": "moderator",
              "added_by": ADMIN_ID,
              "created_at": "2026-08-30T00:00:01+00:00"},
+        ],
+    )
+    cache = ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0)
+    app = create_app(cache)
+    with TestClient(app) as test_client:
+        test_client.cache = cache
+        yield test_client
+
+
+@pytest.fixture
+def local_admin_client(monkeypatch, tmp_path):
+    """Отдельный клиент: глобальная роль юзера — local_admin (F-7 §1.2-2
+    «локальный админ НЕ видит глобальный ключ»; фикс S1 — глобальный путь)."""
+    monkeypatch.setattr(deps_mod, "settings",
+                        types.SimpleNamespace(API_TOKEN=TEST_TOKEN))
+    monkeypatch.setattr(
+        "services.info_service.settings",
+        types.SimpleNamespace(
+            INFO_TEXT_FILE=str(tmp_path / "info_text.md"),
+            ADMIN_USER_ID=ADMIN_ID))
+    conn = _FakeConn(
+        settings_rows=[
+            {"key": "limits.search_max_symbols", "value": 8000,
+             "category": "limits", "updated_at": None},
+            {"key": "keys.llm_api_key", "value": "sk_deepseek_123456",
+             "category": "keys", "updated_at": None},
+        ],
+        role_rows=[
+            {"role_name": "admin", "permissions": {"wildcard": True},
+             "is_custom": False},
+            {"role_name": "local_admin",
+             "permissions": {"sections": ["limits", "flags", "reactions",
+                                          "content", "chat_lore"], "actions": []},
+             "is_custom": False, "role_type": "local_admin"},
+            {"role_name": "user", "permissions": {}, "is_custom": False},
+        ],
+        admin_rows=[
+            {"telegram_id": ADMIN_ID, "role_name": "admin",
+             "added_by": None, "created_at": "2026-08-30T00:00:00+00:00"},
+            {"telegram_id": LOCAL_ADMIN_ID, "role_name": "local_admin",
+             "added_by": ADMIN_ID,
+             "created_at": "2026-08-30T00:00:02+00:00"},
         ],
     )
     cache = ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0)
@@ -190,7 +235,11 @@ class TestHealthAndMe:
 class TestConfigMasking:
     """84.12.4 + ФИКС 2026-09-03: значения секретов — ЕДИНЫЙ контракт:
     {"configured","last4"} для ВСЕХ ролей (полное значение не отдаём даже
-    админу; замена ключа — только через POST /api/config)."""
+    админу; замена ключа — только через POST /api/config).
+
+    ФИКС S1 (F-7 §1.2-2): секреты на глобальном пути — ТОЛЬКО глобальному
+    админу; local admin/moderator/user не видят глобальный ключ НИ в каком
+    виде (в т.ч. last4) — entries keys.* полностью исключаются."""
 
     def test_admin_sees_masked_secret_too(self, client):
         resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
@@ -199,19 +248,27 @@ class TestConfigMasking:
         assert key_item["value"] == {"configured": True, "last4": "1234"}
         assert "gsk_secret_key_1234" not in json.dumps(resp.json())
 
-    def test_moderator_sees_masked_secret(self, client):
+    def test_moderator_does_not_see_global_keys_at_all(self, client):
+        """S1: модератор — НОЛЬ следов глобального ключа (нет даже last4)."""
         resp = client.get("/api/config", headers=_hdr(MODERATOR_ID))
         items = {i["key"]: i for i in resp.json()["items"]}
-        key_item = items["keys.groq_api_key"]
-        assert key_item["secret"] is True
-        assert key_item["value"]["configured"] is True
-        assert key_item["value"]["last4"] == "1234"
-        assert "secret" not in json.dumps(key_item["value"])
+        assert "keys.groq_api_key" not in items
+        assert "keys.llm_api_key" not in items
 
-    def test_user_role_sees_masked(self, client):
+    def test_user_role_does_not_see_global_keys(self, client):
+        """S1: user — ключи-секреты отсутствуют, в т.ч. keys.llm_api_key."""
         resp = client.get("/api/config", headers=_hdr(USER_ID))
         items = {i["key"]: i for i in resp.json()["items"]}
-        assert items["keys.groq_api_key"]["value"]["configured"] is True
+        assert "keys.groq_api_key" not in items
+        assert "keys.llm_api_key" not in items
+
+    def test_local_admin_sees_no_last4_global_key(self, local_admin_client):
+        """S1: локальный админ на глобальном пути — keys-секция исключена
+        полностью (глобальный ключ НЕ в любом виде, F-7 §1.2-2)."""
+        resp = local_admin_client.get("/api/config", headers=_hdr(LOCAL_ADMIN_ID))
+        assert resp.status_code == 200
+        items = {i["key"]: i for i in resp.json()["items"]}
+        assert "keys.llm_api_key" not in items
 
     def test_no_secret_strings_anywhere_in_response(self, client):
         """ФИКС: во всём ответе /api/config нет значений-строк с полными
@@ -220,6 +277,7 @@ class TestConfigMasking:
             resp = client.get("/api/config", headers=_hdr(role))
             blob = resp.text
             assert "gsk_secret_key_1234" not in blob
+            assert "sk_deepseek_123456" not in blob
             items = {i["key"]: i for i in resp.json()["items"]}
             for item in items.values():
                 if item.get("secret"):

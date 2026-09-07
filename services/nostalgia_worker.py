@@ -152,11 +152,22 @@ class NostalgiaWorker:
             logger.info("NostalgiaWorker disabled (memory.nostalgia_enabled "
                         "off)")
             return
+        # Раунд 10 (F-10 §5.2): jitter тика (случайный сдвиг ≤ интервал/3);
+        # 0 — если jitter явно не задан (тесты/конфиг без ключа).
+        base_minutes = int(self._limit("tick_minutes",
+                                       settings.NOSTALGIA_TICK_MINUTES) or 60)
+        import random
+        try:
+            from services import worker_budget
+            tick_minutes = base_minutes + (
+                random.randint(0, worker_budget.jitter_safe(base_minutes))
+                if worker_budget.jitter_active() else 0)
+        except Exception:
+            tick_minutes = base_minutes
         self._scheduler.add_job(
             self._tick,
             IntervalTrigger(
-                minutes=self._limit("tick_minutes",
-                                    settings.NOSTALGIA_TICK_MINUTES),
+                minutes=tick_minutes,
                 timezone=self._tz_name),
             id=self.JOB_NOSTALGIA_ID, replace_existing=True,
             max_instances=1, coalesce=True)
@@ -260,12 +271,30 @@ class NostalgiaWorker:
                 logger.info("[nostalgia] skip | chat=%s | reason=not_group",
                             chat_id)
                 return out
-            # флаг — глобальный гейт тика (ручной run_once не зависит).
-            if not manual and not self._flag("enabled",
-                                             settings.NOSTALGIA_ENABLED):
+            # ФИКС R5: глобальный гейт-флаг применяется и к ручному
+            # run_once (F-10 §6: gate ⊇ manual — kill-switch стопит ручные
+            # запуски; run_once-докс «без флага» устарел).
+            if not self._flag("enabled", settings.NOSTALGIA_ENABLED):
                 logger.info("[nostalgia] skip | chat=%s | reason=flag_off",
                             chat_id)
                 return out
+            # Раунд 10 (F-10 §6): тяжёлый гейт nostalgia (kill-switch:
+            # gates[nostalgia] → глобальный флаг → False); ФИКС R5 — и для
+            # ручного run_once; skip — nostalgia_log status='budget_skip'.
+            try:
+                from services.feature_gates import gates_enabled
+                if not await gates_enabled(chat_id, "nostalgia"):
+                    logger.warning(
+                        "[nostalgia] WARNING skip: gate nostalgia | "
+                        "chat=%s", chat_id)
+                    await self._log(chat_id, now, "none", None,
+                                    "budget_skip",
+                                    {"reason": "gate_nostalgia"})
+                    return out
+            except Exception:
+                logger.warning(
+                    "[nostalgia] gate check failed — fail-open | "
+                    "chat=%s", chat_id, exc_info=True)
             # гейт 2: тишина (юзерские сообщения; истории нет → no_history).
             last_ts = await self.db.get_last_user_message_ts(chat_id,
                                                              self.bot_id)
@@ -389,6 +418,17 @@ class NostalgiaWorker:
                 "(weight=%.2f < %.2f)", chat_id, candidate["weight"],
                 threshold)
             return
+        # Раунд 10 (F-10 §5): consume до LLM-вызова генерации (global +
+        # chat:<id>); False → nostalgia_log status='budget_skip'.
+        if not await self._nostalgia_budget_ok(chat_id, candidate["text"]):
+            await self._log(chat_id, now, candidate["kind"],
+                            candidate.get("fact_id"), "budget_skip",
+                            {"reason": "budget"})
+            out["skipped"] += 1
+            logger.warning(
+                "[nostalgia] WARNING skip: budget nostalgia | chat=%s",
+                chat_id)
+            return
         raw = await self._llm_once(candidate)
         if raw is None:
             await self._log(chat_id, now, candidate["kind"],
@@ -441,6 +481,29 @@ class NostalgiaWorker:
         logger.info(
             "[nostalgia] sent | chat=%s | kind=%s | chars=%d",
             chat_id, candidate["kind"], len(text))
+
+    @staticmethod
+    async def _nostalgia_budget_ok(chat_id: int, text: str) -> bool:
+        """F-10 §5: consume global + chat:<id> (calls 1 + tokens est).
+        ФИКС R4: приоритетная деградация по global-лимиту (nostalgia падает
+        последней — allowed_workers) до consume."""
+        from services import worker_budget
+        if not await worker_budget.global_degradation_allows("nostalgia"):
+            logger.warning(
+                "[nostalgia] skip: global budget exhausted — degradation "
+                "nostalgia | chat=%s", chat_id)
+            return False
+        est = worker_budget.estimate_tokens(text)
+        ok = await worker_budget.consume(None, "global", "llm_calls", 1)
+        if ok:
+            ok = await worker_budget.consume(None, "global", "llm_tokens", est)
+        if ok:
+            ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                             "llm_calls", 1)
+        if ok:
+            ok = await worker_budget.consume(None, f"chat:{chat_id}",
+                                             "llm_tokens", est)
+        return ok
 
     def _threshold(self) -> float:
         """Порог срабатывания (§3.5.2): 0.3 + aggressiveness*0.5

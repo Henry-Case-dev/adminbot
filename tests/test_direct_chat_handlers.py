@@ -790,3 +790,24 @@ class TestBotwordFromConfig:
         msg = _msg(text="слышь, бот")
         assert await dc_mod.direct_chat_handler(msg, bot=MagicMock()) is None
         wire.handle.assert_awaited_once()
+
+
+# Раунд 10 (F-9): PERMsoc-гейт — для router-интеграционных тестов мастер ON
+# (hot-кэш с flags.permsoc_enabled=True; дефолт ТЕПЕРЬ False — без мока
+# пермsoc-триггеры молчат, что и проверяется в изолированных кейсах).
+# ВАЖНО: chain-кэш — существующие ключи (кucha/junk/…) не затираются.
+@pytest.fixture(autouse=True)
+def _permsoc_master_on(monkeypatch):
+    from services import hot_config as hot
+
+    _prev = getattr(hot, "_cache", None)
+
+    class _ChainCache:
+        def get(self, key, default=None):
+            if key == "flags.permsoc_enabled":
+                return True
+            if _prev is not None and hasattr(_prev, "get"):
+                return _prev.get(key, default)
+            return default
+
+    monkeypatch.setattr(hot, "_cache", _ChainCache())

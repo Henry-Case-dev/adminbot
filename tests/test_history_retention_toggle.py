@@ -78,7 +78,7 @@ class _FakeLLM:
               "predicate": "спорил с", "object": "вася",
               "object_type": "user"}], ensure_ascii=False)
 
-    async def generate(self, messages):
+    async def generate(self, messages, chat_id=None):
         if messages[0]["content"] == EXTRACT_PROMPT:
             self.extract_calls += 1
             return self.extract_response

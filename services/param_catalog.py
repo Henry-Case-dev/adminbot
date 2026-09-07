@@ -48,6 +48,24 @@ CATEGORIES: tuple[str, ...] = (
     CATEGORY_MEMORY,
 )
 
+# Раунд 10 (F-7 §4.4, Q5): категории, допустимые для per-chat-слоя.
+_PER_CHAT_CATEGORIES: frozenset[str] = frozenset(
+    {CATEGORY_PROMPTS, CATEGORY_LIMITS, CATEGORY_FLAGS, CATEGORY_REACTIONS,
+     CATEGORY_CONTENT, CATEGORY_MEMORY}
+)
+
+# Прогрессивная разметка (F-11 §4.1): группы-маркеры «Расширенные».
+_ADVANCED_GROUPS: frozenset[str] = frozenset(
+    {"limits_memory", "limits_graph", "flags_memory", "memory_infinite",
+     "memory_dream", "memory_nostalgia"}
+)
+
+# Строковые маркеры pg_key для правила «Расширенные» (F-11 §4.1).
+_ADVANCED_KEY_MARKERS: tuple[str, ...] = (
+    "search_top_k", "vector", "graph", "rag", "retr", "timeout", "context",
+    "summary_length", "budget", "dedup", "ttl", "window", "density", "chunk",
+)
+
 
 @dataclasses.dataclass(frozen=True)
 class ParamSpec:
@@ -68,6 +86,10 @@ class ParamSpec:
     # Эпик 04.09.2026 (3.1/FR-28): признак виджета рендера для фронта.
     # "" (дефолт) | "keyvalue" (JSON-объект «ключ→значение» — KV-редактор).
     widget: str = ""
+    # Раунд 10 (F-11 §4.1): уровень прогрессивного раскрытия для TMA.
+    # ""/basic | "advanced" (пустое = basic; явный advanced — по правилу
+    # resolve_progressive_level либо ручной разметки).
+    progressive_level: str = ""
 
     @property
     def pg_key(self) -> str:
@@ -76,6 +98,17 @@ class ParamSpec:
             return self.pg_id
         base = (self.settings_field or self.env_name or "").lower()
         return f"{self.category}.{base}" if self.category else base
+
+    @property
+    def per_chat(self) -> bool:
+        """Раунд 10 (F-7 §4.4, Q5): параметр переносим на уровень чата.
+
+        per_chat = (category ∈ {prompts, limits, flags, reactions, content,
+        memory}) and (secret == False). models.* и keys.* — строго
+        глобальные (маршрутизация/секреты; BYOK даёт пер-чат только ключ,
+        не модель).
+        """
+        return (self.category in _PER_CHAT_CATEGORIES) and not self.secret
 
     @property
     def migratable(self) -> bool:
@@ -193,6 +226,10 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("limits_relations", "limits", "Отношения",
               "Стадии участников: пороги msg/дней, decay, анти-откат, "
               "пересчёт и капы инжекта.", 22),
+    # limits (23; раунд 10, F-10 T-896): бюджет фоновых воркеров
+    GroupSpec("limits_worker", "limits", "Фоновые воркеры",
+              "Дневной бюджет фона: вызовы/токены global и per-chat, "
+              "порядок деградации приоритетов, размазка тиков.", 23),
     # flags (6)
     GroupSpec("flags_modules", "flags", "Модули (вкл/выкл)",
               "Рубильники функций бота целиком.", 1),
@@ -298,6 +335,15 @@ _CONTENT: list[tuple] = [
     ("content.info_how_it_works", "Текст «Как это работает» (rich-HTML)",
      "content_info",
      "Справка для пользователей админки. Разметка HTML — можно картинки и ссылки."),
+]
+
+# ── content: PG-only строки (раунд 10, F-7 §5.2) ────────────────────────────
+# (pg_id, title_ru, code_source, group, description)
+_CONTENT_STR: list[tuple] = [
+    ("content.no_key_reply", "Ответ «нет ключа» (sandbox)",
+     "services.sandbox_reply.DEFAULT_NO_KEY_REPLY", "content_info",
+     "Фиксированная фраза бота, когда у чата нет своего ключа и глобальный "
+     "недоступен/запрещён/исчерпан (LLM не вызывается)."),
 ]
 
 # ── content: поля Settings (раунд 3 — каталог медиа-шары) ──────────────────
@@ -513,7 +559,13 @@ _FLAGS: list[tuple] = [
     ("LLM_CB_ENABLED", "Circuit Breaker direct_chat", "flags_service",
      "«Рубильник» при сбоях нейросети: временно не дёргает её. Выключено — бот пробует всегда."),
     ("COMMON_WORK_MEDIA_ENABLED", "Медиа work-подсервиса", "flags_media",
-     "Включает медиа для work-запросов («устал» и подобные). Выключено — только остальные."),
+      "Включает медиа для work-запросов («устал» и подобные). Выключено — только остальные."),
+    # ── Раунд 10 (permsoc-module-isolation, F-9 §3): мастер-тумблер PERMsoc;
+    # дефолт false (Q2, безопаснее для новых чатов) ──
+    ("PERMSOC_ENABLED", "Функции PERMsoc: мастер-тумблер", "flags_media",
+      "Единый рубильник 5 персон-триггеров (Славик/Костя/Леха/Оля/"
+      "передразнивания). Выключено — все 5 молчат во всех чатах; включительно "
+      "для чата — переключатель «Функции PERMsoc» в «Реакции и Триггеры»."),
     ("COMMON_MEDIA_ENABLED", "Все common-медиа", "flags_media",
      "Главный рубильник всех медиа-реакций бота. Выключено — гифки/фото не отправляются вообще."),
     ("OLYA_ENABLED", "Сервис Оли", "flags_media",
@@ -908,7 +960,43 @@ _LIMITS: list[tuple] = [
     ("DIG_GRAPH_HOP_DEPTH", "dig_into_lore: глубина граф-обхода имён", "int", "limits_memory",
      "На сколько ходов BFS по рёбрам графа расширять запрос именами людей (2)."),
     ("DIG_YEAR_BACK_WINDOW_DAYS", "dig_into_lore: окно «N лет назад», дней", "int", "limits_memory",
-     "Диапазон вокруг даты «N лет назад» в запросе без явного года (2 дня)."),
+      "Диапазон вокруг даты «N лет назад» в запросе без явного года (2 дня)."),
+    # ── Раунд 10 (multi-chat-rbac-byok, F-7 §5.2): бюджет глобального ключа ──
+    ("CHAT_GLOBAL_KEY_BUDGET_TOKENS", "Глобальный ключ: потолок токенов в сутки (чат)",
+     "int", "limits_chat",
+     "Суточный бюджет токенов глобального ключа для чата без своего ключа "
+     "(оценка len/4). 0 = глобальный ключ чату запрещён."),
+    ("CHAT_GLOBAL_KEY_BUDGET_REQUESTS", "Глобальный ключ: потолок вызовов в сутки (чат)",
+     "int", "limits_chat",
+     "Суточный бюджет LLM-вызовов глобального ключа для чата без своего "
+     "ключа. 0 = глобальный ключ чату запрещён."),
+    # ── Раунд 10 (feature-gates-worker-budget, F-10 §5.2): воркер-бюджет ──
+    # (ФИКС R3: группа limits_worker; PG-ключи limits.worker_daily_* /
+    # limits.worker_priority_order / limits.worker_budget_jitter_minutes)
+    ("WORKER_DAILY_LLM_CALLS_GLOBAL", "Фон: дневной потолок LLM-вызовов (все чаты)",
+     "int", "limits_worker",
+     "Общий суточный бюджет LLM-вызовов фоновых воркеров (сон/ностальгия/лор). "
+     "Исчерпан → деградация по приоритетам."),
+    ("WORKER_DAILY_LLM_TOKENS_GLOBAL", "Фон: дневной потолок токенов (все чаты)",
+     "int", "limits_worker",
+     "Общий суточный бюджет токенов фоновых воркеров (оценка len/4)."),
+    ("WORKER_DAILY_LLM_CALLS_PER_CHAT", "Фон: дневной потолок LLM-вызовов (чат)",
+     "int", "limits_worker",
+     "Суточный бюджет LLM-вызовов фоновых воркеров для одного чата."),
+    ("WORKER_DAILY_LLM_TOKENS_PER_CHAT", "Фон: дневной потолок токенов (чат)",
+     "int", "limits_worker",
+     "Суточный бюджет токенов фоновых воркеров для одного чата."),
+    ("WORKER_PRIORITY_ORDER", "Фон: порядок деградации воркеров", "str",
+     "limits_worker",
+     "Порядок приоритетов: последний падает первым (по умолчанию "
+     "nostalgia,lore,dream → первым падает dream). CSV имён воркеров."),
+    ("WORKER_BUDGET_JITTER_MINUTES", "Фон: jitter тиков, минут", "int",
+     "limits_worker",
+     "Случайный сдвиг тиков фоновых воркеров (≤ интервал/3)."),
+    ("WORKER_BUDGET_TZ", "Фон: таймзона дня бюджетов", "str",
+     "limits_worker",
+     "Локальная таймзона, в которой считаются сутки бюджета фоновых "
+     "воркеров (по умолчанию Asia/Yekaterinburg)."),
 ]
 
 # ── reactions: id-списки, слова, пути, названия (не секреты) ────────────────
@@ -1117,10 +1205,23 @@ _MEMORY: list[tuple] = [
      "Порог срабатывания кандидата = 0.3 + агрессивность*0.5 (дефолт 0.3 → "
      "порог 0.45). Влияет ТОЛЬКО на порог («насколько слабый повод "
      "сработает»); частота — лимитами/паузами выше."),
-    ("NOSTALGIA_MAX_SEND_CHARS", "Ностальгия: текст сообщения, символов",
-     "int", "memory_nostalgia",
-     "Кап текста проактивного сообщения перед отправкой (400)."),
+     ("NOSTALGIA_MAX_SEND_CHARS", "Ностальгия: текст сообщения, символов",
+      "int", "memory_nostalgia",
+      "Кап текста проактивного сообщения перед отправкой (400)."),
 ]
+
+
+def resolve_progressive_level(spec: ParamSpec) -> str:
+    """Правило по умолчанию (F-11 §4.1): advanced для групп памяти/RAG и
+    ключей с техническими маркерами; явная разметка — приоритет."""
+    if spec.progressive_level:
+        return spec.progressive_level
+    if spec.group in _ADVANCED_GROUPS:
+        return "advanced"
+    key = (spec.pg_key or "").lower()
+    if any(marker in key for marker in _ADVANCED_KEY_MARKERS):
+        return "advanced"
+    return "basic"
 
 
 def _build_registry() -> dict[str, ParamSpec]:
@@ -1175,6 +1276,10 @@ def _build_registry() -> dict[str, ParamSpec]:
     for spec_id, title, group, desc in _CONTENT:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "json",
                       pg_id=spec_id, group=group, description=desc))
+    for spec_id, title, code_source, group, desc in _CONTENT_STR:
+        add(ParamSpec(None, None, CATEGORY_CONTENT, title, "str",
+                      code_source=code_source, pg_id=spec_id,
+                      group=group, description=desc))
     for field, title, typ, group, desc in _MEMORY:
         add(ParamSpec(field, field, CATEGORY_MEMORY, title, typ,
                       group=group, description=desc,

@@ -243,7 +243,7 @@ class TestMemoryFrontAudit:
         assert "@click=\"saveRelationManual(u)\"" in html
         assert "@click=\"removeRelationManual(u)\"" in html
         assert "@change=\"onRelationsToggle($event)\"" in html
-        assert 'value="auto">— авто</option>' in html
+        assert 'value="auto">авто</option>' in html
 
     def test_html_memory_blocks_under_generic(self):
         html = self._html()

@@ -7,6 +7,8 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 
 from filters.olya_video import OlyaVideoFilter
 from services.olya_relay import OlyaRelay
+# Раунд 10 (F-9 B4): «Оля» — модуль плагина PERMsoc (гейт первой).
+from services.permsoc import PermsocGateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ def setup_olya(service: OlyaRelay) -> None:
     _service = service
 
 
-@olya_router.message(OlyaVideoFilter())
+@olya_router.message(PermsocGateFilter("olya"), OlyaVideoFilter())
 async def olya_handler(message: types.Message, is_saveasbot: bool = False, matched_caption: bool = False) -> None:
     """Handle video/photo from Olya user — send random media from cringe folder."""
     if _service is None:

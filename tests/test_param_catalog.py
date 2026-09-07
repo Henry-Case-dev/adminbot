@@ -44,8 +44,12 @@ class TestCompleteness:
         #   категория memory) + 2 (раунд N, T-839: SMARTMODULE_CONCURRENCY_*
         #   — параллельность smart module, группа limits_chat) + 7 (раунд 9,
         #   фикс-раунд: DIG_ENABLED/DIG_PRE_GATE_ENABLED + 5 limits.dig_* —
-        #   dig_into_lore, spec §3.6.4) — каталог пополнен
-        assert len(fields) == 349
+        #   dig_into_lore, spec §3.6.4) + 9 (раунд 10, F-7 §5.2/F-10 §5.2:
+        #   WORKER_BUDGET_TZ, CHAT_GLOBAL_KEY_BUDGET_TOKENS/REQUESTS,
+        #   WORKER_DAILY_LLM_CALLS/TOKENS_GLOBAL, _PER_CHAT,
+        #   WORKER_PRIORITY_ORDER, WORKER_BUDGET_JITTER_MINUTES)
+        #   + PERMSOC_ENABLED (раунд 10, F-9 §3, мастер-тумблер PERMsoc)
+        assert len(fields) == 359
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -217,8 +221,9 @@ class TestGroups8424:
         # раунд 9 (T-816/T-817): 66 → 68 (+ limits_relations, flags_relations);
         # раунд 9 (T-824/T-825): 68 → 69 (+ memory_dream — «сон», spec §3.6.4);
         # раунд 9 (T-826/T-827): 69 → 70 (+ memory_nostalgia — «ностальгия»,
-        # spec §3.6.4/Q11)
-        assert len(GROUPS) == 70
+        # spec §3.6.4/Q11); раунд 10 (F-10 T-896): 70 → 71 (+ limits_worker —
+        # бюджет фона, фикс R3)
+        assert len(GROUPS) == 71
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -261,14 +266,16 @@ class TestGroups8424:
         §3.6.4/Q11) + раунд N (T-839: limits +2 — параллельность smart
         module, группа limits_chat) + раунд 9 (фикс-раунд: limits +5 /
         flags +2 — dig_into_lore, spec §3.6.4/Q11, группы flags_memory/
-        limits_memory)."""
+        limits_memory) + раунд 10 (F-7 §5.2: limits +2 — бюджеты
+        глобального ключа; F-10 §5.2: limits +7 — воркер-бюджеты и TZ;
+        content +1 — content.no_key_reply)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 29, "keys": 13,
-                          "limits": 168, "flags": 51, "reactions": 38,
-                          "content": 3, "memory": 32}
+                          "limits": 177, "flags": 52, "reactions": 38,
+                          "content": 4, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

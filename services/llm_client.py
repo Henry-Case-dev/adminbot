@@ -119,6 +119,19 @@ class LLMBadResponseError(LLMError):
     """Malformed JSON or missing content in a 2xx response."""
 
 
+class NoApiKeyForChat(LLMError):
+    """Раунд 10 (F-7 §5.2): у чата нет своего ключа, а глобальный
+    недоступен ('forbidden' — запрет allow_global) или исчерпан ('budget').
+    LLM НЕ вызывается: вызывающий отвечает sandbox-фразой
+    content.no_key_reply (R16: тишины нет)."""
+
+    def __init__(self, chat_id: int, reason: str):
+        self.chat_id = chat_id
+        self.reason = reason
+        super().__init__(
+            f"no api key for chat: chat_id={chat_id} reason={reason}")
+
+
 # ── Задача 2 (2026-09-05): человекочитаемая причина embed/LLM-сбоя ─────────
 # Статус извлекается из текста исключения (наши форматы: «HTTP 403»,
 # «server error 502», «auth failed (401)», «status=429»…) или атрибута;
@@ -287,11 +300,95 @@ class LLMClient:
         self._fallback_client: httpx.AsyncClient | None = None
         self._fallback_key: str | None = None
         self._embed_fallback_client: httpx.AsyncClient | None = None
+        # Раунд 10 (F-7 §5.2): последний BYOK-источник (для счётчика).
+        self._byok_source: str = "global"      # 'chat' | 'global'
+        self._byok_chat_id: int | None = None
 
     def _current_api_key(self) -> str:
         """T-619 (84.4): ключ читается из ConfigCache на ВЫЗОВ; ключа нет в
-        БД → значение из .env/settings (ровно старое поведение до миграции)."""
+        БД → значение из .env/settings (ровно старое поведение до миграции).
+        ГЛОБАЛЬНЫЙ слой (embed/vision/видео — вне скоупа BYOK, F-7 §5.2)."""
         return hot.get("keys.llm_api_key", self._api_key) or ""
+
+    def _current_api_key_source(self) -> str:
+        """Глобальный слой нетронут: источник 'global' (для резолва)."""
+        return "global"
+
+    async def _resolve_api_key_and_source(self, chat_id: int | None = None
+                                          ) -> tuple[str, str]:
+        """ФИКС R6 (F-7 §5.2): (key, source) РЕЗОЛВ НА ВЫЗОВ — без записи
+        в self-атрибуты (гонка параллельных чатов перекручивала
+        _byok_chat_id и ложно учитывала usage другому чату).
+
+        1) chat_keys[chat_id]['keys.llm_api_key'] → свой ключ (бюджет не
+           тратится; source 'chat');
+        2) elif not chat_params['keys']['allow_global'] (default True) →
+           NoApiKeyForChat (source 'forbidden');
+        3) elif budget_exceeded(chat_id) → NoApiKeyForChat (source 'budget');
+        4) иначе глобальный hot.get (source 'global' + счётчик на конце
+           вызова).
+        Без собственного ключа/с запретом/с исчерпанием → NoApiKeyForChat
+        (sandbox-путь F-7: бот отвечает content.no_key_reply, LLM не
+        вызывается). Fail-open: PG/кэш недоступен → глобальный ключ (source
+        'global'), бот жив (§1.2-4)."""
+        if chat_id is None:
+            return self._current_api_key(), "global"
+        try:
+            from services import chat_params, chat_usage, chat_keys
+            own = await chat_keys.get_chat_key(
+                self._pg(), chat_id, "keys.llm_api_key")
+            if own:
+                return own, "chat"
+            root = await chat_params.get_all_chat_params(chat_id)
+            allow_global = bool((root.get("keys") or {}).get("allow_global",
+                                                             True))
+            if not allow_global:
+                raise NoApiKeyForChat(chat_id, "forbidden")
+            if await chat_usage.budget_exceeded(self._pg(), chat_id):
+                raise NoApiKeyForChat(chat_id, "budget")
+            return self._current_api_key(), "global"
+        except NoApiKeyForChat:
+            raise
+        except Exception:
+            logger.warning(
+                "[llm_client] BYOK-резолв недоступен — fail-open global | "
+                "chat=%s", chat_id, exc_info=True)
+            return self._current_api_key(), "global"
+
+    async def _resolve_api_key(self, chat_id: int | None = None) -> str:
+        """Легаси-обёртка (совместимость API): ключ + запись источника в
+        _byok_source/_byok_chat_id (для диагностики/тестов). Горячий путь —
+        использовать _resolve_api_key_and_source (фикс R6)."""
+        key, source = await self._resolve_api_key_and_source(chat_id)
+        self._byok_source = source
+        self._byok_chat_id = chat_id
+        return key
+
+    def _pg(self):
+        """PgDatabase из runtime-кэша (для BYOK/бюджета); None при его нет."""
+        cache = hot.get_config_cache()
+        if cache is None:
+            return None
+        return getattr(cache, "pg", None)
+
+    async def _record_global_usage(self, chat_id: int | None,
+                                   text: str | None,
+                                   source: str = "global") -> None:
+        """Счётчик бюджета глобального ключа на КОНЦЕ вызова (источник
+        'global'): 1 вызов + токены (оценка len/4, приблизительность —
+        README F-7 §5.2). Свой ключ чата бюджет НЕ тратит. ФИКС R6:
+        source передаётся per-call (не читается из self — гонка)."""
+        if chat_id is None or source != "global":
+            return
+        try:
+            from services import chat_usage
+            await chat_usage.report_call(
+                self._pg(), chat_id,
+                chat_usage.estimate_tokens(text))
+        except Exception:
+            logger.warning(
+                "[llm_client] usage counters failed — fail-open | chat=%s",
+                chat_id, exc_info=True)
 
     def _current_fallback_key(self) -> str:
         return hot.get("keys.llm_fallback_api_key",
@@ -305,8 +402,12 @@ class LLMClient:
         except RuntimeError:
             pass                     # нет running loop — GC подберёт
 
-    def _get_client(self) -> httpx.AsyncClient:
-        key = self._current_api_key()
+    def _get_client(self, key: str | None = None) -> httpx.AsyncClient:
+        """Ленивый клиент; `key` — resolve-результат (раунд 10, F-7: BYOK
+        собственный ключ чата передаётся из public async-точек; None →
+        глобальный _current_api_key())."""
+        if key is None:
+            key = self._current_api_key()
         if self._client is not None and key != self._client_key:
             self._close_async(self._client)
             self._client = None
@@ -385,13 +486,16 @@ class LLMClient:
         base_sleep = min(self.backoff_base * (2 ** attempt), self._backoff_cap)
         return base_sleep + random.uniform(0, self._jitter_max)
 
-    async def _post(self, path: str, payload: dict) -> httpx.Response:
+    async def _post(self, path: str, payload: dict,
+                    api_key: str | None = None) -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
         _post — asyncio.timeout(LLM_TOTAL_BUDGET) (56.4).
+        Раунд 10 (F-7 §5.2): api_key — BYOK-результат резолва (None →
+        глобальный слой).
         """
-        client = self._get_client()
+        client = self._get_client(api_key)
         url = f"{self._base_url}{path}"
         request_len = len(str(payload))
         total_attempts = self._max_retries + 1
@@ -520,6 +624,16 @@ class LLMClient:
             )
         raise LLMError(f"LLM request failed after retries: {url}")
 
+    async def _post_with_key(self, path: str, payload: dict,
+                             chat_id: int | None = None,
+                             key: str | None = None) -> httpx.Response:
+        """Раунд 10 (F-7 §5.2): резолв ключа чата + _post с этим ключом.
+        `key` — уже решённый per-call источник (фикс R6); None → резолв
+        здесь (легаси-путь)."""
+        if key is None:
+            key, _source = await self._resolve_api_key_and_source(chat_id)
+        return await self._post(path, payload, api_key=key)
+
     async def _post_fallback(self, payload: dict, path: str = "/chat/completions",
                              model: str | None = None) -> httpx.Response:
         """Epic 53 (62.4): РОВНО одна попытка на фоллбэке, БЕЗ ретраев.
@@ -620,12 +734,17 @@ class LLMClient:
         return None
 
     async def generate(self, messages: list[dict[str, str]],
-                       temperature: float | None = None) -> str:
+                       temperature: float | None = None,
+                       chat_id: int | None = None) -> str:
         """POST /chat/completions → choices[0].message.content.
 
         Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
         ключ в payload НЕ добавляется (ровно старое поведение для всех
         остальных вызовов; дефолт провайдера).
+
+        Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (свой ключ чата →
+        глобальный с бюджетом; None → ровно старое поведение — глобальный
+        ключ, embed-путь). Без ключа → NoApiKeyForChat (sandbox).
 
         Epic 53 (62.4): при LLMError primary (кроме LLMBadResponseError) и
         активном фоллбэке — 1 попытка на фоллбэке; фейл фоллбэка → проброс
@@ -634,11 +753,16 @@ class LLMClient:
         Эпик 04.09.2026 (3.3): контракт {model, messages[, temperature]}
         НЕ меняется — tools уходят ТОЛЬКО новым generate_chat (FR-10).
         """
+        # ФИКС R6: key/source — per-call локалы (нет гонки параллельных чатов).
+        key, source = await self._resolve_api_key_and_source(chat_id)
         payload = {"model": self._chat_model, "messages": messages}
         if temperature is not None:
             payload["temperature"] = temperature
         try:
-            response = await self._post("/chat/completions", payload)
+            response = await self._post_with_key(
+                "/chat/completions", payload, chat_id=chat_id, key=key)
+        except NoApiKeyForChat:
+            raise
         except LLMError as exc:
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
@@ -663,11 +787,13 @@ class LLMClient:
         logger.info(
             "LLM generate OK | model=%s | out_chars=%d", self._chat_model, len(content)
         )
+        await self._record_global_usage(chat_id, content, source=source)
         return content
 
     async def generate_chat(self, messages, *, temperature: float | None = None,
                             tools: list[dict] | None = None,
-                            tool_choice: str | dict = "auto") -> "LLMChatResult":
+                            tool_choice: str | dict = "auto",
+                            chat_id: int | None = None) -> "LLMChatResult":
         """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
 
         Контракт {model, messages}: температура — как в generate (None →
@@ -676,7 +802,10 @@ class LLMClient:
         generate (payload сквозной). Парсинг: content (может быть None при
         tool_calls) + tool_calls + finish_reason. Легаси generate() НЕ
         меняется (0 регрессий, FR-10/AC-2.1).
+        Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (см. generate). ФИКС R6:
+        key/source — per-call локалы.
         """
+        key, source = await self._resolve_api_key_and_source(chat_id)
         payload = {"model": self._chat_model, "messages": messages}
         if temperature is not None:
             payload["temperature"] = temperature
@@ -684,7 +813,10 @@ class LLMClient:
             payload["tools"] = tools
             payload["tool_choice"] = tool_choice
         try:
-            response = await self._post("/chat/completions", payload)
+            response = await self._post_with_key(
+                "/chat/completions", payload, chat_id=chat_id, key=key)
+        except NoApiKeyForChat:
+            raise
         except LLMError as exc:
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
@@ -739,6 +871,7 @@ class LLMClient:
             len(tool_calls) if tool_calls else 0,
         )
         content_text = content if (isinstance(content, str) and content.strip()) else None
+        await self._record_global_usage(chat_id, content_text, source=source)
         return LLMChatResult(
             content=content_text,
             tool_calls=tool_calls,

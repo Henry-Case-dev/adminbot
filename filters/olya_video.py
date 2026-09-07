@@ -27,13 +27,32 @@ def _normalize_caption(text: str) -> str:
     return _MULTISPACE_RE.sub(" ", text)
 
 
+async def per_chat_flag(message: types.Message, key: str, default) -> bool:
+    """Раунд 10 (F-9 §3): под-флаг через hot_chat (per-chat override поверх
+    глобального дефолта); fail-open — global/default."""
+    chat_id = getattr(getattr(message, "chat", None), "id", None)
+    if chat_id is None:
+        return bool(default)
+    try:
+        from services.chat_params import get_chat_param
+        return bool(await get_chat_param(chat_id, key, default))
+    except Exception:
+        return bool(default)
+
+
 class OlyaVideoFilter(BaseFilter):
-    """Filter: message is video/photo from configured Olya user, with SaveAsBot detection."""
+    """Filter: message is video/photo from configured Olya user, with SaveAsBot detection.
+
+    Раунд 10 (F-9 B4/Q2): flags.olya_enabled — per-chat (hot_chat:
+    chat_params → глобальный дефолт); гейт master'а — PermsocGateFilter
+    (декоратор), здесь только под-флаг модуля.
+    """
 
     async def __call__(self, message: types.Message) -> dict | bool:
         # Миграция read-пути (2026-09-03): горячие точки — изменение в
         # админке применяется без рестарта; фолбек на settings (R1).
-        if not hot.get("flags.olya_enabled", settings.OLYA_ENABLED):
+        if not await per_chat_flag(message, "flags.olya_enabled",
+                                   settings.OLYA_ENABLED):
             return False
 
         if message.from_user is None or message.from_user.id != hot.get(

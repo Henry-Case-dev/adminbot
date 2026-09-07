@@ -97,8 +97,9 @@ class TestDdl:
         await db.init()          # идемпотентность: повтор без ошибок
         create_tables = [q for q in conn.queries
                          if "CREATE TABLE" in q[0]]
-        # 4 таблицы базовых + 4 таблицы лора чатов (раунд 7, T-771) × 2 запуска
-        assert len(create_tables) == 8 * 2
+        # 4 базовых + 4 лора (раунд 7) + param_permissions/chat_keys/
+        # chat_usage/worker_budget (раунд 10) × 2 запуска
+        assert len(create_tables) == 12 * 2
 
     @pytest.mark.asyncio
     async def test_init_without_seed_settings_no_settings_insert(self, fake_pool):
@@ -111,11 +112,14 @@ class TestDdl:
 
 
 class TestRoleSeeds:
-    """84.14.3: сид v2 — admin wildcard, moderator limits+control, user {}."""
+    """84.14.3 + раунд 10 (F-7 §2.1): сид — 4 встроенные роли (admin/
+    moderator/user/local_admin) с role_type-маркером; существующие
+    admin/moderator/user НЕ перезаписываются (role_type — только через
+    UPDATE ... WHERE role_type IS NULL)."""
 
     def test_roles_v2(self):
         by_name = {r["role_name"]: r for r in DEFAULT_ROLES}
-        assert set(by_name) == {"admin", "moderator", "user"}
+        assert set(by_name) == {"admin", "moderator", "user", "local_admin"}
         assert by_name["admin"]["permissions"] == {"wildcard": True}
         mod = by_name["moderator"]["permissions"]
         assert mod["sections"] == ["limits"]
@@ -124,6 +128,19 @@ class TestRoleSeeds:
         assert by_name["user"]["permissions"] == {}
         for role in DEFAULT_ROLES:
             assert role["is_custom"] is False
+
+    def test_role_types(self):
+        by_name = {r["role_name"]: r for r in DEFAULT_ROLES}
+        assert by_name["admin"]["role_type"] == "global_admin"
+        assert by_name["moderator"]["role_type"] == "moderator"
+        assert by_name["user"]["role_type"] == "user"
+        assert by_name["local_admin"]["role_type"] == "local_admin"
+        # пресет local_admin — БЕЗ wildcard и без keys/echo-секций
+        la = by_name["local_admin"]["permissions"]
+        assert "wildcard" not in la
+        assert la["sections"] == ["limits", "flags", "reactions", "content",
+                                  "chat_lore"]
+        assert la["actions"] == []
 
     def test_critical_telegram_ids(self):
         admins = dict(DEFAULT_ADMINS)
@@ -144,7 +161,10 @@ class TestRoleSeeds:
         assert all("ON CONFLICT" in s for s in insert_sqls)
         role_inserts = [q for q in conn.queries
                         if "INSERT" in q[0] and "bot_roles" in q[0]]
-        assert len(role_inserts) == 3
+        assert len(role_inserts) == 4      # + local_admin (раунд 10)
+        role_type_updates = [q for q in conn.queries
+                             if "UPDATE" in q[0] and "role_type" in q[0]]
+        assert len(role_type_updates) == 4
         admin_inserts = [q for q in conn.queries
                          if "INSERT" in q[0] and "bot_admins" in q[0]]
         assert len(admin_inserts) == 3
