@@ -34,6 +34,16 @@ class TestMenu:
         # read-only гейт в canViewTab (user → только always: status|info)
         assert "tab.always) return true;" in js
 
+    def test_sidebar_scrollable(self):
+        """BUG-2 (рекон раунда 10): сайдбар скроллится сам — десктоп
+        md:sticky/md:h-screen/md:overflow-y-auto + scroll-thin на aside;
+        мобильное media-правило — overflow-y:auto (+ webkit touch)."""
+        html = _html()
+        assert "md:sticky md:top-0 md:h-screen md:overflow-y-auto" in html
+        assert "scroll-thin" in html
+        assert "overflow-y: auto" in html
+        assert "-webkit-overflow-scrolling: touch" in html
+
 
 class TestSelector:
     def test_selector_local_storage_and_header(self):
@@ -47,6 +57,26 @@ class TestSelector:
         assert "setActiveChat($event.target.value)" in html
         assert "activeChatTitle" in html
         assert "Весь бот" in html
+
+    def test_selector_visible_for_single_chat(self):
+        """BUG-1 (рекон раунда 10): селектор виден глобальному админу УЖЕ
+        при ≥1 чате (раньше v-if требовал accessChats.length > 1 для
+        global admin) — кнопки «Выбери чат» нет на видном месте была
+        жалоба владельца; «Весь бот» остаётся опцией глобального админа."""
+        html = _html()
+        assert 'v-if="accessChats.length"' in html
+        assert ">Весь бот</option>" in html
+
+    def test_chat_picker_button_and_dropdown(self):
+        """BUG-1: заметная кнопка «Выбрать чат» + дропдаун пикера
+        (accessChats + «Весь бот»), синхрон с setActiveChat."""
+        js, html = _js(), _html()
+        assert "openChatPicker" in js
+        assert "chatPickerOpen" in js
+        assert "pickChat" in js
+        assert "💬 Выбрать чат" in html
+        assert "pickChat('')" in html
+        assert "pickChat(c.chat_id)" in html
 
 
 class TestProgressiveDisclosure:
@@ -77,12 +107,39 @@ class TestProgressiveDisclosure:
     def test_registry_has_progressive_level(self):
         assert hasattr(pc.ParamSpec, "progressive_level")
 
+    def test_group_card_skipped_when_empty(self):
+        """BUG-5 (ре-дизайн 10.2, spec §10 F-11): пустые подсекции не
+        рендерятся — карточка группы только при basic|advanced > 0;
+        «Расширенные» только при advancedItems > 0 (без «(0)»)."""
+        html = _html()
+        assert ('v-if="basicItems(grp).length || advancedItems(grp).length"'
+                in html)
+        assert 'v-if="basicItems(grp).length"' in html
+        assert 'v-if="advancedItems(grp).length > 0"' in html
+        assert ':open="basicItems(grp).length === 0 || expandOpen(activeTab)"' \
+            in html
+        js = _js()
+        assert "return result.filter" in js
+
 
 class TestModulesFeats:
     def test_modules_feats_tab(self):
         js = _js()
         assert "modules_feats" in js
         assert "type: 'modules'" in js
+
+    def test_permsoc_tab_and_summary_card(self):
+        """BUG-3 (ре-дизайн 10.2, spec §10 A/D): штатная вкладка
+        «Функции PERMsoc» (config, menu modules) + массив-карта модулей +
+        компактная summary-карточка в «Модулях и Фичах» с переходом."""
+        js, html = _js(), _html()
+        assert "id: 'permsoc'" in js
+        assert "type: 'config'" in js
+        assert "Функции PERMsoc" in js
+        assert "activeTab === 'permsoc'" in html
+        assert "permsocModuleBadge" in js
+        assert "Открыть «Функции PERMsoc» 🎭" in html
+        assert "setTab('permsoc')" in html
 
     def test_modules_render_blocks(self):
         html = _html()

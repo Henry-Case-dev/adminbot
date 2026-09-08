@@ -1069,3 +1069,112 @@ class TestStatic:
             in resp.headers.get("cache-control", "")
         # обычные файлы (без no-cache) — тоже header на 304
         image = None  # картинок нет в web/ — проверяем только js-кейс
+
+
+class TestParamPermissionFlagsApi:
+    """Ре-дизайн 10.2, BUG-6 (spec §3.2.4): GET/PUT/DELETE
+    /api/access/param_permissions — новая форма {view_roles, edit_roles};
+    legacy-тело принимается; глобальный админ в массивах → 422."""
+
+    def test_config_items_carry_flag_lists(self, client):
+        """GET /api/config: items несут view_roles/edit_roles (новая форма);
+        legacy-поля (view_min_role/edit_min_role/hidden_from_local) НЕ
+        отдаются (spec §3.2.4)."""
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        items = {i["key"]: i for i in resp.json()["items"]}
+        it = items["limits.search_max_symbols"]
+        assert it["view_roles"] == ["moderator", "local_admin"]
+        assert it["edit_roles"] == ["local_admin"]
+        assert "view_min_role" not in it
+        assert "edit_min_role" not in it
+        assert "hidden_from_local" not in it
+        key = items["keys.groq_api_key"]
+        assert key["view_roles"] == [] and key["edit_roles"] == []
+        # content-ключ (не-секрет, общая категория-дефолт) — флаги как в §3.2.3
+        cat = items["content.info_how_it_works"]
+        assert cat["view_roles"] == ["moderator", "local_admin"]
+        assert cat["edit_roles"] == ["local_admin"]
+
+    def test_param_permissions_get_empty_matrix(self, client):
+        resp = client.get("/api/access/param_permissions", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert "limits.search_max_symbols" in items
+        m = items["limits.search_max_symbols"]
+        assert m["view_roles"] == ["moderator", "local_admin"]
+        assert m["edit_roles"] == ["local_admin"]
+        assert m["default"] is True
+        assert "view_min_role" not in m
+        assert "hidden_from_local" not in m
+        kk = items["keys.llm_api_key"]
+        assert kk["view_roles"] == [] and kk["edit_roles"] == []
+
+    def test_put_flags_new_shape(self, client):
+        from services import access as access_srv
+        access_srv.reset_param_permissions_cache()
+        resp = client.put(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID),
+            json={"view_roles": ["moderator"], "edit_roles": ["local_admin"]})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["view_roles"] == ["moderator", "local_admin"]  # view |= edit
+        assert body["edit_roles"] == ["local_admin"]
+
+    def test_put_legacy_body_normalized_response(self, client):
+        resp = client.put(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID),
+            json={"view_min_role": "moderator",
+                  "edit_min_role": "moderator",
+                  "hidden_from_local": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        # legacy хранится как есть, но ответ — нормализованная новая форма
+        # (view: rank>=moderator минус local_admin-folding → [moderator],
+        # затем union edit_roles: «запись подразумевает чтение»)
+        assert body["view_roles"] == ["moderator", "local_admin"]
+        assert body["edit_roles"] == ["moderator", "local_admin"]
+
+    def test_put_global_admin_flag_422(self, client):
+        resp = client.put(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID),
+            json={"view_roles": ["global_admin"], "edit_roles": ["user"]})
+        assert resp.status_code == 422
+        resp2 = client.put(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID),
+            json={"view_roles": ["user"], "edit_roles": ["global_admin"]})
+        assert resp2.status_code == 422
+
+    def test_put_forbidden_for_non_global_admin(self, client):
+        resp = client.put(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(MODERATOR_ID),
+            json={"view_roles": ["user"], "edit_roles": ["user"]})
+        assert resp.status_code == 403
+        resp2 = client.delete(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(MODERATOR_ID))
+        assert resp2.status_code == 403
+
+    def test_delete_resets_to_default(self, client):
+        """DELETE оверрайда → 200 {reset: true}; нет строки → 404."""
+        resp = client.delete(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json() == {"key": "limits.search_max_symbols",
+                               "reset": True}
+
+    def test_delete_404_without_row(self, client, monkeypatch):
+        from services import access as access_srv
+        async def _gone(*args, **kwargs):
+            return False
+        monkeypatch.setattr(access_srv, "delete_param_permission", _gone)
+        resp = client.delete(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 404

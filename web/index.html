@@ -231,6 +231,21 @@
       white-space: pre-wrap;
       color: #fca5a5;
     }
+    /* Раунд 10 (BUG-7): ghost-textarea копирования — за экраном
+       (fixed left:-9999px), невидима, без раскладки-эффекта в Telegram
+       WebView; ОДИН элемент на весь клип (window.__adminbotClipGhost). */
+    .clipboard-ghost {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      border: 0;
+      padding: 0;
+      background: transparent !important;
+    }
 
     /* Тосты */
     .toast-wrap {
@@ -325,7 +340,9 @@
       overflow: hidden;
     }
 
-    /* Мобильный сайдбар */
+    /* Мобильный сайдбар (BUG-2): fixed top/bottom + СВОЙ скролл
+       (overflow-y:auto) — контент длиннее экрана прокручивается в самом
+       сайдбаре, а не растягивает страницу (WebView/TMA). */
     @media (max-width: 768px) {
       .sidebar {
         position: fixed;
@@ -334,6 +351,8 @@
         transform: translateX(-100%);
         transition: transform 0.25s ease;
         width: 260px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .sidebar.open { transform: translateX(0); }
       .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
@@ -343,8 +362,11 @@
 <body>
   <div id="app" v-cloak>
     <div class="min-h-screen flex" :class="{ 'fullscreen-mode': isFullscreen }">
-      <!-- Сайдбар -->
-      <aside class="sidebar card-solid p-3 flex flex-col gap-1 w-64 shrink-0 md:static"
+      <!-- Сайдбар (BUG-2): десктоп — sticky + собственный скролл (высота
+           экрана), мобилка — fixed top/bottom + overflow-y (CSS-правило
+           ниже); .fullscreen-mode (100dvh) — скроллится сам сайдбар. -->
+      <aside class="sidebar card-solid p-3 flex flex-col gap-1 w-64 shrink-0
+                    scroll-thin md:sticky md:top-0 md:h-screen md:overflow-y-auto"
              :class="{ open: sidebarOpen }" style="border-radius:0;">
         <div class="px-2 py-3 text-lg font-bold flex items-start gap-2">
           <div class="min-w-0">
@@ -385,8 +407,11 @@
           <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
           <!-- Раунд 10 (F-7 T-854/F-11 T-906): чип активного скоупа в шапке —
                «Весь бот» (NULL) или название чата + мелкий chat_id; селектор
-               (полностью — в F-11) рядом. -->
-          <select v-if="accessChats.length && (isGlobalAdmin ? accessChats.length > 1 : !isGlobalAdmin)"
+               (полностью — в F-11) рядом. BUG-1 (рекон раунда 10): селектор
+               виден глобальному админу УЖЕ при ≥1 чате (раньше скрывался
+               до 2+ — «кнопки „Выбери чат“ нигде не было»); «Весь бот» — опция
+               ТОЛЬКО для глобального админа. -->
+          <select v-if="accessChats.length"
                   class="chat-select field text-xs w-44 max-w-[200px] shrink-0"
                   style="min-width: 220px; max-width: 320px;"
                   :value="activeChatId != null ? String(activeChatId) : ''"
@@ -395,6 +420,27 @@
             <option v-for="c in accessChats" :key="c.chat_id"
                     :value="String(c.chat_id)">{{ c.title || ('Чат ' + c.chat_id) }}</option>
           </select>
+          <!-- BUG-1: кнопка «Выбери чат» — заметный дропдаун (тот же
+               список accessChats + «Весь бот»); синхрон setActiveChat. -->
+          <div class="relative shrink-0">
+            <button v-if="accessChats.length" class="btn-ghost text-xs px-2 shrink-0"
+                    title="Выбрать чат (контекст включения per chat)"
+                    @click="openChatPicker()">💬 Выбрать чат</button>
+            <div v-if="chatPickerOpen"
+                 class="absolute left-0 top-full mt-1 z-50 card card-solid p-2 w-64
+                        max-h-72 overflow-y-auto scroll-thin text-xs">
+              <button v-if="isGlobalAdmin" type="button"
+                      class="w-full text-left rounded-lg px-2 py-1.5 hover:bg-white/10"
+                      :class="{ 'bg-violet-600/30': activeChatId == null }"
+                      @click="pickChat('')">🌐 Весь бот</button>
+              <button v-for="c in accessChats" :key="c.chat_id" type="button"
+                      class="w-full text-left rounded-lg px-2 py-1.5 hover:bg-white/10"
+                      :class="{ 'bg-violet-600/30': String(activeChatId) === String(c.chat_id) }"
+                      @click="pickChat(c.chat_id)">
+                {{ c.title || ('Чат ' + c.chat_id) }}
+              </button>
+            </div>
+          </div>
           <span v-if="isChatContext()" class="badge badge-info truncate max-w-[160px]">
             {{ activeChatTitle }}
           </span>
@@ -442,6 +488,56 @@
               Нет доступа к параметрам этой вкладки.
             </div>
             <template v-else>
+              <!-- Ре-дизайн 10.2, BUG-3 (spec §10 A/C): мастер-карта
+                   вкладки «Функции PERMsoc» — ПЕРЕД generic-рендером групп:
+                   per-chat мастер (gates API; write — ТОЛЬКО global admin;
+                   local admin — read-only бейдж), без чата — hint + кнопка
+                   «Выбери чат»; ниже — сводка 5 модулей (derived/под-флаг/
+                   OFF (master)). ID персон и рубильники — в группах ниже. -->
+              <div v-if="activeTab === 'permsoc'" class="card p-4 col-span-full">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
+                  <span class="badge" :class="permsocMasterOn() ? 'badge-ok' : 'badge-muted'">
+                    master: {{ permsocMasterOn() ? 'ON' : 'OFF' }}
+                  </span>
+                  <label v-if="isChatContext()" class="relative inline-flex items-center cursor-pointer shrink-0"
+                         title="Мастер-тумблер (только global admin)">
+                    <input type="checkbox" class="sr-only peer"
+                           :checked="permsocMasterOn()"
+                           :disabled="!isGlobalAdmin || gatesBusy"
+                           @change="togglePermsoc($event.target.checked)">
+                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                  </label>
+                  <span class="text-xs text-gray-500">(только global admin)</span>
+                </div>
+                <div v-if="!isChatContext()" class="text-xs text-gray-500">
+                  Тумблер — на чек-бот чата: выберите чат в шапке →
+                  модули включаются per chat (Opt-In). Без чата — только
+                  глобальные значения групп ниже.
+                  <button class="btn-ghost text-xs px-2 ml-1"
+                          @click="openChatPicker()">💬 Выбрать чат</button>
+                </div>
+                <div v-else class="grid gap-2 md:grid-cols-2">
+                  <div v-for="module in ['slavik','kostik','alan','olya','mimic']"
+                       :key="module"
+                       class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2">
+                    <span class="text-sm font-semibold">{{ module }}</span>
+                    <span class="badge"
+                          :class="permsocModuleBadge(module) === 'derived (master)'
+                            ? 'badge-info'
+                            : (permsocModuleBadge(module) === 'OFF (master)'
+                              ? 'badge-muted' : 'badge-ok')">
+                      {{ permsocModuleBadge(module) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="text-xs text-gray-500 mt-2">
+                  Master OFF — все 5 модулей молчат в этом чате. Telegram ID
+                  персон, под-флаги Оли/мимикрии и рубильники
+                  («куча → ДАЛБАЕБ», «Мимикрия Лехи») — в группах ниже.
+                </div>
+              </div>
               <div class="card p-3 col-span-full flex items-center gap-2">
                 <input class="field flex-1" placeholder="Поиск по параметрам…" v-model="configSearch">
                 <button v-if="configSearch" class="btn-ghost text-xs shrink-0" @click="clearConfigSearch()">✕</button>
@@ -452,21 +548,26 @@
               <div v-else-if="currentTabGroups.length === 0" class="card p-6 text-gray-400 col-span-full">
                 Ничего не найдено по запросу «{{ configSearch }}».
               </div>
-              <div v-for="grp in currentTabGroups" :key="grp.uid" class="card p-4 col-span-full">
+              <div v-for="grp in currentTabGroups" :key="grp.uid"
+                   v-if="basicItems(grp).length || advancedItems(grp).length"
+                   class="card p-4 col-span-full">
                 <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                 <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
                 <!-- Раунд 10 (F-11 Q3/4.2): прогрессивное раскрытие — Базовые
                      (как раньше) + <details> «Расширенные настройки» (нативные,
                      localStorage adminbot.expand:<tab>; закрыт по умолчанию).
-                     Скрытые (min-ролями) параметры НЕ рендерятся вовсе. -->
-                <div class="grid gap-3 md:grid-cols-2">
+                     Скрытые (min-ролями) параметры НЕ рендерятся вовсе.
+                     BUG-5 (ре-дизайн 10.2): сетка «Базовых» — только при
+                     basicItems>0; «Расширенные» при advancedItems>0 (без
+                     пустых «(0)»-блоков). -->
+                <div class="grid gap-3 md:grid-cols-2" v-if="basicItems(grp).length">
                   <div v-for="item in basicItems(grp)"
                        :key="item.key" class="card p-4" style="min-width:0;">
                     <!-- Раунд 10 (F-7 T-855/T-868): роль-пикер (gear, global
                          admin) + бейджи «чат»/«скрыт» + сброс на глобальное -->
                     <div class="flex items-center gap-2 min-w-0 mb-1">
                       <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
-                      <span v-if="item.hidden_from_local" class="badge badge-warn">скрыт</span>
+                      <span v-if="itemHiddenDev(item)" class="badge badge-warn">скрыт</span>
                       <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                               title="Права ключа (min-роли view/edit)"
                               @click="openPermPicker(item)">⚙</button>
@@ -554,9 +655,11 @@
                   </div>
                 </div>
                 <!-- F-11 (Q3/4.2): «Расширенные настройки» — нативный
-                     аккордеон (closed по умолчанию; localStorage). Без open
-                     при bind на :open — source of truth из expandOpen(). -->
-                <details class="advanced mt-4" :open="expandOpen(activeTab)"
+                     аккордеон (closed по умолчанию; localStorage). BUG-5:
+                     рендерится ТОЛЬКО при advancedItems>0; раскрыт сразу,
+                     если «Базовых» нет (иначе вкладка выглядит пустой). -->
+                <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
+                         :open="basicItems(grp).length === 0 || expandOpen(activeTab)"
                          @toggle="toggleExpand(activeTab)">
                   <summary class="cursor-pointer select-none text-sm font-semibold
                                  inline-flex items-center gap-2">
@@ -878,46 +981,29 @@
               </div>
             </div>
 
-            <!-- 🎭 Функции PERMsoc: мастер-карточка ВСЕГДА; список модулей
-                 чата — при выбранном чате -->
+            <!-- 🎭 Функции PERMsoc: компактная summary-карточка (BUG-3) —
+                 мастер-статус + переход в штатную вкладку «Функции PERMsoc»
+                 (перс-тумблеры/ID — там; здесь НЕ дублируем). -->
             <div class="card p-4 col-span-full">
-              <div class="flex items-center gap-2 flex-wrap mb-2">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
                 <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
-                <span class="badge" :class="gateInfo && gateInfo.gates
-                      && gateInfo.gates.permsoc ? 'badge-ok' : 'badge-muted'">
-                  master: {{ gateInfo && gateInfo.gates
-                      && gateInfo.gates.permsoc ? 'ON' : 'OFF' }}
+                <span class="badge" :class="permsocMasterOn() ? 'badge-ok' : 'badge-muted'">
+                  master: {{ permsocMasterOn() ? 'ON' : 'OFF' }}
                 </span>
-                <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-auto">
-                  <input type="checkbox" class="sr-only peer"
-                         :checked="!!(gateInfo && gateInfo.gates && gateInfo.gates.permsoc)"
-                         :disabled="!isGlobalAdmin || gatesBusy || !isChatContext()"
-                         @change="togglePermsoc($event.target.checked)">
-                  <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                  <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                </label>
-                <span class="text-xs text-gray-500">(только global admin)</span>
               </div>
               <div class="text-xs text-gray-500 mb-2">
-                5 персон-триггеров: Славик, Костя, Леха/Алан, Оля,
-                передразнивания. Master OFF — все 5 молчат в этом чате.
+                5 персон-триггеров (Славик · Костя · Леха/Алан · Оля ·
+                передразнивания) — мастер-тумблер per chat и все настройки
+                во вкладке «Функции PERMsoc».
               </div>
-              <div v-if="!isChatContext()" class="text-xs text-gray-500">
-                Тумблер — per chat (указывает чат в шапке; «Весь бот» — только
-                сводка). Мастер-статус показывается для выбранного чата.
-              </div>
-              <div v-else class="grid gap-2 md:grid-cols-2">
-                <div class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2"
-                     v-for="module in ['slavik','kostik','alan','olya','mimic']" :key="module">
-                  <span class="text-sm font-semibold">{{ module }}</span>
-                  <span class="badge" :class="module === 'slavik' || module === 'kostik'
-                        || module === 'alan' ? 'badge-info' : 'badge-muted'">
-                    {{ (gateInfo && gateInfo.gates && gateInfo.gates.permsoc)
-                        ? (module === 'slavik' || module === 'kostik' || module === 'alan'
-                            ? 'derived (master)' : 'под-флаг')
-                        : 'OFF (master)' }}
-                  </span>
-                </div>
+              <button class="btn-ghost text-sm" @click="setTab('permsoc')">
+                Открыть «Функции PERMsoc» 🎭
+              </button>
+              <div v-if="!isChatContext()" class="text-xs text-gray-500 mt-2">
+                Выберите чат в шапке — мастер и модули включаются
+                per chat (Opt-In).
+                <button class="btn-ghost text-xs px-2 ml-1"
+                        @click="openChatPicker()">💬 Выбрать чат</button>
               </div>
             </div>
           </template>
@@ -1414,9 +1500,14 @@
                               {{ avatarInitial(u) }}
                             </span>
                             <span class="flex flex-col min-w-0 leading-tight">
-                              <span class="font-semibold truncate">{{ resolveRelationName(u) }}</span>
-                              <span v-if="u.username && !resolveRelationName(u).startsWith('@')"
-                                    class="text-xs text-gray-500 truncate">@{{ u.username }}</span>
+                              <span v-if="resolveRelationName(u)"
+                                    class="font-semibold truncate">{{ resolveRelationName(u) }}</span>
+                              <!-- 10.2: @username — без «@», подпись только
+                                   когда имя НЕ из username (иначе дубль);
+                                   имени нет — resolveRelationName вернёт
+                                   username (без @) или '' (id не показываем) -->
+                              <span v-if="u.username && resolveRelationName(u) !== String(u.username)"
+                                    class="text-xs text-gray-500 truncate">{{ u.username }}</span>
                             </span>
                             <span class="text-xs text-gray-500 font-mono opacity-60">{{ u.user_id }}</span>
                             <span class="badge badge-info chip-auto">авто: {{ stageRu(u.stage_auto) }}</span>
@@ -1911,38 +2002,59 @@
       </div>
     </div>
 
-    <!-- Раунд 10 (F-7 T-855): роль-пикер — модалка min-ролей ключа
-         (только global admin открывает: gear у каждого инпута) -->
+    <!-- Раунд 10 (F-7 T-855; ре-дизайн 10.2 BUG-6 §3.2.1): роль-пикер —
+         флаги «Чтение»/«Запись» (чекбоксы Юзер/Модератор/Локальный админ);
+         global admin — неявно ВСЕГДА (не чекбокс); все сняты → «только
+         глобальный админ»; «Сбросить на дефолт» → DELETE (в таблицу). -->
     <div v-if="permPickerOpen" class="modal-backdrop" @click.self="closePermPicker()">
       <div class="card card-solid p-5 max-w-md w-full">
         <div class="text-base font-bold mb-1">Права ключа: {{ permPickerItem && permPickerItem.title }}</div>
         <div class="text-xs text-gray-500 font-mono mb-3">{{ permPickerItem && permPickerItem.key }}</div>
-        <div class="space-y-3 text-sm">
-          <label class="block">
-            <span class="text-xs text-gray-400">view_min_role (кто видит)</span>
-            <select class="field mt-1" v-model="permPicker.view_min_role">
-              <option value="user">user</option>
-              <option value="moderator">moderator</option>
-              <option value="local_admin">local_admin</option>
-              <option value="global_admin">global_admin</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="text-xs text-gray-400">edit_min_role (кто редактирует)</span>
-            <select class="field mt-1" v-model="permPicker.edit_min_role">
-              <option value="user">user</option>
-              <option value="moderator">moderator</option>
-              <option value="local_admin">local_admin</option>
-              <option value="global_admin">global_admin</option>
-            </select>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" v-model="permPicker.hidden_from_local" class="accent-violet-600">
-            <span class="text-xs text-gray-400">скрыто от локальных админов</span>
-          </label>
+        <div class="text-xs text-gray-500 mb-3">
+          Global admin — всегда полный доступ (видит и редактирует; здесь не
+          отмечен). Отметьте роли для «Чтения» и «Записи»; запись подразумевает
+          чтение.
         </div>
-        <div class="mt-4 flex justify-end gap-2">
+        <div class="space-y-4 text-sm">
+          <div>
+            <div class="text-xs font-bold text-gray-300 mb-2">Чтение</div>
+            <div class="flex flex-col gap-1.5">
+              <label v-for="role in ['user','moderator','local_admin']"
+                     :key="'v'+role"
+                     class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" class="accent-violet-600"
+                       v-model="permPicker.viewRoles[role]">
+                <span>{{ role === 'user' ? 'Юзер'
+                    : (role === 'moderator' ? 'Модератор' : 'Локальный админ') }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-gray-300 mb-2">Запись</div>
+            <div class="flex flex-col gap-1.5">
+              <label v-for="role in ['user','moderator','local_admin']"
+                     :key="'e'+role"
+                     class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" class="accent-violet-600"
+                       v-model="permPicker.editRoles[role]">
+                <span>{{ role === 'user' ? 'Юзер'
+                    : (role === 'moderator' ? 'Модератор' : 'Локальный админ') }}</span>
+              </label>
+            </div>
+          </div>
+          <div v-if="!roleCheckboxAny(permPicker.viewRoles)
+                     && !roleCheckboxAny(permPicker.editRoles)"
+               class="text-xs text-gray-500">
+            Ничего не отмечено — ключ виден и редактируется только
+            глобальному админу.
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2 flex-wrap">
           <button class="btn-ghost text-sm" @click="closePermPicker()">Отмена</button>
+          <button class="btn-ghost text-sm" title="Вернуть к дефолтным правам"
+                  :disabled="permPickerSaving" @click="resetPermPicker()">
+            Сбросить на дефолт
+          </button>
           <button class="btn-accent text-sm" :disabled="permPickerSaving"
                   @click="savePermPicker()">
             {{ permPickerSaving ? 'Сохранение…' : 'Сохранить' }}

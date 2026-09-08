@@ -515,7 +515,9 @@ class TestEpic60PhaseBSettingsDefaults:
         assert s.GRAPH_UNCONFIRMED_RETENTION_DAYS == 14
         assert s.MEMORY_BACKUP_ENABLED is True
         assert s.MEMORY_BACKUP_DIR == "backups"
-        assert s.MEMORY_BACKUP_KEEP == 7
+        # BUG-8 (раунд 10): код-дефолт ретенции — 1 (диск не растёт без
+        # cron-гварда; hot-config limits.memory_backup_keep перекрывает)
+        assert s.MEMORY_BACKUP_KEEP == 1
         assert s.MEMORY_BACKUP_HOUR == "05:00"
         assert s.EMBED_CACHE_ENABLED is True
         assert s.EMBED_CACHE_TTL_DAYS == 30

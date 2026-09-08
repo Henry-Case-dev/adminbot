@@ -223,6 +223,33 @@ async def test_set_chat_params_keeps_namespaces(conn, cache, pg):
     assert root["overrides"]["a"] == 1
 
 
+async def test_perm_overrides_flags_shape(conn, cache, pg):
+    """BUG-6 (spec §3.2.2): perm_overrides пишется в НОВОЙ форме
+    {view_roles, edit_roles} (набор-замена); legacy-строки нормализуются
+    на чтении (effective_matrix: фолдинг hidden_from_local + union)."""
+    conn.add_profile(-7)
+    root = await set_chat_params(
+        -7, {"perm_overrides": {"limits.chat_cooldown_seconds":
+                                {"view_roles": ["moderator"],
+                                 "edit_roles": ["local_admin"]}}},
+        changed_by=1, pg=pg)
+    po = root["perm_overrides"]["limits.chat_cooldown_seconds"]
+    assert po["view_roles"] == ["moderator"]
+    assert po["edit_roles"] == ["local_admin"]
+    # чтение legacy-строки: normalize на чтении (view: rank>=moderator минус
+    # local_admin-фолдинг + union edit → «запись подразумевает чтение»)
+    from services import access as access_srv
+    m = access_srv.effective_matrix(
+        "limits.chat_cooldown_seconds",
+        chat_override={"view_min_role": "moderator",
+                       "edit_min_role": "moderator",
+                       "hidden_from_local": True})
+    assert m["view_roles"] == ["moderator", "local_admin"]
+    assert m["edit_roles"] == ["moderator", "local_admin"]
+    assert "hidden_from_local" not in m
+    assert "view_min_role" not in m
+
+
 async def test_fail_open_pg_down(pg_and_cache):
     conn, pg, cache = pg_and_cache
     cache.set_pg(None)

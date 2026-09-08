@@ -31,6 +31,7 @@ access_router = APIRouter()
 
 _CHAT_ROLE_DOMAIN = frozenset({ROLE_LOCAL_ADMIN, ROLE_MODERATOR})
 _ROLETYPE_DOMAIN = frozenset(access_srv.ROLE_TYPES)
+_FLAG_ROLE_DOMAIN = frozenset(access_srv.FLAG_ROLE_DOMAIN)
 
 PROFILE_EXISTS_SQL = "SELECT 1 FROM chat_profiles WHERE chat_id = $1 LIMIT 1"
 UPSERT_CHAT_ADMIN_SQL = (
@@ -81,15 +82,60 @@ class ChatAdminBody(BaseModel):
 
 
 class ParamPermissionBody(BaseModel):
+    """Ре-дизайн 10.2, BUG-6 (spec §3.2.2/§3.2.4): НОВАЯ форма
+    {view_roles: [..], edit_roles: [..]} (массивы доменных ролей; global_admin
+    в массивах → 422) ЛИБО legacy {view_min_role, edit_min_role,
+    hidden_from_local} (нормализуется сервером; БД-строки не трогаем —
+    миграция на чтении)."""
+    view_roles: list[str] | None = None
+    edit_roles: list[str] | None = None
     view_min_role: str | None = None
     edit_min_role: str | None = None
     hidden_from_local: bool | None = None
 
 
 class ChatParamPermissionBody(BaseModel):
+    view_roles: list[str] | None = None
+    edit_roles: list[str] | None = None
     view_min_role: str | None = None
     edit_min_role: str | None = None
     hidden_from_local: bool | None = None
+
+
+def _value_from_payload(payload) -> dict:
+    """Новая форма → {view_roles, edit_roles} (валидация домена: global_admin
+    в массивах → 422; view_roles := view_roles ∪ edit_roles — «запись
+    подразумевает чтение», spec §3.2.4). Legacy-поля → как есть (нормализуются
+    на чтении)."""
+    value = {}
+    if payload.view_roles is not None or payload.edit_roles is not None:
+        view_roles = list(payload.view_roles or [])
+        edit_roles = list(payload.edit_roles or [])
+        for role in (*view_roles, *edit_roles):
+            if role not in _FLAG_ROLE_DOMAIN:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"флаг-роль вне домена: {role}")
+        allowed = set(view_roles) | set(edit_roles)
+        value["view_roles"] = [
+            r for r in access_srv.FLAG_ROLE_DOMAIN if r in allowed]
+        value["edit_roles"] = edit_roles
+    else:
+        if payload.view_min_role is not None:
+            if payload.view_min_role not in _ROLETYPE_DOMAIN:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"role вне домена: {payload.view_min_role}")
+            value["view_min_role"] = payload.view_min_role
+        if payload.edit_min_role is not None:
+            if payload.edit_min_role not in _ROLETYPE_DOMAIN:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"role вне домена: {payload.edit_min_role}")
+            value["edit_min_role"] = payload.edit_min_role
+        if payload.hidden_from_local is not None:
+            value["hidden_from_local"] = bool(payload.hidden_from_local)
+    return value
 
 
 def _chat_id_or_none(x_chat_id: str | None) -> int | None:
@@ -260,9 +306,9 @@ async def param_permissions_list(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """Эффективная матрица key → {view_min_role, edit_min_role,
-    hidden_from_local, default} — ТОЛЬКО global admin; дефолт ⊕ DB-
-    перекрытия (строки таблицы НЕ сидятся, см. services/access.py)."""
+    """Эффективная матрица key → {view_roles, edit_roles, default} (новая
+    форма; hidden_from_local БОЛЬШЕ не отдаётся) — ТОЛЬКО global admin;
+    дефолт ⊕ перекрытия (строки таблицы НЕ сидятся, см. services/access.py)."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
@@ -287,25 +333,15 @@ async def param_permissions_put(
     payload: ParamPermissionBody,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """Только global admin: перекрытие дефолта (INSERT ON CONFLICT);
-    валидация: роли ∈ домен ROLE_TYPES, иначе 422"""
+    """Только global admin: перекрытие дефолта (INSERT ON CONFLICT).
+    Принимает ОБЕ формы (новая/legacy), ответ — нормализованная новая."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
-    value = {}
-    if payload.view_min_role is not None:
-        if payload.view_min_role not in _ROLETYPE_DOMAIN:
-            raise HTTPException(status_code=422,
-                                detail=f"role вне домена: {payload.view_min_role}")
-        value["view_min_role"] = payload.view_min_role
-    if payload.edit_min_role is not None:
-        if payload.edit_min_role not in _ROLETYPE_DOMAIN:
-            raise HTTPException(status_code=422,
-                                detail=f"role вне домена: {payload.edit_min_role}")
-        value["edit_min_role"] = payload.edit_min_role
-    if payload.hidden_from_local is not None:
-        value["hidden_from_local"] = bool(payload.hidden_from_local)
+    value = _value_from_payload(payload)
+    if not value:
+        raise HTTPException(status_code=422, detail="пустое тело — нечего сохранить")
     _require_pg(cache)
     try:
         await access_srv.upsert_param_permission(cache.pg, key, value)
@@ -313,7 +349,32 @@ async def param_permissions_put(
         logger.exception("[access] param_permission upsert failed | key=%s", key)
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     logger.info("[access] param_permission upsert | key=%s by=%s", key, user.id)
-    return {"key": key, **value}
+    return {"key": key, **access_srv._normalize_perms(value)}
+
+
+@access_router.delete("/param_permissions/{key}")
+async def param_permissions_delete(
+    key: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Только global admin (spec §3.2.4): удаляет строку-оверрайд (404 — нет
+    строки) → ключ возвращается к DEFAULT_MATRIX."""
+    cache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, cache=cache)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403, detail="доступ только для global admin")
+    _require_pg(cache)
+    try:
+        removed = await access_srv.delete_param_permission(cache.pg, key)
+    except Exception:
+        logger.exception("[access] param_permission delete failed | key=%s", key)
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    if not removed:
+        raise HTTPException(status_code=404,
+                            detail=f"нет override-строки: {key}")
+    logger.info("[access] param_permission reset | key=%s by=%s", key, user.id)
+    return {"key": key, "reset": True}
 
 
 @access_router.post("/chats/{chat_id}/param_permissions/{key}")
@@ -324,25 +385,15 @@ async def chat_param_permission_put(
     payload: ChatParamPermissionBody,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """Только global admin: чат-скоуп min-ролей в chat_params.perm_overrides
+    """Только global admin: чат-скоуп прав в chat_params.perm_overrides
     (не дублируется в таблицу — spec §4.2; запись через set_chat_params)."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
-    value = {}
-    if payload.view_min_role is not None:
-        if payload.view_min_role not in _ROLETYPE_DOMAIN:
-            raise HTTPException(status_code=422,
-                                detail=f"role вне домена: {payload.view_min_role}")
-        value["view_min_role"] = payload.view_min_role
-    if payload.edit_min_role is not None:
-        if payload.edit_min_role not in _ROLETYPE_DOMAIN:
-            raise HTTPException(status_code=422,
-                                detail=f"role вне домена: {payload.edit_min_role}")
-        value["edit_min_role"] = payload.edit_min_role
-    if payload.hidden_from_local is not None:
-        value["hidden_from_local"] = bool(payload.hidden_from_local)
+    value = _value_from_payload(payload)
+    if not value:
+        raise HTTPException(status_code=422, detail="пустое тело — нечего сохранить")
     _require_pg(cache)
     try:
         root = await chat_params.set_chat_params(
@@ -360,4 +411,4 @@ async def chat_param_permission_put(
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     logger.info("[access] chat param_permission upsert | chat=%s key=%s by=%s",
                 chat_id, key, user.id)
-    return {"chat_id": chat_id, "key": key, **value}
+    return {"chat_id": chat_id, "key": key, **access_srv._normalize_perms(value)}

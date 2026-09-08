@@ -5,7 +5,11 @@ MemoryBackupService — APScheduler-джоб daily в MEMORY_BACKUP_HOUR
 (TZ SUMMARY_TIMEZONE); MemoryJobStore, max_instances=1 + coalesce (прецедент
 summary_scheduler). НЕ на остановленном боте (онлайн — VACUUM INTO на живой
 WAL-БД). Обе операции ленивы (пустая память → INFO-скип) и не роняют бота
-(ошибки → WARNING). Ротация: последние MEMORY_BACKUP_KEEP файлов каждого вида.
+(ошибки → WARNING). Ротация: последние N файлов каждого вида, где N —
+**hot-config** `limits.memory_backup_keep` (REGISTRY, int; код-дефолт 1).
+Bug-раунд 10 (BUG-8): дефолт 1 — код БЕЗ надёжного горячего ключа держит
+ровно 1 бэкап (серверный cron-гвард не даёт росту диска даже при
+выключенном планировщике; для целей диагностики — верните хоть 3-7).
 """
 import asyncio
 import datetime
@@ -23,6 +27,17 @@ logger = logging.getLogger(__name__)
 
 _BACKUP_PREFIX = "local_database_"
 _EXPORT_PREFIX = "facts_"
+
+
+def _backup_keep_default() -> int:
+    """Hot-config ретенции бэкапов (BUG-8): limits.memory_backup_keep →
+    settings.MEMORY_BACKUP_KEEP (дефолт 1); мусорный тип → 1."""
+    try:
+        keep = int(hot.get("limits.memory_backup_keep",
+                           settings.MEMORY_BACKUP_KEEP) or 0)
+    except Exception:
+        keep = 1
+    return keep if keep >= 1 else 1
 
 
 class MemoryBackupService:
@@ -163,8 +178,10 @@ class MemoryBackupService:
             logger.warning("memory_backup: facts export failed", exc_info=True)
 
     def _rotate(self, directory: Path) -> None:
-        """Держать последние MEMORY_BACKUP_KEEP файлов каждого вида."""
+        """Держать последние N файлов каждого вида (N = hot-config
+        limits.memory_backup_keep; код-дефолт 1 — см. модульный docstring)."""
         try:
+            keep = _backup_keep_default()
             for prefix, suffix in ((_BACKUP_PREFIX, "*.db"),
                                    (_EXPORT_PREFIX, "*.txt")):
                 files = sorted(
@@ -172,7 +189,7 @@ class MemoryBackupService:
                      if path.name.startswith(prefix)),
                     key=lambda p: p.name,
                 )
-                for old in files[:-hot.get("limits.memory_backup_keep", settings.MEMORY_BACKUP_KEEP)]:
+                for old in files[:-keep]:
                     try:
                         old.unlink()
                         logger.info("memory_backup: rotated out %s", old.name)

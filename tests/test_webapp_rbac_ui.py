@@ -41,13 +41,25 @@ class TestRolePicker:
         assert "openPermPicker" in js
         assert "savePermPicker" in js
         assert "permPickerItem" in js
-        assert "hidden_from_local" in js
+        # Ре-дизайн 10.2, BUG-6 (§3.2.1): флаги-чекбоксы «Чтение»/«Запись»;
+        # сброс к дефолту — DELETE (resetPermPicker)
+        assert "viewRoles" in js
+        assert "editRoles" in js
+        assert "resetPermPicker" in js
+        assert "roleArr" in js
 
     def test_picker_elements_and_types(self):
         html = _html()
         assert "permPickerOpen" in html
-        assert "view_min_role" in html
-        assert "edit_min_role" in html
+        # BUG-6: две секции чекбоксов (Юзер/Модератор/Локальный админ)
+        assert "Чтение" in html
+        assert "Запись" in html
+        assert "Юзер" in html
+        assert "Модератор" in html
+        assert "Локальный админ" in html
+        assert "Сбросить на дефолт" in html
+        assert "только\n            глобальному админу" in html or \
+            "только глобальному админу" in html
         # gear возле каждого параметра (generic-рендер)
         assert "openPermPicker(item)" in html
         # бейдж «скрыт» и «чат», сброс на глобальное

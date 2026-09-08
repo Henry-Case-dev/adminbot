@@ -607,7 +607,7 @@ class Settings:
     # Бэкап БД раз в день + текстовый экспорт фактов (64.3). false → джоб не стартует.
     MEMORY_BACKUP_ENABLED: bool = _env_bool("MEMORY_BACKUP_ENABLED", True)
     MEMORY_BACKUP_DIR: str = _env_str("MEMORY_BACKUP_DIR", "backups")
-    MEMORY_BACKUP_KEEP: int = _env_int_min("MEMORY_BACKUP_KEEP", 7, 1)
+    MEMORY_BACKUP_KEEP: int = _env_int_min("MEMORY_BACKUP_KEEP", 1, 1)
     MEMORY_BACKUP_HOUR: str = _env_str("MEMORY_BACKUP_HOUR", "05:00")
     # Кэш эмбеддингов (64.4): SHA-256-ключ, TTL дней, LRU-cap строк, ленивый
     # last_used_at (≥60с, без write-per-read). false → ровно старое поведение.

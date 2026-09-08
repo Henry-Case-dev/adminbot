@@ -99,6 +99,21 @@ class TestAvatarBackendAudit:
         assert "raise HTTPException(status_code=404" in src
         assert 'detail="avatar not found"' in src
 
+    def test_avatar_transient_errors_not_negative_cached(self):
+        """BUG-4 (рекон раунда 10): rate-limit/сетевые ошибки Bot API
+        (TelegramRetryAfter/TelegramNetworkError) — возврат None БЕЗ записи
+        негатива в кэш (иначе пустые аватары висят час); негатив кэшируется
+        только при дефинитивном «нет фото» (пустой list/file_id)."""
+        src = _Static.read("web/api/avatars.py")
+        assert "from aiogram.exceptions import TelegramNetworkError, " \
+            "TelegramRetryAfter" in src
+        seg = src.split("async def fetch_avatar_bytes")[1]
+        seg = seg.split("async def chat_display_info")[0]
+        assert "except (TelegramRetryAfter, TelegramNetworkError)" in seg
+        assert "NOT cached" in seg
+        assert seg.index("return None") < seg.index("_cache_put")
+        assert "_cache_put(_avatar_cache, key, data)" in seg
+
     def test_avatar_router_included_in_app(self):
         src = _Static.read("web/app.py")
         assert "from web.api.avatars import avatar_router" in src
@@ -131,14 +146,20 @@ class TestAvatarBackendAudit:
         """Hotfix-R10 (имена = raw-ID): chat_lore.py строит AliasResolver
         напрямую из hot-кэша — НЕ через RelationsService.aliases (тот
         гейтится flags.summary_enabled в bot.py); при выключенном саммари
-        имена участников остаются alias → username → name-map → id."""
+        имена участников остаются alias → username → name-map.
+        Раунд 10.2: чистки имён нет вообще (_clean_nickname удалён —
+        эмодзи/спецсимволы как есть); @-снятие с username сохранено; id
+        как имя удаляется (del u['name'])."""
         src = _Static.read("web/api/chat_lore.py")
         assert "from services.summary_aliases import AliasResolver" in src
         assert ('cache.get("limits.summary_aliases", '
                 'settings.SUMMARY_ALIASES)' in src)
         assert "alias_resolver.resolve(uid, None, None)" in src
-        assert 'u["name"] = str(alias)' in src
-        assert 'u["name"] = str(u["username"]).lstrip("@")' in src
+        assert 'u["name"] = tidy_name' in src
+        assert "_clean_nickname" not in src
+        assert 'del u["name"]' in src
+        assert 'u["username"]).lstrip("@"' in src or '.lstrip("@")' in src
+        assert "alias → nickname (name-map" in src
 
     # ══ fix-раунд: негатив-кэш обогащения (ошибки тоже пишутся в кэш) ══
 
@@ -196,6 +217,26 @@ class TestAvatarFrontAudit:
         assert "wa.requestFullscreen" in body
         assert "wa.exitFullscreen" in body
         assert "this.isFullscreen = !this.isFullscreen" in body
+
+    def test_resolve_relation_name_no_id_fallback(self):
+        """Раунд 10.2: resolveRelationName — alias → name → username (без
+        @); user_id как имя — НИКОГДА (пустая строка; id в карточке и так
+        мелким рядом)."""
+        src = _Static.read("web/app.js")
+        body = _Static.body(src, "resolveRelationName")
+        assert "if (u.name) return String(u.name);" in body
+        assert "if (u.username) return String(u.username);" in body
+        assert "return '';" in body
+        assert "return String(u.user_id);" not in body
+        assert "aliases[String(u.user_id)]" in body  # мапа ключу по id — ок
+
+    def test_avatar_initial_first_grapheme(self):
+        """overflow-marker: Array.from(name)[0] — первая ГРАФЕМА (эмодзи/
+        суррогатные пары не дают половинку; charAt(0) не используется)."""
+        src = _Static.read("web/app.js")
+        body = _Static.body(src, "avatarInitial")
+        assert "Array.from(name)[0]" in body
+        assert "name.charAt(0)" not in body
 
     # ══ fix-раунд: blob-аватары (avatarUrl + v-if + @error-сброс) ══
 
@@ -347,6 +388,8 @@ class TestAvatarFrontAudit:
         # если имя не вышло из username (иначе дубль)
         assert "resolveRelationName(u)" in html
         assert "u.username" in html
+        # 10.2: пустое имя не рисуем вовсе (id мелким рядом — одно)
+        assert 'v-if="resolveRelationName(u)"' in html
 
     def test_close_and_fullscreen_buttons(self):
         """✕ в шапке (@click closeApp) и в мобильном сайдбаре

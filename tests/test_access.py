@@ -178,67 +178,127 @@ def test_rank_map():
                               "moderator": 2, "user": 1}
 
 
-def test_default_matrix_by_category():
+# ═══ Ре-дизайн 10.2, BUG-6 (spec §3.2): ФЛАГИ-модель прав ═══
+
+def test_default_matrix_flags_by_category():
+    """spec §3.2.3: keys.* — пустые массивы (только global admin);
+    prompts.* — [local_admin]/[local_admin]; остальное —
+    [moderator, local_admin]/[local_admin]."""
     m = access_srv.default_matrix("keys.llm_api_key")
-    assert m["view_min_role"] == "global_admin"
-    assert m["edit_min_role"] == "global_admin"
-    assert m["hidden_from_local"] is True
+    assert m["view_roles"] == []
+    assert m["edit_roles"] == []
+    assert "hidden_from_local" not in m
     m2 = access_srv.default_matrix("prompts.direct_chat_system_prompt")
-    assert m2["view_min_role"] == "user"
-    assert m2["edit_min_role"] == "local_admin"
+    assert m2["view_roles"] == ["local_admin"]
+    assert m2["edit_roles"] == ["local_admin"]
     m3 = access_srv.default_matrix("limits.chat_cooldown_seconds")
-    assert m3["edit_min_role"] == "moderator"
-    assert m3["hidden_from_local"] is False
+    assert m3["view_roles"] == ["moderator", "local_admin"]
+    assert m3["edit_roles"] == ["local_admin"]
+    m4 = access_srv.default_matrix("models.llm_timeout")
+    assert m4["view_roles"] == ["moderator", "local_admin"]
+    m5 = access_srv.default_matrix("reactions.alan_user_id")
+    assert m5["view_roles"] == ["moderator", "local_admin"]
 
 
-def test_effective_matrix_overrides():
-    base = access_srv.default_matrix("limits.chat_cooldown_seconds")
+def test_legacy_normalize_view_and_hidden_fold():
+    """spec §3.2.2: legacy {view_min_role, edit_min_role,
+    hidden_from_local} → {view_roles, edit_roles} на чтении."""
+    m = access_srv._normalize_perms(
+        {"view_min_role": "user", "edit_min_role": "moderator",
+         "hidden_from_local": False})
+    assert m["view_roles"] == ["user", "moderator", "local_admin"]
+    assert m["edit_roles"] == ["moderator", "local_admin"]
+    # hidden_from_local=true → local_admin фолдится из view (но edit-union
+    # возвращает его, если он есть в edit: «запись подразумевает чтение»)
+    m2 = access_srv._normalize_perms(
+        {"view_min_role": "user", "edit_min_role": "local_admin",
+         "hidden_from_local": True})
+    assert m2["view_roles"] == ["user", "moderator", "local_admin"]
+    assert m2["edit_roles"] == ["local_admin"]
+    # legacy global_admin min-роль → только суперюзер (пустые массивы)
+    m3 = access_srv._normalize_perms(
+        {"view_min_role": "global_admin", "edit_min_role": "global_admin"})
+    assert m3["view_roles"] == []
+    assert m3["edit_roles"] == []
+
+
+def test_effective_matrix_overrides_replace():
+    """Override — ПОЛНЫЙ массив (replace) для новой формы; legacy-поля
+    нормализуются на чтении (отсутствующее поле — из base-матрицы)."""
     eff = access_srv.effective_matrix(
         "limits.chat_cooldown_seconds",
-        db_override={"edit_min_role": "global_admin"},
-        chat_override={"view_min_role": "local_admin",
+        db_override={"view_roles": ["user"], "edit_roles": ["user"]},
+        chat_override={"view_min_role": "moderator",
                        "hidden_from_local": True})
-    assert eff["edit_min_role"] == "global_admin"
-    assert eff["view_min_role"] == "local_admin"
-    assert eff["hidden_from_local"] is True
+    # db: view [user] ∪ edit [user] = [user]; chat legacy поверх: view
+    # rank>=moderator [moderator, local_admin] минус local_admin (fold) =
+    # [moderator]; edit наследован из base [user]; union → [user, moderator]
+    assert eff["view_roles"] == ["user", "moderator"]
+    assert eff["edit_roles"] == ["user"]
+    # новая форма override перекрывает дефолт
+    eff2 = access_srv.effective_matrix(
+        "limits.chat_cooldown_seconds",
+        db_override={"view_roles": [], "edit_roles": []})
+    assert eff2["view_roles"] == [] and eff2["edit_roles"] == []
 
 
-def test_hidden_from_local_hides():
+def test_view_flags_hide_lower_roles():
     from services.permissions import Permissions
-    la = Permissions.from_dict({"sections": ["limits"]})
-    ctx = await_local_ctx_for(la, is_local_admin=True)
-    matrix = {"view_min_role": "user", "edit_min_role": "moderator",
-              "hidden_from_local": True}
-    assert not access_srv.can_view_param(ctx, matrix)
-    clear = dict(matrix, hidden_from_local=False)
-    assert access_srv.can_view_param(ctx, clear)
+    user = await_local_ctx_for(Permissions.from_dict({}), is_local_admin=False)
+    mod = AccessCtx(role_global="moderator", role_chat=None,
+                    perms_global=Permissions.from_dict(
+                        {"sections": ["limits"]}),
+                    perms_chat=Permissions.from_dict({}),
+                    is_global_admin=False, is_local_admin=False, rank=2)
+    la = await_local_ctx_for(Permissions.from_dict({}), is_local_admin=True)
+    matrix = {"view_roles": ["moderator", "local_admin"],
+              "edit_roles": ["local_admin"]}
+    assert not access_srv.can_view_param(user, matrix)      # user — вне списка
+    assert access_srv.can_view_param(mod, matrix)
+    assert access_srv.can_view_param(la, matrix)
+    # пустые view = только global admin
+    strict = {"view_roles": [], "edit_roles": []}
+    assert not access_srv.can_view_param(mod, strict)
+    assert not access_srv.can_view_param(la, strict)
 
 
-def test_view_rank_below_min_hidden():
+def test_hidden_fold_legacy_hides_local_admin():
+    """Легаси hidden_from_local=true (edit не содержит local_admin) →
+    локальный админ не видит ключ; модератор-грант — видит."""
     from services.permissions import Permissions
-    ctx = await_local_ctx_for(Permissions.from_dict({}), is_local_admin=False)
-    matrix = {"view_min_role": "global_admin", "edit_min_role": "moderator",
-              "hidden_from_local": False}
-    assert not access_srv.can_view_param(ctx, matrix)
+    mod = AccessCtx(role_global="moderator", role_chat=None,
+                    perms_global=Permissions.from_dict(
+                        {"sections": ["limits"]}),
+                    perms_chat=Permissions.from_dict({}),
+                    is_global_admin=False, is_local_admin=False, rank=2)
+    la = await_local_ctx_for(Permissions.from_dict({}), is_local_admin=True)
+    # edit_min_role=global_admin → edit_roles=[] → union не вернёт local_admin
+    matrix = access_srv._normalize_perms(
+        {"view_min_role": "user", "edit_min_role": "global_admin",
+         "hidden_from_local": True})
+    assert matrix["view_roles"] == ["user", "moderator"]
+    assert matrix["edit_roles"] == []
+    assert access_srv.can_view_param(mod, matrix)
+    assert not access_srv.can_view_param(la, matrix)
 
 
-def test_edit_by_min_role():
+def test_edit_by_flags_requires_chat_grant():
+    """Фикс R1 (F-7 §2.3/§6): правка в chat-скоупе — только с грантом
+    chat_admins; глобальный moderator без гранта — только чтение."""
     from services.permissions import Permissions
-    # ФИКС R1 (F-7 §2.3/§6): редактирование в chat-скоупе требует chat-грант
-    # (chat_admins); глобальный moderator/custom БЕЗ гранта — только чтение.
     mod = await_local_ctx_for(
         Permissions.from_dict({"sections": ["limits"]}), is_local_admin=False)
-    matrix = {"view_min_role": "user", "edit_min_role": "moderator",
-              "hidden_from_local": False}
+    matrix = {"view_roles": ["moderator", "local_admin"],
+              "edit_roles": ["moderator", "local_admin"]}
     assert not access_srv.can_edit_param(mod, matrix)       # нет гранта → RO
     custom_ga = await_local_ctx_for(
         Permissions.from_dict({"wildcard": True}), is_local_admin=False)
     assert access_srv.can_edit_param(custom_ga, matrix)     # global admin
 
 
-def test_edit_requires_chat_grant():
-    """ФИКС R1: chat-moderator ГРАНТ редактирует по min-роли; локальный
-    админ чата — тоже; без гранта (глобальный модератор) — нельзя."""
+def test_edit_requires_chat_grant_and_flag():
+    """chat-moderator грант правит по edit_roles; локальный админ — тоже;
+    флаг без роли → нельзя; ключ + грант → можно."""
     from services.permissions import Permissions
     chat_mod = AccessCtx(role_global="moderator", role_chat="moderator",
                          perms_global=Permissions.from_dict(
@@ -246,12 +306,12 @@ def test_edit_requires_chat_grant():
                          perms_chat=Permissions.from_dict(
                              {"sections": ["limits"]}),
                          is_global_admin=False, is_local_admin=False, rank=2)
-    matrix = {"view_min_role": "user", "edit_min_role": "moderator",
-              "hidden_from_local": False}
+    matrix = {"view_roles": ["moderator", "local_admin"],
+              "edit_roles": ["moderator", "local_admin"]}
     assert access_srv.can_edit_param(chat_mod, matrix)
-    strict = {"view_min_role": "user", "edit_min_role": "local_admin",
-              "hidden_from_local": False}
-    assert not access_srv.can_edit_param(chat_mod, strict)  # min-роль выше
+    strict = {"view_roles": ["moderator", "local_admin"],
+              "edit_roles": ["local_admin"]}
+    assert not access_srv.can_edit_param(chat_mod, strict)  # флаг без роли
     local = AccessCtx(role_global="user", role_chat="local_admin",
                       perms_global=Permissions.from_dict({}),
                       perms_chat=Permissions.from_dict(
@@ -259,6 +319,28 @@ def test_edit_requires_chat_grant():
                       is_global_admin=False, is_local_admin=True, rank=3)
     assert access_srv.can_edit_param(local, strict)
     assert access_srv.can_view_param(chat_mod, matrix)      # чтение — можно
+
+
+def test_eligible_type_custom_alias_by_rank():
+    """spec §3.2.5: custom-роль → алиас по rank (4→неявный global,
+    3→local_admin, 2→moderator, 1→user); грант чата — приоритетнее."""
+    from services.permissions import Permissions
+    for rank, expected in ((4, None), (3, "local_admin"),
+                           (2, "moderator"), (1, "user")):
+        ctx = AccessCtx(role_global="custom", role_chat=None,
+                        perms_global=Permissions.from_dict({}),
+                        perms_chat=Permissions.from_dict({}),
+                        is_global_admin=(rank == 4), is_local_admin=False,
+                        rank=rank)
+        if rank == 4:
+            assert ctx.is_global_admin
+        else:
+            assert access_srv.eligible_type(ctx) == expected
+    ctx = AccessCtx(role_global="user", role_chat="moderator",
+                    perms_global=Permissions.from_dict({}),
+                    perms_chat=Permissions.from_dict({}),
+                    is_global_admin=False, is_local_admin=False, rank=2)
+    assert access_srv.eligible_type(ctx) == "moderator"
 
 
 def await_local_ctx_for(perms, is_local_admin):

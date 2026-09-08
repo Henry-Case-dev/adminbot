@@ -211,16 +211,18 @@ class RelationsService:
         return rows
 
     def _display_name(self, user_id: int) -> str:
+        """Name из алиасов; алиасов нет — ПУСТАЯ строка (не str(user_id):
+        id как имя в снапшоте запрещён — раунд 10.2, owner-реквизит)."""
         aliases = self._aliases
         if aliases is not None and hasattr(aliases, "resolve"):
             try:
                 name = aliases.resolve(user_id)
-                if name:
+                if name and str(name) != str(user_id):
                     return str(name)
             except Exception:
-                logger.warning("[user_relations] name resolve failed — uid "
-                               "fallback | user_id=%s", user_id, exc_info=True)
-        return str(user_id)
+                logger.warning("[user_relations] name resolve failed — имя "
+                               "пустое | user_id=%s", user_id, exc_info=True)
+        return ""
 
     async def _manual_relations(self, chat_id: int) -> dict:
         """{str(user_id): {"manual_stage", "note", ...}} из PG (Q1).
@@ -331,8 +333,9 @@ class RelationsService:
         """Строки блока `<user_relations>`/API: {user_id, name, stage,
         stage_auto, stage_manual, activity_score, msg_count, active_days,
         first_seen, last_seen, note}. names: {user_id: display} (roster-
-        каскад готовит вызывающий); сортировка last_seen DESC (None — в
-        конце, стабильно по user_id)."""
+        каскад готовит вызывающий); name — алиас или '' (id никогда не
+        показывается как имя — раунд 10.2); сортировка last_seen DESC
+        (None — в конце, стабильно по user_id)."""
         rows = await self.ensure_fresh(chat_id, user_ids=user_ids)
         manual = await self._manual_relations(chat_id)
         out: list[dict] = []

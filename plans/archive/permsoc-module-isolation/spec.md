@@ -110,6 +110,12 @@ PERMSOC_MODULES: tuple[PermsocModule, ...]
 
 ## 6. Q5 — TMA-секция + Q6-инвентарь
 
+> ⚠️ **§6 УСТАРЕЛ (Ре-дизайн 10.2, 09.09.2026, @Architect — см. §10):** отдельной
+> карточки во вкладке «Реакции и Триггеры» БОЛЬШЕ НЕТ — вместо неё штатная
+> вкладка **«Функции PERMsoc»** (tab `permsoc`, menu `modules`), полная
+> спецификация — §10. Текст ниже сохраняется как историческое обоснование
+> (первая ревизия решения до рекона владельца).
+
 - **Секция «Функции PERMsoc»**: временно — карточка во вкладке «Реакции и Триггеры» (F-11 перенесёт в «Модули и Фичи»): master-тумблер (write — ТОЛЬКО глобальный admin через gates-API F-10 `PUT /api/chat/{chat_id}/gates {feature:'permsoc'}`) + 5 под-тумблеров (олya/mimic — реальные; slavik/kostik/alan — derived от master, disabled-вид; под-тумблер alan НЕ выводится (у модуля под-флага нет — решение 08.09.2026, §9)) — для глобального админа тумблеры редактируемые; **local admin — только чтение** (статус-бейджи; изменять не может, по решению F-10 who_can_toggle: permsoc — global-only).
 - Данные под-тумблеров: olyа/mimic/alan — из `GET /api/config` (X-Chat-Id, значения `flags.olya_enabled`/`flags.mimic_enabled`); для alan под-флаг НЕ читается (статус-бейдж `derived (master)` — как slavik/kostik), а legacy-выключатель «Мимикрия Лехи» (`reactions.alan_mimic_enabled`) остаётся в существующем месте (KV-редактор, группа reactions_mimic), master — из `GET /api/chat/{id}/gates`.
 - **Телеметрия**: счётчики включённых чатов (master ON) в `services/status_service.py` / `GET /api/status` (N из M) — без ключей; переключения — история `chat_lore_history field='gates'` + лог `[permsoc] gate changed | chat=%s | by=%s` (без значений).
@@ -151,7 +157,98 @@ PERMSOC_MODULES: tuple[PermsocModule, ...]
 **Проверка инвариантов после решения:**
 - Оригинальный чат `-1002661910336` (мастер ON после бэкфила): Леха имитация/приветствие — работает (мастер ON ∧ под-флага нет ⇒ True). New chats: мастер OFF ⇒ все 5 (включая alan) молчат.
 - Common-mimic на Леху: гейт прежней цепочки (мастер ON + `flags.mimic_enabled` + `reactions.alan_mimic_enabled` через hot_chat в `mimic_handler`) — без изменений.
-- TMA-тумблер не инертен: интерактивный под-тумблер для alan НЕ выводится вовсе, вместо него — статус-бейдж `derived (master)` (read-only, как у slavik/kostik), а «Мимикрия Лехи» остаётся в своём существующем месте (KV-редактор, группа reactions_mimic). Инертного переключателя не существует: ни один несрабатывающий контрол не выведен.
+- TMA-тумблер не инертен: интерактивный под-тумблер для alan НЕ выводится вовсе, вместо него — статус-бейдж `derived (master)` (read-only, как у slavik/kostik), а «Мимикрия Лехи» — на новой вкладке «Функции PERMsoc» (см. §10 п. B, карточка модуля «Передразнивания»), НЕ в KV-редакторе. Инертного переключателя не существует: ни один несрабатывающий контрол не выведен.
+
+---
+
+## 10. Ре-дизайн 10.2 (09.09.2026, @Architect) — BUG-3: выделенный раздел «Функции PERMsoc»
+
+**Жалоба владельца (рекон раунда 10):** «выдели отдельный раздел для захардкоженных
+фич (Славик, Костик, Оля, Алан/Леха, common-сервисы) — раздел „Функции PERMsoc".
+Он не появился вообще, функции остались в „Реакции и Триггеры" и „Модули и Фичи"».
+**Решение:** НАСТОЯЩАЯ штатная вкладка `permsoc` «🎭 Функции PERMsoc» — страница
+ВНУТРИ меню-секции `modules` («Модули и Фичи»), 5-секционная навигация F-11
+НЕ расширяется (MENU_ORDER без изменений).
+
+### A. Вкладка `permsoc`
+
+| Параметр | Значение |
+|---|---|
+| `id` | `permsoc` |
+| label | `«🎭 Функции PERMsoc»` |
+| `type` | `config` (generic-рендер групп + прогрессивное раскрытие + роль-пикер/бейджи — бесплатно по F-11 §4.2) |
+| `menu` / sources | `modules`; `[{category:'reactions', groups:['reactions_persons','reactions_permsoc']}, {category:'flags', groups:['flags_permsoc']}, {category:'limits', groups:['limits_persons']}]` |
+| Позиция в TABS | сразу ПОСЛЕ `modules_feats` (первым табом секции остаётся `reactions_triggers` — поведение setMenu не меняется) |
+
+Рендер: generic-`template` конфиг-вкладок + ОДИН выделенный блок
+`v-if="activeTab === 'permsoc'"` ПЕРЕД `v-for="grp in currentTabGroups"`
+(прецедент BYOK-блока, index.html :634): карта «🎭 Функции PERMsoc» —
+**master-тумблер per chat** (пишет ТОЛЬКО global admin через gates-API F-10
+`PUT /api/chat/{chat_id}/gates`; локальный админ — read-only-бейдж `master: ON/OFF`,
+как в §6), без выбранного чата — hint-заметка, и **сводка 5 модулей**
+(badge: `derived (master)` / `под-флаг` / `OFF (master)`).
+**Гейт остаётся:** вкладка видна и рендерится, даже когда модуль ВЫКЛЮЧЕН
+(фича живёт в runtime-гейте, не в UI) — чтобы можно было включить.
+
+Мастер-карта НЕ дублирует каталог: `flags.permsoc_enabled` остаётся в группе
+`flags_permsoc` с title «Глобальный дефолт master» (fallback-путь приоритета
+F-9 §3: `gates.permsoc` → `overrides['flags.permsoc_enabled']` → `hot.get`).
+
+### B. Каталог: группы + TAB_RULES (`services/param_catalog.py`, ключи ГЛОБАЛЬНО не меняются — только группа/вкладка)
+
+| Группа (новая/переезд) | Категория | Ключи (pg_key остаётся) | Старая группа | Order |
+|---|---|---|---|---|
+| `flags_permsoc` «Функции PERMsoc: рубильники» (НОВАЯ) | `flags` | `flags.permsoc_enabled` (мастер-дефолт), `flags.olya_enabled`, `flags.mimic_enabled` | `flags_media` (перенос ключей) | 3 |
+| `reactions_permsoc` «Персонаж-реакции PERMsoc» (НОВАЯ) | `reactions` | `reactions.kucha_enabled`, `reactions.alan_mimic_enabled` | `reactions_word_reactions`, `reactions_mimic` (перенос ключей) | 14 |
+| `reactions_persons` «Персоны (ID)» (ПЕРЕЕЗД вкладки) | `reactions` | `reactions.slavik_user_id`, `reactions.kostik_user_id`, `reactions.alan_user_id`, `reactions.alan_username`, `reactions.olya_user_id` (**`reactions.admin_user_id` УБРАН — выделен в новый `reactions_admin`**) | — | 1 |
+| `reactions_admin` «Админ (ID)» (НОВАЯ) | `reactions` | `reactions.admin_user_id` | `reactions_persons` (перенос ключа) | 1 |
+| `limits_persons` «Персонажи: Леха и Костик» (ПЕРЕЕЗД вкладки; title/desc НЕ менять — test_reaction_flags.py:95) | `limits` | `limits.alan_reply_interval`, `limits.kostik_reply_probability`, `limits.alan_greeting_cooldown`, `limits.alan_silence_greeting_hours` | — | 1 |
+
+**TAB_RULES:**
+```python
+TAB_PERMSOC = "permsoc"
+(TAB_PERMSOC, (
+    (CATEGORY_REACTIONS, frozenset({"reactions_persons", "reactions_permsoc"})),
+    (CATEGORY_FLAGS, frozenset({"flags_permsoc"})),
+    (CATEGORY_LIMITS, frozenset({"limits_persons"})),
+)),
+# существующие записи:
+# TAB_REACTIONS_TRIGGERS: (CATEGORY_REACTIONS, None) → ("except", {"reactions_persons", "reactions_permsoc"});
+#                        (CATEGORY_FLAGS, frozenset({"flags_media"})) — без изменений;
+# TAB_LIMITS: (CATEGORY_LIMITS, ("except", _GROUPS_LIMITS_MEMORY_GRAPH | {"limits_persons"})).
+```
+`CONFIG_TAB_TITLES[TAB_PERMSOC] = "Функции PERMsoc"`. Проверка «каждая группа ровно
+на одной вкладке» сохраняется (дубликатов нет — переносы/исключения согласованы).
+
+### C. Содержимое карточек модулей (по владельцу: персоны + kucha + под-флаги)
+
+- **slavik** — `reactions.slavik_user_id` + `reactions.kucha_enabled` («куча → ДАЛБАЕБ», внутри `handlers/slavik.py`) + подсказка-ссылка на `reactions_slavik` (фото/гифка) и limits_slavik_mimic (в «Реакции и Триггеры»/«Лимиты»);
+- **kostik** — `reactions.kostik_user_id` + `limits.kostik_reply_probability`;
+- **olya** — `reactions.olya_user_id` + `flags.olya_enabled` (под-флаг) + подсказка на `reactions_olya`/`limits_media` (капшены/кулдаун — остаются в «Реакции и Триггеры»);
+- **alan** — `reactions.alan_user_id` + `reactions.alan_username` (`limits.alan_reply_interval`/cooldown-ы приехали группой `limits_persons`; «Reply-блок Лехи» `flags.alan_replies_enabled` — остаётся в `flags_chat_behavior` (флаг поведения чата, в гейт F-9 не входит) — подсказка);
+- **mimic** — `flags.mimic_enabled` (под-флаг) + `reactions.alan_mimic_enabled` + подсказка на `reactions_mimic` (список жертв `MIMIC_VICTIM_USER_IDS` — остаётся в «Реакции и Триггеры»; `limits_mimic` — в «Лимиты»).
+
+### D. Модули vs «Модули и Фичи» карточка
+
+Карточка «Функции PERMsoc» во вкладке `modules_feats` (index.html :881-922) ЗАМЕНЯЕТСЯ
+коротким summary-блоком: «мастер для 5 фич + все настройки — во вкладке
+"Функции PERMsoc"» (без дублирования тумблеров; сводка per-chat остаётся в Oversight).
+
+### E. Доступы (§6 уточнение)
+
+- master-тумблер (gates): write — ТОЛЬКО global admin; local admin — read-only (без изменений F-10 who_can_toggle).
+- параметр-карточки: редактируемы по per-param правам (Ре-дизайн 10.2 BUG-6: дефолт edit `[local_admin]` — т.е. локальный админ правит ID/флаги в своём чате; view `[moderator, local_admin]`).
+- видимость вкладки: `canViewTab` по источникам `{reactions, flags, limits}` (локальный админ видит; модератор — по секции limits; user — нет, только Статус/Как это работает); вкладка НЕ спрятана, если у чата master OFF.
+
+### F. Тесты, затрагиваемые ре-дизайном (для @Builder)
+
+- `tests/test_frontend_tab_mapping.py`: composition-тесты обновляются — `reactions`-группы теряют `{reactions_persons, reactions_permsoc}` (13 → 15 групп категории; правило: `reactions_groups - {"reactions_persons","reactions_permsoc"} <= tab_group_ids(TAB_REACTIONS_TRIGGERS)`), новый `tab_group_ids(TAB_PERMSOC) == {reactions_persons, reactions_permsoc, flags_permsoc, limits_persons}`, `cats(TAB_PERMSOC) == {"reactions","flags","limits"}`, маркер-строки `permsoc` в TABS/index.html;
+- `tests/test_param_catalog.py`: счётчики групп/записей (61 → 64 группы; flags +1, reactions +2; записи: kucha/alan_mimic/admin_id сменили группу — по 1).
+
+### G. Что НЕ меняется
+
+- Модель `PermsocModule`/`PERMSOC_MODULES`, `PermsocGateFilter`, `permsoc_enabled`/`module_enabled`, порядок роутеров bot.py — без изменений (это UI-размещение и каталог; runtime-гейты нетронуты).
+- `reactions.alan_mimic_enabled`: семантика и цепочка `flags.mimic_enabled AND reactions.alan_mimic_enabled` в `handlers/common.py::mimic_handler` — БЕЗ изменений (решение M-F-9 §9 — только UI-местоположение карточки, НЕ модульный под-флаг, в реестр не входит).
 
 **Следствия для @Builder (небольшие доработки — подтверждающие):**
 1. `services/permsoc.py` — **логика без изменений** (alan: `sub_flag_key=None`, как есть): удалить мёртвый ключ `"reactions.alan_mimic_enabled"` из `DEFAULT_SUB_FLAGS` (ни один модуль его не использует) и убрать его из docstring-перечня под-флагов (строки 14-16); комментарий P1-правки (59-63) — оставить.

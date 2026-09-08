@@ -578,20 +578,35 @@ async def list_relations(
     for u in users[_RELATIONS_ENRICH_TOP:]:
         u["username"] = None
         u["photo_file_id"] = None
-    # Hotfix-R10 (имя участника): каскад alias → nickname (name-map из
-    # _participant_names) → username → user_id. Alias wins над name-map
-    # (пользователь сказал: алиасы/ник/юзернейм вместо ID); nickname wins
-    # над username (для топ-50 username установлен, ник должен выигрывать;
-    # 51+ юзеров с username=None получают ник из name-map).
+    # Раунд 10.2 (owner-реквизит): каскад alias → nickname (name-map из
+    # _participant_names) → username. Имена — КАК ЕСТЬ: никакой чистки/
+    # срезов/капа не делаем (эмодзи/спецсимволы/пробелы внутри — допустимы);
+    # «@» с username снимается ВСЕГДА (реквизит: без «@» username показывается
+    # только когда имени нет). ID как имя — НИКОГДА: alias_resolver.resolve
+    # при пустых алиасах вернул бы str(uid) — пропускаем; если каскад пуст —
+    # ключ name удаляем (снапшот мог оставить str(user_id) из _display_name),
+    # фронт покажет ''/username, а user_id и так мелким рядом.
     for u in users:
+        tidy_name = None
         uid = int(u.get("user_id") or 0)
         alias = alias_resolver.resolve(uid, None, None)
         if str(alias) != str(uid):
-            u["name"] = str(alias)
-        elif names is not None and uid in names:
-            u["name"] = str(names[uid]).strip()
-        elif u.get("username"):
-            u["name"] = str(u["username"]).lstrip("@")
+            tidy_name = str(alias)
+        if not tidy_name and names is not None and uid in names:
+            nick = str(names[uid])
+            if nick and str(nick) != str(uid):
+                tidy_name = nick
+        if not tidy_name and u.get("username"):
+            tidy_name = str(u["username"]).lstrip("@")
+        if tidy_name:
+            u["name"] = tidy_name
+        elif "name" in u:
+            s = u["name"]
+            if not s or str(s).strip() == "" or str(s) == str(uid):
+                del u["name"]
+        # инвариант 10.2: id как имя — никогда (страховка, источник любой)
+        if "name" in u and str(u["name"]) == str(uid):
+            del u["name"]
     return {
         "chat_id": chat_id,
         "relations_enabled": bool(profile.relations_enabled),
@@ -601,11 +616,13 @@ async def list_relations(
 
 async def _participant_names(db, chat_id: int) -> dict | None:
     """{user_id: display} из последних авторов сообщений чата (best-effort;
-    поверх — каскад aliases в RelationsService; пусто → None = uid)."""
+    поверх — каскад aliases в RelationsService; пусто → None = uid).
+    Значения — КАК ЕСТЬ (никакого strip/чистки — раунд 10.2); пустые/
+    пробельные имена пропускаются как отсутствующие."""
     try:
         rows = await db.get_active_participants(
             chat_id, int(time.time()) - 30 * 86400, 200)
-        names = {int(r["user_id"]): str(r["author_name"]).strip()
+        names = {int(r["user_id"]): str(r["author_name"])
                  for r in rows if r.get("user_id") and str(
                      r.get("author_name") or "").strip()}
     except Exception:

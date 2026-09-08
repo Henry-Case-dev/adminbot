@@ -222,16 +222,22 @@ class TestGroups8424:
         # раунд 9 (T-824/T-825): 68 → 69 (+ memory_dream — «сон», spec §3.6.4);
         # раунд 9 (T-826/T-827): 69 → 70 (+ memory_nostalgia — «ностальгия»,
         # spec §3.6.4/Q11); раунд 10 (F-10 T-896): 70 → 71 (+ limits_worker —
-        # бюджет фона, фикс R3)
-        assert len(GROUPS) == 71
+        # бюджет фона, фикс R3); ре-дизайн 10.2 (BUG-3): 71 → 74
+        # (+ flags_permsoc, reactions_permsoc, reactions_admin — «Функции
+        # PERMsoc», spec §10 B)
+        assert len(GROUPS) == 74
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
     def test_orders_unique_within_category(self):
+        """Единственные разрешённые совпадения (order) — из таблицы групп
+        BUG-3 (spec §10 B): reactions_persons/reactions_admin (order 1) и
+        flags_memory/flags_permsoc (order 3) — переезды групп без смещения
+        соседей; остальные порядки — строго уникальны."""
         from collections import Counter
         dup = {k: v for k, v in Counter(
             (g.category, g.order) for g in GROUPS).items() if v > 1}
-        assert dup == {}
+        assert dup == {("reactions", 1): 2, ("flags", 3): 2}
 
     def test_group_fields_nonempty(self):
         for g in GROUPS:
@@ -283,7 +289,6 @@ class TestDigCatalog:
     """Раунд 9 (фикс-раунд major-5, spec §3.6.4/Q11): REGISTRY dig_into_lore —
     2 флага (flags_memory) + 5 лимитов (limits_memory); дефолты Settings ==
     спека; ключи на вкладке «Память и RAG»."""
-
     EXPECTED_LIMITS = {
         "DIG_MAX_SNIPPETS": 8,
         "DIG_MAX_FACTS": 3,
@@ -324,3 +329,44 @@ class TestDigCatalog:
         assert Settings().DREAM_TICK_MINUTES == 60
         assert pc.get("DREAM_TICK_HOURS") is None
         assert pc.get_by_pg_key("memory.dream_tick_hours") is None
+
+
+class TestPermsocGroupsRedesign:
+    """Ре-дизайн 10.2, BUG-3 (spec §10 B): группы «Функции PERMsoc» —
+    состав ключей и раскладка по вкладке permsoc; pg-ключи не тронуты."""
+
+    def test_flags_permsoc_keys(self):
+        keys = sorted(k for k, spec in REGISTRY.items()
+                      if spec.group == "flags_permsoc")
+        assert keys == ["MIMIC_ENABLED", "OLYA_ENABLED", "PERMSOC_ENABLED"]
+        for field in keys:
+            spec = pc.get(field)
+            assert spec.category == pc.CATEGORY_FLAGS
+            assert spec.pg_key.startswith("flags.")
+
+    def test_reactions_permsoc_keys(self):
+        keys = sorted(k for k, spec in REGISTRY.items()
+                      if spec.group == "reactions_permsoc")
+        assert keys == ["ALAN_MIMIC_ENABLED", "KUCHA_ENABLED"]
+        for field in keys:
+            spec = pc.get(field)
+            assert spec.category == pc.CATEGORY_REACTIONS
+            assert spec.pg_key.startswith("reactions.")
+
+    def test_reactions_admin_group_single_key(self):
+        keys = [k for k, spec in REGISTRY.items()
+                if spec.group == "reactions_admin"]
+        assert keys == ["ADMIN_USER_ID"]
+        spec = pc.get("ADMIN_USER_ID")
+        assert spec.pg_key == "reactions.admin_user_id"
+
+    def test_groups_on_permsoc_tab(self):
+        for gid in ("reactions_persons", "reactions_permsoc",
+                    "flags_permsoc", "limits_persons"):
+            assert pc.group_tab(gid) == pc.TAB_PERMSOC, gid
+
+    def test_group_titles_new(self):
+        by_id = {g.id: g for g in GROUPS}
+        assert by_id["flags_permsoc"].title_ru == "Функции PERMsoc: рубильники"
+        assert by_id["reactions_permsoc"].title_ru == "Персонаж-реакции PERMsoc"
+        assert by_id["reactions_admin"].title_ru == "Админ (ID)"

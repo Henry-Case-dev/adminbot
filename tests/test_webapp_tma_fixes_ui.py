@@ -57,14 +57,18 @@ class TestHeaderAndLogs:
         assert "panel.scrollTop = panel.scrollHeight;" not in js
 
     def test_copy_fallback_offscreen(self):
-        """Hotfix-R10: fallback-копирования (execCommand) — textarea
-        off-screen (fixed, left:-9999px, opacity:0, без размеров), чтобы
-        в Telegram WebView не ломался layout."""
-        js = _js()
-        assert "style.left" in js
-        assert "'-9999px'" in js
-        assert "style.opacity = '0'" in js
-        assert "style.pointerEvents = 'none'" in js
+        """BUG-7 (невидимое поле копирования): fallback-execCommand —
+        ОДИН кэшированный textarea (window.__adminbotClipGhost) с классом
+        .clipboard-ghost (CSS fixed left:-9999px, opacity:0) — не ломает
+        раскладку Telegram WebView и не пересоздаётся на каждый клик."""
+        js, html = _js(), _html()
+        assert ".clipboard-ghost" in html
+        assert "position: fixed" in html
+        assert "left: -9999px" in html
+        assert "background: transparent !important" in html
+        assert "window.__adminbotClipGhost" in js
+        assert "className = 'clipboard-ghost'" in js
+        assert "document.createElement('textarea')" in js
 
 
 class TestRelations:
@@ -73,6 +77,22 @@ class TestRelations:
         assert "resolveRelationName" in js
         assert "summaryAliasesMap" in js
         assert "avatarInitial" in js
+
+    def test_resolve_name_format_without_at(self):
+        """BUG-4 (рекон раунда 10): resolveRelationName возвращает username
+        БЕЗ «@» (сервер уже снимает @; префикс — дубль с подписью); подпись
+        в карточке — bare-username и только когда имя не равно username.
+        Раунд 10.2: user_id как имя — НЕВОЗМОЖНО (фолбэк — пустая строка:
+        id в карточке и так мелким рядом)."""
+        js, html = _js(), _html()
+        assert "if (u.username) return String(u.username);" in js
+        assert "@' + String(u.username)" not in js
+        assert "@{{ u.username }}" not in html
+        assert "resolveRelationName(u) !== String(u.username)" in html
+        # 10.2: без ID-фолбэка — пустая строка; имя-спан прячется при пустом
+        assert "return String(u.user_id);" not in js
+        assert "return '';" in js
+        assert 'v-if="resolveRelationName(u)"' in html
 
     def test_avatar_proxy_and_initial_fallback(self):
         html = _html()

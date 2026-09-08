@@ -25,6 +25,7 @@ import logging
 import time
 from typing import Annotated, Literal
 
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter
 from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
@@ -111,7 +112,11 @@ async def _avatar_file_id(bot, kind: str, tid: int) -> str | None:
 
 
 async def fetch_avatar_bytes(kind: str, tid: int) -> bytes | None:
-    """Байты аватара (кэш 1ч; None кэшируется как негатив тоже)."""
+    """Байты аватара: кэш 1ч — только ПОЛОЖИТЕЛЬНЫЙ результат и
+    ДЕФИНИТИВНЫЕ негативы (нет фото: пустой список/пустой file_id).
+    Транзиентные Bot API-ошибки (rate-limit TelegramRetryAfter / сетевые
+    TelegramNetworkError) НЕ кэшируются: возврат None без записи негатива —
+    следующий запрос (ленивый догруз, ре-рендер) попробует снова (BUG-4)."""
     key = (kind, tid)
     hit = _cache_get(_avatar_cache, key)
     if hit is not _MISS:
@@ -128,12 +133,25 @@ async def fetch_avatar_bytes(kind: str, tid: int) -> bytes | None:
                     buf = io.BytesIO()
                     await bot.download_file(path, destination=buf)
                     data = buf.getvalue() or None
+        except (TelegramRetryAfter, TelegramNetworkError) as exc:
+            # транзиентный сбой (лимиты/сеть): негатив НЕ пишем — иначе
+            # фронт с onerror стаггерил бы пустые аватары на час
+            logger.warning(
+                "[avatar] transient Bot API error — NOT cached | kind=%s "
+                "tid=%s err=%s", kind, tid, safe_exc_text(exc))
+            return None
         except Exception:
             logger.warning("[avatar] fetch failed | kind=%s tid=%s",
                            kind, tid, exc_info=True)
             data = None
     _cache_put(_avatar_cache, key, data)
     return data
+
+
+def safe_exc_text(exc: Exception) -> str:
+    """Краткое описание ошибки Bot API (без секретов/трейса)."""
+    text = getattr(exc, "message", None) or str(exc)
+    return (text or exc.__class__.__name__)[:200]
 
 
 # ── обогащение /api/chat_lore (chat_lore.py использует эти функции) ────────

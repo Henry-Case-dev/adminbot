@@ -247,9 +247,16 @@ GROUPS: tuple[GroupSpec, ...] = (
     # flags (7; раунд 9, T-816/T-817): отношения (A-Life)
     GroupSpec("flags_relations", "flags", "Отношения",
               "Глобальный рубильник тона по стадиям участников.", 7),
+    # flags (8; ре-дизайн 10.2, BUG-3, spec §10 B): рубильники PERMsoc
+    GroupSpec("flags_permsoc", "flags", "Функции PERMsoc: рубильники",
+              "Мастер-дефолт PERMsoc и под-флаги Оли/мимикрии.", 3),
     # reactions (13)
     GroupSpec("reactions_persons", "reactions", "Персоны (ID)",
-              "Telegram ID Лехи, Костика, Славика, Оли и админа.", 1),
+              "Telegram ID Лехи, Костика, Славика и Оли.", 1),
+    # reactions (?; ре-дизайн 10.2, BUG-3, spec §10 B): Telegram ID админа —
+    # отдельная группа (перенос из reactions_persons)
+    GroupSpec("reactions_admin", "reactions", "Админ (ID)",
+              "Telegram ID админа — для особых прав и реакций бота.", 1),
     GroupSpec("reactions_deadpage", "reactions", "Dead page",
               "Канал-источник, relay-канал, папка медиа.", 2),
     GroupSpec("reactions_slavik", "reactions", "Славик",
@@ -274,6 +281,10 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Папка бэкапов памяти.", 12),
     GroupSpec("reactions_word_reactions", "reactions", "Словесные реакции",
               "Тумблеры текстовых реакций: „Вася ↔ АДМИН” и „куча → ДАЛБАЕБ”.", 13),
+    # reactions (?; ре-дизайн 10.2, BUG-3, spec §10 B): реакции PERMsoc —
+    # kucha-выключатель и мимикрия Лехи (перенос из word_reactions/mimic)
+    GroupSpec("reactions_permsoc", "reactions", "Персонаж-реакции PERMsoc",
+              "Реакции персон PERMsoc: „куча → ДАЛБАЕБ” и мимикрия Лехи.", 14),
     # content (2)
     GroupSpec("content_info", "content", "Как это работает",
               "Текст справки для пользователей.", 1),
@@ -562,14 +573,14 @@ _FLAGS: list[tuple] = [
       "Включает медиа для work-запросов («устал» и подобные). Выключено — только остальные."),
     # ── Раунд 10 (permsoc-module-isolation, F-9 §3): мастер-тумблер PERMsoc;
     # дефолт false (Q2, безопаснее для новых чатов) ──
-    ("PERMSOC_ENABLED", "Функции PERMsoc: мастер-тумблер", "flags_media",
+    ("PERMSOC_ENABLED", "Функции PERMsoc: мастер-тумблер", "flags_permsoc",
       "Единый рубильник 5 персон-триггеров (Славик/Костя/Леха/Оля/"
       "передразнивания). Выключено — все 5 молчат во всех чатах; включительно "
-      "для чата — переключатель «Функции PERMsoc» в «Реакции и Триггеры»."),
+      "для чата — переключатель «Функции PERMsoc» во вкладке «Модули и Фичи»."),
     ("COMMON_MEDIA_ENABLED", "Все common-медиа", "flags_media",
      "Главный рубильник всех медиа-реакций бота. Выключено — гифки/фото не отправляются вообще."),
-    ("OLYA_ENABLED", "Сервис Оли", "flags_media",
-     "Включает реакции на видео от Оли. Выключено — бот игнорирует их."),
+    ("OLYA_ENABLED", "Сервис Оли", "flags_permsoc",
+      "Включает реакции на видео от Оли. Выключено — бот игнорирует их."),
     ("OLYA_CAPTION_ENABLED", "Капшн ответов Оли", "flags_media",
      "Включает подпись под ответами Оли. Выключено — ответы без подписи."),
     ("OLYA_REPOST_ENABLED", "Ответ репостом Оли", "flags_media",
@@ -580,8 +591,8 @@ _FLAGS: list[tuple] = [
      "Включает реакцию на упоминание SaveAsBot в подписи Оли. Выключено — упоминание игнорируется."),
     ("MIMIC_FORWARDS_ENABLED", "Мимикрировать репосты", "flags_media",
      "Бот передразнивает и обычные, и пересланные сообщения. Выключено — только обычные."),
-    ("MIMIC_ENABLED", "Мимикрия включена", "flags_media",
-     "Главный рубильник передразниваний common (список „жертв” — в „Реакции и Триггеры” → „Мимикрия”). Выключено — бот никого не передразнивает (кроме мимикрии Славика — она на своём переключателе)."),
+    ("MIMIC_ENABLED", "Мимикрия включена", "flags_permsoc",
+      "Главный рубильник передразниваний common (список „жертв” — в „Реакции и Триггеры” → „Мимикрия”). Выключено — бот никого не передразнивает (кроме мимикрии Славика — она на своём переключателе)."),
     ("ALAN_REPLIES_ENABLED", "Reply-блок Лехи", "flags_chat_behavior",
      "Леха отвечает в ответ на сообщения. Выключено — Леха не отвечает."),
     ("DEAD_PAGE_POST_ON_JOIN", "Триггер dead page при join", "flags_chat_behavior",
@@ -1008,8 +1019,8 @@ _REACTIONS: list[tuple] = [
      "Telegram ID Костика — для его ответов и мимикрии."),
     ("ALAN_USER_ID", "Telegram ID Лехи", "int", "reactions_persons",
      "Telegram ID Лехи — для приветствий и reply-блока."),
-    ("ADMIN_USER_ID", "Telegram ID админа", "int", "reactions_persons",
-     "Telegram ID администратора — для особых прав и реакций."),
+    ("ADMIN_USER_ID", "Telegram ID админа", "int", "reactions_admin",
+      "Telegram ID администратора — для особых прав и реакций."),
     ("DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "Канал-источник dead page (@d_pages)", "str", "reactions_deadpage",
      "Откуда берутся посты dead page. Указывается с @."),
     ("DEAD_PAGE_SOURCE_CHANNEL_ID", "ID канала-источника dead page", "int", "reactions_deadpage",
@@ -1048,12 +1059,12 @@ _REACTIONS: list[tuple] = [
      "Папка с медиа для утренней рассылки. Относительно корня медиа."),
     ("MIMIC_VICTIM_USER_IDS", "CSV ID жертв мимикрии", "str", "reactions_mimic",
      "Кого передразнивает бот. Через запятую."),
-    ("ALAN_MIMIC_ENABLED", "Мимикрия Лехи", "bool", "reactions_mimic",
-     "Передразнивать сообщения Лехи (нужно также включить общий рубильник „Мимикрия включена”). Других „жертв” из списка этот тумблер не касается."),
+    ("ALAN_MIMIC_ENABLED", "Мимикрия Лехи", "bool", "reactions_permsoc",
+      "Передразнивать сообщения Лехи (нужно также включить общий рубильник „Мимикрия включена”). Других „жертв” из списка этот тумблер не касается."),
     ("VASYA_ENABLED", "Реакция „Вася → АДМИН”", "bool", "reactions_word_reactions",
      "Кто-то написал „Вася” — бот отвечает „АДМИН”; кто-то написал „админ” — бот отвечает „ВАСЯ”. Выключено — реакция молчит."),
-    ("KUCHA_ENABLED", "Реакция „куча → ДАЛБАЕБ”", "bool", "reactions_word_reactions",
-     "Кто-то написал „куча” — бот отвечает „ДАЛБАЕБ”. Выключено — реакции нет (гифка Славика работает независимо)."),
+    ("KUCHA_ENABLED", "Реакция „куча → ДАЛБАЕБ”", "bool", "reactions_permsoc",
+      "Кто-то написал „куча” — бот отвечает „ДАЛБАЕБ”. Выключено — реакции нет (гифка Славика работает независимо)."),
     ("OLYA_USER_ID", "Telegram ID Оли", "int", "reactions_persons",
      "Telegram ID Оли — для реакций на её видео."),
     ("OLYA_MEDIA_BASE", "Папка медиа Оли", "str", "reactions_olya",
@@ -1344,6 +1355,9 @@ TAB_PROMPTS = "prompts"
 TAB_LIMITS = "limits"
 TAB_MEMORY_RAG = "memory_rag"
 TAB_REACTIONS_TRIGGERS = "reactions_triggers"
+# Ре-дизайн 10.2, BUG-3 (spec §10 A): НАСТОЯЩАЯ штатная вкладка «Функции
+# PERMsoc» — страница ВНУТРИ меню-секции modules («Модули и Фичи»).
+TAB_PERMSOC = "permsoc"
 
 CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
@@ -1351,6 +1365,7 @@ CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_LIMITS: "Лимиты",
     TAB_MEMORY_RAG: "Память и RAG",
     TAB_REACTIONS_TRIGGERS: "Реакции и Триггеры",
+    TAB_PERMSOC: "Функции PERMsoc",
 }
 
 _GROUPS_LIMITS_MEMORY_GRAPH = frozenset({"limits_memory", "limits_graph"})
@@ -1365,8 +1380,10 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_PROMPTS, None),
     )),
     (TAB_LIMITS, (
-        (CATEGORY_LIMITS, ("except", _GROUPS_LIMITS_MEMORY_GRAPH)),
-        (CATEGORY_FLAGS, ("except", _GROUPS_FLAGS_MEDIA_MEMORY)),
+        (CATEGORY_LIMITS, ("except",
+                           _GROUPS_LIMITS_MEMORY_GRAPH | {"limits_persons"})),
+        (CATEGORY_FLAGS,
+         ("except", frozenset(_GROUPS_FLAGS_MEDIA_MEMORY | {"flags_permsoc"}))),
     )),
     (TAB_MEMORY_RAG, (
         (CATEGORY_LIMITS, frozenset({"limits_memory", "limits_graph"})),
@@ -1374,8 +1391,17 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_MEMORY, None),
     )),
     (TAB_REACTIONS_TRIGGERS, (
-        (CATEGORY_REACTIONS, None),
+        (CATEGORY_REACTIONS,
+         ("except", frozenset({"reactions_persons", "reactions_permsoc"}))),
         (CATEGORY_FLAGS, frozenset({"flags_media"})),
+    )),
+    # Ре-дизайн 10.2, BUG-3 (spec §10 A/B): источник «Функции PERMsoc» —
+    # персоны/реакции PERMsoc + рубильники PERMsoc + лимиты Лехи/Костика.
+    (TAB_PERMSOC, (
+        (CATEGORY_REACTIONS,
+         frozenset({"reactions_persons", "reactions_permsoc"})),
+        (CATEGORY_FLAGS, frozenset({"flags_permsoc"})),
+        (CATEGORY_LIMITS, frozenset({"limits_persons"})),
     )),
 )
 

@@ -106,9 +106,115 @@ def effective_permissions(ctx) -> Permissions      # union perms_global ∪ perm
 - `hidden_from_local=true` → локальный админ **не видит** ключ (в GET/POST /api/config с X-Chat-Id ключ исключается полностью).
 - Проверки рендера в TMA: `canViewTab` (существующий permission-матчинг) НЕ меняется; per-param фильтр видимости — НОВЫЙ `can_view_param(ctx, key)`/`can_edit_param(ctx, key)` из `services/access.py` (не путать с одноимёнными функциями `web/api/deps.py` — те без изменений).
 
----
+### 3.2 Ре-дизайн 10.2 (09.09.2026, @Architect) — BUG-6: флаги-модель прав (view/edit роли)
 
-## 4. Q4/Q5 — `chat_profiles.chat_params`: layout, версионирование, whitelist
+**Жалоба владельца (рекон раунда 10):** «параметры, недоступные для
+редактирования, — недоступны и к просмотру; юзер по умолчанию видит только
+Статус и Как это работает; дай доступ флагами: какие роли могут читать и/или
+писать; снять все флаги = ключ доступен только суперюзеру (global admin)».
+Предыдущая модель (дропдауны `view_min_role`/`edit_min_role` + чекбокс
+`hidden_from_local`) ОТМЕНЯЕТСЯ в части UI/хранилища; секции/rank-семантика
+F-7 §§2.2-2.3 сохраняются.
+
+#### 3.2.1 UI (модалка роль-пикера, global admin; index.html :1916-1948 → новая)
+
+- НОВАЯ модалка «Права ключа / Доступ»: две строки чекбоксов —
+  **«Чтение»** (user, moderator, local_admin) и **«Запись»** (user, moderator,
+  local_admin); **global admin — неявно ВСЕГДА** (строка-подпись, не чекбокс);
+  если все чекбоксы сняты → подпись «ключ виден/редактируется только
+  глобальному админу»; кнопка «Сохранить» (PUT — полный массив, replace) +
+  «Сбросить на дефолт» (если строка не default → DELETE → откат к DEFAULT_MATRIX).
+- Чекбокс «скрыто от локальных админов», дропдауны min-ролей — УДАЛЯЮТСЯ
+  (эквивалент = local_admin снят в «Чтении»).
+
+#### 3.2.2 STORAGE (обратная совместимость)
+
+```json
+{"view_roles": ["moderator", "local_admin"], "edit_roles": ["local_admin"]}
+```
+- `view_roles`/`edit_roles` — массивы ДОМЕННЫХ ролей `{user, moderator, local_admin}`;
+  **`global_admin` в массивах запрещён** (неявный; включён → 422), пустые
+  массивы = доступ только суперюзеру.
+- Существующие строки `{view_min_role, edit_min_role, hidden_from_local}`
+  мигрируют **на чтении** (функция normalize в `services/access.py`, БД не
+  трогаем):
+  `view_roles = [все роли с rank >= rank(view_min_role)]`;
+  `edit_roles = [все роли с rank >= rank(edit_min_role)]`;
+  `hidden_from_local=true` → `view_roles` минус `local_admin` (фолдинг: НЕ
+  отдельный флаг, а отсутствие local_admin в «Чтении»).
+- Новые записи — ТОЛЬКО новая форма. Старые поля принимаются API (см. 3.2.4)
+  и нормализуются сервером; ответы всегда в новой форме.
+- **Перенос на чат-уровень** (`chat_params.perm_overrides`, §4.2) — та же
+  форма `{view_roles, edit_roles}` для новых записей; новые shape старым
+  триггерам не нужны — READ-нормализация та же.
+
+#### 3.2.3 DEFAULT_MATRIX (изменения; юзер по умолчанию НЕ видит параметры)
+
+| Категория | `view_roles` | `edit_roles` | Примечание |
+|---|---|---|---|
+| `keys.*` | `[]` | `[]` | только global admin (неявно; аналог прежнего hidden_from_local=true) |
+| `prompts.*` | `[local_admin]` | `[local_admin]` | **хард-правило сохранено: модератор не видит промпты** (F-7 §2.1) |
+| `limits.*, flags.*, reactions.*, content.*, memory.*, models.*` | `[moderator, local_admin]` | `[local_admin]` | user снят; прежний дефолт view=user признан ошибкой (владелец) |
+
+- **Изменение поведения (задокументировать в README):** модератор НЕ
+  редактирует лимиты/модели по дефолту (раньше edit_min_role=moderator);
+  локальный админ — может (edit=`[local_admin]`). Восстановить для конкретного
+  ключа/чата — точечный оверрайд строки таблицы (global admin) или
+  chat-`perm_overrides`.
+- Приоритеты не меняются: default ⊕ DB-override ⊕ chat-override
+  (`effective_matrix`); **overrides задаются ПОЛНЫМ массивом** (replace),
+  NOTIFY/кэш/TTL — без изменений.
+
+#### 3.2.4 API (`services/access.py`, `web/api/access.py`)
+
+- `GET /api/access/param_permissions` → `items[key] = {view_roles, edit_roles, default}` (новая форма; `hidden_from_local` больше не отдаётся).
+- `PUT /api/access/param_permissions/{key}`: body принимает **обе** формы:
+  `{view_roles, edit_roles}` (валидация: значения ⊆ {user, moderator,
+  local_admin}; глобальный → 422; `view_roles := view_roles ∪ edit_roles` —
+  «запись подразумевает чтение» на сервере, иначе появляется ключ-редактор
+  без видимости) или legacy `{view_min_role, edit_min_role, hidden_from_local}`
+  (нормализация как 3.2.2). Ответ — нормализованная новая форма.
+- **НОВЫЙ** `DELETE /api/access/param_permissions/{key}` (global admin):
+  удаляет строку-оверрайд (404 — нет строки) → ключ возвращается к
+  DEFAULT_MATRIX. Аналогично `POST /api/access/chats/{chat_id}/param_permissions/{key}`
+  (chat-скоп: значение-массив в `perm_overrides`; DELETE этого пути не нужен —
+  сброс через существующий `DELETE /api/config/chat/{key}`).
+
+#### 3.2.5 Access-логика (`services/access.py`; Контракты не меняются)
+
+```python
+def eligible_type(ctx) -> str | None:
+    # роль по скоупу: role_chat (грант) — если задан, иначе role_global;
+    # custom-роль → алиас по rank: 4→global_admin, 3→local_admin, 2→moderator, 1→user
+def can_view_param(ctx, matrix) -> bool:
+    # ctx.is_global_admin → True; hidden_from_local-поле игнорируется (фолдинг)
+    # else ctx.eligible_type() in matrix["view_roles"]
+def can_edit_param(ctx, matrix) -> bool:
+    # global admin → True; БЕЗ гранта chat_admins (role_chat ∈ {local_admin, moderator})
+    # → False (сохранено F-7 §2.3/фикс R1); else eligible_type() in matrix["edit_roles"]
+```
+- Секционный гейтинг (User видит только «Статус»/«Как это работает»,
+  `canViewTab`) — без изменений; per-param флаги — вторичный фильтр.
+- `effective_matrix`: поля `view_roles`/`edit_roles` из override'ов —
+  replace полным массивом; legacy-поля — нормализуются; hidden_from_local
+  при legacy — фолдинг в view_roles.
+
+#### 3.2.6 Файлы-направления для @Builder
+
+- `services/access.py`: normalize (legacy→массивы), DEFAULT_MATRIX (таблица 3.2.3),
+  effective_matrix (новая форма + union view⊇edit), can_view/can_edit (3.2.5),
+  `eligible_type`; `db_override_map` не меняется (raw-строки, нормализация на чтении).
+- `web/api/access.py`: модели `ParamPermissionBody`/`ChatParamPermissionBody`
+  (обе формы), валидация-домен/union, DELETE-роут, ответы новой формы.
+- `web/app.js` (:678-710, :132-135) + `web/index.html` (:1916-1948): модалка
+  флагов (2 ряда × 3 чекбокса), «Сбросить на дефолт» → DELETE.
+- `services/chat_params.py`: `perm_overrides` — принять/писать новую форму
+  (набор-замена; legacy-чтение — через same normalize).
+- Тесты: `test_webapp_api.py` (GET/PUT/DELETE-матрица, legacy-миграция-приём,
+  422-домен), `test_access.py` (can_view/can_edit-матрица флагов,
+  rank-модель пользователя), маркер-аудит фронта (чекбоксы не «min-роль»).
+- README: блок «Права параметров: флаги ролей (дёфолты)» — заменить таблицу
+  min-ролей на 3.2.3.
 
 ### 4.1 ДДЛ
 
@@ -243,7 +349,7 @@ CREATE TABLE IF NOT EXISTS chat_keys (
 ## 7. TMA-витрина (F1–F5; навигация — F-11)
 
 - **`activeChatId`** (persist `localStorage['adminbot.active_chat_id']`), `api()` добавляет `X-Chat-Id` при установленном чате; NULL → старый вид.
-- **Роль-пикер**: для global admin, gear-кнопка ВОЗЛЕ КАЖДОГО параметра в generic-рендере → модалка `view_min_role`/`edit_min_role`/`hidden_from_local` → `PUT /api/access/param_permissions/{key}`; бейдж «скрыт» у параметров (для non-global пикер не рендерится).
+- **Роль-пикер**: для global admin, gear-кнопка ВОЗЛЕ КАЖДОГО параметра в generic-рендере → модалка `view_min_role`/`edit_min_role`/`hidden_from_local` → `PUT /api/access/param_permissions/{key}`; бейдж «скрыт» у параметров (для non-global пикер не рендерится). ⚠️ **УСТАРЕЛО (Ре-дизайн 10.2, 09.09.2026):** модалка переработана в флаги-чеки «Чтение»/«Запись» (row-чеки user/moderator/local_admin), стейдж «скрыт» — убирается из picker, бейдж «скрыт» остаётся прежним (получение = `local_admin` снят в чтении); детали и DEFAULT_MATRIX — §3.2.
 - **BYOK-UI**: для local admin — поля keys-секции ПУСТЫЕ, placeholder «Ваш ключ чата…», кнопка «Использовать мой» (PUT /api/config/keys/own), строка «используется ключ чата» / «используется глобальный ключ (бюджет N/M)» (GET /api/config/keys/status). Для global admin — прежний вид (configured/last4).
 - **«Доступы и Роли»-карточки** (F4): локальные админы чата (список + POST/DELETE), «Мой доступ» (GET /api/access/me), инфа-карточка «Промпты — базовые; Использовать мой — в чат».
 - **Бейджи «переопределено чатом»** (F5) + «Сбросить на глобальное» (DELETE /api/config/chat/{key}) — для per_chat=True; 409 optimistic; 404/403-обработка.

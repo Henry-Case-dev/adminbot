@@ -28,8 +28,8 @@
       ] },
     { id: 'limits', icon: '🚦', label: 'Лимиты', type: 'config', menu: 'ai',
       sources: [
-        { category: 'limits', except: ['limits_memory', 'limits_graph'] },
-        { category: 'flags', except: ['flags_memory', 'flags_media'] },
+        { category: 'limits', except: ['limits_memory', 'limits_graph', 'limits_persons'] },
+        { category: 'flags', except: ['flags_memory', 'flags_media', 'flags_permsoc'] },
       ] },
     { id: 'memory_rag', icon: '🗄️', label: 'Память и RAG', type: 'config',
       menu: 'ai',
@@ -41,11 +41,20 @@
     { id: 'reactions_triggers', icon: '🎭', label: 'Реакции и Триггеры', type: 'config',
       menu: 'modules',
       sources: [
-        { category: 'reactions', groups: null },
+        { category: 'reactions', except: ['reactions_persons', 'reactions_permsoc'] },
         { category: 'flags', groups: ['flags_media'] },
       ] },
     { id: 'modules_feats', icon: '🧩', label: 'Модули и Фичи', type: 'modules',
       menu: 'modules' },
+    // Ре-дизайн 10.2, BUG-3 (spec §10 A): штатная вкладка «Функции PERMsoc»
+    // (после modules_feats; первым табом секции остаётся reactions_triggers).
+    { id: 'permsoc', icon: '🎭', label: 'Функции PERMsoc', type: 'config',
+      menu: 'modules',
+      sources: [
+        { category: 'reactions', groups: ['reactions_persons', 'reactions_permsoc'] },
+        { category: 'flags', groups: ['flags_permsoc'] },
+        { category: 'limits', groups: ['limits_persons'] },
+      ] },
     { id: 'access', icon: '👥', label: 'Доступы', type: 'access',
       categories: ['access'], menu: 'access' },
     // Раунд 7 (chat-lore-management-v2, spec §3.10/E2): «Лор чатов» — НЕ
@@ -128,11 +137,18 @@
         accessChats: [],              // GET /api/access/chats (селектор F-11)
         accessMy: null,               // GET /api/access/me
         activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
-        // Роль-пикер (F-7 T-855): модалка per-param min-ролей (global admin)
+        // Роль-пикер (F-7 T-855): модалка per-param прав (global admin).
+        // Ре-дизайн 10.2, BUG-6 (spec §3.2.1): флаги «Чтение»/«Запись» —
+        // чекбоксы user/moderator/local_admin; global admin — неявно.
         permPickerOpen: false,
         permPickerItem: null,
-        permPicker: { view_min_role: 'user', edit_min_role: 'moderator', hidden_from_local: false },
+        permPicker: {
+          viewRoles: { user: false, moderator: false, local_admin: false },
+          editRoles: { user: false, moderator: false, local_admin: false },
+        },
         permPickerSaving: false,
+        // BUG-1 (кнопка «Выбери чат»): дропдаун-пикер чатов в шапке
+        chatPickerOpen: false,
         // BYOK-UI (F-7 T-856): ключ чата — для локального админа
         ownKeyDraft: '',
         ownKeySaving: false,
@@ -656,6 +672,7 @@
           localStorage.setItem('adminbot.active_chat_id', String(id));
         }
         this.syncActiveChatTitle();
+        this.chatPickerOpen = false;
         // перерисовка конфиг-вкладок/профиля (activeChatChanged-событие)
         this.configItems = [];
         this.loadConfig();
@@ -663,25 +680,59 @@
         if (this.accessMy && !this.accessMy.is_global_admin) {
           this.loadLocalAdmins();
         }
-        // Hotfix-R10 («Модули и Фичи»): гейты/пермсок — per chat; при смене
-        // «Весь бот» ↔ чат на этой вкладке перечитываем (иначе стейл-флаги).
-        if (this.activeTab === 'modules_feats'
-            && this.canViewTab('modules_feats')) {
+        // Hotfix-R10 («Модули и Фичи»/PERMsoc): гейты/пермсок — per chat;
+        // при смене «Весь бот» ↔ чат на этих вкладках перечитываем
+        // (иначе стейл-флаги).
+        if ((this.activeTab === 'modules_feats' || this.activeTab === 'permsoc')
+            && this.canViewTab(this.activeTab)) {
           this.loadGateInfo();
+        }
+        if (this.activeTab !== 'modules_feats'
+            && this.activeTab !== 'permsoc'
+            && this.activeChatId != null) {
+          // смена контекста сбрасывает стейл-гейты для «Модулей и Фич»
+          this.gateInfo = null;
         }
       },
       isChatContext: function () {
         return this.activeChatId != null;
       },
 
-      // ═══ Роль-пикер (F-7 T-855): per-param min-роли (global admin) ═══
+      // ═══ BUG-1: кнопка «Выбери чат» — дропдаун пикера чатов (шапка) ═══
+      openChatPicker: function () {
+        this.chatPickerOpen = !this.chatPickerOpen;
+      },
+      closeChatPicker: function () {
+        this.chatPickerOpen = false;
+      },
+      pickChat: function (chatId) {
+        this.setActiveChat(chatId);
+        this.chatPickerOpen = false;
+      },
+
+      // ═══ Роль-пикер (F-7 T-855): per-param права (global admin) ═══
+      // Ре-дизайн 10.2, BUG-6 (spec §3.2): флаги {viewRoles, editRoles}
+      // чекбоксы user/moderator/local_admin; global admin — неявно ВСЕГДА.
+      roleArr: function (roles) {
+        var names = ['user', 'moderator', 'local_admin'];
+        return names.filter(function (r) { return !!roles[r]; });
+      },
+      roleCheckboxAny: function (roles) {
+        return !!(roles && (roles.user || roles.moderator || roles.local_admin));
+      },
       openPermPicker: function (item) {
         this.permPickerItem = item;
-        this.permPicker = {
-          view_min_role: item.view_min_role || 'user',
-          edit_min_role: item.edit_min_role || 'moderator',
-          hidden_from_local: !!item.hidden_from_local,
+        var picker = {
+          viewRoles: { user: false, moderator: false, local_admin: false },
+          editRoles: { user: false, moderator: false, local_admin: false },
         };
+        arr(item.view_roles).forEach(function (r) {
+          if (picker.viewRoles[r] !== undefined) picker.viewRoles[r] = true;
+        });
+        arr(item.edit_roles).forEach(function (r) {
+          if (picker.editRoles[r] !== undefined) picker.editRoles[r] = true;
+        });
+        this.permPicker = picker;
         this.permPickerOpen = true;
       },
       closePermPicker: function () {
@@ -693,13 +744,15 @@
         if (!item) return;
         this.permPickerSaving = true;
         try {
+          var viewRoles = this.roleArr(this.permPicker.viewRoles);
+          var editRoles = this.roleArr(this.permPicker.editRoles);
           await this.api('/api/access/param_permissions/' + encodeURIComponent(item.key), {
             method: 'PUT',
-            body: JSON.stringify(this.permPicker),
+            body: JSON.stringify({ view_roles: viewRoles, edit_roles: editRoles }),
           });
-          item.hidden_from_local = !!this.permPicker.hidden_from_local;
-          item.view_min_role = this.permPicker.view_min_role;
-          item.edit_min_role = this.permPicker.edit_min_role;
+          // ответ — нормализованная форма; сервер делает view_roles |= edit_roles
+          item.view_roles = viewRoles;
+          item.edit_roles = editRoles;
           this.toast('Права ключа сохранены: ' + item.title, 'ok');
           this.closePermPicker();
         } catch (e) {
@@ -707,6 +760,29 @@
         } finally {
           this.permPickerSaving = false;
         }
+      },
+      resetPermPicker: async function () {
+        var item = this.permPickerItem;
+        if (!item) return;
+        if (!window.confirm('Сбросить права «' + item.title
+            + '» на дефолтные?')) return;
+        this.permPickerSaving = true;
+        try {
+          await this.api('/api/access/param_permissions/' + encodeURIComponent(item.key),
+            { method: 'DELETE' });
+          this.toast('Права сброшены на дефолт: ' + item.title, 'ok');
+          this.permPickerOpen = false;
+          // матрица изменилась → перечитываем конфиг (свежие view/edit-роли)
+          await this.loadConfig();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        } finally {
+          this.permPickerSaving = false;
+        }
+      },
+      itemHiddenDev: function (item) {
+        // BUG-6/§3.2.1: «скрыт» = local_admin снят из «Чтения»
+        return arr(item.view_roles).indexOf('local_admin') < 0;
       },
 
       // ═══ BYOK-UI (F-7 T-856): свой ключ чата ═══
@@ -873,6 +949,27 @@
         var who = (this.gateInfo && this.gateInfo.who_can_toggle) || {};
         return who[feature] || 'global';
       },
+      // BUG-3 (spec §10 A/C): мастер-флаг PERMsoc (перчат-гейт) для
+      // карточек «Модули и Фичи» + вкладки «Функции PERMsoc».
+      permsocMasterOn: function () {
+        var g = this.gateInfo && this.gateInfo.gates;
+        return !!(g && g.permsoc);
+      },
+      // BUG-3: сводка 5 модулей — derived (master) / под-флаг (per-chat
+      // значение flags.olya_enabled|flags.mimic_enabled) / OFF (master).
+      permsocModuleBadge: function (module) {
+        if (!this.isChatContext() || !(this.gateInfo && this.gateInfo.gates)) {
+          return null;
+        }
+        if (!this.gateInfo.gates.permsoc) return 'OFF (master)';
+        if (module === 'slavik' || module === 'kostik' || module === 'alan') {
+          return 'derived (master)';
+        }
+        var itemKey = module === 'olya' ? 'flags.olya_enabled'
+          : 'flags.mimic_enabled';
+        var it = this.configItems.find(function (i) { return i.key === itemKey; });
+        return it && it.value ? 'под-флаг ON' : 'под-флаг OFF';
+      },
       // бюджет: прогресс-бары (usage/limit в долях; guard нулей)
       budgetRatio: function (pair) {
         if (!pair || !pair.limit) return 0;
@@ -1027,6 +1124,13 @@
         if (id === 'modules_feats' && this.canViewTab('modules_feats')
             && !this.gateInfo && !this.modulesBusy) {
           this.loadModules();
+        }
+        // BUG-3 (permsoc): мастер-карта читает те же гейты — подгружаем
+        // при первом показе вкладки (per chat; без чата — hint-заметка).
+        if ((id === 'modules_feats' || id === 'permsoc')
+            && this.canViewTab(id) && !this.gateInfo && !this.modulesBusy
+            && this.activeChatId != null) {
+          this.loadGateInfo();
         }
         // 84.24-ревью: поиск не переносится между вкладками
         if (this.configSearch) this.configSearch = '';
@@ -1352,7 +1456,12 @@
           return oa - ob;
         });
         // параметры внутри группы уже отсортированы сервером
-        return result;
+        // BUG-5 (дефенсив, spec §10 F-11): группа, где после
+        // basic/advanced-разделения не осталось ни одного элемента,
+        // в рендер не попадает (карточка «(0)» не рисуется).
+        return result.filter(function (g) {
+          return self.basicItems(g).length > 0 || self.advancedItems(g).length > 0;
+        });
       },
 
       groupTitle: function (grp) {
@@ -1794,24 +1903,27 @@
           await navigator.clipboard.writeText(text);
           this.toast('Скопировано', 'ok');
         } catch (e) {
-          // Hotfix-R10 (TMA): fallback-`textarea` ранее добавлялся в body
-          // как есть — видимый пустой блок ломал раскладку в Telegram
-          // WebView. Теперь off-screen (fixed, вне экрана, без размеров).
-          var ta = document.createElement('textarea');
+          // BUG-7 (invisible copy field): fallback-execCommand — ОДИН
+          // кэшированный textarea (window.__adminbotClipGhost) с классом
+          // .clipboard-ghost (CSS: fixed left:-9999px, opacity:0 —
+          // невидим и НЕ ломает раскладку Telegram WebView). Элемент
+          // создаётся один раз и остаётся в DOM (скрыт); flash НЕТ.
+          var ta = window.__adminbotClipGhost;
+          if (!ta) {
+            ta = document.createElement('textarea');
+            ta.className = 'clipboard-ghost';
+            ta.setAttribute('readonly', '');
+            document.body.appendChild(ta);
+            window.__adminbotClipGhost = ta;
+          }
           ta.value = text;
-          ta.setAttribute('readonly', '');
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
-          ta.style.top = '0';
-          ta.style.width = '1px';
-          ta.style.height = '1px';
-          ta.style.opacity = '0';
-          ta.style.pointerEvents = 'none';
-          document.body.appendChild(ta);
+          ta.focus();
           ta.select();
           try { document.execCommand('copy'); this.toast('Скопировано', 'ok'); }
           catch (e2) { this.toast('Не удалось скопировать', 'err'); }
-          document.body.removeChild(ta);
+          // класс держит opacity:0 постоянно; guard-задержка на случай
+          // UA-перерисовки (не удаляем из DOM — элемент переиспользуется)
+          setTimeout(function () { ta.style.opacity = '0'; }, 150);
         }
       },
       copyAllLogs: function () {
@@ -2187,9 +2299,12 @@
       },
 
       // ═══ Раунд 10 (F-8 T-872/T-873): отношения — имена/аватары ═══
-      // Резолв имени участника (спец T-872): Alias (limits.summary_aliases)
-      // → nickname → username → фолбэк user_id. Аватар: /api/avatar-прокси
-      // + фолбэк-инициал первой буквы имени.
+      // Резолв имени участника (T-872, уточнение 10.2): Alias
+      // (limits.summary_aliases) → nickname (servername) → username.
+      // Имена — КАК ЕСТЬ (эмодзи/спецсимволы — без чистки сервера); @ с
+      // username показывает ТОЛЬКО если имени нет (без «@»); user_id как
+      // имя — НИКОГДА (ID и так мелким рядом в карточке). Аватар:
+      // /api/avatar-прокси + фолбэк-инициал первой графемы имени.
       summaryAliasesMap: function () {
         var item = this.configItems.find(function (it) {
           return it.key === 'limits.summary_aliases';
@@ -2203,12 +2318,19 @@
         var alias = aliases[String(u.user_id)];
         if (alias) return String(alias);
         if (u.name) return String(u.name);
-        if (u.username) return '@' + String(u.username);
-        return String(u.user_id);
+        // 10.2: username — БЕЗ «@» и только когда имени нет (сервер уже
+        // снимает @; дубль с подписью не показываем)
+        if (u.username) return String(u.username);
+        // ID как имя — никогда: пусто (id уже мелким рядом в карточке)
+        return '';
       },
       avatarInitial: function (u) {
         var name = this.resolveRelationName(u);
-        return (name.charAt(0) || '?').toUpperCase();
+        // 10.2: Array.from — первая ГРАФЕМА (эмодзи/суррогатные пары не
+        // ломаются, charAt(0) давал бы половинку суррогатной пары)
+        var first = (typeof name === 'string' && name.length)
+          ? Array.from(name)[0] : '';
+        return (first || '?').toUpperCase();
       },
       // F-8 (T-873): имя чата из локального кэша списка + chat_id мелким
       chatProfileTitle: function () {

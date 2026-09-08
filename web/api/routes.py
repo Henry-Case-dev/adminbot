@@ -309,12 +309,10 @@ async def get_config(
                       "per_chat": bool(spec.per_chat) if spec else False,
                       "progressive_level":
                           resolve_progressive_level(spec) if spec else "basic",
-                      # min-роли (эффективная матрица) — для роль-пикера TMA
-                      "view_min_role": matrix.get("view_min_role", "user"),
-                      "edit_min_role": matrix.get("edit_min_role",
-                                                  "moderator"),
-                      "hidden_from_local": bool(
-                          matrix.get("hidden_from_local", False)),
+                      # Ре-дизайн 10.2, BUG-6 (spec §3.2): флаги-роли —
+                      # новая форма (view_roles/edit_roles) для роль-пикера TMA
+                      "view_roles": list(matrix.get("view_roles") or []),
+                      "edit_roles": list(matrix.get("edit_roles") or []),
                       "chat_updated_at": chat_root.get("meta", {}).get(
                           "updated_at") if chat_id is not None else None})
     # 84.24.3: сортировка (category, group.order, title_ru)
@@ -394,9 +392,6 @@ async def post_config(
         if not access_srv.can_edit_param(ctx, matrix):
             raise HTTPException(status_code=403,
                                 detail=f"нет права на {item.key}")
-        if matrix.get("hidden_from_local") and not ctx.is_global_admin:
-            raise HTTPException(status_code=403,
-                                detail=f"{item.key} скрыт от локальных админов")
         try:
             value = _coerce_value(spec, item.value)
         except ValueError as exc:

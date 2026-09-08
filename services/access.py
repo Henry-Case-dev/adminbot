@@ -1,16 +1,25 @@
 """Раунд 10 (multi-chat-rbac-byok, F-7 §3) — per-param права и матрица доступа.
 
-`param_permissions` — ОТДЕЛЬНАЯ таблица (key → {"view_min_role","edit_min_role",
-"hidden_from_local"}), НЕ runtime-конфиг (в ConfigCache/GET /api/config/дерево
-ролей НЕ попадает). Строки в таблице НЕ сидятся: DEFAULT_MATRIX — в коде
-(spec §3.1), БД-строки — точечные override'ы глобального админа.
+`param_permissions` — ОТДЕЛЬНАЯ таблица (key → права), НЕ runtime-конфиг
+(в ConfigCache/GET /api/config/дерево ролей НЕ попадает). Строки в таблице НЕ
+сидятся: DEFAULT_MATRIX — в коде (spec §3.2.3), БД-строки — точечные
+override'ы глобального админа.
+
+Ре-дизайн 10.2, BUG-6 (spec §3.2): ФЛАГИ-модель прав — {view_roles,
+edit_roles} (массивы ДОМЕННЫХ ролей user/moderator/local_admin; global admin
+— неявно всегда и в массивы не входит; пустые массивы = только суперюзер).
+Легаси-строки {view_min_role, edit_min_role, hidden_from_local} мигрируют НА
+ЧТЕНИИ (_normalize_perms); hidden_from_local фолдится в отсутствие local_admin
+в view_roles. «Запись подразумевает чтение»: view_roles |= edit_roles.
 
 Контракты:
-  * default_matrix(spec) — дефолт по категории (см. таблицу spec §3.1);
-  * effective_matrix(pg_key, db_override, chat_override) — дефолт ⊕ override'ы;
-  * can_view_param(ctx, matrix) — видимость ключа (hidden_from_local +
-    min-роль view);
-  * can_edit_param(ctx, matrix) — min-роль edit по рангу (ROLE_TYPE_RANK);
+  * default_matrix(spec) — дефолт по категории (таблица spec §3.2.3);
+  * _normalize_perms/effective_matrix — нормализация (легаси→флаги) и
+    дефолт ⊕ override'ы;
+  * can_view_param(ctx, matrix) — видимость ключа (флаги view_roles);
+  * can_edit_param(ctx, matrix) — редактирование (флаги edit_roles + грант
+    chat_admins);
+  * eligible_type(ctx) — роль по скоупу (custom → алиас по rank);
   * can_access_chat(ctx) — доступ юзера к чату (Q3-семантика §2.3);
   * param_permissions-таблица: db_override_map(PG) + upsert/delete.
 
@@ -117,55 +126,152 @@ async def delete_param_permission(pg, key: str) -> bool:
     reset_param_permissions_cache()
     return bool(result and result.split()[-1] != "0")
 
-# Домены ролей для валидации param_permissions (spec §3.1).
+# Домены ролей для валидации param_permissions (spec §3.1 — legacy-путь).
 ROLE_TYPES: tuple[str, ...] = (ROLE_GLOBAL_ADMIN, ROLE_LOCAL_ADMIN,
                                ROLE_MODERATOR, ROLE_USER)
 
-# КАТЕГОРИЯ → (view_min_role, edit_min_role, hidden_from_local) — spec §3.1.
-_DEFAULT_EDIT_ROLES = {"prompts": ROLE_LOCAL_ADMIN}
-_DEFAULT_HIDDEN_CATEGORIES = {CATEGORY_KEYS}
+# Ре-дизайн 10.2, BUG-6 (spec §3.2.3): домен флагов-ролей (НЕ global admin —
+# тот неявный всегда; включение его в массив → 422 на API).
+FLAG_ROLE_DOMAIN: tuple[str, ...] = (ROLE_USER, ROLE_MODERATOR,
+                                     ROLE_LOCAL_ADMIN)
+_FLAG_ROLE_DOMAIN_SET = frozenset(FLAG_ROLE_DOMAIN)
+# Порядок «по возрастанию ранга» — для _roles_at_least.
+_FLAG_ROLE_RANKED: tuple[str, ...] = (ROLE_USER, ROLE_MODERATOR,
+                                      ROLE_LOCAL_ADMIN)
+
+
+def _roles_at_least(min_role: str | None) -> list[str]:
+    """Роли домена с рангом >= rank(min_role). global_admin (rank 4) → пусто
+    (эквивалент «только суперюзер» — неявный)."""
+    rank = ROLE_TYPE_RANK.get(min_role or ROLE_USER, 1)
+    return [r for r in _FLAG_ROLE_RANKED if ROLE_TYPE_RANK[r] >= rank]
+
+
+def _norm_roles(value) -> list[str]:
+    """Массив флагов-ролей: домен-фильтр, без дублей."""
+    if not isinstance(value, (list, tuple)):
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for r in value:
+        if r in _FLAG_ROLE_DOMAIN_SET and r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
+
+
+def _normalize_perms(value: dict, base: dict | None = None) -> dict:
+    """Легаси {view_min_role, edit_min_role, hidden_from_local} →
+    {view_roles, edit_roles} (миграция НА ЧТЕНИИ; БД не трогаем).
+
+    Правила (spec §3.2.2):
+      * view_roles = роли с rank >= rank(view_min_role);
+      * edit_roles = роли с rank >= rank(edit_min_role);
+      * hidden_from_local=true → из view_roles удаляется local_admin
+        (фолдинг: НЕ отдельный флаг);
+      * «запись подразумевает чтение»: view_roles |= edit_roles.
+    base — текущая матрица (дефолт/предыдущий override): legacy-поле,
+    отсутствующее в перекрытии, наследуется из base (поле-мерж, как было)."""
+    if not isinstance(value, dict):
+        return {"view_roles": [], "edit_roles": []}
+    base = base or {}
+    if "view_roles" in value or "edit_roles" in value:
+        # новая форма (или гибрид) — сохраняем как есть + union
+        vr = (_norm_roles(value["view_roles"]) if "view_roles" in value
+              else list(base.get("view_roles") or []))
+        er = (_norm_roles(value["edit_roles"]) if "edit_roles" in value
+              else list(base.get("edit_roles") or []))
+    else:
+        vr = (_roles_at_least(value.get("view_min_role"))
+              if "view_min_role" in value
+              else list(base.get("view_roles") or []))
+        er = (_roles_at_least(value.get("edit_min_role"))
+              if "edit_min_role" in value
+              else list(base.get("edit_roles") or []))
+        if value.get("hidden_from_local") and ROLE_LOCAL_ADMIN in vr:
+            vr = [r for r in vr if r != ROLE_LOCAL_ADMIN]
+    view_roles_set = set(vr) | set(er)
+    edit_roles_set = set(er)
+    return {
+        # единый доменный порядок (user → moderator → local_admin): ответы
+        # нормализованы детерминированно независимо от порядка в теле/БД
+        "view_roles": [r for r in _FLAG_ROLE_RANKED if r in view_roles_set],
+        "edit_roles": [r for r in _FLAG_ROLE_RANKED if r in edit_roles_set],
+    }
 
 
 def default_matrix(pg_key: str, category: str | None = None) -> dict:
-    """Эффективный дефолт для ключа (спецификация §3.1 таблица)."""
+    """Эффективный дефолт для ключа (spec §3.2.3 таблица флагов).
+
+    | Категория | view_roles | edit_roles |
+    | keys.*    | []         | []         | (только global admin)
+    | prompts.* | [local_admin] | [local_admin] |
+    | остальные (limits/flags/reactions/content/memory/models) |
+                | [moderator, local_admin] | [local_admin] |
+    """
     spec = get_by_pg_key(pg_key)
     cat = category or (spec.category if spec else (pg_key or "").split(".")[0])
     if cat == CATEGORY_KEYS:
-        return {"view_min_role": ROLE_GLOBAL_ADMIN,
-                "edit_min_role": ROLE_GLOBAL_ADMIN,
-                "hidden_from_local": True}
+        return {"view_roles": [], "edit_roles": []}
     if cat == CATEGORY_PROMPTS:
-        return {"view_min_role": ROLE_USER,
-                "edit_min_role": ROLE_LOCAL_ADMIN,
-                "hidden_from_local": False}
-    return {"view_min_role": ROLE_USER,
-            "edit_min_role": ROLE_MODERATOR,
-            "hidden_from_local": False}
+        return {"view_roles": [ROLE_LOCAL_ADMIN],
+                "edit_roles": [ROLE_LOCAL_ADMIN]}
+    return {"view_roles": [ROLE_MODERATOR, ROLE_LOCAL_ADMIN],
+            "edit_roles": [ROLE_LOCAL_ADMIN]}
 
 
 def effective_matrix(pg_key: str, db_override: dict | None = None,
                      chat_override: dict | None = None) -> dict:
     """Дефолт ⊕ DB-override (param_permissions) ⊕ chat-override
-    (chat_params.perm_overrides) — для GET/POST /api/config."""
+    (chat_params.perm_overrides) — для GET/POST /api/config.
+
+    Override — ПОЛНЫЙ массив (replace): нормализованный {view_roles,
+    edit_roles} перекрывает дефолт целиком; legacy-поля нормализуются
+    (отсутствующие поля наследуются из base-матрицы);
+    «запись подразумевает чтение»: view_roles |= edit_roles."""
     matrix = default_matrix(pg_key)
     for override in (db_override, chat_override):
-        if not isinstance(override, dict):
+        if not isinstance(override, dict) or not override:
             continue
-        for field in ("view_min_role", "edit_min_role", "hidden_from_local"):
-            value = override.get(field)
-            if value is not None:
-                matrix[field] = value
+        normalized = _normalize_perms(override, matrix)
+        matrix = {
+            "view_roles": list(normalized["view_roles"]),
+            "edit_roles": list(normalized["edit_roles"]),
+        }
     return matrix
 
 
+def _as_new_matrix(matrix: dict) -> dict:
+    """Защита: матрица в новой форме — как есть; легаси — нормализуется."""
+    if not isinstance(matrix, dict):
+        return {"view_roles": [], "edit_roles": []}
+    if "view_roles" in matrix or "edit_roles" in matrix:
+        return _normalize_perms(matrix)
+    return _normalize_perms(matrix)
+
+
+def eligible_type(ctx: AccessCtx) -> str | None:
+    """Роль по скоупу (spec §3.2.5): role_chat (грант) — если задан, иначе
+    role_global; custom/неизвестная роль → алиас по rank: 4→global_admin
+    (неявный), 3→local_admin, 2→moderator, 1→user."""
+    role = ctx.role_chat or ctx.role_global
+    if role in _FLAG_ROLE_DOMAIN_SET:
+        return role
+    if ctx.rank >= ROLE_TYPE_RANK[ROLE_LOCAL_ADMIN]:
+        return ROLE_LOCAL_ADMIN
+    if ctx.rank >= ROLE_TYPE_RANK[ROLE_MODERATOR]:
+        return ROLE_MODERATOR
+    return ROLE_USER
+
+
 def can_view_param(ctx: AccessCtx, matrix: dict) -> bool:
-    """Видимость ключа для юзера (спец §3.1: hidden_from_local + min-роль)."""
+    """Видимость ключа (spec §3.2.5): global admin → True; иначе
+    eligible_type(ctx) в view_roles (hidden_from_local-фолдинг уже в
+    нормализации — absence local_admin)."""
     if ctx.is_global_admin:
         return True
-    if matrix.get("hidden_from_local") and ctx.is_local_admin:
-        return False
-    return ctx.rank >= ROLE_TYPE_RANK.get(matrix.get("view_min_role",
-                                                     ROLE_USER) or ROLE_USER, 1)
+    m = _as_new_matrix(matrix)
+    return eligible_type(ctx) in m.get("view_roles", [])
 
 
 def can_edit_param(ctx: AccessCtx, matrix: dict) -> bool:
@@ -174,10 +280,10 @@ def can_edit_param(ctx: AccessCtx, matrix: dict) -> bool:
     Глобальный модератор/кастом без chat-гранта в per-chat-контексте —
     ТОЛЬКО чтение: редактирование `chat_params` требует гранта chat_admins
     (local_admin|moderator на ЭТОТ чат) или ранга global admin. При наличии
-    гранта — min-роль edit по матрице (chat-скоп)."""
+    гранта — eligible_type(ctx) в edit_roles (флаги модели)."""
     if ctx.is_global_admin:
         return True
     if ctx.role_chat not in (ROLE_LOCAL_ADMIN, ROLE_MODERATOR):
         return False
-    min_role = matrix.get("edit_min_role", ROLE_MODERATOR) or ROLE_MODERATOR
-    return ctx.rank >= ROLE_TYPE_RANK.get(min_role, 1)
+    m = _as_new_matrix(matrix)
+    return eligible_type(ctx) in m.get("edit_roles", [])

@@ -244,11 +244,12 @@ class TestSnapshot:
         service = make_service(db, aliases=_FakeAliases())
         snap = await service.get_relations_snapshot(chat)
         assert snap[0]["name"] == "Алиас7"
-        # без алиасов — uid строкой
+        # без алиасов — ПУСТО (10.2: id как имя запрещён; users_relations
+        # UI покажет ''/username, а user_id мелким рядом)
         service2 = RelationsService(db)
         await db.refresh_users_meta(chat, now=NOW)
         snap2 = await service2.get_relations_snapshot(chat)
-        assert snap2[0]["name"] == "7"
+        assert snap2[0]["name"] == ""
 
     @pytest.mark.asyncio
     async def test_fail_open_when_pg_down(self, db):
@@ -350,3 +351,37 @@ class TestRelationsCatalog:
         assert pc.get_group("flags_relations") is not None
         assert pc.group_tab("limits_relations") == pc.TAB_LIMITS
         assert pc.group_tab("flags_relations") == pc.TAB_LIMITS
+
+
+class TestNamesAsIsNoId:
+    """Раунд 10.2 (owner-реквизит): имена в отношениях — КАК ЕСТЬ (эмодзи/
+    спецсимволы, никакой чистки/strip/капа); @username без «@» — только когда
+    имени нет; ID как отображаемое имя — НИГДЕ (list_relations удаляет ключ
+    name, если его значением оказался str(user_id)/пустое; _display_name
+    без алиасов → '')."""
+
+    def test_no_name_cleanup_anywhere(self):
+        src = open("web/api/chat_lore.py", encoding="utf-8").read()
+        assert "_clean_nickname" not in src
+        assert "_CONTROL_CHARS_RE" not in src
+        assert "_WHITESPACE_RE" not in src
+        # каскад: alias (как есть, с учётом «не равный uid») → name-map →
+        # username без @; имена НЕ обрезаются/не нормализуются
+        assert "tidy_name = str(alias)" in src
+        assert "nick = str(names[uid])" in src
+        assert 'tidy_name = str(u["username"]).lstrip("@")' in src
+
+    def test_uid_name_key_deleted_in_list_relations(self):
+        src = open("web/api/chat_lore.py", encoding="utf-8").read()
+        # нормализация после каскада: пустое/uid-равное имя — удаление
+        assert 'if not s or str(s).strip() == "" or str(s) == str(uid):' \
+            in src
+        assert 'del u["name"]' in src
+        # инвариант: id как имя — никогда, включая name-map (nick == uid)
+        assert 'if "name" in u and str(u["name"]) == str(uid):' in src
+
+    def test_id_never_from_snapshot(self):
+        src = open("services/user_relations.py", encoding="utf-8").read()
+        # _display_name: алиасов нет → '' (НЕ str(user_id))
+        assert 'if name and str(name) != str(user_id):' in src
+        assert 'return ""' in src
