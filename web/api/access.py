@@ -48,6 +48,7 @@ CHATS_FOR_USER_SQL = (
     "FROM chat_profiles p "
     "LEFT JOIN chat_admins a "
     "ON a.chat_id = p.chat_id AND a.telegram_id = $1 "
+    "WHERE p.chat_id < 0 "          # F-14 (П.1): DM-строки не из PG — синтез ниже
     "ORDER BY p.chat_id"
 )
 ADMIN_EFF_SQL = (
@@ -175,6 +176,9 @@ async def access_me(
         else:
             continue
         rows.append({"chat_id": r["chat_id"], "role": role})
+    # F-14 (§3.2, П.1): синтез DM-строки для ЛЮБОГО авторизованного
+    # (включая global admin) — свои ЛС настраиваются отдельно (AC-4).
+    rows.append({"chat_id": user.id, "role": "dm"})
     return {
         "role_global": ctx.role_global,
         "role_chat": ctx.role_chat,
@@ -220,6 +224,17 @@ async def access_chats(
             "is_active": bool(r["is_active"]),
             "access": access,
         })
+    # F-14 (§3.2, П.1): DM-строка — селектор TMA (запись «Личные
+    # сообщения», access:'dm'); title синтезирован (chat_display_info НЕ
+    # зовём — ЛС нет в Bot API-кэше групп).
+    out.append({
+        "chat_id": user.id,
+        "title": "Личные сообщения",
+        "photo_file_id": None,
+        "is_active": True,
+        "access": "dm",
+        "is_dm": True,
+    })
     return out
 
 

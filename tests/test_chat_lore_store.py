@@ -364,11 +364,16 @@ class _FakeConn:
             return rows[:limit]
         if "FROM chat_profiles" in sql:
             rows = list(self.profiles.values())
-            if "WHERE is_active" in sql:
-                rows = [r for r in rows if r["is_active"]]
-            if "WHERE is_active AND auto_enabled" in sql:
+            # фильтры — только в WHERE-части (колонки-имена до FROM)
+            where_part = sql[sql.index("FROM chat_profiles"):]
+            # F-14 (П.2): DM-профили (chat_id > 0) исключаются списками
+            if "chat_id < 0" in where_part:
+                rows = [r for r in rows if r["chat_id"] < 0]
+            if "is_active" in where_part and "auto_enabled" in where_part:
                 rows = [r for r in rows
                         if r["is_active"] and r["auto_enabled"]]
+            elif "is_active" in where_part:
+                rows = [r for r in rows if r["is_active"]]
             if "SELECT chat_id FROM" in sql:
                 rows.sort(key=lambda r: r["chat_id"])
                 return [{"chat_id": r["chat_id"]} for r in rows]
@@ -488,21 +493,25 @@ class TestProfileCrud:
 
     @pytest.mark.asyncio
     async def test_ensure_idempotent(self, store):
-        p1 = await store.ensure_profile(42)
-        p2 = await store.ensure_profile(42)
+        p1 = await store.ensure_profile(-42)
+        p2 = await store.ensure_profile(-42)
         assert p1 == p2
         assert len(await store.list_profiles()) == 1
 
     @pytest.mark.asyncio
     async def test_list_profiles_and_active_chats(self, conn_store):
         conn, store = conn_store
-        conn.profiles[1] = _profile_row(1, active=True, enabled=True)
-        conn.profiles[2] = _profile_row(2, active=False, enabled=True)
-        conn.profiles[3] = _profile_row(3, active=True, enabled=False)
-        assert [p.chat_id for p in await store.list_profiles()] == [1, 2, 3]
+        conn.profiles[-3] = _profile_row(-3, active=True, enabled=True)
+        conn.profiles[-2] = _profile_row(-2, active=False, enabled=True)
+        conn.profiles[-1] = _profile_row(-1, active=True, enabled=False)
+        # F-14 (П.2): DM-профиль (chat_id > 0) в списки НЕ попадает
+        conn.profiles[42] = _profile_row(42, active=True, enabled=True)
+        assert [p.chat_id for p in await store.list_profiles()] == [-3, -2, -1]
         assert [p.chat_id for p in
-                await store.list_profiles(active_only=True)] == [1, 3]
-        assert await store.list_active_chats() == [1]
+                await store.list_profiles(active_only=True)] == [-3, -1]
+        assert await store.list_active_chats() == [-3]
+        # F-14 (П.2): ностальгия/воркеры — тоже только группы (DM-исключён)
+        assert await store.list_active_chat_ids() == [-3, -1]
 
     @pytest.mark.asyncio
     async def test_upsert_profile_on_join_alias(self, store):

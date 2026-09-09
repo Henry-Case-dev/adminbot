@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from services import chat_params, feature_gates, worker_budget
 from services import roles as roles_srv
-from services.chat_params import ChatParamsConflict
+from services.chat_params import ChatParamsConflict, is_dm_scope
 from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -53,10 +53,15 @@ async def gates_get(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
     """Состояние гейтов чата (F-10 §7): global admin / локальные — чтение;
-    чужой чат → 403."""
+    чужой чат → 403.
+    F-14 (§3.2): DM-скоуп — READ-only (is_dm_owner своего ЛС → 200,
+    who_can_toggle='global'; чужой ЛС → 403)."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not ctx.is_global_admin and ctx.role_chat not in (
+    if is_dm_scope(chat_id):
+        if not ctx.is_dm_owner:
+            raise HTTPException(status_code=403, detail="нет доступа к чату")
+    elif not ctx.is_global_admin and ctx.role_chat not in (
             "local_admin", "moderator"):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     root = await chat_params.get_all_chat_params(chat_id)
@@ -67,7 +72,7 @@ async def gates_get(
     who = {}
     for f in sorted(ALL):
         who[f] = "global" if f == "permsoc" else (
-            "global" if ctx.is_global_admin else "local")
+            "global" if (ctx.is_global_admin or ctx.is_dm_owner) else "local")
     return {
         "chat_id": chat_id,
         "opt_in": opt_in,
@@ -86,9 +91,14 @@ async def gates_put(
 ):
     """Единая точка записи гейта (F-7 set_feature_gate: история field
     'gates' + NOTIFY + auto_opt_in; 409 optimistic; 422 фича вне домена;
-    локальный админ — только тяжёлые; permsoc — только global admin)."""
+    локальный админ — только тяжёлые; permsoc — только global admin).
+    F-14 (§3.2): гейты в DM-скоупе НЕ пишутся (PUT → 403; write-path —
+    только global admin и только для групп — feature_gates без дифов)."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if is_dm_scope(chat_id):
+        raise HTTPException(status_code=403,
+                            detail="гейты недоступны для Личных сообщений")
     if payload.feature not in ALL:
         raise HTTPException(status_code=422,
                             detail=f"неизвестная фича: {payload.feature}")

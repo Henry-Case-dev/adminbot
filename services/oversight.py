@@ -30,7 +30,8 @@ _HISTORY_LIMIT = 5
 
 PROFILE_COLS_SQL = (
     "SELECT p.chat_id, p.is_active, p.chat_params, p.gates_opt_in, "
-    "p.updated_at FROM chat_profiles p ORDER BY p.chat_id"
+    "p.updated_at FROM chat_profiles p WHERE p.chat_id < 0 "
+    "ORDER BY p.chat_id"
 )
 ADMINS_COUNT_SQL = (
     "SELECT chat_id, COUNT(*) AS c FROM chat_admins GROUP BY chat_id"

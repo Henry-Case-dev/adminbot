@@ -85,9 +85,8 @@ def fake_pg():
     return conn, _FakePg(conn)
 
 
-pytestmark = pytest.mark.asyncio
 
-
+@pytest.mark.asyncio
 async def test_whitelist_validation(fake_pg):
     conn, pg = fake_pg
     with pytest.raises(ValueError):
@@ -97,6 +96,7 @@ async def test_whitelist_validation(fake_pg):
     assert chat_keys.is_whitelisted("keys.llm_api_key")
 
 
+@pytest.mark.asyncio
 async def test_set_and_mask(fake_pg):
     conn, pg = fake_pg
     mask = await chat_keys.set_chat_key(pg, -10001, "keys.llm_api_key",
@@ -107,6 +107,7 @@ async def test_set_and_mask(fake_pg):
     assert conn.history[0]["changed_by"] == 7
 
 
+@pytest.mark.asyncio
 async def test_get_raw_for_service_only(fake_pg):
     conn, pg = fake_pg
     await chat_keys.set_chat_key(pg, -10001, "keys.llm_api_key",
@@ -118,6 +119,7 @@ async def test_get_raw_for_service_only(fake_pg):
                        "last4": "alue"}]
 
 
+@pytest.mark.asyncio
 async def test_delete_key_history(fake_pg):
     conn, pg = fake_pg
     await chat_keys.set_chat_key(pg, -1, "keys.llm_api_key", "v", changed_by=1)
@@ -129,6 +131,7 @@ async def test_delete_key_history(fake_pg):
     assert conn.history[-1]["changed_by"] == 9
 
 
+@pytest.mark.asyncio
 async def test_llm_resolve_own_key_priority(fake_pg, monkeypatch):
     """Свой ключ чата → 'chat' источник; глобальный не смотрится вовсе."""
     conn, pg = fake_pg
@@ -141,6 +144,7 @@ async def test_llm_resolve_own_key_priority(fake_pg, monkeypatch):
     assert client._byok_source == "chat"
 
 
+@pytest.mark.asyncio
 async def test_llm_resolve_global_uses_hot(fake_pg, monkeypatch):
     conn, pg = fake_pg
     client = LLMClient("http://x", "GLOBALKEY", "m", "")
@@ -154,6 +158,7 @@ async def test_llm_resolve_global_uses_hot(fake_pg, monkeypatch):
     assert client._byok_source == "global"
 
 
+@pytest.mark.asyncio
 async def test_llm_resolve_forbidden(fake_pg, monkeypatch):
     """allow_global=false + нет своего → NoApiKeyForChat('forbidden')."""
     conn, pg = fake_pg
@@ -168,6 +173,7 @@ async def test_llm_resolve_forbidden(fake_pg, monkeypatch):
     assert exc.value.chat_id == -10001
 
 
+@pytest.mark.asyncio
 async def test_llm_resolve_budget_exceeded(fake_pg, monkeypatch):
     conn, pg = fake_pg
     monkeypatch.setattr(
@@ -183,6 +189,7 @@ async def test_llm_resolve_budget_exceeded(fake_pg, monkeypatch):
     assert exc.value.reason == "budget"
 
 
+@pytest.mark.asyncio
 async def test_llm_resolve_failopen_global(monkeypatch):
     """PG down (методы падают) → глобальный ключ (fail-open spec §1.2)."""
     client = LLMClient("http://x", "GLOBALKEY", "m", "")
@@ -191,6 +198,7 @@ async def test_llm_resolve_failopen_global(monkeypatch):
     assert got == "GLOBALKEY"
 
 
+@pytest.mark.asyncio
 async def test_parallel_generate_usage_attributed_per_chat(fake_pg, monkeypatch):
     """ФИКС R6 (F-7 §5.2): параллельные вызовы generate() разных чатов —
     usage-счётчик атрибутируется КАЖДОМУ своему chat_id (никаких
@@ -236,6 +244,7 @@ async def test_parallel_generate_usage_attributed_per_chat(fake_pg, monkeypatch)
     assert len(set(c[0] for c in captured)) == 2
 
 
+@pytest.mark.asyncio
 async def test_parallel_resolve_does_not_stomp_source(fake_pg, monkeypatch):
     """ФИКС R6: _resolve_api_key_and_source — гонка двух чатов не отдаёт
     ключ одного чата в usage другого (независимые per-call корутины)."""
@@ -263,4 +272,114 @@ def _aw(value):
     async def _inner(*a, **kw):
         return value
 
-    return _inner(*a) if False else _inner()
+    return _inner()
+
+
+# ═══ F-15 (T-971, spec §3) — BYOK-фоллбэк и details-снапшот ════════════════
+
+
+@pytest.mark.asyncio
+async def test_llm_resolve_budget_own_key_fallback(fake_pg, monkeypatch):
+    """F-15 (§3.2): бюджет исчерпан, но ПОВТОРНОЕ чтение находит СВОЙ ключ
+    (гонка/персист между шагом 1 и 3) → source 'chat' (ответ НЕ sandbox,
+    глобальный бюджет НЕ тратится)."""
+    conn, pg = fake_pg
+    monkeypatch.setattr(
+        "services.chat_params.get_all_chat_params",
+        lambda chat_id: _aw({"v": 1, "keys": {"allow_global": True}}))
+    monkeypatch.setattr(
+        "services.chat_usage.budget_exceeded",
+        lambda pg_, chat_id, tokens_estimate=0: _aw(True))
+    calls = {"n": 0}
+
+    async def flaky_get_chat_key(pg_, chat_id, key_name):
+        calls["n"] += 1
+        # первый вызов (шаг 1) — ключа ещё нет; второй (фоллбэк) — появился
+        return "OWNKEY_FALLBACK" if calls["n"] >= 2 else None
+
+    monkeypatch.setattr("services.chat_keys.get_chat_key", flaky_get_chat_key)
+    client = LLMClient("http://x", "GLOBALKEY", "m", "")
+    monkeypatch.setattr(client, "_pg", lambda: pg)
+    key, source = await client._resolve_api_key_and_source(-10001)
+    assert key == "OWNKEY_FALLBACK"
+    assert source == "chat"
+    assert calls["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_llm_resolve_budget_details_snapshot(fake_pg, monkeypatch):
+    """F-15 (§3.1): бюджет + нет ключа → NoApiKeyForChat('budget') с
+    details-снапшотом (used/limit/day/resolve_path; БЕЗ секретов)."""
+    conn, pg = fake_pg
+    monkeypatch.setattr(
+        "services.chat_params.get_all_chat_params",
+        lambda chat_id: _aw({"v": 1, "keys": {"allow_global": True}}))
+    monkeypatch.setattr(
+        "services.chat_usage.budget_exceeded",
+        lambda pg_, chat_id, tokens_estimate=0: _aw(True))
+    monkeypatch.setattr(
+        "services.chat_usage.used_today",
+        lambda pg_, chat_id: _aw({"llm_calls": 25, "llm_tokens": 99_900}))
+    monkeypatch.setattr("services.chat_usage._budget_limit_requests",
+                        lambda default=25: 25)
+    monkeypatch.setattr("services.chat_usage._budget_limit_tokens",
+                        lambda default=100000: 100000)
+    client = LLMClient("http://x", "GLOBALKEY", "m", "")
+    monkeypatch.setattr(client, "_pg", lambda: pg)
+    with pytest.raises(NoApiKeyForChat) as exc:
+        await client._resolve_api_key(-10001)
+    assert exc.value.reason == "budget"
+    details = exc.value.details
+    assert details is not None
+    assert details["resolve_path"] == "budget"
+    assert details["used_calls"] == 25
+    assert details["limit_calls"] == 25
+    assert details["used_tokens"] == 99_900
+    assert details["limit_tokens"] == 100_000
+    assert details["allow_global"] is True
+    assert "day" in details and details["day"]
+    # R17: никаких значений ключей в снапшоте
+    assert "GLOBALKEY" not in repr(details)
+    assert "OWNKEY" not in repr(details)
+
+
+@pytest.mark.asyncio
+async def test_llm_resolve_forbidden_details(fake_pg, monkeypatch):
+    """F-15 (§3.1): ветка forbidden несёт {resolve_path, allow_global: False}."""
+    conn, pg = fake_pg
+    monkeypatch.setattr(
+        "services.chat_params.get_all_chat_params",
+        lambda chat_id: _aw({"v": 1, "keys": {"allow_global": False}}))
+    client = LLMClient("http://x", "GLOBALKEY", "m", "")
+    monkeypatch.setattr(client, "_pg", lambda: pg)
+    with pytest.raises(NoApiKeyForChat) as exc:
+        await client._resolve_api_key(-10001)
+    assert exc.value.reason == "forbidden"
+    assert exc.value.details == {"resolve_path": "forbidden",
+                                 "allow_global": False}
+
+
+def test_no_api_key_default_message_unchanged():
+    """Без details — прежний текст исключения (совместимость)."""
+    exc = NoApiKeyForChat(-10001, "budget")
+    assert exc.details is None
+    assert str(exc) == "no api key for chat: chat_id=-10001 reason=budget"
+
+
+# ═══ F-15 (T-971, spec §3.1) — формат WARNING sandbox-пути ═════════════════
+
+class TestF15SandboxWarningMarker:
+    def test_direct_warning_keeps_anchor_and_has_details(self):
+        """Подстрока «no key — sandbox answer» сохранена; формат расширен
+        reason + details (снапшот без секретов)."""
+        src = open("services/direct_chat_service.py", encoding="utf-8").read()
+        assert "[direct] no key — sandbox answer" in src
+        assert "reason=%s" in src
+        assert "details=%s" in src
+        assert 'getattr(exc, "details", None)' in src
+
+    def test_no_api_key_exception_carries_details_attr(self):
+        from services.llm_client import NoApiKeyForChat as Exc
+        exc = Exc(1, "budget", details={"resolve_path": "budget"})
+        assert exc.details == {"resolve_path": "budget"}
+        assert "budget" in str(exc)

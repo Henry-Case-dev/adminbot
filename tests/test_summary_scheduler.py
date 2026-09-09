@@ -87,13 +87,35 @@ class TestTick:
         db = MagicMock()
         db.get_smart_chat_ids = AsyncMock(return_value=[-999])
         service = SummarySchedulerService(generator, db)
-        mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=(111, 222))
+        mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=(-111, -222))
         with patch("services.summary_scheduler.settings", mod):
             await service._tick()
         assert generator.generate_and_send.await_count == 2
-        generator.generate_and_send.assert_any_await(111)
-        generator.generate_and_send.assert_any_await(222)
+        generator.generate_and_send.assert_any_await(-111)
+        generator.generate_and_send.assert_any_await(-222)
         db.get_smart_chat_ids.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_tick_skips_dm_positive_ids(self):
+        """F-14 (S3): ЛС-рассылки нет — положительные chat_id (DM-скоуп)
+        исключаются из _tick (и из hot-источника, и из smart-чатов)."""
+        generator = MagicMock()
+        generator.generate_and_send = AsyncMock()
+        db = MagicMock()
+        db.get_smart_chat_ids = AsyncMock(return_value=[-100, 555])
+        service = SummarySchedulerService(generator, db)
+        mod = replace(settings, SUMMARY_TARGET_CHAT_IDS=(-777, 424242))
+        with patch("services.summary_scheduler.settings", mod):
+            await service._tick()
+        assert generator.generate_and_send.await_count == 1
+        generator.generate_and_send.assert_awaited_once_with(-777)
+        # фолбэк-источник (get_smart_chat_ids) — тот же фильтр
+        generator.generate_and_send.reset_mock()
+        mod2 = replace(settings, SUMMARY_TARGET_CHAT_IDS=None)
+        with patch("services.summary_scheduler.settings", mod2):
+            await service._tick()
+        db.get_smart_chat_ids.assert_awaited_once()
+        generator.generate_and_send.assert_awaited_once_with(-100)
 
     @pytest.mark.asyncio
     async def test_tick_falls_back_to_db_chats(self):

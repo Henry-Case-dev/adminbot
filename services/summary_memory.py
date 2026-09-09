@@ -40,8 +40,9 @@ import struct
 import time
 
 from config.settings import settings
-from services.database import row_get
 from services import hot_config as hot
+from services.chat_params import chat_summary_enabled
+from services.database import row_get
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
@@ -98,6 +99,37 @@ _FACT_EXTRACT_MAX_CHARS = 8000      # tail текста, отправляемы�
 _FACT_MAX_NAME_CHARS = 100
 _FACT_MAX_PREDICATE_CHARS = 200
 _FACT_MAX_CONTEXT_CHARS = 400
+
+# F-15 (§4.3): жёсткий ретрай-промпт memorize — КОД-КОНСТАНТА (НЕ канон,
+# НЕ PG, НЕ REGISTRY; каноны plans/docs/canon/ и prompts.extract_system_prompt
+# НЕ меняются). Один дополнительный вызов ТОЛЬКО в fire-and-forget-ветке
+# _memorize_facts_inner (крон _extract_and_save_graph НЕ ретраится).
+_FACT_RETRY_SYSTEM_PROMPT = (
+    "Верни СТРОГО один JSON-массив объектов "
+    "{\"subject\": …, \"predicate\": …, \"object\": …}. "
+    "Никакого текста, пояснений, списков, кавычек-ёлочек и длинных тире. "
+    "Нечего запомнить — верни []"
+)
+
+# F-15 (§4.1): R17-маска для raw-фрагмента в WARNING (значения секретов не
+# логируются; цифры-идентификаторы uid/chat_id НЕ маскируются — иначе
+# диагностика фактов была бы уничтожена).
+_LLM_RAW_SECRET_PATTERNS = (
+    re.compile(r"sk-[A-Za-z0-9_\-]{8,}"),
+    re.compile(r"Bearer\s+[A-Za-z0-9._\-]{8,}", re.IGNORECASE),
+    re.compile(r"ghp_[A-Za-z0-9]{20,}"),
+    re.compile(r"api[_-]?key[=:]\s*[^\s&\"]+", re.IGNORECASE),
+    re.compile(r"\b[0-9a-fA-F]{40,}\b"),
+)
+
+
+def _mask_llm_raw(raw) -> str:
+    """F-15 (§4.1): компактный фрагмент ответа LLM для логов (repr-обрезка
+    500 симв., секрет-паттерны → <secret>, пробелы схлопнуты)."""
+    text = str(raw)[:500]
+    for pattern in _LLM_RAW_SECRET_PATTERNS:
+        text = pattern.sub("<secret>", text)
+    return " ".join(text.split())
 
 _YOUTUBE_MEMORIZE_MAX_CHARS = 8000   # порог «огромных субтитров» (55.5)
 
@@ -405,7 +437,12 @@ def parse_fact_list(raw: str) -> list[dict]:
         else:
             data = None
     if not isinstance(data, list):
-        logger.warning("graphrag memorize: LLM answer is not a JSON list — skipped")
+        # F-15 (§4.1): WARNING больше НЕ тихий — raw-фрагмент (маскированный,
+        # R17) для диагностики промпт-дрейфа; фраза «not a JSON list»
+        # сохраняется (тесты-якоря).
+        logger.warning(
+            "graphrag memorize: LLM answer is not a JSON list — skipped "
+            "| raw=%s", _mask_llm_raw(raw))
         return []
     facts = []
     for item in data:
@@ -442,6 +479,113 @@ def _validate_fact(item) -> dict | None:
     ctx = re.sub(r"\s+", " ", context).strip() if context else ""
     return {"subject": norm_s, "predicate": norm_p, "object": norm_o,
             "context": ctx[:_FACT_MAX_CONTEXT_CHARS]}
+
+
+def _fallback_parse_facts(raw) -> list[dict]:
+    """F-15 (§4.2): толерантный парсер прозы/буллетов → факты. Вызывается
+    в _memorize_facts_inner, если parse_fact_list вернул [].
+
+    1) JSON-массив ВНУТРИ текста: расширение границ [ … ] (bounded ≤ 20
+       попыток на каждую скобку), первый валидный массив с фактами;
+    2) построчные тройки (строки разделены \n/;):
+       a. csv: ровно 3 части по ';' или ',' → strip кавычек/пробелов;
+       b. кавычки-«ёлочки»/прямые: три фрагмента в кавычках подряд;
+       c. тире-форма: «subject — predicate — object» (—/–/- с пробелами,
+          НЕ путать с →);
+    3) каждый кандидат → _validate_fact (фильтрует мусор: капсы/длины);
+    4) кап limits.graph_extract_max_triplets (как parse_fact_list).
+    НИКОГДА не бросает."""
+    text = str(raw or "").strip()
+    if not text:
+        return []
+    limit = int(hot.get("limits.graph_extract_max_triplets",
+                        settings.GRAPH_EXTRACT_MAX_TRIPLETS) or 0)
+    out: list[dict] = []
+
+    def _push(candidate) -> None:
+        if limit and len(out) >= limit:
+            return
+        fact = _validate_fact(candidate)
+        if fact is not None:
+            out.append(fact)
+
+    # 1) JSON-массив внутри текста (границы расширяются до валидного)
+    for open_m in list(re.finditer(r"\[", text))[:20]:
+        close_matches = list(re.finditer(r"\]", text[open_m.end():]))[:20]
+        for close_m in close_matches:
+            candidate = text[open_m.start():open_m.end() + close_m.end()]
+            try:
+                parsed = json.loads(candidate)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(parsed, list):
+                continue
+            for item in parsed:
+                _push(item)
+            if out:
+                return out
+            # «массив строк» = готовая тройка: ["субъект","предикат","объект"]
+            if all(isinstance(s, str) and s.strip() for s in parsed) \
+                    and len(parsed) >= 3:
+                _push({"subject": parsed[0], "predicate": parsed[1],
+                       "object": parsed[2]})
+                if out:
+                    return out
+            break                    # валидный, но пустой/мусорный — дальше
+    # 2) построчные тройки (строки — по \n; ';' — разделитель сегментов)
+    for line in text.split("\n"):
+        line = re.sub(r"^[-*•◦▪–—]+\s*|\d+[.)]\s*", "", line).strip()
+        if not line:
+            continue
+        triple = _line_triple(line)
+        if triple is not None:
+            _push(triple)
+        elif ";" in line:
+            parts = [p.strip().strip("\"'«»“” ").strip()
+                     for p in line.split(";")]
+            for i in range(len(parts) - 2):
+                seg = parts[i:i + 3]
+                if all(seg):
+                    _push({"subject": seg[0], "predicate": seg[1],
+                           "object": seg[2]})
+                    if limit and len(out) >= limit:
+                        return out
+        if limit and len(out) >= limit:
+            break
+    return out
+
+
+def _line_triple(line: str) -> dict | None:
+    """Одна строка → {subject, predicate, object} | None (см. fallback-парсер)."""
+    # a. три фрагмента в кавычках подряд («ёлочки»/прямые/одинарные)
+    for pattern in (r"«([^»]{1,120})»", r"“([^”]{1,120})”",
+                    r'"([^"]{1,120})"', r"'([^']{1,120})'"):
+        parts = re.findall(pattern, line)
+        if len(parts) >= 3:
+            return {"subject": parts[0].strip(),
+                    "predicate": parts[1].strip(),
+                    "object": parts[2].strip()}
+    # b. тире-форма: subject — predicate — object (—/–; затем ' - ')
+    for sep in (r"\s+—\s+", r"\s+–\s+"):
+        parts = re.split(sep, line)
+        if len(parts) == 3:
+            return {"subject": parts[0].strip(),
+                    "predicate": parts[1].strip(),
+                    "object": parts[2].strip()}
+    parts = re.split(r"\s+-\s+", line)
+    if len(parts) == 3:
+        return {"subject": parts[0].strip(),
+                "predicate": parts[1].strip(),
+                "object": parts[2].strip()}
+    # c. csv-тройка: ровно 3 части по ';' либо ','
+    for sep in (";", ","):
+        if sep in line:
+            parts = [p.strip().strip("\"'«»“” ").strip() for p in line.split(sep)]
+            if len(parts) == 3 and all(parts):
+                return {"subject": parts[0], "predicate": parts[1],
+                        "object": parts[2]}
+            break
+    return None
 
 
 def fire_and_forget(coro, tag: str) -> None:
@@ -1144,9 +1288,10 @@ class MemoryManager:
         )
         fill_threshold = int(hot.get("limits.chat_context_fill_ratio", settings.CHAT_CONTEXT_FILL_RATIO)
                              * (hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES) or 0))
-        # T-619: флаг бегущего конспекта — горячая точка (фолбек settings)
-        if hot.get("flags.chat_running_summary_enabled",
-                   settings.CHAT_RUNNING_SUMMARY_ENABLED) and rows and \
+        # T-619: флаг бегущего конспекта — горячая точка (фолбек settings).
+        # F-14 (S1, spec §4.2): гейт через chat_summary_enabled — ЛС не
+        # наследует глобальный ON (саммари в ЛС по умолчанию OFF).
+        if await chat_summary_enabled(chat_id) and rows and \
                 len(rows) >= fill_threshold:
             try:
                 current = await self.db.get_running_summary(chat_id, time.time())
@@ -1453,6 +1598,38 @@ class MemoryManager:
         tail = text[-_FACT_EXTRACT_MAX_CHARS:]
         raw = await self._extract_facts(tail)     # Epic 47 (D188): bounded-повтор
         facts = parse_fact_list(raw)
+        if not facts:
+            # F-15 (§4.2): толерантность к прозе/буллетам/кривому JSON —
+            # fallback-парсер до ретрая.
+            facts = _fallback_parse_facts(raw)
+        if not facts:
+            # F-15 (§4.3): ОДИН ретрай жёстким промптом — ТОЛЬКО в этой
+            # (fire-and-forget) ветке memorize; крон _extract_and_save_graph
+            # НЕ ретраится (канон «деградация без потерь»). Ошибка LLM →
+            # WARNING как в _extract_facts, факты не пишутся.
+            retry_raw = None
+            try:
+                retry_raw = await self.llm.generate([
+                    {"role": "system",
+                     "content": _FACT_RETRY_SYSTEM_PROMPT},
+                    {"role": "user", "content": tail}])
+            except LLMError as exc:
+                logger.warning(
+                    "graphrag memorize: retry LLM failed | chat_id=%s | "
+                    "source=%s | error=%s", chat_id, source_type, exc)
+            if retry_raw:
+                facts = parse_fact_list(retry_raw)
+                if not facts:
+                    facts = _fallback_parse_facts(retry_raw)
+            if facts:
+                logger.info(
+                    "graphrag memorize: retry recovered %d facts | chat_id=%s "
+                    "| source=%s", len(facts), chat_id, source_type)
+            else:
+                logger.warning(
+                    "graphrag memorize: LLM answer is not a JSON list — "
+                    "skipped | raw=%s | [retry] second attempt also failed",
+                    _mask_llm_raw(raw))
         if not facts:
             logger.info("graphrag memorize: 0 facts | chat_id=%s | source=%s",
                         chat_id, source_type)

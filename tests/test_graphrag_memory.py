@@ -19,9 +19,12 @@ from services.summary_memory import (
     FACT_EXTRACT_PROMPT,
     GraphExtractionError,
     MemoryManager,
+    _fallback_parse_facts,
+    _mask_llm_raw,
     _normalize_name,
     build_rag_context,
     dedup_rag_vs_global,
+    parse_fact_list,
     parse_triplets,
 )
 from services.summary_prompts import EXTRACT_PROMPT
@@ -482,8 +485,12 @@ class FactsLLM:
         self.last_user = None
 
     async def generate(self, messages):
+        from services.summary_memory import _FACT_RETRY_SYSTEM_PROMPT
         self.generate_calls += 1
-        assert messages[0]["content"] == FACT_EXTRACT_PROMPT
+        # F-15: ретрай-ветка memorize использует код-константу (не канон);
+        # канон FACT_EXTRACT_PROMPT остаётся байт-в-байт для основного пути.
+        assert messages[0]["content"] in (FACT_EXTRACT_PROMPT,
+                                          _FACT_RETRY_SYSTEM_PROMPT)
         self.last_user = messages[1]["content"]
         return self.response
 
@@ -2135,3 +2142,156 @@ class TestChatRagRerankF4:
         llm = _RerankLLM()
         assert await self._memory(llm).rerank_rag_facts("дроны", []) == []
         assert llm.calls == 0
+
+
+# ═══ F-15 (T-970/T-971, spec §4) — fallback-парсер, raw-маска, 1 ретрай ═══
+
+class TestF15MaskAndFallback:
+    """parse_fact_list: WARNING c raw-фрагментом (R17-маска); fallback-парсер
+    тянет факты из прозы/буллетов/ёлочек/тире/csv-троек; мусор → []."""
+
+    def test_warning_not_silent_and_masked(self, caplog):
+        import logging
+        raw = ('Какая-то проза про "sk-abcdef1234567890XYZ" и '
+               '{"json": true} без списка')
+        with caplog.at_level(logging.WARNING):
+            assert parse_fact_list(raw) == []
+        msgs = [r.message for r in caplog.records]
+        assert any("not a JSON list" in m for m in msgs)
+        warned = next(m for m in msgs if "not a JSON list" in m)
+        assert "Какая-то проза" in warned        # фрагмент есть
+        assert "<secret>" in warned               # секрет-паттерн замаскирован
+        assert "sk-abcdef1234567890XYZ" not in warned
+
+    def test_mask_llm_raw_keeps_digits_and_masks_secrets(self):
+        raw = ("api_key=sk-live-abc1234567 tok Bearer 1234567890abcdef "
+               "ghp_01234567890123456789 hex 0123456789abcdef0123456789abcdef"
+               "0123456789abcdef uid=77777777")
+        masked = _mask_llm_raw(raw)
+        assert masked.count("<secret>") >= 4
+        assert "77777777" in masked               # цифры-идентификаторы НЕ маскируются
+        assert "sk-live" not in masked
+        assert "ghp_" not in masked
+
+    def test_fallback_json_array_inside_text(self):
+        raw = 'По итогам: [{"subject": "Иван", "predicate": "купил", ' \
+              '"object": "машину"}] — вот так.'
+        facts = _fallback_parse_facts(raw)
+        assert len(facts) == 1
+        assert facts[0]["subject"] == "иван"
+        assert facts[0]["object"] == "машину"
+
+    def test_fallback_bullet_dash_lines(self):
+        raw = "— Иван — любит — кофе\n— Маша — работает — в банке"
+        facts = _fallback_parse_facts(raw)
+        assert {f["subject"]: f["object"] for f in facts} == {
+            "иван": "кофе", "маша": "в банке"}
+
+    def test_fallback_yolochki_and_csv(self):
+        raw = '«Иван» «подарил» «цветы»\nПетя; любит; футбол'
+        facts = _fallback_parse_facts(raw)
+        assert any(f["subject"] == "иван" and f["object"] == "цветы"
+                   for f in facts)
+        assert any(f["subject"] == "петя" and f["object"] == "футбол"
+                   for f in facts)
+
+    def test_fallback_garbage_returns_empty(self):
+        assert _fallback_parse_facts("каша, не json совсем") == []
+        assert _fallback_parse_facts("") == []
+        assert _fallback_parse_facts("[] пусто и точка") == []
+
+    def test_fallback_list_of_strings_becomes_triple(self):
+        """«массив строк» — готовая тройка: [s, p, o] → факт."""
+        raw = '["иван", "любит", "кофе"]'
+        facts = _fallback_parse_facts(raw)
+        assert len(facts) == 1
+        assert facts[0]["subject"] == "иван"
+        assert facts[0]["predicate"] == "любит"
+        assert facts[0]["object"] == "кофе"
+
+
+class _SeqLLM(FactsLLM):
+    """Последовательность ответов (первый — экстрактор, второй — ретрай)."""
+
+    def __init__(self, responses, **kwargs):
+        super().__init__(response=responses[0] if responses else "[]",
+                         **kwargs)
+        self._responses = list(responses)
+        self._idx = 0
+
+    async def generate(self, messages):
+        self.generate_calls += 1
+        content = self._responses[min(self._idx, len(self._responses) - 1)]
+        self._idx += 1
+        self.last_user = messages[1]["content"]
+        return content
+
+
+class TestF15MemorizeRetry:
+    """1 ретрай жёстким промптом — ТОЛЬКО в memorize-ветке."""
+
+    @pytest.mark.asyncio
+    async def test_retry_recovers_facts(self, db):
+        """Мусор → корректный JSON на ретрае → факты записаны (2 вызова)."""
+        llm = _SeqLLM([
+            "извини не понял задачу просто проза без структуры",
+            json.dumps([_fact(subject="Иван", predicate="купил", obj="кофе")],
+                       ensure_ascii=False),
+        ])
+        memory = MemoryManager(db, llm)
+        await memory.memorize_facts(-100, "иван купил кофе", "search_fact")
+        assert llm.generate_calls == 2
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_second_failure_warns_zero_facts(self, db, caplog):
+        """Мусор → мусор → WARNING c raw-фрагментом + «second attempt also
+        failed», фактов 0."""
+        import logging
+        llm = _SeqLLM(["просто проза и больше ничего",
+                       "всё ещё проза без фактов"])
+        memory = MemoryManager(db, llm)
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        assert llm.generate_calls == 2
+        msgs = [r.message for r in caplog.records]
+        assert any("not a JSON list" in m for m in msgs)
+        assert any("[retry] second attempt also failed" in m for m in msgs)
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_retry_llm_error_warns_no_facts(self, db, caplog):
+        """Ретрай упал LLMError → WARNING (как _extract_facts), 0 фактов."""
+        import logging
+
+        class BoomLLM(FactsLLM):
+            async def generate(self, messages):
+                self.generate_calls += 1
+                if self.generate_calls == 1:
+                    return "не json вовсе"
+                raise LLMError("timeout retry")
+
+        llm = BoomLLM(response="[]")
+        memory = MemoryManager(db, llm)
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        assert llm.generate_calls == 2
+        assert any("retry LLM failed" in r.message
+                   for r in caplog.records)
+
+    def test_cron_extract_path_has_no_retry_prompt(self):
+        """Крон _extract_and_save_graph НЕ ретраится жёстким промптом
+        (маркер: _FACT_RETRY_SYSTEM_PROMPT не используется там)."""
+        src = open("services/summary_memory.py", encoding="utf-8").read()
+        inner = src[src.index("    async def _extract_and_save_graph"):]
+        assert "_FACT_RETRY_SYSTEM_PROMPT" not in inner
+
+    def test_retry_prompt_is_code_constant_not_canon(self):
+        """Код-константа присутствует; канон-файлы не менялись (маркер)."""
+        src = open("services/summary_memory.py", encoding="utf-8").read()
+        assert "_FACT_RETRY_SYSTEM_PROMPT" in src
+        assert "Верни СТРОГО один JSON-массив объектов" in src

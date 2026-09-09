@@ -34,7 +34,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from config.settings import settings
-from services import lore_runtime
+from services import chat_params, lore_runtime
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.permissions import Permissions
 from services.summary_aliases import AliasResolver
@@ -197,9 +197,13 @@ def _conflict(exc: ChatLoreConflict) -> HTTPException:
 async def _require_chat(cache, store, user: WebAppUser,
                         chat_id: int) -> int:
     """Резолв chat_id + матрица доступа → доступный (резолвнутый) id.
-    403 — нет доступа; 503 — PG недоступен."""
+    403 — нет доступа; 503 — PG недоступен.
+    F-14 (П.5): DM-скоуп (chat_id > 0) — лор недоступен → 404 (изоляция)."""
     try:
         resolved = await store.resolve_chat_id(chat_id)
+        if chat_params.is_dm_scope(resolved):
+            raise HTTPException(status_code=404,
+                                detail="профиль чата не найден")
         allowed = await can_access_chat(cache, store, user.id, resolved)
     except ChatLorePgUnavailable as exc:
         raise _pg_guard(exc) from exc

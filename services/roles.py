@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import logging
 
+from services.chat_params import is_dm_scope
 from services.permissions import Permissions
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,15 @@ LOCAL_ADMIN_PRESET: dict[str, object] = {
 MODERATOR_PRESET: dict[str, object] = {
     "sections": ["limits"],
     "actions": ["control.restart", "control.stop", "control.start"],
+}
+
+# F-14 (dm-user-settings, spec §2.1): пресет DM-владельца (свои ЛС). Секции —
+# per-chat-параметры (промпты/лимиты/флаги/реакции/контент/память), БЕЗ
+# chat_lore (лор-API ЛС → 404 — изоляция П.5) и БЕЗ group-секций.
+DM_OWNER_PRESET: dict[str, object] = {
+    "sections": ["prompts", "limits", "flags", "reactions", "content",
+                 "memory"],
+    "actions": [],
 }
 
 
@@ -88,6 +98,10 @@ class AccessCtx:
     is_global_admin: bool
     is_local_admin: bool        # role_chat == 'local_admin'
     rank: int                   # max(rank_global, rank_chat)
+    # F-14 (dm-user-settings, spec §2.1): владелец СВОИХ ЛС (chat_id ==
+    # telegram_id и chat_id > 0). Дефолт False — позиционные конструкторы
+    # тестов не ломаются.
+    is_dm_owner: bool = False
 
     @property
     def effective_permissions(self) -> Permissions:
@@ -152,7 +166,18 @@ async def access_for(telegram_id: int, chat_id: int | None = None,
 
     role_chat: str | None = None
     perms_chat = Permissions.from_dict({})
-    if chat_id is not None and cache is not None:
+    # F-14 (dm-user-settings, spec §2.1): DM-ветка — ДО группового
+    # chat_admins-лукапа и БЕЗ обращений к PG (fail-open: PG down →
+    # DM-владелец работает — локальный срез). Свой ЛС (chat_id > 0 и
+    # chat_id == telegram_id): is_dm_owner=True, role_chat=None (НЕ путать
+    # с group local_admin — is_local_admin остаётся False, F-11-меню
+    # group-секции не открывает), perms_chat = DM_OWNER_PRESET.
+    is_dm_owner = False
+    if chat_id is not None and chat_id == telegram_id \
+            and is_dm_scope(chat_id):
+        is_dm_owner = True
+        perms_chat = Permissions.from_dict(DM_OWNER_PRESET)
+    elif chat_id is not None and cache is not None:
         try:
             pg = getattr(cache, "pg", None)
             pool = getattr(pg, "pool", None) if pg is not None else None
@@ -174,6 +199,10 @@ async def access_for(telegram_id: int, chat_id: int | None = None,
 
     if is_global_admin:
         rank = 4
+    elif is_dm_owner:
+        # DM-владелец: rank = max(ранг роли, local_admin=3)
+        rank = max(rank_of_type(role_global_type, perms_global),
+                   ROLE_TYPE_RANK[ROLE_LOCAL_ADMIN])
     elif role_chat is not None:
         rank = ROLE_TYPE_RANK[role_chat]
     else:
@@ -187,6 +216,7 @@ async def access_for(telegram_id: int, chat_id: int | None = None,
         is_global_admin=is_global_admin,
         is_local_admin=(role_chat == ROLE_LOCAL_ADMIN),
         rank=rank,
+        is_dm_owner=is_dm_owner,
     )
 
 

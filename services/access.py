@@ -31,6 +31,7 @@ import logging
 import time
 
 from services.param_catalog import CATEGORY_KEYS, CATEGORY_PROMPTS, get_by_pg_key
+from services.chat_params import is_dm_scope
 from services.roles import (
     ROLE_GLOBAL_ADMIN,
     ROLE_LOCAL_ADMIN,
@@ -65,9 +66,14 @@ def reset_param_permissions_cache() -> None:
     _db_override_cache_ts = 0.0
 
 
-def can_access_chat(ctx: AccessCtx) -> bool:
+def can_access_chat(ctx: AccessCtx, chat_id=None) -> bool:
     """Q3-семантика (§2.3): global admin — все чаты; грант chat_admins —
-    local_admin/moderator чата; глобальный moderator — чтение; user — нет."""
+    local_admin/moderator чата; глобальный moderator — чтение; user — нет.
+    F-14 (spec §2.2): аддитивный параметр chat_id — DM-скоуп (chat_id > 0):
+    доступ ТОЛЬКО владельцу (is_dm_owner); глобальный админ в ЧУЖОМ ЛС →
+    False → 403. Без chat_id — прежнее поведение (вызовы не меняются)."""
+    if chat_id is not None and is_dm_scope(chat_id):
+        return bool(ctx.is_dm_owner)
     if ctx.is_global_admin:
         return True
     if ctx.role_chat in (ROLE_LOCAL_ADMIN, ROLE_MODERATOR):
@@ -253,7 +259,12 @@ def _as_new_matrix(matrix: dict) -> dict:
 def eligible_type(ctx: AccessCtx) -> str | None:
     """Роль по скоупу (spec §3.2.5): role_chat (грант) — если задан, иначе
     role_global; custom/неизвестная роль → алиас по rank: 4→global_admin
-    (неявный), 3→local_admin, 2→moderator, 1→user."""
+    (неявный), 3→local_admin, 2→moderator, 1→user.
+    F-14 (spec §2.2): DM-владелец (role_chat=None!) → local_admin — иначе
+    view/edit-матрицы per_chat-ключей ([moderator, local_admin] /
+    [local_admin]) вернули бы False всегда."""
+    if ctx.is_dm_owner:
+        return ROLE_LOCAL_ADMIN
     role = ctx.role_chat or ctx.role_global
     if role in _FLAG_ROLE_DOMAIN_SET:
         return role
@@ -280,9 +291,17 @@ def can_edit_param(ctx: AccessCtx, matrix: dict) -> bool:
     Глобальный модератор/кастом без chat-гранта в per-chat-контексте —
     ТОЛЬКО чтение: редактирование `chat_params` требует гранта chat_admins
     (local_admin|moderator на ЭТОТ чат) или ранга global admin. При наличии
-    гранта — eligible_type(ctx) в edit_roles (флаги модели)."""
+    гранта — eligible_type(ctx) в edit_roles (флаги модели).
+    F-14 (spec §2.2): ветка is_dm_owner — ПОСЛЕ is_global_admin и ДО
+    role_chat-гейта (у DM-владельца role_chat=None): per_chat-ключи
+    (limits/flags/reactions/content/memory/prompts — edit_roles
+    [local_admin]) → True; keys.* (дефолт-матрица []/[]) → False (R17:
+    ключи — только BYOK-путь /api/config/keys/own)."""
     if ctx.is_global_admin:
         return True
+    if ctx.is_dm_owner:
+        m = _as_new_matrix(matrix)
+        return eligible_type(ctx) in m.get("edit_roles", [])
     if ctx.role_chat not in (ROLE_LOCAL_ADMIN, ROLE_MODERATOR):
         return False
     m = _as_new_matrix(matrix)

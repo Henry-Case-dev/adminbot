@@ -67,16 +67,24 @@ class TestSelector:
         assert 'v-if="accessChats.length"' in html
         assert ">Весь бот</option>" in html
 
-    def test_chat_picker_button_and_dropdown(self):
-        """BUG-1: заметная кнопка «Выбрать чат» + дропдаун пикера
-        (accessChats + «Весь бот»), синхрон с setActiveChat."""
+    def test_single_chat_selector_only(self):
+        """F-13 (AC-1): селектор чата в шапке — ЕДИНСТВЕННАЯ точка выбора.
+        Кнопка «💬 Выбрать чат» + дропдаун (openChatPicker/chatPickerOpen/
+        pickChat) удалены из web/; индикация выбора — бейдж
+        #{{ activeChatId }}; setActiveChat-селектор и «Весь бот» на месте."""
         js, html = _js(), _html()
-        assert "openChatPicker" in js
-        assert "chatPickerOpen" in js
-        assert "pickChat" in js
-        assert "💬 Выбрать чат" in html
-        assert "pickChat('')" in html
-        assert "pickChat(c.chat_id)" in html
+        # негатив: методов/стейта пикера больше нет
+        assert "openChatPicker" not in js
+        assert "chatPickerOpen" not in js
+        assert "pickChat" not in js
+        assert "💬 Выбрать чат" not in html
+        # позитив: единый нативный селектор + индикация выбора
+        assert "setActiveChat($event.target.value)" in html
+        assert 'v-if="accessChats.length"' in html
+        assert ">Весь бот</option>" in html
+        # F-14: бейдж-идентификатор (в ЛС-скоупе — «ЛС #<id>»)
+        assert "isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId" in html
+        assert "activeChatTitle" in html
 
 
 class TestProgressiveDisclosure:
@@ -110,7 +118,10 @@ class TestProgressiveDisclosure:
     def test_group_card_skipped_when_empty(self):
         """BUG-5 (ре-дизайн 10.2, spec §10 F-11): пустые подсекции не
         рендерятся — карточка группы только при basic|advanced > 0;
-        «Расширенные» только при advancedItems > 0 (без «(0)»)."""
+        «Расширенные» только при advancedItems > 0 (без «(0)»).
+        F-13 (AC-3): v-if/v-for на ОДНОМ узле схлопывал ВСЕ группы (Vue 3
+        считает v-if вне скоупа цикла) — v-for вынесен на <template>,
+        v-if остался на дочернем div с тем же выражением."""
         html = _html()
         assert ('v-if="basicItems(grp).length || advancedItems(grp).length"'
                 in html)
@@ -118,6 +129,12 @@ class TestProgressiveDisclosure:
         assert 'v-if="advancedItems(grp).length > 0"' in html
         assert ':open="basicItems(grp).length === 0 || expandOpen(activeTab)"' \
             in html
+        # F-13 позитив: v-for на <template>; ключ — там же
+        assert '<template v-for="grp in currentTabGroups" :key="grp.uid">' \
+            in html
+        # F-13 негатив: v-for НЕ на div (v-if больше не на узле цикла —
+        # двухстрочная конкатенация v-for+v-if отсутствует)
+        assert '<div v-for="grp in currentTabGroups"' not in html
         js = _js()
         assert "return result.filter" in js
 

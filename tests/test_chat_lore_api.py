@@ -305,6 +305,13 @@ class TestAccess:
                                   headers=_hdr(USER_ID))
         assert resp.status_code == 403
 
+    def test_dm_scope_profile_404_even_for_admin(self, api_env):
+        """F-14 (П.5): прямые DM-id (chat_id > 0 = ЛС юзера) в лор-API —
+        404 (изоляция; даже у global admin — лор ЛС не существует)."""
+        resp = api_env.client.get(f"/api/chat_lore/{USER_ID}",
+                                  headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 404
+
     def test_plain_user_sees_only_own_chats(self, api_env):
         resp = api_env.client.get("/api/chat_lore/chats",
                                   headers=_hdr(USER_ID))

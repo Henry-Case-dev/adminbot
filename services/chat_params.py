@@ -27,6 +27,12 @@ from services.param_catalog import get_by_pg_key, normalize_value
 
 logger = logging.getLogger(__name__)
 
+# F-14 (dm-user-settings, spec §1): DM-скоуп = chat_profiles/chat_params с
+# chat_id = user.id; группы — отрицательные id, лички — положительные.
+def is_dm_scope(chat_id) -> bool:
+    """Единственный идентификатор DM-скоупа: положительный chat_id = ЛС."""
+    return chat_id is not None and int(chat_id) > 0
+
 _NOTIFY_CHANNEL = "chat_params_updated"
 _CACHE_TTL = 120.0
 _HISTORY_FIELD = "chat_params"
@@ -70,6 +76,13 @@ NOTIFY_SQL = "SELECT pg_notify('chat_params_updated', $1)"
 UPSERT_GATES_OPT_IN_SQL = (
     "UPDATE chat_profiles SET gates_opt_in = true, updated_at = now() "
     "WHERE chat_id = $1"
+)
+# F-14 (§3.1): ленивое создание профиля скоупа перед ПЕРВОЙ записью —
+# паттерн chat_lore_store.py:44-47, идемпотентный (INSERT ON CONFLICT).
+INSERT_SCOPE_PROFILE_SQL = (
+    "INSERT INTO chat_profiles "
+    "(chat_id, auto_enabled, is_active, chat_params, gates_opt_in) "
+    "VALUES ($1, $2, $3, $4::jsonb, $5) ON CONFLICT (chat_id) DO NOTHING"
 )
 
 
@@ -296,3 +309,95 @@ async def set_gates_opt_in(chat_id: int, pg=None) -> None:
         raise ChatLorePgUnavailable("PostgreSQL недоступен (пул отсутствует)")
     async with pool.acquire() as conn:
         await conn.execute(UPSERT_GATES_OPT_IN_SQL, chat_id)
+
+
+# ═══ F-14 (dm-user-settings, spec §3.1/§4.1) — DM-скоуп ══════════════════════
+
+async def ensure_scope_profile(chat_id: int, *, dm: bool, pg=None) -> bool:
+    """F-14 (§3.1): ленивое создание профиля скоупа (INSERT ON CONFLICT DO
+    NOTHING — паттерн chat_lore_store.py:44-47). Вызывается ПЕРЕД первой
+    записью в DM-скоупе (иначе set_chat_params даст мусорный
+    ChatParamsConflict(chat_id, None) «профиля нет»).
+
+    DM (dm=True): auto_enabled=false (LoreWorker не тронет — двойной guard
+    с SQL-фильтрами chat_id < 0), is_active=true, chat_params =
+    _root_with_meta({}) (v-1-лейаут), gates_opt_in=false. dm=False — INSERT
+    дефолтного профиля (как ensure_profile чат-лора).
+    Идемпотентен: вставка → True; повтор (или нет пула) → False."""
+    pool = getattr(pg, "pool", None) if pg is not None else None
+    if pool is None:
+        return False
+    if dm:
+        params = json.dumps(_root_with_meta({}))
+        args = (chat_id, False, True, params, False)
+    else:
+        from services.chat_lore_store import INSERT_DEFAULT_PROFILE
+        async with pool.acquire() as conn:
+            res = await conn.execute(INSERT_DEFAULT_PROFILE, chat_id)
+        return res.split()[-1] != "0"
+    try:
+        async with pool.acquire() as conn:
+            res = await conn.execute(INSERT_SCOPE_PROFILE_SQL, *args)
+        return res.split()[-1] != "0"
+    except Exception:
+        logger.warning(
+            "[chat_params] ensure_scope_profile failed — idempotent retry "
+            "на следующей записи | chat=%s dm=%s", chat_id, dm, exc_info=True)
+        return False
+
+
+async def get_chat_param_defaulted(chat_id: int, key: str,
+                                   fallback=None) -> object:
+    """F-14 (§4.1): резолв ТОЛЬКО из override'ов своего скоупа — БЕЗ
+    горячего global-фолбэка hot.get. Ключ ЯВНО присутствует в
+    chat_params.overrides → каст по каталогу (normalize_value; тип не
+    сошёлся/мусор → fallback); иначе — НЕМЕДЛЕННО fallback."""
+    cache = _chat_params_cache
+    root = {}
+    if cache is not None:
+        try:
+            root = await cache.get_chat_params(chat_id)
+        except Exception:
+            root = {}
+    overrides = root.get("overrides") or {}
+    if key not in overrides:
+        return fallback
+    try:
+        value = normalize_value(key, overrides[key])
+        spec = get_by_pg_key(key)
+        if spec is not None and not _cast_type_ok(spec.type, value):
+            return fallback          # мусор (не кастуется к типу) → fallback
+        return value
+    except Exception:
+        return fallback
+
+
+def _cast_type_ok(spec_type: str, value) -> bool:
+    """Проверка результата normalize_value по типу каталога (мусор → False)."""
+    if spec_type == "bool":
+        return isinstance(value, bool)
+    if spec_type == "int":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if spec_type == "float":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if spec_type == "str":
+        return isinstance(value, str)
+    return True                       # json/прочие — каталог сам решит
+
+
+async def chat_summary_enabled(chat_id: int) -> bool:
+    """F-14 (§4.1): гейт бегущего конспекта (S1 summary_memory /
+    S2 direct_chat_service).
+
+    * группа (<0): hot.get('flags.chat_running_summary_enabled', settings…)
+      — байт-в-байт старое поведение;
+    * ЛС (>0): override своего ЛС → cast → False; глобальный ON НЕ
+      наследуется (единственное исключение из наследования; пустой
+      профиль → False даже при глобальном ON)."""
+    if is_dm_scope(chat_id):
+        return bool(await get_chat_param_defaulted(
+            chat_id, "flags.chat_running_summary_enabled", False))
+    from services import hot_config as hot
+    from config.settings import settings
+    return bool(hot.get("flags.chat_running_summary_enabled",
+                        settings.CHAT_RUNNING_SUMMARY_ENABLED))

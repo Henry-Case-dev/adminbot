@@ -247,7 +247,7 @@ async def get_config(
         db_overrides = {}
     if chat_id is not None:
         ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-        if not access_srv.can_access_chat(ctx):
+        if not access_srv.can_access_chat(ctx, chat_id):
             raise HTTPException(status_code=403, detail="нет доступа к чату")
         chat_root = await chat_params.get_all_chat_params(chat_id)
     else:
@@ -334,6 +334,8 @@ async def get_config(
             "role_chat": ctx.role_chat if ctx else None,
             "is_local_admin": bool(ctx and ctx.is_local_admin),
             "is_global_admin": bool(ctx and ctx.is_global_admin),
+            # F-14 (§3.2): DM-скоуп (свой ЛС) — фронт включает isDmCtx
+            "is_dm": bool(ctx and ctx.is_dm_owner),
         }
     return out
 
@@ -361,10 +363,14 @@ async def post_config(
     if chat_id is None:
         return await _post_config_global(request, payload, user)
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not access_srv.can_access_chat(ctx):
+    if not access_srv.can_access_chat(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     if not cache.pg_available:
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    # F-14 (§3.1): первый write в DM-скоупе — ленивое создание профиля
+    # (иначе set_chat_params даст мусорный 409 «профиля нет»).
+    if ctx.is_dm_owner:
+        await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
     try:
         db_overrides = await access_srv.db_override_map(cache.pg)
     except Exception:
@@ -458,13 +464,20 @@ async def config_keys_own(
     x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """Раунд 10 (F-7 §6): маски СОБСТВЕННЫХ ключей чата (R17: никогда raw).
-    Права: local admin чата / global admin."""
+    Права: local admin чата / global admin. F-14 (§3.2): + DM-владелец
+    (BYOK своего ЛС)."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not (ctx.is_global_admin or ctx.is_local_admin):
+    # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
+    # админ в ЧУЖОМ ЛС → 403); в группах — global/local admin как раньше.
+    if chat_params.is_dm_scope(chat_id):
+        dm_allowed = bool(ctx.is_dm_owner)
+    else:
+        dm_allowed = bool(ctx.is_global_admin or ctx.is_local_admin)
+    if not dm_allowed:
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     return {"keys": await chat_keys.list_own_keys(cache.pg, chat_id)}
 
@@ -477,16 +490,25 @@ async def config_keys_own_put(
     x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """Раунд 10 (F-7 §6): запись BYOK-ключа чата (insert-or-replace).
-    422 key_name вне whitelist; 403 чужие права; маска в ответе (R17)."""
+    422 key_name вне whitelist; 403 чужие права; маска в ответе (R17).
+    F-14 (§3.1): DM-владелец своего ЛС + ensure_scope_profile."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not (ctx.is_global_admin or ctx.is_local_admin):
+    # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
+    # админ в ЧУЖОМ ЛС → 403); в группах — global/local admin как раньше.
+    if chat_params.is_dm_scope(chat_id):
+        dm_allowed = bool(ctx.is_dm_owner)
+    else:
+        dm_allowed = bool(ctx.is_global_admin or ctx.is_local_admin)
+    if not dm_allowed:
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     if not cache.pg_available:
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    if ctx.is_dm_owner:
+        await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
     try:
         mask = await chat_keys.set_chat_key(cache.pg, chat_id,
                                             payload.key_name, payload.value,
@@ -505,13 +527,20 @@ async def config_keys_own_delete(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
     x_chat_id: Annotated[str | None, Header()] = None,
 ):
-    """Раунд 10 (F-7 §6): удаление BYOK-ключа чата."""
+    """Раунд 10 (F-7 §6): удаление BYOK-ключа чата.
+    F-14 (§3.2): гейт + DM-владелец своего ЛС."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not (ctx.is_global_admin or ctx.is_local_admin):
+    # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
+    # админ в ЧУЖОМ ЛС → 403); в группах — global/local admin как раньше.
+    if chat_params.is_dm_scope(chat_id):
+        dm_allowed = bool(ctx.is_dm_owner)
+    else:
+        dm_allowed = bool(ctx.is_global_admin or ctx.is_local_admin)
+    if not dm_allowed:
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     try:
         removed = await chat_keys.delete_chat_key(cache.pg, chat_id,
@@ -534,7 +563,7 @@ async def config_keys_status(
     if chat_id is None:
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not access_srv.can_access_chat(ctx):
+    if not access_srv.can_access_chat(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     root = await chat_params.get_all_chat_params(chat_id)
     own = {r["key_name"]: r for r in
@@ -561,16 +590,26 @@ async def delete_chat_param(
 ):
     """Раунд 10 (F-7 §6): сброс override чата на глобальный
     (jsonb_remove('overrides', key)); 404 — override отсутствует;
-    403 — чужие права; 409 optimistic."""
+    403 — чужие права; 409 optimistic.
+    F-14 (§3.2): гейт (is_global_admin or is_local_admin or is_dm_owner) —
+    DM-владелец сбрасывает ТОЛЬКО override своего ЛС; ensure профиля."""
     cache: ConfigCache = get_cache(request)
     chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not (ctx.is_global_admin or ctx.is_local_admin):
+    # F-14 (§3.2/§3.3): в DM-скоупе доступ ТОЛЬКО владельцу (глобальный
+    # админ в ЧУЖОМ ЛС → 403); в группах — global/local admin как раньше.
+    if chat_params.is_dm_scope(chat_id):
+        dm_allowed = bool(ctx.is_dm_owner)
+    else:
+        dm_allowed = bool(ctx.is_global_admin or ctx.is_local_admin)
+    if not dm_allowed:
         raise HTTPException(status_code=403, detail="нет доступа к чату")
     if not cache.pg_available:
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    if ctx.is_dm_owner:
+        await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
     root = await chat_params.get_all_chat_params(chat_id)
     overrides = dict(root.get("overrides") or {})
     if key not in overrides:

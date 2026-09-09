@@ -994,7 +994,11 @@ class TestEpic60RunningSummary:
                 1, -100, f"сообщение {i}", None, now - 3600 + i, "text", "вася")
         memory = MemoryManager(mem_db, _SummaryLLM())
         mod = replace(settings, CHAT_RUNNING_SUMMARY_ENABLED=False)
-        with patch("services.summary_memory.settings", mod):
+        # F-14 (S1): группа — горячий флаг; OFF-семантика — через hot.get
+        with patch("services.hot_config.get",
+                   lambda key, default=None: default
+                   if key != "flags.chat_running_summary_enabled" else False), \
+                patch("services.summary_memory.settings", mod):
             await memory.get_window_messages(-100)
         assert tasks == []
 

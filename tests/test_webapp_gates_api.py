@@ -205,3 +205,32 @@ class TestWorkersBudget:
         assert body["global"]["calls"]["used"] == 42
         scopes = {c["scope"] for c in body["chats"]}
         assert scopes == {"chat:-1001"}, body
+
+
+# ═══ F-14 (T-956, spec §3.2): gates в DM-скоупе — READ-only ════════════════
+
+class TestDmGates:
+    """DM-скоуп (X-Chat-Id = свой user.id): GET 200 READ
+    (who_can_toggle='global'), PUT → 403 (гейты — только global admin и
+    только группы; feature_gates без дифов); чужой ЛС → 403."""
+
+    def test_gates_get_dm_owner_read_200(self, client):
+        resp = client.get(f"/api/chat/{USER_NO_ROLE}/gates",
+                          headers=_hdr(USER_NO_ROLE))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["chat_id"] == USER_NO_ROLE
+        who = body["who_can_toggle"]
+        assert all(v == "global" for v in who.values())
+
+    def test_gates_put_dm_403(self, client):
+        resp = client.put(f"/api/chat/{USER_NO_ROLE}/gates",
+                          json={"feature": "slavik", "enabled": True},
+                          headers=_hdr(USER_NO_ROLE))
+        assert resp.status_code == 403
+
+    def test_gates_get_foreign_dm_403(self, client):
+        """Глобальный админ в чужом ЛС → 403 (can_access_chat False)."""
+        resp = client.get(f"/api/chat/{USER_NO_ROLE}/gates",
+                          headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 403

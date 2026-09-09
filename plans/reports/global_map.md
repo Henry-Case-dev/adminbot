@@ -1,0 +1,222 @@
+# Global Map (architectural memory)
+
+> Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
+> HEAD == origin/master == d30b203 (10.2 deployed, 2026-09-09).
+
+## Stack
+- **aiogram 3.31** (polling) + **FastAPI** webapp (`web/app.py`) + **asyncpg** (PG) + **aiosqlite** (memory v8). APP_VERSION=2.51.0.
+- **httpx** for LLM/API calls, **sqlite-vec** (optional) for vector search, **FTS5** built-in fallback.
+- **uvicorn** single event loop (R2: no threads, `loop="auto"`).
+
+## Core Architecture
+
+### Entry Point: `bot.py`
+- **Router registration order (CRITICAL - DO NOT CHANGE):**
+  1. `summary_observer_router` (0a) - catch-all, saves ALL messages, returns UNHANDLED
+  2. `summary_router` (0b) - /summary command
+  3. `factcheck_router` (0c) - fact-check replies
+  4. `search_router` (0d) - smart search
+  5. `youtube_router` (0e) - YouTube URL processing
+  6. `web_router` (0f) - web URL processing
+  7. `checkup_router` (0g) - checkup triggers
+  8. `direct_chat_router` (0h) - reply/mention to bot
+  9. `voice_transcription_router` (0i) - voice/video transcription
+  10. `admin_commands_router` - admin test commands
+  11. `menu_router` - /menu command
+  12. `debug_config_router` - hidden diagnostics
+  13. `info_router` - /info + /edit_info
+  14. `slava_presence_router` - ChatMemberUpdated (Slava return detection)
+  15. `alan_greeting_router` - ChatMemberUpdated (Alan greeting video)
+  16. `chat_lifecycle_router` - ChatMemberUpdated (bot lifecycle + migrate)
+  17. `kostik_router` - user ID 350803143
+  18. `alan_router` - user ID 138811255 (reply engine, every 10 msgs)
+  17. `dead_page_router` - reposts from @d_pages
+  18. `dead_page_delete_router` - reply/quote on deleted repost
+  19. `war_alert_router` - keyword + channel repost alerts
+  20. `common_router` - otboy/danger/selfdev/work/mimic
+  21. `olya_router` - video from @ole4444444ka
+  22. `video_download_router` - "скачай <url>" trigger
+  23. `slavik_router` - user ID 479167456 (catch-all)
+  24. `vasya_router` - text filters, no user restriction
+
+### Configuration System
+- **`config/settings.py`** - frozen `Settings` dataclass, reads from `.env` + env vars. Helper functions: `_env_int`, `_env_float`, `_env_bool`, `_env_str`, `_env_duration`, `_env_int_tuple`, `_env_int_min`, `_env_float_min`, `_env_int_optional`.
+- **`services/hot_config.py`** - `hot.get(pg_key, default)` runtime hot-config over PG. Two-tier typing: catalog-aware coercion (`_coerce`).
+- **`services/config_cache.py`** - `ConfigCache`: in-memory cache of `bot_settings`, `bot_roles`, `bot_admins`. `init()` with retry + fail-open (R6: PG down → WARNING, bot works on settings defaults). Asyncio.Lock on writes. Hot-reload via POST /api/config.
+- **`services/chat_params.py`** (Round 10) - per-chat override layer: `chat_params` JSONB + `gates_opt_in` + `chat_keys` (BYOK). `ChatParamsCache` with NOTIFY listener.
+
+### RBAC & Permissions
+- **`services/permissions.py`** - pure matcher (`Permissions` class, bitmask-style flags).
+- **`services/roles.py`** / **`services/access.py`** - RBAC v2: `role_type` (built-in vs custom), `access_for` (global/chat/both), `can_edit_param`.
+- **`services/param_catalog.py`** - `REGISTRY` of 383 `ParamSpec` (71 groups). Fields: `per_chat`, `progressive_level`. Single source of truth for config metadata.
+
+### Database Layer
+- **`services/database.py`** - SQLite (aiosqlite). Tables:
+  - Core: `user_presence`, `message_counters`, `dead_page_posts`, `channel_state`, `relay_album_map`
+  - SmartModule Summary (Epic 24): `smart_messages` (+ FTS5), `smart_archive_facts` (+ FTS5), `smart_archive` (sqlite-vec, lazy), `nodes`, `edges`, `graph_facts` (+ CHECK origin, `importance`, `source_ids`, `kind`, `belief_meta`, `weight`, `confirmed_at`, `expires_at`), `graph_facts_vec` (sqlite-vec), `embedding_cache`, `compression_log`, `user_memory`
+  - DirectChat (Epic 50): `throttle_state`, `bot_replies`
+  - Video (Round 3): `video_origins`
+- **`services/pg_db.py`** - PostgreSQL (asyncpg). Idempotent DDL + seeds. Tables:
+  - Config: `bot_settings` (key, value JSONB, category, updated_at), `bot_roles` (role_name, permissions JSONB, is_custom, role_type), `bot_admins` (telegram_id, role_name, added_by, created_at)
+  - Uptime: `uptime_events`
+  - Chat Lore (Round 7): `chat_profiles` (chat_id PK, manual_lore, auto_lore, auto_enabled, auto_period_hours, auto_window_hours, is_active, last_auto_at, updated_at, **relations JSONB**, **relations_enabled**, **chat_params JSONB**, **gates_opt_in**), `chat_lore_history`, `chat_links`, `chat_admins` (chat_id, telegram_id, added_by, created_at, **role_name**)
+  - RBAC (Round 10): `param_permissions`, `chat_keys` (BYOK), `chat_usage` (daily budget), `worker_budget` (daily ledger)
+  - Migrations: ALTER TABLE ... ADD COLUMN IF NOT EXISTS for additive deltas
+
+### LLM Client (`services/llm_client.py`)
+- Single `httpx.AsyncClient` per process (lazy, `close()` in `on_shutdown`).
+- Endpoints: `/chat/completions`, `/embeddings` (OpenAI-compatible).
+- **Epic 47**: Retries ALL transient errors (httpx.TransportError + HTTP 408/425/429/5xx). Exponential backoff + jitter. `Retry-After` header priority for 429/5xx. Hard total budget: `LLM_TOTAL_BUDGET` via `asyncio.timeout`. 401/403 → `LLMAuthError` immediately.
+- **Epic 53**: `LLMServerError`/`LLMTransportError` classes. Optional fallback provider (`LLM_FALLBACK_*`). Circuit Breaker lives in `direct_chat_service` (llm_client knows nothing about it).
+- **Epic 67**: `VoiceTranscriber` (Groq Whisper / OpenRouter) with shared `asyncio.Semaphore` (`GROQ_MAX_CONCURRENCY`).
+
+### SmartModule (Epic 24/26/33/37/42/50/60/67)
+- **Summary (Epic 24)**: Three-level memory (L1 window, L2 FTS5-RAG, L3 archive + vec). `SummaryGenerator`, `MemoryManager`, `SummarySchedulerService`.
+- **GraphRAG v2 (Epic 46)**: `memorize_facts` (Fact Extractor, canon R46-2), hybrid RAG (`build_rag_context`, canon R46-4), fire-and-forget hooks, vec reactivation, backfill.
+- **Epic 60 (Phases A-D)**: Graph dedup (cosine thresholds), episode merge, time-decay, user quota, fact touch, int8 vec compression.
+- **FactCheck + SmartSearch (Epic 33)**: `SearchAggregator` (Tavily/Exa), `FactCheckService`, `SearchService`.
+- **YouTube + Web (Epic 37)**: `YouTubeTranscriptEngine` (failover: transcript-api → yt-dlp → Cobalt), `WebContentExtractor`, `YoutubeSummarizerService`, `WebSummarizerService`, `OpenRouterVideoClient` (L1/L2 video cascade).
+- **Checkup (Epic 42)**: `CheckupService` + `CheckupLogsFetcher` (Betterstack SQL API + journalctl fallback).
+- **DirectChat (Epic 50)**: `DirectChatService` with tools (`ToolRouter`), persistent throttle (`PersistentThrottle`), dedup cache (`smart_cache`), ChatLoreCache injection.
+- **VoiceTranscriber (Epic 67)**: Shared instance with YouTube media branch.
+
+### Background Workers
+- **SchedulerService** - dead page relay scheduling
+- **SummarySchedulerService** - daily summary generation (starts BEFORE polling)
+- **GoodmorningSchedulerService** - daily goodmorning media
+- **MemoryBackupService** - daily VACUUM INTO + text export
+- **MemoryMaintenanceService** - episode merge + fact review (JobStore)
+- **UptimeHeartbeatService** - 60s heartbeat to `uptime_events`
+- **LoreWorker** (Round 7) - auto-lore generation from chat messages (PG profiles)
+- **DreamWorker** (Round 9) - "sleep": beliefs from recurring facts (SQLite state)
+- **NostalgiaWorker** (Round 9) - "golden layer" nostalgia (1 year ago facts)
+- **RelationsService** (Round 9) - users_meta lazy recompute + manual merge from PG
+
+### Web Layer (TMA, Vue 3 global, no build)
+- `web/app.py` - FastAPI app, creates `ConfigCache` + `ControlService`
+- `web/index.html` + `web/app.js` - SPA, no build step
+- API routes: `web/api/` (access, chat_lore, avatars, oversight, config, admins, roles, params, permissions, keys, usage, status, logs, direct_chat, relations, workers, system)
+- Chat selector: GET `/api/access/chats` + `X-Chat-Id` header
+- 5 menu sections + modules_feats + tabs: PERMsoc/Промпты/Лимиты/LLM/Память-RAG/Реакции-Триггеры/Доступы/Лор/Статус/Как это работает
+
+### Deploy
+- `deploy_v2.9.2.py` - prod deploy (DDL + backfills)
+- `scripts/backfill_*` - backfill scripts
+- Prod: 198.46.175.136:/var/www/admin_bot (systemd admin_bot)
+- `docker-compose.yml` / `docker/` - local PG
+- `ControlService` flag-file stop mechanism (Epic 85)
+
+### Security Notes
+- Raw API keys NEVER logged (R17); `/api/config` masks secrets `{configured,last4}`
+- `BetterStackHandler` custom (logtail 0.4.0 had silent drops)
+- `log_ring` in-memory ring buffer for `/api/status/logs` (secret masking in emit)
+- fail2ban/ufw/SSH hardening on prod
+- BYOK (Bring Your Own Key) per-chat via `chat_keys` (Round 10)
+
+## Key Data Flows
+
+### Message Processing
+```
+Update → Dispatcher → Router chain (fixed order)
+  → summary_observer (save to smart_messages, UNHANDLED)
+  → summary / factcheck / search / youtube / web / checkup / direct_chat / voice
+  → admin / menu / debug / info
+  → slava_presence / alan_greeting / chat_lifecycle (ChatMemberUpdated)
+  → kostik / alan / dead_page / dead_page_delete / war_alert
+  → common (otboy/danger/selfdev/work/mimic)
+  → olya / video_download / slavik / vasya
+```
+
+### Config Read Path
+```
+Service → hot.get(pg_key, settings.DEFAULT)
+  → ConfigCache.get(key) [sync, in-memory]
+  → if miss: settings.DEFAULT
+  → PG writes via ConfigCache.set() + hot-reload
+```
+
+### LLM Call Path
+```
+Handler → LLMClient._post()
+  → retry loop (transient errors only)
+  → asyncio.timeout(LLM_TOTAL_BUDGET)
+  → 401/403 → LLMAuthError
+  → 5xx exhausted → LLMServerError
+  → TransportError exhausted → LLMTransportError
+  → (optional) fallback provider
+```
+
+### Worker Budget (Round 10)
+```
+worker_budget.consume(scope, metric, cost)
+  → PG ledger (worker_budget table)
+  → Priority: nostalgia → lore → dream
+  → Degradation when budget exceeded
+```
+
+## Module Dependencies (High-Level)
+```
+bot.py
+├── config.settings
+├── services.hot_config
+├── services.config_cache (ConfigCache)
+├── services.database (DatabaseService)
+├── services.pg_db (PgDatabase)
+├── services.llm_client (LLMClient)
+├── services.summary_memory (MemoryManager)
+├── services.summary_generator (SummaryGenerator)
+├── services.direct_chat_service (DirectChatService)
+├── services.lore_* (ChatLoreStore/Cache/Notify/Worker)
+├── services.dream_worker (DreamWorker)
+├── services.nostalgia_worker (NostalgiaWorker)
+├── services.user_relations (RelationsService)
+├── services.worker_budget
+├── services.oversight
+├── services.memory_backup
+├── services.memory_maintenance
+├── services.search_aggregator (SearchAggregator)
+├── services.factcheck_service
+├── services.youtube_* / web_*
+├── services.voice_transcriber
+├── handlers.* (23 routers)
+├── web.app (FastAPI)
+└── services.control_service (ControlService)
+```
+
+## Recent Changes (from git status)
+- Round 10.3 (uncommitted, HEAD d30b203): F-13/F-14/F-15 — см. full_audit_results.md «Round 10.3».
+- `plans/reports/` - audit infrastructure
+
+## Round 10.3 map additions (F-13/F-14/F-15)
+
+- **DM-скоуп** = `chat_id > 0 && chat_id == telegram_id` (`services/chat_params.py::is_dm_scope` —
+  единственный идентификатор). DM-профили = строки `chat_profiles(chat_id=user.id)` (ноль DDL).
+- **`services/roles.py`**: `AccessCtx.is_dm_owner: bool = False` (в конец полей); DM-ветка в
+  `access_for` ДО chat_admins-лукапа: role_chat=None, perms_chat=`DM_OWNER_PRESET`
+  (sections: prompts/limits/flags/reactions/content/memory; БЕЗ chat_lore), rank=max(ранг,3).
+- **`services/access.py`**: `can_access_chat(ctx, chat_id=None)` — аддитивный chat_id: DM →
+  только is_dm_owner (global admin в чужом ЛС → False). `eligible_type`: is_dm_owner →
+  local_admin. `can_edit_param`: ветка is_dm_owner после is_global_admin, до role_chat-гейта.
+- **`services/chat_params.py`**: `ensure_scope_profile(chat_id, dm=True)` (INSERT ON CONFLICT,
+  auto_enabled=false, is_active=true, gates_opt_in=false) — перед первым write DM;
+  `get_chat_param_defaulted(chat_id, key, fallback)` (override→cast→fallback, БЕЗ hot.get);
+  `chat_summary_enabled(chat_id)` — группа: hot.get (байт-в-байт); ЛС: defaulted False.
+- **Саммари-гейт S1/S2/S3**: summary_memory.get_window_messages (~:1291),
+  direct_chat_service._build_global_context (~:1707), summary_scheduler._tick (skip chat_id>0).
+  bot.py:613-643 — НЕ тронут. L3/GraphRAG — не гейтится.
+- **Изоляция DM**: chat_lore_store LIST_ACTIVE_CHATS_SQL/LIST_ACTIVE_CHAT_IDS_SQL/list_profiles +
+  oversight PROFILE_COLS_SQL + web/api/access CHATS_FOR_USER_SQL — WHERE chat_id < 0;
+  web/api/chat_lore._require_chat → is_dm_scope → 404; gates PUT DM → 403 (GET read-only 200).
+- **TMA**: /api/access/chats + /me синтезируют DM-строку {chat_id: user.id, title: «Личные
+  сообщения», access:'dm', is_dm:true} для любого авторизованного; GET /api/config X-Chat-Id=ЛС:
+  keys.* скрыты (не global admin), models.* — read-only справка (per_chat=False), ctx.is_dm=true.
+- **Фронт**: единый select-селектор (F-13 AC-1; бейдж `#id`/`ЛС #id`); configError-баннер
+  (403/503/сеть, MED-021) с «⟳ Повторить»; `<template v-for>` + v-if на дочернем div (AC-3);
+  z-index sidebar 45 (AC-5); isDmCtx()/canViewTab-DM-ветка (config кроме permsoc)/canEditConfig-DM
+  (все кроме keys.*)/resetChatOverride (+isDmCtx). BYOK-блок покрывает DM без изменений.
+- **F-15**: `NoApiKeyForChat(chat_id, reason, details=None)` — details-снапшот (resolve_path/day/
+  used/limit — R17); BYOK-фоллбэк: повторное чтение своего ключа ПОСЛЕ budget_exceeded (1 доп.
+  SELECT, usage не тратится); WARNING `[direct] no key — sandbox answer | details=…`;
+  summary_memory: `_mask_llm_raw` (500 симв., секрет-паттерны), WARNING memorize c raw-фрагментом;
+  `_fallback_parse_facts` (JSON-в-тексте/тройки/csv/ёлочки/тире); 1 ретрай жёстким промптом
+  `_FACT_RETRY_SYSTEM_PROMPT` ТОЛЬКО в _memorize_facts_inner (крон _extract_and_save_graph — нет).

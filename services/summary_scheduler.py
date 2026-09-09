@@ -47,6 +47,12 @@ class SummarySchedulerService:
     async def _tick(self) -> None:
         target = hot.get("reactions.summary_target_chat_ids", settings.SUMMARY_TARGET_CHAT_IDS) or await self._db.get_smart_chat_ids()
         for chat_id in target:
+            # F-14 (S3, spec §4.2): ЛС-рассылки нет — положительные chat_id
+            # (= user.id, DM-скоуп) исключаются из периодических саммари
+            # (manual /summary в ЛС работает — S4, явный вызов).
+            if chat_id is not None and int(chat_id) > 0:
+                logger.debug("dm summary skip: chat_id=%s", chat_id)
+                continue
             await self._generator.generate_and_send(chat_id)
 
     async def shutdown(self) -> None:

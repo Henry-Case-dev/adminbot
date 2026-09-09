@@ -81,6 +81,7 @@ import time
 from config.settings import settings
 from services import chat_access
 from services import hot_config as hot
+from services.chat_params import chat_summary_enabled
 from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.llm_client import (
@@ -544,9 +545,13 @@ class DirectChatService:
                 # Раунд 10 (F-7 §5.2): у чата нет своего ключа, глобальный
                 # запрещён/исчерпан → sandbox-фраза content.no_key_reply
                 # (LLM НЕ вызывается; тишины нет — R16).
+                # F-15 (§3.1): лог объясняет ПОЧЕМУ (details-снапшот:
+                # resolve_path/day/used/limit — БЕЗ секретов, R17).
                 logger.warning(
-                    "[direct] no key — sandbox answer | chat=%s | reason=%s",
-                    chat_id, exc.reason)
+                    "[direct] no key — sandbox answer | chat=%s | reason=%s "
+                    "| details=%s",
+                    chat_id, exc.reason,
+                    repr(getattr(exc, "details", None)))
                 reply_phrase = hot.get(
                     "content.no_key_reply", DEFAULT_NO_KEY_REPLY)
                 await _reply(bot, chat_id, reply_phrase, message.message_id)
@@ -1699,8 +1704,9 @@ class DirectChatService:
         raw_count = 0
         window_end_ts = None
         level2_text = None
-        if hot.get("flags.chat_running_summary_enabled",
-                   settings.CHAT_RUNNING_SUMMARY_ENABLED):
+        # F-14 (S2, spec §4.2): гейт через chat_summary_enabled — ЛС не
+        # наследует глобальный ON (саммари в ЛС по умолчанию OFF).
+        if await chat_summary_enabled(chat_id):
             try:
                 row = await self.db.get_running_summary(chat_id, time.time())
                 if row is not None:

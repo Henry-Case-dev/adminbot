@@ -147,8 +147,6 @@
           editRoles: { user: false, moderator: false, local_admin: false },
         },
         permPickerSaving: false,
-        // BUG-1 (кнопка «Выбери чат»): дропдаун-пикер чатов в шапке
-        chatPickerOpen: false,
         // BYOK-UI (F-7 T-856): ключ чата — для локального админа
         ownKeyDraft: '',
         ownKeySaving: false,
@@ -184,6 +182,8 @@
         configGroups: [],          // 84.24: метаданные групп (с сервера)
         configSearch: '',          // 84.24: фильтр по title/description/key
         configLoading: false,
+        configError: '',          // F-13 (AC-3, MED-021): баннер loadConfig
+                                  // (403/503/сеть) — объясняет пустую вкладку
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
         saving: new Set(),
         keyDrafts: {},
@@ -672,8 +672,8 @@
           localStorage.setItem('adminbot.active_chat_id', String(id));
         }
         this.syncActiveChatTitle();
-        this.chatPickerOpen = false;
         // перерисовка конфиг-вкладок/профиля (activeChatChanged-событие)
+        this.configError = '';   // F-13 (AC-3): свежий скоуп — баннер скрыт
         this.configItems = [];
         this.loadConfig();
         this.loadKeyStatus();
@@ -697,17 +697,14 @@
       isChatContext: function () {
         return this.activeChatId != null;
       },
-
-      // ═══ BUG-1: кнопка «Выбери чат» — дропдаун пикера чатов (шапка) ═══
-      openChatPicker: function () {
-        this.chatPickerOpen = !this.chatPickerOpen;
-      },
-      closeChatPicker: function () {
-        this.chatPickerOpen = false;
-      },
-      pickChat: function (chatId) {
-        this.setActiveChat(chatId);
-        this.chatPickerOpen = false;
+      // F-14 (§6.2): активный скоуп — СВОИ ЛС (запись «Личные сообщения»
+      // в селекторе; is_dm приходит с сервера в /api/access/chats).
+      isDmCtx: function () {
+        var self = this;
+        if (this.activeChatId == null) return false;
+        return this.accessChats.some(function (c) {
+          return c.chat_id === self.activeChatId && c.is_dm;
+        });
       },
 
       // ═══ Роль-пикер (F-7 T-855): per-param права (global admin) ═══
@@ -1093,6 +1090,12 @@
         return this.isChatContext() && item && item.chat_source === 'chat';
       },
       resetChatOverride: async function (item) {
+        // F-14 (§6.3): сброс своего override — global admin (любой чат)
+        // или DM-владелец (только свой ЛС; серверный гейт тот же).
+        if (!(this.isGlobalAdmin || this.isDmCtx())) {
+          this.toast('Нет права сбросить override', 'err');
+          return;
+        }
         if (!window.confirm('Сбросить «' + item.title + '» на глобальное значение для этого чата?')) return;
         this.saving.add(item.key);
         try {
@@ -1177,19 +1180,9 @@
       },
 
       // ═══ TMA-кнопки шапки (UI-полировка) ═══
-      closeApp: function () {
-        // Закрытие миниаппа через SDK; вне Telegram (нет WebApp.close) —
-        // просто сворачиваем мобильный сайдбар.
-        var closed = false;
-        try {
-          if (window.Telegram && Telegram.WebApp && Telegram.WebApp.close) {
-            Telegram.WebApp.close();
-            closed = true;
-          }
-        } catch (e) { /* старый SDK/вне TG — фолбек ниже */ }
-        if (!closed) this.sidebarOpen = false;
-      },
-
+      // F-13 (AC-2): метод принудительного закрытия миниаппа удалён
+      // вместе с крестиком ✕ выхода — закрытие в Telegram штатное
+      // (свайп/системная кнопка); остаются ⛶ и мобильный ✕ сайдбара.
       toggleFullscreen: function () {
         // Полноэкранный режим TMA (⛶): request/exitFullscreen обёрнуты в
         // try/catch (SDK без поддержки/вне TG — бездействие). Флаг —
@@ -1238,6 +1231,12 @@
         var tab = this.tabs.find(function (t) { return t.id === tabId; });
         if (!tab) return false;
         if (tab.always) return true;
+        // F-14 (§6.2): DM-скоуп (свои ЛС) — конфиг-вкладки открыты
+        // (Провайдеры read-only/BYOK, Промпты, Лимиты, Память-RAG,
+        // Реакции-Триггеры); permsoc скрыт (групповые перс-модули).
+        if (this.isDmCtx() && tab.type === 'config' && tab.id !== 'permsoc') {
+          return true;
+        }
         var p = this.permissions;
         if (p.wildcard) return true;
         // 3.10 (Q6): «Лор чатов» — секция chat_lore ИЛИ непустой
@@ -1329,6 +1328,14 @@
       canEditConfig: function (key) {
         var p = this.permissions;
         if (p.wildcard) return true;
+        // F-14 (§6, ремедиация ревью): в DM-скоупе (свои ЛС) юзер правит
+        // параметры как local_admin — permissions из /api/me (глобальная
+        // роль user = {}) не отражают is_dm_owner; серверный гейт
+        // is_dm_owner → can_edit_param (403/422) уже защищает. keys.* —
+        // только BYOK-путь (/api/config/keys/own) → false (как сервер).
+        if (this.isDmCtx() && String(key).split('.')[0] !== 'keys') {
+          return true;
+        }
         var cat = String(key).split('.')[0];
         if (cat === 'keys') {
           return arr(p.keys).indexOf(key) >= 0 || arr(p.sections).indexOf('keys') >= 0;
@@ -1354,6 +1361,7 @@
         this.configLoading = true;
         try {
           var data = await this.api('/api/config');
+          this.configError = '';      // F-13 (AC-3): успех — баннер скрыт
           this.configItems = data.items || [];
           this.configGroups = data.groups || [];
           this.configChatUpdatedAt = data.updated_at != null
@@ -1373,9 +1381,21 @@
         } catch (e) {
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо
           // общего «Не удалось загрузить конфигурацию».
+          // F-13 (AC-3, MED-021): 403/503/сеть — configError-баннер
+          // (вкладка «пустая» из-за отказа сервера — баннер объясняет);
+          // 401-тост и остальные тосты — как были. configError очищается
+          // успешным loadConfig и setActiveChat.
           if (e.status === 401) {
             this.toast('Сессия Telegram недействительна — открой админку через кнопку меню в боте', 'warn');
-          } else if (e.status !== 403) {
+          } else if (e.status === 403) {
+            // api() уже тостит «Доступ запрещён: …» — здесь баннер-совет
+            this.configError = 'Нет доступа к параметрам этого чата — выберите другой чат или глобальный режим.';
+          } else if (e.status === 503) {
+            this.configError = 'PostgreSQL недоступен — попробуйте позже.';
+            this.toast('Не удалось загрузить конфигурацию', 'err');
+          } else {
+            this.configError = 'Не удалось загрузить конфигурацию: '
+              + ((e && e.message) ? e.message : 'сеть недоступна');
             this.toast('Не удалось загрузить конфигурацию', 'err');
           }
         } finally {

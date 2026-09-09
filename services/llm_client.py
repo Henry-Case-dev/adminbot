@@ -123,13 +123,19 @@ class NoApiKeyForChat(LLMError):
     """Раунд 10 (F-7 §5.2): у чата нет своего ключа, а глобальный
     недоступен ('forbidden' — запрет allow_global) или исчерпан ('budget').
     LLM НЕ вызывается: вызывающий отвечает sandbox-фразой
-    content.no_key_reply (R16: тишины нет)."""
+    content.no_key_reply (R16: тишины нет).
+    F-15 (§3.1): аддитивный kwarg details — диагностический снапшот
+    (resolve_path/day/used/limit — БЕЗ секретов, R17); дефолт None —
+    существующие конструкторы/тесты не ломаются."""
 
-    def __init__(self, chat_id: int, reason: str):
+    def __init__(self, chat_id: int, reason: str,
+                 details: dict | None = None):
         self.chat_id = chat_id
         self.reason = reason
+        self.details = details
+        suffix = "" if not details else f" details={details!r}"
         super().__init__(
-            f"no api key for chat: chat_id={chat_id} reason={reason}")
+            f"no api key for chat: chat_id={chat_id} reason={reason}{suffix}")
 
 
 # ── Задача 2 (2026-09-05): человекочитаемая причина embed/LLM-сбоя ─────────
@@ -324,7 +330,10 @@ class LLMClient:
            тратится; source 'chat');
         2) elif not chat_params['keys']['allow_global'] (default True) →
            NoApiKeyForChat (source 'forbidden');
-        3) elif budget_exceeded(chat_id) → NoApiKeyForChat (source 'budget');
+        3) elif budget_exceeded(chat_id) → повторная проверка СВОЕГО ключа
+           (F-15 §3.2: фоллбэк, покрывает гонку/персист — ключ добавлен
+           между шагом 1 и 3; бюджет НЕ тратится); найден → source 'chat';
+           нет → NoApiKeyForChat (source 'budget', details-снапшот);
         4) иначе глобальный hot.get (source 'global' + счётчик на конце
            вызова).
         Без собственного ключа/с запретом/с исчерпанием → NoApiKeyForChat
@@ -343,9 +352,32 @@ class LLMClient:
             allow_global = bool((root.get("keys") or {}).get("allow_global",
                                                              True))
             if not allow_global:
-                raise NoApiKeyForChat(chat_id, "forbidden")
+                raise NoApiKeyForChat(chat_id, "forbidden",
+                                      details={"resolve_path": "forbidden",
+                                               "allow_global": False})
             if await chat_usage.budget_exceeded(self._pg(), chat_id):
-                raise NoApiKeyForChat(chat_id, "budget")
+                # F-15 (§3.2): BYOK-фоллбэк — дешёвый re-read своего ключа
+                # (гонка/персист); строгий порядок: свой → глобал-бюджет →
+                # свой-фоллбэк → sandbox.
+                fallback_own = await chat_keys.get_chat_key(
+                    self._pg(), chat_id, "keys.llm_api_key")
+                if fallback_own:
+                    return fallback_own, "chat"
+                used = {}
+                try:
+                    used = await chat_usage.used_today(self._pg(), chat_id)
+                except Exception:
+                    used = {}
+                details = {
+                    "resolve_path": "budget",
+                    "day": str(chat_usage.today()),
+                    "used_calls": int(used.get(chat_usage.METRIC_CALLS, 0)),
+                    "limit_calls": chat_usage._budget_limit_requests(),
+                    "used_tokens": int(used.get(chat_usage.METRIC_TOKENS, 0)),
+                    "limit_tokens": chat_usage._budget_limit_tokens(),
+                    "allow_global": bool(allow_global),
+                }
+                raise NoApiKeyForChat(chat_id, "budget", details=details)
             return self._current_api_key(), "global"
         except NoApiKeyForChat:
             raise

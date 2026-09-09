@@ -201,13 +201,13 @@ class TestAvatarFrontAudit:
         assert "!c.title" in body
         assert "c.title = 'Чат ' + c.chat_id" in body
 
-    def test_close_app_method(self):
+    def test_no_close_app_method(self):
+        """F-13 (AC-2): метод closeApp удалён (крестик ✕ принудительного
+        закрытия Mini App убран из шапки; в Telegram закрытие штатное)."""
         src = _Static.read("web/app.js")
-        assert _Static.has_method(src, "closeApp")
-        body = _Static.body(src, "closeApp")
-        assert "Telegram.WebApp.close" in body
-        assert "this.sidebarOpen = false" in body
-        assert "try {" in body
+        assert not _Static.has_method(src, "closeApp")
+        assert "closeApp" not in src
+        assert _Static.has_method(src, "toggleFullscreen")
 
     def test_toggle_fullscreen_method(self):
         src = _Static.read("web/app.js")
@@ -392,21 +392,25 @@ class TestAvatarFrontAudit:
         assert 'v-if="resolveRelationName(u)"' in html
 
     def test_close_and_fullscreen_buttons(self):
-        """✕ в шапке (@click closeApp) и в мобильном сайдбаре
-        (@click sidebarOpen = false) + ⛶ (toggleFullscreen)."""
+        """F-13 (AC-2): ✕ в index.html — РОВНО 1 (мобильный сайдбар,
+        @click sidebarOpen = false); @click closeApp() отсутствует;
+        ⛶ (toggleFullscreen) на месте."""
         html = _Static.read("web/index.html")
-        assert "@click=\"closeApp()\"" in html
+        assert "@click=\"closeApp()\"" not in html
         assert "@click=\"toggleFullscreen()\"" in html
         assert ">✕</button>" in html
-        assert html.count(">✕</button>") >= 2
+        assert html.count(">✕</button>") == 1
         assert ">⛶</button>" in html
 
     def test_sticky_header_class(self):
         html = _Static.read("web/index.html")
         assert ".header-sticky" in html            # CSS-правило
         assert "position: sticky" in html
-        assert "z-index: 40" in html
+        assert "z-index: 40" in html               # шапка — без изменений
         assert 'class="main-header header-sticky card-solid' in html
+        # F-13 (AC-5): мобильный сайдбар поднят над шапкой (40 → 45),
+        # «Статус» больше не перекрыт; 45 < модалки 50 / тостов 60
+        assert "z-index: 45" in html
 
     def test_gradient_animation_8s(self):
         html = _Static.read("web/index.html")

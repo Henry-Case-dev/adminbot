@@ -160,15 +160,18 @@ DELETE_ADMIN_SQL = (
 )
 
 LIST_PROFILES_SQL = ("SELECT {cols} FROM chat_profiles{where} ORDER BY chat_id")
+# F-14 (П.2, изоляция): DM-профили (chat_id > 0 = ЛС юзеров) НЕ попадают
+# в списки активных чатов/профилей (лор-воркер, ностальгия, API-списки).
 LIST_ACTIVE_CHATS_SQL = (
     "SELECT chat_id FROM chat_profiles WHERE is_active AND auto_enabled "
-    "ORDER BY chat_id"
+    "AND chat_id < 0 ORDER BY chat_id"
 )
 # Раунд 9 (Q13, spec §3.5.3, T-827): read-only список активных чатов для
 # ностальгии — ТОЛЬКО is_active (list_active_chats НЕ переиспользуем: у него
 # AND auto_enabled — семантика лора).
 LIST_ACTIVE_CHAT_IDS_SQL = (
-    "SELECT chat_id FROM chat_profiles WHERE is_active ORDER BY chat_id"
+    "SELECT chat_id FROM chat_profiles WHERE is_active AND chat_id < 0 "
+    "ORDER BY chat_id"
 )
 HISTORY_SQL = (
     "SELECT id, chat_id, field, changed_by, old_value, new_value, created_at "
@@ -339,9 +342,10 @@ class ChatLoreStore:
         return _to_profile(row) if row is not None else None
 
     async def list_profiles(self, active_only: bool = False) -> list[LoreProfile]:
-        """Все профили (или только is_active) — для API-списков."""
+        """Все профили (или только is_active) — для API-списков.
+        F-14 (П.2): DM-профили (chat_id > 0) исключены всегда."""
         pool = self._pool()
-        where = " WHERE is_active" if active_only else ""
+        where = " WHERE chat_id < 0" + (" AND is_active" if active_only else "")
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 LIST_PROFILES_SQL.format(

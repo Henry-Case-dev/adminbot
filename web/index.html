@@ -153,12 +153,9 @@
       background-color: #2b2b40;
       color: #e5e5f0;
     }
-    /* Раунд 10 (F-11/F-12): chat-select — селектор контекста чата:
-       220–320px ширины (правка ревью S-F12). */
-    .chat-select {
-      min-width: 220px;
-      max-width: 320px;
-    }
+    /* F-13 (AC-1, ремедиация ревью): .chat-select min/max-ширины УДАЛЕНЫ —
+       unlayered CSS перебивал Tailwind-утилиты (w-44 max-w-[280px]) и
+       компактность селектора не работала; ширина — только утилитами. */
 
     .badge {
       display: inline-block;
@@ -342,12 +339,15 @@
 
     /* Мобильный сайдбар (BUG-2): fixed top/bottom + СВОЙ скролл
        (overflow-y:auto) — контент длиннее экрана прокручивается в самом
-       сайдбаре, а не растягивает страницу (WebView/TMA). */
+       сайдбаре, а не растягивает страницу (WebView/TMA).
+       F-13 (AC-5): z-index 45 (> .header-sticky 40, < модалки 50, тостов
+       60; > backdrop 35) — раньше 40 == у шапки, а header ПОЗЖЕ в DOM →
+       шапка рисовалась ПОВЕРХ верха сайдбара («📊 Статус» недоступен). */
     @media (max-width: 768px) {
       .sidebar {
         position: fixed;
         left: 0; top: 0; bottom: 0;
-        z-index: 40;
+        z-index: 45;
         transform: translateX(-100%);
         transition: transform 0.25s ease;
         width: 260px;
@@ -356,6 +356,15 @@
       }
       .sidebar.open { transform: translateX(0); }
       .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
+      /* H1-safe-area (F-13 AC-5): аддитивная инъекция к p-3/py-3 — calc-
+         база 0.75rem повторяет класс-паддинг (НЕ затирает его); селектор
+         с элементом перекрывает Tailwind-утилиту в каскаде. */
+      aside.sidebar {
+        padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+      }
+      header.header-sticky {
+        padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+      }
     }
   </style>
 </head>
@@ -405,44 +414,25 @@
           <button class="btn-ghost md:hidden" title="Меню"
                   @click="sidebarOpen = !sidebarOpen">☰</button>
           <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
-          <!-- Раунд 10 (F-7 T-854/F-11 T-906): чип активного скоупа в шапке —
-               «Весь бот» (NULL) или название чата + мелкий chat_id; селектор
-               (полностью — в F-11) рядом. BUG-1 (рекон раунда 10): селектор
+          <!-- Раунд 10 (F-7 T-854/F-11 T-906) + F-13 (AC-1): селектор —
+               ЕДИНСТВЕННАЯ точка выбора чата в шапке (кнопка-дропдаун
+               «Выбери чат» удалена). BUG-1 (рекон раунда 10): селектор
                виден глобальному админу УЖЕ при ≥1 чате (раньше скрывался
-               до 2+ — «кнопки „Выбери чат“ нигде не было»); «Весь бот» — опция
-               ТОЛЬКО для глобального админа. -->
+               до 2+ — «кнопки „Выбери чат“ нигде не было»); «Весь бот» —
+               опция ТОЛЬКО для глобального админа. Компактный: класс
+               w-44 max-w-[280px], инлайн-ширины убраны (дубль .chat-select). -->
           <select v-if="accessChats.length"
-                  class="chat-select field text-xs w-44 max-w-[200px] shrink-0"
-                  style="min-width: 220px; max-width: 320px;"
+                  class="chat-select field text-xs w-44 max-w-[280px] shrink-0"
                   :value="activeChatId != null ? String(activeChatId) : ''"
                   @change="setActiveChat($event.target.value)">
             <option v-if="isGlobalAdmin" value="">Весь бот</option>
             <option v-for="c in accessChats" :key="c.chat_id"
                     :value="String(c.chat_id)">{{ c.title || ('Чат ' + c.chat_id) }}</option>
           </select>
-          <!-- BUG-1: кнопка «Выбери чат» — заметный дропдаун (тот же
-               список accessChats + «Весь бот»); синхрон setActiveChat. -->
-          <div class="relative shrink-0">
-            <button v-if="accessChats.length" class="btn-ghost text-xs px-2 shrink-0"
-                    title="Выбрать чат (контекст включения per chat)"
-                    @click="openChatPicker()">💬 Выбрать чат</button>
-            <div v-if="chatPickerOpen"
-                 class="absolute left-0 top-full mt-1 z-50 card card-solid p-2 w-64
-                        max-h-72 overflow-y-auto scroll-thin text-xs">
-              <button v-if="isGlobalAdmin" type="button"
-                      class="w-full text-left rounded-lg px-2 py-1.5 hover:bg-white/10"
-                      :class="{ 'bg-violet-600/30': activeChatId == null }"
-                      @click="pickChat('')">🌐 Весь бот</button>
-              <button v-for="c in accessChats" :key="c.chat_id" type="button"
-                      class="w-full text-left rounded-lg px-2 py-1.5 hover:bg-white/10"
-                      :class="{ 'bg-violet-600/30': String(activeChatId) === String(c.chat_id) }"
-                      @click="pickChat(c.chat_id)">
-                {{ c.title || ('Чат ' + c.chat_id) }}
-              </button>
-            </div>
-          </div>
-          <span v-if="isChatContext()" class="badge badge-info truncate max-w-[160px]">
-            {{ activeChatTitle }}
+          <!-- F-13/F-14 (AC-1/§6.2): индикация выбора = текст опции
+               селектора + компактный бейдж; ЛС-скоуп — «ЛС #<id>». -->
+          <span v-if="isChatContext()" class="badge badge-info shrink-0">
+            {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
           </span>
           <div class="ml-auto flex items-center gap-2 text-sm">
             <!-- UI-полировка TMA: аватар текущего юзера — CDN photo_url из
@@ -453,12 +443,12 @@
                  @error="onMeAvatarError()">
             <span v-if="me" class="text-gray-300">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
             <span v-if="me" class="badge badge-info">{{ me.role_name }}</span>
-            <!-- Полноэкранный режим TMA (⛶) и закрытие миниаппа (✕) -->
+            <!-- Полноэкранный режим TMA (⛶). F-13 (AC-2): крестик ✕
+                 принудительного закрытия миниаппа удалён — закрытие в
+                 Telegram штатно (свайп/системная кнопка). -->
             <button v-if="me" class="btn-ghost text-sm px-2 shrink-0"
                     :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
                     @click="toggleFullscreen()">⛶</button>
-            <button class="btn-ghost text-sm px-2 shrink-0" title="Закрыть"
-                    @click="closeApp()">✕</button>
           </div>
         </header>
 
@@ -491,9 +481,10 @@
               <!-- Ре-дизайн 10.2, BUG-3 (spec §10 A/C): мастер-карта
                    вкладки «Функции PERMsoc» — ПЕРЕД generic-рендером групп:
                    per-chat мастер (gates API; write — ТОЛЬКО global admin;
-                   local admin — read-only бейдж), без чата — hint + кнопка
-                   «Выбери чат»; ниже — сводка 5 модулей (derived/под-флаг/
-                   OFF (master)). ID персон и рубильники — в группах ниже. -->
+                   local admin — read-only бейдж), без чата — hint (выбор —
+                   через селектор в шапке, F-13 AC-1); ниже — сводка
+                   5 модулей (derived/под-флаг/OFF (master)). ID персон и
+                   рубильники — в группах ниже. -->
               <div v-if="activeTab === 'permsoc'" class="card p-4 col-span-full">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
                   <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
@@ -512,11 +503,10 @@
                   <span class="text-xs text-gray-500">(только global admin)</span>
                 </div>
                 <div v-if="!isChatContext()" class="text-xs text-gray-500">
-                  Тумблер — на чек-бот чата: выберите чат в шапке →
+                  Тумблер — на чек-бот чата: выберите чат или Личные
+                  сообщения в селекторе в шапке →
                   модули включаются per chat (Opt-In). Без чата — только
                   глобальные значения групп ниже.
-                  <button class="btn-ghost text-xs px-2 ml-1"
-                          @click="openChatPicker()">💬 Выбрать чат</button>
                 </div>
                 <div v-else class="grid gap-2 md:grid-cols-2">
                   <div v-for="module in ['slavik','kostik','alan','olya','mimic']"
@@ -540,16 +530,38 @@
               </div>
               <div class="card p-3 col-span-full flex items-center gap-2">
                 <input class="field flex-1" placeholder="Поиск по параметрам…" v-model="configSearch">
-                <button v-if="configSearch" class="btn-ghost text-xs shrink-0" @click="clearConfigSearch()">✕</button>
+                <button v-if="configSearch" class="btn-ghost text-xs shrink-0"
+                        title="Очистить поиск"
+                        @click="clearConfigSearch()">✕<span class="sr-only">Очистить</span></button>
               </div>
-              <div v-if="currentTabItemCount === 0" class="card p-6 text-gray-400 col-span-full">
+              <!-- F-13 (AC-3, MED-021): configError-баннер — 403/503/сеть в
+                   loadConfig объясняют «пустую вкладку» вместо молчания;
+                   «⟳ Повторить» = configError='' + повторный loadConfig,
+                   «✕» — скрыть. Пустые-состояния ниже при configError
+                   не показываются (баннер важнее «ещё не загружены»). -->
+              <div v-if="configError" class="card p-3 col-span-full flex items-center gap-2 text-red-300 text-sm">
+                <span class="flex-1 min-w-0">{{ configError }}</span>
+                <button class="btn-ghost text-xs shrink-0"
+                        title="Повторить загрузку"
+                        @click="configError = ''; loadConfig()">⟳ Повторить</button>
+                <button class="btn-ghost text-xs px-2 shrink-0" title="Скрыть"
+                        @click="configError = ''">✕<span class="sr-only">Скрыть</span></button>
+              </div>
+              <div v-if="currentTabItemCount === 0 && !configError" class="card p-6 text-gray-400 col-span-full">
                 Параметры этой вкладки ещё не загружены в базу (вкладка пустая).
               </div>
-              <div v-else-if="currentTabGroups.length === 0" class="card p-6 text-gray-400 col-span-full">
+              <div v-else-if="currentTabGroups.length === 0 && !configError" class="card p-6 text-gray-400 col-span-full">
                 Ничего не найдено по запросу «{{ configSearch }}».
               </div>
-              <div v-for="grp in currentTabGroups" :key="grp.uid"
-                   v-if="basicItems(grp).length || advancedItems(grp).length"
+              <!-- F-13 (AC-3): v-for и v-if на ОДНОМ узле — Vue 3 вычисляет
+                   v-if ВНЕ скоупа цикла (grp undefined → basicItems([]) →
+                   условие всегда false → ВСЕ конфиг-группы схлопывались,
+                   вкладки пустые). v-for — на <template>, v-if — на
+                   дочернем div (выражение то же); groupedForTab уже
+                   фильтрует пустые группы — вторичный фильтр дефенсив
+                   (BUG-5: «(0)»-карточек нет). -->
+              <template v-for="grp in currentTabGroups" :key="grp.uid">
+              <div v-if="basicItems(grp).length || advancedItems(grp).length"
                    class="card p-4 col-span-full">
                 <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
                 <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
@@ -571,7 +583,7 @@
                       <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                               title="Права ключа (min-роли view/edit)"
                               @click="openPermPicker(item)">⚙</button>
-                      <button v-if="itemOverriddenByChat(item) && isGlobalAdmin"
+                      <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                               class="btn-ghost text-xs px-2 shrink-0"
                               @click="resetChatOverride(item)">↪ глобальное</button>
                     </div>
@@ -676,7 +688,7 @@
                         <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                 title="Права ключа (min-роли view/edit)"
                                 @click="openPermPicker(item)">⚙</button>
-                        <button v-if="itemOverriddenByChat(item) && isGlobalAdmin"
+                        <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                 class="btn-ghost text-xs px-2 shrink-0"
                                 @click="resetChatOverride(item)">↪ глобальное</button>
                       </div>
@@ -729,6 +741,7 @@
                   </div>
                 </details>
               </div>
+              </template>
               <!-- Раунд 10 (F-7 T-856): BYOK-блок — свой ключ чата.
                    Для local admin с активным чатом: поля keys-секции
                    отсутствуют в generic-рендере (сервер их скрывает) —
@@ -1000,10 +1013,8 @@
                 Открыть «Функции PERMsoc» 🎭
               </button>
               <div v-if="!isChatContext()" class="text-xs text-gray-500 mt-2">
-                Выберите чат в шапке — мастер и модули включаются
-                per chat (Opt-In).
-                <button class="btn-ghost text-xs px-2 ml-1"
-                        @click="openChatPicker()">💬 Выбрать чат</button>
+                Выберите чат или Личные сообщения в селекторе в шапке —
+                мастер и модули включаются per chat (Opt-In).
               </div>
             </div>
           </template>

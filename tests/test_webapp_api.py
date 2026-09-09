@@ -56,6 +56,26 @@ class _FakeConn:
         self.queries.append((sql, tuple(args)))
         return "INSERT 0 1"
 
+    async def fetchrow(self, sql, *args):
+        self.queries.append((sql, tuple(args)))
+        # F-14 (DM): chat_params/set_chat_params — профилей в фейке нет →
+        # ensure_scope_profile логируется, set_chat_params даёт 409 (0 строк)
+        return None
+
+    def transaction(self):
+        """set_chat_params: транзакция (фейк — no-op commit)."""
+
+        class _Tx:
+            async def __aenter__(self):
+                return self._conn
+
+            async def __aexit__(self, *exc):
+                return False
+
+        tx = _Tx()
+        tx._conn = self
+        return tx
+
     async def fetch(self, sql, *args):
         if "bot_settings" in sql:
             return self._settings_rows
@@ -1178,3 +1198,105 @@ class TestParamPermissionFlagsApi:
             "/api/access/param_permissions/limits.search_max_symbols",
             headers=_hdr(ADMIN_ID))
         assert resp.status_code == 404
+
+
+# ═══ F-14 (dm-user-settings, T-956, spec §3.2) — DM-контракты ═══════════════
+
+def _dmh(user_id: int) -> dict:
+    """TMA-заголовки + X-Chat-Id = user_id (свой ЛС)."""
+    return {**_hdr(user_id), "X-Chat-Id": str(user_id)}
+
+
+class TestDmScopeApi:
+    """DM-скоуп (X-Chat-Id = свой user.id): синтез DM-строки в списках,
+    GET /api/config 200 (ctx.is_dm, keys скрыты, models read-only),
+    POST → ensure_scope_profile перед записью (409 в фейке — профиля нет),
+    чужой ЛС (даже global admin) → 403, keys/own — только владелец."""
+
+    def test_access_chats_has_dm_row_for_plain_user(self, client):
+        resp = client.get("/api/access/chats", headers=_hdr(USER_ID))
+        assert resp.status_code == 200
+        rows = resp.json()
+        dm = [r for r in rows if r.get("is_dm")]
+        assert len(dm) == 1
+        row = dm[0]
+        assert row["chat_id"] == USER_ID
+        assert row["title"] == "Личные сообщения"
+        assert row["access"] == "dm"
+        assert row["is_active"] is True
+        assert row["photo_file_id"] is None
+
+    def test_access_chats_has_dm_row_for_global_admin(self, client):
+        resp = client.get("/api/access/chats", headers=_hdr(ADMIN_ID))
+        rows = resp.json()
+        assert any(r.get("is_dm") and r["chat_id"] == ADMIN_ID
+                   for r in rows)
+
+    def test_access_me_includes_dm_chat(self, client):
+        resp = client.get("/api/access/me", headers=_hdr(USER_ID))
+        assert resp.status_code == 200
+        chats = resp.json()["chats"]
+        assert {"chat_id": USER_ID, "role": "dm"} in chats
+
+    def test_get_config_dm_own_200(self, client):
+        resp = client.get("/api/config", headers=_dmh(USER_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ctx"]["is_dm"] is True
+        assert body["ctx"]["is_local_admin"] is False
+        items = {i["key"]: i for i in body["items"]}
+        # keys.* скрыты (канон «не global admin»), models — read-only справка
+        assert "keys.llm_api_key" not in items
+        assert "keys.groq_api_key" not in items
+        assert "models.llm_timeout" in items
+        assert "limits.search_max_symbols" in items
+
+    def test_get_config_dm_foreign_dm_403(self, client):
+        """Глобальный админ в ЧУЖОМ ЛС → 403 (can_access_chat False)."""
+        resp = client.get("/api/config",
+                          headers={**_hdr(ADMIN_ID),
+                                   "X-Chat-Id": str(USER_ID)})
+        assert resp.status_code == 403
+
+    def test_post_config_dm_ensures_profile_first(self, client):
+        """POST в свой ЛС: ensure_scope_profile(dm=True) вызывается ПЕРЕД
+        записью (профиля в фейке нет → 409 «профиля нет», не 500)."""
+        payload = {"items": [{"key": "prompts.direct_chat_system_prompt",
+                              "value": "промпт своих ЛС"}]}
+        resp = client.post("/api/config", json=payload,
+                           headers=_dmh(USER_ID))
+        assert resp.status_code == 409
+        conn = client.cache.pg.pool._conn
+        inserts = [args for sql, args in conn.queries
+                   if "INSERT INTO chat_profiles" in sql]
+        assert len(inserts) >= 1
+        chat_id, auto_enabled, is_active, _params, gates_opt_in = inserts[0]
+        assert chat_id == USER_ID
+        assert auto_enabled is False          # LoreWorker не тронет
+        assert is_active is True
+        assert gates_opt_in is False
+
+    def test_post_config_dm_keys_422(self, client):
+        """keys.* в POST /api/config → 422 (существующий канон, НЕ 403)."""
+        payload = {"items": [{"key": "keys.llm_api_key", "value": "sk-xx"}]}
+        resp = client.post("/api/config", json=payload,
+                           headers=_dmh(USER_ID))
+        assert resp.status_code == 422
+
+    def test_keys_own_dm_owner_allowed(self, client):
+        resp = client.get("/api/config/keys/own",
+                          headers=_dmh(USER_ID))
+        assert resp.status_code == 200
+        assert resp.json() == {"keys": []}
+
+    def test_keys_own_foreign_dm_403(self, client):
+        resp = client.get("/api/config/keys/own",
+                          headers={**_hdr(ADMIN_ID),
+                                   "X-Chat-Id": str(USER_ID)})
+        assert resp.status_code == 403
+
+    def test_delete_chat_param_dm_foreign_403(self, client):
+        resp = client.delete("/api/config/chat/limits.chat_cooldown_seconds",
+                             headers={**_hdr(ADMIN_ID),
+                                      "X-Chat-Id": str(USER_ID)})
+        assert resp.status_code == 403
