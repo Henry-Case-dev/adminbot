@@ -24,6 +24,9 @@ from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config.settings import settings
 from services import hot_config as hot
+from services.chat_params import (
+    get_chat_param as _chat_limit,  # G-3 per-chat
+)
 from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError
 from services.summary_cleanup import cleanup_llm_text
@@ -130,7 +133,10 @@ class SummaryGenerator:
             xml_context = self.xml.build(rows, self.aliases)
             keywords = self._extract_keywords(rows)
             l2_rows = await self.memory.search_long_term(
-                chat_id, keywords, hot.get("limits.summary_rag_l2_limit", settings.SUMMARY_RAG_L2_LIMIT)
+                chat_id, keywords, await _chat_limit(
+                    chat_id, "limits.summary_rag_l2_limit",
+                    hot.get("limits.summary_rag_l2_limit",
+                            settings.SUMMARY_RAG_L2_LIMIT))
             )
             l2_quotes = [
                 self._format_l2_quote(row)
@@ -164,8 +170,13 @@ class SummaryGenerator:
             # generate — токены (SUMMARY_MAX_CONTEXT_TOKENS, срез С КОНЦА;
             # chars — fallback). Таймер 6ч/крон НЕ меняются.
             kind, limit = resolve_chat_limit(
-                hot.get("limits.summary_max_context_tokens", settings.SUMMARY_MAX_CONTEXT_TOKENS), 30000,
-                "SUMMARY_MAX_CONTEXT_CHARS", hot.get("limits.summary_max_context_chars", settings.SUMMARY_MAX_CONTEXT_CHARS),
+                await _chat_limit(chat_id, "limits.summary_max_context_tokens",
+                    hot.get("limits.summary_max_context_tokens",
+                            settings.SUMMARY_MAX_CONTEXT_TOKENS)), 30000,
+                "SUMMARY_MAX_CONTEXT_CHARS",
+                await _chat_limit(chat_id, "limits.summary_max_context_chars",
+                    hot.get("limits.summary_max_context_chars",
+                            settings.SUMMARY_MAX_CONTEXT_CHARS)),
                 "SUMMARY_MAX_CONTEXT",
             )
             if kind == "tokens":

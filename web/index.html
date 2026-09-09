@@ -470,7 +470,8 @@
         <main v-else class="p-4 grid gap-4 grid-cols-1"
               style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
           <!-- ═══ Конфиг-вкладки: LLM Провайдеры / Промпты / Лимиты /
-               Память и RAG / Реакции и Триггеры — ОДИН generic-рендер по
+               Память / Сон / Ностальгия / Реакции и Триггеры —
+               ОДИН generic-рендер по
                sources (3.5.1); карточки-группы приходят с сервера. ═══ -->
           <template v-if="currentTabIsConfig">
             <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
@@ -561,6 +562,17 @@
                    фильтрует пустые группы — вторичный фильтр дефенсив
                    (BUG-5: «(0)»-карточек нет). -->
               <template v-for="grp in currentTabGroups" :key="grp.uid">
+              <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
+                   группой секции (sectionTitle возвращает null для остальных:
+                   одна шапка на секцию; Risk E-3). Вкладки без `sections` —
+                   заголовков нет (общий рендер). -->
+              <div v-if="sectionTitle(grp)"
+                   class="col-span-full flex items-center gap-2 pt-2">
+                <div class="text-sm font-bold text-violet-300 uppercase tracking-wide">
+                  {{ sectionTitle(grp) }}
+                </div>
+                <div class="flex-1 h-px bg-white/10"></div>
+              </div>
               <div v-if="basicItems(grp).length || advancedItems(grp).length"
                    class="card p-4 col-span-full">
                 <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
@@ -652,6 +664,18 @@
                         </button>
                       </div>
                     </template>
+                    <template v-else-if="item.widget === 'select'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <!-- Раунд 10.4 (B-10): выпадающий список — автосейв на change -->
+                      <select class="field" v-model="item.value"
+                              :disabled="!canEditConfig(item.key)"
+                              @change="saveConfigItem(item)">
+                        <option v-for="(o, i) in (item.select_options || [])" :key="o"
+                                :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>
+                      </select>
+                    </template>
                     <template v-else>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -667,11 +691,17 @@
                   </div>
                 </div>
                 <!-- F-11 (Q3/4.2): «Расширенные настройки» — нативный
-                     аккордеон (closed по умолчанию; localStorage). BUG-5:
-                     рендерится ТОЛЬКО при advancedItems>0; раскрыт сразу,
-                     если «Базовых» нет (иначе вкладка выглядит пустой). -->
+                     аккордеон (closed по умолчанию; localStorage).
+                     Раунд 10.4 (D-1, T-1018 AC-A1): эвристика «ноль
+                     базовых → раскрыто» УДАЛЕНА — ТЗ владельца п.5:
+                     свёрнуто по умолчанию ВСЕГДА; раскрытие — только
+                     явный персист юзера (adminbot.expand:<tab>). Группа с
+                     0 базовых (но N>0 advanced) — свёрнутый аккордеон с
+                     видимым заголовком группы/описанием и «(N)» в summary
+                     (D-2): вкладка структурно не пустая; BUG-5 «(0)» — не
+                     рендерится (D-4). -->
                 <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
-                         :open="basicItems(grp).length === 0 || expandOpen(activeTab)"
+                         :open="expandOpen(activeTab)"
                          @toggle="toggleExpand(activeTab)">
                   <summary class="cursor-pointer select-none text-sm font-semibold
                                  inline-flex items-center gap-2">
@@ -728,6 +758,15 @@
                                   @click="saveKeyItem(item)">Сохранить</button>
                         </div>
                       </div>
+                      <div v-else-if="item.widget === 'select'" class="mt-2">
+                        <!-- Раунд 10.4 (B-10): выпадающий список — автосейв -->
+                        <select class="field" v-model="item.value"
+                                :disabled="!canEditConfig(item.key)"
+                                @change="saveConfigItem(item)">
+                          <option v-for="(o, i) in (item.select_options || [])" :key="o"
+                                  :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>
+                        </select>
+                      </div>
                       <div v-else>
                         <input class="field" :type="inputType(item)" v-model="item.value">
                         <div class="mt-2 flex justify-end">
@@ -781,10 +820,12 @@
                 </div>
               </div>
               <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): мини-блоки
-                   «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером,
-                   только на вкладке «Память и RAG» (глобальный admin;
-                   GET-логи консервативно — admin, spec §3.6.2). -->
-              <div v-if="activeTab === 'memory_rag' && isGlobalAdmin"
+                   «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером
+                   соответствующих вкладок (раунд 10.4 C-4: «Сон» →
+                   memory_dream, «Ностальгия» → memory_nostalgia) —
+                   глобальный admin; GET-логи консервативно — admin
+                   (spec §3.6.2). -->
+              <div v-if="activeTab === 'memory_dream' && isGlobalAdmin"
                    class="space-y-4" style="grid-column: 1 / -1;">
                 <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
                 <div class="card p-4">
@@ -853,6 +894,10 @@
                     </div>
                   </details>
                 </div>
+              </div>
+              <!-- Ностальгия: мини-блок на ОДНОИМЁННОЙ вкладке (10.4 C-4) -->
+              <div v-if="activeTab === 'memory_nostalgia' && isGlobalAdmin"
+                   class="space-y-4" style="grid-column: 1 / -1;">
 
                 <!-- Ностальгия: последние срабатывания слоя B -->
                 <div class="card p-4">
@@ -886,7 +931,7 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'modules_feats'">
-            <!-- ═══ 🧩 Модули и Фичи (F-10 E1/E2 + F-9 D1) ═══
+            <!-- ═══ 🧩 Модули (F-10 E1/E2 + F-9 D1) ═══
                  Hotfix-R10: весь контент был за гейтом
                  v-if="activeChatId == null" → при «Весь бот» (global admin,
                  чат не выбран) вкладка пустая («ГДЕ??????»). Теперь:
@@ -994,27 +1039,44 @@
               </div>
             </div>
 
-            <!-- 🎭 Функции PERMsoc: компактная summary-карточка (BUG-3) —
-                 мастер-статус + переход в штатную вкладку «Функции PERMsoc»
-                 (перс-тумблеры/ID — там; здесь НЕ дублируем). -->
+            <!-- Раунд 10.4 (A-5/A-6): карточки-модули (имя + описание +
+                 статус/переход) — сводка PERMsoc УДАЛЕНА (вкладка permsoc
+                 и её мастер-карта остаются; никаких переходов-кнопок в
+                 modules_feats — вкладка доступна в меню «Модули»). -->
             <div class="card p-4 col-span-full">
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
-                <span class="badge" :class="permsocMasterOn() ? 'badge-ok' : 'badge-muted'">
-                  master: {{ permsocMasterOn() ? 'ON' : 'OFF' }}
-                </span>
-              </div>
-              <div class="text-xs text-gray-500 mb-2">
-                5 персон-триггеров (Славик · Костя · Леха/Алан · Оля ·
-                передразнивания) — мастер-тумблер per chat и все настройки
-                во вкладке «Функции PERMsoc».
-              </div>
-              <button class="btn-ghost text-sm" @click="setTab('permsoc')">
-                Открыть «Функции PERMsoc» 🎭
-              </button>
-              <div v-if="!isChatContext()" class="text-xs text-gray-500 mt-2">
-                Выберите чат или Личные сообщения в селекторе в шапке —
-                мастер и модули включаются per chat (Opt-In).
+              <div class="text-sm font-bold mb-2">🧩 Модули (что это и где настраивать)</div>
+              <div class="grid gap-2 md:grid-cols-2 text-xs">
+                <div class="rounded-lg border border-white/10 px-3 py-2">
+                  <div class="text-sm font-semibold">🎭 Славик · Костя · Леха · Оля · Передразнивания</div>
+                  <div class="text-gray-500">персоны-триггеры и мимикрия — вкладка
+                    «Функции PERMsoc» (в меню «Модули»).</div>
+                </div>
+                <div class="rounded-lg border border-white/10 px-3 py-2">
+                  <div class="text-sm font-semibold">💀 Dead page</div>
+                  <div class="text-gray-500">реакции на мёртвые страницы/повторы —
+                    вкладка «Функции PERMsoc».</div>
+                </div>
+                <div class="rounded-lg border border-white/10 px-3 py-2">
+                  <div class="text-sm font-semibold">🚨 War-алерты · Common-медиа · 🌅 Утренняя рассылка</div>
+                  <div class="text-gray-500">каналы/медиа/рассылки — вкладка
+                    «Функции PERMsoc».</div>
+                </div>
+                <div class="rounded-lg border border-white/10 px-3 py-2">
+                  <div class="text-sm font-semibold">⚙️ Модули (вкл/выкл)</div>
+                  <div class="text-gray-500">рубильники модулей/сервиса — вкладка
+                    «Модули (вкл/выкл)».</div>
+                </div>
+                <div class="rounded-lg border border-white/10 px-3 py-2">
+                  <div class="text-sm font-semibold">🌙 Сон · 📼 Ностальгия</div>
+                  <div class="text-gray-500">синтез убеждений и «кстати…» — их
+                    вкладки в «Настройках AI» (ручной запуск — там же).</div>
+                </div>
+                <div class="rounded-lg border border-white/10 px-3 py-2">
+                  <div class="text-sm font-semibold">📜 Авто-лор · 🧠 Саммари</div>
+                  <div class="text-gray-500">лор — вкладка «Лор чатов» (настройки —
+                    в её «Расширенном» блоке); саммари — «Лимиты»/«Реакции и
+                    Триггеры».</div>
+                </div>
               </div>
             </div>
           </template>
@@ -1245,6 +1307,214 @@
               </div>
             </template>
           </template>
+          <template v-else-if="activeTab === 'relations'">
+            <!-- ═══ 👥 Участники и отношения (раунд 10.4 F-1/F-5/F-6) ═══
+                 Кастом-вкладка: участники активного чата (тот же API/стадии/
+                 409 — перенос без изменения) + конфиг-часть «Настройки
+                 отношений» (limits_relations/flags_relations — generic-блоком,
+                 A-канон). DM (ЛС): участники — заглушка (сервер 404),
+                 настройки — per-chat как у config-вкладок. -->
+            <div v-if="!canViewTab('relations')" class="card p-6 text-gray-400 col-span-full">
+              Нет доступа к участникам и отношениям — вкладка доступна ролям
+              с секцией «chat_lore» и админам чатов.
+            </div>
+            <template v-else>
+              <div v-if="isDmCtx()" class="card p-6 text-gray-400 col-span-full">
+                👥 Отношения не считаются для личного чата — настройки ниже
+                применимы к вашим ЛС (переопределения).
+              </div>
+              <template v-else-if="activeChatId == null">
+                <div class="card p-6 text-gray-400 col-span-full">
+                  Выберите чат в селекторе в шапке — здесь появятся участники
+                  и отношения.
+                </div>
+              </template>
+              <template v-else>
+                <!-- Участники активного чата (перенос из chat_lore) -->
+                <div class="card p-4 col-span-full">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="text-sm font-bold">👥 Участники и отношения</div>
+                    <span class="badge badge-info ml-auto"
+                          v-if="relationsBusy && chatRelations.length === 0">загрузка…</span>
+                    <button class="btn-ghost text-xs shrink-0"
+                            :disabled="relationsBusy"
+                            @click="loadRelations(activeChatId)">⟳</button>
+                  </div>
+                  <div class="text-xs text-gray-500 mb-3">
+                    Авто-стадия считается по активности в чате; ручная
+                    пометка админа приоритетнее расчёта (влияет на тон
+                    ответов бота при включённом флаге ниже).
+                  </div>
+                  <div class="flex items-center justify-between gap-3
+                              rounded-lg border border-white/10 px-3 py-2 mb-3">
+                    <div>
+                      <div class="text-sm">Влиять на тон бота (relations_enabled)</div>
+                      <div class="text-xs text-gray-500">
+                        Блок отношений участников добавляется в контекст
+                        диалога (настройки — ниже).
+                      </div>
+                    </div>
+                    <label class="relative inline-flex items-center
+                                   cursor-pointer shrink-0">
+                      <input type="checkbox" class="sr-only peer"
+                             :checked="relationsEnabled"
+                             :disabled="relationsBusy"
+                             @change="onRelationsToggle($event)">
+                      <div class="w-11 h-6 rounded-full peer bg-white/10
+                                   peer-checked:bg-violet-600 transition-colors"></div>
+                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white
+                                   transition-transform peer-checked:translate-x-5"></div>
+                    </label>
+                  </div>
+                  <div v-if="chatRelations.length === 0"
+                       class="text-xs text-gray-500 py-2">
+                    Участников пока нет — карточки появятся после первых
+                    сообщений в чате.
+                  </div>
+                  <div v-else class="max-h-80 overflow-y-auto scroll-thin pr-1">
+                    <div v-for="u in chatRelations" :key="u.user_id"
+                         class="rounded-lg border border-white/10 px-2 py-1.5 mb-1.5">
+                      <div class="flex items-center gap-2 flex-wrap text-sm">
+                        <img v-if="u.avatarUrl" :src="u.avatarUrl" alt=""
+                             class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
+                             loading="lazy" @error="avatarError(u)">
+                        <span v-else
+                              class="w-7 h-7 rounded-full shrink-0 border border-white/15
+                                     bg-violet-600/40 text-white text-xs font-bold
+                                     flex items-center justify-center select-none">
+                          {{ avatarInitial(u) }}
+                        </span>
+                        <span class="flex flex-col min-w-0 leading-tight">
+                          <span v-if="resolveRelationName(u)"
+                                class="font-semibold truncate">{{ resolveRelationName(u) }}</span>
+                          <span v-if="u.username && resolveRelationName(u) !== String(u.username)"
+                                class="text-xs text-gray-500 truncate">{{ u.username }}</span>
+                        </span>
+                        <span class="text-xs text-gray-500 font-mono opacity-60">{{ u.user_id }}</span>
+                        <span class="badge badge-info chip-auto">авто: {{ stageRu(u.stage_auto) }}</span>
+                        <span class="badge badge-muted" v-if="u.stage_manual">
+                          ручная: {{ stageRu(u.stage_manual) }}
+                        </span>
+                        <span class="text-xs text-gray-400">
+                          скор {{ Number(u.activity_score).toFixed(1) }}
+                          · {{ u.msg_count }} сообщ.
+                        </span>
+                        <span class="text-xs text-gray-500 ml-auto"
+                              v-if="u.last_seen">активен {{ fmtTs(u.last_seen) }}</span>
+                      </div>
+                      <div class="mt-1.5 flex items-center gap-2 flex-wrap">
+                        <select class="field w-32 text-xs" v-model="u.draft_stage"
+                                :disabled="relationsBusy">
+                          <option value="auto">авто</option>
+                          <option v-for="s in ['stranger','acquaintance','regular','veteran']"
+                                  :key="s" :value="s">{{ stageRu(s) }}</option>
+                        </select>
+                        <textarea class="field scroll-thin" v-model="u.draft_note"
+                                  :disabled="relationsBusy" maxlength="4000"
+                                  style="min-width:100%;min-height:60px;resize:vertical;"
+                                  placeholder="заметка админа (необязательно)"></textarea>
+                        <button class="btn-accent text-xs shrink-0"
+                                :disabled="relationsBusy"
+                                @click="saveRelationManual(u)">💾</button>
+                        <button class="btn-danger text-xs shrink-0"
+                                :disabled="relationsBusy"
+                                title="Сбросить на авто — стирает стадию и заметку"
+                                @click="removeRelationManual(u)">Сброс</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Конфиг-часть: Настройки отношений -->
+              <template v-if="groupedForTab(relationsTab()).length">
+                <div class="card p-4 col-span-full">
+                  <div class="text-sm font-bold mb-3">⚙️ Настройки отношений</div>
+                  <template v-for="grp in groupedForTab(relationsTab())" :key="grp.uid">
+                    <div v-if="basicItems(grp).length || advancedItems(grp).length"
+                         class="card p-4 mb-3" style="grid-column: 1 / -1;">
+                      <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
+                      <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
+                      <div class="grid gap-3 md:grid-cols-2" v-if="basicItems(grp).length">
+                        <div v-for="item in basicItems(grp)" :key="item.key"
+                             class="card p-4" style="min-width:0;">
+                          <div class="flex items-center gap-2 min-w-0 mb-1">
+                            <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                            <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                    class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                    @click="resetChatOverride(item)">↪ глобальное</button>
+                          </div>
+                          <div class="text-sm font-semibold">{{ item.title }}</div>
+                          <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                          <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                     :disabled="!canEditConfig(item.key)"
+                                     @change="saveConfigItem(item)">
+                              <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                              <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                            </label>
+                          </div>
+                          <div v-else>
+                            <input class="field" :type="inputType(item)" v-model="item.value">
+                            <div class="mt-2 flex justify-end">
+                              <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                      @click="saveConfigItem(item)">
+                                {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Ревью-фикс раунда: advanced-аккордеон (D-канон) —
+                           limits.relations_recalc_ttl_minutes и другие
+                           расширенные ключи достижимы. -->
+                      <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
+                               :open="expandOpen(activeTab)"
+                               @toggle="toggleExpand(activeTab)">
+                        <summary class="cursor-pointer select-none text-sm font-semibold
+                                       inline-flex items-center gap-2">
+                          ▶ Расширенные настройки
+                          <span class="text-xs text-gray-500 font-normal">({{ advancedItems(grp).length }})</span>
+                        </summary>
+                        <div class="grid gap-3 md:grid-cols-2 mt-3">
+                          <div v-for="item in advancedItems(grp)" :key="item.key"
+                               class="card p-4" style="min-width:0;">
+                            <div class="flex items-center gap-2 min-w-0 mb-1">
+                              <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                              <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                      class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                      @click="resetChatOverride(item)">↪ глобальное</button>
+                            </div>
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                            <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
+                              <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                       :disabled="!canEditConfig(item.key)"
+                                       @change="saveConfigItem(item)">
+                                <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                                <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                              </label>
+                            </div>
+                            <div v-else>
+                              <input class="field" :type="inputType(item)" v-model="item.value">
+                              <div class="mt-2 flex justify-end">
+                                <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                        @click="saveConfigItem(item)">
+                                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </template>
+          </template>
           <template v-else-if="activeTab === 'chat_lore'">
             <!-- ═══ 📜 Лор чатов (round 7, spec §3.10/E2) ═══ -->
             <div v-if="!canViewTab('chat_lore')" class="card p-6 text-gray-400 col-span-full">
@@ -1447,114 +1717,9 @@
                       </div>
                     </div>
 
-                    <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-830/F3): 👥
-                         Участники и отношения — авто-стадии (SQLite-скоры) +
-                         ручные пометки админа (PG relations JSONB). -->
-                    <div class="card p-4">
-                      <div class="flex items-center gap-2 flex-wrap mb-1">
-                        <div class="text-sm font-bold">👥 Участники и отношения</div>
-                        <span class="badge badge-info ml-auto"
-                              v-if="relationsBusy && chatRelations.length === 0">загрузка…</span>
-                        <button class="btn-ghost text-xs shrink-0"
-                                :disabled="relationsBusy"
-                                @click="loadRelations(chatLoreProfile.chat_id)">⟳</button>
-                      </div>
-                      <div class="text-xs text-gray-500 mb-3">
-                        Авто-стадия считается по активности в чате; ручная
-                        пометка админа приоритетнее расчёта (влияет на тон
-                        ответов бота при включённом флаге ниже).
-                      </div>
-                      <div class="flex items-center justify-between gap-3
-                                  rounded-lg border border-white/10 px-3 py-2 mb-3">
-                        <div>
-                          <div class="text-sm">Влиять на тон бота (relations_enabled)</div>
-                          <div class="text-xs text-gray-500">
-                            Блок отношений участников добавляется в контекст
-                            диалога (глобальный флаг — вкладка «Лимиты»)
-                          </div>
-                        </div>
-                        <label class="relative inline-flex items-center
-                                       cursor-pointer shrink-0">
-                          <input type="checkbox" class="sr-only peer"
-                                 :checked="relationsEnabled"
-                                 :disabled="relationsBusy"
-                                 @change="onRelationsToggle($event)">
-                          <div class="w-11 h-6 rounded-full peer bg-white/10
-                                       peer-checked:bg-violet-600 transition-colors"></div>
-                          <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white
-                                       transition-transform peer-checked:translate-x-5"></div>
-                        </label>
-                      </div>
-                      <div v-if="chatRelations.length === 0"
-                           class="text-xs text-gray-500 py-2">
-                        Участников пока нет — карточки появятся после первых
-                        сообщений в чате.
-                      </div>
-                      <div v-else class="max-h-80 overflow-y-auto scroll-thin pr-1">
-                        <div v-for="u in chatRelations" :key="u.user_id"
-                             class="rounded-lg border border-white/10 px-2 py-1.5 mb-1.5">
-                          <div class="flex items-center gap-2 flex-wrap text-sm">
-                            <!-- Hotfix-R10 (аватары): v-if по avatarUrl —
-                                 серверный photo_file_id мог быть None (вне
-                                 топ-50/не обогащён) — ленивый догруз
-                                 loadRelationAvatarsLazy ставит URL; до
-                                 результата/негатива — фолбэк-инициал -->
-                            <img v-if="u.avatarUrl"
-                                 :src="u.avatarUrl" alt=""
-                                 class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
-                                 loading="lazy"
-                                 @error="avatarError(u)">
-                            <span v-else
-                                  class="w-7 h-7 rounded-full shrink-0 border border-white/15
-                                         bg-violet-600/40 text-white text-xs font-bold
-                                         flex items-center justify-center select-none">
-                              {{ avatarInitial(u) }}
-                            </span>
-                            <span class="flex flex-col min-w-0 leading-tight">
-                              <span v-if="resolveRelationName(u)"
-                                    class="font-semibold truncate">{{ resolveRelationName(u) }}</span>
-                              <!-- 10.2: @username — без «@», подпись только
-                                   когда имя НЕ из username (иначе дубль);
-                                   имени нет — resolveRelationName вернёт
-                                   username (без @) или '' (id не показываем) -->
-                              <span v-if="u.username && resolveRelationName(u) !== String(u.username)"
-                                    class="text-xs text-gray-500 truncate">{{ u.username }}</span>
-                            </span>
-                            <span class="text-xs text-gray-500 font-mono opacity-60">{{ u.user_id }}</span>
-                            <span class="badge badge-info chip-auto">авто: {{ stageRu(u.stage_auto) }}</span>
-                            <span class="badge badge-muted" v-if="u.stage_manual">
-                              ручная: {{ stageRu(u.stage_manual) }}
-                            </span>
-                            <span class="text-xs text-gray-400">
-                              скор {{ Number(u.activity_score).toFixed(1) }}
-                              · {{ u.msg_count }} сообщ.
-                            </span>
-                            <span class="text-xs text-gray-500 ml-auto"
-                                  v-if="u.last_seen">активен {{ fmtTs(u.last_seen) }}</span>
-                          </div>
-                          <div class="mt-1.5 flex items-center gap-2 flex-wrap">
-                            <select class="field w-32 text-xs" v-model="u.draft_stage"
-                                    :disabled="relationsBusy">
-                              <option value="auto">авто</option>
-                              <option v-for="s in ['stranger','acquaintance','regular','veteran']"
-                                      :key="s" :value="s">{{ stageRu(s) }}</option>
-                            </select>
-                            <textarea class="field scroll-thin" v-model="u.draft_note"
-                                      :disabled="relationsBusy" maxlength="4000"
-                                      style="min-width:100%;min-height:60px;resize:vertical;"
-                                      placeholder="заметка админа (необязательно)"></textarea>
-                            <button class="btn-accent text-xs shrink-0"
-                                    :disabled="relationsBusy"
-                                    @click="saveRelationManual(u)">💾</button>
-                            <button class="btn-danger text-xs shrink-0"
-                                    :disabled="relationsBusy"
-                                    title="Сбросить на авто — стирает стадию и заметку"
-                                    @click="removeRelationManual(u)">Сброс</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
+                    <!-- Раунд 10.4 (F-7): блок участников ПЕРЕЕХАЛ на вкладку
+                         «Участники и отношения» (меню «Чат-Профиль»); здесь —
+                         только лор (профиль/авто/история/remap/админы). -->
                     <!-- Что попадает в память бота (визуальная склейка) -->
                     <div class="card p-4">
                       <div class="text-sm font-bold mb-1">В память бота уходит</div>
@@ -1627,6 +1792,95 @@
                   </template>
                 </div>
               </div>
+
+              <!-- Раунд 10.4 (A-8): ⚙️ Расширенные настройки лора —
+                   config-часть вкладки (limits_lore + flags_lore) через
+                   groupedForTab(chatLoreTab); per-chat override-кнопки и
+                   canEditConfig — как в generic-рендере; сохранение —
+                   существующий POST /api/config (409/403 — те же). -->
+              <template v-if="groupedForTab(chatLoreTab()).length">
+                <div class="mt-4" style="grid-column: 1 / -1;">
+                  <div class="text-sm font-bold mb-2">⚙️ Расширенные настройки лора</div>
+                  <template v-for="grp in groupedForTab(chatLoreTab())" :key="grp.uid">
+                    <div v-if="basicItems(grp).length || advancedItems(grp).length"
+                         class="card p-4 mb-3" style="grid-column: 1 / -1;">
+                      <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
+                      <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
+                      <div class="grid gap-3 md:grid-cols-2" v-if="basicItems(grp).length">
+                        <div v-for="item in basicItems(grp)" :key="item.key"
+                             class="card p-4" style="min-width:0;">
+                          <div class="flex items-center gap-2 min-w-0 mb-1">
+                            <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                            <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                    class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                    @click="resetChatOverride(item)">↪ глобальное</button>
+                          </div>
+                          <div class="text-sm font-semibold">{{ item.title }}</div>
+                          <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                          <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                     :disabled="!canEditConfig(item.key)"
+                                     @change="saveConfigItem(item)">
+                              <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                              <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                            </label>
+                          </div>
+                          <div v-else>
+                            <input class="field" :type="inputType(item)" v-model="item.value">
+                            <div class="mt-2 flex justify-end">
+                              <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                      @click="saveConfigItem(item)">
+                                {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <details class="advanced mt-4" v-if="advancedItems(grp).length > 0"
+                               :open="expandOpen('chat_lore')"
+                               @toggle="toggleExpand('chat_lore')">
+                        <summary class="cursor-pointer select-none text-sm font-semibold
+                                       inline-flex items-center gap-2">
+                          ▶ Расширенные настройки
+                          <span class="text-xs text-gray-500 font-normal">({{ advancedItems(grp).length }})</span>
+                        </summary>
+                        <div class="grid gap-3 md:grid-cols-2 mt-3">
+                          <div v-for="item in advancedItems(grp)" :key="item.key"
+                               class="card p-4" style="min-width:0;">
+                            <div class="flex items-center gap-2 min-w-0 mb-1">
+                              <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                              <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
+                                      class="btn-ghost text-xs px-2 ml-auto shrink-0"
+                                      @click="resetChatOverride(item)">↪ глобальное</button>
+                            </div>
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                            <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
+                              <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                       :disabled="!canEditConfig(item.key)"
+                                       @change="saveConfigItem(item)">
+                                <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                                <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                              </label>
+                            </div>
+                            <div v-else>
+                              <input class="field" :type="inputType(item)" v-model="item.value">
+                              <div class="mt-2 flex justify-end">
+                                <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                        @click="saveConfigItem(item)">
+                                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </template>
+                </div>
+              </template>
             </template>
           </template>
           <template v-else-if="activeTab === 'status'">

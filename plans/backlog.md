@@ -27,6 +27,87 @@
 
 **Статус (10.09.2026): ✅ Выполнены и заархивированы** — F-13 `tma-chat-selector-fixes` (T-925…T-944), F-14 `dm-user-settings` (T-945…T-964), F-15 `direct-sandbox-budget-investigation` (T-965…T-973) — IMPLEMENTED, аппрув @Reviewer; спеки/задачи — `plans/archive/{tma-chat-selector-fixes,dm-user-settings,direct-sandbox-budget-investigation}/`. **Все 7 задач ТЗ закрыты** (1–3, 6 → F-13; 4 → F-14; 5, 7 → F-15); pytest **4831 passed, 0 failed**; Scanner — 0 blocker/major (отчёт: `plans/reports/full_audit_results.md`); архитектура — `ARCHITECTURE.md` §23–§24 (обновлено @Architect). Техдолг-кандидат на след. раунд: HIGH-004 — полный LLM request/response-лог (в 10.3 делали точечно: диагностика бюджет-пути + raw-memorize с маской секретов); остальное из Scanner-отчёта — вне скоупа раунда. План финальной фазы (полный pytest → README → коммит → деплой + live-проверка) — единый для раунда: исполняется по воркфлоу ПОСЛЕ архивации (README-раздел 10.3 — шаг @PM 10.09.2026; коммит/деплой — следующие шаги).
 
+## Раунд 10.4 (10.09.2026): реструктуризация TMA-миниаппа + точечные фиксы — 9 пунктов ТЗ
+
+ТЗ владельца (HEAD == origin/master == `1410a68`, раунд 10.3 закрыт, рабочее
+дерево чистое) — крупная реструктуризация админки миниаппа + точечные фиксы.
+Step 0 recon — KG `recon: tma-structure-10.4` (полные координаты: TABS/MENU/
+generic-рендер, TAB_RULES param_catalog.py:1374-1406 + _TAB_BY_GROUP :1424-1431
+(жёстко: группа → ровно 1 вкладка), REGISTRY 383/71/359 эталон test_param_catalog
+MED-017, каскад имён chat_lore.py:585-613/:621-637 + app.js:2335-2346,
+точки чтения ТЗ 8). **Планирование 10.09.2026 @PM: 8 фич, T-974…T-1065** (нумерация
+продолжает T-973). spec.md — @Architect для каждой фичи (стадия PLANNED).
+
+| # | Задача ТЗ | Фича | Задачи | Ключевые AC / канон |
+|---|-----------|------|--------|---------------------|
+| 1 | «Реакции и Триггеры»: интервалы/кулдауны/Мимикрия/Dead page → в «Функции PERMsoc» | **A** `frontend-reorg-modules-reactions` | T-974…T-989 | Расширение TAB_PERMSOC: reactions {persons, permsoc, deadpage, mimic, slavik, alan, olya} + flags {permsoc, media} + limits {persons, mimic, deadpage, media}; исключения-списки TAB_LIMITS/TABS-зеркало; REGISTRY 383/71/359 без изменений |
+| 2 | «Модули и Фичи» → «Модули»: имена/описания модулей, убрать сводку «Функции PERMsoc» | **A** | T-981…T-984 | MENU_LABELS.modules + label modules_feats → «Модули»; карточки модулей (имя+описание+статус); сводка-кнопка setTab('permsoc') удаляется (вкладка+master остаются); «Модули (вкл/выкл)» (flags_modules+flags_service) → новый config-раздел modules_switches |
+| 3 | «Лор чатов»-настройки → в «Лор чатов» под «Расширенные» | **A** (частично) | T-979, T-985-T-986 | TAB_RULES-запись для TAB_CHAT_LORE (limits_lore + flags_lore) + generic-блок в шаблоне chat_lore; права — canEditConfig; исключены из «Лимитов» |
+| 4 | Бюджеты «Прямой чат» → флаг вкл/выкл PER-ЧАТ (+ для -1002661910336 ВЫКЛ) | **B** `frontend-limits-temperature-budgets` | T-990…T-993 | Гейт flags.chat_context_budgets_enabled → hot_chat-резолв (async chat_param); override false для -1002661910336 (бэкфил/сид); связь с F-15 (25 req/сутки, sandbox R16); дефолты других чатов не меняются |
+| 5 | Температура → выпадающий список | **B** | T-994…T-997 | Новый widget="select" + select_options (ParamSpec); API отдаёт options; валидация 422; REGISTRY без роста; тест widget-keyvalue обновлён |
+| 6 | «Имена людей» → отдельный раздел + per-чат/ЛС | **B** | T-998…T-1001 | Новая config-вкладка people_names (limits_user_aliases), KV-редактор; алиасы → per-chat/ЛС-резолв (chat_param паттерн, каскад в web/api/chat_lore.py:555); гейт summary_enabled-плоскости не трогать; F-6-аудит каскада влит (см. ниже) |
+| 7 | «Память и RAG» → «Память»; «Сон» и «Ностальгия» → отдельные разделы | **C** `frontend-memory-sleep-nostalgia` | T-1006…T-1017 | TAB_RULES: memory_rag = {limits_memory, limits_graph, flags_memory, memory_infinite}; новые TAB_MEMORY_DREAM / TAB_MEMORY_NOSTALGIA; переразметка basic/advanced (флаги вкл — basic), иначе вкладки пустые после ТЗ 5; гейты gates (F-10) не меняются |
+| 8 | «Расширенные» по умолчанию СВЁРНУТЫ (index.html:673-675 `:open="basicItems(grp).length === 0 || expandOpen(activeTab)"`) | **D** `frontend-advanced-collapse-default` | T-1018…T-1023 | :open="expandOpen(activeTab)" — единый источник истины; персист adminbot.expand:<tab> не трогаем; маркер: положительный на :open="expandOpen(activeTab)", негатив на старую строку; итог-анализ эвристики в комментарии |
+| 9 | LLM Провайдеры: основные модели → ключи → фолбэк → расширенные | **E** `frontend-llm-providers-layout` | T-1024…T-1032 | TAB_RULES секциями (models_main/keys_llm, groq, openrouter/models_fallback/остальное); groupedForTab — плоская сортировка по (категория, группа) источникам; заголовки секций; маскировка ключей/R17 без изменений; секции advanced ≥1 basic (совместимость с D) |
+| 10 | «Участники и отношения» из «Лор чатов» → отдельный раздел; настройки отношений туда | **F** `frontend-relations-participants` | T-1033…T-1044 | Новая вкладка relations (menu chat_profile, свой шаблон; данные — существующий /chat_lore/{id}/relations API); TAB_RULES: relations = {limits_relations, flags_relations} (config-часть вкладки); из chat_lore блок участников удаляется; адаптеры 409/очистка без изменений; known_sections — без расширения |
+| 11 | Чат -1002661910336: расширить лимиты контекста/саммари/памяти | **G** `backend-chat-1002661910336-scaling` | T-1045…T-1056 | per-chat overrides через chat_params (get_chat_param паттерн, async); точки чтения: direct_chat_service.py:996-1014/1498-1522/1622/1684-1880/1726, summary_generator.py:133-169, summary_xml.py:63-68, summary_memory.py:1283-1290/1966-2004/2406-2483/2572/2614; бэкфил override для -1002661910336; дефолты/другие чаты НЕ трогать; таблица значений в отчёте; риск: 25 req/сутки глобального ключа (F-15) — наблюдение |
+| 12 | «Никнейм/username» в Участниках: у людей username есть, nickname нет / только id | **H** `backend-relations-nickname` | T-1057…T-1065 | Диагностика каскада (alias→nickname(30д/200)→username(топ-50)→''): причины — окно 30д/top-200, _RELATIONS_ENRICH_TOP=50, _display_name uid-снапшот; фикс: имена из users_meta-снапшота + username для ВСЕХ строк (кэш/лениво) или фикс-срез; R16 «id никогда не имя» — сохранить; каскад/отношения без регресса |
+
+**Статус (10.09.2026): ✅ Выполнены и заархивированы** — 8 фич IMPLEMENTED,
+аппрув @Reviewer: **D** `frontend-advanced-collapse-default` (T-1018…T-1023),
+**C** `frontend-memory-sleep-nostalgia` (T-1006…T-1017), **E**
+`frontend-llm-providers-layout` (T-1024…T-1032), **A** `frontend-reorg-modules-reactions`
+(T-974…T-989), **B** `frontend-limits-temperature-budgets` (T-990…T-1005),
+**F** `frontend-relations-participants` (T-1033…T-1044), **H**
+`backend-relations-nickname` (T-1057…T-1065), **G** `backend-chat-1002661910336-scaling`
+(T-1045…T-1056); спеки/задачи — `plans/archive/{frontend-advanced-collapse-default,
+frontend-memory-sleep-nostalgia,frontend-llm-providers-layout,frontend-reorg-modules-reactions,
+frontend-limits-temperature-budgets,frontend-relations-participants,backend-relations-nickname,
+backend-chat-1002661910336-scaling}/`. Порядок исполнения **D → C → E → A → B → F → H → G**
+соблюдён (обоснование — в плановом блоке выше, при планировании). **Все пункты ТЗ закрыты**
+(маппинг — таблица выше); pytest **4860 passed, 0 failed** (4831 → +29: `test_104_backend_additions`
+11, `test_progressive_tab_basic_coverage` 3, маркеры webapp_*/frontend_tab_mapping); Scanner-аудит
+10.4 — 0 blocker/major (minor/info R10.4-1…R10.4-7 → `ARCHITECTURE.md` §25: R10.4-1/-2/-3 закрыты
+follow-up @Builder; R10.4-4…-6 — открыты, кандидаты след. раунда; R10.4-7 — задокументированная
+граница G-4 → кандидат F-5). Техдолг-хвосты: **B-13 points 2-4** — per-chat алиасы НЕ доходят до
+инжекта `<user_relations>` (работает только точка 1 — TMA-каскад list_relations; отклонение
+зафиксировано комментарием в `user_relations.py`, кандидат след. раунда); HIGH-004 (полный LLM
+request/response-лог) — отложен, как и в 10.3. Архитектура — `ARCHITECTURE.md` §24–§25 (обновлено
+@Architect; счётчик групп 71→74 сверен); REGISTRY 383/74/359 — БЕЗ изменений (эталон
+`test_param_catalog`, MED-017); SQLite v8; каноны промптов (R9/PREV_R9, R46-2) и порядок роутеров
+`bot.py` — без дифов. Код — в рабочем дереве Merge Phase (коммит/деплой + бэкфилы
+`backfill_104_chat_flags.py`/`backfill_104_overrides.py` + live-верификация @DevOps — финальный
+шаг раунда).
+
+**Конфликт-матрица с активными фичами F-1…F-6 (проверка @PM 10.09.2026):**
+
+| Активная | Пересечение | Решение / порядок |
+|----------|-------------|-------------------|
+| **F-1** `post-deploy-admin-minors` (T-648 атомарный POST /api/config; T-651/T-652 касты) | T-648 routes.py POST /api/config — фича B добавляет select-опции и per-chat алиасы (POST путь тот же); T-651 унификация кастов у normalize_value/_coerce — фичи B/G касаются каста (select-значения str; override-касты) | Порядок: **F-1 ДО фиш 10.4-b/g** (после D/C/E/A — не пересекаются). B/G учитывают «атомарность POST» в своих критериях (значение select/алиас — валидный item); T-653 (guard alan) — вне пересечения, но B (температура-float) учесть NaN-поведение (T-654 docstring). |
+| **F-2** `admin-debug-webview` | пересечений нет (отдельная страница /debug_config) | Независима; остаётся открытой; верификация — после раунда 10.4 |
+| **F-3** `scam-incident-security-followup` (T-663 админ-гейт DM-веток /mimic /deadpage /alangreet, admin_commands.py:40-127) | прямых пересечений нет (admin_commands не дифается); но T-663-плоскость DM (chat_id>0) — та же, что у B (per-chat/ЛС) и F (участники в ЛС) | T-663 — открыта; после 10.4 (иначе расхождение: F добавляет relations-блок для DM — перепроверить при вёрстке T-663: гейт-ветки остаются как есть); отметить в финальной проверке раунда |
+| **F-4** `frontend-admin-bugfixes` (Баг-4 «сверка синхронизации разделов», открыт) | Баг-4 проверяет ВСЕ вкладки админки → реструктуризация 10.4 (A/B/C/E/F) меняет карту вкладок; сверку делать ПОСЛЕ | **Порядок: 10.4 (все фронт-фичи) ДО Бага-4** (иначе сверка по старой карте); Баг-4 остаётся открытым, применяется к новой структуре |
+| **F-5** `config-read-path-audit` (аудит settings.X vs hot.get) | Фичи G (per-chat резолв) и B (гейт per-chat) добавляют НОВЫЕ read-пути (hot_chat/chat_param); B — алиасы-чтение per-chat | Реестры новых read-путей — в tasks.md G (T-993 AC-B4) и B; **F-5 ПОСЛЕ G/B** (аудит включает новые пути); F-5 остаётся открытой |
+| **F-6** `user-aliases-admin` (алиасы в админке — в master 5d011d2; открытые: аудит каскада, «реальный эффект», человеческая верификация, регресс) | **ПРЯМОЕ пересечение с B (ТЗ 6 «Имена людей») и H (ТЗ 9 каскад)** | **Решение: НЕ переоткрывать F-6; влить остаток в 10.4:** аудит каскада AliasResolver → фича H (T-1058/T-1059/T-1063); «реальный эффект» (алиас из админки → /summary/граф) → фича B (T-1005); человеческая верификация → владельцу (сохранить в отчёте B); полный регресс — в каждой фиче. F-6 помечается в графе как «SUPERSEDED_BY(round10.4)» (папка/спека НЕ трогаются, в архив не переносим) |
+
+**Остаётся активным (вне 10.4):** F-1 (перед B/G), F-2 (самостоятельно),
+F-3 T-663 (после 10.4, перепроверка DM-плоскости), F-4 Баг-4 (после 10.4),
+F-5 (после G/B), F-6 (влить/SUPERSEDED — см. выше); техдолг-кандидаты из
+Scanner (plans/reports/full_audit_results.md): HIGH-004 (полный LLM-лог) —
+отложен (F-15 сделал точечно); другие HIGH-001/002/003/005/006/007/008 +
+MED-* — вне скоупа (дефект-эпик — кандидат на следующий раунд). Диск/SSH
+сервера (fail2ban/ufw, деплой-операции) — active (см. MEMORY.md, раздел
+«Безопасность сервера»).
+
+**Тест-риски раунда:** test_frontend_tab_mapping.py и
+test_webapp_nav_disclosure_ui.py придется обновить в КАЖДОЙ фронт-фиче
+(MED-022-прецедент 10.2/10.3 — маркеры фиксируют старое поведение);
+test_param_catalog (эталон 383/71/359) — не менять; test_webapp_avatars_ui /
+test_webapp_dm_ui / test_webapp_rbac_ui — поправка под новые вкладки;
+new Select-widget-тест; структура-разметка (basic ≥1 на вкладку) — новый тест;
+`node --check web/app.js` — на каждой фронт-фиче; полный pytest — общий финал
+раунда (baseline 4831 + новые, ожидание ~4850-4900).
+
 **Конфликты с активными фичами (проверка @PM 09.09.2026):**
 - **F-1 `post-deploy-admin-minors`** — T-648 (атомарный POST /api/config: `web/api/routes.py`) пересекается с F-14 POST /api/config (ensure_scope_profile + is_dm_owner-гейт, routes.py:380-388) → порядок: F-14 ДО T-648; T-650 (docstring `can_edit_param`, deps.py:206-212) — F-14 расширяет саму функцию в `services/access.py` → T-650 после F-14; T-651/652 (унификация кастов) — учесть новый cast в `get_chat_param_defaulted`.
 - **F-3 `scam-incident-security-followup`** — T-663 (админ-гейт DM-веток `/mimic /deadpage /alangreet`, admin_commands.py:40-127) — та же DM-плоскость (chat_id>0), что F-14; в F-14 admin_commands.py НЕ диффится, T-663 остаётся открытой → исполнять после F-14, отметить в финальной проверке.

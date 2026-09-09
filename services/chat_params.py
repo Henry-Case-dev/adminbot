@@ -21,6 +21,7 @@ import asyncio
 import datetime
 import json
 import logging
+import math
 import time
 
 from services.param_catalog import get_by_pg_key, normalize_value
@@ -218,7 +219,9 @@ async def get_chat_param(chat_id: int, key: str, default=None) -> object:
 
 
 def _resolve_from_root(root: dict, key: str, default=None) -> object:
-    """Спец §4.5: chat_params.overrides (cast!!) → hot.get → default."""
+    """Спец §4.5: chat_params.overrides (cast!!) → hot.get → default.
+    Раунд 10.4 (G-2): после каста — проверка типа + math.isfinite для float
+    (мусор/NaN/inf → hot.get-фолбэк; AC-G4; валидные — без изменений)."""
     from services import hot_config as hot
     overrides = root.get("overrides") or {}
     try:
@@ -229,9 +232,15 @@ def _resolve_from_root(root: dict, key: str, default=None) -> object:
     spec = get_by_pg_key(key)
     if spec is not None:
         try:
-            return normalize_value(key, value)
+            casted = normalize_value(key, value)
+            if _cast_type_ok(spec.type, casted) \
+                    and not (spec.type == "float" and isinstance(casted, float)
+                             and not math.isfinite(casted)):
+                return casted
+            # мусор/NaN/inf → fallback (hot.get → default)
+            return hot.get(key, default)
         except Exception:
-            return value
+            return hot.get(key, default)
     return value
 async def get_all_chat_params(chat_id: int) -> dict:
     """Полный root-лейаут чата (для GET /api/config X-Chat-Id)."""

@@ -81,7 +81,10 @@ import time
 from config.settings import settings
 from services import chat_access
 from services import hot_config as hot
-from services.chat_params import chat_summary_enabled
+from services.chat_params import (
+    chat_summary_enabled,
+    get_chat_param as _cp_g,  # G-3 per-chat
+)
 from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
 from services.llm_client import (
@@ -671,7 +674,8 @@ class DirectChatService:
             blocks.append(("rag", rag_block))
         if global_ctx:
             blocks.append(("global", global_ctx))
-        thread = self._render_thread(chain, suffix_map)
+        thread = self._render_thread(chain, suffix_map,
+                                     await self._thread_limit(chat_id))
         if thread:
             blocks.append(("thread", thread))
         # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
@@ -724,7 +728,19 @@ class DirectChatService:
         # user-контента (только если контент вообще есть).
         if blocks:
             blocks.append(("sandwich", _SANDWICH_REMINDER))
-        return self._apply_context_budget(blocks)
+        # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
+        # hot.get → default; без override — байт-в-байт старое поведение).
+        from services.chat_params import get_chat_param as _budget_gate
+        budgets_enabled = await _budget_gate(
+            chat_id, "flags.chat_context_budgets_enabled",
+            hot.get("flags.chat_context_budgets_enabled",
+                    settings.CHAT_CONTEXT_BUDGETS_ENABLED))
+        budget_tokens = await _budget_gate(
+            chat_id, "limits.chat_context_budget_tokens",
+            hot.get("limits.chat_context_budget_tokens",
+                    settings.CHAT_CONTEXT_BUDGET_TOKENS))
+        return self._apply_context_budget(blocks, budgets_enabled,
+                                          budget_tokens)
 
     def _render_current_question(self, message) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
@@ -992,7 +1008,8 @@ class DirectChatService:
 
     # ── Epic 60 Фаза D (66.12, T-490): бюджеты контекста ─────────
 
-    def _apply_context_budget(self, blocks: list[tuple[str, str]]) -> list[str]:
+    def _apply_context_budget(self, blocks: list[tuple[str, str]],
+                              enabled=None, budget_tokens=None) -> list[str]:
         """Доли CHAT_CONTEXT_BUDGET_TOKENS (Раунд 8, B2/D2/T-791/T-799,
         spec §3.B2): map/rag/global/thread/anchors + новая доля branch (0.03)
         — от effective_budget = max(1, budget − fixed_tokens), где fixed =
@@ -1005,13 +1022,20 @@ class DirectChatService:
         важность, D2/E1): Style_Anchors → RAG → Thread → Global(keep-head:
         конспект-голова держится, режется конец) → Map → Nostalgia-маркер
         (E1/T-826: участвует последним — маленький фикс-кап до инжекта).
-        Выключено → ровно старые потолки секций (64.7)."""
+        Выключено → ровно старые потолки секций (64.7).
+        Раунд 10.4 (B-2): enabled=None → hot.get (старое поведение, тесты);
+        caller передаёт per-chat резолв из get_chat_param (async-точка)."""
         # T-619: бюджеты — горячие точки (фолбек settings)
-        if not hot.get("flags.chat_context_budgets_enabled",
-                       settings.CHAT_CONTEXT_BUDGETS_ENABLED):
+        if enabled is None:
+            enabled = hot.get("flags.chat_context_budgets_enabled",
+                              settings.CHAT_CONTEXT_BUDGETS_ENABLED)
+        if not enabled:
             return [text for _, text in blocks]
-        budget = hot.get("limits.chat_context_budget_tokens",
-                         settings.CHAT_CONTEXT_BUDGET_TOKENS)
+        # Раунд 10.4 (G-ремедиация): budget-база — per-chat (async-резолв
+        # в вызывающем, параметр None → старое поведение для тестов).
+        budget = budget_tokens if budget_tokens is not None else hot.get(
+            "limits.chat_context_budget_tokens",
+            settings.CHAT_CONTEXT_BUDGET_TOKENS)
         uncuttable = ("target", "relations", "protected", "lore", "current",
                       "sandwich")
         fixed_tokens = sum(count_tokens(text) for kind, text in blocks
@@ -1494,10 +1518,14 @@ class DirectChatService:
         Порядок — активность (cnt DESC, uid ASC — в SQL). Fail-open → []
         (только окно; NFR-6)."""
         try:
-            hours = int(hot.get("limits.chat_map_participants_hours",
-                                settings.CHAT_MAP_PARTICIPANTS_HOURS) or 24)
-            cap = int(hot.get("limits.chat_map_participants_cap",
-                              settings.CHAT_MAP_PARTICIPANTS_CAP) or 0) or 150
+            hours = int(await _cp_g(
+                chat_id, "limits.chat_map_participants_hours",
+                hot.get("limits.chat_map_participants_hours",
+                        settings.CHAT_MAP_PARTICIPANTS_HOURS)) or 24) or 24
+            cap = int(await _cp_g(
+                chat_id, "limits.chat_map_participants_cap",
+                hot.get("limits.chat_map_participants_cap",
+                        settings.CHAT_MAP_PARTICIPANTS_CAP)) or 0) or 150
             since = int(time.time()) - hours * 3600
             return await self.db.get_active_participants(chat_id, since, cap)
         except Exception:
@@ -1721,9 +1749,10 @@ class DirectChatService:
                         l2 = await self.db.get_summary_level(chat_id, 2)
                         if l2 is not None and (l2["summary"] or "").strip():
                             level2_text = str(l2["summary"]).strip()
-                            cap2 = int(hot.get(
-                                "limits.chat_level2_max_chars",
-                                settings.CHAT_LEVEL2_MAX_CHARS) or 0)
+                            cap2 = int(await _cp_g(
+                                chat_id, "limits.chat_level2_max_chars",
+                                hot.get("limits.chat_level2_max_chars",
+                                        settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
                             if cap2 and len(level2_text) > cap2:
                                 logger.warning(
                                     "direct: level2 capped to %d chars | chat=%s",
@@ -1756,8 +1785,11 @@ class DirectChatService:
                 name, uid = self._row_speaker(row)
                 tail.append(f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: {text}")
         else:
-            recent = window[-hot.get("limits.chat_global_context_limit",
-                                     settings.CHAT_GLOBAL_CONTEXT_LIMIT):]
+            _g_limit = int(await _cp_g(
+                chat_id, "limits.chat_global_context_limit",
+                hot.get("limits.chat_global_context_limit",
+                        settings.CHAT_GLOBAL_CONTEXT_LIMIT)) or 0)
+            recent = window[-max(1, _g_limit):]
             for row in recent:
                 text = row["text"] or ""
                 if not text:
@@ -1770,8 +1802,13 @@ class DirectChatService:
             # (n = число строк после среза recent-ветки).
             head.append(f"фон: дословно последние {len(tail)} сообщений")
         kind, limit = resolve_chat_limit(
-            hot.get("limits.chat_global_context_max_tokens", settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS), 1000,
-            "CHAT_GLOBAL_CONTEXT_MAX_CHARS", hot.get("limits.chat_global_context_max_chars", settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS),
+            await _cp_g(chat_id, "limits.chat_global_context_max_tokens",
+                        hot.get("limits.chat_global_context_max_tokens",
+                                settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS)), 1000,
+            "CHAT_GLOBAL_CONTEXT_MAX_CHARS",
+            await _cp_g(chat_id, "limits.chat_global_context_max_chars",
+                        hot.get("limits.chat_global_context_max_chars",
+                                settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS)),
             "CHAT_GLOBAL_CONTEXT",
         )
         measure = count_tokens if kind == "tokens" else len
@@ -1830,8 +1867,10 @@ class DirectChatService:
         глубина исчерпана / сообщение уже в seen.
         Возвращает [(uid, display-имя, text, is_bot)] — от ТЕКУЩЕГО
         сообщения (самое свежее первое) к корню."""
-        depth = int(hot.get("limits.chat_thread_max_depth",
-                            settings.CHAT_THREAD_MAX_DEPTH) or 0)
+        _depth = await _cp_g(chat_id, "limits.chat_thread_max_depth",
+                             hot.get("limits.chat_thread_max_depth",
+                                     settings.CHAT_THREAD_MAX_DEPTH))
+        depth = int(_depth or 0)
         chain: list[tuple[int | None, str, str, bool]] = []
         current_id = getattr(message, "message_id", None)
         seen: set[int] = set()
@@ -1867,7 +1906,23 @@ class DirectChatService:
         return (f"{_speaker_tag(name, uid, suffix=suffix_map.get(uid, ''))}: "
                 f"{text}")
 
-    def _render_thread(self, chain: list, suffix_map: dict[int, str]) -> str:
+    async def _thread_limit(self, chat_id: int):
+        """Раунд 10.4 (G-ремедиация): per-chat лимит треда (tokens/chars) —
+        resolve_chat_limit-кортеж; без override — байт-в-байт старое."""
+        kind, limit = resolve_chat_limit(
+            await _cp_g(chat_id, "limits.chat_thread_max_tokens",
+                        hot.get("limits.chat_thread_max_tokens",
+                                settings.CHAT_THREAD_MAX_TOKENS)), 500,
+            "CHAT_THREAD_MAX_CHARS",
+            await _cp_g(chat_id, "limits.chat_thread_max_chars",
+                        hot.get("limits.chat_thread_max_chars",
+                                settings.CHAT_THREAD_MAX_CHARS)),
+            "CHAT_THREAD",
+        )
+        return kind, limit
+
+    def _render_thread(self, chain: list, suffix_map: dict[int, str],
+                       thread_limit=None) -> str:
         """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
         verbatim-диалог не участвует в importance-удержании E1)."""
         if not chain:
@@ -1875,11 +1930,17 @@ class DirectChatService:
         lines = [self._chain_line(item, suffix_map)
                  for item in reversed(chain)]
         body = "\n".join(lines)
-        kind, limit = resolve_chat_limit(
-            hot.get("limits.chat_thread_max_tokens", settings.CHAT_THREAD_MAX_TOKENS), 500,
-            "CHAT_THREAD_MAX_CHARS", hot.get("limits.chat_thread_max_chars", settings.CHAT_THREAD_MAX_CHARS),
-            "CHAT_THREAD",
-        )
+        if thread_limit is not None:
+            kind, limit = thread_limit
+        else:
+            kind, limit = resolve_chat_limit(
+                hot.get("limits.chat_thread_max_tokens",
+                        settings.CHAT_THREAD_MAX_TOKENS), 500,
+                "CHAT_THREAD_MAX_CHARS",
+                hot.get("limits.chat_thread_max_chars",
+                        settings.CHAT_THREAD_MAX_CHARS),
+                "CHAT_THREAD",
+            )
         if kind == "tokens":
             budget = safe_budget(limit)
             if count_tokens(body) > budget:
@@ -1911,7 +1972,7 @@ class DirectChatService:
         """Публичная сборка <Conversation_Thread> (58.6): цепочка reply от
         текущего сообщения (D3: сквозь бот-ответы по bot_reply_parents)."""
         chain = await self._collect_thread_chain(chat_id, message)
-        return self._render_thread(chain, {})
+        return self._render_thread(chain, {}, await self._thread_limit(chat_id))
 
     # ── Имена (R50-1, каскад Алиас → Никнейм → Юзернейм, БЕЗ '@') ──
 

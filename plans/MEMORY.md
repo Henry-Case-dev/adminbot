@@ -1,6 +1,6 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§21);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§25);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
@@ -122,6 +122,79 @@
 > Локальные спеки F-13/F-14/F-15 НЕ тронуты (архивная фаза — @PM); коммит/деплой
 > (T-972/T-973) — финальный шаг раунда. **Финальный синк KG/графа, статусов милстоуна
 > `round10.3-epic` и архивирование — шаг 10 @Memory.**
+> **Синк STEP 10 (финал) 10.09.2026: раунд 10.3 ПОЛНОСТЬЮ ЗАВЕРШЁН** — HEAD ==
+> origin/master == `1410a68` (коммит 09.09.2026 12:33 UTC, автор Henry), тесты
+> **4831 passed / 0 failed**, @Reviewer APPROVED, Scanner 0 blocker/major
+> (R10.3-1…R10.3-6 → ARCH §24); деплой 09.09.2026 (рестарт 12:37 UTC, active);
+> прод-диагностика задачи 5 проведена (чат -1002661910336 без своего ключа,
+> глобальный ключ 25/25 → sandbox R16, сброс бакета 00:00 Екб — детали в KG
+> `recon: direct-chat-sandbox-budget`); F-13/F-14/F-15 заархивированы
+> (plans/archive/ — **18 папок**, plans/features/ — снова 6 активных F-1…F-6);
+> MEMORY.md ВПЕРВЫЕ вошёл в коммит; граф обновлён (милстоун `round10.3-epic` →
+> COMPLETED+DEPLOYED, фичи → ARCHIVED_IN/WAS_PART_OF). Цикл раунда полностью закрыт.
+> **Step 0 recon 10.09.2026 (раунд 10.4, 9 пунктов ТЗ реструктуризации TMA):**
+> RESEARCH ONLY — дерево чистое (только plans/MEMORY.md modified, остаток шага 10),
+> HEAD == origin/master == `1410a68`. Изучены структура миниаппа (TABS/MENU_ORDER/
+> generic-рендер, web/app.js + web/index.html), каталог параметров (REGISTRY 383 /
+> 71 групп / Settings 359, TAB_RULES param_catalog.py:1374-1406, паттерн добавления
+> раздела), локализованы все 9 пунктов ТЗ по группам/ключам. Всё зафиксировано —
+> KG-сущность **`recon: tma-structure-10.4`** (полные координаты, реестры ключей
+> реакций/лимитов/памяти/провайдеров/отношений, тест-риски, конфликты с F-1…F-6).
+> Планирование — @PM (конфликт-матрица не строилась).
+> **Синк STEP 3 (планирование 10.4) 10.09.2026:** раунд 10.4 распланирован и
+> **ЗААРХИТЕКТИРОВАН** — **8 фич** (plans/features/, spec.md @Architect + tasks.md
+> @PM для каждой, стадия ARCHITECTED, Builder не начат): **D**
+> `frontend-advanced-collapse-default` (T-1018…T-1023), **C**
+> `frontend-memory-sleep-nostalgia` (T-1006…T-1017), **E**
+> `frontend-llm-providers-layout` (T-1024…T-1032), **A**
+> `frontend-reorg-modules-reactions` (T-974…T-989), **B**
+> `frontend-limits-temperature-budgets` (T-990…T-1005), **F**
+> `frontend-relations-participants` (T-1033…T-1044), **H**
+> `backend-relations-nickname` (T-1057…T-1065), **G**
+> `backend-chat-1002661910336-scaling` (T-1045…T-1056) — итого T-974…T-1065
+> (92 задачи). Порядок исполнения: **D → C → E → A → B → F → H → G** (обоснование:
+> D — аккордеоны первыми; C/E/A — реструктуризация вкладок после D; B — per-chat
+> алиасы/виджет ДО F и H; H — фикс каскада после B; G — деплой-бэкфил последним).
+> Ключевое: REGISTRY **383/71/359 ЗАМОРОЖЕН** по всем 8 фичам (MED-017 — только
+> переносы/разметка/поля виджета select); SQLite v8, порядок роутеров bot.py,
+> каноны промптов, known_sections() — без дифов; R16/R17 сохранены; **девиансия
+> D-A1** (фича A: war/common/goodmorning/word_reactions ТАКЖЕ переезжают в
+> «Функции PERMsoc» — канон спеки §2, шире tasks.md T-975); общий новый тест
+> `test_progressive_tab_basic_coverage` (≥1 basic-группа на каждую config-вкладку;
+> пишется в D, зелёный после C/E/A; MED-022-маркеры обновляются в каждой
+> фронт-фиче). Конфликт-матрица с F-1…F-6 зарегистрирована в backlog.md:
+> **F-1 ДО B/G** (атомарный POST, касты T-651/652, NaN T-654), **F-3 T-663 ПОСЛЕ
+> раунда** (DM-перепроверка), **F-4 Баг-4 ПОСЛЕ раунда** (сверка по новой карте
+> вкладок), **F-5 ПОСЛЕ G/B** (реестры новых read-путей), **F-6 SUPERSEDED_BY
+> round10.4** (аудит каскада → H T-1058/1059/1063, live-эффект → B T-1005,
+> верификация → владельцу). Граф обновлён (Step 3): AdminBot HAS_PLAN → 8 фич,
+> милстоун `round10.4-epic` → ARCHITECTED (PLANNED_IN/ARCHITECTED_IN plans-structure),
+> цепочка DEPENDS_ON D→C→E→A→B→F→H→G; наблюдения добавлены в param-catalog
+> (TAB_RULES-реструктуризация), DirectChatService (бюджеты B + overrides G),
+> chat-lore (каскад имён H + перенос F), plans/features/user-aliases-admin
+> (SUPERSEDED_BY).
+> **Merge Phase 10.4 (10.09.2026, @Architect)** — 8 фич раунда (D/C/E/A/B/F/H/G,
+> T-974…T-1065) IMPLEMENTED в рабочем дереве (HEAD 1410a68 + 10.4: 24 модифицированных
+> файла, 8 новых фич-папок, 2 backfill-скрипта `scripts/backfill_104_{chat_flags,overrides}.py`,
+> 2 новых тест-файла), @Reviewer APPROVED, Scanner-аудит 10.4: **0 blocker/major**
+> (minor/info R10.4-1…R10.4-7 → ARCHITECTURE.md §25; R10.4-1/-2/-3 закрыты
+> follow-up @Builder и сверены), pytest **4860 passed / 0 failed** (4831 → +29),
+> `node --check web/app.js` clean, `git diff --check` чист. ARCHITECTURE.md обновлён:
+> **§24** (раунд 10.4: карта вкладок — PERMsoc 17 групп/Модули/Память+Сон+Ностальгия/
+> секции LLM Провайдеров/Имена людей/Участники и отношения/Лор-расширенные; select-виджет
+> (widget='select' + select_options/select_labels, 422); бюджет-флаг per-chat
+> `chat_context_budgets_enabled` + backfill_104_chat_flags (-1002661910336 off);
+> `build_alias_resolver(chat_id)` per-chat/ЛС алиасы; аккордеоны «Расширенные» свёрнуты
+> по умолчанию (expandOpen+персист); каскад имён username-всем строкам (Semaphore 5,
+> кэш 1ч, фото топ-50, R16); per-chat скейлинг -1002661910336 — 15 ключей ×1.5–×2,
+> backfill_104_overrides, `_resolve_from_root` _cast_type_ok+isfinite, граница G-4,
+> KPI 25 req → флаг бюджетов off) + **§25** «Известные ограничения и техдолг»
+> (R10.4-1…R10.4-7 со статусами + обновлённые R10.3-*); кросс-указатели §3/§4/§9/§16
+> (+ исправлен счётчик групп каталога **71→74** — ре-дизайн 10.2 BUG-3 +3 группы;
+> сверка: GROUPS=74 на HEAD и в 10.4). Локальные спеки 8 фич НЕ тронуты (архивная
+> фаза — @PM); коммит/деплой + прогон обоих бэкфилов (@DevOps) — финальный шаг раунда.
+> **Финальный синк KG/графа, статусов милстоуна `round10.4-epic` и архивирование —
+> шаг 10 @Memory.**
 
 ## Активные фичи (plans/features/)
 
@@ -133,9 +206,28 @@
 | `config-read-path-audit` (F-5) | Аудит read-путей: settings.X vs hot.get |
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
-| `tma-chat-selector-fixes` (F-13) | Раунд 10.3: единый селектор чатов, удаление closeApp, пустые вкладки (template v-for+v-if), «Статус» (z-index 45) — IMPLEMENTED (Merge Phase 10.3, 10.09.2026; @Reviewer Approved, Scanner 0 blocker/major; ARCH §23/§24) |
-| `dm-user-settings` (F-14) | Раунд 10.3: ЛС-настройки (вариант A, is_dm_scope=chat_id>0, саммари default-off) — IMPLEMENTED (Merge Phase 10.3, 10.09.2026; @Reviewer Approved, Scanner 0 blocker/major; ARCH §23/§24) |
-| `direct-sandbox-budget-investigation` (F-15) | Раунд 10.3: задачи 5+7 ТЗ (sandbox reason=budget, graphrag JSON) — IMPLEMENTED (Merge Phase 10.3; диагностика T-965/T-966 выполнена, BYOK-фоллбэк + fallback-парсер/ретрай в коде; ARCH §23/§24) |
+| `frontend-advanced-collapse-default` (D) | «Расширенные» свёрнуты по умолчанию (T-1018…T-1023) — → Merge Phase |
+| `frontend-memory-sleep-nostalgia` (C) | «Память» + отдельные «Сон»/«Ностальгия» (T-1006…T-1017) — → Merge Phase |
+| `frontend-llm-providers-layout` (E) | LLM Провайдеры: 4 секции (модели→ключи→фолбэк→расширенные) (T-1024…T-1032) — → Merge Phase |
+| `frontend-reorg-modules-reactions` (A) | Реакции→PERMsoc (17 групп), «Модули», лор-настройки (T-974…T-989) — → Merge Phase |
+| `frontend-limits-temperature-budgets` (B) | Бюджет-флаг per-chat, select-температура, «Имена людей» (T-990…T-1005) — → Merge Phase |
+| `frontend-relations-participants` (F) | «Участники и отношения» — отдельная вкладка (T-1033…T-1044) — → Merge Phase |
+| `backend-relations-nickname` (H) | username для ВСЕХ строк каскада имён (T-1057…T-1065) — → Merge Phase |
+| `backend-chat-1002661910336-scaling` (G) | per-chat overrides лимитов для -1002661910336 (T-1045…T-1056) — → Merge Phase |
+
+> **Раунд 10.4 (10.09.2026): 8 фич IMPLEMENTED → Merge Phase** — spec.md @Architect,
+> tasks.md @PM (T-974…T-1065, порядок D → C → E → A → B → F → H → G выполнен);
+> @Reviewer APPROVED, Scanner-аудит **0 blocker/major** (R10.4-1…R10.4-7 →
+> ARCHITECTURE.md §25; R10.4-1/-2/-3 закрыты follow-up), pytest **4860 passed**;
+> REGISTRY 383/**74**/359 без изменений (MED-017; счётчик групп исправлен в §9/§23
+> — +3 группы ре-дизайн 10.2 BUG-3); архивирование — шаг @PM после коммита/деплоя
+> (финальная фаза раунда). Конфликты: F-1 PRECEDES B/G — учтён; F-3 T-663 + F-4
+> Баг-4 — AFTER раунда; F-5 — AFTER B/G; F-6 — SUPERSEDED_BY (см. конфликт-матрицу
+> backlog.md «Раунд 10.4»).
+
+> **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
+> «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
+> (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).
 
 ## Раунд 10 — ЗАВЕРШЁН, закоммичен и ЗАДЕПЛОЕН (07.09–08.09.2026, HEAD 533bf13; статус: done+deployed)
 
@@ -319,6 +411,49 @@ Post-deploy багфиксы TMA по рекону `recon: tma-round10-postdeplo
 - **Следующие шаги (10.2):** закрыты; новые follow-up — только security-слой
   (см. «Безопасность сервера» ниже).
 
+### Раунд 10.3 — финал (09–10.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (1410a68)
+
+По ультиматуму юзера (7 пунктов ТЗ; задачи 1–4, 6 → F-13/F-14, задачи 5 и 7 →
+F-15). HEAD == origin/master == `1410a68` (был d30b203). **Статус: COMPLETED +
+DEPLOYED.** Все 3 фичи заархивированы, цикл раунда полностью закрыт (Step 10).
+
+- **Коммит (master):** `1410a68` feat(admin,web,chat,api): раунд 10.3 — единый
+  селектор чата в TMA, отдельные настройки ЛС (саммари default-off), диагностика
+  sandbox budget и graphrag memorize (тесты 4831) — автор Henry, 09.09.2026
+  12:33 UTC; push origin/master; `git diff --check` чист. **plans/MEMORY.md ВПЕРВЫЕ
+  вошёл в коммит** (в раундах 10–10.2 был untracked намеренно).
+- **Тесты:** 4831 passed / 0 failed (4760 baseline + ~71 новых). @Reviewer
+  APPROVED; Scanner 0 blocker/major (миноры R10.3-1…R10.3-6 → ARCHITECTURE.md §24);
+  `node --check web/app.js` clean.
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull до 1410a68; рестарт
+  09.09.2026 12:37 UTC; `systemctl status admin_bot` → active (running); .env без
+  изменений. Прод-диагностика задачи 5 проведена (см. ниже).
+- **Фичи (все ARCHIVED, plans/archive/ — 18 папок):**
+  - `tma-chat-selector-fixes` (F-13, T-925…T-944): единый нативный <select> +
+    бейдж #id/«ЛС #id», удалены openChatPicker/✕ closeApp, фикс v-if/v-for
+    precedence (<template v-for> + v-if на дочернем div; configError-баннер),
+    .sidebar z-index:45 + safe-area. ARCH §23.
+  - `dm-user-settings` (F-14, T-945…T-964): DM-скоуп is_dm_scope=chat_id>0 на
+    chat_profiles/chat_params (ноль DDL), is_dm_owner (rank=local_admin,
+    DM_OWNER_PRESET без chat_lore), ensure_scope_profile, саммари в ЛС default-off
+    (S1–S5), изоляция WHERE chat_id<0 (6 точек), синтез DM-строки в
+    /api/access/chats|me, TMA «Личные сообщения» в селекторе. ARCH §23.
+  - `direct-sandbox-budget-investigation` (F-15, T-965…T-973): прод-диагностика
+    T-965/T-966 ДО фикса; NoApiKeyForChat.details (снапшот resolve_path/day/
+    used|limit calls|tokens/allow_global) + WARNING с details; BYOK-фоллбэк
+    свой→глобал-бюджет→свой-фоллбэк→sandbox; parse_fact_list: _mask_llm_raw +
+    _fallback_parse_facts + 1 ретрай (только fire-and-forget memorize, крон без
+    ретрая). ARCH §23/§24.
+- **Прод-диагностика задачи 5 (ВЫВОД):** у чата -1002661910336 НЕТ собственного
+  ключа (chat_keys пуст) → работает глобальный ключ с суточным лимитом 25
+  запросов; 09.09.2026 счётчик дошёл 25/25 в 09:55 UTC, WARNING reason=budget в
+  09:57 — исчерпание суточного лимита; sandbox-фраза = штатный дизайн R16 (не
+  баг); восстановление автоматическое после сброса бакета chat_usage в 00:00
+  Екб. Рекомендации: BYOK-ключ для чата (chat_keys /api/config/keys/own) ИЛИ
+  поднять limits.chat_global_key_budget_requests (25 → 50/100) через hot config.
+  Детали — KG `recon: direct-chat-sandbox-budget` (+ фикс-слой F-15 уже в проде).
+- **README.md:** тесты 4831, раздел раунда 10.3 (ироничный тон сохранён).
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -344,8 +479,11 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 15 папок)
+## Свежие архивы (plans/archive/ — 18 папок)
 
+- `tma-chat-selector-fixes` — **Раунд 10.3, 09–10.09.2026** (F-13, T-925…T-944: единый селектор чата, удаление ✕/пикера, фикс пустых вкладок, z-index 45; §23)
+- `dm-user-settings` — **Раунд 10.3, 09–10.09.2026** (F-14, T-945…T-964: ЛС-настройки вариант A, саммари default-off; §23)
+- `direct-sandbox-budget-investigation` — **Раунд 10.3, 09–10.09.2026** (F-15, T-965…T-973: прод-диагностика sandbox budget + graphrag JSON, фиксы; §23/§24)
 - `multi-chat-rbac-byok` — **Раунд 10, 08.09.2026** (F-7, T-843…T-869: RBAC-роли + chat_params-слой + BYOK + бюджеты; §22)
 - `tma-ui-fixes` — **Раунд 10, 08.09.2026** (F-8, T-870…T-877: 8 UI/UX-фиксов TMA; §22)
 - `permsoc-module-isolation` — **Раунд 10, 08.09.2026** (F-9, T-878…T-889: плагин PERMsoc + девиансия M-F-9 (а); §22)
@@ -391,13 +529,29 @@ recon: tma-bugs-7-post-10.1; FIXES 7 bug: tma-*) — раунд 10.2 ЗАКОМ�
 ЗАДЕПЛОЕН (d30b203, 28 файлов, тесты 4760, PID 454654),
 HEAD == origin/master == d30b203; **новый милстоун `server-hardening-102`**
 (AdminBot → DEPLOYED) — fail2ban/ufw/SSH-харденинг 09.09.2026 (см. раздел
-«Безопасность сервера» выше); **Раунд 10.3 (IMPLEMENTED — Merge Phase 10.09.2026)**: 3 фичи
-F-13 tma-chat-selector-fixes + F-14 dm-user-settings + F-15
-direct-sandbox-budget-investigation (T-925…T-973; милстоун `round10.3-epic`,
-AdminBot → IMPLEMENTED (PENDING_COMMIT), PART_OF-связи всех 3 фич, AdminBot HAS_PLAN → каждая;
-ARCHITECTURE.md §23/§24; финальный синк графа/архив — шаг 10 @Memory;
-plans/features/ — **9 активных**: F-1…F-6 + F-13 + F-14 + F-15; все spec.md/tasks.md
-на диске с 09.09.2026).
+«Безопасность сервера» выше); **милстоун `round10.3-epic` (AdminBot → COMPLETED +
+DEPLOYED, конвенция round10.2-fixes)** — раунд 10.3 ЗАВЕРШЁН, ЗАКОММИЧЕН и
+ЗАДЕПЛОЕН (коммит 1410a68, 09.09.2026 12:33 UTC; рестарт 12:37 UTC, active;
+тесты 4831; прод-диагностика задачи 5 — recon: direct-chat-sandbox-budget);
+3 фичи F-13 tma-chat-selector-fixes + F-14 dm-user-settings + F-15
+direct-sandbox-budget-investigation (T-925…T-973) → **ARCHIVED_IN plans-structure
++ WAS_PART_OF round10.3-epic** (HAS_PLAN/PLANNED_IN/PART_OF/ARCHITECTED удалены,
+конвенция F-7…F-12); ARCHITECTURE.md §23/§24;
+**милстоун `round10.4-epic` (AdminBot → ARCHITECTED, 10.09.2026)** — раунд 10.4
+«Реструктуризация TMA-миниаппа + точечные фиксы» (9 пунктов ТЗ): 8 фич
+feature-frontend-advanced-collapse-default (D), feature-frontend-memory-sleep-nostalgia
+(C), feature-frontend-llm-providers-layout (E), feature-frontend-reorg-modules-reactions
+(A), feature-frontend-limits-temperature-budgets (B), feature-frontend-relations-participants
+(F), feature-backend-relations-nickname (H), feature-backend-chat-1002661910336-scaling
+(G) — все ARCHITECTED (AdminBot HAS_PLAN, HAS_SPEC/HAS_TASKS, цепочка DEPENDS_ON
+D←C←E←A←B←F←H←G; PLANNED_IN/ARCHITECTED_IN plans-structure); архитектурная фаза
+зафиксирована @Architect (KG: round10.4-specs + round10.4-dependencies; Step 0 —
+recon: tma-structure-10.4); конфликт-матрица: F-1 PRECEDES B/G, F-3/F-4 AFTER
+round10.4-epic, F-5 AFTER B/G, F-6 (plans/features/user-aliases-admin)
+SUPERSEDED_BY round10.4-epic; REGISTRY 383/71/359 заморожен (MED-017);
+plans/features/ — **14 активных** (F-1…F-6 + 8 фич раунда 10.4); plans/archive/ —
+**18 папок**; все spec.md/tasks.md раунда 10.4 на диске (архивация — по финалу
+раунда); MEMORY.md вошёл в коммит 1410a68.
 
 ## Факты для планирования (проект)
 
@@ -410,3 +564,4 @@ plans/features/ — **9 активных**: F-1…F-6 + F-13 + F-14 + F-15; вс
 - Раунд 10, F-12 (Q2, РЕАЛИЗОВАНО): приоритет гейтов — явный chat-гейт → `hot.get('flags.<feature>_enabled')` → False; kill-switch = явный `gates[feature]=false`.
 - **Follow-up раунда 10 (вне цикла):** unit-тест-гап `backfill_permsoc_gates.py` (прямых тестов бэкфила нет); live-проверка имени CHECK-ограничения `chat_lore_history` на проде (field='gates'/'chat_keys'); предложение расширения `deploy_v2.9.2.py` (DDL + бэкфилы + live-гистограммы при деплое).
 - **Follow-up безопасности сервера (ожидают решения владельца):** миграция на SSH-ключи (key migration proposal — password auth пока оставлена по требованию); добавить IP владельца в fail2ban `ignoreip`, если он статический; CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) на другой диск/раздел.
+- **Раунд 10.4 (ARCHITECTED, 10.09.2026):** порядок фич D→C→E→A→B→F→H→G; REGISTRY 383/71/359 заморожен (MED-017, только переносы/разметка/поля select-виджета); новые ключи/группы ЗАПРЕЩЕНЫ; SQLite v8, роутеры bot.py, каноны промптов, known_sections() — без дифов; девиансия D-A1 (фича A: war/common/goodmorning/word_reactions → «Функции PERMsoc», канон спеки §2); общий тест `test_progressive_tab_basic_coverage` (≥1 basic на config-вкладку, пишется в D); MED-022-маркеры (test_frontend_tab_mapping + test_webapp_nav_disclosure_ui) — обновляются в каждой фронт-фиче; F-1 (T-648 атомарный POST) — обязателен ДО B/G.

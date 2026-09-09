@@ -58,18 +58,21 @@ class TestDmFrontend:
             in html
 
     def test_reset_override_visible_for_dm(self):
-        """«↪ глобальное» — (isGlobalAdmin || isDmCtx()) в ОБОИХ местах
-        (basic-карточка и advanced-карточка) + гейт в методе."""
+        """«↪ глобальное» — (isGlobalAdmin || isDmCtx()) во всех местах
+        (basic/advanced generic-рендер + config-блок лора, 10.4 A-8) +
+        гейт в методе."""
         html = _html()
-        assert html.count("itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())") == 2
+        assert html.count("itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())") >= 4
         js = _js()
         body = js[js.index("resetChatOverride: async function"):]
         assert "this.isGlobalAdmin || this.isDmCtx()" in body
 
     def test_empty_states_mention_dm(self):
-        """Empty-states PERMsoc-карточек: «…или Личные сообщения…» (2 шт.)."""
+        """Empty-state PERMsoc-мастер-карты: «…или Личные сообщения…»
+        (A-6: сводка-карточка в «Модулях» удалена — остаётся мастер-карта
+        вкладки permsoc, 1 шт.)."""
         html = re.sub(r"\s+", " ", _html())
-        assert html.count("или Личные сообщения в селекторе в шапке") == 2
+        assert html.count("или Личные сообщения в селекторе в шапке") == 1
 
     def test_chat_source_badge_text_kept(self):
         """badge item.chat_source === 'chat' — текст «чат» (без дифов)."""

@@ -203,10 +203,17 @@ class TestGroups8424:
 
     def test_group_ids_all_valid_and_prefixed(self):
         ids = {g.id for g in GROUPS}
+        # Раунд 10.4 (B-1): flags.chat_context_budgets_enabled — рендер-группа
+        # limits_chat_budgets (блок «Прямой чат: бюджеты токенов»; категория
+        # и per_chat-семантика ключа НЕ меняются) — единственное исключение.
+        NON_PREFIXED = {"flags.chat_context_budgets_enabled": "limits_chat_budgets"}
         for s in REGISTRY.values():
             if s.category is not None:
                 assert s.group in ids, f"нет группы {s.group} для {s.pg_key}"
-                assert s.group.startswith(s.category + "_"), s.group
+                if s.pg_key in NON_PREFIXED:
+                    assert s.group == NON_PREFIXED[s.pg_key], s.pg_key
+                else:
+                    assert s.group.startswith(s.category + "_"), s.group
 
     def test_group_ids_unique(self):
         ids = [g.id for g in GROUPS]

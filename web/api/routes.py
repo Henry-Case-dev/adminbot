@@ -304,6 +304,13 @@ async def get_config(
                       # Эпик 04.09.2026 (3.1/FR-28): виджет рендера (""
                       # дефолт | "keyvalue" — KV-редактор пар)
                       "widget": spec.widget if spec else "",
+                      # Раунд 10.4 (B-7/8): опции/подписи select-виджета
+                      # (None для не-select — фронт рендерит пустой список
+                      # только при widget=="select")
+                      "select_options": list(spec.select_options)
+                      if (spec and spec.widget == "select") else None,
+                      "select_labels": list(spec.select_labels)
+                      if (spec and spec.widget == "select") else None,
                       # Раунд 10 (F-7 §4.4/F-11 §4.1): per-chat-граница и
                       # уровень прогрессивного раскрытия (без значений)
                       "per_chat": bool(spec.per_chat) if spec else False,
@@ -403,6 +410,11 @@ async def post_config(
         except ValueError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
+        # Раунд 10.4 (B-9): select-виджет — значение из набора опций
+        if spec.widget == "select" and spec.select_options                 and value not in spec.select_options:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: недопустимая опция: {value!r}")
         if spec.type == "str" and spec.category in (CATEGORY_PROMPTS,
                                                     CATEGORY_CONTENT):
             if not isinstance(value, str) or not value.strip():
@@ -656,6 +668,11 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         except ValueError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
+        # Раунд 10.4 (B-9): select-виджет — значение из набора опций
+        if spec.widget == "select" and spec.select_options                 and value not in spec.select_options:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{item.key}: недопустимая опция: {value!r}")
         if spec.type == "str" and spec.category in (CATEGORY_PROMPTS,
                                                     CATEGORY_CONTENT):
             if not isinstance(value, str) or not value.strip():

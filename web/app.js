@@ -18,9 +18,33 @@
   var TABS = [
     { id: 'llm_providers', icon: '🤖', label: 'LLM Провайдеры', type: 'config',
       menu: 'ai',
+      // Раунд 10.4 (E-1/E-2): 4 секции — порядок ПРАВИЛ = порядок витрины
+      // (основные модели → ключи → фолбэк → расширенные); sources —
+      // конкатенация секций (для itemMatchesSource/flat-rank), sections —
+      // заголовки витрины. Синхронно с TAB_RULES: перенос группы —
+      // в ОБОИХ полях.
       sources: [
-        { category: 'models', groups: null },
-        { category: 'keys', groups: null },
+        { category: 'models', groups: ['models_main'] },
+        { category: 'keys', groups: ['keys_llm', 'keys_groq', 'keys_openrouter'] },
+        { category: 'models', groups: ['models_fallback'] },
+        { category: 'models', groups: [
+            'models_embeddings', 'models_llm_timeouts', 'models_llm_guard',
+            'models_extra_providers', 'models_video_summary', 'models_checkup'] },
+        { category: 'keys', groups: [
+            'keys_search', 'keys_betterstack', 'keys_youtube', 'keys_media'] },
+      ],
+      sections: [
+        { title: 'Основные модели', category: 'models',
+          groups: ['models_main'] },
+        { title: 'Ключи', category: 'keys',
+          groups: ['keys_llm', 'keys_groq', 'keys_openrouter'] },
+        { title: 'Фолбэк', category: 'models', groups: ['models_fallback'] },
+        // Одна секция «Расширенные» на обе части (модели+ключи) — заголовок
+        // выводится ОДИН раз (Risk E-3).
+        { title: 'Расширенные', category: null, groups: [
+            'models_embeddings', 'models_llm_timeouts', 'models_llm_guard',
+            'models_extra_providers', 'models_video_summary', 'models_checkup',
+            'keys_search', 'keys_betterstack', 'keys_youtube', 'keys_media'] },
       ] },
     { id: 'prompts', icon: '🧠', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
@@ -28,40 +52,89 @@
       ] },
     { id: 'limits', icon: '🚦', label: 'Лимиты', type: 'config', menu: 'ai',
       sources: [
-        { category: 'limits', except: ['limits_memory', 'limits_graph', 'limits_persons'] },
-        { category: 'flags', except: ['flags_memory', 'flags_media', 'flags_permsoc'] },
+        { category: 'limits', except: ['limits_memory', 'limits_graph',
+            'limits_persons', 'limits_mimic', 'limits_deadpage',
+            'limits_media', 'limits_lore'] },
+        { category: 'flags', except: ['flags_memory', 'flags_media',
+            'flags_permsoc', 'flags_modules', 'flags_service', 'flags_lore'] },
       ] },
-    { id: 'memory_rag', icon: '🗄️', label: 'Память и RAG', type: 'config',
+    { id: 'memory_rag', icon: '🗄️', label: 'Память', type: 'config',
       menu: 'ai',
       sources: [
         { category: 'limits', groups: ['limits_memory', 'limits_graph'] },
         { category: 'flags', groups: ['flags_memory'] },
-        { category: 'memory', groups: null },
+        { category: 'memory', groups: ['memory_infinite'] },
+      ] },
+    // Раунд 10.4 (C-2): «Сон» и «Ностальгия» — отдельные config-вкладки
+    // (вынесены из «Памяти»; id существующей вкладки не менялся).
+    { id: 'memory_dream', icon: '🌙', label: 'Сон', type: 'config', menu: 'ai',
+      sources: [
+        { category: 'memory', groups: ['memory_dream'] },
+      ] },
+    { id: 'memory_nostalgia', icon: '📼', label: 'Ностальгия', type: 'config',
+      menu: 'ai',
+      sources: [
+        { category: 'memory', groups: ['memory_nostalgia'] },
+      ] },
+    // Раунд 10.4 (B-11): «Имена людей» — KV-редактор алиасов + per-chat/ЛС.
+    { id: 'people_names', icon: '🏷', label: 'Имена людей', type: 'config',
+      menu: 'chat_profile',
+      sources: [
+        { category: 'limits', groups: ['limits_user_aliases'] },
+      ] },
+    // Раунд 10.4 (F-1): «Участники и отношения» — кастом-вкладка (свой
+    // шаблон, как chat_lore): блок участников активного чата + конфиг-часть
+    // (limits_relations/flags_relations через generic-блок; A-канон).
+    { id: 'relations', icon: '👥', label: 'Участники и отношения',
+      type: 'relations', menu: 'chat_profile',
+      sources: [
+        { category: 'limits', groups: ['limits_relations'] },
+        { category: 'flags', groups: ['flags_relations'] },
       ] },
     { id: 'reactions_triggers', icon: '🎭', label: 'Реакции и Триггеры', type: 'config',
       menu: 'modules',
       sources: [
-        { category: 'reactions', except: ['reactions_persons', 'reactions_permsoc'] },
-        { category: 'flags', groups: ['flags_media'] },
+        { category: 'reactions', groups: [
+            'reactions_admin', 'reactions_summary', 'reactions_chat',
+            'reactions_memory'] },
       ] },
-    { id: 'modules_feats', icon: '🧩', label: 'Модули и Фичи', type: 'modules',
+    // Раунд 10.4 (A-7): «Модули (вкл/выкл)» — рубильники модулей/сервиса.
+    { id: 'modules_switches', icon: '⚙️', label: 'Модули (вкл/выкл)', type: 'config',
+      menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_modules', 'flags_service'] },
+      ] },
+    { id: 'modules_feats', icon: '🧩', label: 'Модули', type: 'modules',
       menu: 'modules' },
     // Ре-дизайн 10.2, BUG-3 (spec §10 A): штатная вкладка «Функции PERMsoc»
     // (после modules_feats; первым табом секции остаётся reactions_triggers).
+    // Раунд 10.4 (D-A1): 11 реакционных групп + рубильники + лимиты персон.
     { id: 'permsoc', icon: '🎭', label: 'Функции PERMsoc', type: 'config',
       menu: 'modules',
       sources: [
-        { category: 'reactions', groups: ['reactions_persons', 'reactions_permsoc'] },
-        { category: 'flags', groups: ['flags_permsoc'] },
-        { category: 'limits', groups: ['limits_persons'] },
+        { category: 'reactions', groups: [
+            'reactions_persons', 'reactions_permsoc', 'reactions_deadpage',
+            'reactions_mimic', 'reactions_slavik', 'reactions_alan',
+            'reactions_olya', 'reactions_war', 'reactions_common',
+            'reactions_goodmorning', 'reactions_word_reactions'] },
+        { category: 'flags', groups: ['flags_permsoc', 'flags_media'] },
+        { category: 'limits', groups: [
+            'limits_persons', 'limits_mimic', 'limits_deadpage',
+            'limits_media'] },
       ] },
     { id: 'access', icon: '👥', label: 'Доступы', type: 'access',
       categories: ['access'], menu: 'access' },
     // Раунд 7 (chat-lore-management-v2, spec §3.10/E2): «Лор чатов» — НЕ
     // config-вкладка: свой рендер (index.html) и своя ветка видимости
     // canViewTab (Q6: секция chat_lore / wildcard / непустой probe-список).
+    // Раунд 10.4 (A-8, Risk A-2): sources — ТОЛЬКО для рендера config-части
+    // (группы limits_lore/flags_lore) через groupedForTab; тип — 'chat_lore'.
     { id: 'chat_lore', icon: '📜', label: 'Лор чатов', type: 'chat_lore',
-      menu: 'chat_profile' },
+      menu: 'chat_profile',
+      sources: [
+        { category: 'limits', groups: ['limits_lore'] },
+        { category: 'flags', groups: ['flags_lore'] },
+      ] },
     { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true,
       menu: 'home' },
     { id: 'info', icon: 'ℹ️', label: 'Как это работает', type: 'info',
@@ -77,7 +150,7 @@
   var MENU_LABELS = {
     home: 'Главная',
     chat_profile: 'Чат-Профиль',
-    modules: 'Модули и Фичи',
+    modules: 'Модули',
     ai: 'Настройки AI',
     access: 'Доступы и Роли',
   };
@@ -156,7 +229,7 @@
         chatLocalAdminsBusy: false,
         newLocalAdminId: '',
         newLocalAdminRole: 'local_admin',
-        // Раунд 10 (F-10 E1/F-9 D1): «Модули и Фичи» — gates + бюджет фона
+        // Раунд 10 (F-10 E1/F-9 D1): «Модули» — gates + бюджет фона
         modulesBusy: false,
         gateInfo: null,          // GET /api/chat/{id}/gates
         gatesBusy: false,
@@ -226,7 +299,7 @@
         relationsBusy: false,          // загрузка/сохранение отношений
         relationDraft: null,           // {user_id, stage_manual, note} в работе
         // Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): «Синтез (сон)» и
-        // «Ностальгия» — мини-блоки вкладки «Память и RAG» (глобальный admin).
+        // «Ностальгия» — мини-блоки вкладок «Сон»/«Ностальгия».
         dreamBusy: false,              // POST /api/memory/dream/run в процессе
         memoryRagBusy: false,          // прочие операции блоков памяти
         dreamBeliefs: [],              // последние beliefs (GET)
@@ -672,6 +745,18 @@
           localStorage.setItem('adminbot.active_chat_id', String(id));
         }
         this.syncActiveChatTitle();
+        // Ревью-фикс (R10.4-2, класс кросс-чата): смена активного чата
+        // сбрасывает список участников (иначе на вкладке relations виден
+        // старый список чата A, а запись уходит в чат B); при открытой
+        // вкладке relations — сразу перезагрузка для нового чата.
+        this.chatRelations = [];
+        if (this.activeTab === 'relations' && this.canViewTab('relations')
+            && this.activeChatId != null && !this.isDmCtx()
+            && !this.relationsBusy) {
+          this.loadRelations(this.activeChatId);
+        } else {
+          this.relationsEnabled = false;
+        }
         // перерисовка конфиг-вкладок/профиля (activeChatChanged-событие)
         this.configError = '';   // F-13 (AC-3): свежий скоуп — баннер скрыт
         this.configItems = [];
@@ -680,7 +765,7 @@
         if (this.accessMy && !this.accessMy.is_global_admin) {
           this.loadLocalAdmins();
         }
-        // Hotfix-R10 («Модули и Фичи»/PERMsoc): гейты/пермсок — per chat;
+        // Hotfix-R10 («Модули»/PERMsoc): гейты/пермсок — per chat;
         // при смене «Весь бот» ↔ чат на этих вкладках перечитываем
         // (иначе стейл-флаги).
         if ((this.activeTab === 'modules_feats' || this.activeTab === 'permsoc')
@@ -696,6 +781,18 @@
       },
       isChatContext: function () {
         return this.activeChatId != null;
+      },
+      // Раунд 10.4 (A-8, Risk A-2): запись TABS «Лор чатов» для рендера
+      // config-части вкладки (groupedForTab по sources limits_lore/flags_lore).
+      chatLoreTab: function () {
+        var t = this.tabs.find(function (x) { return x.id === 'chat_lore'; });
+        return t || null;
+      },
+      // Раунд 10.4 (F-1): запись TABS «Участники и отношения» для рендера
+      // config-части (groupedForTab по sources limits_relations/flags_relations).
+      relationsTab: function () {
+        var t = this.tabs.find(function (x) { return x.id === 'relations'; });
+        return t || null;
       },
       // F-14 (§6.2): активный скоуп — СВОИ ЛС (запись «Личные сообщения»
       // в селекторе; is_dm приходит с сервера в /api/access/chats).
@@ -875,7 +972,7 @@
         }
       },
 
-      // ═══ Раунд 10 (F-10 E1/F-9 D1): «Модули и Фичи» ═══
+      // ═══ Раунд 10 (F-10 E1/F-9 D1): «Модули» ═══
       // Gates чата (тяжёлые 3 + permsoc master) + Opt-In + бюджет фона.
       loadGateInfo: async function () {
         if (this.activeChatId == null) {
@@ -947,7 +1044,7 @@
         return who[feature] || 'global';
       },
       // BUG-3 (spec §10 A/C): мастер-флаг PERMsoc (перчат-гейт) для
-      // карточек «Модули и Фичи» + вкладки «Функции PERMsoc».
+      // карточек «Модули» + вкладки «Функции PERMsoc».
       permsocMasterOn: function () {
         var g = this.gateInfo && this.gateInfo.gates;
         return !!(g && g.permsoc);
@@ -987,7 +1084,7 @@
           this.oversightBusy = false;
         }
       },
-      // Hotfix-R10 («Модули и Фичи» без выбранного чата): Opt-In-сводка из
+      // Hotfix-R10 («Модули» без выбранного чата): Opt-In-сводка из
       // Oversight-данных (кэш 60 сек; пусто — незаметно не выводится).
       optInCount: function () {
         var rows = (this.oversightData && this.oversightData.chats) || [];
@@ -1119,8 +1216,16 @@
 
       setTab: function (id) {
         var self = this;
+        var prevTab = this.activeTab;
         this.activeTab = id;
         this.sidebarOpen = false;
+        // Ревью-фикс раунда (кросс-чатовая запись отношений): уход с
+        // «Лора чатов» сбрасывает лор-профиль и список участников —
+        // вкладка relations работает ТОЛЬКО от активного чата.
+        if (prevTab === 'chat_lore' && id !== 'chat_lore') {
+          this.chatLoreProfile = null;
+          this.chatRelations = [];
+        }
         // F-11: синхрон активной меню-секции
         var target = this.tabs.find(function (t) { return t.id === id; });
         if (target && target.menu) this.activeMenu = target.menu;
@@ -1162,13 +1267,24 @@
             && !this.chatLoreChats.length && !this.chatLoreLoading) {
           this.loadChats();
         }
-        // Раунд 9 (T-831/F4): «Память и RAG» — мини-блоки «Синтез (сон)»/
-        // «Ностальгия» под generic-списком (глобальный admin; GET-логи —
-        // консервативно только admin, spec §3.6.2).
-        if (id === 'memory_rag' && this.isGlobalAdmin
-            && !this.dreamBeliefs.length && !this.nostalgiaLog.length
-            && !this.memoryRagBusy) {
+        // Ревью-фикс раунда: «Участники и отношения» — автозагрузка
+        // участников активного чата при переходе (кнопка ⟳ остаётся;
+        // листать вручную не нужно). В ЛС — заглушка (сервер 404).
+        if (id === 'relations' && this.canViewTab('relations')
+            && this.activeChatId != null && !this.isDmCtx()
+            && !this.relationsBusy) {
+          this.loadRelations(this.activeChatId);
+        }
+        // Раунд 9 (T-831/F4) + раунд 10.4 (C-4): мини-блоки «Синтез (сон)»
+        // → вкладка memory_dream, «Ностальгия» → memory_nostalgia
+        // (глобальный admin; GET-логи — консервативно только admin).
+        if (id === 'memory_dream' && this.isGlobalAdmin
+            && !this.dreamBeliefs.length && !this.memoryRagBusy) {
           this.loadDreamBeliefs();
+          this.loadDreamLog();
+        }
+        if (id === 'memory_nostalgia' && this.isGlobalAdmin
+            && !this.nostalgiaLog.length && !this.memoryRagBusy) {
           this.loadNostalgiaLog();
         }
         // 3.5.1: конфиг-вкладки (generic-рендер) — данные общие для всех;
@@ -1242,6 +1358,14 @@
         // 3.10 (Q6): «Лор чатов» — секция chat_lore ИЛИ непустой
         // probe-список (per-chat админы без секции; пустой НЕ показываем).
         if (tab.type === 'chat_lore') {
+          return this.hasPerm('section.chat_lore') || this.chatLoreChats.length > 0;
+        }
+        // Раунд 10.4 (F-2/F-3): «Участники и отношения» — видимость как у
+        // chat_lore (секция chat_lore / probe; НОВЫХ RBAC-секций нет);
+        // в DM-скоупе — видна (конфиг-часть правится, участники — заглушка
+        // по 404 сервера, F-4).
+        if (tab.type === 'relations') {
+          if (this.isDmCtx()) return true;
           return this.hasPerm('section.chat_lore') || this.chatLoreChats.length > 0;
         }
         // Раунд 10 (F-11 Q1 / F-12): Oversight — только global admin;
@@ -1426,9 +1550,30 @@
           return self.tabSourceForItem(tab, it) ? n + 1 : n;
         }, 0);
       },
+      // Раунд 10.4 (E-2): ранг группы в витрине = индекс ПЕРВОГО правила
+      // (category, groups), которому группа принадлежит; для except-правил —
+      // первое правило категории (fallback). Для вкладок без повторения
+      // категорий результат равен старой категориальной сортировке.
+      flatGroupRank: function (tab, category, groupId) {
+        if (!tab || !tab.sources) return 99;
+        var catFirst = {};
+        var ruleOf = {};
+        tab.sources.forEach(function (s, i) {
+          if (!(s.category in catFirst)) catFirst[s.category] = i;
+          if (s.groups) {
+            s.groups.forEach(function (g) {
+              var k = s.category + '/' + g;
+              if (!(k in ruleOf)) ruleOf[k] = i;
+            });
+          }
+        });
+        var k = category + '/' + groupId;
+        if (k in ruleOf) return ruleOf[k];
+        return catFirst[category] != null ? catFirst[category] : 99;
+      },
       // Группы-«витрины» активной конфиг-вкладки: [{id, meta, category,
-      // items[]}]. Категории вкладки идут по порядку sources (модели →
-      // ключи, лимиты → флаги, реакции → флаги), внутри — group.order;
+      // items[]}]. Порядок — по flatGroupRank (порядок правил; для
+      // секционированных вкладок — секции), внутри — group.order;
       // параметры без group → «Прочее» в конце. Поиск-фильтр как раньше.
       groupedForTab: function (tab) {
         var self = this;
@@ -1442,12 +1587,7 @@
             || (it.key || '').toLowerCase().indexOf(q) >= 0;
         });
         var byId = {};
-        var rank = {};
-        tab.sources.forEach(function (s, i) { rank[s.category] = i; });
-        this.configGroups.forEach(function (g) {
-          byId[g.id] = g;
-          if (!(g.category in rank)) rank[g.category] = 99;
-        });
+        this.configGroups.forEach(function (g) { byId[g.id] = g; });
         var grouped = items.reduce(function (acc, it) {
           var gid = it.group || '';
           var uid = it.category + '/' + gid;
@@ -1468,8 +1608,8 @@
           if (a.id === '' && b.id === '') return 0;
           if (a.id === '') return 1;               // «Прочее» — в конец
           if (b.id === '') return -1;
-          var ra = rank[a.category] != null ? rank[a.category] : 99;
-          var rb = rank[b.category] != null ? rank[b.category] : 99;
+          var ra = self.flatGroupRank(tab, a.category, a.id);
+          var rb = self.flatGroupRank(tab, b.category, b.id);
           if (ra !== rb) return ra - rb;
           var oa = a.meta ? a.meta.order : 999;
           var ob = b.meta ? b.meta.order : 999;
@@ -1482,6 +1622,29 @@
         return result.filter(function (g) {
           return self.basicItems(g).length > 0 || self.advancedItems(g).length > 0;
         });
+      },
+
+      // Раунд 10.4 (E-3): заголовок секции витрины — для ПЕРВОЙ группы
+      // секции (шапка выводится один раз; группы секции подряд).
+      sectionTitle: function (grp) {
+        var tab = this.currentTab;
+        if (!tab || !tab.sections || !grp) return null;
+        var s = null;
+        for (var i = 0; i < tab.sections.length; i++) {
+          var sec = tab.sections[i];
+          if ((sec.category === null || sec.category === grp.category)
+              && sec.groups.indexOf(grp.id) >= 0) { s = sec; break; }
+        }
+        if (!s) return null;
+        var groups = this.currentTabGroups || [];
+        for (var j = 0; j < groups.length; j++) {
+          var g = groups[j];
+          if ((s.category === null || s.category === g.category)
+              && s.groups.indexOf(g.id) >= 0) {
+            return g === grp ? s.title : null;
+          }
+        }
+        return null;
       },
 
       groupTitle: function (grp) {
@@ -2416,8 +2579,17 @@
       // PUT /chat_lore/{id}/relations {user_id, stage_manual, note} —
       // ручная стадия админа (manual ?? auto в инжекте); 409 optimistic.
       saveRelationManual: async function (row) {
+        // Раунд 10.4 (F-5): chat_id — лор-профиль ИЛИ активный чат
+        // (вкладка «Участники и отношения»); методы общие.
         var p = this.chatLoreProfile;
-        if (!p || !row || this.relationsBusy) return;
+        // Ревью-фикс раунда: НА вкладке relations всегда АКТИВНЫЙ чат;
+        // chatLoreProfile.chat_id — только на «Лоре чатов» (иначе кросс-чат:
+        // профиль чата A остаётся после ухода с лора → правки чату B
+        // уходили чату A).
+        var onLoreTab = this.activeTab === 'chat_lore';
+        var relChat = (onLoreTab && p && p.chat_id != null)
+          ? p.chat_id : this.activeChatId;
+        if (relChat == null || !row || this.relationsBusy) return;
         this.relationsBusy = true;
         this.relationDraft = {
           user_id: row.user_id,
@@ -2426,17 +2598,17 @@
         };
         try {
           var saved = await this.api(
-            '/api/chat_lore/' + p.chat_id + '/relations', {
+            '/api/chat_lore/' + relChat + '/relations', {
               method: 'PUT',
               body: JSON.stringify({
                 user_id: row.user_id,
                 stage_manual: this.relationDraft.stage_manual,
                 note: this.relationDraft.note || null,
-                updated_at: p.updated_at,       // optimistic-метка в теле
+                updated_at: (p && p.updated_at) || null,  // optimistic-метка
               }),
             });
-          this.applyLoreProfile(saved, true);   // свежие relations/метка
-          await this.loadRelations(p.chat_id);
+          if (p) this.applyLoreProfile(saved, true);   // свежие relations/метка
+          await this.loadRelations(relChat);
           this.toast('Пометка участника сохранена', 'ok');
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
@@ -2457,20 +2629,28 @@
       // DELETE /chat_lore/{id}/relations {user_id, updated_at} — сброс на
       // авто (стирает и стадию, и заметку; spec §3.6.3 «сброс»).
       removeRelationManual: async function (row) {
+        // Раунд 10.4 (F-5): chat_id — лор-профиль ИЛИ активный чат.
         var p = this.chatLoreProfile;
-        if (!p || !row || this.relationsBusy) return;
+        // Ревью-фикс раунда: НА вкладке relations всегда АКТИВНЫЙ чат;
+        // chatLoreProfile.chat_id — только на «Лоре чатов» (иначе кросс-чат:
+        // профиль чата A остаётся после ухода с лора → правки чату B
+        // уходили чату A).
+        var onLoreTab = this.activeTab === 'chat_lore';
+        var relChat = (onLoreTab && p && p.chat_id != null)
+          ? p.chat_id : this.activeChatId;
+        if (relChat == null || !row || this.relationsBusy) return;
         this.relationsBusy = true;
         try {
           var saved = await this.api(
-            '/api/chat_lore/' + p.chat_id + '/relations', {
+            '/api/chat_lore/' + relChat + '/relations', {
               method: 'DELETE',
               body: JSON.stringify({
                 user_id: row.user_id,
-                updated_at: p.updated_at,
+                updated_at: (p && p.updated_at) || null,
               }),
             });
-          this.applyLoreProfile(saved, true);
-          await this.loadRelations(p.chat_id);
+          if (p) this.applyLoreProfile(saved, true);
+          await this.loadRelations(relChat);
           this.toast('Участник возвращён на авто-стадию', 'ok');
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
@@ -2489,20 +2669,28 @@
         this.toggleRelationsEnabled(!!ev.target.checked);
       },
       toggleRelationsEnabled: async function (want) {
+        // Раунд 10.4 (F-5): chat_id — лор-профиль ИЛИ активный чат.
         var p = this.chatLoreProfile;
-        if (!p || this.relationsBusy) return;
+        // Ревью-фикс раунда: НА вкладке relations всегда АКТИВНЫЙ чат;
+        // chatLoreProfile.chat_id — только на «Лоре чатов» (иначе кросс-чат:
+        // профиль чата A остаётся после ухода с лора → правки чату B
+        // уходили чату A).
+        var onLoreTab = this.activeTab === 'chat_lore';
+        var relChat = (onLoreTab && p && p.chat_id != null)
+          ? p.chat_id : this.activeChatId;
+        if (relChat == null || this.relationsBusy) return;
         var previous = this.relationsEnabled;
         this.relationsBusy = true;
         try {
           var saved = await this.api(
-            '/api/chat_lore/' + p.chat_id + '/relations_enabled', {
+            '/api/chat_lore/' + relChat + '/relations_enabled', {
               method: 'PUT',
               body: JSON.stringify({
                 enabled: !!want,
-                updated_at: p.updated_at,
+                updated_at: (p && p.updated_at) || null,
               }),
             });
-          this.applyLoreProfile(saved, true);
+          if (p) this.applyLoreProfile(saved, true);
           this.relationsEnabled = !!saved.relations_enabled;
           this.toast(this.relationsEnabled
             ? 'Тон по стадиям включён для чата'

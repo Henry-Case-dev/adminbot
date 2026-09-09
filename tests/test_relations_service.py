@@ -349,8 +349,8 @@ class TestRelationsCatalog:
         group = pc.get_group("limits_relations")
         assert group is not None and group.category == "limits"
         assert pc.get_group("flags_relations") is not None
-        assert pc.group_tab("limits_relations") == pc.TAB_LIMITS
-        assert pc.group_tab("flags_relations") == pc.TAB_LIMITS
+        assert pc.group_tab("limits_relations") == pc.TAB_RELATIONS
+        assert pc.group_tab("flags_relations") == pc.TAB_RELATIONS
 
 
 class TestNamesAsIsNoId:

@@ -3,6 +3,35 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.4 scan (2026-09-10) — all scanned
+- [x] plans/features/* (8 спек: A reorg, B limits-temp-budgets, C memory-sleep-nostalgia,
+      D advanced-collapse, E llm-providers-layout, F relations-participants,
+      G chat-1002661910336-scaling, H relations-nickname)
+- [x] services/param_catalog.py (TAB_RULES/CONFIG_TAB_TITLES/_TAB_BY_GROUP,
+      select_options/labels, _MEMORY progressive_level, _ADVANCED_GROUPS)
+- [x] services/chat_params.py (_resolve_from_root G-2: _cast_type_ok + isfinite)
+- [x] services/direct_chat_service.py (_cp_g-точки, _budget_gate B-2,
+      _apply_context_budget(enabled, tokens), _thread_limit, window[-max(1,..)],
+      _active_participants, level2 cap, thread depth)
+- [x] services/summary_aliases.py (+build_alias_resolver)
+- [x] services/summary_generator.py (_chat_limit: rag_l2/max_context_tokens/chars)
+- [x] services/summary_memory.py (window/rag/retention/compress/edge_weight per-chat)
+- [x] services/user_relations.py (_display_name B-13-limitation, документирование)
+- [x] web/api/routes.py (GET select_options/labels; POST валидация — обе ветки)
+- [x] web/api/chat_lore.py (list_relations: Semaphore(5) username-всем, photo-топ-50,
+      per-chat alias_resolver B-13)
+- [x] web/app.js (TABS-зеркало, flatGroupRank, sectionTitle, chatLoreTab/relationsTab,
+      setTab-сброс, relChat-гвард, relations-автозагрузка, карточки модулей)
+- [x] web/index.html (select-виджет basic+advanced, `:open="expandOpen"`, relations-
+      шаблон (участники+конфиг-блок+аккордеон), lore-конфиг-блок, удаление блока
+      участников из лора, карточки модулей)
+- [x] scripts/backfill_104_chat_flags.py (идемпотентность/безопасность)
+- [x] scripts/backfill_104_overrides.py (множители, caps, skip-логика None-дефолтов)
+- [x] tests/test_104_backend_additions.py, test_progressive_tab_basic_coverage.py,
+      test_frontend_tab_mapping.py + обновлённые маркер-тесты (4860 passed)
+- [x] plans/reports/round10.4_review_fixes.md (соответствие реальности: 3 пункта —
+      R10.4-3/4/7 расхождения зафиксированы)
+
 ## Round 10.3 scan (2026-09-10) — all scanned
 - [x] plans/features/tma-chat-selector-fixes/ (spec)
 - [x] plans/features/dm-user-settings/ (spec)

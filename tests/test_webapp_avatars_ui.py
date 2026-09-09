@@ -126,14 +126,17 @@ class TestAvatarBackendAudit:
         assert '"title": info["title"]' in src
         assert '"photo_file_id": info["photo_file_id"]' in src
 
-    def test_relations_enrich_only_top50(self):
-        """username/фото — первые _RELATIONS_ENRICH_TOP (Hotfix-R10: 50)
-        строк; остальным — None (фронт догружает лениво со стаггером —
-        loadRelationAvatarsLazy). Никаких сотен Bot API-вызовов (кэш 1ч)."""
+    def test_relations_enrich_all_rows_username_photo_top50(self):
+        """Раунд 10.4 (H-2): username — ВСЕМ строкам (Semaphore(5), кэш 1ч);
+        photo_file_id — только первые _RELATIONS_ENRICH_TOP (фронт догружает
+        лениво со стаггером — loadRelationAvatarsLazy)."""
         src = _Static.read("web/api/chat_lore.py")
         assert "_RELATIONS_ENRICH_TOP = 50" in src
-        assert "user_display_info(chat_id, int(u.get(\"user_id\") or 0))" in src
-        assert 'u["username"] = None' in src
+        assert "_RELATIONS_SEMAPHORE_LIMIT = 5" in src
+        assert "asyncio.Semaphore(_RELATIONS_SEMAPHORE_LIMIT)" in src
+        assert "await asyncio.gather" in src
+        assert "user_display_info(chat_id, uid)" in src
+        assert "[:_RELATIONS_ENRICH_TOP]" in src
         assert 'u["photo_file_id"] = None' in src
 
     def test_user_display_info_uses_cached_bot_api(self):
@@ -152,8 +155,9 @@ class TestAvatarBackendAudit:
         как имя удаляется (del u['name'])."""
         src = _Static.read("web/api/chat_lore.py")
         assert "from services.summary_aliases import AliasResolver" in src
-        assert ('cache.get("limits.summary_aliases", '
-                'settings.SUMMARY_ALIASES)' in src)
+        # Раунд 10.4 (B-13): per-chat резолв алиасов (override чата →
+        # глобальные; fail-open), напрямую — НЕ через RelationsService
+        assert "build_alias_resolver(chat_id)" in src
         assert "alias_resolver.resolve(uid, None, None)" in src
         assert 'u["name"] = tidy_name' in src
         assert "_clean_nickname" not in src

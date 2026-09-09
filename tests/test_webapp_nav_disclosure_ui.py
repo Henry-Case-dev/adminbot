@@ -127,8 +127,13 @@ class TestProgressiveDisclosure:
                 in html)
         assert 'v-if="basicItems(grp).length"' in html
         assert 'v-if="advancedItems(grp).length > 0"' in html
-        assert ':open="basicItems(grp).length === 0 || expandOpen(activeTab)"' \
-            in html
+        # Раунд 10.4 (D-1, AC-A2): :open — ТОЛЬКО expandOpen (ТЗ п.5:
+        # «Расширенные» свёрнуты по умолчанию всегда); эвристика
+        # basicItems(...)===0 удалена
+        assert ':open="expandOpen(activeTab)"' in html
+        assert "basicItems(grp).length === 0 ||" not in html
+        # AC-A1: итог анализа — комментарий над <details>
+        assert "эвристика" in html or "УДАЛЕНА" in html
         # F-13 позитив: v-for на <template>; ключ — там же
         assert '<template v-for="grp in currentTabGroups" :key="grp.uid">' \
             in html
@@ -140,23 +145,48 @@ class TestProgressiveDisclosure:
 
 
 class TestModulesFeats:
+    def test_memory_tabs_reorg_104(self):
+        """Раунд 10.4 (C-1/C-2/C-4): «Память и RAG» → «Память»; отдельные
+        вкладки «Сон»/«Ностальгия»; мини-блоки на своих вкладках."""
+        js, html = _js(), _html()
+        assert "label: 'Память'" in js
+        assert "label: 'Память и RAG'" not in js
+        assert "id: 'memory_dream'" in js and "label: 'Сон'" in js
+        assert "id: 'memory_nostalgia'" in js and "label: 'Ностальгия'" in js
+        assert "activeTab === 'memory_dream' && isGlobalAdmin" in html
+        assert "activeTab === 'memory_nostalgia' && isGlobalAdmin" in html
+        assert "activeTab === 'memory_rag' && isGlobalAdmin" not in html
+        # каталог: memory-группы покрыты без дублей (C-2)
+        import services.param_catalog as pc
+        mem_groups = {g.id for g in pc.GROUPS if g.category == "memory"}
+        groups = set()
+        for tab in ("memory_rag", "memory_dream", "memory_nostalgia"):
+            groups |= pc.tab_group_ids(tab)
+        assert mem_groups <= groups
+        assert len(mem_groups) == 3
+
     def test_modules_feats_tab(self):
         js = _js()
         assert "modules_feats" in js
         assert "type: 'modules'" in js
 
     def test_permsoc_tab_and_summary_card(self):
-        """BUG-3 (ре-дизайн 10.2, spec §10 A/D): штатная вкладка
-        «Функции PERMsoc» (config, menu modules) + массив-карта модулей +
-        компактная summary-карточка в «Модулях и Фичах» с переходом."""
+        """BUG-3 (ре-дизайн 10.2, spec §10 A/D) + раунд 10.4 (A-6):
+        штатная вкладка «Функции PERMsoc» (config, menu modules, мастер-карта)
+        остаётся; компактная summary-карточка в «Модулях» УДАЛЕНА (без
+        setTab-перехода из modules_feats — вкладка в меню «Модули»)."""
         js, html = _js(), _html()
         assert "id: 'permsoc'" in js
         assert "type: 'config'" in js
         assert "Функции PERMsoc" in js
         assert "activeTab === 'permsoc'" in html
         assert "permsocModuleBadge" in js
-        assert "Открыть «Функции PERMsoc» 🎭" in html
-        assert "setTab('permsoc')" in html
+        # A-6: сводка и переход убраны (негатив)
+        assert "Открыть «Функции PERMsoc» 🎭" not in html
+        assert "setTab('permsoc')" not in html
+        # A-5: карточки-модули на месте (имя+описание)
+        assert "Модули (вкл/выкл)" in html
+        assert "Dead page" in html
 
     def test_modules_render_blocks(self):
         html = _html()
@@ -190,3 +220,39 @@ class TestF8Regression:
         assert "log-panel" in html
         assert "chip-auto" in html
         assert "resolveRelationName" in js
+
+
+class TestRound104ReviewFixes:
+    """Ревью-фиксы раунда 10.4: select-разметка, истории отношений
+    (кросс-чатовая защита), advanced-аккордеон настроек отношений."""
+
+    def test_select_widget_branch_present(self):
+        """B-10: выпадающий список в generic-рендере (basic + advanced) —
+        с опциями/подписями и автосейвом."""
+        html = _html()
+        assert html.count("item.widget === 'select'") == 2
+        assert "item.select_options" in html
+        assert "item.select_labels && item.select_labels[i]" in html
+        assert "@change=\"saveConfigItem(item)\"" in html
+
+    def test_relations_cross_chat_guard(self):
+        """Ревью-фикс (F): на вкладке relations всегда АКТИВНЫЙ чат;
+        chatLoreProfile.chat_id — только на «Лоре»; сброс профиля при уходе."""
+        js = _js()
+        assert "var onLoreTab = this.activeTab === 'chat_lore';" in js
+        assert "onLoreTab && p && p.chat_id != null" in js
+        assert "? p.chat_id : this.activeChatId" in js
+        body = js[js.index("setTab: function (id)"):]
+        assert "prevTab === 'chat_lore' && id !== 'chat_lore'" in body
+        assert "this.chatLoreProfile = null;" in body
+
+    def test_relations_advanced_accordion(self):
+        """Ревью-фикс (F): advanced-аккордеон в «Настройках отношений» —
+        D-канон (expandOpen(activeTab)); autoload-ветка setTab."""
+        html = _html()
+        body = html[html.index("⚙️ Настройки отношений"):]
+        assert '<details class="advanced mt-4"' in body
+        assert "expandOpen(activeTab)" in body
+        js = _js()
+        assert "id === 'relations' && this.canViewTab('relations')" in js
+        assert "loadRelations(this.activeChatId)" in js

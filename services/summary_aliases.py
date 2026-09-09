@@ -73,3 +73,30 @@ class AliasResolver:
         name = name.lstrip("@").strip()  # guarantee: no @ on any branch
         self._cache[key] = name
         return name
+
+
+async def build_alias_resolver(chat_id: int) -> AliasResolver:
+    """Раунд 10.4 (B-12): per-chat/ЛС резолв алиасов — override чата →
+    глобальные (единый chat_params-путь, НЕ зависим от summary_enabled
+    гейта — Hotfix-R10-инвариант). Fail-open: профиль/кэш недоступен →
+    глобальные алиасы (наследование — ЛС не исключение из наследования)."""
+    try:
+        from services import chat_params, hot_config as hot
+        from config.settings import settings
+        default = hot.get("limits.summary_aliases", settings.SUMMARY_ALIASES)
+        raw = await chat_params.get_chat_param(
+            chat_id, "limits.summary_aliases", default)
+    except Exception:
+        logger.warning(
+            "alias resolver per-chat failed — fail-open global | chat=%s",
+            chat_id, exc_info=True)
+        raw = None
+    if raw is None:
+        try:
+            from services import hot_config as hot
+            from config.settings import settings
+            raw = hot.get("limits.summary_aliases",
+                          settings.SUMMARY_ALIASES)
+        except Exception:
+            raw = None
+    return AliasResolver(raw)

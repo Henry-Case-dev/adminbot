@@ -146,6 +146,8 @@ def client(monkeypatch, tmp_path):
              "category": "keys", "updated_at": None},
             {"key": "models.llm_timeout", "value": 30.0, "category": "models",
              "updated_at": None},
+            {"key": "limits.chat_temperature_preset_default", "value": "balanced",
+             "category": "limits", "updated_at": None},
             {"key": "content.info_how_it_works",
              "value": {"html": "<h1>Как это работает</h1>",
                        "updated_at": "2026-08-30T00:00:00+00:00",
@@ -1300,3 +1302,55 @@ class TestDmScopeApi:
                              headers={**_hdr(ADMIN_ID),
                                       "X-Chat-Id": str(USER_ID)})
         assert resp.status_code == 403
+
+
+# ═══ Раунд 10.4 (ревью-фиксы): select-виджет температуры end-to-end ═══════
+
+class TestSelectWidgetTemperature:
+    """B-7/B-8 + ревью-фикс: GET отдаёт select_options/select_labels;
+    POST валидирует опцию (422 в ОБЕИХ ветках); не-select — None."""
+
+    def test_get_config_serializes_temperature_options(self, client):
+        resp = client.get("/api/config", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        items = {i["key"]: i for i in resp.json()["items"]}
+        t = items["limits.chat_temperature_preset_default"]
+        assert t["widget"] == "select"
+        assert t["select_options"] == ["precise", "balanced", "chatty"]
+        assert t["select_labels"] == ["Точный", "Сбалансированный",
+                                      "Болтливый"]
+        # не-select ключи — None (не пустой список!)
+        assert items["limits.search_max_symbols"]["select_options"] is None
+        assert items["limits.search_max_symbols"]["select_labels"] is None
+
+    def test_post_global_valid_option_200(self, client):
+        payload = {"items": [{"key": "limits.chat_temperature_preset_default",
+                              "value": "chatty"}]}
+        resp = client.post("/api/config", json=payload, headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert "limits.chat_temperature_preset_default" in \
+            resp.json()["updated"]
+
+    def test_post_global_invalid_option_422(self, client):
+        payload = {"items": [{"key": "limits.chat_temperature_preset_default",
+                              "value": "супер_болтливый"}]}
+        resp = client.post("/api/config", json=payload, headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 422
+        assert "недопустимая опция" in resp.text
+
+    def test_post_per_chat_invalid_option_422(self, client):
+        """Per-chat ветка — та же валидация (инвариант B-9)."""
+        payload = {"items": [{"key": "limits.chat_temperature_preset_default",
+                              "value": "bad"}]}
+        resp = client.post("/api/config", json=payload, headers=_dmh(USER_ID))
+        assert resp.status_code == 422
+        assert "недопустимая опция" in resp.text
+
+    def test_post_per_chat_valid_option_passes_validation(self, client):
+        """Валидная опция в per-chat ветке проходит валидацию и уходит в
+        запись (фейк-профиля нет → 409 конфликт, НЕ 422)."""
+        payload = {"items": [{"key": "limits.chat_temperature_preset_default",
+                              "value": "balanced"}]}
+        resp = client.post("/api/config", json=payload, headers=_dmh(USER_ID))
+        assert resp.status_code == 409
+        assert "недопустимая опция" not in resp.text

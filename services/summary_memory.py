@@ -41,7 +41,10 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
-from services.chat_params import chat_summary_enabled
+from services.chat_params import (
+    chat_summary_enabled,
+    get_chat_param as _chat_limit,  # G-3 per-chat
+)
 from services.database import row_get
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
@@ -1279,15 +1282,19 @@ class MemoryManager:
         # N4: window_hours — or 0 (None из кэша → 0 = без окна, не падаем)
         since = int(time.time()) - int((hot.get(
             "limits.summary_window_hours", settings.SUMMARY_WINDOW_HOURS) or 0) * 3600)
+        _max_win = await _chat_limit(
+            chat_id, "limits.summary_max_window_messages",
+            hot.get("limits.summary_max_window_messages",
+                    settings.SUMMARY_MAX_WINDOW_MESSAGES))
         rows = await self.db.get_smart_window(
-            chat_id, since, (hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES) or 0)
+            chat_id, since, (_max_win or 0)
         )
         logger.info(
             "SmartModule L1: window_size=%d | chat_id=%s | since_ts=%d",
             len(rows), chat_id, since,
         )
         fill_threshold = int(hot.get("limits.chat_context_fill_ratio", settings.CHAT_CONTEXT_FILL_RATIO)
-                             * (hot.get("limits.summary_max_window_messages", settings.SUMMARY_MAX_WINDOW_MESSAGES) or 0))
+                             * (_max_win or 0))
         # T-619: флаг бегущего конспекта — горячая точка (фолбек settings).
         # F-14 (S1, spec §4.2): гейт через chat_summary_enabled — ЛС не
         # наследует глобальный ON (саммари в ЛС по умолчанию OFF).
@@ -1963,7 +1970,10 @@ class MemoryManager:
             return ""
         try:
             facts = await self._search_graph_facts(
-                chat_id, str(query or ""), (hot.get("limits.graph_rag_facts_limit", settings.GRAPH_RAG_FACTS_LIMIT) or 0),
+                chat_id, str(query or ""), (await _chat_limit(
+                    chat_id, "limits.graph_rag_facts_limit",
+                    hot.get("limits.graph_rag_facts_limit",
+                            settings.GRAPH_RAG_FACTS_LIMIT)) or 0),
                 include_direct_reply=include_direct_reply)
         except Exception:
             logger.warning("graphrag RAG: search failed — empty context | chat_id=%s",
@@ -1974,10 +1984,14 @@ class MemoryManager:
         # Раунд 4 (T-724, FR-F1): рендер 3-кортежей (origin, fact, created_at) —
         # дата-префикс '[%Y-%m-%d] ' в контексте («что было N-числа» через RAG).
         context = build_rag_context(facts)
-        if context and len(context) > (hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0):
+        _rag_max_chars = await _chat_limit(
+            chat_id, "limits.graph_rag_context_max_chars",
+            hot.get("limits.graph_rag_context_max_chars",
+                    settings.GRAPH_RAG_CONTEXT_MAX_CHARS))
+        if context and len(context) > (_rag_max_chars or 0):
             logger.warning("graphrag RAG: context truncated to %d chars | chat_id=%s",
-                           (hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0), chat_id)
-            context = context[:(hot.get("limits.graph_rag_context_max_chars", settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0)]
+                           (_rag_max_chars or 0), chat_id)
+            context = context[:(_rag_max_chars or 0)]
         if context:
             logger.info("graphrag RAG: facts=%d | chat_id=%s | chars=%d",
                         len(facts), chat_id, len(context))
@@ -2403,8 +2417,15 @@ class MemoryManager:
         if hot.get("memory.infinite_retention", settings.INFINITE_RETENTION):
             await self._compress_purge_extract_only(chat_id)
             return
-        cutoff = int(time.time()) - (hot.get("limits.full_memory_retention_days", settings.FULL_MEMORY_RETENTION_DAYS) or 0) * 86400
-        batch_size = (hot.get("limits.summary_compress_batch", settings.SUMMARY_COMPRESS_BATCH) or 0)
+        _retention_days = await _chat_limit(
+            chat_id, "limits.full_memory_retention_days",
+            hot.get("limits.full_memory_retention_days",
+                    settings.FULL_MEMORY_RETENTION_DAYS))
+        cutoff = int(time.time()) - (_retention_days or 0) * 86400
+        batch_size = (await _chat_limit(
+            chat_id, "limits.summary_compress_batch",
+            hot.get("limits.summary_compress_batch",
+                    settings.SUMMARY_COMPRESS_BATCH)) or 0)
         processed = 0
         while True:
             batch = await self.db.get_smart_raw(chat_id, cutoff, batch_size)
@@ -2479,8 +2500,15 @@ class MemoryManager:
         при включении graph-флага экстракция возобновится с той же выборки
         (exclude_processed=True отдаст их снова). Без экстракции маркер НЕ
         ставится."""
-        cutoff = int(time.time()) - (hot.get("limits.full_memory_retention_days", settings.FULL_MEMORY_RETENTION_DAYS) or 0) * 86400
-        batch_size = (hot.get("limits.summary_compress_batch", settings.SUMMARY_COMPRESS_BATCH) or 0)
+        _retention_days = await _chat_limit(
+            chat_id, "limits.full_memory_retention_days",
+            hot.get("limits.full_memory_retention_days",
+                    settings.FULL_MEMORY_RETENTION_DAYS))
+        cutoff = int(time.time()) - (_retention_days or 0) * 86400
+        batch_size = (await _chat_limit(
+            chat_id, "limits.summary_compress_batch",
+            hot.get("limits.summary_compress_batch",
+                    settings.SUMMARY_COMPRESS_BATCH)) or 0)
         extract_enabled = hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED)
         if not extract_enabled:
             logger.debug(
@@ -2569,7 +2597,10 @@ class MemoryManager:
                 sid,
                 oid,
                 _normalize_name(triplet["predicate"]),
-                weight_increment=(hot.get("limits.graph_edge_weight_increment", settings.GRAPH_EDGE_WEIGHT_INCREMENT) or 0),
+                weight_increment=(await _chat_limit(
+                    chat_id, "limits.graph_edge_weight_increment",
+                    hot.get("limits.graph_edge_weight_increment",
+                            settings.GRAPH_EDGE_WEIGHT_INCREMENT)) or 0),
             )
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)
 
@@ -2611,7 +2642,11 @@ class MemoryManager:
         удаляются по ретенции; живут до OFF). OFF — ровно текущее поведение."""
         if hot.get("memory.infinite_retention", settings.INFINITE_RETENTION):
             return
-        archive_cutoff = int(time.time()) - (hot.get("limits.archive_memory_retention_days", settings.ARCHIVE_MEMORY_RETENTION_DAYS) or 0) * 86400
+        _archive_days = await _chat_limit(
+            chat_id, "limits.archive_memory_retention_days",
+            hot.get("limits.archive_memory_retention_days",
+                    settings.ARCHIVE_MEMORY_RETENTION_DAYS))
+        archive_cutoff = int(time.time()) - (_archive_days or 0) * 86400
         if self._vec_available:
             try:
                 # vec0: документированная форма удаления — rowid IN (...).

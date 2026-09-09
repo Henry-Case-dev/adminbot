@@ -212,7 +212,14 @@ class RelationsService:
 
     def _display_name(self, user_id: int) -> str:
         """Name из алиасов; алиасов нет — ПУСТАЯ строка (не str(user_id):
-        id как имя в снапшоте запрещён — раунд 10.2, owner-реквизит)."""
+        id как имя в снапшоте запрещён — раунд 10.2, owner-реквизит).
+        Раунд 10.4 (B-13 points 2-4 — ОСОЗНАННОЕ ограничение): инжект
+        <user_relations> использует ГЛОБАЛЬНЫЕ алиасы (aliases передаётся
+        из bot.py:322 при старте); per-chat алиасы в инжекте (передача
+        per-chat resolver в get_relations_snapshot/этот слой) НЕ
+        реализованы в раунде 10.4 — каскад имён участников в TMA/
+        list_relations работает per-chat (B-13 point 1), инжект — глобально.
+        Кандидат следующего раунда (аудит F-5)."""
         aliases = self._aliases
         if aliases is not None and hasattr(aliases, "resolve"):
             try:

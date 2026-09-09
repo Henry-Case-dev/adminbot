@@ -220,3 +220,48 @@ bot.py
   summary_memory: `_mask_llm_raw` (500 симв., секрет-паттерны), WARNING memorize c raw-фрагментом;
   `_fallback_parse_facts` (JSON-в-тексте/тройки/csv/ёлочки/тире); 1 ретрай жёстким промптом
   `_FACT_RETRY_SYSTEM_PROMPT` ТОЛЬКО в _memorize_facts_inner (крон _extract_and_save_graph — нет).
+
+## Round 10.4 map additions (A/B/C/D/E/F/G/H, HEAD 1410a68 + working tree)
+
+- **Per-chat read-path (G-3) — расширение `get_chat_param` точки** (async, кэш 120с+NOTIFY):
+  `direct_chat_service._build_user_content` (budget-гейт `flags.chat_context_budgets_enabled` +
+  база `limits.chat_context_budget_tokens` → `_apply_context_budget(blocks, enabled, tokens)`),
+  `_active_participants` (map hours/cap), `_build_global_context` (global_context_limit/max_tokens/
+  max_chars, level2_max_chars), `_collect_thread_chain` (thread_max_depth),
+  новый **`_thread_limit(chat_id)`** (thread_max_tokens/max_chars → `_render_thread` 3-й параметр,
+  None → старое поведение), `summary_generator.generate` (summary_rag_l2_limit/
+  max_context_tokens/max_context_chars), `summary_memory` get_window_messages (summary_max_window_
+  messages), get_rag_context (graph_rag_facts_limit/context_max_chars), _compress_and_purge/
+  _compress_purge_extract_only (full_memory_retention_days/summary_compress_batch), memorize
+  edge_weight_increment, _purge_archive (archive_memory_retention_days).
+- **G-2**: `chat_params._resolve_from_root` — после normalize_value проверка `_cast_type_ok`
+  + `math.isfinite` для float (NaN/inf/мусор → hot.get-фолбэк; AC-G4).
+- **B-12**: `summary_aliases.build_alias_resolver(chat_id)` — per-chat алиасы (override →
+  глобальные; fail-open глобальные; НЕ зависит от summary_enabled). ↓ ДОСЛОВНО НЕ доведён до
+  инжекта `<user_relations>` — documented limitation (user_relations.py), кандидат F-5.
+- **B-7/B-8**: ParamSpec += `select_options/select_labels` (tuple, дефолт ()); запись
+  `CHAT_TEMPERATURE_PRESET_DEFAULT` — widget select ("precise"/"balanced"/"chatty" +
+  labels); применяется через dataclasses.replace после _build_registry (REGISTRY 383 без роста).
+  Append-метка: `_SELECT_WIDGET_PRESETS`.
+- **TAB_RULES (каталог)**: 10 вкладок-частей: llm_providers — 4 секции (повтор MODELS/KEYS),
+  limits — except расширен (mimic/deadpage/media/lore/user_aliases/relations и флаги),
+  memory_rag (infinite) + memory_dream + memory_nostalgia, reactions_triggers (4),
+  permsoc (11+2+4), modules_switches, chat_lore (limits_lore+flags_lore — правило НЕ-config
+  вкладки), people_names (limits_user_aliases), relations (limits_relations+flags_relations).
+  `_TAB_BY_GROUP`: 72 группы (как HEAD; content_info/content_media — никогда не были на
+  конфиг-вкладках). NEW правил: NONE потеряно/добавлено.
+- **Фронт**: TABS-зеркало (new: memory_dream/memory_nostalgia/people_names/relations/
+  modules_switches; chat_lore += sources), `flatGroupRank` (порядок ПРАВИЛ → витрина;
+  fallback catFirst; для вкладок без повтора категорий = старой категориальной),
+  `sectionTitle` (заголовок секции — раз на секцию; только у llm_providers),
+  `chatLoreTab()`/`relationsTab()` (TABS-записи для groupedForTab конфиг-частей),
+  setTab: relations-автозагрузка (не DM), сброс лор-профиля при уходе с chat_lore,
+  relations-методы: relChat = activeTab==='chat_lore' ? p.chat_id : activeChatId.
+- **B-9 (routes.py)**: GET items += select_options/select_labels (None для не-select);
+  POST-валидация опций в ОБЕИХ ветках (per-chat :413-417 и _post_config_global :671-675).
+- **H-2 (chat_lore.py list_relations)**: username-обогащение ВСЕМ строкам (Semaphore(5), gather),
+  photo — только топ-50 (второй проход; кэши avatars 1ч); `_RELATIONS_SEMAPHORE_LIMIT=5`.
+- **backfill_104_chat_flags.py (B-4)** / **backfill_104_overrides.py (G-5)**: ensure_scope_profile
+  dm=False + set_chat_params (запись только отсутствующих ключей; expected_updated_at=None;
+  --dry-run). Overrides: 14 × множитель (скрипт; 2 ключа с Settings=None — SKIP: см. отчёт).
+- **Скрипты/отчёты**: plans/reports/round10.4_review_fixes.md — отчёт ревью-фиксов Builder.

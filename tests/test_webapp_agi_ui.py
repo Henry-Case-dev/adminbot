@@ -183,11 +183,11 @@ class TestMemoryFrontAudit:
         assert "method: 'PUT'" in save
         assert "user_id: row.user_id" in save
         assert "stage_manual: this.relationDraft.stage_manual" in save
-        assert "updated_at: p.updated_at" in save
+        assert "(p && p.updated_at) || null" in save       # F-5: лор-профиль или активный чат
         assert "chatLore409 = e.message" in save
         toggle = self._body(src, "toggleRelationsEnabled")
         assert "relations_enabled" in toggle
-        assert "updated_at: p.updated_at" in toggle
+        assert "(p && p.updated_at) || null" in toggle
         assert "chatLore409 = e.message" in toggle
         reset = self._body(src, "removeRelationManual")
         assert "method: 'DELETE'" in reset
@@ -228,15 +228,12 @@ class TestMemoryFrontAudit:
 
     # ── frontend index.html (spec §3.6.3) ─────────────────────────────────
 
-    def test_html_relations_block_in_chat_lore(self):
+    def test_html_relations_block_on_relations_tab(self):
+        """Раунд 10.4 (F-5): блок участников переехал на вкладку relations
+        (кастом-шаблон activeTab === 'relations'); из chat_lore удалён."""
         html = self._html()
-        # блок в chat_lore-ветке, между настройками и «В память бота уходит»
-        assert html.index("Участники и отношения") < html.index(
-            "В память бота уходит")
-        assert html.index("Настройки автогенерации") < html.index(
-            "Участники и отношения")
+        assert "activeTab === 'relations'" in html
         assert "Влиять на тон бота" in html
-        assert "relations_enabled" in html
         assert "stageRu(u.stage_auto)" in html
         assert "draft_stage" in html
         assert "draft_note" in html
@@ -244,12 +241,18 @@ class TestMemoryFrontAudit:
         assert "@click=\"removeRelationManual(u)\"" in html
         assert "@change=\"onRelationsToggle($event)\"" in html
         assert 'value="auto">авто</option>' in html
+        # негатив: в лоре участниковского блока больше нет
+        assert "авто-стадии (SQLite-скоры)" not in html
+        # тексты-хелперы: «В память бота уходит» остался в лоре
+        assert "В память бота уходит" in html
 
     def test_html_memory_blocks_under_generic(self):
         html = self._html()
         # мини-блоки — внутри generic config-секции (currentTabIsConfig),
         # под generic-группами, с v-if activeTab === 'memory_rag'
-        assert "activeTab === 'memory_rag' && isGlobalAdmin" in html
+        assert "activeTab === 'memory_dream' && isGlobalAdmin" in html
+        assert "activeTab === 'memory_nostalgia' && isGlobalAdmin" in html
+        assert "activeTab === 'memory_rag' && isGlobalAdmin" not in html
         assert "Синтез (сон)" in html
         assert "Запустить синтез сейчас" in html
         assert "Последние убеждения" in html

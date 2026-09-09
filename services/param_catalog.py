@@ -56,8 +56,10 @@ _PER_CHAT_CATEGORIES: frozenset[str] = frozenset(
 
 # Прогрессивная разметка (F-11 §4.1): группы-маркеры «Расширенные».
 _ADVANCED_GROUPS: frozenset[str] = frozenset(
-    {"limits_memory", "limits_graph", "flags_memory", "memory_infinite",
-     "memory_dream", "memory_nostalgia"}
+    # Раунд 10.4 (C-3): dream/nostalgia вынесены из advanced-групп — их
+    # рубильники размечены basic явно (_MEMORY progressive_level);
+    # группы памяти/графа остаются advanced по умолчанию.
+    {"limits_memory", "limits_graph", "flags_memory", "memory_infinite"}
 )
 
 # Строковые маркеры pg_key для правила «Расширенные» (F-11 §4.1).
@@ -90,6 +92,11 @@ class ParamSpec:
     # ""/basic | "advanced" (пустое = basic; явный advanced — по правилу
     # resolve_progressive_level либо ручной разметки).
     progressive_level: str = ""
+    # Раунд 10.4 (B-7): опции выпадающего списка (widget == "select");
+    # len(options) == len(labels); None по умолчанию — старые записи
+    # без изменений (widget ""/keyvalue — как раньше).
+    select_options: tuple[str, ...] = ()
+    select_labels: tuple[str, ...] = ()
 
     @property
     def pg_key(self) -> str:
@@ -529,7 +536,9 @@ _FLAGS: list[tuple] = [
      "Бот держит краткий конспект длинного разговора. Выключено — контекст только из сообщений."),
     ("CHAT_DEDUP_ENABLED", "Дедуп одинаковых текстов подряд", "flags_chat_behavior",
      "Бот не отвечает на одинаковые сообщения подряд. Выключено — отвечает на каждое."),
-    ("CHAT_CONTEXT_BUDGETS_ENABLED", "Бюджеты контекста direct_chat", "flags_chat_behavior",
+    # Раунд 10.4 (B-1): рендер-группа — limits_chat_budgets (блок «Прямой
+    # чат: бюджеты токенов»); pg-ключ и семантика БЕЗ изменений.
+    ("CHAT_CONTEXT_BUDGETS_ENABLED", "Бюджеты контекста direct_chat", "limits_chat_budgets",
      "Включает деление контекста по блокам (карта/тред/RAG). Выключено — контекст без ограничений долей."),
     ("CHAT_IMPORTANCE_KEEP_ENABLED", "Importance-удержание verbatim при обрезке", "flags_chat_behavior",
      "Строки Global_Context с важными маркерами (имена, бот, цитаты, числа, вопросы) не режутся первыми. Выключено — ровно старое поведение."),
@@ -576,7 +585,7 @@ _FLAGS: list[tuple] = [
     ("PERMSOC_ENABLED", "Функции PERMsoc: мастер-тумблер", "flags_permsoc",
       "Единый рубильник 5 персон-триггеров (Славик/Костя/Леха/Оля/"
       "передразнивания). Выключено — все 5 молчат во всех чатах; включительно "
-      "для чата — переключатель «Функции PERMsoc» во вкладке «Модули и Фичи»."),
+      "для чата — переключатель «Функции PERMsoc» во вкладке «Модули»."),
     ("COMMON_MEDIA_ENABLED", "Все common-медиа", "flags_media",
      "Главный рубильник всех медиа-реакций бота. Выключено — гифки/фото не отправляются вообще."),
     ("OLYA_ENABLED", "Сервис Оли", "flags_permsoc",
@@ -825,6 +834,8 @@ _LIMITS: list[tuple] = [
      "Насколько свободно отвечает в режиме «сбалансированный». Больше — креативнее."),
     ("CHAT_TEMPERATURE_CHATTY", "Temperature: болтливый", "float", "limits_temperature",
      "Насколько вольные ответы в режиме «болтливый». Больше — креативнее и непредсказуемее."),
+    # Раунд 10.4 (B-8): пресет — выпадающий список (widget/select-опции —
+    # поля ParamSpec; опции ниже в _SELECT_WIDGET_PRESETS, REGISTRY без роста).
     ("CHAT_TEMPERATURE_PRESET_DEFAULT", "Temperature-пресет по умолчанию", "str", "limits_temperature",
      "Какой режим свободы ответов используется по умолчанию. Точный — строже, болтливый — вольнее."),
     ("GRAPH_FACT_WEIGHT_DIRECT", "Стартовый вес прямых фактов", "float", "limits_graph",
@@ -1098,127 +1109,190 @@ _MEMORY: list[tuple] = [
     ("INFINITE_RETENTION", "Бессрочное хранение памяти", "bool",
      "memory_infinite",
      "Отключает сжатие/удаление сырья и TTL-очистки памяти: всё хранится "
-     "бессрочно (импорт истории)."),
+     "бессрочно (импорт истории).",
+     "basic"),
     # ── Раунд 9 (T-824/T-825, spec §3.6.4): «сон» (группа memory_dream) ──
     # dotted-ключи memory.dream_* (прецедент memory.infinite_retention);
     # дефолты консервативные (Q12: dream_enabled off).
+
     ("DREAM_ENABLED", "Сон: синтез убеждений (DreamWorker)", "bool",
      "memory_dream",
      "Рубильник фонового DreamWorker: из повторяющихся фактов чата модель "
      "делает устойчивые убеждения (beliefs). Выключено (дефолт) — тик не "
-     "регистрируется, 0 влияния."),
+     "регистрируется, 0 влияния.",
+     "basic"),
+
     ("DREAM_TICK_MINUTES", "Сон: период тика, минут", "int", "memory_dream",
      "Как часто воркер проверяет чаты на новые факты (60; часовой тик — "
      "первая проверка внутри окна дистилляций 4-6 local даёт «сон» при "
-     "старте в любое время суток)."),
+     "старте в любое время суток).",
+     "advanced"),
+
     ("DREAM_WINDOW_START_HOUR", "Сон: окно дистилляций с (час local)", "int",
      "memory_dream",
      "Дистилляции (LLM-деньги) только в local-часы [start, end); вне окна "
-     "тик делает бесплатную кластеризацию (4)."),
+     "тик делает бесплатную кластеризацию (4).",
+     "advanced"),
+
     ("DREAM_WINDOW_END_HOUR", "Сон: окно дистилляций до (час local)", "int",
      "memory_dream",
-     "Конец окна дистилляций (6)."),
+     "Конец окна дистилляций (6).",
+     "advanced"),
+
     ("DREAM_INITIAL_WINDOW_HOURS", "Сон: окно прогрева, часов", "int",
      "memory_dream",
      "Первый «сон» чата без watermark берёт факты за этот период (168 = "
-     "неделя — история импорта не захлёбывает первый прогон)."),
+     "неделя — история импорта не захлёбывает первый прогон).",
+     "advanced"),
+
     ("DREAM_MIN_NEW_FACTS_PER_CHAT", "Сон: мин. новых фактов для чата", "int",
      "memory_dream",
-     "Чат-кандидат тика — только при новых фактах не меньше порога (5)."),
+     "Чат-кандидат тика — только при новых фактах не меньше порога (5).",
+     "advanced"),
+
     ("DREAM_MAX_CHATS_PER_RUN", "Сон: максимум чатов за тик", "int",
      "memory_dream",
-     "Потолок чатов одного тика (10), топ по числу новых фактов."),
+     "Потолок чатов одного тика (10), топ по числу новых фактов.",
+     "advanced"),
+
     ("DREAM_QUIET_CHECK_MINUTES", "Сон: тишина перед тиком, минут", "int",
      "memory_dream",
-     "«Не пик»: чат с сообщениями за последние N минут пропускается (30)."),
+     "«Не пик»: чат с сообщениями за последние N минут пропускается (30).",
+     "advanced"),
+
     ("DREAM_CLUSTER_OVERLAP_TOKENS", "Сон: общих токенов для кластера", "int",
      "memory_dream",
      "Жадная кластеризация: факт входит в первый кластер с N общими "
-     "значимыми токенами/именами (2)."),
+     "значимыми токенами/именами (2).",
+     "advanced"),
+
     ("DREAM_REPEAT_THRESHOLD", "Сон: повторяемость кластера (членов)", "int",
      "memory_dream",
-     "Кластер идёт в дистилляцию при членах не меньше порога (3)."),
+     "Кластер идёт в дистилляцию при членах не меньше порога (3).",
+     "advanced"),
+
     ("DREAM_IMPORTANCE_SUM_THRESHOLD", "Сон: Σ важности кластера", "int",
      "memory_dream",
-     "Кластер идёт в дистилляцию при сумме importance не меньше порога (12)."),
+     "Кластер идёт в дистилляцию при сумме importance не меньше порога (12).",
+     "advanced"),
+
     ("DREAM_MAX_CLUSTERS_PER_RUN", "Сон: кластеров в дистилляцию за тик",
      "int", "memory_dream",
-     "Потолок кластеров на тик (5), топ по сумме важности."),
+     "Потолок кластеров на тик (5), топ по сумме важности.",
+     "advanced"),
+
     ("DREAM_DISTILLATIONS_PER_DAY", "Сон: дистилляций в сутки", "int",
      "memory_dream",
-     "Глобальный суточный лимит успешных синтезов (30; по memory_dream_log)."),
+     "Глобальный суточный лимит успешных синтезов (30; по memory_dream_log).",
+     "advanced"),
+
     ("DREAM_TOKENS_PER_DAY", "Сон: токенов в сутки (денежный)", "int",
      "memory_dream",
      "Глобальный суточный бюджет оценки токенов LLM-вызовов (60000; "
-     "max(1, len/4) промпта+ответа, сумма по memory_dream_log)."),
+     "max(1, len/4) промпта+ответа, сумма по memory_dream_log).",
+     "advanced"),
     # ── Раунд 9 (T-826/T-827, spec §3.6.4): ностальгия (memory_nostalgia) ──
     # dotted-ключи memory.nostalgia_* (тот же прецедент memory.dream_*);
     # дефолты консервативные (Q12: оба рубильника off).
+
     ("NOSTALGIA_ENABLED", "Ностальгия: слой B (NostalgiaWorker)", "bool",
      "memory_nostalgia",
      "Рубильник фонового NostalgiaWorker: в тихих группах по старым "
      "сообщениям чата модель шлёт 1-2 фразы «кстати...». Выключено "
-     "(дефолт) — тик не регистрируется, 0 влияния."),
+     "(дефолт) — тик не регистрируется, 0 влияния.",
+     "basic"),
+
     ("NOSTALGIA_LAYER_A_ENABLED", "Ностальгия: слой A (маркер при ответе)",
      "bool", "memory_nostalgia",
      "В прямом ответе бота: если RAG нашёл «золотой» факт (давность ≥ порога "
      "и важность ≥ порога по теме), в контекст добавляется строка-подсказка "
      "«вспомни и вплети, если уместно». 0 добавочных LLM-вызовов. Выключено "
-     "(дефолт) — маркера нет."),
+     "(дефолт) — маркера нет.",
+     "basic"),
+
     ("NOSTALGIA_TICK_MINUTES", "Ностальгия: период тика, минут", "int",
      "memory_nostalgia",
-     "Как часто воркер проверяет чаты на тишину и кандидатов (60)."),
+     "Как часто воркер проверяет чаты на тишину и кандидатов (60).",
+     "advanced"),
+
     ("NOSTALGIA_MIN_SILENCE_MINUTES", "Ностальгия: тишина, минут", "int",
      "memory_nostalgia",
      "Последнее юзерское сообщение должно быть старше N минут — иначе чат "
-     "пропускается (45)."),
+     "пропускается (45).",
+     "advanced"),
+
     ("NOSTALGIA_QUIET_START_HOUR", "Ностальгия: тихие часы с (час local)",
      "int", "memory_nostalgia",
      "Ночные тихие часы (пересечение полуночи): чат пропускается, если local-"
-     "час ≥ start ИЛИ < end (23)."),
+     "час ≥ start ИЛИ < end (23).",
+     "advanced"),
+
     ("NOSTALGIA_QUIET_END_HOUR", "Ностальгия: тихие часы до (час local)",
      "int", "memory_nostalgia",
-     "Конец ночных тихих часов (8)."),
+     "Конец ночных тихих часов (8).",
+     "advanced"),
+
     ("NOSTALGIA_COOLDOWN_HOURS", "Ностальгия: пауза между отправками, часов",
      "int", "memory_nostalgia",
-     "Между двумя проактивными сообщениями чата — не меньше N часов (12)."),
+     "Между двумя проактивными сообщениями чата — не меньше N часов (12).",
+     "advanced"),
+
     ("NOSTALGIA_PAUSE_HOURS", "Ностальгия: пауза после неотвеченных, часов",
      "int", "memory_nostalgia",
      "После неотвеченных проактивных чат пропускается, пока не пройдёт N "
-     "часов с последней отправки (24)."),
+     "часов с последней отправки (24).",
+     "advanced"),
+
     ("NOSTALGIA_UNANSWERED_MAX", "Ностальгия: стоп неотвеченных подряд", "int",
      "memory_nostalgia",
      "Стоп после N проактивных подряд без ответа юзера (детект по "
-     "smart_messages после ts отправки) (2)."),
+     "smart_messages после ts отправки) (2).",
+     "advanced"),
+
     ("NOSTALGIA_MAX_PER_DAY", "Ностальгия: отправок в сутки на чат", "int",
      "memory_nostalgia",
      "Дневной лимит status='sent' по nostalgia_log за local-сутки (3); "
-     "skipped/unchanged лимит не тратят."),
+     "skipped/unchanged лимит не тратят.",
+     "advanced"),
+
     ("NOSTALGIA_GOLDEN_MIN_DAYS", "Ностальгия: «золотой» возраст, дней", "int",
      "memory_nostalgia",
      "Факт считается «золотым» при давности ≥ N дней по COALESCE("
-     "message_timestamp, created_at) (60)."),
+     "message_timestamp, created_at) (60).",
+     "advanced"),
+
     ("NOSTALGIA_GOLDEN_MIN_IMPORTANCE", "Ностальгия: «золотая» важность", "int",
      "memory_nostalgia",
-     "Порог importance факта для «золотого» (v8-шкала 1..10; дефолт 5)."),
+     "Порог importance факта для «золотого» (v8-шкала 1..10; дефолт 5).",
+     "advanced"),
+
     ("NOSTALGIA_LAYER_A_MAX_HINTS", "Ностальгия: хинтов на ответ (слой A)",
      "int", "memory_nostalgia",
-     "Максимум строк-маркеров «золотых» за один ответ (1)."),
+     "Максимум строк-маркеров «золотых» за один ответ (1).",
+     "advanced"),
+
     ("NOSTALGIA_HINT_MAX_CHARS", "Ностальгия: маркер слоя A, символов", "int",
      "memory_nostalgia",
-     "Фикс-кап строки-маркера до инжекта в контекст (300)."),
+     "Фикс-кап строки-маркера до инжекта в контекст (300).",
+     "advanced"),
+
     ("NOSTALGIA_YEAR_BACK_DAYS_WINDOW", "Ностальгия: окно «год назад», дней",
      "int", "memory_nostalgia",
      "Кандидаты «N лет назад» — timestamp в диапазоне год назад ± N дней "
-     "вокруг точной даты (2)."),
+     "вокруг точной даты (2).",
+     "advanced"),
+
     ("NOSTALGIA_AGGRESSIVENESS", "Ностальгия: агрессивность (0..1)", "float",
      "memory_nostalgia",
      "Порог срабатывания кандидата = 0.3 + агрессивность*0.5 (дефолт 0.3 → "
      "порог 0.45). Влияет ТОЛЬКО на порог («насколько слабый повод "
-     "сработает»); частота — лимитами/паузами выше."),
+     "сработает»); частота — лимитами/паузами выше.",
+     "advanced"),
+
      ("NOSTALGIA_MAX_SEND_CHARS", "Ностальгия: текст сообщения, символов",
       "int", "memory_nostalgia",
-      "Кап текста проактивного сообщения перед отправкой (400)."),
+      "Кап текста проактивного сообщения перед отправкой (400).",
+     "advanced"),
 ]
 
 
@@ -1291,14 +1365,33 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "str",
                       code_source=code_source, pg_id=spec_id,
                       group=group, description=desc))
-    for field, title, typ, group, desc in _MEMORY:
+    for row in _MEMORY:      # (field, title, type, group, desc[, level])
+        if len(row) == 6:
+            field, title, typ, group, desc, level = row
+        else:
+            field, title, typ, group, desc = row
+            level = ""
         add(ParamSpec(field, field, CATEGORY_MEMORY, title, typ,
                       group=group, description=desc,
-                      pg_id=f"{CATEGORY_MEMORY}.{field.lower()}"))
+                      pg_id=f"{CATEGORY_MEMORY}.{field.lower()}",
+                      progressive_level=level))
     return registry
 
 
 REGISTRY: dict[str, ParamSpec] = _build_registry()
+
+# Раунд 10.4 (B-7/B-8): select-виджеты — опции/подписи (без роста записей).
+_SELECT_WIDGET_PRESETS: dict[str, dict] = {
+    "CHAT_TEMPERATURE_PRESET_DEFAULT": {
+        "widget": "select",
+        "select_options": ("precise", "balanced", "chatty"),
+        "select_labels": ("Точный", "Сбалансированный", "Болтливый"),
+    },
+}
+for _name, _opts in _SELECT_WIDGET_PRESETS.items():
+    _spec = REGISTRY.get(_name)
+    if _spec is not None:
+        REGISTRY[_name] = dataclasses.replace(_spec, **_opts)
 
 _BY_PG_KEY: dict[str, ParamSpec] = {s.pg_key: s for s in REGISTRY.values()}
 
@@ -1358,50 +1451,130 @@ TAB_REACTIONS_TRIGGERS = "reactions_triggers"
 # Ре-дизайн 10.2, BUG-3 (spec §10 A): НАСТОЯЩАЯ штатная вкладка «Функции
 # PERMsoc» — страница ВНУТРИ меню-секции modules («Модули и Фичи»).
 TAB_PERMSOC = "permsoc"
+# Раунд 10.4 (C-2): «Сон» и «Ностальгия» — отдельные config-вкладки
+# (вынесены из перегруженной «Памяти»; id существующей вкладки не меняется).
+TAB_MEMORY_DREAM = "memory_dream"
+TAB_MEMORY_NOSTALGIA = "memory_nostalgia"
+# Раунд 10.4 (A-7/A-1): «Модули (вкл/выкл)» — отдельная config-вкладка
+# (flags_modules+flags_service из «Лимитов»); config-часть «Лора чатов»
+# (limits_lore+flags_lore) — правило-источник НЕ-config вкладки chat_lore.
+TAB_MODULES_SWITCHES = "modules_switches"
+TAB_CHAT_LORE = "chat_lore"
+# Раунд 10.4 (B-11): «Имена людей» — отдельная config-вкладка (KV-редактор
+# алиасов; per-chat/ЛС override — через единый чат_params-резолв).
+TAB_PEOPLE_NAMES = "people_names"
+# Раунд 10.4 (F-1): «Участники и отношения» — отдельная вкладка
+# (config-часть limits_relations+flags_relations + кастом-блок участников).
+TAB_RELATIONS = "relations"
 
 CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
     TAB_PROMPTS: "Промпты",
     TAB_LIMITS: "Лимиты",
-    TAB_MEMORY_RAG: "Память и RAG",
+    TAB_MEMORY_RAG: "Память",
+    TAB_MEMORY_DREAM: "Сон",
+    TAB_MEMORY_NOSTALGIA: "Ностальгия",
     TAB_REACTIONS_TRIGGERS: "Реакции и Триггеры",
     TAB_PERMSOC: "Функции PERMsoc",
+    TAB_MODULES_SWITCHES: "Модули (вкл/выкл)",
+    TAB_CHAT_LORE: "Лор чатов",
+    TAB_PEOPLE_NAMES: "Имена людей",
+    TAB_RELATIONS: "Участники и отношения",
 }
 
 _GROUPS_LIMITS_MEMORY_GRAPH = frozenset({"limits_memory", "limits_graph"})
 _GROUPS_FLAGS_MEDIA_MEMORY = frozenset({"flags_memory", "flags_media"})
 
 TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
+    # Раунд 10.4 (E-1): llm_providers — 4 СЕКЦИИ (порядок правил = порядок
+    # витрины): основные модели → ключи → фолбэк → расширенные. Повтор
+    # категории (MODELS/KEYS) допускается; каждая группа — ровно на одной
+    # вкладке (покрытие целиком: _TAB_BY_GROUP без ValueError).
     (TAB_LLM_PROVIDERS, (
-        (CATEGORY_MODELS, None),
-        (CATEGORY_KEYS, None),
+        (CATEGORY_MODELS, frozenset({"models_main"})),
+        (CATEGORY_KEYS,
+         frozenset({"keys_llm", "keys_groq", "keys_openrouter"})),
+        (CATEGORY_MODELS, frozenset({"models_fallback"})),
+        (CATEGORY_MODELS, frozenset({
+            "models_embeddings", "models_llm_timeouts", "models_llm_guard",
+            "models_extra_providers", "models_video_summary",
+            "models_checkup"})),
+        (CATEGORY_KEYS, frozenset({
+            "keys_search", "keys_betterstack", "keys_youtube",
+            "keys_media"})),
     )),
     (TAB_PROMPTS, (
         (CATEGORY_PROMPTS, None),
     )),
     (TAB_LIMITS, (
         (CATEGORY_LIMITS, ("except",
-                           _GROUPS_LIMITS_MEMORY_GRAPH | {"limits_persons"})),
+                           _GROUPS_LIMITS_MEMORY_GRAPH
+                           | {"limits_persons", "limits_mimic",
+                              "limits_deadpage", "limits_media",
+                              "limits_lore", "limits_user_aliases",
+                              "limits_relations"})),
         (CATEGORY_FLAGS,
-         ("except", frozenset(_GROUPS_FLAGS_MEDIA_MEMORY | {"flags_permsoc"}))),
+         ("except", frozenset({"flags_memory", "flags_media",
+                               "flags_permsoc", "flags_modules",
+                               "flags_service", "flags_lore",
+                               "flags_relations"}))),
     )),
     (TAB_MEMORY_RAG, (
         (CATEGORY_LIMITS, frozenset({"limits_memory", "limits_graph"})),
         (CATEGORY_FLAGS, frozenset({"flags_memory"})),
-        (CATEGORY_MEMORY, None),
+        (CATEGORY_MEMORY, frozenset({"memory_infinite"})),
     )),
+    # Раунд 10.4 (C-2): «Память» — бессрочное хранение + лимиты/граф/флаги;
+    # «Сон»/«Ностальгия» — свои группы категории memory (категория покрыта
+    # целиком без дублей — _TAB_BY_GROUP без ValueError).
+    (TAB_MEMORY_DREAM, (
+        (CATEGORY_MEMORY, frozenset({"memory_dream"})),
+    )),
+    (TAB_MEMORY_NOSTALGIA, (
+        (CATEGORY_MEMORY, frozenset({"memory_nostalgia"})),
+    )),
+    # Раунд 10.4 (A-1, девиансия D-A1 — канон): «Реакции и Триггеры» —
+    # ТОЛЬКО триггерные реакции (админ/саммари/чат/память), без флагов;
+    # «Функции PERMsoc» — функциональные модули-персоны (11 реакционных
+    # групп + рубильники + лимиты). Порядок вкладок модулей (app.js):
+    # reactions_triggers → modules_switches → modules_feats → permsoc.
     (TAB_REACTIONS_TRIGGERS, (
-        (CATEGORY_REACTIONS,
-         ("except", frozenset({"reactions_persons", "reactions_permsoc"}))),
-        (CATEGORY_FLAGS, frozenset({"flags_media"})),
+        (CATEGORY_REACTIONS, frozenset({
+            "reactions_admin", "reactions_summary", "reactions_chat",
+            "reactions_memory"})),
     )),
-    # Ре-дизайн 10.2, BUG-3 (spec §10 A/B): источник «Функции PERMsoc» —
-    # персоны/реакции PERMsoc + рубильники PERMsoc + лимиты Лехи/Костика.
+    # Ре-дизайн 10.2+10.4, BUG-3/spec §10 A/B + D-A1: источник «Функции
+    # PERMsoc» — персоны/модули-реакции + рубильники + лимиты персон.
     (TAB_PERMSOC, (
-        (CATEGORY_REACTIONS,
-         frozenset({"reactions_persons", "reactions_permsoc"})),
-        (CATEGORY_FLAGS, frozenset({"flags_permsoc"})),
-        (CATEGORY_LIMITS, frozenset({"limits_persons"})),
+        (CATEGORY_REACTIONS, frozenset({
+            "reactions_persons", "reactions_permsoc", "reactions_deadpage",
+            "reactions_mimic", "reactions_slavik", "reactions_alan",
+            "reactions_olya", "reactions_war", "reactions_common",
+            "reactions_goodmorning", "reactions_word_reactions"})),
+        (CATEGORY_FLAGS, frozenset({"flags_permsoc", "flags_media"})),
+        (CATEGORY_LIMITS, frozenset({
+            "limits_persons", "limits_mimic", "limits_deadpage",
+            "limits_media"})),
+    )),
+    # Раунд 10.4 (A-7): «Модули (вкл/выкл)» — рубильники модулей/сервиса.
+    (TAB_MODULES_SWITCHES, (
+        (CATEGORY_FLAGS, frozenset({"flags_modules", "flags_service"})),
+    )),
+    # Раунд 10.4 (A-1/A-8): config-часть «Лора чатов» (НЕ-config вкладка;
+    # правило только для TAB_RULES-аудита/рендера блока настроек).
+    (TAB_CHAT_LORE, (
+        (CATEGORY_LIMITS, frozenset({"limits_lore"})),
+        (CATEGORY_FLAGS, frozenset({"flags_lore"})),
+    )),
+    # Раунд 10.4 (B-11): «Имена людей» — KV-редактор алиасов + per-chat.
+    (TAB_PEOPLE_NAMES, (
+        (CATEGORY_LIMITS, frozenset({"limits_user_aliases"})),
+    )),
+    # Раунд 10.4 (F-1): «Участники и отношения» — config-часть вкладки
+    # (кастом-рендер участников; настройки — generic-блоком, A-канон).
+    (TAB_RELATIONS, (
+        (CATEGORY_LIMITS, frozenset({"limits_relations"})),
+        (CATEGORY_FLAGS, frozenset({"flags_relations"})),
     )),
 )
 

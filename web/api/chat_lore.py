@@ -25,6 +25,7 @@ fail-open лора: ChatLorePgUnavailable → 503, не 500).
 DI: store/cache/worker — из services.lore_runtime (set_lore_components в
 bot.py on_startup); компонент не установлен / PG недоступен → 503.
 """
+import asyncio
 import logging
 import time
 from typing import Annotated, Literal
@@ -37,6 +38,7 @@ from config.settings import settings
 from services import chat_params, lore_runtime
 from services.chat_lore_store import ChatLoreConflict, ChatLorePgUnavailable
 from services.permissions import Permissions
+from services import summary_aliases
 from services.summary_aliases import AliasResolver
 from web.api.deps import get_cache, get_tma_user
 # UI-полировка TMA: RAM-кэши обогащения (title/фото чата, username/фото
@@ -54,6 +56,7 @@ _PREVIEW_CHARS = 80                 # превью в списке чатов
 _RELATION_NOTE_MAX = 4000           # F2: cap заметки отношений (422)
 _RELATIONS_LIST_MAX = 100           # F2: потолок строк списка отношений
 _RELATIONS_ENRICH_TOP = 50          # Hotfix-R10 (raw-имена/нет аватаров):
+_RELATIONS_SEMAPHORE_LIMIT = 5     # Раунд 10.4 (H-2): параллельные Bot API
 # UI-полировка: Bot API-обогащение (username/фото) для первых 50 строк
 # (топ по activity); остальным — None, аватар лениво догружает фронт
 # (client avatarUrl с стаггер 300мс, негатив-кэш прокси 1ч — NFR ок).
@@ -548,12 +551,13 @@ async def list_relations(
     await _require_chat(cache, store, user, chat_id)
     profile = await _profile_or_404(store, chat_id)
     db, relations_service = _db_component()
-    # Hotfix-R10 (имена = raw-ID): алиасы привязываем НАПРЯМУЮ из hot-кэша
-    # (то же зеркало bot.py:322), НЕ через RelationsService.aliases — тот
-    # гейтится flags.summary_enabled (bot.py:570-571) и при выключенном
-    # саммари список участников без алиасов уходил в чистые ID.
-    alias_resolver = AliasResolver(
-        cache.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
+    # Hotfix-R10 (имена = raw-ID) + раунд 10.4 (B-13): алиасы привязываем
+    # НАПРЯМУЮ из per-chat резолва (override чата → глобальные; fail-open →
+    # глобальные — то же зеркало bot.py:322), НЕ через
+    # RelationsService.aliases — тот гейтится flags.summary_enabled
+    # (bot.py:570-571) и при выключенном саммари список участников без
+    # алиасов уходил в чистые ID.
+    alias_resolver = await summary_aliases.build_alias_resolver(chat_id)
     users: list = []
     names = None
     if relations_service is not None and db is not None:
@@ -570,18 +574,40 @@ async def list_relations(
     users.sort(key=lambda u: (not bool(u.get("activity_score")),
                               -(float(u.get("activity_score") or 0.0)),
                               int(u.get("user_id") or 0)))
-    # UI-полировка TMA: username/photo_file_id — Bot API-обогащение ТОЛЬКО
-    # для первых _RELATIONS_ENRICH_TOP строк списка (топ по activity;
-    # get_chat_member + getUserProfilePhotos, RAM-кэши 1ч); остальным — None
-    # (фронт лениво догружает аватар с стаггером). Никаких 100 одновременных
-    # вызовов.
+    # UI-полировка TMA + раунд 10.4 (H-2): username — Bot API-обогащение
+    # для ВСЕХ строк списка (до _RELATIONS_LIST_MAX=100): Semaphore(5),
+    # положительные кэши 1ч, ошибка/None → username=None (fail-open);
+    # photo_file_id — только первые _RELATIONS_ENRICH_TOP (фронт лениво
+    # догружает аватар с стаггером — существующий механизм).
+    semaphore = asyncio.Semaphore(_RELATIONS_SEMAPHORE_LIMIT)
+
+    async def _enrich(u: dict) -> None:
+        uid = int(u.get("user_id") or 0)
+        try:
+            async with semaphore:
+                meta = await user_display_info(chat_id, uid)
+            u["username"] = meta["username"]
+        except Exception:
+            logger.warning(
+                "[relations] user_display_info failed — fail-open | chat=%s "
+                "uid=%s", chat_id, uid, exc_info=True)
+            u["username"] = None
+
+    await asyncio.gather(*[_enrich(u) for u in users])
+    # photo-обогащение: отдельный проход (кэш отдаёт результат username-раунда);
+    photo_meta = {}
     for u in users[:_RELATIONS_ENRICH_TOP]:
-        meta = await user_display_info(chat_id, int(u.get("user_id") or 0))
-        u["username"] = meta["username"]
-        u["photo_file_id"] = meta["photo_file_id"]
+        uid = int(u.get("user_id") or 0)
+        if uid not in photo_meta:
+            try:
+                photo_meta[uid] = await user_display_info(chat_id, uid)
+            except Exception:
+                photo_meta[uid] = {"photo_file_id": None}
+        u["photo_file_id"] = photo_meta[uid]["photo_file_id"]
     for u in users[_RELATIONS_ENRICH_TOP:]:
-        u["username"] = None
-        u["photo_file_id"] = None
+        u["username"] = u.get("username")
+        if "photo_file_id" not in u:
+            u["photo_file_id"] = None
     # Раунд 10.2 (owner-реквизит): каскад alias → nickname (name-map из
     # _participant_names) → username. Имена — КАК ЕСТЬ: никакой чистки/
     # срезов/капа не делаем (эмодзи/спецсимволы/пробелы внутри — допустимы);
