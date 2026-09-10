@@ -396,6 +396,29 @@
 > `v5 implements OD16-OD19`, `OD16-OD19 DECIDES tma-relume-redesign`.
 > Цепочка SUPERSEDES: **v5 → v4 → v3**. Дублей нет; Voxy-сущности не затронуты;
 > удалений нет.
+> **Синк STEP 10 (финал, post-commit+деплой) 10.09.2026: раунд 10.5 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН — HEAD == origin/master == `c01ed72`** (`918f675` — фича, 49 файлов;
+> `c01ed72` — docs деплой-верификация; поверх `0bdf272`). Единственная фича
+> `tma-relume-redesign` (T-1066…T-1148) реализована целиком (Builder Pass 1–6:
+> токены/градиенты, hash-router + нативный BackButton, scope-switcher GLOBAL/ЧАТ/ЛС,
+> hubs + 15 экранов, key-availability + persisted chart, матрица ролей + role CRUD
+> кроме superuser, hardcode H1–H22 → безопасная аддитивная миграция, каталог
+> 387/74/359, font-subset ~13.2 КБ + self-host DOMPurify 3.4.15 fail-closed).
+> @Reviewer: REJECTED → fixes D1–D4 → APPROVED WITH MINOR → R1–R4 закрыты.
+> @Scanner: **CLEAN — 0 blocker / 0 major**; R10.5-1/-2/-4 закрыты, R10.5-3/-5/-6/-7
+> — техдолг (ARCH §25); отчёт `plans/reports/round10.5_scanner_audit.md`.
+> @Architect: merge в `plans/ARCHITECTURE.md` (§9 обновлён, §25 «по состоянию на 10.5»
+> + блок R10.5, новый **§26 «Раунд 10.5»** — последняя секция). **Тесты: 4962 passed /
+> 0 failed** (baseline 10.4 = 4860, +102); `node --check web/app.js` clean;
+> `git diff --check` чист. @PM: фича заархивирована — `plans/archive/tma-relume-redesign/`
+> (**plans/archive/ — 27 папок**, plans/features/ — снова 6 активных F-1…F-6), backlog
+> epic 10.5 закрыт. @DevOps: README обновлён (ироничный тон); push origin/master;
+> **деплой 198.46.175.136:/var/www/admin_bot** — git pull fast-forward, `.env` без
+> изменений, `systemctl restart admin_bot` → active (running), `/api/health` = 200,
+> **0 startup-ошибок**. Граф обновлён: милстоун `round10.5-epic` → COMPLETED + DEPLOYED,
+> фича → WAS_PART_OF + ARCHIVED_IN plans-structure + COMPLETED_IN/DEPLOYED_IN, создан
+> `tech-debt-round10.5` (R10.5-3/5/6/7). **Осталось вручную:** live Telegram
+> smoke-тест (T-1153), опциональный betterstack-401 fix, вердикт владельца.
 
 ## Активные фичи (plans/features/)
 
@@ -463,7 +486,7 @@
 > `tma-relume-redesign v4 design-project` + `OD11-OD15 owner decisions`.
 > (Блок выше — исторический снимок v4; актуальный статус — ниже.)
 
-> **Раунд 10.5 — DESIGN-PROJECT v5 ГОТОВ, на GATE (10.09.2026, E5/OD16–OD19) — АКТУАЛЬНО** —
+> **Раунд 10.5 — DESIGN-PROJECT v5 ГОТОВ, на GATE (10.09.2026, E5/OD16–OD19) — исторический снимок v5, см. финал ниже** —
 > активная фича `tma-relume-redesign` в `plans/features/`: **OD1–OD15 LOCKED** (см. блоки v3/v4
 > выше) + **OD16–OD19 LOCKED** (ответы владельца на §16.5 Q1–Q4): **OD16** — адреса
 > провайдеров (`base_url`) **обязательны в UI**, провайдер/модель/адрес редактируемы из
@@ -482,6 +505,19 @@
 > вопросов нет. Конфликт-матрица: **F-4 frontend-admin-bugfixes (Баг-4) — ПОСЛЕ 10.5**;
 > F-1/F-2/F-3/F-5 независимы; F-6 SUPERSEDED_BY round10.4. Детали — KG `tma-relume-redesign`
 > + `tma-relume-redesign v5 design-project` + `OD16-OD19 owner decisions`.
+
+> **Раунд 10.5 — ФИНАЛ: ЗАВЕРШЁН, ЗАКОММИЧЕН И ЗАДЕПЛОЕН (10.09.2026, HEAD
+> `c01ed72`) — АКТУАЛЬНО** — милстоун **`round10.5-epic`** (COMPLETED + DEPLOYED).
+> Коммиты `918f675` (фича, 49 файлов) + `c01ed72` (docs memory-sync), push
+> origin/master. Тесты **4962 passed / 0 failed**; `node --check web/app.js` clean;
+> @Reviewer APPROVED; @Scanner CLEAN (0 blocker/0 major; R10.5-3/-5/-6/-7 → техдолг
+> ARCH §25); ARCHITECTURE.md §9/§25/§26. Деплой: 198.46.175.136:/var/www/admin_bot —
+> git pull fast-forward, `.env` без изменений, restart active (running),
+> `/api/health`=200, 0 ошибок. Фича заархивирована — `plans/archive/tma-relume-redesign/`
+> (**plans/archive/ — 27 папок**; features/ — 6 активных F-1…F-6); README обновлён;
+> backlog epic 10.5 закрыт. **Осталось вручную:** live Telegram smoke-тест (T-1153),
+> опц. betterstack-401 fix, вердикт владельца. Детали — KG `round10.5-epic` +
+> `tma-relume-redesign` + `tech-debt-round10.5`. (Снимки v3/v4/v5 выше — историчны.)
 
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
@@ -774,6 +810,48 @@ DEPLOYED.** Все 3 фичи заархивированы, цикл раунд�
   доходят до инжекта <user_relations>), HIGH-004 (полный LLM request/response-лог).
 - **README.md:** тесты 4860, раздел раунда 10.4.
 
+### Раунд 10.5 — финал (10.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (918f675)
+
+«Редизайн TMA по референсу Relume + гигиена репозитория». Единственная фича —
+`tma-relume-redesign` (T-1066…T-1148, продолжает T-1065). HEAD == origin/master
+== `c01ed72` (`918f675` + `c01ed72`, поверх `0bdf272`). **Статус: COMPLETED +
+DEPLOYED.** Цикл раунда полностью закрыт (Step 10).
+
+- **Коммиты (master):** `918f675` feat(admin,web,chat,api): раунд 10.5 — редизайн
+  TMA по референсу Relume: navbar, hubs, hash-роутинг, scope-switcher, key-history,
+  матрица ролей, градиенты, Material Symbols (тесты 4962) — 49 файлов; `c01ed72`
+  docs(plans): деплой-верификация раунда 10.5; push origin/master.
+- **Тесты:** 4962 passed / 0 failed (baseline 10.4 = 4860, +102); `node --check
+  web/app.js` clean; `git diff --check` чист; HTML tag-balance 0.
+- **Реализация (Builder Pass 1–6):** токены/анимированные градиенты (T-1098);
+  hash-router + нативный `Telegram.WebApp.BackButton` (Bot API 6.1+, single
+  onClick, `goBack`=routeParent, deep-link OFF) (T-1099); scope-switcher
+  GLOBAL/ЧАТ/ЛС + scopeEpoch (T-1127); 6-item navbar + 3 hubs + 15 экранов
+  (T-1100…T-1112); key-availability + chart + `services/key_history.py` (ring 288
+  + атомарный `var/status_key_history.json`, allowlist, 0 DDL, SQLite v8)
+  (T-1128/1129/1132/1139/1140/1145/1148); матрица ролей + создание/rename/delete
+  кроме superuser (T-1130/1131/1133/1141/1142); hardcode H1–H22 → безопасная
+  аддитивная миграция `hot.get(key, literal)`; каталог **387/74/359**; font-subset
+  ~13.2 КБ + self-host DOMPurify 3.4.15 fail-closed (T-1146/1147).
+- **Ревью/Scanner:** @Reviewer REJECTED → fixes D1–D4 → APPROVED WITH MINOR →
+  R1–R4 закрыты. @Scanner **CLEAN — 0 blocker / 0 major**; R10.5-1/-2/-4 закрыты;
+  R10.5-3/-5/-6/-7 — техдолг (ARCH §25). Отчёт
+  `plans/reports/round10.5_scanner_audit.md`.
+- **Архитектура:** @Architect — §9 обновлён, §25 «по состоянию на раунд 10.5» +
+  блок R10.5, новый §26 «Раунд 10.5» (последняя секция, ARCHITECTURE.md 320 строк).
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward; `.env`
+  без изменений; `systemctl restart admin_bot` → active (running);
+  `/api/health` = 200; 0 startup-ошибок.
+- **Архивация:** `tma-relume-redesign` → `plans/archive/tma-relume-redesign/`
+  (**plans/archive/ — 27 папок**; plans/features/ — 6 активных F-1…F-6); backlog
+  epic 10.5 закрыт. README обновлён (ироничный тон).
+- **Осталось вручную:** live Telegram smoke-тест (T-1153), опциональный
+  betterstack-401 fix, вердикт владельца.
+- **Техдолг раунда (KG `tech-debt-round10.5`):** R10.5-3 (GET
+  /api/status/key-history открыт любому авторизованному TMA-юзеру),
+  R10.5-5 (rename_role race → 500 вместо 409), R10.5-6 (мёртвый setMenu,
+  пре-существующий), R10.5-7 (sync `key_history.maybe_save()` I/O в async path).
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -799,8 +877,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 26 папок)
+## Свежие архивы (plans/archive/ — 27 папок)
 
+- `tma-relume-redesign` — **Раунд 10.5, 10.09.2026** (единственная фича, T-1066…T-1148: полный редизайн TMA по Relume — navbar/hubs/hash-роутинг/scope-switcher/key-history/матрица ролей/градиенты/Material Symbols; тесты 4962; §26)
 - `frontend-advanced-collapse-default` — **Раунд 10.4, 10.09.2026** (D, T-1018…T-1023: аккордеоны «Расширенные» свёрнуты по умолчанию, AC-B1-тест; §24)
 - `frontend-memory-sleep-nostalgia` — **Раунд 10.4, 10.09.2026** (C, T-1006…T-1017: «Память» + вкладки «Сон»/«Ностальгия», progressive-разметка; §24)
 - `frontend-llm-providers-layout` — **Раунд 10.4, 10.09.2026** (E, T-1024…T-1032: LLM Провайдеры — 4 секции: модели→ключи→фолбэк→расширенные; §24)
@@ -883,7 +962,17 @@ SUPERSEDED_BY round10.4-epic — подтверждена; REGISTRY 383/**74**/3
 KG `tech-debt-round10.4` (R10.4-4…R10.4-7, B-13 points 2-4, HIGH-004-остаток);
 plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **26 папок**;
 HEAD == origin/master == `0bdf272` (коммит раунда 10.4: бэкфилы применены,
-CHAT_THREAD_MAX_CHARS=2000, тесты 4860, прод active).
+CHAT_THREAD_MAX_CHARS=2000, тесты 4860, прод active);
+**милстоун `round10.5-epic`** (AdminBot → COMPLETED + DEPLOYED, 10.09.2026) —
+раунд 10.5 «Редизайн TMA по референсу Relume + гигиена репозитория»: единственная
+фича `tma-relume-redesign` (T-1066…T-1148) → COMPLETED + DEPLOYED + WAS_PART_OF
+round10.5-epic + ARCHIVED_IN plans-structure (HAS_PLAN/HAS_FEATURE/RELATED_TO/
+HAS_DESIGN_PROJECT — сохранены как исторический факт; HAS_PLAN не удалялся);
+ARCHITECTURE.md §9/§25/§26; R10.5-1/-2/-4 закрыты, техдолг-кандидаты — KG
+`tech-debt-round10.5` (R10.5-3/-5/-6/-7, ARCH §25); plans/features/ — **6 активных**
+(F-1…F-6); plans/archive/ — **27 папок**; HEAD == origin/master == `c01ed72`
+(коммиты 918f675 + c01ed72, тесты 4962, деплой 198.46.175.136 active/health 200,
+0 ошибок); остаётся ручной live-smoke T-1153 + опц. betterstack 401.
 
 ## Факты для планирования (проект)
 
