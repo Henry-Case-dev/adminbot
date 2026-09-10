@@ -9,9 +9,9 @@
 > архитектура влита в `plans/ARCHITECTURE.md` (§27 и связанные §2/§6/§9/§25).
 > Каталог-инвариант: **REGISTRY 392 / GROUPS 91 / Settings 364** (mapped 89; Δ GROUPS 74→91 = +17).
 > Артефакты сохранены: `design-project.md`, `spec.md`, `tasks.md`.
-> **Остаётся пост-архивная фаза @DevOps (секция §K):** T-1196 (commit+push в `master`),
-> T-1197 (деплой на прод), T-1199 (memory-sync docs-коммит). Ниже — исторический документ
-> планирования; оставшиеся `[ ]` относятся только к этим пост-архивным задачам @DevOps.
+> **Пост-архивная фаза @DevOps завершена (11.09.2026):** T-1196 (commit **`6f91e8b`** + push
+> `be7b85b..6f91e8b`), T-1197 (деплой: pull fast-forward, restart active, health **200**),
+> T-1199 (memory-sync docs-коммит). Ниже — исторический документ планирования.
 > **FEATURE:** `plans/archive/tma-ia-modules-rework/` (kebab-case).
 > **РАУНД:** **10.6** (follow-up после 10.5 `tma-relume-redesign`,
 > архив `plans/archive/tma-relume-redesign/`, задеплоен 10.09.2026).
@@ -363,14 +363,26 @@ class="sidebar">` + top navbar `NAV_ITEMS` (6 пунктов), вкладки `T
 
 ### §K — Завершение (после GO владельца)
 
-- [ ] **T-1196 — @DevOps: русский conventional-commit + push в `master`.**
-  Эталон+код+тесты одним атомарным коммитом; скан секретов; без `.env`/`var/`/`media/`.
-- [ ] **T-1197 — @DevOps: деплой на прод (systemd `admin_bot`).**
-  ssh → `git pull --ff-only` → `.env` при необходимости → `systemctl restart admin_bot`
-  → `systemctl status` → live-smoke (Telegram desktop/Android WebView).
+- [x] **T-1196 — ✅ @DevOps: русский conventional-commit + push в `master` (11.09.2026).**
+  Коммит **`6f91e8b`** (`feat(admin,web,api,plans): раунд 10.6 — редизайн IA TMA… (тесты 5027)`,
+  37 файлов, +5132/−1156) → push **`be7b85b..6f91e8b`** в `origin/master`. Staged без
+  `.env`/`var/`/`media/`/тяжёлого исходника шрифта; `git diff --cached --check` чист
+  (после нормализации EOF двух новых файлов); скан секретов — чисто.
+- [x] **T-1197 — ✅ @DevOps: деплой на прод (11.09.2026) — pull `c01ed72..6f91e8b` (fast-forward), restart OK.**
+  ssh `nik@198.46.175.136` → `cd /var/www/admin_bot && git pull` (fast-forward
+  `c01ed72..6f91e8b`, попутно `be7b85b`) → **`.env`-изменений НЕ требуется** (`.env.example`
+  не менялся; новые `Settings`-поля дефолтно сохраняют поведение, 5 master-флагов сидятся в PG
+  `ON CONFLICT DO NOTHING`) → `sudo systemctl restart admin_bot` (exit 0) → `systemctl is-active`
+  = **active**, `status` = active (running), PID 1020830 → `curl http://127.0.0.1:8000/api/health`
+  = **200**. Логи старта чистые: `All routers registered (v2.4.0)`, `Start polling`,
+  `webapp lifespan started | pg_available=True`; 0 трейсбеков/exception. (WARNING BetterStack 401 —
+  pre-existing, не связан с 10.6; systemd «kill cgroup timeout» — штатное завершение старого
+  процесса при restart.) Live-smoke в Telegram desktop/Android WebView — за владельцем.
 - [x] **T-1198 — ✅ @PM: Archive Phase (Step 8) — `plans/features/tma-ia-modules-rework/`
   → `plans/archive/tma-ia-modules-rework/`** — выполнено 11.09.2026 (packaging-коммит — @DevOps, T-1196).
-- [ ] **T-1199 — @DevOps/@Memory: memory-sync docs-коммитом.**
+- [x] **T-1199 — ✅ @DevOps/@Memory: memory-sync docs-коммитом (11.09.2026).**
+  Деплой-верификация добавлена в этот `tasks.md` (§K) и `plans/backlog.md`;
+  docs-коммит `docs(plans): раунд 10.6 — деплой-верификация…`.
 
 ---
 

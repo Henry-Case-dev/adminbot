@@ -12,7 +12,11 @@
 @Scanner — **0 blocker / 0 major** (`plans/reports/round10.6_scanner_audit.md`, worthwhile-миноры
 закрыты: T-1222/T-1223); @Architect — архитектура влита в `plans/ARCHITECTURE.md` (§27 +
 §2/§6/§9/§25). Артефакты в архиве: `design-project.md`, `spec.md`, `tasks.md` (со статус-хедером).
-**Остаётся пост-архивная фаза @DevOps:** T-1196 (commit+push), T-1197 (деплой), T-1199 (memory-sync).
+**✅ Пост-архивная фаза @DevOps завершена (11.09.2026):** commit **`6f91e8b`** + push
+**`be7b85b..6f91e8b`** в `origin/master`; прод `git pull` fast-forward **`c01ed72..6f91e8b`**
+(`.env`-изменений не требуется — `.env.example` не менялся, 5 master-флагов сидятся в PG
+`ON CONFLICT DO NOTHING`), `sudo systemctl restart admin_bot` → **active (running)** (PID 1020830),
+`/api/health` = **200**, логи старта чистые (0 трейсбеков; BetterStack 401 — pre-existing).
 Ниже — исторический документ планирования эпика.
 
 **Фича:** `plans/archive/tma-ia-modules-rework/` (изолированная папка; `tasks.md` создан 11.09.2026).
