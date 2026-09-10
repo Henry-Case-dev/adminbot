@@ -124,6 +124,28 @@ class TestUptimeBuckets:
         buckets = StatusService._bucketize([_row(naive)])
         assert len(buckets) == 1
 
+    def test_gap_fill_up_down_down_up(self):
+        """10.7 (2b): пропущенные 5-мин слоты между heartbeats → 'down'."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        slot = int(now.timestamp() // 300) * 300
+        t0 = datetime.datetime.fromtimestamp(slot - 900, datetime.timezone.utc)
+        t1 = datetime.datetime.fromtimestamp(slot, datetime.timezone.utc)
+        buckets = StatusService._bucketize([_row(t0), _row(t1)])
+        statuses = [b["status"] for b in buckets]
+        assert statuses[:4] == ["up", "down", "down", "up"], statuses
+        assert len(buckets) <= 288
+
+    def test_gap_fill_trailing_downtime(self):
+        """10.7 (2b): простой после последнего heartbeat виден как 'down'."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        slot = int(now.timestamp() // 300) * 300
+        t_last = datetime.datetime.fromtimestamp(slot - 1200, datetime.timezone.utc)
+        buckets = StatusService._bucketize([_row(t_last)])
+        statuses = [b["status"] for b in buckets]
+        assert statuses[0] == "up", statuses
+        assert all(s == "down" for s in statuses[1:]), statuses
+        assert statuses[-1] == "down"
+
 
 class TestSnapshot:
     async def _build(self, svc, cache, monkeypatch, is_global_admin=False):
@@ -175,7 +197,8 @@ class TestSnapshot:
             assert b["status"] == "down"
             assert b["ts"].endswith("+00:00") or "T" in b["ts"]
         assert up["generated_at"]
-        assert up["last_heartbeat"] == up["buckets"][-1]["ts"]
+        # 10.7 (2b): fallback-бакеты все 'down' → heartbeat отсутствует.
+        assert up["last_heartbeat"] is None
 
     @pytest.mark.asyncio
     async def test_llm_cards_masked_keys(self, monkeypatch):
@@ -306,7 +329,8 @@ class TestSnapshot:
             "services.status_service.StatusService._server_metrics",
             staticmethod(lambda: {}))
         snapshot = await svc.build_snapshot(_FakeCache(pg=pg))
-        assert len(snapshot["uptime"]["buckets"]) == 1
+        # 10.7 (2b): gap-fill может добавить граничный слот 'down' — ≥1.
+        assert len(snapshot["uptime"]["buckets"]) >= 1
         assert snapshot["uptime"]["last_heartbeat"]
 
     @pytest.mark.asyncio

@@ -363,3 +363,39 @@ bot.py
 - **Находки**: `plans/reports/round10.6_scanner_audit.md` (0 блокеров/0 major;
   3 minor: R10.6-1 LLM-дубль редакторов, R10.6-2 https-SSRF, R10.6-3 422-эхо `api_key`;
   3 info).
+
+## Round 10.7 map additions (admin-ui-bugfixes-round107, HEAD 2ccf558 + working tree)
+
+- **TMA scope-производные (1a)**: `web/app.js` — 6 `scope*` (`scopeKind/scopeLabel/
+  scopeOptions/scopeTriggerTitle/scopeTriggerInitial/scopeTriggerAvatar`) перенесены из
+  `methods` (~:1313-1371) в `computed` (`:914-974`). Потребители — только property-доступ
+  (`{{ scopeLabel }}`, `scopeOptions.length`, `scopeOptions[i]` в `scopeMove`
+  `:2097`/`scopePickFocused` `:2103`); вызовов `()` нет. Исправляет рендер
+  `function () { [native code] }` и клавиатурную scope-навигацию. `scopeEpoch`-гварды не тронуты.
+- **CSS шапки/навбара (`web/index.html`)**: `header.header-sticky` (0,1,1) + horizontal
+  `env(safe-area-inset-left/right)` (1b); компактный user block `w-6/gap-1.5/text-xs/
+  max-w-[7rem]` (1c); `.nav-label` `word-break:keep-all` + `-webkit-line-clamp:2` +
+  `text-overflow:ellipsis` + `0.625rem` (1d); scoped `.keys-avail .avail-list`
+  `table-layout:fixed` + ширины 34/18/30/8/10% + ellipsis + `:title` (2a); `.clipboard-ghost`
+  `opacity:0` + `contain:strict` (без `visibility:hidden`) (3a); `.log-level/.log-ts/.log-logger/
+  .log-msg` + `.log-panel .log-code` (3b); `.log-copied` (3c).
+- **Логи (`web/app.js`)**: `fmtLogTime` (`:3285`) HH:MM:SS (полный ts — в `:title` через
+  `fmtLogTs`); `copyText` — `focus({preventScroll:true})`, `execCommand` по boolean,
+  `ta.remove()`+обнуление `window.__adminbotClipGhost` в `finally` (`:3309-3342`);
+  `copyLogRow(log,i)` + `copiedIndex`/`copiedTimer` 800 мс + `.log-copied` (`:3344-3353`);
+  `copyAllLogs` — `self.logText(l)`.
+- **ICONS (R106-5)**: удалены 6 мёртвых ключей (`account_balance_wallet/stop_circle/
+  theater_comedy/toggle_off/toggle_on/speed`); осталось 20; независимая проверка `fontTools`
+  — все 20 PUA-кодов в cmap субсета (26 глифов), ребилд шрифта не нужен. `test_font_subset`
+  теперь проверяет `\ue887` (`help`).
+- **Uptime (2b, `services/status_service.py`)**: `_bucketize` (`:260-301`) — непрерывная
+  5-мин сетка от `min(buckets)` до `now_slot` включительно; пустые слоты `status="down"`
+  (нет heartbeat ⇒ простой); `[]` при пустых rows; `ts < since` отсекается; `[-288:]`.
+  `build_snapshot` → `last_heartbeat` = ts последнего `up`-бакета, иначе `None`
+  (`:376-378`). `uptime_heartbeat.py:26` не тронут (пишет только `'up'`; down деривится).
+  Фронт `renderUptimeChart` не менялся (`down→0`, `spanGaps:false`).
+- **Находки 10.7**: `plans/reports/round10.7_scanner_audit.md` (0 блокеров/0 major;
+  1 minor: R10.7-1 граничный ложный `down`/`last_heartbeat` до ~60 с после 5-мин границы;
+  3 info: R10.7-2 `[-288:]` может отсечь единственный ранний `up`; R10.7-3 `copiedTimer`
+  не чистится при смене вкладки; R10.7-4 `test_font_subset` не сверяет cmap WOFF2).
+  R10.6-5 закрыт; R10.6-1/2/3 открыты (кандидаты 10.8).

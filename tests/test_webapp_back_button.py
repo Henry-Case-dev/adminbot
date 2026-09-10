@@ -183,6 +183,20 @@ class TestScopeSwitcherT1127:
         assert "scopeLabel: function ()" in js
         assert "scopeEpoch" in js
 
+    def test_scope_defs_live_in_computed(self):
+        """10.7 (1a): 6 scope*-производных — в блоке computed (не methods);
+        шаблон читает их как свойства, иначе рендерится
+        `function () { [native code] }` (Vue биндит методы)."""
+        js = _js()
+        computed = js[js.index("computed: {"):js.index("methods: {")]
+        names = ("scopeKind", "scopeLabel", "scopeOptions",
+                 "scopeTriggerTitle", "scopeTriggerInitial", "scopeTriggerAvatar")
+        for name in names:
+            assert (name + ": function ()") in computed, name
+        methods_block = js[js.index("methods: {"):]
+        for name in names:
+            assert (name + ": function ()") not in methods_block, name
+
     def test_scope_reset_broadens_r104_2(self):
         js = _js()
         body = js[js.index("setActiveChat: function (chatId)"):]

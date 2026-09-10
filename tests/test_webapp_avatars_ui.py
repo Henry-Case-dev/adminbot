@@ -35,7 +35,12 @@ class _Static:
     @staticmethod
     def body(src, method_name):
         """Тело метода (по имени, включая 'async function') до конца."""
-        start = src.index(method_name + ":")
+        # 10.7: имя может встречаться и как поле объекта (напр. `avatarUrl:`
+        # внутри scopeOptions) — ищем именно определение функции.
+        match = re.search(
+            r"(?m)^[ \t]*" + re.escape(method_name)
+            + r":[ \t]*(?:async[ \t]+)?function", src)
+        start = match.start() if match else src.index(method_name + ":")
         end = src.index("\n      },", start)
         return src[start:end]
 

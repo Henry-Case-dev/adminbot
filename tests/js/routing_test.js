@@ -21,7 +21,40 @@ global.Vue = {
   },
 };
 global.window = { location: { hash: '' }, addEventListener() {}, Telegram: null };
-global.document = { addEventListener() {}, getElementById() { return null; } };
+const _bodyChildren = [];
+global.document = {
+  addEventListener() {},
+  getElementById() { return null; },
+  createElement(tag) {
+    const el = {
+      tagName: tag, className: '', value: '', style: {},
+      setAttribute() {}, focus() {}, select() {},
+      remove() {
+        const idx = _bodyChildren.indexOf(el);
+        if (idx >= 0) _bodyChildren.splice(idx, 1);
+        if (global.window.__adminbotClipGhost === el) {
+          global.window.__adminbotClipGhost = null;
+        }
+      },
+    };
+    return el;
+  },
+  body: {
+    appendChild(el) { _bodyChildren.push(el); return el; },
+    removeChild(el) {
+      const idx = _bodyChildren.indexOf(el);
+      if (idx >= 0) _bodyChildren.splice(idx, 1);
+      return el;
+    },
+  },
+  execCommand() { return true; },
+};
+Object.defineProperty(global, 'navigator', {
+  configurable: true,
+  value: {
+    clipboard: { writeText: async function () { throw new Error('no clipboard'); } },
+  },
+});
 global.sessionStorage = {
   _s: {},
   getItem(k) { return this._s[k] || null; },
@@ -35,6 +68,24 @@ global.fetch = async function () { throw new Error('no fetch in test'); };
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван');
 const methods = captured.methods;
+const computed = captured.computed;
+
+// ── 10.7 (1a): scope*-производные — computed, НЕ methods ──────────────────
+(function () {
+  const names = ['scopeKind', 'scopeLabel', 'scopeOptions',
+    'scopeTriggerTitle', 'scopeTriggerInitial', 'scopeTriggerAvatar'];
+  names.forEach((n) => {
+    assert.strictEqual(typeof computed[n], 'function',
+      '1a: computed.' + n + ' — функция');
+    assert.strictEqual(methods[n], undefined,
+      '1a: methods.' + n + ' отсутствует');
+  });
+  const opts = computed.scopeOptions.call(
+    { isGlobalAdmin: true, scopeSearch: '', accessChats: [] });
+  assert.ok(Array.isArray(opts), '1a: scopeOptions возвращает массив');
+  assert.strictEqual(opts[0].key, 'global',
+    '1a: global-опция присутствует для глобального админа');
+})();
 
 function makeCtx(visible) {
   return {
@@ -393,6 +444,47 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     const modKeys = modGroups.reduce((a, g) => a.concat(g.items.map((i) => i.key)), []);
     assert.ok(modKeys.indexOf('models.llm_base_url') >= 0,
       'R10.6-1: фильтр только для llm_providers');
+  }
+
+  // ── 10.7 (3a): ghost-textarea не остаётся в DOM ─────────────────────────
+  {
+    const toasts = [];
+    const stub = { toast(m, k) { toasts.push([m, k]); } };
+    await methods.copyText.call(stub, 'hello');
+    assert.strictEqual(_bodyChildren.length, 0,
+      '3a: clipboard-ghost удалён из DOM');
+    assert.ok(!global.window.__adminbotClipGhost,
+      '3a: window.__adminbotClipGhost сброшен');
+    assert.deepStrictEqual(toasts, [['Скопировано', 'ok']],
+      'DEF-2: execCommand=true → ok-тост');
+  }
+
+  // ── 10.7 (DEF-2): execCommand=false → err-тост, без ложного «Скопировано»
+  {
+    const toasts = [];
+    const stub = { toast(m, k) { toasts.push([m, k]); } };
+    const orig = global.document.execCommand;
+    global.document.execCommand = function () { return false; };
+    try {
+      await methods.copyText.call(stub, 'x');
+    } finally {
+      global.document.execCommand = orig;
+    }
+    assert.deepStrictEqual(toasts, [['Не удалось скопировать', 'err']],
+      'DEF-2: false-execCommand → err-тост');
+  }
+
+  // ── 10.7 (3c): copyLogRow ставит copiedIndex и копирует строку ──────────
+  {
+    const stub = {
+      copiedIndex: null, copiedTimer: null, lastCopy: null,
+      logText(l) { return 'LOG:' + l.message; },
+      copyText(t) { this.lastCopy = t; },
+    };
+    methods.copyLogRow.call(stub, { message: 'm1' }, 2);
+    assert.strictEqual(stub.copiedIndex, 2, '3c: copiedIndex выставлен');
+    assert.strictEqual(stub.lastCopy, 'LOG:m1', '3c: строка скопирована');
+    clearTimeout(stub.copiedTimer);
   }
 
   console.log('JS-UNIT-OK');

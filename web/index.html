@@ -204,15 +204,19 @@
     }
     .nav-link {
       display: flex; flex-direction: column; align-items: center;
-      justify-content: flex-start; gap: 2px; flex: 1 1 0; min-width: 0;
-      padding: .3rem .25rem; white-space: normal;
+      justify-content: flex-start; gap: 1px; flex: 1 1 0; min-width: 0;
+      padding: .25rem .1rem; white-space: normal;
       background: transparent; border: none; cursor: pointer;
       color: var(--text-2); font-size: var(--tx-small);
     }
-    .nav-link .nav-icon { font-size: 20px; line-height: 1; }
+    .nav-link .nav-icon { font-size: 18px; line-height: 1; }
+    /* 10.7 (1d): подписи навбара — без разрыва внутри слова (keep-all),
+       перенос по словам, максимум 2 строки с ellipsis; едино mobile+desktop. */
     .nav-label {
-      font-size: var(--tx-tiny); line-height: 1.05; text-align: center;
-      overflow-wrap: anywhere;
+      font-size: 0.625rem; line-height: 1.05; letter-spacing: -0.01em;
+      text-align: center; word-break: keep-all; overflow-wrap: break-word;
+      hyphens: none; display: -webkit-box; -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;
     }
     .nav-link:hover { background: rgba(255,255,255,.06); color: var(--text-1); }
     .nav-link.active {
@@ -293,8 +297,9 @@
     }
     @media (max-width: 479px) {
       .hub-grid { grid-template-columns: 1fr; }
-      .nav-link { padding: .35rem .15rem; }
+      .nav-link { padding: .3rem .1rem; }
       .avail-list th:nth-child(2), .avail-list td:nth-child(2) { display: none; }
+      .log-logger { display: none; }
     }
 
     .field {
@@ -362,6 +367,24 @@
     .avail-code.err { color: var(--err); }
     .avail-code.none { color: var(--text-3); }
 
+    /* 10.7 (2a): ТОЛЬКО таблица ключей (.keys-avail) — фиксированная
+       раскладка + ellipsis, чтобы whisper-large-v3 не ломал карточку.
+       Матрица ролей и прочие .avail-list не затрагиваются. */
+    .keys-avail .avail-list { table-layout: fixed; }
+    .keys-avail .avail-list th:nth-child(1),
+    .keys-avail .avail-list td:nth-child(1) { width: 34%; }
+    .keys-avail .avail-list th:nth-child(2),
+    .keys-avail .avail-list td:nth-child(2) { width: 18%; }
+    .keys-avail .avail-list th:nth-child(3),
+    .keys-avail .avail-list td:nth-child(3) { width: 30%; }
+    .keys-avail .avail-list th:nth-child(4),
+    .keys-avail .avail-list td:nth-child(4) { width: 8%; }
+    .keys-avail .avail-list th:nth-child(5),
+    .keys-avail .avail-list td:nth-child(5) { width: 10%; }
+    .keys-avail .avail-list td {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
     .progress {
       height: 8px;
       border-radius: 999px;
@@ -409,6 +432,24 @@
       line-height: 1.25;
     }
     .log-code .log-row { padding: 2px 4px; }
+    /* 10.7 (3b): фикс-ширины level/date/logger, сообщение берёт остаток. */
+    .log-level { min-width: 4.5rem; text-align: center; }
+    .log-level .badge { display: inline-block; }
+    .log-ts {
+      width: 8ch; white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .log-logger {
+      max-width: 8rem; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log-msg {
+      word-break: break-word; overflow-wrap: anywhere; white-space: normal;
+    }
+    /* Специфичность 0,2,0 перекрывает Tailwind .break-all (0,1,0). */
+    .log-panel .log-code { word-break: break-word; }
+    /* 10.7 (3c): transient-подсветка скопированной строки. */
+    .log-copied { background: rgba(20, 203, 182, .18); transition: background .15s ease; }
     /* Раунд 10 (F-8 T-874): чип «авто» вместо «— авто» */
     .chip-auto {
       background: rgba(245, 158, 11, 0.18);
@@ -421,8 +462,10 @@
       color: #fca5a5;
     }
     /* Раунд 10 (BUG-7): ghost-textarea копирования — за экраном
-       (fixed left:-9999px), невидима, без раскладки-эффекта в Telegram
-       WebView; ОДИН элемент на весь клип (window.__adminbotClipGhost). */
+       (fixed left:-9999px), opacity:0, без раскладки-эффекта в Telegram
+       WebView; временный узел (10.7, удаляется после клипа). ВАЖНО:
+       НЕ visibility:hidden — иначе элемент не фокусируется и
+       execCommand('copy')-fallback ломается (Telegram WebView). */
     .clipboard-ghost {
       position: fixed;
       left: -9999px;
@@ -430,6 +473,7 @@
       width: 1px;
       height: 1px;
       opacity: 0;
+      contain: strict;
       pointer-events: none;
       border: 0;
       padding: 0;
@@ -513,12 +557,16 @@
     .scroll-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
     /* UI-полировка TMA: прилипающая шапка (непрозрачнее обычной card-solid,
-       чтобы контент не просвечивал сквозь неё при скролле) */
-    .header-sticky {
+       чтобы контент не просвечивал сквозь неё при скролле).
+       10.7 (1b): горизонтальные safe-area (Telegram-кнопки/вырезы) —
+       правые элементы шапки не уходят под нативные кнопки WebView. */
+    header.header-sticky {
       position: sticky;
       top: 0;
       z-index: 40;
       background: rgba(22, 22, 22, 0.96);
+      padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+      padding-left: calc(1rem + env(safe-area-inset-left, 0px));
     }
 
     /* Раунд 10.6 (A1/T-1161/T-1162): модель скролла без боковой панели.
@@ -624,19 +672,19 @@
           <!-- T-1127/§15.1.1: явный бейдж scope (GLOBAL) — имена/аватары
                чатов уже в селекторе выше; ЛС/ЧАТ — в бейдже #id. -->
           <span v-if="!isChatContext()" class="badge badge-muted shrink-0">{{ scopeLabel }}</span>
-          <div class="ml-auto flex items-center gap-2 text-sm">
+          <div class="ml-auto flex items-center gap-1.5 text-xs">
             <!-- UI-полировка TMA: аватар текущего юзера — CDN photo_url из
                  initData (me.photo_url) сразу; иначе — blob через прокси
                  avatarUrl('user', …); @error CDN → фолбек на прокси -->
             <img v-if="me && meAvatarUrl" :src="meAvatarUrl" alt=""
-                 class="w-8 h-8 rounded-full object-cover shrink-0 border border-white/15"
+                 class="w-6 h-6 rounded-full object-cover shrink-0 border border-white/15"
                  @error="onMeAvatarError()">
-            <span v-if="me" class="text-gray-300">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
-            <span v-if="me" class="badge badge-info">{{ me.role_name }}</span>
+            <span v-if="me" class="text-gray-300 text-xs truncate max-w-[7rem]">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
+            <span v-if="me" class="badge badge-info text-[10px] px-1.5 py-0">{{ me.role_name }}</span>
             <!-- Полноэкранный режим TMA (⛶). F-13 (AC-2): крестик ✕
                  принудительного закрытия миниаппа удалён — закрытие в
                  Telegram штатно (свайп/системная кнопка). -->
-            <button v-if="me" class="btn-ghost text-sm px-2 shrink-0"
+            <button v-if="me" class="btn-ghost text-xs px-1.5 py-1 shrink-0"
                     :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
                     @click="toggleFullscreen()">⛶</button>
           </div>
@@ -2456,7 +2504,7 @@
             <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный
                  список + график по времени + легенда. Данные — leak-safe
                  GET /api/status/key-history (allowlist, R17). -->
-            <div class="card p-4" style="grid-column: 1 / -1;">
+            <div class="card p-4 keys-avail" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold">🔑 Доступность ключей API</div>
                 <button class="btn-ghost text-xs ml-auto"
@@ -2474,9 +2522,9 @@
                   </tr></thead>
                   <tbody>
                     <tr v-for="p in keyHistory.providers" :key="p.module_id">
-                      <td>{{ p.module_title || p.module_id }}</td>
-                      <td>{{ p.provider }}</td>
-                      <td class="mono">{{ p.model || '—' }}</td>
+                      <td :title="p.module_title || p.module_id">{{ p.module_title || p.module_id }}</td>
+                      <td :title="p.provider">{{ p.provider }}</td>
+                      <td class="mono" :title="p.model || '—'">{{ p.model || '—' }}</td>
                       <td class="mono avail-code"
                           :class="availabilityClass(latestSample(p))">
                         {{ availabilityCode(latestSample(p)) }}
@@ -2498,12 +2546,12 @@
             <div class="card p-4" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold">📜 Логи</div>
-                <select class="field w-32" v-model="logLevel">
+                <select class="field w-32 shrink-0" v-model="logLevel">
                   <option v-for="lvl in ['ALL','DEBUG','INFO','WARNING','ERROR','CRITICAL']" :key="lvl" :value="lvl">{{ lvl }}</option>
                 </select>
-                <button class="btn-ghost text-sm" @click="loadLogs()">Обновить</button>
-                <span class="text-xs text-gray-500">показано {{ logs.length }} из {{ logsCount }}</span>
-                <button class="btn-ghost text-xs ml-auto" @click="copyAllLogs()">Копировать всё</button>
+                <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
+                <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ logs.length }} из {{ logsCount }}</span>
+                <button class="btn-ghost text-xs ml-auto shrink-0" @click="copyAllLogs()">Копировать всё</button>
               </div>
               <div class="text-xs mb-2">
                 <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
@@ -2519,16 +2567,20 @@
                 <div v-else-if="logs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
                 <pre v-else class="log-code break-all"><code><template v-for="(log, i) in logs">
                   <span :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
-                        title="Клик — копировать строку" @click="copyText(logText(log))">
-                    <span class="flex items-start gap-2 flex-wrap">
+                        title="Клик — копировать строку"
+                        :class="{ 'log-copied': copiedIndex === i }"
+                        @click="copyLogRow(log, i)">
+                    <span class="flex items-start gap-2">
                       <button class="log-toggle shrink-0" title="Развернуть/свернуть стек"
                               @click.stop="log.expanded = !log.expanded">
                         {{ log.expanded && log.exc_text ? '▾' : '▸' }}
                       </button>
-                      <span class="badge shrink-0" :class="levelBadge(log.level)">{{ log.level }}</span>
-                      <span class="text-gray-500 shrink-0">{{ fmtLogTs(log.ts) }}</span>
-                      <span class="text-gray-400 shrink-0">{{ log.logger }}</span>
-                      <span class="text-gray-200 flex-1 min-w-0 break-all">{{ log.message }}</span>
+                      <span class="log-level shrink-0">
+                        <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
+                      </span>
+                      <span class="log-ts shrink-0" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
+                      <span class="log-logger text-gray-400 shrink-0">{{ log.logger }}</span>
+                      <span class="log-msg text-gray-200 flex-1 min-w-0">{{ log.message }}</span>
                     </span>
                     <span v-if="log.expanded && log.exc_text" class="log-exc block mt-1">{{ log.exc_text }}</span>
                   </span>

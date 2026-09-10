@@ -30,11 +30,12 @@ class TestHeaderAndLogs:
         assert "max-height: 320px" in html
 
     def test_log_row_click_copies(self):
-        """Hotfix-R10: клик по строке лога = копировать
-        (@click="copyText(logText(log))"); per-line-кнопки «Скопировать»
-        больше нет (осталась одна «Копировать всё»)."""
+        """10.7 (3c): клик по строке лога = копировать И подсветить
+        (@click="copyLogRow(log, i)" + :class log-copied); per-line-кнопки
+        «Скопировать» нет (осталась одна «Копировать всё»)."""
         html = _html()
-        assert '@click="copyText(logText(log))"' in html
+        assert '@click="copyLogRow(log, i)"' in html
+        assert "'log-copied': copiedIndex === i" in html
         assert ">Скопировать</button>" not in html
         assert "Копировать всё" in html
         assert "log-row" in html

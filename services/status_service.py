@@ -260,7 +260,12 @@ class StatusService:
     @staticmethod
     def _bucketize(rows: list, bucket_seconds: int = _UPTIME_BUCKET_SECONDS,
                    window_seconds: int = _UPTIME_WINDOW_SECONDS) -> list[dict]:
-        """Сырые строки {ts, status} → 5-мин бакеты за 24ч (≤288 точек)."""
+        """Сырые строки {ts, status} → непрерывная 5-мин сетка за 24ч (≤288).
+
+        10.7 (2b): пропущенные слоты (нет heartbeat ⇒ процесс не писал 'up')
+        заполняются status='down'. Иначе фронт рисовал непрерывную линию
+        из одних 'up' — «плоский график».
+        """
         if not rows:
             return []
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -278,6 +283,21 @@ class StatusService:
                     slot, datetime.timezone.utc).isoformat(),
                 "status": row.get("status") or "up",
             }
+        # Синтез непрерывной сетки: от самого раннего слота (в окне) до
+        # текущего; слот без строк = простой ('down').
+        if not buckets:
+            return []          # все строки старше окна → как раньше, пусто
+        now_slot = int(now.timestamp() // bucket_seconds) * bucket_seconds
+        first_slot = min(buckets)
+        slot = first_slot
+        while slot <= now_slot:
+            if slot not in buckets:
+                buckets[slot] = {
+                    "ts": datetime.datetime.fromtimestamp(
+                        slot, datetime.timezone.utc).isoformat(),
+                    "status": "down",
+                }
+            slot += bucket_seconds
         return sorted(buckets.values(), key=lambda b: b["ts"])[-288:]
 
     async def fetch_uptime_rows(self, pg) -> list:
@@ -351,7 +371,11 @@ class StatusService:
             "permsoc": permsoc,
             "uptime": {
                 "buckets": buckets,
-                "last_heartbeat": buckets[-1]["ts"] if buckets else None,
+                # 10.7 (2b): ts последнего 'up'-бакета, иначе None (не
+                # buckets[-1].ts — после gap-fill последний слот часто 'down').
+                "last_heartbeat": next(
+                    (b["ts"] for b in reversed(buckets) if b["status"] == "up"),
+                    None),
                 "since": (now - datetime.timedelta(
                     seconds=_UPTIME_WINDOW_SECONDS)).isoformat(),
                 "until": now.isoformat(),

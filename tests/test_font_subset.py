@@ -70,5 +70,5 @@ def test_fontface_and_pua_rendering():
     js = open("web/app.js", encoding="utf-8").read()
     # Рендер по PUA-кодпоинту (карта ICONS), а не по текстовому имени.
     assert "var ICONS = {" in js
-    assert "'\\ue850'" in js          # account_balance_wallet
+    assert "'\\ue887'" in js          # help (10.7: account_balance_wallet удалён)
     assert "tabMat: function (id)" in js

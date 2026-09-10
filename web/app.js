@@ -203,9 +203,8 @@
 
   // ═══ Material Symbols Rounded — PUA-карта (T-1147/§15.4.4) ═══
   // Субсет без лигатур ⟹ рендер кодпоинтом (ICONS[name] → символ PUA),
-  // НЕ текстовым именем. 26 иконок из design-project.md §5.4.
+  // НЕ текстовым именем. 20 иконок (10.7: удалены 6 мёртвых ключей).
   var ICONS = {
-    account_balance_wallet: '\ue850',
     admin_panel_settings: '\uef3d',
     auto_stories: '\ue666',
     badge: '\uea67',
@@ -225,12 +224,7 @@
     radar: '\uf04e',
     restart_alt: '\uf053',
     smart_toy: '\uf06c',
-    speed: '\ue9e4',
-    stop_circle: '\uef71',
     supervisor_account: '\ue1df',
-    theater_comedy: '\uea66',
-    toggle_off: '\ue9f5',
-    toggle_on: '\ue9f6',
   };
   // tab.id → Material-имя (рендер через tabMat(); fallback — emoji TABS.icon).
   var TAB_ICON = {
@@ -743,6 +737,9 @@
         logsCount: 0,
         logsLoading: false,
         logLevel: 'INFO',
+        // 10.7 (3c): transient-подсветка строки, скопированной по клику.
+        copiedIndex: null,
+        copiedTimer: null,
         // control
         controlLocked: false,
         controlLockSeconds: 0,
@@ -913,6 +910,67 @@
           start: 'Запустить бота?',
         };
         return labels[this.confirmAction] || '';
+      },
+      // 10.7 (1a): scope-производные — именно computed, иначе шаблонные
+      // привязки без вызова (`{{ scopeLabel }}`) печатают
+      // `function () { [native code] }` (Vue биндит методы).
+      // T-1127/§15.1.1: вид scope для UI (GLOBAL/ЧАТ/ЛС) — производная от
+      // activeChatId/isDmCtx. X-Chat-Id: null=GLOBAL, <0=ЧАТ, >0=ЛС.
+      scopeKind: function () {
+        if (this.activeChatId == null) return 'global';
+        return this.isDmCtx() ? 'dm' : 'chat';
+      },
+      scopeLabel: function () {
+        if (this.scopeKind === 'global') return 'GLOBAL';
+        return this.scopeKind === 'dm' ? 'ЛС' : 'ЧАТ';
+      },
+      // T-1127: пункты dropdown (GLOBAL + ЧАТы + ЛС), RBAC-список с сервера.
+      scopeOptions: function () {
+        var q = (this.scopeSearch || '').toLowerCase();
+        var opts = [];
+        if (this.isGlobalAdmin) {
+          opts.push({ key: 'global', kind: 'global', chat_id: null,
+                      title: 'Весь бот', subtitle: 'Глобальные настройки',
+                      badge: 'GLOBAL', initial: 'В' });
+        }
+        var chats = [];
+        var dms = [];
+        this.accessChats.forEach(function (c) {
+          var o = {
+            key: String(c.chat_id),
+            kind: c.is_dm ? 'dm' : 'chat',
+            chat_id: c.chat_id,
+            title: c.title || ('Чат ' + c.chat_id),
+            subtitle: c.is_dm ? 'Личные сообщения' : (c.access || ''),
+            badge: c.is_dm ? 'ЛС' : '',
+            is_dm: !!c.is_dm,
+            photo_file_id: c.photo_file_id,
+            avatarUrl: c.avatarUrl || '',
+            initial: (c.title || String(c.chat_id)).slice(0, 1),
+          };
+          if (c.is_dm) dms.push(o); else chats.push(o);
+        });
+        function filt(list) {
+          if (!q) return list;
+          return list.filter(function (o) {
+            return o.title.toLowerCase().indexOf(q) >= 0;
+          });
+        }
+        return opts.concat(filt(chats), filt(dms));
+      },
+      scopeTriggerTitle: function () {
+        return this.activeChatId == null ? 'Весь бот' : this.activeChatTitle;
+      },
+      scopeTriggerInitial: function () {
+        return (this.scopeTriggerTitle || '?').slice(0, 1);
+      },
+      scopeTriggerAvatar: function () {
+        var self = this;
+        if (this.activeChatId == null) return '';
+        var c = this.accessChats.find(function (x) {
+          return x.chat_id === self.activeChatId;
+        });
+        return (c && c.avatarUrl) || '';
       },
     },
 
@@ -1312,64 +1370,6 @@
       },
       isChatContext: function () {
         return this.activeChatId != null;
-      },
-      // T-1127/§15.1.1: вид scope для UI (GLOBAL/ЧАТ/ЛС) — производная от
-      // activeChatId/isDmCtx. X-Chat-Id: null=GLOBAL, <0=ЧАТ, >0=ЛС.
-      scopeKind: function () {
-        if (this.activeChatId == null) return 'global';
-        return this.isDmCtx() ? 'dm' : 'chat';
-      },
-      scopeLabel: function () {
-        if (this.scopeKind === 'global') return 'GLOBAL';
-        return this.scopeKind === 'dm' ? 'ЛС' : 'ЧАТ';
-      },
-      // T-1127: пункты dropdown (GLOBAL + ЧАТы + ЛС), RBAC-список с сервера.
-      scopeOptions: function () {
-        var q = (this.scopeSearch || '').toLowerCase();
-        var opts = [];
-        if (this.isGlobalAdmin) {
-          opts.push({ key: 'global', kind: 'global', chat_id: null,
-                      title: 'Весь бот', subtitle: 'Глобальные настройки',
-                      badge: 'GLOBAL', initial: 'В' });
-        }
-        var chats = [];
-        var dms = [];
-        this.accessChats.forEach(function (c) {
-          var o = {
-            key: String(c.chat_id),
-            kind: c.is_dm ? 'dm' : 'chat',
-            chat_id: c.chat_id,
-            title: c.title || ('Чат ' + c.chat_id),
-            subtitle: c.is_dm ? 'Личные сообщения' : (c.access || ''),
-            badge: c.is_dm ? 'ЛС' : '',
-            is_dm: !!c.is_dm,
-            photo_file_id: c.photo_file_id,
-            avatarUrl: c.avatarUrl || '',
-            initial: (c.title || String(c.chat_id)).slice(0, 1),
-          };
-          if (c.is_dm) dms.push(o); else chats.push(o);
-        });
-        function filt(list) {
-          if (!q) return list;
-          return list.filter(function (o) {
-            return o.title.toLowerCase().indexOf(q) >= 0;
-          });
-        }
-        return opts.concat(filt(chats), filt(dms));
-      },
-      scopeTriggerTitle: function () {
-        return this.activeChatId == null ? 'Весь бот' : this.activeChatTitle;
-      },
-      scopeTriggerInitial: function () {
-        return (this.scopeTriggerTitle || '?').slice(0, 1);
-      },
-      scopeTriggerAvatar: function () {
-        var self = this;
-        if (this.activeChatId == null) return '';
-        var c = this.accessChats.find(function (x) {
-          return x.chat_id === self.activeChatId;
-        });
-        return (c && c.avatarUrl) || '';
       },
       // Раунд 10.4 (A-8, Risk A-2): запись TABS «Лор чатов» для рендера
       // config-части вкладки (groupedForTab по sources limits_lore/flags_lore).
@@ -3280,6 +3280,15 @@
         if (isNaN(d.getTime())) return String(ts).slice(0, 19).replace('T', ' ');
         return d.toLocaleString('ru-RU', { hour12: false });
       },
+      // 10.7 (3b): компактное время HH:MM:SS для фикс-колонки логов
+      // (полная дата остаётся в :title через fmtLogTs).
+      fmtLogTime: function (ts) {
+        if (!ts) return '';
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return String(ts).slice(11, 19);
+        var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      },
       // Раунд 9: формат unix-секунд (users_meta/graph_facts/logs в секундах)
       fmtTs: function (ts) {
         if (!ts) return '—';
@@ -3302,31 +3311,52 @@
           await navigator.clipboard.writeText(text);
           this.toast('Скопировано', 'ok');
         } catch (e) {
-          // BUG-7 (invisible copy field): fallback-execCommand — ОДИН
-          // кэшированный textarea (window.__adminbotClipGhost) с классом
-          // .clipboard-ghost (CSS: fixed left:-9999px, opacity:0 —
-          // невидим и НЕ ломает раскладку Telegram WebView). Элемент
-          // создаётся один раз и остаётся в DOM (скрыт); flash НЕТ.
-          var ta = window.__adminbotClipGhost;
-          if (!ta) {
-            ta = document.createElement('textarea');
-            ta.className = 'clipboard-ghost';
-            ta.setAttribute('readonly', '');
-            document.body.appendChild(ta);
-            window.__adminbotClipGhost = ta;
-          }
+          // BUG-7 (invisible copy field): fallback-execCommand — временный
+          // textarea с классом .clipboard-ghost (CSS: fixed left:-9999px,
+          // opacity:0, contain:strict — невидим и НЕ ломает раскладку
+          // Telegram WebView, но остаётся фокусируемым). 10.7 (3a): узел
+          // удаляется в finally — в DOM не остаётся «призрака» у фильтр-строки.
+          var ta = document.createElement('textarea');
+          ta.className = 'clipboard-ghost';
+          ta.setAttribute('readonly', '');
+          document.body.appendChild(ta);
+          window.__adminbotClipGhost = ta;
           ta.value = text;
-          ta.focus();
+          ta.focus({ preventScroll: true });
           ta.select();
-          try { document.execCommand('copy'); this.toast('Скопировано', 'ok'); }
-          catch (e2) { this.toast('Не удалось скопировать', 'err'); }
-          // класс держит opacity:0 постоянно; guard-задержка на случай
-          // UA-перерисовки (не удаляем из DOM — элемент переиспользуется)
-          setTimeout(function () { ta.style.opacity = '0'; }, 150);
+          try {
+            // execCommand('copy') возвращает boolean и НЕ бросает исключение —
+            // проверяем результат (иначе ложный тост «Скопировано»).
+            var ok = document.execCommand('copy');
+            if (ok) this.toast('Скопировано', 'ok');
+            else this.toast('Не удалось скопировать', 'err');
+          } catch (e2) {
+            this.toast('Не удалось скопировать', 'err');
+          } finally {
+            ta.remove();
+            if (window.__adminbotClipGhost === ta) {
+              window.__adminbotClipGhost = null;
+            }
+          }
         }
       },
+      // 10.7 (3c): копирование строки лога по клику + подсветка на 800 мс.
+      copyLogRow: function (log, i) {
+        this.copiedIndex = i;
+        if (this.copiedTimer) clearTimeout(this.copiedTimer);
+        var self = this;
+        this.copiedTimer = setTimeout(function () {
+          self.copiedIndex = null;
+          self.copiedTimer = null;
+        }, 800);
+        this.copyText(this.logText(log));
+      },
       copyAllLogs: function () {
-        this.copyText(this.logs.map(this.logText).join('\n\n'));
+        // 10.7 (1a/3c): явная привязка (без потери this в callback).
+        var self = this;
+        this.copyText(this.logs.map(function (l) {
+          return self.logText(l);
+        }).join('\n\n'));
       },
 
       // ═══ Control (84.15.4) ═══

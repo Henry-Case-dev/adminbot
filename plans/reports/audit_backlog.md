@@ -3,6 +3,29 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.7 scan (2026-09-11) — all scanned
+- [x] web/app.js (scope* → computed 6 шт; ICONS −6 мёртвых; fmtLogTime; copyText
+      finally-remove + preventScroll + boolean execCommand; copyLogRow + copiedIndex;
+      copyAllLogs self.logText)
+- [x] web/index.html (1b `header.header-sticky`+env safe-area; 1c компактный user block;
+      1d nav-label keep-all/2-line clamp/0.625rem; 2a scoped `.keys-avail` fixed+ellipsis;
+      3a `.clipboard-ghost` opacity/contain strict без visibility:hidden; 3b log-колонки;
+      3c `log-copied`/`copyLogRow`)
+- [x] services/status_service.py (2b `_bucketize` gap-fill 'down' до now_slot;
+      `last_heartbeat` = последний 'up'/None)
+- [x] tests/test_webapp_round107_ui.py (NEW: маркеры 1b/1c/1d/2a/3a/3b/3c)
+- [x] tests/js/routing_test.js (стаб document/navigator/execCommand; 3a ghost-removed,
+      DEF-2 false-execCommand, 3c copyLogRow, 1a computed)
+- [x] tests/test_status_service.py (gap-fill up/down/down/up, trailing downtime,
+      last_heartbeat None/truthy)
+- [x] tests/test_font_subset.py (R106-5: `\ue887` help вместо `\ue850`)
+- [x] tests/test_webapp_avatars_ui.py (`_Static.body` — regex определения функции)
+- [x] tests/test_webapp_back_button.py (1a: 6 scope* в computed, не methods)
+- [x] tests/test_webapp_tma_fixes_ui.py (3c: `copyLogRow(log,i)` + `log-copied`)
+- [x] plans/backlog.md, plans/features/admin-ui-bugfixes-round107/ (spec/tasks)
+- [x] plans/reports/round10.7_scanner_audit.md (итоговый отчёт — 0 блокеров/0 major,
+      1 minor + 3 info + 1 nit; R10.6-5 закрыт)
+
 ## Round 10.6 scan (2026-09-11) — all scanned
 - [x] config/settings.py (5 master-флагов FACTCHECK/SEARCH/VIDEO_SUMMARY/WEBPAGE/CHECKUP_ENABLED, default True)
 - [x] services/param_catalog.py (GROUPS 91/REGISTRY 392/Settings 364/mapped 89; расщепления
