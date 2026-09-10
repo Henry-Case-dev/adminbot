@@ -394,3 +394,29 @@ R10.6-5 (мёртвые `ICONS`), R10.4-4…-6 (`ARCHITECTURE.md` §25).
 > **@PM не пишет код.** Все исполнительские задачи назначены на @Architect/@Builder/@DevOps.
 
 **Путь:** `plans/features/admin-ui-bugfixes-round107/tasks.md`
+
+---
+
+## 9. Деплой-верификация (пост-архив, @DevOps)
+
+**Дата:** 11.09.2026 (серверное время `2026-09-10 22:55 UTC`). **Статус: ✅ ЗАДЕПЛОЕНО И ПРОВЕРЕНО.**
+
+| Шаг | Результат |
+|---|---|
+| **Коммит** | `7f3b790` — `fix(admin,web,plans): раунд 10.7 — UI/UX-багфиксы админки: scope-binding, safe-area, таблица ключей, uptime-график, логи (тесты 5042)` (19 файлов, +1700/−135) |
+| **Push** | `origin/master` → `2ccf558..7f3b790` (fast-forward, rc=0) |
+| **Прод `git pull --ff-only`** | `4055434..7f3b790` fast-forward, rc=0 (прод отставал на docs-коммит 10.6 `2ccf558` — pull его забрал вместе с 10.7) |
+| **`.env`** | Изменений НЕ требуется: раунд UI/docs-only, в коммите нет ни одного env-файла (`NO_ENV_FILES_IN_COMMIT`), новых переменных нет |
+| **Restart** | `sudo systemctl restart admin_bot` → rc=0 |
+| **Status** | `active (running)`, Main PID `1086594` (`/var/www/admin_bot/venv/bin/python bot.py`) |
+| **Health** | `GET http://127.0.0.1:8000/api/health` → **HTTP 200**, тело `{"status":"ok"}` (порт `WEB_PORT=8000`, listen `127.0.0.1:8000`) |
+| **Логи старта** | Чисто: `webapp lifespan started | pg_available=True`, `Bot started, listening...`, polling `@PERMsoc_bot`; **0 ERROR/Traceback**. Единственный WARNING — известный `betterstack status=401` (`LOGTAIL_SOURCE_TOKEN`), не связан с 10.7 |
+
+**T-1236/T-1237 — ✅ выполнено.** **T-1242** (memory-sync docs) — ✅ этот docs-коммит.
+**T-1238 (live-smoke TMA UI 1a-1d/2a-2b/3a-3c) — ⏳ НЕ автоматизирован:** серверная верификация
+(pull/restart/health/логи) пройдена; визуальный smoke в живом Telegram Mini App требует ручного
+прохода владельца (scope-trigger печатает имя скоупа, график не плоский, логи копируются по клику).
+
+**Остаточные ручные шаги:** открыть TMA на проде и глазами подтвердить 1a-1d, 2a-2b, 3a-3c
+(см. AC §5); при желании — поправить `LOGTAIL_SOURCE_TOKEN` (BetterStack Source Token, отдельная
+тема, не 10.7).

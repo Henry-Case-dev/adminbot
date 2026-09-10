@@ -51,6 +51,13 @@ P2-задача **T-1234**; **R10.6-2** (SSRF `https`) и **R10.6-3** (422-эх�
 **@PM не пишет код.**
 **Архив:** `plans/archive/admin-ui-bugfixes-round107/` (spec.md, tasks.md).
 
+**✅ ДЕПЛОЙ 10.7 (11.09.2026, @DevOps):** commit `7f3b790`, push `2ccf558..7f3b790`
+(`origin/master`); прод `git pull --ff-only` `4055434..7f3b790` (fast-forward), `.env` не менялся
+(UI/docs-only); `systemctl restart admin_bot` → **active (running)**, Main PID `1086594`;
+`/api/health` → **HTTP 200 `{"status":"ok"}`**; логи старта чистые (**0 ERROR/Traceback**;
+единственный WARNING — известный BetterStack 401). Live-smoke TMA UI (1a-1d/2a-2b/3a-3c) —
+не автоматизирован, остаётся ручной проверкой владельца. Детали — `tasks.md` §9 архива.
+
 ## Раунд 10.6 (11.09.2026): TMA IA/Modules rework — 7 UX/IA-дефектов владельца после 10.5 — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (GO 11.09.2026; архив @PM 11.09.2026)
 
 **✅ ИТОГ 10.6 (11.09.2026):** реализация завершена, фича **заархивирована** — перенесена
