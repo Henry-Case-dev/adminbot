@@ -1237,15 +1237,15 @@ T-1134…T-1135 — QA/регресс новых фич (секция G); T-1136
       UI → API → БД/PG → рендер; после reload/restart значение на месте); ни одного «бездомного»
       параметра/экрана. Артефакт — parity-матрица (в этой папке), 0 пропусков.
       AC: покрыты все 387 записей; расхождений с baseline «до» — **0**; проверка воспроизводима (для T-1115).
-- [ ] **T-1150 — README.md: обновление под раунд 10.5 (ироничный тон репозитория сохранён).**
+- [x] **T-1150 — README.md: обновление под раунд 10.5 (ироничный тон репозитория сохранён).** ✅ Landed 10.09.2026: ироничный раздел «Раунд 10.5 — админку перекроили по эталону Relume…» (navbar 6 / hub-экраны / hash-роутинг / нативный BackButton / scope-switcher / key-availability+график / матрица+CRUD ролей / градиенты+Material Symbols / каталог 387/74/359 / build-time font-subset), обновлены шапка (`Тестов: 4962`, раунд 10.5), таблица админки (6 разделов+хабы) и тестовый счётчик (4962).
       Описать новую IA/навигацию, 15 экранов, scope-switcher, key-availability, матрицу ролей,
       шрифт/иконки, счётчики; **сохранить юмористический стиль** существующего README.
       AC: README обновлён; тон ироничный (как в репо); счётчик тестов актуальный; 0 битых ссылок.
-- [ ] **T-1151 — Русский conventional-commit + push в `master`.** ЭТАЛОН + код + тесты одним
+- [x] **T-1151 — Русский conventional-commit + push в `master`.** ✅ Landed 10.09.2026: commit **`918f675`** (49 файлов, `feat(admin,web,chat,api): раунд 10.5 — … (тесты 4962)`) → push **`0bdf272..918f675`** в `origin/master`; staged без `.env`/`var/`/`media/`/тяжёлого исходника шрифта; `git diff --cached --check` чист; скан секретов — только тест-плейсхолдеры (`sk_test_key`/`gsk_test_key`). (исходное ТЗ ниже) ЭТАЛОН + код + тесты одним
       атомарным коммитом (прецедент D123); формат `<type>(<scope>): раунд 10.5 — …` на русском
       (см. «Конвенция коммитов» ниже); `git diff --check` чист; секреты не попадают (R17).
       AC: коммит на русском по конвенции; push в `origin/master` успешен; рабочее дерево чистое.
-- [ ] **T-1152 — Деплой на прод (systemd `admin_bot`).** `ssh nik@198.46.175.136` →
+- [x] **T-1152 — Деплой на прод (systemd `admin_bot`).** ✅ Выполнено 10.09.2026 (@DevOps, автоматизировано через paramiko — `sshpass`/`plink` на машине отсутствуют, ключевая auth не настроена): сервер `cd /var/www/admin_bot && git pull` → **fast-forward `0bdf272..918f675`** (HEAD=**918f675**); `.env`-изменений **не потребовалось** (Settings 359 без изменений; 4 новые записи каталога — PG-only, сид `ON CONFLICT DO NOTHING` → «starter bot_settings seeded: 342»); `sudo systemctl restart admin_bot` → **active (running)**, MainPID=917049, NRestarts=0, ActiveEnterTimestamp 10.09 08:21:05 UTC; `curl /api/health` = **200**; статика субсета шрифта (13 428 B) и DOMPurify на месте; старт — **0 error/traceback** (единственный WARNING — известный betterstack 401, pre-existing). (исходное ТЗ ниже) `ssh nik@198.46.175.136` →
       `cd /var/www/admin_bot` → `git pull` → править `.env` при изменениях окружения →
       `sudo systemctl restart admin_bot` → `sudo systemctl status admin_bot`. Бэкап при миграции
       значений (OD11); health-check 200; в логах 0 ошибок.
@@ -1254,7 +1254,7 @@ T-1134…T-1135 — QA/регресс новых фич (секция G); T-1136
       переключение scope GLOBAL/ЧАТ/ЛС (RBAC-фильтр), сохранение параметра каждого типа,
       back-навигация, аватар/имя чата, история ключей, матрица/создание роли. Дополняет T-1117.
       AC: чек-лист smoke пройден; найденное → баг-лист финального отчёта.
-- [ ] **T-1154 — Финальный plain-language отчёт.** Простым языком: **done / changes / bugs /
+- [x] **T-1154 — Финальный plain-language отчёт.** ✅ 10.09.2026: README обновлён, commit+push (`918f675`), деплой верифицирован (active/200/0 ошибок), остался ручной live Telegram-smoke (T-1153). (исходное ТЗ ниже) Простым языком: **done / changes / bugs /
       blockers**; ссылки на коммит/пуш/деплой; статус сервиса.
 
 ---
@@ -1307,3 +1307,38 @@ T-1134…T-1135 — QA/регресс новых фич (секция G); T-1136
 **Условное (не активно):** если @Builder при T-1140/T-1145 обнаружит, что файлового хранилища
 или non-PG-пути для UI-правки адресов недостаточно — вернуться к владельцу за **явным**
 исключением из «ноль PG-DDL / SQLite v8». По текущему проекту исключение **не требуется**.
+
+---
+
+## 🟢 ДЕПЛОЙ-ВЕРИФИКАЦИЯ (10.09.2026, @DevOps) — T-1150/T-1151/T-1152/T-1154 [x]
+
+**Commit:** `918f675` — `feat(admin,web,chat,api): раунд 10.5 — редизайн TMA по референсу
+Relume: navbar, hubs, hash-роутинг, scope-switcher, key-history, матрица ролей, градиенты,
+Material Symbols (тесты 4962)` (49 файлов, 10820 insertions / 2064 deletions). Запушено:
+`0bdf272..918f675` → `origin/master`.
+
+**Staging-гигиена:** застейджены код + тесты + планы + README + `.gitignore` + `web/static/*`;
+НЕ застейджены `.env`, `var/`, `media/`, `relumesite_example/`, `build/` и тяжёлый исходник
+`MaterialSymbolsRounded*.woff2` (все — под `.gitignore`, проверено `git check-ignore`).
+`git diff --cached --check` — чист; скан staged-диффа на секреты — чисто (только тест-плейсхолдеры
+`sk_test_key`/`gsk_test_key`). Пароль SSH нигде не сохранён (только переменная окружения на время
+команды) и в git не попал.
+
+**Сервер `198.46.175.136` (`/var/www/admin_bot`):**
+- `git pull` → fast-forward `0bdf272..918f675`, HEAD = **918f675**.
+- `.env` — **без изменений** (раунд спроектирован safe/no-env-change: Settings 359 полей не
+  менялись; 4 новых записи каталога — PG-only `_MODELS_PG_ONLY` с `settings_field=None`, сидятся
+  `ON CONFLICT DO NOTHING`, журнал: «starter bot_settings seeded: 342»).
+- `sudo systemctl restart admin_bot` → **active (running)**, MainPID=917049, NRestarts=0,
+  ActiveEnterTimestamp `Thu 2026-09-10 08:21:05 UTC`.
+- `curl http://127.0.0.1:8000/api/health` = **200**.
+- Статические ассеты на месте: `web/static/fonts/material-symbols-rounded.woff2` (13 428 B),
+  `web/static/vendor/dompurify-3.4.15.min.js`.
+- Журнал старта (`journalctl --since 08:21:00`): **0 error / 0 traceback / 0 exception**;
+  pg_available=True, все воркеры и роутеры поднялись. Единственный WARNING — известный
+  betterstack `401` в `.env` (pre-existing, не связан с 10.5).
+
+**Blockers:** нет для commit/push/restart/status. **Требуется вручную (automation-only gap):**
+live Telegram-smoke **T-1153** — 15 экранов, scope-switcher GLOBAL/ЧАТ/ЛС (RBAC-фильтр),
+нативный BackButton, сохранение параметра каждого типа, матрица/CRUD ролей — на реальном
+устройстве (Telegram desktop/Android WebView); headless-средой не автоматизируется.
