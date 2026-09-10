@@ -1,6 +1,6 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§25);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§27);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
@@ -519,6 +519,34 @@
 > опц. betterstack-401 fix, вердикт владельца. Детали — KG `round10.5-epic` +
 > `tma-relume-redesign` + `tech-debt-round10.5`. (Снимки v3/v4/v5 выше — историчны.)
 
+> **Синк STEP 10 (финал, post-commit+деплой) 11.09.2026: раунд 10.6 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН** — HEAD == origin/master == `4055434` (`6f91e8b` — фича, 37 файлов;
+> `4055434` — docs деплой-верификация; поверх `be7b85b` = задеплоенный 10.5).
+> Единственная фича **`tma-ia-modules-rework`** (T-1155…T-1223) реализована
+> целиком: sidebar удалён (только top navbar 6 пунктов, иконка + подпись),
+> «Модули» = 11 `mod_*` с реальными тумблерами + модалка параметров,
+> «Настройки AI» = 7 подразделов (RAG → «Память»), PERMsoc очищен (10 параметров →
+> модули 5/6/7), Леха/Костик раздельно, LLM Провайдеры — 9 блоков по модулям +
+> `POST /api/llm/test`, proxy/cookies → M6, diagnostics → M9, emoji→Material,
+> эксклюзивный аккордеон «Доступы и роли». 5 master-флагов default ON
+> (FACTCHECK/SEARCH/VIDEO_SUMMARY/WEBPAGE/CHECKUP) с реальными гейтами OFF→UNHANDLED.
+> **Каталог 392 / 91 / 364 / mapped 89 / TAB_RULES 19**; ноль PG-DDL, SQLite v8,
+> `bot.py` и `media/` не тронуты. @Reviewer: REJECTED → fixes → APPROVED WITH MINOR
+> → миноры закрыты. @Scanner: **CLEAN — 0 blocker / 0 major** (R10.6-1/-3 закрыты;
+> R10.6-2/-4/-5/-6 — техдолг; отчёт `plans/reports/round10.6_scanner_audit.md`).
+> @Architect: merge в `plans/ARCHITECTURE.md` (§27 + §25/§9/§6/§2). **Тесты:
+> 5027 passed / 0 failed** (baseline 10.5 = 4962; +65); `node --check web/app.js`
+> clean; `tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` чист.
+> @PM: фича заархивирована — `plans/archive/tma-ia-modules-rework/`
+> (**plans/archive/ — 28 папок**; plans/features/ — 6 активных F-1…F-6). @DevOps:
+> README обновлён (ироничный тон); push origin/master; **деплой
+> 198.46.175.136:/var/www/admin_bot** — git pull fast-forward до `4055434`, `.env`
+> без изменений, restart → `is-active=running`, `/api/health`=200, **0 tracebacks**.
+> Граф обновлён: милстоун `round10.6-epic` → COMPLETED + DEPLOYED, фича →
+> WAS_PART_OF + COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан
+> `tech-debt-round10.6` (R10.6-2/-4/-5/-6). **Осталось вручную:** live Telegram
+> smoke-тест (desktop/Android WebView), опциональный betterstack-401 fix.
+
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
 > (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).
@@ -852,6 +880,63 @@ DEPLOYED.** Цикл раунда полностью закрыт (Step 10).
   R10.5-5 (rename_role race → 500 вместо 409), R10.5-6 (мёртвый setMenu,
   пре-существующий), R10.5-7 (sync `key_history.maybe_save()` I/O в async path).
 
+### Раунд 10.6 — финал (11.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (6f91e8b + 4055434)
+
+«Переработка IA TMA — единый navbar, 11 Модулей с реальными тумблерами, Настройки AI
+из 7 подразделов, чистка PERMsoc». Единственная фича — `tma-ia-modules-rework`
+(T-1155…T-1223; follow-up после round10.5-epic). HEAD == origin/master == `4055434`
+(`6f91e8b` + `4055434`, поверх `be7b85b`). **Статус: COMPLETED + DEPLOYED.** HARD GATE
+T-1156 пройден владельцем 11.09.2026 (GO на IA). Цикл раунда полностью закрыт (Step 10).
+
+- **Коммиты (master):** `6f91e8b` feat(admin,web,api,plans): раунд 10.6 — редизайн IA
+  TMA: одна навигация, 11 модулей-тумблеров, RAG в память, тест провайдеров, чистка
+  PERMsoc (тесты 5027) — **37 файлов**; `4055434` docs(plans): раунд 10.6 — деплой-
+  верификация; push origin/master.
+- **Тесты:** 5027 passed / 0 failed (baseline 10.5 = 4962; +65; Scanner зафиксировал
+  5023 на момент аудита — до follow-up R10.6-1/-3). `node --check web/app.js` clean;
+  `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` чист.
+- **Реализация (@Builder, T-1157…T-1223):** sidebar/`MENU_ORDER`/`sidebarOpen`/
+  `setMenu` удалены — только top navbar (6 пунктов: Статус/Как это работает/Модули/
+  Настройки AI/Функции PERMsoc/Доступы и Роли), иконка + подпись под ней; модель
+  скролла `.app-shell` flex-col + `.scroll-area` (desktop fullscreen ⛶ скроллится);
+  «Модули» = 11 `mod_*` (Саммаризация, Прямые ответы, Фактчек, Поиск, Транскрипт
+  голосовых и видео, Выжимка видео, Скачивание медиа, Веб-страницы, Диагностика, Сон,
+  Ностальгия) с реальными toggle + модалка параметров; «Настройки AI» = 7 подразделов
+  (LLM Провайдеры, Промпты, Память+RAG, Умный кэш, Имена, Отношения, Лор чата;
+  «Лимиты» растворены); 5 master-флагов default ON
+  (FACTCHECK/SEARCH/VIDEO_SUMMARY/WEBPAGE/CHECKUP) с реальными гейтами OFF→UNHANDLED
+  (youtube — только summary-ветка); PERMsoc очищен — 10 миселённых параметров
+  разнесены по модулям 5/6/7; Леха/Костик раздельно (`limits_alan`/`limits_kostik`,
+  `reactions_kostik`); LLM Провайдеры — 9 блоков по модулям + `POST /api/llm/test`
+  (global admin, rate-limit 5с, R17); `keys_youtube` → M6, `models_checkup`/
+  `keys_betterstack` → M9; emoji→Material icons; эксклюзивный аккордеон «Доступы и роли».
+- **Каталог (locked):** REGISTRY **392** / GROUPS **91** / Settings **364** /
+  mapped **89** / `TAB_RULES` **19**. Расщепления: `limits_media`→4, `limits_persons`→2,
+  `limits_youtube_web`→2, `limits_cooldowns`→растворена, `flags_modules`→7, `flags_chat_behavior`→3,
+  `reactions_persons`→+`reactions_kostik`, `limits_chat_budgets`→+`limits_rag` (RAG→«Память»).
+  **Ноль новых PG-DDL**; SQLite **v8**; порядок роутеров `bot.py` и `media/` не тронуты.
+- **Ревью/Scanner:** @Reviewer REJECTED → fixes (BLOCKER nav-gating модулей, test-buttons,
+  Sleep/Nostalgia-панели в модалке) → APPROVED WITH MINOR ISSUES → миноры закрыты
+  (SSRF-префикс, search per-key, clear field). @Scanner **CLEAN — 0 blocker / 0 major**;
+  R10.6-1 (дубль LLM-редакторов) и R10.6-3 (422-эхо `api_key`) закрыты; R10.6-2/-4/-5/-6 —
+  техдолг (ARCH §25/§27). Отчёт `plans/reports/round10.6_scanner_audit.md`.
+- **Архитектура:** @Architect — ARCHITECTURE.md **§27 «Раунд 10.6»** + обновлены
+  §25 (техдолг R10.6-*), §9 (фронт/каталог/provider-блоки), §6 (таблица master-гейтов),
+  §2 (гейты внутри существующих роутеров).
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward до `4055434`;
+  `.env` без изменений; `systemctl restart admin_bot` → `is-active=running`;
+  `/api/health` = 200; 0 tracebacks.
+- **Архивация:** `tma-ia-modules-rework` → `plans/archive/tma-ia-modules-rework/`
+  (**plans/archive/ — 28 папок**; plans/features/ — 6 активных F-1…F-6). README
+  обновлён (ироничный тон).
+- **Осталось вручную:** live Telegram smoke-тест (desktop/Android WebView),
+  опциональный betterstack-401 fix. Не блокирует закрытие цикла.
+- **Техдолг раунда (KG `tech-debt-round10.6`):** R10.6-2 (SSRF-периметр
+  `POST /api/llm/test`: https для любого хоста без private-range-проверки),
+  R10.6-4 (info — `media_share` вне списка блоков спеки), R10.6-5 (info — мёртвые
+  записи `ICONS` после удаления вкладок), R10.6-6 (info — rate-limit расходуется
+  до валидации блока).
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -877,8 +962,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 27 папок)
+## Свежие архивы (plans/archive/ — 28 папок)
 
+- `tma-ia-modules-rework` — **Раунд 10.6, 11.09.2026** (единственная фича, T-1155…T-1223: IA-ребейлд TMA — единый navbar, 11 Модулей-тумблеров, Настройки AI (7) + RAG→Память, чистый PERMsoc, Леха/Костик раздельно, provider-блоки + `POST /api/llm/test`; каталог 392/91/364/mapped 89; тесты 5027; §27)
 - `tma-relume-redesign` — **Раунд 10.5, 10.09.2026** (единственная фича, T-1066…T-1148: полный редизайн TMA по Relume — navbar/hubs/hash-роутинг/scope-switcher/key-history/матрица ролей/градиенты/Material Symbols; тесты 4962; §26)
 - `frontend-advanced-collapse-default` — **Раунд 10.4, 10.09.2026** (D, T-1018…T-1023: аккордеоны «Расширенные» свёрнуты по умолчанию, AC-B1-тест; §24)
 - `frontend-memory-sleep-nostalgia` — **Раунд 10.4, 10.09.2026** (C, T-1006…T-1017: «Память» + вкладки «Сон»/«Ностальгия», progressive-разметка; §24)
@@ -973,6 +1059,17 @@ ARCHITECTURE.md §9/§25/§26; R10.5-1/-2/-4 закрыты, техдолг-ка
 (F-1…F-6); plans/archive/ — **27 папок**; HEAD == origin/master == `c01ed72`
 (коммиты 918f675 + c01ed72, тесты 4962, деплой 198.46.175.136 active/health 200,
 0 ошибок); остаётся ручной live-smoke T-1153 + опц. betterstack 401.
+**милстоун `round10.6-epic`** (AdminBot → COMPLETED + DEPLOYED, 11.09.2026) —
+раунд 10.6 «Переработка IA TMA»: единственная фича `tma-ia-modules-rework` (T-1155…T-1223)
+→ COMPLETED + DEPLOYED + WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.6-epic +
+ARCHIVED_IN plans-structure; sidebar удалён, «Модули» (11) + «Настройки AI» (7) + чистый
+PERMsoc + provider-блоки + `POST /api/llm/test`; каталог 392/91/364/mapped 89/TAB_RULES 19;
+5 master-флагов default ON с реальными гейтами; ARCHITECTURE.md §27 (+§25/§9/§6/§2);
+Scanner 0 blocker/0 major (R10.6-1/-3 закрыты; техдолг-кандидаты — KG `tech-debt-round10.6`:
+R10.6-2/-4/-5/-6); plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **28 папок**;
+HEAD == origin/master == `4055434` (коммиты 6f91e8b + 4055434, тесты 5027, деплой
+198.46.175.136 active/health 200, 0 tracebacks); остаётся ручной live-smoke (desktop/Android
+WebView) + опц. betterstack 401.
 
 ## Факты для планирования (проект)
 
