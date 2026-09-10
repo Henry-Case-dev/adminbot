@@ -546,6 +546,32 @@
 > WAS_PART_OF + COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан
 > `tech-debt-round10.6` (R10.6-2/-4/-5/-6). **Осталось вручную:** live Telegram
 > smoke-тест (desktop/Android WebView), опциональный betterstack-401 fix.
+> **Синк STEP 10 (финал, post-commit+деплой) 11.09.2026: раунд 10.7 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН** — HEAD == origin/master == `bb59476` (`7f3b790` — fix, 19 файлов;
+> `bb59476` — docs деплой-верификация; поверх `2ccf558` — docs 10.6; прод до
+> деплоя `4055434`).
+> Единственная фича **`admin-ui-bugfixes-round107`** (spec @Architect T-1224)
+> реализована целиком: 1a `scope*` → computed (фикс `function () { [native code] }`),
+> 1b header safe-area padding, 1c компактный user block, 1d nav labels меньше/без
+> per-letter wrap, 2a ellipsis таблицы ключей, 2b uptime gap-fill (непрерывная
+> 5-мин сетка, `down` для пустых слотов, `last_heartbeat` = last up else None),
+> 3a clipboard-ghost focusable (без visibility:hidden) + удалён, 3b фикс. ширины
+> лог-колонок + flex последней, 3c copy-on-row-click с feedback, R106-5 dead ICONS
+> удалены (26→20). @Reviewer: REJECTED (visibility:hidden сломал execCommand-фолбэк)
+> → fix → APPROVED WITH MINOR ISSUES → doc nit закрыт. @Scanner: **CLEAN — 0 blocker /
+> 0 major** (R10.7-1 (minor) + R10.7-2..5 (info/nit) — техдолг; R10.6-5 ЗАКРЫТ; отчёт
+> `plans/reports/round10.7_scanner_audit.md`). @Architect: merge в
+> `plans/ARCHITECTURE.md` **§28 «Раунд 10.7»** (+§9/§25). **Тесты: 5042 passed /
+> 0 failed** (baseline 10.6 = 5027; +15); каталог 392/91/364. @PM: фича
+> заархивирована — `plans/archive/admin-ui-bugfixes-round107/`
+> (**plans/archive/ — 29 папок**; plans/features/ — 6 активных F-1…F-6). @DevOps:
+> README обновлён (ироничный тон); push origin/master; **деплой
+> 198.46.175.136:/var/www/admin_bot** — git pull fast-forward до `7f3b790`, `.env`
+> без изменений, restart → active, `/api/health` = 200, **0 errors**. Граф обновлён:
+> милстоун `round10.7-epic` → COMPLETED + DEPLOYED, фича → WAS_PART_OF +
+> COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан
+> `tech-debt-round10.7` (R10.7-1…R10.7-5). **Осталось вручную:** live Telegram
+> smoke-тест исправленного UI, опциональный betterstack-401 fix.
 
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
@@ -937,6 +963,50 @@ T-1156 пройден владельцем 11.09.2026 (GO на IA). Цикл р�
   записи `ICONS` после удаления вкладок), R10.6-6 (info — rate-limit расходуется
   до валидации блока).
 
+### Раунд 10.7 — финал (11.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (7f3b790 + bb59476)
+
+«UI/UX-багфиксы админ-минги». Единственная фича — `admin-ui-bugfixes-round107`
+(spec @Architect T-1224). HEAD == origin/master == `bb59476` (`7f3b790` + `bb59476`,
+поверх `2ccf558` — docs 10.6; прод до деплоя — `4055434`).
+**Статус: COMPLETED + DEPLOYED.** FOLLOWS
+round10.6-epic; цикл раунда полностью закрыт (Step 10).
+
+- **Коммиты (master):** `7f3b790` fix(admin,web): раунд 10.7 — UI/UX-багфиксы
+  (scope*-computed, safe-area шапки, компактный юзер-блок, ellipsis ключей,
+  gap-fill uptime, clipboard-ghost, лог-колонки, copy-on-row, dead ICONS 26→20)
+  — **19 файлов**; `bb59476` docs(plans): деплой-верификация раунда 10.7;
+  push origin/master.
+- **Тесты:** 5042 passed / 0 failed (baseline 10.6 = 5027; +15). Каталог
+  **392 / 91 / 364** (без изменений).
+- **Реализация:** 1a `scope*` → computed (фикс `function () { [native code] }`);
+  1b header safe-area padding; 1c компактный user block; 1d nav labels меньше/без
+  per-letter wrap; 2a ellipsis таблицы ключей; 2b uptime gap-fill (непрерывная
+  5-мин сетка, `down` для пустых слотов, `last_heartbeat` = last up else None);
+  3a clipboard-ghost focusable (без `visibility:hidden`) + удалён; 3b фиксированные
+  ширины лог-колонок + flex последней; 3c copy-on-row-click с feedback; R106-5
+  dead ICONS удалены (26→20).
+- **Ревью/Scanner:** @Reviewer REJECTED (`visibility:hidden` сломал
+  `execCommand`-фолбэк) → fix → APPROVED WITH MINOR ISSUES → doc nit закрыт.
+  @Scanner **CLEAN — 0 blocker / 0 major**; R10.7-1 (minor) + R10.7-2..5
+  (info/nit) — техдолг; R10.6-5 ЗАКРЫТ. Отчёт
+  `plans/reports/round10.7_scanner_audit.md`.
+- **Архитектура:** @Architect — ARCHITECTURE.md **§28 «Раунд 10.7»** + обновлены
+  §9/§25.
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward до
+  `7f3b790`; `.env` без изменений; `systemctl restart` → active; `/api/health` =
+  200; 0 errors.
+- **Архивация:** `admin-ui-bugfixes-round107` →
+  `plans/archive/admin-ui-bugfixes-round107/` (**plans/archive/ — 29 папок**;
+  plans/features/ — 6 активных F-1…F-6). README обновлён (ироничный тон).
+- **Осталось вручную:** live Telegram smoke-тест исправленного UI, опциональный
+  betterstack-401 fix. Не блокирует закрытие цикла.
+- **Техдолг раунда (KG `tech-debt-round10.7`):** R10.7-1 (minor — gap-fill
+  помечает текущий незавершённый 5-мин слот `down` до ~60 с; §2b trade-off),
+  R10.7-2 (info — `[-288:]` может отсечь единственный ранний `up`-бакет),
+  R10.7-3 (info — `copiedTimer` не чистится при смене вкладки),
+  R10.7-4 (info — `test_font_subset` проверяет JS, не cmap WOFF2),
+  R10.7-5 (info/nit — неточная формулировка «context-loss» в `copyAllLogs`).
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -962,8 +1032,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 28 папок)
+## Свежие архивы (plans/archive/ — 29 папок)
 
+- `admin-ui-bugfixes-round107` — **Раунд 10.7, 11.09.2026** (единственная фича, spec T-1224: UI/UX-багфиксы админ-минги — scope*-computed, safe-area шапки, компактный юзер-блок, ellipsis ключей, uptime gap-fill, clipboard-ghost, лог-колонки, copy-on-row, dead ICONS 26→20; тесты 5042; §28)
 - `tma-ia-modules-rework` — **Раунд 10.6, 11.09.2026** (единственная фича, T-1155…T-1223: IA-ребейлд TMA — единый navbar, 11 Модулей-тумблеров, Настройки AI (7) + RAG→Память, чистый PERMsoc, Леха/Костик раздельно, provider-блоки + `POST /api/llm/test`; каталог 392/91/364/mapped 89; тесты 5027; §27)
 - `tma-relume-redesign` — **Раунд 10.5, 10.09.2026** (единственная фича, T-1066…T-1148: полный редизайн TMA по Relume — navbar/hubs/hash-роутинг/scope-switcher/key-history/матрица ролей/градиенты/Material Symbols; тесты 4962; §26)
 - `frontend-advanced-collapse-default` — **Раунд 10.4, 10.09.2026** (D, T-1018…T-1023: аккордеоны «Расширенные» свёрнуты по умолчанию, AC-B1-тест; §24)
@@ -1070,6 +1141,17 @@ R10.6-2/-4/-5/-6); plans/features/ — **6 активных** (F-1…F-6); plans
 HEAD == origin/master == `4055434` (коммиты 6f91e8b + 4055434, тесты 5027, деплой
 198.46.175.136 active/health 200, 0 tracebacks); остаётся ручной live-smoke (desktop/Android
 WebView) + опц. betterstack 401.
+**милстоун `round10.7-epic`** (AdminBot → COMPLETED + DEPLOYED, 11.09.2026) —
+раунд 10.7 «UI/UX-багфиксы админ-минги»: единственная фича `admin-ui-bugfixes-round107`
+(spec T-1224) → COMPLETED + DEPLOYED + WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.7-epic
++ ARCHIVED_IN plans-structure; scope*-computed, safe-area шапки, компактный юзер-блок,
+nav labels без per-letter wrap, ellipsis ключей, uptime gap-fill (5-мин сетка/down),
+clipboard-ghost, лог-колонки, copy-on-row, dead ICONS 26→20; ARCHITECTURE.md §28 (+§9/§25);
+Scanner 0 blocker/0 major (R10.6-5 закрыт; техдолг-кандидаты — KG `tech-debt-round10.7`:
+R10.7-1…R10.7-5); plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **29 папок**;
+HEAD == origin/master == `bb59476` (коммиты 7f3b790 + bb59476, тесты 5042, деплой
+198.46.175.136 active/health 200, 0 errors); остаётся ручной live-smoke исправленного UI
++ опц. betterstack 401.
 
 ## Факты для планирования (проект)
 
