@@ -36,8 +36,8 @@ class TestChatLoreFrontAudit:
 
     def test_tab_declared_in_tabs(self):
         src = self._js()
-        assert re.search(r"id: 'chat_lore', icon: '📜', label: 'Лор чатов', "
-                         r"type: 'chat_lore'", src)
+        assert re.search(r"id: 'chat_lore', icon: 'auto_stories', "
+                         r"label: 'Лор чата', type: 'chat_lore'", src)
 
     def test_can_view_tab_branch_for_chat_lore(self):
         """Q6 (3.10): тип chat_lore → секция chat_lore ИЛИ непустой

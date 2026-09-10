@@ -1,7 +1,7 @@
 /* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.
  * Vue 3 Options API (global build), zero-build. Все запросы — через api()
  * с заголовком X-Telegram-Init-Data (84.6). 401 → сессия устарела;
- * 403 → запрет. Вкладки «📊 Статус» и «ℹ️ Как это работает» видны ВСЕГДА.
+ * 403 → запрет. Вкладки «Статус» и «Как это работает» видны ВСЕГДА.
  *
  * Эпик 04.09.2026 (3.5.1): конфиг-вкладки декларативны и повторяют серверный
  * контракт TAB_RULES (services/param_catalog.py): id вкладок — TAB_*,
@@ -16,22 +16,18 @@
   // sources: [{category, groups|null|except:[...]}] — groups = белый список
   // групп категории, except = вся категория кроме перечисленного, null = вся.
   var TABS = [
-    { id: 'llm_providers', icon: '🤖', label: 'LLM Провайдеры', type: 'config',
-      menu: 'ai',
-      // Раунд 10.4 (E-1/E-2): 4 секции — порядок ПРАВИЛ = порядок витрины
-      // (основные модели → ключи → фолбэк → расширенные); sources —
-      // конкатенация секций (для itemMatchesSource/flat-rank), sections —
-      // заголовки витрины. Синхронно с TAB_RULES: перенос группы —
-      // в ОБОИХ полях.
+    { id: 'llm_providers', icon: 'smart_toy', label: 'LLM Провайдеры',
+      type: 'config', menu: 'ai',
+      // A4/A8: витрина — блоки ПО МОДУЛЯМ (providerBlocks, HTML); sources —
+      // зеркало TAB_RULES (A8: keys_youtube→М6, models_checkup/keys_betterstack→М9).
       sources: [
-        { category: 'models', groups: ['models_main'] },
-        { category: 'keys', groups: ['keys_llm', 'keys_groq', 'keys_openrouter'] },
-        { category: 'models', groups: ['models_fallback'] },
         { category: 'models', groups: [
-            'models_embeddings', 'models_llm_timeouts', 'models_llm_guard',
-            'models_extra_providers', 'models_video_summary', 'models_checkup'] },
+            'models_main', 'models_fallback', 'models_embeddings',
+            'models_llm_timeouts', 'models_llm_guard',
+            'models_extra_providers', 'models_video_summary'] },
         { category: 'keys', groups: [
-            'keys_search', 'keys_betterstack', 'keys_youtube', 'keys_media'] },
+            'keys_llm', 'keys_groq', 'keys_openrouter', 'keys_search',
+            'keys_media'] },
       ],
       sections: [
         { title: 'Основные модели', category: 'models',
@@ -39,129 +35,170 @@
         { title: 'Ключи', category: 'keys',
           groups: ['keys_llm', 'keys_groq', 'keys_openrouter'] },
         { title: 'Фолбэк', category: 'models', groups: ['models_fallback'] },
-        // Одна секция «Расширенные» на обе части (модели+ключи) — заголовок
-        // выводится ОДИН раз (Risk E-3).
         { title: 'Расширенные', category: null, groups: [
             'models_embeddings', 'models_llm_timeouts', 'models_llm_guard',
-            'models_extra_providers', 'models_video_summary', 'models_checkup',
-            'keys_search', 'keys_betterstack', 'keys_youtube', 'keys_media'] },
+            'models_extra_providers', 'models_video_summary',
+            'keys_search', 'keys_media'] },
       ] },
     { id: 'prompts', icon: '🧠', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
         { category: 'prompts', groups: null },
       ] },
-    { id: 'limits', icon: '🚦', label: 'Лимиты', type: 'config', menu: 'ai',
+    // ── Раунд 10.6 (T-1165/T-1201): 11 модулей (config-источники для окна) ──
+    { id: 'mod_summary', icon: 'description', label: 'Саммаризация',
+      type: 'config', menu: 'modules',
       sources: [
-        { category: 'limits', except: ['limits_memory', 'limits_graph',
-            'limits_persons', 'limits_mimic', 'limits_deadpage',
-            'limits_media', 'limits_lore'] },
-        { category: 'flags', except: ['flags_memory', 'flags_media',
-            'flags_permsoc', 'flags_modules', 'flags_service', 'flags_lore'] },
+        { category: 'flags', groups: ['flags_module_summary', 'flags_summary'] },
+        { category: 'limits', groups: ['limits_summary'] },
+        { category: 'reactions', groups: ['reactions_summary'] },
       ] },
-    { id: 'memory_rag', icon: '🗄️', label: 'Память', type: 'config',
-      menu: 'ai',
+    { id: 'mod_direct', icon: 'smart_toy', label: 'Прямые ответы',
+      type: 'config', menu: 'modules',
       sources: [
-        { category: 'limits', groups: ['limits_memory', 'limits_graph'] },
-        { category: 'flags', groups: ['flags_memory'] },
-        { category: 'memory', groups: ['memory_infinite'] },
+        { category: 'flags', groups: ['flags_module_direct', 'flags_chat_behavior'] },
+        { category: 'limits', groups: ['limits_chat', 'limits_chat_behavior',
+            'limits_chat_budgets', 'limits_temperature'] },
+        { category: 'reactions', groups: ['reactions_chat'] },
       ] },
-    // Раунд 10.4 (C-2): «Сон» и «Ностальгия» — отдельные config-вкладки
-    // (вынесены из «Памяти»; id существующей вкладки не менялся).
-    { id: 'memory_dream', icon: '🌙', label: 'Сон', type: 'config', menu: 'ai',
+    { id: 'mod_factcheck', icon: 'radar', label: 'Фактчек',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_factcheck'] },
+        { category: 'limits', groups: ['limits_factcheck'] },
+      ] },
+    { id: 'mod_search', icon: 'grid_view', label: 'Поиск',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_search'] },
+        { category: 'limits', groups: ['limits_search'] },
+      ] },
+    { id: 'mod_transcribe', icon: 'play_circle', label: 'Транскрипт голосовых и видео',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_transcribe'] },
+        { category: 'limits', groups: ['limits_transcribe'] },
+      ] },
+    { id: 'mod_video_summary', icon: 'play_circle', label: 'Выжимка видео',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_video_summary'] },
+        { category: 'limits', groups: ['limits_video_summary', 'limits_youtube',
+            'limits_youtube_proxy'] },
+        { category: 'keys', groups: ['keys_youtube'] },
+      ] },
+    { id: 'mod_media_download', icon: 'cloud', label: 'Скачивание медиа',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_media_download'] },
+        { category: 'limits', groups: ['limits_media_download'] },
+      ] },
+    { id: 'mod_web', icon: 'auto_stories', label: 'Веб-страницы',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_module_web'] },
+        { category: 'limits', groups: ['limits_web'] },
+      ] },
+    { id: 'mod_checkup', icon: 'monitoring', label: 'Диагностика',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_service', 'flags_throttle'] },
+        { category: 'limits', groups: ['limits_checkup', 'limits_service',
+            'limits_worker'] },
+        { category: 'models', groups: ['models_checkup'] },
+        { category: 'keys', groups: ['keys_betterstack'] },
+      ] },
+    { id: 'mod_sleep', icon: 'bedtime', label: 'Сон',
+      type: 'config', menu: 'modules',
       sources: [
         { category: 'memory', groups: ['memory_dream'] },
       ] },
-    { id: 'memory_nostalgia', icon: '📼', label: 'Ностальгия', type: 'config',
-      menu: 'ai',
+    { id: 'mod_nostalgia', icon: 'history', label: 'Ностальгия',
+      type: 'config', menu: 'modules',
       sources: [
         { category: 'memory', groups: ['memory_nostalgia'] },
       ] },
+    // Список-витрина 11 модулей (не config; карточки + модалки).
+    { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
+      menu: 'modules' },
+    { id: 'memory_rag', icon: 'memory', label: 'Память', type: 'config',
+      menu: 'ai',
+      sources: [
+        { category: 'limits', groups: ['limits_memory', 'limits_graph',
+            'limits_rag'] },
+        { category: 'flags', groups: ['flags_memory'] },
+        { category: 'memory', groups: ['memory_infinite'] },
+        { category: 'reactions', groups: ['reactions_memory'] },
+      ] },
+    // A3/T-1174: «Умный кэш» — отдельный подраздел AI.
+    { id: 'smart_cache', icon: 'bolt', label: 'Умный кэш', type: 'config',
+      menu: 'ai',
+      sources: [
+        { category: 'limits', groups: ['limits_smart_cache'] },
+        { category: 'flags', groups: ['flags_smart_cache'] },
+      ] },
     // Раунд 10.4 (B-11): «Имена людей» — KV-редактор алиасов + per-chat/ЛС.
-    { id: 'people_names', icon: '🏷', label: 'Имена людей', type: 'config',
-      menu: 'chat_profile',
+    { id: 'people_names', icon: 'badge', label: 'Имена', type: 'config',
+      menu: 'ai',
       sources: [
         { category: 'limits', groups: ['limits_user_aliases'] },
       ] },
     // Раунд 10.4 (F-1): «Участники и отношения» — кастом-вкладка (свой
     // шаблон, как chat_lore): блок участников активного чата + конфиг-часть
     // (limits_relations/flags_relations через generic-блок; A-канон).
-    { id: 'relations', icon: '👥', label: 'Участники и отношения',
-      type: 'relations', menu: 'chat_profile',
+    { id: 'relations', icon: 'group', label: 'Участники и отношения',
+      type: 'relations', menu: 'ai',
       sources: [
         { category: 'limits', groups: ['limits_relations'] },
         { category: 'flags', groups: ['flags_relations'] },
       ] },
-    { id: 'reactions_triggers', icon: '🎭', label: 'Реакции и Триггеры', type: 'config',
-      menu: 'modules',
+    // Раунд 10.6 (A2/T-1181): PERMsoc — только простые per-chat функции
+    // (13 reactions + 3 flags + 5 limits); 10 миселённых ключей → М5/М6/М7.
+    { id: 'permsoc', icon: 'admin_panel_settings', label: 'Функции PERMsoc',
+      type: 'config', menu: 'permsoc',
       sources: [
         { category: 'reactions', groups: [
-            'reactions_admin', 'reactions_summary', 'reactions_chat',
-            'reactions_memory'] },
-      ] },
-    // Раунд 10.4 (A-7): «Модули (вкл/выкл)» — рубильники модулей/сервиса.
-    { id: 'modules_switches', icon: '⚙️', label: 'Модули (вкл/выкл)', type: 'config',
-      menu: 'modules',
-      sources: [
-        { category: 'flags', groups: ['flags_modules', 'flags_service'] },
-      ] },
-    { id: 'modules_feats', icon: '🧩', label: 'Модули', type: 'modules',
-      menu: 'modules' },
-    // Ре-дизайн 10.2, BUG-3 (spec §10 A): штатная вкладка «Функции PERMsoc»
-    // (после modules_feats; первым табом секции остаётся reactions_triggers).
-    // Раунд 10.4 (D-A1): 11 реакционных групп + рубильники + лимиты персон.
-    { id: 'permsoc', icon: '🎭', label: 'Функции PERMsoc', type: 'config',
-      menu: 'modules',
-      sources: [
-        { category: 'reactions', groups: [
-            'reactions_persons', 'reactions_permsoc', 'reactions_deadpage',
-            'reactions_mimic', 'reactions_slavik', 'reactions_alan',
-            'reactions_olya', 'reactions_war', 'reactions_common',
-            'reactions_goodmorning', 'reactions_word_reactions'] },
-        { category: 'flags', groups: ['flags_permsoc', 'flags_media'] },
+            'reactions_persons', 'reactions_admin', 'reactions_deadpage',
+            'reactions_slavik', 'reactions_alan', 'reactions_kostik',
+            'reactions_war', 'reactions_common', 'reactions_goodmorning',
+            'reactions_mimic', 'reactions_olya',
+            'reactions_word_reactions', 'reactions_permsoc'] },
+        { category: 'flags', groups: [
+            'flags_permsoc', 'flags_media', 'flags_permsoc_behavior'] },
         { category: 'limits', groups: [
-            'limits_persons', 'limits_mimic', 'limits_deadpage',
-            'limits_media'] },
+            'limits_alan', 'limits_kostik', 'limits_media_permsoc',
+            'limits_mimic', 'limits_deadpage'] },
       ] },
-    { id: 'access', icon: '👥', label: 'Доступы', type: 'access',
-      categories: ['access'], menu: 'access' },
+    { id: 'access', icon: 'supervisor_account', label: 'Доступы и Роли',
+      type: 'access', categories: ['access'], menu: 'access' },
     // Раунд 7 (chat-lore-management-v2, spec §3.10/E2): «Лор чатов» — НЕ
     // config-вкладка: свой рендер (index.html) и своя ветка видимости
     // canViewTab (Q6: секция chat_lore / wildcard / непустой probe-список).
     // Раунд 10.4 (A-8, Risk A-2): sources — ТОЛЬКО для рендера config-части
     // (группы limits_lore/flags_lore) через groupedForTab; тип — 'chat_lore'.
-    { id: 'chat_lore', icon: '📜', label: 'Лор чатов', type: 'chat_lore',
-      menu: 'chat_profile',
+    { id: 'chat_lore', icon: 'auto_stories', label: 'Лор чата', type: 'chat_lore',
+      menu: 'ai',
       sources: [
         { category: 'limits', groups: ['limits_lore'] },
         { category: 'flags', groups: ['flags_lore'] },
       ] },
     { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true,
       menu: 'home' },
-    { id: 'info', icon: 'ℹ️', label: 'Как это работает', type: 'info',
+    { id: 'info', icon: 'help', label: 'Как это работает', type: 'info',
       always: true, menu: 'home' },
     // Раунд 10 (F-12): точка интеграции Oversight (только global admin).
     { id: 'oversight', icon: '🛰️', label: 'Oversight', type: 'oversight',
       menu: 'home' },
   ];
 
-  // Раунд 10 (F-11 §2, Q1): группировка вкладок — 5 меню-секций
-  // (лёгкий тег menu у TABS + порядок; НЕ новый массив ссылок).
-  var MENU_ORDER = ['home', 'chat_profile', 'modules', 'ai', 'access'];
-  var MENU_LABELS = {
-    home: 'Главная',
-    chat_profile: 'Чат-Профиль',
-    modules: 'Модули',
-    ai: 'Настройки AI',
-    access: 'Доступы и Роли',
-  };
-
   var LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
   var MAX_HISTORY_POINTS = 288;   // B1/T-1129: 24ч × 5 мин
-  // D4: порядок секций матрицы прав = порядок config-вкладок мини-аппа.
+  // D4: порядок секций матрицы прав = порядок config-вкладок (19; §4.3).
   var TAB_SECTION_ORDER = [
-    'llm_providers', 'prompts', 'limits', 'memory_rag', 'memory_dream',
-    'memory_nostalgia', 'people_names', 'relations', 'reactions_triggers',
-    'modules_switches', 'permsoc', 'chat_lore',
+    'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
+    'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
+    'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'llm_providers', 'prompts',
+    'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
+    'permsoc',
   ];
 
   // ═══ Material Symbols Rounded — PUA-карта (T-1147/§15.4.4) ═══
@@ -197,11 +234,15 @@
   };
   // tab.id → Material-имя (рендер через tabMat(); fallback — emoji TABS.icon).
   var TAB_ICON = {
-    llm_providers: 'smart_toy', prompts: 'description', limits: 'speed',
-    memory_rag: 'memory', memory_dream: 'bedtime',
-    memory_nostalgia: 'history', people_names: 'badge', relations: 'group',
-    reactions_triggers: 'theater_comedy', modules_switches: 'toggle_on',
-    modules_feats: 'extension', permsoc: 'admin_panel_settings',
+    mod_summary: 'description', mod_direct: 'smart_toy',
+    mod_factcheck: 'radar', mod_search: 'grid_view',
+    mod_transcribe: 'play_circle', mod_video_summary: 'play_circle',
+    mod_media_download: 'cloud', mod_web: 'auto_stories',
+    mod_checkup: 'monitoring', mod_sleep: 'bedtime',
+    mod_nostalgia: 'history', modules: 'extension',
+    llm_providers: 'smart_toy', prompts: 'description',
+    memory_rag: 'memory', smart_cache: 'bolt', people_names: 'badge',
+    relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
     status: 'monitoring', info: 'help', oversight: 'radar',
   };
@@ -221,48 +262,24 @@
 
   // Hub-экраны (T-1100, §2.2): карточки → дочерние маршруты. optional
   // `section` — якорь внутри экрана (для #/access/*).
+  // Раунд 10.6 (A2): «Модули» — НЕ hub, а список-витрина 11 модулей.
   var HUBS = {
-    '#/modules': {
-      title: 'Модули',
-      subtitle: 'Включение модулей, реакции и триггеры, кастомные модули',
-      cards: [
-        { icon: 'extension', title: 'Модули',
-          subtitle: 'Гейты модулей, бюджет фона',
-          route: '#/modules/features', tab: 'modules_feats' },
-        { icon: 'toggle_on', title: 'Модули (вкл/выкл)',
-          subtitle: 'Рубильники модулей и сервиса',
-          route: '#/modules/switches', tab: 'modules_switches' },
-        { icon: 'theater_comedy', title: 'Реакции и Триггеры',
-          subtitle: 'Реакции, сводки, память-реакции',
-          route: '#/modules/reactions', tab: 'reactions_triggers' },
-        { icon: 'cloud', title: 'Кастомные модули',
-          subtitle: 'Презентация (только чтение) · B2 вне скоупа',
-          route: '#/modules/features', tab: 'modules_feats',
-          anchor: true, readonly: true },
-      ],
-    },
     '#/ai': {
       title: 'Настройки AI',
-      subtitle: 'Провайдеры, промпты, лимиты, память, имена и отношения',
+      subtitle: 'Провайдеры, промпты, память, кэш, имена и отношения',
       cards: [
         { icon: 'smart_toy', title: 'LLM Провайдеры',
-          subtitle: 'Основные модели, ключи, фолбэк, адреса',
+          subtitle: 'Блоки по модулям: base_url, модель, ключ, тест',
           route: '#/ai/llm', tab: 'llm_providers' },
         { icon: 'description', title: 'Промпты',
-          subtitle: 'Основной промпт, промпты модулей, лор и тон',
+          subtitle: 'Все системные промпты модулей',
           route: '#/ai/prompts', tab: 'prompts' },
-        { icon: 'speed', title: 'Лимиты',
-          subtitle: 'Токены, кулдауны, бюджеты, температура',
-          route: '#/ai/limits', tab: 'limits' },
         { icon: 'memory', title: 'Память',
-          subtitle: 'Память, граф, хранение, RAG',
+          subtitle: 'Память, граф, хранение, RAG-доли',
           route: '#/ai/memory', tab: 'memory_rag' },
-        { icon: 'bedtime', title: 'Сон',
-          subtitle: 'Синтез убеждений (memory dream)',
-          route: '#/ai/sleep', tab: 'memory_dream' },
-        { icon: 'history', title: 'Ностальгия',
-          subtitle: 'Срабатывания ностальгии',
-          route: '#/ai/nostalgia', tab: 'memory_nostalgia' },
+        { icon: 'bolt', title: 'Умный кэш',
+          subtitle: 'Exact Match Cache: TTL и строки',
+          route: '#/ai/smart-cache', tab: 'smart_cache' },
         { icon: 'badge', title: 'Имена',
           subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
           route: '#/ai/names', tab: 'people_names' },
@@ -291,6 +308,115 @@
     },
   };
 
+  // ═══ Раунд 10.6 (A2/T-1165): «Модули» = ровно 11; toggle + окно ═══
+  // toggleKey — pg-ключ master-флага (реальный гейт), tab — config-вкладка
+  // с операционными группами модуля (generic-рендер в модалке).
+  var MODULES = [
+    { id: 'mod_summary', title: 'Саммаризация',
+      subtitle: 'Пересказы разговоров и каналов', icon: 'description',
+      toggleKey: 'flags.summary_enabled', tab: 'mod_summary' },
+    { id: 'mod_direct', title: 'Прямые ответы',
+      subtitle: 'Ответы бота на обращения', icon: 'smart_toy',
+      toggleKey: 'flags.direct_chat_botword_enabled', tab: 'mod_direct' },
+    { id: 'mod_factcheck', title: 'Фактчек',
+      subtitle: 'Проверка фактов', icon: 'radar',
+      toggleKey: 'flags.factcheck_enabled', tab: 'mod_factcheck' },
+    { id: 'mod_search', title: 'Поиск',
+      subtitle: 'Интернет-поиск', icon: 'grid_view',
+      toggleKey: 'flags.search_enabled', tab: 'mod_search' },
+    { id: 'mod_transcribe', title: 'Транскрипт голосовых и видео',
+      subtitle: 'Распознавание речи', icon: 'play_circle',
+      toggleKey: 'flags.enable_voice_transcription', tab: 'mod_transcribe' },
+    { id: 'mod_video_summary', title: 'Выжимка видео',
+      subtitle: 'Пересказ видео', icon: 'play_circle',
+      toggleKey: 'flags.video_summary_enabled', tab: 'mod_video_summary' },
+    { id: 'mod_media_download', title: 'Скачивание медиа',
+      subtitle: 'Скачивание видео по ссылке', icon: 'cloud',
+      toggleKey: 'flags.download_enabled', tab: 'mod_media_download' },
+    { id: 'mod_web', title: 'Веб-страницы',
+      subtitle: 'Пересказ страниц', icon: 'auto_stories',
+      toggleKey: 'flags.webpage_enabled', tab: 'mod_web' },
+    { id: 'mod_checkup', title: 'Диагностика',
+      subtitle: 'Чекап, метрики и логи', icon: 'monitoring',
+      toggleKey: 'flags.checkup_enabled', tab: 'mod_checkup' },
+    { id: 'mod_sleep', title: 'Сон',
+      subtitle: 'Синтез убеждений', icon: 'bedtime',
+      toggleKey: 'memory.dream_enabled', tab: 'mod_sleep' },
+    { id: 'mod_nostalgia', title: 'Ностальгия',
+      subtitle: '«Кстати…» по старым сообщениям', icon: 'history',
+      toggleKey: 'memory.nostalgia_enabled', tab: 'mod_nostalgia' },
+  ];
+
+  // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
+  // role задаёт, какое поле тела POST /api/llm/test заполняет значение.
+  var PROVIDER_BLOCKS = [
+    { id: 'direct_main', title: 'Основная модель', modules: 'Прямые ответы',
+      fields: [
+        { key: 'models.llm_base_url', label: 'base_url', role: 'base_url' },
+        { key: 'models.llm_model_name', label: 'model', role: 'model' },
+        { key: 'keys.llm_api_key', label: 'api key', role: 'api_key', secret: true },
+      ] },
+    { id: 'direct_fallback', title: 'Фолбэк-модель',
+      modules: 'Прямые ответы (фолбэк)',
+      fields: [
+        { key: 'models.llm_fallback_base_url', label: 'base_url', role: 'base_url' },
+        { key: 'models.llm_fallback_model', label: 'model', role: 'model' },
+        { key: 'keys.llm_fallback_api_key', label: 'api key', role: 'api_key', secret: true },
+      ] },
+    { id: 'transcribe_groq', title: 'Groq (STT)', modules: 'Транскрипт',
+      fields: [
+        { key: 'models.groq_base_url', label: 'base_url', role: 'base_url' },
+        { key: 'models.groq_transcribe_model', label: 'model', role: 'model' },
+        { key: 'keys.groq_api_key', label: 'api key', role: 'api_key', secret: true },
+      ] },
+    { id: 'transcribe_openrouter', title: 'OpenRouter (STT-фолбэк)',
+      modules: 'Транскрипт (фолбэк)',
+      fields: [
+        { key: 'models.openrouter_base_url', label: 'base_url', role: 'base_url' },
+        { key: 'models.openrouter_transcribe_model', label: 'model', role: 'model' },
+        { key: 'keys.openrouter_api_key', label: 'api key', role: 'api_key', secret: true },
+      ] },
+    { id: 'video_summary_openrouter', title: 'Видео-модель (OpenRouter)',
+      modules: 'Выжимка видео',
+      fields: [
+        { key: 'models.openrouter_base_url', label: 'base_url', role: 'base_url' },
+        { key: 'models.video_primary_model', label: 'model', role: 'model' },
+        { key: 'keys.openrouter_api_key', label: 'api key', role: 'api_key', secret: true },
+      ] },
+    { id: 'embeddings', title: 'Эмбеддинги',
+      modules: 'Фактчек · Поиск · Память',
+      // MAJOR-1: нет base_url/api-key в блоке → сетевой тест невозможен;
+      // кнопка «Проверить» не рендерится (редактор — generic-группы ниже).
+      testable: false,
+      fields: [
+        { key: 'models.embedding_model_name', label: 'model', role: 'model' },
+        { key: 'models.embedding_dim', label: 'dim', role: 'dim' },
+      ] },
+    { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
+      // MAJOR-1: не сетевой провайдер — тест-кнопки нет; значения не
+      // отправляются как `model` (role '').
+      testable: false,
+      fields: [
+        { key: 'models.llm_timeout', label: 'timeout', role: '' },
+        { key: 'models.llm_max_retries', label: 'retries', role: '' },
+        { key: 'models.llm_total_budget', label: 'total budget', role: '' },
+      ] },
+    { id: 'search_keys', title: 'Поиск: ключи', modules: 'Поиск',
+      // MINOR-2: каждый ключ тестируется ОТДЕЛЬНО (search_keys:tavily/exa).
+      perFieldTest: true,
+      fields: [
+        { key: 'keys.tavily_api_key', label: 'Tavily key', role: 'api_key',
+          secret: true, probeTarget: 'search_keys:tavily' },
+        { key: 'keys.exa_api_key', label: 'Exa key', role: 'api_key',
+          secret: true, probeTarget: 'search_keys:exa' },
+      ] },
+    { id: 'media_share', title: 'Медиа-шара', modules: 'Выжимка видео',
+      fields: [
+        { key: 'keys.media_share_secret', label: 'media_share_secret',
+          role: 'api_key', secret: true },
+      ] },
+  ];
+
   // UI-полировка TMA (fix-раунд ревью): blob-аватары через прокси.
   // Прямой <img :src="'/api/avatar/...'"> НЕ работает: картинку грузит
   // браузер БЕЗ X-Telegram-Init-Data → 401. avatarUrl() ходит fetch'ем с
@@ -313,19 +439,13 @@
     '#/': 'status',
     '#/oversight': 'oversight',
     '#/how': 'info',
-    '#/modules': 'modules_feats',
-    '#/modules/features': 'modules_feats',
-    '#/modules/switches': 'modules_switches',
-    '#/modules/reactions': 'reactions_triggers',
-    '#/modules/custom': 'modules_feats',
+    '#/modules': 'modules',
     '#/permsoc': 'permsoc',
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
     '#/ai/prompts': 'prompts',
-    '#/ai/limits': 'limits',
     '#/ai/memory': 'memory_rag',
-    '#/ai/sleep': 'memory_dream',
-    '#/ai/nostalgia': 'memory_nostalgia',
+    '#/ai/smart-cache': 'smart_cache',
     '#/ai/names': 'people_names',
     '#/ai/relations': 'relations',
     '#/ai/lore': 'chat_lore',
@@ -333,27 +453,40 @@
     '#/access/roles': 'access',
     '#/access/local': 'access',
     '#/access/admins': 'access',
+    // Удалённые роуты → алиасы (spec §3.2): не 404, ведут в новый дом.
+    '#/ai/limits': 'llm_providers',
+    '#/ai/sleep': 'modules',
+    '#/ai/nostalgia': 'modules',
+    '#/modules/features': 'modules',
+    '#/modules/switches': 'modules',
+    '#/modules/reactions': 'modules',
+    '#/modules/custom': 'modules',
   };
   var TAB_TO_ROUTE = {
     status: '#/', info: '#/how', oversight: '#/oversight',
-    modules_feats: '#/modules/features',
-    modules_switches: '#/modules/switches',
-    reactions_triggers: '#/modules/reactions', permsoc: '#/permsoc',
-    llm_providers: '#/ai/llm', prompts: '#/ai/prompts', limits: '#/ai/limits',
-    memory_rag: '#/ai/memory', memory_dream: '#/ai/sleep',
-    memory_nostalgia: '#/ai/nostalgia', people_names: '#/ai/names',
-    relations: '#/ai/relations', chat_lore: '#/ai/lore', access: '#/access',
+    modules: '#/modules', permsoc: '#/permsoc',
+    llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
+    memory_rag: '#/ai/memory', smart_cache: '#/ai/smart-cache',
+    people_names: '#/ai/names', relations: '#/ai/relations',
+    chat_lore: '#/ai/lore', access: '#/access',
   };
   var ROOT_ROUTES = ['#/', '#/how', '#/modules', '#/permsoc', '#/ai', '#/access'];
-  var ROUTE_PARENT = {
-    '#/oversight': '#/',
+  // MINOR-1: удалённые роуты → канонический hash (spec §3.2). applyRoute
+  // делает replaceState, чтобы адресная строка не несла legacy-путь.
+  var ROUTE_ALIAS = {
+    '#/ai/limits': '#/ai',
+    '#/ai/sleep': '#/modules',
+    '#/ai/nostalgia': '#/modules',
     '#/modules/features': '#/modules',
     '#/modules/switches': '#/modules',
     '#/modules/reactions': '#/modules',
     '#/modules/custom': '#/modules',
-    '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai', '#/ai/limits': '#/ai',
-    '#/ai/memory': '#/ai', '#/ai/sleep': '#/ai', '#/ai/nostalgia': '#/ai',
-    '#/ai/names': '#/ai', '#/ai/relations': '#/ai', '#/ai/lore': '#/ai',
+  };
+  var ROUTE_PARENT = {
+    '#/oversight': '#/',
+    '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai', '#/ai/memory': '#/ai',
+    '#/ai/smart-cache': '#/ai', '#/ai/names': '#/ai',
+    '#/ai/relations': '#/ai', '#/ai/lore': '#/ai',
     '#/access/roles': '#/access', '#/access/local': '#/access',
     '#/access/admins': '#/access',
   };
@@ -424,7 +557,7 @@
   var _boundBackApi = null;   // R10.5-1: к какому объекту уже привязан onClick
   var _routeApplied = false;
   var _onHashChange = null;
-
+  var _onKeydown = null;      // MODERATE-2: глобальный Esc (закрытие модалки)
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
   // либо уникальные категории источников (конфиг вкладки).
   function tabCategories(tab) {
@@ -450,11 +583,15 @@
       return {
         tabs: TABS,
         activeTab: 'status',
-        activeMenu: 'home',      // F-11: активная меню-секция
-        menuOrder: MENU_ORDER,
-        menuLabels: MENU_LABELS,
+        openModuleId: null,       // A2/T-1167: открытая модалка параметров
+        modules: MODULES,
+        // A4/T-1207: LLM-блоки по модулям + черновики/результаты теста.
+        providerBlocks: PROVIDER_BLOCKS,
+        blockDrafts: {},
+        blockResults: {},
+        blockTesting: {},
+        blockSaving: {},
         expand: {},              // F-11: localStorage adminbot.expand:<tab>
-        sidebarOpen: false,
         // T-1099: hash-роутер — route (@see #6.3), backNative — есть ли
         // нативный Telegram.WebApp.BackButton (иначе in-app fallback ←).
         route: '#/',
@@ -468,6 +605,8 @@
         activeChatId: null,
         accessChats: [],              // GET /api/access/chats (селектор F-11)
         accessMy: null,               // GET /api/access/me
+        // A9/T-1206: «Доступы и Роли» — эксклюзивный аккордеон (один открыт).
+        accessOpen: null,             // null | 'roles' | 'local' | 'admins'
         activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
         // T-1127/§15.1.1: явный вид скоупа + epoch — токен отбрасывания
         // устаревших in-flight ответов при смене scope (R10.4-2).
@@ -638,8 +777,10 @@
         return NAV_ITEMS.filter(function (n) {
           if (n.id === 'status' || n.id === 'how') return true;
           if (n.id === 'permsoc') return self.canViewTab('permsoc');
-          // D1: hub-пункты видимы, если видна хотя бы одна карточка хаба.
-          if (n.id === 'modules' || n.id === 'ai' || n.id === 'access') {
+          // A2/блокер-1: «Модули» — НЕ hub (список 11 модулей) → свой tab.
+          if (n.id === 'modules') return canView('modules');
+          // D1: hub-пункты (ai/access) видимы, если видна хотя бы одна карточка.
+          if (n.id === 'ai' || n.id === 'access') {
             return hubVisible(n.route, canView);
           }
           return false;
@@ -669,6 +810,43 @@
       currentTab: function () {
         return this.tabs.find(function (t) { return t.id === this.activeTab; }, this) || null;
       },
+      // A2/T-1167: активная модалка модуля (по openModuleId).
+      activeModule: function () {
+        var id = this.openModuleId;
+        if (!id) return null;
+        return this.modules.find(function (m) { return m.id === id; }) || null;
+      },
+      activeModuleTab: function () {
+        var m = this.activeModule;
+        if (!m) return null;
+        return this.tabs.find(function (t) { return t.id === m.tab; }) || null;
+      },
+      // A2: «один дом» — окно модуля рендерит только операционные группы.
+      activeModuleGroups: function () {
+        var t = this.activeModuleTab;
+        var groups = t ? this.groupedForTab(t) : [];
+        // INFO: content_media (tab=None) специфицирован в окно Модуля 6.
+        var m = this.activeModule;
+        if (m && m.id === 'mod_video_summary') {
+          var extra = this._syntheticGroup('content', 'content_media');
+          if (extra) groups = groups.concat([extra]);
+        }
+        return groups;
+      },
+      _syntheticGroup: function (category, gid) {
+        var q = (this.configSearch || '').trim().toLowerCase();
+        var items = this.configItems.filter(function (it) {
+          if (it.category !== category || it.group !== gid) return false;
+          if (!q) return true;
+          return (it.title || '').toLowerCase().indexOf(q) >= 0
+            || (it.key || '').toLowerCase().indexOf(q) >= 0;
+        });
+        if (!items.length) return null;
+        var meta = null;
+        this.configGroups.forEach(function (g) { if (g.id === gid) meta = g; });
+        return { uid: category + '/' + gid, id: gid, category: category,
+                 meta: meta, items: items };
+      },
       // 3.5.1: активная вкладка — конфиг (generic-рендер по sources)
       currentTabIsConfig: function () {
         var t = this.currentTab;
@@ -697,12 +875,12 @@
         return this.chatLoreProfileLoading
           || this.chatLoreSaving || this.chatLoreGenerating;
       },
-      // F-11 (Q1): вкладки меню-секции (по видимости canViewTab)
-      menuTabs: function () {
+      // F4 (84.14.5): только доступные вкладки;
+      // «Статус» и «Как это работает» — всегда (RBAC-исключения).
+      visibleTabs: function () {
         var self = this;
-        return this.tabs.filter(function (t) {
-          return t.menu === self.activeMenu
-            && (t.always || self.canViewTab(t.id));
+        return this.tabs.filter(function (tab) {
+          return tab.always || self.canViewTab(tab.id);
         });
       },
       // 3.10: визуальная склейка «ручной + авто» для инфо-строки (превью)
@@ -715,14 +893,6 @@
         if (auto) parts.push(auto);
         if (!parts.length) return '';
         return this.truncateLore(parts.join('\n'), 300);
-      },
-      // F4 (84.14.5): сайдбар показывает ТОЛЬКО доступные вкладки;
-      // «Статус» и «Как это работает» — всегда (RBAC-исключения).
-      visibleTabs: function () {
-        var self = this;
-        return this.tabs.filter(function (tab) {
-          return tab.always || self.canViewTab(tab.id);
-        });
       },
       errorLogs: function () {
         return this.logs.filter(function (l) { return l.level === 'ERROR' || l.level === 'CRITICAL'; });
@@ -756,7 +926,6 @@
       var tabId = routeToTab(r);
       if (tabId) this.activeTab = tabId;
       var found = this.tabs.find(function (t) { return t.id === tabId; });
-      if (found && found.menu) this.activeMenu = found.menu;
       // §6.2 п.4: не перезаписываем launch-hash «в лоб» — replaceState.
       if (!normalizeRoute(window.location.hash)) {
         try { history.replaceState(null, '', r); } catch (e) { /* file:// */ }
@@ -773,6 +942,14 @@
         _appVm.applyRoute(normalizeRoute(window.location.hash) || '#/');
       };
       window.addEventListener('hashchange', _onHashChange);
+      // MODERATE-2: глобальный Esc закрывает модалку модуля (фокус может
+      // быть не внутри модалки — keydown на карточке недостаточно).
+      _onKeydown = function (e) {
+        if (e.key === 'Escape' && _appVm && _appVm.openModuleId != null) {
+          _appVm.closeModule();
+        }
+      };
+      window.addEventListener('keydown', _onKeydown);
       this.initBackButton();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
@@ -1122,14 +1299,14 @@
         // Hotfix-R10 («Модули»/PERMsoc): гейты/пермсок — per chat;
         // при смене «Весь бот» ↔ чат на этих вкладках перечитываем
         // (иначе стейл-флаги).
-        if ((this.activeTab === 'modules_feats' || this.activeTab === 'permsoc')
+        if ((this.activeTab === 'modules' || this.activeTab === 'permsoc')
             && this.canViewTab(this.activeTab)) {
           this.loadGateInfo();
         }
-        if (this.activeTab !== 'modules_feats'
+        if (this.activeTab !== 'modules'
             && this.activeTab !== 'permsoc'
             && this.activeChatId != null) {
-          // смена контекста сбрасывает стейл-гейты для «Модулей и Фич»
+          // смена контекста сбрасывает стейл-гейты для «Модулей»/PERMsoc
           this.gateInfo = null;
         }
       },
@@ -1642,6 +1819,12 @@
       applyRoute: function (rawHash) {
         var route = normalizeRoute(rawHash);
         if (!route) route = this.route || '#/';
+        // MINOR-1: legacy-алиасы нормализуем в канонический hash (replaceState).
+        var aliasTarget = ROUTE_ALIAS[route];
+        if (aliasTarget) {
+          try { history.replaceState(null, '', aliasTarget); } catch (e) { /* file:// */ }
+          route = aliasTarget;
+        }
         if (route === this.route && _routeApplied) {
           this.syncBackButton();
           return;
@@ -1665,8 +1848,14 @@
         this.route = route;
         _routeApplied = true;
         try { sessionStorage.setItem('adminbot.route', route); } catch (e) { /* quota */ }
+        // A9/T-1206: deep-link «Доступы» синхронизирует единственную
+        // открытую секцию аккордеона; `#/access` (hub) — все закрыты.
+        if (route.indexOf('#/access/') === 0) {
+          this.accessOpen = route.substring('#/access/'.length);
+        } else if (route === '#/access') {
+          this.accessOpen = null;
+        }
         var found = this.tabs.find(function (t) { return t.id === tabId; });
-        if (found && found.menu) this.activeMenu = found.menu;
         if (tabId && tabId !== this.activeTab) this.setTab(tabId);
         this.syncBackButton();
       },
@@ -1684,21 +1873,195 @@
       },
       // Навигация из меню: hash авторитетен (не setTab напрямую).
       openTab: function (id) {
-        this.sidebarOpen = false;
         var r = tabToRoute(id);
         if (r) this.navigateTo(r);
         else this.setTab(id);
       },
-      // T-1100: navbar → маршрут (hash), закрывает drawer на mobile.
+      // T-1100: navbar → маршрут (hash).
       navTo: function (route) {
-        this.sidebarOpen = false;
         this.navigateTo(route);
+      },
+      // A9/T-1206: эксклюзивный аккордеон «Доступы и роли» (один открыт).
+      setAccess: function (id) {
+        this.accessOpen = (this.accessOpen === id) ? null : id;
+      },
+      isAccessOpen: function (id) {
+        return this.accessOpen === id;
+      },
+      // ═══ A2/T-1166/T-1167: модули — toggle + окно параметров ═══
+      openModuleWindow: function (m) {
+        if (!m) return;
+        if (!this.canViewTab(m.tab)) {
+          this.toast('Нет доступа к модулю', 'warn');
+          return;
+        }
+        this.openModuleId = m.id;
+        this._ensureModuleData(m);
+        if (!this.configItems.length) this.loadConfig();
+      },
+      // MAJOR-2: операционные панели Сон/Ностальгия живут в модалке —
+      // данные грузятся при открытии (не только по activeTab).
+      _ensureModuleData: function (m) {
+        if (!m || !this.isGlobalAdmin) return;
+        if (m.id === 'mod_sleep') {
+          if (!this.dreamBeliefs.length && !this.memoryRagBusy) {
+            this.loadDreamBeliefs();
+            this.loadDreamLog();
+          }
+        } else if (m.id === 'mod_nostalgia') {
+          if (!this.nostalgiaLog.length && !this.memoryRagBusy) {
+            this.loadNostalgiaLog();
+          }
+        }
+      },
+      closeModule: function () {
+        this.openModuleId = null;
+      },
+      canEditModule: function (m) {
+        return !!m && this.canEditConfig(m.toggleKey);
+      },
+      moduleEnabled: function (m) {
+        if (!m) return false;
+        var it = this.configItems.find(function (i) {
+          return i.key === m.toggleKey;
+        });
+        return !!(it && it.value);
+      },
+      toggleModule: async function (m, checked) {
+        if (!m || !this.canEditConfig(m.toggleKey)) return;
+        var it = this.configItems.find(function (i) {
+          return i.key === m.toggleKey;
+        });
+        if (!it) {
+          this.toast('Параметр недоступен: ' + m.toggleKey, 'warn');
+          return;
+        }
+        it.value = !!checked;
+        await this.saveConfigItem(it);
+      },
+      // A4/T-1207: значение блока — черновик, иначе сохранённая строка.
+      blockFieldValue: function (f) {
+        var draft = this.blockDrafts[f.key];
+        if (draft != null && draft !== '') return draft;
+        var it = this.configItems.find(function (i) { return i.key === f.key; });
+        if (it && typeof it.value === 'string') return it.value;
+        if (it && it.type !== 'bool' && typeof it.value !== 'object') return it.value;
+        return '';
+      },
+      blockFieldPlaceholder: function (f) {
+        var it = this.configItems.find(function (i) { return i.key === f.key; });
+        if (it && typeof it.value === 'object' && it.value) {
+          return it.value.configured ? ('configured ••••' + (it.value.last4 || '')) : 'не настроен';
+        }
+        return f.label;
+      },
+      testBlock: async function (b) {
+        if (!b || this.blockTesting[b.id]) return;
+        this.blockTesting[b.id] = true;
+        var self = this;
+        var body = { block: b.id, base_url: '', model: '', api_key: '' };
+        b.fields.forEach(function (f) {
+          var v = self.blockFieldValue(f);
+          if (f.role === 'base_url') body.base_url = v || body.base_url;
+          else if (f.role === 'model') body.model = v || body.model;
+          else if (f.role === 'api_key' && v) body.api_key = v;
+        });
+        try {
+          var res = await this.api('/api/llm/test', {
+            method: 'POST', body: JSON.stringify(body),
+          });
+          this.blockResults[b.id] = {
+            ok: !!res.ok,
+            text: res.ok
+              ? ('OK ' + (res.http_status || '') + ' · ' + (res.latency_ms || 0) + ' мс')
+              : (res.error || 'ошибка'),
+          };
+        } catch (e) {
+          var msg = (e && e.status === 429) ? 'Слишком часто — подождите 5 секунд'
+            : ((e && e.message) || 'ошибка');
+          this.blockResults[b.id] = { ok: false, text: msg };
+        } finally {
+          this.blockTesting[b.id] = false;
+        }
+      },
+      // MINOR-2: тест КОНКРЕТНОГО ключа блока (search_keys:tavily/exa).
+      testField: async function (b, f) {
+        if (!b || !f || !f.probeTarget || this.blockTesting[f.probeTarget]) return;
+        var target = f.probeTarget;
+        this.blockTesting[target] = true;
+        try {
+          var res = await this.api('/api/llm/test', {
+            method: 'POST',
+            body: JSON.stringify({
+              block: target, base_url: '', model: '',
+              api_key: this.blockFieldValue(f),
+            }),
+          });
+          this.blockResults[target] = {
+            ok: !!res.ok,
+            text: res.ok
+              ? ('OK ' + (res.http_status || '') + ' · ' + (res.latency_ms || 0) + ' мс')
+              : (res.error || 'ошибка'),
+          };
+        } catch (e) {
+          var msg = (e && e.status === 429) ? 'Слишком часто — подождите 5 секунд'
+            : ((e && e.message) || 'ошибка');
+          this.blockResults[target] = { ok: false, text: msg };
+        } finally {
+          this.blockTesting[target] = false;
+        }
+      },
+      // MODERATE-1: сохранение полей блока через /api/config (без потери
+      // черновика). Секреты пишутся только если введён новый ключ.
+      saveBlock: async function (b) {
+        if (!b || this.blockSaving[b.id]) return;
+        var self = this;
+        var items = [];
+        b.fields.forEach(function (f) {
+          var it = self.configItems.find(function (i) { return i.key === f.key; });
+          var draft = self.blockDrafts[f.key];
+          if (f.secret) {
+            if (draft) items.push({ key: f.key, value: draft });
+            return;
+          }
+          // MINOR-3: `draft == null` = «не трогать»; `''` (пусто) = очистить.
+          if (draft == null) return;
+          if (draft === '') { items.push({ key: f.key, value: '' }); return; }
+          var v = draft;
+          if (it && it.type === 'int') v = parseInt(v, 10);
+          else if (it && it.type === 'float') v = parseFloat(v, 10);
+          else if (it && it.type === 'bool') v = !!v;
+          if (typeof v === 'number' && !isFinite(v)) {
+            self.toast('Некорректное значение: ' + f.key, 'err');
+            return;
+          }
+          items.push({ key: f.key, value: v });
+        });
+        if (!items.length) { this.toast('Нет изменений', 'warn'); return; }
+        this.blockSaving[b.id] = true;
+        try {
+          await this.api('/api/config', {
+            method: 'POST',
+            body: JSON.stringify({ items: items,
+                                   updated_at: this.configChatUpdatedAt }),
+          });
+          this.toast('Сохранено: ' + b.title, 'ok');
+          await this.loadConfig();
+        } catch (e) {
+          if (e.status === 409 && e.message && e.message.code === 'conflict') {
+            this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
+            this.loadConfig();
+          } else {
+            this.toast('Ошибка сохранения: ' + e.message, 'err');
+          }
+        } finally {
+          this.blockSaving[b.id] = false;
+        }
       },
       // T-1100: карточка hub → дочерний экран (+якорь секции для access).
       openHubCard: function (card) {
         var self = this;
         if (!card) return;
-        this.sidebarOpen = false;
         this.navigateTo(card.route);
         if (card.section) {
           this.$nextTick(function () { self.scrollToId(card.section); });
@@ -1764,6 +2127,9 @@
       },
       // Определённый родитель (§6.4.4), БЕЗ history.back().
       goBack: function () {
+        // A2/T-1167: при открытом окне модуля back СНАЧАЛА закрывает окно
+        // (роут не меняется — важно для Android).
+        if (this.openModuleId != null) { this.closeModule(); return; }
         var p = routeParent(this.route);
         if (p) this.navigateTo(p);
       },
@@ -1807,7 +2173,6 @@
         var self = this;
         var prevTab = this.activeTab;
         this.activeTab = id;
-        this.sidebarOpen = false;
         // Ревью-фикс раунда (кросс-чатовая запись отношений): уход с
         // «Лора чатов» сбрасывает лор-профиль и список участников —
         // вкладка relations работает ТОЛЬКО от активного чата.
@@ -1815,16 +2180,14 @@
           this.chatLoreProfile = null;
           this.chatRelations = [];
         }
-        // F-11: синхрон активной меню-секции
-        var target = this.tabs.find(function (t) { return t.id === id; });
-        if (target && target.menu) this.activeMenu = target.menu;
-        if (id === 'modules_feats' && this.canViewTab('modules_feats')
+        // F-11: синхрон активной меню-секции удалён вместе с боковой панелью (A1).
+        if (id === 'modules' && this.canViewTab('modules')
             && !this.gateInfo && !this.modulesBusy) {
           this.loadModules();
         }
         // BUG-3 (permsoc): мастер-карта читает те же гейты — подгружаем
         // при первом показе вкладки (per chat; без чата — hint-заметка).
-        if ((id === 'modules_feats' || id === 'permsoc')
+        if ((id === 'modules' || id === 'permsoc')
             && this.canViewTab(id) && !this.gateInfo && !this.modulesBusy
             && this.activeChatId != null) {
           this.loadGateInfo();
@@ -1865,22 +2228,13 @@
             && !this.relationsBusy) {
           this.loadRelations(this.activeChatId);
         }
-        // Раунд 9 (T-831/F4) + раунд 10.4 (C-4): мини-блоки «Синтез (сон)»
-        // → вкладка memory_dream, «Ностальгия» → memory_nostalgia
-        // (глобальный admin; GET-логи — консервативно только admin).
-        if (id === 'memory_dream' && this.isGlobalAdmin
-            && !this.dreamBeliefs.length && !this.memoryRagBusy) {
-          this.loadDreamBeliefs();
-          this.loadDreamLog();
-        }
-        if (id === 'memory_nostalgia' && this.isGlobalAdmin
-            && !this.nostalgiaLog.length && !this.memoryRagBusy) {
-          this.loadNostalgiaLog();
-        }
+        // MAJOR-2: Сон/Ностальгия — панели в модалке модуля; их данные
+        // грузятся в openModuleWindow/_ensureModuleData (не по activeTab).
         // 3.5.1: конфиг-вкладки (generic-рендер) — данные общие для всех;
         // первый показ любой из них грузит /api/config целиком.
         var tab = this.currentTab;
-        if (tab && tab.type === 'config' && !this.configItems.length) {
+        if (tab && (tab.type === 'config' || tab.type === 'modules')
+            && !this.configItems.length) {
           self.loadConfig();
         }
       },
@@ -1959,7 +2313,7 @@
           return this.hasPerm('section.chat_lore') || this.chatLoreChats.length > 0;
         }
         // Раунд 10 (F-11 Q1 / F-12): Oversight — только global admin;
-        // modules_feats — реакции/флаги секции либо локальный админ чата.
+        // «Модули» — реакции/флаги секции либо локальный админ чата.
         if (tab.type === 'oversight') {
           return this.isGlobalAdmin;
         }
@@ -1987,20 +2341,6 @@
       // Раунд 10 (F-11 Q1): локальный админ/мод-грант активного чата
       isLocalAdminCtx: function () {
         return !!(this.accessMy && this.accessMy.is_local_admin);
-      },
-
-      // F-11 (Q1): меню — setMenu(m) → первый доступный таб секции
-      setMenu: function (menuId) {
-        this.activeMenu = menuId;
-        var first = null;
-        for (var i = 0; i < this.tabs.length; i++) {
-          var t = this.tabs[i];
-          if (t.menu === menuId && (t.always || this.canViewTab(t.id))) {
-            first = t;
-            break;
-          }
-        }
-        if (first) this.setTab(first.id);
       },
 
       // F-11 (4.2): аккордеон «Расширенные» — localStorage adminbot.expand:<tab>
@@ -2174,12 +2514,25 @@
       // items[]}]. Порядок — по flatGroupRank (порядок правил; для
       // секционированных вкладок — секции), внутри — group.order;
       // параметры без group → «Прочее» в конце. Поиск-фильтр как раньше.
+      // R10.6-1: ключи, уже редактируемые в provider-блоках (один дом).
+      providerCoveredKeys: function () {
+        var keys = {};
+        (this.providerBlocks || []).forEach(function (b) {
+          (b.fields || []).forEach(function (f) { keys[f.key] = true; });
+        });
+        return keys;
+      },
       groupedForTab: function (tab) {
         var self = this;
         if (!tab || !tab.sources) return [];
+        // R10.6-1: на «LLM Провайдеры» generic-редакторы НЕ дублируют поля,
+        // уже показанные в блоках (остальные поля групп остаются).
+        var covered = (tab.id === 'llm_providers')
+          ? this.providerCoveredKeys() : null;
         var q = (this.configSearch || '').trim().toLowerCase();
         var items = this.configItems.filter(function (it) {
           if (!self.tabSourceForItem(tab, it)) return false;
+          if (covered && covered[it.key]) return false;
           if (!q) return true;
           return (it.title || '').toLowerCase().indexOf(q) >= 0
             || (it.description || '').toLowerCase().indexOf(q) >= 0
@@ -3396,10 +3749,10 @@
         });
         return (found && found.title) || ('Чат ' + p.chat_id);
       },
-      // F-8 (T-876): «Telegram ID админа» (reactions.admin_user_id) перенесён
-      // из «Реакций и Триггеров» в «Доступы» — данные/ключ НЕ меняются.
+      // F-8 (T-876): «Telegram ID админа» (reactions.admin_user_id) показывается
+      // в «Доступах» — в config-вкладке PERMsoc скрыт (данные/ключ НЕ меняются).
       isAdminIdHidden: function (item) {
-        return this.activeTab === 'reactions_triggers'
+        return this.activeTab === 'permsoc'
           && item && item.key === 'reactions.admin_user_id';
       },
       adminIdItem: function () {

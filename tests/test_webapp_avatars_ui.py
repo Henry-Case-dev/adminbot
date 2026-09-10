@@ -412,9 +412,11 @@ class TestAvatarFrontAudit:
         assert "position: sticky" in html
         assert "z-index: 40" in html               # шапка — без изменений
         assert 'class="main-header header-sticky card-solid' in html
-        # F-13 (AC-5): мобильный сайдбар поднят над шапкой (40 → 45),
-        # «Статус» больше не перекрыт; 45 < модалки 50 / тостов 60
-        assert "z-index: 45" in html
+        # Раунд 10.6 (A1/T-1161): sidebar (z-index:45) удалён; скролл — main.
+        assert "z-index: 45" not in html
+        assert ".app-shell" in html
+        assert ".fullscreen-mode .scroll-area" in html
+        assert "overscroll-behavior: contain" in html
 
     def test_gradient_animation_8s(self):
         html = _Static.read("web/index.html")

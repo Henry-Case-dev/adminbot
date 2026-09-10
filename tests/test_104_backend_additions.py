@@ -192,4 +192,5 @@ def test_user_facing_text_updated():
     assert "во вкладке «Модули»" in cat
     assert "вкладке «Модули и Фичи»" not in cat
     html = open("web/index.html", encoding="utf-8").read()
-    assert "🧩 Модули (F-10 E1/E2" in html
+    assert 'class="module-list' in html
+    assert "toggleModule(m, $event.target.checked)" in html

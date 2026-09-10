@@ -1,8 +1,8 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
-> HEAD == 0bdf272 (10.4) + рабочее дерево 10.5 (tma-relume-redesign, 2026-09-10).
-> origin/master == 0bdf272 (10.4 deployed; 10.5 — не задеплоен, сканирование).
+> HEAD == be7b85b (10.5 docs) + рабочее дерево 10.6 (tma-ia-modules-rework, 2026-09-11).
+> origin/master == 918f675/0bdf272 (10.5 deployed; 10.6 — не задеплоен, сканирование).
 
 ## Stack
 - **aiogram 3.31** (polling) + **FastAPI** webapp (`web/app.py`) + **asyncpg** (PG) + **aiosqlite** (memory v8). APP_VERSION=2.51.0.
@@ -49,7 +49,7 @@
 ### RBAC & Permissions
 - **`services/permissions.py`** - pure matcher (`Permissions` class, bitmask-style flags).
 - **`services/roles.py`** / **`services/access.py`** - RBAC v2: `role_type` (built-in vs custom), `access_for` (global/chat/both), `can_edit_param`.
-- **`services/param_catalog.py`** - `REGISTRY` of 383 `ParamSpec` (71 groups). Fields: `per_chat`, `progressive_level`. Single source of truth for config metadata.
+- **`services/param_catalog.py`** - `REGISTRY` of 392 `ParamSpec` (91 groups) — 10.6. Fields: `per_chat`, `progressive_level`. Single source of truth for config metadata (`TAB_RULES` 19 вкладок).
 
 ### Database Layer
 - **`services/database.py`** - SQLite (aiosqlite). Tables:
@@ -318,3 +318,48 @@ bot.py
   (build-time only, `fonttools`/`brotli` НЕ в runtime).
 - **Отчёты**: `plans/reports/round10.5_scanner_audit.md` (0 блокеров / 0 major,
   2 minor + 5 info); `full_audit_results.md` §Round 10.5; `audit_backlog.md` (10.5).
+
+## Round 10.6 map additions (tma-ia-modules-rework, HEAD be7b85b + working tree)
+
+- **Каталог**: `services/param_catalog.py` — REGISTRY **392** / GROUPS **91** /
+  Settings **364** / mapped **89**; `TAB_RULES` (19 вкладок) + `CONFIG_TAB_TITLES` (19) +
+  `_TAB_BY_GROUP` (89). Расщепления: `limits_media`→`limits_media_permsoc`(7)+
+  `limits_transcribe`(6)+`limits_video_summary`(3)+`limits_media_download`(1);
+  `limits_persons`→`limits_alan`(3)+`limits_kostik`(1); `limits_youtube_web`→
+  `limits_youtube`(2)+`limits_web`(2); `limits_cooldowns`→0; `flags_modules`→7 групп
+  (`flags_module_*`, checkup→`flags_service`); `flags_chat_behavior`→7 + `flags_summary` +
+  `flags_permsoc_behavior`; `reactions_persons`→2 + `reactions_alan`(3) + `reactions_kostik`(1);
+  `limits_chat_budgets`→10 (flags+9), `limits_chat`→25; NEW `limits_rag`(2)→`memory_rag`.
+  5 NEW master-флагов: `FACTCHECK_ENABLED`/`SEARCH_ENABLED`/`VIDEO_SUMMARY_ENABLED`/
+  `WEBPAGE_ENABLED`/`CHECKUP_ENABLED` (default True; `_FLAGS`). PG-ключи/значения НЕ мигрируют.
+- **Runtime-гейты (A1)**: `handlers/factcheck.py:169`, `search.py:109`, `web.py:104`,
+  `checkup.py:77` — `hot.get("flags.*_enabled", settings.*)` → `UNHANDLED`;
+  `youtube.py:1019` — только `request.mode == "summary"` (transcript продолжает работать).
+  `bot.py` порядок роутеров НЕ тронут; `services/database.py`/`pg_db.py` без диффа
+  (SQLite v8, ноль PG-DDL; seed новых флагов = `true` через `_seed_settings`).
+- **`POST /api/llm/test` (T-1210/A4/D4)**: `web/api/routes.py:1225` (`LlmTestRequest:126`),
+  `requires_global_admin`, rate-limit `(user,block)` ≥5с → 429, TTL-прунинг `_LLM_TEST_LAST`;
+  `reset_llm_test_rate_limit()` — тест-точка. Логика — `services/llm_probe.py`:
+  `_safe_base` (https/loopback-http), `sanitize_error` (R17), `KNOWN_BLOCKS`
+  (`direct_main/direct_fallback/transcribe_groq/transcribe_openrouter/
+  video_summary_openrouter/embeddings/search_keys[:tavily|:exa]/media_share/
+  checkup_betterstack`; `llm_guard` намеренно отсутствует), `_probe_search`
+  (Exa/Tavily фиксированные endpoints).
+- **TMA-каркас**: `web/app.js` — `MODULES` (11: self-flag `toggleKey` + `tab`),
+  `PROVIDER_BLOCKS` (9 блоков по модулям; `testable:false` у `embeddings`/`llm_guard`;
+  `perFieldTest` у `search_keys`), `accessOpen ∈ {null,'roles','local','admins'}` +
+  `setAccess`, `activeModule/activeModuleGroups/_syntheticGroup('content','content_media')`,
+  `openModuleWindow/closeModule/_ensureModuleData` (Сон/Ностальгия-панели в модалке),
+  глобальный Esc (`_onKeydown`), `ROUTE_ALIAS` (legacy hash → канон через `replaceState`),
+  `TAB_SECTION_ORDER` 19, `TAB_TO_ROUTE`/`ROUTE_TO_TAB` без удалённых роутов;
+  `NAV_ITEMS` 6, `iconGlyph` Material. `web/index.html` — sidebar/☰/MENU_ORDER удалены,
+  `.navbar-band`/`.nav-label`, `.app-shell`/`.scroll-area`/`.fullscreen-mode`,
+  модуль-карточки + модалка, prov-блоки + test-кнопка, аккордеон `acc-*`,
+  `#/how` и матрица — Material-иконки. DM `canEditConfig` учитывает `per_chat===false`
+  (R10.5-2 closed); `initBackButton` на `ready` (R10.5-1 closed).
+- **PERMsoc**: 10 миселённых ключей → М5(6)/М6(3)/М7(1); Леха=Леха (`reactions_alan`+
+  `limits_alan`), Костик (`reactions_kostik`+`limits_kostik`) — раздельно; `flags_media`
+  остаётся в PERMsoc. `keys_youtube`→М6; `models_checkup`/`keys_betterstack`→М9.
+- **Находки**: `plans/reports/round10.6_scanner_audit.md` (0 блокеров/0 major;
+  3 minor: R10.6-1 LLM-дубль редакторов, R10.6-2 https-SSRF, R10.6-3 422-эхо `api_key`;
+  3 info).

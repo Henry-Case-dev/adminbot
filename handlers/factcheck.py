@@ -165,6 +165,9 @@ async def _transcription_forward_author(chat_id: int,
 async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
+    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
+    if not hot.get("flags.factcheck_enabled", settings.FACTCHECK_ENABLED):
+        return UNHANDLED
     user_id = message.from_user.id if message.from_user else 0
     target, user_hint = _parse_trigger(message)
     if target is None:

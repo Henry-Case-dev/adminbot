@@ -49,7 +49,7 @@ class TestCompleteness:
         #   WORKER_DAILY_LLM_CALLS/TOKENS_GLOBAL, _PER_CHAT,
         #   WORKER_PRIORITY_ORDER, WORKER_BUDGET_JITTER_MINUTES)
         #   + PERMSOC_ENABLED (раунд 10, F-9 §3, мастер-тумблер PERMsoc)
-        assert len(fields) == 359
+        assert len(fields) == 364
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -232,7 +232,9 @@ class TestGroups8424:
         # бюджет фона, фикс R3); ре-дизайн 10.2 (BUG-3): 71 → 74
         # (+ flags_permsoc, reactions_permsoc, reactions_admin — «Функции
         # PERMsoc», spec §10 B)
-        assert len(GROUPS) == 74
+        # ре-дизайн 10.5 (T-1139/T-1145): models +4 — осознанное исключение;
+        # раунд 10.6 (T-1201/T-1180): +5 master-флагов; GROUPS 91.
+        assert len(GROUPS) == 91
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -244,7 +246,7 @@ class TestGroups8424:
         from collections import Counter
         dup = {k: v for k, v in Counter(
             (g.category, g.order) for g in GROUPS).items() if v > 1}
-        assert dup == {("reactions", 1): 2, ("flags", 3): 2}
+        assert dup == {}
 
     def test_group_fields_nonempty(self):
         for g in GROUPS:
@@ -260,7 +262,7 @@ class TestGroups8424:
                 assert pc.get_group(lst[0].id) is lst[0]
         assert pc.get_group("no_such_group") is None
         assert pc.group_order("no_such_group") == 999
-        assert pc.group_order("limits_persons") == 1
+        assert pc.group_order("limits_alan") == 1
 
     def test_group_counts_match_design(self):
         """84.24.2 + дельты (2026-09-03) + эпик 04.09.2026 (модели-видео,
@@ -289,7 +291,7 @@ class TestGroups8424:
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 33, "keys": 13,
-                          "limits": 177, "flags": 52, "reactions": 38,
+                          "limits": 177, "flags": 57, "reactions": 38,
                           "content": 4, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
@@ -370,8 +372,9 @@ class TestPermsocGroupsRedesign:
         assert spec.pg_key == "reactions.admin_user_id"
 
     def test_groups_on_permsoc_tab(self):
-        for gid in ("reactions_persons", "reactions_permsoc",
-                    "flags_permsoc", "limits_persons"):
+        for gid in ("reactions_persons", "reactions_kostik", "reactions_alan",
+                    "reactions_permsoc", "flags_permsoc", "limits_alan",
+                    "limits_kostik"):
             assert pc.group_tab(gid) == pc.TAB_PERMSOC, gid
 
     def test_group_titles_new(self):

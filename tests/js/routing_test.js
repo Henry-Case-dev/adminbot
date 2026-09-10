@@ -61,10 +61,10 @@ methods.applyRoute.call(ctx, '#/ai');
 assert.strictEqual(ctx.route, '#/',
   'D1: hub #/ai без видимых карточек → редирект на #/');
 
-ctx = makeCtx(['status', 'reactions_triggers']);
+ctx = makeCtx(['status', 'modules']);
 methods.applyRoute.call(ctx, '#/modules');
 assert.strictEqual(ctx.route, '#/modules',
-  'D1: hub #/modules доступен при одной видимой карточке');
+  'A2: список «Модули» — не hub, открывается по своему tab');
 
 ctx = makeCtx(['status', 'prompts']);
 methods.applyRoute.call(ctx, '#/ai/llm');
@@ -130,6 +130,75 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     false, 'R10.5-2: models.openrouter_base_url read-only в DM');
   assert.strictEqual(methods.canEditConfig.call(dm, 'limits.chat_cooldown_seconds'),
     true, 'R10.5-2: per_chat-ключ остаётся редактируемым в DM');
+})();
+
+// ── BLOCKER-1: navItems = ровно 6 пунктов, включая modules (wildcard) ─────
+(function () {
+  const ctx = { route: '#/', canViewTab() { return true; } };
+  const nav = captured.computed.navItems.call(ctx);
+  const ids = nav.map((n) => n.id);
+  assert.deepStrictEqual(
+    ids, ['status', 'how', 'modules', 'ai', 'permsoc', 'access'],
+    'BLOCKER-1: navbar = ровно 6 пунктов, включая modules');
+})();
+
+// ── BLOCKER-1 (негатив): без права modules пункт скрыт ───────────────────
+(function () {
+  const ctx = {
+    route: '#/',
+    canViewTab(id) { return id === 'status'; },
+  };
+  const ids = captured.computed.navItems.call(ctx).map((n) => n.id);
+  assert.ok(ids.indexOf('modules') < 0,
+    'BLOCKER-1: modules скрыт без права');
+  assert.ok(ids.indexOf('status') >= 0, 'status всегда виден');
+})();
+
+// ── MAJOR-2: открытие модалки Сон грузит beliefs/лог ─────────────────────
+(function () {
+  let beliefs = 0, log = 0;
+  const ctx = {
+    openModuleId: null,
+    isGlobalAdmin: true,
+    dreamBeliefs: [], nostalgiaLog: [],
+    memoryRagBusy: false,
+    configItems: [{}],
+    canViewTab() { return true; },
+    loadDreamBeliefs() { beliefs += 1; },
+    loadDreamLog() { log += 1; },
+    loadNostalgiaLog() {},
+    loadConfig() {},
+    _ensureModuleData: methods._ensureModuleData,
+  };
+  methods.openModuleWindow.call(ctx, { id: 'mod_sleep', tab: 'mod_sleep' });
+  assert.strictEqual(ctx.openModuleId, 'mod_sleep',
+    'MAJOR-2: модалка Сон открыта');
+  assert.strictEqual(beliefs, 1, 'MAJOR-2: loadDreamBeliefs вызван');
+  assert.strictEqual(log, 1, 'MAJOR-2: loadDreamLog вызван');
+})();
+
+// ── MINOR-1: legacy-алиасы нормализуются ─────────────────────────────────
+(function () {
+  const ctx = {
+    route: '#/', me: { role_name: 'admin' },
+    canViewTab() { return true; },
+    activeTab: 'status', accessOpen: null,
+    tabs: captured.data().tabs,
+    syncBackButton() {}, setTab(id) { this.activeTab = id; },
+  };
+  methods.applyRoute.call(ctx, '#/ai/limits');
+  assert.strictEqual(ctx.route, '#/ai', 'MINOR-1: #/ai/limits → #/ai');
+  ctx.route = '#/';
+  methods.applyRoute.call(ctx, '#/ai/sleep');
+  assert.strictEqual(ctx.route, '#/modules', 'MINOR-1: #/ai/sleep → #/modules');
+})();
+
+// ── MODERATE-2: closeModule сбрасывает openModuleId ──────────────────────
+(function () {
+  const ctx = { openModuleId: 'mod_sleep' };
+  methods.closeModule.call(ctx);
+  assert.strictEqual(ctx.openModuleId, null,
+    'MODERATE-2: closeModule закрывает модалку');
 })();
 
 (async function () {
@@ -215,6 +284,116 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     'R2: устаревшая ошибка не должна тостить');
   assert.strictEqual(e1.configLoading, true,
     'R3: устаревший finally не должен сбрасывать configLoading (владеет новый запрос)');
+
+  // ── MINOR-3: saveBlock умеет ОЧИЩАТЬ поле (draft === '') ────────────────
+  {
+    const calls = [];
+    const ctx = {
+      blockSaving: {},
+      blockDrafts: {
+        'models.llm_base_url': 'https://new.example/v1',
+        'models.llm_model_name': '',        // явная очистка
+      },
+      configItems: [
+        { key: 'models.llm_base_url', type: 'str' },
+        { key: 'models.llm_model_name', type: 'str' },
+      ],
+      configChatUpdatedAt: null,
+      toast() {},
+      loadConfig() {},
+      async api(url, opts) { calls.push(JSON.parse(opts.body)); return {}; },
+    };
+    const b = {
+      id: 'direct_main', title: 'T',
+      fields: [
+        { key: 'models.llm_base_url', role: 'base_url' },
+        { key: 'models.llm_model_name', role: 'model' },
+      ],
+    };
+    await methods.saveBlock.call(ctx, b);
+    assert.strictEqual(calls.length, 1, 'MINOR-3: POST /api/config вызван');
+    const items = calls[0].items;
+    const byKey = {};
+    items.forEach((i) => { byKey[i.key] = i.value; });
+    assert.strictEqual(byKey['models.llm_model_name'], '',
+      'MINOR-3: пустой draft очищает поле (не пропускается)');
+    assert.strictEqual(byKey['models.llm_base_url'], 'https://new.example/v1',
+      'MINOR-3: непустой draft сохраняется');
+  }
+
+  // ── MINOR-3 (негатив): draft == null → поле НЕ трогаем ───────────────────
+  {
+    const calls = [];
+    const ctx = {
+      blockSaving: {},
+      blockDrafts: {},                      // ничего не введено
+      configItems: [{ key: 'models.llm_base_url', type: 'str' }],
+      configChatUpdatedAt: null,
+      toast() {},
+      loadConfig() {},
+      async api(url, opts) { calls.push(JSON.parse(opts.body)); return {}; },
+    };
+    const b = { id: 'direct_main', title: 'T',
+      fields: [{ key: 'models.llm_base_url', role: 'base_url' }] };
+    await methods.saveBlock.call(ctx, b);
+    assert.strictEqual(calls.length, 0,
+      'MINOR-3: без правок POST не отправляется');
+  }
+
+  // ── MINOR-2: testField шлёт search_keys:tavily/exa ──────────────────────
+  {
+    const calls = [];
+    const ctx = {
+      blockTesting: {}, blockResults: {},
+      blockFieldValue() { return 'tvly-key'; },
+      toast() {},
+      async api(url, opts) { calls.push(JSON.parse(opts.body)); return { ok: true, http_status: 200, latency_ms: 1 }; },
+    };
+    const b = { id: 'search_keys' };
+    await methods.testField.call(ctx, b, { key: 'keys.tavily_api_key', probeTarget: 'search_keys:tavily' });
+    await methods.testField.call(ctx, b, { key: 'keys.exa_api_key', probeTarget: 'search_keys:exa' });
+    assert.deepStrictEqual(calls.map((c) => c.block),
+      ['search_keys:tavily', 'search_keys:exa'],
+      'MINOR-2: каждый поисковый ключ тестируется отдельным target');
+  }
+
+  // ── R10.6-1: generic-редакторы не дублируют поля блоков ─────────────────
+  {
+    const ctx = {
+      configSearch: '',
+      configGroups: [],
+      activeTab: 'llm_providers',
+      providerBlocks: captured.data().providerBlocks,
+      providerCoveredKeys: methods.providerCoveredKeys,
+      tabSourceForItem() { return true; },
+      basicItems(g) { return g.items; },
+      advancedItems() { return []; },
+      flatGroupRank() { return 0; },
+      configItems: [
+        { key: 'models.llm_base_url', category: 'models',
+          group: 'models_main', title: 'base', progressive_level: '' },
+        { key: 'models.llm_cb_failure_threshold', category: 'models',
+          group: 'models_llm_guard', title: 'cb', progressive_level: '' },
+        { key: 'models.llm_fallback_max_retries', category: 'models',
+          group: 'models_fallback', title: 'ret', progressive_level: '' },
+      ],
+    };
+    const groups = methods.groupedForTab.call(ctx,
+      { id: 'llm_providers', sources: [{}] });
+    const keys = groups.reduce((a, g) => a.concat(g.items.map((i) => i.key)), []);
+    assert.ok(keys.indexOf('models.llm_base_url') < 0,
+      'R10.6-1: ключ блока скрыт из generic-рендера');
+    assert.ok(keys.indexOf('models.llm_cb_failure_threshold') >= 0,
+      'R10.6-1: не-блоковый ключ остаётся в generic-рендере');
+    assert.ok(keys.indexOf('models.llm_fallback_max_retries') >= 0,
+      'R10.6-1: не-блоковый ключ fallback остаётся');
+    // Другой tab (модуль) не фильтруется.
+    const modGroups = methods.groupedForTab.call(ctx,
+      { id: 'mod_checkup', sources: [{}] });
+    const modKeys = modGroups.reduce((a, g) => a.concat(g.items.map((i) => i.key)), []);
+    assert.ok(modKeys.indexOf('models.llm_base_url') >= 0,
+      'R10.6-1: фильтр только для llm_providers');
+  }
 
   console.log('JS-UNIT-OK');
 })().catch((e) => {

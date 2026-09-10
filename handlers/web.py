@@ -100,6 +100,9 @@ def _parse(message: types.Message) -> tuple[types.Message | None, str | None]:
 async def web_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
+    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
+    if not hot.get("flags.webpage_enabled", settings.WEBPAGE_ENABLED):
+        return UNHANDLED
     target, url = _parse(message)
     if target is None:
         return UNHANDLED                       # не триггер → пропагация живёт

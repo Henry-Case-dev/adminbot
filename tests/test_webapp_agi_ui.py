@@ -248,11 +248,12 @@ class TestMemoryFrontAudit:
 
     def test_html_memory_blocks_under_generic(self):
         html = self._html()
-        # мини-блоки — внутри generic config-секции (currentTabIsConfig),
-        # под generic-группами, с v-if activeTab === 'memory_rag'
-        assert "activeTab === 'memory_dream' && isGlobalAdmin" in html
-        assert "activeTab === 'memory_nostalgia' && isGlobalAdmin" in html
-        assert "activeTab === 'memory_rag' && isGlobalAdmin" not in html
+        # MAJOR-2 (ревью): мини-блоки Сон/Ностальгия перенесены в МОДАЛКУ
+        # модуля и рендерятся по activeModule.id (не по activeTab).
+        assert "activeModule && activeModule.id === 'mod_sleep' && isGlobalAdmin" in html
+        assert "activeModule && activeModule.id === 'mod_nostalgia' && isGlobalAdmin" in html
+        assert "activeTab === 'mod_sleep'" not in html
+        assert "activeTab === 'mod_nostalgia'" not in html
         assert "Синтез (сон)" in html
         assert "Запустить синтез сейчас" in html
         assert "Последние убеждения" in html
@@ -263,8 +264,8 @@ class TestMemoryFrontAudit:
         assert "Ностальгия" in html
         assert "@click=\"loadNostalgiaLog()\"" in html
         assert "причина:" in html
-        # блок физически ПОСЛЕ открытия generic-шаблона конфига
-        assert html.index("currentTabIsConfig") < html.index("Синтез (сон)")
+        # блок физически внутри модалки модуля (после modal-body)
+        assert html.index("modal-body") < html.index("Синтез (сон)")
 
     def test_html_no_relations_leak_into_config(self):
         """«Участники и отношения» — только в chat_lore-ветке; в generic

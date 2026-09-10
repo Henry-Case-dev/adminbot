@@ -8,6 +8,7 @@ requires_permission по 84.14.2. Коды ошибок по 84.5: 400/401/403/4
 import datetime
 import json
 import logging
+import time
 from typing import Any, Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -55,6 +56,7 @@ from web.api.deps import (
     can_view_key_value,
     get_cache,
     get_tma_user,
+    requires_global_admin,
     requires_permission,
 )
 
@@ -119,6 +121,14 @@ class ChatKeyDelete(BaseModel):
 
 class ChatKeysStatus(BaseModel):
     pass
+
+
+class LlmTestRequest(BaseModel):
+    """Раунд 10.6 (T-1210/A4): per-block test провайдера (можно до сохранения)."""
+    block: str
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -1186,3 +1196,50 @@ async def get_debug_config(
         if is_pg_only(spec):
             item["pg_only"] = True
     return dump
+
+
+# ── Раунд 10.6 (T-1210/A4/D4): POST /api/llm/test ───────────────────────────
+# Global admin, rate-limit ≥5с на (user, block), R17 (ключ не эхо/не логируется).
+_LLM_TEST_MIN_INTERVAL = 5.0
+# INFO/ревью: ограничиваем рост dict — записи старше TTL вычищаются.
+_LLM_TEST_LAST_TTL = 3600.0
+_LLM_TEST_LAST: dict[tuple[int, str], float] = {}
+
+
+def reset_llm_test_rate_limit() -> None:
+    """Тестовая точка сброса серверного rate-limit."""
+    _LLM_TEST_LAST.clear()
+
+
+def _prune_llm_test_last(now: float) -> None:
+    """Удаляет устаревшие (user, block) — защита от роста словаря."""
+    if len(_LLM_TEST_LAST) < 256:
+        return
+    stale = [k for k, ts in _LLM_TEST_LAST.items()
+             if now - ts > _LLM_TEST_LAST_TTL]
+    for k in stale:
+        _LLM_TEST_LAST.pop(k, None)
+
+
+@api_router.post("/llm/test")
+async def post_llm_test(
+    request: Request,
+    payload: LlmTestRequest,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """Тестовый запрос провайдера ПЕРЕДАННЫМИ блоком key/model/base_url.
+
+    Всегда 200 с {ok,...} для результата провайдера (плохой key/model →
+    ok=false + санитизированное error); 403 — не глобальный админ; 429 —
+    повтор того же блока чаще 5 секунд (R17: ключ не возвращается).
+    """
+    now = time.monotonic()
+    _prune_llm_test_last(now)
+    rl_key = (user.id, payload.block)
+    last = _LLM_TEST_LAST.get(rl_key, 0.0)
+    if now - last < _LLM_TEST_MIN_INTERVAL:
+        raise HTTPException(status_code=429, detail="повтор блока чаще 5 секунд")
+    _LLM_TEST_LAST[rl_key] = now
+    from services.llm_probe import probe_block
+    return await probe_block(payload.block, payload.base_url, payload.model,
+                             payload.api_key)

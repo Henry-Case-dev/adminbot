@@ -320,12 +320,12 @@ class TestConfigGroups8424:
         data = resp.json()
         groups = {g["id"]: g for g in data["groups"]}
         # категории, присутствующие в items (fixture: limits/keys/models/content)
-        assert "limits_persons" in groups
+        assert "limits_alan" in groups
         assert "keys_llm" in groups
         assert "models_main" in groups
         assert "content_info" in groups
-        g = groups["limits_persons"]
-        assert g["title"] == "Персонажи: Леха и Костик"   # эпик 04.09.2026
+        g = groups["limits_alan"]
+        assert g["title"] == "Леха: лимиты"
         assert g["category"] == "limits"
         assert g["order"] == 1
         assert g["description"].strip()
@@ -1170,15 +1170,15 @@ class TestParamPermissionFlagsApi:
         resp = client.get("/api/access/param_permissions", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
         items = resp.json()["items"]
-        assert len(items) == len(categorized) == 359
+        assert len(items) == len(categorized) == 364
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
-        assert m["group"] == "limits_other" or m["group"].startswith("limits")
+        assert m["group"] == "limits_search"
         assert m["group_title"] and m["title"]
         assert "group_order" in m and "secret" in m
         # D4: секция = config-вкладка мини-аппа, а не внутренняя категория.
-        assert m["tab"] == "limits"
-        assert m["tab_title"] == "Лимиты"
+        assert m["tab"] == "mod_search"
+        assert m["tab_title"] == "Поиск"
         assert items["models.llm_base_url"]["tab"] == "llm_providers"
         assert items["models.llm_base_url"]["tab_title"] == "LLM Провайдеры"
         assert items["keys.groq_api_key"]["tab"] == "llm_providers"
@@ -1435,3 +1435,109 @@ class TestKeyHistoryApi:
             assert card["module_id"] and card["provider"]
             assert "model_source" in card
             assert set(card["key"].keys()) <= {"configured", "last4"}
+
+
+class TestLlmTestEndpoint:
+    """Раунд 10.6 (T-1210/A4): POST /api/llm/test — global admin, rate-limit, R17."""
+
+    BODY = {"block": "direct_main", "base_url": "https://api.example/v1",
+            "model": "m-1", "api_key": "sk-super-secret"}
+
+    def test_non_global_admin_403(self, client):
+        resp = client.post("/api/llm/test", json=self.BODY,
+                           headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_admin_ok_then_rate_limit_429(self, client, monkeypatch):
+        from services import llm_probe
+        from web.api import routes
+
+        async def fake_probe(block, base_url, model, api_key):
+            return {"ok": True, "http_status": 200, "latency_ms": 7,
+                    "model": model}
+
+        monkeypatch.setattr(llm_probe, "probe_block", fake_probe)
+        routes.reset_llm_test_rate_limit()
+        resp = client.post("/api/llm/test", json=self.BODY,
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True and body["http_status"] == 200
+        assert "sk-super-secret" not in resp.text   # R17: ключ не эхо
+        resp2 = client.post("/api/llm/test", json=self.BODY,
+                            headers=_hdr(ADMIN_ID))
+        assert resp2.status_code == 429
+
+    def test_error_sanitized(self, client, monkeypatch):
+        from services import llm_probe
+        from web.api import routes
+
+        async def fake_probe(block, base_url, model, api_key):
+            return {"ok": False, "http_status": 401, "latency_ms": 3,
+                    "model": model,
+                    "error": llm_probe.sanitize_error(
+                        "bad key sk-super-secret", api_key)}
+
+        monkeypatch.setattr(llm_probe, "probe_block", fake_probe)
+        routes.reset_llm_test_rate_limit()
+        resp = client.post("/api/llm/test", json=self.BODY,
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is False
+        assert "sk-super-secret" not in resp.text
+
+    @pytest.mark.parametrize("block", [
+        "direct_main", "direct_fallback", "transcribe_groq",
+        "transcribe_openrouter", "video_summary_openrouter", "search_keys",
+        "search_keys:tavily", "search_keys:exa"])
+    def test_each_block_reaches_probe(self, client, monkeypatch, block):
+        """MAJOR-1: каждый (сетевой) блок реально доходит до probe_block."""
+        from services import llm_probe
+        from web.api import routes
+
+        seen = {}
+
+        async def fake_probe(b, base_url, model, api_key):
+            seen["block"] = b
+            return {"ok": True, "http_status": 200, "latency_ms": 1,
+                    "model": model}
+
+        monkeypatch.setattr(llm_probe, "probe_block", fake_probe)
+        routes.reset_llm_test_rate_limit()
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": block, "base_url": "https://api.example/v1",
+                  "model": "m", "api_key": "k"},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        assert seen["block"] == block
+
+    def test_malformed_does_not_echo_api_key(self, client):
+        """R10.6-3 (R17): Pydantic-422 не должен эхоить api_key (`input`)."""
+        secret = "sk-SUPER-SECRET-LEAK-123"
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": "direct_main", "api_key": [secret]},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 422
+        assert secret not in resp.text
+        body = json.dumps(resp.json())
+        assert "input" not in body
+        assert "ctx" not in body
+        # loc/msg сохранены — клиенту понятно, ЧТО не так.
+        assert resp.json()["detail"]
+
+    def test_generic_validation_422_sanitized(self, client):
+        """R10.6-3: обработчик app-wide — любой 422 без `input`/`ctx`."""
+        secret = "sk-GENERIC-LEAK-999"
+        resp = client.post(
+            "/api/config",
+            json={"items": {"secret": secret}},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 422
+        assert secret not in resp.text
+        body = json.dumps(resp.json())
+        assert "input" not in body
+        assert "ctx" not in body

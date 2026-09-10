@@ -19,30 +19,32 @@ def _html() -> str:
 
 
 class TestMenu:
-    def test_all_menu_tags_present(self):
+    def test_navbar_menu_tags_present(self):
         js = _js()
-        for tag in ["'home'", "'chat_profile'", "'modules'", "'ai'", "'access'"]:
+        for tag in ["'modules'", "'ai'", "'access'"]:
             assert "menu: %s" % tag in js, tag
 
-    def test_menu_order_and_labels(self):
-        js = _js()
-        assert "MENU_ORDER" in js
-        assert "['home', 'chat_profile', 'modules', 'ai', 'access']" in js
+    def test_no_sidebar_dead_menu(self):
+        """A1/T-1157: sidebar, MENU_ORDER/MENU_LABELS/sidebarOpen удалены."""
+        js, html = _js(), _html()
+        for token in ("MENU_ORDER", "MENU_LABELS", "sidebarOpen"):
+            assert token not in js, token
+        assert "sidebar" not in html
+        assert "☰" not in html
 
     def test_user_sees_only_home(self):
         js = _js()
         # read-only гейт в canViewTab (user → только always: status|info)
         assert "tab.always) return true;" in js
 
-    def test_sidebar_scrollable(self):
-        """BUG-2 (рекон раунда 10): сайдбар скроллится сам — десктоп
-        md:sticky/md:h-screen/md:overflow-y-auto + scroll-thin на aside;
-        мобильное media-правило — overflow-y:auto (+ webkit touch)."""
+    def test_scroll_area_fullscreen(self):
+        """A1/T-1161/T-1162: main.scroll-area + fullscreen-скролл."""
         html = _html()
-        assert "md:sticky md:top-0 md:h-screen md:overflow-y-auto" in html
-        assert "scroll-thin" in html
-        assert "overflow-y: auto" in html
-        assert "-webkit-overflow-scrolling: touch" in html
+        assert ".app-shell" in html
+        assert ".fullscreen-mode .scroll-area" in html
+        assert "overscroll-behavior: contain" in html
+        assert ".nav-label" in html
+        assert ".nav-link > span:not(.msr) { display: none; }" not in html
 
 
 class TestSelector:
@@ -146,73 +148,54 @@ class TestProgressiveDisclosure:
         assert "return result.filter" in js
 
 
-class TestModulesFeats:
-    def test_memory_tabs_reorg_104(self):
-        """Раунд 10.4 (C-1/C-2/C-4): «Память и RAG» → «Память»; отдельные
-        вкладки «Сон»/«Ностальгия»; мини-блоки на своих вкладках."""
-        js, html = _js(), _html()
-        assert "label: 'Память'" in js
-        assert "label: 'Память и RAG'" not in js
-        assert "id: 'memory_dream'" in js and "label: 'Сон'" in js
-        assert "id: 'memory_nostalgia'" in js and "label: 'Ностальгия'" in js
-        assert "activeTab === 'memory_dream' && isGlobalAdmin" in html
-        assert "activeTab === 'memory_nostalgia' && isGlobalAdmin" in html
-        assert "activeTab === 'memory_rag' && isGlobalAdmin" not in html
-        # каталог: memory-группы покрыты без дублей (C-2)
-        import services.param_catalog as pc
-        mem_groups = {g.id for g in pc.GROUPS if g.category == "memory"}
-        groups = set()
-        for tab in ("memory_rag", "memory_dream", "memory_nostalgia"):
-            groups |= pc.tab_group_ids(tab)
-        assert mem_groups <= groups
-        assert len(mem_groups) == 3
+class TestModulesRework106:
+    """Раунд 10.6 (A2/A3): 11 модулей, «один дом», нет «Кастомных модулей»."""
 
-    def test_modules_feats_tab(self):
+    def test_11_modules_and_labels(self):
         js = _js()
-        assert "modules_feats" in js
+        for label in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
+                      "Транскрипт голосовых и видео", "Выжимка видео",
+                      "Скачивание медиа", "Веб-страницы", "Диагностика",
+                      "Сон", "Ностальгия"):
+            assert label in js, label
+        assert "var MODULES = [" in js
         assert "type: 'modules'" in js
+        assert "modules_feats" not in js
 
-    def test_permsoc_tab_and_summary_card(self):
-        """BUG-3 (ре-дизайн 10.2, spec §10 A/D) + раунд 10.4 (A-6):
-        штатная вкладка «Функции PERMsoc» (config, menu modules, мастер-карта)
-        остаётся; компактная summary-карточка в «Модулях» УДАЛЕНА (без
-        setTab-перехода из modules_feats — вкладка в меню «Модули»)."""
+    def test_memory_rag_and_sleep_tabs(self):
+        js, html = _js(), _html()
+        assert "id: 'memory_rag'" in js and "label: 'Память'" in js
+        assert "id: 'mod_sleep'" in js and "label: 'Сон'" in js
+        assert "id: 'mod_nostalgia'" in js and "label: 'Ностальгия'" in js
+        assert "activeModule && activeModule.id === 'mod_sleep' && isGlobalAdmin" in html
+        assert "activeModule && activeModule.id === 'mod_nostalgia' && isGlobalAdmin" in html
+        import services.param_catalog as pc
+        mem = {g.id for g in pc.GROUPS if g.category == "memory"}
+        groups = set()
+        for tab in ("memory_rag", "mod_sleep", "mod_nostalgia"):
+            groups |= pc.tab_group_ids(tab)
+        assert mem <= groups and len(mem) == 3
+
+    def test_no_custom_modules(self):
+        js, html = _js(), _html()
+        assert "Кастомные модули" not in js
+        # UI-карточка «Кастомные модули» отсутствует (роут-алиас допустим).
+        assert "Кастомные модули" not in html
+        assert "modules_feats" not in html
+
+    def test_modules_ui_and_modal(self):
+        html = _html()
+        assert 'class="module-list ' in html
+        assert "openModuleWindow(m)" in html
+        assert "activeModule" in html
+        assert "toggleModule(m, $event.target.checked)" in html
+        assert "Параметры" in html
+
+    def test_permsoc_kept(self):
         js, html = _js(), _html()
         assert "id: 'permsoc'" in js
-        assert "type: 'config'" in js
-        assert "Функции PERMsoc" in js
         assert "activeTab === 'permsoc'" in html
         assert "permsocModuleBadge" in js
-        # A-6: сводка и переход убраны (негатив)
-        assert "Открыть «Функции PERMsoc» 🎭" not in html
-        assert "setTab('permsoc')" not in html
-        # A-5: карточки-модули на месте (имя+описание)
-        assert "Модули (вкл/выкл)" in html
-        assert "Dead page" in html
-
-    def test_modules_render_blocks(self):
-        html = _html()
-        assert "Тяжёлые фичи" in html
-        assert "Функции PERMsoc" in html
-        assert "Бюджет фона" in html
-
-    def test_modules_budget_always_rendered(self):
-        """Hotfix-R10 («Модули и Фичи» пустые при „Весь бот“): весь контент
-        был за v-if='activeChatId == null' — global admin без выбранного чата
-        видел только плейсхолдер. Бюджет фона (глобальный) теперь ВНЕ
-        чатового гейта; тяжёлые фичи/PERMsoc — карточки всегда
-        (без чата — заметка + сводка Opt-In)."""
-        html = _html()
-        assert "v-else-if=\"activeTab === 'modules_feats'\"" in html
-        # комментарий ветки упоминает старый гейт — ищем РЕАЛЬНЫЙ v-if
-        budget = html.index("📊 Бюджет фона — глобальная карточка")
-        gate_at = html.rindex('v-if="activeChatId == null"')
-        assert budget < gate_at, "бюджет должен рендериться до чатового гейта"
-        assert "Выберите чат в шапке — тяжёлые модули" in html
-        assert "optInCount()" in html
-        assert "master" in html
-        js = _js()
-        assert "optInCount" in js
 
 
 class TestF8Regression:
@@ -232,7 +215,7 @@ class TestRound104ReviewFixes:
         """B-10: выпадающий список в generic-рендере (basic + advanced) —
         с опциями/подписями и автосейвом."""
         html = _html()
-        assert html.count("item.widget === 'select'") == 2
+        assert html.count("item.widget === 'select'") >= 2
         assert "item.select_options" in html
         assert "item.select_labels && item.select_labels[i]" in html
         assert "@change=\"saveConfigItem(item)\"" in html

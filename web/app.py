@@ -17,8 +17,9 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import APP_VERSION
@@ -87,6 +88,26 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
 
     app = FastAPI(title="AdminBot TMA Dashboard", lifespan=lifespan)
     app.state.cache = cache
+
+    # R10.6-3 (R17): Pydantic v2 RequestValidationError по умолчанию кладёт
+    # в `input`/`ctx` сырое значение поля — для /api/llm/test это api_key.
+    # Санитизируем 422: отдаём только loc/msg/type, `input`/`ctx` НЕ включаем
+    # и не логируем тело запроса.
+    @app.exception_handler(RequestValidationError)
+    async def _safe_validation_handler(request: Request,
+                                       exc: RequestValidationError):
+        safe = []
+        for err in exc.errors():
+            safe.append({
+                "loc": list(err.get("loc", [])),
+                "msg": err.get("msg", "invalid value"),
+                "type": err.get("type", "value_error"),
+            })
+        logger.warning("[webapp] 422 validation | path=%s | errors=%s",
+                       request.url.path,
+                       [(e["loc"], e["type"]) for e in safe])
+        return JSONResponse(status_code=422, content={"detail": safe})
+
     if control is None:
         from services.control_service import ControlService
         control = ControlService()

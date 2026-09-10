@@ -3,6 +3,35 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.6 scan (2026-09-11) — all scanned
+- [x] config/settings.py (5 master-флагов FACTCHECK/SEARCH/VIDEO_SUMMARY/WEBPAGE/CHECKUP_ENABLED, default True)
+- [x] services/param_catalog.py (GROUPS 91/REGISTRY 392/Settings 364/mapped 89; расщепления
+      limits_media→4, limits_persons→2, limits_youtube_web→2, limits_cooldowns→0,
+      flags_modules→7, flags_chat_behavior→7, reactions_kostik NEW, limits_rag NEW;
+      _FLAGS +TAB_RULES/CONFIG_TAB_TITLES 19;_TAB_BY_GROUP 89, DDL-free)
+- [x] services/llm_probe.py (NEW: _safe_base SSRF-минимум, sanitize_error R17,
+      KNOWN_BLOCKS, probe_block/_probe_search, per-field search_keys:tavily/exa)
+- [x] web/api/routes.py (POST /api/llm/test: requires_global_admin, rate-limit 5с/ttl-прунинг,
+      LlmTestRequest; reset_llm_test_rate_limit — тест-точка)
+- [x] handlers/factcheck.py, search.py, web.py, checkup.py, youtube.py
+      (5 master-гейтов hot.get→UNHANDLED; youtube — только mode=="summary")
+- [x] web/app.js (MODULES 11, PROVIDER_BLOCKS 9, accessOpen-аккордеон, scope/route-алиасы,
+      activeModule-модалка, Esc/back-закрытие, canEditConfig DM per_chat R10.5-2,
+      initBackButton ready R10.5-1, TAB_SECTION_ORDER 19, emoji→Material)
+- [x] web/index.html (sidebar/☰/MENU_ORDER удалены, nav-label, scroll-модель,
+      модуль-карточки+модалка, prov-блоки+test-кнопка, аккордеон, iconGlyph help/matrix)
+- [x] tests/test_round106_gates.py (NEW: OFF→UNHANDLED ×5 + default ON)
+- [x] tests/test_round106_ia_smoke.py (NEW: каталог-инвариант, nav, IA, llm_probe, SSRF)
+- [x] tests/test_frontend_tab_mapping.py, test_param_catalog.py, test_webapp_api.py
+      (POST /api/llm/test 403/200/429/R17), test_webapp_nav_disclosure_ui.py,
+      test_webapp_hubs_matrix_ui.py, test_webapp_parity_smoke.py, test_webapp_dm_ui.py,
+      test_webapp_agi_ui.py, test_webapp_back_button.py, test_webapp_lore_ui.py,
+      test_webapp_avatars_ui.py, tests/js/routing_test.js (маркеры новой IA)
+- [x] plans/features/tma-ia-modules-rework/ (spec v2, design-project v2, tasks)
+- [x] plans/backlog.md (doc-only)
+- [x] plans/reports/round10.6_scanner_audit.md (итоговый отчёт — 0 блокеров/0 major,
+      3 minor + 3 info)
+
 ## Round 10.5 scan (2026-09-10) — all scanned
 - [x] .gitignore (relumesite_example/, MaterialSymbolsRounded*.woff2, var/, build/)
 - [x] services/key_history.py (NEW: allowlist, атомарный снимок, ring, fail-open)

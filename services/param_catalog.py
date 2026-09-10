@@ -59,7 +59,8 @@ _ADVANCED_GROUPS: frozenset[str] = frozenset(
     # Раунд 10.4 (C-3): dream/nostalgia вынесены из advanced-групп — их
     # рубильники размечены basic явно (_MEMORY progressive_level);
     # группы памяти/графа остаются advanced по умолчанию.
-    {"limits_memory", "limits_graph", "flags_memory", "memory_infinite"}
+    {"limits_memory", "limits_graph", "limits_rag", "flags_memory",
+     "memory_infinite"}
 )
 
 # Строковые маркеры pg_key для правила «Расширенные» (F-11 §4.1).
@@ -185,113 +186,154 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Прокси и cookies для субтитров YouTube.", 6),
     GroupSpec("keys_media", "keys", "Медиа-шара",
               "Секрет подписи временных ссылок на видео (раунд 3).", 7),
-    # limits (21)
-    GroupSpec("limits_persons", "limits", "Персонажи: Леха и Костик",
-              "Частота ответов Лехи и Костика, приветствия Лехи.", 1),
-    GroupSpec("limits_media", "limits", "Медиа-реакции",
-              "Частота гифок/фото, паузы common-медиа, Оля, скачивание, войсы.", 2),
+    # ── limits (28; раунд 10.6 T-1180/T-1208) ──────────────────────────────
+    # Расщепления: limits_media→4, limits_persons→2, limits_youtube_web→2,
+    # limits_cooldowns→растворена, limits_chat_budgets→+limits_rag.
+    GroupSpec("limits_alan", "limits", "Леха: лимиты",
+              "Частота ответов и приветствий Лехи.", 1),
+    GroupSpec("limits_kostik", "limits", "Костик: лимиты",
+              "Вероятность ответа Костика.", 2),
+    GroupSpec("limits_media_permsoc", "limits", "Медиа-реакции (PERMsoc)",
+              "Частота гифок/фото, паузы common-медиа, Оля.", 3),
     GroupSpec("limits_mimic", "limits", "Мимикрия",
-              "Правила передразнивания: минимальная длина и паузы.", 3),
+              "Правила передразнивания: минимальная длина и паузы.", 4),
     GroupSpec("limits_deadpage", "limits", "Dead page",
-              "Подписи, паузы и повторы постов dead page.", 4),
-    GroupSpec("limits_cooldowns", "limits", "Кулдауны модулей",
-              "Паузы между срабатываниями: поиск, фактчек, YouTube, веб, чекап, /info.", 5),
+              "Подписи, паузы и повторы постов dead page.", 5),
     GroupSpec("limits_summary", "limits", "Саммари",
               "Окно сбора, длина ответа, лимиты и паузы генерации.", 6),
     GroupSpec("limits_search", "limits", "Поиск: лимиты",
-              "Длина ответа и окно контекста поиска.", 7),
+              "Длина ответа, окно контекста и кулдаун поиска.", 7),
     GroupSpec("limits_factcheck", "limits", "Фактчек: лимиты",
-              "Длина ответа и окно контекста фактчека.", 8),
+              "Длина ответа, окно контекста и кулдаун фактчека.", 8),
     GroupSpec("limits_checkup", "limits", "Чек-ап: лимиты",
-              "Длина ответа и потолок входящих данных.", 9),
-    GroupSpec("limits_youtube_web", "limits", "YouTube и веб: лимиты",
-              "Длина пересказов.", 10),
+              "Длина ответа, потолок входящих данных и кулдаун.", 9),
+    GroupSpec("limits_transcribe", "limits", "Транскрипт: лимиты",
+              "Макс. длина войса/видео, размер, таймауты и потолки STT.", 10),
+    GroupSpec("limits_video_summary", "limits", "Выжимка видео: лимиты",
+              "Мин. символов транскрипта, публикация и TTL медиа-шары.", 11),
+    GroupSpec("limits_media_download", "limits", "Скачивание медиа: лимиты",
+              "Кулдаун скачивания видео по ссылке.", 12),
+    GroupSpec("limits_youtube", "limits", "YouTube: лимиты",
+              "Длина пересказа и кулдаун YouTube.", 13),
+    GroupSpec("limits_web", "limits", "Веб-страницы: лимиты",
+              "Длина пересказа и кулдаун веб-страниц.", 14),
     GroupSpec("limits_chat", "limits", "Прямой чат: контекст",
-              "Окно контекста, треды, кулдауны, замки, TTL.", 11),
+              "Окно контекста, треды, кулдауны, замки, TTL.", 15),
     GroupSpec("limits_chat_behavior", "limits", "Прямой чат: поведение",
-              "Молчание после кулдаунов, стилевые якоря, «печатает…».", 12),
+              "Молчание после кулдаунов, стилевые якоря, «печатает…».", 16),
     GroupSpec("limits_chat_budgets", "limits", "Прямой чат: бюджеты токенов",
-              "Как контекст делится между блоками (карта/тред/RAG/…).", 13),
+              "Как контекст делится между блоками (карта/тред/…); RAG — в «Памяти».", 17),
     GroupSpec("limits_temperature", "limits", "Температура ответов",
-              "Насколько свободно и креативно отвечает прямой чат.", 14),
+              "Насколько свободно и креативно отвечает прямой чат.", 18),
     GroupSpec("limits_memory", "limits", "Память",
-              "Сроки хранения сообщений, фактов, бэкапов, кэша.", 15),
+              "Сроки хранения сообщений, фактов, бэкапов, кэша.", 19),
     GroupSpec("limits_graph", "limits", "Граф знаний",
-              "Веса фактов, дедуп, слияние эпизодов, TTL, квоты памяти.", 16),
+              "Веса фактов, дедуп, слияние эпизодов, TTL, квоты памяти.", 20),
+    # A3/D3 (T-1208): RAG-ключи из бюджета прямого чата + дедупа RAG.
+    GroupSpec("limits_rag", "limits", "Память: RAG-бюджет и дедуп",
+              "Доля бюджета прямого чата на RAG и порог дедупа RAG ↔ фон.", 21),
     GroupSpec("limits_smart_cache", "limits", "Умный кэш",
-              "Сколько хранить готовые ответы и как много строк.", 17),
+              "Сколько хранить готовые ответы и как много строк.", 22),
     GroupSpec("limits_service", "limits", "Служебное",
-              "Технические интервалы — обычно не трогать.", 18),
+              "Технические интервалы и кулдаун /info — обычно не трогать.", 23),
     GroupSpec("limits_user_aliases", "limits", "Имена людей",
-              "Как бот обращается к людям: алиас → имя → никнейм.", 19),
+              "Как бот обращается к людям: алиас → имя → никнейм.", 24),
     GroupSpec("limits_youtube_proxy", "limits", "YouTube: прокси",
-              "Настройки прокси для субтитров YouTube (коды стран, повторы).", 20),
-    # limits (21; раунд 7, T-776): лор чатов
+              "Настройки прокси для субтитров YouTube (коды стран, повторы).", 25),
+    # limits (26; раунд 7, T-776): лор чатов
     GroupSpec("limits_lore", "limits", "Лор чатов",
-              "Авто-лор: пороги окна, генерация, инжект в контекст.", 21),
-    # limits (22; раунд 9, T-816/T-817): отношения (A-Life)
+              "Авто-лор: пороги окна, генерация, инжект в контекст.", 26),
+    # limits (27; раунд 9, T-816/T-817): отношения (A-Life)
     GroupSpec("limits_relations", "limits", "Отношения",
               "Стадии участников: пороги msg/дней, decay, анти-откат, "
-              "пересчёт и капы инжекта.", 22),
-    # limits (23; раунд 10, F-10 T-896): бюджет фоновых воркеров
+              "пересчёт и капы инжекта.", 27),
+    # limits (28; раунд 10, F-10 T-896): бюджет фоновых воркеров
     GroupSpec("limits_worker", "limits", "Фоновые воркеры",
               "Дневной бюджет фона: вызовы/токены global и per-chat, "
-              "порядок деградации приоритетов, размазка тиков.", 23),
-    # flags (6)
-    GroupSpec("flags_modules", "flags", "Модули (вкл/выкл)",
-              "Рубильники функций бота целиком.", 1),
-    GroupSpec("flags_media", "flags", "Медиа и Оля",
-              "Капшены, репосты, реакция Оли на видео, common-медиа.", 2),
-    GroupSpec("flags_memory", "flags", "Память и граф знаний",
-              "Механизмы запоминания: извлечение, дедуп, бэкапы, кэш.", 3),
+              "порядок деградации приоритетов, размазка тиков.", 28),
+    # ── flags (19; раунд 10.6 T-1201/T-1180) ───────────────────────────────
+    # flags_modules(9) → 7 групп + checkup-флаг в flags_service;
+    # flags_chat_behavior(11) → 3 группы; +3 master-флага (D1/A1).
+    GroupSpec("flags_module_summary", "flags", "Модуль: Саммаризация",
+              "Рубильники модуля саммари и стриминга пересказов.", 1),
+    GroupSpec("flags_module_direct", "flags", "Модуль: Прямые ответы",
+              "Рубильники прямых ответов бота и поведения в чате.", 2),
+    GroupSpec("flags_module_factcheck", "flags", "Модуль: Фактчек",
+              "Мастер-рубильник модуля проверки фактов.", 3),
+    GroupSpec("flags_module_search", "flags", "Модуль: Поиск",
+              "Мастер-рубильник модуля интернет-поиска и реранкинга.", 4),
+    GroupSpec("flags_module_transcribe", "flags", "Модуль: Транскрипт",
+              "Мастер-рубильник распознавания голосовых и видео.", 5),
+    GroupSpec("flags_module_video_summary", "flags", "Модуль: Выжимка видео",
+              "Мастер-рубильник пересказа видео.", 6),
+    GroupSpec("flags_module_media_download", "flags", "Модуль: Скачивание медиа",
+              "Рубильники скачивания видео и движка yt-dlp.", 7),
+    GroupSpec("flags_module_web", "flags", "Модуль: Веб-страницы",
+              "Мастер-рубильник пересказа веб-страниц.", 8),
+    GroupSpec("flags_summary", "flags", "Саммари: доступ и стриминг",
+              "Стриминг пересказов и доступ по списку/админу.", 9),
     GroupSpec("flags_chat_behavior", "flags", "Поведение в чате",
-              "Стиль ответов, настроение, дедуп, индикатор набора, доступ к саммари.", 4),
+              "Стиль ответов, настроение, дедуп, importance, индикатор набора.", 10),
+    GroupSpec("flags_smart_cache", "flags", "Умный кэш: рубильник",
+              "Exact Match Cache — мгновенные ответы на точные повторы.", 11),
+    GroupSpec("flags_throttle", "flags", "Троттлинг",
+              "Общие лимиты частоты запросов между smart-модулями.", 12),
     GroupSpec("flags_service", "flags", "Служебное",
-              "Технические рубильники (БД, защита LLM) — обычно не трогать.", 5),
-    # flags (6; раунд 7, T-776): лор чатов
-    GroupSpec("flags_lore", "flags", "Лор чатов",
-              "Рубильники лора чатов: воркер, авто-генерация, инжект.", 6),
-    # flags (7; раунд 9, T-816/T-817): отношения (A-Life)
-    GroupSpec("flags_relations", "flags", "Отношения",
-              "Глобальный рубильник тона по стадиям участников.", 7),
-    # flags (8; ре-дизайн 10.2, BUG-3, spec §10 B): рубильники PERMsoc
+              "Технические рубильники (БД, защита LLM, метрики чекапа) — обычно не трогать.", 13),
+    # flags (14; ре-дизайн 10.2, BUG-3, spec §10 B): рубильники PERMsoc
     GroupSpec("flags_permsoc", "flags", "Функции PERMsoc: рубильники",
-              "Мастер-дефолт PERMsoc и под-флаги Оли/мимикрии.", 3),
-    # reactions (13)
-    GroupSpec("reactions_persons", "reactions", "Персоны (ID)",
-              "Telegram ID Лехи, Костика, Славика и Оли.", 1),
+              "Мастер-дефолт PERMsoc и под-флаги Оли/мимикрии.", 14),
+    # A1/T-1182: поведенческие рубильники персон PERMsoc.
+    GroupSpec("flags_permsoc_behavior", "flags", "PERMsoc: поведение персон",
+              "Reply-блок Лехи и постинг dead page при вступлении.", 15),
+    GroupSpec("flags_media", "flags", "Медиа и Оля",
+              "Капшены, репосты, реакция Оли на видео, common-медиа.", 16),
+    GroupSpec("flags_memory", "flags", "Память и граф знаний",
+              "Механизмы запоминания: извлечение, дедуп, бэкапы, кэш.", 17),
+    # flags (18; раунд 7, T-776): лор чатов
+    GroupSpec("flags_lore", "flags", "Лор чатов",
+              "Рубильники лора чатов: воркер, авто-генерация, инжект.", 18),
+    # flags (19; раунд 9, T-816/T-817): отношения (A-Life)
+    GroupSpec("flags_relations", "flags", "Отношения",
+              "Глобальный рубильник тона по стадиям участников.", 19),
+    # ── reactions (16; раунд 10.6 T-1185) ─────────────────────────────────
+    GroupSpec("reactions_persons", "reactions", "Персоны (ID): Славик и Оля",
+              "Telegram ID Славика и Оли.", 1),
     # reactions (?; ре-дизайн 10.2, BUG-3, spec §10 B): Telegram ID админа —
     # отдельная группа (перенос из reactions_persons)
     GroupSpec("reactions_admin", "reactions", "Админ (ID)",
-              "Telegram ID админа — для особых прав и реакций бота.", 1),
+              "Telegram ID админа — для особых прав и реакций бота.", 2),
     GroupSpec("reactions_deadpage", "reactions", "Dead page",
-              "Канал-источник, relay-канал, папка медиа.", 2),
+              "Канал-источник, relay-канал, папка медиа.", 3),
     GroupSpec("reactions_slavik", "reactions", "Славик",
-              "Папки рандомных фото и файл гифки.", 3),
+              "Папки рандомных фото и файл гифки.", 4),
     GroupSpec("reactions_alan", "reactions", "Леха",
-              "Папка видео-приветствий.", 4),
+              "Telegram ID, юзернейм и папка видео-приветствий Лехи.", 5),
+    # A2/T-1185: Костик — отдельная группа (ID).
+    GroupSpec("reactions_kostik", "reactions", "Костик",
+              "Telegram ID Костика — для ответов и мимикрии.", 6),
     GroupSpec("reactions_war", "reactions", "War-алерты",
-              "Каналы, юзернеймы и фразы алертов.", 5),
+              "Каналы, юзернеймы и фразы алертов.", 7),
     GroupSpec("reactions_common", "reactions", "Common-медиа",
-              "Базовая папка и список danger-слов.", 6),
+              "Базовая папка и список danger-слов.", 8),
     GroupSpec("reactions_goodmorning", "reactions", "Утренняя рассылка",
-              "Время, часовой пояс, чаты, папка медиа.", 7),
+              "Время, часовой пояс, чаты, папка медиа.", 9),
     GroupSpec("reactions_mimic", "reactions", "Мимикрия",
-              "Кого передразнивать (ID «жертв»).", 8),
+              "Кого передразнивать (ID «жертв»).", 10),
     GroupSpec("reactions_olya", "reactions", "Оля",
-              "Папка медиа, капшены, SaveAsBot.", 9),
+              "Папка медиа, капшены, SaveAsBot.", 11),
     GroupSpec("reactions_summary", "reactions", "Саммари",
-              "Кому доступно /summary, алиасы имён, чаты.", 10),
+              "Кому доступно /summary, алиасы имён, чаты.", 12),
     GroupSpec("reactions_chat", "reactions", "Прямой чат",
-              "Слова-триггеры и слова настроения.", 11),
+              "Слова-триггеры и слова настроения.", 13),
     GroupSpec("reactions_memory", "reactions", "Память",
-              "Папка бэкапов памяти.", 12),
+              "Папка бэкапов памяти.", 14),
     GroupSpec("reactions_word_reactions", "reactions", "Словесные реакции",
-              "Тумблеры текстовых реакций: „Вася ↔ АДМИН” и „куча → ДАЛБАЕБ”.", 13),
+              "Тумблеры текстовых реакций: „Вася ↔ АДМИН” и „куча → ДАЛБАЕБ”.", 15),
     # reactions (?; ре-дизайн 10.2, BUG-3, spec §10 B): реакции PERMsoc —
     # kucha-выключатель и мимикрия Лехи (перенос из word_reactions/mimic)
     GroupSpec("reactions_permsoc", "reactions", "Персонаж-реакции PERMsoc",
-              "Реакции персон PERMsoc: „куча → ДАЛБАЕБ” и мимикрия Лехи.", 14),
+              "Реакции персон PERMsoc: „куча → ДАЛБАЕБ” и мимикрия Лехи.", 16),
     # content (2)
     GroupSpec("content_info", "content", "Как это работает",
               "Текст справки для пользователей.", 1),
@@ -534,21 +576,32 @@ _MODELS_PG_ONLY: list[tuple] = [
 # ── flags: рубильники модулей ───────────────────────────────────────────────
 # (field, title_ru, group, description)
 _FLAGS: list[tuple] = [
-    ("SUMMARY_ENABLED", "Модуль саммари включён", "flags_modules",
+    ("SUMMARY_ENABLED", "Модуль саммари включён", "flags_module_summary",
      "Включает и выключает саммари целиком. Выключено — бот не делает пересказы разговоров."),
-    ("DIRECT_CHAT_BOTWORD_ENABLED", "Триггер «бот»-семьи в чате", "flags_modules",
+    ("DIRECT_CHAT_BOTWORD_ENABLED", "Триггер «бот»-семьи в чате", "flags_module_direct",
      "Включает прямые ответы бота на обращения к нему. Выключено — бот игнорирует триггеры."),
-    ("ENABLE_VOICE_TRANSCRIPTION", "Транскрипция голосовых", "flags_modules",
+    ("ENABLE_VOICE_TRANSCRIPTION", "Транскрипция голосовых", "flags_module_transcribe",
      "Включает распознавание голосовых сообщений. Выключено — голосовые не расшифровываются."),
+    # ── Раунд 10.6 (T-1201, A1/D1): 5 master-флагов модулей (default ON) ──
+    ("FACTCHECK_ENABLED", "Модуль Фактчек включён", "flags_module_factcheck",
+     "Мастер-рубильник проверки фактов. Выключено — бот не отвечает на фактчек-запросы."),
+    ("SEARCH_ENABLED", "Модуль Поиск включён", "flags_module_search",
+     "Мастер-рубильник интернет-поиска. Выключено — бот не ищет в интернете."),
+    ("VIDEO_SUMMARY_ENABLED", "Модуль Выжимка видео включён", "flags_module_video_summary",
+     "Мастер-рубильник пересказа видео. Выключено — summary-пути молчат; «транскрипт» продолжает работать."),
+    ("WEBPAGE_ENABLED", "Модуль Веб-страницы включён", "flags_module_web",
+     "Мастер-рубильник пересказа веб-страниц. Выключено — бот не пересказывает страницы."),
+    ("CHECKUP_ENABLED", "Модуль Диагностика включён", "flags_service",
+     "Мастер-рубильник чекапа/диагностики. Выключено — хендлеры чекапа молчат."),
     ("GRAPH_RAG_ENABLED", "GraphRAG-извлечение при архивации", "flags_memory",
      "Включает извлечение фактов из старых сообщений в граф памяти. Выключено — только краткое сжатие."),
-    ("SMART_CACHE_ENABLED", "Exact Match Cache", "flags_modules",
+    ("SMART_CACHE_ENABLED", "Exact Match Cache", "flags_smart_cache",
      "Кэш точных повторов вопросов — бот отвечает мгновенно из памяти. Выключено — всегда новый ответ."),
-    ("THROTTLE_PERSISTENT_ENABLED", "Персистентный троттлинг", "flags_modules",
+    ("THROTTLE_PERSISTENT_ENABLED", "Персистентный троттлинг", "flags_throttle",
      "Включает общие лимиты частоты запросов между модулями. Выключено — модули ограничиваются сами."),
-    ("DOWNLOAD_ENABLED", "Скачивание видео («скачай <url>»)", "flags_modules",
+    ("DOWNLOAD_ENABLED", "Скачивание видео («скачай <url>»)", "flags_module_media_download",
      "Включает команду скачивания видео по ссылке. Выключено — бот не качает."),
-    ("YTDLP_FOR_YOUTUBE", "yt-dlp для YouTube (вместо cobalt)", "flags_modules",
+    ("YTDLP_FOR_YOUTUBE", "yt-dlp для YouTube (вместо cobalt)", "flags_module_media_download",
      "Включает локальный движок для YouTube. Выключено — YouTube качается прежним способом."),
     ("CHAT_SILENCE_ENABLED", "Стачка кулдаунов → молчание", "flags_chat_behavior",
      "После нескольких кулдаунов подряд бот замолкает на время. Выключено — бот отвечает, как только можно."),
@@ -568,13 +621,13 @@ _FLAGS: list[tuple] = [
      "Строки Global_Context с важными маркерами (имена, бот, цитаты, числа, вопросы) не режутся первыми. Выключено — ровно старое поведение."),
     ("CHAT_RAG_RERANK_ENABLED", "LLM-реранк RAG-фактов в прямом чате", "flags_memory",
      "Факты из памяти для прямого диалога прогоняются через дешёвый LLM-фильтр по релевантности. Выключено — ровно порядок поиска (0 лишних вызовов)."),
-    ("SUMMARY_STREAMING_ENABLED", "Стриминг саммари (placeholder + edit)", "flags_chat_behavior",
+    ("SUMMARY_STREAMING_ENABLED", "Стриминг саммари (placeholder + edit)", "flags_summary",
      "Пересказы появляются постепенно, а не одним куском. Выключено — ответ приходит целиком."),
     ("TYPING_INDICATOR_ENABLED", "Индикатор «печатает…»", "flags_chat_behavior",
      "Бот показывает «печатает…» пока думает. Выключено — индикатора нет."),
-    ("SEARCH_RERANK_ENABLED", "LLM-реранкинг поиска", "flags_modules",
+    ("SEARCH_RERANK_ENABLED", "LLM-реранкинг поиска", "flags_module_search",
      "Включает дополнительную сортировку результатов поиска нейросетью. Дороже, но точнее."),
-    ("CHECKUP_MEMORY_METRICS_ENABLED", "Метрики здоровья памяти в чекап", "flags_modules",
+    ("CHECKUP_MEMORY_METRICS_ENABLED", "Метрики здоровья памяти в чекап", "flags_service",
      "Включает раздел о здоровье памяти в ежемесячной сводке. Выключено — раздел пропускается."),
     ("GRAPH_DEDUP_ENABLED", "Дедуп фактов при записи", "flags_memory",
      "Похожие факты не дублируются в памяти. Выключено — память растёт быстрее и грязнее."),
@@ -626,12 +679,12 @@ _FLAGS: list[tuple] = [
      "Бот передразнивает и обычные, и пересланные сообщения. Выключено — только обычные."),
     ("MIMIC_ENABLED", "Мимикрия включена", "flags_permsoc",
       "Главный рубильник передразниваний common (список „жертв” — в „Реакции и Триггеры” → „Мимикрия”). Выключено — бот никого не передразнивает (кроме мимикрии Славика — она на своём переключателе)."),
-    ("ALAN_REPLIES_ENABLED", "Reply-блок Лехи", "flags_chat_behavior",
-     "Леха отвечает в ответ на сообщения. Выключено — Леха не отвечает."),
-    ("DEAD_PAGE_POST_ON_JOIN", "Триггер dead page при join", "flags_chat_behavior",
-     "Бот постит dead page при вступлении участника. Выключено — постится только по команде."),
-    ("SUMMARY_ADMIN_ONLY", "Саммари только для админа", "flags_chat_behavior",
-     "Пересказы доступны только админу. Выключено — по списку разрешённых."),
+    ("ALAN_REPLIES_ENABLED", "Reply-блок Лехи", "flags_permsoc_behavior",
+      "Леха отвечает в ответ на сообщения. Выключено — Леха не отвечает."),
+    ("DEAD_PAGE_POST_ON_JOIN", "Триггер dead page при join", "flags_permsoc_behavior",
+      "Бот постит dead page при вступлении участника. Выключено — постится только по команде."),
+    ("SUMMARY_ADMIN_ONLY", "Саммари только для админа", "flags_summary",
+      "Пересказы доступны только админу. Выключено — по списку разрешённых."),
     # ── Раунд 7 (T-776, spec §3.11): лор чатов — рубильники ──
     ("LORE_WORKER_ENABLED", "Лор чатов: фоновый воркер", "flags_lore",
      "Планирует тик-цикл воркера (обход активных чатов и генерация лора). Выключено — воркер не запускается."),
@@ -659,9 +712,9 @@ _FLAGS: list[tuple] = [
 # ── limits: числа/таймауты/кулдауны/бюджеты ─────────────────────────────────
 # (field, title_ru, type, group, description)
 _LIMITS: list[tuple] = [
-    ("ALAN_REPLY_INTERVAL", "Интервал ответа Лехи (сообщений)", "int", "limits_persons",
+    ("ALAN_REPLY_INTERVAL", "Интервал ответа Лехи (сообщений)", "int", "limits_alan",
      "Через сколько сообщений Леха отвечает. 10 — примерно каждое десятое."),
-    ("KOSTIK_REPLY_PROBABILITY", "Вероятность ответа Костика", "float", "limits_persons",
+    ("KOSTIK_REPLY_PROBABILITY", "Вероятность ответа Костика", "float", "limits_kostik",
      "Шанс, что Костик ответит на сообщение. 0 — никогда, 1 — на каждое."),
     ("DEAD_PAGE_CAPTION_MAX_CHARS", "Макс. символов капшна dead page", "int", "limits_deadpage",
      "Максимальная длина подписи под постом. Больше — длиннее подпись."),
@@ -669,21 +722,21 @@ _LIMITS: list[tuple] = [
      "Пауза между постами dead page. Больше — бот постит реже."),
     ("DEAD_PAGE_MAX_FORWARD_RETRIES", "Ретраи подбора dead page", "int", "limits_deadpage",
      "Сколько раз бот подбирает другой пост, если не нашёл подходящий. Больше — надёжнее."),
-    ("GIF_INTERVAL", "Интервал гифки (сообщений)", "int", "limits_media",
+    ("GIF_INTERVAL", "Интервал гифки (сообщений)", "int", "limits_media_permsoc",
      "Через сколько сообщений бот кидает гифку. Меньше — чаще гифки."),
-    ("ALAN_GREETING_COOLDOWN", "Кулдаун приветствия Лехи, сек", "int", "limits_persons",
+    ("ALAN_GREETING_COOLDOWN", "Кулдаун приветствия Лехи, сек", "int", "limits_alan",
      "Как часто Леха здоровается. Больше — реже приветствия."),
-    ("ALAN_SILENCE_GREETING_HOURS", "Порог тишины Лехи, часов", "float", "limits_persons",
+    ("ALAN_SILENCE_GREETING_HOURS", "Порог тишины Лехи, часов", "float", "limits_alan",
      "Сколько тишины в чате, чтобы Леха поприветствовал снова. Больше — реже приветствия."),
-    ("SLAVIC_PHOTO_INTERVAL", "Интервал фото Славика (сообщений)", "int", "limits_media",
+    ("SLAVIC_PHOTO_INTERVAL", "Интервал фото Славика (сообщений)", "int", "limits_media_permsoc",
      "Через сколько сообщений Славик кидает фото. Меньше — чаще фото."),
-    ("COMMON_COOLDOWN", "Общий кулдаун common-медиа, сек", "float", "limits_media",
+    ("COMMON_COOLDOWN", "Общий кулдаун common-медиа, сек", "float", "limits_media_permsoc",
      "Общая пауза между любыми медиа-реакциями. Больше — бот спокойнее."),
-    ("DANGER_COOLDOWN", "Кулдаун danger-медиа, сек", "float", "limits_media",
+    ("DANGER_COOLDOWN", "Кулдаун danger-медиа, сек", "float", "limits_media_permsoc",
      "Пауза между danger-медиа. Больше — реже опасные реакции."),
-    ("SELFDEV_COOLDOWN", "Кулдаун selfdev, сек", "float", "limits_media",
+    ("SELFDEV_COOLDOWN", "Кулдаун selfdev, сек", "float", "limits_media_permsoc",
      "Пауза между ответами на «саморазвитие». Больше — реже реакции."),
-    ("WORK_COOLDOWN", "Кулдаун work, сек", "float", "limits_media",
+    ("WORK_COOLDOWN", "Кулдаун work, сек", "float", "limits_media_permsoc",
      "Пауза между ответами на «устал» и подобные. Больше — реже реакции."),
     ("MIMIC_MIN_WORDS", "Мин. слов для мимикрии", "int", "limits_mimic",
      "Сколько слов должно быть в сообщении, чтобы бот его передразнил. Больше — реже мимикрия."),
@@ -693,7 +746,7 @@ _LIMITS: list[tuple] = [
      "Минимальная длина сообщения для мимикрии Славика. Больше — реже мимикрия."),
     ("SLAVIK_MIMIC_COOLDOWN", "Кулдаун мимикрии Славика, сек", "float", "limits_mimic",
      "Пауза между передразниваниями Славика. Больше — реже мимикрия."),
-    ("OLYA_COOLDOWN", "Кулдаун Оли, сек", "float", "limits_media",
+    ("OLYA_COOLDOWN", "Кулдаун Оли, сек", "float", "limits_media_permsoc",
      "Пауза между реакциями на видео Оли. Больше — реже реакции."),
     ("SUMMARY_WINDOW_HOURS", "Окно генерации саммари, часов", "float", "limits_memory",
      "За какой период брать сообщения для пересказа. Больше — шире охват, но дороже."),
@@ -749,25 +802,25 @@ _LIMITS: list[tuple] = [
      "Максимальная длина ответа поиска. Больше — ответ подробнее, но генерируется дольше и дороже."),
     ("FACTCHECK_MAX_SYMBOLS", "Длина ответа фактчека, символов", "int", "limits_factcheck",
      "Максимальная длина проверки фактов. Больше — подробнее, но дольше и дороже."),
-    ("SEARCH_COOLDOWN_SECONDS", "Кулдаун поиска, сек", "float", "limits_cooldowns",
+    ("SEARCH_COOLDOWN_SECONDS", "Кулдаун поиска, сек", "float", "limits_search",
      "Пауза между поисковыми запросами. Больше — бот реже ищет в интернете и меньше нагружает поисковые сервисы."),
-    ("FACTCHECK_COOLDOWN_SECONDS", "Кулдаун фактчека, сек", "float", "limits_cooldowns",
+    ("FACTCHECK_COOLDOWN_SECONDS", "Кулдаун фактчека, сек", "float", "limits_factcheck",
      "Пауза между проверками фактов. Больше — бот реже проверяет."),
-    ("YOUTUBE_MAX_SYMBOLS", "Лимит YouTube, символов", "int", "limits_youtube_web",
+    ("YOUTUBE_MAX_SYMBOLS", "Лимит YouTube, символов", "int", "limits_youtube",
      "Максимальная длина пересказа видео. Больше — подробнее, но дольше и дороже."),
-    ("WEBPAGE_MAX_SYMBOLS", "Лимит веб-страниц, символов", "int", "limits_youtube_web",
+    ("WEBPAGE_MAX_SYMBOLS", "Лимит веб-страниц, символов", "int", "limits_web",
      "Максимальная длина пересказа страницы. Больше — подробнее, но дольше и дороже."),
-    ("YOUTUBE_COOLDOWN_SECONDS", "Кулдаун YouTube, сек", "float", "limits_cooldowns",
+    ("YOUTUBE_COOLDOWN_SECONDS", "Кулдаун YouTube, сек", "float", "limits_youtube",
      "Пауза между пересказами видео. Больше — бот реже пересказывает."),
-    ("WEBPAGE_COOLDOWN_SECONDS", "Кулдаун веб-страниц, сек", "float", "limits_cooldowns",
+    ("WEBPAGE_COOLDOWN_SECONDS", "Кулдаун веб-страниц, сек", "float", "limits_web",
      "Пауза между пересказами страниц. Больше — бот реже пересказывает."),
-    ("CHECKUP_COOLDOWN_SECONDS", "Кулдаун чекапа, сек", "float", "limits_cooldowns",
+    ("CHECKUP_COOLDOWN_SECONDS", "Кулдаун чекапа, сек", "float", "limits_checkup",
      "Пауза между запросами сводки о здоровье. Больше — реже чекап."),
     ("CHECKUP_MAX_SYMBOLS", "Длина ответа чекапа, символов", "int", "limits_checkup",
      "Максимальная длина сводки о здоровье. Больше — подробнее, но дольше и дороже."),
     ("CHECKUP_MAX_INPUT_SYMBOLS", "Потолок входа чекапа, символов", "int", "limits_checkup",
      "Сколько данных максимум берётся для сводки. Больше — полнее, но дороже."),
-    ("INFO_COOLDOWN_SECONDS", "Кулдаун /info, сек", "float", "limits_cooldowns",
+    ("INFO_COOLDOWN_SECONDS", "Кулдаун /info, сек", "float", "limits_service",
      "Пауза между запросами справки. Больше — реже отдаётся справка."),
     ("CHAT_GLOBAL_CONTEXT_LIMIT", "Сообщений фона <Global_Context>", "int", "limits_chat",
      "Сколько сообщений бот помнит из фона разговора. Больше — контекстнее, но дороже."),
@@ -840,7 +893,7 @@ _LIMITS: list[tuple] = [
      "Сколько сообщений покрывал конспект, чтобы он сжимался в широкий уровень L2. Меньше — уровни строятся раньше."),
     ("CHAT_LEVEL2_MAX_CHARS", "Кап широкого конспекта L2, символов", "int", "limits_chat",
      "Сколько символов широкого фона показывать в Global_Context. Больше — глубже история, но дороже."),
-    ("CHAT_RAG_DEDUP_OVERLAP_RATIO", "Порог дедупа RAG ↔ фон, доля", "float", "limits_chat",
+    ("CHAT_RAG_DEDUP_OVERLAP_RATIO", "Порог дедупа RAG ↔ фон, доля", "float", "limits_rag",
      "Доля слов факта, найденных в строке фона/конспекта, после которой факт не дублируется в RAG-блоке."),
     ("SUMMARY_MAX_CONTEXT_TOKENS", "Потолок контекста саммари, токенов", "int", "limits_summary",
      "Максимальный размер пересказа в токенах. Больше — полнее, но дороже."),
@@ -900,7 +953,7 @@ _LIMITS: list[tuple] = [
      "Доля контекста на фон разговора. Больше — важнее фон."),
     ("CHAT_BUDGET_THREAD_RATIO", "Доля бюджета: Thread", "float", "limits_chat_budgets",
      "Доля контекста на ветку. Больше — важнее ветка."),
-    ("CHAT_BUDGET_RAG_RATIO", "Доля бюджета: RAG", "float", "limits_chat_budgets",
+    ("CHAT_BUDGET_RAG_RATIO", "Доля бюджета: RAG", "float", "limits_rag",
      "Доля контекста на факты памяти. Больше — важнее память."),
     ("CHAT_BUDGET_TARGET_RATIO", "Доля бюджета: Target", "float", "limits_chat_budgets",
      "Доля контекста на целевое сообщение. Больше — важнее само сообщение."),
@@ -927,28 +980,28 @@ _LIMITS: list[tuple] = [
      "Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений."),
     ("YOUTUBE_TRANSCRIPT_PROXY_RETRIES", "Повторы при блокировке (Webshare)", "int", "limits_youtube_proxy",
      "Сколько раз повторять запрос субтитров, если прокси заблокировали. Больше — надёжнее, но медленнее."),
-    ("DOWNLOAD_COOLDOWN", "Кулдаун скачивания, сек", "float", "limits_media",
+    ("DOWNLOAD_COOLDOWN", "Кулдаун скачивания, сек", "float", "limits_media_download",
      "Пауза между командами скачивания. Больше — реже можно качать."),
-    ("VOICE_MAX_DURATION_SECONDS", "Макс. длительность войса, сек", "int", "limits_media",
+    ("VOICE_MAX_DURATION_SECONDS", "Макс. длительность войса, сек", "int", "limits_transcribe",
      "Длиннее этого войса не расшифровываются. Больше — длиннее можно."),
     ("VIDEO_TRANSCRIBE_MAX_SIZE_MB", "Макс. размер видео для расшифровки, МБ",
-     "int", "limits_media",
+     "int", "limits_transcribe",
      "Видео больше этого размера по командам „транскрипт/че за видос/…” не расшифровывается. Проверяется по file_size ДО скачивания."),
     ("VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS", "Макс. длительность видео для расшифровки, сек",
-     "int", "limits_media",
+     "int", "limits_transcribe",
      "Видео длиннее не расшифровывается. Telegram отдаёт длительность для видео-сообщений; у документов проверки длительности нет."),
     # ── Раунд 3 (видео-пайплайн): медиа-шара + STT-надёжность ──
-    ("MEDIA_SHARE_TTL_SECONDS", "TTL опубликованного видео, сек", "int", "limits_media",
+    ("MEDIA_SHARE_TTL_SECONDS", "TTL опубликованного видео, сек", "int", "limits_video_summary",
      "Сколько секунд OpenRouter может «посмотреть» ролик по временной ссылке. Меньше 60 игнорируется (900)."),
-    ("MEDIA_SHARE_MAX_MB", "Потолок публикации видео, МБ", "int", "limits_media",
+    ("MEDIA_SHARE_MAX_MB", "Потолок публикации видео, МБ", "int", "limits_video_summary",
      "Файл больше не публикуется — пересказ честно уходит на STT/фразы. Больше — тяжелее мультимодалка."),
-    ("VIDEO_STT_TIMEOUT_SECONDS", "Таймаут STT видео, сек", "float", "limits_media",
+    ("VIDEO_STT_TIMEOUT_SECONDS", "Таймаут STT видео, сек", "float", "limits_transcribe",
      "Сколько ждать ОДНУ стратегию распознавания для видео-файлов (перекрывает Groq/OpenRouter таймауты). Голосовые не трогает."),
-    ("VIDEO_SUMMARY_MIN_CHARS", "Мин. символов транскрипта для выжимки", "int", "limits_media",
+    ("VIDEO_SUMMARY_MIN_CHARS", "Мин. символов транскрипта для выжимки", "int", "limits_video_summary",
      "Короче транскрипта выжимка не строится — честная фраза «нет речи». Больше — строже."),
-    ("STT_GROQ_MAX_UPLOAD_MB", "Потолок загрузки Groq STT, МБ", "int", "limits_media",
+    ("STT_GROQ_MAX_UPLOAD_MB", "Потолок загрузки Groq STT, МБ", "int", "limits_transcribe",
      "Файл больше Groq-стратегия пропускается (лимит upload). Больше — риск HTTP 400."),
-    ("STT_OPENROUTER_MAX_UPLOAD_MB", "Потолок загрузки OpenRouter STT, МБ", "int", "limits_media",
+    ("STT_OPENROUTER_MAX_UPLOAD_MB", "Потолок загрузки OpenRouter STT, МБ", "int", "limits_transcribe",
      "Файл больше OpenRouter-стратегия пропускается (base64 input_audio). Больше — риск HTTP 400."),
     # ── Раунд 7 (T-776, spec §3.11): лор чатов — лимиты ──
     ("LORE_MIN_MESSAGES", "Лор чатов: порог сообщений в окне", "int", "limits_lore",
@@ -1050,9 +1103,9 @@ _LIMITS: list[tuple] = [
 _REACTIONS: list[tuple] = [
     ("SLAVIK_USER_ID", "Telegram ID Славика", "int", "reactions_persons",
      "Telegram ID Славика — по нему бот понимает, чьи сообщения «славиковские»."),
-    ("KOSTIK_USER_ID", "Telegram ID Костика", "int", "reactions_persons",
+    ("KOSTIK_USER_ID", "Telegram ID Костика", "int", "reactions_kostik",
      "Telegram ID Костика — для его ответов и мимикрии."),
-    ("ALAN_USER_ID", "Telegram ID Лехи", "int", "reactions_persons",
+    ("ALAN_USER_ID", "Telegram ID Лехи", "int", "reactions_alan",
      "Telegram ID Лехи — для приветствий и reply-блока."),
     ("ADMIN_USER_ID", "Telegram ID админа", "int", "reactions_admin",
       "Telegram ID администратора — для особых прав и реакций."),
@@ -1064,7 +1117,7 @@ _REACTIONS: list[tuple] = [
      "Куда бот пересылает посты dead page."),
     ("DEAD_PAGE_DIR", "Папка медиа dead page", "str", "reactions_deadpage",
      "Папка с медиа для постов dead page. Относительно корня медиа."),
-    ("ALAN_USERNAME", "Юзернейм Лехи", "str", "reactions_persons",
+    ("ALAN_USERNAME", "Юзернейм Лехи", "str", "reactions_alan",
      "Юзернейм Лехи — для упоминаний и фильтров."),
     ("ALAN_GREETING_DIR", "Папка приветствий Лехи", "str", "reactions_alan",
      "Папка с видео-приветствиями Лехи. Относительно корня медиа."),
@@ -1471,138 +1524,159 @@ def group_order(group_id: str) -> int:
 # Конфиг-вкладки покрывают ВСЕ группы категорий models/keys/prompts/limits/
 # flags/reactions ровно один раз (не-конфиг вкладки «Доступы»/«Статус»/
 # «Как это работает» здесь не участвуют).
+# ── Раунд 10.6 (T-1201/T-1208): 19 config-вкладок ─────────────────────────
+# 11 «Модули» (mod_*) + LLM Провайдеры + Промпты + Память + Умный кэш +
+# Имена + Участники и отношения + Лор чата + Функции PERMsoc.
+TAB_MOD_SUMMARY = "mod_summary"
+TAB_MOD_DIRECT = "mod_direct"
+TAB_MOD_FACTCHECK = "mod_factcheck"
+TAB_MOD_SEARCH = "mod_search"
+TAB_MOD_TRANSCRIBE = "mod_transcribe"
+TAB_MOD_VIDEO_SUMMARY = "mod_video_summary"
+TAB_MOD_MEDIA_DOWNLOAD = "mod_media_download"
+TAB_MOD_WEB = "mod_web"
+TAB_MOD_CHECKUP = "mod_checkup"
+TAB_MOD_SLEEP = "mod_sleep"
+TAB_MOD_NOSTALGIA = "mod_nostalgia"
 TAB_LLM_PROVIDERS = "llm_providers"
 TAB_PROMPTS = "prompts"
-TAB_LIMITS = "limits"
 TAB_MEMORY_RAG = "memory_rag"
-TAB_REACTIONS_TRIGGERS = "reactions_triggers"
-# Ре-дизайн 10.2, BUG-3 (spec §10 A): НАСТОЯЩАЯ штатная вкладка «Функции
-# PERMsoc» — страница ВНУТРИ меню-секции modules («Модули и Фичи»).
-TAB_PERMSOC = "permsoc"
-# Раунд 10.4 (C-2): «Сон» и «Ностальгия» — отдельные config-вкладки
-# (вынесены из перегруженной «Памяти»; id существующей вкладки не меняется).
-TAB_MEMORY_DREAM = "memory_dream"
-TAB_MEMORY_NOSTALGIA = "memory_nostalgia"
-# Раунд 10.4 (A-7/A-1): «Модули (вкл/выкл)» — отдельная config-вкладка
-# (flags_modules+flags_service из «Лимитов»); config-часть «Лора чатов»
-# (limits_lore+flags_lore) — правило-источник НЕ-config вкладки chat_lore.
-TAB_MODULES_SWITCHES = "modules_switches"
-TAB_CHAT_LORE = "chat_lore"
-# Раунд 10.4 (B-11): «Имена людей» — отдельная config-вкладка (KV-редактор
-# алиасов; per-chat/ЛС override — через единый чат_params-резолв).
+TAB_SMART_CACHE = "smart_cache"
 TAB_PEOPLE_NAMES = "people_names"
-# Раунд 10.4 (F-1): «Участники и отношения» — отдельная вкладка
-# (config-часть limits_relations+flags_relations + кастом-блок участников).
 TAB_RELATIONS = "relations"
+TAB_CHAT_LORE = "chat_lore"
+# Ре-дизайн 10.2, BUG-3 (spec §10 A): штатная вкладка «Функции PERMsoc».
+TAB_PERMSOC = "permsoc"
 
 CONFIG_TAB_TITLES: dict[str, str] = {
+    TAB_MOD_SUMMARY: "Саммаризация",
+    TAB_MOD_DIRECT: "Прямые ответы",
+    TAB_MOD_FACTCHECK: "Фактчек",
+    TAB_MOD_SEARCH: "Поиск",
+    TAB_MOD_TRANSCRIBE: "Транскрипт голосовых и видео",
+    TAB_MOD_VIDEO_SUMMARY: "Выжимка видео",
+    TAB_MOD_MEDIA_DOWNLOAD: "Скачивание медиа",
+    TAB_MOD_WEB: "Веб-страницы",
+    TAB_MOD_CHECKUP: "Диагностика",
+    TAB_MOD_SLEEP: "Сон",
+    TAB_MOD_NOSTALGIA: "Ностальгия",
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
     TAB_PROMPTS: "Промпты",
-    TAB_LIMITS: "Лимиты",
     TAB_MEMORY_RAG: "Память",
-    TAB_MEMORY_DREAM: "Сон",
-    TAB_MEMORY_NOSTALGIA: "Ностальгия",
-    TAB_REACTIONS_TRIGGERS: "Реакции и Триггеры",
-    TAB_PERMSOC: "Функции PERMsoc",
-    TAB_MODULES_SWITCHES: "Модули (вкл/выкл)",
-    TAB_CHAT_LORE: "Лор чатов",
-    TAB_PEOPLE_NAMES: "Имена людей",
+    TAB_SMART_CACHE: "Умный кэш",
+    TAB_PEOPLE_NAMES: "Имена",
     TAB_RELATIONS: "Участники и отношения",
+    TAB_CHAT_LORE: "Лор чата",
+    TAB_PERMSOC: "Функции PERMsoc",
 }
 
-_GROUPS_LIMITS_MEMORY_GRAPH = frozenset({"limits_memory", "limits_graph"})
-_GROUPS_FLAGS_MEDIA_MEMORY = frozenset({"flags_memory", "flags_media"})
-
 TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
-    # Раунд 10.4 (E-1): llm_providers — 4 СЕКЦИИ (порядок правил = порядок
-    # витрины): основные модели → ключи → фолбэк → расширенные. Повтор
-    # категории (MODELS/KEYS) допускается; каждая группа — ровно на одной
-    # вкладке (покрытие целиком: _TAB_BY_GROUP без ValueError).
+    # ── 11 модулей (spec §4.2) ─────────────────────────────────────────────
+    (TAB_MOD_SUMMARY, (
+        (CATEGORY_FLAGS,
+         frozenset({"flags_module_summary", "flags_summary"})),
+        (CATEGORY_LIMITS, frozenset({"limits_summary"})),
+        (CATEGORY_REACTIONS, frozenset({"reactions_summary"})),
+    )),
+    (TAB_MOD_DIRECT, (
+        (CATEGORY_FLAGS,
+         frozenset({"flags_module_direct", "flags_chat_behavior"})),
+        (CATEGORY_LIMITS, frozenset({
+            "limits_chat", "limits_chat_behavior", "limits_chat_budgets",
+            "limits_temperature"})),
+        (CATEGORY_REACTIONS, frozenset({"reactions_chat"})),
+    )),
+    (TAB_MOD_FACTCHECK, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_factcheck"})),
+        (CATEGORY_LIMITS, frozenset({"limits_factcheck"})),
+    )),
+    (TAB_MOD_SEARCH, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_search"})),
+        (CATEGORY_LIMITS, frozenset({"limits_search"})),
+    )),
+    (TAB_MOD_TRANSCRIBE, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_transcribe"})),
+        (CATEGORY_LIMITS, frozenset({"limits_transcribe"})),
+    )),
+    (TAB_MOD_VIDEO_SUMMARY, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_video_summary"})),
+        (CATEGORY_LIMITS, frozenset({
+            "limits_video_summary", "limits_youtube",
+            "limits_youtube_proxy"})),
+        (CATEGORY_KEYS, frozenset({"keys_youtube"})),
+    )),
+    (TAB_MOD_MEDIA_DOWNLOAD, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_media_download"})),
+        (CATEGORY_LIMITS, frozenset({"limits_media_download"})),
+    )),
+    (TAB_MOD_WEB, (
+        (CATEGORY_FLAGS, frozenset({"flags_module_web"})),
+        (CATEGORY_LIMITS, frozenset({"limits_web"})),
+    )),
+    (TAB_MOD_CHECKUP, (
+        (CATEGORY_FLAGS, frozenset({"flags_service", "flags_throttle"})),
+        (CATEGORY_LIMITS, frozenset({
+            "limits_checkup", "limits_service", "limits_worker"})),
+        (CATEGORY_MODELS, frozenset({"models_checkup"})),
+        (CATEGORY_KEYS, frozenset({"keys_betterstack"})),
+    )),
+    (TAB_MOD_SLEEP, (
+        (CATEGORY_MEMORY, frozenset({"memory_dream"})),
+    )),
+    (TAB_MOD_NOSTALGIA, (
+        (CATEGORY_MEMORY, frozenset({"memory_nostalgia"})),
+    )),
+    # ── Настройки AI (7 подразделов) ───────────────────────────────────────
+    # A8: keys_youtube → М6, models_checkup/keys_betterstack → М9.
     (TAB_LLM_PROVIDERS, (
-        (CATEGORY_MODELS, frozenset({"models_main"})),
-        (CATEGORY_KEYS,
-         frozenset({"keys_llm", "keys_groq", "keys_openrouter"})),
-        (CATEGORY_MODELS, frozenset({"models_fallback"})),
         (CATEGORY_MODELS, frozenset({
-            "models_embeddings", "models_llm_timeouts", "models_llm_guard",
-            "models_extra_providers", "models_video_summary",
-            "models_checkup"})),
+            "models_main", "models_fallback", "models_embeddings",
+            "models_llm_timeouts", "models_llm_guard",
+            "models_extra_providers", "models_video_summary"})),
         (CATEGORY_KEYS, frozenset({
-            "keys_search", "keys_betterstack", "keys_youtube",
+            "keys_llm", "keys_groq", "keys_openrouter", "keys_search",
             "keys_media"})),
     )),
     (TAB_PROMPTS, (
         (CATEGORY_PROMPTS, None),
     )),
-    (TAB_LIMITS, (
-        (CATEGORY_LIMITS, ("except",
-                           _GROUPS_LIMITS_MEMORY_GRAPH
-                           | {"limits_persons", "limits_mimic",
-                              "limits_deadpage", "limits_media",
-                              "limits_lore", "limits_user_aliases",
-                              "limits_relations"})),
-        (CATEGORY_FLAGS,
-         ("except", frozenset({"flags_memory", "flags_media",
-                               "flags_permsoc", "flags_modules",
-                               "flags_service", "flags_lore",
-                               "flags_relations"}))),
-    )),
+    # A3/D3: RAG-ключи в «Память» (limits_rag).
     (TAB_MEMORY_RAG, (
-        (CATEGORY_LIMITS, frozenset({"limits_memory", "limits_graph"})),
+        (CATEGORY_LIMITS, frozenset({
+            "limits_memory", "limits_graph", "limits_rag"})),
         (CATEGORY_FLAGS, frozenset({"flags_memory"})),
         (CATEGORY_MEMORY, frozenset({"memory_infinite"})),
+        (CATEGORY_REACTIONS, frozenset({"reactions_memory"})),
     )),
-    # Раунд 10.4 (C-2): «Память» — бессрочное хранение + лимиты/граф/флаги;
-    # «Сон»/«Ностальгия» — свои группы категории memory (категория покрыта
-    # целиком без дублей — _TAB_BY_GROUP без ValueError).
-    (TAB_MEMORY_DREAM, (
-        (CATEGORY_MEMORY, frozenset({"memory_dream"})),
+    (TAB_SMART_CACHE, (
+        (CATEGORY_LIMITS, frozenset({"limits_smart_cache"})),
+        (CATEGORY_FLAGS, frozenset({"flags_smart_cache"})),
     )),
-    (TAB_MEMORY_NOSTALGIA, (
-        (CATEGORY_MEMORY, frozenset({"memory_nostalgia"})),
+    (TAB_PEOPLE_NAMES, (
+        (CATEGORY_LIMITS, frozenset({"limits_user_aliases"})),
     )),
-    # Раунд 10.4 (A-1, девиансия D-A1 — канон): «Реакции и Триггеры» —
-    # ТОЛЬКО триггерные реакции (админ/саммари/чат/память), без флагов;
-    # «Функции PERMsoc» — функциональные модули-персоны (11 реакционных
-    # групп + рубильники + лимиты). Порядок вкладок модулей (app.js):
-    # reactions_triggers → modules_switches → modules_feats → permsoc.
-    (TAB_REACTIONS_TRIGGERS, (
-        (CATEGORY_REACTIONS, frozenset({
-            "reactions_admin", "reactions_summary", "reactions_chat",
-            "reactions_memory"})),
+    (TAB_RELATIONS, (
+        (CATEGORY_LIMITS, frozenset({"limits_relations"})),
+        (CATEGORY_FLAGS, frozenset({"flags_relations"})),
     )),
-    # Ре-дизайн 10.2+10.4, BUG-3/spec §10 A/B + D-A1: источник «Функции
-    # PERMsoc» — персоны/модули-реакции + рубильники + лимиты персон.
-    (TAB_PERMSOC, (
-        (CATEGORY_REACTIONS, frozenset({
-            "reactions_persons", "reactions_permsoc", "reactions_deadpage",
-            "reactions_mimic", "reactions_slavik", "reactions_alan",
-            "reactions_olya", "reactions_war", "reactions_common",
-            "reactions_goodmorning", "reactions_word_reactions"})),
-        (CATEGORY_FLAGS, frozenset({"flags_permsoc", "flags_media"})),
-        (CATEGORY_LIMITS, frozenset({
-            "limits_persons", "limits_mimic", "limits_deadpage",
-            "limits_media"})),
-    )),
-    # Раунд 10.4 (A-7): «Модули (вкл/выкл)» — рубильники модулей/сервиса.
-    (TAB_MODULES_SWITCHES, (
-        (CATEGORY_FLAGS, frozenset({"flags_modules", "flags_service"})),
-    )),
-    # Раунд 10.4 (A-1/A-8): config-часть «Лора чатов» (НЕ-config вкладка;
-    # правило только для TAB_RULES-аудита/рендера блока настроек).
     (TAB_CHAT_LORE, (
         (CATEGORY_LIMITS, frozenset({"limits_lore"})),
         (CATEGORY_FLAGS, frozenset({"flags_lore"})),
     )),
-    # Раунд 10.4 (B-11): «Имена людей» — KV-редактор алиасов + per-chat.
-    (TAB_PEOPLE_NAMES, (
-        (CATEGORY_LIMITS, frozenset({"limits_user_aliases"})),
-    )),
-    # Раунд 10.4 (F-1): «Участники и отношения» — config-часть вкладки
-    # (кастом-рендер участников; настройки — generic-блоком, A-канон).
-    (TAB_RELATIONS, (
-        (CATEGORY_LIMITS, frozenset({"limits_relations"})),
-        (CATEGORY_FLAGS, frozenset({"flags_relations"})),
+    # Ре-дизайн 10.2/10.6: «Функции PERMsoc» — персоны/модули-реакции +
+    # рубильники + лимиты персон/медиа.
+    (TAB_PERMSOC, (
+        (CATEGORY_REACTIONS, frozenset({
+            "reactions_persons", "reactions_admin", "reactions_deadpage",
+            "reactions_slavik", "reactions_alan", "reactions_kostik",
+            "reactions_war", "reactions_common", "reactions_goodmorning",
+            "reactions_mimic", "reactions_olya",
+            "reactions_word_reactions", "reactions_permsoc"})),
+        (CATEGORY_FLAGS, frozenset({
+            "flags_permsoc", "flags_media", "flags_permsoc_behavior"})),
+        (CATEGORY_LIMITS, frozenset({
+            "limits_alan", "limits_kostik", "limits_media_permsoc",
+            "limits_mimic", "limits_deadpage"})),
     )),
 )
 

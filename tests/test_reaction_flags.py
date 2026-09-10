@@ -92,7 +92,8 @@ class TestCatalogRenameLeha:
     def test_group_titles_renamed(self):
         from services.param_catalog import GROUPS
         groups = {g.id: g for g in GROUPS}
-        assert groups["limits_persons"].title_ru == "Персонажи: Леха и Костик"
+        assert groups["limits_alan"].title_ru == "Леха: лимиты"
+        assert groups["limits_kostik"].title_ru == "Костик: лимиты"
         assert groups["reactions_alan"].title_ru == "Леха"
 
     def test_no_alan_in_display_texts(self):

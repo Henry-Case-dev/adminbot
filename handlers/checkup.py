@@ -73,6 +73,9 @@ def setup_checkup(service, fetcher, db=None) -> None:
 async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or _fetcher is None or bot is None:
         return UNHANDLED
+    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
+    if not hot.get("flags.checkup_enabled", settings.CHECKUP_ENABLED):
+        return UNHANDLED
     text = (message.text or message.caption or "").strip()
     if not text or not _CHECKUP_TRIGGER_RE.search(text):
         return UNHANDLED                       # не триггер → пропагация живёт

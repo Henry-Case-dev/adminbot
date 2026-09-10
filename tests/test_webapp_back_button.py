@@ -165,10 +165,11 @@ class TestBackButtonIntegration:
         # Нет подключения vue-router (zero-build, OD3).
         assert "vue-router" not in html
 
-    def test_nav_uses_openTab(self):
+    def test_nav_uses_hash_route(self):
         html = _html()
-        # Меню пишет hash (openTab → navigateTo), а не setTab напрямую.
-        assert '@click="openTab(tab.id)"' in html
+        # A1/T-1157: sidebar-меню удалено; навигация — navbar navTo → hash.
+        assert '@click="navTo(n.route)"' in html
+        assert '@click="openTab(tab.id)"' not in html
         assert '@click="setTab(tab.id)"' not in html
 
 

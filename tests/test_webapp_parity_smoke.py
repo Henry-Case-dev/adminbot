@@ -43,13 +43,13 @@ def _parse_block(name: str) -> str:
 
 
 class TestCatalogParity:
-    def test_catalog_total_387(self):
-        # REGISTRY 387 (вкл. infra/env-only) / GROUPS 74 / Settings 359.
-        assert len(REGISTRY) == 387, len(REGISTRY)
-        assert len(GROUPS) == 74
+    def test_catalog_total_392(self):
+        # Раунд 10.6: REGISTRY 392 / GROUPS 91 / Settings 364 (+5 флагов).
+        assert len(REGISTRY) == 392, len(REGISTRY)
+        assert len(GROUPS) == 91
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 359
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 364
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():
@@ -81,11 +81,10 @@ class TestRouteParity:
         tab_to_route = _parse_block("TAB_TO_ROUTE")
         tab_ids = set(_tabs_in(tab_to_route))
         # каждая вкладка приложения (кроме не-роутовых) имеет маршрут
-        for tab in ("status", "info", "oversight", "modules_feats",
-                    "modules_switches", "reactions_triggers", "permsoc",
-                    "llm_providers", "prompts", "limits", "memory_rag",
-                    "memory_dream", "memory_nostalgia", "people_names",
-                    "relations", "chat_lore", "access"):
+        for tab in ("status", "info", "oversight", "modules",
+                    "permsoc", "llm_providers", "prompts", "memory_rag",
+                    "smart_cache", "people_names", "relations", "chat_lore",
+                    "access"):
             assert tab in tab_ids, tab
         # значения ROUTE_TO_TAB — только существующие вкладки
         values = re.findall(r"':\s*'(\w+)'", route_to_tab)
@@ -107,8 +106,9 @@ class TestRouteParity:
         assert pairs == REFERENCE_SECTIONS, pairs
 
     def test_hub_screens_present(self):
+        # A2/T-1165: «Модули» — список-витрина (не hub); hub-экраны — AI/Access.
         hubs = _parse_block("HUBS")
-        for route in ("'#/modules'", "'#/ai'", "'#/access'"):
+        for route in ("'#/ai'", "'#/access'"):
             assert route in hubs, route
         assert "hubCards" in _JS and "hubCards" in _HTML
 
@@ -117,7 +117,7 @@ class TestScreenComposition:
     """T-1101..T-1112: каждый экран эталона имеет рендерер (tab-ветку или
     generic-конфиг). Параметры применяются через существующий конфиг-слой."""
 
-    SCREEN_BRANCHES = ("currentTabIsConfig", "modules_feats", "oversight",
+    SCREEN_BRANCHES = ("currentTabIsConfig", "modules", "oversight",
                        "access", "relations", "chat_lore", "status", "info")
 
     def test_all_screens_have_renderers(self):
@@ -126,9 +126,10 @@ class TestScreenComposition:
 
     def test_config_tabs_covered_by_generic_renderer(self):
         # все config-типы вкладок идут через один generic-шаблон по sources.
-        config_tabs = ("llm_providers", "prompts", "limits", "memory_rag",
-                       "memory_dream", "memory_nostalgia", "people_names",
-                       "reactions_triggers", "modules_switches", "permsoc")
+        config_tabs = ("llm_providers", "prompts", "memory_rag",
+                       "smart_cache", "people_names", "relations",
+                       "chat_lore", "permsoc", "mod_summary", "mod_direct",
+                       "mod_checkup", "mod_sleep", "mod_nostalgia")
         for tab in config_tabs:
             assert ("id: '%s'" % tab) in _JS, tab
         assert "currentTabIsConfig" in _HTML
@@ -138,12 +139,10 @@ class TestScreenComposition:
 class TestNoOrphans:
     def test_tabs_md_parity_mapping_present(self):
         # TABS в app.js и TAB_RULES синхронны (см. test_frontend_tab_mapping).
-        assert "MENU_ORDER" in _JS
-        # Никакая вкладка TABS не осталась без route не-меню.
+        # A1: sidebar/MENU_ORDER удалены; синхрон — через ROUTE_TO_TAB.
         tab_to_route = _parse_block("TAB_TO_ROUTE")
         for tab in ("chat_lore", "relations", "people_names",
-                    "modules_feats", "modules_switches", "reactions_triggers",
-                    "memory_dream", "memory_nostalgia"):
+                    "modules", "permsoc", "memory_rag", "smart_cache"):
             assert ("%s:" % tab) in tab_to_route, tab
 
     def test_oversight_extras_kept(self):

@@ -105,6 +105,9 @@ def _parse_search_query(raw: str) -> str | None:
 async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
+    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
+    if not hot.get("flags.search_enabled", settings.SEARCH_ENABLED):
+        return UNHANDLED
     query = _parse_search_query(message.text or message.caption or "")
     if query is None:
         return UNHANDLED                       # не триггер

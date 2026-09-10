@@ -42,7 +42,8 @@ class TestNavbarAndHubs:
 class TestRoleMatrixUi:
     def test_matrix_block_present(self):
         assert 'id="sec-matrix"' in _HTML
-        assert "🔐 Матрица ролей" in _HTML
+        assert "Матрица ролей" in _HTML
+        assert "iconGlyph('admin_panel_settings')" in _HTML
         assert "matrixSections()" in _HTML
         assert "matrixRoleToggle(row.key, fld, r)" in _HTML
         assert "matrixReset(row.key)" in _HTML
@@ -122,12 +123,12 @@ class TestReviewerMinorsR1R4:
         # R3: busy-флаги не сбрасываются устаревшим finally (>= 5 мест).
         assert _JS.count("// R3") >= 5
 
-    def test_r4_custom_modules_card_is_anchor(self):
-        # R4: карточка «Кастомные модули» — якорь на экран модулей (B2 OUT).
-        assert "B2 вне скоупа" in _JS
-        assert "anchor: true" in _JS
-        assert "c.anchor" in _HTML
-        assert "c.readonly" in _HTML
+    def test_r4_custom_modules_removed(self):
+        # A2/T-1187: «Кастомные модули» удалены (B2 остаётся OUT).
+        assert "Кастомные модули" not in _JS
+        assert "Кастомные модули" not in _HTML
+        assert "var MODULES = [" in _JS
+        assert "openModuleWindow" in _JS
 
 
 class TestSanitizerSecurityM1:
@@ -155,7 +156,9 @@ class TestResponsive:
             "grid-template-columns: 1fr" in _HTML
 
     def test_compact_nav_on_mobile(self):
-        assert ".nav-link > span:not(.msr)" in _HTML
+        # A1/T-1158: подписи видны и на мобилке (правило скрытия удалено).
+        assert ".nav-label" in _HTML
+        assert ".nav-link > span:not(.msr)" not in _HTML
 
     def test_scope_panel_scrollable(self):
         assert ".scope-panel" in _HTML

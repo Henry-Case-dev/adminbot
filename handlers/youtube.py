@@ -1014,6 +1014,11 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     request = _classify_video_request(message)
     if request is None:
         return UNHANDLED                       # не триггер → пропагация живёт
+    # Раунд 10.6 (T-1201/A1): master-флаг «Выжимка видео» гейтит ТОЛЬКО
+    # summary-ветки (YouTube+media); «транскрипт» продолжает работать.
+    if request.mode == "summary" and not hot.get(
+            "flags.video_summary_enabled", settings.VIDEO_SUMMARY_ENABLED):
+        return UNHANDLED
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[youtube] triggered | chat=%s user=%s kind=%s video_id=%r",
                 message.chat.id, user_id, request.kind, request.video_id)

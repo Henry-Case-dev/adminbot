@@ -197,18 +197,50 @@
       box-shadow: 0 4px 18px rgba(20, 203, 182, 0.35);
     }
 
-    /* T-1100: navbar-полоса (6 пунктов эталона) + hub-карточки */
-    .navbar-band { border-top: 1px solid var(--surface-border); }
+    /* T-1100/раунд 10.6 (A1): navbar-полоса (6 пунктов эталона) + hub */
+    .navbar-band {
+      display: flex; align-items: stretch; gap: .25rem; width: 100%;
+      overflow-x: auto;
+    }
     .nav-link {
-      display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap;
-      padding: .35rem .6rem; border-radius: var(--radius-md);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; gap: 2px; flex: 1 1 0; min-width: 0;
+      padding: .3rem .25rem; white-space: normal;
       background: transparent; border: none; cursor: pointer;
       color: var(--text-2); font-size: var(--tx-small);
+    }
+    .nav-link .nav-icon { font-size: 20px; line-height: 1; }
+    .nav-label {
+      font-size: var(--tx-tiny); line-height: 1.05; text-align: center;
+      overflow-wrap: anywhere;
     }
     .nav-link:hover { background: rgba(255,255,255,.06); color: var(--text-1); }
     .nav-link.active {
       background: var(--surface-3); color: var(--text-1); font-weight: 600;
     }
+    .nav-link.active .msr { font-variation-settings: 'FILL' 1; }
+    @media (min-width: 992px) { .nav-link { min-width: 72px; } }
+
+    /* Раунд 10.6 (A2): список 11 модулей + карточки */
+    .module-list {
+      grid-column: 1 / -1; display: grid; gap: .75rem;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+    .module-card { display: flex; align-items: center; gap: .75rem; }
+    .module-card .module-icon { color: var(--teal-500); font-size: 24px; flex-shrink: 0; }
+    .module-meta { flex: 1 1 auto; min-width: 0; }
+    /* Раунд 10.6 (A9): эксклюзивный аккордеон «Доступы и роли» */
+    .acc { grid-column: 1 / -1; }
+    .acc-head {
+      width: 100%; text-align: left; padding: .6rem .8rem; margin-top: .5rem;
+      background: var(--surface-glass); border: var(--card-border);
+      border-radius: var(--radius-lg); color: var(--text-1); cursor: pointer;
+      font-weight: 600;
+    }
+    .acc-panel { margin-top: .25rem; }
+    /* Раунд 10.6 (A4): блоки провайдеров */
+    .prov-block { border: var(--card-border); border-radius: var(--radius-lg); }
+    .prov-test-btn:disabled { opacity: .5; cursor: not-allowed; }
     .hub-head { grid-column: 1 / -1; }
     .hub-head .hub-title { font-size: var(--tx-large); font-weight: 600; }
     .hub-head .hub-sub { font-size: var(--tx-small); color: var(--text-3); }
@@ -261,8 +293,7 @@
     }
     @media (max-width: 479px) {
       .hub-grid { grid-template-columns: 1fr; }
-      .nav-link { padding: .4rem; }
-      .nav-link > span:not(.msr) { display: none; }   /* только иконки */
+      .nav-link { padding: .35rem .15rem; }
       .avail-list th:nth-child(2), .avail-list td:nth-child(2) { display: none; }
     }
 
@@ -490,39 +521,29 @@
       background: rgba(22, 22, 22, 0.96);
     }
 
-    /* Hotfix-R10 (панель «Лор чатов» не влезала в экран TMA/мобилку):
-       в полноэкранном режиме (⛶, isFullscreen) корень — высота экрана
-       без прокрутки страницы (скроллится сама панель лора) */
+    /* Раунд 10.6 (A1/T-1161/T-1162): модель скролла без боковой панели.
+       .app-shell — flex-колонка; main.scroll-area — собственный скролл
+       в fullscreen (⛶); header остаётся sticky. */
+    .app-shell {
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+    .scroll-area {
+      flex: 1 1 auto; min-height: 0; padding: 1rem;
+    }
     .fullscreen-mode {
       height: 100dvh;
       overflow: hidden;
     }
+    .fullscreen-mode .scroll-area {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+    /* Нет скролл-чейнинга у вложенных скроллеров (T-1163) */
+    .log-panel, .scope-panel, .modal-body { overscroll-behavior: contain; }
 
-    /* Мобильный сайдбар (BUG-2): fixed top/bottom + СВОЙ скролл
-       (overflow-y:auto) — контент длиннее экрана прокручивается в самом
-       сайдбаре, а не растягивает страницу (WebView/TMA).
-       F-13 (AC-5): z-index 45 (> .header-sticky 40, < модалки 50, тостов
-       60; > backdrop 35) — раньше 40 == у шапки, а header ПОЗЖЕ в DOM →
-       шапка рисовалась ПОВЕРХ верха сайдбара («📊 Статус» недоступен). */
     @media (max-width: 768px) {
-      .sidebar {
-        position: fixed;
-        left: 0; top: 0; bottom: 0;
-        z-index: 45;
-        transform: translateX(-100%);
-        transition: transform 0.25s ease;
-        width: 260px;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      .sidebar.open { transform: translateX(0); }
-      .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
-      /* H1-safe-area (F-13 AC-5): аддитивная инъекция к p-3/py-3 — calc-
-         база 0.75rem повторяет класс-паддинг (НЕ затирает его); селектор
-         с элементом перекрывает Tailwind-утилиту в каскаде. */
-      aside.sidebar {
-        padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
-      }
       header.header-sticky {
         padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
       }
@@ -531,52 +552,11 @@
 </head>
 <body>
   <div id="app" v-cloak>
-    <div class="min-h-screen flex" :class="{ 'fullscreen-mode': isFullscreen }">
-      <!-- Сайдбар (BUG-2): десктоп — sticky + собственный скролл (высота
-           экрана), мобилка — fixed top/bottom + overflow-y (CSS-правило
-           ниже); .fullscreen-mode (100dvh) — скроллится сам сайдбар. -->
-      <aside class="sidebar card-solid p-3 flex flex-col gap-1 w-64 shrink-0
-                    scroll-thin md:sticky md:top-0 md:h-screen md:overflow-y-auto"
-             :class="{ open: sidebarOpen }" style="border-radius:0;">
-        <div class="px-2 py-3 text-lg font-bold flex items-start gap-2">
-          <div class="min-w-0">
-            <span class="text-transparent bg-clip-text" style="background-image: var(--accent-grad);">AdminBot</span>
-            <span class="text-xs text-gray-400 block">Панель управления</span>
-          </div>
-          <button class="btn-ghost md:hidden text-xs px-2 ml-auto shrink-0"
-                  title="Закрыть меню"
-                  @click="sidebarOpen = false">✕</button>
-        </div>
-        <!-- Раунд 10 (F-11 Q1): меню — 5 секций (menu-тег TABS + MENU_ORDER);
-             вкладка без доступа (canViewTab) в меню не показывается -->
-        <template v-for="menuId in menuOrder">
-          <div :key="menuId" class="mt-2 px-2 text-[10px] uppercase tracking-wider text-gray-500">
-            {{ menuLabels[menuId] }}
-          </div>
-          <button v-for="tab in tabs.filter(function (t) { return t.menu === menuId
-                     && (t.always || canViewTab(t.id)); })"
-                  :key="tab.id" class="tab-btn"
-                  :class="{ active: activeTab === tab.id }"
-                  @click="openTab(tab.id)">
-            <span v-if="tabMat(tab.id)" class="msr" aria-hidden="true"
-                  style="font-size:18px;">{{ tabMat(tab.id) }}</span>
-            <span v-else>{{ tab.icon }}</span>
-            <span>{{ tab.label }}</span>
-          </button>
-        </template>
-        <div class="mt-auto px-2 py-3 text-xs text-gray-500">
-          <div v-if="me">Роль: <b class="text-gray-300">{{ me.role_name }}</b></div>
-          <div v-else-if="authError" class="text-red-400">{{ authError }}</div>
-        </div>
-      </aside>
-      <div v-if="sidebarOpen" class="sidebar-backdrop md:hidden" @click="sidebarOpen = false"></div>
-
-      <!-- Основная область -->
-      <div class="flex-1 min-w-0 flex flex-col">
-        <header class="main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap"
-                style="border-radius:0;">
-          <button class="btn-ghost md:hidden" title="Меню"
-                  @click="sidebarOpen = !sidebarOpen">☰</button>
+    <div class="app-shell" :class="{ 'fullscreen-mode': isFullscreen }">
+      <!-- Раунд 10.6 (A1): боковая панель удалена полностью — навигация только через
+           верхний navbar (иконка + подпись); A9 — эксклюзивный аккордеон. -->
+      <header class="main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap"
+              style="border-radius:0;">
           <!-- T-1099/§6.4.6: in-app fallback ← — ТОЛЬКО если нативного
                BackButton нет (вне TMA/старый SDK) и depth>0; когда нативный
                есть — Telegram сам меняет ✕ на ← (дублирования нет). -->
@@ -660,15 +640,16 @@
                     :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
                     @click="toggleFullscreen()">⛶</button>
           </div>
-          <!-- T-1100: navbar — ровно 6 пунктов эталона (§2.1). Горизонтальный
-               скролл на mobile; активный — по route (activeNav). -->
-          <nav class="navbar-band w-full flex items-center gap-1 overflow-x-auto
-                      scroll-thin -mb-1 pt-2" aria-label="Основная навигация">
+          <!-- Раунд 10.6 (A1/T-1158/T-1159): navbar — ровно 6 пунктов;
+               иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
+               активный — по route (activeNav), aria-current. -->
+          <nav class="navbar-band scroll-thin" aria-label="Основная навигация">
             <button v-for="n in navItems" :key="n.id"
                     class="nav-link" :class="{ active: activeNav === n.id }"
+                    :aria-current="activeNav === n.id ? 'page' : null"
                     :title="n.label" @click="navTo(n.route)">
-              <span class="msr" aria-hidden="true" style="font-size:18px;">{{ iconGlyph(n.icon) }}</span>
-              <span>{{ n.label }}</span>
+              <span class="msr nav-icon" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+              <span class="nav-label">{{ n.label }}</span>
             </button>
           </nav>
         </header>
@@ -688,7 +669,7 @@
           </div>
         </div>
 
-        <main v-else class="p-4 grid gap-4 grid-cols-1"
+        <main v-else class="scroll-area grid gap-4 grid-cols-1"
               style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
           <!-- T-1100: hub-экраны (карточная сетка → дочерние маршруты) -->
           <template v-if="hubCards">
@@ -723,6 +704,51 @@
               Нет доступа к параметрам этой вкладки.
             </div>
             <template v-else>
+              <!-- A4/T-1207: LLM Провайдеры — блоки ПО МОДУЛЯМ; каждый =
+                   base_url + model + api key + «Проверить» (POST /api/llm/test). -->
+              <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3">
+                <section class="prov-block card p-4" v-for="b in providerBlocks"
+                         :key="b.id" :data-block="b.id">
+                  <header class="prov-head flex items-center gap-2 mb-2">
+                    <span class="prov-title text-sm font-bold">{{ b.title }}</span>
+                    <span class="prov-modules text-xs text-gray-500">{{ b.modules }}</span>
+                  </header>
+                  <div class="prov-row flex items-center gap-2 mb-2" v-for="f in b.fields" :key="f.key">
+                    <label class="prov-label text-xs w-24 shrink-0">{{ f.label }}</label>
+                    <input class="field flex-1 min-w-0"
+                           :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                           autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
+                           v-model="blockDrafts[f.key]" :disabled="!canEditConfig(f.key)">
+                    <!-- MINOR-2: раздельный тест каждого поискового ключа -->
+                    <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"
+                            :data-block="f.probeTarget"
+                            :disabled="blockTesting[f.probeTarget]"
+                            @click="testField(b, f)">
+                      {{ blockTesting[f.probeTarget] ? '…' : 'Проверить' }}
+                    </button>
+                    <span v-if="f.probeTarget && blockResults[f.probeTarget]"
+                          class="prov-test-status text-xs"
+                          :class="blockResults[f.probeTarget].ok ? 'text-green-400' : 'text-red-400'">
+                      {{ blockResults[f.probeTarget].text }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <button class="btn-ghost text-xs shrink-0"
+                            :disabled="blockSaving[b.id]" @click="saveBlock(b)">
+                      {{ blockSaving[b.id] ? 'Сохранение…' : 'Сохранить' }}
+                    </button>
+                    <button v-if="b.testable !== false && !b.perFieldTest"
+                            class="btn-accent prov-test-btn text-xs"
+                            :disabled="blockTesting[b.id]" @click="testBlock(b)">
+                      {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
+                    </button>
+                    <span v-if="!b.perFieldTest && blockResults[b.id]" class="prov-test-status text-xs"
+                          :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">
+                      {{ blockResults[b.id].text }}
+                    </span>
+                  </div>
+                </section>
+              </div>
               <!-- Ре-дизайн 10.2, BUG-3 (spec §10 A/C): мастер-карта
                    вкладки «Функции PERMsoc» — ПЕРЕД generic-рендером групп:
                    per-chat мастер (gates API; write — ТОЛЬКО global admin;
@@ -838,7 +864,7 @@
                       <span v-if="itemHiddenDev(item)" class="badge badge-warn">скрыт</span>
                       <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                               title="Права ключа (min-роли view/edit)"
-                              @click="openPermPicker(item)">⚙</button>
+                              @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                       <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                               class="btn-ghost text-xs px-2 shrink-0"
                               @click="resetChatOverride(item)">↪ глобальное</button>
@@ -961,7 +987,7 @@
                         <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                         <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                 title="Права ключа (min-роли view/edit)"
-                                @click="openPermPicker(item)">⚙</button>
+                                @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
                         <button v-if="itemOverriddenByChat(item) && (isGlobalAdmin || isDmCtx())"
                                 class="btn-ghost text-xs px-2 shrink-0"
                                 @click="resetChatOverride(item)">↪ глобальное</button>
@@ -1063,126 +1089,37 @@
                   </div>
                 </div>
               </div>
-              <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): мини-блоки
-                   «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером
-                   соответствующих вкладок (раунд 10.4 C-4: «Сон» →
-                   memory_dream, «Ностальгия» → memory_nostalgia) —
-                   глобальный admin; GET-логи консервативно — admin
-                   (spec §3.6.2). -->
-              <div v-if="activeTab === 'memory_dream' && isGlobalAdmin"
-                   class="space-y-4" style="grid-column: 1 / -1;">
-                <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
-                <div class="card p-4">
-                  <div class="flex items-center gap-2 flex-wrap mb-1">
-                    <div class="text-sm font-bold">🧠 Синтез (сон)</div>
-                    <span class="text-xs text-gray-500">
-                      дистилляция повторяющихся фактов в убеждения (beliefs)
-                    </span>
-                    <button class="btn-ghost text-xs ml-auto shrink-0"
-                            :disabled="memoryRagBusy"
-                            @click="loadDreamBeliefs(); loadDreamLog()">⟳</button>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap mb-3">
-                    <button class="btn-accent text-sm" :disabled="dreamBusy
-                            || memoryRagBusy" @click="runDreamNow()">
-                      {{ dreamBusy ? 'Запуск…' : 'Запустить синтез сейчас' }}
-                    </button>
-                    <span class="text-xs text-gray-500">
-                      Работает при выключенном флаге «Сон: включён» тоже;
-                      ночные тики идут только в окне 4–6 local.
-                    </span>
-                  </div>
-                  <div class="text-xs text-gray-500 font-bold mb-1">Последние убеждения</div>
-                  <div v-if="dreamBeliefs.length === 0"
-                       class="text-xs text-gray-500 py-2">
-                    Пока пусто — синтез ещё не давал убеждений (включите
-                    «Сон» в настройках выше или запустите вручную).
-                  </div>
-                  <div v-else class="flex flex-col gap-1.5">
-                    <div v-for="b in dreamBeliefs" :key="b.id"
-                         class="rounded-lg border border-white/10 px-2 py-1.5">
-                      <div class="flex items-center gap-2 flex-wrap text-xs">
-                        <span class="text-gray-500 shrink-0">{{ fmtTs(b.created_at) }}</span>
-                        <span class="badge badge-info">важность {{ b.importance }}</span>
-                        <span class="badge badge-muted">источников {{ b.source_ids.length }}</span>
-                        <span class="badge badge-ok" v-if="b.status === 'confirmed'">confirmed</span>
-                        <span class="badge badge-warn" v-else>{{ b.status }}</span>
-                        <button class="btn-ghost text-xs ml-auto shrink-0"
-                                title="Сделать protected (не дистиллировать)"
-                                :disabled="memoryRagBusy"
-                                @click="dreamProtect(b)">🛡 защитить</button>
-                        <button class="btn-danger text-xs shrink-0"
-                                title="Мягкое удаление (убрать из контекста)"
-                                :disabled="memoryRagBusy"
-                                @click="dreamDelete(b)">🗑</button>
-                      </div>
-                      <div class="text-sm mt-1" :title="b.fact">{{ b.fact }}</div>
-                    </div>
-                  </div>
-                  <details class="mt-3 text-xs">
-                    <summary class="cursor-pointer select-none text-gray-500">
-                      Последние сны (лог дистилляций)
-                    </summary>
-                    <div v-if="dreamLog.length === 0"
-                         class="text-gray-500 py-1">Лог пуст.</div>
-                    <div v-else class="flex flex-col gap-1 pt-1">
-                      <div v-for="l in dreamLog" :key="l.id"
-                           class="flex items-center gap-2 flex-wrap text-xs">
-                        <span class="text-gray-500 shrink-0">{{ fmtTs(l.run_at) }}</span>
-                        <span class="badge" :class="l.status === 'ok'
-                          ? (l.kind === 'distilled' ? 'badge-ok' : 'badge-muted')
-                          : 'badge-warn'">{{ l.kind }}</span>
-                        <span class="text-gray-400">чат {{ l.chat_id }}</span>
-                        <span class="text-gray-500 ml-auto">{{ l.status }}</span>
-                      </div>
-                    </div>
-                  </details>
-                </div>
-              </div>
-              <!-- Ностальгия: мини-блок на ОДНОИМЁННОЙ вкладке (10.4 C-4) -->
-              <div v-if="activeTab === 'memory_nostalgia' && isGlobalAdmin"
-                   class="space-y-4" style="grid-column: 1 / -1;">
-
-                <!-- Ностальгия: последние срабатывания слоя B -->
-                <div class="card p-4">
-                  <div class="flex items-center gap-2 flex-wrap mb-1">
-                    <div class="text-sm font-bold">🌟 Ностальгия</div>
-                    <span class="text-xs text-gray-500">слой B — «кстати…» в тихих чатах</span>
-                    <button class="btn-ghost text-xs ml-auto shrink-0"
-                            :disabled="memoryRagBusy"
-                            @click="loadNostalgiaLog()">⟳</button>
-                  </div>
-                  <div v-if="nostalgiaLog.length === 0"
-                       class="text-xs text-gray-500 py-2">
-                    Пока пусто — срабатываний не было (флаг «Ностальгия:
-                    включён» off или ещё не было поводов).
-                  </div>
-                  <div v-else class="flex flex-col gap-1.5">
-                    <div v-for="n in nostalgiaLog" :key="n.id"
-                         class="flex items-center gap-2 flex-wrap text-xs
-                                rounded-lg border border-white/10 px-2 py-1">
-                      <span class="text-gray-500 shrink-0">{{ fmtTs(n.ts) }}</span>
-                      <span class="badge" :class="n.status === 'sent'
-                        ? 'badge-ok' : (n.status === 'error'
-                          ? 'badge-err' : 'badge-warn')">{{ n.status }}</span>
-                      <span class="text-gray-400">чат {{ n.chat_id }} · {{ n.kind }}</span>
-                      <span v-if="n.meta && n.meta.reason" class="text-gray-500 ml-auto">
-                        причина: {{ n.meta.reason }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </template>
           </template>
-          <template v-else-if="activeTab === 'modules_feats'">
-            <!-- ═══ 🧩 Модули (F-10 E1/E2 + F-9 D1) ═══
-                 Hotfix-R10: весь контент был за гейтом
-                 v-if="activeChatId == null" → при «Весь бот» (global admin,
-                 чат не выбран) вкладка пустая («ГДЕ??????»). Теперь:
-                 «Бюджет фона» (глобальный) — ВСЕГДА; «Тяжёлые фичи» и
-                 «Функции PERMsoc» — карточки ВСЕГДА (без чата — компактная
-                 заметка/мастер-хинт, с чатом — полные переключатели). -->
-            <!-- 📊 Бюджет фона — глобальная карточка (вне чатового гейта) -->
+          <template v-else-if="activeTab === 'modules'">
+            <!-- ═══ 🧩 Модули (A2/T-1165): ровно 11; toggle + «Параметры» ═══ -->
+            <div class="hub-head col-span-full">
+              <div class="hub-title">Модули</div>
+              <div class="hub-sub">11 модулей: честный тумблер и окно со всеми параметрами</div>
+            </div>
+            <div class="module-list col-span-full" role="list">
+              <article class="module-card card p-4" v-for="m in modules" :key="m.id"
+                       role="listitem" :data-mod="m.id">
+                <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
+                <div class="module-meta min-w-0">
+                  <div class="module-title text-sm font-semibold">{{ m.title }}</div>
+                  <div class="module-sub text-xs text-gray-500">{{ m.subtitle }}</div>
+                </div>
+                <label class="module-toggle relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
+                         :disabled="!canEditModule(m)"
+                         @change="toggleModule(m, $event.target.checked)"
+                         :aria-label="'Включить модуль ' + m.title">
+                  <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                  <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                </label>
+                <button class="btn-ghost module-params-btn text-xs shrink-0"
+                        @click="openModuleWindow(m)">Параметры</button>
+              </article>
+            </div>
+
+            <!-- Раунд 10.6: сохранены прежние глобальные/чатовые виды
+                 (бюджет фона, Opt-In тяжёлых фич) — перенесены на «Модули». -->
             <div class="card p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold">📊 Бюджет фона</div>
@@ -1204,8 +1141,7 @@
                 <div v-if="isChatContext()">
                   <div class="text-xs font-bold mb-1">Этот чат</div>
                   <template v-if="budgetInfo.chats && budgetInfo.chats.length">
-                    <div v-for="chunk in budgetInfo.chats" :key="chunk.scope"
-                         class="mb-2">
+                    <div v-for="chunk in budgetInfo.chats" :key="chunk.scope" class="mb-2">
                       <div class="text-xs text-gray-400">вызовы: {{ chunk.calls.used }} / {{ chunk.calls.limit }}</div>
                       <div class="progress mb-1"><div :style="{ width: (budgetRatio(chunk.calls) * 100) + '%' }"></div></div>
                       <div class="text-xs text-gray-400">токены: {{ chunk.tokens.used }} / {{ chunk.tokens.limit }}</div>
@@ -1214,113 +1150,287 @@
                   </template>
                   <div v-else class="text-xs text-gray-500">День не начат — счёт пуст.</div>
                 </div>
-                <div v-else>
-                  <div class="text-xs font-bold mb-1">Этот чат</div>
-                  <div class="text-xs text-gray-500">«Весь бот» — выберите чат
-                    в шапке, чтобы видеть его бюджет (глобальный — слева).</div>
-                </div>
-                <div class="col-span-full text-xs text-gray-500">
-                  Деградация (порядок падения): {{ (budgetInfo.priorities || []).join(' → ') }}
+                <div v-else class="text-xs text-gray-500">
+                  «Весь бот» — выберите чат в шапке, чтобы видеть его бюджет.
                 </div>
               </div>
               <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
             </div>
 
-            <!-- 🧠 Тяжёлые фичи: без чата — заметка + сводка Opt-In -->
             <div v-if="activeChatId == null" class="card p-4 col-span-full">
               <div class="text-sm font-bold mb-1">🧠 Тяжёлые фичи</div>
               <div class="text-xs text-gray-500">
-                Выберите чат в шапке — тяжёлые модули (Сон · Ностальгия ·
-                Авто-лор) включаются per chat (Opt-In). Глобальный или
-                локальный админ включает их ЯВНО; при Opt-In OFF бот
-                отвечает, но фоновые фичи молчат.
+                Выберите чат в шапке — Сон · Ностальгия · Авто-лор включаются
+                per chat (Opt-In). При Opt-In OFF бот отвечает, фоновые фичи молчат.
               </div>
               <div v-if="oversightData && oversightData.chats" class="text-xs text-gray-400 mt-2">
-                Сводка Oversight: Opt-In включён в
-                {{ optInCount() }} из {{ (oversightData.chats || []).length }} чатов.
+                Opt-In включён в {{ optInCount() }} из {{ (oversightData.chats || []).length }} чатов.
               </div>
             </div>
             <div v-else class="card p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap">
                 <div class="text-sm font-bold">🧠 Тяжёлые фичи</div>
-                <span class="text-xs text-gray-500">
-                  {{ activeChatTitle }} ({{ activeChatId }})
-                </span>
-                <span class="badge ml-auto" :class="gateInfo && gateInfo.opt_in
-                      ? 'badge-ok' : 'badge-muted'">
+                <span class="text-xs text-gray-500">{{ activeChatTitle }} ({{ activeChatId }})</span>
+                <span class="badge ml-auto" :class="gateInfo && gateInfo.opt_in ? 'badge-ok' : 'badge-muted'">
                   Opt-In: {{ gateInfo && gateInfo.opt_in ? 'включено' : 'выключено' }}
                 </span>
-                <button class="btn-ghost text-xs" :disabled="gatesBusy"
-                        @click="loadGateInfo()">⟳</button>
-              </div>
-              <div class="text-xs text-gray-500 mb-3">
-                Сон (Dream) · Ностальгия · Авто-лор — включаются ЯВНО
-                (глобальный или локальный админ); при Opt-In OFF бот
-                отвечает, но фоновые фичи молчат.
+                <button class="btn-ghost text-xs" :disabled="gatesBusy" @click="loadGateInfo()">⟳</button>
               </div>
               <div v-if="gatesBusy" class="spinner my-3"></div>
-              <div v-else-if="gateInfo" class="flex flex-col gap-2">
-                <div v-for="(enabled, feature) in gateInfo.gates"
-                     :key="feature"
+              <div v-else-if="gateInfo" class="flex flex-col gap-2 mt-2">
+                <div v-for="(enabled, feature) in gateInfo.gates" :key="feature"
                      class="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2">
                   <span class="text-sm font-semibold">{{ feature }}</span>
-                  <span class="badge ml-auto" :class="enabled ? 'badge-ok' : 'badge-muted'">
-                    {{ enabled ? 'ON' : 'OFF' }}
-                  </span>
+                  <span class="badge ml-auto" :class="enabled ? 'badge-ok' : 'badge-muted'">{{ enabled ? 'ON' : 'OFF' }}</span>
                   <label class="relative inline-flex items-center cursor-pointer shrink-0">
                     <input type="checkbox" class="sr-only peer" :checked="!!enabled"
-                           :disabled="whoCanToggle(feature) !== 'global'
-                                      ? !isGlobalAdmin : false"
+                           :disabled="whoCanToggle(feature) !== 'global' ? !isGlobalAdmin : false"
                            @change="toggleGate(feature, $event.target.checked)">
                     <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
                     <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
                   </label>
                 </div>
               </div>
-              <div v-else class="text-xs text-gray-500">
-                Гейты недоступны (нет чата/нет прав). Локальный админ
-                видит read-only без переключателей тяжёлого вне доступа.
+              <div v-else class="text-xs text-gray-500 mt-2">
+                Гейты недоступны (нет чата/нет прав).
               </div>
             </div>
 
-            <!-- Раунд 10.4 (A-5/A-6): карточки-модули (имя + описание +
-                 статус/переход) — сводка PERMsoc УДАЛЕНА (вкладка permsoc
-                 и её мастер-карта остаются; никаких переходов-кнопок в
-                 modules_feats — вкладка доступна в меню «Модули»). -->
-            <div class="card p-4 col-span-full">
-              <div class="text-sm font-bold mb-2">🧩 Модули (что это и где настраивать)</div>
-              <div class="grid gap-2 md:grid-cols-2 text-xs">
-                <div class="rounded-lg border border-white/10 px-3 py-2">
-                  <div class="text-sm font-semibold">🎭 Славик · Костя · Леха · Оля · Передразнивания</div>
-                  <div class="text-gray-500">персоны-триггеры и мимикрия — вкладка
-                    «Функции PERMsoc» (в меню «Модули»).</div>
+            <!-- Окно параметров модуля (модалка; A2/T-1167) -->
+            <div v-if="activeModule" class="modal-backdrop" @click.self="closeModule()">
+              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+                   role="dialog" aria-modal="true"
+                   :aria-labelledby="'mod-title-' + activeModule.id"
+                   tabindex="-1" @keydown.esc="closeModule()">
+                <header class="modal-head flex items-center gap-2 mb-3">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph(activeModule.icon) }}</span>
+                  <h2 class="modal-title text-base font-bold" :id="'mod-title-' + activeModule.id">
+                    {{ activeModule.title }}
+                  </h2>
+                  <button class="modal-close btn-ghost ml-auto text-sm px-2" @click="closeModule()"
+                          aria-label="Закрыть">✕</button>
+                </header>
+                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
+                  <div v-if="!activeModuleGroups.length" class="text-xs text-gray-500">
+                    Параметры модуля ещё не загружены.
+                  </div>
+                  <template v-for="grp in activeModuleGroups" :key="'m-' + grp.uid">
+                    <div v-if="basicItems(grp).length || advancedItems(grp).length"
+                         class="card p-4 mb-3">
+                      <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
+                      <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
+                      <div class="grid gap-3 md:grid-cols-2">
+                        <div v-for="item in basicItems(grp)" :key="item.key" class="card p-3" style="min-width:0;">
+                          <template v-if="item.type === 'bool'">
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
+                              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                       :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
+                                <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                                <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                              </label>
+                            </div>
+                          </template>
+                          <template v-else-if="item.widget === 'select'">
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <select class="field mt-1" v-model="item.value" :disabled="!canEditConfig(item.key)"
+                                    @change="saveConfigItem(item)">
+                              <option v-for="(o, i) in (item.select_options || [])" :key="o"
+                                      :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>
+                            </select>
+                          </template>
+                          <template v-else-if="item.widget === 'keyvalue'">
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
+                            <kv-editor :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
+                          </template>
+                          <template v-else-if="item.category === 'keys' || item.secret">
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
+                            <div class="flex gap-2 mt-1">
+                              <input class="field flex-1 min-w-0" autocomplete="off"
+                                     :type="keyReveal[item.key] ? 'text' : 'password'"
+                                     :placeholder="isKeyConfigured(item) ? 'Новый ключ (заменить)…' : 'Ключ…'"
+                                     v-model="keyDrafts[item.key]">
+                              <button class="btn-accent text-xs shrink-0"
+                                      :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                      @click="saveKeyItem(item)">Сохранить</button>
+                            </div>
+                          </template>
+                          <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <textarea class="field scroll-thin mt-1" :rows="item.type === 'json' ? 4 : 6"
+                                      v-model="item.value"></textarea>
+                            <div class="mt-2 flex justify-end">
+                              <button class="btn-accent text-sm"
+                                      :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                      @click="saveConfigItem(item)">
+                                {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                              </button>
+                            </div>
+                          </template>
+                          <template v-else>
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
+                            <input class="field mt-1" :type="inputType(item)" v-model="item.value">
+                            <div class="mt-2 flex justify-end">
+                              <button class="btn-accent text-sm"
+                                      :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                      @click="saveConfigItem(item)">
+                                {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                              </button>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                      <!-- Расширенные настройки (свёрнуто) -->
+                      <details v-if="advancedItems(grp).length" class="mt-3 text-xs">
+                        <summary class="cursor-pointer text-gray-500">Расширенные настройки</summary>
+                        <div class="grid gap-3 md:grid-cols-2 mt-2">
+                          <div v-for="item in advancedItems(grp)" :key="'a-' + item.key" class="card p-3" style="min-width:0;">
+                            <template v-if="item.type === 'bool'">
+                              <div class="flex items-center justify-between gap-3">
+                                <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                  <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                         :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
+                                  <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                                  <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                                </label>
+                              </div>
+                            </template>
+                            <template v-else>
+                              <div class="text-sm font-semibold">{{ item.title }}</div>
+                              <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
+                              <input class="field mt-1" :type="inputType(item)" v-model="item.value">
+                              <div class="mt-2 flex justify-end">
+                                <button class="btn-accent text-sm"
+                                        :disabled="!canEditConfig(item.key) || saving.has(item.key)"
+                                        @click="saveConfigItem(item)">
+                                  {{ saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+                                </button>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </template>
+
+                <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): мини-блоки
+                     «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером
+                     соответствующих вкладок (раунд 10.4 C-4: «Сон» →
+                     memory_dream, «Ностальгия» → memory_nostalgia) —
+                     глобальный admin; GET-логи консервативно — admin
+                     (spec §3.6.2). -->
+                <div v-if="activeModule && activeModule.id === 'mod_sleep' && isGlobalAdmin"
+                     class="space-y-4" style="grid-column: 1 / -1;">
+                  <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
+                  <div class="card p-4">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <div class="text-sm font-bold">🧠 Синтез (сон)</div>
+                      <span class="text-xs text-gray-500">
+                        дистилляция повторяющихся фактов в убеждения (beliefs)
+                      </span>
+                      <button class="btn-ghost text-xs ml-auto shrink-0"
+                              :disabled="memoryRagBusy"
+                              @click="loadDreamBeliefs(); loadDreamLog()">⟳</button>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap mb-3">
+                      <button class="btn-accent text-sm" :disabled="dreamBusy
+                              || memoryRagBusy" @click="runDreamNow()">
+                        {{ dreamBusy ? 'Запуск…' : 'Запустить синтез сейчас' }}
+                      </button>
+                      <span class="text-xs text-gray-500">
+                        Работает при выключенном флаге «Сон: включён» тоже;
+                        ночные тики идут только в окне 4–6 local.
+                      </span>
+                    </div>
+                    <div class="text-xs text-gray-500 font-bold mb-1">Последние убеждения</div>
+                    <div v-if="dreamBeliefs.length === 0"
+                         class="text-xs text-gray-500 py-2">
+                      Пока пусто — синтез ещё не давал убеждений (включите
+                      «Сон» в настройках выше или запустите вручную).
+                    </div>
+                    <div v-else class="flex flex-col gap-1.5">
+                      <div v-for="b in dreamBeliefs" :key="b.id"
+                           class="rounded-lg border border-white/10 px-2 py-1.5">
+                        <div class="flex items-center gap-2 flex-wrap text-xs">
+                          <span class="text-gray-500 shrink-0">{{ fmtTs(b.created_at) }}</span>
+                          <span class="badge badge-info">важность {{ b.importance }}</span>
+                          <span class="badge badge-muted">источников {{ b.source_ids.length }}</span>
+                          <span class="badge badge-ok" v-if="b.status === 'confirmed'">confirmed</span>
+                          <span class="badge badge-warn" v-else>{{ b.status }}</span>
+                          <button class="btn-ghost text-xs ml-auto shrink-0"
+                                  title="Сделать protected (не дистиллировать)"
+                                  :disabled="memoryRagBusy"
+                                  @click="dreamProtect(b)">🛡 защитить</button>
+                          <button class="btn-danger text-xs shrink-0"
+                                  title="Мягкое удаление (убрать из контекста)"
+                                  :disabled="memoryRagBusy"
+                                  @click="dreamDelete(b)">🗑</button>
+                        </div>
+                        <div class="text-sm mt-1" :title="b.fact">{{ b.fact }}</div>
+                      </div>
+                    </div>
+                    <details class="mt-3 text-xs">
+                      <summary class="cursor-pointer select-none text-gray-500">
+                        Последние сны (лог дистилляций)
+                      </summary>
+                      <div v-if="dreamLog.length === 0"
+                           class="text-gray-500 py-1">Лог пуст.</div>
+                      <div v-else class="flex flex-col gap-1 pt-1">
+                        <div v-for="l in dreamLog" :key="l.id"
+                             class="flex items-center gap-2 flex-wrap text-xs">
+                          <span class="text-gray-500 shrink-0">{{ fmtTs(l.run_at) }}</span>
+                          <span class="badge" :class="l.status === 'ok'
+                            ? (l.kind === 'distilled' ? 'badge-ok' : 'badge-muted')
+                            : 'badge-warn'">{{ l.kind }}</span>
+                          <span class="text-gray-400">чат {{ l.chat_id }}</span>
+                          <span class="text-gray-500 ml-auto">{{ l.status }}</span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
                 </div>
-                <div class="rounded-lg border border-white/10 px-3 py-2">
-                  <div class="text-sm font-semibold">💀 Dead page</div>
-                  <div class="text-gray-500">реакции на мёртвые страницы/повторы —
-                    вкладка «Функции PERMsoc».</div>
+                <!-- Ностальгия: мини-блок на ОДНОИМЁННОЙ вкладке (10.4 C-4) -->
+                <div v-if="activeModule && activeModule.id === 'mod_nostalgia' && isGlobalAdmin"
+                     class="space-y-4" style="grid-column: 1 / -1;">
+
+                  <!-- Ностальгия: последние срабатывания слоя B -->
+                  <div class="card p-4">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <div class="text-sm font-bold">🌟 Ностальгия</div>
+                      <span class="text-xs text-gray-500">слой B — «кстати…» в тихих чатах</span>
+                      <button class="btn-ghost text-xs ml-auto shrink-0"
+                              :disabled="memoryRagBusy"
+                              @click="loadNostalgiaLog()">⟳</button>
+                    </div>
+                    <div v-if="nostalgiaLog.length === 0"
+                         class="text-xs text-gray-500 py-2">
+                      Пока пусто — срабатываний не было (флаг «Ностальгия:
+                      включён» off или ещё не было поводов).
+                    </div>
+                    <div v-else class="flex flex-col gap-1.5">
+                      <div v-for="n in nostalgiaLog" :key="n.id"
+                           class="flex items-center gap-2 flex-wrap text-xs
+                                  rounded-lg border border-white/10 px-2 py-1">
+                        <span class="text-gray-500 shrink-0">{{ fmtTs(n.ts) }}</span>
+                        <span class="badge" :class="n.status === 'sent'
+                          ? 'badge-ok' : (n.status === 'error'
+                            ? 'badge-err' : 'badge-warn')">{{ n.status }}</span>
+                        <span class="text-gray-400">чат {{ n.chat_id }} · {{ n.kind }}</span>
+                        <span v-if="n.meta && n.meta.reason" class="text-gray-500 ml-auto">
+                          причина: {{ n.meta.reason }}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="rounded-lg border border-white/10 px-3 py-2">
-                  <div class="text-sm font-semibold">🚨 War-алерты · Common-медиа · 🌅 Утренняя рассылка</div>
-                  <div class="text-gray-500">каналы/медиа/рассылки — вкладка
-                    «Функции PERMsoc».</div>
                 </div>
-                <div class="rounded-lg border border-white/10 px-3 py-2">
-                  <div class="text-sm font-semibold">⚙️ Модули (вкл/выкл)</div>
-                  <div class="text-gray-500">рубильники модулей/сервиса — вкладка
-                    «Модули (вкл/выкл)».</div>
-                </div>
-                <div class="rounded-lg border border-white/10 px-3 py-2">
-                  <div class="text-sm font-semibold">🌙 Сон · 📼 Ностальгия</div>
-                  <div class="text-gray-500">синтез убеждений и «кстати…» — их
-                    вкладки в «Настройках AI» (ручной запуск — там же).</div>
-                </div>
-                <div class="rounded-lg border border-white/10 px-3 py-2">
-                  <div class="text-sm font-semibold">📜 Авто-лор · 🧠 Саммари</div>
-                  <div class="text-gray-500">лор — вкладка «Лор чатов» (настройки —
-                    в её «Расширенном» блоке); саммари — «Лимиты»/«Реакции и
-                    Триггеры».</div>
-                </div>
+                <footer class="modal-footer mt-3 flex justify-end">
+                  <button class="btn-ghost text-sm" @click="closeModule()">Закрыть</button>
+                </footer>
               </div>
             </div>
           </template>
@@ -1422,7 +1532,13 @@
               Управление доступом доступно только ролям с правом «access».
             </div>
             <template v-else>
-              <!-- Админы -->
+            <div class="acc" role="tablist" aria-label="Доступы и роли">
+              <button class="acc-head" role="tab" :aria-expanded="isAccessOpen('admins') ? 'true' : 'false'"
+                      aria-controls="acc-admins" @click="setAccess('admins')">
+                Администраторы
+              </button>
+              <section class="acc-panel" id="acc-admins" role="tabpanel"
+                       v-show="isAccessOpen('admins')">
             <!-- Доступы и Роли (hub #/access): якоря для hub-карточек -->
             <div class="card p-4" id="sec-admins">
                 <div class="text-sm font-bold mb-2">Администраторы</div>
@@ -1446,7 +1562,14 @@
                   <button class="btn-accent text-sm" @click="addAdmin()">Назначить</button>
                 </div>
               </div>
+              </section>
 
+              <button class="acc-head" role="tab" :aria-expanded="isAccessOpen('roles') ? 'true' : 'false'"
+                      aria-controls="acc-roles" @click="setAccess('roles')">
+                Матрица ролей
+              </button>
+              <section class="acc-panel" id="acc-roles" role="tabpanel"
+                       v-show="isAccessOpen('roles')">
               <!-- Роли -->
               <div class="card p-4" id="sec-roles">
                 <div class="text-sm font-bold mb-2">Роли</div>
@@ -1489,12 +1612,12 @@
                    секциям мини-аппа + per-param read/write (global admin). -->
               <div class="card p-4" id="sec-matrix" v-if="isGlobalAdmin">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold">🔐 Матрица ролей</div>
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span> Матрица ролей</div>
                   <input class="field w-44 text-xs" type="search"
                          placeholder="Фильтр: ключ или название"
                          v-model="matrixSearch">
                   <button class="btn-ghost text-xs ml-auto"
-                          @click="loadMatrix()">⟳ Обновить</button>
+                          @click="loadMatrix()"><span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span> Обновить</button>
                 </div>
                 <div class="text-xs text-gray-500 mb-2">
                   Чтение/Запись — для ролей <b>user</b>, <b>moderator</b>,
@@ -1560,7 +1683,14 @@
                   </div>
                 </template>
               </div>
+              </section>
 
+              <button class="acc-head" role="tab" :aria-expanded="isAccessOpen('local') ? 'true' : 'false'"
+                      aria-controls="acc-local" @click="setAccess('local')">
+                Локальные админы
+              </button>
+              <section class="acc-panel" id="acc-local" role="tabpanel"
+                       v-show="isAccessOpen('local')">
               <!-- Раунд 10 (F-7 T-857): «Локальные админы чата» — доступы
                    активного чата (X-Chat-Id; global admin + local admin) -->
               <div class="card p-4" id="sec-local">
@@ -1601,6 +1731,8 @@
                   </div>
                 </template>
               </div>
+              </section>
+            </div>
 
               <!-- Раунд 10 (F-7 T-857): «Мой доступ» -->
               <div class="card p-4" v-if="accessMy">
@@ -2406,10 +2538,10 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'info'">
-            <!-- ═══ ℹ️ Как это работает ═══ -->
+            <!-- ═══ "Как это работает" ═══ -->
             <div class="card p-5" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-3">
-                <div class="text-sm font-bold">ℹ️ Как это работает</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('help') }}</span> Как это работает</div>
                 <span v-if="infoMeta && infoMeta.updated_at" class="text-xs text-gray-500">
                   обновлено {{ fmtLogTs(infoMeta.updated_at) }}
                 </span>
@@ -2441,7 +2573,6 @@
             </div>
           </template>
         </main>
-      </div>
     </div>
 
     <!-- Модалка подтверждения control -->

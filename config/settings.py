@@ -373,6 +373,14 @@ class Settings:
     SUMMARY_RETRY_ONCE_PAUSE: float = _env_float_min("SUMMARY_RETRY_ONCE_PAUSE", 5.0, 0.0)
     # Feature switch: False = routers not registered, бот работает как раньше.
     SUMMARY_ENABLED: bool = _env_bool("SUMMARY_ENABLED", True)
+    # ── Раунд 10.6 (T-1201, A1/D1): 5 master-флагов модулей, default ON ──
+    # Гейтят выполнение в своих handler-точках (spec §5.3); ON = прежнее
+    # поведение байт-в-байт. Группы: см. services/param_catalog.py _FLAGS.
+    FACTCHECK_ENABLED: bool = _env_bool("FACTCHECK_ENABLED", True)
+    SEARCH_ENABLED: bool = _env_bool("SEARCH_ENABLED", True)
+    VIDEO_SUMMARY_ENABLED: bool = _env_bool("VIDEO_SUMMARY_ENABLED", True)
+    WEBPAGE_ENABLED: bool = _env_bool("WEBPAGE_ENABLED", True)
+    CHECKUP_ENABLED: bool = _env_bool("CHECKUP_ENABLED", True)
     # L1: окно генерации (часы).
     SUMMARY_WINDOW_HOURS: float = _env_float("SUMMARY_WINDOW_HOURS", 6.0)
     # L2: хранение сырых сообщений (дни), дальше — сжатие в L3.
