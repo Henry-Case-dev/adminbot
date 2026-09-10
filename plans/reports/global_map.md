@@ -1,7 +1,8 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
-> HEAD == origin/master == d30b203 (10.2 deployed, 2026-09-09).
+> HEAD == 0bdf272 (10.4) + рабочее дерево 10.5 (tma-relume-redesign, 2026-09-10).
+> origin/master == 0bdf272 (10.4 deployed; 10.5 — не задеплоен, сканирование).
 
 ## Stack
 - **aiogram 3.31** (polling) + **FastAPI** webapp (`web/app.py`) + **asyncpg** (PG) + **aiosqlite** (memory v8). APP_VERSION=2.51.0.
@@ -265,3 +266,55 @@ bot.py
   dm=False + set_chat_params (запись только отсутствующих ключей; expected_updated_at=None;
   --dry-run). Overrides: 14 × множитель (скрипт; 2 ключа с Settings=None — SKIP: см. отчёт).
 - **Скрипты/отчёты**: plans/reports/round10.4_review_fixes.md — отчёт ревью-фиксов Builder.
+
+## Round 10.5 map additions (tma-relume-redesign, HEAD 0bdf272 + working tree)
+
+- **Каталог**: `services/param_catalog.py` += `_MODELS_PG_ONLY` (4 PG-only записи:
+  `models.groq_base_url`, `models.groq_transcribe_model`, `models.openrouter_base_url`,
+  `models.openrouter_transcribe_model`; group `models_extra_providers`, `settings_field=None`,
+  `code_source` = код-литерал). Итог: **REGISTRY 387 / GROUPS 74 / Settings 359**.
+  Сид в PG — `pg_db._seed_settings` (resolve_code_source → `INSERT … ON CONFLICT DO NOTHING`,
+  safe migration: существующие keys.* не перезатрёт).
+- **Key-availability (B1/OD8/OD12/OD19)**: новый `services/key_history.py` — `KeyHistory`
+  (in-memory `deque(maxlen=288)`, 5-мин слот, персист `var/status_key_history.json`,
+  атомарный `tmp`+`os.replace`, права 0o600/0o700, allowlist `module_id/provider/model/
+  samples{ts,ok,http_status}`). Singleton `services.status_service.key_history`.
+  `status_service.llm_registry()` += `module_id/module_title/model_source`; `_build_llm_card`
+  → `key_history.record(...)`; `build_snapshot` → `key_history.maybe_save()` (1/5 мин).
+  API: `GET /api/status/key-history` (any TMA user) → `key_history.api_payload()`.
+  `conftest.py` — M6: `STATUS_KEY_HISTORY_FILE` → temp (тесты не пишут в `var/`).
+- **Data-driven модели (OD11/OD16)**: `groq_transcriber`/`openrouter_transcriber`/
+  `video_cascade_client` читают `models.*_base_url`/`models.*_transcribe_model` через
+  `hot.get(pg_key, <прежний литерал>)`; клиенты инвалидируются и по смене base_url
+  (`_client_base`). Литералы — документированный дефолт (safe migration).
+- **Rename/Delete ролей (OD15)**: `web/api/routes.py` — `DELETE /api/roles/{name}`,
+  `POST /api/roles/{name}/rename` (superuser→403, builtin→409, занятая/wildcard→409);
+  `services/config_cache.py` — `rename_role` (транзакция: INSERT SELECT + UPDATE bot_admins
+  + scrub + DELETE), `role_usage`, `_scrub_param_permissions` (DML-only, ноль DDL).
+  `get_roles` += `role_type`. UI: `canEditRole`/`isSuperuserRole`/`renameRole`/`deleteRole`.
+- **Матрица ролей (OD10)**: `web/api/access.py::param_permissions_list` +=
+  `tab/tab_title/group/group_title/group_order/category/title/secret`; UI
+  `loadMatrix/matrixSections` (секция = config-вкладка `TAB_SECTION_ORDER`, группы по
+  `group_order`, read/write `user/moderator/local_admin`). Только global admin.
+- **Hash-роутер + navbar/hub (OD1/OD13/T-1099/T-1100)**: `web/app.js` — `ROUTE_TO_TAB`/
+  `TAB_TO_ROUTE`/`ROUTE_PARENT`/`ROOT_ROUTES`/`HUBS`/`NAV_ITEMS` (6 пунктов эталона),
+  `normalizeRoute` (только `#/`), `initialRoute` (`#/`→sessionStorage→`#/`),
+  `hashchange` — единственный применитель, `applyRoute` (hub-aware RBAC), `goBack`
+  (по parent, без history.back), `initBackButton` (`BackButton.onClick` 1 раз, guard
+  Bot API 6.1+), `syncBackButton` (depth>0 → show). `__TMA_BACK__=true`, `__TMA_DEEPLINK__=false`.
+- **Scope-switcher (OD7/T-1127)**: `scopeKind/scopeLabel/scopeOptions/scopeTrigger*`,
+  `toggleScope/scopeMove/scopePickFocused/pickScope/isScopeSelected/ensureScopeAvatars`;
+  `setActiveChat` += `scopeEpoch++` + сброс chat-scoped состояния + relations-reload.
+  Все chat-scoped загрузчики — `_scopeGuard(epoch)` в success/catch/finally (R1/R2/R3).
+- **Дизайн-токены (OD4/OD5)**: `web/index.html` — токен-слой (`--surface-*`, `--teal-500`
+  и пр.), `@property --grad-angle inherits:false`, `grad-spin`/`grad-drift`,
+  `prefers-reduced-motion`/`prefers-contrast`; удалён hardcode `#8b5cf6/#3b82f6/#2b2b40`.
+  `@font-face` Material Symbols Rounded (субсет `web/static/fonts/material-symbols-rounded.woff2`
+  13 428 B + LICENSE); `app.js ICONS` — 26 PUA-кодов (сверено с код-каноном и cmap субсета).
+  Self-host `web/static/vendor/dompurify-3.4.15.min.js`; `sanitizeHtml` fail-CLOSED.
+  `web/app.py` монтирует `/static` (`CacheControlStaticFiles`, RuntimeError-guard).
+- **Гигиена**: `.gitignore` += `relumesite_example/`, `MaterialSymbolsRounded*.woff2`,
+  `var/`, `build/`; `scripts/build_font_subset.py` + `scripts/requirements-font.txt`
+  (build-time only, `fonttools`/`brotli` НЕ в runtime).
+- **Отчёты**: `plans/reports/round10.5_scanner_audit.md` (0 блокеров / 0 major,
+  2 minor + 5 info); `full_audit_results.md` §Round 10.5; `audit_backlog.md` (10.5).

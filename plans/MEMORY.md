@@ -195,6 +195,207 @@
 > фаза — @PM); коммит/деплой + прогон обоих бэкфилов (@DevOps) — финальный шаг раунда.
 > **Финальный синк KG/графа, статусов милстоуна `round10.4-epic` и архивирование —
 > шаг 10 @Memory.**
+> **Синк STEP 10 (финал, post-commit+деплой) 10.09.2026: раунд 10.4 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН** — HEAD == origin/master == `0bdf272` (feat(admin,web,chat,api):
+> раунд 10.4 — реструктуризация админки (Модули/PERMsoc/Память/Сон/Ностальгия/
+> Провайдеры/Отношения), бюджеты per-чат и температура-select, имена людей
+> per-чат/ЛС, каскад имён, лимиты ×1.5-×2 для -1002661910336); тесты **4860 passed /
+> 0 failed** (4831 → +29), @Reviewer APPROVED, Scanner 10.4 **0 blocker/major**
+> (minor/info R10.4-1…R10.4-7 → ARCHITECTURE.md §25; R10.4-1/-2/-3 закрыты follow-up
+> и сверены); деплой 10.09.2026 (198.46.175.136): git pull, **.env +=
+> CHAT_THREAD_MAX_CHARS=2000**, **бэкфилы применены** — backfill_104_chat_flags.py
+> (флаг бюджетов OFF для -1002661910336) + backfill_104_overrides.py
+> (15 ключей ×1.5–×2), рестарт, bot active; ARCHITECTURE.md §24 (карта вкладок/
+> бюджеты/каскад имён) + §25 (техдолг R10.4-*, B-13 points 2-4, HIGH-004-остаток);
+> 8 фич заархивированы (@PM) — plans/archive/ **26 папок**, plans/features/ снова
+> 6 активных F-1…F-6; README тесты 4860; граф обновлён (round10.4-epic →
+> **COMPLETED+DEPLOYED**, 8 фич → ARCHIVED_IN/WAS_PART_OF, HAS_PLAN/PLANNED_IN/
+> ARCHITECTED_IN удалены, создан `tech-debt-round10.4`). Цикл раунда полностью закрыт.
+> **Синк STEP 3 (планирование 10.5) 10.09.2026:** раунд 10.5 «Редизайн TMA по
+> референсу Relume + гигиена репозитория» распланирован и **ЗААРХИТЕКТИРОВАН** —
+> фича **`tma-relume-redesign`** (`plans/features/tma-relume-redesign/`):
+> `tasks.md` @PM (T-1066…T-1089, продолжает T-1065), `reference-analysis.md` @PM
+> (recon-разбор референса, стадия ANALYSIS), `spec.md` @Architect (686 строк,
+> §0–§11). Референс `relumesite_example/` — статический Relume-экспорт (15 страниц,
+> 0 input/form/table) ⇒ редизайн визуальный + IA, не функциональный порт; ~90%
+> функциональности уже есть (18 вкладок в 5 секциях MENU_ORDER). T-1066 (гигиена)
+> **ВЫПОЛНЕНО** — `.gitignore += relumesite_example/` (отдельный раздел),
+> `media/` НЕ тронут (политика project.md). ⏸ Решения **D1–D8** требуют владельца
+> (рекомендации @Architect: C hybrid / поэтапно / остаться на Vue3 global / палитра
+> P3 teal `#14CBB6` на dark `#161616` / emoji now + Material Symbols follow-up /
+> Чат-Профиль на усмотрение / B1-B2 отложить / hash-роутинг при C); секция E
+> (реализация) заблокирована до апрува D1 (T-1076). Конфликт-матрица с F-1…F-6:
+> **F-4 frontend-admin-bugfixes (Баг-4) — ПОСЛЕ редизайна 10.5**, F-1/F-2/F-3/F-5
+> независимы, F-6 SUPERSEDED_BY round10.4. Граф обновлён (Step 3): entity
+> `tma-relume-redesign` обогащена (+5 наблюдений: артефакты, инварианты/фазы/AC,
+> `.gitignore`-гигиена, D1–D8, конфликт-матрица; дублей нет — добавлено в
+> существующую сущность @Architect), создано 7 связей: `AdminBot HAS_PLAN
+> tma-relume-redesign`, `CONFLICTS_WITH plans/features/frontend-admin-bugfixes`,
+> `RELATED_TO` ×5 (post-deploy-admin-minors, admin-debug-webview,
+> scam-incident-security-followup, config-read-path-audit, user-aliases-admin).
+> Следующий шаг — решение владельца D1–D8 → @Builder секция E.
+> **Синк STEP 3 (design-project) 10.09.2026 (вечер):** главный deliverable раунда
+> 10.5 ГОТОВ и находится на **GATE** — `plans/features/tma-relume-redesign/design-project.md`
+> (835 строк, RU, §0–§14; статус 🟡 DESIGN/GATE). `spec.md` → **v2** (согласован с
+> решениями владельца **OD1–OD6**, которые отменяют/заменяют рекомендации spec v1 и
+> прежние D1–D8); `tasks.md` секция **E (T-1090…T-1097) ✅ ВЫПОЛНЕНО**; секции
+> **F/G (T-1098…T-1118) ⛔ заблокированы до явного апрува владельцем**. **OD1–OD6
+> (LOCKED):** OD1 навигация = **вариант B, ПОЛНЫЙ ребейлд** по модели эталона
+> (navbar 6 пунктов + hub-карточки + отдельные экраны); OD2 **big-bang всё сразу**
+> (внутренний порядок токены→shell/navbar→hubs→15 экранов→QA); OD3 **та же
+> технология** (Vue3 global / zero-build, единый `index.html`+`app.js`); OD4 палитра
+> эталона как база + **АНИМИРОВАННЫЕ плавные градиенты** (reduced-motion + WCAG AA);
+> OD5 **Material Symbols Rounded** primary + карта emoji-fallback; OD6 **структура
+> эталона = ЭТАЛОН** композиции (15 страниц). **КРИТИЧНО:** hash-роутинг обязателен
+> (следствие OD1+OD3); Telegram кладёт `initData` в `window.location.hash`
+> (`#tgWebAppData=...`) — читать/кэшировать **ДО** первой записи `location.hash`,
+> парсить только роуты с префиксом `#/`, **vue-router НЕ использовать** (ломает
+> кодирование `tgWebAppData`, vuejs/router#2155). **Верифицированная коррекция:**
+> в приложении **17 вкладок** `TABS` (`web/app.js:18-145`), а НЕ 18 (off-by-one в
+> `tasks.md`/`spec.md`); паритет — «0 бездомных» из 17. **Предложения (§10):**
+> **ADD A1–A10** (initData-guard, Telegram BackButton+deep-link, единые
+> empty/error/retry, hub-карточки+drill-down, self-host subset Material Symbols,
+> prefers-contrast:more, тема-переключатель 4 схемы, quick-search, скелетоны
+> relations, breadcrumb); **REMOVE R1–R7** (sidebar как primary nav, хардкод
+> `#8b5cf6/#3b82f6/#2b2b40`+Tailwind-токены, дубль локальных админов в `chat_lore`,
+> emoji как основные иконки, отдельная navbar-секция «Чат-Профиль», Tailwind CDN
+> runtime, 409 no-op reload); **OPTIMIZE O1–O7** (`@property inherits:false` → до
+> 848% быстрее recalc, ограничение площади анимации + `contain:paint`, ленивые
+> аватары R10.4-4, кэш params-meta/chats, namespace-модульность без разбиения файла,
+> DM models read-only, единый fetch-слой); **NOT DO N1–N5** (bundler/vue-router,
+> backend B1/B2, текст на движущемся градиенте, анимация за таблицами/формами/логами,
+> изменения param_catalog/settings/SQLite v8/PG-DDL/порядок `bot.py`). Открыты
+> **D6** (реком. свернуть «Чат-Профиль» в AI-hub), **D7** (реком. отложить B1/B2,
+> B3 опц.), **D8** (реком. включить BackButton/deep-link). Exa-research успешен
+> (6 тем: docs.telegram-mini-apps.com, core.telegram.org, W3C WCAG 2.3.3, web.dev
+> @property, MDN, Google Fonts Material Symbols, admin IA). Граф обновлён:
+> `tma-relume-redesign` +4 наблюдения (deliverable/status+GATE, OD1–OD6, proposals
+> A/R/O/N, gotcha initData/17-vs-18); relation `HAS_DESIGN_PROJECT →
+> tma-relume-redesign-design-project`; дублей нет (Voxy-сущности не затронуты,
+> ничего не удалено). **Следующий шаг — владелец: D6/D7/D8 + GO → @Builder T-1098.**
+> **Синк STEP 3 (догон, T-1119/T-1120) 10.09.2026 (вечер, @Memory):** доуточнения
+> проекта по обратной связи владельца **ВЫПОЛНЕНЫ** — `tasks.md` секция **E2**:
+> **T-1119 ✅** (Exa-research back-навигации) и **T-1120 ✅** (plain-language
+> разъяснения D6 + B1/B2/B3); `design-project.md` (1105 строк) обновлён: **§0 TL;DR**
+> (+п.9 «back без своей кнопки»), **§6.4 переписан** (нативный `Telegram.WebApp.BackButton`:
+> `show()` на глубине >0 заменяет ✕ на ←, `hide()` на корне возвращает ✕ — один header-слот,
+> конфликта нет; мы владеем history/stack, Telegram — header+OS-back; Android hardware-back
+> эмитит `back_button_pressed` только при `is_visible=true`, иначе закрывает WebView;
+> `onClick` регистрируется ОДИН раз → `goBack()` = детерминированный parent-route, НЕ
+> `history.back()`, без popstate; единственный applier = `hashchange`; Bot API 6.1+),
+> **§11** (+ **§11.1 D6**, + **§11.2 D7**), **§12** (Exa расширен **6→7 тем** + источники
+> **§12.7**), **§13** (AC-5 routing переформулирован под нативный BackButton, AC-9 —
+> Scanner re-check), **§14 GATE**. Новый маркер-тест `test_webapp_back_button` (§9.4).
+> Тумблеры: `__TMA_BACK__=true` (решено), `__TMA_DEEPLINK__` (ждёт владельца, default false).
+> **Статусы решений:** **D8 — RESOLVED-in-intent** (back-навигация подтверждена владельцем,
+> паттерн определён); **D6/D7 — OPEN** (ждут решения владельца; рекомендации: свернуть
+> «Чат-Профиль» в «Настройки AI» — 6 navbar-пунктов как в эталоне; B1/B2 отложить, B3
+> опционально). **GATE остаётся ЗАКРЫТ** — 0 кода, реализация (F/G) не стартует до явного
+> GO владельца + решения deep-link. Репо: HEAD `0bdf272`, worktree dirty (`.gitignore`,
+> `plans/MEMORY.md`, `plans/backlog.md` modified; `plans/features/tma-relume-redesign/`
+> untracked). Граф: обновлены `tma-relume-redesign`, `tma-relume-redesign-design-project`,
+> `TMA BackButton navigation pattern`, `D6 D7 plain-language clarifications` (только
+> добавление наблюдений; дублей нет; Voxy-сущности не затронуты).
+> **Синк STEP 3 (v3, секция E3 — OD7–OD10) 10.09.2026 (поздний вечер, @Memory):** главный
+> deliverable раунда 10.5 обновлён до **v3** — `design-project.md` **1105 → 1817 строк**,
+> добавлен **§15** (15.1 scope-switcher/OD7, 15.2 key-availability/OD8, 15.3
+> role-matrix/OD10, 15.4 font-delivery/D11, 15.5 deep-link/D9, 15.6 Q-NEW-1..5, 15.7
+> трассировка E3); обновлены §0/§2/§3/§5/§7/§10/§11/§12/§13/§14. `tasks.md`
+> **T-1121…T-1126 ✅ done (E3)**; `spec.md` согласован (v3-указатель, v2 частично
+> SUPERSEDED). **OD7–OD10:** OD7 «Чат-Профиль» = глобальный scope-switcher GLOBAL/ЧАТ/ЛС
+> (не 7-й nav-пункт); OD8 B1 key-availability В СКОУПЕ (in-memory ring, без PG-DDL/
+> SQLite v8); OD9 B2 custom-modules CRUD OUT (read-only); OD10 B3 role-matrix В СКОУПЕ и
+> расширена (per-param read/write + role CRUD). **Q-NEW-1..5** (каталог 383→385?;
+> key-history in-memory vs persisted; deep-link; файл шрифта; delete/rename ролей?) и
+> **D9/D11** открыты владельцу; font-delivery spec готова (§15.4: self-host woff2 subset
+> `web/static/fonts/`, `@font-face`, CSP `font-src 'self'`, ~2–15 КБ, emoji-fallback).
+> **GATE ЗАКРЫТ: 0 кода**, T-1127+ (F4) и F/G не стартуют без GO владельца. Граф обновлён:
+> добавлены наблюдения в `tma-relume-redesign` (+5), `tma-relume-redesign-design-project`
+> (+1), `tma-relume-redesign v3 design-project` (+7: §15-карта, Q-NEW, трассировка, gate);
+> связи — `v3 SUPERSEDES design-project`, `tma-relume-redesign HAS_DESIGN_PROJECT v3`,
+> `OD7-OD10 owner decisions DECIDES tma-relume-redesign`. Дублей нет; Voxy-сущности не
+> затронуты; удалений нет.
+> **Синк STEP 3 (v4, секция E4 — OD11–OD15, T-1136…T-1138) 10.09.2026 (@Memory):**
+> главный deliverable раунда 10.5 ревизован **v3 → v4** — `design-project.md`
+> **1817 → 2119 строк**, добавлен **§16** (16.1 hardcode-аудит H1–H22; 16.2 замеры
+> шрифта; 16.3 персистентность истории; 16.4 роли; 16.5 **Q1–Q4**; 16.6 Scanner);
+> обновлены шапка/§0 (пп.12–17)/§5.2/§6.4.5/§10.4 N5/§11/§13 (**AC-14…AC-18**)/
+> §14/§15.2/§15.3/§15.4/§15.5/§15.8. `tasks.md` секция **E4 (T-1136/T-1137/T-1138)
+> ✅ ВЫПОЛНЕНО**; **T-1139…T-1142 (F5, реализация OD11–OD15) ⛔ заблокированы до GATE**.
+> `spec.md` согласован (v4). **0 кода.** **Итоги:** (OD11) исчерпывающий аудит —
+> **9 активных P0-хардкодов / 4 уникальных значения** (Groq/OpenRouter base_url +
+> STT-модели whisper-large-v3 / openrouter/free) в `services/status_service.py`,
+> `SmartModule/transcriber/{groq,openrouter}_transcriber.py`, `services/video_cascade_client.py`;
+> миграция **аддитивная** `hot.get(key, literal)` (дефолт = текущая константа ⇒ вывод
+> идентичен, существующие значения не меняются); санкционированное исключение
+> **param_catalog +2 PG-only записи STT → REGISTRY 385 / GROUPS 74 / Settings 359**
+> (было 383/74/359), сид `code_source` + `ON CONFLICT DO NOTHING`; P1 — дефолт-фолбэки
+> (не трогать), P2 — фикс-endpoint'ы, T — tooling. (OD12) история доступности ключей
+> **персистится**: in-memory ring + **атомарный JSON-снимок `var/status_key_history.json`**
+> (gitignored, 288 точек/провайдер, R17-safe) — **0 PG-DDL, SQLite остаётся v8** ⇒
+> **исключение у владельца НЕ требуется**. (OD13) **deep-link OFF** — D9 CLOSED,
+> `__TMA_DEEPLINK__=false`, задач реализации нет. (OD14) шрифт
+> `MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2` **инспектирован T-1137**:
+> валидный WOFF2, Material Symbols Rounded v2.967, 6607 глифов / 4277 лигатур,
+> оси `FILL 0..1 / GRAD -50..200 / opsz 20..48 / wght 100..700`, **26/26 иконок**,
+> Apache-2.0, но **5.36 МБ (5.11 МиБ) = не shippable** ⇒ обязателен субсет
+> (`pyftsubset`): all-axes 36.3 КБ, **FILL-only 5.5 КБ**, **FILL+wght 13.2 КБ
+> (рекомендован)**, static 3.7 КБ; **КРИТИЧНО:** `--unicodes-file` **теряет лигатуры**
+> (`rlig/rclt→0`) ⇒ иконки рендерятся **PUA-кодпоинтом** (`&#xE850;`), а не текстом-именем;
+> `--text` сохраняет лигатуры, но 4.03 МиБ (отвергнут); источник 5.11 МиБ **не
+> коммитить** (`.gitignore`), коммитим субсет ~13.2 КБ + Apache-2.0 LICENSE; build-time
+> зависимости `fonttools`+`brotli` (не рантайм). (OD15) **rename/delete ролей разрешены,
+> КРОМЕ superuser** (жёсткая защита 403/409 + UI disabled; встроенные/занятые — нельзя).
+> Открыты владельцу только **4 не-блокирующих выбора Q1–Q4** (base-url UI +2 записи
+> → 387?; `fonttools`+`brotli` как build-dep?; 5.11 МиБ источник вне git?; файл
+> `var/status_key_history.json`?). **GATE по-прежнему ЗАКРЫТ: 0 кода**, старт
+> реализации (F/F4/F5/G) — только после общего GO владельца на v4. Граф обновлён:
+> создана сущность **`tma-relume-redesign v4 design-project`** (+11 наблюдений) и
+> **`OD11-OD15 owner decisions`** (+7); добавлены наблюдения в `tma-relume-redesign`
+> (+2) и `tma-relume-redesign v3 design-project` (+1, SUPERSEDED); связи —
+> `v4 SUPERSEDES v3`, `tma-relume-redesign HAS_DESIGN_PROJECT v4`,
+> `v4 implements OD11-OD15`, `OD11-OD15 DECIDES tma-relume-redesign`.
+> Дублей нет; Voxy-сущности не затронуты; удалений нет.
+> **Синк STEP 3 (v5, секция E5 — OD16–OD19, T-1144) 10.09.2026 (@Memory):**
+> главный deliverable раунда 10.5 ревизован **v4 → v5** — `design-project.md`
+> **2119 → 2312 строк**, добавлена трассировка **§16.7 (E5)**; обновлены
+> шапка/§0/§3/§9/§10/§11/§13/**AC-19/AC-20**/§14/§15.2/§15.3/§15.4/§16.1–§16.7.
+> `tasks.md` секция **E5 (T-1144) ✅ ВЫПОЛНЕНО** (pre-gate, 0 кода, landing notes);
+> **T-1145…T-1148 (F6, реализация OD16–OD19) ⛔ заблокированы до GATE**.
+> `spec.md` согласован (v5). **Итоги:** **(OD16)** адреса провайдеров
+> (`base_url` Groq/OpenRouter) **ОБЯЗАТЕЛЬНЫ в UI** — провайдер, модель и адрес
+> редактируемы из мини-аппа, владелец **переключает провайдера И модель**; отменяет
+> прежнее «base_url hot-only» (§15.2.2/§16.5 Q1); **+2 PG-only записи каталога**
+> `models.groq_base_url` = `https://api.groq.com/openai/v1`,
+> `models.openrouter_base_url` = `https://openrouter.ai/api/v1` ⟹ каталог-финал
+> **REGISTRY 387 / GROUPS 74 / Settings 359** (383 → +2 STT OD11 → 385 → +2 адреса
+> OD16 → **387**; миграция аддитивная, значения не меняются, `GET /api/status.llm[]`
+> байт-идентичен, R17 — адрес НЕ секрет). **(OD17)** `fonttools`+`brotli` —
+> **build-time only** (в runtime `requirements.txt` не входят). **(OD18)** тяжёлый
+> источник шрифта **5.11 МиБ** → **`.gitignore`** (в git только субсет ~13.2 КБ +
+> `LICENSE` Apache-2.0; на 10.09.2026 файл **untracked и ещё НЕ ignored** ⟹ T-1147
+> добавит паттерн). **(OD19)** `var/status_key_history.json` **утверждён** с
+> **обязательной leak-safety-верификацией**: allowlist-схема (module id, provider,
+> model, key-configured bool, HTTP-код, timestamp, version, generated_at); запрет
+> сырых ключей/токенов/`Authorization`/`Bearer`/`sk-`/`gsk_`/cookies/`initData`/
+> credentials-in-`base_url`/тел LLM; права 0600 (каталог 0700); gitignored; **не
+> отдаётся `GET /api/config`** и **не пишется в логи/`log_ring`/BetterStack**;
+> атомарная запись (tmp + `os.replace`); corrupt/missing → пустая история + WARNING
+> (fail-open). AC: grep-маркер (нет паттернов ключей) + unit-сериализатор +
+> проверка прав + `git check-ignore` + выживание рестарта; **R17 доказан**.
+> Scanner E5: `plans/reports/` — новых отчётов по 10.5 нет (последний — Round 10.4,
+> 0 blocker/0 major); учтены MED-017/MED-021/LOW-012/R10.4-2/-4/-5, MED-003
+> подтверждает OD16. **ВСЕ решения закрыты (D6–D12 = OD7–OD15; Q1–Q4 = OD16–OD19)** —
+> открытых вопросов/выборов НЕ осталось. **GATE по-прежнему ЗАКРЫТ: 0 кода**;
+> реализация (F/F5/F6/G, T-1098…T-1148) стартует только после **явного общего GO
+> владельца на v5**. Граф обновлён: созданы сущности
+> **`tma-relume-redesign v5 design-project`** (+10 наблюдений) и
+> **`OD16-OD19 owner decisions`** (+6); добавлены наблюдения в `tma-relume-redesign`
+> (+1) и `tma-relume-redesign v4 design-project` (+1, SUPERSEDED); связи —
+> `v5 SUPERSEDES v4`, `tma-relume-redesign HAS_DESIGN_PROJECT v5`,
+> `v5 implements OD16-OD19`, `OD16-OD19 DECIDES tma-relume-redesign`.
+> Цепочка SUPERSEDES: **v5 → v4 → v3**. Дублей нет; Voxy-сущности не затронуты;
+> удалений нет.
 
 ## Активные фичи (plans/features/)
 
@@ -204,26 +405,83 @@
 | `scam-incident-security-followup` (F-3) | Секьюрити-фоллоу-ап после скам-инцидента 30.08 |
 | `frontend-admin-bugfixes` (F-4) | Багфиксы админ-минги и `<Красивые ссылки>` |
 | `config-read-path-audit` (F-5) | Аудит read-путей: settings.X vs hot.get |
-| `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master) |
+| `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
-| `frontend-advanced-collapse-default` (D) | «Расширенные» свёрнуты по умолчанию (T-1018…T-1023) — → Merge Phase |
-| `frontend-memory-sleep-nostalgia` (C) | «Память» + отдельные «Сон»/«Ностальгия» (T-1006…T-1017) — → Merge Phase |
-| `frontend-llm-providers-layout` (E) | LLM Провайдеры: 4 секции (модели→ключи→фолбэк→расширенные) (T-1024…T-1032) — → Merge Phase |
-| `frontend-reorg-modules-reactions` (A) | Реакции→PERMsoc (17 групп), «Модули», лор-настройки (T-974…T-989) — → Merge Phase |
-| `frontend-limits-temperature-budgets` (B) | Бюджет-флаг per-chat, select-температура, «Имена людей» (T-990…T-1005) — → Merge Phase |
-| `frontend-relations-participants` (F) | «Участники и отношения» — отдельная вкладка (T-1033…T-1044) — → Merge Phase |
-| `backend-relations-nickname` (H) | username для ВСЕХ строк каскада имён (T-1057…T-1065) — → Merge Phase |
-| `backend-chat-1002661910336-scaling` (G) | per-chat overrides лимитов для -1002661910336 (T-1045…T-1056) — → Merge Phase |
 
-> **Раунд 10.4 (10.09.2026): 8 фич IMPLEMENTED → Merge Phase** — spec.md @Architect,
-> tasks.md @PM (T-974…T-1065, порядок D → C → E → A → B → F → H → G выполнен);
-> @Reviewer APPROVED, Scanner-аудит **0 blocker/major** (R10.4-1…R10.4-7 →
-> ARCHITECTURE.md §25; R10.4-1/-2/-3 закрыты follow-up), pytest **4860 passed**;
-> REGISTRY 383/**74**/359 без изменений (MED-017; счётчик групп исправлен в §9/§23
-> — +3 группы ре-дизайн 10.2 BUG-3); архивирование — шаг @PM после коммита/деплоя
-> (финальная фаза раунда). Конфликты: F-1 PRECEDES B/G — учтён; F-3 T-663 + F-4
-> Баг-4 — AFTER раунда; F-5 — AFTER B/G; F-6 — SUPERSEDED_BY (см. конфликт-матрицу
-> backlog.md «Раунд 10.4»).
+> **Раунд 10.4 — 8 фич ЗАВЕРШЁН и ЗААРХИВИРОВАН (10.09.2026)** — см. раздел
+> «Раунд 10.4 — финал» ниже; их спеки — в `plans/archive/`
+> (frontend-advanced-collapse-default, frontend-memory-sleep-nostalgia,
+> frontend-llm-providers-layout, frontend-reorg-modules-reactions,
+> frontend-limits-temperature-budgets, frontend-relations-participants,
+> backend-relations-nickname, backend-chat-1002661910336-scaling);
+> конфликт-матрица backlog.md «Раунд 10.4»: F-1 PRECEDES B/G — учтён; F-3 T-663 +
+> F-4 Баг-4 + F-5 — остаются ПОСЛЕ раунда (фичи активны); F-6 — SUPERSEDED_BY
+> round10.4-epic (подтверждена; папка F-6 остаётся в plans/features/).
+
+> **Раунд 10.5 — DESIGN-PROJECT v3 ГОТОВ, на GATE (10.09.2026, поздний вечер)** — активная
+> фича `tma-relume-redesign` в `plans/features/`: решения владельца **OD1–OD6 LOCKED**
+> (полный ребейлд по эталону / big-bang всё сразу / Vue3 global zero-build /
+> анимированные градиенты + reduced-motion + WCAG AA / Material Symbols Rounded +
+> emoji-fallback / структура эталона = эталон) + **OD7–OD10 LOCKED** (OD7 «Чат-Профиль» =
+> глобальный scope-switcher GLOBAL/ЧАТ/ЛС, НЕ 7-й nav-пункт; OD8 B1 key-availability
+> В СКОУПЕ (in-memory ring, без PG-DDL/SQLite v8); OD9 B2 custom-modules CRUD OUT;
+> OD10 B3 role-matrix В СКОУПЕ и расширена). Главный deliverable —
+> **`design-project.md` v3 (1817 строк, RU, §0–§15, статус 🟡 DESIGN/GATE)**; `spec.md`
+> согласован (v3-указатель, v2 частично SUPERSEDED); `tasks.md` секция
+> **E/E2/E3 (T-1090…T-1126) ✅ ВЫПОЛНЕНО**; **T-1127…T-1133 (F4) + F/G ⛔ заблокированы
+> до явного апрува владельцем**. **§15 (E3):** 15.1 scope-switcher/OD7, 15.2
+> key-availability/OD8, 15.3 role-matrix/OD10, 15.4 font-delivery/D11, 15.5 deep-link/D9,
+> 15.6 **Q-NEW-1..5**, 15.7 трассировка. **Открыто владельцу:** Q-NEW-1 (+2 строки каталога
+> 383→385?), Q-NEW-2 (key-history in-memory vs persisted), Q-NEW-3 (deep-link, реком. OFF),
+> Q-NEW-4 (файл шрифта, emoji до поставки), Q-NEW-5 (delete/rename ролей?), **D9**
+> (`__TMA_DEEPLINK__`=false), **D11** (шрифт поставляет владелец) + **GO на реализацию**.
+> **RESOLVED:** D6/D7 → OD7–OD10; D8 — back через нативный `BackButton` (`__TMA_BACK__`=true).
+> `.gitignore += relumesite_example/` (T-1066); `media/` НЕ тронут. **Коррекция:** 17 вкладок
+> `TABS` (`web/app.js:18-145`), не 18. Конфликт-матрица: **F-4 frontend-admin-bugfixes
+> (Баг-4) — ПОСЛЕ 10.5** (редизайн меняет карту вкладок); F-1/F-2/F-3/F-5
+> независимы; F-6 SUPERSEDED_BY round10.4. Спека референса — `relumesite_example/`
+> (gitignored). Детали — KG `tma-relume-redesign` + `tma-relume-redesign v3 design-project`.
+> (Блок выше — исторический снимок v3; актуальный статус — ниже.)
+
+> **Раунд 10.5 — DESIGN-PROJECT v4 ГОТОВ, на GATE (10.09.2026, E4/OD11–OD15)** — активная
+> фича `tma-relume-redesign` в `plans/features/`: **OD1–OD10 LOCKED** (см. блок v3 выше)
+> + **OD11–OD15 LOCKED** (ответы владельца на §15.6 Q-NEW-1..5): **OD11** — ноль
+> захардкоженных моделей (аудит T-1136: 9 P0-хардкодов, аддитивная миграция без смены
+> значений, `REGISTRY 385 / 74 / 359`); **OD12** — история ключей персистится
+> (`var/status_key_history.json`, 0 PG-DDL, SQLite v8, исключение не нужно); **OD13** —
+> deep-link **OFF** (`__TMA_DEEPLINK__=false`); **OD14** — шрифт инспектирован (валиден
+> как источник; 5.11 МиБ не shippable → субсет ~13.2 КБ + рендер по PUA-коду); **OD15** —
+> rename/delete ролей, **кроме superuser**. Главный deliverable —
+> **`design-project.md` v4 (2119 строк, RU, §0–§16, статус 🟡 DESIGN/GATE)**; `spec.md`
+> согласован (v4); `tasks.md` секции **E/E2/E3/E4 (T-1090…T-1138) ✅ ВЫПОЛНЕНО**;
+> **T-1127+ и F/F4/F5/G (T-1098…T-1143) ⛔ заблокированы до явного GO владельца на v4**.
+> **D6–D12 — все RESOLVED** (OD7–OD15). `.gitignore += relumesite_example/` (T-1066) +
+> 5.11 МиБ источник шрифта (OD14); `media/` НЕ тронут. **Коррекция:** 17 вкладок `TABS`
+> (`web/app.js:18-145`), не 18. Открыты только **4 не-блокирующих выбора Q1–Q4** (§16.5).
+> Конфликт-матрица: **F-4 frontend-admin-bugfixes (Баг-4) — ПОСЛЕ 10.5**; F-1/F-2/F-3/F-5
+> независимы; F-6 SUPERSEDED_BY round10.4. Детали — KG `tma-relume-redesign` +
+> `tma-relume-redesign v4 design-project` + `OD11-OD15 owner decisions`.
+> (Блок выше — исторический снимок v4; актуальный статус — ниже.)
+
+> **Раунд 10.5 — DESIGN-PROJECT v5 ГОТОВ, на GATE (10.09.2026, E5/OD16–OD19) — АКТУАЛЬНО** —
+> активная фича `tma-relume-redesign` в `plans/features/`: **OD1–OD15 LOCKED** (см. блоки v3/v4
+> выше) + **OD16–OD19 LOCKED** (ответы владельца на §16.5 Q1–Q4): **OD16** — адреса
+> провайдеров (`base_url`) **обязательны в UI**, провайдер/модель/адрес редактируемы из
+> мини-аппа ⟹ каталог **REGISTRY 387 / GROUPS 74 / Settings 359** (383→385→387);
+> **OD17** — `fonttools`+`brotli` **build-time only**; **OD18** — источник шрифта **5.11 МиБ**
+> → **`.gitignore`** (в git субсет ~13.2 КБ + Apache-2.0 LICENSE); **OD19** —
+> `var/status_key_history.json` утверждён при **обязательной leak-safety** (allowlist-схема,
+> права 0600/0700, gitignored, не в `GET /api/config`/логах, атомарная запись, R17 доказан).
+> Главный deliverable — **`design-project.md` v5 (2312 строк, RU, §0–§16.7, статус
+> 🟡 DESIGN v5 / GATE)**; `spec.md` согласован (v5); `tasks.md` секции
+> **E/E2/E3/E4/E5 (T-1090…T-1144) ✅ ВЫПОЛНЕНО**; **F/F4/F5/F6/G (T-1098…T-1148)
+> ⛔ заблокированы до явного GO владельца на v5**. Новые **AC-19** (UI-редактируемость
+> провайдера/модели/адреса) и **AC-20** (leak-safety файла истории). Коррекции: 17 вкладок
+> `TABS` (`web/app.js:18-145`), не 18; `.gitignore += relumesite_example/` + источник шрифта;
+> `media/` НЕ тронут. **ВСЕ решения закрыты (D6–D12 = OD7–OD15; Q1–Q4 = OD16–OD19)** — открытых
+> вопросов нет. Конфликт-матрица: **F-4 frontend-admin-bugfixes (Баг-4) — ПОСЛЕ 10.5**;
+> F-1/F-2/F-3/F-5 независимы; F-6 SUPERSEDED_BY round10.4. Детали — KG `tma-relume-redesign`
+> + `tma-relume-redesign v5 design-project` + `OD16-OD19 owner decisions`.
 
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
@@ -454,6 +712,68 @@ DEPLOYED.** Все 3 фичи заархивированы, цикл раунд�
   Детали — KG `recon: direct-chat-sandbox-budget` (+ фикс-слой F-15 уже в проде).
 - **README.md:** тесты 4831, раздел раунда 10.3 (ироничный тон сохранён).
 
+### Раунд 10.4 — финал (10.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (0bdf272)
+
+По 9 пунктам ТЗ реструктуризации TMA. HEAD == origin/master == `0bdf272`
+(был 1410a68). **Статус: COMPLETED + DEPLOYED.** Все 8 фич заархивированы,
+цикл раунда полностью закрыт (Step 10).
+
+- **Коммит (master):** `0bdf272` feat(admin,web,chat,api): раунд 10.4 —
+  реструктуризация админки (Модули/PERMsoc/Память/Сон/Ностальгия/Провайдеры/
+  Отношения), бюджеты per-чат и температура-select, имена людей per-чат/ЛС,
+  каскад имён, лимиты ×1.5-×2 для -1002661910336 (тесты 4860); push origin/master;
+  `git diff --check` чист.
+- **Тесты:** 4860 passed / 0 failed (4831 baseline + 29: test_104_backend_additions 11,
+  test_progressive_tab_basic_coverage 3, маркеры webapp_*/frontend_tab_mapping).
+  @Reviewer APPROVED; Scanner 10.4 — 0 blocker/major (minor R10.4-1…R10.4-4,
+  info R10.4-5…R10.4-7 → ARCH §25; R10.4-1/-2/-3 закрыты follow-up @Builder и сверены);
+  `node --check web/app.js` clean.
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull до 0bdf272; **.env —
+  добавлена `CHAT_THREAD_MAX_CHARS=2000`**; **бэкфилы применены:**
+  `scripts/backfill_104_chat_flags.py` (flags.chat_context_budgets_enabled=false
+  для -1002661910336) + `scripts/backfill_104_overrides.py` (15 ключей ×1.5–×2:
+  thread_max_chars ×2, global_context_max_chars/limit ×1.5, level2 ×2,
+  map_participants_cap ×2, summary_*/ретенция/graph_rag_* ×2;
+  graph_edge_weight_increment НЕ менялся); рестарт — `systemctl status admin_bot`
+  → active (running).
+- **Фичи (все ARCHIVED, plans/archive/ — 26 папок):**
+  - `frontend-advanced-collapse-default` (D, T-1018…T-1023): «Расширенные» свёрнуты
+    по умолчанию (:open="expandOpen(activeTab)"); 0-basic группы — свёрнуты с видимым
+    summary; BUG-5-семантика сохранена; новый тест test_progressive_tab_basic_coverage. §24.
+  - `frontend-memory-sleep-nostalgia` (C, T-1006…T-1017): «Память» (memory_rag) +
+    отдельные «Сон»/«Ностальгия»; _ADVANCED_GROUPS минус dream/nostalgia; явная
+    progressive-разметка; мини-блоки перенесены. §24.
+  - `frontend-llm-providers-layout` (E, T-1024…T-1032): 4 секции
+    (модели→ключи→фолбэк→расширенные), sections-зеркало TABS; маскировка/BYOK
+    без изменений. §24.
+  - `frontend-reorg-modules-reactions` (A, T-974…T-989): девиансия D-A1 —
+    «Функции PERMsoc» 17 групп (+war/common/goodmorning/word_reactions);
+    «Реакции и Триггеры» 4 группы; «Модули» (modules_switches); лор-настройки
+    в «Лор чатов». §24.
+  - `frontend-limits-temperature-budgets` (B, T-990…T-1005): бюджет-гейт per-chat
+    (limits_chat_budgets, override false для -1002661910336); select-температура
+    (widget='select' + select_options/select_labels, 422); «Имена людей» (people_names)
+    + build_alias_resolver(chat_id); реестр read-путей T-993 для F-5. §24.
+  - `frontend-relations-participants` (F, T-1033…T-1044): вкладка «Участники и
+    отношения» (type 'relations'); перенос блока участников + «Настройки отношений»;
+    DM-заглушка; серверные API без изменений. §24.
+  - `backend-relations-nickname` (H, T-1057…T-1065): username для ВСЕХ строк
+    (Semaphore(5), кэш 1ч; фото топ-50); каскад alias→nickname→username→''; R16. §24.
+  - `backend-chat-1002661910336-scaling` (G, T-1045…T-1056): per-chat лимиты ×1.5–×2
+    (12 точек чтения → get_chat_param; ревью-фикс №5: _thread_limit/_cp_g/budget_tokens),
+    _resolve_from_root +_cast_type_ok+isfinite; граница G-4 задокументирована. §24/§25.
+- **Диагнозы раунда:** per-chat бюджеты — флаг переведён в limits_chat_budgets,
+  для -1002661910336 OFF (KPI-риск F-15: глобальный ключ 25 req/сутки; восстановление —
+  1 клик); лимиты ×1.5–×2 — thread ×2 через chat_thread_max_chars (R10.4-3-фикс),
+  global ×1.5 через max_chars; каскад имён — username всем строкам, R16 сохранён,
+  per-chat алиасы (точка 1) через build_alias_resolver.
+- **Техдолг (кандидаты следующего раунда, KG `tech-debt-round10.4`):** R10.4-4
+  (фото-обогащение всех 100 строк), R10.4-5 (409-модалка relations «Перезагрузить»),
+  R10.4-6 (бэкфилы без optimistic-метки), R10.4-7 (граница G-4: direct RAG-cap/
+  get_rag_facts глобальные — кандидат F-5), B-13 points 2-4 (per-chat алиасы не
+  доходят до инжекта <user_relations>), HIGH-004 (полный LLM request/response-лог).
+- **README.md:** тесты 4860, раздел раунда 10.4.
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -479,8 +799,16 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 18 папок)
+## Свежие архивы (plans/archive/ — 26 папок)
 
+- `frontend-advanced-collapse-default` — **Раунд 10.4, 10.09.2026** (D, T-1018…T-1023: аккордеоны «Расширенные» свёрнуты по умолчанию, AC-B1-тест; §24)
+- `frontend-memory-sleep-nostalgia` — **Раунд 10.4, 10.09.2026** (C, T-1006…T-1017: «Память» + вкладки «Сон»/«Ностальгия», progressive-разметка; §24)
+- `frontend-llm-providers-layout` — **Раунд 10.4, 10.09.2026** (E, T-1024…T-1032: LLM Провайдеры — 4 секции: модели→ключи→фолбэк→расширенные; §24)
+- `frontend-reorg-modules-reactions` — **Раунд 10.4, 10.09.2026** (A, T-974…T-989: «Функции PERMsoc» 17 групп (девиансия D-A1), «Модули», лор-настройки; §24)
+- `frontend-limits-temperature-budgets` — **Раунд 10.4, 10.09.2026** (B, T-990…T-1005: бюджеты per-чат (флаг + бэкфил), select-температура, «Имена людей» + build_alias_resolver; §24)
+- `frontend-relations-participants` — **Раунд 10.4, 10.09.2026** (F, T-1033…T-1044: вкладка «Участники и отношения», перенос блока участников; §24)
+- `backend-relations-nickname` — **Раунд 10.4, 10.09.2026** (H, T-1057…T-1065: username для всех строк каскада имён, Semaphore(5), фото топ-50, R16; §24)
+- `backend-chat-1002661910336-scaling` — **Раунд 10.4, 10.09.2026** (G, T-1045…T-1056: per-chat лимиты ×1.5–×2 (15 override, бэкфил), _resolve_from_root-харденинг, граница G-4; §24/§25)
 - `tma-chat-selector-fixes` — **Раунд 10.3, 09–10.09.2026** (F-13, T-925…T-944: единый селектор чата, удаление ✕/пикера, фикс пустых вкладок, z-index 45; §23)
 - `dm-user-settings` — **Раунд 10.3, 09–10.09.2026** (F-14, T-945…T-964: ЛС-настройки вариант A, саммари default-off; §23)
 - `direct-sandbox-budget-investigation` — **Раунд 10.3, 09–10.09.2026** (F-15, T-965…T-973: прод-диагностика sandbox budget + graphrag JSON, фиксы; §23/§24)
@@ -537,21 +865,25 @@ DEPLOYED, конвенция round10.2-fixes)** — раунд 10.3 ЗАВЕРШ
 direct-sandbox-budget-investigation (T-925…T-973) → **ARCHIVED_IN plans-structure
 + WAS_PART_OF round10.3-epic** (HAS_PLAN/PLANNED_IN/PART_OF/ARCHITECTED удалены,
 конвенция F-7…F-12); ARCHITECTURE.md §23/§24;
-**милстоун `round10.4-epic` (AdminBot → ARCHITECTED, 10.09.2026)** — раунд 10.4
-«Реструктуризация TMA-миниаппа + точечные фиксы» (9 пунктов ТЗ): 8 фич
-feature-frontend-advanced-collapse-default (D), feature-frontend-memory-sleep-nostalgia
+**милстоун `round10.4-epic` (AdminBot → COMPLETED + DEPLOYED, 10.09.2026)** —
+раунд 10.4 «Реструктуризация TMA-миниаппа + точечные фиксы» (9 пунктов ТЗ):
+8 фич feature-frontend-advanced-collapse-default (D), feature-frontend-memory-sleep-nostalgia
 (C), feature-frontend-llm-providers-layout (E), feature-frontend-reorg-modules-reactions
 (A), feature-frontend-limits-temperature-budgets (B), feature-frontend-relations-participants
 (F), feature-backend-relations-nickname (H), feature-backend-chat-1002661910336-scaling
-(G) — все ARCHITECTED (AdminBot HAS_PLAN, HAS_SPEC/HAS_TASKS, цепочка DEPENDS_ON
-D←C←E←A←B←F←H←G; PLANNED_IN/ARCHITECTED_IN plans-structure); архитектурная фаза
-зафиксирована @Architect (KG: round10.4-specs + round10.4-dependencies; Step 0 —
-recon: tma-structure-10.4); конфликт-матрица: F-1 PRECEDES B/G, F-3/F-4 AFTER
-round10.4-epic, F-5 AFTER B/G, F-6 (plans/features/user-aliases-admin)
-SUPERSEDED_BY round10.4-epic; REGISTRY 383/71/359 заморожен (MED-017);
-plans/features/ — **14 активных** (F-1…F-6 + 8 фич раунда 10.4); plans/archive/ —
-**18 папок**; все spec.md/tasks.md раунда 10.4 на диске (архивация — по финалу
-раунда); MEMORY.md вошёл в коммит 1410a68.
+(G) — **все COMPLETED + ARCHIVED** (WAS_PART_OF round10.4-epic + ARCHIVED_IN
+plans-structure; HAS_PLAN/PLANNED_IN/ARCHITECTED_IN удалены — конвенция F-7…F-12;
+HAS_SPEC/HAS_TASKS и цепочка DEPENDS_ON D←C←E←A←B←F←H←G сохранены как исторический
+факт); архитектурная фаза зафиксирована @Architect (KG: round10.4-specs +
+round10.4-dependencies; Step 0 — recon: tma-structure-10.4); конфликт-матрица:
+F-1 PRECEDES B/G — учтён (фича активна), F-3/F-4 AFTER round10.4-epic (активны),
+F-5 AFTER B/G (активна, R10.4-7 — её кандидат), F-6 (plans/features/user-aliases-admin)
+SUPERSEDED_BY round10.4-epic — подтверждена; REGISTRY 383/**74**/359 (коррекция
+71→74 — ре-дизайн 10.2 BUG-3; MED-017); техдолг-кандидаты следующего раунда —
+KG `tech-debt-round10.4` (R10.4-4…R10.4-7, B-13 points 2-4, HIGH-004-остаток);
+plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **26 папок**;
+HEAD == origin/master == `0bdf272` (коммит раунда 10.4: бэкфилы применены,
+CHAT_THREAD_MAX_CHARS=2000, тесты 4860, прод active).
 
 ## Факты для планирования (проект)
 
@@ -564,4 +896,12 @@ plans/features/ — **14 активных** (F-1…F-6 + 8 фич раунда 1
 - Раунд 10, F-12 (Q2, РЕАЛИЗОВАНО): приоритет гейтов — явный chat-гейт → `hot.get('flags.<feature>_enabled')` → False; kill-switch = явный `gates[feature]=false`.
 - **Follow-up раунда 10 (вне цикла):** unit-тест-гап `backfill_permsoc_gates.py` (прямых тестов бэкфила нет); live-проверка имени CHECK-ограничения `chat_lore_history` на проде (field='gates'/'chat_keys'); предложение расширения `deploy_v2.9.2.py` (DDL + бэкфилы + live-гистограммы при деплое).
 - **Follow-up безопасности сервера (ожидают решения владельца):** миграция на SSH-ключи (key migration proposal — password auth пока оставлена по требованию); добавить IP владельца в fail2ban `ignoreip`, если он статический; CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) на другой диск/раздел.
-- **Раунд 10.4 (ARCHITECTED, 10.09.2026):** порядок фич D→C→E→A→B→F→H→G; REGISTRY 383/71/359 заморожен (MED-017, только переносы/разметка/поля select-виджета); новые ключи/группы ЗАПРЕЩЕНЫ; SQLite v8, роутеры bot.py, каноны промптов, known_sections() — без дифов; девиансия D-A1 (фича A: war/common/goodmorning/word_reactions → «Функции PERMsoc», канон спеки §2); общий тест `test_progressive_tab_basic_coverage` (≥1 basic на config-вкладку, пишется в D); MED-022-маркеры (test_frontend_tab_mapping + test_webapp_nav_disclosure_ui) — обновляются в каждой фронт-фиче; F-1 (T-648 атомарный POST) — обязателен ДО B/G.
+- **Раунд 10.4 (ЗАВЕРШЁН + DEPLOYED, 10.09.2026, коммит 0bdf272):** порядок фич
+  D→C→E→A→B→F→H→G выполнен; REGISTRY 383/**74**/359 без изменений (коррекция счётчика
+  групп 71→74 — ре-дизайн 10.2 BUG-3; MED-017; новые ключи/группы ЗАПРЕЩЕНЫ);
+  SQLite v8, роутеры bot.py, каноны промптов, known_sections() — без дифов;
+  девиансия D-A1 реализована (фича A: war/common/goodmorning/word_reactions →
+  «Функции PERMsoc», 17 групп); бэкфилы backfill_104_chat_flags.py +
+  backfill_104_overrides.py применены; техдолг-кандидаты следующего раунда:
+  R10.4-4…R10.4-7, B-13 points 2-4, HIGH-004 (KG `tech-debt-round10.4`);
+  конфликт-матрица исходно: F-1 (T-648 атомарный POST) — учтён ДО B/G.

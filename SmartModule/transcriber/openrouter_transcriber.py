@@ -69,17 +69,23 @@ class OpenRouterTranscriber(BaseTranscriber):
 
     def _build_client(self) -> AsyncOpenAI | None:
         key = self._current_api_key()
+        # OD16: base_url — hot-параметр; запоминаем для инвалидации клиента.
+        self._client_base = hot.get("models.openrouter_base_url",
+                                    OPENROUTER_BASE_URL)
         if not key:
             return None
         return AsyncOpenAI(
-            base_url=OPENROUTER_BASE_URL,
+            base_url=self._client_base,
             api_key=key,
             timeout=self.timeout,
         )
 
     def _refresh_client(self) -> None:
-        """T-619: ключ изменился → пересоздать клиент (hot-reload)."""
-        if self._client is None or self._current_api_key() != self._default_key:
+        """T-619/OD16: ключ ИЛИ base_url изменились → пересоздать клиент."""
+        key = self._current_api_key()
+        base = hot.get("models.openrouter_base_url", OPENROUTER_BASE_URL)
+        if (self._client is None or key != self._default_key
+                or base != self._client_base):
             self._client = self._build_client()
 
     @property
@@ -151,7 +157,8 @@ class OpenRouterTranscriber(BaseTranscriber):
             started = time.monotonic()
             try:
                 response = await self._client.chat.completions.create(
-                    model=OPENROUTER_TRANSCRIBE_MODEL,
+                    model=hot.get("models.openrouter_transcribe_model",
+                                  OPENROUTER_TRANSCRIBE_MODEL),
                     messages=messages,
                     timeout=effective,
                 )

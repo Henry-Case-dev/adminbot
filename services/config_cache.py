@@ -352,9 +352,14 @@ class ConfigCache:
                     role_name, is_custom)
 
     async def delete_role(self, role_name: str) -> bool:
-        """Удалить роль + reload. False — роли не было."""
+        """Удалить роль + reload. False — роли не было.
+
+        OD15/T-1141: перед удалением чистим имя роли из param_permissions
+        (view_roles/edit_roles) — не оставляем «висячих» прав.
+        """
         self._require_pg()
         async with self._pg.pool.acquire() as conn:
+            await self._scrub_param_permissions(conn, role_name)
             result = await conn.execute(
                 "DELETE FROM bot_roles WHERE role_name = $1", role_name)
         removed = _deleted_count(result)
@@ -362,6 +367,66 @@ class ConfigCache:
         logger.info("[config_cache] role deleted: %s (removed=%s)",
                     role_name, removed)
         return removed
+
+    async def role_usage(self, role_name: str) -> int:
+        """Сколько bot_admins назначено на роль (0 = свободна)."""
+        self._require_pg()
+        async with self._pg.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT count(*) AS n FROM bot_admins WHERE role_name = $1",
+                role_name)
+        return int(row["n"]) if row else 0
+
+    @staticmethod
+    async def _scrub_param_permissions(conn, role_name: str) -> int:
+        """OD15: убрать имя роли из view_roles/edit_roles всех
+        param_permissions. Возвращает число затронутых ключей."""
+        rows = await conn.fetch("SELECT key, value FROM param_permissions")
+        touched = 0
+        for r in rows:
+            val = _coerce_json(r["value"])
+            if not isinstance(val, dict):
+                continue
+            changed = False
+            for field in ("view_roles", "edit_roles"):
+                arr = val.get(field)
+                if isinstance(arr, list) and role_name in arr:
+                    val[field] = [x for x in arr if x != role_name]
+                    changed = True
+            if changed:
+                await conn.execute(
+                    "UPDATE param_permissions SET value = $2::jsonb, "
+                    "updated_at = now() WHERE key = $1",
+                    r["key"], json.dumps(val))
+                touched += 1
+        return touched
+
+    async def rename_role(self, old_name: str, new_name: str) -> None:
+        """OD15/T-1141: переименование роли + каскад в одной транзакции.
+
+        Копирует роль (вкл. role_type), переводит bot_admins, чистит старое
+        имя из param_permissions, удаляет старую строку. Guard'ы
+        (superuser/встроенные/занятость) — на уровне API.
+        """
+        self._require_pg()
+        async with self._pg.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "INSERT INTO bot_roles (role_name, permissions, "
+                    "is_custom, role_type) "
+                    "SELECT $2, permissions, is_custom, role_type "
+                    "FROM bot_roles WHERE role_name = $1",
+                    old_name, new_name)
+                await conn.execute(
+                    "UPDATE bot_admins SET role_name = $2 "
+                    "WHERE role_name = $1",
+                    old_name, new_name)
+                await self._scrub_param_permissions(conn, old_name)
+                await conn.execute(
+                    "DELETE FROM bot_roles WHERE role_name = $1", old_name)
+        await self.reload()
+        logger.info("[config_cache] role renamed: %s -> %s",
+                    old_name, new_name)
 
     async def reload(self) -> None:
         """Перезагрузка всех таблиц из PG (после POST /api/admins|roles)."""

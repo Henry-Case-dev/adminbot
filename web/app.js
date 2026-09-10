@@ -156,6 +156,140 @@
   };
 
   var LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
+  var MAX_HISTORY_POINTS = 288;   // B1/T-1129: 24ч × 5 мин
+  // D4: порядок секций матрицы прав = порядок config-вкладок мини-аппа.
+  var TAB_SECTION_ORDER = [
+    'llm_providers', 'prompts', 'limits', 'memory_rag', 'memory_dream',
+    'memory_nostalgia', 'people_names', 'relations', 'reactions_triggers',
+    'modules_switches', 'permsoc', 'chat_lore',
+  ];
+
+  // ═══ Material Symbols Rounded — PUA-карта (T-1147/§15.4.4) ═══
+  // Субсет без лигатур ⟹ рендер кодпоинтом (ICONS[name] → символ PUA),
+  // НЕ текстовым именем. 26 иконок из design-project.md §5.4.
+  var ICONS = {
+    account_balance_wallet: '\ue850',
+    admin_panel_settings: '\uef3d',
+    auto_stories: '\ue666',
+    badge: '\uea67',
+    bedtime: '\ue1f9',
+    bolt: '\uea0b',
+    cloud: '\ue2bd',
+    description: '\ue873',
+    extension: '\ue87b',
+    grid_view: '\ue9b0',
+    group: '\ue7ef',
+    help: '\ue887',
+    history: '\ue28e',
+    manage_accounts: '\uf02e',
+    memory: '\ue322',
+    monitoring: '\uf190',
+    play_circle: '\ue038',
+    radar: '\uf04e',
+    restart_alt: '\uf053',
+    smart_toy: '\uf06c',
+    speed: '\ue9e4',
+    stop_circle: '\uef71',
+    supervisor_account: '\ue1df',
+    theater_comedy: '\uea66',
+    toggle_off: '\ue9f5',
+    toggle_on: '\ue9f6',
+  };
+  // tab.id → Material-имя (рендер через tabMat(); fallback — emoji TABS.icon).
+  var TAB_ICON = {
+    llm_providers: 'smart_toy', prompts: 'description', limits: 'speed',
+    memory_rag: 'memory', memory_dream: 'bedtime',
+    memory_nostalgia: 'history', people_names: 'badge', relations: 'group',
+    reactions_triggers: 'theater_comedy', modules_switches: 'toggle_on',
+    modules_feats: 'extension', permsoc: 'admin_panel_settings',
+    access: 'supervisor_account', chat_lore: 'auto_stories',
+    status: 'monitoring', info: 'help', oversight: 'radar',
+  };
+
+  // ═══ T-1100: navbar — ровно 6 пунктов эталона (§2.1) ═══
+  // Навигация только через hash (openTab/navigateTo), не vue-router.
+  var NAV_ITEMS = [
+    { id: 'status', label: 'Статус', route: '#/', icon: 'monitoring' },
+    { id: 'how', label: 'Как это работает', route: '#/how', icon: 'help' },
+    { id: 'modules', label: 'Модули', route: '#/modules', icon: 'extension' },
+    { id: 'ai', label: 'Настройки AI', route: '#/ai', icon: 'smart_toy' },
+    { id: 'permsoc', label: 'Функции PERMsoc', route: '#/permsoc',
+      icon: 'admin_panel_settings' },
+    { id: 'access', label: 'Доступы и Роли', route: '#/access',
+      icon: 'supervisor_account' },
+  ];
+
+  // Hub-экраны (T-1100, §2.2): карточки → дочерние маршруты. optional
+  // `section` — якорь внутри экрана (для #/access/*).
+  var HUBS = {
+    '#/modules': {
+      title: 'Модули',
+      subtitle: 'Включение модулей, реакции и триггеры, кастомные модули',
+      cards: [
+        { icon: 'extension', title: 'Модули',
+          subtitle: 'Гейты модулей, бюджет фона',
+          route: '#/modules/features', tab: 'modules_feats' },
+        { icon: 'toggle_on', title: 'Модули (вкл/выкл)',
+          subtitle: 'Рубильники модулей и сервиса',
+          route: '#/modules/switches', tab: 'modules_switches' },
+        { icon: 'theater_comedy', title: 'Реакции и Триггеры',
+          subtitle: 'Реакции, сводки, память-реакции',
+          route: '#/modules/reactions', tab: 'reactions_triggers' },
+        { icon: 'cloud', title: 'Кастомные модули',
+          subtitle: 'Презентация (только чтение) · B2 вне скоупа',
+          route: '#/modules/features', tab: 'modules_feats',
+          anchor: true, readonly: true },
+      ],
+    },
+    '#/ai': {
+      title: 'Настройки AI',
+      subtitle: 'Провайдеры, промпты, лимиты, память, имена и отношения',
+      cards: [
+        { icon: 'smart_toy', title: 'LLM Провайдеры',
+          subtitle: 'Основные модели, ключи, фолбэк, адреса',
+          route: '#/ai/llm', tab: 'llm_providers' },
+        { icon: 'description', title: 'Промпты',
+          subtitle: 'Основной промпт, промпты модулей, лор и тон',
+          route: '#/ai/prompts', tab: 'prompts' },
+        { icon: 'speed', title: 'Лимиты',
+          subtitle: 'Токены, кулдауны, бюджеты, температура',
+          route: '#/ai/limits', tab: 'limits' },
+        { icon: 'memory', title: 'Память',
+          subtitle: 'Память, граф, хранение, RAG',
+          route: '#/ai/memory', tab: 'memory_rag' },
+        { icon: 'bedtime', title: 'Сон',
+          subtitle: 'Синтез убеждений (memory dream)',
+          route: '#/ai/sleep', tab: 'memory_dream' },
+        { icon: 'history', title: 'Ностальгия',
+          subtitle: 'Срабатывания ностальгии',
+          route: '#/ai/nostalgia', tab: 'memory_nostalgia' },
+        { icon: 'badge', title: 'Имена',
+          subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
+          route: '#/ai/names', tab: 'people_names' },
+        { icon: 'group', title: 'Участники и отношения',
+          subtitle: 'Участники чата и отношения',
+          route: '#/ai/relations', tab: 'relations' },
+        { icon: 'auto_stories', title: 'Лор чата',
+          subtitle: 'Ручной и авто-лор, история',
+          route: '#/ai/lore', tab: 'chat_lore' },
+      ],
+    },
+    '#/access': {
+      title: 'Доступы и Роли',
+      subtitle: 'Матрица ролей, локальные админы, администраторы',
+      cards: [
+        { icon: 'admin_panel_settings', title: 'Матрица ролей',
+          subtitle: 'Права на параметры: чтение и запись',
+          route: '#/access/roles', tab: 'access', section: 'sec-matrix' },
+        { icon: 'group', title: 'Локальные админы',
+          subtitle: 'Администраторы активного чата',
+          route: '#/access/local', tab: 'access', section: 'sec-local' },
+        { icon: 'supervisor_account', title: 'Администраторы',
+          subtitle: 'Суперадмины, модераторы, пользователи',
+          route: '#/access/admins', tab: 'access', section: 'sec-admins' },
+      ],
+    },
+  };
 
   // UI-полировка TMA (fix-раунд ревью): blob-аватары через прокси.
   // Прямой <img :src="'/api/avatar/...'"> НЕ работает: картинку грузит
@@ -169,6 +303,127 @@
   var _AVATAR_CACHE_MAX = 200;
 
   function arr(x) { return Array.isArray(x) ? x : []; }
+
+  // ═══ Hash-routing (T-1099, OD1/OD3/§6.3): route — источник истины ═══
+  // Маршрут — ТОЛЬКО hash, начинающийся с '#/' (launch-hash tgWebAppData
+  // игнорируется, §6.1/§6.2). vue-router НЕ используется (zero-build).
+  // Ниже — чистые функции (routeToTab/tabToRoute/routeParent/routeDepth),
+  // покрываются маркер-тестом test_webapp_back_button.
+  var ROUTE_TO_TAB = {
+    '#/': 'status',
+    '#/oversight': 'oversight',
+    '#/how': 'info',
+    '#/modules': 'modules_feats',
+    '#/modules/features': 'modules_feats',
+    '#/modules/switches': 'modules_switches',
+    '#/modules/reactions': 'reactions_triggers',
+    '#/modules/custom': 'modules_feats',
+    '#/permsoc': 'permsoc',
+    '#/ai': 'llm_providers',
+    '#/ai/llm': 'llm_providers',
+    '#/ai/prompts': 'prompts',
+    '#/ai/limits': 'limits',
+    '#/ai/memory': 'memory_rag',
+    '#/ai/sleep': 'memory_dream',
+    '#/ai/nostalgia': 'memory_nostalgia',
+    '#/ai/names': 'people_names',
+    '#/ai/relations': 'relations',
+    '#/ai/lore': 'chat_lore',
+    '#/access': 'access',
+    '#/access/roles': 'access',
+    '#/access/local': 'access',
+    '#/access/admins': 'access',
+  };
+  var TAB_TO_ROUTE = {
+    status: '#/', info: '#/how', oversight: '#/oversight',
+    modules_feats: '#/modules/features',
+    modules_switches: '#/modules/switches',
+    reactions_triggers: '#/modules/reactions', permsoc: '#/permsoc',
+    llm_providers: '#/ai/llm', prompts: '#/ai/prompts', limits: '#/ai/limits',
+    memory_rag: '#/ai/memory', memory_dream: '#/ai/sleep',
+    memory_nostalgia: '#/ai/nostalgia', people_names: '#/ai/names',
+    relations: '#/ai/relations', chat_lore: '#/ai/lore', access: '#/access',
+  };
+  var ROOT_ROUTES = ['#/', '#/how', '#/modules', '#/permsoc', '#/ai', '#/access'];
+  var ROUTE_PARENT = {
+    '#/oversight': '#/',
+    '#/modules/features': '#/modules',
+    '#/modules/switches': '#/modules',
+    '#/modules/reactions': '#/modules',
+    '#/modules/custom': '#/modules',
+    '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai', '#/ai/limits': '#/ai',
+    '#/ai/memory': '#/ai', '#/ai/sleep': '#/ai', '#/ai/nostalgia': '#/ai',
+    '#/ai/names': '#/ai', '#/ai/relations': '#/ai', '#/ai/lore': '#/ai',
+    '#/access/roles': '#/access', '#/access/local': '#/access',
+    '#/access/admins': '#/access',
+  };
+
+  // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
+  function normalizeRoute(hash) {
+    if (typeof hash !== 'string') return null;
+    if (hash.indexOf('#/') !== 0) return null;
+    var r = hash.split('?')[0];           // отбросить query после маршрута
+    return Object.prototype.hasOwnProperty.call(ROUTE_TO_TAB, r) ? r : null;
+  }
+  function routeToTab(route) {
+    return ROUTE_TO_TAB[normalizeRoute(route) || '#/'] || 'status';
+  }
+  function tabToRoute(tabId) {
+    return TAB_TO_ROUTE[tabId] || '#/';
+  }
+  function routeParent(route) {
+    var r = normalizeRoute(route);
+    if (!r || ROOT_ROUTES.indexOf(r) >= 0) return null;
+    return ROUTE_PARENT[r] || '#/';
+  }
+  function routeDepth(route) {
+    return routeParent(route) ? 1 : 0;
+  }
+  // D1: hub-роут доступен, если видна ХОТЯ БЫ ОДНА его карточка. НЕ гейтим
+  // hub по одному «представительскому» tab (иначе роль с правами только на
+  // prompts/limits получала редирект с #/ai).
+  function hubVisible(route, canViewTab) {
+    var hub = HUBS[route];
+    if (!hub) return false;
+    return hub.cards.some(function (c) {
+      return !c.tab || canViewTab(c.tab);
+    });
+  }
+
+  // OD13: deep-link OFF (start_param в маршрутизацию НЕ вовлекается).
+  if (window.__TMA_BACK__ === undefined) window.__TMA_BACK__ = true;
+  if (window.__TMA_DEEPLINK__ === undefined) window.__TMA_DEEPLINK__ = false;
+
+  // BOOT (T-1099/§6.2 п.1): читаем и кэшируем initData ДО любой записи hash.
+  function getInitData() {
+    try {
+      var d = (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || '';
+      if (d) {
+        try { sessionStorage.setItem('adminbot.initData', d); } catch (e) { /* quota */ }
+        return d;
+      }
+    } catch (e) { /* вне TG */ }
+    try { return sessionStorage.getItem('adminbot.initData') || ''; } catch (e2) { return ''; }
+  }
+
+  // Стартовый маршрут: наш hash → sessionStorage → '#/'.
+  function initialRoute() {
+    var h = normalizeRoute(window.location.hash);
+    if (h) return h;
+    try {
+      var saved = normalizeRoute(sessionStorage.getItem('adminbot.route'));
+      if (saved) return saved;
+    } catch (e) { /* quota */ }
+    return '#/';
+  }
+
+  // Router-состояние — НЕ в data()/реактивности: нативный BackButton-объект
+  // нельзя оборачивать в reactive-proxy, а _-поля инстанса Vue не проксирует.
+  var _appVm = null;
+  var _backApi = null;
+  var _boundBackApi = null;   // R10.5-1: к какому объекту уже привязан onClick
+  var _routeApplied = false;
+  var _onHashChange = null;
 
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
   // либо уникальные категории источников (конфиг вкладки).
@@ -200,6 +455,10 @@
         menuLabels: MENU_LABELS,
         expand: {},              // F-11: localStorage adminbot.expand:<tab>
         sidebarOpen: false,
+        // T-1099: hash-роутер — route (@see #6.3), backNative — есть ли
+        // нативный Telegram.WebApp.BackButton (иначе in-app fallback ←).
+        route: '#/',
+        backNative: false,
         me: null,
         authError: null,
         authLocked: false,
@@ -210,6 +469,13 @@
         accessChats: [],              // GET /api/access/chats (селектор F-11)
         accessMy: null,               // GET /api/access/me
         activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
+        // T-1127/§15.1.1: явный вид скоупа + epoch — токен отбрасывания
+        // устаревших in-flight ответов при смене scope (R10.4-2).
+        scopeEpoch: 0,
+        // T-1127 (§15.1.3): кастомный a11y-dropdown (listbox) с аватарами.
+        scopeOpen: false,
+        scopeSearch: '',
+        scopeFocus: -1,
         // Роль-пикер (F-7 T-855): модалка per-param прав (global admin).
         // Ре-дизайн 10.2, BUG-6 (spec §3.2.1): флаги «Чтение»/«Запись» —
         // чекбоксы user/moderator/local_admin; global admin — неявно.
@@ -220,6 +486,13 @@
           editRoles: { user: false, moderator: false, local_admin: false },
         },
         permPickerSaving: false,
+        // OD10/T-1130 (раунд 10.5): визуальная матрица ролей — ВСЕ параметры
+        // по секциям мини-аппа, per-param read/write (global admin).
+        matrixItems: {},
+        matrixLoading: false,
+        matrixError: '',
+        matrixSearch: '',
+        matrixSaving: {},
         // BYOK-UI (F-7 T-856): ключ чата — для локального админа
         ownKeyDraft: '',
         ownKeySaving: false,
@@ -323,6 +596,10 @@
         statusError: null,
         statusTimer: null,
         uptimeChart: null,
+        // B1/OD8 (T-1128/T-1129): компактный список доступности ключей +
+        // временной график (GET /api/status/key-history, leak-safe).
+        keyHistory: null,
+        keyHistoryChart: null,
         logs: [],
         logsCount: 0,
         logsLoading: false,
@@ -349,6 +626,45 @@
       currentTabLabel: function () {
         var tab = this.currentTab;
         return tab ? tab.label : '';
+      },
+      // T-1099: глубина текущего маршрута (0 = корень → нативный ✕).
+      routeDepth: function () {
+        return routeDepth(this.route);
+      },
+      // T-1100: navbar-пункты, отфильтрованные по правам.
+      navItems: function () {
+        var self = this;
+        var canView = function (id) { return self.canViewTab(id); };
+        return NAV_ITEMS.filter(function (n) {
+          if (n.id === 'status' || n.id === 'how') return true;
+          if (n.id === 'permsoc') return self.canViewTab('permsoc');
+          // D1: hub-пункты видимы, если видна хотя бы одна карточка хаба.
+          if (n.id === 'modules' || n.id === 'ai' || n.id === 'access') {
+            return hubVisible(n.route, canView);
+          }
+          return false;
+        });
+      },
+      activeNav: function () {
+        var r = this.route || '#/';
+        if (r === '#/' || r === '#/oversight') return 'status';
+        if (r === '#/how') return 'how';
+        if (r.indexOf('#/modules') === 0) return 'modules';
+        if (r.indexOf('#/ai') === 0) return 'ai';
+        if (r === '#/permsoc') return 'permsoc';
+        if (r.indexOf('#/access') === 0) return 'access';
+        return '';
+      },
+      // T-1100: карточки активного hub-экрана (или null, если не hub).
+      hubCards: function () {
+        var hub = HUBS[this.route];
+        if (!hub) return null;
+        var self = this;
+        var cards = hub.cards.filter(function (c) {
+          return !c.tab || self.canViewTab(c.tab);
+        });
+        if (!cards.length) return null;
+        return { title: hub.title, subtitle: hub.subtitle, cards: cards };
       },
       currentTab: function () {
         return this.tabs.find(function (t) { return t.id === this.activeTab; }, this) || null;
@@ -430,8 +746,34 @@
       },
     },
 
+    // T-1099/§6.2 п.1-4: initData — ДО hash. created() вычисляет стартовый
+    // маршрут и синхронизирует activeTab (производная от route); loader
+    // активной вкладки дёргается позже в mounted после auth.
+    created: function () {
+      getInitData();                       // кэш initData ДО записи hash
+      var r = initialRoute();
+      this.route = r;
+      var tabId = routeToTab(r);
+      if (tabId) this.activeTab = tabId;
+      var found = this.tabs.find(function (t) { return t.id === tabId; });
+      if (found && found.menu) this.activeMenu = found.menu;
+      // §6.2 п.4: не перезаписываем launch-hash «в лоб» — replaceState.
+      if (!normalizeRoute(window.location.hash)) {
+        try { history.replaceState(null, '', r); } catch (e) { /* file:// */ }
+      }
+    },
+
     mounted: function () {
       var self = this;
+      // T-1099/§6.4.4: hashchange — ЕДИНСТВЕННЫЙ «применитель» роута;
+      // BackButton.onClick регистрируется ровно ОДИН раз на BOOT (без
+      // перерегистрации → без накопления stale-колбэков/петель).
+      _appVm = this;
+      _onHashChange = function () {
+        _appVm.applyRoute(normalizeRoute(window.location.hash) || '#/');
+      };
+      window.addEventListener('hashchange', _onHashChange);
+      this.initBackButton();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
       if (!this.hasInitData()) {
@@ -467,12 +809,16 @@
         // в setTab. Теперь после успешной авторизации вызываем per-tab
         // loader активной вкладки (loadStatus+loadLogs+polling для 'status').
         self.setTab(self.activeTab);
+        self.applyRoute(self.route);   // T-1099: персист + syncBackButton
       });
       // Опц. рекомендация ревью: контекст Telegram может появиться ПОЗЖЕ
       // готовности WebView — подписываемся на событие ready (дебаунс —
       // флаг retriedOnce, чтобы не дублировать запросы).
       if (window.Telegram && Telegram.WebApp && Telegram.WebApp.onEvent) {
         Telegram.WebApp.onEvent('ready', function () {
+          // R10.5-1: BackButton может стать доступен только к `ready` —
+          // переинициализируем (onClick — ровно один раз) + sync видимости.
+          self.initBackButton();
           self.retryInitData();
         });
       }
@@ -480,11 +826,9 @@
 
     methods: {
       hasInitData: function () {
-        try {
-          return !!(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData);
-        } catch (e) {
-          return false;
-        }
+        // T-1099/§6.2 п.1: initData читается/кэшируется ДО hash; фолбэк —
+        // sessionStorage (переживает перезаброс launch-hash при refresh).
+        return !!getInitData();
       },
 
       retryInitData: function () {
@@ -544,10 +888,7 @@
         if (this.activeChatId != null) {
           options.headers['X-Chat-Id'] = String(this.activeChatId);
         }
-        var initData = '';
-        try {
-          initData = (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || '';
-        } catch (e) { initData = ''; }
+        var initData = getInitData();   // T-1099: тот же кэш, что на BOOT
         if (initData) {
           options.headers['X-Telegram-Init-Data'] = initData;
         }
@@ -737,6 +1078,7 @@
       },
       setActiveChat: function (chatId) {
         var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
+        this.scopeOpen = false;
         if (id === this.activeChatId) return;
         this.activeChatId = id;
         if (id == null) {
@@ -745,6 +1087,18 @@
           localStorage.setItem('adminbot.active_chat_id', String(id));
         }
         this.syncActiveChatTitle();
+        // T-1127/§15.1.7: смена scope — единый сброс chat-scoped состояния
+        // (обобщение R10.4-2): epoch отбрасывает устаревшие in-flight
+        // ответы, чистим relations/лор/гейты/локальных админов/модалки.
+        this.scopeEpoch++;
+        this.chatLoreProfile = null;
+        this.chatLoreSelectedId = null;
+        this.chatLoreHistory = [];
+        this.chatLore409 = null;
+        this.gateInfo = null;
+        this.chatAdmins = [];
+        this.permPickerOpen = false;
+        this.permPickerItem = null;
         // Ревью-фикс (R10.4-2, класс кросс-чата): смена активного чата
         // сбрасывает список участников (иначе на вкладке relations виден
         // старый список чата A, а запись уходит в чат B); при открытой
@@ -781,6 +1135,64 @@
       },
       isChatContext: function () {
         return this.activeChatId != null;
+      },
+      // T-1127/§15.1.1: вид scope для UI (GLOBAL/ЧАТ/ЛС) — производная от
+      // activeChatId/isDmCtx. X-Chat-Id: null=GLOBAL, <0=ЧАТ, >0=ЛС.
+      scopeKind: function () {
+        if (this.activeChatId == null) return 'global';
+        return this.isDmCtx() ? 'dm' : 'chat';
+      },
+      scopeLabel: function () {
+        if (this.scopeKind === 'global') return 'GLOBAL';
+        return this.scopeKind === 'dm' ? 'ЛС' : 'ЧАТ';
+      },
+      // T-1127: пункты dropdown (GLOBAL + ЧАТы + ЛС), RBAC-список с сервера.
+      scopeOptions: function () {
+        var q = (this.scopeSearch || '').toLowerCase();
+        var opts = [];
+        if (this.isGlobalAdmin) {
+          opts.push({ key: 'global', kind: 'global', chat_id: null,
+                      title: 'Весь бот', subtitle: 'Глобальные настройки',
+                      badge: 'GLOBAL', initial: 'В' });
+        }
+        var chats = [];
+        var dms = [];
+        this.accessChats.forEach(function (c) {
+          var o = {
+            key: String(c.chat_id),
+            kind: c.is_dm ? 'dm' : 'chat',
+            chat_id: c.chat_id,
+            title: c.title || ('Чат ' + c.chat_id),
+            subtitle: c.is_dm ? 'Личные сообщения' : (c.access || ''),
+            badge: c.is_dm ? 'ЛС' : '',
+            is_dm: !!c.is_dm,
+            photo_file_id: c.photo_file_id,
+            avatarUrl: c.avatarUrl || '',
+            initial: (c.title || String(c.chat_id)).slice(0, 1),
+          };
+          if (c.is_dm) dms.push(o); else chats.push(o);
+        });
+        function filt(list) {
+          if (!q) return list;
+          return list.filter(function (o) {
+            return o.title.toLowerCase().indexOf(q) >= 0;
+          });
+        }
+        return opts.concat(filt(chats), filt(dms));
+      },
+      scopeTriggerTitle: function () {
+        return this.activeChatId == null ? 'Весь бот' : this.activeChatTitle;
+      },
+      scopeTriggerInitial: function () {
+        return (this.scopeTriggerTitle || '?').slice(0, 1);
+      },
+      scopeTriggerAvatar: function () {
+        var self = this;
+        if (this.activeChatId == null) return '';
+        var c = this.accessChats.find(function (x) {
+          return x.chat_id === self.activeChatId;
+        });
+        return (c && c.avatarUrl) || '';
       },
       // Раунд 10.4 (A-8, Risk A-2): запись TABS «Лор чатов» для рендера
       // config-части вкладки (groupedForTab по sources limits_lore/flags_lore).
@@ -885,10 +1297,13 @@
           this.keyStatusOwn = null;
           return;
         }
+        var epoch = this.scopeEpoch;   // R1: снимок scope
         try {
           var data = await this.api('/api/config/keys/status');
+          if (!this._scopeGuard(epoch)) return;   // R1: устаревший ответ
           this.keyStatusOwn = data;
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           this.keyStatusOwn = null;
         }
       },
@@ -934,16 +1349,19 @@
           return;
         }
         this.chatLocalAdminsBusy = true;
+        var epoch = this.scopeEpoch;   // D2: снимок scope
         try {
           var data = await this.api('/api/chat_lore/admins?chat_id=' + this.activeChatId);
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           var self = this;
           this.chatLocalAdmins = (Array.isArray(data) ? data : []).map(function (r) {
             return { telegram_id: r, role_name: 'local_admin' };
           });
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           this.chatLocalAdmins = [];
         } finally {
-          this.chatLocalAdminsBusy = false;
+          if (this._scopeGuard(epoch)) this.chatLocalAdminsBusy = false;   // R3
         }
       },
       addLocalAdmin: async function () {
@@ -979,14 +1397,17 @@
           this.gateInfo = null;
           return;
         }
+        var epoch = this.scopeEpoch;   // D2: снимок scope
         this.gatesBusy = true;
         try {
-          this.gateInfo = await this.api(
-            '/api/chat/' + this.activeChatId + '/gates');
+          var gi = await this.api('/api/chat/' + this.activeChatId + '/gates');
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
+          this.gateInfo = gi;
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           this.gateInfo = null;
         } finally {
-          this.gatesBusy = false;
+          if (this._scopeGuard(epoch)) this.gatesBusy = false;   // R3
         }
       },
       loadBudgetInfo: async function () {
@@ -1214,6 +1635,174 @@
         }
       },
 
+      // ═══ Hash-роутер (T-1099, §6.2/§6.4.4): applyRoute — применитель ═══
+      // route — источник истины; activeTab — производная. RBAC-гейт перед
+      // применением: запрещённый раздел → откат на '#/' через replaceState
+      // (не создаёт лишней history), UI не ослабляет серверные проверки.
+      applyRoute: function (rawHash) {
+        var route = normalizeRoute(rawHash);
+        if (!route) route = this.route || '#/';
+        if (route === this.route && _routeApplied) {
+          this.syncBackButton();
+          return;
+        }
+        var tabId = routeToTab(route);
+        var isHub = Object.prototype.hasOwnProperty.call(HUBS, route);
+        if (this.me && isHub) {
+          // D1: hub-роут гейтим по видимым карточкам, НЕ по representative tab.
+          if (!hubVisible(route, this.canViewTab.bind(this))) {
+            this.toast('Нет доступа к разделу', 'warn');
+            route = '#/';
+            tabId = routeToTab(route);
+            try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+          }
+        } else if (this.me && tabId && !this.canViewTab(tabId)) {
+          this.toast('Нет доступа к разделу', 'warn');
+          route = '#/';
+          tabId = routeToTab(route);
+          try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+        }
+        this.route = route;
+        _routeApplied = true;
+        try { sessionStorage.setItem('adminbot.route', route); } catch (e) { /* quota */ }
+        var found = this.tabs.find(function (t) { return t.id === tabId; });
+        if (found && found.menu) this.activeMenu = found.menu;
+        if (tabId && tabId !== this.activeTab) this.setTab(tabId);
+        this.syncBackButton();
+      },
+      // D2/§15.1.7 (R10.4-2): отбрасывание устаревших in-flight ответов при
+      // смене scope — снимок epoch перед await, сверка после.
+      _scopeGuard: function (epoch) {
+        return epoch === this.scopeEpoch;
+      },
+      navigateTo: function (route) {
+        var r = normalizeRoute(route);
+        if (!r) return;
+        if (r === this.route) { this.applyRoute(r); return; }
+        // ровно ОДНА history-запись → hashchange → applyRoute
+        window.location.hash = r;
+      },
+      // Навигация из меню: hash авторитетен (не setTab напрямую).
+      openTab: function (id) {
+        this.sidebarOpen = false;
+        var r = tabToRoute(id);
+        if (r) this.navigateTo(r);
+        else this.setTab(id);
+      },
+      // T-1100: navbar → маршрут (hash), закрывает drawer на mobile.
+      navTo: function (route) {
+        this.sidebarOpen = false;
+        this.navigateTo(route);
+      },
+      // T-1100: карточка hub → дочерний экран (+якорь секции для access).
+      openHubCard: function (card) {
+        var self = this;
+        if (!card) return;
+        this.sidebarOpen = false;
+        this.navigateTo(card.route);
+        if (card.section) {
+          this.$nextTick(function () { self.scrollToId(card.section); });
+        }
+      },
+      scrollToId: function (id) {
+        try {
+          var el = document.getElementById(id);
+          if (el && el.scrollIntoView) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (e) { /* no DOM */ }
+      },
+
+      // ═══ T-1127 (§15.1.3): кастомный scope-dropdown (a11y listbox) ═══
+      toggleScope: function () {
+        this.scopeOpen = !this.scopeOpen;
+        if (this.scopeOpen) {
+          this.scopeSearch = '';
+          this.scopeFocus = 0;
+          this.ensureScopeAvatars();
+        } else {
+          this.scopeFocus = -1;
+        }
+      },
+      closeScope: function () {
+        this.scopeOpen = false;
+        this.scopeFocus = -1;
+      },
+      // M2: стрелки/Enter по listbox (фокус-менеджмент).
+      scopeMove: function (delta) {
+        if (!this.scopeOpen) { this.toggleScope(); return; }
+        var n = this.scopeOptions.length;
+        if (!n) return;
+        this.scopeFocus = (this.scopeFocus + delta + n) % n;
+      },
+      scopePickFocused: function () {
+        if (this.scopeOpen && this.scopeFocus >= 0) {
+          var o = this.scopeOptions[this.scopeFocus];
+          if (o) this.pickScope(o);
+        } else {
+          this.toggleScope();
+        }
+      },
+      pickScope: function (o) {
+        this.scopeOpen = false;
+        this.setActiveChat(o && o.chat_id != null ? String(o.chat_id) : '');
+      },
+      isScopeSelected: function (o) {
+        if (!o) return false;
+        if (o.kind === 'global') return this.activeChatId == null;
+        return o.chat_id === this.activeChatId;
+      },
+      // Ленивая догрузка аватаров чатов (R10.4-4): только при открытии.
+      ensureScopeAvatars: function () {
+        var self = this;
+        this.accessChats.forEach(function (c) {
+          if (c.photo_file_id != null && !c.avatarUrl && !c.__avBusy) {
+            c.__avBusy = true;
+            self.loadAvatar('chat', c.chat_id, c);
+          }
+        });
+      },
+      // Определённый родитель (§6.4.4), БЕЗ history.back().
+      goBack: function () {
+        var p = routeParent(this.route);
+        if (p) this.navigateTo(p);
+      },
+      // Bot API 6.1+ guard: BackButton может отсутствовать вне TMA.
+      // R10.5-1: вызывается и на BOOT, и на late-`ready` (контекст может
+      // появиться позже). onClick привязывается РОВНО ОДИН раз на объект
+      // (_boundBackApi), затем syncBackButton() переоценивает видимость.
+      initBackButton: function () {
+        var self = this;
+        var wa = window.Telegram && window.Telegram.WebApp;
+        var bb = wa && wa.BackButton;
+        _backApi = (bb && typeof bb.show === 'function'
+          && typeof bb.hide === 'function') ? bb : null;
+        this.backNative = !!_backApi;
+        if (_backApi && typeof _backApi.onClick === 'function'
+            && _boundBackApi !== _backApi) {
+          _backApi.onClick(function () { self.goBack(); });
+          _boundBackApi = _backApi;
+        }
+        // late-ready: переоценить видимость (show() при depth>0).
+        if (_backApi) this.syncBackButton();
+      },
+      // ЕДИНСТВЕННОЕ место смены видимости; show() заменяет нативный ✕ на ←.
+      syncBackButton: function () {
+        if (!_backApi) return;
+        var want = window.__TMA_BACK__ !== false && routeDepth(this.route) > 0;
+        if (want === !!_backApi.isVisible) return;
+        try { want ? _backApi.show() : _backApi.hide(); } catch (e) { /* old SDK */ }
+      },
+
+      // ═══ Material Symbols (T-1147): рендер PUA-кодпоинтом ═══
+      iconGlyph: function (name) {
+        return ICONS[name] || '';
+      },
+      tabMat: function (id) {
+        var name = TAB_ICON[id];
+        return (name && ICONS[name]) ? ICONS[name] : '';
+      },
+
       setTab: function (id) {
         var self = this;
         var prevTab = this.activeTab;
@@ -1260,6 +1849,7 @@
         if (id === 'access' && this.canViewTab('access')) {
           this.loadAdmins();
           this.loadRoles();
+          if (this.isGlobalAdmin) this.loadMatrix();   // T-1130
         }
         // 3.10: «Лор чатов» — при первом показе грузим список чатов (для
         // ролей с секцией; per-chat админы уже прошли probe в mounted).
@@ -1452,15 +2042,21 @@
       canEditConfig: function (key) {
         var p = this.permissions;
         if (p.wildcard) return true;
+        var cat = String(key).split('.')[0];
         // F-14 (§6, ремедиация ревью): в DM-скоупе (свои ЛС) юзер правит
         // параметры как local_admin — permissions из /api/me (глобальная
-        // роль user = {}) не отражают is_dm_owner; серверный гейт
-        // is_dm_owner → can_edit_param (403/422) уже защищает. keys.* —
-        // только BYOK-путь (/api/config/keys/own) → false (как сервер).
-        if (this.isDmCtx() && String(key).split('.')[0] !== 'keys') {
+        // роль user = {}) не отражают is_dm_owner. НО сервер (routes.py)
+        // в chat/DM-скоупе отвергает per_chat=False (models.*, keys.*) → 422
+        // («ключ нельзя переносить на уровень чата»). Зеркалим сервер:
+        // такие ключи в DM — read-only (R10.5-2). keys.* — только BYOK.
+        if (this.isDmCtx()) {
+          var dmItem = (this.configItems || []).find(function (i) {
+            return i.key === key;
+          });
+          if (dmItem && dmItem.per_chat === false) return false;
+          if (cat === 'models' || cat === 'keys') return false;  // fallback
           return true;
         }
-        var cat = String(key).split('.')[0];
         if (cat === 'keys') {
           return arr(p.keys).indexOf(key) >= 0 || arr(p.sections).indexOf('keys') >= 0;
         }
@@ -1482,9 +2078,11 @@
       },
 
       loadConfig: async function () {
+        var epoch = this.scopeEpoch;   // D2: снимок scope
         this.configLoading = true;
         try {
           var data = await this.api('/api/config');
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.configError = '';      // F-13 (AC-3): успех — баннер скрыт
           this.configItems = data.items || [];
           this.configGroups = data.groups || [];
@@ -1503,6 +2101,7 @@
           // 3.5.2: после перезагрузки KV-редакторы (компоненты) сами
           // пересоберут пары из item.value — внешних черновиков нет.
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо
           // общего «Не удалось загрузить конфигурацию».
           // F-13 (AC-3, MED-021): 403/503/сеть — configError-баннер
@@ -1523,7 +2122,7 @@
             this.toast('Не удалось загрузить конфигурацию', 'err');
           }
         } finally {
-          this.configLoading = false;
+          if (this._scopeGuard(epoch)) this.configLoading = false;   // R3
         }
       },
 
@@ -1850,6 +2449,182 @@
           this.toast('Ошибка: ' + e.message, 'err');
         }
       },
+      // ═══ OD15/T-1142 (раунд 10.5): rename/delete ролей ═══
+      // superuser — абсолютная защита (UI disabled + сервер 403/409).
+      isSuperuserRole: function (role) {
+        var name = role && role.role_name;
+        if (name === 'admin' || name === 'global_admin' || name === 'superuser') {
+          return true;
+        }
+        return !!(role && role.role_type === 'global_admin');
+      },
+      canEditRole: function (role) {
+        // можно rename/delete только пользовательскую (не superuser, не builtin).
+        return !this.isSuperuserRole(role)
+          && !(role && role.role_type)
+          && !!(role && role.is_custom);
+      },
+      roleRestrictionHint: function (role) {
+        if (this.isSuperuserRole(role)) {
+          return 'Роль суперпользователя защищена — нельзя переименовать/удалить';
+        }
+        if (role && role.role_type) {
+          return 'Встроенную роль нельзя переименовать/удалить';
+        }
+        return 'Переименовать/удалить роль';
+      },
+      renameRole: async function (role) {
+        if (!this.canEditRole(role)) return;
+        var next = window.prompt('Новое имя роли «' + role.role_name + '»:',
+                                 role.role_name);
+        if (next == null) return;
+        next = String(next).trim();
+        if (!next || next === role.role_name) return;
+        try {
+          await this.api('/api/roles/' + encodeURIComponent(role.role_name)
+                         + '/rename',
+                         { method: 'POST',
+                           body: JSON.stringify({ new_name: next }) });
+          this.toast('Роль переименована: ' + role.role_name + ' → ' + next, 'ok');
+          await this.loadRoles();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+      deleteRole: async function (role) {
+        if (!this.canEditRole(role)) return;
+        if (!window.confirm('Удалить роль «' + role.role_name
+                            + '»? Права роли будут удалены.')) return;
+        try {
+          await this.api('/api/roles/' + encodeURIComponent(role.role_name),
+                         { method: 'DELETE' });
+          this.toast('Роль удалена: ' + role.role_name, 'ok');
+          await this.loadRoles();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+
+      // ═══ OD10/T-1130 (раунд 10.5): визуальная матрица ролей ═══
+      // ВСЕ параметры каталога, сгруппированные по секциям мини-аппа
+      // (category → group), per-param назначение read/write-ролей.
+      loadMatrix: async function () {
+        if (!this.isGlobalAdmin) return;
+        this.matrixLoading = true;
+        this.matrixError = '';
+        try {
+          var data = await this.api('/api/access/param_permissions');
+          this.matrixItems = (data && data.items) || {};
+        } catch (e) {
+          this.matrixError = 'Не удалось загрузить матрицу: ' + e.message;
+          this.matrixItems = {};
+        } finally {
+          this.matrixLoading = false;
+        }
+      },
+      // D4: матрица группируется по СЕКЦИЯМ мини-аппа (config-вкладки), а не
+      // по внутренним категориям каталога. Backend отдаёт `tab`/`tab_title`.
+      matrixCategoryTitle: function (cat) {
+        var titles = {
+          prompts: 'Промпты', models: 'Модели и провайдеры',
+          keys: 'API-ключи', limits: 'Лимиты и кулдауны',
+          flags: 'Флаги модулей', reactions: 'Реакции и персоны',
+          content: 'Контент', memory: 'Память',
+        };
+        return titles[cat] || cat;
+      },
+      // [{id, title, groups:[{id, title, order, items:[{key,item}]}]}] —
+      // секция = мини-апп-вкладка (tab) или fallback-категория.
+      matrixSections: function () {
+        var items = this.matrixItems || {};
+        var q = (this.matrixSearch || '').toLowerCase();
+        var bySec = {};
+        Object.keys(items).forEach(function (key) {
+          var it = items[key];
+          if (q && key.toLowerCase().indexOf(q) < 0
+              && (it.title || '').toLowerCase().indexOf(q) < 0) return;
+          var secId = it.tab || ('cat:' + (it.category || 'other'));
+          if (!bySec[secId]) {
+            bySec[secId] = {
+              id: secId, title: it.tab_title || null,
+              category: it.category || 'other', groups: {},
+            };
+          }
+          var gid = it.group || 'other';
+          if (!bySec[secId].groups[gid]) {
+            bySec[secId].groups[gid] = {
+              id: gid, title: it.group_title || gid,
+              order: it.group_order || 999, items: [],
+            };
+          }
+          bySec[secId].groups[gid].items.push({ key: key, item: it });
+        });
+        var self = this;
+        return Object.keys(bySec).map(function (sid) {
+          var sec = bySec[sid];
+          if (!sec.title) sec.title = self.matrixCategoryTitle(sec.category);
+          sec.groups = Object.keys(sec.groups).map(function (g) {
+            var grp = sec.groups[g];
+            grp.items.sort(function (a, b) { return a.key < b.key ? -1 : 1; });
+            return grp;
+          }).sort(function (a, b) {
+            return (a.order - b.order) || (a.id < b.id ? -1 : 1);
+          });
+          sec.order = TAB_SECTION_ORDER.indexOf(sec.id);
+          sec.count = sec.groups.reduce(function (n, g) {
+            return n + g.items.length;
+          }, 0);
+          return sec;
+        }).sort(function (a, b) {
+          var ao = a.order < 0 ? 999 : a.order;
+          var bo = b.order < 0 ? 999 : b.order;
+          return (ao - bo) || (a.id < b.id ? -1 : 1);
+        });
+      },
+      matrixChecked: function (item, field, role) {
+        return arr(item && item[field]).indexOf(role) >= 0;
+      },
+      matrixRoleToggle: async function (key, field, role) {
+        var item = this.matrixItems[key];
+        if (!item) return;
+        var domain = ['user', 'moderator', 'local_admin'];
+        var view = arr(item.view_roles).slice();
+        var edit = arr(item.edit_roles).slice();
+        var target = (field === 'view_roles') ? view : edit;
+        var i = target.indexOf(role);
+        if (i >= 0) target.splice(i, 1); else target.push(role);
+        var allowed = view.concat(edit);   // запись подразумевает чтение
+        var body = {
+          view_roles: domain.filter(function (r) { return allowed.indexOf(r) >= 0; }),
+          edit_roles: domain.filter(function (r) { return edit.indexOf(r) >= 0; }),
+        };
+        this.matrixSaving[key] = true;
+        try {
+          var resp = await this.api(
+            '/api/access/param_permissions/' + encodeURIComponent(key),
+            { method: 'PUT', body: JSON.stringify(body) });
+          this.matrixItems[key] = Object.assign({}, item, {
+            view_roles: resp.view_roles || body.view_roles,
+            edit_roles: resp.edit_roles || body.edit_roles,
+            default: false,
+          });
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        } finally {
+          this.matrixSaving[key] = false;
+        }
+      },
+      matrixReset: async function (key) {
+        try {
+          await this.api('/api/access/param_permissions/' + encodeURIComponent(key),
+                         { method: 'DELETE' });
+          this.toast('Сброшено на дефолт: ' + key, 'ok');
+          await this.loadMatrix();
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+
       applyTree: function (tree) {
         var sections = (tree.sections || []).map(function (s) {
           return {
@@ -1941,8 +2716,11 @@
 
       // ═══ Статус ═══
       loadStatus: async function () {
+        var epoch = this.scopeEpoch;   // D2: снимок scope (permsoc-телеметрия per chat)
         try {
-          this.statusData = await this.api('/api/status');
+          var st = await this.api('/api/status');
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
+          this.statusData = st;
           this.statusError = null;
         } catch (e) {
           // 84.21.1: ошибка на ЛЮБОЙ не-OK (401/403/500/502/…), чтобы не
@@ -1957,6 +2735,7 @@
           }
         }
         this.$nextTick(this.renderUptimeChart);
+        this.loadKeyHistory();   // B1/T-1129: список + график доступности
       },
       startStatusPolling: function () {
         var self = this;
@@ -2013,8 +2792,8 @@
             datasets: [{
               label: 'up',
               data: data,
-              borderColor: '#8b5cf6',
-              backgroundColor: 'rgba(139,92,246,0.15)',
+              borderColor: '#14CBB6',            // токен --teal-500 (OD4)
+              backgroundColor: 'rgba(20,203,182,0.15)',
               fill: true,
               tension: 0.25,
               pointRadius: 0,
@@ -2032,6 +2811,90 @@
         };
         if (this.uptimeChart) { this.uptimeChart.destroy(); }
         this.uptimeChart = new Chart(canvas, cfg);
+      },
+
+      // ═══ B1/OD8 (T-1128/T-1129): доступность ключей ═══
+      loadKeyHistory: async function () {
+        try {
+          this.keyHistory = await this.api('/api/status/key-history');
+        } catch (e) {
+          this.keyHistory = null;   // empty-state по инварианту §8
+        }
+        this.$nextTick(this.renderKeyHistoryChart);
+      },
+      // Последний сэмпл провайдера (для компактной строки списка).
+      latestSample: function (prov) {
+        var arr = (prov && prov.samples) || [];
+        return arr.length ? arr[arr.length - 1] : null;
+      },
+      // Индикатор: 2xx → ok; 429/5xx/network → err; прочие 4xx/not_config → warn.
+      availabilityClass: function (sample) {
+        if (!sample) return 'none';
+        var code = sample.http_status;
+        if (sample.ok || (code != null && code >= 200 && code < 300)) return 'ok';
+        if (code == null || code === 429 || code >= 500) return 'err';
+        return 'warn';
+      },
+      availabilityCode: function (sample) {
+        if (!sample || sample.http_status == null) return '—';
+        return String(sample.http_status);
+      },
+      renderKeyHistoryChart: function () {
+        var canvas = this.$refs.keyHistoryCanvas;
+        if (!canvas || !this.keyHistory
+            || !(this.keyHistory.providers || []).length) return;
+        var providers = this.keyHistory.providers;
+        // Общая ось времени: union ts всех провайдеров.
+        var tsSet = {};
+        providers.forEach(function (p) {
+          (p.samples || []).forEach(function (s) { tsSet[s.ts] = true; });
+        });
+        var tsList = Object.keys(tsSet).map(Number).sort(function (a, b) {
+          return a - b;
+        }).slice(-MAX_HISTORY_POINTS);
+        var labels = tsList.map(function (t) {
+          var d = new Date(t * 1000);
+          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+          return pad(d.getHours()) + ':' + pad(d.getMinutes());
+        });
+        var palette = ['#14CBB6', '#8D6BDC', '#16B364', '#EAAA08',
+                       '#FF4848', '#A78DE4'];
+        var datasets = providers.map(function (p, idx) {
+          var byTs = {};
+          (p.samples || []).forEach(function (s) { byTs[s.ts] = s.ok ? 1 : 0; });
+          var data = tsList.map(function (t) {
+            return Object.prototype.hasOwnProperty.call(byTs, t) ? byTs[t] : null;
+          });
+          return {
+            label: p.module_title || p.provider || p.module_id,
+            data: data,
+            borderColor: palette[idx % palette.length],
+            backgroundColor: palette[idx % palette.length],
+            stepped: true,
+            tension: 0,
+            pointRadius: 0,
+            spanGaps: false,     // разрыв = нет данных
+          };
+        });
+        var cfg = {
+          type: 'line',
+          data: { labels: labels, datasets: datasets },
+          options: {
+            responsive: true,
+            scales: {
+              y: { min: -0.2, max: 1.2, ticks: { display: false } },
+              x: { ticks: { color: '#9CA3AF', maxTicksLimit: 10,
+                            font: { size: 10 } } },
+            },
+            plugins: {
+              legend: { display: true, position: 'bottom',
+                        labels: { color: '#BABABA', boxWidth: 10,
+                                  font: { size: 10 } } },
+            },
+          },
+        };
+        if (this.keyHistoryChart) { this.keyHistoryChart.destroy(); }
+        this.keyHistoryChart = new Chart(canvas, cfg);
       },
 
       loadLogs: async function () {
@@ -2175,11 +3038,17 @@
         this.infoDraft = this.infoHtml || '';
       },
       sanitizeHtml: function (html) {
-        if (window.DOMPurify) {
-          return DOMPurify.sanitize(html || '');
+        var raw = html || '';
+        if (window.DOMPurify
+            && typeof window.DOMPurify.sanitize === 'function') {
+          return window.DOMPurify.sanitize(raw);
         }
-        console.warn('[adminbot] DOMPurify недоступен — рендер без санитизации');
-        return html || '';
+        // M1: fail-CLOSED — нет санитайзера → рендерим как ЭКРАНИРОВАННЫЙ
+        // текст (не сырой HTML).
+        console.warn('[adminbot] DOMPurify недоступен — текст без HTML');
+        return String(raw)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       },
       saveInfo: async function () {
         var html = this.infoDraft || '';
@@ -2263,10 +3132,12 @@
 
       loadProfile: async function (chatId) {
         if (chatId == null || chatId === '') return;
+        var epoch = this.scopeEpoch;   // D2: снимок scope
         this.chatLoreProfileLoading = true;
         this.chatLoreError = '';
         try {
           var p = await this.api('/api/chat_lore/' + chatId);
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.applyLoreProfile(p);
           // C2: список админов грузим вместе с профилем (глобальный admin —
           // остальным секции remap/админов в шаблоне не видны)
@@ -2274,6 +3145,7 @@
           // F3 (раунд 9): участники и отношения — при каждом выборе чата
           this.loadRelations(p.chat_id);
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           // неудачная загрузка не оставляет «протухший» профиль на экране
           this.chatLoreProfile = null;
           this.chatAdmins = [];
@@ -2288,7 +3160,7 @@
               + this.loreErrText(e);
           }
         } finally {
-          this.chatLoreProfileLoading = false;
+          if (this._scopeGuard(epoch)) this.chatLoreProfileLoading = false;   // R3
         }
       },
 
@@ -2543,9 +3415,11 @@
       loadRelations: async function (chatId) {
         if (chatId == null || chatId === '') return;
         var self = this;
+        var epoch = this.scopeEpoch;   // D2: снимок scope
         this.relationsBusy = true;
         try {
           var data = await this.api('/api/chat_lore/' + chatId + '/relations');
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.relationsEnabled = !!(data && data.relations_enabled);
           var rows = Array.isArray(data && data.users) ? data.users : [];
           rows.forEach(function (u) {
@@ -2564,6 +3438,7 @@
           });
           this.loadRelationAvatarsLazy(rows);
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           this.chatRelations = [];
           if (e.status === 404) {
             this.chatRelations = [];
@@ -2572,7 +3447,7 @@
               + this.loreErrText(e), 'err');
           }
         } finally {
-          this.relationsBusy = false;
+          if (this._scopeGuard(epoch)) this.relationsBusy = false;   // R3
         }
       },
 
@@ -2875,18 +3750,22 @@
       // факту API: store.list_chat_admins → list[int], ORDER BY telegram_id).
       loadChatAdmins: async function (chatId) {
         if (chatId == null || chatId === '') return;
+        var epoch = this.scopeEpoch;   // R1: снимок scope
         this.adminsBusy = true;
         try {
           var data = await this.api('/api/chat_lore/admins?chat_id=' + chatId);
+          if (!this._scopeGuard(epoch)) return;   // R1: устаревший ответ
           this.chatAdmins = Array.isArray(data) ? data : [];
         } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           this.chatAdmins = [];
           if (e.status !== 401 && e.status !== 403) {
             this.toast('Не удалось загрузить админов чата: '
               + this.loreErrText(e), 'err');
           }
         } finally {
-          this.adminsBusy = false;
+          // R3: не сбрасываем busy устаревшего запроса (его владеет новый).
+          if (this._scopeGuard(epoch)) this.adminsBusy = false;
         }
       },
 

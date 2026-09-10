@@ -99,6 +99,7 @@ class OpenRouterVideoClient:
         self._client: AsyncOpenAI | None = None
         self._client_key: str | None = None
         self._client_timeout: float | None = None
+        self._client_base: str | None = None
 
     @property
     def _current_api_key(self) -> str:
@@ -118,17 +119,21 @@ class OpenRouterVideoClient:
             self._client = None
             self._client_key = None
             self._client_timeout = None
+            self._client_base = None
             return None
         timeout = self._current_timeout
+        base = hot.get("models.openrouter_base_url", OPENROUTER_BASE_URL)
         if (self._client is None or key != self._client_key
-                or timeout != self._client_timeout):
+                or timeout != self._client_timeout
+                or base != self._client_base):
             self._client = AsyncOpenAI(
-                base_url=OPENROUTER_BASE_URL,
+                base_url=base,
                 api_key=key,
                 timeout=timeout,
             )
             self._client_key = key
             self._client_timeout = timeout
+            self._client_base = base
         return self._client
 
     @property

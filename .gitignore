@@ -50,6 +50,20 @@ backups/
 # ── Импорт истории Telegram (раунд 4, T-723): ~600 МБ, НЕ в git ──
 migrate_history/
 
+# ── Сторонний референс-сайт Relume (редизайн TMA, раунд 10.5) ──────
+# relumesite_example/ — сгенерированный Relume экспорт сайта-мокапа
+# (референс дизайна админки). Не код проекта, в git не нужен.
+# ВНИМАНИЕ: media/ — НЕ трогать (политика project.md: медиа для сервера).
+relumesite_example/
+
+# ── Тяжёлый исходник шрифта Material Symbols (редизайн TMA, OD18) ──
+# MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2 (~5.11 МиБ) в корне —
+# исходник для сборки сабсета. В git НЕ коммитим.
+# В git идёт только сабсет ~13 КБ (web/static/fonts/material-symbols-rounded.woff2)
+# + LICENSE (Apache-2.0). Паттерн без '[' / ']' — скобки в gitignore спецсимволы.
+# ВНИМАНИЕ: media/ — НЕ трогать (политика project.md: медиа для сервера).
+MaterialSymbolsRounded*.woff2
+
 # ── IDE / ОС ──────────────────────────────────────────────────────
 .idea/
 .vscode/
@@ -60,3 +74,12 @@ Thumbs.db
 # данные авторизации Bot API не в git; сам каталог держим через .gitkeep
 docker/telegram-bot-api/*
 !docker/telegram-bot-api/.gitkeep
+
+# ── Локальное состоянии истории ключей (редизайн 10.5, OD19) ──────
+# var/status_key_history.json — leak-safe снимок доступности ключей
+# (allowlist: module_id/provider/model/ok/http_status/ts). Файл НЕ в git.
+var/
+
+# ── Промежуточные артефакты сборки шрифта (T-1146) ──────────────
+# build/ — instanced-ttf, subset_unicodes.txt, маркер sha256 источника.
+build/

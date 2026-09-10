@@ -54,6 +54,9 @@ def _client_with(create: AsyncMock) -> OpenRouterVideoClient:
     # W1: _get_client() пересобирает и при смене таймаута — фиксируем
     # актуальный, чтобы инжектированный фейк переиспользовался.
     client._client_timeout = client._current_timeout
+    # D3 (OD16): base_url — тоже часть кэш-ключа клиента.
+    from services.video_cascade_client import OPENROUTER_BASE_URL
+    client._client_base = OPENROUTER_BASE_URL
     return client
 
 

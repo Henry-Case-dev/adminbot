@@ -746,6 +746,33 @@ class TestRoles:
         assert resp.status_code == 200
         assert resp.json()["is_custom"] is False
 
+    # ── OD15/T-1141 (раунд 10.5): rename/delete с защитой superuser ──
+    def test_delete_superuser_role_403(self, client):
+        resp = client.delete("/api/roles/admin", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 403
+
+    def test_delete_unknown_role_404(self, client):
+        resp = client.delete("/api/roles/nope", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 404
+
+    def test_rename_superuser_role_403(self, client):
+        resp = client.post("/api/roles/admin/rename",
+                           json={"new_name": "boss"},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 403
+
+    def test_rename_unknown_role_404(self, client):
+        resp = client.post("/api/roles/nope/rename",
+                           json={"new_name": "x"},
+                           headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 404
+
+    def test_rename_forbidden_for_non_global(self, client):
+        resp = client.post("/api/roles/moderator/rename",
+                           json={"new_name": "mod2"},
+                           headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
     def test_roles_tree(self, client):
         resp = client.get("/api/roles/tree", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
@@ -1034,9 +1061,12 @@ class TestStatic:
         assert "cdn.tailwindcss.com" in text
         assert "dompurify" in text
         assert "chart.js" in text
-        assert "linear-gradient(-45deg" in text          # анимированный фон
-        # UI-полировка TMA: анимация фона ускорена 15s → 8s
-        assert "animation: gradient 8s ease infinite" in text
+        # Редизайн 10.5 (T-1098): анимированные градиенты на токенах эталона.
+        assert "@property --grad-angle" in text          # OD4: inherits:false
+        assert "animation: grad-drift" in text           # page-wash (T2)
+        assert "conic-gradient(from var(--grad-angle)" in text
+        assert "@media (prefers-reduced-motion: reduce)" in text
+        assert "--surface-1:#161616" in text             # палитра эталона
         assert "backdrop-filter: blur(20px) saturate(140%)" in text
         assert "Telegram.WebApp" in text
         # Инцидент «Миниапп открыт без Telegram-контекста»: официальный
@@ -1131,6 +1161,32 @@ class TestParamPermissionFlagsApi:
         assert "hidden_from_local" not in m
         kk = items["keys.llm_api_key"]
         assert kk["view_roles"] == [] and kk["edit_roles"] == []
+
+    def test_param_permissions_matrix_metadata_and_coverage(self, client):
+        """OD10/T-1130 + Reviewer D4: матрица покрывает ВСЕ категорийные
+        параметры и группируется по СЕКЦИЯМ мини-аппа (tab/tab_title)."""
+        from services.param_catalog import REGISTRY
+        categorized = [s for s in REGISTRY.values() if s.category is not None]
+        resp = client.get("/api/access/param_permissions", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert len(items) == len(categorized) == 359
+        m = items["limits.search_max_symbols"]
+        assert m["category"] == "limits"
+        assert m["group"] == "limits_other" or m["group"].startswith("limits")
+        assert m["group_title"] and m["title"]
+        assert "group_order" in m and "secret" in m
+        # D4: секция = config-вкладка мини-аппа, а не внутренняя категория.
+        assert m["tab"] == "limits"
+        assert m["tab_title"] == "Лимиты"
+        assert items["models.llm_base_url"]["tab"] == "llm_providers"
+        assert items["models.llm_base_url"]["tab_title"] == "LLM Провайдеры"
+        assert items["keys.groq_api_key"]["tab"] == "llm_providers"
+        assert items["prompts.summary_system_prompt"]["tab"] == "prompts"
+        assert items["prompts.summary_system_prompt"]["tab_title"] == "Промпты"
+        # у каждого параметра секция-метаданные присутствуют (key есть)
+        for key, it in items.items():
+            assert "tab" in it and "tab_title" in it, key
 
     def test_put_flags_new_shape(self, client):
         from services import access as access_srv
@@ -1354,3 +1410,28 @@ class TestSelectWidgetTemperature:
         resp = client.post("/api/config", json=payload, headers=_dmh(USER_ID))
         assert resp.status_code == 409
         assert "недопустимая опция" not in resp.text
+
+
+class TestKeyHistoryApi:
+    """B1/OD8 + OD12/OD19 (T-1128/T-1129/T-1140): leak-safe история ключей."""
+
+    def test_key_history_allowlist(self, client):
+        resp = client.get("/api/status/key-history", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body.keys()) == {"version", "generated_at", "providers"}
+        for prov in body["providers"]:
+            assert set(prov.keys()) <= {
+                "module_id", "module_title", "provider", "model", "samples"}
+            for sample in prov["samples"]:
+                assert set(sample.keys()) == {"ts", "ok", "http_status"}
+
+    def test_status_llm_has_module_metadata(self, client):
+        resp = client.get("/api/status", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        llm = resp.json()["llm"]
+        assert llm, "llm[] непуст"
+        for card in llm:
+            assert card["module_id"] and card["provider"]
+            assert "model_source" in card
+            assert set(card["key"].keys()) <= {"configured", "last4"}

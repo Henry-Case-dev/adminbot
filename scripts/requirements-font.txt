@@ -1,0 +1,9 @@
+# OD17 (tma-relume-redesign, T-1146) — BUILD-TIME ONLY.
+# Нужны исключительно для scripts/build_font_subset.py (субсет Material
+# Symbols). В runtime-requirements.txt не входят: в прод идёт только готовый
+# статический .woff2-субсет, рантайм-зависимостей нет.
+#
+# Установка (build-окружение):
+#   python -m pip install -r scripts/requirements-font.txt
+fonttools[woff]>=4.50
+brotli>=1.1

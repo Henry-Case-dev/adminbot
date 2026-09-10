@@ -30,8 +30,13 @@ import psutil
 
 from config.settings import APP_VERSION, settings
 from services import hot_config as hot
+from services.key_history import KeyHistory
 
 logger = logging.getLogger(__name__)
+
+# OD12/OD19 (T-1140/T-1148): персистентная (in-memory ring + JSON-снимок)
+# история доступности ключей. Ленивая загрузка — без I/O на import.
+key_history = KeyHistory()
 
 _HEALTH_CACHE_SECONDS = 60.0
 _HEALTH_TIMEOUT_SECONDS = 5.0
@@ -89,46 +94,89 @@ class StatusService:
     # ── реестр LLM (из ConfigCache через hot_config, фолбек settings) ──────
 
     @staticmethod
+    def _resolve(key: str, default) -> tuple[Any, str]:
+        """(value, source): source='config' — ключ есть в bot_settings,
+        'code' — используется дефолт (литерал/константа код-канона)."""
+        cache = hot.get_config_cache()
+        if cache is not None:
+            try:
+                sentinel = object()
+                value = cache.get(key, sentinel)
+                if value is not sentinel and value is not None:
+                    return value, "config"
+            except Exception:
+                pass
+        return default, "code"
+
+    @staticmethod
     def llm_registry() -> list[dict]:
-        """deepseek/groq/openrouter: provider/model/key — из каталога."""
+        """deepseek/groq/openrouter(+fallback): provider/model/key + module_id.
+
+        OD11/OD16 (T-1139): НОЛЬ активных хардкодов — STT-модели и base_url
+        читаются через ``hot.get(pg_key, <сегодняшний литерал>)``; литерал
+        остаётся документированным дефолтом (safe migration: status.llm[]
+        до/после идентичен)."""
         from SmartModule.transcriber.groq_transcriber import (
+            GROQ_BASE_URL,
             GROQ_TRANSCRIBE_MODEL,
         )
         from SmartModule.transcriber.openrouter_transcriber import (
+            OPENROUTER_BASE_URL,
             OPENROUTER_TRANSCRIBE_MODEL,
         )
-        fallback_base = hot.get("models.llm_fallback_base_url",
-                                settings.LLM_FALLBACK_BASE_URL)
-        fallback_model = hot.get("models.llm_fallback_model",
-                                 settings.LLM_FALLBACK_MODEL)
+        fallback_base, _fs = StatusService._resolve(
+            "models.llm_fallback_base_url", settings.LLM_FALLBACK_BASE_URL)
+        fallback_model, _fm = StatusService._resolve(
+            "models.llm_fallback_model", settings.LLM_FALLBACK_MODEL)
+        groq_base, _gb = StatusService._resolve(
+            "models.groq_base_url", GROQ_BASE_URL)
+        groq_model, groq_model_src = StatusService._resolve(
+            "models.groq_transcribe_model", GROQ_TRANSCRIBE_MODEL)
+        or_base, _ob = StatusService._resolve(
+            "models.openrouter_base_url", OPENROUTER_BASE_URL)
+        or_model, or_model_src = StatusService._resolve(
+            "models.openrouter_transcribe_model", OPENROUTER_TRANSCRIBE_MODEL)
         providers = [
             {
+                "module_id": "llm_main",
+                "module_title": "Прямые ответы",
                 "provider": "deepseek",
                 "base_url": hot.get("models.llm_base_url",
                                     settings.LLM_BASE_URL),
                 "model": hot.get("models.llm_model_name",
                                  settings.LLM_MODEL_NAME),
+                "model_source": "config" if hot.get(
+                    "models.llm_model_name") else "code",
                 "key": hot.get("keys.llm_api_key", settings.LLM_API_KEY),
             },
             {
+                "module_id": "stt_groq",
+                "module_title": "Транскрипт (Groq)",
                 "provider": "groq",
-                "base_url": "https://api.groq.com/openai/v1",
-                "model": GROQ_TRANSCRIBE_MODEL,
+                "base_url": groq_base,
+                "model": groq_model,
+                "model_source": groq_model_src,
                 "key": hot.get("keys.groq_api_key", settings.GROQ_API_KEY),
             },
             {
+                "module_id": "stt_openrouter",
+                "module_title": "Выжимка видео / STT (OpenRouter)",
                 "provider": "openrouter",
-                "base_url": "https://openrouter.ai/api/v1",
-                "model": OPENROUTER_TRANSCRIBE_MODEL,
+                "base_url": or_base,
+                "model": or_model,
+                "model_source": or_model_src,
                 "key": hot.get("keys.openrouter_api_key",
                                settings.OPENROUTER_API_KEY),
             },
         ]
         if fallback_base and fallback_model:
             providers.append({
+                "module_id": "llm_fallback",
+                "module_title": "Фолбэк",
                 "provider": "deepseek_fallback",
                 "base_url": fallback_base,
                 "model": fallback_model,
+                "model_source": "config",
                 "key": hot.get("keys.llm_fallback_api_key",
                                settings.LLM_FALLBACK_API_KEY),
             })
@@ -265,6 +313,7 @@ class StatusService:
         cards = await asyncio.gather(
             *(self._build_llm_card(p, is_global_admin=is_global_admin)
               for p in providers))
+        key_history.maybe_save()   # T-1140: атомарный снимок раз в 5 мин
         permsoc = await self.permsoc_telemetry(chat_id)
         from services.log_ring import get_log_ring
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -313,12 +362,26 @@ class StatusService:
     async def _build_llm_card(self, provider: dict, *,
                               is_global_admin: bool = False) -> dict:
         """Карточка провайдера: key={configured[,last4]} + health + latency.
-        Маска — по роли (фикс S2; last4 только глобальному админу)."""
+        Маска — по роли (фикс S2; last4 только глобальному админу).
+        B1/OD8: также module_id/module_title/model_source + запись сэмпла в
+        leak-safe историю доступности (T-1140)."""
         health = await self._check_health(provider["base_url"],
                                           provider["key"] or "")
+        module_id = provider.get("module_id") or provider["provider"]
+        key_history.record(
+            module_id=module_id,
+            provider=provider["provider"],
+            model=provider["model"] or "",
+            ok=bool(health.get("ok")),
+            http_status=health.get("http_status"),
+            module_title=provider.get("module_title", ""),
+        )
         return {
+            "module_id": module_id,
+            "module_title": provider.get("module_title", ""),
             "provider": provider["provider"],
             "model": provider["model"],
+            "model_source": provider.get("model_source", "code"),
             "key": _mask_key_for_role(provider["key"], is_global_admin),
             "last_latency_ms": self._llm_latency.get(provider["provider"]),
             "health": health,

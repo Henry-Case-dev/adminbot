@@ -25,11 +25,21 @@ class TestDmFrontend:
         """DM-строка — обычная опция единого селектора F-13
         (title/chat_id приходят с сервера; is_dm флаг — для isDmCtx)."""
         html = _html()
-        # единый селектор (F-13) рендерит accessChats (куда входит DM-строка)
+        # единый scope-dropdown (T-1127) рендерит accessChats (вкл. DM-строку)
         assert "v-if=\"accessChats.length\"" in html
-        assert "setActiveChat($event.target.value)" in html
+        assert "pickScope(o)" in html
         js = _js()
         assert "c.is_dm" in js              # isDmCtx ищет DM-флаг в accessChats
+
+    def test_dm_models_readonly_matches_server(self):
+        """R10.5-2: в DM per_chat=False (models.*/keys.*) — read-only,
+        зеркалит серверный 422 ('ключ нельзя переносить на уровень чата')."""
+        js = _js()
+        body = js[js.index("canEditConfig: function (key)"):]
+        body = body[:body.index("itemMatchesSource")] if "itemMatchesSource" in body else body
+        assert "per_chat === false" in body
+        assert "cat === 'models'" in body
+        assert "return false" in body
 
     def test_is_dm_ctx_helper(self):
         js = _js()
@@ -80,16 +90,17 @@ class TestDmFrontend:
         assert 'v-if="item.chat_source === \'chat\'"' in html
 
     def test_can_edit_config_dm_enabled(self):
-        """Ремедиация ревью (F-14): canEditConfig в DM-скоупе возвращает true
-        для не-keys ключей (глобальная роль user = {} не отражает
-        is_dm_owner; серверный гейт is_dm_owner/422/403 защищает);
-        keys.* → false (BYOK-путь); ветки wildcard/keys — прежние."""
+        """F-14 + R10.5-2: в DM-скоупе per-chat ключи редактируемы, а
+        per_chat=False (models.*/keys.*) — read-only (зеркалит серверный
+        422 «ключ нельзя переносить на уровень чата»; keys.* — BYOK-путь)."""
         js = _js()
         body = js[js.index("canEditConfig: function (key)"):]
         # DM-ветка — ПОСЛЕ wildcard (приоритет глобального админа сохранён)
         assert "if (p.wildcard) return true;" in body
-        assert "this.isDmCtx() && String(key).split('.')[0] !== 'keys'" \
-            in body
+        # R10.5-2: DM-ветка зеркалит сервер — per_chat=False (models.*/keys.*)
+        # read-only; per-chat ключи по-прежнему редактируемы.
+        assert "per_chat === false" in body
+        assert "cat === 'models'" in body
         assert body.index("p.wildcard") < body.index("isDmCtx()")
         # keys-гейт (cat === 'keys') и массивный матчинг — прежние
         assert "cat === 'keys'" in body

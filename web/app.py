@@ -168,6 +168,14 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
 
     app.mount("/web", CacheControlStaticFiles(directory="web"),
               name="web")
+    # Редизайн 10.5 (T-1147/§15.4.3): self-host субсета Material Symbols.
+    # CSP font-src 'self' — без внешних CDN (LOW-012). Если каталога нет
+    # (чистый клон без сборки шрифта) — монтирование пропускается.
+    try:
+        app.mount("/static", CacheControlStaticFiles(directory="web/static"),
+                  name="static")
+    except RuntimeError:
+        logger.warning("[webapp] web/static отсутствует — /static не смонтирован")
 
     return app
 

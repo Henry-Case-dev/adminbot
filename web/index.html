@@ -13,13 +13,7 @@
   <script>
     tailwind.config = {
       theme: {
-        extend: {
-          colors: {
-            card: '#2b2b40',
-            accent: '#8b5cf6',
-            accent2: '#3b82f6',
-          },
-        },
+        extend: {},
       },
     };
   </script>
@@ -28,51 +22,127 @@
     [v-cloak] { display: none; }
 
     :root {
-      --card-bg: rgba(43, 43, 64, 0.55);
-      --card-border: 1px solid rgba(255, 255, 255, 0.08);
-      --accent-grad: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      /* ═══ Дизайн-токены (редизайн 10.5, T-1098; палитра эталона Relume) ═══ */
+      /* surfaces (плотные — гарантируют контраст WCAG AA) */
+      --surface-0:#0E0E0E; --surface-1:#161616; --surface-2:#1F1F1F; --surface-3:#262626;
+      --surface-border:rgba(255,255,255,.10); --surface-glass:rgba(22,22,22,.72);
+      /* text */
+      --text-1:#F5F5F5; --text-2:#BABABA; --text-3:#9E9E9E;
+      /* brand/base palette (эталон) */
+      --teal-500:#14CBB6; --teal-600:#12B7A4; --purple-500:#664EA0; --purple-400:#8D6BDC;
+      --magenta-600:#A91443; --magenta-400:#C25879; --lilac-200:#D9CDF3; --indigo-300:#A78DE4;
+      /* status */
+      --ok:#16B364; --warn:#EAAA08; --err:#FF4848;
+      --ok-bg:rgba(22,179,100,.14); --warn-bg:rgba(234,170,8,.14); --err-bg:rgba(255,72,72,.14);
+      /* animated gradient tokens (OD4) */
+      --grad-angle:135deg; --grad-a:#664EA0; --grad-b:#14CBB6; --grad-c:#8D6BDC;
+      --grad-speed:18s; --grad-ease:cubic-bezier(0,0,.2,1);
+      /* typography (значения эталона) */
+      --font-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+      --h1:3.5rem;--h2:3rem;--h3:2.5rem;--h4:2rem;--h5:1.5rem;--h6:1.25rem;
+      --heading-weight:600;--heading-ls:-.03em;
+      --tx-large:1.25rem;--tx-med:1.125rem;--tx-reg:1rem;--tx-small:.875rem;--tx-tiny:.75rem;
+      /* radius / shadow / spacing / motion (эталон) */
+      --radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-full:9999px;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.05);--shadow-md:0 4px 6px -1px rgba(0,0,0,.07);
+      --shadow-lg:0 10px 25px -3px rgba(0,0,0,.08);--shadow-xl:0 20px 50px -12px rgba(0,0,0,.12);
+      --dur-fast:.15s;--dur-normal:.3s;--dur-slow:.5s;--ease-out:cubic-bezier(0,0,.2,1);
+      --page-padding:2.5rem;--navbar-height:4.5rem;
+      /* compat-алиасы (хардкод прежней фиолетово-синей палитры удалён, §4.5) */
+      --card-bg: var(--surface-glass);
+      --card-border: 1px solid var(--surface-border);
+      --accent-grad: linear-gradient(135deg, var(--purple-500), var(--teal-500));
     }
+    /* @property + inherits:false — быстрое (не)наследуемое вычисление и
+       плавная интерполяция угла градиента (OD4/§4.3) */
+    @property --grad-angle { syntax: "<angle>"; inherits: false; initial-value: 135deg; }
+
+    /* ═══ Material Symbols Rounded — self-host субсет (T-1147/§15.4) ═══
+       В git только субсет ~13 КБ; источник 5.11 МиБ — .gitignore (OD18).
+       Лигатур в субсете НЕТ ⟹ иконки рендерим PUA-кодпоинтом (ICONS в app.js),
+       unicode-range не объявляем (google/fonts#10599). */
+    @font-face {
+      font-family: 'Material Symbols Rounded';
+      font-style: normal;
+      font-weight: 100 700;
+      font-display: block;
+      src: url('/static/fonts/material-symbols-rounded.woff2') format('woff2-variations');
+    }
+    .msr {
+      font-family: 'Material Symbols Rounded';
+      font-weight: normal; font-style: normal;
+      line-height: 1; display: inline-block; font-size: 24px;
+      text-transform: none; letter-spacing: normal; white-space: nowrap;
+      direction: ltr;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .msr.is-active {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+
+    /* ═══ Анимированные градиенты (OD4/T-1091): только ограниченные
+       поверхности; текст/иконки — всегда на плотных подложках (WCAG AA) ═══ */
+    @keyframes grad-spin { to { --grad-angle: 495deg; } }
+    @keyframes grad-drift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+    .grad-band, .btn-accent, .tab-btn.active {
+      background-image: conic-gradient(from var(--grad-angle),
+        var(--grad-a), var(--grad-b), var(--grad-c), var(--grad-a));
+      animation: grad-spin var(--grad-speed) linear infinite;
+    }
+    .grad-band { contain: paint; }
 
     * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
       min-height: 100vh;
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      color: #e5e5f0;
+      font-family: var(--font-body);
+      color: var(--text-1);
     }
 
     body {
-      background: linear-gradient(-45deg, #1a1033, #312e81, #4c1d95, #0f172a);
-      background-size: 400% 400%;
-      animation: gradient 8s ease infinite;   /* UI-полировка: чуть быстрее */
-      background-attachment: fixed;
+      background: var(--surface-0);
+      position: relative;
     }
-    @keyframes gradient {
-      0%   { background-position: 0% 50%; }
-      50%  { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+    /* T2 — большая мягкая page-wash (фон-подсветка), не под текстом напрямую */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: linear-gradient(120deg, var(--grad-a), var(--grad-b), var(--grad-c));
+      background-size: 200% 200%;
+      animation: grad-drift 24s var(--grad-ease) infinite alternate;
+      opacity: .16;
     }
     @media (prefers-reduced-motion: reduce) {
-      body { animation: none; }
+      .grad-band, .btn-accent, .tab-btn.active { animation: none !important; }
+      body::before { animation: none !important; background: var(--surface-1); opacity: 1; }
+      :root { --grad-angle: 135deg; }
+    }
+    @media (prefers-contrast: more) {
+      .grad-band, .btn-accent, .tab-btn.active, body::before {
+        animation: none !important; background-image: none !important;
+        background-color: var(--surface-3) !important; opacity: 1;
+      }
     }
 
     /* Glass-карточки (84.7): полупрозрачные — фон просвечивает */
     .card {
-      background: rgba(43, 43, 64, 0.55);
+      background: var(--surface-glass);
       backdrop-filter: blur(20px) saturate(140%);
       -webkit-backdrop-filter: blur(20px) saturate(140%);
       border: var(--card-border);
       border-radius: 1rem;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+      box-shadow: var(--shadow-lg);
     }
     .card-solid {
-      background: rgba(43, 43, 64, 0.8);
+      background: rgba(22, 22, 22, 0.88);
     }
 
     /* Активные кнопки/выделения — фиолетово-синий градиент */
     .btn-accent {
-      background: var(--accent-grad);
       color: #fff;
       border: none;
       border-radius: 0.75rem;
@@ -122,10 +192,78 @@
     }
     .tab-btn:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
     .tab-btn.active {
-      background: var(--accent-grad);
       color: #fff;
       font-weight: 600;
-      box-shadow: 0 4px 18px rgba(139, 92, 246, 0.35);
+      box-shadow: 0 4px 18px rgba(20, 203, 182, 0.35);
+    }
+
+    /* T-1100: navbar-полоса (6 пунктов эталона) + hub-карточки */
+    .navbar-band { border-top: 1px solid var(--surface-border); }
+    .nav-link {
+      display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap;
+      padding: .35rem .6rem; border-radius: var(--radius-md);
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-2); font-size: var(--tx-small);
+    }
+    .nav-link:hover { background: rgba(255,255,255,.06); color: var(--text-1); }
+    .nav-link.active {
+      background: var(--surface-3); color: var(--text-1); font-weight: 600;
+    }
+    .hub-head { grid-column: 1 / -1; }
+    .hub-head .hub-title { font-size: var(--tx-large); font-weight: 600; }
+    .hub-head .hub-sub { font-size: var(--tx-small); color: var(--text-3); }
+    .hub-grid {
+      grid-column: 1 / -1; display: grid; gap: .75rem;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+    .hub-card {
+      display: flex; align-items: flex-start; gap: .75rem; text-align: left;
+      background: var(--surface-glass); border: var(--card-border);
+      border-radius: var(--radius-lg); padding: .9rem; cursor: pointer;
+      color: var(--text-1); transition: transform .12s ease, border-color .12s ease;
+    }
+    .hub-card:hover { transform: translateY(-1px); border-color: var(--teal-500); }
+    .hub-card .msr { color: var(--teal-500); font-size: 28px; flex-shrink: 0; }
+    .hub-card .hub-card-title { font-weight: 600; font-size: var(--tx-med); }
+    .hub-card .hub-card-sub { font-size: var(--tx-small); color: var(--text-3); }
+
+    /* T-1127: кастомный scope-dropdown (a11y listbox) */
+    .scope-wrap { position: relative; }
+    .scope-trigger {
+      display: inline-flex; align-items: center; gap: .4rem; cursor: pointer;
+      max-width: 260px;
+    }
+    .scope-initial {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--surface-3); color: var(--text-1);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; flex-shrink: 0; text-transform: uppercase;
+    }
+    .scope-panel {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+      min-width: 260px; max-height: 60vh; overflow-y: auto; padding: .4rem;
+      border: var(--card-border); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl);
+    }
+    .scope-option {
+      display: flex; align-items: center; gap: .5rem; width: 100%;
+      text-align: left; padding: .4rem .5rem; border-radius: var(--radius-md);
+      background: transparent; border: none; color: var(--text-1);
+      cursor: pointer; font-size: var(--tx-small);
+    }
+    .scope-option:hover, .scope-option.active { background: rgba(255,255,255,.08); }
+    .matrix-group summary { color: var(--text-2); }
+    .matrix-group summary:hover { color: var(--text-1); }
+
+    /* T-1112: адаптив ≤991 / ≤479 */
+    @media (max-width: 991px) {
+      :root { --page-padding: 1.25rem; }
+    }
+    @media (max-width: 479px) {
+      .hub-grid { grid-template-columns: 1fr; }
+      .nav-link { padding: .4rem; }
+      .nav-link > span:not(.msr) { display: none; }   /* только иконки */
+      .avail-list th:nth-child(2), .avail-list td:nth-child(2) { display: none; }
     }
 
     .field {
@@ -138,20 +276,20 @@
       outline: none;
       font-size: 0.9rem;
     }
-    .field:focus { border-color: #8b5cf6; }
+    .field:focus { border-color: var(--teal-500); }
     /* KV-редактор (3.5.2): дубль/пустое поле пары */
     .field.kv-bad { border-color: rgba(239, 68, 68, 0.75); }
     textarea.field { font-family: ui-monospace, Consolas, monospace; }
     /* ФИКС 2026-09-03: native <select> игнорирует полупрозрачный фон/.field →
-       открывался БЕЛЫМ (UA-стиль); жёсткий тёмный фон + светлый текст
-       соглаcован с карточками (#2b2b40). */
+       открывался БЕЛЫМ (UA-стиль); жёсткий тёмный фон (--surface-3) +
+       светлый текст согласован с карточками. */
     select.field {
-      background-color: #2b2b40;
-      color: #e5e5f0;
+      background-color: var(--surface-3);
+      color: var(--text-1);
     }
     select.field option {
-      background-color: #2b2b40;
-      color: #e5e5f0;
+      background-color: var(--surface-3);
+      color: var(--text-1);
     }
     /* F-13 (AC-1, ремедиация ревью): .chat-select min/max-ширины УДАЛЕНЫ —
        unlayered CSS перебивал Tailwind-утилиты (w-44 max-w-[280px]) и
@@ -164,11 +302,34 @@
       font-size: 0.72rem;
       font-weight: 600;
     }
-    .badge-ok    { background: rgba(34, 197, 94, 0.18);  color: #4ade80; }
-    .badge-warn  { background: rgba(234, 179, 8, 0.18);  color: #facc15; }
-    .badge-err   { background: rgba(239, 68, 68, 0.18);  color: #f87171; }
+    .badge-ok    { background: var(--ok-bg);   color: #4ade80; }
+    .badge-warn  { background: var(--warn-bg); color: #facc15; }
+    .badge-err   { background: var(--err-bg);  color: #f87171; }
     .badge-info  { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
     .badge-muted { background: rgba(255, 255, 255, 0.08); color: #9ca3af; }
+
+    /* B1/OD8 (T-1128): плотный список доступности ключей (мелкий шрифт,
+       плотный line-height, без «карточечных» отступов) */
+    .avail-list { width: 100%; border-collapse: collapse; }
+    .avail-list th {
+      font-size: var(--tx-tiny); text-transform: uppercase; color: var(--text-3);
+      text-align: left; font-weight: 600; padding: 2px 8px; letter-spacing: .02em;
+    }
+    .avail-list td {
+      font-size: var(--tx-tiny); line-height: 1.25; padding: 3px 8px;
+      border-top: 1px solid var(--surface-border); white-space: nowrap;
+    }
+    .avail-list td.mono { font-family: ui-monospace, Consolas, monospace;
+      color: var(--text-1); overflow: hidden; text-overflow: ellipsis; }
+    .avail-dot { display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--text-3); vertical-align: middle; }
+    .avail-dot.ok { background: var(--ok); }
+    .avail-dot.warn { background: var(--warn); }
+    .avail-dot.err { background: var(--err); }
+    .avail-code.ok { color: var(--ok); }
+    .avail-code.warn { color: var(--warn); }
+    .avail-code.err { color: var(--err); }
+    .avail-code.none { color: var(--text-3); }
 
     .progress {
       height: 8px;
@@ -178,7 +339,7 @@
     }
     .progress > div {
       height: 100%;
-      background: var(--accent-grad);
+      background: linear-gradient(90deg, var(--teal-600), var(--teal-500));
       transition: width 0.4s ease;
     }
 
@@ -305,12 +466,12 @@
     /* Дерево чекбоксов */
     .tree-child { padding-left: 1.25rem; border-left: 1px solid rgba(255,255,255,0.1); margin-left: 0.4rem; }
     .tree-node label { display: flex; align-items: center; gap: 0.45rem; padding: 0.14rem 0; cursor: pointer; font-size: 0.85rem; }
-    .tree-node input[type='checkbox'] { accent-color: #8b5cf6; width: 15px; height: 15px; cursor: pointer; }
+    .tree-node input[type='checkbox'] { accent-color: var(--teal-500); width: 15px; height: 15px; cursor: pointer; }
 
     .spinner {
       width: 28px; height: 28px;
       border: 3px solid rgba(255,255,255,0.15);
-      border-top-color: #8b5cf6;
+      border-top-color: var(--teal-500);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin: 0 auto;
@@ -326,7 +487,7 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(43, 43, 64, 0.96);
+      background: rgba(22, 22, 22, 0.96);
     }
 
     /* Hotfix-R10 (панель «Лор чатов» не влезала в экран TMA/мобилку):
@@ -396,8 +557,11 @@
                      && (t.always || canViewTab(t.id)); })"
                   :key="tab.id" class="tab-btn"
                   :class="{ active: activeTab === tab.id }"
-                  @click="setTab(tab.id)">
-            <span>{{ tab.icon }}</span><span>{{ tab.label }}</span>
+                  @click="openTab(tab.id)">
+            <span v-if="tabMat(tab.id)" class="msr" aria-hidden="true"
+                  style="font-size:18px;">{{ tabMat(tab.id) }}</span>
+            <span v-else>{{ tab.icon }}</span>
+            <span>{{ tab.label }}</span>
           </button>
         </template>
         <div class="mt-auto px-2 py-3 text-xs text-gray-500">
@@ -413,6 +577,12 @@
                 style="border-radius:0;">
           <button class="btn-ghost md:hidden" title="Меню"
                   @click="sidebarOpen = !sidebarOpen">☰</button>
+          <!-- T-1099/§6.4.6: in-app fallback ← — ТОЛЬКО если нативного
+               BackButton нет (вне TMA/старый SDK) и depth>0; когда нативный
+               есть — Telegram сам меняет ✕ на ← (дублирования нет). -->
+          <button v-if="routeDepth > 0 && !backNative"
+                  class="btn-ghost text-sm px-2 shrink-0" title="Назад"
+                  aria-label="Назад" @click="goBack()">←</button>
           <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
           <!-- Раунд 10 (F-7 T-854/F-11 T-906) + F-13 (AC-1): селектор —
                ЕДИНСТВЕННАЯ точка выбора чата в шапке (кнопка-дропдаун
@@ -421,19 +591,59 @@
                до 2+ — «кнопки „Выбери чат“ нигде не было»); «Весь бот» —
                опция ТОЛЬКО для глобального админа. Компактный: класс
                w-44 max-w-[280px], инлайн-ширины убраны (дубль .chat-select). -->
-          <select v-if="accessChats.length"
-                  class="chat-select field text-xs w-44 max-w-[280px] shrink-0"
-                  :value="activeChatId != null ? String(activeChatId) : ''"
-                  @change="setActiveChat($event.target.value)">
-            <option v-if="isGlobalAdmin" value="">Весь бот</option>
-            <option v-for="c in accessChats" :key="c.chat_id"
-                    :value="String(c.chat_id)">{{ c.title || ('Чат ' + c.chat_id) }}</option>
-          </select>
+          <!-- T-1127 (§15.1.3): кастомный scope-dropdown (a11y listbox) с
+               аватарами ВНУТРИ опций; заменяет нативный <select>. -->
+          <div v-if="accessChats.length" class="scope-wrap shrink-0"
+               @keydown.esc="closeScope()"
+               @keydown.down.prevent="scopeMove(1)"
+               @keydown.up.prevent="scopeMove(-1)"
+               @keydown.enter.prevent="scopePickFocused()">
+            <button class="scope-trigger field text-xs"
+                    :aria-expanded="scopeOpen ? 'true' : 'false'"
+                    aria-haspopup="listbox" :title="scopeTriggerTitle"
+                    aria-label="Выбор контекста"
+                    @click="toggleScope()">
+              <img v-if="scopeTriggerAvatar" :src="scopeTriggerAvatar" alt=""
+                   class="w-5 h-5 rounded-full object-cover shrink-0">
+              <span v-else class="scope-initial">{{ scopeTriggerInitial }}</span>
+              <span class="truncate max-w-[150px]">{{ scopeTriggerTitle }}</span>
+              <span class="badge"
+                    :class="scopeKind === 'global' ? 'badge-muted' : 'badge-info'">
+                {{ scopeLabel }}
+              </span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div v-if="scopeOpen" class="scope-panel card-solid" role="listbox"
+                 aria-label="Выбор контекста">
+              <input v-if="scopeOptions.length > 8" class="field text-xs mb-1"
+                     type="search" placeholder="Поиск чата…" v-model="scopeSearch">
+              <button v-for="(o, idx) in scopeOptions" :key="o.key" type="button"
+                      class="scope-option" role="option"
+                      :aria-selected="isScopeSelected(o) ? 'true' : 'false'"
+                      :class="{ active: isScopeSelected(o) || scopeFocus === idx }"
+                      :tabindex="-1"
+                      @click="pickScope(o)">
+                <img v-if="o.avatarUrl" :src="o.avatarUrl" alt=""
+                     class="w-6 h-6 rounded-full object-cover shrink-0">
+                <span v-else class="scope-initial">{{ o.initial }}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate">{{ o.title }}</span>
+                  <span class="text-[10px] text-gray-500">{{ o.subtitle }}</span>
+                </span>
+                <span v-if="o.badge" class="badge badge-info shrink-0">{{ o.badge }}</span>
+              </button>
+              <div v-if="scopeOptions.length === 0"
+                   class="text-xs text-gray-500 p-2">Ничего не найдено.</div>
+            </div>
+          </div>
           <!-- F-13/F-14 (AC-1/§6.2): индикация выбора = текст опции
                селектора + компактный бейдж; ЛС-скоуп — «ЛС #<id>». -->
           <span v-if="isChatContext()" class="badge badge-info shrink-0">
             {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
           </span>
+          <!-- T-1127/§15.1.1: явный бейдж scope (GLOBAL) — имена/аватары
+               чатов уже в селекторе выше; ЛС/ЧАТ — в бейдже #id. -->
+          <span v-if="!isChatContext()" class="badge badge-muted shrink-0">{{ scopeLabel }}</span>
           <div class="ml-auto flex items-center gap-2 text-sm">
             <!-- UI-полировка TMA: аватар текущего юзера — CDN photo_url из
                  initData (me.photo_url) сразу; иначе — blob через прокси
@@ -450,6 +660,17 @@
                     :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'"
                     @click="toggleFullscreen()">⛶</button>
           </div>
+          <!-- T-1100: navbar — ровно 6 пунктов эталона (§2.1). Горизонтальный
+               скролл на mobile; активный — по route (activeNav). -->
+          <nav class="navbar-band w-full flex items-center gap-1 overflow-x-auto
+                      scroll-thin -mb-1 pt-2" aria-label="Основная навигация">
+            <button v-for="n in navItems" :key="n.id"
+                    class="nav-link" :class="{ active: activeNav === n.id }"
+                    :title="n.label" @click="navTo(n.route)">
+              <span class="msr" aria-hidden="true" style="font-size:18px;">{{ iconGlyph(n.icon) }}</span>
+              <span>{{ n.label }}</span>
+            </button>
+          </nav>
         </header>
 
         <!-- Баннеры -->
@@ -469,11 +690,34 @@
 
         <main v-else class="p-4 grid gap-4 grid-cols-1"
               style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
+          <!-- T-1100: hub-экраны (карточная сетка → дочерние маршруты) -->
+          <template v-if="hubCards">
+            <div class="hub-head">
+              <div class="hub-title">{{ hubCards.title }}</div>
+              <div class="hub-sub">{{ hubCards.subtitle }}</div>
+            </div>
+            <div class="hub-grid">
+              <button v-for="c in hubCards.cards"
+                      :key="c.route + (c.section || '')"
+                      class="hub-card" @click="openHubCard(c)">
+                <span class="msr" aria-hidden="true">{{ iconGlyph(c.icon) }}</span>
+                <span class="min-w-0">
+                  <span class="hub-card-title block truncate">
+                    {{ c.title }}
+                    <span v-if="c.readonly" class="badge badge-muted">read-only</span>
+                    <span v-if="c.anchor" class="badge badge-muted"
+                          title="Открывается на экране «Модули» (B2 вне скоупа)">↪</span>
+                  </span>
+                  <span class="hub-card-sub block">{{ c.subtitle }}</span>
+                </span>
+              </button>
+            </div>
+          </template>
           <!-- ═══ Конфиг-вкладки: LLM Провайдеры / Промпты / Лимиты /
                Память / Сон / Ностальгия / Реакции и Триггеры —
                ОДИН generic-рендер по
                sources (3.5.1); карточки-группы приходят с сервера. ═══ -->
-          <template v-if="currentTabIsConfig">
+          <template v-else-if="currentTabIsConfig">
             <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
             <div v-else-if="!canViewTab(activeTab)" class="card p-6 text-gray-400 col-span-full">
               Нет доступа к параметрам этой вкладки.
@@ -1179,7 +1423,8 @@
             </div>
             <template v-else>
               <!-- Админы -->
-              <div class="card p-4">
+            <!-- Доступы и Роли (hub #/access): якоря для hub-карточек -->
+            <div class="card p-4" id="sec-admins">
                 <div class="text-sm font-bold mb-2">Администраторы</div>
                 <div v-if="adminsLoading" class="spinner"></div>
                 <div v-else>
@@ -1203,7 +1448,7 @@
               </div>
 
               <!-- Роли -->
-              <div class="card p-4">
+              <div class="card p-4" id="sec-roles">
                 <div class="text-sm font-bold mb-2">Роли</div>
                 <div v-if="rolesLoading" class="spinner"></div>
                 <div v-else>
@@ -1215,7 +1460,23 @@
                       <span v-else-if="role.permissions && Object.keys(role.permissions).length === 0" class="badge badge-muted">пусто</span>
                       <span class="badge badge-muted" v-if="role.is_custom">custom</span>
                     </div>
-                    <button class="btn-ghost text-xs" @click="openRoleEditor(role)">Редактировать</button>
+                    <!-- OD15/T-1142: rename/delete — только пользовательские
+                         роли; superuser/встроенные — disabled + пояснение. -->
+                    <div class="flex items-center gap-1 shrink-0">
+                      <button class="btn-ghost text-xs" @click="openRoleEditor(role)">Редактировать</button>
+                      <button class="btn-ghost text-xs"
+                              :title="roleRestrictionHint(role)"
+                              :disabled="!canEditRole(role)"
+                              @click="renameRole(role)">Переименовать</button>
+                      <button class="btn-ghost text-xs text-red-300"
+                              :title="roleRestrictionHint(role)"
+                              :disabled="!canEditRole(role)"
+                              @click="deleteRole(role)">Удалить</button>
+                    </div>
+                  </div>
+                  <div v-if="rolesList.some(isSuperuserRole)"
+                       class="text-xs text-gray-500 py-1">
+                    Роль суперпользователя защищена: переименование/удаление недоступны.
                   </div>
                 </div>
                 <div class="mt-3 flex gap-2">
@@ -1224,9 +1485,85 @@
                 </div>
               </div>
 
+              <!-- OD10/T-1130/T-1131: Матрица ролей — ВСЕ параметры по
+                   секциям мини-аппа + per-param read/write (global admin). -->
+              <div class="card p-4" id="sec-matrix" v-if="isGlobalAdmin">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-sm font-bold">🔐 Матрица ролей</div>
+                  <input class="field w-44 text-xs" type="search"
+                         placeholder="Фильтр: ключ или название"
+                         v-model="matrixSearch">
+                  <button class="btn-ghost text-xs ml-auto"
+                          @click="loadMatrix()">⟳ Обновить</button>
+                </div>
+                <div class="text-xs text-gray-500 mb-2">
+                  Чтение/Запись — для ролей <b>user</b>, <b>moderator</b>,
+                  <b>local_admin</b> (global admin — всегда всё). Дефолт ⊕
+                  перекрытия; «Сбросить» возвращает к дефолту.
+                </div>
+                <div v-if="matrixLoading" class="spinner my-3"></div>
+                <div v-else-if="matrixError" class="text-red-300 text-sm py-2">
+                  {{ matrixError }}
+                </div>
+                <div v-else-if="Object.keys(matrixItems).length === 0"
+                     class="text-gray-500 text-sm py-2">
+                  Нет данных матрицы.
+                </div>
+                <template v-else>
+                  <div v-for="sec in matrixSections()" :key="sec.id"
+                       class="mb-3">
+                    <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">
+                      {{ sec.title }}
+                      <span v-if="sec.count" class="badge badge-muted ml-1">{{ sec.count }}</span>
+                    </div>
+                    <details v-for="grp in sec.groups" :key="sec.id + grp.id"
+                             class="matrix-group">
+                      <summary class="cursor-pointer text-sm py-1">
+                        {{ grp.title }}
+                        <span class="badge badge-muted ml-1">{{ grp.items.length }}</span>
+                      </summary>
+                      <table class="avail-list">
+                        <thead><tr>
+                          <th>Параметр</th><th>Чтение</th><th>Запись</th><th></th>
+                        </tr></thead>
+                        <tbody>
+                          <tr v-for="row in grp.items" :key="row.key">
+                            <td class="mono" :title="row.item.title">
+                              {{ row.item.title || row.key }}
+                              <span v-if="row.item.secret"
+                                    class="badge badge-warn ml-1">secret</span>
+                              <span v-if="row.item.default"
+                                    class="badge badge-muted ml-1">дефолт</span>
+                            </td>
+                            <td v-for="fld in ['view_roles', 'edit_roles']"
+                                :key="fld">
+                              <label v-for="r in ['user','moderator','local_admin']"
+                                     :key="fld + r"
+                                     class="inline-flex items-center gap-1 mr-2 text-[10px]">
+                                <input type="checkbox"
+                                       :disabled="!!matrixSaving[row.key]"
+                                       :checked="matrixChecked(row.item, fld, r)"
+                                       @change="matrixRoleToggle(row.key, fld, r)">
+                                {{ r === 'local_admin' ? 'лок' : r }}
+                              </label>
+                            </td>
+                            <td>
+                              <button class="btn-ghost text-[10px] px-1"
+                                      :disabled="row.item.default || !!matrixSaving[row.key]"
+                                      title="Сбросить к дефолту"
+                                      @click="matrixReset(row.key)">Сбросить</button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </details>
+                  </div>
+                </template>
+              </div>
+
               <!-- Раунд 10 (F-7 T-857): «Локальные админы чата» — доступы
                    активного чата (X-Chat-Id; global admin + local admin) -->
-              <div class="card p-4">
+              <div class="card p-4" id="sec-local">
                 <div class="text-sm font-bold mb-1">Локальные админы чата</div>
                 <div class="text-xs text-gray-500 mb-2">
                   {{ isChatContext() ? ('Чат ' + activeChatTitle) : 'Выберите чат в шапке' }}
@@ -1885,6 +2222,18 @@
           </template>
           <template v-else-if="activeTab === 'status'">
             <!-- ═══ 📊 Статус ═══ -->
+            <!-- T-1101: Oversight — добавочный экран (global-only), карточка
+                 на дашборде (в эталоне нет, НЕ удалять). -->
+            <div v-if="isGlobalAdmin" class="hub-card" style="grid-column: 1 / -1;"
+                 role="button" tabindex="0" @click="navTo('#/oversight')"
+                 @keydown.enter="navTo('#/oversight')"
+                 @keydown.space.prevent="navTo('#/oversight')">
+              <span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span>
+              <span class="min-w-0">
+                <span class="hub-card-title block">Oversight</span>
+                <span class="hub-card-sub block">Сводка ключей/гейтов/бюджетов по всем чатам (только global admin)</span>
+              </span>
+            </div>
             <!-- F15: 401 — заглушка «сессия устарела» вместо вечного спиннера -->
             <div v-if="statusError" class="card p-6 text-yellow-200 col-span-full">
               {{ statusError }}
@@ -1970,6 +2319,47 @@
               <div v-if="!statusData" class="spinner"></div>
               <div v-else-if="statusData.uptime.buckets.length === 0" class="text-gray-500 text-sm">Нет данных аптайма.</div>
               <canvas v-else ref="uptimeCanvas" height="90"></canvas>
+            </div>
+
+            <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный
+                 список + график по времени + легенда. Данные — leak-safe
+                 GET /api/status/key-history (allowlist, R17). -->
+            <div class="card p-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold">🔑 Доступность ключей API</div>
+                <button class="btn-ghost text-xs ml-auto"
+                        @click="loadKeyHistory()">⟳ Обновить</button>
+              </div>
+              <div v-if="!keyHistory || !(keyHistory.providers || []).length"
+                   class="text-gray-500 text-sm">
+                История появится после нескольких проверок.
+              </div>
+              <template v-else>
+                <table class="avail-list">
+                  <thead><tr>
+                    <th>Модуль</th><th>Провайдер</th><th>Модель</th>
+                    <th>Код</th><th>Статус</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr v-for="p in keyHistory.providers" :key="p.module_id">
+                      <td>{{ p.module_title || p.module_id }}</td>
+                      <td>{{ p.provider }}</td>
+                      <td class="mono">{{ p.model || '—' }}</td>
+                      <td class="mono avail-code"
+                          :class="availabilityClass(latestSample(p))">
+                        {{ availabilityCode(latestSample(p)) }}
+                      </td>
+                      <td>
+                        <span class="avail-dot"
+                              :class="availabilityClass(latestSample(p))"></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="mt-3">
+                  <canvas ref="keyHistoryCanvas" height="80"></canvas>
+                </div>
+              </template>
             </div>
 
             <!-- Логи -->
@@ -2376,23 +2766,26 @@
   </script>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <!-- M1 (release): DOMPurify — self-host, ТОЧНАЯ версия 3.4.15 (без CDN
+       range '@3' и без fail-open). Раздаётся с нашего origin (/static/vendor),
+       что также упрощает CSP (script-src 'self'). -->
+  <script src="/static/vendor/dompurify-3.4.15.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="/web/app.js?v=__APP_VERSION__"></script>
   <script>
     if (window.Telegram && Telegram.WebApp) {
       // Задание B (2026-09-03): тема миниаппа — согласуем с тёмной темой
       // админки; цвета из themeParams Telegram-клиента с фолбэком на палитру
-      // админки (#2b2b40 карточки, #14141f фон). setBottomBarColor — Bot API
+      // админки (#161616 карточки, #0E0E0E фон). setBottomBarColor — Bot API
       // 7.10+ (guard). Саму инлайн-кнопку бота клиент рисует по своей теме —
       // из бота её цвет/форму изменить нельзя (ресерч, core.telegram.org).
       var _tp = Telegram.WebApp.themeParams || {};
       Telegram.WebApp.ready();
       Telegram.WebApp.expand();
-      Telegram.WebApp.setHeaderColor(_tp.header_bg_color || '#2b2b40');
-      Telegram.WebApp.setBackgroundColor(_tp.bg_color || '#14141f');
+      Telegram.WebApp.setHeaderColor(_tp.header_bg_color || '#161616');
+      Telegram.WebApp.setBackgroundColor(_tp.bg_color || '#0E0E0E');
       if (typeof Telegram.WebApp.setBottomBarColor === 'function') {
-        Telegram.WebApp.setBottomBarColor(_tp.bottom_bar_bg_color || '#2b2b40');
+        Telegram.WebApp.setBottomBarColor(_tp.bottom_bar_bg_color || '#161616');
       }
     }
   </script>

@@ -15,6 +15,16 @@ import os
 
 os.environ["ADMINBOT_SKIP_DOTENV"] = "1"
 
+# M6 (tma-relume-redesign): history доступности ключей НЕ должна писаться в
+# реальный var/ во время тестов. Env выставляется ДО импорта services.*,
+# поэтому модульный singleton KeyHistory() (services/status_service.py)
+# получает temp-путь. Тесты с явным KeyHistory(path=...) не затронуты.
+import tempfile as _tempfile  # noqa: E402
+os.environ.setdefault(
+    "STATUS_KEY_HISTORY_FILE",
+    os.path.join(_tempfile.gettempdir(),
+                 f"adminbot_test_keyhist_{os.getpid()}.json"))
+
 import asyncio  # noqa: E402
 import sys  # noqa: E402
 

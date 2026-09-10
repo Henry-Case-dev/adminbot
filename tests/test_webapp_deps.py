@@ -528,7 +528,8 @@ class TestFrontFixes:
         src = open("web/index.html", encoding="utf-8").read()
         # ФИКС 6: native <select> на тёмном фоне (было: белый UA-стиль)
         assert "select.field {" in src
-        assert "background-color: #2b2b40" in src
+        # Редизайн 10.5 (T-1098): тёмный фон — из токена --surface-3 (эталон).
+        assert "background-color: var(--surface-3)" in src
         assert "select.field option {" in src
 
     def test_toggle_sends_items_payload(self):

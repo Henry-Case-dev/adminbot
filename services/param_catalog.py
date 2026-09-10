@@ -507,6 +507,30 @@ _MODELS: list[tuple] = [
      "Сколько ждать ответ мультимодальной модели на видео. Больше — реже сбои, но дольше тишина."),
 ]
 
+# ── models: PG-only записи (OD11+OD16, раунд 10.5) ──────────────────────────
+# (pg_id, title_ru, group, code_source, description)
+# Ноль захардкоженных моделей/адресов: STT-модели Groq/OpenRouter и base_url
+# провайдеров становятся data-driven и UI-редактируемыми. Сид — из код-канонов
+# (значения совпадают с прежними литералами: safe migration, status.llm[]
+# до/после идентичен). settings_field=None/env_name=None → PG-only.
+_MODELS_PG_ONLY: list[tuple] = [
+    ("models.groq_base_url", "Адрес API Groq", "models_extra_providers",
+     "SmartModule.transcriber.groq_transcriber.GROQ_BASE_URL",
+     "Адрес сервера Groq для распознавания голосовых. Меняется при переезде на шлюз/прокси."),
+    ("models.groq_transcribe_model", "Модель распознавания Groq (STT)",
+     "models_extra_providers",
+     "SmartModule.transcriber.groq_transcriber.GROQ_TRANSCRIBE_MODEL",
+     "Модель Groq для распознавания голосовых в текст. По умолчанию whisper-large-v3."),
+    ("models.openrouter_base_url", "Адрес API OpenRouter",
+     "models_extra_providers",
+     "SmartModule.transcriber.openrouter_transcriber.OPENROUTER_BASE_URL",
+     "Адрес сервера OpenRouter для пересказов и распознавания. Меняется при переезде."),
+    ("models.openrouter_transcribe_model",
+     "Модель распознавания OpenRouter (STT)", "models_extra_providers",
+     "SmartModule.transcriber.openrouter_transcriber.OPENROUTER_TRANSCRIBE_MODEL",
+     "Модель OpenRouter для распознавания голосовых. По умолчанию openrouter/free."),
+]
+
 # ── flags: рубильники модулей ───────────────────────────────────────────────
 # (field, title_ru, group, description)
 _FLAGS: list[tuple] = [
@@ -1333,6 +1357,10 @@ def _build_registry() -> dict[str, ParamSpec]:
     for row in _MODELS:
         field, title, typ, group, desc = row
         add(ParamSpec(field, field, CATEGORY_MODELS, title, typ,
+                      group=group, description=desc))
+    for pg_id, title, group, code_source, desc in _MODELS_PG_ONLY:
+        add(ParamSpec(None, None, CATEGORY_MODELS, title, "str",
+                      code_source=code_source, pg_id=pg_id,
                       group=group, description=desc))
     for row in _FLAGS:
         field, title, group, desc = row

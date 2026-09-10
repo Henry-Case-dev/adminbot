@@ -281,12 +281,14 @@ class TestGroups8424:
         flags +2 — dig_into_lore, spec §3.6.4/Q11, группы flags_memory/
         limits_memory) + раунд 10 (F-7 §5.2: limits +2 — бюджеты
         глобального ключа; F-10 §5.2: limits +7 — воркер-бюджеты и TZ;
-        content +1 — content.no_key_reply)."""
+        content +1 — content.no_key_reply). Редизайн 10.5 (T-1139/T-1145):
+        models +4 — 2 STT-модели (OD11) + 2 адреса провайдеров (OD16),
+        осознанное исключение; GROUPS 74 / Settings 359 не меняются."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 29, "keys": 13,
+        assert counts == {"prompts": 10, "models": 33, "keys": 13,
                           "limits": 177, "flags": 52, "reactions": 38,
                           "content": 4, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

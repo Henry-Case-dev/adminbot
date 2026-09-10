@@ -329,7 +329,13 @@ async def param_permissions_list(
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
     db = await access_srv.db_override_map(cache.pg)
-    from services.param_catalog import REGISTRY
+    from services.param_catalog import (
+        CONFIG_TAB_TITLES,
+        GROUPS,
+        REGISTRY,
+        group_tab,
+    )
+    groups_by_id = {g.id: (g.title_ru, g.category, g.order) for g in GROUPS}
     items = {}
     for spec_key in sorted(REGISTRY):
         spec = REGISTRY[spec_key]
@@ -337,6 +343,19 @@ async def param_permissions_list(
             continue
         matrix = access_srv.effective_matrix(spec.pg_key, db.get(spec.pg_key))
         matrix["default"] = spec.pg_key not in db
+        # OD10/T-1130: метаданные группировки матрицы по СЕКЦИЯМ мини-аппа
+        # (config-вкладки TAB_RULES), а не по внутренним категориям каталога.
+        gtitle, gcat, gorder = groups_by_id.get(
+            spec.group, (spec.group, spec.category, 999))
+        tab = group_tab(spec.group)
+        matrix["category"] = spec.category
+        matrix["group"] = spec.group
+        matrix["group_title"] = gtitle
+        matrix["group_order"] = gorder
+        matrix["tab"] = tab
+        matrix["tab_title"] = CONFIG_TAB_TITLES.get(tab) if tab else None
+        matrix["title"] = spec.title_ru
+        matrix["secret"] = spec.secret
         items[spec.pg_key] = matrix
     return {"items": items}
 

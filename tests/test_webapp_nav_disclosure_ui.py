@@ -54,9 +54,11 @@ class TestSelector:
 
     def test_selector_element_in_header(self):
         html = _html()
-        assert "setActiveChat($event.target.value)" in html
+        # T-1127: кастомный a11y scope-dropdown (listbox) вместо <select>.
+        assert "toggleScope()" in html
+        assert 'role="listbox"' in html
         assert "activeChatTitle" in html
-        assert "Весь бот" in html
+        assert "scopeTriggerTitle" in html
 
     def test_selector_visible_for_single_chat(self):
         """BUG-1 (рекон раунда 10): селектор виден глобальному админу УЖЕ
@@ -65,7 +67,7 @@ class TestSelector:
         жалоба владельца; «Весь бот» остаётся опцией глобального админа."""
         html = _html()
         assert 'v-if="accessChats.length"' in html
-        assert ">Весь бот</option>" in html
+        assert 'aria-haspopup="listbox"' in html
 
     def test_single_chat_selector_only(self):
         """F-13 (AC-1): селектор чата в шапке — ЕДИНСТВЕННАЯ точка выбора.
@@ -78,10 +80,10 @@ class TestSelector:
         assert "chatPickerOpen" not in js
         assert "pickChat" not in js
         assert "💬 Выбрать чат" not in html
-        # позитив: единый нативный селектор + индикация выбора
-        assert "setActiveChat($event.target.value)" in html
+        # позитив: единый scope-dropdown + индикация выбора
+        assert "pickScope(o)" in html
         assert 'v-if="accessChats.length"' in html
-        assert ">Весь бот</option>" in html
+        assert 'role="listbox"' in html
         # F-14: бейдж-идентификатор (в ЛС-скоупе — «ЛС #<id>»)
         assert "isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId" in html
         assert "activeChatTitle" in html

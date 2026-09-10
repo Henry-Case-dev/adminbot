@@ -95,6 +95,11 @@ class RoleUpsert(BaseModel):
     is_custom: bool | None = None
 
 
+class RoleRename(BaseModel):
+    """OD15/T-1141: переименование пользовательской роли."""
+    new_name: str = Field(min_length=1, max_length=64)
+
+
 class InfoUpdate(BaseModel):
     html: str
 
@@ -763,7 +768,10 @@ async def get_roles(
     return {
         "roles": [
             {"role_name": name, "permissions": role["permissions"],
-             "is_custom": role["is_custom"]}
+             "is_custom": role["is_custom"],
+             # OD15/T-1141: role_type нужен UI, чтобы disabled-ить
+             # rename/delete встроенных ролей (superuser — тоже).
+             "role_type": role.get("role_type")}
             for name, role in sorted(cache.roles().items())
         ]
     }
@@ -814,6 +822,101 @@ async def post_roles(
     logger.info("[api] role upserted | role=%s | by=%s", payload.role_name, user.id)
     return {"role_name": payload.role_name, "permissions": new_perms.to_dict(),
             "is_custom": is_custom}
+
+
+# ── OD15/T-1141 (раунд 10.5): защита ролей при rename/delete ──────────────
+_SUPERUSER_ROLE_NAMES = frozenset({"admin", "global_admin", "superuser"})
+
+
+def _is_superuser_role(role_name: str, role: dict | None) -> bool:
+    """superuser — абсолютная защита (OD15): никогда не rename/delete."""
+    if role_name in _SUPERUSER_ROLE_NAMES:
+        return True
+    return bool(role and role.get("role_type") == "global_admin")
+
+
+def _is_builtin_role(role: dict | None) -> bool:
+    """Встроенные (role_type задан) — rename/delete запрещены (OD15)."""
+    return bool(role and role.get("role_type"))
+
+
+@api_router.delete("/roles/{role_name}")
+async def delete_role_endpoint(
+    request: Request,
+    role_name: str,
+    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+):
+    """OD15/T-1141: удалить пользовательскую роль. Superuser → 403;
+    встроенные → 409; занятые (bot_admins) → 409; последняя wildcard → 409."""
+    cache: ConfigCache = get_cache(request)
+    role = cache.roles().get(role_name)
+    if role is None:
+        raise HTTPException(status_code=404, detail=f"роль не найдена: {role_name}")
+    if _is_superuser_role(role_name, role):
+        raise HTTPException(status_code=403,
+                            detail="роль суперпользователя защищена")
+    if _is_builtin_role(role):
+        raise HTTPException(status_code=409,
+                            detail="встроенную роль нельзя удалить")
+    used = await cache.role_usage(role_name)
+    if used:
+        raise HTTPException(
+            status_code=409,
+            detail=f"роль назначена {used} админ(ам) — сначала переназначьте")
+    try:
+        guard_last_wildcard(
+            {n: Permissions.from_dict(r["permissions"])
+             for n, r in cache.roles().items()},
+            role_name, None)
+    except RoleGuardError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    try:
+        removed = await cache.delete_role(role_name)
+    except ConfigCacheUnavailableError:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"роль не найдена: {role_name}")
+    logger.info("[api] role deleted | role=%s | by=%s | audit=role",
+                role_name, user.id)
+    return {"removed": True, "role_name": role_name}
+
+
+@api_router.post("/roles/{role_name}/rename")
+async def rename_role_endpoint(
+    request: Request,
+    role_name: str,
+    payload: RoleRename,
+    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+):
+    """OD15/T-1141: переименовать пользовательскую роль (каскад — в
+    ConfigCache.rename_role). Superuser → 403; встроенные → 409;
+    имя занято → 409."""
+    cache: ConfigCache = get_cache(request)
+    role = cache.roles().get(role_name)
+    if role is None:
+        raise HTTPException(status_code=404, detail=f"роль не найдена: {role_name}")
+    if _is_superuser_role(role_name, role):
+        raise HTTPException(status_code=403,
+                            detail="роль суперпользователя защищена")
+    if _is_builtin_role(role):
+        raise HTTPException(status_code=409,
+                            detail="встроенную роль нельзя переименовать")
+    new_name = payload.new_name.strip()
+    if not new_name:
+        raise HTTPException(status_code=422, detail="пустое новое имя")
+    if new_name != role_name and new_name in cache.roles():
+        raise HTTPException(status_code=409,
+                            detail=f"роль уже существует: {new_name}")
+    if new_name == role_name:
+        return {"role_name": role_name, "old_name": role_name,
+                "renamed": False}
+    try:
+        await cache.rename_role(role_name, new_name)
+    except ConfigCacheUnavailableError:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    logger.info("[api] role renamed | old=%s | new=%s | by=%s | audit=role",
+                role_name, new_name, user.id)
+    return {"role_name": new_name, "old_name": role_name, "renamed": True}
 
 
 @api_router.get("/roles/tree")
@@ -972,6 +1075,21 @@ async def get_status(
     except Exception:
         ctx = None
     return await status.build_snapshot(cache, ctx=ctx, chat_id=chat_id)
+
+
+@api_router.get("/status/key-history")
+async def get_status_key_history(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """B1/OD8 + OD12/OD19 (T-1128/T-1129/T-1140): история доступности ключей.
+
+    Только allowlist-поля (R17/leak-safety): module_id/module_title/provider/
+    model/samples[{ts,ok,http_status}] + version/generated_at. Сырые ключи,
+    Authorization, base_url с credentials, last4 — НЕ отдаются.
+    """
+    from services.status_service import key_history
+    return key_history.api_payload()
 
 
 @api_router.get("/status/logs")

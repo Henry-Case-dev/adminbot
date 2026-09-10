@@ -3,6 +3,37 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.5 scan (2026-09-10) — all scanned
+- [x] .gitignore (relumesite_example/, MaterialSymbolsRounded*.woff2, var/, build/)
+- [x] services/key_history.py (NEW: allowlist, атомарный снимок, ring, fail-open)
+- [x] services/param_catalog.py (_MODELS_PG_ONLY: +4 PG-only → REGISTRY 387/74/359)
+- [x] services/config_cache.py (rename_role/role_usage/_scrub_param_permissions — DML-only)
+- [x] services/status_service.py (_resolve/llm_registry module_id|module_title|model_source;
+      _build_llm_card → key_history.record; maybe_save)
+- [x] services/video_cascade_client.py (base_url hot + инвалидация клиента)
+- [x] SmartModule/transcriber/groq_transcriber.py (hot base_url/model)
+- [x] SmartModule/transcriber/openrouter_transcriber.py (hot base_url/model)
+- [x] web/api/routes.py (roles DELETE + /rename; GET /status/key-history; get_roles role_type)
+- [x] web/api/access.py (param_permissions_list: tab/tab_title/group*/title/secret метаданные)
+- [x] web/app.py (mount /static — self-host fonts/vendor)
+- [x] web/app.js (hash-роутер, navbar/hub, scope-dropdown+a11y, матрица, key-avail,
+      role rename/delete, sanitize fail-closed, scopeEpoch-гварды, иконки PUA)
+- [x] web/index.html (токены+градиенты, @font-face, navbar/hub, scope-dropdown,
+      матрица, key-avail, self-host dompurify, адаптив)
+- [x] scripts/build_font_subset.py + scripts/requirements-font.txt (NEW, build-time only)
+- [x] web/static/fonts/* (субсет 13 КБ + LICENSE Apache-2.0)
+- [x] web/static/vendor/dompurify-3.4.15.min.js (self-host, pinned)
+- [x] conftest.py (M6: STATUS_KEY_HISTORY_FILE → temp)
+- [x] tests/test_key_availability.py, test_roles_admin.py, test_font_subset.py,
+      test_webapp_back_button.py, test_webapp_hubs_matrix_ui.py, test_webapp_js_unit.py,
+      test_webapp_key_availability_ui.py, test_webapp_parity_smoke.py, tests/js/routing_test.js (NEW)
+- [x] tests/test_menu.py, test_param_catalog.py, test_video_cascade.py, test_webapp_api.py,
+      test_webapp_avatars_ui.py, test_webapp_deps.py, test_webapp_dm_ui.py,
+      test_webapp_nav_disclosure_ui.py, test_webapp_rbac_ui.py (маркеры обновлены)
+- [x] plans/features/tma-relume-redesign/ (spec v3, design-project v5, tasks, reference-analysis)
+- [x] plans/MEMORY.md, plans/backlog.md (doc-only)
+- [x] plans/reports/round10.5_scanner_audit.md (итоговый отчёт — 0 блокеров/0 major)
+
 ## Round 10.4 scan (2026-09-10) — all scanned
 - [x] plans/features/* (8 спек: A reorg, B limits-temp-budgets, C memory-sleep-nostalgia,
       D advanced-collapse, E llm-providers-layout, F relations-participants,

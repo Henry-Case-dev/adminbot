@@ -48,18 +48,22 @@ class GroqTranscriber(BaseTranscriber):
 
     def _build_client(self) -> AsyncOpenAI | None:
         key = self._current_api_key()
+        # OD16: base_url — hot-параметр; запоминаем для инвалидации клиента.
+        self._client_base = hot.get("models.groq_base_url", GROQ_BASE_URL)
         if not key:
             return None
         return AsyncOpenAI(
-            base_url=GROQ_BASE_URL,
+            base_url=self._client_base,
             api_key=key,
             timeout=self.timeout,
         )
 
     def _refresh_client(self) -> None:
-        """T-619: ключ изменился → пересоздать клиент (hot-reload)."""
+        """T-619/OD16: ключ ИЛИ base_url изменились → пересоздать клиент."""
         key = self._current_api_key()
-        if self._client is not None and key == self._default_key:
+        base = hot.get("models.groq_base_url", GROQ_BASE_URL)
+        if (self._client is not None and key == self._default_key
+                and base == self._client_base):
             return
         self._client = self._build_client()
 
@@ -120,7 +124,9 @@ class GroqTranscriber(BaseTranscriber):
             try:
                 with open(file_path, "rb") as fh:
                     response = await self._client.audio.transcriptions.create(
-                        model=GROQ_TRANSCRIBE_MODEL, file=fh, timeout=effective)
+                        model=hot.get("models.groq_transcribe_model",
+                                      GROQ_TRANSCRIBE_MODEL),
+                        file=fh, timeout=effective)
                 # Epic 85 (84.11.2): замер латентности для /api/status
                 status_service.record_llm(
                     "groq", (time.monotonic() - started) * 1000.0)

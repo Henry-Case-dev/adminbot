@@ -32,7 +32,7 @@ class TestChatContext:
     def test_chat_badge_in_header(self):
         html = _html()
         assert "activeChatTitle" in html
-        assert "Весь бот" in html
+        assert "scopeTriggerTitle" in html
 
 
 class TestRolePicker:

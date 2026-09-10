@@ -163,5 +163,5 @@ class TestMenuCommand:
         assert "themeParams" in src
         assert "setBackgroundColor(" in src
         assert "setBottomBarColor" in src
-        assert "'#2b2b40'" in src          # фолбэк-палитра админки
+        assert "'#161616'" in src          # фолбэк-палитра эталона (T-1098)
         assert "Telegram.WebApp.ready()" in src
