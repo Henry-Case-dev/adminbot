@@ -572,6 +572,39 @@
 > COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан
 > `tech-debt-round10.7` (R10.7-1…R10.7-5). **Осталось вручную:** live Telegram
 > smoke-тест исправленного UI, опциональный betterstack-401 fix.
+> **Синк STEP 10 (финал, post-commit+деплой) 11.09.2026: раунд 10.8 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН и ЗАДЕПЛОЕН — HEAD == origin/master == `976e335`** (`31d2ce7` — фича,
+> 30 файлов, тесты 5076; `976e335` — docs деплой-верификация; поверх `636a75d` —
+> docs-финал 10.7; прод до деплоя `7f3b790` = задеплоенный 10.7).
+> Единственная фича **`admin-ui-round108`** (spec @Architect + tasks @PM; T-1243…)
+> реализована целиком: (1) переименование разделов — «Доступы»/«PERMsoc»/«ИИ»/
+> «Справка»/«Сводка» (route-ключи `#/how|ai|permsoc|access|oversight` не менялись);
+> (2) emoji→Material-иконки, субсет шрифта **20→37** (13 428→**18 388 B**),
+> идемпотентность build-script по `sha256(source_sha+ICON_NAMES)`,
+> `build/icon_codepoints.json`, R10.7-4 cmap-тест; (3) фикс логов на Android —
+> Material-шеврон только при `exc_text` (без невидимого глифа), дата
+> **DD.MM HH:MM:SS**, блочная раскладка (без `<pre><span>`, без жёстких ширин),
+> `.log-msg` full-width, R10.7-3 closed; (4) «Доступы» — подразделы отдельными
+> **route-driven модалками** (`#/access/roles|local|admins`), «Администраторы»→
+> «Роли», аккордеон удалён, «Мой доступ»/«Telegram ID админа» вне окон,
+> BackButton/deep-link/Esc; (5) удалён внешний GLOBAL-бейдж; README переструктурирован
+> (users-first, гайд «Управление и деплой», changelog под `<details>`), счётчик 5076;
+> `APP_VERSION` 2.51.0→**2.52.0**, шрифт cache-busted `?v=__APP_VERSION__`.
+> @Reviewer: APPROVED WITH MINOR ISSUES (doc-nit исправлен). @Scanner: **0 blocker /
+> 0 major** (R10.8-1 Esc и R10.8-5 APP_VERSION/кэш субсета закрыты follow-up;
+> R10.8-2/-3/-4 — info/техдолг; **R10.7-3 и R10.7-4 ЗАКРЫТЫ**; отчёт
+> `plans/reports/round10.8_scanner_audit.md`). @Architect: merge в
+> `plans/ARCHITECTURE.md` **§29 «Раунд 10.8»** (+§1/§9/§25). @PM: фича заархивирована —
+> `plans/archive/admin-ui-round108/` (spec.md, tasks.md, **ADR-001-access-windows-modal**,
+> **ADR-002-icon-subset-parity**); **plans/archive/ — 30 папок**; plans/features/ —
+> 6 активных F-1…F-6. @DevOps: README счётчик 5073→5076; push origin/master; **деплой
+> 198.46.175.136:/var/www/admin_bot** — git pull fast-forward `7f3b790..31d2ce7`,
+> `.env` без изменений, restart active, `/api/health`=200, шрифт `?v=2.52.0` → 200
+> (wOF2, 18 388 B), 0 ошибок. Граф обновлён: милстоун `round10.8-epic` → COMPLETED +
+> DEPLOYED, фича → WAS_PART_OF + COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure,
+> создан `tech-debt-round10.8` (R10.8-2/-3/-4 + закрытые R10.8-1/-5). **Осталось
+> вручную:** live Android smoke **T-1254** (логи) и **T-1258** (окна «Доступов»);
+> опциональный betterstack-401 fix.
 
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
@@ -1007,6 +1040,54 @@ round10.6-epic; цикл раунда полностью закрыт (Step 10).
   R10.7-4 (info — `test_font_subset` проверяет JS, не cmap WOFF2),
   R10.7-5 (info/nit — неточная формулировка «context-loss» в `copyAllLogs`).
 
+### Раунд 10.8 — финал (11.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (31d2ce7 + 976e335)
+
+«Точечные UI-правки админ-минги». Единственная фича — `admin-ui-round108`
+(spec @Architect + tasks @PM, T-1243…; продолжает 10.7). HEAD == origin/master ==
+`976e335` (`31d2ce7` + `976e335`, поверх `636a75d` — docs-финал 10.7; прод до
+деплоя — `7f3b790`). **Статус: COMPLETED + DEPLOYED.** FOLLOWS round10.7-epic;
+цикл раунда полностью закрыт (Step 10).
+
+- **Коммиты (master):** `31d2ce7` feat(admin,web,plans): раунд 10.8 — переименование
+  разделов, emoji→иконки, фикс логов на Android, окна «Доступов» (тесты 5076) —
+  **30 файлов**; `976e335` docs(plans): раунд 10.8 — деплой-верификация; push origin/master.
+- **Тесты:** 5076 passed / 0 failed (baseline 10.7 = 5042; +34; Scanner зафиксировал
+  5073 на момент аудита — до follow-up R10.8-1/-5). Каталог **392 / 91 / 364**
+  (mapped 89, `TAB_RULES` 19); `node --check web/app.js` clean;
+  `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` чист.
+- **Реализация:** (1) переименования разделов «Доступы»/«PERMsoc»/«ИИ»/«Справка»/«Сводка»;
+  (2) emoji→Material-иконки, субсет шрифта 20→37 глифов (18 388 B), идемпотентность
+  build-script по sha256(source_sha+ICON_NAMES), `build/icon_codepoints.json`,
+  R10.7-4 cmap-тест; (3) Android-логи — шеврон только при `exc_text`, дата
+  DD.MM HH:MM:SS, блочная раскладка без `<pre><span>` и жёстких ширин, `.log-msg`
+  full-width, `copiedTimer` cleanup (R10.7-3); (4) три route-driven модалки
+  `#/access/roles|local|admins`, «Администраторы»→«Роли», аккордеон удалён, «Мой доступ»/
+  «Telegram ID админа» без изменений, BackButton/deep-link/Esc; (5) удалён внешний
+  GLOBAL-бейдж; README-реструктуризация.
+- **Ревью/Scanner:** @Reviewer APPROVED WITH MINOR ISSUES → doc-nit закрыт.
+  @Scanner **CLEAN — 0 blocker / 0 major**; R10.8-1 (Esc) и R10.8-5 (APP_VERSION
+  2.51.0 vs README 2.52.0 + кэш старого субсета без `?v=`) закрыты точечно follow-up;
+  R10.8-2 (stale-комментарий `section`/ветка `openHubCard`), R10.8-3 (мёртвый
+  `TABS.icon`/`visibleTabs`/`tabMat`), R10.8-4 (doc-drift backlog — закрыт архивацией)
+  — техдолг; **R10.7-3 и R10.7-4 ЗАКРЫТЫ**. Отчёт `plans/reports/round10.8_scanner_audit.md`.
+- **Архитектура/ADR:** @Architect — ARCHITECTURE.md **§29 «Раунд 10.8»** (+§1/§9/§25).
+  ADR-001 — «Доступы» как route-driven модалки (hash — источник истины, `git revert`
+  как откат); ADR-002 — паритет `ICONS`==`ICON_NAMES`↔cmap WOFF2 (PUA из GSUB,
+  идемпотентность учитывает `ICON_NAMES`, fontTools/brotli build-time only).
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward
+  `7f3b790..31d2ce7`; `.env` без изменений; restart → active; `/api/health` = 200;
+  шрифт `?v=2.52.0` → 200 (wOF2, 18 388 B); 0 ошибок.
+- **Архивация:** `admin-ui-round108` → `plans/archive/admin-ui-round108/`
+  (**plans/archive/ — 30 папок**; plans/features/ — 6 активных F-1…F-6). README
+  счётчик 5073→5076; `APP_VERSION` 2.52.0.
+- **Осталось вручную:** live Android smoke-тест **T-1254** (логи: ширина/дата/текст/
+  отсутствие невидимого поля) и **T-1258** (три отдельных окна «Доступов»); опциональный
+  betterstack-401 fix. Не блокирует закрытие цикла.
+- **Техдолг раунда (KG `tech-debt-round10.8`):** R10.8-2 (info — stale-комментарий/
+  осиротевшая ветка `openHubCard`), R10.8-3 (info — мёртвый `TABS.icon`/`visibleTabs`/
+  `tabMat`, pre-existing), R10.8-4 (info — doc-drift backlog, закрыт @PM); закрытые
+  R10.8-1/-5; закрытые из 10.7 — R10.7-3/-4.
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -1032,8 +1113,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 29 папок)
+## Свежие архивы (plans/archive/ — 30 папок)
 
+- `admin-ui-round108` — **Раунд 10.8, 11.09.2026** (единственная фича, spec @Architect + tasks @PM, T-1243…: переименование разделов, emoji→Material-иконки (субсет 20→37, 18 388 B), фикс логов на Android, route-driven окна «Доступов», README; тесты 5076; §29; ADR-001-access-windows-modal + ADR-002-icon-subset-parity)
 - `admin-ui-bugfixes-round107` — **Раунд 10.7, 11.09.2026** (единственная фича, spec T-1224: UI/UX-багфиксы админ-минги — scope*-computed, safe-area шапки, компактный юзер-блок, ellipsis ключей, uptime gap-fill, clipboard-ghost, лог-колонки, copy-on-row, dead ICONS 26→20; тесты 5042; §28)
 - `tma-ia-modules-rework` — **Раунд 10.6, 11.09.2026** (единственная фича, T-1155…T-1223: IA-ребейлд TMA — единый navbar, 11 Модулей-тумблеров, Настройки AI (7) + RAG→Память, чистый PERMsoc, Леха/Костик раздельно, provider-блоки + `POST /api/llm/test`; каталог 392/91/364/mapped 89; тесты 5027; §27)
 - `tma-relume-redesign` — **Раунд 10.5, 10.09.2026** (единственная фича, T-1066…T-1148: полный редизайн TMA по Relume — navbar/hubs/hash-роутинг/scope-switcher/key-history/матрица ролей/градиенты/Material Symbols; тесты 4962; §26)
@@ -1074,7 +1156,7 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
 
-- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.51.0; порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
+- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.52.0 (раунд 10.8); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
 - **adminbot-sqlite-schema** — `users_meta` (стадии отношений), `smart_messages` (FTS5), `nodes/edges`, `graph_facts` (v1–v8), `dream_state`, `memory_dream_log` (бюджет суток), `nostalgia_log` и др. Миграция памяти sqlite→PG ЗАМОРОЖЕНА (04.09.2026). Вне скоупа раунда 10.
 - **hot-config-layer** — `services/hot_config.py::hot.get(pg_key, default)`; ConfigCache (`services/config_cache.py`) — in-memory над PG, R6 fail-open. Цепочка глобальная; **F-7 добавил per-chat слой `hot_chat` (chat_params → bot_settings → дефолт) параллельно — hot.get/ConfigCache не менялись**.
@@ -1152,6 +1234,17 @@ R10.7-1…R10.7-5); plans/features/ — **6 активных** (F-1…F-6); plan
 HEAD == origin/master == `bb59476` (коммиты 7f3b790 + bb59476, тесты 5042, деплой
 198.46.175.136 active/health 200, 0 errors); остаётся ручной live-smoke исправленного UI
 + опц. betterstack 401.
+**милстоун `round10.8-epic`** (AdminBot → COMPLETED + DEPLOYED, 11.09.2026) —
+раунд 10.8 «Точечные UI-правки админ-минги»: единственная фича `admin-ui-round108`
+(T-1243…) → COMPLETED + DEPLOYED + WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.8-epic
++ ARCHIVED_IN plans-structure; переименование разделов, emoji→Material (субсет 20→37,
+18 388 B), Android-логи, route-driven окна «Доступов», README, APP_VERSION 2.52.0;
+ARCHITECTURE.md §29 (+§1/§9/§25); Scanner 0 blocker/0 major (R10.8-1/-5 закрыты;
+техдолг — KG `tech-debt-round10.8`: R10.8-2/-3/-4; R10.7-3/-4 закрыты);
+plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **30 папок**;
+HEAD == origin/master == `976e335` (коммиты 31d2ce7 + 976e335, тесты 5076, деплой
+198.46.175.136 active/health 200, 0 errors, шрифт wOF2 18 388 B); остаётся ручной
+Android smoke T-1254 (логи)/T-1258 (окна «Доступов») + опц. betterstack 401.
 
 ## Факты для планирования (проект)
 
