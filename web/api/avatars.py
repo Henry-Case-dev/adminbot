@@ -50,6 +50,9 @@ _chat_info_cache: dict[int, tuple[float, dict]] = {}
 _username_cache: dict[tuple[int, int], tuple[float, str | None]] = {}
 # {user_id: (ts, photo_file_id|None)} — первое фото профиля
 _user_photo_cache: dict[int, tuple[float, str | None]] = {}
+# {user_id: (ts, display_name|None)} — имя/ник глобального пользователя
+# (10.10, ADR-1010-3): bot.get_chat(user_id), chat_id не требуется.
+_user_name_cache: dict[int, tuple[float, str | None]] = {}
 
 
 # ── RAM-TTL-кэш (общий для всех словарей) ──────────────────────────────────
@@ -220,6 +223,75 @@ async def user_display_info(chat_id: int, user_id: int) -> dict:
                     exc_info=True)
             _cache_put(_user_photo_cache, user_id, photo_file_id)
     return {"username": username, "photo_file_id": photo_file_id}
+
+
+async def global_user_display_info(user_id: int) -> dict:
+    """{display_name, photo_file_id} глобального пользователя (10.10,
+    ADR-1010-3; best-effort, RAM-TTL 1ч, fail-open None).
+
+    Имя: bot.get_chat(user_id) → first_name/last_name (Full Name
+    предпочтительно) → username (без «@»). Фото: существующий
+    `_user_photo_cache` + get_user_profile_photos(limit=1). chat_id НЕ
+    нужен (в отличие от user_display_info(chat_id, uid)). Нет бота/бота
+    «не знает» юзера → None (фронт покажет фолбэк-ID). LOW-4: транзиентные
+    Bot API-ошибки (TelegramRetryAfter/TelegramNetworkError) НЕ кэшируются
+    (паттерн BUG-4 у fetch_avatar_bytes) — следующий запрос попробует
+    снова; кэшируются только дефинитивные негативы (нет имени/фото)."""
+    info = {"display_name": None, "photo_file_id": None}
+    bot = web_runtime.get_web_bot()
+    if bot is None:
+        return info
+
+    hit = _cache_get(_user_name_cache, user_id)
+    if hit is not _MISS:
+        info["display_name"] = hit
+    else:
+        name = None
+        name_transient = False
+        try:
+            chat = await bot.get_chat(user_id)
+            first = getattr(chat, "first_name", None)
+            last = getattr(chat, "last_name", None)
+            full = " ".join(p for p in (first, last) if p).strip()
+            if full:
+                name = full
+            else:
+                username = getattr(chat, "username", None)
+                if username:
+                    name = str(username).lstrip("@") or None
+        except (TelegramRetryAfter, TelegramNetworkError) as exc:
+            name_transient = True
+            logger.warning(
+                "[avatar] get_chat(user) transient — NOT cached | user=%s "
+                "err=%s", user_id, safe_exc_text(exc))
+        except Exception:
+            logger.warning("[avatar] get_chat(user) failed | user=%s",
+                           user_id, exc_info=True)
+        if not name_transient:
+            _cache_put(_user_name_cache, user_id, name)
+        info["display_name"] = name
+
+    hit = _cache_get(_user_photo_cache, user_id)
+    if hit is not _MISS:
+        info["photo_file_id"] = hit
+    else:
+        photo_file_id = None
+        photo_transient = False
+        try:
+            photos = await bot.get_user_profile_photos(user_id, limit=1)
+            photo_file_id = _user_photo_file_id(photos)
+        except (TelegramRetryAfter, TelegramNetworkError) as exc:
+            photo_transient = True
+            logger.warning(
+                "[avatar] profile photos transient — NOT cached | user=%s "
+                "err=%s", user_id, safe_exc_text(exc))
+        except Exception:
+            logger.warning("[avatar] profile photos failed | user=%s",
+                           user_id, exc_info=True)
+        if not photo_transient:
+            _cache_put(_user_photo_cache, user_id, photo_file_id)
+        info["photo_file_id"] = photo_file_id
+    return info
 
 
 # ── роут: GET /api/avatar/{kind}/{tid} ──────────────────────────────────────

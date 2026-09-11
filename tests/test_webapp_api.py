@@ -675,6 +675,21 @@ class TestAdmins:
         assert admins[ADMIN_ID]["created_at"] == "2026-08-30T00:00:00+00:00"
         assert admins[MODERATOR_ID]["added_by"] == ADMIN_ID
 
+    def test_get_admins_display_enrichment_fail_open(self, client):
+        """10.10 (п.5, ADR-1010-3): /api/admins обогащается display_name/
+        photo_file_id через global_user_display_info; без бота — None
+        (fail-open) и старые поля на месте."""
+        resp = client.get("/api/admins", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        for admin in resp.json()["admins"]:
+            assert "display_name" in admin
+            assert "photo_file_id" in admin
+            assert admin["display_name"] is None
+            assert admin["photo_file_id"] is None
+            assert "role_name" in admin
+            assert "added_by" in admin
+            assert "created_at" in admin
+
     def test_remove_last_admin_409(self, client):
         """F8: нельзя удалить ПОСЛЕДНЕГО админа (не только wildcard-роль)."""
         client.cache._admins = {ADMIN_ID: "admin"}
@@ -1102,11 +1117,11 @@ class TestStatic:
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.53.0" in text
-        assert "/static/fonts/material-symbols-rounded.woff2?v=2.53.0" in text
+        assert "/web/app.js?v=2.54.0" in text
+        assert "/static/fonts/material-symbols-rounded.woff2?v=2.54.0" in text
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.53.0")
+            "/static/fonts/material-symbols-rounded.woff2?v=2.54.0")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 

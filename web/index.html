@@ -618,6 +618,24 @@
         padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
       }
     }
+
+    /* Раунд 10.10 (п.1, ADR-1010): в TMA-fullscreen нативные кнопки
+       (Свернуть/Ещё/Закрыть) лежат поверх верхней полосы WebView, а
+       env(safe-area-inset-*) внутри Telegram на Android часто = 0. Берём
+       max(env, --tg-content-safe-area-inset-*, --tg-safe-area-inset-*):
+       Telegram отдаёт точные значения в этих CSS-переменных (Bot API 8.0).
+       Специфичность (0,2,1) > базового (0,1,1) — перекрывает и @media, и
+       базовое правило, НЕ уменьшая текущие отступы (10.7 по ширине,
+       10.9 scroll-area — не тронуты). */
+    .fullscreen-mode header.header-sticky {
+      padding-top: calc(0.75rem + max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)));
+      padding-right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
+      padding-left: calc(1rem + max(env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px)));
+    }
+
+    /* Раунд 10.10 (п.2): обёртка графика истории ключей — относительное
+       позиционирование + реактивная высота (maintainAspectRatio:false). */
+    .keys-chart { position: relative; width: 100%; }
   </style>
 </head>
 <body>
@@ -782,10 +800,16 @@
                   </header>
                   <div class="prov-row flex items-center gap-2 mb-2" v-for="f in b.fields" :key="f.key">
                     <label class="prov-label text-xs w-36 shrink-0">{{ f.label }}</label>
+                    <!-- 10.10 (п.3): контролируемое :value из configItems —
+                         реальное текущее значение; черновик пишется только
+                         при правке (@input), поэтому draft==null остаётся
+                         «не трогать» (MINOR-3). -->
                     <input class="field flex-1 min-w-0"
                            :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                            autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
-                           v-model="blockDrafts[f.key]" :disabled="!canEditConfig(f.key)">
+                           :value="blockFieldValue(f)"
+                           @input="blockDrafts[f.key] = $event.target.value"
+                           :disabled="!canEditConfig(f.key)">
                     <!-- MINOR-2: раздельный тест каждого поискового ключа -->
                     <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"
                             :data-block="f.probeTarget"
@@ -1597,20 +1621,29 @@
                 <div v-else>
                   <div v-for="admin in admins" :key="admin.telegram_id"
                        class="flex items-center justify-between py-1.5 border-b border-white/5 text-sm">
-                    <div>
-                      <b class="font-mono">{{ admin.telegram_id }}</b>
-                      <span class="badge badge-info ml-2">{{ admin.role_name }}</span>
+                    <div class="flex items-center gap-2 min-w-0">
+                      <img v-if="admin.avatarUrl" :src="admin.avatarUrl" alt=""
+                           class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/10"
+                           @error="avatarError(admin)">
+                      <span v-else class="scope-initial shrink-0">{{ adminInitial(admin) }}</span>
+                      <div class="min-w-0">
+                        <div v-if="admin.display_name" class="truncate">
+                          {{ admin.display_name }}
+                        </div>
+                        <span class="text-[10px] text-gray-500 font-mono">{{ admin.telegram_id }}</span>
+                      </div>
+                      <span class="badge badge-info ml-2 shrink-0">{{ admin.role_name }}</span>
                     </div>
-                    <button class="btn-ghost text-xs text-red-300" @click="removeAdmin(admin.telegram_id)">Удалить</button>
+                    <button class="btn-ghost text-xs text-red-300 shrink-0" @click="removeAdmin(admin.telegram_id)">Удалить</button>
                   </div>
                   <div v-if="admins.length === 0" class="text-gray-500 text-sm py-2">Список пуст.</div>
                 </div>
                 <div class="mt-3 flex gap-2">
-                  <input class="field flex-1" type="number" placeholder="Telegram ID" v-model="newAdminId">
-                  <select class="field w-36" v-model="newAdminRole">
+                  <input class="field flex-1 min-w-0" type="number" placeholder="Telegram ID" v-model="newAdminId">
+                  <select class="field w-24" v-model="newAdminRole">
                     <option v-for="role in rolesList" :key="role.role_name" :value="role.role_name">{{ role.role_name }}</option>
                   </select>
-                  <button class="btn-accent text-sm" @click="addAdmin()">Назначить</button>
+                  <button class="btn-accent text-sm shrink-0" @click="addAdmin()">Назначить</button>
                 </div>
               </div>
                 </div>
@@ -2581,7 +2614,7 @@
                     </tr>
                   </tbody>
                 </table>
-                <div class="mt-3">
+                <div class="keys-chart mt-3" :style="{ height: keyHistoryChartHeight + 'px' }">
                   <canvas ref="keyHistoryCanvas" height="80"></canvas>
                 </div>
               </template>

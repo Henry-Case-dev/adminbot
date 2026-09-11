@@ -583,6 +583,162 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       '10.9: большой спиннер только при пустом configItems');
   }
 
+  // ── 10.10 (п.2): keyHistoryChartModel — дорожки + временная сетка ──────
+  {
+    // 1700000100 делится на 300 нацело (бакет ring).
+    const base = 1700000100;
+    const model = methods.keyHistoryChartModel.call({}, [
+      { module_id: 'a', module_title: 'A', samples: [{ ts: base, ok: true }] },
+      { module_id: 'b', module_title: 'B',
+        samples: [{ ts: base + 300, ok: false }] },
+    ]);
+    assert.ok(model, 'п.2: модель построена');
+    assert.ok(model.labels.length >= 12,
+      'п.2: временная сетка не короче MIN_BUCKETS (1 час)');
+    assert.strictEqual(model.laneCount, 2, 'п.2: две дорожки');
+    assert.strictEqual(model.height, Math.max(120, 44 + 2 * 22),
+      'п.2: высота = max(120, 44 + laneCount*22)');
+    // Дорожки не пересекаются: lane0 < 1, lane1 >= 1.
+    const aVals = model.datasets[0].data.filter((v) => v != null);
+    const bVals = model.datasets[1].data.filter((v) => v != null);
+    assert.deepStrictEqual(aVals, [0.75], 'п.2: lane0 ok = 0.75');
+    assert.deepStrictEqual(bVals, [1.25], 'п.2: lane1 err = 1.25');
+    assert.ok(Math.max.apply(null, aVals) < Math.min.apply(null, bVals),
+      'п.2: дорожки не сливаются');
+    // Пропущенный слот = null (spanGaps:false).
+    assert.strictEqual(model.datasets[0].data[0], null,
+      'п.2: пропущенный слот = null');
+    // ≤1 сэмпла → точка видна.
+    assert.strictEqual(model.datasets[0].pointRadius, 3,
+      'п.2: pointRadius=3 при 1 сэмпле');
+    assert.strictEqual(model.datasets[1].pointRadius, 3,
+      'п.2: pointRadius=3 при 1 сэмпле');
+    // Сохранённые маркеры рендера.
+    assert.strictEqual(model.datasets[0].stepped, true, 'п.2: stepped');
+    assert.strictEqual(model.datasets[0].spanGaps, false, 'п.2: spanGaps');
+
+    // Больше сэмплов → точка скрыта.
+    const many = methods.keyHistoryChartModel.call({}, [
+      { module_id: 'a', samples: [
+        { ts: base, ok: true }, { ts: base + 300, ok: true }] },
+    ]);
+    assert.strictEqual(many.datasets[0].pointRadius, 0,
+      'п.2: pointRadius=0 при >1 сэмпле');
+
+    // Пусто / нет сэмплов → null (чарт не строится).
+    assert.strictEqual(methods.keyHistoryChartModel.call({}, []), null,
+      'п.2: пустой вход → null');
+    assert.strictEqual(methods.keyHistoryChartModel.call({},
+      [{ module_id: 'a', samples: [] }]), null,
+      'п.2: провайдеры без сэмплов → null');
+  }
+
+  // ── 10.10 (HIGH-1/LOW-5): разброс > MAX_HISTORY_POINTS бакетов — окно
+  //    строится ОТ КОНЦА, новейший сэмпл обязан быть ПОСЛЕДНИМ ────────────
+  {
+    const BUCKET = 300;
+    const MAXPTS = 288;                       // MAX_HISTORY_POINTS
+    const endTs = 1700000100;                 // делится на 300 нацело
+    const earlyTs = endTs - 900 * BUCKET;     // разброс 900 > 2*288
+    const span = methods.keyHistoryChartModel.call({}, [
+      { module_id: 'a', module_title: 'A', samples: [
+        { ts: earlyTs, ok: true },
+        { ts: endTs, ok: false },             // НОВЕЙШИЙ
+      ] },
+    ]);
+    assert.ok(span, 'HIGH-1: модель построена');
+    assert.ok(span.labels.length <= MAXPTS,
+      'HIGH-1: окно не длиннее MAX_HISTORY_POINTS');
+    assert.strictEqual(span.labels.length, MAXPTS,
+      'HIGH-1: окно ровно MAX_HISTORY_POINTS (от конца)');
+    const last = span.datasets[0].data[span.datasets[0].data.length - 1];
+    assert.strictEqual(last, 0.25,
+      'HIGH-1: новейший сэмпл (endBucket) присутствует ПОСЛЕДНИМ');
+    // Старый сэмпл за пределами окна-cap в сетку не попадает.
+    assert.ok(span.datasets[0].data.indexOf(0.75) < 0,
+      'HIGH-1: древний сэмпл вне окна (окно не «середина» старого)');
+  }
+
+  // ── 10.10 (п.3): blockFieldValue — реальные значения configItems ───────
+  {
+    const ctx = {
+      blockDrafts: {},
+      configItems: [
+        { key: 'models.llm_base_url', type: 'str', value: 'https://real/v1' },
+        { key: 'models.llm_model_name', type: 'str', value: 'real-model' },
+        { key: 'keys.groq_api_key', type: 'str',
+          value: { configured: true, last4: '1234' } },
+      ],
+    };
+    // Нет черновика → реальное значение из configItems.
+    assert.strictEqual(
+      methods.blockFieldValue.call(ctx, { key: 'models.llm_base_url' }),
+      'https://real/v1', 'п.3: fallback на configItems');
+    // Секрет (объект-маска) → пусто (placeholder-маска).
+    assert.strictEqual(
+      methods.blockFieldValue.call(ctx, { key: 'keys.groq_api_key' }),
+      '', 'п.3: секрет не префиллится');
+    // Явная очистка (''), НЕ откат к старому значению.
+    ctx.blockDrafts = { 'models.llm_model_name': '' };
+    assert.strictEqual(
+      methods.blockFieldValue.call(ctx, { key: 'models.llm_model_name' }),
+      '', 'п.3: пустой черновик = очистка, не откат');
+    // Заданный черновик — приоритетнее.
+    ctx.blockDrafts = { 'models.llm_base_url': 'https://draft/v1' };
+    assert.strictEqual(
+      methods.blockFieldValue.call(ctx, { key: 'models.llm_base_url' }),
+      'https://draft/v1', 'п.3: черновик приоритетнее');
+  }
+
+  // ── 10.10 (п.5): adminInitial переиспользует avatarInitial ────────────
+  {
+    const initCtx = {
+      avatarInitial: methods.avatarInitial,
+      resolveRelationName: methods.resolveRelationName,
+      summaryAliasesMap() { return {}; },
+    };
+    assert.strictEqual(
+      methods.adminInitial.call(initCtx,
+        { display_name: 'Иван', telegram_id: 1 }),
+      'И', 'п.5: инициал из display_name (через avatarInitial)');
+    assert.strictEqual(
+      methods.adminInitial.call(initCtx,
+        { display_name: 'Bob', telegram_id: 1 }),
+      'B', 'п.5: инициал из display_name (лат.)');
+    assert.strictEqual(
+      methods.adminInitial.call(initCtx, { telegram_id: 12345 }),
+      '1', 'п.5: фолбэк — первый символ ID');
+    assert.strictEqual(methods.adminInitial.call(initCtx, null), '?',
+      'п.5: null → ?');
+    // Нет дубля графем-логики: adminInitial не использует Array.from сам.
+    const src = require('fs').readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf8');
+    const adminBlock = src.slice(src.indexOf('adminInitial: function'),
+      src.indexOf('loadRoles: async function'));
+    assert.ok(adminBlock.indexOf('Array.from') < 0,
+      'п.5: adminInitial не дублирует графем-логику (reuse avatarInitial)');
+  }
+
+  // ── Scanner LOW: renderKeyHistoryChart рвёт stale Chart при пустой истории
+  {
+    let destroyed = 0;
+    const ctx = {
+      keyHistory: null,
+      keyHistoryChart: { destroy() { destroyed += 1; } },
+      keyHistoryChartHeight: 999,
+      $refs: {},
+      $nextTick(cb) { cb(); },
+      keyHistoryChartModel: methods.keyHistoryChartModel,
+    };
+    methods.renderKeyHistoryChart.call(ctx);
+    assert.strictEqual(destroyed, 1,
+      'LOW: stale chart.destroy() вызван при keyHistory == null');
+    assert.strictEqual(ctx.keyHistoryChart, null,
+      'LOW: ссылка keyHistoryChart очищена');
+    assert.strictEqual(ctx.keyHistoryChartHeight, 120,
+      'LOW: высота сброшена при пустой истории');
+  }
+
   console.log('JS-UNIT-OK');
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);

@@ -322,6 +322,18 @@ async def set_gates_opt_in(chat_id: int, pg=None) -> None:
 
 # ═══ F-14 (dm-user-settings, spec §3.1/§4.1) — DM-скоуп ══════════════════════
 
+# 10.10 (ADR-1010-1): единый источник «тяжёлые модули OFF» для ЛС —
+# и дефолт новых ЛС (ensure_scope_profile), и data-скрипт используют эти
+# константы. Групповые дефолты НЕ трогаются.
+_DM_DISABLED_GATES = {"dream": False, "nostalgia": False}
+_DM_DISABLED_OVERRIDES = {
+    "memory.dream_enabled": False,
+    "memory.nostalgia_enabled": False,
+    "flags.summary_enabled": False,
+    "flags.chat_running_summary_enabled": False,
+}
+
+
 async def ensure_scope_profile(chat_id: int, *, dm: bool, pg=None) -> bool:
     """F-14 (§3.1): ленивое создание профиля скоупа (INSERT ON CONFLICT DO
     NOTHING — паттерн chat_lore_store.py:44-47). Вызывается ПЕРЕД первой
@@ -330,14 +342,18 @@ async def ensure_scope_profile(chat_id: int, *, dm: bool, pg=None) -> bool:
 
     DM (dm=True): auto_enabled=false (LoreWorker не тронет — двойной guard
     с SQL-фильтрами chat_id < 0), is_active=true, chat_params =
-    _root_with_meta({}) (v-1-лейаут), gates_opt_in=false. dm=False — INSERT
-    дефолтного профиля (как ensure_profile чат-лора).
+    v-1-лейаут с DM-дефолтами тяжёлых модулей OFF (10.10, ADR-1010-1:
+    gates dream/nostalgia=false + 4 override=false), gates_opt_in=false.
+    dm=False — INSERT дефолтного профиля (как ensure_profile чат-лора).
     Идемпотентен: вставка → True; повтор (или нет пула) → False."""
     pool = getattr(pg, "pool", None) if pg is not None else None
     if pool is None:
         return False
     if dm:
-        params = json.dumps(_root_with_meta({}))
+        params = json.dumps(_root_with_meta({
+            "gates": dict(_DM_DISABLED_GATES),
+            "overrides": dict(_DM_DISABLED_OVERRIDES),
+        }))
         args = (chat_id, False, True, params, False)
     else:
         from services.chat_lore_store import INSERT_DEFAULT_PROFILE

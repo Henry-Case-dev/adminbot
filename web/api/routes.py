@@ -6,6 +6,7 @@ requires_permission по 84.14.2. Коды ошибок по 84.5: 400/401/403/4
 права на КОНКРЕТНЫЙ ключ → {«configured», «last4»} — никогда в открытую.
 """
 import datetime
+import asyncio
 import json
 import logging
 import time
@@ -707,9 +708,27 @@ async def get_admins(
     request: Request,
     user: Annotated[WebAppUser, Depends(requires_permission("access"))],
 ):
-    """84.5 + F7: полные карточки (added_by/created_at; при деградации — null)."""
+    """84.5 + F7: полные карточки (added_by/created_at; при деградации — null).
+
+    10.10 (п.5, ADR-1010-3): копии строк обогащаются display_name/
+    photo_file_id через global_user_display_info (bot.get_chat(user_id),
+    RAM-TTL 1ч); fail-open — без бота/ошибки поля None, фронт покажет ID.
+    Модель admins_full()/bot_admins не меняется, секретов не добавляем."""
     cache: ConfigCache = get_cache(request)
-    return {"admins": cache.admins_full()}
+    rows = [dict(a) for a in cache.admins_full()]
+    if rows:
+        sem = asyncio.Semaphore(5)
+        from web.api.avatars import global_user_display_info
+
+        async def _enrich(row: dict) -> dict:
+            async with sem:
+                info = await global_user_display_info(int(row["telegram_id"]))
+            row["display_name"] = info.get("display_name")
+            row["photo_file_id"] = info.get("photo_file_id")
+            return row
+
+        rows = list(await asyncio.gather(*[_enrich(r) for r in rows]))
+    return {"admins": rows}
 
 
 @api_router.post("/admins")

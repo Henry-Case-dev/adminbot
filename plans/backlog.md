@@ -2,6 +2,55 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.10 (12.09.2026): admin UI bugfix + DM-модули OFF + Headroom stats — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (12.09.2026; архив @PM 12.09.2026)
+
+**✅ ИТОГ 10.10 (12.09.2026):** реализация завершена, фича **заархивирована** — перенесена
+`plans/features/admin-ui-round1010/` → **`plans/archive/admin-ui-round1010/`** (@PM Step 8).
+**Финальные метрики:** полный **pytest — 5144 passed / 1 skipped / 0 failed** (база 10.9 = 5105 → **+39**);
+каталог-инвариант **REGISTRY 400 / GROUPS 90 / Settings 372** (mapped 88).
+@Reviewer — **APPROVED WITH MINOR ISSUES** (follow-ups закрыты); @Scanner — **CLEAN: low/info**
+(большинство находок устранено) (`plans/reports/round10.10_scanner_audit.md`); @Architect — архитектура
+влита в `plans/ARCHITECTURE.md` (**§31** + связанные разделы).
+Артефакты в архиве: `spec.md`, `ADR-1010-1.md`, `ADR-1010-2.md`, `ADR-1010-3.md`, `tasks.md`
+(со статус-хедером).
+**⚠️ ОТКРЫТО (PROD data-run, за @DevOps, пост-архив):** **T-1327** — применить DM-скрипт на сервере
+(`scripts/disable_dm_heavy_modules.py`: `--dry-run` → `--apply` → повторный `--dry-run` = 0 изменений;
+снапшот до apply), затем **T-1328** (верификация: ни одна активная ЛС не имеет модулей ON);
+**T-1333** (Headroom stats через серверный прокси); **T-1337/T-1338** (русский commit / push / deploy,
+health 200).
+**⚠️ ОТКРЫТО (live Android/Telegram QA, за владельцем/QA):** **T-1317** (fullscreen header),
+**T-1320** (mobile key-availability chart), **T-1323** (провайдеры: реальные значения полей),
+**T-1332** (роли: аватар+ник, ширины) — статически покрыто (`tests/test_webapp_round1010_ui.py`,
+JS-юниты).
+Ниже — исторический документ планирования эпика.
+
+**Фича:** `plans/archive/admin-ui-round1010/` (kebab: `admin-ui-round1010`; `tasks.md` создан 12.09.2026 @PM; архивирована 12.09.2026 @PM Step 8).
+**Нумерация:** **T-1315…T-1339** (продолжает T-1314 — финал 10.9).
+**Преемник:** 10.9 `admin-ui-round109` (архив; задеплоен 12.09.2026; commit `d2d1215`, прод fast-forward, health 200).
+**Раунд подтверждён:** **10.10**.
+Базовая линия: pytest **5105 passed / 0 failed**, `node --check web/app.js` clean, `node tests/js/routing_test.js` → `JS-UNIT-OK`.
+Каталог-инвариант: **REGISTRY 400 / GROUPS 90 / Settings 372 / mapped 88**, `TAB_RULES` 19. **Ноль новых PG-DDL**; `bot.py`/`media/`/`.env` не трогать.
+
+**Дословный запрос владельца (пункты 1–6, дословно в `tasks.md` §1):**
+1. **Header padding в FULLSCREEN:** блок профиля (аватар + ник + роль + fullscreen) не перекрывается нативными кнопками Telegram.
+2. **Mobile:** график доступности ключей рендерится некорректно (одна плоская полоса) — починить.
+3. **«Провайдеры»:** поля Название/Адрес/Модель/Ключ должны показывать **реальные** текущие значения (сейчас выглядят пустыми); поле «Ключ» уже показывает текущее — **оставить как есть**.
+4. **ЛС:** модули **сон / ностальгия / саммаризация** — **OFF по умолчанию**; выключить для **ВСЕХ текущих активных ЛС** (data-change существующих чатов).
+5. **«Роли»:** список должен показывать **аватар+ник** вместо голого ID (ID — мелким серым рядом); **уменьшить ширину селектора ролей**, **расширить поле ID**.
+6. **Headroom stats:** получить и вывести текущую статистику сэкономленных токенов (`headroom_stats` MCP; через серверный прокси).
+**Плюс:** README (ирония), русский коммит, push, деплой, plain-language отчёт.
+
+**Рекогносцировка (@PM, HEAD `da85b60`, дерево чистое) — опорные точки (детали `tasks.md` §2):**
+- **п.1** шапка `web/index.html:628-722`, блок профиля `:694-709`, fullscreen CSS `:594-612`, safe-area `:588-591,616-620`; JS `web/app.js:717,2344-2358`.
+- **п.2** `renderKeyHistoryChart` `web/app.js:3425-3481` (union `ts`, `stepped`, `spanGaps:false`, legend bottom); данные `services/key_history.py:126-203` (ring 5-мин слоты); canvas `web/index.html:2585` (`height="80"`); `GET /api/status/key-history` `web/api/routes.py:1090-1102`.
+- **п.3 (root cause найден)** `PROVIDER_BLOCKS` `web/app.js:366-438`; форма `v-model="blockDrafts[f.key]"` `web/index.html:788`; `blockDrafts` создаётся пустым `web/app.js:643` и **нигде не наполняется** → инпуты пустые; `blockFieldValue` (`:2036-2043`) используется только для test/save; «Ключ» показывается через placeholder/маску (`:2044-2050`) — не трогать.
+- **п.4 (хранилище)** PG `chat_profiles.chat_params` JSONB (`services/chat_params.py:1-9,41-85`; схема `services/pg_db.py:76-83`): `overrides` (per-chat значения) + `gates` (`dream`/`nostalgia`/`lore_auto`/`permsoc`, `services/feature_gates.py`). DM-идентификатор: `services/chat_params.py:31-35 is_dm_scope` = **`chat_id > 0`**; активные — `is_active=TRUE`. Ключи: Сон `memory.dream_enabled` + gate `dream`; Ностальгия `memory.nostalgia_enabled` + gate `nostalgia`; Саммаризация `flags.summary_enabled` (бегущий конспект — `flags.chat_running_summary_enabled`, уже DM-default OFF через `chat_params.py:397-412`). Безопасный флип — идемпотентный скрипт (`--dry-run`/`--apply`, прецеденты `scripts/backfill_*_gates.py`), снапшот до apply, без DDL.
+- **п.5** окно «Роли» `web/index.html:1579-1621` (список `:1598-1605`, формы `:1608-1614`); данные `loadAdmins` `web/app.js:2940-2946` → `GET /api/admins` `web/api/routes.py:705-712` (`cache.admins_full()`, без имени/фото); обогащение — паттерн `user_display_info` `web/api/chat_lore.py:44,60,577-630`, аватары `web/app.js:1232,1266-1298`.
+- **п.6** внешний MCP `headroom_stats` через серверный прокси (read-only; R17).
+
+**Учёт аудита @Scanner:** прочитан `plans/reports/round10.9_scanner_audit.md` (0 blocker / 0 major / 0 medium; 3 low + 3 info) и `audit_backlog.md`. Включено P2-точечно: **R10.9-1** (`model_source`) и **R10.9-3** (stale docstring `status_service.py`) → **T-1334**. Вне скоупа — follow-up (R10.9-2/-4/-5, R10.7-1/-2, R10.6-1/-2/-3).
+**Открытые вопросы (5 шт.)** — `tasks.md` §7 (величина отступа fullscreen; данные vs рендер графика; ключ «саммаризации» для ЛС; источник ника админов; способ забора `headroom_stats`). **@PM не пишет код.**
+
 ## Раунд 10.9 (12.09.2026): UI/UX-полировка + model-status — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (12.09.2026; архив @PM 12.09.2026)
 
 **✅ ИТОГ 10.9 (12.09.2026):** реализация завершена, фича **заархивирована** — перенесена

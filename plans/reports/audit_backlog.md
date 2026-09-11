@@ -3,6 +3,29 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.10 scan (2026-09-12) — all scanned
+- [x] web/index.html (fullscreen `.fullscreen-mode header.header-sticky` padding `max(env,--tg-*)`;
+      10.7 width/10.9 scroll целы; «Провайдеры» `:value`+`@input`; «Роли» аватар/ник/ID `text-[10px]`
+      `text-gray-500 font-mono`, `w-24`, `flex-1 min-w-0`, `shrink-0`; `.keys-chart` wrapper)
+- [x] web/app.js (`keyHistoryChartModel` + `SAMPLE_BUCKET`/`MIN_BUCKETS`/окно от конца; `maintainAspectRatio:false`
+      + `keyHistoryChartHeight` + `$nextTick`; `blockFieldValue` `''`-очистка; сброс `blockDrafts`/`blockResults`
+      в `loadConfig`/`setActiveChat`; `loadAdmins` blob-аватары; `adminInitial`)
+- [x] services/chat_params.py (`_DM_DISABLED_GATES`/`_DM_DISABLED_OVERRIDES`; `ensure_scope_profile(dm=True)`
+      дефолты OFF; групповой путь и `bot.py` не тронуты)
+- [x] scripts/disable_dm_heavy_modules.py (NEW: dry-run/`--apply`/`--chat-id`/`--snapshot-out`/`--restore`;
+      snapshot до записи + abort; idempotent; merged namespaces; partial-failure → exit 1; 0 DDL)
+- [x] web/api/avatars.py (`global_user_display_info`, `_user_name_cache`, транзиентные НЕ кэшируются)
+- [x] web/api/routes.py (`GET /api/admins` enrichment копий, `gather`+`Semaphore(5)`, fail-open, RBAC не ослаблен)
+- [x] tests/test_webapp_round1010_ui.py (NEW), tests/test_scripts_round1010_dm_off.py (NEW),
+      tests/js/routing_test.js (chart/`blockFieldValue`/`adminInitial` юниты), tests/test_chat_params.py,
+      tests/test_webapp_api.py, tests/test_webapp_avatars_ui.py
+- [x] plans/features/admin-ui-round1010/ (spec/tasks + ADR-1010-1/-2/-3), plans/backlog.md
+- [x] plans/reports/round10.10_scanner_audit.md (итог: 0 blocker/0 high/0 medium; 3 low R10.10-1…-3, 2 info R10.10-4/-5)
+- Открыто (follow-up, не блокеры): R10.10-1 staged-отчёт `noop/total`; R10.10-2 `meta.note` вне snapshot;
+  R10.10-3 chart-return без destroy; R10.10-4 аватары админов без skip; R10.10-5 дубль `adminInitial`.
+  Из прошлых раундов: R10.9-1/-2/-3 (status_service), R10.9-4 (health cache-key), R10.7-1/-2,
+  R10.6-1 (дубль generic-рендера), R10.6-2/-3 (SSRF/422-эхо `api_key`).
+
 ## Round 10.9 scan (2026-09-12) — all scanned
 - [x] config/settings.py (+SLAVIK_ENABLED default True; +7 LLM/GROQ/OPENROUTER/EMBEDDING*_DISPLAY_NAME; Settings 372)
 - [x] services/permsoc.py (slavik sub_flag_key=`flags.slavik_enabled`; DEFAULT_SUB_FLAGS True)

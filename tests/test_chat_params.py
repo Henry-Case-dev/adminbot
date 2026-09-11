@@ -310,6 +310,13 @@ async def test_ensure_scope_profile_dm_insert_and_idempotent(conn, pg):
     cp = row["chat_params"]
     assert isinstance(cp, dict) and cp.get("v") == 1
     assert "overrides" in cp and "gates" in cp and "keys" in cp
+    # 10.10 (ADR-1010-1): DM-дефолты тяжёлых модулей OFF.
+    assert cp["gates"]["dream"] is False
+    assert cp["gates"]["nostalgia"] is False
+    for key in ("memory.dream_enabled", "memory.nostalgia_enabled",
+                "flags.summary_enabled",
+                "flags.chat_running_summary_enabled"):
+        assert cp["overrides"][key] is False, key
     # повтор — no-op (False), профиль не перезаписан
     again = await ensure_scope_profile(123456, dm=True, pg=pg)
     assert again is False

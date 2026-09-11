@@ -26,6 +26,8 @@ CDN me.photo_url сразу, при onerror — фолбек на прокси
 """
 import re
 
+import pytest
+
 
 class _Static:
     @staticmethod
@@ -440,3 +442,89 @@ class TestAvatarFrontAudit:
         assert "loadRelations: async function" in src
         assert "loadRelationAvatarsLazy" in src
         assert "stageRu(u.stage_auto)" in _Static.read("web/index.html")
+
+
+class TestGlobalUserDisplayInfo1010:
+    """Раунд 10.10 (п.5, ADR-1010-3): имя/аватар глобального админа."""
+
+    def test_helper_exists_with_caches(self):
+        src = _Static.read("web/api/avatars.py")
+        assert "async def global_user_display_info" in src
+        assert "_user_name_cache" in src
+        assert "bot.get_chat(user_id)" in src
+        assert "get_user_profile_photos(user_id, limit=1)" in src
+        assert '"display_name"' in src
+        # LOW-4: транзиентные ошибки не кэшируются (паттерн BUG-4).
+        assert "except (TelegramRetryAfter, TelegramNetworkError)" in src
+        assert "NOT cached" in src
+        assert "name_transient" in src and "photo_transient" in src
+
+    def test_admins_endpoint_enriches_copies(self):
+        src = _Static.read("web/api/routes.py")
+        seg = src[src.index("async def get_admins("):]
+        seg = seg[:seg.index("async def post_admins")]
+        assert "global_user_display_info" in seg
+        assert "asyncio.Semaphore(5)" in seg
+        assert "display_name" in seg
+        assert "photo_file_id" in seg
+        assert "dict(a) for a in cache.admins_full()" in seg
+
+
+class TestGlobalUserDisplayInfoFunctional1010:
+    """LOW-4: транзиентные Bot API-ошибки НЕ кэшируются (паттерн BUG-4)."""
+
+    @pytest.mark.asyncio
+    async def test_transient_not_cached_and_retried(self, monkeypatch):
+        from aiogram.exceptions import TelegramNetworkError
+
+        from web.api import avatars
+
+        avatars._user_name_cache.clear()
+        avatars._user_photo_cache.clear()
+        calls = {"chat": 0, "photos": 0}
+
+        class FakeBot:
+            async def get_chat(self, user_id):
+                calls["chat"] += 1
+                raise TelegramNetworkError(method="getChat", message="net")
+
+            async def get_user_profile_photos(self, user_id, limit=1):
+                calls["photos"] += 1
+                raise TelegramNetworkError(method="getUserProfilePhotos",
+                                           message="net")
+
+        monkeypatch.setattr(avatars.web_runtime, "get_web_bot",
+                            lambda: FakeBot())
+        info1 = await avatars.global_user_display_info(777)
+        assert info1 == {"display_name": None, "photo_file_id": None}
+        # Не закэшировано → повторный вызов снова идёт в Bot API.
+        await avatars.global_user_display_info(777)
+        assert calls["chat"] == 2, "LOW-4: имя не негатив-кэшируется"
+        assert calls["photos"] == 2, "LOW-4: фото не негатив-кэшируется"
+
+    @pytest.mark.asyncio
+    async def test_definitive_negative_is_cached(self, monkeypatch):
+        from web.api import avatars
+
+        avatars._user_name_cache.clear()
+        avatars._user_photo_cache.clear()
+        calls = {"chat": 0, "photos": 0}
+
+        class FakePhotos:
+            photos = []
+
+        class FakeBot:
+            async def get_chat(self, user_id):
+                calls["chat"] += 1
+                raise ValueError("user not found")
+
+            async def get_user_profile_photos(self, user_id, limit=1):
+                calls["photos"] += 1
+                return FakePhotos()
+
+        monkeypatch.setattr(avatars.web_runtime, "get_web_bot",
+                            lambda: FakeBot())
+        await avatars.global_user_display_info(888)
+        await avatars.global_user_display_info(888)
+        assert calls["chat"] == 1, "LOW-4: дефинитивный негатив кэшируется"
+        assert calls["photos"] == 1, "LOW-4: нет фото — негатив кэшируется"

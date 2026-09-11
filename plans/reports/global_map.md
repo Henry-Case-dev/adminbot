@@ -1,8 +1,10 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
-> HEAD == 636a75d (10.7 docs) + рабочее дерево 10.8 (admin-ui-round108, 2026-09-11).
-> origin/master == 2ccf558/7f3b790 (10.7 deployed; 10.8 — не задеплоен, сканирование).
+> HEAD == da85b60 (10.9 docs) + рабочее дерево 10.10 (admin-ui-round1010, 2026-09-12).
+> origin/master == d2d1215 (10.9 deployed; 10.10 — не задеплоен, сканирование).
+> Каталог-инвариант 10.10: REGISTRY 400 / GROUPS 90 / Settings 372 / mapped 88 / TAB_RULES 19.
+> П.6 (Headroom) — OUT OF SCOPE репозитория, в коде ссылок нет.
 
 ## Stack
 - **aiogram 3.31** (polling) + **FastAPI** webapp (`web/app.py`) + **asyncpg** (PG) + **aiosqlite** (memory v8). APP_VERSION=2.51.0.
@@ -482,3 +484,45 @@ bot.py
   из settings + display-name исчезает без env-ключа; R10.9-3 stale docstring `status_service`;
   3 info: R10.9-4 health-кэш по `module_id`; R10.9-5 doc `_LLM_BLOCKS`/`ConnectTimeout`;
   R10.9-6 backlog-статус).
+## Round 10.10 map additions (admin-ui-round1010, HEAD da85b60 + working tree)
+
+- **Fullscreen-шапка (п.1, CSS-only)**: `web/index.html` — новое правило
+  `.fullscreen-mode header.header-sticky { padding-{top,right,left}: calc(base + max(env(safe-area-inset-*),
+  var(--tg-content-safe-area-inset-*), var(--tg-safe-area-inset-*))) }` (Bot API 8.0 device/content
+  safe-area CSS-переменные). Специфичность `(0,2,1)` перекрывает Tailwind `px-4 py-3` и `@media`.
+  10.7 (горизонтальный env-safe-area) и 10.9 (`.fullscreen-mode .scroll-area`) не тронуты; JS не менялся.
+- **Mobile key-chart (п.2, render-only)**: `web/app.js` — константы `SAMPLE_BUCKET=300` (==
+  `services/key_history.SAMPLE_BUCKET_SECONDS`) и `MIN_BUCKETS=12`; чистая `keyHistoryChartModel(providers)`
+  (дорожки `lane+0.75/0.25`, `y.max=laneCount+0.2`, временная сетка от `endBucket` с cap
+  `MAX_HISTORY_POINTS` и полом `MIN_BUCKETS`, пропуск=null, `pointRadius:3` при ≤1 сэмпле,
+  `height=max(120,44+lanes*22)`); `renderKeyHistoryChart` → `maintainAspectRatio:false` + `$nextTick`;
+  реактивное `keyHistoryChartHeight` биндится на обёртку `.keys-chart` (`web/index.html`).
+  Контракт `GET /api/status/key-history` (`api_payload`) НЕ изменён.
+- **«Провайдеры» (п.3)**: `web/index.html` — `:value="blockFieldValue(f)"` + `@input` вместо
+  `v-model="blockDrafts[f.key]"`; `web/app.js` — `blockFieldValue` возвращает `''` для пустого
+  черновика (не откат), `blockDrafts`/`blockResults` сбрасываются в `loadConfig` (success) и
+  `setActiveChat`; `saveBlock`/MINOR-3 (`null`=не трогать, `''`=очистить) без изменений.
+- **DM heavy-modules OFF (п.4, DATA)**: `services/chat_params.py` — единые константы
+  `_DM_DISABLED_GATES={"dream":False,"nostalgia":False}` и `_DM_DISABLED_OVERRIDES={memory.dream_enabled,
+  memory.nostalgia_enabled, flags.summary_enabled, flags.chat_running_summary_enabled}`;
+  `ensure_scope_profile(dm=True)` вставляет v-1-лейаут с этими дефолтами (INSERT ON CONFLICT, 0 DDL).
+  Новый `scripts/disable_dm_heavy_modules.py` — dry-run (default)/`--apply`/`--chat-id`/`--snapshot-out`/
+  `--restore`; raw `SELECT ... chat_profiles WHERE chat_id>0 AND is_active ORDER BY chat_id`; запись
+  только через `set_chat_params` (merged overrides/gates, namespace-replace); snapshot только
+  overrides/gates до записи (abort при ошибке), пустой патч = no-op (идемпотентность), `--restore`
+  не трогает `meta`; partial-failure → exit 1. Групповой путь и `bot.py` (F-14) не тронуты.
+- **«Роли»: enrichment (п.5)**: `web/api/avatars.py` — новый `global_user_display_info(user_id)`
+  (`bot.get_chat(user_id)` → first/last → username без `@`; фото через общий `_user_photo_cache` +
+  `getUserProfilePhotos(limit=1)`; RAM-TTL 1ч (`_user_name_cache`), fail-open; транзиентные
+  `TelegramRetryAfter`/`TelegramNetworkError` НЕ негатив-кэшируются — паттерн BUG-4). `web/api/routes.py`
+  `GET /api/admins` (`requires_permission("access")`) — обогащение КОПИЙ строк (`dict(a)`) через
+  `asyncio.gather`+`Semaphore(5)`, поля `display_name`/`photo_file_id`, старые поля сохранены.
+  Фронт `web/app.js` — `loadAdmins` грузит blob-аватары (`loadAvatar('user', id, admin)`), `adminInitial`;
+  `web/index.html` — аватар/инициал + `display_name||username`, ID `text-[10px] text-gray-500 font-mono`,
+  селектор `w-24`, ID-инпут `flex-1 min-w-0`, кнопка `shrink-0`.
+- **Инварианты 10.10**: REGISTRY **400** / GROUPS **90** / Settings **372** / mapped **88** /
+  TAB_RULES **19** / CONFIG_TAB_TITLES **19**; ноль PG-DDL; SQLite **v8**; `bot.py`/`media/`/`.env`
+  не тронуты; секретов нет; Headroom в коде отсутствует (п.6 out of scope).
+- **Находки 10.10**: `plans/reports/round10.10_scanner_audit.md` (0 blocker/0 high/0 medium;
+  3 low: R10.10-1 staged-отчёт скрипта, R10.10-2 `meta.note` вне snapshot, R10.10-3 chart-return
+  без destroy; 2 info: R10.10-4 аватары админов, R10.10-5 дубль `adminInitial`).

@@ -192,6 +192,9 @@
 
   var LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
   var MAX_HISTORY_POINTS = 288;   // B1/T-1129: 24ч × 5 мин
+  // 10.10 (п.2, ADR-1010-2): временная сетка графика истории ключей.
+  var SAMPLE_BUCKET = 300;        // 5 мин — тот же бакет, что пишет ring
+  var MIN_BUCKETS = 12;           // минимум 1 час даже при 1-2 сэмплах
   // D4: порядок секций матрицы прав = порядок config-вкладок (19; §4.3).
   var TAB_SECTION_ORDER = [
     'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
@@ -792,6 +795,7 @@
         // временной график (GET /api/status/key-history, leak-safe).
         keyHistory: null,
         keyHistoryChart: null,
+        keyHistoryChartHeight: 120,   // 10.10 (п.2): реактивная высота
         logs: [],
         logsCount: 0,
         logsLoading: false,
@@ -1428,6 +1432,10 @@
         // перерисовка конфиг-вкладок/профиля (activeChatChanged-событие)
         this.configError = '';   // F-13 (AC-3): свежий скоуп — баннер скрыт
         this.configItems = [];
+        // 10.10 (п.3): смена scope — сброс черновиков/результатов блоков
+        // (draft==null = «не трогать»; старый результат теста неактуален).
+        this.blockDrafts = {};
+        this.blockResults = {};
         this.loadConfig();
         this.loadKeyStatus();
         if (this.accessMy && !this.accessMy.is_global_admin) {
@@ -2033,9 +2041,12 @@
         await this.saveConfigItem(it);
       },
       // A4/T-1207: значение блока — черновик, иначе сохранённая строка.
+      // 10.10 (п.3): `draft === ''` (явная очистка) ВОЗВРАЩАЕТ '' (не
+      // откатывается к configItems); отсутствие черновика — реальное
+      // значение из configItems (fallback), секреты → '' (маска).
       blockFieldValue: function (f) {
         var draft = this.blockDrafts[f.key];
-        if (draft != null && draft !== '') return draft;
+        if (draft != null) return draft;
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         if (it && typeof it.value === 'string') return it.value;
         if (it && it.type !== 'bool' && typeof it.value !== 'object') return it.value;
@@ -2558,6 +2569,10 @@
           this.configGroups = data.groups || [];
           this.configChatUpdatedAt = data.updated_at != null
             ? data.updated_at : null;   // optimistic-метка чата (409-протокол)
+          // 10.10 (п.3): успешная загрузка = свежие значения из configItems;
+          // старые черновики сбрасываем (draft==null = «не трогать»), иначе
+          // черновик «переживал» бы reload и показывал стейл.
+          this.blockDrafts = {};
           this.configItems.forEach(function (item) {
             // 3.5.1/FR-28: widget отсутствует у старого сервера — дефолт '';
             // json с widget='keyvalue' НЕ строкифайм (остаётся объектом для
@@ -2944,6 +2959,34 @@
           this.admins = data.admins || [];
         } catch (e) { this.admins = []; }
         finally { this.adminsLoading = false; }
+        // 10.10 (п.5, ADR-1010-3): аватар+ник — blob через прокси
+        // (photo_file_id != null; без прямых <img src>). Себе подставляем
+        // имя из initData, если сервер не отдал. Негатив (нет blob/401/404)
+        // помечаем avatarSkipped — повторная loadAdmins не долбит прокси.
+        var self = this;
+        (this.admins || []).forEach(function (a) {
+          if (self.me && a.telegram_id === self.me.telegram_id
+              && !a.display_name) {
+            a.display_name = self.me.first_name || self.me.username || null;
+          }
+          if (a.photo_file_id != null && !a.avatarUrl && !a.avatarSkipped) {
+            self.loadAvatar('user', a.telegram_id, a).then(function (url) {
+              if (!url) a.avatarSkipped = true;
+            });
+          }
+        });
+      },
+      // 10.10 (п.5): инициал админа — переиспользует общий avatarInitial
+      // (единая графем-логика); без имени — первый символ ID (fallback).
+      adminInitial: function (admin) {
+        if (!admin) return '?';
+        var initial = this.avatarInitial({
+          user_id: admin.telegram_id,
+          name: admin.display_name,
+        });
+        if (initial && initial !== '?') return initial;
+        var idStr = admin.telegram_id != null ? String(admin.telegram_id) : '';
+        return idStr ? idStr.charAt(0) : '?';
       },
       loadRoles: async function () {
         this.rolesLoading = true;
@@ -3422,31 +3465,65 @@
         if (!sample || sample.http_status == null) return '—';
         return String(sample.http_status);
       },
-      renderKeyHistoryChart: function () {
-        var canvas = this.$refs.keyHistoryCanvas;
-        if (!canvas || !this.keyHistory
-            || !(this.keyHistory.providers || []).length) return;
-        var providers = this.keyHistory.providers;
-        // Общая ось времени: union ts всех провайдеров.
-        var tsSet = {};
-        providers.forEach(function (p) {
-          (p.samples || []).forEach(function (s) { tsSet[s.ts] = true; });
+      // 10.10 (п.2, ADR-1010-2): чистая модель графика — юнит-тестируемая.
+      // Каждый провайдер — своя дорожка (ок = i+0.75 / err = i+0.25),
+      // общая временная сетка (шаг 5 мин, минимум 1 час), пропущенные слоты
+      // = null. Провайдеры есть, но сэмплов нет (или вход пуст) → null:
+      // чарт не строится, пустое состояние не ломается.
+      keyHistoryChartModel: function (providers) {
+        var list = (providers || []).filter(function (p) { return p; });
+        if (!list.length) return null;
+        var anySample = list.some(function (p) {
+          return (p.samples || []).length > 0;
         });
-        var tsList = Object.keys(tsSet).map(Number).sort(function (a, b) {
-          return a - b;
-        }).slice(-MAX_HISTORY_POINTS);
-        var labels = tsList.map(function (t) {
-          var d = new Date(t * 1000);
+        if (!anySample) return null;
+        var palette = ['#14CBB6', '#8D6BDC', '#16B364', '#EAAA08',
+                       '#FF4848', '#A78DE4'];
+        var endBucket = -Infinity;
+        var firstBucket = Infinity;
+        list.forEach(function (p) {
+          (p.samples || []).forEach(function (s) {
+            var ts = Number(s.ts);
+            if (!isFinite(ts)) return;
+            if (ts > endBucket) endBucket = ts;
+            if (ts < firstBucket) firstBucket = ts;
+          });
+        });
+        if (!isFinite(endBucket) || !isFinite(firstBucket)) return null;
+        endBucket = Math.floor(endBucket / SAMPLE_BUCKET) * SAMPLE_BUCKET;
+        firstBucket = Math.floor(firstBucket / SAMPLE_BUCKET) * SAMPLE_BUCKET;
+        // HIGH-1: окно строим ОТ КОНЦА (endBucket — последний элемент):
+        // сначала ограничиваем длину MAX_HISTORY_POINTS (minStart), затем
+        // гарантируем минимум MIN_BUCKETS и не уходим раньше первого
+        // фактического сэмпла. Никаких break/slice — иначе при разреженной
+        // истории > 2*MAX_HISTORY_POINTS новейшие сэмплы терялись.
+        var minStart = endBucket - (MAX_HISTORY_POINTS - 1) * SAMPLE_BUCKET;
+        var startBucket = Math.max(firstBucket, minStart);
+        startBucket = Math.min(startBucket,
+                               endBucket - (MIN_BUCKETS - 1) * SAMPLE_BUCKET);
+        startBucket = Math.max(0, startBucket);
+        var grid = [];
+        for (var t = startBucket; t <= endBucket; t += SAMPLE_BUCKET) {
+          grid.push(t);
+        }
+        var labels = grid.map(function (ts) {
+          var d = new Date(ts * 1000);
           var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
           return pad(d.getHours()) + ':' + pad(d.getMinutes());
         });
-        var palette = ['#14CBB6', '#8D6BDC', '#16B364', '#EAAA08',
-                       '#FF4848', '#A78DE4'];
-        var datasets = providers.map(function (p, idx) {
-          var byTs = {};
-          (p.samples || []).forEach(function (s) { byTs[s.ts] = s.ok ? 1 : 0; });
-          var data = tsList.map(function (t) {
-            return Object.prototype.hasOwnProperty.call(byTs, t) ? byTs[t] : null;
+        var datasets = list.map(function (p, idx) {
+          var samples = (p.samples || []).filter(function (s) {
+            return isFinite(Number(s.ts));
+          });
+          var byBucket = {};
+          samples.forEach(function (s) {
+            var b = Math.floor(Number(s.ts) / SAMPLE_BUCKET) * SAMPLE_BUCKET;
+            byBucket[b] = !!s.ok;
+          });
+          var lane = idx;
+          var data = grid.map(function (ts) {
+            if (!Object.prototype.hasOwnProperty.call(byBucket, ts)) return null;
+            return byBucket[ts] ? lane + 0.75 : lane + 0.25;
           });
           return {
             label: p.module_title || p.provider || p.module_id,
@@ -3455,29 +3532,61 @@
             backgroundColor: palette[idx % palette.length],
             stepped: true,
             tension: 0,
-            pointRadius: 0,
+            pointRadius: samples.length <= 1 ? 3 : 0,
             spanGaps: false,     // разрыв = нет данных
           };
         });
-        var cfg = {
-          type: 'line',
-          data: { labels: labels, datasets: datasets },
-          options: {
-            responsive: true,
-            scales: {
-              y: { min: -0.2, max: 1.2, ticks: { display: false } },
-              x: { ticks: { color: '#9CA3AF', maxTicksLimit: 10,
-                            font: { size: 10 } } },
-            },
-            plugins: {
-              legend: { display: true, position: 'bottom',
-                        labels: { color: '#BABABA', boxWidth: 10,
-                                  font: { size: 10 } } },
-            },
-          },
+        return {
+          labels: labels,
+          datasets: datasets,
+          laneCount: list.length,
+          height: Math.max(120, 44 + list.length * 22),
         };
-        if (this.keyHistoryChart) { this.keyHistoryChart.destroy(); }
-        this.keyHistoryChart = new Chart(canvas, cfg);
+      },
+      renderKeyHistoryChart: function () {
+        // Рвём предыдущий инстанс в ЛЮБОМ случае (даже при `keyHistory ==
+        // null`): иначе Chart.js держит stale-инстанс/слушатели на canvas.
+        if (this.keyHistoryChart) {
+          this.keyHistoryChart.destroy();
+          this.keyHistoryChart = null;
+        }
+        if (!this.keyHistory) {
+          this.keyHistoryChartHeight = 120;
+          return;
+        }
+        var model = this.keyHistoryChartModel(this.keyHistory.providers);
+        this.keyHistoryChartHeight = model ? model.height : 120;
+        if (!model) return;
+        var canvas = this.$refs.keyHistoryCanvas;
+        if (!canvas) return;
+        var self = this;
+        // Высота выставлена реактивно — строим чарт на следующем тике,
+        // чтобы canvas получил итоговые размеры обёртки.
+        this.$nextTick(function () {
+          var el = self.$refs.keyHistoryCanvas;
+          if (!el) return;
+          var cfg = {
+            type: 'line',
+            data: { labels: model.labels, datasets: model.datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { min: -0.2, max: model.laneCount + 0.2,
+                     ticks: { display: false } },
+                x: { ticks: { color: '#9CA3AF', maxTicksLimit: 10,
+                              font: { size: 10 } } },
+              },
+              plugins: {
+                legend: { display: true, position: 'bottom',
+                          labels: { color: '#BABABA', boxWidth: 10,
+                                    font: { size: 10 } } },
+              },
+            },
+          };
+          if (self.keyHistoryChart) { self.keyHistoryChart.destroy(); }
+          self.keyHistoryChart = new Chart(el, cfg);
+        });
       },
 
       loadLogs: async function () {
