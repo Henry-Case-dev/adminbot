@@ -6,7 +6,8 @@
 
 **✅ ИТОГ 10.10 (12.09.2026):** реализация завершена, фича **заархивирована** — перенесена
 `plans/features/admin-ui-round1010/` → **`plans/archive/admin-ui-round1010/`** (@PM Step 8).
-**Финальные метрики:** полный **pytest — 5144 passed / 1 skipped / 0 failed** (база 10.9 = 5105 → **+39**);
+**Финальные метрики:** полный **pytest — 5145 passed / 1 skipped / 0 failed** (база 10.9 = 5105 → **+40**;
++1 — регресс-тест standalone-CLI `scripts/disable_dm_heavy_modules.py`, devops-fix `a477747`);
 каталог-инвариант **REGISTRY 400 / GROUPS 90 / Settings 372** (mapped 88).
 @Reviewer — **APPROVED WITH MINOR ISSUES** (follow-ups закрыты); @Scanner — **CLEAN: low/info**
 (большинство находок устранено) (`plans/reports/round10.10_scanner_audit.md`); @Architect — архитектура
@@ -22,6 +23,16 @@ health 200).
 **T-1320** (mobile key-availability chart), **T-1323** (провайдеры: реальные значения полей),
 **T-1332** (роли: аватар+ник, ширины) — статически покрыто (`tests/test_webapp_round1010_ui.py`,
 JS-юниты).
+**✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.10 (@DevOps, 12.09.2026):** commits `d082800` (раунд, тесты 5144) +
+`a477747` (fix scripts: standalone `sys.path` bootstrap + CLI-тест, тесты 5145); push `da85b60..a477747`;
+прод `198.46.175.136:/var/www/admin_bot` `git pull --ff-only` `d2d1215..a477747` (fast-forward; `.env`
+не менялся); `systemctl restart admin_bot` → **active (running)** (Main PID 1338398);
+`/api/health` → **200 `{"status":"ok"}`**; стартовые логи — **0 ERROR/Traceback**; README **5145**,
+`APP_VERSION` **2.54.0**. **T-1327/T-1328 (DM data-run):** активная ЛС `5885953495` — `--dry-run` 1 план →
+`--apply` (changed=1/noop=0/total=1/errors=0) + снапшот
+`var/dm_modules_off_snapshot_20260911T201219Z.json` (до записи) → повторный `--dry-run` **0 изменений**
+(идемпотентно); сон/ностальгия/саммаризация — OFF. **Остаётся за владельцем/QA:** live Android
+(T-1317/T-1320/T-1323/T-1332).
 Ниже — исторический документ планирования эпика.
 
 **Фича:** `plans/archive/admin-ui-round1010/` (kebab: `admin-ui-round1010`; `tasks.md` создан 12.09.2026 @PM; архивирована 12.09.2026 @PM Step 8).

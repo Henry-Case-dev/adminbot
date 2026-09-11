@@ -3,7 +3,8 @@
 > **✅ СТАТУС: ЗАВЕРШЕНО И ЗААРХИВИРОВАНО (12.09.2026, @PM Step 8 Archive Phase).**
 > Фича перенесена из `plans/features/admin-ui-round1010/` в
 > **`plans/archive/admin-ui-round1010/`** (плоский kebab-case, как существующие архивы).
-> **Итог:** полный pytest — **5144 passed / 1 skipped / 0 failed** (база 10.9 = 5105 → **+39**);
+> **Итог:** полный pytest — **5145 passed / 1 skipped / 0 failed** (база 10.9 = 5105 → **+40**;
+> +1 — регресс-тест standalone-CLI `scripts/disable_dm_heavy_modules.py`, devops-fix `a477747`);
 > @Reviewer — **APPROVED WITH MINOR ISSUES** (follow-ups закрыты); @Scanner — **CLEAN: low/info**
 > (большинство находок устранено) (`plans/reports/round10.10_scanner_audit.md`); @Architect —
 > архитектура влита в `plans/ARCHITECTURE.md` (**§31** + связанные разделы).
@@ -331,3 +332,32 @@
 - Секретов/Headroom в диффе нет; `bot.py`/`media/`/`.env`/PG-DDL не тронуты.
 
 **Blockers:** нет.
+
+---
+
+## 13. Деплой и прод data-run (T-1327/T-1328/T-1337/T-1338, @DevOps, 12.09.2026)
+
+**Коммиты и push (origin/master):**
+- `d082800` — `fix(admin,web,api,scripts,plans): раунд 10.10 — fullscreen safe-area, mobile key-chart, реальные значения провайдеров, ЛС heavy-modules OFF, роли с аватарами (тесты 5144)`;
+- `a477747` — `fix(scripts): раунд 10.10 — standalone-запуск disable_dm_heavy_modules (sys.path bootstrap) + регресс-тест CLI (тесты 5145)`.
+  Root cause: `venv/bin/python scripts/disable_dm_heavy_modules.py` падал с `ModuleNotFoundError: No module named 'services'` (Python кладёт в `sys.path` каталог скрипта, а не корень репозитория). Добавлен bootstrap `sys.path.insert(0, parent.parent)` (как в `scripts/seed_chat_lore.py`) + тест `test_standalone_cli_entrypoint_help`.
+- `git push origin master`: `da85b60..d082800`, затем `d082800..a477747`.
+- Локальный полный pytest: **5145 passed / 1 skipped / 0 failed**.
+
+**Деплой (`198.46.175.136:/var/www/admin_bot`):**
+- `git pull --ff-only` → `d2d1215..a477747` (fast-forward);
+- `.env` **не менялся** (раунд добавляет Settings-дефолты в коде; новые env-ключи не требуются);
+- `systemctl restart admin_bot` → **active (running)** (Main PID 1338398), `[webapp] lifespan started | pg_available=True`;
+- `/api/health` → **200 `{"status":"ok"}`**; стартовые логи — **0 ERROR/Traceback**.
+
+**T-1327 (data-run: сон/ностальгия/саммаризация OFF для всех активных ЛС):**
+- `--dry-run`: **1 активная ЛС (`5885953495`)**, план — **1 изменение** (overrides `memory.dream_enabled`/`memory.nostalgia_enabled`/`flags.chat_running_summary_enabled`, gates `dream`/`nostalgia`);
+- `--apply --snapshot-out var/dm_modules_off_snapshot_<UTC>.json`: **changed=1, noop=0, total=1, errors=0**;
+  снапшот до записи — **`/var/www/admin_bot/var/dm_modules_off_snapshot_20260911T201219Z.json`**
+  (`chat_id=5885953495`, было `overrides={"flags.summary_enabled": false}`, `gates={}`, `meta={"updated_by": 5885953495}`);
+  `var/` — `root:developers 0700`, поэтому apply выполнен через `sudo`);
+- повторный `--dry-run`: **0 изменений из 1 ЛС** (идемпотентно).
+
+**T-1328:** активная ЛС `5885953495` больше не имеет сон/ностальгия/саммаризация ON; новые ЛС получают OFF код-дефолтом (`ensure_scope_profile(dm=True)`).
+
+**Остаётся за владельцем/QA (live Android/Telegram):** T-1317 (fullscreen header), T-1320 (mobile key-chart), T-1323 (реальные поля провайдеров), T-1332 (роли: аватар+ник, ширины) — статически покрыто (`tests/test_webapp_round1010_ui.py`, JS-юниты).
