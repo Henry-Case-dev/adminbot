@@ -606,6 +606,46 @@
 > вручную:** live Android smoke **T-1254** (логи) и **T-1258** (окна «Доступов»);
 > опциональный betterstack-401 fix.
 
+> **Синк STEP 10 (финал, post-commit+деплой) 12.09.2026: раунд 10.9 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН и ЗАДЕПЛОЕН — HEAD == origin/master == `f928225`** (`d2d1215` — фича,
+> 34 файла, тесты 5105; `f928225` — docs деплой-верификация; поверх `51f308b` —
+> docs-финал 10.8; прод до деплоя `31d2ce7` = задеплоенный 10.8).
+> Единственная фича **`admin-ui-round109`** (spec @Architect + tasks @PM + ADR-109;
+> T-1270…T-1314) реализована целиком: (1) PERMsoc — 4 сворачиваемых owner-блока
+> (Славик/Оля/Мимикрия/Общее), в каждом ровно один рабочий тумблер; новый
+> `flags.slavik_enabled` (default True), `reactions_persons` удалена,
+> `SLAVIK_USER_ID`→`reactions_slavik`, `OLYA_USER_ID`→`reactions_olya`;
+> (3) `_preserveScroll` для `document.scrollingElement` И `.scroll-area` —
+> сохранение не прыгает вверх, вкл. fullscreen; (4) все описания и титулы
+> параметров/групп переписаны (plain ironic language, без жаргона/AI-паттернов);
+> (5) карточка «Тяжёлые фичи» удалена; (6) «Бюджет фона» перенесён в «Сводку»
+> (backend/endpoint не тронуты); (7.1) dashboard «Доступность ключей» из 4
+> функциональных групп + реальный health `probe_openai` (ok/error/timeout/
+> unreachable/not_configured; STT groq POST `/audio/transcriptions` multipart WAV;
+> кэш per `module_id`: 2xx 60с, ошибки 10с; stale-200 не отдаётся); (7.2) 7
+> `models.*_display_name` первым полем каждого провайдер-блока, форма `max-w-3xl`;
+> (8) градиент быстрее (`--grad-speed:14s`, `grad-drift 18s`). **Каталог 400 / 90 /
+> 372 / mapped 88 / TAB_RULES 19**; ноль PG-DDL, SQLite v8, `bot.py`/`media/` не
+> тронуты. @Reviewer: REJECTED → фиксы → APPROVED WITH MINOR ISSUES → follow-ups
+> закрыты. @Scanner: **0 blocker / 0 major / 0 medium** (3 low R10.9-1/-2/-3 +
+> 3 info R10.9-4/-5/-6; R10.9-6 закрыт архивацией; отчёт
+> `plans/reports/round10.9_scanner_audit.md`). @Architect: merge в
+> `plans/ARCHITECTURE.md` §30 (+§1/§9/§25). **Тесты: 5105 passed / 0 failed**
+> (baseline 10.8 = 5076; +29); `node --check web/app.js` clean; `tests/js/routing_test.js`
+> → `JS-UNIT-OK`; `git diff --check` чист. @PM: фича заархивирована —
+> `plans/archive/admin-ui-round109/` (spec.md + tasks.md + ADR-109.md);
+> **plans/archive/ — 31 папка**; plans/features/ — 6 активных F-1…F-6. @DevOps:
+> README 5105 + APP_VERSION **2.53.0**; push origin/master; **деплой
+> 198.46.175.136:/var/www/admin_bot** — git pull fast-forward `31d2ce7..d2d1215`,
+> `.env` без изменений, restart active, `/api/health` 200, 0 ошибок. Граф обновлён:
+> милстоун `round10.9-epic` → COMPLETED + DEPLOYED, фича → WAS_PART_OF +
+> COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан
+> `tech-debt-round10.9` (R10.9-1/-2/-3 low + R10.9-4/-5 info; R10.9-6 закрыт).
+> **Осталось вручную:** live Android smoke — T-1277/1290/1292/1294/1302/1305;
+> опциональный betterstack-401 fix. ⚠️ Пункт 2 исходного ТЗ (инфраструктура
+> локального IDE владельца) — **вне скоупа проекта**, в репозитории/графе
+> не фиксируется.
+
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
 > (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).
@@ -1088,6 +1128,80 @@ round10.6-epic; цикл раунда полностью закрыт (Step 10).
   `tabMat`, pre-existing), R10.8-4 (info — doc-drift backlog, закрыт @PM); закрытые
   R10.8-1/-5; закрытые из 10.7 — R10.7-3/-4.
 
+### Раунд 10.9 — финал (12.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (d2d1215 + f928225)
+
+«UI/UX-правки админ-минги — PERMsoc owner-блоки и под-флаг Славика, сохранение
+скролла, переписанные описания, удаление «Тяжёлых фич»/перенос «Бюджета»,
+dashboard-health, display-name, градиент». Единственная фича — `admin-ui-round109`
+(spec @Architect + tasks @PM + ADR-109; T-1270…T-1314, продолжает T-1269).
+HEAD == origin/master == `f928225` (`d2d1215` + `f928225`, поверх `51f308b` —
+docs-финал 10.8; прод до деплоя — `31d2ce7`). **Статус: COMPLETED + DEPLOYED.**
+FOLLOWS round10.8-epic; цикл раунда полностью закрыт (Step 10).
+
+- **Коммиты (master):** `d2d1215` feat(admin,web,plans): раунд 10.9 — PERMsoc-блоки,
+  сохранение скролла, описания, доступность ключей по функциям, display-name,
+  градиент (тесты 5105) — **34 файла**; `f928225` docs(plans): раунд 10.9 —
+  деплой-верификация; push origin/master.
+- **Тесты:** 5105 passed / 0 failed (baseline 10.8 = 5076; +29; 1 pre-existing
+  warning + «closed 12 leaked aiosqlite connection(s)» — ресурс-предупреждение).
+  Каталог **400 / 90 / 372 / mapped 88** (`TAB_RULES` 19, `CONFIG_TAB_TITLES` 19);
+  `node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`;
+  `git diff --check` чист.
+- **Реализация:** (п.1) PERMsoc — 4 сворачиваемых `<details class="owner-block">`
+  (Славик/Оля/Мимикрия/Общее), в каждом ровно один рабочий тумблер
+  (`PERMSOC_OWNER_BLOCKS`/`_permsocOwnerGroups`/`PERMSOC_TOGGLE_KEYS`; generic-bool
+  дубли и master-карта удалены); backend — новый `flags.slavik_enabled`
+  (`SLAVIK_ENABLED` default True), `reactions_persons` удалена,
+  `SLAVIK_USER_ID`→`reactions_slavik`, `OLYA_USER_ID`→`reactions_olya`,
+  `TAB_PERMSOC` без persons; (п.3) `_preserveScroll` для `document.scrollingElement`
+  И `.scroll-area` (restore в `$nextTick`) — скролл не прыгает при сохранении,
+  вкл. fullscreen; (п.4) ВСЕ описания/титулы переписаны (plain ironic language,
+  тест на 28 запрещённых жаргон-подстрок + AI-шаблон); (п.5) карточка «Тяжёлые
+  фичи» удалена (per-chat dream/nostalgia/lore_auto остаются в «Сводке»);
+  (п.6) «Бюджет фона» перенесён в «Сводку» (`loadBudgetInfo` из `loadOversight`;
+  backend/endpoint не тронуты); (п.7.1) dashboard «Доступность ключей» — 4
+  функциональные группы (main+fallback / транскрибация / саммаризация видео /
+  эмбеддинги) + реальный health `probe_openai` (ok/error/timeout/unreachable/
+  not_configured; `stt_groq` → `POST /audio/transcriptions` multipart WAV, таймаут
+  5с; кэш per `module_id`: 2xx 60с, ошибки 10с, stale-200 не отдаётся), старый
+  блок → «История доступности ключей»; (п.7.2) 7 `models.*_display_name` первым
+  полем каждого провайдер-блока, ширина формы `max-w-3xl`; (п.8) градиент быстрее
+  (`--grad-speed:14s`, `grad-drift 18s`).
+- **ADR-109 (Accepted @Architect 12.09.2026):** ADR-109-1 — display-name как 7
+  новых `ParamSpec` (`models.*_display_name`, Settings, глобальные); ADR-109-3 —
+  health реальным POST вместо `GET /models` (`probe_openai` chat/embeddings/stt,
+  кэш per `module_id`); ADR-109-4 — `SLAVIK_ENABLED` для независимого тумблера
+  Славика; ADR-109-5 — «Бюджет фона» → «Сводка».
+- **Ревью/Scanner:** @Reviewer REJECTED (1 Critical + 1 High + 2 Medium + 3 Low) →
+  фиксы (STT probe, AI-описания, титулы, fullscreen-скролл, dead code, owner-блоки,
+  JS-единицы) → APPROVED WITH MINOR ISSUES → follow-ups закрыты. @Scanner
+  **CLEAN — 0 blocker / 0 major / 0 medium**; 3 low R10.9-1/-2/-3 + 3 info
+  R10.9-4/-5/-6; R10.9-6 закрыт архивацией. Отчёт
+  `plans/reports/round10.9_scanner_audit.md`.
+- **Архитектура:** @Architect — ARCHITECTURE.md **§30 «Раунд 10.9»** (+§1/§9/§25).
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward
+  `31d2ce7..d2d1215`; `.env` без изменений; restart → active; `/api/health` = 200;
+  0 ошибок.
+- **Архивация:** `admin-ui-round109` → `plans/archive/admin-ui-round109/`
+  (spec.md + tasks.md + ADR-109.md) (**plans/archive/ — 31 папка**;
+  plans/features/ — 6 активных F-1…F-6). README счётчик 5105; `APP_VERSION` 2.53.0.
+- **Осталось вручную:** live Android smoke — **T-1277** (owner-блоки/тумблеры
+  PERMsoc), **T-1290** (скролл при сохранении), **T-1292/T-1294**
+  (dashboard-health/«Доступность ключей»), **T-1302** (форма провайдеров/
+  display-name), **T-1305** (градиент); реальное Android-устройство недоступно
+  @Builder, статически покрыто `tests/test_webapp_round109_ui.py` + JS-юниты;
+  опциональный betterstack-401 fix. Не блокирует закрытие цикла.
+- **Техдолг раунда (KG `tech-debt-round10.9`):** R10.9-1 (low — `model_source`
+  запасных/эмбеддинг-записей снова `"code"` при конфиге, metadata-only),
+  R10.9-2 (low — эмбеддинг-фоллбэки читаются из `settings`, не через
+  `hot`/`_resolve`; `emb_fallback*` исчезают без env-ключа), R10.9-3 (low —
+  устаревший docstring `status_service.py`), R10.9-4 (info — кэш health по
+  `module_id` не инвалидируется при смене base_url/key/model ≤60с), R10.9-5
+  (info — docstring `_LLM_BLOCKS` без `transcribe_groq`; `ConnectTimeout` →
+  «timeout»); R10.9-6 закрыт архивацией; R10.8-2/-3 остаются открытыми.
+- **⚠️ Вне скоупа:** пункт 2 исходного ТЗ — инфраструктура локального IDE
+  владельца (не часть бота); в репозитории и в графе не фиксируется.
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -1113,8 +1227,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 30 папок)
+## Свежие архивы (plans/archive/ — 31 папка)
 
+- `admin-ui-round109` — **Раунд 10.9, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-109; T-1270…T-1314: PERMsoc owner-блоки + `flags.slavik_enabled`, сохранение скролла (`_preserveScroll`), переписанные описания/титулы, удаление «Тяжёлых фич», «Бюджет фона»→«Сводка», dashboard «Доступность ключей» (4 группы) + реальный health `probe_openai`, 7 `models.*_display_name`, `max-w-3xl`, градиент 14s/18s; каталог 400/90/372/mapped 88; тесты 5105; §30)
 - `admin-ui-round108` — **Раунд 10.8, 11.09.2026** (единственная фича, spec @Architect + tasks @PM, T-1243…: переименование разделов, emoji→Material-иконки (субсет 20→37, 18 388 B), фикс логов на Android, route-driven окна «Доступов», README; тесты 5076; §29; ADR-001-access-windows-modal + ADR-002-icon-subset-parity)
 - `admin-ui-bugfixes-round107` — **Раунд 10.7, 11.09.2026** (единственная фича, spec T-1224: UI/UX-багфиксы админ-минги — scope*-computed, safe-area шапки, компактный юзер-блок, ellipsis ключей, uptime gap-fill, clipboard-ghost, лог-колонки, copy-on-row, dead ICONS 26→20; тесты 5042; §28)
 - `tma-ia-modules-rework` — **Раунд 10.6, 11.09.2026** (единственная фича, T-1155…T-1223: IA-ребейлд TMA — единый navbar, 11 Модулей-тумблеров, Настройки AI (7) + RAG→Память, чистый PERMsoc, Леха/Костик раздельно, provider-блоки + `POST /api/llm/test`; каталог 392/91/364/mapped 89; тесты 5027; §27)
@@ -1156,7 +1271,7 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
 
-- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.52.0 (раунд 10.8); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
+- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.53.0 (раунд 10.9); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
 - **adminbot-sqlite-schema** — `users_meta` (стадии отношений), `smart_messages` (FTS5), `nodes/edges`, `graph_facts` (v1–v8), `dream_state`, `memory_dream_log` (бюджет суток), `nostalgia_log` и др. Миграция памяти sqlite→PG ЗАМОРОЖЕНА (04.09.2026). Вне скоупа раунда 10.
 - **hot-config-layer** — `services/hot_config.py::hot.get(pg_key, default)`; ConfigCache (`services/config_cache.py`) — in-memory над PG, R6 fail-open. Цепочка глобальная; **F-7 добавил per-chat слой `hot_chat` (chat_params → bot_settings → дефолт) параллельно — hot.get/ConfigCache не менялись**.
@@ -1245,6 +1360,23 @@ plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **30 
 HEAD == origin/master == `976e335` (коммиты 31d2ce7 + 976e335, тесты 5076, деплой
 198.46.175.136 active/health 200, 0 errors, шрифт wOF2 18 388 B); остаётся ручной
 Android smoke T-1254 (логи)/T-1258 (окна «Доступов») + опц. betterstack 401.
+**милстоун `round10.9-epic`** (AdminBot → COMPLETED + DEPLOYED, 12.09.2026) —
+раунд 10.9 «UI/UX-правки админ-минги»: единственная фича `admin-ui-round109`
+(T-1270…T-1314, spec @Architect + tasks @PM + ADR-109) → COMPLETED + DEPLOYED +
+WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.9-epic + ARCHIVED_IN plans-structure;
+PERMsoc owner-блоки (4) + `flags.slavik_enabled`, `_preserveScroll` для
+`document.scrollingElement`/`.scroll-area`, переписанные описания/титулы,
+«Тяжёлые фичи» удалены, «Бюджет фона»→«Сводка», dashboard «Доступность ключей»
+(4 группы) + реальный health `probe_openai` (TTL 2xx 60с/ошибки 10с), 7
+`models.*_display_name`, форма `max-w-3xl`, градиент 14s/18s; каталог
+400/90/372/mapped 88; ARCHITECTURE.md §30 (+§1/§9/§25); Scanner 0 blocker/0 major/
+0 medium (3 low R10.9-1/-2/-3 + 3 info R10.9-4/-5/-6; R10.9-6 закрыт; техдолг —
+KG `tech-debt-round10.9`); plans/features/ — **6 активных** (F-1…F-6);
+plans/archive/ — **31 папка**; HEAD == origin/master == `f928225` (коммиты
+d2d1215 + f928225, тесты 5105, деплой 198.46.175.136 active/health 200, 0 ошибок,
+APP_VERSION 2.53.0); остаётся ручной live Android smoke T-1277/1290/1292/1294/
+1302/1305 + опц. betterstack 401. ⚠️ Пункт 2 ТЗ (инфраструктура локального IDE
+владельца) — вне скоупа проекта.
 
 ## Факты для планирования (проект)
 
