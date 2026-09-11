@@ -7,8 +7,10 @@
 сервисов — только httpx (уже в стеке).
 
 Контракт блоков:
-  * chat-блоки: direct_main, direct_fallback, transcribe_groq,
-    transcribe_openrouter, video_summary_openrouter (нужны base_url+model+key);
+  * chat-блоки: direct_main, direct_fallback, transcribe_openrouter,
+    video_summary_openrouter (нужны base_url+model+key);
+  * STT-блок: transcribe_groq — POST /audio/transcriptions (Whisper не
+    chat-модель; chat-probe давал ложный error и красную карточку);
   * embeddings — требует base_url (UI не рендерит кнопку теста: base_url нет);
   * search_keys — НЕ требует base_url (ходит на фиксированные Exa/Tavily);
   * media_share — не сетевой: проверяет, что секрет задан;
@@ -85,6 +87,94 @@ async def _post_json(client: httpx.AsyncClient, url: str, headers: dict,
     return await client.post(url, headers=headers, json=body)
 
 
+async def _post_multipart(client: httpx.AsyncClient, url: str, headers: dict,
+                          data: dict, files: dict) -> httpx.Response:
+    """multipart-запрос (STT-эндпоинт принимает файл, а не JSON)."""
+    return await client.post(url, headers=headers, data=data, files=files)
+
+
+def _silent_wav(seconds: float = 0.3, rate: int = 16000) -> bytes:
+    """Минимальный валидный WAV с тишиной — полезная нагрузка STT-probe.
+
+    Реальное `POST /audio/transcriptions` (Groq/Whisper) требует файл;
+    пустой payload провайдеры часто отвергают. Тишина 0.3с безобидна и
+    не расходует квоту на осмысленную расшифровку (ADR-109-3)."""
+    import io
+    import wave
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(rate)
+        wav.writeframes(b"\x00\x00" * int(rate * seconds))
+    return buf.getvalue()
+
+
+async def probe_openai(base_url: str, api_key: str = "", model: str = "",
+                       kind: str = "chat",
+                       timeout: float = _TIMEOUT_SECONDS) -> dict:
+    """Единый минимальный probe провайдера (ADR-109-3).
+
+    ``kind``:
+      * ``chat`` → POST /chat/completions (max_tokens=1);
+      * ``embeddings`` → POST /embeddings;
+      * ``stt`` → POST /audio/transcriptions с минимальным WAV (Groq/Whisper;
+        chat-модель whisper не поддерживает, поэтому chat-probe всегда падал).
+
+    Возвращает ``{ok, status, http_status, latency_ms[, error]}`` со статусами
+    ``ok | error | timeout | unreachable | not_configured``. Секреты не
+    возвращаются (R17): тело ошибки санитизируется."""
+    import time
+    started = time.monotonic()
+
+    def _res(ok: bool, status: str, http_status=None, error=None) -> dict:
+        out = {
+            "ok": ok,
+            "status": status,
+            "http_status": http_status,
+            "latency_ms": int((time.monotonic() - started) * 1000.0),
+        }
+        if error:
+            out["error"] = error
+        return out
+
+    base, base_error = _safe_base(base_url)
+    if base_error:
+        return _res(False, "not_configured", None, base_error)
+    if not (api_key or "").strip():
+        return _res(False, "not_configured", None, "ключ не задан")
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            if kind == "stt":
+                resp = await _post_multipart(
+                    client, f"{base}/audio/transcriptions", _bearer(api_key),
+                    {"model": model},
+                    {"file": ("probe.wav", _silent_wav(), "audio/wav")})
+            elif kind == "embeddings":
+                resp = await _post_json(
+                    client, f"{base}/embeddings", _bearer(api_key),
+                    {"model": model, "input": "ping"})
+            else:
+                resp = await _post_json(
+                    client, f"{base}/chat/completions", _bearer(api_key),
+                    {"model": model, "max_tokens": 1,
+                     "messages": [{"role": "user", "content": "ping"}]})
+    except httpx.TimeoutException as exc:
+        return _res(False, "timeout", None, sanitize_error(str(exc), api_key))
+    except httpx.HTTPError as exc:
+        return _res(False, "unreachable", None,
+                    sanitize_error(str(exc), api_key))
+    except Exception as exc:   # защита от не-httpx сетевых ошибок
+        return _res(False, "unreachable", None,
+                    sanitize_error(str(exc), api_key))
+
+    if resp.status_code < 400:
+        return _res(True, "ok", resp.status_code)
+    return _res(False, "error", resp.status_code,
+                sanitize_error(resp.text, api_key))
+
+
 async def probe_block(block: str, base_url: str = "", model: str = "",
                       api_key: str = "") -> dict:
     """Возвращает {"ok", "http_status", "latency_ms", "model"[, "error"]}."""
@@ -131,30 +221,37 @@ async def probe_block(block: str, base_url: str = "", model: str = "",
         return _result(False, resp.status_code,
                        sanitize_error(resp.text, api_key))
 
-    base, base_error = _safe_base(base_url)
-    if base_error:
-        return _result(False, None, base_error)
-
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
-            if block in _EMBEDDING_BLOCKS:
-                resp = await _post_json(
-                    client, f"{base}/embeddings", _bearer(api_key),
-                    {"model": model, "input": "ping"})
-            elif block == "checkup_betterstack":
+    # checkup_betterstack — простой GET хоста (не OpenAI-совместимый).
+    if block == "checkup_betterstack":
+        base, base_error = _safe_base(base_url)
+        if base_error:
+            return _result(False, None, base_error)
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
                 resp = await client.get(base, headers=_bearer(api_key))
-            else:  # LLM chat-блоки
-                resp = await _post_json(
-                    client, f"{base}/chat/completions", _bearer(api_key),
-                    {"model": model, "max_tokens": 1,
-                     "messages": [{"role": "user", "content": "ping"}]})
-    except httpx.HTTPError as exc:
-        return _result(False, None, sanitize_error(str(exc), api_key))
+        except httpx.HTTPError as exc:
+            return _result(False, None, sanitize_error(str(exc), api_key))
+        if resp.status_code < 400:
+            return _result(True, resp.status_code)
+        return _result(False, resp.status_code, sanitize_error(resp.text, api_key))
 
-    if resp.status_code < 400:
-        return _result(True, resp.status_code)
-    return _result(False, resp.status_code,
-                   sanitize_error(resp.text, api_key))
+    # ADR-109-3: chat/embeddings/stt — единый probe_openai.
+    #   * transcribe_groq — Whisper-модель принимает только
+    #     POST /audio/transcriptions (chat давал ложный error);
+    #   * transcribe_openrouter — расшифровка идёт через chat.completions с
+    #     input_audio (см. openrouter_transcriber), поэтому chat-probe корректен;
+    #   * embeddings — POST /embeddings; остальные — POST /chat/completions.
+    if block == "transcribe_groq":
+        kind = "stt"
+    elif block in _EMBEDDING_BLOCKS:
+        kind = "embeddings"
+    else:
+        kind = "chat"
+    result = await probe_openai(base_url, api_key, model, kind=kind,
+                                timeout=_TIMEOUT_SECONDS)
+    if result["ok"]:
+        return _result(True, result["http_status"])
+    return _result(False, result["http_status"], result.get("error"))
 
 
 async def _probe_search(client: httpx.AsyncClient, base: str,

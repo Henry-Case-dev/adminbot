@@ -157,7 +157,7 @@
       type: 'config', menu: 'permsoc',
       sources: [
         { category: 'reactions', groups: [
-            'reactions_persons', 'reactions_admin', 'reactions_deadpage',
+            'reactions_admin', 'reactions_deadpage',
             'reactions_slavik', 'reactions_alan', 'reactions_kostik',
             'reactions_war', 'reactions_common', 'reactions_goodmorning',
             'reactions_mimic', 'reactions_olya',
@@ -361,73 +361,114 @@
 
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
   // role задаёт, какое поле тела POST /api/llm/test заполняет значение.
+  // 10.9 (T-1303): «Название модели» — ПЕРВОЕ поле каждого блока; label'ы —
+  // человеческие (spec §4.1/§4.2).
   var PROVIDER_BLOCKS = [
     { id: 'direct_main', title: 'Основная модель', modules: 'Прямые ответы',
       fields: [
-        { key: 'models.llm_base_url', label: 'base_url', role: 'base_url' },
-        { key: 'models.llm_model_name', label: 'model', role: 'model' },
-        { key: 'keys.llm_api_key', label: 'api key', role: 'api_key', secret: true },
+        { key: 'models.llm_display_name', label: 'Название модели', role: '' },
+        { key: 'models.llm_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.llm_model_name', label: 'Модель', role: 'model' },
+        { key: 'keys.llm_api_key', label: 'Ключ', role: 'api_key', secret: true },
       ] },
     { id: 'direct_fallback', title: 'Фолбэк-модель',
       modules: 'Прямые ответы (фолбэк)',
       fields: [
-        { key: 'models.llm_fallback_base_url', label: 'base_url', role: 'base_url' },
-        { key: 'models.llm_fallback_model', label: 'model', role: 'model' },
-        { key: 'keys.llm_fallback_api_key', label: 'api key', role: 'api_key', secret: true },
+        { key: 'models.llm_fallback_display_name', label: 'Название модели', role: '' },
+        { key: 'models.llm_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.llm_fallback_model', label: 'Модель', role: 'model' },
+        { key: 'keys.llm_fallback_api_key', label: 'Ключ', role: 'api_key', secret: true },
       ] },
-    { id: 'transcribe_groq', title: 'Groq (STT)', modules: 'Транскрипт',
+    { id: 'transcribe_groq', title: 'Groq (расшифровка)', modules: 'Транскрибация',
       fields: [
-        { key: 'models.groq_base_url', label: 'base_url', role: 'base_url' },
-        { key: 'models.groq_transcribe_model', label: 'model', role: 'model' },
-        { key: 'keys.groq_api_key', label: 'api key', role: 'api_key', secret: true },
+        { key: 'models.groq_display_name', label: 'Название модели', role: '' },
+        { key: 'models.groq_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.groq_transcribe_model', label: 'Модель', role: 'model' },
+        { key: 'keys.groq_api_key', label: 'Ключ', role: 'api_key', secret: true },
       ] },
-    { id: 'transcribe_openrouter', title: 'OpenRouter (STT-фолбэк)',
-      modules: 'Транскрипт (фолбэк)',
+    { id: 'transcribe_openrouter', title: 'OpenRouter (запасной)',
+      modules: 'Транскрибация (фолбэк)',
       fields: [
-        { key: 'models.openrouter_base_url', label: 'base_url', role: 'base_url' },
-        { key: 'models.openrouter_transcribe_model', label: 'model', role: 'model' },
-        { key: 'keys.openrouter_api_key', label: 'api key', role: 'api_key', secret: true },
+        { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
+        { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.openrouter_transcribe_model', label: 'Модель', role: 'model' },
+        { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
       ] },
     { id: 'video_summary_openrouter', title: 'Видео-модель (OpenRouter)',
-      modules: 'Выжимка видео',
+      modules: 'Саммаризация видео',
       fields: [
-        { key: 'models.openrouter_base_url', label: 'base_url', role: 'base_url' },
-        { key: 'models.video_primary_model', label: 'model', role: 'model' },
-        { key: 'keys.openrouter_api_key', label: 'api key', role: 'api_key', secret: true },
+        { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
+        { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.video_primary_model', label: 'Модель', role: 'model' },
+        { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
       ] },
     { id: 'embeddings', title: 'Эмбеддинги',
-      modules: 'Фактчек · Поиск · Память',
+      modules: 'Поиск по памяти',
       // MAJOR-1: нет base_url/api-key в блоке → сетевой тест невозможен;
       // кнопка «Проверить» не рендерится (редактор — generic-группы ниже).
       testable: false,
       fields: [
-        { key: 'models.embedding_model_name', label: 'model', role: 'model' },
-        { key: 'models.embedding_dim', label: 'dim', role: 'dim' },
+        { key: 'models.embedding_display_name', label: 'Название модели', role: '' },
+        { key: 'models.embedding_model_name', label: 'Модель', role: 'model' },
+        { key: 'models.embedding_dim', label: 'Размер отпечатка', role: 'dim' },
       ] },
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
       // MAJOR-1: не сетевой провайдер — тест-кнопки нет; значения не
       // отправляются как `model` (role '').
       testable: false,
       fields: [
-        { key: 'models.llm_timeout', label: 'timeout', role: '' },
-        { key: 'models.llm_max_retries', label: 'retries', role: '' },
-        { key: 'models.llm_total_budget', label: 'total budget', role: '' },
+        { key: 'models.llm_timeout', label: 'Сколько ждать ответ', role: '' },
+        { key: 'models.llm_max_retries', label: 'Повторов', role: '' },
+        { key: 'models.llm_total_budget', label: 'Общий дедлайн', role: '' },
       ] },
     { id: 'search_keys', title: 'Поиск: ключи', modules: 'Поиск',
       // MINOR-2: каждый ключ тестируется ОТДЕЛЬНО (search_keys:tavily/exa).
       perFieldTest: true,
       fields: [
-        { key: 'keys.tavily_api_key', label: 'Tavily key', role: 'api_key',
+        { key: 'keys.tavily_api_key', label: 'Ключ Tavily', role: 'api_key',
           secret: true, probeTarget: 'search_keys:tavily' },
-        { key: 'keys.exa_api_key', label: 'Exa key', role: 'api_key',
+        { key: 'keys.exa_api_key', label: 'Ключ Exa', role: 'api_key',
           secret: true, probeTarget: 'search_keys:exa' },
       ] },
-    { id: 'media_share', title: 'Медиа-шара', modules: 'Выжимка видео',
+    { id: 'media_share', title: 'Медиа-шара', modules: 'Саммаризация видео',
       fields: [
-        { key: 'keys.media_share_secret', label: 'media_share_secret',
+        { key: 'keys.media_share_secret', label: 'Секрет ссылок',
           role: 'api_key', secret: true },
       ] },
   ];
+
+  // ═══ Раунд 10.9 (spec §1.2): PERMsoc owner-блоки ═══
+  // Вкладка «PERMsoc» рендерится 4 collapsible <details class="owner-block">;
+  // в каждом ровно ОДИН тумблер — в <summary> (generic-bool исключён телом).
+  // Принадлежность: key ∈ owner.keys ИЛИ (group ∈ owner.groups и key не
+  // заявлен ни одним персональным owner'ом). «Общее» получает остаток.
+  var PERMSOC_OWNER_BLOCKS = [
+    { id: 'slavik', title: 'Славик', icon: 'smart_toy',
+      toggleKey: 'flags.slavik_enabled',
+      keys: ['reactions.slavik_user_id', 'limits.slavik_mimic_min_words',
+             'limits.slavik_mimic_cooldown', 'limits.gif_interval',
+             'limits.slavic_photo_interval'],
+      groups: ['reactions_slavik', 'reactions_deadpage', 'limits_deadpage'] },
+    { id: 'olya', title: 'Оля', icon: 'play_circle',
+      toggleKey: 'flags.olya_enabled',
+      keys: ['reactions.olya_user_id', 'flags.olya_caption_enabled',
+             'flags.olya_repost_enabled', 'flags.olya_always_send',
+             'flags.olya_caption_mention_enabled', 'limits.olya_cooldown'],
+      groups: ['reactions_olya'] },
+    { id: 'mimic', title: 'Мимикрия', icon: 'psychology',
+      toggleKey: 'flags.mimic_enabled',
+      keys: ['reactions.mimic_victim_user_ids', 'limits.mimic_min_words',
+             'limits.mimic_cooldown', 'flags.mimic_forwards_enabled',
+             'reactions.alan_mimic_enabled', 'reactions.kucha_enabled'],
+      groups: [] },
+    { id: 'common', title: 'Общее / Мастер', icon: 'admin_panel_settings',
+      toggleKey: 'flags.permsoc_enabled', keys: [], groups: [] },
+  ];
+  // Ключи-тумблеры рендерятся ТОЛЬКО в <summary> owner-блоков.
+  var PERMSOC_TOGGLE_KEYS = {
+    'flags.permsoc_enabled': true, 'flags.slavik_enabled': true,
+    'flags.olya_enabled': true, 'flags.mimic_enabled': true,
+  };
 
   // UI-полировка TMA (fix-раунд ревью): blob-аватары через прокси.
   // Прямой <img :src="'/api/avatar/...'"> НЕ работает: картинку грузит
@@ -867,14 +908,33 @@
         var t = this.currentTab;
         return !!(t && t.type === 'config');
       },
-      // 3.5.1: группы активной конфиг-вкладки (для generic-шаблона)
+      // 3.5.1: группы активной конфиг-вкладки (для generic-шаблона).
+      // 10.9: PERMsoc — 4 owner-блока (псевдо-группы с `owner`).
       currentTabGroups: function () {
         var t = this.currentTab;
-        return (t && t.type === 'config') ? this.groupedForTab(t) : [];
+        if (!t || t.type !== 'config') return [];
+        if (t.id === 'permsoc') return this._permsocOwnerGroups();
+        return this.groupedForTab(t);
       },
       currentTabItemCount: function () {
         var t = this.currentTab;
         return (t && t.type === 'config') ? this.tabItemCount(t) : 0;
+      },
+      // 10.9 (п.7.1): один блок «Доступность ключей» — 4 группы функций.
+      // Порядок групп = порядок записей /api/status (сервер уже сгруппировал).
+      llmGroups: function () {
+        var cards = (this.statusData && this.statusData.llm) || [];
+        var order = [], byId = {};
+        cards.forEach(function (c) {
+          var gid = c.group_id || 'other';
+          if (!byId[gid]) {
+            byId[gid] = { id: gid, title: c.group_title || 'Прочее',
+                          cards: [] };
+            order.push(gid);
+          }
+          byId[gid].cards.push(c);
+        });
+        return order.map(function (id) { return byId[id]; });
       },
       permissions: function () {
         return (this.me && this.me.permissions) ? this.me.permissions : {};
@@ -1474,8 +1534,9 @@
             { method: 'DELETE' });
           this.toast('Права сброшены на дефолт: ' + item.title, 'ok');
           this.permPickerOpen = false;
-          // матрица изменилась → перечитываем конфиг (свежие view/edit-роли)
-          await this.loadConfig();
+          // матрица изменилась → перечитываем конфиг (свежие view/edit-роли);
+          // _preserveScroll — чтобы сброс прав не прыгал в начало страницы.
+          await this._preserveScroll(this.loadConfig);
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
         } finally {
@@ -1620,7 +1681,9 @@
         if (this.modulesBusy) return;
         this.modulesBusy = true;
         try {
-          await Promise.all([this.loadGateInfo(), this.loadBudgetInfo()]);
+          // 10.9 (п.6): «Бюджет фона» переехал в «Сводку» — «Модули»
+          // больше бюджет не грузят (единый клиентский путь: loadOversight).
+          await this.loadGateInfo();
         } finally {
           this.modulesBusy = false;
         }
@@ -1656,28 +1719,27 @@
           this.permsocBusy = false;
         }
       },
-      whoCanToggle: function (feature) {
-        var who = (this.gateInfo && this.gateInfo.who_can_toggle) || {};
-        return who[feature] || 'global';
-      },
       // BUG-3 (spec §10 A/C): мастер-флаг PERMsoc (перчат-гейт) для
       // карточек «Модули» + вкладки «PERMsoc».
       permsocMasterOn: function () {
         var g = this.gateInfo && this.gateInfo.gates;
         return !!(g && g.permsoc);
       },
-      // BUG-3: сводка 5 модулей — derived (master) / под-флаг (per-chat
-      // значение flags.olya_enabled|flags.mimic_enabled) / OFF (master).
+      // BUG-3 / 10.9 (§1.3): сводка 5 модулей — derived (master) / под-флаг
+      // (flags.slavik_enabled|olya|mimic) / OFF (master). Славик теперь
+      // имеет собственный под-флаг (ADR-109-4).
       permsocModuleBadge: function (module) {
         if (!this.isChatContext() || !(this.gateInfo && this.gateInfo.gates)) {
           return null;
         }
         if (!this.gateInfo.gates.permsoc) return 'OFF (master)';
-        if (module === 'slavik' || module === 'kostik' || module === 'alan') {
-          return 'derived (master)';
-        }
-        var itemKey = module === 'olya' ? 'flags.olya_enabled'
-          : 'flags.mimic_enabled';
+        var subFlags = {
+          slavik: 'flags.slavik_enabled',
+          olya: 'flags.olya_enabled',
+          mimic: 'flags.mimic_enabled',
+        };
+        var itemKey = subFlags[module];
+        if (!itemKey) return 'derived (master)';   // kostik / alan
         var it = this.configItems.find(function (i) { return i.key === itemKey; });
         return it && it.value ? 'под-флаг ON' : 'под-флаг OFF';
       },
@@ -1692,6 +1754,9 @@
         this.oversightBusy = true;
         try {
           this.oversightData = await this.api('/api/oversight/summary');
+          // 10.9 (п.6, ADR-109-5): «Бюджет фона» живёт в «Сводке» — единый
+          // клиентский путь (прогрессбары), без дубля global_budget.
+          this.loadBudgetInfo();
         } catch (e) {
           this.oversightData = null;
           if (e.status !== 401 && e.status !== 403) {
@@ -1702,11 +1767,7 @@
         }
       },
       // Hotfix-R10 («Модули» без выбранного чата): Opt-In-сводка из
-      // Oversight-данных (кэш 60 сек; пусто — незаметно не выводится).
-      optInCount: function () {
-        var rows = (this.oversightData && this.oversightData.chats) || [];
-        return rows.filter(function (c) { return !!c.gates_opt_in; }).length;
-      },
+      // Oversight-данных удалена в 10.9 (карточка дублирующих гейтов убрана).
       oversightRows: function () {
         var self = this;
         var q = (this.oversightSearch || '').trim().toLowerCase();
@@ -1817,12 +1878,12 @@
             method: 'DELETE',
           });
           this.toast('Сброшено на глобальное: ' + item.title, 'ok');
-          await this.loadConfig();
+          await this._preserveScroll(this.loadConfig);
           await this.loadKeyStatus();
         } catch (e) {
           if (e.status === 409) {
             this.toast('Конфликт версии (409) — перезагрузите конфигурацию', 'warn');
-            this.loadConfig();
+            this._preserveScroll(this.loadConfig);
           } else {
             this.toast('Ошибка: ' + e.message, 'err');
           }
@@ -2078,11 +2139,11 @@
                                    updated_at: this.configChatUpdatedAt }),
           });
           this.toast('Сохранено: ' + b.title, 'ok');
-          await this.loadConfig();
+          await this._preserveScroll(this.loadConfig);
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
             this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
-            this.loadConfig();
+            this._preserveScroll(this.loadConfig);
           } else {
             this.toast('Ошибка сохранения: ' + e.message, 'err');
           }
@@ -2454,6 +2515,38 @@
         }
       },
 
+      // 10.9 (п.3): сохранение параметра не сбрасывает прокрутку. Снимок
+      // scrollTop до fn(), восстановление в $nextTick после (после
+      // ре-рендера loadConfig). setTab-сброс НЕ трогаем.
+      // 10.9 MEDIUM-4: в TMA-fullscreen скроллится НЕ document, а
+      // main.scroll-area (.app-shell overflow:hidden) — сохраняем/восстанавливаем
+      // оба контейнера.
+      _preserveScroll: async function (fn, ctx) {
+        var doc = (typeof document !== 'undefined') ? document : null;
+        function scrollEl() {
+          return doc ? (doc.scrollingElement || doc.documentElement) : null;
+        }
+        function areaEl() {
+          if (!doc) return null;
+          if (doc.querySelector) return doc.querySelector('.scroll-area');
+          return null;
+        }
+        var el = scrollEl();
+        var top = el ? el.scrollTop : 0;
+        var area = areaEl();
+        var areaTop = area ? area.scrollTop : 0;
+        try {
+          return await fn.call(ctx || this);
+        } finally {
+          this.$nextTick(function () {
+            var e2 = scrollEl();
+            if (e2) e2.scrollTop = top;
+            var a2 = areaEl();
+            if (a2) a2.scrollTop = areaTop;
+          });
+        }
+      },
+
       loadConfig: async function () {
         var epoch = this.scopeEpoch;   // D2: снимок scope
         this.configLoading = true;
@@ -2613,6 +2706,95 @@
         });
       },
 
+      // Раунд 10.9 (spec §1.2): owner-блоки PERMsoc. Превращаем обычные
+      // группы (groupedForTab) в 4 «псевдо-группы» с `owner`; элементы
+      // распределяются по владельцу, ключи-тумблеры исключаются из тела.
+      _permsocOwnerGroups: function () {
+        var self = this;
+        var grouped = this.groupedForTab(this.currentTab);
+        var claimed = {};
+        PERMSOC_OWNER_BLOCKS.forEach(function (o) {
+          if (o.id === 'common') return;
+          (o.keys || []).forEach(function (k) { claimed[k] = true; });
+        });
+        function ownerOf(it) {
+          for (var i = 0; i < PERMSOC_OWNER_BLOCKS.length; i++) {
+            var o = PERMSOC_OWNER_BLOCKS[i];
+            if (o.id === 'common') continue;
+            if ((o.keys || []).indexOf(it.key) >= 0) return o.id;
+            if ((o.groups || []).indexOf(it.group) >= 0 && !claimed[it.key]) {
+              return o.id;
+            }
+          }
+          return 'common';
+        }
+        var result = PERMSOC_OWNER_BLOCKS.map(function (o) {
+          return {
+            uid: 'owner:' + o.id, id: o.id, category: '', owner: o,
+            meta: { id: o.id, title: o.title,
+                    description: self._ownerDescription(o) },
+            items: [],
+          };
+        });
+        var byId = {};
+        result.forEach(function (r) { byId[r.id] = r; });
+        grouped.forEach(function (g) {
+          g.items.forEach(function (it) {
+            if (PERMSOC_TOGGLE_KEYS[it.key]) return;   // только в <summary>
+            byId[ownerOf(it)].items.push(it);
+          });
+        });
+        // LOW-6: ВСЕ 4 owner-блока рендерятся всегда (тумблер — в <summary>),
+        // даже если тело пустое/скрыто правами. Не фильтруем по items.length.
+        return result;
+      },
+      _ownerDescription: function (o) {
+        return {
+          slavik: 'Фото, гифки, посты из старого канала и передразнивания Славика.',
+          olya: 'Реакции бота на видео Оли и подписи к ним.',
+          mimic: 'Кого бот передразнивает и как часто.',
+          common:
+            'Мастер-выключатель и всё, что не привязано к одной персоне.',
+        }[o.id] || '';
+      },
+      // Текущее состояние owner-тумблера: мастер-блок в чате читается из
+      // gates.permsoc, остальные — из config-значения (bool).
+      permsocOwnerOn: function (owner) {
+        if (!owner) return false;
+        if (owner.id === 'common' && this.isChatContext()) {
+          return this.permsocMasterOn();
+        }
+        var it = this.configItems.find(function (i) {
+          return i.key === owner.toggleKey;
+        });
+        return !!(it && it.value);
+      },
+      canToggleOwner: function (owner) {
+        if (!owner) return false;
+        if (owner.id === 'common' && this.isChatContext()) {
+          return !!this.isGlobalAdmin;
+        }
+        return this.canEditConfig(owner.toggleKey);
+      },
+      // Единственный путь записи owner-тумблера: чат-мастер → gates, иначе
+      // config — НЕ оба одновременно (spec §1.6).
+      toggleOwner: async function (owner, checked) {
+        if (!owner) return;
+        if (owner.id === 'common' && this.isChatContext()) {
+          await this.togglePermsoc(!!checked);
+          return;
+        }
+        var it = this.configItems.find(function (i) {
+          return i.key === owner.toggleKey;
+        });
+        if (!it) {
+          this.toast('Параметр недоступен: ' + owner.toggleKey, 'warn');
+          return;
+        }
+        it.value = !!checked;
+        await this.saveConfigItem(it);
+      },
+
       // Раунд 10.4 (E-3): заголовок секции витрины — для ПЕРВОЙ группы
       // секции (шапка выводится один раз; группы секции подряд).
       sectionTitle: function (grp) {
@@ -2703,11 +2885,11 @@
                                    updated_at: this.configChatUpdatedAt }),
           });
           this.toast('Сохранено: ' + item.title, 'ok');
-          await this.loadConfig();
+          await this._preserveScroll(this.loadConfig);
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
             this.toast('Конфликт версии (409) — конфигурация обновлена', 'warn');
-            this.loadConfig();
+            this._preserveScroll(this.loadConfig);
           } else {
             this.toast('Ошибка сохранения: ' + e.message, 'err');
           }
@@ -2746,7 +2928,7 @@
           });
           this.keyDrafts[item.key] = '';
           this.toast('Ключ обновлён: ' + item.title, 'ok');
-          await this.loadConfig();
+          await this._preserveScroll(this.loadConfig);
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
         } finally {
@@ -3159,10 +3341,21 @@
         return (bytes / 1024).toFixed(0) + ' КБ';
       },
       healthBadge: function (health) {
-        if (!health) return 'badge-muted';
-        if (health.ok) return 'badge-ok';
-        if (health.status === 'unreachable') return 'badge-warn';
+        if (!health || health.status === 'not_configured') return 'badge-muted';
+        if (health.ok || health.status === 'ok') return 'badge-ok';
+        if (health.status === 'error') return 'badge-err';
+        if (health.status === 'timeout' || health.status === 'unreachable') {
+          return 'badge-warn';
+        }
         return 'badge-muted';
+      },
+      // 10.9 (п.7.1): человеческий статус реального health-probe.
+      healthLabel: function (health) {
+        if (!health) return '—';
+        return {
+          ok: 'OK', timeout: 'Таймаут', error: 'Ошибка',
+          unreachable: 'Недоступен', not_configured: 'Не настроен',
+        }[health.status] || health.status;
       },
       renderUptimeChart: function () {
         var self = this;
@@ -4417,7 +4610,7 @@
             body: JSON.stringify({ items: [{ key: key, value: obj }] }),
           });
           this.root.toast('Сохранено: ' + (this.item.title || key), 'ok');
-          await this.root.loadConfig();
+          await this.root._preserveScroll(this.root.loadConfig);
         } catch (e) {
           this.root.toast('Ошибка сохранения: ' + e.message, 'err');
         } finally {

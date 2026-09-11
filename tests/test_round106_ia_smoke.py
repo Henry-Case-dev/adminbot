@@ -17,11 +17,12 @@ HTML = open("web/index.html", encoding="utf-8").read()
 
 class TestCatalogInvariant106:
     def test_counts(self):
-        assert len(pc.REGISTRY) == 392
-        assert len(pc.GROUPS) == 91
-        assert len(pc._TAB_BY_GROUP) == 89
+        # 10.9: REGISTRY 400 / GROUPS 90 / mapped 88 / Settings 372.
+        assert len(pc.REGISTRY) == 400
+        assert len(pc.GROUPS) == 90
+        assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 364
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 372
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -89,7 +90,11 @@ class TestNavShell:
 
 class TestModulesAndAi:
     def test_modules_exactly_11(self):
-        assert JS.count("toggleKey:") == 11
+        # 10.9: toggleKey теперь есть и в PERMSOC_OWNER_BLOCKS — считаем
+        # строго внутри массива MODULES.
+        start = JS.index("var MODULES = [")
+        mods = JS[start:JS.index("];", start)]
+        assert mods.count("toggleKey:") == 11
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",
@@ -338,8 +343,10 @@ class TestScannerR106Fixes:
         i = JS.index("var PROVIDER_BLOCKS")
         chunk = JS[i:JS.index("];", i)]
         keys = re.findall(r"key: '([^']+)'", chunk)
-        assert len(keys) == 23          # полей в блоках
-        assert len(set(keys)) == 21     # уникальных ключей (2 общих OpenRouter)
+        # 10.9: +7 *_display_name (по одному в каждый provider-блок) → 29
+        # полей; уникальных 26 (openrouter-* и media_share дублируются).
+        assert len(keys) == 29          # полей в блоках
+        assert len(set(keys)) == 26     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
 

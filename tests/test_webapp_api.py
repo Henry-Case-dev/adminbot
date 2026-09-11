@@ -1102,11 +1102,11 @@ class TestStatic:
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.52.0" in text
-        assert "/static/fonts/material-symbols-rounded.woff2?v=2.52.0" in text
+        assert "/web/app.js?v=2.53.0" in text
+        assert "/static/fonts/material-symbols-rounded.woff2?v=2.53.0" in text
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.52.0")
+            "/static/fonts/material-symbols-rounded.woff2?v=2.53.0")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 
@@ -1178,7 +1178,7 @@ class TestParamPermissionFlagsApi:
         resp = client.get("/api/access/param_permissions", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
         items = resp.json()["items"]
-        assert len(items) == len(categorized) == 364
+        assert len(items) == len(categorized) == 372
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

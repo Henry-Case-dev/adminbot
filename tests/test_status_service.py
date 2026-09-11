@@ -211,19 +211,25 @@ class TestSnapshot:
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch,
                                      is_global_admin=True)
-        cards = {c["provider"]: c for c in snapshot["llm"]}
-        assert set(cards) >= {"deepseek", "groq", "openrouter"}
-        assert cards["deepseek"]["model"]
+        cards = {c["module_id"]: c for c in snapshot["llm"]}
+        assert "llm_main" in cards
+        assert cards["llm_main"]["model"]
         # маскировка: только configured/last4 — полное значение НИКОГДА
-        assert cards["deepseek"]["key"] == {
+        assert cards["llm_main"]["key"] == {
             "configured": True, "last4": "3456"}
-        assert cards["groq"]["key"] == {
+        assert cards["stt_groq"]["key"] == {
             "configured": True, "last4": "_abc"}
-        assert cards["openrouter"]["key"] == {
+        assert cards["stt_openrouter"]["key"] == {
             "configured": False, "last4": None}
+        # провайдер — реальный host (не хардкод deepseek/groq/openrouter).
+        assert cards["llm_main"]["provider"] == "apinet.cloud"
         for card in cards.values():
             assert "sk_deepseek" not in str(card)
             assert "gsk_groq_secret" not in str(card)
+        # 10.9: поля групп для единого блока «Доступность ключей».
+        assert cards["llm_main"]["group_id"] == "llm_functions"
+        assert cards["stt_groq"]["group_id"] == "transcription"
+        assert "group_title" in cards["llm_main"]
 
     @pytest.mark.asyncio
     async def test_llm_cards_no_last4_for_readonly_roles(self, monkeypatch):
@@ -238,10 +244,10 @@ class TestSnapshot:
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch,
                                      is_global_admin=False)
-        cards = {c["provider"]: c for c in snapshot["llm"]}
-        assert cards["deepseek"]["key"] == {"configured": True}
-        assert cards["groq"]["key"] == {"configured": True}
-        assert cards["openrouter"]["key"] == {"configured": False}
+        cards = {c["module_id"]: c for c in snapshot["llm"]}
+        assert cards["llm_main"]["key"] == {"configured": True}
+        assert cards["stt_groq"]["key"] == {"configured": True}
+        assert cards["stt_openrouter"]["key"] == {"configured": False}
         for card in cards.values():
             assert "last4" not in card["key"]
             assert "sk_deepseek" not in str(card)
@@ -279,45 +285,79 @@ class TestSnapshot:
         svc = StatusService()
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch)
-        cards = {c["provider"]: c for c in snapshot["llm"]}
-        assert cards["deepseek"]["health"]["status"] == "not_configured"
-        assert cards["deepseek"]["health"]["ok"] is False
+        cards = {c["module_id"]: c for c in snapshot["llm"]}
+        assert cards["llm_main"]["health"]["status"] == "not_configured"
+        assert cards["llm_main"]["health"]["ok"] is False
 
     @pytest.mark.asyncio
     async def test_health_unreachable_when_ping_fails(self, monkeypatch):
+        async def _fake_probe(base_url, key, model="", kind="chat"):
+            return {"ok": False, "status": "unreachable", "http_status": None,
+                    "latency_ms": None, "checked_at": "t"}
+
         hot.set_config_cache(_FakeCache({"keys.llm_api_key": "sk-x"}))
         svc = StatusService()
+        monkeypatch.setattr(svc, "_ping_provider",
+                            staticmethod(_fake_probe))
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch)
-        health = {c["provider"]: c for c in snapshot["llm"]}["deepseek"]["health"]
-        assert health["status"] == "unreachable"   # реальной сети нет
-        assert health["ok"] is False
+        cards = {c["module_id"]: c for c in snapshot["llm"]}
+        assert cards["llm_main"]["health"]["status"] == "unreachable"
+        assert cards["llm_main"]["health"]["ok"] is False
+
+    @pytest.mark.asyncio
+    async def test_health_error_code_cached_shorter(self, monkeypatch):
+        """ADR-109-3: ошибка (502) не отдаёт stale-ok и переспрашивается
+        раньше 60с (кэш ошибок 10с)."""
+        calls = {"n": 0}
+
+        async def _fake_probe(base_url, key, model="", kind="chat"):
+            calls["n"] += 1
+            return {"ok": False, "status": "error", "http_status": 502,
+                    "latency_ms": 3.0, "checked_at": "t"}
+
+        hot.set_config_cache(_FakeCache({"keys.llm_api_key": "sk-x"}))
+        svc = StatusService()
+        monkeypatch.setattr(svc, "_ping_provider",
+                            staticmethod(_fake_probe))
+        h1 = await svc._check_health("llm_main", "https://x/v1", "sk-x",
+                                     "m", "chat")
+        h2 = await svc._check_health("llm_main", "https://x/v1", "sk-x",
+                                     "m", "chat")
+        assert h1["status"] == "error" and h1["http_status"] == 502
+        assert calls["n"] == 1          # в пределах 10с кэш ошибки
+        # искусственно состарим кэш → повторный probe
+        svc._health_cache["llm_main"] = (
+            time.monotonic() - 11.0, svc._health_cache["llm_main"][1])
+        await svc._check_health("llm_main", "https://x/v1", "sk-x", "m", "chat")
+        assert calls["n"] == 2
 
     @pytest.mark.asyncio
     async def test_health_cache_60s(self, monkeypatch):
         """Результат health-check кэшируется: повторный вызов не пингует."""
         calls = {"n": 0}
 
-        async def _fake_ping(base_url, key):
+        async def _fake_ping(base_url, key, model="", kind="chat"):
             calls["n"] += 1
             return {"ok": True, "status": "ok", "http_status": 200,
                     "latency_ms": 5.0, "checked_at": "t"}
 
-        # ключи заданы для ТРЁХ провайдеров → ровно 3 пинга за первый вызов
         hot.set_config_cache(_FakeCache({
             "keys.llm_api_key": "sk-x",
             "keys.groq_api_key": "gsk-x",
             "keys.openrouter_api_key": "or-x",
         }))
         svc = StatusService()
-        monkeypatch.setattr(svc, "_ping_models", staticmethod(_fake_ping))
+        monkeypatch.setattr(svc, "_ping_provider", staticmethod(_fake_ping))
         cache = _FakeCache(pg=_FakePg())
         monkeypatch.setattr(
             "services.status_service.StatusService._server_metrics",
             staticmethod(lambda: {}))
         await svc.build_snapshot(cache)
+        n_first = calls["n"]
+        assert n_first >= 3
         await svc.build_snapshot(cache)
-        assert calls["n"] == 3   # кэш 60с — второй вызов без пингов
+        assert calls["n"] == n_first   # кэш 60с — второй вызов без пингов
 
     @pytest.mark.asyncio
     async def test_uptime_from_pg(self, monkeypatch):
@@ -351,7 +391,7 @@ class TestSnapshot:
         суммарное время ≈ одному пингу, а не N×пинг."""
         import asyncio as aio
 
-        async def _slow_ping(base, key):
+        async def _slow_ping(base, key, model="", kind="chat"):
             await aio.sleep(0.3)
             return {"ok": True, "status": "ok", "http_status": 200,
                     "latency_ms": 1.0, "checked_at": "t"}
@@ -362,14 +402,14 @@ class TestSnapshot:
             "keys.openrouter_api_key": "or-x",
         }))
         svc = StatusService()
-        monkeypatch.setattr(svc, "_ping_models", staticmethod(_slow_ping))
+        monkeypatch.setattr(svc, "_ping_provider", staticmethod(_slow_ping))
         monkeypatch.setattr(
             "services.status_service.StatusService._server_metrics",
             staticmethod(lambda: {}))
         started = time.monotonic()
         snapshot = await svc.build_snapshot(_FakeCache(pg=_FakePg()))
         elapsed = time.monotonic() - started
-        assert len(snapshot["llm"]) == 3
+        assert len(snapshot["llm"]) >= 3
         # последовательно было бы ~0.9с; параллельно — ~0.3с
         assert elapsed < 0.7, f"health-check'и не параллельны: {elapsed:.2f}s"
 
@@ -462,72 +502,167 @@ class TestUptimeFetch:
         assert await StatusService().fetch_uptime_rows(_Pg()) == []
 
 
-class TestPingModels:
-    """Реальный _ping_models (httpx подменяется в sys.modules)."""
+class TestProbeOpenAI:
+    """ADR-109-3: probe_openai различает ok/timeout/unreachable/error/
+    not_configured (httpx подменяется в llm_probe)."""
 
     @pytest.mark.asyncio
-    async def test_ping_ok(self, monkeypatch):
-        import sys
-        import types as types_mod
+    async def test_probe_ok(self, monkeypatch):
+        from services import llm_probe
 
         class _Resp:
             status_code = 200
+            text = ""
 
-        class _FakeClient:
-            def __init__(self, timeout=None):
-                pass
+        async def _fake_post(client, url, headers, body):
+            return _Resp()
 
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *exc):
-                return False
-
-            async def get(self, url, headers=None):
-                return _Resp()
-
-        fake_httpx = types_mod.SimpleNamespace(AsyncClient=_FakeClient)
-        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
-        result = await StatusService._ping_models("https://x/v1", "sk-key")
+        monkeypatch.setattr(llm_probe, "_post_json", _fake_post)
+        result = await llm_probe.probe_openai(
+            "https://x/v1", "sk-key", "m", kind="chat")
         assert result["ok"] is True
+        assert result["status"] == "ok"
         assert result["http_status"] == 200
 
     @pytest.mark.asyncio
-    async def test_ping_exception_unreachable(self, monkeypatch):
-        import sys
-        import types as types_mod
+    async def test_probe_timeout(self, monkeypatch):
+        from services import llm_probe
+        import httpx as real_httpx
 
-        class _FakeClient:
-            def __init__(self, timeout=None):
-                pass
+        async def _fake_post(client, url, headers, body):
+            raise real_httpx.TimeoutException("slow")
 
-            async def __aenter__(self):
-                return self
+        monkeypatch.setattr(llm_probe, "_post_json", _fake_post)
+        result = await llm_probe.probe_openai(
+            "https://x/v1", "sk-key", "m", kind="chat")
+        assert result["status"] == "timeout"
+        assert result["http_status"] is None
 
-            async def __aexit__(self, *exc):
-                return False
+    @pytest.mark.asyncio
+    async def test_probe_error_502(self, monkeypatch):
+        from services import llm_probe
 
-            async def get(self, url, headers=None):
-                raise ConnectionError("net down")
+        class _Resp:
+            status_code = 502
+            text = "bad gateway"
 
-        fake_httpx = types_mod.SimpleNamespace(AsyncClient=_FakeClient)
-        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
-        result = await StatusService._ping_models("https://x/v1", "sk-key")
-        assert result["ok"] is False
+        async def _fake_post(client, url, headers, body):
+            return _Resp()
+
+        monkeypatch.setattr(llm_probe, "_post_json", _fake_post)
+        result = await llm_probe.probe_openai(
+            "https://x/v1", "sk-key", "m", kind="chat")
+        assert result["status"] == "error"
+        assert result["http_status"] == 502
+
+    @pytest.mark.asyncio
+    async def test_probe_unreachable(self, monkeypatch):
+        from services import llm_probe
+
+        async def _fake_post(client, url, headers, body):
+            raise ConnectionError("net down")
+
+        monkeypatch.setattr(llm_probe, "_post_json", _fake_post)
+        result = await llm_probe.probe_openai(
+            "https://x/v1", "sk-key", "m", kind="chat")
         assert result["status"] == "unreachable"
+
+    @pytest.mark.asyncio
+    async def test_probe_not_configured(self):
+        from services import llm_probe
+        r1 = await llm_probe.probe_openai("", "sk-key", "m")
+        assert r1["status"] == "not_configured"
+        r2 = await llm_probe.probe_openai("https://x/v1", "", "m")
+        assert r2["status"] == "not_configured"
+
+    @pytest.mark.asyncio
+    async def test_probe_embeddings_endpoint(self, monkeypatch):
+        from services import llm_probe
+
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+            text = ""
+
+        async def _fake_post(client, url, headers, body):
+            seen["url"] = url
+            return _Resp()
+
+        monkeypatch.setattr(llm_probe, "_post_json", _fake_post)
+        await llm_probe.probe_openai("https://x/v1", "sk-key", "emb",
+                                     kind="embeddings")
+        assert seen["url"].endswith("/embeddings")
+
+    @pytest.mark.asyncio
+    async def test_probe_stt_endpoint(self, monkeypatch):
+        """CRITICAL-1: STT-проб идёт на POST /audio/transcriptions с файлом,
+        а не на /chat/completions (Whisper — не chat-модель)."""
+        from services import llm_probe
+
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+            text = ""
+
+        async def _fake_multipart(client, url, headers, data, files):
+            seen["url"] = url
+            seen["data"] = data
+            seen["files"] = files
+            return _Resp()
+
+        monkeypatch.setattr(llm_probe, "_post_multipart", _fake_multipart)
+        result = await llm_probe.probe_openai(
+            "https://api.groq.com/openai/v1", "gsk-key", "whisper-large-v3",
+            kind="stt")
+        assert result["ok"] is True
+        assert seen["url"] == "https://api.groq.com/openai/v1/audio/transcriptions"
+        assert seen["data"]["model"] == "whisper-large-v3"
+        assert "file" in seen["files"]
+        name, payload, mime = seen["files"]["file"]
+        assert name.endswith(".wav") and mime == "audio/wav"
+        assert payload[:4] == b"RIFF"      # валидный WAV-заголовок
+
+    def test_registry_kind_stt_vs_chat(self, monkeypatch):
+        """CRITICAL-1: stt_groq → kind='stt'; stt_openrouter — chat
+        (расшифровка OpenRouter идёт через chat.completions + input_audio)."""
+        hot.set_config_cache(_FakeCache({}))
+        by_id = {p["module_id"]: p for p in StatusService.llm_registry()}
+        assert by_id["stt_groq"]["kind"] == "stt"
+        assert by_id["stt_openrouter"]["kind"] == "chat"
+        assert by_id["llm_main"]["kind"] == "chat"
+        assert by_id["emb_main"]["kind"] == "embeddings"
 
     def test_fallback_provider_in_registry(self, monkeypatch):
         hot.set_config_cache(_FakeCache({
-            "models.llm_fallback_base_url": "https://fb/v1",
+            "models.llm_fallback_base_url": "https://fb.example/v1",
             "models.llm_fallback_model": "fb-model",
             "keys.llm_fallback_api_key": "sk-fb",
         }))
         providers = StatusService.llm_registry()
-        names = [p["provider"] for p in providers]
-        assert "deepseek_fallback" in names
-        fb = next(p for p in providers if p["provider"] == "deepseek_fallback")
-        assert fb["base_url"] == "https://fb/v1"
+        ids = [p["module_id"] for p in providers]
+        assert "llm_fallback" in ids
+        fb = next(p for p in providers if p["module_id"] == "llm_fallback")
+        assert fb["base_url"] == "https://fb.example/v1"
         assert fb["model"] == "fb-model"
+        # провайдер — реальный host (без хардкода deepseek_fallback).
+        assert fb["provider"] == "fb.example"
+        assert fb["group_id"] == "llm_functions"
+
+    def test_registry_has_function_groups(self, monkeypatch):
+        """7.1: эмбеддинги и группы функций присутствуют; module_id
+        уникальны; провайдер = host."""
+        hot.set_config_cache(_FakeCache({}))
+        reg = StatusService.llm_registry()
+        ids = [p["module_id"] for p in reg]
+        assert len(ids) == len(set(ids))
+        assert "emb_main" in ids
+        assert "video_openrouter" in ids
+        for p in reg:
+            assert p["provider"] == StatusService._host(p["base_url"])
+            assert p["group_id"] in ("llm_functions", "transcription",
+                                     "video_summary", "embeddings")
 
 
 _NO_KEYS = {

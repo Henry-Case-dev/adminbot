@@ -67,12 +67,12 @@ def client(monkeypatch):
         "services.status_service.StatusService._server_metrics",
         staticmethod(lambda: {"cpu_percent": 3.0}))
 
-    async def _fake_ping(base, key):
+    async def _fake_ping(base, key, model="", kind="chat"):
         return {"ok": True, "status": "ok", "http_status": 200,
                 "latency_ms": 1.0, "checked_at": "t"}
 
     monkeypatch.setattr(
-        "services.status_service.StatusService._ping_models",
+        "services.status_service.StatusService._ping_provider",
         staticmethod(_fake_ping))
 
     cache = ConfigCache.__new__(ConfigCache)

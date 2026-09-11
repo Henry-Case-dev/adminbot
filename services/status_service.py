@@ -38,7 +38,9 @@ logger = logging.getLogger(__name__)
 # история доступности ключей. Ленивая загрузка — без I/O на import.
 key_history = KeyHistory()
 
+# ADR-109-3: кэш health по module_id — 2xx 60с, ошибки 10с (никакого stale-200).
 _HEALTH_CACHE_SECONDS = 60.0
+_HEALTH_ERROR_CACHE_SECONDS = 10.0
 _HEALTH_TIMEOUT_SECONDS = 5.0
 _UPTIME_WINDOW_SECONDS = 86400   # 24 ч
 _UPTIME_BUCKET_SECONDS = 300     # 5 мин
@@ -108,14 +110,47 @@ class StatusService:
                 pass
         return default, "code"
 
+    # Функциональные группы блока «Доступность ключей» (порядок рендера).
+    GROUP_LLM = ("llm_functions", "Основные функции ИИ")
+    GROUP_STT = ("transcription", "Транскрибация")
+    GROUP_VIDEO = ("video_summary", "Саммаризация видео")
+    GROUP_EMB = ("embeddings", "Эмбеддинги")
+
+    @staticmethod
+    def _host(base_url: str) -> str:
+        """Реальный провайдер = host из base_url (без хардкода имён)."""
+        import urllib.parse
+        raw = (base_url or "").strip()
+        try:
+            host = urllib.parse.urlsplit(raw).hostname
+        except ValueError:
+            host = None
+        return (host or raw or "—").lower()
+
+    @staticmethod
+    def _display(pg_key: str, settings_field: str, fallback: str) -> str:
+        """Кастомное имя модели (ADR-109-1) → fallback, если пусто."""
+        default = getattr(settings, settings_field, "")
+        value, _src = StatusService._resolve(pg_key, default)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return fallback
+
+    @staticmethod
+    def _model_from(cache_key: str, default: str):
+        """(model, source): data-driven модель из ConfigCache либо дефолт.
+
+        ``_resolve`` уже возвращает source ∈ {"config", "code"} — отдельная
+        legacy-ветка не нужна (LOW-5)."""
+        return StatusService._resolve(cache_key, default)
+
     @staticmethod
     def llm_registry() -> list[dict]:
-        """deepseek/groq/openrouter(+fallback): provider/model/key + module_id.
+        """8 записей по функциям: main/fb, stt groq/or, video, emb main+2fb.
 
-        OD11/OD16 (T-1139): НОЛЬ активных хардкодов — STT-модели и base_url
-        читаются через ``hot.get(pg_key, <сегодняшний литерал>)``; литерал
-        остаётся документированным дефолтом (safe migration: status.llm[]
-        до/после идентичен)."""
+        Провайдер — host из base_url (ноль хардкода имён). Каждая запись несёт
+        group_id/group_title/display_name для единого блока «Доступность
+        ключей» и kind (chat|stt|embeddings) для реального probe (ADR-109-3)."""
         from SmartModule.transcriber.groq_transcriber import (
             GROQ_BASE_URL,
             GROQ_TRANSCRIBE_MODEL,
@@ -124,104 +159,173 @@ class StatusService:
             OPENROUTER_BASE_URL,
             OPENROUTER_TRANSCRIBE_MODEL,
         )
-        fallback_base, _fs = StatusService._resolve(
+
+        main_base, _ = StatusService._resolve(
+            "models.llm_base_url", settings.LLM_BASE_URL)
+        main_model, main_src = StatusService._model_from(
+            "models.llm_model_name", settings.LLM_MODEL_NAME)
+        fallback_base, _ = StatusService._resolve(
             "models.llm_fallback_base_url", settings.LLM_FALLBACK_BASE_URL)
-        fallback_model, _fm = StatusService._resolve(
+        fallback_model, _ = StatusService._resolve(
             "models.llm_fallback_model", settings.LLM_FALLBACK_MODEL)
-        groq_base, _gb = StatusService._resolve(
+        groq_base, _ = StatusService._resolve(
             "models.groq_base_url", GROQ_BASE_URL)
-        groq_model, groq_model_src = StatusService._resolve(
+        groq_model, groq_src = StatusService._model_from(
             "models.groq_transcribe_model", GROQ_TRANSCRIBE_MODEL)
-        or_base, _ob = StatusService._resolve(
+        or_base, _ = StatusService._resolve(
             "models.openrouter_base_url", OPENROUTER_BASE_URL)
-        or_model, or_model_src = StatusService._resolve(
+        or_model, or_src = StatusService._model_from(
             "models.openrouter_transcribe_model", OPENROUTER_TRANSCRIBE_MODEL)
+        video_model, _ = StatusService._resolve(
+            "models.video_primary_model", settings.VIDEO_PRIMARY_MODEL)
+        emb_model, _ = StatusService._resolve(
+            "models.embedding_model_name", settings.EMBEDDING_MODEL_NAME)
+
+        llm_key = hot.get("keys.llm_api_key", settings.LLM_API_KEY)
+        or_key = hot.get("keys.openrouter_api_key", settings.OPENROUTER_API_KEY)
+
+        g_llm_id, g_llm_title = StatusService.GROUP_LLM
+        g_stt_id, g_stt_title = StatusService.GROUP_STT
+        g_vid_id, g_vid_title = StatusService.GROUP_VIDEO
+        g_emb_id, g_emb_title = StatusService.GROUP_EMB
+
+        def _entry(module_id, module_title, group, display_name, base_url,
+                   model, key, latency_key, kind, model_source="code"):
+            return {
+                "module_id": module_id,
+                "module_title": module_title,
+                "group_id": group[0],
+                "group_title": group[1],
+                "display_name": display_name,
+                "provider": StatusService._host(base_url),
+                "base_url": base_url,
+                "model": model,
+                "model_source": model_source,
+                "key": key,
+                "latency_key": latency_key,
+                "kind": kind,
+            }
+
         providers = [
-            {
-                "module_id": "llm_main",
-                "module_title": "Прямые ответы",
-                "provider": "deepseek",
-                "base_url": hot.get("models.llm_base_url",
-                                    settings.LLM_BASE_URL),
-                "model": hot.get("models.llm_model_name",
-                                 settings.LLM_MODEL_NAME),
-                "model_source": "config" if hot.get(
-                    "models.llm_model_name") else "code",
-                "key": hot.get("keys.llm_api_key", settings.LLM_API_KEY),
-            },
-            {
-                "module_id": "stt_groq",
-                "module_title": "Транскрипт (Groq)",
-                "provider": "groq",
-                "base_url": groq_base,
-                "model": groq_model,
-                "model_source": groq_model_src,
-                "key": hot.get("keys.groq_api_key", settings.GROQ_API_KEY),
-            },
-            {
-                "module_id": "stt_openrouter",
-                "module_title": "Выжимка видео / STT (OpenRouter)",
-                "provider": "openrouter",
-                "base_url": or_base,
-                "model": or_model,
-                "model_source": or_model_src,
-                "key": hot.get("keys.openrouter_api_key",
-                               settings.OPENROUTER_API_KEY),
-            },
+            _entry("llm_main", "Прямые ответы", (g_llm_id, g_llm_title),
+                   StatusService._display(
+                       "models.llm_display_name", "LLM_DISPLAY_NAME",
+                       "Основная модель"),
+                   main_base, main_model, llm_key, "deepseek", "chat",
+                   main_src),
         ]
         if fallback_base and fallback_model:
-            providers.append({
-                "module_id": "llm_fallback",
-                "module_title": "Фолбэк",
-                "provider": "deepseek_fallback",
-                "base_url": fallback_base,
-                "model": fallback_model,
-                "model_source": "config",
-                "key": hot.get("keys.llm_fallback_api_key",
-                               settings.LLM_FALLBACK_API_KEY),
-            })
+            providers.append(_entry(
+                "llm_fallback", "Фолбэк", (g_llm_id, g_llm_title),
+                StatusService._display(
+                    "models.llm_fallback_display_name",
+                    "LLM_FALLBACK_DISPLAY_NAME", "Фолбэк-модель"),
+                fallback_base, fallback_model,
+                hot.get("keys.llm_fallback_api_key",
+                        settings.LLM_FALLBACK_API_KEY),
+                "deepseek", "chat"))
+        providers.append(_entry(
+            "stt_groq", "Распознавание речи", (g_stt_id, g_stt_title),
+            StatusService._display(
+                "models.groq_display_name", "GROQ_DISPLAY_NAME",
+                "Транскрибация"),
+            groq_base, groq_model,
+            hot.get("keys.groq_api_key", settings.GROQ_API_KEY),
+            "groq", "stt", groq_src))   # ADR-109-3: POST /audio/transcriptions
+        providers.append(_entry(
+            "stt_openrouter", "Распознавание речи (резерв)",
+            (g_stt_id, g_stt_title),
+            StatusService._display(
+                "models.openrouter_display_name", "OPENROUTER_DISPLAY_NAME",
+                "Транскрибация (резерв)"),
+            # OpenRouter-расшифровка идёт через chat.completions с
+            # input_audio (openrouter_transcriber), поэтому kind="chat".
+            or_base, or_model, or_key, "openrouter", "chat", or_src))
+        providers.append(_entry(
+            "video_openrouter", "Саммаризация видео",
+            (g_vid_id, g_vid_title),
+            StatusService._display(
+                "models.openrouter_display_name", "OPENROUTER_DISPLAY_NAME",
+                "Саммаризация видео"),
+            or_base, video_model, or_key, "openrouter", "chat"))
+        providers.append(_entry(
+            "emb_main", "Основная модель памяти", (g_emb_id, g_emb_title),
+            StatusService._display(
+                "models.embedding_display_name", "EMBEDDING_DISPLAY_NAME",
+                "Основная модель памяти"),
+            main_base, emb_model, llm_key, None, "embeddings"))
+        fb_base = (settings.EMBEDDING_FALLBACK_BASE_URL or "").strip()
+        fb_model = settings.EMBEDDING_FALLBACK_MODEL or emb_model
+        if fb_base and (settings.EMBEDDING_FALLBACK_API_KEY or "").strip():
+            providers.append(_entry(
+                "emb_fallback", "Запасная модель памяти",
+                (g_emb_id, g_emb_title),
+                StatusService._display(
+                    "models.embedding_fallback_display_name",
+                    "EMBEDDING_FALLBACK_DISPLAY_NAME",
+                    "Запасная модель памяти"),
+                fb_base, fb_model, settings.EMBEDDING_FALLBACK_API_KEY,
+                None, "embeddings"))
+        if fb_base and (settings.EMBEDDING_FALLBACK_API_KEY_2 or "").strip():
+            providers.append(_entry(
+                "emb_fallback2", "Запасная модель памяти 2",
+                (g_emb_id, g_emb_title),
+                StatusService._display(
+                    "models.embedding_fallback2_display_name",
+                    "EMBEDDING_FALLBACK2_DISPLAY_NAME",
+                    "Запасная модель памяти 2"),
+                fb_base, fb_model, settings.EMBEDDING_FALLBACK_API_KEY_2,
+                None, "embeddings"))
         return providers
 
-    # ── health-check (84.11.2): GET {base}/models, кэш 60с ─────────────────
+    # ── health-check (ADR-109-3): реальный POST, кэш по module_id ──────────
 
-    async def _check_health(self, base_url: str, key: str) -> dict:
+    async def _check_health(self, module_id: str, base_url: str, key: str,
+                            model: str = "", kind: str = "chat") -> dict:
+        """Реальный probe (ADR-109-3): 2xx кэш 60с, ошибки 10с.
+
+        Никакого stale-200: при ошибке старый ok не отдаётся, а результат
+        живёт лишь 10 секунд."""
         now = time.monotonic()
         async with self._health_lock:
-            cached = self._health_cache.get(base_url)
-            if cached and now - cached[0] < _HEALTH_CACHE_SECONDS:
-                return cached[1]
+            cached = self._health_cache.get(module_id)
+            if cached:
+                ttl = (_HEALTH_CACHE_SECONDS if cached[1].get("ok")
+                       else _HEALTH_ERROR_CACHE_SECONDS)
+                if now - cached[0] < ttl:
+                    return cached[1]
         if not (base_url and key):
             result = {"ok": False, "status": "not_configured",
                       "http_status": None, "latency_ms": None,
                       "checked_at": None}
         else:
-            result = await self._ping_models(base_url, key)
+            result = await self._ping_provider(base_url, key, model, kind)
         async with self._health_lock:
-            self._health_cache[base_url] = (time.monotonic(), result)
+            self._health_cache[module_id] = (time.monotonic(), result)
         return result
 
     @staticmethod
-    async def _ping_models(base_url: str, key: str) -> dict:
-        import httpx
-        url = f"{base_url.rstrip('/')}/models"
-        started = time.monotonic()
+    async def _ping_provider(base_url: str, key: str, model: str = "",
+                             kind: str = "chat") -> dict:
+        """Провайдер через ``llm_probe.probe_openai`` (ленивый импорт)."""
+        checked_at = datetime.datetime.now(
+            datetime.timezone.utc).isoformat()
         try:
-            async with httpx.AsyncClient(timeout=_HEALTH_TIMEOUT_SECONDS) \
-                    as client:
-                resp = await client.get(
-                    url, headers={"Authorization": f"Bearer {key}"})
-            latency = (time.monotonic() - started) * 1000.0
-            ok = resp.status_code == 200
-            return {"ok": ok, "status": "ok" if ok else "unreachable",
-                    "http_status": resp.status_code,
-                    "latency_ms": round(latency, 1),
-                    "checked_at": datetime.datetime.now(
-                        datetime.timezone.utc).isoformat()}
+            from services import llm_probe
+            res = await llm_probe.probe_openai(
+                base_url, key, model, kind=kind,
+                timeout=_HEALTH_TIMEOUT_SECONDS)
         except Exception:
+            logger.warning("[status] probe_openai failed", exc_info=True)
             return {"ok": False, "status": "unreachable", "http_status": None,
-                    "latency_ms": None,
-                    "checked_at": datetime.datetime.now(
-                        datetime.timezone.utc).isoformat()}
+                    "latency_ms": None, "checked_at": checked_at}
+        return {
+            "ok": bool(res.get("ok")),
+            "status": res.get("status") or "unreachable",
+            "http_status": res.get("http_status"),
+            "latency_ms": res.get("latency_ms"),
+            "checked_at": checked_at,
+        }
 
     # ── psutil-метрики сервера ─────────────────────────────────────────────
 
@@ -385,13 +489,14 @@ class StatusService:
 
     async def _build_llm_card(self, provider: dict, *,
                               is_global_admin: bool = False) -> dict:
-        """Карточка провайдера: key={configured[,last4]} + health + latency.
-        Маска — по роли (фикс S2; last4 только глобальному админу).
-        B1/OD8: также module_id/module_title/model_source + запись сэмпла в
-        leak-safe историю доступности (T-1140)."""
-        health = await self._check_health(provider["base_url"],
-                                          provider["key"] or "")
+        """Карточка провайдера: group/display + key-маска + реальный health.
+
+        ADR-109-3: health — POST probe, кэш по module_id. B1/OD8: module_id/
+        module_title/model_source + запись сэмпла в leak-safe историю."""
         module_id = provider.get("module_id") or provider["provider"]
+        health = await self._check_health(
+            module_id, provider["base_url"], provider["key"] or "",
+            provider.get("model") or "", provider.get("kind", "chat"))
         key_history.record(
             module_id=module_id,
             provider=provider["provider"],
@@ -403,11 +508,15 @@ class StatusService:
         return {
             "module_id": module_id,
             "module_title": provider.get("module_title", ""),
+            "group_id": provider.get("group_id", ""),
+            "group_title": provider.get("group_title", ""),
+            "display_name": provider.get("display_name", ""),
             "provider": provider["provider"],
             "model": provider["model"],
             "model_source": provider.get("model_source", "code"),
             "key": _mask_key_for_role(provider["key"], is_global_admin),
-            "last_latency_ms": self._llm_latency.get(provider["provider"]),
+            "last_latency_ms": self._llm_latency.get(
+                provider.get("latency_key") or ""),
             "health": health,
         }
 

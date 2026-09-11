@@ -3,6 +3,32 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.9 scan (2026-09-12) — all scanned
+- [x] config/settings.py (+SLAVIK_ENABLED default True; +7 LLM/GROQ/OPENROUTER/EMBEDDING*_DISPLAY_NAME; Settings 372)
+- [x] services/permsoc.py (slavik sub_flag_key=`flags.slavik_enabled`; DEFAULT_SUB_FLAGS True)
+- [x] services/param_catalog.py (GROUPS 90/REGISTRY 400/mapped 88; −reactions_persons; SLAVIK_USER_ID→reactions_slavik;
+      OLYA_USER_ID→reactions_olya; +7 display-name ParamSpec; переписаны title/description без жаргона/AI-шаблона; TAB_PERMSOC без persons)
+- [x] services/status_service.py (llm_registry: group_id/group_title/display_name/provider=host/kind; probe_openai-интеграция;
+      `_check_health` кэш по module_id 2xx 60с/ошибки 10с; emb main+2fb; `_display`/`_model_from`; healthLabel-контракт)
+- [x] services/llm_probe.py (probe_openai chat/embeddings/stt; `_post_multipart`+`_silent_wav`; timeout/unreachable/error/not_configured; sanitize R17)
+- [x] web/app.js (PERMSOC_OWNER_BLOCKS/TOGGLE_KEYS; `_permsocOwnerGroups`/`permsocOwnerOn`/`canToggleOwner`/`toggleOwner`;
+      `llmGroups`; `healthBadge`/`healthLabel`; `_preserveScroll` (document+`.scroll-area`); −whoCanToggle/−optInCount;
+      PROVIDER_BLOCKS display-name первым + человеческие label'ы; loadModules без бюджета; loadOversight→loadBudgetInfo)
+- [x] web/index.html (owner-блоки `<component is=details/div>` + один `<summary>`-тумблер; −мастер-карта permsoc;
+      −«Тяжёлые фичи»; «Бюджет фона (день)» в «Сводке»; блок «Доступность ключей» 4 группы; «История доступности ключей»;
+      `configLoading && !configItems.length`; `max-w-3xl`; --grad-speed 14s/grad-drift 18s)
+- [x] tests/test_webapp_round109_ui.py (NEW 18 тестов), tests/test_status_service.py (probe_openai/кэш-ошибок/группы), test_key_availability.py,
+      test_param_catalog.py, test_frontend_tab_mapping.py, test_round106_ia_smoke.py, test_webapp_parity_smoke.py, test_webapp_api.py,
+      test_permsoc.py, test_webapp_dm_ui.py, test_webapp_key_availability_ui.py, test_webapp_status_control.py,
+      test_webapp_nav_disclosure_ui.py, test_webapp_avatars_ui.py, test_webapp_round108_ui.py, test_104_backend_additions.py
+- [x] tests/js/routing_test.js (`_preserveScroll` два-скроллера юнит; спиннер-условие)
+- [x] plans/features/admin-ui-round109/ (spec.md, tasks.md, ADR-109.md)
+- [x] plans/backlog.md, plans/reports/round10.9_scanner_audit.md (0 blocker/0 major/0 medium; 3 low R10.9-1…3, 3 info R10.9-4…6)
+- Открыто (follow-up, не блокеры): R10.9-1 (`model_source`); R10.9-2 (emb-fallback display/read);
+  R10.9-3 (stale docstring status_service); R10.9-4 (health cache-key по module_id).
+  Из прошлых раундов вне UI-скоупа: R10.7-1/-2 (`status_service` gap-fill), R10.6-1 (дубль generic-рендера),
+  R10.6-2/-3 (SSRF/422-эхо `api_key`).
+
 ## Round 10.8 scan (2026-09-11) — all scanned
 - [x] web/app.js (labels TABS/NAV/HUBS; ICONS 20→37 (17 new, 6 dead из 10.7 не вернулись);
       applyRoute accessOpen-нормализация; openAccessWindow/closeAccessWindow (−setAccess);

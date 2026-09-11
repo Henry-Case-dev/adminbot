@@ -35,15 +35,15 @@ class TestSafeMigration:
     def test_defaults_match_previous_literals(self):
         hot.set_config_cache(None)
         reg = StatusService.llm_registry()
-        by = {p["provider"]: p for p in reg}
-        assert by["groq"]["base_url"] == "https://api.groq.com/openai/v1"
-        assert by["groq"]["model"] == "whisper-large-v3"
-        assert by["openrouter"]["base_url"] == "https://openrouter.ai/api/v1"
-        assert by["openrouter"]["model"] == "openrouter/free"
-        # module_id/module_title — для key-availability (B1/OD8).
-        assert by["groq"]["module_id"] == "stt_groq"
-        assert by["openrouter"]["module_title"]
-        assert by["groq"]["model_source"] == "code"
+        by = {p["module_id"]: p for p in reg}
+        assert by["stt_groq"]["base_url"] == "https://api.groq.com/openai/v1"
+        assert by["stt_groq"]["model"] == "whisper-large-v3"
+        assert by["stt_openrouter"]["base_url"] == "https://openrouter.ai/api/v1"
+        assert by["stt_openrouter"]["model"] == "openrouter/free"
+        # 10.9: provider = host из base_url (без хардкода имён).
+        assert by["stt_groq"]["provider"] == "api.groq.com"
+        assert by["stt_openrouter"]["module_title"]
+        assert by["stt_groq"]["model_source"] == "code"
 
     def test_configured_values_win_and_source_config(self):
         hot.set_config_cache(_FakeCache({
@@ -53,13 +53,13 @@ class TestSafeMigration:
             "models.openrouter_transcribe_model": "or/custom",
         }))
         try:
-            by = {p["provider"]: p for p in StatusService.llm_registry()}
+            by = {p["module_id"]: p for p in StatusService.llm_registry()}
         finally:
             hot.set_config_cache(None)
-        assert by["groq"]["base_url"] == "https://proxy.local/v1"
-        assert by["groq"]["model"] == "whisper-custom"
-        assert by["groq"]["model_source"] == "config"
-        assert by["openrouter"]["model"] == "or/custom"
+        assert by["stt_groq"]["base_url"] == "https://proxy.local/v1"
+        assert by["stt_groq"]["model"] == "whisper-custom"
+        assert by["stt_groq"]["model_source"] == "config"
+        assert by["stt_openrouter"]["model"] == "or/custom"
 
     def test_catalog_rows_present_pg_only(self):
         from services.param_catalog import REGISTRY

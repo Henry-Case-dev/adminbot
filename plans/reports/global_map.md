@@ -442,3 +442,43 @@ bot.py
   `TABS.icon`/`visibleTabs`/`tabMat` (pre-existing); R10.8-4 backlog-статус «ПЛАНИРОВАНИЕ»).
 - **Открыто** (кандидаты 10.9): R10.7-1/-2 (`services/status_service.py` gap-fill);
   R10.6-1 (дубль generic-рендера `llm_providers`); R10.6-2/-3 (SSRF/422-эхо `api_key`).
+
+## Round 10.9 map additions (admin-ui-round109, HEAD 51f308b + working tree)
+
+- **PERMsoc owner-блоки (ADR-109-4)**: `web/app.js PERMSOC_OWNER_BLOCKS` — 4 блока
+  (`slavik`/`olya`/`mimic`/`common`); один тумблер в `<summary>` (`PERMSOC_TOGGLE_KEYS`
+  исключает 4 флага из тела). Принадлежность: `key∈owner.keys` → `group∈owner.groups &&
+  key∉∪owner.keys` → `common`. Backend: новый `SLAVIK_ENABLED` (default **True**) +
+  `PermsocModule("slavik", …, sub_flag_key="flags.slavik_enabled")` +
+  `DEFAULT_SUB_FLAGS[...] = True`. `reactions_persons` удалена (GROUP 91→90),
+  `SLAVIK_USER_ID`→`reactions_slavik`, `OLYA_USER_ID`→`reactions_olya`. Переключение:
+  `toggleOwner` (common+чат → `togglePermsoc`/`gates.permsoc`; иначе `saveConfigItem`).
+  Сводка 5 модулей (`permsocModuleBadge`) переехала внутрь «Общего».
+- **Скролл (п.3)**: `web/app.js _preserveScroll(fn)` — снимок/restore
+  `document.scrollingElement` **и** `main.scroll-area` (fullscreen TMA) в `$nextTick`;
+  обёрнуты все save-пути. `web/index.html`: спиннер только при
+  `configLoading && !configItems.length` (ре-фетч не подменяет карточки). `setTab`-сброс вверх не тронут.
+- **Одностраничный dashboard/health (ADR-109-3)**: `web/index.html` — ОДИН блок
+  «Доступность ключей» (`llmGroups` из `/api/status.llm` по `group_id`): 4 группы
+  (`llm_functions`/`transcription`/`video_summary`/`embeddings`). `status_service.llm_registry`
+  отдаёт `module_id/module_title/group_*/display_name/provider=host(base_url)/model/key/
+  latency_key/kind`; `_check_health(module_id,…)` → `llm_probe.probe_openai`:
+  `kind="chat"` `/chat/completions`, `"embeddings"` `/embeddings`, `"stt"` (только `stt_groq`)
+  `/audio/transcriptions` (multipart, `_silent_wav`); таймаут 5с; кэш по `module_id`
+  (2xx 60с / ошибки 10с, stale-200 нет); статусы `ok|error|timeout|unreachable|not_configured`.
+  `stt_openrouter` — `kind="chat"` (input_audio через `chat.completions`). Старый блок
+  переименован в «История доступности ключей».
+- **Кастомные имена моделей (ADR-109-1)**: 7 `ParamSpec` `models.*_display_name` (+Settings)
+  — первое поле каждого provider-блока (`PROVIDER_BLOCKS`), глобальные; питают dashboard
+  через `_display()`. REGISTRY 392→400, Settings 364→372.
+- **«Тяжёлые фичи» (п.5) / «Бюджет фона» (п.6, ADR-109-5)**: карточки с «Модулей» удалены;
+  per-chat `dream/nostalgia/lore_auto` — только в «Сводке» (модалка → `toggleKillswitch`);
+  «Бюджет фона (день)» — полоса в `#/oversight`, источник `loadBudgetInfo()` из `loadOversight`.
+  Backend `worker_budget.py`/endpoint без изменений.
+- **Итоговые инварианты 10.9**: REGISTRY **400** / GROUPS **90** / Settings **372** /
+  mapped **88** / TAB_RULES **19** / CONFIG_TAB_TITLES **19**.
+- **Находки 10.9**: `plans/reports/round10.9_scanner_audit.md` (0 блокеров/0 major/0 medium;
+  3 low: R10.9-1 `model_source` запасных записей снова «code»; R10.9-2 `EMBEDDING_FALLBACK_*`
+  из settings + display-name исчезает без env-ключа; R10.9-3 stale docstring `status_service`;
+  3 info: R10.9-4 health-кэш по `module_id`; R10.9-5 doc `_LLM_BLOCKS`/`ConnectTimeout`;
+  R10.9-6 backlog-статус).

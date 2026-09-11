@@ -194,7 +194,9 @@ class TestModulesRework106:
     def test_permsoc_kept(self):
         js, html = _js(), _html()
         assert "id: 'permsoc'" in js
-        assert "activeTab === 'permsoc'" in html
+        # 10.9 (п.1): вкладка PERMsoc — 4 owner-блока вместо мастер-карты.
+        assert "owner-block" in html
+        assert "PERMSOC_OWNER_BLOCKS" in js
         assert "permsocModuleBadge" in js
 
 

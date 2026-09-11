@@ -50,7 +50,7 @@ class PermsocModule:
 
 PERMSOC_MODULES: tuple[PermsocModule, ...] = (
     PermsocModule("slavik", "Славик (приветствия, kucha-реакции, GIF)",
-                  "reactions.slavik_user_id", None, (479167456,),
+                  "reactions.slavik_user_id", "flags.slavik_enabled", (479167456,),
                   ("handlers/slavik.py",)),
     PermsocModule("kostik", "Костя (персона-реплики)",
                   "reactions.kostik_user_id", None, (350803143,),
@@ -75,7 +75,9 @@ _MODULE_BY_ID: dict[str, PermsocModule] = {
     m.module_id: m for m in PERMSOC_MODULES}
 
 # Под-флаг-дефолты (дефолт False — как сейчас: olya/mimic off).
+# Славик — дефолт True (ADR-109-4: untouched → прежнее поведение).
 DEFAULT_SUB_FLAGS: dict[str, bool] = {
+    "flags.slavik_enabled": True,
     "flags.olya_enabled": False,
     "flags.mimic_enabled": False,
 }

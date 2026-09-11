@@ -318,6 +318,19 @@ class Settings:
     LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://apinet.cloud/v1")
     LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "deepseek-v4-flash")
     EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
+    # ── Раунд 10.9 (ADR-109-1): кастомные имена моделей для админки ──
+    # 7 глобальных полей (models.*_display_name): единый источник для форм
+    # провайдеров и блока «Доступность ключей». Пусто → админка показывает
+    # адрес/роль по умолчанию. R17: не секреты.
+    LLM_DISPLAY_NAME: str = _env_str("LLM_DISPLAY_NAME", "")
+    LLM_FALLBACK_DISPLAY_NAME: str = _env_str("LLM_FALLBACK_DISPLAY_NAME", "")
+    GROQ_DISPLAY_NAME: str = _env_str("GROQ_DISPLAY_NAME", "")
+    OPENROUTER_DISPLAY_NAME: str = _env_str("OPENROUTER_DISPLAY_NAME", "")
+    EMBEDDING_DISPLAY_NAME: str = _env_str("EMBEDDING_DISPLAY_NAME", "")
+    EMBEDDING_FALLBACK_DISPLAY_NAME: str = _env_str(
+        "EMBEDDING_FALLBACK_DISPLAY_NAME", "")
+    EMBEDDING_FALLBACK2_DISPLAY_NAME: str = _env_str(
+        "EMBEDDING_FALLBACK2_DISPLAY_NAME", "")
     LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 30.0)   # Epic 47 (56.4): 60.0 → 30.0 (per-request)
     # LLM_MAX_RETRIES сохраняется (default 2): число повторов, попыток = retries + 1 = 3.
     LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
@@ -412,6 +425,10 @@ class Settings:
         "WORKER_BUDGET_JITTER_MINUTES", 5)
     # ── Раунд 10 (F-9 §3): мастер-тумблер «Функции PERMsoc» (дефолт FALSE) ──
     PERMSOC_ENABLED: bool = _env_bool("PERMSOC_ENABLED", False)
+    # ── Раунд 10.9 (ADR-109-4): независимый тумблер Славика (дефолт TRUE) ──
+    # Untouched → True → поведение байт-в-байт; OFF → только триггеры Славика
+    # молчат (Костя/Леха/Оля/мимикрия не затронуты).
+    SLAVIK_ENABLED: bool = _env_bool("SLAVIK_ENABLED", True)
     # Пусто = /summary разрешена всем (R9/D62).
     ALLOWED_SUMMARY_IDS: tuple[int, ...] = _env_int_tuple("ALLOWED_SUMMARY_IDS", ())
     # Epic 31 (D94): true = /summary только для ADMIN_USER_ID (ALLOWED_SUMMARY_IDS
@@ -1066,7 +1083,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.52.0"
+APP_VERSION = "2.53.0"
 
 
 def build_ytdlp_base_opts() -> dict:

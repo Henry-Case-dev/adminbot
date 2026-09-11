@@ -80,12 +80,16 @@ class TestEmojiToIcons108:
             assert glyph in HTML, glyph
 
     def test_new_icon_names_used(self):
-        for name in ("visibility", "visibility_off", "psychology", "shield",
+        for name in ("visibility", "visibility_off", "shield",
                      "delete", "settings", "save", "edit_note", "swap_horiz",
                      "stop", "play_arrow", "dns", "trending_up", "key",
                      "receipt_long", "chevron_right", "expand_more"):
             assert ("'%s'" % name) in HTML, name
             assert (name + ":") in JS, name
+        # 10.9: psychology больше не рендерится статикой в HTML (иконка
+        # owner-блока «Мимикрия» приходит из PERMSOC_OWNER_BLOCKS в JS).
+        assert "psychology:" in JS
+        assert "'psychology'" in JS
         assert "iconGlyph(keyReveal[item.key] ? 'visibility_off' : 'visibility')" in HTML
 
     def test_logs_toggle_uses_material_icon(self):

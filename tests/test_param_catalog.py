@@ -49,7 +49,9 @@ class TestCompleteness:
         #   WORKER_DAILY_LLM_CALLS/TOKENS_GLOBAL, _PER_CHAT,
         #   WORKER_PRIORITY_ORDER, WORKER_BUDGET_JITTER_MINUTES)
         #   + PERMSOC_ENABLED (раунд 10, F-9 §3, мастер-тумблер PERMsoc)
-        assert len(fields) == 364
+        #   + SLAVIK_ENABLED (раунд 10.9, ADR-109-4) + 7 (*_DISPLAY_NAME,
+        #   ADR-109-1) = 372
+        assert len(fields) == 372
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -234,7 +236,8 @@ class TestGroups8424:
         # PERMsoc», spec §10 B)
         # ре-дизайн 10.5 (T-1139/T-1145): models +4 — осознанное исключение;
         # раунд 10.6 (T-1201/T-1180): +5 master-флагов; GROUPS 91.
-        assert len(GROUPS) == 91
+        # раунд 10.9: reactions_persons удалена → GROUPS 90.
+        assert len(GROUPS) == 90
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -290,8 +293,8 @@ class TestGroups8424:
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 33, "keys": 13,
-                          "limits": 177, "flags": 57, "reactions": 38,
+        assert counts == {"prompts": 10, "models": 40, "keys": 13,
+                          "limits": 177, "flags": 58, "reactions": 38,
                           "content": 4, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
@@ -349,7 +352,9 @@ class TestPermsocGroupsRedesign:
     def test_flags_permsoc_keys(self):
         keys = sorted(k for k, spec in REGISTRY.items()
                       if spec.group == "flags_permsoc")
-        assert keys == ["MIMIC_ENABLED", "OLYA_ENABLED", "PERMSOC_ENABLED"]
+        # 10.9 (ADR-109-4): + SLAVIK_ENABLED — независимый тумблер Славика.
+        assert keys == ["MIMIC_ENABLED", "OLYA_ENABLED", "PERMSOC_ENABLED",
+                        "SLAVIK_ENABLED"]
         for field in keys:
             spec = pc.get(field)
             assert spec.category == pc.CATEGORY_FLAGS
@@ -372,10 +377,14 @@ class TestPermsocGroupsRedesign:
         assert spec.pg_key == "reactions.admin_user_id"
 
     def test_groups_on_permsoc_tab(self):
-        for gid in ("reactions_persons", "reactions_kostik", "reactions_alan",
+        for gid in ("reactions_kostik", "reactions_alan",
                     "reactions_permsoc", "flags_permsoc", "limits_alan",
                     "limits_kostik"):
             assert pc.group_tab(gid) == pc.TAB_PERMSOC, gid
+        # 10.9: reactions_persons удалена; ID персон — в блоках владельцев.
+        assert pc.get_group("reactions_persons") is None
+        assert pc.get("SLAVIK_USER_ID").group == "reactions_slavik"
+        assert pc.get("OLYA_USER_ID").group == "reactions_olya"
 
     def test_group_titles_new(self):
         by_id = {g.id: g for g in GROUPS}

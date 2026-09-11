@@ -36,7 +36,7 @@
       --ok-bg:rgba(22,179,100,.14); --warn-bg:rgba(234,170,8,.14); --err-bg:rgba(255,72,72,.14);
       /* animated gradient tokens (OD4) */
       --grad-angle:135deg; --grad-a:#664EA0; --grad-b:#14CBB6; --grad-c:#8D6BDC;
-      --grad-speed:18s; --grad-ease:cubic-bezier(0,0,.2,1);
+      --grad-speed:14s; --grad-ease:cubic-bezier(0,0,.2,1);
       /* typography (значения эталона) */
       --font-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
       --h1:3.5rem;--h2:3rem;--h3:2.5rem;--h4:2rem;--h5:1.5rem;--h6:1.25rem;
@@ -116,7 +116,7 @@
       pointer-events: none;
       background: linear-gradient(120deg, var(--grad-a), var(--grad-b), var(--grad-c));
       background-size: 200% 200%;
-      animation: grad-drift 24s var(--grad-ease) infinite alternate;
+      animation: grad-drift 18s var(--grad-ease) infinite alternate;
       opacity: .16;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -363,6 +363,20 @@
     .avail-code.warn { color: var(--warn); }
     .avail-code.err { color: var(--err); }
     .avail-code.none { color: var(--text-3); }
+
+    /* 10.9 (п.7.1): строки блока «Доступность ключей» — имя/провайдер,
+       маска ключа, задержка, health. */
+    .llm-row {
+      display: grid; gap: .5rem; align-items: center;
+      grid-template-columns: minmax(0,1fr) auto auto auto;
+      padding: .35rem .25rem; border-top: 1px solid var(--surface-border);
+    }
+    @media (max-width: 640px) {
+      .llm-row { grid-template-columns: minmax(0,1fr) auto; }
+    }
+    /* 10.9 (п.1): owner-блоки PERMsoc — нативный <summary> без маркера. */
+    .owner-block > summary { list-style: none; }
+    .owner-block > summary::-webkit-details-marker { display: none; }
 
     /* 10.7 (2a): ТОЛЬКО таблица ключей (.keys-avail) — фиксированная
        раскладка + ellipsis, чтобы whisper-large-v3 не ломал карточку.
@@ -752,7 +766,7 @@
                ОДИН generic-рендер по
                sources (3.5.1); карточки-группы приходят с сервера. ═══ -->
           <template v-else-if="currentTabIsConfig">
-            <div v-if="configLoading" class="card p-8"><div class="spinner"></div></div>
+            <div v-if="configLoading && !configItems.length" class="card p-8"><div class="spinner"></div></div>
             <div v-else-if="!canViewTab(activeTab)" class="card p-6 text-gray-400 col-span-full">
               Нет доступа к параметрам этой вкладки.
             </div>
@@ -760,14 +774,14 @@
               <!-- A4/T-1207: LLM Провайдеры — блоки ПО МОДУЛЯМ; каждый =
                    base_url + model + api key + «Проверить» (POST /api/llm/test). -->
               <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3">
-                <section class="prov-block card p-4" v-for="b in providerBlocks"
+                <section class="prov-block card p-4 max-w-3xl mx-auto w-full" v-for="b in providerBlocks"
                          :key="b.id" :data-block="b.id">
                   <header class="prov-head flex items-center gap-2 mb-2">
                     <span class="prov-title text-sm font-bold">{{ b.title }}</span>
                     <span class="prov-modules text-xs text-gray-500">{{ b.modules }}</span>
                   </header>
                   <div class="prov-row flex items-center gap-2 mb-2" v-for="f in b.fields" :key="f.key">
-                    <label class="prov-label text-xs w-24 shrink-0">{{ f.label }}</label>
+                    <label class="prov-label text-xs w-36 shrink-0">{{ f.label }}</label>
                     <input class="field flex-1 min-w-0"
                            :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
                            autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
@@ -802,56 +816,10 @@
                   </div>
                 </section>
               </div>
-              <!-- Ре-дизайн 10.2, BUG-3 (spec §10 A/C): мастер-карта
-                   вкладки «PERMsoc» — ПЕРЕД generic-рендером групп:
-                   per-chat мастер (gates API; write — ТОЛЬКО global admin;
-                   local admin — read-only бейдж), без чата — hint (выбор —
-                   через селектор в шапке, F-13 AC-1); ниже — сводка
-                   5 модулей (derived/под-флаг/OFF (master)). ID персон и
-                   рубильники — в группах ниже. -->
-              <div v-if="activeTab === 'permsoc'" class="card p-4 col-span-full">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span> PERMsoc</div>
-                  <span class="badge" :class="permsocMasterOn() ? 'badge-ok' : 'badge-muted'">
-                    master: {{ permsocMasterOn() ? 'ON' : 'OFF' }}
-                  </span>
-                  <label v-if="isChatContext()" class="relative inline-flex items-center cursor-pointer shrink-0"
-                         title="Мастер-тумблер (только global admin)">
-                    <input type="checkbox" class="sr-only peer"
-                           :checked="permsocMasterOn()"
-                           :disabled="!isGlobalAdmin || gatesBusy"
-                           @change="togglePermsoc($event.target.checked)">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                  </label>
-                  <span class="text-xs text-gray-500">(только global admin)</span>
-                </div>
-                <div v-if="!isChatContext()" class="text-xs text-gray-500">
-                  Тумблер — на чек-бот чата: выберите чат или Личные
-                  сообщения в селекторе в шапке →
-                  модули включаются per chat (Opt-In). Без чата — только
-                  глобальные значения групп ниже.
-                </div>
-                <div v-else class="grid gap-2 md:grid-cols-2">
-                  <div v-for="module in ['slavik','kostik','alan','olya','mimic']"
-                       :key="module"
-                       class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2">
-                    <span class="text-sm font-semibold">{{ module }}</span>
-                    <span class="badge"
-                          :class="permsocModuleBadge(module) === 'derived (master)'
-                            ? 'badge-info'
-                            : (permsocModuleBadge(module) === 'OFF (master)'
-                              ? 'badge-muted' : 'badge-ok')">
-                      {{ permsocModuleBadge(module) }}
-                    </span>
-                  </div>
-                </div>
-                <div class="text-xs text-gray-500 mt-2">
-                  Master OFF — все 5 модулей молчат в этом чате. Telegram ID
-                  персон, под-флаги Оли/мимикрии и рубильники
-                  («куча → ДАЛБАЕБ», «Мимикрия Лехи») — в группах ниже.
-                </div>
-              </div>
+              <!-- 10.9 (п.1): отдельная мастер-карта удалена — тумблер
+                   «Общее / Мастер» теперь в <summary> owner-блока, а
+                   персоны/ID/рубильники — в 4 collapsible owner-блоках
+                   (currentTabGroups → _permsocOwnerGroups). -->
               <div class="card p-3 col-span-full flex items-center gap-2">
                 <input class="field flex-1" placeholder="Поиск по параметрам…" v-model="configSearch">
                 <button v-if="configSearch" class="btn-ghost text-xs shrink-0"
@@ -896,10 +864,56 @@
                 </div>
                 <div class="flex-1 h-px bg-white/10"></div>
               </div>
-              <div v-if="basicItems(grp).length || advancedItems(grp).length"
-                   class="card p-4 col-span-full">
-                <div class="text-sm font-bold">{{ groupTitle(grp) }}</div>
-                <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
+              <!-- 10.9 (п.1): для PERMsoc grp.owner → collapsible
+                   <details class="owner-block"> с РОВНО ОДНИМ тумблером в
+                   <summary>; для остальных вкладок — прежняя карточка. -->
+              <component :is="grp.owner ? 'details' : 'div'"
+                   v-if="grp.owner || basicItems(grp).length || advancedItems(grp).length"
+                   :class="grp.owner ? 'owner-block card p-4 col-span-full' : 'card p-4 col-span-full'"
+                   :open="grp.owner ? true : null">
+                <summary v-if="grp.owner"
+                         class="owner-head flex items-center gap-2 cursor-pointer select-none">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph(grp.owner.icon) }}</span>
+                  <span class="text-sm font-bold">{{ groupTitle(grp) }}</span>
+                  <span class="flex-1"></span>
+                  <label class="relative inline-flex items-center cursor-pointer shrink-0"
+                         @click.stop>
+                    <input type="checkbox" class="sr-only peer"
+                           :checked="permsocOwnerOn(grp.owner)"
+                           :disabled="!canToggleOwner(grp.owner)"
+                           :aria-label="'Включить ' + groupTitle(grp)"
+                           @change.stop="toggleOwner(grp.owner, $event.target.checked)">
+                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                  </label>
+                </summary>
+                <div v-else class="text-sm font-bold">{{ groupTitle(grp) }}</div>
+                <div class="text-xs text-gray-500 mb-3" :class="grp.owner ? 'mt-3' : ''">{{ groupDescription(grp) }}</div>
+                <!-- 10.9 (п.1, spec §1.2/§1.3): read-only сводка 5 модулей
+                     переехала внутрь owner-блока «Общее / Мастер» (старая
+                     отдельная мастер-карта удалена). Тумблера здесь нет —
+                     он один, в <summary>. -->
+                <div v-if="grp.owner && grp.owner.id === 'common'" class="mb-3">
+                  <div v-if="!isChatContext()" class="text-xs text-gray-500">
+                    Тумблер действует на выбранный чат. Выбери чат или «Личные
+                    сообщения» в шапке — модули включаются отдельно для каждого.
+                    Без чата меняются только общие значения ниже.
+                  </div>
+                  <div v-else class="grid gap-2 md:grid-cols-2">
+                    <div v-for="module in ['slavik','kostik','alan','olya','mimic']"
+                         :key="module"
+                         class="rounded-lg border border-white/10 px-3 py-2 text-xs flex items-center justify-between gap-2">
+                      <span class="text-sm font-semibold">{{ module }}</span>
+                      <span class="badge"
+                            :class="permsocModuleBadge(module) === 'derived (master)'
+                              ? 'badge-info'
+                              : (permsocModuleBadge(module) === 'OFF (master)'
+                                ? 'badge-muted' : 'badge-ok')">
+                        {{ permsocModuleBadge(module) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <!-- Раунд 10 (F-11 Q3/4.2): прогрессивное раскрытие — Базовые
                      (как раньше) + <details> «Расширенные настройки» (нативные,
                      localStorage adminbot.expand:<tab>; закрыт по умолчанию).
@@ -1101,8 +1115,8 @@
                       </div>
                     </div>
                   </div>
-                </details>
-              </div>
+                 </details>
+              </component>
               </template>
               <!-- Раунд 10 (F-7 T-856): BYOK-блок — свой ключ чата.
                    Для local admin с активным чатом: поля keys-секции
@@ -1171,83 +1185,9 @@
               </article>
             </div>
 
-            <!-- Раунд 10.6: сохранены прежние глобальные/чатовые виды
-                 (бюджет фона, Opt-In тяжёлых фич) — перенесены на «Модули». -->
-            <div class="card p-4 col-span-full">
-              <div class="flex items-center gap-2 flex-wrap mb-2">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Бюджет фона</div>
-                <span class="text-xs text-gray-500">
-                  день {{ budgetInfo && budgetInfo.day }} · {{ budgetInfo && budgetInfo.timezone }}
-                </span>
-                <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
-                        @click="loadBudgetInfo()">⟳</button>
-              </div>
-              <div v-if="budgetBusy" class="spinner my-3"></div>
-              <div v-else-if="budgetInfo" class="grid gap-3 md:grid-cols-2">
-                <div>
-                  <div class="text-xs font-bold mb-1">Глобально (все чаты)</div>
-                  <div class="text-xs text-gray-400 mb-1">вызовы: {{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</div>
-                  <div class="progress mb-2"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
-                  <div class="text-xs text-gray-400">токены: {{ budgetInfo.global.tokens.used }} / {{ budgetInfo.global.tokens.limit }}</div>
-                  <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.tokens) * 100) + '%' }"></div></div>
-                </div>
-                <div v-if="isChatContext()">
-                  <div class="text-xs font-bold mb-1">Этот чат</div>
-                  <template v-if="budgetInfo.chats && budgetInfo.chats.length">
-                    <div v-for="chunk in budgetInfo.chats" :key="chunk.scope" class="mb-2">
-                      <div class="text-xs text-gray-400">вызовы: {{ chunk.calls.used }} / {{ chunk.calls.limit }}</div>
-                      <div class="progress mb-1"><div :style="{ width: (budgetRatio(chunk.calls) * 100) + '%' }"></div></div>
-                      <div class="text-xs text-gray-400">токены: {{ chunk.tokens.used }} / {{ chunk.tokens.limit }}</div>
-                      <div class="progress"><div :style="{ width: (budgetRatio(chunk.tokens) * 100) + '%' }"></div></div>
-                    </div>
-                  </template>
-                  <div v-else class="text-xs text-gray-500">День не начат — счёт пуст.</div>
-                </div>
-                <div v-else class="text-xs text-gray-500">
-                  «Весь бот» — выберите чат в шапке, чтобы видеть его бюджет.
-                </div>
-              </div>
-              <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
-            </div>
-
-            <div v-if="activeChatId == null" class="card p-4 col-span-full">
-              <div class="text-sm font-bold mb-1"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Тяжёлые фичи</div>
-              <div class="text-xs text-gray-500">
-                Выберите чат в шапке — Сон · Ностальгия · Авто-лор включаются
-                per chat (Opt-In). При Opt-In OFF бот отвечает, фоновые фичи молчат.
-              </div>
-              <div v-if="oversightData && oversightData.chats" class="text-xs text-gray-400 mt-2">
-                Opt-In включён в {{ optInCount() }} из {{ (oversightData.chats || []).length }} чатов.
-              </div>
-            </div>
-            <div v-else class="card p-4 col-span-full">
-              <div class="flex items-center gap-2 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Тяжёлые фичи</div>
-                <span class="text-xs text-gray-500">{{ activeChatTitle }} ({{ activeChatId }})</span>
-                <span class="badge ml-auto" :class="gateInfo && gateInfo.opt_in ? 'badge-ok' : 'badge-muted'">
-                  Opt-In: {{ gateInfo && gateInfo.opt_in ? 'включено' : 'выключено' }}
-                </span>
-                <button class="btn-ghost text-xs" :disabled="gatesBusy" @click="loadGateInfo()">⟳</button>
-              </div>
-              <div v-if="gatesBusy" class="spinner my-3"></div>
-              <div v-else-if="gateInfo" class="flex flex-col gap-2 mt-2">
-                <div v-for="(enabled, feature) in gateInfo.gates" :key="feature"
-                     class="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2">
-                  <span class="text-sm font-semibold">{{ feature }}</span>
-                  <span class="badge ml-auto" :class="enabled ? 'badge-ok' : 'badge-muted'">{{ enabled ? 'ON' : 'OFF' }}</span>
-                  <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" class="sr-only peer" :checked="!!enabled"
-                           :disabled="whoCanToggle(feature) !== 'global' ? !isGlobalAdmin : false"
-                           @change="toggleGate(feature, $event.target.checked)">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                  </label>
-                </div>
-              </div>
-              <div v-else class="text-xs text-gray-500 mt-2">
-                Гейты недоступны (нет чата/нет прав).
-              </div>
-            </div>
+            <!-- 10.9 (п.5/п.6): карточка дублирующих гейтов удалена (их
+                 тумблеры живут в per-module карточках; авто-лор — в
+                 killswitch «Сводки»), «Бюджет фона» перенесён в «Сводку». -->
 
             <!-- Окно параметров модуля (модалка; A2/T-1167) -->
             <div v-if="activeModule" class="modal-backdrop" @click.self="closeModule()">
@@ -1505,6 +1445,29 @@
                   <button class="btn-ghost text-sm" :disabled="oversightBusy"
                           @click="loadOversight()">⟳</button>
                 </div>
+              </div>
+              <!-- 10.9 (п.6, ADR-109-5): компактная полоса «Бюджет фона»
+                   (перенос с «Модулей»); источник — loadBudgetInfo(). -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Бюджет фона (день)</div>
+                  <span class="text-xs text-gray-500">
+                    {{ budgetInfo && budgetInfo.day }} · {{ budgetInfo && budgetInfo.timezone }}
+                  </span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
+                          @click="loadBudgetInfo()">⟳</button>
+                </div>
+                <div v-if="budgetBusy" class="spinner my-2"></div>
+                <div v-else-if="budgetInfo && budgetInfo.global">
+                  <template v-if="budgetInfo.global.calls.used || budgetInfo.global.tokens.used">
+                    <div class="text-xs text-gray-400 mb-1">вызовы: {{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</div>
+                    <div class="progress mb-2"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+                    <div class="text-xs text-gray-400 mb-1">токены: {{ budgetInfo.global.tokens.used }} / {{ budgetInfo.global.tokens.limit }}</div>
+                    <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.tokens) * 100) + '%' }"></div></div>
+                  </template>
+                  <div v-else class="text-xs text-gray-500">Сегодня расхода ещё не было.</div>
+                </div>
+                <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
               </div>
               <div v-if="oversightBusy" class="spinner my-4"></div>
               <div v-else-if="oversightRows().length === 0"
@@ -2543,22 +2506,34 @@
               </div>
             </div>
 
-            <!-- LLM -->
-            <div v-for="card in (statusData ? statusData.llm : [])" :key="card.provider" class="card p-4">
-              <div class="text-sm font-bold mb-1"><span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> {{ card.provider }}</div>
-              <div class="text-xs text-gray-400 mb-2">{{ card.model }}</div>
-              <div class="text-sm space-y-1">
-                <div>
-                  Ключ:
-                  <span v-if="card.key.configured" class="badge badge-ok">configured</span>
-                  <span v-else class="badge badge-muted">нет</span>
-                  <span v-if="card.key.last4" class="badge badge-info ml-1">••••{{ card.key.last4 }}</span>
-                </div>
-                <div>Задержка: <b>{{ card.last_latency_ms != null ? Math.round(card.last_latency_ms) + ' мс' : '—' }}</b></div>
-                <div>
-                  Health:
-                  <span class="badge" :class="healthBadge(card.health)">{{ card.health.status }}</span>
-                  <span v-if="card.health.http_status" class="text-xs text-gray-400 ml-1">HTTP {{ card.health.http_status }}</span>
+            <!-- LLM: ОДИН блок «Доступность ключей», 4 группы функций
+                 (10.9/п.7.1). Провайдер/модель — реальные (host), без
+                 хардкода имён; Health — реальный probe (timeout/502). -->
+            <div class="card p-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей</div>
+                <button class="btn-ghost text-xs ml-auto" @click="loadStatus()">⟳</button>
+              </div>
+              <div v-if="!statusData" class="spinner my-3"></div>
+              <div v-else-if="!llmGroups.length" class="text-xs text-gray-500">Данные провайдеров недоступны.</div>
+              <div v-else class="space-y-3">
+                <div v-for="g in llmGroups" :key="g.id">
+                  <div class="text-xs font-bold text-violet-300 uppercase tracking-wide mb-1">{{ g.title }}</div>
+                  <div v-for="card in g.cards" :key="card.module_id" class="llm-row">
+                    <div class="min-w-0">
+                      <div class="text-sm font-semibold truncate">{{ card.display_name || card.module_title }}</div>
+                      <div class="text-xs text-gray-400 truncate">{{ card.provider }} · {{ card.model }}</div>
+                    </div>
+                    <div class="text-xs">
+                      <span v-if="card.key.configured" class="badge badge-ok">configured<span v-if="card.key.last4"> ••••{{ card.key.last4 }}</span></span>
+                      <span v-else class="badge badge-muted">не настроен</span>
+                    </div>
+                    <div class="text-xs text-gray-400">{{ card.last_latency_ms != null ? Math.round(card.last_latency_ms) + ' мс' : '—' }}</div>
+                    <div class="text-xs">
+                      <span class="badge" :class="healthBadge(card.health)">{{ healthLabel(card.health) }}</span>
+                      <span v-if="card.health.http_status" class="text-gray-400 ml-1">HTTP {{ card.health.http_status }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2576,7 +2551,7 @@
                  GET /api/status/key-history (allowlist, R17). -->
             <div class="card p-4 keys-avail" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей API</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> История доступности ключей</div>
                 <button class="btn-ghost text-xs ml-auto"
                         @click="loadKeyHistory()">⟳ Обновить</button>
               </div>

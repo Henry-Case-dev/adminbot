@@ -426,12 +426,11 @@ class TestAvatarFrontAudit:
 
     def test_gradient_animation_8s(self):
         html = _Static.read("web/index.html")
-        # Редизайн 10.5 (T-1098/OD4): старый фиолетовый фон заменён
-        # анимированными градиентами эталона на токенах.
-        assert "animation: grad-drift 24s" in html
+        # Редизайн 10.5 (T-1098/OD4): анимированные градиенты эталона.
+        # 10.9 (п.8): чуть быстрее — grad-drift 18s, --grad-speed 14s.
+        assert "animation: grad-drift 18s" in html
+        assert "--grad-speed:14s" in html
         assert "animation: grad-spin" in html
-        assert "gradient 8s" not in html
-        assert "gradient 15s" not in html
 
     def test_relations_enrich_fields_in_app_js(self):
         """Фронт опирается на username/photo_file_id сервера (топ-50);

@@ -541,6 +541,48 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     clearTimeout(stub.copiedTimer);
   }
 
+  // ── 10.9 (LOW-7): _preserveScroll сохраняет оба скроллера ─────────────
+  {
+    const scroller = { scrollTop: 777 };
+    const area = { scrollTop: 333 };
+    const savedScrolling = global.document.scrollingElement;
+    const savedQuery = global.document.querySelector;
+    global.document.scrollingElement = scroller;
+    global.document.querySelector = function (sel) {
+      return sel === '.scroll-area' ? area : null;
+    };
+    try {
+      const ctx = { calls: 0, tick: null,
+        $nextTick(cb) { this.tick = cb; } };
+      const p = methods._preserveScroll.call(ctx, async function () {
+        this.calls += 1;
+        scroller.scrollTop = 0;   // имитируем ре-рендер
+        area.scrollTop = 0;
+        return 'R';
+      });
+      await p;
+      assert.strictEqual(ctx.calls, 1, '10.9: fn вызвана один раз');
+      assert.ok(ctx.tick, '10.9: восстановление отложено в $nextTick');
+      ctx.tick();
+      assert.strictEqual(scroller.scrollTop, 777,
+        '10.9: document scrollTop восстановлен');
+      assert.strictEqual(area.scrollTop, 333,
+        '10.9: main.scroll-area scrollTop восстановлен');
+    } finally {
+      global.document.scrollingElement = savedScrolling;
+      global.document.querySelector = savedQuery;
+    }
+  }
+
+  // ── 10.9 (LOW-7): спиннер конфига — только на ПЕРВОЙ загрузке ─────────
+  {
+    const fs = require('fs');
+    const htmlPath = path.join(__dirname, '..', '..', 'web', 'index.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    assert.ok(html.indexOf('v-if="configLoading && !configItems.length"') >= 0,
+      '10.9: большой спиннер только при пустом configItems');
+  }
+
   console.log('JS-UNIT-OK');
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);

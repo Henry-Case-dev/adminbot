@@ -78,11 +78,14 @@ class TestDmFrontend:
         assert "this.isGlobalAdmin || this.isDmCtx()" in body
 
     def test_empty_states_mention_dm(self):
-        """Empty-state PERMsoc-мастер-карты: «…или Личные сообщения…»
-        (A-6: сводка-карточка в «Модулях» удалена — остаётся мастер-карта
-        вкладки permsoc, 1 шт.)."""
+        """10.9 (п.1): мастер-карта permsoc заменена owner-блоками; тумблер
+        чата/ЛС — permsocOwnerOn/canToggleOwner (единый путь записи)."""
         html = re.sub(r"\s+", " ", _html())
-        assert html.count("или Личные сообщения в селекторе в шапке") == 1
+        assert "owner-block" in html
+        assert "permsocOwnerOn" in html
+        js = _js()
+        assert "toggleOwner: async function" in js
+        assert "permsocOwnerOn: function" in js
 
     def test_chat_source_badge_text_kept(self):
         """badge item.chat_source === 'chat' — текст «чат» (без дифов)."""

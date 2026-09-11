@@ -187,9 +187,10 @@ def test_b13_points24_limitation_documented():
 
 
 def test_user_facing_text_updated():
-    """Item 6: пользовательские описания обновлены («Модули»)."""
+    """Item 6: пользовательские описания обновлены («Модули»).
+    10.9: мастер-тумблер описан в каталоге без старой подписи."""
     cat = open("services/param_catalog.py", encoding="utf-8").read()
-    assert "во вкладке «Модули»" in cat
+    assert "Главный выключатель всех персонажей PERMsoc" in cat
     assert "вкладке «Модули и Фичи»" not in cat
     html = open("web/index.html", encoding="utf-8").read()
     assert 'class="module-list' in html

@@ -71,10 +71,11 @@ class TestTabMappingAudit:
                 assert by_tab[a].isdisjoint(by_tab[b])
 
     def test_mapped_and_counts(self):
-        # 91 GROUPS − 2 content (tab=None) = 89 mapped.
-        assert len(pc._TAB_BY_GROUP) == 89
-        assert len(GROUPS) == 91
-        assert len(pc.REGISTRY) == 392
+        # 90 GROUPS − 2 content (tab=None) = 88 mapped; 10.9: +7 display,
+        # −reactions_persons → REGISTRY 400.
+        assert len(pc._TAB_BY_GROUP) == 88
+        assert len(GROUPS) == 90
+        assert len(pc.REGISTRY) == 400
 
 
 class TestModuleTabs:

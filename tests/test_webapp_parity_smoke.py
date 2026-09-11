@@ -44,12 +44,12 @@ def _parse_block(name: str) -> str:
 
 class TestCatalogParity:
     def test_catalog_total_392(self):
-        # Раунд 10.6: REGISTRY 392 / GROUPS 91 / Settings 364 (+5 флагов).
-        assert len(REGISTRY) == 392, len(REGISTRY)
-        assert len(GROUPS) == 91
+        # 10.9: REGISTRY 400 / GROUPS 90 / Settings 372 (+SLAVIK, +7 display).
+        assert len(REGISTRY) == 400, len(REGISTRY)
+        assert len(GROUPS) == 90
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 364
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 372
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

@@ -18,7 +18,10 @@ def _html() -> str:
 class TestKeyAvailabilityUi:
     def test_compact_list_markers(self):
         html = _html()
-        assert "Доступность ключей API" in html
+        # 10.9: карта истории переименована, чтобы не путать с новым блоком
+        # «Доступность ключей» (реальный health).
+        assert "История доступности ключей" in html
+        assert "Доступность ключей" in html
         assert 'class="avail-list"' in html
         for col in ("Модуль", "Провайдер", "Модель", "Код", "Статус"):
             assert col in html
@@ -57,7 +60,7 @@ class TestKeyAvailabilityUi:
         # Динамический провайдер/модель: карточки берут model/provider с сервера.
         assert "card.model" in html
         # нет хардкода провайдеров в рендере key-availability
-        block = html[html.index("Доступность ключей API"):]
+        block = html[html.index("История доступности ключей"):]
         block = block[:block.index("<!-- Логи -->")]
         for bad in ("Deepseek", "Groq", "OpenRouter"):
             assert bad not in block

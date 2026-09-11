@@ -34,9 +34,9 @@ def _aw(value):
 async def test_registry_has_five_modules():
     assert [m.module_id for m in PERMSOC_MODULES] == [
         "slavik", "kostik", "alan", "olya", "mimic"]
-    # slavik/kostik/alan — только master (включены по умолчанию MEMORY.md);
-    # под-флаги — olya/mimic
-    assert sum(1 for m in PERMSOC_MODULES if m.sub_flag_key is None) == 3
+    # kostik/alan — только master (derived); slavik/olya/mimic — под-флаги
+    # (10.9/ADR-109-4: slavik получил независимый flags.slavik_enabled).
+    assert sum(1 for m in PERMSOC_MODULES if m.sub_flag_key is None) == 2
 
 
 @pytest.mark.asyncio
