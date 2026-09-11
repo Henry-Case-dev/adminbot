@@ -24,6 +24,11 @@ import os
 import sys
 from pathlib import Path
 
+# Standalone-запуск (`python scripts/disable_dm_heavy_modules.py`): Python
+# кладёт в sys.path каталог скрипта, а не корень репозитория — добавляем
+# корень, чтобы импортировался пакет `services` (как в seed_chat_lore.py).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from services import chat_params
 from services.chat_params import _DM_DISABLED_GATES, _DM_DISABLED_OVERRIDES
 from services.pg_db import PgDatabase

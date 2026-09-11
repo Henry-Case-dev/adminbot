@@ -322,3 +322,20 @@ async def test_apply_partial_failure_nonzero_exit(monkeypatch, capsys,
     out = capsys.readouterr().out
     assert "errors=1" in out, "LOW-3: отчёт печатает errors=<k>"
     assert [c[0] for c in calls] == [1], "LOW-3: успешный чат записан"
+
+
+def test_standalone_cli_entrypoint_help():
+    """CLI реально запускается как `python scripts/disable_dm_heavy_modules.py`
+    (DEVOPS-RUN): sys.path бутстрапит корень репозитория до импорта `services`."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parent.parent
+    env = dict(os.environ, ADMINBOT_SKIP_DOTENV="1")
+    proc = subprocess.run(
+        [sys.executable, "scripts/disable_dm_heavy_modules.py", "--help"],
+        cwd=str(repo_root), env=env, capture_output=True, text=True, timeout=90)
+    assert proc.returncode == 0, proc.stderr
+    assert "--apply" in proc.stdout and "--dry-run" in proc.stdout
