@@ -61,7 +61,7 @@ sudo systemctl restart admin_bot
 sudo systemctl status admin_bot --no-pager     # active (running)
 
 # 3. Проверить здоровье
-curl -fsS http://127.0.0.1:8000/health | head  # HTTP 200
+curl -fsS http://127.0.0.1:8000/api/health | head  # HTTP 200
 journalctl -u admin_bot -n 50 --no-pager | grep -iE 'error|traceback' || echo 'чисто'
 ```
 

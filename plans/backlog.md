@@ -18,7 +18,15 @@
 невидимого поля) и **T-1258** (три отдельных окна «Доступов») — за владельцем/QA; статически
 покрыто (`tests/test_webapp_round108_ui.py`, JS-юнит). Пост-архивная фаза @DevOps
 (commit/push/deploy/live-smoke, T-1265…T-1267) — после архивации.
-**⚠️ README-счётчик тестов показывает 5073 → @DevOps выставить 5076.**
+**✅ README-счётчик тестов актуализирован @DevOps: 5073 → 5076** (шапка + changelog;
+`APP_VERSION` 2.52.0 совпадает с шапкой README).
+**✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.8 (@DevOps, 11.09.2026):** commit `31d2ce7`, push
+`636a75d..31d2ce7`; прод `git pull --ff-only` `7f3b790..31d2ce7` (fast-forward, без конфликтов,
+`.env` не менялся — UI-only); `systemctl restart admin_bot` → **active (running)**;
+`/api/health` → **200 `{"status":"ok"}`**; шрифт `/static/fonts/material-symbols-rounded.woff2?v=2.52.0`
+→ **200 `font/woff2`, 18388 B, `wOF2`**; **0 ERROR/Traceback**. Полный pytest локально — **5076 passed / 0 failed**.
+Детали — `plans/archive/admin-ui-round108/tasks.md` §9. **Открыто (live, за владельцем/QA):
+T-1254** (логи на реальном Android) и **T-1258** (три окна «Доступов» на живом телефоне).
 Ниже — исторический документ планирования эпика.
 
 **Фича:** `plans/archive/admin-ui-round108/` (изолированная папка; `tasks.md` создан 11.09.2026 @PM; архивирована 11.09.2026 @PM Step 8).

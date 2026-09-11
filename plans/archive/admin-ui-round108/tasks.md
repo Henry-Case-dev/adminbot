@@ -16,8 +16,9 @@
 > (`tests/test_webapp_round108_ui.py`, JS-юнит), финальная live-проверка остаётся за
 > владельцем/QA. **Статус: НЕ ЗАКРЫТЫ.**
 > **ВНИМАНИЕ:** пост-архивная фаза @DevOps (commit/push/deploy/live-smoke, T-1265…T-1267)
-> выполняется ПОСЛЕ архива; статусы `[ ]` в секции @DevOps отражают состояние на момент
-> архивации. **README-счётчик тестов показывает 5073 — @DevOps должен выставить 5076.**
+> выполнена 11.09.2026 (@DevOps) — см. **§9 «Деплой-верификация 10.8»**; статусы `[ ]` в
+> секции @DevOps ниже — снимок на момент архивации. **README-счётчик тестов актуализирован
+> @DevOps: 5073 → 5076** (шапка + changelog; `APP_VERSION` 2.52.0 совпадает с шапкой).
 
 **Раунд:** **10.8** (подтверждён; продолжает задеплоенный 10.7).
 **Фича:** `plans/archive/admin-ui-round108/` (kebab: `admin-ui-round108`; перенесена @PM Step 8 11.09.2026).
@@ -180,9 +181,12 @@
   - **R10.8-5 (cache-bust субсета):** `APP_VERSION` `2.51.0`→`2.52.0` (`config/settings.py`, синхрон с шапкой README); `@font-face` src → `...woff2?v=__APP_VERSION__` (`.woff2` отдаётся `max-age=86400` → старый URL кэшировался до 24ч и давал tofu на новых глифах). URL с версией отдаёт 200 `wOF2`. Тесты: `tests/test_webapp_api.py::test_index_version_query_param`, `tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108`.
   - **R10.8-1 (Esc не закрывал окна «Доступов»):** глобальный `_onKeydown` → `_appVm.escClose()`; новый метод `escClose()` (модуль приоритетнее, затем `closeAccessWindow()`). Тесты: JS-юнит `escClose` в `tests/js/routing_test.js`, статический маркер в `TestCacheBustAndEsc108`.
   - ✅ `node --check` clean; `node tests/js/routing_test.js` — `JS-UNIT-OK`; полный pytest — **0 failed**.
-- [ ] **T-1265 [@DevOps] P0** — русский conventional-commit одним атомарным коммитом (код+тесты+plans), push `origin/master`, `@DevOps` — деплой на прод (`git pull --ff-only`, без изменений `.env` — UI/docs-only, `systemctl restart admin_bot`, health 200, логи без ERROR/Traceback).
-- [ ] **T-1266 [@DevOps] P1** — финальный memory-sync (docs(plans)-коммит) по правилу T-725; проверка на секреты перед docs-коммитом.
-- [ ] **T-1267 [@DevOps] P0** — plain-language отчёт владельцу (что изменилось в UI, что починили в логах, отдельным окном доступы, README) + ссылки на spec/tasks/аудит.
+- [x] **T-1265 [@DevOps] P0** — русский conventional-commit одним атомарным коммитом (код+тесты+plans), push `origin/master`, `@DevOps` — деплой на прод (`git pull --ff-only`, без изменений `.env` — UI/docs-only, `systemctl restart admin_bot`, health 200, логи без ERROR/Traceback).
+  - ✅ Выполнено 11.09.2026: commit **`31d2ce7`**, push **`636a75d..31d2ce7`**; прод `git pull --ff-only` **`7f3b790..31d2ce7`**; `systemctl restart admin_bot` → **active (running)**; **`/api/health` → 200 `{"status":"ok"}`**; **0 ERROR/Traceback**; `.env` не менялся (UI/docs-only). Детали — §9.
+- [x] **T-1266 [@DevOps] P1** — финальный memory-sync (docs(plans)-коммит) по правилу T-725; проверка на секреты перед docs-коммитом.
+  - ✅ Этот `docs(plans)`-коммит (деплой-верификация, §9): секретов нет, `git diff --cached --check` чист.
+- [x] **T-1267 [@DevOps] P0** — plain-language отчёт владельцу (что изменилось в UI, что починили в логах, отдельным окном доступы, README) + ссылки на spec/tasks/аудит.
+  - ✅ Отчёт выдан @DevOps 11.09.2026 (README/логи/окна/шрифт; открытыми остаются только live-smoke **T-1254/T-1258** за владельцем/QA).
 - [ ] **T-1268 [@Scanner] P0** — аудит 10.8 после реализации: инварианты (каталог 392/91/364, SQLite v8, ноль новых PG-DDL, `bot.py` не тронут, `media/` не тронут, секретов нет), проверка cmap субсета vs `ICONS`, независимый прогон pytest, отчёт в `plans/reports/round10.8_scanner_audit.md`.
 - [ ] **T-1269 [@PM] P0** — Step 8: после APPROVED/аудита перенести `plans/features/admin-ui-round108/` → `plans/archive/`, обновить `backlog.md` (статус ✅).
 
@@ -240,5 +244,40 @@
 - [ ] QA (§5) пройден; pytest ≥ 5042 passed / 0 failed; live Android-проверка выполнена.
 - [ ] `@Reviewer` — APPROVED (или APPROVED WITH MINOR, исправлено).
 - [ ] `@Scanner` — 0 blocker / 0 major (`plans/reports/round10.8_scanner_audit.md`).
-- [ ] Commit/push/deploy/health/отчёт — выполнены (@DevOps).
-- [ ] Архив: `plans/features/admin-ui-round108/` → `plans/archive/`; `backlog.md` обновлён (@PM Step 8).
+- [x] Commit/push/deploy/health/отчёт — выполнены (@DevOps): commit `31d2ce7`, push `636a75d..31d2ce7`, прод fast-forward `7f3b790..31d2ce7`, active, `/api/health` 200, 0 ERROR (§9).
+- [x] Архив: `plans/features/admin-ui-round108/` → `plans/archive/`; `backlog.md` обновлён (@PM Step 8; подтверждено @DevOps 11.09.2026).
+
+---
+
+## 9. Деплой-верификация 10.8 (@DevOps, 11.09.2026)
+
+**Артефакты:** commit **`31d2ce7`** «feat(admin,web,plans): раунд 10.8 — переименование
+разделов, emoji->иконки, фикс логов на Android, окна «Доступов» (тесты 5076)»; push
+`origin/master` **`636a75d..31d2ce7`**; 30 files changed (+2101 / −244).
+Прод fast-forward **`7f3b790..31d2ce7`**.
+
+**README (Part A):** счётчик тестов актуализирован **5073 → 5076** (шапка + changelog,
+`5076 − 5042 = 34 теста`); `APP_VERSION = "2.52.0"` совпадает с шапкой `v2.52.0`; битая ссылка
+changelog `plans/features/admin-ui-round108/` → фактический архив
+`plans/archive/admin-ui-round108/`; команда гайда `/health` → **`/api/health`** (единственный
+health-роут, `web/api/routes.py:207`; `/health` на 8000 давал 404). Структура README не менялась.
+
+**Пре-коммит:** `git diff --cached --check` — чисто; секретов / `.env` / `var/` / `media/` /
+`build/` в стейдже нет; `node --check web/app.js` — clean; `node tests/js/routing_test.js` →
+`JS-UNIT-OK`; полный pytest локально — **5076 passed / 0 failed** (55.10s; 1 pre-existing
+Starlette-warning).
+
+**Прод (`nik@198.46.175.136`, `/var/www/admin_bot`):**
+- **pull:** fast-forward **`7f3b790..31d2ce7`**, конфликтов нет (локальный `info_text.md` не затронут);
+- **`.env`:** изменений не требовалось (раунд UI-only, новых переменных нет) — не редактировался;
+- **restart:** `systemctl restart admin_bot` → **active (running)**;
+- **health:** `GET /api/health` → **HTTP 200 `{"status":"ok"}`**;
+- **шрифт:** `GET /static/fonts/material-symbols-rounded.woff2?v=2.52.0` → **HTTP 200**,
+  `Content-Type: font/woff2`, **18388 bytes**, сигнатура **`wOF2`** (и без `?v=` тоже 200);
+- **логи:** **0 ERROR / Traceback / Exception** с момента рестарта.
+
+**Открыто (live-smoke; реальное Android-устройство в среде @Builder недоступно — за владельцем/QA):**
+- **T-1254** — логи на реальном Android (Telegram WebView): ширина строк, видимая дата,
+  текст ошибки не «в один символ», отсутствие невидимого поля в первой колонке.
+- **T-1258** — три окна «Доступов» на живом телефоне; подписи **«Роли»**, «Мой доступ» и
+  «Telegram ID админа» на месте; deep-link/BackButton/Esc.
