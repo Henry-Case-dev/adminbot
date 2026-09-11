@@ -646,6 +646,47 @@
 > локального IDE владельца) — **вне скоупа проекта**, в репозитории/графе
 > не фиксируется.
 
+> **Синк STEP 10 (финал, post-commit+деплой) 12.09.2026: раунд 10.10 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН и ЗАДЕПЛОЕН — HEAD == origin/master == `772db08`** (`d082800` — фича,
+> тесты 5144; `a477747` — fix scripts standalone sys.path bootstrap + CLI-тест,
+> тесты 5145; `772db08` — docs деплой-верификация; поверх `da85b60` — docs
+> memory-sync 10.9; прод до деплоя — `d2d1215` = задеплоенный 10.9).
+> Единственная фича **`admin-ui-round1010`** (spec @Architect + tasks @PM +
+> ADR-1010-1/2/3; T-1315…T-1328) реализована целиком: (1) header fullscreen
+> padding — `max(env(safe-area-inset-*), --tg-content-safe-area-inset-*,
+> --tg-safe-area-inset-*)`, профиль-блок не перекрывается нативными кнопками;
+> (2) мобильный график доступности ключей — окно строится ОТ КОНЦА, новейшие
+> сэмплы не отбрасываются, дорожки на провайдера + временная сетка 300с (min 12
+> бакетов), адаптивная высота, `api_payload` не изменён; (3) «Провайдеры» —
+> реальные значения полей через `blockFieldValue` (`:value`+`@input`), секреты
+> замаскированы; (4) ЛС heavy-modules OFF — `scripts/disable_dm_heavy_modules.py`
+> (идемпотентный; dry-run/`--apply`/`--restore`/`--chat-id`/snapshot) + new-DM
+> defaults OFF (сон/ностальгия/саммаризация; F-14 gate не тронут); (5) «Роли» —
+> аватар+ник+мелкий серый ID, backend `global_user_display_info` (RAM-TTL 1ч,
+> fail-open, транзиентные ошибки не кэшируются), ширины w-24/flex-1 min-w-0/
+> shrink-0. **Каталог 400 / 90 / 372 / mapped 88 / TAB_RULES 19**; ноль PG-DDL,
+> SQLite v8, `bot.py`/`media/`/`.env` не тронуты. @Reviewer: REJECTED (график
+> отбрасывал новейшие данные) → fix → APPROVED WITH MINOR ISSUES → restore
+> exit-code Low закрыт. @Scanner: **0 blocker / 0 major / 0 medium** (low
+> R10.10-1/-2/-3 + info R10.10-4/-5; большинство закрыто;
+> `plans/reports/round10.10_scanner_audit.md`). @Architect: merge в
+> `plans/ARCHITECTURE.md` **§31** (+§3/§9/§25). **Тесты: 5145 passed / 1 skipped /
+> 0 failed** (baseline 10.9 = 5105; Scanner 5140 + 1 skipped на момент аудита);
+> `node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`;
+> `git diff --check` чист. @PM: фича заархивирована —
+> `plans/archive/admin-ui-round1010/` (spec.md + tasks.md + ADR-1010-1/2/3.md);
+> **plans/archive/ — 32 папки**; plans/features/ — 6 активных F-1…F-6.
+> @DevOps: README 5145 + `APP_VERSION` **2.54.0**; push origin/master; **деплой
+> 198.46.175.136:/var/www/admin_bot** — git pull fast-forward, `.env` без
+> изменений, restart active, `/api/health` 200, 0 ошибок; **DM data-run применён**
+> (1 активный ЛС; snapshot `var/dm_modules_off_snapshot_20260911T201219Z.json`;
+> повторный dry-run 0). Граф обновлён: милстоун `round10.10-epic` → COMPLETED +
+> DEPLOYED, фича → WAS_PART_OF + COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN
+> plans-structure, создан `tech-debt-round10.10` (R10.10-1..-5). **Осталось
+> вручную:** live Android QA — T-1317/1320/1323/1332; UI spot-check DM-тумблеров
+> OFF (T-1328). ⚠️ П.6 Headroom (saved-tokens stats, внешняя IDE-инфраструктура) —
+> **вне скоупа проекта**, в репозитории/графе не фиксируется.
+
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
 > (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).
@@ -1202,6 +1243,91 @@ FOLLOWS round10.8-epic; цикл раунда полностью закрыт (S
 - **⚠️ Вне скоупа:** пункт 2 исходного ТЗ — инфраструктура локального IDE
   владельца (не часть бота); в репозитории и в графе не фиксируется.
 
+### Раунд 10.10 — финал (12.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (d082800 + a477747 + 772db08)
+
+«UI/UX-правки админ-минги — шапка в fullscreen, мобильный график доступности
+ключей, реальные значения «Провайдеров», ЛС heavy-modules OFF, «Роли» с
+аватарами». Единственная фича — `admin-ui-round1010` (spec @Architect + tasks @PM +
+ADR-1010-1/2/3; T-1315…T-1328, продолжает 10.9). HEAD == origin/master == `772db08`
+(`d082800` + `a477747` + `772db08`, поверх `da85b60` — docs memory-sync 10.9; прод
+до деплоя — `d2d1215`). **Статус: COMPLETED + DEPLOYED.** FOLLOWS round10.9-epic;
+цикл раунда полностью закрыт (Step 10).
+
+- **Коммиты (master):** `d082800` fix(admin,web,api,scripts,plans): раунд 10.10 —
+  fullscreen safe-area, mobile key-chart, реальные значения провайдеров, ЛС
+  heavy-modules OFF, роли с аватарами (тесты 5144); `a477747` fix(scripts): раунд
+  10.10 — standalone-запуск `disable_dm_heavy_modules` (sys.path bootstrap) +
+  регресс-тест CLI (тесты 5145); `772db08` docs(plans): раунд 10.10 —
+  деплой-верификация; push origin/master.
+- **Тесты:** 5145 passed / 1 skipped / 0 failed (baseline 10.9 = 5105; Scanner
+  зафиксировал 5140 + 1 skipped на момент аудита — до CLI-регресс-теста).
+  `node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`;
+  `git diff --check` чист. Каталог **400 / 90 / 372 / mapped 88** (`TAB_RULES` 19,
+  `CONFIG_TAB_TITLES` 19) — без изменений; ноль новых PG-DDL; SQLite v8;
+  `bot.py` router order, `media/` и `.env` не тронуты.
+- **Реализация:** (п.1) fullscreen-паддинг шапки — `.fullscreen-mode
+  header.header-sticky` padding `calc(base + max(env(safe-area-inset-*),
+  var(--tg-content-safe-area-inset-*), var(--tg-safe-area-inset-*)))` —
+  профиль-блок не перекрывается нативными кнопками Telegram; 10.7 (ширина) и 10.9
+  (`.scroll-area`) не тронуты; (п.2) мобильный график key-availability —
+  RENDER-фикс: окно строится ОТ КОНЦА (`minStart`, cap ≤ `MAX_HISTORY_POINTS`,
+  без `break`/`slice`) — новейшие сэмплы больше не отбрасываются; дорожки на
+  провайдера + временная сетка `SAMPLE_BUCKET=300` (min 12 бакетов), динамическая
+  высота, `pointRadius:3` при 1 сэмпле, пропуск = `null` + `spanGaps:false`;
+  контракт `/api/status/key-history` (`api_payload`) НЕ изменён; (п.3)
+  «Провайдеры» показывают реальные значения — `:value="blockFieldValue(f)"` +
+  `@input` вместо `v-model`; `blockFieldValue` возвращает `''` для пустого
+  черновика и значение `configItems` при отсутствии черновика, секреты
+  (`type==='object'`) → `''` (placeholder-маска); `blockDrafts`/`blockResults`
+  сброшены в `loadConfig` и `setActiveChat`; `saveBlock`/MINOR-3 (`null`=не
+  трогать, `''`=очистить) не менялись; (п.4) ЛС heavy-modules OFF; (п.5) «Роли» —
+  аватар + ник + мелкий серый ID, backend `global_user_display_info` (RAM-TTL 1ч,
+  `get_chat(user_id)`→first/last→username, фото через `getUserProfilePhotos`;
+  транзиентные `TelegramRetryAfter`/`TelegramNetworkError` НЕ в негатив-кэш,
+  fail-open), `/api/admins` обогащает КОПИИ под `requires_permission("access")`,
+  `Semaphore(5)`+`gather`; фронт `admin.avatarUrl` (blob через прокси, `@error`),
+  `adminInitial`, `display_name||username`, ID `text-[10px] text-gray-500
+  font-mono`; ширины `w-36→w-24`, ID-инпут `flex-1 min-w-0`, кнопка `shrink-0`.
+- **ADR-1010:** ADR-1010-1 — ЛС heavy-modules OFF (`gates.dream/nostalgia=false` +
+  4 override=false; `ensure_scope_profile(dm=True)` DM-дефолты;
+  `scripts/disable_dm_heavy_modules.py` dry-run/`--apply`/`--restore`/`--chat-id`/
+  snapshot, без DDL); ADR-1010-2 — key-chart render-only, дорожки + временная
+  сетка 300с, контракт `api_payload` не меняется; ADR-1010-3 —
+  `global_user_display_info(user_id)`, RAM-TTL 1ч, fail-open, обогащение
+  `/api/admins`, фронт аватар/инициалы + мелкий серый ID.
+- **Ревью/Scanner:** @Reviewer REJECTED (график отбрасывал новейшие данные) →
+  фикс → APPROVED WITH MINOR ISSUES → restore exit-code Low закрыт. @Scanner
+  **0 blocker / 0 major / 0 medium**; low R10.10-1/-2/-3 + info R10.10-4/-5
+  (большинство точечно исправлено); отчёт
+  `plans/reports/round10.10_scanner_audit.md`.
+- **Архитектура:** @Architect — ARCHITECTURE.md **§31 «Раунд 10.10»** (+§3/§9/§25).
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward; `.env` без
+  изменений; `systemctl restart` → active (running); `/api/health` = 200; 0 ошибок.
+- **DM data-run (прод, 12.09.2026):** `scripts/disable_dm_heavy_modules.py`
+  применён — **1 активный ЛС изменён** (сон/ностальгия/саммаризация OFF),
+  снапшот `var/dm_modules_off_snapshot_20260911T201219Z.json`; повторный dry-run —
+  **0 изменений** (идемпотентно). F-14 gate (`bot.py flags.summary_enabled`) не
+  тронут.
+- **Архивация:** `admin-ui-round1010` → `plans/archive/admin-ui-round1010/`
+  (spec.md + tasks.md + ADR-1010-1/2/3.md) (**plans/archive/ — 32 папки**;
+  plans/features/ — 6 активных F-1…F-6). README счётчик 5145; `APP_VERSION` 2.54.0.
+- **Осталось вручную:** live Android QA — **T-1317** (шапка fullscreen),
+  **T-1320/T-1323/T-1332** (мобильный график/провайдеры/роли), UI spot-check
+  DM-тумблеров OFF (**T-1328**); реальное Android-устройство недоступно @Builder,
+  статически покрыто `tests/test_webapp_round1010_ui.py` +
+  `tests/test_scripts_round1010_dm_off.py` + JS-юниты; опциональный
+  betterstack-401 fix. Не блокирует закрытие цикла.
+- **Техдолг раунда (KG `tech-debt-round10.10`):** R10.10-1 (low — скрипт DM:
+  `total`/`noop`/dry-run-count игнорируют `--chat-id`; операторский вывод),
+  R10.10-2 (low — `meta.note` перезаписывается и не откатывается snapshot'ом),
+  R10.10-3 (low — `renderKeyHistoryChart` ранний return без `destroy()` старого
+  Chart.js), R10.10-4 (info — `loadAdmins` без `avatarSkipped`/`.catch`, повторные
+  blob-запросы), R10.10-5 (info — `adminInitial` дублирует `avatarInitial`,
+  ветка `admin.username` недостижима).
+- **⚠️ Вне скоупа:** П.6 ТЗ — Headroom saved-tokens stats (внешняя
+  IDE-инфраструктура владельца, не часть бота); в репозитории и в графе НЕ
+  фиксируется как сущность.
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -1227,8 +1353,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 31 папка)
+## Свежие архивы (plans/archive/ — 32 папки)
 
+- `admin-ui-round1010` — **Раунд 10.10, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1010-1/2/3, T-1315…T-1328: fullscreen safe-area паддинг шапки, мобильный график доступности ключей (окно от конца, дорожки + 300с сетка), реальные значения полей «Провайдеров» (`blockFieldValue`), ЛС heavy-modules OFF (`disable_dm_heavy_modules.py`, прод data-run 1 ЛС), «Роли» с аватаром+ником+мелким серым ID; каталог 400/90/372/mapped 88; тесты 5145 passed / 1 skipped; §31)
 - `admin-ui-round109` — **Раунд 10.9, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-109; T-1270…T-1314: PERMsoc owner-блоки + `flags.slavik_enabled`, сохранение скролла (`_preserveScroll`), переписанные описания/титулы, удаление «Тяжёлых фич», «Бюджет фона»→«Сводка», dashboard «Доступность ключей» (4 группы) + реальный health `probe_openai`, 7 `models.*_display_name`, `max-w-3xl`, градиент 14s/18s; каталог 400/90/372/mapped 88; тесты 5105; §30)
 - `admin-ui-round108` — **Раунд 10.8, 11.09.2026** (единственная фича, spec @Architect + tasks @PM, T-1243…: переименование разделов, emoji→Material-иконки (субсет 20→37, 18 388 B), фикс логов на Android, route-driven окна «Доступов», README; тесты 5076; §29; ADR-001-access-windows-modal + ADR-002-icon-subset-parity)
 - `admin-ui-bugfixes-round107` — **Раунд 10.7, 11.09.2026** (единственная фича, spec T-1224: UI/UX-багфиксы админ-минги — scope*-computed, safe-area шапки, компактный юзер-блок, ellipsis ключей, uptime gap-fill, clipboard-ghost, лог-колонки, copy-on-row, dead ICONS 26→20; тесты 5042; §28)
@@ -1271,7 +1398,7 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
 
-- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.53.0 (раунд 10.9); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
+- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.54.0 (раунд 10.10); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
 - **adminbot-sqlite-schema** — `users_meta` (стадии отношений), `smart_messages` (FTS5), `nodes/edges`, `graph_facts` (v1–v8), `dream_state`, `memory_dream_log` (бюджет суток), `nostalgia_log` и др. Миграция памяти sqlite→PG ЗАМОРОЖЕНА (04.09.2026). Вне скоупа раунда 10.
 - **hot-config-layer** — `services/hot_config.py::hot.get(pg_key, default)`; ConfigCache (`services/config_cache.py`) — in-memory над PG, R6 fail-open. Цепочка глобальная; **F-7 добавил per-chat слой `hot_chat` (chat_params → bot_settings → дефолт) параллельно — hot.get/ConfigCache не менялись**.
@@ -1377,6 +1504,20 @@ d2d1215 + f928225, тесты 5105, деплой 198.46.175.136 active/health 20
 APP_VERSION 2.53.0); остаётся ручной live Android smoke T-1277/1290/1292/1294/
 1302/1305 + опц. betterstack 401. ⚠️ Пункт 2 ТЗ (инфраструктура локального IDE
 владельца) — вне скоупа проекта.
+**милстоун `round10.10-epic`** (AdminBot → COMPLETED + DEPLOYED, 12.09.2026) —
+раунд 10.10 «UI/UX-правки админ-минги»: единственная фича `admin-ui-round1010`
+(spec @Architect + tasks @PM + ADR-1010-1/2/3; T-1315…T-1328) → COMPLETED + DEPLOYED
++ WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.10-epic + ARCHIVED_IN plans-structure;
+fullscreen safe-area padding шапки, мобильный график доступности ключей (окно от
+конца), реальные значения полей Провайдеров (`blockFieldValue`), ЛС heavy-modules
+OFF (`disable_dm_heavy_modules.py` + data-run 1 ЛС), «Роли» с аватаром+ником+мелким
+ID; каталог 400/90/372/mapped 88; ARCHITECTURE.md §31 (+§3/§9/§25); Scanner
+0 blocker/0 major/0 medium (low R10.10-1/-2/-3 + info R10.10-4/-5; техдолг —
+KG `tech-debt-round10.10`); plans/features/ — **6 активных** (F-1…F-6);
+plans/archive/ — **32 папки**; HEAD == origin/master == `772db08` (коммиты
+d082800 + a477747 + 772db08; тесты 5145 passed / 1 skipped / 0 failed; деплой
+198.46.175.136 active/health 200, 0 ошибок, APP_VERSION 2.54.0); остаётся ручной
+live Android QA T-1317/1320/1323/1332 + UI spot-check DM-тумблеров OFF T-1328.
 
 ## Факты для планирования (проект)
 
