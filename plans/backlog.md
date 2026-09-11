@@ -23,6 +23,11 @@ follow-ups закрыты); @Scanner — **CLEAN: 0 blocker / 0 major / 0 medium
 **T-1294** (бюджет в «Сводке»), **T-1302** (dashboard/health), **T-1305** (мобильный dashboard) —
 за владельцем/QA; статически покрыто (`tests/test_webapp_round109_ui.py`, JS-юниты).
 Пост-архивная фаза @DevOps (commit/push/deploy/live-smoke, **T-1309…T-1311**) — после архивации.
+**✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.9 (@DevOps, 12.09.2026):** commit `d2d1215`, push `51f308b..d2d1215`;
+прод `198.46.175.136:/var/www/admin_bot` `git pull --ff-only` `31d2ce7..d2d1215` (fast-forward,
+`.env` не менялся — UI-only, новые env-ключи не требуются); `systemctl restart admin_bot` →
+**active (running)** (Main PID 1310051); `/api/health` → **200 `{"status":"ok"}`**; стартовые
+логи — **0 ERROR/Traceback**; README **5105**, `APP_VERSION` **2.53.0** (T-1307 закрыт).
 Ниже — исторический документ планирования эпика.
 
 **Фича:** `plans/archive/admin-ui-round109/` (изолированная папка; `tasks.md` создан 12.09.2026 @PM; архивирована 12.09.2026 @PM Step 8).

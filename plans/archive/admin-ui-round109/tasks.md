@@ -165,11 +165,11 @@
 
 ### 3.9 Финал: README / commit / push / deploy / report (T-1307…T-1311)
 
-- [ ] **T-1307 (@Builder/@PM):** README (ироничный тон): обновить шапку (**v2.53.0**, новый счётчик тестов), changelog раунда 10.9. Синхронно поднять `APP_VERSION` `config/settings.py:1069` → `2.53.0` (закрыть риск R10.8-5).
+- [x] **T-1307 (@Builder/@PM):** README (ироничный тон): обновить шапку (**v2.53.0**, новый счётчик тестов), changelog раунда 10.9. Синхронно поднять `APP_VERSION` `config/settings.py:1069` → `2.53.0` (закрыть риск R10.8-5).
 - [x] **T-1308 (@Builder):** Полный прогон: `pytest` (baseline 5076 + новые), `node --check web/app.js`, `node tests/js/routing_test.js`, `git diff --check`.
-- [ ] **T-1309 (@DevOps):** Русский conventional-commit, `git push`.
-- [ ] **T-1310 (@DevOps):** Деплой: `git pull --ff-only`, `systemctl restart admin_bot`; `/api/health` = 200, 0 ERROR/Traceback.
-- [ ] **T-1311 (@PM):** Plain-language отчёт владельцу (что изменилось, что стало лучше, что осталось).
+- [x] **T-1309 (@DevOps):** Русский conventional-commit, `git push`.
+- [x] **T-1310 (@DevOps):** Деплой: `git pull --ff-only`, `systemctl restart admin_bot`; `/api/health` = 200, 0 ERROR/Traceback.
+- [x] **T-1311 (@PM):** Plain-language отчёт владельцу (что изменилось, что стало лучше, что осталось).
 
 ---
 
@@ -316,3 +316,13 @@ clean. Ссылок на инфраструктуру IDE в коде/теста
 ---
 
 *План создан @PM 12.09.2026 (Step 1). Код не писался. **Пункт 2 (инфраструктура IDE) — вне скоупа проекта:** инструмент локального IDE владельца, не часть бота. Передача @Architect (дизайн п.1/п.7) и @Builder (реализация).*
+
+---
+
+## 11. Пост-архивная фаза @DevOps — commit/push/deploy (12.09.2026)
+
+- **T-1307 (README + версия) — ✅ ВЫПОЛНЕНО @DevOps:** README обновлён под 10.9 (шапка **v2.53.0**, счётчик **5105**, изменён changelog раунда 10.9: PERMsoc по владельцам, скролл без прыжков, plain-language описания, удаление «Тяжёлых фич», перенос «Бюджета фона» в «Сводку», «Доступность ключей» по функциям с реальным Health, «Название модели», ускоренный градиент). `APP_VERSION` `2.52.0`→**`2.53.0`** (`config/settings.py`); `test_app_version_matches_readme` зелёный; тест `test_index_version_query_param` синхронно обновлён на `?v=2.53.0`. Ссылок на инфраструктурный инструмент IDE вне скоупа в репозитории нет (в т.ч. вычищены из планов/отчётов раунда).
+- **T-1309 (commit/push) — ✅ ВЫПОЛНЕНО:** commit **`d2d1215`** («feat(admin,web,plans): раунд 10.9 — PERMsoc-блоки, сохранение скролла, описания, доступность ключей по функциям, display-name, градиент (тесты 5105)»), push `51f308b..d2d1215` (origin/master).
+- **T-1310 (деплой) — ✅ ВЫПОЛНЕНО:** прод `198.46.175.136:/var/www/admin_bot`: `git pull --ff-only` → `31d2ce7..d2d1215` (fast-forward, без конфликтов); `.env` не менялся (7 display-name-параметров — PG/каталог, `SLAVIK_ENABLED` — код-дефолт `True`; новые env-ключи не требуются — проверено grep'ом по `.env`); `sudo systemctl restart admin_bot` → rc=0; `systemctl is-active admin_bot` → **active (running)** (Main PID 1310051); `/api/health` → **200 `{"status":"ok"}`**; стартовые логи (`journalctl -u admin_bot -n 200`) — **0 ERROR/Traceback**. Полный pytest перед коммитом — **5105 passed / 0 failed** (60.93s).
+- **T-1311 (plain-language отчёт) — ✅ ВЫПОЛНЕНО** в сообщении @DevOps владельцу.
+- **Осталось за владельцем/QA (live-верификация на реальном Android):** T-1277, T-1290, T-1292, T-1294, T-1302, T-1305 — реальное устройство/Telegram в среде агентов недоступно.
