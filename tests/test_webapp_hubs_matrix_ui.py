@@ -11,8 +11,8 @@ _HTML = open("web/index.html", encoding="utf-8").read()
 class TestNavbarAndHubs:
     def test_six_nav_items(self):
         assert "var NAV_ITEMS = [" in _JS
-        for label in ("Статус", "Как это работает", "Модули", "Настройки AI",
-                      "Функции PERMsoc", "Доступы и Роли"):
+        for label in ("Статус", "Справка", "Модули", "ИИ",
+                      "PERMsoc", "Доступы"):
             assert label in _JS, label
         assert "navTo(n.route)" in _HTML
         assert "activeNav === n.id" in _HTML

@@ -3,6 +3,35 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.8 scan (2026-09-11) — all scanned
+- [x] web/app.js (labels TABS/NAV/HUBS; ICONS 20→37 (17 new, 6 dead из 10.7 не вернулись);
+      applyRoute accessOpen-нормализация; openAccessWindow/closeAccessWindow (−setAccess);
+      setTab cleanup copiedTimer/copiedIndex; fmtLogTime DD.MM HH:MM:SS)
+- [x] web/index.html (заголовки разделов; emoji→Material (§2.2); логи: div.log-code/.log-row/
+      .log-head/.log-msg без жёстких ширин и break-all, toggle chevron/spacer; «Доступы»:
+      3 modal-backdrop + плитки, `sec-*` целы; удалён внешний GLOBAL-бейдж)
+- [x] scripts/build_font_subset.py (ICON_NAMES 37; `_marker_key` sha(src|names);
+      `_write_icon_codepoints` → build/icon_codepoints.json)
+- [x] web/static/fonts/material-symbols-rounded.woff2 (субсет 18 388 B, cmap 37/37)
+- [x] README.md (структура: «самое важное», управление+деплой, changelog под `<details>`,
+      шапка v2.52.0/5073)
+- [x] tests/test_webapp_round108_ui.py (NEW: renames/emoji/badge/logs/access-windows)
+- [x] tests/test_font_subset.py (паритет ICONS↔ICON_NAMES + cmap через fontTools; Test C/D)
+- [x] tests/test_webapp_tma_fixes_ui.py, test_webapp_round107_ui.py (логи: блок-раскладка,
+      toggle-иконка, отсутствие жёстких ширин)
+- [x] tests/test_frontend_tab_mapping.py, test_round106_ia_smoke.py (access windows)
+- [x] tests/test_webapp_hubs_matrix_ui.py, test_webapp_parity_smoke.py (новые лейблы)
+- [x] tests/test_webapp_key_availability_ui.py (sec-roles/sec-matrix вместо слайсинга)
+- [x] tests/test_webapp_back_button.py (openAccessWindow/closeAccessWindow/ROUTE_PARENT)
+- [x] tests/test_webapp_nav_disclosure_ui.py (⚙️→iconGlyph('settings')), test_webapp_avatars_ui.py (✕==4)
+- [x] tests/js/routing_test.js (applyRoute #/access/roles→'roles', #/ai→null; fmtLogTime дата)
+- [x] plans/features/admin-ui-round108/ (spec.md, tasks.md, ADR-001, ADR-002)
+- [x] plans/backlog.md, plans/reports/round10.8_scanner_audit.md (итог: 0 блокеров/0 major,
+      2 minor R10.8-1 Esc / R10.8-5 APP_VERSION=2.51.0 vs README v2.52.0 + кэш старого
+      субсета `.woff2` (max-age 86400, URL не версионирован) → tofu; 3 info; R10.7-3/R10.7-4 закрыты)
+- Открыто (НЕ 10.8, кандидаты 10.9): R10.7-1/-2 (`services/status_service.py`),
+  R10.6-1 (дубль generic-рендера `llm_providers`), R10.6-2/-3 (SSRF/422-эхо `api_key`).
+
 ## Round 10.7 scan (2026-09-11) — all scanned
 - [x] web/app.js (scope* → computed 6 шт; ICONS −6 мёртвых; fmtLogTime; copyText
       finally-remove + preventScroll + boolean execCommand; copyLogRow + copiedIndex;

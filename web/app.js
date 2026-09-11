@@ -1,7 +1,7 @@
 /* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.
  * Vue 3 Options API (global build), zero-build. Все запросы — через api()
  * с заголовком X-Telegram-Init-Data (84.6). 401 → сессия устарела;
- * 403 → запрет. Вкладки «Статус» и «Как это работает» видны ВСЕГДА.
+ * 403 → запрет. Вкладки «Статус» и «Справка» видны ВСЕГДА.
  *
  * Эпик 04.09.2026 (3.5.1): конфиг-вкладки декларативны и повторяют серверный
  * контракт TAB_RULES (services/param_catalog.py): id вкладок — TAB_*,
@@ -40,7 +40,7 @@
             'models_extra_providers', 'models_video_summary',
             'keys_search', 'keys_media'] },
       ] },
-    { id: 'prompts', icon: '🧠', label: 'Промпты', type: 'config', menu: 'ai',
+    { id: 'prompts', icon: 'description', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
         { category: 'prompts', groups: null },
       ] },
@@ -153,7 +153,7 @@
       ] },
     // Раунд 10.6 (A2/T-1181): PERMsoc — только простые per-chat функции
     // (13 reactions + 3 flags + 5 limits); 10 миселённых ключей → М5/М6/М7.
-    { id: 'permsoc', icon: 'admin_panel_settings', label: 'Функции PERMsoc',
+    { id: 'permsoc', icon: 'admin_panel_settings', label: 'PERMsoc',
       type: 'config', menu: 'permsoc',
       sources: [
         { category: 'reactions', groups: [
@@ -168,7 +168,7 @@
             'limits_alan', 'limits_kostik', 'limits_media_permsoc',
             'limits_mimic', 'limits_deadpage'] },
       ] },
-    { id: 'access', icon: 'supervisor_account', label: 'Доступы и Роли',
+    { id: 'access', icon: 'supervisor_account', label: 'Доступы',
       type: 'access', categories: ['access'], menu: 'access' },
     // Раунд 7 (chat-lore-management-v2, spec §3.10/E2): «Лор чатов» — НЕ
     // config-вкладка: свой рендер (index.html) и своя ветка видимости
@@ -181,12 +181,12 @@
         { category: 'limits', groups: ['limits_lore'] },
         { category: 'flags', groups: ['flags_lore'] },
       ] },
-    { id: 'status', icon: '📊', label: 'Статус', type: 'status', always: true,
+    { id: 'status', icon: 'monitoring', label: 'Статус', type: 'status', always: true,
       menu: 'home' },
-    { id: 'info', icon: 'help', label: 'Как это работает', type: 'info',
+    { id: 'info', icon: 'help', label: 'Справка', type: 'info',
       always: true, menu: 'home' },
     // Раунд 10 (F-12): точка интеграции Oversight (только global admin).
-    { id: 'oversight', icon: '🛰️', label: 'Oversight', type: 'oversight',
+    { id: 'oversight', icon: 'radar', label: 'Сводка', type: 'oversight',
       menu: 'home' },
   ];
 
@@ -203,28 +203,46 @@
 
   // ═══ Material Symbols Rounded — PUA-карта (T-1147/§15.4.4) ═══
   // Субсет без лигатур ⟹ рендер кодпоинтом (ICONS[name] → символ PUA),
-  // НЕ текстовым именем. 20 иконок (10.7: удалены 6 мёртвых ключей).
+  // НЕ текстовым именем. 37 иконок (10.8: +17 новых; паритет с ICON_NAMES,
+  // источник — build/icon_codepoints.json, ADR-002).
   var ICONS = {
     admin_panel_settings: '\uef3d',
     auto_stories: '\ue666',
     badge: '\uea67',
     bedtime: '\ue1f9',
     bolt: '\uea0b',
+    chevron_right: '\ue409',
     cloud: '\ue2bd',
+    delete: '\ue872',
     description: '\ue873',
+    dns: '\ue875',
+    edit_note: '\ue745',
+    expand_more: '\ue5cf',
     extension: '\ue87b',
     grid_view: '\ue9b0',
     group: '\ue7ef',
     help: '\ue887',
     history: '\ue28e',
+    key: '\ue73c',
     manage_accounts: '\uf02e',
     memory: '\ue322',
     monitoring: '\uf190',
+    play_arrow: '\ue037',
     play_circle: '\ue038',
+    psychology: '\uea4a',
     radar: '\uf04e',
+    receipt_long: '\uef6e',
     restart_alt: '\uf053',
+    save: '\ue161',
+    settings: '\ue8b8',
+    shield: '\ue75b',
     smart_toy: '\uf06c',
+    stop: '\ue047',
     supervisor_account: '\ue1df',
+    swap_horiz: '\ue8d4',
+    trending_up: '\ue8e5',
+    visibility: '\ue417',
+    visibility_off: '\ue8f5',
   };
   // tab.id → Material-имя (рендер через tabMat(); fallback — emoji TABS.icon).
   var TAB_ICON = {
@@ -245,12 +263,12 @@
   // Навигация только через hash (openTab/navigateTo), не vue-router.
   var NAV_ITEMS = [
     { id: 'status', label: 'Статус', route: '#/', icon: 'monitoring' },
-    { id: 'how', label: 'Как это работает', route: '#/how', icon: 'help' },
+    { id: 'how', label: 'Справка', route: '#/how', icon: 'help' },
     { id: 'modules', label: 'Модули', route: '#/modules', icon: 'extension' },
-    { id: 'ai', label: 'Настройки AI', route: '#/ai', icon: 'smart_toy' },
-    { id: 'permsoc', label: 'Функции PERMsoc', route: '#/permsoc',
+    { id: 'ai', label: 'ИИ', route: '#/ai', icon: 'smart_toy' },
+    { id: 'permsoc', label: 'PERMsoc', route: '#/permsoc',
       icon: 'admin_panel_settings' },
-    { id: 'access', label: 'Доступы и Роли', route: '#/access',
+    { id: 'access', label: 'Доступы', route: '#/access',
       icon: 'supervisor_account' },
   ];
 
@@ -259,7 +277,7 @@
   // Раунд 10.6 (A2): «Модули» — НЕ hub, а список-витрина 11 модулей.
   var HUBS = {
     '#/ai': {
-      title: 'Настройки AI',
+      title: 'ИИ',
       subtitle: 'Провайдеры, промпты, память, кэш, имена и отношения',
       cards: [
         { icon: 'smart_toy', title: 'LLM Провайдеры',
@@ -286,18 +304,18 @@
       ],
     },
     '#/access': {
-      title: 'Доступы и Роли',
-      subtitle: 'Матрица ролей, локальные админы, администраторы',
+      title: 'Доступы',
+      subtitle: 'Матрица ролей, локальные админы, роли',
       cards: [
         { icon: 'admin_panel_settings', title: 'Матрица ролей',
           subtitle: 'Права на параметры: чтение и запись',
-          route: '#/access/roles', tab: 'access', section: 'sec-matrix' },
+          route: '#/access/roles', tab: 'access' },
         { icon: 'group', title: 'Локальные админы',
           subtitle: 'Администраторы активного чата',
-          route: '#/access/local', tab: 'access', section: 'sec-local' },
-        { icon: 'supervisor_account', title: 'Администраторы',
+          route: '#/access/local', tab: 'access' },
+        { icon: 'supervisor_account', title: 'Роли',
           subtitle: 'Суперадмины, модераторы, пользователи',
-          route: '#/access/admins', tab: 'access', section: 'sec-admins' },
+          route: '#/access/admins', tab: 'access' },
       ],
     },
   };
@@ -599,7 +617,7 @@
         activeChatId: null,
         accessChats: [],              // GET /api/access/chats (селектор F-11)
         accessMy: null,               // GET /api/access/me
-        // A9/T-1206: «Доступы и Роли» — эксклюзивный аккордеон (один открыт).
+        // A9/T-1206/10.8: «Доступы» — id открытого окна подраздела (route-driven).
         accessOpen: null,             // null | 'roles' | 'local' | 'admins'
         activeChatTitle: 'Весь бот',  // индикатор активного скоупа в шапке
         // T-1127/§15.1.1: явный вид скоупа + epoch — токен отбрасывания
@@ -630,7 +648,7 @@
         ownKeyDraft: '',
         ownKeySaving: false,
         keyStatusOwn: null,           // GET /api/config/keys/status
-        // «Доступы и Роли» (F-7 T-857): локальные админы активного чата
+        // «Доступы» (F-7 T-857): локальные админы активного чата
         chatLocalAdmins: [],
         chatLocalAdminsBusy: false,
         newLocalAdminId: '',
@@ -873,7 +891,7 @@
           || this.chatLoreSaving || this.chatLoreGenerating;
       },
       // F4 (84.14.5): только доступные вкладки;
-      // «Статус» и «Как это работает» — всегда (RBAC-исключения).
+      // «Статус» и «Справка» — всегда (RBAC-исключения).
       visibleTabs: function () {
         var self = this;
         return this.tabs.filter(function (tab) {
@@ -1000,11 +1018,12 @@
         _appVm.applyRoute(normalizeRoute(window.location.hash) || '#/');
       };
       window.addEventListener('hashchange', _onHashChange);
-      // MODERATE-2: глобальный Esc закрывает модалку модуля (фокус может
-      // быть не внутри модалки — keydown на карточке недостаточно).
+      // MODERATE-2 + 10.8 (R10.8-1): глобальный Esc закрывает модалку модуля
+      // И route-driven окна «Доступов» (фокус может быть вне модалки —
+      // keydown на карточке недостаточно; закрытие окна = hash → #/access).
       _onKeydown = function (e) {
-        if (e.key === 'Escape' && _appVm && _appVm.openModuleId != null) {
-          _appVm.closeModule();
+        if (e.key === 'Escape' && _appVm) {
+          _appVm.escClose();
         }
       };
       window.addEventListener('keydown', _onKeydown);
@@ -1519,7 +1538,7 @@
         }
       },
 
-      // ═══ «Доступы и Роли» (F-7 T-857): локальные админы активного чата ═══
+      // ═══ «Доступы» (F-7 T-857): локальные админы активного чата ═══
       loadLocalAdmins: async function () {
         if (this.activeChatId == null) {
           this.chatLocalAdmins = [];
@@ -1642,7 +1661,7 @@
         return who[feature] || 'global';
       },
       // BUG-3 (spec §10 A/C): мастер-флаг PERMsoc (перчат-гейт) для
-      // карточек «Модули» + вкладки «Функции PERMsoc».
+      // карточек «Модули» + вкладки «PERMsoc».
       permsocMasterOn: function () {
         var g = this.gateInfo && this.gateInfo.gates;
         return !!(g && g.permsoc);
@@ -1848,13 +1867,10 @@
         this.route = route;
         _routeApplied = true;
         try { sessionStorage.setItem('adminbot.route', route); } catch (e) { /* quota */ }
-        // A9/T-1206: deep-link «Доступы» синхронизирует единственную
-        // открытую секцию аккордеона; `#/access` (hub) — все закрыты.
-        if (route.indexOf('#/access/') === 0) {
-          this.accessOpen = route.substring('#/access/'.length);
-        } else if (route === '#/access') {
-          this.accessOpen = null;
-        }
+        // 10.8/ADR-001: окно подраздела «Доступов» — производная от hash;
+        // любой не-`#/access/*` маршрут обнуляет состояние (нет stale-окна).
+        this.accessOpen = route.indexOf('#/access/') === 0
+          ? route.substring('#/access/'.length) : null;
         var found = this.tabs.find(function (t) { return t.id === tabId; });
         if (tabId && tabId !== this.activeTab) this.setTab(tabId);
         this.syncBackButton();
@@ -1881,9 +1897,25 @@
       navTo: function (route) {
         this.navigateTo(route);
       },
-      // A9/T-1206: эксклюзивный аккордеон «Доступы и роли» (один открыт).
-      setAccess: function (id) {
-        this.accessOpen = (this.accessOpen === id) ? null : id;
+      // A9/T-1206 + 10.8/ADR-001: «Доступы» — route-driven окна подразделов
+      // (hash `#/access/<id>`; состояние окна — производная applyRoute).
+      openAccessWindow: function (id) {
+        if (!id) return;
+        if (!this.canViewTab('access')) {
+          this.toast('Нет доступа к разделу', 'warn');
+          return;
+        }
+        this.navigateTo('#/access/' + id);
+      },
+      closeAccessWindow: function () {
+        this.navigateTo('#/access');
+      },
+      // 10.8 (R10.8-1): Esc закрывает верхнюю модалку — окно модуля (если
+      // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
+      // keydown ради юнит-тестируемости.
+      escClose: function () {
+        if (this.openModuleId != null) { this.closeModule(); return; }
+        if (this.accessOpen != null) { this.closeAccessWindow(); }
       },
       isAccessOpen: function (id) {
         return this.accessOpen === id;
@@ -2171,6 +2203,11 @@
 
       setTab: function (id) {
         var self = this;
+        // R10.7-3: смена вкладки отменяет отложенный сброс подсветки
+        // скопированной строки лога (иначе таймер 800 мс «протекает»).
+        if (this.copiedTimer) clearTimeout(this.copiedTimer);
+        this.copiedTimer = null;
+        this.copiedIndex = null;
         var prevTab = this.activeTab;
         this.activeTab = id;
         // Ревью-фикс раунда (кросс-чатовая запись отношений): уход с
@@ -3280,14 +3317,18 @@
         if (isNaN(d.getTime())) return String(ts).slice(0, 19).replace('T', ' ');
         return d.toLocaleString('ru-RU', { hour12: false });
       },
-      // 10.7 (3b): компактное время HH:MM:SS для фикс-колонки логов
-      // (полная дата остаётся в :title через fmtLogTs).
+      // 10.8 (3b): компактные ДАТА+ВРЕМЯ «DD.MM HH:MM:SS» — дата снова видна
+      // на тач-устройствах, где :title (fmtLogTs) недоступен без hover.
       fmtLogTime: function (ts) {
         if (!ts) return '';
         var d = new Date(ts);
-        if (isNaN(d.getTime())) return String(ts).slice(11, 19);
+        if (isNaN(d.getTime())) {
+          return String(ts).slice(0, 19).replace('T', ' ');
+        }
         var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + ' '
+          + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':'
+          + pad(d.getSeconds());
       },
       // Раунд 9: формат unix-секунд (users_meta/graph_facts/logs в секундах)
       fmtTs: function (ts) {
@@ -3401,7 +3442,7 @@
         }, 1000);
       },
 
-      // ═══ Как это работает (84.13) ═══
+      // ═══ Справка (84.13) ═══
       loadInfo: async function () {
         this.infoLoading = true;
         try {

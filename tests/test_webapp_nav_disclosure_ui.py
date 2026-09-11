@@ -235,7 +235,9 @@ class TestRound104ReviewFixes:
         """Ревью-фикс (F): advanced-аккордеон в «Настройках отношений» —
         D-канон (expandOpen(activeTab)); autoload-ветка setTab."""
         html = _html()
-        body = html[html.index("⚙️ Настройки отношений"):]
+        # 10.8 (§2): emoji ⚙️ заменён Material-иконкой settings.
+        assert "iconGlyph('settings')" in html
+        body = html[html.index("Настройки отношений"):]
         assert '<details class="advanced mt-4"' in body
         assert "expandOpen(activeTab)" in body
         js = _js()

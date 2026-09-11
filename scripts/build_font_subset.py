@@ -3,10 +3,10 @@
 
 Идемпотентно и ОФФЛАЙН: из тяжёлого исходника Material Symbols Rounded
 (``MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2``, ~5.11 МиБ в корне)
-собирает лёгкий субсет (~единицы-десятки КБ) с 26 нужными иконками.
+собирает лёгкий субсет (~единицы-десятки КБ) с нужными иконками (37 в 10.8).
 
 Пайплайн (design-project.md §15.4.1):
-  1. PUA-кодпоинты 26 иконок выводятся из самого шрифта (GSUB-лигатуры ->
+  1. PUA-кодпоинты иконок выводятся из самого шрифта (GSUB-лигатуры ->
      reverse-cmap), без сети и без ``.codepoints``.
   2. ``fontTools.varLib.instancer``: pin GRAD=0, opsz=24; оставить FILL
      переменной (для ``is-active``), wght — переменной.
@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -42,15 +43,19 @@ OUT_WOFF2 = ROOT / "web" / "static" / "fonts" / "material-symbols-rounded.woff2"
 OUT_LICENSE = ROOT / "web" / "static" / "fonts" / "LICENSE-material-symbols.txt"
 BUILD_DIR = ROOT / "build"
 
-# 26 иконок мини-аппа (design-project.md §5.4).
+# Иконки мини-аппа (design-project.md §5.4; раунд 10.8 §2.2/§3.2).
+# Паритет: множество имён ОБЯЗАНО совпадать с ключами `var ICONS` в web/app.js
+# (ADR-002, тест test_font_subset). 20 базовых + 17 новых 10.8 = 37.
 ICON_NAMES: tuple[str, ...] = (
-    "account_balance_wallet", "admin_panel_settings", "auto_stories", "badge",
-    "bedtime", "bolt", "cloud", "description", "extension", "grid_view",
-    "group", "help", "history", "manage_accounts", "memory", "monitoring",
-    "play_circle", "radar", "restart_alt", "smart_toy", "speed",
-    "stop_circle", "supervisor_account", "theater_comedy", "toggle_off",
-    "toggle_on",
+    "admin_panel_settings", "auto_stories", "badge", "bedtime", "bolt",
+    "chevron_right", "cloud", "delete", "description", "dns", "edit_note",
+    "expand_more", "extension", "grid_view", "group", "help", "history",
+    "key", "manage_accounts", "memory", "monitoring", "play_arrow",
+    "play_circle", "psychology", "radar", "receipt_long", "restart_alt",
+    "save", "settings", "shield", "smart_toy", "stop", "supervisor_account",
+    "swap_horiz", "trending_up", "visibility", "visibility_off",
 )
+ICON_CODEPOINTS_JSON = BUILD_DIR / "icon_codepoints.json"
 
 LICENSE_TEXT = """Material Symbols Rounded
 Copyright 2024 Google LLC
@@ -119,6 +124,24 @@ def derive_pua_codepoints(source: Path) -> dict[str, int]:
     return result
 
 
+def _marker_key(src_sha: str) -> str:
+    """Ключ идемпотентности: sha исходника + список ICON_NAMES.
+
+    Правка ICON_NAMES НЕ меняет sha исходника — без учёта списка скрипт
+    ошибочно считал бы субсет актуальным и не пересобирал новые глифы
+    (spec 10.8 §2.4, ADR-002 п.3)."""
+    payload = src_sha + "|" + ",".join(ICON_NAMES)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _write_icon_codepoints(codepoints: dict[str, int]) -> None:
+    """build/icon_codepoints.json: {name: 'U+XXXX'} (сортировка по имени)."""
+    data = {name: f"U+{codepoints[name]:04X}" for name in sorted(codepoints)}
+    ICON_CODEPOINTS_JSON.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"[font] codepoints -> {ICON_CODEPOINTS_JSON}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Material Symbols subset builder")
     parser.add_argument("--source", type=Path, default=None)
@@ -129,15 +152,20 @@ def main() -> int:
     src_sha = hashlib.sha256(src_bytes).hexdigest()
     print(f"[font] source: {source} ({len(src_bytes)} B, sha256={src_sha[:12]}…)")
 
-    if OUT_WOFF2.exists():
-        marker = BUILD_DIR / "font_source.sha256"
-        if marker.exists() and marker.read_text().strip() == src_sha:
-            print(f"[font] up-to-date subset already built: {OUT_WOFF2}")
-            _write_license()
-            return 0
+    marker_key = _marker_key(src_sha)
+    marker = BUILD_DIR / "font_source.sha256"
+    if (OUT_WOFF2.exists() and marker.exists()
+            and marker.read_text().strip() == marker_key):
+        print(f"[font] up-to-date subset already built: {OUT_WOFF2}")
+        if not ICON_CODEPOINTS_JSON.exists():
+            BUILD_DIR.mkdir(parents=True, exist_ok=True)
+            _write_icon_codepoints(derive_pua_codepoints(source))
+        _write_license()
+        return 0
 
     codepoints = derive_pua_codepoints(source)
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
+    _write_icon_codepoints(codepoints)
     unicodes_file = BUILD_DIR / "subset_unicodes.txt"
     unicodes_file.write_text(
         "\n".join(f"U+{cp:04X}" for cp in sorted(codepoints.values())),
@@ -170,7 +198,7 @@ def main() -> int:
         raise SystemExit(f"fontTools.subset вернул код {rc}")
     _write_license()
     marker = BUILD_DIR / "font_source.sha256"
-    marker.write_text(src_sha, encoding="utf-8")
+    marker.write_text(marker_key, encoding="utf-8")
     size = OUT_WOFF2.stat().st_size if OUT_WOFF2.exists() else -1
     print(f"[font] subset built: {OUT_WOFF2} ({size} B)")
     return 0

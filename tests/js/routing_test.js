@@ -244,6 +244,60 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
   assert.strictEqual(ctx.route, '#/modules', 'MINOR-1: #/ai/sleep → #/modules');
 })();
 
+// ── 10.8 (§4, ADR-001): окно «Доступов» — производная hash ──────────────
+(function () {
+  const ctx = {
+    route: '#/', me: { role_name: 'admin' },
+    canViewTab() { return true; },
+    activeTab: 'status', accessOpen: null,
+    tabs: captured.data().tabs,
+    syncBackButton() {}, setTab(id) { this.activeTab = id; },
+  };
+  methods.applyRoute.call(ctx, '#/access/roles');
+  assert.strictEqual(ctx.accessOpen, 'roles',
+    '10.8: #/access/roles → окно roles');
+  methods.applyRoute.call(ctx, '#/ai');
+  assert.strictEqual(ctx.accessOpen, null,
+    '10.8: уход на другой раздел обнуляет accessOpen');
+})();
+
+// ── 10.8 (§3b): fmtLogTime возвращает дату+время DD.MM HH:MM:SS ──────────
+(function () {
+  const out = methods.fmtLogTime.call({}, new Date(2026, 8, 11, 14, 32, 7).getTime());
+  assert.strictEqual(out, '11.09 14:32:07',
+    '10.8: fmtLogTime = DD.MM HH:MM:SS, got ' + out);
+})();
+
+// ── 10.8 (R10.8-1): Esc закрывает окно «Доступов» ───────────────────────
+(function () {
+  let closed = 0;
+  const ctx = {
+    openModuleId: null,
+    accessOpen: 'roles',
+    closeModule() { throw new Error('модуль закрывать не нужно'); },
+    closeAccessWindow() { closed += 1; this.accessOpen = null; },
+  };
+  methods.escClose.call(ctx);
+  assert.strictEqual(closed, 1, '10.8: Esc закрывает access-окно');
+  assert.strictEqual(ctx.accessOpen, null, '10.8: accessOpen сброшен');
+
+  // Окно модуля приоритетнее окна «Доступов».
+  const ctx2 = {
+    openModuleId: 'mod_sleep', accessOpen: 'roles',
+    closeModule() { this.openModuleId = null; },
+    closeAccessWindow() { throw new Error('access не трогаем при модуле'); },
+  };
+  methods.escClose.call(ctx2);
+  assert.strictEqual(ctx2.openModuleId, null,
+    '10.8: Esc сначала закрывает модуль');
+
+  // Ничего не открыто — no-op.
+  const ctx3 = { openModuleId: null, accessOpen: null,
+    closeModule() { throw new Error('no-op'); },
+    closeAccessWindow() { throw new Error('no-op'); } };
+  methods.escClose.call(ctx3);
+})();
+
 // ── MODERATE-2: closeModule сбрасывает openModuleId ──────────────────────
 (function () {
   const ctx = { openModuleId: 'mod_sleep' };

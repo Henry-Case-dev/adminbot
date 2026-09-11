@@ -401,14 +401,15 @@ class TestAvatarFrontAudit:
         assert 'v-if="resolveRelationName(u)"' in html
 
     def test_close_and_fullscreen_buttons(self):
-        """F-13 (AC-2): ✕ в index.html — РОВНО 1 (мобильный сайдбар,
-        @click sidebarOpen = false); @click closeApp() отсутствует;
-        ⛶ (toggleFullscreen) на месте."""
+        """F-13 (AC-2) + 10.8 (§4): ✕-кнопки закрытия модалок — окно модуля
+        (1) + три окна «Доступов» (roles/local/admins); @click closeApp()
+        отсутствует; ⛶ (toggleFullscreen) на месте."""
         html = _Static.read("web/index.html")
         assert "@click=\"closeApp()\"" not in html
         assert "@click=\"toggleFullscreen()\"" in html
         assert ">✕</button>" in html
-        assert html.count(">✕</button>") == 1
+        # 10.8: 4 модальных ✕ (модуль + roles/local/admins «Доступов»).
+        assert html.count(">✕</button>") == 4
         assert ">⛶</button>" in html
 
     def test_sticky_header_class(self):

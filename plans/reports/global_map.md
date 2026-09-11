@@ -1,8 +1,8 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
-> HEAD == be7b85b (10.5 docs) + рабочее дерево 10.6 (tma-ia-modules-rework, 2026-09-11).
-> origin/master == 918f675/0bdf272 (10.5 deployed; 10.6 — не задеплоен, сканирование).
+> HEAD == 636a75d (10.7 docs) + рабочее дерево 10.8 (admin-ui-round108, 2026-09-11).
+> origin/master == 2ccf558/7f3b790 (10.7 deployed; 10.8 — не задеплоен, сканирование).
 
 ## Stack
 - **aiogram 3.31** (polling) + **FastAPI** webapp (`web/app.py`) + **asyncpg** (PG) + **aiosqlite** (memory v8). APP_VERSION=2.51.0.
@@ -98,7 +98,8 @@
 - `web/index.html` + `web/app.js` - SPA, no build step
 - API routes: `web/api/` (access, chat_lore, avatars, oversight, config, admins, roles, params, permissions, keys, usage, status, logs, direct_chat, relations, workers, system)
 - Chat selector: GET `/api/access/chats` + `X-Chat-Id` header
-- 5 menu sections + modules_feats + tabs: PERMsoc/Промпты/Лимиты/LLM/Память-RAG/Реакции-Триггеры/Доступы/Лор/Статус/Как это работает
+- 6 пунктов навигации (10.8): Статус / Справка / Модули / ИИ / PERMsoc / Доступы
+  (+ хаб «Доступы»: подразделы Матрица ролей / Локальные админы / Роли — route-driven модалки)
 
 ### Deploy
 - `deploy_v2.9.2.py` - prod deploy (DDL + backfills)
@@ -399,3 +400,45 @@ bot.py
   3 info: R10.7-2 `[-288:]` может отсечь единственный ранний `up`; R10.7-3 `copiedTimer`
   не чистится при смене вкладки; R10.7-4 `test_font_subset` не сверяет cmap WOFF2).
   R10.6-5 закрыт; R10.6-1/2/3 открыты (кандидаты 10.8).
+
+## Round 10.8 map additions (admin-ui-round108, HEAD 636a75d + working tree)
+
+- **Имена разделов (видимые подписи, route-ключи НЕ менялись)**: `NAV_ITEMS`/`TABS`/`HUBS`
+  (`#/how`→«Справка», `#/ai`→«ИИ», `#/permsoc`→«PERMsoc», `#/access`→«Доступы»,
+  `#/oversight`→«Сводка»); каталог-группа `flags_permsoc` («Функции PERMsoc: рубильники»)
+  НЕ переименована.
+- **Иконки/субсет (ADR-002)**: `web/app.js ICONS` **37** (20 базовых + 17 новых 10.8;
+  6 мёртвых 10.7 удалены) == `scripts/build_font_subset.py ICON_NAMES` (37). PUA —
+  из GSUB reverse-cmap (`build/icon_codepoints.json`). Маркер идемпотентности =
+  `sha256(src_sha + "|" + ",".join(ICON_NAMES))` (`_marker_key`). Субсет
+  `web/static/fonts/material-symbols-rounded.woff2` 18 388 B, cmap = ровно 37 PUA-кодов.
+  `test_font_subset`: Test A (паритет), Test B (cmap через `fontTools`), C (нет
+  pictographic-emoji в `web/`), D (6 мёртвых имён) — **R10.7-4 закрыт**.
+- **Логи (`web/app.js`/`web/index.html`)**: блочная раскладка — `div.log-code` →
+  `div.log-row` → `div.log-head` (flex-wrap) + `div.log-msg` (width:100%, pre-wrap,
+  overflow-wrap:anywhere); жёсткие `.log-level{min-width:4.5rem}`/`.log-ts{width:8ch}`/
+  `.log-logger{max-width:8rem}` и Tailwind `break-all` удалены; toggle — Material
+  `chevron_right`/`expand_more` ТОЛЬКО при `log.exc_text` (иначе `log-toggle-spacer`),
+  `@click.stop`, `:aria-expanded`; `fmtLogTime` = `DD.MM HH:MM:SS` (`fmtLogTs` — `:title`);
+  `setTab` чистит `copiedTimer`/`copiedIndex` (**R10.7-3 закрыт**). Контракт `/api/logs`,
+  `logText`/`copyAllLogs`/ghost-fallback — без изменений.
+- **«Доступы» (ADR-001)**: `accessOpen ∈ {null,'roles','local','admins'}` — производная hash
+  в `applyRoute` (`route.indexOf('#/access/')===0 ? substring : null`; не-access маршрут
+  обнуляет → нет stale-окна). `openAccessWindow(id)`/`closeAccessWindow()` (`setAccess`
+  удалён), `isAccessOpen` сохранён. Разметка: 3 `hub-card`-плитки + 3 взаимоисключающих
+  `modal-backdrop` (роли/локальные/роли-назначения), id `sec-roles/sec-matrix/sec-local/
+  sec-admins` сохранены; `#/access` — hub-карточки без `section`; `ROUTE_PARENT`
+  `#/access/*`→`#/access` (BackButton/`goBack`), RBAC (`canViewTab`, `isGlobalAdmin`,
+  `canEditRole`) сохранён. «Администраторы»→«Роли».
+- **Шапка**: внешний дубль GLOBAL-бейджа удалён; `{{ scopeLabel }}` — ровно 1 раз внутри
+  trigger; computed `scopeLabel`/`isChatContext()` сохранены.
+- **README**: «Самое важное для пользователя» + «Управление и деплой» наверх; changelog
+  10.3–10.8 под единственным `<details>`; шапка v2.52.0 / 5073 / раунд 10.8.
+- **Находки 10.8**: `plans/reports/round10.8_scanner_audit.md` (0 блокеров/0 major;
+  2 minor: R10.8-1 Esc не закрывает access-окна при фокусе вне модалки; R10.8-5
+  `APP_VERSION`=2.51.0 vs README v2.52.0 (`/api/status`) + `@font-face`-URL не версионирован,
+  `.woff2` `max-age=86400` → старый субсет в кэше до 24 ч → tofu новых иконок; 3 info:
+  R10.8-2 stale-комментарий `section`/осиротевшая ветка `openHubCard`; R10.8-3 мёртвый
+  `TABS.icon`/`visibleTabs`/`tabMat` (pre-existing); R10.8-4 backlog-статус «ПЛАНИРОВАНИЕ»).
+- **Открыто** (кандидаты 10.9): R10.7-1/-2 (`services/status_service.py` gap-fill);
+  R10.6-1 (дубль generic-рендера `llm_providers`); R10.6-2/-3 (SSRF/422-эхо `api_key`).

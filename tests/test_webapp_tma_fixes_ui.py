@@ -20,13 +20,15 @@ class TestHeaderAndLogs:
         assert 'class="main-header ' in html
         assert "flex items-center gap-2" in html
 
-    def test_logs_pre_code_mono(self):
+    def test_logs_block_layout_mono(self):
         html = _html()
         assert "log-panel" in html
-        assert '<pre v-else class="log-code break-all"><code>' in html
+        # 10.8 (§3.2): блочный контейнер вместо <pre><code>break-all.
+        assert '<div v-else class="log-code">' in html
+        assert '<div class="log-head">' in html
         assert "ui-monospace" in html          # шрифт-маркер в CSS
         assert "pre-wrap" in html
-        assert "break-all" in html
+        assert "break-all" not in html
         assert "max-height: 320px" in html
 
     def test_log_row_click_copies(self):
@@ -41,12 +43,16 @@ class TestHeaderAndLogs:
         assert "log-row" in html
 
     def test_log_row_expander_separate(self):
-        """Hotfix-R10: разворачивание exc-трейса — отдельный компактный
-        глиф (log-toggle, @click.stop) — не конфликтует с copy-кликом."""
+        """Hotfix-R10 + 10.8 (§3.2): разворачивание exc-трейса — Material-
+        иконка (chevron_right/expand_more) с @click.stop; при отсутствии
+        exc_text рендерится неинтерактивный spacer."""
         html = _html()
         assert "log-toggle" in html
         assert '@click.stop="log.expanded = !log.expanded"' in html
         assert "log.exc_text" in html
+        assert "iconGlyph(log.expanded ? 'expand_more' : 'chevron_right')" in html
+        assert "log-toggle-spacer" in html
+        assert "▸" not in html
 
     def test_logs_autoscroll_to_top(self):
         """Hotfix-R10: сервер отдаёт НОВЫЕ СВЕРХУ (entries[-limit:][::-1]);

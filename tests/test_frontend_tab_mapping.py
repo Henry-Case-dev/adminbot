@@ -200,15 +200,28 @@ class TestJsMirror:
         assert "direct_main" in self.JS and "direct_fallback" in self.JS
         assert "video_summary_openrouter" in self.JS
 
-    def test_access_accordion(self):
+    def test_access_windows(self):
+        # 10.8 (§4, ADR-001): три подраздела — route-driven модальные окна.
         assert "accessOpen" in self.JS
-        assert "setAccess" in self.JS
-        assert 'class="acc-head"' in self.HTML
-        assert 'role="tabpanel"' in self.HTML
+        assert "openAccessWindow: function (id)" in self.JS
+        assert "closeAccessWindow: function ()" in self.JS
+        assert "setAccess" not in self.JS
+        assert 'class="modal-backdrop"' in self.HTML
+        assert 'class="acc-head"' not in self.HTML
+        assert 'role="tabpanel"' not in self.HTML
 
     def test_no_emoji_in_how_and_matrix(self):
         assert "ℹ️ Как это работает" not in self.HTML
         assert "🔐 Матрица ролей" not in self.HTML
+
+    def test_no_old_section_labels_in_web(self):
+        # 10.8 (§1/§9 grep-гейт): старые подписи разделов отсутствуют.
+        for old in ("label: 'Как это работает'", "label: 'Настройки AI'",
+                    "label: 'Функции PERMsoc'", "label: 'Доступы и Роли'",
+                    "label: 'Oversight'",
+                    "«Как это работает»", "«Функции PERMsoc»"):
+            assert old not in self.JS, old
+            assert old not in self.HTML, old
 
     def test_removed_tabs_not_in_js(self):
         for old in ("limits", "memory_dream", "memory_nostalgia",

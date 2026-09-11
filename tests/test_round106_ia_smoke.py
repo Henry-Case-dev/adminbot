@@ -127,11 +127,15 @@ class TestA6A7A9:
         assert "iconGlyph('manage_accounts')" in HTML
         assert "iconGlyph('restart_alt')" in HTML
 
-    def test_exclusive_accordion(self):
+    def test_access_windows(self):
+        # 10.8 (§4, ADR-001): route-driven модалки вместо аккордеона.
         assert "accessOpen" in JS
-        assert "setAccess: function (id)" in JS
-        assert 'class="acc-head"' in HTML
-        assert 'role="tabpanel"' in HTML
+        assert "openAccessWindow: function (id)" in JS
+        assert "closeAccessWindow: function ()" in JS
+        assert "setAccess" not in JS
+        assert 'class="modal-backdrop"' in HTML
+        assert 'class="acc-head"' not in HTML
+        assert 'role="tabpanel"' not in HTML
         assert "isAccessOpen('roles')" in HTML
         assert "isAccessOpen('local')" in HTML
         assert "isAccessOpen('admins')" in HTML

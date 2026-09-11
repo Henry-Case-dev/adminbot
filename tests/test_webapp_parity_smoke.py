@@ -18,11 +18,11 @@ _ACCESS = open("web/api/access.py", encoding="utf-8").read()
 
 REFERENCE_SECTIONS = [
     ("status", "Статус"),
-    ("how", "Как это работает"),
+    ("how", "Справка"),
     ("modules", "Модули"),
-    ("ai", "Настройки AI"),
-    ("permsoc", "Функции PERMsoc"),
-    ("access", "Доступы и Роли"),
+    ("ai", "ИИ"),
+    ("permsoc", "PERMsoc"),
+    ("access", "Доступы"),
 ]
 
 
@@ -147,5 +147,6 @@ class TestNoOrphans:
 
     def test_oversight_extras_kept(self):
         # фичи, которых нет в эталоне, обязаны остаться (T-1090).
+        # 10.8 (§1): видимый заголовок «Сводка», route-ключ #/oversight цел.
         assert "'#/oversight'" in _JS
-        assert "Oversight" in _HTML
+        assert "Сводка" in _HTML

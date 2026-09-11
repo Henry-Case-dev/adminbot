@@ -1066,7 +1066,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.51.0"
+APP_VERSION = "2.52.0"
 
 
 def build_ytdlp_base_opts() -> dict:

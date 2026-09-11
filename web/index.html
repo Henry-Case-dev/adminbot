@@ -58,15 +58,18 @@
     @property --grad-angle { syntax: "<angle>"; inherits: false; initial-value: 135deg; }
 
     /* ═══ Material Symbols Rounded — self-host субсет (T-1147/§15.4) ═══
-       В git только субсет ~13 КБ; источник 5.11 МиБ — .gitignore (OD18).
+       В git только субсет ~18 КБ; источник 5.11 МиБ — .gitignore (OD18).
        Лигатур в субсете НЕТ ⟹ иконки рендерим PUA-кодпоинтом (ICONS в app.js),
-       unicode-range не объявляем (google/fonts#10599). */
+       unicode-range не объявляем (google/fonts#10599).
+       10.8 (R10.8-5): `?v=__APP_VERSION__` cache-bust — .woff2 отдаётся с
+       max-age=86400, поэтому при пересборке субсета клиент обязан запросить
+       новый URL, иначе до 24ч рисует старый 10.7-набор (tofu). */
     @font-face {
       font-family: 'Material Symbols Rounded';
       font-style: normal;
       font-weight: 100 700;
       font-display: block;
-      src: url('/static/fonts/material-symbols-rounded.woff2') format('woff2-variations');
+      src: url('/static/fonts/material-symbols-rounded.woff2?v=__APP_VERSION__') format('woff2-variations');
     }
     .msr {
       font-family: 'Material Symbols Rounded';
@@ -233,15 +236,9 @@
     .module-card { display: flex; align-items: center; gap: .75rem; }
     .module-card .module-icon { color: var(--teal-500); font-size: 24px; flex-shrink: 0; }
     .module-meta { flex: 1 1 auto; min-width: 0; }
-    /* Раунд 10.6 (A9): эксклюзивный аккордеон «Доступы и роли» */
-    .acc { grid-column: 1 / -1; }
-    .acc-head {
-      width: 100%; text-align: left; padding: .6rem .8rem; margin-top: .5rem;
-      background: var(--surface-glass); border: var(--card-border);
-      border-radius: var(--radius-lg); color: var(--text-1); cursor: pointer;
-      font-weight: 600;
-    }
-    .acc-panel { margin-top: .25rem; }
+    /* Раунд 10.6 (A9) / 10.8 (§4): эксклюзивный аккордеон «Доступы» заменён
+       route-driven модалками (ADR-001) — CSS аккордеона удалён; используются
+       существующие .hub-card/.modal-*. */
     /* Раунд 10.6 (A4): блоки провайдеров */
     .prov-block { border: var(--card-border); border-radius: var(--radius-lg); }
     .prov-test-btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -403,17 +400,25 @@
        вылезали из контейнера */
     .log-row { font-family: ui-monospace, Consolas, monospace; font-size: 0.7rem; }
     .log-row:hover { background: rgba(255, 255, 255, 0.04); }
-    /* expander стека в логах (Hotfix-R10): компактный, без фона кнопки */
-    .log-toggle {
-      font-size: 0.7rem;
-      line-height: 1.25;
-      color: rgba(156, 163, 175, 0.9);
-      cursor: pointer;
-      user-select: none;
-      padding: 0 2px;
+    /* expander стека в логах (Hotfix-R10; 10.8 §3.4): компактная
+       Material-иконка, НЕ выглядит полем ввода; spacer сохраняет ширину. */
+    .log-toggle, .log-toggle-spacer {
+      flex: 0 0 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
       background: none;
       border: 0;
     }
+    .log-toggle {
+      color: rgba(156, 163, 175, 0.9);
+      cursor: pointer;
+      user-select: none;
+    }
+    .log-toggle .msr { font-size: 1rem; }
     .log-toggle:hover { color: #e5e7eb; }
     /* Раунд 10 (F-8 T-871): компактные логи — pre code, thin-scroll, fixed height */
     .log-panel {
@@ -427,27 +432,29 @@
     .log-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.7rem;
-      white-space: pre-wrap;
-      word-break: break-all;
+      white-space: normal;
+      word-break: normal;
       line-height: 1.25;
     }
-    .log-code .log-row { padding: 2px 4px; }
-    /* 10.7 (3b): фикс-ширины level/date/logger, сообщение берёт остаток. */
-    .log-level { min-width: 4.5rem; text-align: center; }
+    .log-code .log-row { display: block; padding: 2px 4px; }
+    /* 10.8 (§3.2/§3.4): шапка строки — flex с переносом (на Android
+       level/ts/logger уходят на вторую строку, сообщение не схлопывается). */
+    .log-head {
+      display: flex; flex-wrap: wrap; align-items: baseline;
+      gap: .25rem .5rem; min-width: 0;
+    }
+    /* 10.8 (§3.4): жёсткие min-width/width/max-width колонок УДАЛЕНЫ —
+       на 360px-экране они оставляли сообщению ~1 символ. */
+    .log-level { text-align: center; }
     .log-level .badge { display: inline-block; }
     .log-ts {
-      width: 8ch; white-space: nowrap;
+      white-space: nowrap;
       font-variant-numeric: tabular-nums;
     }
-    .log-logger {
-      max-width: 8rem; overflow: hidden; text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     .log-msg {
-      word-break: break-word; overflow-wrap: anywhere; white-space: normal;
+      display: block; width: 100%; margin-top: 2px;
+      word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap;
     }
-    /* Специфичность 0,2,0 перекрывает Tailwind .break-all (0,1,0). */
-    .log-panel .log-code { word-break: break-word; }
     /* 10.7 (3c): transient-подсветка скопированной строки. */
     .log-copied { background: rgba(20, 203, 182, .18); transition: background .15s ease; }
     /* Раунд 10 (F-8 T-874): чип «авто» вместо «— авто» */
@@ -456,6 +463,7 @@
       color: #fcd34d;
     }
     .log-exc {
+      display: block; margin: 0;
       font-family: ui-monospace, Consolas, monospace;
       font-size: 0.72rem;
       white-space: pre-wrap;
@@ -669,9 +677,6 @@
           <span v-if="isChatContext()" class="badge badge-info shrink-0">
             {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
           </span>
-          <!-- T-1127/§15.1.1: явный бейдж scope (GLOBAL) — имена/аватары
-               чатов уже в селекторе выше; ЛС/ЧАТ — в бейдже #id. -->
-          <span v-if="!isChatContext()" class="badge badge-muted shrink-0">{{ scopeLabel }}</span>
           <div class="ml-auto flex items-center gap-1.5 text-xs">
             <!-- UI-полировка TMA: аватар текущего юзера — CDN photo_url из
                  initData (me.photo_url) сразу; иначе — blob через прокси
@@ -798,7 +803,7 @@
                 </section>
               </div>
               <!-- Ре-дизайн 10.2, BUG-3 (spec §10 A/C): мастер-карта
-                   вкладки «Функции PERMsoc» — ПЕРЕД generic-рендером групп:
+                   вкладки «PERMsoc» — ПЕРЕД generic-рендером групп:
                    per-chat мастер (gates API; write — ТОЛЬКО global admin;
                    local admin — read-only бейдж), без чата — hint (выбор —
                    через селектор в шапке, F-13 AC-1); ниже — сводка
@@ -806,7 +811,7 @@
                    рубильники — в группах ниже. -->
               <div v-if="activeTab === 'permsoc'" class="card p-4 col-span-full">
                 <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold">🎭 Функции PERMsoc</div>
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span> PERMsoc</div>
                   <span class="badge" :class="permsocMasterOn() ? 'badge-ok' : 'badge-muted'">
                     master: {{ permsocMasterOn() ? 'ON' : 'OFF' }}
                   </span>
@@ -972,7 +977,7 @@
                         <button class="btn-ghost text-xs shrink-0"
                                 :title="keyReveal[item.key] ? 'Скрыть ключ' : 'Показать ключ'"
                                 @click="toggleKeyReveal(item.key)">
-                          {{ keyReveal[item.key] ? '🙈' : '👁' }}
+                          <span class="msr" aria-hidden="true">{{ iconGlyph(keyReveal[item.key] ? 'visibility_off' : 'visibility') }}</span>
                         </button>
                       </div>
                       <div class="mt-2 flex justify-end">
@@ -1140,7 +1145,7 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">
-            <!-- ═══ 🧩 Модули (A2/T-1165): ровно 11; toggle + «Параметры» ═══ -->
+            <!-- ═══ Модули (A2/T-1165): ровно 11; toggle + «Параметры» ═══ -->
             <div class="hub-head col-span-full">
               <div class="hub-title">Модули</div>
               <div class="hub-sub">11 модулей: честный тумблер и окно со всеми параметрами</div>
@@ -1170,7 +1175,7 @@
                  (бюджет фона, Opt-In тяжёлых фич) — перенесены на «Модули». -->
             <div class="card p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap mb-2">
-                <div class="text-sm font-bold">📊 Бюджет фона</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Бюджет фона</div>
                 <span class="text-xs text-gray-500">
                   день {{ budgetInfo && budgetInfo.day }} · {{ budgetInfo && budgetInfo.timezone }}
                 </span>
@@ -1206,7 +1211,7 @@
             </div>
 
             <div v-if="activeChatId == null" class="card p-4 col-span-full">
-              <div class="text-sm font-bold mb-1">🧠 Тяжёлые фичи</div>
+              <div class="text-sm font-bold mb-1"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Тяжёлые фичи</div>
               <div class="text-xs text-gray-500">
                 Выберите чат в шапке — Сон · Ностальгия · Авто-лор включаются
                 per chat (Opt-In). При Opt-In OFF бот отвечает, фоновые фичи молчат.
@@ -1217,7 +1222,7 @@
             </div>
             <div v-else class="card p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap">
-                <div class="text-sm font-bold">🧠 Тяжёлые фичи</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Тяжёлые фичи</div>
                 <span class="text-xs text-gray-500">{{ activeChatTitle }} ({{ activeChatId }})</span>
                 <span class="badge ml-auto" :class="gateInfo && gateInfo.opt_in ? 'badge-ok' : 'badge-muted'">
                   Opt-In: {{ gateInfo && gateInfo.opt_in ? 'включено' : 'выключено' }}
@@ -1377,7 +1382,7 @@
                   <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
                   <div class="card p-4">
                     <div class="flex items-center gap-2 flex-wrap mb-1">
-                      <div class="text-sm font-bold">🧠 Синтез (сон)</div>
+                      <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bedtime') }}</span> Синтез (сон)</div>
                       <span class="text-xs text-gray-500">
                         дистилляция повторяющихся фактов в убеждения (beliefs)
                       </span>
@@ -1413,11 +1418,11 @@
                           <button class="btn-ghost text-xs ml-auto shrink-0"
                                   title="Сделать protected (не дистиллировать)"
                                   :disabled="memoryRagBusy"
-                                  @click="dreamProtect(b)">🛡 защитить</button>
+                                  @click="dreamProtect(b)"><span class="msr" aria-hidden="true">{{ iconGlyph('shield') }}</span> защитить</button>
                           <button class="btn-danger text-xs shrink-0"
                                   title="Мягкое удаление (убрать из контекста)"
                                   :disabled="memoryRagBusy"
-                                  @click="dreamDelete(b)">🗑</button>
+                                  @click="dreamDelete(b)"><span class="msr" aria-hidden="true">{{ iconGlyph('delete') }}</span><span class="sr-only">Удалить</span></button>
                         </div>
                         <div class="text-sm mt-1" :title="b.fact">{{ b.fact }}</div>
                       </div>
@@ -1449,7 +1454,7 @@
                   <!-- Ностальгия: последние срабатывания слоя B -->
                   <div class="card p-4">
                     <div class="flex items-center gap-2 flex-wrap mb-1">
-                      <div class="text-sm font-bold">🌟 Ностальгия</div>
+                      <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> Ностальгия</div>
                       <span class="text-xs text-gray-500">слой B — «кстати…» в тихих чатах</span>
                       <button class="btn-ghost text-xs ml-auto shrink-0"
                               :disabled="memoryRagBusy"
@@ -1483,10 +1488,10 @@
             </div>
           </template>
           <template v-else-if="activeTab === 'oversight'">
-            <!-- ═══ 🛰️ Oversight (F-12 C1/C2) — только global admin ═══ -->
+            <!-- ═══ Сводка (F-12 C1/C2) — только global admin ═══ -->
             <div class="card p-4 col-span-full">
               <div class="flex items-center gap-2 flex-wrap mb-2">
-                <div class="text-sm font-bold">🛰️ Global Oversight</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Сводка</div>
                 <span class="text-xs text-gray-500">сводка всех чатов (кэш 60 с)</span>
                 <div class="ml-auto flex items-center gap-2">
                   <input class="field w-40" placeholder="Поиск: имя/id" v-model="oversightSearch">
@@ -1575,21 +1580,56 @@
             </div>
           </template>
           <template v-else-if="activeTab === 'access'">
-            <!-- ═══ 👥 Управление доступом ═══ -->
+            <!-- ═══ Управление доступом ═══ -->
             <div v-if="!canViewTab('access')" class="card p-6 text-gray-400 col-span-full">
               Управление доступом доступно только ролям с правом «access».
             </div>
             <template v-else>
-            <div class="acc" role="tablist" aria-label="Доступы и роли">
-              <button class="acc-head" role="tab" :aria-expanded="isAccessOpen('admins') ? 'true' : 'false'"
-                      aria-controls="acc-admins" @click="setAccess('admins')">
-                Администраторы
+            <!-- 10.8/§4 (ADR-001): «Доступы» — подразделы отдельными
+                 route-driven окнами. Три плитки открывают
+                 #/access/roles|local|admins; ниже — взаимоисключающие
+                 модалки (deep-link/BackButton работают через hash). -->
+            <div class="hub-grid">
+              <button class="hub-card" @click="openAccessWindow('roles')">
+                <span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span>
+                <span class="min-w-0">
+                  <span class="hub-card-title block">Матрица ролей</span>
+                  <span class="hub-card-sub block">Права на параметры: чтение и запись</span>
+                </span>
               </button>
-              <section class="acc-panel" id="acc-admins" role="tabpanel"
-                       v-show="isAccessOpen('admins')">
-            <!-- Доступы и Роли (hub #/access): якоря для hub-карточек -->
+              <button class="hub-card" @click="openAccessWindow('local')">
+                <span class="msr" aria-hidden="true">{{ iconGlyph('group') }}</span>
+                <span class="min-w-0">
+                  <span class="hub-card-title block">Локальные админы</span>
+                  <span class="hub-card-sub block">Администраторы активного чата</span>
+                </span>
+              </button>
+              <button class="hub-card" @click="openAccessWindow('admins')">
+                <span class="msr" aria-hidden="true">{{ iconGlyph('supervisor_account') }}</span>
+                <span class="min-w-0">
+                  <span class="hub-card-title block">Роли</span>
+                  <span class="hub-card-sub block">Суперадмины, модераторы, пользователи</span>
+                </span>
+              </button>
+            </div>
+
+            <!-- Окно «Роли» (#/access/admins): назначения ролей.
+                 id="sec-admins" сохранён. -->
+            <div v-if="isAccessOpen('admins')" class="modal-backdrop"
+                 @click.self="closeAccessWindow()">
+              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+                   role="dialog" aria-modal="true"
+                   aria-labelledby="acc-admins-title"
+                   tabindex="-1" @keydown.esc="closeAccessWindow()">
+                <header class="modal-head flex items-center gap-2 mb-3">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('supervisor_account') }}</span>
+                  <h2 class="modal-title text-base font-bold" id="acc-admins-title">Роли</h2>
+                  <button class="modal-close btn-ghost ml-auto text-sm px-2"
+                          @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
+                </header>
+                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
             <div class="card p-4" id="sec-admins">
-                <div class="text-sm font-bold mb-2">Администраторы</div>
+                <div class="text-sm font-bold mb-2">Роли</div>
                 <div v-if="adminsLoading" class="spinner"></div>
                 <div v-else>
                   <div v-for="admin in admins" :key="admin.telegram_id"
@@ -1610,14 +1650,27 @@
                   <button class="btn-accent text-sm" @click="addAdmin()">Назначить</button>
                 </div>
               </div>
-              </section>
+                </div>
+                <footer class="modal-footer mt-3 flex justify-end">
+                  <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
+                </footer>
+              </div>
+            </div>
 
-              <button class="acc-head" role="tab" :aria-expanded="isAccessOpen('roles') ? 'true' : 'false'"
-                      aria-controls="acc-roles" @click="setAccess('roles')">
-                Матрица ролей
-              </button>
-              <section class="acc-panel" id="acc-roles" role="tabpanel"
-                       v-show="isAccessOpen('roles')">
+            <!-- Окно «Матрица ролей» (#/access/roles): sec-roles + sec-matrix -->
+            <div v-if="isAccessOpen('roles')" class="modal-backdrop"
+                 @click.self="closeAccessWindow()">
+              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+                   role="dialog" aria-modal="true"
+                   aria-labelledby="acc-roles-title"
+                   tabindex="-1" @keydown.esc="closeAccessWindow()">
+                <header class="modal-head flex items-center gap-2 mb-3">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span>
+                  <h2 class="modal-title text-base font-bold" id="acc-roles-title">Матрица ролей</h2>
+                  <button class="modal-close btn-ghost ml-auto text-sm px-2"
+                          @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
+                </header>
+                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
               <!-- Роли -->
               <div class="card p-4" id="sec-roles">
                 <div class="text-sm font-bold mb-2">Роли</div>
@@ -1731,14 +1784,27 @@
                   </div>
                 </template>
               </div>
-              </section>
+                </div>
+                <footer class="modal-footer mt-3 flex justify-end">
+                  <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
+                </footer>
+              </div>
+            </div>
 
-              <button class="acc-head" role="tab" :aria-expanded="isAccessOpen('local') ? 'true' : 'false'"
-                      aria-controls="acc-local" @click="setAccess('local')">
-                Локальные админы
-              </button>
-              <section class="acc-panel" id="acc-local" role="tabpanel"
-                       v-show="isAccessOpen('local')">
+            <!-- Окно «Локальные админы» (#/access/local): id="sec-local" -->
+            <div v-if="isAccessOpen('local')" class="modal-backdrop"
+                 @click.self="closeAccessWindow()">
+              <div class="modal-card card card-solid p-5 w-full max-w-2xl"
+                   role="dialog" aria-modal="true"
+                   aria-labelledby="acc-local-title"
+                   tabindex="-1" @keydown.esc="closeAccessWindow()">
+                <header class="modal-head flex items-center gap-2 mb-3">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('group') }}</span>
+                  <h2 class="modal-title text-base font-bold" id="acc-local-title">Локальные админы</h2>
+                  <button class="modal-close btn-ghost ml-auto text-sm px-2"
+                          @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
+                </header>
+                <div class="modal-body" style="max-height:80dvh;overflow-y:auto;">
               <!-- Раунд 10 (F-7 T-857): «Локальные админы чата» — доступы
                    активного чата (X-Chat-Id; global admin + local admin) -->
               <div class="card p-4" id="sec-local">
@@ -1779,7 +1845,11 @@
                   </div>
                 </template>
               </div>
-              </section>
+                </div>
+                <footer class="modal-footer mt-3 flex justify-end">
+                  <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
+                </footer>
+              </div>
             </div>
 
               <!-- Раунд 10 (F-7 T-857): «Мой доступ» -->
@@ -1799,7 +1869,7 @@
                 <div class="text-sm font-bold mb-1">Промпты</div>
                 <div class="text-xs text-gray-400">
                   Промпты чата — от базовых (глобальные каноны). Нажмите
-                  «⚙» / редактируйте промпт прямо в чате — переопределение
+                  «<span class="msr" aria-hidden="true">{{ iconGlyph('settings') }}</span>» / редактируйте промпт прямо в чате — переопределение
                   сработает ТОЛЬКО для этого чата («Использовать мой»).
                 </div>
               </div>
@@ -1825,7 +1895,7 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'relations'">
-            <!-- ═══ 👥 Участники и отношения (раунд 10.4 F-1/F-5/F-6) ═══
+            <!-- ═══ Участники и отношения (раунд 10.4 F-1/F-5/F-6) ═══
                  Кастом-вкладка: участники активного чата (тот же API/стадии/
                  409 — перенос без изменения) + конфиг-часть «Настройки
                  отношений» (limits_relations/flags_relations — generic-блоком,
@@ -1837,7 +1907,7 @@
             </div>
             <template v-else>
               <div v-if="isDmCtx()" class="card p-6 text-gray-400 col-span-full">
-                👥 Отношения не считаются для личного чата — настройки ниже
+                <span class="msr align-middle" aria-hidden="true">{{ iconGlyph('group') }}</span> Отношения не считаются для личного чата — настройки ниже
                 применимы к вашим ЛС (переопределения).
               </div>
               <template v-else-if="activeChatId == null">
@@ -1850,7 +1920,7 @@
                 <!-- Участники активного чата (перенос из chat_lore) -->
                 <div class="card p-4 col-span-full">
                   <div class="flex items-center gap-2 flex-wrap mb-1">
-                    <div class="text-sm font-bold">👥 Участники и отношения</div>
+                    <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('group') }}</span> Участники и отношения</div>
                     <span class="badge badge-info ml-auto"
                           v-if="relationsBusy && chatRelations.length === 0">загрузка…</span>
                     <button class="btn-ghost text-xs shrink-0"
@@ -1932,7 +2002,7 @@
                                   placeholder="заметка админа (необязательно)"></textarea>
                         <button class="btn-accent text-xs shrink-0"
                                 :disabled="relationsBusy"
-                                @click="saveRelationManual(u)">💾</button>
+                                @click="saveRelationManual(u)"><span class="msr" aria-hidden="true">{{ iconGlyph('save') }}</span><span class="sr-only">Сохранить</span></button>
                         <button class="btn-danger text-xs shrink-0"
                                 :disabled="relationsBusy"
                                 title="Сбросить на авто — стирает стадию и заметку"
@@ -1946,7 +2016,7 @@
               <!-- Конфиг-часть: Настройки отношений -->
               <template v-if="groupedForTab(relationsTab()).length">
                 <div class="card p-4 col-span-full">
-                  <div class="text-sm font-bold mb-3">⚙️ Настройки отношений</div>
+                  <div class="text-sm font-bold mb-3"><span class="msr" aria-hidden="true">{{ iconGlyph('settings') }}</span> Настройки отношений</div>
                   <template v-for="grp in groupedForTab(relationsTab())" :key="grp.uid">
                     <div v-if="basicItems(grp).length || advancedItems(grp).length"
                          class="card p-4 mb-3" style="grid-column: 1 / -1;">
@@ -2033,7 +2103,7 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'chat_lore'">
-            <!-- ═══ 📜 Лор чатов (round 7, spec §3.10/E2) ═══ -->
+            <!-- ═══ Лор чатов (round 7, spec §3.10/E2) ═══ -->
             <div v-if="!canViewTab('chat_lore')" class="card p-6 text-gray-400 col-span-full">
               Нет доступа к чатам лора — вкладка доступна глобальному админу,
               ролям с секцией «chat_lore» и админам конкретных чатов.
@@ -2143,7 +2213,7 @@
                     <!-- Ручной лор (FR-2: независим от авто-лора) -->
                     <div class="card p-4">
                       <div class="flex items-center gap-2 mb-2">
-                        <div class="text-sm font-bold">📝 Ручной лор</div>
+                        <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('edit_note') }}</span> Ручной лор</div>
                         <span class="badge badge-info">ручной</span>
                         <span class="text-xs text-gray-500 ml-auto">
                           {{ loreManual.length }} / 4000
@@ -2163,7 +2233,7 @@
                     <!-- Авто-лор (read-only: пишется только воркером) -->
                     <div class="card p-4">
                       <div class="flex items-center gap-2 mb-2">
-                        <div class="text-sm font-bold">🤖 Авто-лор</div>
+                        <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> Авто-лор</div>
                         <span class="badge badge-warn">AI</span>
                         <span v-if="chatLoreProfile.last_auto_at" class="badge badge-muted">
                           авто-обновление {{ fmtLogTs(chatLoreProfile.last_auto_at) }}
@@ -2195,7 +2265,7 @@
 
                     <!-- Настройки автогенерации -->
                     <div class="card p-4">
-                      <div class="text-sm font-bold mb-3">⚙️ Настройки автогенерации</div>
+                      <div class="text-sm font-bold mb-3"><span class="msr" aria-hidden="true">{{ iconGlyph('settings') }}</span> Настройки автогенерации</div>
                       <div class="grid gap-3 md:grid-cols-2">
                         <div class="flex items-center justify-between gap-3 md:col-span-2">
                           <div>
@@ -2255,7 +2325,7 @@
 
                     <!-- C2: переезд чата (remap, D5/Q9) — только глобальный admin -->
                     <div class="card p-4" v-if="isGlobalAdmin">
-                      <div class="text-sm font-bold mb-1">🚚 Переезд чата</div>
+                      <div class="text-sm font-bold mb-1"><span class="msr" aria-hidden="true">{{ iconGlyph('swap_horiz') }}</span> Переезд чата</div>
                       <div class="text-xs text-gray-500 mb-3">
                         Привязать лор и админов этого чата к новому chat_id
                         (например, после пересоздания чата в Telegram). Старый
@@ -2276,7 +2346,7 @@
                     <!-- C2: администраторы чата (chat_admins, D8/Q6) —
                          только глобальный admin -->
                     <div class="card p-4" v-if="isGlobalAdmin">
-                      <div class="text-sm font-bold mb-1">👑 Администраторы чата</div>
+                      <div class="text-sm font-bold mb-1"><span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span> Администраторы чата</div>
                       <div class="text-xs text-gray-500 mb-3">
                         Telegram-id, которым вкладка «Лор чатов» доступна для
                         этого чата без глобальной роли (per-chat admin).
@@ -2310,14 +2380,14 @@
                 </div>
               </div>
 
-              <!-- Раунд 10.4 (A-8): ⚙️ Расширенные настройки лора —
+              <!-- Раунд 10.4 (A-8): Расширенные настройки лора —
                    config-часть вкладки (limits_lore + flags_lore) через
                    groupedForTab(chatLoreTab); per-chat override-кнопки и
                    canEditConfig — как в generic-рендере; сохранение —
                    существующий POST /api/config (409/403 — те же). -->
               <template v-if="groupedForTab(chatLoreTab()).length">
                 <div class="mt-4" style="grid-column: 1 / -1;">
-                  <div class="text-sm font-bold mb-2">⚙️ Расширенные настройки лора</div>
+                  <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('settings') }}</span> Расширенные настройки лора</div>
                   <template v-for="grp in groupedForTab(chatLoreTab())" :key="grp.uid">
                     <div v-if="basicItems(grp).length || advancedItems(grp).length"
                          class="card p-4 mb-3" style="grid-column: 1 / -1;">
@@ -2401,7 +2471,7 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'status'">
-            <!-- ═══ 📊 Статус ═══ -->
+            <!-- ═══ Статус ═══ -->
             <!-- T-1101: Oversight — добавочный экран (global-only), карточка
                  на дашборде (в эталоне нет, НЕ удалять). -->
             <div v-if="isGlobalAdmin" class="hub-card" style="grid-column: 1 / -1;"
@@ -2410,7 +2480,7 @@
                  @keydown.space.prevent="navTo('#/oversight')">
               <span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span>
               <span class="min-w-0">
-                <span class="hub-card-title block">Oversight</span>
+                <span class="hub-card-title block">Сводка</span>
                 <span class="hub-card-sub block">Сводка ключей/гейтов/бюджетов по всем чатам (только global admin)</span>
               </span>
             </div>
@@ -2421,7 +2491,7 @@
             <template v-if="!statusError">
             <!-- Бот -->
             <div class="card p-4">
-              <div class="text-sm font-bold mb-2">🤖 Бот</div>
+              <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> Бот</div>
               <div v-if="!statusData" class="spinner"></div>
               <div v-else class="text-sm space-y-1.5">
                 <div>Аптайм: <b>{{ humanizeUptime(statusData.bot.uptime_seconds) }}</b></div>
@@ -2431,15 +2501,15 @@
                 <div class="flex gap-2 pt-2">
                   <button v-if="hasPerm('action.control.restart')" class="btn-ghost text-sm"
                           :disabled="controlLocked" @click="requestControl('restart')">
-                    🔄 {{ controlLocked ? controlLockSeconds + 'с' : 'Рестарт' }}
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Рестарт' }}
                   </button>
                   <button v-if="hasPerm('action.control.stop')" class="btn-ghost text-sm"
                           :disabled="controlLocked" @click="requestControl('stop')">
-                    ⏹ {{ controlLocked ? controlLockSeconds + 'с' : 'Стоп' }}
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('stop') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Стоп' }}
                   </button>
                   <button v-if="hasPerm('action.control.start')" class="btn-ghost text-sm"
                           :disabled="controlLocked" @click="requestControl('start')">
-                    ▶ {{ controlLocked ? controlLockSeconds + 'с' : 'Старт' }}
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('play_arrow') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Старт' }}
                   </button>
                 </div>
               </div>
@@ -2447,7 +2517,7 @@
 
             <!-- Сервер -->
             <div class="card p-4">
-              <div class="text-sm font-bold mb-2">🖥 Сервер</div>
+              <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('dns') }}</span> Сервер</div>
               <div v-if="!statusData" class="spinner"></div>
               <div v-else class="text-sm space-y-2">
                 <div>
@@ -2475,7 +2545,7 @@
 
             <!-- LLM -->
             <div v-for="card in (statusData ? statusData.llm : [])" :key="card.provider" class="card p-4">
-              <div class="text-sm font-bold mb-1">🧠 {{ card.provider }}</div>
+              <div class="text-sm font-bold mb-1"><span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> {{ card.provider }}</div>
               <div class="text-xs text-gray-400 mb-2">{{ card.model }}</div>
               <div class="text-sm space-y-1">
                 <div>
@@ -2495,7 +2565,7 @@
 
             <!-- График аптайма -->
             <div class="card p-4" style="grid-column: 1 / -1;">
-              <div class="text-sm font-bold mb-2">📈 Аптайм (24ч, бакеты 5 мин)</div>
+              <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('trending_up') }}</span> Аптайм (24ч, бакеты 5 мин)</div>
               <div v-if="!statusData" class="spinner"></div>
               <div v-else-if="statusData.uptime.buckets.length === 0" class="text-gray-500 text-sm">Нет данных аптайма.</div>
               <canvas v-else ref="uptimeCanvas" height="90"></canvas>
@@ -2506,7 +2576,7 @@
                  GET /api/status/key-history (allowlist, R17). -->
             <div class="card p-4 keys-avail" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold">🔑 Доступность ключей API</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей API</div>
                 <button class="btn-ghost text-xs ml-auto"
                         @click="loadKeyHistory()">⟳ Обновить</button>
               </div>
@@ -2545,7 +2615,7 @@
             <!-- Логи -->
             <div class="card p-4" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-2">
-                <div class="text-sm font-bold">📜 Логи</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
                 <select class="field w-32 shrink-0" v-model="logLevel">
                   <option v-for="lvl in ['ALL','DEBUG','INFO','WARNING','ERROR','CRITICAL']" :key="lvl" :value="lvl">{{ lvl }}</option>
                 </select>
@@ -2557,43 +2627,49 @@
                 <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
                 <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
               </div>
-              <!-- Раунд 10 (F-8 T-871): <pre><code>-моно, компактный скролл,
-                   автоскролл к ВЕРХУ при новых записях (nextTick → scrollTop,
-                   Hotfix-R10: сервер отдаёт новые сверху). Hotfix-R10:
-                   клик по строке = копировать; expander — маленький глиф
-                   слева (@click.stop), «Скопировать» per-line убран. -->
+              <!-- Раунд 10 (F-8 T-871), 10.8 (§3.2): блочная раскладка логов
+                   (div вместо <pre><span>) — на Android WebView строка тянется
+                   на ширину карточки. Toggle — Material-иконка (только при
+                   exc_text; иначе spacer). Клик = копировать; автоскролл к
+                   ВЕРХУ (сервер отдаёт новые сверху). -->
               <div class="log-panel scroll-thin" ref="logPanel">
                 <div v-if="logsLoading" class="spinner my-4"></div>
                 <div v-else-if="logs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
-                <pre v-else class="log-code break-all"><code><template v-for="(log, i) in logs">
-                  <span :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
-                        title="Клик — копировать строку"
-                        :class="{ 'log-copied': copiedIndex === i }"
-                        @click="copyLogRow(log, i)">
-                    <span class="flex items-start gap-2">
-                      <button class="log-toggle shrink-0" title="Развернуть/свернуть стек"
-                              @click.stop="log.expanded = !log.expanded">
-                        {{ log.expanded && log.exc_text ? '▾' : '▸' }}
-                      </button>
-                      <span class="log-level shrink-0">
-                        <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
-                      </span>
-                      <span class="log-ts shrink-0" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
-                      <span class="log-logger text-gray-400 shrink-0">{{ log.logger }}</span>
-                      <span class="log-msg text-gray-200 flex-1 min-w-0">{{ log.message }}</span>
-                    </span>
-                    <span v-if="log.expanded && log.exc_text" class="log-exc block mt-1">{{ log.exc_text }}</span>
-                  </span>
-                </template></code></pre>
+                <div v-else class="log-code">
+                  <template v-for="(log, i) in logs">
+                    <div :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
+                         title="Клик — копировать строку"
+                         :class="{ 'log-copied': copiedIndex === i }"
+                         @click="copyLogRow(log, i)">
+                      <div class="log-head">
+                        <button v-if="log.exc_text" class="log-toggle shrink-0"
+                                :title="log.expanded ? 'Свернуть стек' : 'Развернуть стек'"
+                                :aria-expanded="log.expanded ? 'true' : 'false'"
+                                aria-label="Развернуть или свернуть стек"
+                                @click.stop="log.expanded = !log.expanded">
+                          <span class="msr" aria-hidden="true">{{ iconGlyph(log.expanded ? 'expand_more' : 'chevron_right') }}</span>
+                        </button>
+                        <span v-else class="log-toggle-spacer" aria-hidden="true"></span>
+                        <span class="log-level">
+                          <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
+                        </span>
+                        <span class="log-ts" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
+                        <span class="log-logger text-gray-400">{{ log.logger }}</span>
+                      </div>
+                      <div class="log-msg text-gray-200">{{ log.message }}</div>
+                      <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
             </template>
           </template>
           <template v-else-if="activeTab === 'info'">
-            <!-- ═══ "Как это работает" ═══ -->
+            <!-- ═══ "Справка" ═══ -->
             <div class="card p-5" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-3">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('help') }}</span> Как это работает</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('help') }}</span> Справка</div>
                 <span v-if="infoMeta && infoMeta.updated_at" class="text-xs text-gray-500">
                   обновлено {{ fmtLogTs(infoMeta.updated_at) }}
                 </span>
@@ -2696,7 +2772,7 @@
     <div v-if="chatLoreHistoryOpen" class="modal-backdrop" @click.self="closeLoreHistory()">
       <div class="card card-solid p-5 w-full max-w-2xl max-h-[85vh] flex flex-col">
         <div class="flex items-center gap-2 mb-1 shrink-0">
-          <div class="text-base font-bold">📜 История изменений</div>
+          <div class="text-base font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> История изменений</div>
           <span v-if="chatLoreProfile" class="text-xs text-gray-500 font-mono">
             чат {{ chatLoreProfile.chat_id }}
           </span>
@@ -2927,7 +3003,7 @@
                :disabled="!canEdit" v-model="pair.name"
                :class="{ 'kv-bad': emptyField(pair) === 'name' }">
         <button class="btn-ghost text-xs shrink-0" title="Удалить пару"
-                :disabled="!canEdit" @click="removeRow(i)">🗑</button>
+                :disabled="!canEdit" @click="removeRow(i)"><span class="msr" aria-hidden="true">{{ iconGlyph('delete') }}</span><span class="sr-only">Удалить</span></button>
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs mt-1">
         <button class="btn-ghost text-xs" :disabled="!canEdit || pairs.length >= maxPairs"

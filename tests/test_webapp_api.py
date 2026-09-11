@@ -1096,11 +1096,19 @@ class TestStatic:
         assert "Админка скоро будет" not in resp.text
 
     def test_index_version_query_param(self, client):
-        """84.21.2: app.js подключается с ?v=__APP_VERSION__ → реальная версия."""
+        """84.21.2 + 10.8 (R10.8-5): app.js И woff2-субсет подключаются с
+        ?v=__APP_VERSION__ → реальная версия (cache-bust субсета шрифта,
+        который отдаётся с max-age=86400)."""
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.51.0" in text
+        assert "/web/app.js?v=2.52.0" in text
+        assert "/static/fonts/material-symbols-rounded.woff2?v=2.52.0" in text
+        # URL субсета с версией реально отдаётся 200 (query не ломает static).
+        font = client.get(
+            "/static/fonts/material-symbols-rounded.woff2?v=2.52.0")
+        assert font.status_code == 200
+        assert font.content[:4] == b"wOF2"
 
     def test_cache_control_headers(self, client):
         """84.21.2: html/js — no-cache; остальное — public max-age."""

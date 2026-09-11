@@ -66,8 +66,10 @@ class TestKeyAvailabilityUi:
 class TestRoleRenameDeleteUi:
     def test_buttons_present(self):
         html = _html()
-        roles = html[html.index("Роли"):]
-        roles = roles[:roles.index("Локальные админы")]
+        # 10.8 (§4.5): явная секция определений ролей (id="sec-roles")
+        # вместо хрупкого слайсинга по подписям.
+        roles = html[html.index('id="sec-roles"'):]
+        roles = roles[:roles.index('id="sec-matrix"')]
         assert ">Переименовать</button>" in roles
         assert ">Удалить</button>" in roles
         assert ":disabled=\"!canEditRole(role)\"" in roles

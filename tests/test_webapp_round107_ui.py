@@ -81,12 +81,21 @@ class TestGhostAndLogs3:
         assert "position: fixed" in ghost
 
     def test_log_columns(self):
+        # 10.8 (§3.4): жёсткие ширины колонок удалены, сообщение на всю
+        # ширину; .log-code без break-all; .log-head переносит колонки.
         assert ".log-level {" in HTML
         assert ".log-ts {" in HTML
         assert ".log-msg {" in HTML
-        assert ".log-level { min-width: 4.5rem;" in HTML
-        # word-break в scoped-правиле сообщения.
-        assert "word-break: break-word" in _rule(".log-msg {")
+        assert ".log-head {" in HTML
+        assert "min-width: 4.5rem" not in HTML
+        assert "width: 8ch" not in HTML
+        code = _rule(".log-code {")
+        assert "word-break: normal" in code
+        assert "break-all" not in code
+        msg = _rule(".log-msg {")
+        assert "word-break: break-word" in msg
+        assert "overflow-wrap: anywhere" in msg
+        assert "width: 100%" in msg
 
     def test_copy_row_feedback(self):
         assert "copyLogRow(log, i)" in HTML

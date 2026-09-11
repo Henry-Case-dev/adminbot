@@ -43,6 +43,22 @@ class TestRoutePureFunctions:
         ]:
             assert route in js, route
 
+    def test_access_window_methods_and_parent(self):
+        # 10.8 (§4.4, ADR-001): окна «Доступов» — производная hash;
+        # BackButton/in-app ← закрывают окно через ROUTE_PARENT.
+        js = _js()
+        assert "openAccessWindow: function (id)" in js
+        assert "closeAccessWindow: function ()" in js
+        for route in ("'#/access/roles': '#/access'",
+                      "'#/access/local': '#/access'",
+                      "'#/access/admins': '#/access'"):
+            assert route in js, route
+        html = _html()
+        for win in ('openAccessWindow(\'roles\')', 'openAccessWindow(\'local\')',
+                    'openAccessWindow(\'admins\')'):
+            assert win in html, win
+        assert "closeAccessWindow()" in html
+
     def test_route_tab_roundtrip_markers(self):
         js = _js()
         # routeToTab/tabToRoute + parent/depth — чистые функции (покрыты).
