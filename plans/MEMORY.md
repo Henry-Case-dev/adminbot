@@ -735,6 +735,48 @@
 > 401 к `apinet.cloud` (возможно невалидный primary token) — стоит проверить.
 > ⚠️ Headroom — вне репозитория, как сущность НЕ фиксируется.
 
+> **Синк STEP 10 (финал, post-commit+деплой) 13.09.2026: раунд 10.12 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН и ЗАДЕПЛОЕН — HEAD == origin/master == `bad2b0d`** (`708f7df` — фича,
+> 39 файлов, тесты 5211; `bad2b0d` — docs деплой-верификация; поверх `32d1aa9` —
+> docs memory-sync 10.11; прод до деплоя — `cbe6ea5` = задеплоенный 10.11).
+> Единственная фича **`providers-kostik-round1012`** (spec @Architect + tasks @PM +
+> ADR-1012-1): (п.1) эмбеддинги развязаны от прямых ответов — новый
+> `models.embedding_base_url` (PG-значение `https://apinet.cloud/v1`) +
+> `keys.embedding_api_key` (OD-1; пусто → рантайм-фолбэк на llm-ключ);
+> `models.llm_base_url` = `https://nano-gpt.com/api/v1`; отдельный read-path +
+> отдельный кэш httpx-клиента (`_embed_client`); `.env` обновлён на проде
+> (`LLM_BASE_URL=nano-gpt/api/v1`, `EMBEDDING_BASE_URL=apinet.cloud/v1`); (п.2) фикс
+> 422 — глобальные (`per_chat=false`) ключи сохраняются в global-скоуп (без
+> chat-скоупа) в `saveConfigItem`/`saveBlock`/`saveKeyItem`; серверный гейт + DM
+> read-only не ослаблены; (п.3) блоки подключений объединены/переименованы с
+> display-name подписями в шапке, OpenRouter display-name разделён (STT vs видео),
+> свопа транскрибация/саммаризация нет (проверено); (п.4) Костик — JSON-параметр
+> `reactions.kostik_replies` (14 фраз: 4 владельца + 10) + плотный list-editor +
+> `flags.kostik_enabled` (default true) + новый PERMsoc-блок Костика; handler
+> безопасен при пустом списке; `limits.kostik_reply_probability` (0.1) сохранён.
+> **Каталог (sanctioned Δ +5, ADR-1012-1):** REGISTRY **405** / GROUPS **90** /
+> Settings **377** / mapped **88** / `categorized` **381** (models 42→44, keys 15→16,
+> flags 58→59, reactions 38→39); TAB_RULES 19. Ноль новых PG-DDL; SQLite v8;
+> `bot.py` router order не тронут (только DI-kwargs `embed_base_url`/`embed_api_key`
+> в 4 точках); `media/`/`.env` (git) не тронуты. @Reviewer APPROVED WITH MINOR ISSUES
+> (дефекты 1–4 закрыты); @Scanner **CLEAN — 0 blocker / 0 major / 0 medium**
+> (2 low R10.12-1/-5 закрыты follow-up; 3 info R10.12-2/-3/-4 → техдолг;
+> `plans/reports/round10.12_scanner_audit.md`); @Architect merge в `plans/ARCHITECTURE.md`
+> **§33** (+§5/§9/§12/§25). **Тесты: 5211 passed / 0 failed** (baseline 10.11 = 5172);
+> `node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`;
+> `git diff --check` чист. @PM: фича заархивирована —
+> `plans/archive/providers-kostik-round1012/` (spec.md + tasks.md + ADR-1012-1.md);
+> **plans/archive/ — 34 папки**; plans/features/ — 6 активных F-1…F-6. @DevOps: README +
+> `APP_VERSION` 2.55.0→**2.56.0**; коммиты `708f7df` (feat, 39 файлов) + `bad2b0d` (docs
+> deploy-verification); push origin/master; **деплой 198.46.175.136:/var/www/admin_bot** —
+> git pull fast-forward `3624789..708f7df`, миграция `migrate_env_to_pg`
+> **created=5 / skipped=149**, restart active, `/api/health` 200, 0 ошибок. Граф обновлён:
+> милстоун `round10.12-epic` → COMPLETED + DEPLOYED, фича → WAS_PART_OF +
+> COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан `tech-debt-round10.12`
+> (R10.12-2/-3/-4; R10.12-1/-5 закрыты), `round10.12-epic FOLLOWS round10.11-epic`.
+> **Осталось вручную:** live Android/Telegram QA; опционально задать выделенный
+> embedding api key. ⚠️ Headroom — вне репозитория, как сущность НЕ фиксируется.
+
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
 > (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).
@@ -1494,8 +1536,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 33 папки)
+## Свежие архивы (plans/archive/ — 34 папки)
 
+- `providers-kostik-round1012` — **Раунд 10.12, 13.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1012-1, FOLLOWS round10.11-epic): развязка эмбеддингов (`models.embedding_base_url`=apinet.cloud/v1, `keys.embedding_api_key`, отдельный httpx-кэш `_embed_client`) от прямых ответов (`models.llm_base_url`=nano-gpt.com/api/v1), фикс 422 сохранения глобальных ключей (`saveConfigItem`/`saveBlock`/`saveKeyItem`), объединённые блоки подключений с display-name, JSON-список фраз Костика (`reactions.kostik_replies`, 14 фраз) + `flags.kostik_enabled` + owner-блок PERMsoc; каталог 405/90/377/mapped 88/categorized 381; тесты 5211 passed / 0 failed; §33)
 - `llm-providers-refactor-round1011` — **Раунд 10.11, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1011-1/2/3, T-1340…T-1381): saved-key probe `/api/llm/test` без повторного ввода (R17-safe, `{configured,last4}`), рефакторинг «LLM Провайдеры» (nav-icons 22px + pinned профиль, две зоны «Подключения»/«Расширенные» computed, embeddings 3 подблока, video-fallback выше, media-share/теххаос внизу), непрерывный key-history chart (`spanGaps`+`stepped`, linear-ось, `parsing:false`), docs-отчёт `plans/docs/memory_sleep_nostalgia_lore_report.md`; каталог 400/90/372/mapped 88, `categorized` 376 (sanctioned Δ, infra 28→24); тесты 5172 passed / 0 failed; §32)
 - `admin-ui-round1010` — **Раунд 10.10, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1010-1/2/3, T-1315…T-1328: fullscreen safe-area паддинг шапки, мобильный график доступности ключей (окно от конца, дорожки + 300с сетка), реальные значения полей «Провайдеров» (`blockFieldValue`), ЛС heavy-modules OFF (`disable_dm_heavy_modules.py`, прод data-run 1 ЛС), «Роли» с аватаром+ником+мелким серым ID; каталог 400/90/372/mapped 88; тесты 5145 passed / 1 skipped; §31)
 - `admin-ui-round109` — **Раунд 10.9, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-109; T-1270…T-1314: PERMsoc owner-блоки + `flags.slavik_enabled`, сохранение скролла (`_preserveScroll`), переписанные описания/титулы, удаление «Тяжёлых фич», «Бюджет фона»→«Сводка», dashboard «Доступность ключей» (4 группы) + реальный health `probe_openai`, 7 `models.*_display_name`, `max-w-3xl`, градиент 14s/18s; каталог 400/90/372/mapped 88; тесты 5105; §30)
@@ -1542,7 +1585,7 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
 
-- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.55.0 (раунд 10.11); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
+- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.56.0 (раунд 10.12); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
 - **adminbot-sqlite-schema** — `users_meta` (стадии отношений), `smart_messages` (FTS5), `nodes/edges`, `graph_facts` (v1–v8), `dream_state`, `memory_dream_log` (бюджет суток), `nostalgia_log` и др. Миграция памяти sqlite→PG ЗАМОРОЖЕНА (04.09.2026). Вне скоупа раунда 10.
 - **hot-config-layer** — `services/hot_config.py::hot.get(pg_key, default)`; ConfigCache (`services/config_cache.py`) — in-memory над PG, R6 fail-open. Цепочка глобальная; **F-7 добавил per-chat слой `hot_chat` (chat_params → bot_settings → дефолт) параллельно — hot.get/ConfigCache не менялись**.
@@ -1678,6 +1721,24 @@ saved-key probe `/api/llm/test` (R17-safe), nav-icons 22px + pinned профил
 3624789 + cbe6ea5; тесты 5172 passed / 0 failed; деплой 198.46.175.136 active/health 200,
 0 ошибок, миграция created=5/skipped=48, APP_VERSION 2.55.0); остаётся ручной live
 Android/Telegram QA **T-1377**; наблюдение — pre-restart PID 401 к apinet.cloud (проверить).
+**милстоун `round10.12-epic`** (AdminBot → COMPLETED + DEPLOYED, 13.09.2026) —
+раунд 10.12 «Развязка эмбеддингов от прямых ответов + 422 глобальных ключей +
+объединённые блоки подключений + фразы Костика»: единственная фича
+`providers-kostik-round1012` (spec @Architect + tasks @PM + ADR-1012-1) → COMPLETED +
+DEPLOYED + WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.12-epic + ARCHIVED_IN
+plans-structure; `round10.12-epic FOLLOWS round10.11-epic`; models.embedding_base_url
+=apinet.cloud/v1 + keys.embedding_api_key (OD-1, фолбэк на llm-ключ) /
+models.llm_base_url=nano-gpt.com/api/v1 (отдельный read-path + httpx-кэш
+`_embed_client`); global-save для per_chat=false во всех трёх путях; merged-блоки с
+display-name (STT/video display-name разделены, свопа нет); reactions.kostik_replies
+(14 фраз) + flags.kostik_enabled + owner-блок; каталог 405/90/377/mapped 88/
+categorized 381; ARCHITECTURE.md §33 (+§5/§9/§12/§25); Scanner clean 0 blocker/0 major/
+0 medium (R10.12-1/-5 закрыты; техдолг — KG `tech-debt-round10.12`: R10.12-2/-3/-4);
+plans/features/ — **6 активных** (F-1…F-6); plans/archive/ — **34 папки**;
+HEAD == origin/master == `bad2b0d` (коммиты 708f7df + bad2b0d; тесты 5211 passed /
+0 failed; деплой 198.46.175.136 active/health 200, 0 ошибок, миграция
+created=5/skipped=149, APP_VERSION 2.56.0); остаётся ручной live Android/Telegram QA
++ опц. выделенный embedding api key.
 
 ## Факты для планирования (проект)
 
