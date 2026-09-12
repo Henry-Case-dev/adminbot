@@ -20,10 +20,21 @@ clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; каталог-инва
 с `file:line`); принят @PM (T-1342).
 Артефакты в архиве: `spec.md`, `ADR-1011-1.md`, `ADR-1011-2.md`, `ADR-1011-3.md`, `tasks.md`
 (со статус-хедером).
-**⚠️ ОТКРЫТО (PROD data-run, за @DevOps, пост-архив):** применить идемпотентный
-`python scripts/migrate_env_to_pg.py --only-category models,keys` (ADR-1011-2: 4 embed-фоллбэк-записи
-`_INFRA`→каталог; значения не мигрируют автоматически), затем русский commit / push / deploy
-(ssh → `git pull` → `systemctl restart admin_bot` → status; health 200, 0 ERROR/Traceback).
+**✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.11 (@DevOps, 12.09.2026):** commit `3624789`
+(`feat(admin,web,api,scripts,plans): раунд 10.11 …`, 28 файлов, тесты 5172), push `ec5dd1f..3624789`
+(origin/master); README **5172** / `APP_VERSION` **2.55.0** (+ cache-bust `?v=2.55.0`; тесты
+`test_app_version_matches_readme`/`test_index_version_query_param` зелёные); прод
+`198.46.175.136:/var/www/admin_bot` — `git pull` `772db08..3624789` (fast-forward; `.env` не менялся).
+**Миграция каталога (ADR-1011-2):** `venv/bin/python scripts/migrate_env_to_pg.py --only-category
+models,keys` (без `--force`) → `created=5 skipped=48` (keys:3, models:2), идемпотентно; 4
+embed-фоллбэк-записи резолвятся (`models.embedding_fallback_base_url` =
+`https://generativelanguage.googleapis.com/v1beta/openai`, `_model` пустой → рантайм-фолбэк на
+основную embed-модель, `keys.embedding_fallback_api_key`/`_2` — `configured(len=53)`); существующие
+значения сохранены (ON CONFLICT DO NOTHING). `systemctl restart admin_bot` → **active (running)**
+(Main PID 1498180); `/api/health` → **200 `{"status":"ok"}`**; стартовые логи нового PID —
+**0 ERROR/Traceback**; `/web/` и `/web/app.js` несут маркеры 10.11
+(`providerConnectionBlocks`/`providerAdvancedBlocks`/`subBlocks`/`blockFieldConfigured`/`spanGaps: true`/
+`type: 'linear'`/`?v=2.55.0`); `POST /api/llm/test` достижим (**401** без initData — auth, не 404/500).
 **⚠️ ОТКРЫТО (live Android/Telegram QA, за владельцем/QA):** **T-1377** — поле ключа + «Проверить»
 без повторного ввода; навигация/профиль/сетка; две зоны «Провайдеры»; эмбеддинги (3 подблока);
 видео-фоллбэк; media-share внизу; график доступности ключей (статически покрыто

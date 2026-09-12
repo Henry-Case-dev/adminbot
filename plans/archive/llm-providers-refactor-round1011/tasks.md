@@ -470,3 +470,19 @@
 - **Фича:** `plans/archive/llm-providers-refactor-round1011/` (перенесена @PM Step 8 12.09.2026; ранее `plans/features/llm-providers-refactor-round1011/`).
 - **tasks.md создан:** @PM, 12.09.2026. **Заархивирован:** @PM Step 8, 12.09.2026.
 - **Пункт 4 — ЗАВЕРШЁН (@Architect, 0 кода):** `plans/docs/memory_sleep_nostalgia_lore_report.md`. @PM код не пишет.
+
+---
+
+## §11. Деплой-верификация 10.11 (@DevOps, 12.09.2026, пост-архив)
+
+**✅ PROD data-run + deploy — ЗАВЕРШЕНО.**
+
+- **Commit/push:** `3624789` — `feat(admin,web,api,scripts,plans): раунд 10.11 — рефакторинг «LLM Провайдеры», проверка сохранённого ключа, график доступности, отчёт по памяти (тесты 5172)` (28 файлов, +3282/−165); push `ec5dd1f..3624789` → `origin/master`. README **5172** / `APP_VERSION` **2.55.0**; cache-bust `?v=2.55.0` синхронизирован (`test_app_version_matches_readme`, `test_index_version_query_param` — зелёные).
+- **Сервер:** `198.46.175.136:/var/www/admin_bot` (user `nik`); `git pull` `772db08..3624789` (fast-forward; локальная правка `info_text.md` не затронута; `.env` не менялся).
+- **Миграция каталога (ADR-1011-2):** `venv/bin/python scripts/migrate_env_to_pg.py --only-category models,keys` (без `--force`) → `created=5 skipped=48` (keys:3, models:2); план — 53 параметра. Идемпотентно (`ON CONFLICT DO NOTHING`), существующие значения сохранены. Dry-run подтвердил наличие всех 4 embed-фоллбэк-записей (`source=env` для ключей, `source=default` для base_url/model) до записи.
+- **Верификация 4 embed-фоллбэк-записей в PG (`bot_settings`):** `models.embedding_fallback_base_url` = `https://generativelanguage.googleapis.com/v1beta/openai`; `models.embedding_fallback_model` = пусто (рантайм-паритет: `llm_client` при пустом значении берёт основную embed-модель); `keys.embedding_fallback_api_key` = `configured(len=53)`; `keys.embedding_fallback_api_key_2` = `configured(len=53)` (значения секретов не печатались — R17). `TOTAL_FOUND 4`.
+- **Restart/status:** `sudo systemctl restart admin_bot` → `active (running)` since `09:44:16 UTC` (Main PID `1498180`, `/var/www/admin_bot/venv/bin/python bot.py`).
+- **Health:** `GET /api/health` → **200** `{"status":"ok"}`.
+- **Логи:** новый PID `1498180` — **0 ERROR/Traceback/Exception**; старт: `Bot started, listening for messages...`, `Start polling`, `[webapp] lifespan started | pg_available=True`. (Серии HTTP 401 `apinet.cloud` в 09:36 — предыдущий PID `1338398`, до рестарта; к деплою 10.11 не относятся.)
+- **Smoke UI-маркеров (served):** `/web/` содержит `providerConnectionBlocks`, `providerAdvancedBlocks`, `subBlocks`, `app.js?v=2.55.0`; `/web/app.js` содержит `blockFieldConfigured`, `embeddings_fallback2`, `spanGaps: true`, `type: 'linear'`. `POST /api/llm/test` (пустой `api_key`) → **401** (нужен глобальный админ; эндпоинт достижим — не 404/500).
+- **Не делалось:** аутентифицированный вызов `/api/llm/test` с сохранённым ключом (требует валидного `initData` глобального админа) — покрыто pytest (`tests/test_webapp_api.py`); live Android/Telegram QA (T-1377) — за владельцем/QA.
