@@ -1,9 +1,18 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§27);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§34);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
+
+> **АКТУАЛЬНЫЙ СТАТУС (13.09.2026):** последний раунд — **10.13
+> «Cognition / Sleep / Memory Refactor»**, статус **COMPLETED + DEPLOYED**
+> (HEAD == origin/master == `8800bba`, APP_VERSION **2.57.0**, тесты
+> **5392 passed / 0 failed**, прод active/health 200). 8 фич, 60 задач
+> T-1417…T-1476, все заархивированы (`plans/archive/cognition-*-round1013/`,
+> plans/archive/ — 42 папки). plans/features/ — 6 активных (F-1…F-6).
+> Метрики по раундам — `plans/metrics.md`. Полный блок — «Синк STEP 10
+> (финал) 13.09.2026» ниже.
 
 > Создан заново 07.09.2026 (pre-планирование эпоса «Multi-chat scaling +
 > Granular RBAC + BYOK + PERMsoc-плагин + TMA-навигация»). Прежние plans/
@@ -430,14 +439,13 @@
 | `config-read-path-audit` (F-5) | Аудит read-путей: settings.X vs hot.get |
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
-| `cognition-4d-memory-round1013` (F1) | 4D-память: префикс `[ММ.ГГГГ \| Автор]` + метка устаревания >6 мес (раунд 10.13) |
-| `cognition-belief-decay-round1013` (F2) | Belief decay (−0.1/мес) + Resurrection; архив `status='archived_belief'` (раунд 10.13) |
-| `cognition-deep-sleep-round1013` (F3) | «Глубокий сон»: якоря → «Мост времени» → парадигмы; роутер `LLMClient.generate_worker` (раунд 10.13) |
-| `cognition-llm-providers-round1013` (F4) | 2 provider-блока: `intel_history` / `intel_bg` + фоллбэк (раунд 10.13) |
-| `cognition-dashboard-round1013` (F5) | Дашборд «Осмысление» + виджет «Интеллект и Память»; граф vis-network (раунд 10.13) |
-| `cognition-ekg-logs-bugfix-round1013` (F6) | SVG-EKG (Load/CPU/RAM) + багфикс «Логи» ERROR+WARNING (раунд 10.13) |
-| `cognition-user-guide-round1013` (F7) | `plans/docs/intelligence_user_guide.md` + ссылка из README (раунд 10.13, последняя) |
-| `cognition-irony-dossier-round1013` (F8) | Ироничный промпт Досье; мемы `status='chat_meme'`, блоки [Факты]/[Мемы] (раунд 10.13) |
+
+> **Раунд 10.13 — 8 фич ЗАВЕРШЁН и ЗААРХИВИРОВАН (13.09.2026)** — F1 4D-память,
+> F2 belief decay+resurrection, F3 глубокий сон+роутер, F4 UI провайдеров,
+> F5 дашборд Cognition+виджет, F6 EKG+фикс логов, F7 справка+README, F8 ирония/досье
+> (60 задач T-1417…T-1476, все COMPLETED). Спеки — в
+> `plans/archive/cognition-*-round1013/` (spec.md + tasks.md + ADR-1013-1/2/3);
+> см. блок «Синк STEP 10 (финал) 13.09.2026» выше и «Свежие архивы» ниже.
 
 > **Раунд 10.4 — 8 фич ЗАВЕРШЁН и ЗААРХИВИРОВАН (10.09.2026)** — см. раздел
 > «Раунд 10.4 — финал» ниже; их спеки — в `plans/archive/`
@@ -866,6 +874,56 @@
 > ARCHITECTED + INTENT_SYNCED. Следующий шаг — @Builder (Step 4) по `spec.md`;
 > инварианты: ноль PG-DDL, SQLite v8, порядок роутеров `bot.py` (только DI-kwargs),
 > R17 (секреты `{configured,last4}`), R16 (id-не-имя).
+>
+> **Синк STEP 10 (финал, post-commit+деплой) 13.09.2026: раунд 10.13 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН и ЗАДЕПЛОЕН — HEAD == origin/master == `8800bba`** (`8800bba` — feat
+> раунда, 8 фич F1–F8, 60 задач T-1417…T-1476, тесты 5392; поверх `ce25dc7` —
+> docs memory-sync 10.12; прод до деплоя — `708f7df` = задеплоенный 10.12).
+> **8 фич** (все COMPLETED): **F1** `cognition-4d-memory-round1013` — префикс
+> `[ММ.ГГГГ \| Автор: ]` + метка `(Внимание: возможно устарело)` >6 мес + временная
+> группировка фактов в Сне; **F2** `cognition-belief-decay-round1013` — decay −0.1/мес,
+> архив `graph_facts.status='archived_belief'`, Resurrection (векторный резонанс
+> 0.78/−0.3, Сон-Реаниматор, граф-активация); **F3** `cognition-deep-sleep-round1013` —
+> «Глубокий сон» (якоря → «Мост времени» → парадигмы `origin='derived_belief'`
+> weight 0.55) + роутер `LLMClient.generate_worker`; **F4**
+> `cognition-llm-providers-round1013` — 2 provider-блока `intel_history`/`intel_bg`
+> (parent+subBlocks, фоллбэк на llm-ключ); **F5** `cognition-dashboard-round1013` —
+> дашборд «Осмысление» + виджет «Интеллект и Память» + граф vis-network
+> (nodes/edges 120/240, polling 15с); **F6** `cognition-ekg-logs-bugfix-round1013` —
+> SVG-EKG (Load/CPU/RAM) + багфикс «Логи» (серверный тег ERROR+WARNING, дефолт
+> фильтра); **F7** `cognition-user-guide-round1013` — `plans/docs/intelligence_user_guide.md`
+> (без жаргона) + README; **F8** `cognition-irony-dossier-round1013` — ироничный промпт
+> Досье + мемы `graph_facts.status='chat_meme'` + блоки [Факты]/[Локальные мемы/Ярлыки].
+> **Ревью/аудит:** @Reviewer итерация 1 — **Rejected** (BLOCKER-1 [Critical] T-1439 —
+> роутер воркеров не подключён; BLOCKER-2 [High] — ностальгия F5) → итерация 2 —
+> **APPROVED**; @Scanner итерация 1 — 0 Critical / 1 High / 4 Medium / 9 Low → итерация 2 —
+> **CLEAN 0/0/0** (закрыты High S10.13-1 и Medium S10.13-2/-3/-4/-5), остаются **5 Low**
+> (техдолг); @Builder — **2 цикла реворков** (после Reviewer Rejected и после Scanner High).
+> Источники — `plans/reports/round10.13_reviewer.md` + `plans/reports/round10.13_scanner_audit.md`.
+> **Архитектура:** `plans/ARCHITECTURE.md` **§34** + `ADR-1013-1` (provider keys
+> `models.intel_<role>_*`/`keys.intel_<role>_api_key`), `ADR-1013-2` (vis-network
+> standalone UMD self-host lazy-load), `ADR-1013-3` (prompt canon policy — модульные
+> каноны dream/lore/dossier, `PROMPT_MIGRATIONS` не трогаем). @PM: 8 фич заархивированы —
+> `plans/archive/cognition-*-round1013/` (spec.md + tasks.md + 3 ADR); **plans/archive/ —
+> 42 папки**; plans/features/ — 6 активных F-1…F-6. **Тесты: 5392 passed / 0 failed**
+> (база 10.12 = 5211 → **+181**); `node --check web/app.js` clean; `node tests/js/routing_test.js`
+> → `JS-UNIT-OK`; `git diff --check` чист. **Каталог:** REGISTRY **427** / Settings **399** /
+> `categorized` **403** / GROUPS 90 / mapped 88 / TAB_RULES 19 (санкционированный Δ
+> ADR-1013-1 + флаг F8). **Инварианты:** ноль новых PG-DDL, SQLite **v8**, порядок
+> роутеров `bot.py` не тронут (только DI-kwargs), R17-скан чист, F7-гайд без запрещённого
+> жаргона (grep 0), новых `v-html`/CDN нет. **Флаги default OFF:** `flags.belief_decay_enabled`,
+> `flags.deep_sleep_enabled`, `flags.irony_filter_enabled`. **Деплой @DevOps:** README +
+> `APP_VERSION` 2.56.0→**2.57.0**; коммит `8800bba`; push origin/master `ce25dc7..8800bba`;
+> **деплой 198.46.175.136:/var/www/admin_bot** — git pull fast-forward `708f7df..8800bba`,
+> restart active (running) PID 1629874, `/api/health` = 200 `{"status":"ok"}`, рабочее дерево
+> чистое; `.env` на проде не редактировался (новые ключи — безопасные дефолты, флаги OFF).
+> **Техдолг Low (открыт, не блокеры):** `S10.13-9` / `-11` / `-13` / `-14` / `-6b` — KG
+> `tech-debt-round10.13`; `plans/reports/round10.13_scanner_audit.md` §5. Граф обновлён:
+> милстоун `round1013-epic-cognition` → COMPLETED + DEPLOYED, 8 фич → WAS_PART_OF +
+> COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure (PART_OF/ARCHITECTED удалены),
+> создан `release-v2.57.0-round1013`, `round1013-epic-cognition FOLLOWS round10.12-epic`,
+> `plans/metrics.md` создан. **Остаточно (не блокеры):** betterstack_handler WARNING 401
+> (внешний LOGTAIL_SOURCE_TOKEN, вне раунда); ручной live Android/Telegram QA.
 >
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
@@ -1626,8 +1684,16 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 34 папки)
+## Свежие архивы (plans/archive/ — 42 папки)
 
+- `cognition-4d-memory-round1013` — **Раунд 10.13, 13.09.2026** (F1, T-1417…T-1423 + ADR-1013-3): 4D-память — префикс `[ММ.ГГГГ | Автор: ]` (автор=target_user), метка `(Внимание: возможно устарело)` для фактов >6 мес (`limits.rag_stale_after_days`), временная группировка фактов в DreamWorker; канон dream/lore — PREV-снапшот + байт-тесты, `PROMPT_MIGRATIONS` не трогаем)
+- `cognition-belief-decay-round1013` — **Раунд 10.13, 13.09.2026** (F2, T-1424…T-1433): Belief Decay (−0.1/мес без подкрепления >6 мес) + архив `graph_facts.status='archived_belief'`; Resurrection — векторный резонанс (пенальти −0.3, порог 0.78), Сон-Реаниматор, граф-активация (связки 2–3 узлов в L1); DDL-free, флаг `flags.belief_decay_enabled` OFF)
+- `cognition-deep-sleep-round1013` — **Раунд 10.13, 13.09.2026** (F3, T-1434…T-1442 + ADR-1013-1): «Глубокий сон» — после обычного сна, «Поиск по якорям» (свежие beliefs + 12ч-выжимка → RAG) → синтез «Мост времени» → парадигмы (`origin='derived_belief'`, `belief_meta.type='paradigm'`, weight 0.55); роутер `LLMClient.generate_worker` (роли intel_history/intel_bg); флаг `flags.deep_sleep_enabled` OFF)
+- `cognition-llm-providers-round1013` — **Раунд 10.13, 13.09.2026** (F4, T-1443…T-1447 + ADR-1013-1): 2 provider-блока `intel_history` / `intel_bg` (parent+subBlocks, `providerCoveredKeys`, `_BLOCK_SAVED_KEY`), ключи `models.intel_<role>_*` + `keys.intel_<role>_api_key`, фоллбэк на `models.llm_*`/`keys.llm_api_key`; R17 `{configured,last4}`)
+- `cognition-dashboard-round1013` — **Раунд 10.13, 13.09.2026** (F5, T-1448…T-1458 + ADR-1013-2): дашборд «Осмысление» на «Статусе» (2 бегущие строки, бейджи фаз) + виджет «Интеллект и Память» в «Сводке» (пульс, прогресс-бары, метрики БД, Timeline); граф vis-network standalone UMD self-host lazy-load (nodes/edges 120/240, polling 15с); аддитивные read-API)
+- `cognition-ekg-logs-bugfix-round1013` — **Раунд 10.13, 13.09.2026** (F6, T-1459…T-1464): SVG-EKG Heartbeat (Load/CPU/RAM, спокойный зелёный ↔ оранжево-красный), старый линейный аптайм-график удалён; багфикс «Логи» — серверный комбинированный тег ERROR+WARNING + дефолт фильтра при открытии)
+- `cognition-user-guide-round1013` — **Раунд 10.13, 13.09.2026** (F7, T-1465…T-1467): `plans/docs/intelligence_user_guide.md` — простыми словами, без аббревиатур, ироничный тон; задел под раздел «Справка» + ссылка из README; APP_VERSION 2.57.0)
+- `cognition-irony-dossier-round1013` — **Раунд 10.13, 13.09.2026** (F8, T-1468…T-1476 + ADR-1013-3): иронический фильтр в промпте Досье (LoreWorker + `build_persona_card`), мемы `graph_facts.status='chat_meme'`, `real_facts`=confirmed+target_user, блоки [Факты]/[Локальные мемы/Ярлыки]; флаг `flags.irony_filter_enabled` OFF)
 - `providers-kostik-round1012` — **Раунд 10.12, 13.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1012-1, FOLLOWS round10.11-epic): развязка эмбеддингов (`models.embedding_base_url`=apinet.cloud/v1, `keys.embedding_api_key`, отдельный httpx-кэш `_embed_client`) от прямых ответов (`models.llm_base_url`=nano-gpt.com/api/v1), фикс 422 сохранения глобальных ключей (`saveConfigItem`/`saveBlock`/`saveKeyItem`), объединённые блоки подключений с display-name, JSON-список фраз Костика (`reactions.kostik_replies`, 14 фраз) + `flags.kostik_enabled` + owner-блок PERMsoc; каталог 405/90/377/mapped 88/categorized 381; тесты 5211 passed / 0 failed; §33)
 - `llm-providers-refactor-round1011` — **Раунд 10.11, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1011-1/2/3, T-1340…T-1381): saved-key probe `/api/llm/test` без повторного ввода (R17-safe, `{configured,last4}`), рефакторинг «LLM Провайдеры» (nav-icons 22px + pinned профиль, две зоны «Подключения»/«Расширенные» computed, embeddings 3 подблока, video-fallback выше, media-share/теххаос внизу), непрерывный key-history chart (`spanGaps`+`stepped`, linear-ось, `parsing:false`), docs-отчёт `plans/docs/memory_sleep_nostalgia_lore_report.md`; каталог 400/90/372/mapped 88, `categorized` 376 (sanctioned Δ, infra 28→24); тесты 5172 passed / 0 failed; §32)
 - `admin-ui-round1010` — **Раунд 10.10, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1010-1/2/3, T-1315…T-1328: fullscreen safe-area паддинг шапки, мобильный график доступности ключей (окно от конца, дорожки + 300с сетка), реальные значения полей «Провайдеров» (`blockFieldValue`), ЛС heavy-modules OFF (`disable_dm_heavy_modules.py`, прод data-run 1 ЛС), «Роли» с аватаром+ником+мелким серым ID; каталог 400/90/372/mapped 88; тесты 5145 passed / 1 skipped; §31)
@@ -1675,12 +1741,12 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
 
-- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.56.0 (раунд 10.12); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
+- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.57.0 (раунд 10.13); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
 - **adminbot-sqlite-schema** — `users_meta` (стадии отношений), `smart_messages` (FTS5), `nodes/edges`, `graph_facts` (v1–v8), `dream_state`, `memory_dream_log` (бюджет суток), `nostalgia_log` и др. Миграция памяти sqlite→PG ЗАМОРОЖЕНА (04.09.2026). Вне скоупа раунда 10.
 - **hot-config-layer** — `services/hot_config.py::hot.get(pg_key, default)`; ConfigCache (`services/config_cache.py`) — in-memory над PG, R6 fail-open. Цепочка глобальная; **F-7 добавил per-chat слой `hot_chat` (chat_params → bot_settings → дефолт) параллельно — hot.get/ConfigCache не менялись**.
 - **llm-client-key-resolution** — `services/llm_client.py`; ключ: `hot.get("keys.llm_api_key", settings.LLM_API_KEY)`; фоллбэки `keys.llm_fallback_api_key` + embed-каскад (Google AI Studio, 2 ключа). **F-7 добавил BYOK: `_resolve_api_key_and_source(chat_id)` — свой ключ чата → allow_global=false → бюджет → глобальный; sandbox `content.no_key_reply` (фикс R6: per-call, без инстанс-стейта).**
-- **param-catalog** — `services/param_catalog.py` REGISTRY ParamSpec; F-7 добавил поле `per_chat` (whitelist), F-11 — `progressive_level`, F-9/F-10 — новые ключи (`flags.permsoc_enabled`, `limits.worker_daily_*`, `limits.chat_global_key_budget_*`, `content.no_key_reply`). Итог: REGISTRY 372→383, группы 70→71, Settings 349→359.
+- **param-catalog** — `services/param_catalog.py` REGISTRY ParamSpec; F-7 добавил поле `per_chat` (whitelist), F-11 — `progressive_level`, F-9/F-10 — новые ключи (`flags.permsoc_enabled`, `limits.worker_daily_*`, `limits.chat_global_key_budget_*`, `content.no_key_reply`); раунды 10.9–10.13 — итеративный прирост. Итог раунда 10.13: REGISTRY **427** / GROUPS **90** / Settings **399** / mapped **88** / categorized **403**, TAB_RULES 19 (санкционированный Δ ADR-1013-1 + флаг F8).
 - **rbac-v2** — `services/permissions.py` + неймспейсы `section./param./key./action.`; GET /api/config маскирует секреты {configured,last4}; POST — per-key права. **F-7 расширил: role_type-иерархия (services/roles.py), access_for, param_permissions, локальные чат-роли (chat_admins.role_name)**; `permissions.py` остаётся чистым матчером.
 - **tma-frontend** — Vue 3 global (без сборки): `web/index.html` + `web/app.js` + FastAPI `/api/*`. Вкладки: LLM Провайдеры, Промпты, Лимиты, Память и RAG, Реакции и Триггеры, Доступы, Лор чатов, Статус, Как это работает. **Раунд 10 реализован: F-8 (UI-фиксы) + F-11 (навигация 5 меню + селектор чатов + прогрессивное раскрытие + вкладка modules_feats) + F-12 (oversight) поверх F-7 (X-Chat-Id, роль-пикер, BYOK-поля).** **Хотфикс 10.1 (8eae899):** закрыты БГ1–БГ4 рекона — `basicItems`/`advancedItems` (+ прогрессивное раскрытие на всех конфиг-вкладках), логи (scrollTop=0, клик-копия, 0.70rem), лор (топ-50, ленивые аватары 300ms, каскад имён alias→nickname→username→id, фулскрин), modules_feats (бюджет всегда).
 - **legacy-triggers-permsoc** — Славик (479167456), Костя (350803143), Леха/Алан (138811255), Оля (834424825, единственный с флагом `flags.olya_enabled`), передразнивания (`flags.mimic_enabled`); ID в группе `reactions_persons`. **F-9 изолировал в плагин services/permsoc.py с master-гейтом flags.permsoc_enabled + PermsocGateFilter (девиансия M-F-9 (а): alan — master-only).**
@@ -1829,6 +1895,25 @@ HEAD == origin/master == `bad2b0d` (коммиты 708f7df + bad2b0d; тесты
 0 failed; деплой 198.46.175.136 active/health 200, 0 ошибок, миграция
 created=5/skipped=149, APP_VERSION 2.56.0); остаётся ручной live Android/Telegram QA
 + опц. выделенный embedding api key.
+**милстоун `round1013-epic-cognition`** (AdminBot → COMPLETED + DEPLOYED, 13.09.2026) —
+раунд 10.13 «Cognition / Sleep / Memory Refactor»: **8 фич** (F1 `cognition-4d-memory-round1013`,
+F2 `cognition-belief-decay-round1013`, F3 `cognition-deep-sleep-round1013`,
+F4 `cognition-llm-providers-round1013`, F5 `cognition-dashboard-round1013`,
+F6 `cognition-ekg-logs-bugfix-round1013`, F7 `cognition-user-guide-round1013`,
+F8 `cognition-irony-dossier-round1013`; 60 задач T-1417…T-1476) → COMPLETED + DEPLOYED +
+WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure (PART_OF/ARCHITECTED
+удалены — конвенция round10.12); `round1013-epic-cognition FOLLOWS round10.12-epic`;
+созданы `release-v2.57.0-round1013` (AdminBot PRODUCED) и `tech-debt-round10.13` (5 Low).
+4D-память + belief decay/Resurrection + «Глубокий сон»/парадигмы + UI-провайдеры
+`intel_history`/`intel_bg` + дашборд «Осмысление»/граф vis-network + EKG/фикс логов +
+user guide + ирония/досье (`status='chat_meme'`). ARCHITECTURE.md §34 + ADR-1013-1/2/3;
+каталог **427**/90/**399**/mapped 88/categorized **403** (TAB_RULES 19); флаги default OFF
+(`belief_decay_enabled`/`deep_sleep_enabled`/`irony_filter_enabled`); тесты
+**5392 passed / 0 failed** (база 10.12 = 5211, +181); деплой `8800bba`, прод
+198.46.175.136 active (PID 1629874)/health 200, APP_VERSION **2.57.0**;
+plans/archive/ — **42 папки**; plans/features/ — 6 активных (F-1…F-6);
+@Reviewer iter1 Rejected → iter2 APPROVED; @Scanner iter1 0C/1H/4M/9L → iter2 0C/0H/0M/5L;
+@Builder — 2 цикла реворков. `plans/metrics.md` — метрики по раундам.
 
 ## Факты для планирования (проект)
 
