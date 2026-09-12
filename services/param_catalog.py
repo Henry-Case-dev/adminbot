@@ -428,10 +428,8 @@ _INFRA: list[tuple] = [
     ("CHECKUP_JOURNALCTL_CMD", "Команда journalctl для чекапа", "str", False),
     # Embed-фоллбэк (EMBEDDING_FALLBACK_*): Google AI Studio OpenAI-совместимый
     # /embeddings — когда основной провайдер не отдаёт эмбеддинги (403-квоты).
-    ("EMBEDDING_FALLBACK_BASE_URL", "Базовый URL embed-фоллбэка", "str", False),
-    ("EMBEDDING_FALLBACK_API_KEY", "Ключ embed-фоллбэка (Google AI Studio)", "str", True),
-    ("EMBEDDING_FALLBACK_API_KEY_2", "Ключ эмбеддинг-фоллбэка 2 (Google AI Studio, запасной аккаунт)", "str", True),
-    ("EMBEDDING_FALLBACK_MODEL", "Модель embed-фоллбэка", "str", False),
+    # Раунд 10.11 (ADR-1011-2): BASE_URL/API_KEY/API_KEY_2/MODEL переведены в
+    # first-class каталог (models/keys) — здесь остаются только тайминги.
     ("EMBEDDING_FALLBACK_TIMEOUT_SECONDS", "Таймаут embed-фоллбэка, сек", "float", False),
     ("EMBEDDING_FALLBACK_MAX_RETRIES", "Ретраи embed-фоллбэка", "int", False),
 ]
@@ -460,6 +458,14 @@ _KEYS: list[tuple] = [
      "Ключ основной нейросети — через него идёт почти вся работа бота. Взять: кабинет провайдера."),
     ("LLM_FALLBACK_API_KEY", "Ключ запасной нейросети", "str", True, "keys_llm",
      "Ключ запасной нейросети на случай сбоя основной. Получить: кабинет запасного провайдера."),
+    # Раунд 10.11 (ADR-1011-2): embed-фоллбэки — first-class каталог
+    # (были infra/category None; счётчики не растут — перенос записей).
+    ("EMBEDDING_FALLBACK_API_KEY", "Ключ запасной модели памяти", "str", True,
+     "keys_llm",
+     "Ключ первой запасной модели «отпечатков» текста (если основная не отдаёт эмбеддинги). Получить: кабинет провайдера."),
+    ("EMBEDDING_FALLBACK_API_KEY_2", "Ключ второй запасной модели памяти",
+     "str", True, "keys_llm",
+     "Ключ второй запасной модели «отпечатков» текста — запасной аккаунт того же провайдера. Получить: кабинет провайдера."),
     ("TAVILY_API_KEY", "Ключ Tavily", "str", True, "keys_search",
      "Ключ интернет-поиска (Tavily) — бот ищет по нему. Получить: tavily.com."),
     ("EXA_API_KEY", "Ключ Exa", "str", True, "keys_search",
@@ -495,6 +501,14 @@ _MODELS: list[tuple] = [
      "Модель «отпечатков» текста для поиска по памяти. Менять только вместе с размерностью ниже."),
     ("EMBEDDING_DIM", "Размерность эмбеддингов", "int", "models_embeddings",
      "Длина «отпечатка» текста. Должна совпадать с моделью эмбеддингов, иначе поиск сломается."),
+    # Раунд 10.11 (ADR-1011-2): адрес/модель embed-фоллбэка — first-class
+    # каталог (были infra/category None; счётчики не растут — перенос).
+    ("EMBEDDING_FALLBACK_BASE_URL", "Адрес запасной модели памяти", "str",
+     "models_embeddings",
+     "Адрес сервера запасной модели «отпечатков» текста. Общий для обоих запасных ключей."),
+    ("EMBEDDING_FALLBACK_MODEL", "Модель запасной модели памяти", "str",
+     "models_embeddings",
+     "Название запасной модели «отпечатков». Общее для обоих запасных ключей; пусто — берётся основная."),
     ("LLM_TIMEOUT", "Сколько ждать ответ нейросети, сек", "float", "models_llm_timeouts",
      "Сколько ждать ответ нейросети. Больше — меньше сбоев на медленных моделях, но дольше тишина."),
     ("LLM_MAX_RETRIES", "Число повторов при сбое нейросети", "int", "models_llm_timeouts",

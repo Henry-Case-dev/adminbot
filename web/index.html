@@ -202,17 +202,17 @@
 
     /* T-1100/раунд 10.6 (A1): navbar-полоса (6 пунктов эталона) + hub */
     .navbar-band {
-      display: flex; align-items: stretch; gap: .25rem; width: 100%;
+      display: flex; align-items: stretch; gap: .15rem; width: 100%;
       overflow-x: auto;
     }
     .nav-link {
       display: flex; flex-direction: column; align-items: center;
       justify-content: flex-start; gap: 1px; flex: 1 1 0; min-width: 0;
-      padding: .25rem .1rem; white-space: normal;
+      padding: .15rem 0; white-space: normal;
       background: transparent; border: none; cursor: pointer;
       color: var(--text-2); font-size: var(--tx-small);
     }
-    .nav-link .nav-icon { font-size: 18px; line-height: 1; }
+    .nav-link .nav-icon { font-size: 22px; line-height: 1; }
     /* 10.7 (1d): подписи навбара — без разрыва внутри слова (keep-all),
        перенос по словам, максимум 2 строки с ellipsis; едино mobile+desktop. */
     .nav-label {
@@ -226,7 +226,7 @@
       background: var(--surface-3); color: var(--text-1); font-weight: 600;
     }
     .nav-link.active .msr { font-variation-settings: 'FILL' 1; }
-    @media (min-width: 992px) { .nav-link { min-width: 72px; } }
+    @media (min-width: 992px) { .nav-link { min-width: 60px; } }
 
     /* Раунд 10.6 (A2): список 11 модулей + карточки */
     .module-list {
@@ -242,12 +242,18 @@
     /* Раунд 10.6 (A4): блоки провайдеров */
     .prov-block { border: var(--card-border); border-radius: var(--radius-lg); }
     .prov-test-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .hub-head { grid-column: 1 / -1; }
+    /* 10.11 (2.1): карточки центрируются и ограничены по ширине
+       (fullscreen не растягивает на всю ширину; mobile — 1 колонка). */
+    .hub-head {
+      grid-column: 1 / -1; width: 100%; max-width: 64rem;
+      justify-self: center;
+    }
     .hub-head .hub-title { font-size: var(--tx-large); font-weight: 600; }
     .hub-head .hub-sub { font-size: var(--tx-small); color: var(--text-3); }
     .hub-grid {
       grid-column: 1 / -1; display: grid; gap: .75rem;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      width: 100%; max-width: 64rem; justify-self: center;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     }
     .hub-card {
       display: flex; align-items: flex-start; gap: .75rem; text-align: left;
@@ -709,14 +715,14 @@
           <span v-if="isChatContext()" class="badge badge-info shrink-0">
             {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
           </span>
-          <div class="ml-auto flex items-center gap-1.5 text-xs">
+          <div class="ml-auto flex items-center gap-1.5 text-xs shrink-0">
             <!-- UI-полировка TMA: аватар текущего юзера — CDN photo_url из
                  initData (me.photo_url) сразу; иначе — blob через прокси
                  avatarUrl('user', …); @error CDN → фолбек на прокси -->
             <img v-if="me && meAvatarUrl" :src="meAvatarUrl" alt=""
                  class="w-6 h-6 rounded-full object-cover shrink-0 border border-white/15"
                  @error="onMeAvatarError()">
-            <span v-if="me" class="text-gray-300 text-xs truncate max-w-[7rem]">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
+            <span v-if="me" class="text-gray-300 text-xs truncate whitespace-nowrap max-w-[7rem]">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
             <span v-if="me" class="badge badge-info text-[10px] px-1.5 py-0">{{ me.role_name }}</span>
             <!-- Полноэкранный режим TMA (⛶). F-13 (AC-2): крестик ✕
                  принудительного закрытия миниаппа удалён — закрытие в
@@ -792,52 +798,104 @@
               <!-- A4/T-1207: LLM Провайдеры — блоки ПО МОДУЛЯМ; каждый =
                    base_url + model + api key + «Проверить» (POST /api/llm/test). -->
               <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3">
-                <section class="prov-block card p-4 max-w-3xl mx-auto w-full" v-for="b in providerBlocks"
-                         :key="b.id" :data-block="b.id">
+                <!-- 2.2.1 «Подключения»: только блоки настройки моделей. -->
+                <div class="hub-head" style="max-width: none;">
+                  <div class="hub-title">Подключения</div>
+                  <div class="hub-sub">Адреса, модели и ключи провайдеров. Технические параметры — ниже, в «Расширенных настройках».</div>
+                </div>
+                <section class="prov-block card p-4 max-w-3xl mx-auto w-full"
+                         v-for="b in providerConnectionBlocks" :key="b.id" :data-block="b.id">
                   <header class="prov-head flex items-center gap-2 mb-2">
                     <span class="prov-title text-sm font-bold">{{ b.title }}</span>
                     <span class="prov-modules text-xs text-gray-500">{{ b.modules }}</span>
                   </header>
-                  <div class="prov-row flex items-center gap-2 mb-2" v-for="f in b.fields" :key="f.key">
-                    <label class="prov-label text-xs w-36 shrink-0">{{ f.label }}</label>
-                    <!-- 10.10 (п.3): контролируемое :value из configItems —
-                         реальное текущее значение; черновик пишется только
-                         при правке (@input), поэтому draft==null остаётся
-                         «не трогать» (MINOR-3). -->
-                    <input class="field flex-1 min-w-0"
-                           :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
-                           autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
-                           :value="blockFieldValue(f)"
-                           @input="blockDrafts[f.key] = $event.target.value"
-                           :disabled="!canEditConfig(f.key)">
-                    <!-- MINOR-2: раздельный тест каждого поискового ключа -->
-                    <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"
-                            :data-block="f.probeTarget"
-                            :disabled="blockTesting[f.probeTarget]"
-                            @click="testField(b, f)">
-                      {{ blockTesting[f.probeTarget] ? '…' : 'Проверить' }}
-                    </button>
-                    <span v-if="f.probeTarget && blockResults[f.probeTarget]"
-                          class="prov-test-status text-xs"
-                          :class="blockResults[f.probeTarget].ok ? 'text-green-400' : 'text-red-400'">
-                      {{ blockResults[f.probeTarget].text }}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <button class="btn-ghost text-xs shrink-0"
-                            :disabled="blockSaving[b.id]" @click="saveBlock(b)">
-                      {{ blockSaving[b.id] ? 'Сохранение…' : 'Сохранить' }}
-                    </button>
-                    <button v-if="b.testable !== false && !b.perFieldTest"
-                            class="btn-accent prov-test-btn text-xs"
-                            :disabled="blockTesting[b.id]" @click="testBlock(b)">
-                      {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
-                    </button>
-                    <span v-if="!b.perFieldTest && blockResults[b.id]" class="prov-test-status text-xs"
-                          :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">
-                      {{ blockResults[b.id].text }}
-                    </span>
-                  </div>
+                  <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
+                  <!-- 2.3: подблоки (эмбеддинги) — у каждого свой набор полей
+                       и своя кнопка «Проверить» (testBlock(sb)). -->
+                  <template v-if="b.subBlocks">
+                    <div v-for="sb in b.subBlocks" :key="sb.id"
+                         class="mb-4" :data-block="sb.id">
+                      <div class="text-xs font-bold text-gray-300 mb-1">{{ sb.title }}</div>
+                      <div v-if="sb.note" class="text-xs text-gray-500 mb-1">{{ sb.note }}</div>
+                      <div class="prov-row flex items-start gap-2 mb-2" v-for="f in sb.fields" :key="f.key">
+                        <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
+                        <div class="flex-1 min-w-0">
+                          <input class="field w-full"
+                                 :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                                 autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
+                                 :value="blockFieldValue(f)"
+                                 @input="blockDrafts[f.key] = $event.target.value"
+                                 :disabled="!canEditConfig(f.key)">
+                          <div v-if="f.secret && blockFieldConfigured(f)"
+                               class="text-[10px] text-gray-500 mt-0.5">
+                            Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <button class="btn-ghost text-xs shrink-0"
+                                :disabled="blockSaving[sb.id]" @click="saveBlock(sb)">
+                          {{ blockSaving[sb.id] ? 'Сохранение…' : 'Сохранить' }}
+                        </button>
+                        <button class="btn-accent prov-test-btn text-xs"
+                                :disabled="blockTesting[sb.id]" @click="testBlock(sb)">
+                          {{ blockTesting[sb.id] ? 'Проверка…' : 'Проверить' }}
+                        </button>
+                        <span v-if="blockResults[sb.id]" class="prov-test-status text-xs"
+                              :class="blockResults[sb.id].ok ? 'text-green-400' : 'text-red-400'">
+                          {{ blockResults[sb.id].text }}
+                        </span>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="prov-row flex items-start gap-2 mb-2" v-for="f in b.fields" :key="f.key">
+                      <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
+                      <div class="flex-1 min-w-0">
+                        <!-- 10.10 (п.3): контролируемое :value из configItems —
+                             реальное текущее значение; черновик пишется только
+                             при правке (@input), поэтому draft==null остаётся
+                             «не трогать» (MINOR-3). -->
+                        <input class="field w-full"
+                               :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                               autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
+                               :value="blockFieldValue(f)"
+                               @input="blockDrafts[f.key] = $event.target.value"
+                               :disabled="!canEditConfig(f.key)">
+                        <div v-if="f.secret && blockFieldConfigured(f)"
+                             class="text-[10px] text-gray-500 mt-0.5">
+                          Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
+                        </div>
+                      </div>
+                      <!-- MINOR-2: раздельный тест каждого поискового ключа -->
+                      <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"
+                              :data-block="f.probeTarget"
+                              :disabled="blockTesting[f.probeTarget]"
+                              @click="testField(b, f)">
+                        {{ blockTesting[f.probeTarget] ? '…' : 'Проверить' }}
+                      </button>
+                      <span v-if="f.probeTarget && blockResults[f.probeTarget]"
+                            class="prov-test-status text-xs"
+                            :class="blockResults[f.probeTarget].ok ? 'text-green-400' : 'text-red-400'">
+                        {{ blockResults[f.probeTarget].text }}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn-ghost text-xs shrink-0"
+                              :disabled="blockSaving[b.id]" @click="saveBlock(b)">
+                        {{ blockSaving[b.id] ? 'Сохранение…' : 'Сохранить' }}
+                      </button>
+                      <button v-if="b.testable !== false && !b.perFieldTest"
+                              class="btn-accent prov-test-btn text-xs"
+                              :disabled="blockTesting[b.id]" @click="testBlock(b)">
+                        {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
+                      </button>
+                      <span v-if="!b.perFieldTest && blockResults[b.id]" class="prov-test-status text-xs"
+                            :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">
+                        {{ blockResults[b.id].text }}
+                      </span>
+                    </div>
+                  </template>
                 </section>
               </div>
               <!-- 10.9 (п.1): отдельная мастер-карта удалена — тумблер
@@ -869,6 +927,72 @@
               <div v-else-if="currentTabGroups.length === 0 && !configError" class="card p-6 text-gray-400 col-span-full">
                 Ничего не найдено по запросу «{{ configSearch }}».
               </div>
+              <!-- 2.2.2 «Расширенные настройки»: на вкладке «LLM Провайдеры»
+                   всё техническое (advanced provider-блоки + residual
+                   generic-группы) скрыто под <details>; на остальных вкладках
+                   обёртка — обычный <div> (поведение не меняется). -->
+              <component :is="activeTab === 'llm_providers' ? 'details' : 'div'"
+                   class="col-span-full grid gap-4"
+                   :open="activeTab === 'llm_providers' ? expandOpen(activeTab, 'prov-advanced') : null"
+                   @toggle="activeTab === 'llm_providers' && toggleExpand(activeTab, 'prov-advanced')">
+                <summary v-if="activeTab === 'llm_providers'"
+                         class="cursor-pointer select-none text-sm font-bold text-violet-300 uppercase tracking-wide col-span-full">
+                  ▶ Расширенные настройки
+                  <span class="text-xs text-gray-500 font-normal normal-case">
+                    ({{ providerAdvancedBlocks.length + currentTabGroups.length }})
+                  </span>
+                </summary>
+                <div v-if="activeTab === 'llm_providers'" class="col-span-full grid gap-3 mt-3">
+                  <section class="prov-block card p-4 max-w-3xl mx-auto w-full"
+                           v-for="b in providerAdvancedBlocks" :key="b.id" :data-block="b.id">
+                    <header class="prov-head flex items-center gap-2 mb-2">
+                      <span class="prov-title text-sm font-bold">{{ b.title }}</span>
+                      <span class="prov-modules text-xs text-gray-500">{{ b.modules }}</span>
+                    </header>
+                    <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
+                    <div class="prov-row flex items-start gap-2 mb-2" v-for="f in b.fields" :key="f.key">
+                      <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
+                      <div class="flex-1 min-w-0">
+                        <input class="field w-full"
+                               :type="f.secret && !keyReveal[f.key] ? 'password' : 'text'"
+                               autocomplete="off" :placeholder="blockFieldPlaceholder(f)"
+                               :value="blockFieldValue(f)"
+                               @input="blockDrafts[f.key] = $event.target.value"
+                               :disabled="!canEditConfig(f.key)">
+                        <div v-if="f.secret && blockFieldConfigured(f)"
+                             class="text-[10px] text-gray-500 mt-0.5">
+                          Ключ сохранён (••••{{ last4ByKey(f.key) }}) — можно проверить без ввода
+                        </div>
+                      </div>
+                      <button v-if="f.probeTarget" class="btn-accent prov-test-btn text-xs shrink-0"
+                              :data-block="f.probeTarget"
+                              :disabled="blockTesting[f.probeTarget]"
+                              @click="testField(b, f)">
+                        {{ blockTesting[f.probeTarget] ? '…' : 'Проверить' }}
+                      </button>
+                      <span v-if="f.probeTarget && blockResults[f.probeTarget]"
+                            class="prov-test-status text-xs"
+                            :class="blockResults[f.probeTarget].ok ? 'text-green-400' : 'text-red-400'">
+                        {{ blockResults[f.probeTarget].text }}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn-ghost text-xs shrink-0"
+                              :disabled="blockSaving[b.id]" @click="saveBlock(b)">
+                        {{ blockSaving[b.id] ? 'Сохранение…' : 'Сохранить' }}
+                      </button>
+                      <button v-if="b.testable !== false && !b.perFieldTest"
+                              class="btn-accent prov-test-btn text-xs"
+                              :disabled="blockTesting[b.id]" @click="testBlock(b)">
+                        {{ blockTesting[b.id] ? 'Проверка…' : 'Проверить' }}
+                      </button>
+                      <span v-if="!b.perFieldTest && blockResults[b.id]" class="prov-test-status text-xs"
+                            :class="blockResults[b.id].ok ? 'text-green-400' : 'text-red-400'">
+                        {{ blockResults[b.id].text }}
+                      </span>
+                    </div>
+                  </section>
+                </div>
               <!-- F-13 (AC-3): v-for и v-if на ОДНОМ узле — Vue 3 вычисляет
                    v-if ВНЕ скоупа цикла (grp undefined → basicItems([]) →
                    условие всегда false → ВСЕ конфиг-группы схлопывались,
@@ -1140,8 +1264,9 @@
                     </div>
                   </div>
                  </details>
+               </component>
+               </template>
               </component>
-              </template>
               <!-- Раунд 10 (F-7 T-856): BYOK-блок — свой ключ чата.
                    Для local admin с активным чатом: поля keys-секции
                    отсутствуют в generic-рендере (сервер их скрывает) —

@@ -168,12 +168,14 @@ def humanize_embed_error(exc: BaseException) -> str:
     исходного исключения, если оно печатается рядом)."""
     status = _embed_error_status(exc)
     if status == 401:
-        return ("Ключ API не принят (401) — проверьте LLM_API_KEY и запасные "
-                "ключи эмбеддинга (EMBEDDING_FALLBACK_API_KEY(_2)) в .env")
+        return ("Ключ API не принят (401) — проверьте основной ключ и запасные "
+                "ключи эмбеддинга в мини-аппе: «LLM Провайдеры» → "
+                "«Эмбеддинги»")
     if status == 403:
         return ("Доступ запрещён (403): квота исчерпана или ключ без прав на "
                 "эмбеддинги — пробуется запасной ключ; если исчерпаны все "
-                "ключи — проверьте их в .env")
+                "ключи — проверьте их в мини-аппе («LLM Провайдеры» → "
+                "«Эмбеддинги»)")
     if status == 429:
         return ("Рейт-лимит (429) — воркер ждёт и повторит; если повторяется "
                 "часто — снизьте --embed-concurrency")
@@ -193,7 +195,8 @@ def humanize_embed_error(exc: BaseException) -> str:
                 "data[].embedding в ответе)")
     if status is not None and 400 <= status < 500:
         return (f"API отклонил запрос (HTTP {status}) — проверьте "
-                f"конфигурацию/модель (.env EMBEDDING_*)")
+                f"конфигурацию/модель в мини-аппе «LLM Провайдеры» → "
+                f"«Эмбеддинги»")
     return "Облачный API недоступен — см. детали выше"
 
 
@@ -285,17 +288,26 @@ class LLMClient:
         self._fallback_timeout = hot.get("models.llm_fallback_timeout_seconds", settings.LLM_FALLBACK_TIMEOUT_SECONDS)
         self._fallback_max_retries = hot.get("models.llm_fallback_max_retries", settings.LLM_FALLBACK_MAX_RETRIES)
         # Embed-фоллбэк (раунд 5): активен ТОЛЬКО при base_url + >=1 ключе;
-        # пустая модель → primary embed-модель. Параметры infra (категория
-        # None в param_catalog) — горячего каталога/admin-кэша у них НЕТ.
-        # Задача 1: упорядоченный список ключей каскада [key1, key2, …]
-        # (пустые отбрасываются); значение НИКОГДА не логируется (R17).
-        self._embed_fallback_base_url = (embed_fallback_base_url or "").strip()
-        self._embed_fallback_api_key = (embed_fallback_api_key or "").strip()
-        self._embed_fallback_api_key_2 = (embed_fallback_api_key_2 or "").strip()
+        # пустая модель → primary embed-модель. 10.11 (ADR-1011-2): параметры
+        # переведены в first-class каталог → hot.get (дефолт = прежний
+        # settings/kwarg → паритет в тестах без кэша). Задача 1: упорядоченный
+        # список ключей каскада [key1, key2, …] (пустые отбрасываются);
+        # значение НИКОГДА не логируется (R17).
+        self._embed_fallback_base_url = (hot.get(
+            "models.embedding_fallback_base_url",
+            (embed_fallback_base_url or "").strip()) or "").strip()
+        self._embed_fallback_api_key = (hot.get(
+            "keys.embedding_fallback_api_key",
+            (embed_fallback_api_key or "").strip()) or "").strip()
+        self._embed_fallback_api_key_2 = (hot.get(
+            "keys.embedding_fallback_api_key_2",
+            (embed_fallback_api_key_2 or "").strip()) or "").strip()
         self._embed_fallback_api_keys = [
             key for key in (self._embed_fallback_api_key,
                             self._embed_fallback_api_key_2) if key]
-        self._embed_fallback_model = ((embed_fallback_model or "").strip()
+        self._embed_fallback_model = ((hot.get(
+            "models.embedding_fallback_model",
+            (embed_fallback_model or "").strip()) or "").strip()
                                       or self._embed_model)
         self._embed_fallback_timeout = embed_fallback_timeout
         self._embed_fallback_max_retries = embed_fallback_max_retries
@@ -471,8 +483,9 @@ class LLMClient:
         Bearer-ключ каскада ставится заголовком КОНКРЕТНОГО запроса
         (_post_embed_fallback) — один клиент переиспользуется всеми ключами
         (headers per-request безопасны). Per-request таймаут
-        EMBEDDING_FALLBACK_TIMEOUT_SECONDS (паттерн _get_client, без hot-ротации
-        — ключ infra, только .env)."""
+        EMBEDDING_FALLBACK_TIMEOUT_SECONDS — infra-тайминг (.env, не
+        каталог); url/модель/ключи фоллбэка — first-class каталог
+        (мини-апп «LLM Провайдеры» → «Эмбеддинги»)."""
         if self._embed_fallback_client is None:
             self._embed_fallback_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self._embed_fallback_timeout,

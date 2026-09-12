@@ -2,6 +2,63 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.11 (12.09.2026): память/сон/ностальгия-отчёт + LLM Провайдеры refactor + key-chart fix — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (12.09.2026; архив @PM 12.09.2026)
+
+**✅ ИТОГ 10.11 (12.09.2026):** реализация завершена, фича **заархивирована** — перенесена
+`plans/features/llm-providers-refactor-round1011/` → **`plans/archive/llm-providers-refactor-round1011/`**
+(@PM Step 8).
+**Финальные метрики:** полный **pytest — 5172 passed / 0 failed** (база 10.10 = 5145 → **+27**;
+@Scanner зафиксировал **5168** на момент аудита — до follow-up R10.11-1/-2/-3); `node --check web/app.js`
+clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; каталог-инвариант
+**REGISTRY 400 / GROUPS 90 / Settings 372 / mapped 88** (без роста; `categorized` **376** — sanctioned
+Δ ADR-1011-2: models 40→42, keys 13→15, infra 28→24).
+@Reviewer — **APPROVED WITH MINOR ISSUES** (CRITICAL/HIGH/MEDIUM исправлены @Builder); @Scanner —
+**CLEAN: 3 low закрыты follow-up, 3 info → техдолг §25** (`plans/reports/round10.11_scanner_audit.md`);
+@Architect — архитектура влита в `plans/ARCHITECTURE.md` (**§32** + §5/§9/§25).
+**✅ Пункт 4 (docs-only, без кода) — ЗАВЕРШЁН:** отчёт
+**`plans/docs/memory_sleep_nostalgia_lore_report.md`** (6 тем, проза, простыми словами, каждая цифра
+с `file:line`); принят @PM (T-1342).
+Артефакты в архиве: `spec.md`, `ADR-1011-1.md`, `ADR-1011-2.md`, `ADR-1011-3.md`, `tasks.md`
+(со статус-хедером).
+**⚠️ ОТКРЫТО (PROD data-run, за @DevOps, пост-архив):** применить идемпотентный
+`python scripts/migrate_env_to_pg.py --only-category models,keys` (ADR-1011-2: 4 embed-фоллбэк-записи
+`_INFRA`→каталог; значения не мигрируют автоматически), затем русский commit / push / deploy
+(ssh → `git pull` → `systemctl restart admin_bot` → status; health 200, 0 ERROR/Traceback).
+**⚠️ ОТКРЫТО (live Android/Telegram QA, за владельцем/QA):** **T-1377** — поле ключа + «Проверить»
+без повторного ввода; навигация/профиль/сетка; две зоны «Провайдеры»; эмбеддинги (3 подблока);
+видео-фоллбэк; media-share внизу; график доступности ключей (статически покрыто
+`tests/test_webapp_round1011_ui.py`, JS-юнитами).
+Ниже — исторический документ планирования эпика.
+
+**Фича:** `plans/archive/llm-providers-refactor-round1011/` (kebab: `llm-providers-refactor-round1011`; `tasks.md` создан 12.09.2026 @PM; архивирована 12.09.2026 @PM Step 8).
+**Нумерация:** **T-1340…T-1381** (продолжает T-1339 — финал 10.10).
+**Преемник:** 10.10 `admin-ui-round1010` (архив; commit `ec5dd1f`, прод health 200, pytest 5145).
+**Раунд подтверждён:** **10.11** (HEAD `ec5dd1f`).
+Базовая линия: pytest **5145 passed / 1 skipped / 0 failed**, `node --check web/app.js` clean, `node tests/js/routing_test.js` → `JS-UNIT-OK`.
+Каталог-инвариант: **REGISTRY 400 / GROUPS 90 / Settings 372 / mapped 88**, `TAB_RULES`/`CONFIG_TAB_TITLES` 19. Инварианты: **ноль новых PG-DDL**, SQLite **v8**, `bot.py`/`media/`/`.env` не трогать, R17. UI/docs-only ⟹ feature-flag не требуется, rollback = `git revert`.
+
+**Дословный запрос владельца (`plans/current_task.md`, приложен, добавлен в `.gitignore`):**
+1. **Поле ключа провайдера:** при сохранённом ключе «Проверить» падает «ключ не задан» — сделать, чтобы ключ был явно в поле, если присвоен параметру (иначе пусто), и проверка работала без повторного ввода.
+2. **Масштабный рефакторинг UI «LLM Провайдеры» + верхняя навигация** (интуитивно новичку, прагматично, без лишних компонентов):
+   2.1 шапка/навигация — крупнее и плотнее иконки, зафиксировать блок профиля (аватар/ник/фулскрин), центрировать+сделать адаптивной сетку карточек;
+   2.2 две зоны: **«Подключения»** (сверху, только модели) и **«Расширенные настройки»** (внизу, спойлер с таймаутами/ретраями/защитой);
+   2.3 **«Эмбеддинги»** — 1 блок = ровно 3 подблока (Основная / Фоллбэк 1 / Фоллбэк 2), фоллбэкам полный набор полей (Base URL/Модель/ключ/«Проверить»);
+   2.4 видео — запасную OpenRouter-модель поднять наверх под основную, полный набор полей, **убрать хардкод**;
+   2.5 «Медиа-шара» — вниз в расширенные + human-subtext; весь теххаос (таймауты/защита/поиск-ключи/таймауты-повторы/отпечатки/Circuit Breaker/лимиты Groq) — в самый низ.
+3. **Багфикс графика «История доступности ключей»** — разреженные данные дают разорванные чёрточки; нужен непрерывный ступенчатый график (`spanGaps:true`/`stepped:true` или range-маппинг) и X как временная шкала (`time`/`datetime`).
+4. **Задача БЕЗ кода:** подробный прозаичный отчёт простыми словами о памяти, сне/синтезе воспоминаний, ностальгии, формировании лора чатов, таймингах/лимитах и сборке контекста (сначала пункт 4).
+**Плюс:** README (ирония), русский коммит, push, деплой (ssh → pull → restart → status), human-readable отчёт.
+
+**Рекогносцировка (@PM, `ec5dd1f`, file:line — детали `tasks.md` §2):**
+- **п.1:** `PROVIDER_BLOCKS` `web/app.js:369-441` (secret-поля `:375,383,390,398,406,432,434,438`); `blockFieldValue` `:2047-2054` (object-маска → `''`); `blockFieldPlaceholder` `:2055-2061` (`configured ••••last4`); input `web/index.html:807-812`; `testBlock` `:2062-2090` (api_key только если truthy `:2071`); `saveBlock` `:2120-2160` (MINOR-3); `_mask_secret` `web/api/routes.py:194-203`; тест `web/api/routes.py:1243-1264` → `services/llm_probe.py:144-145` (`not_configured "ключ не задан"`) — **root cause подтверждён**.
+- **п.2:** рендер `web/index.html:794-842`; данные `web/app.js:645-646`; nav `web/index.html:731-739` + CSS `.navbar-band/.nav-link/.nav-icon` `:204-229` (icon 18px), профиль `:712-727`; hub-сетка `:757-781` + `.hub-grid` `:248-251`; эмбеддинги `web/app.js:408-417` (`testable:false`), видео `:400-407`, media_share `:436-440`, тех-блоки `:418-435`; каталог-группы — `services/param_catalog.py`.
+- **п.3:** `keyHistoryChartModel` `web/app.js:3473-3545` (`stepped:true` `:3533`, `spanGaps:false` `:3536`), `renderKeyHistoryChart` `:3546-3590`, X категориальная (`:3577-3578`); canvas `web/index.html:2617-2619`; данные `services/key_history.py`, API `web/api/routes.py:1090-1118`; Chart.js 4 CDN `web/index.html:3040` (time-adapter отсутствует); JS-юниты `tests/js/routing_test.js:586-660`.
+- **п.4:** отчёт @Architect по сервисам памяти/сна/ностальгии/лора/контекста (`services/memory*`, `dream*`/`sleep*`, `nostalgia*`, `chat_lore.py`, `context*`; гейты `services/feature_gates.py`; лимиты `services/param_catalog.py`) → **`plans/docs/memory_sleep_nostalgia_lore_report.md`** (ранее ошибочно `plans/reports/round10.11_memory_report.md`).
+
+**Учёт аудита @Scanner:** прочитан `plans/reports/round10.10_scanner_audit.md` (0 blocker/0 major/0 medium; low R10.10-1/-2 скрипт DM, R10.10-3 chart-return — **уже закрыт** в 10.10, info R10.10-4/-5). В скоуп 10.11 из аудита прямо ничего не входит; T-1374 перепроверяет R10.10-3 регрессом. `audit_backlog.md` — пересечений blocker/major нет.
+**Открытые вопросы (6 шт.)** — `tasks.md` §7 (Q1: ширина/центрирование сетки; Q2: реальные ключи эмбеддинг-фоллбэков vs Δ каталога; Q3: место хардкода видео-фоллбэка и дефолт; Q4: Chart.js time-adapter vs линейная ось; Q5: резолв сохранённого ключа без нарушения R17; Q6: «Поиск: ключи» = advanced или connections). **@PM код не пишет.**
+**Статус:** планирование завершено — передано `@Orchestrator` (историческая запись; раунд **завершён и заархивирован** 12.09.2026 @PM Step 8).
+
 ## Раунд 10.10 (12.09.2026): admin UI bugfix + DM-модули OFF + Headroom stats — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (12.09.2026; архив @PM 12.09.2026)
 
 **✅ ИТОГ 10.10 (12.09.2026):** реализация завершена, фича **заархивирована** — перенесена

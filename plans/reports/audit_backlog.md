@@ -3,6 +3,38 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.11 scan (2026-09-12) — all scanned
+- [x] services/param_catalog.py (ADR-1011-2: 4 embed-фоллбэк-записи переведены из `_INFRA`
+      в first-class каталог; REGISTRY 400/GROUPS 90/Settings 372/mapped 88 без изменений;
+      categorized 372→376, infra 28→24; models 42 / keys 15)
+- [x] services/llm_probe.py (`_BLOCK_SAVED_KEY` + `_saved_api_key` — R17-резолв сохранённого
+      ключа при пустом `api_key`; `video_fallback`/`embeddings_main`/`_fallback1/2` в
+      `KNOWN_BLOCKS`/`_EMBEDDING_BLOCKS`; kind=embeddings)
+- [x] services/llm_client.py (embed-фоллбэк через `hot.get` с прежними кwarg-дефолтами)
+- [x] services/status_service.py (embed-фоллбэк base/model/key1/key2 через `hot.get`)
+- [x] web/app.js (`providerConnectionBlocks`/`providerAdvancedBlocks` — computed; `video_fallback`;
+      embeddings 3 подблока; `zone:'advanced'` для guard/search/media_share; рекурсивный
+      `providerCoveredKeys`; `blockFieldConfigured`/`last4ByKey`; `keyHistoryChartModel` —
+      точки `{x,y}` + `spanGaps:true`; X linear + HH:MM callback + `parsing:false`)
+- [x] web/index.html (две зоны, `<component :is=details/div>`, subBlocks-рендер, key-hint,
+      nav/hub CSS 2.1, `:value`+`@input` без префилла секретов)
+- [x] .gitignore (+plans/current_task.md), plans/backlog.md (doc-only)
+- [x] tests/js/routing_test.js (chart-точки/ось; R17-draft; computed-зоны; video/embeddings),
+      tests/test_webapp_round1011_ui.py (NEW), test_round106_ia_smoke.py, test_webapp_api.py
+      (376; blank api_key → saved), test_param_catalog.py (42/15), test_migrate_env_to_pg.py (15)
+- [x] plans/features/llm-providers-refactor-round1011/ (spec + ADR-1011-1/-2/-3 + tasks),
+      plans/docs/memory_sleep_nostalgia_lore_report.md (п.4, docs-only)
+- [x] plans/reports/round10.11_scanner_audit.md (итог: 0 blocker/0 high/0 medium; 3 low
+      R10.11-1…-3, 3 info R10.11-4…-6)
+- Открыто (follow-up, не блокеры): R10.11-1 (nested details делят localStorage-ключ),
+  R10.11-2 (`embedding_fallback_model`: status vs runtime при явной очистке), R10.11-3
+  (устаревшие «правьте в .env» для embed-ключей), R10.11-4 (probe + caller base_url —
+  hardening), R10.11-5 (мёртвый `destroy`), R10.11-6 (нет headless Chart.js-теста).
+  Из прошлых раундов: R10.10-1/-2 (скрипт DM), R10.10-4/-5 (фронт), R10.9-1/-2/-3/-4,
+  R10.7-1/-2, R10.6-1/-2/-3.
+- Обязательный деплой-шаг (ADR-1011-2): `python scripts/migrate_env_to_pg.py
+  --only-category models,keys` (БЕЗ `--force`) до UI-проверки сохранённых embed-ключей.
+
 ## Round 10.10 scan (2026-09-12) — all scanned
 - [x] web/index.html (fullscreen `.fullscreen-mode header.header-sticky` padding `max(env,--tg-*)`;
       10.7 width/10.9 scroll целы; «Провайдеры» `:value`+`@input`; «Роли» аватар/ник/ID `text-[10px]`

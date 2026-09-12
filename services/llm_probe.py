@@ -26,12 +26,18 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Блоки, которые шлют OpenAI-совместимый chat-запрос (нужен base_url).
+# 10.11 (spec §1.2B): video_fallback — запасная видео-модель (chat-probe).
 _LLM_BLOCKS = frozenset({
     "direct_main", "direct_fallback", "transcribe_groq",
-    "transcribe_openrouter", "video_summary_openrouter",
+    "transcribe_openrouter", "video_summary_openrouter", "video_fallback",
 })
 # Блоки эмбеддингов (нужен base_url).
-_EMBEDDING_BLOCKS = frozenset({"embeddings"})
+# 10.11 (spec §1.2B): embeddings_main / _fallback1 / _fallback2 — подблоки
+# блока «Эмбеддинги» (ADR-1011-2), probe → kind="embeddings".
+_EMBEDDING_BLOCKS = frozenset({
+    "embeddings", "embeddings_main",
+    "embeddings_fallback1", "embeddings_fallback2",
+})
 # Все допустимые блоки (UI §6.2 + контракт §6.3).
 # MINOR-2: `search_keys:tavily`/`search_keys:exa` — раздельные пробы ключей.
 KNOWN_BLOCKS = _LLM_BLOCKS | _EMBEDDING_BLOCKS | {
@@ -39,7 +45,50 @@ KNOWN_BLOCKS = _LLM_BLOCKS | _EMBEDDING_BLOCKS | {
     "media_share", "checkup_betterstack",
 }
 
+# 10.11 (ADR-1011-1): блок → pg-ключ СОХРАНЁННОГО секрета. Если UI прислал
+# пустой api_key (секрет не перепечатывают), probe подставляет сохранённое
+# значение. Резолв ВНУТРЕННИЙ: ключ не возвращается/не логируется (R17).
+_BLOCK_SAVED_KEY: dict[str, str] = {
+    "direct_main": "keys.llm_api_key",
+    "direct_fallback": "keys.llm_fallback_api_key",
+    "transcribe_groq": "keys.groq_api_key",
+    "transcribe_openrouter": "keys.openrouter_api_key",
+    "video_summary_openrouter": "keys.openrouter_api_key",
+    "video_fallback": "keys.openrouter_api_key",
+    "embeddings": "keys.llm_api_key",
+    "embeddings_main": "keys.llm_api_key",
+    "embeddings_fallback1": "keys.embedding_fallback_api_key",
+    "embeddings_fallback2": "keys.embedding_fallback_api_key_2",
+    "search_keys:tavily": "keys.tavily_api_key",
+    "search_keys:exa": "keys.exa_api_key",
+    "media_share": "keys.media_share_secret",
+}
+
 _TIMEOUT_SECONDS = 15.0
+
+
+def _saved_api_key(block: str) -> str:
+    """Сохранённый секрет блока из горячего конфига (R17: не логируется).
+
+    ``hot.get(pg_key, settings_default)`` — кэш пуст/ключа нет → settings-дефолт
+    (поведение до миграции). Ошибки резолва не роняют probe → "".
+    """
+    pg_key = _BLOCK_SAVED_KEY.get(block)
+    if not pg_key:
+        return ""
+    try:
+        from config.settings import settings
+        from services import hot_config as hot
+        from services.param_catalog import get_by_pg_key
+        spec = get_by_pg_key(pg_key)
+        default = ""
+        if spec is not None and spec.settings_field:
+            default = getattr(settings, spec.settings_field, "") or ""
+        return (hot.get(pg_key, default) or "")
+    except Exception:
+        logger.warning("[llm_probe] не удалось получить сохранённый ключ блока",
+                       exc_info=True)
+        return ""
 
 
 def sanitize_error(text: str | None, api_key: str | None) -> str:
@@ -194,6 +243,11 @@ async def probe_block(block: str, base_url: str = "", model: str = "",
 
     if block not in KNOWN_BLOCKS:
         return _result(False, None, "неизвестный блок")
+
+    # 10.11 (ADR-1011-1): UI не перепечатывает сохранённый секрет (R17) —
+    # пустой api_key → резолвим сохранённый ключ блока (внутренне).
+    if not (api_key or "").strip():
+        api_key = _saved_api_key(block)
 
     # media_share — не сетевой LLM: проверяем, что секрет задан.
     if block == "media_share":

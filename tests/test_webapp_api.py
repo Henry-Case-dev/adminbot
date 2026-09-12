@@ -1117,11 +1117,11 @@ class TestStatic:
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.54.0" in text
-        assert "/static/fonts/material-symbols-rounded.woff2?v=2.54.0" in text
+        assert "/web/app.js?v=2.55.0" in text
+        assert "/static/fonts/material-symbols-rounded.woff2?v=2.55.0" in text
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.54.0")
+            "/static/fonts/material-symbols-rounded.woff2?v=2.55.0")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 
@@ -1193,7 +1193,9 @@ class TestParamPermissionFlagsApi:
         resp = client.get("/api/access/param_permissions", headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
         items = resp.json()["items"]
-        assert len(items) == len(categorized) == 372
+        # 10.11 (ADR-1011-2): categorized 372 → 376 (4 embed-фоллбэк-ключа
+        # переведены из infra в каталог; REGISTRY 400 / Settings 372 неизменны).
+        assert len(items) == len(categorized) == 376
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"
@@ -1490,6 +1492,36 @@ class TestLlmTestEndpoint:
         resp2 = client.post("/api/llm/test", json=self.BODY,
                             headers=_hdr(ADMIN_ID))
         assert resp2.status_code == 429
+
+    def test_blank_api_key_resolves_saved_key(self, client, monkeypatch):
+        """10.11 (ADR-1011-1): пустой api_key → probe_block берёт сохранённый
+        ключ; сырой секрет не возвращается (R17)."""
+        from services import llm_probe
+        from web.api import routes
+
+        seen = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            seen["api_key"] = api_key
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "saved-secret" if key == "keys.llm_api_key" else default))
+        routes.reset_llm_test_rate_limit()
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": "direct_main", "base_url": "https://api.example/v1",
+                  "model": "m", "api_key": ""},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        assert seen["api_key"] == "saved-secret"
+        assert "saved-secret" not in resp.text   # R17: ключ не эхо
 
     def test_error_sanitized(self, client, monkeypatch):
         from services import llm_probe

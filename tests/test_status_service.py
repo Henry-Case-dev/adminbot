@@ -456,6 +456,46 @@ class _FakePsutil:
             cpu_percent=lambda interval=None: 1.0)
 
 
+class TestEmbedFallbackModelParity:
+    """Scanner LOW (10.11): статус fb-модели следует семантике рантайма
+    (`llm_client._embed_fallback_model`): пустое значение в PG → ГЛАВНАЯ
+    embed-модель, а не env-дефолт; отсутствующий ключ → env-дефолт."""
+
+    def test_empty_pg_value_falls_back_to_main_not_env(self, monkeypatch):
+        import dataclasses
+        from services import status_service
+        replaced = dataclasses.replace(
+            status_service.settings,
+            EMBEDDING_FALLBACK_MODEL="env-fb-model")
+        monkeypatch.setattr(status_service, "settings", replaced)
+        hot.set_config_cache(_FakeCache({
+            "models.embedding_fallback_base_url": "https://fb.example/v1",
+            "models.embedding_fallback_model": "",   # ключ есть, значение пустое
+            "keys.embedding_fallback_api_key": "k1",
+        }))
+        cards = {p["module_id"]: p
+                 for p in status_service.StatusService.llm_registry()}
+        main_model = cards["emb_main"]["model"]
+        assert main_model
+        assert cards["emb_fallback"]["model"] == main_model
+        assert cards["emb_fallback"]["model"] != "env-fb-model"
+
+    def test_absent_pg_key_uses_env_model(self, monkeypatch):
+        import dataclasses
+        from services import status_service
+        replaced = dataclasses.replace(
+            status_service.settings,
+            EMBEDDING_FALLBACK_MODEL="env-fb-model")
+        monkeypatch.setattr(status_service, "settings", replaced)
+        hot.set_config_cache(_FakeCache({
+            "models.embedding_fallback_base_url": "https://fb.example/v1",
+            "keys.embedding_fallback_api_key": "k1",
+        }))
+        cards = {p["module_id"]: p
+                 for p in status_service.StatusService.llm_registry()}
+        assert cards["emb_fallback"]["model"] == "env-fb-model"
+
+
 class TestServerMetricsPsutil:
     def test_loadavg_none_when_unavailable(self, monkeypatch):
         monkeypatch.setattr("services.status_service.psutil", _FakePsutil())

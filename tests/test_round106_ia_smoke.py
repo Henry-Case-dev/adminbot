@@ -272,14 +272,105 @@ class TestLlmProbeService:
         res_ok = asyncio.run(probe_block("media_share", "", "", "secret"))
         assert res_ok["ok"] is True
 
+    def test_blank_key_resolves_saved(self, monkeypatch):
+        """10.11 (ADR-1011-1): пустой api_key → сохранённый ключ (R17)."""
+        import asyncio
+        from services import llm_probe
+
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+            text = ""
+
+        async def fake_post(client, url, headers, body):
+            seen["auth"] = headers.get("Authorization")
+            return _Resp()
+
+        monkeypatch.setattr(llm_probe, "_post_json", fake_post)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "saved-key" if key == "keys.llm_api_key" else default))
+        res = asyncio.run(llm_probe.probe_block(
+            "direct_main", "https://api.example/v1", "m", ""))
+        assert res["ok"] is True
+        assert seen["auth"] == "Bearer saved-key"
+        assert "saved-key" not in str(res)      # R17: ключ не эхо
+
+    def test_explicit_key_wins_over_saved(self, monkeypatch):
+        import asyncio
+        from services import llm_probe
+
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+            text = ""
+
+        async def fake_post(client, url, headers, body):
+            seen["auth"] = headers.get("Authorization")
+            return _Resp()
+
+        monkeypatch.setattr(llm_probe, "_post_json", fake_post)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "saved-key" if key == "keys.llm_api_key" else default))
+        asyncio.run(llm_probe.probe_block(
+            "direct_main", "https://api.example/v1", "m", "explicit-key"))
+        assert seen["auth"] == "Bearer explicit-key"
+
+    def test_embedding_fallback_and_video_blocks_known(self, monkeypatch):
+        """10.11 (§1.2B/§2.3/§2.4): новые block-id в KNOWN_BLOCKS, kind верный."""
+        import asyncio
+        from services import llm_probe
+
+        for block in ("video_fallback", "embeddings_main",
+                      "embeddings_fallback1", "embeddings_fallback2"):
+            assert block in llm_probe.KNOWN_BLOCKS, block
+
+        captured = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            captured["kind"] = kind
+            captured["api_key"] = api_key
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "fb-key" if key.startswith("keys.embedding_fallback")
+                else default))
+        res = asyncio.run(llm_probe.probe_block(
+            "embeddings_fallback1", "https://api.example/v1", "m", ""))
+        assert res["ok"] is True
+        assert captured["kind"] == "embeddings"
+        assert captured["api_key"] == "fb-key"
+
+    def test_media_share_blank_resolves_saved(self, monkeypatch):
+        import asyncio
+        from services.llm_probe import probe_block
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "share-secret" if key == "keys.media_share_secret"
+                else default))
+        res = asyncio.run(probe_block("media_share", "", "", ""))
+        assert res["ok"] is True
+
 
 class TestProviderBlockTestability:
     """MAJOR-1: кнопка «Проверить» рендерится только для testable-блоков."""
 
-    def test_embeddings_and_llm_guard_not_testable(self):
+    def test_only_llm_guard_not_testable(self):
         assert "testable: false" in JS
-        # embeddings + llm_guard помечены testable:false (2 блока)
-        assert JS.count("testable: false") == 2
+        # 10.11 (2.3): embeddings стал testable (3 подблока с «Проверить») —
+        # testable:false остаётся только у llm_guard (1 блок).
+        assert JS.count("testable: false") == 1
         assert "b.testable !== false" in HTML
 
     def test_llm_guard_fields_no_model_role(self):
@@ -343,12 +434,16 @@ class TestScannerR106Fixes:
         i = JS.index("var PROVIDER_BLOCKS")
         chunk = JS[i:JS.index("];", i)]
         keys = re.findall(r"key: '([^']+)'", chunk)
-        # 10.9: +7 *_display_name (по одному в каждый provider-блок) → 29
-        # полей; уникальных 26 (openrouter-* и media_share дублируются).
-        assert len(keys) == 29          # полей в блоках
-        assert len(set(keys)) == 26     # уникальных ключей
+        # 10.11: +4 поля video_fallback (openrouter-* shared) и эмбеддинги
+        # перестроены в 3 подблока (12 полей: main/f1/f2) → 42 поля всего;
+        # уникальных 32 (openrouter-* ×3, llm_base_url/llm_api_key shared,
+        # embedding_fallback_base_url/model shared Ф1↔Ф2).
+        assert len(keys) == 42          # полей в блоках + subBlocks
+        assert len(set(keys)) == 32     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
+        # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.
+        assert "b.subBlocks" in JS
 
     def test_422_sanitized_in_source(self):
         app = open("web/app.py", encoding="utf-8").read()

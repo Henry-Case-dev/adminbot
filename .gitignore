@@ -64,6 +64,11 @@ relumesite_example/
 # ВНИМАНИЕ: media/ — НЕ трогать (политика project.md: медиа для сервера).
 MaterialSymbolsRounded*.woff2
 
+# ── Личный вход владельца: ТЗ текущего раунда (не для git) ────────
+# plans/current_task.md — рабочий файл владельца с ТЗ раунда;
+# в git не коммитится (его содержимое переносится в plans/features/*/tasks.md).
+plans/current_task.md
+
 # ── IDE / ОС ──────────────────────────────────────────────────────
 .idea/
 .vscode/

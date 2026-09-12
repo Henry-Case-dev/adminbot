@@ -254,9 +254,23 @@ class StatusService:
                 "models.embedding_display_name", "EMBEDDING_DISPLAY_NAME",
                 "Основная модель памяти"),
             main_base, emb_model, llm_key, None, "embeddings"))
-        fb_base = (settings.EMBEDDING_FALLBACK_BASE_URL or "").strip()
-        fb_model = settings.EMBEDDING_FALLBACK_MODEL or emb_model
-        if fb_base and (settings.EMBEDDING_FALLBACK_API_KEY or "").strip():
+        # 10.11 (ADR-1011-2): embed-фоллбэк — first-class каталог (hot.get);
+        # дефолт = settings → паритет без кэша (R1). Значения не логируются.
+        # Scanner LOW: семантика fb_model ДОЛЖНА совпадать с runtime
+        # (`llm_client._embed_fallback_model`): hot.get → пустая строка →
+        # ГЛАВНАЯ embed-модель. Прежний `or settings.EMBEDDING_FALLBACK_MODEL`
+        # при ПУСТОМ значении в PG (не отсутствующем) возвращал env-модель,
+        # тогда как рантайм брал главную.
+        fb_base = (hot.get("models.embedding_fallback_base_url",
+                           settings.EMBEDDING_FALLBACK_BASE_URL) or "").strip()
+        fb_model = ((hot.get("models.embedding_fallback_model",
+                             settings.EMBEDDING_FALLBACK_MODEL) or "").strip()
+                    or emb_model)
+        fb_key1 = (hot.get("keys.embedding_fallback_api_key",
+                           settings.EMBEDDING_FALLBACK_API_KEY) or "").strip()
+        fb_key2 = (hot.get("keys.embedding_fallback_api_key_2",
+                           settings.EMBEDDING_FALLBACK_API_KEY_2) or "").strip()
+        if fb_base and fb_key1:
             providers.append(_entry(
                 "emb_fallback", "Запасная модель памяти",
                 (g_emb_id, g_emb_title),
@@ -264,9 +278,9 @@ class StatusService:
                     "models.embedding_fallback_display_name",
                     "EMBEDDING_FALLBACK_DISPLAY_NAME",
                     "Запасная модель памяти"),
-                fb_base, fb_model, settings.EMBEDDING_FALLBACK_API_KEY,
+                fb_base, fb_model, fb_key1,
                 None, "embeddings"))
-        if fb_base and (settings.EMBEDDING_FALLBACK_API_KEY_2 or "").strip():
+        if fb_base and fb_key2:
             providers.append(_entry(
                 "emb_fallback2", "Запасная модель памяти 2",
                 (g_emb_id, g_emb_title),
@@ -274,7 +288,7 @@ class StatusService:
                     "models.embedding_fallback2_display_name",
                     "EMBEDDING_FALLBACK2_DISPLAY_NAME",
                     "Запасная модель памяти 2"),
-                fb_base, fb_model, settings.EMBEDDING_FALLBACK_API_KEY_2,
+                fb_base, fb_model, fb_key2,
                 None, "embeddings"))
         return providers
 

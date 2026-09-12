@@ -526,3 +526,46 @@ bot.py
 - **Находки 10.10**: `plans/reports/round10.10_scanner_audit.md` (0 blocker/0 high/0 medium;
   3 low: R10.10-1 staged-отчёт скрипта, R10.10-2 `meta.note` вне snapshot, R10.10-3 chart-return
   без destroy; 2 info: R10.10-4 аватары админов, R10.10-5 дубль `adminInitial`).
+
+## Round 10.11 map additions (llm-providers-refactor-round1011, HEAD ec5dd1f + working tree)
+
+- **Каталог-Δ (ADR-1011-2)**: `services/param_catalog.py` — 4 embed-фоллбэк-записи переведены
+  из `_INFRA` (category=None) в first-class: `models.embedding_fallback_base_url` /
+  `models.embedding_fallback_model` (category `models`, group `models_embeddings`),
+  `keys.embedding_fallback_api_key` / `keys.embedding_fallback_api_key_2` (category `keys`,
+  group `keys_llm`, `secret=True`). `EMBEDDING_FALLBACK_TIMEOUT_SECONDS`/`_MAX_RETRIES` остались
+  infra. Инварианты: REGISTRY **400** / GROUPS **90** / Settings **372** / mapped **88** /
+  TAB_RULES **19**; categorized **372→376**, infra **28→24** (models 42 / keys 15). Обязательный
+  деплой-шаг — идемпотентный `scripts/migrate_env_to_pg.py --only-category models,keys` (DML,
+  `ON CONFLICT DO NOTHING`), до него «Проверить» работает через settings-дефолт.
+- **Сохранённый ключ в probe (ADR-1011-1)**: `services/llm_probe.py` — карта
+  `_BLOCK_SAVED_KEY` (block→pg_key для direct/transcribe/video/embeddings/search_keys/media_share),
+  `_saved_api_key(block)` = `hot.get(pg_key, settings_default)`; в `probe_block` резолв только
+  при пустом/пробельном `api_key` (явный draft приоритетнее). Резолв внутренний (R17: сырой ключ
+  не эхо/не логируется); UI `web/app.js` — `blockFieldConfigured`/`last4ByKey` + hint
+  «Ключ сохранён (••••last4)», `:value="blockFieldValue(f)"` (секреты не префиллятся).
+  `video_fallback`/`embeddings_main`/`_fallback1`/`_fallback2` добавлены в
+  `KNOWN_BLOCKS`/`_EMBEDDING_BLOCKS` (kind=`embeddings`).
+- **Read-path embed-фоллбэка**: `services/llm_client.py:293-309` и
+  `services/status_service.py:257-287` читают 4 записи через `hot.get` с прежними
+  settings-дефолтами (паритет без кэша). `VIDEO_FALLBACK_MODEL` — каталожный code-default.
+- **UI «LLM Провайдеры» (2.2–2.5)**: `web/app.js` — computed `providerConnectionBlocks`
+  (zone≠advanced) / `providerAdvancedBlocks` (zone=advanced) в секции `computed:`; блок
+  `video_fallback` сразу под `video_summary_openrouter`; `embeddings.subBlocks` = ровно 3
+  (main/f1/f2, у каждого Base URL+Модель+Ключ+«Проверить»); `llm_guard`/`search_keys`/
+  `media_share` → `zone:'advanced'`; `providerCoveredKeys` рекурсивно покрывает subBlocks.
+  `web/index.html` — зона «Подключения» сверху, `<component :is=details/div>` + `<summary>`
+  «Расширенные настройки» внизу (generic-группы внутри), subBlocks-рендер, key-hint,
+  nav-icon 22px/центрированные hub-сетки (`max-width:64rem`), профиль `shrink-0`.
+- **Chart key-history (ADR-1011-3)**: `web/app.js` `keyHistoryChartModel` — точки
+  `{x: bucket*1000, y: lane|null}`, поля `xMin`/`xMax`; dataset `spanGaps:true` + `stepped:true`;
+  `renderKeyHistoryChart` — `parsing:false`, X `type:'linear'` c min/max и `ticks.callback`
+  HH:MM (без chartjs-adapter). Серверный контракт `api_payload`/`services/key_history.py`
+  НЕ изменён.
+- **Инварианты 10.11**: **ноль новых PG-DDL**; SQLite **v8**; `bot.py` router order и `media/`/
+  `.env` не тронуты; секреты не коммитятся; **Headroom-ссылок в коде нет**; тесты — pytest 5168/0,
+  `node --check`/`JS-UNIT-OK`/`git diff --check` чисты.
+- **Находки 10.11**: `plans/reports/round10.11_scanner_audit.md` (0 blocker/0 high/0 medium;
+  3 low: R10.11-1 nested `<details>` делят localStorage-ключ, R10.11-2 `embedding_fallback_model`
+  status vs runtime, R10.11-3 устаревшие `.env`-подсказки; 3 info: R10.11-4 probe+caller base_url,
+  R10.11-5 мёртвый `destroy`, R10.11-6 нет headless Chart.js-теста).

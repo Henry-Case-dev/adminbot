@@ -81,10 +81,10 @@ class TestInfraExcluded:
         "API_TOKEN", "DB_PATH", "MEDIA_BASE", "COBALT_API_URL",
         "LOCAL_BOT_API_URL", "TELEGRAM_API_FILES_DIR", "DOWNLOAD_DIR",
         "INFO_TEXT_FILE", "CHECKUP_JOURNALCTL_CMD",
-        # embed-фоллбэк (раунд 5): EMBEDDING_FALLBACK_* — infra (.env)
-        "EMBEDDING_FALLBACK_BASE_URL", "EMBEDDING_FALLBACK_API_KEY",
-        "EMBEDDING_FALLBACK_API_KEY_2",
-        "EMBEDDING_FALLBACK_MODEL", "EMBEDDING_FALLBACK_TIMEOUT_SECONDS",
+        # embed-фоллбэк (раунд 5): тайминги остаются infra (.env).
+        # 10.11 (ADR-1011-2): BASE_URL/MODEL/API_KEY/API_KEY_2 переведены в
+        # first-class каталог (models/keys) — здесь их больше нет.
+        "EMBEDDING_FALLBACK_TIMEOUT_SECONDS",
         "EMBEDDING_FALLBACK_MAX_RETRIES",
         # env-only
         "POSTGRES_DSN", "POSTGRES_PASSWORD", "POSTGRES_DB", "POSTGRES_USER",
@@ -288,12 +288,15 @@ class TestGroups8424:
         глобального ключа; F-10 §5.2: limits +7 — воркер-бюджеты и TZ;
         content +1 — content.no_key_reply). Редизайн 10.5 (T-1139/T-1145):
         models +4 — 2 STT-модели (OD11) + 2 адреса провайдеров (OD16),
-        осознанное исключение; GROUPS 74 / Settings 359 не меняются."""
+        осознанное исключение; GROUPS 74 / Settings 359 не меняются.
+        Раунд 10.11 (ADR-1011-2): embed-фоллбэки — sanctioned Δ каталога
+        (models +2 / keys +2) без роста REGISTRY 400 и Settings 372
+        (перенос записей из infra, не добавление)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 40, "keys": 13,
+        assert counts == {"prompts": 10, "models": 42, "keys": 15,
                           "limits": 177, "flags": 58, "reactions": 38,
                           "content": 4, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

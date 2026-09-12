@@ -28,17 +28,6 @@
         { category: 'keys', groups: [
             'keys_llm', 'keys_groq', 'keys_openrouter', 'keys_search',
             'keys_media'] },
-      ],
-      sections: [
-        { title: 'Основные модели', category: 'models',
-          groups: ['models_main'] },
-        { title: 'Ключи', category: 'keys',
-          groups: ['keys_llm', 'keys_groq', 'keys_openrouter'] },
-        { title: 'Фолбэк', category: 'models', groups: ['models_fallback'] },
-        { title: 'Расширенные', category: null, groups: [
-            'models_embeddings', 'models_llm_timeouts', 'models_llm_guard',
-            'models_extra_providers', 'models_video_summary',
-            'keys_search', 'keys_media'] },
       ] },
     { id: 'prompts', icon: 'description', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
@@ -405,17 +394,49 @@
         { key: 'models.video_primary_model', label: 'Модель', role: 'model' },
         { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
       ] },
+    // 10.11 (spec §2.4, OPEN-Q3): запасная видео-модель — строго под основной,
+    // с полным набором полей. Хардкод `VIDEO_FALLBACK_MODEL` остаётся только
+    // code-default в settings (значение не теряется), ключ уже каталожный.
+    { id: 'video_fallback', title: 'Запасная видео-модель',
+      modules: 'Саммаризация видео (фолбэк)',
+      fields: [
+        { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
+        { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
+        { key: 'models.video_fallback_model', label: 'Модель', role: 'model' },
+        { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
+      ] },
+    // 10.11 (spec §2.3, ADR-1011-2): один визуальный блок = ровно 3 подблока
+    // (Основная модель / Фоллбэк 1 / Фоллбэк 2); у каждого Base URL + Модель +
+    // Ключ + «Проверить». `dim` уходит в «Расширенные» (generic-группа).
     { id: 'embeddings', title: 'Эмбеддинги',
       modules: 'Поиск по памяти',
-      // MAJOR-1: нет base_url/api-key в блоке → сетевой тест невозможен;
-      // кнопка «Проверить» не рендерится (редактор — generic-группы ниже).
-      testable: false,
-      fields: [
-        { key: 'models.embedding_display_name', label: 'Название модели', role: '' },
-        { key: 'models.embedding_model_name', label: 'Модель', role: 'model' },
-        { key: 'models.embedding_dim', label: 'Размер отпечатка', role: 'dim' },
+      subBlocks: [
+        { id: 'embeddings_main', title: 'Основная модель',
+          fields: [
+            { key: 'models.embedding_display_name', label: 'Название модели', role: '' },
+            { key: 'models.llm_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.embedding_model_name', label: 'Модель', role: 'model' },
+            { key: 'keys.llm_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+        { id: 'embeddings_fallback1', title: 'Фоллбэк 1',
+          fields: [
+            { key: 'models.embedding_fallback_display_name', label: 'Название модели', role: '' },
+            { key: 'models.embedding_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.embedding_fallback_model', label: 'Модель', role: 'model' },
+            { key: 'keys.embedding_fallback_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+        { id: 'embeddings_fallback2', title: 'Фоллбэк 2',
+          note: 'Адрес и модель общие с «Фоллбэк 1»',
+          fields: [
+            { key: 'models.embedding_fallback2_display_name', label: 'Название модели', role: '' },
+            { key: 'models.embedding_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.embedding_fallback_model', label: 'Модель', role: 'model' },
+            { key: 'keys.embedding_fallback_api_key_2', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
       ] },
+    // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
+      zone: 'advanced',
       // MAJOR-1: не сетевой провайдер — тест-кнопки нет; значения не
       // отправляются как `model` (role '').
       testable: false,
@@ -425,6 +446,7 @@
         { key: 'models.llm_total_budget', label: 'Общий дедлайн', role: '' },
       ] },
     { id: 'search_keys', title: 'Поиск: ключи', modules: 'Поиск',
+      zone: 'advanced',
       // MINOR-2: каждый ключ тестируется ОТДЕЛЬНО (search_keys:tavily/exa).
       perFieldTest: true,
       fields: [
@@ -434,6 +456,9 @@
           secret: true, probeTarget: 'search_keys:exa' },
       ] },
     { id: 'media_share', title: 'Медиа-шара', modules: 'Саммаризация видео',
+      zone: 'advanced',
+      note: 'Секретный токен для авторизации бота при скачивании медиафайлов '
+        + 'из закрытых источников',
       fields: [
         { key: 'keys.media_share_secret', label: 'Секрет ссылок',
           role: 'api_key', secret: true },
@@ -604,6 +629,13 @@
       if (saved) return saved;
     } catch (e) { /* quota */ }
     return '#/';
+  }
+
+  // 10.11 (Scanner LOW): ключ localStorage для аккордеонов. Без scope —
+  // исторический `adminbot.expand:<tab>` (обратная совместимость); со scope —
+  // отдельный стабильный ключ (внешняя зона vs inner-группы).
+  function _expandKey(tabId, scope) {
+    return 'adminbot.expand:' + tabId + (scope ? ':' + scope : '');
   }
 
   // Router-состояние — НЕ в data()/реактивности: нативный BackButton-объект
@@ -923,6 +955,21 @@
       currentTabItemCount: function () {
         var t = this.currentTab;
         return (t && t.type === 'config') ? this.tabItemCount(t) : 0;
+      },
+      // 10.11 (spec §2.2): две смысловые зоны «Провайдеров». ОБЯЗАНЫ быть
+      // computed (не methods): шаблон обращается как к bare-ref
+      // (`v-for="b in providerConnectionBlocks"`, `providerAdvancedBlocks.length`).
+      // Методы рендерились бы как `[]` (function не iterable) — полная потеря
+      // блоков 2.2–2.5 (Reviewer CRITICAL).
+      providerConnectionBlocks: function () {
+        return (this.providerBlocks || []).filter(function (b) {
+          return b.zone !== 'advanced';
+        });
+      },
+      providerAdvancedBlocks: function () {
+        return (this.providerBlocks || []).filter(function (b) {
+          return b.zone === 'advanced';
+        });
       },
       // 10.9 (п.7.1): один блок «Доступность ключей» — 4 группы функций.
       // Порядок групп = порядок записей /api/status (сервер уже сгруппировал).
@@ -2059,6 +2106,20 @@
         }
         return f.label;
       },
+      // 10.11 (ADR-1011-1): R17-безопасный индикатор «ключ уже сохранён»
+      // (configItems отдаёт только {configured,last4}, без сырого секрета).
+      blockFieldConfigured: function (f) {
+        var it = this.configItems.find(function (i) { return i.key === f.key; });
+        return !!(it && typeof it.value === 'object' && it.value
+                  && it.value.configured);
+      },
+      last4ByKey: function (key) {
+        var it = this.configItems.find(function (i) { return i.key === key; });
+        if (it && it.value && typeof it.value === 'object') {
+          return it.value.last4 || '';
+        }
+        return '';
+      },
       testBlock: async function (b) {
         if (!b || this.blockTesting[b.id]) return;
         this.blockTesting[b.id] = true;
@@ -2452,16 +2513,21 @@
         return !!(this.accessMy && this.accessMy.is_local_admin);
       },
 
-      // F-11 (4.2): аккордеон «Расширенные» — localStorage adminbot.expand:<tab>
-      expandOpen: function (tabId) {
+      // F-11 (4.2): аккордеон «Расширенные» — localStorage adminbot.expand:<tab>.
+      // Scanner LOW (10.11): опциональный `scope` даёт отдельный стабильный
+      // ключ — внешняя зона «Расширенные настройки» на «Провайдерах» и
+      // внутренние group-аккордеоны не должны делить один ключ (иначе
+      // раскрытие одного открывает/закрывает другое).
+      expandOpen: function (tabId, scope) {
         try {
-          return localStorage.getItem('adminbot.expand:' + tabId) === '1';
+          return localStorage.getItem(_expandKey(tabId, scope)) === '1';
         } catch (e) { return false; }
       },
-      toggleExpand: function (tabId) {
+      toggleExpand: function (tabId, scope) {
         try {
-          var cur = localStorage.getItem('adminbot.expand:' + tabId) === '1';
-          localStorage.setItem('adminbot.expand:' + tabId, cur ? '' : '1');
+          var k = _expandKey(tabId, scope);
+          var cur = localStorage.getItem(k) === '1';
+          localStorage.setItem(k, cur ? '' : '1');
         } catch (e) {}
       },
       itemAdvanced: function (item) {
@@ -2660,10 +2726,17 @@
       // секционированных вкладок — секции), внутри — group.order;
       // параметры без group → «Прочее» в конце. Поиск-фильтр как раньше.
       // R10.6-1: ключи, уже редактируемые в provider-блоках (один дом).
+      // 10.11 (§2.0): рекурсивно обходим subBlocks[].fields (embeddings).
       providerCoveredKeys: function () {
         var keys = {};
+        function addFields(fields) {
+          (fields || []).forEach(function (f) { keys[f.key] = true; });
+        }
         (this.providerBlocks || []).forEach(function (b) {
-          (b.fields || []).forEach(function (f) { keys[f.key] = true; });
+          addFields(b.fields);
+          (b.subBlocks || []).forEach(function (sb) {
+            addFields(sb.fields);
+          });
         });
         return keys;
       },
@@ -3521,9 +3594,14 @@
             byBucket[b] = !!s.ok;
           });
           var lane = idx;
+          // 10.11 (ADR-1011-3): точки {x(ms), y|lane} — честная линейная
+          // время-ось; пропущенный бакет → {x, y:null} (spanGaps тянет шаг).
           var data = grid.map(function (ts) {
-            if (!Object.prototype.hasOwnProperty.call(byBucket, ts)) return null;
-            return byBucket[ts] ? lane + 0.75 : lane + 0.25;
+            var laneValue = null;
+            if (Object.prototype.hasOwnProperty.call(byBucket, ts)) {
+              laneValue = byBucket[ts] ? lane + 0.75 : lane + 0.25;
+            }
+            return { x: ts * 1000, y: laneValue };
           });
           return {
             label: p.module_title || p.provider || p.module_id,
@@ -3533,13 +3611,15 @@
             stepped: true,
             tension: 0,
             pointRadius: samples.length <= 1 ? 3 : 0,
-            spanGaps: false,     // разрыв = нет данных
+            spanGaps: true,      // 10.11: статус «тянется» до следующей точки
           };
         });
         return {
-          labels: labels,
+          labels: labels,      // совместимость (рендер идёт по точкам {x,y})
           datasets: datasets,
           laneCount: list.length,
+          xMin: grid[0] * 1000,
+          xMax: grid[grid.length - 1] * 1000,
           height: Math.max(120, 44 + list.length * 22),
         };
       },
@@ -3571,11 +3651,26 @@
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              // 10.11 (ADR-1011-3): явные {x,y} — без авто-парсинга.
+              parsing: false,
               scales: {
                 y: { min: -0.2, max: model.laneCount + 0.2,
                      ticks: { display: false } },
-                x: { ticks: { color: '#9CA3AF', maxTicksLimit: 10,
-                              font: { size: 10 } } },
+                // Честная числовая время-ось (ms) без date-adapter;
+                // подписи тиков — HH:MM.
+                x: {
+                  type: 'linear',
+                  min: model.xMin,
+                  max: model.xMax,
+                  ticks: {
+                    color: '#9CA3AF', maxTicksLimit: 6, font: { size: 10 },
+                    callback: function (v) {
+                      var d = new Date(v);
+                      var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+                      return pad(d.getHours()) + ':' + pad(d.getMinutes());
+                    },
+                  },
+                },
               },
               plugins: {
                 legend: { display: true, position: 'bottom',

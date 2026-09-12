@@ -338,9 +338,11 @@ class Settings:
     # ── Embed-фоллбэк (Google AI Studio OpenAI-совместимый /v1beta/openai) ──
     # Включается, когда основной LLM-провайдер не отдаёт /embeddings
     # (403-квоты и пр.). Активен ТОЛЬКО при заданных base_url + api_key
-    # (пустая модель → EMBEDDING_MODEL_NAME). R17: ключ — только в .env
-    # (EMBEDDING_FALLBACK_API_KEY либо устаревший GEMINI_FALLBACK_API_KEY),
-    # значение НИКОГДА не логируется (только факт configured).
+    # (пустая модель → EMBEDDING_MODEL_NAME). Раунд 10.11 (ADR-1011-2):
+    # BASE_URL/MODEL/API_KEY/API_KEY_2 — редактируются в мини-аппе
+    # («LLM Провайдеры» → «Эмбеддинги»); значения ниже — только code-default
+    # (fallback, когда в PG пусто). R17: ключи не логируются (только факт
+    # configured); легаси-env GEMINI_FALLBACK_API_KEY(_2) остаётся алиасом.
     EMBEDDING_FALLBACK_BASE_URL: str = _env_str(
         "EMBEDDING_FALLBACK_BASE_URL",
         "https://generativelanguage.googleapis.com/v1beta/openai")
@@ -1083,7 +1085,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.54.0"
+APP_VERSION = "2.55.0"
 
 
 def build_ytdlp_base_opts() -> dict:

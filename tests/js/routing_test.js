@@ -583,7 +583,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       '10.9: большой спиннер только при пустом configItems');
   }
 
-  // ── 10.10 (п.2): keyHistoryChartModel — дорожки + временная сетка ──────
+  // ── 10.11 (п.3, ADR-1011-3): keyHistoryChartModel — точки {x,y} (ms),
+  //    spanGaps:true + stepped:true, xMin/xMax; дорожки и сетка сохранены ──
   {
     // 1700000100 делится на 300 нацело (бакет ring).
     const base = 1700000100;
@@ -592,30 +593,48 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       { module_id: 'b', module_title: 'B',
         samples: [{ ts: base + 300, ok: false }] },
     ]);
-    assert.ok(model, 'п.2: модель построена');
+    assert.ok(model, 'п.3: модель построена');
     assert.ok(model.labels.length >= 12,
-      'п.2: временная сетка не короче MIN_BUCKETS (1 час)');
-    assert.strictEqual(model.laneCount, 2, 'п.2: две дорожки');
+      'п.3: временная сетка не короче MIN_BUCKETS (1 час)');
+    assert.strictEqual(model.laneCount, 2, 'п.3: две дорожки');
     assert.strictEqual(model.height, Math.max(120, 44 + 2 * 22),
-      'п.2: высота = max(120, 44 + laneCount*22)');
+      'п.3: высота = max(120, 44 + laneCount*22)');
+    // Данные — точки {x: ms, y: lane|null}.
+    assert.ok(Array.isArray(model.datasets[0].data), 'п.3: data — массив');
+    assert.strictEqual(typeof model.datasets[0].data[0].x, 'number',
+      'п.3: точка содержит числовой x (ms)');
+    assert.strictEqual(model.datasets[0].data[0].x, model.xMin,
+      'п.3: первый x = xMin (ms)');
+    assert.strictEqual(
+      model.datasets[0].data[1].x - model.datasets[0].data[0].x,
+      300 * 1000, 'п.3: шаг сетки 300с в ms');
     // Дорожки не пересекаются: lane0 < 1, lane1 >= 1.
-    const aVals = model.datasets[0].data.filter((v) => v != null);
-    const bVals = model.datasets[1].data.filter((v) => v != null);
-    assert.deepStrictEqual(aVals, [0.75], 'п.2: lane0 ok = 0.75');
-    assert.deepStrictEqual(bVals, [1.25], 'п.2: lane1 err = 1.25');
+    const aVals = model.datasets[0].data
+      .filter((d) => d.y != null).map((d) => d.y);
+    const bVals = model.datasets[1].data
+      .filter((d) => d.y != null).map((d) => d.y);
+    assert.deepStrictEqual(aVals, [0.75], 'п.3: lane0 ok = 0.75');
+    assert.deepStrictEqual(bVals, [1.25], 'п.3: lane1 err = 1.25');
     assert.ok(Math.max.apply(null, aVals) < Math.min.apply(null, bVals),
-      'п.2: дорожки не сливаются');
-    // Пропущенный слот = null (spanGaps:false).
-    assert.strictEqual(model.datasets[0].data[0], null,
-      'п.2: пропущенный слот = null');
+      'п.3: дорожки не сливаются');
+    // Пропущенный слот = {x, y:null} (spanGaps тянет шаг).
+    const nullSlots = model.datasets[0].data.filter((d) => d.y == null);
+    assert.ok(nullSlots.length > 0, 'п.3: пропущенные слоты представлены');
+    assert.strictEqual(typeof nullSlots[0].x, 'number',
+      'п.3: у пропуска есть x');
     // ≤1 сэмпла → точка видна.
     assert.strictEqual(model.datasets[0].pointRadius, 3,
-      'п.2: pointRadius=3 при 1 сэмпле');
+      'п.3: pointRadius=3 при 1 сэмпле');
     assert.strictEqual(model.datasets[1].pointRadius, 3,
-      'п.2: pointRadius=3 при 1 сэмпле');
-    // Сохранённые маркеры рендера.
-    assert.strictEqual(model.datasets[0].stepped, true, 'п.2: stepped');
-    assert.strictEqual(model.datasets[0].spanGaps, false, 'п.2: spanGaps');
+      'п.3: pointRadius=3 при 1 сэмпле');
+    // 10.11: непрерывная ступенчатая линия + честная время-ось.
+    assert.strictEqual(model.datasets[0].stepped, true, 'п.3: stepped');
+    assert.strictEqual(model.datasets[0].spanGaps, true, 'п.3: spanGaps=true');
+    assert.strictEqual(model.xMin, model.datasets[0].data[0].x,
+      'п.3: xMin = первый x');
+    assert.strictEqual(model.xMax,
+      model.datasets[0].data[model.datasets[0].data.length - 1].x,
+      'п.3: xMax = последний x');
 
     // Больше сэмплов → точка скрыта.
     const many = methods.keyHistoryChartModel.call({}, [
@@ -623,14 +642,28 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         { ts: base, ok: true }, { ts: base + 300, ok: true }] },
     ]);
     assert.strictEqual(many.datasets[0].pointRadius, 0,
-      'п.2: pointRadius=0 при >1 сэмпле');
+      'п.3: pointRadius=0 при >1 сэмпле');
 
     // Пусто / нет сэмплов → null (чарт не строится).
     assert.strictEqual(methods.keyHistoryChartModel.call({}, []), null,
-      'п.2: пустой вход → null');
+      'п.3: пустой вход → null');
     assert.strictEqual(methods.keyHistoryChartModel.call({},
       [{ module_id: 'a', samples: [] }]), null,
-      'п.2: провайдеры без сэмплов → null');
+      'п.3: провайдеры без сэмплов → null');
+  }
+
+  // ── 10.11 (п.3): рендер-конфиг — linear-time без date-adapter ───────────
+  {
+    const src = require('fs').readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf8');
+    assert.ok(src.indexOf("type: 'linear'") >= 0,
+      'п.3: X-ось — linear (без adapter)');
+    assert.ok(src.indexOf('parsing: false') >= 0,
+      'п.3: parsing:false (явные {x,y})');
+    assert.ok(src.indexOf("type: 'time'") < 0,
+      'п.3: type:time не используется (нет адаптера)');
+    assert.ok(src.indexOf("return pad(d.getHours()) + ':' + pad(d.getMinutes());") >= 0,
+      'п.3: ticks.callback HH:MM');
   }
 
   // ── 10.10 (HIGH-1/LOW-5): разброс > MAX_HISTORY_POINTS бакетов — окно
@@ -652,10 +685,10 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(span.labels.length, MAXPTS,
       'HIGH-1: окно ровно MAX_HISTORY_POINTS (от конца)');
     const last = span.datasets[0].data[span.datasets[0].data.length - 1];
-    assert.strictEqual(last, 0.25,
+    assert.strictEqual(last.y, 0.25,
       'HIGH-1: новейший сэмпл (endBucket) присутствует ПОСЛЕДНИМ');
     // Старый сэмпл за пределами окна-cap в сетку не попадает.
-    assert.ok(span.datasets[0].data.indexOf(0.75) < 0,
+    assert.ok(span.datasets[0].data.every((d) => d.y !== 0.75),
       'HIGH-1: древний сэмпл вне окна (окно не «середина» старого)');
   }
 
@@ -688,6 +721,165 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(
       methods.blockFieldValue.call(ctx, { key: 'models.llm_base_url' }),
       'https://draft/v1', 'п.3: черновик приоритетнее');
+  }
+
+  // ── 10.11 (п.1, ADR-1011-1): R17-индикатор + testBlock не шлёт секрет ──
+  {
+    const ctx = { configItems: [
+      { key: 'keys.llm_api_key', type: 'str',
+        value: { configured: true, last4: '9xyz' } },
+      { key: 'k2', type: 'str', value: '' },
+    ] };
+    assert.strictEqual(
+      methods.blockFieldConfigured.call(ctx, { key: 'keys.llm_api_key' }), true,
+      'п.1: сохранённый ключ → configured=true');
+    assert.strictEqual(methods.last4ByKey.call(ctx, 'keys.llm_api_key'),
+      '9xyz', 'п.1: last4ByKey из маски');
+    assert.strictEqual(methods.blockFieldConfigured.call(ctx, { key: 'k2' }),
+      false, 'п.1: пустое значение → configured=false');
+    assert.strictEqual(methods.last4ByKey.call(ctx, 'k2'), '',
+      'п.1: нет маски → пустой last4');
+
+    const calls = [];
+    const makeBlockCtx = (drafts) => ({
+      blockTesting: {}, blockResults: {}, blockDrafts: drafts,
+      configItems: ctx.configItems,
+      blockFieldValue: methods.blockFieldValue,
+      api: async (url, opts) => {
+        calls.push(JSON.parse(opts.body));
+        return { ok: true, http_status: 200, latency_ms: 1 };
+      },
+    });
+    const b = { id: 'direct_main', fields: [
+      { key: 'keys.llm_api_key', role: 'api_key', secret: true }] };
+    // Пустой черновик + сохранённый секрет → api_key пустой (резолв бэкенд).
+    await methods.testBlock.call(makeBlockCtx({}), b);
+    assert.strictEqual(calls[0].api_key, '',
+      'п.1: сохранённый секрет не уходит с фронта');
+    // Новый черновик → уходит именно он (тест до сохранения).
+    await methods.testBlock.call(
+      makeBlockCtx({ 'keys.llm_api_key': 'new-key-abc' }), b);
+    assert.strictEqual(calls[1].api_key, 'new-key-abc',
+      'п.1: явный черновик уходит в probe');
+  }
+
+  // ── 10.11 (пп.2.2–2.5): зоны, подблоки, порядок видео-фоллбэка ─────────
+  {
+    // Reviewer CRITICAL/HIGH: зоны ОБЯЗАНЫ быть computed (шаблон использует
+    // их как bare-ref: `v-for="b in providerConnectionBlocks"` и
+    // `providerAdvancedBlocks.length`). Метод в этом месте рендерил бы `[]`
+    // → все блоки 2.2–2.5 исчезали. Тест — жёсткий гейт против регресса.
+    assert.strictEqual(typeof computed.providerConnectionBlocks, 'function',
+      '2.2: providerConnectionBlocks — computed-функция');
+    assert.strictEqual(typeof computed.providerAdvancedBlocks, 'function',
+      '2.2: providerAdvancedBlocks — computed-функция');
+    assert.strictEqual(methods.providerConnectionBlocks, undefined,
+      '2.2: providerConnectionBlocks НЕ в methods (иначе bare-ref → [])');
+    assert.strictEqual(methods.providerAdvancedBlocks, undefined,
+      '2.2: providerAdvancedBlocks НЕ в methods (иначе bare-ref → [])');
+    // Исходник: определения лежат в секции `computed:` (между computed: и
+    // methods:), а не в `methods:`.
+    const src = require('fs').readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf8');
+    const computedAt = src.indexOf('computed:');
+    const methodsAt = src.indexOf('methods:');
+    const connAt = src.indexOf('providerConnectionBlocks: function');
+    const advAt = src.indexOf('providerAdvancedBlocks: function');
+    assert.ok(computedAt >= 0 && methodsAt > computedAt,
+      '2.2: секция computed: идёт перед methods:');
+    assert.ok(connAt > computedAt && connAt < methodsAt,
+      '2.2: providerConnectionBlocks определён ВНУТРИ computed:');
+    assert.ok(advAt > computedAt && advAt < methodsAt,
+      '2.2: providerAdvancedBlocks определён ВНУТРИ computed:');
+    // Шаблон использует bare-ref (computed), а не вызов () — вызывать
+    // computed как функцию нельзя.
+    const html = require('fs').readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
+    assert.ok(html.indexOf('v-for="b in providerConnectionBlocks"') >= 0,
+      '2.2: шаблон итерирует computed providerConnectionBlocks');
+    assert.ok(html.indexOf('v-for="b in providerAdvancedBlocks"') >= 0,
+      '2.2: шаблон итерирует computed providerAdvancedBlocks');
+    assert.ok(html.indexOf('providerConnectionBlocks()') < 0
+      && html.indexOf('providerAdvancedBlocks()') < 0,
+      '2.2: computed не вызывается как функция в шаблоне');
+
+    const blocks = captured.data().providerBlocks;
+    const conn = computed.providerConnectionBlocks.call(
+      { providerBlocks: blocks });
+    const adv = computed.providerAdvancedBlocks.call(
+      { providerBlocks: blocks });
+    assert.ok(conn.length > 0 && conn.every((b) => b.zone !== 'advanced'),
+      '2.2: «Подключения» — без advanced-блоков');
+    assert.deepStrictEqual(adv.map((b) => b.id),
+      ['llm_guard', 'search_keys', 'media_share'],
+      '2.2/2.5: в «Расширенных» — guard/search/media_share');
+    const ids = blocks.map((b) => b.id);
+    assert.strictEqual(ids[ids.indexOf('video_summary_openrouter') + 1],
+      'video_fallback', '2.4: запасная видео-модель сразу под основной');
+    const emb = blocks.filter((b) => b.id === 'embeddings')[0];
+    assert.ok(emb && emb.subBlocks, '2.3: блок эмбеддингов — subBlocks');
+    assert.deepStrictEqual(emb.subBlocks.map((sb) => sb.id),
+      ['embeddings_main', 'embeddings_fallback1', 'embeddings_fallback2'],
+      '2.3: ровно 3 подблока в порядке Основная/Ф1/Ф2');
+    emb.subBlocks.forEach((sb) => {
+      const roles = sb.fields.map((f) => f.role);
+      assert.ok(roles.indexOf('base_url') >= 0 && roles.indexOf('model') >= 0
+        && roles.indexOf('api_key') >= 0,
+        '2.3: у подблока есть Base URL + Модель + Ключ');
+    });
+    const media = blocks.filter((b) => b.id === 'media_share')[0];
+    assert.strictEqual(media.zone, 'advanced', '2.5: media_share — advanced');
+    assert.ok(media.note && media.note.indexOf('Секретный токен') >= 0,
+      '2.5: media_share с human-subtext');
+    // providerCoveredKeys рекурсивно покрывает subBlocks (нет generic-дублей).
+    const covered = methods.providerCoveredKeys.call({ providerBlocks: blocks });
+    assert.ok(covered['models.embedding_fallback_base_url'],
+      '2.3: subBlock-ключи скрыты из generic-рендера');
+    assert.ok(covered['keys.embedding_fallback_api_key_2'],
+      '2.3: второй ключ фоллбэка скрыт из generic-рендера');
+  }
+
+  // ── 10.11 Scanner LOW: отдельные localStorage-ключи outer advanced-зоны и
+  //    inner group-аккордеонов («Провайдеры») — не открывают друг друга ───
+  {
+    const store = {};
+    const savedLocalStorage = global.localStorage;
+    global.localStorage = {
+      getItem(k) {
+        return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null;
+      },
+      setItem(k, v) { store[k] = String(v); },
+    };
+    try {
+      const ctx = { expandOpen: methods.expandOpen,
+                    toggleExpand: methods.toggleExpand };
+      // Открываем ТОЛЬКО внешнюю зону (scope='prov-advanced').
+      methods.toggleExpand.call(ctx, 'llm_providers', 'prov-advanced');
+      assert.strictEqual(
+        methods.expandOpen.call(ctx, 'llm_providers', 'prov-advanced'), true,
+        'LOW: outer advanced-зона открыта');
+      assert.strictEqual(
+        methods.expandOpen.call(ctx, 'llm_providers'), false,
+        'LOW: inner group-аккордеон НЕ раскрыт вместе с outer');
+      // Ключи действительно разные.
+      assert.ok(store['adminbot.expand:llm_providers:prov-advanced'] === '1',
+        'LOW: outer-ключ отдельный');
+      assert.strictEqual(store['adminbot.expand:llm_providers'], undefined,
+        'LOW: inner-ключ не тронут outer-тоглом');
+      // Исторический bare-ключ работает как раньше (обратная совместимость).
+      methods.toggleExpand.call(ctx, 'llm_providers');
+      assert.strictEqual(methods.expandOpen.call(ctx, 'llm_providers'), true,
+        'LOW: inner-ключ открывается отдельно');
+      assert.strictEqual(
+        methods.expandOpen.call(ctx, 'llm_providers', 'prov-advanced'), true,
+        'LOW: outer при этом остаётся открытым (независимость)');
+    } finally {
+      if (savedLocalStorage === undefined) {
+        delete global.localStorage;
+      } else {
+        global.localStorage = savedLocalStorage;
+      }
+    }
   }
 
   // ── 10.10 (п.5): adminInitial переиспользует avatarInitial ────────────
