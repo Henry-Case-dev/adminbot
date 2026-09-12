@@ -687,6 +687,54 @@
 > OFF (T-1328). ⚠️ П.6 Headroom (saved-tokens stats, внешняя IDE-инфраструктура) —
 > **вне скоупа проекта**, в репозитории/графе не фиксируется.
 
+> **Синк STEP 10 (финал, post-commit+деплой) 12.09.2026: раунд 10.11 ПОЛНОСТЬЮ
+> ЗАВЕРШЁН и ЗАДЕПЛОЕН — HEAD == origin/master == `cbe6ea5`** (`3624789` — фича,
+> 28 файлов, тесты 5172; `cbe6ea5` — docs деплой-верификация; поверх `ec5dd1f` —
+> docs memory-sync 10.10; прод до деплоя — `772db08` = задеплоенный 10.10).
+> Единственная фича **`llm-providers-refactor-round1011`** (spec @Architect + tasks
+> @PM + ADR-1011-1/2/3; T-1340…T-1381) реализована целиком: (п.1) `POST /api/llm/test`
+> резолвит SAVED-ключ блока server-side при пустом `api_key` (R17-safe: `_BLOCK_SAVED_KEY`,
+> `_saved_api_key` = `hot.get(pg_key, settings_default)`, явный draft приоритетнее, ключ
+> не в `_result`/логах; UI mask+hint `{configured,last4}`) — работает без повторного ввода;
+> (п.2) рефакторинг «LLM Провайдеры» — nav-icons 22px/gap .15rem/min-width 60px + pinned
+> профиль; две зоны «Подключения»/«Расширенные настройки» (**computed**, не methods);
+> embeddings — один блок с 3 подблоками (main/f1/f2) с полными полями base/model/key/
+> «Проверить»; video fallback поднят сразу после `video_summary_openrouter`; media-share/
+> search_keys/llm_guard → advanced внизу с human-subtext; теххаос внизу; (п.3) dashboard
+> key-history — непрерывный график (`spanGaps:true` + `stepped:true`, линейная ось X в ms,
+> `parsing:false`, ticks HH:MM; `type:'time'` НЕ используется), серверный контракт
+> `api_payload`/`key_history.py` НЕ изменён; (п.4) docs-only отчёт
+> `plans/docs/memory_sleep_nostalgia_lore_report.md` (память, сон/синтез снов, ностальгия,
+> лор чатов, тайминги/лимиты, сборка контекста — plain language, каждая цифра `file:line`).
+> **Каталог-дельта (ADR-1011-2, sanctioned):** 4 infra embed-fallback записи перенесены
+> в каталог (`models.embedding_fallback_base_url/_model` → models/`models_embeddings`;
+> `keys.embedding_fallback_api_key/_2` → keys/`keys_llm`, `secret=True`), `llm_client`/
+> `status_service` читают `hot.get`; счётчики БЕЗ роста — REGISTRY **400** / GROUPS **90** /
+> Settings **372** / mapped **88** / `TAB_RULES` 19 / `CONFIG_TAB_TITLES` 19; `categorized`
+> 372→**376** (models 40→42, keys 13→15), `infra` 28→**24**. Ноль PG-DDL; SQLite v8;
+> `bot.py`/`media/`/`.env` не тронуты. @Reviewer: REJECTED (CRITICAL: zone helpers в methods,
+> не computed → блоки провайдеров исчезали) → фикс (computed) → APPROVED WITH MINOR ISSUES.
+> @Scanner: **CLEAN — 0 blocker / 0 major / 0 medium** (3 low R10.11-1/-2/-3 закрыты
+> follow-up; 3 info R10.11-4/-5/-6 → техдолг; `plans/reports/round10.11_scanner_audit.md`).
+> @Architect: merge в `plans/ARCHITECTURE.md` **§32** (+§5/§9/§25). **Тесты: 5172 passed /
+> 0 failed** (baseline 10.10 = 5145; Scanner 5168 на момент аудита — до follow-up
+> R10.11-1/-2/-3); `node --check web/app.js` clean; `node tests/js/routing_test.js` →
+> `JS-UNIT-OK`; `git diff --check` чист; R17-скан чист. @PM: фича заархивирована —
+> `plans/archive/llm-providers-refactor-round1011/` (spec.md + tasks.md + ADR-1011-1/2/3.md);
+> **plans/archive/ — 33 папки**; plans/features/ — 6 активных F-1…F-6. @DevOps: README +
+> `APP_VERSION` 2.54.0→**2.55.0**; коммиты `3624789` (feat, 28 файлов) + `cbe6ea5` (docs
+> deploy-verification); push origin/master; **деплой 198.46.175.136:/var/www/admin_bot** —
+> git pull fast-forward `772db08..3624789`, миграция `migrate_env_to_pg --only-category
+> models,keys` **created=5 / skipped=48**, restart active, `/api/health` 200, 0 ошибок.
+> Граф обновлён: милстоун `round10.11-epic` → COMPLETED + DEPLOYED, фича → WAS_PART_OF +
+> COMPLETED_IN/DEPLOYED_IN + ARCHIVED_IN plans-structure, создан `tech-debt-round10.11`
+> (R10.11-4/-5/-6; R10.11-1/-2/-3 закрыты). **Осталось вручную:** live Android/Telegram QA
+> (**T-1377** — поле ключа + «Проверить» без повторного ввода, навигация/профиль/сетка,
+> две зоны, эмбеддинги, video-фоллбэк, media-share, график; статически покрыто
+> `tests/test_webapp_round1011_ui.py` + JS-юниты). ⚠️ Наблюдение: pre-restart PID имел
+> 401 к `apinet.cloud` (возможно невалидный primary token) — стоит проверить.
+> ⚠️ Headroom — вне репозитория, как сущность НЕ фиксируется.
+
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
 > (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).
@@ -1328,6 +1376,99 @@ ADR-1010-1/2/3; T-1315…T-1328, продолжает 10.9). HEAD == origin/mast
   IDE-инфраструктура владельца, не часть бота); в репозитории и в графе НЕ
   фиксируется как сущность.
 
+### Раунд 10.11 — финал (12.09.2026) — ЗАКОММИЧЕН И ЗАДЕПЛОЕН (3624789 + cbe6ea5)
+
+«Рефакторинг раздела LLM Провайдеры + проверка сохранённого ключа +
+непрерывный график доступности + plain-language отчёт о памяти/сне/ностальгии/
+лоре». Единственная фича — `llm-providers-refactor-round1011` (spec @Architect +
+tasks @PM + ADR-1011-1/2/3; T-1340…T-1381, продолжает T-1339 — финал 10.10).
+HEAD == origin/master == `cbe6ea5` (`3624789` + `cbe6ea5`, поверх `ec5dd1f` —
+docs memory-sync 10.10; прод до деплоя — `772db08` = задеплоенный 10.10).
+**Статус: COMPLETED + DEPLOYED.** FOLLOWS round10.10-epic; цикл раунда
+полностью закрыт (Step 10).
+
+- **Коммиты (master):** `3624789` feat(admin,web,api,scripts,plans): раунд 10.11 —
+  рефакторинг «LLM Провайдеры», проверка сохранённого ключа, график доступности,
+  отчёт по памяти (тесты 5172) — **28 файлов**; `cbe6ea5` docs(plans): раунд 10.11 —
+  деплой-верификация; push origin/master.
+- **Тесты:** 5172 passed / 0 failed (baseline 10.10 = 5145; Scanner зафиксировал
+  5168 на момент аудита — до follow-up R10.11-1/-2/-3). `node --check web/app.js`
+  clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` чист;
+  R17-скан чист.
+- **Пункт 1 (ADR-1011-1):** `POST /api/llm/test` при пустом/пробельном `api_key`
+  резолвит СОХРАНЁННЫЙ ключ блока server-side — `_BLOCK_SAVED_KEY` (все сетевые
+  блоки + media_share), `_saved_api_key` (`hot.get(pg_key, settings_default)`,
+  ошибка → `""`); явный draft из UI приоритетнее (UI шлёт `api_key` только если
+  truthy); резолв внутренний — ключ не попадает в `_result` (ok/status/latency/
+  model/error) и не логируется, тело ошибки чистится `sanitize_error`; UI — поле
+  остаётся пустым, hint «Ключ сохранён (••••last4)» через маску `{configured,last4}`.
+  Работает без повторного ввода ключа.
+- **Пункт 2.1–2.5:** nav-icons крупнее/плотнее (`nav-icon 22px`, `gap .15rem`,
+  `min-width 60px`) + pinned профиль (`shrink-0` + `whitespace-nowrap`);
+  `.hub-head`/`.hub-grid` `max-width:64rem` + `justify-self:center`; две зоны
+  «Подключения»/«Расширенные настройки» — `providerConnectionBlocks`/
+  `providerAdvancedBlocks` **computed** (НЕ methods; фикс ревьюера), зона advanced
+  через `<component :is>` + `<summary>`, на прочих вкладках `div`; embeddings —
+  один блок с 3 подблоками (`embeddings.subBlocks = [main, f1, f2]`, у каждого
+  Base URL+Модель+Ключ+«Проверить»; `providerCoveredKeys` рекурсивно покрывает
+  subBlocks — нет дублей в generic); video fallback строго после
+  `video_summary_openrouter` (kind=chat); media_share → advanced + note,
+  `search_keys`/`llm_guard` тоже advanced внизу; технический хаос ниже зоны
+  «Подключения».
+- **Пункт 2.3 — каталог-дельта (ADR-1011-2, sanctioned):** 4 infra
+  embed-fallback записи перенесены в каталог — `models.embedding_fallback_base_url`/
+  `_model` → category `models`/group `models_embeddings`;
+  `keys.embedding_fallback_api_key`/`_2` → category `keys`/group `keys_llm`,
+  `secret=True`; `llm_client`/`status_service` читают через `hot.get` (прежние
+  дефолты — паритет). Счётчики БЕЗ роста: REGISTRY **400** / GROUPS **90** /
+  Settings **372** / mapped **88** / `TAB_RULES` 19 / `CONFIG_TAB_TITLES` 19;
+  `categorized` 372→**376** (models 40→42, keys 13→15), `infra` 28→**24**.
+- **Пункт 3 (ADR-1011-3):** dashboard key-history — непрерывный график:
+  точки `{x: ts*1000, y: lane|null}`, `spanGaps:true`, `stepped:true`,
+  ось X `type:'linear'` + `min/max` (`xMin`/`xMax`) + `ticks.callback` HH:MM,
+  `parsing:false`; `type:'time'` отсутствует (без date-adapter); серверный
+  контракт `GET /api/status/key-history` (`api_payload`, `services/key_history.py`)
+  НЕ изменён. R10.10-3 (ранний return без destroy) не регрессирован.
+- **Пункт 4 (docs-only, без кода):** `plans/docs/memory_sleep_nostalgia_lore_report.md`
+  — подробный plain-language отчёт: память (L1/L2/L3/GraphRAG), сон/синтез снов,
+  ностальгия, чат-лор, тайминги/лимиты, сборка контекста; 6 тем, каждая цифра с
+  `file:line`; принят @PM (T-1342).
+- **Ревью/Scanner:** @Reviewer REJECTED (CRITICAL: zone helpers в methods, не
+  computed → блоки провайдеров исчезали) → фикс (computed) + жёсткий тест →
+  APPROVED WITH MINOR ISSUES. @Scanner **CLEAN — 0 blocker / 0 major / 0 medium**;
+  3 low R10.11-1/-2/-3 закрыты follow-up; 3 info R10.11-4/-5/-6 → техдолг; отчёт
+  `plans/reports/round10.11_scanner_audit.md`.
+- **Архитектура/ADR:** @Architect — ARCHITECTURE.md **§32 «Раунд 10.11»**
+  (+§5/§9/§25). ADR-1011-1 — saved-key probe (R17-safe); ADR-1011-2 — embeddings
+  one block + sanctioned Δ каталога без роста счётчиков; ADR-1011-3 — key-history
+  chart на линейной оси (без `type:'time'`), контракт `api_payload` неизменен.
+- **Деплой (198.46.175.136:/var/www/admin_bot):** git pull fast-forward
+  `772db08..3624789`; миграция `python scripts/migrate_env_to_pg.py
+  --only-category models,keys` → **created=5 / skipped=48** (4 embed-фоллбэка
+  резолвятся); `systemctl restart` → active; `/api/health` = 200; 0 ошибок.
+- **Архивация:** `llm-providers-refactor-round1011` →
+  `plans/archive/llm-providers-refactor-round1011/` (spec.md + tasks.md +
+  ADR-1011-1/2/3.md) (**plans/archive/ — 33 папки**; plans/features/ — 6 активных
+  F-1…F-6). README счётчик 5172; `APP_VERSION` 2.55.0.
+- **Осталось вручную:** live Android/Telegram QA — **T-1377** (поле ключа +
+  «Проверить» без повторного ввода; навигация/профиль/сетка; две зоны
+  «Провайдеры»; эмбеддинги (3 подблока); видео-фоллбэк; media-share внизу; график
+  доступности ключей). Статически покрыто `tests/test_webapp_round1011_ui.py` +
+  JS-юнитами; опциональный betterstack-401 fix. Не блокирует закрытие цикла.
+- **⚠️ Наблюдение:** pre-restart PID имел 401 к `apinet.cloud` (возможно невалидный
+  primary token) — стоит проверить.
+- **Техдолг раунда (KG `tech-debt-round10.11`):** R10.11-1 (low, закрыта — вложенные
+  `<details>` делят один localStorage-ключ `adminbot.expand:llm_providers`),
+  R10.11-2 (low, закрыта — расхождение `embedding_fallback_model` рантайм vs
+  карточка статуса при явной очистке), R10.11-3 (low, закрыта — устаревшие
+  подсказки «править в .env» для embed-фоллбэк-ключей), R10.11-4 (info, открыта —
+  probe прикрепляет сохранённый секрет к caller-supplied `base_url`; hardening:
+  резолвить `base_url` из конфига блока/allowlist), R10.11-5 (info, открыта —
+  мёртвая ветка `destroy()` в `renderKeyHistoryChart`), R10.11-6 (info, открыта —
+  нет headless-теста фактического рендера `spanGaps:true`/`parsing:false`).
+- **⚠️ Вне скоупа:** Headroom — внешняя IDE-инфраструктура владельца, не часть
+  бота; в репозитории и в графе как сущность НЕ фиксируется.
+
 ## Безопасность сервера (fail2ban / ufw / SSH-харденинг, 09.09.2026)
 
 Применено DevOps на 198.46.175.136 (Ubuntu 24.04.4, OpenSSH 9.6p1),
@@ -1353,8 +1494,9 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 32 папки)
+## Свежие архивы (plans/archive/ — 33 папки)
 
+- `llm-providers-refactor-round1011` — **Раунд 10.11, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1011-1/2/3, T-1340…T-1381): saved-key probe `/api/llm/test` без повторного ввода (R17-safe, `{configured,last4}`), рефакторинг «LLM Провайдеры» (nav-icons 22px + pinned профиль, две зоны «Подключения»/«Расширенные» computed, embeddings 3 подблока, video-fallback выше, media-share/теххаос внизу), непрерывный key-history chart (`spanGaps`+`stepped`, linear-ось, `parsing:false`), docs-отчёт `plans/docs/memory_sleep_nostalgia_lore_report.md`; каталог 400/90/372/mapped 88, `categorized` 376 (sanctioned Δ, infra 28→24); тесты 5172 passed / 0 failed; §32)
 - `admin-ui-round1010` — **Раунд 10.10, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-1010-1/2/3, T-1315…T-1328: fullscreen safe-area паддинг шапки, мобильный график доступности ключей (окно от конца, дорожки + 300с сетка), реальные значения полей «Провайдеров» (`blockFieldValue`), ЛС heavy-modules OFF (`disable_dm_heavy_modules.py`, прод data-run 1 ЛС), «Роли» с аватаром+ником+мелким серым ID; каталог 400/90/372/mapped 88; тесты 5145 passed / 1 skipped; §31)
 - `admin-ui-round109` — **Раунд 10.9, 12.09.2026** (единственная фича, spec @Architect + tasks @PM + ADR-109; T-1270…T-1314: PERMsoc owner-блоки + `flags.slavik_enabled`, сохранение скролла (`_preserveScroll`), переписанные описания/титулы, удаление «Тяжёлых фич», «Бюджет фона»→«Сводка», dashboard «Доступность ключей» (4 группы) + реальный health `probe_openai`, 7 `models.*_display_name`, `max-w-3xl`, градиент 14s/18s; каталог 400/90/372/mapped 88; тесты 5105; §30)
 - `admin-ui-round108` — **Раунд 10.8, 11.09.2026** (единственная фича, spec @Architect + tasks @PM, T-1243…: переименование разделов, emoji→Material-иконки (субсет 20→37, 18 388 B), фикс логов на Android, route-driven окна «Доступов», README; тесты 5076; §29; ADR-001-access-windows-modal + ADR-002-icon-subset-parity)
@@ -1394,11 +1536,13 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 `prod-params-audit-2026-09.md`, `memory-project-overview.md`,
 `CONTEXT_RESEARCH.md`, `agi-memory-research.md`, `chat-lore-management-research.md`,
 `sqlite-to-pg-research.md`, `factcheck-audit.md`, `memory-import-research.md`,
-`research-directchat-digest.md`, `canon/` (architecture.md, backlog.md).
+`research-directchat-digest.md`, `memory_sleep_nostalgia_lore_report.md`
+(12.09.2026 — plain-language отчёт раунда 10.11: память/сон/ностальгия/лор,
+тайминги, сборка контекста; каждая цифра с `file:line`), `canon/` (architecture.md, backlog.md).
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
 
-- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.54.0 (раунд 10.10); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
+- **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.55.0 (раунд 10.11); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
 - **adminbot-sqlite-schema** — `users_meta` (стадии отношений), `smart_messages` (FTS5), `nodes/edges`, `graph_facts` (v1–v8), `dream_state`, `memory_dream_log` (бюджет суток), `nostalgia_log` и др. Миграция памяти sqlite→PG ЗАМОРОЖЕНА (04.09.2026). Вне скоупа раунда 10.
 - **hot-config-layer** — `services/hot_config.py::hot.get(pg_key, default)`; ConfigCache (`services/config_cache.py`) — in-memory над PG, R6 fail-open. Цепочка глобальная; **F-7 добавил per-chat слой `hot_chat` (chat_params → bot_settings → дефолт) параллельно — hot.get/ConfigCache не менялись**.
@@ -1518,6 +1662,22 @@ plans/archive/ — **32 папки**; HEAD == origin/master == `772db08` (ком
 d082800 + a477747 + 772db08; тесты 5145 passed / 1 skipped / 0 failed; деплой
 198.46.175.136 active/health 200, 0 ошибок, APP_VERSION 2.54.0); остаётся ручной
 live Android QA T-1317/1320/1323/1332 + UI spot-check DM-тумблеров OFF T-1328.
+**милстоун `round10.11-epic`** (AdminBot → COMPLETED + DEPLOYED, 12.09.2026) —
+раунд 10.11 «Рефакторинг LLM Провайдеры + проверка сохранённого ключа + key-history
+chart + отчёт по памяти»: единственная фича `llm-providers-refactor-round1011`
+(spec @Architect + tasks @PM + ADR-1011-1/2/3; T-1340…T-1381) → COMPLETED + DEPLOYED
++ WAS_PART_OF/COMPLETED_IN/DEPLOYED_IN round10.11-epic + ARCHIVED_IN plans-structure;
+saved-key probe `/api/llm/test` (R17-safe), nav-icons 22px + pinned профиль, две зоны
+«Подключения»/«Расширенные» (computed), embeddings 3 подблока + 4 записи в каталог
+(sanctioned Δ: categorized 376, infra 28→24), video-fallback выше, media-share/теххаос
+внизу, key-history chart `spanGaps`+`stepped` (linear-ось, `parsing:false`), docs-отчёт
+`memory_sleep_nostalgia_lore_report.md`; каталог 400/90/372/mapped 88; ARCHITECTURE.md
+§32 (+§5/§9/§25); Scanner CLEAN 0 blocker/0 major/0 medium (R10.11-1/-2/-3 закрыты;
+техдолг — KG `tech-debt-round10.11`: R10.11-4/-5/-6); plans/features/ — **6 активных**
+(F-1…F-6); plans/archive/ — **33 папки**; HEAD == origin/master == `cbe6ea5` (коммиты
+3624789 + cbe6ea5; тесты 5172 passed / 0 failed; деплой 198.46.175.136 active/health 200,
+0 ошибок, миграция created=5/skipped=48, APP_VERSION 2.55.0); остаётся ручной live
+Android/Telegram QA **T-1377**; наблюдение — pre-restart PID 401 к apinet.cloud (проверить).
 
 ## Факты для планирования (проект)
 
