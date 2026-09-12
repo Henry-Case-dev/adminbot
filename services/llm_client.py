@@ -168,8 +168,8 @@ def humanize_embed_error(exc: BaseException) -> str:
     исходного исключения, если оно печатается рядом)."""
     status = _embed_error_status(exc)
     if status == 401:
-        return ("Ключ API не принят (401) — проверьте основной ключ и запасные "
-                "ключи эмбеддинга в мини-аппе: «LLM Провайдеры» → "
+        return ("Ключ API не принят (401) — проверьте ключ основной модели "
+                "памяти (и запасные ключи) в мини-аппе: «LLM Провайдеры» → "
                 "«Эмбеддинги»")
     if status == 403:
         return ("Доступ запрещён (403): квота исчерпана или ключ без прав на "
@@ -249,11 +249,25 @@ class LLMClient:
         embed_fallback_model: str = settings.EMBEDDING_FALLBACK_MODEL,
         embed_fallback_timeout: float = settings.EMBEDDING_FALLBACK_TIMEOUT_SECONDS,
         embed_fallback_max_retries: int = settings.EMBEDDING_FALLBACK_MAX_RETRIES,
+        # Раунд 10.12 (ADR-1012-1 D1, OD-1): primary embed-путь развязан от
+        # chat-base_url/ключа. None → эмбеддинги идут на chat-base/ключ
+        # (полная обратная совместимость 4-аргументных вызовов и тестов).
+        embed_base_url: str | None = None,
+        embed_api_key: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._chat_model = chat_model
         self._embed_model = embed_model
+        # Раунд 10.12: независимый адрес/ключ primary-эмбеддингов.
+        # hot.get-приоритет; пустой адрес → chat-base (паритет).
+        _embed_base = hot.get(
+            "models.embedding_base_url",
+            embed_base_url if embed_base_url is not None else self._base_url)
+        self._embed_base_url = ((_embed_base or self._base_url) or "").rstrip("/")
+        self._embed_api_key = (hot.get(
+            "keys.embedding_api_key",
+            (embed_api_key or "").strip()) or "").strip()
         # Миграция read-пути (2026-09-03): таймауты/ретраи читаются через
         # hot.get ВНУТРИ __init__ (в дефолтах бейкдились при импорте) —
         # значения из админки действуют при создании клиента.
@@ -315,6 +329,11 @@ class LLMClient:
             bool(self._embed_fallback_api_keys)
         self._client: httpx.AsyncClient | None = None
         self._client_key: str | None = None
+        # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-канал имеет СВОЙ
+        # кэш httpx-клиента — иначе при разных chat/embed-ключах общий
+        # `_client` пересоздаётся на каждом вызове (churn).
+        self._embed_client: httpx.AsyncClient | None = None
+        self._embed_client_key: str | None = None
         self._fallback_client: httpx.AsyncClient | None = None
         self._fallback_key: str | None = None
         self._embed_fallback_client: httpx.AsyncClient | None = None
@@ -331,6 +350,13 @@ class LLMClient:
     def _current_api_key_source(self) -> str:
         """Глобальный слой нетронут: источник 'global' (для резолва)."""
         return "global"
+
+    def _current_embed_api_key(self) -> str:
+        """OD-1 (раунд 10.12): ключ primary-эмбеддингов из горячего конфига
+        (keys.embedding_api_key). Пусто → keys.llm_api_key (обратная
+        совместимость). R17: значение ключа не логируется."""
+        return (hot.get("keys.embedding_api_key", self._embed_api_key)
+                or self._current_api_key() or "")
 
     async def _resolve_api_key_and_source(self, chat_id: int | None = None
                                           ) -> tuple[str, str]:
@@ -463,6 +489,24 @@ class LLMClient:
             self._client_key = key
         return self._client
 
+    def _get_embed_client(self, key: str | None = None) -> httpx.AsyncClient:
+        """Раунд 10.12 (OD-1): отдельный кэш httpx-клиента для embed-канала.
+
+        Зеркалит `_get_client`, но не делит `_client` с chat: при разных
+        chat/embed-ключах оба канала сохраняют свой клиент (без churn)."""
+        if key is None:
+            key = self._current_embed_api_key()
+        if self._embed_client is not None and key != self._embed_client_key:
+            self._close_async(self._embed_client)
+            self._embed_client = None
+        if self._embed_client is None:
+            self._embed_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._timeout, connect=10.0),
+                headers={"Authorization": f"Bearer {key}"},
+            )
+            self._embed_client_key = key
+        return self._embed_client
+
     def _get_fallback_client(self) -> httpx.AsyncClient:
         """Epic 53 (62.4): ленивый клиент фоллбэка, тот же таймаут-срез.
         T-619: ключ фоллбэка — горячая точка (пересоздание при смене)."""
@@ -497,6 +541,9 @@ class LLMClient:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+        if self._embed_client is not None:
+            await self._embed_client.aclose()
+            self._embed_client = None
         if self._fallback_client is not None:
             await self._fallback_client.aclose()
             self._fallback_client = None
@@ -532,16 +579,22 @@ class LLMClient:
         return base_sleep + random.uniform(0, self._jitter_max)
 
     async def _post(self, path: str, payload: dict,
-                    api_key: str | None = None) -> httpx.Response:
+                    api_key: str | None = None,
+                    base_url: str | None = None,
+                    channel: str = "chat") -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
         _post — asyncio.timeout(LLM_TOTAL_BUDGET) (56.4).
         Раунд 10 (F-7 §5.2): api_key — BYOK-результат резолва (None →
         глобальный слой).
+        Раунд 10.12 (ADR-1012-1 D1): base_url — per-call override (embed-путь
+        ходит на `_embed_base_url`, chat — на `_base_url`).
         """
-        client = self._get_client(api_key)
-        url = f"{self._base_url}{path}"
+        client = (self._get_embed_client(api_key) if channel == "embed"
+                  else self._get_client(api_key))
+        base = (base_url or self._base_url).rstrip("/")
+        url = f"{base}{path}"
         request_len = len(str(payload))
         total_attempts = self._max_retries + 1
         started_total = time.monotonic()
@@ -939,6 +992,9 @@ class LLMClient:
             response = await self._post(
                 "/embeddings",
                 {"model": self._embed_model, "input": texts},
+                api_key=self._current_embed_api_key(),
+                base_url=self._embed_base_url,
+                channel="embed",
             )
         except LLMError as exc:
             if not self._embed_fallback_active or isinstance(exc, LLMBadResponseError):

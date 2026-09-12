@@ -1117,11 +1117,11 @@ class TestStatic:
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.55.0" in text
-        assert "/static/fonts/material-symbols-rounded.woff2?v=2.55.0" in text
+        assert "/web/app.js?v=2.56.0" in text
+        assert "/static/fonts/material-symbols-rounded.woff2?v=2.56.0" in text
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.55.0")
+            "/static/fonts/material-symbols-rounded.woff2?v=2.56.0")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 
@@ -1195,7 +1195,9 @@ class TestParamPermissionFlagsApi:
         items = resp.json()["items"]
         # 10.11 (ADR-1011-2): categorized 372 → 376 (4 embed-фоллбэк-ключа
         # переведены из infra в каталог; REGISTRY 400 / Settings 372 неизменны).
-        assert len(items) == len(categorized) == 376
+        # 10.12 (ADR-1012-1): +5 (embed base/ключ, STT display-name, фразы
+        # Костика, флаг Костика) → categorized 381.
+        assert len(items) == len(categorized) == 381
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

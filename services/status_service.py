@@ -180,8 +180,14 @@ class StatusService:
             "models.video_primary_model", settings.VIDEO_PRIMARY_MODEL)
         emb_model, _ = StatusService._resolve(
             "models.embedding_model_name", settings.EMBEDDING_MODEL_NAME)
+        # Раунд 10.12 (ADR-1012-1 D1): адрес primary-эмбеддингов — НЕ main_base.
+        emb_base, _ = StatusService._resolve(
+            "models.embedding_base_url", settings.EMBEDDING_BASE_URL)
 
         llm_key = hot.get("keys.llm_api_key", settings.LLM_API_KEY)
+        # OD-1: отдельный ключ эмбеддингов; пусто → основной ключ.
+        emb_key = (hot.get("keys.embedding_api_key", settings.EMBEDDING_API_KEY)
+                   or llm_key)
         or_key = hot.get("keys.openrouter_api_key", settings.OPENROUTER_API_KEY)
 
         g_llm_id, g_llm_title = StatusService.GROUP_LLM
@@ -236,7 +242,8 @@ class StatusService:
             "stt_openrouter", "Распознавание речи (резерв)",
             (g_stt_id, g_stt_title),
             StatusService._display(
-                "models.openrouter_display_name", "OPENROUTER_DISPLAY_NAME",
+                "models.openrouter_transcribe_display_name",
+                "OPENROUTER_TRANSCRIBE_DISPLAY_NAME",
                 "Транскрибация (резерв)"),
             # OpenRouter-расшифровка идёт через chat.completions с
             # input_audio (openrouter_transcriber), поэтому kind="chat".
@@ -253,7 +260,7 @@ class StatusService:
             StatusService._display(
                 "models.embedding_display_name", "EMBEDDING_DISPLAY_NAME",
                 "Основная модель памяти"),
-            main_base, emb_model, llm_key, None, "embeddings"))
+            emb_base, emb_model, emb_key, None, "embeddings"))
         # 10.11 (ADR-1011-2): embed-фоллбэк — first-class каталог (hot.get);
         # дефолт = settings → паритет без кэша (R1). Значения не логируются.
         # Scanner LOW: семантика fb_model ДОЛЖНА совпадать с runtime

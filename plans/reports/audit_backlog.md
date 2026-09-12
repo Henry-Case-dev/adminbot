@@ -3,6 +3,46 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.12 scan (2026-09-13) — all scanned
+- [x] config/settings.py (`LLM_BASE_URL` default → nano-gpt; +`EMBEDDING_BASE_URL`, +`EMBEDDING_API_KEY`,
+      +`OPENROUTER_TRANSCRIBE_DISPLAY_NAME`; +`DEFAULT_KOSTIK_REPLIES`/`KOSTIK_REPLIES`/`KOSTIK_ENABLED`;
+      Settings 372→377)
+- [x] services/llm_client.py (`embed_base_url`/`embed_api_key` DI, `_embed_base_url`/`_embed_api_key`,
+      `_current_embed_api_key`, `_post(base_url=…, channel='embed')`, отдельный `_embed_client`-кэш;
+      chat-путь/ретраи/`EMBEDDING_FALLBACK_*` целы)
+- [x] services/status_service.py (`emb_base`/`emb_key` из embed-ключей; `emb_main` без алиасинга `main_base`;
+      `stt_openrouter` → `models.openrouter_transcribe_display_name`)
+- [x] services/llm_probe.py (`_BLOCK_SAVED_KEY` primary-embed → `keys.embedding_api_key`; `_saved_api_key`
+      фолбэк на `keys.llm_api_key`; Google-фоллбэки не затронуты) — инфо-нит по docstring (R10.12-2)
+- [x] services/param_catalog.py (Δ +5: `models.embedding_base_url`, `models.openrouter_transcribe_display_name`,
+      `keys.embedding_api_key`, `flags.kostik_enabled`, `reactions.kostik_replies` widget=list;
+      `_REACTIONS` 6-элементные строки)
+- [x] services/permsoc.py (`PermsocModule('kostik').sub_flag_key='flags.kostik_enabled'`;
+      `DEFAULT_SUB_FLAGS['flags.kostik_enabled']=True`)
+- [x] handlers/kostik.py (литерал удалён; thin-alias; `hot.get('reactions.kostik_replies', default)` +
+      `_resolve_replies`; пустой список → молчание)
+- [x] bot.py (только 4 пары DI `embed_base_url`/`embed_api_key`; router order/media не тронуты)
+- [x] web/app.js (`api()` global-опция без утечки в fetch; `saveBlock`/`saveConfigItem` global-save;
+      merged `PROVIDER_BLOCKS` + `blockDisplayName`; owner-блок Костика; `list-editor`)
+- [x] web/index.html (merged-заголовки + `{{ blockDisplayName }}`; ветка `widget==='list'` в обоих
+      generic-шаблонах; `#list-editor-tpl`)
+- [x] .env.example (nano-gpt/apinet defaults; `EMBEDDING_API_KEY` комментарий; плейсхолдеры)
+- [x] tests/js/routing_test.js (merged-блоки, global-save, `saveConfigItem`, `blockDisplayName`,
+      `list-editor`, owner-блок), tests/test_webapp_round1012_ui.py (NEW), test_llm_client.py,
+      test_kostik.py, test_permsoc.py, test_param_catalog.py, test_status_service.py, test_webapp_api.py,
+      test_migrate_env_to_pg.py, test_round106_ia_smoke.py, test_frontend_tab_mapping.py,
+      test_webapp_parity_smoke.py, test_webapp_round10{9,10,11}_ui.py
+- [x] plans/features/providers-kostik-round1012/ (spec + ADR-1012-1 + tasks), plans/backlog.md (doc-only)
+- [x] plans/reports/round10.12_scanner_audit.md (итог: 0 blocker/0 high/0 medium; 2 low R10.12-1/-5,
+      3 info R10.12-2…-4)
+- Открыто (follow-up, не блокеры): **R10.12-1** `web/app.js:3092-3112` `saveKeyItem` не переведён на
+  global-save → 422 для `keys.*` вне provider-блоков (`CHECKUP_BETTERSTACK_SQL_*`, `YOUTUBE_COOKIES_FILE`,
+  `YOUTUBE_TRANSCRIPT_PROXY_*`) при активном чате; **R10.12-5** `web/app.js:362,380,400` parent
+  `modules==title` → `blockDisplayName` дублирует заголовок (косметика); R10.12-2 stale docstring
+  `llm_probe.py:14`; R10.12-3 `KOSTIK_ENABLED` вне `.env.example`; R10.12-4 index-key в `list-editor`
+  (`index.html:3181`). Из прошлых раундов: R10.11-1/-2/-3 (low), R10.11-4/-5/-6 (info), R10.10-1/-2/-4/-5,
+  R10.9-1/-2/-3/-4, R10.7-1/-2, R10.6-1/-2/-3.
+
 ## Round 10.11 scan (2026-09-12) — all scanned
 - [x] services/param_catalog.py (ADR-1011-2: 4 embed-фоллбэк-записи переведены из `_INFRA`
       в first-class каталог; REGISTRY 400/GROUPS 90/Settings 372/mapped 88 без изменений;

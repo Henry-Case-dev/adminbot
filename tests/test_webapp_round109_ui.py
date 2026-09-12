@@ -205,8 +205,8 @@ class TestCatalog109:
         import dataclasses
         from config.settings import Settings
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 400
+        assert len(pc.REGISTRY) == 405
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 372
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 377

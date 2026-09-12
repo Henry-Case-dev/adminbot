@@ -11,7 +11,10 @@
     video_summary_openrouter (нужны base_url+model+key);
   * STT-блок: transcribe_groq — POST /audio/transcriptions (Whisper не
     chat-модель; chat-probe давал ложный error и красную карточку);
-  * embeddings — требует base_url (UI не рендерит кнопку теста: base_url нет);
+  * embeddings — требует base_url; раунд 10.11+ UI рендерит кнопку
+    «Проверить» у 3 подблоков (embeddings_main/fallback1/fallback2);
+    primary embeds (10.12, OD-1) при пустом keys.embedding_api_key
+    зеркалят runtime-фолбэк на keys.llm_api_key;
   * search_keys — НЕ требует base_url (ходит на фиксированные Exa/Tavily);
   * media_share — не сетевой: проверяет, что секрет задан;
   * checkup_betterstack — best-effort HTTP-probe хоста SQL API (вызывается
@@ -55,8 +58,8 @@ _BLOCK_SAVED_KEY: dict[str, str] = {
     "transcribe_openrouter": "keys.openrouter_api_key",
     "video_summary_openrouter": "keys.openrouter_api_key",
     "video_fallback": "keys.openrouter_api_key",
-    "embeddings": "keys.llm_api_key",
-    "embeddings_main": "keys.llm_api_key",
+    "embeddings": "keys.embedding_api_key",
+    "embeddings_main": "keys.embedding_api_key",
     "embeddings_fallback1": "keys.embedding_fallback_api_key",
     "embeddings_fallback2": "keys.embedding_fallback_api_key_2",
     "search_keys:tavily": "keys.tavily_api_key",
@@ -84,7 +87,14 @@ def _saved_api_key(block: str) -> str:
         default = ""
         if spec is not None and spec.settings_field:
             default = getattr(settings, spec.settings_field, "") or ""
-        return (hot.get(pg_key, default) or "")
+        value = (hot.get(pg_key, default) or "")
+        # Раунд 10.12 (OD-1): primary embed-путь в рантайме падает на
+        # keys.llm_api_key, если отдельный embed-ключ пуст. Probe «Проверить»
+        # должен зеркалить это (R17: ключ не логируется/не возвращается).
+        # Только primary (embeddings/embeddings_main), НЕ Google-фоллбэки.
+        if not value.strip() and pg_key == "keys.embedding_api_key":
+            value = hot.get("keys.llm_api_key", settings.LLM_API_KEY) or ""
+        return value
     except Exception:
         logger.warning("[llm_probe] не удалось получить сохранённый ключ блока",
                        exc_info=True)

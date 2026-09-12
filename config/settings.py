@@ -87,6 +87,28 @@ def _env_duration(key: str, default: str) -> float:
         return _parse_duration(default)
 
 
+# ── Kostik reply phrases (раунд 10.12, ADR-1012-1 D4) ──────────────────────
+# Код-дефолт редактируемого списка фраз Костика (reactions.kostik_replies).
+# 4 фразы владельца (дословно) + 10 в том же духе (18+, adult-to-adult —
+# без minor-coded формулировок). Читается через hot.get(pg_key, KOSTIK_REPLIES).
+DEFAULT_KOSTIK_REPLIES: tuple[str, ...] = (
+    "Папочка, только не в попочку",
+    "Папа Костя, только не там",
+    "Папа Костя, можно хотя бы сегодня без конфетки?",
+    "Daddy, i'm scared, убери это пожалуйста",
+    "Папа Костя, ты хоть смазку купил или опять по-сухому?",
+    "Папочка, а можно не в рот, я подавлюсь",
+    "Папа Костя, мама узнает — нам обоим влетит",
+    "Daddy, please, не по бутылке, я же просил",
+    "Папа Костя, ты обещал без наручников в этот раз",
+    "Папочка, я всё сделаю, только не при друзьях",
+    "Папа Костя, а презерватив ты тоже „забыл“?",
+    "Daddy, not the belt, я же взрослый мужик",
+    "Папа Костя, у меня после прошлого раза сесть больно",
+    "Папочка, ты сказал „последний раз“, а вон опять",
+)
+
+
 def _env_int_min(key: str, default: int, min_value: int) -> int:
     """Int из env; кривой формат или значение < min_value → WARNING + default (D104)."""
     raw = os.getenv(key, str(default))
@@ -163,6 +185,14 @@ class Settings:
 
     # Kostik reply probability — 0.0 (never) to 1.0 (always, legacy default)
     KOSTIK_REPLY_PROBABILITY: float = _env_float("KOSTIK_REPLY_PROBABILITY", 1.0)
+
+    # ── Раунд 10.12 (T-1398, ADR-1012-1 D4): фразы Костика — редактируемый
+    # список (reactions.kostik_replies, widget=list). Код-дефолт 14 фраз;
+    # пустой список → безопасное молчание. env-ключа НЕТ (только каталог).
+    KOSTIK_REPLIES: tuple[str, ...] = DEFAULT_KOSTIK_REPLIES
+    # ── Раунд 10.12 (T-1400, ADR-1012-1 D3): под-флаг owner-блока «Костик»
+    # (flags.kostik_enabled). Дефолт True — поведение Костика не меняется.
+    KOSTIK_ENABLED: bool = _env_bool("KOSTIK_ENABLED", True)
 
     # Dead Page V2 — Repost-triggered
     DEAD_PAGE_SOURCE_CHANNEL_USERNAME: str = os.getenv("DEAD_PAGE_SOURCE_CHANNEL_USERNAME", "d_pages")
@@ -313,10 +343,20 @@ class Settings:
     OLYA_CAPTION_MENTION_ENABLED: bool = _env_bool("OLYA_CAPTION_MENTION_ENABLED", True)
 
     # ── SmartModule: Summary (Epic 24) ────────────────────────────
-    # LLM provider — OpenAI-compatible API (apinet.cloud by default).
+    # LLM provider — OpenAI-compatible API.
+    # Раунд 10.12 (ADR-1012-1 D1): direct-чат и эмбеддинги РАЗВЯЗАНЫ.
+    #   * LLM_BASE_URL — direct answers (nano-gpt.com по умолчанию);
+    #   * EMBEDDING_BASE_URL — primary-эмбеддинги (apinet.cloud по умолчанию);
+    #   * EMBEDDING_API_KEY — отдельный ключ эмбеддингов (OD-1); пусто →
+    #     используется keys.llm_api_key (полная обратная совместимость).
+    # Значения ниже — только code-default для пустой БД; реальные значения
+    # правятся в мини-аппе («LLM Провайдеры» → «Эмбеддинги»). R17: ключи
+    # не логируются.
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")                            # R5/D64
-    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://apinet.cloud/v1")
+    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://nano-gpt.com/api/v1")
     LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "deepseek-v4-flash")
+    EMBEDDING_BASE_URL: str = os.getenv("EMBEDDING_BASE_URL", "https://apinet.cloud/v1")
+    EMBEDDING_API_KEY: str = os.getenv("EMBEDDING_API_KEY", "")   # OD-1 (раунд 10.12)
     EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "gemini-embedding-001")
     # ── Раунд 10.9 (ADR-109-1): кастомные имена моделей для админки ──
     # 7 глобальных полей (models.*_display_name): единый источник для форм
@@ -326,6 +366,10 @@ class Settings:
     LLM_FALLBACK_DISPLAY_NAME: str = _env_str("LLM_FALLBACK_DISPLAY_NAME", "")
     GROQ_DISPLAY_NAME: str = _env_str("GROQ_DISPLAY_NAME", "")
     OPENROUTER_DISPLAY_NAME: str = _env_str("OPENROUTER_DISPLAY_NAME", "")
+    # Раунд 10.12 (ADR-1012-1 D5): отдельный display-name для STT-фолбэка
+    # OpenRouter (не путать с видео-блоком; base_url/ключ остаются общими).
+    OPENROUTER_TRANSCRIBE_DISPLAY_NAME: str = _env_str(
+        "OPENROUTER_TRANSCRIBE_DISPLAY_NAME", "")
     EMBEDDING_DISPLAY_NAME: str = _env_str("EMBEDDING_DISPLAY_NAME", "")
     EMBEDDING_FALLBACK_DISPLAY_NAME: str = _env_str(
         "EMBEDDING_FALLBACK_DISPLAY_NAME", "")
@@ -1085,7 +1129,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.55.0"
+APP_VERSION = "2.56.0"
 
 
 def build_ytdlp_base_opts() -> dict:

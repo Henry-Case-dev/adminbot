@@ -535,7 +535,8 @@ class TestFrontFixes:
     def test_toggle_sends_items_payload(self):
         src = open("web/app.js", encoding="utf-8").read()
         # ФИКС 5: тумблер bool @change → saveConfigItem → POST {items:[{key,value}]}
-        assert "JSON.stringify({ items: [{ key: item.key, value: value }] })" in src
+        # 10.12: payload расширен updated_at/global-опцией — проверяем items-ядро.
+        assert "items: [{ key: item.key, value: value }]" in src
         assert "@change=\"saveConfigItem(item)\"" in open(
             "web/index.html", encoding="utf-8").read()
 

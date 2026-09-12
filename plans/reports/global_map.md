@@ -1,9 +1,9 @@
 # Global Map (architectural memory)
 
 > Архитектурная память Scanner. Не источник правды о коде — только карта связностей.
-> HEAD == da85b60 (10.9 docs) + рабочее дерево 10.10 (admin-ui-round1010, 2026-09-12).
-> origin/master == d2d1215 (10.9 deployed; 10.10 — не задеплоен, сканирование).
-> Каталог-инвариант 10.10: REGISTRY 400 / GROUPS 90 / Settings 372 / mapped 88 / TAB_RULES 19.
+> HEAD == 32d1aa9 (10.11 docs) + рабочее дерево 10.12 (providers-kostik-round1012, 2026-09-13).
+> origin/master == 3624789 (10.11 deployed; 10.12 — не задеплоен, сканирование).
+> Каталог-инвариант 10.12: REGISTRY 405 / GROUPS 90 / Settings 377 / mapped 88 / TAB_RULES 19 / categorized 381.
 > П.6 (Headroom) — OUT OF SCOPE репозитория, в коде ссылок нет.
 
 ## Stack
@@ -569,3 +569,47 @@ bot.py
   3 low: R10.11-1 nested `<details>` делят localStorage-ключ, R10.11-2 `embedding_fallback_model`
   status vs runtime, R10.11-3 устаревшие `.env`-подсказки; 3 info: R10.11-4 probe+caller base_url,
   R10.11-5 мёртвый `destroy`, R10.11-6 нет headless Chart.js-теста).
+
+## Round 10.12 map additions (providers-kostik-round1012, HEAD 32d1aa9 + working tree)
+
+- **Embed/direct decoupling (ADR-1012-1 D1 + OD-1)**: `config/settings.py` — `LLM_BASE_URL` code-default
+  `https://nano-gpt.com/api/v1`; новые `EMBEDDING_BASE_URL` (`https://apinet.cloud/v1`) и
+  `EMBEDDING_API_KEY` (`""`); новые каталог-ключи `models.embedding_base_url` (models/`models_embeddings`),
+  `keys.embedding_api_key` (keys/`keys_llm`, secret). `services/llm_client.py` — `LLMClient.__init__`
+  принимает `embed_base_url`/`embed_api_key`; `_embed_base_url` (пусто → chat-base), `_embed_api_key`,
+  `_current_embed_api_key()` (hot → captured → `_current_api_key()`); `embed()` → `_post(base_url=_embed_base_url,
+  channel="embed")`; отдельный httpx-кэш `_embed_client`/`_get_embed_client` (закрытие в `close()`);
+  chat-путь/ретраи/fallback-каскад `EMBEDDING_FALLBACK_*` не тронуты. `bot.py` — 4/4 точки DI
+  (`:316,491,525,557`), router order не тронут. `services/status_service.py` — `emb_base` из
+  `models.embedding_base_url`, `emb_key` = embed-ключ `or` llm-ключ; `emb_main` больше не алиасит `main_base`;
+  `stt_openrouter` → новый `models.openrouter_transcribe_display_name` (видео остаётся на
+  `models.openrouter_display_name`). `services/llm_probe.py` — `_BLOCK_SAVED_KEY` primary-embed →
+  `keys.embedding_api_key`, `_saved_api_key` зеркалит runtime-фолбэк на `keys.llm_api_key` (Google-фоллбэки нет).
+- **422 global-save fix (ADR-1012-1 D2)**: `web/app.js` `api()` поддержал `options.global === true` →
+  без `X-Chat-Id` (флаг не утекает в `fetch`); `saveBlock`/`saveConfigItem` для `per_chat=false` шлют
+  global-ветку (`updated_at:null`), смешанный блок → 2 последовательных запроса. Серверный гейт
+  `web/api/routes.py:414-417` и DM read-only (`canEditConfig`, R10.5-2) НЕ ослаблены (routes.py вне диффа);
+  global-путь проверяет права сервером. **Известный неполный путь: `saveKeyItem` (`web/app.js:3092-3112`)
+  не переведён** → см. R10.12-1.
+- **Merged provider-блоки + подпись (ADR-1012-1 §2)**: `web/app.js` `PROVIDER_BLOCKS` — 4 parent-блока
+  `direct`/`transcription`/`video_summary`/`embeddings` с `subBlocks` (id'ы `direct_main`/`direct_fallback`/
+  `transcribe_groq`/`transcribe_openrouter`/`video_summary_openrouter`/`video_fallback` сохранены);
+  `blockDisplayName(x)` = значение первого поля `role==='' && *display_name`, иначе `x.modules`;
+  `providerCoveredKeys` рекурсивно покрывает новые ключи; `web/index.html` — `{{ blockDisplayName(b) }}` /
+  `{{ blockDisplayName(sb) }}`, advanced = `modules`; STT/summary свопа нет.
+- **Kostik reply-list (ADR-1012-1 D3/D4)**: `config/settings.py` `DEFAULT_KOSTIK_REPLIES` (14 фраз) +
+  `KOSTIK_REPLIES`/`KOSTIK_ENABLED`; каталог `reactions.kostik_replies` (json/widget=`list`/per_chat true),
+  `flags.kostik_enabled` (flags/`flags_permsoc`, default True); `services/permsoc.py` —
+  `PermsocModule('kostik').sub_flag_key = "flags.kostik_enabled"` + `DEFAULT_SUB_FLAGS` True;
+  `handlers/kostik.py` — литерал удалён, `hot.get("reactions.kostik_replies", settings.KOSTIK_REPLIES)` +
+  `_resolve_replies` (list/tuple/JSON/мусор → непустые str), пустой список → молчание; alias `KOSTIK_REPLIES`
+  сохранён; owner-блок «Костик» (ID + фразы + вероятность `limits.kostik_reply_probability`) + виджет
+  `list-editor` (`web/app.js:4915-4968`, `web/index.html:3176-3206`, обе generic-ветки desktop/compact).
+- **Инварианты 10.12**: REGISTRY **405** / GROUPS **90** / Settings **377** / mapped **88** / TAB_RULES **19** /
+  categorized **381**; **ноль новых PG-DDL**; SQLite **v8**; `bot.py` router order, `media/`, `.env`
+  не тронуты; секретов нет; **Headroom-ссылок в коде нет**; тесты — pytest 5210/0, `node --check`/
+  `JS-UNIT-OK`/`git diff --check` чисты.
+- **Находки 10.12**: `plans/reports/round10.12_scanner_audit.md` (0 blocker/0 high/0 medium; 2 low:
+  R10.12-1 `saveKeyItem` не переведён на global-save, R10.12-5 дубль title/modules у parent-блоков;
+  3 info: R10.12-2 stale docstring `llm_probe`, R10.12-3 `KOSTIK_ENABLED` вне `.env.example`,
+  R10.12-4 index-key в `list-editor`).

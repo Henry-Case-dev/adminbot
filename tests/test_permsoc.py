@@ -36,7 +36,21 @@ async def test_registry_has_five_modules():
         "slavik", "kostik", "alan", "olya", "mimic"]
     # kostik/alan — только master (derived); slavik/olya/mimic — под-флаги
     # (10.9/ADR-109-4: slavik получил независимый flags.slavik_enabled).
-    assert sum(1 for m in PERMSOC_MODULES if m.sub_flag_key is None) == 2
+    # 10.12 (ADR-1012-1 D3): kostik получил flags.kostik_enabled → None = 1.
+    assert sum(1 for m in PERMSOC_MODULES if m.sub_flag_key is None) == 1
+    assert permsoc._MODULE_BY_ID["kostik"].sub_flag_key == \
+        "flags.kostik_enabled"
+    assert DEFAULT_SUB_FLAGS["flags.kostik_enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_kostik_sub_flag_off_hides_module(monkeypatch):
+    """10.12 (ADR-1012-1 D3): master ON + flags.kostik_enabled OFF → молчит."""
+    async def fake_get_chat_param(chat_id, key, default=None):
+        return False
+    monkeypatch.setattr("services.chat_params.get_chat_param",
+                        fake_get_chat_param)
+    assert await module_enabled(-10001, "kostik") is False
 
 
 @pytest.mark.asyncio

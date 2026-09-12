@@ -807,7 +807,7 @@
                          v-for="b in providerConnectionBlocks" :key="b.id" :data-block="b.id">
                   <header class="prov-head flex items-center gap-2 mb-2">
                     <span class="prov-title text-sm font-bold">{{ b.title }}</span>
-                    <span class="prov-modules text-xs text-gray-500">{{ b.modules }}</span>
+                    <span v-if="blockDisplayName(b)" class="prov-modules text-xs text-gray-500">{{ blockDisplayName(b) }}</span>
                   </header>
                   <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
                   <!-- 2.3: подблоки (эмбеддинги) — у каждого свой набор полей
@@ -815,7 +815,10 @@
                   <template v-if="b.subBlocks">
                     <div v-for="sb in b.subBlocks" :key="sb.id"
                          class="mb-4" :data-block="sb.id">
-                      <div class="text-xs font-bold text-gray-300 mb-1">{{ sb.title }}</div>
+                      <div class="text-xs font-bold text-gray-300 mb-1">
+                        {{ sb.title }}
+                        <span v-if="blockDisplayName(sb)" class="prov-modules text-gray-500 font-normal">{{ blockDisplayName(sb) }}</span>
+                      </div>
                       <div v-if="sb.note" class="text-xs text-gray-500 mb-1">{{ sb.note }}</div>
                       <div class="prov-row flex items-start gap-2 mb-2" v-for="f in sb.fields" :key="f.key">
                         <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
@@ -947,7 +950,7 @@
                            v-for="b in providerAdvancedBlocks" :key="b.id" :data-block="b.id">
                     <header class="prov-head flex items-center gap-2 mb-2">
                       <span class="prov-title text-sm font-bold">{{ b.title }}</span>
-                      <span class="prov-modules text-xs text-gray-500">{{ b.modules }}</span>
+                      <span v-if="blockDisplayName(b)" class="prov-modules text-xs text-gray-500">{{ blockDisplayName(b) }}</span>
                     </header>
                     <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
                     <div class="prov-row flex items-start gap-2 mb-2" v-for="f in b.fields" :key="f.key">
@@ -1109,6 +1112,12 @@
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <kv-editor :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
+                    </template>
+                    <template v-else-if="item.widget === 'list'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <list-editor :item="item" :can-edit="canEditConfig(item.key)"></list-editor>
                     </template>
                     <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -1386,6 +1395,11 @@
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
                             <kv-editor :item="item" :can-edit="canEditConfig(item.key)"></kv-editor>
+                          </template>
+                          <template v-else-if="item.widget === 'list'">
+                            <div class="text-sm font-semibold">{{ item.title }}</div>
+                            <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
+                            <list-editor :item="item" :can-edit="canEditConfig(item.key)"></list-editor>
                           </template>
                           <template v-else-if="item.category === 'keys' || item.secret">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -3150,6 +3164,40 @@
       <div class="mt-2 flex justify-end">
         <button class="btn-accent text-sm"
                 :disabled="!canEdit || !!issueText || root.saving.has(item.key)"
+                @click="save()">
+          {{ root.saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
+        </button>
+      </div>
+    </div>
+  </script>
+
+  <!-- Раунд 10.12 (ADR-1012-1 D4): список строк — каждая фраза отдельным
+       плотным полем; add/delete/save. Компонент list-editor (web/app.js). -->
+  <script type="text/x-template" id="list-editor-tpl">
+    <div>
+      <div v-if="rows.length === 0" class="text-xs text-gray-500 mb-1">
+        Список пуст — Костик молчит.
+      </div>
+      <div v-for="(row, i) in rows" :key="rowIds[i]" class="flex items-center gap-2 mb-1">
+        <input class="field flex-1 min-w-0" type="text"
+               placeholder="Фраза…"
+               :disabled="!canEdit" v-model="rows[i]">
+        <button class="btn-ghost text-xs shrink-0" title="Удалить фразу"
+                :disabled="!canEdit" @click="removeRow(i)">
+          <span class="msr" aria-hidden="true">{{ root.iconGlyph('delete') }}</span>
+          <span class="sr-only">Удалить</span>
+        </button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs mt-1">
+        <button class="btn-ghost text-xs" :disabled="!canEdit || rows.length >= maxRows"
+                @click="addRow()">+ Добавить фразу</button>
+        <span v-if="rows.length >= maxRows" class="text-yellow-300">
+          Лимит {{ maxRows }} фраз
+        </span>
+      </div>
+      <div class="mt-2 flex justify-end">
+        <button class="btn-accent text-sm"
+                :disabled="!canEdit || root.saving.has(item.key)"
                 @click="save()">
           {{ root.saving.has(item.key) ? 'Сохранение…' : 'Сохранить' }}
         </button>

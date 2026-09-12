@@ -356,54 +356,67 @@
   // 10.9 (T-1303): «Название модели» — ПЕРВОЕ поле каждого блока; label'ы —
   // человеческие (spec §4.1/§4.2).
   var PROVIDER_BLOCKS = [
-    { id: 'direct_main', title: 'Основная модель', modules: 'Прямые ответы',
-      fields: [
-        { key: 'models.llm_display_name', label: 'Название модели', role: '' },
-        { key: 'models.llm_base_url', label: 'Адрес сервера', role: 'base_url' },
-        { key: 'models.llm_model_name', label: 'Модель', role: 'model' },
-        { key: 'keys.llm_api_key', label: 'Ключ', role: 'api_key', secret: true },
+    // Раунд 10.12 (ADR-1012-1 §2.2): parent-блок + subBlocks (как embeddings).
+    // main+fallback, groq+openrouter(STT), video primary+fallback — merged
+    // в один визуальный блок; id'ы сохранены (их ждут тесты/пробер).
+    { id: 'direct', title: 'Прямые ответы', modules: 'Прямые ответы',
+      subBlocks: [
+        { id: 'direct_main', title: 'Основная модель', modules: 'Прямые ответы',
+          fields: [
+            { key: 'models.llm_display_name', label: 'Название модели', role: '' },
+            { key: 'models.llm_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.llm_model_name', label: 'Модель', role: 'model' },
+            { key: 'keys.llm_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+        { id: 'direct_fallback', title: 'Запасная модель',
+          modules: 'Прямые ответы (фолбэк)',
+          fields: [
+            { key: 'models.llm_fallback_display_name', label: 'Название модели', role: '' },
+            { key: 'models.llm_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.llm_fallback_model', label: 'Модель', role: 'model' },
+            { key: 'keys.llm_fallback_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
       ] },
-    { id: 'direct_fallback', title: 'Фолбэк-модель',
-      modules: 'Прямые ответы (фолбэк)',
-      fields: [
-        { key: 'models.llm_fallback_display_name', label: 'Название модели', role: '' },
-        { key: 'models.llm_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
-        { key: 'models.llm_fallback_model', label: 'Модель', role: 'model' },
-        { key: 'keys.llm_fallback_api_key', label: 'Ключ', role: 'api_key', secret: true },
+    { id: 'transcription', title: 'Транскрибация', modules: 'Транскрибация',
+      subBlocks: [
+        { id: 'transcribe_groq', title: 'Модель транскрибации',
+          modules: 'Транскрибация',
+          fields: [
+            { key: 'models.groq_display_name', label: 'Название модели', role: '' },
+            { key: 'models.groq_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.groq_transcribe_model', label: 'Модель', role: 'model' },
+            { key: 'keys.groq_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+        { id: 'transcribe_openrouter', title: 'Запасная модель транскрибации',
+          modules: 'Транскрибация (фолбэк)',
+          note: 'Адрес и ключ общие с блоком «Саммаризация видео» — один аккаунт OpenRouter',
+          fields: [
+            { key: 'models.openrouter_transcribe_display_name', label: 'Название модели', role: '' },
+            { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.openrouter_transcribe_model', label: 'Модель', role: 'model' },
+            { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
       ] },
-    { id: 'transcribe_groq', title: 'Groq (расшифровка)', modules: 'Транскрибация',
-      fields: [
-        { key: 'models.groq_display_name', label: 'Название модели', role: '' },
-        { key: 'models.groq_base_url', label: 'Адрес сервера', role: 'base_url' },
-        { key: 'models.groq_transcribe_model', label: 'Модель', role: 'model' },
-        { key: 'keys.groq_api_key', label: 'Ключ', role: 'api_key', secret: true },
-      ] },
-    { id: 'transcribe_openrouter', title: 'OpenRouter (запасной)',
-      modules: 'Транскрибация (фолбэк)',
-      fields: [
-        { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
-        { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
-        { key: 'models.openrouter_transcribe_model', label: 'Модель', role: 'model' },
-        { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
-      ] },
-    { id: 'video_summary_openrouter', title: 'Видео-модель (OpenRouter)',
+    { id: 'video_summary', title: 'Саммаризация видео',
       modules: 'Саммаризация видео',
-      fields: [
-        { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
-        { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
-        { key: 'models.video_primary_model', label: 'Модель', role: 'model' },
-        { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
-      ] },
-    // 10.11 (spec §2.4, OPEN-Q3): запасная видео-модель — строго под основной,
-    // с полным набором полей. Хардкод `VIDEO_FALLBACK_MODEL` остаётся только
-    // code-default в settings (значение не теряется), ключ уже каталожный.
-    { id: 'video_fallback', title: 'Запасная видео-модель',
-      modules: 'Саммаризация видео (фолбэк)',
-      fields: [
-        { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
-        { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
-        { key: 'models.video_fallback_model', label: 'Модель', role: 'model' },
-        { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
+      subBlocks: [
+        { id: 'video_summary_openrouter', title: 'Саммаризация видео',
+          modules: 'Саммаризация видео',
+          note: 'Адрес и ключ общие с блоком «Запасная модель транскрибации» — один аккаунт OpenRouter',
+          fields: [
+            { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
+            { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.video_primary_model', label: 'Модель', role: 'model' },
+            { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+        { id: 'video_fallback', title: 'Запасная модель саммаризации видео',
+          modules: 'Саммаризация видео (фолбэк)',
+          fields: [
+            { key: 'models.openrouter_display_name', label: 'Название модели', role: '' },
+            { key: 'models.openrouter_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.video_fallback_model', label: 'Модель', role: 'model' },
+            { key: 'keys.openrouter_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
       ] },
     // 10.11 (spec §2.3, ADR-1011-2): один визуальный блок = ровно 3 подблока
     // (Основная модель / Фоллбэк 1 / Фоллбэк 2); у каждого Base URL + Модель +
@@ -412,13 +425,17 @@
       modules: 'Поиск по памяти',
       subBlocks: [
         { id: 'embeddings_main', title: 'Основная модель',
+          modules: 'Поиск по памяти',
           fields: [
             { key: 'models.embedding_display_name', label: 'Название модели', role: '' },
-            { key: 'models.llm_base_url', label: 'Адрес сервера', role: 'base_url' },
+            // Раунд 10.12 (ADR-1012-1 D1): СОБСТВЕННЫЙ адрес/ключ эмбеддингов
+            // (не models.llm_base_url / keys.llm_api_key).
+            { key: 'models.embedding_base_url', label: 'Адрес сервера', role: 'base_url' },
             { key: 'models.embedding_model_name', label: 'Модель', role: 'model' },
-            { key: 'keys.llm_api_key', label: 'Ключ', role: 'api_key', secret: true },
+            { key: 'keys.embedding_api_key', label: 'Ключ', role: 'api_key', secret: true },
           ] },
         { id: 'embeddings_fallback1', title: 'Фоллбэк 1',
+          modules: 'Поиск по памяти (фолбэк 1)',
           fields: [
             { key: 'models.embedding_fallback_display_name', label: 'Название модели', role: '' },
             { key: 'models.embedding_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
@@ -427,6 +444,7 @@
           ] },
         { id: 'embeddings_fallback2', title: 'Фоллбэк 2',
           note: 'Адрес и модель общие с «Фоллбэк 1»',
+          modules: 'Поиск по памяти (фолбэк 2)',
           fields: [
             { key: 'models.embedding_fallback2_display_name', label: 'Название модели', role: '' },
             { key: 'models.embedding_fallback_base_url', label: 'Адрес сервера', role: 'base_url' },
@@ -477,6 +495,13 @@
              'limits.slavik_mimic_cooldown', 'limits.gif_interval',
              'limits.slavic_photo_interval'],
       groups: ['reactions_slavik', 'reactions_deadpage', 'limits_deadpage'] },
+    // Раунд 10.12 (ADR-1012-1 D3/D4): блок Костика — ID + список фраз +
+    // вероятность (группы reactions_kostik/limits_kostik).
+    { id: 'kostik', title: 'Костик', icon: 'smart_toy',
+      toggleKey: 'flags.kostik_enabled',
+      keys: ['reactions.kostik_user_id', 'reactions.kostik_replies',
+             'limits.kostik_reply_probability'],
+      groups: ['reactions_kostik', 'limits_kostik'] },
     { id: 'olya', title: 'Оля', icon: 'play_circle',
       toggleKey: 'flags.olya_enabled',
       keys: ['reactions.olya_user_id', 'flags.olya_caption_enabled',
@@ -495,6 +520,7 @@
   // Ключи-тумблеры рендерятся ТОЛЬКО в <summary> owner-блоков.
   var PERMSOC_TOGGLE_KEYS = {
     'flags.permsoc_enabled': true, 'flags.slavik_enabled': true,
+    'flags.kostik_enabled': true,
     'flags.olya_enabled': true, 'flags.mimic_enabled': true,
   };
 
@@ -1246,18 +1272,23 @@
           throw new ApiError(401, 'no telegram context');
         }
         options = options || {};
-        options.headers = Object.assign({}, options.headers || {});
-        if (!options.headers['Content-Type'] && options.body) {
-          options.headers['Content-Type'] = 'application/json';
+        // Раунд 10.12 (ADR-1012-1 D2): `global:true` — запрос НЕ получает
+        // X-Chat-Id (глобальные ключи per_chat=false сохраняются глобально).
+        // Флаг не должен утекать в fetch-инициализатор.
+        var init = Object.assign({}, options);
+        delete init.global;
+        init.headers = Object.assign({}, options.headers || {});
+        if (!init.headers['Content-Type'] && init.body) {
+          init.headers['Content-Type'] = 'application/json';
         }
-        if (this.activeChatId != null) {
-          options.headers['X-Chat-Id'] = String(this.activeChatId);
+        if (this.activeChatId != null && options.global !== true) {
+          init.headers['X-Chat-Id'] = String(this.activeChatId);
         }
         var initData = getInitData();   // T-1099: тот же кэш, что на BOOT
         if (initData) {
-          options.headers['X-Telegram-Init-Data'] = initData;
+          init.headers['X-Telegram-Init-Data'] = initData;
         }
-        var resp = await fetch(path, options);
+        var resp = await fetch(path, init);
         if (resp.status === 401) {
           this.authError = 'Не удалось авторизоваться (initData). Откройте админку заново из Telegram.';
           throw new ApiError(401, 'unauthorized');
@@ -1790,11 +1821,12 @@
         if (!this.gateInfo.gates.permsoc) return 'OFF (master)';
         var subFlags = {
           slavik: 'flags.slavik_enabled',
+          kostik: 'flags.kostik_enabled',
           olya: 'flags.olya_enabled',
           mimic: 'flags.mimic_enabled',
         };
         var itemKey = subFlags[module];
-        if (!itemKey) return 'derived (master)';   // kostik / alan
+        if (!itemKey) return 'derived (master)';   // alan
         var it = this.configItems.find(function (i) { return i.key === itemKey; });
         return it && it.value ? 'под-флаг ON' : 'под-флаг OFF';
       },
@@ -2099,6 +2131,33 @@
         if (it && it.type !== 'bool' && typeof it.value !== 'object') return it.value;
         return '';
       },
+      // Раунд 10.12 (ADR-1012-1 §2.3): маленькая надпись у header каждого
+      // подключения = значение первого поля с role === '' («Название модели»).
+      // Пусто → прежний текст модуля (x.modules), не пусто/не хардкод.
+      blockDisplayName: function (x) {
+        if (!x) return '';
+        var fields = x.fields || [];
+        var nameField = null;
+        var value = '';
+        for (var i = 0; i < fields.length; i++) {
+          // display-поле = «Название модели» (role '' + *_display_name).
+          // У technical-блоков (advanced) display-поля нет → x.modules.
+          if (fields[i].role === ''
+              && String(fields[i].key || '').indexOf('display_name') >= 0) {
+            nameField = fields[i];
+            break;
+          }
+        }
+        if (nameField) {
+          var v = this.blockFieldValue(nameField);
+          if (typeof v === 'string' && v.trim()) value = v.trim();
+        }
+        if (!value) value = x.modules || '';
+        // Parent-блоки, где modules == title (direct/transcription/video),
+        // не дублируют заголовок (Scanner LOW, раунд 10.12).
+        if (value && value === x.title) return '';
+        return value;
+      },
       blockFieldPlaceholder: function (f) {
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         if (it && typeof it.value === 'object' && it.value) {
@@ -2205,11 +2264,37 @@
         if (!items.length) { this.toast('Нет изменений', 'warn'); return; }
         this.blockSaving[b.id] = true;
         try {
-          await this.api('/api/config', {
-            method: 'POST',
-            body: JSON.stringify({ items: items,
-                                   updated_at: this.configChatUpdatedAt }),
-          });
+          // Раунд 10.12 (ADR-1012-1 D2): глобальные (per_chat=false) ключи
+          // сохраняются БЕЗ X-Chat-Id (иначе 422). Смешанный случай — два
+          // последовательных запроса (chat + global).
+          function isGlobalKey(k) {
+            var spec = self.configItems.find(function (i) { return i.key === k; });
+            return !!(spec && spec.per_chat === false);
+          }
+          var globalItems = items.filter(function (i) { return isGlobalKey(i.key); });
+          var chatItems = items.filter(function (i) { return !isGlobalKey(i.key); });
+          if (globalItems.length && chatItems.length) {
+            await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify({ items: chatItems,
+                                     updated_at: this.configChatUpdatedAt }),
+            });
+            await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify({ items: globalItems }),
+              global: true,
+            });
+          } else {
+            var allGlobal = globalItems.length > 0;
+            await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify({
+                items: items,
+                updated_at: allGlobal ? null : this.configChatUpdatedAt,
+              }),
+              global: allGlobal,
+            });
+          }
           this.toast('Сохранено: ' + b.title, 'ok');
           await this._preserveScroll(this.loadConfig);
         } catch (e) {
@@ -2839,6 +2924,7 @@
       _ownerDescription: function (o) {
         return {
           slavik: 'Фото, гифки, посты из старого канала и передразнивания Славика.',
+          kostik: 'ID, фразы-реплики и вероятность ответа.',
           olya: 'Реакции бота на видео Оли и подписи к ним.',
           mimic: 'Кого бот передразнивает и как часто.',
           common:
@@ -2967,10 +3053,16 @@
         }
         this.saving.add(item.key);
         try {
+          // Раунд 10.12 (ADR-1012-1 D2): per_chat=false → глобальный путь
+          // (без X-Chat-Id), иначе 422 «ключ нельзя переносить на уровень чата».
+          var isGlobal = item.per_chat === false;
           await this.api('/api/config', {
             method: 'POST',
-            body: JSON.stringify({ items: [{ key: item.key, value: value }],
-                                   updated_at: this.configChatUpdatedAt }),
+            body: JSON.stringify({
+              items: [{ key: item.key, value: value }],
+              updated_at: isGlobal ? null : this.configChatUpdatedAt,
+            }),
+            global: isGlobal,
           });
           this.toast('Сохранено: ' + item.title, 'ok');
           await this._preserveScroll(this.loadConfig);
@@ -3010,9 +3102,16 @@
         }
         this.saving.add(item.key);
         try {
+          // Раунд 10.12 (ADR-1012-1 D2, follow-up Scanner LOW): keys.* —
+          // per_chat=false → глобальный путь без X-Chat-Id (иначе 422).
+          var isGlobal = item.per_chat === false;
           await this.api('/api/config', {
             method: 'POST',
-            body: JSON.stringify({ items: [{ key: item.key, value: value }] }),
+            body: JSON.stringify({
+              items: [{ key: item.key, value: value }],
+              updated_at: isGlobal ? null : this.configChatUpdatedAt,
+            }),
+            global: isGlobal,
           });
           this.keyDrafts[item.key] = '';
           this.toast('Ключ обновлён: ' + item.title, 'ok');
@@ -4823,6 +4922,71 @@
       },
     },
     template: '#kv-editor-tpl',
+  });
+
+  // ═══ Раунд 10.12 (ADR-1012-1 D4): список строк (widget='list') ═══
+  // Каждая фраза — отдельное плотное поле; add/delete; save → saveConfigItem
+  // (учитывает per-chat/global routing). Значение item.value — массив строк.
+  app.component('list-editor', {
+    name: 'list-editor',
+    inject: ['root'],
+    props: {
+      item: { type: Object, required: true },
+      canEdit: { type: Boolean, default: false },
+    },
+    data: function () {
+      // rowIds — стабильные ключи строк для v-for :key (не index: удаление
+      // середины не «сдвигает» DOM/фокус). _nextRowId — монотонный счётчик.
+      return { rows: [], rowIds: [], maxRows: 100, _nextRowId: 1 };
+    },
+    created: function () { this.sync(); },
+    watch: {
+      'item.value': function () { this.sync(); },
+    },
+    methods: {
+      // item.value: массив строк (json-параметр с widget='list') ЛИБО
+      // JSON-строка (старые данные) → массив.
+      sync: function () {
+        var raw = this.item && this.item.value;
+        var list = [];
+        if (Array.isArray(raw)) list = raw.slice();
+        else if (typeof raw === 'string' && raw.trim()) {
+          try { list = JSON.parse(raw); } catch (e) { list = []; }
+        }
+        if (!Array.isArray(list)) list = [];
+        this.rows = list.map(function (x) {
+          return (x == null) ? '' : String(x);
+        });
+        if (this._nextRowId == null) this._nextRowId = 1;
+        this.rowIds = this.rows.map(function () {
+          return this._nextRowId++;
+        }, this);
+      },
+      addRow: function () {
+        if (this.rows.length >= this.maxRows) {
+          this.root.toast('Слишком много фраз (максимум ' + this.maxRows + ')', 'warn');
+          return;
+        }
+        this.rows.push('');
+        if (this._nextRowId == null) this._nextRowId = 1;
+        this.rowIds.push(this._nextRowId++);
+      },
+      removeRow: function (i) {
+        this.rows.splice(i, 1);
+        this.rowIds.splice(i, 1);
+      },
+      save: async function () {
+        var cleaned = [];
+        this.rows.forEach(function (r) {
+          if (r == null) return;
+          var v = String(r).trim();
+          if (v) cleaned.push(v);            // пустые строки отбрасываются
+        });
+        this.item.value = cleaned;           // json-массив без парсинга
+        await this.root.saveConfigItem(this.item);
+      },
+    },
+    template: '#list-editor-tpl',
   });
 
   app.mount('#app');

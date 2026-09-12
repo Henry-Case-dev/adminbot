@@ -17,7 +17,13 @@ let captured = null;
 global.Vue = {
   createApp: function (opts) {
     captured = opts;
-    return { component() {}, provide() {}, use() {}, mount() {} };
+    return {
+      component(name, compOpts) {
+        global.__components = global.__components || {};
+        global.__components[name] = compOpts;
+      },
+      provide() {}, use() {}, mount() {},
+    };
   },
 };
 global.window = { location: { hash: '' }, addEventListener() {}, Telegram: null };
@@ -814,13 +820,38 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       ['llm_guard', 'search_keys', 'media_share'],
       '2.2/2.5: в «Расширенных» — guard/search/media_share');
     const ids = blocks.map((b) => b.id);
-    assert.strictEqual(ids[ids.indexOf('video_summary_openrouter') + 1],
-      'video_fallback', '2.4: запасная видео-модель сразу под основной');
-    const emb = blocks.filter((b) => b.id === 'embeddings')[0];
-    assert.ok(emb && emb.subBlocks, '2.3: блок эмбеддингов — subBlocks');
-    assert.deepStrictEqual(emb.subBlocks.map((sb) => sb.id),
+    assert.deepStrictEqual(
+      ids.filter((id) => id.indexOf('llm_guard') < 0
+        && id.indexOf('search_keys') < 0 && id.indexOf('media_share') < 0),
+      ['direct', 'transcription', 'video_summary', 'embeddings'],
+      '10.12: 4 merged connection parent-блока');
+    // 10.12: parent-блоки несут subBlocks; id'ы подблоков сохранены.
+    const byId = {};
+    blocks.forEach((b) => { byId[b.id] = b; });
+    assert.deepStrictEqual(byId.direct.subBlocks.map((sb) => sb.id),
+      ['direct_main', 'direct_fallback'],
+      '10.12: direct = Основная/Запасная модель');
+    assert.deepStrictEqual(byId.transcription.subBlocks.map((sb) => sb.id),
+      ['transcribe_groq', 'transcribe_openrouter'],
+      '10.12: transcription = Модель/Запасная транскрибации');
+    assert.deepStrictEqual(byId.video_summary.subBlocks.map((sb) => sb.id),
+      ['video_summary_openrouter', 'video_fallback'],
+      '2.4: запасная видео-модель сразу под основной');
+    assert.deepStrictEqual(byId.embeddings.subBlocks.map((sb) => sb.id),
       ['embeddings_main', 'embeddings_fallback1', 'embeddings_fallback2'],
       '2.3: ровно 3 подблока в порядке Основная/Ф1/Ф2');
+    // 10.12: новый STT display-name (не общий с видео).
+    assert.ok(byId.transcription.subBlocks[1].fields.some(
+      (f) => f.key === 'models.openrouter_transcribe_display_name'),
+      '10.12: резерв STT использует отдельный display-name');
+    // 10.12 (OD-1): embeddings_main — СВОЙ base_url/ключ.
+    const embMain = byId.embeddings.subBlocks[0];
+    assert.ok(embMain.fields.some((f) => f.key === 'models.embedding_base_url'),
+      '10.12: embeddings_main использует models.embedding_base_url');
+    assert.ok(embMain.fields.some((f) => f.key === 'keys.embedding_api_key'),
+      '10.12: embeddings_main использует keys.embedding_api_key');
+    const emb = byId.embeddings;
+    assert.ok(emb && emb.subBlocks, '2.3: блок эмбеддингов — subBlocks');
     emb.subBlocks.forEach((sb) => {
       const roles = sb.fields.map((f) => f.role);
       assert.ok(roles.indexOf('base_url') >= 0 && roles.indexOf('model') >= 0
@@ -837,6 +868,176 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       '2.3: subBlock-ключи скрыты из generic-рендера');
     assert.ok(covered['keys.embedding_fallback_api_key_2'],
       '2.3: второй ключ фоллбэка скрыт из generic-рендера');
+    assert.ok(covered['models.embedding_base_url'],
+      '10.12: новый embed-base покрыт (нет generic-дубля)');
+    assert.ok(covered['keys.embedding_api_key'],
+      '10.12: новый embed-ключ покрыт (нет generic-дубля)');
+    assert.ok(covered['models.openrouter_transcribe_display_name'],
+      '10.12: новый STT display-name покрыт (нет generic-дубля)');
+  }
+
+  // ── 10.12 (ADR-1012-1 D2): глобальные provider-ключи → api global:true ──
+  {
+    const calls = [];
+    const ctx = {
+      blockSaving: {}, blockDrafts: { 'models.llm_base_url': 'https://new/v1' },
+      configItems: [{ key: 'models.llm_base_url', type: 'str', per_chat: false }],
+      configChatUpdatedAt: 123, toast() {}, loadConfig() {},
+      async api(url, opts) { calls.push(opts); return {}; },
+    };
+    const b = { id: 'direct_main', title: 'T', fields: [
+      { key: 'models.llm_base_url', role: 'base_url' }] };
+    await methods.saveBlock.call(ctx, b);
+    assert.strictEqual(calls.length, 1, '10.12: один POST');
+    assert.strictEqual(calls[0].global, true,
+      '10.12: per_chat=false → global:true (без X-Chat-Id)');
+    assert.strictEqual(JSON.parse(calls[0].body).updated_at, null,
+      '10.12: global-ветка без optimistic-метки чата');
+  }
+  // ── 10.12: смешанный блок → 2 запроса (chat + global) ──────────────────
+  {
+    const calls = [];
+    const ctx = {
+      blockSaving: {},
+      blockDrafts: { 'models.llm_base_url': 'https://g/v1', 'flags.x': true },
+      configItems: [
+        { key: 'models.llm_base_url', type: 'str', per_chat: false },
+        { key: 'flags.x', type: 'bool', per_chat: true },
+      ],
+      configChatUpdatedAt: 5, toast() {}, loadConfig() {},
+      async api(url, opts) { calls.push(opts); return {}; },
+    };
+    const b = { id: 'mix', title: 'M', fields: [
+      { key: 'models.llm_base_url', role: 'base_url' },
+      { key: 'flags.x', role: '' }] };
+    await methods.saveBlock.call(ctx, b);
+    assert.strictEqual(calls.length, 2, '10.12: смешанный блок → 2 запроса');
+    assert.ok(calls.some((c) => c.global === true), '10.12: есть global-запрос');
+    assert.ok(calls.some((c) => c.global !== true), '10.12: есть chat-запрос');
+  }
+  // ── 10.12: saveConfigItem per_chat=false → global:true ──────────────────
+  {
+    const calls = [];
+    const ctx = {
+      saving: new Set(), configChatUpdatedAt: 7, toast() {}, loadConfig() {},
+      async api(url, opts) { calls.push(opts); return {}; },
+    };
+    await methods.saveConfigItem.call(ctx,
+      { key: 'models.llm_base_url', type: 'str', value: 'x', per_chat: false });
+    assert.strictEqual(calls[0].global, true,
+      '10.12: saveConfigItem per_chat=false → global:true');
+    assert.strictEqual(JSON.parse(calls[0].body).updated_at, null,
+      '10.12: global-ветка saveConfigItem без optimistic-метки');
+  }
+  // ── 10.12 Scanner LOW: saveKeyItem keys.* → global:true (не 422) ────────
+  {
+    const calls = [];
+    const ctx = {
+      keyDrafts: { 'keys.checkup_betterstack_sql_password': 'new-secret' },
+      configChatUpdatedAt: 42, saving: new Set(),
+      toast() {}, loadConfig() {},
+      async api(url, opts) { calls.push(opts); return {}; },
+    };
+    await methods.saveKeyItem.call(ctx,
+      { key: 'keys.checkup_betterstack_sql_password', title: 'Пароль',
+        per_chat: false });
+    assert.strictEqual(calls.length, 1, '10.12: saveKeyItem один POST');
+    assert.strictEqual(calls[0].global, true,
+      '10.12: keys.* (per_chat=false) → global:true (без X-Chat-Id)');
+    assert.strictEqual(JSON.parse(calls[0].body).updated_at, null,
+      '10.12: global-ветка saveKeyItem без optimistic-метки');
+    assert.strictEqual(
+      ctx.keyDrafts['keys.checkup_betterstack_sql_password'], '',
+      '10.12: draft ключа очищается после успеха');
+  }
+  // ── 10.12 (§2.3): blockDisplayName — трансляция «Название модели» ───────
+  {
+    const ctx = {
+      blockDrafts: {},
+      configItems: [{ key: 'models.llm_display_name', value: 'DeepSeek V4' }],
+      blockFieldValue: methods.blockFieldValue,
+    };
+    assert.strictEqual(methods.blockDisplayName.call(ctx, {
+      modules: 'Прямые ответы',
+      fields: [{ key: 'models.llm_display_name', role: '' }],
+    }), 'DeepSeek V4', '10.12: display-name транслируется');
+    assert.strictEqual(methods.blockDisplayName.call(ctx, {
+      modules: 'Прямые ответы',
+      fields: [{ key: 'models.llm_timeout', role: '' }],
+    }), 'Прямые ответы', '10.12: нет display-поля → modules');
+    assert.strictEqual(methods.blockDisplayName.call(ctx, {
+      modules: 'Общий',
+      fields: [{ key: 'models.llm_fallback_display_name', role: '' }],
+    }), 'Общий', '10.12: пустой display → fallback modules');
+    // Scanner LOW follow-up: modules == title → подпись подавлена.
+    assert.strictEqual(methods.blockDisplayName.call(ctx, {
+      title: 'Прямые ответы', modules: 'Прямые ответы', fields: [],
+    }), '', '10.12: modules==title → не дублируем заголовок');
+    assert.strictEqual(methods.blockDisplayName.call(ctx, {
+      title: 'Эмбеддинги', modules: 'Поиск по памяти', fields: [],
+    }), 'Поиск по памяти', '10.12: modules!=title → подпись остаётся');
+  }
+  // ── 10.12 (ADR-1012-1 D4): list-editor add/remove/save + stable key ─────
+  {
+    const le = global.__components && global.__components['list-editor'];
+    assert.ok(le, '10.12: list-editor зарегистрирован');
+    const data = le.data.call({});
+    assert.ok(Array.isArray(data.rows) && data.maxRows >= 10,
+      '10.12: list-editor rows/maxRows');
+    assert.ok(Array.isArray(data.rowIds),
+      '10.12: list-editor rowIds (stable :key)');
+
+    const inst = {
+      rows: [], maxRows: 100,
+      item: { key: 'reactions.kostik_replies',
+              value: ['a', ' b ', '', null] },
+      root: { toast() {}, saving: new Set(),
+              saveConfigItem(item) { inst.saved = item.value; } },
+    };
+    le.methods.sync.call(inst);
+    assert.deepStrictEqual(inst.rows, ['a', ' b ', '', ''],
+      '10.12: sync нормализует массив строк');
+    assert.strictEqual(inst.rowIds.length, 4, '10.12: rowIds выровнены с rows');
+    assert.strictEqual(new Set(inst.rowIds).size, 4,
+      '10.12: ключи строк уникальны');
+    const beforeIds = inst.rowIds.slice();
+    le.methods.addRow.call(inst);
+    assert.strictEqual(inst.rows.length, 5, '10.12: addRow добавляет строку');
+    assert.strictEqual(inst.rowIds.length, 5, '10.12: addRow добавляет ключ');
+    le.methods.removeRow.call(inst, 0);
+    assert.strictEqual(inst.rows.length, 4, '10.12: removeRow удаляет строку');
+    assert.strictEqual(inst.rowIds.length, 4, '10.12: removeRow удаляет ключ');
+    // Удаление НАЧАЛА не переназначает ключи оставшихся строк (стабильность).
+    assert.strictEqual(inst.rowIds[0], beforeIds[1],
+      '10.12: stable :key — оставшиеся строки сохраняют id');
+    inst.rows = [' x ', '', 'y', null];
+    inst.root.saveConfigItem = function (item) { inst.saved = item.value; };
+    await le.methods.save.call(inst);
+    assert.deepStrictEqual(inst.saved, ['x', 'y'],
+      '10.12: save отбрасывает пустые и strip');
+  }
+  // ── 10.12 (ADR-1012-1 D3): owner-блок Костика с фразами/вероятностью ────
+  {
+    const ctx = {
+      groupedForTab() {
+        return [{ items: [
+          { key: 'reactions.kostik_user_id', group: 'reactions_kostik' },
+          { key: 'reactions.kostik_replies', group: 'reactions_kostik' },
+          { key: 'limits.kostik_reply_probability', group: 'limits_kostik' },
+        ] }];
+      },
+      _ownerDescription: methods._ownerDescription,
+    };
+    const owners = methods._permsocOwnerGroups.call(ctx);
+    const kostik = owners.filter((o) => o.id === 'kostik')[0];
+    assert.ok(kostik, '10.12: owner-блок kostik присутствует');
+    assert.strictEqual(kostik.owner.toggleKey, 'flags.kostik_enabled',
+      '10.12: тумблер Костика — flags.kostik_enabled');
+    const owned = kostik.items.map((i) => i.key);
+    assert.ok(owned.indexOf('reactions.kostik_replies') >= 0,
+      '10.12: фразы в блоке Костика');
+    assert.ok(owned.indexOf('limits.kostik_reply_probability') >= 0,
+      '10.12: вероятность в блоке Костика');
   }
 
   // ── 10.11 Scanner LOW: отдельные localStorage-ключи outer advanced-зоны и

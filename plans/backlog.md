@@ -2,6 +2,83 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.12 (12.09.2026): развязка base_url провайдеров (embed ≠ direct) + merge блоков подключения + фразы Костика в PERMsoc — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026)
+
+**✅ ИТОГ 10.12 (13.09.2026):** реализация завершена, фича **заархивирована** — перенесена
+`plans/features/providers-kostik-round1012/` → **`plans/archive/providers-kostik-round1012/`**
+(@PM Step 8).
+**Финальные метрики:** полный **pytest — 5211 passed / 0 failed** (база 10.11 = 5172 → **+39**);
+`node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; каталог — финальный
+инвариант **REGISTRY 405 / GROUPS 90 / Settings 377** (санкционированный прирост: новые параметры
+`base_url` embed/direct + редактируемый список фраз Костика, ADR-1012-1); R17-скан чист.
+@Reviewer — **APPROVED WITH MINOR ISSUES** (дефекты 1–4 закрыты @Builder); @Scanner — **CLEAN**
+(low закрыты follow-up; `plans/reports/round10.12_scanner_audit.md`); @Architect — архитектура влита
+в `plans/ARCHITECTURE.md` (**§33**).
+Артефакты в архиве: `spec.md`, `ADR-1012-1.md`, `tasks.md` (со статус-хедером завершения).
+**⚠️ ОТКРЫТО (PROD-деплой, за @DevOps, пост-архив):** README (ироничный тон) / `APP_VERSION` /
+cache-bust; **русский** commit; push; `git pull` → `systemctl restart admin_bot` → `status`;
+`/api/health` **200**; 0 ERROR/Traceback; маркеры 10.12 в `/web/` и `/web/app.js`.
+**⚠️ ОТКРЫТО (live Android/Telegram QA, за владельцем/QA):** правка base_url обоих провайдеров
+(embed ≠ direct, без взаимного алиасинга); надпись «Название модели» у всех подключений; merged-блоки
+(основная+запасная, транскрибация, саммаризация видео); список фраз Костика (add/delete/save) и
+реальный ответ Костику.
+Ниже — исторический документ планирования эпика.
+
+**Фича:** `plans/archive/providers-kostik-round1012/` (kebab: `providers-kostik-round1012`; `tasks.md` создан 12.09.2026 @PM; архивирована 13.09.2026 @PM Step 8).
+**Нумерация:** **T-1382…T-1408** (продолжает T-1381 — финал 10.11).
+**Преемник:** 10.11 `llm-providers-refactor-round1011` (архив; commit `3624789`, прод health 200, pytest 5172).
+**Раунд подтверждён:** **10.12** (HEAD `32d1aa9`).
+Базовая линия: pytest **5172 passed / 0 failed**, `node --check web/app.js` clean, `node tests/js/routing_test.js` → `JS-UNIT-OK`.
+Каталог-инвариант: **REGISTRY 400 / GROUPS 90 / Settings 372 / mapped 88**, `TAB_RULES`/`CONFIG_TAB_TITLES` 19.
+Инварианты: **ноль новых PG-DDL**, SQLite **v8**, `bot.py`-порядок/`media/`/`.env` не трогать, R16/R17.
+UI + аддитивный серверный read-path ⟹ feature-flag не требуется, rollback = `git revert`.
+
+**Запрос владельца (`plans/current_task.md`, дословно — `tasks.md` §1):**
+1. **BUG:** изменение base_url основного провайдера (`models.llm_base_url`, сейчас `https://nano-gpt.com/api/v1`)
+   падает «models.llm_base_url: ключ нельзя переносить на уровень чата», и base_url основного эмбеддинга
+   тоже меняется на этот url. Эмбеддинги и основная модель — разные провайдеры, не должны зависеть друг от
+   друга. Требуется: **embeddings base_url = `https://apinet.cloud/v1`**, **direct answers base_url =
+   `https://nano-gpt.com/api/v1`**. **Без хардкода.**
+2. **Блоки подключения:** маленькая надпись у header каждого подключения = значение поля **«Название модели»**;
+   «Фолбэк-модель» → **«Запасная модель»** (+ merge в один блок с основной); «Groq (расшифровка)» →
+   **«Модель транскрибации»**, «OpenRouter (запасной)» → **«Запасная модель транскрибации»** (+ merge);
+   «Видео-модель (OpenRouter)» → **«Саммаризация видео»**, «Запасная видео-модель» → **«Запасная модель
+   саммаризации видео»** (+ merge). Проверить семантику транскрибация vs саммаризация (подозрение на своп).
+3. **PERMsoc Костик:** вынести захардкоженные фразы (`handlers/kostik.py:30-39` `KOSTIK_REPLIES`) в
+   редактируемый список в блоке Костика (каждая фраза — плотное отдельное поле, add/delete); заменить на
+   4 фразы владельца + 10 новых; проверить параметр частоты.
+4. **Финал:** README (ирония), русский коммит, push, деплой (ssh → pull → restart → status), plain-language отчёт.
+
+**Рекогносцировка (@PM, `32d1aa9`, file:line — детали `tasks.md` §2):**
+- **п.1 (root cause 422):** `saveBlock` `web/app.js:2181-2225` → `api()` авто-`X-Chat-Id` `:1253-1254` →
+  `routes.py:414-417` 422 при `per_chat=False`; `models.*` `per_chat=False` (`param_catalog.py:110-119`).
+  **(root cause алиасинга):** `embeddings_main` биндит `models.llm_base_url` (`web/app.js:417`) — тот же
+  ключ, что `direct_main` (`:362`); в рантайме `LLMClient._post` всегда `self._base_url`
+  (`llm_client.py:534-544`) и `embed()` идёт туда же (`:926-942`) — отдельного embed-base-url
+  settings **нет** (`config/settings.py:317-320`); `status_service.emb_main` тоже берёт `main_base`
+  (`:163-164,251-256`). Точки LO `bot.py:316,486,515,542`.
+- **п.2:** `PROVIDER_BLOCKS` `web/app.js:358-466` (merge-пары `:359-373`, `:374-388`, `:389-407`;
+  subBlocks `:408-436`); рендер/надпись `web/index.html:806-811,946-994` (`.prov-modules` = `{{ b.modules }}` `:810`);
+  маппинг/blocks `web/app.js:957-966,2800-2838`; display-name каталог `param_catalog.py:562-577`.
+  **Семантика:** STT `handlers/voice_transcription.py:184`→`SmartModule/service.py:69-116` (Groq/OpenRouter
+  транскрайберы) — транскрибация; `youtube_summarizer_service.py:101-147,254-303` + `video_cascade_client.py`
+  — саммаризация (`video_primary/fallback_model`). **Свопа в коде нет** (подтверждено file:line) — причина
+  ощущения: общий `models.openrouter_*`/display-name.
+- **п.3:** фразы `handlers/kostik.py:30-39`, выбор `:54`, гейт `:42` `PermsocGateFilter("kostik")`;
+  модуль `services/permsoc.py:55-57` (sub-флаг None); каталог-группа `reactions_kostik`
+  (`param_catalog.py:311-312`, `KOSTIK_USER_ID` `:1139`; вкладка `:1701`); **частота ЕСТЬ** —
+  `limits.kostik_reply_probability` (`settings.py:165`, `.env.example:22`, чтение `handlers/kostik.py:47-48`)
+  в группе «Костик: лимиты»; **отдельного owner-блока Костика в `PERMSOC_OWNER_BLOCKS` нет**
+  (`web/app.js:473-494` — группа уходит в «Общее»).
+
+**Учёт аудита @Scanner:** прочитан `plans/reports/round10.11_scanner_audit.md` (0 blocker/0 major/0 medium;
+3 low + 3 info) и `audit_backlog.md`. Включено точечно: R10.11-1 (nested `<details>`/localStorage →
+T-1394), R10.11-2/R10.9-2 (embed-status vs runtime → T-1384/T-1386), R10.11-3 (.env-подсказки → T-1383),
+R10.11-4 (probe caller base_url → OPEN-Q6), R10.6-1 (generic-дубль → providerCoveredKeys).
+**Открытые вопросы (6 шт.)** — `tasks.md` §7 (Q1 дефолты/миграция адресов; Q2 общий openrouter display/base;
+Q3 частота в блоке Костика; Q4 owner-блок Костика; Q5 виджет списка фраз; Q6 hardening probe). **@PM код не пишет.**
+**Статус:** планирование завершено — передано `@Architect` (spec/ADR), затем `@Builder`/`@DevOps`.
+
 ## Раунд 10.11 (12.09.2026): память/сон/ностальгия-отчёт + LLM Провайдеры refactor + key-chart fix — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (12.09.2026; архив @PM 12.09.2026)
 
 **✅ ИТОГ 10.11 (12.09.2026):** реализация завершена, фича **заархивирована** — перенесена

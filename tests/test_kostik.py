@@ -10,7 +10,27 @@ Tests cover:
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from handlers.kostik import kostik_handler, KOSTIK_REPLIES
+from handlers.kostik import kostik_handler, KOSTIK_REPLIES, _resolve_replies
+
+
+OWNER_PHRASES = [
+    "Папочка, только не в попочку",
+    "Папа Костя, только не там",
+    "Папа Костя, можно хотя бы сегодня без конфетки?",
+    "Daddy, i'm scared, убери это пожалуйста",
+]
+
+
+class _FakeHotCache:
+    def __init__(self, data):
+        self._data = data
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+
+def _set_hot(monkeypatch, data):
+    monkeypatch.setattr("services.hot_config._cache", _FakeHotCache(data))
 
 
 def _set_probability(monkeypatch, prob: float):
@@ -134,3 +154,55 @@ class TestKostikHandler:
         msg = make_message(350803143, text="hello")
         await kostik_handler(msg)
         msg.reply.assert_called_once()
+
+
+class TestKostikCatalogPhrases:
+    """Раунд 10.12 (ADR-1012-1 D4): фразы — параметр каталога
+    reactions.kostik_replies (hot.get), дефолт = 4 владельца + 10 новых."""
+
+    def test_default_pool_owner_plus_new(self):
+        from config.settings import DEFAULT_KOSTIK_REPLIES
+        pool = list(DEFAULT_KOSTIK_REPLIES)
+        assert len(pool) == 14, len(pool)
+        for phrase in OWNER_PHRASES:
+            assert phrase in pool, phrase
+        new = [p for p in pool if p not in OWNER_PHRASES]
+        assert len(new) >= 10, len(new)
+
+    def test_default_pool_non_empty_and_unique(self):
+        from config.settings import DEFAULT_KOSTIK_REPLIES
+        pool = list(DEFAULT_KOSTIK_REPLIES)
+        assert all(isinstance(p, str) and p.strip() for p in pool)
+        assert len(pool) == len(set(pool)), "фразы должны быть уникальны"
+
+    def test_no_hardcoded_pool_in_handler(self):
+        import handlers.kostik as mod
+        import inspect
+        src = inspect.getsource(mod)
+        # Код-дефолт живёт в settings; в хендлере — только чтение через hot.get.
+        assert "reactions.kostik_replies" in src
+        # Литерала старого пула «кринжатура» больше нет.
+        assert "кринжатура" not in src
+
+    @pytest.mark.asyncio
+    async def test_custom_phrases_via_hot(self, make_message, monkeypatch):
+        _set_probability(monkeypatch, 1.0)
+        _set_hot(monkeypatch, {"reactions.kostik_replies": ["только это"]})
+        msg = make_message(350803143, text="x")
+        await kostik_handler(msg)
+        assert msg.reply.call_args[0][0] == "только это"
+
+    @pytest.mark.asyncio
+    async def test_empty_list_silences(self, make_message, monkeypatch):
+        _set_probability(monkeypatch, 1.0)
+        _set_hot(monkeypatch, {"reactions.kostik_replies": []})
+        msg = make_message(350803143, text="x")
+        await kostik_handler(msg)
+        msg.reply.assert_not_called()
+
+    def test_resolve_replies_normalizes(self):
+        assert _resolve_replies(["a", " b ", "", None, 5]) == ["a", "b"]
+        assert _resolve_replies('["x", " y "]') == ["x", "y"]
+        assert _resolve_replies("not-json") == []
+        assert _resolve_replies(None) == []
+        assert _resolve_replies({"a": 1}) == []

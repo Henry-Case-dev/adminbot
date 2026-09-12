@@ -318,6 +318,11 @@ async def on_startup():
             hot.get("keys.llm_api_key", settings.LLM_API_KEY),
             hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
             hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+            # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от чата.
+            embed_base_url=hot.get("models.embedding_base_url",
+                                   settings.EMBEDDING_BASE_URL),
+            embed_api_key=hot.get("keys.embedding_api_key",
+                                  settings.EMBEDDING_API_KEY),
         )
         aliases = AliasResolver(hot.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
         # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
@@ -488,6 +493,11 @@ async def on_startup():
                 hot.get("keys.llm_api_key", settings.LLM_API_KEY),
                 hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
                 hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+                # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от чата.
+                embed_base_url=hot.get("models.embedding_base_url",
+                                       settings.EMBEDDING_BASE_URL),
+                embed_api_key=hot.get("keys.embedding_api_key",
+                                      settings.EMBEDDING_API_KEY),
             )
             _lore_worker = LoreWorker(
                 lore_store, cache=get_lore_cache(), db=db,
@@ -517,6 +527,11 @@ async def on_startup():
             hot.get("keys.llm_api_key", settings.LLM_API_KEY),
             hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
             hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+            # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от чата.
+            embed_base_url=hot.get("models.embedding_base_url",
+                                   settings.EMBEDDING_BASE_URL),
+            embed_api_key=hot.get("keys.embedding_api_key",
+                                  settings.EMBEDDING_API_KEY),
         )
         if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
             _dream_worker = DreamWorker(db, memory=memory, llm=dream_llm)
@@ -544,6 +559,11 @@ async def on_startup():
             hot.get("keys.llm_api_key", settings.LLM_API_KEY),
             hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
             hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+            # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от чата.
+            embed_base_url=hot.get("models.embedding_base_url",
+                                   settings.EMBEDDING_BASE_URL),
+            embed_api_key=hot.get("keys.embedding_api_key",
+                                  settings.EMBEDDING_API_KEY),
         )
         _nostalgia_worker = NostalgiaWorker(
             db, memory=memory if hot.get("flags.summary_enabled",

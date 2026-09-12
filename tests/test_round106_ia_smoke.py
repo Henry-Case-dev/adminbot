@@ -17,12 +17,12 @@ HTML = open("web/index.html", encoding="utf-8").read()
 
 class TestCatalogInvariant106:
     def test_counts(self):
-        # 10.9: REGISTRY 400 / GROUPS 90 / mapped 88 / Settings 372.
-        assert len(pc.REGISTRY) == 400
+        # 10.12: REGISTRY 405 / GROUPS 90 / mapped 88 / Settings 377.
+        assert len(pc.REGISTRY) == 405
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 372
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 377
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -362,6 +362,57 @@ class TestLlmProbeService:
         res = asyncio.run(probe_block("media_share", "", "", ""))
         assert res["ok"] is True
 
+    def test_embeddings_main_falls_back_to_llm_key(self, monkeypatch):
+        """10.12 follow-up (OD-1): probe primary embed зеркалит runtime-фолбэк
+        на keys.llm_api_key, когда keys.embedding_api_key пуст (R17: не эхо)."""
+        import asyncio
+        from services import llm_probe
+
+        captured = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            captured["api_key"] = api_key
+            captured["kind"] = kind
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "" if key == "keys.embedding_api_key"
+                else ("llm-fallback" if key == "keys.llm_api_key" else default)))
+        res = asyncio.run(llm_probe.probe_block(
+            "embeddings_main", "https://api.example/v1", "m", ""))
+        assert res["ok"] is True
+        assert captured["kind"] == "embeddings"
+        assert captured["api_key"] == "llm-fallback"
+        assert "llm-fallback" not in str(res)      # R17: ключ не эхо
+
+    def test_embeddings_fallback_does_not_use_llm_key(self, monkeypatch):
+        """Google-фоллбэки эмбеддингов НЕ подхватывают keys.llm_api_key."""
+        import asyncio
+        from services import llm_probe
+
+        captured = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            captured["api_key"] = api_key
+            return {"ok": False, "status": "not_configured",
+                    "http_status": None, "latency_ms": 1,
+                    "error": "ключ не задан"}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "llm-only" if key == "keys.llm_api_key" else ""))
+        asyncio.run(llm_probe.probe_block(
+            "embeddings_fallback1", "https://api.example/v1", "m", ""))
+        assert captured["api_key"] == ""
+
 
 class TestProviderBlockTestability:
     """MAJOR-1: кнопка «Проверить» рендерится только для testable-блоков."""
@@ -435,11 +486,11 @@ class TestScannerR106Fixes:
         chunk = JS[i:JS.index("];", i)]
         keys = re.findall(r"key: '([^']+)'", chunk)
         # 10.11: +4 поля video_fallback (openrouter-* shared) и эмбеддинги
-        # перестроены в 3 подблока (12 полей: main/f1/f2) → 42 поля всего;
-        # уникальных 32 (openrouter-* ×3, llm_base_url/llm_api_key shared,
-        # embedding_fallback_base_url/model shared Ф1↔Ф2).
+        # перестроены в 3 подблока (12 полей: main/f1/f2) → 42 поля всего.
+        # 10.12 (ADR-1012-1): 42 поля; уникальных 35 (openrouter_base_url/
+        # api_key ×3, openrouter_display_name ×2, embedding_fallback_* ×2).
         assert len(keys) == 42          # полей в блоках + subBlocks
-        assert len(set(keys)) == 32     # уникальных ключей
+        assert len(set(keys)) == 35     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
         # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.

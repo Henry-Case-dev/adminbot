@@ -53,8 +53,8 @@ PERMSOC_MODULES: tuple[PermsocModule, ...] = (
                   "reactions.slavik_user_id", "flags.slavik_enabled", (479167456,),
                   ("handlers/slavik.py",)),
     PermsocModule("kostik", "Костя (персона-реплики)",
-                  "reactions.kostik_user_id", None, (350803143,),
-                  ("handlers/kostik.py",)),
+                  "reactions.kostik_user_id", "flags.kostik_enabled",
+                  (350803143,), ("handlers/kostik.py",)),
     # (P1-правка Builder): модуль alan управляется ТОЛЬКО master (реплики и
     # приветствие — как у slavik/kostik, «включены по умолчанию» MEMORY.md);
     # под-флаг reactions.alan_mimic_enabled остаётся ВНУТРИ common-mimic
@@ -78,6 +78,9 @@ _MODULE_BY_ID: dict[str, PermsocModule] = {
 # Славик — дефолт True (ADR-109-4: untouched → прежнее поведение).
 DEFAULT_SUB_FLAGS: dict[str, bool] = {
     "flags.slavik_enabled": True,
+    # Раунд 10.12 (ADR-1012-1 D3): Костик получил независимый тумблер;
+    # default True — поведение по умолчанию идентично прежнему (master ON).
+    "flags.kostik_enabled": True,
     "flags.olya_enabled": False,
     "flags.mimic_enabled": False,
 }

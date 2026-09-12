@@ -1810,3 +1810,138 @@ class TestGenerateChat:
                 tools=[{"type": "function"}])
         assert result.content == "ответ фоллбэка"
         assert state["fb"] == 1
+
+class TestEmbedBaseDecoupling1012:
+    """Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от chat-base/ключа."""
+
+    @staticmethod
+    def _reset_hot(monkeypatch):
+        monkeypatch.setattr("services.hot_config._cache", None)
+
+    @pytest.mark.asyncio
+    async def test_embed_uses_embed_base_and_key(self, monkeypatch):
+        self._reset_hot(monkeypatch)
+        seen = {}
+
+        def handler(request):
+            url = str(request.url)
+            seen[url] = request.headers.get("authorization")
+            if url.endswith("/embeddings"):
+                return httpx.Response(
+                    200, json={"data": [{"embedding": [1.0]}]}, request=request)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ок"}}]},
+                request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              embed_base_url="https://embed.test/v1",
+                              embed_api_key="embed-key")
+        await client.embed(["a"])
+        await client.generate([{"role": "user", "content": "q"}])
+        assert seen["https://embed.test/v1/embeddings"] == "Bearer embed-key"
+        assert seen["https://api.test/v1/chat/completions"] == "Bearer test-key"
+
+    @pytest.mark.asyncio
+    async def test_embed_base_empty_falls_back_to_chat(self, monkeypatch):
+        self._reset_hot(monkeypatch)
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            seen["auth"] = request.headers.get("authorization")
+            return httpx.Response(
+                200, json={"data": [{"embedding": [1.0]}]}, request=request)
+
+        client = _make_client(handler, monkeypatch)   # без embed_base_url
+        await client.embed(["a"])
+        assert seen["url"] == "https://api.test/v1/embeddings"
+        assert seen["auth"] == "Bearer test-key"
+
+    @pytest.mark.asyncio
+    async def test_embed_key_empty_falls_back_to_llm_key(self, monkeypatch):
+        self._reset_hot(monkeypatch)
+        seen = {}
+
+        def handler(request):
+            seen["auth"] = request.headers.get("authorization")
+            return httpx.Response(
+                200, json={"data": [{"embedding": [1.0]}]}, request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              embed_base_url="https://embed.test/v1")
+        await client.embed(["a"])
+        assert seen["auth"] == "Bearer test-key"
+
+    @pytest.mark.asyncio
+    async def test_hot_overrides_embed_base_and_key(self, monkeypatch):
+        class _FakeCache:
+            def __init__(self, data):
+                self._data = data
+
+            def get(self, key, default=None):
+                return self._data.get(key, default)
+
+        monkeypatch.setattr("services.hot_config._cache", _FakeCache({
+            "models.embedding_base_url": "https://hot-embed/v1",
+            "keys.embedding_api_key": "hot-key",
+        }))
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            seen["auth"] = request.headers.get("authorization")
+            return httpx.Response(
+                200, json={"data": [{"embedding": [1.0]}]}, request=request)
+
+        client = _make_client(handler, monkeypatch)
+        await client.embed(["a"])
+        assert seen["url"] == "https://hot-embed/v1/embeddings"
+        assert seen["auth"] == "Bearer hot-key"
+
+    @pytest.mark.asyncio
+    async def test_post_base_url_override_preserves_retries(self, monkeypatch):
+        self._reset_hot(monkeypatch)
+        calls = {"n": 0}
+
+        def handler(request):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return httpx.Response(500, json={}, request=request)
+            return httpx.Response(
+                200, json={"data": [{"embedding": [2.0]}]}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=2,
+                              embed_base_url="https://embed.test/v1")
+        vectors = await client.embed(["a"])
+        assert vectors == [[2.0]]
+        assert calls["n"] == 2
+
+    @pytest.mark.asyncio
+    async def test_chat_and_embed_use_separate_clients(self, monkeypatch):
+        """Ревью-дефект 3: chat и embed не делят кэш httpx-клиента (нет churn
+        при разных ключах OD-1)."""
+        self._reset_hot(monkeypatch)
+
+        def handler(request):
+            if str(request.url).endswith("/embeddings"):
+                return httpx.Response(
+                    200, json={"data": [{"embedding": [1.0]}]}, request=request)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ок"}}]},
+                request=request)
+
+        client = _make_client(handler, monkeypatch,
+                              embed_base_url="https://embed.test/v1",
+                              embed_api_key="embed-key")
+        await client.embed(["a"])
+        embed_client = client._embed_client
+        assert embed_client is not None
+        await client.generate([{"role": "user", "content": "q"}])
+        # chat получил свой клиент; embed-клиент переиспользован (не закрыт).
+        assert client._client is not None
+        assert client._client is not embed_client
+        assert client._embed_client is embed_client
+        assert client._client_key == "test-key"
+        assert client._embed_client_key == "embed-key"
+        await client.close()
+        assert client._client is None and client._embed_client is None

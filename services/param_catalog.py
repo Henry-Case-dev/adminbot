@@ -466,6 +466,11 @@ _KEYS: list[tuple] = [
     ("EMBEDDING_FALLBACK_API_KEY_2", "Ключ второй запасной модели памяти",
      "str", True, "keys_llm",
      "Ключ второй запасной модели «отпечатков» текста — запасной аккаунт того же провайдера. Получить: кабинет провайдера."),
+    # Раунд 10.12 (OD-1, ADR-1012-1 D1): отдельный ключ primary-эмбеддингов
+    # (эмбеддинги могут жить у ДРУГОГО провайдера, чем direct-чат). Пусто →
+    # рантайм откатывается на keys.llm_api_key.
+    ("EMBEDDING_API_KEY", "Ключ основной модели памяти", "str", True, "keys_llm",
+     "Ключ провайдера основной модели «отпечатков» текста. Пусто — используется ключ основной нейросети."),
     ("TAVILY_API_KEY", "Ключ Tavily", "str", True, "keys_search",
      "Ключ интернет-поиска (Tavily) — бот ищет по нему. Получить: tavily.com."),
     ("EXA_API_KEY", "Ключ Exa", "str", True, "keys_search",
@@ -499,6 +504,11 @@ _MODELS: list[tuple] = [
      "Название основной модели бота. От неё зависит качество и скорость почти всех ответов."),
     ("EMBEDDING_MODEL_NAME", "Модель эмбеддингов", "str", "models_embeddings",
      "Модель «отпечатков» текста для поиска по памяти. Менять только вместе с размерностью ниже."),
+    # Раунд 10.12 (ADR-1012-1 D1): адрес primary-эмбеддингов — НЕЗАВИСИМ от
+    # адреса direct-чата (models.llm_base_url). Дефолт apinet.cloud/v1.
+    ("EMBEDDING_BASE_URL", "Адрес основной модели памяти", "str",
+     "models_embeddings",
+     "Адрес сервера модели «отпечатков» текста. Может быть у другого провайдера, чем основная нейросеть."),
     ("EMBEDDING_DIM", "Размерность эмбеддингов", "int", "models_embeddings",
      "Длина «отпечатка» текста. Должна совпадать с моделью эмбеддингов, иначе поиск сломается."),
     # Раунд 10.11 (ADR-1011-2): адрес/модель embed-фоллбэка — first-class
@@ -569,6 +579,11 @@ _MODELS: list[tuple] = [
      "Как называть сервис расшифровки голосовых. Пусто — покажется адрес сервера."),
     ("OPENROUTER_DISPLAY_NAME", "Название модели для видео", "str", "models_video_summary",
      "Как называть сервис, который смотрит видео. Пусто — покажется адрес сервера."),
+    # Раунд 10.12 (ADR-1012-1 D5): отдельное имя STT-фолбэка OpenRouter
+    # (видео-блок использует OPENROUTER_DISPLAY_NAME).
+    ("OPENROUTER_TRANSCRIBE_DISPLAY_NAME",
+     "Название модели расшифровки (резерв)", "str", "models_extra_providers",
+     "Как называть резервный сервис расшифровки голосовых OpenRouter. Пусто — покажется адрес сервера."),
     ("EMBEDDING_DISPLAY_NAME", "Название основной модели памяти", "str", "models_embeddings",
      "Как называть модель поиска по памяти. Пусто — покажется адрес сервера."),
     ("EMBEDDING_FALLBACK_DISPLAY_NAME", "Название запасной модели памяти", "str", "models_embeddings",
@@ -695,6 +710,11 @@ _FLAGS: list[tuple] = [
     ("SLAVIK_ENABLED", "Славик включён", "flags_permsoc",
       "Славик шутит, кидает фото и гифку. Выключишь — он замолкает, "
       "а Костя, Леха и Оля работают как обычно."),
+    # ── Раунд 10.12 (ADR-1012-1 D3): независимый тумблер Костика, дефолт True
+    # (поведение по умолчанию идентично прежнему). ──
+    ("KOSTIK_ENABLED", "Костик включён", "flags_permsoc",
+      "Бот отвечает на сообщения Кости репликами-фразами. Выключишь — "
+      "Костя замолкает, остальные персоны работают как обычно."),
     ("COMMON_MEDIA_ENABLED", "Все common-медиа", "flags_media",
      "Главный рубильник всех медиа-реакций бота. Выключено — гифки/фото не отправляются вообще."),
     ("OLYA_ENABLED", "Оля включена", "flags_permsoc",
@@ -1138,6 +1158,10 @@ _REACTIONS: list[tuple] = [
      "Кто такой Славик для бота. По этому ID он узнаёт сообщения Славика и его реакции; ошибёшься — Славик замолчит или оживёт не тот человек."),
     ("KOSTIK_USER_ID", "Telegram ID Костика", "int", "reactions_kostik",
      "Telegram ID Костика — для его ответов и мимикрии."),
+    # Раунд 10.12 (ADR-1012-1 D4): редактируемый список фраз-реплик Костика
+    # (JSON-массив строк, виджет list). Пустой список → молчание.
+    ("KOSTIK_REPLIES", "Фразы-реплики Костика", "json", "reactions_kostik",
+     "Список фраз, которыми бот отвечает Костю. Каждая фраза — отдельное поле; можно добавлять и удалять.", "list"),
     ("ALAN_USER_ID", "Telegram ID Лехи", "int", "reactions_alan",
      "Telegram ID Лехи — для приветствий и reply-блока."),
     ("ADMIN_USER_ID", "Telegram ID админа", "int", "reactions_admin",
@@ -1458,9 +1482,13 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(field, field, CATEGORY_LIMITS, title, typ,
                       group=group, description=desc, widget=widget))
     for row in _REACTIONS:
-        field, title, typ, group, desc = row
+        if len(row) == 6:      # (field, title, type, group, desc, widget)
+            field, title, typ, group, desc, widget = row
+        else:
+            field, title, typ, group, desc = row
+            widget = ""
         add(ParamSpec(field, field, CATEGORY_REACTIONS, title, typ,
-                      group=group, description=desc))
+                      group=group, description=desc, widget=widget))
     for row in _CONTENT_SETTINGS:
         field, title, typ, group, desc = row
         add(ParamSpec(field, field, CATEGORY_CONTENT, title, typ,

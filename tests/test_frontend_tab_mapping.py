@@ -75,7 +75,7 @@ class TestTabMappingAudit:
         # −reactions_persons → REGISTRY 400.
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(GROUPS) == 90
-        assert len(pc.REGISTRY) == 400
+        assert len(pc.REGISTRY) == 405
 
 
 class TestModuleTabs:

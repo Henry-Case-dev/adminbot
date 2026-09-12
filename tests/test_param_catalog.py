@@ -51,7 +51,10 @@ class TestCompleteness:
         #   + PERMSOC_ENABLED (раунд 10, F-9 §3, мастер-тумблер PERMsoc)
         #   + SLAVIK_ENABLED (раунд 10.9, ADR-109-4) + 7 (*_DISPLAY_NAME,
         #   ADR-109-1) = 372
-        assert len(fields) == 372
+        #   + раунд 10.12 (ADR-1012-1): +5 — EMBEDDING_BASE_URL, EMBEDDING_API_KEY,
+        #   OPENROUTER_TRANSCRIBE_DISPLAY_NAME, KOSTIK_REPLIES, KOSTIK_ENABLED
+        #   = 377
+        assert len(fields) == 377
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -129,6 +132,8 @@ class TestSecrets:
         "EMBEDDING_FALLBACK_API_KEY",
         # каскад ключей embed-фоллбэка (задача 1): второй ключ — тоже секрет
         "EMBEDDING_FALLBACK_API_KEY_2",
+        # раунд 10.12 (OD-1): отдельный ключ primary-эмбеддингов — секрет
+        "EMBEDDING_API_KEY",
     }
 
     def test_secret_flags(self):
@@ -291,13 +296,16 @@ class TestGroups8424:
         осознанное исключение; GROUPS 74 / Settings 359 не меняются.
         Раунд 10.11 (ADR-1011-2): embed-фоллбэки — sanctioned Δ каталога
         (models +2 / keys +2) без роста REGISTRY 400 и Settings 372
-        (перенос записей из infra, не добавление)."""
+        (перенос записей из infra, не добавление).
+        Раунд 10.12 (ADR-1012-1): +5 — models +2 (EMBEDDING_BASE_URL,
+        OPENROUTER_TRANSCRIBE_DISPLAY_NAME), keys +1 (EMBEDDING_API_KEY),
+        flags +1 (KOSTIK_ENABLED), reactions +1 (KOSTIK_REPLIES)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 42, "keys": 15,
-                          "limits": 177, "flags": 58, "reactions": 38,
+        assert counts == {"prompts": 10, "models": 44, "keys": 16,
+                          "limits": 177, "flags": 59, "reactions": 39,
                           "content": 4, "memory": 32}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
@@ -356,8 +364,9 @@ class TestPermsocGroupsRedesign:
         keys = sorted(k for k, spec in REGISTRY.items()
                       if spec.group == "flags_permsoc")
         # 10.9 (ADR-109-4): + SLAVIK_ENABLED — независимый тумблер Славика.
-        assert keys == ["MIMIC_ENABLED", "OLYA_ENABLED", "PERMSOC_ENABLED",
-                        "SLAVIK_ENABLED"]
+        # 10.12 (ADR-1012-1 D3): + KOSTIK_ENABLED.
+        assert keys == ["KOSTIK_ENABLED", "MIMIC_ENABLED", "OLYA_ENABLED",
+                        "PERMSOC_ENABLED", "SLAVIK_ENABLED"]
         for field in keys:
             spec = pc.get(field)
             assert spec.category == pc.CATEGORY_FLAGS

@@ -222,7 +222,13 @@ class TestSnapshot:
         assert cards["stt_openrouter"]["key"] == {
             "configured": False, "last4": None}
         # провайдер — реальный host (не хардкод deepseek/groq/openrouter).
-        assert cards["llm_main"]["provider"] == "apinet.cloud"
+        # 10.12 (ADR-1012-1 D1): direct code-default сменился на nano-gpt.com.
+        assert cards["llm_main"]["provider"] == "nano-gpt.com"
+        # 10.12: emb_main использует СВОЙ embed-base, а не main_base.
+        assert cards["emb_main"]["provider"] == "apinet.cloud"
+        reg = {p["module_id"]: p for p in StatusService.llm_registry()}
+        assert reg["emb_main"]["base_url"] == "https://apinet.cloud/v1"
+        assert reg["llm_main"]["base_url"] == "https://nano-gpt.com/api/v1"
         for card in cards.values():
             assert "sk_deepseek" not in str(card)
             assert "gsk_groq_secret" not in str(card)
