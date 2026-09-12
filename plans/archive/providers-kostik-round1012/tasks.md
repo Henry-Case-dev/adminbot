@@ -11,9 +11,22 @@
 > (low закрыты follow-up; `plans/reports/round10.12_scanner_audit.md`); @Architect — архитектура влита
 > в `plans/ARCHITECTURE.md` (**§33**).
 > Артефакты сохранены: `spec.md`, `ADR-1012-1.md`, `tasks.md` (этот файл).
-> **⚠️ ОТКРЫТО (PROD-деплой, за @DevOps, пост-архив):** README (ироничный тон) / `APP_VERSION` /
-> cache-bust; **русский** commit; push; `git pull` → `systemctl restart admin_bot` → `status`;
-> `/api/health` **200**; 0 ERROR/Traceback; маркеры 10.12 в `/web/` и `/web/app.js`.
+> **✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.12 (@DevOps, 13.09.2026):** README (**v2.56.0** / 5211) /
+> `APP_VERSION` **2.56.0** / cache-bust `?v=2.56.0` синхронны; локальный commit
+> `708f7dffa3f9ef46136e33321116055dfd37191a` (39 файлов), push `32d1aa9..708f7df` (origin/master);
+> `pytest tests/` → **5210 passed / 1 skipped / 0 failed** (skip — нет `fontTools` локально;
+> канон — 5211), `node --check` clean, `JS-UNIT-OK`. Прод `198.46.175.136:/var/www/admin_bot`:
+> `git pull --ff-only` `3624789..708f7df` (fast-forward). `.env` поправлен (бэкап `.env.bak.1012`):
+> `LLM_BASE_URL` → `https://nano-gpt.com/api/v1`, добавлен `EMBEDDING_BASE_URL=https://apinet.cloud/v1`.
+> Миграция `scripts/migrate_env_to_pg.py --only-category models,keys,reactions,flags` (без `--force`) →
+> **created=5 skipped=149** (models:2, keys:1, reactions:1, flags:1). Resolved:
+> `models.llm_base_url` = **`https://nano-gpt.com/api/v1`**, `models.embedding_base_url` =
+> **`https://apinet.cloud/v1`**, `keys.embedding_api_key` = пусто (фолбэк на `keys.llm_api_key`),
+> `flags.kostik_enabled` = true, `reactions.kostik_replies` = 14 фраз. `systemctl restart admin_bot`
+> → **active (running)** (Main PID 1534535); `/api/health` → **200 `{"status":"ok"}`**; старт — **0 app
+> ERROR/Traceback**; в проде `?v=2.56.0` и маркеры 10.12 (`blockDisplayName`/`list-editor`/
+> `models.embedding_base_url`/`per_chat === false`/`options.global`/`flags.kostik_enabled`/
+> `reactions.kostik_replies`). **✅ PROD-деплой закрыт.**
 > **⚠️ ОТКРЫТО (live Android/Telegram QA, за владельцем/QA):** правка base_url обоих провайдеров
 > (embed ≠ direct, без взаимного алиасинга); маленькая надпись «Название модели» у всех подключений;
 > merged-блоки (основная+запасная, транскрибация, саммаризация видео); список фраз Костика

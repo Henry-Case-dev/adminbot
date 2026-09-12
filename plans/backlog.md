@@ -15,9 +15,35 @@
 (low закрыты follow-up; `plans/reports/round10.12_scanner_audit.md`); @Architect — архитектура влита
 в `plans/ARCHITECTURE.md` (**§33**).
 Артефакты в архиве: `spec.md`, `ADR-1012-1.md`, `tasks.md` (со статус-хедером завершения).
-**⚠️ ОТКРЫТО (PROD-деплой, за @DevOps, пост-архив):** README (ироничный тон) / `APP_VERSION` /
-cache-bust; **русский** commit; push; `git pull` → `systemctl restart admin_bot` → `status`;
-`/api/health` **200**; 0 ERROR/Traceback; маркеры 10.12 в `/web/` и `/web/app.js`.
+**✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.12 (@DevOps, 13.09.2026):** commit
+`708f7dffa3f9ef46136e33321116055dfd37191a` (`feat(admin,web,api,handlers,plans): раунд 10.12 —
+развязка эмбеддингов, фикс сохранения глобальных ключей, объединённые блоки провайдеров, фразы Костика
+(тесты 5211)`, 39 файлов), push `32d1aa9..708f7df` (origin/master); README **5211** / `APP_VERSION`
+**2.56.0** (+ cache-bust `?v=2.56.0`; `test_app_version_matches_readme`/`test_index_version_param`
+зелёные). Локальная верификация: `pytest tests/` → **5210 passed / 1 skipped / 0 failed**
+(skip — нет локального `fontTools` в `test_font_subset.py:128`; в каноничном окружении — **5211**);
+`node --check web/app.js` clean; `node tests/js/routing_test.js` → **JS-UNIT-OK**.
+**Прод** `198.46.175.136:/var/www/admin_bot` — `git pull --ff-only` **`3624789..708f7df`**
+(fast-forward; локальные `info_text.md`/бэкапы не конфликтовали).
+**`.env` (потребовалась правка, бэкап `.env.bak.1012`):** `LLM_BASE_URL`
+`https://apinet.cloud/v1` → **`https://nano-gpt.com/api/v1`** (direct-ответы); добавлен
+`EMBEDDING_BASE_URL=https://apinet.cloud/v1`. **Миграция (ADR-1012-1 D1/D3/D4/D5, без `--force`):**
+`venv/bin/python scripts/migrate_env_to_pg.py --only-category models,keys,reactions,flags` →
+**`created=5 skipped=149`** (models:2, keys:1, reactions:1, flags:1), идемпотентно. Созданы:
+`models.embedding_base_url` = **`https://apinet.cloud/v1`**, `models.openrouter_transcribe_display_name`
+= `""` (пусто → в UI покажется адрес), `keys.embedding_api_key` = `""` (пусто → рантайм-фолбэк на
+`keys.llm_api_key`, OD-1), `reactions.kostik_replies` = список из **14** фраз, `flags.kostik_enabled`
+= **true**. Существующие значения сохранены (`ON CONFLICT DO NOTHING`): **resolved
+`models.llm_base_url` = `https://nano-gpt.com/api/v1`** (не перезаписан), **resolved
+`models.embedding_base_url` = `https://apinet.cloud/v1`**, `limits.kostik_reply_probability` = `0.1`
+(прод-значение сохранено). `systemctl restart admin_bot` → **active (running)** (Main PID 1534535,
+ActiveEnter 2026-09-12 12:43:59 UTC); `/api/health` → **200 `{"status":"ok"}`**; стартовые логи —
+**0 app ERROR/Traceback** (только benign systemd cgroup-варнинги стопа и pre-existing BetterStack 401).
+Маркеры 10.12 в проде: `/web/` и `/web/app.js` с `?v=2.56.0`; в `app.js` —
+`blockDisplayName`, `list-editor`, `models.embedding_base_url`, `per_chat === false` (4×),
+`options.global`, `flags.kostik_enabled`, `reactions.kostik_replies`; в `/web/` — `list-editor-tpl`.
+**✅ PROD-деплой закрыт** (README/`APP_VERSION`/cache-bust синхронны; русский commit; push;
+pull/restart/status; health **200**; 0 ERROR/Traceback; маркеры 10.12 на месте).
 **⚠️ ОТКРЫТО (live Android/Telegram QA, за владельцем/QA):** правка base_url обоих провайдеров
 (embed ≠ direct, без взаимного алиасинга); надпись «Название модели» у всех подключений; merged-блоки
 (основная+запасная, транскрибация, саммаризация видео); список фраз Костика (add/delete/save) и
