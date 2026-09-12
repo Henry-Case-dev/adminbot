@@ -2,6 +2,155 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.13 (13.09.2026): Cognition / Sleep / Memory Refactor — 8 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026)
+
+**✅ ИТОГ 10.13 (13.09.2026):** реализация завершена, все **8 фич заархивированы** — перенесены
+`plans/features/cognition-*-round1013/` → **`plans/archive/cognition-*-round1013/`** (@PM Step 8).
+**Финальные метрики:** полный **pytest — 5392 passed / 1 warning / 0 failed** (база 10.12 = 5211 → **+181**);
+`node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` clean
+(только LF→CRLF-предупреждения). Каталог — санкционированный прирост ADR-1013-1 (8 новых ключей выделенных
+LLM + F8-флаги): **REGISTRY 427 / categorized 403 / Settings 399** (GROUPS 90 / `_TAB_BY_GROUP` 88 /
+`TAB_RULES` 19). Инварианты: **ноль новых PG-DDL**, SQLite **v8** не бампнут, порядок роутеров `bot.py` не
+тронут (только DI-kwarg `aliases=`), **R17**-скан чист, F7-гайд без запрещённого жаргона (grep 0), новые
+`v-html`/CDN нет (vis-network self-host).
+**Объём:** **8 фич, 60 задач** (T-1417…T-1476), все `[x]`.
+@Reviewer — **APPROVED** (итерация 2; итерация 1 — Rejected по BLOCKER-1 [Critical] T-1439 роутер воркеров и
+BLOCKER-2 [High] ностальгия; все BLOCKER и ISSUE-3/-4 закрыты и подтверждены `file:line` —
+`plans/reports/round10.13_reviewer.md`).
+@Scanner — **CLEAN: 0 Critical / 0 High / 0 Medium** (итерация 2; закрыты High S10.13-1 и 4 Medium
+S10.13-2/-3/-4/-5), остаются **5 Low** — техдолг (`plans/reports/round10.13_scanner_audit.md`).
+@Architect — архитектура влита в `plans/ARCHITECTURE.md` (**§34** + связанные разделы).
+Артефакты в архиве: `spec.md` + `tasks.md` (×8) + ADR-1013-1 (`adr-1013-1-provider-keys.md`),
+ADR-1013-2 (`adr-1013-2-graph-library.md`), ADR-1013-3 (`adr-1013-3-prompt-canon-policy.md`).
+**Фичи (финал, все ✅ COMPLETED):** F1 `4d-memory` (T-1417…T-1423) · F2 `belief-decay` (T-1424…T-1433) ·
+F3 `deep-sleep` (T-1434…T-1442) · F4 `llm-providers` (T-1443…T-1447) · F5 `dashboard` (T-1448…T-1458) ·
+F6 `ekg-logs-bugfix` (T-1459…T-1464) · F7 `user-guide` (T-1465…T-1467) · F8 `irony-dossier` (T-1468…T-1476).
+
+**🧾 Техдолг Low (ОТКРЫТ, 10.13 — не блокеры):** `S10.13-9` (Timeline-лор из in-memory
+`get_process_accounting().lore_last_inject_at`, а не `chat_lore_history`), `S10.13-11` (LIKE-маркер парадигм
+матчит только 2 варианта JSON-сериализации), `S10.13-13` (три дублирующих парсера `belief_meta`),
+`S10.13-14` (возможны «висячие» рёбра после cap в `graph_snapshot`), `S10.13-6b` (остаточная
+несогласованность `archived_beliefs` без фильтра парадигм). Источник — `plans/reports/round10.13_scanner_audit.md` §5.
+**Дальше:** Step 9 — деплой @DevOps (единый коммит эпика, сейчас НЕ закоммичено); Step 10 — метрики @Memory
+(проставит деплой-статус поверх `✅ COMPLETED`).
+Ниже — исторический документ планирования эпика (Step 1 @PM).
+
+**Эпик:** `Epic: Cognition-Sleep-Memory Refactor round1013` (@Memory, Step 0). **Источник ТЗ** —
+`plans/current_task.md` (разделы 1–10). **HEAD при планировании:** `ce25dc7` (docs-коммит 10.12).
+**Базовая линия:** pytest **5211 passed / 0 failed**; `node --check web/app.js` clean;
+`node tests/js/routing_test.js` → `JS-UNIT-OK`; каталог-инвариант
+**REGISTRY 405 / GROUPS 90 / Settings 377 / mapped 88 / `TAB_RULES` 19**; SQLite **v8**.
+Ранее заархивирован 10.12 (`plans/archive/providers-kostik-round1012/`); открытые Scanner-ниты
+10.12 (R10.12-2/-3/-4 — info) учтены в фичах.
+
+**8 фич (продолжение нумерации T-1417…, все ✅ COMPLETED — 60/60 задач T-1417…T-1476):**
+
+| # | Фича (папка) | Тип | ТЗ | Зависит от | Приоритет | Задачи |
+|---|---|---|---|---|---|---|
+| **F1** | `cognition-4d-memory-round1013` | backend | п.1 | — | **P0** (фундамент) | T-1417…T-1423 |
+| **F2** | `cognition-belief-decay-round1013` | backend | п.4 + 4.1 | F1 | **P0** | T-1424…T-1433 |
+| **F3** | `cognition-deep-sleep-round1013` | backend | п.6 + п.3 (backend) | **F1, F2** | P1 | T-1434…T-1442 |
+| **F4** | `cognition-llm-providers-round1013` | frontend | п.3 (UI) | — (независима; согласовать ключи с F3) | P1 | T-1443…T-1447 |
+| **F5** | `cognition-dashboard-round1013` | frontend | п.5 + п.7 | **API F2, F3** | P1 | T-1448…T-1458 |
+| **F6** | `cognition-ekg-logs-bugfix-round1013` | frontend | п.8 + п.9 | — (независима) | P2 | T-1459…T-1464 |
+| **F7** | `cognition-user-guide-round1013` | docs | п.10 | **F1–F6, F8 (последняя)** | P3 | T-1465…T-1467 |
+| **F8** | `cognition-irony-dossier-round1013` | backend | п.2 | **F1** (инфра промпт-канона/метки); F2/F3 желательны; параллельно F4/F6 | P1 | T-1468…T-1476 |
+
+**Рекомендуемый порядок исполнения:** **F1 → F2 → F3 → {F4 ∥ F6 ∥ F8} → F5 → F7.**
+Обоснование: F1 даёт временные метки/единый RAG и инфраструктуру правки промпт-канона → F2 (decay/resurrection)
+→ F3 (deep sleep) опирается на beliefs/архив; F4, F6 и F8 независимы (можно параллельно; F8 затрагивает
+персоны/досье/контекст, а не UI «Статус»); F5 нужны API F2/F3; F7 пишется по факту реализации.
+**F5 и F6 обе правят `web/index.html`/`web/app.js` (страница «Статус») — исполнять последовательно.
+F8 делит `services/prompt_migrations.py` с F1/F2/F3 — ступень вливать в согласованном порядке (аддитивно).**
+
+**Контент по фичам (сжато):**
+- **F1 (4D-память, п.1):** префикс `[ММ.ГГГГ | Автор: ]` для фактов RAG, пометка
+  `(Внимание: возможно устарело)` для фактов >6 мес (настраиваемо), группировка фактов по времени в
+  обычном Сне для выводов о динамике. Модули: `services/summary_memory.py`
+  (`_date_prefix:669`/`build_rag_context:693`/`get_rag_context:1958`), `services/dream_worker.py`,
+  `services/dream_prompts.py`, `services/tool_router.py` (dig_into_lore).
+- **F2 (Belief Decay + Resurrection, п.4/4.1):** weight −0.1/мес без подкрепления >6 мес; `<0.3` →
+  `archived_belief`; векторный резонанс (пенальти −0.3, воскрешение при пороге); Сон-Реаниматор
+  (отмена дублирующего синтеза + восстановление даты); активация по графу (связки 2–3 узлов в L1).
+  Модули: `services/dream_worker.py` (`_write_belief:657`), `services/summary_memory.py` (KNN `:2190`),
+  `services/memory_health.py`, `services/memory_maintenance.py`, `web/api/memory_agi.py`.
+- **F3 («Глубокий сон», п.6 + backend п.3):** ежедневно сразу после обычного сна; «Поиск по якорям»
+  (свежие beliefs + выжимка 12ч → RAG ко всей базе); синтез «Мост времени» (парадигма); парадигмы в
+  контекст с весом 0.5–0.6; бэкенд-роутер моделей воркеров (историческая память/вехи/лор vs фоновые).
+  Модули: `services/dream_worker.py`, `services/dream_prompts.py`, `services/worker_budget.py`,
+  `services/llm_client.py`, `services/lore_worker.py`, `services/nostalgia_worker.py`, `web/api/memory_agi.py`.
+- **F4 («Провайдеры» UI, п.3):** 2 новых блока подключения (LLM для Исторической памяти/Вехи/Лор;
+  LLM для Фоновых проверок/Оценка важности), фоллбэк на основную модель. Формат **parent+subBlocks (10.12)**,
+  обязательны `providerCoveredKeys` + `_BLOCK_SAVED_KEY`. Модули: `web/app.js`, `web/index.html`,
+  `services/llm_probe.py`, `services/param_catalog.py`, `config/settings.py`, `bot.py` (DI-kwargs).
+- **F5 (Дашборд Cognition + виджет «Интеллект и Память», п.5/п.7):** две вертикальные бегущие строки
+  (Убеждения/Сон, Парадигмы/Глубокий сон; верх/низ opacity-50, центр 100), бейджи
+  `[🌙 Сон активен]`/`[🌌 Глубокий сон активен]`, интерактивный force-directed граф (`vis-network`/`d3.js`),
+  статистика → «Модули»; виджет в «Сводке» (пульс процессов, прогресс-бары лимитов/бюджета, метрики БД,
+  Timeline). Модули: `web/app.js`, `web/index.html`, `web/api/memory_agi.py`, `web/api/routes.py`,
+  `services/status_service.py`, `services/worker_budget.py`.
+- **F6 (EKG + багфикс «Логи», п.8/9):** удалить линейный график аптайма, добавить SVG-EKG с CSS-анимацией
+  (Load/CPU/RAM: спокойный зелёный ↔ учащённый оранжевый/красный); починить рассинхрон селектора
+  `INFO` vs `ALL`, новый комбинированный тег `ERROR+WARNING`, дефолт фильтра при открытии = `ERROR+WARNING`.
+  **Контракт `GET /api/status/logs` изменится** — маркерные тесты учесть. Модули: `web/app.js`
+  (`logLevel:860`/`loadLogs:3786`/`renderUptimeChart:3575`), `web/index.html` (`:2714-2768`),
+  `web/api/routes.py` (`:1124`), `services/log_ring.py` (`get_entries:139`), `services/uptime_heartbeat.py`.
+- **F7 (docs, п.10):** `plans/docs/intelligence_user_guide.md` — прозаично, простыми словами, без
+  аббревиатур (RAG/LLM/токены/эндпоинты), иронично, готово к публикации; актуализация README (иронично) +
+  `APP_VERSION`/cache-bust, русский коммит, push, деплой, отчёт.
+- **F8 (Ирония и Досье Персонажей, п.2):** «Иронический фильтр» в системный промпт воркера досье; явная
+  инструкция про `chat_memes` vs `real_facts` («мегачмо», «повелитель грибов» → мемы, не биография);
+  досье в контексте — два блока `[Факты]`/`[Локальные мемы/Ярлыки]`. **Greenfield:** `real_facts`/`chat_memes`/
+  `dossier` в коде НЕТ — сущность/воркер фиксирует @Architect (T-1468). Хранение `chat_memes` — только в
+  существующей JSONB `chat_profiles.relations` или SQLite-поле `graph_facts` (**ноль PG-DDL**); правка канона —
+  PREV-слепок + `prompt_migrations` + байт-тесты. Модули: `services/lore_worker.py`, `services/lore_prompts.py`,
+  `services/lore_cache.py`, `services/chat_lore_store.py`, `services/database.py`
+  (`get_persona_card:3118`/`get_protected_facts:2623`), `services/direct_chat_service.py`
+  (`build_persona_card:1443`/`_build_user_relations:824`), `services/summary_memory.py`,
+  `services/prompt_migrations.py`.
+
+**Инварианты раунда (в каждой tasks.md §3):** ноль новых PG-DDL; SQLite **v8**; порядок роутеров `bot.py`
+не трогать (только DI-kwargs); новые provider-блоки — только `parent`+`subBlocks` (10.12) + обязательно
+`providerCoveredKeys` и `_BLOCK_SAVED_KEY`; каталог-инварианты **405/90/377/88**, `TAB_RULES` 19 — новые
+ключи только санкционированным Δ с обновлением пин-тестов; **R17** секреты `{configured, last4}`;
+**R16** id — ключ, не имя; `chat_memes` (F8) — только в существующей JSONB `chat_profiles.relations` или
+SQLite-поле `graph_facts`, без миграции схемы; правка промпт-канонов — PREV-слепок + `prompt_migrations` +
+байт-тесты; контракт `/api/status/logs` меняется (комбинированный тег) — маркерные тесты;
+русские conventional commits.
+
+**⚠️ Open (Step 1, для @Architect):**
+- **ТЗ п.2 «Ирония и Досье Персонажей» — ✅ ДЕКОМПОЗИРОВАН 13.09.2026 @PM (Step 1 return):** выделена
+  **8-я фича F8** `cognition-irony-dossier-round1013` (T-1468…T-1476) — см. строку F8 выше.
+  Greenfield-вопросы (какой воркер = «Досье», где хранить `chat_memes`, формат блоков) — на @Architect (T-1468).
+- **F4↔F3:** имена PG-ключей выделенных LLM (UI F4 / роутер F3) фиксируются одним ADR — согласовать.
+- **F1↔промпт-канон:** правка `dream_prompts.py` требует PREV-слепка + `prompt_migrations` + байт-тестов —
+  оценить объём. **F8 делит `prompt_migrations.py` с F1/F2/F3** — вливать ступени согласованно.
+
+**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (13.09.2026, @PM Step 8 Archive Phase). Планирование (Step 1)
+завершено @PM 13.09.2026; раздел п.2 закрыт фичей F8 (`cognition-irony-dossier-round1013`,
+T-1468…T-1476) — все 10 разделов ТЗ покрыты (таблица покрытия — §«Покрытие ТЗ»). Реализация @Builder
+(F1–F8), @Reviewer **APPROVED** (итерация 2), @Scanner **0 C/H/M** (5 Low — техдолг, см. блок «ИТОГ 10.13»),
+@Architect — `plans/ARCHITECTURE.md` **§34**. Артефакты: **`plans/archive/cognition-*-round1013/`**
+(**8 папок**: `spec.md`, `tasks.md`, ADR-1013-1/2/3).
+
+**Покрытие ТЗ (раздел `plans/current_task.md` → фичи):**
+
+| Раздел ТЗ | Фича(и) |
+|---|---|
+| п.1 «4D-Память» | **F1** |
+| п.2 «Ирония и Досье Персонажей» | **F8** |
+| п.3 «Выделенные LLM для Интеллекта» | **F3** (backend-роутер) + **F4** (UI-провайдеры) |
+| п.4 «Охлаждение Убеждений» | **F2** |
+| п.4.1 «Воскрешение» | **F2** |
+| п.5 «UI: Дашборд Осмысление + Графы» | **F5** |
+| п.6 «Мета-синтез / Глубокий сон» | **F3** |
+| п.7 «Виджет Интеллект и Память в Сводке» | **F5** |
+| п.8 «Анимация Heartbeat (EKG)» | **F6** |
+| п.9 «Багфикс компонента Логи» | **F6** |
+| п.10 «Человекочитаемая документация» | **F7** |
+
+**Итог: все 10 разделов покрыты, 8 фич, дыр нет.**
+
 ## Раунд 10.12 (12.09.2026): развязка base_url провайдеров (embed ≠ direct) + merge блоков подключения + фразы Костика в PERMsoc — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026)
 
 **✅ ИТОГ 10.12 (13.09.2026):** реализация завершена, фича **заархивирована** — перенесена

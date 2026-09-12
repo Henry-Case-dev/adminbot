@@ -613,3 +613,26 @@ bot.py
   R10.12-1 `saveKeyItem` не переведён на global-save, R10.12-5 дубль title/modules у parent-блоков;
   3 info: R10.12-2 stale docstring `llm_probe`, R10.12-3 `KOSTIK_ENABLED` вне `.env.example`,
   R10.12-4 index-key в `list-editor`).
+- **Когнитивный слой 10.13 (F1–F8) — сквозные связи readonly-слоя.** Данные-центр: `graph_facts`
+  (`kind` ∈ 'fact'/'belief'; `status` без CHECK: `confirmed`/`archived_belief`/`chat_meme`;
+  `belief_meta` JSON: `base_weight`, `type='paradigm'`, `dedup_key`, `archived_at`,
+  `resurrections`, `last_reinforced_fact_id`/`meme`), `memory_dream_log.kind`
+  (`run`/`distilled`/`skipped`/`error`/`window_skip`/`decay_run`/`deep_run`/`deep_skip`/`resurrect`).
+  Декай-гейт — `memory_dream_log(kind='decay_run', chat_id=0)`; deep-гейт — `kind='deep_run'`;
+  reboot-персистентность телеметрии контекста — НЕТ (`_PROCESS_ACCOUNTING` in-memory).
+  Маркерные точки: `summary_memory._fact_prefix` (rax-author, **без escape_xml_text**),
+  `_knn_graph_facts` (архив: penalty к score + resurrection), `graph_activation_facts` (архив → L1 при
+  наличии связки 2–3 узлов), `dream_worker._maybe_deep_after_sleep`/`_deep_tick` (after_sleep/fixed),
+  `LLMClient.generate_worker(role)` (history/background → intel_*), `lore_worker._classify_dossier`
+  (мемы `chat_meme`), `direct_chat_service.build_persona_card` (блоки [Факты]/[Мемы]).
+  Frontend/F5: `web/api/memory_agi.py` (`cognition/status`, `graph`, `stats`, `timeline`,
+  `deep-sleep`, `health`), `web/app.js` (`loadCognition`/polling 15s с паузой hidden, vis-network
+  lazy self-host, `_graphSignature` anti-rerender), `web/index.html` (EKG SVG + ленты).
+- **Находки 10.13**: `plans/reports/round10.13_scanner_audit.md` (0 critical; **1 high** S10.13-1 —
+  неэкранированный `target_user` в RAG-промпте; 4 medium: deep-sleep cooldown/кап обходятся на
+  неуспешных прогонах, F2-decay включает F3-парадигмы, реаниматор не в телеметрии, F5-ленты
+  убеждений/парадигм вне chat-scope; 9 low).
+- **Сквозной паттерн (10.11→10.13): флаги «OFF = байт-в-байт» неполны.** При OFF изменения
+  остаются в промпт-канонах (`lore_prompts` ироническая заметка безусловна) и в данных
+  (архивные beliefs видны KNN-путём при выключенном `belief_decay_enabled`); аналогично
+  probe «Проверить» не зеркалит runtime-фолбэк `generate_worker`.

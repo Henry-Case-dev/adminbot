@@ -135,11 +135,12 @@ class TestCatalogDelta1011:
     def test_counts_unchanged(self):
         from config.settings import Settings
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 405
+        # 10.13 (F8+F4): REGISTRY 427 / Settings 399.
+        assert len(pc.REGISTRY) == 427
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 377
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 399
 
     def test_moved_entries_are_catalog(self):
         from services import param_catalog as pc

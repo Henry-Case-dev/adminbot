@@ -125,8 +125,10 @@ class TestStatusEndpoint:
             resp = client.get("/api/status", headers=_hdr(uid))
             assert resp.status_code == 200, uid
             body = resp.json()
-            # ФИКС S2/F-9 §6: + permsoc-телеметрия (N из M) в сводке
-            assert set(body) == {"bot", "server", "llm", "uptime", "permsoc"}
+            # ФИКС S2/F-9 §6: + permsoc-телеметрия (N из M) в сводке.
+            # F5 (cognition-dashboard, spec §3.6): + аддитивное context.
+            assert set(body) == {"bot", "server", "llm", "uptime", "permsoc",
+                                 "context"}
             assert body["permsoc"]["total"] == 5
             assert body["bot"]["mode"] == "polling"
             assert body["bot"]["version"]
@@ -201,6 +203,22 @@ class TestStatusLogsEndpoint:
         messages = [e["message"] for e in resp.json()["logs"]]
         assert "важная-ошибка" in messages
         assert "только-для-debug" not in messages
+
+    def test_level_filter_error_warning_combined(self, client):
+        """F6 (T-1462/§3.1): серверный комбо-тег ERROR+WARNING (200) =
+        WARNING ∪ ERROR ∪ CRITICAL, без INFO/DEBUG."""
+        _ring_emit("debug-шум", level=logging.DEBUG)
+        _ring_emit("info-шум", level=logging.INFO)
+        _ring_emit("warning-важно", level=logging.WARNING)
+        _ring_emit("critical-важно", level=logging.CRITICAL)
+        resp = client.get("/api/status/logs", headers=_hdr(USER_ID),
+                          params={"level": "ERROR+WARNING"})
+        assert resp.status_code == 200
+        messages = [e["message"] for e in resp.json()["logs"]]
+        assert "warning-важно" in messages
+        assert "critical-важно" in messages
+        assert "debug-шум" not in messages
+        assert "info-шум" not in messages
 
     def test_limit(self, client):
         for i in range(5):

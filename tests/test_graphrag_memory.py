@@ -756,9 +756,9 @@ class TestGetRagContextDates:
                                    "search_fact", fixed + 100)
         memory = MemoryManager(db, FactsLLM())
         ctx = await memory.get_rag_context(-100, "озон")
-        assert "[2024-05-20] озон быстрее чем вб" in ctx
+        assert "[05.2024] озон быстрее чем вб" in ctx
         # знаниевый факт — дата ПЕРЕД origin-префиксом
-        assert "[2024-05-20] [Из твоего прошлого поиска]: " in ctx
+        assert "[05.2024] [Из твоего прошлого поиска]: " in ctx
 
     @pytest.mark.asyncio
     async def test_direct_reply_fact_date_rendered_too(self, db, monkeypatch):
@@ -772,23 +772,26 @@ class TestGetRagContextDates:
         memory = MemoryManager(db, FactsLLM())
         ctx = await memory.get_rag_context(
             -100, "погода", include_direct_reply=True)
-        expected = time.strftime("[%Y-%m-%d] ", time.gmtime(now))
+        expected = time.strftime("[%m.%Y] ", time.gmtime(now))
         assert expected in ctx
         assert "погода сегодня будет солнечной" in ctx
 
 
 class TestBuildRagContextDates:
-    """Раунд 4 (T-724, AC-F1): дата-префиксы '[%Y-%m-%d] ' (UTC) для
-    3-кортежей (origin, fact, created_at); legacy-2-кортежи без дат."""
+    """F1/T-1418 (spec §3.1): временной префикс '[ММ.ГГГГ | Автор: X] '
+    (UTC) для 3/4-кортежей; F1/T-1419 — пометка устаревания после текста
+    (TS 2024-05-20 старше порога 180 дней → помечен); legacy-2-кортежи без дат."""
 
     TS = 1716163200   # 2024-05-20 00:00:00 UTC
+    STALE = " (Внимание: возможно устарело)"
 
     def test_chat_history_date_prefix_inside_user_gossip(self):
         ctx = build_rag_context(
             [("chat_history", "вася спорил с петей", self.TS)])
         assert ctx == (
             "<context>\n"
-            "  <user_gossip>[2024-05-20] вася спорил с петей</user_gossip>\n"
+            "  <user_gossip>[05.2024] вася спорил с петей"
+            + self.STALE + "</user_gossip>\n"
             "  <bot_knowledge></bot_knowledge>\n"
             "</context>"
         )
@@ -796,13 +799,13 @@ class TestBuildRagContextDates:
     def test_knowledge_date_before_origin_prefix(self):
         ctx = build_rag_context(
             [("search_fact", "Ozon быстрее чем вб", self.TS)])
-        assert ("[2024-05-20] [Из твоего прошлого поиска]: "
-                "Ozon быстрее чем вб") in ctx
+        assert ("[05.2024] [Из твоего прошлого поиска]: "
+                "Ozon быстрее чем вб" + self.STALE) in ctx
 
     def test_web_content_date_before_origin_prefix(self):
         ctx = build_rag_context(
             [("web_content", "текст статьи", self.TS)])
-        assert "[2024-05-20] [Из статьи]: текст статьи" in ctx
+        assert ("[05.2024] [Из статьи]: текст статьи" + self.STALE) in ctx
 
     def test_zero_and_none_created_at_no_prefix(self):
         for ts in (0, None):
@@ -824,22 +827,24 @@ class TestBuildRagContextDates:
             ("chat_history", "новая запись с датой", self.TS),
         ]
         ctx = build_rag_context(facts)
-        assert "  <user_gossip>старая запись без даты\n" \
-               "[2024-05-20] новая запись с датой</user_gossip>" in ctx
+        assert ("  <user_gossip>старая запись без даты\n"
+                "[05.2024] новая запись с датой" + self.STALE
+                + "</user_gossip>") in ctx
 
     def test_garbage_created_at_no_crash(self):
         ctx = build_rag_context([("chat_history", "мусор", "not-a-number"),
                                  ("chat_history", "норм", self.TS)])
         assert "мусор" in ctx
-        assert "[2024-05-20] норм" in ctx
+        assert ("[05.2024] норм" + self.STALE) in ctx
 
     def test_bot_knowledge_empty_kept_with_dated_gossip(self):
         ctx = build_rag_context(
             [("chat_history", "сплетня", self.TS),
              ("youtube_content", "видеофакт", self.TS)])
-        assert "  <user_gossip>[2024-05-20] сплетня</user_gossip>" in ctx
-        assert ("  <bot_knowledge>[2024-05-20] [Из видео, которое кидали "
-                "ранее]: видеофакт</bot_knowledge>") in ctx
+        assert ("  <user_gossip>[05.2024] сплетня" + self.STALE
+                + "</user_gossip>") in ctx
+        assert ("  <bot_knowledge>[05.2024] [Из видео, которое кидали "
+                "ранее]: видеофакт" + self.STALE + "</bot_knowledge>") in ctx
 
 
 class TestGetRagContext:
@@ -1453,7 +1458,7 @@ class TestEpic60PhaseD:
             (f3, 0.60, list(v3)),
         ])
         rows = await memory._knn_graph_facts(-100, list(v1), 2)
-        facts = [fact for _, fact, _ in rows]
+        facts = [r[1] for r in rows]
         assert len(facts) == 2
         assert any("быстрее" in fact for fact in facts)
         assert any("жарким" in fact for fact in facts)      # разнообразие
@@ -1471,7 +1476,7 @@ class TestEpic60PhaseD:
         memory._vec_candidates = AsyncMock(return_value=[
             (f1, 0.99, list(v1)), (f2, 0.98, list(v1))])
         rows = await memory._knn_graph_facts(-100, list(v1), 2)
-        assert [fact for _, fact, _ in rows][0].endswith("быстрее")
+        assert [r[1] for r in rows][0].endswith("быстрее")
 
     @pytest.mark.asyncio
     async def test_int8_schema_two_pass_and_rerank(self, db):
@@ -2030,8 +2035,8 @@ class TestOriginLabelsF3:
         facts = [("chat_history", "вася спорил с петей", self.TS),
                  ("search_fact", "озон быстрее чем вб", self.TS)]
         assert build_rag_context(facts, origin_labels=True) == (
-            "[чат] [2024-05-20] вася спорил с петей\n"
-            "[поиск] [2024-05-20] озон быстрее чем вб"
+            "[чат] [05.2024] вася спорил с петей (Внимание: возможно устарело)\n"
+            "[поиск] [05.2024] озон быстрее чем вб (Внимание: возможно устарело)"
         )
 
     def test_all_origin_labels(self):
@@ -2066,7 +2071,8 @@ class TestOriginLabelsF3:
         facts = [("chat_history", "вася спорил с петей", self.TS)]
         assert build_rag_context(facts) == (
             "<context>\n"
-            "  <user_gossip>[2024-05-20] вася спорил с петей</user_gossip>\n"
+            "  <user_gossip>[05.2024] вася спорил с петей"
+            " (Внимание: возможно устарело)</user_gossip>\n"
             "  <bot_knowledge></bot_knowledge>\n"
             "</context>"
         )
@@ -2108,7 +2114,8 @@ class TestChatRagRerankF4:
         kept = await memory.rerank_rag_facts("дроны", list(self.FACTS))
         assert kept == [self.FACTS[0], self.FACTS[2]]
         assert llm.calls == 1
-        assert "1. [чат] [1970-01-01] про дроны вчера" in llm.last_user
+        assert "1. [чат] [01.1970] про дроны вчера (Внимание: возможно устарело)" \
+            in llm.last_user
 
     @pytest.mark.asyncio
     async def test_single_number_keeps_only_that_fact(self):
@@ -2295,3 +2302,52 @@ class TestF15MemorizeRetry:
         src = open("services/summary_memory.py", encoding="utf-8").read()
         assert "_FACT_RETRY_SYSTEM_PROMPT" in src
         assert "Верни СТРОГО один JSON-массив объектов" in src
+
+
+# ── F1/T-1418 (spec §3.5): точки извлечения RAG → 4-кортежи (author) ────────
+
+class TestF1Extraction4Tuples:
+    """KNN- и FTS-пути `_search_graph_facts` возвращают
+    (origin, fact, rag_ts, target_user); target_user NULL → author None."""
+
+    @pytest.mark.asyncio
+    async def test_fts_path_four_tuples_with_author(self, db, monkeypatch):
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        await db.insert_graph_fact(-100, "озон быстрее чем вб", "chat_history",
+                                   None, target_user="Толян")
+        memory = MemoryManager(db, FactsLLM())
+        memory._vec_available = False        # → FTS-ветка
+        facts = await memory.get_rag_facts(-100, "озон")
+        assert len(facts) == 1
+        assert len(facts[0]) == 4
+        assert facts[0][0] == "chat_history"
+        assert facts[0][1] == "озон быстрее чем вб"
+        assert facts[0][2] == now
+        assert facts[0][3] == "Толян"
+
+    @pytest.mark.asyncio
+    async def test_fts_path_null_author(self, db, monkeypatch):
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        await db.insert_graph_fact(-100, "погода ясная", "chat_history", None)
+        memory = MemoryManager(db, FactsLLM())
+        memory._vec_available = False
+        facts = await memory.get_rag_facts(-100, "погода")
+        assert len(facts) == 1 and len(facts[0]) == 4
+        assert facts[0][3] is None
+
+    @pytest.mark.asyncio
+    async def test_knn_path_four_tuples_with_author(self, db, monkeypatch):
+        now = 1_800_000_000
+        monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
+        fid = await db.insert_graph_fact(-100, "кнн озон быстрее", "search_fact",
+                                         None, target_user="Вася")
+        memory = MemoryManager(db, FactsLLM())
+        memory._vec_available = True
+        memory._vec_candidates = AsyncMock(
+            return_value=[(fid, 0.9, [1.0, 0.0])])
+        rows = await memory._knn_graph_facts(-100, [1.0, 0.0], 1)
+        assert rows and len(rows[0]) == 4
+        assert rows[0][0] == "search_fact"
+        assert rows[0][3] == "Вася"

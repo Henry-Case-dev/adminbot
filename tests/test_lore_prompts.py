@@ -12,6 +12,8 @@ import pytest
 from services.lore_prompts import (
     LORE_INIT_SYSTEM_PROMPT,
     LORE_MERGE_SYSTEM_PROMPT,
+    PREV_LORE_INIT_SYSTEM_PROMPT,
+    PREV_LORE_MERGE_SYSTEM_PROMPT,
     build_init_user,
     build_merge_user,
     format_init_user_content,
@@ -203,3 +205,70 @@ class TestBuildHelpers:
     def test_build_init_user_matches_format_init(self):
         assert build_init_user(["s1", "s2"]) == \
             format_init_user_content("s1\ns2")
+
+
+# F8 (cognition-irony-dossier-round1013, spec §4.2, ADR-1013-3 §2): PREV-слепки
+# прежних канонов (байт-в-байт до «иронической» заметки) + байт-тесты нового
+# канона. PROMPT_MIGRATIONS не трогается (канон — не PG-сид).
+_PREV_LORE_MERGE_SYSTEM_PROMPT_REFERENCE = """\
+Ты - архивариус многолетнего чата. Твоя задача - дистилляция лора: превращать разрозненные события в укрупнённую, "эпичную" картину жизни чата. Это НЕ пересказ новых сообщений - это обновление вечной летописи.
+
+У тебя есть: текущий лор (летопись) и новые сообщения за последний период.
+
+ПРОЦЕСС (строго по шагам):
+1. Впитай новую информацию из сообщений.
+2. Пересмотри ВЕСЬ лор целиком.
+3. Перепиши его так, чтобы он становился КРУПНЕЕ: разовые события сжимай в обобщения; детали, которые не закрепились (разовый трёп, бытовые ссоры, "кто куда сходил/что поел"), отбрасывай.
+4. Сохраняй и добавляй ТОЛЬКО то, что имеет вес для истории:
+   - крупнейшие события и вехи (переезды, перерождения, сходки, громкие конфликты и примирения);
+   - значимые изменения в отношениях и статусах ключевых персон;
+   - особенности локации/чата (как менялось место, название, состав);
+   - устойчивые (повторяющиеся) мемы, традиции, привычки;
+   - смешные события, получившие резонанс;
+   - ключевые имена и роли.
+5. Интегрируй новое в существующий текст: если веха уже есть - уточни/усиль; если новое событие "прошло бесследно" - НЕ добавляй.
+
+СТИЛЬ: связный текст, 2-4 абзаца; каждая фраза несёт вес; с каждым обновлением лор становится плотнее и лаконичнее по духу (то же или меньше слов, но больше смысла), а не простынёй деталей. Без нумерации, без маркдауна, без кавычек-ёлочек и длинных тире. Максимум {max_words} слов.
+
+Если за период не произошло ничего глобального и лор менять не нужно - ответь ровно одной строкой: UNCHANGED
+"""
+
+_PREV_LORE_INIT_SYSTEM_PROMPT_REFERENCE = """\
+Ты архивариус чата. По сообщениям чата за последнее время составь лор чата: кто эти
+люди, чем живёт чат, ключевые мемы, истории, статусы, вайб.
+
+Верни связный текст на русском, 1-3 абзаца, максимум {max_words} слов, в стиле сообщений
+этого чата. Не используй кавычки-ёлочки и длинные тире.
+
+Если в окне нет ничего глобального, верни ровно строку: UNCHANGED
+"""
+
+
+class TestCanonDeltaF8:
+    """F8: PREV-слепки == прежний текст; новый канон = PREV + ироническая
+    заметка; PROMPT_MIGRATIONS не трогается."""
+
+    def test_prev_merge_byte_exact(self):
+        assert PREV_LORE_MERGE_SYSTEM_PROMPT == \
+            _PREV_LORE_MERGE_SYSTEM_PROMPT_REFERENCE
+
+    def test_prev_init_byte_exact(self):
+        assert PREV_LORE_INIT_SYSTEM_PROMPT == \
+            _PREV_LORE_INIT_SYSTEM_PROMPT_REFERENCE
+
+    def test_new_merge_is_prev_plus_note(self):
+        assert LORE_MERGE_SYSTEM_PROMPT != PREV_LORE_MERGE_SYSTEM_PROMPT
+        assert "ИРОНИЧЕСКИЙ ФИЛЬТР" in LORE_MERGE_SYSTEM_PROMPT
+        assert "ИРОНИЧЕСКИЙ ФИЛЬТР" not in PREV_LORE_MERGE_SYSTEM_PROMPT
+
+    def test_new_init_is_prev_plus_note(self):
+        assert LORE_INIT_SYSTEM_PROMPT != PREV_LORE_INIT_SYSTEM_PROMPT
+        assert "ИРОНИЧЕСКИЙ ФИЛЬТР" in LORE_INIT_SYSTEM_PROMPT
+        assert "ИРОНИЧЕСКИЙ ФИЛЬТР" not in PREV_LORE_INIT_SYSTEM_PROMPT
+
+    def test_not_registered_in_prompt_migrations(self):
+        import inspect
+        from services import prompt_migrations
+        source = inspect.getsource(prompt_migrations).lower()
+        assert "lore_merge" not in source
+        assert "lore_init" not in source

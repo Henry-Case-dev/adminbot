@@ -254,12 +254,12 @@ class TestDateRenderCoalesce:
             "SELECT created_at FROM graph_facts WHERE id = ?", (live_id,))
         live_ts = (await cursor.fetchone())["created_at"]
         live_day = _dt.datetime.fromtimestamp(
-            int(live_ts), _dt.timezone.utc).strftime("[%Y-%m-%d] ")
+            int(live_ts), _dt.timezone.utc).strftime("[%m.%Y] ")
         memory = MemoryManager(db, _FakeLLM())
         memory._vec_available = False      # → FTS-ветка поиска
         ctx = await memory.get_rag_context(
             -100, "петя машина март", include_direct_reply=True)
-        assert "[2024-05-15] " in ctx
+        assert "[05.2024] " in ctx
         # live-факт рендерится с датой created_at (COALESCE после backfill v7)
         assert live_day in ctx
 
@@ -292,4 +292,4 @@ class TestDateRenderCoalesce:
             "  <bot_knowledge></bot_knowledge>\n</context>"
         ctx = build_rag_context(
             [("chat_history", "факт", 1_715_731_200)])
-        assert "[2024-05-15] " in ctx
+        assert "[05.2024] " in ctx

@@ -1129,8 +1129,9 @@ async def get_status_logs(
     limit: int = Query(default=200, ge=1, le=1000),
 ):
     """Логи из ring-buffer (84.11.4): публично; секреты замаскированы уже
-    в буфере (84.11.1). level: DEBUG|INFO|WARNING|ERROR|CRITICAL|ALL
-    (дефолт INFO = INFO и выше); от новых к старым."""
+    в буфере (84.11.1). level: DEBUG|INFO|WARNING|ERROR|CRITICAL|ALL|
+    ERROR+WARNING (F6/§3.1: ERROR+WARNING = WARNING ∪ ERROR ∪ CRITICAL;
+    дефолт INFO = INFO и выше); от новых к старым."""
     from services.log_ring import get_log_ring
     entries = get_log_ring().get_entries(level=level, limit=limit)
     return {"count": len(entries), "logs": entries}

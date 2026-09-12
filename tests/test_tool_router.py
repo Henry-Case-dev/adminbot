@@ -444,8 +444,8 @@ class TestDigIntoLore:
 
     @pytest.mark.asyncio
     async def test_mode_facts_renders_dated_prefix(self):
-        """D-9/§3.2.1 п.6: факт графа рендерится «факт ГГГГ-ММ-ДД: текст»
-        (дата rag_ts = COALESCE(message_timestamp, created_at))."""
+        """F1/T-1420 (spec §3.6): факт графа рендерится единым RAG-хелпером
+        «[{label}] [ММ.ГГГГ | Автор: X] текст (возможно устарело)»."""
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[])
         import datetime as _dt
@@ -461,12 +461,13 @@ class TestDigIntoLore:
         out = await router.dispatch(
             "dig_into_lore", {"query": "машина", "mode": "facts"}, _ctx())
         assert out.startswith("факты:")
-        assert "факт 2023-03-15: Леха тогда купил машину" in out
-        assert "[2023-03-15]" not in out
+        assert "[03.2023 | Автор: Леха] Леха тогда купил машину" in out
+        assert "(Внимание: возможно устарело)" in out
 
     @pytest.mark.asyncio
-    async def test_mode_facts_without_date_renders_bare_text(self):
-        """Без даты (rag_ts=0) факт рендерится голым текстом, без префикса."""
+    async def test_mode_facts_without_date_renders_origin_label_only(self):
+        """Без даты (rag_ts=0) и без автора — только origin-метка, без
+        временного префикса/пометки."""
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[])
         db = MagicMock()
@@ -479,8 +480,8 @@ class TestDigIntoLore:
         out = await router.dispatch(
             "dig_into_lore", {"query": "без даты", "mode": "facts"}, _ctx())
         assert "факт без даты" in out
-        assert out.split("факты:")[1].strip() == "факт без даты"
-        assert not out.split("факты:")[1].strip().startswith("факт 1970-")
+        assert out.split("факты:")[1].strip() == "[чат] факт без даты"
+        assert "(Внимание" not in out
 
     @pytest.mark.asyncio
     async def test_mode_both_has_both_sections(self):

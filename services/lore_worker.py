@@ -42,6 +42,7 @@ coalesce=True)`; джоб регистрируется и планировщик
 ошибка чата не роняет тик; fail-open WARNING).
 """
 import asyncio
+import json
 import logging
 import os
 import random
@@ -55,6 +56,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 from config.settings import settings
 from services import hot_config as hot
 from services.chat_lore import CHAT_LORE_2661910336
+from services.dossier_prompts import (
+    DOSSIER_SYSTEM_PROMPT,
+    build_dossier_user,
+    parse_dossier_answer,
+)
 from services.llm_client import LLMError
 
 
@@ -175,12 +181,13 @@ class LoreWorker:
     def __init__(self, store, cache=None, db=None, llm=None,
                  bot_id: int | None = None, *, pg=None,
                  lock_connector=None, lock_dsn: str | None = None,
-                 scheduler=None):
+                 scheduler=None, aliases=None):
         self._store = store
         self._cache = cache                       # опционально (интерфейс B4)
         self._db = db
         self._llm = llm
         self.bot_id = bot_id
+        self._aliases = aliases                   # F8: канонизация target (canon_name)
         self._pg = pg if pg is not None else getattr(store, "pg", None)
         self._lock_dsn = lock_dsn
         self._lock_connector = lock_connector or self._default_lock_connector
@@ -458,11 +465,131 @@ class LoreWorker:
                 "[lore_worker] WARNING skip: budget lore_auto | chat=%s",
                 chat_id)
             return {"status": "skipped", "reason": "budget_skip"}
-        raw = await self._llm.generate([
+        # F3/T-1439 (spec §5): синтез лора — выделенная LLM роли history
+        # (пустые ключи/ошибка dedicated → роутер сам фоллбэчит на основную;
+        # моки/старые клиенты без generate_worker → прямой generate).
+        raw = await self._worker_llm("history", [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ])
-        return await self._apply_result(chat_id, raw, old_auto=auto_lore)
+        result = await self._apply_result(chat_id, raw, old_auto=auto_lore)
+        # F8 (spec §5): иронический фильтр — классификация досье best-effort
+        # ПОСЛЕ записи лора (флаг OFF → мгновенный skip, поведение 10.12).
+        await self._classify_dossier_safe(chat_id, lines, rows)
+        return result
+
+    # ── F8 (cognition-irony-dossier-round1013, spec §5): досье/ирония ──────
+
+    async def _classify_dossier_safe(self, chat_id: int, window: list[str],
+                                     rows) -> None:
+        """best-effort обёртка классификации (fail-open: ошибка одного шага
+        не роняет прогон лора, R16/R17: в логи только chat_id)."""
+        try:
+            if not hot.get("flags.irony_filter_enabled",
+                           settings.IRONY_FILTER_ENABLED):
+                return
+            names = self._window_names(rows)
+            await self._classify_dossier(chat_id, window, names)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[lore_worker] dossier classification failed — fail-open | "
+                "chat=%s", chat_id, exc_info=True)
+
+    def _canon(self, name: str) -> str:
+        """F8/R16: имя → канон-алиас (aliases.canon_name); нет резолвера —
+        имя как есть. Не бросает."""
+        text = str(name or "").strip()
+        if self._aliases is None:
+            return text
+        try:
+            return str(self._aliases.canon_name(text) or "").strip() or text
+        except Exception:
+            return text
+
+    def _window_names(self, rows) -> list[str]:
+        """Уникальные канон-имена авторов окна (без пустых), порядок окна."""
+        names: list[str] = []
+        seen: set[str] = set()
+        for r in rows:
+            author = str(_row_get(r, "author_name", 1) or "").strip()
+            if not author:
+                continue
+            canon = self._canon(author)
+            key = canon.casefold()
+            if canon and key not in seen:
+                seen.add(key)
+                names.append(canon)
+        return names
+
+    async def _classify_dossier(self, chat_id: int, window: list[str],
+                                names: list[str]) -> None:
+        """LLM-классификация окна в real_facts/chat_memes (канон досье) +
+        запись ТОЛЬКО `chat_memes` как `graph_facts.status='chat_meme'`
+        (spec §3, нулевой DDL). `real_facts` не дублируем (обычный GraphRAG).
+        Кривой JSON → 1 retry → skip. Идемпотентность — db.meme_exists."""
+        messages = [
+            {"role": "system", "content": DOSSIER_SYSTEM_PROMPT},
+            {"role": "user", "content": build_dossier_user(window, names)},
+        ]
+        raw = await self._dossier_llm(messages)
+        try:
+            items = parse_dossier_answer(raw, canon=self._canon)
+        except ValueError:
+            logger.info(
+                "[lore_worker] dossier answer invalid — 1 retry | chat=%s",
+                chat_id)
+            raw = await self._dossier_llm(messages)
+            try:
+                items = parse_dossier_answer(raw, canon=self._canon)
+            except ValueError:
+                logger.warning(
+                    "[lore_worker] dossier classification skipped (invalid "
+                    "JSON after retry) | chat=%s", chat_id)
+                return
+        written = 0
+        for item in items.get("chat_memes") or []:
+            text = str(item.get("text") or "").strip()
+            target = str(item.get("target") or "").strip()
+            if not text or not target:
+                continue
+            try:
+                if await self._db.meme_exists(chat_id, target, text):
+                    continue
+                await self._db.insert_graph_fact(
+                    chat_id, text, "chat_history", None, target_user=target,
+                    weight=0.4, status="chat_meme", kind="fact",
+                    belief_meta=json.dumps({
+                        "meme": True, "source": "dossier",
+                        "classified_by": item.get("classified_by", "llm"),
+                        "confidence": 0.8, "created_at": int(time.time()),
+                    }, ensure_ascii=False))
+                written += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "[lore_worker] meme write failed — fail-open | chat=%s",
+                    chat_id, exc_info=True)
+        if written:
+            logger.info(
+                "[lore_worker] dossier memes written | chat=%s | n=%s",
+                chat_id, written)
+
+    async def _worker_llm(self, role: str, messages: list[dict],
+                          temperature: float | None = None) -> str:
+        """F3/T-1439/F8: вызов выделенной LLM роли воркера
+        (`generate_worker`) с фоллбэком на `generate` (моки/старые клиенты
+        без роутера). R17: ключи логирует только llm_client — здесь их нет."""
+        worker_fn = getattr(self._llm, "generate_worker", None)
+        if callable(worker_fn):
+            return await worker_fn(role, messages, temperature=temperature)
+        return await self._llm.generate(messages, temperature=temperature)
+
+    async def _dossier_llm(self, messages: list[dict]) -> str:
+        """Вызов LLM воркера досье: роль background (F8/F3-T-1439)."""
+        return await self._worker_llm("background", messages, temperature=0.2)
 
     def _format_window(self, rows) -> list[str]:
         """Строки `[%Y-%m-%d %H:%M] автор: текст` в хронологическом порядке;

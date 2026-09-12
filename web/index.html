@@ -642,6 +642,91 @@
     /* Раунд 10.10 (п.2): обёртка графика истории ключей — относительное
        позиционирование + реактивная высота (maintainAspectRatio:false). */
     .keys-chart { position: relative; width: 100%; }
+
+    /* F6 (T-1460, ТЗ §8): SVG-EKG «Сердцебиение» — свой inline-SVG +
+       CSS-анимация (Chart.js key-history не трогаем). Период задаётся
+       переменной --ekg-period из computed heartbeat; цвет — классом
+       .ekg-calm/.ekg-elev/.ekg-high. */
+    .ekg-wrap { position: relative; width: 100%; }
+    .ekg { display: block; width: 100%; height: 56px; overflow: visible; }
+    .ekg-base {
+      fill: none; stroke: currentColor; stroke-width: 1.5;
+      stroke-linejoin: round; stroke-linecap: round; opacity: .18;
+    }
+    .ekg-trace {
+      fill: none; stroke: currentColor; stroke-width: 2.5;
+      stroke-linejoin: round; stroke-linecap: round;
+      stroke-dasharray: 70 330; stroke-dashoffset: 70;
+      animation: ekg-sweep var(--ekg-period, 2.4s) linear infinite;
+      filter: drop-shadow(0 0 4px currentColor);
+    }
+    @keyframes ekg-sweep {
+      from { stroke-dashoffset: 70; }
+      to   { stroke-dashoffset: -330; }
+    }
+    .ekg-calm { color: #34d399; }   /* норма → спокойный зелёный */
+    .ekg-elev { color: #f59e0b; }   /* 0.5..0.8 → учащённый оранжевый */
+    .ekg-high { color: #ef4444; }   /* >0.8 → частый красный */
+    @media (prefers-reduced-motion: reduce) {
+      .ekg-trace { animation: none !important; stroke-dashoffset: 0; }
+    }
+
+    /* F5 (T-1450..T-1456, ТЗ §5/§7): дашборд «Осмысление» — бегущие строки
+       (opacity-50 по краям → 100 в центре) + граф + виджет «Интеллект и
+       Память». Только фронт-классы (каталог-Δ=0). */
+    .cognition-ribbons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .cognition-ribbons { grid-template-columns: 1fr; } }
+    .ribbon {
+      border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+      padding: 8px; overflow: hidden; min-width: 0;
+    }
+    .ribbon-title { font-size: .72rem; font-weight: 700; margin-bottom: 6px; }
+    .ribbon-viewport {
+      position: relative; height: 156px; overflow: hidden;
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%,
+        #000 80%, transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 20%,
+        #000 80%, transparent);
+    }
+    .ribbon-track { animation: ribbon-scroll 22s linear infinite; }
+    @keyframes ribbon-scroll {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-50%); }
+    }
+    .ribbon-item {
+      display: flex; gap: 6px; align-items: baseline; font-size: .78rem;
+      padding: 3px 4px; transition: opacity .6s ease; min-width: 0;
+    }
+    .ribbon-ts { color: #94a3b8; font-size: .68rem; flex: none; }
+    .ribbon-op-100 { opacity: 1; }
+    .ribbon-op-75 { opacity: .75; }
+    .ribbon-op-50 { opacity: .5; }
+    .cognition-graph {
+      height: 320px; width: 100%; border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px; background: rgba(0,0,0,.18);
+    }
+    .badge.glow {
+      box-shadow: 0 0 10px currentColor;
+      animation: badge-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes badge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+    .progress > .bar-red { background: #ef4444 !important; }
+    .timeline-list {
+      display: flex; flex-direction: column; gap: 2px;
+      max-height: 140px; overflow-y: auto;
+    }
+    .timeline-row {
+      display: flex; gap: 6px; font-size: .76rem; align-items: baseline;
+      min-width: 0;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .badge.glow { animation: none !important; }
+      .ribbon-track { animation: none !important; }
+      .ribbon-viewport {
+        -webkit-mask-image: none !important; mask-image: none !important;
+      }
+      .ribbon-item { opacity: 1 !important; }
+    }
   </style>
 </head>
 <body>
@@ -1343,6 +1428,25 @@
               </article>
             </div>
 
+            <!-- F5 (T-1453, ТЗ §5): реальная статистика графа — в «Модулях»
+                 (дашборд «Статус» остаётся визуализацией графа). -->
+            <div v-if="isGlobalAdmin" class="card p-4 col-span-full">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('memory') }}</span> Статистика графа памяти</div>
+                <button class="btn-ghost text-xs ml-auto" @click="loadCognitionStats()">⟳</button>
+              </div>
+              <div v-if="cognitionStats" class="flex flex-wrap gap-2 text-xs">
+                <span class="badge badge-muted">Узлов: {{ cognitionStats.graph_nodes }}</span>
+                <span class="badge badge-muted">Рёбер: {{ cognitionStats.graph_edges }}</span>
+                <span class="badge badge-muted">Типов связей: {{ cognitionStats.relation_types }}</span>
+                <span class="badge badge-muted">Фактов: {{ cognitionStats.facts }}</span>
+                <span class="badge badge-muted">Убеждений: {{ cognitionStats.beliefs }}</span>
+                <span class="badge badge-muted">Парадигм: {{ cognitionStats.paradigms }}</span>
+                <span class="badge badge-muted">Мемов: {{ cognitionStats.memes }}</span>
+              </div>
+              <div v-else class="text-xs text-gray-500">Статистика недоступна.</div>
+            </div>
+
             <!-- 10.9 (п.5/п.6): карточка дублирующих гейтов удалена (их
                  тумблеры живут в per-module карточках; авто-лор — в
                  killswitch «Сводки»), «Бюджет фона» перенесён в «Сводку». -->
@@ -1631,6 +1735,66 @@
                   <div v-else class="text-xs text-gray-500">Сегодня расхода ещё не было.</div>
                 </div>
                 <div v-else class="text-xs text-gray-500">Бюджет недоступен.</div>
+              </div>
+              <!-- F5 (T-1454..T-1456, ТЗ §7): «Интеллект и Память» — пульс
+                   процессов, прогресс-бары бюджета/лимитов, метрики БД и
+                   компактный Timeline. Источник — cognition/status, stats,
+                   timeline + /api/status.context + workers/budget. -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-xs font-bold">Интеллект и Память</div>
+                  <span class="text-xs text-gray-500">пульс · лимиты · Timeline</span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="memoryWidgetBusy"
+                          @click="loadMemoryWidget()">⟳</button>
+                </div>
+                <div v-if="memoryWidgetBusy" class="spinner my-2"></div>
+                <template v-else>
+                  <!-- Верх: пульс процессов -->
+                  <div class="flex flex-wrap gap-2 mb-2">
+                    <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}<template v-if="cognition && cognition.dream && cognition.dream.next_wake_at"> · {{ fmtClock(cognition.dream.next_wake_at) }}</template></span>
+                    <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
+                    <span class="badge badge-muted">💾 Лор: {{ cognition && cognition.lore && cognition.lore.last_inject_at ? fmtClock(cognition.lore.last_inject_at) : '—' }}</span>
+                    <span class="badge badge-info">📻 {{ nostalgiaLabel() }}</span>
+                  </div>
+                  <!-- Середина: бюджеты/лимиты -->
+                  <div class="mb-2">
+                    <div class="flex justify-between text-xs text-gray-400">
+                      <span>Бюджет контекста</span>
+                      <span>{{ memoryContext.used == null ? '—' : memoryContext.used }} / {{ memoryContext.limit || '—' }} токенов<template v-if="memoryContext.truncated"> · урезание</template></span>
+                    </div>
+                    <div class="progress"><div :class="{ 'bar-red': memoryContext.red }"
+                         :style="{ width: Math.min(100, (memoryContext.ratio || 0) * 100) + '%' }"></div></div>
+                  </div>
+                  <div class="mb-2" v-if="budgetInfo && budgetInfo.global">
+                    <div class="flex justify-between text-xs text-gray-400">
+                      <span>Дневной фон (вызовы)</span>
+                      <span>{{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</span>
+                    </div>
+                    <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+                  </div>
+                  <div class="mb-2" v-if="cognition && cognition.dream && cognition.dream.budget">
+                    <div class="flex justify-between text-xs text-gray-400">
+                      <span>Сон (токены за сутки)</span>
+                      <span>{{ fmtTokens(cognition.dream.budget.tokens_today) }} / {{ fmtTokens(cognition.dream.budget.tokens_limit) }}</span>
+                    </div>
+                    <div class="progress"><div :style="{ width: (cognition.dream.budget.tokens_limit ? Math.min(100, (cognition.dream.budget.tokens_today / cognition.dream.budget.tokens_limit) * 100) : 0) + '%' }"></div></div>
+                  </div>
+                  <!-- Низ: метрики БД + Timeline -->
+                  <div class="flex flex-wrap gap-2 mb-2 text-xs" v-if="cognitionStats">
+                    <span class="badge badge-muted">Фактов в графе: {{ cognitionStats.facts }}</span>
+                    <span class="badge badge-muted">Убеждений: {{ cognitionStats.beliefs }}</span>
+                    <span class="badge badge-muted">Защищённых: {{ cognitionStats.protected_facts }}</span>
+                    <span class="badge badge-muted">Парадигм: {{ cognitionStats.paradigms }}</span>
+                  </div>
+                  <div class="timeline-list" v-if="cognitionTimeline && cognitionTimeline.length">
+                    <div v-for="(ev, i) in cognitionTimeline" :key="'tl' + i" class="timeline-row">
+                      <span class="text-gray-500 flex-none">{{ fmtClock(ev.ts) }}</span>
+                      <span class="flex-none">{{ ev.icon }}</span>
+                      <span class="truncate">{{ ev.text }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="text-xs text-gray-500">Активности пока нет.</div>
+                </template>
               </div>
               <div v-if="oversightBusy" class="spinner my-4"></div>
               <div v-else-if="oversightRows().length === 0"
@@ -2710,12 +2874,83 @@
               </div>
             </div>
 
-            <!-- График аптайма -->
+            <!-- F6 (T-1460, ТЗ §8): SVG-EKG «Сердцебиение» вместо
+                 бесполезного линейного графика аптайма. Пульс =
+                 loadavg[0]/cpu_count (Linux) или max(CPU%, RAM%)/100
+                 (Windows dev, loadavg=None); всё None → нейтраль. Цвет и
+                 период — computed heartbeat (пороги — фронт-константы,
+                 каталог-Δ=0). prefers-reduced-motion — анимация off (CSS). -->
             <div class="card p-4" style="grid-column: 1 / -1;">
-              <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('trending_up') }}</span> Аптайм (24ч, бакеты 5 мин)</div>
-              <div v-if="!statusData" class="spinner"></div>
-              <div v-else-if="statusData.uptime.buckets.length === 0" class="text-gray-500 text-sm">Нет данных аптайма.</div>
-              <canvas v-else ref="uptimeCanvas" height="90"></canvas>
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
+                <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
+                <span class="text-xs text-gray-500">{{ heartbeat.detail }}</span>
+              </div>
+              <div class="ekg-wrap" :class="'ekg-' + heartbeat.level"
+                   :style="{ '--ekg-period': heartbeat.period + 's' }">
+                <svg class="ekg" viewBox="0 0 320 80" preserveAspectRatio="none"
+                     role="img" :aria-label="'Пульс сервера: ' + heartbeat.label">
+                  <polyline class="ekg-base" vector-effect="non-scaling-stroke"
+                            points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
+                  <polyline class="ekg-trace" vector-effect="non-scaling-stroke"
+                            points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
+                </svg>
+              </div>
+            </div>
+
+            <!-- F5 (T-1450..T-1452, ТЗ §5): «Мониторинг Интеллекта» — только
+                 global admin. Две вертикальные бегущие строки (Убеждения/Сон,
+                 Парадигмы/Глубокий сон, opacity 50→100), бейджи активных фаз
+                 в реальном времени, force-directed граф (vis-network,
+                 lazy self-host, drag/zoom). -->
+            <div v-if="isGlobalAdmin" class="card p-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
+                <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
+                <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
+                <span v-if="cognition && cognition.dream && cognition.dream.next_wake_at"
+                      class="text-xs text-gray-500">пробуждение ~{{ fmtClock(cognition.dream.next_wake_at) }}</span>
+                <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
+                        @click="loadCognition()">⟳</button>
+              </div>
+              <div class="cognition-ribbons">
+                <div class="ribbon">
+                  <div class="ribbon-title">Убеждения <span class="text-gray-500">(Сон)</span></div>
+                  <div class="ribbon-viewport">
+                    <div v-if="!cognitionBeliefsLoop.length" class="text-xs text-gray-500 py-4">Пул убеждений пуст.</div>
+                    <div v-else class="ribbon-track">
+                      <div v-for="it in cognitionBeliefsLoop" :key="it.key"
+                           class="ribbon-item" :class="it.op">
+                        <span class="ribbon-ts">{{ fmtClock(it.created_at) }}</span>
+                        <span class="truncate">{{ it.fact }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="ribbon">
+                  <div class="ribbon-title">Парадигмы <span class="text-gray-500">(Глубокий сон)</span></div>
+                  <div class="ribbon-viewport">
+                    <div v-if="!cognitionParadigmsLoop.length" class="text-xs text-gray-500 py-4">Пул парадигм пуст.</div>
+                    <div v-else class="ribbon-track">
+                      <div v-for="it in cognitionParadigmsLoop" :key="it.key"
+                           class="ribbon-item" :class="it.op">
+                        <span class="ribbon-ts">{{ fmtClock(it.created_at) }}</span>
+                        <span class="truncate">{{ it.fact }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <div class="text-xs font-bold">Граф связей</div>
+                  <span v-if="cognitionGraphData" class="text-xs text-gray-500">
+                    {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер<template v-if="cognitionGraphData.truncated"> · показаны не все</template>
+                  </span>
+                  <span v-if="!cognitionVisLoaded" class="text-xs text-gray-500">vis-network грузится при открытии…</span>
+                </div>
+                <div ref="cognitionGraph" class="cognition-graph"></div>
+              </div>
             </div>
 
             <!-- Доступность ключей API (B1/OD8, T-1128/T-1129): плотный
@@ -2763,8 +2998,8 @@
             <div class="card p-4" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
-                <select class="field w-32 shrink-0" v-model="logLevel">
-                  <option v-for="lvl in ['ALL','DEBUG','INFO','WARNING','ERROR','CRITICAL']" :key="lvl" :value="lvl">{{ lvl }}</option>
+                <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
+                  <option v-for="lvl in ['ERROR+WARNING','ERROR','WARNING','INFO','DEBUG','CRITICAL','ALL']" :key="lvl" :value="lvl">{{ lvl }}</option>
                 </select>
                 <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
                 <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ logs.length }} из {{ logsCount }}</span>

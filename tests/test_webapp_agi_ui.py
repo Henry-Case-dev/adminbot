@@ -122,8 +122,8 @@ class TestMemoryFrontAudit:
         assert '"code": "already_running"' in src
         assert "status_code=409" in src
         assert "status_code=503" in src
-        assert "worker.run_once(chat_id)" in src
-        assert "asyncio.create_task(worker.run_once(chat_id))" in src
+        assert "run_once(chat_id" in src
+        assert "asyncio.create_task(worker.run_once(chat_id, deep=deep))" in src
         assert "status_code=404" in src
         assert "soft_delete_belief(fact_id)" in src
         assert "protect_belief_text" in src

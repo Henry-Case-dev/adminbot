@@ -425,6 +425,21 @@ class Settings:
     LLM_FALLBACK_BASE_URL: str = _env_str("LLM_FALLBACK_BASE_URL", "")
     LLM_FALLBACK_MODEL: str = _env_str("LLM_FALLBACK_MODEL", "")
     LLM_FALLBACK_API_KEY: str = _env_str("LLM_FALLBACK_API_KEY", "")
+    # ── Раунд 10.13 (F4, ADR-1013-1 §2.1): выделенные LLM для Интеллекта ──
+    # Две роли: historical-память (Вехи/Лор) и фоновые проверки (оценка
+    # важности). PG-ключи `models.intel_<role>_*` / `keys.intel_<role>_api_key`
+    # (role ∈ history|bg), settings-дефолт "" — только code-fallback. Пустые
+    # поля → рантайм-фоллбэк на основную модель (F3, LLMClient.generate_worker).
+    # R17: ключи не логируются. Реальные значения — через мини-апп
+    # («LLM Провайдеры» → два новых блока подключения).
+    INTEL_HISTORY_BASE_URL: str = _env_str("INTEL_HISTORY_BASE_URL", "")
+    INTEL_HISTORY_MODEL_NAME: str = _env_str("INTEL_HISTORY_MODEL_NAME", "")
+    INTEL_HISTORY_DISPLAY_NAME: str = _env_str("INTEL_HISTORY_DISPLAY_NAME", "")
+    INTEL_HISTORY_API_KEY: str = _env_str("INTEL_HISTORY_API_KEY", "")
+    INTEL_BG_BASE_URL: str = _env_str("INTEL_BG_BASE_URL", "")
+    INTEL_BG_MODEL_NAME: str = _env_str("INTEL_BG_MODEL_NAME", "")
+    INTEL_BG_DISPLAY_NAME: str = _env_str("INTEL_BG_DISPLAY_NAME", "")
+    INTEL_BG_API_KEY: str = _env_str("INTEL_BG_API_KEY", "")
     # ── GraphRAG memorize (Epic 47, Section 56.5) ──
     GRAPH_MEMORIZE_MAX_BATCH_RETRIES: int = _env_int_min("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", 2, 0)
     GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF: float = _env_float_min("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", 2.0, 0.0)
@@ -512,6 +527,11 @@ class Settings:
     GRAPH_RAG_FACTS_LIMIT: int = _env_int("GRAPH_RAG_FACTS_LIMIT", 10)
     # Жёсткий потолок символов XML-контекста RAG (truncate с WARNING).
     GRAPH_RAG_CONTEXT_MAX_CHARS: int = _env_int("GRAPH_RAG_CONTEXT_MAX_CHARS", 2000)
+    # F1/T-1419 (spec §3.2, ТЗ §1): порог «устаревания» факта RAG, дней.
+    # Возраст факта СТРОГО больше порога → пометка «(Внимание: возможно
+    # устарело)»; ровно порог — не устарел. Дефолт 180 (≈6 мес). Управляется
+    # через limits.rag_stale_after_days (категория limits, per-chat).
+    RAG_STALE_AFTER_DAYS: int = _env_int("RAG_STALE_AFTER_DAYS", 180)
 
     # ── Раунд 4 (T-715, FR-D5): память-команды «запомни/забудь» для участников ──
     # False = команды работают только у админа/модератора (юзеру — фраза-отказ).
@@ -971,6 +991,13 @@ class Settings:
     LORE_TICK_MINUTES: int = _env_int("LORE_TICK_MINUTES", 30)
     LORE_GENERATE_COOLDOWN: int = _env_int("LORE_GENERATE_COOLDOWN", 60)
 
+    # ── F8 (cognition-irony-dossier-round1013, spec §8): иронический фильтр ──
+    # Глобальный рубильник классификации досье (мемы vs реальные факты) и
+    # двухблочного рендера досье. Дефолт FALSE: при OFF поведение 10.12
+    # байт-в-байт (spec §9). Парное поле Settings для REGISTRY-записи
+    # flags.irony_filter_enabled (группа flags_relations).
+    IRONY_FILTER_ENABLED: bool = _env_bool("IRONY_FILTER_ENABLED", False)
+
     # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-816/T-817): отношения ─────
     # Парные поля Settings для REGISTRY-записей limits.relations_*/flags
     # (группа limits_relations/flags_relations): дефолты сидятся в
@@ -1052,6 +1079,40 @@ class Settings:
         "DREAM_DISTILLATIONS_PER_DAY", 30)
     DREAM_TOKENS_PER_DAY: int = _env_int("DREAM_TOKENS_PER_DAY", 60000)
 
+    # ── Раунд 10.13 (F2 cognition-belief-decay, spec §7): охлаждение
+    #    убеждений + воскрешение ─────────────────────────────────────────────
+    # Парные Settings-поля для REGISTRY-записей категории memory/limits/flags.
+    # BELIEF_DECAY_ENABLED — рубильник всей подфичи (default FALSE: бэкенд-фаза,
+    # §8; при OFF поведение 10.12 без изменений). Остальные — параметры декаю
+    # (неподкреплённость/шаг/порог архива) и векторного резонанса
+    # (пенальти к score / порог косинусного сходства для воскрешения).
+    BELIEF_DECAY_ENABLED: bool = _env_bool("BELIEF_DECAY_ENABLED", False)
+    BELIEF_INACTIVITY_DAYS: int = _env_int("BELIEF_INACTIVITY_DAYS", 180)
+    BELIEF_DECAY_PER_MONTH: float = _env_float("BELIEF_DECAY_PER_MONTH", 0.1)
+    BELIEF_ARCHIVE_THRESHOLD: float = _env_float(
+        "BELIEF_ARCHIVE_THRESHOLD", 0.3)
+    BELIEF_RESONANCE_PENALTY: float = _env_float(
+        "BELIEF_RESONANCE_PENALTY", 0.3)
+    BELIEF_RESONANCE_THRESHOLD: float = _env_float(
+        "BELIEF_RESONANCE_THRESHOLD", 0.78)
+
+    # ── Раунд 10.13 (F3 cognition-deep-sleep, spec §7): «глубокий сон» ──────
+    # Парные Settings-поля для REGISTRY-записей категорий flags/memory/limits.
+    # DEEP_SLEEP_ENABLED — рубильник всей подфичи (default FALSE: бэкенд-фаза,
+    # spec §8; при OFF воркер не стартует, поведение 10.12 без изменений).
+    # Триггер по умолчанию — СРАЗУ после успешного обычного сна
+    # (memory.deep_sleep_trigger='after_sleep'); альтернатива 'fixed' +
+    # memory.deep_sleep_hour (local TZ WORKER_BUDGET_TZ).
+    DEEP_SLEEP_ENABLED: bool = _env_bool("DEEP_SLEEP_ENABLED", False)
+    DEEP_SLEEP_TRIGGER: str = _env_str("DEEP_SLEEP_TRIGGER", "after_sleep")
+    DEEP_SLEEP_HOUR: int = _env_int("DEEP_SLEEP_HOUR", 7)
+    # Ограничение стоимости RAG «по всей базе» (spec §4/F3-Q3):
+    # top-k кандидатов, потолок парадигм на прогон и суточный токен-кап.
+    DEEP_SLEEP_TOP_K: int = _env_int("DEEP_SLEEP_TOP_K", 20)
+    DEEP_SLEEP_MAX_PARADIGMS: int = _env_int("DEEP_SLEEP_MAX_PARADIGMS", 3)
+    DEEP_SLEEP_TOKENS_PER_DAY: int = _env_int(
+        "DEEP_SLEEP_TOKENS_PER_DAY", 40000)
+
     # ── Раунд 9 (AGI Memory, spec §3.6.4/Q12, T-826/T-827): ностальгия ──
     # Парные Settings-поля для REGISTRY-записей категории memory (группа
     # memory_nostalgia; dotted-ключи memory.nostalgia_* — тот же прецедент,
@@ -1129,7 +1190,7 @@ settings = Settings()
 
 # Epic 85 (84.11.2, T-629): версия приложения для /api/status (синхронизировать
 # с changelog MEMORY.md при релизах).
-APP_VERSION = "2.56.0"
+APP_VERSION = "2.57.0"
 
 
 def build_ytdlp_base_opts() -> dict:

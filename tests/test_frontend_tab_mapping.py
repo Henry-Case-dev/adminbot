@@ -71,11 +71,11 @@ class TestTabMappingAudit:
                 assert by_tab[a].isdisjoint(by_tab[b])
 
     def test_mapped_and_counts(self):
-        # 90 GROUPS − 2 content (tab=None) = 88 mapped; 10.9: +7 display,
-        # −reactions_persons → REGISTRY 400.
+        # 90 GROUPS − 2 content (tab=None) = 88 mapped; 10.13 (F1+F2+F3+F8+F4):
+        # REGISTRY 427.
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(GROUPS) == 90
-        assert len(pc.REGISTRY) == 405
+        assert len(pc.REGISTRY) == 427
 
 
 class TestModuleTabs:
@@ -235,6 +235,15 @@ def test_widget_keyvalue_on_summary_aliases():
     spec = next(s for s in pc.REGISTRY.values()
                 if s.pg_key == "limits.summary_aliases")
     assert spec.widget == "keyvalue"
+    # 10.13 (F3): + memory.deep_sleep_trigger (select) — sanctioned Δ.
     sel = [s for s in pc.REGISTRY.values() if s.widget == "select"]
-    assert len(sel) == 1
-    assert sel[0].pg_key == "limits.chat_temperature_preset_default"
+    assert {s.pg_key for s in sel} == {
+        "limits.chat_temperature_preset_default",
+        "memory.deep_sleep_trigger",
+    }
+    for spec in sel:
+        assert spec.select_options and spec.select_labels
+        assert len(spec.select_options) == len(spec.select_labels)
+    trigger = next(s for s in sel
+                   if s.pg_key == "memory.deep_sleep_trigger")
+    assert trigger.select_options == ("after_sleep", "fixed")

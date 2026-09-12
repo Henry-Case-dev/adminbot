@@ -323,14 +323,20 @@ class ToolRouter:
             try:
                 db = getattr(self.deps.memory, "db", None)
                 if db is not None and hasattr(db, "search_graph_facts_fts"):
-                    from services.summary_memory import build_fts_query
+                    from services.summary_memory import (
+                        _format_origin_labeled_line,
+                        build_fts_query,
+                    )
                     match = build_fts_query(merged)
                     if match:
+                        # F2/T-1426 (spec §2): dig_into_lore — прямое копание,
+                        # архивные beliefs участвуют (include_archived=True).
                         rows = await db.search_graph_facts_fts(
                             ctx.chat_id, match,
                             limit=max_facts * 3,
                             now_ts=int(time.time()),
-                            include_direct_reply=False)
+                            include_direct_reply=False,
+                            include_archived=True)
                         seen_facts: set[str] = set()
                         for row in (dict(r) for r in rows):
                             ts = int(row.get("rag_ts") or 0)
@@ -346,12 +352,14 @@ class ToolRouter:
                             if not text or text in seen_facts:
                                 continue
                             seen_facts.add(text)
-                            # D-9/§3.2.1 п.6: рендер «факт ГГГГ-ММ-ДД: текст»
-                            # (дата rag_ts = COALESCE(message_timestamp,
-                            # created_at)); без даты — голый текст.
-                            stamp = self._dig_date(ts) if ts else ""
-                            fact_lines.append(f"факт {stamp}: {text}"
-                                              if stamp else text)
+                            # F1/T-1420 (spec §3.6): единый RAG-рендер факта
+                            # «[{label}] [ММ.ГГГГ | Автор: X] текст (возможно
+                            # устарело)» — тот же хелпер, что и в RAG-контексте.
+                            # Автор — target_user строки (R16, не выдумываем).
+                            ts_render = ts if ts else None
+                            fact_lines.append(_format_origin_labeled_line((
+                                row.get("origin"), text, ts_render,
+                                row.get("target_user"))))
                             if len(fact_lines) >= max_facts:
                                 break
             except asyncio.CancelledError:

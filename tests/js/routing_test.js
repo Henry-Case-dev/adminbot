@@ -823,8 +823,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.deepStrictEqual(
       ids.filter((id) => id.indexOf('llm_guard') < 0
         && id.indexOf('search_keys') < 0 && id.indexOf('media_share') < 0),
-      ['direct', 'transcription', 'video_summary', 'embeddings'],
-      '10.12: 4 merged connection parent-блока');
+      ['direct', 'transcription', 'video_summary', 'embeddings',
+       'intel_history', 'intel_background'],
+      '10.13 (F4): +2 merged intel-блока в «Подключениях»');
     // 10.12: parent-блоки несут subBlocks; id'ы подблоков сохранены.
     const byId = {};
     blocks.forEach((b) => { byId[b.id] = b; });
@@ -874,6 +875,52 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       '10.12: новый embed-ключ покрыт (нет generic-дубля)');
     assert.ok(covered['models.openrouter_transcribe_display_name'],
       '10.12: новый STT display-name покрыт (нет generic-дубля)');
+    // ── 10.13 (F4, ADR-1013-1 §2.3): два выделенных LLM Интеллекта ────────
+    assert.deepStrictEqual(byId.intel_history.subBlocks.map((sb) => sb.id),
+      ['intel_history_main'], 'F4: intel_history = один подблок');
+    assert.deepStrictEqual(byId.intel_background.subBlocks.map((sb) => sb.id),
+      ['intel_background_main'], 'F4: intel_background = один подблок');
+    const intelHistory = byId.intel_history.subBlocks[0];
+    const intelBg = byId.intel_background.subBlocks[0];
+    assert.ok(intelHistory.fields.some(
+      (f) => f.key === 'models.intel_history_display_name' && f.role === ''),
+      'F4: display-name первым полем (role "")');
+    assert.ok(intelHistory.fields.some(
+      (f) => f.key === 'models.intel_history_base_url' && f.role === 'base_url'),
+      'F4: base_url с ролью base_url');
+    assert.ok(intelHistory.fields.some(
+      (f) => f.key === 'models.intel_history_model_name' && f.role === 'model'),
+      'F4: модель с ролью model');
+    assert.ok(intelHistory.fields.some(
+      (f) => f.key === 'keys.intel_history_api_key' && f.role === 'api_key'
+        && f.secret === true),
+      'F4: ключ — секрет с ролью api_key');
+    assert.ok(intelBg.fields.some((f) => f.key === 'models.intel_bg_base_url'),
+      'F4: bg base_url');
+    assert.ok(intelBg.fields.some((f) => f.key === 'models.intel_bg_model_name'),
+      'F4: bg model');
+    assert.ok(intelBg.fields.some((f) => f.key === 'keys.intel_bg_api_key'
+      && f.secret === true), 'F4: bg ключ');
+    // parent modules ≠ title → blockDisplayName не дублирует заголовок.
+    ['intel_history', 'intel_background'].forEach((id) => {
+      const b = byId[id];
+      assert.ok(b.modules && b.modules !== b.title,
+        'F4: parent modules ≠ title (R10.12-5)');
+      const dn = methods.blockDisplayName.call(
+        { blockDrafts: {}, configItems: [], blockFieldValue: methods.blockFieldValue },
+        b);
+      assert.strictEqual(dn, b.modules,
+        'F4: без display-значения подпись = modules (не title)');
+    });
+    // Все 8 новых ключей покрыты рекурсивным providerCoveredKeys.
+    [
+      'models.intel_history_display_name', 'models.intel_history_base_url',
+      'models.intel_history_model_name', 'keys.intel_history_api_key',
+      'models.intel_bg_display_name', 'models.intel_bg_base_url',
+      'models.intel_bg_model_name', 'keys.intel_bg_api_key',
+    ].forEach((k) => {
+      assert.ok(covered[k], 'F4: ключ ' + k + ' покрыт (нет generic-дубля)');
+    });
   }
 
   // ── 10.12 (ADR-1012-1 D2): глобальные provider-ключи → api global:true ──
@@ -1130,6 +1177,126 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'LOW: ссылка keyHistoryChart очищена');
     assert.strictEqual(ctx.keyHistoryChartHeight, 120,
       'LOW: высота сброшена при пустой истории');
+  }
+
+  // ── F6 (T-1460): EKG-«сердцебиение» — computed, привязка к Load/CPU/RAM.
+  {
+    const hb = computed.heartbeat;
+    assert.strictEqual(typeof hb, 'function', 'F6: heartbeat — computed');
+    // Linux: loadavg[0]/cpu_count = 1.0/2 = 0.5 → повышён (оранжевый)
+    const elev = hb.call({ statusData: { server: {
+      loadavg: [1.0, 0.8, 0.6], cpu_count: 2, cpu_percent: 10,
+      memory: { percent: 12 } } } });
+    assert.strictEqual(elev.level, 'elev', 'F6: 0.5 → elev');
+    assert.strictEqual(elev.badge, 'badge-warn', 'F6: elev → оранжевый');
+    assert.strictEqual(elev.period, 1.4, 'F6: elev → период 1.4s');
+    // >0.8 → пик (красный), учащённый пульс
+    const high = hb.call({ statusData: { server: {
+      loadavg: [3.2, 2.0, 1.0], cpu_count: 2 } } });
+    assert.strictEqual(high.level, 'high', 'F6: >0.8 → high');
+    assert.strictEqual(high.badge, 'badge-err', 'F6: high → красный');
+    assert.strictEqual(high.period, 0.8, 'F6: high → период 0.8s');
+    // Windows dev: loadavg = null → фолбэк max(CPU%, RAM%)
+    const calm = hb.call({ statusData: { server: {
+      loadavg: null, cpu_count: 8, cpu_percent: 20,
+      memory: { percent: 30 } } } });
+    assert.strictEqual(calm.level, 'calm', 'F6: CPU/RAM-фолбэк → calm');
+    assert.strictEqual(calm.badge, 'badge-ok', 'F6: calm → зелёный');
+    assert.strictEqual(calm.period, 2.4, 'F6: calm → период 2.4s');
+    // всё None/нет данных → нейтральный спокойный (не падает)
+    const neutral = hb.call({ statusData: { server: {} } });
+    assert.strictEqual(neutral.level, 'calm', 'F6: метрик нет → нейтраль');
+    assert.strictEqual(hb.call({ statusData: null }).level, 'calm',
+      'F6: statusData=null → нейтраль');
+  }
+
+  // ── F6 (T-1461/1462): дефолт логов = ERROR+WARNING, единый источник.
+  {
+    const d = captured.data();
+    assert.strictEqual(d.logLevel, 'ERROR+WARNING',
+      'F6: дефолт logLevel = ERROR+WARNING (F6-Q4)');
+    assert.ok(captured.watch && typeof captured.watch.logLevel === 'function',
+      'F6: watch.logLevel — селектор == запрос == рендер');
+  }
+
+  // ── F5 (cognition-dashboard-round1013): ленты/бейджи/бюджет/граф ────────
+  {
+    // ribbonItemClass: центр → 100, край → 50 (opacity по позиции).
+    const rc = methods.ribbonItemClass;
+    assert.strictEqual(rc(2, 5), 'ribbon-op-100', 'F5: центр ленты op-100');
+    assert.strictEqual(rc(0, 5), 'ribbon-op-50', 'F5: край ленты op-50');
+    assert.strictEqual(rc(1, 5), 'ribbon-op-75', 'F5: середина op-75');
+    assert.strictEqual(rc(0, 1), 'ribbon-op-100', 'F5: один элемент — центр');
+
+    // Бейджи фаз из реального cognition/status.
+    const dream = computed.dreamPhaseBadge;
+    assert.strictEqual(typeof dream, 'function', 'F5: dreamPhaseBadge computed');
+    assert.strictEqual(
+      dream.call({ cognition: { dream: { running: true } } }).text,
+      '🌙 Сон активен', 'F5: бегущий сон → бейдж');
+    assert.strictEqual(
+      dream.call({ cognition: { dream: { state: 'limit_exhausted' } } }).cls,
+      'badge-warn', 'F5: лимит исчерпан → warn');
+    assert.strictEqual(dream.call({ cognition: null }).text, '🌙 Спит',
+      'F5: нет данных → Спит');
+    const deep = computed.deepPhaseBadge;
+    assert.strictEqual(
+      deep.call({ cognition: { deep_sleep: { running: true } } }).text,
+      '🌌 Глубокий сон активен', 'F5: глубокий сон → бейдж');
+
+    // Бюджет контекста (аддитивное /api/status.context).
+    const mc = computed.memoryContext;
+    assert.strictEqual(mc.call({ statusData: null }).used, null,
+      'F5: нет данных → used=null');
+    assert.strictEqual(mc.call({ statusData: { context: {
+      used: 9500, limit: 10000, truncated: false } } }).red, true,
+      'F5: >90% → красный');
+    assert.strictEqual(mc.call({ statusData: { context: {
+      used: 100, limit: 10000, truncated: true } } }).red, true,
+      'F5: truncated → красный');
+    assert.strictEqual(mc.call({ statusData: { context: {
+      used: 100, limit: 10000, truncated: false } } }).red, false,
+      'F5: заполнено — не красный');
+
+    // Модель ленты: дублируется для seamless-скролла + op-класс.
+    const loop = computed.cognitionBeliefsLoop.call({
+      cognitionBeliefs: [{ id: 1, fact: 'a', created_at: 100 },
+                         { id: 2, fact: 'b', created_at: 200 }],
+      _ribbonLoop: methods._ribbonLoop,
+      ribbonItemClass: methods.ribbonItemClass,
+    });
+    assert.strictEqual(loop.length, 4, 'F5: лента дублируется (2×2)');
+    assert.ok(loop[0].op.indexOf('ribbon-op-') === 0,
+      'F5: op-класс в модели ленты');
+    assert.strictEqual(loop[0].key !== loop[2].key, true,
+      'F5: ключи дублей уникальны');
+
+    // Форматтеры виджета.
+    assert.strictEqual(methods.fmtTokens.call({}, 45000), '45k',
+      'F5: токены → k');
+    assert.strictEqual(methods.fmtTokens.call({}, 500), '500',
+      'F5: токены < 1000');
+    const sil = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
+      mode: 'silence', silence_left_min: 25, silence_min_total: 45 } } });
+    assert.strictEqual(sil, 'Тишина: 25/45 мин', 'F5: таймер тишины');
+    const cd = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
+      mode: 'cooldown', cooldown_left_h: 8 } } });
+    assert.strictEqual(cd, 'Кулдаун: ещё 8 ч', 'F5: кулдаун');
+
+    // Destroy инстанса vis до повторного рендера (R10.11-5).
+    let destroyed = 0;
+    const gctx = { cognitionNetwork: { destroy() { destroyed += 1; } } };
+    methods.destroyCognitionGraph.call(gctx);
+    assert.strictEqual(destroyed, 1, 'F5: network.destroy() вызван');
+    assert.strictEqual(gctx.cognitionNetwork, null, 'F5: ссылка очищена');
+
+    // Polling lifecycle (15с; стоп очищает таймер).
+    const pctx = { isGlobalAdmin: true, cognitionTimer: null,
+                   loadCognition() {}, reducedMotion: false };
+    methods.startCognitionPolling.call(pctx);
+    assert.ok(pctx.cognitionTimer != null, 'F5: polling запущен');
+    methods.stopCognitionPolling.call(pctx);
+    assert.strictEqual(pctx.cognitionTimer, null, 'F5: polling остановлен');
   }
 
   console.log('JS-UNIT-OK');

@@ -490,3 +490,40 @@ class TestProtectedAndSupersede:
         row = await cursor.fetchone()
         assert row["supersedes"] == new["id"]
         assert row["status"] == "confirmed"    # старый жив (ранг решает, D-6)
+
+
+class _RoleFakeLLM(_FakeLLM):
+    """_FakeLLM + generate_worker (F3/T-1439): фиксирует роли роутера."""
+
+    def __init__(self, *answers):
+        super().__init__(*answers)
+        self.worker_roles: list[str] = []
+
+    async def generate_worker(self, role, messages, temperature=None):
+        self.worker_roles.append(role)
+        return await self.generate(messages, temperature=temperature)
+
+
+class TestWorkerRouterRole:
+    """BLOCKER-1 (F3/T-1439): синтез «сна» идёт ролью background, не main."""
+
+    @pytest.mark.asyncio
+    async def test_dream_uses_background_role(self, db, monkeypatch):
+        llm = _RoleFakeLLM(_ANS_A)
+        worker = _worker(db, llm, monkeypatch=monkeypatch)
+        await _add_batch(db, 3, ("вася", "платит", "в баре"))
+        res = await worker.run_once(CHAT_ID)
+        assert res["status"] == "ok"
+        assert llm.worker_roles == ["background"]
+        assert len(llm.calls) == 1
+        assert llm.calls[0][1] == 0.3        # temperature дистилляции
+
+    @pytest.mark.asyncio
+    async def test_legacy_llm_falls_back_to_main(self, db, monkeypatch):
+        """Мок/старый клиент без generate_worker → прямой generate."""
+        llm = _FakeLLM(_ANS_A)
+        worker = _worker(db, llm, monkeypatch=monkeypatch)
+        await _add_batch(db, 3, ("вася", "платит", "в баре"))
+        res = await worker.run_once(CHAT_ID)
+        assert res["status"] == "ok"
+        assert len(llm.calls) == 1

@@ -888,6 +888,71 @@ class LLMClient:
         await self._record_global_usage(chat_id, content, source=source)
         return content
 
+    # ── F3/T-1439 (cognition-deep-sleep, ADR-1013-1): роутер воркеров ───────
+    # Единые PG-ключи выделенных LLM (role history → intel_history,
+    # background → intel_bg). Пустые поля → основная модель (no-op, нулевой
+    # регресс); ошибка dedicated → фоллбэк на основную. R17: ключ не логируем.
+    _WORKER_ROLE_PREFIX = {
+        "history": "intel_history",
+        "background": "intel_bg",
+        "bg": "intel_bg",
+    }
+
+    def _worker_profile(self, role: str) -> tuple[str, str, str, bool]:
+        """(base_url, model, api_key, dedicated) для роли воркера.
+
+        dedicated=True только если задан хотя бы один из трёх ключей
+        (`models.intel_<role>_base_url`/`_model_name`/`keys.intel_<role>_api_key`);
+        иначе вызывающий идёт прямым путём основной модели (ADR-1013-1 §2.2).
+        Пустые поля подставляются значениями основной модели. R17: значение
+        ключа нигде не логируется."""
+        slug = self._WORKER_ROLE_PREFIX.get(str(role or "").strip().lower())
+        if slug is None:
+            raise ValueError(f"unknown worker role: {role!r}")
+        raw_base = (hot.get(f"models.{slug}_base_url", "") or "").strip()
+        raw_model = (hot.get(f"models.{slug}_model_name", "") or "").strip()
+        raw_key = (hot.get(f"keys.{slug}_api_key", "") or "").strip()
+        base = raw_base or self._base_url
+        model = raw_model or self._chat_model
+        key = raw_key or self._current_api_key()
+        dedicated = bool(raw_base or raw_model or raw_key)
+        return base, model, key, dedicated
+
+    async def generate_worker(self, role: str, messages: list[dict[str, str]],
+                              *, temperature: float | None = None,
+                              chat_id: int | None = None) -> str:
+        """Вызов выделенной LLM роли воркера (`history` | `background`) с
+        фоллбэком на основную модель (F3/T-1439, spec §5).
+
+        Пустые поля выделенного подключения → ровно `generate` (байт-в-байт
+        старое поведение). При ошибке/пустом ответе dedicated — WARNING и
+        повтор вызова основной модели (fail-open). R17: ключи не логируются."""
+        base, model, key, dedicated = self._worker_profile(role)
+        if not dedicated:
+            return await self.generate(messages, temperature=temperature,
+                                       chat_id=chat_id)
+        payload: dict = {"model": model, "messages": messages}
+        if temperature is not None:
+            payload["temperature"] = temperature
+        try:
+            response = await self._post(
+                "/chat/completions", payload, api_key=key,
+                base_url=base, channel="chat")
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            if not isinstance(content, str) or not content.strip():
+                raise LLMBadResponseError("worker llm: empty content")
+        except Exception as exc:
+            logger.warning(
+                "[worker_llm] dedicated failed → main | role=%s | error=%s",
+                role, type(exc).__name__)
+            return await self.generate(messages, temperature=temperature,
+                                       chat_id=chat_id)
+        logger.info(
+            "[worker_llm] dedicated OK | role=%s | model=%s | out_chars=%d",
+            role, model, len(content))
+        return content
+
     async def generate_chat(self, messages, *, temperature: float | None = None,
                             tools: list[dict] | None = None,
                             tool_choice: str | dict = "auto",

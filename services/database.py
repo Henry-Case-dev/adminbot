@@ -1871,12 +1871,19 @@ class DatabaseService:
         row = await cursor.fetchone()
         return int(row["c"]) if row else 0
 
-    async def sum_dream_log_tokens(self, since_ts: int) -> int:
+    async def sum_dream_log_tokens(self, since_ts: int,
+                                   kind: str | None = None) -> int:
         """Оценка токенов за local-сутки (денежный бюджет §3.4.4): сумма
-        memory_dream_log.tokens (max(1, len/4) промпта+ответа)."""
-        cursor = await self.db.execute(
-            "SELECT COALESCE(SUM(tokens), 0) AS s FROM memory_dream_log "
-            "WHERE run_at >= ?", (int(since_ts),))
+        memory_dream_log.tokens (max(1, len/4) промпта+ответа). F3/T-1438:
+        опциональный `kind` — суточный токен-кап глубокого сна считается
+        только по строкам kind='deep_run' (без смешения с обычным сном)."""
+        sql = ("SELECT COALESCE(SUM(tokens), 0) AS s FROM memory_dream_log "
+               "WHERE run_at >= ?")
+        params: list = [int(since_ts)]
+        if kind:
+            sql += " AND kind = ?"
+            params.append(str(kind))
+        cursor = await self.db.execute(sql, params)
         row = await cursor.fetchone()
         return int(row["s"]) if row else 0
 
@@ -1900,25 +1907,279 @@ class DatabaseService:
             (int(new_id), int(old_id)))
         await self.db.commit()
 
+    # ── F2 (cognition-belief-decay, spec §2/§4): decay + resurrection ───────
+    # Модель: archived_belief — значение существующей колонки status (CHECK
+    # отсутствует), БЕЗ DDL; base_weight/archived_at/decay_months/
+    # last_reinforced_fact_id/resurrected_at/resurrections — JSON belief_meta.
+
+    _BELIEF_COLS = ("id, chat_id, fact, origin, status, weight, "
+                    "last_confirmed_at, message_timestamp, created_at, "
+                    "target_user, belief_meta")
+
+    @staticmethod
+    def _parse_belief_meta(raw) -> dict:
+        """belief_meta (JSON-строка/None) → dict (битое → {}, fail-open)."""
+        if isinstance(raw, dict):
+            return raw
+        if not raw:
+            return {}
+        try:
+            loaded = json.loads(str(raw))
+        except (ValueError, TypeError):
+            return {}
+        return loaded if isinstance(loaded, dict) else {}
+
+    async def list_confirmed_beliefs(self, chat_id: int | None = None,
+                                     limit: int = 1000) -> list[dict]:
+        """Активные beliefs (kind='belief', status='confirmed') — кандидаты
+        декай-шага (F2/T-1425). chat_id None → все чаты.
+
+        S10.13-3: F3-парадигмы (marker `belief_meta.type='paradigm'`) исключены
+        из отбора — «вечный» исторический слой не охлаждается общей формулой
+        (spec F3 §2). Обычные beliefs тоже пишутся `origin='derived_belief'`,
+        поэтому различаем только по JSON-маркеру (не по origin)."""
+        marker = '%"type":"paradigm"%'
+        marker_spaced = '%"type": "paradigm"%'
+        sql = (f"SELECT {self._BELIEF_COLS} FROM graph_facts "
+               "WHERE kind = 'belief' AND status = 'confirmed' "
+               "AND (belief_meta IS NULL OR (belief_meta NOT LIKE ? "
+               "AND belief_meta NOT LIKE ?)) ")
+        params: list = [marker, marker_spaced]
+        if chat_id is not None:
+            sql += "AND chat_id = ? "
+            params.append(int(chat_id))
+        sql += "ORDER BY id ASC LIMIT ?"
+        params.append(int(limit))
+        cursor = await self.db.execute(sql, params)
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def list_archived_beliefs(self, chat_id: int | None = None,
+                                    limit: int = 200) -> list[dict]:
+        """Архивные beliefs (status='archived_belief') чата/всех — источник
+        резонанса/реаниматора/граф-активации (F2/T-1427…T-1429)."""
+        sql = (f"SELECT {self._BELIEF_COLS} FROM graph_facts "
+               "WHERE kind = 'belief' AND status = 'archived_belief' ")
+        params: list = []
+        if chat_id is not None:
+            sql += "AND chat_id = ? "
+            params.append(int(chat_id))
+        sql += "ORDER BY id DESC LIMIT ?"
+        params.append(int(limit))
+        cursor = await self.db.execute(sql, params)
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def list_new_confirmed_facts(self, chat_id: int, since_id: int,
+                                       now_ts: int | None = None,
+                                       limit: int = 500) -> list[dict]:
+        """Новые сырые факты чата (kind='fact', status='confirmed', живые,
+        id > since_id) — кандидаты «подкрепления» belief (F2/T-1425, §2):
+        фильтр по якорному токену делает вызывающий в Python."""
+        now = int(now_ts if now_ts is not None else time.time())
+        cursor = await self.db.execute(
+            "SELECT id, fact FROM graph_facts "
+            "WHERE chat_id = ? AND kind = 'fact' AND status = 'confirmed' "
+            "AND id > ? AND (expires_at IS NULL OR expires_at > ?) "
+            "ORDER BY id ASC LIMIT ?",
+            (int(chat_id), int(since_id), now, int(limit)))
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def set_belief_status(self, belief_id: int, status: str, *,
+                                weight: float | None = None,
+                                last_confirmed_at: int | None = None,
+                                belief_meta_patch: dict | None = None) -> bool:
+        """Обновление статуса belief + опционально веса/даты/патча
+        belief_meta (merge с текущим JSON). True — строка обновлена.
+        Единая точка декай-архива/восстановления (F2, БЕЗ DDL)."""
+        sets = ["status = ?"]
+        params: list = [str(status)]
+        if weight is not None:
+            sets.append("weight = ?")
+            params.append(max(0.0, min(1.0, float(weight))))
+        if last_confirmed_at is not None:
+            sets.append("last_confirmed_at = ?")
+            params.append(int(last_confirmed_at))
+        if belief_meta_patch:
+            cursor = await self.db.execute(
+                "SELECT belief_meta FROM graph_facts WHERE id = ? AND "
+                "kind = 'belief'", (int(belief_id),))
+            row = await cursor.fetchone()
+            if row is None:
+                return False
+            meta = self._parse_belief_meta(row["belief_meta"])
+            meta.update(belief_meta_patch)
+            sets.append("belief_meta = ?")
+            params.append(json.dumps(meta, ensure_ascii=False))
+        params.append(int(belief_id))
+        cursor = await self.db.execute(
+            f"UPDATE graph_facts SET {', '.join(sets)} "
+            "WHERE id = ? AND kind = 'belief'", params)
+        await self.db.commit()
+        return bool(cursor.rowcount)
+
+    async def reinforce_belief(self, belief_id: int, weight: float,
+                               now_ts: int, last_fact_id: int) -> bool:
+        """Подкрепление belief новым сырым фактом (F2/T-1425, §2):
+        last_confirmed_at=now, weight=base, belief_meta.last_reinforced_fact_id
+        = max(id фактов)."""
+        return await self.set_belief_status(
+            belief_id, "confirmed", weight=weight, last_confirmed_at=now_ts,
+            belief_meta_patch={"last_reinforced_fact_id": int(last_fact_id)})
+
+    async def resurrect_belief(self, belief_id: int, weight: float,
+                               now_ts: int) -> bool:
+        """Воскрешение архивного belief (F2/T-1427/T-1428, §4.2/§4.3):
+        status='confirmed', weight=base, last_confirmed_at=now,
+        belief_meta.resurrected_at=now + resurrections+=1 (счётчик телеметрии).
+        Дату события архива (archived_at) сохраняем — история."""
+        cursor = await self.db.execute(
+            "SELECT belief_meta FROM graph_facts WHERE id = ? AND "
+            "kind = 'belief'", (int(belief_id),))
+        row = await cursor.fetchone()
+        if row is None:
+            return False
+        meta = self._parse_belief_meta(row["belief_meta"])
+        meta["resurrected_at"] = int(now_ts)
+        meta["resurrections"] = int(meta.get("resurrections") or 0) + 1
+        return await self.set_belief_status(
+            belief_id, "confirmed", weight=weight, last_confirmed_at=now_ts,
+            belief_meta_patch=meta)
+
+    async def count_beliefs_by_status(self) -> dict:
+        """Счётчики beliefs по статусу (телеметрия F2/T-1430): все kind=
+        'belief' (включая legacy unconfirmed), КРОМЕ F3-парадигм — у них
+        отдельная телеметрия (`count_paradigms`), иначе «активные убеждения»
+        завышены (S10.13-3/-6)."""
+        cursor = await self.db.execute(
+            "SELECT status, COUNT(*) AS c FROM graph_facts "
+            "WHERE kind = 'belief' "
+            "AND (belief_meta IS NULL OR (belief_meta NOT LIKE ? "
+            "AND belief_meta NOT LIKE ?)) GROUP BY status",
+            ('%"type":"paradigm"%', '%"type": "paradigm"%'))
+        return {str(r["status"] or ""): int(r["c"])
+                for r in await cursor.fetchall()}
+
+    async def last_decay_run(self) -> int | None:
+        """run_at последнего прогона декай-шага (kind='decay_run') или None
+        — интервальный гейт раз в BELIEF_DECAY_INTERVAL_DAYS (F2/T-1425)."""
+        cursor = await self.db.execute(
+            "SELECT MAX(run_at) AS ts FROM memory_dream_log "
+            "WHERE kind = 'decay_run'")
+        row = await cursor.fetchone()
+        return int(row["ts"]) if row and row["ts"] is not None else None
+
+    # ── F3 (cognition-deep-sleep, spec §3/§6): маркеры глубокого сна ────────
+    # Идемпотентность/cooldown — через memory_dream_log(kind='deep_run'),
+    # парадигмы — через belief_meta.type='paradigm' (ноль DDL).
+
+    async def last_deep_run(self, chat_id: int | None = None) -> int | None:
+        """run_at последнего УСПЕШНОГО прогона глубокого сна (kind='deep_run').
+        chat_id=None → глобальный максимум; задан → по конкретному чату.
+        None — прогонов ещё не было (для отображения last_run_at/идемпотентности)."""
+        sql = ("SELECT MAX(run_at) AS ts FROM memory_dream_log "
+               "WHERE kind = 'deep_run'")
+        params: list = []
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["ts"]) if row and row["ts"] is not None else None
+
+    async def last_deep_attempt(self, chat_id: int | None = None) -> int | None:
+        """run_at последней ПОПЫТКИ глубокого сна (kind='deep_run' ИЛИ
+        'deep_skip') — гейт cooldown (S10.13-2). Скип-прогоны
+        (no_anchors/unchanged/duplicate/error/budget_skip) тоже пишут
+        `memory_dream_log`, иначе попытки повторяются каждый тик/after_sleep."""
+        sql = ("SELECT MAX(run_at) AS ts FROM memory_dream_log "
+               "WHERE kind IN ('deep_run', 'deep_skip')")
+        params: list = []
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["ts"]) if row and row["ts"] is not None else None
+
+    # Скип-статусы глубокого сна, потратившие LLM-токены (стоимостной учёт).
+    _DEEP_SKIP_COST_STATUSES = ("error", "unchanged", "duplicate")
+
+    async def count_deep_attempts(self, since_ts: int) -> int:
+        """Число стоимостных прогонов глубокого сна за local-сутки (S10.13-2):
+        успешные (`deep_run`) + скипы, потратившие токены (`deep_skip` со
+        status error/unchanged/duplicate). Пре-LLM скипы no_anchors/budget_skip
+        НЕ считаются — они не мешают обходу остальных чатов."""
+        sql = ("SELECT COUNT(*) AS c FROM memory_dream_log "
+               "WHERE run_at >= ? AND (kind = 'deep_run' OR "
+               "(kind = 'deep_skip' AND status IN (?, ?, ?)))")
+        cursor = await self.db.execute(
+            sql, (int(since_ts),) + self._DEEP_SKIP_COST_STATUSES)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def count_paradigms(self, chat_id: int | None = None) -> int:
+        """Число парадигм глубокого сна (kind='belief' + маркер
+        belief_meta.type='paradigm'); chat_id=None → по всей базе. Учитываем
+        оба варианта сериализации JSON (компактный и с пробелом после ':')."""
+        sql = ("SELECT COUNT(*) AS c FROM graph_facts "
+               "WHERE kind = 'belief' AND (belief_meta LIKE ? "
+               "OR belief_meta LIKE ?)")
+        params: list = ['%"type":"paradigm"%', '%"type": "paradigm"%']
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def list_chat_nodes(self, chat_id: int, limit: int = 100) -> list:
+        """Узлы графа чата (id/entity_name) — кандидаты граф-активации
+        (F2/T-1429, spec §4.4): matcher имён делает вызывающий в Python."""
+        cursor = await self.db.execute(
+            "SELECT id, entity_name FROM nodes "
+            "WHERE chat_id = ? AND entity_name IS NOT NULL "
+            "AND entity_name != '' ORDER BY id ASC LIMIT ?",
+            (int(chat_id), int(limit)))
+        return [dict(r) for r in await cursor.fetchall()]
+
     # ── API beliefs/логи (Раунд 9, spec §3.6.2, T-829/F2): read-only
     #    методы для web/api/memory_agi.py + мягкое удаление (D-7) ─────────
 
     async def list_recent_beliefs(self, chat_id: int | None = None,
-                                   limit: int = 50) -> list:
+                                   limit: int = 50,
+                                   status: str | None = None,
+                                   belief_type: str | None = None) -> list:
         """Последние beliefs (kind='belief', DESC по id) для TMA «Синтез
         (сон)» (spec §3.6.2). chat_id=None → все чаты; v8-колонки
-        importance/source_ids/belief_meta в SELECT (парсит API)."""
+        importance/source_ids/belief_meta в SELECT (парсит API).
+        F2/T-1430 (spec §3): status=None → без фильтра (дашборд видит архив);
+        status='confirmed'|'archived_belief' → только этот статус.
+        F3/T-1438 (spec §2): belief_type — 'paradigm' (мета-факты глубокого
+        сна, belief_meta.type='paradigm') | 'belief' (обычные убеждения) |
+        None (все kind='belief'); фильтр по JSON-маркеру без DDL."""
         cols = ("id, chat_id, fact, origin, status, supersedes, weight, "
-                "importance, source_ids, belief_meta, created_at")
-        if chat_id is None:
-            cursor = await self.db.execute(
-                "SELECT " + cols + " FROM graph_facts WHERE kind = 'belief' "
-                "ORDER BY id DESC LIMIT ?", (int(limit),))
-        else:
-            cursor = await self.db.execute(
-                "SELECT " + cols + " FROM graph_facts "
-                "WHERE kind = 'belief' AND chat_id = ? "
-                "ORDER BY id DESC LIMIT ?", (int(chat_id), int(limit)))
+                "importance, source_ids, belief_meta, created_at, "
+                "last_confirmed_at")
+        where = ["kind = 'belief'"]
+        params: list = []
+        if chat_id is not None:
+            where.append("chat_id = ?")
+            params.append(int(chat_id))
+        if status:
+            where.append("status = ?")
+            params.append(str(status))
+        marker = '%"type":"paradigm"%'
+        marker_spaced = '%"type": "paradigm"%'
+        if belief_type == "paradigm":
+            where.append("(belief_meta LIKE ? OR belief_meta LIKE ?)")
+            params.extend([marker, marker_spaced])
+        elif belief_type in ("belief", "non_paradigm"):
+            where.append("(belief_meta IS NULL OR (belief_meta NOT LIKE ? "
+                         "AND belief_meta NOT LIKE ?))")
+            params.extend([marker, marker_spaced])
+        sql = ("SELECT " + cols + " FROM graph_facts WHERE "
+               + " AND ".join(where) + " ORDER BY id DESC LIMIT ?")
+        params.append(int(limit))
+        cursor = await self.db.execute(sql, params)
         return [dict(row) for row in await cursor.fetchall()]
 
     async def get_graph_fact(self, fact_id: int) -> dict | None:
@@ -2125,22 +2386,28 @@ class DatabaseService:
 
 
     async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts,
-                                     include_direct_reply=False) -> list:
+                                     include_direct_reply=False,
+                                     include_archived=False) -> list:
         """FTS-фолбек RAG с ленивым TTL-фильтром (D175). Epic 50 (58.8, D206):
         include_direct_reply=False (default) → origin='bot_direct_reply' НЕ
         подмешивается в чужие пайплайны; + created_at/target_user в SELECT.
         Epic 60 (64.2): статус-фильтр — unconfirmed-факты в RAG НЕ участвуют.
         Epic 60 (66.3, T-481): + weight/last_confirmed_at — время-взвешивание
-        (пересортировка по w_eff) происходит в Python (SQL не меняем)."""
+        (пересортировка по w_eff) происходит в Python (SQL не меняем).
+        F2/T-1426 (spec §2): include_archived=True (dig_into_lore — прямое
+        копание) → status ∈ ('confirmed','archived_belief'); обычный RAG
+        (False) архив не видит."""
+        statuses = ("('confirmed', 'archived_belief')" if include_archived
+                    else "('confirmed')")
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
-            "f.weight, f.last_confirmed_at, f.message_timestamp, "
+            "f.weight, f.last_confirmed_at, f.message_timestamp, f.status, "
             "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
             "FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
             "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
             "AND (f.expires_at IS NULL OR f.expires_at > ?) "
-            "AND f.status = 'confirmed' ")
+            f"AND f.status IN {statuses} ")
         if not include_direct_reply:
             sql += "AND f.origin != 'bot_direct_reply' "
         sql += "ORDER BY graph_facts_fts.rank LIMIT ?"
@@ -2933,12 +3200,17 @@ class DatabaseService:
         created_at/target_user/weight/status/last_confirmed_at) — для
         weight×decay-ранжирования KNN-пути в Python. status-фильтр — как в
         get_graph_fact_texts (64.2). Фаза 2 (T-759): + message_timestamp
-        (рендер COALESCE делает вызывающий — _knn_graph_facts)."""
+        (рендер COALESCE делает вызывающий — _knn_graph_facts).
+        F2/T-1427 (spec §4.2): + belief_meta/kind — KNN-путь различает
+        архивные beliefs (status='archived_belief', пенальти) и читает
+        base_weight из belief_meta при воскрешении. status=None → без
+        SQL-фильтра (фильтрация статусов — на стороне вызывающего)."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
-               f"status, last_confirmed_at, message_timestamp FROM graph_facts "
+               f"status, last_confirmed_at, message_timestamp, belief_meta, "
+               f"kind FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)
         if status:
@@ -3155,3 +3427,191 @@ class DatabaseService:
             "GROUP BY target_user ORDER BY name ASC",
             (chat_id, now_ts))
         return [(row["name"], row["c"]) for row in await cursor.fetchall()]
+
+    # ── F8 (cognition-irony-dossier-round1013, spec §3/§6): chat_memes ──────
+    # Мемы живут в ТОЙ ЖЕ graph_facts со status='chat_meme' (status без CHECK,
+    # нулевой DDL). Все читающие пути со status='confirmed' их не видят —
+    # «real vs meme» разделение бесплатно (spec §3).
+
+    async def meme_exists(self, chat_id: int, target_user: str,
+                          fact: str) -> bool:
+        """F8: есть ли уже такой мем (`status='chat_meme'`) — идемпотентность
+        повторных классификаций досье. Fail-open: ошибка → False (мем будет
+        записан, дубль допустимее пропажи)."""
+        cursor = await self.db.execute(
+            "SELECT 1 FROM graph_facts WHERE chat_id = ? AND target_user = ? "
+            "AND fact = ? AND status = 'chat_meme' LIMIT 1",
+            (chat_id, target_user, fact))
+        return await cursor.fetchone() is not None
+
+    async def list_chat_memes(self, chat_id: int,
+                              target_user: str | None = None,
+                              limit: int = 50,
+                              now_ts: int | None = None) -> list:
+        """F8: мемы чата (`status='chat_meme'`), свежие первыми. target_user
+        None → все мемы чата. Возвращает list[dict]: id/fact/target_user/
+        created_at/weight/status (без служебных деталей), как get_rag_facts."""
+        ts = int(now_ts if now_ts is not None else time.time())
+        sql = ("SELECT id, fact, target_user, created_at, weight, status "
+               "FROM graph_facts WHERE chat_id = ? AND status = 'chat_meme' "
+               "AND (expires_at IS NULL OR expires_at > ?) ")
+        params: list = [chat_id, ts]
+        if target_user is not None:
+            sql += "AND target_user = ? "
+            params.append(target_user)
+        sql += "ORDER BY created_at DESC, id DESC LIMIT ?"
+        params.append(int(limit))
+        cursor = await self.db.execute(sql, params)
+        return [dict(row) for row in await cursor.fetchall()]
+
+    # ── F5 (cognition-dashboard-round1013, spec §3.3–§3.5): read-хелперы
+    #    дашборда «Осмысление» (граф/статистика/время последнего сна).
+    #    Только аддитивные SELECT: ноль DDL, R16/R17-safe (id/имена/типы/
+    #    счётчики — без эмбеддингов и сырых секретов). ────────────────────
+
+    async def last_run_at(self, kinds: tuple[str, ...],
+                          chat_id: int | None = None) -> int | None:
+        """MAX(run_at) по выбранным kind из memory_dream_log (spec §3.2:
+        last_run_at обычного/глубокого сна). kinds пусто → None."""
+        if not kinds:
+            return None
+        placeholders = ",".join("?" for _ in kinds)
+        sql = ("SELECT MAX(run_at) AS ts FROM memory_dream_log "
+               "WHERE kind IN (" + placeholders + ")")
+        params: list = list(kinds)
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["ts"]) if row and row["ts"] is not None else None
+
+    async def sum_dream_tokens(self, since_ts: int,
+                               chat_id: int | None = None) -> int:
+        """Сумма tokens memory_dream_log за период (spec §3.2: state
+        'limit_exhausted' — суточный бюджет токенов сна). Fail-safe 0."""
+        sql = ("SELECT COALESCE(SUM(tokens), 0) AS t FROM memory_dream_log "
+               "WHERE run_at >= ?")
+        params: list = [int(since_ts)]
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["t"]) if row else 0
+
+    async def graph_snapshot(self, chat_id: int | None = None,
+                             max_nodes: int = 120,
+                             max_edges: int = 240) -> dict:
+        """Узлы/рёбра SQLite GraphRAG для force-directed графа (spec §3.3,
+        ADR-1013-2). Берём только узлы с degree ≥ 1 (участвуют в рёбрах);
+        cap 120/240 — серверный предохранитель Android (Canvas). R16:
+        id — ключ, label — entity_name, group — entity_type.
+        `truncated` — упёрлись в лимит узлов или рёбер."""
+        nwhere = ["n.entity_name IS NOT NULL", "n.entity_name != ''"]
+        nparams: list = []
+        if chat_id is not None:
+            nwhere.append("n.chat_id = ?")
+            nparams.append(int(chat_id))
+        sql = (
+            "SELECT * FROM ("
+            "  SELECT n.id AS id, n.entity_name AS label, "
+            "         n.entity_type AS grp, "
+            "         (SELECT COUNT(*) FROM edges e "
+            "          WHERE e.origin != 'bot_direct_reply' "
+            "          AND (e.source_id = n.id OR e.target_id = n.id)) "
+            "          AS degree "
+            "  FROM nodes n WHERE " + " AND ".join(nwhere) + ") "
+            "WHERE degree >= 1 "
+            "ORDER BY degree DESC, id ASC LIMIT ?")
+        cursor = await self.db.execute(sql, nparams + [int(max_nodes) + 1])
+        rows = [dict(r) for r in await cursor.fetchall()]
+        truncated_nodes = len(rows) > max_nodes
+        rows = rows[:max_nodes]
+        nodes = [{"id": int(r["id"]),
+                  "label": str(r["label"] or r["id"]),
+                  "group": str(r["grp"] or "topic"),
+                  "degree": int(r["degree"] or 0)} for r in rows]
+        node_ids = [n["id"] for n in nodes]
+        if not node_ids:
+            return {"nodes": [], "edges": [], "truncated": False}
+        marks = ",".join("?" for _ in node_ids)
+        ewhere = ["source_id IN (" + marks + ")",
+                  "target_id IN (" + marks + ")",
+                  "origin != 'bot_direct_reply'"]
+        eparams: list = node_ids + node_ids
+        if chat_id is not None:
+            ewhere.append("chat_id = ?")
+            eparams.append(int(chat_id))
+        cursor = await self.db.execute(
+            "SELECT source_id, target_id, relation_type, weight FROM edges "
+            "WHERE " + " AND ".join(ewhere) +
+            " ORDER BY weight DESC, id DESC LIMIT ?",
+            eparams + [int(max_edges) + 1])
+        erows = [dict(r) for r in await cursor.fetchall()]
+        truncated_edges = len(erows) > max_edges
+        erows = erows[:max_edges]
+        edges = [{"from": int(r["source_id"]), "to": int(r["target_id"]),
+                  "label": str(r["relation_type"] or ""),
+                  "weight": int(r["weight"] or 1)} for r in erows]
+        return {"nodes": nodes, "edges": edges,
+                "truncated": bool(truncated_nodes or truncated_edges)}
+
+    async def graph_stats(self, chat_id: int | None = None) -> dict:
+        """Счётчики «Интеллект и Память» (spec §3.4) + граф-статистика для
+        «Модулей» (§4.4). R17-safe — только числа; chat_id=None → вся база."""
+
+        def _scope(sql: str) -> tuple[str, list]:
+            params: list = []
+            if chat_id is not None:
+                sql += " AND chat_id = ?"
+                params.append(int(chat_id))
+            return sql, params
+
+        async def _one(sql: str, params: list) -> int:
+            cursor = await self.db.execute(sql, params)
+            row = await cursor.fetchone()
+            return int(row["c"]) if row and row["c"] is not None else 0
+
+        out = {"facts": 0, "beliefs": 0, "archived_beliefs": 0,
+               "protected_facts": 0, "paradigms": 0, "memes": 0,
+               "graph_nodes": 0, "graph_edges": 0, "relation_types": 0}
+        sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
+                        "WHERE kind = 'fact' AND status = 'confirmed'")
+        out["facts"] = await _one(sql, p)
+        # S10.13-6: «Убеждений» = kind='belief' без F3-парадигм (у них свой
+        # счётчик `paradigms`), иначе парадигмы считались дважды.
+        sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
+                        "WHERE kind = 'belief' "
+                        "AND (belief_meta IS NULL OR (belief_meta NOT LIKE ? "
+                        "AND belief_meta NOT LIKE ?))")
+        out["beliefs"] = await _one(
+            sql, ['%"type":"paradigm"%', '%"type": "paradigm"%'] + list(p))
+        sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
+                        "WHERE kind = 'belief' AND status = 'archived_belief'")
+        out["archived_beliefs"] = await _one(sql, p)
+        sql, p = _scope("SELECT COUNT(*) AS c FROM protected_facts WHERE 1=1")
+        out["protected_facts"] = await _one(sql, p)
+        out["paradigms"] = await self.count_paradigms(chat_id)
+        sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
+                        "WHERE status = 'chat_meme'")
+        out["memes"] = await _one(sql, p)
+        # Граф-статистика (узлы/рёбра/типы связей) — для «Модулей».
+        nwhere = "WHERE entity_name IS NOT NULL AND entity_name != ''"
+        nparams: list = []
+        if chat_id is not None:
+            nwhere += " AND chat_id = ?"
+            nparams.append(int(chat_id))
+        out["graph_nodes"] = await _one("SELECT COUNT(*) AS c FROM nodes "
+                                        + nwhere, nparams)
+        ewhere = "WHERE origin != 'bot_direct_reply'"
+        eparams: list = []
+        if chat_id is not None:
+            ewhere += " AND chat_id = ?"
+            eparams.append(int(chat_id))
+        out["graph_edges"] = await _one("SELECT COUNT(*) AS c FROM edges "
+                                        + ewhere, eparams)
+        out["relation_types"] = await _one(
+            "SELECT COUNT(DISTINCT relation_type) AS c FROM edges " + ewhere,
+            eparams)
+        return out

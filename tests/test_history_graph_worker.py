@@ -1275,7 +1275,7 @@ class TestGraphWorker:
         row = facts[0]
         day = datetime.datetime.fromtimestamp(
             row["message_timestamp"], datetime.timezone.utc
-        ).strftime("%Y-%m-%d")
+        ).strftime("%m.%Y")
         ctx = build_rag_context(
             [("history_import", row["fact"], row["message_timestamp"])])
         assert f"[{day}] " in ctx and "магазин" in ctx

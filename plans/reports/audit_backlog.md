@@ -3,6 +3,80 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.13 scan (2026-09-13) — all scanned (diff-based, 8 фич F1–F8)
+- [x] services/summary_memory.py (F1 `_fact_prefix`/`_stale_suffix`/4-кортежи RAG; F2 `_knn_graph_facts`
+      архив+penalty+`_resurrect_resonant`, `graph_activation_facts`)
+- [x] services/dream_worker.py (F2 decay/`_reinforce`/`_try_reanimate`; F3 packet/bridge/`_run_deep_*`/
+      `_deep_tick`/`_deep_budget_ok`/`_write_paradigm`; роутер `_worker_llm`)
+- [x] services/dream_prompts.py (PREV-слепок, правило 5, `order_dream_rows`, `build_bridge_user`,
+      `parse_bridge_answer`, DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT)
+- [x] services/database.py (F2 belief-хелперы + `list_recent_beliefs` status/kind; F3 deep-маркеры/
+      `count_paradigms`; F8 `meme_exists`/`list_chat_memes`; F5 `graph_snapshot`/`graph_stats`;
+      `search_graph_facts_fts(include_archived)`; `sum_dream_log_tokens(kind)`)
+- [x] services/direct_chat_service.py (F5 `_PROCESS_ACCOUNTING`/`record_*`; F2 graph-activation hook;
+      F8 persona-блоки [Факты]/[Мемы])
+- [x] services/lore_worker.py (F8 `_classify_dossier*`/`_window_names`/`_canon`; F3 `_worker_llm` history)
+- [x] services/dossier_prompts.py (NEW; канон + keyword fail-safe + parser + `format_dossier_block`)
+- [x] services/lore_prompts.py / dream_prompts.py (PREV-слепки, ироническая заметка)
+- [x] services/llm_client.py (`generate_worker`/`_worker_profile` — history/background, фоллбэк)
+- [x] services/llm_probe.py (`_LLM_BLOCKS`/`_BLOCK_SAVED_KEY` intel_*, `_saved_api_key` фоллбэк)
+- [x] services/memory_health.py (счётчики убеждений/парадигм)
+- [x] services/nostalgia_worker.py (`_worker_llm` background)
+- [x] services/log_ring.py (`ERROR+WARNING`)
+- [x] services/status_service.py (`server.cpu_count`, `context`)
+- [x] services/tool_router.py (dig: `include_archived`, единый RAG-рендер)
+- [x] services/worker_budget.py (`WORKER_DEEP_SLEEP`, `allowed_workers` позиция -1)
+- [x] config/settings.py (+INTEL_*×8, +RAG_STALE_AFTER_DAYS, BELIEF_*×6, DEEP_SLEEP_*×6, IRONY_FILTER_ENABLED;
+      APP_VERSION 2.57.0)
+- [x] services/param_catalog.py (Δ +22: F1/F2/F3/F4/F8; `_PG_ID_OVERRIDES`; select-widget DEEP_SLEEP_TRIGGER)
+- [x] web/api/memory_agi.py (`cognition/status`, `graph`, `stats`, `timeline`, `deep-sleep`, `health`,
+      `?deep=1`, beliefs status/kind)
+- [x] web/api/routes.py (logs 422/=, docstring)
+- [x] web/app.js (F4 2 provider-блока; F5 cognition-polling/graph/ленты/виджет; F6 EKG + logLevel watch)
+- [x] web/index.html (F5 дашборд/виджет, F6 EKG + селектор логов; CSS)
+- [x] web/static/vendor/vis-network/vis-network.min.js (NEW, self-host v9.1.9)
+- [x] bot.py (DI `aliases=AliasResolver` в LoreWorker; router order не тронут)
+- [x] .env.example (+INTEL_*, RAG_STALE_AFTER_DAYS, DEEP_SLEEP_*) — **нет** BELIEF_*/IRONY_FILTER (S10.13-12)
+- [x] tests/* (new: test_belief_decay, test_deep_sleep, test_dossier_*, test_webapp_round1013[_f5]_ui;
+      обновлены маркерные/каталог/JS) — pytest 5383/0, JS-UNIT-OK, node --check clean
+- [x] plans/features/cognition-*-round1013/ (8 спек + ADR-1013-1/2/3), plans/docs/intelligence_user_guide.md,
+      README.md, plans/MEMORY.md, plans/backlog.md (doc-only)
+- [x] plans/reports/round10.13_scanner_audit.md — итог: **0 critical / 1 high / 4 medium / 9 low**
+- **Открыто (follow-up, не блокеры после фикса high):** S10.13-1 [high] неэкранированный `target_user`
+  в `_fact_prefix` (RAG-промпт); S10.13-2 deep-sleep cooldown/суточный кап обходятся на неуспешных
+  прогонах (`deep_run` пишется только при written>0; кап суммирует только `deep_run`);
+  S10.13-3 F2-decay архивирует F3-парадигмы (`list_confirmed_beliefs` без фильтра `type='paradigm'`);
+  S10.13-4 реаниматор (`kind='skipped'/status='resurrected'`) не виден в `resurrections_total`/health/
+  Timeline; S10.13-5 F5-ленты beliefs/paradigms без `chat_id`; S10.13-6 `graph_stats` facts без
+  `status` и beliefs с парадигмами; S10.13-7 `or <default>` блокирует 0-значения; S10.13-8 deep-sleep TZ
+  = SUMMARY_TIMEZONE (спека: WORKER_BUDGET_TZ); S10.13-9 Timeline lore = in-memory inject (спека:
+  chat_lore_history); S10.13-10 probe не зеркалит runtime base/model-фолбэк; S10.13-11 LIKE-маркер
+  парадигм хрупок; S10.13-12 `.env.example`/описание irony-флага; S10.13-13 три дубля парсера
+  `belief_meta`; S10.13-14 граф может отдавать «висячие» рёбра.
+  Из прошлых раундов: R10.12-1/-5, R10.12-2/-3/-4, R10.11-1…-6, R10.10-*, R10.9-*.
+
+### Round 10.13 — повторный аудит (итерация 2, 2026-09-13)
+- [x] Ре-верификация фиксов @Builder: S10.13-1 (High) closed — `summary_memory.py:723-728`
+      `escape_xml_text`+схлопывание `\n\t`, рантайм `&lt;/RAG_Memory&gt;`, тест
+      `tests/test_webapp_round1013_ui.py:63-84`; S10.13-2 closed (`dream_worker.py:1153-1156`,
+      `_log_deep_skip:1373-1381`, `_deep_budget_ok:1329-1348`, `database.py:2088-2117`);
+      S10.13-3 closed (`database.py:1932-1954`, тест `test_belief_decay.py:215-228`);
+      S10.13-4 closed (`dream_worker.py:1019-1026`, `memory_health.py:80-82`,
+      `memory_agi.py:313,548-553`); S10.13-5 closed (`web/app.js:4830-4835`).
+- [x] Low: закрыты S10.13-7 (`_hot_number`), -8 (`_deep_tz_name`=WORKER_BUDGET_TZ),
+      -10 (`llm_probe._intel_probe_fallback`), -12 (`.env.example` + описание флага).
+- [x] Валидатор: pytest **5392 passed**/0 fail (60.75 s), `node --check web/app.js` clean,
+      `routing_test.js` JS-UNIT-OK, `git diff --check` OK. Инварианты: 0 PG-DDL, SQLite v8,
+      роутеры bot.py, REGISTRY 427/GROUPS 90/mapped 88/TAB_RULES 19, vis-network self-host.
+- **Открыто (Low, не блокеры, итерация 2):** S10.13-9 Timeline-лор = in-memory inject
+  (`memory_agi.py:596-604`); S10.13-11 хрупкий LIKE-маркер парадигм (`database.py:1941-1942`
+  и др.); S10.13-13 три дубля парсера `belief_meta` (`database.py:1919-1930`,
+  `dream_worker.py:857-869`, `summary_memory.py:70`); S10.13-14 «висячие» рёбра графа
+  (`database.py:3538-3541`); **новый S10.13-6b** `archived_beliefs` без фильтра парадигм
+  (`database.py:3590-3592`).
+- Итог итерации 2: **0 Critical / 0 High / 0 Medium / 5 Low** открытых; вердикт — High
+  открытых НЕТ.
+
 ## Round 10.12 scan (2026-09-13) — all scanned
 - [x] config/settings.py (`LLM_BASE_URL` default → nano-gpt; +`EMBEDDING_BASE_URL`, +`EMBEDDING_API_KEY`,
       +`OPENROUTER_TRANSCRIBE_DISPLAY_NAME`; +`DEFAULT_KOSTIK_REPLIES`/`KOSTIK_REPLIES`/`KOSTIK_ENABLED`;

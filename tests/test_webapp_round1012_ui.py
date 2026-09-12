@@ -185,14 +185,14 @@ class TestCatalogDelta1012:
     def test_counts(self):
         from config.settings import Settings
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 405
+        assert len(pc.REGISTRY) == 427
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 377
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 399
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 381
+        assert len(categorized) == 403
 
     def test_new_param_specs(self):
         from services import param_catalog as pc

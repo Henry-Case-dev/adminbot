@@ -137,17 +137,26 @@ class LogRingHandler(logging.Handler):
             self.handleError(record)
 
     def get_entries(self, level: str = "INFO", limit: int = 200) -> list[dict]:
-        """Записи от НОВЫХ к старым. level: DEBUG|INFO|WARNING|ERROR|CRITICAL|
-        ALL — фильтр «не ниже уровня» (дефолт INFO = INFO+WARNING+ERROR+…)."""
+        """Записи от НОВЫХ к старым.
+
+        level: DEBUG|INFO|WARNING|ERROR|CRITICAL|ALL|ERROR+WARNING.
+        Порог «не ниже уровня» (дефолт INFO = INFO+WARNING+ERROR+…);
+        комбинированный `ERROR+WARNING` (F6/§3.1) = WARNING ∪ ERROR ∪
+        CRITICAL (не ниже WARNING, но с включением WARNING)."""
+        lvl = str(level or "INFO").upper().strip()
+        combined = lvl == "ERROR+WARNING"
         threshold = 0
-        if level.upper() != "ALL":
-            threshold = logging.getLevelName(level.upper().strip())
+        if lvl != "ALL":
+            threshold = logging.getLevelName(lvl)
             if not isinstance(threshold, int):
                 threshold = logging.INFO
         limit = max(1, min(1000, int(limit or 200)))
         with self._lock:
             entries = list(self._buffer)
-        if threshold > 0:
+        if combined:
+            entries = [e for e in entries
+                       if logging.getLevelName(e["level"]) >= logging.WARNING]
+        elif threshold > 0:
             entries = [e for e in entries
                        if logging.getLevelName(e["level"]) >= threshold]
         return entries[-limit:][::-1]

@@ -65,6 +65,40 @@ async def collect_metrics(db, memory) -> str:
         lines.append(f"graph_facts: просрочено {expired}, "
                      f"не подтверждено {unconfirmed}")
 
+        # F2/T-1430 (spec §3): телеметрия убеждений — только счётчики
+        # (R17-safe: ни текстов, ни эмбеддингов, ни ключей). S10.13-3/-6:
+        # F3-парадигмы не считаются «убеждениями» (свой счётчик ниже).
+        _non_paradigm = ("AND (belief_meta IS NULL OR (belief_meta NOT LIKE ? "
+                         "AND belief_meta NOT LIKE ?))")
+        _para_like = ('%"type":"paradigm"%', '%"type": "paradigm"%')
+        beliefs_active = await _count(
+            db, "SELECT COUNT(*) FROM graph_facts WHERE kind = 'belief' "
+                "AND status = 'confirmed' " + _non_paradigm, _para_like)
+        beliefs_archived = await _count(
+            db, "SELECT COUNT(*) FROM graph_facts WHERE kind = 'belief' "
+                "AND status = 'archived_belief' " + _non_paradigm, _para_like)
+        resurrections = await _count(
+            db, "SELECT COUNT(*) FROM memory_dream_log "
+                "WHERE kind = 'resurrect'")
+        decay_runs = await _count(
+            db, "SELECT COUNT(*) FROM memory_dream_log "
+                "WHERE kind = 'decay_run'")
+        lines.append(f"убеждения: активных {beliefs_active}, "
+                     f"в архиве {beliefs_archived}, воскрешений "
+                     f"{resurrections}, прогонов охлаждения {decay_runs}")
+
+        # F3/T-1442 (spec §6): телеметрия глубокого сна — только счётчики
+        # (R17-safe).
+        paradigms = await _count(
+            db, "SELECT COUNT(*) FROM graph_facts WHERE kind = 'belief' "
+                "AND (belief_meta LIKE ? OR belief_meta LIKE ?)",
+            ('%"type":"paradigm"%', '%"type": "paradigm"%'))
+        deep_runs = await _count(
+            db, "SELECT COUNT(*) FROM memory_dream_log "
+                "WHERE kind = 'deep_run'")
+        lines.append(f"глубокий сон: парадигм {paradigms}, "
+                     f"прогонов {deep_runs}")
+
         lines.append(f"smart_archive_facts: "
                      f"{await _count(db, 'SELECT COUNT(*) FROM smart_archive_facts')}")
         lines.append(f"smart_messages: "

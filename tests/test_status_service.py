@@ -166,7 +166,8 @@ class TestSnapshot:
         svc.set_polling_state("polling")
         cache = _FakeCache(pg=_FakePg())
         snapshot = await self._build(svc, cache, monkeypatch)
-        assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc"}
+        assert set(snapshot) == {"bot", "server", "llm", "uptime", "permsoc",
+                                 "context"}
         bot = snapshot["bot"]
         assert bot["state"] == "polling"
         assert bot["mode"] == "polling"

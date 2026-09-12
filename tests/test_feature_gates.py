@@ -183,11 +183,15 @@ def test_priority_order_default():
     assert worker_budget.priority_of("nostalgia") == 0
     assert worker_budget.priority_of("lore") == 1
     assert worker_budget.priority_of("dream") == 2
+    # F3 (cognition-deep-sleep): deep_sleep — наименее критичный фон, падает
+    # первым (priority_of=3; в _priority_order — после легаси-воркеров).
+    assert worker_budget.priority_of("deep_sleep") == 3
     # ФИКС R4: порядок деградации — обратный приоритету (первый = первый
     # падает): dream → lore → nostalgia (F-10 §5.2).
     assert worker_budget.workers_dropped(["dream", "nostalgia", "lore"]) == \
         ["dream", "lore", "nostalgia"]
-    assert worker_budget._priority_order() == ("nostalgia", "lore", "dream")
+    assert worker_budget._priority_order() == \
+        ("nostalgia", "lore", "dream", "deep_sleep")
 
 
 def test_allowed_workers_degradation_matrix():
@@ -204,6 +208,17 @@ def test_allowed_workers_degradation_matrix():
     # used == limit + 2: все пали
     state3 = worker_budget.allowed_workers(ids, 12, 10)
     assert state3 == {"nostalgia": False, "lore": False, "dream": False}
+
+
+def test_deep_sleep_drops_before_dream():
+    """F3/ISSUE-6: deep_sleep падает ПЕРВЫМ — на тик раньше обычного «сна»,
+    при этом легаси-матрица F-10 (dream/lore/nostalgia) не сдвигается."""
+    state = worker_budget.allowed_workers(("dream", "deep_sleep"), 9, 10)
+    assert state == {"dream": True, "deep_sleep": False}
+    state2 = worker_budget.allowed_workers(
+        ("nostalgia", "lore", "dream", "deep_sleep"), 10, 10)
+    assert state2 == {"nostalgia": True, "lore": True, "dream": False,
+                      "deep_sleep": False}
 
 
 @pytest.mark.asyncio

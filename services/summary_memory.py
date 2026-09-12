@@ -32,6 +32,7 @@ import asyncio
 import calendar
 import datetime
 import hashlib
+import itertools
 import json
 import logging
 import math
@@ -53,6 +54,41 @@ from services.summary_xml import escape_xml_text
 logger = logging.getLogger(__name__)
 
 _TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
+
+# ── F2 (cognition-belief-decay, spec §4.2/§4.4): воскрешение убеждений ───────
+# База веса belief = _DREAM_BELIEF_WEIGHT (dream_worker, 0.6); дублируем
+# константой — summary_memory НЕ импортирует dream_worker (циклов нет, но
+# модуль тяжёлый и не нужен на read-path). Граф-активация (4.1.c): окно L1,
+# кэп инжекта и порог частоты связок — код-константы (не каталог, §4.4).
+_BELIEF_BASE_WEIGHT = 0.6
+L1_GRAPH_WINDOW = 40              # последние сообщений smart_messages чата
+GRAPH_ACTIVATION_CAP = 5          # потолок архивных фактов в горячий кэш
+GRAPH_ACTIVATION_MIN_HITS = 3     # частота связки 2–3 узлов в L1 для активации
+_GRAPH_ACTIVATION_NODE_CAP = 12   # потолок узлов-кандидатов (анти-взрыв combos)
+
+
+def _belief_base_weight(row) -> float:
+    """base_weight belief из belief_meta (fallback _BELIEF_BASE_WEIGHT).
+    Кривой/пустой meta → база (никогда не бросает). row — dict/Row."""
+    try:
+        raw = row["belief_meta"] if hasattr(row, "__getitem__") else None
+    except (KeyError, IndexError, TypeError):
+        raw = None
+    if isinstance(raw, dict):
+        meta = raw
+    elif raw:
+        try:
+            meta = json.loads(str(raw))
+        except (ValueError, TypeError):
+            meta = {}
+    else:
+        meta = {}
+    if not isinstance(meta, dict):
+        return _BELIEF_BASE_WEIGHT
+    try:
+        return float(meta.get("base_weight") or _BELIEF_BASE_WEIGHT)
+    except (TypeError, ValueError):
+        return _BELIEF_BASE_WEIGHT
 
 _VEC_TABLE_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS smart_archive USING vec0("
@@ -666,44 +702,89 @@ async def _memorize_youtube(memory, chat_id: int, transcript: str) -> None:
         logger.warning("[graphrag hook] youtube compress failed", exc_info=True)
 
 
-def _date_prefix(created_at) -> str:
-    """Раунд 4 (T-724, FR-F1, spec 3.6): '[%Y-%m-%d] ' из unix-ts (UTC);
-    None/0/пусто → ''. Никогда не бросает (RAG не роняет мусорным ts)."""
-    if not created_at:
+def _fact_prefix(rag_ts, author=None) -> str:
+    """F1/T-1418 (spec §3.1): временной префикс факта RAG —
+    '[ММ.ГГГГ | Автор: X] ' / '[ММ.ГГГГ] ' / ''.
+
+    None/0/битый ts → '' (никогда не бросает; RAG не роняет мусорным ts).
+    author strip; пусто/None → сегмент автора опущен (R16: имя не выдумываем).
+    Формат месяца — strftime('%m.%Y') в UTC, напр. '[04.2024 | Автор: Толян] '."""
+    if not rag_ts:
         return ""
     try:
-        return datetime.datetime.fromtimestamp(
-            int(created_at), datetime.timezone.utc).strftime("[%Y-%m-%d] ")
-    except (ValueError, OSError, OverflowError):
+        stamp = datetime.datetime.fromtimestamp(
+            int(rag_ts), datetime.timezone.utc).strftime("%m.%Y")
+    except (TypeError, ValueError, OSError, OverflowError):
         return ""
+    # S10.13-1: автор — производное от display-name/target_user, поэтому
+    # подлежит тому же экранированию, что и fact (escape_xml_text ОБЯЗАТЕЛЕН);
+    # переводы строк/табы внутри имени схлопываем в пробел, иначе разломается
+    # построчный формат RAG-блока.
+    if author is not None:
+        name = " ".join(str(author).split())
+    else:
+        name = ""
+    if name:
+        return f"[{stamp} | Автор: {escape_xml_text(name)}] "
+    return f"[{stamp}] "
+
+
+def _stale_suffix(rag_ts, *, now: int | None = None) -> str:
+    """F1/T-1419 (spec §3.2): ' (Внимание: возможно устарело)' если возраст
+    факта СТРОГО больше порога limits.rag_stale_after_days (дефолт 180),
+    иначе ''. Битый/нулевой ts → '' (никогда не бросает; NFR-6 fail-open).
+    Порог читается через hot.get с фолбэком settings.RAG_STALE_AFTER_DAYS."""
+    if not rag_ts:
+        return ""
+    try:
+        ts = int(rag_ts)
+    except (TypeError, ValueError):
+        return ""
+    if not ts:
+        return ""
+    current = int(now) if now is not None else int(time.time())
+    days = (current - ts) / 86400.0
+    try:
+        limit = int(hot.get("limits.rag_stale_after_days",
+                            settings.RAG_STALE_AFTER_DAYS) or 180)
+    except (TypeError, ValueError):
+        limit = 180
+    return " (Внимание: возможно устарело)" if days > limit else ""
 
 
 def _format_origin_labeled_line(item) -> str:
-    """Раунд 8 (F3/T-809, spec §3.F3.1): одна строка direct-рендера RAG —
-    '[{label}] {date_prefix}{текст}' (label из _ORIGIN_LABELS; неизвестный
-    origin — сам origin; date_prefix — существующий '[%Y-%m-%d] '). Текст —
-    через escape_xml_text (как легаси-рендер build_rag_context)."""
+    """F1/T-1418 (spec §3.3): одна строка direct-рендера RAG —
+    '[{label}] {_fact_prefix}{текст}{_stale_suffix}' (label из _ORIGIN_LABELS;
+    неизвестный origin — сам origin). item — 3- или 4-кортеж
+    (origin, fact, rag_ts[, author]); author читается при len(item) >= 4;
+    легаси-3-кортежи дают '[ММ.ГГГГ] ' (без автора). Текст — escape_xml_text
+    (как легаси-рендер build_rag_context); пометка устаревания — после текста."""
     origin = item[0]
     fact = item[1]
-    date = _date_prefix(item[2]) if len(item) >= 3 else ""
+    rag_ts = item[2] if len(item) >= 3 else None
+    author = item[3] if len(item) >= 4 else None
     label = _ORIGIN_LABELS.get(origin, origin)
-    return f"[{label}] {date}{escape_xml_text(fact)}"
+    return (f"[{label}] {_fact_prefix(rag_ts, author)}"
+            f"{escape_xml_text(fact)}{_stale_suffix(rag_ts)}")
 
 
 def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
     """R46-4 (55.6): КАНОН-структура `<context>/<user_gossip>/<bot_knowledge>`.
     facts: (origin, fact) — БЕЗ даты (legacy, старые вызовы/тесты) ИЛИ
-    (origin, fact, created_at) — дата-префикс '[%Y-%m-%d] ' (UTC) ПЕРЕД текстом
-    (gossip: chat_history → user_gossip) и ПЕРЕД origin-префиксом (knowledge:
-    остальные origin → bot_knowledge; unknown origin — без префикса). Дата
-    добавляется ВСЕМ origin, где created_at есть. escape_xml_text ОБЯЗАТЕЛЕН
-    (summary_xml). Пустые факты → "". Формат байт-в-байт (два пробела отступа;
-    пустой блок — `<block></block>`); legacy-2-кортежи — ровно как раньше.
-    Раунд 8 (F3/T-809): origin_labels=True → строки в едином формате
-    '[{label}] {date_prefix}{текст}' (_format_origin_labeled_line) БЕЗ
-    устаревшей группировки user_gossip/bot_knowledge — direct-рендер
+    (origin, fact, rag_ts[, author]) — временной префикс '[ММ.ГГГГ | Автор: X] '
+    (F1/T-1418, spec §3.1; UTC) ПЕРЕД текстом (gossip: chat_history →
+    user_gossip) и ПЕРЕД origin-префиксом (knowledge: остальные origin →
+    bot_knowledge; unknown origin — без префикса). Факты старше порога
+    limits.rag_stale_after_days несут ' (Внимание: возможно устарело)' ПОД
+    текстом (F1/T-1419). Дата/пометка добавляются ВСЕМ origin, где rag_ts есть.
+    escape_xml_text ОБЯЗАТЕЛЕН (summary_xml). Пустые факты → "". Формат
+    байт-в-байт (два пробела отступа; пустой блок — `<block></block>`);
+    legacy-2-кортежи — ровно как раньше (без даты). Раунд 8 (F3/T-809):
+    origin_labels=True → строки в едином формате
+    '[{label}] {_fact_prefix}{текст}{_stale_suffix}' (_format_origin_labeled_line)
+    БЕЗ устаревшей группировки user_gossip/bot_knowledge — direct-рендер
     `<RAG_Memory>` (модель видит источник напрямую); дефолт False — легаси
-    структура byte-for-byte без изменений (search/factcheck/тесты)."""
+    структура (search/factcheck/тесты)."""
     if origin_labels:
         if not facts:
             return ""
@@ -712,12 +793,15 @@ def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
     for item in facts:
         origin = item[0]
         fact = item[1]
-        date = _date_prefix(item[2]) if len(item) >= 3 else ""
+        rag_ts = item[2] if len(item) >= 3 else None
+        author = item[3] if len(item) >= 4 else None
+        date = _fact_prefix(rag_ts, author)
+        suffix = _stale_suffix(rag_ts)
         text = escape_xml_text(fact)
         if origin == "chat_history":
-            gossip.append(date + text)
+            gossip.append(date + text + suffix)
         else:
-            knowledge.append(date + _RAG_PREFIXES.get(origin, "") + text)
+            knowledge.append(date + _RAG_PREFIXES.get(origin, "") + text + suffix)
     if not gossip and not knowledge:
         return ""
     lines = ["<context>",
@@ -1981,8 +2065,9 @@ class MemoryManager:
             return ""
         if sort_by_timestamp:
             facts = sorted(facts, key=lambda f: f[2] or 0)   # стабильная сортировка, ASC
-        # Раунд 4 (T-724, FR-F1): рендер 3-кортежей (origin, fact, created_at) —
-        # дата-префикс '[%Y-%m-%d] ' в контексте («что было N-числа» через RAG).
+        # Раунд 4 (T-724, FR-F1; F1/T-1418): рендер 3/4-кортежей (origin, fact,
+        # created_at[, author]) — дата-префикс '[ММ.ГГГГ | Автор: X] ' в
+        # контексте («что было N-числа» через RAG); UTC (см. _fact_prefix).
         context = build_rag_context(facts)
         _rag_max_chars = await _chat_limit(
             chat_id, "limits.graph_rag_context_max_chars",
@@ -2002,13 +2087,14 @@ class MemoryManager:
     async def get_rag_facts(self, chat_id: int, query: str, *,
                             include_direct_reply: bool = False) -> list:
         """F1/T-807 (spec §3.F1): кандидаты RAG direct-пути как список
-        3-кортежей (origin, fact, created_at) в порядке РЕЛЕВАНТНОСТИ —
-        KNN: rel = cosine × w_eff + MMR (_knn_graph_facts); FTS-фолбек:
-        w_eff DESC. Хронологическая сортировка sort_by_timestamp НЕ
-        применяется (она осталась только у get_rag_context для
-        search/factcheck/скриптов — те пути не тронуты; даты остаются
-        ВНУТРИ каждого факта для рендера). Никогда не бросает: выключенный
-        RAG/любая ошибка → [] (WARNING)."""
+        4-кортежей (origin, fact, rag_ts, target_user) в порядке
+        РЕЛЕВАНТНОСТИ — KNN: rel = cosine × w_eff + MMR (_knn_graph_facts);
+        FTS-фолбэк: w_eff DESC. rag_ts = COALESCE(message_timestamp,
+        created_at); target_user = автор факта (F1/T-1418). Хронологическая
+        сортировка sort_by_timestamp НЕ применяется (она осталась только у
+        get_rag_context для search/factcheck/скриптов — те пути не тронуты;
+        даты остаются ВНУТРИ каждого факта для рендера). Никогда не бросает:
+        выключенный RAG/любая ошибка → [] (WARNING)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -2097,11 +2183,13 @@ class MemoryManager:
 
     async def _search_graph_facts(self, chat_id, query, limit,
                                   include_direct_reply=False) -> list:
-        """[(origin, fact, created_at), ...]. Vec-путь: _ensure_vec_retry (55.8)
-        → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл embed/vec →
-        FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
+        """[(origin, fact, rag_ts, target_user), ...]. Vec-путь: _ensure_vec_retry
+        (55.8) → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл
+        embed/vec → FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
         'bot_direct_reply'. Epic 60 (66.3/66.5): FTS-путь — top-2×limit по
-        rank → пересортировка по w_eff DESC → touch (продление жизни)."""
+        rank → пересортировка по w_eff DESC → touch (продление жизни).
+        F1/T-1418: rag_ts = COALESCE(message_timestamp, created_at),
+        target_user — автор факта (4-й элемент)."""
         now = int(time.time())
         if await self._ensure_vec_retry():
             try:
@@ -2139,9 +2227,10 @@ class MemoryManager:
             except Exception:
                 logger.warning("graphrag RAG: touch failed | chat_id=%s",
                                chat_id, exc_info=True)
-        # Фаза 2 (T-759): рендер ts = COALESCE(message_timestamp, created_at) —
-        # импортированные факты показывают дату сообщения-источника.
-        return [(row["origin"], row["fact"], row["rag_ts"]) for row in kept]
+        # Фаза 2 (T-759): рендер ts = COALESCE(message_timestamp, created_at);
+        # F1/T-1418: + target_user (автор факта — 4-кортеж).
+        return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"])
+                for row in kept]
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
                                include_direct_reply=False) -> list:
@@ -2159,16 +2248,32 @@ class MemoryManager:
         ranked = ranked[:fetch_k]
         if not ranked:
             return []
+        # F2/T-1427 (spec §4.2): архив НЕ исключаем из векторного поиска —
+        # берём confirmed + archived_belief (unconfirmed/legacy отбрасываем),
+        # архивным даём пенальти к score и воскрешаем при пробитии порога.
         records = await self.db.get_graph_fact_records(
-            [fid for fid, _, _ in ranked], status="confirmed")
-        by_id = {r["id"]: r for r in records}
+            [fid for fid, _, _ in ranked])
+        # dict (не sqlite3.Row): ниже помечаем воскрешённые статусы локально.
+        by_id = {r["id"]: dict(r) for r in records
+                 if str(r["status"] or "") in ("confirmed", "archived_belief")}
+        penalty = float(hot.get(
+            "limits.belief_resonance_penalty",
+            settings.BELIEF_RESONANCE_PENALTY) or 0.3)
+        threshold = float(hot.get(
+            "limits.belief_resonance_threshold",
+            settings.BELIEF_RESONANCE_THRESHOLD) or 0.78)
+        cosine_by_id: dict = {}
         sims: list = []
         for fid, cosine, vec in ranked:
             row = by_id.get(fid)
             if row is None:
                 continue
             w_eff = _effective_weight(row["weight"], row["last_confirmed_at"], now)
-            sims.append((fid, cosine * w_eff, vec))
+            score = cosine * w_eff
+            if str(row["status"] or "") == "archived_belief":
+                score -= penalty
+            cosine_by_id[fid] = float(cosine)
+            sims.append((fid, score, vec))
         if not sims:
             return []
         if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED):
@@ -2178,6 +2283,11 @@ class MemoryManager:
         else:
             sims.sort(key=lambda s: s[1], reverse=True)
             chosen = [s[0] for s in sims[:limit]]
+        # F2/T-1427 (§4.2): выбранный архивный belief с cosine ≥ порога —
+        # «воскрешение»: status='confirmed', вес=base, last_confirmed_at=now
+        # (+ событие телеметрии). Fail-open: ошибка БД не роняет RAG.
+        await self._resurrect_resonant(
+            chat_id, chosen, by_id, cosine_by_id, threshold, now)
         if chosen and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
             try:
                 await self.db.touch_graph_facts(
@@ -2189,9 +2299,134 @@ class MemoryManager:
                                chat_id, exc_info=True)
         # Фаза 2 (T-759): KNN-путь — ts = message_timestamp or created_at
         # (импортированные факты: дата сообщения, не дата импорта).
+        # F1/T-1418: + target_user (автор факта — 4-кортеж).
         return [(by_id[f]["origin"], by_id[f]["fact"],
-                 by_id[f]["message_timestamp"] or by_id[f]["created_at"])
+                 by_id[f]["message_timestamp"] or by_id[f]["created_at"],
+                 by_id[f]["target_user"])
                 for f in chosen]
+
+    async def _resurrect_resonant(self, chat_id, chosen, by_id,
+                                  cosine_by_id, threshold, now) -> int:
+        """F2/T-1427 (spec §4.2): воскрешение выбранных архивных beliefs,
+        чей cosine ≥ belief_resonance_threshold. Возвращает число
+        воскрешений. Fail-open: любая ошибка → WARNING, RAG-выдача жива."""
+        if not hot.get("flags.belief_decay_enabled",
+                       settings.BELIEF_DECAY_ENABLED):
+            return 0
+        count = 0
+        for fid in chosen:
+            row = by_id.get(fid)
+            if row is None or str(row["status"] or "") != "archived_belief":
+                continue
+            if cosine_by_id.get(fid, 0.0) < threshold:
+                continue
+            try:
+                ok = await self.db.resurrect_belief(
+                    int(fid), _belief_base_weight(row), now)
+            except Exception:
+                logger.warning(
+                    "graphrag RAG: belief resurrection failed | belief_id=%s",
+                    fid, exc_info=True)
+                continue
+            if not ok:
+                continue
+            row["status"] = "confirmed"      # локально — без архива в выдаче
+            count += 1
+            try:
+                await self.db.log_dream_event(
+                    int(chat_id), int(now), kind="resurrect",
+                    belief_id=int(fid), tokens=0, status="resurrected")
+            except Exception:
+                logger.warning(
+                    "graphrag RAG: resurrect log failed | belief_id=%s",
+                    fid, exc_info=True)
+            logger.info(
+                "graphrag RAG: belief resurrected by resonance | "
+                "belief_id=%s | chat=%s | cosine=%.3f",
+                fid, chat_id, cosine_by_id.get(fid, 0.0))
+        return count
+
+    async def graph_activation_facts(self, chat_id: int, *,
+                                     limit: int | None = None) -> list:
+        """F2/T-1429 (spec §4.4, F2-Q4): активация по графу — если в окне L1
+        (последние L1_GRAPH_WINDOW сообщений) часто (≥ GRAPH_ACTIVATION_MIN_HITS)
+        встречается связка 2–3 узлов графа, связанные архивные beliefs чата
+        поднимаются в горячий кэш БЕЗ вызова dig_into_lore (только показ —
+        вес не восстанавливает).
+
+        Возвращает список 4-кортежей (origin, fact, rag_ts, target_user) в
+        формате RAG-рендера, до GRAPH_ACTIVATION_CAP. Никогда не бросает:
+        флаг off/пусто/ошибка → [] (WARNING, fail-open NFR-4)."""
+        if not hot.get("flags.belief_decay_enabled",
+                       settings.BELIEF_DECAY_ENABLED):
+            return []
+        cap = int(limit or GRAPH_ACTIVATION_CAP)
+        try:
+            window = await self.db.get_smart_window(
+                chat_id, 0, L1_GRAPH_WINDOW)
+            texts = [str(r["text"] or "") for r in window
+                     if str(r["text"] or "").strip()]
+            if not texts:
+                return []
+            from services.dream_worker import significant_tokens
+            tokens: set[str] = set()
+            for text in texts:
+                tokens.update(significant_tokens(text))
+            if not tokens:
+                return []
+            nodes = await self.db.list_chat_nodes(
+                chat_id, _GRAPH_ACTIVATION_NODE_CAP * 4)
+            names: list[str] = []
+            for node in nodes:
+                name = str(node["entity_name"] or "").strip()
+                if not name:
+                    continue
+                low = name.casefold()
+                if low in tokens or any(t in low for t in tokens):
+                    names.append(name)
+                if len(names) >= _GRAPH_ACTIVATION_NODE_CAP:
+                    break
+            if len(names) < 2:
+                return []
+            l1_low = [t.casefold() for t in texts]
+
+            def _hits(combo) -> int:
+                return sum(1 for text in l1_low
+                           if all(c.casefold() in text for c in combo))
+
+            hot_names: set[str] = set()
+            for size in (2, 3):
+                for combo in itertools.combinations(names, size):
+                    if _hits(combo) >= GRAPH_ACTIVATION_MIN_HITS:
+                        hot_names.update(combo)
+            if not hot_names:
+                return []
+            hot_low = {n.casefold() for n in hot_names}
+            archived = await self.db.list_archived_beliefs(
+                chat_id=chat_id, limit=200)
+            out: list = []
+            for belief in archived:
+                anchor = next(iter(significant_tokens(belief["fact"])), None)
+                target = str(belief.get("target_user") or "").strip().casefold()
+                if (anchor and anchor in hot_low) or \
+                        (target and target in hot_low):
+                    out.append((
+                        belief.get("origin"), belief["fact"],
+                        belief.get("message_timestamp")
+                        or belief.get("created_at"),
+                        belief.get("target_user")))
+                if len(out) >= cap:
+                    break
+            if out:
+                logger.info(
+                    "graphrag: graph-activation injected archived beliefs | "
+                    "chat=%s | facts=%d", chat_id, len(out))
+            return out
+        except Exception:
+            logger.warning(
+                "graphrag: graph activation failed — no inject | chat_id=%s",
+                chat_id, exc_info=True)
+            return []
 
     async def _vec_candidates(self, chat_id, vector, fetch_k,
                               include_direct_reply, now) -> list:

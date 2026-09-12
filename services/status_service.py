@@ -366,6 +366,10 @@ class StatusService:
                     loadavg = None   # Windows: getloadavg отсутствует → None
             return {
                 "cpu_percent": psutil.cpu_percent(interval=None),
+                # F6 (T-1460): число ядер — для нормализации loadavg на фронте
+                # (EKG-пульс = loadavg[0]/cpu_count; Windows → CPU/RAM-фолбэк).
+                "cpu_count": (psutil.cpu_count()
+                              if hasattr(psutil, "cpu_count") else None) or 1,
                 "memory": {"total": vm.total, "used": vm.used,
                            "percent": vm.percent},
                 "disk": {"total": disk.total, "used": disk.used,
@@ -463,6 +467,23 @@ class StatusService:
         from services.log_ring import get_log_ring
         now = datetime.datetime.now(datetime.timezone.utc)
         buckets = self._bucketize(list(uptime_rows))
+        # F5 (cognition-dashboard-round1013, spec §3.6/F5-Q4): аддитивное поле
+        # context — in-memory accounting последнего собранного контекста
+        # (оценка токенов, cap, признак урезания). R17-safe: только числа;
+        # данных нет (рестарт/контекст не собирался) → used=null, фронт «—».
+        try:
+            from services.direct_chat_service import get_process_accounting
+            acct = get_process_accounting()
+        except Exception:
+            logger.warning("[status] context accounting unavailable", exc_info=True)
+            acct = {}
+        ctx_cap = hot.get("limits.chat_context_budget_tokens",
+                          settings.CHAT_CONTEXT_BUDGET_TOKENS)
+        context_field = {
+            "used": acct.get("context_used"),
+            "limit": acct.get("context_limit") or ctx_cap,
+            "truncated": bool(acct.get("context_truncated")),
+        }
         # ФИКС (2026-09-03): uptime_events пуст/недоступен (PG down, робот
         # только-только поднялся) → НЕ отдаём пустой список (фронт показывал
         # «Нет данных» и плоский график), а минимально-осмысленные бакеты:
@@ -494,6 +515,7 @@ class StatusService:
             "server": self._server_metrics(),
             "llm": cards,
             "permsoc": permsoc,
+            "context": context_field,
             "uptime": {
                 "buckets": buckets,
                 # 10.7 (2b): ts последнего 'up'-бакета, иначе None (не

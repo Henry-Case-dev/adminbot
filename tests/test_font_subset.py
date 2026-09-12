@@ -31,6 +31,9 @@ REPLACED_EMOJI = (
     "👥", "⚙", "💾", "📜", "📝", "🤖", "🚚", "👑", "🔄", "⏹",
     "🖥", "📈", "🔑",
 )
+# F5 (cognition-dashboard-round1013, ТЗ §5/§7): emoji-бейджи дашборда
+# «Осмысление»/«Интеллект и Память» заданы владельцем — точечный allowlist.
+F5_COGNITION_EMOJI = ("🌙", "🌌", "💾", "📻")
 
 
 def _parse_icons() -> dict[str, int]:
@@ -152,4 +155,6 @@ def test_no_replaced_pictographic_emoji():
     for path in (APP_JS, INDEX_HTML):
         text = path.read_text(encoding="utf-8")
         for glyph in REPLACED_EMOJI:
+            if glyph in F5_COGNITION_EMOJI:
+                continue   # F5/§5/§7: emoji-бейджи спецификации владельца
             assert glyph not in text, (path.name, glyph)

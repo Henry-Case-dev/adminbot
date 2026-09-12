@@ -430,6 +430,14 @@
 | `config-read-path-audit` (F-5) | Аудит read-путей: settings.X vs hot.get |
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
+| `cognition-4d-memory-round1013` (F1) | 4D-память: префикс `[ММ.ГГГГ \| Автор]` + метка устаревания >6 мес (раунд 10.13) |
+| `cognition-belief-decay-round1013` (F2) | Belief decay (−0.1/мес) + Resurrection; архив `status='archived_belief'` (раунд 10.13) |
+| `cognition-deep-sleep-round1013` (F3) | «Глубокий сон»: якоря → «Мост времени» → парадигмы; роутер `LLMClient.generate_worker` (раунд 10.13) |
+| `cognition-llm-providers-round1013` (F4) | 2 provider-блока: `intel_history` / `intel_bg` + фоллбэк (раунд 10.13) |
+| `cognition-dashboard-round1013` (F5) | Дашборд «Осмысление» + виджет «Интеллект и Память»; граф vis-network (раунд 10.13) |
+| `cognition-ekg-logs-bugfix-round1013` (F6) | SVG-EKG (Load/CPU/RAM) + багфикс «Логи» ERROR+WARNING (раунд 10.13) |
+| `cognition-user-guide-round1013` (F7) | `plans/docs/intelligence_user_guide.md` + ссылка из README (раунд 10.13, последняя) |
+| `cognition-irony-dossier-round1013` (F8) | Ироничный промпт Досье; мемы `status='chat_meme'`, блоки [Факты]/[Мемы] (раунд 10.13) |
 
 > **Раунд 10.4 — 8 фич ЗАВЕРШЁН и ЗААРХИВИРОВАН (10.09.2026)** — см. раздел
 > «Раунд 10.4 — финал» ниже; их спеки — в `plans/archive/`
@@ -777,6 +785,88 @@
 > **Осталось вручную:** live Android/Telegram QA; опционально задать выделенный
 > embedding api key. ⚠️ Headroom — вне репозитория, как сущность НЕ фиксируется.
 
+> **Step 0 recon 13.09.2026 (раунд 10.13 — «Рефакторинг Памяти, Сна и Дашборда
+> Интеллекта»):** HEAD == origin/master == `ce25dc7`, дерево ЧИСТОЕ, APP_VERSION
+> 2.56.0, pytest **5210/0**, каталог **405/90/377/88** (TAB_RULES 19). Новый эпик
+> `plans/current_task.md` (пп.1–10) пересёк memory/RAG/сон/ностальгию/лор/провайдеров/
+> TMA. **Ни один пункт 1–10 не реализован**; есть фундамент (см. ниже).
+> **Уже есть (не переделывать):** (1) `build_rag_context`/`_format_origin_labeled_line`
+> (`services/summary_memory.py:676,681-710`) — факты уже с метками origin и датой
+> `[ГГГГ-ММ-ДД]` (нет автора и пометки устаревания); (2) GraphRAG v2 + vec/int8-KNN +
+> MMR + `dig_into_lore`; (3) `DreamWorker` (окно 4–6 local, тик 60м, бюджеты,
+> beliefs `derived_belief`/kind=belief, weight 0.6, вечные) + `NostalgiaWorker`
+> (слои A/B) + `LoreWorker` + `CheckupService`/`memory_health.py`/`worker_budget.py`;
+> (4) provider-модель `PROVIDER_BLOCKS` parent+`subBlocks` (10.11/10.12),
+> `providerCoveredKeys`, `_BLOCK_SAVED_KEY`/`KNOWN_BLOCKS` (`services/llm_probe.py`);
+> (5) вкладки «Память»/«Сон»/«Ностальгия» (10.4-фича C), мини-блоки dream/nostalgia
+> в TMA, «Бюджет фона (день)» в «Сводке» (10.9), `web/api/memory_agi.py`;
+> (6) старый линейный график аптайма (`web/index.html:2713-2718` +
+> `services/uptime_heartbeat.py`) — его заменяет п.8; key-history график (10.11) —
+> ДРУГОЙ, не путать; (7) технический отчёт `plans/docs/memory_sleep_nostalgia_lore_report.md`
+> (10.11) — сырьё для п.10, но новый `intelligence_user_guide.md` пишется с нуля.
+> **Исторические конфликты/запреты:** комбинированного тега `ERROR+WARNING` и
+> `chat_memes`/`archived_belief`/`paradigm`/`deep sleep`/force-directed graph в коде
+> НЕТ (greenfield); `logLevel:'INFO'` (`web/app.js:860`) + один `level` в
+> `/api/status/logs` — п.9 меняет контракт фильтра (нужен учёт тестов);
+> beliefs сейчас вечные и подаются как обычные факты — п.4 меняет read-path
+> контекста (регресс-риск); инварианты 10.11/10.12 в силе: **ноль новых PG-DDL,
+> SQLite v8, `bot.py` router order не трогать** (только DI-kwargs), `media/`/`.env`
+> не трогать, **R17** (секреты только `{configured,last4}`), каталог-счётчики
+> обновлять осознанно с тестами, новые provider-блоки — в формате parent+subBlocks
+> (+`providerCoveredKeys`/`_BLOCK_SAVED_KEY`, иначе generic-дубли/непроверяемые
+> ключи). **Открытые Critical/High из Scanner — НЕТ:** 10.10/10.11/10.12 =
+> 0 blocker/0 high/0 medium; открыт low R10.12-1 (`saveKeyItem` не на global-save →
+> 422 для `keys.*` вне provider-блоков) — релевантен п.3, если новые ключи пойдут
+> отдельными блоками; техдолг info R10.11-4 (probe base_url hardening), R10.12-2/-3/-4.
+> **Рекомендация @PM:** 6–7 фич — F1 backend 4D-память+сон-группировка (п.1);
+> F2 backend «Сон v2»: Belief Decay + Resurrection (п.4+4.1); F3 backend
+> «Глубокий сон»: мета-синтез/якоря/парадигмы (п.6) + LLM-роутер фоновых воркеров
+> (п.3, backend); F4 frontend «Провайдеры»: 2 новых блока (п.3, UI); F5 frontend
+> «Cognition»: дашборд+граф+виджет Сводки (п.5+п.7); F6 frontend: EKG + логи (п.8+п.9);
+> F7 docs: user guide + README (п.10). Дробить п.4.1 на 3 подзадачи (резонанс/
+> Реаниматор/граф-активация). Зависимости: F1→F2→F3; F4∥F3; F5 зависит от API
+> F2/F3/F6. Граф обновлён: `Epic: Cognition-Sleep-Memory Refactor round1013`.
+>
+> **Синк STEP 2 (Architecture, @Architect) 13.09.2026 (раунд 10.13):** эпик
+> ЗААРХИТЕКТИРОВАН — 8 фич, во всех папках `plans/features/cognition-*-round1013/`
+> созданы `spec.md` (🟣 SPEC_READY) + `tasks.md` (T-1417…T-1476) + 3 ADR:
+> `adr-1013-1-provider-keys.md` (F4/F3 — единые ключи `models.intel_<role>_*` /
+> `keys.intel_<role>_api_key`), `adr-1013-2-graph-library.md` (F5 — vis-network
+> standalone UMD, self-host, lazy-load), `adr-1013-3-prompt-canon-policy.md`
+> (F1 — модульные каноны dream/lore/dossier: PREV-snapshot + байт-тесты,
+> `PROMPT_MIGRATIONS` НЕ трогаем). Список спек: **F1** `cognition-4d-memory-round1013`,
+> **F2** `cognition-belief-decay-round1013`, **F3** `cognition-deep-sleep-round1013`,
+> **F4** `cognition-llm-providers-round1013`, **F5** `cognition-dashboard-round1013`,
+> **F6** `cognition-ekg-logs-bugfix-round1013`, **F7** `cognition-user-guide-round1013`,
+> **F8** `cognition-irony-dossier-round1013`. Граф: милстоун `round1013-epic-cognition`
+> → ARCHITECTED; epic `Epic: Cognition-Sleep-Memory Refactor round1013` обновлён.
+>
+> **Синк STEP 3 (Intent, @Memory) 13.09.2026 (раунд 10.13):** Human Gate пройден,
+> решения подтверждены пользователем. **Подтверждённые решения:** F5 — vis-network
+> (standalone UMD, self-host, lazy-load); F3/F4 — роли выделенных LLM
+> `intel_history` (Историческая память/Лор) и `intel_bg` (Фоновые проверки/важность),
+> при пустых значениях фоллбэк на `models.llm_*`/`keys.llm_api_key`; F8 — Досье через
+> существующий `LoreWorker` + `build_persona_card` (новый воркер НЕ создаём),
+> мемы = `graph_facts.status='chat_meme'`; архив убеждений =
+> `graph_facts.status='archived_belief'`; парадигмы =
+> `origin='derived_belief' + belief_meta.type='paradigm'`, weight 0.55.
+> **Ключевые DDL-free решения:** `graph_facts.kind` имеет CHECK (`fact`/`belief`) →
+> третий kind запрещён (был бы PG-DDL); `graph_facts.status` БЕЗ CHECK → архив/мемы/
+> парадигмы кодируются колонкой `status` + JSON `belief_meta`; ноль новых PG-DDL,
+> SQLite остаётся v8. **Каталог-Δ:** 405→427 (Settings 377→399), categorized
+> 381→403, GROUPS 90, mapped 88, TAB_RULES 19 неизменны. **Флаги (default OFF):**
+> `flags.belief_decay_enabled`, `flags.deep_sleep_enabled`,
+> `flags.irony_filter_enabled`.
+> **Порядок:** F1→F2→F3→F5 (цепочка данных/API); F4 ∥ F3 (RELATED_TO, общий роутер
+> `LLMClient.generate_worker` и ключи `intel_*`); F6 и F8 — параллельны основной
+> цепочке; F7 — последняя. **Узлы графа:** 8 фич (PART_OF `round1013-epic-cognition`,
+> `AdminBot HAS_PLAN`) + 7 компонентов (`DeepSleepWorker`, `LLMClient.generate_worker`,
+> `BeliefDecayService`, `CognitionDashboard`, `EKGHeartbeat`, `IronyPromptFilter`,
+> `plans/docs/intelligence_user_guide.md`). Статус милстоуна →
+> ARCHITECTED + INTENT_SYNCED. Следующий шаг — @Builder (Step 4) по `spec.md`;
+> инварианты: ноль PG-DDL, SQLite v8, порядок роутеров `bot.py` (только DI-kwargs),
+> R17 (секреты `{configured,last4}`), R16 (id-не-имя).
+>
 > **Раунд 10.3 (F-13/F-14/F-15) завершён и заархивирован** — см. раздел
 > «Раунд 10.3 — финал (09–10.09.2026)» ниже; их спеки — в `plans/archive/`
 > (`tma-chat-selector-fixes`, `dm-user-settings`, `direct-sandbox-budget-investigation`).

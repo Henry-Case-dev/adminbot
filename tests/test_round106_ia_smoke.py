@@ -17,12 +17,13 @@ HTML = open("web/index.html", encoding="utf-8").read()
 
 class TestCatalogInvariant106:
     def test_counts(self):
-        # 10.12: REGISTRY 405 / GROUPS 90 / mapped 88 / Settings 377.
-        assert len(pc.REGISTRY) == 405
+        # 10.13 (F1+F2+F3+F8+F4): REGISTRY 427 / GROUPS 90 / mapped 88 /
+        # Settings 399.
+        assert len(pc.REGISTRY) == 427
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 377
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 399
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -489,8 +490,9 @@ class TestScannerR106Fixes:
         # перестроены в 3 подблока (12 полей: main/f1/f2) → 42 поля всего.
         # 10.12 (ADR-1012-1): 42 поля; уникальных 35 (openrouter_base_url/
         # api_key ×3, openrouter_display_name ×2, embedding_fallback_* ×2).
-        assert len(keys) == 42          # полей в блоках + subBlocks
-        assert len(set(keys)) == 35     # уникальных ключей
+        # 10.13 (F4, ADR-1013-1 §2.3): +8 полей (2 блока × 4) → 50/43.
+        assert len(keys) == 50          # полей в блоках + subBlocks
+        assert len(set(keys)) == 43     # уникальных ключей
         # generic-фильтр только для llm_providers
         assert "(tab.id === 'llm_providers')" in JS
         # 10.11: subBlocks эмбеддингов покрыты рекурсивным обходом.

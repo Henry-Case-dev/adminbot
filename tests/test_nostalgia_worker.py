@@ -70,6 +70,23 @@ class _FakeLLM:
         return "кстати, помню как тогда было"
 
 
+class _RoleLLM(_FakeLLM):
+    """_FakeLLM + generate_worker (F3/T-1439): фиксирует роли роутера."""
+
+    def __init__(self, *answers):
+        super().__init__(*answers)
+        self.worker_roles: list[str] = []
+        self.main_calls = 0
+
+    async def generate(self, messages, temperature=None):
+        self.main_calls += 1
+        return await super().generate(messages, temperature=temperature)
+
+    async def generate_worker(self, role, messages, temperature=None):
+        self.worker_roles.append(role)
+        return await super().generate(messages, temperature=temperature)
+
+
 class _FakeBot:
     """Мок aiogram Bot: send_message записывает вызовы; error — бросок."""
 
@@ -363,6 +380,25 @@ class TestCandidatesAndThreshold:
         meta = json.loads(rows[0]["meta"])
         assert "переезд" in meta["candidate_text"]
         assert bot.calls and bot.calls[0][0] == CHAT_ID
+
+    @pytest.mark.asyncio
+    async def test_nostalgia_uses_background_role(self, db, monkeypatch):
+        """F3/T-1439 (spec §5, рекомендовано): генерация ностальгии — роль
+        background через generate_worker; прямой generate не тронут."""
+        _patch_time(monkeypatch)
+        await _add_user_msg(db, "опять василий переезд обсуждают",
+                            ts=NOW - 5 * 3600)
+        await _add_user_msg(db, "переезд в москву долгий был",
+                            ts=NOW - 4 * 3600)
+        await _add_fact(db, "василий переезд в москву занял месяц",
+                        days_ago=400, importance=6)
+        memory = MemoryManager(db, MagicMock())
+        llm = _RoleLLM()
+        w = _worker(db, llm, monkeypatch=monkeypatch, memory=memory)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 1
+        assert llm.worker_roles == ["background"]
+        assert llm.main_calls == 0          # прямой generate не тронут
 
     @pytest.mark.asyncio
     async def test_golden_fact_weak_importance_no_candidate(

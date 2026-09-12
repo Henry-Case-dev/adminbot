@@ -501,7 +501,10 @@ async def on_startup():
             )
             _lore_worker = LoreWorker(
                 lore_store, cache=get_lore_cache(), db=db,
-                llm=lore_llm, bot_id=bot.id, pg=lore_store.pg)
+                llm=lore_llm, bot_id=bot.id, pg=lore_store.pg,
+                # F8 (spec §4.1): канонизация target мемов (aliases.canon_name).
+                aliases=AliasResolver(hot.get("limits.summary_aliases",
+                                              settings.SUMMARY_ALIASES)))
             await _lore_worker.start()
             set_lore_components(
                 store=lore_store, cache=get_lore_cache(),

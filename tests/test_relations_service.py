@@ -338,10 +338,12 @@ class TestRelationsCatalog:
             spec = pc.get(field)
             assert spec is not None and spec.category == pc.CATEGORY_LIMITS
             assert spec.group == "limits_relations"
-        # ровно 1 флаг группы flags_relations (spec Q12: relations_tone_enabled)
+        # флаги группы flags_relations: relations_tone_enabled (Q12) + F8
+        # irony_filter_enabled (иронический фильтр досье).
         flag_keys = [k for k, spec in pc.REGISTRY.items()
                      if spec.group == "flags_relations"]
-        assert flag_keys == ["RELATIONS_TONE_ENABLED"]
+        assert sorted(flag_keys) == ["IRONY_FILTER_ENABLED",
+                                     "RELATIONS_TONE_ENABLED"]
         flag = pc.get("RELATIONS_TONE_ENABLED")
         assert flag.category == pc.CATEGORY_FLAGS
         assert s.RELATIONS_TONE_ENABLED is False          # дефолт консервативен

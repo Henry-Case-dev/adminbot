@@ -178,6 +178,20 @@ class TestHandler:
                 handler.get_entries(level="ERROR")] == ["error"]
         assert len(handler.get_entries(level="ALL")) == 3
 
+    def test_level_filter_error_warning_combined(self):
+        """F6 (T-1462/§3.1): ERROR+WARNING = WARNING ∪ ERROR ∪ CRITICAL,
+        без INFO/DEBUG; порядок — от новых к старым."""
+        handler = self._make()
+        self._emit(handler, "x", logging.DEBUG, "debug")
+        self._emit(handler, "x", logging.INFO, "info")
+        self._emit(handler, "x", logging.WARNING, "warn")
+        self._emit(handler, "x", logging.ERROR, "error")
+        self._emit(handler, "x", logging.CRITICAL, "crit")
+        entries = handler.get_entries(level="ERROR+WARNING")
+        # newest-first, включая WARNING, исключая INFO/DEBUG
+        assert [e["message"] for e in entries] == ["crit", "error", "warn"]
+        assert {e["level"] for e in entries} == {"WARNING", "ERROR", "CRITICAL"}
+
     def test_limit(self):
         handler = self._make(maxlen=50)
         for i in range(10):

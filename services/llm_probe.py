@@ -8,7 +8,8 @@
 
 Контракт блоков:
   * chat-блоки: direct_main, direct_fallback, transcribe_openrouter,
-    video_summary_openrouter (нужны base_url+model+key);
+    video_summary_openrouter, intel_history_main, intel_background_main
+    (нужны base_url+model+key);
   * STT-блок: transcribe_groq — POST /audio/transcriptions (Whisper не
     chat-модель; chat-probe давал ложный error и красную карточку);
   * embeddings — требует base_url; раунд 10.11+ UI рендерит кнопку
@@ -30,9 +31,12 @@ logger = logging.getLogger(__name__)
 
 # Блоки, которые шлют OpenAI-совместимый chat-запрос (нужен base_url).
 # 10.11 (spec §1.2B): video_fallback — запасная видео-модель (chat-probe).
+# 10.13 (F4, ADR-1013-1 §2.4): intel_history_main / intel_background_main —
+# выделенные LLM Интеллекта (Вехи/Лор и фоновые проверки).
 _LLM_BLOCKS = frozenset({
     "direct_main", "direct_fallback", "transcribe_groq",
     "transcribe_openrouter", "video_summary_openrouter", "video_fallback",
+    "intel_history_main", "intel_background_main",
 })
 # Блоки эмбеддингов (нужен base_url).
 # 10.11 (spec §1.2B): embeddings_main / _fallback1 / _fallback2 — подблоки
@@ -65,6 +69,9 @@ _BLOCK_SAVED_KEY: dict[str, str] = {
     "search_keys:tavily": "keys.tavily_api_key",
     "search_keys:exa": "keys.exa_api_key",
     "media_share": "keys.media_share_secret",
+    # 10.13 (F4, ADR-1013-1 §2.4): выделенные LLM Интеллекта.
+    "intel_history_main": "keys.intel_history_api_key",
+    "intel_background_main": "keys.intel_bg_api_key",
 }
 
 _TIMEOUT_SECONDS = 15.0
@@ -91,14 +98,48 @@ def _saved_api_key(block: str) -> str:
         # Раунд 10.12 (OD-1): primary embed-путь в рантайме падает на
         # keys.llm_api_key, если отдельный embed-ключ пуст. Probe «Проверить»
         # должен зеркалить это (R17: ключ не логируется/не возвращается).
-        # Только primary (embeddings/embeddings_main), НЕ Google-фоллбэки.
-        if not value.strip() and pg_key == "keys.embedding_api_key":
+        # Раунд 10.13 (F4, ADR-1013-1 §2.2): выделенные LLM Интеллекта при
+        # пустом ключе также фоллбэкаются на ключ основной модели.
+        if not value.strip() and pg_key in (
+                "keys.embedding_api_key", "keys.intel_history_api_key",
+                "keys.intel_bg_api_key"):
             value = hot.get("keys.llm_api_key", settings.LLM_API_KEY) or ""
         return value
     except Exception:
         logger.warning("[llm_probe] не удалось получить сохранённый ключ блока",
                        exc_info=True)
         return ""
+
+
+# S10.13-10: block → slug выделенной LLM Интеллекта (runtime-фолбэк
+# generate_worker: пустые base/model берутся у основной модели).
+_INTEL_BLOCK_SLUG = {
+    "intel_history_main": "intel_history",
+    "intel_background_main": "intel_bg",
+}
+
+
+def _intel_probe_fallback(block: str, base_url: str, model: str
+                          ) -> tuple[str, str]:
+    """Зеркалит runtime-фолбэк `LLMClient._worker_profile`: для выделенных
+    LLM Интеллекта пустые base_url/model подставляются значениями основной
+    модели (иначе «Проверить» даёт ложный not_configured/error)."""
+    slug = _INTEL_BLOCK_SLUG.get(block)
+    if slug is None:
+        return base_url, model
+    try:
+        from config.settings import settings
+        from services import hot_config as hot
+        if not (base_url or "").strip():
+            base_url = (hot.get("models.llm_base_url",
+                                settings.LLM_BASE_URL) or "")
+        if not (model or "").strip():
+            model = (hot.get("models.llm_model_name",
+                             settings.LLM_MODEL_NAME) or "")
+    except Exception:
+        logger.warning("[llm_probe] intel fallback резолв не удался",
+                       exc_info=True)
+    return base_url, model
 
 
 def sanitize_error(text: str | None, api_key: str | None) -> str:
@@ -253,6 +294,10 @@ async def probe_block(block: str, base_url: str = "", model: str = "",
 
     if block not in KNOWN_BLOCKS:
         return _result(False, None, "неизвестный блок")
+
+    # S10.13-10: выделенные LLM Интеллекта при пустых base/model зеркалят
+    # runtime-фолбэк на основную модель (до резолва ключа/сети).
+    base_url, model = _intel_probe_fallback(block, base_url, model)
 
     # 10.11 (ADR-1011-1): UI не перепечатывает сохранённый секрет (R17) —
     # пустой api_key → резолвим сохранённый ключ блока (внутренне).

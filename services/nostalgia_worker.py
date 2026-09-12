@@ -582,6 +582,16 @@ class NostalgiaWorker:
                 "golden_min_days", settings.NOSTALGIA_GOLDEN_MIN_DAYS) or 0),
             limit=_GOLDEN_FACT_LIMIT)
 
+    async def _worker_llm(self, messages: list[dict],
+                          temperature: float | None = None) -> str:
+        """F3/T-1439 (spec §5, рекомендовано): выделенная LLM роли
+        background с фоллбэком на `generate` (моки/старые клиенты)."""
+        worker_fn = getattr(self.llm, "generate_worker", None)
+        if callable(worker_fn):
+            return await worker_fn("background", messages,
+                                   temperature=temperature)
+        return await self.llm.generate(messages, temperature=temperature)
+
     async def _llm_once(self, candidate: dict) -> str | None:
         """1 облачный LLM-вызов (NFR-1: только LLMClient-путь бота;
         локальная LLM запрещена — лимит владельца). Возвращает текст ответа
@@ -594,7 +604,7 @@ class NostalgiaWorker:
         if not user_text:
             return None
         try:
-            raw = await self.llm.generate([
+            raw = await self._worker_llm([
                 {"role": "system",
                  "content": NOSTALGIA_PROMPT.format(max_words=_MAX_WORDS)},
                 {"role": "user", "content": user_text},

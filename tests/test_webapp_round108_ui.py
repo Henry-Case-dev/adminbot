@@ -24,6 +24,11 @@ PICTOGRAPHIC = (
 )
 # Спецсимволы/глифы, которые НЕ заменяются (spec §2.3).
 KEEP_GLYPHS = ("✕", "⛶", "↪", "⟳", "←", "→", "▶")
+# F5 (cognition-dashboard-round1013, ТЗ §5/§7): новые бейджи дашборда
+# «Осмысление»/«Интеллект и Память» намеренно используют emoji владельца
+# (🌙 Сон / 🌌 Глубокий сон / 💾 Лор / 📻 Ностальгия) — точечный allowlist
+# поверх запрета 10.8 §2.2.
+F5_COGNITION_EMOJI = ("🌙", "🌌", "💾", "📻")
 
 
 def _rule(selector: str) -> str:
@@ -72,6 +77,8 @@ class TestRenames108:
 class TestEmojiToIcons108:
     def test_no_pictographic_emoji_in_web(self):
         for glyph in PICTOGRAPHIC:
+            if glyph in F5_COGNITION_EMOJI:
+                continue   # F5/§5: emoji-бейджи спецификации владельца
             assert glyph not in HTML, ("index.html", glyph)
             assert glyph not in JS, ("app.js", glyph)
 
@@ -80,12 +87,15 @@ class TestEmojiToIcons108:
             assert glyph in HTML, glyph
 
     def test_new_icon_names_used(self):
+        # F6: `trending_up` больше не рендерится в HTML — линейный график
+        # аптайма удалён (заменён SVG-EKG); маппинг в app.js ICONS сохранён.
         for name in ("visibility", "visibility_off", "shield",
                      "delete", "settings", "save", "edit_note", "swap_horiz",
-                     "stop", "play_arrow", "dns", "trending_up", "key",
+                     "stop", "play_arrow", "dns", "key",
                      "receipt_long", "chevron_right", "expand_more"):
             assert ("'%s'" % name) in HTML, name
             assert (name + ":") in JS, name
+        assert "trending_up:" in JS   # маппинг иконки не удалён
         # 10.9: psychology больше не рендерится статикой в HTML (иконка
         # owner-блока «Мимикрия» приходит из PERMSOC_OWNER_BLOCKS в JS).
         assert "psychology:" in JS

@@ -87,6 +87,7 @@ from services.chat_params import (
 )
 from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
+from services.dossier_prompts import format_dossier_block
 from services.llm_client import (
     LLMBadResponseError,
     LLMError,
@@ -144,8 +145,60 @@ _DIG_RESULT_MAX_CHARS = 3600
 # ПОСЛЕДНИМ (после map), при давлении режется целиком.
 _NOSTALGIA_BUDGET_RATIO = 0.02
 
+# ── F5 (cognition-dashboard-round1013, spec §3.6/F5-Q4): in-memory
+#    accounting последнего собранного контекста + времени инжекта лора.
+#    R17-safe: только ОЦЕНКА токенов (число), флаг урезания и ts; ни текста
+#    промпта, ни эмбеддингов, ни ключей. Рестарт сбрасывает (прецедент
+#    DirectChatThrottle) — фронт показывает «—», если данных нет.
+_PROCESS_ACCOUNTING: dict = {
+    "context_used": None,       # оценка токенов последнего контекста
+    "context_limit": None,      # применённый cap CHAT_CONTEXT_BUDGET_TOKENS
+    "context_truncated": False,  # RAG/стиль резались (красный прогресс-бар)
+    "lore_last_inject_at": None,  # ts последнего инжекта <chat_lore>
+    "updated_at": None,
+}
+
+
+def record_context_usage(used: int | None, limit: int | None,
+                         truncated: bool) -> None:
+    """F5: записать оценку последнего контекста (вызывает _apply_context_budget).
+    Никогда не бросает — телеметрия не должна ломать генерацию."""
+    try:
+        _PROCESS_ACCOUNTING["context_used"] = (
+            int(used) if used is not None else None)
+        _PROCESS_ACCOUNTING["context_limit"] = (
+            int(limit) if limit is not None else None)
+        _PROCESS_ACCOUNTING["context_truncated"] = bool(truncated)
+        _PROCESS_ACCOUNTING["updated_at"] = int(time.time())
+    except Exception:  # pragma: no cover — защитная сетка
+        logger.warning("direct: context accounting record failed",
+                       exc_info=True)
+
+
+def record_lore_inject(ts: int | None = None) -> None:
+    """F5: запомнить ts инжекта <chat_lore> (виджет «Интеллект и Память»)."""
+    try:
+        _PROCESS_ACCOUNTING["lore_last_inject_at"] = int(
+            ts if ts is not None else time.time())
+    except Exception:  # pragma: no cover
+        logger.warning("direct: lore inject accounting failed", exc_info=True)
+
+
+def get_process_accounting() -> dict:
+    """F5: снимок accounting для /api/status.context и cognition/status."""
+    return {
+        "context_used": _PROCESS_ACCOUNTING.get("context_used"),
+        "context_limit": _PROCESS_ACCOUNTING.get("context_limit"),
+        "context_truncated": bool(_PROCESS_ACCOUNTING.get("context_truncated")),
+        "lore_last_inject_at": _PROCESS_ACCOUNTING.get("lore_last_inject_at"),
+        "updated_at": _PROCESS_ACCOUNTING.get("updated_at"),
+    }
+
 
 _PERSONA_MAX_ITEMS = 10          # 66.9: карточка — до 10 фактов/связей
+# F8 (cognition-irony-dossier-round1013, spec §6): общий символьный бюджет
+# блоков досье [Факты]/[Локальные мемы/Ярлыки] (мемы режутся первыми).
+_PERSONA_DOSSIER_MAX_CHARS = 1200
 # Раунд 3 (3.7/C1, T-696): анти-залипание style_anchors («сцуко»-инцидент).
 _STYLE_ANCHOR_LOOKBACK = 5       # буфер выборки поверх count (ищем «разные»)
 _STICKY_MIN_WORD_LEN = 3         # короче — не «слово-префикс» (a/и/в…)
@@ -1030,6 +1083,13 @@ class DirectChatService:
             enabled = hot.get("flags.chat_context_budgets_enabled",
                               settings.CHAT_CONTEXT_BUDGETS_ENABLED)
         if not enabled:
+            # F5/§3.6: бюджеты выключены — всё равно фиксируем оценку
+            # последнего контекста (used/cap/truncated=False) для дашборда.
+            cap = budget_tokens if budget_tokens is not None else hot.get(
+                "limits.chat_context_budget_tokens",
+                settings.CHAT_CONTEXT_BUDGET_TOKENS)
+            record_context_usage(
+                sum(count_tokens(text) for _, text in blocks), cap, False)
             return [text for _, text in blocks]
         # Раунд 10.4 (G-ремедиация): budget-база — per-chat (async-резолв
         # в вызывающем, параметр None → старое поведение для тестов).
@@ -1071,12 +1131,15 @@ class DirectChatService:
         # global-пол: под общим давлением global не опускается ниже своей доли
         # (D2.4: конспект-минимум, порядок жертв tail → L1(keep-head)).
         global_floor = limits["global"]
+        did_truncate = False   # F5/§3.6: маркер «RAG/стиль урезаются»
 
         def truncate(kind: str, text: str) -> str:
+            nonlocal did_truncate
             if text is None or kind not in limits or limits[kind] <= 0:
                 return text
             truncated = self._truncate_block(text, limits[kind], kind=kind)
             if truncated != text:
+                did_truncate = True
                 logger.warning(
                     "direct: budget truncation | block=%s | tokens=%d -> %d",
                     kind, count_tokens(text), count_tokens(truncated))
@@ -1089,6 +1152,7 @@ class DirectChatService:
             mood_limit = max(0, limits["target"] - target_tokens)
             mood_before = count_tokens(texts["mood"])
             if mood_before > mood_limit:
+                did_truncate = True
                 texts["mood"] = self._truncate_block(
                     texts["mood"], mood_limit, kind="mood")
                 logger.warning(
@@ -1122,11 +1186,14 @@ class DirectChatService:
                         limits[kind] = max(0, limits[kind] // 2)
                     texts[kind] = self._truncate_block(
                         texts[kind], limits[kind], kind=kind)
+                    did_truncate = True
                     total = sum(count_tokens(text)
                                 for text in texts.values())
                     progress = True
                 if not progress:
                     break
+        # F5/§3.6: телеметрия последнего контекста для дашборда (оценка).
+        record_context_usage(total, budget, did_truncate)
         return [texts[kind] for kind, _ in blocks if texts[kind]]
 
     def _truncate_block(self, block: str, limit_tokens: int,
@@ -1316,6 +1383,7 @@ class DirectChatService:
         inner = block[len("<chat_lore>\n"):]
         if inner.endswith("\n</chat_lore>"):
             inner = inner[: -len("\n</chat_lore>")]
+        record_lore_inject()   # F5/§3.2: ts инжекта лора для виджета
         return True, inner
 
     # ── Epic 60 Фаза C (65.5/65.8): команды /clear /persona /tone /forget ──
@@ -1461,6 +1529,12 @@ class DirectChatService:
             lore_active, lore_inner = await self._chat_lore_state(chat_id)
             protected = await self.db.get_protected_facts(
                 chat_id, canon, include_chat_level=not lore_active)
+            # F8 (spec §6): при активном фильтре — мемы чата (status chat_meme)
+            # отдельным блоком; при OFF list_chat_memes не вызывается.
+            irony_on = bool(hot.get("flags.irony_filter_enabled",
+                                    settings.IRONY_FILTER_ENABLED))
+            memes = (await self.db.list_chat_memes(
+                chat_id, canon, limit=_PERSONA_MAX_ITEMS) if irony_on else [])
         except Exception:
             logger.warning("direct: persona card read failed | chat=%s name=%s",
                            chat_id, name, exc_info=True)
@@ -1468,15 +1542,38 @@ class DirectChatService:
         facts = card["facts"]
         links = card["links"]
         lore_lines = [lore_inner] if lore_inner else []
-        n = len(facts) + len(protected) + len(lore_lines)
+        if not irony_on:
+            # Поведение 10.12 БАЙТ-В-БАЙТ (spec §6/§9): плоский список.
+            n = len(facts) + len(protected) + len(lore_lines)
+            m = len(links)
+            lines = lore_lines + list(protected) + list(facts)
+            lines += [f"{link['source_name']} ({link['relation_type']}) "
+                      f"{link['target_name']}" for link in links]
+            lines = lines[:_PERSONA_MAX_ITEMS]
+            if n == 0 and m == 0:
+                return None
+            body = "\n".join(f"{i}. {text}" for i, text in enumerate(lines, 1))
+            return f"карточка: {canon}\nзнаю о тебе: {n} фактов, {m} связей\n{body}"
+        # F8: досье двумя блоками — [Факты] и [Локальные мемы/Ярлыки].
+        fact_lines = (lore_lines + list(protected) + list(facts))[
+            :_PERSONA_MAX_ITEMS]
+        meme_lines = [str(item.get("fact") if isinstance(item, dict) else item)
+                      for item in (memes or [])]
+        meme_lines = [t for t in meme_lines if t.strip()][:_PERSONA_MAX_ITEMS]
+        n = len(fact_lines)
         m = len(links)
-        lines = lore_lines + list(protected) + list(facts)
-        lines += [f"{link['source_name']} ({link['relation_type']}) "
-                  f"{link['target_name']}" for link in links]
-        lines = lines[:_PERSONA_MAX_ITEMS]
-        if n == 0 and m == 0:
+        if not fact_lines and not meme_lines and not links:
             return None
-        body = "\n".join(f"{i}. {text}" for i, text in enumerate(lines, 1))
+        body_parts = []
+        dossier = format_dossier_block(fact_lines, meme_lines,
+                                       _PERSONA_DOSSIER_MAX_CHARS)
+        if dossier:
+            body_parts.append(dossier)
+        if links:
+            body_parts.append("\n".join(
+                f"{i}. {link['source_name']} ({link['relation_type']}) "
+                f"{link['target_name']}" for i, link in enumerate(links, 1)))
+        body = "\n".join(body_parts)
         return f"карточка: {canon}\nзнаю о тебе: {n} фактов, {m} связей\n{body}"
 
     async def list_persona_names(self, chat_id: int) -> list[tuple[str, int]]:
@@ -1638,6 +1735,22 @@ class DirectChatService:
                     chat_id, exc_info=True)
         if not kept:
             return "", ""
+        # F2/T-1429 (spec §4.4, 4.1.c): граф-активация — при частой связке
+        # 2–3 узлов в L1 связанные архивные beliefs поднимаются в горячий
+        # кэш БЕЗ dig_into_lore (только показ). Флаг off → [] (0 изменений);
+        # fail-open: ошибка/нет метода → без инжекта.
+        try:
+            activation = getattr(self.memory, "graph_activation_facts", None)
+            if callable(activation):
+                extra = await activation(chat_id)
+                if extra:
+                    seen = {str(f[1]) for f in kept}
+                    kept = list(kept) + [f for f in extra
+                                         if str(f[1]) not in seen]
+        except Exception:
+            logger.warning(
+                "direct: graph activation failed — no inject | chat=%s",
+                chat_id, exc_info=True)
         # E1: «золотой» маркер — после отбора, ДО рендера (0 LLM-вызовов).
         hint = ""
         if query and chat_id < 0 and hot.get(

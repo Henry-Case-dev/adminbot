@@ -735,3 +735,73 @@ class TestWindowCharsBudget:
             assert "Защищённые факты" in content or True
         finally:
             await conn.close()
+
+
+class RoleFakeLLM(FakeLLM):
+    """FakeLLM + роутер generate_worker (F3/T-1439): фиксирует роли.
+
+    Имитирует LLMClient: вызов роли идёт через generate_worker, а прямой
+    generate НЕ трогается (кроме фоллбэк-кейса без роутера)."""
+
+    def __init__(self, *args, worker_error=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.worker_roles: list[str] = []
+        self.worker_calls = 0
+        self.worker_error = worker_error
+
+    async def generate_worker(self, role, messages, temperature=None):
+        self.worker_calls += 1
+        self.worker_roles.append(role)
+        if self.worker_error is not None:
+            raise self.worker_error
+        return self.text
+
+
+class TestWorkerLlmRouter:
+    """BLOCKER-1 (F3/T-1439): синтез лора идёт ролью history, не main."""
+
+    @pytest.mark.asyncio
+    async def test_lore_generation_uses_history_role(self, tmp_path):
+        conn = await _open_db(tmp_path)
+        try:
+            await _seed_busy_chat(conn)
+            store = FakeStore({CHAT_ID: make_profile(last_auto_at=None)})
+            llm = RoleFakeLLM()
+            worker, _ = _worker(store, conn, llm)
+            result = await worker.generate_for_chat(CHAT_ID)
+            assert result["status"] == "ok"
+            assert llm.worker_roles == ["history"]
+            assert llm.call_count == 0        # прямой generate не тронут
+        finally:
+            await conn.close()
+
+    @pytest.mark.asyncio
+    async def test_legacy_llm_falls_back_to_main(self, tmp_path):
+        """Мок/старый клиент без generate_worker → прямой generate."""
+        conn = await _open_db(tmp_path)
+        try:
+            await _seed_busy_chat(conn)
+            store = FakeStore({CHAT_ID: make_profile(last_auto_at=None)})
+            llm = FakeLLM()                   # без generate_worker
+            worker, _ = _worker(store, conn, llm)
+            result = await worker.generate_for_chat(CHAT_ID)
+            assert result["status"] == "ok"
+            assert llm.call_count == 1
+        finally:
+            await conn.close()
+
+    @pytest.mark.asyncio
+    async def test_router_error_marks_error(self, tmp_path):
+        """Ошибку не глотаем на уровне воркера (llm_client уже сделал
+        внутренний фоллбэк) → status=error, профиль не тронут."""
+        conn = await _open_db(tmp_path)
+        try:
+            await _seed_busy_chat(conn)
+            store = FakeStore({CHAT_ID: make_profile(last_auto_at=None)})
+            llm = RoleFakeLLM(worker_error=LLMError("boom"))
+            worker, _ = _worker(store, conn, llm)
+            result = await worker.generate_for_chat(CHAT_ID)
+            assert result == {"status": "error", "reason": "llm_error"}
+            assert store.set_auto_calls == []
+        finally:
+            await conn.close()

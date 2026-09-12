@@ -8,9 +8,76 @@ import pytest
 
 from services.dream_prompts import (
     DREAM_DISTILL_PROMPT,
+    PREV_DREAM_DISTILL_PROMPT,
     build_dream_user,
+    order_dream_rows,
     parse_distill_answer,
 )
+
+# F1/T-1421 (spec §9, ADR-1013-3): эталонные копии канонов (байт-в-байт).
+# PREV — прежний текст (до правила 5); DREAM — актуальный (PREV + правило 5).
+_PREV_DREAM_DISTILL_PROMPT_REFERENCE = """\
+Ты - синтезатор долговременной памяти чата. Тебе дают кластер фактов (каждый
+с номером, датой и текстом), повторяющихся в переписке чата. Если в кластере
+есть устойчивое повторяющееся правило про человека, обычай чата или регулярное
+событие - сформулируй 1-2 коротких убеждения (до 120 символов каждое),
+обобщающих эти факты. Убеждение не должно противоречить ни одному факту
+кластера.
+
+ПРАВИЛА:
+1. Отвечай СТРОГО одним JSON-объектом без пояснений:
+   {"beliefs":[{"text":"...","evidence":[<номера фактов>]}]}
+2. Каждое убеждение опирается минимум на 2 факта кластера; evidence - их
+   номера из списка.
+3. Текст убеждения - без кавычек-ёлочек и длинных тире.
+4. Если устойчивого повторения нет или факты противоречат друг другу -
+   верни {"beliefs":[]} либо одно слово: UNCHANGED.
+"""
+
+_DREAM_DISTILL_PROMPT_REFERENCE = """\
+Ты - синтезатор долговременной памяти чата. Тебе дают кластер фактов (каждый
+с номером, датой и текстом), повторяющихся в переписке чата. Если в кластере
+есть устойчивое повторяющееся правило про человека, обычай чата или регулярное
+событие - сформулируй 1-2 коротких убеждения (до 120 символов каждое),
+обобщающих эти факты. Убеждение не должно противоречить ни одному факту
+кластера.
+
+ПРАВИЛА:
+1. Отвечай СТРОГО одним JSON-объектом без пояснений:
+   {"beliefs":[{"text":"...","evidence":[<номера фактов>]}]}
+2. Каждое убеждение опирается минимум на 2 факта кластера; evidence - их
+   номера из списка.
+3. Текст убеждения - без кавычек-ёлочек и длинных тире.
+4. Если устойчивого повторения нет или факты противоречат друг другу -
+   верни {"beliefs":[]} либо одно слово: UNCHANGED.
+5. Учитывай даты фактов. Если правило или ситуация менялись во времени,
+   сформулируй ДИНАМИКУ: что было раньше и что стало теперь.
+"""
+
+
+class TestCanonDeltaF1:
+    """F1/T-1421 (spec §6/§9, ADR-1013-3): PREV-слепок + байт-тесты нового
+    канона; PROMPT_MIGRATIONS не трогается (канон не PG-сид)."""
+
+    def test_current_canon_byte_exact(self):
+        assert DREAM_DISTILL_PROMPT == _DREAM_DISTILL_PROMPT_REFERENCE
+
+    def test_prev_snapshot_byte_exact(self):
+        assert PREV_DREAM_DISTILL_PROMPT == _PREV_DREAM_DISTILL_PROMPT_REFERENCE
+
+    def test_prev_differs_and_lacks_dynamics_rule(self):
+        assert PREV_DREAM_DISTILL_PROMPT != DREAM_DISTILL_PROMPT
+        assert "Учитывай даты фактов" not in PREV_DREAM_DISTILL_PROMPT
+        assert "ДИНАМИКУ" not in PREV_DREAM_DISTILL_PROMPT
+
+    def test_new_canon_has_dynamics_rule(self):
+        assert "Учитывай даты фактов" in DREAM_DISTILL_PROMPT
+        assert "ДИНАМИКУ" in DREAM_DISTILL_PROMPT
+
+    def test_not_registered_in_prompt_migrations(self):
+        import inspect
+        from services import prompt_migrations
+        assert "dream" not in inspect.getsource(prompt_migrations).lower()
 
 
 class TestCanon:
@@ -55,12 +122,33 @@ class TestBuildDreamUser:
         text = build_dream_user(rows)
         lines = text.splitlines()
         assert lines[0] == "Кластер фактов чата:"
-        # сортировка по importance DESC (11 важнее 10)
-        assert "1. [" in lines[1] and "вася снова" in lines[1]
-        assert "2. [" in lines[2] and "вася не заплатил" in lines[2]
+        # F1/T-1421 (spec §6): хронологический порядок (_fact_date ASC, затем
+        # id ASC) — 10 и 11 с равной датой → по id.
+        assert "1. [" in lines[1] and "вася не заплатил" in lines[1]
+        assert "2. [" in lines[2] and "вася снова" in lines[2]
         assert re.search(r"\d{4}-\d{2}-\d{2}", lines[1]) is not None
         # дата берётся из message_timestamp (11) или created_at (10)
         assert "2023-11-14" in text or "2023-11-15" in text
+
+    def test_chronological_order_overrides_importance(self):
+        """F1/T-1421: свежий, но менее важный факт идёт ПОСЛЕ старого важного
+        (хронология важнее importance)."""
+        rows = [
+            {"id": 3, "fact": "новое событие",
+             "message_timestamp": 1_700_000_000, "importance": 1},
+            {"id": 1, "fact": "старое событие",
+             "message_timestamp": 1_600_000_000, "importance": 9},
+        ]
+        lines = build_dream_user(rows).splitlines()
+        assert "старое событие" in lines[1]
+        assert "новое событие" in lines[2]
+
+    def test_order_dream_rows_cap_and_order(self):
+        rows = [{"id": i, "fact": f"факт {i}",
+                 "message_timestamp": 1_600_000_000 + i, "importance": 5}
+                for i in (30, 10, 20)]
+        ordered = order_dream_rows(rows, max_facts=2)
+        assert [r["id"] for r in ordered] == [10, 20]
 
     def test_bad_timestamp_fallback(self):
         text = build_dream_user([{"id": 1, "fact": "без даты",
@@ -75,9 +163,9 @@ class TestBuildDreamUser:
         text = build_dream_user(rows, max_facts=25)
         lines = text.splitlines()
         assert len(lines) == 26            # заголовок + 25 фактов
-        # топ-25 по (importance, id) DESC → id 49..25
-        assert lines[-1].endswith("факт номер 25")
-        assert "факт номер 24" not in text
+        # F1/T-1421: хронология (равные даты → id ASC) → первые 25: id 10..34
+        assert lines[-1].endswith("факт номер 34")
+        assert "факт номер 35" not in text
 
     def test_empty_rows(self):
         assert build_dream_user([]) == "Кластер фактов чата:"

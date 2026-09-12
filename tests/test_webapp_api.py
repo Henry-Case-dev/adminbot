@@ -1117,11 +1117,11 @@ class TestStatic:
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
-        assert "/web/app.js?v=2.56.0" in text
-        assert "/static/fonts/material-symbols-rounded.woff2?v=2.56.0" in text
+        assert "/web/app.js?v=2.57.0" in text
+        assert "/static/fonts/material-symbols-rounded.woff2?v=2.57.0" in text
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
-            "/static/fonts/material-symbols-rounded.woff2?v=2.56.0")
+            "/static/fonts/material-symbols-rounded.woff2?v=2.57.0")
         assert font.status_code == 200
         assert font.content[:4] == b"wOF2"
 
@@ -1197,7 +1197,12 @@ class TestParamPermissionFlagsApi:
         # переведены из infra в каталог; REGISTRY 400 / Settings 372 неизменны).
         # 10.12 (ADR-1012-1): +5 (embed base/ключ, STT display-name, фразы
         # Костика, флаг Костика) → categorized 381.
-        assert len(items) == len(categorized) == 381
+        # 10.13 (F1): +1 (RAG_STALE_AFTER_DAYS) → categorized 382.
+        # 10.13 (F2): +6 (BELIEF_*) → categorized 388.
+        # 10.13 (F3): +6 (DEEP_SLEEP_*) → categorized 394.
+        # 10.13 (F8): +1 (IRONY_FILTER_ENABLED) → categorized 395.
+        # 10.13 (F4): +8 (INTEL_HISTORY_*, INTEL_BG_*) → categorized 403.
+        assert len(items) == len(categorized) == 403
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"
@@ -1525,6 +1530,69 @@ class TestLlmTestEndpoint:
         assert seen["api_key"] == "saved-secret"
         assert "saved-secret" not in resp.text   # R17: ключ не эхо
 
+    def test_intel_history_resolves_dedicated_saved_key(self, client, monkeypatch):
+        """F4 (ADR-1013-1 §2.4): intel_history_main резолвит свой сохранённый
+        ключ из keys.intel_history_api_key; R17 — без эха."""
+        from services import llm_probe
+        from web.api import routes
+
+        seen = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            seen["api_key"] = api_key
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "intel-history-secret"
+                if key == "keys.intel_history_api_key" else default))
+        routes.reset_llm_test_rate_limit()
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": "intel_history_main",
+                  "base_url": "https://api.example/v1", "model": "m",
+                  "api_key": ""},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        assert seen["api_key"] == "intel-history-secret"
+        assert "intel-history-secret" not in resp.text   # R17: ключ не эхо
+
+    def test_intel_bg_empty_key_falls_back_to_main(self, client, monkeypatch):
+        """F4 (ADR-1013-1 §2.2): пустой выделенный ключ → ключ основной модели."""
+        from services import llm_probe
+        from web.api import routes
+
+        seen = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            seen["api_key"] = api_key
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "main-secret" if key == "keys.llm_api_key" else
+                ("" if key == "keys.intel_bg_api_key" else default)))
+        routes.reset_llm_test_rate_limit()
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": "intel_background_main",
+                  "base_url": "https://api.example/v1", "model": "m",
+                  "api_key": ""},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        assert seen["api_key"] == "main-secret"
+        assert "main-secret" not in resp.text
+
     def test_error_sanitized(self, client, monkeypatch):
         from services import llm_probe
         from web.api import routes
@@ -1547,7 +1615,8 @@ class TestLlmTestEndpoint:
     @pytest.mark.parametrize("block", [
         "direct_main", "direct_fallback", "transcribe_groq",
         "transcribe_openrouter", "video_summary_openrouter", "search_keys",
-        "search_keys:tavily", "search_keys:exa"])
+        "search_keys:tavily", "search_keys:exa",
+        "intel_history_main", "intel_background_main"])
     def test_each_block_reaches_probe(self, client, monkeypatch, block):
         """MAJOR-1: каждый (сетевой) блок реально доходит до probe_block."""
         from services import llm_probe

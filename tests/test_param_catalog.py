@@ -54,7 +54,21 @@ class TestCompleteness:
         #   + раунд 10.12 (ADR-1012-1): +5 — EMBEDDING_BASE_URL, EMBEDDING_API_KEY,
         #   OPENROUTER_TRANSCRIBE_DISPLAY_NAME, KOSTIK_REPLIES, KOSTIK_ENABLED
         #   = 377
-        assert len(fields) == 377
+        #   + раунд 10.13 (F1 cognition-4d-memory, spec §7): +1 —
+        #   RAG_STALE_AFTER_DAYS (limits.rag_stale_after_days) = 378
+        #   + F2 (cognition-belief-decay, spec §7): +6 — BELIEF_DECAY_ENABLED,
+        #   BELIEF_INACTIVITY_DAYS, BELIEF_DECAY_PER_MONTH,
+        #   BELIEF_ARCHIVE_THRESHOLD, BELIEF_RESONANCE_PENALTY,
+        #   BELIEF_RESONANCE_THRESHOLD = 384
+        #   + F3 (cognition-deep-sleep, spec §7): +6 — DEEP_SLEEP_ENABLED,
+        #   DEEP_SLEEP_TRIGGER, DEEP_SLEEP_HOUR, DEEP_SLEEP_TOP_K,
+        #   DEEP_SLEEP_MAX_PARADIGMS_PER_RUN, DEEP_SLEEP_TOKENS_PER_DAY = 390
+        #   + F8 (cognition-irony-dossier, spec §8): +1 —
+        #   IRONY_FILTER_ENABLED (flags.irony_filter_enabled) = 391
+        #   + F4 (cognition-llm-providers, spec §6): +8 —
+        #   INTEL_HISTORY_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY,
+        #   INTEL_BG_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY = 399
+        assert len(fields) == 399
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -299,14 +313,16 @@ class TestGroups8424:
         (перенос записей из infra, не добавление).
         Раунд 10.12 (ADR-1012-1): +5 — models +2 (EMBEDDING_BASE_URL,
         OPENROUTER_TRANSCRIBE_DISPLAY_NAME), keys +1 (EMBEDDING_API_KEY),
-        flags +1 (KOSTIK_ENABLED), reactions +1 (KOSTIK_REPLIES)."""
+        flags +1 (KOSTIK_ENABLED), reactions +1 (KOSTIK_REPLIES).
+        Раунд 10.13 (F8): flags +1 (IRONY_FILTER_ENABLED).
+        Раунд 10.13 (F4): models +6 / keys +2 (INTEL_HISTORY_*/INTEL_BG_*)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 44, "keys": 16,
-                          "limits": 177, "flags": 59, "reactions": 39,
-                          "content": 4, "memory": 32}
+        assert counts == {"prompts": 10, "models": 50, "keys": 18,
+                          "limits": 186, "flags": 62, "reactions": 39,
+                          "content": 4, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

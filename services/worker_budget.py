@@ -36,8 +36,12 @@ DEFAULT_JITTER_MINUTES = 5
 WORKER_NOSTALGIA = "nostalgia"
 WORKER_LORE = "lore"
 WORKER_DREAM = "dream"
+# F3 (cognition-deep-sleep, spec §4): глубокий сон — самый дорогой и наименее
+# критичный фон → в деградации падает ПЕРВЫМ (высший priority_of).
+WORKER_DEEP_SLEEP = "deep_sleep"
 
-WORKER_IDS: tuple[str, ...] = (WORKER_NOSTALGIA, WORKER_LORE, WORKER_DREAM)
+WORKER_IDS: tuple[str, ...] = (WORKER_NOSTALGIA, WORKER_LORE, WORKER_DREAM,
+                               WORKER_DEEP_SLEEP)
 
 DAY_TZ = settings.WORKER_BUDGET_TZ or "Asia/Yekaterinburg"
 
@@ -123,9 +127,15 @@ def allowed_workers(worker_ids, used_calls: int, limit_calls: int) -> dict[str, 
     (dream=0 → lore=1 → nostalgia=2): воркер выживает, пока
     used_calls < limit_calls + позиция_падения. Т.о. при used == limit
     падает dream; потом lore; последней nostalgia (у неё запас 1 тик).
-    Чистая функция — тестируется без PG."""
+
+    F3 (cognition-deep-sleep, spec §4): deep_sleep добавлен в WORKER_IDS и
+    падает ПЕРВЫМ — на один тик раньше обычного «сна» (позиция -1), при этом
+    НЕ сдвигая легаси-матрицу F-10 (dream=0/lore=1/nostalgia=2). Чистая
+    функция — тестируется без PG."""
     absolute = {wid: i for i, wid in enumerate(
-        workers_dropped(list(WORKER_IDS)))}
+        workers_dropped([WORKER_NOSTALGIA, WORKER_LORE, WORKER_DREAM]))}
+    # -1 → deep_sleep выпадает при used == limit - 1, когда dream ещё жив.
+    absolute.setdefault(WORKER_DEEP_SLEEP, -1)
     out: dict[str, bool] = {}
     for wid in worker_ids:
         i = absolute.get(wid)

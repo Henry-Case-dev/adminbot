@@ -15,9 +15,10 @@ import datetime
 import json
 import re
 
-# Спека §3.4.5: структура и требования канона; финальный текст собран по
-# шаблону spec (системная роль → ПРАВИЛА 1-4 → UNCHANGED-вариант пустоты).
-DREAM_DISTILL_PROMPT = """\
+# F1/T-1421 (spec §9, ADR-1013-3): PREV-слепок прежнего канона, байт-в-байт
+# (до правила 5). PROMPT_MIGRATIONS НЕ трогается: канон — модульная константа,
+# не PG-сид (ADR-1013-3 §2.3), мигрировать нечего.
+PREV_DREAM_DISTILL_PROMPT = """\
 Ты - синтезатор долговременной памяти чата. Тебе дают кластер фактов (каждый
 с номером, датой и текстом), повторяющихся в переписке чата. Если в кластере
 есть устойчивое повторяющееся правило про человека, обычай чата или регулярное
@@ -35,15 +36,45 @@ DREAM_DISTILL_PROMPT = """\
    верни {"beliefs":[]} либо одно слово: UNCHANGED.
 """
 
+# Спека §3.4.5 + F1/T-1421 §6: структура и требования канона; финальный текст
+# собран по шаблону spec (системная роль → ПРАВИЛА 1-5 → UNCHANGED-вариант
+# пустоты). Правило 5 добавлено F1: учёт дат фактов и требование ДИНАМИКИ.
+DREAM_DISTILL_PROMPT = """\
+Ты - синтезатор долговременной памяти чата. Тебе дают кластер фактов (каждый
+с номером, датой и текстом), повторяющихся в переписке чата. Если в кластере
+есть устойчивое повторяющееся правило про человека, обычай чата или регулярное
+событие - сформулируй 1-2 коротких убеждения (до 120 символов каждое),
+обобщающих эти факты. Убеждение не должно противоречить ни одному факту
+кластера.
+
+ПРАВИЛА:
+1. Отвечай СТРОГО одним JSON-объектом без пояснений:
+   {"beliefs":[{"text":"...","evidence":[<номера фактов>]}]}
+2. Каждое убеждение опирается минимум на 2 факта кластера; evidence - их
+   номера из списка.
+3. Текст убеждения - без кавычек-ёлочек и длинных тире.
+4. Если устойчивого повторения нет или факты противоречат друг другу -
+   верни {"beliefs":[]} либо одно слово: UNCHANGED.
+5. Учитывай даты фактов. Если правило или ситуация менялись во времени,
+   сформулируй ДИНАМИКУ: что было раньше и что стало теперь.
+"""
+
+
+def order_dream_rows(rows: list[dict], *, max_facts: int = 25) -> list[dict]:
+    """F1/T-1421 (spec §6): факты кластера в ХРОНОЛОГИЧЕСКОМ порядке —
+    `_fact_date` ASC, затем id ASC; обрезка до `max_facts`. Нумерация
+    evidence в `build_dream_user` идёт по позиции в ЭТОМ порядке (вызывающий
+    строит source_ids тем же порядком)."""
+    ordered = sorted(rows, key=lambda r: (_fact_date(r), r.get("id") or 0))
+    return list(ordered[: int(max_facts)])
+
 
 def build_dream_user(rows: list[dict], *, max_facts: int = 25) -> str:
-    """User-блок дистилляции (§3.4.5): до `max_facts` фактов
-    `N. [ГГГГ-ММ-ДД] текст` — сортировка по importance DESC (затем id ASC —
-    стабильно), нумерация 1..N — на неё ссылаются evidence."""
-    ordered = sorted(rows, key=lambda r: (int(r.get("importance") or 0),
-                                          r.get("id") or 0), reverse=True)
+    """User-блок дистилляции (§3.4.5 + F1/T-1421): до `max_facts` фактов
+    `N. [ГГГГ-ММ-ДД] текст` — ХРОНОЛОГИЧЕСКИЙ порядок (`_fact_date` ASC,
+    затем id ASC; spec §6), нумерация 1..N — на неё ссылаются evidence."""
     lines = ["Кластер фактов чата:"]
-    for i, row in enumerate(ordered[: int(max_facts)], 1):
+    for i, row in enumerate(order_dream_rows(rows, max_facts=max_facts), 1):
         text = " ".join(str(row.get("fact") or "").split())
         date = _fact_date(row)
         lines.append(f"{i}. [{date}] {text}")
@@ -114,6 +145,143 @@ def _is_unchanged(text: str) -> bool:
     """Ответ LLM == UNCHANGED (равенство с точностью до регистра/пробелов —
     как is_unchanged_response у lore_prompts)."""
     return str(text or "").strip().upper() == "UNCHANGED"
+
+
+# ── F3/T-1437 (cognition-deep-sleep, spec §4): канон «Мост времени» ────────
+# Новый модульный канон глубокого сна (ADR-1013-3 §2: не PG-сид, PREV не
+# нужен — канона до F3 не существовало; PROMPT_MIGRATIONS не трогаем).
+# Контракт ответа: СТРОГО JSON {"paradigms":[{"text":"...","anchors":[...]}]}.
+DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT = """\
+Ты - синтезатор долговременной памяти чата на этапе глубокого сна. Тебе дают
+свежий контекст чата (недавние убеждения и выжимку активности за последние
+часы) и подборку старых фактов из истории. Найди связь между текущими
+событиями и историческими фактами и сформулируй мета-факт (парадигму) о
+развитии ситуации или человека.
+
+ПРАВИЛА:
+1. Отвечай СТРОГО одним JSON-объектом без пояснений:
+   {"paradigms":[{"text":"...","anchors":[<номера исторических фактов>]}]}
+2. Парадигма - обобщение о ДИНАМИКЕ (что было раньше и что стало теперь),
+   а не пересказ отдельного факта.
+3. Каждая парадигма опирается минимум на 2 исторических факта; anchors - их
+   номера из нумерованного списка.
+4. Текст парадигмы до 200 символов, без кавычек-ёлочек и длинных тире.
+5. Если связи нет или данных мало - верни {"paradigms":[]}.
+"""
+
+
+def _anchor_parts(item) -> tuple:
+    """Исторический якорь → (origin, fact, rag_ts, target_user). Принимает
+    4-кортеж RAG (`get_rag_facts`) или dict (гибкий вход для тестов)."""
+    if isinstance(item, dict):
+        return (item.get("origin"), item.get("fact"),
+                item.get("rag_ts") or item.get("created_at"),
+                item.get("target_user"))
+    if isinstance(item, (tuple, list)):
+        seq = list(item) + [None, None, None, None]
+        return (seq[0], seq[1], seq[2], seq[3])
+    return (None, str(item or ""), None, None)
+
+
+def _anchor_date(item) -> str:
+    """Дата якоря (ГГГГ-ММ-ДД; UTC — как _fact_prefix/summary_memory; битое/
+    пустое → '????-??-??')."""
+    ts = _anchor_parts(item)[2]
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc).strftime("%Y-%m-%d")
+    except (TypeError, ValueError, OSError):
+        return "????-??-??"
+
+
+def build_bridge_user(packet: dict, historical: list, *,
+                      max_beliefs: int = 20,
+                      max_recent: int = 40) -> str:
+    """User-блок «Моста времени» (F3/T-1437, spec §4): свежий контекст
+    (убеждения только что завершившегося сна + выжимка 12ч) и нумерованный
+    список исторических фактов (номера 1..N — на них ссылаются anchors).
+
+    `packet` = {"beliefs": [dict с полем 'fact'...], "recent": [dict 'fact']}.
+    `historical` — список 4-кортежей RAG (`get_rag_facts`) или dict."""
+    beliefs = [b for b in (packet.get("beliefs") or [])
+               if str(b.get("fact") or "").strip()][: int(max_beliefs)]
+    recent = [r for r in (packet.get("recent") or [])
+              if str(r.get("fact") or "").strip()][: int(max_recent)]
+    lines = ["Свежий контекст чата:"]
+    if beliefs:
+        lines.append("Убеждения только что завершившегося сна:")
+        for i, row in enumerate(beliefs, 1):
+            lines.append(f"{i}. {_clean(row.get('fact'))}")
+    if recent:
+        lines.append("Выжимка активности за последние 12 часов:")
+        for row in recent:
+            lines.append(f"- {_clean(row.get('fact'))}")
+    if not beliefs and not recent:
+        lines.append("(свежих данных нет)")
+    lines.append("")
+    lines.append("Исторические факты (номера для anchors):")
+    if historical:
+        for i, item in enumerate(historical, 1):
+            lines.append(f"{i}. [{_anchor_date(item)}] "
+                         f"{_clean(_anchor_parts(item)[1])}")
+    else:
+        lines.append("(исторических фактов не найдено)")
+    return "\n".join(lines)
+
+
+def _clean(value) -> str:
+    """Однострочный текст (схлопнутые пробелы) — стабильный рендер промпта."""
+    return " ".join(str(value or "").split())
+
+
+def parse_bridge_answer(raw: str | None, anchor_count: int = 0,
+                        min_anchors: int = 2) -> list[dict]:
+    """Парсинг ответа «Моста времени» (F3/T-1437, spec §4): JSON-объект
+    {"paradigms":[{"text":"...","anchors":[<номера>]}]} или пустой UNCHANGED.
+    Возвращает [{"text": str, "anchors": [валидные номера 1..anchor_count]}]:
+    - пусто/UNCHANGED/{"paradigms":[]} → [];
+    - кривой JSON → raise ValueError (вызывающий делает 1 retry);
+    - anchors вне 1..anchor_count отбрасываются; парадигма с < min_anchors
+      реальных опор НЕ пишется (анти-галлюцинации; spec §4/промпт: минимум
+      ДВЕ исторические опоры); пустой текст — не пишется."""
+    text = str(raw or "").strip()
+    if not text:
+        raise ValueError("empty bridge answer")
+    if _is_unchanged(text):
+        return []
+    obj = _load_json_object(text)
+    if obj is None:
+        raise ValueError("bridge answer is not a JSON object")
+    raw_items = obj.get("paradigms")
+    if raw_items is None:
+        if obj:
+            raise ValueError("bridge JSON: no 'paradigms' key")
+        return []
+    if not isinstance(raw_items, list):
+        raise ValueError("bridge JSON: 'paradigms' is not a list")
+    result: list[dict] = []
+    cap = max(0, int(anchor_count))
+    for item in raw_items[: 8]:          # защита от мусорных хвостов
+        if not isinstance(item, dict):
+            continue
+        paradigm_text = str(item.get("text") or "").strip()
+        if not paradigm_text:
+            continue
+        anchors: list[int] = []
+        raw_anchors = item.get("anchors")
+        if isinstance(raw_anchors, list):
+            for num in raw_anchors:
+                try:
+                    value = int(num)
+                except (TypeError, ValueError):
+                    continue
+                if 1 <= value <= cap and value not in anchors:
+                    anchors.append(value)
+        if len(anchors) < max(1, int(min_anchors)):
+            continue
+        result.append({"text": paradigm_text, "anchors": anchors})
+    return result
+
 
 
 def _load_json_object(text: str) -> dict | None:

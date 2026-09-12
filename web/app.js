@@ -452,6 +452,33 @@
             { key: 'keys.embedding_fallback_api_key_2', label: 'Ключ', role: 'api_key', secret: true },
           ] },
       ] },
+    // Раунд 10.13 (F4, ADR-1013-1 §2.3): два выделенных LLM для Интеллекта.
+    // parent + subBlocks (формат 10.12); id подблоков стабильны (probe).
+    // Пустые поля → основная модель (models.llm_* / keys.llm_api_key).
+    { id: 'intel_history', title: 'LLM для исторической памяти (Вехи/Лор)',
+      modules: 'Вехи и лор чата',
+      subBlocks: [
+        { id: 'intel_history_main', title: 'Подключение',
+          modules: 'Вехи и лор чата',
+          fields: [
+            { key: 'models.intel_history_display_name', label: 'Название модели', role: '' },
+            { key: 'models.intel_history_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.intel_history_model_name', label: 'Модель', role: 'model' },
+            { key: 'keys.intel_history_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+      ] },
+    { id: 'intel_background', title: 'LLM для фоновых проверок (Оценка важности)',
+      modules: 'Оценка важности',
+      subBlocks: [
+        { id: 'intel_background_main', title: 'Подключение',
+          modules: 'Оценка важности',
+          fields: [
+            { key: 'models.intel_bg_display_name', label: 'Название модели', role: '' },
+            { key: 'models.intel_bg_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.intel_bg_model_name', label: 'Модель', role: 'model' },
+            { key: 'keys.intel_bg_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+      ] },
     // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
       zone: 'advanced',
@@ -672,6 +699,7 @@
   var _routeApplied = false;
   var _onHashChange = null;
   var _onKeydown = null;      // MODERATE-2: глобальный Esc (закрытие модалки)
+  var _onVisibility = null;   // F5-Q3: пауза cognition-polling при hidden
   // Категории вкладки для RBAC-проверок: явный список (не-конфиг вкладки)
   // либо уникальные категории источников (конфиг вкладки).
   function tabCategories(tab) {
@@ -831,6 +859,22 @@
         dreamBeliefs: [],              // последние beliefs (GET)
         dreamLog: [],                  // последние строки memory_dream_log
         nostalgiaLog: [],              // последние срабатывания (GET nostalgia)
+        // ── F5 (cognition-dashboard-round1013, ТЗ §5/§7): «Осмысление» +
+        //    виджет «Интеллект и Память». Данные — аддитивные read-API
+        //    (cognition/status, graph, stats, timeline, beliefs?kind=).
+        cognition: null,               // GET /api/memory/cognition/status
+        cognitionBeliefs: [],          // лента «Убеждения» (kind=belief)
+        cognitionParadigms: [],        // лента «Парадигмы» (kind=paradigm)
+        cognitionStats: null,          // GET /api/memory/stats
+        cognitionTimeline: [],         // GET /api/memory/timeline
+        cognitionBusy: false,
+        cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
+        cognitionNetwork: null,        // vis.Network (destroy-дисциплина)
+        cognitionGraphData: null,      // {nodes, edges, truncated}
+        _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
+        cognitionVisLoaded: false,     // lazy-load vis-network
+        memoryWidgetBusy: false,
+        reducedMotion: false,          // prefers-reduced-motion (анимации off)
         // C2 (D5/D8/Q9): переезд чата и per-chat админы — глобальный admin
         remapNewChatId: '',            // новый chat_id для «Переезда чата»
         remapBusy: false,              // POST remap в процессе
@@ -848,7 +892,6 @@
         statusData: null,
         statusError: null,
         statusTimer: null,
-        uptimeChart: null,
         // B1/OD8 (T-1128/T-1129): компактный список доступности ключей +
         // временной график (GET /api/status/key-history, leak-safe).
         keyHistory: null,
@@ -857,7 +900,10 @@
         logs: [],
         logsCount: 0,
         logsLoading: false,
-        logLevel: 'INFO',
+        // F6 (T-1461/T-1462, §3.2, F6-Q4): единый источник истины фильтра
+        // логов; дефолт при каждом первичном открытии приложения —
+        // комбинированный тег ERROR+WARNING (сессионно, без localStorage).
+        logLevel: 'ERROR+WARNING',
         // 10.7 (3c): transient-подсветка строки, скопированной по клику.
         copiedIndex: null,
         copiedTimer: null,
@@ -1052,6 +1098,88 @@
       warnLogs: function () {
         return this.logs.filter(function (l) { return l.level === 'WARNING'; });
       },
+      // F6 (T-1460, §4, F6-Q2/F6-Q5): «сердцебиение» сервера для SVG-EKG.
+      // ratio = loadavg[0]/cpu_count (Linux), иначе max(CPU%, RAM%)/100
+      // (Windows dev, loadavg=None); всё None → нейтральный «спокойный».
+      // Пороги — фронт-константы (каталог-Δ=0): <0.5 зелёный, 0.5..0.8
+      // оранжевый, >0.8 красный. Период анимации — CSS-переменная EKG.
+      heartbeat: function () {
+        var server = this.statusData ? this.statusData.server : null;
+        var ratio = null;
+        if (server) {
+          var load = null;
+          if (Array.isArray(server.loadavg) && server.loadavg.length) {
+            load = Number(server.loadavg[0]);
+          }
+          if (load != null && !isNaN(load) && load > 0) {
+            var cores = Number(server.cpu_count);
+            if (!cores || cores < 1) cores = 1;
+            ratio = load / cores;
+          } else {
+            var cpu = Number(server.cpu_percent);
+            var mem = (server.memory && server.memory.percent != null)
+              ? Number(server.memory.percent) : NaN;
+            var vals = [];
+            if (!isNaN(cpu)) vals.push(cpu);
+            if (!isNaN(mem)) vals.push(mem);
+            if (vals.length) ratio = Math.max.apply(null, vals) / 100;
+          }
+        }
+        if (ratio == null || isNaN(ratio)) {
+          return { level: 'calm', period: 2.4, label: 'спокойный',
+                   detail: 'метрик нет — нейтраль', badge: 'badge-ok' };
+        }
+        ratio = Math.max(0, ratio);
+        var pct = Math.round(ratio * 100);
+        if (ratio > 0.8) {
+          return { level: 'high', period: 0.8, label: 'пик ' + pct + '%',
+                   detail: 'высокая нагрузка', badge: 'badge-err' };
+        }
+        if (ratio >= 0.5) {
+          return { level: 'elev', period: 1.4, label: 'повышен ' + pct + '%',
+                   detail: 'нагрузка растёт', badge: 'badge-warn' };
+        }
+        return { level: 'calm', period: 2.4, label: 'спокойный ' + pct + '%',
+                 detail: 'нагрузка в норме', badge: 'badge-ok' };
+      },
+      // F5 (T-1451): бейджи активных фаз (реальный cognition/status).
+      dreamPhaseBadge: function () {
+        var d = (this.cognition && this.cognition.dream) || {};
+        if (d.running) return { text: '🌙 Сон активен', cls: 'badge-ok glow' };
+        if (d.state === 'limit_exhausted') {
+          return { text: '🌙 Лимит исчерпан', cls: 'badge-warn' };
+        }
+        if (d.enabled === false) {
+          return { text: '🌙 Сон выключен', cls: 'badge-muted' };
+        }
+        return { text: '🌙 Спит', cls: 'badge-muted' };
+      },
+      deepPhaseBadge: function () {
+        var d = (this.cognition && this.cognition.deep_sleep) || {};
+        if (d.running) {
+          return { text: '🌌 Глубокий сон активен', cls: 'badge-info glow' };
+        }
+        if (d.enabled === false) {
+          return { text: '🌌 Глубокий сон выключен', cls: 'badge-muted' };
+        }
+        return { text: '🌌 Глубокий сон спит', cls: 'badge-muted' };
+      },
+      // F5 (T-1455): бюджет контекста из аддитивного /api/status.context
+      // (in-memory accounting); красный — урезание или загрузка > 90%.
+      memoryContext: function () {
+        var c = (this.statusData && this.statusData.context) || {};
+        var cap = Number(c.limit) || 0;
+        var used = (c.used == null) ? null : Number(c.used);
+        var ratio = (used != null && cap > 0) ? (used / cap) : 0;
+        return { used: used, limit: cap || null, truncated: !!c.truncated,
+                 ratio: ratio, red: !!c.truncated || ratio > 0.9 };
+      },
+      cognitionBeliefsLoop: function () {
+        return this._ribbonLoop(this.cognitionBeliefs);
+      },
+      cognitionParadigmsLoop: function () {
+        return this._ribbonLoop(this.cognitionParadigms);
+      },
       canEditInfo: function () {
         return this.hasPerm('action.edit_info');
       },
@@ -1129,6 +1257,15 @@
       },
     },
 
+    // F6 (T-1461, §3.2): изменение селектора уровня сразу перезагружает лог —
+    // селектор == запрос == рендер (устранение рассинхрона). Смена вкладки
+    // (setTab) лог не перезагружает → дефолт при открытии сохраняется.
+    watch: {
+      logLevel: function () {
+        this.loadLogs();
+      },
+    },
+
     // T-1099/§6.2 п.1-4: initData — ДО hash. created() вычисляет стартовый
     // маршрут и синхронизирует activeTab (производная от route); loader
     // активной вкладки дёргается позже в mounted после auth.
@@ -1164,6 +1301,15 @@
         }
       };
       window.addEventListener('keydown', _onKeydown);
+      // F5-Q3: пауза polling «Осмысления» при сворачивании TMA (hidden).
+      _onVisibility = function () {
+        if (_appVm) _appVm.onVisibilityChange();
+      };
+      document.addEventListener('visibilitychange', _onVisibility);
+      try {
+        this.reducedMotion = !!(window.matchMedia &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      } catch (e) { this.reducedMotion = false; }
       this.initBackButton();
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
@@ -2458,8 +2604,18 @@
           this.loadStatus();
           this.loadLogs();
           this.startStatusPolling();
+          this.loadCognition();          // F5/§5: блок «Осмысление»
+          this.startCognitionPolling();  // F5-Q3: polling 15с
         } else {
           this.stopStatusPolling();
+          this.stopCognitionPolling();   // F5-Q3: вне «Статуса» — стоп
+          this.destroyCognitionGraph();  // R10.11-5: нет stale-инстанса
+        }
+        if (id === 'oversight') {
+          this.loadMemoryWidget();       // F5/§7: виджет «Сводка»
+        }
+        if (id === 'modules') {
+          this.loadCognitionStats();     // F5/§4.4: статистика графа
         }
         if (id === 'info' && !this.infoHtml && !this.infoLoading) {
           this.loadInfo();
@@ -3521,7 +3677,8 @@
               (e.status ? 'HTTP ' + e.status : 'ошибка сети') + ').';
           }
         }
-        this.$nextTick(this.renderUptimeChart);
+        // F6 (T-1460): линейный аптайм-график удалён; EKG — чистый CSS
+        // (реактивный computed heartbeat), JS-рендер не требуется.
         this.loadKeyHistory();   // B1/T-1129: список + график доступности
       },
       startStatusPolling: function () {
@@ -3571,44 +3728,6 @@
           ok: 'OK', timeout: 'Таймаут', error: 'Ошибка',
           unreachable: 'Недоступен', not_configured: 'Не настроен',
         }[health.status] || health.status;
-      },
-      renderUptimeChart: function () {
-        var self = this;
-        var canvas = this.$refs.uptimeCanvas;
-        if (!canvas || !this.statusData || !this.statusData.uptime.buckets.length) return;
-        var buckets = this.statusData.uptime.buckets;
-        var labels = buckets.map(function (b) {
-          var d = new Date(b.ts);
-          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
-          return pad(d.getHours()) + ':' + pad(d.getMinutes());
-        });
-        var data = buckets.map(function (b) { return b.status === 'down' ? 0 : 1; });
-        var cfg = {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'up',
-              data: data,
-              borderColor: '#14CBB6',            // токен --teal-500 (OD4)
-              backgroundColor: 'rgba(20,203,182,0.15)',
-              fill: true,
-              tension: 0.25,
-              pointRadius: 0,
-              spanGaps: false,      // разрыв = downtime (84.11.5)
-            }],
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: { min: 0, max: 1.2, ticks: { display: false } },
-              x: { ticks: { color: '#9ca3af', maxTicksLimit: 12, font: { size: 10 } } },
-            },
-            plugins: { legend: { display: false } },
-          },
-        };
-        if (this.uptimeChart) { this.uptimeChart.destroy(); }
-        this.uptimeChart = new Chart(canvas, cfg);
       },
 
       // ═══ B1/OD8 (T-1128/T-1129): доступность ключей ═══
@@ -3784,10 +3903,15 @@
       },
 
       loadLogs: async function () {
+        // F6 (T-1461/§3.2): единый источник истины — селектор, запрос и
+        // рендер используют ОДНО значение `logLevel` (дефолт при открытии
+        // ERROR+WARNING). Иначе — рассинхрон «в селекторе INFO, в списке ALL».
+        var lvl = this.logLevel || 'ERROR+WARNING';
+        this.logLevel = lvl;
         this.logsLoading = true;
         try {
           var data = await this.api(
-            '/api/status/logs?level=' + encodeURIComponent(this.logLevel) + '&limit=200');
+            '/api/status/logs?level=' + encodeURIComponent(lvl) + '&limit=200');
           this.logs = (data.logs || []).map(function (l) { l.expanded = false; return l; });
           this.logsCount = data.count || 0;
           // F-8 (T-871): автоскролл при новых записях. Hotfix-R10: сервер
@@ -4616,6 +4740,243 @@
         }
       },
 
+      // ═══ F5 (cognition-dashboard-round1013, ТЗ §5/§7): «Осмысление» ═══
+      // Данные — аддитивные read-API (cognition/status, graph, stats,
+      // timeline, beliefs?kind=); R17-safe, без хардкода.
+
+      // Лента с opacity-классами по позиции (T-1450); дублируется дважды
+      // для seamless вертикального скролла (CSS @keyframes translateY -50%).
+      _ribbonLoop: function (items) {
+        var src = (Array.isArray(items) ? items : []).slice(0, 12);
+        var n = src.length;
+        var out = [];
+        for (var pass = 0; pass < 2; pass++) {
+          for (var i = 0; i < n; i++) {
+            var it = src[i] || {};
+            out.push({
+              key: pass + '-' + i + '-' + (it.id != null ? it.id : i),
+              id: it.id, fact: it.fact || '',
+              created_at: it.created_at || 0,
+              op: this.ribbonItemClass(i, n),
+            });
+          }
+        }
+        return out;
+      },
+      // Класс opacity по нормированной дистанции от центра (0 — центр → 100,
+      // 1 — край → 50); юнит-тестируемая чистая функция (spec §4.1).
+      ribbonItemClass: function (index, total) {
+        var n = Math.max(1, Number(total) || 1);
+        var center = (n - 1) / 2;
+        var half = center > 0 ? center : 1;
+        var dist = Math.abs((Number(index) || 0) - center) / half;
+        if (dist <= 0.34) return 'ribbon-op-100';
+        if (dist <= 0.67) return 'ribbon-op-75';
+        return 'ribbon-op-50';
+      },
+      // HH:MM локального времени (Timeline/бейдж «следующее пробуждение»).
+      fmtClock: function (ts) {
+        if (!ts) return '—';
+        var d = new Date(Number(ts) * 1000);
+        if (isNaN(d.getTime())) return '—';
+        var hh = String(d.getHours()); if (hh.length < 2) hh = '0' + hh;
+        var mm = String(d.getMinutes()); if (mm.length < 2) mm = '0' + mm;
+        return hh + ':' + mm;
+      },
+      // 45000 → «45k» (прогресс-бары лимитов, ТЗ §7).
+      fmtTokens: function (n) {
+        if (n == null) return '—';
+        var v = Number(n) || 0;
+        if (v >= 1000) return Math.round(v / 1000) + 'k';
+        return String(v);
+      },
+      nostalgiaLabel: function () {
+        var n = (this.cognition && this.cognition.nostalgia) || {};
+        if (n.mode === 'silence') {
+          return 'Тишина: ' + (n.silence_left_min || 0) + '/' +
+            (n.silence_min_total || 0) + ' мин';
+        }
+        if (n.mode === 'cooldown') {
+          return 'Кулдаун: ещё ' + (n.cooldown_left_h || 0) + ' ч';
+        }
+        return 'Готова к вбросу';
+      },
+      // '' | '?chat_id=N' (first) / '&chat_id=N' (иначе) — helper для URL.
+      _cidQuery: function (first) {
+        if (this.activeChatId == null) return '';
+        return (first ? '?' : '&') + 'chat_id=' + this.activeChatId;
+      },
+      loadCognitionStats: async function () {
+        if (!this.isGlobalAdmin) return;
+        try {
+          this.cognitionStats = await this.api(
+            '/api/memory/stats' + this._cidQuery(true));
+        } catch (e) {
+          this.cognitionStats = null;
+        }
+      },
+      loadCognition: async function () {
+        if (!this.isGlobalAdmin) return;
+        this.cognitionBusy = true;
+        try {
+          var q = this._cidQuery(true);
+          this.cognition = await this.api(
+            '/api/memory/cognition/status' + q);
+          this.cognitionStats = await this.api('/api/memory/stats' + q);
+          this.cognitionTimeline = await this.api(
+            '/api/memory/timeline' + (q ? q + '&limit=20' : '?limit=20'));
+          // S10.13-5: ленты beliefs/paradigms тоже скоупятся выбранным чатом
+          // (иначе остальные блоки чатовые, а ленты — глобальные).
+          var cq = this._cidQuery(false);
+          var beliefs = await this.api(
+            '/api/memory/dream/beliefs?kind=belief&limit=30' + cq);
+          this.cognitionBeliefs = Array.isArray(beliefs) ? beliefs : [];
+          var paradigms = await this.api(
+            '/api/memory/dream/beliefs?kind=paradigm&limit=30' + cq);
+          this.cognitionParadigms = Array.isArray(paradigms) ? paradigms : [];
+        } catch (e) {
+          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
+            this.toast('Осмысление: ' + e.message, 'err');
+          }
+        } finally {
+          this.cognitionBusy = false;
+        }
+        this.loadCognitionGraph();
+      },
+      // Виджет «Интеллект и Память» в «Сводке» (T-1454..T-1456): компактный
+      // набор — статус фаз + метрики + короткий Timeline.
+      loadMemoryWidget: async function () {
+        if (!this.isGlobalAdmin) return;
+        this.memoryWidgetBusy = true;
+        try {
+          var q = this._cidQuery(true);
+          this.cognition = await this.api(
+            '/api/memory/cognition/status' + q);
+          this.cognitionStats = await this.api('/api/memory/stats' + q);
+          this.cognitionTimeline = await this.api(
+            '/api/memory/timeline' + (q ? q + '&limit=8' : '?limit=8'));
+        } catch (e) {
+          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
+            this.toast('Интеллект и Память: ' + e.message, 'err');
+          }
+        } finally {
+          this.memoryWidgetBusy = false;
+        }
+      },
+      // ── Граф (T-1452): lazy self-host vis-network (ADR-1013-2) ──────────
+      ensureVisNetwork: function () {
+        var self = this;
+        if (window.vis && window.vis.Network) {
+          this.cognitionVisLoaded = true;
+          return Promise.resolve(true);
+        }
+        if (this._visPromise) return this._visPromise;
+        this._visPromise = new Promise(function (resolve) {
+          var s = document.createElement('script');
+          s.src = '/static/vendor/vis-network/vis-network.min.js';
+          s.async = true;
+          s.onload = function () {
+            self.cognitionVisLoaded = !!(window.vis && window.vis.Network);
+            resolve(self.cognitionVisLoaded);
+          };
+          s.onerror = function () {
+            self.cognitionVisLoaded = false;
+            resolve(false);
+          };
+          document.head.appendChild(s);
+        });
+        return this._visPromise;
+      },
+      loadCognitionGraph: async function () {
+        if (!this.isGlobalAdmin) return;
+        try {
+          this.cognitionGraphData = await this.api(
+            '/api/memory/graph' + this._cidQuery(true));
+        } catch (e) {
+          this.cognitionGraphData = { nodes: [], edges: [], truncated: false };
+        }
+        var self = this;
+        this.$nextTick(function () { self.renderCognitionGraph(); });
+      },
+      // ISSUE-4: подпись данных графа. 15с-polling не должен сбрасывать
+      // drag/zoom/physics — пересоздаём vis.Network только при реальном
+      // изменении узлов/рёбер (иначе Android WebView получает лишнюю нагрузку).
+      _graphSignature: function (g) {
+        var nodes = (g && g.nodes) || [];
+        var edges = (g && g.edges) || [];
+        return JSON.stringify([
+          nodes.map(function (n) {
+            return [n.id, n.label, n.group, n.degree || 0]; }),
+          edges.map(function (e) {
+            return [e.from, e.to, e.label || '', e.weight || 0]; }),
+        ]);
+      },
+      renderCognitionGraph: async function () {
+        var ok = await this.ensureVisNetwork();
+        if (!ok || !this.isGlobalAdmin) return;
+        // R10.11-5: пока грузился vis-network, могли уйти с «Статуса» —
+        // не создаём stale-инстанс (destroy уже отработал при уходе).
+        if (this.activeTab !== 'status') return;
+        var el = this.$refs ? this.$refs.cognitionGraph : null;
+        if (!el) return;
+        var g = this.cognitionGraphData || { nodes: [], edges: [] };
+        var sig = this._graphSignature(g);
+        // ISSUE-4: экземпляр жив и данные не изменились → не трогаем сеть.
+        if (this.cognitionNetwork && sig === this._cognitionGraphSig) return;
+        this.destroyCognitionGraph();
+        var nodes = new window.vis.DataSet(g.nodes || []);
+        var edges = new window.vis.DataSet(g.edges || []);
+        var options = {
+          nodes: { shape: 'dot', size: 14,
+                   font: { size: 12, color: '#e5e7eb' } },
+          edges: { arrows: 'to', smooth: true,
+                   color: { color: 'rgba(148,163,184,.45)' },
+                   font: { size: 10, color: '#94a3b8' } },
+          interaction: { hover: true, dragNodes: true, dragView: true,
+                         zoomView: true },
+          physics: this.reducedMotion
+            ? false
+            : { stabilization: { iterations: 120, fit: true } },
+          groups: { user: { color: '#a78bfa' }, topic: { color: '#38bdf8' },
+                    event: { color: '#f59e0b' }, fact: { color: '#34d399' } },
+        };
+        this.cognitionNetwork = new window.vis.Network(
+          el, { nodes: nodes, edges: edges }, options);
+        this._cognitionGraphSig = sig;
+      },
+      destroyCognitionGraph: function () {
+        if (this.cognitionNetwork) {
+          try { this.cognitionNetwork.destroy(); } catch (e) { /* noop */ }
+          this.cognitionNetwork = null;
+        }
+        this._cognitionGraphSig = null;
+      },
+      // ── Polling 15с с паузой при document.hidden (F5-Q3, R10.11-5) ─────
+      startCognitionPolling: function () {
+        var self = this;
+        if (!this.isGlobalAdmin || this.cognitionTimer) return;
+        if (typeof document !== 'undefined' && document.hidden) return;
+        this.cognitionTimer = setInterval(function () {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          self.loadCognition();
+        }, 15000);
+      },
+      stopCognitionPolling: function () {
+        if (this.cognitionTimer) {
+          clearInterval(this.cognitionTimer);
+          this.cognitionTimer = null;
+        }
+      },
+      onVisibilityChange: function () {
+        if (this.activeTab !== 'status') return;
+        if (document.hidden) {
+          this.stopCognitionPolling();
+        } else {
+          this.loadCognition();
+          this.startCognitionPolling();
+        }
+      },
+
       // Алиасы spec §3.6.3 (имена фронт-аудита G4)
       dreamBeliefsLoader: function () { return this.loadDreamBeliefs(); },
       nostalgiaLogLoader: function () { return this.loadNostalgiaLog(); },
@@ -4801,6 +5162,13 @@
 
     beforeUnmount: function () {
       this.stopStatusPolling();
+      this.stopCognitionPolling();     // F5/R10.11-5: нет stale-таймера
+      this.destroyCognitionGraph();
+      // ISSUE-7: снимаем visibilitychange-листенер (F5-Q3) при unmount.
+      if (_onVisibility) {
+        document.removeEventListener('visibilitychange', _onVisibility);
+        _onVisibility = null;
+      }
       if (this.controlTimer) clearInterval(this.controlTimer);
     },
   });
