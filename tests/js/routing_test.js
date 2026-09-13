@@ -137,6 +137,145 @@ assert.strictEqual(ctx.route, '#/ai/prompts',
 assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 7 }, 7), true);
 assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
 
+// ── F3 (10.14 persona-ui-tab-round1014): special-screen #/ai/persona ───────
+(function () {
+  // routeToTab('#/ai/persona') == 'persona' (через applyRoute).
+  const ctx = makeCtx(['status', 'persona']);
+  ctx.personaLoading = false;
+  methods.applyRoute.call(ctx, '#/ai/persona');
+  assert.strictEqual(ctx.route, '#/ai/persona',
+    'F3: маршрут #/ai/persona открывается');
+  assert.strictEqual(ctx.activeTab, 'persona',
+    'F3: routeToTab(#/ai/persona) == persona');
+  assert.strictEqual(ctx.accessOpen, null,
+    'F3: persona-роут не трогает accessOpen');
+
+  // routeParent('#/ai/persona') == '#/ai' (через goBack).
+  const back = { route: '#/ai/persona', navigateTo(r) { this._nav = r; } };
+  methods.goBack.call(back);
+  assert.strictEqual(back._nav, '#/ai',
+    'F3: routeParent(#/ai/persona) == #/ai');
+
+  // setTab('persona') триггерит loadPersona (по образцу info).
+  let loaded = 0;
+  const st = {
+    copiedTimer: null, copiedIndex: null, activeTab: 'llm_providers',
+    configSearch: '', currentTab: null, gateInfo: null,
+    canViewTab() { return true; },
+    loadPersona() { loaded += 1; },
+    stopStatusPolling() {}, stopCognitionPolling() {},
+    destroyCognitionGraph() {},
+    $nextTick(cb) { if (cb) cb(); },
+  };
+  methods.setTab.call(st, 'persona');
+  assert.strictEqual(st.activeTab, 'persona', 'F3: setTab(persona) переключил');
+  assert.strictEqual(loaded, 1, 'F3: setTab(persona) → loadPersona()');
+
+  // canViewTab('persona'): global admin видит; без чата у обычного юзера — нет.
+  assert.strictEqual(methods.canViewTab.call({
+    isGlobalAdmin: true, activeChatId: null,
+    permissions: {}, hasPerm: methods.hasPerm,
+    isLocalAdminCtx() { return false; },
+  }, 'persona'), true, 'F3: global admin видит «Личность»');
+  assert.strictEqual(methods.canViewTab.call({
+    isGlobalAdmin: false, activeChatId: null,
+    permissions: {}, hasPerm: methods.hasPerm,
+    isLocalAdminCtx() { return false; },
+  }, 'persona'), false, 'F3: глобальный скоуп без прав — скрыт');
+  assert.strictEqual(methods.canViewTab.call({
+    isGlobalAdmin: false, activeChatId: -100,
+    permissions: { actions: ['edit_persona'] }, hasPerm: methods.hasPerm,
+    isLocalAdminCtx() { return false; },
+  }, 'persona'), true, 'F3: chat-scope + edit_persona — виден');
+  // R10.14-1: глобальный экран доступен роли-редактору без выбранного чата.
+  assert.strictEqual(methods.canViewTab.call({
+    isGlobalAdmin: false, activeChatId: null,
+    permissions: { actions: ['edit_persona'] }, hasPerm: methods.hasPerm,
+    isLocalAdminCtx() { return false; },
+  }, 'persona'), true, 'R10.14-1: global + edit_persona — виден');
+})();
+
+// ── F3: loadPersona scope-реактивность (устаревший ответ отброшен) ────────
+(async function () {
+  let resolvePersona;
+  const c = {
+    scopeEpoch: 1, personaLoading: false, personaMeta: null, personaDraft: null,
+    toast() {},
+    api: () => new Promise((res) => { resolvePersona = res; }),
+    _scopeGuard: methods._scopeGuard,
+  };
+  const p = methods.loadPersona.call(c);
+  c.scopeEpoch = 2;   // смена чата, ответ в полёте
+  resolvePersona({ scope: 'chat', chat_id: -100, is_global: true,
+    values: { name: 'old', biography: '', system_prompt_overrides: '',
+              is_aware_ai: false } });
+  await p;
+  assert.strictEqual(c.personaDraft, null,
+    'F3: устаревший persona-ответ не применён');
+  assert.strictEqual(c.personaMeta, null,
+    'F3: устаревший persona-meta не применён');
+
+  let resolve2;
+  const c2 = {
+    scopeEpoch: 5, personaLoading: false, personaMeta: null, personaDraft: null,
+    toast() {},
+    api: () => new Promise((res) => { resolve2 = res; }),
+    _scopeGuard: methods._scopeGuard,
+  };
+  const p2 = methods.loadPersona.call(c2);
+  resolve2({ scope: 'chat', chat_id: -100, is_global: false,
+    values: { name: 'Костик', biography: 'био',
+              system_prompt_overrides: 'характер', is_aware_ai: true } });
+  await p2;
+  assert.deepStrictEqual(c2.personaDraft, {
+    name: 'Костик', biography: 'био',
+    system_prompt_overrides: 'характер', is_aware_ai: true,
+  }, 'F3: актуальный persona-ответ применён в свой скоуп');
+  assert.strictEqual(c2.personaLoading, false, 'F3: loading сброшен');
+})();
+
+// ── F6 (help-guide-integration-round1014): Markdown-гайд ──────────────────
+(function () {
+  const md = methods.renderGuideMarkdown;
+  assert.strictEqual(typeof md, 'function', 'F6: renderGuideMarkdown есть');
+  assert.strictEqual(md('# Привет'), '<h1>Привет</h1>', 'F6: заголовок');
+  assert.strictEqual(md('**жирный**'), '<p><b>жирный</b></p>', 'F6: жирный');
+  assert.strictEqual(md('*курсив*'), '<p><i>курсив</i></p>', 'F6: курсив');
+  assert.strictEqual(md('`код`'), '<p><code>код</code></p>', 'F6: код');
+  assert.strictEqual(md('- раз\n- два'),
+    '<ul><li>раз</li><li>два</li></ul>', 'F6: список');
+  assert.strictEqual(md('[ok](https://example.com)'),
+    '<p><a href="https://example.com" target="_blank" rel="noopener">ok</a></p>',
+    'F6: http(s)-ссылка');
+  // javascript:-ссылка НЕ превращается в <a>
+  const jsLink = md('[x](javascript:alert(1))');
+  assert.ok(jsLink.indexOf('<a ') < 0, 'F6: javascript: — не ссылка');
+  // HTML экранируется — теги не проходят
+  const xss = md('<script>alert(1)</script>');
+  assert.ok(xss.indexOf('<script') < 0, 'F6: script не проходит');
+  assert.ok(xss.indexOf('&lt;script&gt;') >= 0, 'F6: script как текст');
+  const img = md('<img src=x onerror=alert(1)>');
+  assert.ok(img.indexOf('<img') < 0, 'F6: img/onerror не проходит');
+})();
+
+// ── F6: sanitizeHtml fail-closed (без DOMPurify → экранированный текст) ───
+(function () {
+  const out = methods.sanitizeHtml('<b>ok</b><script>alert(1)</script>');
+  assert.ok(out.indexOf('<script') < 0,
+    'F6: sanitize без DOMPurify экранирует');
+  assert.ok(out.indexOf('&lt;script&gt;') >= 0, 'F6: script как текст');
+})();
+
+// ── F6: guide state/computed/methods присутствуют ─────────────────────────
+(function () {
+  ['loadGuide', 'saveGuide', 'toggleGuideEditor'].forEach(function (n) {
+    assert.strictEqual(typeof methods[n], 'function', 'F6: methods.' + n);
+  });
+  ['sanitizedGuideHtml', 'sanitizedGuidePreviewHtml'].forEach(function (n) {
+    assert.strictEqual(typeof computed[n], 'function', 'F6: computed.' + n);
+  });
+})();
+
 // ── R10.5-1: late-ready BackButton (initBackButton идемпотентен) ──────────
 (function () {
   const bb = {
@@ -824,8 +963,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       ids.filter((id) => id.indexOf('llm_guard') < 0
         && id.indexOf('search_keys') < 0 && id.indexOf('media_share') < 0),
       ['direct', 'transcription', 'video_summary', 'embeddings',
-       'intel_history', 'intel_background'],
-      '10.13 (F4): +2 merged intel-блока в «Подключениях»');
+       'intel_history', 'intel_background', 'intel_reflection'],
+      '10.13 (F4) + 10.14 (F8): merged intel-блоки в «Подключениях»');
     // 10.12: parent-блоки несут subBlocks; id'ы подблоков сохранены.
     const byId = {};
     blocks.forEach((b) => { byId[b.id] = b; });
@@ -920,6 +1059,44 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'models.intel_bg_model_name', 'keys.intel_bg_api_key',
     ].forEach((k) => {
       assert.ok(covered[k], 'F4: ключ ' + k + ' покрыт (нет generic-дубля)');
+    });
+    // ── 10.14 (F8): третье подключение — LLM саморефлексии ────────────────
+    assert.ok(byId.intel_reflection, 'F8: parent-блок intel_reflection есть');
+    assert.deepStrictEqual(byId.intel_reflection.subBlocks.map((sb) => sb.id),
+      ['intel_reflection_main'], 'F8: intel_reflection = один подблок');
+    const reflection = byId.intel_reflection.subBlocks[0];
+    assert.strictEqual(reflection.fields.length, 4,
+      'F8: ровно 4 поля подключения');
+    assert.ok(reflection.fields.some(
+      (f) => f.key === 'models.intel_reflection_display_name'
+        && f.role === ''),
+      'F8: display-name первым полем (role "")');
+    assert.ok(reflection.fields.some(
+      (f) => f.key === 'models.intel_reflection_base_url'
+        && f.role === 'base_url'),
+      'F8: base_url с ролью base_url');
+    assert.ok(reflection.fields.some(
+      (f) => f.key === 'models.intel_reflection_model_name'
+        && f.role === 'model'),
+      'F8: модель с ролью model');
+    assert.ok(reflection.fields.some(
+      (f) => f.key === 'keys.intel_reflection_api_key' && f.role === 'api_key'
+        && f.secret === true),
+      'F8: ключ — секрет с ролью api_key');
+    // parent modules ≠ title → blockDisplayName не дублирует заголовок.
+    assert.ok(byId.intel_reflection.modules
+      && byId.intel_reflection.modules !== byId.intel_reflection.title,
+      'F8: parent modules ≠ title (R10.12-5)');
+    const reflDn = methods.blockDisplayName.call(
+      { blockDrafts: {}, configItems: [], blockFieldValue: methods.blockFieldValue },
+      byId.intel_reflection);
+    assert.strictEqual(reflDn, byId.intel_reflection.modules,
+      'F8: без display-значения подпись = modules (не title)');
+    [
+      'models.intel_reflection_display_name', 'models.intel_reflection_base_url',
+      'models.intel_reflection_model_name', 'keys.intel_reflection_api_key',
+    ].forEach((k) => {
+      assert.ok(covered[k], 'F8: ключ ' + k + ' покрыт (нет generic-дубля)');
     });
   }
 
@@ -1298,6 +1475,123 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     methods.stopCognitionPolling.call(pctx);
     assert.strictEqual(pctx.cognitionTimer, null, 'F5: polling остановлен');
   }
+
+  // ── F4 (persona-traits-ribbon-round1014): лента «Эволюция характера»
+  //    + метрики Личности (UPD п.4) ─────────────────────────────────────────
+  {
+    // fmtDayMonth: unix-секунды → 'ДД.ММ' (F4-Q1).
+    assert.strictEqual(methods.fmtDayMonth.call({}, 1757750400), '13.09',
+      'F4: fmtDayMonth(1757750400) == 13.09');
+    assert.strictEqual(methods.fmtDayMonth.call({}, 0), '—',
+      'F4: пустой ts → —');
+
+    // _traitsAdapter: {ts,text,source} → {id,fact,created_at}.
+    const adapted = methods._traitsAdapter.call({}, [
+      { ts: 1757750400, text: 'Стал более циничным', source: 'deep_sleep' },
+    ]);
+    assert.deepStrictEqual(adapted, [
+      { id: 1757750400, fact: 'Стал более циничным', created_at: 1757750400 },
+    ], 'F4: адаптер traits {ts,text}→{id,fact,created_at}');
+    assert.deepStrictEqual(methods._traitsAdapter.call({}, null), [],
+      'F4: не-массив → [] (fail-open)');
+
+    // cognitionTraitsLoop — computed, переиспользует _ribbonLoop.
+    assert.strictEqual(typeof computed.cognitionTraitsLoop, 'function',
+      'F4: cognitionTraitsLoop — computed');
+    const loop = computed.cognitionTraitsLoop.call({
+      cognitionTraits: adapted,
+      _ribbonLoop: methods._ribbonLoop,
+      ribbonItemClass: methods.ribbonItemClass,
+    });
+    assert.strictEqual(loop.length, 2, 'F4: лента дублируется (1×2)');
+    assert.strictEqual(loop[0].fact, 'Стал более циничным',
+      'F4: факт в модели ленты');
+    assert.ok(loop[0].op.indexOf('ribbon-op-') === 0,
+      'F4: op-класс в модели ленты');
+    // ribbonItemClass не изменён.
+    assert.strictEqual(methods.ribbonItemClass.call({}, 2, 5), 'ribbon-op-100',
+      'F4: ribbonItemClass переиспользован без изменений');
+
+    // personaExtractorBadge: статус экстрактора → текст/класс.
+    assert.strictEqual(computed.personaExtractorBadge.call(
+      { personaHealth: { extractor_status: 'ok' } }).cls, 'badge-ok',
+      'F4: экстрактор ok → зелёный');
+    assert.strictEqual(computed.personaExtractorBadge.call(
+      { personaHealth: { extractor_status: 'error' } }).cls, 'badge-err',
+      'F4: экстрактор error → красный');
+    assert.ok(computed.personaExtractorBadge.call(
+      { personaHealth: null }).text.indexOf('не запускался') >= 0,
+      'F4: нет данных → never (fail-open)');
+  }
+
+  // ── F5 (settings-persistence-audit-round1014, T-1514): смена scope
+  //    сбрасывает optimistic-метку и черновики — не «переезжают» в чат B ──
+  (function () {
+    const savedLocalStorage = global.localStorage;
+    global.localStorage = {
+      _s: {},
+      getItem(k) { return this._s[k] || null; },
+      setItem(k, v) { this._s[k] = String(v); },
+      removeItem(k) { delete this._s[k]; },
+    };
+    const calls = [];
+    const ctx = {
+      scopeOpen: true,
+      activeChatId: 5,
+      activeTab: 'status',
+      accessChats: [],
+      accessMy: null,
+      scopeEpoch: 3,
+      configItems: [{ key: 'limits.x', value: 1 }],
+      configError: 'stale',
+      configChatUpdatedAt: 'STALE-TOKEN',
+      keyDrafts: { 'keys.llm_api_key': 'secret-from-chat-A' },
+      ownKeyDraft: 'chat-A-byok',
+      blockDrafts: { 'models.llm_model_name': 'draft-A' },
+      blockResults: { direct_main: { ok: true, text: 'A' } },
+      personaDraft: { name: 'A' },
+      personaMeta: { scope: 'chat' },
+      personaLoading: true,
+      chatLoreProfile: { x: 1 }, chatLoreSelectedId: 7, chatLoreHistory: [1],
+      chatLore409: { code: 'conflict' }, gateInfo: { y: 1 }, chatAdmins: [42],
+      permPickerOpen: true, permPickerItem: { k: 1 }, chatRelations: [1],
+      relationsEnabled: true, relationsBusy: false,
+      canViewTab() { return false; },
+      isDmCtx() { return false; },
+      syncActiveChatTitle() {},
+      loadConfig() { calls.push('config'); },
+      loadKeyStatus() { calls.push('keys'); },
+      loadGateInfo() { calls.push('gate'); },
+      loadLocalAdmins() { calls.push('admins'); },
+      loadPersona() { calls.push('persona'); },
+      loadRelations() { calls.push('relations'); },
+    };
+    methods.setActiveChat.call(ctx, 99);
+    assert.strictEqual(ctx.activeChatId, 99,
+      'F5/T-1514: активный чат переключён');
+    assert.strictEqual(ctx.configChatUpdatedAt, null,
+      'F5/T-1514: optimistic updated_at сброшен при смене scope');
+    assert.deepStrictEqual(ctx.keyDrafts, {},
+      'F5/T-1514: черновики ключей не переезжают в другой чат');
+    assert.strictEqual(ctx.ownKeyDraft, '',
+      'F5/T-1514: BYOK-черновик не переезжает в другой чат');
+    assert.deepStrictEqual(ctx.blockDrafts, {},
+      'F5/T-1514: черновики блоков сброшены');
+    assert.deepStrictEqual(ctx.blockResults, {},
+      'F5/T-1514: результаты тестов блоков сброшены');
+    assert.strictEqual(ctx.personaDraft, null,
+      'F5/T-1514: persona-черновик сброшен');
+    assert.strictEqual(ctx.personaMeta, null,
+      'F5/T-1514: persona-meta сброшена');
+    assert.strictEqual(ctx.scopeEpoch, 4,
+      'F5/T-1514: scopeEpoch инкрементнут (отброс in-flight)');
+    assert.ok(calls.indexOf('config') >= 0,
+      'F5/T-1514: loadConfig вызван для нового скоупа');
+    assert.ok(calls.indexOf('keys') >= 0,
+      'F5/T-1514: loadKeyStatus вызван для нового скоупа');
+    if (savedLocalStorage === undefined) delete global.localStorage;
+    else global.localStorage = savedLocalStorage;
+  })();
 
   console.log('JS-UNIT-OK');
 })().catch((e) => {

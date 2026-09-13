@@ -527,3 +527,23 @@ class TestWorkerRouterRole:
         res = await worker.run_once(CHAT_ID)
         assert res["status"] == "ok"
         assert len(llm.calls) == 1
+
+
+class TestSelfOriginExcludedFromDream:
+    """Раунд 10.14 (F1, ADR-1014-2 D6): self-факты не участвуют в «сне»."""
+
+    def test_self_not_in_dream_source_origins(self):
+        from services.dream_worker import _DREAM_SOURCE_ORIGINS
+        assert "bot_self_reply" not in _DREAM_SOURCE_ORIGINS
+
+    @pytest.mark.asyncio
+    async def test_self_excluded_from_new_confirmed_facts(self, db):
+        """Подкрепление belief (list_new_confirmed_facts) не видит self."""
+        now = 1_800_000_000
+        await db.insert_graph_fact(CHAT_ID, "обычный новый факт",
+                                   "chat_history", None)
+        await db.insert_graph_fact(CHAT_ID, "[Бот] решил: тест",
+                                   "bot_self_reply", None, weight=0.2,
+                                   importance=2)
+        rows = await db.list_new_confirmed_facts(CHAT_ID, 0, now_ts=now)
+        assert all(r["fact"] != "[Бот] решил: тест" for r in rows)

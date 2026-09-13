@@ -2,6 +2,182 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.14 (13.09.2026): Self-Awareness / Persona + 3-й LLM-провайдер — 8 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026)
+
+**✅ ИТОГ 10.14 (13.09.2026):** реализация завершена, все **8 фич заархивированы** — перенесены
+`plans/features/*-round1014/` → **`plans/archive/*-round1014/`** (@PM Step 8).
+**Финальные метрики:** полный **pytest — 5589 passed / 0 failed** (база 10.13 = 5392 → **+197**);
+`node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` clean.
+Каталог — санкционированный прирост (F1 origin/self-awareness, F2 persona-флаги, F6 `content.intelligence_guide`,
+F8 `intel_reflection_*`): **REGISTRY 435 / Settings 406 / categorized 411** (GROUPS 90 / mapped 88 / `TAB_RULES` 19).
+БД: SQLite **v8→v9** (origin `bot_self_reply`, миграция `_migrate_self_origin_v9`); **PG** — `personas` /
+`persona_traits` / `persona_state` (идемпотентный DDL).
+**Объём:** **8 фич, 72 задачи** (T-1477…T-1548), все `[x]`.
+@Reviewer — **APPROVED** (итерация 2). Итерация 1 — **Rejected** по трём High-блокерам: **H1** optimistic-409
+персоны недостижим (`updated_at` не отдавался), **H2** RBAC-действие `edit_persona` не зарегистрировано,
+**H3** новые per-chat ключи читались только глобально (`hot.get`); все закрыты @Builder и подтверждены
+`file:line` + тестами (`plans/reports/round10.14_reviewer.md`).
+@Scanner — **CLEAN: 0 Critical / 0 High / 0 Medium** (итерация 2; закрыты Medium R10.14-1 RBAC view/edit
+`edit_persona` и R10.14-2 traits-LLM вне `worker_budget`), остаются **2 Low** + 2 Info — техдолг
+(`plans/reports/round10.14_scanner_audit.md`).
+@Architect — архитектура влита в `plans/ARCHITECTURE.md` (**§35** + связанные разделы).
+Артефакты в архиве: `spec.md` + `tasks.md` (×8) + ADR-1014-1 (`adr-1014-1-persona-storage.md`),
+ADR-1014-2 (`adr-1014-2-anti-echo-self.md`) + `settings-persistence-audit-round1014/report.md` + `inventory.tsv`.
+**Фичи (финал, все ✅ COMPLETED):** F1 `anti-echo-self-reply` (T-1477…T-1486) · F2 `persona-storage-core`
+(T-1487…T-1497) · F3 `persona-ui-tab` (T-1498…T-1504) · F4 `persona-traits-ribbon` (T-1505…T-1510) ·
+F5 `settings-persistence-audit` (T-1511…T-1525) · F6 `help-guide-integration` (T-1526…T-1534) ·
+F7 `status-layout-reorder` (T-1535…T-1540) · F8 `self-reflection-llm-provider` (T-1541…T-1548).
+
+**🧾 Техдолг Low (ОТКРЫТ, 10.14 — не блокеры):** `R10.14-4` (`dynamic_traits` отдаются без фильтра `chat_id` —
+оставлено **осознанно**, соответствует модели «общий характер бота» по F4), `R10.14-7` (warning
+`closed 12 leaked aiosqlite connection(s)` — **pre-existing**, не регрессия), `L5` (**hot-path**: на каждый
+direct-ответ 2 доп. PG-запроса `resolve_bot_persona`+`get_traits` + запись `persona_state`; кэш отсутствует —
+оптимизация на будущее); **Info:** `I10.14-1` (прямой каскад v7→v9 юнит-тестами не покрыт — риска нет),
+`I10.14-2` (FIFO-ротация traits глобальная, не per-chat — зафиксировать в ARCH). Источник —
+`plans/reports/round10.14_scanner_audit.md` §5.
+**Дальше:** Step 9 — деплой @DevOps (единый коммит эпика, сейчас НЕ закоммичено); Step 10 — метрики @Memory
+(проставит деплой-статус поверх `✅ COMPLETED`).
+Ниже — исторический документ планирования эпика (Step 1 @PM).
+
+**Эпик:** `Epic: Self-Awareness / Persona round1014` (@Memory, Step 0). **Источник ТЗ** —
+`plans/current_task.md` (разделы 1–7) + **UPD владельца** (пп.1–5, отменяет DDL-free решения). **HEAD при
+планировании:** `2edc65b` (== origin/master, дерево чистое). **APP_VERSION** 2.57.0.
+**Базовая линия (@Memory Step 0):** pytest **5392 passed / 0 failed**; `node --check web/app.js` clean;
+каталог-инвариант **REGISTRY 427 / GROUPS 90 / Settings 399 / categorized 403 / mapped 88 / `TAB_RULES` 19**;
+SQLite **v8** (до миграции v9 в F1). Преемник — 10.13 (`cognition-*-round1013`, архив; все 8 фич COMPLETED,
+60 задач T-1417…T-1476).
+**UPD владельца (13.09.2026, отменяет редакцию 1 плана):** DDL разрешён; Persona — PG-таблицы
+`personas`/`persona_traits`; новый origin `bot_self_reply` + SQLite v9; флаги ON по умолчанию; LLM-экстрактор
+с 3-м провайдером; метрики Личности в «Сводке»; справка — БД-редактор.
+
+**8 фич (нумерация продолжает T-1476 → T-1477…T-1548, 72 задачи):**
+
+| # | Фича (папка) | Тип | ТЗ | Зависит от | Приоритет | Задачи |
+|---|---|---|---|---|---|---|
+| **F1** | `anti-echo-self-reply-round1014` | backend (+PG/SQLite DDL) | п.1 + UPD 1,3 | — (F8-роль `reflection` опциональна: фоллбэк) | **P0** (фундамент: origin+миграция+экстрактор) | T-1477…T-1486 (10) |
+| **F2** | `persona-storage-core-round1014` | backend (+PG DDL) | п.2 + UPD 1,2,4 | **F1** (`persona_state` DDL) | **P0** | T-1487…T-1497 (11) |
+| **F3** | `persona-ui-tab-round1014` | frontend | п.3 + UPD 2 | **F2** | P1 | T-1498…T-1504 (7) |
+| **F4** | `persona-traits-ribbon-round1014` | frontend | п.3.1 + UPD 4 | **F2, F1** (`/api/persona/health`) | P1 | T-1505…T-1510 (6) |
+| **F5** | `settings-persistence-audit-round1014` | backend+frontend | п.4 | — (∥ F1/F2; сверка с активной `config-read-path-audit`; охват новых API F8/F2/F6) | **P0** | T-1511…T-1525 (15) |
+| **F6** | `help-guide-integration-round1014` | docs+backend+frontend | п.5+п.6 + UPD 5 | **F1, F2, F3** | P2 | T-1526…T-1534 (9) |
+| **F7** | `status-layout-reorder-round1014` | frontend | п.7 | — (независима) | P2 | T-1535…T-1540 (6) |
+| **F8** | `self-reflection-llm-provider-round1014` | backend+frontend | UPD 3 | **F1, F2** (роль `reflection` для LLM-экстрактора F1; UI-провайдеры; формально self-contained — пусто → основная модель) | P1 | T-1541…T-1548 (8) |
+
+**Рекомендуемый порядок исполнения:** **F1 → F2 → {F3, F4} → {F5 ∥ F8} → F6 → F7.**
+Обоснование: F1 задаёт origin `bot_self_reply` + SQLite v9 + LLM-экстрактор (роль `reflection`, фоллбэк на
+основную модель) → F2 (PG `personas`/`persona_traits` + core, промпт-склейка, `persona_state`) опирается на
+DDL/канон F1; F3 (UI «Личность») и F4 (лента traits + метрики «Сводки») зависят от API F2 и могут идти
+параллельно; F5 независима (аудит save/read-path), но делит `web/app.js` и включает в инвентарь новые
+сущности F8/F2/F6; **F8** формально self-contained (пустые поля → основная модель), но по указанию владельца
+учитывается зависимость от F1/F2: даёт роль `intel_reflection` для LLM-экстрактора F1 и provider-UI — вливать
+после/параллельно F1–F2; F6 пишется по факту реализации F1–F3; F7 — чистая перестановка, независима.
+**⚠️ F3, F4, F6, F7 все правят `web/index.html`/`web/app.js` — исполнять/вливать ступенями (F4 → F7 → F6).**
+**F1/F2 (DDL) и F8 (models/keys) трогают `services/database.py`/`pg_db.py`/каталог — вливать согласованно с
+пин-тестами каталога.**
+F5 согласуется с активной F-5 `config-read-path-audit` (не дублировать read-path/касты).
+
+**Контент по фичам (сжато):**
+- **F1 (Anti-Echo & Self-Reflection, п.1 + UPD 1,3):** новый честный origin `graph_facts.origin='bot_self_reply'`
+  (11-й; `status='confirmed'`), SQLite rebuild-миграция **v8→v9** (`_migrate_self_origin_v9`; все 16 колонок +
+  FTS/vec; идемпотентно); вес self `limits.graph_fact_weight_bot` = **0.2** (важность 2) против пользовательского
+  0.7; экстракт сути **только LLM** (новый `services/self_reflection.py`, роль `reflection` через F8, фоллбэк на
+  основную модель); RAG-метка `[Источник: Я сам (Бот)]` + анти-эхо-инструкция (`_build_rag_block`, БЕЗ правки
+  PG-канона); opt-in `include_self`; self исключён из Сна/«золотых»/decay/компакции/`graph_stats.facts`;
+  `persona_state` (метрики экстрактора — DDL F1); флаг `flags.bot_self_awareness_enabled` **ON**. Модули:
+  `services/database.py:53,67-101,…`, `services/summary_memory.py:211-222,…`, `services/dream_worker.py:132-136`,
+  `services/direct_chat_service.py:959-990,1690-1771`, `services/llm_client.py:891-954`. **ADR-1014-2.**
+- **F2 (Dynamic Persona, п.2 + UPD 1,2,4):** **PG-таблицы `personas`** (scope `is_global`/`chat_id` + CHECK +
+  2 partial-unique + FK→`chat_profiles`) и **`persona_traits`** (`dynamic_traits`, cap 50/dedup, provenance
+  `chat_id`/`source`); статические `name`/`biography`/`system_prompt_overrides`/`is_aware_ai` (default true);
+  резолв per-chat → global → empty; API `GET/PUT/DELETE /api/persona` + `GET /api/persona/health`; промпт-склейка
+  + имя-триггер; «Глубокий сон» пишет traits; `flags.persona_enabled` **ON**; сид пустой глобальной персоны.
+  **НЕ** `bot_settings`/`chat_params.overrides`. **Naming:** `build_persona_card` (`direct_chat_service.py:1511`,
+  `database.py:3390`) — досье ПОЛЬЗОВАТЕЛЯ (F8 10.13), НЕ трогать. **ADR-1014-1.**
+- **F3 (UI «Личность», п.3 + UPD 2):** карточка/подраздел в Hub «ИИ» (`web/app.js:270-296`, `#/ai`), форма ТОЛЬКО
+  статических полей (Имя/Биография/Характер/чекбокс «Осознаёт себя ИИ»), scope-реактивность (activeChatId/
+  `X-Chat-Id`), бейдж+disabled при `flags.persona_enabled=OFF`. Модули: `web/app.js`, `web/index.html`,
+  `web/api/routes.py` (персона — PG-API, каталог-Δ нет).
+- **F4 (Лента «Эволюция характера» + метрики «Сводки», п.3.1 + UPD 4):** третья бегущая лента рядом с
+  «Сон»/«Глубокий сон» (`web/index.html:2916-2943`), переиспользуя `_ribbonLoop`/`ribbonItemClass`
+  (`web/app.js:4749-4776`); CSS-сетка 3 колонки; панель метрик Личности в дашборде **«Сводка»** (`#/oversight`):
+  `traits_count`, `last_trait_at`, `extractor_status` (+`extractor_last_at`) через `GET /api/persona/health`.
+- **F5 (Save/read-path audit, п.4):** инвентаризация ВСЕХ изменяемых параметров мини-аппа + матрица
+  «SavePath/Scope/RuntimeConsumer»; цепочка Vue → API → БД; scope Global↔чат (422 `routes.py:414-417`);
+  рестарт-персистентность; рантайм-подхват воркерами/RAG/LLM-клиентами; в инвентарь входят **новые сущности
+  раунда** (`flags.persona_enabled`, `flags.bot_self_awareness_enabled`, provider-блок `intel_reflection`,
+  dedicated-API `/api/persona` и `/api/info/guide`). Модули: `web/app.js:2431,3214,3263`,
+  `services/chat_params.py:31-85,397-412`, `services/config_cache.py`, `services/llm_client.py`,
+  `services/llm_probe.py`, `services/worker_budget.py`.
+- **F6 (docs+справка, п.5/6 + UPD 5):** дополнить `plans/docs/intelligence_user_guide.md` (самосознание/личность),
+  интегрировать в «Справку» (`web/index.html:3050-3083`) **вторым редактируемым блоком** под блоком
+  использования функций; гайд хранится **в БД** — PG-ключ `content.intelligence_guide`
+  `{markdown,updated_at,updated_by}` (json, `content_info`, PG-only), файл — только **источник идемпотентного
+  сида**; Markdown-редактор + предпросмотр + **DOMPurify self-host** (без новых CDN); API `GET/POST /api/info/guide`
+  (RBAC `edit_info`); `services/info_service.py`, `services/config_cache.py`, `web/api/routes.py`.
+- **F7 (порядок «Статус», п.7):** «Сердцебиение» (`index.html:2883-2900`) — сразу под «Сводку» (`:2776`);
+  «Мониторинг Интеллекта» (`:2901-2943`) — под «Сервер» (`:2817`). Независима.
+- **F8 (3-й LLM-провайдер «Саморефлексия / Экстрактор сути», UPD 3):** новое parent+subBlocks-подключение в
+  витрине «LLM Провайдеры»; PG-ключи `models.intel_reflection_base_url/_model_name/_display_name` +
+  `keys.intel_reflection_api_key`; роль `reflection` в `LLMClient.generate_worker` (slug `intel_reflection`);
+  probe `intel_reflection_main`; пустые поля → основная модель (DeepSeek), ошибка dedicated → `generate()`
+  (fail-open). Паттерн ADR-1013-1 (`intel_history`/`intel_bg`). Потребляется F1.
+
+**Инварианты раунда (в каждой tasks.md §3):** **DDL РАЗРЕШЁН** (UPD п.1): PG — идемпотентные
+`CREATE TABLE IF NOT EXISTS`/`ON CONFLICT DO NOTHING` (`personas`, `persona_traits`, `persona_state`); SQLite
+**v8→v9** rebuild с сохранением всех 16 колонок + FTS/vec и идемпотентным guard'ом; повторный
+`PgDatabase.init()`/`initialize()` — no-op. **`graph_facts.origin` CHECK расширяется до 11 значений**
+(`bot_self_reply`); `status='self_reply'` НЕ вводится. Порядок роутеров `bot.py` не трогать (только DI-kwargs);
+каталог-инварианты **435/90/406/411/88**, `TAB_RULES`/`CONFIG_TAB_TITLES` 19 — новые ключи/вкладки/группы только
+санкционированным Δ с обновлением пин-тестов (`test_param_catalog`, `test_frontend_tab_mapping`,
+`TAB_SECTION_ORDER`, `TAB_RULES`, «группа → ровно 1 вкладка»); **R17** секреты `{configured,last4}`;
+**R16** id — ключ, не имя; `media/`/`.env` не трогать; правка промпт-канонов — PREV-слепок +
+`prompt_migrations` + байт-тесты (анти-эхо F1 — динамический блок, PG-канон НЕ трогается); байт-канон info
+(`DEFAULT_INFO_TEXT`) не ломать; **новых `v-html` без санитайза/новых CDN нет** (DOMPurify self-host); **флаги
+`flags.persona_enabled`/`flags.bot_self_awareness_enabled` = ON по умолчанию** (UPD п.2), OFF → байт-в-байт
+прежнее поведение; **ревью-гейты:** pytest 0 регрессий, `node --check web/app.js`, пин-тесты каталога,
+R17-скан, миграция дважды + «from scratch»; русские conventional commits.
+
+**⚠️ Open (закрыто @Architect Step 2 итерация 2 — ADR-1014-1/2 + spec F1–F8; остаточное на @Builder/@Reviewer):**
+- **F1/F2 (UPD):** решено — origin `bot_self_reply` (11-й) + SQLite v9; PG `personas`/`persona_traits` +
+  `persona_state`; вес-ключ; LLM-экстрактор роль `reflection`; флаги ON. **@Reviewer/@Scanner:** идемпотентность
+  миграций, сохранность 16 колонок/FTS/vec, R17.
+- **F8:** решено — parent+subBlocks «LLM для саморефлексии (Экстрактор сути)», `intel_reflection_*`, probe
+  fallback. Проверить отсутствие дублей с `intel_history`/`intel_bg`.
+- **F3:** решено — отдельный экран/tab «Личность» в Hub «ИИ» (`#/ai/persona`), форма только статических полей;
+  OFF → бейдж + disabled.
+- **F4:** решено — 3-колоночная сетка, «ДД.ММ: текст», 12 последних traits, метрики в `#/oversight` через
+  `/api/persona/health`.
+- **F5:** границы с активной `config-read-path-audit` (что переносим/не дублируем) — уточнить при @Builder;
+  sync-await vs optimistic UI; объём live-верификации; включить новые сущности F8/F2/F6.
+- **F6:** решено — PG-ключ `content.intelligence_guide` (json PG-only) + идемпотентный сид из файла; Markdown +
+  DOMPurify; второй блок в «Справке»; RBAC `edit_info`.
+- **F7:** точная позиция «Доступности ключей» относительно «Мониторинга Интеллекта» (после «Сервера»; Q1).
+
+**Покрытие ТЗ (`plans/current_task.md`, разделы 1–7 + UPD 1–5 → фичи):**
+
+| Раздел ТЗ / UPD | Фича(и) |
+|---|---|
+| п.1 «Механика Самосознания (Anti-Echo & Self-Reflection)» | **F1** |
+| п.2 «Архитектура Личности (Dynamic Persona)» | **F2** |
+| п.3 «UI: Подраздел "Личность" в разделе "ИИ"» | **F3** |
+| п.3.1 «Лента "Эволюция характера"» | **F4** |
+| п.4 «Багфикс: сохранение и реактивность параметров» | **F5** |
+| п.5 «Актуализация доки» | **F6** |
+| п.6 «Расширение справки» | **F6** |
+| п.7 «Перестановка Сердцебиения / Мониторинга Интеллекта» | **F7** |
+| **UPD п.1** «Снятие DDL-инвариантов; PG-Persona; новый origin» | **F1** (`bot_self_reply`+v9) + **F2** (`personas`/`persona_traits`) |
+| **UPD п.2** «Флаги ON по умолчанию; поля пустыми» | **F1** (`flags.bot_self_awareness_enabled`) + **F2/F3** (`flags.persona_enabled`) |
+| **UPD п.3** «Экстрактор сути только LLM + 3-е подключение (роль `intel_reflection`)» | **F1** (LLM-экстрактор) + **F8** (провайдер/роль) |
+| **UPD п.4** «Метрики Личности в "Сводке" (traits, время, статус экстрактора)» | **F4** (UI) + **F1/F2** (`/api/persona/health`) |
+| **UPD п.5** «DOMPurify + БД-редактор Справки (не мёртвый файл)» | **F6** |
+
+**Итог: все 7 разделов ТЗ + 5 пунктов UPD покрыты, 8 фич, 72 задачи (T-1477…T-1548); папки заархивированы.**
+**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (13.09.2026, @PM Step 8 Archive Phase). Планирование (Step 1 @PM,
+итерация 2 после UPD владельца) и Step 2 @Architect (ADR-1014-1/2 + spec/tasks F1–F8) завершены; реализация
+@Builder (F1–F8), @Reviewer **APPROVED** (итерация 2), @Scanner **0 C/H/M** (2 Low — техдолг, см. блок
+«ИТОГ 10.14»), @Architect — `plans/ARCHITECTURE.md` **§35**. Артефакты: **`plans/archive/*-round1014/`**
+(**8 папок**). **@PM код не пишет.**
+
 ## Раунд 10.13 (13.09.2026): Cognition / Sleep / Memory Refactor — 8 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026)
 
 **✅ ИТОГ 10.13 (13.09.2026):** реализация завершена, все **8 фич заархивированы** — перенесены

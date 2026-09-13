@@ -10,6 +10,7 @@ info_text.md); get_text() читает ConfigCache → файловый кэш �
 """
 import datetime
 import logging
+from pathlib import Path
 
 from config.settings import settings
 from services import hot_config as hot
@@ -69,6 +70,27 @@ DEFAULT_INFO_TEXT = """<h1>Гайд по фичам бота. Никаких с�
 - Может путать Никит и Глебов</h5>"""
 
 INFO_KEY = "content.info_how_it_works"
+
+# ── F6 (help-guide-integration-round1014, spec §2.2): гайд в БД ─────────────
+# Файл — ТОЛЬКО источник идемпотентного сида (ConfigCache.init), не источник
+# истины. Ручные правки из админки живут в PG и сидом не перезатираются.
+GUIDE_KEY = "content.intelligence_guide"
+# M2-фикс: абсолютный путь от корня проекта (устойчив к CWD systemd/docker).
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+GUIDE_SEED_FILE = str(
+    _PROJECT_ROOT / "plans" / "docs" / "intelligence_user_guide.md")
+DEFAULT_GUIDE_MARKDOWN = ""   # R6 fail-open: PG down и файла нет → пусто
+
+
+def _read_text(path: str) -> str:
+    """Чтение текстового файла; OSError → '' (fail-open, без исключений)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        logger.warning("[info service] read failed | file=%s", path,
+                       exc_info=True)
+        return ""
 
 
 class InfoService:
@@ -137,6 +159,47 @@ class InfoService:
     def _write_default(self) -> None:
         with open(self._file_path, "w", encoding="utf-8") as fh:
             fh.write(DEFAULT_INFO_TEXT)
+
+    # ── F6 (10.14): гайд по возможностям (Markdown, PG-only) ───────────────
+
+    def get_guide(self) -> dict:
+        """Гайд из ConfigCache (PG); PG down/нет ключа → сид-файл (код-канон)
+        → пусто. fail-open, 200, без исключений (spec §2.3)."""
+        cached = hot.get(GUIDE_KEY)
+        if isinstance(cached, dict):
+            markdown = cached.get("markdown")
+            if isinstance(markdown, str) and markdown.strip():
+                return {
+                    "markdown": markdown,
+                    "updated_at": cached.get("updated_at"),
+                    "updated_by": cached.get("updated_by"),
+                }
+        return {
+            "markdown": _read_text(GUIDE_SEED_FILE) or DEFAULT_GUIDE_MARKDOWN,
+            "updated_at": None,
+            "updated_by": None,
+        }
+
+    async def save_guide(self, markdown: str,
+                         updated_by: int | None = None) -> dict:
+        """F6: ЕДИНСТВЕННАЯ точка записи гайда (POST /api/info/guide).
+        Значение → ConfigCache (PG) + in-memory. Без PG — наверх (роут → 503)."""
+        from services.config_cache import ConfigCacheUnavailableError
+
+        value = {
+            "markdown": markdown,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "updated_by": (updated_by if updated_by is not None
+                           else settings.ADMIN_USER_ID),
+        }
+        cache = hot.get_config_cache()
+        if cache is None or not cache.pg_available:
+            raise ConfigCacheUnavailableError("PostgreSQL недоступен (R6)")
+        await cache.set(GUIDE_KEY, value, "content")
+        logger.info("[info service] guide saved | chars=%d | by=%s",
+                    len(markdown), value["updated_by"])
+        return value
 
 
 def _save_to_cache_safely(value: dict) -> None:

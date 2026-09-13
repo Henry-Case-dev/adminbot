@@ -3,6 +3,65 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.14 scan (2026-09-13) — all scanned (diff-based, 8 фич F1–F8)
+- [x] services/database.py (F1 SQLite v8→v9: `_migrate_self_origin_v9` rebuild 16 колонок/id 1:1,
+      guard + безусловный `user_version=9`, 5 индексов, origin-исключения self в list_new_confirmed/
+      golden/live/dup/graph_stats, `include_self` в `search_graph_facts_fts`; `rule_importance` self=2)
+- [x] services/bot_persona.py (NEW: scope-резолв per-chat→global→empty, prompt-блок + `_NO_AI_DISCLOSURE_BLOCK`,
+      UPSERT/optimistic `updated_at`/`PersonaConflict`, traits cap/дедуп/FIFO, persona_state-метрики, name-cache)
+- [x] services/self_reflection.py (NEW: LLM-экстрактор сути, роль `reflection`→фоллбэк main, fail-safe '', метрики)
+- [x] services/summary_memory.py (`_origin_weight(bot_weight=…)`, `memorize_self_reply`, `include_self`
+      через `_search/_knn/_vec*`+`_filter_vec_rows`, метка `[Источник: Я сам (Бот)]`, `_SELF_ECHO_INSTRUCTION`)
+- [x] services/direct_chat_service.py (persona-хвост system prompt per-chat; self-aware ветка
+      `_memorize_in_background` (query=bot_direct_reply + essence=bot_self_reply); анти-эхо ДО cap;
+      `_reassign_fact_owners` изолирует self по origin; `include_self=True` только direct-RAG)
+- [x] services/dream_worker.py / dream_prompts.py (F2 `_run_persona_traits_once` + `PERSONA_EVOLUTION_PROMPT`/
+      `build_persona_user`/`parse_persona_traits`; гейт per-chat `flags.persona_enabled`, fail-open)
+- [x] services/pg_db.py (F1 `persona_state` DDL+сид; F2 `personas`/`persona_traits` DDL, partial-unique,
+      FK CASCADE, ALTER persona_state; идемпотентность)
+- [x] services/permissions.py (`edit_persona` в ACTIONS_TREE/ACTION_IDS) — H2 закрыт
+- [x] services/info_service.py + config_cache.py (F6 `content.intelligence_guide`, `GUIDE_SEED_FILE` абсолютный,
+      идемпотентный сид) ; services/param_catalog.py (Δ +1 content, +1 limit, +2 flag, +3 models, +1 key)
+- [x] services/status_service.py (R10.9-4 `invalidate_health_cache` по `models.*`/`keys.*`)
+- [x] config/settings.py (+INTEL_REFLECTION_*×4, +GRAPH_FACT_WEIGHT_BOT/BOT_SELF_AWARENESS_ENABLED,
+      +PERSONA_ENABLED, ClassVar SELF_ESSENCE_MAX_CHARS/PERSONA_TRAITS_MAX/PERSONA_TRAIT_MAX_CHARS)
+- [x] web/api/routes.py (`GET/PUT/DELETE /api/persona`, `GET /api/persona/health`, `GET/POST /api/info/guide`,
+      health-инвалидация в config/BYOK); web/api/memory_agi.py (fallback `bot_self_replies`)
+- [x] web/app.js (F3 special-screen persona + ROUTE_*/canViewTab; F4 3-я лента + метрики + `fmtDayMonth`;
+      F6 Markdown-гайд + fail-closed sanitize; F8 provider-блок `intel_reflection`; F5 scope-reset черновиков)
+- [x] web/index.html (F3 карточка persona; F4 3-я лента + панель «Личность»; F6 гайд-блок; F7 порядок карточек;
+      CSS `.guide-markdown`/`.cognition-ribbons 3`)
+- [x] bot.py (только `await load_global_cache()` после `set_config_cache` — DI-порядок не тронут)
+- [x] .env.example (+INTEL_REFLECTION_* плейсхолдеры, +GRAPH_FACT_WEIGHT_BOT/BOT_SELF_AWARENESS_ENABLED/PERSONA_ENABLED)
+- [x] tests/* (new: test_graph_facts_origin_v9, test_bot_persona, test_persona_api, test_persona_prompt,
+      test_self_reflection, test_self_reflection_provider_round1014, test_dream_persona_traits,
+      test_help_guide_round1014, test_settings_persistence_round1014, test_webapp_round1014_ui; обновлены
+      маркерные/каталог/JS) — pytest 5582/0, node --check OK, JS-UNIT-OK, git diff --check clean
+- [x] plans/features/*-round1014/ (8 спек + ADR-1014-1/-2 + tasks), plans/reports/round10.14_scanner_audit.md
+- **Открыто (Low, не блокеры, после итерации 2; 0 Critical / 0 High / 0 Medium / 2 Low / 2 Info):**
+  **R10.14-4 [low]** `dynamic_traits` не фильтруются по chat_id (`routes.py:1461-1462`) — осознанно
+  (traits = общий характер бота, F4). **R10.14-7 [low]** 12 leaked aiosqlite-соединений (pre-existing).
+  **I10.14-1/2 [info]**: v7→v9-каскад без прямой фикстуры (safe по guard-анализу); FIFO-ротация трейтов глобальная.
+- **Сквозной паттерн 10.14:** dedicated-API с собственным scope/RBAC сверять парой view↔edit;
+  новые LLM-вызовы воркеров — всегда через worker_budget.
+
+### Round 10.14 — повторный аудит (итерация 2, 2026-09-13)
+- [x] Ре-верификация фиксов @Builder: **R10.14-1 (Medium) closed** — `routes.py:1365-1372`
+      `_persona_has_edit_action`, `:1388-1399` `_persona_can_view` согласован с `_persona_can_edit`;
+      `app.js:2820-2825` `canViewTab('persona')` → global-экран при `edit_persona`; тесты
+      `test_persona_api.py:197-222` (view global/chat + GET/PUT consistency), `routing_test.js:190-195`;
+      moderator/без прав по-прежнему 403 (`:193-195`, `:256-261`). **R10.14-2 (Medium) closed** —
+      `dream_worker.py:1460` `_deep_budget_ok` до traits-LLM, `:1355-1368` кап учитывает `deep_traits`,
+      `:1406-1415`/`:1475-1479` логирование токенов; тесты `test_dream_persona_traits.py:182-238`.
+- [x] Low закрыты: R10.14-3 (`routes.py:1452-1460`, тест `:224-238`), R10.14-5 (док. `summary_memory.py:1771`),
+      R10.14-6 (docstring 8→9 в 4 файлах).
+- [x] Валидатор: pytest **5589 passed**/0 fail (60.58 s), `node --check web/app.js` OK,
+      `routing_test.js` JS-UNIT-OK, `git diff --check` OK. Инварианты: R17/R16, роутеры `bot.py`,
+      `media/`/`.env` не тронуты, REGISTRY 435/GROUPS 90/mapped 88/TAB_RULES 19, DOMPurify self-host,
+      SQLite v9/PG DDL целы.
+- Итог итерации 2: **0 Critical / 0 High / 0 Medium / 2 Low** открытых; вердикт — открытых
+  Critical/High/Medium НЕТ.
+
 ## Round 10.13 scan (2026-09-13) — all scanned (diff-based, 8 фич F1–F8)
 - [x] services/summary_memory.py (F1 `_fact_prefix`/`_stale_suffix`/4-кортежи RAG; F2 `_knn_graph_facts`
       архив+penalty+`_resurrect_resonant`, `graph_activation_facts`)

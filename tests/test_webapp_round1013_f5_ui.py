@@ -286,7 +286,7 @@ class TestGraphAndStats:
         assert stats == {"facts": 0, "beliefs": 0, "archived_beliefs": 0,
                          "protected_facts": 0, "paradigms": 0, "memes": 0,
                          "graph_nodes": 0, "graph_edges": 0,
-                         "relation_types": 0}
+                         "relation_types": 0, "bot_self_replies": 0}
 
 
 class TestTimeline:

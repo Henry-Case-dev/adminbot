@@ -1,6 +1,7 @@
 import logging
 import os
 from dataclasses import dataclass
+from typing import ClassVar
 from dotenv import load_dotenv
 
 # Тесты/CI не должны видеть боевой .env: корневой conftest.py ставит
@@ -440,6 +441,16 @@ class Settings:
     INTEL_BG_MODEL_NAME: str = _env_str("INTEL_BG_MODEL_NAME", "")
     INTEL_BG_DISPLAY_NAME: str = _env_str("INTEL_BG_DISPLAY_NAME", "")
     INTEL_BG_API_KEY: str = _env_str("INTEL_BG_API_KEY", "")
+    # ── Раунд 10.14 (F8, UPD п.3, ADR-1013-1 §2.1): третье выделенное
+    # подключение — LLM для саморефлексии (Экстрактор сути). PG-ключи
+    # `models.intel_reflection_*` / `keys.intel_reflection_api_key`; settings-
+    # дефолт "" — только code-fallback. Пустые поля → рантайм-фоллбэк на
+    # основную модель (LLMClient.generate_worker('reflection')). R17: ключ
+    # не логируется. Значения — через мини-апп («LLM Провайдеры»).
+    INTEL_REFLECTION_BASE_URL: str = _env_str("INTEL_REFLECTION_BASE_URL", "")
+    INTEL_REFLECTION_MODEL_NAME: str = _env_str("INTEL_REFLECTION_MODEL_NAME", "")
+    INTEL_REFLECTION_DISPLAY_NAME: str = _env_str("INTEL_REFLECTION_DISPLAY_NAME", "")
+    INTEL_REFLECTION_API_KEY: str = _env_str("INTEL_REFLECTION_API_KEY", "")
     # ── GraphRAG memorize (Epic 47, Section 56.5) ──
     GRAPH_MEMORIZE_MAX_BATCH_RETRIES: int = _env_int_min("GRAPH_MEMORIZE_MAX_BATCH_RETRIES", 2, 0)
     GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF: float = _env_float_min("GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF", 2.0, 0.0)
@@ -796,6 +807,22 @@ class Settings:
     # вес влияет на TTL: expires_at = now + TTL × (0.5 + weight).
     GRAPH_FACT_WEIGHT_DIRECT: float = _env_float("GRAPH_FACT_WEIGHT_DIRECT", 0.7)
     GRAPH_FACT_WEIGHT_ARCHIVE: float = _env_float("GRAPH_FACT_WEIGHT_ARCHIVE", 0.4)
+    # ── Раунд 10.14 (F1 anti-echo-self-reply, ADR-1014-2 D3/D8) ──
+    # Вес собственных высказываний бота — занижен против пользовательских
+    # 0.7 (бот всегда может «передумать»). Флаг механики самоосознания —
+    # ON по умолчанию для всех чатов (прямое требование владельца, UPD п.2).
+    GRAPH_FACT_WEIGHT_BOT: float = _env_float("GRAPH_FACT_WEIGHT_BOT", 0.2)
+    BOT_SELF_AWARENESS_ENABLED: bool = _env_bool("BOT_SELF_AWARENESS_ENABLED", True)
+    # Cap длины сути self-факта: код-константа (без каталога, spec §5).
+    SELF_ESSENCE_MAX_CHARS: ClassVar[int] = 300
+    # ── Раунд 10.14 (F2 persona-storage-core, ADR-1014-1) ──
+    # Личность бота (PG personas/persona_traits) — ON по умолчанию (UPD п.2).
+    # PERSONA_TRAITS_MAX/PERSONA_TRAIT_MAX_CHARS — код-константы (ClassVar,
+    # инфраструктура; в каталог не входят — осознанное исключение F5, spec §2.4).
+    PERSONA_ENABLED: bool = _env_bool("PERSONA_ENABLED", True)
+    PERSONA_TRAITS_MAX: ClassVar[int] = _env_int("PERSONA_TRAITS_MAX", 50)
+    PERSONA_TRAIT_MAX_CHARS: ClassVar[int] = _env_int(
+        "PERSONA_TRAIT_MAX_CHARS", 200)
     # Слияние повторяющихся эпизодов (66.2): фоновая задача раз в N дней;
     # пачка кластеров за прогон; потолок фактов в кластере. False = джоб молчит.
     GRAPH_EPISODE_MERGE_ENABLED: bool = _env_bool("GRAPH_EPISODE_MERGE_ENABLED", True)

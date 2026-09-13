@@ -68,7 +68,14 @@ class TestCompleteness:
         #   + F4 (cognition-llm-providers, spec §6): +8 —
         #   INTEL_HISTORY_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY,
         #   INTEL_BG_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY = 399
-        assert len(fields) == 399
+        #   + F1 (anti-echo-self-reply-round1014, spec §5): +2 —
+        #   GRAPH_FACT_WEIGHT_BOT, BOT_SELF_AWARENESS_ENABLED = 401
+        #   + F2 (persona-storage-core-round1014, spec §2.4): +1 —
+        #   PERSONA_ENABLED = 402 (PERSONA_TRAITS_MAX/PERSONA_TRAIT_MAX_CHARS
+        #   — ClassVar, в dataclass.fields не входят).
+        #   + F8 (self-reflection-llm-provider-round1014, spec §2.1): +4 —
+        #   INTEL_REFLECTION_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY = 406.
+        assert len(fields) == 406
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -315,14 +322,20 @@ class TestGroups8424:
         OPENROUTER_TRANSCRIBE_DISPLAY_NAME), keys +1 (EMBEDDING_API_KEY),
         flags +1 (KOSTIK_ENABLED), reactions +1 (KOSTIK_REPLIES).
         Раунд 10.13 (F8): flags +1 (IRONY_FILTER_ENABLED).
-        Раунд 10.13 (F4): models +6 / keys +2 (INTEL_HISTORY_*/INTEL_BG_*)."""
+        Раунд 10.13 (F4): models +6 / keys +2 (INTEL_HISTORY_*/INTEL_BG_*).
+        Раунд 10.14 (F1 anti-echo-self-reply): limits +1
+        (GRAPH_FACT_WEIGHT_BOT) / flags +1 (BOT_SELF_AWARENESS_ENABLED).
+        Раунд 10.14 (F8 self-reflection): models +3 / keys +1
+        (INTEL_REFLECTION_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY).
+        Раунд 10.14 (F6 help-guide-integration): content +1
+        (content.intelligence_guide, PG-only)."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
-        assert counts == {"prompts": 10, "models": 50, "keys": 18,
-                          "limits": 186, "flags": 62, "reactions": 39,
-                          "content": 4, "memory": 34}
+        assert counts == {"prompts": 10, "models": 53, "keys": 19,
+                          "limits": 187, "flags": 64, "reactions": 39,
+                          "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

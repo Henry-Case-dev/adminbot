@@ -796,8 +796,9 @@ class TestRoles:
         assert "limits" in section_ids and "keys" in section_ids \
             and "access" in section_ids
         action_ids = {a["id"] for a in body["actions"]}
-        assert action_ids == {"edit_info", "control.restart", "control.stop",
-                              "control.start", "debug.config"}
+        assert action_ids == {"edit_info", "edit_persona", "control.restart",
+                              "control.stop", "control.start",
+                              "debug.config"}
         limits = next(s for s in body["sections"] if s["id"] == "limits")
         assert any(p["key"] == "limits.search_max_symbols"
                    for p in limits["params"])
@@ -1202,7 +1203,13 @@ class TestParamPermissionFlagsApi:
         # 10.13 (F3): +6 (DEEP_SLEEP_*) → categorized 394.
         # 10.13 (F8): +1 (IRONY_FILTER_ENABLED) → categorized 395.
         # 10.13 (F4): +8 (INTEL_HISTORY_*, INTEL_BG_*) → categorized 403.
-        assert len(items) == len(categorized) == 403
+        # 10.14 (F1 anti-echo-self-reply): +2 (GRAPH_FACT_WEIGHT_BOT,
+        # BOT_SELF_AWARENESS_ENABLED) → categorized 405 (локальный Δ).
+        # 10.14 (F2 persona-storage-core): +1 (PERSONA_ENABLED) → 406.
+        # 10.14 (F8 self-reflection-llm-provider): +4 (INTEL_REFLECTION_*)
+        # → categorized 410; 10.14 (F6 help-guide-integration): +1 PG-only
+        # (content.intelligence_guide) → categorized 411.
+        assert len(items) == len(categorized) == 411
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"
@@ -1593,6 +1600,71 @@ class TestLlmTestEndpoint:
         assert seen["api_key"] == "main-secret"
         assert "main-secret" not in resp.text
 
+    def test_intel_reflection_resolves_dedicated_saved_key(
+            self, client, monkeypatch):
+        """F8 (self-reflection-llm-provider): intel_reflection_main резолвит
+        свой сохранённый ключ из keys.intel_reflection_api_key; R17 — без эха."""
+        from services import llm_probe
+        from web.api import routes
+
+        seen = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            seen["api_key"] = api_key
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "reflection-secret"
+                if key == "keys.intel_reflection_api_key" else default))
+        routes.reset_llm_test_rate_limit()
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": "intel_reflection_main",
+                  "base_url": "https://api.example/v1", "model": "m",
+                  "api_key": ""},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        assert seen["api_key"] == "reflection-secret"
+        assert "reflection-secret" not in resp.text   # R17: ключ не эхо
+
+    def test_intel_reflection_empty_key_falls_back_to_main(
+            self, client, monkeypatch):
+        """F8: пустой выделенный ключ саморефлексии → ключ основной модели."""
+        from services import llm_probe
+        from web.api import routes
+
+        seen = {}
+
+        async def fake_openai(base_url, api_key="", model="", kind="chat",
+                              timeout=None):
+            seen["api_key"] = api_key
+            return {"ok": True, "status": "ok", "http_status": 200,
+                    "latency_ms": 1}
+
+        monkeypatch.setattr(llm_probe, "probe_openai", fake_openai)
+        monkeypatch.setattr(
+            "services.hot_config.get",
+            lambda key, default=None: (
+                "main-secret" if key == "keys.llm_api_key" else
+                ("" if key == "keys.intel_reflection_api_key" else default)))
+        routes.reset_llm_test_rate_limit()
+        resp = client.post(
+            "/api/llm/test",
+            json={"block": "intel_reflection_main",
+                  "base_url": "https://api.example/v1", "model": "m",
+                  "api_key": ""},
+            headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        assert seen["api_key"] == "main-secret"
+        assert "main-secret" not in resp.text
+
     def test_error_sanitized(self, client, monkeypatch):
         from services import llm_probe
         from web.api import routes
@@ -1616,7 +1688,8 @@ class TestLlmTestEndpoint:
         "direct_main", "direct_fallback", "transcribe_groq",
         "transcribe_openrouter", "video_summary_openrouter", "search_keys",
         "search_keys:tavily", "search_keys:exa",
-        "intel_history_main", "intel_background_main"])
+        "intel_history_main", "intel_background_main",
+        "intel_reflection_main"])
     def test_each_block_reaches_probe(self, client, monkeypatch, block):
         """MAJOR-1: каждый (сетевой) блок реально доходит до probe_block."""
         from services import llm_probe

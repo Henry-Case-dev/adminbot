@@ -540,7 +540,8 @@ async def memory_stats(
         logger.warning("[memory_api] stats failed — нули", exc_info=True)
         return {"facts": 0, "beliefs": 0, "archived_beliefs": 0,
                 "protected_facts": 0, "paradigms": 0, "memes": 0,
-                "graph_nodes": 0, "graph_edges": 0, "relation_types": 0}
+                "graph_nodes": 0, "graph_edges": 0, "relation_types": 0,
+                "bot_self_replies": 0}
 
 
 # ── GET /api/memory/timeline (F5/T-1449, spec §3.5) ─────────────────────────

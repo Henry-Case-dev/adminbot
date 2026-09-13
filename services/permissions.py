@@ -39,6 +39,9 @@ NS_ACTION = "action"
 # Действия (84.14.1/84.15.2): маппинг для /api/roles/tree (T-640).
 ACTIONS_TREE: tuple[dict[str, str], ...] = (
     {"id": "edit_info", "title": "Редактировать «Как это работает»"},
+    # Раунд 10.14 (F2 persona-storage-core, spec §5): точечная правка
+    # «Личности» бота (global/chat scope, `/api/persona`).
+    {"id": "edit_persona", "title": "Редактировать «Личность»"},
     {"id": "control.restart", "title": "Перезапуск бота"},
     {"id": "control.stop", "title": "Остановка бота"},
     {"id": "control.start", "title": "Запуск бота"},

@@ -535,6 +535,77 @@ class TestWorkerRouter:
         assert seen["payload"]["model"] == "bg-model"
 
     @pytest.mark.asyncio
+    async def test_dedicated_reflection_role_uses_reflection_keys(
+            self, monkeypatch, caplog):
+        """F8 (self-reflection-llm-provider): роль `reflection` читает
+        models.intel_reflection_* / keys.intel_reflection_api_key; R17 — ключ
+        не попадает в логи."""
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            seen["auth"] = request.headers.get("authorization")
+            seen["payload"] = json.loads(request.content)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "суть"}}]},
+                request=request)
+
+        _hot_cache(monkeypatch, {
+            "models.intel_reflection_base_url": "https://reflection.test/v1",
+            "models.intel_reflection_model_name": "reflect-model",
+            "keys.intel_reflection_api_key": "reflect-secret-key",
+        })
+        client = _mock_client(handler, monkeypatch)
+        out = await client.generate_worker(
+            "reflection", [{"role": "user", "content": "q"}], temperature=0.2)
+        assert out == "суть"
+        assert seen["url"] == "https://reflection.test/v1/chat/completions"
+        assert seen["auth"] == "Bearer reflect-secret-key"
+        assert seen["payload"]["model"] == "reflect-model"
+        assert seen["payload"]["temperature"] == 0.2
+        assert "reflect-secret-key" not in caplog.text   # R17
+
+    @pytest.mark.asyncio
+    async def test_reflection_empty_fields_fall_back_to_main(
+            self, monkeypatch):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            seen["auth"] = request.headers.get("authorization")
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "основная"}}]},
+                request=request)
+
+        _hot_cache(monkeypatch, {})
+        client = _mock_client(handler, monkeypatch)
+        out = await client.generate_worker(
+            "reflection", [{"role": "user", "content": "q"}])
+        assert out == "основная"
+        assert seen["url"] == "https://api.test/v1/chat/completions"
+        assert seen["auth"] == "Bearer main-key"
+
+    @pytest.mark.asyncio
+    async def test_reflection_dedicated_error_falls_back_to_main(
+            self, monkeypatch):
+        def handler(request):
+            if "reflection.test" in str(request.url):
+                return httpx.Response(500, request=request)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "основная"}}]},
+                request=request)
+
+        _hot_cache(monkeypatch, {
+            "models.intel_reflection_base_url": "https://reflection.test/v1",
+            "models.intel_reflection_model_name": "reflect-model",
+            "keys.intel_reflection_api_key": "reflect-key",
+        })
+        client = _mock_client(handler, monkeypatch)
+        out = await client.generate_worker(
+            "reflection", [{"role": "user", "content": "q"}])
+        assert out == "основная"
+
+    @pytest.mark.asyncio
     async def test_unknown_role_raises(self, monkeypatch):
         _hot_cache(monkeypatch, {})
         client = _mock_client(_json_ok, monkeypatch)
@@ -658,6 +729,29 @@ class TestProbeIntelFallback:
             "intel_background_main", "https://bg.test/v1", "bg-model")
         assert base == "https://bg.test/v1"
         assert model == "bg-model"
+
+    def test_reflection_probe_fallback_fills_main(self, monkeypatch):
+        """F8: пустые base/model блока intel_reflection_main зеркалят
+        основную модель (как intel_history/intel_bg)."""
+        from services import llm_probe
+
+        _hot_cache(monkeypatch, {
+            "models.llm_base_url": "https://main.test/v1",
+            "models.llm_model_name": "main-model",
+        })
+        base, model = llm_probe._intel_probe_fallback(
+            "intel_reflection_main", "", "")
+        assert base == "https://main.test/v1"
+        assert model == "main-model"
+
+    def test_reflection_probe_registered(self):
+        from services import llm_probe
+        assert "intel_reflection_main" in llm_probe._LLM_BLOCKS
+        assert "intel_reflection_main" in llm_probe.KNOWN_BLOCKS
+        assert llm_probe._BLOCK_SAVED_KEY["intel_reflection_main"] \
+            == "keys.intel_reflection_api_key"
+        assert llm_probe._INTEL_BLOCK_SLUG["intel_reflection_main"] \
+            == "intel_reflection"
 
     def test_non_intel_block_untouched(self):
         from services import llm_probe

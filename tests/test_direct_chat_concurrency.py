@@ -35,6 +35,19 @@ def pool_n(monkeypatch):
     return _set
 
 
+@pytest.fixture(autouse=True)
+def _self_awareness_off(monkeypatch):
+    """F1/T-1482: тесты конкуренции изолированы OFF — иначе background-
+    экстрактор дёргает GateLLM и ломает call_count/max_active."""
+    from services import hot_config as _hot
+    real_get = _hot.get
+    monkeypatch.setattr(
+        _hot, "get",
+        lambda key, default=None: False
+        if key == "flags.bot_self_awareness_enabled"
+        else real_get(key, default))
+
+
 def _user(user_id=10, first_name="Вася", last_name="Пупкин", username="vasya"):
     u = MagicMock()
     u.id = user_id
@@ -78,7 +91,7 @@ class FakeMemory:
         return self.rag
 
     async def get_rag_facts(self, chat_id, query, *,
-                            include_direct_reply=False):
+                            include_direct_reply=False, include_self=False):
         return [("chat_history", self.rag, None)] if self.rag else []
 
     async def rerank_rag_facts(self, query, facts):
@@ -87,6 +100,9 @@ class FakeMemory:
     async def memorize_facts(self, chat_id, raw_text, source_type,
                              target_user=None):
         return None
+
+    async def memorize_self_reply(self, chat_id, essence):
+        return 1
 
 
 class FakeDB:

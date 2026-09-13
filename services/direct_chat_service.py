@@ -81,6 +81,7 @@ import time
 from config.settings import settings
 from services import chat_access
 from services import hot_config as hot
+from services import bot_persona
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -109,7 +110,13 @@ from services.smartmodule_phrases import (
 from services.smartmodule_throttling import format_remaining_time
 from services.smartmodule_utils import _reply, react_moai, send_chunked_reply
 from services.smart_cache import normalize_text
-from services.summary_memory import build_rag_context, dedup_rag_vs_global, fire_and_forget
+from services.self_reflection import extract_self_essence, record_extractor_status
+from services.summary_memory import (
+    _SELF_ECHO_INSTRUCTION,
+    build_rag_context,
+    dedup_rag_vs_global,
+    fire_and_forget,
+)
 from services.summary_xml import escape_xml_text
 from services.token_counter import (
     count_tokens,
@@ -576,6 +583,21 @@ class DirectChatService:
                 chat_id, "prompts.direct_chat_system_prompt",
                 hot.get("prompts.direct_chat_system_prompt",
                         CHAT_SYSTEM_PROMPT))
+            # Раунд 10.14 (F2 persona-storage-core, spec §3.2): persona-блок —
+            # ХВОСТ системного промпта (system_prompt + "\n\n" + block).
+            # Пусто/PG down/флаг OFF → промпт байт-в-байт прежний (F2-Q5).
+            # H3-фикс: гейт резолвится per-chat (override → global → default).
+            persona_enabled = await _cpg(
+                chat_id, "flags.persona_enabled",
+                hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+            if persona_enabled:
+                persona = await bot_persona.resolve_bot_persona(chat_id)
+                traits = await bot_persona.get_traits(
+                    int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
+                persona_block = bot_persona.build_persona_prompt_block(
+                    persona, [t.get("text") for t in traits], enabled=True)
+                if persona_block:
+                    system_prompt = system_prompt + "\n\n" + persona_block
             payload = build_messages(system_prompt, user_blocks)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
             # или дефолт. Другие пайплайны — без temperature (65.8).
@@ -963,7 +985,16 @@ class DirectChatService:
         совпадающие с участниками карты чата, НЕ остаются на спрашивающем —
         target_user переназначается тому участнику (факты о третьих лицах
         не засоряют карточку и квоту спрашивающего). Fail-open: ошибка БД →
-        WARNING, факты остаются записанными (NFR-6)."""
+        WARNING, факты остаются записанными (NFR-6).
+
+        Раунд 10.14 (F1 anti-echo-self-reply, ADR-1014-2 D4, spec §3.3):
+        при flags.bot_self_awareness_enabled (дефолт True):
+          1) запрос юзера пишется отдельным фактом bot_direct_reply;
+          2) ответ бота проходит LLM-экстрактор сути (self_reflection);
+          3) суть пишется отдельным origin='bot_self_reply' (вес 0.2);
+        self НЕ переприсваивается (_reassign_fact_owners берёт только
+        bot_direct_reply, before_id снят ДО обоих вызовов). Флаг OFF → ровно
+        прежняя строка байт-в-байт (query\\nanswer под bot_direct_reply)."""
         before_id = None
         try:
             cursor = await self.db.db.execute(
@@ -977,9 +1008,37 @@ class DirectChatService:
                 "direct: fact batch bound failed — reassign skipped | chat=%s",
                 chat_id, exc_info=True)
             before_id = None
-        await self.memory.memorize_facts(
-            chat_id, f"{query}\n{answer}", "bot_direct_reply",
-            target_user=asker_canon)
+        # H3-фикс: гейт самоосознания резолвится per-chat (override → global).
+        from services.chat_params import get_chat_param as _self_gate
+        self_aware = await _self_gate(
+            chat_id, "flags.bot_self_awareness_enabled",
+            hot.get("flags.bot_self_awareness_enabled",
+                    settings.BOT_SELF_AWARENESS_ENABLED))
+        if self_aware:
+            # ON: запрос — сам по себе, ответ бота — сутью в self-origin.
+            await self.memory.memorize_facts(
+                chat_id, query, "bot_direct_reply", target_user=asker_canon)
+            try:
+                essence = await extract_self_essence(
+                    self.llm, answer, chat_id=chat_id,
+                    on_status=record_extractor_status)
+            except Exception:
+                logger.warning(
+                    "direct: self essence extraction crashed — self fact "
+                    "skipped | chat=%s", chat_id, exc_info=True)
+                essence = ""
+            if essence:
+                try:
+                    await self.memory.memorize_self_reply(chat_id, essence)
+                except Exception:
+                    logger.warning(
+                        "direct: self fact write failed — skipped | chat=%s",
+                        chat_id, exc_info=True)
+        else:
+            # OFF: байт-в-байт прежнее поведение.
+            await self.memory.memorize_facts(
+                chat_id, f"{query}\n{answer}", "bot_direct_reply",
+                target_user=asker_canon)
         if before_id is None:
             return
         try:
@@ -1706,13 +1765,17 @@ class DirectChatService:
         — hint «золотых» считается ПОСЛЕ F2-дедупа и F4-реранка, ДО рендера
         (передаётся в user-контент блоком kind "nostalgia" ПОСЛЕ relations/
         до mood); гейты: флаг memory.nostalgia_layer_a_enabled, чат группой
-        (chat_id < 0, D-12), query есть, kept непуст."""
+        (chat_id < 0, D-12), query есть, kept непуст.
+        Раунд 10.14 (F1, ADR-1014-2 D5/D7): include_self=True — свои прошлые
+        слова участвуют; если среди kept есть self, первой строкой внутрь
+        <RAG_Memory> добавляется _SELF_ECHO_INSTRUCTION (канон промпта direct
+        не меняется → PREV/PROMPT_MIGRATIONS не нужны)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return "", ""
         query = getattr(message, "text", None) or ""
         try:
             facts = await self.memory.get_rag_facts(
-                chat_id, query, include_direct_reply=True)
+                chat_id, query, include_direct_reply=True, include_self=True)
         except Exception:
             logger.warning("direct: rag facts failed — no rag block | chat=%s",
                            chat_id, exc_info=True)
@@ -1759,14 +1822,25 @@ class DirectChatService:
             hint = await self._build_nostalgia_hint(chat_id, query, kept)
         # F3: единый формат строки с origin-меткой; дата — внутри факта.
         content = build_rag_context(kept, origin_labels=True)
-        cap = int(hot.get("limits.graph_rag_context_max_chars",
-                          settings.GRAPH_RAG_CONTEXT_MAX_CHARS) or 0)
+        if not content:
+            return "", ""
+        # F1/T-1482 (ADR-1014-2 D5): анти-эхо — только когда в блоке есть
+        # собственные прошлые слова бота (origin='bot_self_reply').
+        # L4-фикс: инструкция добавляется ДО расчёта cap, иначе итоговый
+        # <RAG_Memory> превышал limits.graph_rag_context_max_chars.
+        if any(str(item[0]) == "bot_self_reply" for item in kept):
+            content = f"{_SELF_ECHO_INSTRUCTION}\n{content}"
+        # R10.4-7 (F5 round1014, T-1518): cap — per-chat override (get_chat_param
+        # → hot.get → default), иначе сохранённое для чата значение в direct-пути
+        # игнорировалось. Зеркалит summary_memory.get_rag_context (_chat_limit).
+        cap = int(await _cp_g(
+            chat_id, "limits.graph_rag_context_max_chars",
+            hot.get("limits.graph_rag_context_max_chars",
+                    settings.GRAPH_RAG_CONTEXT_MAX_CHARS)) or 0)
         if cap and len(content) > cap:
             logger.warning("direct: rag context truncated to %d chars | chat=%s",
                            cap, chat_id)
             content = content[:cap]
-        if not content:
-            return "", ""
         logger.info("direct: rag block | facts=%d | chat=%s", len(kept), chat_id)
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
 

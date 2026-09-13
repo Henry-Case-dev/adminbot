@@ -208,13 +208,24 @@ def _clamp_weight(value: float) -> float:
     return w
 
 
-def _origin_weight(source_type: str) -> float:
+def _origin_weight(source_type: str, *, bot_weight: float | None = None) -> float:
     """66.1 (T-479): начальный вес по origin. chat_history 0.5 (канон);
     bot_direct_reply — GRAPH_FACT_WEIGHT_DIRECT (личная просьба важнее фона);
     архивные (search_fact/youtube_content/web_content) — GRAPH_FACT_WEIGHT_ARCHIVE.
-    user_memory (раунд 4, T-713): явная команда «запомни» — вес 1.0 (максимум)."""
+    user_memory (раунд 4, T-713): явная команда «запомни» — вес 1.0 (максимум).
+    bot_self_reply (раунд 10.14, F1, ADR-1014-2 D3): собственные слова бота —
+    GRAPH_FACT_WEIGHT_BOT (дефолт 0.2, ниже пользовательских 0.7).
+
+    `bot_weight` (H3-фикс): резолвнутый per-chat `limits.graph_fact_weight_bot`
+    (async-точка — `memorize_self_reply`/`_memorize_facts_inner`). None →
+    глобальный hot.get (sync-совместимость)."""
     if source_type == "bot_direct_reply":
         return _clamp_weight(hot.get("limits.graph_fact_weight_direct", settings.GRAPH_FACT_WEIGHT_DIRECT))
+    if source_type == "bot_self_reply":
+        if bot_weight is None:
+            bot_weight = hot.get(
+                "limits.graph_fact_weight_bot", settings.GRAPH_FACT_WEIGHT_BOT)
+        return _clamp_weight(bot_weight)
     if source_type == "chat_history":
         return 0.5
     if source_type == "user_memory":
@@ -302,7 +313,18 @@ _ORIGIN_LABELS = {
     "user_memory": "запомнено",
     "history_import": "история",
     "derived_belief": "убеждение",
+    # Раунд 10.14 (F1, ADR-1014-2 D7): честная метка self-фактов в RAG
+    # (требование ТЗ §1: «жёсткий тег [Источник: Я сам (Бот)]»).
+    "bot_self_reply": "Источник: Я сам (Бот)",
 }
+
+# Раунд 10.14 (F1, ADR-1014-2 D5): анти-эхо-инструкция при подаче своих
+# ПРОШЛЫХ слов в контекст — динамический блок (НЕ PG-канон, добавляется
+# первой строкой внутрь <RAG_Memory> только когда среди фактов есть self).
+_SELF_ECHO_INSTRUCTION = (
+    "Ниже — твои ПРОШЛЫЕ слова. Относись к ним критически: "
+    "ты мог шутить, отыгрывать роль или ошибаться."
+)
 
 # Раунд 8 (F4/T-810, spec §3.F4.2): компактный утилитарный промпт LLM-реранка
 # RAG-фактов direct (по образцу search_service Epic 65) — НЕ канон, вне PG.
@@ -1746,7 +1768,15 @@ class MemoryManager:
         # остальные — GRAPH_FACT_TTL_DAYS (D175, без изменений).
         # Epic 60 (66.1, T-479): вес по origin; TTL = base × (0.5 + weight) —
         # важные факты живут дольше (прямой 0.7 → ×1.2; архивный 0.4 → ×0.9).
-        weight = _origin_weight(source_type)
+        # R10.14-5: ветка bot_self_reply здесь защитная — self-факты штатно
+        # идут через memorize_self_reply (вес задаётся там), не через этот путь.
+        weight = _origin_weight(
+            source_type,
+            bot_weight=(await _chat_limit(
+                chat_id, "limits.graph_fact_weight_bot",
+                hot.get("limits.graph_fact_weight_bot",
+                        settings.GRAPH_FACT_WEIGHT_BOT)))
+            if source_type == "bot_self_reply" else None)
         if source_type == "chat_history":
             expiry = None
         elif source_type == "bot_direct_reply":
@@ -2037,6 +2067,57 @@ class MemoryManager:
                 chat_id, exc_info=True)
             raise
 
+    # ── Раунд 10.14 (F1, ADR-1014-2 D1/D3, spec §3.2): self-факты бота ──
+
+    async def memorize_self_reply(self, chat_id: int, essence: str) -> int:
+        """Запись СУТИ собственного ответа бота (origin='bot_self_reply').
+
+        Гейты: флаг flags.bot_self_awareness_enabled (дефолт True — UPD п.2) и
+        непустая суть; иначе 0 (факт не пишется). Вес — hot-ключ
+        limits.graph_fact_weight_bot (дефолт settings.GRAPH_FACT_WEIGHT_BOT=0.2),
+        важность 2 (ниже пользовательских), status='confirmed', kind='fact',
+        target_user=None. TTL — как у прямого чата: None/0 → вечно, иначе
+        now + ttl_days*86400*(0.5+weight). Вербатим (суть уже готова — LLM-
+        экстрактор отработал в self_reflection), узлы/рёбра НЕ создаются
+        (прямой INSERT, как user_memory). Возвращает fact_id (0 — пропуск).
+        Vec-строка — best-effort (fail-open, FTS жив)."""
+        if not await _chat_limit(
+                chat_id, "flags.bot_self_awareness_enabled",
+                hot.get("flags.bot_self_awareness_enabled",
+                        settings.BOT_SELF_AWARENESS_ENABLED)):
+            return 0
+        essence = " ".join(str(essence or "").split())
+        if not essence:
+            return 0
+        try:
+            weight = _clamp_weight(await _chat_limit(
+                chat_id, "limits.graph_fact_weight_bot",
+                hot.get("limits.graph_fact_weight_bot",
+                        settings.GRAPH_FACT_WEIGHT_BOT)))
+            ttl_days = (await _chat_limit(
+                chat_id, "limits.chat_direct_reply_ttl_days",
+                hot.get("limits.chat_direct_reply_ttl_days",
+                        settings.CHAT_DIRECT_REPLY_TTL_DAYS)) or 0)
+            expiry = (None if ttl_days in (None, 0)
+                      else int(time.time() + ttl_days * 86400.0
+                               * (0.5 + weight)))
+            fact_id = await self.db.insert_graph_fact(
+                chat_id, essence, "bot_self_reply", expiry,
+                target_user=None, status="confirmed", weight=weight,
+                importance=2, kind="fact")
+            if self._vec_available and fact_id:
+                await self._save_graph_fact_embedding(
+                    fact_id, chat_id, essence, "bot_self_reply", expiry)
+            logger.info(
+                "[self_reply] memorize | chat_id=%s | fact_id=%s | weight=%.2f",
+                chat_id, fact_id, weight)
+            return fact_id
+        except Exception:
+            logger.warning(
+                "[self_reply] memorize failed — fail-open | chat_id=%s",
+                chat_id, exc_info=True)
+            return 0
+
     # ── GraphRAG v2: гибридный RAG (Epic 46, Section 55.6) ────────
 
     async def get_rag_context(self, chat_id: int, query: str, *,
@@ -2085,7 +2166,8 @@ class MemoryManager:
     # ── RAG-факты direct-пути (Раунд 8: F1/T-807, F2/T-808, F4/T-810) ──
 
     async def get_rag_facts(self, chat_id: int, query: str, *,
-                            include_direct_reply: bool = False) -> list:
+                            include_direct_reply: bool = False,
+                            include_self: bool = False) -> list:
         """F1/T-807 (spec §3.F1): кандидаты RAG direct-пути как список
         4-кортежей (origin, fact, rag_ts, target_user) в порядке
         РЕЛЕВАНТНОСТИ — KNN: rel = cosine × w_eff + MMR (_knn_graph_facts);
@@ -2094,7 +2176,10 @@ class MemoryManager:
         сортировка sort_by_timestamp НЕ применяется (она осталась только у
         get_rag_context для search/factcheck/скриптов — те пути не тронуты;
         даты остаются ВНУТРИ каждого факта для рендера). Никогда не бросает:
-        выключенный RAG/любая ошибка → [] (WARNING)."""
+        выключенный RAG/любая ошибка → [] (WARNING).
+        Раунд 10.14 (F1, ADR-1014-2 D7): include_self=True (только direct-
+        путь) → origin='bot_self_reply' участвует; default False — self не
+        виден чужим пайплайнам."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -2102,7 +2187,8 @@ class MemoryManager:
                 chat_id, str(query or ""),
                 (hot.get("limits.graph_rag_facts_limit",
                          settings.GRAPH_RAG_FACTS_LIMIT) or 0),
-                include_direct_reply=include_direct_reply)
+                include_direct_reply=include_direct_reply,
+                include_self=include_self)
         except Exception:
             logger.warning(
                 "graphrag RAG: facts search failed — empty list | chat_id=%s",
@@ -2182,21 +2268,25 @@ class MemoryManager:
             return []
 
     async def _search_graph_facts(self, chat_id, query, limit,
-                                  include_direct_reply=False) -> list:
+                                  include_direct_reply=False,
+                                  include_self=False) -> list:
         """[(origin, fact, rag_ts, target_user), ...]. Vec-путь: _ensure_vec_retry
         (55.8) → KNN (66.6: int8-coarse → float-реранк; 66.8: MMR); фейл
         embed/vec → FTS-фолбек. Epic 50 (58.8, D206): default — фильтр origin=
         'bot_direct_reply'. Epic 60 (66.3/66.5): FTS-путь — top-2×limit по
         rank → пересортировка по w_eff DESC → touch (продление жизни).
         F1/T-1418: rag_ts = COALESCE(message_timestamp, created_at),
-        target_user — автор факта (4-й элемент)."""
+        target_user — автор факта (4-й элемент). Раунд 10.14 (F1, ADR-1014-2
+        D7): include_self=True (direct-путь) пропускает origin='bot_self_reply'."""
         now = int(time.time())
         if await self._ensure_vec_retry():
             try:
                 vectors = await self._embed([query])
                 if vectors and vectors[0]:
                     rows = await self._knn_graph_facts(
-                        chat_id, vectors[0], limit, include_direct_reply=include_direct_reply)
+                        chat_id, vectors[0], limit,
+                        include_direct_reply=include_direct_reply,
+                        include_self=include_self)
                     if rows:
                         return rows
             except Exception:
@@ -2208,7 +2298,9 @@ class MemoryManager:
         if not match_query:
             return []
         rows = await self.db.search_graph_facts_fts(
-            chat_id, match_query, limit * 2, now, include_direct_reply=include_direct_reply)
+            chat_id, match_query, limit * 2, now,
+            include_direct_reply=include_direct_reply,
+            include_self=include_self)
         if not rows:
             return []
         # 66.3 (T-481): время-взвешивание в Python (SQL-ранг не меняем);
@@ -2233,18 +2325,21 @@ class MemoryManager:
                 for row in kept]
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
-                               include_direct_reply=False) -> list:
+                               include_direct_reply=False,
+                               include_self=False) -> list:
         """KNN-путь GraphRAG (55.6) + Epic 60:
         - 66.6 (T-484): int8-coarse (k = fetch_k×4) → реранк точной cosine по
           float-колонке → top-fetch_k; float-only — точный MATCH (как раньше);
         - 66.8 (T-486): greedy MMR (λ, fetch_k) — диверсификация по float;
         - 66.1/66.3 (T-479/T-481): rel = cosine × w_eff (вес + time-decay);
-        - 66.5 (T-483): touch — RAG-hit продлевает expires_at (батчем)."""
+        - 66.5 (T-483): touch — RAG-hit продлевает expires_at (батчем);
+        - 10.14 (F1, ADR-1014-2 D7): include_self=True пропускает self-факты."""
         now = int(time.time())
         fetch_k = (max(limit, (hot.get("limits.graph_mmr_fetch_k", settings.GRAPH_MMR_FETCH_K) or 0))
                    if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED) else limit * 2)
         ranked = await self._vec_candidates(
-            chat_id, vector, fetch_k, include_direct_reply, now)
+            chat_id, vector, fetch_k, include_direct_reply, now,
+            include_self=include_self)
         ranked = ranked[:fetch_k]
         if not ranked:
             return []
@@ -2429,20 +2524,26 @@ class MemoryManager:
             return []
 
     async def _vec_candidates(self, chat_id, vector, fetch_k,
-                              include_direct_reply, now) -> list:
+                              include_direct_reply, now,
+                              include_self=False) -> list:
         """[(fact_id, cosine, float_vector|None), ...] по убыванию cosine.
         int8-путь: грубый KNN → реранк по float (66.6); фейл int8 → float-MATCH
-        (точная дистанция). Float-only: точный MATCH k=fetch_k×2."""
+        (точная дистанция). Float-only: точный MATCH k=fetch_k×2.
+        Раунд 10.14 (F1, ADR-1014-2 D7): include_self (default False) —
+        self-факты исключаются в _filter_vec_rows."""
         if self._vec_int8:
             rows = await self._vec_int8_rows(
-                chat_id, vector, fetch_k * 4, include_direct_reply, now)
+                chat_id, vector, fetch_k * 4, include_direct_reply, now,
+                include_self=include_self)
             if rows is not None:
                 return await self._rerank_by_float(vector, rows)
         rows = await self._vec_float_rows(
-            chat_id, vector, fetch_k * 2, include_direct_reply, now)
+            chat_id, vector, fetch_k * 2, include_direct_reply, now,
+            include_self=include_self)
         return [(row["fact_id"], 1.0 - row["distance"], None) for row in rows]
 
-    async def _vec_int8_rows(self, chat_id, vector, k, include_direct_reply, now):
+    async def _vec_int8_rows(self, chat_id, vector, k, include_direct_reply,
+                             now, include_self=False):
         """66.6: грубый KNN по int8-колонке (query квантизуется в SQL).
         Ошибка → None (float-fallback честная деградация)."""
         try:
@@ -2451,27 +2552,32 @@ class MemoryManager:
                 "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
                 (json.dumps(vector), k))
             return self._filter_vec_rows(
-                await cursor.fetchall(), chat_id, include_direct_reply, now)
+                await cursor.fetchall(), chat_id, include_direct_reply, now,
+                include_self=include_self)
         except Exception:
             logger.warning(
                 "graphrag RAG: int8 KNN failed — float path | chat_id=%s",
                 chat_id, exc_info=True)
             return None
 
-    async def _vec_float_rows(self, chat_id, vector, k, include_direct_reply, now) -> list:
+    async def _vec_float_rows(self, chat_id, vector, k, include_direct_reply,
+                              now, include_self=False) -> list:
         cursor = await self.db.db.execute(
             "SELECT fact_id, chat_id, origin, expires_at, distance "
             "FROM graph_facts_vec WHERE embedding MATCH ? AND k = ?",
             (json.dumps(vector), k))
         return self._filter_vec_rows(
-            await cursor.fetchall(), chat_id, include_direct_reply, now)
+            await cursor.fetchall(), chat_id, include_direct_reply, now,
+            include_self=include_self)
 
     @staticmethod
-    def _filter_vec_rows(rows, chat_id, include_direct_reply, now) -> list:
+    def _filter_vec_rows(rows, chat_id, include_direct_reply, now,
+                         include_self=False) -> list:
         return [
             row for row in rows
             if row["chat_id"] == chat_id
             and (include_direct_reply or row["origin"] != "bot_direct_reply")
+            and (include_self or row["origin"] != "bot_self_reply")
             and (row["expires_at"] is None or row["expires_at"] > now)
         ]
 

@@ -22,6 +22,10 @@ import json
 import logging
 
 from config.settings import settings
+from services.info_service import (
+    GUIDE_KEY as _GUIDE_KEY,
+    GUIDE_SEED_FILE as _GUIDE_SEED_FILE,
+)
 from services.param_catalog import normalize_value
 from services.permissions import Permissions
 from services.pg_db import PgDatabase
@@ -133,6 +137,7 @@ class ConfigCache:
                 await self._load_all()
                 self._pg_available = True
                 await self._seed_info_key()    # 84.13.2 (T-638): сид из info_text.md
+                await self._seed_intelligence_guide()   # 10.14 (F6): сид гайда
                 self._initialized = True
                 logger.info("[config_cache] initialized: settings=%d roles=%d "
                             "admins=%d", len(self._settings), len(self._roles),
@@ -223,6 +228,30 @@ class ConfigCache:
         await self.set(_INFO_KEY, value, "content")
         logger.info("[config_cache] seeded %s | chars=%d | updated_by=%s",
                     _INFO_KEY, len(text), value["updated_by"])
+
+    async def _seed_intelligence_guide(self) -> None:
+        """F6 (10.14, spec §2.2): ключа content.intelligence_guide нет →
+        markdown из _GUIDE_SEED_FILE → PG. Ключ есть (в т.ч. правленый
+        админом) → НЕ трогаем: ручные правки неприкосновенны."""
+        if _GUIDE_KEY in self._settings:
+            return
+        try:
+            with open(_GUIDE_SEED_FILE, encoding="utf-8") as fh:
+                markdown = fh.read()
+        except OSError:
+            logger.warning("[config_cache] guide seed skipped: файл не читается",
+                           exc_info=True)
+            return
+        if not markdown.strip():
+            return
+        value = {
+            "markdown": markdown,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "updated_by": settings.ADMIN_USER_ID,
+        }
+        await self.set(_GUIDE_KEY, value, "content")
+        logger.info("[config_cache] seeded %s | chars=%d | updated_by=%s",
+                    _GUIDE_KEY, len(markdown), value["updated_by"])
 
     # ── sync-чтение (горячие точки) ────────────────────────────────────────
 

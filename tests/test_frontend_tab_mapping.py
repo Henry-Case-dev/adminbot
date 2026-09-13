@@ -72,10 +72,16 @@ class TestTabMappingAudit:
 
     def test_mapped_and_counts(self):
         # 90 GROUPS − 2 content (tab=None) = 88 mapped; 10.13 (F1+F2+F3+F8+F4):
-        # REGISTRY 427.
+        # REGISTRY 427; 10.14 (F1 anti-echo-self-reply): +2 (GRAPH_FACT_WEIGHT_BOT,
+        # BOT_SELF_AWARENESS_ENABLED) → 429; 10.14 (F2 persona-storage-core):
+        # +1 (PERSONA_ENABLED) → 430 (локальный Δ фичи).
+        # 10.14 (F8 self-reflection-llm-provider): +4 (INTEL_REFLECTION_*) →
+        # 434 (GROUPS/mapped/TAB_RULES без изменений).
+        # 10.14 (F6 help-guide-integration): +1 PG-only content →
+        # 435 (GROUPS/mapped/TAB_RULES без изменений).
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(GROUPS) == 90
-        assert len(pc.REGISTRY) == 427
+        assert len(pc.REGISTRY) == 435
 
 
 class TestModuleTabs:

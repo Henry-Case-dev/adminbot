@@ -30,6 +30,7 @@ from aiogram.filters import Command, CommandObject
 
 from config.settings import settings
 from services import hot_config as hot
+from services import bot_persona
 from handlers.voice_transcription import is_reply_to_transcription
 from services.direct_chat_service import DirectChatService
 from services.smartmodule_phrases import (
@@ -143,6 +144,15 @@ def _is_direct_trigger(message: types.Message) -> bool:
     text = message.text or ""
     if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", text):
         return True
+    # Раунд 10.14 (F2 persona-storage-core, spec §3.3): имя бота — триггер
+    # обращения (sync-чтение из in-memory кэша глобального имени; per-chat
+    # имя на sync-пути не поддерживается). Гейт flags.persona_enabled.
+    if hot.get("flags.persona_enabled", settings.PERSONA_ENABLED):
+        cached_name = bot_persona.get_cached_global_name()
+        if cached_name and re.search(
+                rf"(?i)(?<![0-9a-zа-яё_]){re.escape(cached_name)}"
+                rf"(?![0-9a-zа-яё_])", text):
+            return True
     # T-411 (R52-4): keyword-ветка под флагом — «бот»/«ботохуета»/«ботина»/…
     if hot.get("flags.direct_chat_botword_enabled", settings.DIRECT_CHAT_BOTWORD_ENABLED) and _BOTWORD_RE.search(text):
         # H2 (review-fix): НЕ триггеримся на сообщения юзеров, за которыми

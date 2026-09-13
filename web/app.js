@@ -293,6 +293,11 @@
         { icon: 'auto_stories', title: 'Лор чата',
           subtitle: 'Ручной и авто-лор, история',
           route: '#/ai/lore', tab: 'chat_lore' },
+        // Раунд 10.14 (F3 persona-ui-tab-round1014): «Личность» — карточка
+        // ведёт на special-screen #/ai/persona (НЕ config-вкладка; Δ каталога 0).
+        { icon: 'psychology', title: 'Личность',
+          subtitle: 'Имя, биография, характер, осознание ИИ',
+          route: '#/ai/persona', tab: 'persona' },
       ],
     },
     '#/access': {
@@ -479,6 +484,22 @@
             { key: 'keys.intel_bg_api_key', label: 'Ключ', role: 'api_key', secret: true },
           ] },
       ] },
+    // Раунд 10.14 (F8, UPD п.3, ADR-1013-1 §2.3): третье выделенное
+    // подключение — LLM для саморефлексии (Экстрактор сути). parent +
+    // subBlocks (формат 10.12); id подблока стабилен (probe).
+    // Пустые поля → основная модель (models.llm_* / keys.llm_api_key).
+    { id: 'intel_reflection', title: 'LLM для саморефлексии (Экстрактор сути)',
+      modules: 'Саморефлексия',
+      subBlocks: [
+        { id: 'intel_reflection_main', title: 'Подключение',
+          modules: 'Саморефлексия',
+          fields: [
+            { key: 'models.intel_reflection_display_name', label: 'Название модели', role: '' },
+            { key: 'models.intel_reflection_base_url', label: 'Адрес сервера', role: 'base_url' },
+            { key: 'models.intel_reflection_model_name', label: 'Модель', role: 'model' },
+            { key: 'keys.intel_reflection_api_key', label: 'Ключ', role: 'api_key', secret: true },
+          ] },
+      ] },
     // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
     { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
       zone: 'advanced',
@@ -583,6 +604,8 @@
     '#/ai/names': 'people_names',
     '#/ai/relations': 'relations',
     '#/ai/lore': 'chat_lore',
+    // F3 (10.14): special-screen «Личность» (не зеркалит TABS/TAB_RULES).
+    '#/ai/persona': 'persona',
     '#/access': 'access',
     '#/access/roles': 'access',
     '#/access/local': 'access',
@@ -603,6 +626,8 @@
     memory_rag: '#/ai/memory', smart_cache: '#/ai/smart-cache',
     people_names: '#/ai/names', relations: '#/ai/relations',
     chat_lore: '#/ai/lore', access: '#/access',
+    // F3 (10.14): persona — special-screen маршрут (нет записи в TABS).
+    persona: '#/ai/persona',
   };
   var ROOT_ROUTES = ['#/', '#/how', '#/modules', '#/permsoc', '#/ai', '#/access'];
   // MINOR-1: удалённые роуты → канонический hash (spec §3.2). applyRoute
@@ -621,6 +646,7 @@
     '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai', '#/ai/memory': '#/ai',
     '#/ai/smart-cache': '#/ai', '#/ai/names': '#/ai',
     '#/ai/relations': '#/ai', '#/ai/lore': '#/ai',
+    '#/ai/persona': '#/ai',   // F3 (10.14)
     '#/access/roles': '#/access', '#/access/local': '#/access',
     '#/access/admins': '#/access',
   };
@@ -865,6 +891,10 @@
         cognition: null,               // GET /api/memory/cognition/status
         cognitionBeliefs: [],          // лента «Убеждения» (kind=belief)
         cognitionParadigms: [],        // лента «Парадигмы» (kind=paradigm)
+        // F4 (persona-traits-ribbon-round1014): третья лента «Эволюция
+        // характера» — global `dynamic_traits` из GET /api/persona.
+        cognitionTraits: [],
+        personaHealth: null,           // метрики Личности (GET /persona/health)
         cognitionStats: null,          // GET /api/memory/stats
         cognitionTimeline: [],         // GET /api/memory/timeline
         cognitionBusy: false,
@@ -920,6 +950,23 @@
         editingInfo: false,
         infoPreviewing: false,
         infoDraft: '',
+        // F6 (help-guide-integration-round1014): второй блок «Справки» —
+        // Markdown-гайд по возможностям. Хранение — PG (content.intelligence_guide),
+        // рендер только через sanitizeHtml (DOMPurify self-host).
+        guideHtml: '',
+        guideMeta: null,
+        guideLoading: false,
+        editingGuide: false,
+        guidePreviewing: false,
+        guideDraft: '',
+        // ── F3 (persona-ui-tab-round1014): special-screen «Личность»
+        //    (#/ai/persona). Только статические параметры (PG-API /api/persona),
+        //    реактивно по активному чату (X-Chat-Id через api()). Никакой
+        //    визуализации (traits — F4, отдельно).
+        personaDraft: null,     // {name, biography, system_prompt_overrides, is_aware_ai}
+        personaMeta: null,      // {scope, chat_id, is_global, persona_enabled, …}
+        personaLoading: false,
+        personaBusy: false,
         // toasts
         toasts: [],
       };
@@ -1073,6 +1120,17 @@
         return this.chatLoreProfileLoading
           || this.chatLoreSaving || this.chatLoreGenerating;
       },
+      // F3 (10.14): контролы «Личности» заблокированы при выключенном флаге
+      // (серверный гейт записи сохраняется — только индикация).
+      personaDisabled: function () {
+        return !!(this.personaMeta && this.personaMeta.persona_enabled === false);
+      },
+      // F3: индикатор scope внутри карточки «Личность» (navbar сохраняет
+      // ровно один глобальный {{ scopeLabel }}; здесь — свой badge).
+      // L2-фикс: переиспользуем единый scopeLabel (без дубля логики).
+      personaScopeBadge: function () {
+        return this.scopeLabel;
+      },
       // F4 (84.14.5): только доступные вкладки;
       // «Статус» и «Справка» — всегда (RBAC-исключения).
       visibleTabs: function () {
@@ -1180,11 +1238,35 @@
       cognitionParadigmsLoop: function () {
         return this._ribbonLoop(this.cognitionParadigms);
       },
+      // F4 (persona-traits-ribbon-round1014): лента «Эволюция характера» —
+      // тот же механизм `_ribbonLoop`, без дублирования (spec §0/§2).
+      cognitionTraitsLoop: function () {
+        return this._ribbonLoop(this.cognitionTraits);
+      },
+      // F4 (UPD п.4): бейдж статуса экстрактора самосознания для панели
+      // «Личность» в «Сводке». Fail-open: нет данных → «не запускался».
+      personaExtractorBadge: function () {
+        var h = this.personaHealth || {};
+        var s = h.extractor_status || 'never';
+        return {
+          ok: { text: 'работает', cls: 'badge-ok' },
+          empty: { text: 'пустой результат', cls: 'badge-muted' },
+          error: { text: 'ошибка', cls: 'badge-err' },
+          never: { text: 'не запускался', cls: 'badge-muted' },
+        }[s] || { text: String(s), cls: 'badge-muted' };
+      },
       canEditInfo: function () {
         return this.hasPerm('action.edit_info');
       },
       sanitizedInfoHtml: function () {
         return this.sanitizeHtml(this.infoHtml);
+      },
+      // F6: гайд → Markdown→HTML→санитайз. v-html получает ТОЛЬКО это.
+      sanitizedGuideHtml: function () {
+        return this.sanitizeHtml(this.renderGuideMarkdown(this.guideHtml));
+      },
+      sanitizedGuidePreviewHtml: function () {
+        return this.sanitizeHtml(this.renderGuideMarkdown(this.guideDraft));
       },
       confirmText: function () {
         var labels = {
@@ -1656,10 +1738,21 @@
         // перерисовка конфиг-вкладок/профиля (activeChatChanged-событие)
         this.configError = '';   // F-13 (AC-3): свежий скоуп — баннер скрыт
         this.configItems = [];
+        // F5 (10.14, T-1514): scope-bound метка/черновики не переезжают в чат.
+        this.configChatUpdatedAt = null;
+        this.keyDrafts = {}; this.ownKeyDraft = '';
         // 10.10 (п.3): смена scope — сброс черновиков/результатов блоков
         // (draft==null = «не трогать»; старый результат теста неактуален).
         this.blockDrafts = {};
         this.blockResults = {};
+        // F3 (10.14): «Личность» — черновик НЕ переживает смену scope
+        // (согласовано с F5); при активном экране сразу читаем свой скоуп.
+        this.personaDraft = null;
+        this.personaMeta = null;
+        this.personaLoading = false;
+        if (this.activeTab === 'persona' && this.canViewTab('persona')) {
+          this.loadPersona();
+        }
         this.loadConfig();
         this.loadKeyStatus();
         if (this.accessMy && !this.accessMy.is_global_admin) {
@@ -1987,6 +2080,9 @@
         this.oversightBusy = true;
         try {
           this.oversightData = await this.api('/api/oversight/summary');
+          // F4 (UPD п.4): панель «Личность» — отдельный persona-API
+          // (один дом данных; не дублируем в oversight/summary).
+          this.loadPersonaHealth();
           // 10.9 (п.6, ADR-109-5): «Бюджет фона» живёт в «Сводке» — единый
           // клиентский путь (прогрессбары), без дубля global_budget.
           this.loadBudgetInfo();
@@ -1997,6 +2093,15 @@
           }
         } finally {
           this.oversightBusy = false;
+        }
+      },
+      // F4 (UPD п.4): метрики здоровья Личности для панели «Личность» в
+      // «Сводке». Fail-open: ошибка/недоступность → null (шаблон «—»).
+      loadPersonaHealth: async function () {
+        try {
+          this.personaHealth = await this.api('/api/persona/health');
+        } catch (e) {
+          this.personaHealth = null;
         }
       },
       // Hotfix-R10 («Модули» без выбранного чата): Opt-In-сводка из
@@ -2613,12 +2718,20 @@
         }
         if (id === 'oversight') {
           this.loadMemoryWidget();       // F5/§7: виджет «Сводка»
+          this.loadPersonaHealth();      // F4/UPD п.4: метрики Личности
         }
         if (id === 'modules') {
           this.loadCognitionStats();     // F5/§4.4: статистика графа
         }
-        if (id === 'info' && !this.infoHtml && !this.infoLoading) {
-          this.loadInfo();
+        if (id === 'info') {
+          if (!this.infoHtml && !this.infoLoading) this.loadInfo();
+          // F6 (10.14): второй блок «Справки» — гайд грузится вместе с первым.
+          if (!this.guideHtml && !this.guideLoading) this.loadGuide();
+        }
+        // F3 (10.14): «Личность» — special-screen, всегда перечитываем свой
+        // скоуп при входе (черновик мог быть от прошлого чата).
+        if (id === 'persona' && !this.personaLoading) {
+          this.loadPersona();
         }
         if (id === 'access' && this.canViewTab('access')) {
           this.loadAdmins();
@@ -2699,6 +2812,18 @@
       },
 
       canViewTab: function (tabId) {
+        // F3 (10.14): «Личность» — special-screen (НЕ config-вкладка TABS;
+        // инвариант «TABS — зеркало TAB_RULES» не трогаем). Глобальный admin
+        // видит всегда; chat-скоуп — при праве edit_persona/content (F2 §5).
+        // R10.14-1: роль с edit_persona читает/правит и global (без
+        // выбранного чата) — глобальный экран достижим (GET global 200).
+        if (tabId === 'persona') {
+          if (this.isGlobalAdmin) return true;
+          if (this.hasPerm('edit_persona')) return true;
+          if (this.activeChatId == null) return false;
+          return this.hasPerm('section.content')
+            || this.isLocalAdminCtx();
+        }
         var tab = this.tabs.find(function (t) { return t.id === tabId; });
         if (!tab) return false;
         if (tab.always) return true;
@@ -4111,6 +4236,173 @@
         }
       },
 
+      // ═══ F6 (help-guide-integration-round1014): гайд по возможностям ═══
+      // Markdown-редактор + предпросмотр; хранение — PG (/api/info/guide).
+      loadGuide: async function () {
+        this.guideLoading = true;
+        try {
+          var data = await this.api('/api/info/guide');
+          this.guideHtml = data.markdown || '';
+          this.guideMeta = data;
+          this.guideDraft = data.markdown || '';
+        } catch (e) {
+          if (e.status !== 401) this.toast('Не удалось загрузить гайд', 'err');
+        } finally {
+          this.guideLoading = false;
+        }
+      },
+      toggleGuideEditor: function () {
+        this.editingGuide = !this.editingGuide;
+        this.guidePreviewing = false;
+        this.guideDraft = this.guideHtml || '';
+      },
+      // Мини-конвертер Markdown→HTML. Сначала ЭКРАНИРУЕТ HTML, затем
+      // размечает. Результат ВСЕГДА проходит sanitizeHtml перед v-html.
+      renderGuideMarkdown: function (md) {
+        var esc = String(md == null ? '' : md)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        function inline(s) {
+          s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+            '<a href="$2" target="_blank" rel="noopener">$1</a>');
+          s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+          s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+          s = s.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+          return s;
+        }
+        var lines = esc.split(/\r?\n/);
+        var out = [];
+        var inList = false;
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          var h = line.match(/^(#{1,6})\s+(.*)$/);
+          if (h) {
+            if (inList) { out.push('</ul>'); inList = false; }
+            var lvl = h[1].length;
+            out.push('<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>');
+            continue;
+          }
+          var li = line.match(/^\s*[-*]\s+(.*)$/);
+          if (li) {
+            if (!inList) { out.push('<ul>'); inList = true; }
+            out.push('<li>' + inline(li[1]) + '</li>');
+            continue;
+          }
+          if (inList) { out.push('</ul>'); inList = false; }
+          if (!line.trim()) continue;
+          out.push('<p>' + inline(line) + '</p>');
+        }
+        if (inList) out.push('</ul>');
+        return out.join('');
+      },
+      saveGuide: async function () {
+        var md = this.guideDraft || '';
+        if (!md.trim()) { this.toast('Текст пуст', 'warn'); return; }
+        try {
+          var data = await this.api('/api/info/guide', {
+            method: 'POST',
+            body: JSON.stringify({ markdown: md }),
+          });
+          this.guideHtml = md;
+          this.guideMeta = data;
+          this.editingGuide = false;
+          this.guidePreviewing = false;
+          this.toast('Сохранено', 'ok');
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+      // Dedicated API /api/persona (F2): api() сам ставит X-Chat-Id по
+      // активному scope (NULL → global). Пустое значение ≠ дефолт: сервер
+      // отдаёт values as-is, UI показывает плейсхолдеры. scopeEpoch-гвард
+      // отбрасывает устаревшие in-flight ответы при смене чата.
+      personaSetField: function (field, value) {
+        if (!this.personaDraft) return;
+        this.personaDraft[field] = value;
+      },
+      loadPersona: async function () {
+        var epoch = this.scopeEpoch;
+        this.personaLoading = true;
+        try {
+          var data = await this.api('/api/persona');
+          if (!this._scopeGuard(epoch)) return;   // D2: scope сменился
+          this.personaMeta = data || null;
+          var v = (data && data.values) || {};
+          this.personaDraft = {
+            name: v.name || '',
+            biography: v.biography || '',
+            system_prompt_overrides: v.system_prompt_overrides || '',
+            is_aware_ai: !!v.is_aware_ai,
+          };
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
+          this.personaMeta = null;
+          this.personaDraft = null;
+          if (e.status !== 401) {
+            this.toast('Не удалось загрузить личность: '
+              + this.loreErrText(e), 'err');
+          }
+        } finally {
+          if (this._scopeGuard(epoch)) this.personaLoading = false;   // R3
+        }
+      },
+      savePersona: async function () {
+        if (!this.personaDraft || this.personaBusy || this.personaDisabled) return;
+        var body = {
+          name: this.personaDraft.name || '',
+          biography: this.personaDraft.biography || '',
+          system_prompt_overrides: this.personaDraft.system_prompt_overrides || '',
+          is_aware_ai: !!this.personaDraft.is_aware_ai,
+          // H1/F2 §5: optimistic-токен строки персоны (GET отдаёт updated_at).
+          updated_at: (this.personaMeta && this.personaMeta.updated_at) || null,
+        };
+        this.personaBusy = true;
+        try {
+          var data = await this.api('/api/persona', {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          });
+          // PUT отдаёт {scope, chat_id, values, is_global}; persona_enabled
+          // приходит только из GET — мёржим, не теряем индикатор флага.
+          this.personaMeta = Object.assign({}, this.personaMeta || {}, data || {});
+          this.toast('Личность сохранена', 'ok');
+        } catch (e) {
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — перезагрузите', 'warn');
+            await this.loadPersona();
+          } else if (e.status === 403) {
+            this.toast('Нет права edit_persona', 'err');
+          } else if (e.status !== 401) {
+            this.toast('Ошибка сохранения: ' + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.personaBusy = false;
+        }
+      },
+      resetPersona: async function () {
+        // Сброс доступен только для chat-scope (DELETE per-chat override →
+        // наследование глобальной личности). Global override не удаляем.
+        if (this.activeChatId == null || this.personaBusy) return;
+        if (!window.confirm('Сбросить личность этого чата к глобальной?')) return;
+        this.personaBusy = true;
+        try {
+          await this.api('/api/persona', { method: 'DELETE' });
+          this.toast('Сброшено к глобальному', 'ok');
+          await this.loadPersona();
+        } catch (e) {
+          if (e.status === 404) {
+            this.toast('Override не задан — уже унаследовано', 'warn');
+            await this.loadPersona();
+          } else if (e.status === 403) {
+            this.toast('Нет права edit_persona', 'err');
+          } else if (e.status !== 401) {
+            this.toast('Ошибка сброса: ' + this.loreErrText(e), 'err');
+          }
+        } finally {
+          this.personaBusy = false;
+        }
+      },
+
       // ═══ Лор чатов (round 7, spec §3.10/E2; Q6/Q8) ═══
       loreErrText: function (e) {
         var d = e && e.message;
@@ -4744,6 +5036,22 @@
       // Данные — аддитивные read-API (cognition/status, graph, stats,
       // timeline, beliefs?kind=); R17-safe, без хардкода.
 
+      // F4 (persona-traits-ribbon-round1014): адаптер `dynamic_traits`
+      // `{ts,text,source}` → `{id,fact,created_at}` для `_ribbonLoop`
+      // (лента «Эволюция характера»). Fail-open: не-массив → [].
+      _traitsAdapter: function (list) {
+        var src = Array.isArray(list) ? list : [];
+        var out = [];
+        for (var i = 0; i < src.length; i++) {
+          var it = src[i] || {};
+          out.push({
+            id: (it.id != null ? it.id : (it.ts || i)),
+            fact: it.text || '',
+            created_at: it.ts || 0,
+          });
+        }
+        return out;
+      },
       // Лента с opacity-классами по позиции (T-1450); дублируется дважды
       // для seamless вертикального скролла (CSS @keyframes translateY -50%).
       _ribbonLoop: function (items) {
@@ -4782,6 +5090,16 @@
         var hh = String(d.getHours()); if (hh.length < 2) hh = '0' + hh;
         var mm = String(d.getMinutes()); if (mm.length < 2) mm = '0' + mm;
         return hh + ':' + mm;
+      },
+      // F4 (persona-traits-ribbon-round1014): 'ДД.ММ' для записей ленты
+      // «Эволюция характера» (F4-Q1: «13.09: Стал более циничным...»).
+      fmtDayMonth: function (ts) {
+        if (!ts) return '—';
+        var d = new Date(Number(ts) * 1000);
+        if (isNaN(d.getTime())) return '—';
+        var dd = String(d.getDate()); if (dd.length < 2) dd = '0' + dd;
+        var mm = String(d.getMonth() + 1); if (mm.length < 2) mm = '0' + mm;
+        return dd + '.' + mm;
       },
       // 45000 → «45k» (прогресс-бары лимитов, ТЗ §7).
       fmtTokens: function (n) {
@@ -4834,6 +5152,18 @@
           var paradigms = await this.api(
             '/api/memory/dream/beliefs?kind=paradigm&limit=30' + cq);
           this.cognitionParadigms = Array.isArray(paradigms) ? paradigms : [];
+          // F4 (persona-traits-ribbon-round1014): третья лента — «Эволюция
+          // характера» из global `dynamic_traits` (GET /api/persona).
+          // Fail-open: ошибка → пустой пул (заглушка).
+          try {
+            var persona = await this.api('/api/persona' + q);
+            this.cognitionTraits = this._traitsAdapter(
+              persona && persona.dynamic_traits);
+          } catch (pe) {
+            this.cognitionTraits = [];
+          }
+          // F4/UPD п.4: метрики Личности (для «Сводки»), fail-open внутри.
+          this.loadPersonaHealth();
         } catch (e) {
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Осмысление: ' + e.message, 'err');

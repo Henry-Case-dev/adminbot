@@ -135,12 +135,15 @@ class TestCatalogDelta1011:
     def test_counts_unchanged(self):
         from config.settings import Settings
         from services import param_catalog as pc
-        # 10.13 (F8+F4): REGISTRY 427 / Settings 399.
-        assert len(pc.REGISTRY) == 427
+        # 10.13 (F8+F4): REGISTRY 427 / Settings 399; 10.14 (F1): 429/401;
+        # 10.14 (F2 persona-storage-core): +1/+1 → 430/402.
+        # 10.14 (F8 self-reflection-llm-provider): +4/+4 → 434/406.
+        # 10.14 (F6 help-guide-integration): +1 PG-only → 435/406.
+        assert len(pc.REGISTRY) == 435
         assert len(pc.GROUPS) == 90
         assert len(pc._TAB_BY_GROUP) == 88
         assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 399
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 406
 
     def test_moved_entries_are_catalog(self):
         from services import param_catalog as pc

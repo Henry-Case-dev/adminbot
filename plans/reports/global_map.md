@@ -636,3 +636,45 @@ bot.py
   остаются в промпт-канонах (`lore_prompts` ироническая заметка безусловна) и в данных
   (архивные beliefs видны KNN-путём при выключенном `belief_decay_enabled`); аналогично
   probe «Проверить» не зеркалит runtime-фолбэк `generate_worker`.
+
+## Round 10.14 map additions (самосознание и личность бота, HEAD 2edc65b + working tree)
+
+- **Новый сквозной слой `bot_self_reply` (F1).** SQLite user_version **8→9** (`database.py:53-97,907-995`):
+  `_migrate_self_origin_v9` — rebuild `graph_facts` (16 колонок 1:1, id сохранены → FTS5
+  `content='graph_facts'` и vec0 `rowid=fact_id` валидны без пересоздания; guard по `'bot_self_reply' in sql`,
+  `PRAGMA user_version=9` вне guard; 5 индексов v8 пересозданы; откат `UPDATE origin='bot_direct_reply'`).
+  Origin-исключения self: `list_new_confirmed_facts`, `search_golden_facts_fts`, `get_live_graph_facts`,
+  `find_exact_dup_groups`, `graph_stats.facts` (+ новый счётчик `bot_self_replies`), `_DREAM_SOURCE_ORIGINS`.
+  RAG: `search_graph_facts_fts`/`_search_graph_facts`/`_knn_graph_facts`/`_vec_candidates`/`_filter_vec_rows`
+  получили `include_self` (default False = невидим чужим пайплайнам; direct-путь `get_rag_facts(include_self=True)`).
+  `memorize_self_reply` (вес `limits.graph_fact_weight_bot`, важность 2, `target_user=NULL`, TTL как direct) +
+  LLM-экстрактор `services/self_reflection.py::extract_self_essence` (роль `reflection` → фоллбэк на main) +
+  «честная» метка `_ORIGIN_LABELS['bot_self_reply']` и анти-эхо `_SELF_ECHO_INSTRUCTION` в `_build_rag_block`.
+- **Persona-ядро (F2): PG-таблицы `personas`/`persona_traits` + singleton `persona_state`.** Scope
+  first-class (`is_global`+`chat_id`, CHECK, partial-unique, FK `chat_profiles(chat_id)` ON DELETE CASCADE).
+  `services/bot_persona.py` — резолв per-chat→global→empty (fail-open), `build_persona_prompt_block`
+  (хвост system prompt; `is_aware_ai=false` → `_NO_AI_DISCLOSURE_BLOCK`), UPSERT/optimistic `updated_at` (409),
+  `append_traits` (дедуп casefold + FIFO-cap `PERSONA_TRAITS_MAX`), in-memory name-cache для sync-триггера
+  (`handlers/direct_chat.py:147-155`). API `GET/PUT/DELETE /api/persona` + `GET /api/persona/health`
+  (`web/api/routes.py:1356-1530`). Каталог-Δ +1 (`flags.persona_enabled`, per_chat, default True).
+  Трейты генерирует `dream_worker._run_persona_traits_once` (`PERSONA_EVOLUTION_PROMPT`/`build_persona_user`/
+  `parse_persona_traits` в `dream_prompts.py`).
+- **UI: special-screen «Личность» (#/ai/persona, вне TABS; `canViewTab`/`ROUTE_TO_TAB`/`ROUTE_PARENT`),
+  3-я лента «Эволюция характера» (F4), метрики в «Сводке». TABS=19 не тронут.**
+- **Гайд (F6): `content.intelligence_guide` (PG-only) + dedicated `GET/POST /api/info/guide` +
+  Markdown-редактор/предпросмотр (`renderGuideMarkdown`→`sanitizeHtml`), self-host DOMPurify,
+  идемпотентный сид `config_cache._seed_intelligence_guide` из `plans/docs/intelligence_user_guide.md`
+  (абсолютный путь через `Path(__file__).parents[1]`).**
+- **F8: третье выделенное подключение `intel_reflection`** (каталог `models.intel_reflection_*` /
+  `keys.intel_reflection_api_key`, роль воркера `reflection` в `LLMClient._WORKER_ROLE_PREFIX`,
+  probe `intel_reflection_main`, provider-блок в UI).
+- **F5 (scope-audit): R10.9-4 инвалидация health-кэша** (`status_service.invalidate_health_cache`;
+  `models.*`/`keys.*` → clear; вызовы в `_post_config_global`, BYOK put/delete) + `inventory.tsv` 411 строк.
+- **F7:** порядок статус-карточек Сводка→Сердцебиение→Бот→Сервер→Мониторинг→Доступность→История.
+- **Находки 10.14**: `plans/reports/round10.14_scanner_audit.md` — **0 Critical / 0 High / 2 Medium /
+  5 Low / 2 Info**. Medium: R10.14-1 RBAC view/edit `edit_persona` (PUT global есть, GET global 403 →
+  global-экран редактора недостижим, спека F2 §5 GET «auth TMA»); R10.14-2 traits-LLM не учитывается
+  в `worker_budget`/deep-sleep-капе (спека F2 §3.4 п.5). НЕ блокируют шаг 7.
+- **Сквозной паттерн (10.14): «двухканальные» dedicated-API со своим scope/RBAC нужно сверять
+  view↔edit парой, а не по отдельности.** `_persona_can_edit` и `_persona_can_view` разошлись:
+  write-путь мягче read-пути. Тот же класс — любые будущие special-screen API.

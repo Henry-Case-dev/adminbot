@@ -144,6 +144,27 @@
       background: rgba(22, 22, 22, 0.88);
     }
 
+    /* F6 (10.14): рендер Markdown-гайда в «Справке» — читаемая типографика */
+    .guide-markdown { color: var(--text-1); line-height: 1.65; }
+    .guide-markdown h1 { font-size: 1.35rem; font-weight: 700; margin: 0 0 .6rem; }
+    .guide-markdown h2 { font-size: 1.15rem; font-weight: 700; margin: 1.3rem 0 .5rem; }
+    .guide-markdown h3 { font-size: 1rem; font-weight: 600; margin: 1.1rem 0 .4rem; }
+    .guide-markdown h4, .guide-markdown h5, .guide-markdown h6 {
+      font-size: .95rem; font-weight: 600; margin: 1rem 0 .35rem;
+    }
+    .guide-markdown h1:first-child, .guide-markdown h2:first-child { margin-top: 0; }
+    .guide-markdown p { margin: .5rem 0; }
+    .guide-markdown ul { margin: .5rem 0 .5rem 1.25rem; list-style: disc; }
+    .guide-markdown li { margin: .2rem 0; }
+    .guide-markdown code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .85em; background: rgba(255, 255, 255, .08);
+      padding: .1rem .35rem; border-radius: .35rem;
+    }
+    .guide-markdown a { color: var(--teal-500); text-decoration: underline; }
+    .guide-markdown b { font-weight: 700; }
+    .guide-markdown i { font-style: italic; }
+
     /* Активные кнопки/выделения — фиолетово-синий градиент */
     .btn-accent {
       color: #fff;
@@ -674,7 +695,7 @@
     /* F5 (T-1450..T-1456, ТЗ §5/§7): дашборд «Осмысление» — бегущие строки
        (opacity-50 по краям → 100 в центре) + граф + виджет «Интеллект и
        Память». Только фронт-классы (каталог-Δ=0). */
-    .cognition-ribbons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cognition-ribbons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     @media (max-width: 640px) { .cognition-ribbons { grid-template-columns: 1fr; } }
     .ribbon {
       border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
@@ -1796,6 +1817,26 @@
                   <div v-else class="text-xs text-gray-500">Активности пока нет.</div>
                 </template>
               </div>
+              <!-- F4 (persona-traits-ribbon-round1014, UPD п.4): метрики
+                   здоровья Личности — счётчик сгенерированных черт, время
+                   последнего пересмотра характера, статус экстрактора
+                   самосознания. Источник — GET /api/persona/health; fail-open
+                   (нет данных → «—»). -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Личность</div>
+                  <span class="text-xs text-gray-500">черты · пересмотр · экстрактор</span>
+                  <span class="badge" :class="personaExtractorBadge.cls"
+                        :title="personaHealth && personaHealth.extractor_status ? personaHealth.extractor_status : 'never'"
+                        :style="{ marginLeft: 'auto' }">Экстрактор: {{ personaExtractorBadge.text }}</span>
+                  <button class="btn-ghost text-xs" @click="loadPersonaHealth()">⟳</button>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                  <span class="badge badge-muted">Черт сгенерировано: {{ personaHealth && personaHealth.traits_count != null ? personaHealth.traits_count : '—' }}</span>
+                  <span class="badge badge-muted">Пересмотр характера: {{ personaHealth && personaHealth.last_trait_at ? fmtLogTime(personaHealth.last_trait_at) : '—' }}</span>
+                  <span class="badge badge-muted">Экстрактор последний раз: {{ personaHealth && personaHealth.extractor_last_at ? fmtLogTime(personaHealth.extractor_last_at) : '—' }}</span>
+                </div>
+              </div>
               <div v-if="oversightBusy" class="spinner my-4"></div>
               <div v-else-if="oversightRows().length === 0"
                    class="text-gray-500 text-sm py-3">Чатов нет.</div>
@@ -2788,6 +2829,31 @@
               {{ statusError }}
             </div>
             <template v-if="!statusError">
+            <!-- F6 (T-1460, ТЗ §8): SVG-EKG «Сердцебиение» вместо
+                 бесполезного линейного графика аптайма. Пульс =
+                 loadavg[0]/cpu_count (Linux) или max(CPU%, RAM%)/100
+                 (Windows dev, loadavg=None); всё None → нейтраль. Цвет и
+                 период — computed heartbeat (пороги — фронт-константы,
+                 каталог-Δ=0). prefers-reduced-motion — анимация off (CSS).
+                 F7 (T-1536, ТЗ §7): блок поднят наверх, сразу под «Сводку». -->
+            <div class="card p-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
+                <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
+                <span class="text-xs text-gray-500">{{ heartbeat.detail }}</span>
+              </div>
+              <div class="ekg-wrap" :class="'ekg-' + heartbeat.level"
+                   :style="{ '--ekg-period': heartbeat.period + 's' }">
+                <svg class="ekg" viewBox="0 0 320 80" preserveAspectRatio="none"
+                     role="img" :aria-label="'Пульс сервера: ' + heartbeat.label">
+                  <polyline class="ekg-base" vector-effect="non-scaling-stroke"
+                            points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
+                  <polyline class="ekg-trace" vector-effect="non-scaling-stroke"
+                            points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
+                </svg>
+              </div>
+            </div>
+
             <!-- Бот -->
             <div class="card p-4">
               <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> Бот</div>
@@ -2842,67 +2908,13 @@
               </div>
             </div>
 
-            <!-- LLM: ОДИН блок «Доступность ключей», 4 группы функций
-                 (10.9/п.7.1). Провайдер/модель — реальные (host), без
-                 хардкода имён; Health — реальный probe (timeout/502). -->
-            <div class="card p-4" style="grid-column: 1 / -1;">
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей</div>
-                <button class="btn-ghost text-xs ml-auto" @click="loadStatus()">⟳</button>
-              </div>
-              <div v-if="!statusData" class="spinner my-3"></div>
-              <div v-else-if="!llmGroups.length" class="text-xs text-gray-500">Данные провайдеров недоступны.</div>
-              <div v-else class="space-y-3">
-                <div v-for="g in llmGroups" :key="g.id">
-                  <div class="text-xs font-bold text-violet-300 uppercase tracking-wide mb-1">{{ g.title }}</div>
-                  <div v-for="card in g.cards" :key="card.module_id" class="llm-row">
-                    <div class="min-w-0">
-                      <div class="text-sm font-semibold truncate">{{ card.display_name || card.module_title }}</div>
-                      <div class="text-xs text-gray-400 truncate">{{ card.provider }} · {{ card.model }}</div>
-                    </div>
-                    <div class="text-xs">
-                      <span v-if="card.key.configured" class="badge badge-ok">configured<span v-if="card.key.last4"> ••••{{ card.key.last4 }}</span></span>
-                      <span v-else class="badge badge-muted">не настроен</span>
-                    </div>
-                    <div class="text-xs text-gray-400">{{ card.last_latency_ms != null ? Math.round(card.last_latency_ms) + ' мс' : '—' }}</div>
-                    <div class="text-xs">
-                      <span class="badge" :class="healthBadge(card.health)">{{ healthLabel(card.health) }}</span>
-                      <span v-if="card.health.http_status" class="text-gray-400 ml-1">HTTP {{ card.health.http_status }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- F6 (T-1460, ТЗ §8): SVG-EKG «Сердцебиение» вместо
-                 бесполезного линейного графика аптайма. Пульс =
-                 loadavg[0]/cpu_count (Linux) или max(CPU%, RAM%)/100
-                 (Windows dev, loadavg=None); всё None → нейтраль. Цвет и
-                 период — computed heartbeat (пороги — фронт-константы,
-                 каталог-Δ=0). prefers-reduced-motion — анимация off (CSS). -->
-            <div class="card p-4" style="grid-column: 1 / -1;">
-              <div class="flex items-center gap-2 mb-1 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
-                <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
-                <span class="text-xs text-gray-500">{{ heartbeat.detail }}</span>
-              </div>
-              <div class="ekg-wrap" :class="'ekg-' + heartbeat.level"
-                   :style="{ '--ekg-period': heartbeat.period + 's' }">
-                <svg class="ekg" viewBox="0 0 320 80" preserveAspectRatio="none"
-                     role="img" :aria-label="'Пульс сервера: ' + heartbeat.label">
-                  <polyline class="ekg-base" vector-effect="non-scaling-stroke"
-                            points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
-                  <polyline class="ekg-trace" vector-effect="non-scaling-stroke"
-                            points="0,40 38,40 52,40 58,32 63,48 68,12 73,62 79,40 92,40 118,40 132,40 138,34 143,46 148,18 153,60 159,40 172,40 320,40"></polyline>
-                </svg>
-              </div>
-            </div>
-
             <!-- F5 (T-1450..T-1452, ТЗ §5): «Мониторинг Интеллекта» — только
                  global admin. Две вертикальные бегущие строки (Убеждения/Сон,
                  Парадигмы/Глубокий сон, opacity 50→100), бейджи активных фаз
                  в реальном времени, force-directed граф (vis-network,
-                 lazy self-host, drag/zoom). -->
+                 lazy self-host, drag/zoom).
+                 F7 (T-1537, ТЗ §7): блок опущен под «Сервер» (перед
+                 «Доступностью ключей»). -->
             <div v-if="isGlobalAdmin" class="card p-4" style="grid-column: 1 / -1;">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
@@ -2940,6 +2952,22 @@
                     </div>
                   </div>
                 </div>
+                <!-- F4 (persona-traits-ribbon-round1014, ТЗ §3.1): третья
+                     лента «Эволюция характера» — global `dynamic_traits`
+                     («13.09: Стал более циничным...»), тот же _ribbonLoop. -->
+                <div class="ribbon">
+                  <div class="ribbon-title">Эволюция характера <span class="text-gray-500">(Личность)</span></div>
+                  <div class="ribbon-viewport">
+                    <div v-if="!cognitionTraitsLoop.length" class="text-xs text-gray-500 py-4">Пул черт пуст.</div>
+                    <div v-else class="ribbon-track">
+                      <div v-for="it in cognitionTraitsLoop" :key="it.key"
+                           class="ribbon-item" :class="it.op">
+                        <span class="ribbon-ts">{{ fmtDayMonth(it.created_at) }}</span>
+                        <span class="truncate">{{ it.fact }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="mt-3">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -2950,6 +2978,38 @@
                   <span v-if="!cognitionVisLoaded" class="text-xs text-gray-500">vis-network грузится при открытии…</span>
                 </div>
                 <div ref="cognitionGraph" class="cognition-graph"></div>
+              </div>
+            </div>
+
+            <!-- LLM: ОДИН блок «Доступность ключей», 4 группы функций
+                 (10.9/п.7.1). Провайдер/модель — реальные (host), без
+                 хардкода имён; Health — реальный probe (timeout/502). -->
+            <div class="card p-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей</div>
+                <button class="btn-ghost text-xs ml-auto" @click="loadStatus()">⟳</button>
+              </div>
+              <div v-if="!statusData" class="spinner my-3"></div>
+              <div v-else-if="!llmGroups.length" class="text-xs text-gray-500">Данные провайдеров недоступны.</div>
+              <div v-else class="space-y-3">
+                <div v-for="g in llmGroups" :key="g.id">
+                  <div class="text-xs font-bold text-violet-300 uppercase tracking-wide mb-1">{{ g.title }}</div>
+                  <div v-for="card in g.cards" :key="card.module_id" class="llm-row">
+                    <div class="min-w-0">
+                      <div class="text-sm font-semibold truncate">{{ card.display_name || card.module_title }}</div>
+                      <div class="text-xs text-gray-400 truncate">{{ card.provider }} · {{ card.model }}</div>
+                    </div>
+                    <div class="text-xs">
+                      <span v-if="card.key.configured" class="badge badge-ok">configured<span v-if="card.key.last4"> ••••{{ card.key.last4 }}</span></span>
+                      <span v-else class="badge badge-muted">не настроен</span>
+                    </div>
+                    <div class="text-xs text-gray-400">{{ card.last_latency_ms != null ? Math.round(card.last_latency_ms) + ' мс' : '—' }}</div>
+                    <div class="text-xs">
+                      <span class="badge" :class="healthBadge(card.health)">{{ healthLabel(card.health) }}</span>
+                      <span v-if="card.health.http_status" class="text-gray-400 ml-1">HTTP {{ card.health.http_status }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -3047,6 +3107,72 @@
             </div>
             </template>
           </template>
+          <template v-else-if="activeTab === 'persona'">
+            <!-- ═══ F3 (persona-ui-tab-round1014): "Личность" — special-screen.
+                 ТОЛЬКО статические параметры (Имя/Биография/Характер +
+                 «Осознаёт себя ИИ»). Никакой визуализации (динамика — F4). ═══ -->
+            <div class="card p-5 col-span-full" style="max-width: 760px;">
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Личность
+                </div>
+                <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
+                <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
+                <span v-if="personaMeta && personaMeta.scope === 'chat'"
+                      class="badge" :class="personaMeta.is_global ? 'badge-muted' : 'badge-warn'">
+                  {{ personaMeta.is_global ? 'унаследовано от глобального' : 'переопределено для чата' }}
+                </span>
+                <span v-else-if="personaMeta" class="badge badge-muted">глобальная личность</span>
+                <span v-if="personaDisabled" class="badge badge-err">Фича выключена</span>
+              </div>
+              <div v-if="personaLoading" class="spinner my-6"></div>
+              <template v-else>
+                <div class="text-xs text-gray-500 mb-3">
+                  Только статические параметры. Динамические черты и метрики — в разделе «Статус».
+                </div>
+                <label class="block mb-2">
+                  <span class="text-xs text-gray-400">Имя</span>
+                  <input class="field w-full" type="text" autocomplete="off"
+                         placeholder="Не задано — бот без имени"
+                         :value="personaDraft ? personaDraft.name : ''"
+                         :disabled="personaDisabled"
+                         @input="personaSetField('name', $event.target.value)">
+                </label>
+                <label class="block mb-2">
+                  <span class="text-xs text-gray-400">Биография</span>
+                  <textarea class="field w-full scroll-thin" rows="3"
+                            placeholder="Не задано — базовый лор/биография"
+                            :value="personaDraft ? personaDraft.biography : ''"
+                            :disabled="personaDisabled"
+                            @input="personaSetField('biography', $event.target.value)"></textarea>
+                </label>
+                <label class="block mb-2">
+                  <span class="text-xs text-gray-400">Характер</span>
+                  <textarea class="field w-full scroll-thin" rows="4"
+                            placeholder="Не задано — характер по умолчанию (system prompt overrides)"
+                            :value="personaDraft ? personaDraft.system_prompt_overrides : ''"
+                            :disabled="personaDisabled"
+                            @input="personaSetField('system_prompt_overrides', $event.target.value)"></textarea>
+                </label>
+                <label class="flex items-center gap-2 mb-4">
+                  <input type="checkbox"
+                         :checked="personaDraft ? personaDraft.is_aware_ai : false"
+                         :disabled="personaDisabled"
+                         @change="personaSetField('is_aware_ai', $event.target.checked)">
+                  <span class="text-sm">Осознаёт себя ИИ</span>
+                </label>
+                <div class="flex gap-2 flex-wrap">
+                  <button class="btn-accent text-sm"
+                          :disabled="personaBusy || personaDisabled"
+                          @click="savePersona()">{{ personaBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                  <button v-if="personaMeta && personaMeta.scope === 'chat'"
+                          class="btn-ghost text-sm"
+                          :disabled="personaBusy || personaDisabled"
+                          @click="resetPersona()">Сбросить к глобальному</button>
+                </div>
+              </template>
+            </div>
+          </template>
           <template v-else-if="activeTab === 'info'">
             <!-- ═══ "Справка" ═══ -->
             <div class="card p-5" style="grid-column: 1 / -1;">
@@ -3078,6 +3204,48 @@
                   </div>
                   <div v-if="infoPreviewing" class="info-html text-sm leading-relaxed mt-3 card p-4"
                        v-html="sanitizeHtml(infoDraft)"></div>
+                </template>
+              </template>
+            </div>
+            <!-- ═══ F6 (help-guide-integration-round1014): второй редактируемый
+                 блок — гайд по возможностям (Markdown, хранение в БД).
+                 Только санитайзенный HTML (DOMPurify self-host). ═══ -->
+            <div class="card p-5 mt-4" style="grid-column: 1 / -1;">
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Гайд по возможностям
+                </div>
+                <span v-if="guideMeta && guideMeta.updated_at" class="text-xs text-gray-500">
+                  обновлено {{ fmtLogTs(guideMeta.updated_at) }}
+                </span>
+                <div class="ml-auto flex gap-2">
+                  <button v-if="canEditInfo" class="btn-ghost text-sm" @click="toggleGuideEditor()">
+                    {{ editingGuide ? 'Просмотр' : 'Редактировать' }}
+                  </button>
+                </div>
+              </div>
+              <div v-if="guideLoading" class="spinner my-6"></div>
+              <template v-else>
+                <template v-if="!editingGuide">
+                  <div class="guide-markdown text-sm" v-html="sanitizedGuideHtml"></div>
+                </template>
+                <template v-else>
+                  <div class="text-xs text-gray-500 mb-1">
+                    {{ guideDraft.length }} / 65536 символов · Markdown (заголовки, списки, ссылки, код)
+                  </div>
+                  <textarea class="field scroll-thin" rows="16" v-model="guideDraft"
+                            :maxlength="65536"></textarea>
+                  <div class="mt-2 flex gap-2 flex-wrap">
+                    <button class="btn-ghost text-sm" @click="guidePreviewing = !guidePreviewing">
+                      {{ guidePreviewing ? 'Скрыть предпросмотр' : 'Предпросмотр' }}
+                    </button>
+                    <button class="btn-accent text-sm" :disabled="!guideDraft.trim()"
+                            @click="saveGuide()">Сохранить</button>
+                    <button class="btn-ghost text-sm" @click="toggleGuideEditor()">Отмена</button>
+                  </div>
+                  <div v-if="guidePreviewing"
+                       class="guide-markdown text-sm mt-3 card p-4"
+                       v-html="sanitizedGuidePreviewHtml"></div>
                 </template>
               </template>
             </div>

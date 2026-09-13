@@ -245,18 +245,19 @@ class TestRunDryRun:
         # 16 ключей категории keys (+ media_share_secret — раунд 3, T-687;
         # + embedding_fallback_api_key / _api_key_2 — раунд 10.11, ADR-1011-2;
         # + embedding_api_key — раунд 10.12, OD-1;
-        # + intel_history_api_key / intel_bg_api_key — раунд 10.13, F4)
-        assert len(inserts1) == 18
+        # + intel_history_api_key / intel_bg_api_key — раунд 10.13, F4;
+        # + intel_reflection_api_key — раунд 10.14, F8)
+        assert len(inserts1) == 19
         assert all("DO NOTHING" in q[0] for q in inserts1)
 
-        # повторный запуск БЕЗ --force: все 18 уже существуют → skipped
+        # повторный запуск БЕЗ --force: все 19 уже существуют → skipped
         conn2 = _FakeConn(results=["INSERT 0 0"])
         pool2 = _FakePool(conn2)
         monkeypatch.setattr("services.pg_db.PgDatabase",
                             lambda *a, **kw: _FakePg(pool=pool2))
         code2 = await _run(["--only-category", "keys"])
         assert code2 == 0
-        assert len(conn2.queries) == 18  # DO NOTHING — но без дублей
+        assert len(conn2.queries) == 19  # DO NOTHING — но без дублей
 
     @pytest.mark.asyncio
     async def test_force_uses_update_sql(self, monkeypatch):

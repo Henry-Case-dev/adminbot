@@ -1914,8 +1914,10 @@ class TestGetRagFactsF1:
                   ("web_content", "средний по дате факт", 200)]
         calls = []
 
-        async def fake_search(chat_id, query, limit, include_direct_reply=False):
-            calls.append((chat_id, query, limit, include_direct_reply))
+        async def fake_search(chat_id, query, limit, include_direct_reply=False,
+                              include_self=False):
+            calls.append((chat_id, query, limit, include_direct_reply,
+                          include_self))
             return list(ranked)
 
         monkeypatch.setattr(memory, "_search_graph_facts", fake_search)
@@ -1923,7 +1925,8 @@ class TestGetRagFactsF1:
             -100, "запрос", include_direct_reply=True)
         # порядок rel сохранён (даты в фактах перемешаны — хроно-сортировки нет)
         assert facts == ranked
-        assert calls == [(-100, "запрос", settings.GRAPH_RAG_FACTS_LIMIT, True)]
+        assert calls == [(-100, "запрос", settings.GRAPH_RAG_FACTS_LIMIT, True,
+                          False)]
 
     @pytest.mark.asyncio
     async def test_rag_context_sort_true_still_sorts_by_created_at(self, db,
@@ -1935,7 +1938,8 @@ class TestGetRagFactsF1:
                   ("search_fact", "ранний по дате факт", 100),
                   ("web_content", "средний по дате факт", 200)]
 
-        async def fake_search(chat_id, query, limit, include_direct_reply=False):
+        async def fake_search(chat_id, query, limit, include_direct_reply=False,
+                              include_self=False):
             return list(ranked)
 
         monkeypatch.setattr(memory, "_search_graph_facts", fake_search)
@@ -1951,7 +1955,8 @@ class TestGetRagFactsF1:
     async def test_fail_open_returns_empty(self, db, monkeypatch):
         memory = MemoryManager(db, FactsLLM())
 
-        async def broken(chat_id, query, limit, include_direct_reply=False):
+        async def broken(chat_id, query, limit, include_direct_reply=False,
+                         include_self=False):
             raise RuntimeError("поиск упал")
 
         monkeypatch.setattr(memory, "_search_graph_facts", broken)

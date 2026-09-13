@@ -284,6 +284,96 @@ def parse_bridge_answer(raw: str | None, anchor_count: int = 0,
 
 
 
+# ── F2 (persona-storage-core-round1014, spec §3.4): эволюция характера ──────
+# Модульный канон (ADR-1013-3 §2.3): не PG-сид, PREV не нужен — канона до F2
+# не существовало; PROMPT_MIGRATIONS не трогаем. Контракт ответа: СТРОГО
+# JSON-массив коротких строк-наблюдений.
+PERSONA_EVOLUTION_PROMPT = """\
+Ты - наблюдатель за характером бота. Тебе дают свежие наблюдения о поведении
+бота и ключевые убеждения чата. Определи, как изменился ХАРАКТЕР бота за
+период: привычки, тон, склонности и повторяющиеся реакции.
+
+ПРАВИЛА:
+1. Отвечай СТРОГО одним JSON-массивом коротких наблюдений: ["...", "..."].
+2. Каждое наблюдение до 200 символов, без кавычек-ёлочек и длинных тире.
+3. Пиши динамику характера, а не пересказ отдельных фактов.
+4. Если наблюдений мало или изменений нет - верни [].
+"""
+
+
+def build_persona_user(self_facts, beliefs) -> str:
+    """User-блок «эволюции характера» (spec §3.4): свежие self-факты
+    (origin='bot_self_reply') + убеждения/парадигмы чата. Наблюдаемое
+    поведение, не догадки."""
+    lines = ["Наблюдения о поведении бота (его собственные недавние слова):"]
+    facts = [str(f.get("fact") or "").strip() for f in (self_facts or [])
+             if str(f.get("fact") or "").strip()]
+    if facts:
+        for text in facts[:40]:
+            lines.append(f"- {_clean(text)}")
+    else:
+        lines.append("(недавних self-фактов нет)")
+    lines.append("")
+    lines.append("Убеждения чата (наблюдаемые закономерности):")
+    belief_texts = [str(b.get("fact") or "").strip() for b in (beliefs or [])
+                    if str(b.get("fact") or "").strip()]
+    if belief_texts:
+        for text in belief_texts[:20]:
+            lines.append(f"- {_clean(text)}")
+    else:
+        lines.append("(убеждений нет)")
+    return "\n".join(lines)
+
+
+def parse_persona_traits(raw: str | None) -> list[str]:
+    """Парсинг ответа «эволюции характера»: JSON-массив строк либо
+    `{"traits": [...]}` (терпимость), с фенсами/пояснениями вокруг.
+    Пусто/`[]` → []; кривой JSON → ValueError (воркер ставит status='error')."""
+    text = str(raw or "").strip()
+    if not text:
+        return []
+    data = _load_json_array(text)
+    if data is None:
+        obj = _load_json_object(text)
+        if isinstance(obj, dict) and isinstance(obj.get("traits"), list):
+            data = obj["traits"]
+    if data is None:
+        raise ValueError("persona traits answer is not a JSON array")
+    out: list[str] = []
+    for item in data:
+        value = item.get("text") if isinstance(item, dict) else item
+        cleaned = " ".join(str(value or "").split())
+        if cleaned:
+            out.append(cleaned)
+    return out
+
+
+def _load_json_array(text: str) -> list | None:
+    """JSON-массив из ответа: прямой json.loads или срез между первой '['
+    и последней ']' (код-фенсы/пояснения вокруг — не мешают)."""
+    candidates = [text]
+    fenced = re.sub(r"^```[a-zA-Z]*\s*", "", text.strip())
+    fenced = re.sub(r"\s*```\s*$", "", fenced)
+    if fenced != text:
+        candidates.append(fenced)
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(data, list):
+            return data
+    start = text.find("[")
+    end = text.rfind("]")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(text[start: end + 1])
+        except (ValueError, TypeError):
+            return None
+        return data if isinstance(data, list) else None
+    return None
+
+
 def _load_json_object(text: str) -> dict | None:
     """JSON-объект из ответа: прямой json.loads или срез между первой '{' и
     последней '}' (код-фенсы/пояснения вокруг — не мешают)."""

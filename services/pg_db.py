@@ -206,6 +206,79 @@ DDL_STATEMENTS: tuple[str, ...] = (
                          'auto_window_hours','remap','chat_admin','chat_params',
                          'chat_keys','gates'))
     """,
+    # ── Раунд 10.14 (F1 anti-echo-self-reply, ADR-1014-2 D9) ──────────────
+    # persona_state — singleton-строка (id BOOLEAN PK DEFAULT true CHECK(id))
+    # метрик воркеров Личности. F1 владеет DDL; F2 аддитивно добавит
+    # трейт-колонки (last_trait_at/last_trait_status) через ADD COLUMN IF NOT
+    # EXISTS. Сид singleton — отдельным INSERT ... ON CONFLICT DO NOTHING.
+    """
+    CREATE TABLE IF NOT EXISTS persona_state (
+        id                  BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
+        last_extract_at     TIMESTAMPTZ,
+        last_extract_status TEXT NOT NULL DEFAULT 'never',
+        last_error          TEXT,
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "INSERT INTO persona_state (id) VALUES (true) ON CONFLICT (id) DO NOTHING",
+    # ── Раунд 10.14 (F2 persona-storage-core, ADR-1014-1 §2.1) ─────────────
+    # Личность БОТА (не путать с карточкой ПОЛЬЗОВАТЕЛЯ build_persona_card).
+    # Scope first-class: is_global + chat_id + CHECK; partial-unique даёт ровно
+    # одну глобальную строку и ровно одну на чат. FK chat_id → chat_profiles
+    # ON DELETE CASCADE (персона без чата невалидна; профиль удалён → override
+    # уходит). DDL аддитивный/идемпотентный (CREATE/INDEX IF NOT EXISTS).
+    """
+    CREATE TABLE IF NOT EXISTS personas (
+        id                      BIGSERIAL PRIMARY KEY,
+        chat_id                 BIGINT,
+        is_global               BOOLEAN NOT NULL DEFAULT false,
+        name                    TEXT NOT NULL DEFAULT '',
+        biography               TEXT NOT NULL DEFAULT '',
+        system_prompt_overrides TEXT NOT NULL DEFAULT '',
+        is_aware_ai             BOOLEAN NOT NULL DEFAULT true,
+        created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CONSTRAINT personas_scope_chk CHECK (
+            (is_global AND chat_id IS NULL)
+            OR (NOT is_global AND chat_id IS NOT NULL)),
+        CONSTRAINT personas_chat_fk FOREIGN KEY (chat_id)
+            REFERENCES chat_profiles (chat_id)
+            ON UPDATE CASCADE ON DELETE CASCADE
+    )
+    """,
+    # Ровно одна глобальная строка (partial unique) — цель ON CONFLICT (is_global).
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_personas_global"
+    " ON personas (is_global) WHERE is_global",
+    # Ровно одна строка на чат (partial unique) — цель ON CONFLICT (chat_id).
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_personas_chat"
+    " ON personas (chat_id) WHERE chat_id IS NOT NULL",
+    # Динамические черты характера — ОТДЕЛЬНАЯ таблица (метрики COUNT/MAX,
+    # лента ORDER BY, ротация DELETE; ADR-1014-1 §2.4). chat_id — провенанс
+    # наблюдения (NULL = общеботовая черта), БЕЗ FK (черта живёт при смене
+    # профиля). source: deep_sleep | manual.
+    """
+    CREATE TABLE IF NOT EXISTS persona_traits (
+        id         BIGSERIAL PRIMARY KEY,
+        chat_id    BIGINT,
+        trait      TEXT NOT NULL,
+        source     TEXT NOT NULL DEFAULT 'deep_sleep',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_persona_traits_created"
+    " ON persona_traits (created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_persona_traits_chat"
+    " ON persona_traits (chat_id, created_at DESC)",
+    # F2-аддитив к persona_state (владелец DDL — F1): метрики трейт-экстрактора.
+    "ALTER TABLE persona_state ADD COLUMN IF NOT EXISTS last_trait_at TIMESTAMPTZ",
+    "ALTER TABLE persona_state ADD COLUMN IF NOT EXISTS"
+    " last_trait_status TEXT NOT NULL DEFAULT 'never'",
+    # Идемпотентный сид пустой глобальной персоны (стабильный optimistic-токен);
+    # ручные правки НЕ перезатираются (WHERE NOT EXISTS).
+    """
+    INSERT INTO personas (chat_id, is_global)
+    SELECT NULL, true WHERE NOT EXISTS (SELECT 1 FROM personas WHERE is_global)
+    """,
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────

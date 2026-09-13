@@ -8,8 +8,8 @@
 
 Контракт блоков:
   * chat-блоки: direct_main, direct_fallback, transcribe_openrouter,
-    video_summary_openrouter, intel_history_main, intel_background_main
-    (нужны base_url+model+key);
+    video_summary_openrouter, intel_history_main, intel_background_main,
+    intel_reflection_main (нужны base_url+model+key);
   * STT-блок: transcribe_groq — POST /audio/transcriptions (Whisper не
     chat-модель; chat-probe давал ложный error и красную карточку);
   * embeddings — требует base_url; раунд 10.11+ UI рендерит кнопку
@@ -33,10 +33,12 @@ logger = logging.getLogger(__name__)
 # 10.11 (spec §1.2B): video_fallback — запасная видео-модель (chat-probe).
 # 10.13 (F4, ADR-1013-1 §2.4): intel_history_main / intel_background_main —
 # выделенные LLM Интеллекта (Вехи/Лор и фоновые проверки).
+# 10.14 (F8, UPD п.3, ADR-1013-1 §2.4): intel_reflection_main — LLM для
+# саморефлексии (Экстрактор сути).
 _LLM_BLOCKS = frozenset({
     "direct_main", "direct_fallback", "transcribe_groq",
     "transcribe_openrouter", "video_summary_openrouter", "video_fallback",
-    "intel_history_main", "intel_background_main",
+    "intel_history_main", "intel_background_main", "intel_reflection_main",
 })
 # Блоки эмбеддингов (нужен base_url).
 # 10.11 (spec §1.2B): embeddings_main / _fallback1 / _fallback2 — подблоки
@@ -72,6 +74,8 @@ _BLOCK_SAVED_KEY: dict[str, str] = {
     # 10.13 (F4, ADR-1013-1 §2.4): выделенные LLM Интеллекта.
     "intel_history_main": "keys.intel_history_api_key",
     "intel_background_main": "keys.intel_bg_api_key",
+    # 10.14 (F8, UPD п.3): LLM саморефлексии (Экстрактор сути).
+    "intel_reflection_main": "keys.intel_reflection_api_key",
 }
 
 _TIMEOUT_SECONDS = 15.0
@@ -102,7 +106,7 @@ def _saved_api_key(block: str) -> str:
         # пустом ключе также фоллбэкаются на ключ основной модели.
         if not value.strip() and pg_key in (
                 "keys.embedding_api_key", "keys.intel_history_api_key",
-                "keys.intel_bg_api_key"):
+                "keys.intel_bg_api_key", "keys.intel_reflection_api_key"):
             value = hot.get("keys.llm_api_key", settings.LLM_API_KEY) or ""
         return value
     except Exception:
@@ -116,6 +120,8 @@ def _saved_api_key(block: str) -> str:
 _INTEL_BLOCK_SLUG = {
     "intel_history_main": "intel_history",
     "intel_background_main": "intel_bg",
+    # 10.14 (F8, UPD п.3): LLM саморефлексии (Экстрактор сути).
+    "intel_reflection_main": "intel_reflection",
 }
 
 

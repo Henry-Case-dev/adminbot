@@ -45,6 +45,25 @@ from services.summary_aliases import AliasResolver
 CHAT_ID = -1001234567890
 
 
+def _force_self_awareness(monkeypatch, value: bool) -> None:
+    """F1/T-1482: точечно задать flags.bot_self_awareness_enabled (hot.get).
+    Не-F1 тесты модуля изолированы OFF (background-экстрактор иначе меняет
+    call_count основного LLM); F1-тесты включают ON явно."""
+    from services import hot_config as _hot
+    real_get = _hot.get
+    monkeypatch.setattr(
+        _hot, "get",
+        lambda key, default=None: value
+        if key == "flags.bot_self_awareness_enabled"
+        else real_get(key, default))
+
+
+@pytest.fixture(autouse=True)
+def _self_awareness_default_off(monkeypatch):
+    """Изоляция не-F1 тестов: флаг самоосознания OFF (см. helper)."""
+    _force_self_awareness(monkeypatch, False)
+
+
 @pytest.fixture
 def fake_time(monkeypatch):
     """Заменяем time в direct_chat_service на управляемый счётчик
@@ -130,6 +149,7 @@ class FakeMemory:
         self.rag_facts_calls = []
         self.rerank_calls = []
         self.memorized = []
+        self.self_memorized = []
 
     async def get_window_messages(self, chat_id):
         return self.window
@@ -141,9 +161,10 @@ class FakeMemory:
         return self.rag
 
     async def get_rag_facts(self, chat_id, query, *,
-                            include_direct_reply=False):
+                            include_direct_reply=False,
+                            include_self=False):
         self.rag_facts_calls.append(
-            (chat_id, query, include_direct_reply))
+            (chat_id, query, include_direct_reply, include_self))
         if self.rag_facts is not None:
             return list(self.rag_facts)
         return [("chat_history", self.rag, None)] if self.rag else []
@@ -158,6 +179,10 @@ class FakeMemory:
         self.memorized.append(dict(
             chat_id=chat_id, raw=raw_text, source=source_type,
             target_user=target_user))
+
+    async def memorize_self_reply(self, chat_id, essence):
+        self.self_memorized.append((chat_id, essence))
+        return 1
 
 
 class FakeDB:
@@ -428,7 +453,7 @@ class TestContextPartitioning:
         # (sort_by_timestamp на direct-пути больше не передаётся);
         # include_direct_reply=True — только DirectChat.
         assert memory.rag_facts_calls == [
-            (CHAT_ID, "расскажи про дроны", True)]
+            (CHAT_ID, "расскажи про дроны", True, True)]
         assert memory.rerank_calls == []           # флаг реранка off (default)
         # F3/T-809: direct-рендер с origin-меткой («[чат] …»)
         assert blocks[1] == "<RAG_Memory>\n[чат] фон из памяти\n</RAG_Memory>"
@@ -923,6 +948,7 @@ class TestHandleFlow:
 
     @pytest.mark.asyncio
     async def test_success_reply_and_memorize(self, fake_time, monkeypatch):
+        _force_self_awareness(monkeypatch, True)     # F1: ON-путь явно
         tasks = self._collect_fire_forget(monkeypatch)
         memory = FakeMemory(window=[_window_row()])
         llm = FakeLLM(text="короткий ответ бота")
@@ -939,13 +965,15 @@ class TestHandleFlow:
         # Reply на сообщение юзера
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
         assert bot.send_message.await_args.args[1] == "короткий ответ бота"
-        # memorize: origin + target_user + запрос+ответ парой (fire-and-forget)
+        # memorize (F1/T-1482, флаг ON по умолчанию): запрос юзера пишется
+        # отдельным bot_direct_reply; суть ответа — отдельным self-фактом.
         assert tasks, "memorize-hook не запланирован"
         await tasks[0]
         assert memory.memorized[0]["source"] == "bot_direct_reply"
         assert memory.memorized[0]["target_user"] == "вася"
         assert memory.memorized[0]["chat_id"] == CHAT_ID
-        assert memory.memorized[0]["raw"] == "расскажи про себя\nкороткий ответ бота"
+        assert memory.memorized[0]["raw"] == "расскажи про себя"
+        assert memory.self_memorized == [(CHAT_ID, "короткий ответ бота")]
 
     @pytest.mark.asyncio
     async def test_bot_reply_recorded_for_thread(self, fake_time):
@@ -2139,6 +2167,37 @@ class TestRagDirectPipeline:
         assert memory.rerank_calls == []       # флаг off → 0 LLM-вызовов
 
     @pytest.mark.asyncio
+    async def test_self_facts_get_label_and_anti_echo(self, fake_time):
+        """F1/T-1482 (ADR-1014-2 D5/D7): self-факт в direct-RAG рендерится с
+        тегом [Источник: Я сам (Бот)] и анти-эхо-инструкцией первой строкой;
+        include_self=True доходит до memory."""
+        from services.summary_memory import _SELF_ECHO_INSTRUCTION
+        memory = FakeMemory(
+            window=[_window_row()],
+            rag_facts=[("bot_self_reply", "[Бот] заявил: любит грибы",
+                        1_700_000_000)])
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(text="грибы"), "вася")
+        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert "[Источник: Я сам (Бот)]" in rag_block
+        assert rag_block.splitlines()[1] == _SELF_ECHO_INSTRUCTION
+        assert memory.rag_facts_calls[-1][3] is True
+
+    @pytest.mark.asyncio
+    async def test_no_self_facts_no_anti_echo(self, fake_time):
+        """F1: без self-фактов анти-эхо-инструкция НЕ добавляется."""
+        from services.summary_memory import _SELF_ECHO_INSTRUCTION
+        memory = FakeMemory(
+            window=[_window_row()],
+            rag_facts=[("chat_history", "про грибы вчера", None)])
+        service = _make_service(memory=memory)
+        blocks = await service._build_user_content(
+            CHAT_ID, _message(text="грибы"), "вася")
+        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
+        assert _SELF_ECHO_INSTRUCTION not in rag_block
+
+    @pytest.mark.asyncio
     async def test_rerank_on_calls_memory_filter(self, fake_time, monkeypatch):
         import dataclasses as _dc
 
@@ -2650,7 +2709,9 @@ class TestRound8FactAttribution:
     async def test_memorize_direct_reply_wrapper_keeps_path(self, fake_time,
                                                             monkeypatch):
         """C6: handle-путь — memorize_facts зовётся с target_user=канон
-        спрашивающего; пост-фаза fail-open (FakeDB без graph) не роняет."""
+        спрашивающего; пост-фаза fail-open (FakeDB без graph) не роняет.
+        F1/T-1482: флаг ON — запрос отдельно + self-суть."""
+        _force_self_awareness(monkeypatch, True)
         tasks = []
 
         def sync_fire_and_forget(coro, tag):
@@ -2669,8 +2730,26 @@ class TestRound8FactAttribution:
         await tasks[0]                               # wrapper отработал без падения
         assert memory.memorized[0]["source"] == "bot_direct_reply"
         assert memory.memorized[0]["target_user"] == "вася"
-        assert memory.memorized[0]["raw"] == "расскажи про себя\nкороткий ответ бота"
+        # F1/T-1482 (флаг ON): запрос отдельно; суть ответа — self-факт.
+        assert memory.memorized[0]["raw"] == "расскажи про себя"
+        assert memory.self_memorized == [(CHAT_ID, "короткий ответ бота")]
         assert bot.send_message.await_args.args[1] == "короткий ответ бота"
+
+    @pytest.mark.asyncio
+    async def test_flag_off_keeps_query_answer_pair(self, fake_time,
+                                                    monkeypatch):
+        """F1/T-1482: флаг OFF → байт-в-байт прежняя пара query\\nanswer;
+        self-факт не пишется, LLM-экстрактор не вызывается."""
+        _force_self_awareness(monkeypatch, False)
+        memory = FakeMemory()
+        llm = FakeLLM(text="ответ бота")
+        service = _make_service(memory=memory, llm=llm)
+        await service._memorize_direct_reply(
+            CHAT_ID, "вопрос", "ответ бота", "вася")
+        assert memory.memorized[0]["source"] == "bot_direct_reply"
+        assert memory.memorized[0]["raw"] == "вопрос\nответ бота"
+        assert memory.self_memorized == []
+        assert llm.call_count == 0               # экстрактор не дёргался
 
 
 class TestCanonP20MemoryGuards:
@@ -3069,3 +3148,62 @@ def sync_fire_forget_helper(tasks):
     def sync_fire_and_forget(coro, tag):
         tasks.append(coro)
     return sync_fire_and_forget
+
+
+# ── Раунд 10.14 (F2 persona-storage-core, spec §3.2): склейка persona-блока ──
+
+def _force_persona_flag(monkeypatch, value: bool) -> None:
+    """Точечно задать flags.persona_enabled поверх изоляции self-awareness."""
+    from services import hot_config as _hot
+    real_get = _hot.get
+    monkeypatch.setattr(
+        _hot, "get",
+        lambda key, default=None: value
+        if key == "flags.persona_enabled" else real_get(key, default))
+
+
+class TestPersonaPromptIntegration:
+    @pytest.mark.asyncio
+    async def test_block_appended_to_system_prompt(self, monkeypatch, fake_time):
+        from services import bot_persona
+        _force_persona_flag(monkeypatch, True)
+
+        async def _resolve(chat_id):
+            return bot_persona.BotPersona(
+                name="Костик", biography="дворовый кот", overrides="циник",
+                is_aware_ai=False, is_global=True)
+
+        async def _traits(limit=50, chat_id=None):
+            return [{"text": "шутит про грибы"}]
+
+        monkeypatch.setattr(bot_persona, "resolve_bot_persona", _resolve)
+        monkeypatch.setattr(bot_persona, "get_traits", _traits)
+        llm = FakeLLM(text="ок")
+        service = _make_service(llm=llm)
+        msg = _message(text="расскажи о себе", message_id=90)
+        await service.handle(_bot(), msg, msg.from_user)
+        block = ("<Persona>\n"
+                 "Имя: Костик\n"
+                 "Биография: дворовый кот\n"
+                 "Характер: циник\n"
+                 "Черты, которые ты приобрёл: • шутит про грибы\n"
+                 "</Persona>\n"
+                 + bot_persona._NO_AI_DISCLOSURE_BLOCK)
+        assert llm.messages[0]["role"] == "system"
+        assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT + "\n\n" + block
+
+    @pytest.mark.asyncio
+    async def test_flag_off_keeps_prompt_byte_identical(self, monkeypatch,
+                                                        fake_time):
+        from services import bot_persona
+        _force_persona_flag(monkeypatch, False)
+
+        async def _boom(chat_id):       # не должен вызываться при OFF
+            raise AssertionError("resolve вызван при флаге OFF")
+
+        monkeypatch.setattr(bot_persona, "resolve_bot_persona", _boom)
+        llm = FakeLLM(text="ок")
+        service = _make_service(llm=llm)
+        msg = _message(text="привет", message_id=91)
+        await service.handle(_bot(), msg, msg.from_user)
+        assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT

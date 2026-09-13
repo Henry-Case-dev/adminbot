@@ -45,11 +45,15 @@ def _parse_block(name: str) -> str:
 class TestCatalogParity:
     def test_catalog_total_392(self):
         # 10.13 (F1+F2+F3+F8+F4): REGISTRY 427 / GROUPS 90 / Settings 399.
-        assert len(REGISTRY) == 427, len(REGISTRY)
+        # 10.14 (F1 anti-echo-self-reply): +2/+2 → 429/401 (локальный Δ).
+        # 10.14 (F2 persona-storage-core): +1/+1 (PERSONA_ENABLED) → 430/402.
+        # 10.14 (F8 self-reflection-llm-provider): +4/+4 (INTEL_REFLECTION_*)
+        # → 434/406; 10.14 (F6 help-guide-integration): +1 PG-only → 435/406.
+        assert len(REGISTRY) == 435, len(REGISTRY)
         assert len(GROUPS) == 90
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 399
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 406
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

@@ -88,6 +88,42 @@ class TestDdl:
         assert "REFERENCES bot_roles (role_name)" in admins_ddl
         assert "ON DELETE RESTRICT" in admins_ddl
 
+    def test_persona_state_singleton_ddl_and_seed(self):
+        """Раунд 10.14 (F1, ADR-1014-2 D9): singleton-таблица метрик экстрактора
+        + ровно один идемпотентный сид-INSERT."""
+        ddl = next(s for s in DDL_STATEMENTS if "persona_state" in s)
+        assert "CREATE TABLE IF NOT EXISTS persona_state" in ddl
+        assert "BOOLEAN PRIMARY KEY DEFAULT true CHECK (id)" in ddl
+        assert "last_extract_status" in ddl
+        seeds = [s for s in DDL_STATEMENTS if "persona_state (id)" in s]
+        assert len(seeds) == 1
+        assert "ON CONFLICT (id) DO NOTHING" in seeds[0]
+
+    def test_personas_ddl_and_seed(self):
+        """Раунд 10.14 (F2, ADR-1014-1 §2.1/§2.5): схема личности бота —
+        scope CHECK, partial-unique, FK cascade, идемпотентный сид глобальной
+        строки (WHERE NOT EXISTS) + аддитивные трейт-колонки persona_state."""
+        ddl = _joined_ddl()
+        assert "CREATE TABLE IF NOT EXISTS personas" in ddl
+        assert "CREATE TABLE IF NOT EXISTS persona_traits" in ddl
+        personas = next(s for s in DDL_STATEMENTS
+                        if "CREATE TABLE IF NOT EXISTS personas" in s)
+        assert "personas_scope_chk" in personas
+        assert "is_global AND chat_id IS NULL" in personas
+        assert "REFERENCES chat_profiles (chat_id)" in personas
+        assert "ON DELETE CASCADE" in personas
+        assert "uq_personas_global" in ddl
+        assert "uq_personas_chat" in ddl
+        assert "idx_persona_traits_created" in ddl
+        assert "idx_persona_traits_chat" in ddl
+        seed = [s for s in DDL_STATEMENTS if "INSERT INTO personas" in s]
+        assert len(seed) == 1
+        assert "WHERE NOT EXISTS" in seed[0]
+        alters = [s for s in DDL_STATEMENTS
+                  if "ALTER TABLE persona_state" in s]
+        assert any("last_trait_at" in s for s in alters)
+        assert any("last_trait_status" in s for s in alters)
+
     @pytest.mark.asyncio
     async def test_init_twice_no_errors(self, fake_pool):
         conn, pool = fake_pool
@@ -98,8 +134,9 @@ class TestDdl:
         create_tables = [q for q in conn.queries
                          if "CREATE TABLE" in q[0]]
         # 4 базовых + 4 лора (раунд 7) + param_permissions/chat_keys/
-        # chat_usage/worker_budget (раунд 10) × 2 запуска
-        assert len(create_tables) == 12 * 2
+        # chat_usage/worker_budget (раунд 10) + persona_state (10.14/F1)
+        # + personas/persona_traits (10.14/F2) = 15 × 2 запуска
+        assert len(create_tables) == 15 * 2
 
     @pytest.mark.asyncio
     async def test_init_without_seed_settings_no_settings_insert(self, fake_pool):
@@ -158,7 +195,10 @@ class TestRoleSeeds:
         await db.init()
         insert_sqls = [q[0] for q in conn.queries if "INSERT" in q[0]]
         assert insert_sqls
-        assert all("ON CONFLICT" in s for s in insert_sqls)
+        # Идемпотентность: ON CONFLICT DO NOTHING, либо сид персоны через
+        # WHERE NOT EXISTS (F2, ADR-1014-1 §2.5).
+        assert all("ON CONFLICT" in s or "WHERE NOT EXISTS" in s
+                   for s in insert_sqls)
         role_inserts = [q for q in conn.queries
                         if "INSERT" in q[0] and "bot_roles" in q[0]]
         assert len(role_inserts) == 4      # + local_admin (раунд 10)

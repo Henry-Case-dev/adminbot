@@ -890,12 +890,17 @@ class LLMClient:
 
     # ── F3/T-1439 (cognition-deep-sleep, ADR-1013-1): роутер воркеров ───────
     # Единые PG-ключи выделенных LLM (role history → intel_history,
-    # background → intel_bg). Пустые поля → основная модель (no-op, нулевой
-    # регресс); ошибка dedicated → фоллбэк на основную. R17: ключ не логируем.
+    # background → intel_bg, reflection → intel_reflection). Пустые поля →
+    # основная модель (no-op, нулевой регресс); ошибка dedicated → фоллбэк на
+    # основную. R17: ключ не логируем.
+    # Раунд 10.14 (F1 anti-echo-self-reply): роль `reflection` — экстрактор
+    # сути self-ответа (F8 может наполнить keys/models.intel_reflection_*;
+    # при пустых полях — прозрачный фоллбэк на основную модель).
     _WORKER_ROLE_PREFIX = {
         "history": "intel_history",
         "background": "intel_bg",
         "bg": "intel_bg",
+        "reflection": "intel_reflection",
     }
 
     def _worker_profile(self, role: str) -> tuple[str, str, str, bool]:
@@ -921,8 +926,9 @@ class LLMClient:
     async def generate_worker(self, role: str, messages: list[dict[str, str]],
                               *, temperature: float | None = None,
                               chat_id: int | None = None) -> str:
-        """Вызов выделенной LLM роли воркера (`history` | `background`) с
-        фоллбэком на основную модель (F3/T-1439, spec §5).
+        """Вызов выделенной LLM роли воркера (`history` | `background` |
+        `reflection`) с фоллбэком на основную модель (F3/T-1439, spec §5;
+        F1 round1014: `reflection`).
 
         Пустые поля выделенного подключения → ровно `generate` (байт-в-байт
         старое поведение). При ошибке/пустом ответе dedicated — WARNING и

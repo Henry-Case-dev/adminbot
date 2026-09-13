@@ -17,14 +17,19 @@ from pydantic import BaseModel, Field
 
 from aiogram.utils.web_app import WebAppUser
 
+from config.settings import settings
 from services import access as access_srv
-from services import chat_keys, chat_params, chat_usage, param_catalog
+from services import bot_persona, chat_keys, chat_params, chat_usage, param_catalog
+from services import hot_config as hot
 from services import roles as roles_srv
 from services.config_cache import (
     ConfigCache,
     ConfigCacheUnavailableError,
     _INFO_KEY,
 )
+# L3-фикс: приватный реэкспорт `_GUIDE_KEY` больше не тянется через
+# config_cache — импорт напрямую из модуля-владельца.
+from services.info_service import GUIDE_KEY as _GUIDE_KEY
 from services.debug_config import (
     build_dump,
     is_pg_only,
@@ -65,7 +70,21 @@ logger = logging.getLogger(__name__)
 
 api_router = APIRouter()
 
+
+def _invalidate_provider_health(keys) -> None:
+    """R10.9-4 (F5 round1014): после записи конфигурации провайдеров сбросить
+    кэш health (status_service._health_cache) — иначе ``/api/status`` до 60с
+    отдаёт ``ok`` на старые base_url/model/key. ``keys`` — сохранённые
+    pg-ключи; сброс затрагивает только ``models.*``/``keys.*``. Ошибка
+    инвалидации не должна ронять успешный save (best-effort)."""
+    try:
+        from services.status_service import status as _status
+        _status.invalidate_health_cache(keys)
+    except Exception:
+        logger.warning("[api] health cache invalidation failed", exc_info=True)
+
 _RICH_TEXT_LIMIT = 32768   # лимит rich-HTML (53.3, T-447; 84.13.4)
+_GUIDE_LIMIT = 65536       # F6 (10.14): лимит Markdown-гайда (spec §2.3)
 
 _ACCESS_SECTION_TITLE = "Управление доступом"
 
@@ -107,6 +126,11 @@ class InfoUpdate(BaseModel):
     html: str
 
 
+class GuideUpdate(BaseModel):
+    """F6 (10.14, spec §2.3): Markdown-гайд по возможностям бота."""
+    markdown: str
+
+
 class ConfigChatDelete(BaseModel):
     key: str
 
@@ -130,6 +154,19 @@ class LlmTestRequest(BaseModel):
     base_url: str = ""
     model: str = ""
     api_key: str = ""
+
+
+class PersonaUpdate(BaseModel):
+    """Раунд 10.14 (F2 persona-storage-core, spec §5): partial-правка персоны.
+
+    `reset=true` → удаление per-chat override (наследование global);
+    `updated_at` — optimistic-токен (409 при несовпадении)."""
+    name: str | None = None
+    biography: str | None = None
+    system_prompt_overrides: str | None = None
+    is_aware_ai: bool | None = None
+    reset: bool = False
+    updated_at: str | None = None
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -543,6 +580,8 @@ async def config_keys_own_put(
                                             changed_by=user.id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    # R10.9-4: BYOK-ключ чата питает probe (_saved_api_key) → health стейл.
+    _invalidate_provider_health(("keys.llm_api_key",))
     logger.info("[api] chat key upsert | chat=%s | key=%s | by=%s",
                 chat_id, payload.key_name, user.id)
     return mask
@@ -575,6 +614,8 @@ async def config_keys_own_delete(
                                                   key_name, changed_by=user.id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    # R10.9-4: удаление BYOK-ключа → probe снова смотрит глобальный/дефолт.
+    _invalidate_provider_health(("keys.llm_api_key",))
     return {"removed": removed}
 
 
@@ -698,6 +739,8 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         await cache.set(item.key, value, spec.category)
         updated.append(item.key)
         logger.info("[api] config updated | key=%s | by=%s", item.key, user.id)
+    # R10.9-4 (F5 round1014): смена base_url/model/key → health переспрашивается.
+    _invalidate_provider_health(updated)
     return {"updated": updated}
 
 
@@ -1069,6 +1112,53 @@ async def post_info(
             "updated_by": user.id}
 
 
+# ── F6 (10.14): гайд по возможностям (Markdown, PG-only) ─────────────────────
+
+@api_router.get("/info/guide")
+async def get_info_guide(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """F6 (spec §2.3): TMA-auth, ЛЮБАЯ роль. PG down/нет ключа → код-канон
+    (сид-файл) или пусто — fail-open, всегда 200."""
+    from services.info_service import InfoService
+
+    guide = InfoService().get_guide()
+    return {"key": _GUIDE_KEY, **guide}
+
+
+@api_router.post("/info/guide")
+async def post_info_guide(
+    request: Request,
+    payload: GuideUpdate,
+    user: Annotated[WebAppUser, Depends(requires_permission("edit_info"))],
+):
+    """F6 (spec §2.3): право edit_info (как /api/info); пусто → 422;
+    > _GUIDE_LIMIT → 422; PG down → 503. Запись через InfoService.save_guide
+    (единственная точка записи)."""
+    cache: ConfigCache = get_cache(request)
+    markdown = payload.markdown
+    if not markdown.strip():
+        raise HTTPException(status_code=422, detail="markdown пуст")
+    if len(markdown) > _GUIDE_LIMIT:
+        raise HTTPException(
+            status_code=422,
+            detail=f"markdown превышает {_GUIDE_LIMIT} символов")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    try:
+        from services.info_service import InfoService
+        value = await InfoService().save_guide(markdown, updated_by=user.id)
+    except ConfigCacheUnavailableError:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    except Exception:
+        logger.exception("[api] guide save failed | by=%s", user.id)
+        raise HTTPException(status_code=500, detail="сохранение не удалось")
+    logger.info("[api] guide updated | by=%s | chars=%d", user.id, len(markdown))
+    return {"key": _GUIDE_KEY, "updated_at": value["updated_at"],
+            "updated_by": user.id}
+
+
 def _category_title(category: str) -> str:
     return {
         "prompts": "Промпты",
@@ -1263,3 +1353,198 @@ async def post_llm_test(
     from services.llm_probe import probe_block
     return await probe_block(payload.block, payload.base_url, payload.model,
                              payload.api_key)
+
+
+# ── Раунд 10.14 (F2 persona-storage-core, spec §5): /api/persona ────────────
+# Scope через X-Chat-Id (None = global). RBAC: global — global admin или
+# действие edit_persona; chat — действие edit_persona или секция content.
+_PERSONA_TEXT_LIMIT = 8192
+_PERSONA_TRAITS_LIMIT = 50
+
+
+def _persona_has_edit_action(ctx) -> bool:
+    """Роль с action `edit_persona` или global admin (spec §5, H2)."""
+    if bool(getattr(ctx, "is_global_admin", False)):
+        return True
+    perms = getattr(ctx, "effective_permissions", None)
+    if perms is None:
+        perms = Permissions.from_dict({})
+    return match_permission(perms, "edit_persona")
+
+
+def _persona_can_edit(ctx, *, is_global: bool) -> bool:
+    """Право правки персоны (spec §5): global — action edit_persona/global
+    admin; chat — action edit_persona или секция content."""
+    if _persona_has_edit_action(ctx):
+        return True
+    if is_global:
+        return False
+    perms = getattr(ctx, "effective_permissions", None)
+    if perms is None:
+        perms = Permissions.from_dict({})
+    return match_permission(perms, "section.content")
+
+
+def _persona_can_view(ctx, *, is_global: bool, chat_id: int | None) -> bool:
+    """R10.14-1: согласовано с `_persona_can_edit` — роль с action
+    `edit_persona`, которая может PUT global, должна и GET global (иначе
+    глобальный экран «Личность» в UI недостижим). Chat-scope — доступ к
+    чату; право правки chat подразумевает просмотр."""
+    if bool(getattr(ctx, "is_global_admin", False)):
+        return True
+    if _persona_has_edit_action(ctx):
+        return True
+    if is_global:
+        return False
+    return access_srv.can_access_chat(ctx, chat_id)
+
+
+def _persona_scope_payload(chat_id: int | None, persona) -> dict:
+    val = {
+        "name": persona.name,
+        "biography": persona.biography,
+        "system_prompt_overrides": persona.overrides,
+        "is_aware_ai": persona.is_aware_ai,
+    }
+    return {
+        "scope": "global" if chat_id is None else "chat",
+        "chat_id": None if chat_id is None else chat_id,
+        "values": val,
+        "is_global": bool(persona.is_global),
+        # H1 (F2 §5): optimistic-токен строки персоны для 409-протокола.
+        "updated_at": getattr(persona, "updated_at", None),
+    }
+
+
+def _validate_persona_payload(payload: PersonaUpdate) -> None:
+    for field in ("name", "biography", "system_prompt_overrides"):
+        value = getattr(payload, field)
+        if value is not None and len(str(value)) > _PERSONA_TEXT_LIMIT:
+            raise HTTPException(status_code=422,
+                                detail=f"{field} > {_PERSONA_TEXT_LIMIT}")
+
+
+async def _persona_access(request: Request, user: WebAppUser,
+                          x_chat_id: str | None):
+    cache: ConfigCache = get_cache(request)
+    chat_id = _chat_id_or_none(x_chat_id)
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    return cache, chat_id, ctx
+
+
+@api_router.get("/persona")
+async def get_persona(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """GET /api/persona: эффективная личность скоупа + dynamic_traits (F4).
+
+    Contract (spec §5): scope, chat_id, values{...}, is_global,
+    persona_enabled, dynamic_traits[{ts,text,source}]. Fail-open: PG down →
+    пустые значения (200), промпт жив."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    is_global = chat_id is None
+    if not _persona_can_view(ctx, is_global=is_global, chat_id=chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к персоне")
+    persona = await bot_persona.resolve_bot_persona(chat_id)
+    out = _persona_scope_payload(chat_id, persona)
+    # R10.14-3: per-chat override флага отражается в UI-индикаторе; global
+    # (chat_id is None) — hot.get (спец §4.5 chat_params только для чатов).
+    enabled_default = hot.get("flags.persona_enabled", settings.PERSONA_ENABLED)
+    if chat_id is None:
+        out["persona_enabled"] = bool(enabled_default)
+    else:
+        from services.chat_params import get_chat_param
+        out["persona_enabled"] = bool(await get_chat_param(
+            chat_id, "flags.persona_enabled", enabled_default))
+    out["dynamic_traits"] = await bot_persona.get_traits(
+        _PERSONA_TRAITS_LIMIT)
+    return out
+
+
+@api_router.put("/persona")
+async def put_persona(
+    request: Request,
+    payload: PersonaUpdate,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """PUT /api/persona: partial UPSERT (chat — после ensure_scope_profile;
+    global — singleton). reset:true → DELETE override чата. 403/409/422/503."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    is_global = chat_id is None
+    if not _persona_can_edit(ctx, is_global=is_global):
+        raise HTTPException(status_code=403, detail="нет права edit_persona")
+    _validate_persona_payload(payload)
+    if is_global and payload.reset:
+        raise HTTPException(status_code=422,
+                            detail="reset доступен только для чата")
+    if payload.reset:
+        if not cache.pg_available:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
+        try:
+            removed = await bot_persona.delete_persona(chat_id)
+        except bot_persona.PersonaUnavailable:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
+        if not removed:
+            raise HTTPException(status_code=404,
+                                detail="override персоны отсутствует")
+        return {"reset": True, "chat_id": chat_id, "removed": True}
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    patch = payload.model_dump(exclude={"reset", "updated_at"},
+                               exclude_none=True)
+    try:
+        persona = await bot_persona.save_persona(
+            chat_id, patch, expected_updated_at=payload.updated_at)
+    except bot_persona.PersonaConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict",
+                    "current_updated_at": exc.current_updated_at})
+    except bot_persona.PersonaUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    logger.info("[api] persona save | scope=%s | chat=%s | by=%s",
+                "global" if is_global else "chat", chat_id, user.id)
+    return _persona_scope_payload(chat_id, persona)
+
+
+@api_router.delete("/persona")
+async def delete_persona(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """DELETE /api/persona: удаление per-chat override (наследование global).
+    422 без X-Chat-Id; 403 чужие права; 404 нет строки; 503 PG down."""
+    cache, chat_id, ctx = await _persona_access(request, user, x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    if not _persona_can_edit(ctx, is_global=False):
+        raise HTTPException(status_code=403, detail="нет права edit_persona")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    try:
+        removed = await bot_persona.delete_persona(chat_id)
+    except bot_persona.PersonaUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    if not removed:
+        raise HTTPException(status_code=404,
+                            detail="override персоны отсутствует")
+    logger.info("[api] persona reset | chat=%s | by=%s", chat_id, user.id)
+    return {"reset": True, "chat_id": chat_id, "removed": True}
+
+
+@api_router.get("/persona/health")
+async def get_persona_health(
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """GET /api/persona/health: метрики Личности (spec §5, F4). Global admin."""
+    return await bot_persona.get_persona_health()

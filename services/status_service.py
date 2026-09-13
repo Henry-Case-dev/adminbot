@@ -45,6 +45,11 @@ _HEALTH_TIMEOUT_SECONDS = 5.0
 _UPTIME_WINDOW_SECONDS = 86400   # 24 ч
 _UPTIME_BUCKET_SECONDS = 300     # 5 мин
 
+# R10.9-4 (F5 round1014): health провайдера зависит ТОЛЬКО от base_url/model/key,
+# которые живут в категориях models.*/keys.*. Сохранение прочих категорий кэш
+# не трогает (не плодим лишние сетевые probe).
+_HEALTH_AFFECTING_PREFIXES = ("models.", "keys.")
+
 
 def _mask_key(key: str | None) -> dict:
     """84.11.2 (решение 5): только configured/last4 — полное значение НИКОГДА."""
@@ -324,6 +329,30 @@ class StatusService:
         async with self._health_lock:
             self._health_cache[module_id] = (time.monotonic(), result)
         return result
+
+    def invalidate_health_cache(self, keys=None) -> int:
+        """R10.9-4 (F5 round1014): сброс кэша health после записи конфигурации.
+
+        ``keys`` — сохранённые pg-ключи (итерируемое) либо ``None`` для
+        принудительного полного сброса. При указанных ключах кэш чистится
+        ТОЛЬКО если затронут провайдерный слой (``models.*``/``keys.*``) —
+        смена base_url/model/key иначе осталась бы стейл-ok до 60с.
+        Возвращает число снятых записей. Потокобезопасен для dict.clear().
+        """
+        if keys is not None:
+            try:
+                affected = any(str(k).startswith(_HEALTH_AFFECTING_PREFIXES)
+                               for k in keys)
+            except TypeError:
+                affected = True
+            if not affected:
+                return 0
+        dropped = len(self._health_cache)
+        self._health_cache.clear()
+        if dropped:
+            logger.info("[status] health cache invalidated | entries=%d",
+                        dropped)
+        return dropped
 
     @staticmethod
     async def _ping_provider(base_url: str, key: str, model: str = "",

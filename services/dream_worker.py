@@ -127,6 +127,9 @@ _DEEP_SLEEP_MIN_ANCHOR_AGE_DAYS = 90  # «историческим» счита�
 _DEEP_SLEEP_MIN_HISTORICAL = 2        # меньше 2 исторических опор — skip
 _DEEP_SLEEP_MIN_INTERVAL_HOURS = 20   # cooldown против наложений/циклов
 _DEEP_SLEEP_WEIGHT = 0.55             # вес парадигмы в контексте (0.5–0.6)
+# F2 persona-storage-core (spec §3.4): окно свежих self-фактов для анализа
+# эволюции характера бота.
+_PERSONA_SELF_LOOKBACK_DAYS = 30
 _DEEP_SLEEP_USER_JOB_ID = "deep_sleep_tick"
 
 # Источники «жизни чата» для дистилляции (обсуждение кандидатов §3.4.3:
@@ -1266,6 +1269,22 @@ class DreamWorker:
                 tokens)
         else:
             await self._log_deep_skip(chat_id, now, "duplicate", tokens)
+        # ── F2 persona-storage-core (spec §3.4): после прогона парадигм
+        # «Глубокий сон» анализирует эволюцию характера бота и пишет
+        # dynamic_traits (persona_traits). Гейт — flags.persona_enabled
+        # (deep_sleep уже проверен в начале). Fail-open: ошибка не влияет.
+        # H3-фикс: гейт резолвится per-chat (override → global → default).
+        from services.chat_params import get_chat_param as _persona_gate
+        persona_enabled = await _persona_gate(
+            chat_id, "flags.persona_enabled",
+            hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+        if persona_enabled:
+            try:
+                await self._run_persona_traits_once(chat_id, now=now)
+            except Exception:
+                logger.warning(
+                    "[persona_traits] run failed — fail-open | chat_id=%s",
+                    chat_id, exc_info=True)
         return {"status": "ok" if written else "duplicate",
                 "paradigms": written, "tokens": tokens}
 
@@ -1333,6 +1352,8 @@ class DreamWorker:
 
         S10.13-2: кап считает токены и успешных (`deep_run`), и скип-прогонов
         (`deep_skip`) — иначе error/unchanged/duplicate обходили лимит.
+        R10.14-2: сюда же входят токены traits (`deep_traits`) — LLM-вызов
+        эволюции характера больше не идёт вне суточного капа.
         `extra_tokens` — уже потраченные токены текущей попытки (retry)."""
         from services import worker_budget
         cap = _hot_number("limits.deep_sleep_tokens_per_day",
@@ -1343,6 +1364,8 @@ class DreamWorker:
             used = await self.db.sum_dream_log_tokens(day_start, kind="deep_run")
             used += await self.db.sum_dream_log_tokens(day_start,
                                                        kind="deep_skip")
+            used += await self.db.sum_dream_log_tokens(day_start,
+                                                       kind="deep_traits")
         except Exception:
             used = 0
         if cap and used + int(extra_tokens or 0) + est > cap:
@@ -1379,6 +1402,103 @@ class DreamWorker:
         except Exception:
             logger.warning("[deep_sleep] skip log failed — fail-open | "
                            "chat_id=%s", chat_id, exc_info=True)
+
+    async def _log_persona_traits_tokens(self, chat_id: int, now: int,
+                                         tokens: int, status: str) -> None:
+        """R10.14-2: аудит токенов traits (kind='deep_traits') — учитывается
+        `_deep_budget_ok` в суточном капе. Fail-open."""
+        try:
+            await self.db.log_dream_event(chat_id, now, kind="deep_traits",
+                                          tokens=tokens, status=status)
+        except Exception:
+            logger.warning("[persona_traits] token log failed — fail-open | "
+                           "chat_id=%s", chat_id, exc_info=True)
+
+    async def _run_persona_traits_once(self, chat_id: int, *,
+                                       now: int | None = None) -> dict:
+        """F2 persona-storage-core (spec §3.4): «Как изменился характер бота?».
+
+        Источники: свежие self-факты (origin='bot_self_reply') + убеждения
+        чата. LLM-роль background → JSON-массив наблюдений → дедуп/cap/FIFO
+        (bot_persona.append_traits) → persona_state.last_trait_*. Fail-open:
+        любая ошибка → status='error'/'empty', прогон глубокого сна не рушится.
+        """
+        from services import bot_persona
+        from services.dream_prompts import (
+            PERSONA_EVOLUTION_PROMPT,
+            build_persona_user,
+            parse_persona_traits,
+        )
+        now = _now_ts() if now is None else int(now)
+        try:
+            self_facts = await self.db.get_dream_candidates(
+                chat_id, now, origins=("bot_self_reply",),
+                since_ts=now - _PERSONA_SELF_LOOKBACK_DAYS * 86400,
+                limit=50)
+        except Exception:
+            self_facts = []
+        try:
+            beliefs = await self.db.list_recent_beliefs(
+                chat_id=chat_id, limit=20, status="confirmed")
+        except Exception:
+            beliefs = []
+        # Характер бота оценивается по его СОБСТВЕННЫМ наблюдениям (self-факты
+        # origin='bot_self_reply'); без них убеждений чата недостаточно —
+        # не подменяем личность общечатовым лором (fail-safe empty).
+        if not self_facts:
+            await bot_persona.record_trait_status("empty")
+            return {"status": "empty", "traits": 0}
+        user_text = build_persona_user(self_facts, beliefs)
+        messages = [
+            {"role": "system", "content": PERSONA_EVOLUTION_PROMPT},
+            {"role": "user", "content": user_text},
+        ]
+        prompt_text = PERSONA_EVOLUTION_PROMPT + user_text
+        # R10.14-2 (spec F2 §3.4 п.5): traits-LLM идёт через тот же учёт, что
+        # и прочие фоновые вызовы — суточный кап + worker_budget. Fail-safe:
+        # превышение → skip без вызова, прогон глубокого сна не рушится.
+        if not await self._deep_budget_ok(chat_id, prompt_text):
+            await bot_persona.record_trait_status("budget_skip")
+            await self._log_persona_traits_tokens(chat_id, now, 0,
+                                                  "budget_skip")
+            return {"status": "budget", "traits": 0}
+        try:
+            raw = await self._worker_llm("background", messages,
+                                         temperature=0.3)
+        except Exception:
+            await self._log_persona_traits_tokens(
+                chat_id, now, _estimate_tokens(prompt_text), "error")
+            logger.warning("[persona_traits] LLM call failed — fail-open | "
+                           "chat_id=%s", chat_id, exc_info=True)
+            await bot_persona.record_trait_status("error")
+            return {"status": "error", "traits": 0}
+        # Токены traits пишутся в memory_dream_log (kind='deep_traits') —
+        # попадают в суточный кап `_deep_budget_ok`.
+        await self._log_persona_traits_tokens(
+            chat_id, now, _estimate_tokens(prompt_text, str(raw or "")),
+            "done")
+        try:
+            traits = parse_persona_traits(raw)
+        except ValueError:
+            await bot_persona.record_trait_status("error")
+            return {"status": "error", "traits": 0}
+        if not traits:
+            await bot_persona.record_trait_status("empty")
+            return {"status": "empty", "traits": 0}
+        try:
+            written = await bot_persona.append_traits(
+                traits, chat_id=chat_id, source="deep_sleep")
+        except Exception:
+            logger.warning("[persona_traits] write failed — fail-open | "
+                           "chat_id=%s", chat_id, exc_info=True)
+            await bot_persona.record_trait_status("error")
+            return {"status": "error", "traits": 0}
+        status = "ok" if written else "empty"
+        await bot_persona.record_trait_status(status)
+        if written:
+            logger.info("[persona_traits] written | chat_id=%s | count=%d",
+                        chat_id, written)
+        return {"status": status, "traits": written}
 
     async def _paradigm_dedup_keys(self, chat_id: int) -> set[str]:
         """dedup_key существующих парадигм чата (анти-дубли, spec §4)."""

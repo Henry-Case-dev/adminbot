@@ -14,6 +14,88 @@
 > Метрики по раундам — `plans/metrics.md`. Полный блок — «Синк STEP 10
 > (финал) 13.09.2026» ниже.
 
+> **Step 0 recon 13.09.2026 (раунд 10.14 — «Самосознание и Личность бота»,
+> plans/current_task.md пп.1–7):** HEAD == origin/master == `2edc65b` (docs-финал
+> 10.13), дерево ЧИСТОЕ, APP_VERSION 2.57.0, pytest **5392/0**, каталог
+> **427/90/399/403** (TAB_RULES 19), SQLite v8. Эпик записан в KG —
+> `Epic: Self-Awareness-Persona Refactor round1014` + милстоун
+> `round1014-epic-self-awareness` (+ `round1014-persona-storage-ddl-free`,
+> `risk-bot-self-echo-round1014`, `metric-snapshot-round1014-baseline`).
+> §1 anti-echo: свои ответы УЖЕ хранятся как `graph_facts.origin='bot_direct_reply'`
+> (query+answer) с весом 0.7 и идут в RAG+сон (`_DREAM_SOURCE_ORIGINS`); новый
+> origin запрещён CHECK'ом SQLite (DDL-free маркировка — `status`/`belief_meta`).
+> §2 Persona — greenfield (таблицы/полей `is_global`/`is_aware_ai`/`dynamic_traits`
+> нет); «Досье» 10.13 = карточка ПОЛЬЗОВАТЕЛЯ, не бот. §3/§3.1/§7 — точки изменения
+> найдены (hub «ИИ» 7 карточек, `_ribbonLoop` 2 ленты, порядок Статуса). §4 —
+> global-save уже в 10.12 (R10.12-1 закрыт), нужен end-to-end аудит (связан с
+> активной F-5 `config-read-path-audit`). §5/§6 — гайд и «Справка» существуют,
+> нужен доп. редактируемый блок. ⚠️ Главный конфликт — **новая схема Persona vs
+> инвариант «ноль новых PG-DDL»**: PG-таблицы живут в `services/pg_db.py`
+> (идемпотентный DDL при старте); DDL-free путь — `bot_settings`/
+> `chat_params.overrides`/каталог. Открытый техдолг: 5 Low `S10.13-*` +
+> R10.11-4/R10.12-2..4/R10.3-1..2/R10.9-4. Дальше — Step 1 @PM (5–7 фич),
+> Step 2 @Architect (решение Persona storage).
+>
+> ⚠️ **ЧАСТЬ ЭТОГО РЕКОНА УСТАРЕЛА (UPD 13.09.2026, см. блок «Step 2/3 (итерация 2)» ниже):**
+> DDL-free-путь Persona (`bot_settings`/`chat_params.overrides`) и тезис «новый origin запрещён
+> CHECK'ом SQLite» — **ОТМЕНЕНЫ ВЛАДЕЛЬЦЕМ**; инвариант «ноль PG-DDL» и «SQLite v8 / origin CHECK
+> заморожен» **СНЯТЫ**. Актуальные цифры — 8 фич, T-1477…T-1548, каталог 435/406/411, SQLite v9.
+
+> **Step 2/3 (итерация 2) 13.09.2026 (раунд 10.14 — ПЕРЕРАБОТКА под UPD владельца):**
+> Владелец **РАЗРЕШИЛ** менять структуру БД и писать миграции (PG + SQLite) — прежние инварианты
+> «ноль новых PG-DDL» (10.4–10.13) и «SQLite остаётся v8 / `graph_facts.origin` CHECK заморожен»
+> **СНЯТЫ**; DDL-free-решения Шага 2 (Persona в `bot_settings`/`chat_params.overrides`, self-маркер
+> через `status='self_reply'`, rule-based экстрактор) **ОТМЕНЕНЫ** владельцем («не лепим заплатки»;
+> «делай базу логичной»; «вырезание сути регулярками убьёт контекст»). Политика —
+> `plans/project.md` §«Политика DDL (обновлено раундом 10.14)»; KG-узел `DDL allowed (10.14)`
+> (прежний узел `round1014-persona-storage-ddl-free` удалён).
+>
+> **Итог Шага 2: 8 фич F1–F8, задачи T-1477…T-1548 (72), 8 `spec.md` + 2 ADR, все SPEC_READY/ACCEPTED**
+> (Step 1 @PM дал 7 фич/64 задачи — добавлена **F8** по UPD п.3); статус эпика — **ARCHITECTED**
+> (Builder не начат). Каталог-Δ (санкционирован): **REGISTRY 427→435, Settings 399→406,
+> categorized 403→411; GROUPS 90 / mapped 88 / TAB_RULES 19 — без изменений** (прежний черновик
+> 436/92/20 отменён — вкладка «Личность» = special-screen, не `TABS`).
+>
+> **F1 `anti-echo-self-reply` (T-1477…1486):** origin `bot_self_reply` (11-й) + rebuild `graph_facts` +
+> **SQLite v8→v9** (`_migrate_self_origin_v9`; копируются все 16 колонок, `id` 1:1 ⇒ FTS/vec валидны;
+> обратимость — обратный `UPDATE origin` перед revert); вес `limits.graph_fact_weight_bot`=0.2,
+> важность 2; экстрактор — **только LLM** (`services/self_reflection.py`, prompt-константа, fail-open);
+> анти-эхо-инструкция `_SELF_ECHO_INSTRUCTION`; карантин self из Сна/золотых/компакции/
+> `graph_stats.facts`; `persona_state` (PG singleton); флаг `flags.bot_self_awareness_enabled`=**True**.
+> ADR-1014-2.
+> **F2 `persona-storage-core` (T-1487…1497):** **PG `personas`** (id, chat_id NULL, is_global, name,
+> biography, system_prompt_overrides, is_aware_ai, created_at, updated_at; CHECK скоупа, 2 partial
+> UNIQUE, FK `chat_id`→`chat_profiles` ON DELETE CASCADE) + **`persona_traits`** (id, chat_id, trait,
+> source, created_at); `services/bot_persona.py` (scope per-chat→global→empty, промпт-блок `<Persona>`,
+> `_NO_AI_DISCLOSURE_BLOCK`); traits пишет DeepSleepWorker; API `GET/PUT/DELETE /api/persona` +
+> `GET /api/persona/health`; флаг `flags.persona_enabled`=**True**. ADR-1014-1.
+> **F3 `persona-ui-tab` (T-1498…1504):** special-screen `#/ai/persona` (карточка «Личность» в Hub «ИИ»),
+> форма 3 поля + чекбокс «Осознаёт себя ИИ», scope-сброс; Δ каталога = 0.
+> **F4 `persona-traits-ribbon` (T-1505…1510):** 3-я лента «Эволюция характера» (`_ribbonLoop`, сетка
+> 3→1) + панель **метрик Личности в «Сводке»** (`#/oversight`: кол-во `dynamic_traits`, время
+> последнего пересмотра, статус экстрактора; источник `GET /api/persona/health`).
+> **F5 `settings-persistence-audit` (T-1511…1525):** write-path/scope/restart-аудит ВСЕХ параметров +
+> dedicated-API раунда; закрывает R10.9-4 (health-кэш); границы с активной F-5
+> `config-read-path-audit` (read-path — у неё, не дублировать).
+> **F6 `help-guide-integration` (T-1526…1534):** гайд в БД (**PG `content.intelligence_guide`**, json) +
+> второй редактируемый блок в «Справке» (Markdown-редактор + DOMPurify 3.4.15 self-host, preview,
+> save); идемпотентный сид из `plans/docs/intelligence_user_guide.md` (ручные правки не
+> перезатираются); API `GET/POST /api/info/guide`.
+> **F7 `status-layout-reorder` (T-1535…1540):** порядок Статуса Сводка → **Сердцебиение** → Бот →
+> Сервер → **Мониторинг Интеллекта** → Доступность ключей → История; Δ=0, правок `app.js` нет.
+> **F8 `self-reflection-llm-provider` (T-1541…1548):** роль `reflection` → slug **`intel_reflection`**
+> (`generate_worker`), 4 PG-ключа (models/keys), probe `intel_reflection_main`, третий parent-блок
+> «LLM для саморефлексии (Экстрактор сути)»; пусто/ошибка → основная модель (fail-open). Паттерн
+> ADR-1013-1.
+>
+> **Порядок внедрения:** F1 → F2 → {F3, F4} → {F5 ∥} → F6 → F7 (F8 самодостаточна, потребляется F1).
+> **Остаются в силе:** R17, R16, порядок роутеров `bot.py` (DI-kwargs), `media/` и `.env` не трогать,
+> каталог-Δ только санкционированно + пин-тесты, русские conventional commits. Риски:
+> `risk-round1014-v9-migration-rebuild`, `risk-round1014-index-html-merge-conflicts`, self-эхо.
+> **Граф синхронизирован (Step 3):** 8 Feature + 14 компонентов + ADR-1014-1/2 + `UPD owner decisions`
+> + `DDL allowed (10.14)` + риски/техдолг/внешняя-зависимость/снимок метрик; узел
+> `round1014-persona-storage-ddl-free` удалён.
+
 > Создан заново 07.09.2026 (pre-планирование эпоса «Multi-chat scaling +
 > Granular RBAC + BYOK + PERMsoc-плагин + TMA-навигация»). Прежние plans/
 > файлы удалены 03.09.2026. Синк STEP 3 выполнен 07.09.2026 (HEAD fac1b9f):
@@ -439,6 +521,14 @@
 | `config-read-path-audit` (F-5) | Аудит read-путей: settings.X vs hot.get |
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
+| `anti-echo-self-reply-round1014` (10.14-F1) | origin `bot_self_reply` + SQLite v9 + LLM-экстрактор (T-1477…1486) |
+| `persona-storage-core-round1014` (10.14-F2) | PG `personas`/`persona_traits` + `bot_persona` (T-1487…1497) |
+| `persona-ui-tab-round1014` (10.14-F3) | special-screen `#/ai/persona` (T-1498…1504) |
+| `persona-traits-ribbon-round1014` (10.14-F4) | лента «Эволюция характера» + метрики «Сводки» (T-1505…1510) |
+| `settings-persistence-audit-round1014` (10.14-F5) | write/scope/restart-аудит + реактивность (T-1511…1525) |
+| `help-guide-integration-round1014` (10.14-F6) | гайд в PG + редактор в «Справке» (T-1526…1534) |
+| `status-layout-reorder-round1014` (10.14-F7) | перестановка блоков «Статус» (T-1535…1540) |
+| `self-reflection-llm-provider-round1014` (10.14-F8) | 3-й провайдер `intel_reflection` (T-1541…1548) |
 
 > **Раунд 10.13 — 8 фич ЗАВЕРШЁН и ЗААРХИВИРОВАН (13.09.2026)** — F1 4D-память,
 > F2 belief decay+resurrection, F3 глубокий сон+роутер, F4 UI провайдеров,

@@ -826,6 +826,12 @@ async def main():
     from services.worker_budget import set_worker_budget_pg
     set_worker_budget_pg(cache.pg)
 
+    # ── Раунд 10.14 (F2 persona-storage-core, spec §3.3/T-1493): прогрев
+    # in-memory кэша глобального имени бота (sync-триггер обращения).
+    # Fail-open: PG down → пустое имя, бот работает как раньше.
+    from services.bot_persona import load_global_cache
+    await load_global_cache()
+
     # ── Раунд 5 (T-740, spec 3.3.4): авто-миграция канонов промптов в PG
     # (9 ключей; канон → новый канон; кастом юзера НЕ трогаем; PG down /
     # ключ отсутствует → skip с логом [prompt_migration]). Заменяет

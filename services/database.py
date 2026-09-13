@@ -50,9 +50,14 @@ _SCHEMA_VERSION_USER_MEMORY = 5  # Раунд 4 (T-713, 3.4.3): user_version 4�
 _SCHEMA_VERSION_CHAT_PROTECTED_FACTS = 6  # Раунд 5 (T-731, 3.2.1): 5→6
 _SCHEMA_VERSION_HISTORY_IMPORT = 7  # Фаза 2 (T-758): 6→7 (message_timestamp +
                                     # history_import + smart_messages.import_key)
-_SCHEMA_VERSION_AGI_MEMORY = 8  # Раунд 9 (T-822, spec §3.3.1): 7→8 —
+_SCHEMA_VERSION_AGI_MEMORY_V8 = 8  # Раунд 9 (T-822, spec §3.3.1): 7→8 —
                                 # graph_facts rebuild (importance/source_ids/
-                                # kind/belief_meta + origin 'derived_belief')
+                                # kind/belief_meta + origin 'derived_belief').
+                                # Историческая ступень каскада — НЕ цель.
+_SCHEMA_VERSION_AGI_MEMORY = 9   # Раунд 10.14 (F1 anti-echo-self-reply,
+                                # ADR-1014-2 D2 / spec §2.1): 8→9 — graph_facts
+                                # rebuild (origin '+ bot_self_reply'); это
+                                # ТЕКУЩАЯ цель user_version.
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -64,10 +69,14 @@ _SCHEMA_VERSION_AGI_MEMORY = 8  # Раунд 9 (T-822, spec §3.3.1): 7→8 —
 # вес 0.3, expires_at NULL (вечно), message_timestamp = дата сообщения.
 # derived_belief (раунд 9, T-822, spec §3.3.1): убеждения DreamWorker
 # («сон») — единый CHECK; вступает в силу при rebuild graph_facts (v8).
+# bot_self_reply (раунд 10.14, F1 anti-echo-self-reply, ADR-1014-2 D1):
+# ЧЕСТНЫЙ 11-й origin для собственных сообщений бота (суть ответа, LLM-
+# экстрактор); не переиспользует status='self_reply'. Вступает в силу при
+# rebuild graph_facts (v9). Вес 0.2, важность 2, target_user NULL.
 _GRAPH_FACT_ORIGINS_SQL = (
     "('chat_history', 'search_fact', 'youtube_content', 'web_content', "
     "'bot_direct_reply', 'voice_transcript', 'video_transcript', 'user_memory', "
-    "'history_import', 'derived_belief')"
+    "'history_import', 'derived_belief', 'bot_self_reply')"
 )
 
 # Раунд 9 (AGI Memory, spec §3.3.2, T-823): importance-правило БЕЗ LLM на
@@ -85,6 +94,9 @@ _IMPORTANCE_BASE = {
     "youtube_content": 3,
     "web_content": 3,
     "search_fact": 3,
+    # Раунд 10.14 (F1 anti-echo-self-reply, ADR-1014-2 D3): собственные
+    # высказывания бота — НИЖЕ пользовательских (bot_direct_reply=3).
+    "bot_self_reply": 2,
 }
 _RE_YEAR_OR_NUM3 = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{3,}\b")
 
@@ -399,6 +411,7 @@ class DatabaseService:
         await self._migrate_chat_protected_facts_v6()  # Раунд 5 (T-731): 5→6
         await self._migrate_history_import_v7()  # Фаза 2 (T-758): 6→7
         await self._migrate_agi_memory_v8()  # Раунд 9 (T-822): 7→8
+        await self._migrate_self_origin_v9()  # Раунд 10.14 (F1/T-1478): 8→9
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -894,11 +907,90 @@ class DatabaseService:
                 "WHEN 'history_import' THEN 2 WHEN 'bot_direct_reply' THEN 3 "
                 "WHEN 'voice_transcript' THEN 2 WHEN 'video_transcript' THEN 2 "
                 "WHEN 'search_fact' THEN 3 WHEN 'youtube_content' THEN 3 "
-                "WHEN 'web_content' THEN 3 END")
+                "WHEN 'web_content' THEN 3 WHEN 'bot_self_reply' THEN 2 END")
             await self.db.execute(
                 "UPDATE graph_facts SET importance = MIN(10, importance + 1) "
                 "WHERE length(fact) >= 200")
             await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_AGI_MEMORY_V8}")
+        await self.db.commit()
+
+    async def _migrate_self_origin_v9(self) -> None:
+        """Раунд 10.14 (F1 anti-echo-self-reply, ADR-1014-2 D2 / spec §2.1):
+        user_version 8→9. CHECK graph_facts.origin расширяется ЧЕСТНЫМ
+        11-м origin 'bot_self_reply' через rebuild (SQLite не умеет ALTER
+        CHECK) — образец _migrate_agi_memory_v8 / _migrate_history_import_v7.
+
+        - GUARD (идемпотентность): rebuild ТОЛЬКО если 'bot_self_reply' нет в
+          CREATE-тексте graph_facts (sqlite_master). Повторный запуск — no-op.
+          ВАЖНО: ``PRAGMA user_version = 9`` ставится ВСЕГДА (вне guard):
+          свежая БД проходит через v5/v7/v8-rebuild, которые интерполируют
+          уже обновлённый _GRAPH_FACT_ORIGINS_SQL (origin присутствует) —
+          rebuild корректно пропускается, но версия всё равно фиксируется.
+        - REBUILD копирует ВСЕ 16 колонок v8 (id, chat_id, fact, origin,
+          expires_at, created_at, target_user, weight, status,
+          last_confirmed_at, supersedes, message_timestamp, importance,
+          source_ids, kind, belief_meta) 1:1 — id сохраняются, поэтому FTS5
+          graph_facts_fts (content='graph_facts') и vec0 graph_facts_vec
+          (rowid=fact_id) остаются валидными БЕЗ пересоздания (прецедент
+          D201). Данные НЕ теряются.
+        - Индексы v8 пересоздаются (5): idx_graph_facts_chat_origin,
+          idx_graph_facts_target_user, idx_graph_facts_history_import
+          (partial UNIQUE), idx_graph_facts_chat_kind, idx_graph_facts_beliefs
+          (partial).
+        - Обратимость (откат, документирован в ADR §D2): перед git revert —
+          ``UPDATE graph_facts SET origin='bot_direct_reply'
+          WHERE origin='bot_self_reply'`` (иначе старый CHECK отклонит строки);
+          сама миграция повторно не срабатывает (guard по 'bot_self_reply')."""
+        cursor = await self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'"
+        )
+        row = await cursor.fetchone()
+        if row and row["sql"] and "bot_self_reply" not in row["sql"]:
+            logger.info(
+                "[database] migration v9: graph_facts origins rebuild "
+                "(bot_self_reply)")
+            await self.db.executescript(
+                "ALTER TABLE graph_facts RENAME TO graph_facts_v9_legacy; "
+                "CREATE TABLE graph_facts ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, "
+                "fact TEXT NOT NULL, "
+                "origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN "
+                + _GRAPH_FACT_ORIGINS_SQL + "), "
+                "expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT, "
+                "weight REAL NOT NULL DEFAULT 0.5, "
+                "status TEXT NOT NULL DEFAULT 'confirmed', "
+                "last_confirmed_at INTEGER, supersedes INTEGER, "
+                "message_timestamp INTEGER, "
+                "importance INTEGER NOT NULL DEFAULT 0, "
+                "source_ids TEXT, "
+                "kind TEXT NOT NULL DEFAULT 'fact' "
+                "CHECK (kind IN ('fact','belief')), "
+                "belief_meta TEXT); "
+                "INSERT INTO graph_facts (id, chat_id, fact, origin, expires_at, "
+                "created_at, target_user, weight, status, last_confirmed_at, "
+                "supersedes, message_timestamp, importance, source_ids, kind, "
+                "belief_meta) "
+                "SELECT id, chat_id, fact, origin, expires_at, created_at, "
+                "target_user, weight, status, last_confirmed_at, supersedes, "
+                "message_timestamp, importance, source_ids, kind, belief_meta "
+                "FROM graph_facts_v9_legacy; "
+                "DROP TABLE graph_facts_v9_legacy; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_origin "
+                "ON graph_facts(chat_id, origin); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_target_user "
+                "ON graph_facts(chat_id, target_user); "
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_graph_facts_history_import "
+                "ON graph_facts(chat_id, fact, message_timestamp) "
+                "WHERE origin='history_import' AND message_timestamp IS NOT NULL; "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_chat_kind "
+                "ON graph_facts(chat_id, kind); "
+                "CREATE INDEX IF NOT EXISTS idx_graph_facts_beliefs "
+                "ON graph_facts(chat_id) WHERE kind='belief';"
+            )
+            await self.db.commit()
+        # user_version фиксируется БЕЗУСЛОВНО (вне guard) — см. docstring.
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_AGI_MEMORY}")
         await self.db.commit()
@@ -1973,11 +2065,13 @@ class DatabaseService:
                                        limit: int = 500) -> list[dict]:
         """Новые сырые факты чата (kind='fact', status='confirmed', живые,
         id > since_id) — кандидаты «подкрепления» belief (F2/T-1425, §2):
-        фильтр по якорному токену делает вызывающий в Python."""
+        фильтр по якорному токену делает вызывающий в Python.
+        Раунд 10.14 (F1, ADR-1014-2 D6): self-факты исключены по origin."""
         now = int(now_ts if now_ts is not None else time.time())
         cursor = await self.db.execute(
             "SELECT id, fact FROM graph_facts "
             "WHERE chat_id = ? AND kind = 'fact' AND status = 'confirmed' "
+            "AND origin != 'bot_self_reply' "
             "AND id > ? AND (expires_at IS NULL OR expires_at > ?) "
             "ORDER BY id ASC LIMIT ?",
             (int(chat_id), int(since_id), now, int(limit)))
@@ -2365,7 +2459,9 @@ class DatabaseService:
         `f.importance >= min_importance` И
         `COALESCE(f.message_timestamp, f.created_at) < max_age_ts`
         (давность ≥ порога). Отбирает по рангу; importance/kind/ts в SELECT
-        для рендера/весов вызывающего."""
+        для рендера/весов вызывающего. Раунд 10.14 (F1, ADR-1014-2 D6):
+        self-факты («золотые» не должны быть собственными словами бота)
+        исключены по origin."""
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
             "f.weight, f.last_confirmed_at, f.message_timestamp, f.importance, "
@@ -2378,6 +2474,7 @@ class DatabaseService:
             "AND f.importance >= ? "
             "AND COALESCE(f.message_timestamp, f.created_at) < ? "
             "AND f.origin != 'bot_direct_reply' "
+            "AND f.origin != 'bot_self_reply' "
             "ORDER BY graph_facts_fts.rank LIMIT ?")
         cursor = await self.db.execute(
             sql, (match_query, chat_id, now_ts, int(min_importance),
@@ -2387,7 +2484,8 @@ class DatabaseService:
 
     async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts,
                                      include_direct_reply=False,
-                                     include_archived=False) -> list:
+                                     include_archived=False,
+                                     include_self=False) -> list:
         """FTS-фолбек RAG с ленивым TTL-фильтром (D175). Epic 50 (58.8, D206):
         include_direct_reply=False (default) → origin='bot_direct_reply' НЕ
         подмешивается в чужие пайплайны; + created_at/target_user в SELECT.
@@ -2396,7 +2494,10 @@ class DatabaseService:
         (пересортировка по w_eff) происходит в Python (SQL не меняем).
         F2/T-1426 (spec §2): include_archived=True (dig_into_lore — прямое
         копание) → status ∈ ('confirmed','archived_belief'); обычный RAG
-        (False) архив не видит."""
+        (False) архив не видит.
+        Раунд 10.14 (F1, ADR-1014-2 D7): include_self=False (default) →
+        origin='bot_self_reply' невидим (Сон/золотые/чужие пайплайны);
+        direct-путь передаёт include_self=True (свои прошлые слова с меткой)."""
         statuses = ("('confirmed', 'archived_belief')" if include_archived
                     else "('confirmed')")
         sql = (
@@ -2410,6 +2511,8 @@ class DatabaseService:
             f"AND f.status IN {statuses} ")
         if not include_direct_reply:
             sql += "AND f.origin != 'bot_direct_reply' "
+        if not include_self:
+            sql += "AND f.origin != 'bot_self_reply' "
         sql += "ORDER BY graph_facts_fts.rank LIMIT ?"
         cursor = await self.db.execute(sql, (match_query, chat_id, now_ts, limit))
         return await cursor.fetchall()
@@ -3314,11 +3417,13 @@ class DatabaseService:
 
     async def get_live_graph_facts(self, chat_id: int, now_ts: int) -> list:
         """66.2/66.11: живые (не протухшие) confirmed-факты чата для слияния/
-        пересмотра."""
+        пересмотра. Раунд 10.14 (F1, ADR-1014-2 D6): self-факты исключены по
+        origin (собственные слова бота не «подтверждаются» слиянием)."""
         cursor = await self.db.execute(
             "SELECT id, fact, origin, expires_at, created_at, weight, "
             "target_user, last_confirmed_at FROM graph_facts "
             "WHERE chat_id = ? AND status = 'confirmed' "
+            "AND origin != 'bot_self_reply' "
             "AND (expires_at IS NULL OR expires_at > ?)",
             (chat_id, now_ts))
         return await cursor.fetchall()
@@ -3331,10 +3436,12 @@ class DatabaseService:
 
     async def find_exact_dup_groups(self, chat_id: int, now_ts: int) -> list:
         """66.11 (T-489): точные дубли (идентичный текст факта) живых
-        confirmed-фактов чата — группы ≥2 (для склейки пересмотром)."""
+        confirmed-фактов чата — группы ≥2 (для склейки пересмотром).
+        Раунд 10.14 (F1, ADR-1014-2 D6): self-факты исключены по origin."""
         cursor = await self.db.execute(
             "SELECT id, fact, weight, created_at FROM graph_facts "
             "WHERE chat_id = ? AND status = 'confirmed' "
+            "AND origin != 'bot_self_reply' "
             "AND (expires_at IS NULL OR expires_at > ?)",
             (chat_id, now_ts))
         groups: dict[str, list] = {}
@@ -3575,10 +3682,17 @@ class DatabaseService:
 
         out = {"facts": 0, "beliefs": 0, "archived_beliefs": 0,
                "protected_facts": 0, "paradigms": 0, "memes": 0,
-               "graph_nodes": 0, "graph_edges": 0, "relation_types": 0}
+               "graph_nodes": 0, "graph_edges": 0, "relation_types": 0,
+               # Раунд 10.14 (F1, spec §3.6): отдельный счётчик self-фактов
+               # (мониторинг F4) — из «facts» они исключены.
+               "bot_self_replies": 0}
         sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
-                        "WHERE kind = 'fact' AND status = 'confirmed'")
+                        "WHERE kind = 'fact' AND status = 'confirmed' "
+                        "AND origin != 'bot_self_reply'")
         out["facts"] = await _one(sql, p)
+        sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
+                        "WHERE origin = 'bot_self_reply'")
+        out["bot_self_replies"] = await _one(sql, p)
         # S10.13-6: «Убеждений» = kind='belief' без F3-парадигм (у них свой
         # счётчик `paradigms`), иначе парадигмы считались дважды.
         sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
