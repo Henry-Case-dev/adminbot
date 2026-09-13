@@ -5,14 +5,16 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (13.09.2026):** последний раунд — **10.13
-> «Cognition / Sleep / Memory Refactor»**, статус **COMPLETED + DEPLOYED**
-> (HEAD == origin/master == `8800bba`, APP_VERSION **2.57.0**, тесты
-> **5392 passed / 0 failed**, прод active/health 200). 8 фич, 60 задач
-> T-1417…T-1476, все заархивированы (`plans/archive/cognition-*-round1013/`,
-> plans/archive/ — 42 папки). plans/features/ — 6 активных (F-1…F-6).
-> Метрики по раундам — `plans/metrics.md`. Полный блок — «Синк STEP 10
-> (финал) 13.09.2026» ниже.
+> **АКТУАЛЬНЫЙ СТАТУС (13.09.2026):** последний раунд — **10.14
+> «Самосознание и Личность бота»**, статус **COMPLETED + DEPLOYED**
+> (HEAD == origin/master == `eb2a232`, APP_VERSION **2.57.0** — без бампа,
+> тесты **5589 passed / 0 failed**, прод active/health 200, PID 1774527).
+> 8 фич F1–F8, 72 задачи T-1477…T-1548, все заархивированы
+> (`plans/archive/*-round1014/`, plans/archive/ — **50 папок**).
+> plans/features/ — 6 активных (F-1…F-6). SQLite **v9**, PG
+> `personas`/`persona_traits`/`persona_state`; флаги
+> `persona_enabled`/`bot_self_awareness_enabled` = **ON**. Метрики по раундам —
+> `plans/metrics.md`. Полный блок — «Синк STEP 10 (финал) раунда 10.14» ниже.
 
 > **Step 0 recon 13.09.2026 (раунд 10.14 — «Самосознание и Личность бота»,
 > plans/current_task.md пп.1–7):** HEAD == origin/master == `2edc65b` (docs-финал
@@ -95,6 +97,47 @@
 > **Граф синхронизирован (Step 3):** 8 Feature + 14 компонентов + ADR-1014-1/2 + `UPD owner decisions`
 > + `DDL allowed (10.14)` + риски/техдолг/внешняя-зависимость/снимок метрик; узел
 > `round1014-persona-storage-ddl-free` удалён.
+
+> **Синк STEP 10 (финал) раунда 10.14 «Самосознание и Личность бота» (13.09.2026):**
+> эпик **COMPLETED + DEPLOYED**, 8 фич F1–F8, **72 задачи T-1477…T-1548** — все `[x]`.
+> **Коммит:** `eb2a232` (`feat(services,web,api,docs,plans): раунд 10.14 — самосознание и
+> личность бота, PG Persona и SQLite v9, LLM-экстрактор, метрики Сводки, редактор Справки
+> (тесты 5589)`); push origin/master `2edc65b..eb2a232`. HEAD == origin/master == `eb2a232`,
+> дерево ЧИСТОЕ. **APP_VERSION НЕ бампился** (остался **2.57.0**; отдельный релиз v2.58.0 не
+> выставлялся — см. KG `release-round1014`).
+> **Миграции реализованы** (инварианты «ноль PG-DDL»/«SQLite v8» сняты владельцем):
+> SQLite **v8→v9** (rebuild `graph_facts`, новый origin `bot_self_reply`), PG
+> **`personas`/`persona_traits`/`persona_state`** (идемпотентный DDL). На проде после
+> рестарта: `PRAGMA user_version=9`, PG-таблицы на месте.
+> **Деплой-верификация:** прод `nik@198.46.175.136:/var/www/admin_bot`, fast-forward
+> `8800bba..eb2a232`; `systemd admin_bot` **active (running) PID 1774527**; `/api/health` =
+> **200**, `/api/persona/health` = **401** (не 500); `.env` не редактировался (дефолты
+> безопасны, флаги ON в коде); пул `flags.persona_enabled`/`flags.bot_self_awareness_enabled`
+> = **ON** по умолчанию (требование владельца).
+> **Метрики:** pytest **5392 → 5589 passed / 0 failed** (Δ **+197**); `node --check web/app.js`
+> clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` clean. Каталог
+> **427/399/403 → 435/406/411** (REGISTRY/Settings/categorized); **GROUPS 90 / mapped 88 /
+> TAB_RULES 19** — без изменений.
+> **Ревью/аудит:** @Reviewer итерация 1 = **Rejected** (H1 persona optimistic-409 недостижим
+> — `updated_at` не отдавался; H2 RBAC `edit_persona` не выдаётся; H3 per-chat флаги читались
+> только глобально `hot.get`), итерация 2 = **APPROVED**. @Scanner итерация 1 =
+> **0 C / 0 H / 2 M / 5 L**, итерация 2 = **0 C / 0 H / 0 M** (Low 2, Info 2); закрыты
+> R10.14-1 (RBAC view/edit `edit_persona`) и R10.14-2 (traits-LLM вне `worker_budget`).
+> @Builder — **2 цикла реворков**.
+> **Архитектура:** `plans/ARCHITECTURE.md` **§35** «Карта раунда 10.14» + **ADR-1014-1**
+> (PG Persona: `personas`/`persona_traits`/`persona_state`) + **ADR-1014-2** (origin
+> `bot_self_reply` + SQLite v9 + LLM-экстрактор). Спеки+ADR заархивированы в
+> `plans/archive/*-round1014/` (**8 папок**; `plans/archive/` — **50 папок**;
+> `plans/features/` — снова 6 активных F-1…F-6).
+> **Техдолг (открыт, не блокеры):** Low `R10.14-4` (traits без `chat_id` — осознанно по F4),
+> `R10.14-7` (aiosqlite-leak, pre-existing), `L5` (@Reviewer: hot-path — 2 доп. PG-запроса +
+> запись `persona_state` на каждый direct-ответ, кэша нет); Info `I10.14-1` (каскад v7→v9 не
+> покрыт юнит-тестами), `I10.14-2` (FIFO-ротация traits глобальная). KG — `tech-debt-round10.14`.
+> **Примечание:** `betterstack_handler WARNING 401` (внешний `LOGTAIL_SOURCE_TOKEN`) —
+> pre-existing, вне раунда. Граф обновлён (Step 10): эпик/милстоун → **COMPLETED+DEPLOYED**,
+> созданы `release-round1014` и `metric-snapshot-round1014-final`, 8 фич →
+> `COMPLETED_IN`/`DEPLOYED_IN`/`ARCHIVED_IN plans-structure`, `DDL allowed (10.14)` →
+> РЕАЛИЗОВАНО.
 
 > Создан заново 07.09.2026 (pre-планирование эпоса «Multi-chat scaling +
 > Granular RBAC + BYOK + PERMsoc-плагин + TMA-навигация»). Прежние plans/
@@ -521,14 +564,14 @@
 | `config-read-path-audit` (F-5) | Аудит read-путей: settings.X vs hot.get |
 | `user-aliases-admin` (F-6) | Алиасы юзеров в разделе «Лор чатов» (частично в master; SUPERSEDED_BY round10.4) |
 | `post-deploy-admin-minors` (F-1) | Пост-деплойные миноры Epic 85 (T-648:T-655) |
-| `anti-echo-self-reply-round1014` (10.14-F1) | origin `bot_self_reply` + SQLite v9 + LLM-экстрактор (T-1477…1486) |
-| `persona-storage-core-round1014` (10.14-F2) | PG `personas`/`persona_traits` + `bot_persona` (T-1487…1497) |
-| `persona-ui-tab-round1014` (10.14-F3) | special-screen `#/ai/persona` (T-1498…1504) |
-| `persona-traits-ribbon-round1014` (10.14-F4) | лента «Эволюция характера» + метрики «Сводки» (T-1505…1510) |
-| `settings-persistence-audit-round1014` (10.14-F5) | write/scope/restart-аудит + реактивность (T-1511…1525) |
-| `help-guide-integration-round1014` (10.14-F6) | гайд в PG + редактор в «Справке» (T-1526…1534) |
-| `status-layout-reorder-round1014` (10.14-F7) | перестановка блоков «Статус» (T-1535…1540) |
-| `self-reflection-llm-provider-round1014` (10.14-F8) | 3-й провайдер `intel_reflection` (T-1541…1548) |
+
+> **Раунд 10.14 — 8 фич ЗАВЕРШЁН, ЗАДЕПЛОЕН и ЗААРХИВИРОВАН (13.09.2026)** — F1
+> `anti-echo-self-reply`, F2 `persona-storage-core`, F3 `persona-ui-tab`, F4
+> `persona-traits-ribbon`, F5 `settings-persistence-audit`, F6 `help-guide-integration`,
+> F7 `status-layout-reorder`, F8 `self-reflection-llm-provider` (72 задачи T-1477…T-1548,
+> все COMPLETED+DEPLOYED). Спеки+ADR — в `plans/archive/*-round1014/` (8 папок);
+> `plans/archive/` — **50 папок**; `plans/features/` — 6 активных (F-1…F-6). См. блок
+> «Синк STEP 10 (финал) раунда 10.14» выше.
 
 > **Раунд 10.13 — 8 фич ЗАВЕРШЁН и ЗААРХИВИРОВАН (13.09.2026)** — F1 4D-память,
 > F2 belief decay+resurrection, F3 глубокий сон+роутер, F4 UI провайдеров,
@@ -1774,8 +1817,16 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 42 папки)
+## Свежие архивы (plans/archive/ — 50 папок)
 
+- `anti-echo-self-reply-round1014` — **Раунд 10.14, 13.09.2026** (F1, T-1477…T-1486 + ADR-1014-2): origin `bot_self_reply` (11-й, честный карантин) + rebuild `graph_facts` + **SQLite v9**; вес `limits.graph_fact_weight_bot`=0.2 (importance=2), LLM-экстрактор `services/self_reflection.py` (роль `reflection`, fail-open), `_SELF_ECHO_INSTRUCTION`, карантин self из Сна/золотых/компакции/`graph_stats`; флаг `flags.bot_self_awareness_enabled` **ON**)
+- `persona-storage-core-round1014` — **Раунд 10.14, 13.09.2026** (F2, T-1487…T-1497 + ADR-1014-1): **PG `personas`/`persona_traits`** (+`persona_state`), `services/bot_persona.py` (scope per-chat→global→empty, `<Persona>`-блок, `_NO_AI_DISCLOSURE_BLOCK`), traits пишет DeepSleepWorker, API `GET/PUT/DELETE /api/persona` + `/api/persona/health`; флаг `flags.persona_enabled` **ON**)
+- `persona-ui-tab-round1014` — **Раунд 10.14, 13.09.2026** (F3, T-1498…T-1504): special-screen `#/ai/persona` (карточка «Личность» в Hub «ИИ»), форма 3 поля + чекбокс «Осознаёт себя ИИ», scope-сброс, RBAC `edit_persona`; Δ каталога = 0)
+- `persona-traits-ribbon-round1014` — **Раунд 10.14, 13.09.2026** (F4, T-1505…T-1510): 3-я лента «Эволюция характера» в «Мониторинге Интеллекта» (`_ribbonLoop`, сетка 3→1) + панель метрик Личности в «Сводке» `#/oversight` (`/api/persona/health`))
+- `settings-persistence-audit-round1014` — **Раунд 10.14, 13.09.2026** (F5, T-1511…T-1525): инвентаризация всех изменяемых параметров + аудит write-path/scope/restart, закрыт R10.9-4 (health-кэш); `report.md` + `inventory.tsv` в архиве)
+- `help-guide-integration-round1014` — **Раунд 10.14, 13.09.2026** (F6, T-1526…T-1534): гайд в PG `content.intelligence_guide` + второй редактируемый блок «Гайд по возможностям» в «Справке» (Markdown-редактор + DOMPurify 3.4.15 self-host), идемпотентный сид; API `GET/POST /api/info/guide`)
+- `status-layout-reorder-round1014` — **Раунд 10.14, 13.09.2026** (F7, T-1535…T-1540): порядок «Статуса» Сводка → Сердцебиение → Бот → Сервер → Мониторинг Интеллекта → Доступность ключей → История; Δ=0)
+- `self-reflection-llm-provider-round1014` — **Раунд 10.14, 13.09.2026** (F8, T-1541…T-1548): роль `reflection` → slug `intel_reflection` (`generate_worker`), 4 PG-ключа (models/keys), probe `intel_reflection_main`, третий parent-блок «LLM для саморефлексии (Экстрактор сути)», фоллбэк на основную модель)
 - `cognition-4d-memory-round1013` — **Раунд 10.13, 13.09.2026** (F1, T-1417…T-1423 + ADR-1013-3): 4D-память — префикс `[ММ.ГГГГ | Автор: ]` (автор=target_user), метка `(Внимание: возможно устарело)` для фактов >6 мес (`limits.rag_stale_after_days`), временная группировка фактов в DreamWorker; канон dream/lore — PREV-снапшот + байт-тесты, `PROMPT_MIGRATIONS` не трогаем)
 - `cognition-belief-decay-round1013` — **Раунд 10.13, 13.09.2026** (F2, T-1424…T-1433): Belief Decay (−0.1/мес без подкрепления >6 мес) + архив `graph_facts.status='archived_belief'`; Resurrection — векторный резонанс (пенальти −0.3, порог 0.78), Сон-Реаниматор, граф-активация (связки 2–3 узлов в L1); DDL-free, флаг `flags.belief_decay_enabled` OFF)
 - `cognition-deep-sleep-round1013` — **Раунд 10.13, 13.09.2026** (F3, T-1434…T-1442 + ADR-1013-1): «Глубокий сон» — после обычного сна, «Поиск по якорям» (свежие beliefs + 12ч-выжимка → RAG) → синтез «Мост времени» → парадигмы (`origin='derived_belief'`, `belief_meta.type='paradigm'`, weight 0.55); роутер `LLMClient.generate_worker` (роли intel_history/intel_bg); флаг `flags.deep_sleep_enabled` OFF)

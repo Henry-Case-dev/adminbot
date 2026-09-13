@@ -2,7 +2,7 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
-## Раунд 10.14 (13.09.2026): Self-Awareness / Persona + 3-й LLM-провайдер — 8 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026)
+## Раунд 10.14 (13.09.2026): Self-Awareness / Persona + 3-й LLM-провайдер — 8 фич — ✅ ЗАВЕРШЁН, ЗАДЕПЛОЕН И ЗААРХИВИРОВАН (13.09.2026; архив @PM 13.09.2026; деплой @DevOps commit `eb2a232`)
 
 **✅ ИТОГ 10.14 (13.09.2026):** реализация завершена, все **8 фич заархивированы** — перенесены
 `plans/features/*-round1014/` → **`plans/archive/*-round1014/`** (@PM Step 8).
@@ -35,8 +35,16 @@ direct-ответ 2 доп. PG-запроса `resolve_bot_persona`+`get_traits`
 оптимизация на будущее); **Info:** `I10.14-1` (прямой каскад v7→v9 юнит-тестами не покрыт — риска нет),
 `I10.14-2` (FIFO-ротация traits глобальная, не per-chat — зафиксировать в ARCH). Источник —
 `plans/reports/round10.14_scanner_audit.md` §5.
-**Дальше:** Step 9 — деплой @DevOps (единый коммит эпика, сейчас НЕ закоммичено); Step 10 — метрики @Memory
-(проставит деплой-статус поверх `✅ COMPLETED`).
+**✅ ДЕПЛОЙ-ВЕРИФИКАЦИЯ 10.14 (@DevOps + Step 10 @Memory, 13.09.2026):** commit **`eb2a232`**
+(`feat(services,web,api,docs,plans): раунд 10.14 — самосознание и личность бота, PG Persona и SQLite v9,
+LLM-экстрактор, метрики Сводки, редактор Справки (тесты 5589)`); push origin/master `2edc65b..eb2a232`;
+прод `nik@198.46.175.136:/var/www/admin_bot` fast-forward `8800bba..eb2a232`; `admin_bot`
+**active (running) PID 1774527**; **миграции применены** (SQLite `PRAGMA user_version=9` / origin
+`bot_self_reply`; PG `personas`/`persona_traits`/`persona_state`); `/api/health` = **200**,
+`/api/persona/health` = **401** (не 500); `.env` не редактировался (дефолты безопасны, флаги ON в коде).
+**APP_VERSION не бампился** (2.57.0). Статус эпика — **COMPLETED + DEPLOYED**. Step 10 @Memory —
+метрики+синхронизация выполнены (`plans/metrics.md` строка 10.14; KG `release-round1014`,
+`metric-snapshot-round1014-final`). Техдолг Low 2 (`R10.14-4`, `R10.14-7`) + `L5` + Info 2.
 Ниже — исторический документ планирования эпика (Step 1 @PM).
 
 **Эпик:** `Epic: Self-Awareness / Persona round1014` (@Memory, Step 0). **Источник ТЗ** —
@@ -172,7 +180,8 @@ R17-скан, миграция дважды + «from scratch»; русские c
 | **UPD п.5** «DOMPurify + БД-редактор Справки (не мёртвый файл)» | **F6** |
 
 **Итог: все 7 разделов ТЗ + 5 пунктов UPD покрыты, 8 фич, 72 задачи (T-1477…T-1548); папки заархивированы.**
-**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (13.09.2026, @PM Step 8 Archive Phase). Планирование (Step 1 @PM,
+**Статус:** ✅ **ЗАВЕРШЁН, ЗАДЕПЛОЕН И ЗААРХИВИРОВАН** (13.09.2026, @PM Step 8 Archive Phase; деплой @DevOps
+commit `eb2a232`, прод active PID 1774527, health 200). Планирование (Step 1 @PM,
 итерация 2 после UPD владельца) и Step 2 @Architect (ADR-1014-1/2 + spec/tasks F1–F8) завершены; реализация
 @Builder (F1–F8), @Reviewer **APPROVED** (итерация 2), @Scanner **0 C/H/M** (2 Low — техдолг, см. блок
 «ИТОГ 10.14»), @Architect — `plans/ARCHITECTURE.md` **§35**. Артефакты: **`plans/archive/*-round1014/`**
