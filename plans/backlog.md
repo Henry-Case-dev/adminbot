@@ -2,7 +2,7 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
-## Раунд 10.15 (14.09.2026): Багфиксы Графа памяти, Воркера Сна и Ностальгии + Tool Calling — 9 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (14.09.2026; архив @PM 14.09.2026)
+## Раунд 10.15 (14.09.2026): Багфиксы Графа памяти, Воркера Сна и Ностальгии + Tool Calling — 9 фич — ✅ ЗАВЕРШЁН, ЗАДЕПЛОЕН И ЗААРХИВИРОВАН (14.09.2026; архив @PM, деплой @DevOps/@Memory 14.09.2026)
 
 **✅ ИТОГ 10.15 (14.09.2026):** реализация завершена, все **9 фич заархивированы** — перенесены
 `plans/features/*-round1015/` → **`plans/archive/*-round1015/`** (@PM Step 8).
@@ -23,6 +23,13 @@
 @Architect — архитектура влита в `plans/ARCHITECTURE.md` (**§36** + связанные §1/§3/§5/§9/§25).
 Артефакты в архиве: `spec.md` + `tasks.md` (×9) + ADR-1015-1 (`adr-1015-1-command-prefix-policy.md`),
 ADR-1015-2 (`adr-1015-2-graph-sampling.md`), ADR-1015-3 (`adr-1015-3-tool-calling.md`).
+**🚀 Деплой (Step 9–10, 14.09.2026) — ✅ DEPLOYED:** commit **`d01a539`**
+(`feat(services,web,api,docs,plans): раунд 10.15 — … (тесты 5774)`), push origin/master `798e044..d01a539`;
+прод `nik@198.46.175.136:/var/www/admin_bot`, fast-forward `eb2a232..d01a539` (⚠️ потребовалась **ручная
+разблокировка серверного дрейфа `info_text.md`**: backup + `git stash` → pull); `systemd admin_bot`
+**active (running) PID 1860445**; `/api/health` = **200**, `/api/memory/graph` = **401**,
+`/api/memory/stats` = **401** (не 500). **Миграций БД нет** (SQLite **v9**, PG без изменений);
+`.env` не редактировался. **APP_VERSION 2.57.0** — без бампа. Релиз — KG `release-round1015`.
 **Фичи (финал, все ✅ COMPLETED):** F1 `graph-sampling-centrality` (T-1549…T-1557) · F2 `graph-frontend-physics-search`
 (T-1558…T-1565) · F3 `sleep-unblock-diagnostics` (T-1566…T-1574) · F4 `nostalgia-prompt-revamp` (T-1575…T-1583) ·
 F5 `status-graph-ui-relocation` (T-1584…T-1592) · F6 `command-prefix-persona-routing` (T-1593…T-1602) ·
@@ -36,8 +43,9 @@ startup-регистрация download-роутера 4e — осознанны
 рекомендовано **сменить/отозвать пароль и вычистить историю**; к 10.15 не относится), (2) реестр-комментарий F6
 соответствует spec, (3) `info_text.md` §5 `Бот, живой?` — границы триггера корректны. Источник —
 `plans/reports/round10.15_scanner_audit.md` §5.
-**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (14.09.2026, @PM Step 8 Archive Phase). Деплой (commit/push/pull/restart/
-live-верификация — миграций БД нет) — @DevOps Step 9; финальные метрики+KG+деплой-статус — @Memory Step 10.
+**Статус:** ✅ **ЗАВЕРШЁН, ЗАДЕПЛОЕН И ЗААРХИВИРОВАН** (14.09.2026). @PM Step 8 (Archive) + @DevOps Step 9
+(commit `d01a539` / push / прод fast-forward / restart / live-верификация — миграций БД нет) выполнены;
+финальные метрики + KG + деплой-статус — @Memory Step 10 (14.09.2026). Эпик помечен **COMPLETED + DEPLOYED** в knowledge graph.
 Ниже — исторический документ планирования эпика (Step 1 итер.2 @PM + Step 2 @Architect).
 
 **Эпик:** `Epic: Багфиксы Графа памяти, Воркера Сна и Ностальгии round1015` (@Memory, Step 0).

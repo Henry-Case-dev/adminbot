@@ -1,22 +1,21 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§34);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§36);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активный раунд — **10.15 «Багфиксы
-> Графа памяти, Воркера Сна и Ностальгии»**, статус **SPEC_READY**
-> (Step 2 @Architect, итерация 2 — Step 3 @Memory); 9 фич F1–F9, 3 ADR,
-> 76 задач T-1549…T-1624, Builder не начат. Базовая линия: HEAD ==
-> origin/master == `798e044` (docs-финал 10.14), дерево чистое,
-> APP_VERSION **2.57.0**, pytest **5589 passed / 0 failed**, каталог
-> **435/406/411/90/88/19** (Δ=0), SQLite **v9**. Предыдущий раунд —
-> **10.14 «Самосознание и Личность бота»**: **COMPLETED + DEPLOYED**
-> (HEAD `eb2a232`), 8 фич F1–F8, 72 задачи T-1477…T-1548, заархивированы
-> (`plans/archive/` — **50 папок**), PG `personas`/`persona_traits`/
-> `persona_state`; флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**.
-> Метрики — `plans/metrics.md`. Блок раунда 10.15 — ниже.
+> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активного раунда НЕТ. **Раунд 10.15
+> «Багфиксы Графа памяти, Воркера Сна и Ностальгии + Гибридный Tool Calling»**
+> — **COMPLETED + DEPLOYED** (HEAD == origin/master == `d01a539`): 9 фич F1–F9,
+> 76 задач T-1549…T-1624, релиз **`release-round1015`**, 3 ADR (ADR-1015-1/2/3),
+> заархивирован (`plans/archive/` — **59 папок**; `plans/features/` — 6 активных
+> F-1…F-6). APP_VERSION **2.57.0** (без бампа), pytest **5774 passed / 0 failed**,
+> каталог **435/406/411/90/88/19** (Δ=0), SQLite **v9**, прод `admin_bot`
+> active PID **1860445**, `/api/health` **200**. Предыдущий раунд — **10.14**
+> (COMPLETED + DEPLOYED, HEAD `eb2a232`, PG `personas`/`persona_traits`/
+> `persona_state`; флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**).
+> Метрики — `plans/metrics.md`. Блоки раунда 10.15 — ниже.
 
 > **Step 2/3 (Step 2 @Architect, итерация 2 — синк Step 3 @Memory) 14.09.2026
 > (раунд 10.15 «Багфиксы Графа памяти, Воркера Сна и Ностальгии»):**
@@ -70,6 +69,49 @@
 > `nostalgia lore/memes inject`/`status layout relocation`/`guide rewrite`; tool
 > `get_recent_history`; связи PART_OF/DEPENDS_ON (F2→F1; F5→F2/F3; F8→F6/F9;
 > F9→F8; F7→F6/F8/F9).
+
+> **Синк STEP 10 (финал) раунда 10.15 «Багфиксы Графа памяти, Воркера Сна и
+> Ностальгии + Гибридный Tool Calling» (14.09.2026):** эпик
+> `Epic: Memory-Graph-Sleep-Nostalgia bugfixes round1015` — **COMPLETED +
+> DEPLOYED**, 9 фич F1–F9, **76 задач T-1549…T-1624** — все закрыты;
+> спеки+ADR заархивированы в `plans/archive/*-round1015/` (**9 папок**;
+> `plans/archive/` — **59 папок**; `plans/features/` — 6 активных F-1…F-6).
+> **Коммит:** `d01a539` (`feat(services,web,api,docs,plans): раунд 10.15 — умная
+> выборка графа, диагностика Сна, ревамп ностальгии, префиксы команд и Persona,
+> гибридный tool calling (тесты 5774)`); push origin/master `798e044..d01a539`.
+> **APP_VERSION остался 2.57.0** (без бампа; README и код согласованы, тесты 5774).
+> **Деплой-верификация:** прод `nik@198.46.175.136:/var/www/admin_bot`,
+> fast-forward `eb2a232..d01a539`; ⚠️ инцидент серверного дрейфа `info_text.md`
+> (fast-forward заблокирован) — разрешён вручную: backup + `git stash` → pull →
+> `systemd admin_bot` **active (running) PID 1860445**; `/api/health` = **200**,
+> `/api/memory/graph` = **401**, `/api/memory/stats` = **401** (не 500).
+> **Миграций БД НЕТ** (SQLite остаётся **v9**; PG без изменений); `.env` не
+> редактировался. **Метрики:** pytest **5589 → 5774 passed / 0 failed** (Δ **+185**;
+> итер.1 @Scanner — 5761); `node --check web/app.js` clean;
+> `node tests/js/routing_test.js` → `JS-UNIT-OK`; `git diff --check` clean.
+> Каталог **Δ=0**: **REGISTRY 435 / Settings 406 / categorized 411** (GROUPS 90 /
+> mapped 88 / `TAB_RULES` 19).
+> **Ревью/аудит:** @Reviewer итерация 1 = **Rejected** (H1 F5 — `enabled=false`
+> не гасил бейдж Сна; M1 F6 — нет правой границы слова у триггеров; M2 F6 —
+> безусловный yield терял сообщение при выключенном модуле); итерация 2 =
+> **APPROVED**. @Scanner итерация 1 = **0 C / 0 H / 3 M / 6 L**; итерация 2 =
+> **0 C / 0 H / 0 M** (Low 3, Info 3). Закрыты R10.15-1/-2/-3/-5/-6/-7/-8/-9;
+> остались R10.15-4 (deferred), R10.15-10, R10.15-11. @Builder — **2 цикла
+> реворков**.
+> **Архитектура:** `plans/ARCHITECTURE.md` **§36** «Карта раунда 10.15» +
+> **ADR-1015-1** (command prefix policy), **ADR-1015-2** (graph sampling),
+> **ADR-1015-3** (tool calling).
+> **Ключевые решения:** команды требуют обращения; префикс = непустое имя
+> персоны («из коробки», БЕЗ флага), иначе «Бот, »; реестр 17 команд + bare
+> `чекап`/`фактчек`; гибридный tool-calling (7 JSON-Schema инструментов,
+> корнер-кейс скачивания через `services/media_send.py`); `get_recent_history`
+> (depth≤150/query); граф — Degree Centrality топ-50 + соседи + сироты (закрыт
+> **S10.13-14**); сон — fallback 2/8 + лог `[Sleep]` WARNING; ностальгия ±10 +
+> лор/мемы; бейджи оконной семантики. **Граф обновлён (Step 10):** эпик/милстоун
+> → **COMPLETED+DEPLOYED**, созданы `release-round1015`, `tech-debt-round10.15`,
+> `metric-snapshot-round1015-final`, `services/media_send.py`,
+> `help guide canon (info_how_it_works)`; 9 фич → `DEPLOYED_IN release-round1015`
+> + `ARCHIVED_IN plans-structure`; релиз `release-round1015 FOLLOWS release-round1014`.
 
 > **Step 0 recon 13.09.2026 (раунд 10.14 — «Самосознание и Личность бота»,
 > plans/current_task.md пп.1–7):** HEAD == origin/master == `2edc65b` (docs-финал
