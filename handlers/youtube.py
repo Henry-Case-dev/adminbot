@@ -48,6 +48,8 @@ from handlers.media_common import (
 )
 from services import hot_config as hot
 from services import media_share
+from services import command_prefix
+from services import command_registry
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_download import fetch_media_to_tmp
 from services.persistent_throttling import (
@@ -63,6 +65,7 @@ from services.smartmodule_concurrency import (
 )
 from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
+    COMMAND_NO_TARGET_PHRASES,
     SMARTMODULE_BUSY_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
     VIDEO_MEDIA_TOO_BIG_PHRASES,
@@ -117,11 +120,6 @@ _media_bot_id: int | None = None
 # один глобальный лок скачивания на процесс). Лёгкий, клиенты ленивые (D261).
 _media_downloader = None
 
-_YOUTUBE_TRIGGERS: tuple[str, ...] = (
-    "транскрипт", "че за видос", "о чем видео", "поясни за видос",
-    "перескажи видос", "че в видосе",
-)
-
 # Медиа-ветка: бюджет на скачивание TG-файла (NFR-4).
 _FETCH_TIMEOUT = 120.0
 
@@ -169,9 +167,52 @@ def setup_youtube_video_media(transcriber, db=None, aliases=None,
 
 
 def _has_trigger(text: str) -> bool:
-    """Регистронезависимый substring-матч любой триггер-фразы (R37-4)."""
-    lowered = text.lower()
-    return any(trigger in lowered for trigger in _YOUTUBE_TRIGGERS)
+    """Триггер youtube как ОТДЕЛЬНОЕ слово (Review-fix M1: правая граница —
+    «транскриптер» больше не матчится, в отличие от старого substring)."""
+    return command_registry.has_trigger_word("youtube", text)
+
+
+def _command_body(message: types.Message) -> str | None:
+    """Раунд 10.15 (F6, T-1595): остаток сообщения ПОСЛЕ обязательного префикса.
+
+    None — префикса нет (bare-триггеры больше не работают → UNHANDLED)."""
+    text = (message.text or message.caption or "").strip()
+    tok, body = command_prefix.split_prefix(text)
+    if tok is None:
+        return None
+    return body
+
+
+def _triggered_body(message: types.Message) -> str | None:
+    """Триггер youtube при валидной цели; иначе None (НЕ консьюм).
+
+    Раунд 10.15 (F6/F7 + follow-up R10.15-1/-3):
+    * префикс в начале + триггер в начале остатка → явная команда (может быть
+      без цели → консьюм нейтральной фразой, spec §5);
+    * префикс в начале + триггер в любом месте + YouTube-URL → команда
+      (D126: «URL+триггер в остатке в любом порядке»);
+    * «ссылка-первой» (URL до обращения) + префиксный триггер в начале
+      остатка → команда (гайд F7 §3, R10.15-1);
+    * иначе None: обычная речь со словом-триггером («Олег, помнишь
+      транскрипт…») уходит в обычную обработку/LLM (R10.15-3)."""
+    text = (message.text or message.caption or "").strip()
+    body = _command_body(message)
+    if body is not None:
+        if command_registry.matches_group("youtube", body):
+            return body
+        if _has_trigger(body) and extract_urls(body):
+            return body
+        return None
+    # Ссылка-первой (гайд F7 §3): обращение ПОСЛЕ URL.
+    tok, rest, at = command_prefix.split_prefix_anywhere(text)
+    if tok is None or at < 0:
+        return None
+    if not extract_urls(text[:at]):
+        return None                       # URL обязан стоять ДО обращения
+    if not command_registry.matches_group("youtube", rest):
+        return None
+    # body сохраняет URL (нужен `_parse`/`_classify_video_request`).
+    return (text[:at].rstrip() + " " + rest).strip()
 
 
 def _make_retry_notifier(bot, chat_id, target_message_id):
@@ -193,11 +234,12 @@ def _make_retry_notifier(bot, chat_id, target_message_id):
 def _parse(message: types.Message) -> tuple[types.Message | None, str | None]:
     """→ (reply_target, video_id) | (None, None).
     Сценарий А: reply на сообщение с YT-URL → (reply_to_message, video_id);
-    D126 (Q2): в replied-сообщении URL нет → fallback на URL в тексте вызова
+    D126 (Q2): в replied-сообщении URL нет → fallback на URL в остатке вызова
     → (message, video_id) = сценарий Б; URL нигде нет → НЕ триггер.
-    Сценарий Б: URL+триггер в самом сообщении (любой порядок/позиция)."""
-    text = (message.text or message.caption or "")
-    if not _has_trigger(text):
+    Сценарий Б: URL+триггер в остатке вызова (любой порядок/позиция).
+    Раунд 10.15 (F6): обязательный префикс снимается ДО матча (bare → UNHANDLED)."""
+    body = _triggered_body(message)
+    if body is None:
         return None, None
     reply_target = message.reply_to_message
     if reply_target is not None:
@@ -205,11 +247,11 @@ def _parse(message: types.Message) -> tuple[types.Message | None, str | None]:
         video_id = extract_youtube_video_id(target_text)
         if video_id is not None:
             return reply_target, video_id
-        video_id = extract_youtube_video_id(text)   # D126: fallback на Б
+        video_id = extract_youtube_video_id(body)   # D126: fallback на Б
         if video_id is not None:
             return message, video_id
         return None, None
-    video_id = extract_youtube_video_id(text)
+    video_id = extract_youtube_video_id(body)
     if video_id is None:
         return None, None
     return message, video_id
@@ -242,8 +284,8 @@ def _resolve_video_media(message: types.Message) -> _VideoMedia | None:
     Форварды: aiogram кладёт вложение в те же поля (message.video +
     forward_origin) — репосты работают через ту же квалификацию."""
     try:
-        text = (message.text or message.caption or "")
-        if not _has_trigger(text):
+        body = _triggered_body(message)
+        if body is None:
             return None
         for candidate in (message, getattr(message, "reply_to_message", None)):
             if candidate is None:
@@ -310,8 +352,8 @@ def _classify_video_request(message: types.Message) -> _VideoRequest | None:
     (5) ничего → None (UNHANDLED → пропагация живёт). mode — «транскрипт»
     substring текста вызова (FR-B4). Никогда не бросает."""
     try:
-        text = (message.text or message.caption or "")
-        if not _has_trigger(text):
+        body = _triggered_body(message)
+        if body is None:
             return None
         mode = _request_mode(message)
         # (1) YouTube-URL: reply-таргет → текст вызова (D126)
@@ -320,12 +362,10 @@ def _classify_video_request(message: types.Message) -> _VideoRequest | None:
             return _VideoRequest(kind="youtube", mode=mode,
                                  url=None, video_id=video_id,
                                  media=None, source=target or message)
-        # (2)/(3) НЕ-youtube URL: сначала текст вызова, затем reply-таргет
+        # (2)/(3) НЕ-youtube URL: сначала остаток вызова, затем reply-таргет
         reply = getattr(message, "reply_to_message", None)
-        for src in (message, reply):
-            if src is None:
-                continue
-            src_text = (src.text or src.caption or "")
+        for src_text in (body,
+                         (reply.text or reply.caption or "") if reply else ""):
             for url in extract_urls(src_text):
                 if is_direct_media_url(url):
                     return _VideoRequest(kind="direct_url", mode=mode,
@@ -1011,9 +1051,18 @@ async def _process_youtube_summary(bot, message: types.Message,
 async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
+    # Раунд 10.15 (F6, T-1595): обязательный префикс (Имя/«Бот,»). Нет
+    # префикса или нет триггера в остатке → UNHANDLED (пропагация живёт).
+    if _triggered_body(message) is None:
+        return UNHANDLED
     request = _classify_video_request(message)
     if request is None:
-        return UNHANDLED                       # не триггер → пропагация живёт
+        # Триггер есть, цели (URL/медиа) нет → консьюм нейтральной фразой
+        # (НЕ уходит в LLM обычного ответа, spec §5).
+        await _reply(bot, message.chat.id,
+                     random.choice(COMMAND_NO_TARGET_PHRASES),
+                     message.message_id)
+        return
     # Раунд 10.6 (T-1201/A1): master-флаг «Выжимка видео» гейтит ТОЛЬКО
     # summary-ветки (YouTube+media); «транскрипт» продолжает работать.
     if request.mode == "summary" and not hot.get(

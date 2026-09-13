@@ -16,9 +16,13 @@ from services.tool_schemas import (
 
 
 class TestToolSchemas:
-    def test_three_tools_in_expected_order(self):
+    def test_seven_tools_in_expected_order(self):
+        # Раунд 10.15 (F8, T-1611): канон R9 (память → лор → веб) + 4 новых
+        # в конце; существующие имена/схемы не меняются.
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
-            "query_chat_memory", "dig_into_lore", "execute_web_search"]
+            "query_chat_memory", "dig_into_lore", "execute_web_search",
+            "summarize_video", "download_media", "get_bot_health",
+            "get_recent_history"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -83,4 +87,4 @@ class TestToolSchemas:
         assert "в памяти" in desc
 
     def test_all_tools_list_is_mutable_snapshot(self):
-        assert len(TOOL_CALLING_TOOLS) == 3
+        assert len(TOOL_CALLING_TOOLS) == 7

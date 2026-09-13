@@ -95,7 +95,12 @@ from handlers.info import info_router, setup_info
 from services.info_service import InfoService
 from handlers.debug_config import debug_config_router
 from tools.video_downloader import VideoDownloader
-from handlers.video_download import video_download_router, setup_video_download
+from handlers.video_download import (
+    get_download_cooldown,
+    setup_video_download,
+    video_download_router,
+)
+
 # ── Epic 67: VoiceTranscriber (Section 71) ──
 from SmartModule.service import VoiceTranscriber
 from handlers.voice_transcription import (
@@ -381,9 +386,12 @@ async def on_startup():
         # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
         # video_url). Ключ пуст → video_client.available=False → ровно старое
         # поведение (субтитры), WARNING в каскаде.
-        setup_youtube(YoutubeSummarizerService(
+        # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
+        # (инструмент summarize_video).
+        youtube_service = YoutubeSummarizerService(
             youtube_engine, _llm_client, memory=memory,
-            video_client=OpenRouterVideoClient()), db)
+            video_client=OpenRouterVideoClient())
+        setup_youtube(youtube_service, db)
         setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory), db)
         logger.info("SmartModule YouTube + Web (Epic 37) initialized")
 
@@ -401,9 +409,10 @@ async def on_startup():
             "Checkup SQL API configured=%s (R17: только факт)",
             bool(hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER) and hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD)),
         )
-        setup_checkup(
-            CheckupService(_llm_client, db=db, memory=memory),
-            _checkup_fetcher, db)
+        # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
+        # (инструмент get_bot_health — тот же путь, что роутер 0g).
+        checkup_service = CheckupService(_llm_client, db=db, memory=memory)
+        setup_checkup(checkup_service, _checkup_fetcher, db)
         logger.info("SmartModule Checkup (Epic 42) initialized")
 
         # ── SmartModule: DirectChat (Epic 50, Section 58.4) ──
@@ -418,9 +427,17 @@ async def on_startup():
                 "direct_chat", db)
         # Эпик 04.09.2026 (3.3, FR-17): инструменты только в direct_chat —
         # поиск через SearchAggregator, память через MemoryManager.
-        from services.tool_router import ToolDeps, ToolRouter
+        # Раунд 10.15 (F8, ADR-1015-3 §5): DI существующих инстансов в ToolDeps
+        # (video/downloader/health/db) — порядок роутеров НЕ меняется, только
+        # DI-kwargs (инвариант фичи).
+        from services.tool_router import ToolDeps, ToolHealthDeps, ToolRouter
         _tool_router = ToolRouter(ToolDeps(
-            search=_search_aggregator, memory=memory, aliases=aliases))
+            search=_search_aggregator, memory=memory, aliases=aliases, db=db,
+            video=youtube_service, downloader=_shared_video_downloader,
+            health=ToolHealthDeps(checkup_service, _checkup_fetcher),
+            # R10.15-9: общий download-кулдаун 4e (ленивый провайдер —
+            # setup_video_download пересоздаёт трекер позже в on_startup).
+            download_cooldown=get_download_cooldown))
         setup_direct_chat(
             DirectChatService(
                 memory, db, _llm_client, aliases,

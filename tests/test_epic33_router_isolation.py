@@ -125,7 +125,7 @@ class TestRouterIsolation:
     async def test_search_consumes_before_common(self, env):
         """«найди ракету» → ровно 1 ответ от search; common/danger не срабатывает."""
         dp, bot, db, relay, search_service, _ = env
-        message = _make_message(1, "найди ракету", message_id=11)
+        message = _make_message(1, "Бот, найди ракету", message_id=11)
         await dp.feed_update(bot, Update(update_id=1, message=message))
 
         assert bot.send_message.await_count == 1

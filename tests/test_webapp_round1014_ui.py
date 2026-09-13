@@ -235,7 +235,7 @@ class TestPersonaHealthPanel:
 
     def test_health_loaded_on_oversight_entry_and_summary(self):
         set_tab = _block(JS, "if (id === 'oversight')",
-                         "if (id === 'modules')")
+                         "if (id === 'info')")
         assert "this.loadPersonaHealth()" in set_tab
         summary = _block(JS, "loadOversight: async function",
                          "loadPersonaHealth: async function")

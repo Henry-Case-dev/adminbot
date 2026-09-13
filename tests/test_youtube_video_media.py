@@ -178,7 +178,7 @@ class TestMediaQualification:
         """FR-2: YT-URL в тексте → старая URL-ветка, медиа НЕ качается."""
         svc, transcriber = _setup()
         msg = _make_media_msg(
-            text="че за видос https://youtu.be/dQw4w9WgXcQ",
+            text="Бот, че за видос https://youtu.be/dQw4w9WgXcQ",
             video=_media(file_id="fid_video"))
         bot = _make_bot()
         result = await youtube_mod.youtube_handler(msg, bot=bot)
@@ -199,7 +199,7 @@ class TestMediaQualification:
         svc, transcriber = _setup(db=db, memory=memory)
         reply = _make_media_msg(message_id=MEDIA_MSG_ID,
                                 video=_media(file_id="reply_fid"))
-        msg = _make_media_msg(text="транскрипт", message_id=11,
+        msg = _make_media_msg(text="Бот, транскрипт", message_id=11,
                               video=_media(file_id="own_fid"),
                               reply_to_message=reply)
         bot = _make_bot()
@@ -223,7 +223,7 @@ class TestMediaLimits:
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
         big = _media(file_id="f", file_size=51 * 1024 * 1024, duration=10)
-        msg = _make_media_msg(text="транскрипт", video=big)
+        msg = _make_media_msg(text="Бот, транскрипт", video=big)
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
@@ -243,7 +243,7 @@ class TestMediaLimits:
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
         long = _media(file_id="f", file_size=1000, duration=601)
-        msg = _make_media_msg(text="че за видос", video=long)
+        msg = _make_media_msg(text="Бот, че за видос", video=long)
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
@@ -263,7 +263,7 @@ class TestMediaLimits:
         svc, transcriber = _setup(db=db, memory=memory)
         for i, duration in enumerate((0, None)):
             media = _media(file_id="f", file_size=1000, duration=duration)
-            msg = _make_media_msg(text="транскрипт",
+            msg = _make_media_msg(text="Бот, транскрипт",
                                   message_id=11 + i, video=media)
             bot = _make_bot()
             await youtube_mod.youtube_handler(msg, bot=bot)
@@ -280,7 +280,7 @@ class TestMediaLimits:
         svc, transcriber = _setup(db=db, memory=memory)
         doc = _media(file_id="f", file_size=5 * 1024 * 1024, duration=None,
                      mime_type="video/mp4", file_name="x.mp4")
-        msg = _make_media_msg(text="транскрипт", document=doc)
+        msg = _make_media_msg(text="Бот, транскрипт", document=doc)
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         bot.download.assert_awaited()
@@ -301,7 +301,7 @@ class TestMediaOutput:
         memory = MagicMock()
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
-        msg = _make_media_msg(text="транскрипт", message_id=11,
+        msg = _make_media_msg(text="Бот, транскрипт", message_id=11,
                               video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
@@ -321,7 +321,7 @@ class TestMediaOutput:
         memory = MagicMock()
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
-        msg = _make_media_msg(text="че за видос", message_id=11,
+        msg = _make_media_msg(text="Бот, че за видос", message_id=11,
                               video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
@@ -351,7 +351,7 @@ class TestMediaOutput:
         memory = MagicMock()
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
-        msg = _make_media_msg(text="транскрипт", message_id=11,
+        msg = _make_media_msg(text="Бот, транскрипт", message_id=11,
                               video=_media(file_id="f"),
                               forward_origin=origin)
         bot = _make_bot()
@@ -368,7 +368,7 @@ class TestMediaOutput:
         memory = MagicMock()
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
-        msg = _make_media_msg(text=None, caption="че за видос", message_id=11,
+        msg = _make_media_msg(text=None, caption="Бот, че за видос", message_id=11,
                               video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
@@ -386,7 +386,7 @@ class TestMediaOutput:
         svc, transcriber = _setup(db=db, memory=memory)
         svc.summarize_transcript = AsyncMock(
             side_effect=LLMBadResponseError("empty"))
-        msg = _make_media_msg(text="че за видос", message_id=11,
+        msg = _make_media_msg(text="Бот, че за видос", message_id=11,
                               video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
@@ -401,7 +401,7 @@ class TestMediaOutput:
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
         svc.summarize_transcript = AsyncMock(side_effect=LLMError("llm down"))
-        msg = _make_media_msg(text="че за видос", message_id=11,
+        msg = _make_media_msg(text="Бот, че за видос", message_id=11,
                               video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
@@ -415,7 +415,7 @@ class TestMediaDegradation:
     @pytest.mark.asyncio
     async def test_empty_transcript_phrase(self, yv_cleanup, tmp_file_path):
         _setup(transcribe_error=EmptyTranscript("yv_x.mp4"))
-        msg = _make_media_msg(text="транскрипт", video=_media(file_id="f"))
+        msg = _make_media_msg(text="Бот, транскрипт", video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
@@ -426,7 +426,7 @@ class TestMediaDegradation:
     @pytest.mark.asyncio
     async def test_stt_unavailable_phrase(self, yv_cleanup, tmp_file_path):
         _setup(transcribe_error=TranscriptionUnavailable("yv_x.mp4"))
-        msg = _make_media_msg(text="че за видос", video=_media(file_id="f"))
+        msg = _make_media_msg(text="Бот, че за видос", video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
@@ -446,7 +446,7 @@ class TestMediaDegradation:
             raise RuntimeError("сеть упала")
 
         bot.download = AsyncMock(side_effect=_boom)
-        msg = _make_media_msg(text="транскрипт", video=_media(file_id="f"))
+        msg = _make_media_msg(text="Бот, транскрипт", video=_media(file_id="f"))
         await youtube_mod.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
         assert sent in VIDEO_MEDIA_UNAVAILABLE_PHRASES
@@ -456,7 +456,7 @@ class TestMediaDegradation:
 
     @pytest.mark.asyncio
     async def test_broken_media_resolve_does_not_crash(self, yv_cleanup):
-        """Медиа-детекция упала → UNHANDLED (пропагация жива)."""
+        """Медиа-детекция упала → триггер консьюмится фразой (не падаем)."""
         _setup()
 
         class BoomDoc:
@@ -465,9 +465,11 @@ class TestMediaDegradation:
             def __getattr__(self, name):
                 raise RuntimeError("кривое сообщение")
 
-        msg = _make_media_msg(text="транскрипт", document=BoomDoc())
-        result = await youtube_mod.youtube_handler(msg, bot=_make_bot())
-        assert result is UNHANDLED
+        msg = _make_media_msg(text="Бот, транскрипт", document=BoomDoc())
+        bot = _make_bot()
+        result = await youtube_mod.youtube_handler(msg, bot=bot)
+        assert result is None                      # консьюм (не UNHANDLED)
+        assert bot.send_message.await_count == 1   # нейтральная фраза «нет цели»
 
 
 # ── 5. Память (FR-7/AC-1.6) ───────────────────────────────────────────
@@ -482,7 +484,7 @@ class TestMediaMemory:
         memory = MagicMock()
         memory.memorize_facts = AsyncMock()
         svc, _ = _setup(db=db, memory=memory)
-        msg = _make_media_msg(text="транскрипт", message_id=11,
+        msg = _make_media_msg(text="Бот, транскрипт", message_id=11,
                               video=_media(file_id="f"))
         await youtube_mod.youtube_handler(msg, bot=_make_bot())
         db.update_smart_message_text.assert_awaited_once_with(
@@ -504,7 +506,7 @@ class TestMediaMemory:
         db = MagicMock()
         db.update_smart_message_text = AsyncMock(side_effect=RuntimeError)
         svc, _ = _setup(db=db, memory=None)
-        msg = _make_media_msg(text="транскрипт", video=_media(file_id="f"))
+        msg = _make_media_msg(text="Бот, транскрипт", video=_media(file_id="f"))
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] == (
@@ -523,7 +525,7 @@ class TestDocumentMedia:
         memory.memorize_facts = AsyncMock()
         svc, transcriber = _setup(db=db, memory=memory)
         doc = _media(file_id="f", mime_type="video/mp4", file_name="ролик.mp4")
-        msg = _make_media_msg(text="транскрипт", document=doc)
+        msg = _make_media_msg(text="Бот, транскрипт", document=doc)
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         transcriber.transcribe_voice.assert_awaited_once()
@@ -542,7 +544,7 @@ class TestDocumentMedia:
         svc, transcriber = _setup(db=db, memory=memory)
         doc = _media(file_id="f", mime_type=None, file_name="клип.mkv",
                      duration=None, file_size=100)
-        msg = _make_media_msg(text="транскрипт", document=doc)
+        msg = _make_media_msg(text="Бот, транскрипт", document=doc)
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         transcriber.transcribe_voice.assert_awaited_once()
@@ -559,7 +561,7 @@ class TestDocumentMedia:
         svc, transcriber = _setup(db=db, memory=memory)
         target = _make_media_msg(message_id=MEDIA_MSG_ID,
                                  video=_media(file_id="foreign"))
-        msg = _make_media_msg(text="транскрипт", message_id=11,
+        msg = _make_media_msg(text="Бот, транскрипт", message_id=11,
                               reply_to_message=target)
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
@@ -653,7 +655,7 @@ class TestReactionIsolation:
         dp, bot = reaction_env
         video = Video(file_id="fid", file_unique_id="fu", width=320,
                       height=240, duration=10, file_size=1000)
-        msg = _make_reaction_msg("транскрипт", video=video)
+        msg = _make_reaction_msg("Бот, транскрипт", video=video)
         await dp.feed_update(bot, Update(update_id=1, message=msg))
 
         sent = _sent_texts(bot)

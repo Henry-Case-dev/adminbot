@@ -613,7 +613,9 @@ class DirectChatService:
                         raw = await chat_with_tools(
                             self.llm, payload, tools=TOOL_CALLING_TOOLS,
                             router=self.tool_router,
-                            ctx=ToolContext(chat_id, query),
+                            ctx=ToolContext(chat_id, query, bot=bot,
+                                            reply_to_message_id=message.message_id,
+                                            user_id=user_id),
                             temperature=temperature, chat_id=chat_id)
                     else:
                         raw = await self.llm.generate(payload,

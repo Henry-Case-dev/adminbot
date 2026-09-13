@@ -64,7 +64,7 @@ class TestParse:
     def test_scenario_a_reply_with_url(self):
         """#28: reply на сообщение с веб-URL + триггер → (reply, url)."""
         target = _make_msg(text=f"вот статья {WEB_URL}", message_id=77)
-        msg = _make_msg(text="поясни за статью", message_id=11,
+        msg = _make_msg(text="Бот, поясни за ссылку", message_id=11,
                         reply_to_message=target)
         parsed_target, url = web_mod._parse(msg)
         assert parsed_target is target
@@ -72,13 +72,13 @@ class TestParse:
 
     def test_scenario_b_url_and_trigger_in_one_message(self):
         """#29: URL+триггер в одном сообщении → (message, url)."""
-        msg = _make_msg(text=f"{WEB_URL} че по ссылке", message_id=11)
+        msg = _make_msg(text=f"Бот, {WEB_URL} че по ссылке", message_id=11)
         target, url = web_mod._parse(msg)
         assert target is msg
         assert url == WEB_URL
 
     def test_scenario_b_caption(self):
-        msg = _make_msg(text=None, caption=f"выжимка {WEB_URL}", message_id=11)
+        msg = _make_msg(text=None, caption=f"Бот, выжимка {WEB_URL}", message_id=11)
         target, url = web_mod._parse(msg)
         assert target is msg
         assert url == WEB_URL
@@ -86,7 +86,7 @@ class TestParse:
     def test_d126_fallback_from_a_to_b(self):
         """#30: reply есть, URL в цели НЕТ, URL в вызове есть → таргет = вызов."""
         target = _make_msg(text="просто текст без ссылок", message_id=77)
-        msg = _make_msg(text=f"о чем статья {WEB_URL}", message_id=11,
+        msg = _make_msg(text=f"Бот, о чем статья {WEB_URL}", message_id=11,
                         reply_to_message=target)
         target_out, url = web_mod._parse(msg)
         assert target_out is msg
@@ -108,19 +108,18 @@ class TestParse:
 
     def test_youtube_url_skipped_web_url_taken(self):
         """D128: в тексте YT-URL И веб-URL → сервис получает веб-URL."""
-        msg = _make_msg(text=f"{YT_URL} и {WEB_URL} че по ссылке", message_id=11)
+        msg = _make_msg(text=f"Бот, {YT_URL} и {WEB_URL} че по ссылке", message_id=11)
         target, url = web_mod._parse(msg)
         assert target is msg
         assert url == WEB_URL
 
     @pytest.mark.parametrize(
         "trigger",
-        ["поясни за ссылку", "че по ссылке", "о чем статья", "поясни за статью",
-         "выжимка", "че на сайте", "перескажи статью"],
+        ["поясни за ссылку", "че по ссылке", "о чем статья", "выжимка"],
     )
     def test_all_triggers_case_insensitive(self, trigger):
-        """#35: все 7 триггеров регистронезависимо."""
-        msg = _make_msg(text=f"{trigger.upper()} {WEB_URL}", message_id=11)
+        """#35: канонические триггеры регистронезависимо (раунд 10.15: 4 шт.)."""
+        msg = _make_msg(text=f"Бот, {trigger.upper()} {WEB_URL}", message_id=11)
         target, url = web_mod._parse(msg)
         assert target is msg
         assert url == WEB_URL
@@ -135,7 +134,7 @@ class TestHandler:
         web_mod.setup_web(service)
         bot = AsyncMock()
         target = _make_msg(text=WEB_URL, message_id=77)
-        msg = _make_msg(text="поясни за статью", message_id=11,
+        msg = _make_msg(text="Бот, поясни за ссылку", message_id=11,
                         reply_to_message=target)
         result = await web_mod.web_handler(msg, bot=bot)
         assert result is None  # консьюм
@@ -143,7 +142,7 @@ class TestHandler:
         assert bot.send_message.await_args.args[1] == "выжимка статьи"
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
         service.summarize.assert_awaited_once_with(
-            WEB_URL, chat_id=CHAT_ID, rag_query="поясни за статью"
+            WEB_URL, chat_id=CHAT_ID, rag_query="поясни за ссылку"
         )
 
     @pytest.mark.asyncio
@@ -153,7 +152,7 @@ class TestHandler:
         service.summarize = AsyncMock(return_value="выжимка")
         web_mod.setup_web(service)
         bot = AsyncMock()
-        msg = _make_msg(text=f"{WEB_URL} выжимка", message_id=11)
+        msg = _make_msg(text=f"Бот, {WEB_URL} выжимка", message_id=11)
         await web_mod.web_handler(msg, bot=bot)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
@@ -165,7 +164,7 @@ class TestHandler:
         web_mod.setup_web(service)
         bot = AsyncMock()
         target = _make_msg(text="нет ссылки тут", message_id=77)
-        msg = _make_msg(text=f"поясни за ссылку {WEB_URL}", message_id=11,
+        msg = _make_msg(text=f"Бот, поясни за ссылку {WEB_URL}", message_id=11,
                         reply_to_message=target)
         await web_mod.web_handler(msg, bot=bot)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
@@ -180,7 +179,7 @@ class TestHandler:
         web_mod.setup_web(service)
         bot = AsyncMock()
         target = _make_msg(text=WEB_URL, message_id=77)
-        msg = _make_msg(text="поясни за ссылку", message_id=11,
+        msg = _make_msg(text="Бот, поясни за ссылку", message_id=11,
                         reply_to_message=target)
         await web_mod.web_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in WEB_ERROR_PHRASES
@@ -196,7 +195,7 @@ class TestHandler:
         web_mod.setup_web(service)
         bot = AsyncMock()
         target = _make_msg(text=WEB_URL, message_id=77)
-        msg = _make_msg(text="поясни за ссылку", message_id=11,
+        msg = _make_msg(text="Бот, поясни за ссылку", message_id=11,
                         reply_to_message=target)
         with caplog.at_level(logging.WARNING):
             await web_mod.web_handler(msg, bot=bot)
@@ -218,7 +217,7 @@ class TestHandler:
         web_mod.setup_web(service)
         bot = AsyncMock()
         target = _make_msg(text=WEB_URL, message_id=77)
-        msg = _make_msg(text="поясни за ссылку", message_id=11,
+        msg = _make_msg(text="Бот, поясни за ссылку", message_id=11,
                         reply_to_message=target)
         with caplog.at_level(logging.ERROR):
             await web_mod.web_handler(msg, bot=bot)
@@ -236,7 +235,7 @@ class TestHandler:
         web_mod.setup_web(service)
         bot = AsyncMock()
         target = _make_msg(text=WEB_URL, message_id=77)
-        msg = _make_msg(text="поясни за ссылку", message_id=11,
+        msg = _make_msg(text="Бот, поясни за ссылку", message_id=11,
                         reply_to_message=target)
         with caplog.at_level(logging.WARNING):
             await web_mod.web_handler(msg, bot=bot)
@@ -254,14 +253,14 @@ class TestHandler:
         service.summarize = AsyncMock(return_value="выжимка")
         web_mod.setup_web(service)
         bot = AsyncMock()
-        msg = _make_msg(text=f"{WEB_URL} выжимка", message_id=11)
+        msg = _make_msg(text=f"Бот, {WEB_URL} выжимка", message_id=11)
         await web_mod.web_handler(msg, bot=bot)
         assert service.summarize.await_count == 1
 
         fake_time["now"] += 100
         expected_remaining = web_mod._cooldown.remaining(CHAT_ID, 1)
         assert expected_remaining > 0
-        second = _make_msg(text=f"{WEB_URL} выжимка", message_id=22)
+        second = _make_msg(text=f"Бот, {WEB_URL} выжимка", message_id=22)
         result = await web_mod.web_handler(second, bot=bot)
         assert result is None  # консьюм
         assert service.summarize.await_count == 1
@@ -298,6 +297,6 @@ class TestHandler:
     async def test_no_service_returns_unhandled(self, web_cleanup):
         web_mod._service = None
         bot = AsyncMock()
-        msg = _make_msg(text=f"{WEB_URL} выжимка", message_id=11)
+        msg = _make_msg(text=f"Бот, {WEB_URL} выжимка", message_id=11)
         result = await web_mod.web_handler(msg, bot=bot)
         assert result is UNHANDLED

@@ -697,6 +697,14 @@
        Память». Только фронт-классы (каталог-Δ=0). */
     .cognition-ribbons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     @media (max-width: 640px) { .cognition-ribbons { grid-template-columns: 1fr; } }
+    /* F5 (T-1588, round1015, ТЗ §5): шапка «Мониторинга Интеллекта» —
+       десктоп горизонтально (растягивается), мобильно жёстко в столбик:
+       заголовок → бейдж Сна → бейдж Глубокого сна (кнопка ⟳ в конец). */
+    .intel-header { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    @media (max-width: 640px) {
+      .intel-header { flex-direction: column; align-items: flex-start; }
+      .intel-header .intel-title { width: 100%; }
+    }
     .ribbon {
       border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
       padding: 8px; overflow: hidden; min-width: 0;
@@ -725,6 +733,16 @@
     .cognition-graph {
       height: 320px; width: 100%; border: 1px solid rgba(255,255,255,.08);
       border-radius: 10px; background: rgba(0,0,0,.18);
+    }
+    /* F2 (graph-frontend-physics-search-round1015): «Поиск по графу» —
+       flex-wrap; на узких экранах переносится в столбик. */
+    .graph-search {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      margin-top: 8px;
+    }
+    .graph-search .graph-search__input { flex: 1 1 180px; min-width: 0; }
+    @media (max-width: 479px) {
+      .graph-search { flex-direction: column; align-items: stretch; }
     }
     .badge.glow {
       box-shadow: 0 0 10px currentColor;
@@ -1449,24 +1467,9 @@
               </article>
             </div>
 
-            <!-- F5 (T-1453, ТЗ §5): реальная статистика графа — в «Модулях»
-                 (дашборд «Статус» остаётся визуализацией графа). -->
-            <div v-if="isGlobalAdmin" class="card p-4 col-span-full">
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('memory') }}</span> Статистика графа памяти</div>
-                <button class="btn-ghost text-xs ml-auto" @click="loadCognitionStats()">⟳</button>
-              </div>
-              <div v-if="cognitionStats" class="flex flex-wrap gap-2 text-xs">
-                <span class="badge badge-muted">Узлов: {{ cognitionStats.graph_nodes }}</span>
-                <span class="badge badge-muted">Рёбер: {{ cognitionStats.graph_edges }}</span>
-                <span class="badge badge-muted">Типов связей: {{ cognitionStats.relation_types }}</span>
-                <span class="badge badge-muted">Фактов: {{ cognitionStats.facts }}</span>
-                <span class="badge badge-muted">Убеждений: {{ cognitionStats.beliefs }}</span>
-                <span class="badge badge-muted">Парадигм: {{ cognitionStats.paradigms }}</span>
-                <span class="badge badge-muted">Мемов: {{ cognitionStats.memes }}</span>
-              </div>
-              <div v-else class="text-xs text-gray-500">Статистика недоступна.</div>
-            </div>
+            <!-- F5 (T-1585, round1015, ТЗ §4): карточка метрик графа
+                 перенесена в «Сводку» (без дубля) — в «Модулях»
+                 остаются только управление/настройки. -->
 
             <!-- 10.9 (п.5/п.6): карточка дублирующих гейтов удалена (их
                  тумблеры живут в per-module карточках; авто-лор — в
@@ -1772,7 +1775,7 @@
                 <template v-else>
                   <!-- Верх: пульс процессов -->
                   <div class="flex flex-wrap gap-2 mb-2">
-                    <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}<template v-if="cognition && cognition.dream && cognition.dream.next_wake_at"> · {{ fmtClock(cognition.dream.next_wake_at) }}</template></span>
+                    <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
                     <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
                     <span class="badge badge-muted">💾 Лор: {{ cognition && cognition.lore && cognition.lore.last_inject_at ? fmtClock(cognition.lore.last_inject_at) : '—' }}</span>
                     <span class="badge badge-info">📻 {{ nostalgiaLabel() }}</span>
@@ -1800,12 +1803,18 @@
                     </div>
                     <div class="progress"><div :style="{ width: (cognition.dream.budget.tokens_limit ? Math.min(100, (cognition.dream.budget.tokens_today / cognition.dream.budget.tokens_limit) * 100) : 0) + '%' }"></div></div>
                   </div>
-                  <!-- Низ: метрики БД + Timeline -->
+                  <!-- Низ: метрики БД + граф + Timeline (F5/T-1585: узлы,
+                       рёбра, типы, мемы консолидированы из «Модулей» без
+                       дубля — единый flex-wrap). -->
                   <div class="flex flex-wrap gap-2 mb-2 text-xs" v-if="cognitionStats">
                     <span class="badge badge-muted">Фактов в графе: {{ cognitionStats.facts }}</span>
                     <span class="badge badge-muted">Убеждений: {{ cognitionStats.beliefs }}</span>
                     <span class="badge badge-muted">Защищённых: {{ cognitionStats.protected_facts }}</span>
                     <span class="badge badge-muted">Парадигм: {{ cognitionStats.paradigms }}</span>
+                    <span class="badge badge-muted">Узлов: {{ cognitionStats.graph_nodes }}</span>
+                    <span class="badge badge-muted">Рёбер: {{ cognitionStats.graph_edges }}</span>
+                    <span class="badge badge-muted">Типов связей: {{ cognitionStats.relation_types }}</span>
+                    <span class="badge badge-muted">Мемов: {{ cognitionStats.memes }}</span>
                   </div>
                   <div class="timeline-list" v-if="cognitionTimeline && cognitionTimeline.length">
                     <div v-for="(ev, i) in cognitionTimeline" :key="'tl' + i" class="timeline-row">
@@ -2916,12 +2925,10 @@
                  F7 (T-1537, ТЗ §7): блок опущен под «Сервер» (перед
                  «Доступностью ключей»). -->
             <div v-if="isGlobalAdmin" class="card p-4" style="grid-column: 1 / -1;">
-              <div class="flex items-center gap-2 flex-wrap mb-2">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
+              <div class="intel-header mb-2">
+                <div class="intel-title text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
                 <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
                 <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
-                <span v-if="cognition && cognition.dream && cognition.dream.next_wake_at"
-                      class="text-xs text-gray-500">пробуждение ~{{ fmtClock(cognition.dream.next_wake_at) }}</span>
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
                         @click="loadCognition()">⟳</button>
               </div>
@@ -2976,6 +2983,21 @@
                     {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер<template v-if="cognitionGraphData.truncated"> · показаны не все</template>
                   </span>
                   <span v-if="!cognitionVisLoaded" class="text-xs text-gray-500">vis-network грузится при открытии…</span>
+                </div>
+                <div class="graph-search">
+                  <input type="search" class="field input graph-search__input"
+                         placeholder="Поиск по графу…"
+                         aria-label="Поиск узла по имени"
+                         v-model.trim="graphSearchQuery"
+                         @keydown.enter.prevent="searchCognitionGraph()"
+                         @keydown.esc="clearCognitionGraphSearch()">
+                  <button class="btn-ghost text-xs" type="button"
+                          @click="searchCognitionGraph()"
+                          :disabled="!cognitionNetwork">Найти</button>
+                  <button class="btn-ghost text-xs" type="button"
+                          @click="clearCognitionGraphSearch()"
+                          :disabled="!cognitionNetwork">Сбросить вид</button>
+                  <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
                 </div>
                 <div ref="cognitionGraph" class="cognition-graph"></div>
               </div>

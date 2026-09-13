@@ -1405,21 +1405,52 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(rc(1, 5), 'ribbon-op-75', 'F5: середина op-75');
     assert.strictEqual(rc(0, 1), 'ribbon-op-100', 'F5: один элемент — центр');
 
-    // Бейджи фаз из реального cognition/status.
+    // Бейджи фаз из реального cognition/status (round1015: оконная семантика).
     const dream = computed.dreamPhaseBadge;
     assert.strictEqual(typeof dream, 'function', 'F5: dreamPhaseBadge computed');
+    const dCtx = (d) => ({ cognition: { dream: d }, fmtClock: methods.fmtClock });
+    const dreamActive = dream.call(
+      dCtx({ active: true, active_until: 1740000000 }));
+    assert.strictEqual(dreamActive.cls, 'badge-ok glow',
+      'F5: активная фаза сна → свечение');
+    assert.ok(dreamActive.text.indexOf('🌙 Сон до ') === 0,
+      'F5: активная фаза сна → «до HH:MM»');
+    assert.strictEqual(dream.call(dCtx({ active: true })).text, '🌙 Сон идёт',
+      'F5: активна без active_until → «идёт»');
     assert.strictEqual(
-      dream.call({ cognition: { dream: { running: true } } }).text,
-      '🌙 Сон активен', 'F5: бегущий сон → бейдж');
+      dream.call(dCtx(
+        { state: 'limit_exhausted', next_wake_at: 1740000000 })).cls,
+      'badge-warn', 'F5: лимит сна исчерпан → warn');
     assert.strictEqual(
-      dream.call({ cognition: { dream: { state: 'limit_exhausted' } } }).cls,
-      'badge-warn', 'F5: лимит исчерпан → warn');
-    assert.strictEqual(dream.call({ cognition: null }).text, '🌙 Спит',
-      'F5: нет данных → Спит');
+      dream.call({ cognition: null, fmtClock: methods.fmtClock }).text,
+      '☀️ Сон через —', 'F5: нет данных → нейтральный «через»');
     const deep = computed.deepPhaseBadge;
-    assert.strictEqual(
-      deep.call({ cognition: { deep_sleep: { running: true } } }).text,
-      '🌌 Глубокий сон активен', 'F5: глубокий сон → бейдж');
+    const deepActive = deep.call({
+      cognition: { deep_sleep: { active: true, active_until: 1740000000 } },
+      fmtClock: methods.fmtClock });
+    assert.strictEqual(deepActive.cls, 'badge-info glow',
+      'F5: активный глубокий сон → свечение');
+    assert.ok(deepActive.text.indexOf('🌌 Глубокий сон до ') === 0,
+      'F5: активный глубокий сон → «до HH:MM»');
+    assert.strictEqual(deep.call({
+      cognition: { deep_sleep: { next_run_at: 1740000000 } },
+      fmtClock: methods.fmtClock }).cls, 'badge-muted',
+      'F5: вне фазы глубокого сна → без свечения');
+    // Review-fix H1: выключенный рубильник приоритетнее активной фазы.
+    const dreamOff = dream.call(dCtx(
+      { enabled: false, active: true, active_until: 1740000000 }));
+    assert.strictEqual(dreamOff.text, '☀️ Сон выключен',
+      'F5/H1: enabled=false гасит активную фазу сна');
+    assert.strictEqual(dreamOff.cls, 'badge-muted',
+      'F5/H1: выключенный сон без свечения');
+    const deepOff = deep.call({
+      cognition: { deep_sleep: {
+        enabled: false, active: true, active_until: 1740000000 } },
+      fmtClock: methods.fmtClock });
+    assert.strictEqual(deepOff.text, '🌅 Глубокий сон выключен',
+      'F5/H1: enabled=false гасит активный глубокий сон');
+    assert.strictEqual(deepOff.cls, 'badge-muted',
+      'F5/H1: выключенный глубокий сон без свечения');
 
     // Бюджет контекста (аддитивное /api/status.context).
     const mc = computed.memoryContext;
@@ -1592,6 +1623,129 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     if (savedLocalStorage === undefined) delete global.localStorage;
     else global.localStorage = savedLocalStorage;
   })();
+
+  // ── F2 (graph-frontend-physics-search-round1015, ТЗ §1): физика barnesHut
+  //    и «Поиск по графу» ───────────────────────────────────────────────────
+  {
+    const fs = require('fs');
+    const jsSrc = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf-8');
+    assert.ok(jsSrc.indexOf("solver: 'barnesHut'") >= 0,
+      'F2: physics.solver == barnesHut');
+    assert.ok(jsSrc.indexOf('gravitationalConstant: -8000') >= 0,
+      'F2: расталкивание gravitationalConstant=-8000');
+    assert.ok(jsSrc.indexOf('avoidOverlap: 0.2') >= 0,
+      'F2: avoidOverlap=0.2 (не слипаются)');
+
+    // _graphSignature не изменилась: degree входит в подпись (ISSUE-4).
+    const sA = methods._graphSignature.call({}, {
+      nodes: [{ id: 1, label: 'a', group: 'user', degree: 5 }], edges: [] });
+    const sB = methods._graphSignature.call({}, {
+      nodes: [{ id: 1, label: 'a', group: 'user', degree: 6 }], edges: [] });
+    assert.notStrictEqual(sA, sB, 'F2: degree по-прежнему в подписи');
+
+    function makeNet() {
+      const calls = { focus: [], select: [], fit: [] };
+      return {
+        calls,
+        focus(id, opts) { calls.focus.push([id, opts]); },
+        selectNodes(ids) { calls.select.push(ids); },
+        fit(anim) { calls.fit.push(anim); },
+      };
+    }
+    const nodes = [
+      { id: 1, label: 'Олег' },
+      { id: 2, label: 'олег_два' },
+      { id: 3, label: 'Кот' },
+    ];
+    function baseCtx(net, extra) {
+      return Object.assign({
+        graphSearchQuery: '', graphSearchStatus: '',
+        cognitionNetwork: net, cognitionGraphData: { nodes },
+        reducedMotion: false, _graphSearchMatches: [], _graphSearchIdx: 0,
+        _graphSearchLastQ: '',
+        toast() {}, renderCognitionGraph: async function () {},
+        clearCognitionGraphSearch: methods.clearCognitionGraphSearch,
+      }, extra || {});
+    }
+
+    // Совпадение по подстроке без регистра + focus/selectNodes.
+    let net = makeNet();
+    let toasts = [];
+    let ctx = baseCtx(net, { graphSearchQuery: 'ОЛЕГ',
+      toast(t, k) { toasts.push([t, k]); } });
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus.length, 1, 'F2: focus вызван');
+    assert.strictEqual(net.calls.focus[0][0], 1, 'F2: первое совпадение');
+    assert.strictEqual(net.calls.focus[0][1].scale, 1.1, 'F2: масштаб фокуса');
+    assert.deepStrictEqual(net.calls.select[0], [1], 'F2: selectNodes');
+    assert.strictEqual(ctx.graphSearchStatus.indexOf('Найден'), 0,
+      'F2: статус «Найден…»');
+    assert.ok(ctx.graphSearchStatus.indexOf('1/2') >= 0,
+      'F2: счётчик 1/2');
+    // Повторный Enter по тому же запросу → циклический перебор на 2-е.
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus[1][0], 2, 'F2: перебор на 2-е');
+    assert.ok(ctx.graphSearchStatus.indexOf('2/2') >= 0, 'F2: счётчик 2/2');
+    // Следующий Enter → цикл замкнулся на первое.
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus[2][0], 1, 'F2: цикл замкнулся');
+
+    // Пустой ввод → без focus, сброс подсветки + fit().
+    net = makeNet();
+    ctx = baseCtx(net, { graphSearchQuery: '   ' });
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus.length, 0, 'F2: пусто → без focus');
+    assert.strictEqual(net.calls.fit.length, 1, 'F2: пусто → fit()');
+    assert.strictEqual(ctx.graphSearchQuery, '', 'F2: пусто → сброс строки');
+
+    // Нет совпадений → статус + toast(warn), сеть не ломается.
+    net = makeNet(); toasts = [];
+    ctx = baseCtx(net, { graphSearchQuery: 'зигфрид',
+      toast(t, k) { toasts.push([t, k]); } });
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus.length, 0, 'F2: нет hits → без focus');
+    assert.strictEqual(ctx.graphSearchStatus, 'Ничего не найдено',
+      'F2: статус «Ничего не найдено»');
+    assert.ok(toasts.length === 1 && toasts[0][1] === 'warn',
+      'F2: toast(warn) при отсутствии узла');
+
+    // reducedMotion → focus/fit без анимации.
+    net = makeNet();
+    ctx = baseCtx(net, { graphSearchQuery: 'кот', reducedMotion: true });
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(net.calls.focus[0][1].animation, false,
+      'F2: reducedMotion → focus без анимации');
+    const rmNet = makeNet();
+    methods.clearCognitionGraphSearch.call({
+      graphSearchQuery: 'q', graphSearchStatus: '', _graphSearchMatches: [],
+      _graphSearchIdx: 0, _graphSearchLastQ: 'q',
+      cognitionNetwork: rmNet, reducedMotion: true });
+    assert.strictEqual(rmNet.calls.fit[0], false,
+      'F2: reducedMotion → fit без анимации');
+
+    // clearCognitionGraphSearch: selectNodes([]) + fit + сброс полей.
+    net = makeNet();
+    methods.clearCognitionGraphSearch.call({
+      graphSearchQuery: 'q', graphSearchStatus: 'old',
+      _graphSearchMatches: [1], _graphSearchIdx: 3, _graphSearchLastQ: 'q',
+      cognitionNetwork: net, reducedMotion: false });
+    assert.deepStrictEqual(net.calls.select[0], [], 'F2: selectNodes([])');
+    assert.strictEqual(net.calls.fit.length, 1, 'F2: fit при сбросе');
+
+    // Гонка lazy-load: нет инстанса → дождаться рендера и повторить.
+    let rendered = 0;
+    const net2 = makeNet();
+    ctx = baseCtx(null, {
+      graphSearchQuery: 'кот',
+      renderCognitionGraph: async function () {
+        rendered += 1; this.cognitionNetwork = net2;
+      },
+    });
+    await methods.searchCognitionGraph.call(ctx);
+    assert.strictEqual(rendered, 1, 'F2: гонка до рендера → один повтор');
+    assert.strictEqual(net2.calls.focus.length, 1, 'F2: поиск после рендера');
+  }
 
   console.log('JS-UNIT-OK');
 })().catch((e) => {

@@ -3,6 +3,62 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.15 scan (2026-09-14) — all scanned (diff-based, 9 фич F1–F9)
+- [x] services/command_registry.py (NEW: канон 17 + `чекап`/`фактчек` bare, `_HEAD`/`_TAIL` word-boundaries,
+      `matches`/`group_of`/`matches_group`/`has_trigger_word`)
+- [x] services/command_prefix.py (NEW: `active_name`/`command_prefix_tokens`/`split_prefix`/`name_mentioned`/
+      `functional_group`/`is_functional_command`; префикс якорён к `^`)
+- [x] services/media_send.py (NEW: общий `send_media`, фолбэк video→document, R17-лог)
+- [x] handlers/search.py / youtube.py / web.py / checkup.py / video_download.py (F6: снятие префикса,
+      триггеры из реестра, консьюм без цели `COMMAND_NO_TARGET_PHRASES`)
+- [x] handlers/direct_chat.py (F6: `name_mentioned`, отключение ботвордов при имени, `_FUNCTIONAL_FLAGS`/
+      `_functional_module_active`, yield UNHANDLED, имя в `_parse_memory_command`)
+- [x] bot.py (F8 DI: `youtube_service`/`checkup_service`/`_shared_video_downloader` → `ToolDeps(video/downloader/
+      db/health)`; порядок роутеров не тронут)
+- [x] services/tool_schemas.py (F8/F9: +`summarize_video`/`download_media`/`get_bot_health`/`get_recent_history`, итого 7)
+- [x] services/tool_router.py (F8: `_summarize_video`/`_download_media` (успех только после `send_media`)/
+      `_get_bot_health`; F9: `_get_recent_history` depth/query + `_history_lines`; `ToolHealthDeps`)
+- [x] services/direct_chat_service.py (F8: `ToolContext(bot/reply_to_message_id/user_id)`)
+- [x] services/database.py (F1: `graph_snapshot` CTE Degree Centrality + 1-hop + сироты + оба конца рёбер)
+- [x] web/api/memory_agi.py (F1 `GRAPH_SEED_NODES=50`; F5 `_in_hour_window`/`_local_hour` + `active`/`active_until`,
+      H1-гейт `enabled`)
+- [x] web/app.js / web/index.html (F2 barnesHut + поиск по графу; F5 релокация метрик, `intel-header`, бейджи
+      «через/до»/«выключен», удалён `loadCognitionStats`)
+- [x] services/dream_worker.py (F3 `_sleep_fallback_active` 2/8, детект раз на тик, `[Sleep]` WARNING/INFO)
+- [x] services/nostalgia_prompts.py / nostalgia_worker.py / config/settings.py / param_catalog.py (F4: окно 10,
+      лор/мемы капы 600/10/120, PREV-слепок, промпт-ревамп)
+- [x] services/info_service.py / config_cache.py / info_text.md / plans/docs/intelligence_user_guide.md (F7 канон +
+      идемпотентная миграция по `PREV_DEFAULT_INFO_TEXT`)
+- [x] tests/* (8 новых файлов + обновления), tests/conftest.py (сброс persona-name кэша)
+- [x] plans/features/*-round1015/ (9 спек + ADR-1015-1/-2/-3 + tasks), plans/reports/round10.15_scanner_audit.md
+### Round 10.15 — повторный аудит (итерация 2, 2026-09-14)
+- [x] **R10.15-1 [medium] closed** — `command_prefix.split_prefix_anywhere():61-77`; link-first в
+      `youtube.py:206-215`/`web.py:97-106` (URL строго до обращения + `matches_group` остатка); тесты
+      `test_command_registry_round1015.py:153-161,225-242`.
+- [x] **R10.15-2 [medium] closed** — `tool_router.py:623` гейт `flags.checkup_enabled` до `fetch()`/`checkup()`
+      (тест `test_tool_calling_round1015.py:438-455`).
+- [x] **R10.15-3 [medium] closed** — обычная речь без URL → `UNHANDLED` (`youtube.py:200-205`, `web.py:91-96`;
+      тесты `:249-279`); residual R10.15-11.
+- [x] **R10.15-5 [low] closed** — `memory_agi.py:497-501` независимый `deep_active_until`.
+- [x] **R10.15-6 [low] closed** — `tool_router.py:657-661` fallback `ctx.query` (тест
+      `test_recent_history_tool_round1015.py:134-148`).
+- [x] **R10.15-7 [low] closed** — мёртвые `is_functional_command`/`command_registry.matches` удалены (grep 0).
+- [x] **R10.15-8 [low] closed** — `database.py:3651-3652` seed join `nodes`+`nwhere` (тест
+      `test_webapp_round1015_graph.py:105-118`).
+- [x] **R10.15-9 [low] closed** — `tool_router.py:576-591` общий кулдаун 4e через `get_download_cooldown`
+      (`handlers/video_download.py:116-122`); тесты `test_tool_calling_round1015.py:289-335`.
+- **Открыто (не блокеры шага 7; 0 Critical / 0 High / 0 Medium / 3 Low / 3 Info):**
+  - [ ] **R10.15-4 [low]** F6 M2-остаток: yield по hot-флагу vs startup-регистрация 4e (`direct_chat.py:461-463`,
+        `bot.py:747-753`) — осознанный follow-up.
+  - [ ] **R10.15-10 [low]** link-first привязан к первому вхождению имени (`command_prefix.py:71-77`;
+        `youtube.py:206-215`; `web.py:97-106`) — узкий false-negative.
+  - [ ] **R10.15-11 [low]** «триггер anywhere + любой http-URL» консьюмит обычную речь с не-media ссылкой
+        (`youtube.py:203`; `web.py:94`) — residual R10.15-3.
+  - Info: R17-долг `plans/current_task.md:62-65` (вне диффа).
+- Валидатор итерации 2: pytest **5774 passed**/0 fail, `node --check web/app.js` clean, `routing_test.js`
+  JS-UNIT-OK, `git diff --check` OK. Инварианты: R17/R16, роутеры `bot.py`, `media/`/`.env`, каталог
+  435/406/411/90/88/19, tool-set 7, PREV байт-идентичен, `PROMPT_MIGRATIONS` не тронут — целы.
+
 ## Round 10.14 scan (2026-09-13) — all scanned (diff-based, 8 фич F1–F8)
 - [x] services/database.py (F1 SQLite v8→v9: `_migrate_self_origin_v9` rebuild 16 колонок/id 1:1,
       guard + безусловный `user_version=9`, 5 индексов, origin-исключения self в list_new_confirmed/

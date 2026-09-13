@@ -54,6 +54,7 @@ from config.settings import settings
 from services import hot_config as hot
 from services.nostalgia_prompts import (
     NOSTALGIA_PROMPT,
+    _MEMES_LIMIT,
     build_nostalgia_user,
     clean_llm_text,
     format_golden_line,
@@ -429,7 +430,7 @@ class NostalgiaWorker:
                 "[nostalgia] WARNING skip: budget nostalgia | chat=%s",
                 chat_id)
             return
-        raw = await self._llm_once(candidate)
+        raw = await self._llm_once(candidate, chat_id)
         if raw is None:
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_ERROR,
@@ -545,7 +546,8 @@ class NostalgiaWorker:
         (format_year_back_line). Пусто — набора нет."""
         window_days = int(self._limit(
             "year_back_days_window",
-            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW) or 0) or 2
+            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW) or 0) or \
+            settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW
         center = now - _YEAR_SECONDS
         rows = await self.db.get_year_back_messages(
             chat_id, center - window_days * 86400,
@@ -592,15 +594,40 @@ class NostalgiaWorker:
                                    temperature=temperature)
         return await self.llm.generate(messages, temperature=temperature)
 
-    async def _llm_once(self, candidate: dict) -> str | None:
+    async def _llm_once(self, candidate: dict, chat_id: int) -> str | None:
         """1 облачный LLM-вызов (NFR-1: только LLMClient-путь бота;
-        локальная LLM запрещена — лимит владельца). Возвращает текст ответа
-        или None (ошибка/llm отсутствует — fail-open)."""
+        локальная LLM запрещена — лимит владельца). Инжект round 10.15
+        (spec §4): в user-блок добавляются Лор чата (manual → auto из
+        профиля store) и локальные мемы (db.list_chat_memes); сбор — fail-open
+        (ошибка источника → секция опускается). Возвращает текст ответа или
+        None (ошибка/llm отсутствует — fail-open)."""
         if self.llm is None:
             logger.warning("[nostalgia] llm отсутствует — нечего вызвать")
             return None
-        user_text = build_nostalgia_user(candidate.get("year_lines") or [],
-                                         candidate.get("golden_lines") or [])
+        lore_text = ""
+        if self.store is not None:
+            try:
+                prof = await self.store.get_profile(chat_id)
+                if prof is not None:
+                    lore_text = prof.manual_lore or prof.auto_lore or ""
+            except Exception:
+                logger.warning(
+                    "[nostalgia] lore fetch failed — без лора | chat_id=%s",
+                    chat_id, exc_info=True)
+                lore_text = ""
+        memes: list = []
+        try:
+            memes = await self.db.list_chat_memes(
+                chat_id, None, limit=_MEMES_LIMIT)
+        except Exception:
+            logger.warning(
+                "[nostalgia] memes fetch failed — без мемов | chat_id=%s",
+                chat_id, exc_info=True)
+            memes = []
+        user_text = build_nostalgia_user(
+            candidate.get("year_lines") or [],
+            candidate.get("golden_lines") or [],
+            lore=lore_text, memes=memes)
         if not user_text:
             return None
         try:

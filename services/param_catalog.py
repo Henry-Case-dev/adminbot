@@ -1535,7 +1535,7 @@ _MEMORY: list[tuple] = [
     ("NOSTALGIA_YEAR_BACK_DAYS_WINDOW", "Ностальгия: окно «год назад», дней",
      "int", "memory_nostalgia",
      "Кандидаты «N лет назад» — timestamp в диапазоне год назад ± N дней "
-     "вокруг точной даты (2).",
+     "вокруг точной даты (10).",
      "advanced"),
 
     ("NOSTALGIA_AGGRESSIVENESS", "Ностальгия: агрессивность (0..1)", "float",

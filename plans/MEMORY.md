@@ -5,16 +5,71 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (13.09.2026):** последний раунд — **10.14
-> «Самосознание и Личность бота»**, статус **COMPLETED + DEPLOYED**
-> (HEAD == origin/master == `eb2a232`, APP_VERSION **2.57.0** — без бампа,
-> тесты **5589 passed / 0 failed**, прод active/health 200, PID 1774527).
-> 8 фич F1–F8, 72 задачи T-1477…T-1548, все заархивированы
-> (`plans/archive/*-round1014/`, plans/archive/ — **50 папок**).
-> plans/features/ — 6 активных (F-1…F-6). SQLite **v9**, PG
-> `personas`/`persona_traits`/`persona_state`; флаги
-> `persona_enabled`/`bot_self_awareness_enabled` = **ON**. Метрики по раундам —
-> `plans/metrics.md`. Полный блок — «Синк STEP 10 (финал) раунда 10.14» ниже.
+> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активный раунд — **10.15 «Багфиксы
+> Графа памяти, Воркера Сна и Ностальгии»**, статус **SPEC_READY**
+> (Step 2 @Architect, итерация 2 — Step 3 @Memory); 9 фич F1–F9, 3 ADR,
+> 76 задач T-1549…T-1624, Builder не начат. Базовая линия: HEAD ==
+> origin/master == `798e044` (docs-финал 10.14), дерево чистое,
+> APP_VERSION **2.57.0**, pytest **5589 passed / 0 failed**, каталог
+> **435/406/411/90/88/19** (Δ=0), SQLite **v9**. Предыдущий раунд —
+> **10.14 «Самосознание и Личность бота»**: **COMPLETED + DEPLOYED**
+> (HEAD `eb2a232`), 8 фич F1–F8, 72 задачи T-1477…T-1548, заархивированы
+> (`plans/archive/` — **50 папок**), PG `personas`/`persona_traits`/
+> `persona_state`; флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**.
+> Метрики — `plans/metrics.md`. Блок раунда 10.15 — ниже.
+
+> **Step 2/3 (Step 2 @Architect, итерация 2 — синк Step 3 @Memory) 14.09.2026
+> (раунд 10.15 «Багфиксы Графа памяти, Воркера Сна и Ностальгии»):**
+> ТЗ — `plans/current_task.md` §1–§7 + UPD владельца; эпик
+> `Epic: Memory-Graph-Sleep-Nostalgia bugfixes round1015` — **ARCHITECTED /
+> SPEC_READY, Builder не начат**. Владелец **отменил рубильник
+> `flags.command_prefix_enabled`** (UPD §1) — **каталог-Δ = 0** (REGISTRY **435** /
+> Settings **406** / categorized **411** / GROUPS **90** / mapped **88** /
+> TAB_RULES **19**; прежний черновик итерации 1 с +1 ключом и 436/407/412
+> **отменён**). Триггер системы = **непустое `active_persona.name`**: имя задано →
+> префикс «<Имя>, » (+ эвристические склонения при len≥3), дефолтные ботворды
+> `бот`/`ботик`/`ботяра` **отключаются**; имя пусто → «Бот, » и дефолты активны.
+> Также **утверждена оконная семантика бейджей Сна** (UPD §3):
+> `active = in_window OR running`, `active_until` = конец окна, вне окна — начало
+> следующего; свечение `.glow` только в активной фазе.
+>
+> **9 фич / 76 задач T-1549…T-1624 (во всех 9 `plans/features/*-round1015/` —
+> `spec.md` + `tasks.md`, 🟣 SPEC_READY):**
+> **F1** `graph-sampling-centrality` (T-1549…1557, ADR-1015-2) — degree centrality,
+> сиды топ-50 + окрестность + очистка сирот, финальный cap 120/240, закрывает
+> S10.13-14; **F2** `graph-frontend-physics-search` (T-1558…1565, →F1) — barnesHut +
+> «Поиск по графу»; **F3** `sleep-unblock-diagnostics` (T-1566…1574) — fallback
+> порогов 2/8 за 3 дня без `distilled` (self-healing) + пре-гейт-лог `[Sleep]` на
+> WARNING; **F4** `nostalgia-prompt-revamp` (T-1575…1583) — окно ±10, инжект
+> Лора/мемов, перепись канона (ADR-1013-3); **F5** `status-graph-ui-relocation`
+> (T-1584…1592, →F2/F3) — релокация статистики графа в Сводку + бейджи; **F6**
+> `command-prefix-persona-routing` (T-1593…1602, ADR-1015-1) — реестр **17
+> триггеров** (search 3 / youtube 4 / web 4 / checkup 3 / download 3) +
+> bare-исключения `чекап`/`фактчек`; новые модули `services/command_registry.py`,
+> `services/command_prefix.py`; порядок роутеров `bot.py` **НЕ меняется**
+> (direct_chat yield → download 4e); сняты legacy-алиасы (F6-U1); **F7**
+> `guide-rewrite-persona` (T-1603…1609, →F6) — перепись гайда под реестр/имя +
+> идемпотентная DML-миграция `PREV_DEFAULT_INFO_TEXT`; **F8** `hybrid-tool-calling`
+> (T-1610…1618, ADR-1015-3, →F6/F9) — JSON-Schema tools для основной LLM, tool-сет
+> **7** (`query_chat_memory`/`dig_into_lore`/`execute_web_search`/`summarize_video`/
+> `download_media`/`get_bot_health`/`get_recent_history`), Fast-Track приоритетен;
+> корнер-кейс скачивания = фиктивный `tool_response {status:success}` при реальной
+> отправке MP4 (сбой → честный `error`); **F9** `recent-history-tool`
+> (T-1619…1624, →F8) — `get_recent_history` (depth≤150 ИЛИ query, стенограмма
+> «Имя: текст», переиспользует `database.get_recent_messages`, DDL не нужен).
+>
+> **Порядок внедрения:** F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 (F8∥F9).
+> **DDL не требуется** по всему раунду (read-only/UI/код-константы); единственная
+> миграция — DML `info_how_it_works` (F7). **Остаётся в силе:** R16, R17, порядок
+> роутеров `bot.py` (только DI-kwargs), `media/` и `.env` не трогать, каталог-Δ
+> только санкционированно, русские conventional commits. **Граф синхронизирован
+> (Step 3):** эпик + 9 Feature-узлов; 3 ADR (`round1015-command-prefix-policy`
+> ADR-1015-1, `ADR-1015-2 graph sampling`, `round1015-hybrid-tool-calling-ADR-1015-3`);
+> модули `services/command_registry.py`/`services/command_prefix.py`; механизмы
+> `hybrid-tool-calling`/`graph centrality top-50`/`sleep threshold fallback`/
+> `nostalgia lore/memes inject`/`status layout relocation`/`guide rewrite`; tool
+> `get_recent_history`; связи PART_OF/DEPENDS_ON (F2→F1; F5→F2/F3; F8→F6/F9;
+> F9→F8; F7→F6/F8/F9).
 
 > **Step 0 recon 13.09.2026 (раунд 10.14 — «Самосознание и Личность бота»,
 > plans/current_task.md пп.1–7):** HEAD == origin/master == `2edc65b` (docs-финал

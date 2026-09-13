@@ -3,6 +3,22 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 
+@pytest.fixture(autouse=True)
+def _reset_global_persona_name():
+    """Изоляция sync-кэша глобального имени персоны (раунд 10.15, F6).
+
+    Префикс функциональных команд и триггер direct_chat читают
+    ``bot_persona.get_cached_global_name()`` (sync). Без сброса тесты,
+    сохраняющие персону (``test_bot_persona``), оставляют кэш непустым и
+    ломают дефолтные «Бот, …»-кейсы ниже по файлам. Сброс до и восстановление
+    после каждого теста — изоляция без изменения продового кода."""
+    from services import bot_persona
+    previous = bot_persona.get_cached_global_name()
+    bot_persona.set_global_name_cache("")
+    yield
+    bot_persona.set_global_name_cache(previous)
+
+
 @pytest.fixture
 def mock_bot():
     """Mock aiogram Bot instance."""

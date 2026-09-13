@@ -16,16 +16,37 @@ dispatch ВСЕГДА возвращает строку результата (в
 (nodes/edges, глубина limits.dig_graph_hop_depth; фолбэк target_user);
 лимиты — hot-ключи группы limits_memory с фолбэком settings (REGISTRY
 фикс-раунда, spec §3.6.4). НЕ бросает: ошибка этапа → WARNING + секция пуста.
+
+Раунд 10.15 (F8, ADR-1015-3, T-1612…T-1615): +4 инструмента tool-сета —
+summarize_video (делегирование YoutubeSummarizerService), download_media
+(корнер-кейс: бэкенд сам шлёт MP4, в LLM — фиктивный tool_response),
+get_bot_health (CheckupLogsFetcher+CheckupService) и get_recent_history
+(полная реализация — F9, см. ниже). ToolDeps/ToolContext расширены аддитивно
+(обратная совместимость: старые вызовы без новых kwargs работают).
+
+Раунд 10.15 (F9, spec §2-§6, T-1620…T-1623): `_get_recent_history` реализован
+полностью — сырая хронологическая стенограмма недавних сообщений чата
+(«Имя: текст»): путь `depth` (≤150) через `database.get_recent_messages` либо
+путь `query` (FTS + окно последних часов + ASC). Лимиты — код-константы
+(каталог-Δ=0); R17: логи только chat_id/count/out_chars.
 """
 import asyncio
 import datetime
+import json
 import logging
 import re
 import time
 
 from config.settings import settings
 from services import hot_config as hot
+from services.media_send import send_media
+from services.persistent_throttling import (
+    cooldown_refresh,
+    cooldown_remaining,
+    cooldown_touch,
+)
 from services.search_aggregator import AllSearchEnginesFailedException
+from services.smartmodule_urls import extract_youtube_video_id
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +57,25 @@ _MEMORY_FTS_LIMIT = 40
 _MEMORY_VEC_LIMIT = 15
 # Бюджет одного инструмента веб-поиска (сумма таймаутов каскада + запас).
 _SEARCH_TOOL_TIMEOUT = 25.0
+
+# Раунд 10.15 (F8, ADR-1015-3 §8): таймауты новых инструментов — код-константы
+# (новых каталог-ключей нет). download_media — в пределах NFR-4 скачивания;
+# summarize_video — страховка поверх внутреннего бюджета сервиса.
+_DOWNLOAD_TOOL_TIMEOUT = 180.0
+_SUMMARIZE_TOOL_TIMEOUT = 300.0
+# Cap транскрипта для mode=transcript (прецедент handlers/youtube T-690).
+_SUMMARIZE_TRANSCRIPT_CAP = 20000
+
+# Раунд 10.15 (F9, spec §6): лимиты get_recent_history — код-константы
+# (каталог-Δ=0; прецедент _DIG_GRAPH_MAX_HOP_DEPTH/_MEMORY_FTS_LIMIT).
+_HISTORY_MAX_DEPTH = 150                 # верхняя граница depth (UPD §5)
+_HISTORY_DEFAULT_DEPTH = 50              # default при отсутствии параметров
+_HISTORY_SEARCH_LIMIT = 80               # FTS-строк на этапе query (до фильтра)
+_HISTORY_QUERY_WINDOW_SECONDS = 12 * 3600  # «последние часы» для query
+_HISTORY_MAX_SYMBOLS = 3500              # обрезка результата (как _MEMORY_MAX_SYMBOLS)
+_HISTORY_TOOL_TIMEOUT = 10.0             # страховочный wait_for (локальная SQLite)
+# Честная фраза при пустом результате: модель не выдумывает (spec §3).
+_HISTORY_EMPTY = "За последние сообщения ничего не нашлось"
 
 # Окна query_chat_memory (3.3): time_range → секунды (0 = всё время).
 _TIME_RANGE_SECONDS = {
@@ -56,6 +96,21 @@ _TIME_RANGE_LABELS = {
 
 _TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
 
+# Валидация ссылок инструментов (F8): только http(s)-URL.
+_HTTP_URL_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
+
+
+def _is_http_url(url: str) -> bool:
+    """True — строка похожа на http(s)-ссылку (иначе инструмент → ОШИБКА)."""
+    return bool(_HTTP_URL_RE.match(str(url or "").strip()))
+
+
+def _download_status(status: str, message: str) -> str:
+    """Фиктивный tool_response для download_media (ADR-1015-3 §4): LLM видит
+    JSON, а реальный MP4 уходит в чат на бэкенде (модель не «печатает» файл)."""
+    return json.dumps({"status": status, "message": message},
+                      ensure_ascii=False)
+
 
 def keywords(query: str) -> list[str]:
     """Токены запроса для FTS-поиска (L2-путь query_chat_memory)."""
@@ -66,6 +121,20 @@ def _time_range_since(time_range: str) -> int:
     """Секунды с эпохи для окна (0 = без фильтра по времени)."""
     seconds = _TIME_RANGE_SECONDS.get((time_range or "all").strip().lower(), 0)
     return 0 if not seconds else int(time.time()) - seconds
+
+
+def _history_depth(raw) -> int:
+    """depth get_recent_history → int в [1, _HISTORY_MAX_DEPTH].
+
+    Отсутствие/кривой тип → _HISTORY_DEFAULT_DEPTH; 0/отрицательное → 1
+    (spec §2: «клампится в 1.._HISTORY_MAX_DEPTH»)."""
+    if raw is None or raw == "":
+        return _HISTORY_DEFAULT_DEPTH
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return _HISTORY_DEFAULT_DEPTH
+    return max(1, min(value, _HISTORY_MAX_DEPTH))
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -85,21 +154,56 @@ def _format_timestamp(ts) -> str:
         return ""
 
 
-class ToolDeps:
-    """Контейнер зависимостей инструментов (инжектится из bot.py)."""
+class ToolHealthDeps:
+    """Контейнер health-инструмента: CheckupService + CheckupLogsFetcher.
 
-    def __init__(self, search, memory, aliases=None) -> None:
+    Инжектится из bot.py (тот же путь, что роутер 0g), чтобы инструмент
+    get_bot_health не тянул хендлер в сервисный слой.
+    """
+
+    def __init__(self, service, fetcher) -> None:
+        self.service = service            # CheckupService
+        self.fetcher = fetcher            # CheckupLogsFetcher
+
+
+class ToolDeps:
+    """Контейнер зависимостей инструментов (инжектится из bot.py).
+
+    Раунд 10.15 (F8): video/downloader/health/db — аддитивные keyword-only
+    (старые вызовы `ToolDeps(search, memory, aliases)` не ломаются).
+    """
+
+    def __init__(self, search, memory, aliases=None, *, video=None,
+                 downloader=None, health=None, db=None,
+                 download_cooldown=None) -> None:
         self.search = search            # SearchAggregator
         self.memory = memory            # MemoryManager
         self.aliases = aliases          # AliasResolver | None
+        self.video = video              # YoutubeSummarizerService | None
+        self.downloader = downloader    # VideoDownloader | None
+        self.health = health            # ToolHealthDeps | None
+        self.db = db                    # Database | None (F9)
+        # R10.15-9: zero-arg-провайдер общего download-кулдауна роутера 4e
+        # (ленивая ссылка: `setup_video_download` пересоздаёт трекер в
+        # on_startup уже после сборки ToolDeps). None → гейта нет.
+        self.download_cooldown = download_cooldown
 
 
 class ToolContext:
-    """Контекст вызова инструментов (одно сообщение direct_chat)."""
+    """Контекст вызова инструментов (одно сообщение direct_chat).
 
-    def __init__(self, chat_id: int, query: str) -> None:
+    Раунд 10.15 (F8): bot/reply_to_message_id/user_id — аддитивные
+    keyword-only (у download_media есть куда отправить файл и на что
+    ответить реплаем).
+    """
+
+    def __init__(self, chat_id: int, query: str, *, bot=None,
+                 reply_to_message_id=None, user_id=None) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
+        self.bot = bot
+        self.reply_to_message_id = reply_to_message_id
+        self.user_id = user_id
 
 
 # ── dig_into_lore (раунд 9, T-820): код-дефолты (spec §3.6.4; REGISTRY-ключи
@@ -130,6 +234,10 @@ class ToolRouter:
             "execute_web_search": self._execute_web_search,
             "query_chat_memory": self._query_chat_memory,
             "dig_into_lore": self._dig_into_lore,
+            "summarize_video": self._summarize_video,
+            "download_media": self._download_media,
+            "get_bot_health": self._get_bot_health,
+            "get_recent_history": self._get_recent_history,
         }
         method = registry.get(name)
         if method is None:
@@ -380,6 +488,247 @@ class ToolRouter:
             return f"ничего не нашёл по запросу «{query}»"
         return _truncate("\n".join(parts), dig_max_symbols)
 
+    # ── F8 (раунд 10.15, ADR-1015-3): новые инструменты ──────────────
+
+    async def _summarize_video(self, arguments: dict, ctx: ToolContext) -> str:
+        """Выжимка/расшифровка видео по ссылке: YouTube → каскад/субтитры
+        YoutubeSummarizerService; иная ссылка → мультимодальная выжимка
+        (summarize_media_url). mode=transcript → сырой текст (cap), иначе
+        summary. Не-URL → ОШИБКА. Результат усечён до _MEMORY_MAX_SYMBOLS.
+        R17: URL не логируется."""
+        url = self._require_str(arguments, "url")
+        if not _is_http_url(url):
+            return "ОШИБКА summarize_video: некорректная ссылка"
+        mode = str(arguments.get("mode") or "summary").strip().lower()
+        if mode not in ("summary", "transcript"):
+            mode = "summary"
+        service = self.deps.video
+        if service is None:
+            return "ОШИБКА summarize_video: сервис недоступен"
+        try:
+            if mode == "transcript":
+                text = await asyncio.wait_for(
+                    self._video_transcript(service, url),
+                    timeout=_SUMMARIZE_TOOL_TIMEOUT)
+            else:
+                text = await asyncio.wait_for(
+                    self._video_summary(service, url, ctx),
+                    timeout=_SUMMARIZE_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] summarize_video timeout | mode=%s", mode)
+            return "ОШИБКА summarize_video: timeout"
+        except Exception as exc:
+            logger.warning("[tools] summarize_video failed | mode=%s | "
+                           "error=%s", mode, type(exc).__name__)
+            return f"ОШИБКА summarize_video: {type(exc).__name__}"
+        text = str(text or "").strip()
+        if not text:
+            return "ОШИБКА summarize_video: пустой результат"
+        return _truncate(text, _MEMORY_MAX_SYMBOLS)
+
+    @staticmethod
+    async def _video_transcript(service, url: str) -> str:
+        """mode=transcript: субтитры YouTube (cap). Иная ссылка без транскрипта
+        (для не-YouTube нужен downloader+STT — вне tool-контракта)."""
+        video_id = extract_youtube_video_id(url)
+        if video_id is None:
+            raise ValueError("transcript доступен только для YouTube")
+        return await service.engine.fetch_transcript(
+            video_id, _SUMMARIZE_TRANSCRIPT_CAP, on_retry=None)
+
+    @staticmethod
+    async def _video_summary(service, url: str, ctx: ToolContext) -> str:
+        """mode=summary: YouTube → каскад выжимки по video_id; прямая/платформа
+        → мультимодальная выжимка по video_url."""
+        video_id = extract_youtube_video_id(url)
+        if video_id is not None:
+            return await service.summarize_cascade(video_id,
+                                                   chat_id=ctx.chat_id)
+        return await service.summarize_media_url(chat_id=ctx.chat_id,
+                                                 video_url=url)
+
+    def _download_cooldown(self):
+        """Общий download-кулдаун роутера 4e | None (R10.15-9). Провайдер —
+        zero-arg callable (ленивая ссылка на трекер); сбой провайдера → None
+        (не роняем tool-loop)."""
+        provider = getattr(self.deps, "download_cooldown", None)
+        if provider is None:
+            return None
+        try:
+            return provider() if callable(provider) else provider
+        except Exception:
+            logger.warning("[tools] download cooldown unavailable")
+            return None
+
+    async def _download_media(self, arguments: dict, ctx: ToolContext) -> str:
+        """Корнер-кейс файлов (ADR-1015-3 §4): скачиваем на бэкенде и САМИ
+        шлём MP4 в чат (send_media), а в LLM возвращаем фиктивный
+        tool_response JSON — иначе модель «печатает» видео (галлюцинация).
+        Успех — только после реальной отправки; при любом сбое status:"error".
+        Гейт — flags.download_enabled. R17: без URL/текстов в логах."""
+        url = self._require_str(arguments, "url")
+        if not _is_http_url(url):
+            return _download_status("error", "Некорректная ссылка")
+        if not hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
+            return _download_status("error", "Скачивание отключено")
+        if ctx.bot is None or self.deps.downloader is None:
+            return _download_status("error", "Скачивание недоступно")
+        # Follow-up R10.15-9: уважаем общий download-кулдаун роутера 4e
+        # (тот же трекер через DI-провайдер; R17 — без URL/текстов в логах).
+        cooldown = self._download_cooldown()
+        if cooldown is not None and ctx.user_id is not None:
+            cooldown_refresh(cooldown, hot.get("limits.download_cooldown",
+                                               settings.DOWNLOAD_COOLDOWN))
+            remaining = await cooldown_remaining(cooldown, ctx.chat_id,
+                                                 ctx.user_id)
+            if remaining > 0:
+                return _download_status("error",
+                                        "Скачивание на кулдауне — позже")
+        path = None
+        try:
+            if cooldown is not None and ctx.user_id is not None:
+                # Успешный старт скачивания жжёт кулдаун (D279, как 4e).
+                await cooldown_touch(cooldown, ctx.chat_id, ctx.user_id)
+            path = await asyncio.wait_for(
+                self.deps.downloader.download(url, "direct"),
+                timeout=_DOWNLOAD_TOOL_TIMEOUT)
+        except Exception as exc:
+            logger.warning(
+                "[tools] download failed | tool=download_media | error=%s",
+                type(exc).__name__)
+            return _download_status("error", "Не удалось скачать видео")
+        try:
+            await send_media(ctx.bot, ctx.chat_id, path,
+                             reply_to=ctx.reply_to_message_id)
+        except Exception as exc:
+            logger.warning(
+                "[tools] media send failed | tool=download_media | error=%s",
+                type(exc).__name__)
+            return _download_status("error", "Не удалось отправить файл")
+        finally:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        return _download_status("success", "Файл успешно загружен в чат")
+
+    async def _get_bot_health(self, arguments: dict, ctx: ToolContext) -> str:
+        """Здоровье бота: тот же путь, что роутер 0g — CheckupLogsFetcher.fetch
+        → CheckupService.checkup. Кулдаун не применяем (вызов по интенту LLM;
+        ограничение — лимиты tool-loop). R17: без текстов логов.
+
+        Follow-up R10.15-2: уважаем master-флаг модуля (`flags.checkup_enabled`,
+        тот же гейт, что `handlers/checkup.py`) — при выключенном модуле
+        инструмент не делает сетевой/LLM-вызов, а возвращает честную ошибку."""
+        if not hot.get("flags.checkup_enabled", settings.CHECKUP_ENABLED):
+            return "ОШИБКА get_bot_health: модуль выключен"
+        health = self.deps.health
+        if health is None or getattr(health, "service", None) is None \
+                or getattr(health, "fetcher", None) is None:
+            return "ОШИБКА get_bot_health: сервис недоступен"
+        try:
+            logs, used_fallback = await health.fetcher.fetch()
+            report = await health.service.checkup(logs, used_fallback)
+        except Exception as exc:
+            logger.warning("[tools] get_bot_health failed | error=%s",
+                           type(exc).__name__)
+            return f"ОШИБКА get_bot_health: {type(exc).__name__}"
+        text = str(report or "").strip()
+        if not text:
+            return "ОШИБКА get_bot_health: пустой отчёт"
+        return _truncate(text, _MEMORY_MAX_SYMBOLS)
+
+    async def _get_recent_history(self, arguments: dict,
+                                  ctx: ToolContext) -> str:
+        """F9 (spec §2-§5): сырая хронологическая стенограмма недавних
+        сообщений чата («Имя: текст») — кратковременная память, НЕ RAG.
+
+        Путь A (`depth`): `database.get_recent_messages(chat_id, depth)` —
+        последние N сообщений в хронологическом порядке (ASC).
+        Путь B (`query`): FTS по L1 + пост-фильтр окна _HISTORY_QUERY_WINDOW_
+        SECONDS + сортировка ASC. Приоритет — `query`; если параметров нет —
+        `depth = _HISTORY_DEFAULT_DEPTH`.
+
+        НЕ бросает: ошибка/пусто/сбой → структурная строка (R17: в логах
+        только chat_id/count/out_chars, без текстов/URL/имён)."""
+        args = arguments if isinstance(arguments, dict) else {}
+        query = str(args.get("query") or "").strip()
+        depth = _history_depth(args.get("depth"))
+        # Follow-up R10.15-6 (spec F9 §5): модель не передала ни query, ни
+        # depth, но есть свободный текст сообщения → используем его как query.
+        # Явный depth НЕ перекрывается (depth-путь сохранён).
+        if not query and args.get("depth") in (None, ""):
+            query = str(getattr(ctx, "query", "") or "").strip()
+        db = self.deps.db if self.deps.db is not None \
+            else getattr(self.deps.memory, "db", None)
+        try:
+            if query:
+                lines = await asyncio.wait_for(
+                    self._recent_history_by_query(ctx, query),
+                    timeout=_HISTORY_TOOL_TIMEOUT)
+            else:
+                lines = await asyncio.wait_for(
+                    self._recent_history_by_depth(ctx, db, depth),
+                    timeout=_HISTORY_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] get_recent_history timeout | chat=%s",
+                           ctx.chat_id)
+            return "ОШИБКА get_recent_history: timeout"
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "[tools] get_recent_history failed | chat=%s | error=%s",
+                ctx.chat_id, type(exc).__name__)
+            return f"ОШИБКА get_recent_history: {type(exc).__name__}"
+        if not lines:
+            logger.info("[tools] get_recent_history | chat=%s | count=0 | "
+                        "out_chars=0", ctx.chat_id)
+            return _HISTORY_EMPTY
+        text = _truncate("\n".join(lines), _HISTORY_MAX_SYMBOLS)
+        logger.info("[tools] get_recent_history | chat=%s | count=%d | "
+                    "out_chars=%d", ctx.chat_id, len(lines), len(text))
+        return text
+
+    async def _recent_history_by_depth(self, ctx: ToolContext, db, depth: int
+                                       ) -> list[str]:
+        """Путь A: последние `depth` сообщений чата (ASC). DDL не нужен —
+        переиспользуем read-API `database.get_recent_messages`."""
+        if db is None or not hasattr(db, "get_recent_messages"):
+            raise RuntimeError("db недоступен")
+        rows = await db.get_recent_messages(ctx.chat_id, depth)
+        return self._history_lines(rows)
+
+    async def _recent_history_by_query(self, ctx: ToolContext, query: str
+                                       ) -> list[str]:
+        """Путь B: FTS по L1 + фильтр окна последних часов → ASC-стенограмма."""
+        since = int(time.time()) - _HISTORY_QUERY_WINDOW_SECONDS
+        rows = await self.deps.memory.search_long_term(
+            ctx.chat_id, keywords(query), limit=_HISTORY_SEARCH_LIMIT)
+        # T-678: aiosqlite.Row не имеет .get → нормализация в dict.
+        rows = [dict(row) for row in rows]
+        rows = [r for r in rows if int(r.get("timestamp") or 0) >= since]
+        rows.sort(key=lambda r: int(r.get("timestamp") or 0))
+        return self._history_lines(rows)
+
+    def _history_lines(self, rows) -> list[str]:
+        """Строки smart_messages → список «Имя: текст» (R16-каскад имён;
+        пустой текст без медиа пропускается; медиа-событие — маркером)."""
+        lines: list[str] = []
+        for row in rows or []:
+            try:
+                item = dict(row)
+            except (TypeError, ValueError):
+                continue
+            text = str(item.get("text") or "").strip()
+            if not text:
+                media = str(item.get("media_type") or "").strip()
+                if not media or media == "text":
+                    continue
+                text = f"[медиа: {media}]"
+            lines.append(f"{self._resolve_name(item)}: {text}")
+        return lines
+
     # ── helpers dig (T-820; переиспользуют _require_query/_resolve_name) ──
 
     @staticmethod
@@ -514,6 +863,14 @@ class ToolRouter:
         raw = arguments.get("query")
         text = str(raw or "").strip() if isinstance(raw, str) else str(raw or "").strip()
         return text or ctx.query
+
+    @staticmethod
+    def _require_str(arguments: dict, key: str) -> str:
+        """Строковый аргумент инструмента (None/не-строка → "")."""
+        raw = arguments.get(key)
+        if raw is None:
+            return ""
+        return str(raw).strip()
 
     def _resolve_name(self, row: dict) -> str:
         """Имя автора строки FTS: алиас → имя → ник → user_id (R7-каскад)."""

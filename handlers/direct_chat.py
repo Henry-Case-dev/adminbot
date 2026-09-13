@@ -29,6 +29,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.filters import Command, CommandObject
 
 from config.settings import settings
+from services import command_prefix
 from services import hot_config as hot
 from services import bot_persona
 from handlers.voice_transcription import is_reply_to_transcription
@@ -94,6 +95,26 @@ _BOTWORD_RE = _compile_botword(hot.get("reactions.chat_botword_pattern", setting
 # mention (осознанное обращение) — работают как раньше.
 _BOTWORD_EXCLUDED_USER_IDS = {hot.get("reactions.alan_user_id", settings.ALAN_USER_ID), hot.get("reactions.kostik_user_id", settings.KOSTIK_USER_ID)}
 
+# Раунд 10.15 (F6, review-fix M2): функциональная команда yield-ится в
+# direct_chat ТОЛЬКО когда соответствующий воркер реально включён. Иначе
+# (напр. «Бот, скачай …» при flags.download_enabled=false) сообщение уходит в
+# обычный путь LLM, а не теряется без ответа.
+_FUNCTIONAL_FLAGS: dict[str, tuple[str, bool]] = {
+    "search": ("flags.search_enabled", settings.SEARCH_ENABLED),
+    "youtube": ("flags.video_summary_enabled", settings.VIDEO_SUMMARY_ENABLED),
+    "web": ("flags.webpage_enabled", settings.WEBPAGE_ENABLED),
+    "checkup": ("flags.checkup_enabled", settings.CHECKUP_ENABLED),
+    "download": ("flags.download_enabled", settings.DOWNLOAD_ENABLED),
+}
+
+
+def _functional_module_active(group: str | None) -> bool:
+    """Включён ли воркер группы (master-флаг; hot → settings-фолбек)."""
+    spec = _FUNCTIONAL_FLAGS.get(group or "")
+    if spec is None:
+        return False
+    return bool(hot.get(spec[0], spec[1]))
+
 
 def setup_direct_chat(service: DirectChatService | None, bot_id: int | None,
                       bot_username: str | None) -> None:
@@ -144,17 +165,20 @@ def _is_direct_trigger(message: types.Message) -> bool:
     text = message.text or ""
     if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", text):
         return True
-    # Раунд 10.14 (F2 persona-storage-core, spec §3.3): имя бота — триггер
-    # обращения (sync-чтение из in-memory кэша глобального имени; per-chat
-    # имя на sync-пути не поддерживается). Гейт flags.persona_enabled.
-    if hot.get("flags.persona_enabled", settings.PERSONA_ENABLED):
-        cached_name = bot_persona.get_cached_global_name()
-        if cached_name and re.search(
-                rf"(?i)(?<![0-9a-zа-яё_]){re.escape(cached_name)}"
-                rf"(?![0-9a-zа-яё_])", text):
+    # Раунд 10.15 (F6, T-1598): триггер = непустое Имя персоны. Имя задано →
+    # обращение по имени (со склонениями); дефолтные ботворды ОТКЛЮЧАЮТСЯ.
+    # Имя пусто → дефолтная keyword-ветка «бот»/«ботик»/«ботяра».
+    persona_on = hot.get("flags.persona_enabled", settings.PERSONA_ENABLED)
+    name_set = bool(str(bot_persona.get_cached_global_name() or "").strip())
+    if persona_on and name_set:
+        if command_prefix.name_mentioned(text):
             return True
     # T-411 (R52-4): keyword-ветка под флагом — «бот»/«ботохуета»/«ботина»/…
-    if hot.get("flags.direct_chat_botword_enabled", settings.DIRECT_CHAT_BOTWORD_ENABLED) and _BOTWORD_RE.search(text):
+    # Активна, только если НЕ (persona_enabled AND name_set).
+    if (not (persona_on and name_set)) and \
+            hot.get("flags.direct_chat_botword_enabled",
+                    settings.DIRECT_CHAT_BOTWORD_ENABLED) \
+            and _BOTWORD_RE.search(text):
         # H2 (review-fix): НЕ триггеримся на сообщения юзеров, за которыми
         # закреплены свои роутеры (alan 3 / kostik 2) — их «бот»-сообщения
         # уходят дальше по цепочке (0h → UNHANDLED). Reply/mention выше —
@@ -334,6 +358,11 @@ def _parse_memory_command(raw: str) -> tuple[str, str] | None:
     text = str(raw or "").strip()
     if not text:
         return None
+    # Раунд 10.15 (F6, T-1598): обращение по Имени персоны (со склонениями) —
+    # «Олег, запомни …» работает как «бот, запомни …».
+    tok, rest = command_prefix.split_prefix(text)
+    if tok is not None:
+        text = rest
     while True:
         m = _PEER_PREFIX_RE.match(text)
         if not m:
@@ -423,6 +452,15 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
         return UNHANDLED                       # команды не перехватываются
     if not _is_direct_trigger(message):
         return UNHANDLED                       # не триггер → пропагация живёт
+    # Раунд 10.15 (F6, T-1598, ADR-1015-1): «Префикс + канонический триггер» —
+    # функциональная команда имеет наивысший приоритет и НЕ уходит в LLM.
+    # Yield (UNHANDLED) → D49-пропагация доносит сообщение до 4e download
+    # (search/youtube/web/checkup 0d–0g уже отработали ДО 0h). Review-fix M2:
+    # yield только при ВКЛЮЧЁННОМ воркере, иначе сообщение не теряется и идёт
+    # обычным путём LLM. Триггер без цели консьюмится функциональным воркером.
+    group = command_prefix.functional_group(text)
+    if group is not None and _functional_module_active(group):
+        return UNHANDLED
     # Раунд 4 (T-712, FR-D1): память-команды — ПОСЛЕ триггера, ДО handle.
     # Распознанный синтаксис → ответ/подтверждение + consumed (в LLM НЕ
     # уходит; команды работают даже при активном кулдауне диалога).

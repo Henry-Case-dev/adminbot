@@ -9,6 +9,7 @@ from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 from config.settings import settings
 from services.smart_cache import SmartCache, build_key, normalize_text, normalize_url
@@ -57,13 +58,15 @@ class TestBuildKey:
 
 
 class TestSmartCacheStorage:
-    @pytest.fixture
-    def cache(self, tmp_path, monkeypatch):
+    @pytest_asyncio.fixture
+    async def cache(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
             "services.smart_cache.settings",
             replace(settings, SMART_CACHE_ENABLED=True, SMART_CACHE_TTL_SECONDS=60),
         )
-        return SmartCache(str(tmp_path / "cache.db"))
+        c = SmartCache(str(tmp_path / "cache.db"))
+        yield c
+        await c.close()                     # L4: не оставлять aiosqlite-хвост
 
     @pytest.mark.asyncio
     async def test_set_get_roundtrip(self, cache):
@@ -186,13 +189,13 @@ class TestCacheHitInHandlers:
             service.summarize = AsyncMock(return_value="выжимка сайта")
             web_mod.setup_web(service)
             bot = AsyncMock()
-            msg = _url_message("поясни за ссылку https://site.ru/article")
+            msg = _url_message("Бот, поясни за ссылку https://site.ru/article")
             await web_mod.web_handler(msg, bot=bot)
             assert service.summarize.await_count == 1
             # та же ссылка с utm-хвостом → тот же ключ → кэш-хит
             web_mod._cooldown._last.clear()
             msg2 = _url_message(
-                "выжимка https://site.ru/article?utm_source=x", message_id=33)
+                "Бот, выжимка https://site.ru/article?utm_source=x", message_id=33)
             await web_mod.web_handler(msg2, bot=bot)
             assert service.summarize.await_count == 1   # Tavily/Trafilatura/LLM не вызваны
             assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 33
@@ -222,7 +225,7 @@ def _fc_message(target_text="тест", message_id=11, chat_id=CHAT_ID):
     return msg
 
 
-def _url_message(text="выжимка https://site.ru/article", message_id=11,
+def _url_message(text="Бот, выжимка https://site.ru/article", message_id=11,
                  chat_id=CHAT_ID):
     msg = MagicMock()
     msg.text = text

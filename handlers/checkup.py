@@ -13,6 +13,8 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
+from services import command_prefix
+from services import command_registry
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
@@ -50,12 +52,30 @@ _fetcher = None                                   # CheckupLogsFetcher (DI)
 _cooldown = CooldownTracker(settings.CHECKUP_COOLDOWN_SECONDS)
 _CHAT_SLOT = 0                                    # per-chat кулдаун (T-328-C)
 
-_CHECKUP_TRIGGER_RE = re.compile(
+# Раунд 10.15 (F6, T-1596): ДВА пути.
+# 1) bare-исключение «чекап» — как раньше (без префикса, слово целиком);
+# 2) prefixed: Префикс + (ты в порядке|живой?|чекни здоровье) по остатку.
+# F6-U1: legacy-фразы «живой собака», «пульс бота», «как сервак» из префиксного
+# пути УДАЛЕНЫ.
+_BARE_CHECKUP_RE = re.compile(
     r"(?:^|[\s\u00ab\u00bb\"'(\[\-])"
-    r"(?:чекап|ты в порядке|живой собака|пульс бота|чекни здоровье|как сервак)"
+    r"чекап"
     r"(?=[\s!?.,;:\u2026\u00ab\u00bb)]*$)",
     re.IGNORECASE,
 )
+
+
+def _is_checkup_trigger(text: str) -> bool:
+    """bare «чекап» ИЛИ префикс + канонический checkup-триггер (§5)."""
+    stripped = str(text or "").strip()
+    if not stripped:
+        return False
+    if _BARE_CHECKUP_RE.search(stripped):
+        return True
+    tok, body = command_prefix.split_prefix(stripped)
+    if tok is None:
+        return False
+    return command_registry.matches_group("checkup", body)
 
 
 def setup_checkup(service, fetcher, db=None) -> None:
@@ -77,7 +97,7 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     if not hot.get("flags.checkup_enabled", settings.CHECKUP_ENABLED):
         return UNHANDLED
     text = (message.text or message.caption or "").strip()
-    if not text or not _CHECKUP_TRIGGER_RE.search(text):
+    if not text or not _is_checkup_trigger(text):
         return UNHANDLED                       # не триггер → пропагация живёт
     user_id = message.from_user.id if message.from_user else 0
     logger.info("[checkup] triggered | chat=%s user=%s", message.chat.id, user_id)

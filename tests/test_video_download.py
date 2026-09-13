@@ -92,15 +92,15 @@ class TestTrigger:
     async def test_all_trigger_words(self, vd_env, monkeypatch):
         monkeypatch.setattr(vd._downloader, "probe",
                             AsyncMock(return_value=_probe()))
-        for word in ("скачай", "загрузи", "стяни", "спизди", "скачать"):
-            msg = _make_msg(f"{word} {URL}")
+        for word in ("скачай", "загрузи", "стяни"):
+            msg = _make_msg(f"Бот, {word} {URL}")
             result = await vd.video_download_handler(msg, bot=AsyncMock())
             assert result is None                       # consume (не UNHANDLED)
 
     @pytest.mark.asyncio
     async def test_case_insensitive_and_leading_ws(self, monkeypatch):
         assert vd._TRIGGER_RE.match("  СКАЧАЙ " + URL)
-        assert vd._TRIGGER_RE.match("Спизди " + URL)
+        assert vd._TRIGGER_RE.match("Стяни " + URL)
 
     @pytest.mark.asyncio
     async def test_trigger_mid_sentence_not_a_trigger(self, vd_env):
@@ -120,10 +120,10 @@ class TestTrigger:
 
 class TestUrlExtraction:
     def test_zero_links(self):
-        assert vd._extract_urls(_make_msg("скачай что-нибудь")) == []
+        assert vd._extract_urls(_make_msg("Бот, скачай что-нибудь")) == []
 
     def test_one_link_from_text(self):
-        assert vd._extract_urls(_make_msg(f"скачай {URL}")) == [URL]
+        assert vd._extract_urls(_make_msg(f"Бот, скачай {URL}")) == [URL]
 
     def test_caption_link(self):
         assert vd._extract_urls(
@@ -148,7 +148,7 @@ class TestUrlExtraction:
 class TestNoLinkPhrase:
     @pytest.mark.asyncio
     async def test_trigger_without_link_replies_no_link(self, vd_env):
-        msg = _make_msg("скачай что-нибудь")
+        msg = _make_msg("Бот, скачай что-нибудь")
         await vd.video_download_handler(msg, bot=AsyncMock())
         sent = msg.reply.call_args[0][0]
         assert sent in VD_NO_LINK_PHRASES
@@ -221,7 +221,7 @@ class TestCooldown:
     @pytest.mark.asyncio
     async def test_cooldown_phrase_contains_remaining_time(self, vd_env):
         vd._cooldown._last[(CHAT_ID, USER_ID)] = time.monotonic() - 10.0
-        msg = _make_msg(f"скачай {URL}")
+        msg = _make_msg(f"Бот, скачай {URL}")
         await vd.video_download_handler(msg, bot=AsyncMock())
         sent = msg.reply.call_args[0][0]
         assert any(p.split("{")[0] in sent for p in VD_COOLDOWN_PHRASES), sent
@@ -234,7 +234,7 @@ class TestCooldown:
             time.monotonic() - 1900.0)              # 30м кулдаун истёк
         monkeypatch.setattr(vd._downloader, "probe",
                             AsyncMock(return_value=_probe()))
-        msg = _make_msg(f"скачай {URL}")
+        msg = _make_msg(f"Бот, скачай {URL}")
         await vd.video_download_handler(msg, bot=AsyncMock())
         msg.reply.assert_not_called()               # кулдауна нет → фразы нет
 
@@ -254,13 +254,13 @@ class TestTouchAfterProbe:
             return _probe()
 
         monkeypatch.setattr(vd._downloader, "probe", flaky)
-        msg1 = _make_msg(f"скачай {URL}", message_id=101)
+        msg1 = _make_msg(f"Бот, скачай {URL}", message_id=101)
         await vd.video_download_handler(msg1, bot=AsyncMock())
         assert msg1.reply.call_args[0][0] in VD_ERROR_PHRASES
         assert (CHAT_ID, USER_ID) not in vd._cooldown._last   # touch не звался
 
         # немедленный ретрай проходит кулдаун-гейт без ожидания
-        msg2 = _make_msg(f"скачай {URL}", message_id=102)
+        msg2 = _make_msg(f"Бот, скачай {URL}", message_id=102)
         bot2 = AsyncMock()
         await vd.video_download_handler(msg2, bot=bot2)
         msg2.reply.assert_not_called()
@@ -281,13 +281,13 @@ class TestTouchAfterProbe:
         probe_mock = AsyncMock(return_value=_probe())
         monkeypatch.setattr(vd._downloader, "probe", probe_mock)
 
-        msg1 = _make_msg(f"скачай {URL}", message_id=101)
+        msg1 = _make_msg(f"Бот, скачай {URL}", message_id=101)
         await vd.video_download_handler(msg1, bot=AsyncMock())
         assert touched == [(CHAT_ID, USER_ID)]       # ровно один touch
         assert (CHAT_ID, USER_ID) in vd._cooldown._last
 
         # мгновенный повторный триггер → кулдаун активен, probe не дёргается
-        msg2 = _make_msg(f"скачай {URL}", message_id=102)
+        msg2 = _make_msg(f"Бот, скачай {URL}", message_id=102)
         await vd.video_download_handler(msg2, bot=AsyncMock())
         sent = msg2.reply.call_args[0][0]
         assert any(p.split("{")[0] in sent for p in VD_COOLDOWN_PHRASES)
@@ -322,7 +322,7 @@ class TestTouchAfterProbe:
         monkeypatch.setattr(vd._downloader, "probe", fake_probe)
         bot = AsyncMock()
         await vd.video_download_handler(
-            _make_msg(f"скачай {URL} и {URL2}"), bot=bot)
+            _make_msg(f"Бот, скачай {URL} и {URL2}"), bot=bot)
         assert bot.edit_message_text.await_count == 1
         assert (CHAT_ID, USER_ID) in vd._cooldown._last      # touch прозван
 
@@ -334,7 +334,7 @@ class TestTouchAfterProbe:
         monkeypatch.setattr(vd._downloader, "probe", fake_probe)
         bot = AsyncMock()
         await vd.video_download_handler(
-            _make_msg(f"скачай {URL} и {URL2}"), bot=bot)
+            _make_msg(f"Бот, скачай {URL} и {URL2}"), bot=bot)
         assert (CHAT_ID, USER_ID) not in vd._cooldown._last  # БЕЗ touch
 
     @pytest.mark.asyncio
@@ -356,18 +356,18 @@ class TestTouchAfterProbe:
             types.SimpleNamespace(DOWNLOAD_COOLDOWN=1800.0))
         t_first = time.monotonic()
         await vd.video_download_handler(
-            _make_msg(f"скачай {URL}", message_id=101), bot=AsyncMock())
+            _make_msg(f"Бот, скачай {URL}", message_id=101), bot=AsyncMock())
         await asyncio.sleep(0.25)                    # пауза между попытками
         state["fail"] = False
         await vd.video_download_handler(
-            _make_msg(f"скачай {URL}", message_id=102), bot=AsyncMock())
+            _make_msg(f"Бот, скачай {URL}", message_id=102), bot=AsyncMock())
 
         # touch проставлен в момент УСПЕШНОГО probe, не первого триггера
         touch_ts = vd._cooldown._last[(CHAT_ID, USER_ID)]
         assert touch_ts - t_first >= 0.24
 
         # фраза кулдауна отсчитывает remaining от нового touch (~полные 30м)
-        msg3 = _make_msg(f"скачай {URL}", message_id=103)
+        msg3 = _make_msg(f"Бот, скачай {URL}", message_id=103)
         await vd.video_download_handler(msg3, bot=AsyncMock())
         sent = msg3.reply.call_args[0][0]
         minutes = int(re.search(r"(\d+) мин", sent).group(1))
@@ -845,7 +845,7 @@ class TestMultiLinkFlow:
             return probes[url]
 
         monkeypatch.setattr(vd._downloader, "probe", fake_probe)
-        msg = _make_msg(f"скачай {URL} и {URL2}")
+        msg = _make_msg(f"Бот, скачай {URL} и {URL2}")
         bot = AsyncMock()
         bot.edit_message_text = AsyncMock()
         await vd.video_download_handler(msg, bot=bot)
@@ -2002,7 +2002,7 @@ class TestDirectMedia:
                 self.send_video = AsyncMock()
 
         bot = _Bot()
-        msg = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+        msg = _make_msg("Бот, скачай https://2ch.su/a.mp4?t=1",
                         chat_type="private")
         await vd.video_download_handler(msg, bot=bot)
         assert bot.send_video.await_count == 1
@@ -2065,7 +2065,7 @@ class TestDirectMedia:
                 self.send_message = AsyncMock()
 
         bot = _Bot()
-        msg1 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+        msg1 = _make_msg("Бот, скачай https://2ch.su/a.mp4?t=1",
                          chat_type="private")
         await vd.video_download_handler(msg1, bot=bot)
         assert bot.send_video.await_count == 1
@@ -2073,7 +2073,7 @@ class TestDirectMedia:
 
         # мгновенный повтор → кулдаун активен → фраза, без второго скачивания
         bot2 = _Bot()
-        msg2 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+        msg2 = _make_msg("Бот, скачай https://2ch.su/a.mp4?t=1",
                          chat_type="private")
         await vd.video_download_handler(msg2, bot=bot2)
         assert bot2.send_video.await_count == 0
@@ -2098,7 +2098,7 @@ class TestDirectMedia:
                 self.send_message = AsyncMock()
 
         bot = _Bot()
-        msg1 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+        msg1 = _make_msg("Бот, скачай https://2ch.su/a.mp4?t=1",
                          chat_type="private")
         await vd.video_download_handler(msg1, bot=bot)
         assert bot.send_video.await_count == 0
@@ -2106,7 +2106,7 @@ class TestDirectMedia:
 
         # повтор без ожидания → не фраза кулдауна (гейт не сработал)
         bot2 = _Bot()
-        msg2 = _make_msg("скачай https://2ch.su/a.mp4?t=1",
+        msg2 = _make_msg("Бот, скачай https://2ch.su/a.mp4?t=1",
                          chat_type="private")
         await vd.video_download_handler(msg2, bot=bot2)
         assert (CHAT_ID, USER_ID) not in vd._cooldown._last   # всё ещё без touch
@@ -2144,7 +2144,7 @@ class TestNativeMedia:
                 self.send_message = AsyncMock()
 
         bot = _Bot()
-        msg = _make_msg("скачай", chat_type="private")
+        msg = _make_msg("Бот, скачай", chat_type="private")
         msg.video = SimpleNamespace(file_id="fid123")
         await vd_mod.video_download_handler(msg, bot=bot)
         assert bot.download.await_count == 1
@@ -2176,7 +2176,7 @@ class TestNativeMedia:
         bot = _Bot()
         target = _make_msg("видео без ссылок", message_id=55, chat_type="private")
         target.video = SimpleNamespace(file_id="foreign_fid", file_name=None)
-        msg = _make_msg("скачай", message_id=56, chat_type="private")
+        msg = _make_msg("Бот, скачай", message_id=56, chat_type="private")
         msg.video = None
         msg.reply_to_message = target
         await vd_mod.video_download_handler(msg, bot=bot)
@@ -2210,7 +2210,7 @@ class TestNativeMedia:
         target = _make_msg("документ", message_id=66, chat_type="private")
         target.document = SimpleNamespace(
             file_id="doc_fid", mime_type="video/mp4", file_name="ролик.mp4")
-        msg = _make_msg("скачай", message_id=67, chat_type="private")
+        msg = _make_msg("Бот, скачай", message_id=67, chat_type="private")
         msg.video = None
         msg.document = None
         msg.reply_to_message = target
@@ -2236,7 +2236,7 @@ class TestNativeMedia:
         target.voice = MagicMock(file_id="voice_fid")
         target.video = None
         target.document = None
-        msg = _make_msg("скачай", message_id=78, chat_type="private")
+        msg = _make_msg("Бот, скачай", message_id=78, chat_type="private")
         msg.video = None
         msg.document = None
         msg.reply_to_message = target

@@ -111,7 +111,7 @@ class TestRouterIsolation:
     async def test_youtube_consumes_before_common(self, env):
         """YT-URL + YT-триггер → ровно 1 ответ от 0e; common не срабатывает."""
         dp, bot, db, relay, youtube_service, web_service = env
-        message = _make_message(1, f"{YT_URL} че за видос", message_id=11)
+        message = _make_message(1, f"Бот, {YT_URL} че за видос", message_id=11)
         await dp.feed_update(bot, Update(update_id=1, message=message))
 
         assert bot.send_message.await_count == 1
@@ -122,7 +122,7 @@ class TestRouterIsolation:
         assert youtube_service.summarize_cascade.await_args.args[0] == "dQw4w9WgXcQ"
         assert "on_retry" in youtube_service.summarize_cascade.await_args.kwargs
         assert youtube_service.summarize_cascade.await_args.kwargs["chat_id"] == CHAT_ID
-        assert youtube_service.summarize_cascade.await_args.kwargs["rag_query"] == f"{YT_URL} че за видос"
+        assert youtube_service.summarize_cascade.await_args.kwargs["rag_query"] == f"Бот, {YT_URL} че за видос"
         web_service.summarize.assert_not_awaited()
         relay.send_common.assert_not_awaited()
 
@@ -130,7 +130,7 @@ class TestRouterIsolation:
     async def test_web_consumes_before_common(self, env):
         """Веб-URL + web-триггер → ровно 1 ответ от 0f."""
         dp, bot, db, relay, youtube_service, web_service = env
-        message = _make_message(1, f"{WEB_URL} выжимка", message_id=11)
+        message = _make_message(1, f"Бот, {WEB_URL} выжимка", message_id=11)
         await dp.feed_update(bot, Update(update_id=2, message=message))
 
         assert bot.send_message.await_count == 1
@@ -148,7 +148,7 @@ class TestRouterIsolation:
         """Сценарий А через полный Dispatcher: reply на ЦЕЛЕВОЕ сообщение."""
         dp, bot, db, relay, youtube_service, web_service = env
         target = _make_message(2, f"видос {YT_URL}", message_id=77)
-        message = _make_message(1, "поясни за видос", message_id=11,
+        message = _make_message(1, "Бот, поясни за видос", message_id=11,
                                 reply_to_message=target)
         await dp.feed_update(bot, Update(update_id=3, message=message))
 
@@ -173,11 +173,11 @@ class TestRouterIsolation:
     async def test_youtube_throttle_does_not_block_web(self, env):
         """Раздельные CooldownTracker: троттлинг 0e НЕ блокирует 0f."""
         dp, bot, db, relay, youtube_service, web_service = env
-        first_yt = _make_message(1, f"{YT_URL} че за видос", message_id=11)
+        first_yt = _make_message(1, f"Бот, {YT_URL} че за видос", message_id=11)
         await dp.feed_update(bot, Update(update_id=5, message=first_yt))
         assert youtube_service.summarize_cascade.await_count == 1
 
-        web_message = _make_message(1, f"{WEB_URL} выжимка", message_id=12)
+        web_message = _make_message(1, f"Бот, {WEB_URL} выжимка", message_id=12)
         await dp.feed_update(bot, Update(update_id=6, message=web_message))
 
         assert web_service.summarize.await_count == 1   # web НЕ затроттлен
@@ -193,10 +193,10 @@ class TestRouterIsolation:
     async def test_web_after_youtube_throttle_in_same_handler(self, env):
         """Повторный YT-триггер → 5.1 (на вызов), а web продолжает работать."""
         dp, bot, db, relay, youtube_service, web_service = env
-        first_yt = _make_message(1, f"{YT_URL} че за видос", message_id=11)
+        first_yt = _make_message(1, f"Бот, {YT_URL} че за видос", message_id=11)
         await dp.feed_update(bot, Update(update_id=7, message=first_yt))
 
-        second_yt = _make_message(1, f"{YT_URL} че за видос", message_id=22)
+        second_yt = _make_message(1, f"Бот, {YT_URL} че за видос", message_id=22)
         await dp.feed_update(bot, Update(update_id=8, message=second_yt))
 
         assert youtube_service.summarize_cascade.await_count == 1  # сервис НЕ вызван 2-й раз

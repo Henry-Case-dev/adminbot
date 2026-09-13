@@ -27,6 +27,7 @@ from aiogram.types import FSInputFile, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config.settings import settings
+from services import command_prefix
 from services import hot_config as hot
 from services.persistent_throttling import (
     cooldown_refresh,
@@ -70,10 +71,21 @@ video_download_router = Router(name="video_download")
 _downloader = None                                  # VideoDownloader (DI)
 _cooldown = CooldownTracker(settings.DOWNLOAD_COOLDOWN)
 
-# Section 70.5: триггер ТОЛЬКО в начале строки.
-_TRIGGER_RE = re.compile(
-    r"^\s*(скачай|загрузи|стяни|спизди|скачать)\b", re.IGNORECASE)
+# Section 70.5 + раунд 10.15 (F6, T-1597): обязательный префикс (Имя/«Бот,»);
+# триггер ищется в ОСТАТКЕ. F6-U1: «спизди»/«скачать» из реестра убраны.
+_TRIGGER_RE = re.compile(r"^\s*(скачай|загрузи|стяни)\b", re.IGNORECASE)
 _URL_RE = re.compile(r"https?://\S+")
+
+
+def _command_body(message: types.Message) -> str | None:
+    """Остаток сообщения ПОСЛЕ обязательного префикса; None — префикса нет."""
+    text = message.text or message.caption or ""
+    if not isinstance(text, str):
+        return None
+    tok, body = command_prefix.split_prefix(text)
+    if tok is None:
+        return None
+    return body
 
 _PENDING_TTL_SECONDS = 600                          # Section 70.5 п.4
 _PENDING: dict[tuple[int, int], dict] = {}
@@ -99,6 +111,15 @@ def setup_video_download(downloader: VideoDownloader, db=None) -> None:
 def _cooldown_phrase(remaining: float) -> str:
     return random.choice(VD_COOLDOWN_PHRASES).replace(
         "{remaining_time}", format_remaining_time(remaining))
+
+
+def get_download_cooldown():
+    """Follow-up R10.15-9: текущий общий download-кулдаун для tool-сета.
+
+    Ленивая ссылка (провайдер): `setup_video_download` пересоздаёт трекер в
+    on_startup уже ПОСЛЕ сборки `ToolDeps`, поэтому провайдер читает
+    актуальный модульный глобал в момент tool-вызова."""
+    return _cooldown
 
 
 def _extract_urls(message: types.Message) -> list[str]:
@@ -210,7 +231,10 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
     if _downloader is None or bot is None:
         return UNHANDLED
     text = message.text or message.caption or ""
-    if not isinstance(text, str) or not _TRIGGER_RE.match(text):
+    if not isinstance(text, str):
+        return UNHANDLED
+    body = _command_body(message)
+    if body is None or not _TRIGGER_RE.match(body):
         return UNHANDLED                        # не триггер → пропагация живёт
     user_id = message.from_user.id if message.from_user else 0
     chat_id = message.chat.id

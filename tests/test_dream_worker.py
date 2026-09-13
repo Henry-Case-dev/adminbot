@@ -255,6 +255,11 @@ class TestDistillation:
         идёт в дистилляцию (LLM не вызывается), watermark двигается."""
         llm = _FakeLLM(_ANS_A, _ANS_B)
         worker = _worker(db, llm, monkeypatch=monkeypatch)
+        # F3 round1015: fallback (2/8) активен при «0 убеждений 3 дня» —
+        # сидируем свежую дистилляцию, чтобы проверить БАЗОВЫЕ пороги 3/12.
+        import time as _time
+        await db.log_dream_event(CHAT_ID, int(_time.time()),
+                                 kind="distilled", status="ok")
         # тема X: 3 факта важностью 3 (Σ 9 < 12); тема Y: 2 факта (членов 2 < 3)
         for i in range(3):
             await _add_fact(db, f"петя смотрит футбол в {i + 1} туре",

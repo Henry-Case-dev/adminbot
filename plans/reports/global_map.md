@@ -678,3 +678,52 @@ bot.py
 - **Сквозной паттерн (10.14): «двухканальные» dedicated-API со своим scope/RBAC нужно сверять
   view↔edit парой, а не по отдельности.** `_persona_can_edit` и `_persona_can_view` разошлись:
   write-путь мягче read-пути. Тот же класс — любые будущие special-screen API.
+
+## Round 10.15 map additions (graph/sleep/nostalgia/tools, HEAD 798e044 + working tree, 9 фич F1–F9)
+
+- **F6 — обязательный префикс (новый слой роутинга команд).** Новые модули:
+  `services/command_registry.py` (канон `FUNCTIONAL_COMMANDS` 17 триггеров + `BARE_COMMANDS`
+  `чекап`/`фактчек`; `_HEAD`/`_TAIL` word-boundaries; `group_of`/`matches_group`/
+  `has_trigger_word`) и `services/command_prefix.py` (`active_name` ← sync-кэш
+  `bot_persona.get_cached_global_name()` под гейтом `flags.persona_enabled`; `split_prefix`
+  якорён к началу строки; `split_prefix_anywhere` = поиск префикса в любом месте +
+  позиция токена для link-first; `functional_group`/`name_mentioned`). Триггер системы = непустое
+  Имя (флага `command_prefix_enabled` НЕТ). Префиксные хендлеры 0d–0g/4e снимают префикс через
+  `split_prefix`; youtube/web = `matches_group` ИЛИ (`has_trigger_word` + URL) ИЛИ link-first
+  (`split_prefix_anywhere` + URL до обращения), иначе `UNHANDLED`; `direct_chat`
+  (`_FUNCTIONAL_FLAGS`/`_functional_module_active`) сдаёт `UNHANDLED` только при активном воркере.
+  **Итерация 2: R10.15-1/-3 закрыты**; **остаточные Low:** link-first привязан к первому вхождению
+  имени (R10.15-10); «триггер anywhere + любой http-URL» консьюмит речь с не-media ссылкой
+  (R10.15-11); yield по hot-флагу vs startup-регистрация 4e (R10.15-4, follow-up).
+- **F1 — граф-выборка.** `database.graph_snapshot` переписан на CTE Degree Centrality
+  (`re` UNION ALL индексированных выборок → `deg` GROUP BY → `seed` top-50 → `adj` 1-hop → `cand`)
+  + очистка сирот + рёбра строго с обоими концами + `truncated`; `seed_nodes=50` (API-константа
+  `GRAPH_SEED_NODES`). `graph_stats`/JSON-контракт/`degree` не тронуты.
+- **F5 — оконная семантика бейджей.** `web/api/memory_agi.cognition_status` += `dream.active/
+  active_until` и `deep_sleep.active/active_until` (хелперы `_local_hour`/`_in_hour_window`,
+  wrap через полночь; `enabled=false` гасит активность — H1). Фронт `dreamPhaseBadge`/
+  `deepPhaseBadge` («через/до/идёт/выключен»); статистика графа перенесена из «Модулей» в
+  «Сводку» (без дубля), `loadCognitionStats` удалён; `.intel-header` медиа-столбик.
+- **F3 — разблокировка Сна.** `dream_worker`: `_sleep_fallback_active` (нет `distilled` за 3 дня →
+  пороги 2/8), детект раз на тик в `process_all` → `_process_chat(fallback_active=…)`,
+  `[Sleep] … Skipped` на WARNING / `Passed` на INFO (видно в дефолтном фильтре логов).
+- **F4 — ностальгия.** `nostalgia_prompts`: ревамп `NOSTALGIA_PROMPT` + `PREV_NOSTALGIA_PROMPT`-слепок;
+  `build_nostalgia_user(year, golden, lore, memes)` (капы 600/10/120). `nostalgia_worker._llm_once`
+  инжектит лор (`ChatLoreStore.get_profile`: manual→auto) и мемы (`db.list_chat_memes`), fail-open;
+  окно «год назад» 2→10 (`NOSTALGIA_YEAR_BACK_DAYS_WINDOW`).
+- **F8/F9 — tool-сет 7.** `services/tool_schemas.py` += `summarize_video`/`download_media`/
+  `get_bot_health`/`get_recent_history`. `ToolDeps` += `video/downloader/health/db/download_cooldown`,
+  `ToolContext` += `bot/reply_to_message_id/user_id`; `bot.py` прокидывает существующие инстансы.
+  `_download_media` шлёт MP4 через новый `services/media_send.send_media` (success только после
+  отправки) и применяет общий кулдаун 4e через lazy-провайдер `handlers.video_download.
+  get_download_cooldown` (итерация 2, R10.15-9); `_get_bot_health` = путь 0g **под гейтом
+  `flags.checkup_enabled`** (итерация 2, R10.15-2); `_get_recent_history` = depth
+  (`database.get_recent_messages`) либо query (FTS + окно 12ч; fallback на `ctx.query` при пустых
+  аргументах, R10.15-6), R17-логи только count/out_chars.
+- **F7 — гайд.** Новый канон `DEFAULT_INFO_TEXT` ↔ `info_text.md` (байт-в-байт) под реестр F6;
+  `PREV_DEFAULT_INFO_TEXT`-слепок + идемпотентная DML-миграция
+  `config_cache._migrate_info_how_works_v1015` (перезапись только при точном совпадении со слепком;
+  ручные правки → WARNING + пропуск). `PROMPT_MIGRATIONS` не тронут.
+- **Находки 10.15:** `plans/reports/round10.15_scanner_audit.md` — итерация 1: **0 Critical / 0 High /
+  3 Medium / 6 Low / 3 Info**; итерация 2 (после фиксов @Builder): **0 Critical / 0 High / 0 Medium /
+  3 Low / 3 Info**; открытых Critical/High/Medium нет.

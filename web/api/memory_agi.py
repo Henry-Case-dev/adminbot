@@ -57,6 +57,9 @@ _BELIEF_LIMIT_MAX = 200
 # код-константы (каталог-Δ=0), предохранитель Canvas на Android (ADR-1013-2).
 GRAPH_MAX_NODES = 120
 GRAPH_MAX_EDGES = 240
+# F1 (graph-sampling-centrality-round1015, F1-Q2 RESOLVED): сиды Degree
+# Centrality — код-константа (каталог-Δ=0, ADR-1015-2).
+GRAPH_SEED_NODES = 50
 _TIMELINE_LIMIT_MAX = 100
 
 
@@ -90,6 +93,29 @@ def _local_day_start(now: float | None, tz_name: str | None) -> int:
     local = datetime.datetime.fromtimestamp(now, tz)
     start = local.replace(hour=0, minute=0, second=0, microsecond=0)
     return int(start.timestamp())
+
+
+def _local_hour(now: float, tz_name: str | None) -> int:
+    """Локальный час (0..23) в TZ имени `tz_name` (fail-open UTC)."""
+    local = datetime.datetime.fromtimestamp(now, _tz(tz_name))
+    return int(local.hour)
+
+
+def _in_hour_window(now_hour: int, start_hour: int, end_hour: int) -> bool:
+    """Попал ли час в окно `[start, end)` с учётом wrap через полночь.
+
+    F5 (status-graph-ui-relocation-round1015, spec §3а): оконная семантика
+    бейджей Сна. `start == end` → пустое окно (False). Пример: окно 23–6 и
+    now=01 → True; окно 4–6 и now=6 → False (end исключителен). Чистый
+    хелпер — каталог-Δ=0."""
+    start_hour = int(start_hour) % 24
+    end_hour = int(end_hour) % 24
+    now_hour = int(now_hour) % 24
+    if start_hour == end_hour:
+        return False
+    if start_hour < end_hour:
+        return start_hour <= now_hour < end_hour
+    return now_hour >= start_hour or now_hour < end_hour
 
 
 # ── Pydantic-модели ─────────────────────────────────────────────────────────
@@ -444,14 +470,36 @@ async def cognition_status(
     else:
         dream_state = "sleep"
     next_wake = _next_hour_epoch(start_h, tz_name, now)
+    # F5 (status-graph-ui-relocation-round1015, spec §3а): оконная семантика
+    # бейджей — активность = окно расписания ИЛИ фактический running.
+    end_h = int(hot.get("memory.dream_window_end_hour",
+                        settings.DREAM_WINDOW_END_HOUR) or 6)
+    now_h = _local_hour(now, tz_name)
+    in_window = _in_hour_window(now_h, start_h, end_h)
+    # Review-fix H1 (14.09.2026): рубильник выключен → активность гасится даже
+    # внутри часового окна (F5-Q2: enabled=false — отдельное нейтральное
+    # состояние). Фактический running уважаем как fallback.
+    dream_in = bool(enabled and in_window)
+    dream_active = dream_in or dream_running
+    dream_active_until = (_next_hour_epoch(end_h, tz_name, now)
+                          if dream_in else None)
     trigger = str(hot.get("memory.deep_sleep_trigger",
                           settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
     if trigger == "fixed":
         deep_hour = int(hot.get("memory.deep_sleep_hour",
                                 settings.DEEP_SLEEP_HOUR) or 7)
         deep_next = _next_hour_epoch(deep_hour, tz_name, now)
+        deep_in = bool(deep_enabled and now_h == deep_hour)
+        deep_active_until = (_next_hour_epoch((deep_hour + 1) % 24, tz_name,
+                                              now) if deep_in else None)
     else:
         deep_next = next_wake   # after_sleep — сразу после окна обычного сна
+        deep_in = bool(deep_enabled and in_window)
+        # R10.15-5: считаем independently от dream-ветки — при dream_enabled=
+        # false + deep_enabled=true в окне бейдж получает «до HH:MM», а не null.
+        deep_active_until = (_next_hour_epoch(end_h, tz_name, now)
+                             if deep_in else None)
+    deep_active = deep_in or deep_running
     lore_last = None
     try:
         from services import direct_chat_service as dcs
@@ -479,6 +527,7 @@ async def cognition_status(
                            exc_info=True)
     return {
         "dream": {"running": dream_running, "enabled": enabled,
+                  "active": dream_active, "active_until": dream_active_until,
                   "last_run_at": last_dream, "next_wake_at": next_wake,
                   "state": dream_state,
                   "budget": {"distilled_today": distilled_today,
@@ -486,6 +535,8 @@ async def cognition_status(
                              "tokens_today": tokens_today,
                              "tokens_limit": limit_tok}},
         "deep_sleep": {"running": deep_running, "enabled": deep_enabled,
+                       "active": deep_active,
+                       "active_until": deep_active_until,
                        "last_run_at": last_deep, "next_run_at": deep_next},
         "lore": {"last_inject_at": lore_last},
         # BLOCKER-2: сигнатура — _nostalgia_state(last_user_ts, sent_ts, ...).
@@ -511,7 +562,8 @@ async def memory_graph(
     try:
         snap = await db.graph_snapshot(chat_id=chat_id,
                                        max_nodes=GRAPH_MAX_NODES,
-                                       max_edges=GRAPH_MAX_EDGES)
+                                       max_edges=GRAPH_MAX_EDGES,
+                                       seed_nodes=GRAPH_SEED_NODES)
     except Exception:
         logger.warning("[memory_api] graph read failed — пустой граф",
                        exc_info=True)

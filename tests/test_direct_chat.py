@@ -12,6 +12,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 from config.settings import settings
 from services.chat_prompts import CHAT_SYSTEM_PROMPT
@@ -1274,6 +1275,7 @@ class TestStyleAnchorsAndMood:
         assert "да норм, свежее" in anchors
         assert "норм, первое дело" in anchors
         assert anchors.startswith("<style_anchors>")
+        await d.close()                      # L4: закрыть in-memory соединение
 
     @pytest.mark.asyncio
     async def test_style_anchors_all_sticky_empty_section(self, fake_time,
@@ -2821,9 +2823,11 @@ class TestHandleDedup:
     throttle/CB/замка и ПЕРЕД сборкой контекста; повтор → сохранённый ответ
     без LLM (или молчание, если в прошлый раз ответа не было)."""
 
-    @pytest.fixture
-    def cache(self, tmp_path):
-        return SmartCache(str(tmp_path / "dedup.db"))
+    @pytest_asyncio.fixture
+    async def cache(self, tmp_path):
+        c = SmartCache(str(tmp_path / "dedup.db"))
+        yield c
+        await c.close()                     # L4: не оставлять aiosqlite-хвост
 
     @pytest.mark.asyncio
     async def test_first_occurrence_answers_then_repeat_replays(self, fake_time, cache):

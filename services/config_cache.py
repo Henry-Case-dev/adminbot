@@ -23,8 +23,10 @@ import logging
 
 from config.settings import settings
 from services.info_service import (
+    DEFAULT_INFO_TEXT as _DEFAULT_INFO_TEXT,
     GUIDE_KEY as _GUIDE_KEY,
     GUIDE_SEED_FILE as _GUIDE_SEED_FILE,
+    PREV_DEFAULT_INFO_TEXT as _PREV_DEFAULT_INFO_TEXT,
 )
 from services.param_catalog import normalize_value
 from services.permissions import Permissions
@@ -138,6 +140,7 @@ class ConfigCache:
                 self._pg_available = True
                 await self._seed_info_key()    # 84.13.2 (T-638): сид из info_text.md
                 await self._seed_intelligence_guide()   # 10.14 (F6): сид гайда
+                await self._migrate_info_how_it_works_v1015()  # 10.15 (F7)
                 self._initialized = True
                 logger.info("[config_cache] initialized: settings=%d roles=%d "
                             "admins=%d", len(self._settings), len(self._roles),
@@ -228,6 +231,39 @@ class ConfigCache:
         await self.set(_INFO_KEY, value, "content")
         logger.info("[config_cache] seeded %s | chars=%d | updated_by=%s",
                     _INFO_KEY, len(text), value["updated_by"])
+
+    async def _migrate_info_how_it_works_v1015(self) -> None:
+        """F7 (T-1606): доставка нового канона «Гайда по фичам» в существующий
+        прод-PG. Сид `_seed_info_key` пишет только при ОТСУТСТВИИ ключа, поэтому
+        обновление текста делаем DML-миграцией (без DDL).
+
+        Идемпотентность:
+          * ``html`` уже равен новому канону → no-op (повторный запуск);
+          * ``html`` == слепку ``PREV_DEFAULT_INFO_TEXT`` (ещё не обновлён) →
+            перезаписываем новым каноном;
+          * иначе владелец правил текст вручную → WARNING + НЕ трогаем.
+        """
+        current = self._settings.get(_INFO_KEY)
+        if not isinstance(current, dict):
+            return
+        html = current.get("html")
+        if not isinstance(html, str) or not html.strip():
+            return
+        if html.strip() == _DEFAULT_INFO_TEXT.strip():
+            return                                   # уже мигрировано → no-op
+        if html.strip() != _PREV_DEFAULT_INFO_TEXT.strip():
+            logger.warning(
+                "[config_cache] info_how_it_works изменён вручную — "
+                "миграция F7 пропущена")
+            return
+        value = {
+            "html": _DEFAULT_INFO_TEXT,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "updated_by": settings.ADMIN_USER_ID,
+        }
+        await self.set(_INFO_KEY, value, "content")
+        logger.info("[config_cache] migrated content.info_how_it_works (F7)")
 
     async def _seed_intelligence_guide(self) -> None:
         """F6 (10.14, spec §2.2): ключа content.intelligence_guide нет →

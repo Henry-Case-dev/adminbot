@@ -17,6 +17,8 @@ from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 
 from config.settings import settings
+from services import command_prefix
+from services import command_registry
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
@@ -54,7 +56,8 @@ _service = None                                   # SearchService (DI)
 _db = None                                        # Database (Epic 65: chat_context DI)
 _cooldown = CooldownTracker(settings.SEARCH_COOLDOWN_SECONDS)
 
-_SEARCH_PREFIX_RE = re.compile(r"^(?:найди|поищи|загугли)\b", re.IGNORECASE)
+# Раунд 10.15 (F6, T-1595): обязательный префикс (Имя персоны / «Бот,»).
+# Тело ищется уже ПОСЛЕ снятия префикса (см. _parse_search_query).
 # ТЗ R33-4: `^(?i)(?:найди|поищи|загугли)(?:[\s,:]+)(?:мне\s+|пожалуйста\s+)?(.+)$`.
 # Python 3.12 отвергает inline-флаг `(?i)` после `^` (re.error: global flags not
 # at the start) — семантика сохранена переносом флага в re.IGNORECASE
@@ -91,14 +94,19 @@ async def _fetch_chat_context(chat_id: int, limit: int) -> str:
 
 
 def _parse_search_query(raw: str) -> str | None:
-    """None = не триггер → UNHANDLED; "" = триггер без тела → 5.2; иначе — тело запроса."""
-    text = raw.strip()
-    if not _SEARCH_PREFIX_RE.match(text):
+    """None = не триггер → UNHANDLED; "" = триггер без тела → 5.2; иначе — тело запроса.
+
+    Раунд 10.15 (F6): сначала снимается обязательный префикс (Имя/«Бот,»);
+    нет префикса → None (bare-триггеры больше не работают). Триггер и тело
+    ищутся в ОСТАТКЕ по search-группе канонического реестра."""
+    tok, text = command_prefix.split_prefix(str(raw or "").strip())
+    if tok is None:
         return None
+    text = text.strip()
     m = _SEARCH_QUERY_RE.match(text)
-    if not m:
-        return ""
-    return m.group(1).strip()
+    if m:
+        return m.group(1).strip()
+    return "" if command_registry.matches_group("search", text) else None
 
 
 @search_router.message()

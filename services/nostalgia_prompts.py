@@ -18,11 +18,26 @@ import datetime
 import re
 
 # ── КАНОН (spec §3.5.4; не редактировать без PR) ────────────────────────────
-NOSTALGIA_PROMPT = """\
+# PREV_NOSTALGIA_PROMPT — байт-в-байт слепок канона ДО ревампа round 10.15
+# (T-1579/T-1580, ADR-1013-3): служит для отката/диффа. НЕ удалять.
+PREV_NOSTALGIA_PROMPT = """\
 Ты - тот же токсично-тёплый участник чата. В чате давно тихо. Тебе дают кусок памяти чата: события примерно год назад в этот день и/или старые факты по последней теме разговора. Если вспомнить уместно и по делу - напиши 1-2 короткие фразы «кстати...» в своём стиле: ленивая печать, без маркдауна, без кавычек-ёлочек и длинных тире. Максимум {max_words} слов в ответе.
 
 Если вспоминать неуместно или память бедна - ответь ровно одним словом: UNCHANGED
 """
+
+# Новый канон round 10.15 (ТЗ §3): «давний участник, которого пробило на
+# воспоминания», ирония/сленг из лора, анти-«робот-архивариус».
+NOSTALGIA_PROMPT = """\
+Ты - тот же токсично-тёплый участник чата. В чате давно тихо. Тебе дают кусок памяти чата: события примерно год назад в этот день, старые факты по последней теме, а также лор чата и список местных мемов. Вбрось этот старый факт так, как будто ты давний участник беседы, которого внезапно пробило на воспоминания: с иронией и сленгом из лора, по-свойски, будто вспомнил вслух. Не пиши как робот-архивариус. Если вспомнить уместно и по делу - напиши 1-2 короткие фразы «кстати...» в своём стиле: ленивая печать, без маркдауна, без кавычек-ёлочек и длинных тире. Максимум {max_words} слов в ответе.
+
+Если вспоминать неуместно или память бедна - ответь ровно одним словом: UNCHANGED
+"""
+
+# Капы инжекта Лора/мемов (spec §4, F4-Q2): лор важнее мемов (идёт выше).
+_LORE_MAX_CHARS = 600        # лор — обрезка по границе слова
+_MEMES_LIMIT = 10            # число мемов
+_MEME_MAX_CHARS = 120        # обрезка текста одного мема
 
 _DEFAULT_MAX_WORDS = 60
 _UNCHANGED = "UNCHANGED"
@@ -100,10 +115,46 @@ def format_golden_line(row: dict) -> str:
     return f"[{_ts_date(ts)}] {text}"
 
 
-def build_nostalgia_user(year_lines: list[str], golden_lines: list[str]) -> str:
-    """User-блок LLM-вызова (spec §3.5.4): «В чате давно тихо. Вот память:»
-    + кандидаты (секции год-назад и старые факты по теме; пустые секции
-    опускаются)."""
+def _collapse(text) -> str:
+    """Санитизация строки: схлопывание любых пробелов/переводов строк."""
+    return " ".join(str(text or "").split())
+
+
+def _cap_words(text: str, cap: int) -> str:
+    """Обрезка до `cap` символов по границе слова (кап лора)."""
+    if cap <= 0:
+        return ""
+    if len(text) <= cap:
+        return text
+    cut = text[:cap]
+    head = cut.rsplit(" ", 1)[0].rstrip()
+    return head or cut.rstrip()
+
+
+def _cap_chars(text: str, cap: int) -> str:
+    """Жёсткая обрезка до `cap` символов (кап текста одного мема)."""
+    if cap <= 0:
+        return ""
+    return text[:cap].rstrip() if len(text) > cap else text
+
+
+def _render_meme(row) -> str:
+    """Строка мема: `- {fact}`; при непустом `target_user` → `- [label] {fact}`
+    (R16: target_user — имя-лейбл, не id). Пустой факт → ""."""
+    fact = _cap_chars(_collapse(_row_get(row, "fact")), _MEME_MAX_CHARS)
+    if not fact:
+        return ""
+    target = _collapse(_row_get(row, "target_user"))
+    return f"- [{target}] {fact}" if target else f"- {fact}"
+
+
+def build_nostalgia_user(year_lines: list[str], golden_lines: list[str],
+                         lore: str = "", memes=None) -> str:
+    """User-блок LLM-вызова (spec §3.5.4 + round 10.15 §4): «В чате давно
+    тихо. Вот память:» + кандидаты (год-назад, старые факты по теме) +
+    аддитивные секции «Лор чата»/«Локальные мемы» (пустые секции
+    опускаются; всё пусто → ""). Сигнатура обратно совместима: вызов
+    `build_nostalgia_user(year, golden)` работает как раньше."""
     parts: list[str] = []
     if year_lines:
         parts.append("События примерно год назад в этот день:\n"
@@ -111,6 +162,14 @@ def build_nostalgia_user(year_lines: list[str], golden_lines: list[str]) -> str:
     if golden_lines:
         parts.append("Старые факты по последней теме разговора:\n"
                      + "\n".join(f"- {l}" for l in golden_lines))
+    lore_text = _cap_words(_collapse(lore), _LORE_MAX_CHARS)
+    if lore_text:
+        parts.append("Лор чата (как тут принято общаться):\n" + lore_text)
+    meme_lines = [l for l in (_render_meme(r)
+                              for r in (memes or [])[:_MEMES_LIMIT]) if l]
+    if meme_lines:
+        parts.append("Локальные мемы (местные ярлыки и шутки):\n"
+                     + "\n".join(meme_lines))
     if not parts:
         return ""
     return "В чате давно тихо. Вот память:\n" + "\n\n".join(parts)

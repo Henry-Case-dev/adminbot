@@ -70,7 +70,7 @@ class TestParse:
     def test_scenario_a_reply_with_url(self):
         """#28: reply на сообщение с YT-URL + триггер → (reply, id)."""
         target = _make_msg(text=f"вот видос {YT_URL}", message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         parsed_target, video_id = youtube_mod._parse(msg)
         assert parsed_target is target
@@ -78,20 +78,20 @@ class TestParse:
 
     def test_scenario_b_url_and_trigger_in_one_message(self):
         """#29: URL+триггер в одном сообщении → (message, id)."""
-        msg = _make_msg(text=f"{YT_URL} че за видос вообще", message_id=11)
+        msg = _make_msg(text=f"Бот, {YT_URL} че за видос вообще", message_id=11)
         target, video_id = youtube_mod._parse(msg)
         assert target is msg
         assert video_id == "dQw4w9WgXcQ"
 
     def test_scenario_b_trigger_first_url_last(self):
         """#29: любой порядок — триггер в начале, URL в конце."""
-        msg = _make_msg(text=f"поясни за видос вот: {YT_URL}", message_id=11)
+        msg = _make_msg(text=f"Бот, поясни за видос вот: {YT_URL}", message_id=11)
         target, video_id = youtube_mod._parse(msg)
         assert target is msg
         assert video_id == "dQw4w9WgXcQ"
 
     def test_scenario_b_caption(self):
-        msg = _make_msg(text=None, caption=f"{YT_URL} о чем видео", message_id=11)
+        msg = _make_msg(text=None, caption=f"Бот, {YT_URL} о чем видео", message_id=11)
         target, video_id = youtube_mod._parse(msg)
         assert target is msg
         assert video_id == "dQw4w9WgXcQ"
@@ -99,7 +99,7 @@ class TestParse:
     def test_d126_fallback_from_a_to_b(self):
         """#30: reply есть, URL в цели НЕТ, URL в вызове есть → таргет = вызов."""
         target = _make_msg(text="просто текст без ссылок", message_id=77)
-        msg = _make_msg(text=f"че за видос {YT_URL}", message_id=11,
+        msg = _make_msg(text=f"Бот, че за видос {YT_URL}", message_id=11,
                         reply_to_message=target)
         target_out, video_id = youtube_mod._parse(msg)
         assert target_out is msg
@@ -122,12 +122,11 @@ class TestParse:
 
     @pytest.mark.parametrize(
         "trigger",
-        ["транскрипт", "че за видос", "о чем видео", "поясни за видос",
-         "перескажи видос", "че в видосе"],
+        ["транскрипт", "че за видос", "о чем видео", "поясни за видос"],
     )
     def test_all_triggers_case_insensitive(self, trigger):
-        """#32: все 6 триггеров регистронезависимо."""
-        msg = _make_msg(text=f"{trigger.upper()} {YT_URL}", message_id=11)
+        """#32: канонические триггеры регистронезависимо (раунд 10.15: 4 шт.)."""
+        msg = _make_msg(text=f"Бот, {trigger.upper()} {YT_URL}", message_id=11)
         target, video_id = youtube_mod._parse(msg)
         assert target is msg
         assert video_id == "dQw4w9WgXcQ"
@@ -142,7 +141,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text=f"{YT_URL}", message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         result = await youtube_mod.youtube_handler(msg, bot=bot)
         assert result is None  # консьюм
@@ -162,7 +161,7 @@ class TestHandler:
         service.summarize_cascade = AsyncMock(return_value="выжимка")
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
-        msg = _make_msg(text=f"{YT_URL} че за видос", message_id=11)
+        msg = _make_msg(text=f"Бот, {YT_URL} че за видос", message_id=11)
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
@@ -175,7 +174,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text=f"{YT_URL}", message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         await youtube_mod.youtube_handler(msg, bot=bot)
         on_retry = service.summarize_cascade.await_args.kwargs["on_retry"]
@@ -192,7 +191,7 @@ class TestHandler:
         service.summarize_cascade = AsyncMock(return_value="выжимка")
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
-        msg = _make_msg(text=f"{YT_URL} че за видос", message_id=11)
+        msg = _make_msg(text=f"Бот, {YT_URL} че за видос", message_id=11)
         await youtube_mod.youtube_handler(msg, bot=bot)
         before = bot.send_message.await_count
         on_retry = service.summarize_cascade.await_args.kwargs["on_retry"]
@@ -208,7 +207,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text="нет ссылки тут", message_id=77)
-        msg = _make_msg(text=f"поясни за видос {YT_URL}", message_id=11,
+        msg = _make_msg(text=f"Бот, поясни за видос {YT_URL}", message_id=11,
                         reply_to_message=target)
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
@@ -223,7 +222,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text=YT_URL, message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in YOUTUBE_ERROR_PHRASES
@@ -237,7 +236,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text=YT_URL, message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         with caplog.at_level(logging.WARNING):
             await youtube_mod.youtube_handler(msg, bot=bot)
@@ -258,7 +257,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text=YT_URL, message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         with caplog.at_level(logging.WARNING):
             await youtube_mod.youtube_handler(msg, bot=bot)
@@ -277,7 +276,7 @@ class TestHandler:
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
         target = _make_msg(text=YT_URL, message_id=77)
-        msg = _make_msg(text="поясни за видос", message_id=11,
+        msg = _make_msg(text="Бот, поясни за видос", message_id=11,
                         reply_to_message=target)
         with caplog.at_level(logging.ERROR):
             await youtube_mod.youtube_handler(msg, bot=bot)
@@ -295,14 +294,14 @@ class TestHandler:
         service.summarize_cascade = AsyncMock(return_value="выжимка")
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
-        msg = _make_msg(text=f"{YT_URL} че за видос", message_id=11)
+        msg = _make_msg(text=f"Бот, {YT_URL} че за видос", message_id=11)
         await youtube_mod.youtube_handler(msg, bot=bot)
         assert service.summarize_cascade.await_count == 1
 
         fake_time["now"] += 100
         expected_remaining = youtube_mod._cooldown.remaining(CHAT_ID, 1)
         assert expected_remaining > 0
-        second = _make_msg(text=f"{YT_URL} че за видос", message_id=22)
+        second = _make_msg(text=f"Бот, {YT_URL} че за видос", message_id=22)
         result = await youtube_mod.youtube_handler(second, bot=bot)
         assert result is None  # консьюм
         assert service.summarize_cascade.await_count == 1  # второй вызов НЕ прошёл
@@ -313,7 +312,7 @@ class TestHandler:
 
     @pytest.mark.asyncio
     async def test_non_trigger_returns_unhandled(self, youtube_cleanup):
-        """#31: триггер без URL → UNHANDLED, сервис не вызван."""
+        """#31: bare-триггер (без префикса) → UNHANDLED, сервис не вызван."""
         service = MagicMock()
         youtube_mod.setup_youtube(service)
         bot = AsyncMock()
@@ -336,6 +335,6 @@ class TestHandler:
     async def test_no_service_returns_unhandled(self, youtube_cleanup):
         youtube_mod._service = None
         bot = AsyncMock()
-        msg = _make_msg(text=f"{YT_URL} че за видос", message_id=11)
+        msg = _make_msg(text=f"Бот, {YT_URL} че за видос", message_id=11)
         result = await youtube_mod.youtube_handler(msg, bot=bot)
         assert result is UNHANDLED

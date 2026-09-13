@@ -3609,29 +3609,62 @@ class DatabaseService:
 
     async def graph_snapshot(self, chat_id: int | None = None,
                              max_nodes: int = 120,
-                             max_edges: int = 240) -> dict:
-        """Узлы/рёбра SQLite GraphRAG для force-directed графа (spec §3.3,
-        ADR-1013-2). Берём только узлы с degree ≥ 1 (участвуют в рёбрах);
-        cap 120/240 — серверный предохранитель Android (Canvas). R16:
-        id — ключ, label — entity_name, group — entity_type.
-        `truncated` — упёрлись в лимит узлов или рёбер."""
+                             max_edges: int = 240,
+                             seed_nodes: int = 50) -> dict:
+        """Узлы/рёбра SQLite GraphRAG для force-directed графа (spec F1 —
+        graph-sampling-centrality-round1015, ADR-1015-2).
+
+        Алгоритм (read-only):
+          1. Degree Centrality: неевзвешенное число рёбер (`origin !=
+             'bot_direct_reply'`, chat-скоуп) через GROUP BY по UNION
+             индексированных выборок (idx_edges_source/target) — без
+             коррелированного COUNT(*).
+          2. Сиды — топ-`seed_nodes` по `degree DESC, id ASC`; затем все
+             смежные им узлы (окрестность 1 шаг), все достижимые компоненты.
+          3. Рёбра — только с ОБОИМИ концами внутри набора узлов (S10.13-14:
+             висячих рёбер нет).
+          4. Сироты (узел без рёбер внутри итоговой выборки) удаляются.
+          5. Финальный cap `max_nodes`/`max_edges` — ПОСЛЕ раскрытия/очистки.
+
+        R16: id — ключ, label — entity_name, group — entity_type, degree
+        сохранён (фронт `_graphSignature`). `truncated` — упёрлись в cap узлов
+        либо рёбер, либо были отброшены сироты."""
+        chat = int(chat_id) if chat_id is not None else None
+        seed_n = max(1, int(seed_nodes))
+        scope = " AND chat_id = ?" if chat is not None else ""
+        scope_params: list = [chat, chat] if chat is not None else []
+
         nwhere = ["n.entity_name IS NOT NULL", "n.entity_name != ''"]
         nparams: list = []
-        if chat_id is not None:
+        if chat is not None:
             nwhere.append("n.chat_id = ?")
-            nparams.append(int(chat_id))
-        sql = (
-            "SELECT * FROM ("
-            "  SELECT n.id AS id, n.entity_name AS label, "
-            "         n.entity_type AS grp, "
-            "         (SELECT COUNT(*) FROM edges e "
-            "          WHERE e.origin != 'bot_direct_reply' "
-            "          AND (e.source_id = n.id OR e.target_id = n.id)) "
-            "          AS degree "
-            "  FROM nodes n WHERE " + " AND ".join(nwhere) + ") "
-            "WHERE degree >= 1 "
-            "ORDER BY degree DESC, id ASC LIMIT ?")
-        cursor = await self.db.execute(sql, nparams + [int(max_nodes) + 1])
+            nparams.append(chat)
+
+        seed_sql = (
+            "WITH re AS ("
+            "  SELECT source_id AS nid, target_id AS oid FROM edges"
+            "   WHERE origin != 'bot_direct_reply'" + scope +
+            "  UNION ALL"
+            "  SELECT target_id AS nid, source_id AS oid FROM edges"
+            "   WHERE origin != 'bot_direct_reply'" + scope + "),"
+            " deg AS (SELECT nid, COUNT(*) AS degree FROM re GROUP BY nid),"
+            " seed AS (SELECT d.nid FROM deg d JOIN nodes n ON n.id = d.nid"
+            "          WHERE " + " AND ".join(nwhere) +
+            "          ORDER BY d.degree DESC, d.nid ASC LIMIT ?),"
+            " adj AS (SELECT DISTINCT r.nid FROM re r"
+            "          WHERE r.oid IN (SELECT nid FROM seed)),"
+            " cand AS (SELECT nid FROM seed UNION SELECT nid FROM adj)"
+            " SELECT n.id AS id, n.entity_name AS label,"
+            "        n.entity_type AS grp, d.degree AS degree"
+            "  FROM cand c"
+            "  JOIN nodes n ON n.id = c.nid"
+            "  JOIN deg d ON d.nid = c.nid"
+            " WHERE " + " AND ".join(nwhere) +
+            " ORDER BY (c.nid IN (SELECT nid FROM seed)) DESC,"
+            "          d.degree DESC, n.id ASC LIMIT ?")
+        cursor = await self.db.execute(
+            seed_sql,
+            scope_params + nparams + [seed_n] + nparams + [int(max_nodes) + 1])
         rows = [dict(r) for r in await cursor.fetchall()]
         truncated_nodes = len(rows) > max_nodes
         rows = rows[:max_nodes]
@@ -3642,14 +3675,16 @@ class DatabaseService:
         node_ids = [n["id"] for n in nodes]
         if not node_ids:
             return {"nodes": [], "edges": [], "truncated": False}
+
+        # Рёбра строго с обоими концами в наборе (S10.13-14).
         marks = ",".join("?" for _ in node_ids)
         ewhere = ["source_id IN (" + marks + ")",
                   "target_id IN (" + marks + ")",
                   "origin != 'bot_direct_reply'"]
         eparams: list = node_ids + node_ids
-        if chat_id is not None:
+        if chat is not None:
             ewhere.append("chat_id = ?")
-            eparams.append(int(chat_id))
+            eparams.append(chat)
         cursor = await self.db.execute(
             "SELECT source_id, target_id, relation_type, weight FROM edges "
             "WHERE " + " AND ".join(ewhere) +
@@ -3661,8 +3696,16 @@ class DatabaseService:
         edges = [{"from": int(r["source_id"]), "to": int(r["target_id"]),
                   "label": str(r["relation_type"] or ""),
                   "weight": int(r["weight"] or 1)} for r in erows]
+
+        # Очистка сирот: узел без рёбер ВНУТРИ выборки (после edge-cap).
+        edge_nodes = {e["from"] for e in edges} | {e["to"] for e in edges}
+        orphans = [n for n in nodes if n["id"] not in edge_nodes]
+        if orphans:
+            nodes = [n for n in nodes if n["id"] in edge_nodes]
+
         return {"nodes": nodes, "edges": edges,
-                "truncated": bool(truncated_nodes or truncated_edges)}
+                "truncated": bool(truncated_nodes or truncated_edges
+                                  or orphans)}
 
     async def graph_stats(self, chat_id: int | None = None) -> dict:
         """Счётчики «Интеллект и Память» (spec §3.4) + граф-статистика для

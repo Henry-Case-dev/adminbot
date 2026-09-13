@@ -186,43 +186,43 @@ def yv_cleanup():
 class TestClassification:
     def test_reply_media_native(self, yv_cleanup):
         target = _msg(message_id=MEDIA_MSG_ID, video=_media(file_id="f"))
-        msg = _msg(text="че за видос", reply_to_message=target)
+        msg = _msg(text="Бот, че за видос", reply_to_message=target)
         req = yt._classify_video_request(msg)
         assert req.kind == "native" and req.mode == "summary"
         assert req.media.source is target
 
     def test_own_video_caption_trigger(self, yv_cleanup):
-        msg = _msg(text=None, caption="транскрипт", video=_media(file_id="f"))
+        msg = _msg(text=None,         caption="Бот, транскрипт", video=_media(file_id="f"))
         req = yt._classify_video_request(msg)
         assert req.kind == "native" and req.mode == "transcript"
 
     def test_youtube_url_message(self, yv_cleanup):
-        msg = _msg(text=f"че за видос https://youtu.be/{YT_ID}")
+        msg = _msg(text=f"Бот, че за видос https://youtu.be/{YT_ID}")
         req = yt._classify_video_request(msg)
         assert req.kind == "youtube" and req.mode == "summary"
         assert req.video_id == YT_ID
 
     def test_youtube_url_in_reply_target_priority(self, yv_cleanup):
         target = _msg(text=f"https://youtu.be/{YT_ID}", message_id=MEDIA_MSG_ID)
-        msg = _msg(text="транскрипт", reply_to_message=target)
+        msg = _msg(text="Бот, транскрипт", reply_to_message=target)
         req = yt._classify_video_request(msg)
         assert req.kind == "youtube" and req.mode == "transcript"
 
     def test_direct_media_url(self, yv_cleanup):
-        msg = _msg(text="че за видос https://cdn.example.com/clip.mp4")
+        msg = _msg(text="Бот, че за видос https://cdn.example.com/clip.mp4")
         req = yt._classify_video_request(msg)
         assert req.kind == "direct_url" and req.mode == "summary"
         assert req.url == "https://cdn.example.com/clip.mp4"
 
     def test_direct_url_in_reply(self, yv_cleanup):
         target = _msg(text="https://cdn.example.com/трейлер.mov", message_id=5)
-        msg = _msg(text="перескажи видос", reply_to_message=target)
+        msg = _msg(text="Бот, поясни за видос", reply_to_message=target)
         req = yt._classify_video_request(msg)
         assert req.kind == "direct_url"
         assert req.url == "https://cdn.example.com/трейлер.mov"
 
     def test_platform_url_tiktok(self, yv_cleanup):
-        msg = _msg(text="че за видос https://www.tiktok.com/@x/video/123")
+        msg = _msg(text="Бот, че за видос https://www.tiktok.com/@x/video/123")
         req = yt._classify_video_request(msg)
         assert req.kind == "platform_url"
         assert "tiktok.com" in req.url
@@ -230,13 +230,13 @@ class TestClassification:
     def test_platform_url_vk_and_instagram(self, yv_cleanup):
         for url in ("https://vk.com/video-123_456",
                     "https://www.instagram.com/reel/ABC/"):
-            msg = _msg(text=f"транскрипт {url}")
+            msg = _msg(text=f"Бот, транскрипт {url}")
             req = yt._classify_video_request(msg)
             assert req.kind == "platform_url", url
             assert req.mode == "transcript"
 
     def test_video_plus_youtube_url_prefers_url(self, yv_cleanup):
-        msg = _msg(text=f"че за видос https://youtu.be/{YT_ID}",
+        msg = _msg(text=f"Бот, че за видос https://youtu.be/{YT_ID}",
                    video=_media(file_id="f"))
         req = yt._classify_video_request(msg)
         assert req.kind == "youtube"            # URL выше native (FR-2)
@@ -256,7 +256,7 @@ class TestClassification:
             _msg(text="просто текст https://youtu.be/x" + "a" * 9)) is None
 
     def test_unknown_web_url_unhandled(self, yv_cleanup):
-        msg = _msg(text="че за видос https://example.com/page")
+        msg = _msg(text="Бот, че за видос https://example.com/page")
         assert yt._classify_video_request(msg) is None
 
 
@@ -267,7 +267,7 @@ class TestYoutubeTranscriptMode:
     async def test_subtitles_text_sent_html(self, env, monkeypatch, yv_cleanup):
         svc, transcriber, db, memory, dl = env
         bot = _bot()
-        msg = _msg(text=f"транскрипт https://youtu.be/{YT_ID}")
+        msg = _msg(text=f"Бот, транскрипт https://youtu.be/{YT_ID}")
         await yt.youtube_handler(msg, bot=bot)
         svc.engine.fetch_transcript.assert_awaited_once_with(
             YT_ID, 20000, on_retry=None)
@@ -292,7 +292,7 @@ class TestYoutubeTranscriptMode:
         svc.engine.fetch_transcript = AsyncMock(
             side_effect=Exception("нет субтитров"))
         bot = _bot()
-        msg = _msg(text=f"транскрипт https://youtu.be/{YT_ID}")
+        msg = _msg(text=f"Бот, транскрипт https://youtu.be/{YT_ID}")
         await yt.youtube_handler(msg, bot=bot)
         assert dl.downloaded == [f"https://www.youtube.com/watch?v={YT_ID}"]
         transcriber.transcribe_voice.assert_awaited()
@@ -308,7 +308,7 @@ class TestYoutubeTranscriptMode:
         from tools.video_downloader import DownloadBusyError
         dl.error = DownloadBusyError("занято")
         bot = _bot()
-        msg = _msg(text=f"транскрипт https://youtu.be/{YT_ID}")
+        msg = _msg(text=f"Бот, транскрипт https://youtu.be/{YT_ID}")
         await yt.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
         assert sent in VIDEO_MEDIA_UNAVAILABLE_PHRASES
@@ -345,7 +345,7 @@ class TestUrlSummaryFlows:
         """direct_url+summary: L1/L2 сразу по внешней ссылке (без скачивания)."""
         svc, transcriber, db, memory, dl = env
         bot = _bot()
-        msg = _msg(text=f"че за видос {_DIRECT}")
+        msg = _msg(text=f"Бот, че за видос {_DIRECT}")
         await yt.youtube_handler(msg, bot=bot)
         svc.summarize_media_url.assert_awaited_once()
         call = svc.summarize_media_url.await_args.kwargs
@@ -370,7 +370,7 @@ class TestUrlSummaryFlows:
                             AsyncMock(side_effect=async_publish(published)))
         monkeypatch.setattr(yt.media_share, "delete_file", AsyncMock())
         bot = _bot()
-        msg = _msg(text=f"че за видос {_DIRECT}")
+        msg = _msg(text=f"Бот, че за видос {_DIRECT}")
         await yt.youtube_handler(msg, bot=bot)
         assert dl.downloaded == [_DIRECT]        # скачали после провала
         assert len(published) == 1               # опубликовали
@@ -406,7 +406,7 @@ class TestUrlSummaryFlows:
                             AsyncMock(side_effect=async_publish(published)))
         monkeypatch.setattr(yt.media_share, "delete_file", AsyncMock())
         bot = _bot()
-        msg = _msg(text=f"че за видос {_DIRECT}")
+        msg = _msg(text=f"Бот, че за видос {_DIRECT}")
         await yt.youtube_handler(msg, bot=bot)
         assert len(published) == 1                  # 60 МБ — опубликован
         calls = svc.summarize_media_url.await_args_list
@@ -427,7 +427,7 @@ class TestUrlSummaryFlows:
                             AsyncMock(side_effect=async_publish([])))
         monkeypatch.setattr(yt.media_share, "delete_file", AsyncMock())
         bot = _bot()
-        msg = _msg(text=f"че за видос {_PLATFORM}")
+        msg = _msg(text=f"Бот, че за видос {_PLATFORM}")
         await yt.youtube_handler(msg, bot=bot)
         assert dl.downloaded == [_PLATFORM]
         call = svc.summarize_media_url.await_args.kwargs
@@ -445,7 +445,7 @@ class TestUrlSummaryFlows:
             side_effect=VideoLevelError("no openrouter key"))
         transcriber.transcribe_voice = AsyncMock(return_value="пара слов")
         bot = _bot()
-        msg = _msg(text=f"че за видос {_PLATFORM}")
+        msg = _msg(text=f"Бот, че за видос {_PLATFORM}")
         await yt.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
         assert sent in VIDEO_NO_SPEECH_PHRASES
@@ -460,7 +460,7 @@ class TestUrlTranscriptFlows:
                                                            yv_cleanup):
         svc, transcriber, db, memory, dl = env
         bot = _bot()
-        msg = _msg(text=f"транскрипт {_DIRECT}")
+        msg = _msg(text=f"Бот, транскрипт {_DIRECT}")
         await yt.youtube_handler(msg, bot=bot)
         assert dl.downloaded == [_DIRECT]
         transcriber.transcribe_voice.assert_awaited()
@@ -475,7 +475,7 @@ class TestUrlTranscriptFlows:
     async def test_platform_transcript_download_stt_html(self, env, yv_cleanup):
         svc, transcriber, db, memory, dl = env
         bot = _bot()
-        msg = _msg(text=f"транскрипт {_PLATFORM}")
+        msg = _msg(text=f"Бот, транскрипт {_PLATFORM}")
         await yt.youtube_handler(msg, bot=bot)
         assert dl.downloaded == [_PLATFORM]
         transcriber.transcribe_voice.assert_awaited()
@@ -491,7 +491,7 @@ class TestUrlTranscriptFlows:
         svc, transcriber, db, memory, dl = env
         dl.too_big = True                          # 200 МБ файл
         bot = _bot()
-        msg = _msg(text=f"транскрипт {_PLATFORM}")
+        msg = _msg(text=f"Бот, транскрипт {_PLATFORM}")
         await yt.youtube_handler(msg, bot=bot)
         sent = bot.send_message.await_args.args[1]
         assert sent in VIDEO_MEDIA_TOO_BIG_PHRASES
@@ -503,7 +503,7 @@ class TestUrlTranscriptFlows:
         transcriber.transcribe_voice = AsyncMock(
             side_effect=EmptyTranscript("vd_1.mp4"))
         bot = _bot()
-        msg = _msg(text=f"транскрипт {_DIRECT}")
+        msg = _msg(text=f"Бот, транскрипт {_DIRECT}")
         await yt.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in VIDEO_MEDIA_EMPTY_PHRASES
 
@@ -524,7 +524,7 @@ class TestNativeSummary:
         monkeypatch.setattr(yt.media_share, "delete_file", AsyncMock())
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="че за видос", video=_media(file_id="fid"))
+        msg = _msg(text="Бот, че за видос", video=_media(file_id="fid"))
         await yt.youtube_handler(msg, bot=bot)
         call = svc.summarize_media_url.await_args.kwargs
         assert call["video_url"].startswith("https://admin-bot.duckdns.org/media/")
@@ -551,7 +551,7 @@ class TestNativeSummary:
             side_effect=VideoLevelError("empty"))
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="че за видос", video=_media(file_id="fid"))
+        msg = _msg(text="Бот, че за видос", video=_media(file_id="fid"))
         await yt.youtube_handler(msg, bot=bot)
         transcriber.transcribe_voice.assert_awaited()
         svc.summarize_transcript.assert_awaited_once()
@@ -575,7 +575,7 @@ class TestNativeSummary:
         svc, transcriber, db, memory, dl = env
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="че за видос", video=_media(file_id="fid"))
+        msg = _msg(text="Бот, че за видос", video=_media(file_id="fid"))
         await yt.youtube_handler(msg, bot=bot)
         svc.summarize_media_url.assert_not_awaited()
         transcriber.transcribe_voice.assert_awaited()
@@ -593,7 +593,7 @@ class TestNativeSummary:
         svc.summarize_transcript = AsyncMock(return_value="выжимка файла")
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="че за видос", video=_media(file_id="fid"))
+        msg = _msg(text="Бот, че за видос", video=_media(file_id="fid"))
         await yt.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in VIDEO_NO_SPEECH_PHRASES
         svc.summarize_transcript.assert_not_awaited()
@@ -622,7 +622,7 @@ class TestSmartMessageRowFallback:
         db.update_smart_message_text = AsyncMock(return_value=0)  # строки нет
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="транскрипт", video=_media(file_id="fid"),
+        msg = _msg(text="Бот, транскрипт", video=_media(file_id="fid"),
                    user_id=USER_ID)
         await yt.youtube_handler(msg, bot=bot)
         db.save_smart_message.assert_awaited_once()
@@ -641,7 +641,7 @@ class TestSmartMessageRowFallback:
         db.save_smart_message = AsyncMock()
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="транскрипт", video=_media(file_id="fid"), user_id=999)
+        msg = _msg(text="Бот, транскрипт", video=_media(file_id="fid"), user_id=999)
         await yt.youtube_handler(msg, bot=bot)
         db.save_smart_message.assert_not_called()
         await asyncio.sleep(0)
@@ -677,7 +677,7 @@ class TestRouterIsolation:
             side_effect=TranscriptionUnavailable("yv_x.mp4"))
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="транскрипт", video=_media(file_id="fid"))
+        msg = _msg(text="Бот, транскрипт", video=_media(file_id="fid"))
         await yt.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in \
             VIDEO_MEDIA_UNAVAILABLE_PHRASES
@@ -690,6 +690,6 @@ class TestRouterIsolation:
             side_effect=RuntimeError("взрыв"))
         _setup_bot_download(tmp_path, monkeypatch)
         bot = _bot()
-        msg = _msg(text="че за видос", video=_media(file_id="fid"))
+        msg = _msg(text="Бот, че за видос", video=_media(file_id="fid"))
         await yt.youtube_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES

@@ -26,17 +26,17 @@ class TestDefaultInfoText:
         )
 
     def test_rich_structure_complete(self):
-        """#20: rich-разметка Epic 83: h1=1, h2=9, h4=30 (инлайн-акценты),
-        h5=9 (тела секций) — счётчики сбалансированы."""
+        """#20: rich-разметка Epic 83 / F7 (10.15): h1=1, h2=9, h4=34
+        (инлайн-акценты команд), h5=9 (тела секций) — счётчики сбалансированы."""
         assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
         assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 9
-        assert DEFAULT_INFO_TEXT.count("<h4>") == DEFAULT_INFO_TEXT.count("</h4>") == 30
+        assert DEFAULT_INFO_TEXT.count("<h4>") == DEFAULT_INFO_TEXT.count("</h4>") == 34
         assert DEFAULT_INFO_TEXT.count("<h5>") == DEFAULT_INFO_TEXT.count("</h5>") == 9
 
     def test_html_tags_balanced(self):
-        """Epic 71 (T-550): счётчики rich-канона — b=32, i=32, u=0, a=2."""
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 32
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 32
+        """Epic 71 (T-550) / F7 (10.15): rich-канон — b=34, i=34, u=0, a=2."""
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 34
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 34
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
@@ -54,7 +54,7 @@ class TestDefaultInfoText:
         for marker in (
             "Гайд по фичам", "фактчек", "чекап", "кулдаун", "Checkup",
             "youtu.be", "какой-то-сайт.ru",
-            "ботяра", "Богу Машине", "ботохуета",
+            "ботяра", "Богу Машине", "требуют обращения",
         ):
             assert marker in DEFAULT_INFO_TEXT
 

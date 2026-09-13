@@ -12,6 +12,7 @@ import datetime
 
 from services.nostalgia_prompts import (
     NOSTALGIA_PROMPT,
+    PREV_NOSTALGIA_PROMPT,
     build_nostalgia_user,
     clean_llm_text,
     format_golden_line,
@@ -21,12 +22,36 @@ from services.nostalgia_prompts import (
 )
 
 
+# Эталонный слепок ПРЕДЫДУЩЕГО канона (ADR-1013-3): PREV обязан совпадать
+# байт-в-байт с текстом до ревампа round 10.15.
+_PREV_NOSTALGIA_PROMPT_REFERENCE = """\
+Ты - тот же токсично-тёплый участник чата. В чате давно тихо. Тебе дают кусок памяти чата: события примерно год назад в этот день и/или старые факты по последней теме разговора. Если вспомнить уместно и по делу - напиши 1-2 короткие фразы «кстати...» в своём стиле: ленивая печать, без маркдауна, без кавычек-ёлочек и длинных тире. Максимум {max_words} слов в ответе.
+
+Если вспоминать неуместно или память бедна - ответь ровно одним словом: UNCHANGED
+"""
+
+# Эталонный слепок НОВОГО канона round 10.15 («эталон = код = тесты»).
+_NOSTALGIA_PROMPT_REFERENCE = """\
+Ты - тот же токсично-тёплый участник чата. В чате давно тихо. Тебе дают кусок памяти чата: события примерно год назад в этот день, старые факты по последней теме, а также лор чата и список местных мемов. Вбрось этот старый факт так, как будто ты давний участник беседы, которого внезапно пробило на воспоминания: с иронией и сленгом из лора, по-свойски, будто вспомнил вслух. Не пиши как робот-архивариус. Если вспомнить уместно и по делу - напиши 1-2 короткие фразы «кстати...» в своём стиле: ленивая печать, без маркдауна, без кавычек-ёлочек и длинных тире. Максимум {max_words} слов в ответе.
+
+Если вспоминать неуместно или память бедна - ответь ровно одним словом: UNCHANGED
+"""
+
+
 def _ts(offset_days: int) -> int:
     now = datetime.datetime.now()
     return int((now - datetime.timedelta(days=offset_days)).timestamp())
 
 
 class TestCanon:
+    def test_prev_prompt_snapshot_bytes(self):
+        # ADR-1013-3: PREV — байт-в-байт слепок канона ДО ревампа 10.15.
+        assert PREV_NOSTALGIA_PROMPT == _PREV_NOSTALGIA_PROMPT_REFERENCE
+
+    def test_prompt_reference_bytes(self):
+        # «эталон = код = тесты»: новый канон совпадает со слепком теста.
+        assert NOSTALGIA_PROMPT == _NOSTALGIA_PROMPT_REFERENCE
+
     def test_prompt_canon_role_and_unchanged(self):
         text = NOSTALGIA_PROMPT
         assert "токсично-тёплый участник чата" in text
@@ -35,15 +60,27 @@ class TestCanon:
         # user-блок «В чате давно тихо. Вот память:» собирается отдельно
         assert "Вот память:" not in text
 
+    def test_prompt_canon_living_style_markers(self):
+        # ТЗ §3: живой стиль «давний участник, которого пробило на
+        # воспоминания», ирония/сленг из лора, анти-«робот-архивариус».
+        text = NOSTALGIA_PROMPT
+        assert "давний участник беседы" in text
+        assert "пробило на воспоминания" in text
+        assert "с иронией и сленгом из лора" in text
+        assert "робот-архивариус" in text
+
     def test_prompt_has_max_words_placeholder(self):
         assert "{max_words}" in NOSTALGIA_PROMPT
         filled = NOSTALGIA_PROMPT.format(max_words=60)
         assert "{max_words}" not in filled
+        # ровно один плейсхолдер (ровно одна подстановка)
+        assert NOSTALGIA_PROMPT.count("{max_words}") == 1
 
     def test_prompt_no_em_dash_in_output_rules(self):
         # канон-стиль: длинных тире нет (дефис «-» допустим — дефисные
         # связки в промпте есть у всех канонов)
         assert "—" not in NOSTALGIA_PROMPT
+        assert "—" not in PREV_NOSTALGIA_PROMPT
 
     def test_is_unchanged_response_cases(self):
         assert is_unchanged_response("UNCHANGED")
@@ -135,6 +172,64 @@ class TestUserBlock:
 
     def test_build_nostalgia_user_empty(self):
         assert build_nostalgia_user([], []) == ""
+
+    def test_build_nostalgia_user_backward_compatible(self):
+        # обратная совместимость: старый вызов (2 аргумента) без лора/мемов
+        user = build_nostalgia_user(["[Вася 2024-07-12]: a"],
+                                    ["[2023-01-01] b"])
+        assert "Лор чата" not in user
+        assert "Локальные мемы" not in user
+        assert "События примерно год назад" in user
+        assert "Старые факты по последней теме" in user
+
+    def test_build_nostalgia_user_lore_section(self):
+        user = build_nostalgia_user([], [], lore="  тут   шутят\nжёстко  ")
+        assert "Лор чата (как тут принято общаться):" in user
+        assert "тут шутят жёстко" in user
+
+    def test_build_nostalgia_user_memes_section(self):
+        rows = [{"fact": "вася = торт", "target_user": "Вася"},
+                {"fact": "понедельник = боль", "target_user": None}]
+        user = build_nostalgia_user([], [], memes=rows)
+        assert "Локальные мемы (местные ярлыки и шутки):" in user
+        assert "- [Вася] вася = торт" in user
+        assert "- понедельник = боль" in user
+
+    def test_build_nostalgia_user_sections_order(self):
+        user = build_nostalgia_user(["[Вася 2024-07-12]: a"],
+                                    ["[2023-01-01] b"],
+                                    lore="лор", memes=[{"fact": "мем"}])
+        i_year = user.index("События примерно год назад")
+        i_golden = user.index("Старые факты по последней теме")
+        i_lore = user.index("Лор чата")
+        i_memes = user.index("Локальные мемы")
+        assert i_year < i_golden < i_lore < i_memes
+
+    def test_build_nostalgia_user_lore_capped_by_word(self):
+        lore = " ".join(["оченьдлинноеслово"] * 200)
+        user = build_nostalgia_user([], [], lore=lore)
+        lore_part = user.split("Лор чата (как тут принято общаться):\n", 1)[1]
+        assert len(lore_part) <= 600
+        assert not lore_part.endswith(" ")
+        # обрезка по границе слова: последний токен не обрублен
+        assert lore_part.split(" ")[-1] == "оченьдлинноеслово"
+
+    def test_build_nostalgia_user_memes_capped(self):
+        rows = [{"fact": f"мем номер {i}"} for i in range(25)]
+        user = build_nostalgia_user([], [], memes=rows)
+        assert user.count("- мем номер") == 10
+
+    def test_build_nostalgia_user_meme_capped_chars(self):
+        rows = [{"fact": "х" * 500, "target_user": "Вася"}]
+        user = build_nostalgia_user([], [], memes=rows)
+        line = [l for l in user.splitlines() if l.startswith("- [Вася]")][0]
+        assert len(line) - len("- [Вася] ") <= 120
+
+    def test_build_nostalgia_user_blank_lore_and_memes_omitted(self):
+        user = build_nostalgia_user([], [], lore="   ", memes=[])
+        assert user == ""
+        # мем с пустым фактом не создаёт секцию
+        assert build_nostalgia_user([], [], memes=[{"fact": "  "}]) == ""
 
 
 class TestCleanText:

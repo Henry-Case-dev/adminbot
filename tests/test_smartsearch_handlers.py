@@ -58,17 +58,17 @@ class TestParseSearchQuery:
     @pytest.mark.parametrize(
         "raw,expected",
         [
-            ("найди X", "X"),
-            ("НАЙДИ x", "x"),
-            ("Найди котиков", "котиков"),
-            ("поищи X", "X"),
-            ("загугли X", "X"),
-            ("найди, мне X", "X"),          # «найди, мне X» → body «X» (ТЗ-квирк)
-            ("поищи пожалуйста X", "X"),
-            ("найди мне X", "X"),
-            ("загугли,  пожалуйста X", "X"),
-            ("поищи: где пруфы", "где пруфы"),
-            ("   найди это", "это"),        # raw.strip() перед парсингом
+            ("Бот, найди X", "X"),
+            ("Бот, НАЙДИ x", "x"),
+            ("Бот, Найди котиков", "котиков"),
+            ("Бот, поищи X", "X"),
+            ("Бот, загугли X", "X"),
+            ("Бот, найди, мне X", "X"),     # «найди, мне X» → body «X» (ТЗ-квирк)
+            ("Бот, поищи пожалуйста X", "X"),
+            ("Бот, найди мне X", "X"),
+            ("Бот, загугли,  пожалуйста X", "X"),
+            ("Бот, поищи: где пруфы", "где пруфы"),
+            ("   Бот, найди это", "это"),   # raw.strip() перед парсингом
         ],
     )
     def test_query_body(self, raw, expected):
@@ -77,22 +77,24 @@ class TestParseSearchQuery:
     @pytest.mark.parametrize(
         "raw,expected",
         [
-            ("найди", ""),
-            ("найди   ", ""),
-            ("найди,", ""),
-            ("ПОИЩИ", ""),
+            ("Бот, найди", ""),
+            ("Бот, найди   ", ""),
+            ("Бот, найди,", ""),
+            ("Бот, ПОИЩИ", ""),
             # ТЗ-квирк: «загугли,,» — жадный [\s,:]+ отдаёт один разделитель (.+)
             # и телом становится последняя запятая (фактическое поведение кода 4a)
-            ("загугли,,", ","),
+            ("Бот, загугли,,", ","),
         ],
     )
     def test_empty_query_trigger(self, raw, expected):
         assert search_mod._parse_search_query(raw) == expected
 
     @pytest.mark.parametrize(
-        "raw", ["найдикто", "проверь", "найдите X", "привет", ""]
+        "raw", ["найди X", "загугли X", "найдикто", "проверь", "найдите X",
+                "привет", ""]
     )
     def test_non_trigger(self, raw):
+        """Раунд 10.15 (F6): bare-триггер без префикса → None (UNHANDLED)."""
         assert search_mod._parse_search_query(raw) is None
 
 
@@ -103,7 +105,7 @@ class TestHandler:
         service.research = AsyncMock(return_value="выжимка сути")
         search_mod.setup_search(service)
         bot = AsyncMock()
-        msg = _make_msg(text="найди пруфы", message_id=11)
+        msg = _make_msg(text="Бот, найди пруфы", message_id=11)
         result = await search_mod.smartsearch_handler(msg, bot=bot)
         assert result is None
         service.research.assert_awaited_once_with("пруфы", chat_id=CHAT_ID, chat_context=None)
@@ -117,7 +119,7 @@ class TestHandler:
         service.research = AsyncMock()
         search_mod.setup_search(service)
         bot = AsyncMock()
-        msg = _make_msg(text="найди", message_id=11)
+        msg = _make_msg(text="Бот, найди", message_id=11)
         await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in SEARCH_EMPTY_QUERY_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
@@ -129,14 +131,14 @@ class TestHandler:
         service.research = AsyncMock(return_value="выжимка")
         search_mod.setup_search(service)
         bot = AsyncMock()
-        first = _make_msg(text="найди раз", message_id=11)
+        first = _make_msg(text="Бот, найди раз", message_id=11)
         await search_mod.smartsearch_handler(first, bot=bot)
         assert service.research.await_count == 1
 
         fake_time["now"] += 100
         expected_remaining = search_mod._cooldown.remaining(CHAT_ID, 1)
         assert expected_remaining > 0
-        second = _make_msg(text="найди два", message_id=22)
+        second = _make_msg(text="Бот, найди два", message_id=22)
         await search_mod.smartsearch_handler(second, bot=bot)
         assert service.research.await_count == 1
         fmt = format_remaining_time(expected_remaining)
@@ -152,7 +154,7 @@ class TestHandler:
         )
         search_mod.setup_search(service)
         bot = AsyncMock()
-        msg = _make_msg(text="найди что-то", message_id=11)
+        msg = _make_msg(text="Бот, найди что-то", message_id=11)
         await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in SEARCH_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
@@ -166,7 +168,7 @@ class TestHandler:
         service.research = AsyncMock(side_effect=LLMError("llm сдох"))
         search_mod.setup_search(service)
         bot = AsyncMock()
-        msg = _make_msg(text="найди что-то", message_id=11)
+        msg = _make_msg(text="Бот, найди что-то", message_id=11)
         with caplog.at_level(logging.WARNING):
             await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
@@ -183,7 +185,7 @@ class TestHandler:
         service.research = AsyncMock(side_effect=RuntimeError("неожиданно"))
         search_mod.setup_search(service)
         bot = AsyncMock()
-        msg = _make_msg(text="найди что-то", message_id=11)
+        msg = _make_msg(text="Бот, найди что-то", message_id=11)
         await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_args.args[1] in LLM_ERROR_PHRASES
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
@@ -198,7 +200,7 @@ class TestHandler:
             side_effect=LLMBadResponseError("smartsearch: empty answer"))
         search_mod.setup_search(service)
         bot = AsyncMock()
-        msg = _make_msg(text="найди что-то", message_id=11)
+        msg = _make_msg(text="Бот, найди что-то", message_id=11)
         with caplog.at_level(logging.WARNING):
             await search_mod.smartsearch_handler(msg, bot=bot)
         bot.send_message.assert_not_called()
@@ -220,7 +222,7 @@ class TestHandler:
     async def test_no_service_returns_unhandled(self, search_cleanup):
         search_mod._service = None
         bot = AsyncMock()
-        msg = _make_msg(text="найди что-то", message_id=11)
+        msg = _make_msg(text="Бот, найди что-то", message_id=11)
         result = await search_mod.smartsearch_handler(msg, bot=bot)
         assert result is UNHANDLED
 
@@ -231,7 +233,7 @@ class TestHandler:
         search_mod.setup_search(service)
         bot = AsyncMock()
         msg = _make_msg(text=None, message_id=11)
-        msg.caption = "загугли мем"
+        msg.caption = "Бот, загугли мем"
         await search_mod.smartsearch_handler(msg, bot=bot)
         service.research.assert_awaited_once_with("мем", chat_id=CHAT_ID, chat_context=None)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
@@ -255,7 +257,7 @@ class TestHandler:
             method=None, message="Bad Request: message to be replied not found"
         )
         bot.send_message = AsyncMock(side_effect=[gone, None])
-        msg = _make_msg(text="найди пруфы", message_id=11)
+        msg = _make_msg(text="Бот, найди пруфы", message_id=11)
         with caplog.at_level(logging.ERROR):
             await search_mod.smartsearch_handler(msg, bot=bot)
         assert bot.send_message.await_count == 2

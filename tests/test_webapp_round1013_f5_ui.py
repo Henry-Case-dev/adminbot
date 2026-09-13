@@ -376,7 +376,6 @@ class TestUiMarkers:
             "memoryContext: function", "ribbonItemClass: function",
             "_ribbonLoop: function", "fmtClock: function",
             "nostalgiaLabel: function", "loadCognition: async function",
-            "loadCognitionStats: async function",
             "loadMemoryWidget: async function",
             "renderCognitionGraph: async function",
             "destroyCognitionGraph: function",
@@ -389,9 +388,14 @@ class TestUiMarkers:
 
     def test_app_js_badges_and_polling(self):
         js = _read("web/app.js")
-        assert "🌙 Сон активен" in js
-        assert "🌌 Глубокий сон активен" in js
-        assert "🌙 Лимит исчерпан" in js
+        # round1015 (F5): оконная семантика — «до/через» + дневные иконки.
+        assert "🌙 Сон до " in js
+        assert "🌙 Сон идёт" in js
+        assert "🌌 Глубокий сон до " in js
+        assert "🌌 Глубокий сон идёт" in js
+        assert "☀️ Сон через " in js
+        assert "🌅 Глубокий сон через " in js
+        assert "☀️ Лимит сна исчерпан" in js
         assert "15000" in js                      # polling 15с (F5-Q3)
         assert "document.hidden" in js            # пауза при hidden
         assert "new window.vis.Network" in js
@@ -428,7 +432,10 @@ class TestUiMarkers:
         assert "ribbon-op-50" in html
         assert "cognitionGraph" in html
         assert "Интеллект и Память" in html
-        assert "Статистика графа памяти" in html
+        # round1015 (F5/§4): карточка ушла из «Модулей», метрики графа —
+        # в консолидированном блоке «Сводки».
+        assert "Статистика графа памяти" not in html
+        assert "Типов связей: {{ cognitionStats.relation_types }}" in html
         assert "timeline-list" in html
         assert "memoryContext" in html
         assert "nostalgiaLabel()" in html

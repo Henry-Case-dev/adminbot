@@ -7,7 +7,12 @@ direct_chat получает инструменты). Имена/схемы — 
 Раунд 9 (AGI Memory, T-820, spec §3.2.1/Q6): третий инструмент dig_into_lore
 (ностальгия/старые события/годы). Порядок TOOL_CALLING_TOOLS = канону R9:
 query_chat_memory → dig_into_lore → execute_web_search — при ностальгии
-модель сначала копает память, а не веб (research §4(в)); тул-сет ≤6 — ок.
+модель сначала копает память, а не веб (research §4(в)).
+
+Раунд 10.15 (F8, ADR-1015-3 §3, T-1611): +4 инструмента
+(summarize_video/download_media/get_bot_health/get_recent_history) — итого 7;
+канон R9 сохранён, новые схемы добавлены в конец. Fast-Track regex (F6)
+остаётся приоритетнее: инструменты ловят только свободную форму.
 """
 
 TOOL_EXECUTE_WEB_SEARCH = {
@@ -90,5 +95,91 @@ TOOL_DIG_INTO_LORE = {
     },
 }
 
+TOOL_SUMMARIZE_VIDEO = {
+    "type": "function",
+    "function": {
+        "name": "summarize_video",
+        "description": ("Выжимка или расшифровка видео по ссылке (YouTube/платформы/прямой файл). "
+                        "Вызывай, когда пользователь просит пересказать/расшифровать ролик и дал ссылку. "
+                        "mode='transcript' — сырой текст; mode='summary' — сжатая выжимка."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Ссылка на видео."},
+                "mode": {"type": "string",
+                         "enum": ["summary", "transcript"],
+                         "default": "summary"},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+TOOL_DOWNLOAD_MEDIA = {
+    "type": "function",
+    "function": {
+        "name": "download_media",
+        "description": ("Скачать видео по ссылке и отправить файлом в этот чат. "
+                        "Вызывай на просьбу «скачай/загрузи/стяни <ссылка>» в свободной форме."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Ссылка на видео."},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+TOOL_GET_BOT_HEALTH = {
+    "type": "function",
+    "function": {
+        "name": "get_bot_health",
+        "description": ("Показать статус/здоровье бота (логи, память, сервисы). "
+                        "Вызывай на вопрос «ты в порядке / как дела / чекни здоровье», "
+                        "если команда пришла свободной формой."),
+        "parameters": {"type": "object", "properties": {},
+                       "additionalProperties": False},
+    },
+}
+
+# F9 (`recent-history-tool-round1015`): кратковременная память — сырая
+# хронологическая стенограмма недавних сообщений (НЕ векторный RAG). F8
+# регистрирует схему и dispatch-ветку; полная логика — в F9.
+TOOL_GET_RECENT_HISTORY = {
+    "type": "function",
+    "function": {
+        "name": "get_recent_history",
+        "description": ("Недавняя стенограмма ЭТОГО чата: последние сообщения по порядку (Имя: текст). "
+                        "Вызывай на «что обсуждали 10 минут назад», «кто скинул ту ссылку», "
+                        "«кто прав в споре», «перечитай последние сообщения». "
+                        "depth — сколько сообщений вглубь (до 150); ЛИБО query — поиск по недавним "
+                        "сообщениям последних часов. Это точная хронология, НЕ смысловой RAG."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "depth": {"type": "integer", "minimum": 1, "maximum": 150,
+                          "description": "Сколько последних сообщений вернуть (по умолчанию 50)."},
+                "query": {"type": "string",
+                          "description": ("Фрагмент/тема для поиска по недавним сообщениям "
+                                          "(последние часы).")},
+            },
+            "additionalProperties": False,
+        },
+    },
+}
+
+# Раунд 10.15 (F8, ADR-1015-3 §3): итоговый tool-сет — 7 инструментов.
+# Порядок сохраняет канон R9 (память → лор → веб) и добавляет новые в конце.
+# Существующие имена/схемы не меняются (модель опирается на description).
 TOOL_CALLING_TOOLS: list[dict] = [
-    TOOL_QUERY_CHAT_MEMORY, TOOL_DIG_INTO_LORE, TOOL_EXECUTE_WEB_SEARCH]
+    TOOL_QUERY_CHAT_MEMORY,
+    TOOL_DIG_INTO_LORE,
+    TOOL_EXECUTE_WEB_SEARCH,
+    TOOL_SUMMARIZE_VIDEO,
+    TOOL_DOWNLOAD_MEDIA,
+    TOOL_GET_BOT_HEALTH,
+    TOOL_GET_RECENT_HISTORY,
+]

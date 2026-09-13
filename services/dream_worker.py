@@ -132,6 +132,14 @@ _DEEP_SLEEP_WEIGHT = 0.55             # вес парадигмы в конте�
 _PERSONA_SELF_LOOKBACK_DAYS = 30
 _DEEP_SLEEP_USER_JOB_ID = "deep_sleep_tick"
 
+# ── F3 (sleep-unblock-diagnostics-round1015, spec §3): fallback-пороги ──────
+# «0 убеждений за N дней» → временно снижаем требования гейта (код-константы,
+# каталог-Δ=0). Базовые memory.dream_repeat_threshold/importance_sum_threshold
+# НЕ меняются; fallback самоотключается при первом же синтезе.
+_FALLBACK_WINDOW_DAYS = 3            # окно «тишины» синтеза, дней
+_FALLBACK_MIN_CLUSTER_SIZE = 2       # min_cluster_size в fallback (базовый 3)
+_FALLBACK_MIN_IMPORTANCE_SUM = 8     # min_importance_sum в fallback (баз. 12)
+
 # Источники «жизни чата» для дистилляции (обсуждение кандидатов §3.4.3:
 # только переписка/личное; производные контенты (search/web/youtube/voice/
 # video) и сами beliefs НЕ передистиллируются — не создаём рекурсию).
@@ -242,6 +250,25 @@ class DreamWorker:
 
     def _key(self, name: str, default):
         return hot.get(f"memory.dream_{name}", default)
+
+    # ── F3 (sleep-unblock-diagnostics-round1015, spec §3): fallback ──────
+
+    async def _sleep_fallback_active(self, now: int) -> bool:
+        """«0 убеждений за `_FALLBACK_WINDOW_DAYS` дней» (глобально).
+
+        Источник — memory_dream_log kind='distilled' через существующий
+        `db.last_run_at` (не таблица beliefs: не зависит от статуса). Нет
+        строки ИЛИ последняя старше окна → True (fallback-пороги 2/8).
+        Fail-safe: ошибка БД → False (работаем на базовых порогах)."""
+        try:
+            last = await self.db.last_run_at(("distilled",), chat_id=None)
+        except Exception:
+            logger.warning("[dream] fallback detect failed — base thresholds",
+                           exc_info=True)
+            return False
+        if last is None:
+            return True
+        return int(last) < int(now) - _FALLBACK_WINDOW_DAYS * 86400
 
     # ── служебное (F2-API, spec §3.6.2) ──────────────────────────────────
 
@@ -427,9 +454,12 @@ class DreamWorker:
         if not chats:
             logger.info("[dream] tick: no candidate chats")
             return stats
+        # F3 (spec §9): детект fallback — ОДИН раз на тик (не на чат).
+        fallback_active = await self._sleep_fallback_active(now)
         for chat in chats:
             result = await self._process_chat(chat["chat_id"], now,
-                                              manual=manual)
+                                              manual=manual,
+                                              fallback_active=fallback_active)
             stats["chats"] += 1
             stats["clusters"] += result["clusters"]
             stats["distilled"] += result["distilled"]
@@ -449,7 +479,7 @@ class DreamWorker:
     # ── обработка чата ────────────────────────────────────────────
 
     async def _process_chat(self, chat_id: int, now: int, *,
-                            manual: bool) -> dict:
+                            manual: bool, fallback_active: bool = False) -> dict:
         """Один тик-батч чата: кандидаты → кластеры → дистилляции →
         watermark/аудит. Возвращает счётчики (fail-open: ошибка → WARNING,
         watermark не двигается)."""
@@ -492,6 +522,10 @@ class DreamWorker:
                                    settings.DREAM_REPEAT_THRESHOLD) or 3)
         sum_min = int(self._key("importance_sum_threshold",
                                 settings.DREAM_IMPORTANCE_SUM_THRESHOLD) or 12)
+        # F3 (spec §3/§4): «0 убеждений за 3 дня» → временно 2/8 (fallback).
+        if fallback_active:
+            repeat_min = _FALLBACK_MIN_CLUSTER_SIZE
+            sum_min = _FALLBACK_MIN_IMPORTANCE_SUM
         qualified = [
             cl for cl in clusters
             if len(cl) >= repeat_min
@@ -507,11 +541,25 @@ class DreamWorker:
         run_at = now
         await self.db.log_dream_event(chat_id, run_at, kind="run",
                                       status="ok")
+        # F3 (spec §5): пре-гейт-диагностика — «Max importance» = макс. Σ
+        # importance по ВСЕМ кластерам до гейта (R17: только числа).
+        max_importance = max(
+            (sum(int(r["importance"] or 0) for r in cl) for cl in clusters),
+            default=0)
         if not top:
-            logger.info("[dream] no qualifying clusters | chat_id=%s "
-                        "| facts=%d", chat_id, len(rows))
+            # WARNING — гарантированно видно в дефолтном фильтре «Логи»
+            # (ERROR+WARNING, 10.13 F6). Спам ограничен `_finish_chat`:
+            # факты помечаются обработанными → повтор только с новыми.
+            logger.warning(
+                "[Sleep] Chunks: %d, Clusters formed: %d, Max importance: %d "
+                "-> Skipped (threshold %d)",
+                len(rows), len(clusters), max_importance, sum_min)
             await self._finish_chat(chat_id, now, rows)   # все факты отобраны
             return out
+        logger.info(
+            "[Sleep] Chunks: %d, Clusters formed: %d, Max importance: %d "
+            "-> Passed (threshold %d)",
+            len(rows), len(clusters), max_importance, sum_min)
         # Раунд 10 (F-10 §6): тяжёлый гейт dream — kill-switch
         # (chat gates[dream] → глобальный флаг → False); skip-аудит —
         # memory_dream_log status='budget_skip' (прецедент). ФИКС R5:

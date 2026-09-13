@@ -903,6 +903,13 @@
         cognitionGraphData: null,      // {nodes, edges, truncated}
         _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
         cognitionVisLoaded: false,     // lazy-load vis-network
+        // F2 (graph-frontend-physics-search-round1015, ТЗ §1 frontend):
+        // «Поиск по графу» — центрирование камеры на узле по имени.
+        graphSearchQuery: '',          // строка поиска (v-model.trim)
+        graphSearchStatus: '',         // статус: «Найден: …» / «Ничего не найдено»
+        _graphSearchMatches: [],       // текущий список совпадений (по label)
+        _graphSearchIdx: 0,            // индекс перебора (Enter циклически)
+        _graphSearchLastQ: '',         // последний запрос (сброс перебора)
         memoryWidgetBusy: false,
         reducedMotion: false,          // prefers-reduced-motion (анимации off)
         // C2 (D5/D8/Q9): переезд чата и per-chat админы — глобальный admin
@@ -1200,27 +1207,42 @@
         return { level: 'calm', period: 2.4, label: 'спокойный ' + pct + '%',
                  detail: 'нагрузка в норме', badge: 'badge-ok' };
       },
-      // F5 (T-1451): бейджи активных фаз (реальный cognition/status).
+      // F5 (T-1586, round1015): бейджи фаз — оконная семантика (spec §3а/§4):
+      // active = окно расписания ИЛИ running. Вне фазы — не светится,
+      // «через {next}»; в активной — .glow, «до {active_until}».
+      // Review-fix H1: выключенный рубильник приоритетнее активной фазы.
       dreamPhaseBadge: function () {
         var d = (this.cognition && this.cognition.dream) || {};
-        if (d.running) return { text: '🌙 Сон активен', cls: 'badge-ok glow' };
-        if (d.state === 'limit_exhausted') {
-          return { text: '🌙 Лимит исчерпан', cls: 'badge-warn' };
-        }
         if (d.enabled === false) {
-          return { text: '🌙 Сон выключен', cls: 'badge-muted' };
+          return { text: '☀️ Сон выключен', cls: 'badge-muted' };
         }
-        return { text: '🌙 Спит', cls: 'badge-muted' };
+        if (d.active) {
+          if (d.active_until) {
+            return { text: '🌙 Сон до ' + this.fmtClock(d.active_until),
+                     cls: 'badge-ok glow' };
+          }
+          return { text: '🌙 Сон идёт', cls: 'badge-ok glow' };
+        }
+        if (d.state === 'limit_exhausted') {
+          return { text: '☀️ Лимит сна исчерпан', cls: 'badge-warn' };
+        }
+        return { text: '☀️ Сон через ' + this.fmtClock(d.next_wake_at),
+                 cls: 'badge-muted' };
       },
       deepPhaseBadge: function () {
         var d = (this.cognition && this.cognition.deep_sleep) || {};
-        if (d.running) {
-          return { text: '🌌 Глубокий сон активен', cls: 'badge-info glow' };
-        }
         if (d.enabled === false) {
-          return { text: '🌌 Глубокий сон выключен', cls: 'badge-muted' };
+          return { text: '🌅 Глубокий сон выключен', cls: 'badge-muted' };
         }
-        return { text: '🌌 Глубокий сон спит', cls: 'badge-muted' };
+        if (d.active) {
+          if (d.active_until) {
+            return { text: '🌌 Глубокий сон до ' +
+                     this.fmtClock(d.active_until), cls: 'badge-info glow' };
+          }
+          return { text: '🌌 Глубокий сон идёт', cls: 'badge-info glow' };
+        }
+        return { text: '🌅 Глубокий сон через ' + this.fmtClock(d.next_run_at),
+                 cls: 'badge-muted' };
       },
       // F5 (T-1455): бюджет контекста из аддитивного /api/status.context
       // (in-memory accounting); красный — урезание или загрузка > 90%.
@@ -2719,9 +2741,6 @@
         if (id === 'oversight') {
           this.loadMemoryWidget();       // F5/§7: виджет «Сводка»
           this.loadPersonaHealth();      // F4/UPD п.4: метрики Личности
-        }
-        if (id === 'modules') {
-          this.loadCognitionStats();     // F5/§4.4: статистика графа
         }
         if (id === 'info') {
           if (!this.infoHtml && !this.infoLoading) this.loadInfo();
@@ -5124,15 +5143,6 @@
         if (this.activeChatId == null) return '';
         return (first ? '?' : '&') + 'chat_id=' + this.activeChatId;
       },
-      loadCognitionStats: async function () {
-        if (!this.isGlobalAdmin) return;
-        try {
-          this.cognitionStats = await this.api(
-            '/api/memory/stats' + this._cidQuery(true));
-        } catch (e) {
-          this.cognitionStats = null;
-        }
-      },
       loadCognition: async function () {
         if (!this.isGlobalAdmin) return;
         this.cognitionBusy = true;
@@ -5264,15 +5274,82 @@
                    font: { size: 10, color: '#94a3b8' } },
           interaction: { hover: true, dragNodes: true, dragView: true,
                          zoomView: true },
+          // F2 (T-1559): физика отталкивания barnesHut — кластеры
+          // разлетаются, а не слипаются. reducedMotion → физика выключена.
           physics: this.reducedMotion
             ? false
-            : { stabilization: { iterations: 120, fit: true } },
+            : {
+                solver: 'barnesHut',
+                barnesHut: {
+                  gravitationalConstant: -8000, // расталкивание (негатив)
+                  centralGravity: 0.3,          // удержание в кадре
+                  springLength: 120,            // длина пружины рёбер
+                  springConstant: 0.04,
+                  damping: 0.09,                // гасит «болтанку»
+                  avoidOverlap: 0.2,            // не даёт слипаться
+                },
+                stabilization: { enabled: true, iterations: 250,
+                                 updateInterval: 25, fit: true },
+                minVelocity: 0.75,
+              },
           groups: { user: { color: '#a78bfa' }, topic: { color: '#38bdf8' },
                     event: { color: '#f59e0b' }, fact: { color: '#34d399' } },
         };
         this.cognitionNetwork = new window.vis.Network(
           el, { nodes: nodes, edges: edges }, options);
         this._cognitionGraphSig = sig;
+      },
+      // F2 (T-1560/1561, spec §5): поиск по графу — подстрока по label
+      // (R16: id — ключ, поиск по label). Несколько совпадений — перебор
+      // по повторному Enter. Пустой ввод → сброс + fit(). search-only:
+      // polling/_graphSignature/пересоздание сети не затрагиваются.
+      searchCognitionGraph: async function () {
+        var q = String(this.graphSearchQuery || '').trim().toLowerCase();
+        if (!this.cognitionNetwork) {
+          // гонка lazy-load: дождаться рендера и повторить один раз
+          await this.renderCognitionGraph();
+          if (!this.cognitionNetwork) return;
+        }
+        if (!q) { this.clearCognitionGraphSearch(); return; }
+        var nodes = (this.cognitionGraphData &&
+                     this.cognitionGraphData.nodes) || [];
+        var hits = nodes.filter(function (n) {
+          return String(n.label || '').toLowerCase().indexOf(q) !== -1;
+        });
+        if (!hits.length) {
+          this._graphSearchMatches = [];
+          this._graphSearchIdx = 0;
+          this.graphSearchStatus = 'Ничего не найдено';
+          this.toast('В графе нет узла «' + q + '»', 'warn');
+          return;
+        }
+        // циклический перебор при повторном поиске того же запроса
+        if (q !== this._graphSearchLastQ) { this._graphSearchIdx = -1; }
+        this._graphSearchLastQ = q;
+        this._graphSearchMatches = hits;
+        this._graphSearchIdx = (this._graphSearchIdx + 1) % hits.length;
+        var node = hits[this._graphSearchIdx];
+        var anim = this.reducedMotion
+          ? false : { duration: 600, easingFunction: 'easeInOutQuad' };
+        this.cognitionNetwork.focus(node.id,
+          { scale: 1.1, animation: anim });
+        this.cognitionNetwork.selectNodes([node.id]);
+        this.graphSearchStatus = 'Найден: ' + node.label +
+          (hits.length > 1
+            ? ' (' + (this._graphSearchIdx + 1) + '/' + hits.length + ')'
+            : '');
+      },
+      clearCognitionGraphSearch: function () {
+        this.graphSearchQuery = '';
+        this.graphSearchStatus = '';
+        this._graphSearchMatches = [];
+        this._graphSearchIdx = 0;
+        this._graphSearchLastQ = '';
+        if (this.cognitionNetwork) {
+          this.cognitionNetwork.selectNodes([]);
+          var anim = this.reducedMotion ? false : { duration: 500 };
+          this.cognitionNetwork.fit(anim);
+        }
       },
       destroyCognitionGraph: function () {
         if (this.cognitionNetwork) {
