@@ -1408,7 +1408,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     // Бейджи фаз из реального cognition/status (round1015: оконная семантика).
     const dream = computed.dreamPhaseBadge;
     assert.strictEqual(typeof dream, 'function', 'F5: dreamPhaseBadge computed');
-    const dCtx = (d) => ({ cognition: { dream: d }, fmtClock: methods.fmtClock });
+    const dCtx = (d) => ({ cognition: { dream: d }, fmtClock: methods.fmtClock,
+      fmtCountdown: methods.fmtCountdown });
     const dreamActive = dream.call(
       dCtx({ active: true, active_until: 1740000000 }));
     assert.strictEqual(dreamActive.cls, 'badge-ok glow',
@@ -1422,35 +1423,40 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         { state: 'limit_exhausted', next_wake_at: 1740000000 })).cls,
       'badge-warn', 'F5: лимит сна исчерпан → warn');
     assert.strictEqual(
-      dream.call({ cognition: null, fmtClock: methods.fmtClock }).text,
+      dream.call({ cognition: null, fmtClock: methods.fmtClock,
+        fmtCountdown: methods.fmtCountdown }).text,
       '☀️ Сон через —', 'F5: нет данных → нейтральный «через»');
     const deep = computed.deepPhaseBadge;
     const deepActive = deep.call({
       cognition: { deep_sleep: { active: true, active_until: 1740000000 } },
-      fmtClock: methods.fmtClock });
+      fmtClock: methods.fmtClock,
+      fmtCountdown: methods.fmtCountdown });
     assert.strictEqual(deepActive.cls, 'badge-info glow',
       'F5: активный глубокий сон → свечение');
     assert.ok(deepActive.text.indexOf('🌌 Глубокий сон до ') === 0,
       'F5: активный глубокий сон → «до HH:MM»');
     assert.strictEqual(deep.call({
       cognition: { deep_sleep: { next_run_at: 1740000000 } },
-      fmtClock: methods.fmtClock }).cls, 'badge-muted',
+      fmtClock: methods.fmtClock,
+      fmtCountdown: methods.fmtCountdown }).cls, 'badge-muted',
       'F5: вне фазы глубокого сна → без свечения');
-    // Review-fix H1: выключенный рубильник приоритетнее активной фазы.
+    // F3 (round1017): ветка enabled=false удалена; активная фаза — приоритетнее,
+    // при enabled=false/active=false — остаток без свечения (UPD3).
     const dreamOff = dream.call(dCtx(
       { enabled: false, active: true, active_until: 1740000000 }));
-    assert.strictEqual(dreamOff.text, '☀️ Сон выключен',
-      'F5/H1: enabled=false гасит активную фазу сна');
-    assert.strictEqual(dreamOff.cls, 'badge-muted',
-      'F5/H1: выключенный сон без свечения');
+    assert.ok(dreamOff.text.indexOf('🌙 Сон до ') === 0,
+      'F3: активная фаза сна — приоритетнее enabled=false');
+    assert.strictEqual(dreamOff.cls, 'badge-ok glow',
+      'F3: активный сон светится даже при enabled=false (running)');
     const deepOff = deep.call({
       cognition: { deep_sleep: {
         enabled: false, active: true, active_until: 1740000000 } },
-      fmtClock: methods.fmtClock });
-    assert.strictEqual(deepOff.text, '🌅 Глубокий сон выключен',
-      'F5/H1: enabled=false гасит активный глубокий сон');
-    assert.strictEqual(deepOff.cls, 'badge-muted',
-      'F5/H1: выключенный глубокий сон без свечения');
+      fmtClock: methods.fmtClock,
+      fmtCountdown: methods.fmtCountdown });
+    assert.ok(deepOff.text.indexOf('🌌 Глубокий сон до ') === 0,
+      'F3: активный глубокий сон — приоритетнее enabled=false');
+    assert.strictEqual(deepOff.cls, 'badge-info glow',
+      'F3: активный глубокий сон светится даже при enabled=false (running)');
 
     // Бюджет контекста (аддитивное /api/status.context).
     const mc = computed.memoryContext;
@@ -1505,6 +1511,111 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.ok(pctx.cognitionTimer != null, 'F5: polling запущен');
     methods.stopCognitionPolling.call(pctx);
     assert.strictEqual(pctx.cognitionTimer, null, 'F5: polling остановлен');
+  }
+
+  // ── F3 (sleep-badge-countdown-round1017): fmtCountdown + бейджи
+  //    «через остаток» / «до HH:MM» (UPD3; ADR-1017-3) ──────────────────────
+  {
+    const fc = methods.fmtCountdown;
+    assert.strictEqual(typeof fc, 'function',
+      'F3: fmtCountdown — метод');
+    assert.strictEqual(fc.call({}, 8100), '2ч 15м',
+      'F3: fmtCountdown(8100) == 2ч 15м');
+    assert.strictEqual(fc.call({}, 900), '15м',
+      'F3: fmtCountdown(900) == 15м');
+    assert.strictEqual(fc.call({}, 3600), '1ч 0м',
+      'F3: fmtCountdown(3600) == 1ч 0м');
+    assert.strictEqual(fc.call({}, 0), '0м', 'F3: fmtCountdown(0) == 0м');
+    assert.strictEqual(fc.call({}, -30), '0м',
+      'F3: отрицательное → кламп 0м');
+    assert.strictEqual(fc.call({}, 59), '0м', 'F3: <60с → 0м');
+    assert.strictEqual(fc.call({}, 3599), '59м',
+      'F3: 3599с → 59м (округление вниз)');
+    assert.strictEqual(fc.call({}, null), '—', 'F3: null → —');
+    assert.strictEqual(fc.call({}, 'abc'), '—', 'F3: не-число → —');
+    assert.strictEqual(fc.call({}, NaN), '—', 'F3: NaN → —');
+
+    const dream = computed.dreamPhaseBadge;
+    const deep = computed.deepPhaseBadge;
+    const NOW = 1740000000;
+    const ctx = (cognition) => Object.assign({ cognition: cognition },
+      { fmtClock: methods.fmtClock, fmtCountdown: methods.fmtCountdown });
+
+    // Вне фазы: enabled=false, active=false → остаток, без свечения.
+    const dOff = dream.call(ctx({
+      generated_at: NOW,
+      dream: { enabled: false, active: false, next_wake_at: NOW + 3600 } }));
+    assert.strictEqual(dOff.text, '☀️ Сон через 1ч 0м',
+      'F3: dream enabled=false вне фазы → «через остаток»');
+    assert.strictEqual(dOff.cls, 'badge-muted',
+      'F3: dream вне фазы без свечения (нет «выключен»)');
+    // 15м при < часа.
+    const dQ = dream.call(ctx({
+      generated_at: NOW,
+      dream: { active: false, next_wake_at: NOW + 900 } }));
+    assert.strictEqual(dQ.text, '☀️ Сон через 15м',
+      'F3: dream остаток 15м');
+    assert.strictEqual(dQ.cls, 'badge-muted', 'F3: dream muted вне фазы');
+
+    // В фазе: glow + «до HH:MM».
+    const dA = dream.call(ctx({
+      generated_at: NOW,
+      dream: { active: true, active_until: NOW + 3600 } }));
+    assert.ok(dA.text.indexOf('🌙 Сон до ') === 0,
+      'F3: dream active → «до HH:MM»');
+    assert.strictEqual(dA.cls, 'badge-ok glow', 'F3: dream active → glow');
+
+    // «Лимит сна исчерпан» сохранён.
+    const dL = dream.call(ctx({
+      generated_at: NOW,
+      dream: { active: false, state: 'limit_exhausted' } }));
+    assert.strictEqual(dL.text, '☀️ Лимит сна исчерпан',
+      'F3: лимит сна исчерпан сохранён');
+    assert.strictEqual(dL.cls, 'badge-warn', 'F3: лимит → badge-warn');
+
+    // deep вне фазы → остаток без свечения.
+    const dsOff = deep.call(ctx({
+      generated_at: NOW,
+      deep_sleep: { enabled: false, active: false, next_run_at: NOW + 900 } }));
+    assert.strictEqual(dsOff.text, '🌅 Глубокий сон через 15м',
+      'F3: deep enabled=false → «через остаток»');
+    assert.strictEqual(dsOff.cls, 'badge-muted',
+      'F3: deep вне фазы без свечения (нет «выключен»)');
+    // deep в фазе → glow + «до HH:MM».
+    const dsA = deep.call(ctx({
+      generated_at: NOW,
+      deep_sleep: { active: true, active_until: NOW + 3600 } }));
+    assert.ok(dsA.text.indexOf('🌌 Глубокий сон до ') === 0,
+      'F3: deep active → «до HH:MM»');
+    assert.strictEqual(dsA.cls, 'badge-info glow', 'F3: deep active → glow');
+
+    // Нет данных → «—», badge-muted.
+    const noData = { cognition: null, fmtClock: methods.fmtClock,
+      fmtCountdown: methods.fmtCountdown };
+    assert.strictEqual(dream.call(noData).text, '☀️ Сон через —',
+      'F3: cognition=null → «—»');
+    assert.strictEqual(dream.call(noData).cls, 'badge-muted',
+      'F3: нет данных → muted');
+    assert.strictEqual(deep.call(noData).text, '🌅 Глубокий сон через —',
+      'F3: cognition=null deep → «—»');
+
+    // Отсутствие generated_at → Date.now()/1000, без NaN.
+    const noGen = dream.call(ctx({
+      dream: { active: false,
+        next_wake_at: Math.floor(Date.now() / 1000) + 3600 } }));
+    assert.strictEqual(noGen.text, '☀️ Сон через 1ч 0м',
+      'F3: нет generated_at → fallback Date.now()/1000, без NaN');
+
+    // Эмодзи не изменены; «выключен» удалён.
+    const src = require('fs').readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf8');
+    ['☀️', '🌙', '🌅', '🌌'].forEach((e) => {
+      assert.ok(src.indexOf(e) >= 0, 'F3: эмодзи ' + e + ' присутствует');
+    });
+    assert.ok(src.indexOf('Сон выключен') < 0,
+      'F3: «Сон выключен» удалён');
+    assert.ok(src.indexOf('Глубокий сон выключен') < 0,
+      'F3: «Глубокий сон выключен» удалён');
   }
 
   // ── F4 (persona-traits-ribbon-round1014): лента «Эволюция характера»

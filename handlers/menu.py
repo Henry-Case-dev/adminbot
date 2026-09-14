@@ -12,6 +12,7 @@
 core.telegram.org/bots/buttons, webapps). URL настраивается env WEBAPP_URL.
 """
 import logging
+from urllib.parse import urlsplit
 
 from aiogram import Router, types
 from aiogram.filters import Command
@@ -62,7 +63,11 @@ async def menu_command(message: types.Message) -> None:
                                  web_app=WebAppInfo(url=url)),
         ]])
         await message.reply("Открыть мини-апп:", reply_markup=keyboard)
-        logger.info("[menu] sent | chat=%s | type=%s", chat.id, chat_type)
+        # 10.17 (F1 miniapp-mobile-dns-round1017, T-1670): host-only (R17) —
+        # помогает определить, какой домен реально отдаётся кнопкой, без
+        # логирования полного URL/секретов.
+        logger.info("[menu] sent | chat=%s | type=%s | host=%s",
+                    chat.id, chat_type, urlsplit(url).hostname or "-")
         return
 
     # Группа/супергруппа и пр.: Telegram НЕ поддерживает web_app-инлайн-кнопки

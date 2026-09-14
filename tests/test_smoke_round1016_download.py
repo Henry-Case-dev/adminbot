@@ -21,6 +21,7 @@ from services.tool_router import ToolContext, ToolDeps, ToolRouter
 from tools.video_downloader import (
     DownloadError,
     DownloadUnavailableError,
+    ProbeResult,
     VideoDownloader,
 )
 
@@ -139,40 +140,44 @@ class TestProbeSmoke:
 
 class TestToolDownloadMediaSmoke:
     @pytest.mark.asyncio
-    async def test_youtube_url_sends_and_returns_success(
+    async def test_youtube_url_asks_quality_menu(
             self, monkeypatch, tmp_path):
+        """R10.17 (ADR-1017-2): YouTube-URL в tool-пути → probe → меню
+        качества; файл не скачивается до callback (fix UPD3 §2)."""
         _gate(monkeypatch, True)
-        path = tmp_path / "yt.mp4"
-        path.write_bytes(b"data")
         downloader = MagicMock()
-        downloader.download = AsyncMock(return_value=path)
+        downloader.probe = AsyncMock(
+            return_value=ProbeResult("Название", ("1080p", "720p", "360p")))
+        downloader.download = AsyncMock()
         bot = _FakeBot()
         router = ToolRouter(_deps(downloader=downloader))
         out = await router.dispatch("download_media", {"url": _YT},
                                     _ctx(bot=bot, reply_to_message_id=7))
-        assert json.loads(out)["status"] == "success"
-        downloader.download.assert_awaited_once_with(_YT)
-        assert len(bot.sent_video) == 1
-        assert bot.sent_video[0][1]["reply_to_message_id"] == 7
-        assert not path.exists()
+        assert json.loads(out)["status"] == "needs_quality"
+        downloader.download.assert_not_awaited()
+        assert bot.send_message.await_count == 1
+        assert bot.sent_video == []
 
     @pytest.mark.asyncio
-    async def test_platform_url_passes_auto(self, monkeypatch, tmp_path):
+    async def test_platform_url_asks_quality(self, monkeypatch):
         _gate(monkeypatch, True)
-        path = tmp_path / "tk.mp4"
-        path.write_bytes(b"data")
         downloader = MagicMock()
-        downloader.download = AsyncMock(return_value=path)
+        downloader.probe = AsyncMock(
+            return_value=ProbeResult("tk", ("720p", "360p")))
+        downloader.download = AsyncMock()
+        bot = _FakeBot()
         router = ToolRouter(_deps(downloader=downloader))
         out = await router.dispatch("download_media", {"url": _TIKTOK},
-                                    _ctx(bot=_FakeBot()))
-        assert json.loads(out)["status"] == "success"
-        downloader.download.assert_awaited_once_with(_TIKTOK)
+                                    _ctx(bot=bot))
+        assert json.loads(out)["status"] == "needs_quality"
+        downloader.download.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_failure_is_honest_error_no_send(self, monkeypatch):
         _gate(monkeypatch, True)
         downloader = MagicMock()
+        downloader.probe = AsyncMock(
+            side_effect=DownloadError("probe", reason="probe_failed"))
         downloader.download = AsyncMock(side_effect=DownloadError("boom"))
         bot = _FakeBot()
         router = ToolRouter(_deps(downloader=downloader))

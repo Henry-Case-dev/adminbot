@@ -241,12 +241,16 @@ class TestUiMarkersBadges:
         assert "🌙 Сон до " in JS
         assert "🌙 Сон идёт" in JS
         assert "☀️ Сон через " in JS
-        assert "☀️ Сон выключен" in JS
         assert "☀️ Лимит сна исчерпан" in JS
         assert "🌅 Глубокий сон через " in JS
-        assert "🌅 Глубокий сон выключен" in JS
         assert "🌌 Глубокий сон до " in JS
         assert "🌌 Глубокий сон идёт" in JS
+        # round1017 (F3): ветка «выключен» устранена, вне фазы — остаток.
+        assert "Сон выключен" not in JS
+        assert "Глубокий сон выключен" not in JS
+        assert "fmtCountdown: function" in JS
+        assert "fmtCountdown(Number(d.next_wake_at) - now)" in JS
+        assert "fmtCountdown(Number(d.next_run_at) - now)" in JS
         assert "'badge-ok glow'" in JS
         assert "'badge-info glow'" in JS
 

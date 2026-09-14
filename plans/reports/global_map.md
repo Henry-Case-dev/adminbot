@@ -6,6 +6,31 @@
 > Каталог-инвариант 10.12: REGISTRY 405 / GROUPS 90 / Settings 377 / mapped 88 / TAB_RULES 19 / categorized 381.
 > П.6 (Headroom) — OUT OF SCOPE репозитория, в коде ссылок нет.
 
+## Round 10.17 (2026-09-14, F1–F5, HEAD 772f192 + рабочее дерево) — карта связностей
+
+- **F1 miniapp-mobile-dns:** `web/app.py::_startup_diag` (scheme/host/path через `urlsplit`, R17) + явные
+  `@app.head("/web/")`/`("/web/index.html")` +`GET/HEAD /healthz` (JSON `{status,version}`, `no-store`, CSP
+  для HTML-роутов) — маршруты ДО `app.mount("/web", CacheControlStaticFiles)`; `handlers/menu.py:63-70`
+  host-only лог. No-CDN гейт `tests/test_webapp_dns_round1017.py` (SCANNED + VENDOR_SCANNED ×6).
+- **F2 tool-download-quality:** `services/tool_router.py::_download_media` (probe→меню→`needs_quality`) →
+  `store/peek/pop_tool_download_pending` (`_TOOL_DL_PENDING[(chat_id,user_id)]`, TTL 600 c) ↔ callback
+  `handlers/video_download.py::cb_tool_quality` (`tdq:`) — доводит `download(url, f"{quality}p")`; общий
+  построитель меню `services/media_send.py::build_quality_keyboard/quality_menu_text/send_quality_menu`
+  (Fast-Track `vd:` + tool `tdq:`); `QUALITY_ENUM` (`tools/video_downloader.py:105`) = JSON-Schema enum;
+  SUPERSEDE ADR-1016-1 §2 п.3/§3 → ADR-1017-2. `_download_now` — direct/явное качество/bounded fallback.
+- **F3 sleep-badge-countdown:** `web/app.js::fmtCountdown` (`:5116`) ← `dreamPhaseBadge`/`deepPhaseBadge`
+  (`:1216`/`:1234`); `now = cognition.generated_at`; ветка `enabled=false→«выключен»` удалена (остаток без
+  свечения); активная фаза — `glow` + `fmtClock(active_until)`. ADR-1017-3.
+- **F4 ssh-rotation-cancelled:** docs-only, кода нет. CANCELLED: `README.md:74,387`, `plans/ARCHITECTURE.md:326,616,624,628`,
+  `plans/backlog.md:95-97`, `archive/security-rotation-finalize-round1016/tasks.md:5`; **остаток S10.17-1** —
+  архивная `spec.md` без banner (§8 «ротация обязательна в любом случае»).
+- **F5 warnings-hygiene:** `web/api/avatars.py::_log_bot_api_failure` — 6 сайтов (fetch 142, chat 211,
+  member 252, photos 273, global-name 323, global-photos 347): `TelegramBadRequest`→DEBUG (негатив кэш),
+  транзиент→WARNING без трейса и без кэша, generic→WARNING+`exc_info`. brotli WONTFIX (build-time only;
+  Caddy `zstd+gzip`).
+- Scan-отчёт: `plans/reports/round10.17_scanner_audit.md` (0 Critical / 0 High / 1 Medium / 2 Low / 3 Info;
+  валидатор pytest 6007/0, JS-гейты OK).
+
 ## Round 10.16 (2026-09-14, F1–F5, HEAD 18a9aa1 + рабочее дерево) — карта связностей
 - **F1 download-fix:** `tools/video_downloader.py::VideoDownloader.download(url, quality=None, progress_cb)`
   (ветвление direct/YouTube/cobalt по URL; `_normalize_quality` None/auto/best/max/direct→`max`, `144…4320`);

@@ -12,9 +12,50 @@ import logging
 from pathlib import Path
 
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 logger = logging.getLogger(__name__)
+
+# ── Единое меню качества (T-1679, раунд 10.17 F2; ревью-итер.1 M3) ──────────
+# Fast-Track (`handlers/video_download.py`, callback `vd:`) и tool-путь
+# (`services/tool_router.py`, callback `tdq:`) ДЕЛЯТ один построитель меню:
+# раскладка/подписи/заголовок задаются здесь, поведение двух путей не дрейфует.
+QUALITY_ROW_SIZE = 3
+_QUALITY_PROMPT = "выбери качество:"
+
+
+def build_quality_keyboard(qualities,
+                           callback_prefix: str) -> InlineKeyboardMarkup:
+    """Клавиатура «{h}p» рядами по `QUALITY_ROW_SIZE`.
+
+    Кнопка: `text` = строка качества из probe (напр. `"1080p"`),
+    `callback_data` = `f"{callback_prefix}{height}"` (напр. `vd:1080`/`tdq:1080`).
+    """
+    builder = InlineKeyboardBuilder()
+    for quality in qualities:
+        text = str(quality)
+        builder.button(text=text, callback_data=f"{callback_prefix}{text[:-1]}")
+    builder.adjust(QUALITY_ROW_SIZE)
+    return builder.as_markup()
+
+
+def quality_menu_text(title) -> str:
+    """Заголовок меню: необязательный title (≤200) + «выбери качество:»."""
+    header = f"{str(title)[:200]}\n\n" if title else ""
+    return f"{header}{_QUALITY_PROMPT}"
+
+
+async def send_quality_menu(bot, chat_id: int, *, reply_to, title, qualities,
+                            callback_prefix: str) -> None:
+    """Отправить меню качества реплаем на триггер (R17: без URL/текстов)."""
+    await bot.send_message(
+        chat_id,
+        quality_menu_text(title),
+        reply_markup=build_quality_keyboard(qualities, callback_prefix),
+        reply_to_message_id=reply_to,
+        disable_web_page_preview=True,
+    )
 
 
 async def send_media(bot, chat_id: int, path: Path,

@@ -29,6 +29,7 @@ from tools.video_downloader import (
     DownloadError,
     DownloadTooBigError,
     DownloadUnavailableError,
+    ProbeResult,
     VideoDownloader,
     is_direct_media_url,
 )
@@ -98,18 +99,21 @@ def _gate(monkeypatch, enabled):
 
 class TestToolDownload:
     @pytest.mark.asyncio
-    async def test_platform_url_passes_auto_no_direct(self, monkeypatch,
-                                                      tmp_path):
+    async def test_platform_url_asks_quality(self, monkeypatch):
+        """R10.17 (ADR-1017-2): платформенный URL → probe → меню качества,
+        download НЕ стартует до callback (fix прод-дефекта UPD3 §2)."""
         _gate(monkeypatch, True)
-        path = tmp_path / "yt.mp4"
-        path.write_bytes(b"data")
         downloader = MagicMock()
-        downloader.download = AsyncMock(return_value=path)
+        downloader.probe = AsyncMock(
+            return_value=ProbeResult("ролик", ("1080p", "720p")))
+        downloader.download = AsyncMock()
+        bot = _FakeBot()
         router = ToolRouter(_deps(downloader=downloader))
         out = await router.dispatch("download_media", {"url": _YT},
-                                    _ctx(bot=_FakeBot()))
-        assert json.loads(out)["status"] == "success"
-        downloader.download.assert_awaited_once_with(_YT)
+                                    _ctx(bot=bot))
+        assert json.loads(out)["status"] == "needs_quality"
+        downloader.download.assert_not_awaited()
+        assert bot.send_message.await_count == 1
 
     @pytest.mark.asyncio
     async def test_direct_mp4_still_works(self, monkeypatch, tmp_path):
@@ -123,7 +127,7 @@ class TestToolDownload:
         out = await router.dispatch("download_media", {"url": _MP4},
                                     _ctx(bot=bot))
         assert json.loads(out)["status"] == "success"
-        downloader.download.assert_awaited_once_with(_MP4)
+        downloader.download.assert_awaited_once_with(_MP4, None)
         assert len(bot.sent_video) == 1
 
     @pytest.mark.asyncio

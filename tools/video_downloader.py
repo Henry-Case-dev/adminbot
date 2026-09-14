@@ -99,6 +99,12 @@ _YOUTUBE_HOSTS = frozenset({
 _ALLOWED_HEIGHTS: tuple[int, ...] = (2160, 1440, 1080, 720, 480, 360)
 _FALLBACK_QUALITIES: tuple[str, ...] = ("1080p", "720p", "360p")
 
+# Раунд 10.17 (F2, ADR-1017-2 §2.2): публичный enum качества для JSON-Schema
+# `download_media` — ЕДИНЫЙ источник с `_ALLOWED_HEIGHTS` (тест паритета
+# обязателен; «max» = авто). Каталог-Δ=0: код-константа, не hot-ключ.
+QUALITY_ENUM: tuple[str, ...] = ("max",) + tuple(
+    str(h) for h in _ALLOWED_HEIGHTS)
+
 # Section 70.8 #6: лимит локального Bot API (2 GB).
 VD_MAX_BYTES = 2_000_000_000
 

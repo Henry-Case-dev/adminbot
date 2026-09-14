@@ -29,6 +29,13 @@ get_bot_health (CheckupLogsFetcher+CheckupService) и get_recent_history
 («Имя: текст»): путь `depth` (≤150) через `database.get_recent_messages` либо
 путь `query` (FTS + окно последних часов + ASC). Лимиты — код-константы
 (каталог-Δ=0); R17: логи только chat_id/count/out_chars.
+
+Раунд 10.17 (F2, ADR-1017-2 — SUPERSEDE ADR-1016-1 §2 п.3/§3): tool
+`download_media` для платформенного URL делает `probe()` → инлайн-меню
+качества `tdq:<height>` → фиктивный `tool_response {"status":"needs_quality"}`
+(скачивание доводит callback `tdq:` в роутере 4e); прямой медиа-URL или явно
+названное `quality` — сразу `download(url, quality)`; провал probe — одна
+bounded попытка `download(url, None)`. Кулдаун (D279) — только после успеха.
 """
 import asyncio
 import datetime
@@ -39,7 +46,7 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
-from services.media_send import send_media
+from services.media_send import send_media, send_quality_menu
 from services.persistent_throttling import (
     cooldown_refresh,
     cooldown_remaining,
@@ -47,7 +54,7 @@ from services.persistent_throttling import (
 )
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_urls import extract_youtube_video_id
-from tools.video_downloader import DownloadError
+from tools.video_downloader import DownloadError, is_direct_media_url
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +73,15 @@ _DOWNLOAD_TOOL_TIMEOUT = 180.0
 _SUMMARIZE_TOOL_TIMEOUT = 300.0
 # Cap транскрипта для mode=transcript (прецедент handlers/youtube T-690).
 _SUMMARIZE_TRANSCRIPT_CAP = 20000
+
+# Раунд 10.17 (F2, ADR-1017-2 §2.1/§2.6): tool-скачивание спрашивает качество
+# (probe → инлайн-меню `tdq:<height>` → callback доводит download). Таймаут
+# probe в tool-пути — с запасом над внутренним `_PROBE_TIMEOUT_SECONDS=20`;
+# pending-состояние — in-memory с TTL (как Fast-Track `_PENDING`). Код-константы
+# (каталог-Δ=0).
+_PROBE_TOOL_TIMEOUT = 25.0
+_TOOL_DL_PENDING_TTL_SECONDS = 600
+_TOOL_QUALITY_PREFIX = "tdq:"             # callback меню качества tool-пути
 
 # Раунд 10.15 (F9, spec §6): лимиты get_recent_history — код-константы
 # (каталог-Δ=0; прецедент _DIG_GRAPH_MAX_HOP_DEPTH/_MEMORY_FTS_LIMIT).
@@ -108,9 +124,61 @@ def _is_http_url(url: str) -> bool:
 
 def _download_status(status: str, message: str) -> str:
     """Фиктивный tool_response для download_media (ADR-1015-3 §4): LLM видит
-    JSON, а реальный MP4 уходит в чат на бэкенде (модель не «печатает» файл)."""
+    JSON, а реальный MP4 уходит в чат на бэкенде (модель не «печатает» файл).
+    Статусы: success | needs_quality (меню отправлено) | error (ADR-1017-2 §3.2)."""
     return json.dumps({"status": status, "message": message},
                       ensure_ascii=False)
+
+
+# Раунд 10.17 (F2, ADR-1017-2 §2.6): pending выбора качества tool-скачивания.
+# Key `(chat_id, user_id)`; TTL `_TOOL_DL_PENDING_TTL_SECONDS`; ленивая чистка
+# при каждом обращении. In-memory (без PG/DDL) — по ADR.
+_TOOL_DL_PENDING: dict[tuple[int, int], dict] = {}
+
+
+def _purge_stale_pending(now: float) -> None:
+    """Ленивая чистка протухших записей pending (без отдельного таймера)."""
+    for key in [k for k, v in _TOOL_DL_PENDING.items()
+                if v.get("expires", 0) <= now]:
+        _TOOL_DL_PENDING.pop(key, None)
+
+
+def store_tool_download_pending(chat_id: int, user_id, *, url: str,
+                                title, qualities, trigger_message_id) -> None:
+    """Сохранить выбор качества для callback `tdq:` (producer — tool)."""
+    now = time.monotonic()
+    _purge_stale_pending(now)
+    _TOOL_DL_PENDING[(chat_id, user_id)] = {
+        "url": url,
+        "title": title,
+        "qualities": tuple(qualities or ()),
+        "trigger_message_id": trigger_message_id,
+        "expires": now + _TOOL_DL_PENDING_TTL_SECONDS,
+    }
+
+
+def pop_tool_download_pending(chat_id: int, user_id) -> dict | None:
+    """Забрать pending (одноразово). Нет/протух → None (callback «протухла»)."""
+    now = time.monotonic()
+    _purge_stale_pending(now)
+    entry = _TOOL_DL_PENDING.pop((chat_id, user_id), None)
+    if entry is None or entry.get("expires", 0) <= now:
+        return None
+    return entry
+
+
+def peek_tool_download_pending(chat_id: int, user_id) -> dict | None:
+    """Pending БЕЗ изъятия — валидация callback до consume (ревью-итер.1 L1).
+
+    Позволяет отвергнуть подделанную/несуществующую высоту, не теряя pending
+    и не снимая рабочую клавиатуру. Нет/протух → None.
+    """
+    now = time.monotonic()
+    _purge_stale_pending(now)
+    entry = _TOOL_DL_PENDING.get((chat_id, user_id))
+    if entry is None or entry.get("expires", 0) <= now:
+        return None
+    return entry
 
 
 def keywords(query: str) -> list[str]:
@@ -247,8 +315,10 @@ class ToolRouter:
         try:
             return await method(arguments, ctx)
         except Exception as exc:
+            # R17: только класс исключения (без str(exc) — он может нести
+            # URL/секреты; ревью-итер.1 L7).
             logger.warning("[tools] exec failed | tool=%s | error=%s",
-                           name, f"{type(exc).__name__}: {exc}")
+                           name, type(exc).__name__)
             return f"ОШИБКА {name}: {type(exc).__name__}"
 
     # ── execute_web_search ────────────────────────────────────────
@@ -562,11 +632,18 @@ class ToolRouter:
             return None
 
     async def _download_media(self, arguments: dict, ctx: ToolContext) -> str:
-        """Корнер-кейс файлов (ADR-1015-3 §4): скачиваем на бэкенде и САМИ
-        шлём MP4 в чат (send_media), а в LLM возвращаем фиктивный
-        tool_response JSON — иначе модель «печатает» видео (галлюцинация).
-        Успех — только после реальной отправки; при любом сбое status:"error".
-        Гейт — flags.download_enabled. R17: без URL/текстов в логах."""
+        """Корнер-кейс файлов (ADR-1015-3 §4) + запрос качества (ADR-1017-2).
+
+        Раунд 10.17 (F2, ADR-1017-2 §2 — SUPERSEDE ADR-1016-1 §2 п.3/§3):
+        платформенный URL → `probe()` → инлайн-меню качества `tdq:<height>` →
+        фиктивный `tool_response {"status":"needs_quality"}`; скачивание
+        доводит callback `tdq:` (роутер 4e). Прямой медиа-URL или ЯВНО
+        названное пользователем `quality` → скачиваем сразу без меню. Провал
+        probe → одна bounded попытка `download(url, None)` без меню.
+
+        Файл шлём САМИ (send_media), в LLM — фиктивный JSON (модель не
+        «печатает» видео). Кулдаун (D279) жжётся только после успешного probe
+        (ask-ветка) либо успешного download. R17: без URL/текстов в логах."""
         url = self._require_str(arguments, "url")
         if not _is_http_url(url):
             return _download_status("error", "Некорректная ссылка")
@@ -585,18 +662,64 @@ class ToolRouter:
             if remaining > 0:
                 return _download_status("error",
                                         "Скачивание на кулдауне — позже")
-        path = None
+
+        # (а) явное качество ИЛИ прямой медиа-URL → без меню (ADR-1017-2 §2.3/§2.2).
+        explicit = self._quality_arg(arguments.get("quality"))
+        if explicit is not None or is_direct_media_url(url):
+            return await self._download_now(ctx, url, explicit, cooldown)
+
+        # (б) платформа → probe → меню качества (эталон Fast-Track :284-343).
         try:
-            if cooldown is not None and ctx.user_id is not None:
-                # Успешный старт скачивания жжёт кулдаун (D279, как 4e).
-                await cooldown_touch(cooldown, ctx.chat_id, ctx.user_id)
-            # Раунд 10.16 (ADR-1016-1 §2): quality не передаётся — авто
-            # («max»); ветвление direct/платформа делает downloader по URL.
-            path = await asyncio.wait_for(
-                self.deps.downloader.download(url),
-                timeout=_DOWNLOAD_TOOL_TIMEOUT)
+            probe = await asyncio.wait_for(self.deps.downloader.probe(url),
+                                           timeout=_PROBE_TOOL_TIMEOUT)
         except DownloadError as exc:
             # R17: только класс + safe-reason, БЕЗ str(exc) (может нести URL).
+            logger.warning(
+                "[tools] download probe failed | tool=download_media | "
+                "error=%s reason=%s", type(exc).__name__, exc.reason)
+            return await self._download_now(ctx, url, None, cooldown)
+        except Exception as exc:
+            logger.warning(
+                "[tools] download probe failed | tool=download_media | "
+                "error=%s", type(exc).__name__)
+            # (в) bounded fallback: одна попытка без меню (ADR-1017-2 §2.4).
+            return await self._download_now(ctx, url, None, cooldown)
+
+        # D279: touch только после успешного probe (fail кулдаун не жжёт).
+        # Ревью-итер.1 L5: touch — ПОСЛЕ успешной отправки меню, чтобы провал
+        # доставки не оставлял пользователя без меню, но с кулдауном.
+        title = getattr(probe, "title", None)
+        qualities = getattr(probe, "qualities", ()) or ()
+        store_tool_download_pending(
+            ctx.chat_id, ctx.user_id, url=url, title=title,
+            qualities=qualities, trigger_message_id=ctx.reply_to_message_id)
+        try:
+            await self._send_quality_menu(ctx, title, qualities)
+        except Exception as exc:
+            logger.warning(
+                "[tools] quality menu send failed | tool=download_media | "
+                "error=%s", type(exc).__name__)
+            _TOOL_DL_PENDING.pop((ctx.chat_id, ctx.user_id), None)
+            return _download_status("error", "Не удалось отправить меню качества")
+        if cooldown is not None and ctx.user_id is not None:
+            await cooldown_touch(cooldown, ctx.chat_id, ctx.user_id)
+        return _download_status(
+            "needs_quality",
+            "Пользователю предложен выбор качества — меню с кнопками "
+            "отправлено в чат")
+
+    async def _download_now(self, ctx: ToolContext, url: str, quality,
+                            cooldown) -> str:
+        """Скачать и отправить без меню (direct / явное качество / fallback).
+
+        Успех — только после реальной отправки файла; провал download или
+        send → честный `status:"error"` (без URL в логах, R17)."""
+        path = None
+        try:
+            path = await asyncio.wait_for(
+                self.deps.downloader.download(url, quality),
+                timeout=_DOWNLOAD_TOOL_TIMEOUT)
+        except DownloadError as exc:
             logger.warning(
                 "[tools] download failed | tool=download_media | "
                 "error=%s reason=%s", type(exc).__name__, exc.reason)
@@ -606,6 +729,9 @@ class ToolRouter:
                 "[tools] download failed | tool=download_media | error=%s",
                 type(exc).__name__)
             return _download_status("error", "Не удалось скачать видео")
+        if cooldown is not None and ctx.user_id is not None:
+            # D279: успешный download жжёт кулдаун (провал — нет).
+            await cooldown_touch(cooldown, ctx.chat_id, ctx.user_id)
         try:
             await send_media(ctx.bot, ctx.chat_id, path,
                              reply_to=ctx.reply_to_message_id)
@@ -620,6 +746,32 @@ class ToolRouter:
             except OSError:
                 pass
         return _download_status("success", "Файл успешно загружен в чат")
+
+    def _quality_arg(self, raw):
+        """enum-значение `quality` из аргументов → нормализованный `"max"`/`"1080"`.
+
+        Мусор/пусто → None (не роняем: тогда работает меню). Нормализация —
+        тот же `_normalize_quality` downloader'а, что и Fast-Track (T-1679)."""
+        if raw is None or str(raw).strip() == "":
+            return None
+        try:
+            return self.deps.downloader._normalize_quality(raw)
+        except DownloadError:
+            return None
+        except Exception:
+            logger.warning("[tools] invalid quality arg | tool=download_media")
+            return None
+
+    async def _send_quality_menu(self, ctx: ToolContext, title,
+                                 qualities) -> None:
+        """Инлайн-меню качества tool-пути `tdq:<height>` — единый хелпер
+        `services.media_send.send_quality_menu` (T-1679; без дублирования меню
+        с Fast-Track). R17: в лог — только chat_id и число качеств."""
+        await send_quality_menu(
+            ctx.bot, ctx.chat_id, reply_to=ctx.reply_to_message_id, title=title,
+            qualities=qualities, callback_prefix=_TOOL_QUALITY_PREFIX)
+        logger.info("[tools] download quality menu sent | chat=%s | qualities=%d",
+                    ctx.chat_id, len(qualities))
 
     async def _get_bot_health(self, arguments: dict, ctx: ToolContext) -> str:
         """Здоровье бота: тот же путь, что роутер 0g — CheckupLogsFetcher.fetch

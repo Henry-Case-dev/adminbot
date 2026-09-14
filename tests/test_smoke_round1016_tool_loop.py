@@ -97,13 +97,17 @@ def _gate(monkeypatch, enabled):
 
 class TestToolLoopFullCycle:
     @pytest.mark.asyncio
-    async def test_download_media_sends_file_and_fake_success(
+    async def test_download_media_asks_quality_and_fake_response(
             self, monkeypatch, tmp_path):
+        """R10.17 (ADR-1017-2): LLM вызвал download_media для платформы →
+        бэкенд шлёт меню качества, в LLM уходит фиктивный
+        `{"status":"needs_quality",...}` (модель не «печатает» файл)."""
+        from tools.video_downloader import ProbeResult
         _gate(monkeypatch, True)
-        path = tmp_path / "clip.mp4"
-        path.write_bytes(b"data")
         downloader = MagicMock()
-        downloader.download = AsyncMock(return_value=path)
+        downloader.probe = AsyncMock(
+            return_value=ProbeResult("ролик", ("1080p", "720p")))
+        downloader.download = AsyncMock()
         router = ToolRouter(_deps(downloader=downloader))
         bot = _FakeBot()
         llm = _ScriptedLLM([
@@ -119,10 +123,10 @@ class TestToolLoopFullCycle:
             tools=TOOL_CALLING_TOOLS, router=router,
             ctx=_ctx(bot=bot, reply_to_message_id=7, user_id=1))
         assert out == "готово"
-        assert len(bot.sent_video) == 1
+        downloader.download.assert_not_awaited()
         tool = _tool_msg(llm)[0]
-        assert json.loads(tool["content"])["status"] == "success"
-        assert not path.exists()
+        assert json.loads(tool["content"])["status"] == "needs_quality"
+        assert bot.sent_video == []
 
     @pytest.mark.asyncio
     async def test_unknown_tool_is_failsafe_and_loop_continues(

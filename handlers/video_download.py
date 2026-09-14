@@ -23,12 +23,13 @@ from pathlib import Path
 from aiogram import Bot, F, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import FSInputFile, InlineKeyboardMarkup
+from aiogram.types import FSInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config.settings import settings
 from services import command_prefix
 from services import hot_config as hot
+from services.media_send import send_quality_menu
 from services.persistent_throttling import (
     cooldown_refresh,
     cooldown_remaining,
@@ -42,6 +43,10 @@ from services.progress_reporter import (
     unregister,
 )
 from services.smartmodule_throttling import CooldownTracker, format_remaining_time
+from services.tool_router import (
+    peek_tool_download_pending,
+    pop_tool_download_pending,
+)
 from tools.video_download_phrases import (
     VD_BUSY_PHRASES,
     VD_COOLDOWN_PHRASES,
@@ -90,7 +95,7 @@ def _command_body(message: types.Message) -> str | None:
 
 _PENDING_TTL_SECONDS = 600                          # Section 70.5 п.4
 _PENDING: dict[tuple[int, int], dict] = {}
-_QUALITY_ROW_SIZE = 3
+_FASTTRACK_QUALITY_PREFIX = "vd:"                   # callback меню Fast-Track
 
 
 def setup_video_download(downloader: VideoDownloader, db=None) -> None:
@@ -199,26 +204,16 @@ def _get_pending(chat_id: int, user_id: int) -> dict | None:
     return entry
 
 
-def _quality_keyboard(qualities: tuple[str, ...]) -> InlineKeyboardMarkup:
-    """Кнопки «{h}p» рядами по 3, callback_data=vd:<quality> (ТЗ)."""
-    builder = InlineKeyboardBuilder()
-    for quality in qualities:
-        builder.button(text=quality, callback_data=f"vd:{quality[:-1]}")
-    builder.adjust(_QUALITY_ROW_SIZE)
-    return builder.as_markup()
-
-
 async def _send_quality_menu(bot: Bot, chat_id: int, trigger_message_id: int,
                              title: str | None,
                              qualities: tuple[str, ...]) -> None:
-    header = f"{title[:200]}\n\n" if title else ""
-    await bot.send_message(
-        chat_id,
-        f"{header}выбери качество:",
-        reply_markup=_quality_keyboard(qualities),
-        reply_to_message_id=trigger_message_id,
-        disable_web_page_preview=True,
-    )
+    """Инлайн-меню качества Fast-Track `vd:<height>` — общий хелпер (T-1679).
+
+    Клавиатура/заголовок строятся в `services.media_send.send_quality_menu` —
+    единый источник с tool-путём (`tdq:`), без дублирования меню."""
+    await send_quality_menu(
+        bot, chat_id, reply_to=trigger_message_id, title=title,
+        qualities=qualities, callback_prefix=_FASTTRACK_QUALITY_PREFIX)
 
 
 async def _delete_keyboard(bot: Bot, chat_id: int, trigger_message_id: int,
@@ -616,6 +611,75 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
                                     VD_ERROR_PHRASES)
     finally:
         # Cleanup ЛЮБОГО исхода (Section 70.4 п.4): файл не копится.
+        if path is not None and path.exists():
+            path.unlink(missing_ok=True)
+        unregister(chat_id)
+
+
+@video_download_router.callback_query(F.data.startswith("tdq:"))
+async def cb_tool_quality(callback: types.CallbackQuery, bot: Bot = None):
+    """Раунд 10.17 (F2, ADR-1017-2 §3.3): выбор качества для tool-скачивания.
+
+    Инициатор меню — tool `download_media` (probe→инлайн-клавиатура `tdq:`);
+    здесь доводим скачивание (download+send) как `cb_pick_quality`. Кулдаун
+    НЕ проверяется и НЕ жжётся — producer уже сделал это после probe.
+    R17: в логи — только chat_id/user/quality, без URL/title."""
+    if _downloader is None or bot is None:
+        return
+    chat_id = callback.message.chat.id
+    user_id = callback.from_user.id if callback.from_user else 0
+    quality = _parse_int_suffix(callback.data, "tdq:")
+    # L1 (ревью-итер.1): высота обязана быть среди предложенных probe. Мусор /
+    # подделанный callback отвергаем ДО consume — pending и меню сохраняются.
+    pending = peek_tool_download_pending(chat_id, user_id)
+    if (quality is None or pending is None
+            or f"{quality}p" not in (pending.get("qualities") or ())):
+        await callback.answer("эта менюха протухла")
+        return
+    # Лок занят → BUSY без ожидания (как cb_pick_quality). Pending НЕ забираем:
+    # после BUSY кнопка остаётся рабочей в пределах TTL.
+    if _downloader.busy or get_active(chat_id) is not None:
+        await callback.answer(random.choice(VD_BUSY_PHRASES), show_alert=True)
+        return
+    pending = pop_tool_download_pending(chat_id, user_id)
+    if pending is None:
+        await callback.answer("эта менюха протухла")
+        return
+    await callback.answer()                     # ack ДО удаления клавиатуры
+    logger.info("[videodl] tool quality resolved | chat=%s user=%s quality=%sp",
+                chat_id, user_id, quality)
+    trigger_message_id = pending.get("trigger_message_id")
+    await _delete_keyboard(bot, chat_id, trigger_message_id, callback.message)
+    reporter = ProgressReporter(bot, chat_id,
+                                trigger_message_id=trigger_message_id)
+    register(chat_id, reporter)
+    path = None
+    try:
+        # L6 (ревью-итер.1): паритет UX с Fast-Track `cb_pick_quality`.
+        try:
+            await bot.send_chat_action(chat_id, "upload_video")
+        except TelegramBadRequest:
+            pass
+        await reporter.start("⏳ Скачивание…")
+        path = await _downloader.download(pending["url"], f"{quality}p",
+                                          progress_cb=reporter.on_progress)
+        await reporter.finish("✅ Файл готов, отправляю…")
+        await _send_file(bot, chat_id, path, trigger_message_id,
+                         pending.get("title"))
+        await reporter.close()
+    except Exception as exc:                    # R17: класс/reason, без URL
+        log_download_env_once()
+        if isinstance(exc, DownloadError):
+            logger.warning("[videodl] tool download failed | chat=%s | "
+                           "error=%s reason=%s", chat_id,
+                           type(exc).__name__, exc.reason)
+        else:
+            logger.warning("[videodl] tool download failed | chat=%s | "
+                           "error=%s", chat_id, type(exc).__name__)
+        phrases = _fallback_phrases(exc)
+        if not await reporter.fail(random.choice(phrases)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id, phrases)
+    finally:
         if path is not None and path.exists():
             path.unlink(missing_ok=True)
         unregister(chat_id)

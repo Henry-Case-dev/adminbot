@@ -14,6 +14,8 @@ Depends(get_tma_user) (как все /api-роуты, кроме /health):
     _MAX_CACHE_ENTRIES записей (в т.ч. негативный результат: юзер/чат без
     фото или ошибка Bot API → кэшируем None, чтобы фронт с onerror не
     долбил API). Ошибки → 404. Rate-limit не нужен (кэш).
+    Транзиентные сбои (TelegramRetryAfter/TelegramNetworkError) НЕ
+    кэшируются (F5 §3, BUG-4) — на ВСЕХ сайтах.
 
 Здесь же — RAM-кэши обогащения /api/chat_lore (title/photo чата,
 username/фото участника): общие с аватарами, чтобы каждый chat/юзер
@@ -25,7 +27,8 @@ import logging
 import time
 from typing import Annotated, Literal
 
-from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter, \
+    TelegramBadRequest
 from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
@@ -143,9 +146,15 @@ async def fetch_avatar_bytes(kind: str, tid: int) -> bytes | None:
                 "[avatar] transient Bot API error — NOT cached | kind=%s "
                 "tid=%s err=%s", kind, tid, safe_exc_text(exc))
             return None
+        except TelegramBadRequest as exc:
+            # ожидаемо (нет фото/прав/чата) → debug без трейса; негатив кэш.
+            _log_bot_api_failure("fetch", kind=kind, tid=tid, exc=exc,
+                                 expected=True)
+            data = None
         except Exception:
-            logger.warning("[avatar] fetch failed | kind=%s tid=%s",
-                           kind, tid, exc_info=True)
+            # неожидаемо (баг/неведомый класс) → warning с трейсом (R17-safe).
+            _log_bot_api_failure("fetch", kind=kind, tid=tid, exc=None,
+                                 expected=False)
             data = None
     _cache_put(_avatar_cache, key, data)
     return data
@@ -157,13 +166,34 @@ def safe_exc_text(exc: Exception) -> str:
     return (text or exc.__class__.__name__)[:200]
 
 
+def _log_bot_api_failure(site: str, *, kind: str, tid: int,
+                         exc: Exception | None, expected: bool) -> None:
+    """Единая политика логов Bot API-сбоев (F5, round 10.17).
+
+    * ``expected=True`` — ``TelegramBadRequest`` (нет фото/прав/чата) →
+      ``debug`` без трейсбека; вызывающий код пишет негатив в кэш;
+    * ``expected=False`` — прочее/неведомый класс → ``warning`` с
+      ``exc_info=True`` (R17-safe: Bot API-исключения секретов не несут,
+      URL/токены в лог не попадают).
+    """
+    if expected:
+        logger.debug("[avatar] %s expected failure | kind=%s tid=%s err=%s",
+                     site, kind, tid, safe_exc_text(exc))
+    else:
+        logger.warning("[avatar] %s failed | kind=%s tid=%s",
+                       site, kind, tid, exc_info=True)
+
+
 # ── обогащение /api/chat_lore (chat_lore.py использует эти функции) ────────
 
 async def chat_display_info(chat_id: int) -> dict:
     """{title, photo_file_id} для чата (best-effort, кэш 1ч): get_chat →
     title + photo.big_file_id — БЕЗ скачивания. Нет бота/ошибка → None-поля;
     негатив (ошибка Bot API, чат без фото) ТОЖЕ пишется в кэш — обогащение
-    не долбит Bot API каждый запрос (fix-раунд ревью)."""
+    не долбит Bot API каждый запрос (fix-раунд ревью).
+
+    Транзиент (rate-limit/сеть) → WARNING без трейса и БЕЗ записи в кэш
+    (spec F5 §3, BUG-4): следующий рендер попробует снова."""
     hit = _cache_get(_chat_info_cache, chat_id)
     if hit is not _MISS:
         return dict(hit)
@@ -171,16 +201,25 @@ async def chat_display_info(chat_id: int) -> dict:
     bot = web_runtime.get_web_bot()
     if bot is None:
         return info
+    transient = False
     try:
         chat = await bot.get_chat(chat_id)
         info["title"] = getattr(chat, "title", None)
         photo = getattr(chat, "photo", None)
         if photo is not None:
             info["photo_file_id"] = getattr(photo, "big_file_id", None)
+    except (TelegramRetryAfter, TelegramNetworkError) as exc:
+        transient = True
+        logger.warning("[avatar] chat transient — NOT cached | chat=%s err=%s",
+                       chat_id, safe_exc_text(exc))
+    except TelegramBadRequest as exc:
+        _log_bot_api_failure("chat", kind="chat", tid=chat_id, exc=exc,
+                             expected=True)
     except Exception:
-        logger.warning("[avatar] get_chat failed | chat_id=%s", chat_id,
-                       exc_info=True)
-    _cache_put(_chat_info_cache, chat_id, dict(info))
+        _log_bot_api_failure("chat", kind="chat", tid=chat_id, exc=None,
+                             expected=False)
+    if not transient:
+        _cache_put(_chat_info_cache, chat_id, dict(info))
     return info
 
 
@@ -190,7 +229,11 @@ async def user_display_info(chat_id: int, user_id: int) -> dict:
     (chat_id, user_id)), фото — getUserProfilePhotos limit=1 → file_id
     (по user_id). Нет бота/ошибка → None-поля (fail-open); негативы
     (ошибка/нет фото) тоже кэшируются — обогащение не долбит Bot API
-    каждый запрос (fix-раунд ревью)."""
+    каждый запрос (fix-раунд ревью).
+
+    Транзиент (rate-limit/сеть) на любом из двух вызовов → WARNING без
+    трейса и БЕЗ записи соответствующего негатива в кэш (spec F5 §3,
+    BUG-4) — как в `fetch_avatar_bytes`/`global_user_display_info`."""
     bot = web_runtime.get_web_bot()
     username = None
     photo_file_id = None
@@ -200,28 +243,46 @@ async def user_display_info(chat_id: int, user_id: int) -> dict:
         if hit is not _MISS:
             username = hit
         else:
+            username_transient = False
             try:
                 member = await bot.get_chat_member(chat_id, user_id)
                 member_user = getattr(member, "user", None)
                 username = (getattr(member_user, "username", None)
                             if member_user is not None else None)
-            except Exception:
+            except (TelegramRetryAfter, TelegramNetworkError) as exc:
+                username_transient = True
                 logger.warning(
-                    "[avatar] get_chat_member failed | chat=%s user=%s",
-                    chat_id, user_id, exc_info=True)
-            _cache_put(_username_cache, ukey, username)
+                    "[avatar] chat member transient — NOT cached | chat=%s "
+                    "user=%s err=%s", chat_id, user_id, safe_exc_text(exc))
+            except TelegramBadRequest as exc:
+                _log_bot_api_failure("chat_member", kind="member",
+                                     tid=user_id, exc=exc, expected=True)
+            except Exception:
+                _log_bot_api_failure("chat_member", kind="member",
+                                     tid=user_id, exc=None, expected=False)
+            if not username_transient:
+                _cache_put(_username_cache, ukey, username)
         hit = _cache_get(_user_photo_cache, user_id)
         if hit is not _MISS:
             photo_file_id = hit
         else:
+            photo_transient = False
             try:
                 photos = await bot.get_user_profile_photos(user_id, limit=1)
                 photo_file_id = _user_photo_file_id(photos)
-            except Exception:
+            except (TelegramRetryAfter, TelegramNetworkError) as exc:
+                photo_transient = True
                 logger.warning(
-                    "[avatar] profile photos failed | user=%s", user_id,
-                    exc_info=True)
-            _cache_put(_user_photo_cache, user_id, photo_file_id)
+                    "[avatar] profile photos transient — NOT cached | "
+                    "user=%s err=%s", user_id, safe_exc_text(exc))
+            except TelegramBadRequest as exc:
+                _log_bot_api_failure("profile_photos", kind="photos",
+                                     tid=user_id, exc=exc, expected=True)
+            except Exception:
+                _log_bot_api_failure("profile_photos", kind="photos",
+                                     tid=user_id, exc=None, expected=False)
+            if not photo_transient:
+                _cache_put(_user_photo_cache, user_id, photo_file_id)
     return {"username": username, "photo_file_id": photo_file_id}
 
 
@@ -264,9 +325,12 @@ async def global_user_display_info(user_id: int) -> dict:
             logger.warning(
                 "[avatar] get_chat(user) transient — NOT cached | user=%s "
                 "err=%s", user_id, safe_exc_text(exc))
+        except TelegramBadRequest as exc:
+            _log_bot_api_failure("get_chat(user)", kind="name",
+                                 tid=user_id, exc=exc, expected=True)
         except Exception:
-            logger.warning("[avatar] get_chat(user) failed | user=%s",
-                           user_id, exc_info=True)
+            _log_bot_api_failure("get_chat(user)", kind="name",
+                                 tid=user_id, exc=None, expected=False)
         if not name_transient:
             _cache_put(_user_name_cache, user_id, name)
         info["display_name"] = name
@@ -285,9 +349,12 @@ async def global_user_display_info(user_id: int) -> dict:
             logger.warning(
                 "[avatar] profile photos transient — NOT cached | user=%s "
                 "err=%s", user_id, safe_exc_text(exc))
+        except TelegramBadRequest as exc:
+            _log_bot_api_failure("profile_photos(user)", kind="photos",
+                                 tid=user_id, exc=exc, expected=True)
         except Exception:
-            logger.warning("[avatar] profile photos failed | user=%s",
-                           user_id, exc_info=True)
+            _log_bot_api_failure("profile_photos(user)", kind="photos",
+                                 tid=user_id, exc=None, expected=False)
         if not photo_transient:
             _cache_put(_user_photo_cache, user_id, photo_file_id)
         info["photo_file_id"] = photo_file_id

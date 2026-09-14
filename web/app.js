@@ -1207,15 +1207,16 @@
         return { level: 'calm', period: 2.4, label: 'спокойный ' + pct + '%',
                  detail: 'нагрузка в норме', badge: 'badge-ok' };
       },
-      // F5 (T-1586, round1015): бейджи фаз — оконная семантика (spec §3а/§4):
-      // active = окно расписания ИЛИ running. Вне фазы — не светится,
-      // «через {next}»; в активной — .glow, «до {active_until}».
-      // Review-fix H1: выключенный рубильник приоритетнее активной фазы.
+      // F5 (T-1586, round1015) + F3 (round1017): бейджи фаз — оконная
+      // семантика (spec §3а/§4) сохранена. Вне фазы — не светится и
+      // показывает ОСТАТОК до начала (`fmtCountdown`); в активной — `.glow`
+      // и время окончания (`fmtClock(active_until)`). UPD3 убрал ветку
+      // «выключен»: при enabled=false показывается остаток без свечения.
+      // `now` — серверный `generated_at` (ADR-1017-3 §2.1), не локальные часы.
       dreamPhaseBadge: function () {
-        var d = (this.cognition && this.cognition.dream) || {};
-        if (d.enabled === false) {
-          return { text: '☀️ Сон выключен', cls: 'badge-muted' };
-        }
+        var c = this.cognition || {};
+        var d = c.dream || {};
+        var now = Number(c.generated_at) || Math.floor(Date.now() / 1000);
         if (d.active) {
           if (d.active_until) {
             return { text: '🌙 Сон до ' + this.fmtClock(d.active_until),
@@ -1226,14 +1227,14 @@
         if (d.state === 'limit_exhausted') {
           return { text: '☀️ Лимит сна исчерпан', cls: 'badge-warn' };
         }
-        return { text: '☀️ Сон через ' + this.fmtClock(d.next_wake_at),
+        return { text: '☀️ Сон через ' +
+                 this.fmtCountdown(Number(d.next_wake_at) - now),
                  cls: 'badge-muted' };
       },
       deepPhaseBadge: function () {
-        var d = (this.cognition && this.cognition.deep_sleep) || {};
-        if (d.enabled === false) {
-          return { text: '🌅 Глубокий сон выключен', cls: 'badge-muted' };
-        }
+        var c = this.cognition || {};
+        var d = c.deep_sleep || {};
+        var now = Number(c.generated_at) || Math.floor(Date.now() / 1000);
         if (d.active) {
           if (d.active_until) {
             return { text: '🌌 Глубокий сон до ' +
@@ -1241,7 +1242,8 @@
           }
           return { text: '🌌 Глубокий сон идёт', cls: 'badge-info glow' };
         }
-        return { text: '🌅 Глубокий сон через ' + this.fmtClock(d.next_run_at),
+        return { text: '🌅 Глубокий сон через ' +
+                 this.fmtCountdown(Number(d.next_run_at) - now),
                  cls: 'badge-muted' };
       },
       // F5 (T-1455): бюджет контекста из аддитивного /api/status.context
@@ -5107,6 +5109,20 @@
         if (dist <= 0.34) return 'ribbon-op-100';
         if (dist <= 0.67) return 'ribbon-op-75';
         return 'ribbon-op-50';
+      },
+      // F3 (sleep-badge-countdown-round1017): остаток до старта фазы.
+      // 8100 → «2ч 15м»; 900 → «15м»; 0/-30 → «0м»; null/NaN → «—».
+      // Кламп ≥0, округление ВНИЗ до минут (ADR-1017-3 §2.2).
+      fmtCountdown: function (seconds) {
+        if (seconds == null) return '—';
+        var s = Number(seconds);
+        if (isNaN(s)) return '—';
+        if (s < 0) s = 0;
+        var total = Math.floor(s / 60);
+        if (total < 1) return '0м';
+        var h = Math.floor(total / 60);
+        var m = total % 60;
+        return h > 0 ? (h + 'ч ' + m + 'м') : (m + 'м');
       },
       // HH:MM локального времени (Timeline/бейдж «следующее пробуждение»).
       fmtClock: function (ts) {

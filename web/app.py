@@ -16,13 +16,14 @@ __APP_VERSION__ → актуальная версия (только в `?v=` у 
 import logging
 import time
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from config.settings import APP_VERSION
+from config.settings import APP_VERSION, settings
 from services.config_cache import ConfigCache
 from services import media_share
 
@@ -120,6 +121,20 @@ def _render_app_css() -> str:
     return text.replace(_VERSION_TAG, APP_VERSION)
 
 
+def _startup_diag() -> None:
+    """10.17 (F1 miniapp-mobile-dns-round1017, T-1670/T-1672): стартовая
+    диагностика host/scheme/path для absolute-URL настроек. R17: логируем
+    ТОЛЬКО host/scheme/path через `urlsplit` — полный URL и секреты (если
+    появятся query/userinfo) в лог не попадают. Помогает при разборе
+    `net::ERR_NAME_NOT_RESOLVED` (какой host реально отдаёт прод)."""
+    for name in ("WEBAPP_URL", "MEDIA_PUBLIC_BASE_URL"):
+        raw = str(getattr(settings, name, "") or "").strip()
+        parts = urlsplit(raw)
+        logger.info("[webapp] %s | scheme=%s | host=%s | path=%s",
+                    name, parts.scheme or "-", parts.hostname or "-",
+                    parts.path or "-")
+
+
 def create_app(cache: ConfigCache, control=None) -> FastAPI:
     """FastAPI-фабрика (84.4): app.state.cache = cache — общий для aiogram+FastAPI.
     control — ControlService (84.15; из bot.py с request_shutdown-колбэком;
@@ -194,6 +209,7 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face
+    _startup_diag()                    # 10.17 (F1): host/scheme/path (R17)
 
     # Маршруты html ДО app.mount (mount перехватывает всё /web/*):
     # /web/ и /web/index.html — с подстановкой APP_VERSION в `?v=`.
@@ -203,6 +219,18 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
 
     @app.get("/web/index.html", include_in_schema=False)
     async def web_index_html():
+        return _html_response(rendered_index)
+
+    # 10.17 (F1 miniapp-mobile-dns-round1017, T-1670/T-1672): явные HEAD-роуты
+    # для детерминированной внешней диагностики (`curl -I`/проверки из
+    # мобильной сети). Контракт: 200 + CSP + no-store, тело пустое (HEAD) —
+    # отличаем маршрутизацию от сбоя DNS. Новых данных/секретов нет (R17).
+    @app.head("/web/", include_in_schema=False)
+    async def web_index_head():
+        return _html_response(rendered_index)
+
+    @app.head("/web/index.html", include_in_schema=False)
+    async def web_index_html_head():
         return _html_response(rendered_index)
 
     # F4 10.16: app.css отдаём ДО /static-mount — с подстановкой версии
@@ -219,6 +247,25 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     @app.get("/", include_in_schema=False)
     async def root():
         return RedirectResponse(url="/web/")
+
+    # 10.17 (F1 miniapp-mobile-dns-round1017, T-1670/T-1672): unauth health-
+    # check — дешёвая точка для `curl -I https://<host>/healthz` из мобильной
+    # сети (@DevOps): `Could not resolve host` = DNS-сбой, иначе — TLS/Caddy.
+    # Отдаём только status/version (без секретов/персональных данных, R17),
+    # no-store. GET и HEAD. В Caddy разрешить `/healthz` (@DevOps, вне репо).
+    # L8 (ревью-итер.1): `version` — намеренное info-disclosure по спеке F1
+    # (диагностический контракт; APP_VERSION публичен, ключей/PII в ответе нет).
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz():
+        return JSONResponse({"status": "ok", "version": APP_VERSION},
+                            headers={"Cache-Control": "no-store"})
+
+    @app.head("/healthz", include_in_schema=False)
+    async def healthz_head():
+        # L4 (ревью-итер.1): HEAD повторяет GET-заголовки (в т.ч. content-type
+        # application/json); тело Starlette отбрасывает по методу.
+        return JSONResponse({"status": "ok", "version": APP_VERSION},
+                            headers={"Cache-Control": "no-store"})
 
     # ── Раунд 3 (T-687): GET /media/{file_id}?e=&s= — подписанная отдача
     # временно опубликованных видео (3.1, FR-B2). БЕЗ TMA-авторизации:

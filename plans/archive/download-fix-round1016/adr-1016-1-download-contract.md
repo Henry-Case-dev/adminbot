@@ -2,6 +2,12 @@
 
 > **Статус:** Accepted (Step 2 @Architect, 14.09.2026). **Раунд:** 10.16. **Фича:** F1 `download-fix-round1016`.
 > **Связано:** ADR-1015-3 (tool calling), §8 `ARCHITECTURE.md`, прод-баг UPD2 (`2026-09-13T22:24:25`).
+>
+> **⚠️ ЧАСТИЧНО ОТМЕНЁН (10.17):** §2 п.3 и строка §3 «Добавить `quality` в
+> JSON-Schema `download_media` — Отклонён» **SUPERSEDE** → см.
+> [`plans/features/tool-download-quality-round1017/adr-1017-2-tool-download-quality.md`](../../features/tool-download-quality-round1017/adr-1017-2-tool-download-quality.md).
+> Остальные решения (§1 контракт `download`, §2.4 reason-коды, §2.5 probe-fallback,
+> ветвление direct/платформа) — в силе. История ниже не переписывается.
 
 ## 1. Контекст
 

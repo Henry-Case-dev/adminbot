@@ -233,7 +233,7 @@ class TestToolLoopIntegration:
                                     tools=TOOL_CALLING_TOOLS, router=router,
                                     ctx=ctx)
         assert out == "готово"
-        downloader.download.assert_awaited_once_with(_URL)
+        downloader.download.assert_awaited_once_with(_URL, None)
         assert len(bot.sent_video) == 1
         assert bot.sent_video[0][1]["reply_to_message_id"] == 77
         assert not path.exists()                 # tmp убран
@@ -242,19 +242,22 @@ class TestToolLoopIntegration:
             "status": "success", "message": "Файл успешно загружен в чат"}
 
     @pytest.mark.asyncio
-    async def test_platform_url_uses_auto_quality_no_direct(
+    async def test_platform_url_asks_quality(
             self, monkeypatch, tmp_path):
-        """Раунд 10.16 (T-1626): YouTube/платформенный URL → download(url)
-        без «direct» как quality (регресс прод-бага F8)."""
+        """Раунд 10.17 (ADR-1017-2): YouTube/платформенный URL → probe →
+        меню качества (`needs_quality`), download не стартует."""
+        from tools.video_downloader import ProbeResult
         _set_download_gate(monkeypatch, True)
-        path = tmp_path / "yt.mp4"
-        path.write_bytes(b"data")
         downloader = MagicMock()
-        downloader.download = AsyncMock(return_value=path)
+        downloader.probe = AsyncMock(
+            return_value=ProbeResult("ролик", ("1080p", "720p")))
+        downloader.download = AsyncMock()
+        bot = _FakeBot()
         out = await ToolRouter(_deps(downloader=downloader)).dispatch(
-            "download_media", {"url": _YT_URL}, _ctx(bot=_FakeBot()))
-        assert json.loads(out)["status"] == "success"
-        downloader.download.assert_awaited_once_with(_YT_URL)
+            "download_media", {"url": _YT_URL}, _ctx(bot=bot))
+        assert json.loads(out)["status"] == "needs_quality"
+        downloader.download.assert_not_awaited()
+        assert bot.sent_video == []
 
     @pytest.mark.asyncio
     async def test_download_failure_is_honest_error_no_send(

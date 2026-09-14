@@ -13,7 +13,13 @@ query_chat_memory → dig_into_lore → execute_web_search — при носта
 (summarize_video/download_media/get_bot_health/get_recent_history) — итого 7;
 канон R9 сохранён, новые схемы добавлены в конец. Fast-Track regex (F6)
 остаётся приоритетнее: инструменты ловят только свободную форму.
+
+Раунд 10.17 (F2, T-1676, ADR-1017-2 §2.2 — SUPERSEDE ADR-1016-1 §2 п.3/§3):
+`download_media` получает ОПЦИОНАЛЬНОЕ поле `quality` (enum = `QUALITY_ENUM`)
+для ЯВНОГО запроса пользователя; без него бэкенд сам присылает меню качества
+кнопками (как Fast-Track).
 """
+from tools.video_downloader import QUALITY_ENUM
 
 TOOL_EXECUTE_WEB_SEARCH = {
     "type": "function",
@@ -121,11 +127,21 @@ TOOL_DOWNLOAD_MEDIA = {
     "function": {
         "name": "download_media",
         "description": ("Скачать видео по ссылке и отправить файлом в этот чат. "
-                        "Вызывай на просьбу «скачай/загрузи/стяни <ссылка>» в свободной форме."),
+                        "Вызывай на просьбу «скачай/загрузи/стяни <ссылка>» в свободной форме. "
+                        "Поле quality заполняй ТОЛЬКО если пользователь явно назвал качество; "
+                        "иначе НЕ указывай — бэкенд сам предложит выбор кнопками."),
         "parameters": {
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "Ссылка на видео."},
+                "quality": {
+                    "type": "string",
+                    "enum": list(QUALITY_ENUM),
+                    "description": ("Качество — ТОЛЬКО при явном запросе "
+                                    "пользователя («скачай в 720p»); иначе НЕ "
+                                    "указывай — бэкенд сам предложит выбор "
+                                    "кнопками."),
+                },
             },
             "required": ["url"],
             "additionalProperties": False,

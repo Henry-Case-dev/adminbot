@@ -3,6 +3,31 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.17 scan (2026-09-14) — all scanned (diff-based, 5 фич F1–F5, HEAD 772f192 + worktree)
+- [x] services/tool_router.py (F2: `_download_media` probe→меню→`needs_quality`; `_download_now` direct/явное
+      качество/bounded fallback; `store/peek/pop_tool_download_pending` TTL 600; `_quality_arg`; R17-логи без URL)
+- [x] handlers/video_download.py (F2: callback `tdq:` c валидацией высоты до consume, busy без потери pending,
+      chat_action; Fast-Track-меню делегировано в `services/media_send`; F1 host-only лог в `handlers/menu.py`)
+- [x] services/media_send.py (F2: единый `QUALITY_ROW_SIZE`/`build_quality_keyboard`/`quality_menu_text`/`send_quality_menu`)
+- [x] services/tool_schemas.py (F2: опциональный `quality` enum `QUALITY_ENUM`)
+- [x] tools/video_downloader.py (F2: `QUALITY_ENUM` = `("max",)+_ALLOWED_HEIGHTS`)
+- [x] web/app.py (F1: `_startup_diag` host-only; HEAD `/web/`,`/index.html`; GET/HEAD `/healthz`)
+- [x] web/app.js (F3: `fmtCountdown`; `dreamPhaseBadge`/`deepPhaseBadge` — остаток/до, ветка «выключен» удалена)
+- [x] web/api/avatars.py (F5: `_log_bot_api_failure` + 6 сайтов — ожидаемое DEBUG, транзиент WARNING без кэша,
+      generic WARNING с трейсом)
+- [x] tests/* (F1 `test_webapp_dns_round1017`, F2 `test_tool_download_quality_round1017`,
+      F3 `test_webapp_round1017_sleep` + JS, F5 `test_avatars_round1017`; обновлены регресс-маркеры 1015/1016)
+- [x] plans/README/ARCHITECTURE/MEMORY/backlog/archive (F4 CANCELLED, brotli-WONTFIX, SUPERSEDE ADR-1016-1)
+- **Открыто (не блокеры шага 7; 0 Critical / 0 High / 1 Medium / 2 Low / 3 Info):**
+  - [ ] **S10.17-1 [medium]** `plans/archive/security-rotation-finalize-round1016/spec.md:3,72,79-83` —
+        архивная спека без CANCELLED-баннера, §8 «ротация обязательна в любом случае» (docs-only).
+  - [ ] **S10.17-2 [low]** `web/app.js:1216-1247` — `cognition==null` → «Сон через —» vs spec §3.4 «—».
+  - [ ] **S10.17-3 [low]** доки-счётчики: `tool-download-quality/spec.md:245`, `sleep-badge-countdown/spec.md:125` (5951/5985).
+  - Info: S10.17-4 (tool env-preflight), S10.17-5 (callback без hot-гейта), S10.17-6 (`/healthz` version — принято).
+- Валидатор: pytest **6007 passed**/0 fail (79.62 c); `node --check web/app.js` OK; `routing_test.js` `JS-UNIT-OK`;
+  `vue_mount_test.js` `VUE-MOUNT-OK`; `git diff --check` exit 0. Инварианты: R17/R16, роутеры `bot.py`,
+  `media/`/`.env`, каталог 435/406/411/90/88/19, tool-set 7, лимиты 4/2, PREV/`PROMPT_MIGRATIONS`, SQLite v9 — целы.
+
 ## Round 10.16 scan (2026-09-14) — all scanned (diff-based, 5 фич F1–F5)
 - [x] tools/video_downloader.py (F1: `DownloadError.reason`+`default_reason` подклассов,
       `download(url, quality=None)`, `_normalize_quality` None/auto/best/max/direct→`max`+диапазон 144…4320,

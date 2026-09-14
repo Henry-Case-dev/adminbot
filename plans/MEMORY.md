@@ -5,8 +5,15 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** раунд **10.16 «Download-Guide-MobileAudit»**
-> — **COMPLETED + DEPLOYED** (HEAD == origin/master == `eb3fd4a`): 5 фич F1–F5,
+> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активен раунд **10.17 «Mobile-Download-Badges»**
+> — **Step 2/3 SPEC_READY @Architect/@Memory** (ТЗ — `plans/current_task.md` секция «UPD3:», строки
+> 155-160; HEAD == origin/master == `772f192`); §1 Android-миниапп
+> `ERR_NAME_NOT_RESOLVED` (top-level DNS), §2 tool-download без вопроса качества,
+> §3 countdown бейджей Сна, §4 **CANCEL ротации SSH**, §5 avatar-WARNING + brotli.
+> 5 фич F1–F5 / 37 задач T-1666…T-1702 + 3 ADR (ADR-1017-1/2/3). Детали — KG-узел
+> `Epic: Mobile-Download-Badges round1017` + блоки «Step 0» и «Step 2/3» ниже.
+> Предыдущий раунд — **10.16 «Download-Guide-MobileAudit»**
+> — **COMPLETED + DEPLOYED** (функциональный HEAD == origin/master == `eb3fd4a`): 5 фич F1–F5,
 > 41 задача T-1625…T-1665, релиз **`release-round1016`**, 3 ADR (ADR-1016-1/2/3),
 > заархивирован (`plans/archive/` — **64 папки**; `plans/features/` — 6 активных
 > F-1…F-6). APP_VERSION **2.57.0** (без бампа), pytest **5936 passed / 0 failed**
@@ -16,6 +23,108 @@
 > Tool Calling; далее 10.14 — PG `personas`/`persona_traits`/`persona_state`;
 > флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**).
 > Метрики — `plans/metrics.md`. Блоки раунда 10.16 — ниже.
+
+> **Step 0 (recon @Memory) раунда 10.17 «Mobile-Download-Badges» (14.09.2026):**
+> ТЗ — `plans/current_task.md` секция «UPD3:» (строки 155-160). KG-узел
+> `Epic: Mobile-Download-Badges round1017` + 5 Feature (§1–§5) + 5 Risk +
+> `tech-debt-round10.17` + `metric-snapshot-round1017-baseline` +
+> `ArchitecturalConstraint miniapp self-host, no external CDN` + SpecDecision
+> `ssh-rotation-cancelled round1017`. Статус — **RECON, Builder не начат**.
+> Baseline: HEAD `772f192`, прод release-round1016 (`eb3fd4a`), APP_VERSION 2.57.0,
+> pytest 5936/0, SQLite v9, каталог 435/406/411/90/88/19 (Δ=0).
+>
+> **§1 (P0, миниапп Android):** `net::ERR_NAME_NOT_RESOLVED` сохраняется после F4
+> 10.16 (self-host CDN + CSP). Git-находка: `WEBAPP_URL`/`MEDIA_PUBLIC_BASE_URL`
+> (`config/settings.py:171-173,988-989` → `https://admin-bot.duckdns.org/web/`),
+> кнопка (`handlers/menu.py:48-66`) и домен/scheme/path **в 10.13–10.16 НЕ
+> менялись**; единственное крупное изменение рядом — F4 10.16 (`web/index.html`
+> self-host, `web/app.py:_CSP_HTML`, `/static/app.css`). В `web/` внешних
+> http(s)-URL больше нет (grep пусто) → **ERR_NAME_NOT_RESOLVED = сбой резолва
+> топ-домена, не CSP/subresource**; причина инфраструктурная (блокировка
+> duckdns мобильными операторами / Private DNS / протухшая запись / кэш после
+> смены A 10.16). Проверка — @DevOps (`dig A/AAAA`, `curl -I`, Android).
+>
+> **§2 (P0, tool-download):** tool `download_media` не работает и НЕ спрашивает
+> качество; прямой «Бот, скачай» работает с выбором качества. ⚠️ **КОНФЛИКТ** с
+> F1 10.16 / ADR-1016-1, где прямо записано «quality в JSON-Schema НЕ
+> добавляется» (авто=`max`) → требуется SUPERSEDE пункта ADR. Точки:
+> `services/tool_router.py` (~592-599), `tools/video_downloader.py`,
+> `handlers/video_download.py` (~284-343), `services/media_send.py`.
+>
+> **§3 (P1, бейджи Сна):** UI показывает целевой час, не остаток —
+> `web/app.js:1210-1245` (`dreamPhaseBadge`/`deepPhaseBadge`) + `fmtClock`
+> (`web/app.js:5112-5119`); данные — `web/api/memory_agi.py:430-545`
+> (`_next_hour_epoch` :75-88, `_in_hour_window` :104-116). Нужен duration-
+> countdown; «Глубокий сон выключен» = `flags.deep_sleep_enabled` false;
+> `deep.next_run_at` for `after_sleep` = next_wake (начало обычного сна) — вероятная
+> логическая ошибка. Эмодзи не трогать, каталог-Δ=0.
+>
+> **§4 (CANCEL):** владелец отменил ротацию SSH — секреты в `plans/current_task.md`
+> норма, файл не в репо (`.gitignore:70`); узел `security-rotation-finalize-round1016`
+> → CANCELLED.
+>
+> **§5 (гигиена):** 3 WARNING в `web/api/avatars.py` (старый код, `d082800`/10.10;
+> generic `except Exception`+`exc_info`) — понизить/убрать traceback (R17);
+> «brotli» = только build-time (`scripts/requirements-font.txt`), Caddy-бротли
+> требует плагина `http.encoders.brotli` (`xcaddy`) — @DevOps вне репо.
+> Техдолг — `tech-debt-round10.17`.
+
+> **Step 2/3 (Step 2 @Architect — синк Step 3 @Memory) 14.09.2026 (раунд 10.17
+> «Mobile-Download-Badges»):** эпик `Epic: Mobile-Download-Badges round1017` —
+> **ARCHITECTED / SPEC_READY, Builder не начат**. **5 фич F1–F5 / 37 задач
+> T-1666…T-1702** (во всех 5 `plans/features/*-round1017/` — `spec.md` + `tasks.md`,
+> 🟣 SPEC_READY) + **3 ADR** (ADR-1017-1/2/3; F4 docs-only и F5 brotli-WONTFIX — без ADR).
+> Каталог-Δ = **0** (REGISTRY **435** / Settings **406** / categorized **411** /
+> GROUPS **90** / mapped **88** / `TAB_RULES` **19**); **DDL нет** (SQLite v9).
+> Baseline: HEAD `772f192`, pytest **5936/0**, APP_VERSION **2.57.0**, прод
+> release-round1016 (`eb3fd4a`, PID **1976836**).
+>
+> **F1** `miniapp-mobile-dns` (T-1666…T-1674, **P0**, **ADR-1017-1**): причина —
+> сбой резолва **топ-домена** `admin-bot.duckdns.org` (не subresource/CSP);
+> hostname/схему/путь **в репо не меняем** (`WEBAPP_URL` env-driven → смена домена
+> = правка `.env` + restart, процедура в ADR §4). Repo-меры: явные **HEAD `/web/`**
+> и `/web/index.html`, unauth **`/healthz`** (GET+HEAD, `no-store`), startup-лог
+> host/scheme/path (host-only, R17), регресс-гейт «нет внешних CDN + консистентные
+> absolute-URL». Реальный DNS-фикс — **@DevOps** вне репо (DuckDNS A/AAAA/TTL,
+> Private DNS/DoH, live Android-смоук). CDN не возвращать (ADR-1016-2 в силе).
+> **F2** `tool-download-quality` (T-1675…T-1684, **P0**, **ADR-1017-2**,
+> **⚠️ SUPERSEDE ADR-1016-1** §2 п.3/§3): меню качества инициирует **бэкенд** —
+> `probe` → инлайн-клавиатура **`tdq:<height>`** → `tool_response`
+> `{status:"needs_quality"}`; callback `tdq:` в роутере **4e** доводит download+send
+> (как Fast-Track `cb_pick_quality`). `quality` в JSON-Schema — **опционально**
+> (`QUALITY_ENUM` ↔ `_ALLOWED_HEIGHTS`) при явном запросе; прямой медиа-URL — без
+> меню; bounded fallback `download(url,None)`; кулдаун **D279** (touch только после
+> успеха, callback не трогает); pending in-memory **TTL 600с** без PG/DDL; лимиты
+> tool-loop **4/2** и tool-сет **7** не меняются. **Конфликт с F1 10.16 снят.**
+> **F3** `sleep-badge-countdown` (T-1685…T-1691, **P1**, **ADR-1017-3**, независима):
+> `now` = серверный `cognition.generated_at`; новый `fmtCountdown` (**Xч Yм** / Yм /
+> 0м, округление вниз, кламп ≥0); вне фазы — «Сон через {остаток}» / «Глубокий сон
+> через {остаток}» (при `enabled=false` — остаток `badge-muted` **без свечения**, не
+> «выключен»); в фазе — `.glow` + «Сон до HH:MM» / «Глубокий сон до HH:MM»; **эмодзи
+> ☀️/🌙/🌅/🌌 не трогать**; `limit_exhausted` сохраняется; API и оконная семантика
+> 10.15 не меняются; без tick-таймера.
+> **F4** `ssh-rotation-cancelled` (T-1692…T-1695, **P0 doc**, docs-only, без ADR,
+> последняя): **ОТМЕНА** ротации SSH (10.16 F5) — CANCELLED-пометка в
+> `plans/backlog.md` + архиве 10.16, снятие README-overclaim (строки 74/387),
+> подтверждение untracked `plans/current_task.md`; **кода — ноль**.
+> `security-rotation-finalize-round1016` → **CANCELLED**.
+> **F5** `warnings-hygiene` (T-1696…T-1702, **P2/P3**, без ADR, независима): политика
+> уровней логов в `web/api/avatars.py` (TelegramBadRequest → `debug` без `exc_info`;
+> транзиент → `warning` без трейса, не кэшируется; прочее → `warning` с `exc_info`,
+> R17-safe; негатив-кэш сохранить) + **brotli WONTFIX** (Caddy `zstd+gzip` уже
+> включено; brotli в репо — только build-time); тесты `caplog`.
+>
+> **Порядок:** F1 ∥ F2 ∥ F3 ∥ F5 → F4 (docs, последняя); **все фичи независимы**
+> (DEPENDS_ON внутри раунда нет; F4 связана с 10.16 F5). **В силе:** R16, R17,
+> порядок роутеров `bot.py`, `media/`/`.env` не трогать, каталог-Δ только
+> санкционированно, русские conventional commits. **Граф синхронизирован (Step 3):**
+> 5 Feature + 3 ADR (`ADR-1017-1/2/3`) + компоненты `HEAD /web/ + /healthz routes`,
+> `tool quality-menu flow (tdq:)`, `sleep badge countdown (fmtCountdown)`,
+> `avatars log hygiene`, `F5 brotli WONTFIX`, `ADR-1016-1 Download contract`;
+> обновлены Risk/SpecDecision/`tech-debt-round10.17`/`DuckDNS + Caddy + Let's Encrypt`/
+> `miniapp self-host, no external CDN`/`tool_router download_media`; связи
+> PART_OF/IMPLEMENTS/DECIDES/**SUPERSEDES** (`ADR-1017-2` → `ADR-1016-1`; F2 →
+> `download contract quality fix`) + `metric-snapshot-round1017-spec-ready`.
 
 > **Step 10 (финал @Memory) раунда 10.16 «Download-Guide-MobileAudit» (14.09.2026):**
 > эпик `Epic: Download-Guide-MobileAudit round1016` → **COMPLETED + DEPLOYED**;

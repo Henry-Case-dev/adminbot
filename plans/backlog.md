@@ -2,6 +2,94 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.17 (14.09.2026): UPD3 — мобильный мини-апп (DNS), tool-download quality, бейджи Сна, ОТМЕНА ротации SSH, warnings-hygiene — 5 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (Step 8 @PM, 14.09.2026; деплой — Step 9 @DevOps, KG — Step 10 @Memory)
+
+**✅ ИТОГ 10.17 (14.09.2026):** реализация завершена, все **5 фич заархивированы** — перенесены
+`plans/features/*-round1017/` → **`plans/archive/*-round1017/`** (@PM Step 8).
+**Финальные метрики:** полный **pytest — 6007 passed / 0 failed** (база 10.16 = 5936 → **+71**);
+`node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `node tests/js/vue_mount_test.js` → `VUE-MOUNT-OK`; `git diff --check` clean.
+Каталог — **Δ=0**: **REGISTRY 435 / Settings 406 / categorized 411** (GROUPS 90 / mapped 88 / `TAB_RULES` 19); новых ключей нет.
+БД: **новых миграций нет** (SQLite остаётся **v9**; PG без изменений).
+**Объём:** **5 фич, 37 задач** (T-1666…T-1702).
+@Reviewer — **APPROVED** (итерация 2). Итерация 1 — **Rejected**: 3 **Medium** — F4 overclaim ротации в
+`plans/ARCHITECTURE.md` (§10/§25/§37), F5 транзиенты аватаров на 2 из 6 сайтов (rate-limit залипал в негатив-кэш
+на час + трейс), F2 дублирование меню качества (T-1679). Все закрыты @Builder (CANCELLED-пометки в
+`plans/ARCHITECTURE.md:326,328,616,624,628`; ветка `except (TelegramRetryAfter, TelegramNetworkError)` на **всех 6**
+сайтах `web/api/avatars.py` + тесты некэширования; единый хелпер `services/media_send.py`, обе ветки делегируют).
+Low L1–L8 закрыты (`plans/reports/round10.17_reviewer.md`).
+@Scanner — **CLEAN: 0 Critical / 0 High / 0 Medium / 2 Low / 3 Info**. Medium **S10.17-1** (docs-only overclaim
+ротации в архивной спеке 10.16 F5) **закрыт @Architect на Merge** (CANCELLED-баннер, DoD помечены); Low **S10.17-2**
+(текст бейджа при `cognition==null`) и **S10.17-3** (доки-счётчики — синхронизированы с 6007) — техдолг/не блокеры;
+Info S10.17-4/-5/-6 — не блокеры (`plans/reports/round10.17_scanner_audit.md`).
+@Architect — архитектура влита в `plans/ARCHITECTURE.md` (**§38** + связанные §1/§5/§8/§9/§25).
+Артефакты в архиве: `spec.md` + `tasks.md` (×5) + ADR-1017-1 (`adr-1017-1-miniapp-hostname-dns.md`),
+ADR-1017-2 (`adr-1017-2-tool-download-quality.md`, **SUPERSEDE ADR-1016-1 §2 п.3/§3**),
+ADR-1017-3 (`adr-1017-3-sleep-badge-countdown.md`).
+**Симптомы ТЗ закрыты:** F1 — диагностика мини-аппа (HEAD `/web/`+`/healthz`, host-only startup-лог, no-CDN-гейт
+с vendor) — живой DNS/Android-смоук @DevOps; F2 — tool-скачивание реально доводит `probe → tdq:<height> →
+needs_quality` + callback; F3 — бейджи Сна показывают остаток / `до HH:MM` (+glow), эмодзи целы; F4 — пометки
+ОТМЕНЫ ротации в README/ARCHITECTURE/backlog/архиве, кода ноль; F5 — политика логов на всех 6 сайтах
+`web/api/avatars.py`, brotli WONTFIX (Caddy `zstd+gzip`).
+**Фичи (финал, все ✅ COMPLETED):** F1 `miniapp-mobile-dns-round1017` (T-1666…T-1674, 9) ·
+F2 `tool-download-quality-round1017` (T-1675…T-1684, 10) · F3 `sleep-badge-countdown-round1017` (T-1685…T-1691, 7) ·
+F4 `ssh-rotation-cancelled-round1017` (T-1692…T-1695, 4) · F5 `warnings-hygiene-round1017` (T-1696…T-1702, 7).
+Пути артефактов → **`plans/archive/*-round1017/`**.
+
+**🧾 Техдолг / гейты (10.17):** Low **S10.17-2** (при `cognition==null` бейджи дают «Сон через —»/«Глубокий сон
+через —» вместо чистого `—`; §3.4 спеки vs псевдокод §3.2 противоречивы — закреплено тестами, функц. вреда нет);
+Info **S10.17-4** (tool-путь скачивания не вызывает `log_download_env_once()` — паритет диагностики),
+**S10.17-5** (callback `tdq:` не проверяет hot-флаг `flags.download_enabled`), **S10.17-6** (`/healthz` отдаёт
+`APP_VERSION` — принято F1 §3.1 L8; `query=%r` — pre-existing, вне диффа). **WONTFIX** — brotli (в репо build-time
+only; Caddy требует `xcaddy`; `zstd+gzip` активны). **Открытые @DevOps-гейты (Step 9):** DNS/Android-смоук
+(**T-1667/T-1668/T-1671/T-1673** — F1), подтверждение `zstd+gzip`/`Content-Encoding` (**T-1699** — F5).
+**§4 ротация SSH — CANCELLED** (закрыта отменой, а не выполнением; **не открытый гейт**).
+
+**Статус:** ✅ **COMPLETED + ЗААРХИВИРОВАН** (Step 8 @PM, 14.09.2026). Деплой-статус добавит @Memory после
+шага 9 (@DevOps). Ниже — исторический документ планирования эпика (Step 1 @PM + Step 2 @Architect).
+
+**Эпик:** `Epic: UPD3 багфиксы round1017` (@Memory, Step 0).
+**Источник ТЗ** — `plans/current_task.md` (**UPD3**, строки 155–160); смежное — **UPD2** (строки 148–153, `DownloadError`/мобильный мини-апп).
+**HEAD при планировании:** `772f192` (docs-синхронизация 10.16). **APP_VERSION** 2.57.0.
+**Базовая линия (@Memory Step 0):** pytest **5936 passed / 0 failed**; каталог-инвариант **REGISTRY 435 / Settings 406 / categorized 411 / GROUPS 90 / mapped 88 / `TAB_RULES` 19** (**Δ=0**); SQLite **v9**; прод `eb3fd4a` / PID **1976836**.
+Преемник — 10.16 (`plans/archive/*-round1016/`, 5 фич COMPLETED+DEPLOYED, 41 задача T-1625…T-1665).
+**Контекст Step 0 (@Memory):** §1 — `WEBAPP_URL`/`MEDIA_PUBLIC_BASE_URL` (`config/settings.py:170-173,987-989`), `/menu` (`handlers/menu.py:48-66`) и домен/схема/путь **не менялись** в 10.13–10.16; в `web/` внешних CDN нет (self-host 10.16) → `ERR_NAME_NOT_RESOLVED` = сбой резолва **топ-домена `admin-bot.duckdns.org`** на Android (A→`198.46.175.136`, AAAA нет). §2 — ADR-1016-1 (10.16) явно нормировал «quality в JSON-Schema НЕ добавляется» → **нужен SUPERSEDE**. §3 — бейджи показывают **целевой час**, не остаток (`web/app.js:1210-1245`, `web/api/memory_agi.py:75-88,425-546`). §4 — **ротация ОТМЕНЕНА** (docs-only, без кода). §5 — 3 WARNING `web/api/avatars.py` (генеральный `except` + `exc_info=True`) + «brotli» (в репо только build-time; Caddy brotli требует плагина, zstd+gzip уже включены).
+**Инварианты:** каталог-Δ=0, **R17**, **R16**, порядок роутеров `bot.py` (только DI-kwargs), `media/`/`.env` не трогать, **не возвращать внешние CDN**, **Caddy/DNS — вне репо (@DevOps)**.
+
+**5 фич (нумерация продолжает T-1665 → T-1666…T-1702, 37 задач):**
+
+| # | Фича (папка) | Тип | ТЗ / UPD3 | Зависит от | Приоритет | Задачи |
+|---|---|---|---|---|---|---|
+| **F1** | `miniapp-mobile-dns-round1017` | frontend+infra (DNS @DevOps) | **UPD3 §1** (стр. 155–156) + UPD2 §4 | — (внешняя инфра @DevOps) | **P0** (прод-блокер) | T-1666…T-1674 (9) |
+| **F2** | `tool-download-quality-round1017` | backend (tools/download/LLM) | **UPD3 §2** (стр. 157) + UPD2 §1 | — (гейт `flags.download_enabled`) | **P0** (прод-баг) | T-1675…T-1684 (10) |
+| **F3** | `sleep-badge-countdown-round1017` | frontend | **UPD3 §3** (стр. 158) | — (данные `/api/memory/cognition/status` уже есть) | P1 | T-1685…T-1691 (7) |
+| **F4** | `ssh-rotation-cancelled-round1017` | docs (**без кода**) | **UPD3 §4** (стр. 159) — **ОТМЕНА** | 10.16 F5 `security-rotation-finalize-round1016` (**отменяется**) | **P0 (doc)** | T-1692…T-1695 (4) |
+| **F5** | `warnings-hygiene-round1017` | backend+docs/infra | **UPD3 §5** (стр. 160) | — (Caddy — @DevOps, вне репо) | P2/P3 | T-1696…T-1702 (7) |
+
+**Рекомендуемый порядок исполнения:** **F2 → F1 → {F3 ∥ F5} → F4.**
+Обоснование: **F2** — прод-блокер скачивания (tool спрашивает качество; SUPERSEDE ADR-1016-1); **F1** — прод-блокер мобильного мини-аппа (диагностика DNS — @DevOps, может идти параллельно F2, разные плоскости); **F3** — UI-баг (независим по файлам `web/app.js`); **F5** — гигиена (не блокер); **F4** — docs-only, можно последней. **⚠️ F1 и F3 обе трогают `web/` (F1 — только при регрессе; F3 — `app.js`), синхронизировать при параллельной работе. F2 — backend, конфликтов с F1/F3 нет.**
+
+**Контент по фичам (сжато):**
+- **F1 (`miniapp-mobile-dns`):** Android `net::ERR_NAME_NOT_RESOLVED`, десктоп ок; после 10.16 внешних CDN нет, домен/путь не менялись → сбой резолва топ-домена. Гипотезы: блокировка `duckdns.org` мобильными операторами; протухшая/пустая запись DuckDNS (A→`198.46.175.136`, AAAA нет); Android Private DNS/DoH; кэш. Нужны: DNS-чек-лист @DevOps (резолверы/операторы/AAAA/LE), живой Android-смоук, регресс-аудит репо (git-история `settings.py:170-173,987-989`, `menu.py:48-66`, `web/*`), возможный фоллбэк hostname (ADR), статический гейт «нет внешних CDN».
+- **F2 (`tool-download-quality`):** `_download_media` (`services/tool_router.py:564-622`) не скачивает и не спрашивает качество; Fast-Track (`handlers/video_download.py:284-343`) — эталон. **SUPERSEDE ADR-1016-1** в части «quality в JSON-Schema отклонён» (новый ADR-1017-2); `quality` (enum `_DOWNLOAD_QUALITIES`) в схему; запрос качества как Fast-Track; pending(url/qualities/TTL); фикс падения; `services/media_send.py`; R17; регресс-тесты (direct `.mp4` + платформа, моки yt-dlp/cobalt); лимиты tool-loop 4/2 — не менять.
+- **F3 (`sleep-badge-countdown`):** `dreamPhaseBadge`/`deepPhaseBadge` (`web/app.js:1210-1245`) показывают `next_wake_at`/`next_run_at` как `HH:MM`; требуется остаток (`Сон через 2ч 15м`, `Глубокий сон через …`), вне фазы вместо «выключен»; в фазе — `до HH:MM` (`active_until`) + свечение; **эмодзи не трогать**; база `now` — `generated_at`; новый `fmtCountdown`; `fmtClock` не ломать.
+- **F4 (`ssh-rotation-cancelled`):** решение владельца — секреты в untracked `plans/current_task.md` — норма, ротация **не нужна**; **отменить** задачу 10.16 F5; docs-only: пометка в backlog/архиве + README без overclaim; кода — ноль; R17.
+- **F5 (`warnings-hygiene`):** 3 WARNING `web/api/avatars.py` (`:146-148,180-182,208-211/220-223` — генеральный `except Exception` + `exc_info=True` на ожидаемых сбоях) → политика уровней (ожидаемое — debug/без трейса; неожидаемое — WARNING, R17-safe); «brotli»: в репо **build-time only** (`scripts/requirements-font.txt`, OD17), Caddy brotli требует `xcaddy`/`http.encoders.brotli`, `zstd+gzip` уже включены (10.16) → решение+доки (Caddy — @DevOps).
+
+**Покрытие UPD3 → фичи (`plans/current_task.md`):**
+
+| Раздел UPD3 | Фича(и) |
+|---|---|
+| **§1** «Админка на десктопе работает, на Android `net::ERR_NAME_NOT_RESOLVED`; началось после последних ТЗ» (стр. 155–156) | **F1** |
+| **§2** «Через tool calling видео не скачивается и не спрашивает качество (должно спрашивать); прямой путь — ок» (стр. 157) | **F2** |
+| **§3** «"Сон через 11:00" → остаток до начала; "Глубокий сон выключен" → остаток; в фазе — "до HH:MM", бейдж светится; эмодзи не трогать» (стр. 158) | **F3** |
+| **§4** «Секреты в файле — норма, файл не в репо, ротация не нужна — **отмени задачу**» (стр. 159) | **F4** (отмена задачи 10.16 F5, **без кода**) |
+| **§5** «3 WARNING в аватарах (старый код); "brotli" требует плагина Caddy — обработать» (стр. 160) | **F5** |
+| Смежное **UPD2 §4** (стр. 153): мини-апп Android + «~1 минута» | **F1** (повтор/эскалация) |
+| Смежное **UPD2 §1** (стр. 149–150): `DownloadError` tool/Fast-Track | **F2** |
+
+**Открытые вопросы для @Architect:** стратегия hostname/DNS и граница «репо vs инфра», живой Android-смоук (F1, T-1666); контракт запроса качества в tool-loop + формат `quality` в JSON-Schema + pending/TTL + SUPERSEDE ADR-1016-1 (F2, T-1675); формат остатка/точность/поведение `enabled=false`, «эмодзи не трогать» (F3, T-1685); формулировка пометки об отмене ротации и README-политика (F4, T-1692); классификация 3 WARNING + решение по brotli/`xcaddy` (F5, T-1696).
+**Статус (историч.):** ✅ **COMPLETED + ЗААРХИВИРОВАН** (Step 8 @PM, 14.09.2026). Папки — `plans/features/*-round1017/` (5) → перенесены в `plans/archive/*-round1017/`. **@PM код не пишет.**
+
 ## Раунд 10.16 (14.09.2026): Багфиксы скачивания + доставка Гайда + полный аудит + мобильный мини-апп + ротация секрета — 5 фич — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (Step 8 @PM + Step 9 @DevOps + Step 10 @Memory, 14.09.2026 · commit `eb3fd4a`)
 
 **✅ ИТОГ 10.16 (14.09.2026):** реализация завершена, все **5 фич заархивированы** — перенесены
@@ -47,6 +135,9 @@ F4 — мини-апп на Android (self-host CDN/Vue/Chart.js/Tailwind, CSP, �
 сохранён намеренно (по требованию владельца), полная ротация пароля — по желанию владельца. Прод-смоук
 скачивания (F1) — ручной шаг владельцу. **R17-долг (repo-wide):** `plans/current_task.md` содержит SSH-пароль
 в рабочей копии (untracked, `.gitignore:70`; в истории утечки нет — скан чист).
+**⚠️ ОТМЕНА (UPD3 §4, раунд 10.17):** задача ротации SSH признана **НЕ НУЖНОЙ** — секреты в untracked
+`current_task.md` являются нормой, файл не попадает в репозиторий. R-запись выше **не является открытым
+действием**; фича F4 10.17 `ssh-rotation-cancelled-round1017` снимает её docs-пометкой **без кода**.
 **Статус:** ✅ **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (14.09.2026). Реализация @Builder (F1–F5),
 @Reviewer **APPROVED** (итерация 2; итер.1 Rejected — Critical CSP `script-src 'self'`), @Scanner **0 C/H/M**
 (Low 1 — `S10.16-9`), @Architect — `plans/ARCHITECTURE.md` **§37**. Артефакты: **`plans/archive/*-round1016/`**
