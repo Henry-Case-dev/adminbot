@@ -5,13 +5,18 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активен раунд **10.17 «Mobile-Download-Badges»**
-> — **Step 2/3 SPEC_READY @Architect/@Memory** (ТЗ — `plans/current_task.md` секция «UPD3:», строки
-> 155-160; HEAD == origin/master == `772f192`); §1 Android-миниапп
-> `ERR_NAME_NOT_RESOLVED` (top-level DNS), §2 tool-download без вопроса качества,
-> §3 countdown бейджей Сна, §4 **CANCEL ротации SSH**, §5 avatar-WARNING + brotli.
-> 5 фич F1–F5 / 37 задач T-1666…T-1702 + 3 ADR (ADR-1017-1/2/3). Детали — KG-узел
-> `Epic: Mobile-Download-Badges round1017` + блоки «Step 0» и «Step 2/3» ниже.
+> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** раунд **10.17 «Mobile-Download-Badges»**
+> — **COMPLETED + DEPLOYED** (функциональный HEAD == origin/master == **`b6c153f`**;
+> ТЗ — `plans/current_task.md` секция «UPD3:», строки 155-160): 5 фич F1–F5
+> (F1 `miniapp-mobile-dns`, F2 `tool-download-quality`, F3 `sleep-badge-countdown`,
+> F4 `ssh-rotation-cancelled`, F5 `warnings-hygiene`), **37 задач T-1666…T-1702**,
+> релиз **`release-round1017`** (alias `release-b6c153f`), 3 ADR (ADR-1017-1/2/3;
+> ADR-1017-2 **SUPERSEDE** ADR-1016-1 §2 п.3/§3). ARCHITECTURE.md **§38**. Прод
+> `admin_bot` active PID **2016726**, `/api/health` **200**, `/healthz` + `HEAD /web/`
+> **200**, pytest **6007 passed / 0 failed** (+71), каталог **435/406/411/90/88/19**
+> (Δ=0), миграций нет, APP_VERSION **2.57.0**. Спеки+ADR — `plans/archive/*-round1017/`
+> (**5 папок**; всего **69**). Детали — KG-узел `Epic: Mobile-Download-Badges round1017`
+> + блоки «Step 0», «Step 2/3» и **«Step 10 (финал)»** ниже; метрики — `plans/metrics.md`.
 > Предыдущий раунд — **10.16 «Download-Guide-MobileAudit»**
 > — **COMPLETED + DEPLOYED** (функциональный HEAD == origin/master == `eb3fd4a`): 5 фич F1–F5,
 > 41 задача T-1625…T-1665, релиз **`release-round1016`**, 3 ADR (ADR-1016-1/2/3),
@@ -125,6 +130,47 @@
 > `miniapp self-host, no external CDN`/`tool_router download_media`; связи
 > PART_OF/IMPLEMENTS/DECIDES/**SUPERSEDES** (`ADR-1017-2` → `ADR-1016-1`; F2 →
 > `download contract quality fix`) + `metric-snapshot-round1017-spec-ready`.
+
+> **Step 10 (финал @Memory) раунда 10.17 «Mobile-Download-Badges» (14.09.2026):**
+> эпик `Epic: Mobile-Download-Badges round1017` → **COMPLETED + DEPLOYED**;
+> создан релиз-узел **`release-round1017`** (alias **`release-b6c153f`**, commit
+> **`b6c153f`**), фичи F1–F5 связаны (COMPLETED_IN/DEPLOYED_IN), обновлены
+> ADR-1017-1/2/3, компоненты (`HEAD /web/ + /healthz routes`,
+> `tool quality-menu flow (tdq:)`, `sleep badge countdown (fmtCountdown)`,
+> `avatars log hygiene (web/api/avatars.py)`, `F5 brotli WONTFIX`),
+> Risk-узлы (закрыты), `tech-debt-round10.17`, SpecDecision
+> `ssh-rotation-cancelled round1017` (**CANCELLED**) и `metric-snapshot-round1017-final`;
+> связь **SUPERSEDES** `ADR-1017-2` → `ADR-1016-1 Download contract` применена.
+>
+> **Деплой-верификация:** commit **`b6c153f`** (`fix(services,handlers,web,docs,plans):
+> раунд 10.17 — ... (тесты 6007)`), push `772f192..b6c153f`, прод fast-forward
+> `eb3fd4a..b6c153f`, `admin_bot` active PID **2016726**, лог без traceback.
+> `/api/health` = **200**; `/healthz` GET+HEAD = **200** (no-store); `HEAD /web/` = **200**;
+> `/api/memory/graph` = **401**; `/api/persona/health` = **401**. **DNS** A→198.46.175.136
+> (AAAA пусто, TTL 50); **LE** notAfter 2026-11-28; Caddy `encode zstd gzip`
+> (gzip подтверждён). **Миграций БД нет, `.env` не правился.**
+>
+> **Метрики:** pytest 5936 → **6007 passed / 0 failed** (**+71**); `node --check
+> web/app.js` clean; `JS-UNIT-OK`; `VUE-MOUNT-OK`; `git diff --check` clean;
+> каталог **Δ=0** (435/406/411/90/88/19); БД без новых миграций (SQLite v9);
+> APP_VERSION **2.57.0** без бампа. **@Reviewer:** итер.1 **Rejected** (3 Medium —
+> overclaim ротации в ARCHITECTURE, транзиенты аватаров на 2 из 6 сайтов,
+> дублирование меню качества) → итер.2 **APPROVED**. **@Scanner:** итер.1
+> **0 C / 0 H / 1 Medium / 2 Low / 3 Info** (Medium `S10.17-1` docs — закрыт
+> @Architect на Merge) → контракт по C/H пройден. **@Builder — 2 реворка.**
+>
+> **Ключевое:** tool-скачивание предлагает выбор качества (`probe → меню tdq: →
+> callback`), падение исправлено, ADR-1016-1 помечен SUPERSEDE; бейджи Сна —
+> «через {остаток}» / «до HH:MM» (эмодзи не тронуты); `HEAD /web/` + `/healthz`
+> (диагностика DNS, no-store) + startup host-лог; политика логов аватаров (6 сайтов,
+> транзиенты без трейса/кэша); brotli — WONTFIX; **ротация SSH — CANCELLED**.
+>
+> **Техдолг (открыт):** **Low `S10.17-2`** (бейдж «Сон через —»/«Глубокий сон через —»
+> при `cognition==null` вместо «—»; функц. вреда нет) + **Info 3** (`S10.17-4`
+> `log_download_env_once` parity, `S10.17-5` hot-флаг в callback `tdq:`, `S10.17-6`
+> `/healthz` version) + **WONTFIX** brotli; ротация SSH — **CANCELLED**. Ручной
+> Android-смоук — у владельца (инструкция в отчёте @DevOps). Архив:
+> `plans/archive/*-round1017/` (**5 папок**), §38 ARCHITECTURE.md.
 
 > **Step 10 (финал @Memory) раунда 10.16 «Download-Guide-MobileAudit» (14.09.2026):**
 > эпик `Epic: Download-Guide-MobileAudit round1016` → **COMPLETED + DEPLOYED**;

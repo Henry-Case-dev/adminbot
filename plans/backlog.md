@@ -2,7 +2,7 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
-## Раунд 10.17 (14.09.2026): UPD3 — мобильный мини-апп (DNS), tool-download quality, бейджи Сна, ОТМЕНА ротации SSH, warnings-hygiene — 5 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (Step 8 @PM, 14.09.2026; деплой — Step 9 @DevOps, KG — Step 10 @Memory)
+## Раунд 10.17 (14.09.2026): UPD3 — мобильный мини-апп (DNS), tool-download quality, бейджи Сна, ОТМЕНА ротации SSH, warnings-hygiene — 5 фич — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (Step 8 @PM + Step 9 @DevOps + Step 10 @Memory, 14.09.2026 · commit `b6c153f`)
 
 **✅ ИТОГ 10.17 (14.09.2026):** реализация завершена, все **5 фич заархивированы** — перенесены
 `plans/features/*-round1017/` → **`plans/archive/*-round1017/`** (@PM Step 8).
@@ -40,12 +40,22 @@ F4 `ssh-rotation-cancelled-round1017` (T-1692…T-1695, 4) · F5 `warnings-hygie
 Info **S10.17-4** (tool-путь скачивания не вызывает `log_download_env_once()` — паритет диагностики),
 **S10.17-5** (callback `tdq:` не проверяет hot-флаг `flags.download_enabled`), **S10.17-6** (`/healthz` отдаёт
 `APP_VERSION` — принято F1 §3.1 L8; `query=%r` — pre-existing, вне диффа). **WONTFIX** — brotli (в репо build-time
-only; Caddy требует `xcaddy`; `zstd+gzip` активны). **Открытые @DevOps-гейты (Step 9):** DNS/Android-смоук
-(**T-1667/T-1668/T-1671/T-1673** — F1), подтверждение `zstd+gzip`/`Content-Encoding` (**T-1699** — F5).
+only; Caddy требует `xcaddy`; `zstd+gzip` активны). **@DevOps-гейты ЗАКРЫТЫ деплоем:** DNS-диагностика
+(**T-1667/T-1668/T-1671/T-1673** — F1) — A→198.46.175.136, AAAA пусто, TTL 50, `HEAD /web/`=200,
+`/healthz` GET+HEAD=200; подтверждение `zstd+gzip`/`Content-Encoding` (**T-1699** — F5) — gzip подтверждён.
+Live Android-смоук остаётся ручным шагом владельцу (инструкция в отчёте @DevOps).
 **§4 ротация SSH — CANCELLED** (закрыта отменой, а не выполнением; **не открытый гейт**).
 
-**Статус:** ✅ **COMPLETED + ЗААРХИВИРОВАН** (Step 8 @PM, 14.09.2026). Деплой-статус добавит @Memory после
-шага 9 (@DevOps). Ниже — исторический документ планирования эпика (Step 1 @PM + Step 2 @Architect).
+**Статус:** ✅ **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (Step 8 @PM + Step 9 @DevOps + Step 10 @Memory,
+14.09.2026). **Деплой:** commit **`b6c153f`** (`fix(services,handlers,web,docs,plans): раунд 10.17 — ...
+(тесты 6007)`), push `772f192..b6c153f`, прод fast-forward `eb3fd4a..b6c153f`, `admin_bot` active PID
+**2016726**, лог без traceback; `/api/health`=**200**, `/healthz` GET+HEAD=**200** (no-store),
+`HEAD /web/`=**200**, `/api/memory/graph`=**401**, `/api/persona/health`=**401**; DNS A→198.46.175.136
+(AAAA пусто, TTL 50), LE notAfter 2026-11-28, Caddy `encode zstd gzip` (gzip подтверждён); миграций/env-правок
+нет. **KG (Step 10 @Memory):** создан `release-round1017` (alias `release-b6c153f`) + Feature F4 + финальные
+метрики; фичи F1–F5 → COMPLETED+DEPLOYED; ADR-1017-1/2/3 + SUPERSEDES ADR-1016-1; компоненты и Risk-узлы
+закрыты; техдолг — `tech-debt-round10.17`. Ниже — исторический документ планирования эпика
+(Step 1 @PM + Step 2 @Architect).
 
 **Эпик:** `Epic: UPD3 багфиксы round1017` (@Memory, Step 0).
 **Источник ТЗ** — `plans/current_task.md` (**UPD3**, строки 155–160); смежное — **UPD2** (строки 148–153, `DownloadError`/мобильный мини-апп).

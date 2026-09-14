@@ -16,6 +16,7 @@ git-история. Таблица ведётся @Memory на Шаге 10 (фи
 | **10.14** | Самосознание и Личность бота — 8 фич: F1 anti-echo-self-reply, F2 persona-storage-core, F3 persona-ui-tab, F4 persona-traits-ribbon, F5 settings-persistence-audit, F6 help-guide-integration, F7 status-layout-reorder, F8 self-reflection-llm-provider (T-1477…T-1548, 72 задачи) | одна сессия **13.09.2026** (09:01 → 21:13 +1200, ~12 ч) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **2** / **5** | **2** (после Reviewer Rejected; после Scanner Mediums) | 5392 → **5589** (**+197**) | 427 / 399 / 403 → **435 / 406 / 411** (GROUPS 90, mapped 88, TAB_RULES 19) | **`eb2a232`** | ✅ прод `8800bba..eb2a232` (fast-forward), admin_bot active (PID **1774527**) | **200** `{"status":"ok"}` | **Low 2** (`R10.14-4`, `R10.14-7`) + **L5** + **Info 2** |
 | **10.15** | Багфиксы Графа памяти, Воркера Сна и Ностальгии + Гибридный Tool Calling — 9 фич: F1 graph-sampling-centrality, F2 graph-frontend-physics-search, F3 sleep-unblock-diagnostics, F4 nostalgia-prompt-revamp, F5 status-graph-ui-relocation, F6 command-prefix-persona-routing, F7 guide-rewrite-persona, F8 hybrid-tool-calling, F9 recent-history-tool (T-1549…T-1624, 76 задач) | одна сессия **13–14.09.2026** (798e044 21:24 → d01a539 04:27 +1200, ~7 ч) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **3** / **6** | **2** (после Reviewer Rejected; после Scanner Mediums) | 5589 → **5774** (**+185**; итер.1 5761) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`d01a539`** | ✅ прод `eb2a232..d01a539` (fast-forward; ручная разблокировка дрейфа `info_text.md`), admin_bot active (PID **1860445**) | **200** | **Low 3** (`R10.15-4`, `-10`, `-11`) + **Info 3** (в т.ч. repo-wide **R17-долг**) |
 | **10.16** | «Download-Guide-MobileAudit» — багфиксы скачивания + доставка Гайда + полный аудит 10.13–10.15 + мобильный мини-апп + ротация секрета — 5 фич: F1 download-fix, F2 guide-delivery, F3 audit-recent-epics, F4 miniapp-mobile, F5 security-rotation-finalize (T-1625…T-1665, 41 задача) | одна сессия **14.09.2026** (Step 0 → Step 10 @Memory) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / **1** / **1** / **6** | **2** (после Reviewer Critical; после Scanner High) | 5774 → **5936** (**+162**; итер.1 5910) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`eb3fd4a`** | ✅ прод `d01a539..eb3fd4a` (fast-forward), admin_bot active (PID **1976836**) | **200** | **Low 1** (`S10.16-9`) + **WONTFIX 3** (`S10.13-9`, `S10.13-11`, `R10.14-4`) + **R17-долг** `current_task.md` |
+| **10.17** | «Mobile-Download-Badges» — мобильный миниапп/DNS-диагностика + tool-download quality + countdown-бейджи Сна + **ОТМЕНА** ротации SSH + warnings-hygiene — 5 фич: F1 miniapp-mobile-dns, F2 tool-download-quality, F3 sleep-badge-countdown, F4 ssh-rotation-cancelled, F5 warnings-hygiene (T-1666…T-1702, 37 задач) | одна сессия **14.09.2026** (Step 0 → Step 10 @Memory) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **1** / 2 | **2** (после Reviewer 3 Medium) | 5936 → **6007** (**+71**) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`b6c153f`** | ✅ прод `eb3fd4a..b6c153f` (fast-forward), admin_bot active (PID **2016726**) | **200** | **Low 1** (`S10.17-2`) + **Info 3** (`S10.17-4/-5/-6`) + **WONTFIX brotli**; **CANCELLED** ротации SSH |
 | _…_ | — | — | — | — | — | — | — | — | — | — | — | — |
 
 ## Детали раунда 10.13 (13.09.2026)
@@ -193,3 +194,33 @@ git-история. Таблица ведётся @Memory на Шаге 10 (фи
 | R17-долг (repo-wide) | Info | Рабочая копия `plans/current_task.md` содержит SSH-пароль (untracked, `.gitignore:70`; в истории git утечки нет — скан чист); ротация — по желанию владельца. @DevOps-заметки: HEAD-404, brotli-плагин Caddy, live-smoke скачивания |
 
 Источник: `plans/reports/round10.16_scanner_audit.md` §2/§5, `plans/reports/round10.16_audit.md` §3, `plans/reports/round10.16_security_scan.md`; KG `tech-debt-round10.16`.
+
+## Детали раунда 10.17 (14.09.2026)
+
+- **Эпик:** `Epic: Mobile-Download-Badges round1017` / релиз **`release-round1017`** (alias `release-b6c153f`).
+- **Фичи (5, все COMPLETED + DEPLOYED + ARCHIVED):**
+  - F1 `miniapp-mobile-dns-round1017` — T-1666…T-1674 (9) — top-level DNS-диагностика: HEAD `/web/`, unauth `/healthz` (GET+HEAD, no-store), startup host-лог, no-CDN-гейт (ADR-1017-1).
+  - F2 `tool-download-quality-round1017` — T-1675…T-1684 (10) — tool-скачивание спрашивает качество (probe → меню `tdq:` → callback); фикс падения; **SUPERSEDE ADR-1016-1 §2 п.3/§3** (ADR-1017-2).
+  - F3 `sleep-badge-countdown-round1017` — T-1685…T-1691 (7) — countdown бейджей Сна «через {остаток}»/«до HH:MM» + glow, эмодзи не тронуты (ADR-1017-3).
+  - F4 `ssh-rotation-cancelled-round1017` — T-1692…T-1695 (4) — **docs-only**: ротация SSH **CANCELLED** решением владельца, кода ноль.
+  - F5 `warnings-hygiene-round1017` — T-1696…T-1702 (7) — политика логов `web/api/avatars.py` (6 сайтов; транзиенты без трейса/кэша) + brotli **WONTFIX**.
+- **Ревью/аудит:** @Reviewer итерация 1 — **Rejected** (3 **Medium** — overclaim ротации в `plans/ARCHITECTURE.md`; транзиенты аватаров на 2 из 6 сайтов `web/api/avatars.py`; дублирование меню качества F2/T-1679); итерация 2 — **APPROVED**. @Scanner итерация 1 — **0 C / 0 H / 1 M / 2 L / 3 Info** (Medium `S10.17-1` docs-only overclaim ротации в архивной спеке 10.16 F5 — закрыт @Architect на Merge; Low `S10.17-2` бейдж при `cognition==null`, `S10.17-3` доки-счётчики — синхронизированы с 6007; Info `S10.17-4/-5/-6`); контракт по **C/H пройден** (финал **0/0**). @Builder — **2 цикла реворков**.
+  Отчёты: `plans/reports/round10.17_reviewer.md`, `plans/reports/round10.17_scanner_audit.md`.
+- **Архитектура/БД:** `plans/ARCHITECTURE.md` **§38 «Карта раунда 10.17»**; **ADR-1017-1** (hostname/DNS), **ADR-1017-2** (tool download quality, **SUPERSEDES ADR-1016-1**), **ADR-1017-3** (sleep badge countdown). Миграций БД **нет** (SQLite v9, PG без изменений); каталог-Δ=0. APP_VERSION **2.57.0 — без бампа**.
+- **Архив:** `plans/archive/*-round1017/` — **5 папок** (`spec.md` + `tasks.md` ×5 + ADR-1017-1/2/3); `plans/archive/` — **69 папок**; `plans/features/` — 6 активных (F-1…F-6).
+- **Проверки:** `node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `node tests/js/vue_mount_test.js` → `VUE-MOUNT-OK`; `git diff --check` clean.
+- **Деплой:** commit **`b6c153f`**; push origin/master `772f192..b6c153f`; прод `nik@198.46.175.136:/var/www/admin_bot`, fast-forward `eb3fd4a..b6c153f`; `admin_bot` **active (running) PID 2016726**, лог без traceback; `/api/health`=**200**, `/healthz` GET+HEAD=**200** (no-store), `HEAD /web/`=**200**, `/api/memory/graph`=**401**, `/api/persona/health`=**401**; DNS A→198.46.175.136 (AAAA пусто, TTL 50), LE notAfter 2026-11-28, Caddy `encode zstd gzip` (gzip подтверждён); миграций/env-правок нет.
+- **Остаточно (не блокеры):** ручной Android-смоук мини-аппа — за владельцем (инструкция в отчёте @DevOps); live-скачивание видео — ручной шаг владельцу; ротация SSH — **CANCELLED** владельцем.
+
+## Техдолг раунда 10.17 (Low 1 + Info 3 + WONTFIX, открыт)
+
+| ID | Severity | Суть |
+|---|---|---|
+| `S10.17-2` | Low | При `cognition==null` бейджи Сна дают «Сон через —»/«Глубокий сон через —» вместо чистого «—»; §3.4 спеки vs псевдокод §3.2 противоречивы — закреплено тестами, функц. вреда нет |
+| `S10.17-4` | Info | Tool-путь скачивания не вызывает `log_download_env_once()` — паритет диагностики с Fast-Track (не блокер) |
+| `S10.17-5` | Info | Callback `tdq:` не проверяет hot-флаг `flags.download_enabled` (не блокер) |
+| `S10.17-6` | Info | `/healthz` отдаёт `APP_VERSION` — принято F1 §3.1 L8; `query=%r` — pre-existing, вне диффа |
+| brotli | WONTFIX | В репо только build-time (субсет шрифта); Caddy требует `xcaddy`/`http.encoders.brotli`; `zstd+gzip` активны (gzip подтверждён) |
+| Ротация SSH | CANCELLED | Закрыта **отменой** решением владельца, а не выполнением; не открытый гейт; git-гигиена (`plans/current_task.md` untracked) сохраняется |
+
+Источник: `plans/reports/round10.17_scanner_audit.md`, `plans/reports/round10.17_reviewer.md`; KG `tech-debt-round10.17`.
