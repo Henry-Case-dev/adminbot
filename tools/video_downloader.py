@@ -21,7 +21,8 @@ import aiohttp
 import httpx
 from typing import Callable
 
-from config.settings import build_ytdlp_base_opts, settings
+from config.settings import (build_ytdlp_base_opts, get_ytdlp_pot_provider,
+                             settings)
 
 logger = logging.getLogger(__name__)
 
@@ -124,30 +125,83 @@ def _is_postprocess_error(text: str) -> bool:
 
 
 class DownloadError(Exception):
-    """Общая ошибка скачивания (yt-dlp/Cobalt/стрим) — пул VD_ERROR_PHRASES."""
+    """Общая ошибка скачивания (yt-dlp/Cobalt/стрим) — пул VD_ERROR_PHRASES.
+
+    Раунд 10.16 (ADR-1016-1 §2.4): атрибут `reason` — безопасный машинный
+    код причины (R17). В логи/пользовательские фразы уходит ТОЛЬКО он;
+    str(exc) (может содержать URL) не логируется. Значения — фиксированный
+    набор токенов (см. spec §3): invalid_quality, probe_*, direct_*,
+    ytdlp_*, cobalt_*, tunnel_http, stream_failed, stream_too_big, busy,
+    unknown."""
+
+    #: код по умолчанию, если raise-site не передал явный reason
+    default_reason = "unknown"
+
+    def __init__(self, *args, reason: str | None = None):
+        super().__init__(*args)
+        self.reason: str = reason or self.default_reason
 
 
 class DownloadBusyError(DownloadError):
     """Лок занят другим скачиванием — пул VD_BUSY_PHRASES."""
 
+    default_reason = "busy"
+
 
 class DownloadTooBigError(DownloadError):
     """Файл жирнее лимита телеги — пул VD_TOO_BIG_PHRASES."""
 
+    default_reason = "direct_too_big"
+
 
 class CobaltServiceDownError(DownloadError):
     """Cobalt недоступен (ConnectError) — пул VD_SERVICE_DOWN_PHRASES."""
+
+    default_reason = "cobalt_down"
 
 
 class DownloadUnavailableError(DownloadError):
     """Видео недоступно: возрастное ограничение / требуется вход / DRM /
     live. Понятное русское сообщение пользователю (пул VD_UNAVAILABLE_PHRASES)."""
 
+    default_reason = "ytdlp_unavailable"
+
 
 @dataclass(frozen=True)
 class ProbeResult:
     title: str
     qualities: tuple[str, ...]          # «360p»…«2160p», DESC
+
+
+# Раунд 10.16 (spec §4.3): env-preflight — ТОЛЬКО presence-флаги окружения
+# скачивания (cookies/proxy/pot/cobalt). Значения/пути/ключи НЕ читаются в
+# текст (R17). Однократный WARNING на процесс при первом сбое probe/download.
+_ENV_LOGGED = False
+
+
+def _presence(value: object) -> str:
+    """set/absent по непустоте (значение НЕ раскрывается — только факт)."""
+    return "set" if str(value or "").strip() else "absent"
+
+
+def download_env_summary() -> str:
+    """Presence-сводка окружения скачивания (R17: без значений/путей).
+    Ревью-итер.1 (Low): POT читается через единый хелпер
+    `config.settings.get_ytdlp_pot_provider` (тот же источник, что и
+    `build_ytdlp_base_opts`), а не из os.getenv напрямую."""
+    return (f"cookies={_presence(getattr(settings, 'YOUTUBE_COOKIES_FILE', ''))} "
+            f"proxy={_presence(getattr(settings, 'YOUTUBE_TRANSCRIPT_PROXY_URL', ''))} "
+            f"pot={_presence(get_ytdlp_pot_provider())} "
+            f"cobalt={_presence(getattr(settings, 'COBALT_API_URL', ''))}")
+
+
+def log_download_env_once() -> None:
+    """Однократный (на процесс) безопасный presence-лог окружения."""
+    global _ENV_LOGGED
+    if _ENV_LOGGED:
+        return
+    _ENV_LOGGED = True
+    logger.warning("[videodl] env | %s", download_env_summary())
 
 
 def is_youtube_url(url: str) -> bool:
@@ -178,8 +232,9 @@ _PLATFORM_HOST_SUFFIXES = frozenset({
 })
 
 
-def _is_platform_url(url: str) -> bool:
-    """hostname == суффикс или оканчивается на '.суффикс' (поддомены)."""
+def is_platform_url(url: str) -> bool:
+    """Публичный хелпер (R10.16 S10.16-6): hostname == суффикс или
+    оканчивается на '.суффикс' (поддомены)."""
     try:
         parts = urlsplit(str(url))
     except ValueError:
@@ -196,7 +251,7 @@ def is_direct_media_url(url: str) -> bool:
     Схема http/https; путь (до ?/#) заканчивается расширением.
     Bugfix 04.09.2026 (FR-11): известные платформы НИКОГДА не считаются
     прямым медиа (даже с .mp4 в пути) — их обслуживают yt-dlp/cobalt."""
-    if _is_platform_url(url):
+    if is_platform_url(url):
         return False
     try:
         parts = urlsplit(str(url))
@@ -270,21 +325,34 @@ class VideoDownloader:
             info = await asyncio.wait_for(
                 asyncio.to_thread(_extract), timeout=_PROBE_TIMEOUT_SECONDS)
         except asyncio.TimeoutError as exc:
-            raise DownloadError(f"probe timeout: {url}") from exc
+            raise DownloadError("probe timeout",
+                                reason="probe_timeout") from exc
         except Exception as exc:
-            raise DownloadError(f"probe failed: {exc}") from exc
+            # R17 (spec §3): классификация причины без утечки URL/секретов.
+            text = str(exc).lower()
+            if any(m in text for m in _AVAILABILITY_SIGN_IN_MARKERS) \
+                    or "login_required" in text:
+                raise DownloadUnavailableError(
+                    "probe: требуется подтверждение (бот-проверка)",
+                    reason="probe_bot_check") from exc
+            raise DownloadError("probe failed",
+                                reason="probe_failed") from exc
         if not isinstance(info, dict):
-            raise DownloadError("probe returned no info")
+            raise DownloadError("probe returned no info",
+                                reason="probe_failed")
         title = info.get("title") or url
         qualities = unique_qualities(info.get("formats"))
         logger.info("[videodl] probed | qualities=%s", qualities)   # title/url НЕ логируем целиком
         return ProbeResult(title=str(title), qualities=qualities)
 
-    async def download(self, url: str, quality: str,
+    async def download(self, url: str, quality: str | int | None = None,
                        progress_cb: Callable[[dict], None] | None = None) -> Path:
         """Скачивание под ГЛОБАЛЬНЫМ локом. Занят → DownloadBusyError сразу.
         Epic 77 (D288): YouTube + гейт on → yt-dlp-ветка; иначе cobalt.
-        Контракт (url, quality) -> Path НЕ меняется. 84.23 (D303):
+        Контракт (ADR-1016-1 §2): `quality=None`/«auto»/«best»/«max» → авто
+        («max»); legacy «direct» — deprecated-алиас (тоже авто); «1080p»/«1080»/
+        1080 → конкретная высота. Ветвление direct vs платформа — ТОЛЬКО по URL
+        (`is_direct_media_url`), без сетевой пробы. 84.23 (D303):
         progress_cb — колбэк прогресса (raw dict yt-dlp/синтетика direct),
         не влияет на результат и на исключения."""
         if self._lock.locked():
@@ -292,12 +360,16 @@ class VideoDownloader:
         async with self._lock:
             self._download_dir.mkdir(parents=True, exist_ok=True)
             # Прод-хотфикс: прямые медиа-ссылки (mp4/webm/…) — стрим-даунлоад
+            # (quality для direct игнорируется — нормализация НЕ нужна).
             if is_direct_media_url(url):
                 return await self.download_direct(url, progress_cb=progress_cb)
+            # ADR-1016-1 §2.4/§2.5: качество нормализуется ЗДЕСЬ (до сети) —
+            # «auto»/None/«direct»→«max», «1080p»→«1080»; мусор → ошибка.
+            quality_norm = self._normalize_quality(quality)
             if hot.get("flags.ytdlp_for_youtube", settings.YTDLP_FOR_YOUTUBE) and is_youtube_url(url):
-                return await self.download_ytdlp(url, quality,
+                return await self.download_ytdlp(url, quality_norm,
                                                  progress_cb=progress_cb)
-            tunnel_url, filename = await self._request_tunnel(url, quality)
+            tunnel_url, filename = await self._request_tunnel(url, quality_norm)
             return await self._stream_to_file(tunnel_url, filename)
 
     async def download_direct(self, url: str,
@@ -327,14 +399,13 @@ class VideoDownloader:
                         if resp.status_code == 403:
                             last_status = 403
                             logger.warning(
-                                "[videodl] direct 403 → retry with referer "
-                                "| url=%s", url)
+                                "[videodl] direct 403 → retry with referer")
                             continue
                         if resp.status_code >= 400:
                             out_path.unlink(missing_ok=True)
                             raise DownloadError(
-                                f"direct download HTTP {resp.status_code}"
-                                f" | url={url}")
+                                f"direct download HTTP {resp.status_code}",
+                                reason="direct_http_4xx")
                         try:
                             _cl_get = getattr(getattr(resp, "headers", None),
                                               "get", None)
@@ -352,7 +423,8 @@ class VideoDownloader:
                                     out_path.unlink(missing_ok=True)
                                     raise DownloadTooBigError(
                                         f"file exceeds {_DIRECT_MAX_BYTES}"
-                                        f" bytes | url={url}")
+                                        f" bytes",
+                                        reason="direct_too_big")
                                 fh.write(chunk)
                                 if progress_cb is not None:
                                     try:
@@ -367,8 +439,8 @@ class VideoDownloader:
                                         logger.debug(
                                             "[videodl] progress_cb failed",
                                             exc_info=True)
-                logger.info("[videodl] direct downloaded | url=%s | "
-                            "bytes=%d | ext=%s", url, size, ext)
+                logger.info("[videodl] direct downloaded | "
+                            "bytes=%d | ext=%s", size, ext)
                 return out_path
             except DownloadTooBigError:
                 raise
@@ -376,12 +448,16 @@ class VideoDownloader:
                 # B1: частично записанный файл (обрыв в середине стрима) —
                 # не оставляем на диске.
                 out_path.unlink(missing_ok=True)
+                # R17: текст исключения не несёт URL/query-токенов (и не
+                # вкладывает str(exc) httpx — он тоже может содержать URL).
                 raise DownloadError(
-                    f"direct download failed: {exc} | url={url}") from exc
+                    "direct download failed",
+                    reason="direct_failed") from exc
         out_path.unlink(missing_ok=True)
         raise DownloadError(
-            f"direct download 403 (все referer-попытки) | url={url}"
-            if last_status == 403 else f"direct download failed | url={url}")
+            "direct download 403 (все referer-попытки)"
+            if last_status == 403 else "direct download failed",
+            reason="direct_http_403" if last_status == 403 else "direct_failed")
 
     @staticmethod
     def _format_selector(quality: str) -> str:
@@ -440,8 +516,8 @@ class VideoDownloader:
             usage = shutil.disk_usage(self._download_dir)
             if usage.free < _MIN_FREE_DISK_BYTES:
                 logger.warning(
-                    "[videodl] low disk | free=%d MB | url=%s",
-                    usage.free // (1024 * 1024), url)
+                    "[videodl] low disk | free=%d MB",
+                    usage.free // (1024 * 1024))
         except OSError:
             logger.warning("[videodl] disk_usage failed | dir=%s",
                            self._download_dir, exc_info=True)
@@ -450,7 +526,8 @@ class VideoDownloader:
             if d.get("status") == "downloading" and \
                     d.get("downloaded_bytes", 0) > VD_MAX_BYTES:
                 raise DownloadTooBigError(
-                    f"file exceeds {VD_MAX_BYTES} bytes")
+                    f"file exceeds {VD_MAX_BYTES} bytes",
+                    reason="ytdlp_too_big")
             if progress_cb is not None:
                 try:
                     progress_cb(d)
@@ -494,7 +571,8 @@ class VideoDownloader:
                 raise DownloadError(
                     f"yt-dlp timeout after "
                     f"{int(_YTDLP_DOWNLOAD_TIMEOUT_SECONDS)}s"
-                    f" | url={url} | phase={phase}") from exc
+                    f" | phase={phase}",
+                    reason="ytdlp_failed") from exc
             except DownloadTooBigError:
                 raise                       # TOO_BIG-пул фраз в хендлере (D288)
             except Exception as exc:
@@ -504,11 +582,16 @@ class VideoDownloader:
                         or "login_required" in text:
                     raise DownloadUnavailableError(
                         "YouTube требует подтверждения (бот-проверка) — "
-                        f"попробуйте позже или другой источник | url={url}") \
-                        from exc
+                        "попробуйте позже или другой источник",
+                        reason="ytdlp_bot_check") from exc
+                # R17: str(exc) НЕ кладём в текст исключения (может нести URL);
+                # классификацию постпроцессинга фиксируем безопасным reason'ом
+                # (merge-фолбек ниже распознаёт его по reason, не по str(exc)).
+                reason = ("ytdlp_postprocess"
+                          if _is_postprocess_error(text) else "ytdlp_failed")
                 raise DownloadError(
-                    f"yt-dlp failed: {exc} | url={url} | phase={phase}") \
-                    from exc
+                    f"yt-dlp failed | phase={phase}",
+                    reason=reason) from exc
 
         def _raise_unavailable(info: dict) -> None:
             """Детект недоступности (c): age-рестрикт/Sign-in/DRM/live →
@@ -520,14 +603,17 @@ class VideoDownloader:
             if age_limit > 0:
                 raise DownloadUnavailableError(
                     f"видео недоступно: возрастное ограничение "
-                    f"(age_limit={age_limit}) | url={url}")
+                    f"(age_limit={age_limit})",
+                    reason="ytdlp_unavailable")
             if any(m in lower for m in _AVAILABILITY_SIGN_IN_MARKERS):
                 raise DownloadUnavailableError(
-                    f"видео недоступно: требуется вход в аккаунт / "
-                    f"подтверждение «не робот» | url={url}")
+                    "видео недоступно: требуется вход в аккаунт / "
+                    "подтверждение «не робот»",
+                    reason="ytdlp_unavailable")
             if info.get("is_live"):
                 raise DownloadUnavailableError(
-                    f"видео недоступно: прямая трансляция | url={url}")
+                    "видео недоступно: прямая трансляция",
+                    reason="ytdlp_unavailable")
             # DRM (прод-баг 01.09.2026): НЕ сканируем title/description/
             # availability; только форматы (has_drm/licenseInfos/note+id
             # маркеры). Unavailable — ТОЛЬКО если DRM-форматы есть, а
@@ -543,7 +629,8 @@ class VideoDownloader:
             if (drm_formats and not free_formats) or \
                     (not (info.get("formats")) and has_video_license):
                 raise DownloadUnavailableError(
-                    f"видео недоступно: защищено DRM | url={url}")
+                    "видео недоступно: защищено DRM",
+                    reason="ytdlp_drm")
 
         # M2 (утечка .f* при успешном merge-фолбеке): уборка промежуточных
         # файлов (vd_*.f<id>.*, *.part, *.ytdl) выполняется БЕЗУСЛОВНО —
@@ -579,13 +666,14 @@ class VideoDownloader:
         except DownloadError as exc:
             last_err = exc
             # Merge-фолбек (d): если падение на постпроцессинге (ffmpeg/
-            # merge/Invalid data) — повтор БЕЗ merge, один файл.
-            err_text = str(exc)
-            if _is_postprocess_error(err_text):
+            # merge/Invalid data) — повтор БЕЗ merge, один файл. R17:
+            # классифицируем по safe-reason `ytdlp_postprocess` (str(exc)
+            # может нести URL и в текст/логи не попадает).
+            if getattr(exc, "reason", "") == "ytdlp_postprocess":
                 merge_fallback_used = True
                 logger.warning(
-                    "[videodl] merge-фолбек (без merge) | url=%s | err=%s",
-                    url, err_text)
+                    "[videodl] merge-фолбек (без merge) | reason=%s",
+                    exc.reason)
                 try:
                     info = await _attempt(
                         None, False, "b[ext=mp4]/b/best", "no-merge")
@@ -601,8 +689,8 @@ class VideoDownloader:
                 if ok or attempts_left <= 0:
                     break
                 logger.warning(
-                    "[videodl] retry with player_client=%s | url=%s | "
-                    "err=%s", client, url, last_err)
+                    "[videodl] retry with player_client=%s | reason=%s",
+                    client, getattr(last_err, "reason", "-"))
                 try:
                     info = await _attempt(
                         {"youtube": {"player_client": [client]}},
@@ -622,7 +710,7 @@ class VideoDownloader:
                     _purge_temp(keep)
         if not ok:
             raise last_err if last_err is not None else DownloadError(
-                f"yt-dlp failed | url={url}")
+                "yt-dlp failed", reason="ytdlp_failed")
 
         # Детект недоступности (c): возрастное ограничение / Sign-in / DRM /
         # live → понятная ошибка вместо «Invalid data…».
@@ -655,7 +743,8 @@ class VideoDownloader:
         # F1: edge-дыра M2 — при неоднозначности/отсутствии итогового файла
         # тоже чистим каталог (никаких .f*/.part на диске).
         _purge_temp(None)
-        raise DownloadError("yt-dlp finished but output file not found")
+        raise DownloadError("yt-dlp finished but output file not found",
+                            reason="ytdlp_failed")
 
     async def _request_tunnel(self, url: str, quality: str) -> tuple[str, str | None]:
         """POST на Cobalt: {url, videoQuality, downloadMode:'auto'} → tunnel URL.
@@ -677,32 +766,45 @@ class VideoDownloader:
         except aiohttp.ClientConnectorError as exc:
             raise CobaltServiceDownError(f"cobalt unreachable: {exc}") from exc
         except asyncio.TimeoutError as exc:
-            raise DownloadError("cobalt request timeout") from exc
+            raise DownloadError("cobalt request timeout",
+                                reason="cobalt_timeout") from exc
         except aiohttp.ClientError as exc:
-            raise DownloadError(f"cobalt transport error: {exc}") from exc
+            raise DownloadError(f"cobalt transport error: {exc}",
+                                reason="cobalt_error") from exc
         if not isinstance(data, dict) or data.get("error"):
             reason = data.get("error", {"code": "unknown"}) if isinstance(data, dict) else "non-json"
-            raise DownloadError(f"cobalt error: {reason}")
+            raise DownloadError(f"cobalt error: {reason}", reason="cobalt_error")
         status = data.get("status")
         tunnel = data.get("url")
         if status not in ("tunnel", "redirect") or not tunnel:
             # local-processing и прочие статусы не поддерживаем (70.4 п.3)
-            raise DownloadError(f"unsupported cobalt status: {status!r}")
+            raise DownloadError(f"unsupported cobalt status: {status!r}",
+                                reason="cobalt_unsupported")
         filename = data.get("filename") if isinstance(data.get("filename"), str) else None
         return str(tunnel), filename
 
     @staticmethod
     def _normalize_quality(quality) -> str:
-        """Epic 74 (D280): «1080p»/«1080»/1080 → «1080»; «max» как есть;
-        мусор → DownloadError БЕЗ похода в сеть."""
-        raw = str(quality)
-        text = raw.strip()
-        if text.lower() == "max":
+        """Раунд 10.16 (ADR-1016-1 §2.3): None/""/«auto»/«best»/«max» и
+        legacy-«direct» → «max» (авто); «1080p»/«1080»/1080 → «1080»;
+        мусор → DownloadError(reason="invalid_quality") БЕЗ похода в сеть.
+        Ревью-итер.1 (Low): высота валидируется по диапазону 144…4320 —
+        «-5»/«0» больше не дают мусорный селектор `height<=-5`."""
+        if quality is None:
             return "max"
+        text = str(quality).strip()
+        if not text or text.lower() in ("auto", "best", "max", "direct"):
+            return "max"                     # «direct» — deprecated-алиас
         try:
-            return str(int(text.strip("pP")))
+            height = int(text.strip("pP"))
         except ValueError:
-            raise DownloadError(f"invalid quality: {raw!r}") from None
+            raise DownloadError(f"invalid quality: {text!r}",
+                                reason="invalid_quality") from None
+        if not 144 <= height <= 4320:
+            raise DownloadError(
+                f"quality out of range: {height}",
+                reason="invalid_quality")
+        return str(height)
 
     @staticmethod
     async def _http_error(resp) -> DownloadError:
@@ -715,9 +817,10 @@ class VideoDownloader:
             raw = await resp.content.read(_ERROR_BODY_MAX_BYTES)
             body_full = raw.decode("utf-8", errors="replace")
         except Exception as exc:  # обрыв чтения тела — статус всё равно важен
-            logger.error("[videodl] cobalt http %s | body unreadable: %s",
-                         resp.status, exc)
-            return DownloadError(f"cobalt http {resp.status}")
+            logger.error("[videodl] cobalt http %s | body unreadable "
+                         "| error=%s", resp.status, type(exc).__name__)
+            return DownloadError(f"cobalt http {resp.status}",
+                                 reason="tunnel_http")
         error_code = None
         try:
             parsed = json.loads(body_full)
@@ -726,10 +829,11 @@ class VideoDownloader:
         except ValueError:
             pass
         body = body_full[:500]
-        logger.error("[videodl] cobalt http %s | code=%s | body=%s",
-                     resp.status, error_code or "-", body)
+        logger.error("[videodl] cobalt http %s | code=%s | body_chars=%d",
+                     resp.status, error_code or "-", len(body))
         detail = error_code if error_code else body
-        return DownloadError(f"cobalt http {resp.status}: {detail}")
+        return DownloadError(f"cobalt http {resp.status}: {detail}",
+                             reason="tunnel_http")
 
     async def _stream_to_file(self, tunnel_url: str,
                               filename: str | None) -> Path:
@@ -753,7 +857,8 @@ class VideoDownloader:
                 if written == 0:
                     self._log_empty_body(tunnel_url, attempt=2, meta=meta)
                     raise DownloadError(
-                        "empty body from tunnel (after retry)")
+                        "empty body from tunnel (after retry)",
+                        reason="stream_failed")
             final_path = self._finalize_name(tmp_path, filename)
             tmp_path.rename(final_path)
             logger.info("[videodl] downloaded | bytes=%d", written)
@@ -771,7 +876,8 @@ class VideoDownloader:
             async with aiohttp.ClientSession(timeout=_STREAM_TIMEOUT) as session:
                 async with session.get(tunnel_url) as resp:
                     if resp.status >= 400:
-                        raise DownloadError(f"tunnel http {resp.status}")
+                        raise DownloadError(f"tunnel http {resp.status}",
+                                            reason="tunnel_http")
                     headers = resp.headers
                     written = 0
                     with open(tmp_path, "wb") as fh:
@@ -779,7 +885,8 @@ class VideoDownloader:
                             written += len(chunk)
                             if written > VD_MAX_BYTES:
                                 raise DownloadTooBigError(
-                                    f"file exceeds {VD_MAX_BYTES} bytes")
+                                    f"file exceeds {VD_MAX_BYTES} bytes",
+                                    reason="stream_too_big")
                             fh.write(chunk)
                     return written, {
                         "http_status": resp.status,
@@ -791,9 +898,11 @@ class VideoDownloader:
         except aiohttp.ClientConnectorError as exc:
             raise CobaltServiceDownError(f"tunnel unreachable: {exc}") from exc
         except asyncio.TimeoutError as exc:
-            raise DownloadError("stream timeout") from exc
+            raise DownloadError("stream timeout",
+                                reason="stream_failed") from exc
         except aiohttp.ClientError as exc:
-            raise DownloadError(f"stream transport error: {exc}") from exc
+            raise DownloadError(f"stream transport error: {exc}",
+                                reason="stream_failed") from exc
 
     @staticmethod
     def _log_empty_body(tunnel_url: str, attempt: int, meta: dict) -> None:

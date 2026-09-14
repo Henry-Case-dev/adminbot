@@ -175,7 +175,9 @@ class TestAiTabs:
 
 class TestJsMirror:
     JS = open("web/app.js", encoding="utf-8").read()
-    HTML = open("web/index.html", encoding="utf-8").read()
+    # F4 10.16: CSS-канон вынесен в app.css — маркеры = разметка+стили.
+    HTML = (open("web/index.html", encoding="utf-8").read()
+            + open("web/static/app.css", encoding="utf-8").read())
 
     def test_11_modules_in_js(self):
         for mid in ALL_TABS[:11]:

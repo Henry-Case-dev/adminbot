@@ -94,8 +94,10 @@ def _triggered_body(message: types.Message) -> str | None:
         if _has_trigger(body) and extract_web_url(body) is not None:
             return body
         return None
-    # Ссылка-первой (гайд F7 §4): обращение ПОСЛЕ URL.
-    tok, rest, at = command_prefix.split_prefix_anywhere(text)
+    # Ссылка-первой (гайд F7 §4): обращение ПОСЛЕ URL. R10.15-10: при
+    # повторном обращении берём то, перед которым стоит веб-ссылка.
+    tok, rest, at = command_prefix.split_prefix_anywhere(
+        text, url_before=lambda prefix: extract_web_url(prefix) is not None)
     if tok is None or at < 0:
         return None
     if extract_web_url(text[:at]) is None:

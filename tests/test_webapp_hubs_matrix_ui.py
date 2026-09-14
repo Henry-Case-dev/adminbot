@@ -5,7 +5,9 @@ Hub-экраны (6 navbar + карточные сетки), визуальна�
 с аватарами, адаптив ≤991/≤479.
 """
 _JS = open("web/app.js", encoding="utf-8").read()
-_HTML = open("web/index.html", encoding="utf-8").read()
+# F4 10.16: CSS-канон вынесен в app.css — static-маркеры читают разметку+стили.
+_HTML = (open("web/index.html", encoding="utf-8").read()
+         + open("web/static/app.css", encoding="utf-8").read())
 
 
 class TestNavbarAndHubs:

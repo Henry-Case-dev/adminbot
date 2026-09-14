@@ -2,11 +2,16 @@
 
 Epic 85 (84.13, T-638): источник истины — БД/ConfigCache (ключ
 content.info_how_it_works, сидится ConfigCache.init при первом старте из
-info_text.md); get_text() читает ConfigCache → файловый кэш → DEFAULT_INFO_TEXT
+info_text.md); get_text() читает ConfigCache → in-memory кэш → DEFAULT_INFO_TEXT
 (legacy-фолбек при PG down, R6). save_text() — единственная точка записи:
-файл + in-memory кэш + ConfigCache (хендлер /edit_info и веб-POST /api/info
-сходятся в ней). Файла нет/пустой → канон DEFAULT_INFO_TEXT записывается на
-диск. IO-ошибка чтения → WARNING + кэш = канон (файл НЕ перезаписываем).
+in-memory кэш + ConfigCache (хендлер /edit_info и веб-POST /api/info сходятся
+в ней) — **PG-only** (F2 10.16): `info_text.md` НЕ перезаписывается в рантайме,
+это read-only сид и байт-эталон канона (устраняет дрейф/git-pull-блок).
+
+F2 10.16 (ADR-1016-3): value содержит `canon_version` (код-константа
+INFO_CANON_VERSION); ручная правка через save_text версию НЕ повышает — это
+drift (`canon_drift`), который лечится явным force-reset (reset_canon) с
+бэкапом `prev_html` и аудитом `updated_by`/`updated_at`.
 """
 import datetime
 import logging
@@ -131,6 +136,33 @@ DEFAULT_INFO_TEXT = """<h1>Гайд по фичам бота. Никаких с�
 
 INFO_KEY = "content.info_how_it_works"
 
+# ── F2 (guide-delivery-round1016, ADR-1016-3): версионирование канона ───────
+# INFO_CANON_VERSION описывает КОД-канон DEFAULT_INFO_TEXT (1 = до F7/10.15,
+# 2 = канон F7: 17 префиксных команд + bare-исключения «чекап»/«фактчек»).
+# ПРАВИЛО: любая правка DEFAULT_INFO_TEXT обязана (1) бампнуть INFO_CANON_VERSION,
+# (2) добавить ПРЕЖНИЙ текст в KNOWN_INFO_SNAPSHOTS, (3) сохранить байт-тест
+# DEFAULT_INFO_TEXT ↔ info_text.md. Иначе прод-миграция не узнает прежний слепок.
+INFO_CANON_VERSION = 2
+# Реестр известных прошлых канонов (нормализованное сравнение) — по ним
+# идемпотентная миграция ConfigCache безопасно обновляет прод-PG.
+KNOWN_INFO_SNAPSHOTS: tuple[str, ...] = (PREV_DEFAULT_INFO_TEXT,)
+
+
+def normalize_canon(text: str) -> str:
+    """Нормализация rich-HTML для сравнения канонов: EOL → \\n, rstrip строк,
+    strip по краям. Устраняет дрейф пробелов/переводов строк (прод-кейс F7:
+    текст был whitespace-вариантом PREV → байтовое сравнение не ловило)."""
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return "\n".join(line.rstrip() for line in normalized.split("\n")).strip()
+
+
+def canon_drift(html: str | None) -> bool:
+    """True, если текущий текст НЕ является код-каноном (ручная правка/дрейф).
+    Пустой/нестроковый текст считаем дрейфом (справка не соответствует канону)."""
+    if not isinstance(html, str):
+        return True
+    return normalize_canon(html) != normalize_canon(DEFAULT_INFO_TEXT)
+
 # ── F6 (help-guide-integration-round1014, spec §2.2): гайд в БД ─────────────
 # Файл — ТОЛЬКО источник идемпотентного сида (ConfigCache.init), не источник
 # истины. Ручные правки из админки живут в PG и сидом не перезатираются.
@@ -163,17 +195,16 @@ class InfoService:
         self._cache: str | None = None
 
     def load(self) -> None:
-        """Чтение при старте. FileNotFoundError/пустой файл → записать канон
-        (UTF-8) на диск + кэш = канон; OSError чтения → WARNING + кэш = канон
-        (файл НЕ перезаписываем — возможно, проблема прав)."""
+        """Чтение сида при старте. F2 10.16 (ADR-1016-3 §4): `info_text.md` —
+        READ-ONLY сид/байт-эталон; рантайм его НЕ создаёт и НЕ перезаписывает.
+        Файла нет/пустой/OSError → кэш = DEFAULT_INFO_TEXT (без записи)."""
         try:
             with open(self._file_path, encoding="utf-8") as fh:
                 text = fh.read()
         except FileNotFoundError:
-            self._write_default()
             self._cache = DEFAULT_INFO_TEXT
-            logger.info("[info service] default info_text.md created | file=%s",
-                        self._file_path)
+            logger.info("[info service] seed file missing → in-memory canon "
+                        "(файл НЕ создаётся) | file=%s", self._file_path)
         except OSError:
             logger.warning("[info service] read failed → in-memory default | file=%s",
                            self._file_path, exc_info=True)
@@ -182,13 +213,12 @@ class InfoService:
             if text.strip():
                 self._cache = text
             else:
-                self._write_default()          # пустой файл → канон (не битая справка)
                 self._cache = DEFAULT_INFO_TEXT
-                logger.warning("[info service] empty file → default written | file=%s",
-                               self._file_path)
+                logger.warning("[info service] empty seed → in-memory canon "
+                               "(файл НЕ перезаписан) | file=%s", self._file_path)
 
     def get_text(self) -> str:
-        """84.13.3 (T-638): ConfigCache → файловый кэш → DEFAULT_INFO_TEXT.
+        """84.13.3 (T-638): ConfigCache → in-memory кэш → DEFAULT_INFO_TEXT.
         Источник истины — БД; при PG down/нет ключа — legacy-фолбек (R6)."""
         cached_value = hot.get(INFO_KEY)
         if isinstance(cached_value, dict):
@@ -199,26 +229,71 @@ class InfoService:
             return self._cache
         return DEFAULT_INFO_TEXT
 
-    def save_text(self, text: str) -> None:
-        """Перезапись файла + кэш + ConfigCache (84.13.3: единственная точка
-        записи — /edit_info и веб-POST сходятся здесь). ВЫЗЫВАТЬ ТОЛЬКО ПОСЛЕ
-        успешного превью (D163). OSError — НАВЕРХ (хендлер шлёт пул, кэш
-        остаётся старым)."""
-        with open(self._file_path, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        self._cache = text
-        logger.info("[info service] info_text.md updated | file=%s | chars=%d",
-                    self._file_path, len(text))
+    async def save_text(self, text: str, updated_by: int | None = None,
+                        cache=None) -> dict:
+        """F2 10.16 (ADR-1016-3 §4): ЕДИНСТВЕННАЯ точка записи — PG-only.
+        `info_text.md` НЕ пишется (read-only сид; pull не блокируется).
+        Ручная правка НЕ повышает `canon_version` (версия описывает код-канон;
+        ручной текст = drift → лечится reset_canon). ВЫЗЫВАТЬ ТОЛЬКО ПОСЛЕ
+        успешного превью (D163). PG недоступен → ConfigCacheUnavailableError
+        (роут/handler → 503/фраза; локально-только НЕ пишем — иначе прод и
+        локалка расходятся). In-memory кэш меняется только при успехе."""
+        from services.config_cache import ConfigCacheUnavailableError
+
+        target = cache if cache is not None else hot.get_config_cache()
+        if target is None or not getattr(target, "pg_available", False):
+            raise ConfigCacheUnavailableError("PostgreSQL недоступен (R6)")
         value = {
             "html": text,
-            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "updated_by": settings.ADMIN_USER_ID,
+            "canon_version": INFO_CANON_VERSION,
+            # Ревью-итер.1 (High F2): ручная правка НЕ должна откатываться
+            # одноразовой форс-доставкой на следующем старте — маркер
+            # доставки текущей версии сохраняем/выставляем.
+            "canon_delivered_version": INFO_CANON_VERSION,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "updated_by": (updated_by if updated_by is not None
+                           else settings.ADMIN_USER_ID),
         }
-        _save_to_cache_safely(value)
+        await target.set(INFO_KEY, value, "content")
+        self._cache = text
+        logger.info("[info service] info saved (PG-only) | chars=%d | by=%s",
+                    len(text), value["updated_by"])
+        return value
 
-    def _write_default(self) -> None:
-        with open(self._file_path, "w", encoding="utf-8") as fh:
-            fh.write(DEFAULT_INFO_TEXT)
+    async def reset_canon(self, updated_by: int | None = None,
+                          cache=None) -> dict:
+        """F2 10.16 (ADR-1016-3 §3): явный force-reset справки к код-канону.
+        Бэкап текущего текста — `prev_html`/`prev_updated_at` внутри значения;
+        аудит — `updated_by` (id, R16) + `updated_at`. Без PG → исключение
+        (роут → 503). Откат: повторный reset/`save_text(prev_html)`."""
+        from services.config_cache import ConfigCacheUnavailableError
+
+        target = cache if cache is not None else hot.get_config_cache()
+        if target is None or not getattr(target, "pg_available", False):
+            raise ConfigCacheUnavailableError("PostgreSQL недоступен (R6)")
+        current = target.get(INFO_KEY)
+        value = {
+            "html": DEFAULT_INFO_TEXT,
+            "canon_version": INFO_CANON_VERSION,
+            "canon_delivered_version": INFO_CANON_VERSION,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "updated_by": (updated_by if updated_by is not None
+                           else settings.ADMIN_USER_ID),
+        }
+        if isinstance(current, dict):
+            prev_html = current.get("html")
+            if isinstance(prev_html, str):
+                value["prev_html"] = prev_html
+            prev_updated_at = current.get("updated_at")
+            if prev_updated_at:
+                value["prev_updated_at"] = prev_updated_at
+        await target.set(INFO_KEY, value, "content")
+        self._cache = DEFAULT_INFO_TEXT
+        logger.info("[info service] canon force-reset | by=%s | prev_backed_up=%s",
+                    value["updated_by"], "prev_html" in value)
+        return value
 
     # ── F6 (10.14): гайд по возможностям (Markdown, PG-only) ───────────────
 
@@ -260,22 +335,3 @@ class InfoService:
         logger.info("[info service] guide saved | chars=%d | by=%s",
                     len(markdown), value["updated_by"])
         return value
-
-
-def _save_to_cache_safely(value: dict) -> None:
-    """T-638: запись в ConfigCache — только если кэш поднят и это async-контекст
-    не сломает sync-поток: хендлер /edit_info вызывает save_text из async —
-    создаём таску; в тестах/без loop — пропускаем (файл уже источник)."""
-    import asyncio
-
-    async def _set():
-        cache = hot.get_config_cache()
-        if cache is None or not cache.pg_available:
-            return
-        await cache.set(INFO_KEY, value, "content")
-
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return
-    asyncio.create_task(_set())

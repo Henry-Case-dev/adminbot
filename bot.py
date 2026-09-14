@@ -743,17 +743,23 @@ async def on_startup():
         logger.info("Olya service disabled (OLYA_ENABLED=False)")
 
     # 4e. Video Download (Epic 66, Section 70.7) — триггер «скачай <url>»;
-    # консьюмит при триггере, НЕ-триггеры → UNHANDLED
+    # консьюмит при триггере, НЕ-триггеры → UNHANDLED.
+    # R10.15-4: роутер и сервис регистрируются ВСЕГДА (позиция 4e и порядок
+    # роутеров НЕ меняются); горячий гейт `flags.download_enabled` перенесён
+    # в сам хендлер → рантайм-включение флага не теряет сообщение (воркер
+    # «спит» и отдаёт UNHANDLED до штатной пропагации).
+    # Раунд 3 (T-688): ОБЩИЙ инстанс со ссылочными ветками 0e (создан в
+    # summary-блоке) — один глобальный лок скачивания на процесс.
+    downloader = _shared_video_downloader or VideoDownloader(
+        settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
+    setup_video_download(downloader, db)
+    dp.include_router(video_download_router)
     if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
-        # Раунд 3 (T-688): ОБЩИЙ инстанс со ссылочными ветками 0e (создан в
-        # summary-блоке) — один глобальный лок скачивания на процесс.
-        downloader = _shared_video_downloader or VideoDownloader(
-            settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
-        setup_video_download(downloader, db)
-        dp.include_router(video_download_router)
-        logger.info("VideoDownloader enabled (cobalt=%s)", settings.COBALT_API_URL)
+        logger.info("VideoDownloader enabled (cobalt=%s)",
+                    settings.COBALT_API_URL)
     else:
-        logger.info("VideoDownloader disabled (DOWNLOAD_ENABLED=False)")
+        logger.info("VideoDownloader registered (hot-gated; "
+                    "DOWNLOAD_ENABLED=False)")
 
     # 5. Slava router — user ID 479167456 (F3, F4 + catch-all; F5 moved to 4b)
     dp.include_router(slavik_router)

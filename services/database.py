@@ -127,6 +127,25 @@ def row_get(row, key, default=None):
         return default
 
 
+def parse_belief_meta(raw) -> dict:
+    """Единый парсер `belief_meta` (S10.13-13).
+
+    Принимает dict / JSON-строку / None. Битое, не-JSON и не-dict значение →
+    ``{}`` (fail-open, никогда не бросает). Три прежних дубля-парсера
+    (`database._parse_belief_meta`, `dream_worker._belief_meta`,
+    `summary_memory._belief_base_weight`) сведены сюда — рассинхрон форматов
+    между воркером сна и read-path исключён."""
+    if isinstance(raw, dict):
+        return raw
+    if not raw:
+        return {}
+    try:
+        loaded = json.loads(str(raw))
+    except (ValueError, TypeError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 class DatabaseService:
     """Async SQLite wrapper using aiosqlite. Manages schema, connections, and all queries."""
     
@@ -2010,16 +2029,11 @@ class DatabaseService:
 
     @staticmethod
     def _parse_belief_meta(raw) -> dict:
-        """belief_meta (JSON-строка/None) → dict (битое → {}, fail-open)."""
-        if isinstance(raw, dict):
-            return raw
-        if not raw:
-            return {}
-        try:
-            loaded = json.loads(str(raw))
-        except (ValueError, TypeError):
-            return {}
-        return loaded if isinstance(loaded, dict) else {}
+        """belief_meta (JSON-строка/None) → dict (битое → {}, fail-open).
+
+        S10.13-13: делегирует единому `parse_belief_meta` (модульный хелпер),
+        сохранён как тонкая обёртка для обратной совместимости вызовов."""
+        return parse_belief_meta(raw)
 
     async def list_confirmed_beliefs(self, chat_id: int | None = None,
                                      limit: int = 1000) -> list[dict]:
@@ -3744,9 +3758,14 @@ class DatabaseService:
                         "AND belief_meta NOT LIKE ?))")
         out["beliefs"] = await _one(
             sql, ['%"type":"paradigm"%', '%"type": "paradigm"%'] + list(p))
+        # S10.13-6b: `archived_beliefs` — тот же фильтр F3-парадигм, что у
+        # `beliefs`/`count_beliefs_by_status`, иначе счётчики расходятся.
         sql, p = _scope("SELECT COUNT(*) AS c FROM graph_facts "
-                        "WHERE kind = 'belief' AND status = 'archived_belief'")
-        out["archived_beliefs"] = await _one(sql, p)
+                        "WHERE kind = 'belief' AND status = 'archived_belief' "
+                        "AND (belief_meta IS NULL OR (belief_meta NOT LIKE ? "
+                        "AND belief_meta NOT LIKE ?))")
+        out["archived_beliefs"] = await _one(
+            sql, ['%"type":"paradigm"%', '%"type": "paradigm"%'] + list(p))
         sql, p = _scope("SELECT COUNT(*) AS c FROM protected_facts WHERE 1=1")
         out["protected_facts"] = await _one(sql, p)
         out["paradigms"] = await self.count_paradigms(chat_id)

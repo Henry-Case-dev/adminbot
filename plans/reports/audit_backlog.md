@@ -3,6 +3,45 @@
 <!-- Format: one item per line, `- [ ]` = pending, `- [x]` = done -->
 <!-- High-priority (git-changed) files go on top; no code-change files this run. -->
 
+## Round 10.16 scan (2026-09-14) — all scanned (diff-based, 5 фич F1–F5)
+- [x] tools/video_downloader.py (F1: `DownloadError.reason`+`default_reason` подклассов,
+      `download(url, quality=None)`, `_normalize_quality` None/auto/best/max/direct→`max`+диапазон 144…4320,
+      `download_env_summary`/`log_download_env_once`, R17-лог-сайты без URL)
+- [x] config/settings.py (F1: `get_ytdlp_pot_provider` — единый POT-источник, env-only, каталог-Δ=0)
+- [x] handlers/video_download.py (F1: горячий гейт `flags.download_enabled`, `download_available`,
+      `_download_without_menu` bounded fallback, `_probe_error_phrase`/`_fallback_phrases`, reason-логи)
+- [x] services/tool_router.py (F1: `download(url)` без `"direct"`, DownloadError→`status:"error"` R17)
+- [x] bot.py (F1/F3: только снятие startup-гейта вокруг 4e — порядок роутеров не изменён)
+- [x] handlers/direct_chat.py (F3: `_functional_module_active` + `download_available`)
+- [x] services/info_service.py + services/config_cache.py + handlers/info.py + web/api/routes.py + web/app.js
+      (F2: canon_version/normalize_canon/KNOWN_INFO_SNAPSHOTS, force-reset+prev_html, PG-only save_text,
+      drift-preserve, UI resetInfoCanon)
+- [x] services/database.py + dream_worker.py + summary_memory.py + command_prefix.py
+      (F3 FIX: S10.13-6b archived_beliefs-фильтр, S10.13-13 единый `parse_belief_meta`,
+      R10.15-10 `split_prefix_anywhere(url_before)`)
+- [x] handlers/youtube.py + handlers/web.py (F3: `_has_video_target`/link-first; residual R17-лог YouTube)
+- [x] web/index.html + web/static/app.css + telegram-init.js + vendor/* + tailwind.config.js + web/app.py
+      (F4: self-host, CSP `unsafe-eval`, `/static/app.css` с `?v=`)
+- [x] plans/features/*-round1016/ + plans/reports/round10.16_*.md + ssh-rotation-checklist.md (F5: docs/scan)
+- [x] tests/* (new: test_download_round1016, test_guide_delivery_round1016, test_smoke_round1016_* ×7,
+      tests/js/vue_mount_test.js; обновлены маркерные/каталог/JS)
+- **Итерация 2 (после фиксов @Builder) — закрыто:**
+  - [x] **S10.16-1 [high→closed]** R17: youtube-лог-сайты — только `error=<Class> reason=<reason>`
+        (`handlers/youtube.py:697-699,705-707`); caplog-тест `test_download_round1016.py:711-748` покрывает путь.
+  - [x] **S10.16-2 [medium→closed]** бэкап канона: `config_cache.py:292,317-323` + `info_service.py:285-291`.
+  - [x] **S10.16-3 [low→closed]** `download_available()` задокументирован (`handlers/video_download.py:126-136`).
+  - [x] **S10.16-4 [low→closed]** touch после успешного старта (`video_download.py:462-468`).
+  - [x] **S10.16-5 [low→closed]** мёртвый `probe_unavailable` удалён (`video_download.py:415-426`).
+  - [x] **S10.16-6 [low→closed]** `is_platform_url` публичный (`tools/video_downloader.py:235`).
+  - [x] **S10.16-7 [low→closed]** native media — только класс (`video_download.py:698-701`).
+  - [x] **S10.16-8 [low→closed]** аватар same-origin прокси (`web/app.js:1564-1590`), CSP OK.
+  - [ ] **S10.16-9 [low, latent]** 4 raise-сайта ещё интерполируют `{exc}` (`video_downloader.py:767,772,899,904`),
+        `:835` — тело cobalt до 500 символов; лог-пути их не печатают (утечки нет) — hardening.
+- Валидатор итерации 2: pytest **5936 passed**/0 fail (69.4 c), `node --check web/app.js` OK, `routing_test.js`
+  JS-UNIT-OK, `vue_mount_test.js` VUE-MOUNT-OK, `git diff --check` OK. Инварианты: R17/R16, роутеры `bot.py`,
+  `media/`/`.env`, каталог 435/406/411/90/88/19, tool-set 7, PREV/`PROMPT_MIGRATIONS`, SQLite v9 — целы.
+  **Открыто: 0 Critical / 0 High / 0 Medium / 1 Low (latent).**
+
 ## Round 10.15 scan (2026-09-14) — all scanned (diff-based, 9 фич F1–F9)
 - [x] services/command_registry.py (NEW: канон 17 + `чекап`/`фактчек` bare, `_HEAD`/`_TAIL` word-boundaries,
       `matches`/`group_of`/`matches_group`/`has_trigger_word`)

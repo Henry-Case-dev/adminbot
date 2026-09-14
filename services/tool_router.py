@@ -47,6 +47,7 @@ from services.persistent_throttling import (
 )
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_urls import extract_youtube_video_id
+from tools.video_downloader import DownloadError
 
 logger = logging.getLogger(__name__)
 
@@ -589,9 +590,17 @@ class ToolRouter:
             if cooldown is not None and ctx.user_id is not None:
                 # Успешный старт скачивания жжёт кулдаун (D279, как 4e).
                 await cooldown_touch(cooldown, ctx.chat_id, ctx.user_id)
+            # Раунд 10.16 (ADR-1016-1 §2): quality не передаётся — авто
+            # («max»); ветвление direct/платформа делает downloader по URL.
             path = await asyncio.wait_for(
-                self.deps.downloader.download(url, "direct"),
+                self.deps.downloader.download(url),
                 timeout=_DOWNLOAD_TOOL_TIMEOUT)
+        except DownloadError as exc:
+            # R17: только класс + safe-reason, БЕЗ str(exc) (может нести URL).
+            logger.warning(
+                "[tools] download failed | tool=download_media | "
+                "error=%s reason=%s", type(exc).__name__, exc.reason)
+            return _download_status("error", "Не удалось скачать видео")
         except Exception as exc:
             logger.warning(
                 "[tools] download failed | tool=download_media | error=%s",

@@ -26,7 +26,9 @@ from services.info_service import (
     DEFAULT_INFO_TEXT as _DEFAULT_INFO_TEXT,
     GUIDE_KEY as _GUIDE_KEY,
     GUIDE_SEED_FILE as _GUIDE_SEED_FILE,
-    PREV_DEFAULT_INFO_TEXT as _PREV_DEFAULT_INFO_TEXT,
+    INFO_CANON_VERSION as _INFO_CANON_VERSION,
+    KNOWN_INFO_SNAPSHOTS as _KNOWN_INFO_SNAPSHOTS,
+    normalize_canon as _normalize_canon,
 )
 from services.param_catalog import normalize_value
 from services.permissions import Permissions
@@ -225,6 +227,10 @@ class ConfigCache:
             return
         value = {
             "html": text,
+            "canon_version": _INFO_CANON_VERSION,
+            # Ревью-итер.1 (High F2): маркер одноразовой доставки канона —
+            # защищает последующие ручные правки от force-overwrite.
+            "canon_delivered_version": _INFO_CANON_VERSION,
             "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "updated_by": settings.ADMIN_USER_ID,
         }
@@ -233,15 +239,25 @@ class ConfigCache:
                     _INFO_KEY, len(text), value["updated_by"])
 
     async def _migrate_info_how_it_works_v1015(self) -> None:
-        """F7 (T-1606): доставка нового канона «Гайда по фичам» в существующий
-        прод-PG. Сид `_seed_info_key` пишет только при ОТСУТСТВИИ ключа, поэтому
-        обновление текста делаем DML-миграцией (без DDL).
+        """F2 10.16 (ADR-1016-3): версионная идемпотентная доставка канона
+        «Гайда по фичам» в существующий прод-PG (DML-only, без DDL).
 
-        Идемпотентность:
-          * ``html`` уже равен новому канону → no-op (повторный запуск);
-          * ``html`` == слепку ``PREV_DEFAULT_INFO_TEXT`` (ещё не обновлён) →
-            перезаписываем новым каноном;
-          * иначе владелец правил текст вручную → WARNING + НЕ трогаем.
+        Отличие от байт-сравнения F7: матч идёт по ``normalize_canon`` (EOL +
+        trailing whitespace + strip) — ловит whitespace/CRLF-дрейф прод-значения.
+
+        Правила:
+          * текст == канон, версия и маркер актуальны → no-op (идемпотентность ×N);
+          * текст == канон, но версия/маркер устарели → досылаем канон
+            (добиваем ``canon_version`` + ``canon_delivered_version``);
+          * текст ∈ ``KNOWN_INFO_SNAPSHOTS`` (прошлый канон/его дрейф) →
+            перезапись текущим каноном + версия/маркер;
+          * неизвестный текст и маркер доставки текущей версии НЕ стоит →
+            **одноразовая форс-доставка канона** (ревью-итер.1, High): владелец
+            разрешил перезапись текущего прод-текста, чтобы гайд гарантированно
+            доехал без ручного ``POST /api/info/reset-canon``;
+          * неизвестный текст, но доставка уже состоялась → реальная ручная
+            правка владельца: НЕ затираем молча (WARNING + drift, лечится
+            явным force-reset ``InfoService.reset_canon``).
         """
         current = self._settings.get(_INFO_KEY)
         if not isinstance(current, dict):
@@ -249,21 +265,63 @@ class ConfigCache:
         html = current.get("html")
         if not isinstance(html, str) or not html.strip():
             return
-        if html.strip() == _DEFAULT_INFO_TEXT.strip():
-            return                                   # уже мигрировано → no-op
-        if html.strip() != _PREV_DEFAULT_INFO_TEXT.strip():
-            logger.warning(
-                "[config_cache] info_how_it_works изменён вручную — "
-                "миграция F7 пропущена")
+        stored_ver = current.get("canon_version")
+        delivered_done = (
+            current.get("canon_delivered_version") == _INFO_CANON_VERSION)
+        norm = _normalize_canon(html)
+        canon_norm = _normalize_canon(_DEFAULT_INFO_TEXT)
+        if norm == canon_norm:
+            if stored_ver == _INFO_CANON_VERSION and delivered_done:
+                return                               # уже актуально → no-op
+            await self._write_info_canon()           # верный текст → добить маркеры
+            logger.info("[config_cache] info canon version fixed | v=%s→%s",
+                        stored_ver, _INFO_CANON_VERSION)
             return
+        if any(norm == _normalize_canon(s) for s in _KNOWN_INFO_SNAPSHOTS):
+            await self._write_info_canon()           # наш прошлый канон → безопасно
+            logger.info("[config_cache] info canon migrated | v=%s→%s",
+                        stored_ver, _INFO_CANON_VERSION)
+            return
+        if not delivered_done:
+            # ОДНОРАЗОВАЯ форс-доставка (ревью-итер.1 High F2): доставляем
+            # канон в прод без ручного reset. Повторно не срабатывает —
+            # ``canon_delivered_version`` фиксирует факт доставки.
+            # S10.16-2: текущий (неизвестный = ручной) текст бэкапим в
+            # prev_html/prev_updated_at — как в InfoService.reset_canon:
+            # владелец может откатиться, а не потерять правку безвозвратно.
+            await self._write_info_canon(backup_of=current)
+            logger.warning(
+                "[config_cache] info canon force-delivered (one-time) | v=%s",
+                _INFO_CANON_VERSION)
+            return
+        # неизвестный текст = ручная правка владельца → НЕ затираем молча
+        logger.warning(
+            "[config_cache] info canon drift — info_how_it_works изменён вручную "
+            "| stored_v=%s current_v=%s (доставка через /api/info/reset-canon)",
+            stored_ver, _INFO_CANON_VERSION)
+
+    async def _write_info_canon(self, backup_of: dict | None = None) -> None:
+        """Запись код-канона в PG + память (общий путь сида/миграции).
+        Ревью-итер.1: вместе с каноном ставится ``canon_delivered_version`` —
+        маркер одноразовой доставки (защита последующих ручных правок).
+        S10.16-2: ``backup_of`` (прежнее значение) → бэкап ``prev_html``/
+        ``prev_updated_at`` перед перезаписью (путь force-доставки)."""
         value = {
             "html": _DEFAULT_INFO_TEXT,
+            "canon_version": _INFO_CANON_VERSION,
+            "canon_delivered_version": _INFO_CANON_VERSION,
             "updated_at": datetime.datetime.now(
                 datetime.timezone.utc).isoformat(),
             "updated_by": settings.ADMIN_USER_ID,
         }
+        if isinstance(backup_of, dict):
+            prev_html = backup_of.get("html")
+            if isinstance(prev_html, str):
+                value["prev_html"] = prev_html
+            prev_updated_at = backup_of.get("updated_at")
+            if prev_updated_at:
+                value["prev_updated_at"] = prev_updated_at
         await self.set(_INFO_KEY, value, "content")
-        logger.info("[config_cache] migrated content.info_how_it_works (F7)")
 
     async def _seed_intelligence_guide(self) -> None:
         """F6 (10.14, spec §2.2): ключа content.intelligence_guide нет →

@@ -3,21 +3,32 @@
 ФС-моки: tmp_path + явный путь конструктора. Канон DEFAULT_INFO_TEXT —
 байт-в-байт с info_text.md (Epic 83, T-599/D306; 84.13: файл — сид-источник
 для PG); rich-структура h1/h2/h4/h5 валидна; суть — R44-1 (полная структура
-секций 1..9); инициализация дефолтом; load/save/кэш; save_text переживает
-«рестарт» (новый инстанс на том же пути).
+секций 1..9); инициализация дефолтом; load.
+
+F2 10.16 (guide-delivery-round1016, ADR-1016-3):
+  * `info_text.md` — read-only сид: load() НЕ создаёт/НЕ перезаписывает файл;
+  * `save_text` — PG-only (файл не меняется, контент+mtime), PG down → исключение;
+  * нормализация канона (`normalize_canon`/`canon_drift`), force-reset
+    (`reset_canon`) с бэкапом `prev_html`/`prev_updated_at` и аудитом.
 """
 import logging
 from pathlib import Path
 
 import pytest
 
-from services.info_service import DEFAULT_INFO_TEXT, InfoService
+from services.config_cache import ConfigCacheUnavailableError
+from services.info_service import (
+    DEFAULT_INFO_TEXT,
+    INFO_CANON_VERSION,
+    InfoService,
+    canon_drift,
+    normalize_canon,
+)
 
 
 class TestDefaultInfoText:
     """#20-24 (дельта Epic 83, T-599/D306): DEFAULT_INFO_TEXT == живой канон
-    info_text.md байт-в-байт (84.13: он же — сид-источник для PG); валидный
-    rich-HTML; полная структура секций 1..9."""
+    info_text.md байт-в-байт (байт-эталон); валидный rich-HTML; секции 1..9."""
 
     def test_byte_for_byte_with_info_text_file(self):
         assert (
@@ -65,6 +76,41 @@ class TestDefaultInfoText:
             assert f"<h2>{i}." in DEFAULT_INFO_TEXT
 
 
+class TestCanonNormalization:
+    """F2 10.16: нормализация сравнения канона (EOL/whitespace-дрейф)."""
+
+    def test_normalize_collapses_eol_and_trailing_ws(self):
+        assert normalize_canon("a\r\nb  \r\nc\t\r\n") == "a\nb\nc"
+
+    def test_canon_not_drift_for_equal_text(self):
+        assert canon_drift(DEFAULT_INFO_TEXT) is False
+
+    def test_canon_drift_for_whitespace_variant(self):
+        variant = DEFAULT_INFO_TEXT.replace("\n", "\r\n") + "\n\n  "
+        assert canon_drift(variant) is False       # дрейф EOL/хвостов не считается
+
+    def test_canon_drift_for_manual_text(self):
+        assert canon_drift("<h1>ручная правка</h1>") is True
+        assert canon_drift("") is True
+        assert canon_drift(None) is True
+
+
+class _FakeCache:
+    """Минимальный sync-контракт ConfigCache для save_text/reset_canon."""
+
+    def __init__(self, value=None, pg_available=True):
+        self._value = value
+        self.pg_available = pg_available
+        self.set_calls = []
+
+    def get(self, key, default=None):
+        return self._value
+
+    async def set(self, key, value, category):
+        self.set_calls.append((key, value, category))
+        self._value = value
+
+
 class TestInfoServiceFs:
     def test_existing_file_loaded(self, tmp_path):
         """#15: файл существует с текстом → кэш == содержимому."""
@@ -74,28 +120,24 @@ class TestInfoServiceFs:
         service.load()
         assert service.get_text() == "<b>своя справка</b>"
 
-    def test_missing_file_created_with_canon(self, tmp_path):
-        """#16: файла нет → файл СОЗДАН, содержимое == DEFAULT_INFO_TEXT (UTF-8).
-
-        Запись идёт в текстовом режиме (канон 52.3): на win32 питон подставляет
-        \r\n — байтовая сверка с нормализацией переводов строк (прод-linux
-        даёт ровное байтовое равенство; семантика канона сохранена)."""
+    def test_missing_file_not_created(self, tmp_path):
+        """F2 10.16: файла нет → кэш = канон, файл НЕ создаётся (read-only сид)."""
         path = tmp_path / "info_text.md"
         service = InfoService(file_path=str(path))
         service.load()
-        assert path.read_bytes().replace(b"\r\n", b"\n") == DEFAULT_INFO_TEXT.encode("utf-8")
+        assert not path.exists()
         assert service.get_text() == DEFAULT_INFO_TEXT
 
-    def test_empty_file_replaced_with_canon(self, tmp_path, caplog):
-        """#17: пустой файл → канон записан + кэш = канон + WARNING."""
+    def test_empty_file_not_rewritten(self, tmp_path, caplog):
+        """F2 10.16: пустой файл → кэш = канон, файл НЕ перезаписан + WARNING."""
         path = tmp_path / "info_text.md"
         path.write_text("   \n", encoding="utf-8")
         service = InfoService(file_path=str(path))
         with caplog.at_level(logging.WARNING):
             service.load()
-        assert path.read_text(encoding="utf-8") == DEFAULT_INFO_TEXT
+        assert path.read_text(encoding="utf-8") == "   \n"
         assert service.get_text() == DEFAULT_INFO_TEXT
-        assert any("empty file" in r.message for r in caplog.records)
+        assert any("empty seed" in r.message for r in caplog.records)
 
     def test_read_oserror_falls_back_to_inmemory_default(self, tmp_path, caplog):
         """#18: чтение OSError → WARNING; кэш = канон; файл НЕ перезаписан.
@@ -111,32 +153,84 @@ class TestInfoServiceFs:
         assert dir_path.is_dir()                       # файл не создан/не перезаписан
         assert any("read failed" in r.message for r in caplog.records)
 
-    def test_save_text_rewrites_file_and_cache(self, tmp_path):
-        """#19: save_text → файл + кэш; переживает «рестарт» (новый инстанс)."""
+    @pytest.mark.asyncio
+    async def test_save_text_pg_only_keeps_file_untouched(self, tmp_path):
+        """F2 10.16 §8#7: save_text → PG обновлён; info_text.md НЕ изменён
+        (контент + mtime), кэш сервиса = новый текст."""
         path = tmp_path / "info_text.md"
         path.write_text("старая справка", encoding="utf-8")
+        before = path.read_bytes()
+        before_mtime = path.stat().st_mtime
         service = InfoService(file_path=str(path))
         service.load()
-        service.save_text("<b>новая справка</b>")
-        assert path.read_text(encoding="utf-8") == "<b>новая справка</b>"
-        assert service.get_text() == "<b>новая справка</b>"
+        fake = _FakeCache()
+        value = await service.save_text("<b>новая справка</b>",
+                                        updated_by=4242, cache=fake)
+        assert path.read_bytes() == before
+        assert path.stat().st_mtime == before_mtime
+        assert service._cache == "<b>новая справка</b>"
+        assert fake.set_calls
+        key, stored, category = fake.set_calls[0]
+        assert key == "content.info_how_it_works"
+        assert category == "content"
+        assert stored["html"] == "<b>новая справка</b>"
+        assert stored["updated_by"] == 4242
+        assert stored["updated_at"]
+        assert stored["canon_version"] == INFO_CANON_VERSION  # ручная правка не бампает
+        assert value["html"] == "<b>новая справка</b>"
 
-        restarted = InfoService(file_path=str(path))
-        restarted.load()
-        assert restarted.get_text() == "<b>новая справка</b>"
-
-    def test_save_text_oserror_propagates_cache_unchanged(self, tmp_path):
-        """save_text OSError → НАВЕРХ, кэш остаётся старым (52.3)."""
+    @pytest.mark.asyncio
+    async def test_save_text_pg_down_raises_cache_unchanged(self, tmp_path):
+        """F2 10.16 §8#8: PG down → ConfigCacheUnavailableError; файл и кэш
+        сервиса не разъезжаются (локально-только НЕ пишем)."""
         path = tmp_path / "info_text.md"
         path.write_text("старая", encoding="utf-8")
         service = InfoService(file_path=str(path))
         service.load()
-        blocker = tmp_path / "blocker"
-        blocker.write_text("я файл", encoding="utf-8")
-        service._file_path = str(blocker / "sub" / "info.md")  # родитель — файл
-        with pytest.raises(OSError):
-            service.save_text("новая")
-        assert service.get_text() == "старая"
+        fake = _FakeCache(pg_available=False)
+        with pytest.raises(ConfigCacheUnavailableError):
+            await service.save_text("новая", cache=fake)
+        assert path.read_text(encoding="utf-8") == "старая"
+        assert service._cache == "старая"
+        assert fake.set_calls == []
+
+    @pytest.mark.asyncio
+    async def test_reset_canon_backs_up_prev_and_audits(self):
+        """F2 10.16 §8#6: force-reset пишет канон, бэкапит prev_html/prev_updated_at
+        и проставляет updated_by (id, R16)."""
+        prev = {"html": "<h1>ручная правка</h1>",
+                "canon_version": INFO_CANON_VERSION,
+                "updated_at": "2026-09-13T00:00:00+00:00",
+                "updated_by": 1}
+        fake = _FakeCache(value=prev)
+        service = InfoService(file_path="unused.md")
+        value = await service.reset_canon(updated_by=777, cache=fake)
+        stored = fake.set_calls[0][1]
+        assert stored["html"] == DEFAULT_INFO_TEXT
+        assert stored["canon_version"] == INFO_CANON_VERSION
+        assert stored["updated_by"] == 777
+        assert stored["updated_at"]
+        assert stored["prev_html"] == "<h1>ручная правка</h1>"
+        assert stored["prev_updated_at"] == "2026-09-13T00:00:00+00:00"
+        assert value["canon_version"] == INFO_CANON_VERSION
+
+    @pytest.mark.asyncio
+    async def test_reset_canon_without_current_value(self):
+        """force-reset при отсутствии значения: без prev_* (нечего бэкапить)."""
+        fake = _FakeCache(value=None)
+        service = InfoService(file_path="unused.md")
+        value = await service.reset_canon(updated_by=5, cache=fake)
+        assert "prev_html" not in value
+        assert value["html"] == DEFAULT_INFO_TEXT
+        assert service._cache == DEFAULT_INFO_TEXT
+
+    @pytest.mark.asyncio
+    async def test_reset_canon_pg_down_raises(self):
+        fake = _FakeCache(pg_available=False)
+        service = InfoService(file_path="unused.md")
+        with pytest.raises(ConfigCacheUnavailableError):
+            await service.reset_canon(cache=fake)
+        assert fake.set_calls == []
 
     def test_get_text_before_load_returns_canon(self, tmp_path):
         service = InfoService(file_path=str(tmp_path / "never.md"))

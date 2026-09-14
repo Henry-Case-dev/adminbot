@@ -382,8 +382,10 @@ class TestDirectChatTrigger:
     @pytest.mark.asyncio
     async def test_functional_command_yields_unhandled(self, oleg_name, dc_env,
                                                        monkeypatch):
-        # Review-fix M2: yield только при ВКЛЮЧЁННОМ воркере download.
+        # Review-fix M2 + R10.15-4: yield при ВКЛЮЧЁННОМ воркере download И
+        # поднятом DI-сервисе (роутер 4e регистрируется всегда).
         _enable_flag(monkeypatch, "flags.download_enabled", True)
+        monkeypatch.setattr(vd, "_downloader", MagicMock(busy=False))
         msg = _msg(text=f"Олег, скачай {DL_URL}")
         assert dc._is_direct_trigger(msg) is True
         bot = AsyncMock()

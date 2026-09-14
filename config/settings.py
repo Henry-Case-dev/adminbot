@@ -1220,6 +1220,17 @@ settings = Settings()
 APP_VERSION = "2.57.0"
 
 
+def get_ytdlp_pot_provider() -> str:
+    """Прод-хотфикс 30.08.2026: ЕДИНЫЙ источник POT-провайдера
+    (bgutil-ytdlp-pot-provider, docker :4416), напр. "bgutil:http".
+    Читается из окружения при КАЖДОМ вызове (тесты/reload-friendly).
+    Пусто → extractor_args не добавляются. R17: значение НЕ логируется;
+    в presence-диагностике используется только факт непустоты.
+    Функция, а не поле Settings, чтобы не менять каталог-инвариант
+    (435/406/411/90/88/19, Δ=0)."""
+    return os.getenv("YTDLP_POT_PROVIDER", "").strip()
+
+
 def build_ytdlp_base_opts() -> dict:
     """Epic 72 (Section 74.A): общие yt-dlp опции прокси/cookies — ЕДИНЫЙ
     источник для services/youtube_transcript_engine.py и tools/video_downloader.py.
@@ -1241,7 +1252,7 @@ def build_ytdlp_base_opts() -> dict:
     cookies = (settings.YOUTUBE_COOKIES_FILE or "").strip()
     if cookies:
         opts["cookiefile"] = cookies
-    pot = os.getenv("YTDLP_POT_PROVIDER", "").strip()
+    pot = get_ytdlp_pot_provider()
     if pot:
         opts["extractor_args"] = {
             "youtube": {

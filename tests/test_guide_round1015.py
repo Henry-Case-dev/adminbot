@@ -79,19 +79,23 @@ class _FakePg:
         pass
 
 
-def _settings_row(html):
+def _settings_row(html, delivered=None):
+    value = {"html": html, "updated_at": "t", "updated_by": 1}
+    if delivered is not None:
+        value["canon_version"] = delivered
+        value["canon_delivered_version"] = delivered
     return [{
         "key": INFO_KEY,
-        "value": {"html": html, "updated_at": "t", "updated_by": 1},
+        "value": value,
         "category": "content",
     }]
 
 
-def _cache(html, monkeypatch):
+def _cache(html, monkeypatch, delivered=None):
     monkeypatch.setattr(
         "services.config_cache.settings",
         types.SimpleNamespace(ADMIN_USER_ID=ADMIN_ID))
-    conn = _FakeConn(_settings_row(html))
+    conn = _FakeConn(_settings_row(html, delivered))
     return ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0), conn
 
 
@@ -146,9 +150,22 @@ class TestInfoMigration:
         assert len(_info_inserts(conn)) == 1
 
     @pytest.mark.asyncio
-    async def test_manual_edit_not_overwritten(self, monkeypatch, caplog):
+    async def test_unknown_text_force_delivered_once(self, monkeypatch, caplog):
+        """Ревью-итер.1 (High F2): неизвестный текст БЕЗ маркера доставки →
+        одноразовая форс-доставка канона (владелец разрешил перезапись)."""
         manual = "<h1>Моя ручная справка</h1>"
         cache, conn = _cache(manual, monkeypatch)
+        with caplog.at_level(logging.WARNING):
+            await cache.init()
+        assert cache.get(INFO_KEY)["html"] == DEFAULT_INFO_TEXT
+        assert len(_info_inserts(conn)) == 1
+        assert "force-delivered" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_manual_edit_not_overwritten(self, monkeypatch, caplog):
+        """После доставки (маркер стоит) ручная правка НЕ затирается."""
+        manual = "<h1>Моя ручная справка</h1>"
+        cache, conn = _cache(manual, monkeypatch, delivered=2)
         with caplog.at_level(logging.WARNING):
             await cache.init()
         assert cache.get(INFO_KEY)["html"] == manual

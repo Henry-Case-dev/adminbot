@@ -30,6 +30,35 @@ logger = logging.getLogger(__name__)
 
 _VERSION_TAG = "__APP_VERSION__"
 
+# F4 10.16 (ADR-1016-2 §3, T-1653/ревью-итерация 1): CSP для HTML миниаппа.
+# `script-src 'self' 'unsafe-eval'` — ВАРИАНТ A ревью: self-host использует
+# FULL-сборку Vue (`vue.global.prod.min.js`), чей рантайм-компилятор вызывает
+# `Function()` (compileToFunction) при компиляции in-DOM шаблонов (#app,
+# `template: '#kv-editor-tpl'`). Без 'unsafe-eval' браузер бросает EvalError
+# на монтировании → белый экран (прод-ломающий дефект, выявлен @Reviewer).
+# ВАРИАНТ B (runtime-only сборка + предкомпилированные render-функции)
+# требовал бы перевода всего in-DOM канона (`index.html` ~2900 строк) в
+# `h(...)` — большой риск регрессии фронта; выбран минимально-рискованный A.
+# Внешние скрипты по-прежнему запрещены ('self'); 'unsafe-inline' НЕТ —
+# все скрипты вынесены в файлы (vendor/*, app.js, telegram-init.js).
+# `style-src 'unsafe-inline'` необходим: Vue биндит `:style` (inline
+# style-атрибуты) и есть динамические стили — полный отказ вне скоупа.
+# `frame-ancestors` — чтобы Telegram Web/WebView мог встроить приложение.
+# `connect-src 'self'` — API same-origin.
+# CSP применяется только к HTML (web_index), НЕ к /api (initData не ломаем).
+_CSP_HTML = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-eval'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "frame-ancestors https://web.telegram.org https://*.telegram.org; "
+    "base-uri 'self'; "
+    "object-src 'none'; "
+    "form-action 'self'"
+)
+
 # Раунд 3 (T-687): MIME по расширению опубликованного файла (3.1).
 _EXT_MEDIA_TYPES = {
     "mp4": "video/mp4",
@@ -69,6 +98,25 @@ def _render_index() -> str:
     from pathlib import Path
     src = Path(__file__).resolve().parent / "index.html"
     text = src.read_text(encoding="utf-8")
+    return text.replace(_VERSION_TAG, APP_VERSION)
+
+
+def _render_app_css() -> str:
+    """F4 10.16: CSS-канон вынесен из inline <style> в web/static/app.css,
+    но внутри @font-face остался `?v=__APP_VERSION__` (R10.8-5 cache-bust
+    субсета шрифта, max-age=86400). Статика не проходит подстановку — поэтому
+    app.css отдаём выделенным маршрутом с той же заменой, что и index.html.
+
+    Ревью-итерация 1 (Low): на чистом клоне без собранного `web/static/app.css`
+    create_app НЕ должен падать (как и mount /static) — отдаём пустой CSS."""
+    from pathlib import Path
+    src = Path(__file__).resolve().parent / "static" / "app.css"
+    try:
+        text = src.read_text(encoding="utf-8")
+    except OSError:
+        logger.warning("[webapp] web/static/app.css отсутствует — отдаю пустой "
+                       "CSS (сборка не выполнена)")
+        return ""
     return text.replace(_VERSION_TAG, APP_VERSION)
 
 
@@ -145,6 +193,7 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     app.include_router(oversight_router, prefix="/api/oversight")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
+    rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face
 
     # Маршруты html ДО app.mount (mount перехватывает всё /web/*):
     # /web/ и /web/index.html — с подстановкой APP_VERSION в `?v=`.
@@ -155,6 +204,17 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     @app.get("/web/index.html", include_in_schema=False)
     async def web_index_html():
         return _html_response(rendered_index)
+
+    # F4 10.16: app.css отдаём ДО /static-mount — с подстановкой версии
+    # субсета шрифта (R10.8-5) и no-cache, как у прочей CSS-статики.
+    from fastapi.responses import Response
+
+    @app.get("/static/app.css", include_in_schema=False)
+    async def static_app_css():
+        return Response(
+            content=rendered_css, media_type="text/css",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 
     @app.get("/", include_in_schema=False)
     async def root():
@@ -217,5 +277,9 @@ def _html_response(text: str):
     from fastapi.responses import HTMLResponse
     return HTMLResponse(
         content=text,
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            # F4 10.16 (T-1653): строгий CSP для HTML (см. _CSP_HTML).
+            "Content-Security-Policy": _CSP_HTML,
+        },
     )

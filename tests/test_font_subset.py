@@ -104,12 +104,13 @@ def test_source_gitignored_subset_tracked():
 
 
 def test_fontface_and_pua_rendering():
-    html = INDEX_HTML.read_text(encoding="utf-8")
+    # F4 10.16: @font-face вынесен из inline <style> в web/static/app.css.
+    css = (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8")
     js = APP_JS.read_text(encoding="utf-8")
-    assert "font-family: 'Material Symbols Rounded'" in html
-    assert "/static/fonts/material-symbols-rounded.woff2" in html
-    assert "woff2-variations" in html
-    assert "unicode-range" not in html.split("@font-face")[1].split("}")[0]
+    assert "font-family: 'Material Symbols Rounded'" in css
+    assert "/static/fonts/material-symbols-rounded.woff2" in css
+    assert "woff2-variations" in css
+    assert "unicode-range" not in css.split("@font-face")[1].split("}")[0]
     # Рендер по PUA-кодпоинту (карта ICONS), а не по текстовому имени.
     assert "var ICONS = {" in js
     assert "tabMat: function (id)" in js

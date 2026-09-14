@@ -8,7 +8,7 @@ import asyncio
 import logging
 import re
 import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import aiohttp
 import pytest
@@ -35,6 +35,20 @@ CHAT_ID = -1001234567890
 USER_ID = 111
 URL = "https://example.com/watch?v=1"
 URL2 = "https://youtu.be/dQw4w9WgXcQ"
+
+
+@pytest.fixture(autouse=True)
+def _download_flag_on(monkeypatch):
+    """R10.15-4: хендлер 4e гейтит master-флаг `flags.download_enabled`
+    (в тест-env settings-дефолт False из-за изоляции .env). Прямые вызовы
+    хендлера в этом файле имитируют боевой .env → флаг включён."""
+    if hasattr(vd.hot, "get"):
+        real_get = vd.hot.get
+        monkeypatch.setattr(
+            vd.hot, "get",
+            lambda key, default=None: True
+            if key == "flags.download_enabled" else real_get(key, default))
+    yield
 
 
 def _make_msg(text=None, message_id=100, user_id=USER_ID, **kwargs):
@@ -245,18 +259,25 @@ class TestTouchAfterProbe:
     @pytest.mark.asyncio
     async def test_failed_probe_no_touch_and_retry_passes_gate(
             self, vd_env, monkeypatch):
+        """Раунд 10.16 (T-1628): probe-fail для не-direct → одна bounded
+        попытка `download(url, None)` без меню качества; провал fallback
+        кулдаун НЕ жжёт (probe-fail не жжёт кулдаун)."""
         calls = []
 
         async def flaky(url):
             calls.append(url)
             if len(calls) == 1:
-                raise DownloadError("yt-dlp boom")
+                raise DownloadError("yt-dlp boom", reason="probe_failed")
             return _probe()
 
+        download = AsyncMock(
+            side_effect=DownloadError("fallback boom", reason="cobalt_down"))
         monkeypatch.setattr(vd._downloader, "probe", flaky)
+        monkeypatch.setattr(vd._downloader, "download", download)
         msg1 = _make_msg(f"Бот, скачай {URL}", message_id=101)
         await vd.video_download_handler(msg1, bot=AsyncMock())
-        assert msg1.reply.call_args[0][0] in VD_ERROR_PHRASES
+        # bounded fallback: ровно один вызов download без качества
+        download.assert_awaited_once_with(URL, None, progress_cb=ANY)
         assert (CHAT_ID, USER_ID) not in vd._cooldown._last   # touch не звался
 
         # немедленный ретрай проходит кулдаун-гейт без ожидания
@@ -344,10 +365,13 @@ class TestTouchAfterProbe:
 
         async def flaky(url):
             if state["fail"]:
-                raise DownloadError("boom")
+                raise DownloadError("boom", reason="probe_failed")
             return _probe()
 
         monkeypatch.setattr(vd._downloader, "probe", flaky)
+        # Раунд 10.16: probe-fail → bounded fallback; его провал не жжёт кулдаун.
+        monkeypatch.setattr(vd._downloader, "download", AsyncMock(
+            side_effect=DownloadError("fallback boom")))
         # T-619: кулдаун перечитывается из конфига (hot.get) — значения
         # подменяем консистентно с трекером (30m).
         import types
@@ -1512,9 +1536,10 @@ class TestYtdlpDownloadHotfix:
         assert "extractor_args" not in opts
 
     @pytest.mark.asyncio
-    async def test_failure_includes_url_and_phase(
+    async def test_failure_includes_phase_without_url(
             self, tmp_path, monkeypatch, caplog):
-        """Ошибка yt-dlp оборачивается с url и фазой (диагностика)."""
+        """S10.16-1 (R17): ошибка yt-dlp оборачивается с фазой, но БЕЗ URL —
+        legacy-текст `url={url}` мог утечь через str(exc)/лог на youtube-пути."""
         from tools import video_downloader as vdm
         self._patch_ytdlp(monkeypatch)
         self._FakeYDL.calls = []
@@ -1526,12 +1551,14 @@ class TestYtdlpDownloadHotfix:
         with pytest.raises(vdm.DownloadError) as excinfo:
             await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
         msg = str(excinfo.value)
-        assert "https://youtu.be/dQw4w9WgXcQ" in msg
         assert "phase=" in msg
+        assert "https://youtu.be/dQw4w9WgXcQ" not in msg
+        assert "youtu.be" not in msg
 
     @pytest.mark.asyncio
     async def test_low_disk_warns(self, tmp_path, monkeypatch, caplog):
-        """Диск-чек: free < 500 МБ → WARNING с URL (не блокирует)."""
+        """Диск-чек: free < 500 МБ → WARNING (не блокирует).
+        Ревью-итер.1 (R17): URL в логе ОТСУТСТВУЕТ."""
         import shutil
         from tools import video_downloader as vdm
         self._patch_ytdlp(monkeypatch)
@@ -1548,8 +1575,8 @@ class TestYtdlpDownloadHotfix:
         dl = VideoDownloader("http://localhost:9000/", str(tmp_path / "d"))
         with caplog.at_level(logging.WARNING):
             await dl.download_ytdlp("https://youtu.be/dQw4w9WgXcQ", "720p")
-        assert any("low disk" in r.getMessage() and "youtu.be" in r.getMessage()
-                   for r in caplog.records)
+        assert any("low disk" in r.getMessage() for r in caplog.records)
+        assert "youtu.be" not in caplog.text
 
     def test_ffmpeg_missing_warns_on_setup(self, monkeypatch, caplog):
         """ffmpeg отсутствует в PATH → WARNING при setup_video_download."""

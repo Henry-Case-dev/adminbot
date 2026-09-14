@@ -2,6 +2,137 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## Раунд 10.16 (14.09.2026): Багфиксы скачивания + доставка Гайда + полный аудит + мобильный мини-апп + ротация секрета — 5 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (Step 8 @PM, 14.09.2026; деплой — @DevOps Step 9)
+
+**✅ ИТОГ 10.16 (14.09.2026):** реализация завершена, все **5 фич заархивированы** — перенесены
+`plans/features/*-round1016/` → **`plans/archive/*-round1016/`** (@PM Step 8).
+**Финальные метрики:** полный **pytest — 5936 passed / 0 failed** (база 10.15 = 5774 → **+162**; итерация 1 — 5910);
+`node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `node tests/js/vue_mount_test.js` → `VUE-MOUNT-OK`; `git diff --check` clean.
+Каталог — **Δ=0**: **REGISTRY 435 / Settings 406 / categorized 411** (GROUPS 90 / mapped 88 / `TAB_RULES` 19); новых ключей нет.
+БД: **новых миграций нет** (SQLite остаётся **v9**; PG без изменений; F2 — DML-миграция канона гайда, `canon_version`/`canon_delivered_version`).
+**Объём:** **5 фич, 41 задача** (T-1625…T-1665).
+@Reviewer — **APPROVED** (итерация 2). Итерация 1 — **Rejected**: **Critical** F4 — CSP `script-src 'self'` без `'unsafe-eval'`
+ломает рантайм-компилятор Vue (`Function()`), мини-апп не монтируется; **High** F1 — логирование URL/`str(exc)` в
+`tools/video_downloader.py` при заявленном «R17-скан чист»; **High** F2 — доставка канона гайда не гарантирована
+(нужен ручной reset); **High** F5 — README рапортовал о невыполненной ротации SSH как о факте. Все закрыты @Builder
+(CSP-вариант A `'unsafe-eval'` + поведенческий гейт `tests/js/vue_mount_test.js`; caplog-тесты R17; одноразовая
+форс-доставка канона с маркером; честная модальность README); Medium/Low итер.1 закрыты (`plans/reports/round10.16_reviewer.md`).
+@Scanner — **CLEAN: 0 Critical / 0 High / 0 Medium** (итерация 2; закрыты High S10.16-1 — R17-утечка URL на
+youtube-пути, Medium S10.16-2 — force-доставка без бэкапа), остаётся **Low 1** — `S10.16-9` (latent hardening)
+(`plans/reports/round10.16_scanner_audit.md`).
+@Architect — архитектура влита в `plans/ARCHITECTURE.md` (**§37** + связанные §1/§3/§5/§9).
+Артефакты в архиве: `spec.md` + `tasks.md` (×5) + ADR-1016-1 (`adr-1016-1-download-contract.md`),
+ADR-1016-2 (`adr-1016-2-selfhost-csp.md`), ADR-1016-3 (`adr-1016-3-guide-canon-versioning.md`) + `ssh-rotation-checklist.md`.
+**Симптомы ТЗ закрыты:** F1 — tool-путь `download_media` (невалидный `"direct"` → `ValueError`) + Fast-Track
+probe-диагностика; F2 — фактическая доставка «Гайда по фичам» (версионирование канона, force-reset, PG-only write-path);
+F3 — полный аудит 10.13–10.15 + 7 смоук-наборов + FIX Low-техдолга (S10.13-6b/-13, R10.15-4/-10/-11);
+F4 — мини-апп на Android (self-host CDN/Vue/Chart.js/Tailwind, CSP, сокращение загрузки); F5 — git-гигиена
+`current_task.md` + скан секретов + README/R17.
+**Фичи (финал, все ✅ COMPLETED):** F1 `download-fix-round1016` (T-1625…T-1633, 9) · F2 `guide-delivery-round1016`
+(T-1634…T-1641, 8) · F3 `audit-recent-epics-round1016` (T-1642…T-1650, 9) · F4 `miniapp-mobile-round1016`
+(T-1651…T-1659, 9) · F5 `security-rotation-finalize-round1016` (T-1660…T-1665, 6).
+Пути артефактов → **`plans/archive/*-round1016/`**.
+
+**🧾 Техдолг Low (ОТКРЫТ, 10.16 — не блокеры):** `S10.16-9` (latent hardening: 4 raise-сайта
+`tools/video_downloader.py:767,772,899,904` интерполируют `{exc}` / тело cobalt-ответа; доступного лог-пути,
+печатающего сообщение, нет — утечки нет); **WONTFIX** `S10.13-9` (Timeline-лор in-memory inject vs
+`chat_lore_history` — осознанный источник), `S10.13-11` (LIKE-маркер парадигм матчит 2 сериализации — в проде
+невоспроизводимо), `R10.14-4` (`dynamic_traits` без `chat_id` — модель «общий характер бота», не утечка).
+Источник — `plans/reports/round10.16_scanner_audit.md` §2/§5 + `plans/reports/round10.16_audit.md` §3.
+
+**⛔ ОТКРЫТЫЕ ГЕЙТЫ (@DevOps Step 9, вне репо / после деплоя):** **T-1657** (прод-проверка Caddy/DNS домена
+мини-аппа: резолв, Let's Encrypt-сертификат, сжатие, заголовки CSP), **T-1641** (доставка гайда:
+`canon_version==2`, `canon_drift==false` после рестарта), **T-1661/T-1664** (ротация/отзыв SSH-пароля сервера
+`198.46.175.136` + проверка нового доступа; подготовка деплоя), прод-смоук скачивания (F1). **R17-долг
+(repo-wide):** `plans/current_task.md` содержит SSH-пароль в рабочей копии (файл untracked, `.gitignore:70`;
+в истории утечки нет — скан чист); рекомендованы ротация пароля и вычистка рабочей копии.
+**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (14.09.2026, @PM Step 8 Archive Phase). Реализация @Builder (F1–F5),
+@Reviewer **APPROVED** (итерация 2), @Scanner **0 C/H/M** (Low 1 — техдолг), @Architect — `plans/ARCHITECTURE.md`
+**§37**. Артефакты: **`plans/archive/*-round1016/`** (**5 папок**). Деплой — @DevOps Step 9 (миграций БД нет).
+Деплой-статус и KG-синхронизация — @Memory Step 10.
+Ниже — исторический документ планирования эпика (Step 1 @PM + Step 2 @Architect).
+
+**Эпик:** `Epic: Багфиксы + полный аудит round1016` (@Memory, Step 0).
+**Источник ТЗ** — `plans/current_task.md` (**UPD2**, строки 148–153) + §1–§7 (строки 1–76). **HEAD при планировании:** `18a9aa1`
+(docs-синхронизация 10.15). **APP_VERSION** 2.57.0.
+**Базовая линия (@Memory Step 0):** pytest **5774 passed / 0 failed**; `node --check web/app.js` clean;
+`node tests/js/routing_test.js` → `JS-UNIT-OK`; каталог-инвариант **REGISTRY 435 / GROUPS 90 / Settings 406 /
+categorized 411 / mapped 88 / `TAB_RULES` 19** (**Δ=0**, новых ключей нет); SQLite **v9** (миграций БД нет).
+Преемник — 10.15 (`plans/archive/*-round1015/`, 9 фич COMPLETED+DEPLOYED, 76 задач T-1549…T-1624).
+**Контекст @Memory Step 0:** `plans/current_task.md` **не отслеживается git** (`.gitignore:70`; `git ls-files` — «did not match»),
+в истории пароля нет, но рабочая копия содержит SSH-пароль (`:62-65`) → ротация (repo-wide R17-долг).
+Остаются: **R17** (секреты `{configured,last4}`), **R16** (id — ключ), порядок роутеров `bot.py` (только DI-kwargs),
+`media/`/`.env` не трогать, self-host DOMPurify/vis-network, пин-тесты каталога.
+
+**5 фич (нумерация продолжает T-1624 → T-1625…T-1665, 41 задача):**
+
+| # | Фича (папка) | Тип | ТЗ / UPD2 | Зависит от | Приоритет | Задачи |
+|---|---|---|---|---|---|---|
+| **F1** | `download-fix-round1016` | backend (tools/download) | **UPD2 §1** (+§1 строки 3-8) | — (гейт: `flags.download_enabled`) | **P0** (прод-баг) | T-1625…T-1633 (9) |
+| **F2** | `guide-delivery-round1016` | backend+docs | **UPD2 §2** (строка 151) + §7 | — | P1 (прод-регресс) | T-1634…T-1641 (8) |
+| **F3** | `audit-recent-epics-round1016` | test/audit | **UPD2 §3** (строка 152) | **F1, F2** (их результаты) | P1 | T-1642…T-1650 (9) |
+| **F4** | `miniapp-mobile-round1016` | frontend+infra | **UPD2 §4** (строка 153) | — (Caddy/DNS — @DevOps, вне репо) | P1 | T-1651…T-1659 (9) |
+| **F5** | `security-rotation-finalize-round1016` | security+docs | **UPD2 §0** (строка 150) + R17 | **F1–F4** (финализация) | **P0** (безопасность) | T-1660…T-1665 (6) |
+
+**Рекомендуемый порядок исполнения:** **F1 → F2 → {F3 ∥ F4} → F5.**
+Обоснование: F1 — прод-блокер скачивания (tool `download_media` передаёт невалидный `"direct"`; Fast-Track probe);
+F2 — прод-регресс доставки «Гайда» (миграция пропущена из-за дрейфа PG; write-path в tracked `info_text.md`);
+F3 (аудит 10.13–10.15 + смоуки) опирается на результаты F1/F2, но может идти параллельно F4;
+F4 (мини-апп Android) независим по файлам (`web/*`), серверная часть — @DevOps; F5 — последняя (ротация секрета + Step 9–10).
+**⚠️ F3 делит `tests/*` с F1/F2 — новые смоук-файлы; F4 делит `web/index.html`/`web/app.js` только сам с собой.**
+
+**Контент по фичам (сжато):**
+- **F1 (`download-fix`):** tool-путь `services/tool_router.py:592-594` всегда `download(url, "direct")` →
+  `tools/video_downloader.py:695-705` `_normalize_quality("direct")` → `int("direct")` = `ValueError` →
+  `DownloadError("invalid quality: 'direct'")` (YouTube/TikTok → гарантированный сбой, регресс F8 10.15).
+  Fast-Track `handlers/video_download.py:326-331` `probe(url)` → `DownloadError` → `VD_ERROR_PHRASES`
+  (`tools/video_download_phrases.py:14`); probe зависит от cookies/proxy/POT/cobalt. Нужны: валидное ветвление
+  direct vs авто/качество, категорийная R17-диагностика, смоуки с моками yt-dlp/cobalt.
+- **F2 (`guide-delivery`):** «Гайд по фичам» = legacy `content.info_how_it_works` (`services/info_service.py`
+  `DEFAULT_INFO_TEXT`/`PREV_DEFAULT_INFO_TEXT`, сид `info_text.md`); миграция `services/config_cache.py:235-266`
+  перезаписывает только если PG == `PREV_DEFAULT_INFO_TEXT`, иначе WARNING+пропуск (прод-PG дрейфовал → гайд не обновился).
+  `InfoService.save_text` (`info_service.py:202-217`) пишет в **tracked** `info_text.md` → дрейф/блок fast-forward pull.
+  Нужны: версионирование канона (реестр PREV/хэши), force-reset, PG-only/неблокирующий write-path, байт/смоук-тесты.
+- **F3 (`audit-recent-epics`):** полный аудит 10.13/10.14/10.15: ревизия логики и корнер-кейсов; смоуки «имитация
+  реальной работы» (download/probe, tool-loop, guide, graph, sleep, nostalgia, persona); закрыть релевантный
+  Low-техдолг (**S10.13-6b/9/11/13**, **R10.14-4**, **R10.15-4/-10/-11**); отчёт `plans/reports/round10.16_audit.md`.
+- **F4 (`miniapp-mobile`):** `net::ERR_NAME_NOT_RESOLVED` на Android (десктоп ок); «~1 минута» — таймауты блокирующих
+  CDN + крупные несжатые файлы. `web/index.html` внешние `<script>`: `telegram.org` (:11), `cdn.tailwindcss.com` (:12),
+  `unpkg.com/vue@3` (:3633), `cdn.jsdelivr.net/npm/chart.js@4` (:3638); нет CSP/bundle/service worker; `index.html` ~235 КБ
+  + `app.js` ~285 КБ. Нужны: self-host CDN (паттерн DOMPurify/vis-network, ADR-1013-2) или безопасная замена, CSP,
+  минификация/бандлинг, диагностика DNS домана (`config/settings.py:171-173`, `handlers/menu.py:53-63`); Caddy/DNS — @DevOps.
+- **F5 (`security-rotation-finalize`):** подтвердить, что `plans/current_task.md` не в git (`.gitignore:70`); ротировать/отозвать
+  SSH-пароль (`current_task.md:62-65`, сервер `198.46.175.136`, вне репо, @DevOps); README/R17-hardening; подготовка Step 9–10.
+
+**Инварианты раунда (в каждой tasks.md §3):** **DDL/SQL не требуется** (миграций БД нет); **каталог-Δ = 0** —
+**REGISTRY 435 / Settings 406 / categorized 411 / GROUPS 90 / mapped 88 / `TAB_RULES` 19** (новые ключи не вводятся);
+**R17** секреты `{configured,last4}` (в логи — без URL/текстов/секретов); **R16** id — ключ; порядок роутеров `bot.py`
+не трогать (только DI-kwargs); `media/`/`.env` не трогать; **Caddy/DNS — вне репо (@DevOps)**; новых CDN/`v-html` без
+санитайза нет; байт-канон info не ломать без слепка; **ревью-гейты:** pytest 0 регрессий, `node --check web/app.js`,
+`node tests/js/routing_test.js` → `JS-UNIT-OK`, R17-скан, пин-тесты каталога, русские conventional commits.
+
+**Покрытие UPD2 / ТЗ → фичи (`plans/current_task.md`):**
+
+| Раздел UPD2 / ТЗ | Фича(и) |
+|---|---|
+| **UPD2 §0** «Проверь, что `current_task.md` не попал в репозиторий» (+ R17-долг) | **F5** |
+| **UPD2 §1** «Ошибка скачивания через tool calling (`download_media`); Fast-Track «Бот, скачай» → "битая ссылка"» | **F1** (+ **F3** — смоуки) |
+| **UPD2 §2** «Задача 7 не выполнена — гайд по фичам в Справке остался как был» | **F2** (+ **F3** — смоук guide) |
+| **UPD2 §3** «Перепроверь всё последними эпиками, полный аудит, тесты, смоук-тесты, логика, корнер-кейсы» | **F3** |
+| **UPD2 §4** «Миниапп не запускается на Android `ERR_NAME_NOT_RESOLVED`; на десктопе ок; ранее ~1 минута загрузки» | **F4** |
+| §1 «Умная выборка Графа Памяти» (10.15) | **F3** (аудит/смоук graph) |
+| §2 «Диагностика и разблокировка Сна» (10.15) | **F3** (аудит/смоук sleep) |
+| §3 «Ревамп Ностальгии» (10.15) | **F3** (аудит/смоук nostalgia) |
+| §6 «Роутинг команд / Имя / Приоритеты» (10.15) | **F3** (аудит/смоук persona/routing) |
+| §7 «Обновление "Гайда по фичам"» | **F2** |
+
+**Открытые вопросы для @Architect:** контракт `download(url, quality?)` и ветвление direct vs авто (T-1625);
+формат реестра PREV-слепков и семантика force-reset гайда (T-1634); глубина смоуков и приоритет Low-техдолга (T-1642);
+стратегия CSP/Tailwind/бандлинга и DNS-диагностики (T-1651); политика ротации секрета (SSH-ключи vs пароль, T-1660).
+**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (исторический документ планирования; артефакты — `plans/archive/*-round1016/`, 5 папок).
+**@PM код не пишет.**
+
+
 ## Раунд 10.15 (14.09.2026): Багфиксы Графа памяти, Воркера Сна и Ностальгии + Tool Calling — 9 фич — ✅ ЗАВЕРШЁН, ЗАДЕПЛОЕН И ЗААРХИВИРОВАН (14.09.2026; архив @PM, деплой @DevOps/@Memory 14.09.2026)
 
 **✅ ИТОГ 10.15 (14.09.2026):** реализация завершена, все **9 фич заархивированы** — перенесены

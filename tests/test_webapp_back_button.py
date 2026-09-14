@@ -22,7 +22,9 @@ def _js() -> str:
 
 
 def _html() -> str:
-    return open("web/index.html", encoding="utf-8").read()
+    # F4 10.16: CSS-канон вынесен в app.css — маркеры «фронта» = разметка+стили.
+    return (open("web/index.html", encoding="utf-8").read()
+            + open("web/static/app.css", encoding="utf-8").read())
 
 
 class TestRoutePureFunctions:

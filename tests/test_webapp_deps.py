@@ -525,7 +525,8 @@ class TestFrontFixes:
         assert "return !!v.configured" in src
 
     def test_select_dark_styling_present(self):
-        src = open("web/index.html", encoding="utf-8").read()
+        # F4 10.16: CSS-канон вынесен из inline <style> в web/static/app.css.
+        src = open("web/static/app.css", encoding="utf-8").read()
         # ФИКС 6: native <select> на тёмном фоне (было: белый UA-стиль)
         assert "select.field {" in src
         # Редизайн 10.5 (T-1098): тёмный фон — из токена --surface-3 (эталон).

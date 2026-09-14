@@ -824,9 +824,9 @@
         oversightDetail: null,   // модалка деталей чата
         oversightDetailBusy: false,
         oversightOpBusy: false,
-        // UI-полировка TMA: meAvatarUrl — URL аватара текущего юзера (CDN
-        // photo_url из initData либо blob через прокси avatarUrl) и флаг
-        // полноэкранного режима TMA (кнопка ⛶ в шапке). Кэш blob-URL —
+        // UI-полировка TMA: meAvatarUrl — URL аватара текущего юзера (blob
+        // через same-origin прокси avatarUrl; S10.16-8: без внешнего CDN) и
+        // флаг полноэкранного режима TMA (кнопка ⛶ в шапке). Кэш blob-URL —
         // модульный _avatarCache (см. выше в файле) — реактивность не нужна.
         meAvatarUrl: '',
         isFullscreen: false,
@@ -1625,8 +1625,10 @@
         });
       },
 
-      // Шапка: аватар текущего юзера. CDN me.photo_url (initData) — сразу;
-      // если photo_url нет — blob через прокси avatarUrl('user', …).
+      // Шапка: аватар текущего юзера — ТОЛЬКО same-origin blob-прокси
+      // /api/avatar (S10.16-8/F4). Внешний Telegram-CDN (me.photo_url из
+      // initData) запрещён строгим CSP `img-src 'self' data: blob:` и
+      // редиректит на cdn*.telesco.pe → лишний внешний запрос + CSP-violation.
       // Повторный вызов (после loadMe/ре-авторизации) сбрасывает поле —
       // аватар может появиться, даже если раньше не загрузился.
       refreshMeAvatar: function () {
@@ -1634,28 +1636,16 @@
         var me = this.me;
         this.meAvatarUrl = '';
         if (!me || me.telegram_id == null) return;
-        if (me.photo_url) {
-          this.meAvatarUrl = me.photo_url;   // CDN; onerror → фолбек ниже
-          return;
-        }
         this.loadAvatar('user', me.telegram_id).then(function (url) {
           if (url && self.me) self.meAvatarUrl = url;
         });
       },
 
-      // @error аватара в шапке: CDN photo_url умер → фолбек на прокси
-      // Bot API (blob); blob тоже не удался → meAvatarUrl='' прячет img
-      // (следующий refreshMeAvatar после loadMe попробует снова).
+      // @error аватара в шапке: blob-URL прокси битым быть не должен, но
+      // fail-closed — сбрасываем поле (img по v-if скрывается); следующий
+      // refreshMeAvatar после loadMe попробует снова.
       onMeAvatarError: function () {
-        var self = this;
-        var me = this.me;
-        var viaCdn = !!(me && me.photo_url
-          && this.meAvatarUrl === me.photo_url);
         this.meAvatarUrl = '';
-        if (!me || !viaCdn) return;
-        this.loadAvatar('user', me.telegram_id).then(function (url) {
-          if (url && self.me) self.meAvatarUrl = url;
-        });
       },
 
       // @error аватаров в списках: сброс поля → v-if убирает битый img;
@@ -4250,6 +4240,23 @@
           this.infoMeta = data;
           this.editingInfo = false;
           this.toast('Сохранено', 'ok');
+        } catch (e) {
+          this.toast('Ошибка: ' + e.message, 'err');
+        }
+      },
+      // F2 10.16 (ADR-1016-3): force-reset справки к код-канону (RBAC
+      // edit_info). Прежний текст бэкапится в prev_html на стороне бэкенда.
+      resetInfoCanon: async function () {
+        if (!window.confirm('Сбросить текст справки к канону из кода? '
+            + 'Текущий текст сохранится в бэкапе.')) return;
+        try {
+          var data = await this.api('/api/info/reset-canon', { method: 'POST' });
+          this.infoMeta = Object.assign({}, this.infoMeta, data, {
+            canon_drift: false,
+          });
+          await this.loadInfo();
+          this.editingInfo = false;
+          this.toast('Справка сброшена к канону', 'ok');
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
         }

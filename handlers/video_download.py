@@ -62,6 +62,7 @@ from tools.video_downloader import (
     ProbeResult,
     VideoDownloader,
     is_direct_media_url,
+    log_download_env_once,
 )
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,19 @@ def get_download_cooldown():
     on_startup уже ПОСЛЕ сборки `ToolDeps`, поэтому провайдер читает
     актуальный модульный глобал в момент tool-вызова."""
     return _cooldown
+
+
+def download_available() -> bool:
+    """R10.15-4: поднят ли download-воркер (DI-сервис внедрён).
+
+    S10.16-3: в текущем прод-DI `bot.py` ВСЕГДА вызывает
+    `setup_video_download(...)` (роутер 4e регистрируется безусловно, гейт —
+    горячий флаг в хендлере), поэтому здесь всегда `True`. Оставляем как
+    осознанную защиту на случай будущего УСЛОВНОГО DI (напр. downloader не
+    сконфигурирован) и потому что она покрыта тестами
+    `test_smoke_round1016_fixes.TestDownloadAlwaysRegistered`; иначе `yield`
+    direct_chat при отсутствующем сервисе потерял бы сообщение без ответа."""
+    return _downloader is not None
 
 
 def _extract_urls(message: types.Message) -> list[str]:
@@ -230,6 +244,12 @@ async def _delete_keyboard(bot: Bot, chat_id: int, trigger_message_id: int,
 async def video_download_handler(message: types.Message, bot: Bot = None):
     if _downloader is None or bot is None:
         return UNHANDLED
+    # R10.15-4: горячий гейт master-флага. Роутер зарегистрирован всегда
+    # (позиция 4e не меняется), поэтому выключенный модуль «спит» — сообщение
+    # уходит дальше по штатной пропагации, а не теряется без ответа.
+    if not hot.get("flags.download_enabled",
+                   getattr(settings, "DOWNLOAD_ENABLED", False)):
+        return UNHANDLED
     text = message.text or message.caption or ""
     if not isinstance(text, str):
         return UNHANDLED
@@ -281,27 +301,33 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
             # скачивания жжёт кулдаун; провал ДО старта (except-ветки ниже)
             # touch НЕ вызывает (fail не жжёт кулдаун).
             await cooldown_touch(_cooldown, chat_id, user_id)
-            path = await _downloader.download(urls[0], "direct",
+            path = await _downloader.download(urls[0], None,
                                               progress_cb=reporter.on_progress)
             await reporter.finish("✅ Файл готов, отправляю…")
             await _send_file(bot, chat_id, path, trigger_message_id,
                              title=None)
             await reporter.close()
         except DownloadTooBigError as exc:
-            logger.warning("[videodl] too big | chat=%s | url=%s | %s",
-                           chat_id, urls[0], exc)
+            log_download_env_once()
+            logger.warning("[videodl] too big | chat=%s | error=%s reason=%s",
+                           chat_id, type(exc).__name__, exc.reason)
             if not await reporter.fail(random.choice(VD_TOO_BIG_PHRASES)):
                 await _safe_error_reply(bot, chat_id, trigger_message_id,
                                         VD_TOO_BIG_PHRASES)
         except DownloadUnavailableError as exc:
-            logger.warning("[videodl] unavailable | chat=%s | url=%s | %s",
-                           chat_id, urls[0], exc)
+            log_download_env_once()
+            logger.warning(
+                "[videodl] unavailable | chat=%s | error=%s reason=%s",
+                chat_id, type(exc).__name__, exc.reason)
             if not await reporter.fail(random.choice(VD_UNAVAILABLE_PHRASES)):
                 await _safe_error_reply(bot, chat_id, trigger_message_id,
                                         VD_UNAVAILABLE_PHRASES)
         except Exception as exc:
-            logger.warning("[videodl] download failed | chat=%s | url=%s | "
-                           "quality=direct | error=%s", chat_id, urls[0], exc)
+            log_download_env_once()
+            # R17: без URL / str(exc).
+            logger.warning(
+                "[videodl] download failed | chat=%s | error=%s",
+                chat_id, type(exc).__name__)
             if not await reporter.fail(random.choice(VD_ERROR_PHRASES)):
                 await _safe_error_reply(bot, chat_id, trigger_message_id,
                                         VD_ERROR_PHRASES)
@@ -325,10 +351,19 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
         try:
             probe = await _downloader.probe(urls[0])
         except DownloadError as exc:
-            logger.warning("[videodl] probe failed | chat=%s | error=%s",
-                           chat_id, exc)
-            await message.reply(random.choice(VD_ERROR_PHRASES))
-            return None
+            # R17: только класс + safe-reason (без URL/str(exc)).
+            logger.warning("[videodl] probe failed | chat=%s | error=%s "
+                           "reason=%s", chat_id, type(exc).__name__,
+                           exc.reason)
+            log_download_env_once()
+            # T-1628: probe (yt-dlp) гейтит и cobalt-платформы — при провале
+            # для не-direct ссылки одна ограниченная попытка без меню
+            # качества (probe-fail кулдаун НЕ жжёт — см. _download_without_menu).
+            # Ревью-итер.1 (Medium): ветка is_direct_media_url(urls[0]) здесь
+            # недостижима — одиночный direct-URL перехвачен выше (:280), так
+            # как direct обрабатывается до probe. Ветка удалена.
+            return await _download_without_menu(
+                bot, message, urls[0], chat_id, user_id)
         # D279: touch только после успешного probe — fail не жжёт кулдаун.
         await cooldown_touch(_cooldown, chat_id, user_id)
         _PENDING[(chat_id, user_id)] = {
@@ -377,11 +412,88 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
     return None
 
 
+def _probe_error_phrase(reason: str) -> tuple[str, ...]:
+    """T-1628: safe-код причины → СУЩЕСТВУЮЩИЙ пул фраз (spec §4.4). Новых
+    пулов не вводим; неизвестная причина → общий VD_ERROR_PHRASES.
+    S10.16-5: probe эмитит только probe_timeout/probe_bot_check/probe_failed
+    (probe-raise в tools/video_downloader.py) — мёртвый probe_unavailable убран."""
+    if reason == "probe_bot_check":
+        return VD_UNAVAILABLE_PHRASES
+    if reason == "cobalt_down":
+        return VD_SERVICE_DOWN_PHRASES
+    if reason in ("direct_too_big", "ytdlp_too_big", "stream_too_big"):
+        return VD_TOO_BIG_PHRASES
+    return VD_ERROR_PHRASES
+
+
+def _fallback_phrases(exc: Exception) -> tuple[str, ...]:
+    """Пул фраз для сбоя bounded fallback (по классу, затем по reason)."""
+    if isinstance(exc, DownloadTooBigError):
+        return VD_TOO_BIG_PHRASES
+    if isinstance(exc, CobaltServiceDownError):
+        return VD_SERVICE_DOWN_PHRASES
+    if isinstance(exc, DownloadUnavailableError):
+        return VD_UNAVAILABLE_PHRASES
+    if isinstance(exc, DownloadBusyError):
+        return VD_BUSY_PHRASES
+    if isinstance(exc, DownloadError):
+        return _probe_error_phrase(exc.reason)
+    return VD_ERROR_PHRASES
+
+
+async def _download_without_menu(bot: Bot, message: types.Message, url: str,
+                                 chat_id: int, user_id: int):
+    """T-1628 (ADR-1016-1 §2.5): bounded probe-fallback Fast-Track — probe
+    (yt-dlp) провалился, но ссылка НЕ direct (cobalt-eligible) → одна попытка
+    `download(url, None)` без quality-меню. Кулдаун жжётся только после
+    успешного старта (probe-fail его не жжёт); провал → классифицированная
+    фраза (bot_check/unavailable ≠ «битая ссылка»)."""
+    remaining = await cooldown_remaining(_cooldown, chat_id, user_id)
+    if remaining > 0:
+        await message.reply(_cooldown_phrase(remaining))
+        return None
+    trigger_message_id = message.message_id
+    reporter = ProgressReporter(bot, chat_id,
+                                trigger_message_id=trigger_message_id)
+    register(chat_id, reporter)
+    path = None
+    try:
+        await reporter.start("⏳ Скачивание без выбора качества…")
+        path = await _downloader.download(url, None,
+                                          progress_cb=reporter.on_progress)
+        # S10.16-4: touch — после УСПЕШНОГО старта скачивания, но ДО
+        # `_send_file`: падение Telegram-отправки не должно позволять
+        # немедленно повторить тяжёлое скачивание. Провал самого download
+        # (probe-fail → fallback-fail, spec §4.4) кулдаун НЕ жжёт.
+        await cooldown_touch(_cooldown, chat_id, user_id)
+        await reporter.finish("✅ Файл готов, отправляю…")
+        await _send_file(bot, chat_id, path, trigger_message_id, title=None)
+        await reporter.close()
+    except Exception as exc:
+        log_download_env_once()
+        if isinstance(exc, DownloadError):
+            logger.warning("[videodl] fallback failed | chat=%s | error=%s "
+                           "reason=%s", chat_id, type(exc).__name__,
+                           exc.reason)
+        else:
+            logger.warning("[videodl] fallback failed | chat=%s | error=%s",
+                           chat_id, type(exc).__name__)
+        phrases = _fallback_phrases(exc)
+        if not await reporter.fail(random.choice(phrases)):
+            await _safe_error_reply(bot, chat_id, trigger_message_id, phrases)
+    finally:
+        if path is not None and path.exists():
+            path.unlink(missing_ok=True)
+        unregister(chat_id)
+    return None
+
+
 async def _safe_probe(url: str) -> ProbeResult | None:
     try:
         return await _downloader.probe(url)
     except DownloadError as exc:
-        logger.warning("[videodl] multi probe failed | error=%s", exc)
+        logger.warning("[videodl] multi probe failed | error=%s reason=%s",
+                       type(exc).__name__, exc.reason)
         return None
 
 
@@ -468,32 +580,37 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
         # 84.23.4: статус-сообщение исчезает, остаётся только медиа
         await reporter.close()
     except DownloadTooBigError as exc:
-        logger.warning("[videodl] too big | chat=%s | error=%s", chat_id, exc)
+        log_download_env_once()
+        logger.warning("[videodl] too big | chat=%s | error=%s reason=%s",
+                       chat_id, type(exc).__name__, exc.reason)
         if not await reporter.fail(random.choice(VD_TOO_BIG_PHRASES)):
             await _safe_error_reply(bot, chat_id, trigger_message_id,
                                     VD_TOO_BIG_PHRASES)
     except CobaltServiceDownError as exc:
-        logger.warning("[videodl] service down | chat=%s | error=%s",
-                       chat_id, exc)
+        log_download_env_once()
+        logger.warning("[videodl] service down | chat=%s | error=%s "
+                       "reason=%s", chat_id, type(exc).__name__, exc.reason)
         if not await reporter.fail(random.choice(VD_SERVICE_DOWN_PHRASES)):
             await _safe_error_reply(bot, chat_id, trigger_message_id,
                                     VD_SERVICE_DOWN_PHRASES)
     except DownloadBusyError as exc:            # гонка между busy-проверкой и локом
-        logger.warning("[videodl] busy race | chat=%s", chat_id)
+        logger.warning("[videodl] busy race | chat=%s | reason=%s",
+                       chat_id, exc.reason)
         if not await reporter.fail(random.choice(VD_BUSY_PHRASES)):
             await _safe_error_reply(bot, chat_id, trigger_message_id,
                                     VD_BUSY_PHRASES)
     except DownloadUnavailableError as exc:
-        # Прод-хотфикс: понятная причина (возраст/вход/DRM/live).
-        logger.warning("[videodl] unavailable | chat=%s | url=%s | %s",
-                       chat_id, url, exc)
+        # Прод-хотфикс: понятная причина (возраст/вход/DRM/live). R17: без URL.
+        log_download_env_once()
+        logger.warning("[videodl] unavailable | chat=%s | error=%s reason=%s",
+                       chat_id, type(exc).__name__, exc.reason)
         if not await reporter.fail(random.choice(VD_UNAVAILABLE_PHRASES)):
             await _safe_error_reply(bot, chat_id, trigger_message_id,
                                     VD_UNAVAILABLE_PHRASES)
     except Exception as exc:
-        logger.warning("[videodl] download failed | chat=%s | url=%s | "
-                       "quality=%s | error=%s", chat_id, url, f"{quality}p",
-                       exc)
+        log_download_env_once()
+        logger.warning("[videodl] download failed | chat=%s | error=%s",
+                       chat_id, type(exc).__name__)
         if not await reporter.fail(random.choice(VD_ERROR_PHRASES)):
             await _safe_error_reply(bot, chat_id, trigger_message_id,
                                     VD_ERROR_PHRASES)
@@ -579,8 +696,9 @@ async def _handle_native_media(bot: Bot, message: types.Message,
         logger.info("[videodl] native media re-sent | chat=%s | bytes=%d",
                     chat_id, size)
     except Exception as exc:
+        # R17: только класс (локальные temp-пути/file_id из str(exc) не логируем).
         logger.warning("[videodl] native media failed | chat=%s | error=%s",
-                       chat_id, exc)
+                       chat_id, type(exc).__name__)
         await _safe_error_reply(bot, chat_id, message.message_id,
                                 VD_ERROR_PHRASES)
     finally:

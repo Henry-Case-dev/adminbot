@@ -86,7 +86,8 @@ _STRING_ROWS = [
     {"key": "reactions.goodmorning_target_chat_ids", "value": "[1, 2]",
      "category": "reactions", "updated_at": None},
     {"key": "content.info_how_it_works",
-     "value": '{"html": "<h1>x</h1>", "updated_by": 1}',
+     "value": '{"html": "<h1>x</h1>", "updated_by": 1, '
+              '"canon_delivered_version": 2}',
      "category": "content", "updated_at": None},
     {"key": "keys.groq_api_key", "value": "gsk_secret_str",
      "category": "keys", "updated_at": None},

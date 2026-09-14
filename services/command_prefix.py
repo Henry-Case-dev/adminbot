@@ -58,7 +58,8 @@ def split_prefix(text: str) -> tuple[str | None, str]:
     return None, text
 
 
-def split_prefix_anywhere(text: str) -> tuple[str | None, str, int]:
+def split_prefix_anywhere(text: str, url_before=None
+                          ) -> tuple[str | None, str, int]:
     """(токен, остаток, позиция токена) — префикс в ЛЮБОМ месте строки.
 
     Follow-up R10.15-1: сценарий «ссылка-первой» из гайда F7
@@ -66,15 +67,36 @@ def split_prefix_anywhere(text: str) -> tuple[str | None, str, int]:
     ссылки, поэтому якорный :func:`split_prefix` его не видит. Позиция
     (индекс начала токена) даёт вызывающему проверить, что URL стоит ДО
     обращения (приоритет «URL раньше триггера»). ``None, text, -1`` — нет
-    префикса. :func:`split_prefix` (якорь ``^``) не изменён."""
+    префикса. :func:`split_prefix` (якорь ``^``) не изменён.
+
+    Follow-up R10.15-10: при ПОВТОРНОМ обращении в строке
+    (``эй Олег, смотри URL Олег, поясни…``) выбирается первое вхождение, перед
+    которым ``url_before(prefix)`` истинно; если такого нет — последнее
+    вхождение (команда обычно хвостовая). Без ``url_before`` поведение прежнее
+    (первый токен реестра, его первое вхождение) — контракт не ломается."""
     raw = str(text or "")
-    for tok in command_prefix_tokens():
-        m = re.search(
-            rf"(?i)(?<![0-9a-zа-яё_]){re.escape(tok)}(?![0-9a-zа-яё_])(?:{_SEP})",
-            raw)
-        if m:
-            return tok, raw[m.end():].lstrip(), m.start()
-    return None, text, -1
+    toks = command_prefix_tokens()
+    if url_before is None:
+        for tok in toks:
+            m = re.search(
+                rf"(?i)(?<![0-9a-zа-яё_]){re.escape(tok)}"
+                rf"(?![0-9a-zа-яё_])(?:{_SEP})", raw)
+            if m:
+                return tok, raw[m.end():].lstrip(), m.start()
+        return None, text, -1
+    matches: list[tuple[int, int, str]] = []
+    for tok in toks:
+        for m in re.finditer(
+                rf"(?i)(?<![0-9a-zа-яё_]){re.escape(tok)}"
+                rf"(?![0-9a-zа-яё_])(?:{_SEP})", raw):
+            matches.append((m.start(), m.end(), tok))
+    if not matches:
+        return None, text, -1
+    for start, end, tok in matches:
+        if url_before(raw[:start]):
+            return tok, raw[end:].lstrip(), start
+    start, end, tok = max(matches, key=lambda m: m[0])
+    return tok, raw[end:].lstrip(), start
 
 
 def name_mentioned(text: str) -> bool:

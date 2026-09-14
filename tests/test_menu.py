@@ -158,7 +158,8 @@ class TestMenuCommand:
 
     def test_theme_colors_in_miniapp(self):
         """B: миниапп применяет Telegram.WebApp-тему (themeParams + фолбэки)."""
-        src = open("web/index.html", encoding="utf-8").read()
+        # F4 10.16: init вынесен из inline index.html в /static/telegram-init.js.
+        src = open("web/static/telegram-init.js", encoding="utf-8").read()
         assert "Telegram.WebApp.setHeaderColor(" in src
         assert "themeParams" in src
         assert "setBackgroundColor(" in src

@@ -1,0 +1,6 @@
+/* F4 10.16 (ADR-1016-2 §2): входной файл prebuilt-Tailwind.
+   Собирается в web/static/vendor/tailwind.css (см. tailwind.config.js).
+   Кастомный CSS приложения живёт отдельно — web/static/app.css. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

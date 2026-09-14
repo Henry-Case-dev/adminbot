@@ -96,8 +96,8 @@ from tools.video_downloader import (
     DownloadTooBigError,
     DownloadUnavailableError,
     is_direct_media_url,
+    is_platform_url,
 )
-from tools.video_downloader import _is_platform_url
 from SmartModule.service import (
     EmptyTranscript,
     TranscriptionUnavailable,
@@ -172,6 +172,22 @@ def _has_trigger(text: str) -> bool:
     return command_registry.has_trigger_word("youtube", text)
 
 
+def _has_video_target(text: str) -> bool:
+    """URL, реально обслуживаемый видео-ветками (R10.15-11): YouTube-URL /
+    прямая медиа-ссылка / известная платформа (тот же набор, что у
+    `_classify_video_request`). Обычная веб-ссылка (напр. статья) целью
+    youtube НЕ считается — иначе речь «…транскрипт…» с такой ссылкой
+    консьюмится с ложным «а ссылку-то приложить?»."""
+    for url in extract_urls(text):
+        if extract_youtube_video_id(url) is not None:
+            return True
+        if is_direct_media_url(url):
+            return True
+        if is_platform_url(url):
+            return True
+    return False
+
+
 def _command_body(message: types.Message) -> str | None:
     """Раунд 10.15 (F6, T-1595): остаток сообщения ПОСЛЕ обязательного префикса.
 
@@ -189,8 +205,8 @@ def _triggered_body(message: types.Message) -> str | None:
     Раунд 10.15 (F6/F7 + follow-up R10.15-1/-3):
     * префикс в начале + триггер в начале остатка → явная команда (может быть
       без цели → консьюм нейтральной фразой, spec §5);
-    * префикс в начале + триггер в любом месте + YouTube-URL → команда
-      (D126: «URL+триггер в остатке в любом порядке»);
+    * префикс в начале + триггер в любом месте + ВАЛИДНАЯ видео-цель
+      (YouTube/direct-media/платформа) → команда (D126, R10.15-11);
     * «ссылка-первой» (URL до обращения) + префиксный триггер в начале
       остатка → команда (гайд F7 §3, R10.15-1);
     * иначе None: обычная речь со словом-триггером («Олег, помнишь
@@ -200,14 +216,16 @@ def _triggered_body(message: types.Message) -> str | None:
     if body is not None:
         if command_registry.matches_group("youtube", body):
             return body
-        if _has_trigger(body) and extract_urls(body):
+        if _has_trigger(body) and _has_video_target(body):
             return body
         return None
-    # Ссылка-первой (гайд F7 §3): обращение ПОСЛЕ URL.
-    tok, rest, at = command_prefix.split_prefix_anywhere(text)
+    # Ссылка-первой (гайд F7 §3): обращение ПОСЛЕ URL. R10.15-10: при
+    # повторном обращении берём то, перед которым стоит валидная цель.
+    tok, rest, at = command_prefix.split_prefix_anywhere(
+        text, url_before=_has_video_target)
     if tok is None or at < 0:
         return None
-    if not extract_urls(text[:at]):
+    if not _has_video_target(text[:at]):
         return None                       # URL обязан стоять ДО обращения
     if not command_registry.matches_group("youtube", rest):
         return None
@@ -371,7 +389,7 @@ def _classify_video_request(message: types.Message) -> _VideoRequest | None:
                     return _VideoRequest(kind="direct_url", mode=mode,
                                          url=url, video_id=None,
                                          media=None, source=message)
-                if _is_platform_url(url):
+                if is_platform_url(url):
                     return _VideoRequest(kind="platform_url", mode=mode,
                                          url=url, video_id=None,
                                          media=None, source=message)
@@ -675,14 +693,18 @@ async def _download_or_phrase(bot, chat_id: int, url: str,
     try:
         return await _download_url(url)
     except DownloadTooBigError as exc:
-        logger.warning("[youtube] download too big | chat=%s | %s",
-                       chat_id, exc)
+        # R17: только класс + safe-reason (никогда str(exc)/URL).
+        logger.warning("[youtube] download too big | chat=%s | error=%s "
+                       "reason=%s", chat_id, type(exc).__name__,
+                       getattr(exc, "reason", "-"))
         await _reply(bot, chat_id, random.choice(VIDEO_MEDIA_TOO_BIG_PHRASES),
                      target_message_id)
         return None
     except DownloadError as exc:
-        logger.warning("[youtube] download failed | chat=%s | error=%s",
-                       chat_id, exc)
+        # R17: только класс + safe-reason (никогда str(exc)/URL).
+        logger.warning("[youtube] download failed | chat=%s | error=%s "
+                       "reason=%s", chat_id, type(exc).__name__,
+                       getattr(exc, "reason", "-"))
         await _reply(bot, chat_id,
                      random.choice(VIDEO_MEDIA_UNAVAILABLE_PHRASES),
                      target_message_id)

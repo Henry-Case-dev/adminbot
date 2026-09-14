@@ -1057,18 +1057,32 @@ async def get_info(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """84.13.4: публичный (TMA-auth, ЛЮБАЯ роль, без requires_permission)."""
+    """84.13.4: публичный (TMA-auth, ЛЮБАЯ роль, без requires_permission).
+    F2 10.16 (аддитивно, ADR-1016-3): + `canon_version`/`canon_current_version`/
+    `canon_drift` (drift=true — текст не совпадает с код-каноном; UI-подсказка
+    для force-reset). Существующие поля не меняются."""
+    from services.info_service import (
+        INFO_CANON_VERSION,
+        canon_drift,
+    )
+
     cache: ConfigCache = get_cache(request)
     value = cache.get(_INFO_KEY)
     if isinstance(value, dict):
+        html = value.get("html", "")
         return {
             "key": _INFO_KEY,
-            "html": value.get("html", ""),
+            "html": html,
             "updated_at": value.get("updated_at"),
             "updated_by": value.get("updated_by"),
+            "canon_version": value.get("canon_version"),
+            "canon_current_version": INFO_CANON_VERSION,
+            "canon_drift": canon_drift(html),
         }
     return {"key": _INFO_KEY, "html": value or "", "updated_at": None,
-            "updated_by": None}
+            "updated_by": None, "canon_version": None,
+            "canon_current_version": INFO_CANON_VERSION,
+            "canon_drift": canon_drift(value if isinstance(value, str) else None)}
 
 
 @api_router.post("/info")
@@ -1079,8 +1093,9 @@ async def post_info(
 ):
     """84.13.4: право edit_info (по сиду — только admin через wildcard);
     лимит 32768 (прецедент _RICH_TEXT_LIMIT 53.3); пусто → 422.
-    F5: запись через InfoService.save_text() (файл legacy-зеркало + PG) —
-    при PG down файл-фолбек не устаревает. F18: PG down → 503 (не 200)."""
+    F2 10.16 (ADR-1016-3 §4): запись **PG-only** через InfoService.save_text()
+    (tracked `info_text.md` НЕ пишется — pull не блокируется). F18/F2:
+    PG down → 503 (локально-только НЕ пишем)."""
     cache: ConfigCache = get_cache(request)
     html = payload.html
     if not html.strip():
@@ -1093,23 +1108,42 @@ async def post_info(
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     try:
         from services.info_service import InfoService
-        InfoService().save_text(html)          # файл + кэш (84.13.3, F5)
-    except OSError:
-        logger.exception("[api] info file save failed | by=%s", user.id)
-        raise HTTPException(status_code=500, detail="сохранение файла не удалось")
-    value = {
-        "html": html,
-        "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "updated_by": user.id,
-    }
-    try:
-        await cache.set(_INFO_KEY, value, "content")
+        value = await InfoService().save_text(html, updated_by=user.id, cache=cache)
+    except ConfigCacheUnavailableError:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     except Exception:
         logger.exception("[api] info save failed | by=%s", user.id)
         raise HTTPException(status_code=500, detail="сохранение не удалось")
     logger.info("[api] info updated | by=%s | chars=%d", user.id, len(html))
     return {"key": _INFO_KEY, "updated_at": value["updated_at"],
             "updated_by": user.id}
+
+
+@api_router.post("/info/reset-canon")
+async def post_info_reset_canon(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_permission("edit_info"))],
+):
+    """F2 10.16 (ADR-1016-3 §3): явный force-reset «Гайда по фичам» к код-канону.
+    RBAC `edit_info` (как /api/info); текущий текст бэкапится в `prev_html` +
+    `prev_updated_at`, аудит — `updated_by`/`updated_at` (R16/R17).
+    PG down → 503. Ответ: `{canon_version, updated_at, updated_by}`."""
+    from services.info_service import InfoService
+
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    try:
+        value = await InfoService().reset_canon(updated_by=user.id, cache=cache)
+    except ConfigCacheUnavailableError:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    except Exception:
+        logger.exception("[api] info canon reset failed | by=%s", user.id)
+        raise HTTPException(status_code=500, detail="сброс к канону не удался")
+    logger.info("[api] info canon reset | by=%s | version=%s",
+                user.id, value.get("canon_version"))
+    return {"key": _INFO_KEY, "canon_version": value.get("canon_version"),
+            "updated_at": value.get("updated_at"), "updated_by": user.id}
 
 
 # ── F6 (10.14): гайд по возможностям (Markdown, PG-only) ─────────────────────

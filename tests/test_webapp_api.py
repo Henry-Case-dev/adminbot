@@ -17,6 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from services.config_cache import ConfigCache
+from services.info_service import DEFAULT_INFO_TEXT, INFO_CANON_VERSION
 from services.permissions import Permissions
 from web.app import create_app
 from web.api import deps as deps_mod
@@ -151,7 +152,10 @@ def client(monkeypatch, tmp_path):
             {"key": "content.info_how_it_works",
              "value": {"html": "<h1>Как это работает</h1>",
                        "updated_at": "2026-08-30T00:00:00+00:00",
-                       "updated_by": ADMIN_ID},
+                       "updated_by": ADMIN_ID,
+                       # ревью-итер.1: значение уже обработано доставкой канона,
+                       # одноразовая форс-доставка при init его не перезапишет.
+                       "canon_delivered_version": 2},
              "category": "content"},
             {"key": "memory.infinite_retention", "value": False,
              "category": "memory", "updated_at": None},
@@ -881,6 +885,45 @@ class TestInfo:
                            headers=_hdr(ADMIN_ID))
         assert resp.status_code == 503
 
+    # ── F2 10.16 (guide-delivery-round1016, ADR-1016-3) ────────────────────
+
+    def test_get_info_additive_canon_fields(self, client):
+        """§8#10: GET /api/info аддитивно отдаёт canon_version/canon_drift,
+        старые поля целы."""
+        resp = client.get("/api/info", headers=_hdr(USER_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["html"] == "<h1>Как это работает</h1>"     # старое поле
+        assert body["updated_by"] == ADMIN_ID
+        assert body["canon_current_version"] == INFO_CANON_VERSION
+        assert body["canon_version"] is None                   # у старого значения
+        assert body["canon_drift"] is True
+
+    def test_post_info_reset_canon_backs_up_prev(self, client):
+        """§8#6: reset-canon пишет канон, бэкапит prev_html, аудит updated_by."""
+        client.cache._settings["content.info_how_it_works"] = {
+            "html": "<h1>ручная</h1>", "canon_version": INFO_CANON_VERSION,
+            "updated_at": "2026-09-13T00:00:00+00:00", "updated_by": 1}
+        resp = client.post("/api/info/reset-canon", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        assert resp.json()["canon_version"] == INFO_CANON_VERSION
+        assert resp.json()["updated_by"] == ADMIN_ID
+        value = client.cache.get("content.info_how_it_works")
+        assert value["html"] == DEFAULT_INFO_TEXT
+        assert value["prev_html"] == "<h1>ручная</h1>"
+        assert value["prev_updated_at"] == "2026-09-13T00:00:00+00:00"
+        after = client.get("/api/info", headers=_hdr(ADMIN_ID)).json()
+        assert after["canon_drift"] is False
+
+    def test_post_info_reset_canon_non_admin_403(self, client):
+        resp = client.post("/api/info/reset-canon", headers=_hdr(MODERATOR_ID))
+        assert resp.status_code == 403
+
+    def test_post_info_reset_canon_pg_down_503(self, client):
+        client.cache._pg_available = False
+        resp = client.post("/api/info/reset-canon", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 503
+
 
 class TestControlRouteEdge:
     def test_control_unavailable_503(self, client):
@@ -1071,25 +1114,98 @@ class TestStatic:
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
         text = resp.text
-        # фронтенд фазы 4 (T-620): Vue-приложение + CSS-канон 84.7
+        # фронтенд фазы 4 (T-620): Vue-приложение
         assert '<div id="app"' in text
-        assert "vue.global.prod.js" in text
-        assert "cdn.tailwindcss.com" in text
         assert "dompurify" in text
-        assert "chart.js" in text
-        # Редизайн 10.5 (T-1098): анимированные градиенты на токенах эталона.
-        assert "@property --grad-angle" in text          # OD4: inherits:false
-        assert "animation: grad-drift" in text           # page-wash (T2)
-        assert "conic-gradient(from var(--grad-angle)" in text
-        assert "@media (prefers-reduced-motion: reduce)" in text
-        assert "--surface-1:#161616" in text             # палитра эталона
-        assert "backdrop-filter: blur(20px) saturate(140%)" in text
-        assert "Telegram.WebApp" in text
-        # Инцидент «Миниапп открыт без Telegram-контекста»: официальный
-        # SDK ОБЯЗАН грузиться — без telegram-web-app.js window.Telegram
-        # отсутствует → initData никогда не появляется → authLocked.
-        assert ('<script src="https://telegram.org/js/'
-                'telegram-web-app.js"></script>') in text
+        # F4 10.16 (ADR-1016-2 §2): CSS-канон вынесен из inline <style> в
+        # /static/app.css (кэш + параллельный парсинг) — в HTML только ссылки.
+        assert '<link rel="stylesheet" href="/static/app.css?v=' in text
+        assert ('<link rel="stylesheet" '
+                'href="/static/vendor/tailwind.css?v=') in text
+        assert "<style>" not in text
+
+    def test_web_index_no_external_cdn(self, client):
+        """F4 10.16 (ADR-1016-2 §2): ни одного внешнего CDN — иначе на Android
+        subresource-DNS даёт net::ERR_NAME_NOT_RESOLVED и «~1 минуту»."""
+        text = client.get("/web/").text
+        for host in ("cdn.tailwindcss.com", "unpkg.com", "cdn.jsdelivr.net",
+                     "telegram.org/js", "fonts.googleapis.com",
+                     "fonts.gstatic.com"):
+            assert host not in text, host
+
+    def test_web_index_self_hosted_vendor(self, client):
+        """F4 10.16: Telegram SDK / Vue / Chart.js — локальные бандлы."""
+        text = client.get("/web/").text
+        assert ('<script src="/static/vendor/telegram-web-app.js"></script>'
+                in text)
+        assert "/static/vendor/vue.global.prod.min.js" in text
+        assert "/static/vendor/chart.umd.min.js" in text
+        assert "/static/vendor/dompurify-3.4.15.min.js" in text
+
+    def test_web_index_no_inline_scripts(self, client):
+        """F4 10.16 (T-1653): inline-скриптов нет → CSP `script-src 'self'`
+        работает без 'unsafe-inline'/nonce/hash."""
+        text = client.get("/web/").text
+        assert "<script>" not in text
+        assert "/static/telegram-init.js" in text
+
+    def test_web_index_csp_header(self, client):
+        """F4 10.16 (ADR-1016-2 §3): строгий CSP только для HTML-ответов."""
+        resp = client.get("/web/")
+        csp = resp.headers.get("content-security-policy", "")
+        assert "default-src 'self'" in csp
+        assert "script-src 'self'" in csp
+        assert "style-src 'self' 'unsafe-inline'" in csp
+        assert "frame-ancestors https://web.telegram.org" in csp
+        assert "connect-src 'self'" in csp
+        assert "object-src 'none'" in csp
+        # script-src без небезопасных inline-послаблений (nonce/hash/inline);
+        # 'unsafe-eval' ОБЯЗАТЕЛЕН для рантайм-компилятора full-сборки Vue
+        # (ADR-1016-2 §4a, ревью-итерация 1) — поведенческий гейт в JS.
+        script_src = csp.split("script-src", 1)[1].split(";", 1)[0]
+        assert "'unsafe-inline'" not in script_src
+        assert "nonce-" not in script_src
+        assert "'unsafe-eval'" in script_src
+
+    def test_csp_absent_on_static_and_api(self, client):
+        """CSP навешивается на HTML, не на статику/API (initData не ломаем)."""
+        css_headers = {k.lower() for k in client.get("/static/app.css").headers}
+        api_headers = {k.lower() for k in client.get("/api/me").headers}
+        assert "content-security-policy" not in css_headers
+        assert "content-security-policy" not in api_headers
+
+    def test_telegram_init_external(self, client):
+        """F4 10.16 (T-1653): Telegram WebApp init вынесен в external-файл."""
+        resp = client.get("/static/telegram-init.js")
+        assert resp.status_code == 200
+        assert "Telegram.WebApp" in resp.text
+        assert "ready()" in resp.text and "expand()" in resp.text
+        assert "setBottomBarColor" in resp.text
+
+    def test_tailwind_prebuilt_css(self, client):
+        """F4 10.16 (ADR-1016-2 §3): Tailwind — предсобранный CSS, не Play CDN."""
+        resp = client.get("/static/vendor/tailwind.css")
+        assert resp.status_code == 200
+        assert "css" in resp.headers["content-type"]
+        css = resp.text
+        assert ".flex" in css                 # утилиты собраны из исходников
+        assert ".text-sm" in css
+        assert "@tailwind" not in css         # директивы раскрыты на сборке
+        assert "box-sizing" in css            # preflight на месте
+
+    def test_app_css_served_with_canon(self, client):
+        """F4 10.16: CSS-канон 84.7/10.5 вынесен в /static/app.css."""
+        resp = client.get("/static/app.css")
+        assert resp.status_code == 200
+        assert "css" in resp.headers["content-type"]
+        css = resp.text
+        assert "@property --grad-angle" in css          # OD4: inherits:false
+        assert "animation: grad-drift" in css           # page-wash (T2)
+        assert "conic-gradient(from var(--grad-angle)" in css
+        assert "@media (prefers-reduced-motion: reduce)" in css
+        assert "--surface-1:#161616" in css             # палитра эталона
+        assert "backdrop-filter: blur(20px) saturate(140%)" in css
+        assert "/static/fonts/material-symbols-rounded.woff2" in css
 
     def test_web_app_js_served(self, client):
         resp = client.get("/web/app.js")
@@ -1112,14 +1228,20 @@ class TestStatic:
         assert "Админка скоро будет" not in resp.text
 
     def test_index_version_query_param(self, client):
-        """84.21.2 + 10.8 (R10.8-5): app.js И woff2-субсет подключаются с
-        ?v=__APP_VERSION__ → реальная версия (cache-bust субсета шрифта,
-        который отдаётся с max-age=86400)."""
+        """84.21.2 + 10.8 (R10.8-5) + F4 10.16: app.js, app.css и woff2-субсет
+        подключаются с ?v=__APP_VERSION__ → реальная версия (cache-bust CSS и
+        субсета шрифта, который отдаётся с max-age=86400)."""
         resp = client.get("/web/")
         text = resp.text
         assert "__APP_VERSION__" not in text              # заглушка заменена
         assert "/web/app.js?v=2.57.0" in text
-        assert "/static/fonts/material-symbols-rounded.woff2?v=2.57.0" in text
+        assert "/static/app.css?v=2.57.0" in text
+        # F4: woff2 теперь объявлен в @font-face внутри app.css; версия
+        # подставляется выделенным маршрутом /static/app.css (статика raw).
+        css = client.get("/static/app.css?v=2.57.0")
+        assert "__APP_VERSION__" not in css.text
+        assert ("/static/fonts/material-symbols-rounded.woff2?v=2.57.0"
+                in css.text)
         # URL субсета с версией реально отдаётся 200 (query не ломает static).
         font = client.get(
             "/static/fonts/material-symbols-rounded.woff2?v=2.57.0")

@@ -6,6 +6,36 @@
 > Каталог-инвариант 10.12: REGISTRY 405 / GROUPS 90 / Settings 377 / mapped 88 / TAB_RULES 19 / categorized 381.
 > П.6 (Headroom) — OUT OF SCOPE репозитория, в коде ссылок нет.
 
+## Round 10.16 (2026-09-14, F1–F5, HEAD 18a9aa1 + рабочее дерево) — карта связностей
+- **F1 download-fix:** `tools/video_downloader.py::VideoDownloader.download(url, quality=None, progress_cb)`
+  (ветвление direct/YouTube/cobalt по URL; `_normalize_quality` None/auto/best/max/direct→`max`, `144…4320`);
+  `DownloadError.reason` (safe-токен, `default_reason` у подклассов) → потребители
+  `handlers/video_download.py` (`_fallback_phrases`/`_probe_error_phrase`/`_download_without_menu`)
+  и `services/tool_router.py::_download_media` (DownloadError→`status:"error"`). Env-preflight:
+  `download_env_summary`/`log_download_env_once` → `config.settings.get_ytdlp_pot_provider` (единый POT-источник).
+  Горячий гейт `flags.download_enabled` перенесён из `bot.py` (startup) в `video_download_handler`;
+  `bot.py` регистрирует `video_download_router` (4e) ВСЕГДА; `direct_chat._functional_module_active("download")`
+  → `download_available()` (`_downloader is not None`, фактически всегда True).
+  **Открытая связка (High S10.16-1):** `handlers/youtube.py::_download_or_phrase` логирует `str(exc)` —
+  `DownloadError.args` несут `url={url}` → R17-утечка.
+- **F2 guide-delivery:** `services/config_cache.py::_migrate_info_how_it_works_v1015` (+`_write_info_canon`) ↔
+  `services/info_service.py::canon_drift/normalize_canon/KNOWN_INFO_SNAPSHOTS/DEFAULT_INFO_TEXT` (INFO_CANON_VERSION=2);
+  маркер `canon_delivered_version`; write-path PG-only (`InfoService.save_text`/`reset_canon`) ↔
+  `web/api/routes.py` (`POST /api/info`, `POST /api/info/reset-canon` RBAC `edit_info`) и `handlers/info.py::cmd_edit_info`;
+  UI `web/app.js::resetInfoCanon`. `info_text.md` — read-only сид. **Открытая связка (Medium S10.16-2):**
+  форс-доставка неизвестного текста не сохраняет `prev_html`.
+- **F3 audit:** единый `services/database.py::parse_belief_meta` ← делегаты `dream_worker._belief_meta` /
+  `summary_memory._belief_base_weight`; `graph_stats.archived_beliefs` NOT LIKE-фильтр парадигм;
+  `services/command_prefix.py::split_prefix_anywhere(text, url_before=None)` ← `handlers/youtube.py`/`handlers/web.py`
+  (`_has_video_target`); `handlers/direct_chat.py` gating download. Смоук-набор `tests/test_smoke_round1016_*.py`.
+- **F4 miniapp:** `web/index.html` → self-host `web/static/vendor/*` (vue 3.5.42 / chart 4.5.1 / telegram-web-app.js /
+  tailwind prebuilt + `tailwind.config.js` / `tailwind.input.css`), `web/static/app.css` (вынесен из inline `<style>`),
+  `web/static/telegram-init.js`; CSP `_CSP_HTML` в `web/app.py` (`script-src 'self' 'unsafe-eval'` — full-сборка Vue,
+  `frame-ancestors` Telegram); `/static/app.css` роут с подстановкой `?v=` (`_render_app_css`).
+- **F5 security:** `plans/features/security-rotation-finalize-round1016/ssh-rotation-checklist.md`,
+  `plans/reports/round10.16_security_scan.md`; `plans/current_task.md` untracked (`.gitignore:70`).
+- Scan-отчёт: `plans/reports/round10.16_scanner_audit.md` (0 Critical / 1 High / 1 Medium / 6 Low / 3 Info).
+
 ## Stack
 - **aiogram 3.31** (polling) + **FastAPI** webapp (`web/app.py`) + **asyncpg** (PG) + **aiosqlite** (memory v8). APP_VERSION=2.51.0.
 - **httpx** for LLM/API calls, **sqlite-vec** (optional) for vector search, **FTS5** built-in fallback.

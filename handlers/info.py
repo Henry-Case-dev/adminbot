@@ -170,9 +170,14 @@ async def cmd_edit_info(message: types.Message, bot: Bot = None) -> None:
                      message.message_id)
         return
     try:
-        _service.save_text(new_text)               # файл + кэш (52.3)
-    except OSError:
-        logger.exception("[/edit_info] file write failed | user=%s", user_id)
+        await _service.save_text(new_text, updated_by=user_id)  # PG-only (F2 10.16)
+    except Exception as exc:
+        # Ревью-итер.1 (Medium): save_text — async PG-only и может упасть
+        # ЛЮБЫМ исключением БД (обрыв соединения и т.п.), не только
+        # ConfigCacheUnavailableError/OSError. Ловим всё, симметрично
+        # web-роуту (web/api/routes.py); R17: без str(exc) в чат/лог.
+        logger.warning("[/edit_info] save failed (PG-only) | user=%s | error=%s",
+                       user_id, type(exc).__name__)
         await _reply(bot, message.chat.id, random.choice(INFO_BAD_MARKUP_PHRASES),
                      message.message_id)
         return                                     # кэш остался старым

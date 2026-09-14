@@ -132,7 +132,7 @@ class TestGateOff:
         dl._stream_to_file = AsyncMock(return_value=out)
         result = await dl.download(YT_URL, "720p")
         assert result == out
-        dl._request_tunnel.assert_awaited_once_with(YT_URL, "720p")
+        dl._request_tunnel.assert_awaited_once_with(YT_URL, "720")
         dl.download_ytdlp.assert_not_awaited()
 
 

@@ -19,10 +19,12 @@ X-Telegram-Init-Data → 401). Метод avatarUrl(kind, id) — fetch прок
 реактивное поле (chat.avatarUrl/u.avatarUrl), img рисуется только через
 v-if="…photo_file_id != null && ….avatarUrl" (photo_file_id==null — img
 не рисуем вовсе); @error — сброс поля (avatarError/onMeAvatarError),
-НЕ style.display (после него img не появился бы при ре-рендере). Шапка:
-CDN me.photo_url сразу, при onerror — фолбек на прокси
-(avatarUrl('user', me.telegram_id)). JS-тестов нет — аудируем маркеры
-(образец test_webapp_lore_ui.py / test_webapp_agi_ui.py).
+НЕ style.display (после него img не появился бы при ре-рендере). Шапка
+(S10.16-8/F4): только same-origin blob через прокси
+(loadAvatar('user', me.telegram_id)); внешний CDN me.photo_url убран —
+строгий CSP img-src запрещает его и редирект на cdn*.telesco.pe.
+JS-тестов нет — аудируем маркеры (образец test_webapp_lore_ui.py /
+test_webapp_agi_ui.py).
 """
 import re
 
@@ -295,19 +297,20 @@ class TestAvatarFrontAudit:
         assert "this.avatarUrl(kind, id)" in body
         assert "obj.avatarUrl = url" in body
 
-    def test_header_avatar_cdn_then_proxy(self):
-        """Шапка (fix-раунд): meAvatarUrl — CDN me.photo_url сразу; при
-        отсутствии photo_url — blob avatarUrl('user', telegram_id);
-        onerror CDN → фолбек на прокси (вторая попытка)."""
+    def test_header_avatar_via_same_origin_proxy(self):
+        """Шапка (S10.16-8/F4): meAvatarUrl — ТОЛЬКО same-origin blob через
+        прокси avatarUrl('user', telegram_id); внешний CDN me.photo_url НЕ
+        используется (строгий CSP img-src 'self' data: blob:; редирект на
+        cdn*.telesco.pe тоже был бы заблокирован). onMeAvatarError —
+        fail-closed сброс поля (без возврата на CDN)."""
         src = _Static.read("web/app.js")
         assert _Static.has_method(src, "refreshMeAvatar")
         body = _Static.body(src, "refreshMeAvatar")
         assert "this.meAvatarUrl = ''" in body
-        assert "me.photo_url" in body
+        assert "me.photo_url" not in body
         assert "loadAvatar('user', me.telegram_id)" in body
         err = _Static.body(src, "onMeAvatarError")
-        assert "me.photo_url" in err
-        assert "loadAvatar('user', me.telegram_id)" in err
+        assert "me.photo_url" not in err
         assert "this.meAvatarUrl = ''" in err
 
     def test_avatar_error_reset_method(self):
@@ -416,23 +419,26 @@ class TestAvatarFrontAudit:
 
     def test_sticky_header_class(self):
         html = _Static.read("web/index.html")
-        assert ".header-sticky" in html            # CSS-правило
-        assert "position: sticky" in html
-        assert "z-index: 40" in html               # шапка — без изменений
+        # F4 10.16: CSS-канон вынесен из inline <style> в app.css.
+        css = _Static.read("web/static/app.css")
+        assert ".header-sticky" in css             # CSS-правило
+        assert "position: sticky" in css
+        assert "z-index: 40" in css                # шапка — без изменений
         assert 'class="main-header header-sticky card-solid' in html
         # Раунд 10.6 (A1/T-1161): sidebar (z-index:45) удалён; скролл — main.
-        assert "z-index: 45" not in html
-        assert ".app-shell" in html
-        assert ".fullscreen-mode .scroll-area" in html
-        assert "overscroll-behavior: contain" in html
+        assert "z-index: 45" not in css
+        assert ".app-shell" in css
+        assert ".fullscreen-mode .scroll-area" in css
+        assert "overscroll-behavior: contain" in css
 
     def test_gradient_animation_8s(self):
-        html = _Static.read("web/index.html")
+        # F4 10.16: CSS-канон вынесен из inline <style> в app.css.
+        css = _Static.read("web/static/app.css")
         # Редизайн 10.5 (T-1098/OD4): анимированные градиенты эталона.
         # 10.9 (п.8): чуть быстрее — grad-drift 18s, --grad-speed 14s.
-        assert "animation: grad-drift 18s" in html
-        assert "--grad-speed:14s" in html
-        assert "animation: grad-spin" in html
+        assert "animation: grad-drift 18s" in css
+        assert "--grad-speed:14s" in css
+        assert "animation: grad-spin" in css
 
     def test_relations_enrich_fields_in_app_js(self):
         """Фронт опирается на username/photo_file_id сервера (топ-50);

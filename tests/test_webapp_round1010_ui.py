@@ -15,7 +15,9 @@ from pathlib import Path
 
 ROOT = Path(".")
 JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
-HTML = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+# F4 10.16: CSS-канон вынесен в app.css — static-маркеры читают разметку+стили.
+HTML = ((ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        + (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8"))
 CHAT_PARAMS = (ROOT / "services" / "chat_params.py").read_text(encoding="utf-8")
 ROUTES = (ROOT / "web" / "api" / "routes.py").read_text(encoding="utf-8")
 AVATARS = (ROOT / "web" / "api" / "avatars.py").read_text(encoding="utf-8")

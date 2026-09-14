@@ -12,7 +12,9 @@ from config.settings import Settings
 from services import param_catalog as pc
 
 JS = open("web/app.js", encoding="utf-8").read()
-HTML = open("web/index.html", encoding="utf-8").read()
+# F4 10.16: CSS-канон вынесен в app.css — static-маркеры читают разметку+стили.
+HTML = (open("web/index.html", encoding="utf-8").read()
+        + open("web/static/app.css", encoding="utf-8").read())
 
 
 class TestCatalogInvariant106:

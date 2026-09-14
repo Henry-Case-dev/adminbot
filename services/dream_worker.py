@@ -59,6 +59,7 @@ from zoneinfo import ZoneInfo
 
 from config.settings import settings
 from services import hot_config as hot
+from services.database import parse_belief_meta, row_get
 from services.dream_prompts import (
     DEEP_SLEEP_BRIDGE_SYSTEM_PROMPT,
     DREAM_DISTILL_PROMPT,
@@ -907,17 +908,11 @@ class DreamWorker:
 
     @staticmethod
     def _belief_meta(row) -> dict:
-        """belief_meta строки belief → dict (битое/пустое → {})."""
-        raw = row.get("belief_meta") if hasattr(row, "get") else None
-        if isinstance(raw, dict):
-            return raw
-        if not raw:
-            return {}
-        try:
-            loaded = json.loads(str(raw))
-        except (ValueError, TypeError):
-            return {}
-        return loaded if isinstance(loaded, dict) else {}
+        """belief_meta строки belief → dict (битое/пустое → {}).
+
+        S10.13-13: делегирует единому `parse_belief_meta` (database) — формат
+        разбирается идентично read-path summary_memory."""
+        return parse_belief_meta(row_get(row, "belief_meta"))
 
     async def _maybe_decay(self, now: int) -> None:
         """Интервальный гейт (раз в BELIEF_DECAY_INTERVAL_DAYS) + маркер

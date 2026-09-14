@@ -16,6 +16,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InputRichMessage, ReplyParameters
 
 from handlers import info as info_mod
+from services.config_cache import ConfigCacheUnavailableError
 from services.info_service import DEFAULT_INFO_TEXT
 from services.smartmodule_phrases import (
     INFO_BAD_MARKUP_PHRASES,
@@ -67,7 +68,7 @@ def _make_msg(text, user_id=1, chat_id=CHAT_ID, message_id=5):
 def _service(get_text=HTML_TEXT):
     service = MagicMock()
     service.get_text = MagicMock(return_value=get_text)
-    service.save_text = MagicMock()
+    service.save_text = AsyncMock()   # F2 10.16: save_text — async (PG-only)
     return service
 
 
@@ -377,10 +378,10 @@ class TestCmdEditInfo:
         info_mod.setup_info(service)
         events = []
 
-        def on_save(text):
+        async def on_save(*args, **kwargs):
             events.append("save")
 
-        service.save_text = MagicMock(side_effect=on_save)
+        service.save_text = AsyncMock(side_effect=on_save)
         bot = AsyncMock()
 
         async def on_send(*args, **kwargs):
@@ -391,7 +392,8 @@ class TestCmdEditInfo:
         msg = _make_msg("/edit_info <b>новая справка</b>", user_id=ADMIN_ID)
         await info_mod.cmd_edit_info(msg, bot=bot)
         assert events[:2] == ["send", "save"]              # превью ДО сохранения
-        service.save_text.assert_called_once_with("<b>новая справка</b>")
+        service.save_text.assert_called_once_with(
+            "<b>новая справка</b>", updated_by=ADMIN_ID)
         preview = bot.send_rich_message.await_args_list[0]
         assert preview.args == (ADMIN_ID,
                                 InputRichMessage(html="<b>новая справка</b>"))
@@ -445,7 +447,36 @@ class TestCmdEditInfo:
     async def test_save_oserror_bad_markup_pool(self, info_cleanup):
         """#12: save_text бросает OSError → INFO_BAD_MARKUP_PHRASES; кэш старый."""
         service = _service()
-        service.save_text = MagicMock(side_effect=OSError("нет прав на запись"))
+        service.save_text = AsyncMock(side_effect=OSError("нет прав на запись"))
+        info_mod.setup_info(service)
+        msg = _make_msg("/edit_info <b>новое</b>", user_id=ADMIN_ID)
+        bot = AsyncMock()
+        await info_mod.cmd_edit_info(msg, bot=bot)
+        assert bot.send_message.await_args.args[1] in INFO_BAD_MARKUP_PHRASES
+        service.save_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_save_pg_down_bad_markup_pool(self, info_cleanup):
+        """F2 10.16: PG down (ConfigCacheUnavailableError) → пул ошибки,
+        локально НЕ пишем (save_text наверх пробросил исключение)."""
+        service = _service()
+        service.save_text = AsyncMock(
+            side_effect=ConfigCacheUnavailableError("PostgreSQL недоступен (R6)"))
+        info_mod.setup_info(service)
+        msg = _make_msg("/edit_info <b>новое</b>", user_id=ADMIN_ID)
+        bot = AsyncMock()
+        await info_mod.cmd_edit_info(msg, bot=bot)
+        assert bot.send_message.await_args.args[1] in INFO_BAD_MARKUP_PHRASES
+        service.save_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_save_unexpected_exception_bad_markup_pool(self, info_cleanup):
+        """Ревью-итер.1 (Medium): save_text (async PG-only) падает НЕ-OSError/
+        не-PGdown исключением → пользователь всё равно получает фразу, а не
+        тишину (симметрично web-роуту)."""
+        service = _service()
+        service.save_text = AsyncMock(
+            side_effect=RuntimeError("connection reset by peer"))
         info_mod.setup_info(service)
         msg = _make_msg("/edit_info <b>новое</b>", user_id=ADMIN_ID)
         bot = AsyncMock()

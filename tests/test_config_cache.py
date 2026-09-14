@@ -282,7 +282,10 @@ class TestInfoSeed:
         settings_rows.append({
             "key": "content.info_how_it_works",
             "value": {"html": "<h1>ИЗ БД</h1>", "updated_at": "t",
-                      "updated_by": 1},
+                      "updated_by": 1,
+                      # ревью-итер.1: маркер доставки — значение уже обработано,
+                      # одноразовая форс-доставка его не перезаписывает.
+                      "canon_delivered_version": 2},
             "category": "content",
         })
         conn = _FakeConn(settings_rows, role_rows, admin_rows)

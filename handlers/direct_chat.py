@@ -33,6 +33,7 @@ from services import command_prefix
 from services import hot_config as hot
 from services import bot_persona
 from handlers.voice_transcription import is_reply_to_transcription
+from handlers.video_download import download_available
 from services.direct_chat_service import DirectChatService
 from services.smartmodule_phrases import (
     CHAT_CLEAR_DONE_PHRASE,
@@ -109,11 +110,25 @@ _FUNCTIONAL_FLAGS: dict[str, tuple[str, bool]] = {
 
 
 def _functional_module_active(group: str | None) -> bool:
-    """Включён ли воркер группы (master-флаг; hot → settings-фолбек)."""
+    """Включён ли воркер группы (master-флаг + доступность сервиса).
+
+    R10.15-4: для `download` одного hot-флага мало — роутер 4e регистрируется
+    в `bot.py` всегда, но yield оправдан только когда поднят DI-сервис
+    (`_downloader`). Иначе сообщение не должно покидать direct_chat без
+    ответа: пропускаем его в обычный путь (LLM).
+
+    S10.16-3: при текущем безусловном DI (`setup_video_download` всегда)
+    ветка `download_available()` всегда True — это осознанная
+    defense-in-depth для будущего условного DI (см. `download_available`),
+    покрыта тестами TestDownloadAlwaysRegistered."""
     spec = _FUNCTIONAL_FLAGS.get(group or "")
     if spec is None:
         return False
-    return bool(hot.get(spec[0], spec[1]))
+    if not hot.get(spec[0], spec[1]):
+        return False
+    if group == "download":
+        return download_available()
+    return True
 
 
 def setup_direct_chat(service: DirectChatService | None, bot_id: int | None,

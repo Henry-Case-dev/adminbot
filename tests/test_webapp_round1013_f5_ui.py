@@ -426,7 +426,8 @@ class TestUiMarkers:
                 in block)
 
     def test_index_html_markers(self):
-        html = _read("web/index.html")
+        # F4 10.16: CSS вынесен в app.css — маркеры читают разметку+стили.
+        html = (_read("web/index.html") + _read("web/static/app.css"))
         assert "Мониторинг Интеллекта" in html
         assert "cognition-ribbons" in html
         assert "ribbon-op-50" in html

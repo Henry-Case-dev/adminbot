@@ -5,7 +5,9 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активного раунда НЕТ. **Раунд 10.15
+> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активный раунд — **10.16 «Download-Guide-MobileAudit»**
+> (багфиксы + полный аудит 10.13–10.15; 🟣 SPEC_READY, Builder не начат; Step 2/3 — блок ниже).
+> **Раунд 10.15
 > «Багфиксы Графа памяти, Воркера Сна и Ностальгии + Гибридный Tool Calling»**
 > — **COMPLETED + DEPLOYED** (HEAD == origin/master == `d01a539`): 9 фич F1–F9,
 > 76 задач T-1549…T-1624, релиз **`release-round1015`**, 3 ADR (ADR-1015-1/2/3),
@@ -16,6 +18,84 @@
 > (COMPLETED + DEPLOYED, HEAD `eb2a232`, PG `personas`/`persona_traits`/
 > `persona_state`; флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**).
 > Метрики — `plans/metrics.md`. Блоки раунда 10.15 — ниже.
+
+> **Step 0 (recon @Memory) раунда 10.16 «Download-Guide-MobileAudit» (14.09.2026):**
+> ТЗ — `plans/current_task.md` секция «UPD2:» (строки 148-153). KG-узел
+> `Epic: Download-Guide-MobileAudit round1016` + 4 Risk-узла. Статус —
+> **RECON, Builder не начат**. Проверка репозитория: `plans/current_task.md` —
+> **НЕ в git** (`git ls-files` пусто, `git log --all` пусто, `git rev-list --all
+> --objects | grep current_task` = 0, `.gitignore:70`) → **пароль в истории git
+> ОТСУТСТВУЕТ**; но он есть в рабочем файле (строки 63-65) → сменить/отозвать.
+> **§1 (download):** два независимых дефекта — (a) tool-путь:
+> `services/tool_router.py:592-594` всегда шлёт quality `"direct"` →
+> `_normalize_quality('direct')` (`tools/video_downloader.py:695-705`) →
+> `DownloadError("invalid quality")` для YouTube/платформ (проверено рантаймом;
+> работает только для прямых `.mp4`); (b) ручной путь: `probe()` в
+> `handlers/video_download.py:326-331` падает по окружению (cookies/proxy/POT/
+> SABR-403) → «битая ссылка». **§2 (гайд):** `_migrate_info_how_it_works_v1015`
+> (`services/config_cache.py:235-266`) осознанно **пропускает** перезапись, если
+> прод-PG `content.info_how_it_works` != `PREV_DEFAULT_INFO_TEXT` (ручная правка);
+> косвенно подтверждено дрейфом `info_text.md` при деплое 10.15 (tracked-файл
+> как write-path `/edit_info`). **§4 (миниапп):** DuckDNS+Caddy+LE
+> (`admin-bot.duckdns.org`), Android `ERR_NAME_NOT_RESOLVED` = DNS-резолв
+> (duckdns-блокировка/протухшая запись/IPv6); ~1 мин — тяжёлый несобранный
+> фронт (`index.html` ~235 КБ + `app.js` ~285 КБ) + CDN-Tailwind/telegram-web-app.
+> **В силе:** R16, R17, порядок роутеров `bot.py`, `media/`/`.env` не трогать,
+> русские conventional commits. Открытый техдолг 10.13-10.15 (см. ниже) — в
+> скоупе §3 (полный аудит). Детали — KG + `plans/reports/*`.
+
+> **Step 2/3 (Step 2 @Architect — синк Step 3 @Memory) 14.09.2026 (раунд 10.16
+> «Download-Guide-MobileAudit»):** эпик `Epic: Download-Guide-MobileAudit round1016`
+> — **ARCHITECTED / SPEC_READY, Builder не начат**. **5 фич F1–F5 / 41 задача
+> T-1625…T-1665** (во всех 5 `plans/features/*-round1016/` — `spec.md` + `tasks.md`,
+> 🟣 SPEC_READY) + **3 ADR**. Каталог-Δ = **0** (REGISTRY **435** / GROUPS **90** /
+> Settings **406** / categorized **411** / mapped **88** / `TAB_RULES` **19**);
+> **DDL нет** (единственная миграция — DML `info_how_it_works` в F2). Baseline:
+> HEAD `18a9aa1`, pytest **5774/0**, APP_VERSION **2.57.0**, SQLite **v9**.
+>
+> **F1** `download-fix` (T-1625…1633, **P0**, **ADR-1016-1**): контракт
+> `download(url, quality=None)` — `None`/`""`/`auto`/`best`/`max` → `max`,
+> `"1080p"`/`1080` → `"1080"`, мусор → `invalid_quality` без сети; **`"direct"`
+> больше не quality** (legacy-алиас → `max`); ветвление direct/платформа только по
+> `is_direct_media_url` (без Content-Type/пробы); **R17-safe reason-коды**
+> (`probe_timeout`/`probe_bot_check`/`cobalt_*`/…; в лог только `error=<Class>
+> reason=<code>`, без URL); **env-preflight** `download_env_summary()` (presence
+> cookies/proxy/pot/cobalt); **bounded probe-fallback** `_download_without_menu`
+> (probe-fail не жжёт кулдаун).
+> **F2** `guide-delivery` (T-1634…1641, **P1**, **ADR-1016-3**): **владелец
+> РАЗРЕШИЛ ПРИНУДИТЕЛЬНО перезаписать** текущий текст гайда в PG
+> (`content.info_how_it_works`) новым каноном из ТЗ (ценных ручных правок нет);
+> вводится **`canon_version`** + `KNOWN_INFO_SNAPSHOTS` + `normalize_canon`
+> (нормализованное сравнение, unknown-текст не затирается молча → `canon_drift`);
+> **force-reset** `POST /api/info/reset-canon` (RBAC `edit_info`, бэкап
+> `prev_html`, аудит `updated_by` = id); **`save_text` PG-only**, `info_text.md` —
+> read-only сид/байт-канон → pull не блокируется; кнопка/команда `reset-canon`.
+> **F3** `audit-recent-epics` (T-1642…1650, **P1**, →F1/F2): **in-process
+> смоук-тесты** (pytest + моки PG/yt-dlp/cobalt/LLM, без сети/секретов) по 7
+> подсистемам (download/probe, tool-loop, guide, graph, sleep, nostalgia, persona);
+> **FIX** S10.13-6b/-13, R10.15-4/-10/-11; **WONTFIX+док** S10.13-9/-11, R10.14-4;
+> отчёт `plans/reports/round10.16_audit.md`.
+> **F4** `miniapp-mobile` (T-1651…1659, **P1**, **ADR-1016-2**, независима,
+> параллельно F3): **владелец утвердил self-host ВСЕХ зависимостей** (Vue 3,
+> Chart.js 4, Telegram WebApp SDK, **Tailwind → предсобранный CSS** build-time CLI +
+> safelist), строгий **CSP** (`script-src 'self'`, без inline), убрать внешние CDN;
+> `<style>` → `app.css`, сжатие Caddy (вне репо); DNS/Caddy — **@DevOps**.
+> **F5** `security-rotation-finalize` (T-1660…1665, **P0**, →F1–F4, последняя):
+> ротация/отзыв SSH-пароля (`plans/current_task.md` — **НЕ в git**, подтверждено),
+> переход на SSH-ключи, README/R17; ротация может идти параллельно.
+>
+> **Порядок:** F1 → F2 → F3 → {F4 ∥ F3} → F5; **F1 и F2 независимы** (зависимости
+> `F1→F2` **НЕТ**). **В силе:** R16, R17, порядок роутеров `bot.py`, `media/`/`.env`
+> не трогать, каталог-Δ только санкционированно, русские conventional commits.
+> **Граф синхронизирован (Step 3):** созданы 5 Feature + 5 SpecDecision
+> (`download contract quality fix`, `guide canon versioning + force overwrite`,
+> `miniapp self-host (Vue/Chart.js/Tailwind/Telegram SDK)`, `in-process smoke suite`,
+> `SSH password rotation`) + `CSP script-src 'self' (round1016)` +
+> `DuckDNS + Caddy + Let's Encrypt` + `tech-debt-round10.16` +
+> `metric-snapshot-round1016-baseline` + `tool_router download_media`; обновлены
+> 4 Risk-узла (статусы), 3 ADR, `tech-debt-round10.15`, `help guide canon`;
+> связи CONTAINS/PART_OF/DEPENDS_ON (F3→F1/F2; F5→F1–F4), IMPLEMENTS, HAS_ADR,
+> ADDRESSES, REQUIRES, CONSTRAINED_BY, SUPERSEDES.
 
 > **Step 2/3 (Step 2 @Architect, итерация 2 — синк Step 3 @Memory) 14.09.2026
 > (раунд 10.15 «Багфиксы Графа памяти, Воркера Сна и Ностальгии»):**

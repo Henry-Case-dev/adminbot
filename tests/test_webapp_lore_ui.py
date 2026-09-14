@@ -96,7 +96,8 @@ class TestChatLoreFrontAudit:
         height:100dvh, overflow:hidden), панель лора заполняет экран."""
         html, _css = self._html(), None
         assert ":class=\"{ 'fullscreen-mode': isFullscreen }\"" in html
-        css = open("web/index.html", encoding="utf-8").read()
+        # F4 10.16: CSS-канон вынесен из inline <style> в app.css.
+        css = open("web/static/app.css", encoding="utf-8").read()
         assert ".fullscreen-mode" in css
         assert "height: 100dvh" in css
         assert "overflow: hidden" in css

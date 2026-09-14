@@ -237,7 +237,10 @@ class TestEkgLogsF6:
     """
 
     APP_JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
-    INDEX = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    # F4 10.16: CSS-канон вынесен в app.css — маркеры = разметка+стили.
+    INDEX = ((ROOT / "web" / "index.html").read_text(encoding="utf-8")
+             + (ROOT / "web" / "static" / "app.css").read_text(
+                 encoding="utf-8"))
     STATUS = (ROOT / "services" / "status_service.py").read_text(encoding="utf-8")
     LOG_RING = (ROOT / "services" / "log_ring.py").read_text(encoding="utf-8")
     ROUTES = (ROOT / "web" / "api" / "routes.py").read_text(encoding="utf-8")

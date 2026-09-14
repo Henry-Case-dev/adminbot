@@ -14,7 +14,9 @@ from pathlib import Path
 
 ROOT = Path(".")
 JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
-HTML = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+# F4 10.16: CSS-канон вынесен в app.css — static-маркеры читают разметку+стили.
+HTML = ((ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        + (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8"))
 
 # Пиктографические emoji из spec §2.2 (спецсимволы §2.3 исключены явно).
 PICTOGRAPHIC = (

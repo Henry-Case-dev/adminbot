@@ -46,7 +46,7 @@ from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _chat_limit,  # G-3 per-chat
 )
-from services.database import row_get
+from services.database import parse_belief_meta, row_get
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
@@ -69,22 +69,10 @@ _GRAPH_ACTIVATION_NODE_CAP = 12   # потолок узлов-кандидато
 
 def _belief_base_weight(row) -> float:
     """base_weight belief из belief_meta (fallback _BELIEF_BASE_WEIGHT).
-    Кривой/пустой meta → база (никогда не бросает). row — dict/Row."""
-    try:
-        raw = row["belief_meta"] if hasattr(row, "__getitem__") else None
-    except (KeyError, IndexError, TypeError):
-        raw = None
-    if isinstance(raw, dict):
-        meta = raw
-    elif raw:
-        try:
-            meta = json.loads(str(raw))
-        except (ValueError, TypeError):
-            meta = {}
-    else:
-        meta = {}
-    if not isinstance(meta, dict):
-        return _BELIEF_BASE_WEIGHT
+    Кривой/пустой meta → база (никогда не бросает). row — dict/Row.
+
+    S10.13-13: парсинг делегирован единому `parse_belief_meta` (database)."""
+    meta = parse_belief_meta(row_get(row, "belief_meta"))
     try:
         return float(meta.get("base_weight") or _BELIEF_BASE_WEIGHT)
     except (TypeError, ValueError):
