@@ -5,19 +5,51 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** активный раунд — **10.16 «Download-Guide-MobileAudit»**
-> (багфиксы + полный аудит 10.13–10.15; 🟣 SPEC_READY, Builder не начат; Step 2/3 — блок ниже).
-> **Раунд 10.15
-> «Багфиксы Графа памяти, Воркера Сна и Ностальгии + Гибридный Tool Calling»**
-> — **COMPLETED + DEPLOYED** (HEAD == origin/master == `d01a539`): 9 фич F1–F9,
-> 76 задач T-1549…T-1624, релиз **`release-round1015`**, 3 ADR (ADR-1015-1/2/3),
-> заархивирован (`plans/archive/` — **59 папок**; `plans/features/` — 6 активных
-> F-1…F-6). APP_VERSION **2.57.0** (без бампа), pytest **5774 passed / 0 failed**,
-> каталог **435/406/411/90/88/19** (Δ=0), SQLite **v9**, прод `admin_bot`
-> active PID **1860445**, `/api/health` **200**. Предыдущий раунд — **10.14**
-> (COMPLETED + DEPLOYED, HEAD `eb2a232`, PG `personas`/`persona_traits`/
-> `persona_state`; флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**).
-> Метрики — `plans/metrics.md`. Блоки раунда 10.15 — ниже.
+> **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** раунд **10.16 «Download-Guide-MobileAudit»**
+> — **COMPLETED + DEPLOYED** (HEAD == origin/master == `eb3fd4a`): 5 фич F1–F5,
+> 41 задача T-1625…T-1665, релиз **`release-round1016`**, 3 ADR (ADR-1016-1/2/3),
+> заархивирован (`plans/archive/` — **64 папки**; `plans/features/` — 6 активных
+> F-1…F-6). APP_VERSION **2.57.0** (без бампа), pytest **5936 passed / 0 failed**
+> (+162), каталог **435/406/411/90/88/19** (Δ=0), БД без новых миграций
+> (F2 — DML канона), прод `admin_bot` active PID **1976836**, `/api/health` **200**.
+> Предыдущий раунд — **10.15** (COMPLETED + DEPLOYED, HEAD `d01a539`, гибридный
+> Tool Calling; далее 10.14 — PG `personas`/`persona_traits`/`persona_state`;
+> флаги `persona_enabled`/`bot_self_awareness_enabled` = **ON**).
+> Метрики — `plans/metrics.md`. Блоки раунда 10.16 — ниже.
+
+> **Step 10 (финал @Memory) раунда 10.16 «Download-Guide-MobileAudit» (14.09.2026):**
+> эпик `Epic: Download-Guide-MobileAudit round1016` → **COMPLETED + DEPLOYED**;
+> создан релиз-узел **`release-round1016`** (commit **`eb3fd4a`**), фичи/ADR связаны
+> (COMPLETED_IN/DEPLOYED_IN/IMPLEMENTED_IN), обновлены `tech-debt-round10.16`,
+> SpecDecision-компоненты (download contract, canon versioning/force-delivery,
+> miniapp self-host/CSP, smoke suite, SSH rotation), `security scan round1016`,
+> `help guide canon`, `tool_router download_media`, `DuckDNS + Caddy + Let's Encrypt`,
+> 4 Risk-узла (закрыты) и `metric-snapshot-round1016-baseline` (финал).
+>
+> **Деплой-верификация:** commit **`eb3fd4a`** (`fix(services,handlers,web,docs,plans):
+> раунд 10.16 — ... (тесты 5936)`), push `18a9aa1..eb3fd4a`, прод fast-forward
+> `d01a539..eb3fd4a`, `admin_bot` active PID **1976836**. **Гайд доставлен в PG:**
+> `canon_version=2`, `canon_delivered_version=2`, `canon_drift=False`, `prev_html`
+> сохранён, `html_len==seed_len==4592`. `/api/health`=200, `/api/memory/graph`=401,
+> `/api/persona/health`=401. **DNS** A→198.46.175.136 (AAAA нет), LE notAfter
+> 2026-11-28; `/web/` GET 200 + CSP(`'unsafe-eval'`); Caddy: включено
+> `encode zstd gzip` (backup) — сжатие появилось. SSH-ключ работает (парольный вход
+> сохранён намеренно); live-скачивание видео — ручной шаг владельцу.
+>
+> **Метрики:** pytest 5774 → **5936 passed / 0 failed** (**+162**); `node --check`
+> clean; `JS-UNIT-OK`; `VUE-MOUNT-OK`; `git diff --check` clean; каталог **Δ=0**
+> (435/406/411/90/88/19); БД без новых миграций (F2 — DML канона `canon_version`);
+> APP_VERSION **2.57.0** без бампа. **@Reviewer:** итер.1 **Rejected** (Critical CSP
+> `script-src 'self'` ломал Vue full build; High R17-логи URL, доставка гайда,
+> README-overclaim) → итер.2 **APPROVED**. **@Scanner:** итер.1 0C/1H/1M/6L →
+> итер.2 **0 C / 0 H / 0 M** (Low 1 — `S10.16-9`). **@Builder — 2 реворка.**
+>
+> **Техдолг (открыт):** **Low `S10.16-9`** (latent hardening — 4 raise-сайта
+> `tools/video_downloader.py:767,772,899,904`; доступного лог-пути нет — утечки нет) +
+> **WONTFIX** `S10.13-9`/`S10.13-11`/`R10.14-4` + **R17-долг** `current_task.md`
+> (untracked; ротация — по желанию владельца). **@DevOps-заметки:** HEAD `/web/` 404
+> (pre-existing FastAPI/StaticFiles), brotli-плагин Caddy, live-smoke скачивания.
+> Архив: `plans/archive/*-round1016/` (**5 папок**), §37 ARCHITECTURE.md.
 
 > **Step 0 (recon @Memory) раунда 10.16 «Download-Guide-MobileAudit» (14.09.2026):**
 > ТЗ — `plans/current_task.md` секция «UPD2:» (строки 148-153). KG-узел

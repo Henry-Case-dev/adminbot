@@ -15,6 +15,7 @@ git-история. Таблица ведётся @Memory на Шаге 10 (фи
 | **10.13** | Cognition / Sleep / Memory Refactor — 8 фич: F1 4D-память, F2 belief decay+resurrection, F3 глубокий сон+роутер, F4 UI провайдеров, F5 дашборд Cognition+виджет, F6 EKG+фикс логов, F7 справка+README, F8 ирония/досье (T-1417…T-1476, 60 задач) | одна сессия **13.09.2026** (00:52 → 08:50 +1200, ~8 ч) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / **1** / **4** / **9** | **2** (после Reviewer Rejected; после Scanner High) | 5211 → **5392** (**+181**) | 405 / 377 / 381 → **427 / 399 / 403** (GROUPS 90, mapped 88, TAB_RULES 19) | **`8800bba`** | ✅ прод `708f7df..8800bba` (fast-forward), admin_bot active (PID 1629874) | **200** `{"status":"ok"}` | **5 Low** (`S10.13-9`, `-11`, `-13`, `-14`, `-6b`) |
 | **10.14** | Самосознание и Личность бота — 8 фич: F1 anti-echo-self-reply, F2 persona-storage-core, F3 persona-ui-tab, F4 persona-traits-ribbon, F5 settings-persistence-audit, F6 help-guide-integration, F7 status-layout-reorder, F8 self-reflection-llm-provider (T-1477…T-1548, 72 задачи) | одна сессия **13.09.2026** (09:01 → 21:13 +1200, ~12 ч) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **2** / **5** | **2** (после Reviewer Rejected; после Scanner Mediums) | 5392 → **5589** (**+197**) | 427 / 399 / 403 → **435 / 406 / 411** (GROUPS 90, mapped 88, TAB_RULES 19) | **`eb2a232`** | ✅ прод `8800bba..eb2a232` (fast-forward), admin_bot active (PID **1774527**) | **200** `{"status":"ok"}` | **Low 2** (`R10.14-4`, `R10.14-7`) + **L5** + **Info 2** |
 | **10.15** | Багфиксы Графа памяти, Воркера Сна и Ностальгии + Гибридный Tool Calling — 9 фич: F1 graph-sampling-centrality, F2 graph-frontend-physics-search, F3 sleep-unblock-diagnostics, F4 nostalgia-prompt-revamp, F5 status-graph-ui-relocation, F6 command-prefix-persona-routing, F7 guide-rewrite-persona, F8 hybrid-tool-calling, F9 recent-history-tool (T-1549…T-1624, 76 задач) | одна сессия **13–14.09.2026** (798e044 21:24 → d01a539 04:27 +1200, ~7 ч) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / 0 / **3** / **6** | **2** (после Reviewer Rejected; после Scanner Mediums) | 5589 → **5774** (**+185**; итер.1 5761) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`d01a539`** | ✅ прод `eb2a232..d01a539` (fast-forward; ручная разблокировка дрейфа `info_text.md`), admin_bot active (PID **1860445**) | **200** | **Low 3** (`R10.15-4`, `-10`, `-11`) + **Info 3** (в т.ч. repo-wide **R17-долг**) |
+| **10.16** | «Download-Guide-MobileAudit» — багфиксы скачивания + доставка Гайда + полный аудит 10.13–10.15 + мобильный мини-апп + ротация секрета — 5 фич: F1 download-fix, F2 guide-delivery, F3 audit-recent-epics, F4 miniapp-mobile, F5 security-rotation-finalize (T-1625…T-1665, 41 задача) | одна сессия **14.09.2026** (Step 0 → Step 10 @Memory) | **2** (1 Rejected → 1 Approved) | **0 / 0** | 0 / **1** / **1** / **6** | **2** (после Reviewer Critical; после Scanner High) | 5774 → **5936** (**+162**; итер.1 5910) | 435 / 406 / 411 (Δ=0; GROUPS 90, mapped 88, TAB_RULES 19) | **`eb3fd4a`** | ✅ прод `d01a539..eb3fd4a` (fast-forward), admin_bot active (PID **1976836**) | **200** | **Low 1** (`S10.16-9`) + **WONTFIX 3** (`S10.13-9`, `S10.13-11`, `R10.14-4`) + **R17-долг** `current_task.md` |
 | _…_ | — | — | — | — | — | — | — | — | — | — | — | — |
 
 ## Детали раунда 10.13 (13.09.2026)
@@ -163,3 +164,32 @@ git-история. Таблица ведётся @Memory на Шаге 10 (фи
 | `I10.15-3` | Info | `info_text.md` §5 `Бот, живой?` — границы триггера `живой?` корректны |
 
 Источник: `plans/reports/round10.15_scanner_audit.md` §5; KG `tech-debt-round10.15`.
+
+## Детали раунда 10.16 (14.09.2026)
+
+- **Эпик:** `Epic: Download-Guide-MobileAudit round1016` / релиз **`release-round1016`**.
+- **Фичи (5, все COMPLETED + DEPLOYED + ARCHIVED):**
+  - F1 `download-fix-round1016` — T-1625…T-1633 (9) — контракт `download(url, quality=None)`, без `"direct"`, reason-коды, R17-логи без URL, bounded probe-fallback.
+  - F2 `guide-delivery-round1016` — T-1634…T-1641 (8) — canon_version, force-доставка с бэкапом, PG-only write-path, reset-canon API.
+  - F3 `audit-recent-epics-round1016` — T-1642…T-1650 (9) — 7 смоук-наборов; FIX S10.13-6b/-13, R10.15-4/-10/-11; WONTFIX S10.13-9/-11, R10.14-4.
+  - F4 `miniapp-mobile-round1016` — T-1651…T-1659 (9) — self-host Vue/Chart.js/Tailwind/Telegram SDK + CSP.
+  - F5 `security-rotation-finalize-round1016` — T-1660…T-1665 (6) — git-гигиена, скан секретов, SSH-ключ, README/R17.
+- **Ревью/аудит:** @Reviewer итерация 1 — **Rejected** (**Critical** F4 — CSP `script-src 'self'` без `'unsafe-eval'` ломал Vue full build; **High** F1 — R17-логи URL/`str(exc)`; **High** F2 — доставка канона не гарантирована; **High** F5 — README-overclaim о ротации SSH); итерация 2 — **APPROVED**. @Scanner итерация 1 — **0 C / 1 H / 1 M / 6 L** (High `S10.16-1` — R17-утечка URL на youtube-пути; Medium `S10.16-2` — force-доставка без бэкапа); итерация 2 — **0 C / 0 H / 0 M** (Low 1 — `S10.16-9`). @Builder — **2 цикла реворков**.
+  Отчёты: `plans/reports/round10.16_reviewer.md`, `plans/reports/round10.16_scanner_audit.md`, `plans/reports/round10.16_audit.md`, `plans/reports/round10.16_security_scan.md`.
+- **Архитектура/БД:** `plans/ARCHITECTURE.md` **§37 «Карта раунда 10.16»**; **ADR-1016-1** (download contract), **ADR-1016-2** (self-host/CSP, финал — вариант A `'unsafe-eval'`), **ADR-1016-3** (guide canon versioning). Миграций БД **нет** (SQLite v9, PG без изменений); единственная миграция — **DML** канона гайда (`canon_version=2`). Каталог-Δ=0.
+- **Архив:** `plans/archive/*-round1016/` — **5 папок** (`spec.md` + `tasks.md` ×5 + ADR-1016-1/2/3 + `ssh-rotation-checklist.md`); `plans/archive/` — **64 папки**; `plans/features/` — 6 активных (F-1…F-6).
+- **Проверки:** `node --check web/app.js` clean; `node tests/js/routing_test.js` → `JS-UNIT-OK`; `node tests/js/vue_mount_test.js` → `VUE-MOUNT-OK`; `git diff --check` clean.
+- **Деплой:** commit **`eb3fd4a`**; push origin/master `18a9aa1..eb3fd4a`; прод `nik@198.46.175.136:/var/www/admin_bot`, fast-forward `d01a539..eb3fd4a`; `admin_bot` **active (running) PID 1976836**; `/api/health`=**200**, `/api/memory/graph`=**401**, `/api/persona/health`=**401** (не 500); **гайд доставлен в PG** (`canon_version=2`, `canon_delivered_version=2`, `canon_drift=False`, `prev_html` сохранён, `html_len==seed_len==4592`); DNS A→198.46.175.136 (AAAA нет), LE notAfter 2026-11-28, `/web/` GET 200 + CSP; Caddy: `encode zstd gzip` включено (backup). APP_VERSION **2.57.0** — без бампа.
+- **Остаточно (не блокеры):** HEAD `/web/` = 404 (pre-existing FastAPI/StaticFiles, не регрессия 10.16); 3 caught avatar-traceback (pre-existing `avatars.py`); live-скачивание видео и live Android-проверка — ручные шаги владельцу; SSH-ключ работает (парольный вход сохранён намеренно).
+
+## Техдолг раунда 10.16 (Low 1 + WONTFIX 3 + R17-долг, открыт)
+
+| ID | Severity | Суть |
+|---|---|---|
+| `S10.16-9` | Low | Latent hardening: 4 raise-сайта `tools/video_downloader.py:767,772,899,904` интерполируют `{exc}`/тело cobalt-ответа; доступного лог-пути, печатающего сообщение, нет — утечки нет (превентивно) |
+| `S10.13-9` | WONTFIX | Timeline-лор из in-memory `get_process_accounting().lore_last_inject_at`, а не из `chat_lore_history` — осознанный источник, сброс рестартом приемлем |
+| `S10.13-11` | WONTFIX | LIKE-маркер парадигм матчит только 2 варианта JSON-сериализации `belief_meta` — достижимо лишь ручной/бэкап-правкой, в проде не воспроизводится |
+| `R10.14-4` | WONTFIX | `GET /api/persona` отдаёт `dynamic_traits` без фильтра `chat_id` — модель «общий характер бота» по F4 10.14, не утечка |
+| R17-долг (repo-wide) | Info | Рабочая копия `plans/current_task.md` содержит SSH-пароль (untracked, `.gitignore:70`; в истории git утечки нет — скан чист); ротация — по желанию владельца. @DevOps-заметки: HEAD-404, brotli-плагин Caddy, live-smoke скачивания |
+
+Источник: `plans/reports/round10.16_scanner_audit.md` §2/§5, `plans/reports/round10.16_audit.md` §3, `plans/reports/round10.16_security_scan.md`; KG `tech-debt-round10.16`.

@@ -2,7 +2,7 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
-## Раунд 10.16 (14.09.2026): Багфиксы скачивания + доставка Гайда + полный аудит + мобильный мини-апп + ротация секрета — 5 фич — ✅ ЗАВЕРШЁН И ЗААРХИВИРОВАН (Step 8 @PM, 14.09.2026; деплой — @DevOps Step 9)
+## Раунд 10.16 (14.09.2026): Багфиксы скачивания + доставка Гайда + полный аудит + мобильный мини-апп + ротация секрета — 5 фич — ✅ COMPLETED + DEPLOYED + ЗААРХИВИРОВАН (Step 8 @PM + Step 9 @DevOps + Step 10 @Memory, 14.09.2026 · commit `eb3fd4a`)
 
 **✅ ИТОГ 10.16 (14.09.2026):** реализация завершена, все **5 фич заархивированы** — перенесены
 `plans/features/*-round1016/` → **`plans/archive/*-round1016/`** (@PM Step 8).
@@ -40,16 +40,19 @@ F4 — мини-апп на Android (self-host CDN/Vue/Chart.js/Tailwind, CSP, �
 невоспроизводимо), `R10.14-4` (`dynamic_traits` без `chat_id` — модель «общий характер бота», не утечка).
 Источник — `plans/reports/round10.16_scanner_audit.md` §2/§5 + `plans/reports/round10.16_audit.md` §3.
 
-**⛔ ОТКРЫТЫЕ ГЕЙТЫ (@DevOps Step 9, вне репо / после деплоя):** **T-1657** (прод-проверка Caddy/DNS домена
-мини-аппа: резолв, Let's Encrypt-сертификат, сжатие, заголовки CSP), **T-1641** (доставка гайда:
-`canon_version==2`, `canon_drift==false` после рестарта), **T-1661/T-1664** (ротация/отзыв SSH-пароля сервера
-`198.46.175.136` + проверка нового доступа; подготовка деплоя), прод-смоук скачивания (F1). **R17-долг
-(repo-wide):** `plans/current_task.md` содержит SSH-пароль в рабочей копии (файл untracked, `.gitignore:70`;
-в истории утечки нет — скан чист); рекомендованы ротация пароля и вычистка рабочей копии.
-**Статус:** ✅ **ЗАВЕРШЁН И ЗААРХИВИРОВАН** (14.09.2026, @PM Step 8 Archive Phase). Реализация @Builder (F1–F5),
-@Reviewer **APPROVED** (итерация 2), @Scanner **0 C/H/M** (Low 1 — техдолг), @Architect — `plans/ARCHITECTURE.md`
-**§37**. Артефакты: **`plans/archive/*-round1016/`** (**5 папок**). Деплой — @DevOps Step 9 (миграций БД нет).
-Деплой-статус и KG-синхронизация — @Memory Step 10.
+**✅ ГЕЙТЫ ЗАКРЫТЫ ДЕПЛОЕМ (@DevOps Step 9 + @Memory Step 10, 14.09.2026):** **T-1657** — DNS A→198.46.175.136
+(AAAA нет), LE notAfter 2026-11-28, `/web/` GET 200 + CSP; Caddy `encode zstd gzip` включено (backup) — сжатие
+есть. **T-1641** — гайд доставлен: `canon_version=2`, `canon_delivered_version=2`, `canon_drift=False`,
+`prev_html` сохранён, `html_len==seed_len==4592`. **T-1661/T-1664** — SSH-ключ работает; парольный вход
+сохранён намеренно (по требованию владельца), полная ротация пароля — по желанию владельца. Прод-смоук
+скачивания (F1) — ручной шаг владельцу. **R17-долг (repo-wide):** `plans/current_task.md` содержит SSH-пароль
+в рабочей копии (untracked, `.gitignore:70`; в истории утечки нет — скан чист).
+**Статус:** ✅ **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН** (14.09.2026). Реализация @Builder (F1–F5),
+@Reviewer **APPROVED** (итерация 2; итер.1 Rejected — Critical CSP `script-src 'self'`), @Scanner **0 C/H/M**
+(Low 1 — `S10.16-9`), @Architect — `plans/ARCHITECTURE.md` **§37**. Артефакты: **`plans/archive/*-round1016/`**
+(**5 папок**). **Деплой:** commit **`eb3fd4a`**, push `18a9aa1..eb3fd4a`, прод fast-forward `d01a539..eb3fd4a`,
+`admin_bot` active PID **1976836**, `/api/health`=**200**, миграций БД нет. KG-синхронизация (Step 10 @Memory):
+эпик → COMPLETED+DEPLOYED, релиз-узел `release-round1016`.
 Ниже — исторический документ планирования эпика (Step 1 @PM + Step 2 @Architect).
 
 **Эпик:** `Epic: Багфиксы + полный аудит round1016` (@Memory, Step 0).
