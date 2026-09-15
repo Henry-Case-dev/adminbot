@@ -12,6 +12,7 @@ from services.param_catalog import (
     TAB_LLM_PROVIDERS,
     TAB_MEMORY_RAG,
     TAB_MOD_CHECKUP,
+    TAB_MOD_BUDGETS,
     TAB_MOD_DIRECT,
     TAB_MOD_FACTCHECK,
     TAB_MOD_MEDIA_DOWNLOAD,
@@ -37,18 +38,20 @@ ALL_TABS = [
     TAB_MOD_SUMMARY, TAB_MOD_DIRECT, TAB_MOD_FACTCHECK, TAB_MOD_SEARCH,
     TAB_MOD_TRANSCRIBE, TAB_MOD_VIDEO_SUMMARY, TAB_MOD_MEDIA_DOWNLOAD,
     TAB_MOD_WEB, TAB_MOD_CHECKUP, TAB_MOD_SLEEP, TAB_MOD_NOSTALGIA,
+    TAB_MOD_BUDGETS,
     TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG, TAB_SMART_CACHE,
     TAB_PEOPLE_NAMES, TAB_RELATIONS, TAB_CHAT_LORE, TAB_PERMSOC,
 ]
 
 
 class TestTabMappingAudit:
-    def test_19_config_tabs(self):
-        assert len(ALL_TABS) == 19
-        assert len(pc.TAB_RULES) == 19
+    def test_20_config_tabs(self):
+        # 10.19 (F3/ADR-1019-3 D1): +1 — mod_budgets («Бюджеты», nav «Модули»).
+        assert len(ALL_TABS) == 20
+        assert len(pc.TAB_RULES) == 20
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
-    def test_tab_nav_covers_all_19_tabs(self):
+    def test_tab_nav_covers_all_20_tabs(self):
         """F6 (T-1752, ADR-1018-6 D1): nav-разметка исчерпывающа."""
         assert set(pc.TAB_NAV) == set(ALL_TABS)
         assert set(pc.TAB_NAV.values()) <= set(pc.NAV_TITLES)
@@ -117,9 +120,13 @@ class TestTabMappingAudit:
         # 10.14 (F6 help-guide-integration): +1 PG-only content →
         # 436 = 435 + 1 env-only BETTERSTACK_HOST (ADR-1018-1 D3);
         # GROUPS/mapped/TAB_RULES без изменений.
-        assert len(pc._TAB_BY_GROUP) == 88
-        assert len(GROUPS) == 90
-        assert len(pc.REGISTRY) == 436
+        # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): +1 REGISTRY
+        # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS (limits_chat_key/
+        # limits_chat_context), +2 mapped, +2 TAB_RULES (mod_budgets;
+        # 19→20) → 437/92/90/20.
+        assert len(pc._TAB_BY_GROUP) == 90
+        assert len(GROUPS) == 92
+        assert len(pc.REGISTRY) == 437
 
 
 class TestModuleTabs:
@@ -161,13 +168,20 @@ class TestModuleTabs:
 
     def test_mod_checkup_has_diagnostics_settings(self):
         # A8/T-1205: models_checkup + keys_betterstack — в «Диагностике».
+        # 10.19 (F3/D1): limits_worker переехал в «Бюджеты» (mod_budgets).
         groups = tab_group_ids(TAB_MOD_CHECKUP)
         assert groups == {
             "flags_service", "flags_throttle", "limits_checkup",
-            "limits_service", "limits_worker", "models_checkup",
+            "limits_service", "models_checkup",
             "keys_betterstack"}
+        assert "limits_worker" not in groups
         assert "models_checkup" not in tab_group_ids(TAB_LLM_PROVIDERS)
         assert "keys_betterstack" not in tab_group_ids(TAB_LLM_PROVIDERS)
+
+    def test_mod_budgets_composition(self):
+        """F3 (D1): «Бюджеты» — оба контура + лимит контекста."""
+        assert tab_group_ids(TAB_MOD_BUDGETS) == {
+            "limits_chat_key", "limits_chat_context", "limits_worker"}
 
     def test_mod_sleep_and_nostalgia(self):
         assert tab_group_ids(TAB_MOD_SLEEP) == {"memory_dream"}

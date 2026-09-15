@@ -5,7 +5,105 @@
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
-> **АКТУАЛЬНЫЙ СТАТУС (15.09.2026):** раунд **10.18 «Memory-Graph-Sleep-BetterStack bugfixes»**
+> **АКТУАЛЬНЫЙ СТАТУС (15.09.2026):** раунд **10.19 «UPD2 bugfixes»** (UPD2 + итерация 2 **UPD3**)
+> — **PLANNED / SPEC_READY, Builder не начат**: **8 фич F1–F8**, **8 ADR (ADR-1019-1…-8)**,
+> **88 задач T-1778…T-1865** (исходно T-1778…T-1852 + итерация 2 UPD3 T-1853…T-1865).
+> Спеки/ADR — `plans/features/` (**8 папок**). ТЗ — `plans/current_task.md` §UPD2 (стр.130-175)
+> + **§UPD3 (стр.178-216)**; ответ владельца — «Принято, реализуем per-chat архитектуру».
+> **Каталог-Δ (санкц. UPD3 п.5):** **437/407/412/92/90/20** (REGISTRY/Settings/categorized/
+> GROUPS/mapped/TAB_RULES); было 436/406/411/90/88/19. **DDL:** SQLite v10 → **v11 (в планах)** —
+> `idx_smart_messages_chat_import_key UNIQUE(chat_id, import_key)` + `import_checkpoints.chat_id`.
+> **Дефолты (UPD3):** direct **100** вызовов / **500 000** токенов; фон per-chat **60** / **300 000**;
+> контекст **5000/3000/16000** (+ потолок `CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS=32000`, env-only);
+> retention импорта **180**. Baseline: HEAD **`fd6acc7`**, прод **`16a8c0b`** (`release-round1018`,
+> PID 2319614), pytest **6139**, SQLite **v10**, APP_VERSION **2.57.0**. Детали — KG-узлы
+> `Epic round1019 (UPD2 bugfixes)` / `round10.19-epic` + блок **«Step 2/3»** ниже; метрики —
+> `plans/metrics.md`. Предыдущий раунд — **10.18** (COMPLETED + DEPLOYED + ARCHIVED, `16a8c0b`).
+>
+> **Step 2/3 (Step 2 @Architect + итерация 2 после UPD3 — синк Step 3 @Memory)
+> 15.09.2026 (раунд 10.19 «UPD2 bugfixes»):** эпик `Epic round1019 (UPD2 bugfixes)` —
+> **PLANNED / SPEC_READY**. **8 фич / 8 ADR / 88 задач T-1778…T-1865** (итерация 2:
+> ADR-1019-8 + T-1853…T-1865).
+> **F1** `betterstack-ingest-bearer-contract round1019` (T-1778…T-1788, **P0**, **ADR-1019-1**):
+> ingest — `POST https://{host}` **без токена в пути** + `Authorization: Bearer {SOURCE_TOKEN}`
+> (202/402/403/406; 4xx не ретраить); `_HINT_401` → `_STATUS_HINTS`; **снят ложный WARNING**
+> `token == SENTRY_DSN pubkey` (на unified US — **норма**, → `debug`); **`logtail-python` в проекте
+> НЕТ** (посылка ТЗ ложна) — прод-точка `services/betterstack_handler.py`; curl-матрикс **{path-token,
+> Bearer}×{US,EU}** до правки (**T-1779**, @DevOps, только HTTP-коды); `.env` + рестарт — вне репо; Δ=+1
+> (`BETTERSTACK_HOST`, сохранён из 10.18).
+> **F2** `direct-chat-budget-unlimited round1019` (T-1789…T-1798 + T-1854/T-1855, **P0**, **ADR-1019-2**):
+> sentinel **`0 = запрет`, `−1 = безлимит`**; причина «рассинхрона» — `chat_usage` читал лимиты
+> **только** `hot.get` → per-chat override не работал; фикс — per-chat резолв
+> (`chat_params.overrides → hot.get → env`, ADR-1018-7 `resolve_setting_cached`);
+> `budget_snapshot`/`exceeded_metric`; `exceeded` без метрики → ERROR + **fail-open** (ложный sandbox
+> невозможен); дефолты **100/500 000**; **ревью-фиксы Батча B (D-1…D-5):** `worker_budget` (фон) —
+> тот же sentinel (`-1`=безлимит, `0`=запрет) + per-chat резолв (дефолты **60/300 000**, `_metric_limit`
+> async); `llm_client` — единый снимок (без двойного PG-раундтрипа); fail-open `budget_snapshot`
+> пробрасывает `forbidden`/`source` (не хардкод); **SUPERSEDE F-15** (10.3); см. ARCHITECTURE §40.
+> **F3** `budget-settings-section round1019` (T-1799…T-1808 + T-1856…T-1860, **P0/P1**,
+> **ADR-1019-3** + **ADR-1019-8**): вкладка **`mod_budgets` «Бюджеты»** в nav «Модули»; группы
+> **`limits_chat_key`**/**`limits_chat_context`**; 3 per-chat поля («Хранение импорта (дней)» 0=вечно,
+> «Лимит токенов/вызовов» −1=безлимит, «Лимит контекста»); тумблер безлимита пишет **существующие**
+> per-chat ключи (новых REGISTRY-записей нет); **сид настроек чатов** `services/chat_settings_seed.py` +
+> `config/chat_settings_seed.json` (chat_id **−1002661910336**: retention 0, бюджеты −1, контекст max) + guard
+> `retention==0 → purge запрещён`; «Сводка» — аддитивный `limits {key_budget, worker_budget, context,
+> storage}` (R16) с бейджем «Безлимит (∞)» / «Импорт: Вечно».
+> **F4** `direct-context-limit-expansion round1019` (T-1809…T-1817 + T-1861/T-1862, **P1**,
+> **ADR-1019-4**): развязка `_build_global_context` (per-block caps) ↔ `_apply_context_budget` (общий
+> бюджет); root cause 869 = `resolve_chat_limit(token_default=1000)` → `safe_budget(1000)=1000/1.15`;
+> дефолты **5000/3000/16000**; per-chat `−1` → ceiling **`CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS=32000`**
+> (**env-only**, Δ каталога=0); chars-fallback — только аварийный.
+> **F5** `status-section-ui-merge round1019` (T-1818…T-1825, **P2**, **без ADR** — UI-вёрстка):
+> «Сердцебиение»+«Бот»+«Сервер» → один визуальный блок; удалить строку «Режим … · версия …»
+> (`index.html:2141`; API-поля `bot.mode`/`bot.version` остаются, R16); компактное поле поиска по графу
+> (мобила/десктоп); конфликт файлов с F3 → вливать ступенями **F3 → F5**.
+> **F6** `media-files-avatars-sync round1019` (T-1826…T-1834, **P1**, **ADR-1019-5**): локальный
+> fallback аватаров/медиа — общий хелпер `read_local_file_bytes`/`local_file_path` в
+> `services/media_download.py`; новый `services/media_integrity.py` (audit/restore ФС↔БД); аддитивный
+> `GET /api/status/media-health` (R16, только числа/хвосты `photos/file_*.jpg`); R17 (без `<bot_id>:<token>`
+> и абсолютных путей).
+> **F7** `memory-retention-health round1019` (T-1835…T-1844 + T-1863/T-1864, **P1**, **ADR-1019-6**):
+> retention per-chat `limits.import_history_retention_days=180` (**0=вечно**, иной sentinel, чем бюджеты);
+> `purge_imported_history(*, chat_cutoffs: dict[int,int])` — keyword-only allow-list; архив перед purge
+> (сбой → не удалять); guard целевого чата; **аудит изоляции I-1…I-9**: **I-2** (`import_key` без `chat_id` +
+> глобально UNIQUE → кросс-чат подавление) и **I-6** (`import_checkpoints` только `path`) → **SQLite v11**
+> (`UNIQUE(chat_id, import_key)`, ключ `(path, chat_id)`); включение Сна/декая **данными** per-chat
+> (ADR-1018-7) + честные метрики памяти (overdue/unconfirmed/размеры).
+> **F8** `graphrag-memorize-robustness round1019` (T-1845…T-1852, **P1**, **ADR-1019-7**, **AMEND F-15 §4**):
+> `parse_fact_list_ex` → `ok/empty_valid/invalid` (валидный `[]` ≠ невалидный); `LLMError` первичной
+> экстракции перехватывается внутри `_memorize_facts_inner` → fallback + **1 bounded retry**; единый
+> rate-limited WARNING (60с) вместо спама; канон `FACT_EXTRACT_PROMPT` байт-в-байт, Δ=0.
+>
+> **Порядок:** **{F1 ∥ F2} → F3 → {F4 ∥ F5} → {F6 ∥ F8} → F7**. **Пересечения файлов:** F2/F3/F4/F7 —
+> `param_catalog.py`/`settings.py` (сводить Δ); F3/F5 — `web/index.html`/`app.js`/`app.css`; F7/F8 —
+> `summary_memory.py`; F2/F3 — `chat_usage.py`.
+>
+> **Решения владельца (UPD3):** хардкод безлимитов глобально **ЗАПРЕЩЁН** → безлимит только per-chat
+> override (данные), глобальные дефолты — предохранитель; целевой чат `−1002661910336` (retention 0, бюджеты −1,
+> контекст max) — **сидом**; санкционированы Δ каталога и **DDL SQLite v11**; дефолты умеренные.
+> **UPD2-3 (SSH-фрагмент) — ОТМЕНЁН:** вариант (а) — оставить как есть, `filter-repo` **НЕ трогаем**,
+> риск принят (публичный репо, неполный обрывок); S10.18-13 закрыт; значение не цитировать.
+>
+> **Снятие противоречий (KG, явно):** «logtail-python используется» — **ОПРОВЕРГНУТО** (библиотеки
+> в прод-пути нет с раундов 4/5); «`token == SENTRY_DSN pubkey` = ошибка» — **ОПРОВЕРГНУТО**
+> (на unified US — норма, WARNING снят).
+>
+> **Остаётся в силе:** R16, R17, порядок роутеров `bot.py`, `media/`/`.env` не трогать, каталог-Δ
+> только санкционированно, русские conventional commits; `plans/current_task.md` — untracked
+> (`.gitignore:70`), **секреты в KG/MEMORY.md не вносились**.
+> **Граф синхронизирован (Step 3):** Epic + **8 Feature** + **8 ADR** (ADR-1019-1…-8) + **7 Risk**
+> (`risk-betterstack-bearer-vs-path`, `risk-cross-chat-import-collision`, `risk-catalog-delta`,
+> `risk-import-purge-eternal` + `risk-direct-key-budget-ui`, `risk-context-cap-869`,
+> `risk-ssh-fragment-tracked`) + **3 ArchitecturalConstraint** (`per-chat-limits-no-global-hardcode`,
+> `chat-seed-data-only`, `memory-isolation-by-chat`) + **4 SpecDecision** (owner-UPD3,
+> logtail-python-refuted, token==pubkey-normal, ssh-fragment-cancelled) + `tech-debt-round10.19`
+> (I-4 vec-KNN global k=3) + `metric-snapshot-round1019-spec-ready`; связи HAS_FEATURE/PART_OF/HAS_ADR/
+> DECIDES/GOVERNED_BY/**AMENDS** (ADR-1019-1 → ADR-1018-1; ADR-1019-3/-8 → ADR-1018-6; ADR-1019-8 →
+> ADR-1018-7; ADR-1019-8 → ADR-1019-2/-3/-4/-6) / **SUPERSEDES** (ADR-1019-2 → F-15
+> `direct-sandbox-budget-investigation`; ADR-1019-7 **AMEND F-15 §4**) / DEPENDS_ON /
+> RESOLVED_BY / HAS_TECH_DEBT / HAS_METRIC.
+
+> **Архив (раунд 10.18): «Memory-Graph-Sleep-BetterStack bugfixes»**
 > — **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН**: **7 фич F1–F7**, **75 задач T-1703…T-1777**,
 > **7 ADR (ADR-1018-1…-7)**; спеки+ADR — `plans/archive/<feature>/` (7 папок:
 > `betterstack-us-region-401`, `settings-worker-sync`, `sleep-manual-cascade-badges`,
@@ -21,7 +119,9 @@
 > (+ публичный healthz 200). Baseline HEAD **`118a03c`**, прод release-round1017 (**`b6c153f`**),
 > APP_VERSION **2.57.0** (без бампа). Детали — KG-узлы `release-round1018` /
 > `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)` + блок **«Step 10 (финал)»** ниже;
-> метрики — `plans/metrics.md`. ⚠️ Остаточный блокер: BetterStack 401 — неверный токен (см. Step 10).
+> метрики — `plans/metrics.md`. ⚠️ Остаточный блокер: BetterStack 401 — версия 10.18 «неверный токен»
+> **опровергнута раундом 10.19: причина — ingest-контракт (path-token → Bearer), токен корректен**
+> (см. блок 10.19 выше и KG `SpecDecision token-equals-pubkey-normal round1019`).
 > Предыдущий раунд — 10.17 (COMPLETED + DEPLOYED, `b6c153f`).
 
 > **Step 2/3 (Step 2 @Architect + итерация 2 после human-gate — синк Step 3 @Memory)

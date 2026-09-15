@@ -1,7 +1,9 @@
-"""F1/T-1704 (ADR-1018-1 D8) — тесты диагностического probe-скрипта.
+"""F1/T-1779 (ADR-1019-1 D6, AMEND ADR-1018-1 D8) — тесты probe-скрипта.
 
-Сеть НЕ трогаем: probe() вызывается через мок urllib; main(--dry-run) тоже
-без сети. Проверяем R17-маскирование (полный токен/DSN в вывод не попадают).
+Матрикс проверяет КОНТРАКТ запроса: {US, EU} × {path-token, Bearer};
+ожидание — 202 только на (US × Bearer). Сеть НЕ трогаем: probe() вызывается
+через мок urllib; main(--dry-run) тоже без сети. Проверяем R17-маскирование
+(полный токен/URL в вывод не попадают).
 """
 import importlib.util
 import os
@@ -34,43 +36,42 @@ def test_mask_hides_full_value(probe_mod):
 
 def test_build_matrix_four_combos(probe_mod):
     token = "T" * 32
-    dsn = f"https://{'P' * 20}@o1.ingest.sentry.io/2"
-    rows = probe_mod.build_matrix("us.example.test", token, dsn)
+    rows = probe_mod.build_matrix("us.example.test", token)
     assert len(rows) == 4
-    kinds = [r["label"] for r in rows]
-    assert kinds == ["US × Source Token", "US × Sentry public key",
-                     "EU × Source Token", "EU × Sentry public key"]
-    assert rows[1]["token"] == "P" * 20
+    labels = [r["label"] for r in rows]
+    assert labels == ["US × path-token", "US × Bearer",
+                      "EU × path-token", "EU × Bearer"]
+    assert rows[0]["mode"] == probe_mod.PATH_TOKEN
+    assert rows[1]["mode"] == probe_mod.BEARER
+    assert rows[0]["token"] == token
     assert rows[3]["host"] == probe_mod.EU_HOST
 
 
 def test_format_row_masks_secrets(probe_mod):
-    row = {"label": "US × Source Token", "host": "us-west-2a.example.test",
-           "token": "SECRETTOKEN_VALUE_1234567890"}
-    line = probe_mod.format_row(row, 401)
-    assert "http=401" in line
+    row = {"label": "US × Bearer", "host": "us-west-2a.example.test",
+           "token": "SECRETTOKEN_VALUE_1234567890", "mode": "bearer"}
+    line = probe_mod.format_row(row, 202)
+    assert "http=202" in line
     assert "SECRETTOKEN_VALUE_1234567890" not in line
     assert "us-west-2a.example.test" not in line     # хост тоже маскирован
-    assert line.startswith("US × Source Token")
+    assert line.startswith("US × Bearer")
 
 
 def test_main_dry_run_no_network(probe_mod, monkeypatch, capsys):
     monkeypatch.setenv("BETTERSTACK_HOST", "us.example.test")
     monkeypatch.setenv("LOGTAIL_SOURCE_TOKEN", "S" * 32)
-    monkeypatch.setenv("SENTRY_DSN", f"https://{'P' * 20}@o1.ingest.sentry.io/2")
     monkeypatch.setattr(sys, "argv", ["probe", "--dry-run"])
     assert probe_mod.main() == 0
     out = capsys.readouterr().out
     assert out.count("http=-3") == 4                 # dry-run, без сети
     assert "S" * 32 not in out
-    assert "P" * 20 not in out
 
 
-def test_probe_uses_mock_urlopen(probe_mod, monkeypatch):
+def test_probe_bearer_uses_host_and_auth_header(probe_mod, monkeypatch):
     calls = []
 
     class _Resp:
-        status = 200
+        status = 202
 
         def __enter__(self):
             return self
@@ -79,9 +80,41 @@ def test_probe_uses_mock_urlopen(probe_mod, monkeypatch):
             return False
 
     def fake_urlopen(request, timeout=None):
-        calls.append(request.full_url)
+        calls.append(request)
         return _Resp()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    assert probe_mod.probe("https://us.example.test/tok") == 200
-    assert calls == ["https://us.example.test/tok"]
+    monkeypatch.setattr(probe_mod, "_urlopen", fake_urlopen)
+    assert probe_mod.probe("us.example.test", "tok", probe_mod.BEARER) == 202
+    req = calls[0]
+    assert req.full_url == "https://us.example.test"       # токена в path нет
+    headers = {k.lower(): v for k, v in req.headers.items()}
+    assert headers["authorization"] == "Bearer tok"
+
+
+def test_probe_path_mode_keeps_token_in_url(probe_mod, monkeypatch):
+    calls = []
+
+    class _Resp:
+        status = 401
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake_urlopen(request, timeout=None):
+        calls.append(request)
+        return _Resp()
+
+    monkeypatch.setattr(probe_mod, "_urlopen", fake_urlopen)
+    assert probe_mod.probe("us.example.test", "tok", probe_mod.PATH_TOKEN) == 401
+    assert calls[0].full_url == "https://us.example.test/tok"
+
+
+def test_probe_opener_does_not_follow_redirects(probe_mod):
+    """D-09 (ревью Батча A): 3xx не фоллоуится — Bearer не уходит на чужой
+    Location. Проверяем сам redirect-handler (без сети)."""
+    handler = probe_mod._NoRedirectHandler()
+    assert handler.redirect_request(
+        None, None, 302, "Found", {}, "https://evil.example") is None

@@ -330,6 +330,10 @@ async def get_config(
             if secret and not ctx.is_global_admin:
                 continue
         chat_source = ""
+        # F3/D-3 (ревью Батча C): значение ГЛОБАЛЬНОГО слоя до наложения
+        # per-chat override — нужно тумблеру «Безлимит» для OFF-ветки
+        # (пишем явные дефолты вместо DELETE, сохраняя meta; не секрет).
+        global_value = None
         matrix = access_srv.effective_matrix(
             key, db_overrides.get(key),
             (chat_root.get("perm_overrides") or {}).get(key)
@@ -337,6 +341,7 @@ async def get_config(
         if secret:
             value = _mask_secret(value, user.id, key, cache)
         elif chat_id is not None:
+            global_value = value
             overrides = chat_root.get("overrides") or {}
             if key in overrides:
                 is_per_chat = bool(spec.per_chat) if spec else False
@@ -346,6 +351,7 @@ async def get_config(
         items.append({"key": key, "value": value, "category": category,
                       "secret": secret,
                       "chat_source": chat_source,
+                      "global_value": global_value,
                       "title": spec.title_ru if spec else key,
                       "type": spec.type if spec else "str",
                       # F7: updated_at из PG; in-memory/деградация — null
@@ -679,16 +685,19 @@ async def delete_chat_param(
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     if ctx.is_dm_owner:
         await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
-    root = await chat_params.get_all_chat_params(chat_id)
+    root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
     overrides = dict(root.get("overrides") or {})
     if key not in overrides:
         raise HTTPException(status_code=404,
                             detail=f"нет override: {key}")
     overrides.pop(key, None)
+    # D-3 (ревью Батча C): merge `meta`, НЕ затираем чужой meta (например,
+    # `chat_settings_seed_version`) — иначе сид переприменит политику на рестарте.
+    meta = dict(root.get("meta") or {})
+    meta["updated_by"] = user.id
     try:
         await chat_params.set_chat_params(
-            chat_id, {"overrides": overrides,
-                      "meta": {"updated_by": user.id}},
+            chat_id, {"overrides": overrides, "meta": meta},
             changed_by=user.id, pg=cache.pg)
     except chat_params.ChatParamsConflict as exc:
         raise HTTPException(
@@ -1243,6 +1252,54 @@ async def get_status_key_history(
     """
     from services.status_service import key_history
     return key_history.api_payload()
+
+
+# D-5 (ревью Батча E): TTL-кэш тяжёлой диагностики медиа (COUNT + обход ФС).
+_MEDIA_HEALTH_TTL = 120.0
+_media_health_cache: dict = {}          # chat_id -> (db, ts, payload)
+
+
+def _media_health_cached(db, chat_id):
+    entry = _media_health_cache.get(chat_id)
+    if entry is not None:
+        c_db, ts, payload = entry
+        if c_db is db and (time.monotonic() - ts) < _MEDIA_HEALTH_TTL:
+            return payload
+    return None
+
+
+def _media_health_store(db, chat_id, payload) -> None:
+    _media_health_cache[chat_id] = (db, time.monotonic(), payload)
+
+
+@api_router.get("/status/media-health")
+async def get_status_media_health(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """F6 (ADR-1019-5 D3, R16): рассинхрон ФС↔БД медиа-файлов.
+
+    Аддитивный блок «Сводки»: ТОЛЬКО числа и хвосты имён (`photos/file_*.jpg`)
+    — строка `<bot_id>:<token>` и абсолютные пути не отдаются (R17).
+    Fail-open: нет БД/бота/ошибка → нулевые счётчики (не 500).
+
+    D-5 (ревью Батча E): результат TTL-кэшируется (120с на chat_id), чтобы
+    `COUNT(*) … media_type IN (…)` и обход диска не выполнялись на каждом
+    запросе. `reliable=false`/`basis='text_scan'` — honest-контракт (D-4):
+    missing/orphan — эвристика по тексту, а не точный рассинхрон."""
+    from services import lore_runtime, media_integrity, web_runtime
+    chat_id = _chat_id_or_none(x_chat_id)
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        return {"available": False}
+    cached = _media_health_cached(db, chat_id)
+    if cached is not None:
+        return {"available": True, **cached}
+    audit = await media_integrity.audit_media_files(
+        db, web_runtime.get_web_bot(), chat_id=chat_id)
+    _media_health_store(db, chat_id, audit)
+    return {"available": True, **audit}
 
 
 @api_router.get("/status/logs")

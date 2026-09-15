@@ -31,11 +31,14 @@ class TestCatalogInvariant106:
         # → REGISTRY 435 / Settings 406. GROUPS/mapped/TAB_RULES не меняются.
         # 10.18 (F1 betterstack-us-region): +1 env-only BETTERSTACK_HOST
         # (ADR-1018-1 D3, Settings не растёт) → REGISTRY 436 / Settings 406.
-        assert len(pc.REGISTRY) == 436
-        assert len(pc.GROUPS) == 90
-        assert len(pc._TAB_BY_GROUP) == 88
-        assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 406
+        # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): +1 REGISTRY/Settings
+        # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS, +2 mapped, +1 TAB_RULES
+        # → 437/92/90/20/407.
+        assert len(pc.REGISTRY) == 437
+        assert len(pc.GROUPS) == 92
+        assert len(pc._TAB_BY_GROUP) == 90
+        assert len(pc.TAB_RULES) == 20
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
 
     def test_five_master_flags_default_true(self):
         s = Settings()

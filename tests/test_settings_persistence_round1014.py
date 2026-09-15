@@ -35,18 +35,19 @@ from services.param_catalog import get_by_pg_key
 class TestCatalogInvariant:
     def test_counts_unchanged(self):
         """F6 +1 PG-only → 435; 10.18 F1 +1 env-only BETTERSTACK_HOST
-        (ADR-1018-1 D3) → 436/406/411/90/88/19."""
+        (ADR-1018-1 D3) → 436/406/411/90/88/19; 10.19 F3 (UPD3 п.5) →
+        437/407/412/92/90/20."""
         import dataclasses
 
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 436
-        assert len(pc.GROUPS) == 90
-        assert len(pc._TAB_BY_GROUP) == 88
-        assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 406
+        assert len(pc.REGISTRY) == 437
+        assert len(pc.GROUPS) == 92
+        assert len(pc._TAB_BY_GROUP) == 90
+        assert len(pc.TAB_RULES) == 20
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 411
+        assert len(categorized) == 412
 
     def test_per_chat_classification(self):
         """Маршрутизация scope: models.*/keys.* — строго глобальные (per_chat

@@ -128,12 +128,35 @@ class TestResolvePriority:
 class TestFailOpen:
     @pytest.mark.asyncio
     async def test_chat_cache_error_falls_back_to_global(self, monkeypatch):
+        """D-1 (ревью Батча E): значение fail-open (глобал), но source
+        помечается 'error' — «слой не читается» отличимо от «override нет»."""
         _hot(monkeypatch, {"memory.dream_enabled": True})
         monkeypatch.setattr(cp, "_chat_params_cache", _BoomChatCache())
         value, source = await resolve_setting_with_source(
             "memory.dream_enabled", chat_id=-100, default=False)
         assert value is True
-        assert source == "global"
+        assert source == "error"
+
+    @pytest.mark.asyncio
+    async def test_no_chat_pool_is_source_error(self, monkeypatch):
+        """D-1: `ChatParamsCache` есть, но PG-pool недоступен → 'error'."""
+        _hot(monkeypatch, {"memory.dream_enabled": True})
+
+        class _NoPool:
+            def _pool(self):
+                return None
+
+            async def get_chat_params_checked(self, chat_id):
+                return {}, False
+
+            async def get_chat_params(self, chat_id):
+                return {}
+
+        monkeypatch.setattr(cp, "_chat_params_cache", _NoPool())
+        value, source = await resolve_setting_with_source(
+            "memory.dream_enabled", chat_id=-100, default=False)
+        assert value is True
+        assert source == "error"
 
     @pytest.mark.asyncio
     async def test_no_caches_returns_default(self, monkeypatch):

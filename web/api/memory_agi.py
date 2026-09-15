@@ -32,7 +32,9 @@ import asyncio
 import datetime
 import json
 import logging
+import shutil
 import time
+from pathlib import Path
 from typing import Annotated
 
 from aiogram.utils.web_app import WebAppUser
@@ -190,6 +192,48 @@ def _db_or_503():
             status_code=503,
             detail="база памяти недоступна (не инициализирована)")
     return db
+
+
+def _storage_metrics(db) -> dict:
+    """F7/ADR-1019-6 D4: размер БД и свободное место (только числа, R17).
+
+    Fail-open: ошибка stat/disk_usage → нули (health не падает)."""
+    db_size = 0
+    disk_free = 0
+    try:
+        path = Path(db.db_path)
+        if str(path) and str(path) != ":memory:" and path.exists():
+            db_size = int(path.stat().st_size)
+            usage = shutil.disk_usage(str(path.parent or "."))
+            disk_free = int(usage.free)
+    except Exception:
+        logger.debug("[memory_api] storage metrics unavailable — zeros",
+                     exc_info=True)
+    return {
+        "db_size_bytes": db_size,
+        "db_size_mb": round(db_size / (1024 * 1024), 2),
+        "disk_free_bytes": disk_free,
+    }
+
+
+# D-5 (ревью Батча E): `count_smart_messages` — полный COUNT по ~2M строк;
+# TTL-кэш счётчиков здоровья (60с), чтобы не сканировать таблицу на каждый
+# GET /api/memory/health. `storage` (stat/disk_usage) считается всегда.
+_HEALTH_COUNT_TTL = 60.0
+_health_count_cache: dict = {}          # "counts" -> (db, ts, payload)
+
+
+def _health_counts_cached(db):
+    entry = _health_count_cache.get("counts")
+    if entry is not None:
+        c_db, ts, payload = entry
+        if c_db is db and (time.monotonic() - ts) < _HEALTH_COUNT_TTL:
+            return payload
+    return None
+
+
+def _health_counts_store(db, payload) -> None:
+    _health_count_cache["counts"] = (db, time.monotonic(), payload)
 
 
 def _json_list(value) -> list:
@@ -361,24 +405,47 @@ async def memory_health_summary(
 ):
     """Счётчики охлаждения/воскрешения убеждений (spec §3): активные/архив,
     воскрешения, прогоны decay, время последнего прогона. R17-safe —
-    только числа. Fail-open: ошибка БД → нули (не 500)."""
+    только числа. Fail-open: ошибка БД → нули (не 500).
+
+    F7/T-1840 (R16, аддитивно): `facts_overdue`, `facts_unconfirmed`,
+    `smart_messages_total`, `deep_sleep_runs_total`, `storage`
+    ({db_size_bytes, db_size_mb, disk_free_bytes}) — существующие ключи
+    сохранены."""
     _require_global_admin(request, user)
     db = _db_or_503()
-    try:
-        counts = await db.count_beliefs_by_status()
-        resurrections = await db.count_dream_log(0, kind="resurrect")
-        decay_runs = await db.count_dream_log(0, kind="decay_run")
-        last_decay = await db.last_decay_run()
-    except Exception:
-        logger.warning("[memory_api] memory health failed — нули",
-                       exc_info=True)
-        counts, resurrections, decay_runs, last_decay = {}, 0, 0, None
+    cached = _health_counts_cached(db)
+    if cached is not None:
+        (counts, resurrections, decay_runs, last_decay, overdue,
+         unconfirmed, smart_total, deep_runs) = cached
+    else:
+        try:
+            counts = await db.count_beliefs_by_status()
+            resurrections = await db.count_dream_log(0, kind="resurrect")
+            decay_runs = await db.count_dream_log(0, kind="decay_run")
+            last_decay = await db.last_decay_run()
+            overdue = await db.count_overdue_facts()
+            unconfirmed = await db.count_unconfirmed_facts()
+            smart_total = await db.count_smart_messages()
+            deep_runs = await db.count_dream_log(0, kind="deep_run")
+            _health_counts_store(
+                db, (counts, resurrections, decay_runs, last_decay, overdue,
+                     unconfirmed, smart_total, deep_runs))
+        except Exception:
+            logger.warning("[memory_api] memory health failed — нули",
+                           exc_info=True)
+            counts, resurrections, decay_runs, last_decay = {}, 0, 0, None
+            overdue, unconfirmed, smart_total, deep_runs = 0, 0, 0, 0
     return {
         "beliefs_active": int(counts.get("confirmed", 0)),
         "beliefs_archived": int(counts.get("archived_belief", 0)),
         "resurrections_total": int(resurrections),
         "decay_runs_total": int(decay_runs),
         "last_decay_at": last_decay,
+        "facts_overdue": int(overdue),
+        "facts_unconfirmed": int(unconfirmed),
+        "smart_messages_total": int(smart_total),
+        "deep_sleep_runs_total": int(deep_runs),
+        "storage": _storage_metrics(db),
     }
 
 

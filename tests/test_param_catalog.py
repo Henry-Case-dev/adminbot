@@ -75,7 +75,11 @@ class TestCompleteness:
         #   — ClassVar, в dataclass.fields не входят).
         #   + F8 (self-reflection-llm-provider-round1014, spec §2.1): +4 —
         #   INTEL_REFLECTION_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY = 406.
-        assert len(fields) == 406
+        #   + F3 (budget-settings-section, 10.19/ADR-1019-3 D3): +1 —
+        #   IMPORT_HISTORY_RETENTION_DAYS (limits_memory, sentinel retention
+        #   0=вечно) = 407. CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS — ClassVar
+        #   (F4 infra, в dataclass.fields не входит).
+        assert len(fields) == 407
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered == fields
 
@@ -273,7 +277,9 @@ class TestGroups8424:
         # ре-дизайн 10.5 (T-1139/T-1145): models +4 — осознанное исключение;
         # раунд 10.6 (T-1201/T-1180): +5 master-флагов; GROUPS 91.
         # раунд 10.9: reactions_persons удалена → GROUPS 90.
-        assert len(GROUPS) == 90
+        # 10.19 (F3/ADR-1019-3 D2/D3): +2 — limits_chat_key, limits_chat_context
+        # (санкция UPD3 п.5) → GROUPS 92.
+        assert len(GROUPS) == 92
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -338,13 +344,15 @@ class TestGroups8424:
         Раунд 10.14 (F8 self-reflection): models +3 / keys +1
         (INTEL_REFLECTION_BASE_URL/MODEL_NAME/DISPLAY_NAME/API_KEY).
         Раунд 10.14 (F6 help-guide-integration): content +1
-        (content.intelligence_guide, PG-only)."""
+        (content.intelligence_guide, PG-only).
+        10.19 (F3/ADR-1019-3 D3, UPD3 п.5): limits +1
+        (IMPORT_HISTORY_RETENTION_DAYS, группа limits_memory) → 188."""
         counts = {cat: 0 for cat in CATEGORIES}
         for s in REGISTRY.values():
             if s.category is not None:
                 counts[s.category] += 1
         assert counts == {"prompts": 10, "models": 53, "keys": 19,
-                          "limits": 187, "flags": 64, "reactions": 39,
+                          "limits": 188, "flags": 64, "reactions": 39,
                           "content": 5, "memory": 34}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

@@ -33,7 +33,10 @@ from aiogram.utils.web_app import WebAppUser
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
+from config.settings import settings
+from services import hot_config as hot
 from services import web_runtime
+from services.media_download import read_local_file_bytes
 from web.api.deps import get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -133,12 +136,20 @@ async def fetch_avatar_bytes(kind: str, tid: int) -> bytes | None:
         try:
             file_id = await _avatar_file_id(bot, kind, tid)
             if file_id:
-                file = await bot.get_file(file_id)
-                path = getattr(file, "file_path", None)
-                if path:
-                    buf = io.BytesIO()
-                    await bot.download_file(path, destination=buf)
-                    data = buf.getvalue() or None
+                # F6 (ADR-1019-5 D2): локальный Bot API отдаёт ОТНОСИТЕЛЬНЫЙ
+                # file_path — сначала пробуем общий локальный fallback
+                # (TELEGRAM_API_FILES_DIR/<bot_id:token>/<path>, 3 ретрая);
+                # при None — прежний bot.download_file (облако/локальный).
+                if hot.get("flags.download_enabled",
+                           settings.DOWNLOAD_ENABLED):
+                    data = await read_local_file_bytes(bot, file_id)
+                if data is None:
+                    file = await bot.get_file(file_id)
+                    path = getattr(file, "file_path", None)
+                    if path:
+                        buf = io.BytesIO()
+                        await bot.download_file(path, destination=buf)
+                        data = buf.getvalue() or None
         except (TelegramRetryAfter, TelegramNetworkError) as exc:
             # транзиентный сбой (лимиты/сеть): негатив НЕ пишем — иначе
             # фронт с onerror стаггерил бы пустые аватары на час

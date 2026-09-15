@@ -503,16 +503,17 @@ class TestEpic60V3Migration:
     @pytest.mark.asyncio
     async def test_user_version_is_3_after_initialize(self, db):
         """63.6 #1 + раунды 3/4/5 + фазы 2/раунды 9/10.14: PRAGMA
-        user_version == 10
+        user_version == 11
         (Epic 46 → 1, Epic 50 → 2, Epic 60/63.3 → 3, видео-origins CHECK → 4,
         раунд 4: user_memory-origins CHECK → 5, раунд 5: protected_facts
         chat-level (user_name NULL) → 6, фаза 2: message_timestamp/
         history_import → 7, раунд 9 (AGI Memory): importance/kind →
         8, раунд 10.14 (F1): origin bot_self_reply → 9,
-        раунд 10.18 (F3): edges.fact_id → 10)."""
+        раунд 10.18 (F3): edges.fact_id → 10,
+        раунд 10.19 (F7): import_key chat-scoped UNIQUE → 11)."""
         cursor = await db.db.execute("PRAGMA user_version")
         row = await cursor.fetchone()
-        assert row[0] == 10
+        assert row[0] == 11
 
     @pytest.mark.asyncio
     async def test_v3_tables_created(self, db):
@@ -555,7 +556,7 @@ class TestEpic60V3Migration:
         assert row["created_at"] == 1704067200     # strftime('%s', '2024-01-01 00:00:00')
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10    # каскад 3→10 (v4..v10)
+        assert (await cursor.fetchone())[0] == 11    # каскад 3→10 (v4..v10)
         await d.close()
 
     @pytest.mark.asyncio
@@ -569,7 +570,7 @@ class TestEpic60V3Migration:
         await d.close()
         await d.initialize()                       # «рестарт»
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM throttle_state")
@@ -666,7 +667,7 @@ class TestBotReplyParentsTable:
         assert set(cols) == {"chat_id", "tg_message_id",
                              "parent_tg_message_id", "last_used_at"}
         cursor = await db.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10    # v10 (F3, edges.fact_id)
+        assert (await cursor.fetchone())[0] == 11    # v10 (F3, edges.fact_id)
 
     @pytest.mark.asyncio
     async def test_set_and_get_roundtrip(self, db):
@@ -801,7 +802,7 @@ class TestVideoOriginsMigrationV4:
         await d.initialize()
 
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         # schema содержит новые origins
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
@@ -850,7 +851,7 @@ class TestVideoOriginsMigrationV4:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10   # каскад до v10 (раунд 10.18)
+        assert (await cursor.fetchone())[0] == 11   # каскад до v10 (раунд 10.18)
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # данные не задвоены
         await d.close()
@@ -932,7 +933,7 @@ class TestChatProtectedFactsV6Migration:
         assert (await cursor.fetchone()) is not None
         # PRAGMA user_version = 10 (каскад v5→v6→v7→v8→v9→v10)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         await d.close()
 
     @pytest.mark.asyncio
@@ -979,7 +980,7 @@ class TestChatProtectedFactsV6Migration:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM protected_facts")
         assert (await cursor.fetchone())["c"] == 2  # строки не задвоены
         await d.close()
@@ -1035,7 +1036,7 @@ class TestSummaryLevelsTable:
         tables = {row["name"] async for row in cursor}
         assert {"bot_reply_parents", "chat_summary_levels"} <= tables
         cursor = await db.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
 
     @pytest.mark.asyncio
     async def test_level_upsert_and_get_roundtrip(self, db):
@@ -1376,7 +1377,7 @@ class TestAgiMemoryV8Migration:
         assert any(r["id"] == 7 for r in found)
         # PRAGMA user_version = 10 (каскад v7→v8→v9→v10)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         # v8-origin проходит CHECK (после rebuild)
         fid = await d.insert_graph_fact(
             -100, "вася всегда платит за всех в баре", "derived_belief", None,
@@ -1401,7 +1402,7 @@ class TestAgiMemoryV8Migration:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 3  # строки не задвоены
         cursor = await d.db.execute(
@@ -1420,7 +1421,7 @@ class TestAgiMemoryV8Migration:
         assert {r["name"] for r in await cursor.fetchall()} == \
             {"dream_state", "memory_dream_log"}
         cursor = await db.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await db.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' "
             "AND name='dream_state'")

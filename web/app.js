@@ -91,8 +91,7 @@
       type: 'config', menu: 'modules',
       sources: [
         { category: 'flags', groups: ['flags_service', 'flags_throttle'] },
-        { category: 'limits', groups: ['limits_checkup', 'limits_service',
-            'limits_worker'] },
+        { category: 'limits', groups: ['limits_checkup', 'limits_service'] },
         { category: 'models', groups: ['models_checkup'] },
         { category: 'keys', groups: ['keys_betterstack'] },
       ] },
@@ -105,6 +104,14 @@
       type: 'config', menu: 'modules',
       sources: [
         { category: 'memory', groups: ['memory_nostalgia'] },
+      ] },
+    // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — оба контура (ключ чата + фон)
+    // и лимит контекста; тумблер безлимита — в спец-блоке (index.html).
+    { id: 'mod_budgets', icon: 'receipt_long', label: 'Бюджеты',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'limits', groups: ['limits_chat_key',
+            'limits_chat_context', 'limits_worker'] },
       ] },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
@@ -184,11 +191,12 @@
   // 10.10 (п.2, ADR-1010-2): временная сетка графика истории ключей.
   var SAMPLE_BUCKET = 300;        // 5 мин — тот же бакет, что пишет ring
   var MIN_BUCKETS = 12;           // минимум 1 час даже при 1-2 сэмплах
-  // D4: порядок секций матрицы прав = порядок config-вкладок (19; §4.3).
+  // D4: порядок секций матрицы прав = порядок config-вкладок (20; §4.3).
   var TAB_SECTION_ORDER = [
     'mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search',
     'mod_transcribe', 'mod_video_summary', 'mod_media_download', 'mod_web',
-    'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'llm_providers', 'prompts',
+    'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets',
+    'llm_providers', 'prompts',
     'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
     'permsoc',
   ];
@@ -359,6 +367,12 @@
     { id: 'mod_nostalgia', title: 'Ностальгия',
       subtitle: '«Кстати…» по старым сообщениям', icon: 'history',
       toggleKey: 'memory.nostalgia_enabled', tab: 'mod_nostalgia' },
+    // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — config-раздел без master-
+    // тумблера (это лимиты, а не модуль). Карточка ведёт в окно параметров
+    // (mod_budgets), внутри — тумблер «Безлимит по чату».
+    { id: 'mod_budgets', title: 'Бюджеты',
+      subtitle: 'Лимиты интеллекта и фона, безлимит по чату',
+      icon: 'receipt_long', noToggle: true, tab: 'mod_budgets' },
   ];
 
   // A4/T-1207: «LLM Провайдеры» — блоки ПО МОДУЛЯМ (base_url+model+key).
@@ -608,6 +622,8 @@
     '#/oversight': 'oversight',
     '#/how': 'info',
     '#/modules': 'modules',
+    // F3 (10.19, ADR-1019-3 D1): раздел «Бюджеты» в «Модулях».
+    '#/modules/budgets': 'mod_budgets',
     '#/permsoc': 'permsoc',
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
@@ -635,6 +651,7 @@
   var TAB_TO_ROUTE = {
     status: '#/', info: '#/how', oversight: '#/oversight',
     modules: '#/modules', permsoc: '#/permsoc',
+    mod_budgets: '#/modules/budgets',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
     memory_rag: '#/ai/memory', smart_cache: '#/ai/smart-cache',
     people_names: '#/ai/names', relations: '#/ai/relations',
@@ -662,6 +679,7 @@
     '#/ai/persona': '#/ai',   // F3 (10.14)
     '#/access/roles': '#/access', '#/access/local': '#/access',
     '#/access/admins': '#/access',
+    '#/modules/budgets': '#/modules',
   };
 
   // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
@@ -828,6 +846,7 @@
         gatesBusy: false,
         budgetInfo: null,        // GET /api/workers/budget
         budgetBusy: false,
+        budgetsUnlimitedBusy: false,   // F3: тумблер «Безлимит по чату»
         permsocBusy: false,
         // Раунд 10 (F-12 C1/C2): Oversight-дашборд (global admin)
         oversightData: null,     // GET /api/oversight/summary
@@ -910,6 +929,10 @@
         personaHealth: null,           // метрики Личности (GET /persona/health)
         cognitionStats: null,          // GET /api/memory/stats
         cognitionTimeline: [],         // GET /api/memory/timeline
+        // F7 (memory-retention-health, D-6): метрики здоровья памяти
+        // (GET /api/memory/health) — overdue/unconfirmed/сырьё/хранилище.
+        memoryHealth: null,
+        memoryHealthBusy: false,
         cognitionBusy: false,
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
         _cognitionPollRestore: null,   // F2: таймер возврата polling к 15с
@@ -1270,13 +1293,17 @@
       },
       // F5 (T-1455): бюджет контекста из аддитивного /api/status.context
       // (in-memory accounting); красный — урезание или загрузка > 90%.
+      // D-7 (10.19): `unlimited` (бюджет `-1`) → «Безлимит (∞)», без
+      // ложных 100% (used/limit).
       memoryContext: function () {
         var c = (this.statusData && this.statusData.context) || {};
-        var cap = Number(c.limit) || 0;
+        var unlimited = !!c.unlimited;
+        var cap = unlimited ? 0 : (Number(c.limit) || 0);
         var used = (c.used == null) ? null : Number(c.used);
         var ratio = (used != null && cap > 0) ? (used / cap) : 0;
-        return { used: used, limit: cap || null, truncated: !!c.truncated,
-                 ratio: ratio, red: !!c.truncated || ratio > 0.9 };
+        return { used: used, limit: cap || null, unlimited: unlimited,
+                 truncated: !!c.truncated, ratio: ratio,
+                 red: !!c.truncated || ratio > 0.9 };
       },
       cognitionBeliefsLoop: function () {
         return this._ribbonLoop(this.cognitionBeliefs);
@@ -2105,10 +2132,104 @@
         var it = this.configItems.find(function (i) { return i.key === itemKey; });
         return it && it.value ? 'под-флаг ON' : 'под-флаг OFF';
       },
-      // бюджет: прогресс-бары (usage/limit в долях; guard нулей)
+      // бюджет: прогресс-бары (usage/limit в долях; guard нулей).
+      // F3 (10.19, I-1): `limit <= 0` (−1 = безлимит / 0 = запрет) → 0%
+      // (раньше отрицательный limit давал отрицательную ширину бара).
       budgetRatio: function (pair) {
-        if (!pair || !pair.limit) return 0;
+        if (!pair || !pair.limit || pair.limit <= 0) return 0;
+        if (pair.unlimited) return 0;
         return Math.min(1, (pair.used || 0) / pair.limit);
+      },
+      // F3 (10.19, ADR-1019-8 D6): человекочитаемый текст метрики —
+      // «Безлимит (∞)» / «Запрещено» / «used / limit».
+      limitsPairText: function (pair) {
+        if (!pair) return '—';
+        if (pair.unlimited) return 'Безлимит (∞)';
+        if (pair.forbidden) return 'Запрещено';
+        return (pair.used || 0) + ' / ' + (pair.limit == null ? '?' : pair.limit);
+      },
+      // F3: статус хранения импорта («Импорт: Вечно» / «Импорт: N дней»).
+      storageLabel: function (storage) {
+        if (!storage) return '—';
+        return 'Импорт: ' + (storage.import_forever
+          ? 'Вечно' : (storage.label || (storage.import_retention_days + ' дней')));
+      },
+      // F3: ключи per-chat контуров, которые пишет тумблер безлимита.
+      budgetsUnlimitedKeys: function () {
+        return [
+          'limits.chat_global_key_budget_requests',
+          'limits.chat_global_key_budget_tokens',
+          'limits.worker_daily_llm_calls_per_chat',
+          'limits.worker_daily_llm_tokens_per_chat',
+          'limits.chat_global_context_max_tokens',
+          'limits.chat_thread_max_tokens',
+          'limits.chat_context_budget_tokens',
+        ];
+      },
+      _budgetItem: function (key) {
+        return this.configItems.find(function (i) { return i.key === key; });
+      },
+      // Включён ли безлимит: все ключи — per-chat override == −1.
+      budgetsUnlimitedActive: function () {
+        if (!this.isChatContext()) return false;
+        var self = this;
+        return this.budgetsUnlimitedKeys().every(function (key) {
+          var it = self._budgetItem(key);
+          return it && it.chat_source === 'chat' && Number(it.value) === -1;
+        });
+      },
+      // Тумблер «Безлимит по чату» (F3/D4): ON → все ключи = −1 (одним
+      // POST /api/config, per-chat); OFF → ЯВНЫЕ значения глобального слоя
+      // (POST /api/config, а не DELETE: DELETE терял meta.chat_settings_seed_version
+      // и сид переприменял −1 на рестарте — ревью Батча C, D-3). Новых
+      // REGISTRY-ключей не вводит.
+      toggleBudgetsUnlimited: async function (on) {
+        if (!this.isChatContext()) {
+          this.toast('Сначала выберите чат', 'warn');
+          return;
+        }
+        var self = this;
+        var keys = this.budgetsUnlimitedKeys();
+        this.budgetsUnlimitedBusy = true;
+        try {
+          if (on) {
+            var items = keys.map(function (key) { return { key: key, value: -1 }; });
+            await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify({
+                items: items, updated_at: this.configChatUpdatedAt,
+              }),
+            });
+            this.toast('Включён безлимит по этому чату', 'ok');
+          } else {
+            // Явные дефолты: null (env не задан, напр. контекст) → 0 =
+            // «не задано» (резолв уходит на эффективный дефолт).
+            var offItems = keys.map(function (key) {
+              var it = self._budgetItem(key);
+              var base = (it && it.global_value !== null
+                          && it.global_value !== undefined) ? it.global_value : 0;
+              return { key: key, value: base };
+            });
+            await this.api('/api/config', {
+              method: 'POST',
+              body: JSON.stringify({
+                items: offItems, updated_at: this.configChatUpdatedAt,
+              }),
+            });
+            this.toast('Безлимит снят — лимиты по глобальным значениям', 'ok');
+          }
+          await this._preserveScroll(this.loadConfig);
+          await this.loadKeyStatus();
+        } catch (e) {
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — обновите конфигурацию', 'warn');
+            this._preserveScroll(this.loadConfig);
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          this.budgetsUnlimitedBusy = false;
+        }
       },
 
       // ═══ Раунд 10 (F-12 C1/C2): Oversight (global admin) ═══
@@ -2139,6 +2260,25 @@
         } catch (e) {
           this.personaHealth = null;
         }
+      },
+      // F7 (memory-retention-health, D-6): метрики здоровья памяти для
+      // «Мониторинга Интеллекта» (просрочено/не подтверждено/сырьё/диск).
+      // Fail-open: ошибка/недоступность → null (шаблон «—»).
+      loadMemoryHealth: async function () {
+        this.memoryHealthBusy = true;
+        try {
+          this.memoryHealth = await this.api('/api/memory/health');
+        } catch (e) {
+          this.memoryHealth = null;
+        } finally {
+          this.memoryHealthBusy = false;
+        }
+      },
+      // Предупреждение о низком свободном месте (порог 2 ГБ).
+      memoryStorageWarn: function () {
+        var s = this.memoryHealth && this.memoryHealth.storage;
+        if (!s || !s.disk_free_bytes) return false;
+        return s.disk_free_bytes < 2147483648;
       },
       // Hotfix-R10 («Модули» без выбранного чата): Opt-In-сводка из
       // Oversight-данных удалена в 10.9 (карточка дублирующих гейтов убрана).
@@ -5259,6 +5399,9 @@
           }
           // F4/UPD п.4: метрики Личности (для «Сводки»), fail-open внутри.
           this.loadPersonaHealth();
+          // F7 (D-6): метрики здоровья памяти (просрочено/не подтверждено/
+          // сырьё/хранилище) — аддитивный блок «Мониторинга Интеллекта».
+          this.loadMemoryHealth();
         } catch (e) {
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Осмысление: ' + e.message, 'err');

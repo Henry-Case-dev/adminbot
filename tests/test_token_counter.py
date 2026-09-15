@@ -96,15 +96,34 @@ class TestResolveChatLimit:
         assert tc.resolve_chat_limit(2000, 1000, "CHAR_KEY", 4000, "LBL") \
             == ("tokens", 2000)
 
-    def test_chars_fallback_warns(self, monkeypatch, caplog):
+    def test_chars_fallback_debug_not_warning(self, monkeypatch, caplog):
+        """F4: chars-fallback — АВАРИЙНЫЙ путь (debug, не WARNING)."""
         monkeypatch.setenv("CHAR_KEY_XYZ", "6000")
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.DEBUG):
             result = tc.resolve_chat_limit(None, 1000, "CHAR_KEY_XYZ", 6000,
                                            "LBL_XYZ")
         assert result == ("chars", 6000)
         assert any("chars-fallback" in r.message for r in caplog.records)
+        assert all(r.levelno < logging.WARNING for r in caplog.records
+                   if "chars-fallback" in r.message)
 
     def test_default_tokens_when_nothing_set(self, monkeypatch):
         monkeypatch.delenv("CHAR_KEY_NONE", raising=False)
         assert tc.resolve_chat_limit(None, 1000, "CHAR_KEY_NONE", 4000, "LBL") \
             == ("tokens", 1000)
+
+    def test_unlimited_sentinel_resolves_to_ceiling(self):
+        """F4/S10.19-13: `-1` = безлимит → потолок безопасности (не 1 токен)."""
+        from config.settings import settings
+        result = tc.resolve_chat_limit(-1, 1000, "CHAR_KEY", 4000, "LBL")
+        assert result == ("tokens",
+                          settings.CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS)
+        assert result[1] > 1000
+        assert tc.safe_budget(result[1]) > 1
+
+    def test_zero_is_unset_global_default(self):
+        """F4: `0` = «не задано» → глобальный дефолт (token_default)."""
+        assert tc.resolve_chat_limit(0, 5000, "CHAR_KEY", 4000, "LBL") \
+            == ("tokens", 5000)
+        assert tc.resolve_chat_limit(None, 3000, "CHAR_KEY", 4000, "LBL") \
+            == ("tokens", 3000)

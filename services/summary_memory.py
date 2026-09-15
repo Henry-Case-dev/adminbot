@@ -66,6 +66,12 @@ GRAPH_ACTIVATION_CAP = 5          # потолок архивных фактов
 GRAPH_ACTIVATION_MIN_HITS = 3     # частота связки 2–3 узлов в L1 для активации
 _GRAPH_ACTIVATION_NODE_CAP = 12   # потолок узлов-кандидатов (анти-взрыв combos)
 
+# F7 (10.19, ADR-1019-6 D1): retention импортированной истории — общий шаг,
+# вызывается из крона `compress_and_purge` (4×/день) не чаще интервала, чтобы
+# не гонять COUNT по ~2M строк на каждый чат. ЕДИНСТВЕННЫЙ call-site purge.
+_IMPORT_RETENTION_INTERVAL = 6 * 3600
+_import_retention_last_ts = 0
+
 
 def _belief_base_weight(row) -> float:
     """base_weight belief из belief_meta (fallback _BELIEF_BASE_WEIGHT).
@@ -168,6 +174,94 @@ def _mask_llm_raw(raw) -> str:
     for pattern in _LLM_RAW_SECRET_PATTERNS:
         text = pattern.sub("<secret>", text)
     return " ".join(text.split())
+
+# F8 (ADR-1019-7 D4): не-спамящая диагностика потерь фактов. Один WARNING на
+# событие, rate-limit ≤60с на (chat_id, source_type); повторные — debug +
+# агрегированный счётчик. dict модульный (единый event-loop).
+_MEMORIZE_WARN_INTERVAL = 60.0
+# D-06: модульные словари bounded — эвикция старейших ключей (иначе рост по
+# (chat_id, source_type) на весь срок процесса).
+_MEMORIZE_WARN_STATE_MAX = 512
+# D-07: `None` = «ещё не логировали» — первое событие ВСЕГДА даёт WARNING,
+# даже если uptime процесса < `_MEMORIZE_WARN_INTERVAL` (monotonic() ≈ 0).
+_memorize_warn_state: dict[tuple[int, str], float | None] = {}
+_memorize_lost_totals: dict[tuple[int, str], int] = {}
+# S10.19-1 (ревью Батча A): валидный `[]` — не потеря, но и не тишина.
+# Отдельные словари для rate-limited INFO + агрегата `empty_total`.
+_memorize_empty_state: dict[tuple[int, str], float | None] = {}
+_memorize_empty_totals: dict[tuple[int, str], int] = {}
+
+
+def _evict_memorize_state() -> None:
+    """D-06: bounded-очистка модульных словарей диагностики memorize.
+
+    Эвикция старейших по вставке ключей (dict сохраняет порядок вставки) —
+    страховка от неограниченного роста по (chat_id, source_type)."""
+    for state in (_memorize_warn_state, _memorize_lost_totals,
+                  _memorize_empty_state, _memorize_empty_totals):
+        while len(state) > _MEMORIZE_WARN_STATE_MAX:
+            state.pop(next(iter(state)))
+
+
+def _memorize_reason(raw) -> str:
+    """Причина потери: непустой невалидный ответ → not_json, пустой → empty."""
+    return "empty" if not str(raw or "").strip() else "not_json"
+
+
+def _log_memorize_lost(chat_id, source_type, status, reason, raw) -> None:
+    """F8 (ADR-1019-7 D4): единый rate-limited WARNING о потере фактов.
+
+    R17-safe: сырой ответ — только `_mask_llm_raw`; значения токенов/URL не
+    попадают. Повторные сбои в окне 60с → debug с накопленным `lost_total`.
+    D-06: словари bounded (эвикция старейших). D-07: `None`-сентинел — первое
+    событие ВСЕГДА даёт WARNING (не подавляется малым uptime процесса)."""
+    key = (chat_id, source_type)
+    now = time.monotonic()
+    total = _memorize_lost_totals.get(key, 0) + 1
+    _memorize_lost_totals[key] = total
+    last = _memorize_warn_state.get(key)
+    suppress = last is not None and now - last < _MEMORIZE_WARN_INTERVAL
+    if not suppress:
+        _memorize_warn_state[key] = now
+    _evict_memorize_state()
+    if suppress:
+        logger.debug(
+            "graphrag memorize: facts lost (rate-limited) | chat_id=%s | "
+            "source=%s | status=%s | reason=%s | lost_total=%d",
+            chat_id, source_type, status, reason, total)
+        return
+    logger.warning(
+        "graphrag memorize: facts lost | chat_id=%s | source=%s | status=%s "
+        "| reason=%s | lost_total=%d | raw=%s",
+        chat_id, source_type, status, reason, total, _mask_llm_raw(raw))
+
+
+def _log_empty_valid(chat_id, source_type, *, label: str = "memorize") -> None:
+    """S10.19-1 (ревью Батча A): валидный `[]` — rate-limited **INFO**.
+
+    Раньше валидный пустой список логировался только на DEBUG → в journald
+    (root=INFO) симптом «модель вернула пустой список» снова становился
+    невидимым. Теперь первое событие на (chat_id, source_type) — INFO, повторы
+    в окне 60с — DEBUG с накопленным `empty_total` (симметрично `lost_total`).
+    R17-safe: значения/сырой ответ не логируются."""
+    key = (chat_id, source_type)
+    now = time.monotonic()
+    total = _memorize_empty_totals.get(key, 0) + 1
+    _memorize_empty_totals[key] = total
+    last = _memorize_empty_state.get(key)
+    suppress = last is not None and now - last < _MEMORIZE_WARN_INTERVAL
+    if not suppress:
+        _memorize_empty_state[key] = now
+    _evict_memorize_state()
+    if suppress:
+        logger.debug(
+            "graphrag %s: empty valid list (rate-limited) | chat_id=%s | "
+            "source=%s | empty_total=%d", label, chat_id, source_type, total)
+        return
+    logger.info(
+        "graphrag %s: empty valid list (no facts) | chat_id=%s | source=%s | "
+        "empty_total=%d", label, chat_id, source_type, total)
+
 
 _YOUTUBE_MEMORIZE_MAX_CHARS = 8000   # порог «огромных субтитров» (55.5)
 
@@ -493,12 +587,23 @@ def build_fts_query(keywords: list[str]) -> str:
     return " OR ".join(cleaned)
 
 
-def parse_fact_list(raw: str) -> list[dict]:
-    """Толерантный парсер фактов (55.4): JSON-массив {subject, predicate,
-    object, context?} (context опционален). НИКОГДА не бросает: кривой JSON /
-    не-массив → [] + WARNING (тихий лог R46-5). Code-fence и объект-со-списком
-    принимаются (прецедент parse_triplets 35.4); невалидные элементы
-    пропускаются; капсы имён/предиката/контекста; subject == object — мимо."""
+# F8 (ADR-1019-7 D1): явный статус разбора ответа LLM.
+PARSE_OK = "ok"                      # есть факты
+PARSE_EMPTY_VALID = "empty_valid"    # валидный [] — реально нет фактов
+PARSE_INVALID = "invalid"            # не-список/кривой JSON/объект без списка
+
+
+def parse_fact_list_ex(raw, *, warn: bool = True) -> tuple[list[dict], str]:
+    """Толерантный парсер фактов + СТАТУС (F8/ADR-1019-7 D1). НИКОГДА не бросает.
+
+    JSON-массив {subject, predicate, object, context?}; code-fence и
+    объект-со-списком принимаются (прецедент parse_triplets 35.4); невалидные
+    элементы пропускаются; капсы имён/предиката/контекста; subject == object —
+    мимо. Статус: `ok` / `empty_valid` (валидный `[]`, легитимный результат) /
+    `invalid` (мусор ИЛИ структурно валидный список без единого годного
+    факта — D-08). WARNING (маскированный raw, R17) — для ЛЮБОГО `invalid` и
+    только при `warn=True`: в memorize-пайплайне единый WARNING даёт
+    `_log_memorize_lost` (иначе дубль, D4). `empty_valid` → debug."""
     text = str(raw).strip()
     candidates = [text]
     if text.startswith("```"):
@@ -521,13 +626,19 @@ def parse_fact_list(raw: str) -> list[dict]:
         else:
             data = None
     if not isinstance(data, list):
-        # F-15 (§4.1): WARNING больше НЕ тихий — raw-фрагмент (маскированный,
-        # R17) для диагностики промпт-дрейфа; фраза «not a JSON list»
-        # сохраняется (тесты-якоря).
-        logger.warning(
-            "graphrag memorize: LLM answer is not a JSON list — skipped "
-            "| raw=%s", _mask_llm_raw(raw))
-        return []
+        if warn:
+            # F-15 (§4.1): WARNING больше НЕ тихий — raw-фрагмент
+            # (маскированный, R17) для диагностики промпт-дрейфа; фраза
+            # «not a JSON list» сохраняется (тесты-якоря).
+            logger.warning(
+                "graphrag memorize: LLM answer is not a JSON list — skipped "
+                "| raw=%s", _mask_llm_raw(raw))
+        return [], PARSE_INVALID
+    if not data:
+        # F8 (ADR-1019-7 D1): валидный пустой список отличим от мусора.
+        logger.debug(
+            "graphrag memorize: valid empty fact list — no facts to store")
+        return [], PARSE_EMPTY_VALID
     facts = []
     for item in data:
         fact = _validate_fact(item)
@@ -536,7 +647,23 @@ def parse_fact_list(raw: str) -> list[dict]:
         facts.append(fact)
         if len(facts) >= (hot.get("limits.graph_extract_max_triplets", settings.GRAPH_EXTRACT_MAX_TRIPLETS) or 0):
             break
-    return facts
+    if facts:
+        return facts, PARSE_OK
+    # Список структурно валиден, но ни одного годного факта — промпт-дрейф,
+    # а не «пусто»: invalid (в memorize-ветке → fallback/ретрай).
+    # D-08: диагностируем этот случай так же, как «не-список» (иначе при
+    # warn=True он был бы тихим). В memorize-ветке warn=False — единый
+    # WARNING даёт `_log_memorize_lost` (без дубля).
+    if warn:
+        logger.warning(
+            "graphrag memorize: JSON list has no valid facts — skipped "
+            "| raw=%s", _mask_llm_raw(raw))
+    return [], PARSE_INVALID
+
+
+def parse_fact_list(raw: str) -> list[dict]:
+    """Совместимая обёртка над `parse_fact_list_ex` (результат — как раньше)."""
+    return parse_fact_list_ex(raw)[0]
 
 
 def _validate_fact(item) -> dict | None:
@@ -1692,10 +1819,13 @@ class MemoryManager:
         try:
             await self._memorize_facts_inner(chat_id, raw_text, source_type, target_user)
         except LLMError as exc:
-            # Ожидаемое (timeout/429/5xx/транспорт после _post-ретраев) — WARNING
-            # без traceback (Epic 47, D188/56.7 #9). Auth тоже «ожидаемый» фон.
+            # F8 (ADR-1019-7 D2): первичная LLMError теперь перехватывается
+            # ВНУТРИ _memorize_facts_inner (с восстановлением), поэтому здесь —
+            # только страховка (unexpected): падение ПОСЛЕ попытки
+            # восстановления, а не молчаливая «глушилка» потери.
             logger.warning(
-                "graphrag memorize: LLM failed | chat_id=%s | source=%s | error=%s",
+                "graphrag memorize: facts lost after recovery (unexpected "
+                "LLMError) | chat_id=%s | source=%s | error=%s",
                 chat_id, source_type, exc,
             )
         except Exception:
@@ -1727,49 +1857,74 @@ class MemoryManager:
                     continue
                 raise exc
 
+    async def _safe_retry(self, tail: str) -> str | None:
+        """F8 (ADR-1019-7 D2/D3): одна попытка retry-промптом. `LLMError` → None
+        без отдельного WARNING (единый WARNING даёт `_log_memorize_lost`, D4)."""
+        try:
+            return await self.llm.generate([
+                {"role": "system", "content": _FACT_RETRY_SYSTEM_PROMPT},
+                {"role": "user", "content": tail}])
+        except LLMError as exc:
+            logger.debug("graphrag memorize: retry LLM error | error=%s", exc)
+            return None
+
     async def _memorize_facts_inner(self, chat_id, raw_text, source_type,
                                     target_user=None) -> None:
         text = " ".join(str(raw_text).split())
         if not text:
             return
         tail = text[-_FACT_EXTRACT_MAX_CHARS:]
-        raw = await self._extract_facts(tail)     # Epic 47 (D188): bounded-повтор
-        facts = parse_fact_list(raw)
-        if not facts:
-            # F-15 (§4.2): толерантность к прозе/буллетам/кривому JSON —
-            # fallback-парсер до ретрая.
-            facts = _fallback_parse_facts(raw)
-        if not facts:
-            # F-15 (§4.3): ОДИН ретрай жёстким промптом — ТОЛЬКО в этой
+        # F8 (ADR-1019-7 D2): `LLMError` первичной экстракции (timeout nano-gpt
+        # после исчерпания bounded-ретраев) больше НЕ теряет факты молча —
+        # перехватываем здесь и пытаемся восстановиться (fallback + 1 retry).
+        raw = None
+        status = PARSE_INVALID
+        reason = "llm_error"
+        facts: list[dict] = []
+        try:
+            raw = await self._extract_facts(tail)   # Epic 47 (D188): bounded-повтор
+        except LLMError as exc:
+            # Промежуточный сигнал — debug (единый WARNING даёт _log_memorize_lost).
+            logger.debug(
+                "graphrag memorize: primary extract LLMError — trying recovery "
+                "| chat_id=%s | source=%s | error=%s", chat_id, source_type, exc)
+        if raw is not None:
+            facts, status = parse_fact_list_ex(raw, warn=False)
+            if not facts and status != PARSE_EMPTY_VALID:
+                # F-15 (§4.2): толерантность к прозе/буллетам/кривому JSON —
+                # fallback-парсер до ретрая.
+                facts = _fallback_parse_facts(raw)
+                if facts:
+                    status = PARSE_OK
+                else:
+                    status = PARSE_INVALID
+                    reason = _memorize_reason(raw)
+        if not facts and status != PARSE_EMPTY_VALID:
+            # F-15 (§4.3)/F8: ОДИН ретрай жёстким промптом — ТОЛЬКО в этой
             # (fire-and-forget) ветке memorize; крон _extract_and_save_graph
-            # НЕ ретраится (канон «деградация без потерь»). Ошибка LLM →
-            # WARNING как в _extract_facts, факты не пишутся.
-            retry_raw = None
-            try:
-                retry_raw = await self.llm.generate([
-                    {"role": "system",
-                     "content": _FACT_RETRY_SYSTEM_PROMPT},
-                    {"role": "user", "content": tail}])
-            except LLMError as exc:
-                logger.warning(
-                    "graphrag memorize: retry LLM failed | chat_id=%s | "
-                    "source=%s | error=%s", chat_id, source_type, exc)
-            if retry_raw:
-                facts = parse_fact_list(retry_raw)
-                if not facts:
+            # НЕ ретраится (канон «деградация без потерь»). Валидный `[]` от
+            # primary ретрай НЕ вызывает (экономим вызов).
+            retry_raw = await self._safe_retry(tail)
+            retry_empty_valid = False
+            if retry_raw is not None:
+                facts, r_status = parse_fact_list_ex(retry_raw, warn=False)
+                if not facts and r_status != PARSE_EMPTY_VALID:
                     facts = _fallback_parse_facts(retry_raw)
+                    r_status = PARSE_OK if facts else PARSE_INVALID
+                retry_empty_valid = (r_status == PARSE_EMPTY_VALID)
             if facts:
                 logger.info(
-                    "graphrag memorize: retry recovered %d facts | chat_id=%s "
-                    "| source=%s", len(facts), chat_id, source_type)
+                    "graphrag memorize: recovered %d facts | chat_id=%s | "
+                    "source=%s", len(facts), chat_id, source_type)
+            elif retry_empty_valid:
+                status = PARSE_EMPTY_VALID
             else:
-                logger.warning(
-                    "graphrag memorize: LLM answer is not a JSON list — "
-                    "skipped | raw=%s | [retry] second attempt also failed",
-                    _mask_llm_raw(raw))
+                # F8 (ADR-1019-7 D4): единый rate-limited WARNING на событие.
+                _log_memorize_lost(chat_id, source_type, status, reason, raw)
         if not facts:
-            logger.info("graphrag memorize: 0 facts | chat_id=%s | source=%s",
-                        chat_id, source_type)
+            if status == PARSE_EMPTY_VALID:
+                # S10.19-1: rate-limited INFO (виден в journald/root=INFO).
+                _log_empty_valid(chat_id, source_type)
             return
         # Раунд 8 (C4/T-795, spec §3.C4/Q4): «карта дисплеев» чата — участники
         # за limits.chat_map_participants_hours (тот же C2-запрос, что карта
@@ -2798,6 +2953,40 @@ class MemoryManager:
         smart_archive; импортированные строки (import_key IS NOT NULL) из
         extract исключаются (их графом пополняет Graph-воркер). OFF — ровно
         текущий код (сжатие → smart_archive+extract → DELETE сырья)."""
+        # F7 (ADR-1019-6 D1/D2): шаг retention импортированной истории
+        # (per-chat срок, guard «0=вечно», архив перед purge). Идёт ВСЕГДА
+        # (независимо от infinite_retention, который касается live-сырья).
+        # Общий для всех чатов — throttle, чтобы не повторять на каждый
+        # чат-вызов крона. ЕДИНСТВЕННЫЙ call-site purge импорта (F7).
+        #
+        # D-2 (High, ревью Батча E): деструктивный purge гейтится env-флагом
+        # `IMPORT_RETENTION_ENABLED` (default OFF) + `IMPORT_RETENTION_DRY_RUN`
+        # (default ON). Авто-крон НЕ удаляет данные, пока оператор явно не
+        # включит apply (spec F7 §7/ADR-1019-6 D2: dry-run → бэкап → DDL →
+        # батчевый purge). Ручной путь — `manage.py retention --apply`.
+        global _import_retention_last_ts
+        _now_ts = int(time.time())
+        if (_now_ts - _import_retention_last_ts >= _IMPORT_RETENTION_INTERVAL
+                and settings.IMPORT_RETENTION_ENABLED):
+            _import_retention_last_ts = _now_ts
+            # UPD4 п.3 / D-2: DELETE авто-крона — только при ЯВНОМ apply и
+            # подтверждённом бэкапе БД; иначе dry-run + WARNING.
+            from services.memory_maintenance import (
+                auto_purge_dry_run, run_import_retention)
+            eff_dry = auto_purge_dry_run(
+                dry_run=settings.IMPORT_RETENTION_DRY_RUN,
+                backup_confirmed=settings.IMPORT_RETENTION_BACKUP_CONFIRMED)
+            if eff_dry and not settings.IMPORT_RETENTION_DRY_RUN:
+                logger.warning(
+                    "[retention] auto-purge: DB backup not confirmed — "
+                    "dry-run only | set IMPORT_RETENTION_BACKUP_CONFIRMED=true "
+                    "after a verified backup | chat_id=%s", chat_id)
+            try:
+                await run_import_retention(self.db, dry_run=eff_dry)
+            except Exception:
+                logger.warning(
+                    "import retention step failed — continue | chat_id=%s",
+                    chat_id, exc_info=True)
         if hot.get("memory.infinite_retention", settings.INFINITE_RETENTION):
             await self._compress_purge_extract_only(chat_id)
             return
@@ -2856,6 +3045,7 @@ class MemoryManager:
                 "graphrag purge: expired-facts purge failed | chat_id=%s",
                 chat_id, exc_info=True,
             )
+
 
     async def _compress_purge_extract_only(self, chat_id: int) -> None:
         """G1 (T-756): extract-only ветка при memory.infinite_retention ON —
@@ -2962,6 +3152,16 @@ class MemoryManager:
             ]
         )
         triplets = parse_triplets(raw)
+        if not triplets:
+            # F8 (ADR-1019-7 D5): крон-ветка получает ТОЛЬКО различение
+            # «валидный []» vs «невалидный ответ» в лог (info/debug); доп.
+            # LLM-вызовов/ретраев нет («деградация без потерь» — канон F-15).
+            if str(raw).strip() == "[]":
+                # S10.19-1: rate-limited INFO вместо невидимого DEBUG.
+                _log_empty_valid(chat_id, "triplets", label="graph extract")
+            else:
+                logger.info(
+                    "graph extract: no triplets parsed | chat_id=%s", chat_id)
         for triplet in triplets:
             # Epic 60 (66.9, T-487): user-сущности — канон-имена по алиасам
             # (карточки /persona и связи графа агрегируются по одному имени).

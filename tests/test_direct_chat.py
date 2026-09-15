@@ -512,13 +512,18 @@ class TestContextPartitioning:
         assert all("<RAG_Memory>" not in b for b in blocks)
 
     @pytest.mark.asyncio
-    async def test_global_context_truncated_with_warning(self, fake_time, caplog):
+    async def test_global_context_truncated_with_warning(self, fake_time, caplog,
+                                                         monkeypatch):
         """Раунд 8 (D2/T-799): потолок <Global_Context> — keep-head с
         importance-удержанием: под давлением первыми жертвуются шумные строки
-        со стороны начала (старое), метка-строка объёма держится; WARNING."""
-        from config.settings import settings
+        со стороны начала (старое), метка-строка объёма держится; WARNING.
+        F4: потолок задаётся явным токенным лимитом (не chars-env)."""
+        from config.settings import settings as _s
 
-        window = [_window_row(text="х" * settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS + "!"),
+        monkeypatch.setattr(
+            "services.direct_chat_service.settings",
+            _cfg(CHAT_GLOBAL_CONTEXT_MAX_TOKENS=200))
+        window = [_window_row(text="х" * _s.CHAT_GLOBAL_CONTEXT_MAX_CHARS + "!"),
                   _window_row(text="конец")]
         memory = FakeMemory(window=window)
         service = _make_service(memory=memory)
@@ -528,7 +533,7 @@ class TestContextPartitioning:
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
         assert body.startswith("фон: дословно последние 2 сообщений")  # D5-метка
         assert "конец" in body                       # свежайшая строка держится
-        assert body.count("х") < settings.CHAT_GLOBAL_CONTEXT_MAX_CHARS  # шум выпал
+        assert body.count("х") < _s.CHAT_GLOBAL_CONTEXT_MAX_CHARS  # шум выпал
         assert any("global context truncated" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio

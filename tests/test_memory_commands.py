@@ -467,7 +467,7 @@ class TestRememberStore:
         d = DatabaseService(str(path))
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await d.db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='graph_facts'")
         assert "user_memory" in (await cursor.fetchone())["sql"]
@@ -479,7 +479,7 @@ class TestRememberStore:
         # повторный запуск — no-op
         await d.initialize()
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1
         await d.close()

@@ -19,7 +19,8 @@ import time
 from dataclasses import dataclass
 
 from config.settings import settings
-from services import chat_keys, chat_params, feature_gates, permsoc, worker_budget
+from services import (budget_limits, chat_keys, chat_params, chat_usage,
+                      feature_gates, permsoc, worker_budget, worker_settings)
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,33 @@ _SUMMARY_TTL = 60.0
 _TITLE_TTL = 600.0
 _ACTIVITY_TTL = 120.0
 _HISTORY_LIMIT = 5
+
+# F3 (10.19, ADR-1019-8 D6): ключи лимита контекста и хранения импорта —
+# для аддитивного блока `limits` «Сводки».
+# D-6 (ревью Батча C): env-значение (может быть None) + ФАКТИЧЕСКИ
+# эффективный дефолт для «не задано» (0/None). F4 (10.19, ADR-1019-4 D3):
+# эффективные дефолты контекста — 5000/3000/16000 (были 1000/500/4000).
+CONTEXT_LIMIT_KEYS: tuple[tuple[str, str, int | None, int], ...] = (
+    ("global_tokens", "limits.chat_global_context_max_tokens",
+     settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS, 5000),
+    ("thread_tokens", "limits.chat_thread_max_tokens",
+     settings.CHAT_THREAD_MAX_TOKENS, 3000),
+    ("total_budget_tokens", "limits.chat_context_budget_tokens",
+     settings.CHAT_CONTEXT_BUDGET_TOKENS, settings.CHAT_CONTEXT_BUDGET_TOKENS),
+)
+STORAGE_KEY = "limits.import_history_retention_days"
+STORAGE_DEFAULT = settings.IMPORT_HISTORY_RETENTION_DAYS
+# per-chat ключи фон-контура (source-диагностика зеркала `budget`).
+WORKER_LIMIT_KEYS = {
+    "llm_calls": "limits.worker_daily_llm_calls_per_chat",
+    "llm_tokens": "limits.worker_daily_llm_tokens_per_chat",
+}
+# S10.19-14 (Medium): глобальные дефолты фон-контура — для «тихих» чатов без
+# строк дня (`used=0`), чтобы НЕ рапортовать ложное «Запрещено» (limit 0).
+WORKER_DEFAULT_LIMITS = {
+    "llm_calls": settings.WORKER_DAILY_LLM_CALLS_PER_CHAT,
+    "llm_tokens": settings.WORKER_DAILY_LLM_TOKENS_PER_CHAT,
+}
 
 PROFILE_COLS_SQL = (
     "SELECT p.chat_id, p.is_active, p.chat_params, p.gates_opt_in, "
@@ -125,6 +153,139 @@ async def _activity_map(pg) -> dict[int, str | None]:
     return out
 
 
+async def _limits_metric(pg, chat_id: int, *, contour: str, used_key: str,
+                         day_rows, metric: str) -> dict:
+    """F3 (ADR-1019-8 D6): метрика {used, limit, unlimited, forbidden, source}.
+
+    D-1 (ревью Батча C): контур задаётся ЯВНО (`contour`), а не по имени
+    метрики — раньше обе ветки вызывались с `metric='llm_calls'/'llm_tokens'`,
+    поэтому условие `metric in WORKER_LIMIT_KEYS` было всегда истинным и
+    `chat_usage` (direct) не читался, а `key_status`-ветка была мёртвой.
+
+    * `contour='direct'` — источник `chat_usage.key_status` (общий ключ чата);
+    * `contour='worker'` — `worker_budget.get_usage` (зеркало `budget`);
+    * `used_key` значим только для direct (`'calls'|'tokens'`).
+    Вызывающий ловит исключения (fail-open по под-объекту).
+
+    S10.19-14: при ПУСТОМ дне (нет строк `worker_budget`) лимит фон-контура
+    резолвится `chat → global → default` (`WORKER_DEFAULT_LIMITS`), а не
+    обнуляется (было ложное «Запрещено»). Если строка дня есть — её `limit`
+    уже per-chat-резолвнут (`worker_budget._metric_limit`), берём как есть;
+    `source` уточняем best-effort."""
+    if contour == "direct":
+        status = await chat_usage.key_status(pg, chat_id)
+        return dict(status[used_key])
+    rows = [r for r in (day_rows or []) if r.get("metric") == metric]
+    used = int(rows[0]["used"]) if rows else 0
+    if rows:
+        limit = int(rows[0]["limit"])
+    else:
+        limit = int(WORKER_DEFAULT_LIMITS.get(metric, 0))
+    source = "default"
+    try:
+        resolved, source = await worker_settings.resolve_setting_with_source(
+            WORKER_LIMIT_KEYS[metric], chat_id=chat_id, default=limit)
+        if not rows and resolved is not None:
+            limit = int(resolved)
+    except Exception:
+        source = "default"
+    return {
+        "used": used, "limit": limit,
+        "unlimited": budget_limits.is_unlimited(limit),
+        "forbidden": budget_limits.is_forbidden(limit),
+        "source": source,
+    }
+
+
+async def _limits_block(pg, chat_id: int, day_rows) -> dict:
+    """F3 (ADR-1019-8 D6): аддитивный блок `limits` карточки чата.
+
+    Ключи: key_budget/worker_budget {calls,tokens}, context {global_tokens,
+    thread_tokens, total_budget_tokens}, storage {import_retention_days,
+    import_forever, source, label}. Fail-open ПО-ПОД-ОБЪЕКТНО: ошибка любого
+    источника → под-объект с нулём/дефолтом, но 500 не бывает (R16)."""
+    limits: dict = {}
+    try:
+        limits["key_budget"] = {
+            "calls": await _limits_metric(pg, chat_id, contour="direct",
+                                          used_key="calls", day_rows=day_rows,
+                                          metric="llm_calls"),
+            "tokens": await _limits_metric(pg, chat_id, contour="direct",
+                                           used_key="tokens", day_rows=day_rows,
+                                           metric="llm_tokens"),
+        }
+    except Exception:
+        logger.warning("[oversight] key_budget limits failed | chat=%s",
+                       chat_id, exc_info=True)
+    try:
+        limits["worker_budget"] = {
+            "calls": await _limits_metric(pg, chat_id, contour="worker",
+                                          used_key="calls", day_rows=day_rows,
+                                          metric="llm_calls"),
+            "tokens": await _limits_metric(pg, chat_id, contour="worker",
+                                           used_key="tokens", day_rows=day_rows,
+                                           metric="llm_tokens"),
+        }
+    except Exception:
+        logger.warning("[oversight] worker_budget limits failed | chat=%s",
+                       chat_id, exc_info=True)
+    context: dict = {}
+    for name, key, env_default, effective_default in CONTEXT_LIMIT_KEYS:
+        cap = {"limit": int(effective_default), "unlimited": False,
+               "source": "default"}
+        try:
+            value, source = await worker_settings.resolve_setting_with_source(
+                key, chat_id=chat_id, default=env_default)
+            state = budget_limits.context_state(value)
+            if state == "unset":
+                # D-6: `0`/None = «не задано» → показываем фактически
+                # эффективный дефолт (не ложный 0), source='default'.
+                value, source = effective_default, "default"
+                state = budget_limits.context_state(value)
+            cap = {
+                "limit": int(value),
+                "unlimited": state == "unlimited",
+                "source": source,
+            }
+        except Exception:
+            logger.warning("[oversight] context limit failed | chat=%s | "
+                           "key=%s", chat_id, key, exc_info=True)
+        context[name] = cap
+    limits["context"] = context
+    # D-2.6 (Low, ревью итерации 4): единый нормализованный fallback из
+    # retention_policy (один источник истины) — при негативном
+    # `STORAGE_DEFAULT` label не может стать «-1 дней».
+    from services import retention_policy as retention_policy_srv
+    fallback_days = retention_policy_srv.normalized_retention_default()
+    storage = {"import_retention_days": fallback_days,
+               "import_forever": fallback_days == 0,
+               "source": "default",
+               "label": "Вечно" if fallback_days == 0
+                        else f"{fallback_days} дней"}
+    try:
+        value, source = await worker_settings.resolve_setting_with_source(
+            STORAGE_KEY, chat_id=chat_id, default=STORAGE_DEFAULT)
+        state = budget_limits.retention_state(value)
+        if state == "invalid":
+            # негатив невалиден → нормализованный глобальный дефолт (F7).
+            logger.warning("[oversight] invalid retention override | chat=%s "
+                           "— fallback на глобальный дефолт", chat_id)
+            value, source = fallback_days, "default"
+            state = budget_limits.retention_state(value)
+        days = 0 if state == "eternal" else int(value)
+        storage = {
+            "import_retention_days": days,
+            "import_forever": state == "eternal",
+            "source": source,
+            "label": "Вечно" if state == "eternal" else f"{days} дней",
+        }
+    except Exception:
+        logger.warning("[oversight] storage limits failed | chat=%s",
+                       chat_id, exc_info=True)
+    limits["storage"] = storage
+    return limits
+
+
 async def build_summary(pg, sqlite_db=None) -> dict:
     """Сводка (кэш 60 с): {generated_at, chats: [ChatSummary...],
     errors: [...], global_budget: {...}}."""
@@ -200,6 +361,14 @@ async def build_summary(pg, sqlite_db=None) -> dict:
                             "limit": hits[0]["limit"] if hits else 0}
                 budget = {"calls": _pair("llm_calls"),
                           "tokens": _pair("llm_tokens")}
+            # F3 (ADR-1019-8 D6): аддитивный `limits` — оба контура +
+            # контекст + хранение; каждый источник fail-open.
+            try:
+                limits = await _limits_block(pg, chat_id, day_rows)
+            except Exception:
+                logger.warning("[oversight] limits block failed | chat=%s",
+                               chat_id, exc_info=True)
+                limits = {}
             chats.append({
                 "chat_id": chat_id,
                 "title": title,
@@ -213,6 +382,7 @@ async def build_summary(pg, sqlite_db=None) -> dict:
                 "admins_count": admins.get(chat_id, 0),
                 "last_active_ts": activity.get(chat_id),
                 "budget": budget,
+                "limits": limits,
                 "updated_at": chat_params._iso(row.get("updated_at")),
             })
         except Exception as exc:

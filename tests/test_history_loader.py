@@ -177,11 +177,12 @@ class TestLoaderOverlap:
         calls = {"n": 0}
         orig_flush = loader_mod._flush_batch
 
-        async def failing_flush(conn, fr, buffer, path, est_total):
+        async def failing_flush(conn, fr, buffer, path, est_total, chat_id):
             calls["n"] += 1
             if calls["n"] == 3:
-                raise RuntimeError("обрыв на середине")
-            await orig_flush(conn, fr, buffer, path, est_total)
+                raise RuntimeError("искусственный обрыв")
+            await orig_flush(conn, fr, buffer, path, est_total, chat_id)
+
 
         monkeypatch.setattr(loader_mod, "_flush_batch", failing_flush)
         with pytest.raises(RuntimeError):

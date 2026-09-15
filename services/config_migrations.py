@@ -29,6 +29,32 @@ DREAM_THRESHOLD_MIGRATIONS: dict[str, tuple[int, int]] = {
     "memory.dream_quiet_check_minutes": (30, 10),
 }
 
+# S10.19-8 (F3/ADR-1019-2 D5): новые глобальные дефолты суточных бюджетов не
+# доезжают до прода — сид bot_settings вставляет ключи `ON CONFLICT DO NOTHING`
+# и НЕ перетирает уже сохранённые (старые) значения. Идемпотентная DML-миграция:
+# заменяем PG-значение ТОЛЬКО если оно в точности равно прежнему дефолту
+# (25/100000 direct, 35/100000 фон); кастом владельца не трогаем (WARNING);
+# отсутствующий ключ — skip (сид поставит новый код-дефолт).
+GLOBAL_BUDGET_MIGRATIONS: dict[str, tuple[int, int]] = {
+    # direct-контур (общий ключ чата): 25→100 вызовов, 100000→500000 токенов.
+    "limits.chat_global_key_budget_requests": (25, 100),
+    "limits.chat_global_key_budget_tokens": (100000, 500000),
+    # фон per-chat: 35→60 вызовов, 100000→300000 токенов.
+    "limits.worker_daily_llm_calls_per_chat": (35, 60),
+    "limits.worker_daily_llm_tokens_per_chat": (100000, 300000),
+}
+
+# F4 (10.19, ADR-1019-4 D3): расширение дефолтов контекста (5000/3000/16000).
+# Прежние PG-значения (сид `ON CONFLICT DO NOTHING`) заменяем ТОЛЬКО если они
+# в точности равны прежнему дефолту. `None`/null (было `CHAT_*_MAX_TOKENS=None`)
+# → skip: hot.get отдаст новый code-дефолт. Кастом владельца — WARNING.
+CONTEXT_LIMIT_MIGRATIONS: dict[str, tuple[int, int]] = {
+    # прежние эффективные/глобальные дефолты → новые (UPD2 п.6 «869»).
+    "limits.chat_global_context_max_tokens": (1000, 5000),
+    "limits.chat_thread_max_tokens": (500, 3000),
+    "limits.chat_context_budget_tokens": (4000, 16000),
+}
+
 
 def _threshold_int(value) -> int | None:
     """Приведение значения PG к int (bool/мусор → None).
@@ -69,5 +95,69 @@ async def migrate_dream_thresholds(cache) -> dict[str, str]:
             logger.info("[threshold_migration] порог обновлён | key=%s", key)
             continue
         logger.warning("[threshold_migration] кастом владельца — НЕ трогаем | "
+                       "key=%s", key)
+    return report
+
+
+async def migrate_global_budget_defaults(cache) -> dict[str, str]:
+    """S10.19-8: идемпотентная миграция глобальных дефолтов бюджетов в PG.
+
+    Заменяет значение, только если текущее == прежнему дефолту
+    (`GLOBAL_BUDGET_MIGRATIONS`); кастом владельца не трогает (WARNING);
+    PG down / ключ отсутствует → skip. Вызывается из `bot.py main()` рядом с
+    `migrate_dream_thresholds` (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[budget_migration] skip: PG недоступен")
+        return report
+    for key, (prev_default, new_default) in GLOBAL_BUDGET_MIGRATIONS.items():
+        current = cache.get(key)
+        if current is None:
+            logger.info("[budget_migration] ключ отсутствует — сид сделает "
+                        "своё | key=%s", key)
+            continue
+        current_int = _threshold_int(current)
+        if current_int == new_default:
+            logger.info("[budget_migration] уже новый дефолт | key=%s", key)
+            continue
+        if current_int == prev_default:
+            await cache.set(key, new_default, "limits")
+            report[key] = "updated"
+            logger.info("[budget_migration] бюджет обновлён | key=%s", key)
+            continue
+        logger.warning("[budget_migration] кастом владельца — НЕ трогаем | "
+                       "key=%s", key)
+    return report
+
+
+async def migrate_context_limit_defaults(cache) -> dict[str, str]:
+    """F4 (10.19, ADR-1019-4 D3): идемпотентная миграция дефолтов контекста.
+
+    Заменяет PG-значение, только если текущее == прежнему дефолту
+    (`CONTEXT_LIMIT_MIGRATIONS`: 1000/500/4000 → 5000/3000/16000); кастом
+    владельца не трогает (WARNING); PG down / ключ отсутствует / `null` → skip
+    (hot.get отдаст новый code-дефолт). Вызывается из `bot.py main()` рядом с
+    `migrate_global_budget_defaults` (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[context_migration] skip: PG недоступен")
+        return report
+    for key, (prev_default, new_default) in CONTEXT_LIMIT_MIGRATIONS.items():
+        current = cache.get(key)
+        if current is None:
+            logger.info("[context_migration] ключ отсутствует/пуст — сид "
+                        "сделает своё | key=%s", key)
+            continue
+        current_int = _threshold_int(current)
+        if current_int == new_default:
+            logger.info("[context_migration] уже новый дефолт | key=%s", key)
+            continue
+        if current_int == prev_default:
+            await cache.set(key, new_default, "limits")
+            report[key] = "updated"
+            logger.info("[context_migration] лимит контекста обновлён | "
+                        "key=%s", key)
+            continue
+        logger.warning("[context_migration] кастом владельца — НЕ трогаем | "
                        "key=%s", key)
     return report

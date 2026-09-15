@@ -1331,7 +1331,9 @@ class TestParamPermissionFlagsApi:
         # 10.14 (F8 self-reflection-llm-provider): +4 (INTEL_REFLECTION_*)
         # → categorized 410; 10.14 (F6 help-guide-integration): +1 PG-only
         # (content.intelligence_guide) → categorized 411.
-        assert len(items) == len(categorized) == 411
+        # 10.19 (F3/ADR-1019-3 D3): +1 categorized
+        # (IMPORT_HISTORY_RETENTION_DAYS) → categorized 412.
+        assert len(items) == len(categorized) == 412
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"
@@ -1610,6 +1612,44 @@ class TestKeyHistoryApi:
             assert card["module_id"] and card["provider"]
             assert "model_source" in card
             assert set(card["key"].keys()) <= {"configured", "last4"}
+
+
+class TestMediaHealthApi:
+    """D-2.3 (Medium, ревью итерации 4): эндпоинт `/api/status/media-health` —
+    200 + состав полей + honest-контракт (`reliable is False`) + TTL-кэш."""
+
+    def test_media_health_fields_reliable_and_ttl_cache(self, client, monkeypatch):
+        from services import lore_runtime, media_integrity
+        from web.api import routes
+        routes._media_health_cache.clear()
+        calls = {"n": 0}
+
+        async def _audit(db, bot=None, *, chat_id=None, sample_limit=200):
+            calls["n"] += 1
+            return {"db_media_rows": 3, "text_media_paths": 1,
+                    "files_on_disk": 2, "missing_on_disk": 1,
+                    "orphan_files": 1,
+                    "sample_missing": ["photos/file_456.jpg"],
+                    "reliable": False, "basis": "text_scan"}
+
+        fake_db = object()
+        monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: fake_db)
+        monkeypatch.setattr(media_integrity, "audit_media_files", _audit)
+        resp = client.get("/api/status/media-health", headers=_hdr(ADMIN_ID))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["available"] is True
+        assert set(body) == {"available", "db_media_rows", "text_media_paths",
+                             "files_on_disk", "missing_on_disk",
+                             "orphan_files", "sample_missing", "reliable",
+                             "basis"}
+        assert body["reliable"] is False
+        # TTL-кэш: второй запрос в окне TTL не дергает аудит повторно
+        resp2 = client.get("/api/status/media-health", headers=_hdr(ADMIN_ID))
+        assert resp2.status_code == 200
+        assert calls["n"] == 1
+        # R17: в payload нет '<bot_id>:<token>' и абсолютных путей
+        assert "4242:vt-secret" not in resp.text
 
 
 class TestLlmTestEndpoint:

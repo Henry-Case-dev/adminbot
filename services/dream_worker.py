@@ -1083,17 +1083,37 @@ class DreamWorker:
         разбирается идентично read-path summary_memory."""
         return parse_belief_meta(row_get(row, "belief_meta"))
 
+    async def _flag_with_source(self, key: str, default) -> tuple:
+        """F7 (ADR-1019-6 D3): `(value, source)` для гейт-флага без хардкода
+        (chat → global → default), R17-safe. Ошибка резолва → дефолт."""
+        try:
+            from services.worker_settings import resolve_setting_with_source
+            value, source = await resolve_setting_with_source(
+                key, chat_id=None, default=default)
+            return bool(value), str(source)
+        except Exception:
+            return bool(default), "default"
+
     async def _maybe_decay(self, now: int) -> None:
         """Интервальный гейт (раз в BELIEF_DECAY_INTERVAL_DAYS) + маркер
         прогона memory_dream_log(kind='decay_run', chat_id=0 — глобальное
         событие, нулевой DDL). Идемпотентность обеспечивает цель-вес от
-        базы, а не инкремент (spec §4.1)."""
-        if not hot.get("flags.belief_decay_enabled",
-                       settings.BELIEF_DECAY_ENABLED):
+        базы, а не инкремент (spec §4.1).
+
+        F7 (ADR-1019-6 D3): каждый пропуск гейта логируется с `reason=`
+        и `source=` (chat|global|default) — «0 прогонов» перестаёт быть
+        необъяснимым. R17-safe: только ключ/источник."""
+        enabled, source = await self._flag_with_source(
+            "flags.belief_decay_enabled", settings.BELIEF_DECAY_ENABLED)
+        if not enabled:
+            logger.info("[dream] decay skip | reason=decay_disabled | "
+                        "source=%s", source)
             return
         last = await self.db.last_decay_run()
         if last is not None and (
                 now - int(last)) < BELIEF_DECAY_INTERVAL_DAYS * 86400:
+            logger.debug("[dream] decay skip | reason=interval_not_due | "
+                         "chat=0")
             return
         stats = await self._decay_step(now)
         await self.db.log_dream_event(0, now, kind="decay_run",
@@ -1199,14 +1219,20 @@ class DreamWorker:
         нет vec/архива/ошибка → False (синтез идёт как раньше)."""
         if self.memory is None or not getattr(
                 self.memory, "_vec_available", False):
+            logger.debug("[dream] reanimator skip | reason=no_vectors | "
+                         "chat=%s", chat_id)
             return False
         archived = await self.db.list_archived_beliefs(
             chat_id=chat_id, limit=_REANIMATE_ARCHIVE_CAP)
         if not archived:
+            logger.debug("[dream] reanimator skip | reason=no_archive | "
+                         "chat=%s", chat_id)
             return False
         cluster_text = " ".join(
             str(r["fact"]) for r in cluster_rows if str(r.get("fact") or ""))
         if not cluster_text.strip():
+            logger.debug("[dream] reanimator skip | reason=empty_cluster | "
+                         "chat=%s", chat_id)
             return False
         try:
             vectors = await self.memory._embed(
@@ -1226,6 +1252,8 @@ class DreamWorker:
             if cosine >= threshold and (best is None or cosine > best[1]):
                 best = (belief, cosine)
         if best is None:
+            logger.debug("[dream] reanimator skip | reason=below_threshold | "
+                         "chat=%s | threshold=%.3f", chat_id, threshold)
             return False
         target = best[0]
         base = float(self._belief_meta(target).get("base_weight")
@@ -1306,15 +1334,24 @@ class DreamWorker:
         eligible: list[int] = []
         for cid in chats:
             if not manual:
-                enabled = bool(await resolve_setting_cached(
-                    "flags.deep_sleep_enabled", chat_id=cid,
-                    default=settings.DEEP_SLEEP_ENABLED))
-                if not enabled:
+                try:
+                    from services.worker_settings import (
+                        resolve_setting_with_source)
+                    enabled_raw, source = await resolve_setting_with_source(
+                        "flags.deep_sleep_enabled", chat_id=cid,
+                        default=settings.DEEP_SLEEP_ENABLED)
+                except Exception:
+                    enabled_raw, source = settings.DEEP_SLEEP_ENABLED, "default"
+                if not bool(enabled_raw):
+                    logger.info("[deep_sleep] skip | reason=deep_disabled | "
+                                "chat=%s | source=%s", cid, source)
                     continue
                 trigger = str(await resolve_setting_cached(
                     "memory.deep_sleep_trigger", chat_id=cid,
                     default=settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
                 if trigger != "after_sleep":
+                    logger.info("[deep_sleep] skip | reason=trigger_mismatch "
+                                "| chat=%s | trigger=%s", cid, trigger)
                     continue
             eligible.append(int(cid))
         if not eligible:

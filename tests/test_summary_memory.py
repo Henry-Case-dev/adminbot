@@ -18,6 +18,17 @@ from services.summary_memory import (
 from services.summary_prompts import EXTRACT_PROMPT
 
 
+@pytest.fixture(autouse=True)
+def _reset_memorize_warn_state():
+    """F8: модульный rate-gate потерь фактов — сбрасываем между тестами."""
+    import services.summary_memory as sm
+    sm._memorize_warn_state.clear()
+    sm._memorize_lost_totals.clear()
+    yield
+    sm._memorize_warn_state.clear()
+    sm._memorize_lost_totals.clear()
+
+
 @pytest.fixture
 def db():
     loop = asyncio.new_event_loop()
@@ -814,8 +825,9 @@ class TestMemorizeResilience:
 
     @pytest.mark.asyncio
     async def test_extract_llm_error_exhausted_warning_no_error(self, db, caplog):
-        """56.8 #16: LLMError ×3 → WARNING «graphrag memorize: LLM failed»,
-        0 строк, caplog БЕЗ ERROR, без raise (без traceback-шторма)."""
+        """56.8 #16 + F8 (ADR-1019-7 D2/D4): LLMError ×3 (bounded) + 1 retry-
+        восстановление (тоже ошибка) → ОДИН WARNING «facts lost», 0 строк,
+        caplog БЕЗ ERROR, без raise (без traceback-шторма)."""
         import logging
 
         llm = MemorizeRetryLLM(fail_times=99)
@@ -824,8 +836,11 @@ class TestMemorizeResilience:
         with patch("services.summary_memory.settings", mod):
             with caplog.at_level(logging.WARNING):
                 await memory.memorize_facts(1, "какой-то текст", "chat_history")   # без raise
-        assert llm.generate_calls == 3
-        assert any("graphrag memorize: LLM failed" in r.message for r in caplog.records)
+        assert llm.generate_calls == 4          # 3 extract + 1 recovery-retry
+        warns = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warns) == 1
+        assert "graphrag memorize: facts lost" in warns[0].message
+        assert "reason=llm_error" in warns[0].message
         assert all(r.levelno < logging.ERROR for r in caplog.records)
         cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         row = await cursor.fetchone()

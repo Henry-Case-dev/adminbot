@@ -715,14 +715,33 @@
       border-radius: 10px; background: rgba(0,0,0,.18);
     }
     /* F2 (graph-frontend-physics-search-round1015): «Поиск по графу» —
-       flex-wrap; на узких экранах переносится в столбик. */
+       flex-wrap; на узких экранах переносится в столбик.
+       F5 (T-1821, ТЗ п.4): мобила — компактный input (высота+шрифт),
+       десктоп — ОГРАНИЧЕННАЯ ширина (не «на всю ширину»). */
     .graph-search {
       display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
       margin-top: 8px;
     }
-    .graph-search .graph-search__input { flex: 1 1 180px; min-width: 0; }
+    .graph-search .graph-search__input { flex: 1 1 140px; min-width: 0; }
     @media (max-width: 479px) {
       .graph-search { flex-direction: column; align-items: stretch; }
+      .graph-search .graph-search__input {
+        flex: none; width: 100%; padding: 0.3rem 0.5rem; font-size: 0.8rem;
+      }
+      .graph-search .btn-ghost { font-size: 0.7rem; padding: 0.25rem 0.45rem; }
+    }
+    @media (min-width: 768px) {
+      .graph-search { max-width: 460px; }        /* не на всю ширину */
+      .graph-search .graph-search__input { flex: 1 1 220px; }
+    }
+    /* F5 (T-1819, ТЗ п.5): объединённый блок «Статус» —
+       Сердцебиение + Бот + Сервер (мобила — столбик, десктоп — рядом). */
+    .status-block { grid-column: 1 / -1; }
+    .status-block__grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 768px) {
+      .status-block__grid {
+        grid-template-columns: 1.4fr 1fr 1.2fr; align-items: start;
+      }
     }
     .badge.glow {
       box-shadow: 0 0 10px currentColor;

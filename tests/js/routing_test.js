@@ -1185,6 +1185,46 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       ctx.keyDrafts['keys.checkup_betterstack_sql_password'], '',
       '10.12: draft ключа очищается после успеха');
   }
+  // ── F3/D-3 (ревью Батча C): OFF тумблера безлимита — явные дефолты ──────
+  {
+    const calls = [];
+    const globalValues = {
+      'limits.chat_global_key_budget_requests': 100,
+      'limits.chat_global_key_budget_tokens': 500000,
+      'limits.worker_daily_llm_calls_per_chat': 60,
+      'limits.worker_daily_llm_tokens_per_chat': 300000,
+      'limits.chat_global_context_max_tokens': null,
+      'limits.chat_thread_max_tokens': null,
+      'limits.chat_context_budget_tokens': 4000,
+    };
+    const ctx = {
+      isChatContext() { return true; },
+      budgetsUnlimitedKeys: methods.budgetsUnlimitedKeys,
+      _budgetItem(key) { return { key: key, global_value: globalValues[key] }; },
+      configChatUpdatedAt: 11,
+      budgetsUnlimitedBusy: false,
+      toast() {}, loadConfig() {}, loadKeyStatus() {},
+      _preserveScroll(fn) { return fn && fn.call(this); },
+      async api(url, opts) { calls.push({ url: url, opts: opts }); return {}; },
+    };
+    await methods.toggleBudgetsUnlimited.call(ctx, false);
+    assert.strictEqual(calls.length, 1, 'D3: OFF — ровно один POST (не 7×DELETE)');
+    assert.strictEqual(calls[0].url, '/api/config',
+      'D3: OFF пишет через POST /api/config (meta сохраняется)');
+    assert.ok(!calls.some((c) => c.opts && c.opts.method === 'DELETE'),
+      'D3: DELETE не используется (иначе теряется meta.chat_settings_seed_version)');
+    const body = JSON.parse(calls[0].opts.body);
+    const byKey = {};
+    body.items.forEach((i) => { byKey[i.key] = i.value; });
+    assert.strictEqual(byKey['limits.chat_global_key_budget_requests'], 100,
+      'D3: бюджет ключа → явный глобальный дефолт');
+    assert.strictEqual(byKey['limits.worker_daily_llm_tokens_per_chat'], 300000,
+      'D3: бюджет фона → явный глобальный дефолт');
+    assert.strictEqual(byKey['limits.chat_global_context_max_tokens'], 0,
+      'D3: null (не задано) → 0 = «не задано»');
+    assert.strictEqual(JSON.parse(calls[0].opts.body).updated_at, 11,
+      'D3: optimistic-метка чата сохранена');
+  }
   // ── 10.12 (§2.3): blockDisplayName — трансляция «Название модели» ───────
   {
     const ctx = {
@@ -1482,6 +1522,15 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(mc.call({ statusData: { context: {
       used: 100, limit: 10000, truncated: false } } }).red, false,
       'F5: заполнено — не красный');
+    // D-7 (10.19): безлимит общего бюджета → «Безлимит (∞)», не 100%.
+    const mcUnlimited = mc.call({ statusData: { context: {
+      used: 12345, limit: null, unlimited: true, truncated: false } } });
+    assert.strictEqual(mcUnlimited.unlimited, true,
+      'D-7: безлимит → флаг unlimited');
+    assert.strictEqual(mcUnlimited.limit, null,
+      'D-7: безлимит → limit=null (не подставляем cap)');
+    assert.strictEqual(mcUnlimited.red, false,
+      'D-7: безлимит → не красный (нет ложных 100%)');
 
     // Модель ленты: дублируется для seamless-скролла + op-класс.
     const loop = computed.cognitionBeliefsLoop.call({

@@ -98,6 +98,7 @@ from services.llm_client import (
     NoApiKeyForChat,
 )
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
+from services.budget_limits import context_state
 from services.payload_builder import build_messages
 from services.persistent_throttling import SilenceStreak
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
@@ -121,6 +122,7 @@ from services.summary_xml import escape_xml_text
 from services.token_counter import (
     count_tokens,
     resolve_chat_limit,
+    resolve_context_tokens,
     safe_budget,
     truncate_to_tokens,
     truncate_to_tokens_keep_head,
@@ -160,6 +162,7 @@ _NOSTALGIA_BUDGET_RATIO = 0.02
 _PROCESS_ACCOUNTING: dict = {
     "context_used": None,       # оценка токенов последнего контекста
     "context_limit": None,      # применённый cap CHAT_CONTEXT_BUDGET_TOKENS
+    "context_unlimited": False,  # D-7: общий бюджет `-1` → «Безлимит (∞)»
     "context_truncated": False,  # RAG/стиль резались (красный прогресс-бар)
     "lore_last_inject_at": None,  # ts последнего инжекта <chat_lore>
     "updated_at": None,
@@ -167,14 +170,17 @@ _PROCESS_ACCOUNTING: dict = {
 
 
 def record_context_usage(used: int | None, limit: int | None,
-                         truncated: bool) -> None:
+                         truncated: bool, unlimited: bool = False) -> None:
     """F5: записать оценку последнего контекста (вызывает _apply_context_budget).
-    Никогда не бросает — телеметрия не должна ломать генерацию."""
+    D-7: `unlimited=True` (бюджет `-1`) → `limit=None`, UI показывает
+    «Безлимит (∞)» вместо ложных 100% (used/used). Никогда не бросает —
+    телеметрия не должна ломать генерацию."""
     try:
         _PROCESS_ACCOUNTING["context_used"] = (
             int(used) if used is not None else None)
         _PROCESS_ACCOUNTING["context_limit"] = (
-            int(limit) if limit is not None else None)
+            None if unlimited else (int(limit) if limit is not None else None))
+        _PROCESS_ACCOUNTING["context_unlimited"] = bool(unlimited)
         _PROCESS_ACCOUNTING["context_truncated"] = bool(truncated)
         _PROCESS_ACCOUNTING["updated_at"] = int(time.time())
     except Exception:  # pragma: no cover — защитная сетка
@@ -196,6 +202,8 @@ def get_process_accounting() -> dict:
     return {
         "context_used": _PROCESS_ACCOUNTING.get("context_used"),
         "context_limit": _PROCESS_ACCOUNTING.get("context_limit"),
+        "context_unlimited": bool(
+            _PROCESS_ACCOUNTING.get("context_unlimited")),
         "context_truncated": bool(_PROCESS_ACCOUNTING.get("context_truncated")),
         "lore_last_inject_at": _PROCESS_ACCOUNTING.get("lore_last_inject_at"),
         "updated_at": _PROCESS_ACCOUNTING.get("updated_at"),
@@ -816,8 +824,75 @@ class DirectChatService:
             chat_id, "limits.chat_context_budget_tokens",
             hot.get("limits.chat_context_budget_tokens",
                     settings.CHAT_CONTEXT_BUDGET_TOKENS))
+        # F4 (10.19, ADR-1019-4 D2): видимая причина возможного двойного
+        # усечения — один WARNING на чат (fail-open, только числа, R17-safe).
+        # D-1: инвариант учитывает оценку неприкосновенных блоков (fixed),
+        # иначе реальная global-доля 0.30×(budget−fixed) может быть меньше
+        # safe_budget(global_cap), а проверка «budget < caps» это пропустит.
+        _uncuttable_kinds = ("target", "relations", "protected", "lore",
+                             "current", "sandwich")
+        fixed_est = sum(count_tokens(text) for kind, text in blocks
+                        if kind in _uncuttable_kinds)
+        await self._check_context_config_invariant(chat_id, budget_tokens,
+                                                   fixed_est)
         return self._apply_context_budget(blocks, budgets_enabled,
                                           budget_tokens)
+
+    async def _check_context_config_invariant(self, chat_id: int,
+                                              budget_tokens,
+                                              fixed_tokens: int = 0) -> None:
+        """F4 (ADR-1019-4 D2, D-1): видимая причина возможного двойного
+        усечения. Инвариант сравнивает **реально применяемые доли**
+        `_apply_context_budget` (от `effective = budget − fixed_tokens`):
+        global-долю `CHAT_BUDGET_GLOBAL_RATIO × effective` с
+        `safe_budget(global_cap)` и thread-долю с `safe_budget(thread_cap)`.
+        Если доля меньше per-block потолка — при общем давлении блок режется
+        «второй раз». Fail-open: любая ошибка — молча (диагностика не должна
+        ломать ответ); один WARNING на чат; только числа (R17-safe)."""
+        try:
+            warned = getattr(self, "_ctx_cfg_warned", None)
+            if warned is None:
+                warned = self._ctx_cfg_warned = set()
+            if chat_id in warned:
+                return
+            warned.add(chat_id)
+            if context_state(budget_tokens) == "unlimited":
+                return
+            budget = (int(budget_tokens)
+                      if context_state(budget_tokens) == "cap"
+                      else int(settings.CHAT_CONTEXT_BUDGET_TOKENS))
+            _g = await _cp_g(
+                chat_id, "limits.chat_global_context_max_tokens",
+                hot.get("limits.chat_global_context_max_tokens",
+                        settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS))
+            _t = await _cp_g(
+                chat_id, "limits.chat_thread_max_tokens",
+                hot.get("limits.chat_thread_max_tokens",
+                        settings.CHAT_THREAD_MAX_TOKENS))
+            gcap = resolve_context_tokens(
+                _g, int(settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS or 5000))
+            tcap = resolve_context_tokens(
+                _t, int(settings.CHAT_THREAD_MAX_TOKENS or 3000))
+            gbudget = safe_budget(gcap)
+            tbudget = safe_budget(tcap)
+            effective = max(1, budget - max(0, int(fixed_tokens or 0)))
+            g_share = max(1, int(effective * hot.get(
+                "limits.chat_budget_global_ratio",
+                settings.CHAT_BUDGET_GLOBAL_RATIO)))
+            t_share = max(1, int(effective * hot.get(
+                "limits.chat_budget_thread_ratio",
+                settings.CHAT_BUDGET_THREAD_RATIO)))
+            if g_share < gbudget or t_share < tbudget:
+                logger.warning(
+                    "[direct] context config inconsistent | budget=%d "
+                    "fixed=%d -> effective=%d | global_share=%d < "
+                    "global_budget=%d or thread_share=%d < thread_budget=%d — "
+                    "возможно двойное усечение блоков",
+                    budget, int(fixed_tokens or 0), effective,
+                    g_share, gbudget, t_share, tbudget)
+        except Exception:
+            logger.debug("direct: context config invariant check failed",
+                         exc_info=True)
 
     def _render_current_question(self, message) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
@@ -1140,23 +1215,34 @@ class DirectChatService:
         Раунд 10.4 (B-2): enabled=None → hot.get (старое поведение, тесты);
         caller передаёт per-chat резолв из get_chat_param (async-точка)."""
         # T-619: бюджеты — горячие точки (фолбек settings)
+        # F4 (10.19, ADR-1019-4 D3): sentinel общего бюджета. `-1` = безлимит →
+        # агрегатное усечение НЕ применяется (per-block потолки уже отработали в
+        # `_build_global_context`/`_render_thread`); `0`/None = «не задано» →
+        # глобальный дефолт (16000); `>0` = cap.
+        raw_budget = budget_tokens if budget_tokens is not None else hot.get(
+            "limits.chat_context_budget_tokens",
+            settings.CHAT_CONTEXT_BUDGET_TOKENS)
+        bstate = context_state(raw_budget)
+        if bstate == "unlimited":
+            total = sum(count_tokens(text) for _, text in blocks)
+            # D-7: безлимит → limit=None + флаг unlimited, иначе виджет
+            # показывал 100% (used/limit = total/total).
+            record_context_usage(total, None, False, unlimited=True)
+            logger.debug(
+                "direct: context budget unlimited (-1) — aggregate truncation "
+                "skipped | tokens=%d", total)
+            return [text for _, text in blocks]
+        budget = (int(raw_budget) if bstate == "cap"
+                  else int(settings.CHAT_CONTEXT_BUDGET_TOKENS))
         if enabled is None:
             enabled = hot.get("flags.chat_context_budgets_enabled",
                               settings.CHAT_CONTEXT_BUDGETS_ENABLED)
         if not enabled:
             # F5/§3.6: бюджеты выключены — всё равно фиксируем оценку
             # последнего контекста (used/cap/truncated=False) для дашборда.
-            cap = budget_tokens if budget_tokens is not None else hot.get(
-                "limits.chat_context_budget_tokens",
-                settings.CHAT_CONTEXT_BUDGET_TOKENS)
             record_context_usage(
-                sum(count_tokens(text) for _, text in blocks), cap, False)
+                sum(count_tokens(text) for _, text in blocks), budget, False)
             return [text for _, text in blocks]
-        # Раунд 10.4 (G-ремедиация): budget-база — per-chat (async-резолв
-        # в вызывающем, параметр None → старое поведение для тестов).
-        budget = budget_tokens if budget_tokens is not None else hot.get(
-            "limits.chat_context_budget_tokens",
-            settings.CHAT_CONTEXT_BUDGET_TOKENS)
         uncuttable = ("target", "relations", "protected", "lore", "current",
                       "sandwich")
         fixed_tokens = sum(count_tokens(text) for kind, text in blocks
@@ -1219,9 +1305,16 @@ class DirectChatService:
                 logger.warning(
                     "direct: budget truncation | block=mood | tokens=%d -> %d",
                     mood_before, count_tokens(texts["mood"]))
-        for kind in ("map", "rag", "global", "thread", "branch", "anchors"):
+        for kind in ("map", "rag", "branch", "anchors"):
             if kind in texts:
                 texts[kind] = truncate(kind, texts[kind])
+        # F4 (10.19, ADR-1019-4 D1; фикс D-1): global/thread уже ограничены
+        # своими per-block потолками в сборщиках (`_build_global_context`/
+        # `_render_thread`). Агрегатный проход по долям НЕ должен резать их
+        # «второй раз»: доля 0.30×(budget−fixed) может оказаться меньше
+        # safe_budget(global_cap), но блок, собранный под свой потолок, обязан
+        # влезать. Эти два блока участвуют только в цикле урезания — и только
+        # при фактическом переполнении ОБЩЕГО бюджета (total > budget).
 
         total = sum(count_tokens(text) for text in texts.values())
         if total > budget:
@@ -1993,7 +2086,8 @@ class DirectChatService:
         kind, limit = resolve_chat_limit(
             await _cp_g(chat_id, "limits.chat_global_context_max_tokens",
                         hot.get("limits.chat_global_context_max_tokens",
-                                settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS)), 1000,
+                                settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS)),
+            int(settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS or 5000),
             "CHAT_GLOBAL_CONTEXT_MAX_CHARS",
             await _cp_g(chat_id, "limits.chat_global_context_max_chars",
                         hot.get("limits.chat_global_context_max_chars",
@@ -2101,7 +2195,8 @@ class DirectChatService:
         kind, limit = resolve_chat_limit(
             await _cp_g(chat_id, "limits.chat_thread_max_tokens",
                         hot.get("limits.chat_thread_max_tokens",
-                                settings.CHAT_THREAD_MAX_TOKENS)), 500,
+                                settings.CHAT_THREAD_MAX_TOKENS)),
+            int(settings.CHAT_THREAD_MAX_TOKENS or 3000),
             "CHAT_THREAD_MAX_CHARS",
             await _cp_g(chat_id, "limits.chat_thread_max_chars",
                         hot.get("limits.chat_thread_max_chars",
@@ -2124,7 +2219,8 @@ class DirectChatService:
         else:
             kind, limit = resolve_chat_limit(
                 hot.get("limits.chat_thread_max_tokens",
-                        settings.CHAT_THREAD_MAX_TOKENS), 500,
+                        settings.CHAT_THREAD_MAX_TOKENS),
+                int(settings.CHAT_THREAD_MAX_TOKENS or 3000),
                 "CHAT_THREAD_MAX_CHARS",
                 hot.get("limits.chat_thread_max_chars",
                         settings.CHAT_THREAD_MAX_CHARS),

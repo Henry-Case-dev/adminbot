@@ -120,17 +120,20 @@ class TestMigrationV7:
             -100, '"старый"*', 5, 2_000_000_000)
         assert any(r["id"] == 7 and r["fact"] == "старый факт до v7"
                    for r in rows)
-        # PRAGMA user_version = 10 (каскад v6→v7→v8→v9→v10)
+        # PRAGMA user_version = 11 (каскад v6→v7→v8→v9→v10→v11)
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
-        # индексы v7 существуют
+        assert (await cursor.fetchone())[0] == 11
+        # индексы v7 существуют; глобальный import_key заменён на chat-scoped
+        # (F7/v11, ADR-1019-6 D1b) — старого глобального UNIQUE больше нет.
         cursor = await d.db.execute(
             "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
-            "('idx_graph_facts_history_import', 'idx_smart_messages_import_key', "
+            "('idx_graph_facts_history_import', "
+            "'idx_smart_messages_import_key', "
+            "'idx_smart_messages_chat_import_key', "
             "'idx_smart_messages_history_pending')")
         names = {r["name"] for r in await cursor.fetchall()}
         assert names == {"idx_graph_facts_history_import",
-                         "idx_smart_messages_import_key",
+                         "idx_smart_messages_chat_import_key",
                          "idx_smart_messages_history_pending"}
         # smart-строки целы
         cursor = await d.db.execute(
@@ -147,7 +150,7 @@ class TestMigrationV7:
         await d.close()
         await d.initialize()                        # «рестарт» — no-op
         cursor = await d.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == 10
+        assert (await cursor.fetchone())[0] == 11
         cursor = await d.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         assert (await cursor.fetchone())["c"] == 1  # строки не задвоены
         await d.close()

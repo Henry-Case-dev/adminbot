@@ -2,6 +2,222 @@
 
 Только эпики, которые можно начать планировать. Канон-блоки промптов — в `docs/canon/`; закрытые эпики 1–85 — история в git-истории (прежние файлы plans/, удалены 03.09.2026).
 
+## F6/F7 (10.19, ревью Батча E, итерация 2/3, 15.09.2026): перенесённые пункты
+
+- **`services/media_integrity.restore_missing_files` (Low, D-4/D-5):** функция **убрана из публичного API** — не имела call-site и реального маппинга `path→file_id` (Bot API `file_path` транзиентен), т.е. фактически не восстанавливала файлы. Реализовать только при появлении персистентного маппинга медиа (`path`/`file_id` в схеме); до тех пор диагностика (`audit_media_files`) остаётся honest-эвристикой (`reliable=false`). Требуется: таблица/колонка маппинга + bounded-восстановление под `flags.download_enabled` + тесты.
+- **I-4 (F7 §4.6):** `_dedup_knn` — возможная потеря recall при мультичатовости (глобальный top-k вытесняет свои строки); chat-scoped vec-индекс — при росте числа чатов (не блокер при одном активном чате).
+
+## Раунд 10.19 (15.09.2026): UPD2/UPD3/UPD4 — бюджеты direct-чата (безлимит + раздел «Бюджеты»), BetterStack ingest-Bearer-контракт, расширение контекста, UI «Статуса», синхронизация медиа/аватаров, здоровье памяти + retention, устойчивость GraphRAG-Memorize — 8 фич — ✅ COMPLETED + ЗААРХИВИРОВАН (Step 6 @Scanner + Step 7 @Architect Merge + Step 8 @PM, 16.09.2026)
+
+**✅ ИТОГ 10.19 (16.09.2026):** реализация завершена (UPD2 + UPD3 + UPD4), все **8 фич заархивированы** — перенесены
+`plans/features/<feature>/` → **`plans/archive/<feature>/`** (@PM Step 8): F1 `betterstack-ingest-bearer-contract` ·
+F2 `direct-chat-budget-unlimited` · F3 `budget-settings-section` · F4 `direct-context-limit-expansion` ·
+F5 `status-section-ui-merge` · F6 `media-files-avatars-sync` · F7 `memory-retention-health` ·
+F8 `graphrag-memorize-robustness`. В каждой папке сохранены `spec.md` + `tasks.md` + ADR-1019-1…-8
+(в т.ч. центральный `budget-settings-section/adr-1019-8-per-chat-limits-and-seed.md`) + артефакты F6
+(`ops.md`, `t1829-fetch-failed-diagnosis.md`). В `plans/features/` остались только 6 ранее существовавших
+backlog-папок (`admin-debug-webview`, `config-read-path-audit`, `frontend-admin-bugfixes`,
+`post-deploy-admin-minors`, `scam-incident-security-followup`, `user-aliases-admin`); пустых/осиротевших папок нет.
+Ссылок на перемещаемые пути в `tests/` **не найдено** (grep `plans/features` по `tests/` — единственное совпадение —
+комментарий + archive-fallback **10.17** `test_tool_download_quality_round1017.py:362`, уже корректный);
+починка путей не потребовалась. Повторный полный прогон после архивации — **6323 passed / 0 failed**.
+
+**Финальные метрики:** полный **pytest — 6323 passed / 0 failed** (база 10.18 = **6139** → **+184**; траектория
+Scanner-итераций: 6164 (A) → 6195 (B) → 6232 (C) → 6262 (D) → **6323** (E)); `node --check web/app.js` clean;
+`JS-UNIT-OK`; `VUE-MOUNT-OK`; `git diff --check` clean.
+**Каталог** — санкционированный Δ (UPD3 п.5): **REGISTRY 437 / GROUPS 92 / Settings 407 / categorized 412 /
+mapped 90 / `TAB_RULES` = `CONFIG_TAB_TITLES` 20** (+1 ключ, +2 группы, +1 config-вкладка `mod_budgets`
+«Бюджеты»; эталон `test_param_catalog`). **SQLite: v10 → v11** (`UNIQUE(chat_id, import_key)` +
+`import_checkpoints(path, chat_id)`, F7/ADR-1019-6; идемпотентно/транзакционно/обратимо, FTS5/vec не
+пересоздаются; авто-миграция при старте); **новых PG-DDL нет**.
+**Фича-флаги:** новых **каталоговых** флагов НЕТ (Δ каталога от флагов = 0) — безусловно активны sentinel-семантика
+бюджетов/контекста + per-chat резолв (F2/F4), раздел «Бюджеты» + нейтральный сид данных (F3), единый «Статус» (F5),
+локальный медиа-fallback (F6), расширенная диагностика memorize (F8); откат — `git revert`.
+**Единственные env-only гейты** (прогрессивная доставка деструктивного пути retention, F7/ADR-1019-6,
+`ClassVar` — Δ каталога = 0): `IMPORT_RETENTION_ENABLED` (OFF) × `IMPORT_RETENTION_DRY_RUN` (ON) ×
+`IMPORT_RETENTION_BACKUP_CONFIRMED` (OFF) — авто-крон удаляет **только** при `true/false/true`, иначе dry-run +
+WARNING; фактический прогон — только CLI `manage.py retention --apply`. Порядок роутеров `bot.py` не сдвинут
+(только DI-kwargs + startup `migrate_dream_thresholds` → `migrate_global_budget_defaults` →
+`migrate_context_limit_defaults` → `apply_chat_settings_seed`); `.env`/`media/` не тронуты; R16/R17 держатся.
+**Объём:** **8 фич, T-1778…T-1865** (исходно T-1778…T-1852 + итерация 2 UPD3 T-1853…T-1865).
+@Reviewer — **Approved** по батчам A–E (E — после переделки по **UPD4**: концепция «VIP» удалена из **кода** —
+сид универсальный `services/chat_settings_seed.py` + `config/chat_settings_seed.json`, id целевого чата — только
+данные JSON + тесты).
+@Scanner — **0 Critical / 0 High / 0 Medium по всему эпику** (High S10.19-13 и Medium S10.19-14 закрыты @Builder,
+независимо верифицированы — §8.5/§9.1); открыто **2 Low** (S10.19-15, S10.19-23) **+ 1 Low из 10.18** (S10.18-29)
++ **Info**. Отчёт: `plans/reports/round10.19_scanner_audit.md` (§1–§10, итоговая сводка §10.4,
+обязательные @DevOps-гейты §10.5); факт-база — `plans/reports/global_map.md`.
+@Architect — Merge Phase завершена: `plans/ARCHITECTURE.md` (**818 строк**, §40–§44, SUPERSEDE/AMEND-карта
+ADR-1019-1…-8 + сводные инварианты; периметр техдолга — §25).
+**UPD2-3 (§3, SSH-фрагмент) — ЗАКРЫТ/ОТМЕНЁН:** решением UPD3 п.1 принят вариант «а» — фрагмент оставить как есть,
+историю git (`filter-repo`) **не трогаем**; UPD4 не переоткрывал. Отдельной фичи нет и не будет (только
+информационная запись S10.18-13 ниже).
+**Коммит/деплой — @DevOps Step 9** (вне этого шага); @Memory Step 10 — финал памяти/метрик.
+
+**➡ Передать @Memory (Step 10):** финальный статус эпика — **COMPLETED** (+ деплой-статус после Step 9);
+числа — pytest **6323/0**, каталог **437/407/412/92/90/20**, **SQLite v11**, env-only retention-гейты (трое);
+пути артефактов — `plans/archive/<feature>/` (8 папок, имена выше); **ADR-1019-8** (`per-chat-limits-and-seed`,
+`plans/archive/budget-settings-section/`) → статус **Accepted/Implemented**; note: **код — источник истины**,
+`_STATUS_HINTS = {401, 402, 403, 406}` (в ТЗ-брифе UPD2 §2 значилось `202/402/403/406` — неверно: 202 — это
+**успех** BetterStack, в подсказках его нет; 401 — реальный root cause 401-спама). Коммит/деплой — Step 9 (@DevOps).
+
+**🧾 Техдолг / остаточные находки 10.19 (перенесены @PM, Step 8 — не блокеры):**
+- **S10.19-15 (Low, F3, перф «Сводки»):** `services/oversight.py:203-216` — `_limits_block` вызывает
+  `chat_usage.key_status` **дважды на чат** (по разу на метрику direct-контура) → 2× `budget_snapshot`/
+  `used_today` + до 2× чтения `chat_profiles` на чат за построение «Сводки» (кэш 60 с; тест
+  `test_direct_contour_reads_key_status` это закрепляет: `seen == [-100, -100]`). Фикс (2 строки) — один
+  `key_status`/`budget_snapshot` на чат, обе метрики из результата. Закрыть в ближайшем follow-up.
+- **S10.19-23 (Low, F7, durability архива retention):** `services/memory_maintenance.py:389-425`
+  (`_archive_imported_history`/`_flush_and_fsync`) — **`fsync` есть у ФАЙЛА, нет у КАТАЛОГА**: при сбое питания
+  сразу после создания архива и SQLite-commit запись каталога (имя файла) может не попасть на диск → строки
+  удалены, «файла-архива нет» (окно крайне узкое; POSIX требует fsync родительского каталога; ext4/auto_da_alloc
+  обычно спасает). Единственная недозакрытая щель в инварианте «архив переживает сбой РАНЬШЕ DELETE». Фикс —
+  после `fsync(file)` синхронизировать каталог (`os.open(dir, O_RDONLY)` + `os.fsync` в том же `to_thread`;
+  на Windows — no-op) либо задокументировать остаточный риск.
+- **S10.18-29 (Low, унаследовано из 10.18/F2, deep-manual маркер):** `run_once(deep=False)` («Сон сейчас») не
+  выставляет `_manual_deep_until`, хотя каскад реально запускает Глубокий сон → во время manual-каскада
+  `deep_sleep.manual=False` и `active_until=None` вне окна; TTL маркера (900с) не связан с
+  `_run_lock`/`_deep_lock`. Фикс — в `run_once` (ветка `deep=False`) или в `_maybe_deep_after_sleep(manual=True)`.
+- **Info (перечень §10.4, включая унаследованные из 10.18):**
+  **S10.19-3…-6** — `reason=not_json` неточен для D-08-подслучая (кандидат `no_valid_facts`); 4xx/3xx-батчи
+  BetterStack не re-buffer'ятся (осознанно ADR-1019-1 D3/D5); верхний `except LLMError` в `memorize_facts`
+  фактически недостижим (defensive); `path`-режим пробника несёт реальный токен в URL — только ручная
+  диагностика @DevOps (не CI/крон);
+  **S10.19-9…-12** — `_belief_name_participates` теряет имена с пунктуацией; контекст/retention-семейства
+  подключены в F4/F7 (историческая запись); в «Сводке»/API фона нет sentinel-флагов (только число);
+  границы cap фон `used <= limit` vs direct `used >= limit`;
+  **S10.19-16…-22** — OFF-тумблер пишет явный `global_value` вместо DELETE (чат не наследует будущие дефолты);
+  дубль retention-fallback в policy и `oversight`; инвариант помечает чат «предупреждённым» **до** проверки;
+  chars-fallback понижен до `debug` («аварийный путь» тихий); дисплей `limit: -1` при глобальном `−1` без
+  accounting-записи (миграция не правит легаси-24000); **S10.19-21 — док-пробел закрыт Merge** (§41–§44);
+  финальный purge без `try/except` при docstring «fail-open»;
+  **S10.19-24…-27** — архивы `imported_history_*.jsonl` не ротируются; запись архива в event loop;
+  `orphan_files`/`missing_on_disk` — bounded-эвристика (`reliable:false`); тест с локальным HTTP-сервером —
+  флейки-риск (не продуктовый дефект);
+  **S10.18-12** — `NostalgiaWorker` читает `memory.nostalgia_*` только через `hot.get` (global-only; backlog-задача
+  T-1764); **S10.18-13** — pre-existing фрагмент SSH-пароля в tracked-файле
+  `plans/archive/security-rotation-finalize-round1016/spec.md:35` (задача **отменена** — UPD2-3/UPD3 п.1;
+  значение не цитировать, R17); **S10.18-18/-19/-20** — deep-без-капа при явном `?deep=1`; `tokens_today` без
+  фильтра `kind`; `previous` = эффективный гейт kill-switch; **S10.18-31/-32/-33** — нормализация STOP_LIST,
+  само-петля в degree, `upsert_edge` при отсутствии узла; **S10.18-37/-38** — множитель `importance` меняет
+  RAG-порядок (нужен живой прогон RAG-качества) + агрегат открытых Info 10.18.
+
+**🚦 Обязательные @DevOps-гейты 10.19 (Step 9; источник — отчёт @Scanner §10.5) — без них деплой НЕ выполняется:**
+
+| # | Шаг | Действие | Ожидание / abort-условие |
+|---|---|---|---|
+| **D1** | **Dry-run retention** (до любых изменений) | `python manage.py retention --dry-run` | `mode=dry-run`, `reason ∈ {dry_run, no_candidates}`; кандидаты — **без** целевого чата (у него retention `0`); данные не меняются |
+| **D2** | **Бэкап БД + `.env`** | бэкап SQLite/PG (@DevOps-процедура) → `IMPORT_RETENTION_BACKUP_CONFIRMED=true` **только после проверки бэкапа** | без подтверждённого бэкапа авто-крон остаётся dry-run (WARNING в логе) |
+| **D3** | **Миграции/сид** | рестарт бота (авто: v11 + `migrate_*` + `apply_chat_settings_seed`) или `python manage.py apply-chat-overrides` | идемпотентно; `applied`/`skipped`; **другие чаты не меняются**; `PRAGMA user_version` (SQLite) = **11** |
+| **D4** | **Post-Deploy Gate** (боевая БД, **строго ДО крона**) | SQL из spec F7 §10 (`chat_params -> 'overrides'` целевого чата, 8 ключей) | ровно: retention **0**, бюджеты ключа/фона и контекст **−1**. Любое расхождение → **abort деплоя + откат**, рестарт/крон НЕ запускать |
+| **D5** | **BetterStack** | `.env`: `BETTERSTACK_HOST` (US-ingest) + `LOGTAIL_SOURCE_TOKEN` = **Source Token**; рестарт | в journald `[betterstack] attached \| host=… \| token_len=…`; нет `send failed \| reason=status=401`; curl-матрикс T-1779 (только коды, маскированно) — US×Bearer = **202** |
+| **D6** | **Live-проверка контекста/бюджетов** | сообщение боту в целевом чате; `GET /api/memory/cognition/status?chat_id=…`, `/api/oversight/summary`, `/api/memory/health` | ответ с расширенным контекстом (симптом «7000→869» снят); «Сводка» — «Безлимит (∞)» по обоим контурам, «Импорт: Вечно»; health отдаёт `storage`/`facts_overdue` |
+| **D7** | **Фактический purge** (по решению владельца) | `python manage.py retention --apply` (после D1–D4) | `archived == deleted` при `reason=ok`, файл `imported_history_*.jsonl` создан; размер БД падает; целевой чат не затронут. Авто-крон (`IMPORT_RETENTION_ENABLED`) оставить **OFF**, пока не подтверждён ручной прогон |
+| **D8** | **Откат** (при инциденте) | `git revert`; retention → `0`; индекс v11 обратим (`DROP INDEX …chat_import_key` + `CREATE UNIQUE INDEX idx_smart_messages_import_key`); восстановление из бэкапа/архива | данные не теряются; архив `imported_history_*.jsonl` — второй рубеж |
+
+Ниже — исторический документ планирования эпика (Step 1 @PM + Step 2 @Architect, итерации UPD2/UPD3),
+сохранён для трассируемости.
+
+**🔵 СТАТУС 10.19 при планировании (Step 1 @PM, 15.09.2026; итерация 2 — UPD3 @Architect, 15.09.2026):** ТЗ — **UPD2** в `plans/current_task.md` (строки 130-175) + **UPD3** (строки 178-216, итерация 2). Эпик — `Epic round1019 (UPD2 bugfixes)` + милстоун `round10.19-epic` (@Memory, Step 0). Создано **8 фича-папок** в `plans/features/` со `tasks.md`; спеки/ADR — за @Architect (Step 2, **итерация 2 обновлена**). **Нумерация:** T-1778…T-1852 (исходно) + **T-1853…T-1865 (итерация 2 UPD3)**.
+**Baseline:** HEAD `fd6acc7` (docs-синхронизация 10.18); pytest **6139 passed / 0 failed**; каталог **436/406/411/90/88/19**; SQLite **v10**; прод `release-round1018` (`16a8c0b`, PID 2319614); APP_VERSION 2.57.0.
+Преемник — 10.18 (`plans/archive/<feature>/`, 7 фич COMPLETED+DEPLOYED, 75 задач T-1703…T-1777).
+
+**📌 ВАЖНО (Step 0 @Memory + аудит @PM):** UPD2 в ряде мест **построен на неверных посылках** и **прямо конфликтует с решениями прошлых раундов** → требуются **новые ADR/SUPERSEDE/AMEND** и human-gate. Диагностика:
+- **§2 (BetterStack):** посылка «чинить `LogtailHandler`/`endpoint=` из `logtail-python`» **неверна** — библиотеки в проекте **нет** (`requirements.txt`/импортов нет, с раунда 4); прод-путь — собственный `services/betterstack_handler.py`. Реальная проблема — **контракт ingest**: сейчас `https://{host}/{token}` (токен в **пути**) **без** `Authorization`, тогда как официальный US-контракт — `POST https://{ingesting_host}` + `Authorization: Bearer {source_token}` (202/402/403/406). Плюс **ложный WARNING** «token == public key SENTRY_DSN» (bot.py:190-195, ADR-1018-1 D4) — на унифицированных US-кластерах Source Token побайтово совпадает с public key (**норма**, владелец дал скриншоты). **Конфликт ↔ ADR-1018-1 D2/D4/D8** → AMEND.
+- **§1 (бюджеты direct):** sandbox `reason=budget` при `used_calls=25 / limit_calls=25`; ТЗ требует **безлимит по чату** + отдельный раздел «Бюджеты» + актуальные бары. **Конфликт ↔ F-15 раунда 10.3 `direct-sandbox-budget-investigation`** («дефолты 25/100k НЕ меняются, любой лимит ≤ 0 = ЗАПРЕТ, sandbox — штатно») → SUPERSEDE/AMEND (ADR-1019-2).
+- **§3 (SSH-фрагмент):** фрагмент SSH-пароля в **отслеживаемом** файле `plans/archive/security-rotation-finalize-round1016/spec.md:35` (tracked, commit `eb3fd4a`). Владелец: сообщить локацию, убедиться что не попадает в git и **ОТМЕНИТЬ задачу** (оформлено как **пункт отчёта/backlog**, отдельной фича-папки НЕТ). Значение нигде не цитировать (R17).
+- **§6 (чекап, прочее):** nano-gpt timeouts — фоллбэк уже работает (принято); обрезка контекста 7000 → **869** (`safe_budget(1000)` при `TOKEN_SAFETY_MULTIPLIER=1.15`); `token_counter` `CHAT_THREAD_MAX_TOKENS=None` → chars-fallback 2000 + WARNING; рассинхрон ФС↔БД (`photos/file_456.jpg`) + `fetch failed` юзера 525660918; память 11864/667/40, 0 прогонов deep/resurrect/decay, `smart_messages` ~2M строк / БД 724 МБ / диск 8 из 23 ГБ; GraphRAG Memorize — `LLMError` первичного извлечения обходит fallback/retry (молчаливая потеря фактов).
+- **Смежный техдолг:** `S10.18-12` (Nostalgia читает `memory.nostalgia_*` только через `hot.get`, global-only) — учитывать при правках настроек воркеров (F7); не регрессировать.
+
+**8 фич (нумерация продолжает T-1777 → T-1778…T-1852, 75 задач):**
+
+| # | Фича (папка) | Тип | UPD2 § | Зависит от | Приоритет | Задачи | Новый ADR |
+|---|---|---|---|---|---|---|---|
+| **F1** | `betterstack-ingest-bearer-contract` | backend/infra | §2 (стр. 133-149) | — (@DevOps: curl-матрикс + `.env`+рестарт) | **P0** | T-1778…T-1788 (11) | ⬜ ADR-1019-1 (**AMEND ADR-1018-1 D2/D4/D8**) |
+| **F2** | `direct-chat-budget-unlimited` | backend | §1 (стр. 131-132) | — | **P0** | T-1789…T-1798 (10) | ⬜ ADR-1019-2 (**SUPERSEDE/AMEND F-15** 10.3) |
+| **F3** | `budget-settings-section` | backend+TMA/каталог | §1 (стр. 132) | **F2** | **P0/P1** | T-1799…T-1808 (10) | ⬜ ADR-1019-3 (раздел + Δ каталога) |
+| **F4** | `direct-context-limit-expansion` | backend+каталог | §6 (стр. 162,164,174) | **F3** | P1 | T-1809…T-1817 (9) | ⬜ ADR-1019-4 |
+| **F5** | `status-section-ui-merge` | frontend | §4 §5 (стр. 152-153) | — | **P2** | T-1818…T-1825 (8) | — (UI-спека) |
+| **F6** | `media-files-avatars-sync` | backend | §6 (стр. 158) | — | P1 | T-1826…T-1834 (9) | ⬜ ADR-1019-5 |
+| **F7** | `memory-retention-health` | backend/ops+каталог | §6 (стр. 166) | **F3/F4** | P1 | T-1835…T-1844 (10) | ⬜ ADR-1019-6 |
+| **F8** | `graphrag-memorize-robustness` | backend | §6 (стр. 160) | **F7** (смежность) | P1 | T-1845…T-1852 (8) | ⬜ ADR-1019-7 (**AMEND F-15 §4**) |
+
+**Рекомендуемый порядок исполнения:** **{F1 ∥ F2} → F3 → {F4 ∥ F5} → {F6 ∥ F8} → F7.**
+Обоснование: **F1** и **F2** — прод-блокеры (телеметрия «в никуда»; бот отвечает заглушками), разные плоскости → параллельно; **F3** — интерфейс бюджетов, опирается на механизм F2; **F4** — расширение контекста (каталог/настройки, после F3); **F5** — UI-вёрстка (независима); **F6**/**F8** — независимые backend-фиксы (медиа/GraphRAG); **F7** — retention/здоровье памяти последняя (тяжёлая операция + бэкап).
+**⚠️ Пересечения файлов:** F2/F3/F4/F7 делят `services/param_catalog.py` и `config/settings.py` (сводить Δ каталога и правки настроек); F3/F5 делят `web/index.html`/`web/app.js`/`app.css` (вливать ступенями **F3 → F5**); F7/F8 делят `services/summary_memory.py` (согласованное вливание); F2/F3 делят `services/chat_usage.py`.
+
+**ADR-конфликты, требующие нового ADR/SUPERSEDE (детали — `plans/features/*/tasks.md` §7):**
+- **ADR-1019-1** — **AMEND ADR-1018-1** D2 (URL-форма), D4 (`token==pubkey` — норма unified US, снять WARNING), D8 (curl-матрикс `{path-token, Bearer}×{US,EU}`) — F1.
+- **ADR-1019-2** — **SUPERSEDE/AMEND F-15 (10.3)** «0 = запрет», «дефолты не меняются», «sandbox штатно» — F2.
+- **ADR-1019-3** — раздел «Бюджеты» + **санкционированный Δ каталога** + аддитивный контракт «Сводки» — F3.
+- **ADR-1019-4** — развязка контекстных лимитов, `token_counter`/chars-fallback — F4.
+- **ADR-1019-5** — локальный файловый fallback аватаров/медиа — F6.
+- **ADR-1019-6** — retention `smart_messages` + включение deep/decay/resurrect — F7.
+- **ADR-1019-7** — **AMEND F-15 §4** (устойчивость извлечения фактов; `LLMError`/пустой список) — F8.
+- **Смежное:** `S10.18-12` (Nostalgia global-only) и `S10.18-13` (SSH-фрагмент) — см. ниже.
+
+**🧾 Пункт отчёта/backlog (UPD2 §3, строки 150; UPD3 п.1) — БЕЗ фича-папки:** фрагмент SSH-пароля в **tracked**-файле
+`plans/archive/security-rotation-finalize-round1016/spec.md:35` (история — commit `eb3fd4a`).
+Действия: (1) **сообщить владельцу локацию файла** — сделано; (2) подтвердить статус в git (tracked, присутствует в истории) — подтверждено;
+(3) **ОТМЕНИТЬ задачу** (ротация SSH признана ненужной — 10.17 F4 `ssh-rotation-cancelled-round1017`, untracked `current_task.md` — норма).
+**✅ РЕШЕНИЕ UPD3 (итерация 2, п.1):** принят **вариант (а)** — фрагмент **оставить как есть**; риск принят (в маркере лишь неполный обрывок секрета);
+историю git (`filter-repo`/rewrite) **НЕ трогаем**; задача **ОТМЕНЕНА и закрыта**. Human-gate **(d) закрыт** — rewrite истории не требуется.
+**Сам секрет нигде не цитировать (R17).**
+
+**🔴 UPD3 (итерация 2, 15.09.2026) — корректировки планирования:**
+
+Ответ владельца: *«Принято, реализуем per-chat архитектуру»*. Ключевые правки (источник — `plans/current_task.md:178-216`):
+- **(1) SSH-фрагмент:** вариант (а) — оставить как есть, историю не трогать, задача закрыта (см. выше).
+- **(2) Мультичатовость:** хардкодить безлимиты глобально **ЗАПРЕЩЕНО**; безлимит — только per-chat override. **3 per-chat поля**: «Хранение импорта (дней)» (`0=вечно`), «Лимит токенов/вызовов» (`−1=безлимит`, `0=запрет`), «Лимит контекста» (`−1=безлимит`, `0=не задано`). Изоляция памяти строго по `chat_id` (аудит — F7 §4.6).
+- **(3) целевой чат `-1002661910336`:** retention `0`, бюджеты `−1`, фон `−1`, контекст `−1` — **сидом** (`config/chat_settings_seed.json` + `services/chat_settings_seed.py`), id **не** в бизнес-логике; purge импорта для целевого чата **жёстко запрещён** guard'ом.
+- **(4) «Сводка»:** бейдж **«Безлимит (∞)»** вместо цифр; статус **«Импорт: Вечно»** / «Импорт: 180 дней» (аддитивный контракт `limits`, R16).
+- **(5) Дефолты:** консервативные глобальные (direct 100/500 000, фон 60/300 000) + per-chat безлимит для целевого чата; retention `limits.import_history_retention_days` дефолт 180; точный Δ каталога — `437/92/407/412/90/20` (+1 ключ, +2 группы, +1 вкладка).
+
+**Центральный ADR итерации 2:** **ADR-1019-8** `per-chat-limits-and-seed` (`plans/features/budget-settings-section/`) — мультичатовая модель, sentinel-таблица, сид настроек чатов, guard, изоляция, контракт Сводки. AMEND: ADR-1019-2 (дефолты), ADR-1019-3 (Δ/D6), ADR-1019-4 (D3), ADR-1019-6 (D1/D1a/D1b/D7).
+
+**Новые задачи итерации 2 (T-1853…T-1865):**
+
+| ID | @ | Фича | Задача |
+|---|---|---|---|
+| T-1853 | @Architect | все | Гейт: ADR-1019-8 + обновление spec/ADR F2/F3/F4/F7 (итерация 2) — **DONE (Step 2)** |
+| T-1854 | @Builder | F2 | `services/budget_limits.py` (sentinel-хелперы) + per-chat резолв `chat_usage` |
+| T-1855 | @Builder | F2 | консервативные дефолты (100/500k; 60/300k) + тексты каталога |
+| T-1856 | @Builder | F3 | каталог-Δ: 2 группы (`limits_chat_key`, `limits_chat_context`) + вкладка `mod_budgets` + JS-parity |
+| T-1857 | @Builder | F3 | UI: 3 per-chat поля + тумблер безлимита + бейджи `∞`/`Запрещено` |
+| T-1858 | @Builder | F3 | «Сводка»: аддитивный контракт `limits` + UI-тексты (`Импорт: Вечно`) |
+| T-1859 | @Builder | F3 | `services/chat_settings_seed.py` + `config/chat_settings_seed.json` + вызов в `bot.py` (идемпотентно) |
+| T-1860 | @Builder | F3 | тесты: каталог, Сводка, тумблер, сид настроек чатов, изоляция лимитов |
+| T-1861 | @Builder | F4 | per-chat sentinel контекста `−1`/`0` + `CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS` |
+| T-1862 | @Builder | F4 | дефолты контекста 5000/3000/16000 (предохранитель) + описания |
+| T-1863 | @Builder | F7 | `services/retention_policy.py` + per-chat retention `0=вечно` + guard allow-list purge |
+| T-1864 | @Builder | F7 | изоляция: SQLite **v11** (`(chat_id, import_key)` индекс) + `import_checkpoints.chat_id` + тесты |
+| T-1865 | @Reviewer/@PM | все | Гейт: DoD, отсутствие хардкода id, изоляция, аддитивность R16, санкция Δ |
+
+**Human-gate (вопросы владельцу) — после UPD3:**
+- **(a)** живой curl-матрикс ingest-контракта BetterStack — @DevOps (маскированный вывод).
+- **(b)** «token == pubkey — норма» на unified US — **считано принятым** (AMEND ADR-1018-1 D4).
+- **(c)** семантика sentinel + Δ каталога + дефолты — **ПРИНЯТО в UPD3** (ADR-1019-8 §D2/D7/D8).
+- **(d)** судьба git-истории с фрагментом SSH-пароля — **ЗАКРЫТО:** вариант (а), историю не трогаем (UPD3 п.1).
+- **(e)** целевые лимиты контекста — **ПРИНЯТО:** 5000/3000/16000 предохранитель + per-chat `−1` (данными сида).
+
+**Крытие UPD2 → фичи:**
+
+| Раздел UPD2 | Фича(и) |
+|---|---|
+| **§1** бюджеты direct / безлимит / раздел + бары «Сводки» (стр. 131-132) | **F2**, **F3** |
+| **§2** BetterStack ingest-контракт / Bearer / WARNING (стр. 133-149) | **F1** |
+| **§3** SSH-фрагмент (стр. 150) | **пункт отчёта/backlog** (без фичи) |
+| **§4** поле поиска по графу (стр. 152) | **F5** |
+| **§5** объединение блоков «Статуса», убрать режим/версию (стр. 153) | **F5** |
+| **§6** чекап: контекст 869 / token_counter (стр. 162,164,174) | **F4** |
+| **§6** чекап: аватары/файлы ФС↔БД (стр. 158) | **F6** |
+| **§6** чекап: память 11864/667/40, deep/decay/resurrect, retention (стр. 166) | **F7** |
+| **§6** чекап: GraphRAG Memorize невалидный/пустой ответ (стр. 160) | **F8** |
+| **§6** чекап: nano-gpt timeouts (стр. 173) | принято (фоллбэк работает) + **F8** (не терять факты) |
+
+**Открытые вопросы для @Architect (историч., закрыты Step 2 и последующими шагами):** контракт и что делать с `token_equals_sentry_public_key` (F1, T-1778); семантика sentinel-безлимита и границы sandbox-пути (F2, T-1789); точные Δ каталога и место раздела «Бюджеты» (F3, T-1799); целевые значения контекста и развязка двух систем (F4, T-1809); макет объединённого «Статуса» (F5, T-1818); стратегия локального fallback аватаров (F6, T-1826); retention-политика и включение сна/декая (F7, T-1835); правила устойчивости извлечения фактов (F8, T-1845).
+**Статус (историч.):** ✅ **COMPLETED + ЗААРХИВИРОВАН** (Step 8 @PM, 16.09.2026). Папки — `plans/features/<feature>/` (8) → перенесены в `plans/archive/<feature>/`. **@PM код не пишет.** Итог/метрики/техдолг/@DevOps-гейты — в блоке «✅ ИТОГ 10.19» выше. Коммит/деплой/@Memory-финал — Step 9–10 вне этого шага.
+
 ## Раунд 10.18 (15.09.2026): BetterStack US-регион (401) + разблокировка Сна/каскада + апгрейд Графа памяти + пенализация мета-фактов + Матрица ролей + единый источник настроек воркеров — 7 фич — ✅ COMPLETED + ЗААРХИВИРОВАН (Step 6 @Scanner + Step 7 @Architect Merge + Step 8 @PM, 15.09.2026)
 
 **✅ ИТОГ 10.18 (15.09.2026):** реализация завершена, все **7 фич заархивированы** — перенесены

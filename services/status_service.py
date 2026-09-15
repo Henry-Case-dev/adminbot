@@ -508,9 +508,14 @@ class StatusService:
             acct = {}
         ctx_cap = hot.get("limits.chat_context_budget_tokens",
                           settings.CHAT_CONTEXT_BUDGET_TOKENS)
+        # D-7 (10.19): безлимит общего бюджета (`-1`) → `limit=null` +
+        # `unlimited=true`, фронт показывает «Безлимит (∞)», а не ложные 100%.
+        ctx_unlimited = bool(acct.get("context_unlimited"))
         context_field = {
             "used": acct.get("context_used"),
-            "limit": acct.get("context_limit") or ctx_cap,
+            "limit": None if ctx_unlimited
+            else (acct.get("context_limit") or ctx_cap),
+            "unlimited": ctx_unlimited,
             "truncated": bool(acct.get("context_truncated")),
         }
         # ФИКС (2026-09-03): uptime_events пуст/недоступен (PG down, робот

@@ -5,6 +5,9 @@
 US-хостом (env `BETTERSTACK_HOST`). Без хоста/токена хендлер не создаётся
 (fail-safe). Секреты не печатаем (R17).
 
+Раунд 10.19 (F1, ADR-1019-1): ingest-контракт — `POST https://{host}` +
+`Authorization: Bearer {token}` (токен НЕ в path).
+
 Ручной запуск: `python tests/test_monitoring_smoke.py`.
 """
 import os

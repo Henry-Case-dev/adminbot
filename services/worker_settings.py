@@ -73,29 +73,46 @@ def _chat_with_source(root: dict | None, key: str) -> tuple[Any, str] | None:
     return None
 
 
-async def _chat_root(chat_id: int | None) -> dict:
-    """root-лейаут chat_params чата (fail-open {}). chat_id=None → {}."""
+async def _chat_root(chat_id: int | None) -> tuple[dict, bool]:
+    """(root, ok) — root-лейаут chat_params чата. `ok=False` ⇔ chat-слой
+    НЕдоступен (нет `ChatParamsPool`/ошибка чтения) — D-1: «пустой слой» и
+    «нечитаемый слой» различимы для fail-closed decision-path'ов.
+    chat_id=None → ({}, True) (слой не участвует)."""
     if chat_id is None:
-        return {}
+        return {}, True
     from services import chat_params as cp
     cache = cp.get_chat_params_cache()
     if cache is None:
-        return {}
+        return {}, False
+    checked = getattr(cache, "get_chat_params_checked", None)
     try:
-        return await cache.get_chat_params(int(chat_id))
+        if callable(checked):
+            root, ok = await checked(int(chat_id))
+            return root or {}, bool(ok)
+        # fake/legacy-кэш без ok-контракта: value-only, считаем доступным.
+        return await cache.get_chat_params(int(chat_id)) or {}, True
     except Exception:
         logger.warning("[settings] chat layer load failed — global | "
                        "chat=%s", chat_id)
-        return {}
+        return {}, False
 
 
 async def _resolve_full(key: str, *, chat_id: int | None,
                         default: Any) -> tuple[Any, str]:
-    root = await _chat_root(chat_id)
-    chat = _chat_with_source(root, key)
-    if chat is not None:
-        return chat
-    return _global_with_source(key, default)
+    root, ok = await _chat_root(chat_id)
+    if ok:
+        chat = _chat_with_source(root, key)
+        if chat is not None:
+            return chat
+        return _global_with_source(key, default)
+    # D-1 (Critical, ревью Батча E): chat-слой НЕ читается → значение
+    # fail-open (глобал/дефолт — бот жив), но источник помечаем 'error':
+    # decision-path'ы (retention purge) обязаны трактовать это как
+    # недоступность данных чата, а не как «override отсутствует».
+    value, _src = _global_with_source(key, default)
+    logger.warning("[settings] chat layer unavailable — source=error | "
+                   "key=%s | chat=%s", key, chat_id)
+    return value, "error"
 
 
 def _log(key: str, chat_id: int | None, source: str) -> None:

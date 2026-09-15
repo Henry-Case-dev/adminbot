@@ -531,23 +531,24 @@ class TestEpic60PhaseBSettingsDefaults:
         assert s.RUNNING_SUMMARY_TTL_MINUTES == 60
         assert s.TOKENIZER_ENCODING == "o200k_base"
         assert s.TOKEN_SAFETY_MULTIPLIER == 1.15
-        assert s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS is None
-        assert s.CHAT_THREAD_MAX_TOKENS is None
+        assert s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS == 5000
+        assert s.CHAT_THREAD_MAX_TOKENS == 3000
         assert s.SUMMARY_MAX_CONTEXT_TOKENS is None
 
     def test_effective_token_defaults(self):
-        """64.7: без env — эффективные токенные бюджеты 1000/500/30000."""
+        """64.7 + F4 (10.19, ADR-1019-4 D3): без env — эффективные токенные
+        бюджеты 5000/3000/30000 (было None→1000/500 — «обрезка до 869»)."""
         importlib.reload(settings_mod)
         from services.token_counter import resolve_chat_limit
         s = settings_mod.settings
         assert resolve_chat_limit(
-            s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS, 1000,
+            s.CHAT_GLOBAL_CONTEXT_MAX_TOKENS, 5000,
             "CHAT_GLOBAL_CONTEXT_MAX_CHARS", s.CHAT_GLOBAL_CONTEXT_MAX_CHARS,
-            "CHAT_GLOBAL_CONTEXT") == ("tokens", 1000)
+            "CHAT_GLOBAL_CONTEXT") == ("tokens", 5000)
         assert resolve_chat_limit(
-            s.CHAT_THREAD_MAX_TOKENS, 500,
+            s.CHAT_THREAD_MAX_TOKENS, 3000,
             "CHAT_THREAD_MAX_CHARS", s.CHAT_THREAD_MAX_CHARS,
-            "CHAT_THREAD") == ("tokens", 500)
+            "CHAT_THREAD") == ("tokens", 3000)
         assert resolve_chat_limit(
             s.SUMMARY_MAX_CONTEXT_TOKENS, 30000,
             "SUMMARY_MAX_CONTEXT_CHARS", s.SUMMARY_MAX_CONTEXT_CHARS,

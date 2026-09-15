@@ -393,7 +393,11 @@ class LLMClient:
                 raise NoApiKeyForChat(chat_id, "forbidden",
                                       details={"resolve_path": "forbidden",
                                                "allow_global": False})
-            if await chat_usage.budget_exceeded(self._pg(), chat_id):
+            # F2 (ADR-1019-2 D4): единый снимок — и решение, и details (один
+            # резолв лимитов + одно чтение usage; без двойного PG-раундтрипа и
+            # TOCTOU — D-5 ревью Батча B).
+            snapshot = await chat_usage.budget_snapshot(self._pg(), chat_id)
+            if snapshot["exceeded"]:
                 # F-15 (§3.2): BYOK-фоллбэк — дешёвый re-read своего ключа
                 # (гонка/персист); строгий порядок: свой → глобал-бюджет →
                 # свой-фоллбэк → sandbox.
@@ -401,19 +405,12 @@ class LLMClient:
                     self._pg(), chat_id, "keys.llm_api_key")
                 if fallback_own:
                     return fallback_own, "chat"
-                used = {}
-                try:
-                    used = await chat_usage.used_today(self._pg(), chat_id)
-                except Exception:
-                    used = {}
+                # F2 (ADR-1019-2 D4): details — из того же снимка (добавлены
+                # exceeded_metric/unlimited/forbidden/source; R17-safe).
                 details = {
                     "resolve_path": "budget",
-                    "day": str(chat_usage.today()),
-                    "used_calls": int(used.get(chat_usage.METRIC_CALLS, 0)),
-                    "limit_calls": chat_usage._budget_limit_requests(),
-                    "used_tokens": int(used.get(chat_usage.METRIC_TOKENS, 0)),
-                    "limit_tokens": chat_usage._budget_limit_tokens(),
                     "allow_global": bool(allow_global),
+                    **snapshot,
                 }
                 raise NoApiKeyForChat(chat_id, "budget", details=details)
             return self._current_api_key(), "global"

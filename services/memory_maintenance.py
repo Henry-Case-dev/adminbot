@@ -15,8 +15,12 @@ coalesce — анти-рейс, прецедент summary_scheduler):
    unconfirmed старше GRAPH_UNCONFIRMED_RETENTION_DAYS, усечение лога сжатий.
 """
 import asyncio
+import datetime
+import json
 import logging
+import os
 import time
+from pathlib import Path
 
 from apscheduler.schedulers import SchedulerNotRunningError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -24,6 +28,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
 from services import hot_config as hot
+from services import retention_policy
 from services.graph_stoplist import METAFACT_PENALTY_IMPORTANCE
 from services.llm_client import LLMError
 from services.summary_memory import _TOKEN_RE
@@ -357,3 +362,211 @@ class MemoryMaintenanceService:
             logger.info("MemoryMaintenance stopped")
         except SchedulerNotRunningError:
             logger.info("MemoryMaintenance was not running — nothing to stop")
+
+
+# ── F7 (10.19, ADR-1019-6 D1/D1a/D2): retention импортированной истории ─────
+
+_ARCHIVE_BATCH = 2000          # строк на пачку при экспорте архива
+_ARCHIVE_PREFIX = "imported_history_"
+
+
+def _flush_and_fsync(fh) -> None:
+    """D-2.2 (Medium, ревью итерации 4): сбросить пользовательский буфер и
+    форсировать `os.fsync` — архив ДОЛЖЕН пережить сбой питания РАНЬШЕ, чем
+    SQLite-DELETE (иначе архив мог остаться только в page-cache, а DELETE
+    персистироваться — необратимая потеря). Синхронно, вызывается через
+    `asyncio.to_thread`, чтобы не блокировать event loop."""
+    fh.flush()
+    os.fsync(fh.fileno())
+
+
+def auto_purge_dry_run(*, dry_run: bool, backup_confirmed: bool) -> bool:
+    """Гейт деструктивного авто-крона (UPD4 п.3, D-2 High).
+
+    Авто-крон (`summary_memory.compress_and_purge`) НЕ имеет права выполнять
+    DELETE, пока оператор ЯВНО не включил apply (`dry_run=False`) **И** не
+    подтвердил созданный/проверенный бэкап БД (`backup_confirmed=True`).
+    Иначе — только dry-run (подсчёт) + WARNING на вызывающем. Единая точка
+    правды для тестов (Δ каталога не растёт — env-флаги ClassVar)."""
+    return bool(dry_run) or not bool(backup_confirmed)
+
+
+async def _archive_imported_history(db, chat_cutoffs: dict[int, int],
+                                    directory: Path
+                                    ) -> tuple[bool, int, str, dict[int, int]]:
+    """D2: экспорт выборки purge в файл ДО удаления (fail-safe).
+
+    `{directory}/imported_history_<ts>.jsonl` — по строке JSON на запись
+    (UTF-8). Возвращает `(ok, archived_rows, path, max_ids)`; любая ошибка
+    записи → `ok=False` (вызывающий НЕ удаляет строки). Стриминг батчами —
+    память ограничена `_ARCHIVE_BATCH`. R17-safe: файл содержит текст
+    переписки, но сами логи пишут только число/путь без токенов.
+
+    D-7 (ревью Батча E): `max_ids[chat_id]` — максимальный id, реально
+    попавший в архив для чата. Purge ограничивается `id <= max_ids[chat_id]`
+    (строго по зафиксированному множеству)."""
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("[retention] archive dir unavailable | reason=%s",
+                       type(exc).__name__)
+        return False, 0, "", {}
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    target = directory / f"{_ARCHIVE_PREFIX}{stamp}.jsonl"
+    archived = 0
+    max_ids: dict[int, int] = {int(c): 0 for c in chat_cutoffs}
+    try:
+        with open(target, "w", encoding="utf-8") as fh:
+            for chat_id, cutoff in chat_cutoffs.items():
+                after_id = 0
+                while True:
+                    rows = await db.select_imported_history(
+                        int(chat_id), int(cutoff), after_id=after_id,
+                        limit=_ARCHIVE_BATCH)
+                    if not rows:
+                        break
+                    for row in rows:
+                        fh.write(json.dumps(dict(row), ensure_ascii=False,
+                                            default=str))
+                        fh.write("\n")
+                    archived += len(rows)
+                    after_id = int(rows[-1]["id"])
+                    max_ids[int(chat_id)] = after_id
+                    if len(rows) < _ARCHIVE_BATCH:
+                        break
+            # D-2.2: fsync ДО возврата `ok=True`/удаления — иначе архив не
+            # гарантированно на диске при сбое питания.
+            await asyncio.to_thread(_flush_and_fsync, fh)
+    except Exception:
+        logger.warning("[retention] archive failed — purge skipped "
+                       "(fail-safe)", exc_info=True)
+        try:
+            target.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False, 0, str(target), {}
+    return True, archived, str(target), max_ids
+
+
+async def run_import_retention(db, *, dry_run: bool = False,
+                               archive_dir: str | Path | None = None,
+                               batch: int = 2000,
+                               now: int | None = None) -> dict:
+    """F7 (ADR-1019-6 D1/D1a/D2): ЕДИНСТВЕННЫЙ call-site purge импорта.
+
+    Маппинг `chat_cutoffs` строится ТОЛЬКО из чатов, разрешённых
+    `retention_policy.imported_history_purge_allowed` (чаты с retention `0=вечно` сюда не
+    попадает никогда — структурный guard; дополнительно hard-deny по
+    `enforce`-данным сида). `dry_run=True` → подсчёт без удаления. Иначе —
+    обязательный архив в файл (`D2`, fail-safe: сбой архивации ⇒ строки не
+    удаляются), затем батчевый purge.
+
+    D-1 (Critical, ревью Батча E): если chat-слой НЕ читается (любой чат
+    отдал `source='error'`) — прогон ОТМЕНЯЕТСЯ ЦЕЛИКОМ
+    (`reason='chat_layer_unavailable'`), `chat_cutoffs` из fail-open
+    `'default'` не строится.
+
+    D-7: purge идёт строго по зафиксированному множеству (`id <= max_id` из
+    архива); при расхождении `candidates != archived` (строки стали
+    `history_processed=1` между снапшотом и удалением) — purge прерывается
+    с WARNING без удаления.
+
+    Возвращает `{chats, candidates, archived, deleted, batches, dry_run,
+    reason, archive}`. Fail-open: ошибки БД → нули (не 500)."""
+    now = int(time.time()) if now is None else int(now)
+    out = {"chats": 0, "candidates": 0, "archived": 0, "deleted": 0,
+           "batches": 0, "dry_run": bool(dry_run), "reason": "ok",
+           "archive": ""}
+    try:
+        chat_ids = await db.get_smart_chat_ids()
+    except Exception:
+        logger.warning("[retention] chat list failed — fail-open",
+                       exc_info=True)
+        out["reason"] = "chat_list_failed"
+        return out
+    chat_cutoffs: dict[int, int] = {}
+    layer_error = False
+    for chat_id in chat_ids:
+        try:
+            allowed, days, source = \
+                await retention_policy.imported_history_purge_allowed(chat_id)
+        except Exception:
+            allowed, days, source = False, 0, "error"
+        if source == "error":
+            # D-1: chat-слой недоступен → НЕ доверяем fail-open дефолту.
+            layer_error = True
+            logger.warning(
+                "[retention] chat layer unavailable — run aborted "
+                "(fail-closed) | chat=%s", chat_id)
+            continue
+        if not allowed:
+            # R17: только id/источник; чаты с retention 0 (вечно) сюда попадают.
+            logger.info("[retention] import purge skip | chat=%s | "
+                        "reason=eternal | source=%s", chat_id, source)
+            continue
+        chat_cutoffs[int(chat_id)] = now - int(days) * 86400
+    if layer_error:
+        out["reason"] = "chat_layer_unavailable"
+        return out
+    if not chat_cutoffs:
+        out["reason"] = "no_candidates"
+        return out
+    out["chats"] = len(chat_cutoffs)
+    # Сначала ВСЕГДА подсчёт (dry-run-семантика): нет кандидатов — не трогаем
+    # архив/диск (дешёвый выход).
+    try:
+        probe = await db.purge_imported_history(
+            chat_cutoffs=chat_cutoffs, batch=batch, dry_run=True)
+        out["candidates"] = int(probe.get("candidates") or 0)
+    except Exception:
+        logger.warning("[retention] candidate count failed — skip",
+                       exc_info=True)
+        out["reason"] = "count_failed"
+        return out
+    if out["candidates"] == 0:
+        out["reason"] = "no_candidates"
+        return out
+    if dry_run:
+        out["reason"] = "dry_run"
+        logger.info("[retention] import dry-run | chats=%d candidates=%d",
+                    len(chat_cutoffs), out["candidates"])
+        return out
+    directory = Path(archive_dir or hot.get(
+        "reactions.memory_backup_dir", settings.MEMORY_BACKUP_DIR))
+    ok, archived, path, max_ids = await _archive_imported_history(
+        db, chat_cutoffs, directory)
+    if not ok:
+        out["reason"] = "archive_failed"
+        return out
+    out["archived"] = archived
+    out["archive"] = path
+    # D-7: сверяем «кандидаты по зафиксированным id» с архивом — расхождение
+    # означает гонку с history_processed → НЕ удаляем.
+    try:
+        fixed = await db.purge_imported_history(
+            chat_cutoffs=chat_cutoffs, batch=batch, dry_run=True,
+            chat_max_ids=max_ids)
+        fixed_candidates = int(fixed.get("candidates") or 0)
+    except Exception:
+        logger.warning("[retention] fixed-count failed — purge skipped",
+                       exc_info=True)
+        out["reason"] = "count_failed"
+        return out
+    out["candidates"] = fixed_candidates
+    if fixed_candidates != archived:
+        logger.warning(
+            "[retention] archive/purge mismatch — purge aborted | "
+            "archived=%d candidates=%d", archived, fixed_candidates)
+        out["reason"] = "archive_mismatch"
+        return out
+    res = await db.purge_imported_history(
+        chat_cutoffs=chat_cutoffs, batch=batch, dry_run=False,
+        chat_max_ids=max_ids)
+    out["candidates"] = int(res.get("candidates") or 0)
+    out["deleted"] = int(res.get("deleted") or 0)
+    out["batches"] = int(res.get("batches") or 0)
+    logger.info(
+        "[retention] import purge | chats=%d archived=%d deleted=%d "
+        "batches=%d", out["chats"], out["archived"], out["deleted"],
+        out["batches"])
+    return out

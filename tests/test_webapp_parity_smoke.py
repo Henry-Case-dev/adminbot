@@ -50,11 +50,13 @@ class TestCatalogParity:
         # 10.14 (F8 self-reflection-llm-provider): +4/+4 (INTEL_REFLECTION_*)
         # → 434/406; 10.14 (F6 help-guide-integration): +1 PG-only → 435/406;
         # 10.18 (F1): +1 env-only BETTERSTACK_HOST (ADR-1018-1 D3) → 436/406.
-        assert len(REGISTRY) == 436, len(REGISTRY)
-        assert len(GROUPS) == 90
+        # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): +1 REGISTRY/Settings
+        # (IMPORT_HISTORY_RETENTION_DAYS), +2 GROUPS → 437/92/407.
+        assert len(REGISTRY) == 437, len(REGISTRY)
+        assert len(GROUPS) == 92
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 406
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

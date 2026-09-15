@@ -154,17 +154,19 @@ class ChatParamsCache:
         root, _ = await self.get_chat_params_full(chat_id)
         return root
 
-    async def get_chat_params_full(self, chat_id: int) -> tuple[dict, str | None]:
-        """(root, updated_at профиля) — updated_at из профиля (optimistic-
-        метка единого конфликт-протокола spec §4.3)."""
+    async def _load(self, chat_id: int) -> tuple[dict, str | None, bool]:
+        """(root, updated_at, ok) — `ok=False` ⇔ chat-слой НЕдоступен
+        (нет `ChatParamsPool`/ошибка чтения PG, прогрева нет). Нужен
+        fail-closed consumers (F7 retention, D-1): «пустой слой» и
+        «нечитаемый слой» — РАЗНЫЕ состояния, их нельзя смешивать."""
         now = time.monotonic()
         if chat_id in self._items:
             ts, root, updated_at = self._items[chat_id]
             if (now - ts) < self._ttl:
-                return root, updated_at
+                return root, updated_at, True
         pool = self._pool()
         if pool is None:
-            return {}, None
+            return {}, None, False
         root, updated_at = {}, None
         try:
             async with pool.acquire() as conn:
@@ -176,10 +178,23 @@ class ChatParamsCache:
             logger.warning(
                 "[chat_params] cache load failed — fail-open | chat=%s",
                 chat_id, exc_info=True)
-            return {}, None
+            return {}, None, False
         async with self._lock:
             self._items[chat_id] = (time.monotonic(), root, updated_at)
+        return root, updated_at, True
+
+    async def get_chat_params_full(self, chat_id: int) -> tuple[dict, str | None]:
+        """(root, updated_at профиля) — updated_at из профиля (optimistic-
+        метка единого конфликт-протокола spec §4.3)."""
+        root, updated_at, _ok = await self._load(chat_id)
         return root, updated_at
+
+    async def get_chat_params_checked(self, chat_id: int) -> tuple[dict, bool]:
+        """(root, ok) — `ok=False` при недоступности chat-слоя. Отличие от
+        `get_chat_params` (fail-open {}): позволяет decision-path'ам
+        (F7 retention) отличить «override нет» от «слой не читается»."""
+        root, _updated_at, ok = await self._load(chat_id)
+        return root, ok
 
 
 async def invalidate_chat_from_notify(payload) -> None:
@@ -257,8 +272,28 @@ def _resolve_from_root(root: dict, key: str, default=None) -> object:
         except Exception:
             return hot.get(key, default)
     return value
-async def get_all_chat_params(chat_id: int) -> dict:
-    """Полный root-лейаут чата (для GET /api/config X-Chat-Id)."""
+async def get_all_chat_params(chat_id: int, pg=None) -> dict:
+    """Полный root-лейаут чата (для GET /api/config X-Chat-Id).
+
+    D-2 (ревью Батча C): при явном `pg` читаем НАПРЯМУЮ из PG
+    (`SELECT_PROFILE_SQL`), минуя процесс-глобальный `_chat_params_cache`.
+    Нужно CLI-пути (`manage.py apply-chat-overrides`), где кэш не инициализирован —
+    иначе merge видит `{}` и `set_chat_params` затирает namespace
+    `overrides`/`meta` целевого чата. Без `pg` — прежний путь через кэш
+    (web/бот); fail-open `{}`."""
+    if pg is not None:
+        pool = getattr(pg, "pool", None)
+        if pool is None:
+            return {}
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+        except Exception:
+            logger.warning("[chat_params] pg read failed — fail-open | "
+                           "chat=%s", chat_id, exc_info=True)
+            return {}
+        root = _load_chat_params(row.get("chat_params")) if row else {}
+        return _root_with_meta(root)
     cache = _chat_params_cache
     if cache is None:
         return {}

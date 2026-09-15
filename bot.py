@@ -146,8 +146,10 @@ console_handler.setFormatter(formatter)
 # BETTERSTACK_HOST (US-кластер проекта). Неявный EU-дефолт запрещён: без
 # хоста хендлер НЕ создаём (fail-safe — лучше без логов, чем 401 в чужой
 # регион). BETTERSTACK_SOURCE_TOKEN НЕ читается (устаревшее имя).
-# Токен — Source Token из Logs → Sources; public key из SENTRY_DSN недопустим
-# (детерминированная проверка ниже, WARNING без блокировки старта).
+# Раунд 10.19 (F1, ADR-1019-1, AMEND ADR-1018-1 D2/D4): ingest-контракт —
+# POST https://{host} + Authorization: Bearer (токен НЕ в path). На unified US
+# Source Token побайтово совпадает с public key SENTRY_DSN — это НОРМА
+# (диагностика ниже — DEBUG, не WARNING).
 betterstack_token = os.getenv("LOGTAIL_SOURCE_TOKEN")
 betterstack_host = (os.getenv("BETTERSTACK_HOST") or "").strip()
 handlers = [console_handler]
@@ -189,9 +191,12 @@ if betterstack_token and betterstack_host:
         betterstack_host, len(betterstack_token))
     if token_equals_sentry_public_key(betterstack_token,
                                       os.getenv("SENTRY_DSN")):
-        logger.warning(
-            "[betterstack] token == SENTRY_DSN public key — это НЕ Source "
-            "Token (нужен токен из Logs → Sources)")
+        # ADR-1019-1 D4 (AMEND ADR-1018-1 D4): на унифицированных US-кластерах
+        # Source Token Telemetry побайтово совпадает с Sentry public key — это
+        # НОРМА. Тревоги нет: только DEBUG-диагностика (R17: без значений).
+        logger.debug(
+            "[betterstack] token matches SENTRY_DSN public key "
+            "(normal on unified US clusters)")
 elif betterstack_token and not betterstack_host:
     # R10.18-6 (fail-safe): хендлер не создан из-за отсутствия хоста —
     # это ЯВНАЯ деградация мониторинга (логи в панель НЕ уходят), а не
@@ -932,6 +937,29 @@ async def main():
     # prompt_migrations не трогаем (канон промптов Личности не меняется).
     from services.config_migrations import migrate_dream_thresholds
     await migrate_dream_thresholds(cache)
+
+    # ── S10.19-8 (F3/ADR-1019-2 D5): новые глобальные дефолты бюджетов не
+    # доезжали до прода (сид `ON CONFLICT DO NOTHING`). Идемпотентная миграция:
+    # меняем только значения, равные прежним дефолтам (25/100000, 35/100000).
+    from services.config_migrations import migrate_global_budget_defaults
+    await migrate_global_budget_defaults(cache)
+
+    # ── F4 (10.19, ADR-1019-4 D3): расширение дефолтов контекста
+    # (1000/500/4000 → 5000/3000/16000). Идемпотентно: только значения,
+    # равные прежнему дефолту; кастом — WARNING; null/нет ключа → skip.
+    from services.config_migrations import migrate_context_limit_defaults
+    await migrate_context_limit_defaults(cache)
+
+    # ── F3 (10.19, ADR-1019-8 D4): сид настроек чатов — эксклюзивные per-chat настройки
+    # из config/chat_settings_seed.json (retention 0=вечно, бюджеты/контекст −1).
+    # Идемпотентно (повторный прогон — no-op), fail-open: PG down/нет файла →
+    # WARNING, бот жив. Id чата — только в данных сида (не в бизнес-логике).
+    try:
+        from services.chat_settings_seed import apply_chat_settings_seed
+        await apply_chat_settings_seed(cache.pg)
+    except Exception:
+        logger.warning("[chat_settings_seed] применение не удалось — fail-open",
+                       exc_info=True)
 
     # ── Раунд 3 (3.7/C2, T-697): легаси-NULL TTL bot_direct_reply в PG → 30
     # (сид поставит 30, если ключа нет; 0/число — явный выбор, не трогаем).

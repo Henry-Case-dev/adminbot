@@ -180,8 +180,13 @@ async def test_llm_resolve_budget_exceeded(fake_pg, monkeypatch):
         "services.chat_params.get_all_chat_params",
         lambda chat_id: _aw({"v": 1, "keys": {"allow_global": True}}))
     monkeypatch.setattr(
-        "services.chat_usage.budget_exceeded",
-        lambda pg_, chat_id, tokens_estimate=0: _aw(True))
+        "services.chat_usage.budget_snapshot",
+        lambda pg_, chat_id, tokens_estimate=0: _aw({
+            "day": "2026-09-15", "exceeded": True,
+            "exceeded_metric": "calls", "used_calls": 25, "limit_calls": 25,
+            "used_tokens": 1, "limit_tokens": 100000,
+            "unlimited": False, "forbidden": False, "source": "global",
+            "source_calls": "global", "source_tokens": "global"}))
     client = LLMClient("http://x", "GLOBALKEY", "m", "")
     monkeypatch.setattr(client, "_pg", lambda: pg)
     with pytest.raises(NoApiKeyForChat) as exc:
@@ -210,8 +215,8 @@ async def test_parallel_generate_usage_attributed_per_chat(fake_pg, monkeypatch)
         "services.chat_params.get_all_chat_params",
         lambda chat_id: _aw({"v": 1, "keys": {"allow_global": True}}))
     monkeypatch.setattr(
-        "services.chat_usage.budget_exceeded",
-        lambda pg_, chat_id, tokens_estimate=0: _aw(False))
+        "services.chat_usage.budget_snapshot",
+        lambda pg_, chat_id, tokens_estimate=0: _aw({"exceeded": False}))
     captured = []
 
     async def fake_report_call(pg_, chat_id, tokens=0):
@@ -288,8 +293,8 @@ async def test_llm_resolve_budget_own_key_fallback(fake_pg, monkeypatch):
         "services.chat_params.get_all_chat_params",
         lambda chat_id: _aw({"v": 1, "keys": {"allow_global": True}}))
     monkeypatch.setattr(
-        "services.chat_usage.budget_exceeded",
-        lambda pg_, chat_id, tokens_estimate=0: _aw(True))
+        "services.chat_usage.budget_snapshot",
+        lambda pg_, chat_id, tokens_estimate=0: _aw({"exceeded": True}))
     calls = {"n": 0}
 
     async def flaky_get_chat_key(pg_, chat_id, key_name):
@@ -315,15 +320,15 @@ async def test_llm_resolve_budget_details_snapshot(fake_pg, monkeypatch):
         "services.chat_params.get_all_chat_params",
         lambda chat_id: _aw({"v": 1, "keys": {"allow_global": True}}))
     monkeypatch.setattr(
-        "services.chat_usage.budget_exceeded",
-        lambda pg_, chat_id, tokens_estimate=0: _aw(True))
-    monkeypatch.setattr(
-        "services.chat_usage.used_today",
-        lambda pg_, chat_id: _aw({"llm_calls": 25, "llm_tokens": 99_900}))
-    monkeypatch.setattr("services.chat_usage._budget_limit_requests",
-                        lambda default=25: 25)
-    monkeypatch.setattr("services.chat_usage._budget_limit_tokens",
-                        lambda default=100000: 100000)
+        "services.chat_usage.budget_snapshot",
+        lambda pg_, chat_id, tokens_estimate=0: _aw({
+            "day": "2026-09-15", "exceeded": True,
+            "exceeded_metric": "calls",
+            "used_calls": 25, "limit_calls": 25,
+            "used_tokens": 99_900, "limit_tokens": 100_000,
+            "unlimited": False, "forbidden": False,
+            "source": "global", "source_calls": "global",
+            "source_tokens": "global"}))
     client = LLMClient("http://x", "GLOBALKEY", "m", "")
     monkeypatch.setattr(client, "_pg", lambda: pg)
     with pytest.raises(NoApiKeyForChat) as exc:
@@ -337,6 +342,11 @@ async def test_llm_resolve_budget_details_snapshot(fake_pg, monkeypatch):
     assert details["used_tokens"] == 99_900
     assert details["limit_tokens"] == 100_000
     assert details["allow_global"] is True
+    # F2 (ADR-1019-2 D4): аддитивные диагностические поля снимка
+    assert details["exceeded_metric"] == "calls"
+    assert details["unlimited"] is False
+    assert details["forbidden"] is False
+    assert details["source"] == "global"
     assert "day" in details and details["day"]
     # R17: никаких значений ключей в снапшоте
     assert "GLOBALKEY" not in repr(details)

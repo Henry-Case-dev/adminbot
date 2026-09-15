@@ -472,25 +472,58 @@ class Settings:
     FULL_MEMORY_RETENTION_DAYS: int = _env_int("FULL_MEMORY_RETENTION_DAYS", 30)
     # L3: срок жизни архивных фактов (дни).
     ARCHIVE_MEMORY_RETENTION_DAYS: int = _env_int("ARCHIVE_MEMORY_RETENTION_DAYS", 90)
+    # ── F3 (budget-settings-section, ADR-1019-8 D2): срок хранения
+    # ИМПОРТИРОВАННОЙ истории. Sentinel-семейство retention (НЕ бюджет!):
+    # 0 = вечно (purge импорта категорически запрещён), >0 = хранить N дней,
+    # <0 = невалидно → fallback на глобальный дефолт + WARNING (F7). Каталог-Δ:
+    # +1 (REGISTRY/Settings/categorized), группа limits_memory.
+    IMPORT_HISTORY_RETENTION_DAYS: int = _env_int(
+        "IMPORT_HISTORY_RETENTION_DAYS", 180)
+    # ── F7 (10.19, ADR-1019-6 D2, D-2 ревью Батча E): ГЕЙТ деструктивного
+    # purge импортированной истории. env-only инфра (ClassVar → НЕ
+    # dataclass-поле, каталог-Δ не растёт). Оба дефолта безопасны:
+    # ENABLED=False → крон-шаг не запускается; DRY_RUN=True → даже при
+    # включении первый прогон только считает. Реальный purge требует ЯВНО
+    # IMPORT_RETENTION_ENABLED=true И IMPORT_RETENTION_DRY_RUN=false.
+    IMPORT_RETENTION_ENABLED: ClassVar[bool] = _env_bool(
+        "IMPORT_RETENTION_ENABLED", False)
+    IMPORT_RETENTION_DRY_RUN: ClassVar[bool] = _env_bool(
+        "IMPORT_RETENTION_DRY_RUN", True)
+    # (в) UPD4 п.3: подтверждение СОЗДАННОГО и ПРОВЕРЕННОГО бэкапа БД. Пока
+    # `false` (дефолт) — авто-крон делает только dry-run + WARNING, даже при
+    # `IMPORT_RETENTION_ENABLED=true`/`DRY_RUN=false`. Реальный DELETE авто-крона
+    # требует ЯВНО всех трёх: ENABLED=true, DRY_RUN=false, BACKUP_CONFIRMED=true.
+    IMPORT_RETENTION_BACKUP_CONFIRMED: ClassVar[bool] = _env_bool(
+        "IMPORT_RETENTION_BACKUP_CONFIRMED", False)
+    # ── F4 (direct-context-limit-expansion, ADR-1019-8 D3): практический
+    # потолок безлимитного контекста (`-1`). env-only инфра: ClassVar →
+    # НЕ dataclass-поле (в каталог не входит, Settings 407 не растёт).
+    CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS: ClassVar[int] = _env_int_min(
+        "CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS", 32000, 1000)
     # Лимит Telegram: число частей ответа (чанкинг 4096).
     MAX_SUMMARY_PARTS: int = _env_int("MAX_SUMMARY_PARTS", 1)
     SUMMARY_TIMEZONE: str = os.getenv("SUMMARY_TIMEZONE", "Asia/Yekaterinburg")
     # ── Раунд 10 (F-10 §5.1): локальная таймзона дня бюджетов фона ──
     WORKER_BUDGET_TZ: str = os.getenv("WORKER_BUDGET_TZ", "Asia/Yekaterinburg")
     # ── Раунд 10 (F-7 §5.2): суточные бюджеты глобального ключа на чат ──
+    # Раунд 10.19 (F2, ADR-1019-2 D5): консервативный предохранитель —
+    # 100 вызовов / 500 000 токенов. Безлимит (`-1`) — ТОЛЬКО per-chat override
+    # (сид настроек чатов/UI), НЕ глобальный дефолт (UPD3 п.2).
     CHAT_GLOBAL_KEY_BUDGET_TOKENS: int = _env_int(
-        "CHAT_GLOBAL_KEY_BUDGET_TOKENS", 100000)
+        "CHAT_GLOBAL_KEY_BUDGET_TOKENS", 500000)
     CHAT_GLOBAL_KEY_BUDGET_REQUESTS: int = _env_int(
-        "CHAT_GLOBAL_KEY_BUDGET_REQUESTS", 25)
+        "CHAT_GLOBAL_KEY_BUDGET_REQUESTS", 100)
     # ── Раунд 10 (F-10 §5.2): суточные бюджеты фоновых воркеров ──
     WORKER_DAILY_LLM_CALLS_GLOBAL: int = _env_int(
         "WORKER_DAILY_LLM_CALLS_GLOBAL", 200)
     WORKER_DAILY_LLM_TOKENS_GLOBAL: int = _env_int(
         "WORKER_DAILY_LLM_TOKENS_GLOBAL", 500000)
+    # Раунд 10.19 (F2, ADR-1019-2 D5): фон per-chat — консервативный
+    # предохранитель 60 / 300 000 (глобальный фон 200/500k НЕ меняется).
     WORKER_DAILY_LLM_CALLS_PER_CHAT: int = _env_int(
-        "WORKER_DAILY_LLM_CALLS_PER_CHAT", 35)
+        "WORKER_DAILY_LLM_CALLS_PER_CHAT", 60)
     WORKER_DAILY_LLM_TOKENS_PER_CHAT: int = _env_int(
-        "WORKER_DAILY_LLM_TOKENS_PER_CHAT", 100000)
+        "WORKER_DAILY_LLM_TOKENS_PER_CHAT", 300000)
     WORKER_PRIORITY_ORDER: str = os.getenv(
         "WORKER_PRIORITY_ORDER", "nostalgia,lore,dream")
     WORKER_BUDGET_JITTER_MINUTES: int = _env_int(
@@ -749,12 +782,15 @@ class Settings:
     RUNNING_SUMMARY_TTL_MINUTES: int = _env_int_min("RUNNING_SUMMARY_TTL_MINUTES", 60, 1)
     # Токены tiktoken (64.7): упреждающий тримминг ТОЛЬКО 3 лимитов сборки
     # direct_chat/summary; фактические лимиты — usage из API-ответа. Пустой
-    # токенный при заданном chars → chars-fallback (WARNING). См.
-    # services/token_counter.py (resolve_chat_limit).
+    # токенный при заданном chars → АВАРИЙНЫЙ chars-fallback (debug). См.
+    # services/token_counter.py (resolve_chat_limit / resolve_context_tokens).
+    # F4 (10.19, ADR-1019-4 D3): дефолты — предохранитель (5000/3000) вместо
+    # прежних None→1000/500 (обрезка «до 869» из-за code-дефолта 1000).
+    # Sentinel контекста: -1 = безлимит (потолок безопасности), 0 = не задано.
     TOKENIZER_ENCODING: str = _env_str("TOKENIZER_ENCODING", "o200k_base")
     TOKEN_SAFETY_MULTIPLIER: float = _env_float_min("TOKEN_SAFETY_MULTIPLIER", 1.15, 1.0)
-    CHAT_GLOBAL_CONTEXT_MAX_TOKENS: int | None = _env_int_optional("CHAT_GLOBAL_CONTEXT_MAX_TOKENS", None)
-    CHAT_THREAD_MAX_TOKENS: int | None = _env_int_optional("CHAT_THREAD_MAX_TOKENS", None)
+    CHAT_GLOBAL_CONTEXT_MAX_TOKENS: int | None = _env_int_optional("CHAT_GLOBAL_CONTEXT_MAX_TOKENS", 5000)
+    CHAT_THREAD_MAX_TOKENS: int | None = _env_int_optional("CHAT_THREAD_MAX_TOKENS", 3000)
     SUMMARY_MAX_CONTEXT_TOKENS: int | None = _env_int_optional("SUMMARY_MAX_CONTEXT_TOKENS", None)
 
     # ── Epic 60 Фаза C (Section 65.11, R60-10…R60-19) ─────────
@@ -865,8 +901,12 @@ class Settings:
     # Бюджеты контекста direct_chat (66.12): доли от CHAT_CONTEXT_BUDGET_TOKENS
     # (system ~5% не управляется; ответ/запас — рекомендации). False → старые
     # MAX_CHARS/токен-потолки секций (64.7).
+    # F4 (10.19, ADR-1019-4 D3): 4000 → 16000 — общий бюджет должен быть НЕ
+    # меньше суммы per-block потолков (Global 5000 + Thread 3000 + fixed), иначе
+    # блоки режутся дважды (global-доля 0.30×16000=4800 ≥ 4347). Sentinel: -1 =
+    # безлимит → агрегатное усечение _apply_context_budget не применяется.
     CHAT_CONTEXT_BUDGETS_ENABLED: bool = _env_bool("CHAT_CONTEXT_BUDGETS_ENABLED", True)
-    CHAT_CONTEXT_BUDGET_TOKENS: int = _env_int_min("CHAT_CONTEXT_BUDGET_TOKENS", 4000, 100)
+    CHAT_CONTEXT_BUDGET_TOKENS: int = _env_int_min("CHAT_CONTEXT_BUDGET_TOKENS", 16000, 100)
     CHAT_BUDGET_MAP_RATIO: float = _env_float("CHAT_BUDGET_MAP_RATIO", 0.05)
     CHAT_BUDGET_GLOBAL_RATIO: float = _env_float("CHAT_BUDGET_GLOBAL_RATIO", 0.30)
     CHAT_BUDGET_THREAD_RATIO: float = _env_float("CHAT_BUDGET_THREAD_RATIO", 0.20)

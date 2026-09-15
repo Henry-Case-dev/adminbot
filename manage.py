@@ -41,7 +41,11 @@ from config.settings import settings
 # супергруппа -1002661910336 (фаза 1 подтвердила). Имя файла «желтая до
 # 10.2024.json» содержит кириллицу — передаётся явно (glob-сюрпризов нет).
 HISTORY_DIR = Path("migrate_history")
-DEFAULT_TARGET_CHAT = -1002661910336
+# LEGACY (D-2.8, ревью итерации 4): исторический id целевого чата фазы 1 —
+# НЕ бизнес-логика и НЕ настройка; конкретный runtime-id задаётся явным
+# `--target-chat`/`--chat` (или данными `config/chat_settings_seed.json`).
+# Оставлен только как дефолт CLI-удобства с явным legacy-маркером.
+LEGACY_TARGET_CHAT_ID = -1002661910336
 LIVE_CHAT_EXPORT_ID = 2661910336          # экспорт-id live-чата (2 файла)
 
 # Дефолты Graph-воркера (--mode graph; локальная Ollama юзера).
@@ -508,9 +512,9 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument("--db", default=None,
                      help=f"путь SQLite-БД (дефолт: {settings.DB_PATH}); для "
                           f"graph — СНАПШОТ прод-БД, не живая БД бота)")
-    imp.add_argument("--target-chat", type=int, default=DEFAULT_TARGET_CHAT,
-                     help="--mode fts: чат-таргет памяти (дефолт: "
-                          f"{DEFAULT_TARGET_CHAT})")
+    imp.add_argument("--target-chat", type=int, default=LEGACY_TARGET_CHAT_ID,
+                     help="--mode fts: чат-таргет памяти (legacy-дефолт: "
+                          f"{LEGACY_TARGET_CHAT_ID}; лучше задать явно)")
     imp.add_argument("--batch-size", type=int, default=None,
                      help="fts: строк на транзакцию (дефолт 500); "
                           "graph: сообщений в пачке (дефолт 25)")
@@ -528,9 +532,9 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument("--no-vacuum", action="store_true",
                      help="--mode fts: пропустить wal_checkpoint+VACUUM")
     # ── Graph-воркер (--mode graph; часть B, T-761..T-763) ─────────
-    imp.add_argument("--chat", type=int, default=DEFAULT_TARGET_CHAT,
-                     help=f"--mode graph: чат-источник сырья (дефолт: "
-                          f"{DEFAULT_TARGET_CHAT})")
+    imp.add_argument("--chat", type=int, default=LEGACY_TARGET_CHAT_ID,
+                     help=f"--mode graph: чат-источник сырья (legacy-дефолт: "
+                          f"{LEGACY_TARGET_CHAT_ID}; лучше задать явно)")
     imp.add_argument("--endpoint", default=GRAPH_DEFAULT_ENDPOINT,
                      help=f"--mode graph: эндпоинт Ollama (дефолт: "
                           f"{GRAPH_DEFAULT_ENDPOINT})")
@@ -584,7 +588,112 @@ def build_parser() -> argparse.ArgumentParser:
                      help="--mode graph: подрежим догонки векторов — фактам "
                           "origin='history_import' без vec-строки (после "
                           "--embed-mode skip)")
+    # ── F3 (10.19, ADR-1019-8 D4): сид настроек чатов (опционально) ─────────────
+    overrides = sub.add_parser(
+        "apply-chat-overrides",
+        help="применить декларативные настройки чатов из config/chat_settings_seed.json",
+        description="Идемпотентный сид эксклюзивных per-chat настроек "
+                    "(retention 0=вечно, бюджеты/контекст −1) из "
+                    "config/chat_settings_seed.json. Повторный прогон — no-op.")
+    overrides.add_argument("--force", action="store_true",
+                     help="перезаписать бюджеты/контекст даже при ручной "
+                          "правке (enforce-ключи применяются всегда)")
+    # ── F7 (10.19, ADR-1019-6 D2, D-2 ревью Батча E): retention импорта ──
+    ret = sub.add_parser(
+        "retention",
+        aliases=("retention-dry-run",),
+        help="retention импорта: dry-run (дефолт) | --apply (реальный purge)",
+        description="F7: архивирует и удаляет ИМПОРТИРОВАННУЮ историю "
+                    "(smart_messages, import_key + history_processed=1) "
+                    "старше per-chat срока; чаты с retention 0 (вечно) не затрагиваются. "
+                    "БЕЗ `--apply` — только подсчёт (dry-run, безопасно). "
+                    "С `--apply` — обязательный архив в файл, затем purge; "
+                    "сверка архива/кандидатов, иначе удаление отменяется. "
+                    "Авто-крон гейтится env IMPORT_RETENTION_ENABLED "
+                    "(default OFF) + IMPORT_RETENTION_DRY_RUN (default ON) + "
+                    "IMPORT_RETENTION_BACKUP_CONFIRMED (default OFF).")
+    ret.add_argument("--dry-run", action="store_true",
+                     help="только подсчёт (по умолчанию и так dry-run; флаг "
+                          "делает намерение явным и защищает от --apply)")
+    ret.add_argument("--apply", action="store_true",
+                     help="ВЫПОЛНИТЬ удаление после архива (по умолчанию — "
+                          "dry-run: только счётчики, данные не удаляются)")
+    ret.add_argument("--db", default=None,
+                     help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
+    ret.add_argument("--batch", type=int, default=2000,
+                     help="строк на пачку при архиве/purge (дефолт 2000)")
+    ret.add_argument("--archive-dir", default=None,
+                     help="каталог файла-архива (дефолт: MEMORY_BACKUP_DIR)")
     return parser
+
+
+def _retention_dry_run(args) -> bool:
+    """UPD4 п.3: dry-run, если явно запрошен `--dry-run`/alias `retention-dry-run`
+    или не передан `--apply`. `--apply --dry-run` → dry-run (безопасный приоритет)."""
+    return (not getattr(args, "apply", False)
+            or bool(getattr(args, "dry_run", False))
+            or getattr(args, "command", "") == "retention-dry-run")
+
+
+def _cmd_retention(args) -> int:
+    """F7 (D-2/UPD4 п.3): `python manage.py retention [--dry-run|--apply]`."""
+    import asyncio
+
+    from services.database import DatabaseService
+    from services.memory_maintenance import run_import_retention
+
+    dry_run = _retention_dry_run(args)
+
+    async def _run() -> dict:
+        db = DatabaseService(getattr(args, "db", None) or settings.DB_PATH)
+        await db.initialize()
+        try:
+            return await run_import_retention(
+                db, dry_run=dry_run,
+                archive_dir=getattr(args, "archive_dir", None),
+                batch=int(getattr(args, "batch", 2000) or 2000))
+        finally:
+            try:
+                await db.close()
+            except Exception:
+                pass
+
+    report = asyncio.run(_run())
+    print(f"retention: mode={'dry-run' if dry_run else 'APPLY'} "
+          f"reason={report.get('reason')} chats={report.get('chats')} "
+          f"candidates={report.get('candidates')} "
+          f"archived={report.get('archived')} deleted={report.get('deleted')} "
+          f"batches={report.get('batches')}")
+    if report.get("archive"):
+        print(f"  archive: {report['archive']}")
+    return 0
+
+
+def _cmd_apply_chat_overrides(args) -> int:
+    """F3 (10.19): `python manage.py apply-chat-overrides [--force]` — идемпотентный сид."""
+    import asyncio
+
+    from services.pg_db import PgDatabase
+    from services.chat_settings_seed import apply_chat_settings_seed
+
+    async def _run() -> dict:
+        pg = PgDatabase()
+        await pg.init(seed_settings=False)
+        try:
+            return await apply_chat_settings_seed(pg, force=bool(getattr(
+                args, "force", False)))
+        finally:
+            try:
+                await pg.close()
+            except Exception:
+                pass
+
+    report = asyncio.run(_run())
+    print(f"apply-chat-overrides: applied={len(report['applied'])} "
+          f"skipped={len(report['skipped'])} errors={len(report['errors'])}")
+    for chat_id, keys in report["applied"]:
+        print(f"  chat {chat_id}: {', '.join(keys)}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -595,6 +704,10 @@ def main(argv: list[str] | None = None) -> int:
             pass            # не-файловый поток (pytest-каптура и т.п.)
     try:
         args = build_parser().parse_args(argv)
+        if args.command == "apply-chat-overrides":
+            return _cmd_apply_chat_overrides(args)
+        if args.command in ("retention", "retention-dry-run"):
+            return _cmd_retention(args)
         if args.command != "import_history":
             return 2
         if args.mode == "graph":

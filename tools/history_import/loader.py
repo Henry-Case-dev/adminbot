@@ -102,9 +102,10 @@ def _estimate_total(reader: _CountingReader, file_size: int,
 
 
 async def _flush_batch(conn, fr: FileResult, buffer: list[dict],
-                       path: str, est_total: int | None) -> None:
+                       path: str, est_total: int | None,
+                       chat_id: int) -> None:
     """Батч в одной транзакции: INSERT smart_messages (+FTS при rowcount==1)
-    + чекпоинт + commit (spec §3.3)."""
+    + чекпоинт + commit (spec §3.3). F7: чекпоинт ключуется (path, chat_id)."""
     for msg in buffer:
         row = (msg["user_id"], msg["chat_id"], msg["text"], msg["reply_to_id"],
                msg["timestamp"], msg["media_type"], msg["author_name"],
@@ -117,7 +118,7 @@ async def _flush_batch(conn, fr: FileResult, buffer: list[dict],
                                                      msg["text"]))
         else:
             fr.duplicates += 1
-    await checkpoints.mark(conn, path, fr.read, est_total or fr.read,
+    await checkpoints.mark(conn, path, chat_id, fr.read, est_total or fr.read,
                            done=False)
     await conn.commit()
     buffer.clear()
@@ -145,7 +146,8 @@ async def load_file(conn, path: str, target_chat: int, *,
             if dry_run:
                 buffer.clear()
             else:
-                await _flush_batch(conn, fr, buffer, path, est_total)
+                await _flush_batch(conn, fr, buffer, path, est_total,
+                                   target_chat)
 
     try:
         for raw in parse_items(reader):
@@ -188,8 +190,8 @@ async def load_file(conn, path: str, target_chat: int, *,
                         pass
         await flush()
         if not dry_run:
-            await checkpoints.mark(conn, path, fr.read, est_total or fr.read,
-                                   done=True)
+            await checkpoints.mark(conn, path, target_chat, fr.read,
+                                   est_total or fr.read, done=True)
             await conn.commit()
     except Exception as exc:
         aborted = True
@@ -204,7 +206,7 @@ async def load_file(conn, path: str, target_chat: int, *,
             try:
                 # чекпоинт обрыва всегда сохраняется (в т.ч. 0 строк —
                 # признак «не завершён») — повторный --resume безопасен
-                await checkpoints.mark(conn, path, fr.read,
+                await checkpoints.mark(conn, path, target_chat, fr.read,
                                        est_total or fr.read, done=False)
                 await conn.commit()
             except Exception:
@@ -243,7 +245,7 @@ async def import_history_fts(db_path: str, files: list[str],
         await conn.execute("PRAGMA journal_mode=WAL")
         await checkpoints.ensure_table(conn)
         if reset:
-            await checkpoints.reset_many(conn, files)
+            await checkpoints.reset_many(conn, files, target_chat)
             await conn.commit()
     try:
         for path in files:

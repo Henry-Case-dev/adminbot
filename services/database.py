@@ -66,8 +66,17 @@ _SCHEMA_VERSION_AGI_MEMORY = 9   # Раунд 10.14 (F1 anti-echo-self-reply,
 _SCHEMA_VERSION_EDGES_FACT_ID = 10  # Раунд 10.18 (F3 graph-density-scoring-
                                 # stoplist, ADR-1018-3 D1): 9→10 — edges
                                 # ADD COLUMN fact_id (provenance ребра → факт
-                                # для скоринга Σ importance). Это ТЕКУЩАЯ цель
-                                # user_version.
+                                # для скоринга Σ importance). Историческая
+                                # ступень каскада — НЕ текущая цель.
+_SCHEMA_VERSION_IMPORT_KEY_CHAT_SCOPE = 11  # Раунд 10.19 (F7 memory-
+                                # retention-health, ADR-1019-6 D1b/D7, UPD3
+                                # п.2): 10→11 — изоляция импорта по чату:
+                                # idx_smart_messages_import_key (ГЛОБАЛЬНЫЙ
+                                # UNIQUE) → idx_smart_messages_chat_import_key
+                                # UNIQUE(chat_id, import_key); import_checkpoints
+                                # ключ (path, chat_id). Формула import_key НЕ
+                                # меняется (идемпотентность 1.27M строк).
+                                # Это ТЕКУЩАЯ цель user_version.
 
 # Раунд 3 (3.6/B7, T-693): полный список origin для CHECK graph_facts — в ОДНОМ
 # месте (CREATE TABLE + пересоздание в _migrate_direct_chat_v2 + миграции v4/v5).
@@ -448,6 +457,7 @@ class DatabaseService:
         await self._migrate_agi_memory_v8()  # Раунд 9 (T-822): 7→8
         await self._migrate_self_origin_v9()  # Раунд 10.14 (F1/T-1478): 8→9
         await self._migrate_edges_fact_id_v10()  # Раунд 10.18 (F3/T-1773): 9→10
+        await self._migrate_import_key_chat_scope_v11()  # Раунд 10.19 (F7/T-1864): 10→11
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -863,12 +873,21 @@ class DatabaseService:
             except aiosqlite.OperationalError:
                 pass                        # колонка уже есть (повторный запуск)
         await self.db.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_smart_messages_import_key "
-            "ON smart_messages(import_key) WHERE import_key IS NOT NULL")
-        await self.db.execute(
             "CREATE INDEX IF NOT EXISTS idx_smart_messages_history_pending "
             "ON smart_messages(chat_id, history_processed) "
             "WHERE history_processed = 0")
+        await self.db.commit()
+        # F7 (v11, ADR-1019-6 D1b): глобальный UNIQUE-индекс создаётся ТОЛЬКО
+        # до v11. После v11 живёт chat-scoped `idx_smart_messages_chat_import_key`
+        # — иначе v7 на каждом старте пересоздавал бы глобальный UNIQUE и снова
+        # подавлял импорт одного контента во второй чат (cross-chat дефект).
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND name='idx_smart_messages_chat_import_key'")
+        if await cursor.fetchone() is None:
+            await self.db.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_smart_messages_import_key "
+                "ON smart_messages(import_key) WHERE import_key IS NOT NULL")
         await self.db.commit()
         # (в)
         await self.db.execute(
@@ -1070,10 +1089,101 @@ class DatabaseService:
             f"PRAGMA user_version = {_SCHEMA_VERSION_EDGES_FACT_ID}")
         await self.db.commit()
 
+    async def _migrate_import_key_chat_scope_v11(self) -> None:
+        """F7 (10.19, ADR-1019-6 D1b/D7; UPD3 п.2): user_version 10→11.
+
+        Изоляция импортированной истории по чату (латентный cross-chat дефект):
+        `import_key = sha256(ts|user_id|text)` НЕ включает `chat_id`, а индекс
+        `idx_smart_messages_import_key` был ГЛОБАЛЬНЫМ UNIQUE → импорт одного
+        и того же контента в два чата молча подавлял строку второго
+        (`INSERT OR IGNORE`). `import_checkpoints` ключевался только `path` →
+        второй чат видел чужой «done».
+
+        (а) `smart_messages`: DROP глобального UNIQUE +
+        CREATE `idx_smart_messages_chat_import_key UNIQUE(chat_id, import_key)
+        WHERE import_key IS NOT NULL`. Глобальный UNIQUE СИЛЬНЕЕ пер-чат, поэтому
+        на существующих 1.27M строк индекс создаётся без конфликтов. Формула
+        `import_key` НЕ меняется (идемпотентность сохранена).
+        (б) `import_checkpoints`: rebuild — ключ `(path, chat_id)`. Legacy-строки
+        (без чата) получают `chat_id=0` (unscoped; повторный импорт в реальный
+        чат не считается «завершённым»). Таблица создаётся лениво
+        `tools.history_import.checkpoints.ensure_table` — если её ещё нет, шаг
+        no-op (новая схема будет создана сразу с `chat_id`).
+        (в) ``PRAGMA user_version = 11`` ставится ВСЕГДА, вне guard (прецедент
+        v9/v10 — свежая БД тоже фиксирует версию).
+
+        FTS5 `smart_messages_fts` (content='smart_messages', rowid=id) и vec-слои
+        НЕ затрагиваются (таблица-источник не пересоздаётся, id/rowid валидны).
+        Идемпотентно (guard по `sqlite_master`/`PRAGMA table_info`).
+        Обратный путь отката: `DROP INDEX IF EXISTS
+        idx_smart_messages_chat_import_key` + `CREATE UNIQUE INDEX
+        idx_smart_messages_import_key ON smart_messages(import_key) WHERE
+        import_key IS NOT NULL`; у `import_checkpoints` — `ALTER TABLE … RENAME`
+        к старой DDL (path PK); `PRAGMA user_version = 10` — данные не теряются.
+        """
+        # (а) chat-scoped UNIQUE вместо глобального.
+        await self.db.execute("DROP INDEX IF EXISTS idx_smart_messages_import_key")
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND name='idx_smart_messages_chat_import_key'")
+        if await cursor.fetchone() is None:
+            logger.info(
+                "[database] migration v11: import_key chat-scoped UNIQUE "
+                "(cross-chat isolation)")
+            await self.db.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "idx_smart_messages_chat_import_key "
+                "ON smart_messages(chat_id, import_key) "
+                "WHERE import_key IS NOT NULL")
+        await self.db.commit()
+        # (б) import_checkpoints: ключ (path, chat_id).
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name='import_checkpoints'")
+        if await cursor.fetchone() is not None:
+            cursor = await self.db.execute("PRAGMA table_info(import_checkpoints)")
+            cols = {row["name"] for row in await cursor.fetchall()}
+            if "chat_id" not in cols:
+                logger.info(
+                    "[database] migration v11: import_checkpoints chat-scoped "
+                    "(path, chat_id)")
+                # D-Low (ревью Батча E): rebuild в ОДНОЙ транзакции
+                # (DROP old-хвоста → RENAME → CREATE → INSERT → DROP old),
+                # иначе между шагами остаётся промежуточное состояние и
+                # повторный прогон падает на «import_checkpoints_old exists».
+                await self.db.execute("BEGIN")
+                try:
+                    await self.db.execute(
+                        "DROP TABLE IF EXISTS import_checkpoints_old")
+                    await self.db.execute(
+                        "ALTER TABLE import_checkpoints "
+                        "RENAME TO import_checkpoints_old")
+                    await self.db.execute(
+                        "CREATE TABLE import_checkpoints ("
+                        "path TEXT NOT NULL, "
+                        "chat_id INTEGER NOT NULL DEFAULT 0, "
+                        "processed INTEGER NOT NULL DEFAULT 0, total INTEGER, "
+                        "done INTEGER NOT NULL DEFAULT 0, updated_at INTEGER, "
+                        "PRIMARY KEY (path, chat_id))")
+                    await self.db.execute(
+                        "INSERT INTO import_checkpoints "
+                        "(path, chat_id, processed, total, done, updated_at) "
+                        "SELECT path, 0, processed, total, done, updated_at "
+                        "FROM import_checkpoints_old")
+                    await self.db.execute(
+                        "DROP TABLE IF EXISTS import_checkpoints_old")
+                    await self.db.commit()
+                except Exception:
+                    await self.db.rollback()
+                    raise
+        # (в)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_IMPORT_KEY_CHAT_SCOPE}")
+        await self.db.commit()
+
     async def close(self) -> None:
         if self.db:
             await self.db.close()
-    
     # ── Slava Presence ──────────────────────────────────
     
     async def set_presence(self, user_id: int, chat_id: int, present: bool) -> None:
@@ -1518,17 +1628,28 @@ class DatabaseService:
         await self.db.commit()
         return cursor.rowcount
 
+    async def _delete_fts_rows(self, chat_id: int, ids: list[int]) -> None:
+        """FTS5-строки указанных id чата (external-content). НЕ коммитит.
+
+        D-2.5 (Low, ревью итерации 4): общий хелпер для
+        `delete_smart_messages_by_ids` и `purge_imported_history` (раньше
+        FTS-удаление в purge инлайнилось, а его docstring ссылался на метод
+        как на единственный путь). `aiosqlite.DatabaseError` (rowid вне
+        индекса — рассинхрон/legacy) поднимается наверх: обрабатывает
+        вызывающий."""
+        placeholders = ",".join("?" for _ in ids)
+        await self.db.execute(
+            f"DELETE FROM smart_messages_fts WHERE rowid IN "
+            f"(SELECT id FROM smart_messages WHERE chat_id = ? "
+            f"AND id IN ({placeholders}) AND text IS NOT NULL AND text != '')",
+            [int(chat_id), *ids])
+
     async def delete_smart_messages_by_ids(self, chat_id: int, ids: list[int]) -> int:
         """Delete specific messages (+ FTS rows) of a chat. Returns count deleted."""
         if not ids:
             return 0
+        await self._delete_fts_rows(chat_id, ids)
         placeholders = ",".join("?" for _ in ids)
-        await self.db.execute(
-            f"DELETE FROM smart_messages_fts WHERE rowid IN "
-            f"(SELECT id FROM smart_messages WHERE chat_id = ? AND id IN ({placeholders}) "
-            "AND text IS NOT NULL AND text != '')",
-            [chat_id, *ids],
-        )
         cursor = await self.db.execute(
             f"DELETE FROM smart_messages WHERE chat_id = ? AND id IN ({placeholders})",
             [chat_id, *ids],
@@ -1554,6 +1675,146 @@ class DatabaseService:
             [chat_id, *ids])
         await self.db.commit()
         return cursor.rowcount
+
+    # ── F7 (10.19, ADR-1019-6 D1/D4): retention импорта + метрики памяти ────
+
+    async def select_imported_history(self, chat_id: int, cutoff_ts: int,
+                                      after_id: int = 0,
+                                      limit: int = 2000) -> list:
+        """F7: пачка импортированных строк чата для архивации перед purge
+        (`import_key IS NOT NULL AND history_processed = 1 AND timestamp <
+        cutoff`, id > after_id, ORDER BY id). Только чтение (fail-open на
+        вызывающем)."""
+        cursor = await self.db.execute(
+            "SELECT id, chat_id, user_id, text, reply_to_id, timestamp, "
+            "media_type, author_name, is_forward, forward_source, "
+            "tg_message_id, import_key, history_processed "
+            "FROM smart_messages WHERE chat_id = ? AND import_key IS NOT NULL "
+            "AND history_processed = 1 AND timestamp < ? AND id > ? "
+            "ORDER BY id LIMIT ?",
+            (int(chat_id), int(cutoff_ts), int(after_id), max(1, int(limit))))
+        return await cursor.fetchall()
+
+    async def purge_imported_history(self, *, chat_cutoffs: dict[int, int],
+                                     batch: int = 2000,
+                                     dry_run: bool = False,
+                                     chat_max_ids: dict[int, int] | None = None
+                                     ) -> dict:
+        """F7 (ADR-1019-6 D1/D2; ADR-1019-8 D5): удаление импортированной истории
+        `smart_messages` по **keyword-only allow-list** чатов.
+
+        Удаляются строки `WHERE chat_id = ? AND import_key IS NOT NULL AND
+        history_processed = 1 AND timestamp < chat_cutoffs[chat_id]` (+ строки
+        FTS5 через внутренний `_delete_fts_rows`), батчами `batch`.
+        Маппинг `chat_cutoffs` **обязателен** (нет дефолта): «удалить всем по
+        глобальному сроку» невозможно по построению — вызывающий обязан
+        заранее отфильтровать «вечные» чаты через
+        `retention_policy.imported_history_purge_allowed` (чаты с retention `0` сюда не
+        попадает никогда). `dry_run=True` → ТОЛЬКО подсчёт кандидатов.
+
+        D-7 (ревью Батча E): `chat_max_ids` фиксирует ВЕРХНЮЮ границу id,
+        реально заархивированную для чата (`id <= max_id` в дополнение к
+        `timestamp < cutoff`). Строки, ставшие `history_processed=1` между
+        снапшотом архива и удалением, имеют id > заархивированного максимума
+        и НЕ удаляются (вызывающий дополнительно сверяет
+        `candidates == archived`). Без `chat_max_ids` поведение прежнее
+        (idempotent по `timestamp`).
+
+        `candidates` — фактическое число подходящих строк (не `deleted`).
+        Идемпотентно. Возвращает
+        `{candidates, deleted, batches, dry_run}`."""
+        out = {"candidates": 0, "deleted": 0, "batches": 0,
+               "dry_run": bool(dry_run)}
+        if not chat_cutoffs:
+            return out
+        batch = max(1, int(batch))
+        max_ids = chat_max_ids or {}
+
+        def _where(chat_id: int, cutoff: int) -> tuple[str, list]:
+            sql = ("chat_id = ? AND import_key IS NOT NULL "
+                   "AND history_processed = 1 AND timestamp < ?")
+            params: list = [int(chat_id), int(cutoff)]
+            max_id = max_ids.get(int(chat_id))
+            if max_id is not None:
+                sql += " AND id <= ?"
+                params.append(int(max_id))
+            return sql, params
+
+        for chat_id, cutoff in chat_cutoffs.items():
+            where, params = _where(chat_id, cutoff)
+            cursor = await self.db.execute(
+                f"SELECT COUNT(*) AS c FROM smart_messages WHERE {where}",
+                params)
+            row = await cursor.fetchone()
+            out["candidates"] += int(row["c"]) if row else 0
+        if dry_run:
+            return out
+        for chat_id, cutoff in chat_cutoffs.items():
+            where, params = _where(chat_id, cutoff)
+            while True:
+                cursor = await self.db.execute(
+                    f"SELECT id FROM smart_messages WHERE {where} "
+                    f"ORDER BY id LIMIT ?", [*params, batch])
+                ids = [row["id"] for row in await cursor.fetchall()]
+                if not ids:
+                    break
+                placeholders = ",".join("?" for _ in ids)
+                # FTS5 external-content: удаление rowid, отсутствующего в
+                # индексе (рассинхрон ФС↔БД/legacy-строки), поднимает
+                # DatabaseError — основной DELETE при этом обязан пройти
+                # (поиск JOIN'ит smart_messages, stale-строки невидимы).
+                try:
+                    await self._delete_fts_rows(chat_id, ids)
+                except aiosqlite.DatabaseError:
+                    logger.warning(
+                        "[database] import purge: FTS delete skipped "
+                        "(out-of-sync index) | chat=%s | batch=%d",
+                        chat_id, len(ids))
+                cursor = await self.db.execute(
+                    f"DELETE FROM smart_messages WHERE chat_id = ? "
+                    f"AND id IN ({placeholders})", [int(chat_id), *ids])
+                await self.db.commit()
+                out["deleted"] += int(cursor.rowcount or 0)
+                out["batches"] += 1
+                if len(ids) < batch:
+                    break
+        return out
+
+    async def count_smart_messages(self, chat_id: int | None = None) -> int:
+        """F7/D4: число строк сырья (всего или по чату)."""
+        sql = "SELECT COUNT(*) AS c FROM smart_messages"
+        params: list = []
+        if chat_id is not None:
+            sql += " WHERE chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def count_overdue_facts(self, chat_id: int | None = None) -> int:
+        """F7/D4: «просроченные» факты (expires_at < now, статус не
+        терминальный). R17: только число."""
+        sql = ("SELECT COUNT(*) AS c FROM graph_facts "
+               "WHERE expires_at IS NOT NULL AND expires_at < ? "
+               "AND status NOT IN ('expired', 'archived_belief')")
+        params: list = [int(time.time())]
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def count_unconfirmed_facts(self, chat_id: int | None = None) -> int:
+        """F7/D4: неподтверждённые факты (`status='unconfirmed'`)."""
+        sql = "SELECT COUNT(*) AS c FROM graph_facts WHERE status = 'unconfirmed'"
+        params: list = []
+        if chat_id is not None:
+            sql += " AND chat_id = ?"
+            params.append(int(chat_id))
+        cursor = await self.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
 
     async def save_archive_fact(self, chat_id: int, fact: str, timestamp: int) -> int:
         """L3: save a compressed archive fact (+ FTS row). Returns the new fact id."""

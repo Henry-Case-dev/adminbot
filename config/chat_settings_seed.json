@@ -1,0 +1,23 @@
+{
+  "_comment": "F3 (10.19, ADR-1019-8 D4) — декларативные настройки чатов. Данные оператора (НЕ ветвление бизнес-логики): код-путь generic (for entry in chats). Секретов нет. chat_id допустим ЗДЕСЬ и в тестах — в services/* его быть не должно.",
+  "version": 1,
+  "chats": [
+    {
+      "chat_id": -1002661910336,
+      "note": "Целевой чат: импорт хранится вечно, бюджеты ключа/фона и лимиты контекста — безлимит (UPD3 п.3).",
+      "enforce": [
+        "limits.import_history_retention_days"
+      ],
+      "overrides": {
+        "limits.import_history_retention_days": 0,
+        "limits.chat_global_key_budget_requests": -1,
+        "limits.chat_global_key_budget_tokens": -1,
+        "limits.worker_daily_llm_calls_per_chat": -1,
+        "limits.worker_daily_llm_tokens_per_chat": -1,
+        "limits.chat_global_context_max_tokens": -1,
+        "limits.chat_thread_max_tokens": -1,
+        "limits.chat_context_budget_tokens": -1
+      }
+    }
+  ]
+}

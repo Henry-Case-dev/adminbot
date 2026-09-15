@@ -17,17 +17,35 @@ from services.llm_client import LLMError
 from services.summary_aliases import AliasResolver
 from services.summary_memory import (
     FACT_EXTRACT_PROMPT,
+    PARSE_EMPTY_VALID,
+    PARSE_INVALID,
+    PARSE_OK,
     GraphExtractionError,
     MemoryManager,
+    _FACT_RETRY_SYSTEM_PROMPT,
     _fallback_parse_facts,
+    _log_memorize_lost,
     _mask_llm_raw,
     _normalize_name,
     build_rag_context,
     dedup_rag_vs_global,
     parse_fact_list,
+    parse_fact_list_ex,
     parse_triplets,
 )
 from services.summary_prompts import EXTRACT_PROMPT
+
+
+@pytest.fixture(autouse=True)
+def _reset_memorize_warn_state():
+    """F8: rate-gate потерь фактов — модульный; сбрасываем между тестами,
+    чтобы предыдущий сбой не подавлял WARNING следующего."""
+    import services.summary_memory as sm
+    sm._memorize_warn_state.clear()
+    sm._memorize_lost_totals.clear()
+    yield
+    sm._memorize_warn_state.clear()
+    sm._memorize_lost_totals.clear()
 
 
 @pytest.fixture
@@ -608,7 +626,8 @@ class TestMemorizeFacts:
         memory = MemoryManager(db, FactsLLM(response="каша, не json"))
         with caplog.at_level(logging.WARNING):
             await memory.memorize_facts(-100, "текст", "search_fact")
-        assert any("not a JSON list" in r.message for r in caplog.records)
+        # F8 (ADR-1019-7 D4): единый WARNING «facts lost» вместо старого дубля.
+        assert any("facts lost" in r.message for r in caplog.records)
         for table in ("nodes", "edges", "graph_facts"):
             cursor = await db.db.execute(f"SELECT COUNT(*) AS c FROM {table}")
             row = await cursor.fetchone()
@@ -625,7 +644,7 @@ class TestMemorizeFacts:
         memory.llm.response = '{"foo": "bar"}'
         with caplog.at_level(logging.WARNING):
             await memory.memorize_facts(-100, "текст", "search_fact")
-        assert any("not a JSON list" in r.message for r in caplog.records)
+        assert any("facts lost" in r.message for r in caplog.records)
         cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         row = await cursor.fetchone()
         assert row["c"] == 0
@@ -2259,8 +2278,8 @@ class TestF15MemorizeRetry:
 
     @pytest.mark.asyncio
     async def test_retry_second_failure_warns_zero_facts(self, db, caplog):
-        """Мусор → мусор → WARNING c raw-фрагментом + «second attempt also
-        failed», фактов 0."""
+        """Мусор → мусор → РОВНО ОДИН WARNING «facts lost» (не спамим),
+        фактов 0."""
         import logging
         llm = _SeqLLM(["просто проза и больше ничего",
                        "всё ещё проза без фактов"])
@@ -2268,16 +2287,18 @@ class TestF15MemorizeRetry:
         with caplog.at_level(logging.WARNING):
             await memory.memorize_facts(-100, "текст", "search_fact")
         assert llm.generate_calls == 2
-        msgs = [r.message for r in caplog.records]
-        assert any("not a JSON list" in m for m in msgs)
-        assert any("[retry] second attempt also failed" in m for m in msgs)
+        warns = [r.message for r in caplog.records
+                 if r.levelno == logging.WARNING]
+        assert any("facts lost" in m for m in warns)
+        assert not any("[retry] second attempt also failed" in m for m in warns)
         cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
         row = await cursor.fetchone()
         assert row["c"] == 0
 
     @pytest.mark.asyncio
     async def test_retry_llm_error_warns_no_facts(self, db, caplog):
-        """Ретрай упал LLMError → WARNING (как _extract_facts), 0 фактов."""
+        """Ретрай упал LLMError → один WARNING «facts lost» (reason=not_json),
+        0 фактов, 2 вызова."""
         import logging
 
         class BoomLLM(FactsLLM):
@@ -2292,8 +2313,10 @@ class TestF15MemorizeRetry:
         with caplog.at_level(logging.WARNING):
             await memory.memorize_facts(-100, "текст", "search_fact")
         assert llm.generate_calls == 2
-        assert any("retry LLM failed" in r.message
-                   for r in caplog.records)
+        warns = [r.message for r in caplog.records
+                 if r.levelno == logging.WARNING]
+        assert len(warns) == 1
+        assert "facts lost" in warns[0]
 
     def test_cron_extract_path_has_no_retry_prompt(self):
         """Крон _extract_and_save_graph НЕ ретраится жёстким промптом
@@ -2307,6 +2330,187 @@ class TestF15MemorizeRetry:
         src = open("services/summary_memory.py", encoding="utf-8").read()
         assert "_FACT_RETRY_SYSTEM_PROMPT" in src
         assert "Верни СТРОГО один JSON-массив объектов" in src
+
+
+# ── F8 (ADR-1019-7): устойчивость извлечения фактов ─────────────────────────
+
+class TestF8ParseStatus:
+    """parse_fact_list_ex: `[]` → empty_valid (без WARNING) ≠ мусор → invalid
+    (WARNING «not a JSON list»); валидный список → ok."""
+
+    def test_empty_list_is_empty_valid_without_warning(self, caplog):
+        import logging
+        with caplog.at_level(logging.WARNING):
+            facts, status = parse_fact_list_ex("[]")
+        assert facts == []
+        assert status == PARSE_EMPTY_VALID
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    def test_garbage_is_invalid_with_warning(self, caplog):
+        import logging
+        for raw in ("мусор", '{"foo": "bar"}'):
+            caplog.clear()
+            with caplog.at_level(logging.WARNING):
+                facts, status = parse_fact_list_ex(raw)
+            assert facts == []
+            assert status == PARSE_INVALID
+            assert any("not a JSON list" in r.message for r in caplog.records)
+
+    def test_valid_list_is_ok(self):
+        raw = json.dumps([_fact(subject="Иван", predicate="купил", obj="кофе")],
+                         ensure_ascii=False)
+        facts, status = parse_fact_list_ex(raw)
+        assert status == PARSE_OK
+        assert len(facts) == 1
+
+    def test_valid_list_all_filtered_invalid_with_warning(self, caplog):
+        """D-08: структурно валидный список, где ВСЕ элементы отсеяны
+        `_validate_fact` → `invalid` И WARNING (не тихо) при warn=True."""
+        import logging
+        raw = json.dumps([{"subject": 1, "predicate": "x", "object": "y"},
+                          {"foo": "bar"}], ensure_ascii=False)
+        with caplog.at_level(logging.WARNING):
+            facts, status = parse_fact_list_ex(raw)
+        assert facts == []
+        assert status == PARSE_INVALID
+        assert any("no valid facts" in r.message for r in caplog.records)
+
+    def test_valid_list_all_filtered_warn_false_is_silent(self, caplog):
+        """D-08: в memorize-ветке (warn=False) промежуточный WARNING молчит —
+        единый WARNING даёт `_log_memorize_lost` (без дубля)."""
+        import logging
+        raw = json.dumps([{"subject": 1, "predicate": "x", "object": "y"}])
+        with caplog.at_level(logging.WARNING):
+            facts, status = parse_fact_list_ex(raw, warn=False)
+        assert facts == []
+        assert status == PARSE_INVALID
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    def test_wrapper_result_matches(self):
+        raw = json.dumps([_fact()], ensure_ascii=False)
+        assert parse_fact_list(raw) == parse_fact_list_ex(raw)[0]
+        assert parse_fact_list("мусор") == []
+
+
+class TestF8WarnStateHygiene:
+    """D-06/D-07: bounded-состояние диагностики и первое событие всегда
+    логируется (сентинел вместо 0.0)."""
+
+    def test_first_loss_warns_even_with_low_uptime(self, caplog, monkeypatch):
+        """D-07: monotonic()≈0.5с (uptime < 60с) не должен подавлять первый
+        WARNING (прежний `get(key, 0.0)` это делал)."""
+        import logging
+
+        import services.summary_memory as sm
+        monkeypatch.setattr(sm.time, "monotonic", lambda: 0.5)
+        with caplog.at_level(logging.WARNING,
+                             logger="services.summary_memory"):
+            sm._log_memorize_lost(-100, "search_fact", PARSE_INVALID,
+                                  "not_json", "мусор")
+        warns = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warns) == 1
+        assert "facts lost" in warns[0].message
+
+    def test_warn_state_is_bounded(self, monkeypatch):
+        """D-06: словари потерь не растут неограниченно (эвикция старейших)."""
+        import services.summary_memory as sm
+        monkeypatch.setattr(sm, "_MEMORIZE_WARN_STATE_MAX", 3)
+        for i in range(12):
+            sm._log_memorize_lost(-200 - i, "search_fact", PARSE_INVALID,
+                                  "not_json", "x")
+        assert len(sm._memorize_warn_state) <= 3
+        assert len(sm._memorize_lost_totals) <= 3
+
+
+class TestF8MemorizeRobustness:
+    """F8 (ADR-1019-7 D2/D3/D4): LLMError первичной экстракции восстанавливается;
+    валидный `[]` не ретраится; диагностика не спамит; R17-safe."""
+
+    @pytest.mark.asyncio
+    async def test_primary_llm_error_recovers_via_retry(self, db):
+        """nano-gpt timeout (LLMError) → 1 retry-промпт → факты записаны."""
+        class ErrorThenJsonLLM(FactsLLM):
+            async def generate(self, messages):
+                self.generate_calls += 1
+                self.last_user = messages[1]["content"]
+                if messages[0]["content"] == _FACT_RETRY_SYSTEM_PROMPT:
+                    return json.dumps(
+                        [_fact(subject="Иван", predicate="купил", obj="кофе")],
+                        ensure_ascii=False)
+                raise LLMError("nano-gpt timeout")
+
+        mod = replace(settings, GRAPH_MEMORIZE_MAX_BATCH_RETRIES=0,
+                      GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF=0)
+        memory = MemoryManager(db, ErrorThenJsonLLM(response="[]"))
+        with patch("services.summary_memory.settings", mod):
+            await memory.memorize_facts(-100, "иван купил кофе", "search_fact")
+        assert memory.llm.generate_calls == 2      # 1 extract (fail) + 1 retry
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 1
+
+    @pytest.mark.asyncio
+    async def test_primary_llm_error_double_failure_one_warning(self, db, caplog):
+        """LLMError и на primary, и на retry → ОДИН WARNING reason=llm_error."""
+        import logging
+
+        class AlwaysErrorLLM(FactsLLM):
+            async def generate(self, messages):
+                self.generate_calls += 1
+                raise LLMError("nano-gpt timeout")
+
+        mod = replace(settings, GRAPH_MEMORIZE_MAX_BATCH_RETRIES=0,
+                      GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF=0)
+        memory = MemoryManager(db, AlwaysErrorLLM(response="[]"))
+        with caplog.at_level(logging.WARNING):
+            with patch("services.summary_memory.settings", mod):
+                await memory.memorize_facts(-100, "текст", "search_fact")
+        warns = [r.message for r in caplog.records
+                 if r.levelno == logging.WARNING]
+        assert len(warns) == 1
+        assert "facts lost" in warns[0] and "reason=llm_error" in warns[0]
+        cursor = await db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+        row = await cursor.fetchone()
+        assert row["c"] == 0
+
+    @pytest.mark.asyncio
+    async def test_empty_valid_no_retry_no_warning(self, db, caplog):
+        """Валидный `[]` → нет retry-вызова (экономия) и нет WARNING."""
+        import logging
+        memory = MemoryManager(db, FactsLLM(response="[]"))
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        assert memory.llm.generate_calls == 1
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    @pytest.mark.asyncio
+    async def test_repeated_failure_one_warning_rate_limited(self, db, caplog):
+        """Два сбоя подряд (<60с) → один WARNING + debug со счётчиком."""
+        import logging
+        memory = MemoryManager(db, FactsLLM(response="мусор без json"))
+        with caplog.at_level(logging.DEBUG):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        warns = [r.message for r in caplog.records
+                 if r.levelno == logging.WARNING]
+        assert len(warns) == 1
+        assert any("(rate-limited)" in r.message and r.levelno == logging.DEBUG
+                   for r in caplog.records)
+        assert any("lost_total=2" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_lost_warning_masks_secret(self, db, caplog):
+        """R17: секрет в сыром ответе маскируется в WARNING."""
+        import logging
+        raw = 'проза с "sk-abcdef1234567890XYZ" и без списка'
+        memory = MemoryManager(db, _SeqLLM([raw, raw]))
+        with caplog.at_level(logging.WARNING):
+            await memory.memorize_facts(-100, "текст", "search_fact")
+        warned = " ".join(r.message for r in caplog.records
+                          if r.levelno == logging.WARNING)
+        assert "facts lost" in warned
+        assert "<secret>" in warned
+        assert "sk-abcdef1234567890XYZ" not in warned
 
 
 # ── F1/T-1418 (spec §3.5): точки извлечения RAG → 4-кортежи (author) ────────

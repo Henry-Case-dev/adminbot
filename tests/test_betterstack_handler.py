@@ -1,7 +1,7 @@
 """Раунд 4 (T-708, spec AC-B1..B7) — тесты собственного BetterStackHandler.
 
 Покрытие: фрейм-совместимость с logtail (dt ISO-UTC/level/severity/message/
-context.runtime+system); emit→буфер→flush с моком urllib.request.urlopen —
+context.runtime+system); emit→буфер→flush с моком `_urlopen` —
 ровно 1 POST JSON-массивом; 4xx/5xx/сеть → failed + WARNING-журнал с rate-gate
 ≤1/60с; восстановление → INFO «send ok | recovered»; дроп при полном буфере →
 счётчик dropped + rate-limited WARNING; sanitize (R17) в message; анти-рекурсия
@@ -10,10 +10,17 @@ context.runtime+system); emit→буфер→flush с моком urllib.request.
 
 Токен читается строго из LOGTAIL_SOURCE_TOKEN (общий для Errors и Logs).
 Хост обязателен и берётся из BETTERSTACK_HOST (F1/ADR-1018-1): ctor без
-хоста → ValueError; неявный EU-дефолт удалён. Дополнительно —
-детерминированная проверка `token_equals_sentry_public_key`. 401 → WARNING с
-нейтральной подсказкой (регион хоста + Source Token; значение токена НЕ в
-логе; rate-gate ≤1/60с жив).
+хоста → ValueError; неявный EU-дефолт удалён.
+
+Раунд 10.19 (F1/ADR-1019-1, AMEND ADR-1018-1 D2/D4/D6): ingest-контракт —
+`POST https://{host}` (токена в path НЕТ) + `Authorization: Bearer {token}`;
+401/402/403/406 → словарные подсказки `_STATUS_HINTS` (значение токена НЕ в
+логе; rate-gate ≤1/60с жив). `token == SENTRY_DSN public key` больше НЕ
+WARNING (на unified US это норма) — только DEBUG.
+
+D-01 (ревью 10.19): сеть — через `_urlopen` (`_OPENER` с
+`_NoRedirectHandler`); 3xx НЕ фоллоуится: ровно один запрос, токен не уходит
+на чужой `Location`, `sent==0`, `failed==1`, без ретрая.
 """
 import json
 import logging
@@ -124,16 +131,19 @@ class TestPosting:
                 posts.append(request)
                 return _OkResponse()
 
-        monkeypatch.setattr("urllib.request.urlopen", _Capture())
+        monkeypatch.setattr("services.betterstack_handler._urlopen", _Capture())
         for i in range(3):
             handler.emit(_make_record(msg="событие %d", args=(i,)))
         handler.flush()
         assert len(posts) == 1
         req = posts[0]
-        assert req.full_url == f"https://test.invalid/{'t' * 32}"
+        # ADR-1019-1 D1: токен НЕ в URL — только в заголовке Authorization
+        assert req.full_url == "https://test.invalid"
+        assert "t" * 32 not in req.full_url
         assert req.method == "POST"
         headers = {k.lower(): v for k, v in req.headers.items()}
         assert headers["content-type"] == "application/json"
+        assert headers["authorization"] == f"Bearer {'t' * 32}"
         body = json.loads(req.data.decode("utf-8"))
         assert isinstance(body, list) and len(body) == 3
         assert all(b["message"].startswith("событие ") for b in body)
@@ -153,7 +163,7 @@ class TestPosting:
                 return _StatusResponse(400)
             return _OkResponse()
 
-        monkeypatch.setattr("urllib.request.urlopen", flaky)
+        monkeypatch.setattr("services.betterstack_handler._urlopen", flaky)
         with caplog.at_level(logging.INFO, logger="services.betterstack_handler"):
             handler.emit(_make_record(msg="m1"))
             handler.flush()                       # 1-й — сбой (400, без ретрая)
@@ -175,7 +185,7 @@ class TestPosting:
             calls["n"] += 1
             return _StatusResponse(500)
 
-        monkeypatch.setattr("urllib.request.urlopen", fail500)
+        monkeypatch.setattr("services.betterstack_handler._urlopen", fail500)
         handler.emit(_make_record(msg="m"))
         handler.flush()
         assert calls["n"] == 2                    # старт + 1 повтор
@@ -192,7 +202,7 @@ class TestPosting:
         def boom(request, timeout=None):
             raise TimeoutError("deadline")
 
-        monkeypatch.setattr("urllib.request.urlopen", boom)
+        monkeypatch.setattr("services.betterstack_handler._urlopen", boom)
         with caplog.at_level(logging.WARNING,
                              logger="services.betterstack_handler"):
             handler.emit(_make_record(msg="m1"))
@@ -222,7 +232,7 @@ class TestPosting:
                 posts.append(request)
                 return _OkResponse()
 
-        monkeypatch.setattr("urllib.request.urlopen", _Capture())
+        monkeypatch.setattr("services.betterstack_handler._urlopen", _Capture())
         handler.emit(_make_record(
             msg="Authorization: Bearer sk-or-test1234567890"))
         handler.flush()
@@ -244,7 +254,7 @@ class TestPosting:
                 posts.append(request)
                 return _OkResponse()
 
-        monkeypatch.setattr("urllib.request.urlopen", _Capture())
+        monkeypatch.setattr("services.betterstack_handler._urlopen", _Capture())
         h = BetterStackHandler(source_token="t" * 8, host="test.invalid",
                                buffer_size=3,
                                flush_interval=10.0)   # флашер спит
@@ -280,7 +290,7 @@ class TestLifecycle:
             calls["n"] += 1
             return _OkResponse()
 
-        monkeypatch.setattr("urllib.request.urlopen", capture)
+        monkeypatch.setattr("services.betterstack_handler._urlopen", capture)
         handler.emit(_make_record(name="services.betterstack_handler",
                                   level=logging.WARNING,
                                   msg="[betterstack] send failed | x"))
@@ -299,7 +309,7 @@ class TestLifecycle:
                 posts.append(request)
                 return _OkResponse()
 
-        monkeypatch.setattr("urllib.request.urlopen", _Capture())
+        monkeypatch.setattr("services.betterstack_handler._urlopen", _Capture())
         h = BetterStackHandler(source_token="t" * 8, host="test.invalid",
                                buffer_size=50, flush_interval=10.0)
         h.emit(_make_record(msg="перед закрытием"))
@@ -321,16 +331,16 @@ class TestLifecycle:
         assert he.called
 
 
-# ── Раунд 5 (T-729, spec 5.1.4/5.1.5): 401 → нейтральная подсказка ────────
+# ── Раунд 10.19 (F1/ADR-1019-1 D3/D5): подсказки по кодам статуса ──────────
 
-class TestHttp401Hint:
+class TestStatusHints:
     def test_401_warning_contains_hint_not_token(self, caplog, monkeypatch):
-        """401 → WARNING с нейтральной подсказкой (проверьте source token);
-        значение токена в журнал НЕ попадает (R17)."""
+        """401 → WARNING с подсказкой «невалидный source token или не тот
+        хост региона»; значение токена в журнал НЕ попадает (R17)."""
         def fail401(request, timeout=None):
             return _StatusResponse(401)
 
-        monkeypatch.setattr("urllib.request.urlopen", fail401)
+        monkeypatch.setattr("services.betterstack_handler._urlopen", fail401)
         h = BetterStackHandler(source_token="т" * 32, host="test.invalid",
                                flush_interval=10.0)
         try:
@@ -342,13 +352,72 @@ class TestHttp401Hint:
                      if r.message.startswith("[betterstack] send failed")]
             assert len(warns) == 1
             assert "reason=status=401" in warns[0]
-            # ADR-1018-1 D6: подсказка про регион хоста + Source Token
-            assert "BETTERSTACK_HOST" in warns[0]
-            assert "Source Token" in warns[0]
-            assert "SENTRY_DSN" in warns[0]
+            assert "невалидный source token или не тот хост региона" in warns[0]
             assert "т" * 32 not in warns[0]            # R17: токена нет
             assert "failed=1" in warns[0]
             assert h.failed == 1
+        finally:
+            h.close()
+
+    @pytest.mark.parametrize("code,needle", [
+        (401, "невалидный source token"),
+        (402, "квота ingest исчерпана"),
+        (403, "невалидный source token (Logs → Sources)"),
+        (406, "битое тело батча"),
+    ])
+    def test_status_hint_in_warning(self, caplog, monkeypatch, code, needle):
+        """ADR-1019-1 D3: код → reason + словарная подсказка (R17)."""
+        def fail(request, timeout=None):
+            return _StatusResponse(code)
+
+        monkeypatch.setattr("services.betterstack_handler._urlopen", fail)
+        h = BetterStackHandler(source_token="t" * 32, host="test.invalid",
+                               flush_interval=10.0)
+        try:
+            with caplog.at_level(logging.WARNING,
+                                 logger="services.betterstack_handler"):
+                h.emit(_make_record(msg="m"))
+                h.flush()
+            warns = [r.message for r in caplog.records
+                     if r.message.startswith("[betterstack] send failed")]
+            assert len(warns) == 1
+            assert f"reason=status={code}" in warns[0]
+            assert needle in warns[0]
+            assert "t" * 32 not in warns[0]            # R17
+            assert h.failed == 1
+        finally:
+            h.close()
+
+    def test_4xx_not_retried(self, caplog, monkeypatch):
+        """ADR-1019-1 D3: 4xx (403) НЕ ретраится — ровно один запрос."""
+        calls = {"n": 0}
+
+        def fail403(request, timeout=None):
+            calls["n"] += 1
+            return _StatusResponse(403)
+
+        monkeypatch.setattr("services.betterstack_handler._urlopen", fail403)
+        h = BetterStackHandler(source_token="t" * 32, host="test.invalid",
+                               flush_interval=10.0)
+        try:
+            h.emit(_make_record(msg="m"))
+            h.flush()
+            assert calls["n"] == 1
+            assert h.failed == 1
+        finally:
+            h.close()
+
+    def test_2xx_success(self, monkeypatch):
+        """ADR-1019-1 D3: 202 — успех, failed не растёт."""
+        monkeypatch.setattr("services.betterstack_handler._urlopen",
+                            lambda request, timeout=None: _StatusResponse(202))
+        h = BetterStackHandler(source_token="t" * 32, host="test.invalid",
+                               flush_interval=10.0)
+        try:
+            h.emit(_make_record(msg="m"))
+            h.flush()
+            assert h.sent == 1
+            assert h.failed == 0
         finally:
             h.close()
 
@@ -358,7 +427,7 @@ class TestHttp401Hint:
         def fail401(request, timeout=None):
             return _StatusResponse(401)
 
-        monkeypatch.setattr("urllib.request.urlopen", fail401)
+        monkeypatch.setattr("services.betterstack_handler._urlopen", fail401)
         h = BetterStackHandler(source_token="t" * 32, host="test.invalid",
                                flush_interval=10.0)
         try:
@@ -374,7 +443,7 @@ class TestHttp401Hint:
                      if r.message.startswith("[betterstack] send failed")]
             assert len(warns) == 1                      # одна в окне 60с
             assert h.failed == 3
-            assert "подсказка" in warns[0].message
+            assert "невалидный source token" in warns[0].message
         finally:
             h.close()
 
@@ -386,16 +455,153 @@ class TestHttp401Hint:
         from services.betterstack_handler import _reason
 
         err = urllib.error.HTTPError(
-            "https://test.invalid/tok", 401, "Unauthorized", {}, None)
+            "https://test.invalid", 401, "Unauthorized", {}, None)
         assert _reason(err) == "status=401"
         with caplog.at_level(logging.WARNING,
                              logger="services.betterstack_handler"):
             handler._mark_failed(_reason(err), 2)
         warns = [r.message for r in caplog.records
                  if r.message.startswith("[betterstack] send failed")]
-        assert warns and "подсказка" in warns[-1]
-        assert "LOGTAIL_SOURCE_TOKEN" in warns[-1]
-        assert "BETTERSTACK_HOST" in warns[-1]
+        assert warns and "невалидный source token" in warns[-1]
+
+
+# ── D-01 (ревью 10.19): редиректы запрещены — токен не уходит на Location ──
+
+class TestNoRedirect:
+    def test_redirect_request_refused(self):
+        """`_NoRedirectHandler.redirect_request` → None (HTTPError 3xx)."""
+        import urllib.request as ur
+
+        from services.betterstack_handler import _NoRedirectHandler
+
+        req = ur.Request("https://ingest.example.test", data=b"[]",
+                         method="POST",
+                         headers={"Authorization": "Bearer secret"})
+        handler = _NoRedirectHandler()
+        assert handler.redirect_request(
+            req, None, 302, "Found",
+            {"Location": "https://evil.example/collect"},
+            "https://evil.example/collect") is None
+
+    def test_opener_uses_no_redirect_handler(self):
+        """Production-opener содержит РОВНО наш redirect-хендлер."""
+        import urllib.request as ur
+
+        from services.betterstack_handler import (
+            _NoRedirectHandler, _OPENER)
+
+        redirects = [h for h in _OPENER.handlers
+                     if isinstance(h, ur.HTTPRedirectHandler)]
+        assert redirects
+        assert all(isinstance(h, _NoRedirectHandler) for h in redirects)
+
+    def test_302_one_request_no_sent_no_leak(self, caplog, monkeypatch):
+        """302 → ровно один запрос, `Authorization` только к исходному хосту,
+        `sent==0`, `failed==1`, без ретрая (ревью D-01)."""
+        import urllib.error
+        posts = []
+
+        def redirect302(request, timeout=None):
+            posts.append(request)
+            raise urllib.error.HTTPError(
+                request.full_url, 302, "Found",
+                {"Location": "https://evil.example/collect"}, None)
+
+        monkeypatch.setattr("services.betterstack_handler._urlopen", redirect302)
+        h = BetterStackHandler(source_token="s" * 32, host="test.invalid",
+                               flush_interval=10.0)
+        try:
+            with caplog.at_level(logging.WARNING,
+                                 logger="services.betterstack_handler"):
+                h.emit(_make_record(msg="m"))
+                h.flush()
+            assert len(posts) == 1                     # ретрая нет
+            req = posts[0]
+            assert req.full_url == "https://test.invalid"
+            assert "evil.example" not in req.full_url  # на Location не ушли
+            headers = {k.lower(): v for k, v in req.headers.items()}
+            assert headers["authorization"] == f"Bearer {'s' * 32}"
+            assert h.sent == 0
+            assert h.failed == 1
+            warns = [r.message for r in caplog.records
+                     if r.message.startswith("[betterstack] send failed")]
+            assert len(warns) == 1
+            assert "reason=status=302" in warns[0]
+        finally:
+            h.close()
+
+    def test_3xx_response_not_counted_as_sent(self, monkeypatch):
+        """Ответ 3xx без исключения (напр. 307) — отказ, `sent==0`."""
+        monkeypatch.setattr(
+            "services.betterstack_handler._urlopen",
+            lambda request, timeout=None: _StatusResponse(307))
+        h = BetterStackHandler(source_token="s" * 8, host="test.invalid",
+                               flush_interval=10.0)
+        try:
+            h.emit(_make_record(msg="m"))
+            h.flush()
+            assert h.sent == 0
+            assert h.failed == 1
+        finally:
+            h.close()
+
+    def test_real_302_not_followed_by_opener(self):
+        """End-to-end через production-`_OPENER`: локальный сервер отвечает
+        302 на второй локальный сервер — второй НЕ получает запрос, токен не
+        утекает (D-01)."""
+        import http.server
+        import threading
+
+        hits = {"target": 0, "redirect": 0}
+        auth_seen = {"redirect": None}
+
+        class _Target(http.server.BaseHTTPRequestHandler):
+            def _ok(self):
+                hits["target"] += 1
+                self.send_response(200)
+                self.end_headers()
+
+            do_GET = _ok
+            do_POST = _ok
+
+            def log_message(self, *args):
+                pass
+
+        class _Redirect(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                hits["redirect"] += 1
+                auth_seen["redirect"] = self.headers.get("Authorization")
+                self.send_response(302)
+                self.send_header(
+                    "Location", f"http://127.0.0.1:{target_port}/collect")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        target = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Target)
+        target_port = target.server_address[1]
+        redirect = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Redirect)
+        redirect_port = redirect.server_address[1]
+        threading.Thread(target=target.serve_forever, daemon=True).start()
+        threading.Thread(target=redirect.serve_forever, daemon=True).start()
+        h = BetterStackHandler(source_token="s" * 32, host="test.invalid",
+                               flush_interval=10.0)
+        h._url = f"http://127.0.0.1:{redirect_port}"    # локальный сервер
+        try:
+            h.emit(_make_record(msg="m"))
+            h.flush()
+            assert hits["redirect"] == 1
+            assert hits["target"] == 0                 # редирект НЕ выполнен
+            assert h.sent == 0
+            assert h.failed == 1
+            assert auth_seen["redirect"] == f"Bearer {'s' * 32}"
+        finally:
+            h.close()
+            redirect.shutdown()
+            target.shutdown()
+            redirect.server_close()
+            target.server_close()
 
 
 # ── ADR-1018-1 D2: хост обязателен, EU-дефолт запрещён ─────────────────────
@@ -411,11 +617,14 @@ class TestHostRequired:
         from services.betterstack_handler import DEFAULT_HOST
         assert DEFAULT_HOST == ""
 
-    def test_url_uses_given_host(self):
+    def test_url_uses_given_host_without_token(self):
         h = BetterStackHandler(source_token="abc", host="us.example.test",
                                flush_interval=10.0)
         try:
-            assert h._url == "https://us.example.test/abc"
+            # ADR-1019-1 D1: токен в URL НЕТ — только голый хост + Bearer
+            assert h._url == "https://us.example.test"
+            assert "abc" not in h._url
+            assert h._auth_header == "Bearer abc"
             assert "in.logs.betterstack.com" not in h._url
         finally:
             h.close()
@@ -446,8 +655,9 @@ class TestSentryPublicKey:
 # ── AC-B4/B6: маркеры бота и aiogram.event (импорт bot.py) ─────────────────
 
 class TestBotMarkers:
-    """AC-B4/B6 + F1 (ADR-1018-1): маркеры attached/skipped + fail-safe без
-    BETTERSTACK_HOST + детерминированный WARNING при token==public key.
+    """AC-B4/B6 + F1 (ADR-1018-1/ADR-1019-1): маркеры attached/skipped +
+    fail-safe без BETTERSTACK_HOST + token==public key как DEBUG (норма на
+    unified US, ADR-1019-1 D4).
     ВАЖНО: config.settings загружает .env (load_dotenv без override) — env
     выставляется ЯВНО ДО импорта bot.py."""
 
@@ -508,21 +718,22 @@ class TestBotMarkers:
         finally:
             self._close_betterstack_handlers()
 
-    def test_token_equal_sentry_public_key_warns(self, monkeypatch, caplog):
-        """ГЛАВНЫЙ разворот ADR-1018-1 D4: token == public key SENTRY_DSN →
-        WARNING «это НЕ Source Token» (старт не блокируется)."""
+    def test_token_equal_sentry_public_key_is_debug(self, monkeypatch, caplog):
+        """ADR-1019-1 D4 (AMEND ADR-1018-1 D4): token == public key SENTRY_DSN
+        на unified US — НОРМА → только DEBUG, без WARNING (R17)."""
         token = "SyNtHtIcK3y9v0000000000"
         try:
-            with caplog.at_level(logging.INFO, logger="bot"):
+            with caplog.at_level(logging.DEBUG, logger="bot"):
                 self._import_bot(monkeypatch, {
                     "LOGTAIL_SOURCE_TOKEN": token,
                     "BETTERSTACK_HOST": "us.example.test",
                     "SENTRY_DSN": f"https://{token}@o450000.ingest.sentry.io/1",
                 })
             records = caplog.records
-            warns = [r for r in records if r.levelno >= logging.WARNING]
-            assert any("public key" in r.message and "SENTRY_DSN" in r.message
-                       for r in warns)
+            assert any("matches SENTRY_DSN public key" in r.message
+                       and r.levelno == logging.DEBUG for r in records)
+            assert not any(r.levelno >= logging.WARNING
+                           and "public key" in r.message for r in records)
             assert token not in " ".join(r.message for r in records)  # R17
         finally:
             self._close_betterstack_handlers()

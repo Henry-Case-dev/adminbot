@@ -186,14 +186,15 @@ class TestCatalogDelta1012:
         from config.settings import Settings
         from services import param_catalog as pc
         # 436 = 435 + 1 env-only BETTERSTACK_HOST (ADR-1018-1 D3).
-        assert len(pc.REGISTRY) == 436
-        assert len(pc.GROUPS) == 90
-        assert len(pc._TAB_BY_GROUP) == 88
-        assert len(pc.TAB_RULES) == 19
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 406
+        # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407, categorized 412.
+        assert len(pc.REGISTRY) == 437
+        assert len(pc.GROUPS) == 92
+        assert len(pc._TAB_BY_GROUP) == 90
+        assert len(pc.TAB_RULES) == 20
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 407
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 411
+        assert len(categorized) == 412
 
     def test_new_param_specs(self):
         from services import param_catalog as pc

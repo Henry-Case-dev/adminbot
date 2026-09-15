@@ -13,6 +13,226 @@
 > **Статус скана: 0 Critical / 0 High по ВСЕМУ эпику → готов к @Reviewer/@PM → Merge/архивация/деплой**
 > (открыто 1 Medium S10.18-30 + 2 Low S10.18-29/-35 + 11 Info; сводная таблица — отчёт §10.4).
 > П.6 (Headroom) — OUT OF SCOPE репозитория, в коде ссылок нет.
+>
+> **АКТУАЛЬНЫЙ baseline эпика 10.19 (БАТЧ A: F1 + F8, 15.09.2026):** HEAD `fd6acc7` (10.18 COMPLETED+DEPLOYED,
+> прод `16a8c0b`) + рабочее дерево (F1 betterstack-ingest-bearer-contract, F8 graphrag-memorize-robustness).
+> pytest **6164 passed / 0 failed**; JS-гейты OK; `git diff --check` exit 0; каталог **436/406/411/90/88/19**
+> (Δ Батча A = 0); SQLite **v10**. **Статус: 0 Critical / 0 High / 0 Medium → к Батчу B (F2 бюджеты) можно**
+> (открыто 2 Low S10.19-1/-2 + 4 Info; перенос рисков 10.18 — S10.18-30 Medium и др.).
+> Отчёт: `plans/reports/round10.19_scanner_audit.md`.
+>
+> **АКТУАЛЬНЫЙ baseline эпика 10.19 (БАТЧИ A–B, 15.09.2026):** HEAD `fd6acc7` + рабочее дерево
+> (F1 betterstack-ingest-bearer-contract, F8 graphrag-memorize-robustness, F2 direct-chat-budget-unlimited).
+> pytest **6195 passed / 0 failed**; JS-гейты OK; `git diff --check` exit 0; каталог **436/406/411/90/88/19**
+> (Δ Батчей A/B = 0); SQLite **v10**. **Статус: 0 Critical / 0 High / 0 Medium → к Батчу C
+> (F3 бюджеты-UI + сид настроек чатов) можно** (открыто 3 Low: S10.18-29, S10.19-7/-8 + 4 Info; риски 10.18 в основном
+> закрыты фикс-проходом). Отчёт: `plans/reports/round10.19_scanner_audit.md` (§7 — Батч B).
+>
+> **ФИНАЛЬНЫЙ baseline эпика 10.19 (БАТЧИ A–E, 16.09.2026, после UPD4):** HEAD `fd6acc7` + рабочее дерево
+> (F1 betterstack-ingest-bearer-contract, F8 graphrag-memorize-robustness, F2 direct-chat-budget-unlimited,
+> F3 budget-settings-section, F4 direct-context-limit-expansion, F5 status-section-ui-merge,
+> F6 media-files-avatars-sync, F7 memory-retention-health).
+> pytest **6323 passed / 0 failed**; JS-гейты OK (`node --check`, `JS-UNIT-OK`, `VUE-MOUNT-OK`);
+> `git diff --check` exit 0; каталог **437/407/412/92/90/20** (Δ Батча E = 0); **SQLite v11**
+> (F7: `UNIQUE(chat_id, import_key)` + `import_checkpoints(path, chat_id)`; v10 — `edges.fact_id`).
+> **Статус: 0 Critical / 0 High / 0 Medium открыто → эпик готов к Merge/архивации + двухэтапному деплою.**
+> Открыто: 2 Low (S10.19-15 — двойной `key_status` в «Сводке»; S10.19-23 — fsync каталога архива) + S10.18-29 (Low)
+> + 16 Info; обязательные @DevOps-гейты (dry-run → бэкап → SQL-чеклист → purge) — отчёт §10.5.
+> Отчёт: `plans/reports/round10.19_scanner_audit.md` (§10 — Батч E + итог эпика).
+
+## Round 10.19 — БАТЧ E: F6 `media-files-avatars-sync` + F7 `memory-retention-health` (16.09.2026, после UPD4) — карта связностей
+
+- **Retention импорта — деструктивный контур (F7/ADR-1019-6 D1/D1a/D2; ADR-1019-8 D5):**
+  `services/retention_policy.py` — fail-**closed**: `source='error'` (chat-слой не читается) → purge запрещён;
+  `enforce`-чат из данных сида → `seed_enforced` (hard-deny); **нечитаемый сид** → `seed_unavailable` → запрет
+  (D-2.4); `<0`/мусор → глобальный дефолт (без рекурсии — D-2.1). **Единственный call-site purge** —
+  `services/memory_maintenance.run_import_retention`: отмена целого прогона при любом `source='error'` (D-1);
+  `chat_cutoffs` строится только из разрешённых чатов (структурный guard «0=вечно»); **обязательный архив**
+  (`_archive_imported_history` → JSONL в `MEMORY_BACKUP_DIR`, `flush+os.fsync` в `to_thread`) ДО DELETE; сбой
+  архивации → строки не удаляются; `chat_max_ids` (`id <= max_id`) + сверка `candidates != archived` →
+  `archive_mismatch` (purge отменяется). `DatabaseService.purge_imported_history` — keyword-only `chat_cutoffs`
+  (без дефолта), батчи, `_delete_fts_rows`, FTS-`DatabaseError` не блокирует основной DELETE. **Тройной env-гейт
+  авто-крона** (`auto_purge_dry_run`): `IMPORT_RETENTION_ENABLED` (OFF) × `IMPORT_RETENTION_DRY_RUN` (ON) ×
+  `IMPORT_RETENTION_BACKUP_CONFIRMED` (OFF); CLI `manage.py retention` — dry-run по умолчанию (`--apply` нужен),
+  HTTP-триггера purge нет.
+- **SQLite v11 (ADR-1019-6 D1b/D7; UPD3 п.2):** `DROP` глобального `idx_smart_messages_import_key` + `CREATE
+  idx_smart_messages_chat_import_key UNIQUE(chat_id, import_key) WHERE import_key IS NOT NULL`; `import_checkpoints`
+  rebuild `(path, chat_id)` (legacy → `chat_id=0`) в **одной транзакции**; `PRAGMA user_version=11` всегда;
+  `_migrate_history_import_v7` больше не пересоздаёт глобальный UNIQUE после v11. **Проба @Scanner:** v=11, индексы/
+  колонки корректны, legacy-строка сохранена, re-init идемпотентен, **один `import_key` в двух чатах → 2 строки**
+  (кросс-чат дефект закрыт); FTS/vec не пересоздаются; `tools/history_import/checkpoints.py` — `get/set/done` c
+  `chat_id` (default 0).
+- **Универсальность (UPD4 п.1):** `services/vip_seed.py` → **`services/chat_settings_seed.py`**,
+  `config/vip_chats.json` → **`config/chat_settings_seed.json`**, CLI `manage.py apply-chat-overrides`,
+  мета-ключ `chat_settings_seed_version`, источник `seed_enforced`; код-путь generic, id — только в данных/тестах
+  (+legacy `chat_lore`); «VIP» в коде нет; stale `__pycache__/vip_seed*.pyc` — untracked (gitignored).
+- **F6 `media-files-avatars-sync` (ADR-1019-5):** `services/media_download.py` — `local_file_path` (traversal-guard
+  `is_relative_to(root)`), общий `_read_local_source` (3 ретрая, R17-логи без `<bot_id>:<token>`/`exc_info`),
+  `read_local_file_bytes` (чтение в `to_thread`); `fetch_media_to_tmp`/аватары — локальный путь первым, прежний
+  `bot.download`/`download_file` как fallback; `services/media_integrity.py` — honest-контракт
+  (`reliable:false`, `basis:'text_scan'`), bounded обход диска в `to_thread` (20k записей), R17-хвосты;
+  `GET /api/status/media-health` (аддитивный, TTL 120с на chat_id, fail-open `{available:false}`), UI-блок по спеке
+  опционален.
+- **F7 health-метрики:** `GET /api/memory/health` — аддитивно `facts_overdue`, `facts_unconfirmed`,
+  `smart_messages_total`, `deep_sleep_runs_total`, `storage{db_size_bytes,db_size_mb,disk_free_bytes}`; тяжёлые
+  COUNT'ы под TTL 60с, `storage` — только `stat/disk_usage` (fail-open нули); UI «Здоровье памяти» отрисовывает
+  метрики.
+- **Открытые риски Батча E:** Low S10.19-23 (fsync каталога архива; файл синхронизируется, имя — нет);
+  Info S10.19-22 (финальный purge без try/except при docstring «fail-open» — вызывающие защищены, HTTP-пути нет),
+  S10.19-24 (архивы `imported_history_*.jsonl` не ротируются), S10.19-25 (запись архива в event loop),
+  S10.19-26 (эвристические `orphan_files` при `reliable:false`), S10.19-27 (флейки-риск теста с локальным
+  HTTP-сервером, Batch A), S10.19-21 (ARCHITECTURE: §41 добавлен для E; F4/F5-параграфы — за @Memory).
+- Scan-отчёт (Батч E, §10): `plans/reports/round10.19_scanner_audit.md` — 0 Critical / 0 High / 0 Medium,
+  1 Low (S10.19-23), 6 Info. **Итог эпика §10.4, @DevOps-гейты §10.5** (dry-run → бэкап → SQL-чеклист 8 overrides →
+  v11 → live-проверка → purge по решению владельца). Валидатор: pytest **6323/0**, JS-гейты OK,
+  `git diff --check` exit 0. **Вердикт: эпик готов к Merge/архивации/деплою.**
+
+
+## Round 10.19 — БАТЧ D: F4 `direct-context-limit-expansion` + F5 `status-section-ui-merge` (16.09.2026, HEAD fd6acc7 + рабочее дерево) — карта связностей
+
+- **Sentinel контекста (F4/ADR-1019-4 D3/D4 + ADR-1019-8 D2/D3):** `services/token_counter.py` —
+  `resolve_context_tokens(token_value, token_default)`: `<0` → `CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS`
+  (env-only ClassVar, 32000 — **вне каталога**, Settings 407 не растёт), `0/None/мусор` → `token_default`
+  (кламп `max(1, …)` — D-8, отрицательный env-дефолт не превращается в `safe_budget(-1)=1`), `>0` → cap;
+  `resolve_chat_limit` применяет его ко **всем** токенным значениям; chars-fallback (`None` + `*_CHARS` в env)
+  переведён в **debug** как «аварийный путь». Потребители: `direct_chat_service` `_build_global_context` (`:2087`),
+  `_render_thread`/branch (`:2196`, `:2219`), `_apply_context_budget` (бюджет: `unlimited` → агрегатное усечение
+  НЕ применяется + `record_context_usage(..., limit=None, unlimited=True)` — D-7), `_check_context_config_invariant`,
+  `summary_generator:172`, `oversight` (через `context_state`), `status_service` (D-7 → `limit: null, unlimited`).
+  **S10.19-13 (High) CLOSED** — проба @Scanner: `-1 → ('tokens', 32000), budget 27826`; `0/None → 5000/4347`
+  (было «1 токен»).
+- **Агрегатное распределение (D1/D-1):** `global`/`thread` исключены из первого прохода урезания (они уже
+  ограничены своими потолками в сборщиках) и участвуют только при фактическом `total > budget`; инвариант
+  сравнивает **реально применяемые** доли (`effective = max(1, budget − fixed)`) с `safe_budget(cap)` — один
+  WARNING на чат (Info S10.19-18: флаг «предупреждён» ставится до проверки → поздняя рассинхронизация не видна).
+- **Дефолты и миграция:** `CHAT_GLOBAL_CONTEXT_MAX_TOKENS` 1000 → **5000**, `CHAT_THREAD_MAX_TOKENS` 500 → **3000**,
+  `CHAT_CONTEXT_BUDGET_TOKENS` 4000 → **16000** (env + code + каталог-тексты); `config_migrations.migrate_context_limit_defaults`
+  (`CONTEXT_LIMIT_MIGRATIONS` 1000/500/4000 → новые; только == прежнему дефолту, кастом — WARNING, отсутствует/PG down
+  — skip); порядок в `bot.py`: dream → global budgets → context limits → `apply_chat_settings_seed` (сид per-chat, миграции
+  глобально — пересечений нет).
+- **сид настроек чатов `−1` (S10.19-13):** теперь «безлимит до потолка безопасности», контекст целевой чата не срезается
+  (`test_chat_settings_seed_keeps_context_unlimited`).
+- **Сводка (S10.19-14 Medium CLOSED):** `oversight._limits_metric(contour='worker')` при **пустом** `day_rows`
+  резолвит лимит `chat → global → default` (`WORKER_DEFAULT_LIMITS` 60/300 000) вместо `limit=0` → больше нет
+  ложного «фон: Запрещено» у «тихих» чатов (настоящий `0` в строке дня по-прежнему `forbidden`).
+- **F5 `status-section-ui-merge` (T-1819…T-1824):** `web/index.html` — «Сердцебиение + Бот + Сервер» в одной
+  карточке `.status-block` / `.status-block__grid` (мобила столбик, ≥768px 1.4fr-1fr-1.2fr), строка «Режим · версия»
+  удалена; `web/static/app.css` — медиа-правки `.graph-search` (mobile компакт, desktop `max-width: 460px`,
+  `grid-column` переведён из inline в класс → inline-стилей стало **43** против 44 в HEAD); API «Статуса»
+  аддитивен (`unlimited`), поиск/подсветка/EKG/reduced-motion/CSP/self-host не тронуты.
+- Scan-отчёт (Батч D, §9): `plans/reports/round10.19_scanner_audit.md` — **0 Critical / 0 High / 0 Medium**,
+  1 Low (S10.19-15, перенос), 7 Info (S10.19-9…-12, -16…-21). Валидатор: pytest **6262/0**, JS-гейты OK,
+  `git diff --check` exit 0. **Вердикт: к финальным F6 + F7 — можно.**
+
+
+## Round 10.19 — БАТЧ C: F3 `budget-settings-section` (15.09.2026, HEAD fd6acc7 + рабочее дерево) — карта связностей
+
+- **сид настроек чатов (ADR-1019-8 D4):** `services/chat_settings_seed.py` + `config/chat_settings_seed.json` (v1: retention `0` = вечно,
+  бюджеты ключа/фона `−1`, контекст `−1`). Идемпотентно (patch → запись только при изменении, повтор — `skipped`),
+  merge сохраняет чужие overrides/meta, `enforce`-ключи применяются всегда, не-enforce — при отсутствии/росте
+  version/`force`; чтение root идёт **напрямую из PG** (`chat_params.get_all_chat_params(chat_id, pg=…)` — D-2,
+  чтобы CLI без кэша не затирал namespace); fail-open; id — только в данных (в `services/*` новых хардкодов нет).
+  Применение: `bot.py:944-953` (migration → seed) + `manage.py apply-chat-overrides [--force]`.
+- **Retention-политика (ADR-1019-8 D5):** `services/retention_policy.py::imported_history_purge_allowed` —
+  fail-closed (`ошибка → allowed=False`), `0` = вечно → purge запрещён, `<0`/мусор → глобальный дефолт + WARNING.
+  Прод-call-site отсутствует (контракт для F7 — DB-слой purge не реализован; честно записано в docstring/ADR).
+- **Сводка (ADR-1019-8 D6):** `services/oversight.py` — аддитивный `limits` на карточку чата: `key_budget`
+  (direct-контур через `chat_usage.key_status`; контур задаётся явно — D-1), `worker_budget` (строки
+  `worker_budget.get_usage(scope=chat:<id>)`), `context` (3 ключа; `0/None` → эффективный дефолт 1000/500/16000 —
+  D-6, `−1` → `unlimited`), `storage` («Импорт: Вечно»/«N дней»); каждый под-объект fail-open (500 не бывает);
+  старый `budget` сохранён. **Открытое High S10.19-13:** семантика контекстного семейства не реализована в
+  потребителях — `resolve_chat_limit` + `safe_budget` дают `budget=1` для `−1`/`0` → `<Global_Context>`/ветка/сводка
+  срезаются до 1 токена (сид активирует `−1` в проде до F4). **Medium S10.19-14:** worker-контур без строк за сутки
+  рапортует `limit=0/forbidden` → UI «фон: Запрещено» для тихих чатов.
+- **Каталог-Δ (ADR-1019-3 D1/D2, UPD3 п.2-4):** новые группы `limits_chat_key` (29) и `limits_chat_context` (30),
+  новый ключ `IMPORT_HISTORY_RETENTION_DAYS` (limits/limits_memory), новая вкладка `mod_budgets` («Бюджеты»,
+  nav=modules) + маршрут `#/modules/budgets`; переносы: бюджеты ключа и контекст-лимиты из «Прямого чата»,
+  `limits_worker` из «Диагностики» → «Бюджеты». Итог: **437/407/412/92/90/20** (осиротевших ключей/групп нет,
+  одна группа — один владелец).
+- **Миграция дефолтов (S10.19-8, Батч B → закрыто в C):** `config_migrations.migrate_global_budget_defaults`
+  (только значение == прежнему дефолту 25/100 000/35/100 000 → 100/500 000/60/300 000; кастом не трогаем), вызов в
+  `bot.py` до сида настроек чатов.
+- **UI:** тумблер «Безлимит по чату» (только в контексте чата; ON → `−1` всем 7 ключам одним POST; OFF → явные
+  глобальные значения — Info S10.19-16), `budgetRatio` (limit≤0/∞ → 0 %), `limitsPairText`, `storageLabel`,
+  пояснение «фон vs интеллект» + сентинел-таблица; карточка модуля без master-тумблера (бейдж «лимиты»).
+- Scan-отчёт (Батч C, §8): `plans/reports/round10.19_scanner_audit.md` — **0 Critical / 1 High / 1 Medium / 1 Low /
+  7 Info**. Валидатор: pytest **6232/0**, JS-гейты OK, `git diff --check` exit 0.
+  **Вердикт: к Батчу D — БЛОКИРОВАН (High S10.19-13).**
+
+
+## Round 10.19 — БАТЧ B: F2 `direct-chat-budget-unlimited` (15.09.2026, HEAD fd6acc7 + рабочее дерево) — карта связностей
+
+- **Единый sentinel-модуль (T-1854, ADR-1019-2 D1 + ADR-1019-8 D2):** новый `services/budget_limits.py` —
+  `FORBIDDEN=0` / `UNLIMITED=-1` (любое <0) + `budget_state` (`0/мусор → forbidden`, `<0 → unlimited`, `>0 → cap`),
+  `is_forbidden`/`is_unlimited`; **семьи не взаимозаменяемы**: контекст `0 → unset` (`context_state`), retention
+  `0 → eternal`, негатив → `invalid` (`retention_state`, fallback + WARNING). `context_state`/`retention_state` —
+  заготовки F4/F7 (потребителей пока нет — Info S10.19-10).
+- **Direct-контур (`services/chat_usage.py`):** `_limit_with_source(key, chat_id, default)` → per-chat резолв
+  `resolve_setting_with_source` (`chat overrides → hot.get → env`; ADR-1018-7 D1) — до F2 читался только глобальный
+  слой; `_exceeds(req, tok, used_calls, used_tokens, estimate)` → `'forbidden'|'calls'|'tokens'|None`;
+  `budget_snapshot(pg, chat_id, tokens_estimate)` — единый снимок (`exceeded/exceeded_metric/used/limit/unlimited/
+  forbidden/source/source_calls/source_tokens/day`), инвариант «`exceeded=True` ⇒ валидная метрика» (иначе ERROR +
+  fail-open), PG-down → `exceeded=False`, но `forbidden`/`source` вычислены (D-4); `budget_exceeded` — обёртка;
+  `key_status` += аддитивные `unlimited/forbidden/source` на метрику (R16).
+- **Фон (`services/worker_budget.py`, AMEND D6/D-1/D-2):** `_metric_limit` стал **async** + per-chat резолв
+  (`_scope_chat_id` из `chat:<id>` → `resolve_setting_cached`, дефолты `WORKER_DAILY_LLM_*`); `consume` —
+  `0 → False` (запрет), `<0 → True` (учёт расхода написан), `>0 → used <= limit`; `allowed_workers` — `0 → все False`,
+  `<0 → все True`, `>0 → матрица деградации`; `global_degradation_allows`/`get_usage`/`get_day_summary` сохранены
+  (лимиты в строках теперь per-chat, флагов sentinel в строках нет — Info S10.19-11).
+- **LLM-клиент (`services/llm_client.py`, D-5):** ветка budget использует **один** `budget_snapshot` и для решения,
+  и для `details` (без повторного чтения usage/TOCTOU); порядок резолва ключа (свой → глобал-бюджет →
+  свой-фоллбэк → sandbox) сохранён.
+- **Дефолты (ADR-1019-2 D5, UPD3):** direct `CHAT_GLOBAL_KEY_BUDGET_*` 25/100 000 → **100/500 000**; фон per-chat
+  `WORKER_DAILY_LLM_*_PER_CHAT` 35/100 000 → **60/300 000** (глобальный фон 200/500 000 без изменений); тексты
+  каталога синхронны; `.env.example` дополнен. **Открытое Low S10.19-8:** PG-ключи засеяны старыми значениями
+  (`ON CONFLICT DO NOTHING`) → новые дефолты не применятся без шага данных (@DevOps/F3-сид или идемпотентная
+  миграция в стиле `migrate_dream_thresholds`). **Low S10.19-7:** `README.md:365,368` всё ещё печатает старые
+  100 000/25 и 35/100 000 (+ «ручные прогоны из бюджета не выпадают» — superseded 10.18).
+- **Фиксы Батча A перенесены:** S10.19-1 — `summary_memory._log_empty_valid` (валидный `[]` → rate-limited INFO с
+  `empty_total`, memorize + крон-ветка); S10.19-2 — README:1046 («401 ожидается, ждёт T-1779») и ARCHITECTURE:687
+  переписаны inline; 10.18-остатки — ×2-фаза `graph_snapshot` ускорена (`_belief_name_participates`: token-set +
+  padded, замер Scanner **238 → ~66 мс** на 15k рёбер — S10.18-30), merge-путь переносит F5-пенальти (S10.18-35),
+  F6-спека синхронизирована (S10.18-36, архив).
+- **Инварианты Батча B:** каталог Δ=0 (436/406/411/90/88/19), DDL нет (SQLite v10), R16 (аддитивные поля
+  `key_status`/`details`), R17 (details без секретов), fail-open PG в обоих контурах, изоляция direct ↔ фон
+  (разные пространства ключей), хардкода целевой чат-id в бизнес-логике нет (только legacy `chat_lore` + `scripts/backfill_*`).
+- Scan-отчёт (Батч B, §7): `plans/reports/round10.19_scanner_audit.md` — **0 Critical / 0 High / 0 Medium**,
+  2 Low (S10.19-7/-8), 4 Info (S10.19-9…-12). Валидатор: pytest **6195/0**, JS-гейты OK, `git diff --check` exit 0.
+  **Вердикт: к Батчу C (F3 бюджеты-UI + сид настроек чатов) — можно.**
+
+## Round 10.19 — БАТЧ A: F1 `betterstack-ingest-bearer-contract` + F8 `graphrag-memorize-robustness` (15.09.2026, HEAD fd6acc7 + рабочее дерево) — карта связностей
+
+- **F1 ingest-контракт (T-1780, ADR-1019-1, AMEND ADR-1018-1 D2/D4/D6/D8):** `services/betterstack_handler.py` —
+  `self._url = f"https://{host}"` (токена в path НЕТ) + заголовок `Authorization: Bearer {source_token}` в каждом
+  POST; `_HINT_401` удалён → словарь `_STATUS_HINTS` (401/402/403/406, R17-safe); `token_equals_sentry_public_key`
+  больше не WARNING (unified US: Source Token ≡ public key) — только DEBUG в `bot.py`; старт-маркер без `last4`.
+  **Редиректы запрещены:** `_NoRedirectHandler(HTTPRedirectHandler)` + единственный `_OPENER = build_opener(...)`
+  → 3xx не фоллоуится (токен не форвардится на чужой `Location`, POST-тело не теряется, ложного `sent` нет) →
+  `_mark_failed("status=3xx")` без ретрая. Сеть — через `_urlopen(request, timeout)` (точка подмены в тестах).
+  Ретраи: 5xx/транспорт — ≤1 (`retried`-guard); **все 4xx, включая 429, — без ретрая**; 2xx (202) — успех.
+  Счётчики `sent/failed/dropped` без двойного учёта; `close()` = stop → join → flush остатка.
+  **Открытое Low S10.19-2:** `plans/ARCHITECTURE.md:687` тело пункта всё ещё описывает path-token/`last4`/WARNING
+  (исправлено только хвостовой AMEND-пометкой); `README.md:1046` заявляет «401 уходит» как факт до живого
+  curl-матрикса T-1779. **Info S10.19-6:** probe `path`-режим отправляет реальный токен в URL (ручная диагностика
+  @DevOps, маскированный вывод). `logtail`-импортов 0; `requirements.txt` чист.
+- **F8 устойчивость memorize (T-1846…T-1849, ADR-1019-7, AMEND F-15 §4):** `services/summary_memory.py` —
+  `parse_fact_list_ex(raw, warn=True) -> (facts, status)` со статусами `PARSE_OK/PARSE_EMPTY_VALID/PARSE_INVALID`
+  (`parse_fact_list` — совместимая обёртка); `invalid` включает и D-08-подслучай (валидный список, все элементы
+  отсеяны `_validate_fact`); `_memorize_facts_inner` перехватывает `LLMError` первичного `_extract_facts` **внутри**
+  → fallback → ровно 1 retry `_FACT_RETRY_SYSTEM_PROMPT` (`_safe_retry`) → при неудаче единый rate-limited
+  WARNING `_log_memorize_lost` (`status/reason/lost_total/raw=_mask_llm_raw`); `empty_valid` retry не вызывает.
+  Модульные bounded-словари `_memorize_warn_state`/`_memorize_lost_totals` (`_MEMORIZE_WARN_STATE_MAX=512`,
+  эвикция старейших) + сентинел `None` (первое событие всегда WARNING); крон-ветка `_extract_and_save_graph` —
+  только различение `[]`/невалид в лог, без ретраев; канон `FACT_EXTRACT_PROMPT` и `PROMPT_MIGRATIONS` не тронуты.
+  **Открытое Low S10.19-1:** валидный `[]` теперь только DEBUG (ранее INFO «0 facts») → в прод-journald кейс
+  «модель вернула пустой список» (исходный симптом) снова невидим; **Info S10.19-3:** `reason=not_json` неточен
+  для D-08-подслучая; **Info S10.19-5:** верхний `except LLMError` в `memorize_facts` практически недостижим.
+- **Инварианты Батча A:** каталог Δ=0 (436/406/411/90/88/19), DDL нет (SQLite v10), R16/R17, порядок роутеров
+  `bot.py` не тронут, F5-срез (`subject/object`) и F7-контуры не затронуты (конфликтов мержа нет).
+- Scan-отчёт (Батч A): `plans/reports/round10.19_scanner_audit.md` — **0 Critical / 0 High / 0 Medium**,
+  2 Low (S10.19-1/-2), 4 Info; валидатор pytest **6164/0**, JS-гейты OK, `git diff --check` exit 0.
+  **Вердикт: к Батчу B (F2 бюджеты) — можно.**
+
 
 
 

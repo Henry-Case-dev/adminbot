@@ -3,7 +3,11 @@
 `worker_budget (day DATE, scope 'global'|'chat:<id>', metric 'llm_calls'|
 'llm_tokens', used, PK(day, scope, metric))` — единственный источник правды
 PG (SQLite-воркеры пишут через runtime PgDatabase). День — WORKER_BUDGET_TZ
-(Asia/Yekaterinburg). Лимиты — REGISTRY limits.worker_daily_* (горячие).
+(Asia/Yekaterinburg). Лимиты — REGISTRY limits.worker_daily_* (горячие),
+резолв per-chat (`chat_params.overrides` → глобальный слой → env-дефолт;
+ADR-1018-7 D1). Sentinel-семантика бюджета (ADR-1019-8 §D2): `0 = запрет`,
+`<0 = безлимит` (расход пишется, cap не применяется), `>0 = cap`
+(`services/budget_limits.py`).
 Деградация: global-исчерпание → скип тика воркера по priority_order
 (сначала dream, потом lore, последней nostalgia); per-chat — скип чата.
 Fail-open: PG down → consume()=True (воркеры НЕ останавливаются) + WARNING
@@ -15,6 +19,7 @@ import logging
 from zoneinfo import ZoneInfo
 
 from config.settings import settings
+from services import budget_limits
 from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
@@ -131,7 +136,14 @@ def allowed_workers(worker_ids, used_calls: int, limit_calls: int) -> dict[str, 
     F3 (cognition-deep-sleep, spec §4): deep_sleep добавлен в WORKER_IDS и
     падает ПЕРВЫМ — на один тик раньше обычного «сна» (позиция -1), при этом
     НЕ сдвигая легаси-матрицу F-10 (dream=0/lore=1/nostalgia=2). Чистая
-    функция — тестируется без PG."""
+    функция — тестируется без PG.
+
+    Sentinel-бюджета (ADR-1019-8 §D2): `0` = запрет (все падают),
+    `<0` = безлимит (все живы), `>0` = cap (матрица деградации)."""
+    if budget_limits.is_forbidden(limit_calls):
+        return {wid: False for wid in worker_ids}
+    if budget_limits.is_unlimited(limit_calls):
+        return {wid: True for wid in worker_ids}
     absolute = {wid: i for i, wid in enumerate(
         workers_dropped([WORKER_NOSTALGIA, WORKER_LORE, WORKER_DREAM]))}
     # -1 → deep_sleep выпадает при used == limit - 1, когда dream ещё жив.
@@ -182,9 +194,10 @@ async def _pool(pg):
 
 
 async def consume(pg, scope: str, metric: str, amount: int = 1) -> bool:
-    """Атомарный апсерт счётчика. False = лимит превышен (или лимит 0);
-    PG down → True (fail-open: воркер не останавливается) + WARNING с
-    дедупом. `scope` — 'global' | 'chat:<id>'. pg=None → runtime-PG."""
+    """Атомарный апсерт счётчика. False = лимит превышен или запрещён (`0`);
+    `<0` = безлимит (расход пишется, cap не применяется); PG down → True
+    (fail-open: воркер не останавливается) + WARNING с дедупом.
+    `scope` — 'global' | 'chat:<id>'. pg=None → runtime-PG."""
     if not metric:
         return True
     pool = await _pool(pg)
@@ -201,20 +214,63 @@ async def consume(pg, scope: str, metric: str, amount: int = 1) -> bool:
         _warn_once("err", f"consume failed — fail-open=True | scope={scope} "
                           f"metric={metric}")
         return True
-    limit = _metric_limit(scope, metric)
-    if limit <= 0:
-        return False                       # лимит 0 = запрещено
+    limit = await _metric_limit(scope, metric)
+    if budget_limits.is_forbidden(limit):
+        return False                       # 0 = расход запрещён
+    if budget_limits.is_unlimited(limit):
+        return True                        # <0 = безлимит (учёт уже записан)
     return used <= limit
 
 
-def _metric_limit(scope: str, metric: str) -> int:
+def _scope_chat_id(scope: str | None) -> int | None:
+    """chat_id из scope `'chat:<id>'`; global/мусор → None (глобальный слой)."""
+    if not scope or not str(scope).startswith("chat:"):
+        return None
+    try:
+        return int(str(scope).split(":", 1)[1])
+    except (TypeError, ValueError):
+        return None
+
+
+async def _resolve_limit(key: str, *, chat_id: int | None, default: int) -> int:
+    """Лимит per-chat (`overrides` → global → env-дефолт; ADR-1018-7 D1).
+
+    Sentinel-значения (`0`/`<0`) проходят как есть — семантику применяет
+    `budget_limits` (ADR-1019-8 §D2). Fail-open: ошибка резолва/каста →
+    env-дефолт (воркеры не встают)."""
+    try:
+        from services.worker_settings import resolve_setting_cached
+        value = await resolve_setting_cached(key, chat_id=chat_id,
+                                             default=default)
+        return int(value)
+    except (TypeError, ValueError):
+        _warn_once(f"cast:{key}", f"limit cast failed — default | key={key}")
+        return int(default)
+    except Exception:
+        _warn_once(f"resolve:{key}",
+                   f"limit resolve failed — default | key={key}")
+        return int(default)
+
+
+async def _metric_limit(scope: str, metric: str) -> int:
+    """Суточный лимит метрики (per-chat для scope `'chat:<id>'`).
+
+    Sentinel (ADR-1019-8 §D2): `0` = запрет, `<0` = безлимит, `>0` = cap."""
+    chat_id = _scope_chat_id(scope)
     if metric == METRIC_CALLS:
         if scope == "global":
-            return _limit(LIMIT_CALLS_GLOBAL, 200)
-        return _limit(LIMIT_CALLS_PER_CHAT, 35)
-    if scope == "global":
-        return _limit(LIMIT_TOKENS_GLOBAL, 500000)
-    return _limit(LIMIT_TOKENS_PER_CHAT, 100000)
+            key, default = LIMIT_CALLS_GLOBAL, \
+                settings.WORKER_DAILY_LLM_CALLS_GLOBAL
+        else:
+            key, default = LIMIT_CALLS_PER_CHAT, \
+                settings.WORKER_DAILY_LLM_CALLS_PER_CHAT
+    elif scope == "global":
+        key, default = LIMIT_TOKENS_GLOBAL, \
+            settings.WORKER_DAILY_LLM_TOKENS_GLOBAL
+    else:
+        key, default = LIMIT_TOKENS_PER_CHAT, \
+            settings.WORKER_DAILY_LLM_TOKENS_PER_CHAT
+    return await _resolve_limit(key, chat_id=chat_id, default=default)
 
 
 async def get_usage(pg=None, scope: str | None = None,
@@ -239,7 +295,7 @@ async def get_usage(pg=None, scope: str | None = None,
             "scope": r["scope"],
             "metric": r["metric"],
             "used": int(r["used"]),
-            "limit": _metric_limit(r["scope"], r["metric"]),
+            "limit": await _metric_limit(r["scope"], r["metric"]),
         })
     return out
 
@@ -255,23 +311,25 @@ async def get_day_summary(pg=None) -> dict:
             global_usages[r["metric"]] = r
         else:
             chats.setdefault(r["scope"], {})[r["metric"]] = r
-    def _pair(m: str) -> dict:
+    async def _pair(m: str) -> dict:
         u = global_usages.get(m)
         return {"used": u["used"] if u else 0,
-                "limit": _metric_limit("global", m)}
+                "limit": await _metric_limit("global", m)}
+    chat_entries = []
+    for scope, metrics in sorted(chats.items()):
+        chat_entries.append({
+            "scope": scope,
+            "calls": {"used": metrics.get(METRIC_CALLS, {}).get("used", 0),
+                      "limit": await _metric_limit(scope, METRIC_CALLS)},
+            "tokens": {"used": metrics.get(METRIC_TOKENS, {}).get("used", 0),
+                       "limit": await _metric_limit(scope, METRIC_TOKENS)},
+        })
     out = {
         "day": str(today()),
         "timezone": DAY_TZ,
-        "global": {"calls": _pair(METRIC_CALLS),
-                   "tokens": _pair(METRIC_TOKENS)},
-        "chats": [
-            {"scope": scope,
-             "calls": {"used": metrics.get(METRIC_CALLS, {}).get("used", 0),
-                       "limit": _metric_limit(scope, METRIC_CALLS)},
-             "tokens": {"used": metrics.get(METRIC_TOKENS, {}).get("used", 0),
-                        "limit": _metric_limit(scope, METRIC_TOKENS)}}
-            for scope, metrics in sorted(chats.items())
-        ],
+        "global": {"calls": await _pair(METRIC_CALLS),
+                   "tokens": await _pair(METRIC_TOKENS)},
+        "chats": chat_entries,
         "priorities": list(_priority_order()),
     }
     return out

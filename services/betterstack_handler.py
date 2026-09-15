@@ -6,8 +6,9 @@
 наблюдаемостью вместо тихих потерь:
 
 * буфер deque(maxlen=2000) + daemon-thread-флашер (раз в 1 с батчами до 500);
-* POST https://in.logs.betterstack.com/{source_token} (token в path, БЕЗ Bearer),
-  stdlib urllib, Content-Type: application/json, тело — JSON-массив фреймов;
+* POST https://{host} + `Authorization: Bearer {source_token}` (ADR-1019-1:
+  токен — ТОЛЬКО заголовком, НЕ в path), stdlib urllib,
+  Content-Type: application/json, тело — JSON-массив фреймов;
 * счётчики sent/failed/dropped (+ get_stats()); журнал сбоев НЕ чаще 1/60 с;
   дроп при полном буфере — WARNING ≤1/60 с (не тихо); восстановление после
   серии сбоев — INFO «send ok | recovered | streak=N»;
@@ -20,15 +21,26 @@ FR-B3 (завершение): close() — stop → join → flush() остатк
 не бросает (короткий lock; ошибки отправки живут в модульном логгере).
 
 Токен — строго os.getenv("LOGTAIL_SOURCE_TOKEN") (bot.py), один на Errors и
-Logs; это должен быть BetterStack **Source Token** (Logs → Sources), а НЕ
-public key из SENTRY_DSN.
+Logs. ADR-1019-1: на **унифицированных US-кластерах** Source Token
+(Telemetry) побайтово совпадает с public key из SENTRY_DSN — это НОРМА, а не
+ошибка (владелец подтвердил скриншотами, раунд 10.19).
 
 Раунд 10.18 (F1, ADR-1018-1): хост обязателен и берётся из env
 `BETTERSTACK_HOST` (US-кластер проекта). Неявный EU-дефолт удалён
 (`DEFAULT_HOST = ""`): конструктор без хоста бросает ValueError, а bot.py
-при пустом хосте хендлер вообще не создаёт (fail-safe). Дополнительно:
-`token_equals_sentry_public_key` — детерминированная (не эвристическая)
-проверка «токен == public key SENTRY_DSN» для WARNING на старте.
+при пустом хосте хендлер вообще не создаёт (fail-safe).
+
+Раунд 10.19 (F1, **ADR-1019-1, AMEND ADR-1018-1 D2/D4/D6**): ingest-контракт
+исправлен на официальный — `POST https://{host}` (без токена в path) +
+`Authorization: Bearer {source_token}`. Прежний `POST https://{host}/{token}`
+на unified US давал 401. `token_equals_sentry_public_key` остаётся дешёвой
+диагностикой (DEBUG в bot.py), а не тревогой; подсказки по статусам — словарь
+`_STATUS_HINTS` (R17: только коды и слова, без значений токена/URL).
+
+D-01 (ревью 10.19): запросы идут через собственный opener с
+`_NoRedirectHandler` — 3xx НЕ фоллоуится (токен не форвардится на чужой
+`Location`, POST-тело не теряется, ложного `sent` нет): 3xx → `_mark_failed`
+(`status=3xx`), без ретрая.
 """
 import datetime
 import hmac
@@ -54,12 +66,42 @@ _RATE_LIMIT_SECONDS = 60.0     # анти-спам журнала ошибок/�
 _RETRY_PAUSE_SECONDS = 1.0     # пауза перед единственным повтором батча
 _USER_AGENT = "adminbot/own-v1"
 
-# Подсказка при HTTP 401 — нейтральная. Две частые причины: хост не того
-# региона и токен не Source Token (например, public key из SENTRY_DSN).
-# R17: значения токена/URL в текст НЕ попадают — только слова-подсказки.
-_HINT_401 = ("подсказка: BETTERSTACK_HOST и LOGTAIL_SOURCE_TOKEN должны "
-             "соответствовать одному региону/проекту; токен — Source Token "
-             "из BetterStack → Logs → Sources, а не public key из SENTRY_DSN")
+# ADR-1019-1 D3/D5: семантика ответов ingest BetterStack. Подсказки привязаны
+# к коду; категоричного утверждения «token == public key = ошибка» больше нет
+# (на unified US это норма). R17: значения токена/URL в текст НЕ попадают —
+# только код и слова; ВСЕ 4xx (включая 429) НЕ ретраятся, 5xx/транспорт — ≤1
+# повтор (как раньше).
+_STATUS_HINTS = {
+    401: "невалидный source token или не тот хост региона",
+    402: "квота ingest исчерпана (проверьте план/объём)",
+    403: "невалидный source token (Logs → Sources)",
+    406: "битое тело батча (внутренняя ошибка, повторите после рестарта)",
+}
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """D-01 (ADR-1019-1 D1): редиректы ingest-запроса ЗАПРЕЩЕНЫ.
+
+    Дефолтный `HTTPRedirectHandler` на 301/302/303 повторил бы запрос на
+    произвольный `Location`, **форвардя `Authorization: Bearer`** (утечка
+    токена) и теряя POST-тело (302/303 → GET); финальный 2xx дал бы ложный
+    `sent` — тихая потеря логов. Возврат `None` из `redirect_request` → базовый
+    обработчик поднимает `HTTPError` 3xx → `_mark_failed`, без ретрая.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# Единственный opener хендлера: те же дефолтные обработчики, но без
+# follow-редиректов (D-01). Собирается один раз, сети на импорте нет.
+_OPENER = urllib.request.build_opener(_NoRedirectHandler)
+
+
+def _urlopen(request, timeout):
+    """Точка сетевого вызова (`_OPENER.open`); существует как отдельная
+    функция-обёртка ради подмены в тестах (D-01)."""
+    return _OPENER.open(request, timeout=timeout)
 
 # SENTRY_DSN вида https://<public_key>@<host>/<project_id>
 _SENTRY_DSN_USERINFO_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://([^@/]+)@")
@@ -82,8 +124,8 @@ def extract_sentry_public_key(dsn: str | None) -> str | None:
 def token_equals_sentry_public_key(token: str | None,
                                    dsn: str | None) -> bool:
     """True, если `token` ТОЧНО равен public key из `SENTRY_DSN`
-    (constant-time сравнение). Это НЕ Source Token → WARNING на старте
-    (старт не блокируем, ADR-1018-1 D4)."""
+    (constant-time сравнение). Диагностика (ADR-1019-1 D4): на unified US
+    совпадение — НОРМА; функция ничего не логирует и старт не блокирует."""
     pub = extract_sentry_public_key(dsn)
     if not token or not pub:
         return False
@@ -154,7 +196,11 @@ class BetterStackHandler(logging.Handler):
         self.flush_interval = max(0.05, float(flush_interval))
         self.batch_size = max(1, int(batch_size))
         self.timeout = float(timeout)
-        self._url = f"https://{host}/{self.source_token}"
+        # ADR-1019-1 D1/D2: официальный ingest-контракт — POST на голый хост
+        # (токен в path УБРАН) + Authorization: Bearer. `_auth_header` в логи
+        # не попадает (R17).
+        self._url = f"https://{host}"
+        self._auth_header = f"Bearer {self.source_token}"
         self._buffer: deque[dict] = deque(maxlen=max(1, int(buffer_size)))
         self._lock = threading.Lock()
         # Наблюдаемость (FR-B2): счётчики + rate-gate журнала ошибок/дропов.
@@ -230,20 +276,30 @@ class BetterStackHandler(logging.Handler):
                        reason, failed)
 
     def _post(self, items: list[dict]) -> None:
-        """Один батч в BetterStack. Ретрай ≤1 на транзиентное (сеть/5xx,
-        пауза 1 с); 4xx не ретраится (битый токен/квота — WARNING)."""
+        """Один батч в BetterStack. ADR-1019-1 D1: POST на `https://{host}` с
+        заголовком `Authorization: Bearer {source_token}` (токена в URL нет).
+        Ретрай ≤1 на транзиентное (5xx/транспорт, пауза 1 с); **все 4xx
+        (включая 429) не ретраятся** (битый токен/квота/лимит — WARNING).
+        D-01: редиректы запрещены (`_NoRedirectHandler`) — 3xx это отказ без
+        повтора (токен не уходит на чужой `Location`)."""
         if not items:
             return
         body = json.dumps(items, ensure_ascii=False).encode("utf-8")
         request = urllib.request.Request(
             self._url, data=body, method="POST",
             headers={"Content-Type": "application/json",
+                     "Authorization": self._auth_header,
                      "User-Agent": _USER_AGENT})
         retried = False
         while True:
             try:
-                with urllib.request.urlopen(request, timeout=self.timeout) as resp:
+                with _urlopen(request, timeout=self.timeout) as resp:
                     status = getattr(resp, "status", None)
+                if status is not None and 300 <= status < 400:
+                    # D-01: 3xx (если opener всё же вернул ответ) — отказ ДО
+                    # проверки 2xx, без ретрая и без ложного `sent`.
+                    self._mark_failed(f"status={status}", len(items))
+                    return
                 if status is not None and not 200 <= status < 300:
                     raise _BadStatusError(status)
                 break                       # 2xx — успех
@@ -270,11 +326,13 @@ class BetterStackHandler(logging.Handler):
             logger.info("[betterstack] send ok | recovered | streak=%d", streak)
 
     def _mark_failed(self, reason: str, n: int) -> None:
-        """При 401 текст WARNING дополняется нейтральной подсказкой
-        (проверьте source token); rate-gate ≤1/60с сохраняется; 429/5xx/
-        транспорт — без изменений."""
-        if reason == "status=401":
-            reason = f"status=401 | {_HINT_401}"
+        """ADR-1019-1 D3/D5: для известного кода (`_STATUS_HINTS`) reason
+        дополняется словарной подсказкой; rate-gate ≤1/60с сохраняется;
+        5xx/транспорт — без изменений; значений токена/URL в тексте нет
+        (R17)."""
+        hint = _STATUS_HINTS.get(_status_from_reason(reason))
+        if hint:
+            reason = f"{reason} | {hint}"
         with self._lock:
             self.failed += n
             self._fail_streak += 1
@@ -310,6 +368,16 @@ class BetterStackHandler(logging.Handler):
         with self._lock:
             return {"sent": self.sent, "failed": self.failed,
                     "dropped": self.dropped}
+
+
+def _status_from_reason(reason: str) -> int | None:
+    """HTTP-код из reason вида 'status=NNN' (иначе None). R17-safe."""
+    if isinstance(reason, str) and reason.startswith("status="):
+        try:
+            return int(reason.split("=", 1)[1].split(" ", 1)[0])
+        except (ValueError, IndexError):
+            return None
+    return None
 
 
 def _reason(exc: Exception) -> str:
