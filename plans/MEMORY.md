@@ -1,20 +1,27 @@
 # AdminBot — Memory Index (plans/MEMORY.md)
 
-Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§36);
+Индекс долговременной памяти. Архитектура — `plans/ARCHITECTURE.md` (§1–§39);
 бэклог — `plans/backlog.md`. Полная семантическая карта — knowledge graph
 (Memory MCP, entity `AdminBot` + модули `adminbot-*` + entity `feature-*`
 раунда 10).
 
 > **АКТУАЛЬНЫЙ СТАТУС (15.09.2026):** раунд **10.18 «Memory-Graph-Sleep-BetterStack bugfixes»**
-> — **ARCHITECTED / SPEC_READY** (Step 2 @Architect + итерация 2 после human-gate;
-> Step 3 @Memory, Builder не начат): **7 фич F1–F7**, **75 задач T-1703…T-1777**,
-> **7 ADR (ADR-1018-1…-7)**, 7 папок `plans/features/*-round1018/` (`spec.md` + `tasks.md`
-> + ADR). Плановый каталог-Δ: **REGISTRY 435→437 / Settings 406→407** (F1 `BETTERSTACK_HOST`
-> +1, F5 `flags.metafact_penalty_enabled` +1; при отказе от F5-флага — 436/406, на Merge);
-> **DDL SQLite v9→v10** (`edges.fact_id`, F3). Baseline: HEAD **`118a03c`**,
-> прод release-round1017 (**`b6c153f`**), pytest **6007 passed / 0 failed**, APP_VERSION
-> **2.57.0**. Детали — KG-узел `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)`
-> + блок **«Step 2/3»** ниже; метрики — `plans/metrics.md` (заготовка Step 10).
+> — **COMPLETED + DEPLOYED + ЗААРХИВИРОВАН**: **7 фич F1–F7**, **75 задач T-1703…T-1777**,
+> **7 ADR (ADR-1018-1…-7)**; спеки+ADR — `plans/archive/<feature>/` (7 папок:
+> `betterstack-us-region-401`, `settings-worker-sync`, `sleep-manual-cascade-badges`,
+> `graph-density-scoring-stoplist`, `graph-physics-stabilization`,
+> `metafact-penalty-extractor-prompt`, `role-matrix-settings-actualization`).
+> **Каталог-факт: REGISTRY 435→436 / Settings 406** (Δ=+1 — только F1 `BETTERSTACK_HOST`;
+> **новых фича-флагов НЕТ** — плановый 437/407 с F5-флагом **отменён**, флаг
+> `flags.metafact_penalty_enabled` не вводился; `categorized 411 / GROUPS 90 / mapped 88 /
+> TAB_RULES 19` — без изменений). **DDL SQLite v9→v10** (`edges.fact_id` + индекс, F3;
+> применена на проде, `PRAGMA user_version=10`). Прогоны: pytest **6007 → 6139 passed / 0 failed**
+> (+132), JS-гейты OK. Деплой: commit **`16a8c0b`**, push `118a03c..16a8c0b`, прод
+> fast-forward `b6c153f..16a8c0b`, `admin_bot` active PID **2319614**, `/api/health` **200**
+> (+ публичный healthz 200). Baseline HEAD **`118a03c`**, прод release-round1017 (**`b6c153f`**),
+> APP_VERSION **2.57.0** (без бампа). Детали — KG-узлы `release-round1018` /
+> `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)` + блок **«Step 10 (финал)»** ниже;
+> метрики — `plans/metrics.md`. ⚠️ Остаточный блокер: BetterStack 401 — неверный токен (см. Step 10).
 > Предыдущий раунд — 10.17 (COMPLETED + DEPLOYED, `b6c153f`).
 
 > **Step 2/3 (Step 2 @Architect + итерация 2 после human-gate — синк Step 3 @Memory)
@@ -108,6 +115,55 @@
 > **SUPERSEDES** (ADR-1018-3 → ADR-1015-2; ADR-1018-2 → F-10), **AMENDS** (ADR-1018-1 → раунды
 > 4/5; ADR-1018-4 → F2 10.15; ADR-1018-2 → ADR-1017-3; ADR-1018-5 → ADR-1013-3),
 > DEPENDS_ON (ADR-1018-2 → ADR-1018-7), RESOLVED_BY и др.).
+>
+> **UPD (Step 10, 15.09.2026): блок «Step 2/3» выше — исторический снимок планирования.**
+> Факт финала: раунд **COMPLETED + DEPLOYED**, спеки в `plans/archive/<feature>/` (7),
+> каталог **436/406** (F5-флаг не вводился; plan **437/407 отменён**), pytest **6139**,
+> SQLite **v10**, commit **`16a8c0b`**; «Builder не начат» — устарело (все 75 задач закрыты).
+> Актуальные цифры — в блоке «Step 10 (финал)» ниже и в `plans/metrics.md`.
+
+> **Step 10 (финал @Memory) раунда 10.18 «Memory-Graph-Sleep-BetterStack bugfixes»
+> (15.09.2026):** эпик `Epic round1018 (Memory-Graph-Sleep-BetterStack bugfixes)`
+> → **COMPLETED + DEPLOYED + ARCHIVED**; создан релиз-узел **`release-round1018`**
+> (alias **`release-16a8c0b`**, commit **`16a8c0b`**), фичи F1–F7 связаны
+> (`DEPLOYED_IN release-round1018`), обновлены 7 ADR-1018-1…-7 (Accepted/реализовано),
+> Risk-узлы (betterstack-401 → **RESOLVED** с остаточным блокером; catalog-delta-drift →
+> **RESOLVED/NARROWED**; 5 проектных рисков **CLOSED**), `tech-debt-round10.18` (финал),
+> `metric-snapshot-round1018-final`. Связи: `ADR-1018-6 AMENDS OD11-OD15`;
+> дублирующие ADR-узлы итерации 2 консолидированы в канонические `ADR-1018-1…-7`.
+>
+> **Деплой-верификация:** commit **`16a8c0b`** (`fix(services,web,plans): раунд 10.18 —
+> BetterStack US-хост и единый источник настроек воркеров, manual-приоритет Сна и каскад,
+> скоринг графа Σ importance (SQLite v10), плотность и физика, пенализация мета-фактов,
+> матрица ролей (тесты 6139)`); push `118a03c..16a8c0b`, прод fast-forward
+> `b6c153f..16a8c0b`; `.env` += `BETTERSTACK_HOST=s2736363.us-west-2a.betterstackdata.com`,
+> бэкап `.env` + SQLite (`local_database.db.bak.2026-09-15-0744`); `admin_bot` active
+> PID **2319614**; `/api/health`=**200** (+ публичный healthz 200); миграция v10 применена
+> (`PRAGMA user_version=10`); DML-миграция порогов Сна применена.
+>
+> **Метрики:** pytest 6007 → **6139 passed / 0 failed** (+132; scan-итерации 6042→6052→
+> 6083→6104→6137→6139); JS-гейты OK; `git diff --check` clean; каталог **436/406/411/90/88/19**
+> (Δ=+1); SQLite **v10**; APP_VERSION 2.57.0 без бампа. **@Reviewer:** Approved по всем
+> батчам (4 раунда ревью + фиксы; отклонений Б1=1/B2=2/B3=1/B4=1). **@Scanner:** финал
+> **0 Critical / 0 High** открыто; закрыто **1 High** (`S10.18-1`) + 6 Medium
+> (`S10.18-15/-21/-22/-30/-35/-36`) + множество Low (закрыт `S10.17-2`); открыто
+> **1 Low `S10.18-29`** + Info. **@Builder — ~7 rework-циклов.**
+>
+> **Ключевое:** BetterStack — US-хост через env (401 остаётся из-за неверного токена, не хоста);
+> единый источник настроек воркеров (per-chat DB → global DB → env) + реактивный планировщик;
+> manual-приоритет Сна с безусловным каскадом Сон→Глубокий→Личность (без флагов) и реактивными
+> бейджами; граф — скоринг Σ importance + STOP_LIST + плотность 500–800 + физика off по
+> стабилизации; пенализация мета-фактов (importance=1) + RAG-множитель; Матрица ролей под
+> фактическую структуру мини-аппа. **SQLite v10**, каталог Δ=+1. §39 ARCHITECTURE.md.
+>
+> **Техдолг (открыт):** **Low `S10.18-29`** (deep-manual маркер при каскаде) + **Info**
+> (`S10.18-12` NostalgiaWorker global-only → backlog **T-1764**; `S10.18-13` фрагмент
+> SSH-пароля в tracked `plans/archive/security-rotation-finalize-round1016/spec.md:35` —
+> вычистить + скан истории, значение НЕ цитировать; `S10.18-18/-19/-20`, `-31/-32/-33`,
+> `-37` живая RAG-проверка). **Остаточный блокер владельцу:** реальный Source Token
+> BetterStack в `.env` + рестарт (401). Живые проверки RAG/графа/бейджей/manual-каскада —
+> за владельцем. Архив: `plans/archive/<feature>/` (**7 папок**; всего **76**), §39
+> ARCHITECTURE.md.
 
 > **АКТУАЛЬНЫЙ СТАТУС (14.09.2026):** раунд **10.17 «Mobile-Download-Badges»**
 > — **COMPLETED + DEPLOYED** (функциональный HEAD == origin/master == **`b6c153f`**;
@@ -2285,7 +2341,14 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
   CrowdSec как альтернатива fail2ban; перенос `migrate_history` (1.1G) вне
   диска.
 
-## Свежие архивы (plans/archive/ — 50 папок)
+## Свежие архивы (plans/archive/ — 76 папок)
+
+> **Раунд 10.18 (15.09.2026, HEAD `16a8c0b`, §39)** — 7 фич заархивированы:
+> `betterstack-us-region-401` (F1, ADR-1018-1), `settings-worker-sync` (F7, ADR-1018-7),
+> `sleep-manual-cascade-badges` (F2, ADR-1018-2), `graph-density-scoring-stoplist` (F3, ADR-1018-3, SQLite v10),
+> `graph-physics-stabilization` (F4, ADR-1018-4), `metafact-penalty-extractor-prompt` (F5, ADR-1018-5),
+> `role-matrix-settings-actualization` (F6, ADR-1018-6). Каждый — `spec.md` + `tasks.md` + ADR.
+> `plans/features/` — 6 активных (F-1…F-6); новых фича-флагов нет; каталог 436/406/411/90/88/19.
 
 - `anti-echo-self-reply-round1014` — **Раунд 10.14, 13.09.2026** (F1, T-1477…T-1486 + ADR-1014-2): origin `bot_self_reply` (11-й, честный карантин) + rebuild `graph_facts` + **SQLite v9**; вес `limits.graph_fact_weight_bot`=0.2 (importance=2), LLM-экстрактор `services/self_reflection.py` (роль `reflection`, fail-open), `_SELF_ECHO_INSTRUCTION`, карантин self из Сна/золотых/компакции/`graph_stats`; флаг `flags.bot_self_awareness_enabled` **ON**)
 - `persona-storage-core-round1014` — **Раунд 10.14, 13.09.2026** (F2, T-1487…T-1497 + ADR-1014-1): **PG `personas`/`persona_traits`** (+`persona_state`), `services/bot_persona.py` (scope per-chat→global→empty, `<Persona>`-блок, `_NO_AI_DISCLOSURE_BLOCK`), traits пишет DeepSleepWorker, API `GET/PUT/DELETE /api/persona` + `/api/persona/health`; флаг `flags.persona_enabled` **ON**)
@@ -2349,6 +2412,11 @@ research-based (референсы: fail2ban issues #3785/#3812 для OpenSSH 9
 тайминги, сборка контекста; каждая цифра с `file:line`), `canon/` (architecture.md, backlog.md).
 
 ## Граф: краткий обзор (узел AdminBot + feature-*)
+
+> **Актуализация 15.09.2026 (после 10.18):** каталог **REGISTRY 436** / Settings **406** /
+> categorized **411** / GROUPS 90 / mapped 88 / `TAB_RULES` 19; **SQLite v10** (`edges.fact_id`,
+> nullable + индекс); релиз **`release-round1018`** (commit **`16a8c0b`**, прод PID 2319614);
+> новых фича-флагов нет. Линии ниже — исторические снимки раундов 10–10.13.
 
 - **adminbot-backend** — aiogram 3.31 (polling) + FastAPI (`web/app.py`) + asyncpg + aiosqlite; APP_VERSION=2.57.0 (раунд 10.13); порядок роутеров bot.py: slava_presence → alan_greeting → kostik → alan → dead_page → war_alert → common → olya → slavik → vasya (без изменений). F-12 добавил oversight-API (web/api/oversight.py), F-7/F-10 — access/gates/budget-роуты.
 - **adminbot-pg-schema** — `bot_settings` (key/value JSONB/category), `bot_roles` (permissions JSONB; F-7 добавил `role_type`), `bot_admins`, `chat_profiles` (manual/auto лор + `relations` JSONB; **F-7 добавил `chat_params` JSONB**, **F-10 добавил `gates_opt_in`**), `chat_lore_history` (F-7 расширил CHECK поля: chat_params/chat_keys/gates), `chat_links`, `chat_admins` (F-7 добавил `role_name`), `uptime_events`. **Новые таблицы раунда 10: `param_permissions`, `chat_keys`, `chat_usage`, `worker_budget`** (итог — DDL-код в `services/pg_db.py`, прод-DDL @DevOps).
