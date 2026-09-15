@@ -178,9 +178,20 @@ async def apply_chat_settings_seed(pg, *, force: bool = False,
             merged = dict(current)
             merged.update(patch)
             meta[SEED_META_KEY] = version
+            # HOTFIX (10.19): `changed_by` — колонка `chat_lore_history.changed_by
+            # BIGINT` (services/pg_db.py:95). Строковый литерал
+            # ("chat_settings_seed") давал asyncpg DataError на проде → сид
+            # никогда не применялся (fail-open глотал исключение).
+            # Выбор `None` (а не int-сентинела/`record_history=False`):
+            #   * согласован с кодовой базой — все системные/скриптовые записи
+            #     используют `changed_by=None` (scripts/backfill_*.py,
+            #     handlers/chat_lifecycle.py); README: «changed_by NULL = бот/AI»;
+            #   * сохраняет аудит-строку истории (важно для трассировки
+            #     применения сида; `record_history=False` затёр бы аудит);
+            #   * int-сентинел `0` в репозитории нигде не используется.
             await chat_params.set_chat_params(
                 chat_id, {"overrides": merged, "meta": meta},
-                changed_by="chat_settings_seed", pg=pg)
+                changed_by=None, pg=pg)
             report["applied"].append((chat_id, sorted(patch)))
             logger.info("[chat_settings_seed] применено | chat=%s | keys=%s",
                         chat_id, ",".join(sorted(patch)))

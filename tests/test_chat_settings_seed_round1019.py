@@ -11,6 +11,7 @@
     `force=True`;
   * grep-тест: id чата отсутствует в `services/*` (кроме самого сида).
 """
+import copy
 import json
 import logging
 from pathlib import Path
@@ -207,6 +208,161 @@ class TestChatSettingsSeed:
         assert chat["overrides"]["limits.import_history_retention_days"] == 0
         assert set(chat["enforce"]) == {
             "limits.import_history_retention_days"}
+
+
+# ═══ HOTFIX (10.19, prod): changed_by строка → BIGINT DataError ════════════
+# Урок: прежний тест мокал `set_chat_params`, поэтому реальный INSERT в
+# `chat_lore_history (changed_by BIGINT)` не исполнялся. Эти тесты гоняют
+# РЕАЛЬНЫЕ `ensure_scope_profile`/`get_all_chat_params`/`set_chat_params` без
+# мока, а строгий PG-фейк валидирует типы параметров как asyncpg.
+
+
+class _AsyncpgDataError(Exception):
+    """Аналог asyncpg.exceptions.DataError (BIGINT-параметр)."""
+
+
+class _StrictPgConn:
+    """In-memory PG-фейк со СТРОГОЙ проверкой типов (как asyncpg).
+
+    Реальный `set_chat_params` исполняет SELECT/UPDATE/INSERT/NOTIFY; фейк
+    валидирует `changed_by` для BIGINT-колонки `chat_lore_history.changed_by`
+    — именно так прод-баг проявился (str → DataError)."""
+
+    def __init__(self, *, fail_on_history: bool = False):
+        self.profiles: dict[int, dict] = {}
+        self.history: list[dict] = []
+        self.notifies: list[str] = []
+        self._seq = 0
+        self.fail_on_history = fail_on_history
+
+    def _ts(self) -> str:
+        self._seq += 1
+        return f"2026-09-16T10:00:{self._seq:02d}+00:00"
+
+    async def fetchrow(self, sql, *args):
+        if sql.startswith("SELECT") and "FROM chat_profiles" in sql:
+            row = self.profiles.get(int(args[0]))
+            return copy.deepcopy(row) if row else None
+        if "UPDATE chat_profiles" in sql and "RETURNING" in sql:
+            row = self.profiles.get(int(args[0]))
+            if not row:
+                return None
+            raw = args[1]
+            row["chat_params"] = (json.loads(raw) if isinstance(raw, str)
+                                  else (raw or {}))
+            row["updated_at"] = self._ts()
+            return copy.deepcopy(row)
+        return None
+
+    async def execute(self, sql, *args):
+        if "INSERT INTO chat_profiles" in sql:
+            chat_id = int(args[0])
+            if chat_id in self.profiles:
+                return "INSERT 0 0"
+            self.profiles[chat_id] = {
+                "chat_id": chat_id, "updated_at": self._ts(),
+                "chat_params": {}, "gates_opt_in": False}
+            return "INSERT 0 1"
+        if "INSERT INTO chat_lore_history" in sql:
+            if self.fail_on_history:
+                raise RuntimeError("simulated write failure")
+            changed_by = args[2]
+            # asyncpg строго типизирует BIGINT: str → DataError (прод-баг).
+            if changed_by is not None and not (
+                    isinstance(changed_by, int)
+                    and not isinstance(changed_by, bool)):
+                raise _AsyncpgDataError(
+                    f"invalid input for query argument $3: {changed_by!r} "
+                    "('str' object cannot be interpreted as an integer)")
+            self.history.append({
+                "chat_id": int(args[0]), "field": args[1],
+                "changed_by": changed_by,
+                "old_value": args[3], "new_value": args[4]})
+            return "INSERT 0 1"
+        if "pg_notify" in sql:
+            self.notifies.append(str(args[0]))
+            return "SELECT 1"
+        return "UPDATE 1"
+
+    def transaction(self):
+        class _Tx:
+            async def __aenter__(self):
+                return conn
+
+            async def __aexit__(self, *exc):
+                return False
+
+        conn = self
+        return _Tx()
+
+
+class _StrictPgPool:
+    def __init__(self, conn):
+        self._conn = conn
+
+    def acquire(self):
+        conn = self._conn
+
+        class _CM:
+            async def __aenter__(self):
+                return conn
+
+            async def __aexit__(self, *exc):
+                return False
+
+        return _CM()
+
+
+class TestSeedIntegrationNoMock:
+    """HOTFIX: тесты НЕ мокают `set_chat_params` — реальный SQL-путь."""
+
+    @pytest.mark.asyncio
+    async def test_changed_by_is_none_not_str_and_overrides_written(self):
+        conn = _StrictPgConn()
+        pg = SimpleNamespace(pool=_StrictPgPool(conn))
+        report = await chat_settings_seed.apply_chat_settings_seed(pg)
+        # Сид применился (до фикса здесь был бы DataError в errors).
+        assert report["applied"], report
+        assert report["errors"] == []
+        assert report["skipped"] == []
+        # overrides РЕАЛЬНО записаны в профиль.
+        overrides = conn.profiles[SEED_ID]["chat_params"]["overrides"]
+        assert overrides["limits.import_history_retention_days"] == 0
+        assert overrides["limits.chat_global_key_budget_requests"] == -1
+        assert overrides["limits.chat_context_budget_tokens"] == -1
+        # Аудит-строка записана; changed_by — None (int-подобный, не строка).
+        assert len(conn.history) == 1
+        assert conn.history[0]["changed_by"] is None
+        assert conn.notifies == [str(SEED_ID)]
+
+    @pytest.mark.asyncio
+    async def test_second_apply_is_idempotent_no_history(self):
+        """Повторный прогон после фикса — no-op (без UPDATE/history/NOTIFY)."""
+        conn = _StrictPgConn()
+        pg = SimpleNamespace(pool=_StrictPgPool(conn))
+        first = await chat_settings_seed.apply_chat_settings_seed(pg)
+        assert first["applied"]
+        history_after_first = len(conn.history)
+        notifies_after_first = len(conn.notifies)
+        second = await chat_settings_seed.apply_chat_settings_seed(pg)
+        assert second["applied"] == []
+        assert second["skipped"] == [SEED_ID]
+        assert second["errors"] == []
+        assert len(conn.history) == history_after_first
+        assert len(conn.notifies) == notifies_after_first
+
+    @pytest.mark.asyncio
+    async def test_write_error_is_not_silent_logged(self, caplog):
+        """Ошибка записи → WARNING с reason (не молчит), report.errors."""
+        conn = _StrictPgConn(fail_on_history=True)
+        pg = SimpleNamespace(pool=_StrictPgPool(conn))
+        with caplog.at_level(logging.WARNING):
+            report = await chat_settings_seed.apply_chat_settings_seed(pg)
+        assert report["applied"] == []
+        assert report["errors"] == [SEED_ID]
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("ошибка применения" in m and "fail-open" in m
+                   for m in messages), messages
 
 
 class TestNoHardcodedId:
